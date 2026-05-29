@@ -32,6 +32,8 @@ On a TTY, `skillshare list` launches an interactive terminal UI with:
   | `type:` | `t:` | `tracked`, `remote`, `local`, `github` | `t:tracked` |
   | `group:` | `g:` | any directory name | `g:security` |
   | `repo:` | `r:` | any repo name | `r:team` |
+  | `kind:` | `k:` | `skill`, `agent` | `k:agent` |
+  | `status:` | `s:` | `enabled`, `disabled` | `s:disabled` |
 
   Tags can be combined with free text (AND logic):
   ```
@@ -39,6 +41,13 @@ On a TTY, `skillshare list` launches an interactive terminal UI with:
   ```
   This shows only tracked skills in the "security" group whose name contains "audit".
 
+  :::tip
+  For enabled/disabled filtering you usually don't need the tag — just press `s`
+  (see **Status filter** below). The `s:enabled` / `s:disabled` tag is for *combining*
+  status with other tags, e.g. `t:tracked s:disabled`.
+  :::
+
+- **Status filter** — press `s` to cycle the enabled/disabled view: **All → Enabled → Disabled → All**. The current state shows as a `Status:` chip next to the tab bar, so in a large list you can instantly narrow down to just the skills disabled via `.skillignore` (or hide them). Composes with the tab and `/` filters.
 - **Keyboard navigation** — arrow keys to browse, `q` to quit
 - **Detail panel** — shows description, disk path, files, and synced targets for the selected skill
 - **Enable/disable toggle** — press `E` to toggle the selected skill's enabled/disabled state. Writes to `.skillignore` immediately without leaving the TUI. Disabled skills show a red **disabled** badge in the detail panel.

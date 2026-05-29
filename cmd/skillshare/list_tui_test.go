@@ -228,6 +228,63 @@ func TestTabSwitchFiltersItems(t *testing.T) {
 	}
 }
 
+func TestStatusFilterCycle(t *testing.T) {
+	items := []skillItem{
+		{entry: skillEntry{Name: "on-a", RelPath: "on-a"}},
+		{entry: skillEntry{Name: "on-b", RelPath: "on-b"}},
+		{entry: skillEntry{Name: "off-a", RelPath: "off-a", Disabled: true}},
+	}
+	m := newListTUIModel(nil, items, len(items), "global", t.TempDir(), "", nil, kindAll)
+
+	// statusFilterAll — all 3 visible
+	if m.matchCount != 3 {
+		t.Fatalf("All status matchCount = %d, want 3", m.matchCount)
+	}
+
+	// statusFilterEnabled — only the 2 enabled
+	m.statusFilter = statusFilterEnabled
+	m.applyFilter()
+	if m.matchCount != 2 {
+		t.Fatalf("Enabled status matchCount = %d, want 2", m.matchCount)
+	}
+
+	// statusFilterDisabled — only the 1 disabled
+	m.statusFilter = statusFilterDisabled
+	m.applyFilter()
+	if m.matchCount != 1 {
+		t.Fatalf("Disabled status matchCount = %d, want 1", m.matchCount)
+	}
+}
+
+func TestStatusFilterComposesWithTabAndText(t *testing.T) {
+	items := []skillItem{
+		{entry: skillEntry{Name: "react", RelPath: "react", Kind: "skill"}},
+		{entry: skillEntry{Name: "react-old", RelPath: "react-old", Kind: "skill", Disabled: true}},
+		{entry: skillEntry{Name: "react-agent", RelPath: "react-agent.md", Kind: "agent", Disabled: true}},
+	}
+	m := newListTUIModel(nil, items, len(items), "global", t.TempDir(), "", nil, kindAll)
+
+	// Skills tab + Disabled status + text "react" → only "react-old"
+	m.activeTab = listTabSkills
+	m.statusFilter = statusFilterDisabled
+	m.filterText = "react"
+	m.applyFilter()
+	if m.matchCount != 1 {
+		t.Fatalf("Skills+Disabled+react matchCount = %d, want 1", m.matchCount)
+	}
+}
+
+func TestStatusChipRendering(t *testing.T) {
+	m := newListTUIModel(nil, nil, 0, "global", t.TempDir(), "", nil, kindAll)
+	if got := xansi.Strip(m.renderStatusChip()); !strings.Contains(got, "Status: All") {
+		t.Fatalf("status chip = %q, want 'Status: All'", got)
+	}
+	m.statusFilter = statusFilterDisabled
+	if got := xansi.Strip(m.renderStatusChip()); !strings.Contains(got, "Status: Disabled") {
+		t.Fatalf("status chip = %q, want 'Status: Disabled'", got)
+	}
+}
+
 func TestInitialKindSetsTab(t *testing.T) {
 	m := newListTUIModel(nil, nil, 0, "global", t.TempDir(), "", nil, kindAgents)
 	if m.activeTab != listTabAgents {

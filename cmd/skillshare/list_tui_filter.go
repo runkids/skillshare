@@ -7,11 +7,12 @@ import (
 // filterQuery holds the parsed result of a structured filter string.
 // All fields are lowercased for case-insensitive matching.
 type filterQuery struct {
-	TypeTag  string // "tracked", "remote", "local" (empty = any)
-	GroupTag string // substring match against group segment
-	RepoTag  string // substring match against RepoName
-	KindTag  string // "skill" or "agent" (empty = any)
-	FreeText string // remaining text after removing known tags
+	TypeTag   string // "tracked", "remote", "local" (empty = any)
+	GroupTag  string // substring match against group segment
+	RepoTag   string // substring match against RepoName
+	KindTag   string // "skill" or "agent" (empty = any)
+	StatusTag string // "enabled" or "disabled" (empty = any)
+	FreeText  string // remaining text after removing known tags
 }
 
 // parseFilterQuery tokenizes the raw filter string and extracts known tags.
@@ -38,6 +39,12 @@ func parseFilterQuery(raw string) filterQuery {
 		if val, ok := cutTag(lower, "k:", "kind:"); ok {
 			q.KindTag = normalizeKindValue(val)
 			continue
+		}
+		if val, ok := cutTag(lower, "s:", "status:"); ok {
+			if status := normalizeStatusValue(val); status != "" {
+				q.StatusTag = status
+				continue
+			}
 		}
 
 		freeTokens = append(freeTokens, strings.ToLower(token))
@@ -71,6 +78,21 @@ func normalizeTypeValue(val string) string {
 		return "tracked"
 	default:
 		return val
+	}
+}
+
+// normalizeStatusValue canonicalizes the status filter value.
+// Returns "" for unrecognized values so the token falls back to free text.
+// The primary UI for status filtering is the `s` key (cycles the status chip);
+// this token exists for combining status with other tags (e.g. t:tracked s:disabled).
+func normalizeStatusValue(val string) string {
+	switch val {
+	case "enabled":
+		return "enabled"
+	case "disabled":
+		return "disabled"
+	default:
+		return ""
 	}
 }
 
@@ -117,6 +139,18 @@ func matchSkillItem(item skillItem, q filterQuery) bool {
 	// Kind tag — exact match on skill kind
 	if q.KindTag != "" && e.Kind != q.KindTag {
 		return false
+	}
+
+	// Status tag — exact match on enabled/disabled state
+	switch q.StatusTag {
+	case "disabled":
+		if !e.Disabled {
+			return false
+		}
+	case "enabled":
+		if e.Disabled {
+			return false
+		}
 	}
 
 	// Free text — substring match on FilterValue

@@ -33,6 +33,28 @@ const (
 	listTabAgents                // show agents only
 )
 
+// listStatusFilter pre-filters items by enabled/disabled state.
+// Cycled with the `s` key: All → Enabled → Disabled → All.
+type listStatusFilter int
+
+const (
+	statusFilterAll      listStatusFilter = iota // show enabled + disabled
+	statusFilterEnabled                          // show only enabled
+	statusFilterDisabled                         // show only disabled
+)
+
+// label returns the display name shown in the status chip.
+func (s listStatusFilter) label() string {
+	switch s {
+	case statusFilterEnabled:
+		return "Enabled"
+	case statusFilterDisabled:
+		return "Disabled"
+	default:
+		return "All"
+	}
+}
+
 // applyTUIFilterStyle sets filter prompt, cursor, and input cursor to the shared style.
 func applyTUIFilterStyle(l *list.Model) {
 	l.Styles.FilterPrompt = theme.Accent()
@@ -92,7 +114,10 @@ type listTUIModel struct {
 	activeTab   listTab     // currently selected tab
 	activeTabP  *listTab    // shared pointer for delegate to read current tab
 	tabCounts   [3]int      // cached counts: [all, skills, agents]
-	tabFiltered []skillItem // cached result of tabFilteredItems(); set by applyFilter()
+	tabFiltered []skillItem // cached result of tab + status filter; set by applyFilter()
+
+	// Status filter — pre-filters by enabled/disabled state (cycled with `s`)
+	statusFilter listStatusFilter
 
 	// Application-level filter — replaces bubbles/list built-in fuzzy filter
 	// to avoid O(N*M) fuzzy scan on 100k+ items every keystroke.
@@ -170,7 +195,7 @@ func newListTUIModel(loadFn listLoadFn, skills []skillItem, totalCount int, mode
 	fi.Prompt = "/ "
 	fi.PromptStyle = theme.Accent()
 	fi.Cursor.Style = theme.Accent()
-	fi.Placeholder = "filter or t:tracked g:group r:repo k:kind"
+	fi.Placeholder = "filter or t:type g:group r:repo k:kind"
 
 	m := listTUIModel{
 		list:             l,
@@ -241,6 +266,22 @@ func (m *listTUIModel) tabFilteredItems() []skillItem {
 	return filtered
 }
 
+// statusFilteredItems returns the subset of items matching the active status
+// filter. Order is preserved. statusFilterAll returns items unchanged.
+func (m *listTUIModel) statusFilteredItems(items []skillItem) []skillItem {
+	if m.statusFilter == statusFilterAll {
+		return items
+	}
+	wantDisabled := m.statusFilter == statusFilterDisabled
+	filtered := make([]skillItem, 0, len(items))
+	for _, item := range items {
+		if item.entry.Disabled == wantDisabled {
+			filtered = append(filtered, item)
+		}
+	}
+	return filtered
+}
+
 // tabNoun returns the display noun for the active tab.
 func (t listTab) noun() string {
 	switch t {
@@ -271,7 +312,7 @@ func (m listTUIModel) Init() tea.Cmd {
 // When filter is empty, all items are restored (full pagination).
 func (m *listTUIModel) applyFilter() {
 	m.detailScroll = 0
-	m.tabFiltered = m.tabFilteredItems()
+	m.tabFiltered = m.statusFilteredItems(m.tabFilteredItems())
 
 	// No filter — restore tab-filtered item set with group separators
 	if m.filterText == "" {
@@ -428,6 +469,11 @@ func (m listTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.updateTitle()
 			skipGroupItem(&m.list, 1)
 			return m, nil
+		case "s":
+			m.statusFilter = (m.statusFilter + 1) % 3
+			m.applyFilter()
+			skipGroupItem(&m.list, 1)
+			return m, nil
 		case "ctrl+d":
 			m.detailScroll += 8
 			return m, nil
@@ -533,7 +579,18 @@ func (m listTUIModel) toggleDisabled() (tea.Model, tea.Cmd) {
 		}
 	}
 
-	// Toggle the flag in the current list items (preserves selection)
+	// Clear detail cache so the panel re-renders
+	delete(m.detailCache, item.entry.RelPath)
+
+	// When a status filter is active, the toggled item no longer matches it —
+	// re-apply the filter so it leaves the view (selection resets).
+	if m.statusFilter != statusFilterAll {
+		m.applyFilter()
+		skipGroupItem(&m.list, 1)
+		return m, nil
+	}
+
+	// Otherwise patch the flag in place to preserve selection.
 	items := m.list.Items()
 	for i, li := range items {
 		if si, ok := li.(skillItem); ok && si.entry.RelPath == item.entry.RelPath {
@@ -543,9 +600,6 @@ func (m listTUIModel) toggleDisabled() (tea.Model, tea.Cmd) {
 		}
 	}
 	m.list.SetItems(items)
-
-	// Clear detail cache so the panel re-renders
-	delete(m.detailCache, item.entry.RelPath)
 	return m, nil
 }
 
@@ -622,7 +676,21 @@ func (m listTUIModel) renderTabBar() string {
 			parts = append(parts, inactiveStyle.Render(label))
 		}
 	}
-	return "  " + strings.Join(parts, "  ")
+	return "  " + strings.Join(parts, "  ") + "     " + m.renderStatusChip()
+}
+
+// renderStatusChip renders the enabled/disabled status filter indicator shown
+// next to the tab bar. Always visible so the `s` filter is discoverable.
+func (m listTUIModel) renderStatusChip() string {
+	label := "Status: " + m.statusFilter.label()
+	switch m.statusFilter {
+	case statusFilterEnabled:
+		return theme.Success().Render(label)
+	case statusFilterDisabled:
+		return theme.Warning().Render(label)
+	default:
+		return theme.Dim().Render(label)
+	}
 }
 
 // renderFilterBar renders the status line for the list TUI.
@@ -721,7 +789,7 @@ func (m listTUIModel) viewSplit() string {
 	b.WriteString(m.renderFilterBar())
 	b.WriteString(m.renderSummaryFooter())
 	b.WriteString("\n")
-	helpText := "Tab skills/agents  ↑↓ navigate  ←→ page  / filter  Ctrl+d/u detail  Enter view  A audit  U update  E enable/disable  X uninstall  q quit"
+	helpText := "Tab skills/agents  s status  ↑↓ navigate  ←→ page  / filter  Ctrl+d/u detail  Enter view  A audit  U update  E enable/disable  X uninstall  q quit"
 	if m.filtering {
 		helpText = "t:type g:group r:repo k:kind  Enter lock  Esc clear  q quit"
 	}
@@ -762,7 +830,7 @@ func (m listTUIModel) viewVertical() string {
 
 	b.WriteString(m.renderSummaryFooter())
 	b.WriteString("\n")
-	helpText := "Tab skills/agents  ↑↓ navigate  ←→ page  / filter  Ctrl+d/u detail  Enter view  A audit  U update  E enable/disable  X uninstall  q quit"
+	helpText := "Tab skills/agents  s status  ↑↓ navigate  ←→ page  / filter  Ctrl+d/u detail  Enter view  A audit  U update  E enable/disable  X uninstall  q quit"
 	if m.filtering {
 		helpText = "t:type g:group r:repo k:kind  Enter lock  Esc clear  q quit"
 	}

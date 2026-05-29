@@ -68,13 +68,46 @@ func TestParseFilterQuery_RepoTag(t *testing.T) {
 	}
 }
 
+func TestParseFilterQuery_StatusTag(t *testing.T) {
+	tests := []struct {
+		input string
+		want  string
+	}{
+		{"s:enabled", "enabled"},
+		{"s:disabled", "disabled"},
+		{"status:enabled", "enabled"},
+		{"status:disabled", "disabled"},
+		{"S:Disabled", "disabled"}, // case-insensitive
+	}
+	for _, tt := range tests {
+		q := parseFilterQuery(tt.input)
+		if q.StatusTag != tt.want {
+			t.Errorf("parseFilterQuery(%q).StatusTag = %q, want %q", tt.input, q.StatusTag, tt.want)
+		}
+	}
+}
+
+func TestParseFilterQuery_StatusUnknownIsFreeText(t *testing.T) {
+	// Unknown status values fall back to free text (no aliases supported).
+	q := parseFilterQuery("s:on")
+	if q.StatusTag != "" {
+		t.Fatalf("StatusTag = %q, want empty for unknown value", q.StatusTag)
+	}
+	if q.FreeText != "s:on" {
+		t.Fatalf("FreeText = %q, want %q", q.FreeText, "s:on")
+	}
+}
+
 func TestParseFilterQuery_MultipleTags(t *testing.T) {
-	q := parseFilterQuery("t:tracked g:security audit")
+	q := parseFilterQuery("t:tracked g:security s:disabled audit")
 	if q.TypeTag != "tracked" {
 		t.Fatalf("TypeTag = %q, want %q", q.TypeTag, "tracked")
 	}
 	if q.GroupTag != "security" {
 		t.Fatalf("GroupTag = %q, want %q", q.GroupTag, "security")
+	}
+	if q.StatusTag != "disabled" {
+		t.Fatalf("StatusTag = %q, want %q", q.StatusTag, "disabled")
 	}
 	if q.FreeText != "audit" {
 		t.Fatalf("FreeText = %q, want %q", q.FreeText, "audit")
@@ -188,6 +221,32 @@ func TestMatchSkillItem_FreeTextMatch(t *testing.T) {
 	q.FreeText = "golang"
 	if matchSkillItem(item, q) {
 		t.Fatal("expected free text mismatch")
+	}
+}
+
+func TestMatchSkillItem_StatusDisabled(t *testing.T) {
+	disabled := skillItem{entry: skillEntry{Name: "old", RelPath: "misc/old", Disabled: true}}
+	enabled := skillItem{entry: skillEntry{Name: "new", RelPath: "misc/new"}}
+
+	q := filterQuery{StatusTag: "disabled"}
+	if !matchSkillItem(disabled, q) {
+		t.Fatal("expected disabled item to match s:disabled")
+	}
+	if matchSkillItem(enabled, q) {
+		t.Fatal("expected enabled item NOT to match s:disabled")
+	}
+}
+
+func TestMatchSkillItem_StatusEnabled(t *testing.T) {
+	disabled := skillItem{entry: skillEntry{Name: "old", RelPath: "misc/old", Disabled: true}}
+	enabled := skillItem{entry: skillEntry{Name: "new", RelPath: "misc/new"}}
+
+	q := filterQuery{StatusTag: "enabled"}
+	if !matchSkillItem(enabled, q) {
+		t.Fatal("expected enabled item to match s:enabled")
+	}
+	if matchSkillItem(disabled, q) {
+		t.Fatal("expected disabled item NOT to match s:enabled")
 	}
 }
 
