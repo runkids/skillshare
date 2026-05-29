@@ -475,7 +475,9 @@ func (m extrasListTUIModel) renderExtrasDetail(e extrasListEntry) string {
 				statusText = "  " + t.Status
 			}
 			modeLabel := t.Mode
-			if t.Flatten {
+			if t.Extension != "" {
+				modeLabel = "extension: " + t.Extension
+			} else if t.Flatten {
 				modeLabel += ", flatten"
 			}
 			fmt.Fprintf(&b, "  %s %s (%s)%s\n",
@@ -604,7 +606,11 @@ func (m *extrasListTUIModel) reloadExtras() {
 	if m.cfg != nil {
 		extrasSource = m.cfg.EffectiveExtrasSource()
 	}
-	entries := buildExtrasListEntries(extras, extrasSource, m.sourceFunc)
+	extensionsDir := globalExtensionsDir()
+	if m.projCfg != nil {
+		extensionsDir = projectExtensionsDir(m.cwd)
+	}
+	entries := buildExtrasListEntries(extras, extrasSource, extensionsDir, m.sourceFunc)
 	m.allItems = entries
 	m.applyExtrasFilter()
 }

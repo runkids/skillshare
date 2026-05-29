@@ -660,6 +660,8 @@ export default function ExtrasPage() {
       toast(msg, 'success');
       invalidate();
     } catch (err: any) {
+      // Roll back the optimistic cache update on failure.
+      if (prev) queryClient.setQueryData(queryKeys.extras, prev);
       toast(err.message, 'error');
     }
   };

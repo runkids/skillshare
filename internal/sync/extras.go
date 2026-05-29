@@ -82,11 +82,17 @@ func DiscoverExtraFiles(sourcePath string) ([]string, error) {
 // When dryRun is true the function counts what would happen but makes no
 // filesystem changes.
 func SyncExtra(sourcePath, targetPath, mode string, dryRun, force, flatten bool, projectRoot string, spec *ExtensionSpec) (*ExtraResult, error) {
+	if spec != nil {
+		// Transform extensions emit generated files into the target, so only
+		// copy semantics apply. Reject merge/symlink here so the API and the
+		// CLI (validateExtensionMode) enforce the same contract.
+		if mode != "" && mode != "copy" {
+			return nil, fmt.Errorf("extension %q requires copy mode, got %q", spec.Name, mode)
+		}
+		return syncExtraTransform(sourcePath, targetPath, spec, dryRun, force, flatten)
+	}
 	if mode == "" {
 		mode = "merge"
-	}
-	if spec != nil {
-		return syncExtraTransform(sourcePath, targetPath, spec, dryRun, flatten)
 	}
 	if flatten && mode == "symlink" {
 		return nil, fmt.Errorf("flatten cannot be used with symlink mode")
@@ -105,7 +111,7 @@ func SyncExtra(sourcePath, targetPath, mode string, dryRun, force, flatten bool,
 // syncExtraTransform applies an extension to every source file and writes the
 // transformed output into targetPath using copy semantics. Output files are
 // renamed per spec.OutputExt. Orphan generated files are pruned.
-func syncExtraTransform(sourcePath, targetPath string, spec *ExtensionSpec, dryRun, flatten bool) (*ExtraResult, error) {
+func syncExtraTransform(sourcePath, targetPath string, spec *ExtensionSpec, dryRun, force, flatten bool) (*ExtraResult, error) {
 	result := &ExtraResult{}
 
 	files, err := DiscoverExtraFiles(sourcePath)
@@ -149,8 +155,43 @@ func syncExtraTransform(sourcePath, targetPath string, spec *ExtensionSpec, dryR
 			"SS_MODE":       "sync",
 		}
 		tgtFile := filepath.Join(targetPath, tgtRel)
-		if runErr := runExtensionFile(spec, srcFile, tgtFile, env); runErr != nil {
+
+		out, runErr := runExtension(spec, srcFile, env)
+		if runErr != nil {
 			result.Errors = append(result.Errors, fmt.Sprintf("%s: %v", rel, runErr))
+			continue
+		}
+
+		// Conflict/force contract, mirroring syncOneExtraFile copy semantics:
+		// a regular local target file is never overwritten without --force.
+		if info, lstatErr := os.Lstat(tgtFile); lstatErr == nil {
+			isSymlink := info.Mode()&os.ModeSymlink != 0
+			if !isSymlink && !info.IsDir() {
+				// Already up to date → idempotent, no rewrite needed.
+				if existing, readErr := os.ReadFile(tgtFile); readErr == nil && bytes.Equal(existing, out) {
+					result.Synced++
+					continue
+				}
+				if !force {
+					result.Skipped++
+					continue
+				}
+			} else {
+				// Symlinks/dirs left over from a different mode are safe to
+				// replace; remove first so WriteFile does not follow the link.
+				if rmErr := os.RemoveAll(tgtFile); rmErr != nil {
+					result.Errors = append(result.Errors, fmt.Sprintf("%s: failed to remove conflicting target: %v", rel, rmErr))
+					continue
+				}
+			}
+		}
+
+		if mkErr := os.MkdirAll(filepath.Dir(tgtFile), 0755); mkErr != nil {
+			result.Errors = append(result.Errors, fmt.Sprintf("%s: create target dir: %v", rel, mkErr))
+			continue
+		}
+		if wErr := os.WriteFile(tgtFile, out, 0644); wErr != nil {
+			result.Errors = append(result.Errors, fmt.Sprintf("%s: write target: %v", rel, wErr))
 			continue
 		}
 		result.Synced++

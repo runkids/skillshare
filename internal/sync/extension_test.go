@@ -233,3 +233,125 @@ func TestSyncExtraTransform_DryRunNoSpawn(t *testing.T) {
 		t.Errorf("dry-run must not write files")
 	}
 }
+
+// transformFixture writes a single source file and returns (srcDir, tgtDir, spec).
+// The extension is `cat` so the transformed output equals the source content,
+// renamed to .toml.
+func transformFixture(t *testing.T) (string, string, *ExtensionSpec) {
+	t.Helper()
+	dir := t.TempDir()
+	srcDir := filepath.Join(dir, "src")
+	if err := os.MkdirAll(srcDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(srcDir, "a.md"), []byte("fresh"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	tgtDir := filepath.Join(dir, "tgt")
+	if err := os.MkdirAll(tgtDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	spec := &ExtensionSpec{Run: []string{"cat"}, Dir: dir, Name: "id", OutputExt: "toml"}
+	return srcDir, tgtDir, spec
+}
+
+// A regular local file at the generated path must not be clobbered without
+// --force — transforms follow the same conflict contract as copy mode.
+func TestSyncExtraTransform_ConflictSkippedWithoutForce(t *testing.T) {
+	srcDir, tgtDir, spec := transformFixture(t)
+	out := filepath.Join(tgtDir, "a.toml")
+	if err := os.WriteFile(out, []byte("local edits"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	res, err := SyncExtra(srcDir, tgtDir, "copy", false, false, false, "", spec)
+	if err != nil {
+		t.Fatalf("SyncExtra: %v", err)
+	}
+	if res.Synced != 0 || res.Skipped != 1 {
+		t.Errorf("Synced=%d Skipped=%d, want 0/1", res.Synced, res.Skipped)
+	}
+	if data, _ := os.ReadFile(out); string(data) != "local edits" {
+		t.Errorf("conflicting file overwritten without --force: %q", data)
+	}
+}
+
+// With --force the generated output replaces the existing local file.
+func TestSyncExtraTransform_ConflictForceOverwrites(t *testing.T) {
+	srcDir, tgtDir, spec := transformFixture(t)
+	out := filepath.Join(tgtDir, "a.toml")
+	if err := os.WriteFile(out, []byte("local edits"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	res, err := SyncExtra(srcDir, tgtDir, "copy", false, true, false, "", spec)
+	if err != nil {
+		t.Fatalf("SyncExtra: %v", err)
+	}
+	if res.Synced != 1 || res.Skipped != 0 {
+		t.Errorf("Synced=%d Skipped=%d, want 1/0", res.Synced, res.Skipped)
+	}
+	if data, _ := os.ReadFile(out); string(data) != "fresh" {
+		t.Errorf("force did not overwrite: %q", data)
+	}
+}
+
+// An already-up-to-date target is idempotent: counted Synced, never rewritten,
+// and not treated as a conflict even without --force.
+func TestSyncExtraTransform_IdempotentWhenIdentical(t *testing.T) {
+	srcDir, tgtDir, spec := transformFixture(t)
+	out := filepath.Join(tgtDir, "a.toml")
+	if err := os.WriteFile(out, []byte("fresh"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	res, err := SyncExtra(srcDir, tgtDir, "copy", false, false, false, "", spec)
+	if err != nil {
+		t.Fatalf("SyncExtra: %v", err)
+	}
+	if res.Synced != 1 || res.Skipped != 0 {
+		t.Errorf("Synced=%d Skipped=%d, want 1/0", res.Synced, res.Skipped)
+	}
+}
+
+// A symlink left over from a prior merge sync is safe to replace with the
+// generated file (auto-replace), no --force required.
+func TestSyncExtraTransform_ReplacesLeftoverSymlink(t *testing.T) {
+	srcDir, tgtDir, spec := transformFixture(t)
+	out := filepath.Join(tgtDir, "a.toml")
+	if err := os.Symlink(filepath.Join(srcDir, "a.md"), out); err != nil {
+		t.Fatal(err)
+	}
+
+	res, err := SyncExtra(srcDir, tgtDir, "copy", false, false, false, "", spec)
+	if err != nil {
+		t.Fatalf("SyncExtra: %v", err)
+	}
+	if res.Synced != 1 || res.Skipped != 0 {
+		t.Errorf("Synced=%d Skipped=%d, want 1/0", res.Synced, res.Skipped)
+	}
+	info, lstatErr := os.Lstat(out)
+	if lstatErr != nil {
+		t.Fatalf("lstat: %v", lstatErr)
+	}
+	if info.Mode()&os.ModeSymlink != 0 {
+		t.Errorf("expected a regular file, got symlink")
+	}
+}
+
+// Transforms require copy semantics; merge/symlink modes are rejected so the
+// API and CLI enforce the same contract.
+func TestSyncExtra_TransformRejectsNonCopyMode(t *testing.T) {
+	srcDir, tgtDir, spec := transformFixture(t)
+	for _, mode := range []string{"merge", "symlink"} {
+		if _, err := SyncExtra(srcDir, tgtDir, mode, false, false, false, "", spec); err == nil {
+			t.Errorf("mode %q with extension: expected error, got nil", mode)
+		}
+	}
+	// Empty and explicit copy are both accepted.
+	for _, mode := range []string{"", "copy"} {
+		if _, err := SyncExtra(srcDir, tgtDir, mode, false, false, false, "", spec); err != nil {
+			t.Errorf("mode %q with extension: unexpected error: %v", mode, err)
+		}
+	}
+}

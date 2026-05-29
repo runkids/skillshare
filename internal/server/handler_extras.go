@@ -2,6 +2,7 @@ package server
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -491,6 +492,19 @@ func (s *Server) handleExtrasSync(w http.ResponseWriter, r *http.Request) {
 				tr.Error = "extension " + t.Extension + ": " + specErr.Error()
 				result.Targets = append(result.Targets, tr)
 				continue
+			}
+
+			// Transform extensions emit generated files via copy semantics.
+			// Mirror the CLI's validateExtensionMode: only empty/copy is valid,
+			// and EffectiveMode's "merge" default must not leak through here.
+			if spec != nil {
+				if t.Mode != "" && t.Mode != "copy" {
+					tr.Error = fmt.Sprintf("extension %s requires copy mode, but mode %q was set", t.Extension, t.Mode)
+					result.Targets = append(result.Targets, tr)
+					continue
+				}
+				m = "copy"
+				tr.Mode = m
 			}
 
 			res, err := syncpkg.SyncExtra(sourceDir, t.Path, m, body.DryRun, body.Force, t.Flatten, projectRoot, spec)

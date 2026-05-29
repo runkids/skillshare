@@ -111,18 +111,16 @@ func applyOutputExt(rel, outputExt string) string {
 	return strings.TrimSuffix(rel, filepath.Ext(rel)) + "." + outputExt
 }
 
-// runExtensionFile pipes srcFile's content through the extension subprocess and
-// writes the stdout to tgtFile. A non-zero exit code is returned as an error.
-func runExtensionFile(spec *ExtensionSpec, srcFile, tgtFile string, env map[string]string) error {
+// runExtension pipes srcFile's content through the extension subprocess and
+// returns the transformed output. A non-zero exit code is returned as an error.
+// It does not touch the filesystem at the target, so callers can apply
+// conflict/force rules before writing.
+func runExtension(spec *ExtensionSpec, srcFile string, env map[string]string) ([]byte, error) {
 	src, err := os.Open(srcFile)
 	if err != nil {
-		return fmt.Errorf("open source: %w", err)
+		return nil, fmt.Errorf("open source: %w", err)
 	}
 	defer src.Close()
-
-	if err := os.MkdirAll(filepath.Dir(tgtFile), 0755); err != nil {
-		return fmt.Errorf("create target dir: %w", err)
-	}
 
 	cmd := exec.Command(spec.Run[0], spec.Run[1:]...)
 	cmd.Dir = spec.Dir
@@ -136,11 +134,25 @@ func runExtensionFile(spec *ExtensionSpec, srcFile, tgtFile string, env map[stri
 	cmd.Stderr = &stderr
 	if err := cmd.Run(); err != nil {
 		if msg := strings.TrimSpace(stderr.String()); msg != "" {
-			return fmt.Errorf("extension %q failed: %s", spec.Name, msg)
+			return nil, fmt.Errorf("extension %q failed: %s", spec.Name, msg)
 		}
-		return fmt.Errorf("extension %q failed: %w", spec.Name, err)
+		return nil, fmt.Errorf("extension %q failed: %w", spec.Name, err)
 	}
-	if err := os.WriteFile(tgtFile, stdout.Bytes(), 0644); err != nil {
+	return stdout.Bytes(), nil
+}
+
+// runExtensionFile runs the extension over srcFile and writes the transformed
+// output to tgtFile, creating parent directories as needed. It overwrites
+// unconditionally; conflict/force handling is the caller's responsibility.
+func runExtensionFile(spec *ExtensionSpec, srcFile, tgtFile string, env map[string]string) error {
+	out, err := runExtension(spec, srcFile, env)
+	if err != nil {
+		return err
+	}
+	if err := os.MkdirAll(filepath.Dir(tgtFile), 0755); err != nil {
+		return fmt.Errorf("create target dir: %w", err)
+	}
+	if err := os.WriteFile(tgtFile, out, 0644); err != nil {
 		return fmt.Errorf("write target: %w", err)
 	}
 	return nil
