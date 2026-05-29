@@ -49,9 +49,12 @@ func cmdCommit(args []string) error {
 		return nil // Error already displayed
 	}
 
-	if sweep := rootScopeSafetySweep(cfg, source); sweep.hasNotice() {
+	if sweep := rootScopeSafetySweep(cfg, source, opts.dryRun); sweep.hasNotice() {
 		spinner.Stop()
 		sweep.printNotices(source)
+		if len(sweep.nested) > 0 {
+			return errNestedRepos // would commit empty submodules — abort
+		}
 		spinner = ui.StartSpinner("Checking changes...")
 	}
 

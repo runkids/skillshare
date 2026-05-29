@@ -324,6 +324,76 @@ func TestGitRoot_SwitchScopeWithRemote(t *testing.T) {
 	}
 }
 
+// A nested git repo under a root-scope source must block commit: committing it
+// would record an empty submodule (gitlink) and silently drop its files. The
+// CLI prints the remediation box and aborts with a non-zero exit.
+func TestGitRoot_NestedRepoBlocksCommit(t *testing.T) {
+	requireWorkingGit(t)
+
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	base := filepath.Dir(sb.ConfigPath)
+	skills := filepath.Join(base, "skills")
+	grMkdir(t, skills)
+	sb.WriteConfig("git_root: root\nsources:\n  skills: " + skills + "\ntargets: {}\n")
+
+	testutil.RunGit(t, base, "init")
+	testutil.ConfigureGitUser(t, base)
+	grWrite(t, filepath.Join(base, ".gitignore"), "config.yaml\n")
+	testutil.RunGit(t, base, "add", "-A")
+	testutil.RunGit(t, base, "commit", "-m", "initial")
+
+	// Plant a nested repo with uncommitted work to stage.
+	grMkdir(t, filepath.Join(skills, "vendored", ".git"))
+	grWrite(t, filepath.Join(skills, "vendored", "SKILL.md"), "# vendored\n")
+
+	result := sb.RunCLI("commit", "-m", "x")
+	result.AssertFailure(t)
+	result.AssertAnyOutputContains(t, "Nested git repositories")
+
+	// Nothing must have been committed beyond the initial commit.
+	count := testutil.RunGit(t, base, "rev-list", "--count", "HEAD")
+	if count != "1" {
+		t.Errorf("commit count = %q, want 1 (nested repo must abort commit)", count)
+	}
+}
+
+// A root-scope dry-run must be strictly read-only: it must not run
+// `git rm --cached config.yaml`. Regression test for the sweep mutating the
+// repo before the dry-run check.
+func TestGitRoot_DryRunDoesNotUntrackConfig(t *testing.T) {
+	requireWorkingGit(t)
+
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	base := filepath.Dir(sb.ConfigPath)
+	skills := filepath.Join(base, "skills")
+	grMkdir(t, skills)
+	sb.WriteConfig("git_root: root\nsources:\n  skills: " + skills + "\ntargets: {}\n")
+
+	// Init a repo that (wrongly) tracks config.yaml — the state the sweep is
+	// meant to clean up on a real run, but must leave untouched on dry-run.
+	testutil.RunGit(t, base, "init")
+	testutil.ConfigureGitUser(t, base)
+	testutil.RunGit(t, base, "add", "config.yaml")
+	testutil.RunGit(t, base, "commit", "-m", "initial with config")
+
+	// Make a stageable change so the dry-run reaches the preview path.
+	grWrite(t, filepath.Join(skills, "a.md"), "# a\n")
+
+	result := sb.RunCLI("commit", "-m", "x", "--dry-run")
+	result.AssertSuccess(t)
+	result.AssertAnyOutputContains(t, "Would remove config.yaml")
+
+	// config.yaml must still be tracked — dry-run made no changes.
+	tracked := testutil.RunGit(t, base, "ls-files", "--", "config.yaml")
+	if !strings.Contains(tracked, "config.yaml") {
+		t.Errorf("dry-run must not untrack config.yaml, but it is no longer tracked")
+	}
+}
+
 // requireWorkingGit skips the test when the host/container git environment
 // cannot init a repo and create a commit (e.g. read-only HOME, an identity that
 // cannot be written, or an owner/permission mismatch). Stripped one-shot

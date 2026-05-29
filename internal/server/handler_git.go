@@ -38,7 +38,11 @@ type gitStatusResponse struct {
 func (s *Server) handleGitStatus(w http.ResponseWriter, r *http.Request) {
 	// Snapshot config under RLock, then release before I/O.
 	s.mu.RLock()
-	src := s.cfg.EffectiveGitRoot()
+	src, ok := s.gitSource(w)
+	if !ok {
+		s.mu.RUnlock()
+		return
+	}
 	scope := s.cfg.GitRoot
 	mScope, mDir, mismatch := s.cfg.GitRootMismatch()
 	s.mu.RUnlock()
@@ -194,8 +198,11 @@ type gitBranchesResponse struct {
 func (s *Server) handleGitBranches(w http.ResponseWriter, r *http.Request) {
 	// Snapshot config under RLock, then release before I/O.
 	s.mu.RLock()
-	src := s.cfg.EffectiveGitRoot()
+	src, ok := s.gitSource(w)
 	s.mu.RUnlock()
+	if !ok {
+		return
+	}
 
 	if !git.IsRepo(src) {
 		writeError(w, http.StatusBadRequest, "source directory is not a git repository")
@@ -264,7 +271,10 @@ func (s *Server) handleGitCheckout(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	src := s.cfg.EffectiveGitRoot()
+	src, ok := s.gitSource(w)
+	if !ok {
+		return
+	}
 
 	if !git.IsRepo(src) {
 		writeError(w, http.StatusBadRequest, "source directory is not a git repository")
@@ -340,14 +350,19 @@ func (s *Server) handleGitCommit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	src := s.cfg.EffectiveGitRoot()
+	src, ok := s.gitSource(w)
+	if !ok {
+		return
+	}
 
 	if !git.IsRepo(src) {
 		writeError(w, http.StatusBadRequest, "source directory is not a git repository")
 		return
 	}
 
-	s.protectRootScopeConfig(src)
+	if s.rootScopeGuard(w, src, body.DryRun) {
+		return
+	}
 
 	status, err := git.GetStatus(src)
 	if err != nil {
@@ -409,7 +424,10 @@ func (s *Server) handlePush(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	src := s.cfg.EffectiveGitRoot()
+	src, ok := s.gitSource(w)
+	if !ok {
+		return
+	}
 
 	if !git.IsRepo(src) {
 		writeError(w, http.StatusBadRequest, "source directory is not a git repository")
@@ -420,7 +438,9 @@ func (s *Server) handlePush(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.protectRootScopeConfig(src)
+	if s.rootScopeGuard(w, src, body.DryRun) {
+		return
+	}
 
 	// Check for changes
 	status, err := git.GetStatus(src)
@@ -479,14 +499,40 @@ func (s *Server) handlePush(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, pushResponse{Success: true, Message: "pushed successfully"})
 }
 
-// protectRootScopeConfig keeps config.yaml out of a root-scope repo before
-// staging (server-side parity with the CLI push sweep). No-op off the root
-// scope; best-effort so a failure never blocks the commit/push.
-func (s *Server) protectRootScopeConfig(src string) {
-	if s.cfg.GitRoot != "root" {
-		return
+// gitSource validates the configured git_root scope and returns the directory
+// git operations run on. On an invalid scope it writes a 400 and returns
+// ok=false — mirroring the CLI's resolveGitRoot, so a hand-edited bad git_root
+// can't silently fall back to the skills scope (ScopeDir's default). Callers
+// must hold at least s.mu.RLock.
+func (s *Server) gitSource(w http.ResponseWriter) (string, bool) {
+	if !config.ValidGitRoot(s.cfg.GitRoot) {
+		writeError(w, http.StatusBadRequest,
+			"invalid git_root \""+s.cfg.GitRoot+"\" (valid: "+strings.Join(config.ValidGitRoots, ", ")+")")
+		return "", false
 	}
-	_, _ = git.EnsureConfigUntracked(src)
+	return s.cfg.EffectiveGitRoot(), true
+}
+
+// rootScopeGuard enforces root-scope safety before staging (server-side parity
+// with the CLI push sweep). It blocks the request with a 400 when nested git
+// repos would upload as empty submodules, and keeps config.yaml untracked. The
+// config mutation runs only on a real request — on dry-run the guard is
+// strictly read-only so a preview never writes .gitignore or rewrites the
+// index. No-op off the root scope. Returns blocked=true once it has written an
+// error response.
+func (s *Server) rootScopeGuard(w http.ResponseWriter, src string, dryRun bool) (blocked bool) {
+	if s.cfg.GitRoot != "root" {
+		return false
+	}
+	if nested, err := git.NestedRepos(src); err == nil && len(nested) > 0 {
+		writeError(w, http.StatusBadRequest,
+			"nested git repositories must be disabled before committing (they upload as empty submodules): "+strings.Join(nested, ", "))
+		return true
+	}
+	if !dryRun {
+		_, _ = git.EnsureConfigUntracked(src)
+	}
+	return false
 }
 
 type absorbNestedRequest struct {
@@ -571,7 +617,10 @@ func (s *Server) handlePull(w http.ResponseWriter, r *http.Request) {
 	}
 	json.NewDecoder(r.Body).Decode(&body)
 
-	src := s.cfg.EffectiveGitRoot()
+	src, ok := s.gitSource(w)
+	if !ok {
+		return
+	}
 
 	if !git.IsRepo(src) {
 		writeError(w, http.StatusBadRequest, "source directory is not a git repository")

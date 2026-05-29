@@ -160,6 +160,10 @@ export default function GitSyncPage() {
 
   const repoDisabled = !status?.isRepo;
   const remoteDisabled = !status?.hasRemote;
+  // Nested git repos at the root scope upload as empty submodules (silent data
+  // loss). Block commit/push until the user disables them — parity with the CLI
+  // sweep, which aborts on the same hazard.
+  const hasNested = (status?.nestedRepos?.length ?? 0) > 0;
 
   // Build branch options for Select
   const branchOptions: SelectOption[] = [];
@@ -644,7 +648,7 @@ export default function GitSyncPage() {
                     size="sm"
                     onClick={handleCommit}
                     loading={committing}
-                    disabled={(!status?.isDirty && !pushDryRun) || pushing}
+                    disabled={hasNested || (!status?.isDirty && !pushDryRun) || pushing}
                   >
                     {!committing && <GitCommit size={16} strokeWidth={2.5} />}
                     {committing ? t('gitSync.actions.committing') : t('gitSync.actions.commit')}
@@ -654,7 +658,7 @@ export default function GitSyncPage() {
                     size="sm"
                     onClick={handlePush}
                     loading={pushing}
-                    disabled={remoteDisabled || (!status?.isDirty && !pushDryRun) || committing}
+                    disabled={hasNested || remoteDisabled || (!status?.isDirty && !pushDryRun) || committing}
                   >
                     {!pushing && <ArrowUpCircle size={16} strokeWidth={2.5} />}
                     {pushing ? t('gitSync.actions.pushing') : t('gitSync.actions.push')}

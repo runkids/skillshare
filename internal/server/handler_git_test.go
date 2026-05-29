@@ -9,8 +9,21 @@ import (
 	"strings"
 	"testing"
 
+	"skillshare/internal/config"
 	"skillshare/internal/testutil"
 )
+
+// setServerGitRoot rewrites the test server's config file with a given git_root
+// scope. The auto-reload middleware reloads config from disk on every /api/*
+// request, so persisting to the file (not mutating s.cfg) is what the handlers
+// actually see. src is the skills source preserved from newTestServer.
+func setServerGitRoot(t *testing.T, scope, src string) {
+	t.Helper()
+	content := "git_root: " + scope + "\nsource: " + src + "\nmode: merge\ntargets: {}\n"
+	if err := os.WriteFile(config.ConfigPath(), []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+}
 
 func TestHandleGitCommit_NoRemote_CreatesLocalCommit(t *testing.T) {
 	s, src := newTestServer(t)
@@ -214,5 +227,87 @@ func TestHandleGitStatus_ScopeMismatch(t *testing.T) {
 	}
 	if resp.MismatchDir != agentsDir {
 		t.Errorf("mismatchDir = %q, want %q", resp.MismatchDir, agentsDir)
+	}
+}
+
+// An invalid (hand-edited) git_root must not silently fall back to the skills
+// scope — git operations reject it with a 400, mirroring the CLI's resolveGitRoot.
+func TestHandleGitCommit_InvalidGitRoot_Rejected(t *testing.T) {
+	s, src := newTestServer(t)
+	initServerGitRepo(t, src)
+	setServerGitRoot(t, "agnets", src) // typo for "agents" — not a valid scope
+
+	req := httptest.NewRequest(http.MethodPost, "/api/git/commit", strings.NewReader(`{"message":"x"}`))
+	rr := httptest.NewRecorder()
+	s.handler.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400 for invalid git_root, got %d: %s", rr.Code, rr.Body.String())
+	}
+	if !strings.Contains(rr.Body.String(), "invalid git_root") {
+		t.Errorf("expected 'invalid git_root' in error, got: %s", rr.Body.String())
+	}
+}
+
+// A nested git repo at the root scope blocks commit with a 400 — committing it
+// would record an empty submodule and silently drop its files.
+func TestHandleGitCommit_NestedRepo_Blocked(t *testing.T) {
+	s, src := newTestServer(t)
+	setServerGitRoot(t, "root", src)
+	base := config.BaseDir() // root scope operates on BaseDir
+	if err := os.MkdirAll(base, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	initServerGitRepo(t, base)
+	if err := os.MkdirAll(filepath.Join(base, "vendored", ".git"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/api/git/commit", strings.NewReader(`{"message":"x"}`))
+	rr := httptest.NewRecorder()
+	s.handler.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400 nested-repo block, got %d: %s", rr.Code, rr.Body.String())
+	}
+	if !strings.Contains(rr.Body.String(), "nested git repositories") {
+		t.Errorf("expected nested-repo error, got: %s", rr.Body.String())
+	}
+}
+
+// A root-scope dry-run must be strictly read-only — it must not untrack
+// config.yaml (no `git rm --cached`). Regression for the guard mutating the
+// repo before the dry-run branch.
+func TestHandleGitCommit_DryRun_DoesNotUntrackConfig(t *testing.T) {
+	s, src := newTestServer(t)
+	setServerGitRoot(t, "root", src)
+	base := config.BaseDir() // root scope operates on BaseDir
+	if err := os.MkdirAll(base, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	testutil.RunGit(t, base, "init")
+	testutil.ConfigureGitUser(t, base)
+	// A repo that (wrongly) tracks config.yaml: the real run would untrack it,
+	// but a dry-run must leave it alone.
+	if err := os.WriteFile(filepath.Join(base, "config.yaml"), []byte("x: 1\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	testutil.RunGit(t, base, "add", "config.yaml")
+	testutil.RunGit(t, base, "commit", "-m", "initial with config")
+	// A stageable change so the request reaches the dry-run branch.
+	if err := os.WriteFile(filepath.Join(base, "note.md"), []byte("# n\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/api/git/commit", strings.NewReader(`{"message":"x","dryRun":true}`))
+	rr := httptest.NewRecorder()
+	s.handler.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rr.Code, rr.Body.String())
+	}
+	tracked := testutil.RunGit(t, base, "ls-files", "--", "config.yaml")
+	if !strings.Contains(tracked, "config.yaml") {
+		t.Error("dry-run must not untrack config.yaml, but it is no longer tracked")
 	}
 }
