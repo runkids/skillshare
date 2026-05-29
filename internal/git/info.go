@@ -804,9 +804,25 @@ func GetRemoteURL(repoPath string) (string, error) {
 	return strings.TrimSpace(string(out)), nil
 }
 
+// validRemoteArg rejects values that git could parse as an option flag. A
+// remote URL beginning with "-" enables argv flag smuggling (e.g. "--upload-pack=…"),
+// so reject it; a legitimate remote URL never starts with a dash.
+func validRemoteArg(url string) error {
+	if url == "" {
+		return fmt.Errorf("empty remote URL")
+	}
+	if strings.HasPrefix(url, "-") {
+		return fmt.Errorf("invalid remote URL %q: must not start with '-'", url)
+	}
+	return nil
+}
+
 // SetRemoteURL updates the fetch/push URL for the "origin" remote.
 func SetRemoteURL(repoPath, newURL string) error {
-	cmd := exec.Command("git", "remote", "set-url", "origin", newURL)
+	if err := validRemoteArg(newURL); err != nil {
+		return err
+	}
+	cmd := exec.Command("git", "remote", "set-url", "--", "origin", newURL)
 	cmd.Dir = repoPath
 	return cmd.Run()
 }
@@ -816,10 +832,13 @@ func SetRemoteURL(repoPath, newURL string) error {
 // fails when origin is absent and "git remote add" fails when it exists, so the
 // correct command depends on the current state.)
 func SetOrAddRemote(repoPath, url string) error {
+	if err := validRemoteArg(url); err != nil {
+		return err
+	}
 	if _, err := GetRemoteURL(repoPath); err == nil {
 		return SetRemoteURL(repoPath, url)
 	}
-	cmd := exec.Command("git", "remote", "add", "origin", url)
+	cmd := exec.Command("git", "remote", "add", "--", "origin", url)
 	cmd.Dir = repoPath
 	return cmd.Run()
 }

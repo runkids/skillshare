@@ -693,3 +693,31 @@ func cloneRepo(t *testing.T, remote string) string {
 	runGit(t, "", "clone", remote, repo)
 	return repo
 }
+
+func TestSetOrAddRemote(t *testing.T) {
+	repo := initTestRepo(t)
+
+	// Adds origin when absent.
+	if err := SetOrAddRemote(repo, "https://example.com/a.git"); err != nil {
+		t.Fatalf("add origin: %v", err)
+	}
+	if got, _ := GetRemoteURL(repo); got != "https://example.com/a.git" {
+		t.Errorf("origin = %q, want a.git", got)
+	}
+
+	// Updates the URL when origin already exists.
+	if err := SetOrAddRemote(repo, "https://example.com/b.git"); err != nil {
+		t.Fatalf("update origin: %v", err)
+	}
+	if got, _ := GetRemoteURL(repo); got != "https://example.com/b.git" {
+		t.Errorf("origin = %q, want b.git", got)
+	}
+
+	// Rejects flag-smuggling URLs (argv injection) without invoking git.
+	if err := SetOrAddRemote(repo, "--upload-pack=touch /tmp/pwned"); err == nil {
+		t.Error("expected dash-prefixed remote URL to be rejected")
+	}
+	if got, _ := GetRemoteURL(repo); got != "https://example.com/b.git" {
+		t.Errorf("origin changed after rejected input: %q", got)
+	}
+}
