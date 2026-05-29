@@ -28,6 +28,11 @@ type Request struct {
 	AllTargets map[string]string
 	// Targets maps target name -> resolved config, for re-sync after migration.
 	Targets map[string]config.TargetConfig
+	// DefaultMode is the config-level sync mode (cfg.Mode) used when a target
+	// does not set its own mode. Empty falls back to "merge". Re-sync honors
+	// each target's effective mode so copy/symlink targets are not forced to
+	// merge-mode symlinks.
+	DefaultMode string
 	// DryRun previews without mutating anything.
 	DryRun bool
 	// Force overwrites conflicting skills already present in source.
@@ -120,10 +125,17 @@ func Apply(candidates []Candidate, req Request) (*Result, error) {
 		res.PrunedLinks += len(prune.Removed)
 	}
 
-	// 4. Re-sync from source to all targets.
+	// 4. Re-sync from source to all targets, honoring each target's mode.
+	// Best-effort; individual target failures must not abort the flow.
 	for name, target := range req.Targets {
-		// Best-effort; individual target failures must not abort the flow.
-		_, _ = sync.SyncTargetMerge(name, target, req.SourcePath, false, false, "")
+		switch effectiveMode(target, req.DefaultMode) {
+		case "copy":
+			_, _ = sync.SyncTargetCopy(name, target, req.SourcePath, false, req.Force)
+		case "symlink":
+			_ = sync.SyncTarget(name, target, req.SourcePath, false, "")
+		default: // merge
+			_, _ = sync.SyncTargetMerge(name, target, req.SourcePath, false, false, "")
+		}
 	}
 
 	// 5. Warn about lingering lockfile entries (never write the lockfile).
@@ -149,6 +161,20 @@ func filterSelected(candidates []Candidate, names []string) []Candidate {
 		}
 	}
 	return picked
+}
+
+// effectiveMode resolves the sync mode for a target during re-sync: the
+// target's own mode, then the config-level default, then "merge". Mirrors the
+// dispatch in cmd/skillshare/sync.go so adopt re-sync matches `skillshare sync`.
+func effectiveMode(target config.TargetConfig, defaultMode string) string {
+	mode := target.SkillsConfig().Mode
+	if mode == "" {
+		mode = defaultMode
+	}
+	if mode == "" {
+		mode = "merge"
+	}
+	return mode
 }
 
 // targetNaming resolves the naming scheme for prune, falling back to the empty

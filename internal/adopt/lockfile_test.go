@@ -6,18 +6,20 @@ import (
 	"testing"
 )
 
-func writeLock(t *testing.T, dir, content string) {
+// writeLock writes the lockfile at the location ReadLock expects for the given
+// skills dir: one level up (the ~/.agents dir), beside the skills directory.
+func writeLock(t *testing.T, skillsDir, content string) {
 	t.Helper()
-	if err := os.MkdirAll(dir, 0755); err != nil {
+	if err := os.MkdirAll(skillsDir, 0755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(dir, lockFileName), []byte(content), 0644); err != nil {
+	if err := os.WriteFile(LockPath(skillsDir), []byte(content), 0644); err != nil {
 		t.Fatal(err)
 	}
 }
 
 func TestReadLock_Missing(t *testing.T) {
-	dir := t.TempDir()
+	dir := filepath.Join(t.TempDir(), "skills")
 	entries, err := ReadLock(dir)
 	if err != nil {
 		t.Fatalf("expected nil error for missing lockfile, got %v", err)
@@ -28,7 +30,7 @@ func TestReadLock_Missing(t *testing.T) {
 }
 
 func TestReadLock_NestedSkillsObject(t *testing.T) {
-	dir := t.TempDir()
+	dir := filepath.Join(t.TempDir(), "skills")
 	writeLock(t, dir, `{
 		"skills": {
 			"web-scraper": {"source": "firecrawl", "version": "1.0.0"},
@@ -55,7 +57,7 @@ func TestReadLock_NestedSkillsObject(t *testing.T) {
 }
 
 func TestReadLock_FlatMap(t *testing.T) {
-	dir := t.TempDir()
+	dir := filepath.Join(t.TempDir(), "skills")
 	writeLock(t, dir, `{
 		"web-scraper": {"tool": "firecrawl"},
 		"gmail": {"source": "googleworkspace"}
@@ -74,7 +76,7 @@ func TestReadLock_FlatMap(t *testing.T) {
 }
 
 func TestReadLock_Malformed(t *testing.T) {
-	dir := t.TempDir()
+	dir := filepath.Join(t.TempDir(), "skills")
 	writeLock(t, dir, `{not valid json`)
 
 	entries, err := ReadLock(dir)

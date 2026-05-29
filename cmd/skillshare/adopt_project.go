@@ -29,13 +29,14 @@ func cmdAdoptProject(opts adoptOptions, root string, start time.Time) error {
 	}
 
 	actx := adoptContext{
-		agentsPath: sc.Path,
-		sourcePath: runtime.sourcePath,
-		syncMode:   adoptSyncMode(sc.Mode, ""),
-		allTargets: allTargets,
-		targets:    runtime.targets,
-		trashBase:  trash.ProjectTrashDir(root),
-		configPath: config.ProjectConfigPath(root),
+		agentsPath:  sc.Path,
+		sourcePath:  runtime.sourcePath,
+		syncMode:    adoptSyncMode(sc.Mode, ""),
+		defaultMode: "", // project has no config-level mode; per-target mode resolves, falling back to merge
+		allTargets:  allTargets,
+		targets:     runtime.targets,
+		trashBase:   trash.ProjectTrashDir(root),
+		configPath:  config.ProjectConfigPath(root),
 	}
 
 	if err := runAdoptCommand(actx, opts, start); err != nil {

@@ -4,6 +4,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"skillshare/internal/config"
 )
 
 // applyEnv builds an agents dir + source dir + trash base and returns the
@@ -145,7 +147,7 @@ func TestApply_LockfileUntouchedAndWarned(t *testing.T) {
 	agents, source, trashBase := applyEnv(t)
 	mkSkill(t, agents, "web-scraper")
 
-	lockPath := filepath.Join(agents, LockFileName())
+	lockPath := LockPath(agents) // ~/.agents/.skill-lock.json — beside the skills dir, not inside it
 	lockData := []byte(`{"web-scraper":{"sourceTool":"firecrawl"}}`)
 	if err := os.WriteFile(lockPath, lockData, 0644); err != nil {
 		t.Fatal(err)
@@ -200,5 +202,50 @@ func TestApply_SelectedFilter(t *testing.T) {
 	// beta must remain untouched in agents.
 	if _, err := os.Stat(filepath.Join(agents, "beta")); err != nil {
 		t.Errorf("unselected beta was touched: %v", err)
+	}
+}
+
+// TestApply_ReSyncHonorsCopyMode guards the re-sync mode dispatch: a copy-mode
+// target must receive a real directory copy, not a merge-mode symlink.
+func TestApply_ReSyncHonorsCopyMode(t *testing.T) {
+	agents, source, trashBase := applyEnv(t)
+	mkSkill(t, agents, "web-scraper")
+
+	// A separate target configured for copy mode, beside the agents dir.
+	copyTargetPath := filepath.Join(filepath.Dir(agents), "copytarget")
+	if err := os.MkdirAll(copyTargetPath, 0755); err != nil {
+		t.Fatal(err)
+	}
+	targets := map[string]config.TargetConfig{
+		"copytarget": {Path: copyTargetPath, Mode: "copy"},
+	}
+
+	cands := detect(t, agents, source)
+	res, err := Apply(cands, Request{
+		AgentsPath:  agents,
+		SourcePath:  source,
+		TrashBase:   trashBase,
+		AllTargets:  map[string]string{"copytarget": copyTargetPath},
+		Targets:     targets,
+		DefaultMode: "merge", // config default is merge; the target's own copy mode must win
+	})
+	if err != nil {
+		t.Fatalf("apply: %v", err)
+	}
+	if len(res.Adopted) != 1 {
+		t.Fatalf("adopted = %v, want 1", res.Adopted)
+	}
+
+	// Copy mode must produce a REAL entry in the target, never a symlink.
+	entry := filepath.Join(copyTargetPath, "web-scraper")
+	info, err := os.Lstat(entry)
+	if err != nil {
+		t.Fatalf("copy-mode target entry missing: %v", err)
+	}
+	if info.Mode()&os.ModeSymlink != 0 {
+		t.Error("copy mode produced a symlink; want a real copy")
+	}
+	if _, err := os.Stat(filepath.Join(entry, "SKILL.md")); err != nil {
+		t.Errorf("copied skill missing SKILL.md: %v", err)
 	}
 }
