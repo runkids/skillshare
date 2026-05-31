@@ -2,7 +2,7 @@
 const { block, convert } = require("./md-toml");
 
 convert(({ body, frontmatter, stem }) => {
-  if (!frontmatter.description) {
+  if (!frontmatter.description || !frontmatter.description.trim()) {
     throw new Error(
       "codex-agents: missing required frontmatter 'description' (Codex custom agents require description)"
     );

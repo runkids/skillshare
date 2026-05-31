@@ -472,16 +472,32 @@ func TestBundledCodexAgentExtension_RequiresDescription(t *testing.T) {
 	node := requireNode(t)
 	root := testRepoRoot(t)
 
-	cmd := exec.Command(node, filepath.Join(root, "extensions", "codex-agents", "convert.js"))
-	cmd.Env = append(os.Environ(), "SS_REL_PATH=reviewer.md")
-	cmd.Stdin = strings.NewReader("# Reviewer\nReview code like an owner.\n")
+	for _, tc := range []struct {
+		name  string
+		input string
+	}{
+		{
+			name:  "missing",
+			input: "# Reviewer\nReview code like an owner.\n",
+		},
+		{
+			name:  "whitespace-only",
+			input: "---\ndescription: \"   \"\n---\nReview code like an owner.\n",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			cmd := exec.Command(node, filepath.Join(root, "extensions", "codex-agents", "convert.js"))
+			cmd.Env = append(os.Environ(), "SS_REL_PATH=reviewer.md")
+			cmd.Stdin = strings.NewReader(tc.input)
 
-	out, err := cmd.CombinedOutput()
-	if err == nil {
-		t.Fatalf("expected missing description to fail, got success:\n%s", out)
-	}
-	if !strings.Contains(string(out), "missing required frontmatter 'description'") {
-		t.Fatalf("expected missing description error, got:\n%s", out)
+			out, err := cmd.CombinedOutput()
+			if err == nil {
+				t.Fatalf("expected missing description to fail, got success:\n%s", out)
+			}
+			if !strings.Contains(string(out), "missing required frontmatter 'description'") {
+				t.Fatalf("expected missing description error, got:\n%s", out)
+			}
+		})
 	}
 }
 
