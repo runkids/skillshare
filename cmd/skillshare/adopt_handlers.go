@@ -17,6 +17,7 @@ type adoptContext struct {
 	sourcePath  string                         // skillshare source of truth
 	syncMode    string                         // agents target sync mode
 	defaultMode string                         // config-level sync mode (cfg.Mode); used when a target sets no mode
+	projectRoot string                         // project root, empty in global mode
 	allTargets  map[string]string              // name -> skills dir, for orphan-link pruning + re-sync
 	targets     map[string]config.TargetConfig // resolved targets, for re-sync (optional)
 	trashBase   string                         // trash dir (global or project)
@@ -145,6 +146,7 @@ func applyAdopt(actx adoptContext, selected []adopt.Candidate, opts adoptOptions
 		SourcePath:  actx.sourcePath,
 		SyncMode:    actx.syncMode,
 		DefaultMode: actx.defaultMode,
+		ProjectRoot: actx.projectRoot,
 		TrashBase:   actx.trashBase,
 		AllTargets:  actx.allTargets,
 		Targets:     actx.targets,

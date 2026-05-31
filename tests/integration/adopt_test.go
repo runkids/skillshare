@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"skillshare/internal/testutil"
@@ -298,8 +299,26 @@ func TestAdoptProject_MigratesAndResyncs(t *testing.T) {
 	claudeLink := filepath.Join(claudeDir, "firecrawl")
 	if !sb.IsSymlink(claudeLink) {
 		t.Errorf("expected re-synced symlink for firecrawl in claude target\n%s", result.Output())
-	} else if tgt := sb.SymlinkTarget(claudeLink); tgt != filepath.Join(projectSource, "firecrawl") {
-		t.Errorf("claude symlink target = %q, want into project source", tgt)
+	} else {
+		tgt := sb.SymlinkTarget(claudeLink)
+		if runtime.GOOS != "windows" && filepath.IsAbs(tgt) {
+			t.Errorf("claude symlink target = %q, want relative project link", tgt)
+		}
+		got := tgt
+		if !filepath.IsAbs(got) {
+			got = filepath.Join(filepath.Dir(claudeLink), got)
+		}
+		got, err := filepath.EvalSymlinks(got)
+		if err != nil {
+			t.Fatalf("failed to resolve claude symlink target %q: %v", tgt, err)
+		}
+		want, err := filepath.EvalSymlinks(filepath.Join(projectSource, "firecrawl"))
+		if err != nil {
+			t.Fatalf("failed to resolve project source target: %v", err)
+		}
+		if got != want {
+			t.Errorf("claude symlink target = %q, want into project source", tgt)
+		}
 	}
 
 	result.AssertAnyOutputContains(t, "firecrawl")
