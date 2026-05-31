@@ -33,6 +33,7 @@ func cmdAdoptProject(opts adoptOptions, root string, start time.Time) error {
 		sourcePath:  runtime.sourcePath,
 		syncMode:    adoptSyncMode(sc.Mode, ""),
 		defaultMode: "", // project has no config-level mode; per-target mode resolves, falling back to merge
+		projectRoot: root,
 		allTargets:  allTargets,
 		targets:     runtime.targets,
 		trashBase:   trash.ProjectTrashDir(root),

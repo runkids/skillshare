@@ -33,6 +33,9 @@ type Request struct {
 	// each target's effective mode so copy/symlink targets are not forced to
 	// merge-mode symlinks.
 	DefaultMode string
+	// ProjectRoot enables project-mode sync behavior, including portable
+	// relative links for targets under the project root.
+	ProjectRoot string
 	// DryRun previews without mutating anything.
 	DryRun bool
 	// Force overwrites conflicting skills already present in source.
@@ -132,9 +135,9 @@ func Apply(candidates []Candidate, req Request) (*Result, error) {
 		case "copy":
 			_, _ = sync.SyncTargetCopy(name, target, req.SourcePath, false, req.Force)
 		case "symlink":
-			_ = sync.SyncTarget(name, target, req.SourcePath, false, "")
+			_ = sync.SyncTarget(name, target, req.SourcePath, false, req.ProjectRoot)
 		default: // merge
-			_, _ = sync.SyncTargetMerge(name, target, req.SourcePath, false, false, "")
+			_, _ = sync.SyncTargetMerge(name, target, req.SourcePath, false, false, req.ProjectRoot)
 		}
 	}
 

@@ -136,8 +136,10 @@ func (s *Server) handleAdoptApply(w http.ResponseWriter, r *http.Request) {
 	}
 
 	trashBase := trash.TrashDir()
+	projectRoot := ""
 	if s.IsProjectMode() {
 		trashBase = trash.ProjectTrashDir(s.projectRoot)
+		projectRoot = s.projectRoot
 	}
 
 	// Detect first, then annotate provenance, then apply (mirror of the CLI).
@@ -157,6 +159,7 @@ func (s *Server) handleAdoptApply(w http.ResponseWriter, r *http.Request) {
 		SourcePath:  source,
 		SyncMode:    syncMode,
 		DefaultMode: globalMode,
+		ProjectRoot: projectRoot,
 		TrashBase:   trashBase,
 		AllTargets:  allTargets,
 		Targets:     targets,
