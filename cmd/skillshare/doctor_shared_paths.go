@@ -51,14 +51,18 @@ func checkSharedTargetPaths(cfg *config.Config, result *doctorResult) {
 	})
 
 	details := make([]string, 0, len(collisions))
+	suggestions := make([]string, 0, len(collisions))
 	for _, c := range collisions {
 		ui.Warning("Shared path %s ← %s", c.path, strings.Join(c.targets, ", "))
 		details = append(details, fmt.Sprintf("%s ← %s", c.path, strings.Join(c.targets, ", ")))
+		suggestion := fmt.Sprintf("Choose one authoritative target for %s; disable or reconfigure the others: %s", c.path, strings.Join(c.targets, ", "))
+		fmt.Println(ui.DimText("    suggestion: " + suggestion))
+		suggestions = append(suggestions, suggestion)
 		result.addWarning()
 	}
 
 	msg := fmt.Sprintf("%d shared target path(s) — enabled targets writing to the same directory may produce duplicate skills in runtime pickers", len(collisions))
-	result.addCheck("shared_target_paths", checkWarning, msg, details)
+	result.addCheckWithSuggestions("shared_target_paths", checkWarning, msg, details, suggestions)
 }
 
 // checkCrossTargetDiscovery warns when an enabled target's runtime is
@@ -138,6 +142,7 @@ func checkCrossTargetDiscovery(cfg *config.Config, result *doctorResult, isProje
 	sort.Strings(scannerNames)
 
 	var details []string
+	var suggestions []string
 	for _, name := range scannerNames {
 		so := overlapsByScanner[name]
 		sort.Slice(so.paths, func(i, j int) bool { return so.paths[i].sharedPath < so.paths[j].sharedPath })
@@ -156,6 +161,9 @@ func checkCrossTargetDiscovery(cfg *config.Config, result *doctorResult, isProje
 		sort.Strings(writers)
 
 		ui.Warning("%s will see content from: %s", so.scanner, strings.Join(writers, ", "))
+		suggestion := fmt.Sprintf("Choose one authoritative route for %s-visible skills; disable or reconfigure overlapping writer target(s): %s", so.scanner, strings.Join(writers, ", "))
+		fmt.Println(ui.DimText("    suggestion: " + suggestion))
+		suggestions = append(suggestions, suggestion)
 		for _, p := range so.paths {
 			fmt.Println(ui.DimText(fmt.Sprintf("    %s ← %s", p.sharedPath, strings.Join(p.writers, ", "))))
 			details = append(details, fmt.Sprintf("%s (%s) also scans %s ← %s",
@@ -165,5 +173,5 @@ func checkCrossTargetDiscovery(cfg *config.Config, result *doctorResult, isProje
 	}
 
 	msg := fmt.Sprintf("%d target(s) overlap with other targets' content via cross-runtime discovery", len(scannerNames))
-	result.addCheck("cross_target_discovery", checkWarning, msg, details)
+	result.addCheckWithSuggestions("cross_target_discovery", checkWarning, msg, details, suggestions)
 }

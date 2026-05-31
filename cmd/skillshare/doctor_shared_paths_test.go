@@ -49,6 +49,15 @@ func TestCheckSharedTargetPaths_Collision(t *testing.T) {
 			t.Errorf("detail %q missing %q", detail, want)
 		}
 	}
+	if len(r.checks[0].Suggestions) != 1 {
+		t.Fatalf("expected one suggestion, got %v", r.checks[0].Suggestions)
+	}
+	suggestion := r.checks[0].Suggestions[0]
+	for _, want := range []string{"Choose one authoritative target", "universal", "warp", "witsy", "/tmp/.agents/skills"} {
+		if !strings.Contains(suggestion, want) {
+			t.Errorf("suggestion %q missing %q", suggestion, want)
+		}
+	}
 	if strings.Contains(detail, "claude") {
 		t.Errorf("claude should not appear in collision detail: %q", detail)
 	}
@@ -88,6 +97,15 @@ func TestCheckCrossTargetDiscovery_CodexSeesUniversal(t *testing.T) {
 	for _, want := range []string{"codex", "universal", ".agents/skills"} {
 		if !strings.Contains(detail, want) {
 			t.Errorf("detail %q missing %q", detail, want)
+		}
+	}
+	if len(r.checks[0].Suggestions) != 1 {
+		t.Fatalf("expected one suggestion, got %v", r.checks[0].Suggestions)
+	}
+	suggestion := r.checks[0].Suggestions[0]
+	for _, want := range []string{"Choose one authoritative route", "codex", "universal"} {
+		if !strings.Contains(suggestion, want) {
+			t.Errorf("suggestion %q missing %q", suggestion, want)
 		}
 	}
 }

@@ -39,8 +39,12 @@ func (r *doctorResult) addWarning() {
 }
 
 func (r *doctorResult) addCheck(name, status, message string, details []string) {
+	r.addCheckWithSuggestions(name, status, message, details, nil)
+}
+
+func (r *doctorResult) addCheckWithSuggestions(name, status, message string, details []string, suggestions []string) {
 	r.checks = append(r.checks, doctorCheck{
-		Name: name, Status: status, Message: message, Details: details,
+		Name: name, Status: status, Message: message, Details: details, Suggestions: suggestions,
 	})
 }
 

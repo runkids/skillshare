@@ -16,10 +16,11 @@ const (
 
 // doctorCheck represents a single health check result for JSON output.
 type doctorCheck struct {
-	Name    string   `json:"name"`
-	Status  string   `json:"status"` // checkPass, checkWarning, checkError
-	Message string   `json:"message"`
-	Details []string `json:"details,omitempty"`
+	Name        string   `json:"name"`
+	Status      string   `json:"status"` // checkPass, checkWarning, checkError
+	Message     string   `json:"message"`
+	Details     []string `json:"details,omitempty"`
+	Suggestions []string `json:"suggestions,omitempty"`
 }
 
 type doctorOutput struct {
