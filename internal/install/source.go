@@ -52,8 +52,8 @@ type Source struct {
 // GitHub URL pattern: github.com/owner/repo[/path/to/subdir]
 var githubPattern = regexp.MustCompile(`^(?:https?://)?github\.com/([^/]+)/([^/]+)(?:/(.+))?$`)
 
-// Git SSH pattern: git@host:owner/repo[.git][//subdir]
-var gitSSHPattern = regexp.MustCompile(`^git@([^:]+):([^/]+)/(.+?)(?:\.git)?(?://(.+))?$`)
+// Git SSH pattern: user@host:owner/repo[.git][//subdir]
+var gitSSHPattern = regexp.MustCompile(`^([^@:\s]+)@([^:\s]+):([^/]+)/(.+?)(?:\.git)?(?://(.+))?$`)
 
 // Git HTTPS pattern: https://host/path (flexible path for GitLab subgroups)
 var gitHTTPSPattern = regexp.MustCompile(`^(https?)://([^/]+)/(.+)$`)
@@ -179,7 +179,7 @@ func expandGitHubShorthand(input string) string {
 	if strings.HasPrefix(input, "github.com/") ||
 		strings.HasPrefix(input, "http://") ||
 		strings.HasPrefix(input, "https://") ||
-		strings.HasPrefix(input, "git@") ||
+		gitSSHPattern.MatchString(input) ||
 		strings.HasPrefix(input, "file://") ||
 		isLocalPath(input) {
 		return input
@@ -299,17 +299,18 @@ func trimSkillFileSuffix(path string, isBlob bool) (string, bool) {
 }
 
 func parseGitSSH(matches []string, source *Source) (*Source, error) {
-	// matches: [full, host, owner, repo, subdir]
-	host := matches[1]
-	owner := matches[2]
-	repo := strings.TrimSuffix(matches[3], ".git")
+	// matches: [full, user, host, owner, repo, subdir]
+	user := matches[1]
+	host := matches[2]
+	owner := matches[3]
+	repo := strings.TrimSuffix(matches[4], ".git")
 	subdir := ""
-	if len(matches) > 4 {
-		subdir = matches[4]
+	if len(matches) > 5 {
+		subdir = matches[5]
 	}
 
 	source.Type = SourceTypeGitSSH
-	source.CloneURL = fmt.Sprintf("git@%s:%s/%s.git", host, owner, repo)
+	source.CloneURL = fmt.Sprintf("%s@%s:%s/%s.git", user, host, owner, repo)
 
 	if subdir != "" {
 		source.Subdir = subdir
@@ -541,13 +542,13 @@ func (s *Source) gitHubOwnerRepo() (owner, repo string) {
 		return "", ""
 	}
 
-	// SSH clone URL: git@host:owner/repo.git
+	// SSH clone URL: user@host:owner/repo.git
 	if sshMatches := gitSSHPattern.FindStringSubmatch(cloneURL); sshMatches != nil {
-		host := strings.ToLower(strings.TrimSpace(sshMatches[1]))
+		host := strings.ToLower(strings.TrimSpace(sshMatches[2]))
 		if !strings.Contains(host, "github") {
 			return "", ""
 		}
-		return sshMatches[2], strings.TrimSuffix(sshMatches[3], ".git")
+		return sshMatches[3], strings.TrimSuffix(sshMatches[4], ".git")
 	}
 
 	u, err := url.Parse(cloneURL)
@@ -614,10 +615,10 @@ func (s *Source) TrackName() string {
 		}
 	}
 
-	// Try SSH format: git@host:owner/repo.git
+	// Try SSH format: user@host:owner/repo.git
 	if sshMatches := gitSSHPattern.FindStringSubmatch(s.Raw); sshMatches != nil {
-		owner := sshMatches[2]
-		repo := strings.TrimSuffix(sshMatches[3], ".git")
+		owner := sshMatches[3]
+		repo := strings.TrimSuffix(sshMatches[4], ".git")
 		// Replace / with - to handle subgroup paths (e.g., group/subgroup/repo)
 		return owner + "-" + strings.ReplaceAll(repo, "/", "-")
 	}

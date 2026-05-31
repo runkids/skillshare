@@ -168,9 +168,9 @@ func normalizeCloneURL(u string) string {
 	u = strings.TrimSpace(u)
 	u = strings.TrimSuffix(u, ".git")
 	u = strings.TrimSuffix(u, "/")
-	// git@github.com:owner/repo → github.com/owner/repo
-	if strings.HasPrefix(u, "git@") {
-		u = strings.TrimPrefix(u, "git@")
+	// user@github.com:owner/repo → github.com/owner/repo
+	if at := strings.Index(u, "@"); at > 0 && !strings.Contains(u, "://") {
+		u = u[at+1:]
 		u = strings.Replace(u, ":", "/", 1)
 	}
 	// https://github.com/owner/repo → github.com/owner/repo

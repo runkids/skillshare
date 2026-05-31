@@ -216,6 +216,18 @@ func TestParseSource_GitSSH(t *testing.T) {
 			wantName:     "repo",
 		},
 		{
+			name:         "custom ssh username",
+			input:        "acme@acme.ghe.com:MyOrg/my-skills.git",
+			wantCloneURL: "acme@acme.ghe.com:MyOrg/my-skills.git",
+			wantName:     "my-skills",
+		},
+		{
+			name:         "custom ssh username without .git",
+			input:        "acme@acme.ghe.com:MyOrg/my-skills",
+			wantCloneURL: "acme@acme.ghe.com:MyOrg/my-skills.git",
+			wantName:     "my-skills",
+		},
+		{
 			name:         "gitlab ssh nested subgroup",
 			input:        "git@gitlab.example.com:org/subgroup/my-skills.git",
 			wantCloneURL: "git@gitlab.example.com:org/subgroup/my-skills.git",
@@ -254,6 +266,13 @@ func TestParseSource_GitSSH(t *testing.T) {
 			wantCloneURL: "git@github.com:owner/skills.git",
 			wantSubdir:   "pdf",
 			wantName:     "pdf",
+		},
+		{
+			name:         "custom ssh username with subpath",
+			input:        "acme@acme.ghe.com:MyOrg/my-skills.git//agents/reviewer",
+			wantCloneURL: "acme@acme.ghe.com:MyOrg/my-skills.git",
+			wantSubdir:   "agents/reviewer",
+			wantName:     "reviewer",
 		},
 	}
 
@@ -824,6 +843,13 @@ func TestParseSource_GitHubEnterprise(t *testing.T) {
 			wantName:     "skills",
 		},
 		{
+			name:         "GHE Data Residency SSH",
+			input:        "acme@acme.ghe.com:MyOrg/my-skills.git",
+			wantType:     SourceTypeGitSSH,
+			wantCloneURL: "acme@acme.ghe.com:MyOrg/my-skills.git",
+			wantName:     "my-skills",
+		},
+		{
 			name:         "GHE SSH with subdir",
 			input:        "git@github.mycompany.com:org/repo.git//path/to/skill",
 			wantType:     SourceTypeGitSSH,
@@ -875,6 +901,11 @@ func TestParseSource_GitHubEnterprise_TrackName(t *testing.T) {
 			name: "GHE Server SSH",
 			raw:  "git@github.mycompany.com:org/skills.git",
 			want: "org-skills",
+		},
+		{
+			name: "GHE Data Residency SSH",
+			raw:  "acme@acme.ghe.com:MyOrg/my-skills.git",
+			want: "MyOrg-my-skills",
 		},
 	}
 
