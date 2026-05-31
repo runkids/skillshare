@@ -246,13 +246,10 @@ func gitHubAPIBase(source *Source) (string, error) {
 	if host == "" {
 		return "", fmt.Errorf("unable to determine source host")
 	}
-	if !strings.Contains(host, "github") {
+	if !isGitHubLikeHost(host) {
 		return "", fmt.Errorf("source host %q is not GitHub-compatible", host)
 	}
-	if host == "github.com" {
-		return "https://api.github.com", nil
-	}
-	return fmt.Sprintf("https://%s/api/v3", host), nil
+	return gitHubAPIBaseForHost(host), nil
 }
 
 func buildGitHubContentsURL(apiBase, owner, repo, path string) string {

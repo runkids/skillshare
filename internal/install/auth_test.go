@@ -57,6 +57,8 @@ func TestDetectPlatform(t *testing.T) {
 	}{
 		{"github.com", "https://github.com/org/repo.git", PlatformGitHub},
 		{"github enterprise", "https://github.mycompany.com/org/repo.git", PlatformGitHub},
+		{"github enterprise data residency", "https://acme.ghe.com/org/repo.git", PlatformGitHub},
+		{"github enterprise data residency ssh", "acme@acme.ghe.com:org/repo.git", PlatformGitHub},
 		{"gitlab.com", "https://gitlab.com/org/repo.git", PlatformGitLab},
 		{"self-hosted gitlab", "https://gitlab.internal.co/org/repo.git", PlatformGitLab},
 		{"bitbucket.org", "https://bitbucket.org/team/repo.git", PlatformBitbucket},

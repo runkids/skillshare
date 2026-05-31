@@ -949,6 +949,18 @@ func TestSource_GitHubOwnerRepo(t *testing.T) {
 			wantRepo:  "repo",
 		},
 		{
+			name:      "ghe data residency https",
+			raw:       "https://acme.ghe.com/MyOrg/my-skills/agents/reviewer",
+			wantOwner: "MyOrg",
+			wantRepo:  "my-skills",
+		},
+		{
+			name:      "ghe data residency ssh",
+			raw:       "acme@acme.ghe.com:MyOrg/my-skills.git//agents/reviewer",
+			wantOwner: "MyOrg",
+			wantRepo:  "my-skills",
+		},
+		{
 			name:      "non-github host",
 			raw:       "https://gitlab.com/team/repo",
 			wantOwner: "",

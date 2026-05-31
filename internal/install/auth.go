@@ -50,7 +50,7 @@ func detectPlatform(cloneURL string) Platform {
 	if host == "" {
 		return PlatformUnknown
 	}
-	if strings.Contains(host, "github") {
+	if isGitHubLikeHost(host) {
 		return PlatformGitHub
 	}
 	if strings.Contains(host, "gitlab") {

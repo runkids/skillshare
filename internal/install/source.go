@@ -545,7 +545,7 @@ func (s *Source) gitHubOwnerRepo() (owner, repo string) {
 	// SSH clone URL: user@host:owner/repo.git
 	if sshMatches := gitSSHPattern.FindStringSubmatch(cloneURL); sshMatches != nil {
 		host := strings.ToLower(strings.TrimSpace(sshMatches[2]))
-		if !strings.Contains(host, "github") {
+		if !isGitHubLikeHost(host) {
 			return "", ""
 		}
 		return sshMatches[3], strings.TrimSuffix(sshMatches[4], ".git")
@@ -556,7 +556,7 @@ func (s *Source) gitHubOwnerRepo() (owner, repo string) {
 		return "", ""
 	}
 	host := strings.ToLower(u.Hostname())
-	if !strings.Contains(host, "github") {
+	if !isGitHubLikeHost(host) {
 		return "", ""
 	}
 
