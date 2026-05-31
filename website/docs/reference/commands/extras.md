@@ -338,7 +338,7 @@ extras:
         extension: codex-agents
 ```
 
-`skillshare sync extras` converts each `<agent>.md` into `~/.codex/agents/<agent>.toml`, mapping frontmatter `name`, `description`, and `model` and folding the markdown body into `developer_instructions` (other frontmatter keys are dropped). No separate copy of the agents is needed.
+`skillshare sync extras` converts each `<agent>.md` into `~/.codex/agents/<agent>.toml`, mapping frontmatter `name`, `description`, and `model` and folding the markdown body into `developer_instructions` (other frontmatter keys are dropped). Codex requires `description`, so the reference transform reports a clear error when that frontmatter field is missing. No separate copy of the agents is needed.
 
 ---
 

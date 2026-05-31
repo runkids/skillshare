@@ -20,6 +20,9 @@ function convert(mapFields) {
     }
 
     process.stdout.write(lines.join("\n") + (lines.length ? "\n" : ""));
+  }).catch((err) => {
+    process.stderr.write((err && err.message ? err.message : String(err)) + "\n");
+    process.exit(1);
   });
 }
 

@@ -89,6 +89,8 @@ convert(({ body, frontmatter, stem }) => ({
 }));
 ```
 
+For targets with required fields, validate them in `convert.js` and exit non-zero with a clear message. For example, Codex TOML agents require `description`, so `extensions/codex-agents` rejects inputs without `description` frontmatter instead of generating a TOML file that Codex cannot load.
+
 Plain values become TOML strings:
 
 ```toml

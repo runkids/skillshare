@@ -2,6 +2,7 @@ package sync
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -437,5 +438,76 @@ func TestSyncExtra_TransformRejectsNonCopyMode(t *testing.T) {
 		if _, err := SyncExtra(srcDir, tgtDir, mode, false, false, false, "", spec); err != nil {
 			t.Errorf("mode %q with extension: unexpected error: %v", mode, err)
 		}
+	}
+}
+
+func TestBundledCodexAgentExtension_TransformsRequiredFields(t *testing.T) {
+	node := requireNode(t)
+	root := testRepoRoot(t)
+
+	cmd := exec.Command(node, filepath.Join(root, "extensions", "codex-agents", "convert.js"))
+	cmd.Env = append(os.Environ(), "SS_REL_PATH=reviewer.md")
+	cmd.Stdin = strings.NewReader("---\nname: reviewer\ndescription: Review PRs for correctness\nmodel: gpt-5.4\n---\nReview code like an owner.\n")
+
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("codex-agents convert failed: %v\n%s", err, out)
+	}
+
+	got := string(out)
+	for _, want := range []string{
+		`name = "reviewer"`,
+		`description = "Review PRs for correctness"`,
+		`model = "gpt-5.4"`,
+		`developer_instructions = """`,
+		`Review code like an owner.`,
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("converted output missing %q:\n%s", want, got)
+		}
+	}
+}
+
+func TestBundledCodexAgentExtension_RequiresDescription(t *testing.T) {
+	node := requireNode(t)
+	root := testRepoRoot(t)
+
+	cmd := exec.Command(node, filepath.Join(root, "extensions", "codex-agents", "convert.js"))
+	cmd.Env = append(os.Environ(), "SS_REL_PATH=reviewer.md")
+	cmd.Stdin = strings.NewReader("# Reviewer\nReview code like an owner.\n")
+
+	out, err := cmd.CombinedOutput()
+	if err == nil {
+		t.Fatalf("expected missing description to fail, got success:\n%s", out)
+	}
+	if !strings.Contains(string(out), "missing required frontmatter 'description'") {
+		t.Fatalf("expected missing description error, got:\n%s", out)
+	}
+}
+
+func requireNode(t *testing.T) string {
+	t.Helper()
+	node, err := exec.LookPath("node")
+	if err != nil {
+		t.Skip("node not available; skipping bundled JavaScript extension check")
+	}
+	return node
+}
+
+func testRepoRoot(t *testing.T) string {
+	t.Helper()
+	dir, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("getwd: %v", err)
+	}
+	for {
+		if _, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil {
+			return dir
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			t.Fatal("could not find repo root")
+		}
+		dir = parent
 	}
 }
