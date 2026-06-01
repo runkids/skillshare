@@ -7,7 +7,7 @@ sidebar_position: 6
 Single-file `.md` resources managed alongside skills — same sync, audit, and lifecycle, different shape.
 
 :::tip When does this matter?
-Some AI CLIs (Claude Code, Cursor, OpenCode, Augment) distinguish between **skills** (directories with `SKILL.md`) and **agents** (standalone `.md` files). If your targets support agents, skillshare can manage both from a single source of truth.
+Some AI CLIs (Claude Code, Cursor, OpenCode, Augment, Copilot CLI) distinguish between **skills** (directories with `SKILL.md`) and **agents** (standalone `.md` files). If your targets support agents, skillshare can manage both from a single source of truth.
 :::
 
 ## Skills vs Agents
@@ -107,6 +107,7 @@ Only targets with an `agents` path definition receive agent syncs. Currently:
 | `cursor` | `~/.cursor/agents` | `.cursor/agents` |
 | `opencode` | `~/.config/opencode/agents` | `.opencode/agents` |
 | `augment` | `~/.augment/agents` | `.augment/agents` |
+| `copilot` | `~/.copilot/agents` | `.github/agents` |
 
 Targets without an `agents` entry (the majority) only receive skills.
 

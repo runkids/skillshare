@@ -68,6 +68,7 @@ You should see your installed skills as real directories (in copy mode) or symli
 ## Copilot-Specific Notes
 
 - **Skill path**: `~/.copilot/skills/` (global) or `.github/skills/` (project)
+- **Agent path**: `~/.copilot/agents/` (global) or `.github/agents/` (project) — Copilot CLI reads custom agents in the same `.agent.md` format skillshare manages, so `skillshare sync agents` distributes them with no conversion. See [Agents](/docs/understand/agents).
 - **Project mode**: Run `skillshare init -p` to manage project-level Copilot skills — they go into `.github/skills/` alongside your codebase
 - **Symlink issues**: If Copilot doesn't pick up your skills, check if your target is in merge mode (`skillshare status`) and switch to copy mode as described above
 - **`.github/copilot-instructions.md`**: If you have an existing instructions file, skillshare skills complement it — they don't replace it
