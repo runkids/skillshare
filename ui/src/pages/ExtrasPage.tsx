@@ -545,6 +545,11 @@ function ExtraCard({
               placeholder={t('extras.modal.targetPathPlaceholder')}
               value={newTarget.path}
               onChange={(e) => setNewTarget((prev) => ({ ...prev, path: e.target.value }))}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && newTarget.path.trim() && !savingTarget) {
+                  handleSaveNew();
+                }
+              }}
               disabled={savingTarget}
               autoFocus
             />

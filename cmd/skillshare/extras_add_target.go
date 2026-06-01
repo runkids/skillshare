@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"time"
 
 	"skillshare/internal/config"
@@ -51,6 +52,9 @@ func cmdExtrasAddTarget(args []string) error {
 			printExtrasAddTargetHelp()
 			return nil
 		default:
+			if len(rest[i]) > 0 && rest[i][0] == '-' {
+				return fmt.Errorf("unexpected flag: %s", rest[i])
+			}
 			if name == "" {
 				name = rest[i]
 			} else {
@@ -65,6 +69,7 @@ func cmdExtrasAddTarget(args []string) error {
 	if targetPath == "" {
 		return fmt.Errorf("--target is required")
 	}
+	targetPath = filepath.Clean(targetPath)
 
 	if err := config.ValidateExtraMode(syncMode); err != nil {
 		return err
