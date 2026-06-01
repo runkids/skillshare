@@ -15,7 +15,7 @@ description: |
   `.agentignore` and `enable`/`disable` for per-agent toggles.
 argument-hint: "[command] [target] [--json] [--dry-run] [-p|-g]"
 metadata:
-  version: v0.20.2
+  version: v0.20.3
 ---
 
 # Skillshare CLI

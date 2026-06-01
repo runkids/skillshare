@@ -722,6 +722,28 @@ skillshare install github.com/user/repo --kind agent -p
 
 The `-a <name>` flag is the agent equivalent of `-s <name>` for skills. Agents are installed into `~/.config/skillshare/agents/` (global) or `.skillshare/agents/` (project). See [Agents](/docs/understand/agents) for the full concepts.
 
+### Scoping skills vs agents in a mixed repo
+
+When a repo contains both skills and agents, the filters control exactly what is installed:
+
+| Flags | What gets installed |
+|-------|---------------------|
+| _(none)_ | All skills and all agents |
+| `--all` / `--yes` | All skills and all agents |
+| `-s <names>` | Only the named skills — **no agents** |
+| `-s <names> -a <names>` | The named skills and the named agents |
+| `-a <names>` | Only the named agents |
+
+```bash
+# Install just one skill from a mixed repo — agents are NOT pulled in
+skillshare install github.com/user/repo -s pdf
+
+# Install one skill and one agent together
+skillshare install github.com/user/repo -s pdf -a tutor
+```
+
+An unknown `-a` name fails the whole command up front — before any skill is installed — so automation never sees a half-completed install.
+
 ## After Installing
 
 Always sync to distribute to targets:

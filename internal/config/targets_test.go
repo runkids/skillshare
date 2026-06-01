@@ -138,8 +138,10 @@ func TestDefaultAgentTargets_V1TargetsHaveAgentPaths(t *testing.T) {
 func TestDefaultAgentTargets_NonV1Excluded(t *testing.T) {
 	agents := DefaultAgentTargets()
 
-	// copilot, codex, etc. should NOT have agent paths in v1
-	for _, name := range []string{"copilot", "codex", "windsurf"} {
+	// codex requires Markdown->TOML conversion (handled via extension), windsurf
+	// has no native agent format. These should NOT have agent paths.
+	// copilot uses .agent.md natively, so it DOES have an agent path (see #184).
+	for _, name := range []string{"codex", "windsurf"} {
 		if _, ok := agents[name]; ok {
 			t.Errorf("%q should not be in DefaultAgentTargets (not v1 agent target)", name)
 		}
@@ -165,7 +167,8 @@ func TestProjectAgentTargets_V1TargetsHaveAgentPaths(t *testing.T) {
 func TestProjectAgentTargets_NonV1Excluded(t *testing.T) {
 	agents := ProjectAgentTargets()
 
-	for _, name := range []string{"copilot", "codex", "windsurf"} {
+	// copilot uses .agent.md natively and now has a project agent path (see #184).
+	for _, name := range []string{"codex", "windsurf"} {
 		if _, ok := agents[name]; ok {
 			t.Errorf("%q should not be in ProjectAgentTargets", name)
 		}

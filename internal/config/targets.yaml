@@ -95,6 +95,9 @@ targets:
     skills:
       global: "~/.copilot/skills"
       project: ".github/skills"
+    agents:
+      global: "~/.copilot/agents"
+      project: ".github/agents"
     aliases: [github-copilot]
   - name: crush
     skills:

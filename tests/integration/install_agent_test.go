@@ -234,6 +234,145 @@ targets: {}
 	}
 }
 
+// TestInstall_MixedRepo_SkillFlag_SkipsAgents guards issue #183: selecting a
+// specific skill with -s/--skill must not drag in the repo's agents.
+func TestInstall_MixedRepo_SkillFlag_SkipsAgents(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets: {}
+`)
+
+	// Mixed repo: two skills, one agent.
+	repoDir := filepath.Join(sb.Home, "mixed-skill-flag-repo")
+	for _, name := range []string{"skill-one", "skill-two"} {
+		os.MkdirAll(filepath.Join(repoDir, "skills", name), 0755)
+		os.WriteFile(filepath.Join(repoDir, "skills", name, "SKILL.md"),
+			[]byte("---\nname: "+name+"\n---\n# "+name), 0644)
+	}
+	os.MkdirAll(filepath.Join(repoDir, "agents"), 0755)
+	os.WriteFile(filepath.Join(repoDir, "agents", "my-agent.md"),
+		[]byte("# My Agent"), 0644)
+	initGitRepo(t, repoDir)
+
+	result := sb.RunCLI("install", "file://"+repoDir, "-s", "skill-one")
+	result.AssertSuccess(t)
+
+	// Selected skill installed.
+	if !sb.FileExists(filepath.Join(sb.SourcePath, "skill-one", "SKILL.md")) {
+		t.Error("skill-one should be installed")
+	}
+	// Non-selected skill not installed.
+	if sb.FileExists(filepath.Join(sb.SourcePath, "skill-two")) {
+		t.Error("skill-two should NOT be installed")
+	}
+	// Agent must NOT be installed (issue #183).
+	agentsDir := filepath.Join(filepath.Dir(sb.SourcePath), "agents")
+	if sb.FileExists(filepath.Join(agentsDir, "my-agent.md")) {
+		t.Error("agent should NOT be installed when scoping to a specific skill via -s")
+	}
+}
+
+// TestInstall_MixedRepo_SkillAndAgentFlag_InstallsOnlyNamedAgent guards that
+// -s skill-one -a agent-one installs only the named agent, not every agent in
+// the repo (issue #183 follow-up).
+func TestInstall_MixedRepo_SkillAndAgentFlag_InstallsOnlyNamedAgent(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets: {}
+`)
+
+	// Mixed repo: one skill, two agents.
+	repoDir := filepath.Join(sb.Home, "mixed-skill-agent-repo")
+	os.MkdirAll(filepath.Join(repoDir, "skills", "skill-one"), 0755)
+	os.WriteFile(filepath.Join(repoDir, "skills", "skill-one", "SKILL.md"),
+		[]byte("---\nname: skill-one\n---\n# skill-one"), 0644)
+	os.MkdirAll(filepath.Join(repoDir, "agents"), 0755)
+	os.WriteFile(filepath.Join(repoDir, "agents", "agent-one.md"),
+		[]byte("# Agent One"), 0644)
+	os.WriteFile(filepath.Join(repoDir, "agents", "agent-two.md"),
+		[]byte("# Agent Two"), 0644)
+	initGitRepo(t, repoDir)
+
+	result := sb.RunCLI("install", "file://"+repoDir, "-s", "skill-one", "-a", "agent-one")
+	result.AssertSuccess(t)
+
+	if !sb.FileExists(filepath.Join(sb.SourcePath, "skill-one", "SKILL.md")) {
+		t.Error("skill-one should be installed")
+	}
+	agentsDir := filepath.Join(filepath.Dir(sb.SourcePath), "agents")
+	// Named agent installed.
+	if !sb.FileExists(filepath.Join(agentsDir, "agent-one.md")) {
+		t.Error("agent-one should be installed")
+	}
+	// Unnamed agent NOT installed.
+	if sb.FileExists(filepath.Join(agentsDir, "agent-two.md")) {
+		t.Error("agent-two should NOT be installed when only agent-one is requested via -a")
+	}
+}
+
+// TestInstall_MixedRepo_AgentFlag_NotFoundFailsCleanly guards issue #183:
+// an unknown -a agent name must fail the whole install (non-zero exit) before
+// any skill is installed, rather than leaving a half-success.
+func TestInstall_MixedRepo_AgentFlag_NotFoundFailsCleanly(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets: {}
+`)
+
+	// Mixed repo: one skill, one agent.
+	repoDir := filepath.Join(sb.Home, "mixed-agent-notfound-repo")
+	os.MkdirAll(filepath.Join(repoDir, "skills", "skill-one"), 0755)
+	os.WriteFile(filepath.Join(repoDir, "skills", "skill-one", "SKILL.md"),
+		[]byte("---\nname: skill-one\n---\n# skill-one"), 0644)
+	os.MkdirAll(filepath.Join(repoDir, "agents"), 0755)
+	os.WriteFile(filepath.Join(repoDir, "agents", "agent-one.md"),
+		[]byte("# Agent One"), 0644)
+	initGitRepo(t, repoDir)
+
+	result := sb.RunCLI("install", "file://"+repoDir, "-s", "skill-one", "-a", "missing")
+	result.AssertFailure(t)
+	result.AssertAnyOutputContains(t, "agents not found: missing")
+
+	// No half-success: the skill must NOT be installed when the agent filter fails.
+	if sb.FileExists(filepath.Join(sb.SourcePath, "skill-one")) {
+		t.Error("skill-one should NOT be installed when the -a agent filter fails")
+	}
+}
+
+// TestInstall_SkillOnlyRepo_AgentFlag_NotFoundFailsCleanly guards issue #183:
+// -a against a repo with zero agents must fail (non-zero exit) before any skill
+// is installed — the agent filter asserts the agent exists.
+func TestInstall_SkillOnlyRepo_AgentFlag_NotFoundFailsCleanly(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets: {}
+`)
+
+	// Skill-only repo: no agents directory at all.
+	repoDir := filepath.Join(sb.Home, "skill-only-repo")
+	os.MkdirAll(filepath.Join(repoDir, "skills", "skill-one"), 0755)
+	os.WriteFile(filepath.Join(repoDir, "skills", "skill-one", "SKILL.md"),
+		[]byte("---\nname: skill-one\n---\n# skill-one"), 0644)
+	initGitRepo(t, repoDir)
+
+	result := sb.RunCLI("install", "file://"+repoDir, "-s", "skill-one", "-a", "missing")
+	result.AssertFailure(t)
+	result.AssertAnyOutputContains(t, "agents not found: missing")
+
+	// No half-success: the skill must NOT be installed.
+	if sb.FileExists(filepath.Join(sb.SourcePath, "skill-one")) {
+		t.Error("skill-one should NOT be installed when the -a agent filter fails")
+	}
+}
+
 func TestInstall_TrackAgentRepo_UsesTrackedRepoFlow(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()

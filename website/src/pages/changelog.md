@@ -9,6 +9,19 @@ All notable changes to skillshare are documented here. For the full commit histo
 
 ---
 
+## [0.20.3] - 2026-06-01
+
+### New Features
+
+- **Copilot CLI agents** — agents now sync to Copilot CLI alongside skills. Copilot uses the same `.agent.md` format Skillshare already manages, so `skillshare sync agents` symlinks your agents into `~/.copilot/agents` (global) and `.github/agents` (project) with no conversion:
+  ```bash
+  skillshare sync agents    # now includes copilot
+  ```
+
+### Bug Fixes
+
+- **Installing a specific skill no longer drags in every agent** — when installing from a repo that contains both skills and agents, `-s`/`--skill` now installs only the named skills (no agents), and `-s` with `-a`/`--agent` installs only the named agents. An unknown `-a` name fails the whole command up front, so automation never sees a half-completed install. `--all`/`--yes` still install everything.
+
 ## [0.20.2] - 2026-05-31
 
 ### New Features
