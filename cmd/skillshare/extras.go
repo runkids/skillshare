@@ -14,6 +14,10 @@ func cmdExtras(args []string) error {
 	switch sub {
 	case "init":
 		return cmdExtrasInit(rest)
+	case "add-target":
+		return cmdExtrasAddTarget(rest)
+	case "remove-target":
+		return cmdExtrasRemoveTarget(rest)
 	case "list", "ls":
 		return cmdExtrasList(rest)
 	case "remove", "rm":
@@ -42,12 +46,14 @@ func printExtrasHelp() {
 Manage non-skill resources (rules, commands, prompts, etc.).
 
 Commands:
-  init <name>        Create a new extra resource type
-  list               List all configured extras and sync status (interactive TUI)
-  remove <name>      Remove an extra resource type
-  collect <name>     Collect local files from a target into extras source
-  source [path]      Show or set the global extras_source directory
-  mode <name>        Change sync mode or flatten setting of an extra's target
+  init <name>           Create a new extra resource type
+  add-target <name>     Add a target to an existing extra
+  remove-target <name>  Remove a target from an existing extra
+  list                  List all configured extras and sync status (interactive TUI)
+  remove <name>         Remove an extra resource type
+  collect <name>        Collect local files from a target into extras source
+  source [path]         Show or set the global extras_source directory
+  mode <name>           Change sync mode or flatten setting of an extra's target
 
 Shortcuts:
   skillshare extras <name> --mode <mode>       Change sync mode
