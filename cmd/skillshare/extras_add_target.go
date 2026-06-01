@@ -69,7 +69,7 @@ func cmdExtrasAddTarget(args []string) error {
 	if targetPath == "" {
 		return fmt.Errorf("--target is required")
 	}
-	targetPath = filepath.Clean(targetPath)
+	targetPath = filepath.Clean(config.ExpandPath(targetPath))
 
 	if err := config.ValidateExtraMode(syncMode); err != nil {
 		return err

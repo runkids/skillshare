@@ -60,7 +60,7 @@ func cmdExtrasRemoveTarget(args []string) error {
 	if targetPath == "" {
 		return fmt.Errorf("--target is required")
 	}
-	targetPath = filepath.Clean(targetPath)
+	targetPath = filepath.Clean(config.ExpandPath(targetPath))
 
 	// Load config based on mode
 	var extras []config.ExtraConfig
