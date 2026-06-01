@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"time"
 
 	"skillshare/internal/config"
@@ -42,6 +43,9 @@ func cmdExtrasRemoveTarget(args []string) error {
 			printExtrasRemoveTargetHelp()
 			return nil
 		default:
+			if len(rest[i]) > 0 && rest[i][0] == '-' {
+				return fmt.Errorf("unexpected flag: %s", rest[i])
+			}
 			if name == "" {
 				name = rest[i]
 			} else {
@@ -56,6 +60,7 @@ func cmdExtrasRemoveTarget(args []string) error {
 	if targetPath == "" {
 		return fmt.Errorf("--target is required")
 	}
+	targetPath = filepath.Clean(targetPath)
 
 	// Load config based on mode
 	var extras []config.ExtraConfig
@@ -108,7 +113,9 @@ func cmdExtrasRemoveTarget(args []string) error {
 	// already-synced files in the target directory remain. Same contract as the
 	// HTTP DELETE handler.
 	ts := extras[extraIdx].Targets
-	extras[extraIdx].Targets = append(ts[:targetIdx], ts[targetIdx+1:]...)
+	copy(ts[targetIdx:], ts[targetIdx+1:])
+	ts[len(ts)-1] = config.ExtraTargetConfig{}
+	extras[extraIdx].Targets = ts[:len(ts)-1]
 
 	if err := saveFn(); err != nil {
 		return fmt.Errorf("failed to save config: %w", err)
