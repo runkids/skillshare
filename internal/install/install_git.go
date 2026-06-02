@@ -151,6 +151,22 @@ func cloneRepo(url, destPath, branch string, shallow bool, onProgress ProgressCa
 	return runGitCommandWithProgress(args, "", authEnv(url), onProgress)
 }
 
+// ShallowCloneToTemp clones cloneURL into a fresh temporary directory using a
+// shallow (depth 1) clone, injecting auth env for the URL. The caller owns the
+// returned directory and must remove it. branch may be empty to use the remote
+// default. On error the temp directory is removed and an empty path returned.
+func ShallowCloneToTemp(cloneURL, branch string) (string, error) {
+	dir, err := os.MkdirTemp("", "skillshare-clone-*")
+	if err != nil {
+		return "", err
+	}
+	if err := cloneRepo(cloneURL, dir, branch, true, nil); err != nil {
+		os.RemoveAll(dir)
+		return "", err
+	}
+	return dir, nil
+}
+
 // gitPull performs a git pull (quiet mode).
 // If the remote uses HTTPS and a token is available, it injects
 // authentication via GIT_CONFIG env vars (same mechanism as cloneRepo).

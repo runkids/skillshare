@@ -116,15 +116,23 @@ git add skillshare-hub.json && git commit -m "Update skill index"
 git push
 ```
 
-Teammates can search via the raw URL or clone locally:
+Teammates can search via the raw URL, over SSH, or by cloning locally:
 ```bash
 # Via raw URL
 skillshare search --hub https://raw.githubusercontent.com/team/skills/main/skillshare-hub.json
+
+# Over SSH — clones the repo and reads the index (no manual clone needed)
+skillshare search --hub git@github.com:team/skills.git
+skillshare search --hub git@ghe.corp.com:team/skills.git//hubs/team.json
 
 # Or clone and search locally
 git pull
 skillshare search --hub ./skillshare-hub.json
 ```
+
+:::tip Private & GitHub Enterprise repos
+SSH hub sources are cloned with your SSH agent/keys, so they work for private repos and GitHub Enterprise (GHE) hosts where raw HTTPS URLs redirect to a login page. The index path inside the repo comes from the `//path` suffix and defaults to `skillshare-hub.json` at the repo root. Both scp-style (`git@host:org/repo.git`) and scheme-style (`ssh://git@host/org/repo.git`) URLs work. Save it once with [`hub add`](../../reference/commands/hub.md#hub-add) to search by label instead.
+:::
 
 ## Web Dashboard
 
@@ -161,6 +169,10 @@ Use the dropdown to switch between multiple hub sources.
 </p>
 
 Click **Manage** to add, view, or remove hub sources. Enter a URL or local file path to a `skillshare-hub.json` file.
+
+:::note SSH hubs in the dashboard
+The dashboard only clones **saved** SSH hub sources. Add an SSH hub here (or via [`hub add`](../../reference/commands/hub.md#hub-add)) before searching it — the server will not clone an arbitrary SSH URL passed ad hoc.
+:::
 
 ### Delete Confirmation
 

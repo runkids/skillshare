@@ -14,6 +14,11 @@ import (
 	"skillshare/internal/install"
 )
 
+// defaultHubIndexFile is the index filename read from a cloned hub repo when
+// the SSH source does not specify a //path suffix. Matches the default output
+// of `skillshare hub index`.
+const defaultHubIndexFile = "skillshare-hub.json"
+
 type indexDocument struct {
 	SourcePath string       `json:"sourcePath"`
 	Skills     []indexSkill `json:"skills"`
@@ -108,6 +113,7 @@ func isRelativeSource(source string) bool {
 	if strings.HasPrefix(source, "/") ||
 		strings.HasPrefix(source, "~") ||
 		strings.HasPrefix(source, "git@") ||
+		strings.HasPrefix(source, "ssh://") ||
 		strings.HasPrefix(source, "http://") ||
 		strings.HasPrefix(source, "https://") ||
 		strings.HasPrefix(source, "file://") {
@@ -137,6 +143,13 @@ func loadIndex(indexURL string) (*indexDocument, error) {
 		return nil, fmt.Errorf("hub URL is required")
 	}
 
+	// SSH-style hub source (git@host:owner/repo.git[//path]): clone the repo
+	// shallowly and read the index file from it. Auth is handled by the user's
+	// SSH agent/keys, which works for private and enterprise (GHE) hosts.
+	if install.IsSSHURL(s) {
+		return loadIndexViaSSH(s)
+	}
+
 	if strings.HasPrefix(s, "http://") || strings.HasPrefix(s, "https://") {
 		client := &http.Client{Timeout: 15 * time.Second}
 		req, err := buildHubRequest(s)
@@ -162,6 +175,48 @@ func loadIndex(indexURL string) (*indexDocument, error) {
 	data, err := os.ReadFile(rawPath)
 	if err != nil {
 		return nil, err
+	}
+	var doc indexDocument
+	if err := json.Unmarshal(data, &doc); err != nil {
+		return nil, fmt.Errorf("parse hub: %w", err)
+	}
+	return &doc, nil
+}
+
+// loadIndexViaSSH resolves an scp-style SSH hub source by cloning the repo and
+// reading the index file. The index path within the repo is taken from the
+// //path suffix (e.g. git@host:org/repo.git//hubs/team.json); when absent it
+// defaults to skillshare-hub.json at the repo root.
+func loadIndexViaSSH(indexURL string) (*indexDocument, error) {
+	src, err := install.ParseSource(indexURL)
+	if err != nil {
+		return nil, fmt.Errorf("parse hub source: %w", err)
+	}
+	rel := strings.TrimSpace(src.Subdir)
+	if rel == "" {
+		rel = defaultHubIndexFile
+	}
+	return readIndexFromGitClone(src.CloneURL, rel)
+}
+
+// readIndexFromGitClone shallow-clones cloneURL into a temp dir, reads relPath
+// from the clone, and parses it as a hub index document. relPath must stay
+// within the repo (no absolute paths or parent traversal).
+func readIndexFromGitClone(cloneURL, relPath string) (*indexDocument, error) {
+	clean := filepath.Clean(relPath)
+	if filepath.IsAbs(clean) || clean == ".." || strings.HasPrefix(clean, ".."+string(filepath.Separator)) {
+		return nil, fmt.Errorf("invalid hub index path: %s", relPath)
+	}
+
+	dir, err := install.ShallowCloneToTemp(cloneURL, "")
+	if err != nil {
+		return nil, fmt.Errorf("clone hub repo: %w", err)
+	}
+	defer os.RemoveAll(dir)
+
+	data, err := os.ReadFile(filepath.Join(dir, clean))
+	if err != nil {
+		return nil, fmt.Errorf("read hub index %q from repo: %w", relPath, err)
 	}
 	var doc indexDocument
 	if err := json.Unmarshal(data, &doc); err != nil {

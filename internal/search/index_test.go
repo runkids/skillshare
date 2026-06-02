@@ -236,6 +236,7 @@ func TestIsRelativeSource(t *testing.T) {
 
 		// Remote URLs (should return false)
 		{"git@gitlab.com:team/repo.git//x", false},
+		{"ssh://git@ghe.corp.com/team/skills.git//x", false},
 		{"http://example.com/index.json", false},
 		{"https://gitlab.com/team/repo/x", false},
 		{"file:///path/x", false},

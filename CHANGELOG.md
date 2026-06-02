@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.20.4] - 2026-06-02
+
+### New Features
+
+#### SSH hub sources
+
+- **Fetch a hub index over SSH** — `skillshare search --hub` and `skillshare hub add` now accept SSH URLs, so a shared hub index can live in a private or GitHub Enterprise repo that teammates reach over SSH without cloning it first. Skillshare shallow-clones the repo with your SSH keys and reads the index from it:
+  ```bash
+  skillshare search react --hub git@ghe.corp.com:team/skills.git
+  skillshare hub add git@ghe.corp.com:team/skills.git//hubs/team.json --label ghe
+  ```
+  The index path inside the repo comes from the `//path` suffix and defaults to `skillshare-hub.json` at the repo root. Both scp-style (`git@host:org/repo.git`) and scheme-style (`ssh://git@host/org/repo.git`) URLs work. In the web dashboard, SSH hub sources must be saved first — the server only clones saved hubs.
+
 ## [0.20.3] - 2026-06-01
 
 ### New Features

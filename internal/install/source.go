@@ -55,6 +55,9 @@ var githubPattern = regexp.MustCompile(`^(?:https?://)?github\.com/([^/]+)/([^/]
 // Git SSH pattern: user@host:owner/repo[.git][//subdir]
 var gitSSHPattern = regexp.MustCompile(`^([^@:\s]+)@([^:\s]+):([^/]+)/(.+?)(?:\.git)?(?://(.+))?$`)
 
+// Git SSH URL with scheme: ssh://[user@]host[:port]/path[.git][//subdir]
+var sshURLPattern = regexp.MustCompile(`^ssh://(?:([^@/]+)@)?([^/:]+)(?::(\d+))?/(.+?)(?:\.git)?(?://(.+))?$`)
+
 // Git HTTPS pattern: https://host/path (flexible path for GitLab subgroups)
 var gitHTTPSPattern = regexp.MustCompile(`^(https?)://([^/]+)/(.+)$`)
 
@@ -81,6 +84,15 @@ var azureOnPremPattern = regexp.MustCompile(
 type ParseOptions struct {
 	GitLabHosts []string // extra hostnames to treat as GitLab (nested subgroup support)
 	AzureHosts  []string // extra hostnames to treat as Azure DevOps on-premises
+}
+
+// IsSSHURL reports whether input is an SSH URL — either scp-style
+// (git@host:owner/repo.git) or scheme-style (ssh://[user@]host[:port]/path),
+// optionally with a //subdir suffix. Such sources must be resolved by cloning
+// rather than a direct HTTP fetch or local read.
+func IsSSHURL(input string) bool {
+	s := strings.TrimSpace(input)
+	return strings.HasPrefix(s, "ssh://") || gitSSHPattern.MatchString(s)
 }
 
 // ParseSource analyzes the input string and returns a Source struct.
@@ -137,6 +149,11 @@ func ParseSourceWithOptions(input string, opts ParseOptions) (*Source, error) {
 		return parseGitHub(matches, source)
 	}
 
+	// Try Git SSH URL with scheme (ssh://...)
+	if matches := sshURLPattern.FindStringSubmatch(input); matches != nil {
+		return parseSSHURL(matches, source)
+	}
+
 	// Try Git SSH pattern
 	if matches := gitSSHPattern.FindStringSubmatch(input); matches != nil {
 		return parseGitSSH(matches, source)
@@ -179,6 +196,7 @@ func expandGitHubShorthand(input string) string {
 	if strings.HasPrefix(input, "github.com/") ||
 		strings.HasPrefix(input, "http://") ||
 		strings.HasPrefix(input, "https://") ||
+		strings.HasPrefix(input, "ssh://") ||
 		gitSSHPattern.MatchString(input) ||
 		strings.HasPrefix(input, "file://") ||
 		isLocalPath(input) {
@@ -317,6 +335,39 @@ func parseGitSSH(matches []string, source *Source) (*Source, error) {
 		source.Name = filepath.Base(subdir)
 	} else {
 		source.Name = filepath.Base(repo)
+	}
+
+	return source, nil
+}
+
+func parseSSHURL(matches []string, source *Source) (*Source, error) {
+	// matches: [full, user, host, port, repoPath, subdir]
+	user := matches[1]
+	host := matches[2]
+	port := matches[3]
+	repoPath := strings.TrimSuffix(matches[4], ".git")
+	subdir := ""
+	if len(matches) > 5 {
+		subdir = matches[5]
+	}
+
+	source.Type = SourceTypeGitSSH
+
+	hostPart := host
+	if port != "" {
+		hostPart = host + ":" + port
+	}
+	userPart := ""
+	if user != "" {
+		userPart = user + "@"
+	}
+	source.CloneURL = fmt.Sprintf("ssh://%s%s/%s.git", userPart, hostPart, repoPath)
+
+	if subdir != "" {
+		source.Subdir = subdir
+		source.Name = filepath.Base(subdir)
+	} else {
+		source.Name = filepath.Base(repoPath)
 	}
 
 	return source, nil
