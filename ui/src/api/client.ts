@@ -559,6 +559,16 @@ export const api = {
         ...(extension !== undefined && { extension }),
       }),
     }),
+  addExtraTarget: (name: string, target: { path: string; mode?: string; flatten?: boolean }) =>
+    apiFetch<{ success: boolean }>(`/extras/${encodeURIComponent(name)}/targets`, {
+      method: 'POST',
+      body: JSON.stringify(target),
+    }),
+  removeExtraTarget: (name: string, path: string) =>
+    apiFetch<{ success: boolean }>(`/extras/${encodeURIComponent(name)}/targets`, {
+      method: 'DELETE',
+      body: JSON.stringify({ path }),
+    }),
 
   // Log
   listLog: (type?: string, limit?: number, filters?: { cmd?: string; status?: string; since?: string }) => {
