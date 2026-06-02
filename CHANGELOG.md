@@ -22,6 +22,10 @@
   ```
   Removing a target leaves already-synced files in place by default. Add `--prune` to also delete the skillshare-managed files under that target — in merge mode only symlinks are removed, so your own files are preserved. Removing the last remaining target is rejected (use `extras remove <name>` for the whole extra). The web dashboard's Extras page gains matching per-target add/remove controls.
 
+### Bug Fixes
+
+- Fixed extension downloads in the web dashboard's Config page clearing each other's progress — starting a second download no longer wipes the first one's loading spinner; each download now tracks its own state.
+
 ### Breaking Changes
 
 - **Removed the `extras mode` subcommand** — change a target's sync mode or flatten setting with the `extras <name>` shorthand instead (same behavior, one less command):
