@@ -1595,3 +1595,68 @@ func TestAudit_SkillsTerminology(t *testing.T) {
 	result.AssertOutputNotContains(t, "agent(s)")
 	result.AssertOutputNotContains(t, "Scanned:   1 agent")
 }
+
+// TestAudit_TrackedHubRepo_SkillIgnoreRespected is a regression test for the bug
+// where the raw os.ReadDir fallback pass in collectInstalledSkillPaths bypassed
+// .skillignore for _-prefixed tracked hub repos, causing the repo dir itself to
+// appear as an extra skill in the audit scan.
+//
+// Before the fix: Scanned count would be 2 (_myhub + _myhub__real-skill).
+// After the fix:  Scanned count is 1 (only _myhub__real-skill).
+func TestAudit_TrackedHubRepo_SkillIgnoreRespected(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	// Simulate a tracked hub repo installed under a _-prefixed directory.
+	repoDir := filepath.Join(sb.SourcePath, "_myhub")
+	os.MkdirAll(filepath.Join(repoDir, ".git"), 0755)
+	os.WriteFile(filepath.Join(repoDir, ".skillignore"), []byte("README.md\nscripts/\n"), 0644)
+
+	// A real skill inside the hub — should be scanned.
+	os.MkdirAll(filepath.Join(repoDir, "real-skill"), 0755)
+	os.WriteFile(filepath.Join(repoDir, "real-skill", "SKILL.md"),
+		[]byte("---\nname: real-skill\n---\n# Real skill\nFollow best practices."), 0644)
+
+	// Files/dirs excluded by .skillignore — must not be treated as skills.
+	os.WriteFile(filepath.Join(repoDir, "README.md"), []byte("# Hub readme"), 0644)
+	os.MkdirAll(filepath.Join(repoDir, "scripts"), 0755)
+	os.WriteFile(filepath.Join(repoDir, "scripts", "setup.sh"), []byte("#!/bin/sh\n"), 0644)
+
+	sb.WriteConfig(`source: ` + sb.SourcePath + "\ntargets: {}\n")
+
+	result := sb.RunCLI("audit", "--no-tui")
+	result.AssertSuccess(t)
+
+	// Only the one real skill should have been scanned.
+	result.AssertAnyOutputContains(t, "Scanned:   1")
+
+	// The hub dir itself must not appear as a scanned skill.
+	result.AssertOutputNotContains(t, "Scanned:   2")
+}
+
+// TestAudit_TrackedHubRepo_PlainSkillsStillIncluded ensures the fallback pass
+// still picks up plain top-level skill dirs that are not inside a tracked repo.
+func TestAudit_TrackedHubRepo_PlainSkillsStillIncluded(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	// A plain top-level skill (no _-prefix).
+	sb.CreateSkill("plain-skill", map[string]string{
+		"SKILL.md": "---\nname: plain-skill\n---\n# Safe skill\nFollow best practices.",
+	})
+
+	// A tracked hub repo with one skill.
+	repoDir := filepath.Join(sb.SourcePath, "_myhub")
+	os.MkdirAll(filepath.Join(repoDir, ".git"), 0755)
+	os.MkdirAll(filepath.Join(repoDir, "hub-skill"), 0755)
+	os.WriteFile(filepath.Join(repoDir, "hub-skill", "SKILL.md"),
+		[]byte("---\nname: hub-skill\n---\n# Hub skill\nFollow best practices."), 0644)
+
+	sb.WriteConfig(`source: ` + sb.SourcePath + "\ntargets: {}\n")
+
+	result := sb.RunCLI("audit", "--no-tui")
+	result.AssertSuccess(t)
+
+	// Both the plain skill and the hub skill should be scanned.
+	result.AssertAnyOutputContains(t, "Scanned:   2")
+}

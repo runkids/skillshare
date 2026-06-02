@@ -436,8 +436,8 @@ func collectInstalledSkillPaths(sourcePath string) ([]auditSkillRef, error) {
 
 	entries, _ := os.ReadDir(sourcePath)
 	for _, e := range entries {
-		if !e.IsDir() || utils.IsHidden(e.Name()) {
-			continue
+		if !e.IsDir() || utils.IsHidden(e.Name()) || utils.IsTrackedRepoDir(e.Name()) {
+			continue  // tracked hub repos already handled by DiscoverSourceSkillsLite
 		}
 		p := filepath.Join(sourcePath, e.Name())
 		if !seen[p] {
