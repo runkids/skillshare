@@ -61,6 +61,8 @@ skillshare extras remove rules                       # Remove from config (sourc
 skillshare extras init agents --target ~/.claude/agents --flatten  # Flatten subdirs into root
 skillshare extras rules --mode copy                  # Change sync mode of a target
 skillshare extras agents --flatten                   # Enable flatten on existing target
+skillshare extras rules --add-target ~/.cursor/rules            # Add a target to an existing extra
+skillshare extras rules --remove-target ~/.cursor/rules --prune # Remove a target (--prune deletes synced files)
 skillshare sync extras                               # Sync all extras to targets
 skillshare sync extras --dry-run --force             # Preview / overwrite conflicts
 skillshare sync --all                                # Sync skills + extras together
@@ -162,7 +164,7 @@ See [TROUBLESHOOTING.md](references/TROUBLESHOOTING.md) for more.
 | `sync`, `collect` | ✓ (auto) | ✓ |
 | `install`, `uninstall`, `update`, `check`, `search`, `new` | ✓ (`-p`) | ✓ (except new) |
 | `target`, `audit`, `analyze`, `trash`, `log`, `hub` | ✓ (`-p`) | ✓ (target list, audit, analyze, log) |
-| `extras init/list/remove/collect/source/mode` | ✓ (`-p`, except source) | ✓ (list, mode) |
+| `extras init/list/remove/collect/source` (+ `--mode`/`--add-target`/`--remove-target` flags on `extras <name>`) | ✓ (`-p`, except source) | ✓ (list, mode, targets) |
 | `enable`, `disable` | ✓ (auto) | ✗ |
 | `commit`, `push`, `pull`, `backup`, `restore` | ✗ | ✗ |
 | `tui`, `upgrade` | ✗ | ✗ |
