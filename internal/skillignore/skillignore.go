@@ -286,46 +286,73 @@ func matchRule(r rule, p string) bool {
 // Handles ** (zero or more directories), and per-segment globs via path.Match.
 // Uses memoization to avoid exponential backtracking on multiple consecutive ** segments.
 func matchSegments(pat, p []string) bool {
-	type key struct{ pi, pp int }
+	hasGlobstar := false
+	for _, seg := range pat {
+		if seg == "**" {
+			hasGlobstar = true
+			break
+		}
+	}
+
+	if !hasGlobstar {
+		if len(pat) != len(p) {
+			return false
+		}
+		for i := range pat {
+			matched, _ := path.Match(pat[i], p[i])
+			if !matched {
+				return false
+			}
+		}
+		return true
+	}
+
+	type key struct {
+		pi int
+		pp int
+	}
 	memo := make(map[key]bool)
+
 	var match func(pi, pp int) bool
 	match = func(pi, pp int) bool {
-		k := key{pi, pp}
+		k := key{pi: pi, pp: pp}
 		if v, ok := memo[k]; ok {
 			return v
 		}
-		var result bool
-		defer func() { memo[k] = result }()
 
 		for pi < len(pat) && pp < len(p) {
 			if pat[pi] == "**" {
 				if pi == len(pat)-1 {
-					result = true
+					memo[k] = true
 					return true
 				}
 				for skip := pp; skip <= len(p); skip++ {
 					if match(pi+1, skip) {
-						result = true
+						memo[k] = true
 						return true
 					}
 				}
-				result = false
+				memo[k] = false
 				return false
 			}
 			matched, _ := path.Match(pat[pi], p[pp])
 			if !matched {
-				result = false
+				memo[k] = false
 				return false
 			}
 			pi++
 			pp++
 		}
+
 		for pi < len(pat) && pat[pi] == "**" {
 			pi++
 		}
-		result = pi == len(pat) && pp == len(p)
-		return result
+
+		res := pi == len(pat) && pp == len(p)
+		memo[k] = res
+		return res
 	}
+
 	return match(0, 0)
 }
 
