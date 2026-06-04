@@ -116,6 +116,18 @@ When both the env var and config file [`azure_hosts`](/docs/reference/targets/co
 
 ---
 
+### SKILLSHARE_NO_TUI
+
+Disable interactive TUI mode without modifying the config file. Set to `1`, `true`, or `yes` (case-insensitive).
+
+```bash
+SKILLSHARE_NO_TUI=1 skillshare list
+```
+
+**Default:** _(none — uses config file `tui` setting)_
+
+---
+
 ## Web UI
 
 ### SKILLSHARE_UI_BASE_PATH
@@ -379,6 +391,7 @@ export GITHUB_TOKEN="ghp_your_token_here"
 | `SKILLSHARE_UI_BASE_PATH` | Web UI sub-path for reverse proxy | None |
 | `SKILLSHARE_GITLAB_HOSTS` | Custom GitLab hostnames (comma-separated) | None |
 | `SKILLSHARE_AZURE_HOSTS` | Custom Azure DevOps Server hostnames (comma-separated) | None |
+| `SKILLSHARE_NO_TUI` | Disable interactive TUI mode (`1`, `true`, or `yes`) | None |
 | `XDG_CONFIG_HOME` | Base config directory | `~/.config` (Linux/macOS), `%AppData%` (Windows) |
 | `XDG_DATA_HOME` | Data directory (backups, trash) | `~/.local/share` |
 | `XDG_STATE_HOME` | State directory (logs) | `~/.local/state` |

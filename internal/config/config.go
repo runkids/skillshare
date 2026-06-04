@@ -429,11 +429,23 @@ func (c *Config) EffectiveAzureHosts() []string {
 
 // IsTUIEnabled reports whether interactive TUI is enabled.
 // nil (absent from config) is treated as true for backward compatibility.
+// The SKILLSHARE_NO_TUI environment variable can override this: when set
+// to "1", "true", or "yes" (case-insensitive, whitespace-trimmed), TUI is
+// disabled without modifying the config file.
 func (c *Config) IsTUIEnabled() bool {
+	if envNoTUI() {
+		return false
+	}
 	if c.TUI == nil {
 		return true
 	}
 	return *c.TUI
+}
+
+// envNoTUI checks the SKILLSHARE_NO_TUI environment variable.
+func envNoTUI() bool {
+	v := strings.ToLower(strings.TrimSpace(os.Getenv("SKILLSHARE_NO_TUI")))
+	return v == "1" || v == "true" || v == "yes"
 }
 
 const defaultAuditBlockThreshold = "CRITICAL"

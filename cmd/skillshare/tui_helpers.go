@@ -12,7 +12,8 @@ import (
 )
 
 // shouldLaunchTUI determines whether to launch interactive TUI.
-// Priority: --no-tui flag (force off) > config tui field > default (true).
+// Priority: --no-tui flag (force off) > SKILLSHARE_NO_TUI env var
+// > config tui field > default (true).
 // Pass cfg if already loaded; pass nil to auto-load best-effort.
 func shouldLaunchTUI(noTUI bool, cfg *config.Config) bool {
 	if noTUI {
