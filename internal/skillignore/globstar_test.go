@@ -32,7 +32,7 @@ func TestRepeatedGlobstarDoesNotBacktrackExponentially(t *testing.T) {
 			t.Error("expected false: path has no segment '0'")
 		}
 	case <-time.After(5 * time.Second):
-		t.Fatal("Match with multiple ** segments hung — exponential backtracking regression")
+		t.Fatal("Match with multiple ** segments hung: exponential backtracking regression")
 	}
 }
 
