@@ -284,36 +284,49 @@ func matchRule(r rule, p string) bool {
 
 // matchSegments recursively matches pattern segments against path segments.
 // Handles ** (zero or more directories), and per-segment globs via path.Match.
+// Uses memoization to avoid exponential backtracking on multiple consecutive ** segments.
 func matchSegments(pat, p []string) bool {
-	pi, pp := 0, 0
-	for pi < len(pat) && pp < len(p) {
-		if pat[pi] == "**" {
-			// ** at end of pattern matches everything remaining
-			if pi == len(pat)-1 {
-				return true
-			}
-			// Try matching ** as zero or more segments
-			for skip := pp; skip <= len(p); skip++ {
-				if matchSegments(pat[pi+1:], p[skip:]) {
+	type key struct{ pi, pp int }
+	memo := make(map[key]bool)
+	var match func(pi, pp int) bool
+	match = func(pi, pp int) bool {
+		k := key{pi, pp}
+		if v, ok := memo[k]; ok {
+			return v
+		}
+		var result bool
+		defer func() { memo[k] = result }()
+
+		for pi < len(pat) && pp < len(p) {
+			if pat[pi] == "**" {
+				if pi == len(pat)-1 {
+					result = true
 					return true
 				}
+				for skip := pp; skip <= len(p); skip++ {
+					if match(pi+1, skip) {
+						result = true
+						return true
+					}
+				}
+				result = false
+				return false
 			}
-			return false
+			matched, _ := path.Match(pat[pi], p[pp])
+			if !matched {
+				result = false
+				return false
+			}
+			pi++
+			pp++
 		}
-		ok, _ := path.Match(pat[pi], p[pp])
-		if !ok {
-			return false
+		for pi < len(pat) && pat[pi] == "**" {
+			pi++
 		}
-		pi++
-		pp++
+		result = pi == len(pat) && pp == len(p)
+		return result
 	}
-
-	// Handle trailing ** in pattern
-	for pi < len(pat) && pat[pi] == "**" {
-		pi++
-	}
-
-	return pi == len(pat) && pp == len(p)
+	return match(0, 0)
 }
 
 // --- Deprecated API (backward compatibility) ---
