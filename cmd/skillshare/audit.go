@@ -465,6 +465,15 @@ func resolveSkillPath(sourcePath, name string) string {
 	return ""
 }
 
+// crossSkillDisabledIDs returns the rule IDs disabled via audit-rules.yaml for
+// the active mode, so cross-skill findings honour disabled rules.
+func crossSkillDisabledIDs(projectRoot string) map[string]bool {
+	if projectRoot != "" {
+		return audit.DisabledRuleIDsForProject(projectRoot)
+	}
+	return audit.DisabledRuleIDs()
+}
+
 func scanSkillPath(skillPath, projectRoot string, registry *audit.Registry) (*audit.Result, error) {
 	if registry != nil {
 		if projectRoot != "" {
@@ -639,7 +648,7 @@ func auditInstalled(sourcePath, agentsSourcePath, mode, projectRoot, threshold s
 	summary.ScanErrors = scanErrors
 
 	// Cross-skill analysis (after summary so counts are unaffected).
-	if xr := audit.CrossSkillAnalysis(results); xr != nil {
+	if xr := audit.CrossSkillAnalysis(results, crossSkillDisabledIDs(projectRoot)); xr != nil {
 		results = append(results, xr)
 		elapsed = append(elapsed, 0) // synthetic result has no scan time
 	}
@@ -792,7 +801,7 @@ func auditFiltered(sourcePath, agentsSourcePath string, names, groups []string, 
 	summary.ScanErrors = scanErrors
 
 	// Cross-skill analysis (after summary so counts are unaffected).
-	if xr := audit.CrossSkillAnalysis(results); xr != nil {
+	if xr := audit.CrossSkillAnalysis(results, crossSkillDisabledIDs(projectRoot)); xr != nil {
 		results = append(results, xr)
 		elapsed = append(elapsed, 0) // synthetic result has no scan time
 	}

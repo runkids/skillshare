@@ -84,7 +84,7 @@ func (s *Server) handleAuditStream(w http.ResponseWriter, r *http.Request) {
 	wg.Wait()   // wait for it to fully exit before writing to w
 
 	// 4. Process results
-	agg := processAuditResults(skills, outputs, policy)
+	agg := processAuditResults(skills, outputs, policy, projectRoot)
 	for i := range agg.Results {
 		agg.Results[i].Kind = resultKind
 	}

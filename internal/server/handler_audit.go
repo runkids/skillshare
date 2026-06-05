@@ -135,7 +135,9 @@ type auditAggregation struct {
 }
 
 // processAuditResults aggregates scan outputs into results, summary, and log args.
-func processAuditResults(skills []skillEntry, scanned []audit.ScanOutput, policy audit.Policy) auditAggregation {
+// projectRoot selects which audit-rules.yaml layers apply to cross-skill findings
+// ("" = global mode).
+func processAuditResults(skills []skillEntry, scanned []audit.ScanOutput, policy audit.Policy, projectRoot string) auditAggregation {
 	threshold := policy.Threshold
 	var results []auditResultResponse
 	var rawResults []*audit.Result
@@ -261,7 +263,11 @@ func processAuditResults(skills []skillEntry, scanned []audit.ScanOutput, policy
 		args["info_skills"] = infoSkills
 	}
 	// Cross-skill analysis (after summary so counts are unaffected).
-	if xr := audit.CrossSkillAnalysis(rawResults); xr != nil {
+	disabled := audit.DisabledRuleIDs()
+	if projectRoot != "" {
+		disabled = audit.DisabledRuleIDsForProject(projectRoot)
+	}
+	if xr := audit.CrossSkillAnalysis(rawResults, disabled); xr != nil {
 		results = append(results, toAuditResponse(xr))
 	}
 
@@ -323,7 +329,7 @@ func (s *Server) handleAuditAll(w http.ResponseWriter, r *http.Request) {
 	}
 	scanned := audit.ParallelScan(inputs, auditProjectRoot, nil, nil)
 
-	agg := processAuditResults(skills, scanned, policy)
+	agg := processAuditResults(skills, scanned, policy, auditProjectRoot)
 	for i := range agg.Results {
 		agg.Results[i].Kind = resultKind
 	}
