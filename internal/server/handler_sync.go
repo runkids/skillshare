@@ -192,12 +192,19 @@ func (s *Server) handleSync(w http.ResponseWriter, r *http.Request) {
 					continue
 				}
 
-				agentMode := target.AgentsConfig().Mode
+				ac := target.AgentsConfig()
+				agentMode := ac.Mode
 				if agentMode == "" {
 					agentMode = "merge"
 				}
 
-				agentResult, err := ssync.SyncAgents(agents, agentsSource, agentPath, agentMode, body.DryRun, body.Force)
+				filtered, filterErr := ssync.FilterAgents(agents, ac.Include, ac.Exclude)
+				if filterErr != nil {
+					warnings = append(warnings, "invalid agent filter for "+name+": "+filterErr.Error())
+					continue
+				}
+
+				agentResult, err := ssync.SyncAgents(filtered, agentsSource, agentPath, agentMode, body.DryRun, body.Force)
 				if err != nil {
 					warnings = append(warnings, "agent sync failed for "+name+": "+err.Error())
 					continue
@@ -207,9 +214,9 @@ func (s *Server) handleSync(w http.ResponseWriter, r *http.Request) {
 				// matches skills and clears previously synced target entries.
 				var pruned []string
 				if agentMode == "merge" {
-					pruned, _ = ssync.PruneOrphanAgentLinks(agentPath, agents, body.DryRun)
+					pruned, _ = ssync.PruneOrphanAgentLinks(agentPath, filtered, body.DryRun)
 				} else if agentMode == "copy" {
-					pruned, _ = ssync.PruneOrphanAgentCopies(agentPath, agents, body.DryRun)
+					pruned, _ = ssync.PruneOrphanAgentCopies(agentPath, filtered, body.DryRun)
 				}
 
 				// Find or create result entry for this target
