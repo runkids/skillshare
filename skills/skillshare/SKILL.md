@@ -48,6 +48,7 @@ skillshare sync                                  # Always sync after install
 ### Extras (Rules, Commands, Prompts)
 ```bash
 skillshare extras init rules --target ~/.claude/rules --target ~/.cursor/rules
+skillshare extras init commands --target claude --target cursor --target codex
 skillshare extras init commands --target ~/.claude/commands --mode copy
 skillshare extras init rules --target ~/.claude/rules --source ~/shared/rules  # custom source (global only)
 skillshare extras init rules --target ~/.cursor/rules --force                  # overwrite existing
