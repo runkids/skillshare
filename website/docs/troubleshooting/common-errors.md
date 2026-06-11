@@ -221,6 +221,24 @@ mv <old-scope>/.git <new-scope>/.git
 #   git_root: <scope-that-has-the-repo>
 ```
 
+### `tracked repository clone is missing`
+
+**Cause:** A tracked repo is declared in `.metadata.json`, but the clone directory (for example `skills/_team-skills/`) is missing locally. This often happens after cloning your skillshare source repo on a new machine because tracked repo directories are intentionally listed in the managed `.gitignore` block.
+
+**Solution:** Rehydrate the missing tracked repo clones from metadata:
+```bash
+skillshare install
+skillshare sync
+```
+
+For project mode:
+```bash
+skillshare install -p
+skillshare sync -p
+```
+
+`status`, `check`, `update --all`, and `doctor` report this state and suggest `skillshare install`.
+
 ### `nested git repositories must be disabled first`
 
 **Cause:** With `git_root: root`, a subdirectory (e.g. a tracked skill repo under `skills/_org/`) has its own `.git`. Git would upload it as an **empty submodule**, silently dropping its files, so `commit`/`push` abort until each nested repo is disabled.

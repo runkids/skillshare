@@ -48,6 +48,8 @@ type statusJSONRepo struct {
 	Name       string `json:"name"`
 	SkillCount int    `json:"skill_count"`
 	Dirty      bool   `json:"dirty"`
+	Status     string `json:"status,omitempty"`
+	Message    string `json:"message,omitempty"`
 }
 
 type statusJSONTarget struct {
@@ -319,6 +321,8 @@ func extractTrackedRepos(sourcePath string) []string {
 func buildTrackedRepoJSON(sourcePath string, trackedRepos []string, discovered []sync.DiscoveredSkill) []statusJSONRepo {
 	results := make([]statusJSONRepo, len(trackedRepos))
 
+	missingRepos, _ := install.GetMissingTrackedRepos(sourcePath)
+
 	// Count skills per repo (single pass). A tracked repo may surface skills
 	// at the repo root (RelPath equals the repo name, no slash) or nested
 	// (RelPath has the form "<repo>/..."), so both shapes must be counted.
@@ -350,6 +354,14 @@ func buildTrackedRepoJSON(sourcePath string, trackedRepos []string, discovered [
 		}(i, repoName)
 	}
 	wg.Wait()
+
+	for _, repo := range missingRepos {
+		results = append(results, statusJSONRepo{
+			Name:    repo.Name,
+			Status:  "missing",
+			Message: missingTrackedRepoMessage(repo.Name),
+		})
+	}
 	return results
 }
 

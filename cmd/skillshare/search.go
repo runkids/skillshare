@@ -714,7 +714,8 @@ func looksLikeURLOrPath(v string) bool {
 		strings.HasPrefix(v, "/") ||
 		strings.HasPrefix(v, "./") ||
 		strings.HasPrefix(v, "../") ||
-		strings.HasPrefix(v, "~")
+		strings.HasPrefix(v, "~") ||
+		install.IsSSHURL(v)
 }
 
 // loadHubConfig loads the HubConfig from the appropriate config, returning

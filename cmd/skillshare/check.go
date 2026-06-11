@@ -266,13 +266,17 @@ func runCheck(sourceDir string, jsonOutput bool, extraTargetNames []string) erro
 	if err != nil {
 		repos = nil
 	}
+	missingRepos, err := install.GetMissingTrackedRepos(sourceDir)
+	if err != nil {
+		missingRepos = nil
+	}
 
 	skills, err := install.GetUpdatableSkills(sourceDir)
 	if err != nil {
 		skills = nil
 	}
 
-	if len(repos) == 0 && len(skills) == 0 {
+	if len(repos) == 0 && len(missingRepos) == 0 && len(skills) == 0 {
 		if scanSpinner != nil {
 			scanSpinner.Stop()
 		}
@@ -344,6 +348,13 @@ func runCheck(sourceDir string, jsonOutput bool, extraTargetNames []string) erro
 
 	// Convert repo outputs
 	repoResults := toRepoResults(repoOutputs)
+	for _, repo := range missingRepos {
+		repoResults = append(repoResults, checkRepoResult{
+			Name:    repo.Name,
+			Status:  "missing",
+			Message: missingTrackedRepoMessage(repo.Name),
+		})
+	}
 
 	// Broadcast URL results to grouped skills (with per-skill tree hash comparison)
 	urlHashMap := make(map[string]check.URLCheckOutput)
@@ -410,6 +421,12 @@ func renderCheckResults(repoResults []checkRepoResult, skillResults []checkSkill
 				hasRepoOutput = true
 			}
 			ui.ListItem("error", r.Name, fmt.Sprintf("error: %s", r.Message))
+		case "missing":
+			if !hasRepoOutput {
+				fmt.Println()
+				hasRepoOutput = true
+			}
+			ui.ListItem("warning", r.Name, r.Message)
 		}
 	}
 

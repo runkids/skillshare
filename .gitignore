@@ -60,3 +60,4 @@ MEMORY.md
 .spectra/
 openspec/.vector-search.db*
 .spectra.yaml
+/specs/

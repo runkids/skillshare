@@ -110,8 +110,10 @@ func executeBatchUpdate(uc *updateContext, targets []updateTarget) (updateResult
 			if isSecurityError(err) {
 				result.securityFailed++
 				blockedEntries = append(blockedEntries, batchBlockedEntry{name: t.name, errMsg: err.Error()})
+				result.items = append(result.items, updateJSONItem{Name: t.name, Type: "repo", Status: "security_blocked", Error: err.Error()})
 			} else {
 				result.skipped++
+				result.items = append(result.items, updateJSONItem{Name: t.name, Type: "repo", Status: "skipped", Error: updateTrackedRepoErrorMessage(t, err)})
 			}
 		} else if updated {
 			result.updated++

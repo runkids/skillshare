@@ -146,6 +146,29 @@ When a short name matches multiple skills, skillshare asks you to be more specif
 Please specify the full path
 ```
 
+### enable / disable
+
+Folders make it easy to toggle a whole category on or off at once. `disable`/`enable` accept glob patterns, so point one at the folder:
+
+```bash
+# Disable every skill under frontend/ (any depth)
+skillshare disable "frontend/**"
+
+# Re-enable the whole folder with the same pattern
+skillshare enable "frontend/**"
+
+# Apply to targets
+skillshare sync
+```
+
+This writes a single `frontend/**` line to `.skillignore` and keeps covering anything you add to the folder later. To toggle individual skills instead, pass their names (`skillshare disable frontend/react/react-best-practices`).
+
+:::tip Quote the pattern
+Wrap folder patterns in quotes (`"frontend/**"`) so your shell doesn't expand `*` first.
+:::
+
+See [enable / disable](/docs/reference/commands/enable) and [.skillignore syntax](/docs/reference/filtering#skillignore) for details.
+
 ---
 
 ## Install Directly into Folders

@@ -202,7 +202,7 @@ func TestSyncExtraTransform_GeneratesRenamedFiles(t *testing.T) {
 	}
 }
 
-func TestSyncExtraTransform_PrunesGeneratedOrphans(t *testing.T) {
+func TestSyncExtraTransform_PreservesGeneratedOrphansWithoutOwnership(t *testing.T) {
 	dir := t.TempDir()
 	srcDir := filepath.Join(dir, "src")
 	if err := os.MkdirAll(srcDir, 0755); err != nil {
@@ -227,11 +227,11 @@ func TestSyncExtraTransform_PrunesGeneratedOrphans(t *testing.T) {
 	if _, statErr := os.Stat(filepath.Join(tgtDir, "a.toml")); statErr != nil {
 		t.Errorf("expected a.toml to exist (not pruned): %v", statErr)
 	}
-	if _, statErr := os.Stat(filepath.Join(tgtDir, "old.toml")); !os.IsNotExist(statErr) {
-		t.Errorf("expected old.toml to be pruned")
+	if _, statErr := os.Stat(filepath.Join(tgtDir, "old.toml")); statErr != nil {
+		t.Errorf("old.toml must be preserved without ownership metadata: %v", statErr)
 	}
-	if res.Pruned != 1 {
-		t.Errorf("Pruned = %d, want 1", res.Pruned)
+	if res.Pruned != 0 {
+		t.Errorf("Pruned = %d, want 0", res.Pruned)
 	}
 }
 

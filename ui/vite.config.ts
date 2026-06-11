@@ -20,6 +20,14 @@ export default defineConfig({
   server: {
     host: true,
     port: 5173,
+    // inotify events are unreliable over the devcontainer's virtiofs mount, so
+    // file saves are sometimes silently missed and HMR doesn't fire. Poll for
+    // changes when CHOKIDAR_USEPOLLING is set (the devcontainer sets it); the
+    // host and CI keep faster native watching.
+    watch:
+      process.env.CHOKIDAR_USEPOLLING === 'true'
+        ? { usePolling: true, interval: 300 }
+        : undefined,
     proxy: {
       '/api/audit/stream': SSE_PROXY,
       '/api/update/stream': SSE_PROXY,

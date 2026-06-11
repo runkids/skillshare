@@ -490,6 +490,17 @@ func disabledIDsGlobal() map[string]bool {
 	return disabledGlobalResult
 }
 
+// DisabledRuleIDs returns the set of rule IDs disabled (enabled: false) in
+// global mode. Used by callers (cmd, server) that build cross-skill findings
+// outside the scan pipeline and must honour audit-rules.yaml.
+func DisabledRuleIDs() map[string]bool { return disabledIDsGlobal() }
+
+// DisabledRuleIDsForProject returns the set of rule IDs disabled in project
+// mode (builtin + global user + project user overrides).
+func DisabledRuleIDsForProject(projectRoot string) map[string]bool {
+	return disabledIDsForProject(projectRoot)
+}
+
 // disabledIDsForProject returns IDs disabled in project mode
 // (builtin + global user + project user overrides).
 func disabledIDsForProject(projectRoot string) map[string]bool {

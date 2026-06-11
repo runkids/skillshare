@@ -110,7 +110,8 @@ func SyncExtra(sourcePath, targetPath, mode string, dryRun, force, flatten bool,
 
 // syncExtraTransform applies an extension to every source file and writes the
 // transformed output into targetPath using copy semantics. Output files are
-// renamed per spec.OutputExt. Orphan generated files are pruned.
+// renamed per spec.OutputExt. It does not prune output-looking orphans because
+// copy targets do not carry ownership metadata.
 func syncExtraTransform(sourcePath, targetPath string, spec *ExtensionSpec, dryRun, force, flatten bool) (*ExtraResult, error) {
 	result := &ExtraResult{}
 
@@ -124,8 +125,6 @@ func syncExtraTransform(sourcePath, targetPath string, spec *ExtensionSpec, dryR
 	}
 
 	seen := make(map[string]string) // flatten: basename → original rel
-	sourceSet := make(map[string]bool)
-
 	for _, rel := range files {
 		srcFile := filepath.Join(absSrc, rel)
 		tgtRel := rel
@@ -141,7 +140,6 @@ func syncExtraTransform(sourcePath, targetPath string, spec *ExtensionSpec, dryR
 			tgtRel = base
 		}
 		tgtRel = ApplyOutputExt(tgtRel, spec.OutputExt)
-		sourceSet[tgtRel] = true
 		tgtFile := filepath.Join(targetPath, tgtRel)
 
 		// Dry-run reports the outcome without spawning the extension and without
@@ -220,12 +218,6 @@ func syncExtraTransform(sourcePath, targetPath string, spec *ExtensionSpec, dryR
 			continue
 		}
 		result.Synced++
-	}
-
-	if !dryRun {
-		pruned, pruneErrors := pruneExtraOrphans(targetPath, sourceSet, "copy")
-		result.Pruned = pruned
-		result.Errors = append(result.Errors, pruneErrors...)
 	}
 
 	return result, nil
@@ -349,7 +341,9 @@ func syncExtraPerFile(sourcePath, targetPath, mode string, dryRun, force, flatte
 		result.Skipped += skipped
 	}
 
-	// Prune orphans (only when not dry-run)
+	// Prune merge-mode symlink orphans (only when not dry-run). Copy targets do
+	// not carry ownership metadata, so sync must not delete local files that are
+	// absent from the current source set.
 	if !dryRun {
 		sourceSet := make(map[string]bool, len(files))
 		if flatten {
@@ -361,9 +355,11 @@ func syncExtraPerFile(sourcePath, targetPath, mode string, dryRun, force, flatte
 				sourceSet[f] = true
 			}
 		}
-		pruned, pruneErrors := pruneExtraOrphans(targetPath, sourceSet, mode)
-		result.Pruned = pruned
-		result.Errors = append(result.Errors, pruneErrors...)
+		if mode == "merge" {
+			pruned, pruneErrors := pruneExtraOrphans(targetPath, sourceSet, mode)
+			result.Pruned = pruned
+			result.Errors = append(result.Errors, pruneErrors...)
+		}
 	}
 
 	return result, nil
@@ -506,6 +502,110 @@ func pruneExtraOrphans(targetPath string, sourceFiles map[string]bool, mode stri
 	return pruned, errors
 }
 
+// PruneExtraTarget removes all skillshare-managed files from a single extra
+// target directory. It is used when a target is removed from an extra: in
+// merge mode only symlinks are deleted (the user's own files are preserved);
+// in copy mode callers should prefer PruneExtraTargetFiles with a managed file
+// set. Empty parent directories are cleaned up. An empty mode is treated as
+// "merge".
+func PruneExtraTarget(targetPath, mode string) (pruned int, errors []string) {
+	if mode == "" {
+		mode = "merge"
+	}
+	// An empty source set means "nothing should remain" — every managed file
+	// under the target is an orphan and gets pruned.
+	return pruneExtraOrphans(targetPath, map[string]bool{}, mode)
+}
+
+// PruneExtraTargetFiles removes the files known to be managed in a removed
+// target. Copy targets use the managed file set so local files in the same
+// directory survive. Merge targets keep the existing symlink-only pruning
+// behavior. Symlink targets remove only the target symlink itself.
+func PruneExtraTargetFiles(targetPath, mode string, managedFiles map[string]bool) (pruned int, errors []string) {
+	if mode == "" {
+		mode = "merge"
+	}
+
+	switch mode {
+	case "merge":
+		return PruneExtraTarget(targetPath, mode)
+	case "copy":
+		return pruneExtraManagedFiles(targetPath, managedFiles)
+	case "symlink":
+		return pruneExtraSymlinkTarget(targetPath)
+	default:
+		return 0, []string{fmt.Sprintf("unsupported extras sync mode: %q", mode)}
+	}
+}
+
+func pruneExtraManagedFiles(targetPath string, managedFiles map[string]bool) (pruned int, errors []string) {
+	if len(managedFiles) == 0 {
+		return 0, nil
+	}
+	if _, err := os.Lstat(targetPath); err != nil {
+		if os.IsNotExist(err) {
+			return 0, nil
+		}
+		return 0, []string{fmt.Sprintf("prune %s: %v", targetPath, err)}
+	}
+
+	var toRemove []string
+	_ = filepath.Walk(targetPath, func(path string, info os.FileInfo, walkErr error) error {
+		if walkErr != nil {
+			errors = append(errors, fmt.Sprintf("prune %s: %v", path, walkErr))
+			return nil
+		}
+		if info.IsDir() {
+			if info.Name() == ".git" {
+				return filepath.SkipDir
+			}
+			if rel, relErr := filepath.Rel(targetPath, path); relErr == nil && managedFiles[rel] {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		if strings.HasPrefix(info.Name(), ".") {
+			return nil
+		}
+		rel, relErr := filepath.Rel(targetPath, path)
+		if relErr != nil {
+			return nil
+		}
+		if managedFiles[rel] {
+			toRemove = append(toRemove, path)
+		}
+		return nil
+	})
+
+	for _, path := range toRemove {
+		if err := os.Remove(path); err != nil {
+			errors = append(errors, fmt.Sprintf("prune %s: %v", path, err))
+			continue
+		}
+		pruned++
+		cleanEmptyParents(filepath.Dir(path), targetPath)
+	}
+
+	return pruned, errors
+}
+
+func pruneExtraSymlinkTarget(targetPath string) (pruned int, errors []string) {
+	info, err := os.Lstat(targetPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return 0, nil
+		}
+		return 0, []string{fmt.Sprintf("prune %s: %v", targetPath, err)}
+	}
+	if info.Mode()&os.ModeSymlink == 0 {
+		return 0, []string{fmt.Sprintf("prune %s: target is not a symlink", targetPath)}
+	}
+	if err := os.Remove(targetPath); err != nil {
+		return 0, []string{fmt.Sprintf("prune %s: %v", targetPath, err)}
+	}
+	return 1, nil
+}
+
 // contentEqual returns true if two files have identical content.
 func contentEqual(a, b string) bool {
 	fa, err := os.Open(a)
@@ -584,7 +684,7 @@ func CheckSyncStatus(sourceFiles []string, sourceDir, targetDir, mode string, fl
 		case "symlink", "merge":
 			if tInfo.Mode()&os.ModeSymlink != 0 {
 				link, readErr := os.Readlink(targetFile)
-				if readErr != nil || link != sourceFile {
+				if readErr != nil || filepath.Clean(resolveReadlink(link, targetFile)) != filepath.Clean(sourceFile) {
 					return "drift"
 				}
 			} else {
@@ -592,6 +692,9 @@ func CheckSyncStatus(sourceFiles []string, sourceDir, targetDir, mode string, fl
 			}
 		case "copy":
 			if !tInfo.Mode().IsRegular() {
+				return "drift"
+			}
+			if outputExt == "" && !contentEqual(sourceFile, targetFile) {
 				return "drift"
 			}
 		}

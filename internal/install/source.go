@@ -55,6 +55,9 @@ var githubPattern = regexp.MustCompile(`^(?:https?://)?github\.com/([^/]+)/([^/]
 // Git SSH pattern: user@host:owner/repo[.git][//subdir]
 var gitSSHPattern = regexp.MustCompile(`^([^@:\s]+)@([^:\s]+):([^/]+)/(.+?)(?:\.git)?(?://(.+))?$`)
 
+// Git SSH URL with scheme: ssh://[user@]host[:port]/path[.git][//subdir]
+var sshURLPattern = regexp.MustCompile(`^ssh://(?:([^@/]+)@)?([^/:]+)(?::(\d+))?/(.+?)(?:\.git)?(?://(.+))?$`)
+
 // Git HTTPS pattern: https://host/path (flexible path for GitLab subgroups)
 var gitHTTPSPattern = regexp.MustCompile(`^(https?)://([^/]+)/(.+)$`)
 
@@ -81,6 +84,32 @@ var azureOnPremPattern = regexp.MustCompile(
 type ParseOptions struct {
 	GitLabHosts []string // extra hostnames to treat as GitLab (nested subgroup support)
 	AzureHosts  []string // extra hostnames to treat as Azure DevOps on-premises
+}
+
+// IsSSHURL reports whether input is an SSH URL — either scp-style
+// (git@host:owner/repo.git) or scheme-style (ssh://[user@]host[:port]/path),
+// optionally with a //subdir suffix. Such sources must be resolved by cloning
+// rather than a direct HTTP fetch or local read.
+func IsSSHURL(input string) bool {
+	s := strings.TrimSpace(input)
+	return strings.HasPrefix(s, "ssh://") || gitSSHPattern.MatchString(s)
+}
+
+// SSHIdentity extracts the SSH username and hostname from scp-style or
+// scheme-style SSH sources. It returns ok=false when either part is absent.
+func SSHIdentity(input string) (user, host string, ok bool) {
+	s := strings.TrimSpace(input)
+	if matches := gitSSHPattern.FindStringSubmatch(s); matches != nil {
+		user = strings.TrimSpace(matches[1])
+		host = strings.ToLower(strings.TrimSpace(matches[2]))
+		return user, host, user != "" && host != ""
+	}
+	if matches := sshURLPattern.FindStringSubmatch(s); matches != nil {
+		user = strings.TrimSpace(matches[1])
+		host = strings.ToLower(strings.TrimSpace(matches[2]))
+		return user, host, user != "" && host != ""
+	}
+	return "", "", false
 }
 
 // ParseSource analyzes the input string and returns a Source struct.
@@ -137,6 +166,11 @@ func ParseSourceWithOptions(input string, opts ParseOptions) (*Source, error) {
 		return parseGitHub(matches, source)
 	}
 
+	// Try Git SSH URL with scheme (ssh://...)
+	if matches := sshURLPattern.FindStringSubmatch(input); matches != nil {
+		return parseSSHURL(matches, source)
+	}
+
 	// Try Git SSH pattern
 	if matches := gitSSHPattern.FindStringSubmatch(input); matches != nil {
 		return parseGitSSH(matches, source)
@@ -179,6 +213,7 @@ func expandGitHubShorthand(input string) string {
 	if strings.HasPrefix(input, "github.com/") ||
 		strings.HasPrefix(input, "http://") ||
 		strings.HasPrefix(input, "https://") ||
+		strings.HasPrefix(input, "ssh://") ||
 		gitSSHPattern.MatchString(input) ||
 		strings.HasPrefix(input, "file://") ||
 		isLocalPath(input) {
@@ -317,6 +352,39 @@ func parseGitSSH(matches []string, source *Source) (*Source, error) {
 		source.Name = filepath.Base(subdir)
 	} else {
 		source.Name = filepath.Base(repo)
+	}
+
+	return source, nil
+}
+
+func parseSSHURL(matches []string, source *Source) (*Source, error) {
+	// matches: [full, user, host, port, repoPath, subdir]
+	user := matches[1]
+	host := matches[2]
+	port := matches[3]
+	repoPath := strings.TrimSuffix(matches[4], ".git")
+	subdir := ""
+	if len(matches) > 5 {
+		subdir = matches[5]
+	}
+
+	source.Type = SourceTypeGitSSH
+
+	hostPart := host
+	if port != "" {
+		hostPart = host + ":" + port
+	}
+	userPart := ""
+	if user != "" {
+		userPart = user + "@"
+	}
+	source.CloneURL = fmt.Sprintf("ssh://%s%s/%s.git", userPart, hostPart, repoPath)
+
+	if subdir != "" {
+		source.Subdir = subdir
+		source.Name = filepath.Base(subdir)
+	} else {
+		source.Name = filepath.Base(repoPath)
 	}
 
 	return source, nil
@@ -537,40 +605,59 @@ func (s *Source) GitHubRepo() string {
 }
 
 func (s *Source) gitHubOwnerRepo() (owner, repo string) {
+	_, owner, repo = s.gitHubHostOwnerRepo()
+	return owner, repo
+}
+
+// GitHubAPIBase returns the REST API base URL for GitHub-family sources
+// (https://api.github.com for github.com, https://api.<host>.ghe.com for
+// GHE Cloud/Data Residency, or https://<host>/api/v3 for GHE Server).
+// Returns "" for non-GitHub hosts or unparsable URLs.
+func (s *Source) GitHubAPIBase() string {
+	host, _, _ := s.gitHubHostOwnerRepo()
+	if host == "" {
+		return ""
+	}
+	return gitHubAPIBaseForHost(host)
+}
+
+// gitHubHostOwnerRepo extracts the host, owner, and repo from a GitHub-family
+// clone URL (HTTPS or SSH). Returns empty strings for non-GitHub hosts.
+func (s *Source) gitHubHostOwnerRepo() (host, owner, repo string) {
 	cloneURL := strings.TrimSpace(s.CloneURL)
 	if cloneURL == "" {
-		return "", ""
+		return "", "", ""
 	}
 
 	// SSH clone URL: user@host:owner/repo.git
 	if sshMatches := gitSSHPattern.FindStringSubmatch(cloneURL); sshMatches != nil {
-		host := strings.ToLower(strings.TrimSpace(sshMatches[2]))
+		host = strings.ToLower(strings.TrimSpace(sshMatches[2]))
 		if !isGitHubLikeHost(host) {
-			return "", ""
+			return "", "", ""
 		}
-		return sshMatches[3], strings.TrimSuffix(sshMatches[4], ".git")
+		return host, sshMatches[3], strings.TrimSuffix(sshMatches[4], ".git")
 	}
 
 	u, err := url.Parse(cloneURL)
 	if err != nil {
-		return "", ""
+		return "", "", ""
 	}
-	host := strings.ToLower(u.Hostname())
+	host = strings.ToLower(u.Hostname())
 	if !isGitHubLikeHost(host) {
-		return "", ""
+		return "", "", ""
 	}
 
 	parts := strings.Split(strings.Trim(u.Path, "/"), "/")
 	if len(parts) < 2 {
-		return "", ""
+		return "", "", ""
 	}
 
 	owner = parts[0]
 	repo = strings.TrimSuffix(parts[1], ".git")
 	if owner == "" || repo == "" {
-		return "", ""
+		return "", "", ""
 	}
-	return owner, repo
+	return host, owner, repo
 }
 
 // TrackName returns a unique name for --track mode by joining path segments with "-".

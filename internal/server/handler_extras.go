@@ -1,6 +1,7 @@
 package server
 
 import (
+	"bytes"
 	"encoding/json"
 	"log"
 	"net/http"
@@ -64,6 +65,14 @@ func (s *Server) extrasConfig() []config.ExtraConfig {
 	return s.cfg.Extras
 }
 
+func resolveExtrasTargetPath(projectRoot, path string) string {
+	resolved := config.ExpandPath(path)
+	if projectRoot != "" && !filepath.IsAbs(resolved) {
+		return filepath.Join(projectRoot, filepath.FromSlash(resolved))
+	}
+	return resolved
+}
+
 // handleExtras — GET /api/extras
 func (s *Server) handleExtras(w http.ResponseWriter, r *http.Request) {
 	// Snapshot config under RLock, then release before I/O.
@@ -120,6 +129,7 @@ func (s *Server) handleExtras(w http.ResponseWriter, r *http.Request) {
 		entry.Targets = make([]extrasTargetInfo, 0, len(extra.Targets))
 		for _, t := range extra.Targets {
 			m := syncpkg.EffectiveMode(t.Mode)
+			targetPath := resolveExtrasTargetPath(projectRoot, t.Path)
 			ti := extrasTargetInfo{
 				Path:      t.Path,
 				Mode:      m,
@@ -146,7 +156,7 @@ func (s *Server) handleExtras(w http.ResponseWriter, r *http.Request) {
 
 			if !entry.SourceExists {
 				ti.Status = "no source"
-			} else if _, statErr := os.Stat(t.Path); os.IsNotExist(statErr) {
+			} else if _, statErr := os.Stat(targetPath); os.IsNotExist(statErr) {
 				ti.Status = "not synced"
 			} else {
 				// A transform extension renames output (e.g. .md → .toml), so
@@ -160,7 +170,7 @@ func (s *Server) handleExtras(w http.ResponseWriter, r *http.Request) {
 						log.Printf("warning: extension %q for extra %q could not be resolved (%v); sync status may be inaccurate", t.Extension, extra.Name, serr)
 					}
 				}
-				ti.Status = syncpkg.CheckSyncStatus(files, sourceDir, t.Path, m, t.Flatten, outputExt)
+				ti.Status = syncpkg.CheckSyncStatus(files, sourceDir, targetPath, m, t.Flatten, outputExt)
 			}
 
 			entry.Targets = append(entry.Targets, ti)
@@ -273,7 +283,8 @@ func (s *Server) handleExtrasDiff(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 
-			items := buildExtrasDiffItems(files, sourceDir, t.Path, m, t.Flatten, outputExt)
+			targetPath := resolveExtrasTargetPath(projectRoot, t.Path)
+			items := buildExtrasDiffItems(files, sourceDir, targetPath, m, t.Flatten, outputExt)
 			synced := len(items) == 0
 
 			out = append(out, extrasDiffEntry{
@@ -321,7 +332,7 @@ func buildExtrasDiffItems(sourceFiles []string, sourceDir, targetDir, mode strin
 		case "symlink", "merge":
 			if info.Mode()&os.ModeSymlink != 0 {
 				link, readErr := os.Readlink(targetFile)
-				if readErr != nil || link != sourceFile {
+				if readErr != nil || filepath.Clean(resolveExtrasTargetPath(filepath.Dir(targetFile), link)) != filepath.Clean(sourceFile) {
 					items = append(items, extrasDiffItem{
 						Action: "update",
 						File:   rel,
@@ -342,11 +353,29 @@ func buildExtrasDiffItems(sourceFiles []string, sourceDir, targetDir, mode strin
 					File:   rel,
 					Reason: "not a regular file",
 				})
+			} else if outputExt == "" && !filesEqual(sourceFile, targetFile) {
+				items = append(items, extrasDiffItem{
+					Action: "update",
+					File:   rel,
+					Reason: "content differs",
+				})
 			}
 		}
 	}
 
 	return items
+}
+
+func filesEqual(a, b string) bool {
+	left, err := os.ReadFile(a)
+	if err != nil {
+		return false
+	}
+	right, err := os.ReadFile(b)
+	if err != nil {
+		return false
+	}
+	return bytes.Equal(left, right)
 }
 
 // handleExtrasCreate — POST /api/extras
@@ -547,7 +576,8 @@ func (s *Server) handleExtrasSync(w http.ResponseWriter, r *http.Request) {
 				tr.Mode = m
 			}
 
-			res, err := syncpkg.SyncExtra(sourceDir, t.Path, m, body.DryRun, body.Force, t.Flatten, projectRoot, spec)
+			targetPath := resolveExtrasTargetPath(projectRoot, t.Path)
+			res, err := syncpkg.SyncExtra(sourceDir, targetPath, m, body.DryRun, body.Force, t.Flatten, projectRoot, spec)
 			if err != nil {
 				tr.Error = err.Error()
 			} else {
@@ -730,4 +760,141 @@ func (s *Server) handleExtrasDelete(w http.ResponseWriter, r *http.Request) {
 	}, "")
 
 	writeJSON(w, map[string]any{"success": true, "name": name})
+}
+
+// handleExtrasAddTarget — POST /api/extras/{name}/targets
+// Adds a new target to an existing extra. Config-only (no sync).
+func (s *Server) handleExtrasAddTarget(w http.ResponseWriter, r *http.Request) {
+	start := time.Now()
+	name := r.PathValue("name")
+
+	var body struct {
+		Path    string `json:"path"`
+		Mode    string `json:"mode"`
+		Flatten bool   `json:"flatten"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid JSON body")
+		return
+	}
+	if body.Path == "" {
+		writeError(w, http.StatusBadRequest, "path is required")
+		return
+	}
+	if err := config.ValidateExtraMode(body.Mode); err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	if err := config.ValidateExtraFlatten(body.Flatten, body.Mode); err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	extras := s.extrasConfig()
+	idx := -1
+	for i := range extras {
+		if extras[i].Name == name {
+			idx = i
+			break
+		}
+	}
+	if idx == -1 {
+		writeError(w, http.StatusNotFound, "extra not found: "+name)
+		return
+	}
+	newPath := filepath.Clean(resolveExtrasTargetPath(s.projectRoot, body.Path))
+	for _, t := range extras[idx].Targets {
+		if filepath.Clean(resolveExtrasTargetPath(s.projectRoot, t.Path)) == newPath {
+			writeError(w, http.StatusConflict, "target already exists: "+body.Path)
+			return
+		}
+	}
+
+	storedPath := body.Path
+	if !s.IsProjectMode() {
+		storedPath = newPath
+	}
+	et := config.ExtraTargetConfig{Path: storedPath, Flatten: body.Flatten}
+	if body.Mode != "" {
+		et.Mode = body.Mode
+	}
+	extras[idx].Targets = append(extras[idx].Targets, et)
+
+	if err := s.saveAndReloadConfig(); err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	s.writeOpsLog("extras-target", "ok", start, map[string]any{
+		"name": name, "target": body.Path, "action": "add", "scope": "ui",
+	}, "")
+
+	writeJSON(w, map[string]any{"success": true, "name": name, "target": body.Path})
+}
+
+// handleExtrasRemoveTarget — DELETE /api/extras/{name}/targets
+// Removes one target from an existing extra. Config-only — the UI does not
+// prune disk files (mirrors the whole-extra DELETE contract).
+func (s *Server) handleExtrasRemoveTarget(w http.ResponseWriter, r *http.Request) {
+	start := time.Now()
+	name := r.PathValue("name")
+
+	var body struct {
+		Path string `json:"path"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid JSON body")
+		return
+	}
+	if body.Path == "" {
+		writeError(w, http.StatusBadRequest, "path is required")
+		return
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	extras := s.extrasConfig()
+	idx := -1
+	for i := range extras {
+		if extras[i].Name == name {
+			idx = i
+			break
+		}
+	}
+	if idx == -1 {
+		writeError(w, http.StatusNotFound, "extra not found: "+name)
+		return
+	}
+	tIdx := -1
+	for j, t := range extras[idx].Targets {
+		if t.Path == body.Path {
+			tIdx = j
+			break
+		}
+	}
+	if tIdx == -1 {
+		writeError(w, http.StatusNotFound, "target not found: "+body.Path)
+		return
+	}
+	if len(extras[idx].Targets) == 1 {
+		writeError(w, http.StatusBadRequest, "cannot remove the last target; delete the extra instead")
+		return
+	}
+
+	extras[idx].Targets = append(extras[idx].Targets[:tIdx], extras[idx].Targets[tIdx+1:]...)
+
+	if err := s.saveAndReloadConfig(); err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	s.writeOpsLog("extras-target", "ok", start, map[string]any{
+		"name": name, "target": body.Path, "action": "remove", "scope": "ui",
+	}, "")
+
+	writeJSON(w, map[string]any{"success": true, "name": name, "target": body.Path})
 }

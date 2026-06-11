@@ -49,6 +49,8 @@ Command cheat sheet for skillshare.
 | `extras init <name> --target <path>` | Add an extras entry to config |
 | `extras list` | List configured extras with sync status |
 | `extras remove <name>` | Remove an extras entry from config |
+| `extras <name> --add-target <path>` | Add a target to an existing extras entry |
+| `extras <name> --remove-target <path>` | Remove a target (add `--prune` to delete synced files) |
 | `extras collect <name>` | Collect local files from extras target into source |
 
 ## Agent Management

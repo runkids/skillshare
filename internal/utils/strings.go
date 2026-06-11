@@ -53,7 +53,7 @@ func FlatNameToPath(flatName string) string {
 // IsTrackedRepoDir checks if a directory name indicates a tracked repository.
 // Tracked repos start with _ and contain .git directory.
 func IsTrackedRepoDir(name string) bool {
-	return len(name) > 0 && name[0] == '_'
+	return strings.HasPrefix(name, TrackedRepoPrefix)
 }
 
 // HasNestedSeparator checks if a name contains the nested separator (__).

@@ -143,6 +143,7 @@ The same `skillshare init` run creates both directories. Agents are single `.md`
 - `~/.cursor/agents/` — Cursor
 - `~/.augment/agents/` — Augment
 - `~/.config/opencode/agents/` — OpenCode
+- `~/.factory/droids/` — Droid
 
 Other targets are silently skipped during agent sync (with a `target(s) skipped for agents (no agents path)` warning). The same merge / copy / symlink modes that apply to skills also apply to agents.
 

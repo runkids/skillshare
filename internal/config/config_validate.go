@@ -130,7 +130,7 @@ func ValidateProjectConfig(cfg *ProjectConfig, projectRoot string) (warnings []s
 
 		ac := entry.AgentsConfig()
 		var agentsBuiltin string
-		if t, ok := ProjectAgentTargets()[entry.Name]; ok {
+		if t, ok := LookupProjectAgentTarget(entry.Name); ok {
 			agentsBuiltin = t.Path
 		}
 		agentsTargetPath := resolveProjectTargetPath(projectRoot, ac.Path, agentsBuiltin)

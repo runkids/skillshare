@@ -212,7 +212,7 @@ skillshare search --hub              # Uses "team" hub
 ```
 
 Resolution order for `--hub <value>`:
-1. URL or path (starts with `http`, `/`, `.`, `~`, `file://`) → used directly
+1. URL or path (starts with `http`, `/`, `.`, `~`, `file://`, or an SSH URL such as `git@…`/`ssh://…`) → used directly
 2. Otherwise → label lookup from saved hubs
 3. Bare `--hub` (no value) → config default → community hub fallback
 
@@ -229,12 +229,22 @@ skillshare search react --hub ./skillshare-hub.json
 # HTTP URL
 skillshare search react --hub https://internal.corp/skills/skillshare-hub.json
 
+# SSH URL — clones the repo and reads the index (works with private/GHE hosts)
+skillshare search react --hub git@github.com:org/skills.git
+skillshare search react --hub git@ghe.corp.com:team/skills.git//hubs/team.json
+
 # Browse all skills (empty query)
 skillshare search --hub ./skillshare-hub.json --json
 
 # Equals syntax also works
 skillshare search react --hub=./skillshare-hub.json
 ```
+
+:::note SSH hub sources
+An SSH `--hub` value is resolved by shallow-cloning the repo (using your SSH agent/keys) and reading the index file from it. The file path inside the repo comes from the `//path` suffix — `git@host:org/repo.git//hubs/team.json` — and defaults to `skillshare-hub.json` at the repo root when omitted. Both scp-style (`git@host:org/repo.git`) and scheme-style (`ssh://git@host/org/repo.git`) URLs are accepted.
+
+In the [web dashboard](./ui.md), SSH hub sources must be [saved first](./hub.md#hub-add); the server only clones saved hubs.
+:::
 
 Build an index with [`hub index`](./hub.md):
 

@@ -15,6 +15,7 @@ type updateResult struct {
 	skipped        int
 	securityFailed int
 	pruned         int
+	items          []updateJSONItem
 }
 
 // batchBlockedEntry records a skill that was blocked by security audit during batch update.

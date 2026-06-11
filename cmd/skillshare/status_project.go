@@ -165,6 +165,9 @@ func resolveProjectAgentTargetPath(entry config.ProjectTargetEntry, builtinAgent
 	if builtin, ok := builtinAgents[entry.Name]; ok {
 		return resolveProjectPath(projectRoot, builtin.Path)
 	}
+	if builtin, ok := config.LookupProjectAgentTarget(entry.Name); ok {
+		return resolveProjectPath(projectRoot, builtin.Path)
+	}
 	return ""
 }
 

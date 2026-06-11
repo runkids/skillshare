@@ -235,6 +235,7 @@ func runDoctorChecks(cfg *config.Config, result *doctorResult, isProject bool) {
 	if !isProject {
 		checkGitStatus(cfg.EffectiveSkillsSource(), result)
 	}
+	checkMissingTrackedRepos(cfg.EffectiveSkillsSource(), result, isProject)
 
 	fmt.Println() // visual break before skill validation
 	checkSkillsValidity(cfg.EffectiveSkillsSource(), result, discovered)
@@ -725,6 +726,36 @@ func checkGitStatus(source string, result *doctorResult) {
 }
 
 // checkSkillsValidity checks if all skills have valid SKILL.md files
+func checkMissingTrackedRepos(source string, result *doctorResult, isProject bool) {
+	missingRepos, err := install.GetMissingTrackedRepos(source)
+	if err != nil || len(missingRepos) == 0 {
+		return
+	}
+
+	details := make([]string, 0, len(missingRepos))
+	for _, repo := range missingRepos {
+		detail := repo.Name
+		if repo.Source != "" {
+			detail += " ← " + repo.Source
+		}
+		details = append(details, detail)
+	}
+
+	suggestion := "Run 'skillshare install' to rehydrate tracked repositories from metadata."
+	if isProject {
+		suggestion = "Run 'skillshare install -p' to rehydrate tracked repositories from project metadata."
+	}
+
+	result.addWarning()
+	result.addCheckWithSuggestions(
+		"tracked_repos",
+		checkWarning,
+		fmt.Sprintf("%d tracked repository clone(s) are missing", len(missingRepos)),
+		details,
+		[]string{suggestion},
+	)
+}
+
 func checkSkillsValidity(source string, result *doctorResult, discovered []sync.DiscoveredSkill) {
 	entries, err := os.ReadDir(source)
 	if err != nil {

@@ -1,4 +1,5 @@
-import { useState, useRef, useEffect, useLayoutEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { Check, ChevronDown } from 'lucide-react';
 import { radius, shadows } from '../design';
 
@@ -23,45 +24,93 @@ const selectTriggerSizes = {
   md: 'px-4 py-2 text-sm',
 };
 
+// Position the dropdown in viewport (fixed) coordinates relative to the trigger.
+interface DropdownPos {
+  left: number;
+  minWidth: number;
+  top?: number;
+  bottom?: number;
+}
+
 export function Select({ label, value, onChange, options, className = '', size = 'md', disabled = false }: SelectProps) {
   const [open, setOpen] = useState(false);
   const [focusIdx, setFocusIdx] = useState(-1);
-  const [dropUp, setDropUp] = useState(false);
-  const [dropRight, setDropRight] = useState(false);
-  const containerRef = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState<DropdownPos | null>(null);
+  const triggerRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
 
   const selected = options.find((o) => o.value === value);
   const selectedLabel = selected?.label ?? value;
+  // Options with descriptions need room to read; widen the popup to ~15rem
+  // (matching the dropdownWidth estimate below) so descriptions wrap nicely.
+  const hasDescriptions = options.some((o) => o.description);
 
-  // Close on outside click
+  // Compute fixed-position coordinates from the trigger rect. Rendered via a
+  // portal to document.body so the dropdown escapes any ancestor's
+  // transform/overflow/stacking-context that would otherwise clip it or trap
+  // its z-index (matches SplitButton/TargetMenu/Tooltip).
+  const computePos = useCallback(() => {
+    if (!triggerRef.current) return;
+    const rect = triggerRef.current.getBoundingClientRect();
+    const dropdownHeight = Math.min(options.length * 48, 256); // rough est, max 16rem
+    const minWidth = hasDescriptions ? Math.max(rect.width, 240) : rect.width;
+
+    // Vertical: prefer below, flip up if not enough space below but enough above.
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const dropUp = spaceBelow < dropdownHeight + 8 && rect.top > dropdownHeight;
+
+    // Horizontal: left-align to the trigger; clamp so the popup never overflows
+    // the right viewport edge.
+    let left = rect.left;
+    if (left + minWidth > window.innerWidth - 8) {
+      left = Math.max(8, window.innerWidth - 8 - minWidth);
+    }
+
+    setPos({
+      left,
+      minWidth,
+      top: dropUp ? undefined : rect.bottom + 4,
+      bottom: dropUp ? window.innerHeight - rect.top + 4 : undefined,
+    });
+  }, [options.length, hasDescriptions]);
+
+  // Open the menu, computing position from the live trigger rect first so the
+  // portal renders already positioned (no mispositioned flash, no setState in
+  // an effect body).
+  const openMenu = useCallback(() => {
+    computePos();
+    setOpen(true);
+  }, [computePos]);
+
+  // Reposition on scroll/resize. Capture phase catches scrolls in any ancestor;
+  // internal list scrolling recomputes from the (unchanged) trigger rect, so it
+  // is a harmless no-op and the dropdown stays open (unlike a close-on-scroll).
+  useEffect(() => {
+    if (!open) return;
+    const onScrollResize = () => computePos();
+    window.addEventListener('scroll', onScrollResize, true);
+    window.addEventListener('resize', onScrollResize);
+    return () => {
+      window.removeEventListener('scroll', onScrollResize, true);
+      window.removeEventListener('resize', onScrollResize);
+    };
+  }, [open, computePos]);
+
+  // Close on outside click (trigger or portal menu are both "inside").
   useEffect(() => {
     if (!open) return;
     const handler = (e: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+      const target = e.target as Node;
+      if (
+        triggerRef.current && !triggerRef.current.contains(target) &&
+        listRef.current && !listRef.current.contains(target)
+      ) {
         setOpen(false);
       }
     };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, [open]);
-
-  // Collision detection: determine dropdown direction (up/down, left/right)
-  // useLayoutEffect blocks paint until position is computed, preventing visual flash
-  useLayoutEffect(() => {
-    if (!open || !containerRef.current) return;
-    const rect = containerRef.current.getBoundingClientRect();
-    const dropdownHeight = Math.min(options.length * 48, 256); // rough est, max 16rem
-    const dropdownWidth = 240; // rough min-width for description options
-
-    // Vertical: prefer below, flip up if not enough space below but enough above
-    const spaceBelow = window.innerHeight - rect.bottom;
-    setDropUp(spaceBelow < dropdownHeight + 8 && rect.top > dropdownHeight);
-
-    // Horizontal: default is left-aligned (left: 0). If dropdown overflows right edge, right-align instead.
-    const spaceRight = window.innerWidth - rect.left;
-    setDropRight(spaceRight < dropdownWidth);
-  }, [open, options.length]);
 
   // Scroll focused item into view
   useEffect(() => {
@@ -82,7 +131,7 @@ export function Select({ label, value, onChange, options, className = '', size =
       case 'ArrowDown':
         e.preventDefault();
         if (!open) {
-          setOpen(true);
+          openMenu();
           setFocusIdx(0);
         } else {
           setFocusIdx((i) => Math.min(i + 1, options.length - 1));
@@ -100,7 +149,7 @@ export function Select({ label, value, onChange, options, className = '', size =
         if (open && focusIdx >= 0) {
           select(options[focusIdx].value);
         } else {
-          setOpen(true);
+          openMenu();
           setFocusIdx(Math.max(0, options.findIndex((o) => o.value === value)));
         }
         break;
@@ -108,10 +157,10 @@ export function Select({ label, value, onChange, options, className = '', size =
         setOpen(false);
         break;
     }
-  }, [open, focusIdx, options, value, select]);
+  }, [open, focusIdx, options, value, select, openMenu]);
 
   return (
-    <div ref={containerRef} className={`relative ${className}`}>
+    <div ref={triggerRef} className={`relative ${className}`}>
       {label && (
         <label className="block text-xs font-medium text-pencil-light mb-1">
           {label}
@@ -120,7 +169,11 @@ export function Select({ label, value, onChange, options, className = '', size =
       <button
         type="button"
         disabled={disabled}
-        onClick={() => { if (!disabled) { setOpen(!open); setFocusIdx(options.findIndex((o) => o.value === value)); } }}
+        onClick={() => {
+          if (disabled) return;
+          if (open) { setOpen(false); }
+          else { openMenu(); setFocusIdx(options.findIndex((o) => o.value === value)); }
+        }}
         onKeyDown={handleKeyDown}
         className={`
           ss-select
@@ -144,20 +197,27 @@ export function Select({ label, value, onChange, options, className = '', size =
           className={`shrink-0 text-muted-dark transition-transform duration-200 ${open ? 'rotate-180' : ''}`}
         />
       </button>
-      {open && (
+      {open && pos && createPortal(
         <ul
           ref={listRef}
           role="listbox"
           className={`
-            absolute z-50 min-w-full bg-surface border-2 border-muted overflow-auto py-1 animate-dropdown-in
-            ${dropUp ? 'bottom-full mb-1' : 'top-full mt-1'}
-            ${dropRight ? 'right-0' : 'left-0'}
+            ss-select-menu
+            fixed z-[9999] bg-surface border-2 border-muted overflow-auto py-1 animate-dropdown-in
             ${size === 'sm' ? 'text-xs' : 'text-sm'}
           `}
           style={{
+            left: pos.left,
+            top: pos.top,
+            bottom: pos.bottom,
             borderRadius: radius.md,
             boxShadow: shadows.lg,
             maxHeight: '16rem',
+            // At least as wide as the trigger; wider for description options so
+            // they wrap nicely. Bounded so long descriptions never stretch the
+            // dropdown across the page.
+            minWidth: pos.minWidth,
+            maxWidth: 'min(22rem, calc(100vw - 1rem))',
           }}
         >
           {options.map((opt, i) => {
@@ -185,7 +245,7 @@ export function Select({ label, value, onChange, options, className = '', size =
                     {opt.label}
                   </span>
                   {opt.description && (
-                    <span className="block text-xs text-pencil-light/60 mt-0.5 truncate">
+                    <span className="block text-xs text-pencil-light/60 mt-0.5">
                       {opt.description}
                     </span>
                   )}
@@ -193,7 +253,8 @@ export function Select({ label, value, onChange, options, className = '', size =
               </li>
             );
           })}
-        </ul>
+        </ul>,
+        document.body,
       )}
     </div>
   );

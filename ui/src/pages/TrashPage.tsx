@@ -9,6 +9,7 @@ import {
   Bot,
 } from 'lucide-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { Virtuoso } from 'react-virtuoso';
 import { api } from '../api/client';
 import type { TrashedSkill } from '../api/client';
 import { queryKeys, staleTimes } from '../lib/queryKeys';
@@ -208,16 +209,21 @@ export default function TrashPage() {
             : t('trash.emptyState.skills.description')}
         />
       ) : (
-        <div className="space-y-4">
-          {items.map((item) => (
-            <TrashCard
-              key={`${item.name}-${item.timestamp}`}
-              item={item}
-              onRestore={() => setRestoreItem(item)}
-              onDelete={() => setDeleteItem(item)}
-            />
-          ))}
-        </div>
+        <Virtuoso
+          useWindowScroll
+          data={items}
+          overscan={400}
+          computeItemKey={(_, item) => `${item.name}-${item.timestamp}`}
+          itemContent={(_, item) => (
+            <div className="pb-4">
+              <TrashCard
+                item={item}
+                onRestore={() => setRestoreItem(item)}
+                onDelete={() => setDeleteItem(item)}
+              />
+            </div>
+          )}
+        />
       )}
 
       {/* Restore Dialog */}

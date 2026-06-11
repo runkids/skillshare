@@ -62,29 +62,38 @@ export function syncToastType(totals: SyncTotals): 'success' | 'warning' | 'erro
   return 'success';
 }
 
-function firstErrorDetail(totals: SyncTotals, t: TFunc): string {
+// Build the error block as separate lines: a count line, the first error
+// detail on its own line, then a "+N more" line when there are extra errors.
+// Toast renders with `whitespace-pre-line`, so each newline becomes a line break
+// — far more readable than cramming everything onto one line.
+function buildErrorLines(totals: SyncTotals, t: TFunc): string[] {
+  const errorText = t('extras.toast.nErrors', { errors: totals.errors }, `${totals.errors} error${totals.errors > 1 ? 's' : ''}`);
   const [first, ...rest] = totals.errorDetails;
-  if (!first) return '';
-  if (rest.length === 0) return first;
-  return `${first} (${t('extras.toast.nErrors', { errors: rest.length }, `${rest.length} more error${rest.length > 1 ? 's' : ''}`)})`;
+  const lines = [errorText];
+  if (first) lines.push(first);
+  if (rest.length > 0)
+    lines.push(t('extras.toast.nMoreErrors', { errors: rest.length }, `+${rest.length} more`));
+  return lines;
 }
 
 export function buildSyncToast(label: string, failLabel: string, totals: SyncTotals, isForce: boolean, t: TFunc): string {
-  const errorText = t('extras.toast.nErrors', { errors: totals.errors }, `${totals.errors} error${totals.errors > 1 ? 's' : ''}`);
-  const errorDetail = firstErrorDetail(totals, t);
-  const errorSummary = errorDetail ? `${errorText}: ${errorDetail}` : errorText;
-
-  if (totals.errors > 0 && totals.synced === 0) return `${failLabel} — ${errorSummary}`;
+  // Full failure (nothing synced): headline + count on line 1, then details.
+  if (totals.errors > 0 && totals.synced === 0) {
+    const [count, ...detail] = buildErrorLines(totals, t);
+    return [`${failLabel} · ${count}`, ...detail].join('\n');
+  }
   if (totals.synced === 0 && totals.skipped === 0 && totals.errors === 0)
     return `${label} — ${t('extras.toast.noFilesInSource', {}, 'no files in source')}`;
 
+  // Partial success: one summary line, then any errors on following lines.
   const parts: string[] = [];
   parts.push(t('extras.toast.syncedNFiles', { synced: totals.synced, targets: totals.targets }, `${totals.synced} file${totals.synced !== 1 ? 's' : ''} to ${totals.targets} target${totals.targets !== 1 ? 's' : ''}`));
   if (totals.skipped > 0)
     parts.push(!isForce
       ? t('extras.toast.skippedForce', { skipped: totals.skipped }, `${totals.skipped} skipped (enable Force to override)`)
       : t('extras.toast.skipped', { skipped: totals.skipped }, `${totals.skipped} skipped`));
-  if (totals.errors > 0) parts.push(errorSummary);
 
-  return `${label} — ${parts.join(', ')}`;
+  let msg = `${label} — ${parts.join(', ')}`;
+  if (totals.errors > 0) msg += `\n${buildErrorLines(totals, t).join('\n')}`;
+  return msg;
 }

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { X, Star, Download, RotateCw } from 'lucide-react';
+import { X, Star, Download, RotateCw, Info } from 'lucide-react';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import DialogShell from './DialogShell';
@@ -122,9 +122,14 @@ export default function SkillPreviewModal({
               </div>
             </div>
 
-            {markdownBody && (
+            {markdownBody ? (
               <div className="prose-hand">
                 <Markdown remarkPlugins={[remarkGfm]}>{markdownBody}</Markdown>
+              </div>
+            ) : (
+              <div className="flex items-start gap-2 rounded border-2 border-dashed border-muted bg-surface px-3 py-2.5 text-sm text-pencil-light">
+                <Info size={16} strokeWidth={2.5} className="mt-0.5 shrink-0 text-muted-dark" />
+                <span>{t('preview.fallbackNotice')}</span>
               </div>
             )}
           </>

@@ -11,6 +11,9 @@ services:
     command: sleep infinity
     environment:
       HOME: /home/developer
+      # virtiofs doesn't reliably deliver inotify events, so Vite/Docusaurus
+      # miss file saves. Force polling-based file watching inside the container.
+      CHOKIDAR_USEPOLLING: "true"
       GOCACHE: /go/build-cache
       GITHUB_TOKEN: ${GITHUB_TOKEN:-}
       GITLAB_TOKEN: ${GITLAB_TOKEN:-}
@@ -23,6 +26,12 @@ services:
       - "8888:8888"
     volumes:
       - ..:/workspace
+      # Container-local node_modules (anonymous volumes) so platform-native
+      # bindings (e.g. @rolldown/binding-linux-*) are installed inside the
+      # container instead of inheriting the host's darwin bindings via the
+      # virtiofs bind mount above. Without this, vite 8 / rolldown fails to load.
+      - /workspace/ui/node_modules
+      - /workspace/website/node_modules
       - go-mod-cache:/go/pkg/mod
       - go-build-cache:/go/build-cache
       - dev-home:/home/developer

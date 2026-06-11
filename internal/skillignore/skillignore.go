@@ -284,36 +284,76 @@ func matchRule(r rule, p string) bool {
 
 // matchSegments recursively matches pattern segments against path segments.
 // Handles ** (zero or more directories), and per-segment globs via path.Match.
+// Uses memoization to avoid exponential backtracking on multiple consecutive ** segments.
 func matchSegments(pat, p []string) bool {
-	pi, pp := 0, 0
-	for pi < len(pat) && pp < len(p) {
-		if pat[pi] == "**" {
-			// ** at end of pattern matches everything remaining
-			if pi == len(pat)-1 {
-				return true
+	hasGlobstar := false
+	for _, seg := range pat {
+		if seg == "**" {
+			hasGlobstar = true
+			break
+		}
+	}
+
+	if !hasGlobstar {
+		if len(pat) != len(p) {
+			return false
+		}
+		for i := range pat {
+			matched, _ := path.Match(pat[i], p[i])
+			if !matched {
+				return false
 			}
-			// Try matching ** as zero or more segments
-			for skip := pp; skip <= len(p); skip++ {
-				if matchSegments(pat[pi+1:], p[skip:]) {
+		}
+		return true
+	}
+
+	type key struct {
+		pi int
+		pp int
+	}
+	memo := make(map[key]bool)
+
+	var match func(pi, pp int) bool
+	match = func(pi, pp int) bool {
+		k := key{pi: pi, pp: pp}
+		if v, ok := memo[k]; ok {
+			return v
+		}
+
+		for pi < len(pat) && pp < len(p) {
+			if pat[pi] == "**" {
+				if pi == len(pat)-1 {
+					memo[k] = true
 					return true
 				}
+				for skip := pp; skip <= len(p); skip++ {
+					if match(pi+1, skip) {
+						memo[k] = true
+						return true
+					}
+				}
+				memo[k] = false
+				return false
 			}
-			return false
+			matched, _ := path.Match(pat[pi], p[pp])
+			if !matched {
+				memo[k] = false
+				return false
+			}
+			pi++
+			pp++
 		}
-		ok, _ := path.Match(pat[pi], p[pp])
-		if !ok {
-			return false
+
+		for pi < len(pat) && pat[pi] == "**" {
+			pi++
 		}
-		pi++
-		pp++
+
+		res := pi == len(pat) && pp == len(p)
+		memo[k] = res
+		return res
 	}
 
-	// Handle trailing ** in pattern
-	for pi < len(pat) && pat[pi] == "**" {
-		pi++
-	}
-
-	return pi == len(pat) && pp == len(p)
+	return match(0, 0)
 }
 
 // --- Deprecated API (backward compatibility) ---

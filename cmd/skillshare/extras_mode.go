@@ -130,9 +130,10 @@ func cmdExtrasMode(args []string) error {
 	for _, extra := range extras {
 		if extra.Name == name {
 			for _, t := range extra.Targets {
-				if t.Path == targetPath {
+				if extraTargetPathMatches(mode, cwd, t.Path, targetPath) {
 					currentFlatten = t.Flatten
 					currentMode = t.Mode
+					targetPath = t.Path
 					break
 				}
 			}
@@ -237,8 +238,7 @@ func applyExtraTarget(extras []config.ExtraConfig, name, targetPath string, appl
 }
 
 func printExtrasModeHelp() {
-	fmt.Println(`Usage: skillshare extras mode <name> --mode <mode> [--target <path>]
-       skillshare extras <name> --mode <mode> [--target <path>]
+	fmt.Println(`Usage: skillshare extras <name> --mode <mode> [--target <path>]
 
 Change the sync mode or flatten setting of an extra's target.
 
@@ -256,7 +256,5 @@ Options:
 
 Examples:
   skillshare extras rules --mode copy
-  skillshare extras agents --flatten
-  skillshare extras mode rules --target ~/.claude/rules --mode copy
-  skillshare extras mode agents --target ~/.claude/agents --flatten -p`)
+  skillshare extras agents --flatten`)
 }

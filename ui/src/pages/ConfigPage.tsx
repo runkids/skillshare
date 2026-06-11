@@ -652,7 +652,10 @@ function ExtensionsSection({ isProjectMode }: { isProjectMode: boolean }) {
   const t = useT();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [installing, setInstalling] = useState<string | null>(null);
+  // Track every in-flight download by name so concurrent downloads each keep
+  // their own spinner (a single string would let a later click clear an
+  // earlier one's loading state).
+  const [installing, setInstalling] = useState<Set<string>>(new Set());
   const [opening, setOpening] = useState(false);
   const [removing, setRemoving] = useState<string | null>(null);
   // The extension pending removal confirmation, with the extras referencing it.
@@ -669,7 +672,7 @@ function ExtensionsSection({ isProjectMode }: { isProjectMode: boolean }) {
   const dirLabel = isProjectMode ? '.skillshare/extensions' : '~/.config/skillshare/extensions';
 
   const handleInstall = async (name: string) => {
-    setInstalling(name);
+    setInstalling((prev) => new Set(prev).add(name));
     try {
       await api.installExtension(name);
       toast(t('config.extensions.toast.installed', { name }, `Installed ${name}`), 'success');
@@ -678,7 +681,11 @@ function ExtensionsSection({ isProjectMode }: { isProjectMode: boolean }) {
     } catch (err: any) {
       toast(err.message, 'error');
     } finally {
-      setInstalling(null);
+      setInstalling((prev) => {
+        const next = new Set(prev);
+        next.delete(name);
+        return next;
+      });
     }
   };
 
@@ -782,7 +789,7 @@ function ExtensionsSection({ isProjectMode }: { isProjectMode: boolean }) {
                     key={e.name}
                     ext={e}
                     onInstall={() => handleInstall(e.name)}
-                    installing={installing === e.name}
+                    installing={installing.has(e.name)}
                   />
                 ))}
               </div>

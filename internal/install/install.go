@@ -303,3 +303,8 @@ func GetUpdatableSkills(sourceDir string) ([]string, error) {
 func GetTrackedRepos(sourceDir string) ([]string, error) {
 	return getTrackedReposImpl(sourceDir)
 }
+
+// GetMissingTrackedRepos returns tracked metadata entries whose repo clone is absent.
+func GetMissingTrackedRepos(sourceDir string) ([]TrackedRepoMeta, error) {
+	return getMissingTrackedReposImpl(sourceDir)
+}

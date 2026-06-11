@@ -73,6 +73,8 @@ func (b *Builder) GlobalTarget(name string, tc config.TargetConfig) (*AgentSumma
 	if displayPath == "" {
 		if builtin, ok := b.builtinAgents[name]; ok {
 			displayPath = config.ExpandPath(builtin.Path)
+		} else if builtin, ok := config.LookupGlobalAgentTarget(name); ok {
+			displayPath = config.ExpandPath(builtin.Path)
 		}
 	}
 	if displayPath == "" {
@@ -88,6 +90,8 @@ func (b *Builder) ProjectTarget(entry config.ProjectTargetEntry) (*AgentSummary,
 	displayPath := ac.Path
 	if displayPath == "" {
 		if builtin, ok := b.builtinAgents[entry.Name]; ok {
+			displayPath = builtin.Path
+		} else if builtin, ok := config.LookupProjectAgentTarget(entry.Name); ok {
 			displayPath = builtin.Path
 		}
 	}

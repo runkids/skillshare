@@ -30,6 +30,54 @@ func getUpdatableSkillsImpl(sourceDir string) ([]string, error) {
 	return skills, nil
 }
 
+// TrackedRepoMeta describes a tracked repository declared in metadata.
+type TrackedRepoMeta struct {
+	Name   string
+	Source string
+	Branch string
+}
+
+// getMissingTrackedReposImpl returns tracked repositories declared in .metadata.json
+// whose clone directories are absent or no longer contain a git checkout.
+func getMissingTrackedReposImpl(sourceDir string) ([]TrackedRepoMeta, error) {
+	store, err := LoadMetadata(sourceDir)
+	if err != nil {
+		return nil, err
+	}
+
+	existingRepos, err := GetTrackedRepos(sourceDir)
+	if err != nil {
+		return nil, err
+	}
+	existing := make(map[string]bool, len(existingRepos))
+	for _, repo := range existingRepos {
+		existing[filepath.ToSlash(repo)] = true
+	}
+
+	var missing []TrackedRepoMeta
+	for _, key := range store.List() {
+		entry := store.Get(key)
+		if entry == nil || !entry.Tracked {
+			continue
+		}
+
+		relPath := filepath.ToSlash(KeyToRelPath(key, entry))
+		if !strings.HasPrefix(filepath.Base(relPath), "_") {
+			continue
+		}
+		if existing[relPath] {
+			continue
+		}
+
+		missing = append(missing, TrackedRepoMeta{
+			Name:   relPath,
+			Source: entry.Source,
+			Branch: entry.Branch,
+		})
+	}
+	return missing, nil
+}
+
 // FindRepoInstalls scans sourceDir for skills whose meta repo_url matches
 // cloneURL. Returns relative paths (e.g. "feature-radar/feature-radar-archive").
 // Tracked repos (_-prefixed) are skipped.

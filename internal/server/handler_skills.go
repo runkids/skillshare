@@ -491,8 +491,9 @@ func (s *Server) handleUninstallSkill(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Find skill path
-	discovered, err := sync.DiscoverSourceSkills(s.cfg.EffectiveSkillsSource())
+	// Find skill path. Disabled skills are listed in .skillignore, but the UI
+	// still shows them, so single-resource uninstall must resolve them too (#190).
+	discovered, err := sync.DiscoverSourceSkillsAll(s.cfg.EffectiveSkillsSource())
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return

@@ -158,3 +158,86 @@ func TestHandleSync_AgentPrunesOrphanWhenSourceEmpty(t *testing.T) {
 		t.Fatalf("expected pruned tutor.md, got %+v", resp.Results[0].Pruned)
 	}
 }
+
+func TestHandleSync_AgentsRespectTargetExcludeFilter(t *testing.T) {
+	s, _ := newTestServer(t)
+
+	agentSource := filepath.Join(t.TempDir(), "agents")
+	agentTarget := filepath.Join(t.TempDir(), "claude-agents")
+	if err := os.MkdirAll(agentSource, 0o755); err != nil {
+		t.Fatalf("mkdir agent source: %v", err)
+	}
+	if err := os.MkdirAll(agentTarget, 0o755); err != nil {
+		t.Fatalf("mkdir agent target: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(agentSource, "tutor.md"), []byte("# Tutor"), 0o644); err != nil {
+		t.Fatalf("write agent: %v", err)
+	}
+
+	s.cfg.AgentsSource = agentSource
+	s.cfg.Targets["claude"] = config.TargetConfig{
+		Skills: &config.ResourceTargetConfig{Path: filepath.Join(t.TempDir(), "claude-skills")},
+		Agents: &config.ResourceTargetConfig{
+			Path:    agentTarget,
+			Exclude: []string{"*"},
+		},
+	}
+	if err := s.cfg.Save(); err != nil {
+		t.Fatalf("save config: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/api/sync", strings.NewReader(`{"kind":"agent"}`))
+	rr := httptest.NewRecorder()
+	s.handler.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rr.Code, rr.Body.String())
+	}
+	if _, err := os.Lstat(filepath.Join(agentTarget, "tutor.md")); !os.IsNotExist(err) {
+		t.Fatalf("excluded agent should not be synced, got err=%v", err)
+	}
+}
+
+func TestHandleSync_AgentsPruneExcludedTargetAgent(t *testing.T) {
+	s, _ := newTestServer(t)
+
+	agentSource := filepath.Join(t.TempDir(), "agents")
+	agentTarget := filepath.Join(t.TempDir(), "claude-agents")
+	if err := os.MkdirAll(agentSource, 0o755); err != nil {
+		t.Fatalf("mkdir agent source: %v", err)
+	}
+	if err := os.MkdirAll(agentTarget, 0o755); err != nil {
+		t.Fatalf("mkdir agent target: %v", err)
+	}
+	sourceAgent := filepath.Join(agentSource, "tutor.md")
+	if err := os.WriteFile(sourceAgent, []byte("# Tutor"), 0o644); err != nil {
+		t.Fatalf("write agent: %v", err)
+	}
+	targetAgent := filepath.Join(agentTarget, "tutor.md")
+	if err := os.Symlink(sourceAgent, targetAgent); err != nil {
+		t.Fatalf("seed synced agent: %v", err)
+	}
+
+	s.cfg.AgentsSource = agentSource
+	s.cfg.Targets["claude"] = config.TargetConfig{
+		Skills: &config.ResourceTargetConfig{Path: filepath.Join(t.TempDir(), "claude-skills")},
+		Agents: &config.ResourceTargetConfig{
+			Path:    agentTarget,
+			Exclude: []string{"*"},
+		},
+	}
+	if err := s.cfg.Save(); err != nil {
+		t.Fatalf("save config: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/api/sync", strings.NewReader(`{"kind":"agent"}`))
+	rr := httptest.NewRecorder()
+	s.handler.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rr.Code, rr.Body.String())
+	}
+	if _, err := os.Lstat(targetAgent); !os.IsNotExist(err) {
+		t.Fatalf("excluded synced agent should be pruned, got err=%v", err)
+	}
+}

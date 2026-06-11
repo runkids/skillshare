@@ -777,7 +777,7 @@ extras:
 `)
 
 	// Change mode from merge (default) to copy
-	result := sb.RunCLI("extras", "mode", "rules", "--mode", "copy", "-g")
+	result := sb.RunCLI("extras", "rules", "--mode", "copy", "-g")
 
 	result.AssertSuccess(t)
 	result.AssertAnyOutputContains(t, "copy")
@@ -824,7 +824,7 @@ extras:
 	}
 }
 
-// TestExtras_Mode_WithTarget verifies that "extras mode" with --target
+// TestExtras_Mode_WithTarget verifies that "extras <name> --mode" with --target
 // changes the mode on a specific target when multiple targets exist.
 func TestExtras_Mode_WithTarget(t *testing.T) {
 	sb := testutil.NewSandbox(t)
@@ -851,7 +851,7 @@ extras:
 `)
 
 	// Change mode of second target only
-	result := sb.RunCLI("extras", "mode", "rules", "--target", rulesTarget2, "--mode", "copy", "-g")
+	result := sb.RunCLI("extras", "rules", "--target", rulesTarget2, "--mode", "copy", "-g")
 
 	result.AssertSuccess(t)
 
@@ -862,7 +862,7 @@ extras:
 	}
 }
 
-// TestExtras_Mode_MultipleTargets_NoTarget verifies that "extras mode" errors
+// TestExtras_Mode_MultipleTargets_NoTarget verifies that "extras <name> --mode" errors
 // when the extra has multiple targets and --target is not specified.
 func TestExtras_Mode_MultipleTargets_NoTarget(t *testing.T) {
 	sb := testutil.NewSandbox(t)
@@ -885,7 +885,7 @@ extras:
       - path: ` + rulesTarget2 + `
 `)
 
-	result := sb.RunCLI("extras", "mode", "rules", "--mode", "copy", "-g")
+	result := sb.RunCLI("extras", "rules", "--mode", "copy", "-g")
 
 	result.AssertFailure(t)
 	result.AssertAnyOutputContains(t, "--target")
@@ -910,7 +910,7 @@ extras:
       - path: ` + rulesTarget + `
 `)
 
-	result := sb.RunCLI("extras", "mode", "rules", "--mode", "invalid", "-g")
+	result := sb.RunCLI("extras", "rules", "--mode", "invalid", "-g")
 
 	result.AssertFailure(t)
 	result.AssertAnyOutputContains(t, "invalid")
@@ -928,7 +928,7 @@ targets:
     path: ` + claudeTarget + `
 `)
 
-	result := sb.RunCLI("extras", "mode", "nonexistent", "--mode", "copy", "-g")
+	result := sb.RunCLI("extras", "nonexistent", "--mode", "copy", "-g")
 
 	result.AssertFailure(t)
 	result.AssertAnyOutputContains(t, "not found")

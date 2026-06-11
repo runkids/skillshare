@@ -238,7 +238,7 @@ func TestCrossSkillAnalysis(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := CrossSkillAnalysis(tt.results)
+			result := CrossSkillAnalysis(tt.results, nil)
 			if tt.wantNil {
 				if result != nil {
 					t.Fatalf("expected nil, got %d findings: %v", len(result.Findings), result.Findings)
@@ -290,7 +290,7 @@ func TestCrossSkillAnalysis_RiskScore(t *testing.T) {
 		makeResult("reader", TierProfile{}, credFinding()),
 		makeResult("sender", tierWith(TierNetwork)),
 	}
-	xr := CrossSkillAnalysis(results)
+	xr := CrossSkillAnalysis(results, nil)
 	if xr == nil {
 		t.Fatal("expected non-nil result")
 	}
@@ -299,6 +299,24 @@ func TestCrossSkillAnalysis_RiskScore(t *testing.T) {
 	}
 	if xr.RiskLabel == "clean" {
 		t.Error("RiskLabel = clean, want non-clean")
+	}
+}
+
+func TestCrossSkillAnalysis_HonorsDisabledIDs(t *testing.T) {
+	results := []*Result{
+		makeResult("reader", TierProfile{}, credFinding()),
+		makeResult("sender", tierWith(TierNetwork)),
+	}
+
+	// Baseline: cross-skill-exfiltration fires.
+	if xr := CrossSkillAnalysis(results, nil); xr == nil ||
+		!hasFinding(xr.Findings, "cross-skill-exfiltration", SeverityHigh) {
+		t.Fatal("expected cross-skill-exfiltration when not disabled")
+	}
+
+	// Disabling the rule suppresses the only finding → nil result.
+	if xr := CrossSkillAnalysis(results, map[string]bool{"cross-skill-exfiltration": true}); xr != nil {
+		t.Errorf("cross-skill-exfiltration should be suppressed when disabled, got %v", xr.Findings)
 	}
 }
 
@@ -361,7 +379,7 @@ func BenchmarkCrossSkillAnalysis_100k(b *testing.B) {
 
 	b.ResetTimer()
 	for range b.N {
-		result := CrossSkillAnalysis(results)
+		result := CrossSkillAnalysis(results, nil)
 		if result == nil {
 			b.Fatal("expected non-nil result")
 		}

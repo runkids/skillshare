@@ -254,6 +254,13 @@ func cmdUpdate(args []string) error {
 			}
 			return fmt.Errorf("failed to scan skills: %w", err)
 		}
+		missingRepos, _ := install.GetMissingTrackedRepos(sourcePath)
+		for _, repo := range missingRepos {
+			if !seen[repo.Name] {
+				seen[repo.Name] = true
+				targets = append(targets, updateTarget{name: repo.Name, path: filepath.Join(sourcePath, filepath.FromSlash(repo.Name)), isRepo: true})
+			}
+		}
 	} else {
 		// Load store once for name resolution
 		nameStore, _ := install.LoadMetadata(sourcePath)
@@ -373,7 +380,16 @@ func cmdUpdate(args []string) error {
 		var r updateResult
 		var updateErr error
 		if t.isRepo {
-			r, updateErr = updateTrackedRepo(uc, t.name)
+			if opts.all {
+				if _, statErr := os.Stat(t.path); os.IsNotExist(statErr) {
+					r.skipped = 1
+					r.items = append(r.items, updateJSONItem{Name: t.name, Type: "repo", Status: "skipped", Error: missingTrackedRepoMessage(t.name)})
+				} else {
+					r, updateErr = updateTrackedRepo(uc, t.name)
+				}
+			} else {
+				r, updateErr = updateTrackedRepo(uc, t.name)
+			}
 		} else {
 			r, updateErr = updateRegularSkill(uc, t.name)
 		}
@@ -427,6 +443,7 @@ func updateOutputJSON(result *updateResult, dryRun bool, start time.Time, update
 		output.Skipped = result.skipped
 		output.SecurityFailed = result.securityFailed
 		output.Pruned = result.pruned
+		output.Items = result.items
 	}
 	return writeJSONResult(&output, updateErr)
 }

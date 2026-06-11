@@ -356,3 +356,21 @@ func TierCombinationFindings(p TierProfile) []Finding {
 
 	return findings
 }
+
+// filterDisabledFindings drops findings whose RuleID is disabled (enabled: false
+// in audit-rules.yaml). Synthetic findings (tier/cross-skill) are generated
+// programmatically rather than compiled from the rule list, so they must honour
+// the disabled set here instead of being filtered at rule-compile time.
+func filterDisabledFindings(findings []Finding, disabled map[string]bool) []Finding {
+	if len(disabled) == 0 {
+		return findings
+	}
+	kept := findings[:0]
+	for _, f := range findings {
+		if disabled[f.RuleID] {
+			continue
+		}
+		kept = append(kept, f)
+	}
+	return kept
+}

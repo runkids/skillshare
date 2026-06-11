@@ -3,7 +3,6 @@ package server
 import (
 	"errors"
 	"net/http"
-	"strings"
 	"sync"
 	"time"
 
@@ -30,23 +29,6 @@ func (s *Server) handlePreview(w http.ResponseWriter, r *http.Request) {
 	}
 	branch := r.URL.Query().Get("branch")
 
-	// Parse owner/repo/path from source string
-	parts := strings.SplitN(source, "/", 3)
-	if len(parts) < 2 {
-		writeError(w, http.StatusBadRequest, "invalid source format: expected owner/repo[/path]")
-		return
-	}
-	owner := parts[0]
-	repo := parts[1]
-	if owner == "" || repo == "" {
-		writeError(w, http.StatusBadRequest, "invalid source: owner and repo must not be empty")
-		return
-	}
-	path := ""
-	if len(parts) == 3 {
-		path = parts[2]
-	}
-
 	// Check cache (include branch in key to avoid cross-branch collisions)
 	cacheKey := source + "@" + branch
 	if entry, ok := previewCache.Load(cacheKey); ok {
@@ -59,7 +41,7 @@ func (s *Server) handlePreview(w http.ResponseWriter, r *http.Request) {
 	}
 
 	client := ghclient.NewClient()
-	preview, err := search.FetchSkillContent(client, owner, repo, path, branch)
+	preview, err := search.FetchPreview(client, source, branch)
 	if err != nil {
 		var rlErr *ghclient.RateLimitError
 		if errors.As(err, &rlErr) {
@@ -67,7 +49,7 @@ func (s *Server) handlePreview(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusTooManyRequests, err.Error())
 			return
 		}
-		if errors.Is(err, search.ErrSkillNotFound) {
+		if errors.Is(err, search.ErrSkillNotFound) || errors.Is(err, search.ErrPreviewUnsupported) {
 			writeError(w, http.StatusNotFound, err.Error())
 			return
 		}

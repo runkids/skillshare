@@ -7,6 +7,10 @@ PIDDIR=/tmp/dev-servers
 LOGDIR=/tmp
 mkdir -p "$PIDDIR"
 
+# virtiofs doesn't reliably deliver inotify events, so Vite/Docusaurus silently
+# miss file saves and HMR stops firing. Force polling-based watching.
+export CHOKIDAR_USEPOLLING="${CHOKIDAR_USEPOLLING:-true}"
+
 if [ "${BASH_VERSINFO[0]}" -lt 4 ]; then
   echo "dev-servers requires bash >= 4 (associative arrays unsupported)." >&2
   exit 1

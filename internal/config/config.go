@@ -411,6 +411,9 @@ func (c *Config) HasAgentTarget() bool {
 		if _, ok := builtinAgents[name]; ok {
 			return true
 		}
+		if _, ok := LookupGlobalAgentTarget(name); ok {
+			return true
+		}
 	}
 	return false
 }

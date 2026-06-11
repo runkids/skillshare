@@ -191,6 +191,16 @@ func handleGitInstall(source *install.Source, cfg *config.Config, opts install.I
 		}
 	}
 
+	// Validate -a/--agent names up front so an unknown agent fails before any
+	// skill is installed, instead of leaving a half-success (skill installed,
+	// agent filter silently dropped). Applies even when the repo has no agents
+	// at all — -a asserts the agent exists. (issue #183)
+	if opts.HasAgentFilter() {
+		if _, notFound := filterAgentsByName(discovery.Agents, opts.AgentNames); len(notFound) > 0 {
+			return logSummary, fmt.Errorf("agents not found: %s", strings.Join(notFound, ", "))
+		}
+	}
+
 	// Subdir mode handles single skill before empty check (shows "1 skill: name")
 	if source.HasSubdir() && len(discovery.Skills) == 1 {
 		skill := discovery.Skills[0]
@@ -1112,7 +1122,22 @@ func installDiscoveredAgents(discovery *install.DiscoveryResult, cfg *config.Con
 	if len(discovery.Agents) == 0 {
 		return
 	}
-	if opts.Kind == "skill" {
+	// Don't auto-install the repo's agents when the user scoped the install to
+	// specific skills (--kind skill or -s/--skill) without also requesting
+	// agents via -a. Agents only come along on --all/--yes or an explicit
+	// agent request. (issue #183)
+	if opts.Kind == "skill" || (opts.HasSkillFilter() && !opts.HasAgentFilter()) {
+		return
+	}
+
+	// Honor agent selection: -a/--agent installs only the named agents,
+	// --all/--yes installs all, otherwise prompt. (issue #183)
+	selected, err := selectAgents(discovery.Agents, opts)
+	if err != nil {
+		ui.ErrorMsg("%v", err)
+		return
+	}
+	if len(selected) == 0 {
 		return
 	}
 
@@ -1123,7 +1148,7 @@ func installDiscoveredAgents(discovery *install.DiscoveryResult, cfg *config.Con
 	fmt.Println()
 	ui.Header("Installing agents")
 
-	for _, agent := range discovery.Agents {
+	for _, agent := range selected {
 		spinner := ui.StartSpinner(fmt.Sprintf("Installing agent %s...", agent.Name))
 		result, err := install.InstallAgentFromDiscovery(discovery, agent, agentsDir, agentOpts)
 		spinner.Stop()

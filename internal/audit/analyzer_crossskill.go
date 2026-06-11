@@ -8,7 +8,7 @@ func (a *crossSkillAnalyzer) ID() string           { return AnalyzerCrossSkill }
 func (a *crossSkillAnalyzer) Scope() AnalyzerScope { return ScopeBundle }
 
 func (a *crossSkillAnalyzer) Analyze(ctx *AnalyzeContext) ([]Finding, error) {
-	xr := CrossSkillAnalysis(ctx.Results)
+	xr := CrossSkillAnalysis(ctx.Results, ctx.DisabledIDs)
 	if xr == nil {
 		return nil, nil
 	}

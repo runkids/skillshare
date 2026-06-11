@@ -95,6 +95,9 @@ targets:
     skills:
       global: "~/.copilot/skills"
       project: ".github/skills"
+    agents:
+      global: "~/.copilot/agents"
+      project: ".github/agents"
     aliases: [github-copilot]
   - name: crush
     skills:
@@ -128,6 +131,10 @@ targets:
     skills:
       global: "~/.factory/skills"
       project: ".factory/skills"
+    agents:
+      global: "~/.factory/droids"
+      project: ".factory/droids"
+    aliases: [factory]
   - name: firebender
     skills:
       global: "~/.firebender/skills"
@@ -295,6 +302,10 @@ targets:
     skills:
       global: "~/Library/Developer/Xcode/CodingAssistant/codex/skills"
       project: ".codex/skills"
+  - name: zed
+    skills:
+      global: "~/.agents/skills"
+      project: ".agents/skills"
   - name: zencoder
     skills:
       global: "~/.zencoder/skills"

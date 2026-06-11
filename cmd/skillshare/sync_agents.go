@@ -97,7 +97,7 @@ func syncAgentsGlobal(cfg *config.Config, dryRun, force, jsonOutput bool, start 
 			syncErr = fmt.Errorf("some agent targets failed to sync")
 			continue
 		}
-		stats, targetErr := syncAgentTarget(name, agentPath, ac.Mode, filtered, agentsSource, dryRun, force, jsonOutput)
+		stats, targetErr := syncAgentTarget(name, agentPath, ac.Mode, filtered, agentsSource, dryRun, force, jsonOutput, "")
 		if targetErr != nil {
 			syncErr = fmt.Errorf("some agent targets failed to sync")
 		}
@@ -133,6 +133,9 @@ func resolveAgentTargetPath(tc config.TargetConfig, builtinAgents map[string]con
 		return config.ExpandPath(ac.Path)
 	}
 	if builtin, ok := builtinAgents[name]; ok {
+		return config.ExpandPath(builtin.Path)
+	}
+	if builtin, ok := config.LookupGlobalAgentTarget(name); ok {
 		return config.ExpandPath(builtin.Path)
 	}
 	return ""
@@ -222,7 +225,7 @@ func syncAgentsProject(projectRoot string, dryRun, force, jsonOutput bool, start
 			syncErr = fmt.Errorf("some agent targets failed to sync")
 			continue
 		}
-		stats, targetErr := syncAgentTarget(entry.Name, agentPath, ac.Mode, filtered, agentsSource, dryRun, force, jsonOutput)
+		stats, targetErr := syncAgentTarget(entry.Name, agentPath, ac.Mode, filtered, agentsSource, dryRun, force, jsonOutput, projectRoot)
 		if targetErr != nil {
 			syncErr = fmt.Errorf("some agent targets failed to sync")
 		}
@@ -253,13 +256,13 @@ func syncAgentsProject(projectRoot string, dryRun, force, jsonOutput bool, start
 
 // syncAgentTarget syncs agents to a single target directory.
 // Shared by both global and project sync paths.
-func syncAgentTarget(name, agentPath, modeOverride string, agents []resource.DiscoveredResource, agentsSource string, dryRun, force, jsonOutput bool) (agentSyncStats, error) {
+func syncAgentTarget(name, agentPath, modeOverride string, agents []resource.DiscoveredResource, agentsSource string, dryRun, force, jsonOutput bool, projectRoot string) (agentSyncStats, error) {
 	mode := modeOverride
 	if mode == "" {
 		mode = "merge"
 	}
 
-	result, err := sync.SyncAgents(agents, agentsSource, agentPath, mode, dryRun, force)
+	result, err := sync.SyncAgents(agents, agentsSource, agentPath, mode, dryRun, force, projectRoot)
 	if err != nil {
 		if !jsonOutput {
 			ui.Error("%s: agent sync failed: %v", name, err)

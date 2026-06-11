@@ -150,13 +150,15 @@ skillshare extras source
 skillshare extras source ~/company-shared/extras
 ```
 
-### `extras mode`
+### Operating on an existing extra
 
-Change the sync mode or flatten setting of an extra's target.
+Change a target's sync mode or flatten setting, or add/remove a target — all via flags on `extras <name>`. These are config-only; run `skillshare sync extras` afterward to apply changes on disk.
 
 ```bash
-skillshare extras mode <name> --mode <mode> [--target <path>] [-p|-g]
-skillshare extras <name> --flatten [--target <path>]
+skillshare extras <name> --mode <mode> [--target <path>] [-p|-g]
+skillshare extras <name> --flatten | --no-flatten [--target <path>]
+skillshare extras <name> --add-target <path> [--mode <mode>] [--flatten] [-p|-g]
+skillshare extras <name> --remove-target <path> [--prune] [-p|-g]
 ```
 
 **Options:**
@@ -166,6 +168,9 @@ skillshare extras <name> --flatten [--target <path>]
 | `--mode <mode>` | New sync mode: `merge`, `copy`, or `symlink` |
 | `--flatten` | Enable flatten (sync subdirectory files into target root) |
 | `--no-flatten` | Disable flatten |
+| `--add-target <path>` | Add a new target to the extra |
+| `--remove-target <path>` | Remove a target from the extra (config-only by default) |
+| `--prune` | With `--remove-target`: also delete skillshare-managed files under that target |
 | `--target <path>` | Target directory path (required for `--mode` with multi-target extras; `--flatten`/`--no-flatten` applies to all targets when omitted) |
 | `--project, -p` | Use project-mode extras (`.skillshare/`) |
 | `--global, -g` | Use global extras (`~/.config/skillshare/`) |
@@ -177,19 +182,21 @@ skillshare extras <name> --flatten [--target <path>]
 skillshare extras rules --mode copy
 
 # Specify target explicitly (required for multi-target extras)
-skillshare extras mode rules --target ~/.claude/rules --mode copy
+skillshare extras rules --mode copy --target ~/.claude/rules
 
-# Change to symlink in project mode
-skillshare extras mode commands --target ~/.cursor/commands --mode symlink -p
-
-# Enable flatten on all targets at once
+# Enable / disable flatten on all targets at once
 skillshare extras agents --flatten
-
-# Disable flatten on all targets
 skillshare extras agents --no-flatten
 
-# Enable flatten on a specific target only
-skillshare extras agents --flatten --target ~/.claude/agents
+# Add a new target to an existing extra (then sync)
+skillshare extras rules --add-target ~/.cursor/rules
+skillshare extras commands --add-target ~/.config/opencode/commands --mode copy
+
+# Remove a target (leaves synced files in place)
+skillshare extras rules --remove-target ~/.cursor/rules
+
+# Remove a target and delete its synced files
+skillshare extras rules --remove-target ~/.cursor/rules --prune
 ```
 
 Also available via the TUI (`M` key) and Web UI (mode dropdown and flatten checkbox on each target).

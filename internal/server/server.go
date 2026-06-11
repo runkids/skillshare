@@ -384,6 +384,7 @@ func (s *Server) registerRoutes() {
 	s.mux.HandleFunc("POST /api/resources/{name}/enable", s.handleEnableSkill)
 	s.mux.HandleFunc("DELETE /api/resources/{name}", s.handleUninstallSkill)
 	s.mux.HandleFunc("POST /api/resources/batch/targets", s.handleBatchSetTargets)
+	s.mux.HandleFunc("POST /api/resources/batch/toggle", s.handleBatchToggleSkills)
 	s.mux.HandleFunc("PATCH /api/resources/{name}/targets", s.handleSetSkillTargets)
 
 	// Targets
@@ -462,6 +463,8 @@ func (s *Server) registerRoutes() {
 	s.mux.HandleFunc("POST /api/extras/sync", s.handleExtrasSync)
 	s.mux.HandleFunc("PATCH /api/extras/{name}/mode", s.handleExtrasMode)
 	s.mux.HandleFunc("DELETE /api/extras/{name}", s.handleExtrasDelete)
+	s.mux.HandleFunc("POST /api/extras/{name}/targets", s.handleExtrasAddTarget)
+	s.mux.HandleFunc("DELETE /api/extras/{name}/targets", s.handleExtrasRemoveTarget)
 
 	// Extensions (transform extensions management)
 	s.mux.HandleFunc("GET /api/extensions", s.handleExtensionsList)

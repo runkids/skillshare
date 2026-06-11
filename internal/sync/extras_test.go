@@ -144,6 +144,57 @@ func TestSyncExtra_CopyMode(t *testing.T) {
 	}
 }
 
+func TestSyncExtra_CopyModePreservesLocalFilesOnResync(t *testing.T) {
+	src, tgt := setupExtrasTest(t, map[string]string{
+		"managed.md": "managed",
+	})
+
+	if _, err := SyncExtra(src, tgt, "copy", false, true, false, "", nil); err != nil {
+		t.Fatal(err)
+	}
+	local := filepath.Join(tgt, "local.md")
+	if err := os.WriteFile(local, []byte("local"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	result, err := SyncExtra(src, tgt, "copy", false, true, false, "", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Pruned != 0 {
+		t.Errorf("expected no copy-mode prune without ownership metadata, got %d", result.Pruned)
+	}
+	if _, err := os.Stat(local); err != nil {
+		t.Errorf("local file must be preserved, stat err = %v", err)
+	}
+}
+
+func TestSyncExtra_TransformPreservesLocalFilesOnResync(t *testing.T) {
+	src, tgt := setupExtrasTest(t, map[string]string{
+		"managed.md": "managed",
+	})
+	spec := &ExtensionSpec{Run: []string{"cat"}, OutputExt: "toml"}
+
+	if _, err := SyncExtra(src, tgt, "copy", false, true, false, "", spec); err != nil {
+		t.Fatal(err)
+	}
+	local := filepath.Join(tgt, "local.md")
+	if err := os.WriteFile(local, []byte("local"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	result, err := SyncExtra(src, tgt, "copy", false, true, false, "", spec)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Pruned != 0 {
+		t.Errorf("expected no transform prune without ownership metadata, got %d", result.Pruned)
+	}
+	if _, err := os.Stat(local); err != nil {
+		t.Errorf("local file must be preserved, stat err = %v", err)
+	}
+}
+
 // --- Conflict tests ---
 
 func TestSyncExtra_ConflictSkipped(t *testing.T) {
@@ -774,6 +825,37 @@ func TestCheckSyncStatus_Synced(t *testing.T) {
 	}
 }
 
+func TestCheckSyncStatus_MergeRelativeSymlinkSynced(t *testing.T) {
+	projectRoot := t.TempDir()
+	src := filepath.Join(projectRoot, ".skillshare", "extras", "rules")
+	tgt := filepath.Join(projectRoot, ".cursor", "rules")
+	if err := os.MkdirAll(src, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(tgt, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(src, "rule.md"), []byte("# Rule"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := SyncExtra(src, tgt, "merge", false, false, false, projectRoot, nil); err != nil {
+		t.Fatal(err)
+	}
+	link, err := os.Readlink(filepath.Join(tgt, "rule.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if filepath.IsAbs(link) {
+		t.Fatalf("expected relative symlink in project mode, got %q", link)
+	}
+
+	files, _ := DiscoverExtraFiles(src)
+	if s := CheckSyncStatus(files, src, tgt, "merge", false, ""); s != "synced" {
+		t.Errorf("expected synced for relative project symlink, got %s", s)
+	}
+}
+
 func TestCheckSyncStatus_Drift(t *testing.T) {
 	src, _ := setupExtrasTest(t, map[string]string{"rule.md": "# Rule"})
 	tgt := filepath.Join(t.TempDir(), "empty")
@@ -826,6 +908,19 @@ func TestCheckSyncStatus_CopyMode(t *testing.T) {
 	absSrc, _ := filepath.Abs(src)
 	if s := CheckSyncStatus(files, absSrc, tgt, "copy", false, ""); s != "synced" {
 		t.Errorf("expected synced, got %s", s)
+	}
+}
+
+func TestCheckSyncStatus_CopyModeDetectsContentDrift(t *testing.T) {
+	src, tgt := setupExtrasTest(t, map[string]string{"file.md": "content"})
+	SyncExtra(src, tgt, "copy", false, false, false, "", nil)
+	if err := os.WriteFile(filepath.Join(tgt, "file.md"), []byte("changed"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	files, _ := DiscoverExtraFiles(src)
+	absSrc, _ := filepath.Abs(src)
+	if s := CheckSyncStatus(files, absSrc, tgt, "copy", false, ""); s != "drift" {
+		t.Errorf("expected drift after copy content changed, got %s", s)
 	}
 }
 

@@ -79,6 +79,7 @@ These are auto-detected during `skillshare init`:
   <a className="target-badge" href="#target-witsy">Witsy</a>
   <a className="target-badge" href="#target-xcode-claude">Xcode Claude</a>
   <a className="target-badge" href="#target-xcode-codex">Xcode Codex</a>
+  <a className="target-badge" href="#target-zed">Zed</a>
   <a className="target-badge" href="#target-zencoder">Zencoder</a>
 </div>
 
@@ -154,12 +155,13 @@ These are auto-detected during `skillshare init`:
 <tr id="target-witsy"><td>witsy</td><td><code>&#126;/.agents/skills</code></td><td><code>.agents/skills</code></td></tr>
 <tr id="target-xcode-claude"><td>xcode-claude</td><td><code>&#126;/Library/Developer/Xcode/CodingAssistant/ClaudeAgentConfig/skills</code></td><td><code>.claude/skills</code></td></tr>
 <tr id="target-xcode-codex"><td>xcode-codex</td><td><code>&#126;/Library/Developer/Xcode/CodingAssistant/codex/skills</code></td><td><code>.codex/skills</code></td></tr>
+<tr id="target-zed"><td>zed</td><td><code>&#126;/.agents/skills</code></td><td><code>.agents/skills</code></td></tr>
 <tr id="target-zencoder"><td>zencoder</td><td><code>&#126;/.zencoder/skills</code></td><td><code>.zencoder/skills</code></td></tr>
 </tbody>
 </table>
 
 :::info Universal target
-The **universal** target (`&#126;/.agents/skills`) is a shared agent directory that multiple AI CLIs can read from. It is auto-detected during `skillshare init` when any other agent is found. In project mode, `amp`, `codex`, `cursor`, `dexto`, `kimi`, `purecode`, `replit`, `warp`, and `witsy` share the same `.agents/skills` path and are grouped under `universal` automatically.
+The **universal** target (`&#126;/.agents/skills`) is a shared agent directory that multiple AI CLIs can read from. It is auto-detected during `skillshare init` when any other agent is found. In project mode, `amp`, `codex`, `cursor`, `dexto`, `kimi`, `purecode`, `replit`, `warp`, `witsy`, and `zed` share the same `.agents/skills` path and are grouped under `universal` automatically.
 
 This is the same path used by the [npx skills CLI](https://github.com/vercel-labs/skills). See [FAQ: Using universal alongside npx skills](/docs/troubleshooting/faq#using-universal-alongside-npx-skills) for coexistence details.
 :::
@@ -178,6 +180,7 @@ Some targets have alternative names for backward compatibility or convenience:
 | `command-code` | `commandcode` | Hyphenated variant |
 | `devin-terminal` | `devin` | With terminal suffix |
 | `deep-agents` | `deepagents` | Hyphenated variant |
+| `factory` | `droid` | Brand / config dir name |
 | `forge-code` | `forgecode` | Hyphenated variant |
 | `gemini` | `antigravity` | Legacy name (Gemini CLI → Antigravity) |
 | `gemini-cli` | `antigravity` | Legacy name |

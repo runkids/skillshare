@@ -479,7 +479,7 @@ func ResolveProjectTargets(projectRoot string, cfg *ProjectConfig) (map[string]T
 		ac := entry.AgentsConfig()
 		agentPath := strings.TrimSpace(ac.Path)
 		if agentPath == "" {
-			if builtin, ok := ProjectAgentTargets()[name]; ok {
+			if builtin, ok := LookupProjectAgentTarget(name); ok {
 				agentPath = builtin.Path
 			}
 		}

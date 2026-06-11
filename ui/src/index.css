@@ -324,6 +324,16 @@
   box-shadow: 2px 2px 0 var(--color-shadow);
 }
 
+/* ── Playful: Select dropdown menu ── */
+/* Match the trigger (.ss-select uses --radius-wobble-input) so the menu shares
+   the same hand-drawn wobble instead of the inline uniform radius.md set in
+   Select.tsx. !important overrides that inline radius/shadow. */
+[data-theme="playful"] .ss-select-menu {
+  border: 2px solid var(--color-pencil) !important;
+  border-radius: var(--radius-wobble-input) !important;
+  box-shadow: 3px 3px 0 var(--color-shadow) !important;
+}
+
 /* ── Playful: Split menu ── */
 [data-theme="playful"] .ss-split-menu {
   border: 2px solid var(--color-pencil) !important;
@@ -679,6 +689,7 @@
 [data-theme="playful"].dark .ss-btn,
 [data-theme="playful"].dark .ss-input,
 [data-theme="playful"].dark .ss-select,
+[data-theme="playful"].dark .ss-select-menu,
 [data-theme="playful"].dark .ss-dialog,
 [data-theme="playful"].dark .ss-toast,
 [data-theme="playful"].dark .ss-split-menu {

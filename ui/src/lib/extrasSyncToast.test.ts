@@ -85,8 +85,9 @@ describe('extras sync toast helpers', () => {
 
     const toast = buildSyncToast('Extras synced', 'Extras sync failed', sumEntry(entry), false, t);
 
-    expect(toast).toContain('3 error(s): a.md: failed');
-    expect(toast).toContain('(2 error(s))');
+    expect(toast).toContain('3 error(s)');
+    expect(toast).toContain('a.md: failed');
+    expect(toast).toContain('+2 more');
     expect(toast).not.toContain('b.md: failed');
   });
 });
