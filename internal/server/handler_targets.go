@@ -2,6 +2,7 @@ package server
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"os"
@@ -477,7 +478,9 @@ func (s *Server) unlinkMergeSymlinks(targetPath string) {
 		}
 
 		// Remove symlink and copy the skill back if source still exists
-		os.Remove(skillPath)
+		if err := os.Remove(skillPath); err != nil {
+			continue
+		}
 		if _, statErr := os.Stat(absLink); statErr == nil {
 			_ = copySkillDir(absLink, skillPath)
 		}
@@ -491,7 +494,10 @@ func copySkillDir(src, dst string) error {
 			return err
 		}
 
-		relPath, _ := filepath.Rel(src, path)
+		relPath, err := filepath.Rel(src, path)
+		if err != nil {
+			return fmt.Errorf("failed to compute relative path from %s to %s: %w", src, path, err)
+		}
 		dstPath := filepath.Join(dst, relPath)
 
 		if info.IsDir() {
