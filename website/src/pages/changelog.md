@@ -9,6 +9,12 @@ All notable changes to skillshare are documented here. For the full commit histo
 
 ---
 
+## [0.20.14] - 2026-06-13
+
+### Bug Fixes
+
+- **Push failures redact token-auth URLs without losing diagnostics** — failed Git push flows now sanitize credential-bearing error output before it reaches CLI/API/UI callers, while still preserving useful Git and pre-push hook diagnostics. Refs: #214.
+
 ## [0.20.13] - 2026-06-11
 
 ### New Features
