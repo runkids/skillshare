@@ -69,14 +69,14 @@ type compiledLintRule struct {
 var (
 	compiledLintRules []compiledLintRule
 	lintOnce          gosync.Once
+	lintLoadErr       error
 )
 
 func loadLintRules() ([]compiledLintRule, error) {
-	var retErr error
 	lintOnce.Do(func() {
 		var f lintRulesFile
 		if err := yaml.Unmarshal(lintRulesData, &f); err != nil {
-			retErr = fmt.Errorf("lint: embedded rules YAML is invalid: %w", err)
+			lintLoadErr = fmt.Errorf("lint: embedded rules YAML is invalid: %w", err)
 			return
 		}
 		for _, r := range f.Rules {
@@ -84,7 +84,7 @@ func loadLintRules() ([]compiledLintRule, error) {
 			if r.Pattern != "" {
 				re, err := regexp.Compile(r.Pattern)
 				if err != nil {
-					retErr = fmt.Errorf("lint: invalid regex in rule %s: %w", r.ID, err)
+					lintLoadErr = fmt.Errorf("lint: invalid regex in rule %s: %w", r.ID, err)
 					return
 				}
 				cr.compiledPattern = re
@@ -92,7 +92,7 @@ func loadLintRules() ([]compiledLintRule, error) {
 			compiledLintRules = append(compiledLintRules, cr)
 		}
 	})
-	return compiledLintRules, retErr
+	return compiledLintRules, lintLoadErr
 }
 
 // LintSkill runs all lint rules against a skill's metadata.
