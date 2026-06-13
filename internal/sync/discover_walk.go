@@ -312,7 +312,10 @@ func discoverSourceSkillsInternal(sourcePath string, opts discoverOptions) ([]Di
 							Message:  fmt.Sprintf("frontmatter YAML is malformed: %v", yamlErr),
 						})
 					}
-					lintIssues = append(lintIssues, LintSkill(fmName, description, bodyChars)...)
+					lintResults, err := LintSkill(fmName, description, bodyChars)
+					if err == nil {
+						lintIssues = append(lintIssues, lintResults...)
+					}
 				}
 			} else if opts.parseFrontmatter {
 				targets = utils.ParseFrontmatterList(skillFile, "targets")

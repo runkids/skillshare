@@ -2,6 +2,7 @@ package sync
 
 import (
 	_ "embed"
+	"fmt"
 	"regexp"
 	"strconv"
 	"strings"
@@ -70,32 +71,38 @@ var (
 	lintOnce          gosync.Once
 )
 
-func loadLintRules() []compiledLintRule {
+func loadLintRules() ([]compiledLintRule, error) {
+	var retErr error
 	lintOnce.Do(func() {
 		var f lintRulesFile
 		if err := yaml.Unmarshal(lintRulesData, &f); err != nil {
-			panic("lint: embedded rules YAML is invalid: " + err.Error())
+			retErr = fmt.Errorf("lint: embedded rules YAML is invalid: %w", err)
+			return
 		}
 		for _, r := range f.Rules {
 			cr := compiledLintRule{lintRule: r}
 			if r.Pattern != "" {
 				re, err := regexp.Compile(r.Pattern)
 				if err != nil {
-					panic("lint: invalid regex in rule " + r.ID + ": " + err.Error())
+					retErr = fmt.Errorf("lint: invalid regex in rule %s: %w", r.ID, err)
+					return
 				}
 				cr.compiledPattern = re
 			}
 			compiledLintRules = append(compiledLintRules, cr)
 		}
 	})
-	return compiledLintRules
+	return compiledLintRules, retErr
 }
 
 // LintSkill runs all lint rules against a skill's metadata.
 // name and description come from SKILL.md frontmatter.
 // bodyChars is the rune count of the skill body after frontmatter.
-func LintSkill(name, description string, bodyChars int) []LintIssue {
-	rules := loadLintRules()
+func LintSkill(name, description string, bodyChars int) ([]LintIssue, error) {
+	rules, err := loadLintRules()
+	if err != nil {
+		return nil, err
+	}
 
 	var issues []LintIssue
 	for _, r := range rules {
@@ -103,7 +110,7 @@ func LintSkill(name, description string, bodyChars int) []LintIssue {
 			issues = append(issues, issue)
 		}
 	}
-	return issues
+	return issues, nil
 }
 
 func evalLintRule(r compiledLintRule, name, description string, bodyChars int) (LintIssue, bool) {
