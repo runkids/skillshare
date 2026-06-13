@@ -39,6 +39,53 @@ func initTestRepo(t *testing.T) string {
 	return dir
 }
 
+// TestPushRemoteWithEnv_TokenNotInError uses a fake git executable to verify
+// that PushRemoteWithEnv sanitizes credential-bearing content from git error
+// output. This does not assume every real git failure prints credentials; it
+// verifies that this wrapper does not return sensitive subprocess output
+// verbatim when such output is present.
+func TestPushRemoteWithEnv_TokenNotInError(t *testing.T) {
+	const token = "ghp_test_token_12345_redact"
+	const fakeGitErr = "fatal: unable to access 'https://x-access-token:" + token + "@github.com/org/repo.git/': Could not resolve host: github.com"
+
+	fakeBin := t.TempDir()
+	fakeGit := filepath.Join(fakeBin, "git")
+
+	script := "#!/bin/sh\n" +
+		"echo \"" + fakeGitErr + "\" >&2\n" +
+		"exit 128\n"
+
+	if err := os.WriteFile(fakeGit, []byte(script), 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	t.Setenv("PATH", fakeBin+string(os.PathListSeparator)+os.Getenv("PATH"))
+	t.Setenv("GITHUB_TOKEN", token)
+
+	extraEnv := []string{
+		"GIT_CONFIG_COUNT=1",
+		"GIT_CONFIG_KEY_0=url.https://x-access-token:" + token + "@github.com/.insteadOf",
+		"GIT_CONFIG_VALUE_0=https://github.com/",
+	}
+
+	err := PushRemoteWithEnv(t.TempDir(), extraEnv)
+	if err == nil {
+		t.Fatal("expected git push to fail")
+	}
+
+	msg := err.Error()
+
+	// Token must not appear in error output.
+	if strings.Contains(msg, token) {
+		t.Fatalf("token leaked in error: %v", err)
+	}
+
+	// Useful diagnostic text should survive sanitization.
+	if !strings.Contains(msg, "Could not resolve host") && !strings.Contains(msg, "unable to access") {
+		t.Fatalf("expected useful diagnostic in error, got: %v", err)
+	}
+}
+
 func TestIsRepo(t *testing.T) {
 	repo := initTestRepo(t)
 	if !IsRepo(repo) {
