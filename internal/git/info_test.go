@@ -721,3 +721,44 @@ func TestSetOrAddRemote(t *testing.T) {
 		t.Errorf("origin changed after rejected input: %q", got)
 	}
 }
+
+func TestPushRemoteWithEnv_SanitizesToken(t *testing.T) {
+	fakeToken := "ghp_secrettoken123456789012345678901234"
+	binDir := t.TempDir()
+	gitPath := filepath.Join(binDir, "git")
+	script := `#!/bin/sh
+if [ "$1" = "push" ]; then
+  echo "fatal: unable to access 'https://x-access-token:` + fakeToken + `@github.com/org/repo.git/': The requested URL returned error: 403" >&2
+  exit 128
+fi
+exec /usr/bin/git "$@"
+`
+	if err := os.WriteFile(gitPath, []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", binDir+string(os.PathListSeparator)+os.Getenv("PATH"))
+	t.Setenv("GITHUB_TOKEN", fakeToken)
+
+	repo := initTestRepo(t)
+	cmd := exec.Command("git", "remote", "add", "origin", "https://github.com/org/repo.git")
+	cmd.Dir = repo
+	if err := cmd.Run(); err != nil {
+		t.Fatal(err)
+	}
+
+	err := PushRemoteWithEnv(repo, []string{"GITHUB_TOKEN=" + fakeToken})
+	if err == nil {
+		t.Fatal("expected error from failing push")
+	}
+
+	errMsg := err.Error()
+	if strings.Contains(errMsg, fakeToken) {
+		t.Errorf("error contains raw token: %q", errMsg)
+	}
+	if !strings.Contains(errMsg, "REDACTED") {
+		t.Errorf("error should contain REDACTED placeholder, got: %q", errMsg)
+	}
+	if !strings.Contains(errMsg, "403") {
+		t.Errorf("error should preserve diagnostic info (403), got: %q", errMsg)
+	}
+}

@@ -502,9 +502,10 @@ func PushRemoteWithEnv(dir string, extraEnv []string) error {
 	if len(extraEnv) > 0 {
 		cmd.Env = append(os.Environ(), extraEnv...)
 	}
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("git push failed: %s", strings.TrimSpace(string(out)))
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+	if err := cmd.Run(); err != nil {
+		return install.WrapGitError(stderr.String(), err, install.UsedTokenAuth(extraEnv))
 	}
 	return nil
 }
