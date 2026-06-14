@@ -313,9 +313,10 @@ func discoverSourceSkillsInternal(sourcePath string, opts discoverOptions) ([]Di
 						})
 					}
 					lintResults, err := LintSkill(fmName, description, bodyChars)
-					if err == nil {
-						lintIssues = append(lintIssues, lintResults...)
+					if err != nil {
+						return fmt.Errorf("lint skill %s: %w", relPath, err)
 					}
+					lintIssues = append(lintIssues, lintResults...)
 				}
 			} else if opts.parseFrontmatter {
 				targets = utils.ParseFrontmatterList(skillFile, "targets")

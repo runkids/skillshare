@@ -1,9 +1,27 @@
 package sync
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
+	gosync "sync"
 	"testing"
 )
+
+func withLintRulesData(t *testing.T, data []byte) {
+	t.Helper()
+	originalData := lintRulesData
+	lintRulesData = data
+	compiledLintRules = nil
+	lintLoadErr = nil
+	lintOnce = gosync.Once{}
+	t.Cleanup(func() {
+		lintRulesData = originalData
+		compiledLintRules = nil
+		lintLoadErr = nil
+		lintOnce = gosync.Once{}
+	})
+}
 
 func lintSkillOrFail(t *testing.T, name, description string, bodyChars int) []LintIssue {
 	t.Helper()
@@ -103,6 +121,64 @@ func TestLintSkill_CategoryField(t *testing.T) {
 		if issue.Category == "" {
 			t.Errorf("issue %s has empty category", issue.Rule)
 		}
+	}
+}
+
+func TestLintSkill_InvalidRegexReturnsCachedError(t *testing.T) {
+	withLintRulesData(t, []byte(`
+rules:
+  - id: bad-regex
+    severity: error
+    category: structure
+    check: field-matches
+    field: description
+    pattern: "["
+    message: broken regex
+`))
+
+	for i := 0; i < 2; i++ {
+		_, err := LintSkill("my-skill", "Use this skill when testing", 100)
+		if err == nil {
+			t.Fatal("expected lint rule load error")
+		}
+		if !strings.Contains(err.Error(), "invalid regex in rule bad-regex") {
+			t.Fatalf("expected invalid regex error, got: %v", err)
+		}
+	}
+}
+
+func TestDiscoverSourceSkillsForAnalyze_ReturnsLintLoadError(t *testing.T) {
+	withLintRulesData(t, []byte(`
+rules:
+  - id: bad-regex
+    severity: error
+    category: structure
+    check: field-matches
+    field: description
+    pattern: "["
+    message: broken regex
+`))
+
+	dir := t.TempDir()
+	skillDir := filepath.Join(dir, "my-skill")
+	if err := os.MkdirAll(skillDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(skillDir, "SKILL.md"), []byte(`---
+name: my-skill
+description: Use this skill when testing
+---
+Body
+`), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err := DiscoverSourceSkillsForAnalyze(dir)
+	if err == nil {
+		t.Fatal("expected discovery to return lint rule load error")
+	}
+	if !strings.Contains(err.Error(), "invalid regex in rule bad-regex") {
+		t.Fatalf("expected invalid regex error, got: %v", err)
 	}
 }
 
