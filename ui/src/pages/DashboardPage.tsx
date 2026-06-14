@@ -78,16 +78,23 @@ export default function DashboardPage() {
     setUpdatingAll(true);
     try {
       const res = await api.update({ all: true });
-      const updated = res.results.filter((r) => r.action === 'updated').length;
-      const upToDate = res.results.filter((r) => r.action === 'up-to-date').length;
-      const errors = res.results.filter((r) => r.action === 'error');
-      const blocked = res.results.filter((r) => r.action === 'blocked');
-      if (res.results.length === 0) {
+      const results = res.results ?? [];
+      const updated = results.filter((r) => r.action === 'updated').length;
+      const upToDate = results.filter((r) => r.action === 'up-to-date').length;
+      const errors = results.filter((r) => r.action === 'error');
+      const blocked = results.filter((r) => r.action === 'blocked');
+      const missing = res.missingTrackedRepos ?? [];
+      if (results.length === 0 && missing.length === 0) {
         toast(t("dashboard.toast.noTrackedRepos"), 'info');
-      } else {
+      } else if (results.length > 0) {
         const parts = [`${updated} updated`, `${upToDate} up-to-date`];
         if (blocked.length > 0) parts.push(`${blocked.length} blocked`);
         toast(t("dashboard.toast.updateComplete", { summary: parts.join(', ') }), blocked.length > 0 ? 'warning' : updated > 0 ? 'success' : 'info');
+      }
+      // Tracked repos declared in metadata but absent on disk (issue #212):
+      // point the user to the Updates page where they can rehydrate.
+      if (missing.length > 0) {
+        toast(t("dashboard.toast.missingTrackedRepos", { count: missing.length }), 'warning');
       }
       const allUpdateErrors = [
         ...blocked.map((r) => `${formatSkillDisplayName(r.name)}: ${r.message}`),

@@ -3,6 +3,7 @@ package server
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -10,6 +11,7 @@ import (
 	"time"
 
 	"skillshare/internal/audit"
+	"skillshare/internal/config"
 	"skillshare/internal/git"
 	"skillshare/internal/install"
 	"skillshare/internal/utils"
@@ -21,6 +23,28 @@ type updateRequest struct {
 	Force     bool   `json:"force"`
 	All       bool   `json:"all"`
 	SkipAudit bool   `json:"skipAudit"`
+}
+
+// missingTrackedRepoInfo describes a tracked repo declared in metadata whose
+// clone directory is absent on disk. Carried in update responses so the UI can
+// warn and offer rehydration (issue #212).
+type missingTrackedRepoInfo struct {
+	Name   string `json:"name"`
+	Source string `json:"source"`
+	Branch string `json:"branch,omitempty"`
+}
+
+// missingTrackedRepos returns tracked repos declared in metadata but absent on disk.
+func (s *Server) missingTrackedRepos() []missingTrackedRepoInfo {
+	repos, err := install.GetMissingTrackedRepos(s.cfg.EffectiveSkillsSource())
+	if err != nil || len(repos) == 0 {
+		return nil
+	}
+	out := make([]missingTrackedRepoInfo, 0, len(repos))
+	for _, r := range repos {
+		out = append(out, missingTrackedRepoInfo{Name: r.Name, Source: r.Source, Branch: r.Branch})
+	}
+	return out
 }
 
 type updateResultItem struct {
@@ -94,7 +118,7 @@ func (s *Server) handleUpdate(w http.ResponseWriter, r *http.Request) {
 			"results_blocked": blocked,
 			"scope":           "ui",
 		}, msg)
-		writeJSON(w, map[string]any{"results": results})
+		writeJSON(w, map[string]any{"results": results, "missingTrackedRepos": s.missingTrackedRepos()})
 		return
 	}
 
@@ -449,6 +473,77 @@ func (s *Server) updateAll(force, skipAudit bool) []updateResultItem {
 	}
 
 	return results
+}
+
+// handleMissingTrackedRepos returns tracked repos declared in metadata whose
+// clone directories are absent on disk (issue #212), so the UI can warn on load.
+func (s *Server) handleMissingTrackedRepos(w http.ResponseWriter, r *http.Request) {
+	s.mu.RLock()
+	repos := s.missingTrackedRepos()
+	s.mu.RUnlock()
+	if repos == nil {
+		repos = []missingTrackedRepoInfo{}
+	}
+	writeJSON(w, map[string]any{"repos": repos})
+}
+
+// handleRehydrateTrackedRepos re-clones tracked repos declared in metadata whose
+// clone directories are absent on disk (issue #212). Mirrors bare CLI install.
+func (s *Server) handleRehydrateTrackedRepos(w http.ResponseWriter, r *http.Request) {
+	start := time.Now()
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	sourceDir := s.cfg.EffectiveSkillsSource()
+	opts := install.InstallOptions{
+		AuditThreshold: s.updateAuditThreshold(),
+		SourceDir:      sourceDir,
+	}
+	if s.IsProjectMode() {
+		opts.AuditProjectRoot = s.projectRoot
+	}
+
+	results, err := install.RehydrateMissingTrackedRepos(sourceDir, s.parseOpts(), opts)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	// Reload metadata + reconcile config so newly cloned repos register.
+	if st, lerr := install.LoadMetadataWithMigration(sourceDir, ""); lerr == nil && st != nil {
+		s.skillsStore = st
+	}
+	if s.IsProjectMode() {
+		if rErr := config.ReconcileProjectSkills(s.projectRoot, s.projectCfg, s.skillsStore, sourceDir); rErr != nil {
+			log.Printf("warning: failed to reconcile project skills config: %v", rErr)
+		}
+	} else {
+		if rErr := config.ReconcileGlobalSkills(s.cfg, s.skillsStore); rErr != nil {
+			log.Printf("warning: failed to reconcile global skills config: %v", rErr)
+		}
+	}
+
+	rehydrated, failed := 0, 0
+	for _, res := range results {
+		if res.Action == "rehydrated" {
+			rehydrated++
+		} else {
+			failed++
+		}
+	}
+	status, msg := "ok", ""
+	if failed > 0 {
+		status = "partial"
+		msg = fmt.Sprintf("%d repo(s) failed to rehydrate", failed)
+	}
+	s.writeOpsLog("install", status, start, map[string]any{
+		"name":       "--rehydrate",
+		"tracked":    true,
+		"scope":      "ui",
+		"rehydrated": rehydrated,
+		"failed":     failed,
+	}, msg)
+	writeJSON(w, map[string]any{"results": results})
 }
 
 // getServerUpdatableSkills returns relative paths of skills that have metadata with a remote source.

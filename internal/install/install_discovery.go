@@ -28,7 +28,7 @@ func discoverFromGitWithProgressImpl(source *Source, onProgress ProgressCallback
 
 	repoPath := filepath.Join(tempDir, "repo")
 	if err := cloneRepo(source.CloneURL, repoPath, source.Branch, true, onProgress); err != nil {
-		os.RemoveAll(tempDir)
+		cleanupTempRepo(tempDir)
 		return nil, fmt.Errorf("failed to clone repository: %w", err)
 	}
 
@@ -47,7 +47,7 @@ func discoverFromGitWithProgressImpl(source *Source, onProgress ProgressCallback
 	agents := discoverAgents(repoPath, len(skills) > 0)
 	skills, agents, err = constrainDiscoveryToExplicitSkill(source, skills, agents)
 	if err != nil {
-		_ = os.RemoveAll(tempDir)
+		cleanupTempRepo(tempDir)
 		return nil, err
 	}
 
@@ -339,7 +339,7 @@ func discoverFromGitSubdirWithProgressImpl(source *Source, onProgress ProgressCa
 				agents := discoverAgents(subdirPath, len(skills) > 0)
 				skills, agents, err = constrainDiscoveryToExplicitSkill(source, skills, agents)
 				if err != nil {
-					_ = os.RemoveAll(tempDir)
+					cleanupTempRepo(tempDir)
 					return nil, err
 				}
 				return &DiscoveryResult{
@@ -352,11 +352,11 @@ func discoverFromGitSubdirWithProgressImpl(source *Source, onProgress ProgressCa
 				}, nil
 			}
 			warnings = append(warnings, "sparse checkout discovery fallback: subdirectory missing after checkout")
-			_ = os.RemoveAll(repoPath)
+			cleanupTempRepo(repoPath)
 			subdirPath = ""
 		} else {
 			warnings = append(warnings, fmt.Sprintf("sparse checkout discovery fallback: %v", err))
-			_ = os.RemoveAll(repoPath)
+			cleanupTempRepo(repoPath)
 			subdirPath = ""
 		}
 	}
@@ -373,7 +373,7 @@ func discoverFromGitSubdirWithProgressImpl(source *Source, onProgress ProgressCa
 			agents := discoverAgents(subdirPath, len(skills) > 0)
 			skills, agents, err = constrainDiscoveryToExplicitSkill(source, skills, agents)
 			if err != nil {
-				_ = os.RemoveAll(tempDir)
+				cleanupTempRepo(tempDir)
 				return nil, err
 			}
 			return &DiscoveryResult{
@@ -385,23 +385,23 @@ func discoverFromGitSubdirWithProgressImpl(source *Source, onProgress ProgressCa
 			}, nil
 		}
 		warnings = append(warnings, fmt.Sprintf("GitHub API discovery fallback: %v", dlErr))
-		_ = os.RemoveAll(repoPath)
+		cleanupTempRepo(repoPath)
 		subdirPath = ""
 	}
 
 	// Fallback: full clone + fuzzy subdir resolution
-	_ = os.RemoveAll(repoPath)
+	cleanupTempRepo(repoPath)
 	if onProgress != nil {
 		onProgress("Cloning repository...")
 	}
 	if err := cloneRepo(source.CloneURL, repoPath, source.Branch, true, onProgress); err != nil {
-		os.RemoveAll(tempDir)
+		cleanupTempRepo(tempDir)
 		return nil, fmt.Errorf("failed to clone repository: %w", err)
 	}
 
 	resolved, err := resolveSubdir(repoPath, source.Subdir)
 	if err != nil {
-		os.RemoveAll(tempDir)
+		cleanupTempRepo(tempDir)
 		return nil, err
 	}
 	if resolved != source.Subdir {
@@ -417,7 +417,7 @@ func discoverFromGitSubdirWithProgressImpl(source *Source, onProgress ProgressCa
 	agents := discoverAgents(subdirPath, len(skills) > 0)
 	skills, agents, err = constrainDiscoveryToExplicitSkill(source, skills, agents)
 	if err != nil {
-		_ = os.RemoveAll(tempDir)
+		cleanupTempRepo(tempDir)
 		return nil, err
 	}
 	return &DiscoveryResult{
@@ -448,7 +448,7 @@ func cleanupDiscoveryImpl(result *DiscoveryResult) {
 	if !result.Source.IsGit() {
 		return
 	}
-	os.RemoveAll(result.RepoPath)
+	cleanupTempRepo(result.RepoPath)
 }
 
 // InstallFromDiscovery installs a skill from a discovered repository

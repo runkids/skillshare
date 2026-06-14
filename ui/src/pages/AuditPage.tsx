@@ -606,9 +606,9 @@ function FindingRow({ finding }: { finding: AuditFinding }) {
     <div
       className="flex flex-col gap-1.5 text-sm pl-3 py-2 transition-colors duration-100 hover:bg-paper-warm/60 rounded-md"
     >
-      <div className="flex items-start gap-2 flex-wrap">
+      <div className="flex items-center gap-2 flex-wrap">
         <span
-          className="w-2 h-2 rounded-full shrink-0 mt-1.5"
+          className="w-2 h-2 rounded-full shrink-0"
           style={{ backgroundColor: dotColor }}
         />
         <Badge variant={severityBadgeVariant(finding.severity)}>

@@ -11,11 +11,12 @@ import (
 
 // updateResult tracks the result of an update operation
 type updateResult struct {
-	updated        int
-	skipped        int
-	securityFailed int
-	pruned         int
-	items          []updateJSONItem
+	updated             int
+	skipped             int
+	securityFailed      int
+	pruned              int
+	items               []updateJSONItem
+	missingTrackedRepos []string // names of tracked repos declared in metadata but absent on disk
 }
 
 // batchBlockedEntry records a skill that was blocked by security audit during batch update.
@@ -231,4 +232,18 @@ func displayStaleWarning(stale []string) {
 		ui.ListItem("warning", name, "stale (deleted upstream)")
 	}
 	ui.Info("Run with --prune to remove stale skills")
+}
+
+// displayMissingTrackedReposWarning warns about tracked repos declared in
+// metadata whose clone directories are absent on disk (issue #212).
+func displayMissingTrackedReposWarning(missing []string) {
+	if len(missing) == 0 {
+		return
+	}
+	fmt.Println()
+	ui.Warning("%d tracked repo(s) declared in metadata but missing on disk:", len(missing))
+	for _, name := range missing {
+		ui.ListItem("warning", name, missingTrackedRepoShortReason)
+	}
+	ui.Info("%s", missingTrackedRepoHint())
 }

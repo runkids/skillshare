@@ -2,6 +2,7 @@ package version
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -105,14 +106,20 @@ func saveCache(cache *Cache) error {
 	return os.WriteFile(cachePath, data, 0644)
 }
 
-// compareVersions returns true if v1 < v2 (proper semver comparison)
-func compareVersions(v1, v2 string) bool {
+// compareVersions returns true if v1 < v2.
+func compareVersions(v1, v2 string) (bool, error) {
 	if v1 == "dev" || v1 == "" {
-		return false // Don't prompt for dev builds
+		return false, nil // Don't prompt for dev builds
 	}
 
-	parts1 := strings.Split(v1, ".")
-	parts2 := strings.Split(v2, ".")
+	parts1, err := parseVersionParts(v1)
+	if err != nil {
+		return false, err
+	}
+	parts2, err := parseVersionParts(v2)
+	if err != nil {
+		return false, err
+	}
 
 	// Compare each part numerically
 	maxLen := len(parts1)
@@ -123,21 +130,35 @@ func compareVersions(v1, v2 string) bool {
 	for i := 0; i < maxLen; i++ {
 		var n1, n2 int
 		if i < len(parts1) {
-			n1, _ = strconv.Atoi(parts1[i])
+			n1 = parts1[i]
 		}
 		if i < len(parts2) {
-			n2, _ = strconv.Atoi(parts2[i])
+			n2 = parts2[i]
 		}
 
 		if n1 < n2 {
-			return true // v1 < v2
+			return true, nil // v1 < v2
 		}
 		if n1 > n2 {
-			return false // v1 > v2
+			return false, nil // v1 > v2
 		}
 	}
 
-	return false // v1 == v2
+	return false, nil // v1 == v2
+}
+
+func parseVersionParts(ver string) ([]int, error) {
+	normalized := strings.TrimPrefix(ver, "v")
+	rawParts := strings.Split(normalized, ".")
+	parts := make([]int, len(rawParts))
+	for i, part := range rawParts {
+		n, err := strconv.Atoi(part)
+		if err != nil {
+			return nil, fmt.Errorf("non-numeric version segment %q in %q", part, ver)
+		}
+		parts[i] = n
+	}
+	return parts, nil
 }
 
 // Check checks if a new version is available.
@@ -149,6 +170,9 @@ func Check(currentVersion string, method InstallMethod) *CheckResult {
 	if currentVersion == "dev" || currentVersion == "" {
 		return nil
 	}
+	if _, err := parseVersionParts(currentVersion); err != nil {
+		return nil
+	}
 
 	// Clean up legacy cache location (~/.skillshare/)
 	cleanupLegacyCache()
@@ -156,9 +180,15 @@ func Check(currentVersion string, method InstallMethod) *CheckResult {
 	cache, _ := loadCache()
 
 	// If current version >= cached latest, clear stale cache (user may have manually updated)
-	if cache != nil && cache.LatestVersion != "" && !compareVersions(currentVersion, cache.LatestVersion) {
-		ClearCache()
-		cache = nil
+	if cache != nil && cache.LatestVersion != "" {
+		currentOlderThanCached, err := compareVersions(currentVersion, cache.LatestVersion)
+		if err != nil {
+			ClearCache()
+			cache = nil
+		} else if !currentOlderThanCached {
+			ClearCache()
+			cache = nil
+		}
 	}
 
 	// Check if we need to fetch
@@ -193,7 +223,11 @@ func Check(currentVersion string, method InstallMethod) *CheckResult {
 	}
 
 	// Compare versions
-	if compareVersions(currentVersion, cache.LatestVersion) {
+	updateAvailable, err := compareVersions(currentVersion, cache.LatestVersion)
+	if err != nil {
+		return nil
+	}
+	if updateAvailable {
 		return &CheckResult{
 			CurrentVersion:  currentVersion,
 			LatestVersion:   cache.LatestVersion,

@@ -22,6 +22,8 @@ vi.mock('../api/client', async (importOriginal) => {
       listSkills: vi.fn(),
       checkStream: vi.fn(),
       updateAllStream: vi.fn(),
+      missingTrackedRepos: vi.fn(),
+      rehydrateTrackedRepos: vi.fn(),
     },
   };
 });
@@ -46,6 +48,7 @@ describe('UpdatePage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     localStorage.clear();
+    vi.mocked(api.missingTrackedRepos).mockResolvedValue({ repos: [] });
   });
 
   const nestedSkill = {
@@ -188,5 +191,26 @@ describe('UpdatePage', () => {
     expect(row).not.toBeNull();
     expect(within(row as HTMLElement).getByText('Up to date')).toBeInTheDocument();
     expect(within(row as HTMLElement).queryByText('Unchecked')).not.toBeInTheDocument();
+  });
+
+  it('warns about missing tracked repos and rehydrates on click (issue #212)', async () => {
+    vi.mocked(api.listSkills).mockResolvedValue({ resources: [nestedSkill] });
+    vi.mocked(api.missingTrackedRepos).mockResolvedValue({
+      repos: [{ name: '_team-skills', source: 'https://github.com/example/team-skills', branch: 'main' }],
+    });
+    vi.mocked(api.rehydrateTrackedRepos).mockResolvedValue({
+      results: [{ name: '_team-skills', action: 'rehydrated' }],
+    });
+
+    const user = userEvent.setup();
+    renderUpdatePage();
+
+    // Banner lists the missing repo.
+    expect(await screen.findByText('_team-skills')).toBeInTheDocument();
+
+    const rehydrateBtn = screen.getByRole('button', { name: /rehydrate/i });
+    await user.click(rehydrateBtn);
+
+    await waitFor(() => expect(api.rehydrateTrackedRepos).toHaveBeenCalled());
   });
 });

@@ -1,8 +1,10 @@
 package install
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"log/slog"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -159,6 +161,38 @@ func TestCleanupDiscovery_SkipsWhenSourceNil(t *testing.T) {
 	CleanupDiscovery(&DiscoveryResult{RepoPath: dir, Source: nil})
 	if _, err := os.Stat(file); err != nil {
 		t.Fatalf("directory was removed when Source was nil: %v", err)
+	}
+}
+
+func TestCleanupDiscovery_LogsRemoveFailure(t *testing.T) {
+	var logs bytes.Buffer
+	oldLogger := slog.Default()
+	slog.SetDefault(slog.New(slog.NewTextHandler(&logs, &slog.HandlerOptions{Level: slog.LevelWarn})))
+	t.Cleanup(func() { slog.SetDefault(oldLogger) })
+
+	oldRemove := removeTempRepoPath
+	removeTempRepoPath = func(path string) error {
+		if path != "/tmp/skillshare-discover-test" {
+			t.Fatalf("remove path = %q, want %q", path, "/tmp/skillshare-discover-test")
+		}
+		return errors.New("cleanup denied")
+	}
+	t.Cleanup(func() { removeTempRepoPath = oldRemove })
+
+	CleanupDiscovery(&DiscoveryResult{
+		RepoPath: "/tmp/skillshare-discover-test",
+		Source:   &Source{Type: SourceTypeGitHTTPS},
+	})
+
+	got := logs.String()
+	for _, want := range []string{
+		"failed to clean up temp repo",
+		`path=/tmp/skillshare-discover-test`,
+		`error="cleanup denied"`,
+	} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("log output %q does not contain %q", got, want)
+		}
 	}
 }
 
@@ -490,6 +524,12 @@ func TestExtractGitFatal(t *testing.T) {
 			name:   "error prefix",
 			stderr: "error: cannot pull with rebase",
 			want:   "cannot pull with rebase",
+		},
+		{
+			name: "generic push error preserves earlier diagnostics",
+			stderr: "pre-push hook rejected branch\n" +
+				"error: failed to push some refs to 'https://github.com/org/repo.git'",
+			want: "pre-push hook rejected branch; error: failed to push some refs to 'https://github.com/org/repo.git'",
 		},
 		{
 			name:   "no fatal or hint prefix",

@@ -122,6 +122,9 @@ func extractGitFatal(stderr string) string {
 		nonHint = append(nonHint, trimmed)
 	}
 	if fatal != "" {
+		if strings.Contains(fatal, "failed to push some refs") && len(nonHint) > 1 {
+			return strings.Join(nonHint, "; ")
+		}
 		return fatal
 	}
 	if len(nonHint) > 0 {
@@ -161,7 +164,7 @@ func ShallowCloneToTemp(cloneURL, branch string) (string, error) {
 		return "", err
 	}
 	if err := cloneRepo(cloneURL, dir, branch, true, nil); err != nil {
-		os.RemoveAll(dir)
+		cleanupTempRepo(dir)
 		return "", err
 	}
 	return dir, nil

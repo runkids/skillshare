@@ -31,13 +31,22 @@ type updateOptions struct {
 
 // updateJSONOutput is the JSON representation for update --json output.
 type updateJSONOutput struct {
-	Updated        int              `json:"updated"`
-	Skipped        int              `json:"skipped"`
-	SecurityFailed int              `json:"security_failed"`
-	Pruned         int              `json:"pruned"`
-	DryRun         bool             `json:"dry_run"`
-	Duration       string           `json:"duration"`
-	Items          []updateJSONItem `json:"items"`
+	Updated             int                         `json:"updated"`
+	Skipped             int                         `json:"skipped"`
+	SecurityFailed      int                         `json:"security_failed"`
+	Pruned              int                         `json:"pruned"`
+	DryRun              bool                        `json:"dry_run"`
+	Duration            string                      `json:"duration"`
+	Items               []updateJSONItem            `json:"items"`
+	MissingTrackedRepos *missingTrackedReposSummary `json:"missing_tracked_repos,omitempty"`
+}
+
+// missingTrackedReposSummary aggregates tracked repos declared in metadata whose
+// clone directories are absent on disk, so the per-item error stays concise while
+// the recovery hint is surfaced once. See issue #212.
+type missingTrackedReposSummary struct {
+	Names []string `json:"names"`
+	Hint  string   `json:"hint"`
 }
 
 type updateJSONItem struct {
@@ -380,13 +389,8 @@ func cmdUpdate(args []string) error {
 		var r updateResult
 		var updateErr error
 		if t.isRepo {
-			if opts.all {
-				if _, statErr := os.Stat(t.path); os.IsNotExist(statErr) {
-					r.skipped = 1
-					r.items = append(r.items, updateJSONItem{Name: t.name, Type: "repo", Status: "skipped", Error: missingTrackedRepoMessage(t.name)})
-				} else {
-					r, updateErr = updateTrackedRepo(uc, t.name)
-				}
+			if mr, missing := missingTrackedRepoResult(t); opts.all && missing {
+				r = mr
 			} else {
 				r, updateErr = updateTrackedRepo(uc, t.name)
 			}
@@ -404,6 +408,7 @@ func cmdUpdate(args []string) error {
 		if opts.jsonOutput {
 			return jsonWriteResult(&r, updateErr)
 		}
+		displayMissingTrackedReposWarning(r.missingTrackedRepos)
 		return updateErr
 	}
 
@@ -444,6 +449,12 @@ func updateOutputJSON(result *updateResult, dryRun bool, start time.Time, update
 		output.SecurityFailed = result.securityFailed
 		output.Pruned = result.pruned
 		output.Items = result.items
+		if len(result.missingTrackedRepos) > 0 {
+			output.MissingTrackedRepos = &missingTrackedReposSummary{
+				Names: result.missingTrackedRepos,
+				Hint:  missingTrackedRepoHint(),
+			}
+		}
 	}
 	return writeJSONResult(&output, updateErr)
 }

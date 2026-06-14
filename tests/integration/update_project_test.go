@@ -100,6 +100,29 @@ func TestUpdateProject_MultiNames_DryRun(t *testing.T) {
 	result.AssertAnyOutputContains(t, "dry-run")
 }
 
+// TestUpdateProject_All_MissingTrackedRepos_Warns verifies project-mode
+// `update --all -p` surfaces tracked repos declared in project metadata whose
+// clone dirs are absent, instead of silently ignoring them (issue #212).
+func TestUpdateProject_All_MissingTrackedRepos_Warns(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	projectRoot := sb.SetupProjectDir("claude")
+
+	// Placeholder skill (no meta) ensures the project skills dir exists.
+	sb.CreateProjectSkill(projectRoot, "placeholder", map[string]string{"SKILL.md": "# P"})
+
+	skillsDir := filepath.Join(projectRoot, ".skillshare", "skills")
+	writeMissingTrackedRepoMeta(t, skillsDir, "_repo-a")
+	writeMissingTrackedRepoMeta(t, skillsDir, "_repo-b")
+
+	result := sb.RunCLIInDir(projectRoot, "update", "--all", "-p")
+	result.AssertSuccess(t)
+	result.AssertAnyOutputContains(t, "missing on disk")
+	result.AssertAnyOutputContains(t, "_repo-a")
+	result.AssertAnyOutputContains(t, "_repo-b")
+	result.AssertAnyOutputContains(t, "skillshare install")
+}
+
 func TestUpdateProject_Group_DryRun(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()

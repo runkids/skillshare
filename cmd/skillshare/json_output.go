@@ -3,6 +3,8 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"io"
+	"log/slog"
 	"os"
 	"reflect"
 	"slices"
@@ -80,9 +82,10 @@ func (s *jsonUISuppressor) Flush() {
 }
 
 // suppressUIToDevnull temporarily redirects os.Stdout and the progress
-// writer to /dev/null so that handler functions using fmt.Printf / ui.*
-// produce zero visible output.  This keeps --json output clean even when
-// stdout and stderr share the same terminal (e.g. docker exec).
+// writer to /dev/null and silences slog so that handler functions using
+// fmt.Printf / ui.* / slog.* produce zero visible output.  This keeps --json
+// output clean even when stdout and stderr share the same terminal (e.g.
+// docker exec).
 // Returns a restore function that MUST be called before writing JSON.
 func suppressUIToDevnull() func() {
 	devnull, err := os.OpenFile(os.DevNull, os.O_WRONLY, 0)
@@ -97,10 +100,14 @@ func suppressUIToDevnull() func() {
 	ui.SetProgressWriter(devnull)
 	ui.SuppressProgress()
 
+	prevLogger := slog.Default()
+	slog.SetDefault(slog.New(slog.NewTextHandler(io.Discard, nil)))
+
 	return func() {
 		os.Stdout = origStdout
 		ui.SetProgressWriter(prevProgress)
 		ui.RestoreProgress()
+		slog.SetDefault(prevLogger)
 		if devnull != os.Stderr {
 			devnull.Close()
 		}

@@ -125,6 +125,10 @@ func TestTrackedMetadataMissingClone_UpdateAllJSONSkipsMissingRepo(t *testing.T)
 			Status string `json:"status"`
 			Error  string `json:"error"`
 		} `json:"items"`
+		MissingTrackedRepos *struct {
+			Names []string `json:"names"`
+			Hint  string   `json:"hint"`
+		} `json:"missing_tracked_repos"`
 	}
 	if err := json.Unmarshal([]byte(result.Stdout), &output); err != nil {
 		t.Fatalf("failed to parse JSON output: %v\nstdout: %s", err, result.Stdout)
@@ -140,9 +144,18 @@ func TestTrackedMetadataMissingClone_UpdateAllJSONSkipsMissingRepo(t *testing.T)
 	if item.Name != missingTrackedRepoName || item.Type != "repo" || item.Status != "skipped" {
 		t.Fatalf("expected skipped repo item for %q, got %+v", missingTrackedRepoName, item)
 	}
-	message := strings.ToLower(item.Error)
-	if !strings.Contains(message, "missing") || !strings.Contains(item.Error, "skillshare install") {
-		t.Fatalf("expected missing-repo error message with skillshare install suggestion, got %q", item.Error)
+	// Per-item error is concise; the actionable hint is aggregated in the summary.
+	if !strings.Contains(strings.ToLower(item.Error), "absent") {
+		t.Fatalf("expected concise per-item error, got %q", item.Error)
+	}
+	if output.MissingTrackedRepos == nil {
+		t.Fatalf("expected missing_tracked_repos summary in output: %s", result.Stdout)
+	}
+	if len(output.MissingTrackedRepos.Names) != 1 || output.MissingTrackedRepos.Names[0] != missingTrackedRepoName {
+		t.Fatalf("expected summary names [%q], got %v", missingTrackedRepoName, output.MissingTrackedRepos.Names)
+	}
+	if !strings.Contains(output.MissingTrackedRepos.Hint, "skillshare install") {
+		t.Fatalf("expected summary hint with skillshare install suggestion, got %q", output.MissingTrackedRepos.Hint)
 	}
 }
 

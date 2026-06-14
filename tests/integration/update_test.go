@@ -85,6 +85,72 @@ func TestUpdate_MultipleNames_PartialNotFound(t *testing.T) {
 	result.AssertAnyOutputContains(t, "ghost")
 }
 
+// writeMissingTrackedRepoMeta declares a tracked repo in .metadata.json without
+// creating its clone directory, simulating a fresh machine where metadata is
+// committed but the gitignored clone dirs are absent (issue #212).
+func writeMissingTrackedRepoMeta(t *testing.T, sourceDir, name string) {
+	t.Helper()
+	store, err := install.LoadMetadata(sourceDir)
+	if err != nil {
+		t.Fatalf("failed to load metadata: %v", err)
+	}
+	store.Set(name, &install.MetadataEntry{
+		Source:  "https://github.com/example/" + strings.TrimPrefix(name, "_"),
+		RepoURL: "https://github.com/example/" + strings.TrimPrefix(name, "_") + ".git",
+		Tracked: true,
+	})
+	if err := store.Save(sourceDir); err != nil {
+		t.Fatalf("failed to save metadata: %v", err)
+	}
+}
+
+// TestUpdate_All_MissingTrackedRepos_BatchWarns verifies that `update --all`
+// surfaces a warning (not a silent skip) when multiple tracked repos are
+// declared in metadata but their clone directories are missing. Regression
+// test for issue #212.
+func TestUpdate_All_MissingTrackedRepos_BatchWarns(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	setupGlobalConfig(sb)
+
+	// Placeholder skill (no metadata) just ensures the source dir exists; it is
+	// not an update target since it has no metadata entry.
+	sb.CreateSkill("placeholder", map[string]string{"SKILL.md": "# Placeholder"})
+
+	// Two missing tracked repos → two targets → batch path (not single-target).
+	writeMissingTrackedRepoMeta(t, sb.SourcePath, "_repo-a")
+	writeMissingTrackedRepoMeta(t, sb.SourcePath, "_repo-b")
+
+	result := sb.RunCLI("update", "--all")
+	result.AssertSuccess(t)
+	result.AssertAnyOutputContains(t, "missing on disk")
+	result.AssertAnyOutputContains(t, "_repo-a")
+	result.AssertAnyOutputContains(t, "_repo-b")
+	result.AssertAnyOutputContains(t, "skillshare install")
+}
+
+// TestUpdate_All_MissingTrackedRepos_JSON verifies the JSON output reports each
+// missing tracked repo as a skipped item carrying the rehydration hint.
+func TestUpdate_All_MissingTrackedRepos_JSON(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	setupGlobalConfig(sb)
+
+	sb.CreateSkill("placeholder", map[string]string{"SKILL.md": "# Placeholder"})
+	writeMissingTrackedRepoMeta(t, sb.SourcePath, "_repo-a")
+	writeMissingTrackedRepoMeta(t, sb.SourcePath, "_repo-b")
+
+	result := sb.RunCLI("update", "--all", "--json")
+	result.AssertSuccess(t)
+	// Aggregated summary carries the names + one-shot rehydration hint.
+	result.AssertOutputContains(t, "missing_tracked_repos")
+	result.AssertOutputContains(t, "_repo-a")
+	result.AssertOutputContains(t, "_repo-b")
+	result.AssertOutputContains(t, "rehydrate tracked repositories")
+	// Per-item error is concise (not the repeated long sentence).
+	result.AssertOutputContains(t, "clone directory absent")
+}
+
 func TestUpdate_Group_DryRun(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()

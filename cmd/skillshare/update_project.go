@@ -230,6 +230,20 @@ func updateAllProjectSkills(uc *updateContext) (*updateResult, error) {
 		return nil, fmt.Errorf("failed to scan skills: %w", err)
 	}
 
+	// Tracked repos declared in metadata but absent on disk (issue #212):
+	// surface them instead of silently ignoring (mirrors global --all).
+	existing := make(map[string]bool, len(targets))
+	for _, t := range targets {
+		existing[t.name] = true
+	}
+	missingRepos, _ := install.GetMissingTrackedRepos(uc.sourcePath)
+	for _, repo := range missingRepos {
+		if !existing[repo.Name] {
+			existing[repo.Name] = true
+			targets = append(targets, updateTarget{name: repo.Name, path: filepath.Join(uc.sourcePath, filepath.FromSlash(repo.Name)), isRepo: true})
+		}
+	}
+
 	var repoCount, skillCount int
 	for _, t := range targets {
 		if t.isRepo {
@@ -252,7 +266,12 @@ func updateAllProjectSkills(uc *updateContext) (*updateResult, error) {
 		var r updateResult
 		var updateErr error
 		if t.isRepo {
-			r, updateErr = updateTrackedRepo(uc, t.name)
+			if mr, missing := missingTrackedRepoResult(t); missing {
+				r = mr
+				displayMissingTrackedReposWarning(r.missingTrackedRepos)
+			} else {
+				r, updateErr = updateTrackedRepo(uc, t.name)
+			}
 		} else {
 			r, updateErr = updateRegularSkill(uc, t.name)
 		}

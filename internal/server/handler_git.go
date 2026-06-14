@@ -211,7 +211,10 @@ func (s *Server) handleGitBranches(w http.ResponseWriter, r *http.Request) {
 
 	// Optional: fetch from remote first to discover new branches
 	if r.URL.Query().Get("fetch") == "true" && git.HasRemote(src) {
-		_ = git.FetchWithEnv(src, git.AuthEnvForRepo(src))
+		if err := git.FetchWithEnv(src, git.AuthEnvForRepo(src)); err != nil {
+			writeError(w, http.StatusInternalServerError, "git fetch failed: "+err.Error())
+			return
+		}
 	}
 
 	resp := gitBranchesResponse{
@@ -302,7 +305,14 @@ func (s *Server) handleGitCheckout(w http.ResponseWriter, r *http.Request) {
 
 	// Fetch before checkout to ensure remote refs are up to date
 	if git.HasRemote(src) {
-		_ = git.FetchWithEnv(src, git.AuthEnvForRepo(src))
+		if err := git.FetchWithEnv(src, git.AuthEnvForRepo(src)); err != nil {
+			s.writeOpsLog("checkout", "error", start, map[string]any{
+				"branch": body.Branch,
+				"scope":  "ui",
+			}, err.Error())
+			writeError(w, http.StatusInternalServerError, "git fetch failed: "+err.Error())
+			return
+		}
 	}
 
 	// Checkout

@@ -4,7 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   ArrowUpCircle, RefreshCw, Search, Check, Zap, Trash2,
   Circle, CheckCircle, XCircle, MinusCircle, ShieldAlert, Loader2,
-  LayoutGrid, Users, Globe, Puzzle, Bot,
+  LayoutGrid, Users, Globe, Puzzle, Bot, AlertTriangle, DownloadCloud,
 } from 'lucide-react';
 import { Virtuoso } from 'react-virtuoso';
 import Card from '../components/Card';
@@ -97,6 +97,15 @@ export default function UpdatePage() {
     queryFn: () => api.listSkills(),
     staleTime: staleTimes.skills,
   });
+
+  // Tracked repos declared in metadata but missing on disk (issue #212)
+  const { data: missingReposData } = useQuery({
+    queryKey: queryKeys.missingTrackedRepos,
+    queryFn: () => api.missingTrackedRepos(),
+    staleTime: staleTimes.missingTrackedRepos,
+  });
+  const missingTrackedRepos = missingReposData?.repos ?? [];
+  const [rehydrating, setRehydrating] = useState(false);
   const allSkills = skillsData?.resources ?? [];
 
   // Tab state (skills vs agents)
@@ -525,6 +534,25 @@ export default function UpdatePage() {
     itemRefs.current = {};
   }, []);
 
+  const handleRehydrate = useCallback(async () => {
+    setRehydrating(true);
+    try {
+      const { results } = await api.rehydrateTrackedRepos();
+      const failed = results.filter((r) => r.action !== 'rehydrated');
+      if (failed.length > 0) {
+        toast(t('update.missingRepos.rehydratePartial', { count: failed.length }), 'error');
+      } else {
+        toast(t('update.missingRepos.rehydrateSuccess', { count: results.length }), 'success');
+      }
+      queryClient.invalidateQueries({ queryKey: queryKeys.missingTrackedRepos });
+      invalidateSkillData();
+    } catch (err) {
+      toast((err as Error).message, 'error');
+    } finally {
+      setRehydrating(false);
+    }
+  }, [t, toast, queryClient, invalidateSkillData]);
+
   /* ── Derived counts ──────────────────────────────── */
 
   const { successCount, skippedCount, blockedCount, errorCount, completedCount } = useMemo(() => {
@@ -621,13 +649,43 @@ export default function UpdatePage() {
           }
         />
 
-        {allUpdatableItems.length === 0 ? (
+        {missingTrackedRepos.length > 0 && (
+          <div
+            className="flex items-start gap-2 p-3 bg-warning/10 text-sm"
+            style={{ borderRadius: radius.md }}
+          >
+            <AlertTriangle size={16} className="text-warning shrink-0 mt-0.5" />
+            <div className="flex-1 min-w-0">
+              <p className="font-medium text-pencil">
+                {t('update.missingRepos.title', { count: missingTrackedRepos.length })}
+              </p>
+              <p className="text-pencil-light mt-0.5">{t('update.missingRepos.description')}</p>
+              <ul className="mt-2 space-y-1">
+                {missingTrackedRepos.map((repo) => (
+                  <li key={repo.name} className="flex items-center gap-2 min-w-0">
+                    <span className="w-1.5 h-1.5 rounded-full bg-warning shrink-0" />
+                    <span className="font-mono text-pencil shrink-0">{repo.name}</span>
+                    {repo.source && (
+                      <span className="text-pencil-light truncate text-xs">{repo.source}</span>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <Button variant="primary" size="sm" onClick={handleRehydrate} loading={rehydrating}>
+              <DownloadCloud size={16} />
+              {t('update.missingRepos.rehydrate')}
+            </Button>
+          </div>
+        )}
+
+        {allUpdatableItems.length === 0 && missingTrackedRepos.length === 0 ? (
           <EmptyState
             icon={Check}
             title={t('update.empty.title')}
             description={t('update.empty.description')}
           />
-        ) : (
+        ) : allUpdatableItems.length === 0 ? null : (
           <>
             {/* Resource type tabs (Skills / Agents) */}
             <nav

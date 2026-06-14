@@ -105,6 +105,52 @@ func initServerGitRepo(t *testing.T, dir string) {
 	testutil.RunGit(t, dir, "commit", "--allow-empty", "-m", "initial")
 }
 
+func addFailingOriginRemote(t *testing.T, dir string) {
+	t.Helper()
+	missingRemote := "file://" + filepath.Join(t.TempDir(), "missing.git")
+	testutil.RunGit(t, dir, "remote", "add", "origin", missingRemote)
+}
+
+func TestHandleGitBranches_FetchFailureReturnsError(t *testing.T) {
+	s, src := newTestServer(t)
+	initServerGitRepo(t, src)
+	addFailingOriginRemote(t, src)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/git/branches?fetch=true", nil)
+	rr := httptest.NewRecorder()
+	s.handler.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusInternalServerError {
+		t.Fatalf("expected 500, got %d: %s", rr.Code, rr.Body.String())
+	}
+	if !strings.Contains(rr.Body.String(), "git fetch failed") {
+		t.Fatalf("response %q does not mention fetch failure", rr.Body.String())
+	}
+}
+
+func TestHandleGitCheckout_FetchFailureStopsCheckout(t *testing.T) {
+	s, src := newTestServer(t)
+	initServerGitRepo(t, src)
+	base := testutil.RunGit(t, src, "branch", "--show-current")
+	testutil.RunGit(t, src, "checkout", "-b", "feature")
+	testutil.RunGit(t, src, "checkout", base)
+	addFailingOriginRemote(t, src)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/git/checkout", strings.NewReader(`{"branch":"feature"}`))
+	rr := httptest.NewRecorder()
+	s.handler.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusInternalServerError {
+		t.Fatalf("expected 500, got %d: %s", rr.Code, rr.Body.String())
+	}
+	if !strings.Contains(rr.Body.String(), "git fetch failed") {
+		t.Fatalf("response %q does not mention fetch failure", rr.Body.String())
+	}
+	if current := testutil.RunGit(t, src, "branch", "--show-current"); current != base {
+		t.Fatalf("current branch = %q, want %q", current, base)
+	}
+}
+
 // POST /api/git/root with a non-default scope initializes a repo at that scope
 // directory and persists git_root to config.
 func TestHandleSetGitRoot_SwitchToAgents_InitsAndPersists(t *testing.T) {

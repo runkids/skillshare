@@ -428,6 +428,8 @@ func (s *Server) registerRoutes() {
 	// Update & Check
 	s.mux.HandleFunc("POST /api/update", s.handleUpdate)
 	s.mux.HandleFunc("GET /api/update/stream", s.handleUpdateStream)
+	s.mux.HandleFunc("GET /api/update/missing-tracked-repos", s.handleMissingTrackedRepos)
+	s.mux.HandleFunc("POST /api/update/rehydrate", s.handleRehydrateTrackedRepos)
 	s.mux.HandleFunc("GET /api/check/stream", s.handleCheckStream)
 	s.mux.HandleFunc("GET /api/check", s.handleCheck)
 

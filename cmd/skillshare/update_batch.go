@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
@@ -61,6 +62,7 @@ func executeBatchUpdate(uc *updateContext, targets []updateTarget) (updateResult
 	var blockedEntries []batchBlockedEntry
 	var staleNames []string
 	var prunedNames []string
+	var missingRepoNames []string
 
 	// Group skills by RepoURL to optimize updates
 	repoGroups := make(map[string][]updateTarget)
@@ -105,6 +107,15 @@ func executeBatchUpdate(uc *updateContext, targets []updateTarget) (updateResult
 	}
 	for _, t := range trackedRepos {
 		progressBar.UpdateTitle(fmt.Sprintf("Updating %s", t.name))
+		// Tracked repo declared in metadata but clone dir is absent (issue #212):
+		// surface it instead of silently skipping (mirrors the single-target path).
+		if _, statErr := os.Stat(t.path); os.IsNotExist(statErr) {
+			result.skipped++
+			missingRepoNames = append(missingRepoNames, t.name)
+			result.items = append(result.items, updateJSONItem{Name: t.name, Type: "repo", Status: "skipped", Error: missingTrackedRepoShortReason})
+			progressBar.Increment()
+			continue
+		}
 		updated, auditResult, err := updateTrackedRepoQuick(uc, t.path)
 		if err != nil {
 			if isSecurityError(err) {
@@ -125,6 +136,7 @@ func executeBatchUpdate(uc *updateContext, targets []updateTarget) (updateResult
 		}
 		progressBar.Increment()
 	}
+	result.missingTrackedRepos = missingRepoNames
 
 	// Phase 2: grouped skills (one clone per repo)
 	if len(repoGroups) > 0 {
@@ -276,6 +288,7 @@ func executeBatchUpdate(uc *updateContext, targets []updateTarget) (updateResult
 		displayUpdateBlockedSection(blockedEntries)
 		displayPrunedSection(prunedNames)
 		displayStaleWarning(staleNames)
+		displayMissingTrackedReposWarning(missingRepoNames)
 		displayUpdateAuditResults(auditEntries, uc.opts.auditVerbose)
 		ui.UpdateSummary(ui.UpdateStats{
 			Updated:        result.updated,
