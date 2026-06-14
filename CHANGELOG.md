@@ -202,6 +202,17 @@
 
 ### New Features
 
+#### Adopt CLI-bundled skills (`adopt`)
+
+- **`skillshare adopt`** — claim skills that external CLI tools (e.g. `firecrawl/cli`, `googleworkspace/cli`) install directly into `~/.agents/skills`, bypassing skillshare's source of truth. It migrates the canonical files into your source, removes the tool's orphan symlinks, and re-syncs to every target — so the skill is covered everywhere, not just the agents the original installer happened to detect:
+  ```bash
+  skillshare adopt --dry-run        # preview what would be adopted
+  skillshare adopt --all --force    # adopt everything without prompting
+  skillshare adopt -p               # project mode (.agents/skills)
+  ```
+  Originals are moved to trash (restorable), so the migration is reversible. Same-name conflicts are skipped unless `--force`, and a bare run in a non-interactive shell refuses rather than silently migrating and trashing files. The tool's `~/.agents/.skill-lock.json` is never modified — adopt warns you to release the entry from the owning tool instead.
+- **Adopt dashboard page** — preview detected skills, multi-select, toggle dry-run/force, and apply from the web UI, with lockfile warnings surfaced inline.
+
 #### Git scope control (`git_root`)
 
 - **`git_root` scope** — choose which directory `skillshare commit`, `push`, and `pull` version. The default stays your skills source, but you can point git at `agents`, `extras`, or `root` (skills + agents + extras together in a single repo). Set it during init, or switch later on an existing setup:
