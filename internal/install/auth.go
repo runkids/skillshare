@@ -17,6 +17,8 @@ const (
 	PlatformGitLab               // gitlab.com and self-hosted GitLab
 	PlatformBitbucket            // bitbucket.org
 	PlatformAzureDevOps          // dev.azure.com and visualstudio.com
+	PlatformCNB                  // cnb.cool and self-hosted CNB instances
+	PlatformGitea                // gitea.com and self-hosted Gitea instances
 )
 
 // extractHost returns the hostname from a clone URL.
@@ -62,6 +64,12 @@ func detectPlatform(cloneURL string) Platform {
 	if host == "dev.azure.com" || host == "ssh.dev.azure.com" || strings.HasSuffix(host, ".visualstudio.com") {
 		return PlatformAzureDevOps
 	}
+	if strings.Contains(host, "cnb.cool") {
+		return PlatformCNB
+	}
+	if strings.Contains(host, "gitea") {
+		return PlatformGitea
+	}
 	return PlatformUnknown
 }
 
@@ -96,6 +104,14 @@ func resolveToken(cloneURL string) (token, username string) {
 		}
 	case PlatformAzureDevOps:
 		if t := os.Getenv("AZURE_DEVOPS_TOKEN"); t != "" {
+			return t, "x-access-token"
+		}
+	case PlatformCNB:
+		if t := os.Getenv("CNB_TOKEN"); t != "" {
+			return t, "cnb"
+		}
+	case PlatformGitea:
+		if t := os.Getenv("GITEA_TOKEN"); t != "" {
 			return t, "x-access-token"
 		}
 	}
@@ -195,6 +211,7 @@ func sanitizeTokens(text string) string {
 	vars := []string{
 		"GITHUB_TOKEN", "GH_TOKEN", "GITLAB_TOKEN", "BITBUCKET_TOKEN",
 		"AZURE_DEVOPS_TOKEN", "SKILLSHARE_GIT_TOKEN", "BITBUCKET_USERNAME",
+		"CNB_TOKEN", "GITEA_TOKEN",
 	}
 	for _, v := range vars {
 		if t := os.Getenv(v); t != "" {

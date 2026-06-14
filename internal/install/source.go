@@ -84,6 +84,8 @@ var azureOnPremPattern = regexp.MustCompile(
 type ParseOptions struct {
 	GitLabHosts []string // extra hostnames to treat as GitLab (nested subgroup support)
 	AzureHosts  []string // extra hostnames to treat as Azure DevOps on-premises
+	CNBHosts    []string // extra hostnames to treat as CNB instances
+	GiteaHosts  []string // extra hostnames to treat as Gitea instances
 }
 
 // IsSSHURL reports whether input is an SSH URL — either scp-style
@@ -529,6 +531,44 @@ func isAzureHost(host string, extraHosts []string) bool {
 func isGitLabHost(host string, extraHosts []string) bool {
 	return strings.Contains(host, "gitlab") || strings.Contains(host, "jihulab") ||
 		hostMatchesAny(host, extraHosts)
+}
+
+// isCNBHost returns true if the host should be treated as a CNB instance.
+func isCNBHost(host string, extraHosts []string) bool {
+	return strings.Contains(host, "cnb.cool") || hostMatchesAny(host, extraHosts)
+}
+
+// isGiteaHost returns true if the host should be treated as a Gitea instance.
+func isGiteaHost(host string, extraHosts []string) bool {
+	return strings.Contains(host, "gitea") || hostMatchesAny(host, extraHosts)
+}
+
+// detectPlatformFromHost returns the platform for a given hostname, using
+// configured extra hosts for CNB and Gitea self-hosted instances.
+func detectPlatformFromHost(host string, cnbHosts, giteaHosts []string) Platform {
+	host = strings.ToLower(host)
+	if host == "" {
+		return PlatformUnknown
+	}
+	if strings.Contains(host, "github") {
+		return PlatformGitHub
+	}
+	if strings.Contains(host, "gitlab") {
+		return PlatformGitLab
+	}
+	if strings.Contains(host, "bitbucket") {
+		return PlatformBitbucket
+	}
+	if host == "dev.azure.com" || host == "ssh.dev.azure.com" || strings.HasSuffix(host, ".visualstudio.com") {
+		return PlatformAzureDevOps
+	}
+	if isCNBHost(host, cnbHosts) {
+		return PlatformCNB
+	}
+	if isGiteaHost(host, giteaHosts) {
+		return PlatformGitea
+	}
+	return PlatformUnknown
 }
 
 // stripGitBranchPrefix removes platform-specific branch path segments from web URLs.
