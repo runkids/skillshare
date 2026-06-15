@@ -193,6 +193,38 @@ func TestSecurity_ParseSource_SEC003_RejectsUnsafeSubdirAcrossParserBranches(t *
 	}
 }
 
+// SEC003: Blob URLs ending in SKILL.md must not clean traversal while trimming
+// the file suffix into a parent subdir.
+func TestSecurity_ParseSource_SEC003_RejectsUnsafeBlobSkillPath(t *testing.T) {
+	unsafeCases := []struct {
+		name  string
+		input string
+	}{
+		{
+			name:  "github blob skill",
+			input: "https://github.com/user/repo/blob/main/skills/foo/../../SKILL.md",
+		},
+		{
+			name:  "gitlab blob skill",
+			input: "https://gitlab.com/group/project/-/blob/main/skills/foo/../../SKILL.md",
+		},
+		{
+			name:  "bitbucket skill path",
+			input: "https://bitbucket.org/owner/repo/src/main/skills/foo/../../SKILL.md",
+		},
+	}
+
+	for _, tc := range unsafeCases {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := ParseSourceWithOptions(tc.input, ParseOptions{})
+			if err == nil {
+				t.Fatalf("expected error for unsafe blob skill path, input=%s", tc.input)
+			}
+			t.Logf("correctly rejected: input=%s err=%v", tc.input, err)
+		})
+	}
+}
+
 // SEC003: Versioned subdirs with dots are not affected
 func TestSecurity_ParseSource_SEC003_AllowsVersionedSubdir(t *testing.T) {
 	safeCases := []struct {

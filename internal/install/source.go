@@ -434,14 +434,20 @@ func trimSkillFileSuffix(path string, isBlob bool) (string, bool) {
 	if !isBlob {
 		return path, false
 	}
-	if !strings.EqualFold(filepath.Base(path), "SKILL.md") {
+	lastSlash := strings.LastIndex(path, "/")
+	name := path
+	if lastSlash >= 0 {
+		name = path[lastSlash+1:]
+	}
+	if !strings.EqualFold(name, "SKILL.md") {
 		return path, false
 	}
-	parent := filepath.ToSlash(filepath.Dir(path))
-	if parent == "." {
+	if lastSlash < 0 {
 		return "", true
 	}
-	return parent, true
+	// Keep the parent path raw so later subdir validation can reject traversal
+	// instead of filepath.Dir cleaning it into a seemingly safe path.
+	return path[:lastSlash], true
 }
 
 func parseGitSSH(matches []string, source *Source) (*Source, error) {
