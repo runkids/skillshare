@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.20.16] - 2026-06-15
+
+### Bug Fixes
+
+- **Repository subdir installs reject traversal paths** — source parsing now rejects repository subdirectories with absolute paths, `.`/`..` segments, backslashes, NUL/control characters, or encoded traversal before install and download flows use them. Inputs such as `github.com/owner/repo/../../etc/passwd` and unsafe blob `SKILL.md` paths now fail instead of resolving outside the repository boundary. Refs: #224.
+- **Metadata files stay readable after atomic saves** — install and update operations now write `.metadata.json` with `0644` permissions, so Git and other tooling can read metadata after Skillshare replaces the file.
+
 ## [0.20.15] - 2026-06-14
 
 ### Bug Fixes
