@@ -5,6 +5,7 @@ import (
 	"io"
 	"io/fs"
 	"os"
+	"path"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -47,33 +48,66 @@ func validateTrashName(name string) error {
 	return nil
 }
 
+// trashLogicalName builds a slash-separated logical name for a trash entry.
+// It normalizes OS path separators to '/' so that List() returns names
+// compatible with validateTrashName() (which rejects backslashes).
+func trashLogicalName(parentRel, name string) string {
+	if parentRel == "." {
+		return name
+	}
+
+	// filepath.ToSlash converts the current OS path separator to slash.
+	// Do not translate literal backslashes on Unix; they are filename
+	// characters, not path separators, and should remain invalid input.
+	parentRel = filepath.ToSlash(parentRel)
+	return path.Join(parentRel, name)
+}
+
 // ensureUnderBase asserts that candidate resolves to a path under base.
-// Both are cleaned before comparison.  candidate == base is allowed (used by
-// RestoreAgent where targetDir may equal destDir).
+// Both are resolved to absolute paths before comparison.
+// candidate == base is allowed (used by RestoreAgent where targetDir may
+// equal destDir).
 func ensureUnderBase(base, candidate string) error {
-	base = filepath.Clean(base)
-	candidate = filepath.Clean(candidate)
-	if candidate == base {
-		return nil
-	}
-	if !strings.HasPrefix(candidate, base+string(filepath.Separator)) {
-		return fmt.Errorf("path %q escapes base %q", candidate, base)
-	}
-	return nil
+	return ensureUnderBaseRel(base, candidate, true)
 }
 
 // ensureStrictlyUnderBase is like ensureUnderBase but rejects candidate == base.
 // Used by destructive sinks (e.g. Cleanup) that must never target the base
 // directory itself.
 func ensureStrictlyUnderBase(base, candidate string) error {
-	base = filepath.Clean(base)
-	candidate = filepath.Clean(candidate)
-	if candidate == base {
+	return ensureUnderBaseRel(base, candidate, false)
+}
+
+func ensureUnderBaseRel(base, candidate string, allowEqual bool) error {
+	baseAbs, err := filepath.Abs(base)
+	if err != nil {
+		return fmt.Errorf("resolve base %q: %w", base, err)
+	}
+
+	candidateAbs, err := filepath.Abs(candidate)
+	if err != nil {
+		return fmt.Errorf("resolve candidate %q: %w", candidate, err)
+	}
+
+	baseAbs = filepath.Clean(baseAbs)
+	candidateAbs = filepath.Clean(candidateAbs)
+
+	rel, err := filepath.Rel(baseAbs, candidateAbs)
+	if err != nil {
+		return fmt.Errorf("path %q escapes base %q: %w", candidate, base, err)
+	}
+
+	if rel == "." {
+		if allowEqual {
+			return nil
+		}
 		return fmt.Errorf("path %q equals base %q — refusing to operate on base", candidate, base)
 	}
-	if !strings.HasPrefix(candidate, base+string(filepath.Separator)) {
+
+	if rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) || filepath.IsAbs(rel) {
 		return fmt.Errorf("path %q escapes base %q", candidate, base)
 	}
+
 	return nil
 }
 
@@ -210,10 +244,7 @@ func List(trashBase string) []TrashEntry {
 
 		// Compute full nested name from relative path
 		parentRel, _ := filepath.Rel(trashBase, filepath.Dir(path))
-		fullName := name
-		if parentRel != "." {
-			fullName = filepath.Join(parentRel, name)
-		}
+		fullName := trashLogicalName(parentRel, name)
 
 		date, parseErr := time.Parse("2006-01-02_15-04-05", ts)
 		if parseErr != nil {

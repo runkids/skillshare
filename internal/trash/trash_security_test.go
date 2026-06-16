@@ -3,6 +3,7 @@ package trash
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -595,5 +596,131 @@ func TestReadDir_NameNeverContainsSeparator(t *testing.T) {
 		if strings.Contains(e.Name(), "..") {
 			t.Errorf("ReadDir returned name with '..': %q", e.Name())
 		}
+	}
+}
+
+// --- Regression tests for PR #230 compatibility fixes ---
+
+func TestRestoreAllowsCurrentDirectoryDestination(t *testing.T) {
+	origDir, _ := os.Getwd()
+	tmpDir := t.TempDir()
+	if err := os.Chdir(tmpDir); err != nil {
+		t.Fatal(err)
+	}
+	defer os.Chdir(origDir)
+
+	trashBase := filepath.Join(tmpDir, ".trash", "skills")
+	trashDir := filepath.Join(trashBase, "demo_2006-01-02_15-04-05")
+	os.MkdirAll(trashDir, 0755)
+	os.WriteFile(filepath.Join(trashDir, "SKILL.md"), []byte("demo content"), 0644)
+
+	entry := &TrashEntry{
+		Name:      "demo",
+		Path:      trashDir,
+		Timestamp: "2006-01-02_15-04-05",
+		Date:      time.Now(),
+	}
+
+	if err := Restore(entry, "."); err != nil {
+		t.Fatalf("Restore to current directory failed: %v", err)
+	}
+
+	restored := filepath.Join(tmpDir, "demo", "SKILL.md")
+	if _, err := os.Stat(restored); err != nil {
+		t.Errorf("restored file not found: %v", err)
+	}
+
+	if _, err := os.Stat(trashDir); !os.IsNotExist(err) {
+		t.Error("trash entry should be removed after restore")
+	}
+}
+
+func TestEnsureUnderBaseAllowsChildOfDotButRejectsEscapes(t *testing.T) {
+	if err := ensureUnderBase(".", "demo"); err != nil {
+		t.Fatalf("ensureUnderBase(\".\", \"demo\") should succeed: %v", err)
+	}
+	if err := ensureUnderBase(".", "sub/dir"); err != nil {
+		t.Fatalf("ensureUnderBase(\".\", \"sub/dir\") should succeed: %v", err)
+	}
+	if err := ensureUnderBase(".", "../outside"); err == nil {
+		t.Error("ensureUnderBase(\".\", \"../outside\") should fail")
+	}
+	if err := ensureUnderBase(".", "../../etc/passwd"); err == nil {
+		t.Error("ensureUnderBase(\".\", \"../../etc/passwd\") should fail")
+	}
+}
+
+func TestRestoreNestedEntryReturnedByList(t *testing.T) {
+	tmpDir := t.TempDir()
+	trashBase := filepath.Join(tmpDir, "trash")
+	destDir := filepath.Join(tmpDir, "dest")
+	os.MkdirAll(destDir, 0755)
+
+	// Create nested trash entry: trash/org/demo_2006-01-02_15-04-05/SKILL.md
+	trashDir := filepath.Join(trashBase, "org", "demo_2006-01-02_15-04-05")
+	os.MkdirAll(trashDir, 0755)
+	os.WriteFile(filepath.Join(trashDir, "SKILL.md"), []byte("nested content"), 0644)
+
+	items := List(trashBase)
+	if len(items) != 1 {
+		t.Fatalf("expected 1 item, got %d", len(items))
+	}
+	if items[0].Name != "org/demo" {
+		t.Errorf("expected Name 'org/demo', got %q", items[0].Name)
+	}
+
+	if err := Restore(&items[0], destDir); err != nil {
+		t.Fatalf("Restore failed: %v", err)
+	}
+
+	restored := filepath.Join(destDir, "org", "demo", "SKILL.md")
+	if _, err := os.Stat(restored); err != nil {
+		t.Errorf("restored file not found: %v", err)
+	}
+}
+
+func TestTrashLogicalNameNormalizesOSNativeSeparators(t *testing.T) {
+	parentRel := filepath.Join("org", "team")
+
+	got := trashLogicalName(parentRel, "demo")
+	want := "org/team/demo"
+
+	if got != want {
+		t.Fatalf("trashLogicalName(%q, %q) = %q, want %q", parentRel, "demo", got, want)
+	}
+}
+
+func TestTrashLogicalNameDoesNotTranslateLiteralUnixBackslashes(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("literal backslash is an OS separator on Windows")
+	}
+
+	got := trashLogicalName(`..\outside`, "demo")
+	if got == "../outside/demo" {
+		t.Fatalf("literal Unix backslash should not be translated into path separator: got %q", got)
+	}
+	if !strings.Contains(got, `\`) {
+		t.Fatalf("literal Unix backslash should be preserved, got %q", got)
+	}
+}
+
+func TestEnsureUnderBaseRejectsSiblingPrefix(t *testing.T) {
+	root := t.TempDir()
+
+	base := filepath.Join(root, "skills")
+	sibling := filepath.Join(root, "skills-evil", "demo")
+
+	if err := os.MkdirAll(filepath.Dir(sibling), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := ensureUnderBase(base, sibling); err == nil {
+		t.Fatal("sibling path with shared prefix should be rejected")
+	}
+}
+
+func TestValidateTrashNameRejectsBackslash(t *testing.T) {
+	if err := validateTrashName(`org\demo`); err == nil {
+		t.Fatal("trash name with backslash should be rejected")
 	}
 }
