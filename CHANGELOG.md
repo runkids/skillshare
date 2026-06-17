@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.20.19] - 2026-06-17
+
+### Bug Fixes
+
+- **`init` shows shared skills directories as a single universal target** — when a detected CLI uses the shared `~/.agents/skills` directory, `skillshare init` now presents the shared directory guidance instead of listing each matching CLI target separately.
+- **Trash restore handles nested entries and current-directory restores again** — nested trashed skills returned by `skillshare trash list` can be restored with their slash-separated names, and restoring to `.` no longer fails the path safety check while sibling-prefix escapes are still rejected.
+
 ## [0.20.18] - 2026-06-16
 
 ### Bug Fixes
