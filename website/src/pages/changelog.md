@@ -9,6 +9,12 @@ All notable changes to skillshare are documented here. For the full commit histo
 
 ---
 
+## [0.20.20] - 2026-06-19
+
+### Bug Fixes
+
+- **Self-managed GitLab URLs with deep project paths install correctly** — generic HTTPS sources such as `https://domain.com/dir1/dir2/dir3/dir4` now retry deeper repository boundaries when the initial `dir1/dir2` clone is not a Git repository, so nested GitLab projects can install without adding `.git` or configuring `gitlab_hosts`. Authentication, SSL, branch, and network errors still fail directly instead of retrying unrelated paths.
+
 ## [0.20.19] - 2026-06-17
 
 ### Bug Fixes
