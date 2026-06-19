@@ -33,7 +33,7 @@ skillshare extras init <name> --target <path> [--target <path2>] [--mode <mode>]
 
 | Flag | Description |
 |------|-------------|
-| `--target <path>` | Target directory path (repeatable) |
+| `--target <path>` | Target directory path (repeatable). For `commands`, `claude`, `cursor`, and `codex` are also supported as target presets. |
 | `--mode <mode>` | Sync mode: `merge` (default), `copy`, or `symlink` |
 | `--flatten` | Sync files from subdirectories directly into the target root (cannot be used with `symlink` mode) |
 | `--source <path>` | Custom source directory for this extra (overrides `extras_source` and default; **global mode only**) |
@@ -52,6 +52,9 @@ skillshare extras init <name> --target <path> [--target <path2>] [--mode <mode>]
 # Sync rules to Claude and Cursor
 skillshare extras init rules --target ~/.claude/rules --target ~/.cursor/rules
 
+# Sync markdown commands/prompts to common agent targets
+skillshare extras init commands --target claude --target cursor --target codex
+
 # Use a custom source directory
 skillshare extras init rules --target ~/.claude/rules --source ~/company-shared/rules
 
@@ -64,6 +67,20 @@ skillshare extras init prompts --target .claude/prompts --mode copy -p
 # Sync agents flat (tools like Claude Code only discover flat files)
 skillshare extras init agents --target ~/.claude/agents --flatten
 ```
+
+#### Command target presets
+
+For `extras init commands`, common tool names expand to the command or prompt directory each tool already reads:
+
+| Preset | Global target | Project target |
+|--------|---------------|----------------|
+| `claude` / `claude-code` | `~/.claude/commands` | `.claude/commands` |
+| `cursor` | `~/.cursor/commands` | `.cursor/commands` |
+| `codex` | `~/.codex/prompts` | Not project-scoped |
+
+Cursor and Claude command files are invoked as `/command-name`. Codex custom prompt files are invoked as `/prompts:command-name`; Codex still supports these prompt files, but skills are preferred for reusable instructions that should be shared through a repo or discovered implicitly.
+
+In project mode, the `codex` preset is rejected because Codex prompt files live in the Codex home directory rather than inside a project. Use global mode or pass `--target ~/.codex/prompts` explicitly if that is what you want.
 
 ### `extras list`
 
