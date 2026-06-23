@@ -1,8 +1,9 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { FolderOpen, FolderPlus, Plus, RefreshCw, Target, Trash2, X, Zap } from 'lucide-react';
+import { FolderOpen, FolderPlus, Lock, Plus, Puzzle, RefreshCw, Target, Trash2, X, Zap } from 'lucide-react';
 import { api } from '../api/client';
-import type { Extra, ExtrasSyncResult } from '../api/client';
+import type { Extra } from '../api/client';
 import { queryKeys, staleTimes } from '../lib/queryKeys';
 import { useAppContext } from '../context/AppContext';
 import { useToast } from '../components/Toast';
@@ -11,43 +12,99 @@ import Button from '../components/Button';
 import IconButton from '../components/IconButton';
 import SplitButton from '../components/SplitButton';
 import DialogShell from '../components/DialogShell';
-import { Input, Select } from '../components/Input';
+import { Input, Select, type SelectOption } from '../components/Input';
 import Badge from '../components/Badge';
 import EmptyState from '../components/EmptyState';
 import PageHeader from '../components/PageHeader';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { PageSkeleton } from '../components/Skeleton';
+import Tooltip from '../components/Tooltip';
 import { useT } from '../i18n';
+import { buildSyncToast, sumAll, sumEntry, syncToastType } from '../lib/extrasSyncToast';
 
 // ─── AddExtraModal ────────────────────────────────────────────────────────────
 
 interface TargetEntry {
+  id: string; // stable React key — paths can be empty/duplicate while editing
   path: string;
   mode: string;
   flatten: boolean;
+  extension: string;
 }
 
-const MODE_OPTIONS = [
-  { value: 'merge', label: 'merge', description: 'Per-file symlinks, preserves local files' },
-  { value: 'copy', label: 'copy', description: 'Copy files to target directory' },
-  { value: 'symlink', label: 'symlink', description: 'Symlink entire directory' },
-];
+const newTarget = (): TargetEntry => ({
+  id: crypto.randomUUID(),
+  path: '',
+  mode: 'merge',
+  flatten: false,
+  extension: '',
+});
+
+type TFunction = ReturnType<typeof useT>;
+
+const MODE_VALUES = ['merge', 'copy', 'symlink'] as const;
+
+type ModeValue = (typeof MODE_VALUES)[number];
+
+function isModeValue(mode: string): mode is ModeValue {
+  return (MODE_VALUES as readonly string[]).includes(mode);
+}
+
+function formatMode(t: TFunction, mode: string) {
+  return isModeValue(mode) ? t(`extras.mode.${mode}`) : mode;
+}
+
+function getModeOptions(t: TFunction): SelectOption[] {
+  return MODE_VALUES.map((mode) => ({
+    value: mode,
+    label: formatMode(t, mode),
+    description: t(`extras.modeDescription.${mode}`),
+  }));
+}
+
+// Flatten is a boolean, but rendered as a Select so it visually matches the
+// Extension / Mode dropdowns it sits beside.
+function getFlattenOptions(t: TFunction): SelectOption[] {
+  return [
+    { value: 'on', label: t('extras.flattenOn', {}, 'On'), description: t('extras.flattenTitle') },
+    { value: 'off', label: t('extras.flattenOff', {}, 'Off') },
+  ];
+}
+
+function formatTargetStatus(t: TFunction, status: string) {
+  switch (status) {
+    case 'synced':
+      return t('extras.status.synced');
+    case 'drift':
+      return t('extras.status.drift');
+    case 'not synced':
+      return t('extras.status.notSynced');
+    case 'no source':
+      return t('extras.status.noSource');
+    default:
+      return status;
+  }
+}
 
 function AddExtraModal({
   onClose,
   onCreated,
+  availableExtensions,
 }: {
   onClose: () => void;
   onCreated: () => void;
+  availableExtensions: string[];
 }) {
   const { toast } = useToast();
   const t = useT();
   const [name, setName] = useState('');
   const [source, setSource] = useState('');
-  const [targets, setTargets] = useState<TargetEntry[]>([{ path: '', mode: 'merge', flatten: false }]);
+  const [targets, setTargets] = useState<TargetEntry[]>(() => [newTarget()]);
   const [saving, setSaving] = useState(false);
+  const modeOptions = getModeOptions(t);
+  const flattenOptions = getFlattenOptions(t);
 
-  const addTarget = () => setTargets((prev) => [...prev, { path: '', mode: 'merge', flatten: false }]);
+  const addTarget = () => setTargets((prev) => [...prev, newTarget()]);
 
   const updateTarget = (i: number, field: keyof TargetEntry, value: string | boolean) => {
     setTargets((prev) => prev.map((t, idx) => (idx === i ? { ...t, [field]: value } : t)));
@@ -72,7 +129,12 @@ function AddExtraModal({
       await api.createExtra({
         name: name.trim(),
         ...(source.trim() && { source: source.trim() }),
-        targets: validTargets.map((tgt) => ({ path: tgt.path.trim(), mode: tgt.mode, flatten: tgt.flatten })),
+        targets: validTargets.map((tgt) => ({
+          path: tgt.path.trim(),
+          mode: tgt.mode,
+          flatten: tgt.flatten,
+          ...(tgt.extension && { extension: tgt.extension }),
+        })),
       });
       toast(t('extras.toast.created', { name: name.trim() }), 'success');
       onCreated();
@@ -112,13 +174,20 @@ function AddExtraModal({
             />
 
             {/* Source path (optional) */}
-            <Input
-              label={t('extras.modal.sourcePath')}
-              placeholder={t('extras.modal.sourcePathPlaceholder')}
-              value={source}
-              onChange={(e) => setSource(e.target.value)}
-              disabled={saving}
-            />
+            <div>
+              <Input
+                id="extra-source-path"
+                label={t('extras.modal.sourcePath')}
+                placeholder={t('extras.modal.sourcePathPlaceholder')}
+                value={source}
+                onChange={(e) => setSource(e.target.value)}
+                disabled={saving}
+                aria-describedby="extra-source-path-help"
+              />
+              <p id="extra-source-path-help" className="mt-1.5 text-xs leading-relaxed text-pencil-light/70">
+                {t('extras.modal.sourcePathHelp')}
+              </p>
+            </div>
 
             {/* Targets */}
             <div>
@@ -127,10 +196,14 @@ function AddExtraModal({
               >
                 {t('extras.modal.targets')}
               </label>
-              <div className="space-y-2">
-                {targets.map((tgt, i) => (
-                  <div key={i} className="flex gap-2 items-center">
-                    <div className="flex-1">
+              <div className="space-y-3">
+                {targets.map((tgt, i) => {
+                  const fieldLabel = 'block text-xs font-medium text-pencil-light mb-1';
+                  return (
+                  <div key={tgt.id} className="rounded-[var(--radius-md)] border border-muted bg-muted/10 p-3 space-y-2.5">
+                    {/* Path — full width, like Name / Source above */}
+                    <div>
+                      <label className={fieldLabel}>{t('extras.modal.colPath', {}, 'Path')}</label>
                       <Input
                         placeholder={t('extras.modal.targetPathPlaceholder')}
                         value={tgt.path}
@@ -138,41 +211,90 @@ function AddExtraModal({
                         disabled={saving}
                       />
                     </div>
-                    <div className="w-32 shrink-0">
-                      <Select
-                        value={tgt.mode}
-                        onChange={(v) => {
-                          updateTarget(i, 'mode', v);
-                          if (v === 'symlink') updateTarget(i, 'flatten', false);
-                        }}
-                        options={MODE_OPTIONS}
-                      />
+                    {/* Extension · Mode · Flatten — second row with room to breathe */}
+                    <div className="flex flex-wrap items-end gap-3">
+                      <div className="w-44">
+                        <label className={fieldLabel}>{t('extras.modal.colExtension', {}, 'Extension')}</label>
+                        {availableExtensions.length > 0 || tgt.extension ? (
+                          <Select
+                            value={tgt.extension}
+                            onChange={(v) => {
+                              // selecting an extension forces copy mode
+                              setTargets((prev) =>
+                                prev.map((te, idx) =>
+                                  idx === i ? { ...te, extension: v, ...(v ? { mode: 'copy' } : {}) } : te,
+                                ),
+                              );
+                            }}
+                            options={[
+                              { value: '', label: t('extras.noExtension', {}, 'no extension') },
+                              ...availableExtensions.map((e) => ({ value: e, label: e })),
+                            ]}
+                            disabled={saving}
+                          />
+                        ) : (
+                          // None installed: guide the user to install one in Config.
+                          <Link
+                            to="/config?tab=extensions"
+                            className="inline-flex items-center gap-1.5 py-2 text-sm text-blue hover:underline"
+                          >
+                            <Puzzle size={14} strokeWidth={2.5} className="shrink-0" />
+                            {t('extras.installExtensionHint', {}, 'Install an extension')}
+                          </Link>
+                        )}
+                      </div>
+                      <div className="w-36">
+                        <label className={fieldLabel}>{t('extras.modal.colMode', {}, 'Mode')}</label>
+                        {tgt.extension ? (
+                          // Extension forces copy mode: read-only locked chip, not a greyed-out select.
+                          <div className="flex items-center gap-1.5 px-4 py-2 rounded-[var(--radius-sm)] border-2 border-muted bg-muted/40 text-sm text-pencil-light">
+                            <Lock size={13} strokeWidth={2.5} className="shrink-0" />
+                            <span>{formatMode(t, 'copy')}</span>
+                          </div>
+                        ) : (
+                          <Select
+                            value={tgt.mode}
+                            onChange={(v) => {
+                              updateTarget(i, 'mode', v);
+                              if (v === 'symlink') updateTarget(i, 'flatten', false);
+                            }}
+                            options={modeOptions}
+                            disabled={saving}
+                          />
+                        )}
+                      </div>
+                      <div className="w-32">
+                        <label className={fieldLabel}>{t('extras.flatten')}</label>
+                        <Select
+                          value={tgt.flatten ? 'on' : 'off'}
+                          onChange={(v) => updateTarget(i, 'flatten', v === 'on')}
+                          options={flattenOptions}
+                          disabled={saving || tgt.mode === 'symlink'}
+                        />
+                      </div>
+                      {targets.length > 1 && (
+                        <div className="ml-auto h-[2.6rem] flex items-center">
+                          <IconButton
+                            icon={<X size={16} strokeWidth={2.5} />}
+                            label={t('extras.removeTarget')}
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => removeTarget(i)}
+                            disabled={saving}
+                            className="hover:text-danger"
+                          />
+                        </div>
+                      )}
                     </div>
-                    <label className="flex items-center gap-1.5 shrink-0 cursor-pointer select-none" title={t('extras.flattenTitle')}>
-                      <input
-                        type="checkbox"
-                        checked={tgt.flatten}
-                        onChange={(e) => updateTarget(i, 'flatten', e.target.checked)}
-                        disabled={saving || tgt.mode === 'symlink'}
-                        className="accent-primary"
-                      />
-                      <span className={`text-xs ${tgt.mode === 'symlink' ? 'text-pencil-light/50' : 'text-pencil-light'}`}>
-                        {t('extras.flatten')}
-                      </span>
-                    </label>
-                    {targets.length > 1 && (
-                      <IconButton
-                        icon={<X size={16} strokeWidth={2.5} />}
-                        label={t('extras.removeTarget')}
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => removeTarget(i)}
-                        disabled={saving}
-                        className="hover:text-danger"
-                      />
+                    {tgt.extension && (
+                      <p className="flex items-center gap-1 text-xs text-pencil-light/70">
+                        <Lock size={11} strokeWidth={2.5} className="shrink-0" />
+                        {t('extras.modal.extensionLockedHint', {}, 'Extensions run in copy mode')}
+                      </p>
                     )}
                   </div>
-                ))}
+                  );
+                })}
               </div>
               <Button
                 variant="ghost"
@@ -198,6 +320,66 @@ function AddExtraModal({
   );
 }
 
+// ─── AddTargetRow ─────────────────────────────────────────────────────────────
+
+function AddTargetRow({
+  onAdd,
+  onCancel,
+}: {
+  onAdd: (path: string, mode: string) => Promise<void>;
+  onCancel: () => void;
+}) {
+  const t = useT();
+  const [path, setPath] = useState('');
+  const [mode, setMode] = useState('merge');
+  const [busy, setBusy] = useState(false);
+  const modeOptions = getModeOptions(t);
+  return (
+    <div className="mt-2 flex items-center gap-2 rounded-[var(--radius-md)] border border-dashed border-pencil-light/30 bg-muted/10 p-2">
+      <div className="flex-1 min-w-0">
+        <Input
+          value={path}
+          onChange={(e) => setPath(e.target.value)}
+          placeholder={t('extras.modal.targetPathPlaceholder')}
+          size="sm"
+          autoFocus
+        />
+      </div>
+      <Select
+        value={mode}
+        onChange={(v) => setMode(v)}
+        options={modeOptions}
+        size="sm"
+        className="w-32 shrink-0"
+      />
+      <Button
+        variant="ghost"
+        size="sm"
+        disabled={busy || path.trim() === ''}
+        onClick={async () => {
+          setBusy(true);
+          try {
+            await onAdd(path.trim(), mode);
+            setPath('');
+          } finally {
+            setBusy(false);
+          }
+        }}
+      >
+        <Plus size={14} strokeWidth={2.5} /> {t('extras.addTarget')}
+      </Button>
+      <IconButton
+        icon={<X size={16} strokeWidth={2.5} />}
+        label={t('extras.cancel')}
+        size="sm"
+        variant="ghost"
+        onClick={onCancel}
+        disabled={busy}
+      />
+    </div>
+  );
+}
+
 // ─── ExtraCard ────────────────────────────────────────────────────────────────
 
 function ExtraCard({
@@ -206,17 +388,32 @@ function ExtraCard({
   onForceSync,
   onRemove,
   onModeChange,
+  onAddTarget,
+  onRemoveTarget,
+  availableExtensions,
 }: {
   extra: Extra;
   index?: number;
   onSync: (name: string) => Promise<void>;
   onForceSync: (name: string) => Promise<void>;
   onRemove: (name: string) => void;
-  onModeChange: (name: string, target: string, mode: string, flatten?: boolean) => Promise<void>;
+  onModeChange: (name: string, target: string, mode: string, flatten?: boolean, extension?: string) => Promise<void>;
+  onAddTarget: (name: string, path: string, mode: string) => Promise<void>;
+  onRemoveTarget: (name: string, path: string) => Promise<void>;
+  availableExtensions: string[];
 }) {
   const t = useT();
+  const sourceTypeLabel = extra.source_type === 'per-extra'
+    ? t('extras.sourceType.custom')
+    : extra.source_type === 'extras_source'
+      ? t('extras.sourceType.shared')
+      : '';
   const [syncing, setSyncing] = useState(false);
   const [changingMode, setChangingMode] = useState<string | null>(null);
+  const [addingTarget, setAddingTarget] = useState(false);
+  const [confirmRemoveTarget, setConfirmRemoveTarget] = useState<string | null>(null);
+  const modeOptions = getModeOptions(t);
+  const flattenOptions = getFlattenOptions(t);
 
   const handleSync = async (force?: boolean) => {
     setSyncing(true);
@@ -232,21 +429,25 @@ function ExtraCard({
   };
 
   return (
-    <Card overflow>
+    <Card overflow className="hover:shadow-md">
       {/* Header */}
-      <div className="flex items-center justify-between gap-4 mb-1">
-        <div className="flex items-center gap-2 flex-wrap min-w-0">
-          <FolderPlus size={16} strokeWidth={2.5} className="text-blue shrink-0" />
-          <span className="font-bold text-pencil">{extra.name}</span>
-          <Badge variant={extra.source_exists ? 'success' : 'warning'}>
-            {extra.file_count} {extra.file_count === 1 ? 'file' : 'files'}
-          </Badge>
-          {!extra.source_exists && (
-            <Badge variant="danger">source missing</Badge>
-          )}
-          {extra.source_type !== "default" && (
-            <span className="ml-2 text-xs text-gray-500">({extra.source_type})</span>
-          )}
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <span className="shrink-0 inline-flex items-center justify-center w-8 h-8 rounded-[var(--radius-md)] bg-blue/10 text-blue">
+            <FolderPlus size={16} strokeWidth={2.5} />
+          </span>
+          <div className="min-w-0 flex items-center gap-2 flex-wrap">
+            <span className="font-bold text-pencil truncate">{extra.name}</span>
+            <Badge variant={extra.source_exists ? 'success' : 'warning'} size="sm">
+              {t('extras.fileCount', { count: extra.file_count })}
+            </Badge>
+            {!extra.source_exists && (
+              <Badge variant="danger" size="sm">{t('extras.sourceMissing')}</Badge>
+            )}
+            {sourceTypeLabel && (
+              <span className="text-xs text-pencil-light/60">· {sourceTypeLabel}</span>
+            )}
+          </div>
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <SplitButton
@@ -267,6 +468,7 @@ function ExtraCard({
             <RefreshCw size={12} strokeWidth={2.5} />
             {syncing ? t('extras.syncing') : t('extras.sync')}
           </SplitButton>
+          <span className="w-px h-5 bg-pencil-light/20 mx-0.5" aria-hidden="true" />
           <IconButton
             icon={<Trash2 size={16} strokeWidth={2.5} />}
             label={t('extras.removeConfirm.title')}
@@ -278,138 +480,202 @@ function ExtraCard({
       </div>
 
       {/* Source */}
-      <div className="flex items-center gap-1.5 mt-3">
-        <FolderOpen size={13} strokeWidth={2.5} className="text-warning shrink-0" />
-        <span className="text-xs text-pencil-light uppercase tracking-wider">Source</span>
+      <div className="mt-4">
+        <div className="flex items-center gap-1.5 mb-1.5">
+          <FolderOpen size={12} strokeWidth={2.5} className="text-warning shrink-0" />
+          <span className="text-[10px] font-medium text-pencil-light/70 uppercase tracking-wider">{t('preview.source')}</span>
+        </div>
+        <div className="rounded-[var(--radius-md)] border border-muted bg-muted/20 px-3 py-2">
+          <p className="font-mono text-sm text-pencil-light truncate">{extra.source_dir}</p>
+        </div>
       </div>
-      <p className="font-mono text-sm text-pencil-light truncate ml-5 mt-1">{extra.source_dir}</p>
 
       {/* Targets */}
-      <div className="flex items-center gap-1.5 mt-3 pt-3 border-t border-dashed border-pencil-light/30">
-        <Target size={13} strokeWidth={2.5} className="text-success shrink-0" />
-        <span className="text-xs text-pencil-light uppercase tracking-wider">
-          {extra.targets.length > 0 ? `${t('extras.modal.targets')} (${extra.targets.length})` : t('extras.modal.targets')}
-        </span>
-      </div>
-      <div className="ml-5 mt-1 space-y-1.5">
-        {extra.targets.length > 0 ? (
-          extra.targets.map((tgt, ti) => (
-            <div key={ti} className="flex items-center gap-3">
-              <div className="flex items-center gap-2 min-w-0 flex-1">
-                <span className="font-mono text-sm truncate text-pencil-light">{tgt.path}</span>
-                <Badge
-                  variant={
-                    tgt.status === 'synced'
-                      ? 'success'
-                      : tgt.status === 'drift'
-                      ? 'warning'
-                      : 'danger'
-                  }
-                  size="sm"
-                >
-                  {tgt.status}
-                </Badge>
-              </div>
-              <label className="flex items-center gap-1 shrink-0 cursor-pointer select-none" title={t('extras.flattenTitle')}>
-                <input
-                  type="checkbox"
-                  checked={tgt.flatten}
-                  onChange={async (e) => {
-                    const newFlatten = e.target.checked;
-                    setChangingMode(tgt.path);
-                    try {
-                      await onModeChange(extra.name, tgt.path, tgt.mode, newFlatten);
-                    } finally {
-                      setChangingMode(null);
-                    }
-                  }}
-                  disabled={changingMode === tgt.path || tgt.mode === 'symlink'}
-                  className="accent-primary"
-                />
-                <span className={`text-xs ${tgt.mode === 'symlink' ? 'text-pencil-light/50' : 'text-pencil-light'}`}>
-                  {t('extras.flatten')}
-                </span>
-              </label>
-              <Select
-                value={tgt.mode}
-                onChange={async (v) => {
-                  if (v === tgt.mode) return;
-                  setChangingMode(tgt.path);
-                  try {
-                    await onModeChange(extra.name, tgt.path, v);
-                  } finally {
-                    setChangingMode(null);
-                  }
-                }}
-                options={MODE_OPTIONS}
-                size="sm"
-                className="w-36 shrink-0"
-                disabled={changingMode === tgt.path}
-              />
-            </div>
-          ))
-        ) : (
-          <p className="text-sm text-pencil-light italic">{t('extras.noTargets')}</p>
+      <div className="flex items-center gap-1.5 mt-4 mb-1">
+        <Target size={12} strokeWidth={2.5} className="text-success shrink-0" />
+        <span className="text-[10px] font-medium text-pencil-light/70 uppercase tracking-wider">{t('extras.modal.targets')}</span>
+        {extra.targets.length > 0 && (
+          <span className="text-[10px] text-pencil-light/45 tabular-nums">· {extra.targets.length}</span>
         )}
       </div>
+      <div className="mt-1">
+        {extra.targets.length > 0 ? (
+          <>
+            {/* Column headers — label the per-target controls so the dropdowns are self-explanatory */}
+            <div className="flex items-center gap-3 px-3 pb-1 text-[10px] font-medium uppercase tracking-wider text-pencil-light/45">
+              <div className="min-w-0 flex-1" />
+              <div className="w-28 shrink-0">{t('extras.flatten')}</div>
+              <div className="w-40 shrink-0">{t('extras.modal.colExtension')}</div>
+              <div className="w-36 shrink-0">{t('extras.modal.colMode')}</div>
+              {extra.targets.length > 1 && <div className="w-8 shrink-0" />}
+            </div>
+            <div className="space-y-0.5">
+              {extra.targets.map((tgt, ti) => (
+                <div
+                  key={`${tgt.path}::${ti}`}
+                  className="group/row flex items-center gap-3 rounded-[var(--radius-md)] px-3 py-2 transition-colors hover:bg-muted/25"
+                >
+                  {/* Data: path + status (status omitted when the source itself is missing) */}
+                  <div className="flex items-center gap-2 min-w-0 flex-1">
+                    <span className="font-mono text-sm truncate text-pencil">{tgt.path}</span>
+                    {extra.source_exists && (
+                      <Badge
+                        variant={
+                          tgt.status === 'synced'
+                            ? 'success'
+                            : tgt.status === 'drift'
+                            ? 'warning'
+                            : 'danger'
+                        }
+                        size="sm"
+                      >
+                        {formatTargetStatus(t, tgt.status)}
+                      </Badge>
+                    )}
+                  </div>
+                  {/* Settings: flatten · extension · mode */}
+                  <div className="w-28 shrink-0">
+                    <Select
+                      value={tgt.flatten ? 'on' : 'off'}
+                      onChange={async (v) => {
+                        const next = v === 'on';
+                        if (next === tgt.flatten) return;
+                        setChangingMode(tgt.path);
+                        try {
+                          await onModeChange(extra.name, tgt.path, tgt.mode, next);
+                        } finally {
+                          setChangingMode(null);
+                        }
+                      }}
+                      options={flattenOptions}
+                      size="sm"
+                      className="w-full"
+                      disabled={changingMode === tgt.path || tgt.mode === 'symlink'}
+                    />
+                  </div>
+                  <div className="w-40 shrink-0">
+                    {availableExtensions.length > 0 || tgt.extension ? (
+                      <Select
+                        value={tgt.extension ?? ''}
+                        onChange={async (v) => {
+                          if (v === (tgt.extension ?? '')) return;
+                          setChangingMode(tgt.path);
+                          try {
+                            // selecting an extension forces copy; clearing keeps the current mode
+                            await onModeChange(extra.name, tgt.path, v ? 'copy' : tgt.mode, undefined, v);
+                          } finally {
+                            setChangingMode(null);
+                          }
+                        }}
+                        options={[
+                          { value: '', label: t('extras.noExtension', {}, 'no extension') },
+                          ...availableExtensions.map((e) => ({ value: e, label: e })),
+                          ...(tgt.extension && !availableExtensions.includes(tgt.extension)
+                            ? [{ value: tgt.extension, label: t('extras.extensionMissing', { extension: tgt.extension }) }]
+                            : []),
+                        ]}
+                        size="sm"
+                        className="w-full"
+                        disabled={changingMode === tgt.path}
+                      />
+                    ) : (
+                      // None installed: guide the user to install one in Config.
+                      <Link
+                        to="/config?tab=extensions"
+                        className="inline-flex items-center gap-1.5 text-xs text-blue hover:underline"
+                      >
+                        <Puzzle size={12} strokeWidth={2.5} className="shrink-0" />
+                        {t('extras.installExtensionHint', {}, 'Install an extension')}
+                      </Link>
+                    )}
+                  </div>
+                  <div className="w-36 shrink-0">
+                    {tgt.extension ? (
+                      // Extension forces copy mode: read-only locked chip, matching the Add Extra modal.
+                      <Tooltip content={t('extras.modal.extensionLockedHint', {}, 'Extensions run in copy mode')} side="bottom">
+                        <div className="w-full flex items-center gap-1.5 px-3 py-1.5 rounded-[var(--radius-sm)] border-2 border-muted bg-muted/40 text-xs text-pencil-light">
+                          <Lock size={12} strokeWidth={2.5} className="shrink-0" />
+                          <span>{formatMode(t, 'copy')}</span>
+                        </div>
+                      </Tooltip>
+                    ) : (
+                      <Select
+                        value={tgt.mode}
+                        onChange={async (v) => {
+                          if (v === tgt.mode) return;
+                          setChangingMode(tgt.path);
+                          try {
+                            await onModeChange(extra.name, tgt.path, v);
+                          } finally {
+                            setChangingMode(null);
+                          }
+                        }}
+                        options={modeOptions}
+                        size="sm"
+                        className="w-full"
+                        disabled={changingMode === tgt.path}
+                      />
+                    )}
+                  </div>
+                  {extra.targets.length > 1 && (
+                    <div className="w-8 shrink-0 flex justify-end">
+                      <IconButton
+                        icon={<Trash2 size={14} strokeWidth={2.5} />}
+                        label={t('extras.removeTarget')}
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => setConfirmRemoveTarget(tgt.path)}
+                        className="hover:text-danger"
+                      />
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </>
+        ) : (
+          <p className="text-sm text-pencil-light/70 italic px-3 py-2">{t('extras.noTargets')}</p>
+        )}
+      </div>
+      {addingTarget ? (
+        <AddTargetRow
+          onAdd={async (path, mode) => {
+            await onAddTarget(extra.name, path, mode);
+            setAddingTarget(false);
+          }}
+          onCancel={() => setAddingTarget(false)}
+        />
+      ) : (
+        <Button
+          variant="ghost"
+          size="sm"
+          className="mt-1"
+          onClick={() => setAddingTarget(true)}
+        >
+          <Plus size={14} strokeWidth={2.5} /> {t('extras.addTarget')}
+        </Button>
+      )}
+
+      <ConfirmDialog
+        open={confirmRemoveTarget !== null}
+        title={t('extras.removeTargetConfirm.title')}
+        message={
+          confirmRemoveTarget ? (
+            <span>{t('extras.removeTargetConfirm.message', { path: confirmRemoveTarget })}</span>
+          ) : (
+            <span />
+          )
+        }
+        confirmText={t('extras.removeConfirm.confirmText')}
+        variant="danger"
+        onConfirm={async () => {
+          if (confirmRemoveTarget) await onRemoveTarget(extra.name, confirmRemoveTarget);
+          setConfirmRemoveTarget(null);
+        }}
+        onCancel={() => setConfirmRemoveTarget(null)}
+      />
     </Card>
   );
-}
-
-// ─── Sync result helpers ─────────────────────────────────────────────────────
-
-type SyncTotals = { synced: number; skipped: number; targets: number; errors: number };
-
-function sumEntry(entry: ExtrasSyncResult | undefined): SyncTotals {
-  if (!entry) return { synced: 0, skipped: 0, targets: 0, errors: 0 };
-  let synced = 0, skipped = 0, errors = 0;
-  for (const t of entry.targets) {
-    if (t.error) {
-      errors++;
-    } else {
-      synced += t.synced;
-      skipped += t.skipped;
-      errors += t.errors?.length ?? 0;
-    }
-  }
-  return { synced, skipped, targets: entry.targets.length, errors };
-}
-
-function sumAll(extras: ExtrasSyncResult[]): SyncTotals {
-  const totals: SyncTotals = { synced: 0, skipped: 0, targets: 0, errors: 0 };
-  for (const e of extras) {
-    const s = sumEntry(e);
-    totals.synced += s.synced;
-    totals.skipped += s.skipped;
-    totals.targets += s.targets;
-    totals.errors += s.errors;
-  }
-  return totals;
-}
-
-function syncToastType(t: SyncTotals): 'success' | 'warning' | 'error' {
-  if (t.errors > 0 && t.synced === 0) return 'error';
-  if (t.errors > 0) return 'warning';
-  if (t.skipped > 0 && t.synced === 0) return 'warning';
-  return 'success';
-}
-
-type TFunc = (key: string, params?: Record<string, any>, fallback?: string) => string;
-
-function buildSyncToast(label: string, failLabel: string, totals: SyncTotals, isForce: boolean, t: TFunc): string {
-  if (totals.errors > 0 && totals.synced === 0)
-    return `${failLabel} \u2014 ${t('extras.toast.nErrors', { errors: totals.errors }, `${totals.errors} error${totals.errors > 1 ? 's' : ''}`)}`;
-  if (totals.synced === 0 && totals.skipped === 0 && totals.errors === 0)
-    return `${label} \u2014 ${t('extras.toast.noFilesInSource', {}, 'no files in source')}`;
-  const parts: string[] = [];
-  parts.push(t('extras.toast.syncedNFiles', { synced: totals.synced, targets: totals.targets }, `${totals.synced} file${totals.synced !== 1 ? 's' : ''} to ${totals.targets} target${totals.targets !== 1 ? 's' : ''}`));
-  if (totals.skipped > 0)
-    parts.push(!isForce
-      ? t('extras.toast.skippedForce', { skipped: totals.skipped }, `${totals.skipped} skipped (enable Force to override)`)
-      : t('extras.toast.skipped', { skipped: totals.skipped }, `${totals.skipped} skipped`));
-  if (totals.errors > 0)
-    parts.push(t('extras.toast.nErrors', { errors: totals.errors }, `${totals.errors} error${totals.errors > 1 ? 's' : ''}`));
-  return `${label} \u2014 ${parts.join(', ')}`;
 }
 
 // ─── ExtrasPage ───────────────────────────────────────────────────────────────
@@ -425,6 +691,15 @@ export default function ExtrasPage() {
     queryFn: () => api.listExtras(),
     staleTime: staleTimes.extras,
   });
+
+  // Available transform extensions for the current mode (-g/-p), used to
+  // populate the per-target extension picker.
+  const { data: extData } = useQuery({
+    queryKey: ['extras', 'extensions'],
+    queryFn: () => api.listExtraExtensions(),
+    staleTime: staleTimes.extras,
+  });
+  const availableExtensions = extData?.extensions ?? [];
 
   const [showAdd, setShowAdd] = useState(false);
   const [removeName, setRemoveName] = useState<string | null>(null);
@@ -479,13 +754,68 @@ export default function ExtrasPage() {
     }
   };
 
-  const handleModeChange = async (name: string, target: string, mode: string, flatten?: boolean) => {
+  const handleModeChange = async (name: string, target: string, mode: string, flatten?: boolean, extension?: string) => {
+    // Optimistically patch the cache so the dropdown reflects the choice
+    // immediately, instead of waiting for the PATCH + refetch round-trip.
+    const prev = queryClient.getQueryData<{ extras: Extra[] }>(queryKeys.extras);
+    queryClient.setQueryData<{ extras: Extra[] }>(queryKeys.extras, (old) =>
+      old
+        ? {
+            extras: old.extras.map((e) =>
+              e.name !== name
+                ? e
+                : {
+                    ...e,
+                    targets: e.targets.map((tg) =>
+                      tg.path !== target
+                        ? tg
+                        : {
+                            ...tg,
+                            mode,
+                            ...(flatten !== undefined && { flatten }),
+                            ...(extension !== undefined && { extension }),
+                          },
+                    ),
+                  },
+            ),
+          }
+        : old,
+    );
     try {
-      await api.setExtraMode(name, target, mode, flatten);
-      const msg = flatten !== undefined
-        ? tr('extras.toast.flattenChanged', { flatten: String(flatten) })
-        : tr('extras.toast.modeChanged', { mode });
+      await api.setExtraMode(name, target, mode, flatten, extension);
+      let msg: string;
+      if (extension !== undefined) {
+        msg = extension
+          ? tr('extras.toast.extensionChanged', { extension }, `Extension set to ${extension} (copy mode)`)
+          : tr('extras.toast.extensionCleared', {}, 'Extension cleared');
+      } else if (flatten !== undefined) {
+        msg = tr('extras.toast.flattenChanged', { flatten: String(flatten) });
+      } else {
+        msg = tr('extras.toast.modeChanged', { mode: formatMode(tr, mode) });
+      }
       toast(msg, 'success');
+      invalidate();
+    } catch (err: any) {
+      // Roll back the optimistic cache update on failure.
+      if (prev) queryClient.setQueryData(queryKeys.extras, prev);
+      toast(err.message, 'error');
+    }
+  };
+
+  const handleAddTarget = async (name: string, path: string, mode: string) => {
+    try {
+      await api.addExtraTarget(name, { path, mode });
+      toast(tr('extras.toast.targetAdded', { path }, `Added target ${path}`), 'success');
+      invalidate();
+    } catch (err: any) {
+      toast(err.message, 'error');
+    }
+  };
+
+  const handleRemoveTarget = async (name: string, path: string) => {
+    try {
+      await api.removeExtraTarget(name, path);
+      toast(tr('extras.toast.targetRemoved', { path }, `Removed target ${path}`), 'success');
       invalidate();
     } catch (err: any) {
       toast(err.message, 'error');
@@ -572,6 +902,9 @@ export default function ExtrasPage() {
                   onForceSync={(name) => handleSync(name, true)}
                   onRemove={(name) => setRemoveName(name)}
                   onModeChange={handleModeChange}
+                  onAddTarget={handleAddTarget}
+                  onRemoveTarget={handleRemoveTarget}
+                  availableExtensions={availableExtensions}
                 />
               ))}
             </div>
@@ -581,7 +914,11 @@ export default function ExtrasPage() {
 
       {/* Add Extra modal */}
       {showAdd && (
-        <AddExtraModal onClose={() => setShowAdd(false)} onCreated={handleCreated} />
+        <AddExtraModal
+          onClose={() => setShowAdd(false)}
+          onCreated={handleCreated}
+          availableExtensions={availableExtensions}
+        />
       )}
 
       {/* Remove confirm dialog */}

@@ -101,7 +101,9 @@ export default function Layout() {
     try { return localStorage.getItem('ss-sidebar-tools') !== 'closed'; } catch { return true; }
   });
   useEffect(() => {
-    try { localStorage.setItem('ss-sidebar-tools', toolsOpen ? 'open' : 'closed'); } catch {}
+    try { localStorage.setItem('ss-sidebar-tools', toolsOpen ? 'open' : 'closed'); } catch {
+      // Ignore storage access failures.
+    }
   }, [toolsOpen]);
   const { isProjectMode } = useAppContext();
   const { startTour } = useTour();

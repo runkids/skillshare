@@ -85,6 +85,22 @@ func TestValidateConfig_InvalidGlobalTargetNaming(t *testing.T) {
 	}
 }
 
+func TestValidateConfig_InvalidGitRoot(t *testing.T) {
+	tmpDir := t.TempDir()
+	cfg := &Config{
+		Source:  tmpDir,
+		GitRoot: "agnets", // typo for "agents"
+		Targets: map[string]TargetConfig{},
+	}
+	_, err := ValidateConfig(cfg)
+	if err == nil {
+		t.Fatal("expected error for invalid git_root")
+	}
+	if !strings.Contains(err.Error(), "invalid git_root") {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
 func TestValidateConfig_InvalidTargetMode(t *testing.T) {
 	tmpDir := t.TempDir()
 	targetDir := filepath.Join(tmpDir, "target")

@@ -97,6 +97,24 @@ skillshare update --all --json
 
 Possible `status` values: `updated`, `skipped`, `failed`, `security_blocked`. When an item fails, the `error` field is included.
 
+When tracked repos are declared in metadata but missing on disk, each is reported as a skipped `repo` item with a concise `error` (`clone directory absent`), and an aggregated `missing_tracked_repos` summary carries the names plus a one-shot rehydration hint:
+
+```json
+{
+  "updated": 0,
+  "skipped": 1,
+  "items": [
+    {"name": "_team-skills", "type": "repo", "status": "skipped", "error": "clone directory absent"}
+  ],
+  "missing_tracked_repos": {
+    "names": ["_team-skills"],
+    "hint": "Run 'skillshare install' to rehydrate tracked repositories"
+  }
+}
+```
+
+The `missing_tracked_repos` field is omitted when no tracked repos are missing.
+
 ### Agent JSON Output
 
 ```bash
@@ -212,6 +230,18 @@ Updating 2 tracked repos + 3 skills
   Updated:  4
   Skipped:  1
 ```
+
+### Missing Tracked Repositories
+
+If `.metadata.json` declares a tracked repo (`tracked: true`) but its clone directory is absent on disk — common on a fresh machine, since clone directories live in the managed `.gitignore` block — `update --all` no longer skips it silently. It reports each missing repo and points you to rehydrate:
+
+```
+! 1 tracked repo(s) declared in metadata but missing on disk:
+  ! _team-skills         clone directory absent
+→ Run 'skillshare install' to rehydrate tracked repositories
+```
+
+This applies to both global and project (`-p`) mode. To recreate the clones from metadata, run no-argument [install](/docs/reference/commands/install) (see [Rehydrating After a Fresh Clone](/docs/understand/tracked-repositories#rehydrating-after-a-fresh-clone)).
 
 ## Stale Skill Cleanup (`--prune`)
 

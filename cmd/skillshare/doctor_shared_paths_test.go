@@ -15,7 +15,7 @@ func TestCheckSharedTargetPaths_NoCollision(t *testing.T) {
 		},
 	}
 	r := &doctorResult{}
-	checkSharedTargetPaths(cfg, r)
+	checkSharedTargetPaths(cfg, r, false)
 
 	if r.warnings != 0 {
 		t.Errorf("expected 0 warnings, got %d", r.warnings)
@@ -35,7 +35,7 @@ func TestCheckSharedTargetPaths_Collision(t *testing.T) {
 		},
 	}
 	r := &doctorResult{}
-	checkSharedTargetPaths(cfg, r)
+	checkSharedTargetPaths(cfg, r, false)
 
 	if r.warnings != 1 {
 		t.Errorf("expected 1 warning (1 collision row), got %d", r.warnings)
@@ -47,6 +47,15 @@ func TestCheckSharedTargetPaths_Collision(t *testing.T) {
 	for _, want := range []string{"universal", "warp", "witsy", "/tmp/.agents/skills"} {
 		if !strings.Contains(detail, want) {
 			t.Errorf("detail %q missing %q", detail, want)
+		}
+	}
+	if len(r.checks[0].Suggestions) != 1 {
+		t.Fatalf("expected one suggestion, got %v", r.checks[0].Suggestions)
+	}
+	suggestion := r.checks[0].Suggestions[0]
+	for _, want := range []string{"Choose one authoritative target", "skillshare target remove <name> --global --dry-run", "universal", "warp", "witsy", "/tmp/.agents/skills"} {
+		if !strings.Contains(suggestion, want) {
+			t.Errorf("suggestion %q missing %q", suggestion, want)
 		}
 	}
 	if strings.Contains(detail, "claude") {
@@ -62,10 +71,32 @@ func TestCheckSharedTargetPaths_TildeExpansion(t *testing.T) {
 		},
 	}
 	r := &doctorResult{}
-	checkSharedTargetPaths(cfg, r)
+	checkSharedTargetPaths(cfg, r, false)
 
 	if r.warnings != 1 {
 		t.Errorf("expected collision after tilde+trailing-slash normalization, got %d warnings", r.warnings)
+	}
+}
+
+func TestCheckSharedTargetPaths_ProjectSuggestionUsesProjectFlag(t *testing.T) {
+	cfg := &config.Config{
+		Targets: map[string]config.TargetConfig{
+			"codex":  {Skills: &config.ResourceTargetConfig{Path: ".agents/skills"}},
+			"cursor": {Skills: &config.ResourceTargetConfig{Path: ".agents/skills"}},
+		},
+	}
+	r := &doctorResult{}
+	checkSharedTargetPaths(cfg, r, true)
+
+	if len(r.checks) != 1 || len(r.checks[0].Suggestions) != 1 {
+		t.Fatalf("expected one suggestion, got %+v", r.checks)
+	}
+	suggestion := r.checks[0].Suggestions[0]
+	if !strings.Contains(suggestion, "skillshare target remove <name> --project --dry-run") {
+		t.Fatalf("suggestion %q missing project target remove command", suggestion)
+	}
+	if strings.Contains(suggestion, "skillshare target remove <name> --global --dry-run") {
+		t.Fatalf("suggestion %q should not use global target remove command", suggestion)
 	}
 }
 
@@ -88,6 +119,15 @@ func TestCheckCrossTargetDiscovery_CodexSeesUniversal(t *testing.T) {
 	for _, want := range []string{"codex", "universal", ".agents/skills"} {
 		if !strings.Contains(detail, want) {
 			t.Errorf("detail %q missing %q", detail, want)
+		}
+	}
+	if len(r.checks[0].Suggestions) != 1 {
+		t.Fatalf("expected one suggestion, got %v", r.checks[0].Suggestions)
+	}
+	suggestion := r.checks[0].Suggestions[0]
+	for _, want := range []string{"Choose one authoritative route", "skillshare target remove <name> --global --dry-run", "codex", "universal"} {
+		if !strings.Contains(suggestion, want) {
+			t.Errorf("suggestion %q missing %q", suggestion, want)
 		}
 	}
 }
@@ -163,7 +203,7 @@ func TestCheckSharedTargetPaths_EmptyPathSkipped(t *testing.T) {
 		},
 	}
 	r := &doctorResult{}
-	checkSharedTargetPaths(cfg, r)
+	checkSharedTargetPaths(cfg, r, false)
 
 	if r.warnings != 0 {
 		t.Errorf("empty paths must not collide; got %d warnings", r.warnings)

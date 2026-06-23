@@ -9,6 +9,7 @@ Temporarily enable or disable skills without removing them.
 ```bash
 skillshare disable draft-*          # Disable by pattern
 skillshare enable draft-*           # Re-enable
+skillshare disable "frontend/**"    # Disable every skill in a folder
 skillshare disable my-skill -p      # Project mode
 ```
 
@@ -46,7 +47,7 @@ After enabling or disabling, run `skillshare sync` to apply the change to target
 
 | Flag | Description |
 |------|-------------|
-| `<name\|pattern>` | One or more skill names or patterns (e.g., `draft-*`) |
+| `<name\|pattern>` | One or more skill names or glob patterns (e.g., `draft-*`, `frontend/**`) |
 | `--project, -p` | Use project `.skillignore` (`.skillshare/skills/.skillignore`) |
 | `--global, -g` | Use global `.skillignore` (`~/.config/skillshare/.skillignore`) |
 | `--dry-run, -n` | Preview without writing |
@@ -80,6 +81,28 @@ Would add 'my-skill' to ~/.config/skillshare/skills/.skillignore
 $ skillshare disable my-draft
 warning: my-draft is already disabled
 ```
+
+## Disable a Whole Folder
+
+`disable`/`enable` accept the same glob syntax as `.skillignore`, so there is no separate "group" flag — point a pattern at the folder and every skill inside is toggled at once.
+
+```bash
+# Disable every skill under frontend/ (any depth)
+$ skillshare disable "frontend/**"
+Disabled: frontend/** (added to .skillignore)
+Run 'skillshare sync' to apply changes.
+
+# Re-enable the whole folder
+$ skillshare enable "frontend/**"
+Enabled: frontend/** (removed from .skillignore)
+Run 'skillshare sync' to apply changes.
+```
+
+:::tip Quote the pattern
+Always wrap folder patterns in quotes (`"frontend/**"`) so your shell doesn't expand `*` before skillshare sees it.
+:::
+
+`frontend/**` writes a single line to `.skillignore` and keeps covering anything you add to the folder later. `enable` with the **same** pattern removes that line. To disable individual skills instead, list them by name (`skillshare disable a b c`). See [.skillignore pattern syntax](/docs/reference/filtering#skillignore) for the full glob reference (`*`, `**`, `?`, `[abc]`, `!negation`, anchored `/`, directory-only `pattern/`).
 
 ## TUI Toggle
 

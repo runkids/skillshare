@@ -5,7 +5,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
+	"strings"
 	"testing"
 )
 
@@ -88,5 +90,41 @@ func TestWriteJSONErrorIsWrappedWithErrorsAs(t *testing.T) {
 	}
 	if silent == nil || silent.Error() == "" {
 		t.Fatal("expected wrapped error unwrap chain to include jsonSilentError")
+	}
+}
+
+func TestJSONUISuppressorSuppressesSlogUntilFlush(t *testing.T) {
+	tmpFile, err := os.CreateTemp("", "skillshare-json-stderr-")
+	if err != nil {
+		t.Fatalf("creating temp file: %v", err)
+	}
+	t.Cleanup(func() { os.Remove(tmpFile.Name()) })
+
+	oldStderr := os.Stderr
+	os.Stderr = tmpFile
+	t.Cleanup(func() { os.Stderr = oldStderr })
+
+	oldLogger := slog.Default()
+	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelWarn})))
+	t.Cleanup(func() { slog.SetDefault(oldLogger) })
+
+	suppressor := newJSONUISuppressor(true)
+	slog.Warn("structured cleanup warning")
+	suppressor.Flush()
+	slog.Warn("restored warning")
+
+	if err := tmpFile.Close(); err != nil {
+		t.Fatalf("closing temp file: %v", err)
+	}
+	data, err := os.ReadFile(tmpFile.Name())
+	if err != nil {
+		t.Fatalf("reading captured stderr: %v", err)
+	}
+	got := string(data)
+	if strings.Contains(got, "structured cleanup warning") {
+		t.Fatalf("structured-mode slog warning leaked to stderr: %q", got)
+	}
+	if !strings.Contains(got, "restored warning") {
+		t.Fatalf("expected logger to be restored after Flush, got: %q", got)
 	}
 }

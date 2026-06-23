@@ -290,6 +290,39 @@ func TestTierCombinationFindings_NoFindings(t *testing.T) {
 	}
 }
 
+func TestTierAnalyzer_HonorsDisabledIDs(t *testing.T) {
+	p := TierProfile{}
+	p.Add(TierInterpreter)
+	p.Add(TierNetwork)
+
+	a := &tierAnalyzer{}
+
+	// Baseline: without any disabled IDs the combination finding fires.
+	got, err := a.Analyze(&AnalyzeContext{TierProfile: p})
+	if err != nil {
+		t.Fatalf("Analyze: %v", err)
+	}
+	if !hasFinding(got, "tier-interpreter-network", SeverityMedium) {
+		t.Fatal("expected tier-interpreter-network when not disabled")
+	}
+
+	// Disabling the rule via audit-rules.yaml (modeled as DisabledIDs) must
+	// suppress that tier finding while leaving other tier findings intact.
+	got, err = a.Analyze(&AnalyzeContext{
+		TierProfile: p,
+		DisabledIDs: map[string]bool{"tier-interpreter-network": true},
+	})
+	if err != nil {
+		t.Fatalf("Analyze: %v", err)
+	}
+	if hasFinding(got, "tier-interpreter-network", SeverityMedium) {
+		t.Error("tier-interpreter-network should be suppressed when disabled")
+	}
+	if !hasFinding(got, "tier-interpreter", SeverityInfo) {
+		t.Error("tier-interpreter should remain (it was not disabled)")
+	}
+}
+
 func TestTierLabel(t *testing.T) {
 	tests := []struct {
 		tier CommandTier

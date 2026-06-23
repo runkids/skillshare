@@ -219,6 +219,133 @@ func TestSearchFromIndexURL_RiskFields(t *testing.T) {
 	}
 }
 
+func TestSearchIndex_SSHHubRewritesSameHostGitHubDomainPrefix(t *testing.T) {
+	doc := &indexDocument{
+		Skills: []indexSkill{
+			{
+				Name:        "reviewer",
+				Description: "Internal review skill",
+				Source:      "acme.ghe.com/Org/skills/skills/reviewer",
+			},
+		},
+	}
+
+	results, err := searchIndex("", 20, doc, hubSourceContext{
+		sshUser: "acme",
+		sshHost: "acme.ghe.com",
+	})
+	if err != nil {
+		t.Fatalf("searchIndex: %v", err)
+	}
+	if len(results) != 1 {
+		t.Fatalf("got %d results, want 1", len(results))
+	}
+
+	wantSource := "acme@acme.ghe.com:Org/skills.git//skills/reviewer"
+	if results[0].Source != wantSource {
+		t.Fatalf("source = %q, want %q", results[0].Source, wantSource)
+	}
+	if results[0].Owner != "Org" {
+		t.Errorf("Owner = %q, want Org", results[0].Owner)
+	}
+	if results[0].Repo != "skills" {
+		t.Errorf("Repo = %q, want skills", results[0].Repo)
+	}
+}
+
+func TestSearchIndex_SSHHubRewritePreservesSchemePort(t *testing.T) {
+	doc := &indexDocument{
+		Skills: []indexSkill{
+			{
+				Name:   "reviewer",
+				Source: "github.mycompany.com/Org/skills/skills/reviewer",
+			},
+		},
+	}
+
+	results, err := searchIndex("", 20, doc, hubSourceContextFromURL("ssh://deploy@github.mycompany.com:2222/Org/skills.git//hubs/team.json"))
+	if err != nil {
+		t.Fatalf("searchIndex: %v", err)
+	}
+	if len(results) != 1 {
+		t.Fatalf("got %d results, want 1", len(results))
+	}
+
+	wantSource := "ssh://deploy@github.mycompany.com:2222/Org/skills.git//skills/reviewer"
+	if results[0].Source != wantSource {
+		t.Fatalf("source = %q, want %q", results[0].Source, wantSource)
+	}
+}
+
+func TestSearchIndex_SSHHubRewriteBoundaries(t *testing.T) {
+	tests := []struct {
+		name   string
+		source string
+		want   string
+	}{
+		{
+			name:   "explicit https preserved",
+			source: "https://acme.ghe.com/Org/skills/skills/reviewer",
+			want:   "https://acme.ghe.com/Org/skills/skills/reviewer",
+		},
+		{
+			name:   "explicit ssh preserved",
+			source: "acme@acme.ghe.com:Org/skills.git//skills/reviewer",
+			want:   "acme@acme.ghe.com:Org/skills.git//skills/reviewer",
+		},
+		{
+			name:   "cross host preserved",
+			source: "other.ghe.com/Org/skills/skills/reviewer",
+			want:   "other.ghe.com/Org/skills/skills/reviewer",
+		},
+		{
+			name:   "non github host preserved",
+			source: "gitlab.com/ops/skills/deploy-helper",
+			want:   "gitlab.com/ops/skills/deploy-helper",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			doc := &indexDocument{
+				Skills: []indexSkill{{Name: "candidate", Source: tt.source}},
+			}
+			results, err := searchIndex("", 20, doc, hubSourceContext{
+				sshUser: "acme",
+				sshHost: "acme.ghe.com",
+			})
+			if err != nil {
+				t.Fatalf("searchIndex: %v", err)
+			}
+			if len(results) != 1 {
+				t.Fatalf("got %d results, want 1", len(results))
+			}
+			if results[0].Source != tt.want {
+				t.Fatalf("source = %q, want %q", results[0].Source, tt.want)
+			}
+		})
+	}
+}
+
+func TestSearchFromIndexJSON_DoesNotRewriteDomainPrefix(t *testing.T) {
+	results, err := SearchFromIndexJSON("", 20, []byte(`{
+		"schemaVersion": 1,
+		"skills": [
+			{"name": "reviewer", "source": "acme.ghe.com/Org/skills/skills/reviewer"}
+		]
+	}`))
+	if err != nil {
+		t.Fatalf("SearchFromIndexJSON: %v", err)
+	}
+	if len(results) != 1 {
+		t.Fatalf("got %d results, want 1", len(results))
+	}
+	want := "acme.ghe.com/Org/skills/skills/reviewer"
+	if results[0].Source != want {
+		t.Fatalf("source = %q, want %q", results[0].Source, want)
+	}
+}
+
 func TestIsRelativeSource(t *testing.T) {
 	tests := []struct {
 		source string
@@ -236,6 +363,7 @@ func TestIsRelativeSource(t *testing.T) {
 
 		// Remote URLs (should return false)
 		{"git@gitlab.com:team/repo.git//x", false},
+		{"ssh://git@ghe.corp.com/team/skills.git//x", false},
 		{"http://example.com/index.json", false},
 		{"https://gitlab.com/team/repo/x", false},
 		{"file:///path/x", false},
@@ -430,11 +558,33 @@ func TestHubHTTPError_AuthHints(t *testing.T) {
 }
 
 func TestHubHTTPError_NonAuthStatus(t *testing.T) {
-	err := hubHTTPError("https://gitlab.com/group/repo/-/raw/main/skillshare-hub.json", 404)
+	url := "https://gitlab.com/group/repo/-/raw/main/skillshare-hub.json"
+
+	// 404: names the cause and includes the URL so the user knows which hub failed.
+	err := hubHTTPError(url, 404)
 	if err == nil {
 		t.Fatal("expected non-nil error")
 	}
-	if err.Error() != "fetch hub: HTTP 404" {
-		t.Fatalf("error = %q, want plain HTTP status", err.Error())
+	for _, want := range []string{"404", "not found", url} {
+		if !strings.Contains(err.Error(), want) {
+			t.Fatalf("404 error = %q, want substring %q", err.Error(), want)
+		}
+	}
+
+	// 400: typically a malformed URL — guide the user toward a raw JSON URL.
+	err = hubHTTPError("https://raw.githubusercontent.com/runkids", 400)
+	if err == nil {
+		t.Fatal("expected non-nil error")
+	}
+	for _, want := range []string{"400", "skillshare-hub.json"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Fatalf("400 error = %q, want substring %q", err.Error(), want)
+		}
+	}
+
+	// Other statuses still include the code and URL.
+	err = hubHTTPError(url, 500)
+	if err == nil || !strings.Contains(err.Error(), "500") || !strings.Contains(err.Error(), url) {
+		t.Fatalf("500 error = %v, want code and URL", err)
 	}
 }

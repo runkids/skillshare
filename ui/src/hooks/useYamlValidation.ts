@@ -10,6 +10,7 @@ export interface ValidationError {
 
 const VALID_SYNC_MODES = ['merge', 'symlink', 'copy'];
 const VALID_TARGET_NAMINGS = ['flat', 'standard'];
+const VALID_GIT_ROOTS = ['skills', 'agents', 'extras', 'root'];
 const VALID_BLOCK_THRESHOLDS = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW', 'INFO'];
 const VALID_AUDIT_PROFILES = ['default', 'strict', 'permissive'];
 const VALID_DEDUPE_MODES = ['legacy', 'global'];
@@ -60,6 +61,7 @@ export function validateYaml(
   validateEnum(errors, sourceLines, parsed.mode, 'mode', VALID_SYNC_MODES, 'mode');
   validateEnum(errors, sourceLines, parsed.sync_mode, 'sync_mode', VALID_SYNC_MODES, 'sync_mode');
   validateEnum(errors, sourceLines, parsed.target_naming, 'target_naming', VALID_TARGET_NAMINGS, 'target_naming');
+  validateEnum(errors, sourceLines, parsed.git_root, 'git_root', VALID_GIT_ROOTS, 'git_root');
 
   // Validate per-target mode
   if (parsed.targets) {

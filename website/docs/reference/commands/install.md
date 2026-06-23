@@ -183,7 +183,7 @@ When specifying a subdirectory path like `owner/repo/skill-name`, if the exact p
 
 ## Install from Config (No Arguments)
 
-When run without a source argument, `skillshare install` reads the `skills:` section from `config.yaml` and installs all listed remote skills that don't already exist locally:
+When run without a source argument, `skillshare install` reads the recorded remote skill metadata (global mode) or the project `skills:` manifest (project mode) and installs all remote skills that don't already exist locally:
 
 ```bash
 # Global — reads ~/.config/skillshare/config.yaml
@@ -193,11 +193,11 @@ skillshare install
 skillshare install -p
 ```
 
-This makes `config.yaml` a **portable skill manifest** — share it to reproduce the same skill setup on any machine:
+This makes the recorded metadata/manifest a **portable skill setup** — share it to reproduce the same skills on any machine:
 
 ```bash
 # New machine setup
-skillshare install       # Installs all skills from config
+skillshare install       # Rehydrates remote skills and tracked repos from metadata
 skillshare sync          # Sync to targets
 
 # New team member onboarding
@@ -206,7 +206,7 @@ skillshare install -p    # Install all remote skills from project config
 skillshare sync
 ```
 
-Skills with `tracked: true` are cloned with full git history (same as `--track`), so `skillshare update` works correctly. Skills already present on disk are skipped.
+Skills with `tracked: true` are cloned with full git history (same as `--track`), so `skillshare update` works correctly. Skills already present on disk are skipped. This is the recovery command to run after a fresh clone when tracked repo directories were gitignored and are missing locally.
 
 :::tip push/pull vs install from config
 `push`/`pull` syncs actual skill **files** via git. `install` from config re-downloads from **source URLs**. They're complementary — see [Cross-Machine Sync](/docs/how-to/sharing/cross-machine-sync#alternative-install-from-config) for when to use which.
@@ -229,6 +229,16 @@ skillshare install anthropics/skills -s pdf --into tools -p
 # Install all remote skills from config (for new team members)
 skillshare install -p
 ```
+
+:::caution Don't install the project root into itself
+In project mode, installing a local path that resolves to the project root (e.g. `skillshare install ./ -p`) is rejected — copying the root into its own `.skillshare/skills/` subtree would recurse into the destination. Point at a specific skill subdirectory instead:
+
+```bash
+skillshare install ./my-skill -p
+```
+
+This guard applies to both the CLI and the Web UI ([`skillshare ui`](./ui.md)).
+:::
 
 ### How It Differs
 
@@ -721,6 +731,28 @@ skillshare install github.com/user/repo --kind agent -p
 ```
 
 The `-a <name>` flag is the agent equivalent of `-s <name>` for skills. Agents are installed into `~/.config/skillshare/agents/` (global) or `.skillshare/agents/` (project). See [Agents](/docs/understand/agents) for the full concepts.
+
+### Scoping skills vs agents in a mixed repo
+
+When a repo contains both skills and agents, the filters control exactly what is installed:
+
+| Flags | What gets installed |
+|-------|---------------------|
+| _(none)_ | All skills and all agents |
+| `--all` / `--yes` | All skills and all agents |
+| `-s <names>` | Only the named skills — **no agents** |
+| `-s <names> -a <names>` | The named skills and the named agents |
+| `-a <names>` | Only the named agents |
+
+```bash
+# Install just one skill from a mixed repo — agents are NOT pulled in
+skillshare install github.com/user/repo -s pdf
+
+# Install one skill and one agent together
+skillshare install github.com/user/repo -s pdf -a tutor
+```
+
+An unknown `-a` name fails the whole command up front — before any skill is installed — so automation never sees a half-completed install.
 
 ## After Installing
 

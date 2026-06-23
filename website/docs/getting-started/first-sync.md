@@ -4,16 +4,14 @@ sidebar_position: 2
 
 # First Sync
 
-Get your skills synced in 5 minutes.
+A complete first-time setup, in order. Roughly five minutes from install to a working sync. Two variations — restoring on another machine, and running unattended on a headless box — are documented at the end of this page.
 
 ## Prerequisites
 
 - macOS, Linux, or Windows
 - At least one AI CLI installed (Claude Code, Cursor, Codex, etc.)
 
----
-
-## Step 1: Install skillshare
+## 1. Install the CLI
 
 **Homebrew (macOS / Linux):**
 ```bash
@@ -21,18 +19,10 @@ brew install skillshare
 ```
 
 :::note
-Homebrew releases may lag behind the latest version by a few days. For the newest release, use the install script below.
+Homebrew releases can lag behind by a few days. For the latest, use the install script.
 :::
 
-:::note
-All install methods include the web dashboard. `skillshare ui` automatically downloads UI assets on first launch — no extra setup needed.
-:::
-
-:::tip Updating
-To update to the latest version, run `skillshare upgrade`. It auto-detects your install method (Homebrew, manual, etc.) and handles the rest.
-:::
-
-**macOS / Linux:**
+**Install script (macOS / Linux):**
 ```bash
 curl -fsSL https://raw.githubusercontent.com/runkids/skillshare/main/install.sh | sh
 ```
@@ -42,9 +32,11 @@ curl -fsSL https://raw.githubusercontent.com/runkids/skillshare/main/install.sh 
 irm https://raw.githubusercontent.com/runkids/skillshare/main/install.ps1 | iex
 ```
 
----
+:::tip Updating later
+`skillshare upgrade` detects how you installed (Homebrew, script, manual) and updates the CLI in place.
+:::
 
-## Step 2: Initialize
+## 2. Initialize
 
 ```bash
 skillshare init
@@ -54,118 +46,131 @@ skillshare init
   <img src="/img/init-with-mode.png" alt="Interactive init flow" width="720" />
 </p>
 
-This:
-1. Lets you customize the source directory path (default: `~/.config/skillshare/skills/`)
-2. Creates your source directory
-3. Auto-detects installed AI CLIs
-4. Sets up configuration
-5. Optionally installs the built-in skillshare skill (adds `/skillshare` command to AI CLIs)
+`init` walks you through four choices:
 
-### Init mode tip
+1. **Source directory** — defaults to `~/.config/skillshare/skills/`. Press Enter to accept.
+2. **Git remote** — paste the URL of your personal skills repo (e.g. `git@github.com:you/skills.git`). If you don't have one yet, create an empty repo on GitHub first; you can also skip and add a remote later.
+3. **Targets** — skillshare detects installed AI CLIs and lists them. Confirm, or deselect any you don't want.
+4. **Built-in skill** — optional. Adds a `/skillshare` command so your AI CLI can invoke skillshare directly.
 
-`init` supports `--mode` to set your starting sync behavior:
+### Choosing a sync mode
 
-```bash
-skillshare init --mode copy
-```
+`init` accepts `--mode <merge|copy|symlink>` to set the default for newly-added targets:
 
-- `merge` (default): per-skill links, local target skills preserved
-- `copy`: real files, compatibility-first
-- `symlink`: whole target dir linked
+- `merge` (default) — per-skill symlinks; pre-existing target-local skills are preserved
+- `symlink` — the whole target directory becomes one symlink (fastest, replaces the directory)
+- `copy` — real files; changes apply on the next `sync`
 
-If you later run discover with mode:
+Per-target overrides are available later via `skillshare target <name> --mode <mode>`.
+
+## 3. Install a skill
 
 ```bash
-skillshare init --discover --select cursor --mode copy
-```
-
-`--mode` is applied only to targets added in that discover run. Existing targets are not modified.
-
-:::tip Built-in Skill
-During init, you'll be prompted: `Install built-in skillshare skill? [y/N]`. This adds a skill that lets your AI CLI manage skillshare directly. You can skip it and install later with `skillshare upgrade --skill`.
-:::
-
-**With git remote (recommended for cross-machine sync):**
-```bash
-skillshare init --remote git@github.com:you/my-skills.git
-```
-
-If the remote already has skills (e.g., from another machine), they'll be pulled automatically during init.
-
----
-
-## Step 3: Install your first skill
-
-```bash
-# Browse available skills
-skillshare install anthropics/skills
-
-# Or install directly
 skillshare install anthropics/skills/skills/pdf
 ```
 
-Skills are automatically scanned for security threats during install. If critical issues are found, the install is blocked — use `--force` to override.
+Every install runs a security audit. Critical findings block the install; pass `--force` only when you've reviewed and accept the risk.
 
----
-
-## Step 4: Sync to all targets
+## 4. Sync
 
 ```bash
 skillshare sync
 ```
 
-Your skill is now available in all your AI CLIs.
+Every configured target now points at your source.
 
----
-
-## Verify
+## 5. Verify
 
 ```bash
 skillshare status
 ```
 
-You should see:
-- Source directory with your skill
-- Targets (Claude, Cursor, etc.) showing "synced"
+The output should show the source path, every target marked `synced`, and the skill you just installed.
 
 ---
 
-## What's Next?
+## What just happened
 
-- [Create your own skill](/docs/how-to/daily-tasks/creating-skills)
-- [Sync across machines](/docs/how-to/sharing/cross-machine-sync)
-- [Organization-wide skills](/docs/how-to/sharing/organization-sharing)
-- [Agents](/docs/understand/agents) — Manage single-file `.md` agents alongside skills (supported by Claude, Cursor, OpenCode, Augment)
-
-## What Just Happened?
-
-Here's what skillshare did behind the scenes:
-
-1. **`init`** — Created `~/.config/skillshare/config.yaml` and `~/.config/skillshare/skills/`. Auto-detected your AI CLIs (Claude, Cursor, etc.) and added them as targets.
-
-2. **`install`** — Cloned the skill from the Git repository into your source directory (`~/.config/skillshare/skills/`). Ran a security audit automatically. Works with GitHub, GitLab, Bitbucket, Gitea, Azure DevOps, and any HTTPS/SSH Git host.
-
-3. **`sync`** — Applied each target's configured sync mode (default is merge, which creates per-skill symlinks). For example:
+1. **`init`** created `~/.config/skillshare/config.yaml` and `~/.config/skillshare/skills/`, auto-detected your AI CLIs, and — if you supplied a remote — cloned any pre-existing skills from it.
+2. **`install`** cloned the skill into the source directory and ran a security audit. `.metadata.json` records the upstream URL and commit so `skillshare update` can pull future changes.
+3. **`sync`** applied each target's configured mode. For example, in `merge` mode:
    ```
    ~/.claude/skills/pdf → ~/.config/skillshare/skills/pdf  (symlink)
    ```
 
-This means:
-- **Mode-aware behavior** — Merge/symlink modes reflect source edits immediately; copy mode updates on next `sync`
-- **Non-destructive** — Existing target-local skills are preserved in merge/copy mode
-- **Reversible** — `skillshare backup` creates snapshots; `skillshare restore` reverts
+In `merge` and `symlink` modes, edits to source appear instantly in every target. In `copy` mode they apply on the next `sync`. Pre-existing target-local skills are preserved in `merge` and `copy`; `skillshare backup` snapshots before destructive operations and `skillshare restore <target>` reverts.
 
-Need a different behavior for one target? Use per-target overrides:
+Need a different mode for one target only? Override per target:
 
 ```bash
 skillshare target <name> --mode copy
 skillshare sync
 ```
 
-See [Sync Modes](/docs/understand/sync-modes) for the decision matrix and trade-offs.
+See [Sync Modes](/docs/understand/sync-modes) for the full decision matrix.
 
-## See Also
+---
 
-- [Core Concepts](/docs/understand) — Understand source, targets, and sync modes
-- [Daily Workflow](/docs/how-to/daily-tasks/daily-workflow) — How to use skillshare day-to-day
-- [Creating Skills](/docs/how-to/daily-tasks/creating-skills) — Write your own skills
+## Variation: restoring on another machine
+
+You already use skillshare elsewhere and have a personal skills repo on GitHub. On a new laptop, devcontainer, or VM, four commands restore everything — no prompts, no choices, idempotent on re-run:
+
+```bash
+# 1. Install the CLI (Homebrew or curl|sh — same as Step 1 above)
+brew install skillshare
+
+# 2. Clone your skills repo and add detected targets
+skillshare init \
+  --remote git@github.com:<you>/skills.git \
+  --all-targets \
+  --no-skill
+
+# 3. Re-install tracked dependencies
+#    (the _-prefixed dirs are gitignored, so they aren't in the cloned repo)
+skillshare install https://github.com/<your-company>/skills --track --force
+
+# 4. Sync
+skillshare sync
+```
+
+`--no-skill` skips the built-in skill prompt; add it later with `skillshare upgrade --skill` if you want it on this machine.
+
+---
+
+## Variation: headless setup (no TTY)
+
+For CI jobs, devcontainer post-create hooks, or cloud-VM provisioners, every prompt has a non-interactive flag:
+
+```bash
+skillshare init \
+  --source ~/.config/skillshare/skills \
+  --remote https://github.com/<you>/skills \
+  --targets codex \
+  --mode merge \
+  --no-copy \
+  --no-skill
+
+skillshare install https://github.com/<your-company>/skills --track --force
+skillshare sync
+```
+
+| Flag | Effect |
+|---|---|
+| `--source <path>` | Skip the source-path prompt |
+| `--remote <url>` | Skip the remote prompt; clone if remote has content |
+| `--targets <name>` | Add only the listed targets (use `--all-targets` to add every detected one) |
+| `--mode merge` | Default sync mode for new targets |
+| `--no-copy` | Skip the "copy existing target skills?" prompt; start empty |
+| `--no-skill` | Skip the built-in skill prompt |
+
+`--targets`, `--all-targets`, and `--no-targets` are mutually exclusive — pick one.
+
+---
+
+## What's next
+
+- [Create your own skill](/docs/how-to/daily-tasks/creating-skills)
+- [Sync across machines](/docs/how-to/sharing/cross-machine-sync)
+- [Organization-wide skills](/docs/how-to/sharing/organization-sharing)
+- [Agents](/docs/understand/agents) — manage single-file `.md` agents alongside skills
+- [Sync modes](/docs/understand/sync-modes) — decision matrix and trade-offs

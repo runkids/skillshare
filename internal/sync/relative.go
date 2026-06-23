@@ -31,13 +31,32 @@ func shouldUseRelative(projectRoot, sourcePath, targetPath string) bool {
 	return srcUnder && tgtUnder
 }
 
-// evalOrClean resolves symlinks in path, falling back to filepath.Clean
-// when the path does not exist on disk (e.g. during tests).
+// evalOrClean resolves symlinks in path. When the full path does not exist yet
+// (e.g. the target directory on the first sync), it resolves the deepest
+// existing ancestor and re-appends the missing tail, so a symlinked ancestor
+// (macOS /var → /private/var) is canonicalized consistently whether or not the
+// leaf exists. Without this, shouldUseRelative would flip between runs — raw on
+// the first sync (leaf missing) and resolved on the second (leaf present) —
+// causing a needless absolute→relative reformat on every second sync.
 func evalOrClean(p string) string {
+	p = filepath.Clean(p)
 	if resolved, err := filepath.EvalSymlinks(p); err == nil {
 		return resolved
 	}
-	return filepath.Clean(p)
+	tail := ""
+	cur := p
+	for {
+		parent := filepath.Dir(cur)
+		if parent == cur {
+			break // reached root without an existing ancestor
+		}
+		tail = filepath.Join(filepath.Base(cur), tail)
+		if resolved, err := filepath.EvalSymlinks(parent); err == nil {
+			return filepath.Join(resolved, tail)
+		}
+		cur = parent
+	}
+	return p
 }
 
 // resolveReadlink converts a raw os.Readlink result to an absolute path,

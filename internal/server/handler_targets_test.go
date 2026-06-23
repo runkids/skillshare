@@ -2,8 +2,10 @@ package server
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -108,6 +110,43 @@ func TestHandleRemoveTarget_Success(t *testing.T) {
 
 	if rr.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d: %s", rr.Code, rr.Body.String())
+	}
+}
+
+func TestHandleRemoveTarget_CleanupFailureKeepsTarget(t *testing.T) {
+	tgtPath := filepath.Join(t.TempDir(), "claude-skills")
+	s, sourceDir := newTestServerWithTargets(t, map[string]string{"claude": tgtPath})
+	addSkill(t, sourceDir, "alpha")
+
+	if err := os.Symlink(filepath.Join(sourceDir, "alpha"), filepath.Join(tgtPath, "alpha")); err != nil {
+		t.Fatalf("create symlink: %v", err)
+	}
+	origRemoveTargetPath := removeTargetPath
+	removeTargetPath = func(path string) error {
+		if path == filepath.Join(tgtPath, "alpha") {
+			return errors.New("remove denied")
+		}
+		return origRemoveTargetPath(path)
+	}
+	defer func() { removeTargetPath = origRemoveTargetPath }()
+
+	req := httptest.NewRequest(http.MethodDelete, "/api/targets/claude", nil)
+	rr := httptest.NewRecorder()
+	s.handler.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusInternalServerError {
+		t.Fatalf("expected 500, got %d: %s", rr.Code, rr.Body.String())
+	}
+	if _, ok := s.cfg.Targets["claude"]; !ok {
+		t.Fatal("target should remain in memory after cleanup failure")
+	}
+
+	diskCfg, err := config.Load()
+	if err != nil {
+		t.Fatalf("failed to load config from disk: %v", err)
+	}
+	if _, ok := diskCfg.Targets["claude"]; !ok {
+		t.Fatal("target should remain on disk after cleanup failure")
 	}
 }
 

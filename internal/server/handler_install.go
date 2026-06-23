@@ -112,6 +112,13 @@ func (s *Server) handleInstallBatch(w http.ResponseWriter, r *http.Request) {
 	}
 	source.Branch = body.Branch
 
+	if s.IsProjectMode() {
+		if err := install.RejectProjectRootLocalInstall(source, s.projectRoot); err != nil {
+			writeError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+	}
+
 	discovery, err := discoverInstallSource(source)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "discovery failed: "+err.Error())
@@ -318,6 +325,13 @@ func (s *Server) handleInstall(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	source.Branch = body.Branch
+
+	if s.IsProjectMode() {
+		if err := install.RejectProjectRootLocalInstall(source, s.projectRoot); err != nil {
+			writeError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+	}
 
 	if body.Name != "" {
 		source.Name = body.Name

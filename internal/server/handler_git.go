@@ -3,34 +3,68 @@ package server
 import (
 	"encoding/json"
 	"net/http"
+	"strings"
 	"time"
 
+	"skillshare/internal/config"
 	"skillshare/internal/git"
 	ssync "skillshare/internal/sync"
 )
 
 type gitStatusResponse struct {
+	GitInstalled   bool     `json:"gitInstalled"`
 	IsRepo         bool     `json:"isRepo"`
 	HasRemote      bool     `json:"hasRemote"`
 	Branch         string   `json:"branch"`
 	IsDirty        bool     `json:"isDirty"`
 	Files          []string `json:"files"`
 	SourceDir      string   `json:"sourceDir"`
+	Scope          string   `json:"scope"`
+	ScopeMismatch  bool     `json:"scopeMismatch"`
+	MismatchScope  string   `json:"mismatchScope,omitempty"`
+	MismatchDir    string   `json:"mismatchDir,omitempty"`
 	RemoteURL      string   `json:"remoteURL,omitempty"`
 	HeadHash       string   `json:"headHash,omitempty"`
 	HeadMessage    string   `json:"headMessage,omitempty"`
 	TrackingBranch string   `json:"trackingBranch,omitempty"`
+	// Root-scope hazards (populated only when scope == "root"): NestedRepos are
+	// subdirectories with their own .git that commit as empty submodules;
+	// ConfigTracked means config.yaml leaked into version control.
+	NestedRepos   []string `json:"nestedRepos"`
+	ConfigTracked bool     `json:"configTracked"`
 }
 
 // handleGitStatus returns the git status of the source directory
 func (s *Server) handleGitStatus(w http.ResponseWriter, r *http.Request) {
 	// Snapshot config under RLock, then release before I/O.
 	s.mu.RLock()
-	src := s.cfg.EffectiveSkillsSource()
+	src, ok := s.gitSource(w)
+	if !ok {
+		s.mu.RUnlock()
+		return
+	}
+	scope := s.cfg.GitRoot
+	mScope, mDir, mismatch := s.cfg.GitRootMismatch()
 	s.mu.RUnlock()
+	if scope == "" {
+		scope = "skills"
+	}
 	resp := gitStatusResponse{
-		SourceDir: src,
-		Files:     make([]string, 0),
+		GitInstalled:  git.IsInstalled(),
+		SourceDir:     src,
+		Scope:         scope,
+		ScopeMismatch: mismatch,
+		MismatchScope: mScope,
+		MismatchDir:   mDir,
+		Files:         make([]string, 0),
+		NestedRepos:   make([]string, 0),
+	}
+
+	// Without git on PATH every other probe is a raw exec failure; report it
+	// plainly and stop so the UI can show a clear "git not installed" notice.
+	if !resp.GitInstalled {
+		writeJSON(w, resp)
+		return
 	}
 
 	resp.IsRepo = git.IsRepo(src)
@@ -69,7 +103,86 @@ func (s *Server) handleGitStatus(w http.ResponseWriter, r *http.Request) {
 		resp.TrackingBranch = tb
 	}
 
+	// Root-scope hazards: nested submodule traps and a leaked config.yaml.
+	if scope == "root" {
+		if nested, err := git.NestedRepos(src); err == nil {
+			resp.NestedRepos = nested
+		}
+		resp.ConfigTracked = git.IsConfigTracked(src)
+	}
+
 	writeJSON(w, resp)
+}
+
+type setGitRootRequest struct {
+	Scope     string `json:"scope"`
+	RemoteURL string `json:"remoteURL,omitempty"`
+}
+
+// handleSetGitRoot changes the git_root scope: it initializes a git repo at the
+// new scope directory if absent (with a scope-aware .gitignore), optionally
+// wires the "origin" remote on that repo, persists the scope to config, and
+// returns the updated git status. It does NOT relocate an existing repo —
+// switching scope creates/uses a repo at the target directory, mirroring the
+// CLI's `skillshare init --git-root <scope> [--remote <url>]` behavior.
+func (s *Server) handleSetGitRoot(w http.ResponseWriter, r *http.Request) {
+	start := time.Now()
+
+	if s.IsProjectMode() {
+		writeError(w, http.StatusBadRequest, "git_root is only available in global mode")
+		return
+	}
+	if !git.IsInstalled() {
+		writeError(w, http.StatusBadRequest, "git is not installed or not in PATH")
+		return
+	}
+
+	var body setGitRootRequest
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid JSON body")
+		return
+	}
+	if !config.ValidGitRoot(body.Scope) || body.Scope == "" {
+		writeError(w, http.StatusBadRequest, "invalid scope (want: skills, agents, extras, or root)")
+		return
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	dir := config.ScopeDir(s.cfg, body.Scope)
+	if _, err := git.InitScopeRepo(dir, body.Scope); err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to initialize git at scope: "+err.Error())
+		return
+	}
+
+	// Optionally wire the remote on the just-initialized scope repo.
+	if remote := strings.TrimSpace(body.RemoteURL); remote != "" {
+		if err := git.SetOrAddRemote(dir, remote); err != nil {
+			writeError(w, http.StatusInternalServerError, "failed to set git remote: "+err.Error())
+			return
+		}
+	}
+
+	// Persist the scope. "skills" is the default — store it as empty to keep
+	// config.yaml clean and consistent with the CLI.
+	if body.Scope == "skills" {
+		s.cfg.GitRoot = ""
+	} else {
+		s.cfg.GitRoot = body.Scope
+	}
+	if err := s.saveAndReloadConfig(); err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	s.writeOpsLog("git-root", "ok", start, map[string]any{"scope": body.Scope}, "")
+
+	writeJSON(w, map[string]any{
+		"success": true,
+		"scope":   body.Scope,
+		"gitRoot": dir,
+	})
 }
 
 type gitBranchesResponse struct {
@@ -85,8 +198,11 @@ type gitBranchesResponse struct {
 func (s *Server) handleGitBranches(w http.ResponseWriter, r *http.Request) {
 	// Snapshot config under RLock, then release before I/O.
 	s.mu.RLock()
-	src := s.cfg.EffectiveSkillsSource()
+	src, ok := s.gitSource(w)
 	s.mu.RUnlock()
+	if !ok {
+		return
+	}
 
 	if !git.IsRepo(src) {
 		writeError(w, http.StatusBadRequest, "source directory is not a git repository")
@@ -95,7 +211,10 @@ func (s *Server) handleGitBranches(w http.ResponseWriter, r *http.Request) {
 
 	// Optional: fetch from remote first to discover new branches
 	if r.URL.Query().Get("fetch") == "true" && git.HasRemote(src) {
-		_ = git.FetchWithEnv(src, git.AuthEnvForRepo(src))
+		if err := git.FetchWithEnv(src, git.AuthEnvForRepo(src)); err != nil {
+			writeError(w, http.StatusInternalServerError, "git fetch failed: "+err.Error())
+			return
+		}
 	}
 
 	resp := gitBranchesResponse{
@@ -155,7 +274,10 @@ func (s *Server) handleGitCheckout(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	src := s.cfg.EffectiveSkillsSource()
+	src, ok := s.gitSource(w)
+	if !ok {
+		return
+	}
 
 	if !git.IsRepo(src) {
 		writeError(w, http.StatusBadRequest, "source directory is not a git repository")
@@ -183,7 +305,14 @@ func (s *Server) handleGitCheckout(w http.ResponseWriter, r *http.Request) {
 
 	// Fetch before checkout to ensure remote refs are up to date
 	if git.HasRemote(src) {
-		_ = git.FetchWithEnv(src, git.AuthEnvForRepo(src))
+		if err := git.FetchWithEnv(src, git.AuthEnvForRepo(src)); err != nil {
+			s.writeOpsLog("checkout", "error", start, map[string]any{
+				"branch": body.Branch,
+				"scope":  "ui",
+			}, err.Error())
+			writeError(w, http.StatusInternalServerError, "git fetch failed: "+err.Error())
+			return
+		}
 	}
 
 	// Checkout
@@ -219,6 +348,80 @@ type pushResponse struct {
 	DryRun  bool   `json:"dryRun"`
 }
 
+// handleGitCommit stages and commits changes without pushing.
+func (s *Server) handleGitCommit(w http.ResponseWriter, r *http.Request) {
+	start := time.Now()
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	var body pushRequest
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid JSON body")
+		return
+	}
+
+	src, ok := s.gitSource(w)
+	if !ok {
+		return
+	}
+
+	if !git.IsRepo(src) {
+		writeError(w, http.StatusBadRequest, "source directory is not a git repository")
+		return
+	}
+
+	if s.rootScopeGuard(w, src, body.DryRun) {
+		return
+	}
+
+	status, err := git.GetStatus(src)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to get git status: "+err.Error())
+		return
+	}
+	if status == "" {
+		s.writeOpsLog("commit", "ok", start, map[string]any{
+			"summary": "nothing to commit",
+			"dry_run": body.DryRun,
+			"scope":   "ui",
+		}, "")
+		writeJSON(w, pushResponse{Success: true, Message: "nothing to commit (working tree clean)", DryRun: body.DryRun})
+		return
+	}
+
+	if body.DryRun {
+		s.writeOpsLog("commit", "ok", start, map[string]any{
+			"summary": "dry run",
+			"dry_run": true,
+			"scope":   "ui",
+		}, "")
+		writeJSON(w, pushResponse{Success: true, Message: "dry run: would stage and commit changes", DryRun: true})
+		return
+	}
+
+	if err := git.StageAll(src); err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to stage changes: "+err.Error())
+		return
+	}
+
+	msg := body.Message
+	if msg == "" {
+		msg = "Update skills"
+	}
+	if err := git.Commit(src, msg); err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	s.writeOpsLog("commit", "ok", start, map[string]any{
+		"message": msg,
+		"dry_run": false,
+		"scope":   "ui",
+	}, "")
+
+	writeJSON(w, pushResponse{Success: true, Message: "committed successfully"})
+}
+
 // handlePush stages, commits, and pushes changes
 func (s *Server) handlePush(w http.ResponseWriter, r *http.Request) {
 	start := time.Now()
@@ -231,7 +434,10 @@ func (s *Server) handlePush(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	src := s.cfg.EffectiveSkillsSource()
+	src, ok := s.gitSource(w)
+	if !ok {
+		return
+	}
 
 	if !git.IsRepo(src) {
 		writeError(w, http.StatusBadRequest, "source directory is not a git repository")
@@ -239,6 +445,10 @@ func (s *Server) handlePush(w http.ResponseWriter, r *http.Request) {
 	}
 	if !git.HasRemote(src) {
 		writeError(w, http.StatusBadRequest, "no git remote configured")
+		return
+	}
+
+	if s.rootScopeGuard(w, src, body.DryRun) {
 		return
 	}
 
@@ -299,6 +509,103 @@ func (s *Server) handlePush(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, pushResponse{Success: true, Message: "pushed successfully"})
 }
 
+// gitSource validates the configured git_root scope and returns the directory
+// git operations run on. On an invalid scope it writes a 400 and returns
+// ok=false — mirroring the CLI's resolveGitRoot, so a hand-edited bad git_root
+// can't silently fall back to the skills scope (ScopeDir's default). Callers
+// must hold at least s.mu.RLock.
+func (s *Server) gitSource(w http.ResponseWriter) (string, bool) {
+	if !config.ValidGitRoot(s.cfg.GitRoot) {
+		writeError(w, http.StatusBadRequest,
+			"invalid git_root \""+s.cfg.GitRoot+"\" (valid: "+strings.Join(config.ValidGitRoots, ", ")+")")
+		return "", false
+	}
+	return s.cfg.EffectiveGitRoot(), true
+}
+
+// rootScopeGuard enforces root-scope safety before staging (server-side parity
+// with the CLI push sweep). It blocks the request with a 400 when nested git
+// repos would upload as empty submodules, and keeps config.yaml untracked. The
+// config mutation runs only on a real request — on dry-run the guard is
+// strictly read-only so a preview never writes .gitignore or rewrites the
+// index. No-op off the root scope. Returns blocked=true once it has written an
+// error response.
+func (s *Server) rootScopeGuard(w http.ResponseWriter, src string, dryRun bool) (blocked bool) {
+	if s.cfg.GitRoot != "root" {
+		return false
+	}
+	if nested, err := git.NestedRepos(src); err == nil && len(nested) > 0 {
+		writeError(w, http.StatusBadRequest,
+			"nested git repositories must be disabled before committing (they upload as empty submodules): "+strings.Join(nested, ", "))
+		return true
+	}
+	if !dryRun {
+		_, _ = git.EnsureConfigUntracked(src)
+	}
+	return false
+}
+
+type absorbNestedRequest struct {
+	Subdirs []string `json:"subdirs"`
+}
+
+// handleAbsorbNested disables nested git repos under the root scope by renaming
+// each <sub>/.git to <sub>/.git.disabled, so the directory's files get tracked
+// normally instead of as an empty submodule. Global mode + root scope only; each
+// subdir must match a currently-detected nested repo (this also blocks path
+// traversal).
+func (s *Server) handleAbsorbNested(w http.ResponseWriter, r *http.Request) {
+	start := time.Now()
+
+	if s.IsProjectMode() {
+		writeError(w, http.StatusBadRequest, "git_root is only available in global mode")
+		return
+	}
+
+	var body absorbNestedRequest
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid JSON body")
+		return
+	}
+	if len(body.Subdirs) == 0 {
+		writeError(w, http.StatusBadRequest, "no subdirectories specified")
+		return
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if s.cfg.GitRoot != "root" {
+		writeError(w, http.StatusBadRequest, "nested repos can only be disabled at the root scope")
+		return
+	}
+	src := s.cfg.EffectiveGitRoot()
+
+	allowed := make(map[string]bool)
+	if nested, err := git.NestedRepos(src); err == nil {
+		for _, n := range nested {
+			allowed[n] = true
+		}
+	}
+
+	disabled := make([]string, 0, len(body.Subdirs))
+	for _, sub := range body.Subdirs {
+		if !allowed[sub] {
+			writeError(w, http.StatusBadRequest, "not a detected nested repository: "+sub)
+			return
+		}
+		if err := git.DisableNestedRepo(src, sub); err != nil {
+			writeError(w, http.StatusInternalServerError, "failed to disable "+sub+": "+err.Error())
+			return
+		}
+		disabled = append(disabled, sub)
+	}
+
+	s.writeOpsLog("git-absorb-nested", "ok", start, map[string]any{"subdirs": disabled}, "")
+
+	writeJSON(w, map[string]any{"success": true, "disabled": disabled})
+}
+
 type pullResponse struct {
 	Success     bool               `json:"success"`
 	UpToDate    bool               `json:"upToDate"`
@@ -320,7 +627,10 @@ func (s *Server) handlePull(w http.ResponseWriter, r *http.Request) {
 	}
 	json.NewDecoder(r.Body).Decode(&body)
 
-	src := s.cfg.EffectiveSkillsSource()
+	src, ok := s.gitSource(w)
+	if !ok {
+		return
+	}
 
 	if !git.IsRepo(src) {
 		writeError(w, http.StatusBadRequest, "source directory is not a git repository")
@@ -370,15 +680,22 @@ func (s *Server) handlePull(w http.ResponseWriter, r *http.Request) {
 		resp.Commits = make([]git.CommitInfo, 0)
 	}
 
-	// Auto-sync to targets (same logic as handleSync)
+	// Auto-sync to targets (same logic as handleSync). The git pull above runs
+	// at the git_root scope, but skills must always sync from the skills source:
+	// when git_root is root/agents/extras, src is the config/agents/extras dir,
+	// not the skills directory, so discovering from src would mangle rel paths
+	// (e.g. skills/foo → skills__foo). Mirror the CLI, which pulls at the git
+	// root then runs `skillshare sync --global` against EffectiveSkillsSource().
 	if !info.UpToDate {
 		globalMode := s.cfg.Mode
 		if globalMode == "" {
 			globalMode = "merge"
 		}
 
+		skillsSrc := s.cfg.EffectiveSkillsSource()
+
 		// Discover skills once for all targets
-		allSkills, discoverErr := ssync.DiscoverSourceSkills(src)
+		allSkills, discoverErr := ssync.DiscoverSourceSkills(skillsSrc)
 
 		for name, target := range s.cfg.Targets {
 			sc := target.SkillsConfig()
@@ -402,21 +719,21 @@ func (s *Server) handlePull(w http.ResponseWriter, r *http.Request) {
 
 			switch mode {
 			case "merge":
-				mergeResult, err := ssync.SyncTargetMergeWithSkills(name, target, allSkills, src, false, false, s.projectRoot)
+				mergeResult, err := ssync.SyncTargetMergeWithSkills(name, target, allSkills, skillsSrc, false, false, s.projectRoot)
 				if err == nil {
 					res.Linked = mergeResult.Linked
 					res.Updated = mergeResult.Updated
 					res.Skipped = mergeResult.Skipped
 				}
 				pruneResult, err := ssync.PruneOrphanLinksWithSkills(ssync.PruneOptions{
-					TargetPath: sc.Path, SourcePath: src, Skills: allSkills,
+					TargetPath: sc.Path, SourcePath: skillsSrc, Skills: allSkills,
 					Include: sc.Include, Exclude: sc.Exclude, TargetNaming: sc.TargetNaming, TargetName: name,
 				})
 				if err == nil {
 					res.Pruned = pruneResult.Removed
 				}
 			case "copy":
-				copyResult, err := ssync.SyncTargetCopyWithSkills(name, target, allSkills, src, false, false, nil)
+				copyResult, err := ssync.SyncTargetCopyWithSkills(name, target, allSkills, skillsSrc, false, false, nil)
 				if err == nil {
 					res.Linked = copyResult.Copied
 					res.Updated = copyResult.Updated
@@ -427,7 +744,7 @@ func (s *Server) handlePull(w http.ResponseWriter, r *http.Request) {
 					res.Pruned = pruneResult.Removed
 				}
 			default:
-				ssync.SyncTarget(name, target, src, false, s.projectRoot)
+				ssync.SyncTarget(name, target, skillsSrc, false, s.projectRoot)
 				res.Linked = []string{"(symlink mode)"}
 			}
 

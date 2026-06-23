@@ -96,7 +96,7 @@ func (s *Server) handleCollectScan(w http.ResponseWriter, r *http.Request) {
 			if filterTarget != "" && filterTarget != name {
 				continue
 			}
-			agentPath := resolveAgentPath(target, builtinAgents, name)
+			agentPath := resolveAgentPath(target, builtinAgents, name, s.IsProjectMode())
 			if agentPath == "" || agentsSource == "" {
 				continue
 			}
@@ -247,7 +247,7 @@ func (s *Server) handleCollect(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 
-			agentPath := resolveAgentPath(target, builtinAgents, ref.TargetName)
+			agentPath := resolveAgentPath(target, builtinAgents, ref.TargetName, s.IsProjectMode())
 			if agentPath == "" {
 				writeError(w, http.StatusBadRequest, "no agent path for target: "+ref.TargetName)
 				return

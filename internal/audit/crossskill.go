@@ -53,7 +53,7 @@ func extractCapability(r *Result) skillCapability {
 //
 // Returns a synthetic Result (SkillName="_cross-skill") with findings, or nil
 // if no cross-skill issues are detected.
-func CrossSkillAnalysis(results []*Result) *Result {
+func CrossSkillAnalysis(results []*Result, disabled map[string]bool) *Result {
 	if len(results) < 2 {
 		return nil
 	}
@@ -132,6 +132,7 @@ func CrossSkillAnalysis(results []*Result) *Result {
 			AnalyzerCrossSkill, CategoryCredential))
 	}
 
+	findings = filterDisabledFindings(findings, disabled)
 	if len(findings) == 0 {
 		return nil
 	}

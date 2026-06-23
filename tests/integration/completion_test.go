@@ -17,7 +17,7 @@ func TestCompletion_Bash_OutputsScript(t *testing.T) {
 	result := sb.RunCLI("completion", "bash")
 	result.AssertSuccess(t)
 	result.AssertOutputContains(t, "complete -F _skillshare skillshare")
-	for _, cmd := range []string{"sync", "install", "list", "target", "completion"} {
+	for _, cmd := range []string{"sync", "install", "list", "target", "commit", "completion"} {
 		result.AssertOutputContains(t, cmd)
 	}
 }

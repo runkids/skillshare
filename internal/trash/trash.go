@@ -5,8 +5,10 @@ import (
 	"io"
 	"io/fs"
 	"os"
+	"path"
 	"path/filepath"
 	"sort"
+	"strings"
 	"time"
 
 	"skillshare/internal/config"
@@ -15,6 +17,99 @@ import (
 const defaultMaxAge = 7 * 24 * time.Hour // 7 days
 
 const reservedAgentTrashDir = "agents"
+
+// validateTrashName rejects names that could cause path traversal when joined
+// with a base directory.  Allowed: plain names ("skill"), nested names
+// ("org/team-skill").  Rejected: empty, absolute, ".", "..", any segment
+// containing NUL, or any segment equal to "..".
+func validateTrashName(name string) error {
+	if name == "" {
+		return fmt.Errorf("trash name must not be empty")
+	}
+	if strings.ContainsRune(name, 0) {
+		return fmt.Errorf("trash name must not contain NUL")
+	}
+	if filepath.IsAbs(name) {
+		return fmt.Errorf("trash name must not be absolute: %s", name)
+	}
+	for _, part := range strings.Split(name, "/") {
+		if part == "" {
+			continue
+		}
+		if part == "." || part == ".." {
+			return fmt.Errorf("trash name must not contain path traversal segment %q in %q", part, name)
+		}
+	}
+	// Trash names use logical slash-separated paths.  Backslash is rejected
+	// even on Unix to unconditionally block Windows-style traversal syntax.
+	if strings.Contains(name, `\`) {
+		return fmt.Errorf("trash name must not contain backslash: %s", name)
+	}
+	return nil
+}
+
+// trashLogicalName builds a slash-separated logical name for a trash entry.
+// It normalizes OS path separators to '/' so that List() returns names
+// compatible with validateTrashName() (which rejects backslashes).
+func trashLogicalName(parentRel, name string) string {
+	if parentRel == "." {
+		return name
+	}
+
+	// filepath.ToSlash converts the current OS path separator to slash.
+	// Do not translate literal backslashes on Unix; they are filename
+	// characters, not path separators, and should remain invalid input.
+	parentRel = filepath.ToSlash(parentRel)
+	return path.Join(parentRel, name)
+}
+
+// ensureUnderBase asserts that candidate resolves to a path under base.
+// Both are resolved to absolute paths before comparison.
+// candidate == base is allowed (used by RestoreAgent where targetDir may
+// equal destDir).
+func ensureUnderBase(base, candidate string) error {
+	return ensureUnderBaseRel(base, candidate, true)
+}
+
+// ensureStrictlyUnderBase is like ensureUnderBase but rejects candidate == base.
+// Used by destructive sinks (e.g. Cleanup) that must never target the base
+// directory itself.
+func ensureStrictlyUnderBase(base, candidate string) error {
+	return ensureUnderBaseRel(base, candidate, false)
+}
+
+func ensureUnderBaseRel(base, candidate string, allowEqual bool) error {
+	baseAbs, err := filepath.Abs(base)
+	if err != nil {
+		return fmt.Errorf("resolve base %q: %w", base, err)
+	}
+
+	candidateAbs, err := filepath.Abs(candidate)
+	if err != nil {
+		return fmt.Errorf("resolve candidate %q: %w", candidate, err)
+	}
+
+	baseAbs = filepath.Clean(baseAbs)
+	candidateAbs = filepath.Clean(candidateAbs)
+
+	rel, err := filepath.Rel(baseAbs, candidateAbs)
+	if err != nil {
+		return fmt.Errorf("path %q escapes base %q: %w", candidate, base, err)
+	}
+
+	if rel == "." {
+		if allowEqual {
+			return nil
+		}
+		return fmt.Errorf("path %q equals base %q — refusing to operate on base", candidate, base)
+	}
+
+	if rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) || filepath.IsAbs(rel) {
+		return fmt.Errorf("path %q escapes base %q", candidate, base)
+	}
+
+	return nil
+}
 
 // TrashDir returns the global trash directory path.
 func TrashDir() string {
@@ -38,8 +133,16 @@ func ProjectAgentTrashDir(root string) string {
 
 // MoveAgentToTrash moves an agent file (and its metadata) to the trash directory.
 func MoveAgentToTrash(agentFile, metaFile, name, trashBase string) (string, error) {
+	if err := validateTrashName(name); err != nil {
+		return "", fmt.Errorf("invalid trash name: %w", err)
+	}
+
 	timestamp := time.Now().Format("2006-01-02_15-04-05")
 	trashDir := filepath.Join(trashBase, name+"_"+timestamp)
+
+	if err := ensureUnderBase(trashBase, trashDir); err != nil {
+		return "", fmt.Errorf("trash path unsafe: %w", err)
+	}
 
 	if err := os.MkdirAll(trashDir, 0755); err != nil {
 		return "", fmt.Errorf("failed to create agent trash dir: %w", err)
@@ -87,9 +190,17 @@ type TrashEntry struct {
 // MoveToTrash moves a skill directory to the trash.
 // Uses os.Rename for atomic same-device moves, falls back to copy+delete.
 func MoveToTrash(srcPath, name, trashBase string) (string, error) {
+	if err := validateTrashName(name); err != nil {
+		return "", fmt.Errorf("invalid trash name: %w", err)
+	}
+
 	timestamp := time.Now().Format("2006-01-02_15-04-05")
 	trashName := name + "_" + timestamp
 	trashPath := filepath.Join(trashBase, trashName)
+
+	if err := ensureUnderBase(trashBase, trashPath); err != nil {
+		return "", fmt.Errorf("trash path unsafe: %w", err)
+	}
 
 	if err := os.MkdirAll(filepath.Dir(trashPath), 0755); err != nil {
 		return "", fmt.Errorf("failed to create trash directory: %w", err)
@@ -133,10 +244,7 @@ func List(trashBase string) []TrashEntry {
 
 		// Compute full nested name from relative path
 		parentRel, _ := filepath.Rel(trashBase, filepath.Dir(path))
-		fullName := name
-		if parentRel != "." {
-			fullName = filepath.Join(parentRel, name)
-		}
+		fullName := trashLogicalName(parentRel, name)
 
 		date, parseErr := time.Parse("2006-01-02_15-04-05", ts)
 		if parseErr != nil {
@@ -189,6 +297,9 @@ func Cleanup(trashBase string, maxAge time.Duration) (int, error) {
 
 	for _, item := range items {
 		if item.Date.Before(cutoff) {
+			if err := ensureStrictlyUnderBase(trashBase, item.Path); err != nil {
+				return removed, fmt.Errorf("skip unsafe item %s: %w", item.Name, err)
+			}
 			if err := os.RemoveAll(item.Path); err != nil {
 				return removed, fmt.Errorf("failed to clean up %s: %w", item.Name, err)
 			}
@@ -239,7 +350,15 @@ func FindByName(trashBase, name string) *TrashEntry {
 // Restore moves a trashed skill back to the destination directory.
 // Returns an error if the destination already exists.
 func Restore(entry *TrashEntry, destDir string) error {
+	if err := validateTrashName(entry.Name); err != nil {
+		return fmt.Errorf("invalid trash entry name: %w", err)
+	}
+
 	destPath := filepath.Join(destDir, entry.Name)
+
+	if err := ensureUnderBase(destDir, destPath); err != nil {
+		return fmt.Errorf("restore path unsafe: %w", err)
+	}
 
 	// Ensure parent directory exists for nested names (e.g., "org/_team-skills")
 	if err := os.MkdirAll(filepath.Dir(destPath), 0755); err != nil {
@@ -271,11 +390,20 @@ func Restore(entry *TrashEntry, destDir string) error {
 // Unlike Restore (which moves the whole directory), this copies individual files
 // from the trashed directory to destDir (since agents are file-based, not directory-based).
 func RestoreAgent(entry *TrashEntry, destDir string) error {
+	if err := validateTrashName(entry.Name); err != nil {
+		return fmt.Errorf("invalid trash entry name: %w", err)
+	}
+
 	// Reconstruct subdirectory for nested agents (e.g., "demo/my-agent" → destDir/demo/)
 	targetDir := destDir
 	if subDir := filepath.Dir(entry.Name); subDir != "." {
 		targetDir = filepath.Join(destDir, subDir)
 	}
+
+	if err := ensureUnderBase(destDir, targetDir); err != nil {
+		return fmt.Errorf("restore path unsafe: %w", err)
+	}
+
 	if err := os.MkdirAll(targetDir, 0755); err != nil {
 		return fmt.Errorf("failed to create agent destination: %w", err)
 	}

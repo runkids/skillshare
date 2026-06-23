@@ -12,8 +12,8 @@ Manage non-skill resources (rules, commands, prompts) that sync to arbitrary dir
 | `diff` | Includes extras diff automatically | ✓ (auto) | ✓ |
 
 **Source directories:**
-- Global: `~/.config/skillshare/extras/<name>/`
-- Project: `.skillshare/extras/<name>/`
+- Global: `~/.config/skillshare/extras/<name>/`; `extras_source` and per-extra `source` can override it.
+- Project: `.skillshare/extras/<name>/`; per-extra `source` is ignored. Use top-level `sources.extras` to move all project extras.
 
 ## extras init
 
@@ -30,6 +30,7 @@ skillshare extras init rules --no-tui ... # Skip wizard
 | Flag | Description |
 |------|-------------|
 | `--target <path>` | Target directory (repeatable, at least one required) |
+| `--source <path>` | Custom source directory for this extra (global mode only) |
 | `--mode <mode>` | Sync mode: `merge` (default), `copy`, `symlink` |
 | `--no-tui` | Skip interactive wizard |
 | `-p` / `-g` | Force project / global mode |
@@ -125,11 +126,21 @@ extras:
       - path: ~/.claude/rules
       - path: ~/.cursor/rules
         mode: copy
+  - name: agents
+    targets:
+      - path: .claude/agents
+      - path: .codex/agents
+        flatten: true
+        extension: codex-agents   # transform + rename via .skillshare/extensions/codex-agents/
   - name: commands
     targets:
       - path: ~/.claude/commands
         mode: symlink
 ```
+
+The `extension:` field names an extension directory under `.skillshare/extensions/` (project) or `~/.config/skillshare/extensions/` (global). It transforms each source file during sync and implies `copy` mode.
+
+For project agents, prefer native target `agents:` config. Use `extras: agents` only when you need extras-only behavior like `flatten` or `extension`.
 
 ## Typical workflow
 
@@ -151,3 +162,50 @@ skillshare diff --extras
 skillshare extras collect rules --from ~/.claude/rules
 skillshare sync extras
 ```
+
+## Extensions
+
+An extension transforms each source file before writing it to a target. Set `extension: <name>` on any extras target; implies `copy` mode.
+
+### Directory layout
+
+```
+.skillshare/extensions/<name>/
+├── extension.yaml   ← required
+├── convert.js       ← transformer (or convert.py, etc.)
+└── helper.js        ← optional shared utilities
+```
+
+### extension.yaml
+
+```yaml
+run: ["node", "convert.js"]   # command array — run from extension directory
+output_ext: toml              # renames output file (e.g. rule.md → rule.toml)
+description: "MD → Codex TOML"
+```
+
+- `output_ext` is the only way to change the output file extension
+- Omit to keep the source extension
+- Global extensions: `~/.config/skillshare/extensions/<name>/`
+
+### I/O contract
+
+- Input: raw source file piped to `stdin`
+- Output: transformed content on `stdout`; non-zero exit skips the file with a warning
+- `SS_REL_PATH` env var: source file path relative to extras root
+
+### Official extensions
+
+Ready-to-copy reference implementations at `https://github.com/runkids/skillshare/tree/main/extensions`:
+
+| Extension | Converts | Output |
+|-----------|----------|--------|
+| `codex-agents` | Claude agent MD (frontmatter + body) | Codex TOML (`name`, `description`, `developer_instructions`) |
+| `gemini-commands` | Markdown command docs | Gemini CLI TOML commands |
+
+The `codex-agents` extension requires `name` and `description` frontmatter — files missing either field are skipped with an error. Non-agent files (e.g. prompts, changelogs) should be excluded from the extras source or given a `.agentignore`-style prefix.
+
+### Caveats
+
+- Native agents targets (`agents: { path: ... }`) do **not** support `extension:` — extras only
+- Node.js extensions break inside Claude Code because it sets `NODE_OPTIONS` to preload an internal module. Fix: `run: ["env", "-u", "NODE_OPTIONS", "node", "convert.js"]`

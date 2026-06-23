@@ -278,7 +278,7 @@ func installFromGit(source *Source, destPath string, result *InstallResult, opts
 	}
 
 	// Clone the repository
-	if err := cloneRepo(source.CloneURL, destPath, source.Branch, true, opts.OnProgress); err != nil {
+	if err := cloneRepoForSource(source, destPath, source.Branch, true, opts.OnProgress); err != nil {
 		return nil, fmt.Errorf("failed to clone repository: %w", err)
 	}
 
@@ -449,7 +449,7 @@ func installFromGitSubdir(source *Source, destPath string, result *InstallResult
 	if err != nil {
 		return nil, fmt.Errorf("failed to create temp directory: %w", err)
 	}
-	defer os.RemoveAll(tempDir)
+	defer cleanupTempRepo(tempDir)
 
 	tempRepoPath := filepath.Join(tempDir, "repo")
 	var subdirPath string
@@ -465,13 +465,13 @@ func installFromGitSubdir(source *Source, destPath string, result *InstallResult
 			if info, statErr := os.Stat(subdirPath); statErr != nil || !info.IsDir() {
 				subdirPath = ""
 				result.Warnings = append(result.Warnings, "sparse checkout install fallback: subdirectory missing after checkout")
-				_ = os.RemoveAll(tempRepoPath)
+				cleanupTempRepo(tempRepoPath)
 			} else if hash, hashErr := getGitCommit(tempRepoPath); hashErr == nil {
 				commitHash = hash
 			}
 		} else {
 			result.Warnings = append(result.Warnings, fmt.Sprintf("sparse checkout install fallback: %v", err))
-			_ = os.RemoveAll(tempRepoPath)
+			cleanupTempRepo(tempRepoPath)
 			subdirPath = ""
 		}
 	}
@@ -488,7 +488,7 @@ func installFromGitSubdir(source *Source, destPath string, result *InstallResult
 		} else {
 			result.Warnings = append(result.Warnings, fmt.Sprintf("GitHub API install fallback: %v", dlErr))
 			subdirPath = ""
-			_ = os.RemoveAll(tempRepoPath)
+			cleanupTempRepo(tempRepoPath)
 		}
 	}
 
@@ -509,11 +509,11 @@ func installFromGitSubdir(source *Source, destPath string, result *InstallResult
 
 	// Fallback: full clone + fuzzy subdir resolution
 	if subdirPath == "" {
-		_ = os.RemoveAll(tempRepoPath)
+		cleanupTempRepo(tempRepoPath)
 		if opts.OnProgress != nil {
 			opts.OnProgress("Cloning repository...")
 		}
-		if err := cloneRepo(source.CloneURL, tempRepoPath, source.Branch, true, opts.OnProgress); err != nil {
+		if err := cloneRepoForSource(source, tempRepoPath, source.Branch, true, opts.OnProgress); err != nil {
 			return nil, fmt.Errorf("failed to clone repository: %w", err)
 		}
 

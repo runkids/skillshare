@@ -31,13 +31,22 @@ type updateOptions struct {
 
 // updateJSONOutput is the JSON representation for update --json output.
 type updateJSONOutput struct {
-	Updated        int              `json:"updated"`
-	Skipped        int              `json:"skipped"`
-	SecurityFailed int              `json:"security_failed"`
-	Pruned         int              `json:"pruned"`
-	DryRun         bool             `json:"dry_run"`
-	Duration       string           `json:"duration"`
-	Items          []updateJSONItem `json:"items"`
+	Updated             int                         `json:"updated"`
+	Skipped             int                         `json:"skipped"`
+	SecurityFailed      int                         `json:"security_failed"`
+	Pruned              int                         `json:"pruned"`
+	DryRun              bool                        `json:"dry_run"`
+	Duration            string                      `json:"duration"`
+	Items               []updateJSONItem            `json:"items"`
+	MissingTrackedRepos *missingTrackedReposSummary `json:"missing_tracked_repos,omitempty"`
+}
+
+// missingTrackedReposSummary aggregates tracked repos declared in metadata whose
+// clone directories are absent on disk, so the per-item error stays concise while
+// the recovery hint is surfaced once. See issue #212.
+type missingTrackedReposSummary struct {
+	Names []string `json:"names"`
+	Hint  string   `json:"hint"`
 }
 
 type updateJSONItem struct {
@@ -210,7 +219,10 @@ func cmdUpdate(args []string) error {
 		// Recursive discovery for --all
 		scanSpinner := ui.StartSpinner("Scanning skills...")
 		walkRoot := sourcePath
-		metaStore, _ := install.LoadMetadataWithMigration(sourcePath, "")
+		metaStore, metaErr := install.LoadMetadataWithMigration(sourcePath, "")
+		if metaErr != nil {
+			resolveWarnings = append(resolveWarnings, fmt.Sprintf("could not read skill metadata: %v", metaErr))
+		}
 		err := filepath.Walk(walkRoot, func(path string, info os.FileInfo, err error) error {
 			if err != nil || path == walkRoot {
 				return nil
@@ -253,6 +265,13 @@ func cmdUpdate(args []string) error {
 				return jsonWriteError(err)
 			}
 			return fmt.Errorf("failed to scan skills: %w", err)
+		}
+		missingRepos, _ := install.GetMissingTrackedRepos(sourcePath)
+		for _, repo := range missingRepos {
+			if !seen[repo.Name] {
+				seen[repo.Name] = true
+				targets = append(targets, updateTarget{name: repo.Name, path: filepath.Join(sourcePath, filepath.FromSlash(repo.Name)), isRepo: true})
+			}
 		}
 	} else {
 		// Load store once for name resolution
@@ -373,7 +392,11 @@ func cmdUpdate(args []string) error {
 		var r updateResult
 		var updateErr error
 		if t.isRepo {
-			r, updateErr = updateTrackedRepo(uc, t.name)
+			if mr, missing := missingTrackedRepoResult(t); opts.all && missing {
+				r = mr
+			} else {
+				r, updateErr = updateTrackedRepo(uc, t.name)
+			}
 		} else {
 			r, updateErr = updateRegularSkill(uc, t.name)
 		}
@@ -388,6 +411,7 @@ func cmdUpdate(args []string) error {
 		if opts.jsonOutput {
 			return jsonWriteResult(&r, updateErr)
 		}
+		displayMissingTrackedReposWarning(r.missingTrackedRepos)
 		return updateErr
 	}
 
@@ -427,6 +451,13 @@ func updateOutputJSON(result *updateResult, dryRun bool, start time.Time, update
 		output.Skipped = result.skipped
 		output.SecurityFailed = result.securityFailed
 		output.Pruned = result.pruned
+		output.Items = result.items
+		if len(result.missingTrackedRepos) > 0 {
+			output.MissingTrackedRepos = &missingTrackedReposSummary{
+				Names: result.missingTrackedRepos,
+				Hint:  missingTrackedRepoHint(),
+			}
+		}
 	}
 	return writeJSONResult(&output, updateErr)
 }

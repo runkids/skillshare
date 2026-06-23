@@ -20,6 +20,7 @@ $_skillshareCompleter = {
             @{ Name = 'collect'; Desc = 'Collect local skills/agents from targets' }
             @{ Name = 'pull'; Desc = 'Pull from git remote and sync' }
             @{ Name = 'push'; Desc = 'Commit and push source to git remote' }
+            @{ Name = 'commit'; Desc = 'Create local git commit without pushing' }
             @{ Name = 'doctor'; Desc = 'Check environment and diagnose issues' }
             @{ Name = 'target'; Desc = 'Manage targets' }
             @{ Name = 'upgrade'; Desc = 'Upgrade CLI and/or skillshare skill' }
@@ -97,6 +98,7 @@ $_skillshareCompleter = {
         'collect' = '--all', '-a', '--dry-run', '-n', '--force', '-f', '--json', '--help', '-h', '--project', '-p', '--global', '-g'
         'pull' = '--dry-run', '-n', '--force', '-f', '--project', '-p', '--global', '-g'
         'push' = '--dry-run', '-n', '--message', '-m', '--project', '-p', '--global', '-g'
+        'commit' = '--dry-run', '-n', '--message', '-m', '--help', '-h', '--project', '-p', '--global', '-g'
         'doctor' = '--json', '--help', '-h'
         'target' = '--json', '--no-tui', '--help', '-h', '--mode', '--agent-mode', '--target-naming', '--add-include', '--add-exclude', '--remove-include', '--remove-exclude', '--add-agent-include', '--add-agent-exclude', '--remove-agent-include', '--remove-agent-exclude', '--project', '-p', '--global', '-g'
         'upgrade' = '--dry-run', '-n', '--force', '-f', '--skill', '--cli', '--help', '-h'

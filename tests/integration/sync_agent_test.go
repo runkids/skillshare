@@ -54,6 +54,37 @@ targets:
 	}
 }
 
+func TestSync_AgentsAliasTargetUsesBuiltinAgentPath(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	agentsDir := filepath.Join(filepath.Dir(sb.SourcePath), "agents")
+	if err := os.MkdirAll(agentsDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(agentsDir, "droid.md"), []byte("# Droid"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	factorySkills := filepath.Join(sb.Home, ".factory", "skills")
+	if err := os.MkdirAll(factorySkills, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets:
+  factory:
+    path: ` + factorySkills + `
+`)
+
+	result := sb.RunCLI("sync", "agents")
+	result.AssertSuccess(t)
+
+	if !sb.IsSymlink(filepath.Join(sb.Home, ".factory", "droids", "droid.md")) {
+		t.Fatal("factory alias should sync agents to droid builtin path")
+	}
+}
+
 func TestSync_Agents_ExcludeFilter(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()

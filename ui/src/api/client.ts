@@ -145,6 +145,7 @@ export interface ExtraTarget {
   path: string;
   mode: string;
   flatten: boolean;
+  extension?: string;  // transform extension name; presence implies copy mode
   status: string;  // "synced" | "drift" | "not synced" | "no source"
 }
 
@@ -155,6 +156,14 @@ export interface Extra {
   file_count: number;
   source_exists: boolean;
   targets: ExtraTarget[];
+}
+
+export interface ExtensionInfo {
+  name: string;
+  description?: string;
+  builtin: boolean;
+  installed: boolean;
+  used_by?: string[]; // names of extras referencing this extension
 }
 
 export interface ExtraDiffItem {
@@ -251,6 +260,11 @@ export const api = {
     apiFetch<{ updated: number; skipped: number; errors: string[] }>('/resources/batch/targets', {
       method: 'POST',
       body: JSON.stringify({ folder, target: target ?? '' }),
+    }),
+  batchToggleResources: (names: string[], enable: boolean, kind?: 'skill' | 'agent') =>
+    apiFetch<BatchToggleResult>('/resources/batch/toggle', {
+      method: 'POST',
+      body: JSON.stringify({ names, enable, kind }),
     }),
   setSkillTargets: (name: string, target: string | null) =>
     apiFetch<{ success: boolean }>(`/resources/${encodeURIComponent(name)}/targets`, {
@@ -369,7 +383,7 @@ export const api = {
 
   // Update
   update: (opts: { name?: string; kind?: 'skill' | 'agent'; force?: boolean; all?: boolean; skipAudit?: boolean }) =>
-    apiFetch<{ results: UpdateResultItem[] }>('/update', {
+    apiFetch<{ results: UpdateResultItem[]; missingTrackedRepos?: MissingTrackedRepo[] }>('/update', {
       method: 'POST',
       body: JSON.stringify(opts),
     }),
@@ -390,6 +404,16 @@ export const api = {
       done: onDone,
     }, onError, 'Update stream failed');
   },
+
+  // Tracked repos declared in metadata but absent on disk (issue #212)
+  missingTrackedRepos: () =>
+    apiFetch<{ repos: MissingTrackedRepo[] }>('/update/missing-tracked-repos'),
+
+  // Rehydrate tracked repos declared in metadata but absent on disk (issue #212)
+  rehydrateTrackedRepos: () =>
+    apiFetch<{ results: RehydrateResultItem[] }>('/update/rehydrate', {
+      method: 'POST',
+    }),
 
   // Repo uninstall
   deleteRepo: (name: string) =>
@@ -512,7 +536,7 @@ export const api = {
   createExtra: (data: {
     name: string;
     source?: string;
-    targets: Array<{ path: string; mode: string }>;
+    targets: Array<{ path: string; mode: string; flatten?: boolean; extension?: string }>;
   }) =>
     apiFetch<{ success: boolean }>('/extras', {
       method: 'POST',
@@ -525,10 +549,40 @@ export const api = {
     }),
   deleteExtra: (name: string) =>
     apiFetch<{ success: boolean }>(`/extras/${encodeURIComponent(name)}`, { method: 'DELETE' }),
-  setExtraMode: (name: string, target: string, mode: string, flatten?: boolean) =>
+  listExtraExtensions: () => apiFetch<{ extensions: string[] }>('/extras/extensions'),
+  // Extensions management (Config page)
+  listExtensions: () => apiFetch<{ extensions: ExtensionInfo[] }>('/extensions'),
+  installExtension: (name: string) =>
+    apiFetch<{ success: boolean; name: string }>('/extensions/install', {
+      method: 'POST',
+      body: JSON.stringify({ name }),
+    }),
+  openExtensionsDir: () =>
+    apiFetch<{ path: string }>('/extensions/open', { method: 'POST' }),
+  removeExtension: (name: string) =>
+    apiFetch<{ success: boolean; name: string }>(`/extensions/${encodeURIComponent(name)}`, {
+      method: 'DELETE',
+    }),
+  // extension: undefined = leave unchanged; '' = clear; name = set (forces copy mode)
+  setExtraMode: (name: string, target: string, mode: string, flatten?: boolean, extension?: string) =>
     apiFetch<{ success: boolean }>(`/extras/${encodeURIComponent(name)}/mode`, {
       method: 'PATCH',
-      body: JSON.stringify({ target, mode, ...(flatten !== undefined && { flatten }) }),
+      body: JSON.stringify({
+        target,
+        mode,
+        ...(flatten !== undefined && { flatten }),
+        ...(extension !== undefined && { extension }),
+      }),
+    }),
+  addExtraTarget: (name: string, target: { path: string; mode?: string; flatten?: boolean }) =>
+    apiFetch<{ success: boolean }>(`/extras/${encodeURIComponent(name)}/targets`, {
+      method: 'POST',
+      body: JSON.stringify(target),
+    }),
+  removeExtraTarget: (name: string, path: string) =>
+    apiFetch<{ success: boolean }>(`/extras/${encodeURIComponent(name)}/targets`, {
+      method: 'DELETE',
+      body: JSON.stringify({ path }),
     }),
 
   // Log
@@ -594,12 +648,27 @@ export const api = {
 
   // Git
   gitStatus: () => apiFetch<GitStatus>('/git/status'),
+  gitSetRoot: (scope: string, remoteURL?: string) =>
+    apiFetch<{ success: boolean; scope: string; gitRoot: string }>('/git/root', {
+      method: 'POST',
+      body: JSON.stringify(remoteURL ? { scope, remoteURL } : { scope }),
+    }),
   gitBranches: (opts?: { fetch?: boolean }) =>
     apiFetch<GitBranches>(`/git/branches${opts?.fetch ? '?fetch=true' : ''}`),
   gitCheckout: (branch: string) =>
     apiFetch<GitCheckoutResponse>('/git/checkout', {
       method: 'POST',
       body: JSON.stringify({ branch }),
+    }),
+  gitAbsorbNested: (subdirs: string[]) =>
+    apiFetch<{ success: boolean; disabled: string[] }>('/git/absorb-nested', {
+      method: 'POST',
+      body: JSON.stringify({ subdirs }),
+    }),
+  gitCommit: (opts: { message?: string; dryRun?: boolean }) =>
+    apiFetch<PushResponse>('/git/commit', {
+      method: 'POST',
+      body: JSON.stringify(opts),
     }),
   push: (opts: { message?: string; dryRun?: boolean }) =>
     apiFetch<PushResponse>('/push', {
@@ -854,12 +923,25 @@ export interface UpdateResultItem {
   auditRiskLabel?: string;
 }
 
+export interface MissingTrackedRepo {
+  name: string;
+  source: string;
+  branch?: string;
+}
+
 export interface UpdateStreamSummary {
   updated: number;
   upToDate: number;
   blocked: number;
   errors: number;
   skipped: number;
+  missingTrackedRepos?: MissingTrackedRepo[];
+}
+
+export interface RehydrateResultItem {
+  name: string;
+  action: string; // "rehydrated" | "error"
+  error?: string;
 }
 
 export interface AvailableTarget {
@@ -924,6 +1006,18 @@ export interface BatchUninstallItemResult {
 export interface BatchUninstallResult {
   results: BatchUninstallItemResult[];
   summary: { succeeded: number; failed: number };
+}
+
+export interface BatchToggleItemResult {
+  name: string;
+  success: boolean;
+  disabled: boolean;
+  error?: string;
+}
+
+export interface BatchToggleResult {
+  results: BatchToggleItemResult[];
+  summary: { updated: number; unchanged: number; failed: number };
 }
 
 export interface LocalSkillInfo {
@@ -1012,16 +1106,24 @@ export interface CheckResult {
 
 // Git types
 export interface GitStatus {
+  gitInstalled: boolean;
   isRepo: boolean;
   hasRemote: boolean;
   branch: string;
   isDirty: boolean;
   files: string[];
   sourceDir: string;
+  scope: string;
+  scopeMismatch: boolean;
+  mismatchScope?: string;
+  mismatchDir?: string;
   remoteURL?: string;
   headHash?: string;
   headMessage?: string;
   trackingBranch?: string;
+  // Root-scope hazards (populated only when scope === 'root').
+  nestedRepos: string[];
+  configTracked: boolean;
 }
 
 export interface GitBranches {
@@ -1176,6 +1278,7 @@ export interface DoctorCheck {
   status: 'pass' | 'warning' | 'error' | 'info';
   message: string;
   details?: string[];
+  suggestions?: string[];
 }
 
 export interface DoctorSummary {

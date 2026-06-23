@@ -68,7 +68,6 @@ export default function SkillEditor({
   skillName,
   displayName,
   kind,
-  path: _path,
   tracked = false,
   initialContent,
   fileCount,

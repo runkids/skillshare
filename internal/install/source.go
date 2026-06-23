@@ -7,7 +7,89 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"unicode"
 )
+
+const maxURLDecodeRounds = 3
+
+// validateRepoSubdir checks that a repo subdir is a safe relative path.
+// It rejects: NUL, control chars, backslashes, absolute paths, traversal (.)
+// and (..) segments. It iteratively URL-decodes up to maxURLDecodeRounds to
+// catch encoded traversal like %2e%2e or ..%2F... Every observable form —
+// before and after each decode — must pass checkSubdirSafety. If the string
+// is still encodable after exhausting all rounds, it is rejected.
+func validateRepoSubdir(subdir string) error {
+	if subdir == "" {
+		return nil
+	}
+	current := subdir
+	for round := 0; round < maxURLDecodeRounds; round++ {
+		if err := checkSubdirSafety(current); err != nil {
+			return fmt.Errorf("unsafe subdir %q: %w", subdir, err)
+		}
+		decoded, err := url.PathUnescape(current)
+		if err != nil {
+			return fmt.Errorf("unsafe subdir %q: invalid URL encoding: %w", subdir, err)
+		}
+		if decoded == current {
+			return nil // stable — no more encoding to strip
+		}
+		current = decoded
+	}
+	// Final round: validate the fully-decoded result.
+	if err := checkSubdirSafety(current); err != nil {
+		return fmt.Errorf("unsafe subdir %q: %w", subdir, err)
+	}
+	// Check if it can still be decoded (deeper than maxURLDecodeRounds).
+	if decoded, err := url.PathUnescape(current); err == nil && decoded != current {
+		return fmt.Errorf("unsafe subdir %q: too deeply URL-encoded", subdir)
+	}
+	return nil
+}
+
+func checkSubdirSafety(s string) error {
+	for i, r := range s {
+		if r == 0 {
+			return fmt.Errorf("contains NUL at byte %d", i)
+		}
+		if r < 0x20 || r == 0x7f || (r >= 0x80 && r < 0xa0) {
+			return fmt.Errorf("contains control character U+%04X at byte %d", r, i)
+		}
+		if r == '\\' {
+			return fmt.Errorf("contains backslash at byte %d", i)
+		}
+	}
+	if filepath.IsAbs(s) {
+		return fmt.Errorf("is absolute path")
+	}
+	for _, seg := range strings.Split(s, "/") {
+		if seg == "." || seg == ".." {
+			return fmt.Errorf("contains traversal segment %q", seg)
+		}
+	}
+	return nil
+}
+
+// validateSourceName checks that a derived source name is safe.
+// It rejects: empty, ".", "..", NUL, control chars, slashes, and backslashes.
+// Dots within the name (e.g. "team.json") are allowed.
+func validateSourceName(name string) error {
+	if name == "" || name == "." || name == ".." {
+		return fmt.Errorf("name is empty, dot, or dot-dot")
+	}
+	for i, r := range name {
+		if r == 0 {
+			return fmt.Errorf("name contains NUL at byte %d", i)
+		}
+		if unicode.IsControl(r) {
+			return fmt.Errorf("name contains control character U+%04X at byte %d", r, i)
+		}
+		if r == '/' || r == '\\' {
+			return fmt.Errorf("name contains path separator at byte %d", i)
+		}
+	}
+	return nil
+}
 
 // SourceType represents the type of installation source
 type SourceType int
@@ -52,8 +134,11 @@ type Source struct {
 // GitHub URL pattern: github.com/owner/repo[/path/to/subdir]
 var githubPattern = regexp.MustCompile(`^(?:https?://)?github\.com/([^/]+)/([^/]+)(?:/(.+))?$`)
 
-// Git SSH pattern: git@host:owner/repo[.git][//subdir]
-var gitSSHPattern = regexp.MustCompile(`^git@([^:]+):([^/]+)/(.+?)(?:\.git)?(?://(.+))?$`)
+// Git SSH pattern: user@host:owner/repo[.git][//subdir]
+var gitSSHPattern = regexp.MustCompile(`^([^@:\s]+)@([^:\s]+):([^/]+)/(.+?)(?:\.git)?(?://(.+))?$`)
+
+// Git SSH URL with scheme: ssh://[user@]host[:port]/path[.git][//subdir]
+var sshURLPattern = regexp.MustCompile(`^ssh://(?:([^@/]+)@)?([^/:]+)(?::(\d+))?/(.+?)(?:\.git)?(?://(.+))?$`)
 
 // Git HTTPS pattern: https://host/path (flexible path for GitLab subgroups)
 var gitHTTPSPattern = regexp.MustCompile(`^(https?)://([^/]+)/(.+)$`)
@@ -83,6 +168,32 @@ type ParseOptions struct {
 	AzureHosts  []string // extra hostnames to treat as Azure DevOps on-premises
 	CNBHosts    []string // extra hostnames to treat as CNB instances
 	GiteaHosts  []string // extra hostnames to treat as Gitea instances
+}
+
+// IsSSHURL reports whether input is an SSH URL — either scp-style
+// (git@host:owner/repo.git) or scheme-style (ssh://[user@]host[:port]/path),
+// optionally with a //subdir suffix. Such sources must be resolved by cloning
+// rather than a direct HTTP fetch or local read.
+func IsSSHURL(input string) bool {
+	s := strings.TrimSpace(input)
+	return strings.HasPrefix(s, "ssh://") || gitSSHPattern.MatchString(s)
+}
+
+// SSHIdentity extracts the SSH username and hostname from scp-style or
+// scheme-style SSH sources. It returns ok=false when either part is absent.
+func SSHIdentity(input string) (user, host string, ok bool) {
+	s := strings.TrimSpace(input)
+	if matches := gitSSHPattern.FindStringSubmatch(s); matches != nil {
+		user = strings.TrimSpace(matches[1])
+		host = strings.ToLower(strings.TrimSpace(matches[2]))
+		return user, host, user != "" && host != ""
+	}
+	if matches := sshURLPattern.FindStringSubmatch(s); matches != nil {
+		user = strings.TrimSpace(matches[1])
+		host = strings.ToLower(strings.TrimSpace(matches[2]))
+		return user, host, user != "" && host != ""
+	}
+	return "", "", false
 }
 
 // ParseSource analyzes the input string and returns a Source struct.
@@ -139,6 +250,11 @@ func ParseSourceWithOptions(input string, opts ParseOptions) (*Source, error) {
 		return parseGitHub(matches, source)
 	}
 
+	// Try Git SSH URL with scheme (ssh://...)
+	if matches := sshURLPattern.FindStringSubmatch(input); matches != nil {
+		return parseSSHURL(matches, source)
+	}
+
 	// Try Git SSH pattern
 	if matches := gitSSHPattern.FindStringSubmatch(input); matches != nil {
 		return parseGitSSH(matches, source)
@@ -150,6 +266,19 @@ func ParseSourceWithOptions(input string, opts ParseOptions) (*Source, error) {
 	}
 
 	return nil, fmt.Errorf("unrecognized source format: %s", input)
+}
+
+// validateCloneURL checks that a CloneURL contains no NUL or control characters.
+func validateCloneURL(cloneURL string) error {
+	for i, r := range cloneURL {
+		if r == 0 {
+			return fmt.Errorf("clone URL contains NUL at byte %d", i)
+		}
+		if r < 0x20 || r == 0x7f || (r >= 0x80 && r < 0xa0) {
+			return fmt.Errorf("clone URL contains control character at byte %d", i)
+		}
+	}
+	return nil
 }
 
 func isLocalPath(input string) bool {
@@ -181,7 +310,8 @@ func expandGitHubShorthand(input string) string {
 	if strings.HasPrefix(input, "github.com/") ||
 		strings.HasPrefix(input, "http://") ||
 		strings.HasPrefix(input, "https://") ||
-		strings.HasPrefix(input, "git@") ||
+		strings.HasPrefix(input, "ssh://") ||
+		gitSSHPattern.MatchString(input) ||
 		strings.HasPrefix(input, "file://") ||
 		isLocalPath(input) {
 		return input
@@ -229,7 +359,13 @@ func parseLocalPath(input string, source *Source) (*Source, error) {
 func parseGitHub(matches []string, source *Source) (*Source, error) {
 	// matches: [full, owner, repo, subdir]
 	owner := matches[1]
+	if err := validateSourceName(owner); err != nil {
+		return nil, fmt.Errorf("invalid owner name: %w", err)
+	}
 	repo := strings.TrimSuffix(matches[2], ".git")
+	if err := validateSourceName(repo); err != nil {
+		return nil, fmt.Errorf("invalid repo name: %w", err)
+	}
 	subdir := ""
 	if len(matches) > 3 {
 		subdir = matches[3]
@@ -247,10 +383,20 @@ func parseGitHub(matches []string, source *Source) (*Source, error) {
 	source.Type = SourceTypeGitHub
 	source.CloneURL = fmt.Sprintf("https://github.com/%s/%s.git", owner, repo)
 
+	if err := validateCloneURL(source.CloneURL); err != nil {
+		return nil, err
+	}
+
 	if subdir != "" {
+		if err := validateRepoSubdir(subdir); err != nil {
+			return nil, err
+		}
 		source.Subdir = subdir
-		// Name is the last segment of subdir
-		source.Name = filepath.Base(subdir)
+		name := filepath.Base(subdir)
+		if err := validateSourceName(name); err != nil {
+			return nil, err
+		}
+		source.Name = name
 	} else {
 		source.Name = repo
 	}
@@ -290,34 +436,110 @@ func trimSkillFileSuffix(path string, isBlob bool) (string, bool) {
 	if !isBlob {
 		return path, false
 	}
-	if !strings.EqualFold(filepath.Base(path), "SKILL.md") {
+	lastSlash := strings.LastIndex(path, "/")
+	name := path
+	if lastSlash >= 0 {
+		name = path[lastSlash+1:]
+	}
+	if !strings.EqualFold(name, "SKILL.md") {
 		return path, false
 	}
-	parent := filepath.ToSlash(filepath.Dir(path))
-	if parent == "." {
+	if lastSlash < 0 {
 		return "", true
 	}
-	return parent, true
+	// Keep the parent path raw so later subdir validation can reject traversal
+	// instead of filepath.Dir cleaning it into a seemingly safe path.
+	return path[:lastSlash], true
 }
 
 func parseGitSSH(matches []string, source *Source) (*Source, error) {
-	// matches: [full, host, owner, repo, subdir]
-	host := matches[1]
-	owner := matches[2]
-	repo := strings.TrimSuffix(matches[3], ".git")
+	// matches: [full, user, host, owner, repo, subdir]
+	user := matches[1]
+	host := matches[2]
+	owner := matches[3]
+	if err := validateSourceName(owner); err != nil {
+		return nil, fmt.Errorf("invalid owner name: %w", err)
+	}
+	repo := strings.TrimSuffix(matches[4], ".git")
 	subdir := ""
-	if len(matches) > 4 {
-		subdir = matches[4]
+	if len(matches) > 5 {
+		subdir = matches[5]
 	}
 
 	source.Type = SourceTypeGitSSH
-	source.CloneURL = fmt.Sprintf("git@%s:%s/%s.git", host, owner, repo)
+	source.CloneURL = fmt.Sprintf("%s@%s:%s/%s.git", user, host, owner, repo)
+
+	if err := validateCloneURL(source.CloneURL); err != nil {
+		return nil, err
+	}
 
 	if subdir != "" {
+		if err := validateRepoSubdir(subdir); err != nil {
+			return nil, err
+		}
 		source.Subdir = subdir
-		source.Name = filepath.Base(subdir)
+		name := filepath.Base(subdir)
+		if err := validateSourceName(name); err != nil {
+			return nil, err
+		}
+		source.Name = name
 	} else {
-		source.Name = filepath.Base(repo)
+		// Validate the final segment (actual repo name), not the full path
+		// which may contain subgroup separators (e.g. org/subgroup/repo).
+		name := filepath.Base(repo)
+		if err := validateSourceName(name); err != nil {
+			return nil, err
+		}
+		source.Name = name
+	}
+
+	return source, nil
+}
+
+func parseSSHURL(matches []string, source *Source) (*Source, error) {
+	// matches: [full, user, host, port, repoPath, subdir]
+	user := matches[1]
+	host := matches[2]
+	port := matches[3]
+	repoPath := strings.TrimSuffix(matches[4], ".git")
+	subdir := ""
+	if len(matches) > 5 {
+		subdir = matches[5]
+	}
+
+	source.Type = SourceTypeGitSSH
+
+	hostPart := host
+	if port != "" {
+		hostPart = host + ":" + port
+	}
+	userPart := ""
+	if user != "" {
+		userPart = user + "@"
+	}
+	source.CloneURL = fmt.Sprintf("ssh://%s%s/%s.git", userPart, hostPart, repoPath)
+
+	if err := validateCloneURL(source.CloneURL); err != nil {
+		return nil, err
+	}
+
+	if subdir != "" {
+		if err := validateRepoSubdir(subdir); err != nil {
+			return nil, err
+		}
+		source.Subdir = subdir
+		name := filepath.Base(subdir)
+		if err := validateSourceName(name); err != nil {
+			return nil, err
+		}
+		source.Name = name
+	} else {
+		// Validate the final segment (actual repo name), not the full path.
+		name := filepath.Base(repoPath)
+		if err := validateSourceName(name); err != nil {
+			return nil, err
+		}
+		source.Name = name
 	}
 
 	return source, nil
@@ -334,9 +556,20 @@ func parseFileURL(matches []string, source *Source) (*Source, error) {
 	source.Type = SourceTypeGitHTTPS // Treat as git for cloning
 	source.CloneURL = "file://" + path
 
+	if err := validateCloneURL(source.CloneURL); err != nil {
+		return nil, err
+	}
+
 	if subdir != "" {
+		if err := validateRepoSubdir(subdir); err != nil {
+			return nil, err
+		}
 		source.Subdir = subdir
-		source.Name = filepath.Base(subdir)
+		name := filepath.Base(subdir)
+		if err := validateSourceName(name); err != nil {
+			return nil, err
+		}
+		source.Name = name
 	} else {
 		source.Name = filepath.Base(path)
 	}
@@ -352,11 +585,25 @@ func parseAzureOnPrem(host, org, project, repo, subdir string, source *Source) (
 	repo = strings.TrimSuffix(repo, ".git")
 	source.Type = SourceTypeGitHTTPS
 	source.CloneURL = fmt.Sprintf("https://%s/%s/%s/_git/%s", host, org, project, repo)
+	if err := validateCloneURL(source.CloneURL); err != nil {
+		return nil, err
+	}
 	if subdir != "" {
+		if err := validateRepoSubdir(subdir); err != nil {
+			return nil, err
+		}
 		source.Subdir = subdir
-		source.Name = filepath.Base(subdir)
+		name := filepath.Base(subdir)
+		if err := validateSourceName(name); err != nil {
+			return nil, err
+		}
+		source.Name = name
 	} else {
-		source.Name = repo
+		name := filepath.Base(repo)
+		if err := validateSourceName(name); err != nil {
+			return nil, err
+		}
+		source.Name = name
 	}
 	return source, nil
 }
@@ -365,11 +612,25 @@ func parseAzureSSH(org, project, repo, subdir string, source *Source) (*Source, 
 	repo = strings.TrimSuffix(repo, ".git")
 	source.Type = SourceTypeGitSSH
 	source.CloneURL = fmt.Sprintf("git@ssh.dev.azure.com:v3/%s/%s/%s", org, project, repo)
+	if err := validateCloneURL(source.CloneURL); err != nil {
+		return nil, err
+	}
 	if subdir != "" {
+		if err := validateRepoSubdir(subdir); err != nil {
+			return nil, err
+		}
 		source.Subdir = subdir
-		source.Name = filepath.Base(subdir)
+		name := filepath.Base(subdir)
+		if err := validateSourceName(name); err != nil {
+			return nil, err
+		}
+		source.Name = name
 	} else {
-		source.Name = repo
+		name := filepath.Base(repo)
+		if err := validateSourceName(name); err != nil {
+			return nil, err
+		}
+		source.Name = name
 	}
 	return source, nil
 }
@@ -431,14 +692,30 @@ func parseGitHTTPS(matches []string, source *Source, opts ParseOptions) (*Source
 		subdir = ""
 	}
 
+	repoName := filepath.Base(repoPath)
+	if err := validateSourceName(repoName); err != nil {
+		return nil, fmt.Errorf("invalid repo name: %w", err)
+	}
+
 	source.Type = SourceTypeGitHTTPS
 	source.CloneURL = fmt.Sprintf("%s://%s/%s.git", schema, host, repoPath)
 
+	if err := validateCloneURL(source.CloneURL); err != nil {
+		return nil, err
+	}
+
 	if subdir != "" {
+		if err := validateRepoSubdir(subdir); err != nil {
+			return nil, err
+		}
 		source.Subdir = subdir
-		source.Name = filepath.Base(subdir)
+		name := filepath.Base(subdir)
+		if err := validateSourceName(name); err != nil {
+			return nil, err
+		}
+		source.Name = name
 	} else {
-		source.Name = filepath.Base(repoPath)
+		source.Name = repoName
 	}
 
 	return source, nil
@@ -576,40 +853,59 @@ func (s *Source) GitHubRepo() string {
 }
 
 func (s *Source) gitHubOwnerRepo() (owner, repo string) {
+	_, owner, repo = s.gitHubHostOwnerRepo()
+	return owner, repo
+}
+
+// GitHubAPIBase returns the REST API base URL for GitHub-family sources
+// (https://api.github.com for github.com, https://api.<host>.ghe.com for
+// GHE Cloud/Data Residency, or https://<host>/api/v3 for GHE Server).
+// Returns "" for non-GitHub hosts or unparsable URLs.
+func (s *Source) GitHubAPIBase() string {
+	host, _, _ := s.gitHubHostOwnerRepo()
+	if host == "" {
+		return ""
+	}
+	return gitHubAPIBaseForHost(host)
+}
+
+// gitHubHostOwnerRepo extracts the host, owner, and repo from a GitHub-family
+// clone URL (HTTPS or SSH). Returns empty strings for non-GitHub hosts.
+func (s *Source) gitHubHostOwnerRepo() (host, owner, repo string) {
 	cloneURL := strings.TrimSpace(s.CloneURL)
 	if cloneURL == "" {
-		return "", ""
+		return "", "", ""
 	}
 
-	// SSH clone URL: git@host:owner/repo.git
+	// SSH clone URL: user@host:owner/repo.git
 	if sshMatches := gitSSHPattern.FindStringSubmatch(cloneURL); sshMatches != nil {
-		host := strings.ToLower(strings.TrimSpace(sshMatches[1]))
-		if !strings.Contains(host, "github") {
-			return "", ""
+		host = strings.ToLower(strings.TrimSpace(sshMatches[2]))
+		if !isGitHubLikeHost(host) {
+			return "", "", ""
 		}
-		return sshMatches[2], strings.TrimSuffix(sshMatches[3], ".git")
+		return host, sshMatches[3], strings.TrimSuffix(sshMatches[4], ".git")
 	}
 
 	u, err := url.Parse(cloneURL)
 	if err != nil {
-		return "", ""
+		return "", "", ""
 	}
-	host := strings.ToLower(u.Hostname())
-	if !strings.Contains(host, "github") {
-		return "", ""
+	host = strings.ToLower(u.Hostname())
+	if !isGitHubLikeHost(host) {
+		return "", "", ""
 	}
 
 	parts := strings.Split(strings.Trim(u.Path, "/"), "/")
 	if len(parts) < 2 {
-		return "", ""
+		return "", "", ""
 	}
 
 	owner = parts[0]
 	repo = strings.TrimSuffix(parts[1], ".git")
 	if owner == "" || repo == "" {
-		return "", ""
+		return "", "", ""
 	}
-	return owner, repo
+	return host, owner, repo
 }
 
 // TrackName returns a unique name for --track mode by joining path segments with "-".
@@ -654,10 +950,10 @@ func (s *Source) TrackName() string {
 		}
 	}
 
-	// Try SSH format: git@host:owner/repo.git
+	// Try SSH format: user@host:owner/repo.git
 	if sshMatches := gitSSHPattern.FindStringSubmatch(s.Raw); sshMatches != nil {
-		owner := sshMatches[2]
-		repo := strings.TrimSuffix(sshMatches[3], ".git")
+		owner := sshMatches[3]
+		repo := strings.TrimSuffix(sshMatches[4], ".git")
 		// Replace / with - to handle subgroup paths (e.g., group/subgroup/repo)
 		return owner + "-" + strings.ReplaceAll(repo, "/", "-")
 	}

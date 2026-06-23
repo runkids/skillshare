@@ -6,6 +6,8 @@ sidebar_position: 1
 
 Commit and push source to git remote.
 
+Use [`commit`](./commit.md) instead when you only want a local checkpoint without pushing.
+
 ```bash
 skillshare push                  # Auto-generated message
 skillshare push -m "Add pdf"     # Custom message
@@ -17,6 +19,8 @@ skillshare push --dry-run        # Preview
 - Share skill changes with your other machines via git
 - Back up your skills to a remote repository
 - After editing skills, commit and push in one command
+
+If you want to save a local checkpoint without sharing it yet, use [`skillshare commit`](./commit.md).
 
 ## What Happens
 
@@ -36,6 +40,10 @@ flowchart TD
 |------|-------------|
 | `-m, --message <msg>` | Commit message (default: "Update skills") |
 | `--dry-run, -n` | Preview without making changes |
+
+## Git Root Scope
+
+`push` operates on the directory selected by the `git_root` config field (default: `skills` source). See [commit — Git Root Scope](./commit.md#git-root-scope) for the scope table. If `git_root` was changed but the git repo still lives in another scope's directory, `push` prints a "Git root mismatch" error with the exact `git init` / `mv` commands to fix it. See [Changing the scope after init](../targets/configuration.md#git-root).
 
 ## Prerequisites
 
@@ -106,6 +114,7 @@ skillshare pull    # Gets changes and syncs
 
 ## See Also
 
+- [commit](/docs/reference/commands/commit) — Commit locally without pushing
 - [pull](/docs/reference/commands/pull) — Pull from remote
 - [sync](/docs/reference/commands/sync) — Sync to local targets
 - [Cross-Machine Sync](/docs/how-to/sharing/cross-machine-sync) — Full setup

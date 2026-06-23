@@ -17,6 +17,7 @@ def "nu-complete skillshare commands" [] {
         { value: "collect", description: "Collect local skills/agents from targets" }
         { value: "pull", description: "Pull from git remote and sync" }
         { value: "push", description: "Commit and push source to git remote" }
+        { value: "commit", description: "Create local git commit without pushing" }
         { value: "doctor", description: "Check environment and diagnose issues" }
         { value: "target", description: "Manage targets" }
         { value: "upgrade", description: "Upgrade CLI and/or skillshare skill" }
@@ -277,6 +278,15 @@ export extern "skillshare push" [
     --message(-m): string    # Commit message
     --project(-p)            # Use project-level config
     --global(-g)             # Use global config
+]
+
+# Commit
+export extern "skillshare commit" [
+    --dry-run(-n)            # Preview changes
+    --message(-m): string    # Commit message
+    --project(-p)            # Use project-level config
+    --global(-g)             # Use global config
+    --help(-h)               # Show help
 ]
 
 # Doctor

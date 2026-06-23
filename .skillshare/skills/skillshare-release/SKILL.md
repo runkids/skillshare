@@ -2,10 +2,10 @@
 name: skillshare-release
 description: >-
   End-to-end release workflow for skillshare. Runs tests, generates changelog
-  (via /changelog), writes RELEASE_NOTES, updates version numbers, commits,
-  and drafts announcements. Use when the user says "release", "prepare release",
-  "cut a release", "release v0.19", or any request to publish a new version.
-  For changelog-only tasks, use /changelog instead.
+  (via /changelog), optionally writes local RELEASE_NOTES, updates version
+  numbers, commits, and drafts announcements. Use when the user says "release",
+  "prepare release", "cut a release", "release v0.19", or any request to
+  publish a new version. For changelog-only tasks, use /changelog instead.
 argument-hint: "<version>"
 metadata:
   targets: [claude, universal]
@@ -42,7 +42,7 @@ This handles:
 
 Review the output before proceeding.
 
-### Phase 3: Release Notes (Maintainer Only)
+### Phase 3: Release Notes Draft (Maintainer Only, Local by Default)
 
 Check if running as maintainer:
 ```bash
@@ -52,6 +52,8 @@ git config user.name  # Should match "Willie" or maintainer identity
 **If maintainer**:
 
 Read the most recent `specs/RELEASE_NOTES_*.md` as a style reference, then generate `specs/RELEASE_NOTES_<version>.md` (no `v` prefix, e.g., `RELEASE_NOTES_0.19.0.md`).
+
+Release notes are a local maintainer artifact by default. The `specs/` directory is gitignored; do **not** force-add or commit `specs/RELEASE_NOTES_<version>.md` unless the user explicitly asks for release notes to be committed.
 
 Structure:
 - Title: `# skillshare vX.Y.Z Release Notes`
@@ -82,7 +84,9 @@ This ensures `skillshare upgrade --skill` detects the new version correctly.
 ### Phase 5: Commit & Tag
 
 ```bash
-git add -A
+git add CHANGELOG.md website/src/pages/changelog.md skills/skillshare/SKILL.md
+# Only if the user explicitly asked to commit release notes:
+# git add -f specs/RELEASE_NOTES_<version>.md
 git commit -m "chore: release vX.Y.Z"
 git tag vX.Y.Z
 ```
@@ -104,7 +108,7 @@ Prepare two drafts for user review:
 Show the user:
 - [ ] Test results (pass/fail)
 - [ ] CHANGELOG.md diff
-- [ ] RELEASE_NOTES file (if generated)
+- [ ] RELEASE_NOTES file (if generated, and whether it was left local or committed)
 - [ ] Version bump diff
 - [ ] GitHub release draft
 - [ ] Social media draft
@@ -122,5 +126,6 @@ git push origin HEAD --tags
 - **No fabricated links** — never invent URLs or references
 - **Verify before claiming** — grep source before stating a feature exists
 - **Ask before push** — never push or publish without explicit user confirmation
+- **Release notes stay local by default** — never force-add or commit `specs/RELEASE_NOTES_*.md` unless the user explicitly asks
 - **Commit message** — always `chore: release vX.Y.Z`
 - **No competitive references** — never mention competitor repos in commit messages or notes

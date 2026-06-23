@@ -40,7 +40,7 @@
 </p>
 
 > [!NOTE]
-> **Latest**: [v0.19.12](https://github.com/runkids/skillshare/releases/tag/v0.19.12) — project `skills:` in config.yaml now preserved (team-sharing fix). [All releases →](https://github.com/runkids/skillshare/releases)
+> **Latest**: [v0.20.0](https://github.com/runkids/skillshare/releases/tag/v0.20.0) — choose what `commit`/`push`/`pull` version with **git_root scope** (skills, agents, extras, or all together in one repo); extras **extension transforms** convert Markdown to native formats (Gemini TOML commands, Codex TOML agents) during sync. [All releases →](https://github.com/runkids/skillshare/releases)
 
 ## Why skillshare
 
@@ -203,7 +203,14 @@ skillshare extras collect rules       # collect local files back to source
 skillshare completion bash --install   # also: zsh, fish, powershell, nushell
 ```
 
-**Web dashboard** —visual control panel
+**Local checkpoints** — commit source changes without pushing
+
+```bash
+skillshare commit -m "Update review skill"
+skillshare commit --dry-run
+```
+
+**Web dashboard** — visual control panel
 
 ```bash
 skillshare ui
@@ -269,6 +276,19 @@ Thanks to everyone who helped shape skillshare.
 <a href="https://github.com/aestilog"><img src="https://github.com/aestilog.png" width="50" style="border-radius:50%" alt="aestilog"></a>
 <a href="https://github.com/xarthurx"><img src="https://github.com/xarthurx.png" width="50" style="border-radius:50%" alt="xarthurx"></a>
 <a href="https://github.com/m0cun"><img src="https://github.com/m0cun.png" width="50" style="border-radius:50%" alt="m0cun"></a>
+<a href="https://github.com/bit3125"><img src="https://github.com/bit3125.png" width="50" style="border-radius:50%" alt="bit3125"></a>
+<a href="https://github.com/eekryuos"><img src="https://github.com/eekryuos.png" width="50" style="border-radius:50%" alt="eekryuos"></a>
+<a href="https://github.com/Bongseop-Kim"><img src="https://github.com/Bongseop-Kim.png" width="50" style="border-radius:50%" alt="Bongseop-Kim"></a>
+<a href="https://github.com/sophodex"><img src="https://github.com/sophodex.png" width="50" style="border-radius:50%" alt="sophodex"></a>
+<a href="https://github.com/PeterTianbuhan"><img src="https://github.com/PeterTianbuhan.png" width="50" style="border-radius:50%" alt="PeterTianbuhan"></a>
+<a href="https://github.com/dotned"><img src="https://github.com/dotned.png" width="50" style="border-radius:50%" alt="dotned"></a>
+<a href="https://github.com/ismferd"><img src="https://github.com/ismferd.png" width="50" style="border-radius:50%" alt="ismferd"></a>
+<a href="https://github.com/jblackburn21"><img src="https://github.com/jblackburn21.png" width="50" style="border-radius:50%" alt="jblackburn21"></a>
+<a href="https://github.com/jnhu76"><img src="https://github.com/jnhu76.png" width="50" style="border-radius:50%" alt="jnhu76"></a>
+<a href="https://github.com/jacobleft"><img src="https://github.com/jacobleft.png" width="50" style="border-radius:50%" alt="jacobleft"></a>
+<a href="https://github.com/rhysmcneill"><img src="https://github.com/rhysmcneill.png" width="50" style="border-radius:50%" alt="rhysmcneill"></a>
+<a href="https://github.com/druellan"><img src="https://github.com/druellan.png" width="50" style="border-radius:50%" alt="druellan"></a>
+<a href="https://github.com/12britz"><img src="https://github.com/12britz.png" width="50" style="border-radius:50%" alt="12britz"></a>
 
 ---
 

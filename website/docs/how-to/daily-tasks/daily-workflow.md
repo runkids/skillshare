@@ -4,13 +4,13 @@ sidebar_position: 2
 
 # Daily Workflow
 
-The edit → sync → push/pull cycle for everyday skill management.
+The edit → sync → commit/push/pull cycle for everyday skill management.
 
 ## Overview
 
 ```mermaid
 flowchart LR
-    EDIT["EDIT"] --> SYNC["SYNC"] --> PUSH["PUSH"] --> REMOTE["Remote"]
+    EDIT["EDIT"] --> SYNC["SYNC"] --> COMMIT["COMMIT"] --> PUSH["PUSH"] --> REMOTE["Remote"]
     EDIT --- SRC["Source"]
     SYNC --- TGT["Targets"]
     REMOTE --> PULL["Pull"]
@@ -74,11 +74,25 @@ skillshare sync agents
 
 ---
 
-## Cross-Machine Sync
+## Git Checkpoints and Cross-Machine Sync
 
-If you use git remote:
+### Commit locally
+
+Use `commit` when you want a local restore point without pushing to a remote:
+
+```bash
+skillshare commit -m "Update draft skill"
+```
+
+This runs:
+1. `git add .`
+2. `git commit -m "Update draft skill"`
+
+`commit` works even when the source repo has no remote configured.
 
 ### Push changes (from this machine)
+
+If you use a git remote, `push` commits and shares changes in one command:
 
 ```bash
 skillshare push -m "Add new skill"
@@ -163,6 +177,7 @@ Add to your shell startup:
 # ~/.bashrc or ~/.zshrc
 alias ss="skillshare"
 alias sss="skillshare sync"
+alias ssc="skillshare commit"
 alias ssp="skillshare push"
 alias ssl="skillshare pull"
 ```
@@ -193,5 +208,6 @@ skillshare doctor            # Check for issues
 
 - [sync](/docs/reference/commands/sync) — Core sync command
 - [status](/docs/reference/commands/status) — Check sync state
+- [commit](/docs/reference/commands/commit) — Local git checkpoint without pushing
 - [push](/docs/reference/commands/push) / [pull](/docs/reference/commands/pull) — Cross-machine sync
 - [Skill Discovery](/docs/how-to/daily-tasks/skill-discovery) — Find new skills

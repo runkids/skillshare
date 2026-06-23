@@ -17,6 +17,7 @@ func TestNormalizeCloneURL(t *testing.T) {
 		{"https://github.com/owner/repo", "github.com/owner/repo"},
 		{"git@github.com:owner/repo.git", "github.com/owner/repo"},
 		{"git@github.com:owner/repo", "github.com/owner/repo"},
+		{"acme@acme.ghe.com:MyOrg/repo.git", "acme.ghe.com/myorg/repo"},
 		{"https://github.com/Owner/Repo.git", "github.com/owner/repo"},
 		{"https://github.com/owner/repo/", "github.com/owner/repo"},
 		{"http://github.com/owner/repo.git", "github.com/owner/repo"},

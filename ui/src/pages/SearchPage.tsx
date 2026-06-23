@@ -177,7 +177,16 @@ export default function SearchPage() {
         toast(q ? t('search.results.noResultsFound') : t('search.results.noSkillsFound'), 'info');
       }
     } catch (e: unknown) {
-      toast((e as Error).message, 'error');
+      const message = (e as Error).message;
+      if (mode === 'hub') {
+        // Name the failing hub so the error isn't just a bare "HTTP 400".
+        const hub = savedHubs.find((h) => h.url === selectedHub);
+        toast(message, 'error', {
+          title: t('search.hub.loadFailed', { hub: hub?.label || selectedHub }),
+        });
+      } else {
+        toast(message, 'error');
+      }
     } finally {
       setSearching(false);
     }
@@ -409,20 +418,6 @@ export default function SearchPage() {
               </Button>
             </div>
           )}
-          <p className="text-sm text-muted-dark mt-3 flex items-center gap-1.5">
-            <Globe size={12} strokeWidth={2} />
-            {t('search.hub.submitPrPrompt')}
-            {' '}
-            <a
-              href="https://github.com/runkids/skillshare-hub"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-blue hover:underline"
-            >
-              skillshare-hub
-            </a>
-            .
-          </p>
         </Card>
       )}
 

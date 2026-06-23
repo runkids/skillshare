@@ -205,6 +205,57 @@ git config --global user.name "Your Name"
 git config --global user.email "you@example.com"
 ```
 
+### `Git root mismatch`
+
+**Cause:** `git_root` in `config.yaml` points to a scope directory that has no git repo, but another scope directory does. This happens when you change `git_root` without relocating the repository — switching scope means "start versioning a different directory", not "move the existing history". See [`git_root`](/docs/reference/targets/configuration#git-root).
+
+**Solution:** Pick one of the three options the error prints:
+```bash
+# Start a fresh repo at the configured scope (no history)
+skillshare init --git-root <scope>
+
+# Move the existing repo over, keeping history
+mv <old-scope>/.git <new-scope>/.git
+
+# Or keep using the existing repo: set git_root back in config.yaml
+#   git_root: <scope-that-has-the-repo>
+```
+
+### `tracked repository clone is missing`
+
+**Cause:** A tracked repo is declared in `.metadata.json`, but the clone directory (for example `skills/_team-skills/`) is missing locally. This often happens after cloning your skillshare source repo on a new machine because tracked repo directories are intentionally listed in the managed `.gitignore` block.
+
+**Solution:** Rehydrate the missing tracked repo clones from metadata:
+```bash
+skillshare install
+skillshare sync
+```
+
+For project mode:
+```bash
+skillshare install -p
+skillshare sync -p
+```
+
+`status`, `check`, `update --all`, and `doctor` report this state and suggest `skillshare install`.
+
+### `nested git repositories must be disabled first`
+
+**Cause:** With `git_root: root`, a subdirectory (e.g. a tracked skill repo under `skills/_org/`) has its own `.git`. Git would upload it as an **empty submodule**, silently dropping its files, so `commit`/`push` abort until each nested repo is disabled.
+
+**Solution:**
+```bash
+# Disable each reported nested repo (reversible — just rename back to re-enable)
+mv ~/.config/skillshare/<dir>/.git ~/.config/skillshare/<dir>/.git.disabled
+```
+Or use the one-click disable on the web UI Git Sync page. skillshare also keeps `config.yaml` out of a root-scope repo automatically (it holds machine-specific paths).
+
+### `Invalid git_root`
+
+**Cause:** `git_root` in `config.yaml` is set to an unrecognized value (e.g. a typo).
+
+**Solution:** Use one of `skills`, `agents`, `extras`, or `root` — or leave it empty (defaults to `skills`).
+
 ---
 
 ## Install Errors

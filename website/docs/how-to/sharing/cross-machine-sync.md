@@ -114,7 +114,10 @@ skillshare sync
 # Edit skills (changes visible immediately via symlinks)
 $EDITOR ~/.config/skillshare/skills/my-skill/SKILL.md
 
-# Push to remote
+# Optional: create a local checkpoint without pushing
+skillshare commit -m "Update my-skill"
+
+# Push to remote when ready to share
 skillshare push -m "Update my-skill"
 ```
 
@@ -129,6 +132,24 @@ That's it. `pull` automatically runs `sync` after pulling.
 ---
 
 ## Commands
+
+### Commit
+
+Create a local checkpoint without pushing:
+
+```bash
+skillshare commit                  # Default message
+skillshare commit -m "Add pdf"     # Custom message
+skillshare commit --dry-run        # Preview
+```
+
+**What happens:**
+```
+git add -A
+git commit -m "Add pdf"
+```
+
+`commit` does not require a remote and never pushes.
 
 ### Push
 
@@ -164,6 +185,15 @@ skillshare sync
 
 ## Conflict Handling
 
+### Pull fails (local uncommitted changes)
+
+If you want to keep the local changes but are not ready to push them yet, commit them locally first:
+
+```bash
+skillshare commit -m "Save local changes"
+skillshare pull
+```
+
 ### Push fails (remote ahead)
 
 ```
@@ -180,7 +210,7 @@ skillshare pull
 skillshare push
 ```
 
-### Pull fails (local uncommitted changes)
+### Pull still fails with local uncommitted changes
 
 ```
 $ skillshare pull
@@ -191,11 +221,15 @@ Local changes detected
 
 **Solution:**
 ```bash
-# Option 1: Push your changes first
+# Option 1: Commit locally first
+skillshare commit -m "Local changes"
+skillshare pull
+
+# Option 2: Push your changes first
 skillshare push -m "Local changes"
 skillshare pull
 
-# Option 2: Stash changes temporarily
+# Option 3: Stash changes temporarily
 cd ~/.config/skillshare/skills
 git stash
 skillshare pull

@@ -22,6 +22,8 @@ vi.mock('../api/client', async (importOriginal) => {
       listSkills: vi.fn(),
       checkStream: vi.fn(),
       updateAllStream: vi.fn(),
+      missingTrackedRepos: vi.fn(),
+      rehydrateTrackedRepos: vi.fn(),
     },
   };
 });
@@ -46,6 +48,7 @@ describe('UpdatePage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     localStorage.clear();
+    vi.mocked(api.missingTrackedRepos).mockResolvedValue({ repos: [] });
   });
 
   const nestedSkill = {
@@ -141,5 +144,73 @@ describe('UpdatePage', () => {
       expect.any(Function),
       { names: ['tools/agent-browser'], force: false },
     );
+  });
+
+  it('keeps updated items checked as up to date when returning to the list', async () => {
+    const updatedResult = {
+      name: 'tools/agent-browser',
+      action: 'updated',
+      message: 'reinstalled from source',
+      isRepo: false,
+    };
+    vi.mocked(api.listSkills).mockResolvedValue({
+      resources: [nestedSkill],
+    });
+    localStorage.setItem(
+      'skillshare.updateCheckCache.global',
+      JSON.stringify({
+        version: 1,
+        items: {
+          'agent-browser': {
+            status: 'update-available',
+            checkedAt: new Date(Date.now() - 60_000).toISOString(),
+          },
+        },
+      }),
+    );
+    vi.mocked(api.updateAllStream).mockImplementation((onStart, onResult, onDone) => {
+      queueMicrotask(() => {
+        onStart(1);
+        onResult(updatedResult);
+        onDone({
+          results: [updatedResult],
+          summary: { updated: 1, upToDate: 0, blocked: 0, errors: 0, skipped: 0 },
+        });
+      });
+      return { close: vi.fn() } as unknown as EventSource;
+    });
+
+    const user = userEvent.setup();
+    renderUpdatePage();
+
+    await user.click(await screen.findByText('agent-browser'));
+    await user.click(screen.getByRole('button', { name: /update selected \(1\)/i }));
+    await user.click(await screen.findByRole('button', { name: /back to list/i }));
+
+    const row = await screen.findByText('agent-browser').then((el) => el.closest('button'));
+    expect(row).not.toBeNull();
+    expect(within(row as HTMLElement).getByText('Up to date')).toBeInTheDocument();
+    expect(within(row as HTMLElement).queryByText('Unchecked')).not.toBeInTheDocument();
+  });
+
+  it('warns about missing tracked repos and rehydrates on click (issue #212)', async () => {
+    vi.mocked(api.listSkills).mockResolvedValue({ resources: [nestedSkill] });
+    vi.mocked(api.missingTrackedRepos).mockResolvedValue({
+      repos: [{ name: '_team-skills', source: 'https://github.com/example/team-skills', branch: 'main' }],
+    });
+    vi.mocked(api.rehydrateTrackedRepos).mockResolvedValue({
+      results: [{ name: '_team-skills', action: 'rehydrated' }],
+    });
+
+    const user = userEvent.setup();
+    renderUpdatePage();
+
+    // Banner lists the missing repo.
+    expect(await screen.findByText('_team-skills')).toBeInTheDocument();
+
+    const rehydrateBtn = screen.getByRole('button', { name: /rehydrate/i });
+    await user.click(rehydrateBtn);
+
+    await waitFor(() => expect(api.rehydrateTrackedRepos).toHaveBeenCalled());
   });
 });

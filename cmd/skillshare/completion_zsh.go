@@ -18,6 +18,7 @@ _skillshare() {
         'collect:Collect local skills/agents from targets'
         'pull:Pull from git remote and sync'
         'push:Commit and push source to git remote'
+        'commit:Create local git commit without pushing'
         'doctor:Check environment and diagnose issues'
         'target:Manage targets'
         'upgrade:Upgrade CLI and/or skillshare skill'
@@ -226,6 +227,16 @@ _skillshare() {
                         '-n[Preview changes]' \
                         '--message[Commit message]:message:' \
                         '-m[Commit message]:message:' \
+                        $global_flags
+                    ;;
+                commit)
+                    _arguments \
+                        '--dry-run[Preview changes]' \
+                        '-n[Preview changes]' \
+                        '--message[Commit message]:message:' \
+                        '-m[Commit message]:message:' \
+                        '--help[Show help]' \
+                        '-h[Show help]' \
                         $global_flags
                     ;;
                 doctor)

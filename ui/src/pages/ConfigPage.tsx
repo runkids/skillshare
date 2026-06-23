@@ -1,18 +1,20 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
-import { Save, FileCode, Settings, EyeOff, RefreshCw, PanelRightOpen } from 'lucide-react';
+import { useSearchParams } from 'react-router-dom';
+import { Save, FileCode, Settings, EyeOff, RefreshCw, PanelRightOpen, Puzzle, FolderOpen, Download, Check, Trash2 } from 'lucide-react';
 import { useT } from '../i18n';
 import CodeMirror from '@uiw/react-codemirror';
 import { yaml } from '@codemirror/lang-yaml';
 import { EditorView, keymap } from '@codemirror/view';
 import { linter, lintGutter } from '@codemirror/lint';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import type { SkillignoreResponse, AgentignoreResponse } from '../api/client';
+import type { SkillignoreResponse, AgentignoreResponse, ExtensionInfo } from '../api/client';
 import type { ValidationError } from '../hooks/useYamlValidation';
 import { useYamlValidation } from '../hooks/useYamlValidation';
 import { useLineDiff, computeSimpleChangeCount } from '../hooks/useLineDiff';
 import { useCursorField } from '../hooks/useCursorField';
 import Card from '../components/Card';
 import Button from '../components/Button';
+import Badge from '../components/Badge';
 import PageHeader from '../components/PageHeader';
 import SegmentedControl from '../components/SegmentedControl';
 import { PageSkeleton } from '../components/Skeleton';
@@ -26,14 +28,22 @@ import { useAppContext } from '../context/AppContext';
 import { handTheme } from '../lib/codemirror-theme';
 import SyncPreviewModal from '../components/SyncPreviewModal';
 
-type ConfigTab = 'config' | 'skillignore' | 'agentignore';
+type ConfigTab = 'config' | 'skillignore' | 'agentignore' | 'extensions';
 
 export default function ConfigPage() {
   const t = useT();
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const { isProjectMode } = useAppContext();
-  const [tab, setTab] = useState<ConfigTab>('config');
+  const [searchParams] = useSearchParams();
+  // Deep link: /config?tab=extensions opens the Extensions tab directly, so
+  // the Extras page can guide users here to install one.
+  const [tab, setTab] = useState<ConfigTab>(() => {
+    const requested = searchParams.get('tab');
+    return requested === 'extensions' || requested === 'skillignore' || requested === 'agentignore'
+      ? requested
+      : 'config';
+  });
   const [showSyncBanner, setShowSyncBanner] = useState(false);
   const [showSyncPreview, setShowSyncPreview] = useState(false);
   const editorRef = useRef<EditorView | null>(null);
@@ -236,9 +246,9 @@ export default function ConfigPage() {
   };
 
   // --- active tab dirty/saving state ---
-  const activeDirty = tab === 'config' ? dirty : tab === 'skillignore' ? ignoreDirty : agentIgnoreDirty;
-  const activeSaving = tab === 'config' ? saving : tab === 'skillignore' ? ignoreSaving : agentIgnoreSaving;
-  const handleSave = tab === 'config' ? handleConfigSave : tab === 'skillignore' ? handleIgnoreSave : handleAgentIgnoreSave;
+  const activeDirty = tab === 'config' ? dirty : tab === 'skillignore' ? ignoreDirty : tab === 'agentignore' ? agentIgnoreDirty : false;
+  const activeSaving = tab === 'config' ? saving : tab === 'skillignore' ? ignoreSaving : tab === 'agentignore' ? agentIgnoreSaving : false;
+  const handleSave = tab === 'config' ? handleConfigSave : tab === 'skillignore' ? handleIgnoreSave : tab === 'agentignore' ? handleAgentIgnoreSave : () => {};
   saveRef.current = handleSave;
 
   // --- panel toggle + Cmd+B ---
@@ -290,8 +300,8 @@ export default function ConfigPage() {
   };
 
   // --- loading / error for active tab ---
-  const isPending = tab === 'config' ? configPending : tab === 'skillignore' ? ignorePending : agentIgnorePending;
-  const error = tab === 'config' ? configError : tab === 'skillignore' ? ignoreError : agentIgnoreError;
+  const isPending = tab === 'config' ? configPending : tab === 'skillignore' ? ignorePending : tab === 'agentignore' ? agentIgnorePending : false;
+  const error = tab === 'config' ? configError : tab === 'skillignore' ? ignoreError : tab === 'agentignore' ? agentIgnoreError : null;
 
   if (isPending) return <PageSkeleton />;
   if (error) {
@@ -313,24 +323,26 @@ export default function ConfigPage() {
         title={t('config.title')}
         subtitle={isProjectMode ? t('config.subtitle.project') : t('config.subtitle.global')}
         actions={
-          <>
-            {activeDirty && (
-              <span
-                className="text-sm text-warning px-2 py-1 bg-warning-light rounded-full border border-warning"
+          tab === 'extensions' ? undefined : (
+            <>
+              {activeDirty && (
+                <span
+                  className="text-sm text-warning px-2 py-1 bg-warning-light rounded-full border border-warning"
+                >
+                  {t('config.unsavedChanges')}
+                </span>
+              )}
+              <Button
+                onClick={handleSave}
+                disabled={activeSaving || !activeDirty}
+                variant="primary"
+                size="sm"
               >
-                {t('config.unsavedChanges')}
-              </span>
-            )}
-            <Button
-              onClick={handleSave}
-              disabled={activeSaving || !activeDirty}
-              variant="primary"
-              size="sm"
-            >
-              <Save size={16} strokeWidth={2.5} />
-              {activeSaving ? t('config.saving') : t('config.save')}
-            </Button>
-          </>
+                <Save size={16} strokeWidth={2.5} />
+                {activeSaving ? t('config.saving') : t('config.save')}
+              </Button>
+            </>
+          )
         }
       />
 
@@ -342,6 +354,7 @@ export default function ConfigPage() {
             { value: 'config' as ConfigTab, label: 'config.yaml' },
             { value: 'skillignore' as ConfigTab, label: '.skillignore' },
             { value: 'agentignore' as ConfigTab, label: '.agentignore' },
+            { value: 'extensions' as ConfigTab, label: 'Extensions' },
           ]}
         />
       </div>
@@ -524,6 +537,8 @@ export default function ConfigPage() {
         </div>
       )}
 
+      {tab === 'extensions' && <ExtensionsSection isProjectMode={isProjectMode} />}
+
       <SyncPreviewModal
         open={showSyncPreview}
         onClose={() => setShowSyncPreview(false)}
@@ -626,6 +641,267 @@ function IgnoreTab({
         </div>
       </Card>
 
+    </div>
+  );
+}
+
+// ─── ExtensionsSection ──────────────────────────────────────────────────────
+// Manage transform extensions for the current mode: list installed ones,
+// download bundled built-ins, and open the extensions directory in an editor.
+function ExtensionsSection({ isProjectMode }: { isProjectMode: boolean }) {
+  const t = useT();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  // Track every in-flight download by name so concurrent downloads each keep
+  // their own spinner (a single string would let a later click clear an
+  // earlier one's loading state).
+  const [installing, setInstalling] = useState<Set<string>>(new Set());
+  const [opening, setOpening] = useState(false);
+  const [removing, setRemoving] = useState<string | null>(null);
+  // The extension pending removal confirmation, with the extras referencing it.
+  const [removeTarget, setRemoveTarget] = useState<{ name: string; usedBy: string[] } | null>(null);
+
+  const { data, isPending } = useQuery({
+    queryKey: ['extensions'],
+    queryFn: () => api.listExtensions(),
+    staleTime: staleTimes.extras,
+  });
+  const extensions = data?.extensions ?? [];
+  const installed = extensions.filter((e) => e.installed);
+  const available = extensions.filter((e) => !e.installed);
+  const dirLabel = isProjectMode ? '.skillshare/extensions' : '~/.config/skillshare/extensions';
+
+  const handleInstall = async (name: string) => {
+    setInstalling((prev) => new Set(prev).add(name));
+    try {
+      await api.installExtension(name);
+      toast(t('config.extensions.toast.installed', { name }, `Installed ${name}`), 'success');
+      queryClient.invalidateQueries({ queryKey: ['extensions'] });
+      queryClient.invalidateQueries({ queryKey: ['extras', 'extensions'] });
+    } catch (err: any) {
+      toast(err.message, 'error');
+    } finally {
+      setInstalling((prev) => {
+        const next = new Set(prev);
+        next.delete(name);
+        return next;
+      });
+    }
+  };
+
+  const handleOpenDir = async () => {
+    setOpening(true);
+    try {
+      await api.openExtensionsDir();
+      toast(t('config.extensions.toast.opened', {}, 'Opened extensions directory'), 'success');
+    } catch (err: any) {
+      toast(err.message, 'error');
+    } finally {
+      setOpening(false);
+    }
+  };
+
+  // Open the confirmation dialog; the dialog body warns when the extension is
+  // still referenced by one or more extras.
+  const handleRemove = (ext: ExtensionInfo) => {
+    setRemoveTarget({ name: ext.name, usedBy: ext.used_by ?? [] });
+  };
+
+  const confirmRemove = async () => {
+    if (!removeTarget) return;
+    const { name } = removeTarget;
+    setRemoving(name);
+    try {
+      await api.removeExtension(name);
+      toast(t('config.extensions.toast.removed', { name }, `Removed ${name}`), 'success');
+      queryClient.invalidateQueries({ queryKey: ['extensions'] });
+      queryClient.invalidateQueries({ queryKey: ['extras', 'extensions'] });
+      setRemoveTarget(null);
+    } catch (err: any) {
+      toast(err.message, 'error');
+    } finally {
+      setRemoving(null);
+    }
+  };
+
+  const removeInUse = (removeTarget?.usedBy.length ?? 0) > 0;
+
+  return (
+    <>
+    <Card>
+      <div className="flex items-center justify-between gap-4 mb-3">
+        <div className="flex items-center gap-2 min-w-0">
+          <Puzzle size={16} strokeWidth={2.5} className="text-blue shrink-0" />
+          <span className="font-bold text-pencil">Extensions</span>
+          <span className="text-xs text-pencil-light font-mono truncate">({dirLabel})</span>
+        </div>
+        <Button variant="secondary" size="sm" onClick={handleOpenDir} loading={opening}>
+          <FolderOpen size={14} strokeWidth={2.5} />
+          {t('config.extensions.openDir', {}, 'Open directory')}
+        </Button>
+      </div>
+
+      <p className="text-sm text-pencil-light max-w-2xl">
+        {t('config.extensions.description', {}, 'Extensions pipe each file through a script during sync, so you can reshape its content or format for a specific tool — for example, Markdown agents into Codex CLI TOML. Install one below, then select it on a target in Extras.')}
+      </p>
+
+      <div className="border-t border-dashed border-pencil-light/30 my-4" />
+
+      {isPending ? (
+        <div className="space-y-1.5">
+          <div className="h-14 rounded-[var(--radius-md)] bg-muted/40 animate-pulse" />
+          <div className="h-14 rounded-[var(--radius-md)] bg-muted/40 animate-pulse" />
+        </div>
+      ) : (
+        <div className="space-y-5">
+          <div>
+            <div className="text-xs text-pencil-light uppercase tracking-wider mb-2">
+              {t('config.extensions.installedHeading', {}, 'Installed extensions')} ({installed.length})
+            </div>
+            {installed.length > 0 ? (
+              <div className="space-y-2">
+                {installed.map((e) => (
+                  <ExtensionItem
+                    key={e.name}
+                    ext={e}
+                    onRemove={() => handleRemove(e)}
+                    removing={removing === e.name}
+                  />
+                ))}
+              </div>
+            ) : (
+              <div className="rounded-[var(--radius-md)] border border-dashed border-pencil-light/30 px-4 py-5 text-center">
+                <p className="text-sm text-pencil-light">
+                  {t('config.extensions.none', {}, 'No extensions installed yet.')}
+                </p>
+              </div>
+            )}
+          </div>
+
+          {available.length > 0 && (
+            <div>
+              <div className="text-xs text-pencil-light uppercase tracking-wider mb-2">
+                {t('config.extensions.available', {}, 'Available to download')} ({available.length})
+              </div>
+              <div className="space-y-2">
+                {available.map((e) => (
+                  <ExtensionItem
+                    key={e.name}
+                    ext={e}
+                    onInstall={() => handleInstall(e.name)}
+                    installing={installing.has(e.name)}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </Card>
+
+    <ConfirmDialog
+      open={removeTarget !== null}
+      variant={removeInUse ? 'danger' : 'default'}
+      title={
+        removeInUse
+          ? t('config.extensions.removeConfirm.inUseTitle', {}, 'Extension is in use')
+          : t('config.extensions.removeConfirm.title', {}, 'Remove extension?')
+      }
+      message={
+        removeInUse
+          ? t(
+              'config.extensions.removeConfirm.inUseMessage',
+              { name: removeTarget?.name ?? '', extras: removeTarget?.usedBy.join(', ') ?? '' },
+              `${removeTarget?.name} is used by: ${removeTarget?.usedBy.join(', ')}. Removing it will make those extras fail on next sync until you reinstall it or clear the extension from their targets. Remove anyway?`,
+            )
+          : t(
+              'config.extensions.removeConfirm.message',
+              { name: removeTarget?.name ?? '' },
+              `Remove ${removeTarget?.name}? You can download it again later.`,
+            )
+      }
+      confirmText={t('config.extensions.removeConfirm.confirm', {}, 'Remove')}
+      loading={removing !== null}
+      onConfirm={confirmRemove}
+      onCancel={() => setRemoveTarget(null)}
+    />
+    </>
+  );
+}
+
+// A single extension row-card. Shows an icon, name, optional built-in badge and
+// description. Installed items show a success check; available items show a
+// Download action that triggers `onInstall`.
+function ExtensionItem({
+  ext,
+  onInstall,
+  installing,
+  onRemove,
+  removing,
+}: {
+  ext: ExtensionInfo;
+  onInstall?: () => void;
+  installing?: boolean;
+  onRemove?: () => void;
+  removing?: boolean;
+}) {
+  const t = useT();
+  return (
+    <div
+      className={`flex items-center gap-3 rounded-[var(--radius-md)] border border-muted bg-paper px-3 py-2.5 transition-all duration-150 ${
+        onInstall ? 'hover:border-muted-dark hover:shadow-sm' : ''
+      }`}
+    >
+      <div
+        className={`w-8 h-8 rounded-[var(--radius-sm)] flex items-center justify-center shrink-0 ${
+          ext.installed ? 'bg-success-light' : 'bg-muted/60'
+        }`}
+      >
+        {ext.installed ? (
+          <Check size={16} strokeWidth={2.5} className="text-success" />
+        ) : (
+          <Puzzle size={15} strokeWidth={2.5} className="text-pencil-light" />
+        )}
+      </div>
+
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="font-mono text-sm text-pencil">{ext.name}</span>
+          {ext.builtin && <Badge variant="default">built-in</Badge>}
+        </div>
+        {ext.description && (
+          <p className="text-sm text-pencil-light mt-0.5">{ext.description}</p>
+        )}
+      </div>
+
+      {onInstall ? (
+        <Button variant="secondary" size="sm" onClick={onInstall} loading={installing}>
+          <Download size={14} strokeWidth={2.5} />
+          {t('config.extensions.download', {}, 'Download')}
+        </Button>
+      ) : (
+        <div className="flex items-center gap-2 shrink-0">
+          {ext.used_by && ext.used_by.length > 0 && (
+            <Badge variant="default">
+              {t('config.extensions.usedByBadge', { count: ext.used_by.length }, `in use · ${ext.used_by.length}`)}
+            </Badge>
+          )}
+          <span className="text-xs text-success font-medium">
+            {t('config.extensions.installedLabel', {}, 'Installed')}
+          </span>
+          {onRemove && (
+            <IconButton
+              icon={<Trash2 size={15} strokeWidth={2.5} />}
+              label={t('config.extensions.remove', {}, 'Remove')}
+              size="sm"
+              variant="ghost"
+              onClick={onRemove}
+              disabled={removing}
+              className="hover:text-danger"
+            />
+          )}
+        </div>
+      )}
     </div>
   );
 }

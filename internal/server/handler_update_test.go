@@ -1,6 +1,8 @@
 package server
 
 import (
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -37,6 +39,47 @@ func initGitRepo(t *testing.T, dir string) {
 		if out, err := cmd.CombinedOutput(); err != nil {
 			t.Fatalf("git %v failed: %s %v", args, out, err)
 		}
+	}
+}
+
+// TestMissingTrackedRepos_ReportedFromMetadata verifies the server detects tracked
+// repos declared in metadata whose clone dirs are absent (issue #212).
+func TestMissingTrackedRepos_ReportedFromMetadata(t *testing.T) {
+	s, src := newTestServer(t)
+
+	store := install.LoadMetadataOrNew(src)
+	store.Set("_team-skills", &install.MetadataEntry{
+		Source:  "https://github.com/example/team-skills",
+		Branch:  "main",
+		Tracked: true,
+	})
+	if err := store.Save(src); err != nil {
+		t.Fatalf("save metadata: %v", err)
+	}
+
+	missing := s.missingTrackedRepos()
+	if len(missing) != 1 {
+		t.Fatalf("expected 1 missing repo, got %d (%+v)", len(missing), missing)
+	}
+	if missing[0].Name != "_team-skills" || missing[0].Branch != "main" {
+		t.Fatalf("unexpected missing repo: %+v", missing[0])
+	}
+}
+
+// TestHandleRehydrate_NoMissing_OK verifies the rehydrate endpoint succeeds with
+// an empty result set when nothing is missing.
+func TestHandleRehydrate_NoMissing_OK(t *testing.T) {
+	s, _ := newTestServer(t)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/update/rehydrate", nil)
+	rr := httptest.NewRecorder()
+	s.handleRehydrateTrackedRepos(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rr.Code, rr.Body.String())
+	}
+	if !strings.Contains(rr.Body.String(), "results") {
+		t.Fatalf("expected results field, got %s", rr.Body.String())
 	}
 }
 

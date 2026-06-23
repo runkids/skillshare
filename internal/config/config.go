@@ -30,6 +30,10 @@ var ValidSyncModes = []string{"merge", "symlink", "copy"}
 // ValidTargetNamings lists all valid target naming values.
 var ValidTargetNamings = []string{"flat", "standard"}
 
+// ValidGitRoots lists all valid git_root scope keywords. Empty is also accepted
+// (meaning "skills"); see ValidGitRoot.
+var ValidGitRoots = []string{"skills", "agents", "extras", "root"}
+
 // IsValidSyncMode reports whether mode is a valid sync mode (or empty, meaning inherit).
 func IsValidSyncMode(mode string) bool {
 	if mode == "" {
@@ -235,9 +239,10 @@ type HubConfig struct {
 
 // ExtraTargetConfig holds configuration for one target of an extra resource.
 type ExtraTargetConfig struct {
-	Path    string `yaml:"path"`
-	Mode    string `yaml:"mode,omitempty"`    // merge (default), symlink, or copy
-	Flatten bool   `yaml:"flatten,omitempty"` // flatten subdirectories into target root
+	Path      string `yaml:"path"`
+	Mode      string `yaml:"mode,omitempty"`      // merge (default), symlink, or copy
+	Flatten   bool   `yaml:"flatten,omitempty"`   // flatten subdirectories into target root
+	Extension string `yaml:"extension,omitempty"` // transform script applied during sync (implies copy)
 }
 
 // ExtraConfig holds configuration for a non-skill resource type (rules, commands, etc.).
@@ -262,10 +267,15 @@ type GlobalSources struct {
 
 // Config holds the application configuration
 type Config struct {
-	Source        string                  `yaml:"source,omitempty"`
-	AgentsSource  string                  `yaml:"agents_source,omitempty"`
-	ExtrasSource  string                  `yaml:"extras_source,omitempty"`
-	Sources       GlobalSources           `yaml:"sources,omitempty"`
+	Source       string        `yaml:"source,omitempty"`
+	AgentsSource string        `yaml:"agents_source,omitempty"`
+	ExtrasSource string        `yaml:"extras_source,omitempty"`
+	Sources      GlobalSources `yaml:"sources,omitempty"`
+	// GitRoot selects which directory the git integration (commit/push/pull)
+	// operates on. One of: "skills" (default), "agents", "extras", "root".
+	// "root" is BaseDir() and version-controls skills + agents + extras together.
+	// Empty is treated as "skills" for backward compatibility.
+	GitRoot       string                  `yaml:"git_root,omitempty"`
 	Mode          string                  `yaml:"mode,omitempty"` // default mode: merge
 	TargetNaming  string                  `yaml:"target_naming,omitempty"`
 	Targets       map[string]TargetConfig `yaml:"targets"`
@@ -331,6 +341,65 @@ func (c *Config) EffectiveExtrasSource() string {
 	return ExtrasParentDir(c.EffectiveSkillsSource())
 }
 
+// ScopeDir resolves a git_root scope keyword to its directory. It is the single
+// source of truth for the scope→directory mapping; EffectiveGitRoot and the
+// CLI helpers all delegate here. Empty/"skills" maps to the skills source.
+func ScopeDir(c *Config, scope string) string {
+	switch scope {
+	case "root":
+		return BaseDir()
+	case "agents":
+		return c.EffectiveAgentsSource()
+	case "extras":
+		return c.EffectiveExtrasSource()
+	default: // "skills" or ""
+		return c.EffectiveSkillsSource()
+	}
+}
+
+// EffectiveGitRoot returns the directory the git integration (commit/push/pull)
+// operates on, based on the git_root scope keyword. Empty/"skills" preserves the
+// historical behavior of operating on the skills source.
+func (c *Config) EffectiveGitRoot() string {
+	return ScopeDir(c, c.GitRoot)
+}
+
+// gitDirExists reports whether dir contains a .git entry directly.
+func gitDirExists(dir string) bool {
+	_, err := os.Stat(filepath.Join(dir, ".git"))
+	return err == nil
+}
+
+// GitRootMismatch reports whether the git repository lives at a different scope
+// than configured: the configured git root has no .git, but another scope's
+// directory does. This happens when git_root is changed without re-initializing
+// git at the new directory. Returns the stray scope keyword and its directory.
+func (c *Config) GitRootMismatch() (scope, dir string, mismatch bool) {
+	root := c.EffectiveGitRoot()
+	if gitDirExists(root) {
+		return "", "", false
+	}
+	for _, s := range []string{"root", "skills", "agents", "extras"} {
+		d := ScopeDir(c, s)
+		if d == root {
+			continue
+		}
+		if gitDirExists(d) {
+			return s, d, true
+		}
+	}
+	return "", "", false
+}
+
+// ValidGitRoot reports whether s is an accepted git_root scope keyword.
+// Empty is accepted (means "skills").
+func ValidGitRoot(s string) bool {
+	if s == "" {
+		return true // empty = skills
+	}
+	return slices.Contains(ValidGitRoots, s)
+}
+
 // HasAgentTarget reports whether any configured target has an agents path,
 // either from the user's config agents: sub-key or from the built-in defaults.
 func (c *Config) HasAgentTarget() bool {
@@ -342,6 +411,9 @@ func (c *Config) HasAgentTarget() bool {
 		}
 		// Check built-in defaults
 		if _, ok := builtinAgents[name]; ok {
+			return true
+		}
+		if _, ok := LookupGlobalAgentTarget(name); ok {
 			return true
 		}
 	}

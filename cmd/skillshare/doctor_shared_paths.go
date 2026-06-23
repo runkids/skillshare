@@ -10,6 +10,24 @@ import (
 	"skillshare/internal/ui"
 )
 
+func targetRemoveDryRunCommand(isProject bool) string {
+	modeFlag := "--global"
+	if isProject {
+		modeFlag = "--project"
+	}
+	return fmt.Sprintf("skillshare target remove <name> %s --dry-run", modeFlag)
+}
+
+func sharedTargetPathsSuggestion(path string, targets []string, isProject bool) string {
+	return fmt.Sprintf("Choose one authoritative target for %s; preview removing duplicate targets with `%s` (currently: %s).",
+		path, targetRemoveDryRunCommand(isProject), strings.Join(targets, ", "))
+}
+
+func crossTargetDiscoverySuggestion(scanner string, writers []string, isProject bool) string {
+	return fmt.Sprintf("Choose one authoritative route for %s-visible skills; keep %s's primary target or preview removing overlapping writer target(s) with `%s`: %s.",
+		scanner, scanner, targetRemoveDryRunCommand(isProject), strings.Join(writers, ", "))
+}
+
 // checkSharedTargetPaths warns when two or more enabled targets resolve to the
 // same filesystem path after tilde expansion.
 //
@@ -17,7 +35,7 @@ import (
 // e.g., enabling both `universal` and `warp` writes the same skill twice to
 // ~/.agents/skills, and any runtime that scans that directory sees duplicates.
 // Pure metadata check — no runtime probing required.
-func checkSharedTargetPaths(cfg *config.Config, result *doctorResult) {
+func checkSharedTargetPaths(cfg *config.Config, result *doctorResult, isProject bool) {
 	pathTargets := make(map[string][]string)
 	for name, target := range cfg.Targets {
 		raw := target.SkillsConfig().Path
@@ -51,14 +69,18 @@ func checkSharedTargetPaths(cfg *config.Config, result *doctorResult) {
 	})
 
 	details := make([]string, 0, len(collisions))
+	suggestions := make([]string, 0, len(collisions))
 	for _, c := range collisions {
 		ui.Warning("Shared path %s ← %s", c.path, strings.Join(c.targets, ", "))
 		details = append(details, fmt.Sprintf("%s ← %s", c.path, strings.Join(c.targets, ", ")))
+		suggestion := sharedTargetPathsSuggestion(c.path, c.targets, isProject)
+		fmt.Println(ui.DimText("    suggestion: " + suggestion))
+		suggestions = append(suggestions, suggestion)
 		result.addWarning()
 	}
 
 	msg := fmt.Sprintf("%d shared target path(s) — enabled targets writing to the same directory may produce duplicate skills in runtime pickers", len(collisions))
-	result.addCheck("shared_target_paths", checkWarning, msg, details)
+	result.addCheckWithSuggestions("shared_target_paths", checkWarning, msg, details, suggestions)
 }
 
 // checkCrossTargetDiscovery warns when an enabled target's runtime is
@@ -138,6 +160,7 @@ func checkCrossTargetDiscovery(cfg *config.Config, result *doctorResult, isProje
 	sort.Strings(scannerNames)
 
 	var details []string
+	var suggestions []string
 	for _, name := range scannerNames {
 		so := overlapsByScanner[name]
 		sort.Slice(so.paths, func(i, j int) bool { return so.paths[i].sharedPath < so.paths[j].sharedPath })
@@ -161,9 +184,12 @@ func checkCrossTargetDiscovery(cfg *config.Config, result *doctorResult, isProje
 			details = append(details, fmt.Sprintf("%s (%s) also scans %s ← %s",
 				so.scanner, so.scannerPath, p.sharedPath, strings.Join(p.writers, ", ")))
 		}
+		suggestion := crossTargetDiscoverySuggestion(so.scanner, writers, isProject)
+		fmt.Println(ui.DimText("    suggestion: " + suggestion))
+		suggestions = append(suggestions, suggestion)
 		result.addWarning()
 	}
 
 	msg := fmt.Sprintf("%d target(s) overlap with other targets' content via cross-runtime discovery", len(scannerNames))
-	result.addCheck("cross_target_discovery", checkWarning, msg, details)
+	result.addCheckWithSuggestions("cross_target_discovery", checkWarning, msg, details, suggestions)
 }

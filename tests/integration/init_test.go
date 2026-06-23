@@ -521,7 +521,7 @@ func TestInit_UniversalAutoDetected(t *testing.T) {
 	result := sb.RunCLI("init", "--no-copy", "--all-targets", "--no-git", "--no-skill")
 
 	result.AssertSuccess(t)
-	result.AssertAnyOutputContains(t, "shared agent directory")
+	result.AssertAnyOutputContains(t, "Shared skills directory. Use this if your CLI supports ~/.agents/skills, such as Codex.")
 
 	// Verify config includes universal pointing to ~/.agents/skills
 	configContent := sb.ReadFile(sb.ConfigPath)
@@ -745,6 +745,47 @@ targets:
 
 	result.AssertSuccess(t)
 	result.AssertOutputContains(t, "No new agents")
+}
+
+func TestInit_Discover_DoesNotExpandSharedDirectoryTargets(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sharedParent := filepath.Join(sb.Home, ".agents")
+	os.MkdirAll(sharedParent, 0755)
+
+	claudeSkillsPath := filepath.Join(sb.Home, ".claude", "skills")
+	codexSkillsPath := filepath.Join(sb.Home, ".codex", "skills")
+	cursorSkillsPath := filepath.Join(sb.Home, ".cursor", "skills")
+	copilotSkillsPath := filepath.Join(sb.Home, ".copilot", "skills")
+	universalSkillsPath := filepath.Join(sharedParent, "skills")
+	os.MkdirAll(claudeSkillsPath, 0755)
+	os.MkdirAll(codexSkillsPath, 0755)
+	os.MkdirAll(cursorSkillsPath, 0755)
+	os.MkdirAll(copilotSkillsPath, 0755)
+
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets:
+  claude:
+    path: ` + claudeSkillsPath + `
+  cursor:
+    path: ` + cursorSkillsPath + `
+  copilot:
+    path: ` + copilotSkillsPath + `
+  universal:
+    path: ` + universalSkillsPath + `
+`)
+
+	result := sb.RunCLI("init", "--discover", "--select", "zed")
+
+	result.AssertSuccess(t)
+	result.AssertOutputContains(t, "Agent not detected: zed")
+	result.AssertOutputNotContains(t, "Added 1 agent")
+
+	configContent := sb.ReadFile(sb.ConfigPath)
+	if strings.Contains(configContent, "zed:") {
+		t.Errorf("config should not contain zed target, got:\n%s", configContent)
+	}
 }
 
 func TestInit_Discover_WithSelect_AddsNewAgent(t *testing.T) {

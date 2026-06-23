@@ -522,10 +522,11 @@ type doctorJSON struct {
 }
 
 type doctorJSONCheck struct {
-	Name    string   `json:"name"`
-	Status  string   `json:"status"`
-	Message string   `json:"message"`
-	Details []string `json:"details,omitempty"`
+	Name        string   `json:"name"`
+	Status      string   `json:"status"`
+	Message     string   `json:"message"`
+	Details     []string `json:"details,omitempty"`
+	Suggestions []string `json:"suggestions,omitempty"`
 }
 
 type doctorJSONSummary struct {
@@ -657,6 +658,85 @@ targets: {}
 	if out.Summary.Warnings == 0 {
 		t.Error("expected summary.warnings > 0")
 	}
+}
+
+func TestDoctor_SharedDiscoveryShowsSuggestion(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	os.MkdirAll(filepath.Join(sb.Home, ".agents", "skills"), 0755)
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets:
+  codex:
+    path: ~/.codex/skills
+  universal:
+    path: ~/.agents/skills
+`)
+
+	result := sb.RunCLI("doctor")
+
+	result.AssertSuccess(t)
+	result.AssertOutputContains(t, "codex will see content from: universal")
+	result.AssertOutputContains(t, "suggestion: Choose one authoritative route for codex")
+	result.AssertOutputContains(t, "skillshare target remove <name> --global --dry-run")
+}
+
+func TestDoctor_JSON_SharedDiscoveryIncludesSuggestion(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	os.MkdirAll(filepath.Join(sb.Home, ".agents", "skills"), 0755)
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets:
+  codex:
+    path: ~/.codex/skills
+  universal:
+    path: ~/.agents/skills
+`)
+
+	result := sb.RunCLI("doctor", "--json")
+
+	result.AssertSuccess(t)
+	out := parseDoctorJSON(t, result.Stdout)
+	for _, check := range out.Checks {
+		if check.Name != "cross_target_discovery" {
+			continue
+		}
+		if len(check.Suggestions) == 0 {
+			t.Fatalf("cross_target_discovery suggestions are empty: %+v", check)
+		}
+		suggestion := check.Suggestions[0]
+		if !strings.Contains(suggestion, "authoritative route") {
+			t.Fatalf("cross_target_discovery suggestion = %q, want authoritative route guidance", suggestion)
+		}
+		if !strings.Contains(suggestion, "skillshare target remove <name> --global --dry-run") {
+			t.Fatalf("cross_target_discovery suggestion = %q, want target remove dry-run guidance", suggestion)
+		}
+		return
+	}
+	t.Fatal("missing cross_target_discovery check")
+}
+
+func TestDoctor_GlobalModeInsideProjectShowsGlobalTargetRemoveSuggestion(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	projectRoot := sb.SetupProjectDir("claude")
+	os.MkdirAll(filepath.Join(sb.Home, ".agents", "skills"), 0755)
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets:
+  codex:
+    path: ~/.codex/skills
+  universal:
+    path: ~/.agents/skills
+`)
+
+	result := sb.RunCLIInDir(projectRoot, "doctor", "--global")
+
+	result.AssertSuccess(t)
+	result.AssertOutputNotContains(t, "(project)")
+	result.AssertOutputContains(t, "skillshare target remove <name> --global --dry-run")
+	result.AssertOutputNotContains(t, "skillshare target remove <name> --project --dry-run")
 }
 
 func TestDoctor_JSON_ProjectMode(t *testing.T) {

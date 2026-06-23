@@ -55,6 +55,12 @@ export const fieldDocs: Record<string, FieldDoc> = {
     allowedValues: ['flat', 'standard'],
     example: 'target_naming: standard',
   },
+  git_root: {
+    description: 'Directory that "skillshare commit/push/pull" version-controls. "skills" (default) tracks only the skills source; "agents" and "extras" track those sources; "root" tracks the whole skillshare base directory (skills, agents, and extras together, excluding config.yaml). Changing this does NOT move an existing repository — re-run "skillshare init" or move .git yourself.',
+    type: 'string',
+    allowedValues: ['skills', 'agents', 'extras', 'root'],
+    example: 'git_root: root',
+  },
   tui: {
     description: 'Enable or disable interactive TUI prompts. Set to false for CI/scripting.',
     type: 'boolean',

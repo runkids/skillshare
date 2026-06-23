@@ -35,7 +35,7 @@ function parseYamlTree(source: string): TreeNode[] {
     if (!trimmed || trimmed.startsWith('#')) continue;
     let key: string | null = null;
     let rest = '';
-    let indent = rawLine.length - rawLine.trimStart().length;
+    const indent = rawLine.length - rawLine.trimStart().length;
 
     // Try list item key first: "- key: value"
     const listMatch = trimmed.match(/^-\s+([a-zA-Z_][\w.-]*)\s*:(.*)/);

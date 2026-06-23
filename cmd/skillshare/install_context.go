@@ -1,6 +1,8 @@
 package main
 
 import (
+	"strings"
+
 	"skillshare/internal/config"
 	"skillshare/internal/install"
 )
@@ -20,15 +22,26 @@ func storeToSkillEntryDTOs(store *install.MetadataStore) []install.SkillEntryDTO
 		if entry == nil {
 			continue
 		}
+		relPath := install.KeyToRelPath(name, entry)
+		group, bareName := splitMetadataRelPath(relPath)
 		dtos = append(dtos, install.SkillEntryDTO{
-			Name:    name,
+			Name:    bareName,
 			Source:  entry.Source,
 			Tracked: entry.Tracked,
-			Group:   entry.Group,
+			Group:   group,
 			Branch:  entry.Branch,
 		})
 	}
 	return dtos
+}
+
+func splitMetadataRelPath(relPath string) (group, name string) {
+	relPath = strings.Trim(relPath, "/")
+	idx := strings.LastIndex(relPath, "/")
+	if idx < 0 {
+		return "", relPath
+	}
+	return relPath[:idx], relPath[idx+1:]
 }
 
 // ---------------------------------------------------------------------------

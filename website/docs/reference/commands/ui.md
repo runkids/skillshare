@@ -86,7 +86,7 @@ skillshare ui start --clear-cache
 | **Sync** | Sync controls with scope selector (Skills / Agents / Both), dry-run toggle, and diff preview with kind-separated summary |
 | **Collect** | Scan targets and collect selected skills back to source. Agent collect remains CLI-only. |
 | **Backup** | View backup list, restore snapshots, and clean up entries |
-| **Git Sync** | Push/pull source repo with dirty-state checks and force pull |
+| **Git Sync** | Commit locally, push/pull source repo with dirty-state checks, dry-run previews, and force pull |
 | **Search** | GitHub skill search with one-click install |
 | **Audit** | Security scan all skills, view findings by severity |
 | **Audit Rules** | Create and edit custom `audit-rules.yaml` with YAML editor |
@@ -144,6 +144,7 @@ The web dashboard exposes a REST API at `/api/`. All endpoints return JSON.
 | POST | `/api/targets` | Add a target |
 | DELETE | `/api/targets/{name}` | Remove a target |
 | POST | `/api/sync` | Run sync (supports `dryRun`, `force`, `kind`) |
+| POST | `/api/git/commit` | Create a local git commit from the source repo without pushing |
 | GET | `/api/diff` | Diff between source and targets |
 | GET | `/api/search?q=` | Search GitHub for skills |
 | POST | `/api/install` | Install a skill from source |

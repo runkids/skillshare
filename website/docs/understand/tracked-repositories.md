@@ -48,8 +48,9 @@ skillshare sync
 **What happens:**
 1. Repo is cloned to `~/.config/skillshare/skills/_team-skills/`
 2. `.git` directory is preserved
-3. Entire repo is security-audited using active install threshold (`audit.block_threshold` or `--threshold`)
-4. Nested skills are flattened for AI CLIs
+3. The clone directory is added to the managed `.gitignore` block so it stays machine-local and is not committed as a nested git repository
+4. Entire repo is security-audited using active install threshold (`audit.block_threshold` or `--threshold`)
+5. Nested skills are flattened for AI CLIs
 
 If findings hit the threshold, install is blocked unless `--force` is used. On block, skillshare removes the cloned repo automatically; if cleanup fails, the command reports the exact path for manual cleanup.
 
@@ -103,6 +104,28 @@ _team-skills/
 :::tip
 Auto-flattening works for **all skills**, not just tracked repos. You can organize your personal skills in folders too. See [Organize with Folders](/docs/understand/source-and-targets#organize-with-folders-auto-flattening).
 :::
+
+---
+
+## Rehydrating After a Fresh Clone
+
+Tracked repo clone directories are intentionally ignored by git because they contain their own `.git` directory. If you clone or pull your skillshare source repo on a new machine, `.metadata.json` may already declare tracked repos while the `_team-skills/` clone directory is still missing.
+
+Run no-argument install to recreate missing tracked repo clones from metadata:
+
+```bash
+skillshare install
+skillshare sync
+```
+
+For project mode, run:
+
+```bash
+skillshare install -p
+skillshare sync -p
+```
+
+`status`, `check`, `update --all`, and `doctor` report missing tracked repo clones and suggest `skillshare install` instead of silently ignoring them.
 
 ---
 

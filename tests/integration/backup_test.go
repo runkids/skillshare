@@ -48,14 +48,21 @@ targets:
 	backupResult := sb.RunCLI("backup")
 	backupResult.AssertSuccess(t)
 
-	// Verify backup contains local skill but not the symlinked one
+	// Verify backup contains both local and symlink-resolved skills.
 	backupDir := filepath.Join(sb.Home, ".local", "share", "skillshare", "backups")
 	entries, err := os.ReadDir(backupDir)
 	if err != nil || len(entries) == 0 {
 		t.Fatal("backup directory should contain a timestamp directory")
 	}
 
-	backupPath := filepath.Join(backupDir, entries[0].Name(), "claude")
+	// `sync` takes a pre-sync backup of the target *before* it creates the
+	// agent-browser symlink, and the explicit `backup` above takes another.
+	// When the two land in different clock-seconds there are two timestamp
+	// dirs, and only the latter (post-sync) one contains the symlinked skill.
+	// os.ReadDir returns entries sorted ascending, so the newest backup —
+	// the one taken after the symlink existed — is the last entry.
+	latest := entries[len(entries)-1]
+	backupPath := filepath.Join(backupDir, latest.Name(), "claude")
 	if _, err := os.Stat(filepath.Join(backupPath, "my-local", "SKILL.md")); err != nil {
 		t.Error("local skill should be in backup")
 	}

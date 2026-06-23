@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useT } from '../i18n';
+import ConfirmDialog from '../components/ConfirmDialog';
 import {
   GitBranch,
   ArrowUpCircle,
@@ -68,6 +69,10 @@ function platformLabel(platform: Platform, t: (key: string) => string): string |
   }
 }
 
+function errorMessage(err: unknown): string {
+  return err instanceof Error ? err.message : String(err);
+}
+
 export default function GitSyncPage() {
   const t = useT();
   const { isProjectMode } = useAppContext();
@@ -79,6 +84,167 @@ export default function GitSyncPage() {
     queryFn: () => api.gitStatus(),
     staleTime: staleTimes.gitStatus,
   });
+
+
+  const { data: branches } = useQuery({
+    queryKey: queryKeys.gitBranches,
+    queryFn: () => api.gitBranches(),
+    staleTime: staleTimes.gitStatus,
+    enabled: !isProjectMode && !!status?.isRepo,
+  });
+
+  const fetchBranchesMutation = useMutation({
+    mutationFn: () => api.gitBranches({ fetch: true }),
+    onSuccess: (data) => {
+      queryClient.setQueryData(queryKeys.gitBranches, data);
+      toast(t('gitSync.toast.branchListRefreshed'), 'info');
+    },
+    onError: (err: unknown) => {
+      toast(errorMessage(err), 'error');
+    },
+  });
+
+  const checkoutMutation = useMutation({
+    mutationFn: (branch: string) => api.gitCheckout(branch),
+    onSuccess: (res) => {
+      toast(t('gitSync.toast.switchedTo', { branch: res.branch }), 'success');
+      queryClient.invalidateQueries({ queryKey: queryKeys.gitStatus });
+      queryClient.invalidateQueries({ queryKey: queryKeys.gitBranches });
+      queryClient.invalidateQueries({ queryKey: queryKeys.skills.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.overview });
+    },
+    onError: (err: unknown) => {
+      toast(errorMessage(err), 'error');
+    },
+  });
+
+  const [pendingScope, setPendingScope] = useState<string | null>(null);
+  const [pendingRemote, setPendingRemote] = useState('');
+
+  const setRootMutation = useMutation({
+    mutationFn: ({ scope, remoteURL }: { scope: string; remoteURL?: string }) =>
+      api.gitSetRoot(scope, remoteURL),
+    onSuccess: (res) => {
+      toast(t('gitSync.scope.switched', { scope: res.scope }), 'success');
+      queryClient.invalidateQueries({ queryKey: queryKeys.gitStatus });
+      queryClient.invalidateQueries({ queryKey: queryKeys.gitBranches });
+      queryClient.invalidateQueries({ queryKey: queryKeys.config });
+      queryClient.invalidateQueries({ queryKey: queryKeys.overview });
+    },
+    onError: (err: unknown) => {
+      toast(errorMessage(err), 'error');
+    },
+  });
+
+  const absorbNestedMutation = useMutation({
+    mutationFn: (subdirs: string[]) => api.gitAbsorbNested(subdirs),
+    onSuccess: (res) => {
+      toast(t('gitSync.nested.disabled', { dirs: res.disabled.join(', ') }), 'success');
+      queryClient.invalidateQueries({ queryKey: queryKeys.gitStatus });
+    },
+    onError: (err: unknown) => {
+      toast(errorMessage(err), 'error');
+    },
+  });
+
+  const [commitMsg, setCommitMsg] = useState('');
+  const [pushDryRun, setPushDryRun] = useState(false);
+  const [pullDryRun, setPullDryRun] = useState(false);
+  const [committing, setCommitting] = useState(false);
+  const [pushing, setPushing] = useState(false);
+  const [pulling, setPulling] = useState(false);
+  const [filesExpanded, setFilesExpanded] = useState(false);
+  const [commitResult, setCommitResult] = useState<string | null>(null);
+  const [pushResult, setPushResult] = useState<string | null>(null);
+  const [pullResult, setPullResult] = useState<PullResponse | null>(null);
+
+  const repoDisabled = !status?.isRepo;
+  const remoteDisabled = !status?.hasRemote;
+  // Nested git repos at the root scope upload as empty submodules (silent data
+  // loss). Block commit/push until the user disables them — parity with the CLI
+  // sweep, which aborts on the same hazard.
+  const hasNested = (status?.nestedRepos?.length ?? 0) > 0;
+
+  // Build branch options for Select
+  const branchOptions: SelectOption[] = [];
+  if (branches) {
+    for (const b of branches.local) {
+      branchOptions.push({ value: b, label: b });
+    }
+    for (const b of branches.remote) {
+      branchOptions.push({ value: b, label: `${b} (remote)`, description: 'Remote-only branch' });
+    }
+  }
+
+  const handleCommit = async () => {
+    setCommitting(true);
+    setCommitResult(null);
+    setPushResult(null);
+    try {
+      const res = await api.gitCommit({ message: commitMsg || undefined, dryRun: pushDryRun });
+      setCommitResult(res.message);
+      if (pushDryRun) {
+        toast(res.message ?? '', 'info');
+      } else {
+        toast(res.message, 'success');
+        setCommitMsg('');
+      }
+      queryClient.invalidateQueries({ queryKey: queryKeys.gitStatus });
+      queryClient.invalidateQueries({ queryKey: queryKeys.skills.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.overview });
+    } catch (e: unknown) {
+      toast(errorMessage(e), 'error');
+    } finally {
+      setCommitting(false);
+    }
+  };
+
+  const handlePush = async () => {
+    setPushing(true);
+    setCommitResult(null);
+    setPushResult(null);
+    try {
+      const res = await api.push({ message: commitMsg || undefined, dryRun: pushDryRun });
+      setPushResult(res.message);
+      if (pushDryRun) {
+        toast(res.message ?? '', 'info');
+      } else {
+        toast(res.message, 'success');
+        setCommitMsg('');
+      }
+      queryClient.invalidateQueries({ queryKey: queryKeys.gitStatus });
+      queryClient.invalidateQueries({ queryKey: queryKeys.skills.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.overview });
+    } catch (e: unknown) {
+      toast(errorMessage(e), 'error');
+    } finally {
+      setPushing(false);
+    }
+  };
+
+  const handlePull = async () => {
+    setPulling(true);
+    setPullResult(null);
+    try {
+      const res = await api.pull({ dryRun: pullDryRun });
+      setPullResult(res);
+      if (pullDryRun) {
+        toast(res.message || t('gitSync.pull.dryRunComplete'), 'info');
+      } else if (res.upToDate) {
+        toast(t('gitSync.toast.alreadyUpToDate'), 'info');
+      } else {
+        const n = res.commits?.length ?? 0;
+        toast(t('gitSync.pull.pulled', { count: n }), 'success');
+      }
+      queryClient.invalidateQueries({ queryKey: queryKeys.gitStatus });
+      queryClient.invalidateQueries({ queryKey: queryKeys.skills.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.overview });
+    } catch (e: unknown) {
+      toast(errorMessage(e), 'error');
+    } finally {
+      setPulling(false);
+    }
+  };
 
   if (isProjectMode) {
     return (
@@ -103,106 +269,6 @@ export default function GitSyncPage() {
       </div>
     );
   }
-
-  const { data: branches } = useQuery({
-    queryKey: queryKeys.gitBranches,
-    queryFn: () => api.gitBranches(),
-    staleTime: staleTimes.gitStatus,
-    enabled: !!status?.isRepo,
-  });
-
-  const fetchBranchesMutation = useMutation({
-    mutationFn: () => api.gitBranches({ fetch: true }),
-    onSuccess: (data) => {
-      queryClient.setQueryData(queryKeys.gitBranches, data);
-      toast(t('gitSync.toast.branchListRefreshed'), 'info');
-    },
-    onError: (err: any) => {
-      toast(err.message, 'error');
-    },
-  });
-
-  const checkoutMutation = useMutation({
-    mutationFn: (branch: string) => api.gitCheckout(branch),
-    onSuccess: (res) => {
-      toast(t('gitSync.toast.switchedTo', { branch: res.branch }), 'success');
-      queryClient.invalidateQueries({ queryKey: queryKeys.gitStatus });
-      queryClient.invalidateQueries({ queryKey: queryKeys.gitBranches });
-      queryClient.invalidateQueries({ queryKey: queryKeys.skills.all });
-      queryClient.invalidateQueries({ queryKey: queryKeys.overview });
-    },
-    onError: (err: any) => {
-      toast(err.message, 'error');
-    },
-  });
-
-  const [commitMsg, setCommitMsg] = useState('');
-  const [pushDryRun, setPushDryRun] = useState(false);
-  const [pullDryRun, setPullDryRun] = useState(false);
-  const [pushing, setPushing] = useState(false);
-  const [pulling, setPulling] = useState(false);
-  const [filesExpanded, setFilesExpanded] = useState(false);
-  const [pushResult, setPushResult] = useState<string | null>(null);
-  const [pullResult, setPullResult] = useState<PullResponse | null>(null);
-
-  const disabled = !status?.isRepo || !status?.hasRemote;
-
-  // Build branch options for Select
-  const branchOptions: SelectOption[] = [];
-  if (branches) {
-    for (const b of branches.local) {
-      branchOptions.push({ value: b, label: b });
-    }
-    for (const b of branches.remote) {
-      branchOptions.push({ value: b, label: `${b} (remote)`, description: 'Remote-only branch' });
-    }
-  }
-
-  const handlePush = async () => {
-    setPushing(true);
-    setPushResult(null);
-    try {
-      const res = await api.push({ message: commitMsg || undefined, dryRun: pushDryRun });
-      setPushResult(res.message);
-      if (pushDryRun) {
-        toast(res.message ?? '', 'info');
-      } else {
-        toast(res.message, 'success');
-        setCommitMsg('');
-      }
-      queryClient.invalidateQueries({ queryKey: queryKeys.gitStatus });
-      queryClient.invalidateQueries({ queryKey: queryKeys.skills.all });
-      queryClient.invalidateQueries({ queryKey: queryKeys.overview });
-    } catch (e: any) {
-      toast(e.message, 'error');
-    } finally {
-      setPushing(false);
-    }
-  };
-
-  const handlePull = async () => {
-    setPulling(true);
-    setPullResult(null);
-    try {
-      const res = await api.pull({ dryRun: pullDryRun });
-      setPullResult(res);
-      if (pullDryRun) {
-        toast(res.message || t('gitSync.pull.dryRunComplete'), 'info');
-      } else if (res.upToDate) {
-        toast(t('gitSync.toast.alreadyUpToDate'), 'info');
-      } else {
-        const n = res.commits?.length ?? 0;
-        toast(t('gitSync.pull.pulled', { count: n }), 'success');
-      }
-      queryClient.invalidateQueries({ queryKey: queryKeys.gitStatus });
-      queryClient.invalidateQueries({ queryKey: queryKeys.skills.all });
-      queryClient.invalidateQueries({ queryKey: queryKeys.overview });
-    } catch (e: any) {
-      toast(e.message, 'error');
-    } finally {
-      setPulling(false);
-    }
-  };
 
   if (isPending) {
     return (
@@ -241,14 +307,92 @@ export default function GitSyncPage() {
         subtitle={t('gitSync.subtitle')}
       />
 
+      {/* Root-scope hazards: nested submodule traps and a leaked config.yaml */}
+      {status?.isRepo && ((status.nestedRepos?.length ?? 0) > 0 || status.configTracked) && (
+        <Card variant="outlined" padding="md" className="space-y-3">
+          <div className="flex items-center gap-2">
+            <AlertTriangle size={18} strokeWidth={2.5} className="text-warning shrink-0" />
+            <span className="font-bold text-pencil">{t('gitSync.nested.title')}</span>
+          </div>
+          {(status.nestedRepos?.length ?? 0) > 0 && (
+            <div className="space-y-2.5">
+              <p className="text-sm text-pencil-light">{t('gitSync.nested.hint')}</p>
+              <div className="flex flex-wrap items-center gap-2">
+                {status.nestedRepos.map((d) => (
+                  <code
+                    key={d}
+                    className="font-mono text-xs px-2 py-0.5 rounded bg-muted/60 text-pencil"
+                  >
+                    {d}
+                  </code>
+                ))}
+              </div>
+              <Button
+                variant="secondary"
+                size="sm"
+                loading={absorbNestedMutation.isPending}
+                onClick={() => absorbNestedMutation.mutate(status.nestedRepos)}
+              >
+                {t('gitSync.nested.disableButton')}
+              </Button>
+            </div>
+          )}
+          {status.configTracked && (
+            <p className="text-sm text-pencil-light">{t('gitSync.nested.configTracked')}</p>
+          )}
+        </Card>
+      )}
+
       {/* Repository Info Card — z-10 so branch dropdown renders above cards below */}
       <Card overflow className="relative z-10" padding="none">
         {!status?.isRepo ? (
-          <div className="flex items-center gap-2 text-pencil p-4">
-            <AlertTriangle size={18} strokeWidth={2.5} className="text-danger" />
-            <span>{t('gitSync.notARepo')}</span>
-            <Badge variant="danger">{t('gitSync.repo.notARepoLabel')}</Badge>
-          </div>
+          status && !status.gitInstalled ? (
+            <div className="flex items-start gap-2 text-pencil p-4">
+              <AlertTriangle size={18} strokeWidth={2.5} className="text-danger shrink-0 mt-0.5" />
+              <div className="space-y-1 text-sm">
+                <span className="font-bold">{t('gitSync.gitNotInstalled.title')}</span>
+                <p className="text-pencil-light">{t('gitSync.gitNotInstalled.hint')}</p>
+              </div>
+            </div>
+          ) : status?.scopeMismatch ? (
+            <div className="flex items-start gap-2 text-pencil p-4">
+              <AlertTriangle size={18} strokeWidth={2.5} className="text-warning shrink-0 mt-0.5" />
+              <div className="space-y-1 text-sm">
+                <div className="flex items-center gap-2">
+                  <span className="font-bold">{t('gitSync.mismatch.title')}</span>
+                  <Badge variant="warning">{status.mismatchScope}</Badge>
+                </div>
+                <p className="text-pencil-light">
+                  {t('gitSync.mismatch.description', {
+                    scope: status.scope || 'skills',
+                    repoScope: status.mismatchScope ?? '',
+                  })}
+                </p>
+                <p className="text-pencil-light font-mono text-xs truncate max-w-[480px]">
+                  {status.mismatchDir}
+                </p>
+                <p className="text-pencil-light">{t('gitSync.mismatch.hint')}</p>
+              </div>
+            </div>
+          ) : (
+            <div className="p-4 flex items-center justify-between gap-3 flex-wrap">
+              <div className="flex items-center gap-2 text-pencil">
+                <AlertTriangle size={18} strokeWidth={2.5} className="text-danger shrink-0" />
+                <span>{t('gitSync.notARepo')}</span>
+                <Badge variant="danger">{t('gitSync.repo.notARepoLabel')}</Badge>
+              </div>
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={() => {
+                  setPendingRemote('');
+                  setPendingScope(status?.scope || 'skills');
+                }}
+              >
+                {t('gitSync.scope.initButton')}
+              </Button>
+            </div>
+          )
         ) : (() => {
           const parsed = parseRemoteURL(status.remoteURL);
           const linkLabel = parsed ? platformLabel(parsed.platform, t) : null;
@@ -301,8 +445,33 @@ export default function GitSyncPage() {
                 )}
               </div>
 
-              {/* ── Status bar: branch / HEAD / tracking ── */}
+              {/* ── Status bar: scope / branch / HEAD ── */}
               <div className="px-4 py-2.5 border-t border-dashed border-pencil-light/20 bg-muted/30 flex items-center gap-x-5 gap-y-2 flex-wrap text-sm">
+                {/* Scope */}
+                <div className="flex items-center gap-2">
+                  <span className="text-pencil-light">{t('gitSync.scope.label')}</span>
+                  <Select
+                    value={status.scope || 'skills'}
+                    onChange={(val) => {
+                      if (val !== status.scope) {
+                        setPendingRemote('');
+                        setPendingScope(val);
+                      }
+                    }}
+                    options={[
+                      { value: 'skills', label: 'skills' },
+                      { value: 'agents', label: 'agents' },
+                      { value: 'extras', label: 'extras' },
+                      { value: 'root', label: 'root' },
+                    ]}
+                    size="sm"
+                    disabled={setRootMutation.isPending}
+                    className="min-w-[110px]"
+                  />
+                </div>
+
+                <span className="hidden sm:inline text-pencil-light/30">|</span>
+
                 {/* Branch */}
                 <div className="flex items-center gap-2">
                   <GitBranch size={14} strokeWidth={2.5} className="text-pencil-light" />
@@ -377,8 +546,43 @@ export default function GitSyncPage() {
         })()}
       </Card>
 
+      <ConfirmDialog
+        open={pendingScope !== null}
+        onCancel={() => {
+          setPendingScope(null);
+          setPendingRemote('');
+        }}
+        onConfirm={() => {
+          if (pendingScope) {
+            setRootMutation.mutate({ scope: pendingScope, remoteURL: pendingRemote.trim() || undefined });
+          }
+          setPendingScope(null);
+          setPendingRemote('');
+        }}
+        title={t(status?.isRepo ? 'gitSync.scope.confirmTitle' : 'gitSync.scope.initTitle')}
+        message={
+          <div className="space-y-3">
+            <p>
+              {t(status?.isRepo ? 'gitSync.scope.confirmMessage' : 'gitSync.scope.initMessage', {
+                scope: pendingScope ?? '',
+              })}
+            </p>
+            <Input
+              label={t('gitSync.scope.remoteLabel')}
+              value={pendingRemote}
+              onChange={(e) => setPendingRemote(e.target.value)}
+              placeholder="git@github.com:user/skills.git"
+              disabled={setRootMutation.isPending}
+            />
+            <p className="text-xs text-muted-dark">{t('gitSync.scope.remoteHint')}</p>
+          </div>
+        }
+        loading={setRootMutation.isPending}
+        variant="default"
+      />
+
       {/* Push / Pull Actions */}
-      <Card className={disabled ? 'opacity-50 pointer-events-none' : ''} padding="none">
+      <Card className={repoDisabled ? 'opacity-50 pointer-events-none' : ''} padding="none">
         <div data-tour="git-actions" className="grid grid-cols-1 md:grid-cols-2">
           {/* Push Section */}
           <div className="p-4 flex flex-col">
@@ -421,16 +625,16 @@ export default function GitSyncPage() {
                 </div>
               )}
 
-              {status && !status.isDirty && !pushResult && (
+              {status && !status.isDirty && !commitResult && !pushResult && (
                 <p className="text-sm text-pencil-light">
                   {t('gitSync.noUncommitted')}
                 </p>
               )}
 
-              {pushResult && (
+              {(commitResult || pushResult) && (
                 <p className="text-sm flex items-center gap-1 text-success">
                   <CheckCircle size={14} strokeWidth={2.5} />
-                  {pushResult}
+                  {commitResult || pushResult}
                 </p>
               )}
             </div>
@@ -438,16 +642,28 @@ export default function GitSyncPage() {
             <div className="space-y-3 mt-4 border-t border-dashed border-pencil-light/20 pt-3">
               <div className="flex items-center justify-between gap-4">
                 <Checkbox label={t('gitSync.dryRun')} checked={pushDryRun} onChange={setPushDryRun} />
-                <Button
-                  variant="primary"
-                  size="sm"
-                  onClick={handlePush}
-                  loading={pushing}
-                  disabled={!status?.isDirty && !pushDryRun}
-                >
-                  {!pushing && <ArrowUpCircle size={16} strokeWidth={2.5} />}
-                  {pushing ? t('gitSync.actions.pushing') : t('gitSync.actions.push')}
-                </Button>
+                <div className="flex flex-wrap justify-end gap-2">
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={handleCommit}
+                    loading={committing}
+                    disabled={hasNested || (!status?.isDirty && !pushDryRun) || pushing}
+                  >
+                    {!committing && <GitCommit size={16} strokeWidth={2.5} />}
+                    {committing ? t('gitSync.actions.committing') : t('gitSync.actions.commit')}
+                  </Button>
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    onClick={handlePush}
+                    loading={pushing}
+                    disabled={hasNested || remoteDisabled || (!status?.isDirty && !pushDryRun) || committing}
+                  >
+                    {!pushing && <ArrowUpCircle size={16} strokeWidth={2.5} />}
+                    {pushing ? t('gitSync.actions.pushing') : t('gitSync.actions.push')}
+                  </Button>
+                </div>
               </div>
             </div>
           </div>
@@ -520,7 +736,7 @@ export default function GitSyncPage() {
                   size="sm"
                   onClick={handlePull}
                   loading={pulling}
-                  disabled={!!status?.isDirty && !pullDryRun}
+                  disabled={remoteDisabled || (!!status?.isDirty && !pullDryRun)}
                 >
                   {!pulling && <ArrowDownCircle size={16} strokeWidth={2.5} />}
                   {pulling ? t('gitSync.actions.pulling') : t('gitSync.actions.pull')}

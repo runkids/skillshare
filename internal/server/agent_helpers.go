@@ -59,11 +59,18 @@ func agentIgnorePayload(agentsSource string, all []resource.DiscoveredResource) 
 
 // resolveAgentPath returns the expanded agent target path for a target,
 // checking user config first, then builtin defaults. Returns "" if no path.
-func resolveAgentPath(target config.TargetConfig, builtinAgents map[string]config.TargetConfig, name string) string {
+func resolveAgentPath(target config.TargetConfig, builtinAgents map[string]config.TargetConfig, name string, projectMode bool) string {
 	if ac := target.AgentsConfig(); ac.Path != "" {
 		return config.ExpandPath(ac.Path)
 	}
 	if builtin, ok := builtinAgents[name]; ok {
+		return config.ExpandPath(builtin.Path)
+	}
+	if projectMode {
+		if builtin, ok := config.LookupProjectAgentTarget(name); ok {
+			return config.ExpandPath(builtin.Path)
+		}
+	} else if builtin, ok := config.LookupGlobalAgentTarget(name); ok {
 		return config.ExpandPath(builtin.Path)
 	}
 	return ""
@@ -103,7 +110,7 @@ func (s *Server) appendAgentDiffs(diffs []diffTarget, targets map[string]config.
 		if filterTarget != "" && filterTarget != name {
 			continue
 		}
-		agentPath := resolveAgentPath(target, builtinAgents, name)
+		agentPath := resolveAgentPath(target, builtinAgents, name, s.IsProjectMode())
 		if agentPath == "" {
 			continue
 		}

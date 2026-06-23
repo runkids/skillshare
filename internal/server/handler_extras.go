@@ -1,15 +1,33 @@
 package server
 
 import (
+	"bytes"
 	"encoding/json"
+	"log"
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"skillshare/internal/config"
 	syncpkg "skillshare/internal/sync"
 )
+
+// resolveExtensionSpec resolves a target's extension value into a transform
+// spec, mirroring the CLI's resolveExtension. A bare name resolves under the
+// current mode's extensions dir; a path (contains a separator or starts with
+// ".") is used directly. An empty value yields (nil, nil) — no transform.
+func (s *Server) resolveExtensionSpec(ext string) (*syncpkg.ExtensionSpec, error) {
+	if ext == "" {
+		return nil, nil
+	}
+	execPath := filepath.Join(s.extensionsDir(), ext)
+	if strings.ContainsAny(ext, "/\\") || strings.HasPrefix(ext, ".") {
+		execPath = config.ExpandPath(ext)
+	}
+	return syncpkg.LoadExtensionSpec(execPath, ext)
+}
 
 // extrasListEntry is the JSON response shape for a single extra.
 type extrasListEntry struct {
@@ -23,10 +41,11 @@ type extrasListEntry struct {
 
 // extrasTargetInfo is the per-target sync status inside an extra entry.
 type extrasTargetInfo struct {
-	Path    string `json:"path"`
-	Mode    string `json:"mode"`
-	Flatten bool   `json:"flatten"`
-	Status  string `json:"status"` // "synced", "drift", "not synced", "no source"
+	Path      string `json:"path"`
+	Mode      string `json:"mode"`
+	Flatten   bool   `json:"flatten"`
+	Extension string `json:"extension,omitempty"`
+	Status    string `json:"status"` // "synced", "drift", "not synced", "no source"
 }
 
 // extrasSourceDir returns the source directory for the named extra in the
@@ -44,6 +63,14 @@ func (s *Server) extrasConfig() []config.ExtraConfig {
 		return s.projectCfg.Extras
 	}
 	return s.cfg.Extras
+}
+
+func resolveExtrasTargetPath(projectRoot, path string) string {
+	resolved := config.ExpandPath(path)
+	if projectRoot != "" && !filepath.IsAbs(resolved) {
+		return filepath.Join(projectRoot, filepath.FromSlash(resolved))
+	}
+	return resolved
 }
 
 // handleExtras — GET /api/extras
@@ -102,18 +129,48 @@ func (s *Server) handleExtras(w http.ResponseWriter, r *http.Request) {
 		entry.Targets = make([]extrasTargetInfo, 0, len(extra.Targets))
 		for _, t := range extra.Targets {
 			m := syncpkg.EffectiveMode(t.Mode)
+			targetPath := resolveExtrasTargetPath(projectRoot, t.Path)
 			ti := extrasTargetInfo{
-				Path:    t.Path,
-				Mode:    m,
-				Flatten: t.Flatten,
+				Path:      t.Path,
+				Mode:      m,
+				Flatten:   t.Flatten,
+				Extension: t.Extension,
+			}
+
+			// Transform extensions use copy semantics. Resolve the mode through
+			// the shared resolver instead of EffectiveMode, whose generic "merge"
+			// default for an empty mode would make a valid extension target always
+			// report drift.
+			if t.Extension != "" {
+				resolved, modeErr := syncpkg.ResolveExtensionMode(t.Mode)
+				if modeErr != nil {
+					// Invalid config (extension with a non-copy mode): sync rejects
+					// it with a clear error, so flag drift here rather than guessing.
+					ti.Status = "drift"
+					entry.Targets = append(entry.Targets, ti)
+					continue
+				}
+				m = resolved
+				ti.Mode = m
 			}
 
 			if !entry.SourceExists {
 				ti.Status = "no source"
-			} else if _, statErr := os.Stat(t.Path); os.IsNotExist(statErr) {
+			} else if _, statErr := os.Stat(targetPath); os.IsNotExist(statErr) {
 				ti.Status = "not synced"
 			} else {
-				ti.Status = syncpkg.CheckSyncStatus(files, sourceDir, t.Path, m, t.Flatten)
+				// A transform extension renames output (e.g. .md → .toml), so
+				// resolve its output_ext to compare against the right target
+				// filenames — otherwise status is always reported as drift.
+				outputExt := ""
+				if t.Extension != "" {
+					if spec, serr := s.resolveExtensionSpec(t.Extension); serr == nil && spec != nil {
+						outputExt = spec.OutputExt
+					} else if serr != nil {
+						log.Printf("warning: extension %q for extra %q could not be resolved (%v); sync status may be inaccurate", t.Extension, extra.Name, serr)
+					}
+				}
+				ti.Status = syncpkg.CheckSyncStatus(files, sourceDir, targetPath, m, t.Flatten, outputExt)
 			}
 
 			entry.Targets = append(entry.Targets, ti)
@@ -123,6 +180,23 @@ func (s *Server) handleExtras(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, map[string]any{"extras": entries})
+}
+
+// handleExtrasExtensions — GET /api/extras/extensions
+// Lists transform extensions available in the current mode's extensions
+// directory (~/.config/skillshare/extensions globally, .skillshare/extensions
+// in project mode). Used by the UI to populate the per-target extension picker.
+func (s *Server) handleExtrasExtensions(w http.ResponseWriter, r *http.Request) {
+	extDir := filepath.Join(filepath.Dir(s.configPath()), "extensions")
+	names, err := syncpkg.ListExtensions(extDir)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	if names == nil {
+		names = []string{}
+	}
+	writeJSON(w, map[string]any{"extensions": names})
 }
 
 // extrasDiffItem represents one file that needs action during sync.
@@ -192,8 +266,25 @@ func (s *Server) handleExtrasDiff(w http.ResponseWriter, r *http.Request) {
 
 		for _, t := range extra.Targets {
 			m := syncpkg.EffectiveMode(t.Mode)
+			// Transform extensions use copy semantics; resolve through the shared
+			// resolver so the diff isn't computed against the merge default. On an
+			// invalid (non-copy) mode, leave m as-is — sync surfaces that error.
+			// Resolve output_ext too, so the diff compares against the transformed
+			// target filenames (e.g. .md → .toml) instead of reporting false drift.
+			outputExt := ""
+			if t.Extension != "" {
+				if resolved, modeErr := syncpkg.ResolveExtensionMode(t.Mode); modeErr == nil {
+					m = resolved
+				}
+				if spec, serr := s.resolveExtensionSpec(t.Extension); serr == nil && spec != nil {
+					outputExt = spec.OutputExt
+				} else if serr != nil {
+					log.Printf("warning: extension %q for extra %q could not be resolved (%v); diff may report false drift", t.Extension, extra.Name, serr)
+				}
+			}
 
-			items := buildExtrasDiffItems(files, sourceDir, t.Path, m, t.Flatten)
+			targetPath := resolveExtrasTargetPath(projectRoot, t.Path)
+			items := buildExtrasDiffItems(files, sourceDir, targetPath, m, t.Flatten, outputExt)
 			synced := len(items) == 0
 
 			out = append(out, extrasDiffEntry{
@@ -209,8 +300,11 @@ func (s *Server) handleExtrasDiff(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, map[string]any{"extras": out})
 }
 
-// buildExtrasDiffItems returns the list of files that differ between source and target.
-func buildExtrasDiffItems(sourceFiles []string, sourceDir, targetDir, mode string, flatten bool) []extrasDiffItem {
+// buildExtrasDiffItems returns the list of files that differ between source and
+// target. When outputExt is non-empty a transform extension is in effect, so
+// the expected target file carries the transformed extension (e.g. foo.md →
+// foo.toml) — matching sync and status, which otherwise reports false drift.
+func buildExtrasDiffItems(sourceFiles []string, sourceDir, targetDir, mode string, flatten bool, outputExt string) []extrasDiffItem {
 	var items []extrasDiffItem
 	seen := make(map[string]bool)
 
@@ -219,6 +313,7 @@ func buildExtrasDiffItems(sourceFiles []string, sourceDir, targetDir, mode strin
 		if !ok {
 			continue
 		}
+		tgtRel = syncpkg.ApplyOutputExt(tgtRel, outputExt)
 		sourceFile := filepath.Join(sourceDir, rel)
 		targetFile := filepath.Join(targetDir, tgtRel)
 
@@ -237,7 +332,7 @@ func buildExtrasDiffItems(sourceFiles []string, sourceDir, targetDir, mode strin
 		case "symlink", "merge":
 			if info.Mode()&os.ModeSymlink != 0 {
 				link, readErr := os.Readlink(targetFile)
-				if readErr != nil || link != sourceFile {
+				if readErr != nil || filepath.Clean(resolveExtrasTargetPath(filepath.Dir(targetFile), link)) != filepath.Clean(sourceFile) {
 					items = append(items, extrasDiffItem{
 						Action: "update",
 						File:   rel,
@@ -258,11 +353,29 @@ func buildExtrasDiffItems(sourceFiles []string, sourceDir, targetDir, mode strin
 					File:   rel,
 					Reason: "not a regular file",
 				})
+			} else if outputExt == "" && !filesEqual(sourceFile, targetFile) {
+				items = append(items, extrasDiffItem{
+					Action: "update",
+					File:   rel,
+					Reason: "content differs",
+				})
 			}
 		}
 	}
 
 	return items
+}
+
+func filesEqual(a, b string) bool {
+	left, err := os.ReadFile(a)
+	if err != nil {
+		return false
+	}
+	right, err := os.ReadFile(b)
+	if err != nil {
+		return false
+	}
+	return bytes.Equal(left, right)
 }
 
 // handleExtrasCreate — POST /api/extras
@@ -273,9 +386,10 @@ func (s *Server) handleExtrasCreate(w http.ResponseWriter, r *http.Request) {
 		Name    string `json:"name"`
 		Source  string `json:"source,omitempty"`
 		Targets []struct {
-			Path    string `json:"path"`
-			Mode    string `json:"mode"`
-			Flatten bool   `json:"flatten"`
+			Path      string `json:"path"`
+			Mode      string `json:"mode"`
+			Flatten   bool   `json:"flatten"`
+			Extension string `json:"extension,omitempty"`
 		} `json:"targets"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
@@ -322,6 +436,11 @@ func (s *Server) handleExtrasCreate(w http.ResponseWriter, r *http.Request) {
 		et := config.ExtraTargetConfig{Path: t.Path, Flatten: t.Flatten}
 		if t.Mode != "" {
 			et.Mode = t.Mode
+		}
+		if t.Extension != "" {
+			// A transform extension only makes sense with copy mode.
+			et.Extension = t.Extension
+			et.Mode = "copy"
 		}
 		extra.Targets = append(extra.Targets, et)
 	}
@@ -433,7 +552,32 @@ func (s *Server) handleExtrasSync(w http.ResponseWriter, r *http.Request) {
 				Errors: []string{},
 			}
 
-			res, err := syncpkg.SyncExtra(sourceDir, t.Path, m, body.DryRun, body.Force, t.Flatten, projectRoot)
+			// Resolve the per-target transform extension (if any) so the UI
+			// sync applies it just like the CLI — otherwise files are copied
+			// verbatim instead of being transformed (e.g. .md left as .md).
+			spec, specErr := s.resolveExtensionSpec(t.Extension)
+			if specErr != nil {
+				tr.Error = "extension " + t.Extension + ": " + specErr.Error()
+				result.Targets = append(result.Targets, tr)
+				continue
+			}
+
+			// Transform extensions emit generated files via copy semantics.
+			// Resolve through the shared resolver so the CLI, sync, status, and
+			// diff paths all enforce one contract (empty/copy → copy, else error).
+			if spec != nil {
+				resolved, modeErr := syncpkg.ResolveExtensionMode(t.Mode)
+				if modeErr != nil {
+					tr.Error = "extension " + t.Extension + ": " + modeErr.Error()
+					result.Targets = append(result.Targets, tr)
+					continue
+				}
+				m = resolved
+				tr.Mode = m
+			}
+
+			targetPath := resolveExtrasTargetPath(projectRoot, t.Path)
+			res, err := syncpkg.SyncExtra(sourceDir, targetPath, m, body.DryRun, body.Force, t.Flatten, projectRoot, spec)
 			if err != nil {
 				tr.Error = err.Error()
 			} else {
@@ -475,9 +619,10 @@ func (s *Server) handleExtrasMode(w http.ResponseWriter, r *http.Request) {
 	name := r.PathValue("name")
 
 	var body struct {
-		Target  string `json:"target"`
-		Mode    string `json:"mode"`
-		Flatten *bool  `json:"flatten,omitempty"`
+		Target    string  `json:"target"`
+		Mode      string  `json:"mode"`
+		Flatten   *bool   `json:"flatten,omitempty"`
+		Extension *string `json:"extension,omitempty"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid JSON body")
@@ -506,7 +651,7 @@ func (s *Server) handleExtrasMode(w http.ResponseWriter, r *http.Request) {
 		}
 		for j, t := range extra.Targets {
 			if t.Path == body.Target {
-				// Determine effective mode and flatten after this change
+				// Determine effective mode, flatten, and extension after this change
 				newMode := body.Mode
 				if newMode == "" {
 					newMode = t.Mode
@@ -515,6 +660,21 @@ func (s *Server) handleExtrasMode(w http.ResponseWriter, r *http.Request) {
 				if body.Flatten != nil {
 					newFlatten = *body.Flatten
 				}
+				newExtension := t.Extension
+				if body.Extension != nil {
+					newExtension = *body.Extension
+				}
+
+				// An extension transform implies copy mode. Reject only a mode
+				// explicitly requested in this call that conflicts; otherwise
+				// force copy, overriding any prior mode on the target.
+				if newExtension != "" {
+					if body.Mode != "" && body.Mode != "copy" {
+						writeError(w, http.StatusBadRequest, "extension requires copy mode, but mode "+body.Mode+" was set on the target")
+						return
+					}
+					newMode = "copy"
+				}
 
 				// Validate the combination
 				if err := config.ValidateExtraFlatten(newFlatten, newMode); err != nil {
@@ -522,11 +682,12 @@ func (s *Server) handleExtrasMode(w http.ResponseWriter, r *http.Request) {
 					return
 				}
 
-				if body.Mode != "" {
-					extras[i].Targets[j].Mode = body.Mode
-				}
+				extras[i].Targets[j].Mode = newMode
 				if body.Flatten != nil {
 					extras[i].Targets[j].Flatten = *body.Flatten
+				}
+				if body.Extension != nil {
+					extras[i].Targets[j].Extension = *body.Extension
 				}
 
 				found = true
@@ -599,4 +760,141 @@ func (s *Server) handleExtrasDelete(w http.ResponseWriter, r *http.Request) {
 	}, "")
 
 	writeJSON(w, map[string]any{"success": true, "name": name})
+}
+
+// handleExtrasAddTarget — POST /api/extras/{name}/targets
+// Adds a new target to an existing extra. Config-only (no sync).
+func (s *Server) handleExtrasAddTarget(w http.ResponseWriter, r *http.Request) {
+	start := time.Now()
+	name := r.PathValue("name")
+
+	var body struct {
+		Path    string `json:"path"`
+		Mode    string `json:"mode"`
+		Flatten bool   `json:"flatten"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid JSON body")
+		return
+	}
+	if body.Path == "" {
+		writeError(w, http.StatusBadRequest, "path is required")
+		return
+	}
+	if err := config.ValidateExtraMode(body.Mode); err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	if err := config.ValidateExtraFlatten(body.Flatten, body.Mode); err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	extras := s.extrasConfig()
+	idx := -1
+	for i := range extras {
+		if extras[i].Name == name {
+			idx = i
+			break
+		}
+	}
+	if idx == -1 {
+		writeError(w, http.StatusNotFound, "extra not found: "+name)
+		return
+	}
+	newPath := filepath.Clean(resolveExtrasTargetPath(s.projectRoot, body.Path))
+	for _, t := range extras[idx].Targets {
+		if filepath.Clean(resolveExtrasTargetPath(s.projectRoot, t.Path)) == newPath {
+			writeError(w, http.StatusConflict, "target already exists: "+body.Path)
+			return
+		}
+	}
+
+	storedPath := body.Path
+	if !s.IsProjectMode() {
+		storedPath = newPath
+	}
+	et := config.ExtraTargetConfig{Path: storedPath, Flatten: body.Flatten}
+	if body.Mode != "" {
+		et.Mode = body.Mode
+	}
+	extras[idx].Targets = append(extras[idx].Targets, et)
+
+	if err := s.saveAndReloadConfig(); err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	s.writeOpsLog("extras-target", "ok", start, map[string]any{
+		"name": name, "target": body.Path, "action": "add", "scope": "ui",
+	}, "")
+
+	writeJSON(w, map[string]any{"success": true, "name": name, "target": body.Path})
+}
+
+// handleExtrasRemoveTarget — DELETE /api/extras/{name}/targets
+// Removes one target from an existing extra. Config-only — the UI does not
+// prune disk files (mirrors the whole-extra DELETE contract).
+func (s *Server) handleExtrasRemoveTarget(w http.ResponseWriter, r *http.Request) {
+	start := time.Now()
+	name := r.PathValue("name")
+
+	var body struct {
+		Path string `json:"path"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid JSON body")
+		return
+	}
+	if body.Path == "" {
+		writeError(w, http.StatusBadRequest, "path is required")
+		return
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	extras := s.extrasConfig()
+	idx := -1
+	for i := range extras {
+		if extras[i].Name == name {
+			idx = i
+			break
+		}
+	}
+	if idx == -1 {
+		writeError(w, http.StatusNotFound, "extra not found: "+name)
+		return
+	}
+	tIdx := -1
+	for j, t := range extras[idx].Targets {
+		if t.Path == body.Path {
+			tIdx = j
+			break
+		}
+	}
+	if tIdx == -1 {
+		writeError(w, http.StatusNotFound, "target not found: "+body.Path)
+		return
+	}
+	if len(extras[idx].Targets) == 1 {
+		writeError(w, http.StatusBadRequest, "cannot remove the last target; delete the extra instead")
+		return
+	}
+
+	extras[idx].Targets = append(extras[idx].Targets[:tIdx], extras[idx].Targets[tIdx+1:]...)
+
+	if err := s.saveAndReloadConfig(); err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	s.writeOpsLog("extras-target", "ok", start, map[string]any{
+		"name": name, "target": body.Path, "action": "remove", "scope": "ui",
+	}, "")
+
+	writeJSON(w, map[string]any{"success": true, "name": name, "target": body.Path})
 }

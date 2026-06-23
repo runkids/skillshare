@@ -64,21 +64,23 @@ function CheckRow({ check }: { check: DoctorCheck }) {
   const t = useT();
   const [expanded, setExpanded] = useState(false);
   const hasDetails = check.details && check.details.length > 0;
+  const hasSuggestions = check.suggestions && check.suggestions.length > 0;
+  const expandable = hasDetails || hasSuggestions;
   const fallback = checkLabelFallbacks[check.name] ?? check.name.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
   const label = t(`doctor.check.${check.name}`, {}, fallback);
 
   return (
     <div className="border-b border-muted last:border-b-0">
       <button
-        onClick={() => hasDetails && setExpanded((v) => !v)}
-        className={`w-full flex items-center gap-3 px-4 py-3 text-left transition-colors ${hasDetails ? 'cursor-pointer hover:bg-muted/20' : 'cursor-default'}`}
+        onClick={() => expandable && setExpanded((v) => !v)}
+        className={`w-full flex items-center gap-3 px-4 py-3 text-left transition-colors ${expandable ? 'cursor-pointer hover:bg-muted/20' : 'cursor-default'}`}
       >
         {statusIcon(check.status)}
         <div className="flex-1 min-w-0">
           <span className="font-medium text-pencil text-sm">{label}</span>
           <p className="text-pencil-light text-sm mt-0.5 truncate">{check.message}</p>
         </div>
-        {hasDetails && (
+        {expandable && (
           <span className="text-pencil-light shrink-0">
             {expanded
               ? <ChevronDown size={16} strokeWidth={2.5} />
@@ -86,9 +88,22 @@ function CheckRow({ check }: { check: DoctorCheck }) {
           </span>
         )}
       </button>
-      {expanded && hasDetails && (
-        <div className="px-4 pb-3 pl-11">
-          <CheckDetails details={check.details!} name={check.name} />
+      {expanded && expandable && (
+        <div className="px-4 pb-3 pl-11 space-y-3">
+          {hasDetails && <CheckDetails details={check.details!} name={check.name} />}
+          {hasSuggestions && (
+            <div>
+              <p className="text-xs font-medium text-pencil-light mb-1.5">{t('doctor.suggestions')}</p>
+              <ul className="space-y-1">
+                {check.suggestions!.map((s, i) => (
+                  <li key={i} className="text-sm text-pencil-light flex items-start gap-2">
+                    <span className="text-muted-dark mt-0.5 shrink-0">&rarr;</span>
+                    <span>{s}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
         </div>
       )}
     </div>

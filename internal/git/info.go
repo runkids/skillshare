@@ -446,6 +446,14 @@ func IsRepo(dir string) bool {
 	return cmd.Run() == nil
 }
 
+// IsInstalled reports whether the git executable is available on PATH. Every
+// other helper shells out to git, so callers can use this to surface a clear
+// "git is not installed" message instead of a raw exec error.
+func IsInstalled() bool {
+	_, err := exec.LookPath("git")
+	return err == nil
+}
+
 // HasRemote checks if the repo has at least one remote configured
 func HasRemote(dir string) bool {
 	cmd := exec.Command("git", "remote")
@@ -487,16 +495,21 @@ func PushRemoteWithAuth(dir string) error {
 }
 
 // PushRemoteWithEnv pushes to the default remote with additional environment
-// variables.
+// variables. Error output is sanitized of credential values via WrapGitError.
 func PushRemoteWithEnv(dir string, extraEnv []string) error {
 	cmd := exec.Command("git", "push")
 	cmd.Dir = dir
 	if len(extraEnv) > 0 {
 		cmd.Env = append(os.Environ(), extraEnv...)
 	}
-	out, err := cmd.CombinedOutput()
+
+	var outBuf bytes.Buffer
+	cmd.Stdout = &outBuf
+	cmd.Stderr = &outBuf
+
+	err := cmd.Run()
 	if err != nil {
-		return fmt.Errorf("git push failed: %s", strings.TrimSpace(string(out)))
+		return install.WrapGitError(outBuf.String(), err, install.UsedTokenAuth(extraEnv))
 	}
 	return nil
 }
@@ -804,9 +817,41 @@ func GetRemoteURL(repoPath string) (string, error) {
 	return strings.TrimSpace(string(out)), nil
 }
 
+// validRemoteArg rejects values that git could parse as an option flag. A
+// remote URL beginning with "-" enables argv flag smuggling (e.g. "--upload-pack=…"),
+// so reject it; a legitimate remote URL never starts with a dash.
+func validRemoteArg(url string) error {
+	if url == "" {
+		return fmt.Errorf("empty remote URL")
+	}
+	if strings.HasPrefix(url, "-") {
+		return fmt.Errorf("invalid remote URL %q: must not start with '-'", url)
+	}
+	return nil
+}
+
 // SetRemoteURL updates the fetch/push URL for the "origin" remote.
 func SetRemoteURL(repoPath, newURL string) error {
-	cmd := exec.Command("git", "remote", "set-url", "origin", newURL)
+	if err := validRemoteArg(newURL); err != nil {
+		return err
+	}
+	cmd := exec.Command("git", "remote", "set-url", "--", "origin", newURL)
+	cmd.Dir = repoPath
+	return cmd.Run()
+}
+
+// SetOrAddRemote points the "origin" remote at url: it updates the URL when
+// origin already exists and adds the remote otherwise. ("git remote set-url"
+// fails when origin is absent and "git remote add" fails when it exists, so the
+// correct command depends on the current state.)
+func SetOrAddRemote(repoPath, url string) error {
+	if err := validRemoteArg(url); err != nil {
+		return err
+	}
+	if _, err := GetRemoteURL(repoPath); err == nil {
+		return SetRemoteURL(repoPath, url)
+	}
+	cmd := exec.Command("git", "remote", "add", "--", "origin", url)
 	cmd.Dir = repoPath
 	return cmd.Run()
 }

@@ -794,6 +794,39 @@ extras:
 	}
 }
 
+func TestSyncExtras_ProjectUsesRelativeSymlinks(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	projectRoot := sb.SetupProjectDir("claude")
+	rulesSource := filepath.Join(projectRoot, ".skillshare", "extras", "rules")
+	if err := os.MkdirAll(rulesSource, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(rulesSource, "rule.md"), []byte("# Rule"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	sb.WriteProjectConfig(projectRoot, `targets:
+  - claude
+extras:
+  - name: rules
+    targets:
+      - path: .cursor/rules
+`)
+
+	result := sb.RunCLIInDir(projectRoot, "sync", "extras", "-p")
+	result.AssertSuccess(t)
+
+	link := filepath.Join(projectRoot, ".cursor", "rules", "rule.md")
+	if !sb.IsSymlink(link) {
+		t.Fatal("extra file should be a symlink")
+	}
+	if target := sb.SymlinkTarget(link); filepath.IsAbs(target) {
+		t.Fatalf("project-mode extra symlink should be relative, got %q", target)
+	}
+}
+
 func TestSyncAll_AgentsExtrasOverlap_WarnsAndPreservesAgents_Project(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()

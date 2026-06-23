@@ -54,7 +54,9 @@ export default function UpdateDialog() {
 
   const dismiss = () => {
     setOpen(false);
-    try { sessionStorage.setItem(DISMISSED_KEY, '1'); } catch {}
+    try { sessionStorage.setItem(DISMISSED_KEY, '1'); } catch {
+      // Ignore storage access failures.
+    }
   };
 
   const handleCopy = async () => {
@@ -62,7 +64,9 @@ export default function UpdateDialog() {
       await navigator.clipboard.writeText('skillshare upgrade');
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
-    } catch {}
+    } catch {
+      // Ignore clipboard failures.
+    }
   };
 
   const waitForRestartThenReload = async () => {

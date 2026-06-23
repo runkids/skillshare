@@ -11,6 +11,18 @@ func cmdExtras(args []string) error {
 	sub := args[0]
 	rest := args[1:]
 
+	// Shorthand operations on `extras <name>` must win over subcommand names so
+	// valid extras named "list", "source", or "remove" remain operable.
+	if hasFlag(args, "--add-target") {
+		return cmdExtrasAddTarget(args)
+	}
+	if hasFlag(args, "--remove-target") {
+		return cmdExtrasRemoveTarget(args)
+	}
+	if sub != "init" && (hasFlag(args, "--mode") || hasFlag(args, "--flatten") || hasFlag(args, "--no-flatten")) {
+		return cmdExtrasMode(args)
+	}
+
 	switch sub {
 	case "init":
 		return cmdExtrasInit(rest)
@@ -22,16 +34,10 @@ func cmdExtras(args []string) error {
 		return cmdExtrasCollect(rest)
 	case "source":
 		return cmdExtrasSource(rest)
-	case "mode":
-		return cmdExtrasMode(rest)
 	case "--help", "-h":
 		printExtrasHelp()
 		return nil
 	default:
-		// Shorthand: skillshare extras <name> --mode/--flatten/--no-flatten
-		if hasFlag(args, "--mode") || hasFlag(args, "--flatten") || hasFlag(args, "--no-flatten") {
-			return cmdExtrasMode(args)
-		}
 		return fmt.Errorf("unknown extras subcommand: %s (run 'skillshare extras --help')", sub)
 	}
 }
@@ -47,12 +53,13 @@ Commands:
   remove <name>      Remove an extra resource type
   collect <name>     Collect local files from a target into extras source
   source [path]      Show or set the global extras_source directory
-  mode <name>        Change sync mode or flatten setting of an extra's target
 
-Shortcuts:
-  skillshare extras <name> --mode <mode>       Change sync mode
-  skillshare extras <name> --flatten           Enable flatten
-  skillshare extras <name> --no-flatten        Disable flatten
+Operating on an existing extra (flags on 'extras <name>'):
+  skillshare extras <name> --mode <mode>           Change sync mode
+  skillshare extras <name> --flatten               Enable flatten
+  skillshare extras <name> --no-flatten            Disable flatten
+  skillshare extras <name> --add-target <path>     Add a target
+  skillshare extras <name> --remove-target <path>  Remove a target
 
 Options:
   --project, -p      Use project-mode extras (.skillshare/)

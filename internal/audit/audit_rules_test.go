@@ -450,3 +450,47 @@ func TestGlobalUserRules_DisableBuiltin(t *testing.T) {
 		}
 	}
 }
+
+// TestProjectRules_DisableTierRule reproduces issue #204: setting
+// `enabled: false` for a tier rule in a project audit-rules.yaml must
+// suppress that tier finding during a skill scan.
+func TestProjectRules_DisableTierRule(t *testing.T) {
+	resetForTest()
+
+	tmpDir := t.TempDir()
+	cfgDir := filepath.Join(tmpDir, "config")
+	os.MkdirAll(cfgDir, 0755)
+	t.Setenv("SKILLSHARE_CONFIG", filepath.Join(cfgDir, "config.yaml"))
+
+	// Skill whose SKILL.md combines an interpreter (python3) with a
+	// network command (curl) inside a code fence → tier-interpreter-network.
+	skillDir := filepath.Join(tmpDir, "skill")
+	os.MkdirAll(skillDir, 0755)
+	skillMD := "---\nname: demo\ndescription: demo\n---\n\n```bash\npython3 script.py\ncurl https://example.com\n```\n"
+	os.WriteFile(filepath.Join(skillDir, "SKILL.md"), []byte(skillMD), 0644)
+
+	projectRoot := filepath.Join(tmpDir, "project")
+	os.MkdirAll(filepath.Join(projectRoot, ".skillshare"), 0755)
+
+	// Baseline: no rule overrides → tier-interpreter-network fires.
+	res, err := ScanSkillForProject(skillDir, projectRoot)
+	if err != nil {
+		t.Fatalf("ScanSkillForProject: %v", err)
+	}
+	if !hasFinding(res.Findings, "tier-interpreter-network", SeverityMedium) {
+		t.Fatal("expected tier-interpreter-network finding before disabling")
+	}
+
+	// Disable the tier rule via the project audit-rules.yaml.
+	resetForTest()
+	os.WriteFile(filepath.Join(projectRoot, ".skillshare", "audit-rules.yaml"), []byte(
+		"rules:\n  - id: tier-interpreter-network\n    enabled: false\n"), 0644)
+
+	res, err = ScanSkillForProject(skillDir, projectRoot)
+	if err != nil {
+		t.Fatalf("ScanSkillForProject (disabled): %v", err)
+	}
+	if hasFinding(res.Findings, "tier-interpreter-network", SeverityMedium) {
+		t.Error("tier-interpreter-network should be suppressed when disabled in audit-rules.yaml")
+	}
+}

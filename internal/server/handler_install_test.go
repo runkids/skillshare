@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"skillshare/internal/install"
@@ -173,6 +174,51 @@ func TestHandleInstallBatch_LocalAgentInstallPreservesNestedPath(t *testing.T) {
 	}
 	if got := s.agentsStore.GetByPath("demo/reviewer"); got == nil {
 		t.Fatal("expected nested agent metadata loaded into agentsStore")
+	}
+}
+
+func TestHandleInstall_ProjectRootRejected(t *testing.T) {
+	s, projectRoot := newProjectTargetServer(t, nil)
+
+	for _, tc := range []struct {
+		name     string
+		endpoint string
+		payload  map[string]any
+	}{
+		{
+			name:     "single",
+			endpoint: "/api/install",
+			payload:  map[string]any{"source": projectRoot, "name": "project-root"},
+		},
+		{
+			name:     "batch",
+			endpoint: "/api/install/batch",
+			payload: map[string]any{
+				"source": projectRoot,
+				"skills": []map[string]string{{"name": "project-root", "path": "."}},
+			},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			payload, err := json.Marshal(tc.payload)
+			if err != nil {
+				t.Fatalf("failed to marshal payload: %v", err)
+			}
+
+			req := httptest.NewRequest(http.MethodPost, tc.endpoint, bytes.NewReader(payload))
+			rr := httptest.NewRecorder()
+			s.mux.ServeHTTP(rr, req)
+
+			if rr.Code != http.StatusBadRequest {
+				t.Fatalf("expected 400, got %d body=%s", rr.Code, rr.Body.String())
+			}
+			if !strings.Contains(rr.Body.String(), "cannot install the project root into itself") {
+				t.Fatalf("expected rejection message, got %s", rr.Body.String())
+			}
+			if _, err := os.Stat(filepath.Join(projectRoot, ".skillshare", "skills", "project-root")); !os.IsNotExist(err) {
+				t.Fatalf("project root install should not create a skill, got err=%v", err)
+			}
+		})
 	}
 }
 

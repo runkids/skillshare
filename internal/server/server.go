@@ -384,6 +384,7 @@ func (s *Server) registerRoutes() {
 	s.mux.HandleFunc("POST /api/resources/{name}/enable", s.handleEnableSkill)
 	s.mux.HandleFunc("DELETE /api/resources/{name}", s.handleUninstallSkill)
 	s.mux.HandleFunc("POST /api/resources/batch/targets", s.handleBatchSetTargets)
+	s.mux.HandleFunc("POST /api/resources/batch/toggle", s.handleBatchToggleSkills)
 	s.mux.HandleFunc("PATCH /api/resources/{name}/targets", s.handleSetSkillTargets)
 
 	// Targets
@@ -423,6 +424,8 @@ func (s *Server) registerRoutes() {
 	// Update & Check
 	s.mux.HandleFunc("POST /api/update", s.handleUpdate)
 	s.mux.HandleFunc("GET /api/update/stream", s.handleUpdateStream)
+	s.mux.HandleFunc("GET /api/update/missing-tracked-repos", s.handleMissingTrackedRepos)
+	s.mux.HandleFunc("POST /api/update/rehydrate", s.handleRehydrateTrackedRepos)
 	s.mux.HandleFunc("GET /api/check/stream", s.handleCheckStream)
 	s.mux.HandleFunc("GET /api/check", s.handleCheck)
 
@@ -452,16 +455,28 @@ func (s *Server) registerRoutes() {
 
 	// Extras
 	s.mux.HandleFunc("GET /api/extras", s.handleExtras)
+	s.mux.HandleFunc("GET /api/extras/extensions", s.handleExtrasExtensions)
 	s.mux.HandleFunc("GET /api/extras/diff", s.handleExtrasDiff)
 	s.mux.HandleFunc("POST /api/extras", s.handleExtrasCreate)
 	s.mux.HandleFunc("POST /api/extras/sync", s.handleExtrasSync)
 	s.mux.HandleFunc("PATCH /api/extras/{name}/mode", s.handleExtrasMode)
 	s.mux.HandleFunc("DELETE /api/extras/{name}", s.handleExtrasDelete)
+	s.mux.HandleFunc("POST /api/extras/{name}/targets", s.handleExtrasAddTarget)
+	s.mux.HandleFunc("DELETE /api/extras/{name}/targets", s.handleExtrasRemoveTarget)
+
+	// Extensions (transform extensions management)
+	s.mux.HandleFunc("GET /api/extensions", s.handleExtensionsList)
+	s.mux.HandleFunc("POST /api/extensions/install", s.handleExtensionsInstall)
+	s.mux.HandleFunc("POST /api/extensions/open", s.handleExtensionsOpen)
+	s.mux.HandleFunc("DELETE /api/extensions/{name}", s.handleExtensionsRemove)
 
 	// Git
 	s.mux.HandleFunc("GET /api/git/status", s.handleGitStatus)
+	s.mux.HandleFunc("POST /api/git/root", s.handleSetGitRoot)
 	s.mux.HandleFunc("GET /api/git/branches", s.handleGitBranches)
 	s.mux.HandleFunc("POST /api/git/checkout", s.handleGitCheckout)
+	s.mux.HandleFunc("POST /api/git/commit", s.handleGitCommit)
+	s.mux.HandleFunc("POST /api/git/absorb-nested", s.handleAbsorbNested)
 	s.mux.HandleFunc("POST /api/push", s.handlePush)
 	s.mux.HandleFunc("POST /api/pull", s.handlePull)
 

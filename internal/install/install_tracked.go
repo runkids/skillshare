@@ -84,7 +84,7 @@ func installTrackedRepoImpl(source *Source, sourceDir string, opts InstallOption
 	if cloneBranch == "" {
 		cloneBranch = source.Branch
 	}
-	if err := cloneTrackedRepo(source.CloneURL, source.Subdir, destPath, cloneBranch, opts.OnProgress); err != nil {
+	if err := cloneTrackedRepoForSource(source, destPath, cloneBranch, opts.OnProgress); err != nil {
 		return nil, fmt.Errorf("failed to clone repository: %w", err)
 	}
 
@@ -194,6 +194,37 @@ func cloneRepoFull(url, destPath, branch string, onProgress ProgressCallback) er
 	}
 	args = append(args, url, destPath)
 	return runGitCommandWithProgress(args, "", authEnv(url), onProgress)
+}
+
+func cloneTrackedRepoForSource(source *Source, destPath, branch string, onProgress ProgressCallback) error {
+	err := cloneTrackedRepo(source.CloneURL, source.Subdir, destPath, branch, onProgress)
+	if err == nil {
+		return nil
+	}
+	if !shouldRetryNestedGitLabURL(err) {
+		return err
+	}
+
+	var lastErr error
+	for _, fallback := range cloneFallbackSourcesForNestedGitLabURL(source) {
+		if cleanupErr := removeAll(destPath); cleanupErr != nil && !os.IsNotExist(cleanupErr) {
+			return fmt.Errorf("clone failed (%v), and cleanup before fallback failed: %w", err, cleanupErr)
+		}
+		if onProgress != nil {
+			onProgress("Clone failed; retrying as a nested GitLab repository...")
+		}
+		fallbackErr := cloneTrackedRepo(fallback.CloneURL, fallback.Subdir, destPath, branch, onProgress)
+		if fallbackErr == nil {
+			*source = fallback
+			return nil
+		}
+		lastErr = fallbackErr
+	}
+
+	if lastErr != nil {
+		return fmt.Errorf("%w (nested GitLab fallback also failed: %v)", err, lastErr)
+	}
+	return err
 }
 
 // cloneTrackedRepo clones a tracked repository with an optimized payload first

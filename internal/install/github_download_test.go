@@ -113,6 +113,11 @@ func TestGitHubAPIBase(t *testing.T) {
 			want:   "https://github.acme.com/api/v3",
 		},
 		{
+			name:   "ghe data residency",
+			source: &Source{CloneURL: "https://acme.ghe.com/acme/repo.git"},
+			want:   "https://api.acme.ghe.com",
+		},
+		{
 			name:    "non-github host",
 			source:  &Source{CloneURL: "https://gitlab.com/acme/repo.git"},
 			wantErr: true,

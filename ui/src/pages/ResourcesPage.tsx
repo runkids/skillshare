@@ -1,6 +1,7 @@
 import { useState, useMemo, useCallback, useEffect, forwardRef, memo, type ReactElement } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import {
+  Asterisk,
   Search,
   GitBranch,
   Folder,
@@ -27,6 +28,9 @@ import {
   Bot,
   Layers,
   FileText,
+  Check,
+  Minus,
+  CheckSquare,
 } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { VirtuosoGrid, Virtuoso } from 'react-virtuoso';
@@ -55,6 +59,7 @@ import { useToast } from '../components/Toast';
 import TargetMenu, { SkillContextMenu, type ContextMenuItem } from '../components/TargetMenu';
 import ConfirmDialog from '../components/ConfirmDialog';
 import Spinner from '../components/Spinner';
+import { Checkbox } from '../components/Checkbox';
 import { useSyncMatrix } from '../hooks/useSyncMatrix';
 import { useT } from '../i18n';
 
@@ -529,6 +534,7 @@ function saveCollapsed(collapsed: Set<string>) {
 
 type ResourceTab = 'skills' | 'agents';
 type FilterType = 'all' | 'tracked' | 'github' | 'local';
+type StatusFilter = 'all' | 'enabled' | 'disabled';
 type SortType = 'name-asc' | 'name-desc' | 'newest' | 'oldest';
 type ViewType = 'grid' | 'grouped' | 'table';
 
@@ -537,6 +543,12 @@ const filterOptions: { key: FilterType; label: string; icon: React.ReactNode }[]
   { key: 'tracked', label: 'Tracked', icon: <Users size={14} strokeWidth={2.5} /> },
   { key: 'github', label: 'GitHub', icon: <Globe size={14} strokeWidth={2.5} /> },
   { key: 'local', label: 'Local', icon: <FolderOpen size={14} strokeWidth={2.5} /> },
+];
+
+const statusOptions: { key: StatusFilter; label: string; icon: React.ReactNode }[] = [
+  { key: 'all', label: 'All', icon: <Asterisk size={14} strokeWidth={2.5} /> },
+  { key: 'enabled', label: 'Enabled', icon: <Eye size={14} strokeWidth={2.5} /> },
+  { key: 'disabled', label: 'Disabled', icon: <EyeOff size={14} strokeWidth={2.5} /> },
 ];
 
 function matchFilter(skill: Skill, filterType: FilterType): boolean {
@@ -549,6 +561,17 @@ function matchFilter(skill: Skill, filterType: FilterType): boolean {
       return (skill.type === 'github' || skill.type === 'github-subdir') && !skill.isInRepo;
     case 'local':
       return !skill.type && !skill.isInRepo;
+  }
+}
+
+function matchStatus(skill: Skill, statusFilter: StatusFilter): boolean {
+  switch (statusFilter) {
+    case 'all':
+      return true;
+    case 'enabled':
+      return !skill.disabled;
+    case 'disabled':
+      return !!skill.disabled;
   }
 }
 
@@ -623,16 +646,47 @@ const gridComponents: GridComponents = {
   ScrollSeekPlaceholder: GridPlaceholder as GridComponents['ScrollSeekPlaceholder'],
 };
 
+/* -- Selection (multi-select) ---------------------- */
+
+interface SelectionApi {
+  selectionMode: boolean;
+  selected: ReadonlySet<string>;
+  onToggleSelect: (flatName: string) => void;
+  onToggleMany: (flatNames: string[], select: boolean) => void;
+}
+
+/** Presentational checkbox mirroring the shared Checkbox (square, blue) so the
+ *  selection visual is identical across grid / tree / table. The parent
+ *  row/card owns the click handler. */
+function SelectBox({ checked, indeterminate = false, className = '' }: { checked: boolean; indeterminate?: boolean; className?: string }) {
+  const active = checked || indeterminate;
+  return (
+    <span
+      className={`w-4 h-4 flex items-center justify-center border shrink-0 transition-colors ${active ? 'bg-blue border-blue' : 'bg-surface border-muted-dark'} ${className}`}
+      style={{ borderRadius: radius.sm }}
+      aria-hidden="true"
+    >
+      {indeterminate ? <Minus size={12} strokeWidth={3} className="text-white" /> : checked ? <Check size={12} strokeWidth={3} className="text-white" /> : null}
+    </span>
+  );
+}
+
 /* -- Skill card ----------------------------------- */
 
 const SkillPostit = memo(function SkillPostit({
   skill,
   onContextMenu,
   highlighted = false,
+  selectionMode = false,
+  isSelected = false,
+  onToggleSelect,
 }: {
   skill: Skill;
   onContextMenu?: (e: React.MouseEvent) => void;
   highlighted?: boolean;
+  selectionMode?: boolean;
+  isSelected?: boolean;
+  onToggleSelect?: (flatName: string) => void;
 }) {
   // Extract repo name from relPath (e.g., "_awesome-skillshare-skills/frontend-dugong" -> "awesome-skillshare-skills")
   const repoName = skill.isInRepo && skill.relPath.startsWith('_')
@@ -647,15 +701,21 @@ const SkillPostit = memo(function SkillPostit({
     <Link
       to={resourceDetailHref(skill)}
       className={`w-full h-full${skill.disabled ? ' opacity-50' : ''}`}
-      onContextMenu={onContextMenu}
+      onContextMenu={selectionMode ? undefined : onContextMenu}
+      onClick={selectionMode ? (e) => { e.preventDefault(); onToggleSelect?.(skill.flatName); } : undefined}
     >
       <div
-        className={`ss-card ss-skill-card relative p-5 pb-4 bg-surface cursor-pointer border shadow-sm rounded-[var(--radius-md)] transition-all duration-150 hover:shadow-hover hover:border-muted-dark h-full flex flex-col ${highlighted ? 'border-muted-dark shadow-hover' : 'border-muted'}`}
+        className={`ss-card ss-skill-card relative p-5 pb-4 bg-surface cursor-pointer border shadow-sm rounded-[var(--radius-md)] transition-all duration-150 hover:shadow-hover hover:border-muted-dark h-full flex flex-col ${isSelected ? 'border-blue ring-2 ring-blue/30 shadow-hover' : highlighted ? 'border-muted-dark shadow-hover' : 'border-muted'}`}
         style={{
           '--skill-pastel': SKILL_PASTELS[colorIdx],
           '--skill-pastel-dark': SKILL_PASTELS_DARK[colorIdx],
         } as React.CSSProperties}
       >
+        {selectionMode && (
+          <span className="absolute top-3 right-3 z-10">
+            <SelectBox checked={isSelected} />
+          </span>
+        )}
         {/* Skill name row */}
         <div className="flex items-center gap-2 mb-2">
           <div className="shrink-0">
@@ -755,6 +815,8 @@ function ContextMenuTip() {
 
 export default function SkillsPage() {
   const t = useT();
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
   const { data, isPending, error } = useQuery({
     queryKey: queryKeys.skills.all,
     queryFn: () => api.listSkills(),
@@ -788,10 +850,13 @@ export default function SkillsPage() {
     setActiveTab(tab);
     localStorage.setItem('skillshare:resources-tab', tab);
     setFilterType('all');
+    setStatusFilter('all');
     setSearch('');
+    setSelected(new Set());
   };
   const [search, setSearch] = useState('');
   const [filterType, setFilterType] = useState<FilterType>('all');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [sortType, setSortType] = useState<SortType>('name-asc');
   const [viewType, setViewType] = useState<ViewType>(() => {
     const saved = localStorage.getItem('skillshare:skills-view');
@@ -802,6 +867,32 @@ export default function SkillsPage() {
     setViewType(v);
     localStorage.setItem('skillshare:skills-view', v);
   };
+
+  // Multi-select state (keyed by flatName; kind is the active tab)
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const toggleSelect = useCallback((flatName: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(flatName)) next.delete(flatName);
+      else next.add(flatName);
+      return next;
+    });
+  }, []);
+  const toggleMany = useCallback((flatNames: string[], select: boolean) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      for (const f of flatNames) {
+        if (select) next.add(f);
+        else next.delete(f);
+      }
+      return next;
+    });
+  }, []);
+  const exitSelection = useCallback(() => {
+    setSelectionMode(false);
+    setSelected(new Set());
+  }, []);
 
   const [gridContextMenu, setGridContextMenu] = useState<{
     point: { x: number; y: number };
@@ -849,7 +940,26 @@ export default function SkillsPage() {
     return counts;
   }, [skills, activeTab]);
 
-  // Apply text filter -> type filter -> sort
+  // Compute enabled/disabled counts — scoped to the active tab, independent of
+  // the source filter so the two filter dimensions stay orthogonal.
+  const statusCounts = useMemo(() => {
+    const tabSkills = activeTab === 'agents'
+      ? skills.filter((s) => s.kind === 'agent')
+      : skills.filter((s) => s.kind !== 'agent');
+    let disabled = 0;
+    for (const s of tabSkills) if (s.disabled) disabled++;
+    return { all: tabSkills.length, enabled: tabSkills.length - disabled, disabled };
+  }, [skills, activeTab]);
+
+  // Status filter is a single toggle button cycling All → Enabled → Disabled.
+  const nextStatusFilter: Record<StatusFilter, StatusFilter> = {
+    all: 'enabled',
+    enabled: 'disabled',
+    disabled: 'all',
+  };
+  const curStatus = statusOptions.find((o) => o.key === statusFilter)!;
+
+  // Apply text filter -> source filter -> status filter -> sort
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
     const result = skills.filter(
@@ -857,14 +967,68 @@ export default function SkillsPage() {
         (s.name.toLowerCase().includes(q) ||
           s.flatName.toLowerCase().includes(q) ||
           (s.source ?? '').toLowerCase().includes(q)) &&
-        matchFilter(s, filterType),
+        matchFilter(s, filterType) &&
+        matchStatus(s, statusFilter),
     );
     return sortSkills(result, sortType);
-  }, [skills, search, filterType, sortType]);
+  }, [skills, search, filterType, statusFilter, sortType]);
 
   const skillItems = useMemo(() => filtered.filter((s) => s.kind !== 'agent'), [filtered]);
   const agentItems = useMemo(() => filtered.filter((s) => s.kind === 'agent'), [filtered]);
   const tabFiltered = activeTab === 'agents' ? agentItems : skillItems;
+
+  // Batch enable/disable across the current selection.
+  const [confirmDisable, setConfirmDisable] = useState<string[] | null>(null);
+  const batchToggleMutation = useMutation({
+    mutationFn: ({ names, enable }: { names: string[]; enable: boolean }) =>
+      api.batchToggleResources(names, enable, activeTab === 'agents' ? 'agent' : 'skill'),
+    onMutate: async ({ names, enable }) => {
+      const set = new Set(names);
+      const isAgent = activeTab === 'agents';
+      const previous = optimisticPatch(queryClient, (skills) =>
+        skills.map((s) =>
+          set.has(s.flatName) && (isAgent ? s.kind === 'agent' : s.kind !== 'agent')
+            ? { ...s, disabled: !enable }
+            : s,
+        ),
+      );
+      return { previous };
+    },
+    onSuccess: (data, { enable }) => {
+      const { updated, unchanged, failed } = data.summary;
+      if (failed > 0 && updated > 0) {
+        toast(t('resources.batchToggle.toast.partial', { updated, failed }), 'warning');
+      } else if (failed > 0) {
+        toast(t('resources.batchToggle.toast.failed', { count: failed }), 'error');
+      } else if (updated === 0 && unchanged > 0) {
+        toast(t('resources.batchToggle.toast.noChange'), 'info');
+      } else {
+        toast(
+          enable
+            ? t('resources.batchToggle.toast.enabled', { count: updated })
+            : t('resources.batchToggle.toast.disabled', { count: updated }),
+          'success',
+        );
+      }
+      exitSelection();
+    },
+    onError: (err: Error, _, ctx) => {
+      if (ctx?.previous) queryClient.setQueryData(queryKeys.skills.all, ctx.previous);
+      toast(err.message, 'error');
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.skills.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.overview });
+    },
+  });
+
+  const selectedNames = useMemo(() => Array.from(selected), [selected]);
+  const selectedInView = useMemo(
+    () => tabFiltered.filter((s) => selected.has(s.flatName)).length,
+    [tabFiltered, selected],
+  );
+  const allInViewSelected = tabFiltered.length > 0 && selectedInView === tabFiltered.length;
+  const selectAllInView = () => setSelected(new Set(tabFiltered.map((s) => s.flatName)));
 
   if (isPending) return <PageSkeleton />;
   if (error) {
@@ -879,7 +1043,7 @@ export default function SkillsPage() {
   }
 
   return (
-    <div data-tour="skills-view" className="animate-fade-in">
+    <div data-tour="skills-view" className={`animate-fade-in${selectionMode && selected.size > 0 ? ' pb-20' : ''}`}>
       {/* Header */}
       <PageHeader
         icon={<Layers size={24} strokeWidth={2.5} />}
@@ -975,23 +1139,70 @@ export default function SkillsPage() {
           />
         </div>
 
-        {/* Filter tabs */}
-        <SegmentedControl
-          value={filterType}
-          onChange={setFilterType}
-          options={filterOptions.map((opt) => ({
-            value: opt.key,
-            label: <span className="inline-flex items-center gap-1.5">{opt.icon}{opt.label}</span>,
-            count: filterCounts[opt.key],
-          }))}
-        />
+        {/* Filters — source chips (outlined) + status pill-group (connected),
+            two orthogonal dimensions distinguished by control style */}
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+          <SegmentedControl
+            value={filterType}
+            onChange={setFilterType}
+            options={filterOptions.map((opt) => ({
+              value: opt.key,
+              label: <span className="inline-flex items-center gap-1.5">{opt.icon}{opt.label}</span>,
+              count: filterCounts[opt.key],
+            }))}
+          />
+          <div className="h-6 w-px self-center bg-pencil-light/30" aria-hidden="true" />
+          <button
+            type="button"
+            onClick={() => setStatusFilter(nextStatusFilter[statusFilter])}
+            title={`Status: ${curStatus.label} · click to cycle`}
+            aria-label={`Status filter: ${curStatus.label}. Click to cycle through all, enabled, and disabled.`}
+            className={`inline-flex items-center gap-1.5 rounded border px-3 py-1.5 text-sm font-medium transition-all duration-150 cursor-pointer ${
+              statusFilter === 'all'
+                ? 'border-muted bg-transparent text-pencil-light hover:border-muted-dark hover:text-pencil'
+                : 'border-muted-dark bg-surface text-pencil'
+            }`}
+          >
+            {curStatus.icon}
+            {curStatus.label}
+            {statusFilter !== 'all' && (
+              <span className="opacity-60">{statusCounts[statusFilter]}</span>
+            )}
+          </button>
+
+          {/* Multi-select controls */}
+          <div className="ml-auto flex items-center gap-2">
+            {!selectionMode ? (
+              <Button variant="ghost" size="sm" onClick={() => setSelectionMode(true)} disabled={tabFiltered.length === 0}>
+                <CheckSquare size={16} strokeWidth={2.5} />
+                {t('resources.select.toggle')}
+              </Button>
+            ) : (
+              <>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={allInViewSelected ? () => toggleMany(tabFiltered.map((s) => s.flatName), false) : selectAllInView}
+                  disabled={tabFiltered.length === 0}
+                >
+                  <CheckSquare size={16} strokeWidth={2.5} />
+                  {allInViewSelected ? t('resources.select.clear') : t('resources.select.selectAll')}
+                </Button>
+                <Button variant="ghost" size="sm" onClick={exitSelection}>
+                  <X size={16} strokeWidth={2.5} />
+                  {t('resources.select.done')}
+                </Button>
+              </>
+            )}
+          </div>
+        </div>
       </div>
 
       {/* Result count — hidden in folder view (merged into folder toolbar) */}
-      {(filterType !== 'all' || search) && viewType !== 'grouped' && (
+      {(filterType !== 'all' || statusFilter !== 'all' || search) && viewType !== 'grouped' && (
         <p className="text-pencil-light text-sm mb-3">
           {t('resources.showing', { count: tabFiltered.length, total: skills.length })}
-          {filterType !== 'all' && (
+          {(filterType !== 'all' || statusFilter !== 'all') && (
             <>
               {' '}
               &middot;{' '}
@@ -999,6 +1210,7 @@ export default function SkillsPage() {
                 variant="link"
                 onClick={() => {
                   setFilterType('all');
+                  setStatusFilter('all');
                   setSearch('');
                 }}
               >
@@ -1030,6 +1242,9 @@ export default function SkillsPage() {
                 <SkillPostit
                   skill={skill}
                   highlighted={gridContextMenu?.skillFlatName === skill.flatName}
+                  selectionMode={selectionMode}
+                  isSelected={selected.has(skill.flatName)}
+                  onToggleSelect={toggleSelect}
                   onContextMenu={(e) => {
                     e.preventDefault();
                     setGridContextMenu({
@@ -1052,19 +1267,24 @@ export default function SkillsPage() {
             skills={tabFiltered}
             resourceKind={activeTab === 'agents' ? 'agent' : 'skill'}
             totalCount={skills.length}
-            isSearching={!!search || filterType !== 'all'}
+            isSearching={!!search || filterType !== 'all' || statusFilter !== 'all'}
             stickyTop={toolbarH}
-            onClearFilters={(filterType !== 'all' || search) ? () => { setFilterType('all'); setSearch(''); } : undefined}
+            selection={{ selectionMode, selected, onToggleSelect: toggleSelect, onToggleMany: toggleMany }}
+            onClearFilters={(filterType !== 'all' || statusFilter !== 'all' || search) ? () => { setFilterType('all'); setStatusFilter('all'); setSearch(''); } : undefined}
           />
         ) : (
-          <SkillsTable skills={tabFiltered} resourceKind={activeTab === 'agents' ? 'agent' : 'skill'} />
+          <SkillsTable
+            skills={tabFiltered}
+            resourceKind={activeTab === 'agents' ? 'agent' : 'skill'}
+            selection={{ selectionMode, selected, onToggleSelect: toggleSelect, onToggleMany: toggleMany }}
+          />
         )
       ) : (
         <EmptyState
           icon={activeTab === 'agents' ? Bot : Puzzle}
-          title={search || filterType !== 'all' ? t('resources.noMatches.title') : activeTab === 'agents' ? t('resources.agents.empty.title') : t('resources.skills.empty.title')}
+          title={search || filterType !== 'all' || statusFilter !== 'all' ? t('resources.noMatches.title') : activeTab === 'agents' ? t('resources.agents.empty.title') : t('resources.skills.empty.title')}
           description={
-            search || filterType !== 'all'
+            search || filterType !== 'all' || statusFilter !== 'all'
               ? t('resources.noMatches.description')
               : activeTab === 'agents'
                 ? t('resources.agents.empty.description')
@@ -1126,6 +1346,61 @@ export default function SkillsPage() {
         }}
         onCancel={() => setGridConfirmUninstallRepo(null)}
       />
+
+      {/* Batch enable/disable confirm (disable only) */}
+      <ConfirmDialog
+        open={!!confirmDisable}
+        title={t('resources.batchToggle.confirmTitle', { count: confirmDisable?.length ?? 0 })}
+        confirmText={t('resources.batchToggle.confirmButton', { count: confirmDisable?.length ?? 0 })}
+        variant="danger"
+        wide
+        loading={batchToggleMutation.isPending}
+        onConfirm={() => {
+          if (confirmDisable) batchToggleMutation.mutate({ names: confirmDisable, enable: false });
+          setConfirmDisable(null);
+        }}
+        onCancel={() => setConfirmDisable(null)}
+        message={
+          <div className="space-y-3">
+            <p className="text-pencil-light">{t('resources.batchToggle.confirmMessage')}</p>
+            <div className="max-h-48 overflow-y-auto bg-muted/10 p-3 space-y-1" style={{ borderRadius: radius.md }}>
+              {(confirmDisable ?? []).map((n) => (
+                <div key={n} className="font-mono text-sm text-pencil">{formatSkillDisplayName(n)}</div>
+              ))}
+            </div>
+          </div>
+        }
+      />
+
+      {/* Bottom action bar */}
+      {selectionMode && selected.size > 0 && (
+        <div className="fixed bottom-0 right-0 left-60 max-md:left-0 bg-paper/95 backdrop-blur-sm border-t-2 border-blue/25 px-6 py-3 flex items-center justify-between z-30 animate-fade-in">
+          <span className="inline-flex items-center gap-2 text-sm font-semibold text-pencil">
+            <SelectBox checked />
+            {t('resources.select.count', { count: selected.size })}
+          </span>
+          <div className="flex items-center gap-3">
+            <Button
+              variant="secondary"
+              size="md"
+              disabled={batchToggleMutation.isPending}
+              onClick={() => batchToggleMutation.mutate({ names: selectedNames, enable: true })}
+            >
+              <Eye size={16} strokeWidth={2.5} />
+              {t('resources.batchToggle.enable')}
+            </Button>
+            <Button
+              variant="danger"
+              size="md"
+              disabled={batchToggleMutation.isPending}
+              onClick={() => setConfirmDisable(selectedNames)}
+            >
+              <EyeOff size={16} strokeWidth={2.5} />
+              {t('resources.batchToggle.disable')}
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -1135,12 +1410,13 @@ export default function SkillsPage() {
 const INDENT_PX = 24;
 
 
-function FolderTreeView({ skills, resourceKind, totalCount, isSearching, stickyTop = 0, onClearFilters }: {
+function FolderTreeView({ skills, resourceKind, totalCount, isSearching, stickyTop = 0, selection, onClearFilters }: {
   skills: Skill[];
   resourceKind: Skill['kind'];
   totalCount: number;
   isSearching: boolean;
   stickyTop?: number;
+  selection?: SelectionApi;
   onClearFilters?: () => void;
 }) {
   const [collapsed, setCollapsed] = useState<Set<string>>(loadCollapsed);
@@ -1228,6 +1504,24 @@ function FolderTreeView({ skills, resourceKind, totalCount, isSearching, stickyT
     for (const r of rows) if (r.type === 'folder') count++;
     return count;
   }, [rows]);
+
+  // Descendant skills of a folder row (for tri-state select-all in selection mode)
+  const descendantFlatNames = useCallback((folderPath: string, isRoot: boolean): string[] => {
+    if (isRoot || folderPath === '') {
+      return skills.filter((s) => !s.relPath.includes('/')).map((s) => s.flatName);
+    }
+    return skills
+      .filter((s) => s.relPath === folderPath || s.relPath.startsWith(folderPath + '/'))
+      .map((s) => s.flatName);
+  }, [skills]);
+
+  const folderSelectState = useCallback((folderPath: string, isRoot: boolean) => {
+    if (!selection) return { checked: false, indeterminate: false, names: [] as string[] };
+    const names = descendantFlatNames(folderPath, isRoot);
+    let n = 0;
+    for (const f of names) if (selection.selected.has(f)) n++;
+    return { checked: names.length > 0 && n === names.length, indeterminate: n > 0 && n < names.length, names };
+  }, [selection, descendantFlatNames]);
 
   // Track scroll to find which folder should be sticky.
   // Uses DOM positions to find the row index at the toolbar edge,
@@ -1329,6 +1623,20 @@ function FolderTreeView({ skills, resourceKind, totalCount, isSearching, stickyT
           aria-expanded={!isFolderCollapsed}
         >
           {indentGuides}
+          {selection?.selectionMode && (() => {
+            const st = folderSelectState(node.path, !!node.isRoot);
+            return (
+              <span className="shrink-0 flex items-center mr-0.5" onClick={(e) => e.stopPropagation()}>
+                <Checkbox
+                  label=""
+                  size="sm"
+                  checked={st.checked}
+                  indeterminate={st.indeterminate}
+                  onChange={(c) => selection.onToggleMany(st.names, c)}
+                />
+              </span>
+            );
+          })()}
           {isFolderCollapsed
             ? <ChevronRight size={14} strokeWidth={2.5} className="text-pencil-light shrink-0" />
             : <ChevronDown size={14} strokeWidth={2.5} className="text-pencil-light shrink-0" />
@@ -1391,7 +1699,7 @@ function FolderTreeView({ skills, resourceKind, totalCount, isSearching, stickyT
         data-tree-idx={index}
         onContextMenu={(e) => {
           e.preventDefault();
-          if (batchMutation.isPending) return;
+          if (selection?.selectionMode || batchMutation.isPending) return;
           setContextMenu({
             point: { x: e.clientX, y: e.clientY },
             mode: 'skill',
@@ -1409,11 +1717,14 @@ function FolderTreeView({ skills, resourceKind, totalCount, isSearching, stickyT
         <Tooltip content={tooltipContent} followCursor delay={1000}>
           <Link
             to={resourceDetailHref(skill)}
-            className={`relative flex items-center gap-1.5 py-1 px-1 hover:bg-muted/50 transition-colors no-underline${skill.disabled ? ' opacity-40' : ''}${contextMenu?.mode === 'skill' && contextMenu.skillFlatName === skill.flatName ? ' bg-muted/50' : ''}`}
+            onClick={selection?.selectionMode ? (e) => { e.preventDefault(); selection.onToggleSelect(skill.flatName); } : undefined}
+            className={`relative flex items-center gap-1.5 py-1 px-1 hover:bg-muted/50 transition-colors no-underline${skill.disabled ? ' opacity-40' : ''}${selection?.selected.has(skill.flatName) ? ' bg-blue/10' : ''}${contextMenu?.mode === 'skill' && contextMenu.skillFlatName === skill.flatName ? ' bg-muted/50' : ''}`}
             style={{ paddingLeft: node.depth * INDENT_PX + 4 }}
           >
             {indentGuides}
-            <span style={{ width: 14 }} className="shrink-0" />
+            {selection?.selectionMode
+              ? <SelectBox checked={selection.selected.has(skill.flatName)} className="ml-0.5" />
+              : <span style={{ width: 14 }} className="shrink-0" />}
             {skill.kind === 'agent'
               ? <FileText size={14} strokeWidth={2} className="text-pencil-light/60 shrink-0" />
               : <Puzzle size={14} strokeWidth={2} className="text-pencil-light/60 shrink-0" />
@@ -1449,7 +1760,7 @@ function FolderTreeView({ skills, resourceKind, totalCount, isSearching, stickyT
         </Tooltip>
       </div>
     );
-  }, [rows, collapsed, isSearching, toggleFolder, contextMenu, pendingFolder, resourceKind, batchMutation.isPending]);
+  }, [rows, collapsed, isSearching, toggleFolder, contextMenu, pendingFolder, resourceKind, batchMutation.isPending, selection, folderSelectState]);
 
   return (
     <div>
@@ -1613,7 +1924,7 @@ function FolderTreeView({ skills, resourceKind, totalCount, isSearching, stickyT
 
 const TABLE_PAGE_SIZES = [10, 25, 50] as const;
 
-function SkillsTable({ skills, resourceKind }: { skills: Skill[]; resourceKind: Skill['kind'] }) {
+function SkillsTable({ skills, resourceKind, selection }: { skills: Skill[]; resourceKind: Skill['kind']; selection?: SelectionApi }) {
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState<number>(() => {
     const saved = localStorage.getItem('skillshare:table-page-size');
@@ -1693,6 +2004,21 @@ function SkillsTable({ skills, resourceKind }: { skills: Skill[]; resourceKind: 
         <table className="w-full text-left">
           <thead className="sticky top-0 z-10 bg-surface">
             <tr className="border-b-2 border-dashed border-muted-dark">
+              {selection?.selectionMode && (() => {
+                const visFlat = visible.map((s) => s.flatName);
+                const n = visFlat.filter((f) => selection.selected.has(f)).length;
+                return (
+                  <th className="pb-3 pr-3 w-0">
+                    <Checkbox
+                      label=""
+                      size="sm"
+                      checked={visFlat.length > 0 && n === visFlat.length}
+                      indeterminate={n > 0 && n < visFlat.length}
+                      onChange={(c) => selection.onToggleMany(visFlat, c)}
+                    />
+                  </th>
+                );
+              })()}
               <th className="pb-3 pr-4 text-pencil-light text-sm font-medium w-0" />
               <th className="pb-3 pr-4 text-pencil-light text-sm font-medium">{t('resources.table.name')}</th>
               <th className="pb-3 pr-4 text-pencil-light text-sm font-medium">{t('resources.table.type')}</th>
@@ -1710,8 +2036,18 @@ function SkillsTable({ skills, resourceKind }: { skills: Skill[]; resourceKind: 
               return (
                 <tr
                   key={skill.flatName}
-                  className={`border-b border-dashed border-muted hover:bg-paper-warm/60 transition-colors${actionMenu?.skillFlatName === skill.flatName ? ' bg-paper-warm/60' : ''}`}
+                  className={`border-b border-dashed border-muted hover:bg-paper-warm/60 transition-colors${selection?.selected.has(skill.flatName) ? ' bg-blue/10' : actionMenu?.skillFlatName === skill.flatName ? ' bg-paper-warm/60' : ''}`}
                 >
+                  {selection?.selectionMode && (
+                    <td className="py-3.5 pr-3 w-0">
+                      <Checkbox
+                        label=""
+                        size="sm"
+                        checked={selection.selected.has(skill.flatName)}
+                        onChange={() => selection.onToggleSelect(skill.flatName)}
+                      />
+                    </td>
+                  )}
                   {/* Status stripe */}
                   <td className="py-3.5 pr-0 w-1">
                     <div
@@ -1730,6 +2066,7 @@ function SkillsTable({ skills, resourceKind }: { skills: Skill[]; resourceKind: 
                       <div className="min-w-0 flex-1">
                         <Link
                           to={resourceDetailHref(skill)}
+                          onClick={selection?.selectionMode ? (e) => { e.preventDefault(); selection.onToggleSelect(skill.flatName); } : undefined}
                           className="font-medium text-pencil hover:underline block truncate"
                         >
                           {skill.name}

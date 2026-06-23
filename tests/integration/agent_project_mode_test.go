@@ -115,6 +115,85 @@ func TestStatusProject_JSON_IncludesAgents(t *testing.T) {
 	result.AssertAnyOutputContains(t, `"count"`)
 }
 
+func TestSyncProject_AgentsUseRelativeSymlinks(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	projectDir := setupProjectWithAgents(t, sb)
+
+	result := sb.RunCLIInDir(projectDir, "sync", "-p", "agents")
+	result.AssertSuccess(t)
+
+	link := filepath.Join(projectDir, ".claude", "agents", "tutor.md")
+	if !sb.IsSymlink(link) {
+		t.Fatal("agent should be a symlink")
+	}
+	if target := sb.SymlinkTarget(link); filepath.IsAbs(target) {
+		t.Fatalf("project-mode agent symlink should be relative, got %q", target)
+	}
+}
+
+func TestSyncProject_AgentsAliasTargetUsesBuiltinAgentPath(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	projectDir := filepath.Join(sb.Root, "factory-agent-project")
+	agentsDir := filepath.Join(projectDir, ".skillshare", "agents")
+	if err := os.MkdirAll(agentsDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(agentsDir, "droid.md"), []byte("# Droid"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	sb.WriteProjectConfig(projectDir, `targets:
+  - factory
+`)
+	sb.WriteConfig(`source: ` + sb.SourcePath + "\ntargets: {}\n")
+
+	result := sb.RunCLIInDir(projectDir, "sync", "-p", "agents")
+	result.AssertSuccess(t)
+
+	link := filepath.Join(projectDir, ".factory", "droids", "droid.md")
+	if !sb.IsSymlink(link) {
+		t.Fatal("factory alias should sync agents to droid builtin path")
+	}
+	if target := sb.SymlinkTarget(link); filepath.IsAbs(target) {
+		t.Fatalf("project-mode factory agent symlink should be relative, got %q", target)
+	}
+}
+
+func TestSyncProject_AgentsSymlinkModeUsesRelativeSymlink(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	projectDir := filepath.Join(sb.Root, "agent-symlink-project")
+	agentsDir := filepath.Join(projectDir, ".skillshare", "agents")
+	if err := os.MkdirAll(agentsDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(agentsDir, "tutor.md"), []byte("# Tutor"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	sb.WriteProjectConfig(projectDir, `targets:
+  - name: claude
+    agents:
+      path: .claude/agents
+      mode: symlink
+`)
+	sb.WriteConfig(`source: ` + sb.SourcePath + "\ntargets: {}\n")
+
+	result := sb.RunCLIInDir(projectDir, "sync", "-p", "agents")
+	result.AssertSuccess(t)
+
+	link := filepath.Join(projectDir, ".claude", "agents")
+	if !sb.IsSymlink(link) {
+		t.Fatal("agents target should be a directory symlink")
+	}
+	if target := sb.SymlinkTarget(link); filepath.IsAbs(target) {
+		t.Fatalf("project-mode agents directory symlink should be relative, got %q", target)
+	}
+}
+
 // --- check -p agents ---
 
 func TestCheckProject_Agents(t *testing.T) {

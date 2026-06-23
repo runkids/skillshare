@@ -134,7 +134,6 @@ func (s *Server) handlePatchSkillSource(w http.ResponseWriter, r *http.Request) 
 	entry := m.Entry
 	if entry == nil {
 		entry = &install.MetadataEntry{}
-		m.Store.Set(m.RelPath, entry)
 	}
 
 	// Detect tracked repo by walking up for .git, bounded by storeDir.
@@ -152,6 +151,25 @@ func (s *Server) handlePatchSkillSource(w http.ResponseWriter, r *http.Request) 
 
 	oldSource := entry.Source
 	updated := 0
+
+	// Update git remote origin before persisting metadata so the API does not
+	// report success while the on-disk repository still points at the old URL.
+	if repoRoot != "" {
+		if err := git.SetRemoteURL(repoRoot, newRepoURL); err != nil {
+			s.writeOpsLog("skill.source", "error", start, map[string]any{
+				"name":      name,
+				"kind":      m.Kind,
+				"oldSource": oldSource,
+				"newSource": req.Source,
+			}, err.Error())
+			writeError(w, http.StatusInternalServerError, "failed to update git remote URL: "+err.Error())
+			return
+		}
+	}
+
+	if m.Entry == nil {
+		m.Store.Set(m.RelPath, entry)
+	}
 
 	// For tracked repos, update ALL skills sharing the same git repo.
 	if oldRepoURL != "" && isTracked {
@@ -183,11 +201,6 @@ func (s *Server) handlePatchSkillSource(w http.ResponseWriter, r *http.Request) 
 	if err := m.Store.Save(m.StoreDir); err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to save metadata: "+err.Error())
 		return
-	}
-
-	// Update git remote origin if this is a tracked repo.
-	if repoRoot != "" {
-		_ = git.SetRemoteURL(repoRoot, newRepoURL)
 	}
 
 	s.writeOpsLog("skill.source", "ok", start, map[string]any{

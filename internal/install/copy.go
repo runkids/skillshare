@@ -17,6 +17,11 @@ func copyDir(src, dst string) error {
 // "skills/officecli-pptx"). Passing a nil or empty map is equivalent to
 // copyDir.
 func copyDirExcluding(src, dst string, excludes map[string]bool) error {
+	absDst, err := filepath.Abs(dst)
+	if err != nil {
+		return err
+	}
+
 	return filepath.Walk(src, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
@@ -24,6 +29,12 @@ func copyDirExcluding(src, dst string, excludes map[string]bool) error {
 
 		relPath, _ := filepath.Rel(src, path)
 		dstPath := filepath.Join(dst, relPath)
+
+		// If dst is inside src (for example `skillshare install ./ -p`),
+		// never traverse the destination subtree as source input.
+		if info.IsDir() && pathSameOrDescendant(path, absDst) {
+			return filepath.SkipDir
+		}
 
 		// Skip .git directory
 		if info.IsDir() && info.Name() == ".git" {
@@ -45,6 +56,22 @@ func copyDirExcluding(src, dst string, excludes map[string]bool) error {
 
 		return copyFile(path, dstPath)
 	})
+}
+
+func pathSameOrDescendant(path, parent string) bool {
+	absPath, err := filepath.Abs(path)
+	if err != nil {
+		return false
+	}
+	rel, err := filepath.Rel(parent, absPath)
+	if err != nil {
+		return false
+	}
+	return rel == "." || (rel != ".." && !filepath.IsAbs(rel) && !startsWithParentTraversal(rel))
+}
+
+func startsWithParentTraversal(path string) bool {
+	return len(path) > 2 && path[:2] == ".." && os.IsPathSeparator(path[2])
 }
 
 // copyFile copies a single file

@@ -114,6 +114,9 @@ skills:
 # Fold $HOME → ~ on save (dotfiles-friendly)
 # preserve_tilde_on_save: true
 
+# Directory for commit/push/pull (skills default, agents, extras, root)
+# git_root: skills
+
 # Custom agents source (optional, overrides default location)
 agents_source: ~/my-agents
 
@@ -642,6 +645,44 @@ The in-memory config is unaffected — `Load()` still expands `~` as usual. Non-
 
 :::note Global mode only
 This option applies to the global `config.yaml` only. Project configs (`.skillshare/config.yaml`) typically use relative paths and don't need tilde folding.
+:::
+
+### `git_root` {#git-root}
+
+Selects which directory `skillshare commit`, `push`, and `pull` operate on.
+
+```yaml
+git_root: skills
+```
+
+| Value | Directory versioned |
+|-------|---------------------|
+| `skills` (default) | Skills source (`~/.config/skillshare/skills/`) |
+| `agents` | Agents source (`~/.config/skillshare/agents/`) |
+| `extras` | Extras source (`~/.config/skillshare/extras/`) |
+| `root` | Config root (`~/.config/skillshare/`) — skills + agents + extras in one repo; `config.yaml` is auto-ignored |
+
+**Default:** `skills`
+
+Set during init with `skillshare init --git-root <scope>`, or interactively during the init wizard.
+
+#### Changing the scope after init
+
+Switch the scope headlessly on an already-initialized setup:
+
+```bash
+skillshare init --git-root <scope>   # global mode; add -g if your cwd is a project
+```
+
+This initializes a git repo at the new scope directory (reusing one already there), persists `git_root` to config, and does not prompt or require `--remote`. It does **not** move an existing repo, though — switching scope means "start versioning a different directory", not "relocate history":
+
+- **Fresh history** — `skillshare init --git-root <scope>` initializes an empty repo at the new scope.
+- **Keep history** — first `mv <old-scope>/.git <new-scope>/.git`, then `skillshare init --git-root <scope>` to record the scope.
+
+You can also edit `git_root` in `config.yaml` directly. If `git_root` points to a directory without a repo while another scope directory has one, `commit`/`push`/`pull` print a "Git root mismatch" error that includes the exact `skillshare init` / `mv` commands to resolve it.
+
+:::note Global mode only
+`git_root` applies to global mode only. Project mode uses the `.skillshare/` directory and does not support this field.
 :::
 
 ---

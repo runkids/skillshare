@@ -54,21 +54,40 @@ func CheckAgentCollisions(agents []resource.DiscoveredResource) []AgentCollision
 
 // SyncAgents dispatches to the appropriate sync mode for agents.
 // mode: "merge" (per-file symlinks), "symlink" (whole dir), "copy" (file copy).
-func SyncAgents(agents []resource.DiscoveredResource, sourceDir, targetDir, mode string, dryRun, force bool) (*AgentSyncResult, error) {
+// projectRoot enables relative symlinks when non-empty.
+func SyncAgents(agents []resource.DiscoveredResource, sourceDir, targetDir, mode string, dryRun, force bool, projectRoot ...string) (*AgentSyncResult, error) {
+	root := ""
+	if len(projectRoot) > 0 {
+		root = projectRoot[0]
+	}
+
 	switch mode {
 	case "symlink":
-		return syncAgentsSymlink(sourceDir, targetDir, dryRun, force)
+		return syncAgentsSymlink(sourceDir, targetDir, dryRun, force, root)
 	case "copy":
 		return syncAgentsCopy(agents, targetDir, dryRun, force)
 	default: // "merge" or ""
-		return syncAgentsMerge(agents, targetDir, dryRun, force)
+		return syncAgentsMerge(agents, sourceDir, targetDir, dryRun, force, root)
 	}
+}
+
+// linkResolvesToSource reports whether a resolved symlink target (absLink) and a
+// source path (absSource) reference the same file. The fast path is a direct
+// string compare; the slow path canonicalizes both sides through EvalSymlinks so
+// symlinked ancestors (e.g. macOS /var → /private/var) do not make a stable
+// relative link look like it points elsewhere. Mirrors isSymlinkToSource in sync.go.
+func linkResolvesToSource(absLink, absSource string) bool {
+	if utils.PathsEqual(absLink, absSource) {
+		return true
+	}
+	return utils.PathsEqual(utils.ResolveSymlink(absLink), utils.ResolveSymlink(absSource))
 }
 
 // syncAgentsMerge creates per-file symlinks in targetDir for each discovered agent.
 // Existing non-symlink files are preserved (skipped) unless force is true.
-func syncAgentsMerge(agents []resource.DiscoveredResource, targetDir string, dryRun, force bool) (*AgentSyncResult, error) {
+func syncAgentsMerge(agents []resource.DiscoveredResource, sourceDir, targetDir string, dryRun, force bool, projectRoot string) (*AgentSyncResult, error) {
 	result := &AgentSyncResult{}
+	relative := shouldUseRelative(projectRoot, sourceDir, targetDir)
 
 	if !dryRun {
 		if err := os.MkdirAll(targetDir, 0755); err != nil {
@@ -88,14 +107,24 @@ func syncAgentsMerge(agents []resource.DiscoveredResource, targetDir string, dry
 				}
 				absSource, _ := filepath.Abs(agent.AbsPath)
 
-				if utils.PathsEqual(absLink, absSource) {
-					result.Linked = append(result.Linked, agent.FlatName)
+				if linkResolvesToSource(absLink, absSource) {
+					dest, _ := os.Readlink(targetPath)
+					if !linkNeedsReformat(dest, relative) {
+						result.Linked = append(result.Linked, agent.FlatName)
+						continue
+					}
+					if !dryRun {
+						if err := reformatLink(targetPath, agent.AbsPath, relative); err != nil {
+							return nil, fmt.Errorf("failed to reformat symlink for %s: %w", agent.FlatName, err)
+						}
+					}
+					result.Updated = append(result.Updated, agent.FlatName)
 					continue
 				}
 
 				if !dryRun {
 					os.Remove(targetPath)
-					if err := os.Symlink(agent.AbsPath, targetPath); err != nil {
+					if err := createLink(targetPath, agent.AbsPath, relative); err != nil {
 						return nil, fmt.Errorf("failed to create symlink for %s: %w", agent.FlatName, err)
 					}
 				}
@@ -104,7 +133,7 @@ func syncAgentsMerge(agents []resource.DiscoveredResource, targetDir string, dry
 				if force {
 					if !dryRun {
 						os.Remove(targetPath)
-						if err := os.Symlink(agent.AbsPath, targetPath); err != nil {
+						if err := createLink(targetPath, agent.AbsPath, relative); err != nil {
 							return nil, fmt.Errorf("failed to create symlink for %s: %w", agent.FlatName, err)
 						}
 					}
@@ -115,7 +144,7 @@ func syncAgentsMerge(agents []resource.DiscoveredResource, targetDir string, dry
 			}
 		} else if os.IsNotExist(err) {
 			if !dryRun {
-				if err := os.Symlink(agent.AbsPath, targetPath); err != nil {
+				if err := createLink(targetPath, agent.AbsPath, relative); err != nil {
 					return nil, fmt.Errorf("failed to create symlink for %s: %w", agent.FlatName, err)
 				}
 			}
@@ -130,8 +159,9 @@ func syncAgentsMerge(agents []resource.DiscoveredResource, targetDir string, dry
 
 // syncAgentsSymlink creates a single directory symlink from targetDir to sourceDir.
 // If targetDir already exists as a real directory, it's replaced only with force.
-func syncAgentsSymlink(sourceDir, targetDir string, dryRun, force bool) (*AgentSyncResult, error) {
+func syncAgentsSymlink(sourceDir, targetDir string, dryRun, force bool, projectRoot string) (*AgentSyncResult, error) {
 	result := &AgentSyncResult{}
+	relative := shouldUseRelative(projectRoot, sourceDir, targetDir)
 
 	if err := os.MkdirAll(filepath.Dir(targetDir), 0755); err != nil {
 		return nil, fmt.Errorf("failed to create target parent: %w", err)
@@ -147,15 +177,25 @@ func syncAgentsSymlink(sourceDir, targetDir string, dryRun, force bool) (*AgentS
 			}
 			absSource, _ := filepath.Abs(sourceDir)
 
-			if utils.PathsEqual(absLink, absSource) {
-				result.Linked = append(result.Linked, "(directory)")
+			if linkResolvesToSource(absLink, absSource) {
+				dest, _ := os.Readlink(targetDir)
+				if !linkNeedsReformat(dest, relative) {
+					result.Linked = append(result.Linked, "(directory)")
+					return result, nil
+				}
+				if !dryRun {
+					if err := reformatLink(targetDir, sourceDir, relative); err != nil {
+						return nil, fmt.Errorf("failed to reformat directory symlink: %w", err)
+					}
+				}
+				result.Updated = append(result.Updated, "(directory)")
 				return result, nil
 			}
 
 			// Wrong target
 			if !dryRun {
 				os.Remove(targetDir)
-				if err := os.Symlink(sourceDir, targetDir); err != nil {
+				if err := createLink(targetDir, sourceDir, relative); err != nil {
 					return nil, fmt.Errorf("failed to create directory symlink: %w", err)
 				}
 			}
@@ -165,7 +205,7 @@ func syncAgentsSymlink(sourceDir, targetDir string, dryRun, force bool) (*AgentS
 			if force {
 				if !dryRun {
 					os.RemoveAll(targetDir)
-					if err := os.Symlink(sourceDir, targetDir); err != nil {
+					if err := createLink(targetDir, sourceDir, relative); err != nil {
 						return nil, fmt.Errorf("failed to create directory symlink: %w", err)
 					}
 				}
@@ -176,7 +216,7 @@ func syncAgentsSymlink(sourceDir, targetDir string, dryRun, force bool) (*AgentS
 		}
 	} else if os.IsNotExist(err) {
 		if !dryRun {
-			if err := os.Symlink(sourceDir, targetDir); err != nil {
+			if err := createLink(targetDir, sourceDir, relative); err != nil {
 				return nil, fmt.Errorf("failed to create directory symlink: %w", err)
 			}
 		}
@@ -238,7 +278,7 @@ func syncAgentsCopy(agents []resource.DiscoveredResource, targetDir string, dryR
 // SyncAgentsToTarget creates file symlinks in targetDir for each discovered agent.
 // Uses merge semantics. Kept for backward compatibility; prefer SyncAgents().
 func SyncAgentsToTarget(agents []resource.DiscoveredResource, targetDir string, dryRun, force bool) (*AgentSyncResult, error) {
-	return syncAgentsMerge(agents, targetDir, dryRun, force)
+	return syncAgentsMerge(agents, "", targetDir, dryRun, force, "")
 }
 
 // PruneOrphanAgentLinks removes file symlinks in targetDir that don't
@@ -346,7 +386,7 @@ func FindLocalAgents(targetDir, sourcePath string) ([]LocalAgentInfo, error) {
 			return nil, err
 		}
 		absSource, _ := filepath.Abs(sourcePath)
-		if utils.PathsEqual(absLink, absSource) {
+		if linkResolvesToSource(absLink, absSource) {
 			return agents, nil
 		}
 		resolved, statErr := os.Stat(targetDir)

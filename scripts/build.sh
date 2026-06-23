@@ -25,8 +25,14 @@ echo
 # Create output directory
 mkdir -p "${OUTPUT_DIR}"
 
-# Get version info
-VERSION=$(git describe --tags --always --dirty 2>/dev/null || echo "dev")
+# Get version info. Only exact, clean release tags produce update-checkable
+# versions; local builds from commits or dirty trees are dev builds.
+if git describe --tags --exact-match >/dev/null 2>&1 && git diff --quiet && git diff --cached --quiet; then
+    VERSION=$(git describe --tags --exact-match 2>/dev/null)
+    VERSION="${VERSION#v}"
+else
+    VERSION="dev"
+fi
 BUILD_TIME=$(date -u '+%Y-%m-%d_%H:%M:%S')
 
 echo -e "${YELLOW}Version:${NC} ${VERSION}"

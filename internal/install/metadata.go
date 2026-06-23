@@ -13,6 +13,8 @@ import (
 // MetadataFileName is the centralized metadata file stored in each directory.
 const MetadataFileName = ".metadata.json"
 
+const metadataFileMode os.FileMode = 0644
+
 // Metadata kind constants for LoadMetadataWithMigration.
 const (
 	MetadataKindSkill = ""      // default kind for skills directories
@@ -78,6 +80,9 @@ func (s *MetadataStore) Has(name string) bool {
 // It first tries a direct key lookup, then falls back to matching group+basename.
 // This handles the case where entries are stored with basename keys but have a Group field.
 func (s *MetadataStore) GetByPath(relPath string) *MetadataEntry {
+	if s == nil {
+		return nil
+	}
 	// Direct lookup (works for top-level skills where key == relPath)
 	if e := s.Entries[relPath]; e != nil {
 		return e
@@ -296,6 +301,11 @@ func (s *MetadataStore) Save(dir string) error {
 		tmp.Close()
 		os.Remove(tmpName)
 		return fmt.Errorf("failed to write temp file: %w", err)
+	}
+	if err := tmp.Chmod(metadataFileMode); err != nil {
+		tmp.Close()
+		os.Remove(tmpName)
+		return fmt.Errorf("failed to chmod temp file: %w", err)
 	}
 	if err := tmp.Close(); err != nil {
 		os.Remove(tmpName)

@@ -49,6 +49,8 @@ Command cheat sheet for skillshare.
 | `extras init <name> --target <path>` | Add an extras entry to config |
 | `extras list` | List configured extras with sync status |
 | `extras remove <name>` | Remove an extras entry from config |
+| `extras <name> --add-target <path>` | Add a target to an existing extras entry |
+| `extras <name> --remove-target <path>` | Remove a target (add `--prune` to delete synced files) |
 | `extras collect <name>` | Collect local files from extras target into source |
 
 ## Agent Management
@@ -76,7 +78,8 @@ Command cheat sheet for skillshare.
 | `backup [target]` | Create backup |
 | `backup --list` | List backups |
 | `restore <target>` | Restore from backup |
-| `push [-m "msg"]` | Push to git remote |
+| `commit [-m "msg"]` | Create a local git commit without pushing |
+| `push [-m "msg"]` | Commit and push to git remote |
 | `pull` | Pull from git and sync |
 | `trash list` | List soft-deleted skills |
 | `trash restore <name>` | Restore a soft-deleted skill |
@@ -127,6 +130,9 @@ skillshare init --remote git@github.com:you/my-skills.git
 
 # Non-interactive (no prompts, auto-detect installed targets)
 skillshare init --remote git@github.com:you/my-skills.git --no-copy --all-targets --no-skill
+
+# Optional local checkpoint without pushing
+skillshare commit -m "Save local skill edits"
 
 # Machine A: push changes
 skillshare push -m "Add new skill"

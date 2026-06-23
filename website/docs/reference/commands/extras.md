@@ -77,7 +77,7 @@ skillshare extras list [--json] [--no-tui] [-p|-g]
 
 | Flag | Description |
 |------|-------------|
-| `--json` | JSON output (includes `source_type`: `per-extra` / `extras_source` / `default`) |
+| `--json` | JSON output (includes `source_type`: `per-extra` / `extras_source` / `default`, and a per-target `extension` field when set) |
 | `--no-tui` | Disable interactive TUI, use plain text output |
 | `--project, -p` | Use project-mode extras (`.skillshare/`) |
 | `--global, -g` | Use global extras (`~/.config/skillshare/`) |
@@ -113,13 +113,17 @@ When TUI is disabled (via `--no-tui`, `skillshare tui off`, or piped output):
 ```
 $ skillshare extras list --no-tui
 
-Rules            ~/.config/skillshare/extras/rules/  (2 files)
-  ✔ ~/.claude/rules   merge   synced
-  ✔ ~/.cursor/rules   copy    synced
+Extras
+─────────────────────────────────────────
+→ rules  ~/.config/skillshare/extras/rules/ · 2 files
+  ✓ ~/.claude/rules  merge
+  ✓ ~/.cursor/rules  copy
 
-Prompts          ~/.config/skillshare/extras/prompts/  (1 file)
-  ✔ ~/.claude/prompts  merge  synced
+→ codex-agents  ~/.config/skillshare/agents · 3 files
+  ✓ ~/.codex/agents  extension: codex-agents
 ```
+
+A synced row shows only its icon, path, and mode; non-synced rows append a status word (`drift`, `not synced`, `no source`). Targets with a transform extension are labeled `extension: <name>` in place of the sync mode (their underlying mode is always `copy`).
 
 ### `extras source`
 
@@ -146,13 +150,15 @@ skillshare extras source
 skillshare extras source ~/company-shared/extras
 ```
 
-### `extras mode`
+### Operating on an existing extra
 
-Change the sync mode or flatten setting of an extra's target.
+Change a target's sync mode or flatten setting, or add/remove a target — all via flags on `extras <name>`. These are config-only; run `skillshare sync extras` afterward to apply changes on disk.
 
 ```bash
-skillshare extras mode <name> --mode <mode> [--target <path>] [-p|-g]
-skillshare extras <name> --flatten [--target <path>]
+skillshare extras <name> --mode <mode> [--target <path>] [-p|-g]
+skillshare extras <name> --flatten | --no-flatten [--target <path>]
+skillshare extras <name> --add-target <path> [--mode <mode>] [--flatten] [-p|-g]
+skillshare extras <name> --remove-target <path> [--prune] [-p|-g]
 ```
 
 **Options:**
@@ -162,6 +168,9 @@ skillshare extras <name> --flatten [--target <path>]
 | `--mode <mode>` | New sync mode: `merge`, `copy`, or `symlink` |
 | `--flatten` | Enable flatten (sync subdirectory files into target root) |
 | `--no-flatten` | Disable flatten |
+| `--add-target <path>` | Add a new target to the extra |
+| `--remove-target <path>` | Remove a target from the extra (config-only by default) |
+| `--prune` | With `--remove-target`: also delete skillshare-managed files under that target |
 | `--target <path>` | Target directory path (required for `--mode` with multi-target extras; `--flatten`/`--no-flatten` applies to all targets when omitted) |
 | `--project, -p` | Use project-mode extras (`.skillshare/`) |
 | `--global, -g` | Use global extras (`~/.config/skillshare/`) |
@@ -173,19 +182,21 @@ skillshare extras <name> --flatten [--target <path>]
 skillshare extras rules --mode copy
 
 # Specify target explicitly (required for multi-target extras)
-skillshare extras mode rules --target ~/.claude/rules --mode copy
+skillshare extras rules --mode copy --target ~/.claude/rules
 
-# Change to symlink in project mode
-skillshare extras mode commands --target ~/.cursor/commands --mode symlink -p
-
-# Enable flatten on all targets at once
+# Enable / disable flatten on all targets at once
 skillshare extras agents --flatten
-
-# Disable flatten on all targets
 skillshare extras agents --no-flatten
 
-# Enable flatten on a specific target only
-skillshare extras agents --flatten --target ~/.claude/agents
+# Add a new target to an existing extra (then sync)
+skillshare extras rules --add-target ~/.cursor/rules
+skillshare extras commands --add-target ~/.config/opencode/commands --mode copy
+
+# Remove a target (leaves synced files in place)
+skillshare extras rules --remove-target ~/.cursor/rules
+
+# Remove a target and delete its synced files
+skillshare extras rules --remove-target ~/.cursor/rules --prune
 ```
 
 Also available via the TUI (`M` key) and Web UI (mode dropdown and flatten checkbox on each target).
@@ -262,6 +273,79 @@ extras:
 **Constraints:**
 - Only works with `merge` and `copy` modes — cannot be used with `symlink` mode
 - `collect` places newly collected files in the source root (no subdirectory mapping for new files)
+
+---
+
+## Extension transforms
+
+Some tools do not read markdown. Gemini CLI expects TOML commands; Codex CLI expects TOML agents. The `extension` field on a target runs an external script that converts each source file into the target's native format during sync.
+
+```yaml
+extras:
+  - name: commands
+    targets:
+      - path: .claude/commands        # no extension — synced as-is
+      - path: .gemini/commands
+        extension: gemini-commands           # transform during sync
+```
+
+**Resolution** — a bare name resolves under the extensions directory (`~/.config/skillshare/extensions/<name>` global, `.skillshare/extensions/<name>` project); a path (`./x.sh`, `/abs/x`) is used directly.
+
+**Copy semantics** — `extension` implies `copy` mode. Setting `mode: merge` or `mode: symlink` on a target with an `extension` is an error.
+
+**One-way** — transforms run source → target only. `extras collect` skips extension targets.
+
+**Overwrite safety** — generated output follows the same conflict rules as `copy` mode. A leftover symlink at an output path is replaced automatically; an existing regular file or directory you created locally is left untouched and skipped unless you pass `--force` (with `--force`, a conflicting directory is replaced wholesale by the generated file).
+
+### Extension layout
+
+A single executable, or a directory with a manifest:
+
+```
+.skillshare/extensions/gemini-commands/
+├── extension.yaml
+├── convert.js        # mapping rules you edit
+└── md-toml.js        # helper for markdown/frontmatter/TOML
+```
+
+`extension.yaml`:
+
+```yaml
+run: ["node", "convert.js"]      # explicit command (argv), execed directly
+output_ext: toml                  # .md → .toml; omit to keep the source extension
+description: "Markdown command → Gemini CLI TOML"
+```
+
+A bare single-file executable (no manifest) is execed directly (relies on the shebang on Unix) and keeps the source extension. Transforms that rename the extension must use the directory form.
+
+### Execution contract
+
+- Source file content is passed on **stdin**; the script writes the converted content to **stdout**.
+- Environment variables: `SS_SRC_PATH`, `SS_REL_PATH` (path relative to the source root — useful for Gemini's `/namespace:command` naming), `SS_TARGET_DIR`, `SS_MODE`.
+- A non-zero exit code marks that file as failed; other files continue.
+
+### Cross-platform
+
+The mechanism is cross-platform; whether an extension runs depends on its interpreter. Because `run` is an explicit command, an extension written for `node` or `python3` works on Windows, macOS, and Linux. Pure `bash` scripts only run where a shell is available (Unix, or Windows with Git Bash). Node is the preferred interpreter for reference extensions because it ships uniformly across platforms.
+
+### Reference extensions
+
+The skillshare repo ships example extensions under `extensions/` (`gemini-commands`, `codex-agents`). Copy one into your extensions directory and adapt it — they are references, not installed automatically. Each reference extension keeps `convert.js` short so you edit only the field mapping; `md-toml.js` handles reading markdown, parsing simple frontmatter, and writing TOML.
+
+### Recipe: Codex agents
+
+Codex CLI expects TOML agents rather than markdown. Because a `source` can point at any directory, you can reuse your agents source as an extras source and transform it with `codex-agents`:
+
+```yaml
+extras:
+  - name: codex-agents
+    source: ~/.config/skillshare/agents   # reuse the agents source
+    targets:
+      - path: ~/.codex/agents
+        extension: codex-agents
+```
+
+`skillshare sync extras` converts each `<agent>.md` into `~/.codex/agents/<agent>.toml`, mapping frontmatter `name`, `description`, and `model` and folding the markdown body into `developer_instructions` (other frontmatter keys are dropped). The [Codex custom agent schema](https://developers.openai.com/codex/subagents#custom-agent-file-schema) requires `name`, `description`, and `developer_instructions`, so the reference transform reports a clear error when the resolved name, description, or Markdown body is blank. No separate copy of the agents is needed.
 
 ---
 

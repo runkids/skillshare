@@ -7,6 +7,10 @@ PIDDIR=/tmp/dev-servers
 LOGDIR=/tmp
 mkdir -p "$PIDDIR"
 
+# virtiofs doesn't reliably deliver inotify events, so Vite/Docusaurus silently
+# miss file saves and HMR stops firing. Force polling-based watching.
+export CHOKIDAR_USEPOLLING="${CHOKIDAR_USEPOLLING:-true}"
+
 if [ "${BASH_VERSINFO[0]}" -lt 4 ]; then
   echo "dev-servers requires bash >= 4 (associative arrays unsupported)." >&2
   exit 1
@@ -23,12 +27,12 @@ elif [ -x /usr/local/share/nvm/current/bin/pnpm ]; then
   PNPM_BIN="/usr/local/share/nvm/current/bin/pnpm"
 fi
 
-declare -A PORTS=([api]=19420 [vite]=5173 [docusaurus]=3000)
+declare -A PORTS=([api]=19420 [vite]=5173 [docusaurus]=8888)
 declare -A DIRS=([api]=/workspace [vite]=/workspace/ui [docusaurus]=/workspace/website)
 declare -A CMDS=(
   [api]="/usr/local/go/bin/go run ./cmd/skillshare ui --no-open --host 0.0.0.0 --port 19420"
   [vite]="${PNPM_BIN:-pnpm} exec vite --host 0.0.0.0 --port 5173 --strictPort"
-  [docusaurus]="${PNPM_BIN:-pnpm} exec docusaurus start --host 0.0.0.0 --port 3000 --no-open"
+  [docusaurus]="${PNPM_BIN:-pnpm} exec docusaurus start --host 0.0.0.0 --port 8888 --no-open"
 )
 declare -A VERIFY=([api]="skillshare" [vite]="vite" [docusaurus]="docusaurus")
 ALL=(vite docusaurus)

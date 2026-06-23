@@ -28,9 +28,15 @@ skillshare hub add <url> [options]
 
 The first hub added is automatically set as the default. Labels are case-insensitive.
 
+A hub URL can be an HTTP(S) URL, a local file path, or an SSH URL — scp-style (`git@host:org/repo.git`) or scheme-style (`ssh://git@host/org/repo.git`). For SSH sources the index file is read from the repo via the `//path` suffix, defaulting to `skillshare-hub.json` at the repo root. SSH sources are cloned using your SSH agent/keys, which works for private and GitHub Enterprise hosts.
+
+When an SSH hub contains same-host GitHub or GitHub Enterprise domain-prefixed entries, Skillshare installs them through the hub's SSH identity. For example, a hub added as `acme@acme.ghe.com:Org/skills.git//hubs/team.json` can contain `acme.ghe.com/Org/skills/skills/reviewer`, and search results install it as `acme@acme.ghe.com:Org/skills.git//skills/reviewer`. Outside an SSH hub, domain-prefixed sources still mean HTTPS.
+
 ```bash
 skillshare hub add https://internal.corp/hub.json --label team
-skillshare hub add ./local-hub.json                # label derived: "local-hub"
+skillshare hub add ./local-hub.json                          # label derived: "local-hub"
+skillshare hub add git@ghe.corp.com:team/skills.git --label ghe
+skillshare hub add git@ghe.corp.com:team/skills.git//hubs/team.json --label ghe-team
 ```
 
 ## hub list
@@ -202,9 +208,11 @@ A typical private hub workflow:
 ```
 1. Install skills           → skillshare install ...
 2. Build index              → skillshare hub index
-3. Share the index file     → Copy/host skillshare-hub.json
-4. Teammates search         → skillshare search --hub [path-or-url]
+3. Share the index file     → Commit/host skillshare-hub.json (HTTP, file, or Git repo)
+4. Teammates search         → skillshare search --hub [path-url-or-ssh]
 ```
+
+When the index lives in a private or GitHub Enterprise repo, teammates can point `--hub` directly at it over SSH (`git@host:org/repo.git`) without each having to clone it locally first.
 
 For more details, see the [Hub Index Guide](/docs/how-to/sharing/hub-index).
 
@@ -220,6 +228,8 @@ hub:
       url: https://internal.corp/hub.json
     - label: local
       url: ./local-hub.json
+    - label: ghe
+      url: git@ghe.corp.com:team/skills.git//hubs/team.json
 ```
 
 The [public hub](https://github.com/runkids/skillshare-hub) is the built-in default and doesn't need to be saved. When no custom default is set, `search --hub` falls back to it automatically. Fork this repo to bootstrap your own organization's hub.

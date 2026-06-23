@@ -11,6 +11,10 @@ PIDDIR=/tmp/dev-servers
 LOGDIR=/tmp
 mkdir -p "$PIDDIR"
 
+# virtiofs doesn't reliably deliver inotify events, so Vite silently misses file
+# saves and HMR stops firing. Force polling-based watching (vite.config reads this).
+export CHOKIDAR_USEPOLLING="${CHOKIDAR_USEPOLLING:-true}"
+
 # Resolve pnpm
 PNPM_BIN=""
 if command -v pnpm >/dev/null 2>&1; then

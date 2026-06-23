@@ -61,6 +61,32 @@ func TestCopyDir_SkipsGit(t *testing.T) {
 	}
 }
 
+func TestCopyDir_SkipsDestinationInsideSource(t *testing.T) {
+	src := t.TempDir()
+	dst := filepath.Join(src, ".skillshare", "skills", "project")
+
+	os.WriteFile(filepath.Join(src, "SKILL.md"), []byte("# Project"), 0644)
+	os.MkdirAll(filepath.Join(src, "content"), 0755)
+	os.WriteFile(filepath.Join(src, "content", "notes.md"), []byte("notes"), 0644)
+	// Project mode creates .skillshare/skills before local install copies the
+	// project root into .skillshare/skills/<name>.
+	os.MkdirAll(filepath.Dir(dst), 0755)
+
+	if err := copyDir(src, dst); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := os.Stat(filepath.Join(dst, "SKILL.md")); err != nil {
+		t.Fatalf("expected root SKILL.md to be copied: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(dst, "content", "notes.md")); err != nil {
+		t.Fatalf("expected regular content to be copied: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(dst, ".skillshare", "skills", "project")); !os.IsNotExist(err) {
+		t.Fatalf("destination must not be recursively copied into itself, stat err=%v", err)
+	}
+}
+
 func TestCopyDirExcluding_SkipsChildSkillDirs(t *testing.T) {
 	src := t.TempDir()
 	dst := filepath.Join(t.TempDir(), "dest")

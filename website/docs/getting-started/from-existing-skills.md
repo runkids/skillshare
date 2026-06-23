@@ -4,81 +4,81 @@ sidebar_position: 3
 
 # From Existing Skills
 
-Migrate your existing skills from various AI CLIs to skillshare.
+You already have skills scattered across `~/.claude/skills/`, `~/.cursor/skills/`, or other AI CLI directories. This guide consolidates them into a single source and replaces the originals with symlinks.
 
-## Overview
-
-If you already have skills in `~/.claude/skills/`, `~/.cursor/skills/`, or other locations, skillshare can consolidate them into a single source.
-
-## Starting Scenarios
-
-| Your situation | What to do |
-|----------------|-----------|
-| Skills in one CLI (e.g., Claude) | `skillshare init --copy-from claude` copies them to source |
-| Skills in multiple CLIs | Init, then `skillshare collect --all` to gather from all targets |
-| Skills in a git repo already | `skillshare init --remote <url>` connects to it |
-
-```
-BEFORE:                              AFTER:
-─────────────────────────────────────────────────────────
-~/.claude/skills/                    Source (single truth)
-  ├── skill-a/                       ~/.config/skillshare/skills/
-  └── skill-b/                         ├── skill-a/
-                                       ├── skill-b/
-~/.cursor/skills/                      ├── skill-c/
-  ├── skill-b/  (duplicate!)           └── skill-d/
+```text
+BEFORE                                  AFTER
+─────────────────────────────────────────────────────────────────
+~/.claude/skills/                       Source (one source of truth)
+  ├── skill-a/                          ~/.config/skillshare/skills/
+  └── skill-b/                            ├── skill-a/
+                                          ├── skill-b/
+~/.cursor/skills/                         ├── skill-c/
+  ├── skill-b/  (duplicate!)              └── skill-d/
   └── skill-c/
-                                     Targets (symlinked)
-~/.codex/skills/                     ~/.claude/skills/ → source
-  └── skill-d/                       ~/.cursor/skills/ → source
-                                     ~/.codex/skills/  → source
+                                        Targets (symlinked back)
+~/.codex/skills/                        ~/.claude/skills/ → source
+  └── skill-d/                          ~/.cursor/skills/ → source
+                                        ~/.codex/skills/  → source
 ```
+
+:::caution Back up first
+`collect` mutates target directories — local skills get replaced with symlinks. Always run `skillshare backup` before collecting so `skillshare restore <target>` can undo it if anything looks wrong afterwards.
+:::
+
+## Which path applies
+
+| Your situation | Path |
+|---|---|
+| Skills live in one CLI only | [Single-CLI migration](#single-cli-migration) |
+| Skills are spread across multiple CLIs | [Multi-CLI consolidation](#multi-cli-consolidation) |
+| You already have a skills git repo elsewhere | [Connect an existing repo](#connect-an-existing-repo) |
 
 ---
 
-## Step 1: Initialize skillshare
+## Single-CLI migration
+
+If every skill lives in a single target (say, Claude), `init --copy-from` handles it in one step:
 
 ```bash
-skillshare init
+skillshare init --copy-from claude
+skillshare sync
 ```
+
+`--copy-from claude` copies every skill from `~/.claude/skills/` into source during init. The subsequent `sync` replaces the originals with symlinks pointing back at source.
 
 ---
 
-## Step 2: Backup your existing skills
+## Multi-CLI consolidation
 
-Before collecting, create backups:
+Skills are scattered across multiple targets. Initialize empty, snapshot, then `collect` from each target.
 
 ```bash
+# 1. Initialize empty
+skillshare init --no-copy
+
+# 2. Snapshot every target before mutating it
 skillshare backup
-```
 
----
-
-## Step 3: Collect from each target
-
-Collect skills from each AI CLI to your source:
-
-```bash
-# Collect from Claude
-skillshare collect claude
-
-# Collect from Cursor
-skillshare collect cursor
-
-# Or collect from all at once
+# 3. Collect — once for everything, or per target
 skillshare collect --all
+#   or:
+#   skillshare collect claude
+#   skillshare collect cursor
+
+# 4. Sync — targets now symlink back to source
+skillshare sync
 ```
 
-**What happens:**
-1. Local skills (non-symlinked) are copied to source (`.git/` directories are excluded)
-2. Original files are replaced with symlinks
-3. Duplicates are detected and reported
+What `collect` does to each target:
 
----
+1. Copies non-symlinked local skills into source (skips any `.git/` inside a skill).
+2. Replaces the originals with symlinks pointing back at source.
+3. Detects duplicates (the same skill name appearing in multiple targets) and reports them without overwriting.
 
-## Step 4: Handle duplicates
+### Resolving duplicates
 
-If you have the same skill in multiple locations, `collect` will warn you:
+When a skill exists in source and in a target you're collecting from, the target version is skipped and reported:
 
 ```
 Warning: skill-b exists in source
@@ -86,65 +86,67 @@ Warning: skill-b exists in source
   Skipped: ~/.cursor/skills/skill-b/
 ```
 
-**Options:**
-- Keep the source version (default)
-- Manually merge differences
-- Use `--force` to overwrite
+Resolve by hand: diff the two copies, keep whichever you want in source, then either leave the target version alone (it'll be replaced by the symlink on next `sync`) or re-run `collect --force` if the target version is the one you'd rather keep.
 
 ---
 
-## Step 5: Sync to all targets
+## Connect an existing repo
+
+If you already have a skills repo on GitHub (perhaps from a previous machine), don't `collect` — just clone it:
 
 ```bash
+skillshare init --remote git@github.com:you/skills.git --all-targets --no-skill
 skillshare sync
 ```
 
-Now all targets are symlinked to your single source.
+Tracked dependencies are gitignored and won't come down with the clone. Re-install them after init:
+
+```bash
+skillshare install https://github.com/your-company/skills --track --force
+skillshare sync
+```
 
 ---
 
-## Step 6: Set up git (optional but recommended)
+## Push your migrated source to git
 
-For cross-machine sync:
+After migration, get source under version control so future machines can recover it the same way.
 
 ```bash
-skillshare init --remote git@github.com:you/my-skills.git
+# Skip this if you already passed --remote during init.
+cd ~/.config/skillshare/skills
+git remote add origin git@github.com:you/skills.git
+
 skillshare push -m "Initial commit: migrated skills"
 ```
 
-This initializes git, creates the initial commit, and adds the remote. Then `push` sends your skills to the remote.
+From then on, `skillshare push` and `skillshare pull` move skills between machines.
 
 ---
 
-## Verify Migration
+## Verify
 
 ```bash
-# Check sync status
-skillshare status
-
-# List all skills
-skillshare list
-
-# Run diagnostics
-skillshare doctor
+skillshare status     # every target should report 'synced'
+skillshare list       # all collected skills should appear
+skillshare doctor     # diagnostics — broken symlinks, missing targets, etc.
 ```
-
----
 
 ## Rollback
 
-If something goes wrong:
+Because you ran `backup` first, `collect` is reversible:
 
 ```bash
-# Restore from backup
 skillshare restore claude
 skillshare restore cursor
 ```
+
+Each target returns to its pre-collect state — real files, no symlinks.
 
 ---
 
 ## See Also
 
-- [Daily Workflow](/docs/how-to/daily-tasks/daily-workflow) — Your day-to-day after migration
-- [Cross-Machine Sync](/docs/how-to/sharing/cross-machine-sync) — Sync to other machines
-- [Core Concepts](/docs/understand) — How source and targets work
+- [Daily Workflow](/docs/how-to/daily-tasks/daily-workflow) — day-to-day after migration
+- [Cross-Machine Sync](/docs/how-to/sharing/cross-machine-sync) — sync via git
+- [Core Concepts](/docs/understand) — how source and targets relate

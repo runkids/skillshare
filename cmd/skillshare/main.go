@@ -30,6 +30,7 @@ var commands = map[string]func([]string) error{
 	"collect":      cmdCollect,
 	"pull":         cmdPull,
 	"push":         cmdPush,
+	"commit":       cmdCommit,
 	"doctor":       cmdDoctor,
 	"target":       cmdTarget,
 	"upgrade":      cmdUpgrade,
@@ -255,6 +256,7 @@ func printUsage() {
 
 	// Git Remote
 	fmt.Println("GIT REMOTE")
+	cmd("commit", "", "Create local git commit without pushing")
 	cmd("push", "", "Commit and push source to git remote")
 	cmd("pull", "", "Pull from git remote and sync to targets")
 	fmt.Println()
@@ -289,6 +291,7 @@ func printUsage() {
 	fmt.Println("  skillshare install anthropics/skills/pdf -p         # Project install")
 	fmt.Println("  skillshare install repo -a my-agent                 # Install specific agent")
 	fmt.Println("  skillshare target add cursor -p                     # Project target")
+	fmt.Println("  skillshare commit -m \"Update skill\"                # Commit locally")
 	fmt.Println("  skillshare push -m \"Add new skill\"                  # Push to remote")
 	fmt.Println("  skillshare pull                                     # Pull from remote")
 	fmt.Println("  skillshare install github.com/team/skills --track   # Team repo")

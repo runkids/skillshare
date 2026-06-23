@@ -61,7 +61,7 @@ describe('serializeFrontmatter', () => {
 
   it('emits multiline as block scalar', () => {
     const out = serializeFrontmatter({ description: 'line1\nline2' });
-    expect(out).toMatch(/description: \|\n  line1\n  line2/);
+    expect(out).toMatch(/description: \|\n {2}line1\n {2}line2/);
   });
 
   it('emits inline arrays for scalar elements', () => {

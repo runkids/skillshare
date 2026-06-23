@@ -45,6 +45,35 @@ func makeRemote(t *testing.T, extraBranch string) (remoteURL string) {
 	return "file://" + remote
 }
 
+// TestRehydrateMissingTrackedRepos_ReclonesAbsent verifies that a tracked repo
+// declared in metadata but absent on disk is re-cloned (issue #212).
+func TestRehydrateMissingTrackedRepos_ReclonesAbsent(t *testing.T) {
+	remoteURL := makeRemote(t, "")
+	sourceDir := t.TempDir()
+
+	// Declare the tracked repo in metadata WITHOUT cloning it (fresh machine).
+	store := LoadMetadataOrNew(sourceDir)
+	store.Set("_team-skills", &MetadataEntry{Source: remoteURL, Tracked: true})
+	if err := store.Save(sourceDir); err != nil {
+		t.Fatalf("save metadata: %v", err)
+	}
+
+	results, err := RehydrateMissingTrackedRepos(sourceDir, ParseOptions{}, InstallOptions{SkipAudit: true})
+	if err != nil {
+		t.Fatalf("RehydrateMissingTrackedRepos() error = %v", err)
+	}
+	if len(results) != 1 || results[0].Action != "rehydrated" {
+		t.Fatalf("unexpected results: %+v", results)
+	}
+	if _, err := os.Stat(filepath.Join(sourceDir, "_team-skills", ".git")); err != nil {
+		t.Fatalf("expected cloned repo at _team-skills: %v", err)
+	}
+	// After rehydration nothing should remain missing.
+	if missing, _ := GetMissingTrackedRepos(sourceDir); len(missing) != 0 {
+		t.Fatalf("expected no missing repos after rehydrate, got %+v", missing)
+	}
+}
+
 // TestInstallTrackedRepo_NameFromSource verifies that when opts.Name is empty,
 // the directory name is taken from source.Name rather than being derived from
 // the remote URL via TrackName().

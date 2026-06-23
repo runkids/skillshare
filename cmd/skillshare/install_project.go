@@ -67,6 +67,9 @@ func cmdInstallProjectParsed(parsed *installArgs, root string) (installLogSummar
 	if err != nil {
 		return summary, err
 	}
+	if err := install.RejectProjectRootLocalInstall(source, root); err != nil {
+		return summary, err
+	}
 
 	if resolvedFromMeta {
 		summary, err = handleDirectInstall(source, cfg, parsed.opts)

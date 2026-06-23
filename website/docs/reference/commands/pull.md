@@ -36,6 +36,10 @@ flowchart TD
 | `--dry-run, -n` | Preview without making changes |
 | `--force, -f` | On first pull conflict, replace local skills with remote |
 
+## Git Root Scope
+
+`pull` operates on the directory selected by the `git_root` config field (default: `skills` source). See [commit — Git Root Scope](./commit.md#git-root-scope) for the scope table. If `git_root` was changed but the git repo still lives in another scope's directory, `pull` prints a "Git root mismatch" error with the exact `git init` / `mv` commands to fix it. See [Changing the scope after init](../targets/configuration.md#git-root).
+
 ## Prerequisites
 
 Your source directory must be a git repository with a remote:
@@ -59,11 +63,15 @@ Local changes detected
 
 Solutions:
 ```bash
-# Option 1: Push your changes first
+# Option 1: Commit locally first, without pushing
+skillshare commit -m "Local changes"
+skillshare pull
+
+# Option 2: Push your changes first
 skillshare push
 skillshare pull
 
-# Option 2: Stash your changes
+# Option 3: Stash your changes
 cd ~/.config/skillshare/skills
 git stash
 skillshare pull
@@ -125,6 +133,7 @@ skillshare push -m "Add new skill"
 
 ## See Also
 
+- [commit](/docs/reference/commands/commit) — Commit locally without pushing
 - [push](/docs/reference/commands/push) — Push to remote
 - [sync](/docs/reference/commands/sync) — Manual sync without pull
 - [Cross-Machine Sync](/docs/how-to/sharing/cross-machine-sync) — Full setup
