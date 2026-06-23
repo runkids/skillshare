@@ -40,7 +40,7 @@ func isGiteaAPISource(source *Source) bool {
 		return false
 	}
 	host := strings.ToLower(extractHost(source.CloneURL))
-	return isGiteaHost(host, nil)
+	return isGiteaHost(host, source.GiteaHosts)
 }
 
 // isCNBAPISource reports whether the source is a CNB instance that supports
@@ -50,7 +50,7 @@ func isCNBAPISource(source *Source) bool {
 		return false
 	}
 	host := strings.ToLower(extractHost(source.CloneURL))
-	return isCNBHost(host, nil)
+	return isCNBHost(host, source.CNBHosts)
 }
 
 // downloadGiteaDir downloads a repository subdirectory via the Gitea Contents API.

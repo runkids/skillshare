@@ -62,6 +62,12 @@ type InstallContext interface {
 
 	// AzureHosts returns extra hostnames to treat as Azure DevOps on-premises instances.
 	AzureHosts() []string
+
+	// CNBHosts returns extra hostnames to treat as CNB instances.
+	CNBHosts() []string
+
+	// GiteaHosts returns extra hostnames to treat as Gitea instances.
+	GiteaHosts() []string
 }
 
 // ConfigInstallResult summarises the outcome of InstallFromConfig.

@@ -126,6 +126,10 @@ type Source struct {
 	Path     string // Local path (empty for git)
 	Name     string // Derived skill name
 	Branch   string // Git branch to clone from (empty = remote default)
+	// CNBHosts contains configured CNB hostnames for platform-specific auth/API behavior.
+	CNBHosts []string
+	// GiteaHosts contains configured Gitea hostnames for platform-specific auth/API behavior.
+	GiteaHosts []string
 	// ExplicitSkill is true when the user pointed directly at a SKILL.md file.
 	// That intent should resolve to exactly one skill, not a pack/discovery view.
 	ExplicitSkill bool
@@ -213,7 +217,7 @@ func ParseSourceWithOptions(input string, opts ParseOptions) (*Source, error) {
 	// Expand GitHub shorthand: owner/repo -> github.com/owner/repo
 	input = expandGitHubShorthand(input)
 
-	source := &Source{Raw: input}
+	source := &Source{Raw: input, CNBHosts: opts.CNBHosts, GiteaHosts: opts.GiteaHosts}
 
 	// Check for file:// URL (for testing with local git repos)
 	if matches := fileURLPattern.FindStringSubmatch(input); matches != nil {

@@ -78,11 +78,15 @@ func detectPlatform(cloneURL string) Platform {
 // SKILLSHARE_GIT_TOKEN. Returns empty strings if no token is available or
 // the URL is not HTTPS.
 func resolveToken(cloneURL string) (token, username string) {
+	return resolveTokenWithOptions(cloneURL, nil, nil)
+}
+
+func resolveTokenWithOptions(cloneURL string, cnbHosts, giteaHosts []string) (token, username string) {
 	if !isHTTPS(cloneURL) {
 		return "", ""
 	}
 
-	platform := detectPlatform(cloneURL)
+	platform := detectPlatformWithOptions(cloneURL, cnbHosts, giteaHosts)
 	switch platform {
 	case PlatformGitHub:
 		if t := os.Getenv("GITHUB_TOKEN"); t != "" {
@@ -142,7 +146,11 @@ func resolveToken(cloneURL string) (token, username string) {
 // git config entries (e.g. from CI pipelines).
 // Returns nil for SSH/file URLs or when no token is available.
 func authEnv(cloneURL string) []string {
-	token, username := resolveToken(cloneURL)
+	return authEnvWithOptions(cloneURL, nil, nil)
+}
+
+func authEnvWithOptions(cloneURL string, cnbHosts, giteaHosts []string) []string {
+	token, username := resolveTokenWithOptions(cloneURL, cnbHosts, giteaHosts)
 	if token == "" {
 		return nil
 	}
@@ -177,6 +185,28 @@ func ResolveTokenForURL(cloneURL string) (token, username string) {
 // DetectPlatformForURL identifies the git hosting platform for a URL.
 func DetectPlatformForURL(cloneURL string) Platform {
 	return detectPlatform(cloneURL)
+}
+
+func detectPlatformWithOptions(cloneURL string, cnbHosts, giteaHosts []string) Platform {
+	host := strings.ToLower(extractHost(cloneURL))
+	if host == "" {
+		return PlatformUnknown
+	}
+	return detectPlatformFromHost(host, cnbHosts, giteaHosts)
+}
+
+func (s *Source) authEnv() []string {
+	if s == nil {
+		return nil
+	}
+	return authEnvWithOptions(s.CloneURL, s.CNBHosts, s.GiteaHosts)
+}
+
+func (s *Source) platform() Platform {
+	if s == nil {
+		return PlatformUnknown
+	}
+	return detectPlatformWithOptions(s.CloneURL, s.CNBHosts, s.GiteaHosts)
 }
 
 // existingConfigCount returns the current GIT_CONFIG_COUNT from the
