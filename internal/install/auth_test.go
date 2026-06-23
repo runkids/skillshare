@@ -11,6 +11,8 @@ var authTestEnvKeys = []string{
 	"BITBUCKET_TOKEN",
 	"BITBUCKET_USERNAME",
 	"AZURE_DEVOPS_TOKEN",
+	"CNB_TOKEN",
+	"GITEA_TOKEN",
 	"SKILLSHARE_GIT_TOKEN",
 	"GIT_CONFIG_COUNT",
 }
@@ -163,6 +165,21 @@ func TestResolveToken(t *testing.T) {
 			envVars:  map[string]string{"SKILLSHARE_GIT_TOKEN": "tok"},
 			wantTok:  "tok",
 			wantUser: "oauth2",
+		},
+
+		{
+			name:     "cnb token",
+			url:      "https://cnb.cool/org/repo.git",
+			envVars:  map[string]string{"CNB_TOKEN": "cnb_pat"},
+			wantTok:  "cnb_pat",
+			wantUser: "cnb",
+		},
+		{
+			name:     "gitea token",
+			url:      "https://gitea.example.com/org/repo.git",
+			envVars:  map[string]string{"GITEA_TOKEN": "gitea_pat"},
+			wantTok:  "gitea_pat",
+			wantUser: "x-access-token",
 		},
 		{
 			name:     "azure devops token",

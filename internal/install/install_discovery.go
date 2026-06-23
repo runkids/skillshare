@@ -389,6 +389,34 @@ func discoverFromGitSubdirWithProgressImpl(source *Source, onProgress ProgressCa
 		subdirPath = ""
 	}
 
+	// Fast path 2b: CNB Contents API
+	if subdirPath == "" && isCNBAPISource(source) {
+		repo := cnbRepoPath(source.CloneURL)
+		subdirPath = filepath.Join(repoPath, source.Subdir)
+		hash, dlErr := downloadCNBDir(repo, source.Subdir, subdirPath, source, onProgress)
+		if dlErr == nil {
+			commitHash = hash
+			skills := discoverSkills(subdirPath, true)
+			agents := discoverAgents(subdirPath, len(skills) > 0)
+			skills, agents, err = constrainDiscoveryToExplicitSkill(source, skills, agents)
+			if err != nil {
+				_ = os.RemoveAll(tempDir)
+				return nil, err
+			}
+			return &DiscoveryResult{
+				RepoPath:   tempDir,
+				Skills:     skills,
+				Agents:     agents,
+				Source:     source,
+				CommitHash: commitHash,
+				Warnings:   warnings,
+			}, nil
+		}
+		warnings = append(warnings, fmt.Sprintf("CNB API discovery fallback: %v", dlErr))
+		_ = os.RemoveAll(repoPath)
+		subdirPath = ""
+	}
+
 	// Fast path 2b: Gitea Contents API
 	if subdirPath == "" && isGiteaAPISource(source) {
 		owner, repo := giteaOwnerRepo(source.CloneURL)

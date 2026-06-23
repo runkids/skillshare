@@ -670,6 +670,19 @@ func parseGitHTTPS(matches []string, source *Source, opts ParseOptions) (*Source
 		// may have nested subgroups up to 20 levels deep.
 		// Without .git, treat entire path as repo.
 		repoPath = path
+	} else if isCNBHost(host, opts.CNBHosts) || isGiteaHost(host, opts.GiteaHosts) {
+		// CNB and Gitea Contents APIs address repositories as {owner}/{repo};
+		// keep the existing owner/repo + subdir split but make configured hosts
+		// explicit so platform detection and future URL handling stay aligned.
+		parts := strings.SplitN(path, "/", 3)
+		if len(parts) >= 2 {
+			repoPath = parts[0] + "/" + parts[1]
+			if len(parts) == 3 {
+				subdir = parts[2]
+			}
+		} else {
+			repoPath = path
+		}
 	} else {
 		// Default for GHE, Gitea, Gogs, and other platforms:
 		// assume owner/repo (2 segments), remainder is subdir.
