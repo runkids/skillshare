@@ -126,6 +126,10 @@ type Source struct {
 	Path     string // Local path (empty for git)
 	Name     string // Derived skill name
 	Branch   string // Git branch to clone from (empty = remote default)
+	// CNBHosts contains configured CNB hostnames for platform-specific auth/API behavior.
+	CNBHosts []string
+	// GiteaHosts contains configured Gitea hostnames for platform-specific auth/API behavior.
+	GiteaHosts []string
 	// ExplicitSkill is true when the user pointed directly at a SKILL.md file.
 	// That intent should resolve to exactly one skill, not a pack/discovery view.
 	ExplicitSkill bool
@@ -166,6 +170,8 @@ var azureOnPremPattern = regexp.MustCompile(
 type ParseOptions struct {
 	GitLabHosts []string // extra hostnames to treat as GitLab (nested subgroup support)
 	AzureHosts  []string // extra hostnames to treat as Azure DevOps on-premises
+	CNBHosts    []string // extra hostnames to treat as CNB instances
+	GiteaHosts  []string // extra hostnames to treat as Gitea instances
 }
 
 // IsSSHURL reports whether input is an SSH URL — either scp-style
@@ -211,7 +217,7 @@ func ParseSourceWithOptions(input string, opts ParseOptions) (*Source, error) {
 	// Expand GitHub shorthand: owner/repo -> github.com/owner/repo
 	input = expandGitHubShorthand(input)
 
-	source := &Source{Raw: input}
+	source := &Source{Raw: input, CNBHosts: opts.CNBHosts, GiteaHosts: opts.GiteaHosts}
 
 	// Check for file:// URL (for testing with local git repos)
 	if matches := fileURLPattern.FindStringSubmatch(input); matches != nil {
@@ -668,6 +674,19 @@ func parseGitHTTPS(matches []string, source *Source, opts ParseOptions) (*Source
 		// may have nested subgroups up to 20 levels deep.
 		// Without .git, treat entire path as repo.
 		repoPath = path
+	} else if isCNBHost(host, opts.CNBHosts) || isGiteaHost(host, opts.GiteaHosts) {
+		// CNB and Gitea Contents APIs address repositories as {owner}/{repo};
+		// keep the existing owner/repo + subdir split but make configured hosts
+		// explicit so platform detection and future URL handling stay aligned.
+		parts := strings.SplitN(path, "/", 3)
+		if len(parts) >= 2 {
+			repoPath = parts[0] + "/" + parts[1]
+			if len(parts) == 3 {
+				subdir = parts[2]
+			}
+		} else {
+			repoPath = path
+		}
 	} else {
 		// Default for GHE, Gitea, Gogs, and other platforms:
 		// assume owner/repo (2 segments), remainder is subdir.
@@ -737,6 +756,44 @@ func isAzureHost(host string, extraHosts []string) bool {
 func isGitLabHost(host string, extraHosts []string) bool {
 	return strings.Contains(host, "gitlab") || strings.Contains(host, "jihulab") ||
 		hostMatchesAny(host, extraHosts)
+}
+
+// isCNBHost returns true if the host should be treated as a CNB instance.
+func isCNBHost(host string, extraHosts []string) bool {
+	return strings.Contains(host, "cnb.cool") || hostMatchesAny(host, extraHosts)
+}
+
+// isGiteaHost returns true if the host should be treated as a Gitea instance.
+func isGiteaHost(host string, extraHosts []string) bool {
+	return strings.Contains(host, "gitea") || hostMatchesAny(host, extraHosts)
+}
+
+// detectPlatformFromHost returns the platform for a given hostname, using
+// configured extra hosts for CNB and Gitea self-hosted instances.
+func detectPlatformFromHost(host string, cnbHosts, giteaHosts []string) Platform {
+	host = strings.ToLower(host)
+	if host == "" {
+		return PlatformUnknown
+	}
+	if strings.Contains(host, "github") {
+		return PlatformGitHub
+	}
+	if strings.Contains(host, "gitlab") {
+		return PlatformGitLab
+	}
+	if strings.Contains(host, "bitbucket") {
+		return PlatformBitbucket
+	}
+	if host == "dev.azure.com" || host == "ssh.dev.azure.com" || strings.HasSuffix(host, ".visualstudio.com") {
+		return PlatformAzureDevOps
+	}
+	if isCNBHost(host, cnbHosts) {
+		return PlatformCNB
+	}
+	if isGiteaHost(host, giteaHosts) {
+		return PlatformGitea
+	}
+	return PlatformUnknown
 }
 
 // stripGitBranchPrefix removes platform-specific branch path segments from web URLs.
