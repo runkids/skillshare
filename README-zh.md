@@ -41,7 +41,7 @@
 </p>
 
 > [!NOTE]
-> **最新版本**: [v0.19.23](https://github.com/runkids/skillshare/releases/tag/v0.19.23) — 子目录安装的技能在更新后不再重复标记为可更新，仪表盘更新检测状态现在会跨会话保留。[查看全部版本 →](https://github.com/runkids/skillshare/releases)
+> **最新版本**: [v0.20.0](https://github.com/runkids/skillshare/releases/tag/v0.20.0) — 通过 git_root scope 选择 commit/push/pull 的版本范围（skills、agents、extras，或全部合并在一个仓库中）；extras 扩展转换在同步时将 Markdown 转换为原生格式（Gemini TOML 命令、Codex TOML 智能体）。[查看全部版本 →](https://github.com/runkids/skillshare/releases)
 
 ## 为什么选择 skillshare
 
@@ -204,6 +204,13 @@ skillshare extras collect rules       # 将本地文件收集回源目录
 skillshare completion bash --install   # 也支持：zsh、fish、powershell、nushell
 ```
 
+**本地检查点** — 提交源目录变更而不推送
+
+```bash
+skillshare commit -m "更新审查技能"
+skillshare commit --dry-run
+```
+
 **Web 仪表盘** — 可视化控制面板
 
 ```bash
@@ -270,6 +277,19 @@ make check  # 格式化 + 代码检查 + 测试
 <a href="https://github.com/aestilog"><img src="https://github.com/aestilog.png" width="50" style="border-radius:50%" alt="aestilog"></a>
 <a href="https://github.com/xarthurx"><img src="https://github.com/xarthurx.png" width="50" style="border-radius:50%" alt="xarthurx"></a>
 <a href="https://github.com/m0cun"><img src="https://github.com/m0cun.png" width="50" style="border-radius:50%" alt="m0cun"></a>
+<a href="https://github.com/bit3125"><img src="https://github.com/bit3125.png" width="50" style="border-radius:50%" alt="bit3125"></a>
+<a href="https://github.com/eekryuos"><img src="https://github.com/eekryuos.png" width="50" style="border-radius:50%" alt="eekryuos"></a>
+<a href="https://github.com/Bongseop-Kim"><img src="https://github.com/Bongseop-Kim.png" width="50" style="border-radius:50%" alt="Bongseop-Kim"></a>
+<a href="https://github.com/sophodex"><img src="https://github.com/sophodex.png" width="50" style="border-radius:50%" alt="sophodex"></a>
+<a href="https://github.com/PeterTianbuhan"><img src="https://github.com/PeterTianbuhan.png" width="50" style="border-radius:50%" alt="PeterTianbuhan"></a>
+<a href="https://github.com/dotned"><img src="https://github.com/dotned.png" width="50" style="border-radius:50%" alt="dotned"></a>
+<a href="https://github.com/ismferd"><img src="https://github.com/ismferd.png" width="50" style="border-radius:50%" alt="ismferd"></a>
+<a href="https://github.com/jblackburn21"><img src="https://github.com/jblackburn21.png" width="50" style="border-radius:50%" alt="jblackburn21"></a>
+<a href="https://github.com/jnhu76"><img src="https://github.com/jnhu76.png" width="50" style="border-radius:50%" alt="jnhu76"></a>
+<a href="https://github.com/jacobleft"><img src="https://github.com/jacobleft.png" width="50" style="border-radius:50%" alt="jacobleft"></a>
+<a href="https://github.com/rhysmcneill"><img src="https://github.com/rhysmcneill.png" width="50" style="border-radius:50%" alt="rhysmcneill"></a>
+<a href="https://github.com/druellan"><img src="https://github.com/druellan.png" width="50" style="border-radius:50%" alt="druellan"></a>
+<a href="https://github.com/12britz"><img src="https://github.com/12britz.png" width="50" style="border-radius:50%" alt="12britz"></a>
 
 ---
 
