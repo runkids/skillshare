@@ -95,10 +95,11 @@ func cmdSyncProject(root string, dryRun, force, jsonOutput, quiet bool) (syncLog
 
 	var results []syncTargetResult
 	var failedTargets int
+	ignorePatterns := sync.EffectiveFileIgnorePatterns(runtime.config.Ignore)
 	if jsonOutput {
-		results, failedTargets = runParallelSyncQuiet(entries, runtime.sourcePath, discoveredSkills, dryRun, force, root)
+		results, failedTargets = runParallelSyncQuiet(entries, runtime.sourcePath, discoveredSkills, ignorePatterns, dryRun, force, root)
 	} else {
-		results, failedTargets = runParallelSync(entries, runtime.sourcePath, discoveredSkills, dryRun, force, root)
+		results, failedTargets = runParallelSync(entries, runtime.sourcePath, discoveredSkills, ignorePatterns, dryRun, force, root)
 	}
 	failedTargets += notFoundCount
 

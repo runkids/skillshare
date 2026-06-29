@@ -268,6 +268,7 @@ type ProjectConfig struct {
 	Skills        []SkillEntry         `yaml:"skills,omitempty"`
 	TargetNaming  string               `yaml:"target_naming,omitempty"`
 	Extras        []ExtraConfig        `yaml:"extras,omitempty"`
+	Ignore        []string             `yaml:"ignore,omitempty"`
 	Audit         AuditConfig          `yaml:"audit,omitempty"`
 	ContextBudget ContextBudgetConfig  `yaml:"context_budget,omitempty"`
 	Hub           HubConfig            `yaml:"hub,omitempty"`

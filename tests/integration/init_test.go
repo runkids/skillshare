@@ -35,6 +35,11 @@ func TestInit_Fresh_CreatesConfigAndSource(t *testing.T) {
 	if !sb.FileExists(sb.SourcePath) {
 		t.Error("source directory should be created")
 	}
+
+	cfg := sb.ReadFile(sb.ConfigPath)
+	if !strings.Contains(cfg, "__pycache__/") {
+		t.Errorf("config should include default __pycache__/ ignore, got:\n%s", cfg)
+	}
 }
 
 func TestInit_WithSourceFlag_UsesCustomPath(t *testing.T) {

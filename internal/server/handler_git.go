@@ -697,6 +697,7 @@ func (s *Server) handlePull(w http.ResponseWriter, r *http.Request) {
 		// Discover skills once for all targets
 		allSkills, discoverErr := ssync.DiscoverSourceSkills(skillsSrc)
 
+		ignorePatterns := ssync.EffectiveFileIgnorePatterns(s.cfg.Ignore)
 		for name, target := range s.cfg.Targets {
 			sc := target.SkillsConfig()
 			mode := sc.Mode
@@ -733,7 +734,7 @@ func (s *Server) handlePull(w http.ResponseWriter, r *http.Request) {
 					res.Pruned = pruneResult.Removed
 				}
 			case "copy":
-				copyResult, err := ssync.SyncTargetCopyWithSkills(name, target, allSkills, skillsSrc, false, false, nil)
+				copyResult, err := ssync.SyncTargetCopyWithSkillsOptions(name, target, allSkills, skillsSrc, false, false, nil, ssync.CopyOptions{IgnorePatterns: ignorePatterns})
 				if err == nil {
 					res.Linked = copyResult.Copied
 					res.Updated = copyResult.Updated

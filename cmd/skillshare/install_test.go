@@ -40,9 +40,13 @@ func TestConfigFromProjectRuntime_IncludesAzureHosts(t *testing.T) {
 		config: &config.ProjectConfig{
 			GitLabHosts: []string{"gitlab.corp.com"},
 			AzureHosts:  []string{"azuredevops.corp.com"},
+			Ignore:      []string{"tmp/"},
 		},
 	}
 	cfg := configFromProjectRuntime(runtime)
+	if len(cfg.Ignore) != 1 || cfg.Ignore[0] != "tmp/" {
+		t.Fatalf("configFromProjectRuntime dropped Ignore: %v", cfg.Ignore)
+	}
 	opts := parseOptsFromConfig(cfg)
 	source, err := install.ParseSourceWithOptions(
 		"https://azuredevops.corp.com/Org/Project/_git/Repo", opts)

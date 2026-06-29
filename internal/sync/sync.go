@@ -337,12 +337,20 @@ func copyDirectory(src, dst string) error {
 // copyDirectoryOpts controls behavior of copyDirectoryWithState.
 type copyDirectoryOpts struct {
 	SkipGit bool // skip .git directories
+	Ignore  *skillignore.Matcher
 }
 
 // copyDirectorySkipGit copies a directory recursively, skipping .git directories.
 // Use this for collect/pull operations where .git is not wanted in the destination.
 func copyDirectorySkipGit(src, dst string) error {
 	return copyDirectoryWithState(src, dst, map[string]bool{}, &copyDirectoryOpts{SkipGit: true})
+}
+
+func copyDirectoryWithIgnore(src, dst string, ignorePatterns []string) error {
+	return copyDirectoryWithState(src, dst, map[string]bool{}, &copyDirectoryOpts{
+		SkipGit: true,
+		Ignore:  compileFileIgnore(ignorePatterns),
+	})
 }
 
 // copyDirectoryWithState copies recursively and dereferences directory symlinks.
@@ -359,6 +367,10 @@ func copyDirectoryWithState(src, dst string, active map[string]bool, opts *copyD
 	defer delete(active, resolvedSrc)
 
 	skipGit := opts != nil && opts.SkipGit
+	var ignore *skillignore.Matcher
+	if opts != nil {
+		ignore = opts.Ignore
+	}
 
 	return filepath.Walk(src, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
@@ -366,13 +378,20 @@ func copyDirectoryWithState(src, dst string, active map[string]bool, opts *copyD
 		}
 
 		relPath, _ := filepath.Rel(src, path)
+		relPath = strings.ReplaceAll(relPath, "\\", "/")
 		dstPath := filepath.Join(dst, relPath)
 
 		if info.IsDir() {
 			if skipGit && info.Name() == ".git" {
 				return filepath.SkipDir
 			}
+			if relPath != "." && isFileIgnored(ignore, relPath, true) {
+				return filepath.SkipDir
+			}
 			return os.MkdirAll(dstPath, info.Mode())
+		}
+		if isFileIgnored(ignore, relPath, false) {
+			return nil
 		}
 
 		// In copy mode we need real files/dirs, so directory symlinks are

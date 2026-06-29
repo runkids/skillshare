@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"skillshare/internal/config"
+	"skillshare/internal/skillignore"
 	"skillshare/internal/utils"
 )
 
@@ -21,22 +22,45 @@ type CopyResult struct {
 	DirCreated string   // Non-empty if target directory was auto-created (or would be in dry-run)
 }
 
+// CopyOptions controls copy-mode sync behavior.
+type CopyOptions struct {
+	IgnorePatterns []string
+}
+
 // SyncTargetCopy performs copy mode sync — copies each skill individually
 // while preserving target-specific (unmanaged) skills.
 func SyncTargetCopy(name string, target config.TargetConfig, sourcePath string, dryRun, force bool) (*CopyResult, error) {
+	return SyncTargetCopyWithOptions(name, target, sourcePath, dryRun, force, CopyOptions{
+		IgnorePatterns: DefaultFileIgnorePatterns(),
+	})
+}
+
+// SyncTargetCopyWithOptions is SyncTargetCopy with explicit copy behavior options.
+func SyncTargetCopyWithOptions(name string, target config.TargetConfig, sourcePath string, dryRun, force bool, opts CopyOptions) (*CopyResult, error) {
 	skills, err := DiscoverSourceSkills(sourcePath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to discover skills: %w", err)
 	}
-	return SyncTargetCopyWithSkills(name, target, skills, sourcePath, dryRun, force, nil)
+	return SyncTargetCopyWithSkillsOptions(name, target, skills, sourcePath, dryRun, force, nil, opts)
 }
 
 // SyncTargetCopyWithSkills is like SyncTargetCopy but accepts pre-discovered skills
 // and an optional progress callback for per-skill UI updates.
 // sourcePath is the skills source directory, used to detect symlink-mode targets.
 func SyncTargetCopyWithSkills(name string, target config.TargetConfig, allSkills []DiscoveredSkill, sourcePath string, dryRun, force bool, onProgress func(current, total int, skill string)) (*CopyResult, error) {
+	return SyncTargetCopyWithSkillsOptions(name, target, allSkills, sourcePath, dryRun, force, onProgress, CopyOptions{
+		IgnorePatterns: DefaultFileIgnorePatterns(),
+	})
+}
+
+// SyncTargetCopyWithSkillsOptions is SyncTargetCopyWithSkills with explicit copy behavior options.
+func SyncTargetCopyWithSkillsOptions(name string, target config.TargetConfig, allSkills []DiscoveredSkill, sourcePath string, dryRun, force bool, onProgress func(current, total int, skill string), opts CopyOptions) (*CopyResult, error) {
 	sc := target.SkillsConfig()
 	result := &CopyResult{}
+	ignorePatterns := opts.IgnorePatterns
+	if ignorePatterns == nil {
+		ignorePatterns = DefaultFileIgnorePatterns()
+	}
 
 	// Convert from symlink mode if needed, auto-create if missing.
 	dirCreated, err := ensureRealTargetDir(sc.Path, sourcePath, "copy", dryRun)
@@ -80,7 +104,7 @@ func SyncTargetCopyWithSkills(name string, target config.TargetConfig, allSkills
 		targetSkillPath := filepath.Join(sc.Path, activeName)
 
 		// Compute source mtime for fast-path skip
-		currentMtime, mtimeErr := DirMaxMtime(skill.SourcePath)
+		currentMtime, mtimeErr := DirMaxMtimeWithIgnore(skill.SourcePath, ignorePatterns)
 
 		// mtime fast-path: if source mtime is unchanged AND target is still a valid dir, skip checksum
 		oldChecksum, isManaged := manifest.Managed[activeName]
@@ -94,7 +118,7 @@ func SyncTargetCopyWithSkills(name string, target config.TargetConfig, allSkills
 		}
 
 		// mtime changed or no record — compute full checksum
-		srcChecksum, err := DirChecksum(skill.SourcePath)
+		srcChecksum, err := DirChecksumWithIgnore(skill.SourcePath, ignorePatterns)
 		if err != nil {
 			return nil, fmt.Errorf("failed to checksum source skill %s: %w", activeName, err)
 		}
@@ -127,7 +151,7 @@ func SyncTargetCopyWithSkills(name string, target config.TargetConfig, allSkills
 							if err := os.RemoveAll(targetSkillPath); err != nil {
 								return nil, fmt.Errorf("failed to remove invalid entry %s: %w", activeName, err)
 							}
-							if err := copyDirectory(skill.SourcePath, targetSkillPath); err != nil {
+							if err := copyDirectoryWithIgnore(skill.SourcePath, targetSkillPath, ignorePatterns); err != nil {
 								return nil, fmt.Errorf("failed to copy skill %s: %w", activeName, err)
 							}
 							manifest.Managed[activeName] = srcChecksum
@@ -165,7 +189,7 @@ func SyncTargetCopyWithSkills(name string, target config.TargetConfig, allSkills
 						}
 					}
 					if !dryRun {
-						if err := copyDirectory(skill.SourcePath, targetSkillPath); err != nil {
+						if err := copyDirectoryWithIgnore(skill.SourcePath, targetSkillPath, ignorePatterns); err != nil {
 							return nil, fmt.Errorf("failed to copy skill %s: %w", activeName, err)
 						}
 						manifest.Managed[activeName] = srcChecksum
@@ -189,7 +213,7 @@ func SyncTargetCopyWithSkills(name string, target config.TargetConfig, allSkills
 				fmt.Fprintf(DiagOutput, "[dry-run] Would copy: %s -> %s\n", skill.SourcePath, targetSkillPath)
 			}
 		} else {
-			if err := copyDirectory(skill.SourcePath, targetSkillPath); err != nil {
+			if err := copyDirectoryWithIgnore(skill.SourcePath, targetSkillPath, ignorePatterns); err != nil {
 				return nil, fmt.Errorf("failed to copy skill %s: %w", activeName, err)
 			}
 			manifest.Managed[activeName] = srcChecksum
@@ -332,16 +356,33 @@ func CheckStatusCopy(targetPath string) (TargetStatus, int, int) {
 // DirMaxMtime returns the latest ModTime (UnixNano) among all files in dir.
 // Skips .git directories. Only uses os.Stat (via filepath.Walk), never reads file content.
 func DirMaxMtime(dir string) (int64, error) {
+	return DirMaxMtimeWithIgnore(dir, nil)
+}
+
+// DirMaxMtimeWithIgnore returns the latest ModTime among non-ignored files in dir.
+func DirMaxMtimeWithIgnore(dir string, ignorePatterns []string) (int64, error) {
 	var maxMtime int64
 	hasSymlink := false
+	ignore := compileFileIgnore(ignorePatterns)
 	err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
+		relPath, relErr := filepath.Rel(dir, path)
+		if relErr != nil {
+			return relErr
+		}
+		relPath = strings.ReplaceAll(relPath, "\\", "/")
 		if info.IsDir() {
 			if info.Name() == ".git" {
 				return filepath.SkipDir
 			}
+			if relPath != "." && isFileIgnored(ignore, relPath, true) {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		if isFileIgnored(ignore, relPath, false) {
 			return nil
 		}
 		// Symlink targets can change without updating the link mtime.
@@ -367,8 +408,13 @@ func DirMaxMtime(dir string) (int64, error) {
 // DirChecksum computes a deterministic SHA256 checksum of a directory.
 // It hashes sorted relative paths and file contents.
 func DirChecksum(dir string) (string, error) {
+	return DirChecksumWithIgnore(dir, nil)
+}
+
+// DirChecksumWithIgnore computes a deterministic checksum of non-ignored files in dir.
+func DirChecksumWithIgnore(dir string, ignorePatterns []string) (string, error) {
 	var entries []checksumEntry
-	err := collectChecksumEntries(dir, "", &entries, map[string]bool{})
+	err := collectChecksumEntries(dir, "", &entries, map[string]bool{}, compileFileIgnore(ignorePatterns))
 	if err != nil {
 		return "", err
 	}
@@ -396,7 +442,7 @@ type checksumEntry struct {
 
 // collectChecksumEntries recursively collects file entries for checksumming.
 // Directory symlinks are dereferenced to hash effective copied content.
-func collectChecksumEntries(root, relPrefix string, entries *[]checksumEntry, active map[string]bool) error {
+func collectChecksumEntries(root, relPrefix string, entries *[]checksumEntry, active map[string]bool, ignore *skillignore.Matcher) error {
 	resolvedRoot, err := filepath.EvalSymlinks(root)
 	if err != nil {
 		return fmt.Errorf("failed to resolve checksum root %s: %w", root, err)
@@ -411,14 +457,6 @@ func collectChecksumEntries(root, relPrefix string, entries *[]checksumEntry, ac
 		if err != nil {
 			return err
 		}
-		if info.IsDir() {
-			// Skip .git directories
-			if info.Name() == ".git" {
-				return filepath.SkipDir
-			}
-			return nil
-		}
-
 		relPath, err := filepath.Rel(root, path)
 		if err != nil {
 			return err
@@ -437,6 +475,18 @@ func collectChecksumEntries(root, relPrefix string, entries *[]checksumEntry, ac
 				fullRelPath = relPrefix + "/" + fullRelPath
 			}
 		}
+		if info.IsDir() {
+			if info.Name() == ".git" {
+				return filepath.SkipDir
+			}
+			if fullRelPath != "" && isFileIgnored(ignore, fullRelPath, true) {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		if isFileIgnored(ignore, fullRelPath, false) {
+			return nil
+		}
 
 		// A symlink can point to a directory. In copy mode we dereference
 		// directory symlinks, so checksum should include effective contents.
@@ -450,7 +500,7 @@ func collectChecksumEntries(root, relPrefix string, entries *[]checksumEntry, ac
 				if resolveErr != nil {
 					return fmt.Errorf("failed to resolve symlink directory %s: %w", path, resolveErr)
 				}
-				return collectChecksumEntries(resolvedDir, fullRelPath, entries, active)
+				return collectChecksumEntries(resolvedDir, fullRelPath, entries, active, ignore)
 			}
 		}
 

@@ -228,6 +228,11 @@ func performProjectInit(root string, opts projectInitOptions) error {
 
 	cfg := &config.ProjectConfig{
 		Targets: selected,
+		Ignore: []string{
+			".DS_Store",
+			".git/",
+			"__pycache__/",
+		},
 		Audit: config.AuditConfig{
 			BlockThreshold: "CRITICAL",
 		},

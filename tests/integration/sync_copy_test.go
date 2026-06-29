@@ -59,6 +59,47 @@ targets:
 	}
 }
 
+func TestSync_CopyMode_IgnoresConfiguredArtifacts(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	skillDir := sb.CreateSkill("skill-a", map[string]string{
+		"SKILL.md": "---\nname: skill-a\n---\n# Skill A",
+	})
+	if err := os.MkdirAll(filepath.Join(skillDir, "scripts", "__pycache__"), 0755); err != nil {
+		t.Fatalf("failed to create __pycache__: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(skillDir, "scripts", "__pycache__", "tool.pyc"), []byte("cache"), 0644); err != nil {
+		t.Fatalf("failed to write pyc: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Join(skillDir, "tmp"), 0755); err != nil {
+		t.Fatalf("failed to create tmp: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(skillDir, "tmp", "note.txt"), []byte("temporary"), 0644); err != nil {
+		t.Fatalf("failed to write tmp file: %v", err)
+	}
+
+	targetPath := sb.CreateTarget("claude")
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+ignore:
+  - tmp/
+targets:
+  claude:
+    path: ` + targetPath + `
+    mode: copy
+`)
+
+	result := sb.RunCLI("sync")
+	result.AssertSuccess(t)
+
+	if sb.FileExists(filepath.Join(targetPath, "skill-a", "scripts", "__pycache__", "tool.pyc")) {
+		t.Error("__pycache__ artifact should not be copied")
+	}
+	if sb.FileExists(filepath.Join(targetPath, "skill-a", "tmp", "note.txt")) {
+		t.Error("configured ignored directory should not be copied")
+	}
+}
+
 func TestSync_CopyMode_SkipsUnchanged(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()

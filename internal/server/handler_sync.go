@@ -84,6 +84,7 @@ func (s *Server) handleSync(w http.ResponseWriter, r *http.Request) {
 
 	var ignoreStats *skillignore.IgnoreStats
 	var allSkills []ssync.DiscoveredSkill
+	ignorePatterns := ssync.EffectiveFileIgnorePatterns(s.cfg.Ignore)
 
 	// Skill sync (skip when kind == "agent")
 	if body.Kind != kindAgent {
@@ -149,7 +150,7 @@ func (s *Server) handleSync(w http.ResponseWriter, r *http.Request) {
 				}
 
 			case "copy":
-				copyResult, err := ssync.SyncTargetCopyWithSkills(name, target, allSkills, s.cfg.EffectiveSkillsSource(), body.DryRun, body.Force, nil)
+				copyResult, err := ssync.SyncTargetCopyWithSkillsOptions(name, target, allSkills, s.cfg.EffectiveSkillsSource(), body.DryRun, body.Force, nil, ssync.CopyOptions{IgnorePatterns: ignorePatterns})
 				if err != nil {
 					s.writeOpsLog("sync", "error", start, syncErrArgs, err.Error())
 					writeError(w, http.StatusInternalServerError, "sync failed for "+name+": "+err.Error())
@@ -440,6 +441,7 @@ func (s *Server) handleDiff(w http.ResponseWriter, r *http.Request) {
 	source := s.cfg.EffectiveSkillsSource()
 	agentsSource := s.agentsSource()
 	globalMode := s.cfg.Mode
+	ignorePatterns := ssync.EffectiveFileIgnorePatterns(s.cfg.Ignore)
 	targets := s.cloneTargets()
 	s.mu.RUnlock()
 
@@ -460,7 +462,7 @@ func (s *Server) handleDiff(w http.ResponseWriter, r *http.Request) {
 		if filterTarget != "" && filterTarget != name {
 			continue
 		}
-		diffs = append(diffs, s.computeTargetDiff(name, target, discovered, globalMode, source))
+		diffs = append(diffs, s.computeTargetDiff(name, target, discovered, globalMode, source, ignorePatterns))
 	}
 
 	diffs = s.appendAgentDiffs(diffs, targets, agentsSource, filterTarget)

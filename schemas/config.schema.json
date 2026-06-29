@@ -80,8 +80,8 @@
       "items": {
         "type": "string"
       },
-      "default": ["**/.DS_Store", "**/.git/**"],
-      "examples": [["**/.DS_Store", "**/.git/**", "**/node_modules/**"]]
+      "default": [".DS_Store", ".git/", "__pycache__/"],
+      "examples": [[".DS_Store", ".git/", "__pycache__/", "node_modules/"]]
     },
     "audit": {
       "$ref": "#/$defs/auditConfig"

@@ -226,9 +226,9 @@ func cmdSync(args []string) error {
 	var results []syncTargetResult
 	var failedTargets int
 	if jsonOutput {
-		results, failedTargets = runParallelSyncQuiet(entries, cfg.EffectiveSkillsSource(), discoveredSkills, dryRun, force, "")
+		results, failedTargets = runParallelSyncQuiet(entries, cfg.EffectiveSkillsSource(), discoveredSkills, sync.EffectiveFileIgnorePatterns(cfg.Ignore), dryRun, force, "")
 	} else {
-		results, failedTargets = runParallelSync(entries, cfg.EffectiveSkillsSource(), discoveredSkills, dryRun, force, "")
+		results, failedTargets = runParallelSync(entries, cfg.EffectiveSkillsSource(), discoveredSkills, sync.EffectiveFileIgnorePatterns(cfg.Ignore), dryRun, force, "")
 	}
 
 	var syncErr error
@@ -496,7 +496,7 @@ func syncTarget(name string, target config.TargetConfig, cfg *config.Config, dry
 	case "merge":
 		return syncMergeMode(name, target, cfg.EffectiveSkillsSource(), dryRun, force)
 	case "copy":
-		return syncCopyMode(name, target, cfg.EffectiveSkillsSource(), dryRun, force)
+		return syncCopyMode(name, target, cfg.EffectiveSkillsSource(), sync.EffectiveFileIgnorePatterns(cfg.Ignore), dryRun, force)
 	default:
 		return syncSymlinkMode(name, target, cfg.EffectiveSkillsSource(), dryRun, force)
 	}
@@ -521,7 +521,7 @@ func syncTargetWithSkillsStats(name string, target config.TargetConfig, cfg *con
 	case "merge":
 		return syncMergeModeWithSkills(name, target, cfg.EffectiveSkillsSource(), skills, dryRun, force)
 	case "copy":
-		return syncCopyModeWithSkills(name, target, cfg.EffectiveSkillsSource(), skills, dryRun, force)
+		return syncCopyModeWithSkills(name, target, cfg.EffectiveSkillsSource(), skills, sync.EffectiveFileIgnorePatterns(cfg.Ignore), dryRun, force)
 	default:
 		err := syncSymlinkMode(name, target, cfg.EffectiveSkillsSource(), dryRun, force)
 		return syncModeStats{}, err
@@ -606,9 +606,9 @@ func reportMergeResult(name string, target config.TargetConfig, result *sync.Mer
 	}
 }
 
-func syncCopyMode(name string, target config.TargetConfig, source string, dryRun, force bool) error {
+func syncCopyMode(name string, target config.TargetConfig, source string, ignorePatterns []string, dryRun, force bool) error {
 	sc := target.SkillsConfig()
-	result, err := sync.SyncTargetCopy(name, target, source, dryRun, force)
+	result, err := sync.SyncTargetCopyWithOptions(name, target, source, dryRun, force, sync.CopyOptions{IgnorePatterns: ignorePatterns})
 	if err != nil {
 		return err
 	}
@@ -622,14 +622,14 @@ func syncCopyMode(name string, target config.TargetConfig, source string, dryRun
 	return nil
 }
 
-func syncCopyModeWithSkills(name string, target config.TargetConfig, source string, skills []sync.DiscoveredSkill, dryRun, force bool) (syncModeStats, error) {
+func syncCopyModeWithSkills(name string, target config.TargetConfig, source string, skills []sync.DiscoveredSkill, ignorePatterns []string, dryRun, force bool) (syncModeStats, error) {
 	// Copy mode is slow (checksum + file copy per skill) — show a spinner with progress
 	spinner := ui.StartSpinner(fmt.Sprintf("%s: copying skills", name))
 	onProgress := func(cur, total int, skill string) {
 		spinner.Update(fmt.Sprintf("%s: %d/%d %s", name, cur, total, skill))
 	}
 
-	result, err := sync.SyncTargetCopyWithSkills(name, target, skills, source, dryRun, force, onProgress)
+	result, err := sync.SyncTargetCopyWithSkillsOptions(name, target, skills, source, dryRun, force, onProgress, sync.CopyOptions{IgnorePatterns: ignorePatterns})
 	if err != nil {
 		spinner.Fail(fmt.Sprintf("%s: copy failed", name))
 		return syncModeStats{}, err

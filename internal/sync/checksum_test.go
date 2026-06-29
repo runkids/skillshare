@@ -71,6 +71,27 @@ func TestDirChecksum_SkipsGit(t *testing.T) {
 	}
 }
 
+func TestDirChecksumWithIgnore_SkipsIgnoredArtifacts(t *testing.T) {
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, "file.txt"), []byte("main"), 0644)
+	os.MkdirAll(filepath.Join(dir, "scripts", "__pycache__"), 0755)
+	os.WriteFile(filepath.Join(dir, "scripts", "__pycache__", "tool.pyc"), []byte("v1"), 0644)
+
+	c1, err := DirChecksumWithIgnore(dir, DefaultFileIgnorePatterns())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	os.WriteFile(filepath.Join(dir, "scripts", "__pycache__", "tool.pyc"), []byte("v2"), 0644)
+	c2, err := DirChecksumWithIgnore(dir, DefaultFileIgnorePatterns())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c1 != c2 {
+		t.Error("ignored artifact changes should not change checksum")
+	}
+}
+
 func TestDirChecksum_EmptyDir(t *testing.T) {
 	dir := t.TempDir()
 
@@ -207,6 +228,29 @@ func TestDirMaxMtime_SkipsGit(t *testing.T) {
 	}
 	if mt != fileTime.UnixNano() {
 		t.Errorf("should ignore .git; expected %d, got %d", fileTime.UnixNano(), mt)
+	}
+}
+
+func TestDirMaxMtimeWithIgnore_SkipsIgnoredArtifacts(t *testing.T) {
+	dir := t.TempDir()
+
+	fileTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
+	cacheTime := time.Date(2025, 12, 31, 0, 0, 0, 0, time.UTC)
+
+	os.WriteFile(filepath.Join(dir, "file.txt"), []byte("main"), 0644)
+	os.Chtimes(filepath.Join(dir, "file.txt"), fileTime, fileTime)
+
+	os.MkdirAll(filepath.Join(dir, "scripts", "__pycache__"), 0755)
+	cacheFile := filepath.Join(dir, "scripts", "__pycache__", "tool.pyc")
+	os.WriteFile(cacheFile, []byte("cache"), 0644)
+	os.Chtimes(cacheFile, cacheTime, cacheTime)
+
+	mt, err := DirMaxMtimeWithIgnore(dir, DefaultFileIgnorePatterns())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if mt != fileTime.UnixNano() {
+		t.Errorf("ignored artifact mtime should not win; expected %d, got %d", fileTime.UnixNano(), mt)
 	}
 }
 

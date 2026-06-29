@@ -39,6 +39,11 @@ func TestInitProject_Fresh_CreatesStructure(t *testing.T) {
 	if !sb.FileExists(filepath.Join(projectRoot, ".agents", "skills")) {
 		t.Error(".agents/skills/ should exist (cursor project path)")
 	}
+
+	cfg := sb.ReadFile(filepath.Join(projectRoot, ".skillshare", "config.yaml"))
+	if !strings.Contains(cfg, "__pycache__/") {
+		t.Errorf("project config should include default __pycache__/ ignore, got:\n%s", cfg)
+	}
 }
 
 func TestInitProject_AlreadyInitialized_Error(t *testing.T) {

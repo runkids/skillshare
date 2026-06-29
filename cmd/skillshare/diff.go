@@ -460,7 +460,7 @@ func cmdDiffGlobal(targetName string, kind resourceKindFilter, opts diffRenderOp
 			defer wg.Done()
 			defer func() { <-sem }()
 			progress.startTarget(fe.name)
-			r := collectTargetDiff(fe.name, fe.target, cfg.EffectiveSkillsSource(), fe.mode, fe.filtered, progress)
+			r := collectTargetDiff(fe.name, fe.target, cfg.EffectiveSkillsSource(), fe.mode, fe.filtered, sync.EffectiveFileIgnorePatterns(cfg.Ignore), progress)
 			progress.doneTarget(fe.name, r)
 			results[idx] = r
 		}(i, fe)
@@ -557,7 +557,7 @@ func diffOutputJSONWithExtras(results []targetDiffResult, extrasResults []extraD
 	return writeJSON(&o)
 }
 
-func collectTargetDiff(name string, target config.TargetConfig, source, mode string, filtered []sync.DiscoveredSkill, dp *diffProgress) targetDiffResult {
+func collectTargetDiff(name string, target config.TargetConfig, source, mode string, filtered []sync.DiscoveredSkill, ignorePatterns []string, dp *diffProgress) targetDiffResult {
 	sc := target.SkillsConfig()
 	r := targetDiffResult{
 		name:    name,
@@ -600,7 +600,7 @@ func collectTargetDiff(name string, target config.TargetConfig, source, mode str
 
 	if mode == "copy" {
 		manifest, _ := sync.ReadManifest(sc.Path)
-		collectCopyDiff(&r, name, sc.Path, resolution.Skills, sourceSkills, legacyNames, manifest, dp)
+		collectCopyDiff(&r, name, sc.Path, resolution.Skills, sourceSkills, legacyNames, manifest, ignorePatterns, dp)
 	} else {
 		// Merge mode (instant)
 		collectMergeDiff(&r, sc.Path, sourceSkills, sourceMap, legacyNames)
@@ -637,7 +637,7 @@ func collectSymlinkDiff(r *targetDiffResult, targetPath, source string) {
 	}
 }
 
-func collectCopyDiff(r *targetDiffResult, targetName, targetPath string, filtered []sync.ResolvedTargetSkill, sourceSkills map[string]bool, legacyNames map[string]sync.ResolvedTargetSkill, manifest *sync.Manifest, dp *diffProgress) {
+func collectCopyDiff(r *targetDiffResult, targetName, targetPath string, filtered []sync.ResolvedTargetSkill, sourceSkills map[string]bool, legacyNames map[string]sync.ResolvedTargetSkill, manifest *sync.Manifest, ignorePatterns []string, dp *diffProgress) {
 	for _, resolved := range filtered {
 		skill := resolved.Skill
 		dp.update(targetName, resolved.TargetName)
@@ -674,11 +674,11 @@ func collectCopyDiff(r *targetDiffResult, targetName, targetPath string, filtere
 		}
 		// mtime fast-path
 		oldMtime := manifest.Mtimes[resolved.TargetName]
-		currentMtime, mtimeErr := sync.DirMaxMtime(skill.SourcePath)
+		currentMtime, mtimeErr := sync.DirMaxMtimeWithIgnore(skill.SourcePath, ignorePatterns)
 		if mtimeErr == nil && oldMtime > 0 && currentMtime == oldMtime {
 			continue
 		}
-		srcChecksum, err := sync.DirChecksum(skill.SourcePath)
+		srcChecksum, err := sync.DirChecksumWithIgnore(skill.SourcePath, ignorePatterns)
 		if err != nil {
 			r.items = append(r.items, copyDiffEntry{action: "modify", name: resolved.TargetName, reason: "cannot compute checksum", isSync: true, srcDir: srcDir, dstDir: dstDir})
 			continue

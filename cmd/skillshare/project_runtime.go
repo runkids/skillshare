@@ -56,6 +56,7 @@ func configFromProjectRuntime(r *projectRuntime) *config.Config {
 	return &config.Config{
 		Source:       r.sourcePath,
 		AgentsSource: r.agentsSourcePath,
+		Ignore:       r.config.Ignore,
 		GitLabHosts:  r.config.GitLabHosts,
 		AzureHosts:   r.config.AzureHosts,
 	}

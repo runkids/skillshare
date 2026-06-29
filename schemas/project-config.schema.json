@@ -64,6 +64,15 @@
         ]
       ]
     },
+    "ignore": {
+      "type": "array",
+      "description": "Glob patterns for artifact files to skip during copy-mode sync.",
+      "items": {
+        "type": "string"
+      },
+      "default": [".DS_Store", ".git/", "__pycache__/"],
+      "examples": [[".DS_Store", ".git/", "__pycache__/", "node_modules/"]]
+    },
     "audit": {
       "$ref": "#/$defs/auditConfig"
     },

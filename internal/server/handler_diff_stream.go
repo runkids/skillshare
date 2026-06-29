@@ -30,6 +30,7 @@ func (s *Server) handleDiffStream(w http.ResponseWriter, r *http.Request) {
 	source := s.cfg.EffectiveSkillsSource()
 	agentsSource := s.agentsSource()
 	globalMode := s.cfg.Mode
+	ignorePatterns := ssync.EffectiveFileIgnorePatterns(s.cfg.Ignore)
 	targets := s.cloneTargets()
 	s.mu.RUnlock()
 
@@ -57,7 +58,7 @@ func (s *Server) handleDiffStream(w http.ResponseWriter, r *http.Request) {
 		default:
 		}
 
-		dt := s.computeTargetDiff(name, target, discovered, globalMode, source)
+		dt := s.computeTargetDiff(name, target, discovered, globalMode, source, ignorePatterns)
 		diffs = append(diffs, dt)
 		checked++
 
@@ -77,7 +78,7 @@ func (s *Server) handleDiffStream(w http.ResponseWriter, r *http.Request) {
 
 // computeTargetDiff computes the diff for a single target.
 // Extracted from handleDiff to share logic with the stream handler.
-func (s *Server) computeTargetDiff(name string, target config.TargetConfig, discovered []ssync.DiscoveredSkill, globalMode, source string) diffTarget {
+func (s *Server) computeTargetDiff(name string, target config.TargetConfig, discovered []ssync.DiscoveredSkill, globalMode, source string, ignorePatterns []string) diffTarget {
 	sc := target.SkillsConfig()
 	mode := sc.Mode
 	if mode == "" {
@@ -141,11 +142,11 @@ func (s *Server) computeTargetDiff(name string, target config.TargetConfig, disc
 					dt.Items = append(dt.Items, diffItem{Skill: resolved.TargetName, Action: "update", Reason: "target entry is not a directory", Kind: kindSkill})
 				} else {
 					oldMtime := manifest.Mtimes[resolved.TargetName]
-					currentMtime, mtimeErr := ssync.DirMaxMtime(skill.SourcePath)
+					currentMtime, mtimeErr := ssync.DirMaxMtimeWithIgnore(skill.SourcePath, ignorePatterns)
 					if mtimeErr == nil && oldMtime > 0 && currentMtime == oldMtime {
 						continue
 					}
-					srcChecksum, checksumErr := ssync.DirChecksum(skill.SourcePath)
+					srcChecksum, checksumErr := ssync.DirChecksumWithIgnore(skill.SourcePath, ignorePatterns)
 					if checksumErr != nil {
 						dt.Items = append(dt.Items, diffItem{Skill: resolved.TargetName, Action: "update", Reason: "cannot compute checksum", Kind: kindSkill})
 					} else if srcChecksum != oldChecksum {

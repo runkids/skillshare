@@ -483,8 +483,9 @@ func performFreshInit(opts *initOptions, home string) error {
 		Mode:    mode,
 		Targets: targets,
 		Ignore: []string{
-			"**/.DS_Store",
-			"**/.git/**",
+			".DS_Store",
+			".git/",
+			"__pycache__/",
 		},
 		Audit: config.AuditConfig{
 			BlockThreshold: "CRITICAL",
