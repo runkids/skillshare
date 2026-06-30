@@ -472,6 +472,14 @@ export const api = {
       body: JSON.stringify(opts),
     }),
 
+  // Adopt
+  getAdoptPreview: () => apiFetch<AdoptPreview>('/adopt/preview'),
+  postAdoptApply: (body: { names?: string[]; force?: boolean; dryRun?: boolean }) =>
+    apiFetch<AdoptApplyResult>('/adopt/apply', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+
   // Version check / app lifecycle
   getVersionCheck: () => apiFetch<VersionCheck>('/version'),
   upgradeApp: () => apiFetch<{ ok: boolean; updated: boolean; devMode?: boolean; latestVersion?: string; output?: string }>('/upgrade', { method: 'POST' }),
@@ -1043,6 +1051,35 @@ export interface CollectResult {
   pulled: string[];
   skipped: string[];
   failed: Record<string, string>;
+}
+
+// Adopt types
+export interface AdoptCandidate {
+  name: string;
+  path: string;
+  sourceTool: string;       // lockfile provenance, may be ""
+  conflict: boolean;        // same-name dir already in source
+  externalLinks: string[];  // orphan symlinks in other targets; never null
+}
+
+export interface AdoptPreview {
+  candidates: AdoptCandidate[]; // never null
+  lockPresent: boolean;
+}
+
+export interface AdoptLockWarning {
+  name: string;
+  source_tool: string; // snake_case: serializes adopt.LockWarning directly
+}
+
+export interface AdoptApplyResult {
+  adopted: string[];                  // never null
+  skipped: string[];                  // never null
+  failed: Record<string, string>;     // never null
+  trashed: number;                    // originals soft-deleted to trash
+  prunedLinks: number;                // orphan symlinks removed across targets
+  lockWarnings: AdoptLockWarning[];   // never null
+  dryRun: boolean;
 }
 
 // Trash types
