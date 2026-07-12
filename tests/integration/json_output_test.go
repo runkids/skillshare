@@ -148,14 +148,14 @@ func TestUninstall_JSON_DryRun(t *testing.T) {
 	}
 }
 
-func TestUninstall_JSON_ImpliesForce(t *testing.T) {
+func TestUninstall_JSON_SkipsConfirmation(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
 
 	sb.CreateSkill("auto-force", map[string]string{"SKILL.md": "# Auto"})
 	sb.WriteConfig(`source: ` + sb.SourcePath + "\ntargets: {}\n")
 
-	// --json should skip confirmation (implies --force)
+	// --json should skip confirmation without requiring --force.
 	result := sb.RunCLI("uninstall", "auto-force", "--json")
 	result.AssertSuccess(t)
 
@@ -695,7 +695,7 @@ func TestUninstall_JSON_AllEmpty_ReturnsJSONError(t *testing.T) {
 	}
 }
 
-func TestUninstall_JSON_PreflightEmpty_ReturnsJSONError(t *testing.T) {
+func TestUninstall_JSON_DirtyRepoRequiresExplicitForce(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
 
@@ -715,12 +715,40 @@ func TestUninstall_JSON_PreflightEmpty_ReturnsJSONError(t *testing.T) {
 	// Add uncommitted change
 	sb.WriteFile(repoPath+"/dirty.txt", "uncommitted")
 
-	// --json implies --force, so this should actually succeed.
-	// But if the skill is the only target and preflight skips it, we should get JSON error.
-	// Actually --json implies --force which bypasses preflight. Let's test without --force override.
-	// Note: --json already implies --force in current code, so we can't test preflight block via --json.
-	// Skip this test — it's not actually testable with --json implying --force.
-	t.Skip("--json implies --force, cannot test preflight block in JSON mode")
+	result := sb.RunCLI("uninstall", "uninst-preflight", "--json")
+	result.AssertFailure(t)
+	assertPureJSON(t, strings.TrimSpace(result.Stdout))
+
+	output := parseJSON(t, result.Stdout)
+	if _, ok := output["error"]; !ok {
+		t.Error("expected 'error' field in JSON output")
+	}
+	if !sb.FileExists(repoPath) {
+		t.Fatal("dirty tracked repo should remain without explicit --force")
+	}
+
+	// Batch JSON output should stay pure while skipping only the dirty repo.
+	sb.CreateSkill("clean-skill", map[string]string{"SKILL.md": "# Clean"})
+	result = sb.RunCLI("uninstall", "uninst-preflight", "clean-skill", "--json")
+	result.AssertSuccess(t)
+	assertPureJSON(t, strings.TrimSpace(result.Stdout))
+	output = parseJSON(t, result.Stdout)
+	if output["skipped"] != float64(1) {
+		t.Fatalf("expected one skipped dirty repo, got %v", output["skipped"])
+	}
+	if !sb.FileExists(repoPath) {
+		t.Fatal("batch uninstall should preserve the dirty tracked repo")
+	}
+	if sb.FileExists(filepath.Join(sb.SourcePath, "clean-skill")) {
+		t.Fatal("batch uninstall should remove the clean skill")
+	}
+
+	result = sb.RunCLI("uninstall", "uninst-preflight", "--json", "--force")
+	result.AssertSuccess(t)
+	assertPureJSON(t, strings.TrimSpace(result.Stdout))
+	if sb.FileExists(repoPath) {
+		t.Fatal("dirty tracked repo should be removed with explicit --force")
+	}
 }
 
 // --- status --project --json ---
