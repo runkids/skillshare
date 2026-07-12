@@ -866,6 +866,9 @@ func cmdUninstall(args []string) error {
 
 		if len(targets) == 0 {
 			preflightErr := fmt.Errorf("no skills to uninstall after pre-flight checks")
+			if preflightSkipped > 0 {
+				preflightErr = fmt.Errorf("%d tracked repo%s skipped due to uncommitted changes; use --force to override", preflightSkipped, pluralS(preflightSkipped))
+			}
 			if opts.jsonOutput {
 				return writeJSONError(preflightErr)
 			}

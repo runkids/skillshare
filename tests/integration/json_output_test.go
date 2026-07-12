@@ -727,6 +727,23 @@ func TestUninstall_JSON_DirtyRepoRequiresExplicitForce(t *testing.T) {
 		t.Fatal("dirty tracked repo should remain without explicit --force")
 	}
 
+	// An all-dirty batch should explain why pre-flight rejected every target.
+	secondRepoPath := sb.SourcePath + "/_uninst-preflight-2"
+	run(t, sb.Root, "git", "clone", remoteDir, secondRepoPath)
+	sb.WriteFile(secondRepoPath+"/dirty.txt", "uncommitted")
+
+	result = sb.RunCLI("uninstall", "uninst-preflight", "uninst-preflight-2", "--json")
+	result.AssertFailure(t)
+	assertPureJSON(t, strings.TrimSpace(result.Stdout))
+	output = parseJSON(t, result.Stdout)
+	errorMessage, _ := output["error"].(string)
+	if !strings.Contains(errorMessage, "uncommitted changes") {
+		t.Fatalf("expected actionable dirty-repo error, got %q", errorMessage)
+	}
+	if !sb.FileExists(repoPath) || !sb.FileExists(secondRepoPath) {
+		t.Fatal("all dirty tracked repos should remain without explicit --force")
+	}
+
 	// Batch JSON output should stay pure while skipping only the dirty repo.
 	sb.CreateSkill("clean-skill", map[string]string{"SKILL.md": "# Clean"})
 	result = sb.RunCLI("uninstall", "uninst-preflight", "clean-skill", "--json")
