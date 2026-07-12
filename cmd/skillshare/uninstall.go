@@ -584,11 +584,6 @@ func cmdUninstall(args []string) error {
 		return parseErr
 	}
 
-	// --json implies --force (skip confirmation prompts)
-	if opts.jsonOutput {
-		opts.force = true
-	}
-
 	cfg, err := config.Load()
 	if err != nil {
 		if opts.jsonOutput {
@@ -599,6 +594,7 @@ func cmdUninstall(args []string) error {
 
 	// Agent-only uninstall: move .md + sidecar to agent trash, then return.
 	if kind == kindAgents {
+		opts.force = opts.force || opts.jsonOutput
 		agentsDir := cfg.EffectiveAgentsSource()
 		err := cmdUninstallAgents(agentsDir, opts, config.ConfigPath(), trash.AgentTrashDir(), start)
 		return err
@@ -841,11 +837,17 @@ func cmdUninstall(args []string) error {
 			// Repo is dirty
 			if !opts.force {
 				if single {
+					dirtyErr := fmt.Errorf("uncommitted changes detected, use --force to override")
+					if opts.jsonOutput {
+						return writeJSONError(dirtyErr)
+					}
 					ui.Error("Repository has uncommitted changes!")
 					ui.Info("Use --force to uninstall anyway, or commit/stash your changes first")
-					return fmt.Errorf("uncommitted changes detected, use --force to override")
+					return dirtyErr
 				}
-				ui.StepSkip(t.name, "uncommitted changes, use --force")
+				if !opts.jsonOutput {
+					ui.StepSkip(t.name, "uncommitted changes, use --force")
+				}
 				continue
 			}
 			if !opts.jsonOutput {
@@ -893,7 +895,7 @@ func cmdUninstall(args []string) error {
 		return nil
 	}
 
-	if !opts.force {
+	if !opts.force && !opts.jsonOutput {
 		if single {
 			confirmed, err := confirmUninstall(targets[0])
 			if err != nil {
@@ -1178,7 +1180,7 @@ Options:
   --group, -G <name>  Remove all skills in a group (prefix match, repeatable)
   --force, -f         Skip confirmation and ignore uncommitted changes
   --dry-run, -n       Preview without making changes
-  --json              Output results as JSON (implies --force)
+  --json              Global mode: output JSON and skip confirmation
   --project, -p       Use project-level config in current directory
   --global, -g        Use global config (~/.config/skillshare)
   --help, -h          Show this help
