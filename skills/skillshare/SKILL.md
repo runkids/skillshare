@@ -171,7 +171,7 @@ skillshare diff --json                         # Diff results as JSON
 skillshare install user/repo --json            # Install result as JSON (implies --force --all)
 skillshare update --all --json                 # Update results as JSON
 skillshare uninstall my-skill --json           # Global JSON; dirty tracked repos still require --force
-skillshare collect claude --json               # Collect result as JSON (implies --force)
+skillshare collect claude --json               # Collect result as JSON; existing items still require --force
 skillshare target list --json                  # Target list as JSON
 skillshare list --json                         # Skill list as JSON
 skillshare search react --json                 # Search results as JSON

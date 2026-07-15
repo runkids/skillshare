@@ -1049,7 +1049,7 @@ targets:
 	}
 }
 
-func TestCollect_Agents_JSON_ImpliesForceAndOverwrites(t *testing.T) {
+func TestCollect_Agents_JSON_SkipsConfirmationButNotForce(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
 
@@ -1070,7 +1070,48 @@ targets:
       path: ` + claudeAgents + `
 `)
 
+	// No stdin input provided: if --json failed to skip the confirmation prompt,
+	// this would block on the unanswered "Collect these...? [y/N]" read.
 	result := sb.RunCLI("collect", "agents", "claude", "--json")
+	result.AssertSuccess(t)
+
+	output := parseJSON(t, strings.TrimSpace(result.Stdout))
+	skipped, ok := output["skipped"].([]any)
+	if !ok || len(skipped) != 1 || skipped[0] != "local-agent.md" {
+		t.Fatalf("expected skipped=[local-agent.md], got %v", output["skipped"])
+	}
+
+	content, err := os.ReadFile(filepath.Join(agentsSource, "local-agent.md"))
+	if err != nil {
+		t.Fatalf("failed to read source agent: %v", err)
+	}
+	if string(content) != "# Source version" {
+		t.Errorf("expected source untouched without --force, got %q", string(content))
+	}
+}
+
+func TestCollect_Agents_JSON_ExplicitForce_Overwrites(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	agentsSource := createAgentSource(t, sb, map[string]string{
+		"local-agent.md": "# Source version",
+	})
+	claudeAgents := createAgentTarget(t, sb, "claude")
+	if err := os.WriteFile(filepath.Join(claudeAgents, "local-agent.md"), []byte("# Target version"), 0644); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets:
+  claude:
+    skills:
+      path: ` + sb.CreateTarget("claude") + `
+    agents:
+      path: ` + claudeAgents + `
+`)
+
+	result := sb.RunCLI("collect", "agents", "claude", "--json", "--force")
 	result.AssertSuccess(t)
 
 	output := parseJSON(t, strings.TrimSpace(result.Stdout))
@@ -1084,7 +1125,7 @@ targets:
 		t.Fatalf("failed to read source agent: %v", err)
 	}
 	if string(content) != "# Target version" {
-		t.Errorf("expected overwrite via --json, got %q", string(content))
+		t.Errorf("expected overwrite via --force, got %q", string(content))
 	}
 }
 
