@@ -460,7 +460,7 @@ func installFromGitSubdir(source *Source, destPath string, result *InstallResult
 	// Works for GitHub and non-GitHub hosts.
 	if gitSupportsSparseCheckout() {
 		resolved = source.Subdir
-		if err := sparseCloneSubdir(source.CloneURL, resolved, tempRepoPath, source.Branch, authEnv(source.CloneURL), opts.OnProgress); err == nil {
+		if err := sparseCloneSubdir(source.CloneURL, resolved, tempRepoPath, source.Branch, source.authEnv(), opts.OnProgress); err == nil {
 			subdirPath = filepath.Join(tempRepoPath, resolved)
 			if info, statErr := os.Stat(subdirPath); statErr != nil || !info.IsDir() {
 				subdirPath = ""
@@ -489,6 +489,36 @@ func installFromGitSubdir(source *Source, destPath string, result *InstallResult
 			result.Warnings = append(result.Warnings, fmt.Sprintf("GitHub API install fallback: %v", dlErr))
 			subdirPath = ""
 			cleanupTempRepo(tempRepoPath)
+		}
+	}
+
+	// Fast path 2b: CNB Contents API
+	if subdirPath == "" && isCNBAPISource(source) {
+		repo := cnbRepoPath(source.CloneURL)
+		resolved = source.Subdir
+		subdirPath = filepath.Join(tempRepoPath, resolved)
+		hash, dlErr := downloadCNBDir(repo, source.Subdir, subdirPath, source, opts.OnProgress)
+		if dlErr == nil {
+			commitHash = hash
+		} else {
+			result.Warnings = append(result.Warnings, fmt.Sprintf("CNB API install fallback: %v", dlErr))
+			subdirPath = ""
+			_ = os.RemoveAll(tempRepoPath)
+		}
+	}
+
+	// Fast path 2b: Gitea Contents API
+	if subdirPath == "" && isGiteaAPISource(source) {
+		owner, repo := giteaOwnerRepo(source.CloneURL)
+		resolved = source.Subdir
+		subdirPath = filepath.Join(tempRepoPath, resolved)
+		hash, dlErr := downloadGiteaDir(owner, repo, source.Subdir, subdirPath, source, opts.OnProgress)
+		if dlErr == nil {
+			commitHash = hash
+		} else {
+			result.Warnings = append(result.Warnings, fmt.Sprintf("Gitea API install fallback: %v", dlErr))
+			subdirPath = ""
+			_ = os.RemoveAll(tempRepoPath)
 		}
 	}
 

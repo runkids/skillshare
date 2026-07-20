@@ -329,7 +329,7 @@ func discoverFromGitSubdirWithProgressImpl(source *Source, onProgress ProgressCa
 	// Fast path 1: sparse checkout (preferred for speed if git is modern)
 	// Works for GitHub and non-GitHub hosts.
 	if gitSupportsSparseCheckout() {
-		if err := sparseCloneSubdir(source.CloneURL, source.Subdir, repoPath, source.Branch, authEnv(source.CloneURL), onProgress); err == nil {
+		if err := sparseCloneSubdir(source.CloneURL, source.Subdir, repoPath, source.Branch, source.authEnv(), onProgress); err == nil {
 			subdirPath = filepath.Join(repoPath, source.Subdir)
 			if info, statErr := os.Stat(subdirPath); statErr == nil && info.IsDir() {
 				if hash, hashErr := getGitCommit(repoPath); hashErr == nil {
@@ -386,6 +386,62 @@ func discoverFromGitSubdirWithProgressImpl(source *Source, onProgress ProgressCa
 		}
 		warnings = append(warnings, fmt.Sprintf("GitHub API discovery fallback: %v", dlErr))
 		cleanupTempRepo(repoPath)
+		subdirPath = ""
+	}
+
+	// Fast path 2b: CNB Contents API
+	if subdirPath == "" && isCNBAPISource(source) {
+		repo := cnbRepoPath(source.CloneURL)
+		subdirPath = filepath.Join(repoPath, source.Subdir)
+		hash, dlErr := downloadCNBDir(repo, source.Subdir, subdirPath, source, onProgress)
+		if dlErr == nil {
+			commitHash = hash
+			skills := discoverSkills(subdirPath, true)
+			agents := discoverAgents(subdirPath, len(skills) > 0)
+			skills, agents, err = constrainDiscoveryToExplicitSkill(source, skills, agents)
+			if err != nil {
+				_ = os.RemoveAll(tempDir)
+				return nil, err
+			}
+			return &DiscoveryResult{
+				RepoPath:   tempDir,
+				Skills:     skills,
+				Agents:     agents,
+				Source:     source,
+				CommitHash: commitHash,
+				Warnings:   warnings,
+			}, nil
+		}
+		warnings = append(warnings, fmt.Sprintf("CNB API discovery fallback: %v", dlErr))
+		_ = os.RemoveAll(repoPath)
+		subdirPath = ""
+	}
+
+	// Fast path 2b: Gitea Contents API
+	if subdirPath == "" && isGiteaAPISource(source) {
+		owner, repo := giteaOwnerRepo(source.CloneURL)
+		subdirPath = filepath.Join(repoPath, source.Subdir)
+		hash, dlErr := downloadGiteaDir(owner, repo, source.Subdir, subdirPath, source, onProgress)
+		if dlErr == nil {
+			commitHash = hash
+			skills := discoverSkills(subdirPath, true)
+			agents := discoverAgents(subdirPath, len(skills) > 0)
+			skills, agents, err = constrainDiscoveryToExplicitSkill(source, skills, agents)
+			if err != nil {
+				_ = os.RemoveAll(tempDir)
+				return nil, err
+			}
+			return &DiscoveryResult{
+				RepoPath:   tempDir,
+				Skills:     skills,
+				Agents:     agents,
+				Source:     source,
+				CommitHash: commitHash,
+				Warnings:   warnings,
+			}, nil
+		}
+		warnings = append(warnings, fmt.Sprintf("Gitea API discovery fallback: %v", dlErr))
+		_ = os.RemoveAll(repoPath)
 		subdirPath = ""
 	}
 

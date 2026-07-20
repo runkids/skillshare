@@ -17,6 +17,8 @@ const (
 	PlatformGitLab               // gitlab.com and self-hosted GitLab
 	PlatformBitbucket            // bitbucket.org
 	PlatformAzureDevOps          // dev.azure.com and visualstudio.com
+	PlatformCNB                  // cnb.cool and self-hosted CNB instances
+	PlatformGitea                // gitea.com and self-hosted Gitea instances
 )
 
 // extractHost returns the hostname from a clone URL.
@@ -62,6 +64,12 @@ func detectPlatform(cloneURL string) Platform {
 	if host == "dev.azure.com" || host == "ssh.dev.azure.com" || strings.HasSuffix(host, ".visualstudio.com") {
 		return PlatformAzureDevOps
 	}
+	if strings.Contains(host, "cnb.cool") {
+		return PlatformCNB
+	}
+	if strings.Contains(host, "gitea") {
+		return PlatformGitea
+	}
 	return PlatformUnknown
 }
 
@@ -70,11 +78,15 @@ func detectPlatform(cloneURL string) Platform {
 // SKILLSHARE_GIT_TOKEN. Returns empty strings if no token is available or
 // the URL is not HTTPS.
 func resolveToken(cloneURL string) (token, username string) {
+	return resolveTokenWithOptions(cloneURL, nil, nil)
+}
+
+func resolveTokenWithOptions(cloneURL string, cnbHosts, giteaHosts []string) (token, username string) {
 	if !isHTTPS(cloneURL) {
 		return "", ""
 	}
 
-	platform := detectPlatform(cloneURL)
+	platform := detectPlatformWithOptions(cloneURL, cnbHosts, giteaHosts)
 	switch platform {
 	case PlatformGitHub:
 		if t := os.Getenv("GITHUB_TOKEN"); t != "" {
@@ -96,6 +108,14 @@ func resolveToken(cloneURL string) (token, username string) {
 		}
 	case PlatformAzureDevOps:
 		if t := os.Getenv("AZURE_DEVOPS_TOKEN"); t != "" {
+			return t, "x-access-token"
+		}
+	case PlatformCNB:
+		if t := os.Getenv("CNB_TOKEN"); t != "" {
+			return t, "cnb"
+		}
+	case PlatformGitea:
+		if t := os.Getenv("GITEA_TOKEN"); t != "" {
 			return t, "x-access-token"
 		}
 	}
@@ -126,7 +146,11 @@ func resolveToken(cloneURL string) (token, username string) {
 // git config entries (e.g. from CI pipelines).
 // Returns nil for SSH/file URLs or when no token is available.
 func authEnv(cloneURL string) []string {
-	token, username := resolveToken(cloneURL)
+	return authEnvWithOptions(cloneURL, nil, nil)
+}
+
+func authEnvWithOptions(cloneURL string, cnbHosts, giteaHosts []string) []string {
+	token, username := resolveTokenWithOptions(cloneURL, cnbHosts, giteaHosts)
 	if token == "" {
 		return nil
 	}
@@ -163,6 +187,28 @@ func DetectPlatformForURL(cloneURL string) Platform {
 	return detectPlatform(cloneURL)
 }
 
+func detectPlatformWithOptions(cloneURL string, cnbHosts, giteaHosts []string) Platform {
+	host := strings.ToLower(extractHost(cloneURL))
+	if host == "" {
+		return PlatformUnknown
+	}
+	return detectPlatformFromHost(host, cnbHosts, giteaHosts)
+}
+
+func (s *Source) authEnv() []string {
+	if s == nil {
+		return nil
+	}
+	return authEnvWithOptions(s.CloneURL, s.CNBHosts, s.GiteaHosts)
+}
+
+func (s *Source) platform() Platform {
+	if s == nil {
+		return PlatformUnknown
+	}
+	return detectPlatformWithOptions(s.CloneURL, s.CNBHosts, s.GiteaHosts)
+}
+
 // existingConfigCount returns the current GIT_CONFIG_COUNT from the
 // environment, or 0 if unset/invalid.
 func existingConfigCount() int {
@@ -195,6 +241,7 @@ func sanitizeTokens(text string) string {
 	vars := []string{
 		"GITHUB_TOKEN", "GH_TOKEN", "GITLAB_TOKEN", "BITBUCKET_TOKEN",
 		"AZURE_DEVOPS_TOKEN", "SKILLSHARE_GIT_TOKEN", "BITBUCKET_USERNAME",
+		"CNB_TOKEN", "GITEA_TOKEN",
 	}
 	for _, v := range vars {
 		if t := os.Getenv(v); t != "" {

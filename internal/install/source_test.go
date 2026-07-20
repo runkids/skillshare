@@ -1520,6 +1520,65 @@ func TestParseSourceWithOptions_GitLabHosts(t *testing.T) {
 	}
 }
 
+func TestParseSourceWithOptions_CNBGiteaHosts(t *testing.T) {
+	tests := []struct {
+		name         string
+		input        string
+		opts         ParseOptions
+		wantCloneURL string
+		wantSubdir   string
+		wantName     string
+	}{
+		{
+			name:         "cnb root repo keeps two segment repo",
+			input:        "https://cnb.cool/org/repo",
+			wantCloneURL: "https://cnb.cool/org/repo.git",
+			wantName:     "repo",
+		},
+		{
+			name:         "cnb subdir uses owner repo split",
+			input:        "https://cnb.cool/org/repo/skills/foo",
+			wantCloneURL: "https://cnb.cool/org/repo.git",
+			wantSubdir:   "skills/foo",
+			wantName:     "foo",
+		},
+		{
+			name:         "custom cnb host uses configured host",
+			input:        "https://git.corp.example/org/repo/skills/foo",
+			opts:         ParseOptions{CNBHosts: []string{"git.corp.example"}},
+			wantCloneURL: "https://git.corp.example/org/repo.git",
+			wantSubdir:   "skills/foo",
+			wantName:     "foo",
+		},
+		{
+			name:         "custom gitea host uses configured host",
+			input:        "https://git.example.com/org/repo/skills/foo",
+			opts:         ParseOptions{GiteaHosts: []string{"git.example.com"}},
+			wantCloneURL: "https://git.example.com/org/repo.git",
+			wantSubdir:   "skills/foo",
+			wantName:     "foo",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			source, err := ParseSourceWithOptions(tt.input, tt.opts)
+			if err != nil {
+				t.Fatalf("ParseSourceWithOptions(%q) error = %v", tt.input, err)
+			}
+			if source.CloneURL != tt.wantCloneURL {
+				t.Errorf("CloneURL = %q, want %q", source.CloneURL, tt.wantCloneURL)
+			}
+			if source.Subdir != tt.wantSubdir {
+				t.Errorf("Subdir = %q, want %q", source.Subdir, tt.wantSubdir)
+			}
+			if source.Name != tt.wantName {
+				t.Errorf("Name = %q, want %q", source.Name, tt.wantName)
+			}
+		})
+	}
+}
+
 func TestParseSourceWithOptions_AzureHosts(t *testing.T) {
 	tests := []struct {
 		name         string
