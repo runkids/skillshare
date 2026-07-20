@@ -285,3 +285,36 @@ func TestHandleInstall_TrackPureAgentRepoInstallsIntoAgentsSource(t *testing.T) 
 		t.Fatalf("expected no tracked agent repo in skills source, got err=%v", err)
 	}
 }
+
+// TestReloadSkillsStore_PicksUpNewEntry guards the "installed skill shows as
+// Local with empty source" regression: install writes metadata to disk via its
+// own store instance, so the server's cached skillsStore must be reloaded or a
+// freshly installed skill renders with an empty source/type in the UI.
+func TestReloadSkillsStore_PicksUpNewEntry(t *testing.T) {
+	s, sourceDir := newTestServer(t)
+
+	if got := s.skillsStore.GetByPath("frontend/react-best-practices"); got != nil {
+		t.Fatalf("expected empty store at startup, got %+v", got)
+	}
+
+	// Simulate an install persisting metadata through a separate store instance.
+	disk := install.NewMetadataStore()
+	disk.Set("frontend/react-best-practices", &install.MetadataEntry{
+		Source: "https://github.com/vercel-labs/agent-skills/tree/main/skills/react-best-practices",
+		Type:   "github-subdir",
+		Group:  "frontend",
+	})
+	if err := disk.Save(sourceDir); err != nil {
+		t.Fatalf("failed to save metadata: %v", err)
+	}
+
+	s.reloadSkillsStore()
+
+	got := s.skillsStore.GetByPath("frontend/react-best-practices")
+	if got == nil {
+		t.Fatal("reloadSkillsStore did not pick up the on-disk entry (skill would show as Local)")
+	}
+	if got.Type != "github-subdir" {
+		t.Errorf("Type = %q, want github-subdir", got.Type)
+	}
+}
