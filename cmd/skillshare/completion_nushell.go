@@ -15,6 +15,7 @@ def "nu-complete skillshare commands" [] {
         { value: "backup", description: "Create backup of targets" }
         { value: "restore", description: "Restore target from backup" }
         { value: "collect", description: "Collect local skills/agents from targets" }
+        { value: "adopt", description: "Adopt externally installed skills into skillshare" }
         { value: "pull", description: "Pull from git remote and sync" }
         { value: "push", description: "Commit and push source to git remote" }
         { value: "commit", description: "Create local git commit without pushing" }
@@ -259,6 +260,17 @@ export extern "skillshare collect" [
     --dry-run(-n)            # Preview changes
     --force(-f)              # Overwrite existing
     --json                   # JSON output
+    --project(-p)            # Use project-level config
+    --global(-g)             # Use global config
+    --help(-h)               # Show help
+]
+
+# Adopt
+export extern "skillshare adopt" [
+    --all(-a)                # Adopt all detected skills
+    --dry-run(-n)            # Preview without changes
+    --force(-f)              # Overwrite same-name source skills
+    --json                   # JSON output without prompting
     --project(-p)            # Use project-level config
     --global(-g)             # Use global config
     --help(-h)               # Show help

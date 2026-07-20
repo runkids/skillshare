@@ -14,6 +14,7 @@ Complete reference for all skillshare commands.
 | Install a skill from GitHub | [`install`](./install.md) |
 | Create my own skill | [`new`](./new.md) |
 | Sync skills to all AI CLIs | [`sync`](./sync.md) |
+| Bring externally installed skills under skillshare | [`adopt`](./adopt.md) |
 | Check what's out of sync | [`status`](./status.md) / [`diff`](./diff.md) |
 | Search for community skills | [`search`](./search.md) |
 | Update installed skills | [`check`](./check.md) then [`update`](./update.md) |
@@ -36,7 +37,7 @@ Complete reference for all skillshare commands.
 | **Skill Management** | `new`, `check`, `update`, `upgrade`, `enable`, `disable` |
 | **Target Management** | `target`, `diff` |
 | **Extras Management** | `extras` (`init`, `list`, `remove`, `collect`) |
-| **Sync Operations** | `collect`, `backup`, `restore`, `trash`, `commit`, `push`, `pull` |
+| **Sync Operations** | `collect`, `adopt`, `backup`, `restore`, `trash`, `commit`, `push`, `pull` |
 | **Security & Utilities** | `analyze`, `audit`, `hub`, `log`, `doctor`, `tui`, `ui`, `completion`, `version` |
 
 ---
@@ -81,6 +82,7 @@ Complete reference for all skillshare commands.
 | Command | Description |
 |---------|-------------|
 | [collect](./collect.md) | Collect skills from target to source |
+| [adopt](./adopt.md) | Adopt externally installed skills into source |
 | [backup](./backup.md) | Create backup of targets |
 | [restore](./restore.md) | Restore targets from backup |
 | [trash](./trash.md) | Manage uninstalled skills in trash |

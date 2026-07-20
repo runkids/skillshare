@@ -35,6 +35,7 @@ complete -c skillshare -n __fish_skillshare_no_subcommand -a diff -d 'Show diffe
 complete -c skillshare -n __fish_skillshare_no_subcommand -a backup -d 'Create backup of targets'
 complete -c skillshare -n __fish_skillshare_no_subcommand -a restore -d 'Restore target from backup'
 complete -c skillshare -n __fish_skillshare_no_subcommand -a collect -d 'Collect local skills/agents from targets'
+complete -c skillshare -n __fish_skillshare_no_subcommand -a adopt -d 'Adopt externally installed skills into skillshare'
 complete -c skillshare -n __fish_skillshare_no_subcommand -a pull -d 'Pull from git remote and sync'
 complete -c skillshare -n __fish_skillshare_no_subcommand -a push -d 'Commit and push source to git remote'
 complete -c skillshare -n __fish_skillshare_no_subcommand -a commit -d 'Create local git commit without pushing'
@@ -151,6 +152,13 @@ complete -c skillshare -n '__fish_skillshare_using_command collect' -l dry-run -
 complete -c skillshare -n '__fish_skillshare_using_command collect' -l force -s f -d 'Overwrite existing'
 complete -c skillshare -n '__fish_skillshare_using_command collect' -l json -d 'JSON output'
 complete -c skillshare -n '__fish_skillshare_using_command collect' -l help -s h -d 'Show help'
+
+# adopt
+complete -c skillshare -n '__fish_skillshare_using_command adopt' -l all -s a -d 'Adopt all detected skills'
+complete -c skillshare -n '__fish_skillshare_using_command adopt' -l dry-run -s n -d 'Preview without changes'
+complete -c skillshare -n '__fish_skillshare_using_command adopt' -l force -s f -d 'Overwrite same-name source skills'
+complete -c skillshare -n '__fish_skillshare_using_command adopt' -l json -d 'JSON output without prompting'
+complete -c skillshare -n '__fish_skillshare_using_command adopt' -l help -s h -d 'Show help'
 
 # pull
 complete -c skillshare -n '__fish_skillshare_using_command pull' -l dry-run -s n -d 'Preview changes'

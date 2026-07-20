@@ -28,6 +28,7 @@ var commands = map[string]func([]string) error{
 	"backup":       cmdBackup,
 	"restore":      cmdRestore,
 	"collect":      cmdCollect,
+	"adopt":        cmdAdopt,
 	"pull":         cmdPull,
 	"push":         cmdPush,
 	"commit":       cmdCommit,
@@ -240,6 +241,7 @@ func printUsage() {
 	// Sync & Backup
 	fmt.Println("SYNC & BACKUP")
 	cmd("collect", "[agents] [target]", "Collect local skills/agents from target(s)")
+	cmd("adopt", "[--all]", "Adopt CLI-bundled skills from ~/.agents into skillshare")
 	cmd("backup", "", "Create backup of target(s)")
 	cmd("restore", "<target>", "Restore target from latest backup")
 	cmd("trash", "[agents] list", "List trashed skills/agents")

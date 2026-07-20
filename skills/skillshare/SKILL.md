@@ -106,7 +106,20 @@ skillshare new my-skill -P reviewer              # Use reviewer pattern directly
 skillshare search "react testing"                # Search GitHub for skills
 skillshare collect                               # Pull target-local changes back to source
 ```
+
+### Adopting Externally Installed Skills
+
+```bash
+skillshare adopt --dry-run                       # Preview unmanaged skills in the universal target
+skillshare adopt --all                           # Adopt non-conflicting skills without a prompt
+skillshare adopt --all --force                   # Explicitly replace same-name source skills
+skillshare adopt --json                          # Structured output; does not imply --force
+```
+
+Use `adopt` when another CLI wrote real skill directories into `~/.agents/skills` outside Skillshare's source-of-truth flow. Skillshare moves adopted originals to trash and re-syncs configured targets, but deliberately leaves the other tool's lockfile unchanged. See [adopt.md](references/adopt.md) for the ownership and safety contract.
+
 ### Removing Skills
+
 ```bash
 skillshare uninstall my-skill                    # Remove one (moves to trash)
 skillshare uninstall skill-a skill-b             # Remove multiple
@@ -192,7 +205,7 @@ See [TROUBLESHOOTING.md](references/TROUBLESHOOTING.md) for more.
 | Commands | Project? | `--json`? |
 |----------|:--------:|:---------:|
 | `status`, `diff`, `list`, `doctor` | ✓ (auto) | ✓ |
-| `sync`, `collect` | ✓ (auto) | ✓ |
+| `sync`, `collect`, `adopt` | ✓ (auto) | ✓ |
 | `install`, `uninstall`, `update`, `check`, `search`, `new` | ✓ (`-p`) | ✓ (except new) |
 | `target`, `audit`, `analyze`, `trash`, `log`, `hub` | ✓ (`-p`) | ✓ (target list, audit, analyze, log) |
 | `extras init/list/remove/collect/source` (+ `--mode`/`--add-target`/`--remove-target` flags on `extras <name>`) | ✓ (`-p`, except source) | ✓ (list, mode, targets) |
@@ -214,6 +227,7 @@ See [TROUBLESHOOTING.md](references/TROUBLESHOOTING.md) for more.
 |-------|------|
 | Init flags | [init.md](references/init.md) |
 | Sync/collect/commit/push/pull | [sync.md](references/sync.md) |
+| Adopting externally installed skills | [adopt.md](references/adopt.md) |
 | Install/update/uninstall/new | [install.md](references/install.md) |
 | Status/diff/list/search/check | [status.md](references/status.md) |
 | Security audit | [audit.md](references/audit.md) |

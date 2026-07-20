@@ -44,7 +44,7 @@ func FindLocalSkills(targetPath, sourcePath, syncMode string) ([]LocalSkillInfo,
 	var skills []LocalSkillInfo
 
 	// Check if target exists
-	info, err := os.Lstat(targetPath)
+	_, err := os.Lstat(targetPath)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return skills, nil // Empty list if target doesn't exist
@@ -54,7 +54,7 @@ func FindLocalSkills(targetPath, sourcePath, syncMode string) ([]LocalSkillInfo,
 
 	// If target is a symlink pointing to source, it's using symlink mode — no local skills.
 	// If it's an external symlink (e.g., dotfiles manager), follow it and scan.
-	if info.Mode()&os.ModeSymlink != 0 {
+	if utils.IsSymlinkOrJunction(targetPath) {
 		absLink, err := utils.ResolveLinkTarget(targetPath)
 		if err != nil {
 			return nil, err
@@ -93,7 +93,7 @@ func FindLocalSkills(targetPath, sourcePath, syncMode string) ([]LocalSkillInfo,
 		}
 
 		// Skip symlinks (these are synced from source)
-		if skillInfo.Mode()&os.ModeSymlink != 0 {
+		if utils.IsSymlinkOrJunction(skillPath) {
 			continue
 		}
 
@@ -123,24 +123,71 @@ func FindLocalSkills(targetPath, sourcePath, syncMode string) ([]LocalSkillInfo,
 	return skills, nil
 }
 
-// PullSkill copies a single skill from target to source
-func PullSkill(skill LocalSkillInfo, sourcePath string, force bool) error {
+// PullSkill copies a single skill from target to source.
+func PullSkill(skill LocalSkillInfo, sourcePath string, force bool) (retErr error) {
 	destPath := filepath.Join(sourcePath, skill.Name)
 
 	// Check if skill already exists in source
+	destExists := false
 	if _, err := os.Stat(destPath); err == nil {
+		destExists = true
 		if !force {
 			return ErrAlreadyExists
 		}
-		// Remove existing to overwrite
-		if err := os.RemoveAll(destPath); err != nil {
-			return fmt.Errorf("failed to remove existing: %w", err)
-		}
 	}
 
-	// Copy skill to source, skipping .git directories (collect brings
-	// user content, not repository metadata).
-	return copyDirectorySkipGit(skill.Path, destPath)
+	if err := os.MkdirAll(sourcePath, 0755); err != nil {
+		return fmt.Errorf("failed to create source directory: %w", err)
+	}
+
+	// Stage beside the destination so every rename stays on one filesystem.
+	// The destination is untouched until the complete copy has succeeded.
+	stagingDir, err := os.MkdirTemp(sourcePath, ".skillshare-pull-")
+	if err != nil {
+		return fmt.Errorf("failed to create pull staging directory: %w", err)
+	}
+	preserveStaging := false
+	defer func() {
+		if preserveStaging {
+			return
+		}
+		if cleanupErr := os.RemoveAll(stagingDir); cleanupErr != nil {
+			cleanupErr = fmt.Errorf("failed to clean pull staging directory: %w", cleanupErr)
+			if retErr == nil {
+				retErr = cleanupErr
+			} else {
+				retErr = errors.Join(retErr, cleanupErr)
+			}
+		}
+	}()
+
+	stagedPath := filepath.Join(stagingDir, "replacement")
+	// Collect brings user content, not repository metadata.
+	if err := copyDirectorySkipGit(skill.Path, stagedPath); err != nil {
+		return fmt.Errorf("failed to stage skill copy: %w", err)
+	}
+
+	if !destExists {
+		if err := os.Rename(stagedPath, destPath); err != nil {
+			return fmt.Errorf("failed to install staged skill: %w", err)
+		}
+		return nil
+	}
+
+	backupPath := filepath.Join(stagingDir, "original")
+	if err := os.Rename(destPath, backupPath); err != nil {
+		return fmt.Errorf("failed to stage existing skill for replacement: %w", err)
+	}
+	if err := os.Rename(stagedPath, destPath); err != nil {
+		if rollbackErr := os.Rename(backupPath, destPath); rollbackErr != nil {
+			// Keep the staging directory: it still contains the original skill.
+			preserveStaging = true
+			return fmt.Errorf("failed to install staged skill: %v; failed to restore existing skill: %w (original preserved at %s)", err, rollbackErr, backupPath)
+		}
+		return fmt.Errorf("failed to install staged skill: %w", err)
+	}
+
+	return nil
 }
 
 // PullSkills pulls multiple skills to source
@@ -151,7 +198,14 @@ func PullSkills(skills []LocalSkillInfo, sourcePath string, opts PullOptions) (*
 
 	for _, skill := range skills {
 		if opts.DryRun {
-			result.Pulled = append(result.Pulled, skill.Name)
+			// Classify exactly as a real pull would: a same-name skill already
+			// in source is skipped unless --force, so the preview must not
+			// report it as pulled.
+			if _, statErr := os.Stat(filepath.Join(sourcePath, skill.Name)); statErr == nil && !opts.Force {
+				result.Skipped = append(result.Skipped, skill.Name)
+			} else {
+				result.Pulled = append(result.Pulled, skill.Name)
+			}
 			continue
 		}
 

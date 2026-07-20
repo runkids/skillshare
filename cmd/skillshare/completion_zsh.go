@@ -16,6 +16,7 @@ _skillshare() {
         'backup:Create backup of targets'
         'restore:Restore target from backup'
         'collect:Collect local skills/agents from targets'
+        'adopt:Adopt externally installed skills into skillshare'
         'pull:Pull from git remote and sync'
         'push:Commit and push source to git remote'
         'commit:Create local git commit without pushing'
@@ -209,6 +210,19 @@ _skillshare() {
                         '--force[Overwrite existing]' \
                         '-f[Overwrite existing]' \
                         '--json[JSON output]' \
+                        $global_flags \
+                        '--help[Show help]' \
+                        '-h[Show help]'
+                    ;;
+                adopt)
+                    _arguments \
+                        '--all[Adopt all detected skills]' \
+                        '-a[Adopt all detected skills]' \
+                        '--dry-run[Preview without changes]' \
+                        '-n[Preview without changes]' \
+                        '--force[Overwrite same-name source skills]' \
+                        '-f[Overwrite same-name source skills]' \
+                        '--json[JSON output without prompting]' \
                         $global_flags \
                         '--help[Show help]' \
                         '-h[Show help]'

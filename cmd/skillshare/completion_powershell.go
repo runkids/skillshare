@@ -18,6 +18,7 @@ $_skillshareCompleter = {
             @{ Name = 'backup'; Desc = 'Create backup of targets' }
             @{ Name = 'restore'; Desc = 'Restore target from backup' }
             @{ Name = 'collect'; Desc = 'Collect local skills/agents from targets' }
+            @{ Name = 'adopt'; Desc = 'Adopt externally installed skills into skillshare' }
             @{ Name = 'pull'; Desc = 'Pull from git remote and sync' }
             @{ Name = 'push'; Desc = 'Commit and push source to git remote' }
             @{ Name = 'commit'; Desc = 'Create local git commit without pushing' }
@@ -96,6 +97,7 @@ $_skillshareCompleter = {
         'backup' = '--list', '-l', '--cleanup', '-c', '--dry-run', '-n', '--target', '-t', '--help', '-h', '--project', '-p', '--global', '-g'
         'restore' = '--from', '-f', '--force', '--dry-run', '-n', '--no-tui', '--help', '-h', '--project', '-p', '--global', '-g'
         'collect' = '--all', '-a', '--dry-run', '-n', '--force', '-f', '--json', '--help', '-h', '--project', '-p', '--global', '-g'
+        'adopt' = '--all', '-a', '--dry-run', '-n', '--force', '-f', '--json', '--help', '-h', '--project', '-p', '--global', '-g'
         'pull' = '--dry-run', '-n', '--force', '-f', '--project', '-p', '--global', '-g'
         'push' = '--dry-run', '-n', '--message', '-m', '--project', '-p', '--global', '-g'
         'commit' = '--dry-run', '-n', '--message', '-m', '--help', '-h', '--project', '-p', '--global', '-g'
