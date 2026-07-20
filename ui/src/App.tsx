@@ -20,6 +20,7 @@ const TargetsPage = lazy(() => import('./pages/TargetsPage'));
 const ExtrasPage = lazy(() => import('./pages/ExtrasPage'));
 const SyncPage = lazy(() => import('./pages/SyncPage'));
 const CollectPage = lazy(() => import('./pages/CollectPage'));
+const AdoptPage = lazy(() => import('./pages/AdoptPage'));
 const BackupPage = lazy(() => import('./pages/BackupPage'));
 const GitSyncPage = lazy(() => import('./pages/GitSyncPage'));
 const SearchPage = lazy(() => import('./pages/SearchPage'));
@@ -64,6 +65,7 @@ export default function App() {
                         <Route path="extras" element={<Lazy><ExtrasPage /></Lazy>} />
                         <Route path="sync" element={<Lazy><SyncPage /></Lazy>} />
                         <Route path="collect" element={<Lazy><CollectPage /></Lazy>} />
+                        <Route path="adopt" element={<Lazy><AdoptPage /></Lazy>} />
                         <Route path="backup" element={<Lazy><BackupPage /></Lazy>} />
                         <Route path="trash" element={<Lazy><TrashPage /></Lazy>} />
                         <Route path="git" element={<Lazy><GitSyncPage /></Lazy>} />
