@@ -15,6 +15,17 @@ import (
 	"skillshare/internal/install"
 )
 
+// reloadSkillsStore refreshes the in-memory skills metadata store from disk.
+// install.Install writes metadata to the file via its own store instance, so the
+// server's cached s.skillsStore stays stale after an install — a freshly
+// installed skill would then render with an empty source/type (shown as "Local"
+// with a blank source in the UI) until the server restarts.
+func (s *Server) reloadSkillsStore() {
+	if st, err := install.LoadMetadataWithMigration(s.cfg.EffectiveSkillsSource(), ""); err == nil && st != nil {
+		s.skillsStore = st
+	}
+}
+
 func discoverInstallSource(source *install.Source) (*install.DiscoveryResult, error) {
 	if source.IsGit() {
 		if source.HasSubdir() {
@@ -276,6 +287,8 @@ func (s *Server) handleInstallBatch(w http.ResponseWriter, r *http.Request) {
 			if st, loadErr := install.LoadMetadataWithMigration(s.agentsSource(), install.MetadataKindAgent); loadErr == nil && st != nil {
 				s.agentsStore = st
 			}
+		} else {
+			s.reloadSkillsStore()
 		}
 		if s.IsProjectMode() {
 			if rErr := config.ReconcileProjectSkills(s.projectRoot, s.projectCfg, s.skillsStore, s.cfg.EffectiveSkillsSource()); rErr != nil {
@@ -398,6 +411,7 @@ func (s *Server) handleInstall(w http.ResponseWriter, r *http.Request) {
 		}
 		// Reconcile config after tracked repo install
 		if trackedKind == "skill" {
+			s.reloadSkillsStore()
 			if s.IsProjectMode() {
 				if rErr := config.ReconcileProjectSkills(s.projectRoot, s.projectCfg, s.skillsStore, s.cfg.EffectiveSkillsSource()); rErr != nil {
 					log.Printf("warning: failed to reconcile project skills config: %v", rErr)
@@ -486,6 +500,7 @@ func (s *Server) handleInstall(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Reconcile config after single install
+	s.reloadSkillsStore()
 	if s.IsProjectMode() {
 		if rErr := config.ReconcileProjectSkills(s.projectRoot, s.projectCfg, s.skillsStore, s.cfg.EffectiveSkillsSource()); rErr != nil {
 			log.Printf("warning: failed to reconcile project skills config: %v", rErr)
