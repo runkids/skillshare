@@ -264,3 +264,41 @@ func TestHandlePatchSkillSource_UpdatesRemoteAndMetadata(t *testing.T) {
 		t.Fatalf("metadata RepoURL = %q, want new repo URL", entry.RepoURL)
 	}
 }
+
+// TestFindRepoRoot_ExcludesSourceRoot guards the origin-hijack regression: when
+// the skills source root is itself a git repo (e.g. GitSync-backed), a nested
+// non-tracked skill must NOT resolve the source root as its tracked repo —
+// otherwise editing that skill's source rewrites the source root repo's origin.
+func TestFindRepoRoot_ExcludesSourceRoot(t *testing.T) {
+	root := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(root, ".git"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	nested := filepath.Join(root, "frontend", "react", "react-doctor")
+	if err := os.MkdirAll(nested, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	// Nested skill with no .git of its own: source root must be ignored.
+	if got := findRepoRoot(nested, root); got != "" {
+		t.Fatalf("findRepoRoot resolved source root as tracked repo: %q", got)
+	}
+
+	// A real tracked repo (.git in a subdirectory) is still found.
+	tracked := filepath.Join(root, "_repo")
+	if err := os.MkdirAll(filepath.Join(tracked, ".git"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if got := findRepoRoot(tracked, root); got != tracked {
+		t.Fatalf("findRepoRoot(%q) = %q, want %q", tracked, got, tracked)
+	}
+
+	// Sibling dir sharing a name prefix must not be treated as inside root.
+	sibling := root + "-extra"
+	if err := os.MkdirAll(filepath.Join(sibling, ".git"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if got := findRepoRoot(filepath.Join(sibling, "skill"), root); got != "" {
+		t.Fatalf("findRepoRoot leaked into sibling dir: %q", got)
+	}
+}

@@ -65,7 +65,7 @@ Import skills or agents from target(s) to source.
 skillshare collect claude      # From specific target
 skillshare collect --all       # From all targets
 skillshare collect --dry-run   # Preview
-skillshare collect claude --json   # JSON output (implies --force)
+skillshare collect claude --json   # JSON output; existing items still require --force to overwrite
 skillshare collect agents claude   # Collect agents instead of skills
 
 # Project (auto-detected or -p)

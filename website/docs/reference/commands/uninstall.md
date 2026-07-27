@@ -44,7 +44,7 @@ flowchart TD
 | `--dry-run, -n` | Preview without making changes |
 | `--project, -p` | Use project-level config in current directory |
 | `--global, -g` | Use global config (`~/.config/skillshare`) |
-| `--json` | Output as JSON (implies `--force`, skips confirmation) |
+| `--json` | Global mode: output JSON and skip confirmation; dirty tracked repositories still require `--force` |
 | `--help, -h` | Show help |
 
 ## JSON Output

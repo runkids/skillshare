@@ -52,7 +52,7 @@ The web dashboard's **Collect** page is currently skills-only. Use the CLI for `
 | `--all, -a` | Collect from all targets |
 | `--force, -f` | Overwrite existing items in source and skip confirmation |
 | `--dry-run, -n` | Preview without making changes |
-| `--json` | Output as JSON (implies `--force`, skips confirmation) |
+| `--json` | Output JSON and skip confirmation; existing items in source still require `--force` to overwrite |
 
 ## JSON Output
 

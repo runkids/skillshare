@@ -148,14 +148,14 @@ func TestUninstall_JSON_DryRun(t *testing.T) {
 	}
 }
 
-func TestUninstall_JSON_ImpliesForce(t *testing.T) {
+func TestUninstall_JSON_SkipsConfirmation(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
 
 	sb.CreateSkill("auto-force", map[string]string{"SKILL.md": "# Auto"})
 	sb.WriteConfig(`source: ` + sb.SourcePath + "\ntargets: {}\n")
 
-	// --json should skip confirmation (implies --force)
+	// --json should skip confirmation without requiring --force.
 	result := sb.RunCLI("uninstall", "auto-force", "--json")
 	result.AssertSuccess(t)
 
@@ -695,7 +695,7 @@ func TestUninstall_JSON_AllEmpty_ReturnsJSONError(t *testing.T) {
 	}
 }
 
-func TestUninstall_JSON_PreflightEmpty_ReturnsJSONError(t *testing.T) {
+func TestUninstall_JSON_DirtyRepoRequiresExplicitForce(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
 
@@ -715,12 +715,57 @@ func TestUninstall_JSON_PreflightEmpty_ReturnsJSONError(t *testing.T) {
 	// Add uncommitted change
 	sb.WriteFile(repoPath+"/dirty.txt", "uncommitted")
 
-	// --json implies --force, so this should actually succeed.
-	// But if the skill is the only target and preflight skips it, we should get JSON error.
-	// Actually --json implies --force which bypasses preflight. Let's test without --force override.
-	// Note: --json already implies --force in current code, so we can't test preflight block via --json.
-	// Skip this test — it's not actually testable with --json implying --force.
-	t.Skip("--json implies --force, cannot test preflight block in JSON mode")
+	result := sb.RunCLI("uninstall", "uninst-preflight", "--json")
+	result.AssertFailure(t)
+	assertPureJSON(t, strings.TrimSpace(result.Stdout))
+
+	output := parseJSON(t, result.Stdout)
+	if _, ok := output["error"]; !ok {
+		t.Error("expected 'error' field in JSON output")
+	}
+	if !sb.FileExists(repoPath) {
+		t.Fatal("dirty tracked repo should remain without explicit --force")
+	}
+
+	// An all-dirty batch should explain why pre-flight rejected every target.
+	secondRepoPath := sb.SourcePath + "/_uninst-preflight-2"
+	run(t, sb.Root, "git", "clone", remoteDir, secondRepoPath)
+	sb.WriteFile(secondRepoPath+"/dirty.txt", "uncommitted")
+
+	result = sb.RunCLI("uninstall", "uninst-preflight", "uninst-preflight-2", "--json")
+	result.AssertFailure(t)
+	assertPureJSON(t, strings.TrimSpace(result.Stdout))
+	output = parseJSON(t, result.Stdout)
+	errorMessage, _ := output["error"].(string)
+	if !strings.Contains(errorMessage, "uncommitted changes") {
+		t.Fatalf("expected actionable dirty-repo error, got %q", errorMessage)
+	}
+	if !sb.FileExists(repoPath) || !sb.FileExists(secondRepoPath) {
+		t.Fatal("all dirty tracked repos should remain without explicit --force")
+	}
+
+	// Batch JSON output should stay pure while skipping only the dirty repo.
+	sb.CreateSkill("clean-skill", map[string]string{"SKILL.md": "# Clean"})
+	result = sb.RunCLI("uninstall", "uninst-preflight", "clean-skill", "--json")
+	result.AssertSuccess(t)
+	assertPureJSON(t, strings.TrimSpace(result.Stdout))
+	output = parseJSON(t, result.Stdout)
+	if output["skipped"] != float64(1) {
+		t.Fatalf("expected one skipped dirty repo, got %v", output["skipped"])
+	}
+	if !sb.FileExists(repoPath) {
+		t.Fatal("batch uninstall should preserve the dirty tracked repo")
+	}
+	if sb.FileExists(filepath.Join(sb.SourcePath, "clean-skill")) {
+		t.Fatal("batch uninstall should remove the clean skill")
+	}
+
+	result = sb.RunCLI("uninstall", "uninst-preflight", "--json", "--force")
+	result.AssertSuccess(t)
+	assertPureJSON(t, strings.TrimSpace(result.Stdout))
+	if sb.FileExists(repoPath) {
+		t.Fatal("dirty tracked repo should be removed with explicit --force")
+	}
 }
 
 // --- status --project --json ---
@@ -1004,7 +1049,7 @@ targets:
 	}
 }
 
-func TestCollect_Agents_JSON_ImpliesForceAndOverwrites(t *testing.T) {
+func TestCollect_Agents_JSON_SkipsConfirmationButNotForce(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
 
@@ -1025,7 +1070,48 @@ targets:
       path: ` + claudeAgents + `
 `)
 
+	// No stdin input provided: if --json failed to skip the confirmation prompt,
+	// this would block on the unanswered "Collect these...? [y/N]" read.
 	result := sb.RunCLI("collect", "agents", "claude", "--json")
+	result.AssertSuccess(t)
+
+	output := parseJSON(t, strings.TrimSpace(result.Stdout))
+	skipped, ok := output["skipped"].([]any)
+	if !ok || len(skipped) != 1 || skipped[0] != "local-agent.md" {
+		t.Fatalf("expected skipped=[local-agent.md], got %v", output["skipped"])
+	}
+
+	content, err := os.ReadFile(filepath.Join(agentsSource, "local-agent.md"))
+	if err != nil {
+		t.Fatalf("failed to read source agent: %v", err)
+	}
+	if string(content) != "# Source version" {
+		t.Errorf("expected source untouched without --force, got %q", string(content))
+	}
+}
+
+func TestCollect_Agents_JSON_ExplicitForce_Overwrites(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	agentsSource := createAgentSource(t, sb, map[string]string{
+		"local-agent.md": "# Source version",
+	})
+	claudeAgents := createAgentTarget(t, sb, "claude")
+	if err := os.WriteFile(filepath.Join(claudeAgents, "local-agent.md"), []byte("# Target version"), 0644); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets:
+  claude:
+    skills:
+      path: ` + sb.CreateTarget("claude") + `
+    agents:
+      path: ` + claudeAgents + `
+`)
+
+	result := sb.RunCLI("collect", "agents", "claude", "--json", "--force")
 	result.AssertSuccess(t)
 
 	output := parseJSON(t, strings.TrimSpace(result.Stdout))
@@ -1039,7 +1125,7 @@ targets:
 		t.Fatalf("failed to read source agent: %v", err)
 	}
 	if string(content) != "# Target version" {
-		t.Errorf("expected overwrite via --json, got %q", string(content))
+		t.Errorf("expected overwrite via --force, got %q", string(content))
 	}
 }
 

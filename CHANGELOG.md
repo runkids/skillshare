@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.20.22] - 2026-07-21
+
+### New Features
+
+- **Grok CLI target** — added xAI's Grok CLI as a built-in target, syncing skills to `~/.grok/skills` (global) and `.grok/skills` (project), with legacy fallback to `~/.agents/skills`. Aliases: `xai`, `grok-cli`.
+
+  ```bash
+  skillshare sync --targets grok
+  ```
+
+### Bug Fixes
+
+- **`collect --json` no longer forces overwrites** — JSON mode previously implied `--force`, silently overwriting existing skills and agents in the source. It now still skips confirmation prompts but keeps the overwrite guard, so existing resources are preserved unless `--force` is passed.
+- **`uninstall --json` no longer bypasses the uncommitted-changes guard** — JSON mode previously implied `--force`, removing tracked skills that had uncommitted changes without warning. Dirty repositories now return a structured error unless `--force` is passed.
+- **Batch uninstall explains all-dirty failures** — uninstalling multiple tracked skills where every repository has uncommitted changes now reports why nothing was removed instead of failing without explanation.
+- **Editing a skill's source no longer rewrites the source directory's Git remote** — in the dashboard, changing a nested skill's source URL could overwrite the `origin` of the skills source directory itself when that directory is a Git repository (for example, backed by Git Sync). Source edits now only affect a tracked skill's own repository.
+- **Freshly installed skills show their correct source instead of "Local"** — after installing a skill from the dashboard, the resource now immediately shows its GitHub source and type, rather than appearing as a local skill with an empty source until the server was restarted.
+
 ## [0.20.21] - 2026-06-29
 
 ### Bug Fixes

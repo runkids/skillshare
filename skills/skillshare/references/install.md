@@ -176,7 +176,7 @@ skillshare uninstall -G frontend -p --force
 # Preview
 skillshare uninstall --group frontend --dry-run
 
-# JSON output (implies --force)
+# Global JSON output (skips confirmation; dirty tracked repos still require --force)
 skillshare uninstall my-skill --json
 ```
 

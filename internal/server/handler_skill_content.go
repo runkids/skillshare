@@ -268,12 +268,18 @@ func (s *Server) findMetadataEntry(name, kind, source, agentsSource string) *met
 	return nil
 }
 
-// findRepoRoot walks up from path looking for a .git directory, bounded by root.
-// Returns the directory containing .git, or "" if none found.
+// findRepoRoot walks up from path looking for a tracked-skill .git directory,
+// strictly BELOW root. The source root itself is never a tracked repo (it holds
+// many skills from different sources), and it may legitimately be a GitSync repo
+// — treating it as a tracked repo would rewrite that repo's origin. Returns the
+// directory containing .git, or "" if none found.
 func findRepoRoot(path, root string) string {
 	cleanRoot := filepath.Clean(root)
-	for dir := path; dir != filepath.Dir(dir); dir = filepath.Dir(dir) {
-		if !strings.HasPrefix(filepath.Clean(dir), cleanRoot) {
+	prefix := cleanRoot + string(filepath.Separator)
+	for dir := filepath.Clean(path); dir != filepath.Dir(dir); dir = filepath.Dir(dir) {
+		// Stop once we reach the source root (or step outside it): a tracked
+		// skill's .git always lives in a subdirectory, never at root itself.
+		if dir == cleanRoot || !strings.HasPrefix(dir, prefix) {
 			break
 		}
 		if fi, err := os.Stat(filepath.Join(dir, ".git")); err == nil && fi.IsDir() {

@@ -65,9 +65,6 @@ func parseCollectOptions(args []string) collectOptions {
 			}
 		}
 	}
-	if opts.jsonOutput {
-		opts.force = true
-	}
 	return opts
 }
 
@@ -181,7 +178,7 @@ func runCollectPlan(plan collectPlan, opts collectOptions, start time.Time, scop
 		return summary, nil
 	}
 
-	if !opts.force {
+	if !opts.force && !opts.jsonOutput {
 		if !confirmCollect(label) {
 			ui.Info("Cancelled")
 			return summary, nil

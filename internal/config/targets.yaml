@@ -150,6 +150,13 @@ targets:
     skills:
       global: "~/.config/goose/skills"
       project: ".goose/skills"
+  - name: grok
+    skills:
+      global: "~/.grok/skills"
+      project: ".grok/skills"
+    also_scans:
+      global: ["~/.agents/skills"]
+    aliases: [xai, grok-cli]
   - name: hermes
     skills:
       global: "~/.hermes/skills"

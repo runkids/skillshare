@@ -15,7 +15,7 @@ description: |
   `.agentignore` and `enable`/`disable` for per-agent toggles.
 argument-hint: "[command] [target] [--json] [--dry-run] [-p|-g]"
 metadata:
-  version: v0.20.21
+  version: v0.20.22
 ---
 
 # Skillshare CLI
@@ -170,8 +170,8 @@ skillshare sync --json                         # Sync results as JSON
 skillshare diff --json                         # Diff results as JSON
 skillshare install user/repo --json            # Install result as JSON (implies --force --all)
 skillshare update --all --json                 # Update results as JSON
-skillshare uninstall my-skill --json           # Uninstall result as JSON (implies --force)
-skillshare collect claude --json               # Collect result as JSON (implies --force)
+skillshare uninstall my-skill --json           # Global JSON; dirty tracked repos still require --force
+skillshare collect claude --json               # Collect result as JSON; existing items still require --force
 skillshare target list --json                  # Target list as JSON
 skillshare list --json                         # Skill list as JSON
 skillshare search react --json                 # Search results as JSON
