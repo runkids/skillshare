@@ -158,7 +158,7 @@ for p in "$(go env GOPATH)/bin/air" /go/bin/air /usr/local/go/bin/air; do
 done
 if [ -z "$AIR_BIN" ]; then
   echo "  air          not found — installing..." >&2
-  go install github.com/air-verse/air@latest
+  go install github.com/air-verse/air@v1.67.0  # v1.67.3+ needs go >= 1.26
   AIR_BIN="$(go env GOPATH)/bin/air"
 fi
 

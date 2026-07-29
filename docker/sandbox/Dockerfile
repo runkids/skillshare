@@ -26,7 +26,8 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Go development tools
-RUN go install github.com/air-verse/air@latest \
+# air pinned: v1.67.3+ requires go >= 1.26, image runs GO_VERSION with GOTOOLCHAIN=local
+RUN go install github.com/air-verse/air@v1.67.0 \
     && go install github.com/go-delve/delve/cmd/dlv@latest
 
 # Copy node runtime from ui-builder stage (for devcontainer / interactive use)
