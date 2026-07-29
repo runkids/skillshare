@@ -897,3 +897,39 @@ targets: {}
 		t.Error("expected summary.info > 0 when .skillignore is absent")
 	}
 }
+
+// Regression for issue #251: doctor -p must resolve relative symlinks against
+// the link's parent directory, not the current working directory.
+func TestDoctorProject_RelativeSymlink_NoFalsePositives(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	projectDir := sb.SetupProjectDir()
+	sb.CreateProjectSkill(projectDir, "my-skill", map[string]string{
+		"SKILL.md": "---\nname: my-skill\n---\n# Content",
+	})
+	sb.WriteProjectConfig(projectDir, `targets:
+  - name: claude
+    skills:
+      path: .claude/skills
+      mode: symlink
+  - name: codex
+    skills:
+      path: .agents/skills
+      mode: symlink
+`)
+	sb.WriteConfig(`source: ` + sb.SourcePath + "\ntargets: {}\n")
+
+	sb.RunCLIInDir(projectDir, "sync", "-p").AssertSuccess(t)
+
+	link := filepath.Join(projectDir, ".claude", "skills")
+	if target := sb.SymlinkTarget(link); filepath.IsAbs(target) {
+		t.Fatalf("expected relative symlink, got %q", target)
+	}
+
+	result := sb.RunCLIInDir(projectDir, "doctor", "-p")
+	result.AssertSuccess(t)
+	if out := result.Output(); strings.Contains(out, "wrong location") || strings.Contains(out, "Duplicate skills") {
+		t.Errorf("doctor -p misreported valid relative symlinks:\n%s", out)
+	}
+}

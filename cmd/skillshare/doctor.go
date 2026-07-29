@@ -537,12 +537,13 @@ func checkTargetIssues(target config.TargetConfig, source string) []string {
 		return targetIssues
 	}
 
-	// Check if it's a symlink
+	// Check if it's a symlink. Relative links must resolve against the link's
+	// parent directory, not the current working directory.
 	if info.Mode()&os.ModeSymlink != 0 {
 		link, _ := os.Readlink(sc.Path)
-		absLink, _ := filepath.Abs(link)
+		absLink, err := utils.ResolveLinkTarget(sc.Path)
 		absSource, _ := filepath.Abs(source)
-		if !utils.PathsEqual(absLink, absSource) {
+		if err != nil || !utils.PathsEqual(absLink, absSource) {
 			targetIssues = append(targetIssues, fmt.Sprintf("symlink points to wrong location: %s", link))
 		}
 	}
@@ -1011,6 +1012,12 @@ func checkDuplicateSkills(cfg *config.Config, result *doctorResult, discovered [
 
 		// Skip merge mode - local skills are intentional
 		if mode == "merge" {
+			continue
+		}
+
+		// The target dir is itself a link (symlink mode after sync), so its
+		// entries are the source itself, not target-local copies.
+		if utils.IsSymlinkOrJunction(sc.Path) {
 			continue
 		}
 
