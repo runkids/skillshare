@@ -44,6 +44,7 @@ These are auto-detected during `skillshare init`:
   <a className="target-badge" href="#target-droid">Droid</a>
   <a className="target-badge" href="#target-firebender">Firebender</a>
   <a className="target-badge" href="#target-forgecode">ForgeCode</a>
+  <a className="target-badge" href="#target-gemini">Gemini CLI</a>
   <a className="target-badge" href="#target-goose">Goose</a>
   <a className="target-badge" href="#target-grok">Grok</a>
   <a className="target-badge" href="#target-hermes">Hermes</a>
@@ -96,7 +97,7 @@ These are auto-detected during `skillshare init`:
 <tr id="target-adal"><td>adal</td><td><code>&#126;/.adal/skills</code></td><td><code>.adal/skills</code></td></tr>
 <tr id="target-universal"><td>universal</td><td><code>&#126;/.agents/skills</code></td><td><code>.agents/skills</code></td></tr>
 <tr id="target-amp"><td>amp</td><td><code>&#126;/.config/agents/skills</code></td><td><code>.agents/skills</code></td></tr>
-<tr id="target-antigravity"><td>antigravity</td><td><code>&#126;/.gemini/skills</code></td><td><code>.agents/skills</code></td></tr>
+<tr id="target-antigravity"><td>antigravity</td><td><code>&#126;/.gemini/config/skills</code></td><td><code>.agents/skills</code></td></tr>
 <tr id="target-aiderdesk"><td>aiderdesk</td><td><code>&#126;/.aider-desk/skills</code></td><td><code>.aider-desk/skills</code></td></tr>
 <tr id="target-astrbot"><td>astrbot</td><td><code>&#126;/.astrbot/data/skills</code></td><td><code>data/skills</code></td></tr>
 <tr id="target-augment"><td>augment</td><td><code>&#126;/.augment/skills</code></td><td><code>.augment/skills</code></td></tr>
@@ -121,6 +122,7 @@ These are auto-detected during `skillshare init`:
 <tr id="target-firebender"><td>firebender</td><td><code>&#126;/.firebender/skills</code></td><td><code>.firebender/skills</code></td></tr>
 <tr id="target-forgecode"><td>forgecode</td><td><code>&#126;/forge/skills</code></td><td><code>.forge/skills</code></td></tr>
 
+<tr id="target-gemini"><td>gemini</td><td><code>&#126;/.gemini/skills</code></td><td><code>.gemini/skills</code></td></tr>
 <tr id="target-goose"><td>goose</td><td><code>&#126;/.config/goose/skills</code></td><td><code>.goose/skills</code></td></tr>
 <tr id="target-grok"><td>grok</td><td><code>&#126;/.grok/skills</code></td><td><code>.grok/skills</code></td></tr>
 <tr id="target-hermes"><td>hermes</td><td><code>&#126;/.hermes/skills</code></td><td><code>.hermes/skills</code></td></tr>
@@ -184,8 +186,7 @@ Some targets have alternative names for backward compatibility or convenience:
 | `deep-agents` | `deepagents` | Hyphenated variant |
 | `factory` | `droid` | Brand / config dir name |
 | `forge-code` | `forgecode` | Hyphenated variant |
-| `gemini` | `antigravity` | Legacy name (Gemini CLI → Antigravity) |
-| `gemini-cli` | `antigravity` | Legacy name |
+| `gemini-cli` | `gemini` | With CLI suffix |
 | `antigravity-cli` | `antigravity` | CLI variant |
 | `github-copilot` | `copilot` | Full product name |
 | `iflow-cli` | `iflow` | With CLI suffix |

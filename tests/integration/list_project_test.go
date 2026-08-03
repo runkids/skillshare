@@ -106,3 +106,25 @@ func TestListProject_PartialInit_RepairsMissingConfig(t *testing.T) {
 		t.Fatalf("expected repaired config to include detected claude target, got:\n%s", cfg)
 	}
 }
+
+func TestListProject_FilterByStatus(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	projectRoot := sb.SetupProjectDir("claude")
+
+	sb.CreateProjectSkill(projectRoot, "on-skill", map[string]string{"SKILL.md": "# On"})
+	sb.CreateProjectSkill(projectRoot, "off-skill", map[string]string{"SKILL.md": "# Off"})
+	skillsDir := filepath.Join(projectRoot, ".skillshare", "skills")
+	sb.WriteFile(filepath.Join(skillsDir, ".skillignore"), "off-skill\n")
+
+	enabled := sb.RunCLIInDir(projectRoot, "list", "-p", "--no-tui", "--status", "enabled")
+	enabled.AssertSuccess(t)
+	enabled.AssertOutputContains(t, "on-skill")
+	enabled.AssertOutputNotContains(t, "off-skill")
+	enabled.AssertAnyOutputContains(t, "1 of 2 skills (status: enabled)")
+
+	disabled := sb.RunCLIInDir(projectRoot, "list", "-p", "--no-tui", "--status", "disabled")
+	disabled.AssertSuccess(t)
+	disabled.AssertOutputContains(t, "off-skill")
+	disabled.AssertOutputNotContains(t, "on-skill")
+}

@@ -123,6 +123,10 @@ Then restart.
 
 **Note:** skillshare uses NTFS junctions on Windows, not symlinks. If you see symlink errors, ensure you're using the Windows version of skillshare.
 
+### `Incorrect function` in Antigravity
+
+Antigravity cannot traverse junctions. See [Antigravity does not load synced skills](./common-errors.md#antigravity-does-not-load-synced-skills).
+
 ---
 
 ## PowerShell Tips

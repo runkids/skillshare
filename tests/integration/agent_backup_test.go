@@ -79,6 +79,12 @@ targets:
       path: ` + claudeAgents + `
 `)
 
+	// A local agent that only exists in the target — this is what a backup
+	// protects. Synced agents are symlinks into the source and are recreated
+	// by `sync`, so they are deliberately not backed up (issue #252).
+	localPath := filepath.Join(claudeAgents, "local-helper.md")
+	sb.WriteFile(localPath, "# Local helper")
+
 	// Sync then backup
 	sb.RunCLI("sync", "agents")
 	sb.RunCLI("backup", "agents")
@@ -89,16 +95,19 @@ targets:
 		t.Fatalf("expected agent symlink at %s", linkPath)
 	}
 
-	// Delete the agent from target
-	os.Remove(linkPath)
-	if _, err := os.Lstat(linkPath); !os.IsNotExist(err) {
-		t.Fatal("symlink should be removed")
+	// Delete the local agent from target
+	if err := os.Remove(localPath); err != nil {
+		t.Fatalf("remove local agent: %v", err)
 	}
 
 	// Restore
 	result := sb.RunCLI("restore", "agents", "claude", "--force")
 	result.AssertSuccess(t)
 	result.AssertAnyOutputContains(t, "Restored")
+
+	if _, err := os.Stat(localPath); err != nil {
+		t.Fatalf("expected restored agent at %s: %v", localPath, err)
+	}
 }
 
 func TestBackup_Default_DoesNotBackupAgents(t *testing.T) {
@@ -128,6 +137,13 @@ func TestBackup_Agents_ProjectMode_CreatesBackup(t *testing.T) {
 	defer sb.Cleanup()
 
 	projectDir := setupProjectWithAgents(t, sb)
+
+	// Local agent — synced agents are symlinks and are not backed up (#252),
+	// so without local content there is nothing to snapshot.
+	sb.WriteFile(
+		filepath.Join(projectDir, ".claude", "agents", "local-helper.md"),
+		"# Local helper",
+	)
 
 	// Sync agents first
 	result := sb.RunCLIInDir(projectDir, "sync", "-p", "agents")
@@ -173,28 +189,36 @@ func TestBackup_Agents_ProjectMode_RestoreRoundTrip(t *testing.T) {
 
 	projectDir := setupProjectWithAgents(t, sb)
 
+	// A local agent that only exists in the target — this is what a backup
+	// protects. Synced agents are symlinks into the source and are recreated
+	// by `sync`, so they are deliberately not backed up (issue #252).
+	claudeAgents := filepath.Join(projectDir, ".claude", "agents")
+	localPath := filepath.Join(claudeAgents, "local-helper.md")
+	sb.WriteFile(localPath, "# Local helper")
+
 	// Sync → backup
 	sb.RunCLIInDir(projectDir, "sync", "-p", "agents")
 	sb.RunCLIInDir(projectDir, "backup", "-p", "agents")
 
 	// Verify agent symlink exists
-	claudeAgents := filepath.Join(projectDir, ".claude", "agents")
 	linkPath := filepath.Join(claudeAgents, "tutor.md")
 	if _, err := os.Lstat(linkPath); err != nil {
 		t.Fatalf("expected agent symlink at %s", linkPath)
 	}
 
-	// Delete agent from target
-	os.Remove(linkPath)
+	// Delete the local agent from target
+	if err := os.Remove(localPath); err != nil {
+		t.Fatalf("remove local agent: %v", err)
+	}
 
 	// Restore
 	result := sb.RunCLIInDir(projectDir, "restore", "-p", "agents", "claude", "--force")
 	result.AssertSuccess(t)
 	result.AssertAnyOutputContains(t, "Restored")
 
-	// Verify agent file is back (as a regular file from backup, not symlink)
-	if _, err := os.Stat(linkPath); err != nil {
-		t.Fatalf("expected restored agent at %s: %v", linkPath, err)
+	// Verify the local agent is back
+	if _, err := os.Stat(localPath); err != nil {
+		t.Fatalf("expected restored agent at %s: %v", localPath, err)
 	}
 }
 

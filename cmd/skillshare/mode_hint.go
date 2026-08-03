@@ -28,12 +28,20 @@ func modeHintCommand(targetName string, projectMode bool) string {
 	return fmt.Sprintf("skillshare target %s --mode copy && skillshare sync", targetName)
 }
 
+// symlinkIncompatTargets lists targets whose runtimes are known to skip
+// symlinked skill directories. Order doubles as the hint's example priority,
+// which also keeps the output deterministic (ranging a map would not).
+var symlinkIncompatTargets = []string{"cursor", "antigravity", "copilot", "opencode"}
+
 func printSymlinkCompatHint(targets map[string]config.TargetConfig, defaultMode string, projectMode bool) {
-	// Find any target that uses a non-copy mode (merge or symlink).
+	// Pick the highest-priority known-incompatible target still on a non-copy mode.
 	var exampleTarget string
-	for name, target := range targets {
-		mode := effectiveSyncMode(target.SkillsConfig().Mode, defaultMode)
-		if mode != "copy" {
+	for _, name := range symlinkIncompatTargets {
+		target, ok := targets[name]
+		if !ok {
+			continue
+		}
+		if effectiveSyncMode(target.SkillsConfig().Mode, defaultMode) != "copy" {
 			exampleTarget = name
 			break
 		}

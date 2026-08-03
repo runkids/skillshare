@@ -219,7 +219,7 @@ Keep the universal target in **merge mode** (default) for the safest coexistence
 
 ### I used `claude-code` (or `gemini-cli`, etc.) as a project target — is that still valid?
 
-Yes. Old project target names like `claude-code`, `gemini-cli`, `github-copilot` still resolve via aliases. For example, `gemini` and `gemini-cli` now resolve to `antigravity`. We recommend updating your `.skillshare/config.yaml` to use the canonical name:
+Yes. Old project target names like `claude-code`, `gemini-cli`, `github-copilot` still resolve via aliases. For example, `gemini-cli` resolves to `gemini`. We recommend updating your `.skillshare/config.yaml` to use the canonical name:
 
 ```yaml
 # Before

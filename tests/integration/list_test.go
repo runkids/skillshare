@@ -4,6 +4,7 @@ package integration
 
 import (
 	"encoding/json"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -565,6 +566,154 @@ func TestList_NoTUI_WithPattern(t *testing.T) {
 	if strings.Contains(result.Stdout, "vue-helper") {
 		t.Errorf("should not contain 'vue-helper' when filtered")
 	}
+}
+
+// --- --status tests ---
+
+// setupStatusSandbox creates one enabled and one disabled skill ("off-skill"
+// is disabled through .skillignore) and writes the config.
+func setupStatusSandbox(t *testing.T) *testutil.Sandbox {
+	t.Helper()
+	sb := testutil.NewSandbox(t)
+	sb.CreateSkill("on-skill", map[string]string{"SKILL.md": "# On"})
+	sb.CreateSkill("off-skill", map[string]string{"SKILL.md": "# Off"})
+	sb.WriteFile(filepath.Join(sb.SourcePath, ".skillignore"), "off-skill\n")
+	sb.WriteConfig(`source: ` + sb.SourcePath + "\ntargets: {}\n")
+	return sb
+}
+
+func TestList_FilterByStatus_Enabled(t *testing.T) {
+	sb := setupStatusSandbox(t)
+	defer sb.Cleanup()
+
+	result := sb.RunCLI("list", "--no-tui", "--status", "enabled")
+
+	result.AssertSuccess(t)
+	result.AssertOutputContains(t, "on-skill")
+	result.AssertOutputNotContains(t, "off-skill")
+	result.AssertAnyOutputContains(t, "1 of 2 skills (status: enabled)")
+}
+
+func TestList_FilterByStatus_Disabled(t *testing.T) {
+	sb := setupStatusSandbox(t)
+	defer sb.Cleanup()
+
+	result := sb.RunCLI("list", "--no-tui", "--status=disabled")
+
+	result.AssertSuccess(t)
+	result.AssertOutputContains(t, "off-skill")
+	result.AssertOutputNotContains(t, "on-skill")
+	result.AssertAnyOutputContains(t, "1 of 2 skills (status: disabled)")
+}
+
+func TestList_FilterByStatus_All_EqualsDefault(t *testing.T) {
+	sb := setupStatusSandbox(t)
+	defer sb.Cleanup()
+
+	def := sb.RunCLI("list", "--json")
+	def.AssertSuccess(t)
+	explicit := sb.RunCLI("list", "--json", "--status", "all")
+	explicit.AssertSuccess(t)
+
+	if def.Stdout != explicit.Stdout {
+		t.Errorf("--status all differs from default:\ndefault:\n%s\nexplicit:\n%s", def.Stdout, explicit.Stdout)
+	}
+}
+
+func TestList_FilterByStatus_JSON(t *testing.T) {
+	sb := setupStatusSandbox(t)
+	defer sb.Cleanup()
+
+	result := sb.RunCLI("list", "--json", "--status", "enabled")
+	result.AssertSuccess(t)
+
+	var skills []map[string]interface{}
+	if err := json.Unmarshal([]byte(result.Stdout), &skills); err != nil {
+		t.Fatalf("invalid JSON output: %v\nOutput: %s", err, result.Stdout)
+	}
+	if len(skills) != 1 {
+		t.Fatalf("expected 1 skill, got %d", len(skills))
+	}
+	if skills[0]["name"] != "on-skill" {
+		t.Errorf("expected on-skill, got %v", skills[0]["name"])
+	}
+}
+
+func TestList_FilterByStatus_NoMatch(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sb.CreateSkill("on-skill", map[string]string{"SKILL.md": "# On"})
+	sb.WriteConfig(`source: ` + sb.SourcePath + "\ntargets: {}\n")
+
+	result := sb.RunCLI("list", "--no-tui", "--status", "disabled")
+	result.AssertSuccess(t)
+	result.AssertAnyOutputContains(t, `No skills matching status "disabled"`)
+
+	jsonResult := sb.RunCLI("list", "--json", "--status", "disabled")
+	jsonResult.AssertSuccess(t)
+	if strings.TrimSpace(jsonResult.Stdout) != "[]" {
+		t.Errorf("expected empty JSON array, got %q", jsonResult.Stdout)
+	}
+}
+
+func TestList_FilterByStatus_CombinesWithPattern(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sb.CreateSkill("react-on", map[string]string{"SKILL.md": "# On"})
+	sb.CreateSkill("react-off", map[string]string{"SKILL.md": "# Off"})
+	sb.CreateSkill("vue-off", map[string]string{"SKILL.md": "# Vue"})
+	sb.WriteFile(filepath.Join(sb.SourcePath, ".skillignore"), "react-off\nvue-off\n")
+	sb.WriteConfig(`source: ` + sb.SourcePath + "\ntargets: {}\n")
+
+	result := sb.RunCLI("list", "--no-tui", "react", "--status", "disabled")
+
+	result.AssertSuccess(t)
+	result.AssertOutputContains(t, "react-off")
+	result.AssertOutputNotContains(t, "react-on")
+	result.AssertOutputNotContains(t, "vue-off")
+}
+
+func TestList_FilterByStatus_HidesTrackedReposSummary(t *testing.T) {
+	sb := setupStatusSandbox(t)
+	defer sb.Cleanup()
+
+	result := sb.RunCLI("list", "--no-tui", "--status", "enabled")
+
+	result.AssertSuccess(t)
+	result.AssertOutputNotContains(t, "Tracked repositories")
+}
+
+func TestList_Agents_FilterByStatus(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	agentsDir := createAgentSource(t, sb, map[string]string{
+		"tutor.md":    "# Tutor agent",
+		"reviewer.md": "# Reviewer agent",
+	})
+	sb.WriteFile(filepath.Join(agentsDir, ".agentignore"), "reviewer.md\n")
+	sb.WriteConfig(`source: ` + sb.SourcePath + "\ntargets: {}\n")
+
+	result := sb.RunCLI("list", "agents", "--no-tui", "--status", "disabled")
+
+	result.AssertSuccess(t)
+	result.AssertOutputContains(t, "reviewer")
+	result.AssertOutputNotContains(t, "tutor")
+}
+
+func TestList_InvalidStatus(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sb.WriteConfig(`source: ` + sb.SourcePath + "\ntargets: {}\n")
+
+	result := sb.RunCLI("list", "--status", "bogus")
+
+	result.AssertFailure(t)
+	result.AssertAnyOutputContains(t, "invalid status")
+	result.AssertAnyOutputContains(t, "all, enabled, or disabled")
 }
 
 // writeListMeta writes a metadata entry to the centralized .metadata.json in sourceDir.

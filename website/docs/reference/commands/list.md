@@ -68,9 +68,16 @@ Filter skills without entering the TUI:
 skillshare list react                     # Filter by name/path/source
 skillshare list --type local              # Only local skills
 skillshare list --type github             # Only GitHub-sourced skills
+skillshare list --status disabled         # Only skills disabled via .skillignore
+skillshare list --status enabled --json   # Enabled skills, as JSON
 skillshare list react --sort newest       # Sort by install date
 skillshare list --json | jq '.[].name'   # JSON for scripting
 ```
+
+The default view (`--status all`) includes entries marked disabled. `--status`
+combines with the pattern and `--type` using AND semantics, works in project
+mode and for `list agents` / `list --all`, and seeds the TUI's `Status:` chip
+(you can still press `s` to cycle from there).
 
 :::tip AI Usage
 Use `--json` mode when inspecting skills programmatically:
@@ -223,6 +230,7 @@ Project list uses the same visual format as global list, with `(project)` label 
 | `--json, -j` | Output as JSON (useful for CI/scripts) |
 | `--no-tui` | Disable interactive TUI, use plain text output |
 | `--type, -t <type>` | Filter by type: `tracked`, `local`, `github` |
+| `--status <status>` | Filter by status: `all` (default), `enabled`, `disabled` |
 | `--sort, -s <order>` | Sort order: `name` (default), `newest`, `oldest` |
 | `--project, -p` | List project skills |
 | `--global, -g` | List global skills |

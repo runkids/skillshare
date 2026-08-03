@@ -31,7 +31,7 @@ _skillshare() {
     local init_flags="--source -s --remote --copy-from -c --no-copy --targets -t --all-targets --no-targets --mode -m --git --no-git --skill --no-skill --discover -d --select --subdir --dry-run -n --help -h"
     local install_flags="--source -s --name --force -f --update -u --dry-run -n --skip-audit --audit-verbose --audit-threshold --threshold -T --branch -b --track -t --kind --agent -a --skill --exclude --into --all --yes -y --json --help -h"
     local uninstall_flags="--all --force -f --dry-run -n --json --group -G --help -h"
-    local list_flags="--verbose -v --json -j --no-tui --type -t --sort -s --all --help -h"
+    local list_flags="--verbose -v --json -j --no-tui --type -t --status --sort -s --all --help -h"
     local sync_flags="--all --dry-run -n --force -f --json --help -h"
     local diff_flags="--no-tui --patch --stat --json --help -h"
     local backup_flags="--list -l --cleanup -c --dry-run -n --target -t --help -h"

@@ -156,6 +156,25 @@ targets:
 	result.AssertOutputNotContains(t, "Symlink compatibility")
 }
 
+func TestDoctor_NoSymlinkCompatHint_WhenNoKnownIncompatTarget(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	claudePath := sb.CreateTarget("claude")
+
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+mode: merge
+targets:
+  claude:
+    path: ` + claudePath + `
+`)
+
+	result := sb.RunCLI("doctor")
+
+	result.AssertSuccess(t)
+	result.AssertOutputNotContains(t, "Symlink compatibility")
+}
+
 func TestDoctor_TargetIssues_ShowsProblems(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
@@ -932,4 +951,35 @@ func TestDoctorProject_RelativeSymlink_NoFalsePositives(t *testing.T) {
 	if out := result.Output(); strings.Contains(out, "wrong location") || strings.Contains(out, "Duplicate skills") {
 		t.Errorf("doctor -p misreported valid relative symlinks:\n%s", out)
 	}
+}
+
+func TestDoctor_CopyModeExternalSymlink_ChecksDuplicateSkills(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sb.CreateSkill("duplicate-skill", map[string]string{"SKILL.md": "# Source"})
+
+	realTarget := sb.CreateTarget("real-copy-target")
+	localSkill := filepath.Join(realTarget, "duplicate-skill")
+	if err := os.MkdirAll(localSkill, 0755); err != nil {
+		t.Fatal(err)
+	}
+	sb.WriteFile(filepath.Join(localSkill, "SKILL.md"), "# Local")
+
+	linkedTarget := filepath.Join(sb.Home, "linked-copy-target")
+	if err := os.Symlink(realTarget, linkedTarget); err != nil {
+		t.Skipf("symlink not supported: %v", err)
+	}
+
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets:
+  copilot:
+    path: ` + linkedTarget + `
+    mode: copy
+`)
+
+	result := sb.RunCLI("doctor", "-g")
+	result.AssertSuccess(t)
+	result.AssertOutputContains(t, "Duplicate skills")
+	result.AssertOutputContains(t, "duplicate-skill")
 }

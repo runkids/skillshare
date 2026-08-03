@@ -9,6 +9,32 @@ All notable changes to skillshare are documented here. For the full commit histo
 
 ---
 
+## [0.20.23] - 2026-07-30
+
+### New Features
+
+- **`list --status` filters enabled or disabled entries outside the TUI** — the enabled/disabled filter previously existed only inside the list TUI (`s` key, `status:` search tag), so scripts had to know that `disabled` is omitted for enabled entries and filter the JSON themselves. `--status` combines with the pattern and `--type` using AND semantics, and works in project mode and for agents.
+
+  ```bash
+  skillshare list --status disabled
+  skillshare list --status enabled --json
+  ```
+
+  `--status all` is the default and produces output identical to omitting the flag. Refs: #244.
+
+### Bug Fixes
+
+- **Backups no longer copy your source, and old snapshots are pruned automatically** — pre-sync backups followed merge-mode skill symlinks and copied the resolved content, so every snapshot duplicated the source directory, including files kept out of Git but still present on disk such as model weights, `.venv`, and browser profiles. Retention only ran when `backup --cleanup` was invoked by hand, so nothing removed the accumulating snapshots; backup directories could reach hundreds of gigabytes until `sync` failed with `no space left on device`. Snapshots now capture only local target content, and the existing retention policy (10 snapshots, 30 days, 500 MB) runs after every automatic backup. Refs: #252.
+- **`backup --cleanup` keeps the newest snapshot when it exceeds the size cap** — a single snapshot larger than the 500 MB cap previously removed every backup including the most recent one, leaving no restore point at all.
+- **Backup previews and cleanup now agree** — `backup --cleanup --dry-run` no longer reports that it will delete an oversized newest snapshot when the actual cleanup keeps it. Retention also counts only snapshots that remain after cleanup, avoiding unnecessary deletion of older snapshots that still fit.
+- **Failed backups are discarded instead of appearing as restore points** — if a file cannot be copied, the partial snapshot is removed and cannot consume the newest retention slot. Automatic cleanup failures are now shown as warnings instead of being silently ignored.
+- **Targets holding only symlinks no longer produce empty snapshots** — an empty restore point consumed a retention slot and evicted older snapshots that did have content.
+- **`doctor` handles linked target directories correctly** — in project symlink mode the valid link `../.skillshare/skills` was reported as pointing to the wrong location, because relative links were resolved against the current working directory instead of the link's parent. Symlink-mode targets no longer report every source skill as a duplicate target-local copy, while copy-mode targets reached through a symlink still report real duplicate copies. Refs: #251.
+
+### Breaking Changes
+
+- **Backups capture local target content only** — merge-mode skill symlinks are skipped, so restoring a target recovers its local skills and then needs `skillshare sync` to recreate symlinks for synced skills. Copy-mode targets are unaffected because they hold real files. The documented backup location is also corrected to `~/.local/share/skillshare/backups/` (the XDG data directory), which had been listed under `~/.config` in some places.
+
 ## [0.20.22] - 2026-07-21
 
 ### New Features

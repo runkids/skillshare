@@ -41,6 +41,7 @@ List installed skills. Interactive TUI on TTY, plain text otherwise.
 skillshare list                # Interactive TUI (default on TTY)
 skillshare list react          # Filter by name/path/source
 skillshare list --type local   # Filter by type: tracked, local, github
+skillshare list --status disabled # Filter by status: all (default), enabled, disabled
 skillshare list --sort newest  # Sort: name (default), newest, oldest
 skillshare list --verbose      # Detailed plain text view
 skillshare list --json         # JSON output (recommended for AI usage)

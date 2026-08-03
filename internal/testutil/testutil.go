@@ -156,7 +156,9 @@ func (sb *Sandbox) CreateTarget(name string) string {
 		path = filepath.Join(sb.Home, ".codex", "skills")
 	case "cursor":
 		path = filepath.Join(sb.Home, ".cursor", "skills")
-	case "antigravity", "gemini":
+	case "antigravity":
+		path = filepath.Join(sb.Home, ".gemini", "config", "skills")
+	case "gemini":
 		path = filepath.Join(sb.Home, ".gemini", "skills")
 	case "opencode":
 		path = filepath.Join(sb.Home, ".config", "opencode", "skills")

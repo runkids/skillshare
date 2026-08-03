@@ -146,6 +146,7 @@ _skillshare() {
                         '--no-tui[Skip interactive TUI]' \
                         '--type[Filter by type]:type:(tracked local github)' \
                         '-t[Filter by type]:type:(tracked local github)' \
+                        '--status[Filter by status]:status:(all enabled disabled)' \
                         '--sort[Sort by]:order:(name newest oldest)' \
                         '-s[Sort by]:order:(name newest oldest)' \
                         '--all[List skills + agents]' \

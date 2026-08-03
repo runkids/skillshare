@@ -142,29 +142,10 @@ func TargetPath(path string) (warnings []string, err error) {
 }
 
 // IsLikelySkillsPath checks if a path looks like a skills directory.
-// Returns true if the path ends with "skills", "skill", or is a known CLI skills path.
+// Returns true if the path's last segment is "skills" or "skill".
 func IsLikelySkillsPath(path string) bool {
 	base := filepath.Base(path)
-	if base == "skills" || base == "skill" {
-		return true
-	}
-
-	// Check for known CLI patterns
-	knownPatterns := []string{
-		".claude/skills",
-		".codex/skills",
-		".cursor/skills",
-		".gemini/antigravity/skills",
-		".config/opencode/skills",
-	}
-
-	for _, pattern := range knownPatterns {
-		if strings.HasSuffix(path, pattern) {
-			return true
-		}
-	}
-
-	return false
+	return base == "skills" || base == "skill"
 }
 
 // FlatSkillName validates a flat skill name (used in target directories).

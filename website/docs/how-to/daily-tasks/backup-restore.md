@@ -28,6 +28,8 @@ Backups are created automatically before:
 
 **Location:** `~/.local/share/skillshare/backups/<timestamp>/` (agent backups appear as `<target>-agents/` next to the regular `<target>/` directories).
 
+**Scope:** Only local target content is captured. Merge-mode symlinks are skipped because they point into your source — `sync` recreates them. See [What Gets Backed Up](/docs/reference/commands/backup#what-gets-backed-up).
+
 ---
 
 ## Manual Backup
@@ -114,7 +116,16 @@ flowchart TD
 skillshare backup --cleanup
 ```
 
-Removes backups older than the configured retention period.
+Removes backups older than the configured retention period. Retention already runs automatically after every `sync`, so this is only for pruning on demand.
+
+To check how much space snapshots use:
+
+```bash
+du -sh ~/.local/share/skillshare/backups
+skillshare backup --cleanup --dry-run   # Preview what would be removed
+```
+
+See [Backups & Disk Space](/docs/reference/commands/backup#backups--disk-space) for how backup scope differs from `.gitignore` and `ignore:`.
 
 ---
 

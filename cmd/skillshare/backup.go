@@ -319,15 +319,17 @@ func planBackupCleanup(backups []backup.BackupInfo, cfg backup.CleanupConfig, no
 		}
 
 		size := backup.Size(backupInfo.Path)
-		totalSize += size
-		if cfg.MaxSizeMB > 0 && totalSize > cfg.MaxSizeMB*1024*1024 {
+		if !shouldRemove && cfg.MaxSizeMB > 0 && i > 0 &&
+			totalSize+size > cfg.MaxSizeMB*1024*1024 {
 			shouldRemove = true
 		}
 
 		if shouldRemove {
 			removed++
 			removedSize += size
+			continue
 		}
+		totalSize += size
 	}
 
 	return removed, removedSize

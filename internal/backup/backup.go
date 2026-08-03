@@ -1,15 +1,19 @@
 package backup
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 	"time"
 
 	"skillshare/internal/config"
 )
+
+const stagingDirPrefix = ".snapshot-"
 
 // BackupDir returns the global backup directory path.
 func BackupDir() string {
@@ -29,6 +33,10 @@ func Create(targetName, targetPath string) (string, error) {
 // CreateInDir creates a backup of the target directory in the specified backup dir.
 // Returns the backup path, or ("", nil) when there is nothing to back up.
 func CreateInDir(backupDir, targetName, targetPath string) (string, error) {
+	return createInDir(backupDir, targetName, targetPath, copyDir)
+}
+
+func createInDir(backupDir, targetName, targetPath string, copyDirectory func(string, string) error) (backupPath string, retErr error) {
 	if backupDir == "" {
 		return "", fmt.Errorf("cannot determine backup directory: home directory not found")
 	}
@@ -49,26 +57,103 @@ func CreateInDir(backupDir, targetName, targetPath string) (string, error) {
 
 	// Check if directory has any content
 	entries, err := os.ReadDir(targetPath)
-	if err != nil || len(entries) == 0 {
+	if err != nil {
+		return "", fmt.Errorf("failed to inspect backup target: %w", err)
+	}
+	if len(entries) == 0 {
 		return "", nil // Empty, nothing to backup
 	}
 
-	// Create backup directory with timestamp
+	// Copy into a hidden staging directory so a failed copy can never be
+	// discovered or restored as a valid snapshot.
 	timestamp := time.Now().Format("2006-01-02_15-04-05")
-	backupPath := filepath.Join(backupDir, timestamp, targetName)
-
-	if err := os.MkdirAll(backupPath, 0755); err != nil {
+	timestampDir := filepath.Join(backupDir, timestamp)
+	if err := os.MkdirAll(backupDir, 0755); err != nil {
 		return "", fmt.Errorf("failed to create backup directory: %w", err)
 	}
+	stagingPath := ""
+	cleanupStaging := false
+	defer func() {
+		var cleanupErrs []error
+		if cleanupStaging {
+			if err := os.RemoveAll(stagingPath); err != nil {
+				cleanupErrs = append(cleanupErrs, fmt.Errorf("remove incomplete backup: %w", err))
+			}
+		}
+		if backupPath == "" {
+			if err := removeDirIfEmpty(timestampDir); err != nil {
+				cleanupErrs = append(cleanupErrs, fmt.Errorf("remove empty backup timestamp: %w", err))
+			}
+		}
+		if cleanupErr := errors.Join(cleanupErrs...); cleanupErr != nil {
+			retErr = errors.Join(retErr, cleanupErr)
+		}
+	}()
 
-	// Copy target contents to backup.
-	// Use copyDirFollowTopSymlinks so that merge-mode targets (whose
-	// skills are symlinks) are resolved and their real content is copied.
-	if err := copyDirFollowTopSymlinks(targetPath, backupPath); err != nil {
+	stagingPath, err = os.MkdirTemp(backupDir, stagingDirPrefix)
+	if err != nil {
+		return "", fmt.Errorf("failed to create backup staging directory: %w", err)
+	}
+	cleanupStaging = true
+	if err := os.Chmod(stagingPath, 0755); err != nil {
+		return "", fmt.Errorf("failed to set backup staging permissions: %w", err)
+	}
+
+	// Copy target contents to backup. copyDir skips symlinks: a merge-mode
+	// skill symlink points into the source, which is the single source of
+	// truth and already safe — resolving it would copy the source's real
+	// content (weights, .venv, browser profiles) into every snapshot.
+	// Only local, non-symlinked content is at risk from sync, so only that
+	// is worth backing up. Symlinks are recreated by `skillshare sync`.
+	if err := copyDirectory(targetPath, stagingPath); err != nil {
 		return "", fmt.Errorf("failed to backup: %w", err)
 	}
 
+	// A target holding nothing but symlinks yields an empty backup. Discard it:
+	// an empty restore point is useless and would consume a MaxCount slot,
+	// evicting older snapshots that do have content.
+	copied, err := os.ReadDir(stagingPath)
+	if err != nil {
+		return "", fmt.Errorf("failed to inspect staged backup: %w", err)
+	}
+	if len(copied) == 0 {
+		return "", nil
+	}
+
+	if err := os.MkdirAll(timestampDir, 0755); err != nil {
+		return "", fmt.Errorf("failed to create backup timestamp directory: %w", err)
+	}
+	backupPath = filepath.Join(timestampDir, targetName)
+	if _, err := os.Lstat(backupPath); err == nil {
+		// Timestamp precision is one second. If the same target is backed up
+		// twice within that window, preserve the already completed snapshot.
+		return backupPath, nil
+	} else if !os.IsNotExist(err) {
+		return "", fmt.Errorf("failed to inspect backup path: %w", err)
+	}
+	if err := os.Rename(stagingPath, backupPath); err != nil {
+		backupPath = ""
+		return "", fmt.Errorf("failed to finalize backup: %w", err)
+	}
+	cleanupStaging = false
 	return backupPath, nil
+}
+
+func removeDirIfEmpty(path string) error {
+	entries, err := os.ReadDir(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return err
+	}
+	if len(entries) != 0 {
+		return nil
+	}
+	if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
+		return err
+	}
+	return nil
 }
 
 // List returns all backups from the global backup dir, sorted by date (newest first).
@@ -92,7 +177,7 @@ func ListInDir(backupDir string) ([]BackupInfo, error) {
 
 	var backups []BackupInfo
 	for _, entry := range entries {
-		if !entry.IsDir() {
+		if !entry.IsDir() || strings.HasPrefix(entry.Name(), stagingDirPrefix) {
 			continue
 		}
 
@@ -213,56 +298,6 @@ func ListTargetsWithBackups(backupDir string) ([]TargetBackupSummary, error) {
 	})
 
 	return summaries, nil
-}
-
-// copyDirFollowTopSymlinks copies a directory, resolving symlinks at the
-// top level so that merge-mode targets (per-skill symlinks) are backed up.
-// Deeper levels use copyDir which skips symlinks to avoid circular refs.
-func copyDirFollowTopSymlinks(src, dst string) error {
-	if err := os.MkdirAll(dst, 0755); err != nil {
-		return err
-	}
-
-	entries, err := os.ReadDir(src)
-	if err != nil {
-		return err
-	}
-
-	for _, entry := range entries {
-		srcPath := filepath.Join(src, entry.Name())
-		dstPath := filepath.Join(dst, entry.Name())
-
-		// Resolve symlinks at this level — follow them to get real content
-		realPath := srcPath
-		info, err := os.Lstat(srcPath)
-		if err != nil {
-			continue
-		}
-		if info.Mode()&os.ModeSymlink != 0 {
-			resolved, err := filepath.EvalSymlinks(srcPath)
-			if err != nil {
-				continue // broken symlink — skip
-			}
-			realPath = resolved
-			info, err = os.Stat(realPath)
-			if err != nil {
-				continue
-			}
-		}
-
-		if info.IsDir() {
-			// Use regular copyDir for deeper levels (no further symlink following)
-			if err := copyDir(realPath, dstPath); err != nil {
-				return err
-			}
-		} else if info.Mode().IsRegular() {
-			if err := copyFile(realPath, dstPath); err != nil {
-				return err
-			}
-		}
-	}
-
-	return nil
 }
 
 // copyDir copies a directory recursively, skipping symlinks and junctions.

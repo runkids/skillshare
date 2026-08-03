@@ -102,18 +102,14 @@ skillshare restore claude --force
 
 ## After Restoring
 
-After restore, your target will have regular directories instead of symlinks. To re-sync:
+`restore` replaces the target directory with the snapshot's contents. Because backups capture only local content — symlinked skills are excluded, see [What Gets Backed Up](/docs/reference/commands/backup#what-gets-backed-up) — run `sync` afterwards to bring synced skills back:
 
 ```bash
-skillshare restore claude    # Restore backup
-skillshare sync              # Re-sync from source (creates symlinks)
+skillshare restore claude    # Restore local content from backup
+skillshare sync              # Recreate symlinks for synced skills
 ```
 
-Or keep the restored state:
-```bash
-skillshare restore claude    # Restore backup
-# Done - skills are now local copies
-```
+Restored content is regular files, not symlinks. If the target only ever held local skills, the restore alone is enough.
 
 ## Use Cases
 

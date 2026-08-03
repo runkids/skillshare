@@ -1,6 +1,7 @@
 package backup
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -128,63 +129,182 @@ func TestCopyDir_EmptyDir(t *testing.T) {
 	}
 }
 
-func TestCopyDirFollowTopSymlinks_MergeMode(t *testing.T) {
-	// Simulate merge-mode target: directory with per-skill symlinks
+func TestCopyDir_MergeMode_BacksUpOnlyLocalSkills(t *testing.T) {
+	// Simulate merge-mode target: directory with per-skill symlinks.
+	// Symlinks point into the source, which is already the single source of
+	// truth — copying their content would duplicate large source artifacts
+	// into every snapshot (issue #252). Only local content is backed up.
 	source := t.TempDir() // acts as "source" skill repo
 	target := t.TempDir() // acts as merge-mode target
 	dst := t.TempDir()    // backup destination
 
-	// Create real skills in source
 	os.MkdirAll(filepath.Join(source, "skill-a"), 0755)
 	writeTestFile(t, filepath.Join(source, "skill-a", "SKILL.md"), "# Skill A")
-	writeTestFile(t, filepath.Join(source, "skill-a", "prompt.md"), "prompt content")
+	// A heavy artifact living under the source skill: must never be copied.
+	os.MkdirAll(filepath.Join(source, "skill-a", ".venv"), 0755)
+	writeTestFile(t, filepath.Join(source, "skill-a", ".venv", "big.bin"), "payload")
 
-	os.MkdirAll(filepath.Join(source, "skill-b"), 0755)
-	writeTestFile(t, filepath.Join(source, "skill-b", "SKILL.md"), "# Skill B")
-
-	// Create symlinks in target (merge mode)
+	// Create symlink in target (merge mode)
 	if err := os.Symlink(
 		filepath.Join(source, "skill-a"),
 		filepath.Join(target, "skill-a"),
 	); err != nil {
 		t.Skipf("symlink not supported: %v", err)
 	}
-	os.Symlink(filepath.Join(source, "skill-b"), filepath.Join(target, "skill-b"))
 
 	// Also add a local (non-symlink) skill
 	os.MkdirAll(filepath.Join(target, "local-skill"), 0755)
 	writeTestFile(t, filepath.Join(target, "local-skill", "SKILL.md"), "# Local")
 
-	if err := copyDirFollowTopSymlinks(target, dst); err != nil {
-		t.Fatalf("copyDirFollowTopSymlinks failed: %v", err)
+	if err := copyDir(target, dst); err != nil {
+		t.Fatalf("copyDir failed: %v", err)
 	}
 
-	// Symlinked skills should be resolved and copied
-	assertFileContent(t, filepath.Join(dst, "skill-a", "SKILL.md"), "# Skill A")
-	assertFileContent(t, filepath.Join(dst, "skill-a", "prompt.md"), "prompt content")
-	assertFileContent(t, filepath.Join(dst, "skill-b", "SKILL.md"), "# Skill B")
-
-	// Local skill should also be copied
+	// Local skill is the only thing at risk from sync — it must be backed up.
 	assertFileContent(t, filepath.Join(dst, "local-skill", "SKILL.md"), "# Local")
+
+	// Symlinked skill must not be resolved into the backup.
+	if _, err := os.Lstat(filepath.Join(dst, "skill-a")); !os.IsNotExist(err) {
+		t.Error("symlinked skill should be skipped, not copied into the backup")
+	}
 }
 
-func TestCopyDirFollowTopSymlinks_BrokenSymlink(t *testing.T) {
-	target := t.TempDir()
-	dst := t.TempDir()
+func TestCreateInDir_CopyFailureRemovesIncompleteSnapshot(t *testing.T) {
+	backupDir := t.TempDir()
+	targetDir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(targetDir, "local-skill"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	writeTestFile(t, filepath.Join(targetDir, "local-skill", "SKILL.md"), "# Local")
+	copyErr := errors.New("copy failed")
+	listedDuringCopy := false
 
-	// Create a broken symlink
-	if err := os.Symlink("/nonexistent/path", filepath.Join(target, "broken")); err != nil {
-		t.Skipf("symlink not supported: %v", err)
+	backupPath, err := createInDir(backupDir, "claude", targetDir, func(_, dst string) error {
+		if err := os.MkdirAll(filepath.Join(dst, "local-skill"), 0755); err != nil {
+			t.Fatal(err)
+		}
+		writeTestFile(t, filepath.Join(dst, "local-skill", "partial.txt"), "partial")
+		backups, err := ListInDir(backupDir)
+		if err != nil {
+			t.Fatal(err)
+		}
+		listedDuringCopy = len(backups) != 0
+		return copyErr
+	})
+	if !errors.Is(err, copyErr) {
+		t.Fatalf("createInDir error = %v, want %v", err, copyErr)
+	}
+	if backupPath != "" {
+		t.Errorf("backupPath = %q, want empty", backupPath)
+	}
+	if listedDuringCopy {
+		t.Error("staging snapshot was listed as a completed backup")
 	}
 
-	// Should not fail on broken symlink
-	if err := copyDirFollowTopSymlinks(target, dst); err != nil {
-		t.Fatalf("should not fail on broken symlink: %v", err)
+	backups, err := ListInDir(backupDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(backups) != 0 {
+		t.Fatalf("incomplete snapshot was retained: %+v", backups)
+	}
+}
+
+func TestCleanupInDir_OverSizeCap_KeepsNewestBackup(t *testing.T) {
+	backupDir := t.TempDir()
+	payload := make([]byte, 2<<20) // 2 MB — each snapshot alone exceeds the 1 MB cap
+
+	// Three snapshots, oldest first, with explicit mtimes so ordering is stable.
+	base := time.Now().Add(-3 * time.Hour)
+	for i, name := range []string{"2026-01-01_00-00-00", "2026-01-02_00-00-00", "2026-01-03_00-00-00"} {
+		dir := filepath.Join(backupDir, name, "claude")
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(dir, "big.bin"), payload, 0644); err != nil {
+			t.Fatal(err)
+		}
+		stamp := base.Add(time.Duration(i) * time.Hour)
+		if err := os.Chtimes(filepath.Join(backupDir, name), stamp, stamp); err != nil {
+			t.Fatal(err)
+		}
 	}
 
-	// Broken link should be skipped
-	if _, err := os.Lstat(filepath.Join(dst, "broken")); !os.IsNotExist(err) {
-		t.Error("broken symlink should be skipped")
+	removed, err := CleanupInDir(backupDir, CleanupConfig{MaxSizeMB: 1})
+	if err != nil {
+		t.Fatalf("CleanupInDir failed: %v", err)
+	}
+	if removed != 2 {
+		t.Errorf("expected 2 backups removed, got %d", removed)
+	}
+
+	// The newest snapshot must survive even though it alone busts the cap —
+	// otherwise an over-cap backup dir leaves the user with no restore point.
+	if _, err := os.Stat(filepath.Join(backupDir, "2026-01-03_00-00-00", "claude", "big.bin")); err != nil {
+		t.Errorf("newest backup must be kept: %v", err)
+	}
+}
+
+func TestCleanupInDir_SizeCapCountsOnlyRetainedBackups(t *testing.T) {
+	backupDir := t.TempDir()
+	base := time.Now().Add(-3 * time.Hour)
+	snapshots := []struct {
+		name string
+		size int
+	}{
+		{"2026-01-01_00-00-00", 400 << 10},
+		{"2026-01-02_00-00-00", 700 << 10},
+		{"2026-01-03_00-00-00", 400 << 10},
+	}
+
+	for i, snapshot := range snapshots {
+		dir := filepath.Join(backupDir, snapshot.name, "claude")
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(dir, "payload.bin"), make([]byte, snapshot.size), 0644); err != nil {
+			t.Fatal(err)
+		}
+		stamp := base.Add(time.Duration(i) * time.Hour)
+		if err := os.Chtimes(filepath.Join(backupDir, snapshot.name), stamp, stamp); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	removed, err := CleanupInDir(backupDir, CleanupConfig{MaxSizeMB: 1})
+	if err != nil {
+		t.Fatalf("CleanupInDir failed: %v", err)
+	}
+	if removed != 1 {
+		t.Fatalf("removed = %d, want 1", removed)
+	}
+
+	for _, name := range []string{"2026-01-01_00-00-00", "2026-01-03_00-00-00"} {
+		if _, err := os.Stat(filepath.Join(backupDir, name, "claude", "payload.bin")); err != nil {
+			t.Errorf("retained backup %s is missing: %v", name, err)
+		}
+	}
+	if _, err := os.Stat(filepath.Join(backupDir, "2026-01-02_00-00-00")); !os.IsNotExist(err) {
+		t.Errorf("over-cap backup should be removed, stat error = %v", err)
+	}
+}
+
+func TestCleanupInDir_IgnoresActiveStagingDirectory(t *testing.T) {
+	backupDir := t.TempDir()
+	stagingPath, err := os.MkdirTemp(backupDir, stagingDirPrefix)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	removed, err := CleanupInDir(backupDir, DefaultCleanupConfig())
+	if err != nil {
+		t.Fatalf("CleanupInDir failed: %v", err)
+	}
+	if removed != 0 {
+		t.Errorf("removed = %d, want 0", removed)
+	}
+	if _, err := os.Stat(stagingPath); err != nil {
+		t.Errorf("active staging directory was removed: %v", err)
 	}
 }
 

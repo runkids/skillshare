@@ -43,6 +43,18 @@ const (
 	statusFilterDisabled                         // show only disabled
 )
 
+// String returns the CLI representation of the status filter.
+func (s listStatusFilter) String() string {
+	switch s {
+	case statusFilterEnabled:
+		return "enabled"
+	case statusFilterDisabled:
+		return "disabled"
+	default:
+		return "all"
+	}
+}
+
 // label returns the display name shown in the status chip.
 func (s listStatusFilter) label() string {
 	switch s {
@@ -1162,9 +1174,11 @@ func (m listTUIModel) findSyncedTargets(e skillEntry) []string {
 
 // runListTUI starts the bubbletea TUI for the skill list.
 // When loadFn is non-nil, data is loaded asynchronously inside the TUI (no blank screen).
+// initialStatus seeds the status chip; the `s` key still cycles from there.
 // Returns (action, skillName, skillKind, error). action is "" on normal quit (q/ctrl+c).
-func runListTUI(loadFn listLoadFn, modeLabel, sourcePath, agentsSourcePath string, targets map[string]config.TargetConfig, initialKind resourceKindFilter) (string, string, string, error) {
+func runListTUI(loadFn listLoadFn, modeLabel, sourcePath, agentsSourcePath string, targets map[string]config.TargetConfig, initialKind resourceKindFilter, initialStatus listStatusFilter) (string, string, string, error) {
 	model := newListTUIModel(loadFn, nil, 0, modeLabel, sourcePath, agentsSourcePath, targets, initialKind)
+	model.statusFilter = initialStatus
 	p := tea.NewProgram(model, tea.WithAltScreen(), tea.WithMouseCellMotion())
 	finalModel, err := p.Run()
 	if err != nil {

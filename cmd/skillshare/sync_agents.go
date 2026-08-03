@@ -55,7 +55,17 @@ func syncAgentsGlobal(cfg *config.Config, dryRun, force, jsonOutput bool, start 
 
 	// Backup agent targets before sync (non-dry-run only).
 	if !dryRun && !jsonOutput {
-		backupDir, agentTargets, _ := resolveGlobalAgentBackupContextFromCfg(cfg)
+		backupDir, agentTargets, backupErr := resolveGlobalAgentBackupContextFromCfg(cfg)
+		if backupErr != nil {
+			ui.Warning("Failed to resolve agent backup targets: %v", backupErr)
+			agentTargets = nil
+		} else {
+			defer func() {
+				if _, err := backup.CleanupInDir(backupDir, backup.DefaultCleanupConfig()); err != nil {
+					ui.Warning("Failed to clean up old agent backups: %v", err)
+				}
+			}()
+		}
 		backedUp := false
 		for _, at := range agentTargets {
 			entryName := at.name + "-agents"
@@ -183,6 +193,11 @@ func syncAgentsProject(projectRoot string, dryRun, force, jsonOutput bool, start
 	// Backup agent targets before sync (non-dry-run only).
 	if !dryRun && !jsonOutput {
 		backupDir := filepath.Join(projectRoot, ".skillshare", "backups")
+		defer func() {
+			if _, err := backup.CleanupInDir(backupDir, backup.DefaultCleanupConfig()); err != nil {
+				ui.Warning("Failed to clean up old project agent backups: %v", err)
+			}
+		}()
 		backedUp := false
 		for _, entry := range projCfg.Targets {
 			agentPath := resolveProjectAgentTargetPath(entry, builtinAgents, projectRoot)

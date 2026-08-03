@@ -283,7 +283,7 @@ skillshare target <name> --mode copy
 skillshare sync
 ```
 
-When `sync` prints a compatibility hint, the example target is chosen in this priority:
+The compatibility hint is printed by [`doctor`](./doctor.md), not by `sync`. Its example target is chosen in this priority:
 `cursor` → `antigravity` → `copilot` → `opencode`.
 If none of these targets exist (or they already run `copy`), no compatibility hint is shown.
 
@@ -442,6 +442,8 @@ skillshare sync  # Apply change
 Backups are created **automatically** before `sync` and `target remove`.
 
 Location: `~/.local/share/skillshare/backups/<timestamp>/`
+
+A snapshot captures only **local** target content. Merge-mode symlinks are skipped — they point into your source and `sync` recreates them — so snapshots stay small no matter how large your skills are. Retention is applied automatically after each sync. See [What Gets Backed Up](/docs/reference/commands/backup#what-gets-backed-up) and [Backups & Disk Space](/docs/reference/commands/backup#backups--disk-space).
 
 ### Manual Backup
 

@@ -118,6 +118,7 @@ complete -c skillshare -n '__fish_skillshare_using_command list' -l verbose -s v
 complete -c skillshare -n '__fish_skillshare_using_command list' -l json -s j -d 'JSON output'
 complete -c skillshare -n '__fish_skillshare_using_command list' -l no-tui -d 'Skip interactive TUI'
 complete -c skillshare -n '__fish_skillshare_using_command list' -l type -s t -r -a 'tracked local github' -d 'Filter by type'
+complete -c skillshare -n '__fish_skillshare_using_command list' -l status -r -a 'all enabled disabled' -d 'Filter by status'
 complete -c skillshare -n '__fish_skillshare_using_command list' -l sort -s s -r -a 'name newest oldest' -d 'Sort by'
 complete -c skillshare -n '__fish_skillshare_using_command list' -l all -d 'List skills + agents'
 complete -c skillshare -n '__fish_skillshare_using_command list' -l help -s h -d 'Show help'

@@ -1,8 +1,11 @@
 package backup
 
 import (
+	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 )
 
@@ -22,10 +25,16 @@ func DefaultCleanupConfig() CleanupConfig {
 	}
 }
 
-// Cleanup removes old backups based on the configuration.
+// Cleanup removes old backups from the global backup dir.
 // Returns the number of backups removed and any error encountered.
 func Cleanup(cfg CleanupConfig) (int, error) {
-	backups, err := List()
+	return CleanupInDir(BackupDir(), cfg)
+}
+
+// CleanupInDir removes old backups from the specified directory based on the
+// configuration. Returns the number of backups removed.
+func CleanupInDir(backupDir string, cfg CleanupConfig) (int, error) {
+	backups, err := ListInDir(backupDir)
 	if err != nil {
 		return 0, err
 	}
@@ -37,6 +46,7 @@ func Cleanup(cfg CleanupConfig) (int, error) {
 	removed := 0
 	now := time.Now()
 	var totalSize int64
+	var cleanupErrs []error
 
 	// Backups are sorted by date (newest first)
 	for i, backup := range backups {
@@ -52,26 +62,33 @@ func Cleanup(cfg CleanupConfig) (int, error) {
 			shouldRemove = true
 		}
 
-		// Check size - remove if total exceeds limit (skip if MaxSizeMB is 0)
+		// Check size - remove if total exceeds limit (skip if MaxSizeMB is 0).
+		// i > 0 always keeps the newest backup: a single snapshot larger than
+		// the cap must not leave the user with no restore point at all.
 		size := dirSize(backup.Path)
-		totalSize += size
-		if cfg.MaxSizeMB > 0 && totalSize > cfg.MaxSizeMB*1024*1024 {
+		if !shouldRemove && cfg.MaxSizeMB > 0 && i > 0 &&
+			totalSize+size > cfg.MaxSizeMB*1024*1024 {
 			shouldRemove = true
 		}
 
 		if shouldRemove {
 			if err := os.RemoveAll(backup.Path); err != nil {
-				// Log but continue with other backups
+				cleanupErrs = append(cleanupErrs, fmt.Errorf("remove backup %s: %w", backup.Timestamp, err))
+				totalSize += size
 				continue
 			}
 			removed++
+			continue
 		}
+		totalSize += size
 	}
 
 	// Clean up empty timestamp directories
-	cleanEmptyDirs(BackupDir())
+	if err := cleanEmptyDirs(backupDir); err != nil {
+		cleanupErrs = append(cleanupErrs, err)
+	}
 
-	return removed, nil
+	return removed, errors.Join(cleanupErrs...)
 }
 
 // CleanupByAge removes backups older than the specified duration.
@@ -101,26 +118,40 @@ func dirSize(path string) int64 {
 	return size
 }
 
-// cleanEmptyDirs removes empty directories in the backup directory
-func cleanEmptyDirs(path string) {
+// cleanEmptyDirs removes empty directories in the backup directory.
+func cleanEmptyDirs(path string) error {
 	if path == "" {
-		return
+		return nil
 	}
 
 	entries, err := os.ReadDir(path)
 	if err != nil {
-		return
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return fmt.Errorf("read backup directory: %w", err)
 	}
 
+	var cleanupErrs []error
 	for _, entry := range entries {
+		if strings.HasPrefix(entry.Name(), stagingDirPrefix) {
+			continue
+		}
 		if entry.IsDir() {
 			subPath := filepath.Join(path, entry.Name())
-			subEntries, _ := os.ReadDir(subPath)
+			subEntries, err := os.ReadDir(subPath)
+			if err != nil {
+				cleanupErrs = append(cleanupErrs, fmt.Errorf("read backup timestamp %s: %w", entry.Name(), err))
+				continue
+			}
 			if len(subEntries) == 0 {
-				os.Remove(subPath)
+				if err := os.Remove(subPath); err != nil && !os.IsNotExist(err) {
+					cleanupErrs = append(cleanupErrs, fmt.Errorf("remove empty backup timestamp %s: %w", entry.Name(), err))
+				}
 			}
 		}
 	}
+	return errors.Join(cleanupErrs...)
 }
 
 // Size returns the total size of a backup directory in bytes

@@ -28,6 +28,7 @@ type listOptions struct {
 	Pattern    string // positional search pattern (case-insensitive)
 	TypeFilter string // --type: "tracked", "local", "github"
 	SortBy     string // --sort: "name" (default), "newest", "oldest"
+	Status     listStatusFilter
 }
 
 // validTypeFilters lists accepted values for --type.
@@ -42,6 +43,23 @@ var validSortOptions = map[string]bool{
 	"name":   true,
 	"newest": true,
 	"oldest": true,
+}
+
+// validStatusFilters maps accepted --status values to their typed filter.
+var validStatusFilters = map[string]listStatusFilter{
+	"all":      statusFilterAll,
+	"enabled":  statusFilterEnabled,
+	"disabled": statusFilterDisabled,
+}
+
+// parseStatusFilter validates a --status value and normalizes it.
+func parseStatusFilter(raw string) (listStatusFilter, error) {
+	v := strings.ToLower(raw)
+	status, ok := validStatusFilters[v]
+	if !ok {
+		return statusFilterAll, fmt.Errorf("invalid status %q: must be all, enabled, or disabled", raw)
+	}
+	return status, nil
 }
 
 // parseListArgs parses list command arguments into listOptions.
@@ -103,6 +121,22 @@ func parseListArgs(args []string) (listOptions, error) {
 				return opts, fmt.Errorf("invalid sort %q: must be name, newest, or oldest", v)
 			}
 			opts.SortBy = v
+		case arg == "--status":
+			i++
+			if i >= len(args) {
+				return opts, fmt.Errorf("--status requires a value (all, enabled, disabled)")
+			}
+			v, err := parseStatusFilter(args[i])
+			if err != nil {
+				return opts, err
+			}
+			opts.Status = v
+		case strings.HasPrefix(arg, "--status="):
+			v, err := parseStatusFilter(strings.TrimPrefix(arg, "--status="))
+			if err != nil {
+				return opts, err
+			}
+			opts.Status = v
 		case strings.HasPrefix(arg, "-"):
 			return opts, fmt.Errorf("unknown option: %s", arg)
 		default:
@@ -117,16 +151,22 @@ func parseListArgs(args []string) (listOptions, error) {
 	return opts, nil
 }
 
-// filterSkillEntries filters skills by pattern and type.
+// filterSkillEntries filters skills by pattern, type, and status.
 // Pattern matches case-insensitively against Name, RelPath, and Source.
-func filterSkillEntries(skills []skillEntry, pattern, typeFilter string) []skillEntry {
-	if pattern == "" && typeFilter == "" {
+// Status uses statusFilterAll for no filter; filters combine with AND.
+func filterSkillEntries(skills []skillEntry, pattern, typeFilter string, status listStatusFilter) []skillEntry {
+	if pattern == "" && typeFilter == "" && status == statusFilterAll {
 		return skills
 	}
 
 	pat := strings.ToLower(pattern)
 	var result []skillEntry
 	for _, s := range skills {
+		// Status filter
+		if status != statusFilterAll && s.Disabled != (status == statusFilterDisabled) {
+			continue
+		}
+
 		// Type filter
 		if typeFilter != "" {
 			switch typeFilter {
@@ -160,6 +200,29 @@ func filterSkillEntries(skills []skillEntry, pattern, typeFilter string) []skill
 		result = append(result, s)
 	}
 	return result
+}
+
+// statusNote returns a " (status: enabled)" suffix for footers and messages,
+// or "" when no status filter is active.
+func statusNote(status listStatusFilter) string {
+	if status == statusFilterAll {
+		return ""
+	}
+	return fmt.Sprintf(" (status: %s)", status.String())
+}
+
+// noMatchMessage builds the "no results" message for the active filter set.
+func noMatchMessage(resourceLabel string, opts listOptions) string {
+	switch {
+	case opts.Pattern != "" && opts.TypeFilter != "":
+		return fmt.Sprintf("No %s matching %q (type: %s)%s", resourceLabel, opts.Pattern, opts.TypeFilter, statusNote(opts.Status))
+	case opts.Pattern != "":
+		return fmt.Sprintf("No %s matching %q%s", resourceLabel, opts.Pattern, statusNote(opts.Status))
+	case opts.TypeFilter != "":
+		return fmt.Sprintf("No %s matching type %q%s", resourceLabel, opts.TypeFilter, statusNote(opts.Status))
+	default:
+		return fmt.Sprintf("No %s matching status %q", resourceLabel, opts.Status.String())
+	}
 }
 
 // sortSkillEntries sorts skills by the given criteria.
@@ -608,14 +671,16 @@ func cmdList(args []string) error {
 			allEntries = append(allEntries, buildSkillEntries(discovered)...)
 			allEntries = append(allEntries, discoverAndBuildAgentEntries(cfg.EffectiveAgentsSource())...)
 			total := len(allEntries)
-			allEntries = filterSkillEntries(allEntries, opts.Pattern, opts.TypeFilter)
+			// Status is NOT filtered here — the TUI needs both enabled and
+			// disabled entries loaded so the `s` key can restore them.
+			allEntries = filterSkillEntries(allEntries, opts.Pattern, opts.TypeFilter, statusFilterAll)
 			// Always sort: buildGroupedItems relies on contiguous top-group
 			// blocks, which the default sort guarantees (tracked → named
 			// locals → standalone).
 			sortSkillEntries(allEntries, opts.SortBy)
 			return listLoadResult{skills: toSkillItems(allEntries), totalCount: total}
 		}
-		action, skillName, skillKind, err := runListTUI(loadFn, "global", cfg.EffectiveSkillsSource(), cfg.EffectiveAgentsSource(), cfg.Targets, kind)
+		action, skillName, skillKind, err := runListTUI(loadFn, "global", cfg.EffectiveSkillsSource(), cfg.EffectiveAgentsSource(), cfg.Targets, kind, opts.Status)
 		if err != nil {
 			return err
 		}
@@ -688,10 +753,10 @@ func cmdList(args []string) error {
 		sp.Success(fmt.Sprintf("Loaded %d %s", len(allEntries), resourceLabel))
 	}
 	totalCount := len(allEntries)
-	hasFilter := opts.Pattern != "" || opts.TypeFilter != ""
+	hasFilter := opts.Pattern != "" || opts.TypeFilter != "" || opts.Status != statusFilterAll
 
 	// Apply filter and sort
-	allEntries = filterSkillEntries(allEntries, opts.Pattern, opts.TypeFilter)
+	allEntries = filterSkillEntries(allEntries, opts.Pattern, opts.TypeFilter, opts.Status)
 	// Always sort so the TUI and plain-text renderers see contiguous
 	// top-level groups (tracked → named locals → standalone).
 	sortSkillEntries(allEntries, opts.SortBy)
@@ -711,13 +776,7 @@ func cmdList(args []string) error {
 	}
 
 	if hasFilter && len(allEntries) == 0 {
-		if opts.Pattern != "" && opts.TypeFilter != "" {
-			ui.Info("No %s matching %q (type: %s)", resourceLabel, opts.Pattern, opts.TypeFilter)
-		} else if opts.Pattern != "" {
-			ui.Info("No %s matching %q", resourceLabel, opts.Pattern)
-		} else {
-			ui.Info("No %s matching type %q", resourceLabel, opts.TypeFilter)
-		}
+		ui.Info("%s", noMatchMessage(resourceLabel, opts))
 		return nil
 	}
 
@@ -746,9 +805,9 @@ func cmdList(args []string) error {
 	if hasFilter && len(allEntries) > 0 {
 		fmt.Println()
 		if opts.Pattern != "" {
-			ui.Info("%d of %d %s matching %q", len(allEntries), totalCount, resourceLabel, opts.Pattern)
+			ui.Info("%d of %d %s matching %q%s", len(allEntries), totalCount, resourceLabel, opts.Pattern, statusNote(opts.Status))
 		} else {
-			ui.Info("%d of %d %s", len(allEntries), totalCount, resourceLabel)
+			ui.Info("%d of %d %s%s", len(allEntries), totalCount, resourceLabel, statusNote(opts.Status))
 		}
 	} else if !opts.Verbose && len(allEntries) > 0 {
 		fmt.Println()
@@ -820,6 +879,7 @@ func printListHelp() {
 
 List all installed skills in the source directory.
 An optional pattern filters skills by name, path, or source (case-insensitive).
+The default view (--status all) includes entries marked disabled.
 
 Options:
   --all                  List both skills and agents
@@ -827,6 +887,7 @@ Options:
   --json, -j             Output as JSON (useful for CI/scripts)
   --no-tui               Disable interactive TUI, use plain text output
   --type, -t <type>      Filter by type: tracked, local, github
+  --status <status>      Filter by status: all (default), enabled, disabled
   --sort, -s <order>     Sort order: name (default), newest, oldest
   --project, -p          Use project-level config in current directory
   --global, -g           Use global config (~/.config/skillshare)
@@ -836,6 +897,8 @@ Examples:
   skillshare list
   skillshare list react
   skillshare list --type local
+  skillshare list --status disabled
+  skillshare list --status enabled --json
   skillshare list react --type github --sort newest
   skillshare list --json | jq '.[].name'
   skillshare list --verbose

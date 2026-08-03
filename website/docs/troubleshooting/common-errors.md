@@ -134,6 +134,30 @@ ignore:
   - "**/node_modules/**"
 ```
 
+### `no space left on device` / `ENOSPC` during sync
+
+**Cause:** Something is filling the volume. Check the backup directory first, then your source.
+
+**Solution:**
+```bash
+df -h ~                                     # Confirm the volume is full
+du -sh ~/.local/share/skillshare/backups    # Backup usage
+du -sh ~/.config/skillshare/skills          # Source usage
+```
+
+If backups are large, prune them — retention runs automatically after each `sync`, but a directory grown before that can be cleared on demand:
+
+```bash
+skillshare backup --cleanup --dry-run   # Preview
+skillshare backup --cleanup
+```
+
+If a volume is pinned at 100%, `rm` can fail with "Permission denied" until a little space is freed. Free one large file first, then prune.
+
+If the **source** is large, the artifacts are inside your skills. Backups do not copy them (symlinked skills are skipped), but every target in copy mode does. Move runtime caches, model weights, and browser profiles outside the skill tree, or exclude them with `ignore:`.
+
+See [Backups & Disk Space](/docs/reference/commands/backup#backups--disk-space) for how backup scope differs from `.gitignore` and `ignore:`.
+
 ---
 
 ## Git Errors
@@ -462,6 +486,27 @@ skillshare doctor
 
 # 3. Restart AI CLI
 ```
+
+### Antigravity does not load synced skills
+
+**Cause:** Antigravity's skill scanner only discovers **real directories** — it skips symlinks. skillshare's default `merge` mode creates one symlink per skill (an NTFS junction on Windows), so none of them are picked up. On Windows this surfaces as an `Incorrect function` error; on macOS and Linux the skills are silently absent.
+
+This is an Antigravity-side limitation, not a skillshare bug. Two workarounds:
+
+**Option 1 — switch the target to `copy` mode**
+
+```bash
+skillshare target antigravity --mode copy
+skillshare sync --force
+```
+
+Real directories are written instead of symlinks. Trade-off: re-run `skillshare sync` after editing a source skill.
+
+**Option 2 — point Antigravity at your source directory**
+
+In Antigravity: **Settings → Customizations → Skill Custom Paths → "+ Add"**, then enter the **absolute** path to your skillshare source (e.g. `/Users/you/.config/skillshare/skills`). The `~` shorthand is not expanded, so a full path is required.
+
+Either way, restart Antigravity to reload skills.
 
 ### `skill name 'X' is defined in multiple places`
 

@@ -17,11 +17,11 @@ targets:
       project: [".claude/skills"]
   - name: antigravity
     skills:
-      global: "~/.gemini/skills"
+      global: "~/.gemini/config/skills"
       project: ".agents/skills"
     also_scans:
       global: ["~/.agents/skills"]
-    aliases: [gemini, gemini-cli, antigravity-cli]
+    aliases: [antigravity-cli]
   - name: aiderdesk
     skills:
       global: "~/.aider-desk/skills"
@@ -146,6 +146,14 @@ targets:
       global: "~/forge/skills"
       project: ".forge/skills"
     aliases: [forge-code]
+  - name: gemini
+    skills:
+      global: "~/.gemini/skills"
+      project: ".gemini/skills"
+    also_scans:
+      global: ["~/.agents/skills"]
+      project: [".agents/skills"]
+    aliases: [gemini-cli]
   - name: goose
     skills:
       global: "~/.config/goose/skills"
