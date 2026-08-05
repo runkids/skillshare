@@ -80,10 +80,8 @@ func cmdUninstallProject(args []string, root string) error {
 		return err
 	}
 
-	if !projectConfigExists(root) {
-		if err := performProjectInit(root, projectInitOptions{}); err != nil {
-			return err
-		}
+	if err := ensureProjectConfig(root); err != nil {
+		return err
 	}
 
 	projectCfg, loadErr := config.LoadProject(root)

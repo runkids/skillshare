@@ -26,10 +26,8 @@ func cmdUpdateProject(args []string, root string) (*updateResult, error) {
 		opts.all = true
 	}
 
-	if !projectConfigExists(root) {
-		if err := performProjectInit(root, projectInitOptions{}); err != nil {
-			return nil, err
-		}
+	if err := ensureProjectConfig(root); err != nil {
+		return nil, err
 	}
 
 	runtime, err := loadProjectRuntime(root)

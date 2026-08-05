@@ -735,10 +735,8 @@ func cmdUpdateAgentsProject(args []string, projectRoot string, start time.Time) 
 		return err
 	}
 
-	if !projectConfigExists(projectRoot) {
-		if err := performProjectInit(projectRoot, projectInitOptions{}); err != nil {
-			return failJSON(err)
-		}
+	if err := ensureProjectConfig(projectRoot); err != nil {
+		return failJSON(err)
 	}
 
 	runtime, err := loadProjectRuntime(projectRoot)

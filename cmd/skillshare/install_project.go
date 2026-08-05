@@ -31,10 +31,8 @@ func cmdInstallProjectParsed(parsed *installArgs, root string) (installLogSummar
 	summary.Into = parsed.opts.Into
 	summary.SkipAudit = parsed.opts.SkipAudit
 
-	if !projectConfigExists(root) {
-		if err := performProjectInit(root, projectInitOptions{}); err != nil {
-			return summary, err
-		}
+	if err := ensureProjectConfig(root); err != nil {
+		return summary, err
 	}
 
 	runtime, err := loadProjectRuntime(root)

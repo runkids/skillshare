@@ -14,10 +14,8 @@ func cmdDiffProject(root, targetName string, kind resourceKindFilter, opts diffR
 	if kind == kindAgents {
 		return diffProjectAgents(root, targetName, opts, start)
 	}
-	if !projectConfigExists(root) {
-		if err := performProjectInit(root, projectInitOptions{}); err != nil {
-			return err
-		}
+	if err := ensureProjectConfig(root); err != nil {
+		return err
 	}
 
 	runtime, err := loadProjectRuntime(root)

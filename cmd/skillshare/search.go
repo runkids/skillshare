@@ -441,11 +441,8 @@ func installFromSearchResultProject(result search.SearchResult, cwd string) (err
 		logInstallOp(config.ProjectConfigPath(cwd), []string{result.Source}, start, err, logSummary)
 	}()
 
-	// Auto-init project if not yet initialized
-	if !projectConfigExists(cwd) {
-		if err := performProjectInit(cwd, projectInitOptions{}); err != nil {
-			return err
-		}
+	if err := ensureProjectConfig(cwd); err != nil {
+		return err
 	}
 
 	runtime, err := loadProjectRuntime(cwd)

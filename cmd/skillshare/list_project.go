@@ -11,10 +11,8 @@ import (
 )
 
 func cmdListProject(root string, opts listOptions, kind resourceKindFilter) error {
-	if !projectConfigExists(root) {
-		if err := performProjectInit(root, projectInitOptions{}); err != nil {
-			return err
-		}
+	if err := ensureProjectConfig(root); err != nil {
+		return err
 	}
 
 	projCfg, err := config.LoadProject(root)

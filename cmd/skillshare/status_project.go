@@ -16,10 +16,8 @@ import (
 )
 
 func cmdStatusProject(root string) error {
-	if !projectConfigExists(root) {
-		if err := performProjectInit(root, projectInitOptions{}); err != nil {
-			return err
-		}
+	if err := ensureProjectConfig(root); err != nil {
+		return err
 	}
 
 	runtime, err := loadProjectRuntime(root)
@@ -55,10 +53,8 @@ func cmdStatusProject(root string) error {
 }
 
 func cmdStatusProjectJSON(root string) error {
-	if !projectConfigExists(root) {
-		if err := performProjectInit(root, projectInitOptions{}); err != nil {
-			return writeJSONError(err)
-		}
+	if err := ensureProjectConfig(root); err != nil {
+		return writeJSONError(err)
 	}
 
 	runtime, err := loadProjectRuntime(root)

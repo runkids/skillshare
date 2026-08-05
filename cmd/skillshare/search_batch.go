@@ -381,13 +381,10 @@ func collectSearchInstallProject(result search.SearchResult, cwd string, onProgr
 		source: result.Source,
 	}
 
-	// Auto-init project if not yet initialized
-	if !projectConfigExists(cwd) {
-		if err := performProjectInit(cwd, projectInitOptions{}); err != nil {
-			r.status = "failed"
-			r.detail = fmt.Sprintf("project init: %v", err)
-			return r
-		}
+	if err := ensureProjectConfig(cwd); err != nil {
+		r.status = "failed"
+		r.detail = fmt.Sprintf("project config: %v", err)
+		return r
 	}
 
 	runtime, err := loadProjectRuntime(cwd)
@@ -588,13 +585,11 @@ func batchInstallFromSearchWithProgress(selected []search.SearchResult, mode run
 }
 
 // resolveBatchSourceDir returns the skill source directory for the given mode.
-// For project mode, it also ensures project config is initialized.
+// For project mode, it requires an initialized project config.
 func resolveBatchSourceDir(mode runMode, cfg *config.Config, cwd string) (string, error) {
 	if mode == modeProject {
-		if !projectConfigExists(cwd) {
-			if err := performProjectInit(cwd, projectInitOptions{}); err != nil {
-				return "", fmt.Errorf("project init: %w", err)
-			}
+		if err := ensureProjectConfig(cwd); err != nil {
+			return "", fmt.Errorf("project config: %w", err)
 		}
 		runtime, err := loadProjectRuntime(cwd)
 		if err != nil {

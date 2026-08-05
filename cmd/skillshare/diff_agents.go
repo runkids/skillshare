@@ -14,10 +14,8 @@ import (
 
 // diffProjectAgents computes agent diffs for project mode.
 func diffProjectAgents(root, targetName string, opts diffRenderOpts, start time.Time) error {
-	if !projectConfigExists(root) {
-		if err := performProjectInit(root, projectInitOptions{}); err != nil {
-			return err
-		}
+	if err := ensureProjectConfig(root); err != nil {
+		return err
 	}
 
 	rt, err := loadProjectRuntime(root)

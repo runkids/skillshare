@@ -31,10 +31,8 @@ func targetAddProject(args []string, root string) error {
 		return fmt.Errorf("invalid target name: %w", err)
 	}
 
-	if !projectConfigExists(root) {
-		if err := performProjectInit(root, projectInitOptions{}); err != nil {
-			return err
-		}
+	if err := ensureProjectConfig(root); err != nil {
+		return err
 	}
 
 	knownPath := ""
@@ -128,10 +126,8 @@ func targetRemoveProject(args []string, root string) error {
 		return err
 	}
 
-	if !projectConfigExists(root) {
-		if err := performProjectInit(root, projectInitOptions{}); err != nil {
-			return err
-		}
+	if err := ensureProjectConfig(root); err != nil {
+		return err
 	}
 
 	cfg, err := config.LoadProject(root)
@@ -259,10 +255,8 @@ func targetListProject(root string) error {
 }
 
 func targetListProjectWithJSON(root string, jsonOutput bool) error {
-	if !projectConfigExists(root) {
-		if err := performProjectInit(root, projectInitOptions{}); err != nil {
-			return err
-		}
+	if err := ensureProjectConfig(root); err != nil {
+		return err
 	}
 
 	if jsonOutput {
@@ -293,10 +287,8 @@ func targetListProjectWithJSON(root string, jsonOutput bool) error {
 }
 
 func targetInfoProject(name string, args []string, root string) error {
-	if !projectConfigExists(root) {
-		if err := performProjectInit(root, projectInitOptions{}); err != nil {
-			return err
-		}
+	if err := ensureProjectConfig(root); err != nil {
+		return err
 	}
 
 	// Parse filter flags first, pass remaining to mode parsing

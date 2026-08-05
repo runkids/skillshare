@@ -20,10 +20,8 @@ func cmdSyncProject(root string, dryRun, force, jsonOutput, quiet bool) (syncLog
 		ProjectScope: true,
 	}
 
-	if !projectConfigExists(root) {
-		if err := performProjectInit(root, projectInitOptions{}); err != nil {
-			return stats, nil, nil, nil, err
-		}
+	if err := ensureProjectConfig(root); err != nil {
+		return stats, nil, nil, nil, err
 	}
 
 	runtime, err := loadProjectRuntime(root)

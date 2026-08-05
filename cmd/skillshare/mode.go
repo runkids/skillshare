@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"skillshare/internal/ui"
 )
@@ -58,4 +59,50 @@ func modeString(mode runMode) string {
 func projectConfigExists(root string) bool {
 	_, err := os.Stat(filepath.Join(root, ".skillshare", "config.yaml"))
 	return err == nil
+}
+
+// ensureProjectConfig initializes a project when that is safe, and reports the
+// case where initializing would discard an existing project instead.
+//
+// Auto-init is intentional in two situations and both are preserved: a
+// repository with no .skillshare/ at all, and the shared skills repo produced
+// by 'init -p --config local', which gitignores config.yaml so every developer
+// regenerates their own.
+//
+// The case in between used to be silent. A .skillshare/ that already holds
+// skills or agents, whose config.yaml is simply gone, was re-initialized into
+// an empty config — dropping every configured target, leaving stale target
+// links, and exiting 0.
+func ensureProjectConfig(root string) error {
+	if projectConfigExists(root) {
+		return nil
+	}
+	dir := filepath.Join(root, ".skillshare")
+	if info, err := os.Stat(dir); err == nil && info.IsDir() {
+		gitignored, err := isConfigGitignored(root)
+		if (err != nil || !gitignored) && projectDirHasContent(dir) {
+			return fmt.Errorf(
+				".skillshare/ in %s holds skills or agents but has no config.yaml\n"+
+					"Restore it from version control, or run 'skillshare init -p' to write a new one",
+				root)
+		}
+	}
+	return performProjectInit(root, projectInitOptions{})
+}
+
+// projectDirHasContent reports whether .skillshare/ holds authored skills or
+// agents that a regenerated config would no longer describe.
+func projectDirHasContent(dir string) bool {
+	for _, name := range []string{"skills", "agents"} {
+		entries, err := os.ReadDir(filepath.Join(dir, name))
+		if err != nil {
+			continue
+		}
+		for _, entry := range entries {
+			if !strings.HasPrefix(entry.Name(), ".") {
+				return true
+			}
+		}
+	}
+	return false
 }
