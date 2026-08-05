@@ -3,6 +3,8 @@ package audit
 import (
 	"path/filepath"
 	"sort"
+
+	"skillshare/internal/projectdir"
 )
 
 // CompiledRule is the public view of a rule for listing/display.
@@ -45,7 +47,7 @@ func ListRulesWithProject(projectRoot string) ([]CompiledRule, error) {
 	if err != nil {
 		return nil, err
 	}
-	projectPath := filepath.Join(projectRoot, ".skillshare", "audit-rules.yaml")
+	projectPath := filepath.Join(projectdir.Resolve(projectRoot), auditRulesFileName)
 	projectUser, err := loadUserRules(projectPath)
 	if err != nil {
 		return nil, err

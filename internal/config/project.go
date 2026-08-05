@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"gopkg.in/yaml.v3"
+	"skillshare/internal/projectdir"
 	"skillshare/internal/utils"
 )
 
@@ -254,14 +255,19 @@ func PruneStaleSkills(skills []SkillEntry, live map[string]bool, skillsOnly bool
 }
 
 // ProjectSources overrides default source directories for project resources.
-// Relative paths resolve from the project root, not from .skillshare/.
+// Relative paths resolve from the project root, not from the project directory.
 type ProjectSources struct {
 	Skills string `yaml:"skills,omitempty"`
 	Agents string `yaml:"agents,omitempty"`
 	Extras string `yaml:"extras,omitempty"`
 }
 
-// ProjectConfig holds project-level config (.skillshare/config.yaml).
+// ProjectDir returns the active project directory for the given root.
+func ProjectDir(projectRoot string) string {
+	return projectdir.Resolve(projectRoot)
+}
+
+// ProjectConfig holds project-level config (<project-dir>/config.yaml).
 type ProjectConfig struct {
 	Sources       ProjectSources       `yaml:"sources,omitempty"`
 	Targets       []ProjectTargetEntry `yaml:"targets"`
@@ -281,7 +287,7 @@ func (c *ProjectConfig) EffectiveSkillsSource(projectRoot string) string {
 	if c.Sources.Skills != "" {
 		return resolveProjectSourcePath(projectRoot, c.Sources.Skills)
 	}
-	return filepath.Join(projectRoot, ".skillshare", "skills")
+	return filepath.Join(projectdir.Resolve(projectRoot), "skills")
 }
 
 // EffectiveAgentsSource returns the resolved agents source directory.
@@ -289,7 +295,7 @@ func (c *ProjectConfig) EffectiveAgentsSource(projectRoot string) string {
 	if c.Sources.Agents != "" {
 		return resolveProjectSourcePath(projectRoot, c.Sources.Agents)
 	}
-	return filepath.Join(projectRoot, ".skillshare", "agents")
+	return filepath.Join(projectdir.Resolve(projectRoot), "agents")
 }
 
 // EffectiveExtrasSource returns the resolved extras parent directory.
@@ -297,17 +303,18 @@ func (c *ProjectConfig) EffectiveExtrasSource(projectRoot string) string {
 	if c.Sources.Extras != "" {
 		return resolveProjectSourcePath(projectRoot, c.Sources.Extras)
 	}
-	return filepath.Join(projectRoot, ".skillshare", "extras")
+	return filepath.Join(projectdir.Resolve(projectRoot), "extras")
 }
 
 // ProjectGitignoreTarget returns the directory containing the .gitignore to
 // manage and the entry prefix for skills inside sourcePath. When sourcePath is
-// under .skillshare/, it returns (.skillshare/, "skills"). When sourcePath is
-// elsewhere inside projectRoot, it returns (projectRoot, relative-path).
-// When sourcePath is outside projectRoot (e.g. absolute external path),
-// both return values are empty — callers must skip gitignore management.
+// under the project directory, it returns (project-dir, "skills"). When
+// sourcePath is elsewhere inside projectRoot, it returns (projectRoot,
+// relative-path). When sourcePath is outside projectRoot (e.g. absolute
+// external path), both return values are empty — callers must skip gitignore
+// management.
 func ProjectGitignoreTarget(projectRoot, sourcePath string) (gitignoreDir, entryPrefix string) {
-	skillshareDir := filepath.Join(projectRoot, ".skillshare")
+	skillshareDir := projectdir.Resolve(projectRoot)
 	if rel, err := filepath.Rel(skillshareDir, sourcePath); err == nil && !strings.HasPrefix(rel, "..") {
 		if rel == "." {
 			return skillshareDir, ""
@@ -342,7 +349,7 @@ func (c *ProjectConfig) EffectiveAzureHosts() []string {
 
 // ProjectConfigPath returns the project config path for the given root.
 func ProjectConfigPath(projectRoot string) string {
-	return filepath.Join(projectRoot, ".skillshare", "config.yaml")
+	return projectdir.ConfigPath(projectRoot)
 }
 
 // LoadProject loads the project config from the given root.
@@ -412,9 +419,15 @@ func LoadProject(projectRoot string) (*ProjectConfig, error) {
 	return &cfg, nil
 }
 
-// Save writes the project config to the given root.
+// Save writes the project config to the active project directory under root.
 func (c *ProjectConfig) Save(projectRoot string) error {
-	path := ProjectConfigPath(projectRoot)
+	return c.SaveIn(ProjectDir(projectRoot))
+}
+
+// SaveIn writes the project config into an explicit project directory. Use it
+// during init, when the directory is chosen rather than discovered.
+func (c *ProjectConfig) SaveIn(projectDir string) error {
+	path := filepath.Join(projectDir, projectdir.ConfigFileName)
 	dir := filepath.Dir(path)
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return fmt.Errorf("failed to create project config directory: %w", err)

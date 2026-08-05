@@ -41,7 +41,7 @@ When any AI CLI is detected, `init` automatically recommends the **universal** t
 :::
 
 :::tip Agents source path
-The agents source defaults to `<source parent>/agents` (so `~/.config/skillshare/agents/` for the default install). Set `agents_source:` in `config.yaml` to override the location. Project mode always uses `.skillshare/agents/` and does not honor `agents_source`. Agent-capable targets (Claude, Cursor, Augment, OpenCode) pick agents up automatically once you run `skillshare sync`.
+The agents source defaults to `<source parent>/agents` (so `~/.config/skillshare/agents/` for the default install). Set `agents_source:` in `config.yaml` to override the location. Project mode always uses `agents/` inside the project directory and does not honor `agents_source`. Agent-capable targets (Claude, Cursor, Augment, OpenCode) pick agents up automatically once you run `skillshare sync`.
 :::
 
 ## Project Mode
@@ -51,6 +51,7 @@ Initialize project-level skills with `-p`:
 ```bash
 skillshare init -p                              # Interactive
 skillshare init -p --targets claude,cursor  # Non-interactive
+skillshare init -p --visible                    # Use a visible skillshare/ directory
 ```
 
 ### What Happens
@@ -65,7 +66,7 @@ flowchart TD
     TITLE --> S1 --> S2 --> S3 --> S4
 ```
 
-After init, commit `.skillshare/` to git (both `skills/` and `agents/`). See [Project Setup](/docs/how-to/sharing/project-setup) for the full guide.
+After init, commit the project directory to git (both `skills/` and `agents/`). Use `--visible` to create `skillshare/` instead of `.skillshare/`. See [Project Setup](/docs/how-to/sharing/project-setup) for the full guide.
 
 ## Discover Mode
 
@@ -126,6 +127,7 @@ If you run `skillshare init` on an already-initialized setup without `--discover
 | `--discover, -d` | Detect and add new AI CLI targets to existing config |
 | `--select <list>` | Comma-separated targets to add (requires `--discover`) |
 | `--config local` | Gitignore `config.yaml` so each developer manages own targets (project mode only). See [Centralized Skills Repo](/docs/how-to/recipes/centralized-skills-repo) recipe. |
+| `--visible` | Create a visible `skillshare/` project directory instead of `.skillshare/` (project mode only). See [Project Skills](/docs/understand/project-skills#visible-project-directory). |
 | `--git-root <scope>` | Directory for `commit`/`push`/`pull` operations (`skills` default, `agents`, `extras`, `root`). `root` versions skills + agents + extras together in one repo with `config.yaml` auto-ignored. Also offered interactively during setup. Re-run `skillshare init --git-root <scope>` later to switch scope headlessly — it inits a repo at the new scope and persists the setting, but does not move existing history. |
 | `--subdir <name>` | Use a subdirectory as the source path (e.g. `skills`) |
 | `--dry-run, -n` | Preview without changes |

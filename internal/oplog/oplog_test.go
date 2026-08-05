@@ -19,6 +19,7 @@ func tempConfigPath(t *testing.T) string {
 
 func TestLogDir_Global(t *testing.T) {
 	t.Setenv("XDG_STATE_HOME", "/custom/state")
+	t.Setenv("XDG_CONFIG_HOME", "/home/user/.config")
 
 	got := LogDir("/home/user/.config/skillshare/config.yaml")
 	want := "/custom/state/skillshare/logs"
@@ -32,6 +33,17 @@ func TestLogDir_Project(t *testing.T) {
 	want := "/project/.skillshare/logs"
 	if got != want {
 		t.Errorf("LogDir(project) = %q, want %q", got, want)
+	}
+}
+
+func TestLogDir_VisibleProject(t *testing.T) {
+	t.Setenv("XDG_STATE_HOME", "/custom/state")
+	t.Setenv("XDG_CONFIG_HOME", "/home/user/.config")
+
+	got := LogDir("/project/skillshare/config.yaml")
+	want := "/project/skillshare/logs"
+	if got != want {
+		t.Errorf("LogDir(visible project) = %q, want %q", got, want)
 	}
 }
 

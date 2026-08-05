@@ -2,14 +2,14 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://raw.githubusercontent.com/runkids/skillshare/main/schemas/project-config.schema.json",
   "title": "Skillshare Project Configuration",
-  "description": "Project-level configuration for skillshare. Location: .skillshare/config.yaml",
+  "description": "Project-level configuration for skillshare. Location: .skillshare/config.yaml, or skillshare/config.yaml for a visible project directory.",
   "type": "object",
   "required": ["targets"],
   "additionalProperties": false,
   "properties": {
     "sources": {
       "type": "object",
-      "description": "Custom source directories for project resources. Each key overrides the default .skillshare/{key}/ path. Relative paths resolve from the project root.",
+      "description": "Custom source directories for project resources. Each key overrides the default <project-dir>/{key}/ path. Relative paths resolve from the project root.",
       "additionalProperties": false,
       "properties": {
         "skills": {

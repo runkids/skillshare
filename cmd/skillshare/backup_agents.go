@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"path/filepath"
 
 	"skillshare/internal/backup"
 	"skillshare/internal/config"
@@ -11,7 +10,7 @@ import (
 
 // createAgentBackup backs up agent target directories.
 // Agent backups use "<target>-agents" as the backup entry name.
-// In project mode, backups are stored under .skillshare/backups/.
+// In project mode, backups are stored under <project-dir>/backups/.
 func createAgentBackup(mode runMode, cwd, targetName string, dryRun bool) error {
 	backupDir, targets, err := resolveAgentBackupContext(mode, cwd)
 	if err != nil {
@@ -153,6 +152,6 @@ func resolveProjectAgentBackupContext(cwd string) (string, []agentTarget, error)
 		}
 	}
 
-	backupDir := filepath.Join(cwd, ".skillshare", "backups")
+	backupDir := backup.ProjectBackupDir(cwd)
 	return backupDir, targets, nil
 }

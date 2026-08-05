@@ -10,7 +10,12 @@ import (
 	"sync"
 
 	"gopkg.in/yaml.v3"
+	"skillshare/internal/projectdir"
 )
+
+// auditRulesFileName is the per-project audit rule override file, resolved
+// inside whichever project directory is active.
+const auditRulesFileName = "audit-rules.yaml"
 
 // Severity levels for audit findings.
 const (
@@ -191,7 +196,7 @@ func RulesWithProject(projectRoot string) ([]rule, error) {
 		baseYAML = mergeYAMLRules(baseYAML, globalUserYAML)
 	}
 
-	projectPath := filepath.Join(projectRoot, ".skillshare", "audit-rules.yaml")
+	projectPath := filepath.Join(projectdir.Resolve(projectRoot), auditRulesFileName)
 	projectYAML, err := loadUserRules(projectPath)
 	if err != nil {
 		return nil, fmt.Errorf("project user rules: %w", err)
@@ -383,7 +388,7 @@ func GlobalAuditRulesPath() string {
 
 // ProjectAuditRulesPath returns the path to a project's audit-rules.yaml.
 func ProjectAuditRulesPath(projectRoot string) string {
-	return filepath.Join(projectRoot, ".skillshare", "audit-rules.yaml")
+	return filepath.Join(projectdir.Resolve(projectRoot), auditRulesFileName)
 }
 
 // configDir returns the skillshare config directory without importing
@@ -509,7 +514,7 @@ func disabledIDsForProject(projectRoot string) map[string]bool {
 	if globalUser != nil {
 		base = mergeYAMLRules(base, globalUser)
 	}
-	projectUser, _ := loadUserRules(filepath.Join(projectRoot, ".skillshare", "audit-rules.yaml"))
+	projectUser, _ := loadUserRules(filepath.Join(projectdir.Resolve(projectRoot), auditRulesFileName))
 	if projectUser != nil {
 		base = mergeYAMLRules(base, projectUser)
 	}

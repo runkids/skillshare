@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"skillshare/internal/config"
+	"skillshare/internal/projectdir"
 )
 
 const defaultMaxAge = 7 * 24 * time.Hour // 7 days
@@ -118,7 +119,7 @@ func TrashDir() string {
 
 // ProjectTrashDir returns the project-level trash directory path.
 func ProjectTrashDir(root string) string {
-	return filepath.Join(root, ".skillshare", "trash")
+	return filepath.Join(projectdir.Resolve(root), "trash")
 }
 
 // AgentTrashDir returns the global trash directory for agents.
@@ -128,7 +129,7 @@ func AgentTrashDir() string {
 
 // ProjectAgentTrashDir returns the project-level trash directory for agents.
 func ProjectAgentTrashDir(root string) string {
-	return filepath.Join(root, ".skillshare", "trash", "agents")
+	return filepath.Join(projectdir.Resolve(root), "trash", "agents")
 }
 
 // MoveAgentToTrash moves an agent file (and its metadata) to the trash directory.

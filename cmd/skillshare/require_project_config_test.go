@@ -20,17 +20,21 @@ func writeSkill(t *testing.T, dir, name string) {
 }
 
 func TestEnsureProjectConfig_AlreadyInitialized(t *testing.T) {
-	root := t.TempDir()
-	dir := filepath.Join(root, ".skillshare")
-	if err := os.MkdirAll(dir, 0755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(dir, "config.yaml"), []byte("targets: []\n"), 0644); err != nil {
-		t.Fatal(err)
-	}
+	for _, dirName := range []string{".skillshare", "skillshare"} {
+		t.Run(dirName, func(t *testing.T) {
+			root := t.TempDir()
+			dir := filepath.Join(root, dirName)
+			if err := os.MkdirAll(dir, 0755); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(filepath.Join(dir, "config.yaml"), []byte("targets: []\n"), 0644); err != nil {
+				t.Fatal(err)
+			}
 
-	if err := ensureProjectConfig(root); err != nil {
-		t.Errorf("ensureProjectConfig() = %v, want nil", err)
+			if err := ensureProjectConfig(root); err != nil {
+				t.Errorf("ensureProjectConfig() = %v, want nil", err)
+			}
+		})
 	}
 }
 
@@ -50,21 +54,50 @@ func TestEnsureProjectConfig_NoProjectStillInitializes(t *testing.T) {
 // The --config local shared skills repo gitignores config.yaml, so a fresh
 // clone legitimately has content but no config and must still regenerate one.
 func TestEnsureProjectConfig_SharedRepoStillRepairs(t *testing.T) {
+	for _, dirName := range []string{".skillshare", "skillshare"} {
+		t.Run(dirName, func(t *testing.T) {
+			root := t.TempDir()
+			dir := filepath.Join(root, dirName)
+			writeSkill(t, filepath.Join(dir, "skills"), "shared-skill")
+			if err := os.WriteFile(filepath.Join(dir, ".gitignore"), []byte("config.yaml\n"), 0644); err != nil {
+				t.Fatal(err)
+			}
+
+			if err := ensureProjectConfig(root); err != nil {
+				t.Fatalf("ensureProjectConfig() = %v, want nil for the shared-repo flow", err)
+			}
+			if _, err := os.Stat(filepath.Join(dir, "config.yaml")); err != nil {
+				t.Errorf("shared-repo repair did not write a config: %v", err)
+			}
+			if _, err := os.Stat(filepath.Join(dir, "skills", "shared-skill", "SKILL.md")); err != nil {
+				t.Errorf("shared skill was disturbed: %v", err)
+			}
+		})
+	}
+}
+
+// A visible shared repo whose skills and agents were never committed clones
+// with nothing but the tracked .gitignore, because git drops empty directories.
+// The repair must still target that directory instead of starting a hidden one
+// alongside it.
+func TestEnsureProjectConfig_FreshCloneOfVisibleSharedRepo(t *testing.T) {
 	root := t.TempDir()
-	dir := filepath.Join(root, ".skillshare")
-	writeSkill(t, filepath.Join(dir, "skills"), "shared-skill")
-	if err := os.WriteFile(filepath.Join(dir, ".gitignore"), []byte("config.yaml\n"), 0644); err != nil {
+	dir := filepath.Join(root, "skillshare")
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, ".gitignore"), []byte("logs\ntrash\nbackups\nconfig.yaml\n"), 0644); err != nil {
 		t.Fatal(err)
 	}
 
 	if err := ensureProjectConfig(root); err != nil {
-		t.Fatalf("ensureProjectConfig() = %v, want nil for the shared-repo flow", err)
+		t.Fatalf("ensureProjectConfig() = %v, want nil for a freshly cloned shared repository", err)
 	}
 	if _, err := os.Stat(filepath.Join(dir, "config.yaml")); err != nil {
-		t.Errorf("shared-repo repair did not write a config: %v", err)
+		t.Errorf("no config written to the visible project directory: %v", err)
 	}
-	if _, err := os.Stat(filepath.Join(dir, "skills", "shared-skill", "SKILL.md")); err != nil {
-		t.Errorf("shared skill was disturbed: %v", err)
+	if _, err := os.Stat(filepath.Join(root, ".skillshare")); !os.IsNotExist(err) {
+		t.Error("repair created a hidden project directory next to the visible one")
 	}
 }
 
@@ -72,39 +105,29 @@ func TestEnsureProjectConfig_SharedRepoStillRepairs(t *testing.T) {
 // config.yaml is simply missing and is not gitignored. Re-initializing would
 // replace it with an empty config and silently drop every configured target.
 func TestEnsureProjectConfig_RefusesToDiscardExistingProject(t *testing.T) {
-	root := t.TempDir()
-	dir := filepath.Join(root, ".skillshare")
-	writeSkill(t, filepath.Join(dir, "skills"), "demo")
+	for _, dirName := range []string{".skillshare", "skillshare"} {
+		t.Run(dirName, func(t *testing.T) {
+			root := t.TempDir()
+			dir := filepath.Join(root, dirName)
+			writeSkill(t, filepath.Join(dir, "skills"), "demo")
 
-	err := ensureProjectConfig(root)
-	if err == nil {
-		t.Fatal("ensureProjectConfig() = nil, want an error for a content-bearing project without a config")
-	}
-	if !strings.Contains(err.Error(), ".skillshare") {
-		t.Errorf("error %q does not name the project directory", err)
-	}
-	if !strings.Contains(err.Error(), "init -p") {
-		t.Errorf("error %q does not point at 'init -p'", err)
-	}
-	if _, statErr := os.Stat(filepath.Join(dir, "config.yaml")); !os.IsNotExist(statErr) {
-		t.Error("a config was written over an existing project")
-	}
-	if _, statErr := os.Stat(filepath.Join(dir, "skills", "demo", "SKILL.md")); statErr != nil {
-		t.Errorf("existing skill was disturbed: %v", statErr)
-	}
-}
-
-// Agents alone are enough to make a project worth protecting.
-func TestEnsureProjectConfig_RefusesWhenOnlyAgentsExist(t *testing.T) {
-	root := t.TempDir()
-	dir := filepath.Join(root, ".skillshare")
-	writeSkill(t, filepath.Join(dir, "agents"), "demo-agent")
-
-	if err := ensureProjectConfig(root); err == nil {
-		t.Fatal("ensureProjectConfig() = nil, want an error for a project holding only agents")
-	}
-	if _, err := os.Stat(filepath.Join(dir, "config.yaml")); !os.IsNotExist(err) {
-		t.Error("a config was written over an existing project")
+			err := ensureProjectConfig(root)
+			if err == nil {
+				t.Fatal("ensureProjectConfig() = nil, want an error for a content-bearing project without a config")
+			}
+			if !strings.Contains(err.Error(), dirName) {
+				t.Errorf("error %q does not name the project directory", err)
+			}
+			if !strings.Contains(err.Error(), "init -p") {
+				t.Errorf("error %q does not point at 'init -p'", err)
+			}
+			if _, statErr := os.Stat(filepath.Join(dir, "config.yaml")); !os.IsNotExist(statErr) {
+				t.Error("a config was written over an existing project")
+			}
+			if _, statErr := os.Stat(filepath.Join(dir, "skills", "demo", "SKILL.md")); statErr != nil {
+				t.Errorf("existing skill was disturbed: %v", statErr)
+			}
+		})
 	}
 }
 

@@ -8,6 +8,7 @@ import (
 
 	"skillshare/internal/config"
 	"skillshare/internal/install"
+	"skillshare/internal/projectdir"
 	"skillshare/internal/ui"
 )
 
@@ -18,6 +19,7 @@ type projectInitOptions struct {
 	selectArg  string // Non-interactive selection for --discover
 	mode       string // default mode for new targets: merge|copy|symlink
 	configMode string // "local" to gitignore config.yaml (shared skills repo)
+	visible    bool   // create a visible skillshare/ directory instead of .skillshare/
 }
 
 type detectedProjectTarget struct {
@@ -40,6 +42,7 @@ func printProjectInitUsage() {
 	fmt.Println("  --mode, -m <mode>         Set sync mode (merge, copy, symlink; default: merge).")
 	fmt.Println("                            With --discover, applies only to newly added targets")
 	fmt.Println("  --config local            Gitignore config.yaml (each developer manages own targets)")
+	fmt.Println("  --visible                 Create a visible skillshare/ directory instead of .skillshare/")
 	fmt.Println("  --dry-run, -n             Preview without making changes")
 	fmt.Println("  --help, -h                Show this help")
 	fmt.Println()
@@ -47,6 +50,7 @@ func printProjectInitUsage() {
 	fmt.Println("  skillshare init -p")
 	fmt.Println("  skillshare init -p --targets claude,cursor --mode copy")
 	fmt.Println("  skillshare init -p --discover --select cursor --mode copy")
+	fmt.Println("  skillshare init -p --visible")
 }
 
 func parseProjectInitArgs(args []string) (projectInitOptions, bool, error) {
@@ -56,6 +60,8 @@ func parseProjectInitArgs(args []string) (projectInitOptions, bool, error) {
 		switch {
 		case arg == "--dry-run" || arg == "-n":
 			opts.dryRun = true
+		case arg == "--visible":
+			opts.visible = true
 		case arg == "--help" || arg == "-h":
 			return opts, true, nil
 		case arg == "--discover" || arg == "-d":
@@ -123,8 +129,17 @@ func cmdInitProject(args []string) error {
 }
 
 func performProjectInit(root string, opts projectInitOptions) error {
-	projectDir := filepath.Join(root, ".skillshare")
-	configPath := config.ProjectConfigPath(root)
+	// An already-initialized or partially-initialized project keeps its own
+	// directory; only a brand new project honours --visible.
+	projectDir, existing := projectdir.Find(root)
+	if !existing {
+		projectDir, existing = projectdir.FindPartial(root)
+	}
+	if !existing {
+		projectDir = filepath.Join(root, projectdir.Name(opts.visible))
+	}
+	dirName := filepath.Base(projectDir)
+	configPath := filepath.Join(projectDir, projectdir.ConfigFileName)
 	partialInitRepair := false
 	if info, err := os.Stat(projectDir); err == nil {
 		if !info.IsDir() {
@@ -146,7 +161,7 @@ func performProjectInit(root string, opts projectInitOptions) error {
 
 	sharedRepoFlow := false
 	if partialInitRepair {
-		gitignored, err := isConfigGitignored(root)
+		gitignored, err := isConfigGitignored(projectDir)
 		if err != nil {
 			ui.Warning("Could not check for shared repo config: %v", err)
 		}
@@ -210,19 +225,19 @@ func performProjectInit(root string, opts projectInitOptions) error {
 
 	if opts.dryRun {
 		ui.Header("Dry run complete (project)")
-		ui.Info("Would create .skillshare/skills/")
+		ui.Info("Would create %s/skills/", dirName)
 		ui.Info("Would write config: %s", configPath)
 		return nil
 	}
 
-	if err := os.MkdirAll(filepath.Join(root, ".skillshare", "skills"), 0755); err != nil {
-		return fmt.Errorf("failed to create .skillshare/skills: %w", err)
+	if err := os.MkdirAll(filepath.Join(projectDir, "skills"), 0755); err != nil {
+		return fmt.Errorf("failed to create %s/skills: %w", dirName, err)
 	}
-	if err := os.MkdirAll(filepath.Join(root, ".skillshare", "agents"), 0755); err != nil {
-		return fmt.Errorf("failed to create .skillshare/agents: %w", err)
+	if err := os.MkdirAll(filepath.Join(projectDir, "agents"), 0755); err != nil {
+		return fmt.Errorf("failed to create %s/agents: %w", dirName, err)
 	}
 
-	if err := ensureProjectGitignore(root, opts.configMode == "local"); err != nil {
+	if err := ensureProjectGitignore(projectDir, opts.configMode == "local"); err != nil {
 		return err
 	}
 
@@ -237,7 +252,7 @@ func performProjectInit(root string, opts projectInitOptions) error {
 			BlockThreshold: "CRITICAL",
 		},
 	}
-	if err := cfg.Save(root); err != nil {
+	if err := cfg.SaveIn(projectDir); err != nil {
 		return err
 	}
 
@@ -245,16 +260,16 @@ func performProjectInit(root string, opts projectInitOptions) error {
 		return err
 	}
 
-	ui.Success("Created .skillshare/config.yaml")
-	ui.Success("Created .skillshare/skills/")
+	ui.Success("Created %s/%s", dirName, projectdir.ConfigFileName)
+	ui.Success("Created %s/skills/", dirName)
 	if !sharedRepoFlow {
 		ui.Success("Added %d target(s)", len(selected))
 	}
 	fmt.Println()
 
 	ui.Header("Initialized successfully (project)")
-	ui.Success("Source: .skillshare/skills/")
-	ui.Success("Config: %s", config.ProjectConfigPath(root))
+	ui.Success("Source: %s/skills/", dirName)
+	ui.Success("Config: %s", configPath)
 	if opts.configMode == "local" {
 		ui.Success("Config gitignored (each developer manages own targets)")
 	}
@@ -543,25 +558,26 @@ func findGroupedTarget(targets []detectedProjectTarget, name string) *detectedPr
 	return nil
 }
 
-// isConfigGitignored checks if config.yaml is gitignored in .skillshare/.gitignore,
-// indicating this is a shared skills repo where each developer manages their own config.
-func isConfigGitignored(root string) (bool, error) {
-	path := filepath.Join(root, ".skillshare", ".gitignore")
+// isConfigGitignored checks if config.yaml is gitignored in the project
+// directory's .gitignore, indicating this is a shared skills repo where each
+// developer manages their own config.
+func isConfigGitignored(projectDir string) (bool, error) {
+	path := filepath.Join(projectDir, ".gitignore")
 	return install.GitignoreContains(path, "config.yaml")
 }
 
-func ensureProjectGitignore(root string, gitignoreConfig bool) error {
-	gitignoreDir := filepath.Join(root, ".skillshare")
+func ensureProjectGitignore(gitignoreDir string, gitignoreConfig bool) error {
+	dirName := filepath.Base(gitignoreDir)
 	gitignorePath := filepath.Join(gitignoreDir, ".gitignore")
 	if _, err := os.Stat(gitignorePath); os.IsNotExist(err) {
 		if err := os.WriteFile(gitignorePath, []byte(""), 0644); err != nil {
-			return fmt.Errorf("failed to create .skillshare/.gitignore: %w", err)
+			return fmt.Errorf("failed to create %s/.gitignore: %w", dirName, err)
 		}
 	}
 
 	// Always ignore operational directories to avoid committing noise.
 	if err := install.UpdateGitIgnoreBatch(gitignoreDir, []string{"logs", "trash", "backups"}); err != nil {
-		return fmt.Errorf("failed to update .skillshare/.gitignore: %w", err)
+		return fmt.Errorf("failed to update %s/.gitignore: %w", dirName, err)
 	}
 
 	// --config local: gitignore config.yaml so each developer manages own targets.

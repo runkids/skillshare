@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"skillshare/internal/config"
+	"skillshare/internal/projectdir"
 )
 
 const stagingDirPrefix = ".snapshot-"
@@ -22,7 +23,7 @@ func BackupDir() string {
 
 // ProjectBackupDir returns the project-level backup directory path.
 func ProjectBackupDir(projectRoot string) string {
-	return filepath.Join(projectRoot, ".skillshare", "backups")
+	return filepath.Join(projectdir.Resolve(projectRoot), "backups")
 }
 
 // Create creates a backup of the target directory using the global backup dir.

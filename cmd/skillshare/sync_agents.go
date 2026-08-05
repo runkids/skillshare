@@ -192,7 +192,7 @@ func syncAgentsProject(projectRoot string, dryRun, force, jsonOutput bool, start
 
 	// Backup agent targets before sync (non-dry-run only).
 	if !dryRun && !jsonOutput {
-		backupDir := filepath.Join(projectRoot, ".skillshare", "backups")
+		backupDir := backup.ProjectBackupDir(projectRoot)
 		defer func() {
 			if _, err := backup.CleanupInDir(backupDir, backup.DefaultCleanupConfig()); err != nil {
 				ui.Warning("Failed to clean up old project agent backups: %v", err)

@@ -8,6 +8,7 @@ import (
 
 	"skillshare/internal/git"
 	"skillshare/internal/install"
+	"skillshare/internal/projectdir"
 	"skillshare/internal/resource"
 	"skillshare/internal/sync"
 	"skillshare/internal/utils"
@@ -27,7 +28,7 @@ func (s *Server) handleOverview(w http.ResponseWriter, r *http.Request) {
 	agentsSource := s.agentsSource()
 	extrasSource := s.cfg.EffectiveExtrasSource()
 	if s.IsProjectMode() {
-		extrasSource = filepath.Join(s.projectRoot, ".skillshare", "extras")
+		extrasSource = filepath.Join(projectdir.Resolve(s.projectRoot), "extras")
 	}
 	cfgMode := s.cfg.Mode
 	targetCount := len(s.cfg.Targets)

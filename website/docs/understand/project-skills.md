@@ -119,6 +119,45 @@ Symlinks in project mode use **relative paths** (e.g., `../../.skillshare/skills
 
 ---
 
+## Visible Project Directory
+
+Repositories that treat skills as reviewable content rather than tool state can use a visible `skillshare/` directory instead of the hidden `.skillshare/`:
+
+```bash
+skillshare init -p --visible
+```
+
+```
+<project-root>/
+├── skillshare/
+│   ├── config.yaml
+│   ├── skills/
+│   └── agents/
+└── src/
+```
+
+Everything else is identical — `config.yaml`, `skills/`, `agents/`, `extras/`, and the operational `trash/`, `backups/` and `logs/` directories all live inside whichever project directory is in use.
+
+Detection checks `.skillshare/config.yaml` first and `skillshare/config.yaml` second, so:
+
+- Existing projects are unaffected.
+- If both directories exist, `.skillshare/` wins.
+- Moving an existing project is just `mv .skillshare skillshare` — there is no migration step.
+
+`init -p` without `--visible` continues to create `.skillshare/`.
+
+:::note
+The global config directory is also called `skillshare` (`~/.config/skillshare/`). Only a `skillshare/` directory inside a project root is treated as a project.
+:::
+
+### Missing config
+
+Project commands initialize a project automatically when there isn't one yet, and a [shared skills repo](/docs/how-to/recipes/centralized-skills-repo) using `--config local` regenerates its gitignored `config.yaml` the same way.
+
+They stop short of one case: if the project directory already holds skills or agents but its `config.yaml` is missing, re-initializing would write an empty config and drop every configured target. Those commands report the problem instead, so you can restore `config.yaml` from version control or run `skillshare init -p` deliberately.
+
+---
+
 ## Config Format
 
 `.skillshare/config.yaml`:
@@ -201,8 +240,8 @@ sources:
 
 - **No alias with target paths.** `skillshare sync -p` rejects configs where a source resolves to the same directory as a target (or one contains the other). This prevents `sync --force` from wiping the configured source. For example, `sources.skills: .claude/skills` combined with a `claude` target is rejected with an `overlaps` error.
 - **External paths skip gitignore management.** When a source resolves outside the project root (an absolute path elsewhere on disk), skillshare does not add entries to the project's `.gitignore`. Manage ignore rules in the source directory yourself if needed.
-- **Operational dirs stay in `.skillshare/`.** Trash, backups, and operation logs always live under `.skillshare/` regardless of `sources` settings.
-- **`init -p` always seeds `.skillshare/{skills,agents}/`.** Custom sources take effect only after you edit `config.yaml`.
+- **Operational dirs stay in the project directory.** Trash, backups, and operation logs always live under the active project directory (`.skillshare/`, or `skillshare/` — see below) regardless of `sources` settings.
+- **`init -p` always seeds `{skills,agents}/` in the project directory.** Custom sources take effect only after you edit `config.yaml`.
 
 ---
 

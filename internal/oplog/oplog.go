@@ -11,6 +11,8 @@ import (
 
 	"skillshare/internal/config"
 	"skillshare/internal/install"
+	"skillshare/internal/projectdir"
+	"skillshare/internal/utils"
 )
 
 const (
@@ -29,14 +31,29 @@ type Entry struct {
 }
 
 // LogDir returns the logs directory derived from a config file path.
-// For project mode: .skillshare/logs/ (alongside project config)
+// For project mode: <project-dir>/logs/ (alongside project config)
 // For global mode: $XDG_STATE_HOME/skillshare/logs/
 func LogDir(configPath string) string {
-	configDir := filepath.Dir(configPath)
-	if filepath.Base(configDir) == ".skillshare" {
-		return filepath.Join(configDir, "logs")
+	if dir, ok := projectConfigDir(configPath); ok {
+		return filepath.Join(dir, "logs")
 	}
 	return filepath.Join(config.StateDir(), "logs")
+}
+
+// projectConfigDir returns the project directory holding configPath, if any.
+//
+// The visible project directory shares its name with the global config
+// directory (<config-home>/skillshare), so a name match alone is ambiguous and
+// the global location is excluded by full path.
+func projectConfigDir(configPath string) (string, bool) {
+	configDir := filepath.Dir(configPath)
+	if !projectdir.IsName(filepath.Base(configDir)) {
+		return "", false
+	}
+	if utils.PathsEqual(configDir, config.BaseDir()) {
+		return "", false
+	}
+	return configDir, true
 }
 
 // Write appends a single JSONL entry to the named log file.
@@ -70,8 +87,8 @@ func Write(configPath, filename string, e Entry) error {
 }
 
 func ensureProjectLogGitignore(configPath string) {
-	configDir := filepath.Dir(configPath)
-	if filepath.Base(configDir) != ".skillshare" {
+	configDir, ok := projectConfigDir(configPath)
+	if !ok {
 		return
 	}
 	_ = install.UpdateGitIgnore(configDir, "logs")

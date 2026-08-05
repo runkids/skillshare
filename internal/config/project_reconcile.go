@@ -7,12 +7,13 @@ import (
 	"strings"
 
 	"skillshare/internal/install"
+	"skillshare/internal/projectdir"
 )
 
 // ReconcileProjectSkills scans the project source directory recursively for
 // remotely-installed skills (those with install metadata or tracked repos)
 // and ensures they are present in the MetadataStore.
-// It also updates .skillshare/.gitignore for each tracked skill.
+// It also updates the project directory's .gitignore for each tracked skill.
 func ReconcileProjectSkills(projectRoot string, projectCfg *ProjectConfig, store *install.MetadataStore, sourcePath string) error {
 	if _, err := os.Stat(sourcePath); os.IsNotExist(err) {
 		return nil
@@ -158,7 +159,7 @@ func ReconcileProjectAgents(projectRoot string, store *install.MetadataStore, ag
 	}
 
 	if len(gitignoreEntries) > 0 {
-		if err := install.UpdateGitIgnoreBatch(filepath.Join(projectRoot, ".skillshare"), gitignoreEntries); err != nil {
+		if err := install.UpdateGitIgnoreBatch(projectdir.Resolve(projectRoot), gitignoreEntries); err != nil {
 			return fmt.Errorf("failed to update .skillshare/.gitignore for agents: %w", err)
 		}
 	}
