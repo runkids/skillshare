@@ -219,3 +219,82 @@ func TestRefreshSkillMetaVersionIfNeeded(t *testing.T) {
 		t.Fatalf("expected tree hash to be preserved, got %q", updated.TreeHash)
 	}
 }
+
+func TestLookupSkillSubdir(t *testing.T) {
+	repo := t.TempDir()
+	skillDir := filepath.Join(repo, ".claude", "skills", "my-skill")
+	if err := os.MkdirAll(skillDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	content := "---\nname: my-skill\ndescription: does things\nlicense: MIT\n---\n# my-skill"
+	if err := os.WriteFile(filepath.Join(skillDir, "SKILL.md"), []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	info, ok := lookupSkillSubdir(repo, ".claude/skills/my-skill")
+	if !ok {
+		t.Fatal("expected skill under target dot-dir to be resolved")
+	}
+	if info.Name != "my-skill" {
+		t.Errorf("expected name %q, got %q", "my-skill", info.Name)
+	}
+	if info.Path != ".claude/skills/my-skill" {
+		t.Errorf("expected path %q, got %q", ".claude/skills/my-skill", info.Path)
+	}
+	if info.Description != "does things" {
+		t.Errorf("expected description from frontmatter, got %q", info.Description)
+	}
+	if info.License != "MIT" {
+		t.Errorf("expected license from frontmatter, got %q", info.License)
+	}
+
+	if _, ok := lookupSkillSubdir(repo, ".claude/skills/deleted-skill"); ok {
+		t.Error("expected missing subdir to not resolve")
+	}
+	if _, ok := lookupSkillSubdir(repo, ".claude/skills"); ok {
+		t.Error("expected dir without SKILL.md to not resolve")
+	}
+	for _, subdir := range []string{"", ".", "..", "../outside", "/abs/path"} {
+		if _, ok := lookupSkillSubdir(repo, subdir); ok {
+			t.Errorf("expected subdir %q to be rejected", subdir)
+		}
+	}
+}
+
+func TestUpdateSkillsFromRepo_SkillOnlyInTargetDotDirNotStale(t *testing.T) {
+	origDirs := TargetDotDirs
+	TargetDotDirs = map[string]bool{".claude": true, ".cursor": true, ".skillshare": true}
+	defer func() { TargetDotDirs = origDirs }()
+
+	repo := initTestRepo(t)
+	skillDir := filepath.Join(repo, ".claude", "skills", "my-skill")
+	if err := os.MkdirAll(skillDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(skillDir, "SKILL.md"), []byte("---\nname: my-skill\n---\n# my-skill"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	// Force-add: user-level global gitignores commonly exclude .claude/.
+	runGit(t, repo, "add", "-f", ".")
+	gitCommit(t, repo, "add skill inside target dot-dir")
+
+	sourceDir := t.TempDir()
+	dest := filepath.Join(sourceDir, "my-skill")
+
+	result, err := UpdateSkillsFromRepo("file://"+repo,
+		map[string]string{".claude/skills/my-skill": dest},
+		InstallOptions{Update: true, SkipAudit: true, SourceDir: sourceDir})
+	if err != nil {
+		t.Fatalf("UpdateSkillsFromRepo failed: %v", err)
+	}
+
+	if updateErr, exists := result.Errors[".claude/skills/my-skill"]; exists {
+		t.Fatalf("expected no error for skill inside target dot-dir, got: %v", updateErr)
+	}
+	if _, exists := result.Results[".claude/skills/my-skill"]; !exists {
+		t.Fatal("expected install result for skill inside target dot-dir")
+	}
+	if _, err := os.Stat(filepath.Join(dest, "SKILL.md")); err != nil {
+		t.Fatalf("expected SKILL.md installed at destination: %v", err)
+	}
+}
