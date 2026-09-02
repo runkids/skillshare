@@ -11,6 +11,8 @@ var authTestEnvKeys = []string{
 	"BITBUCKET_TOKEN",
 	"BITBUCKET_USERNAME",
 	"AZURE_DEVOPS_TOKEN",
+	"CNB_TOKEN",
+	"GITEA_TOKEN",
 	"SKILLSHARE_GIT_TOKEN",
 	"GIT_CONFIG_COUNT",
 }
@@ -164,6 +166,21 @@ func TestResolveToken(t *testing.T) {
 			wantTok:  "tok",
 			wantUser: "oauth2",
 		},
+
+		{
+			name:     "cnb token",
+			url:      "https://cnb.cool/org/repo.git",
+			envVars:  map[string]string{"CNB_TOKEN": "cnb_pat"},
+			wantTok:  "cnb_pat",
+			wantUser: "cnb",
+		},
+		{
+			name:     "gitea token",
+			url:      "https://gitea.example.com/org/repo.git",
+			envVars:  map[string]string{"GITEA_TOKEN": "gitea_pat"},
+			wantTok:  "gitea_pat",
+			wantUser: "x-access-token",
+		},
 		{
 			name:     "azure devops token",
 			url:      "https://dev.azure.com/org/proj/_git/repo",
@@ -228,6 +245,61 @@ func TestResolveToken(t *testing.T) {
 				t.Errorf("resolveToken(%q) username = %q, want %q", tt.url, user, tt.wantUser)
 			}
 		})
+	}
+}
+
+func TestSourceAuthEnv_ConfiguredCNBGiteaHosts(t *testing.T) {
+	tests := []struct {
+		name    string
+		source  *Source
+		envVars map[string]string
+		wantKey string
+	}{
+		{
+			name: "configured CNB host uses CNB_TOKEN",
+			source: &Source{
+				CloneURL: "https://git.corp.example/org/repo.git",
+				CNBHosts: []string{"git.corp.example"},
+			},
+			envVars: map[string]string{"CNB_TOKEN": "cnb_private"},
+			wantKey: "url.https://cnb:cnb_private@git.corp.example/.insteadOf",
+		},
+		{
+			name: "configured Gitea host uses GITEA_TOKEN",
+			source: &Source{
+				CloneURL:   "https://git.example.com/org/repo.git",
+				GiteaHosts: []string{"git.example.com"},
+			},
+			envVars: map[string]string{"GITEA_TOKEN": "gitea_private"},
+			wantKey: "url.https://x-access-token:gitea_private@git.example.com/.insteadOf",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			resetAuthTestEnv(t)
+			for k, v := range tt.envVars {
+				t.Setenv(k, v)
+			}
+			got := tt.source.authEnv()
+			if len(got) < 2 {
+				t.Fatalf("authEnv() = %v, want git config env", got)
+			}
+			if got[1] != "GIT_CONFIG_KEY_0="+tt.wantKey {
+				t.Errorf("auth key = %q, want %q", got[1], "GIT_CONFIG_KEY_0="+tt.wantKey)
+			}
+		})
+	}
+}
+
+func TestAPISourceDetection_UsesConfiguredHosts(t *testing.T) {
+	cnb := &Source{CloneURL: "https://git.corp.example/org/repo.git", CNBHosts: []string{"git.corp.example"}}
+	if !isCNBAPISource(cnb) {
+		t.Fatalf("configured CNB host was not treated as CNB API source")
+	}
+	gitea := &Source{CloneURL: "https://git.example.com/org/repo.git", GiteaHosts: []string{"git.example.com"}}
+	if !isGiteaAPISource(gitea) {
+		t.Fatalf("configured Gitea host was not treated as Gitea API source")
 	}
 }
 
