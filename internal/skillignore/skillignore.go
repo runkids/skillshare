@@ -32,7 +32,7 @@ type Matcher struct {
 // Returns the rule and true if valid, or zero value and false if the line
 // should be skipped (blank or comment).
 func parseRule(line string) (rule, bool) {
-	line = strings.TrimRight(line, " \t")
+	line = strings.TrimRight(line, " \t\r")
 
 	// Blank line
 	if line == "" {
@@ -94,7 +94,7 @@ func parseRule(line string) (rule, bool) {
 func Compile(lines []string) *Matcher {
 	m := &Matcher{}
 	for _, line := range lines {
-		trimmed := strings.TrimRight(line, " \t")
+		trimmed := strings.TrimRight(line, " \t\r")
 		r, ok := parseRule(line)
 		if !ok {
 			continue

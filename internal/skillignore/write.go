@@ -19,7 +19,7 @@ func AddPattern(filePath, pattern string) (bool, error) {
 
 	// Check for duplicate in a single pass
 	for _, line := range strings.Split(content, "\n") {
-		if strings.TrimRight(line, " \t") == pattern {
+		if strings.TrimRight(line, " \t\r") == pattern {
 			return false, nil
 		}
 	}
@@ -47,7 +47,7 @@ func RemovePattern(filePath, pattern string) (bool, error) {
 	var kept []string
 	found := false
 	for _, line := range lines {
-		trimmed := strings.TrimRight(line, " \t")
+		trimmed := strings.TrimRight(line, " \t\r")
 		if trimmed == pattern {
 			found = true
 			continue
@@ -75,7 +75,7 @@ func HasPattern(filePath, pattern string) bool {
 	}
 
 	for _, line := range strings.Split(string(data), "\n") {
-		if strings.TrimRight(line, " \t") == pattern {
+		if strings.TrimRight(line, " \t\r") == pattern {
 			return true
 		}
 	}
