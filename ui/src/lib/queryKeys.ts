@@ -14,7 +14,6 @@ export const queryKeys = {
 
   diff: (target?: string) => ['diff', target ?? '__all'] as const,
   collectScan: (target?: string) => ['collect-scan', target ?? '__all'] as const,
-
   backups: ['backups'] as const,
   trash: ['trash'] as const,
   gitStatus: ['git-status'] as const,

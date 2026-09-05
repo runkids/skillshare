@@ -75,6 +75,8 @@ Command cheat sheet for skillshare.
 | `sync --all` | Sync skills + extras together |
 | `collect <target>` | Collect skills from target to source |
 | `collect --all` | Collect from all targets |
+| `adopt --dry-run` | Preview externally installed skills that can be adopted |
+| `adopt --all` | Adopt all non-conflicting externally installed skills |
 | `backup [target]` | Create backup |
 | `backup --list` | List backups |
 | `restore <target>` | Restore from backup |

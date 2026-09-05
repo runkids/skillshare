@@ -291,7 +291,7 @@ skillshare doctor --json | jq '[.checks[] | select(.status == "warning")]'
 ```
 
 :::tip Web Dashboard
-The **Health Check** page in the web dashboard (`skillshare ui`) provides a visual version of `doctor --json` with filter toggles and expandable details.
+The **Health Check** page in the web dashboard (`skillshare ui`) provides a visual version of `doctor --json` with filter toggles, expandable details, and a repair entry point for external CLI-bundled skills. Use that repair action to preview [`adopt`](/docs/reference/commands/adopt) when another CLI has written skills into the agents target.
 :::
 
 ## See Also

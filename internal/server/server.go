@@ -26,6 +26,7 @@ type Server struct {
 	mux         *http.ServeMux
 	handler     http.Handler
 	mu          sync.RWMutex // protects config: Lock for writes/reloads, RLock for reads
+	adoptMu     sync.RWMutex // adopt takes Lock; other mutating HTTP requests take RLock
 
 	startTime time.Time // for uptime reporting in health check
 
@@ -159,14 +160,29 @@ func (s *Server) agentsSource() string {
 	return s.cfg.EffectiveAgentsSource()
 }
 
-// cloneTargets returns a shallow copy of the Targets map.
+// cloneTargets returns an immutable snapshot of the Targets map.
 // Callers must hold s.mu (RLock or Lock).
 func (s *Server) cloneTargets() map[string]config.TargetConfig {
 	targets := make(map[string]config.TargetConfig, len(s.cfg.Targets))
 	for k, v := range s.cfg.Targets {
-		targets[k] = v
+		cloned := v
+		cloned.Include = append([]string(nil), v.Include...)
+		cloned.Exclude = append([]string(nil), v.Exclude...)
+		cloned.Skills = cloneResourceTargetConfig(v.Skills)
+		cloned.Agents = cloneResourceTargetConfig(v.Agents)
+		targets[k] = cloned
 	}
 	return targets
+}
+
+func cloneResourceTargetConfig(src *config.ResourceTargetConfig) *config.ResourceTargetConfig {
+	if src == nil {
+		return nil
+	}
+	cloned := *src
+	cloned.Include = append([]string(nil), src.Include...)
+	cloned.Exclude = append([]string(nil), src.Exclude...)
+	return &cloned
 }
 
 // parseOpts returns install.ParseOptions from the current config.
@@ -287,8 +303,24 @@ func (s *Server) shouldAutoReloadConfig(path string) bool {
 	return true
 }
 
+func requestMayMutate(method string) bool {
+	switch method {
+	case http.MethodPost, http.MethodPut, http.MethodPatch, http.MethodDelete:
+		return true
+	default:
+		return false
+	}
+}
+
 func (s *Server) withConfigAutoReload(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Adopt takes the exclusive side after decoding its body. Other mutating
+		// requests wait here, before they can queue on s.mu or touch the same
+		// source/target files. Read requests remain ungated and responsive.
+		if requestMayMutate(r.Method) && r.URL.Path != "/api/adopt/apply" {
+			s.adoptMu.RLock()
+			defer s.adoptMu.RUnlock()
+		}
 		if s.shouldAutoReloadConfig(r.URL.Path) {
 			if err := s.refreshConfig(); err != nil {
 				writeError(w, http.StatusInternalServerError, "failed to reload config: "+err.Error())
@@ -405,6 +437,10 @@ func (s *Server) registerRoutes() {
 	// Collect
 	s.mux.HandleFunc("GET /api/collect/scan", s.handleCollectScan)
 	s.mux.HandleFunc("POST /api/collect", s.handleCollect)
+
+	// Adopt
+	s.mux.HandleFunc("GET /api/adopt/preview", s.handleAdoptPreview)
+	s.mux.HandleFunc("POST /api/adopt/apply", s.handleAdoptApply)
 
 	// Hub
 	s.mux.HandleFunc("GET /api/hub/index", s.handleHubIndex)

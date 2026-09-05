@@ -54,3 +54,26 @@ func TestFoldHomePath_WindowsCaseInsensitive(t *testing.T) {
 		t.Errorf("FoldHomePath(%q) = %q, expected fold under mixed case", mixed, got)
 	}
 }
+
+func TestPathWithin(t *testing.T) {
+	parent := t.TempDir()
+	root := filepath.Join(parent, "skills")
+
+	for _, tc := range []struct {
+		name string
+		path string
+		want bool
+	}{
+		{name: "root", path: root, want: true},
+		{name: "child", path: filepath.Join(root, "demo"), want: true},
+		{name: "nested child", path: filepath.Join(root, "team", "demo"), want: true},
+		{name: "sibling prefix", path: filepath.Join(parent, "skills-backup", "demo"), want: false},
+		{name: "parent", path: parent, want: false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := PathWithin(tc.path, root); got != tc.want {
+				t.Fatalf("PathWithin(%q, %q) = %v, want %v", tc.path, root, got, tc.want)
+			}
+		})
+	}
+}

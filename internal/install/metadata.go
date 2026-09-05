@@ -232,9 +232,10 @@ func WriteMetaToStore(sourceDir, destPath string, meta *SkillMeta) error {
 	return store.Save(sourceDir)
 }
 
-// loadMetadataFile reads .metadata.json from the given directory (pure read, no migration).
-// Returns an empty store (version 1) if the file does not exist.
-func loadMetadataFile(dir string) (*MetadataStore, error) {
+// ReadMetadata reads .metadata.json without migrating or cleaning legacy files.
+// Returns an empty store (version 1) if the file does not exist. Use this for
+// previews and safety checks that must not mutate the source tree.
+func ReadMetadata(dir string) (*MetadataStore, error) {
 	path := filepath.Join(dir, MetadataFileName)
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -259,7 +260,7 @@ func loadMetadataFile(dir string) (*MetadataStore, error) {
 // (one ReadDir per call). This ensures sidecars created after initial migration
 // (e.g. by agent install) are always cleaned up regardless of which command runs.
 func LoadMetadata(dir string) (*MetadataStore, error) {
-	store, err := loadMetadataFile(dir)
+	store, err := ReadMetadata(dir)
 	if err != nil {
 		return nil, err
 	}
