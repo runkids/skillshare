@@ -5,7 +5,7 @@ description: |
   Use this skill whenever the user mentions "skillshare", runs skillshare commands,
   manages skills or agents (install, update, uninstall, sync, commit, audit, analyze, check, diff, search),
   or troubleshoots skill/agent configuration (orphaned symlinks, broken targets, sync
-  issues). Covers both global (~/.config/skillshare/) and project (.skillshare/)
+  issues). Covers both global (~/.config/skillshare/) and project (.skillshare/ or skillshare/)
   modes. Also use when: adding new AI tool targets (Claude, Cursor, Windsurf, etc.),
   setting target include/exclude filters or copy vs symlink mode, using backup/restore
   or trash recovery, piping skillshare output to scripts (--json), setting up CI/CD
@@ -21,7 +21,7 @@ metadata:
 # Skillshare CLI
 
 Global: `~/.config/skillshare/skills/` → all AI CLIs. Project: `.skillshare/skills/` → repo-local.
-Auto-detects project mode when `.skillshare/config.yaml` exists. Force with `-p` or `-g`.
+Auto-detects project mode from `.skillshare/config.yaml` or `skillshare/config.yaml` (hidden wins when both exist). Force with `-p` or `-g`.
 
 ## Recipes
 
@@ -29,6 +29,7 @@ Auto-detects project mode when `.skillshare/config.yaml` exists. Force with `-p`
 ```bash
 skillshare init --no-copy --all-targets --git --skill  # Fresh global setup
 skillshare init -p --targets "claude,cursor"            # Fresh project setup
+skillshare init -p --visible                           # Use skillshare/ instead of .skillshare/
 skillshare init --copy-from claude --all-targets --git  # Import from existing CLI
 skillshare init --discover --select "windsurf"          # Add new AI tool later
 ```

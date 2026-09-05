@@ -142,7 +142,7 @@ Detection checks `.skillshare/config.yaml` first and `skillshare/config.yaml` se
 
 - Existing projects are unaffected.
 - If both directories exist, `.skillshare/` wins.
-- Moving an existing project is just `mv .skillshare skillshare` — there is no migration step.
+- To move an existing project, run `mv .skillshare skillshare`, then `skillshare sync -p` to repair target symlinks that still point to the old directory. If your `sources` settings explicitly reference `.skillshare/`, update those paths in `config.yaml` before syncing.
 
 `init -p` without `--visible` continues to create `.skillshare/`.
 
