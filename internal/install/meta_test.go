@@ -1,6 +1,7 @@
 package install
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -181,5 +182,67 @@ func TestComputeFileHashes_Deterministic(t *testing.T) {
 
 	if h1["file.txt"] != h2["file.txt"] {
 		t.Errorf("hashes differ: %s vs %s", h1["file.txt"], h2["file.txt"])
+	}
+}
+
+func TestComputeFileHashes_DirectorySymlink(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.Mkdir(filepath.Join(dir, "target"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{"SKILL.md", "target/README.md", "z-last.txt"} {
+		if err := os.WriteFile(filepath.Join(dir, name), []byte(name), 0644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.Symlink("target", filepath.Join(dir, "link")); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+
+	hashes, err := ComputeFileHashes(dir)
+	if err != nil {
+		t.Fatalf("ComputeFileHashes: %v", err)
+	}
+	if len(hashes) != 3 {
+		t.Fatalf("expected only 3 regular files, got %v", hashes)
+	}
+	for _, name := range []string{"SKILL.md", "target/README.md", "z-last.txt"} {
+		if hashes[name] == "" {
+			t.Errorf("missing hash for %s", name)
+		}
+	}
+}
+
+func TestComputeFileHashes_FileSymlink(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "target.txt"), []byte("content"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink("target.txt", filepath.Join(dir, "link")); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+	hashes, err := ComputeFileHashes(dir)
+	if err != nil {
+		t.Fatalf("ComputeFileHashes: %v", err)
+	}
+	if len(hashes) != 2 || hashes["link"] != hashes["target.txt"] {
+		t.Fatalf("file symlink should still hash target content: %v", hashes)
+	}
+}
+
+func TestComputeFileHashes_BrokenSymlinkReturnsError(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "a-valid.txt"), []byte("content"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink("missing", filepath.Join(dir, "z-broken")); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+	hashes, err := ComputeFileHashes(dir)
+	if !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("expected missing target error, got %v", err)
+	}
+	if hashes != nil {
+		t.Fatalf("must not return partial hashes as successful: %v", hashes)
 	}
 }

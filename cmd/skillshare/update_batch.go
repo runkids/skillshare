@@ -38,6 +38,7 @@ func (uc *updateContext) auditScanFn() auditScanFunc {
 func (uc *updateContext) makeInstallOpts() install.InstallOptions {
 	opts := install.InstallOptions{
 		Force:          true,
+		AuditOverride:  uc.opts.force,
 		Update:         true,
 		SkipAudit:      uc.opts.skipAudit,
 		AuditThreshold: uc.opts.threshold,
@@ -75,7 +76,10 @@ func executeBatchUpdate(uc *updateContext, targets []updateTarget) (updateResult
 			continue
 		}
 		if t.meta != nil && t.meta.RepoURL != "" {
-			repoGroups[t.meta.RepoURL] = append(repoGroups[t.meta.RepoURL], t)
+			// Group by URL+branch: skills installed from a non-default branch
+			// must be re-fetched from that branch, not the remote HEAD.
+			key := urlBranchKey(t.meta.RepoURL, t.meta.Branch)
+			repoGroups[key] = append(repoGroups[key], t)
 		} else {
 			standaloneSkills = append(standaloneSkills, t)
 		}
@@ -149,7 +153,8 @@ func executeBatchUpdate(uc *updateContext, targets []updateTarget) (updateResult
 			progressBar.SetHeader(ui.FormatPhaseHeader(phaseCurrent, phaseTotal, "Updating %d grouped skill(s) from %d repo(s)...", groupedCount, len(repoGroups)))
 		}
 	}
-	for repoURL, groupTargets := range repoGroups {
+	for groupKey, groupTargets := range repoGroups {
+		repoURL, branch := splitURLBranch(groupKey)
 		if uc.opts.dryRun {
 			for _, t := range groupTargets {
 				progressBar.UpdateTitle(fmt.Sprintf("Updating %s", t.name))
@@ -187,7 +192,7 @@ func executeBatchUpdate(uc *updateContext, targets []updateTarget) (updateResult
 			}
 		}
 
-		batchResult, err := install.UpdateSkillsFromRepo(repoURL, skillTargetMap, batchOpts)
+		batchResult, err := install.UpdateSkillsFromRepo(repoURL, branch, skillTargetMap, batchOpts)
 		if err != nil {
 			for _, t := range groupTargets {
 				progressBar.UpdateTitle(fmt.Sprintf("Failed %s: %v", t.name, err))

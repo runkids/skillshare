@@ -336,6 +336,7 @@ func installFromDiscoveryInternal(discovery *DiscoveryResult, skill SkillInfo, d
 	}
 
 	// Check if destination exists
+	stage := false
 	if _, err := os.Stat(destPath); err == nil {
 		if !opts.Force {
 			// Use the original repo URL for force hints, not the per-skill
@@ -346,7 +347,12 @@ func installFromDiscoveryInternal(discovery *DiscoveryResult, skill SkillInfo, d
 			}
 			// nil means empty/invalid dir — safe to overwrite, fall through.
 		}
-		if !opts.DryRun {
+		// Update: stage the new content in a temp dir and swap only after the
+		// audit passes, so a blocked update keeps the previously installed
+		// version on disk (mirrors handleUpdate). Fresh --force installs still
+		// overwrite in place.
+		stage = opts.Update
+		if !opts.DryRun && !stage {
 			if err := os.RemoveAll(destPath); err != nil {
 				return nil, fmt.Errorf("failed to remove existing skill: %w", err)
 			}
@@ -358,6 +364,16 @@ func installFromDiscoveryInternal(discovery *DiscoveryResult, skill SkillInfo, d
 	if opts.DryRun {
 		result.Action = "would install"
 		return result, nil
+	}
+
+	workDest := destPath
+	if stage {
+		tempDir, err := os.MkdirTemp("", "skillshare-update-*")
+		if err != nil {
+			return nil, fmt.Errorf("failed to create temp directory: %w", err)
+		}
+		defer os.RemoveAll(tempDir)
+		workDest = filepath.Join(tempDir, "skill")
 	}
 
 	// Determine source path in temp repo
@@ -388,19 +404,32 @@ func installFromDiscoveryInternal(discovery *DiscoveryResult, skill SkillInfo, d
 
 	if rootIsRepoRoot && excludes != nil {
 		// Repo-root orchestrator: copy only SKILL.md (no directory boundary).
-		if err := os.MkdirAll(destPath, 0755); err != nil {
+		if err := os.MkdirAll(workDest, 0755); err != nil {
 			return nil, fmt.Errorf("failed to create destination: %w", err)
 		}
-		if err := copyFile(filepath.Join(srcPath, "SKILL.md"), filepath.Join(destPath, "SKILL.md")); err != nil {
+		if err := copyFile(filepath.Join(srcPath, "SKILL.md"), filepath.Join(workDest, "SKILL.md")); err != nil {
 			return nil, fmt.Errorf("failed to copy SKILL.md: %w", err)
 		}
-	} else if err := copyDirExcluding(srcPath, destPath, excludes); err != nil {
+	} else if err := copyDirExcluding(srcPath, workDest, excludes); err != nil {
 		return nil, fmt.Errorf("failed to copy skill: %w", err)
 	}
 
-	// Security audit
-	if err := auditInstalledSkill(destPath, result, opts); err != nil {
+	// Security audit — on block, cleanup only touches workDest, so a staged
+	// update leaves the existing install untouched.
+	if err := auditInstalledSkill(workDest, result, opts); err != nil {
 		return nil, err
+	}
+
+	if stage {
+		if err := os.RemoveAll(destPath); err != nil {
+			return nil, fmt.Errorf("failed to remove existing skill: %w", err)
+		}
+		if err := os.Rename(workDest, destPath); err != nil {
+			// Rename failed (possibly cross-device), try copy instead
+			if err := copyDir(workDest, destPath); err != nil {
+				return nil, fmt.Errorf("failed to move updated skill: %w", err)
+			}
+		}
 	}
 
 	if writeMeta {

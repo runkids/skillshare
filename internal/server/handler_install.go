@@ -162,6 +162,7 @@ func (s *Server) handleInstallBatch(w http.ResponseWriter, r *http.Request) {
 	results := make([]batchResultItem, 0, len(body.Skills))
 	installOpts := install.InstallOptions{
 		Force:          body.Force,
+		AuditOverride:  body.Force,
 		SkipAudit:      body.SkipAudit,
 		AuditThreshold: s.auditThreshold(),
 		Branch:         body.Branch,
@@ -377,6 +378,7 @@ func (s *Server) handleInstall(w http.ResponseWriter, r *http.Request) {
 			Name:           body.Name,
 			Kind:           trackedKind,
 			Force:          body.Force,
+			AuditOverride:  body.Force,
 			SkipAudit:      body.SkipAudit,
 			Into:           body.Into,
 			Branch:         body.Branch,
@@ -390,6 +392,7 @@ func (s *Server) handleInstall(w http.ResponseWriter, r *http.Request) {
 			Name:             installOpts.Name,
 			Kind:             installOpts.Kind,
 			Force:            installOpts.Force,
+			AuditOverride:    installOpts.AuditOverride,
 			SkipAudit:        installOpts.SkipAudit,
 			Into:             installOpts.Into,
 			Branch:           installOpts.Branch,
@@ -476,6 +479,7 @@ func (s *Server) handleInstall(w http.ResponseWriter, r *http.Request) {
 	result, err := install.Install(source, destPath, install.InstallOptions{
 		Name:           body.Name,
 		Force:          body.Force,
+		AuditOverride:  body.Force,
 		SkipAudit:      body.SkipAudit,
 		Branch:         body.Branch,
 		AuditThreshold: s.auditThreshold(),

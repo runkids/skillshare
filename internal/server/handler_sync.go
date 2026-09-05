@@ -204,6 +204,7 @@ func (s *Server) handleSync(w http.ResponseWriter, r *http.Request) {
 					warnings = append(warnings, "agent sync failed for "+name+": invalid agent filter: "+filterErr.Error())
 					continue
 				}
+				filteredAgents = ssync.FilterAgentsByTarget(filteredAgents, name)
 
 				agentResult, err := ssync.SyncAgents(filteredAgents, agentsSource, agentPath, agentMode, body.DryRun, body.Force, s.projectRoot)
 				if err != nil {

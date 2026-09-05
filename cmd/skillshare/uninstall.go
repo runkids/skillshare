@@ -110,6 +110,19 @@ func topLevelDir(relPath string) string {
 	return parts[0]
 }
 
+// normalizeUninstallName converts OS-native separators to the slash-separated
+// logical names used by metadata and trash entries.
+func normalizeUninstallName(name string) string {
+	return normalizeUninstallNameForSeparator(name, os.PathSeparator)
+}
+
+func normalizeUninstallNameForSeparator(name string, separator uint8) string {
+	if separator == '/' {
+		return name
+	}
+	return strings.ReplaceAll(name, string(separator), "/")
+}
+
 // looksLikeShellGlob detects when positional args appear to be shell-expanded
 // file names rather than real skill names. Heuristic: ≥3 warnings, warnings ≥50%
 // of names, and ≥2 names contain a dot (file extension characteristic).
@@ -131,6 +144,7 @@ func looksLikeShellGlob(names []string, warnings []string) bool {
 // to "frontend/react/react-best-practices").
 func resolveUninstallTarget(skillName string, cfg *config.Config) (*uninstallTarget, error) {
 	skillName = strings.TrimRight(strings.TrimSpace(skillName), `/\`)
+	skillName = normalizeUninstallName(skillName)
 	if skillName == "" || skillName == "." {
 		return nil, fmt.Errorf("invalid skill name: %q", skillName)
 	}
@@ -197,6 +211,7 @@ func resolveUninstallByGlob(pattern string, cfg *config.Config) ([]*uninstallTar
 // Returns uninstallTargets for each skill found.
 func resolveGroupSkills(group, sourceDir string) ([]*uninstallTarget, error) {
 	group = strings.TrimRight(strings.TrimSpace(group), `/\`)
+	group = normalizeUninstallName(group)
 	if group == "" || group == "." {
 		return nil, fmt.Errorf("invalid group name: %q", group)
 	}
@@ -239,7 +254,7 @@ func resolveGroupSkills(group, sourceDir string) ([]*uninstallTarget, error) {
 			rel, relErr := filepath.Rel(resolvedSourceDir, path)
 			if relErr == nil && !strings.HasPrefix(rel, "..") {
 				targets = append(targets, &uninstallTarget{
-					name:          rel,
+					name:          normalizeUninstallName(rel),
 					path:          path,
 					isTrackedRepo: isRepo,
 				})
@@ -278,7 +293,7 @@ func resolveNestedSkillDir(sourceDir, name string) (string, error) {
 		}
 		if info.Name() == name || info.Name() == "_"+name {
 			if rel, relErr := filepath.Rel(walkRoot, path); relErr == nil && rel != "." {
-				matches = append(matches, rel)
+				matches = append(matches, normalizeUninstallName(rel))
 			}
 			return filepath.SkipDir
 		}

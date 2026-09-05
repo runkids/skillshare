@@ -30,6 +30,11 @@ type InstallOptions struct {
 	Quiet            bool     // Suppress per-skill output in InstallFromConfig
 	Branch           string   // Git branch to clone from (empty = remote default)
 	SourceDir        string   // Skills root dir for centralized metadata (set by caller)
+	// AuditOverride lets an install proceed despite audit findings at/above the
+	// block threshold. Deliberately separate from Force, which only means
+	// "overwrite what is already there" and is set unconditionally by update and
+	// --json paths — routing the audit gate through Force would disable it there.
+	AuditOverride bool
 }
 
 // IsAgentMode returns true if explicitly installing agents.

@@ -9,6 +9,20 @@ import (
 	"skillshare/internal/install"
 )
 
+func TestNormalizeUninstallName_WindowsNestedPath(t *testing.T) {
+	got := normalizeUninstallNameForSeparator(`coding\_skill`, '\\')
+	if got != "coding/_skill" {
+		t.Fatalf("normalizeUninstallNameForSeparator() = %q, want %q", got, "coding/_skill")
+	}
+}
+
+func TestNormalizeUninstallName_UnixPreservesLiteralBackslash(t *testing.T) {
+	got := normalizeUninstallNameForSeparator(`coding\_skill`, '/')
+	if got != `coding\_skill` {
+		t.Fatalf("normalizeUninstallNameForSeparator() = %q, want %q", got, `coding\_skill`)
+	}
+}
+
 // --- resolveUninstallByGlob tests ---
 
 func TestResolveUninstallByGlob_MatchesDirs(t *testing.T) {

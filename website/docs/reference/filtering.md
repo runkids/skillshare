@@ -16,6 +16,7 @@ See [Filtering Skills](/docs/how-to/daily-tasks/filtering-skills) for a scenario
 |-------|-------|-------------|--------|-------------|
 | `.skillignore` | Hides from all targets | Source dir or tracked repo root | [gitignore](https://git-scm.com/docs/gitignore) | Discovery |
 | SKILL.md `metadata.targets` | Restricts skills to listed targets | Per skill frontmatter | YAML list | Sync (parsed at discovery) |
+| Agent `targets` | Restricts an agent to listed targets | Per agent frontmatter | YAML list | Sync (parsed at discovery) |
 | Target include/exclude | Per target, per resource | `config.yaml` or CLI flags | Go [`filepath.Match`](https://pkg.go.dev/path/filepath#Match) glob | Sync |
 
 :::note Sync mode caveat
@@ -69,6 +70,8 @@ targets: [claude, cursor]
 **Aliases:** Target names support aliases. `claude` matches a target configured as `claude-code`. See [Supported Targets](/docs/reference/targets/supported-targets).
 
 📖 [Skill format — targets field](/docs/understand/skill-format#targets)
+
+**Agents** support the same whitelist via a top-level `targets` list in the agent's frontmatter. Agents without the field sync to every agent-capable target. See [Agents — Agent File Format](/docs/understand/agents#agent-file-format).
 
 ## Target include/exclude filters
 

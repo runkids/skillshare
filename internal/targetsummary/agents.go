@@ -81,7 +81,7 @@ func (b *Builder) GlobalTarget(name string, tc config.TargetConfig) (*AgentSumma
 		return nil, nil
 	}
 
-	return b.buildSummary(config.ExpandPath(displayPath), displayPath, ac.Mode, ac.Include, ac.Exclude)
+	return b.buildSummary(name, config.ExpandPath(displayPath), displayPath, ac.Mode, ac.Include, ac.Exclude)
 }
 
 // ProjectTarget returns the effective agents summary for a project target.
@@ -99,10 +99,10 @@ func (b *Builder) ProjectTarget(entry config.ProjectTargetEntry) (*AgentSummary,
 		return nil, nil
 	}
 
-	return b.buildSummary(resolveProjectPath(b.projectRoot, displayPath), displayPath, ac.Mode, ac.Include, ac.Exclude)
+	return b.buildSummary(entry.Name, resolveProjectPath(b.projectRoot, displayPath), displayPath, ac.Mode, ac.Include, ac.Exclude)
 }
 
-func (b *Builder) buildSummary(path, displayPath, mode string, include, exclude []string) (*AgentSummary, error) {
+func (b *Builder) buildSummary(targetName, path, displayPath, mode string, include, exclude []string) (*AgentSummary, error) {
 	if mode == "" {
 		mode = defaultAgentMode
 	}
@@ -121,7 +121,7 @@ func (b *Builder) buildSummary(path, displayPath, mode string, include, exclude 
 		if err != nil {
 			return nil, err
 		}
-		expectedAgents = filtered
+		expectedAgents = ssync.FilterAgentsByTarget(filtered, targetName)
 	}
 
 	if b.sourceExists {

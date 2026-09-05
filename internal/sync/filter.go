@@ -138,3 +138,23 @@ func FilterSkillsByTarget(skills []DiscoveredSkill, targetName string) []Discove
 	}
 	return filtered
 }
+
+// FilterAgentsByTarget removes agents whose frontmatter targets field does not
+// include the given target name. Agents with nil Targets (no field declared)
+// pass through unconditionally. Mirrors FilterSkillsByTarget.
+func FilterAgentsByTarget(agents []resource.DiscoveredResource, targetName string) []resource.DiscoveredResource {
+	filtered := make([]resource.DiscoveredResource, 0, len(agents))
+	for _, agent := range agents {
+		if agent.Targets == nil {
+			filtered = append(filtered, agent)
+			continue
+		}
+		for _, t := range agent.Targets {
+			if config.MatchesTargetName(t, targetName) {
+				filtered = append(filtered, agent)
+				break
+			}
+		}
+	}
+	return filtered
+}

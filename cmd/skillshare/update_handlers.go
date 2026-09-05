@@ -27,7 +27,7 @@ type auditScanFunc func(repoPath string) (*audit.Result, error)
 //   - Non-TTY mode: automatically resets to beforeHash and returns error.
 //
 // Returns the audit result (may be nil if skipped or on error) and any error.
-func auditGateAfterPull(repoPath, beforeHash string, skipAudit bool, threshold string, scanFn auditScanFunc) (*audit.Result, error) {
+func auditGateAfterPull(repoPath, beforeHash string, skipAudit, force bool, threshold string, scanFn auditScanFunc) (*audit.Result, error) {
 	if skipAudit {
 		return nil, nil
 	}
@@ -57,6 +57,11 @@ func auditGateAfterPull(repoPath, beforeHash string, skipAudit bool, threshold s
 		if audit.SeverityRank(f.Severity) <= audit.SeverityRank(normalizedThreshold) {
 			ui.Warning("[%s] %s (%s:%d)", f.Severity, f.Message, f.File, f.Line)
 		}
+	}
+
+	if force {
+		ui.Warning("Findings at/above %s; proceeding due to --force", normalizedThreshold)
+		return result, nil
 	}
 
 	if ui.IsTTY() {
@@ -202,7 +207,7 @@ func updateTrackedRepo(uc *updateContext, repoName string) (updateResult, error)
 
 	// Post-pull audit gate
 	scanFn := uc.auditScanFn()
-	if _, err := auditGateAfterPull(repoPath, info.BeforeHash, uc.opts.skipAudit, uc.opts.threshold, scanFn); err != nil {
+	if _, err := auditGateAfterPull(repoPath, info.BeforeHash, uc.opts.skipAudit, uc.opts.force, uc.opts.threshold, scanFn); err != nil {
 		return updateResult{securityFailed: 1}, err
 	}
 
@@ -347,7 +352,7 @@ func updateTrackedRepoQuick(uc *updateContext, repoPath string) (bool, *audit.Re
 	}
 
 	// Post-pull audit gate
-	auditResult, auditErr := auditGateAfterPull(repoPath, info.BeforeHash, uc.opts.skipAudit, uc.opts.threshold, uc.auditScanFn())
+	auditResult, auditErr := auditGateAfterPull(repoPath, info.BeforeHash, uc.opts.skipAudit, uc.opts.force, uc.opts.threshold, uc.auditScanFn())
 	if auditErr != nil {
 		return false, auditResult, auditErr
 	}

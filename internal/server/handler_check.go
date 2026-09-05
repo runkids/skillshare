@@ -62,8 +62,8 @@ func (s *Server) handleCheck(w http.ResponseWriter, r *http.Request) {
 		repoResults = append(repoResults, result)
 	}
 
-	// Group skills by repo URL for efficient checking
-	urlGroups := make(map[string][]skillWithMetaEntry)
+	// Group skills by repo URL+branch for efficient checking
+	urlGroups := make(map[urlBranchGroup][]skillWithMetaEntry)
 	var localResults []skillCheckResult
 
 	for _, skill := range skills {
@@ -75,7 +75,8 @@ func (s *Server) handleCheck(w http.ResponseWriter, r *http.Request) {
 			})
 			continue
 		}
-		urlGroups[entry.RepoURL] = append(urlGroups[entry.RepoURL], skillWithMetaEntry{
+		key := urlBranchGroup{url: entry.RepoURL, branch: entry.Branch}
+		urlGroups[key] = append(urlGroups[key], skillWithMetaEntry{
 			name:  skill,
 			entry: entry,
 		})
@@ -83,9 +84,8 @@ func (s *Server) handleCheck(w http.ResponseWriter, r *http.Request) {
 
 	skillResults := append([]skillCheckResult{}, localResults...)
 
-	for url, group := range urlGroups {
-		// Get remote HEAD hash
-		remoteHash, err := git.GetRemoteHeadHash(url)
+	for key, group := range urlGroups {
+		remoteHash, err := key.remoteHash()
 
 		if err != nil {
 			for _, sw := range group {
@@ -138,7 +138,7 @@ func (s *Server) handleCheck(w http.ResponseWriter, r *http.Request) {
 
 		var remoteTreeHashes map[string]string
 		if hasTreeHash {
-			remoteTreeHashes = check.FetchRemoteTreeHashes(url)
+			remoteTreeHashes = check.FetchRemoteTreeHashesForRef(key.url, key.branch)
 		}
 
 		for _, sw := range group {
@@ -179,4 +179,19 @@ func (s *Server) handleCheck(w http.ResponseWriter, r *http.Request) {
 		"tracked_repos": repoResults,
 		"skills":        skillResults,
 	})
+}
+
+// urlBranchGroup keys skills that share a clone URL and installed branch, so a
+// skill installed from a non-default branch is checked against that branch
+// rather than the remote HEAD.
+type urlBranchGroup struct {
+	url    string
+	branch string
+}
+
+func (g urlBranchGroup) remoteHash() (string, error) {
+	if g.branch != "" {
+		return git.GetRemoteRefHashWithAuth(g.url, g.branch)
+	}
+	return git.GetRemoteHeadHash(g.url)
 }

@@ -3,6 +3,7 @@ package skillignore
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -762,5 +763,61 @@ func TestNormalizePath(t *testing.T) {
 		if got != tt.want {
 			t.Errorf("normalizePath(%q) = %q, want %q", tt.input, got, tt.want)
 		}
+	}
+}
+
+// --- CRLF line endings ---
+
+// Files saved on Windows (or checked out with core.autocrlf=true) carry a
+// trailing \r on every line. It must be stripped like other trailing
+// whitespace, otherwise no pattern in the file can ever match.
+func TestCompile_CRLF(t *testing.T) {
+	m := Compile([]string{"*.log\r", "build/\r", "!error.log\r", "# comment\r", "\r"})
+	if len(m.rules) != 3 {
+		t.Fatalf("expected 3 rules, got %d", len(m.rules))
+	}
+	if !m.Match("debug.log", false) {
+		t.Error("*.log should match debug.log")
+	}
+	if m.Match("error.log", false) {
+		t.Error("!error.log negation should still apply")
+	}
+	if !m.Match("build", true) {
+		t.Error("build/ should match the build dir")
+	}
+	for _, p := range m.Patterns() {
+		if strings.ContainsRune(p, '\r') {
+			t.Errorf("Patterns() should not carry \\r: %q", p)
+		}
+	}
+}
+
+func TestReadMatcher_CRLF(t *testing.T) {
+	dir := t.TempDir()
+	content := "# comment\r\n_team/foo\r\nexperimental-*\r\n"
+	os.WriteFile(filepath.Join(dir, ".skillignore"), []byte(content), 0644)
+
+	m := ReadMatcher(dir)
+	if !m.HasRules() {
+		t.Fatal("expected rules")
+	}
+	if !m.Match("_team/foo", false) {
+		t.Error("_team/foo should be ignored")
+	}
+	if !m.Match("experimental-x", false) {
+		t.Error("experimental-* should match experimental-x")
+	}
+	if m.Match("_team/bar", false) {
+		t.Error("_team/bar should not be ignored")
+	}
+}
+
+func TestReadMatcher_CRLFWithTrailingSpace(t *testing.T) {
+	dir := t.TempDir()
+	// A \r after trailing spaces used to shield those spaces from trimming.
+	os.WriteFile(filepath.Join(dir, ".skillignore"), []byte("_team/foo  \r\n"), 0644)
+
+	if !ReadMatcher(dir).Match("_team/foo", false) {
+		t.Error("trailing spaces before \\r should be trimmed")
 	}
 }

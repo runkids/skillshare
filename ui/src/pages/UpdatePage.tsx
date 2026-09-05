@@ -964,7 +964,7 @@ const ItemStatusCard = forwardRef<HTMLDivElement, ItemStatusCardProps>(
                 : 'text-pencil-light truncate'
             }`}
           >
-            {item.message}
+            {stripCliHint(item.message)}
           </span>
         )}
       </div>
@@ -981,12 +981,12 @@ const ItemStatusCard = forwardRef<HTMLDivElement, ItemStatusCardProps>(
               <Trash2 size={14} />
               {t('update.updating.purge')}
             </Button>
-          ) : (
+          ) : isForceRetryable(item.message) ? (
             <Button variant="danger" size="sm" onClick={() => onRetryForce?.(item.name)}>
               <RefreshCw size={14} />
               {t('update.updating.forceRetry')}
             </Button>
-          )
+          ) : null
         )}
         {showActions && item.status === 'blocked' && (
           <Button variant="warning" size="sm" onClick={() => onRetryForce?.(item.name)}>
@@ -1071,6 +1071,26 @@ function formatRelativeTime(dateStr: string): string {
 function isStaleError(message?: string): boolean {
   if (!message) return false;
   return message.includes('does not exist in repository') || message.includes('not found in repository');
+}
+
+// Force Retry only helps for failures force actually changes: an audit block,
+// or a pull the backend rejected but would retry with --force. Everything else
+// (permission denied, missing metadata, scan failures that stay fail-closed)
+// would just fail identically, so no button is offered.
+export function isForceRetryable(message?: string): boolean {
+  if (!message) return false;
+  if (message.includes('post-update audit failed')) return false;
+  return message.includes('blocked by security audit') || message.includes('(try force update)');
+}
+
+// Backend errors carry CLI-only hints that are meaningless in the web UI, where
+// the Force Retry button plays that role.
+export function stripCliHint(message?: string): string | undefined {
+  return message
+    ?.replace(/\n*Use --force to override or --skip-audit to bypass scanning: /, '\n\n')
+    .replace(/\n*Use --skip-audit to bypass: /, '\n\n')
+    .replace(/ \(use --skip-audit to bypass\)/, '')
+    .replace(/ \(try force update\)/, '');
 }
 
 function matchesCheckSkill(item: UpdatableItem, resultName: string): boolean {

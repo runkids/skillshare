@@ -125,8 +125,10 @@ func TestUpdateAll_AuditOutputParity(t *testing.T) {
 	skillsDir := filepath.Join(projectRoot, ".skillshare", "skills")
 	invalidateOneSkillMeta(t, skillsDir)
 
-	// Step 3: update --all — the invalidated skill gets re-installed, producing audit output
-	updateResult := sb.RunCLIInDir(projectRoot, "update", "--all", "-p")
+	// Step 3: update --all — the invalidated skill gets re-installed, producing
+	// audit output. --force is required again here: a --force at install time is
+	// a one-off decision and does not exempt later updates from the audit gate.
+	updateResult := sb.RunCLIInDir(projectRoot, "update", "--all", "-p", "--force")
 	updateResult.AssertSuccess(t)
 
 	// Audit section present
@@ -142,7 +144,7 @@ func TestUpdateAll_AuditOutputParity(t *testing.T) {
 	// Batch summary line (most skills are still skipped)
 	updateResult.AssertAnyOutputContains(t, "skipped")
 
-	// No blocked skills on re-install (--force was used initially)
+	// No blocked skills on re-install (--force was passed to this update too)
 	updateResult.AssertOutputNotContains(t, "Blocked / Failed")
 	updateResult.AssertOutputNotContains(t, "Blocked / Rolled Back")
 }

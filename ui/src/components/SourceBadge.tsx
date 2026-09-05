@@ -1,6 +1,6 @@
 import Badge from './Badge';
 
-type SourceType = 'tracked' | 'github' | 'local';
+type SourceType = 'tracked' | 'github' | 'remote' | 'local';
 
 interface SourceBadgeProps {
   type?: string;
@@ -8,15 +8,19 @@ interface SourceBadgeProps {
   size?: 'sm' | 'md';
 }
 
+// Metadata `type` values: github, github-subdir, git-https, git-ssh
+// (optionally -subdir), local, or empty for skills with no install source.
 function resolveSource(type?: string, isInRepo?: boolean): SourceType {
   if (isInRepo) return 'tracked';
-  if (type === 'github' || type === 'github-subdir') return 'github';
+  if (type?.startsWith('github')) return 'github';
+  if (type && !type.startsWith('local')) return 'remote';
   return 'local';
 }
 
 const config: Record<SourceType, { label: string; variant: 'default' | 'info' }> = {
   tracked: { label: 'Tracked', variant: 'default' },
   github: { label: 'GitHub', variant: 'info' },
+  remote: { label: 'Remote', variant: 'info' },
   local: { label: 'Local', variant: 'default' },
 };
 

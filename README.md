@@ -309,6 +309,10 @@ Thanks to everyone who helped shape skillshare.
 <a href="https://github.com/zdlldz"><img src="https://github.com/zdlldz.png" width="50" style="border-radius:50%" alt="zdlldz"></a>
 <a href="https://github.com/elstiaan"><img src="https://github.com/elstiaan.png" width="50" style="border-radius:50%" alt="elstiaan"></a>
 <a href="https://github.com/EriaWalker"><img src="https://github.com/EriaWalker.png" width="50" style="border-radius:50%" alt="EriaWalker"></a>
+<a href="https://github.com/FaintFlower"><img src="https://github.com/FaintFlower.png" width="50" style="border-radius:50%" alt="FaintFlower"></a>
+<a href="https://github.com/yantinglin21"><img src="https://github.com/yantinglin21.png" width="50" style="border-radius:50%" alt="yantinglin21"></a>
+<a href="https://github.com/chung1912"><img src="https://github.com/chung1912.png" width="50" style="border-radius:50%" alt="chung1912"></a>
+<a href="https://github.com/r-fynn"><img src="https://github.com/r-fynn.png" width="50" style="border-radius:50%" alt="r-fynn"></a>
 
 ---
 
@@ -316,7 +320,7 @@ If you find skillshare useful, consider giving it a ⭐
 
 ## Star History
 
-[![Star History Chart](https://api.star-history.com/svg?repos=runkids/skillshare&type=date&legend=top-left)](https://www.star-history.com/#runkids/skillshare&type=date&legend=top-left)
+[![Star History Chart](https://star-history.dera.page/svg?repos=runkids/skillshare&type=date&legend=top-left)](https://star-history.dera.page/#runkids/skillshare&type=date&legend=top-left)
 
 ---
 

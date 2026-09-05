@@ -185,3 +185,49 @@ func TestHasPattern_MissingFile(t *testing.T) {
 		t.Error("expected false for missing file")
 	}
 }
+
+// --- CRLF line endings ---
+
+func TestHasPattern_CRLF(t *testing.T) {
+	dir := t.TempDir()
+	fp := filepath.Join(dir, ".skillignore")
+	os.WriteFile(fp, []byte("my-skill\r\nother\r\n"), 0644)
+
+	if !HasPattern(fp, "my-skill") {
+		t.Error("HasPattern should find a pattern in a CRLF file")
+	}
+}
+
+func TestAddPattern_CRLFDoesNotDuplicate(t *testing.T) {
+	dir := t.TempDir()
+	fp := filepath.Join(dir, ".skillignore")
+	os.WriteFile(fp, []byte("my-skill\r\n"), 0644)
+
+	added, err := AddPattern(fp, "my-skill")
+	if err != nil {
+		t.Fatalf("AddPattern: %v", err)
+	}
+	if added {
+		t.Error("pattern already present in a CRLF file should not be added again")
+	}
+}
+
+func TestRemovePattern_CRLF(t *testing.T) {
+	dir := t.TempDir()
+	fp := filepath.Join(dir, ".skillignore")
+	os.WriteFile(fp, []byte("keep\r\nmy-skill\r\n"), 0644)
+
+	removed, err := RemovePattern(fp, "my-skill")
+	if err != nil {
+		t.Fatalf("RemovePattern: %v", err)
+	}
+	if !removed {
+		t.Fatal("pattern in a CRLF file should be found and removed")
+	}
+	if HasPattern(fp, "my-skill") {
+		t.Error("pattern should be gone")
+	}
+	if !HasPattern(fp, "keep") {
+		t.Error("other patterns must be kept")
+	}
+}

@@ -22,7 +22,7 @@ All source URL patterns recognized by `skillshare install`.
 | Azure DevOps HTTPS | `https://dev.azure.com/org/proj/_git/repo` | Modern format |
 | Azure DevOps SSH | `git@ssh.dev.azure.com:v3/org/proj/repo` | SSH v3 format |
 | Azure DevOps Server | `https://custom-host/org/proj/_git/repo` | Requires `azure_hosts` config |
-| Local path | `~/my-skill` or `/abs/path` | Copies directory to source |
+| Local path | `~/my-skill`, `/abs/path`, or `C:\path` | Copies directory to source |
 | Git file URL | `file:///path/to/repo` | Local git clone (for testing) |
 
 ## GitHub Shorthand
@@ -151,6 +151,9 @@ skillshare install ~/my-skill
 
 # Relative path
 skillshare install ./local-skill
+
+# Windows drive-letter path
+skillshare install D:\skills\my-skill
 ```
 
 Local installs **copy** files (not symlink) and are not updatable via `skillshare update`.

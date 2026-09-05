@@ -67,6 +67,7 @@ func parseInstallArgs(args []string) (*installArgs, bool, error) {
 			result.opts.Name = args[i]
 		case arg == "--force" || arg == "-f":
 			result.opts.Force = true
+			result.opts.AuditOverride = true
 		case arg == "--update" || arg == "-u":
 			result.opts.Update = true
 		case arg == "--dry-run" || arg == "-n":
@@ -217,6 +218,7 @@ func applyInstallJSONDefaults(parsed *installArgs) {
 	if !parsed.jsonOutput {
 		return
 	}
+	// Force only: --json must not silently override the audit gate.
 	parsed.opts.Force = true
 	if !parsed.opts.HasSkillFilter() && !parsed.opts.HasAgentFilter() {
 		parsed.opts.All = true

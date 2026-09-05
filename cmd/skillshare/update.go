@@ -536,8 +536,9 @@ For regular skills: reinstalls from stored source metadata
 If a positional name matches a group directory (not a repo or skill), it is
 automatically expanded to all updatable skills in that group.
 
-Safety: Tracked repos with uncommitted changes are skipped by default.
-Use --force to discard local changes and update.
+Safety: Tracked repos with uncommitted changes are skipped by default, and
+updates with audit findings at/above the block threshold are rolled back.
+Use --force to override both; --skip-audit skips scanning entirely.
 
 Arguments:
   name...             Skill name(s) or tracked repo name(s)
@@ -546,7 +547,7 @@ Arguments:
 Options:
   --all, -a           Update all tracked repos + skills with metadata
   --group, -G <name>  Update all updatable skills in a group (repeatable)
-  --force, -f         Discard local changes and force update
+  --force, -f         Discard local changes and proceed despite audit findings
   --dry-run, -n       Preview without making changes
   --skip-audit        Skip post-update security audit
   --audit-threshold, --threshold, -T <t>

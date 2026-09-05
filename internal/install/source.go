@@ -279,11 +279,16 @@ func validateCloneURL(cloneURL string) error {
 	return nil
 }
 
+// windowsLocalPattern matches Windows drive-letter paths (C:\..., D:/...) and
+// backslash-relative paths (.\..., ..\...).
+var windowsLocalPattern = regexp.MustCompile(`^(?:[a-zA-Z]:[\\/]|\.{1,2}\\)`)
+
 func isLocalPath(input string) bool {
 	return strings.HasPrefix(input, "/") ||
 		strings.HasPrefix(input, "~") ||
 		strings.HasPrefix(input, "./") ||
-		strings.HasPrefix(input, "../")
+		strings.HasPrefix(input, "../") ||
+		windowsLocalPattern.MatchString(input)
 }
 
 // expandGitHubShorthand expands owner/repo to github.com/owner/repo

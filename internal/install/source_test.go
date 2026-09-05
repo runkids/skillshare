@@ -4,6 +4,35 @@ import (
 	"testing"
 )
 
+// Windows drive-letter and backslash-relative paths must be treated as local
+// sources instead of falling through to git URL parsing (issue #269).
+func TestParseSource_WindowsLocalPath(t *testing.T) {
+	for _, input := range []string{
+		`D:\folder`,
+		`C:\Users\me\skills\my-skill`,
+		"C:/Users/me/skills/my-skill",
+		`.\my-skill`,
+		`..\my-skill`,
+	} {
+		if !isLocalPath(input) {
+			t.Errorf("isLocalPath(%q) = false, want true", input)
+		}
+		source, err := ParseSource(input)
+		if err != nil {
+			t.Errorf("ParseSource(%q) error: %v", input, err)
+			continue
+		}
+		if source.Type != SourceTypeLocalPath {
+			t.Errorf("ParseSource(%q) type = %v, want SourceTypeLocalPath", input, source.Type)
+		}
+	}
+
+	// Plain owner/repo shorthand must keep expanding to GitHub.
+	if isLocalPath("owner/repo") {
+		t.Error("isLocalPath(owner/repo) = true, want false")
+	}
+}
+
 func TestParseSource_LocalPath(t *testing.T) {
 	tests := []struct {
 		name     string

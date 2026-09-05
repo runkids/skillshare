@@ -124,7 +124,7 @@ func (s *Server) handleUpdateStream(w http.ResponseWriter, r *http.Request) {
 		if item.isRepo {
 			result = s.updateTrackedRepo(item.name, item.path, force, skipAudit)
 		} else {
-			result = s.updateRegularSkill(item.name, item.path, skipAudit)
+			result = s.updateRegularSkill(item.name, item.path, force, skipAudit)
 		}
 		s.mu.Unlock()
 

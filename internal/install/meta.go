@@ -84,6 +84,7 @@ func HasMeta(skillPath string) bool {
 
 // ComputeFileHashes walks skillPath and returns a map of relative file paths
 // to their "sha256:<hex>" digests. It skips .skillshare-meta.json and .git/.
+// Directory symlinks are skipped; file symlinks hash their target content.
 func ComputeFileHashes(skillPath string) (map[string]string, error) {
 	hashes := make(map[string]string)
 
@@ -102,6 +103,13 @@ func ComputeFileHashes(skillPath string) (map[string]string, error) {
 		}
 		if info.Name() == MetadataFileName {
 			return nil
+		}
+		if info.Mode()&os.ModeSymlink != 0 {
+			// Walk does not follow symlinks, but FileHashFormatted does.
+			// Leave stat failures to hashing so they retain the existing error path.
+			if target, err := os.Stat(path); err == nil && target.IsDir() {
+				return nil
+			}
 		}
 
 		rel, relErr := filepath.Rel(skillPath, path)

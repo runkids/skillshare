@@ -42,7 +42,7 @@ func (s *Server) handleCheckStream(w http.ResponseWriter, r *http.Request) {
 	skills, _ := install.GetUpdatableSkills(sourceDir)
 
 	// --- Pre-process: group skills by URL (fast, local only) ---
-	urlGroups := make(map[string][]skillWithMetaEntry)
+	urlGroups := make(map[urlBranchGroup][]skillWithMetaEntry)
 	var localResults []skillCheckResult
 
 	for _, skill := range skills {
@@ -54,7 +54,8 @@ func (s *Server) handleCheckStream(w http.ResponseWriter, r *http.Request) {
 			})
 			continue
 		}
-		urlGroups[entry.RepoURL] = append(urlGroups[entry.RepoURL], skillWithMetaEntry{
+		key := urlBranchGroup{url: entry.RepoURL, branch: entry.Branch}
+		urlGroups[key] = append(urlGroups[key], skillWithMetaEntry{
 			name:  skill,
 			entry: entry,
 		})
@@ -124,7 +125,7 @@ func (s *Server) handleCheckStream(w http.ResponseWriter, r *http.Request) {
 	// --- Phase 2: Check skills by URL group (1 work unit per URL) ---
 	skillResults := append([]skillCheckResult{}, localResults...)
 
-	for url, group := range urlGroups {
+	for key, group := range urlGroups {
 		select {
 		case <-ctx.Done():
 			close(done)
@@ -133,7 +134,7 @@ func (s *Server) handleCheckStream(w http.ResponseWriter, r *http.Request) {
 		default:
 		}
 
-		remoteHash, err := git.GetRemoteHeadHash(url)
+		remoteHash, err := key.remoteHash()
 
 		if err != nil {
 			for _, sw := range group {
@@ -188,7 +189,7 @@ func (s *Server) handleCheckStream(w http.ResponseWriter, r *http.Request) {
 
 		var remoteTreeHashes map[string]string
 		if hasTreeHash {
-			remoteTreeHashes = check.FetchRemoteTreeHashes(url)
+			remoteTreeHashes = check.FetchRemoteTreeHashesForRef(key.url, key.branch)
 		}
 
 		for _, sw := range group {

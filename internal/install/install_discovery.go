@@ -170,10 +170,12 @@ func discoverSkills(repoPath string, includeRoot bool) []SkillInfo {
 		}
 
 		// Skip .git and known target dotdirs (.claude, .cursor, .skillshare, etc.)
-		// to avoid counting target-synced copies as source skills.
+		// to avoid counting target-synced copies as source skills. The walk root
+		// is exempt: it was requested explicitly (e.g. `install repo/.claude`),
+		// so filtering it would discover nothing at all.
 		if info.IsDir() {
 			name := info.Name()
-			if name == ".git" || TargetDotDirs[name] {
+			if name == ".git" || (path != repoPath && TargetDotDirs[name]) {
 				return filepath.SkipDir
 			}
 		}
@@ -255,7 +257,9 @@ func scanAgentDir(repoRoot, dir string) []AgentInfo {
 
 		if info.IsDir() {
 			name := info.Name()
-			if name == ".git" || TargetDotDirs[name] {
+			// Same walk-root exemption as discoverSkills: an explicitly
+			// requested dot-dir must still be scanned.
+			if name == ".git" || (path != dir && TargetDotDirs[name]) {
 				return filepath.SkipDir
 			}
 			return nil

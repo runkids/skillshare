@@ -316,6 +316,41 @@ func TestDiscoverSkills_FindsNonTargetHiddenDirs(t *testing.T) {
 	}
 }
 
+func TestDiscover_ScansExplicitlyRequestedDotDirRoot(t *testing.T) {
+	origDirs := TargetDotDirs
+	TargetDotDirs = map[string]bool{".claude": true, ".cursor": true, ".skillshare": true}
+	defer func() { TargetDotDirs = origDirs }()
+
+	repoPath := t.TempDir()
+	dotDir := filepath.Join(repoPath, ".claude")
+
+	skillDir := filepath.Join(dotDir, "skills", "my-skill")
+	if err := os.MkdirAll(skillDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(skillDir, "SKILL.md"), []byte("---\nname: my-skill\n---"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dotDir, "reviewer.md"), []byte("---\nname: reviewer\n---"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Walking the repo root must still skip the dot-dir.
+	if skills := discoverSkills(repoPath, false); len(skills) != 0 {
+		t.Fatalf("expected repo-root walk to skip .claude, got %d: %v", len(skills), skills)
+	}
+
+	// Walking the dot-dir itself is an explicit request and must resolve.
+	skills := discoverSkills(dotDir, false)
+	if len(skills) != 1 || skills[0].Path != "skills/my-skill" {
+		t.Fatalf("expected skills/my-skill from explicit .claude root, got %v", skills)
+	}
+	agents := scanAgentDir(dotDir, dotDir)
+	if len(agents) != 1 || agents[0].Name != "reviewer" {
+		t.Fatalf("expected reviewer agent from explicit .claude root, got %v", agents)
+	}
+}
+
 func TestResolveSubdir(t *testing.T) {
 	t.Run("exact match", func(t *testing.T) {
 		repoPath := t.TempDir()

@@ -107,6 +107,7 @@ func syncAgentsGlobal(cfg *config.Config, dryRun, force, jsonOutput bool, start 
 			syncErr = fmt.Errorf("some agent targets failed to sync")
 			continue
 		}
+		filtered = sync.FilterAgentsByTarget(filtered, name)
 		stats, targetErr := syncAgentTarget(name, agentPath, ac.Mode, filtered, agentsSource, dryRun, force, jsonOutput, "")
 		if targetErr != nil {
 			syncErr = fmt.Errorf("some agent targets failed to sync")
@@ -240,6 +241,7 @@ func syncAgentsProject(projectRoot string, dryRun, force, jsonOutput bool, start
 			syncErr = fmt.Errorf("some agent targets failed to sync")
 			continue
 		}
+		filtered = sync.FilterAgentsByTarget(filtered, entry.Name)
 		stats, targetErr := syncAgentTarget(entry.Name, agentPath, ac.Mode, filtered, agentsSource, dryRun, force, jsonOutput, projectRoot)
 		if targetErr != nil {
 			syncErr = fmt.Errorf("some agent targets failed to sync")

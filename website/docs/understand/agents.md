@@ -79,12 +79,15 @@ An agent is a plain `.md` file. Frontmatter is optional:
 ---
 name: math-tutor
 description: Helps with math problems step by step
+targets: [claude, cursor]   # optional — only sync to these targets
 ---
 
 # Math Tutor
 
 You are a patient math tutor. Walk through problems step by step.
 ```
+
+**Per-agent targets:** the optional `targets` list restricts an agent to the listed targets (aliases such as `claude-code` match `claude`). Omit it to sync everywhere. Other frontmatter fields are passed through verbatim — skillshare does not translate them between tools, so an agent written for one harness may not be understood by another. Use `targets` to keep a per-harness variant of the same agent side by side (for example `reviewer.md` with `targets: [claude]` and `reviewer-opencode.md` with `targets: [opencode]`).
 
 **Naming rules:**
 - Filename determines the agent name: `tutor.md` = "tutor"

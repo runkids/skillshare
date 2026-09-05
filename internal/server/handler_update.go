@@ -164,7 +164,7 @@ func (s *Server) updateSingleByKind(name, kind string, force, skipAudit bool) up
 	// Try exact skill path first (prevents basename collision with nested repos)
 	skillPath := filepath.Join(s.cfg.EffectiveSkillsSource(), name)
 	if entry := s.skillsStore.GetByPath(name); entry != nil && entry.Source != "" {
-		return s.updateRegularSkill(name, skillPath, skipAudit)
+		return s.updateRegularSkill(name, skillPath, force, skipAudit)
 	}
 
 	// Try tracked repo (flat, nested, or basename fallback)
@@ -213,6 +213,9 @@ func (s *Server) updateAgent(name string, force, skipAudit bool) updateResultIte
 	source, err := install.ParseSourceWithOptions(entry.Source, s.parseOpts())
 	if err != nil {
 		return updateResultItem{Name: metaKey, Kind: "agent", Action: "error", Message: "invalid source: " + err.Error()}
+	}
+	if entry.Branch != "" {
+		source.Branch = entry.Branch
 	}
 
 	repoSubdir := strings.TrimSuffix(source.Subdir, entry.Subdir)
@@ -339,7 +342,7 @@ func (s *Server) updateTrackedRepo(name, repoPath string, force, skipAudit bool)
 		IsRepo:  true,
 	}
 	if !skipAudit {
-		blocked, auditResult := s.auditGateTrackedRepo(name, repoPath, info.BeforeHash, s.updateAuditThreshold())
+		blocked, auditResult := s.auditGateTrackedRepo(name, repoPath, info.BeforeHash, force, s.updateAuditThreshold())
 		if blocked != nil {
 			return *blocked
 		}
@@ -355,7 +358,7 @@ func (s *Server) updateTrackedRepo(name, repoPath string, force, skipAudit bool)
 // auditGateTrackedRepo scans a tracked repo after pull and rolls back if findings are detected
 // at or above the active threshold.
 // Returns (blocked item, audit result). blocked is non-nil when the update should be rejected.
-func (s *Server) auditGateTrackedRepo(name, repoPath, beforeHash, threshold string) (*updateResultItem, *audit.Result) {
+func (s *Server) auditGateTrackedRepo(name, repoPath, beforeHash string, force bool, threshold string) (*updateResultItem, *audit.Result) {
 	var result *audit.Result
 	var err error
 	if s.IsProjectMode() {
@@ -381,7 +384,7 @@ func (s *Server) auditGateTrackedRepo(name, repoPath, beforeHash, threshold stri
 		}, nil
 	}
 
-	if result.HasSeverityAtOrAbove(threshold) {
+	if result.HasSeverityAtOrAbove(threshold) && !force {
 		msg := fmt.Sprintf("blocked by security audit — findings at/above %s detected", threshold)
 		if beforeHash == "" {
 			msg += " (rollback commit unavailable, repository state is unknown)"
@@ -401,7 +404,7 @@ func (s *Server) auditGateTrackedRepo(name, repoPath, beforeHash, threshold stri
 	return nil, result
 }
 
-func (s *Server) updateRegularSkill(name, skillPath string, skipAudit bool) updateResultItem {
+func (s *Server) updateRegularSkill(name, skillPath string, force, skipAudit bool) updateResultItem {
 	entry := s.skillsStore.GetByPath(name)
 	if entry == nil {
 		return updateResultItem{Name: name, Action: "error", Message: "no metadata found"}
@@ -414,10 +417,14 @@ func (s *Server) updateRegularSkill(name, skillPath string, skipAudit bool) upda
 			Message: "invalid source: " + err.Error(),
 		}
 	}
+	if entry.Branch != "" {
+		source.Branch = entry.Branch
+	}
 
 	sourceDir := s.cfg.EffectiveSkillsSource()
 	opts := install.InstallOptions{
 		Force:          true,
+		AuditOverride:  force,
 		Update:         true,
 		SkipAudit:      skipAudit,
 		AuditThreshold: s.updateAuditThreshold(),
@@ -468,7 +475,7 @@ func (s *Server) updateAll(force, skipAudit bool) []updateResultItem {
 	if err == nil {
 		for _, skill := range skills {
 			skillPath := filepath.Join(s.cfg.EffectiveSkillsSource(), skill)
-			results = append(results, s.updateRegularSkill(skill, skillPath, skipAudit))
+			results = append(results, s.updateRegularSkill(skill, skillPath, force, skipAudit))
 		}
 	}
 

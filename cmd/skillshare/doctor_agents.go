@@ -36,7 +36,7 @@ func checkAgentTargetInline(name string, target config.TargetConfig, builtinAgen
 			fmt.Sprintf("Agent target %s: invalid filter: %v", name, filterErr), nil)
 		return
 	}
-	agentCount := len(filtered)
+	agentCount := len(sync.FilterAgentsByTarget(filtered, name))
 
 	// Build details for JSON output
 	var details []string

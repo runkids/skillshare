@@ -15,6 +15,15 @@ import (
 // Returns nil on any error (unsupported git version, network failure, etc.)
 // so callers can fall back to commit-level comparison.
 func FetchRemoteTreeHashes(repoURL string) map[string]string {
+	return FetchRemoteTreeHashesForRef(repoURL, "")
+}
+
+// FetchRemoteTreeHashesForRef is FetchRemoteTreeHashes for a specific branch.
+// An empty ref means the remote HEAD.
+func FetchRemoteTreeHashesForRef(repoURL, ref string) map[string]string {
+	if ref == "" {
+		ref = "HEAD"
+	}
 	tmpDir, err := os.MkdirTemp("", "skillshare-treecheck-*")
 	if err != nil {
 		return nil
@@ -30,7 +39,7 @@ func FetchRemoteTreeHashes(repoURL string) map[string]string {
 	}
 
 	// Blobless fetch: downloads only tree + commit objects (~150-200KB)
-	fetchArgs := []string{"fetch", "--filter=blob:none", "--depth=1", repoURL, "HEAD"}
+	fetchArgs := []string{"fetch", "--filter=blob:none", "--depth=1", repoURL, ref}
 	fetchCmd := exec.Command("git", fetchArgs...)
 	fetchCmd.Dir = tmpDir
 	// Inject auth env for private repos

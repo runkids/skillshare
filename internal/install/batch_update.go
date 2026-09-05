@@ -2,8 +2,12 @@ package install
 
 import (
 	"fmt"
+	"os"
+	"path"
 	"path/filepath"
 	"strings"
+
+	"skillshare/internal/utils"
 )
 
 // BatchUpdateProgressPrefix marks per-skill grouped update progress messages
@@ -24,7 +28,8 @@ type BatchUpdateResult struct {
 //
 // skillTargets maps repo-internal subdir (meta.Subdir) → local absolute destination path.
 // This avoids assuming the local path mirrors the repo structure.
-func UpdateSkillsFromRepo(repoURL string, skillTargets map[string]string, opts InstallOptions) (*BatchUpdateResult, error) {
+// branch is the branch the skills were installed from (empty = remote default).
+func UpdateSkillsFromRepo(repoURL, branch string, skillTargets map[string]string, opts InstallOptions) (*BatchUpdateResult, error) {
 	if repoURL == "" {
 		return nil, fmt.Errorf("repoURL is required")
 	}
@@ -33,6 +38,7 @@ func UpdateSkillsFromRepo(repoURL string, skillTargets map[string]string, opts I
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse repo URL %q: %w", repoURL, err)
 	}
+	source.Branch = branch
 
 	// 1. Discover skills from the repo (clones once)
 	discovery, err := DiscoverFromGitWithProgress(source, opts.OnProgress)
@@ -71,6 +77,13 @@ func UpdateSkillsFromRepo(repoURL string, skillTargets map[string]string, opts I
 		}
 		skillInfo, ok := discoveryMap[lookupKey]
 		if !ok {
+			// Discovery skips target dot-dirs (.claude, .codex, ...), so a skill
+			// installed from such a subdir never appears in the map even though it
+			// still exists upstream. Resolve the subdir directly before declaring
+			// the path deleted, otherwise the skill is misreported as stale.
+			skillInfo, ok = lookupSkillSubdir(repoPath, lookupKey)
+		}
+		if !ok {
 			result.Errors[repoSubdir] = fmt.Errorf("skill path %q not found in repository", repoSubdir)
 			processedSkills++
 			emitBatchSkillProgress(opts.OnProgress, processedSkills, totalSkills, repoSubdir)
@@ -107,6 +120,31 @@ func UpdateSkillsFromRepo(repoURL string, skillTargets map[string]string, opts I
 	}
 
 	return result, nil
+}
+
+// lookupSkillSubdir resolves a skill subdir that discovery filtered out by
+// checking the cloned repo directly for its SKILL.md. Mirrors the direct-stat
+// fast path used by single-skill updates (resolveSubdir).
+func lookupSkillSubdir(repoPath, subdir string) (SkillInfo, bool) {
+	if repoPath == "" || subdir == "" || subdir == "." {
+		return SkillInfo{}, false
+	}
+	cleaned := path.Clean(strings.ReplaceAll(subdir, "\\", "/"))
+	if cleaned == "." || cleaned == ".." || strings.HasPrefix(cleaned, "../") || path.IsAbs(cleaned) {
+		return SkillInfo{}, false
+	}
+	skillFile := filepath.Join(repoPath, filepath.FromSlash(cleaned), "SKILL.md")
+	info, err := os.Stat(skillFile)
+	if err != nil || info.IsDir() {
+		return SkillInfo{}, false
+	}
+	fm := utils.ParseFrontmatterFields(skillFile, []string{"description", "license"})
+	return SkillInfo{
+		Name:        path.Base(cleaned),
+		Path:        cleaned,
+		License:     fm["license"],
+		Description: fm["description"],
+	}, true
 }
 
 // isSkillCurrentAtRepoState returns true when installed metadata already

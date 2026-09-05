@@ -9,6 +9,65 @@ All notable changes to skillshare are documented here. For the full commit histo
 
 ---
 
+## [0.20.27] - 2026-09-02
+
+### New Features
+
+- **Agents can declare which targets they belong to** — a `targets` list in an agent's frontmatter now restricts that agent to the listed tools, the same way `metadata.targets` works for skills. Agent files are copied verbatim and Claude Code, OpenCode, Cursor and Copilot read different frontmatter fields, so this lets you keep a per-tool variant of the same agent side by side. Agents without the field still sync everywhere; target aliases such as `claude-code` match `claude`. Applies to `sync agents`, the dashboard, `doctor` and the target summary. Refs: #267.
+
+  ```yaml
+  # ~/.config/skillshare/agents/reviewer.md
+  ---
+  targets: [claude]
+  tools: Read, Write, Bash(git log)
+  ---
+
+  # ~/.config/skillshare/agents/reviewer-opencode.md
+  ---
+  targets: [opencode]
+  mode: subagent
+  permission: { read: allow, write: allow, bash: ask }
+  ---
+  ```
+
+### Bug Fixes
+
+- **`update --all` no longer deletes a skill when the audit blocks its update** — when several skills from one repository were updated together, the existing skill directory was removed before the new content was copied in, and an audit block then cleaned up the new content as well, leaving nothing on disk and a stale metadata entry that later updates could not find. Grouped updates now stage the new content in a temporary directory, run the audit there, and only swap it into place once the audit passes, matching what `update <name>` already did. If a skill was already lost this way, `skillshare update <name> --force` reinstalls it. Refs: #271.
+- **Batch updates and the web UI follow the branch a skill was installed from** — `update --all` cloned the remote default branch for skills installed with `-b <branch>`, so they were reported stale or downgraded, and `--prune` moved them to trash. The dashboard's check and update did the same, comparing against the remote HEAD instead of the installed branch. All of these now group by repository and branch and fetch from the installed branch. Refs: #268.
+- **Windows drive-letter paths install as local skills** — `skillshare install D:\skills\my-skill` failed with `unrecognized source format` because only paths starting with `/`, `~`, `./` or `../` were treated as local. Drive-letter paths (`D:older`, `C:/Users/...`) and backslash-relative paths (`.\skill`) are now recognised in the CLI and the dashboard install page. Refs: #269.
+- **Dashboard labels non-GitHub git sources as Remote** — skills installed from Gitea, GitLab, self-hosted or SSH sources showed a **Local** badge because only GitHub metadata types were recognised. Any non-local git source now shows **Remote**, matching `skillshare list`. Tracked repos and GitHub sources keep their existing badges. Refs: #270.
+
+## [0.20.26] - 2026-08-27
+
+### Bug Fixes
+
+- **`update --force` can override the security audit again** — when an update was blocked by an audit finding, the error told you to pass `--force`, but the flag never reached the audit gate. Update stages new content in a temporary directory and had to leave its internal overwrite flag off to keep the gate active, which discarded your `--force` along with it, so a flagged update could not be applied short of `--skip-audit` — which turns scanning off entirely. `--force` now reaches the gate on every update path: regular skills, tracked repos, agents, and the web UI's Force Retry button.
+
+  ```bash
+  skillshare update my-skill --force       # apply despite audit findings
+  skillshare update my-skill --skip-audit  # skip scanning entirely
+  ```
+
+  Audit *scan failures* stay fail-closed regardless of `--force`: accepting findings you have seen is not the same as proceeding when the scanner could not run.
+
+- **`install --json` no longer bypasses the security audit** — `--json` set the internal overwrite flag so installs could run non-interactively, and the audit gate read that same flag, so JSON-mode installs silently accepted content that would have been blocked interactively.
+- **Grouped batch updates are covered by the audit gate** — updating several skills from a single repository inherited the same overwrite flag and skipped the block threshold.
+- **Web UI: Force Retry only appears where it can help** — a failure such as `failed to remove existing skill: ... permission denied` offered a Force Retry button that retried with force and failed identically, with no hint of what would actually fix it. The button now shows for audit blocks and for pulls the server would retry with force, and is hidden elsewhere.
+- **Web UI: update errors no longer quote CLI flags** — messages ending in `Use --force to override or --skip-audit to bypass scanning` were rendered verbatim in the dashboard, where there is no command line to type them into.
+
+### Breaking Changes
+
+- **A `--force` at install time no longer exempts later updates from the audit gate** — `--force` is a per-command decision. A skill installed with `--force` is scanned again on its next `update`, and needs `--force` (or `--skip-audit`) again to apply findings at or above the block threshold.
+
+## [0.20.25] - 2026-08-10
+
+### Bug Fixes
+
+- **Batch updates no longer mark skills under target dot-directories as stale** — skills installed from subdirectories such as `.claude/skills/...` or `.codex/skills/...` were skipped by discovery during batch updates and reported as deleted upstream, which could incorrectly suggest `--prune`. Batch update now resolves the requested subdirectory directly before declaring it missing. Refs: #261.
+- **Explicit target dot-directory installs discover their requested content** — commands such as `skillshare install user/repo/.claude` no longer return zero results just because `.claude` is normally excluded from repository-wide discovery. Explicitly requested roots are scanned for both skills and agents, while repository-root scans continue to skip synced target copies.
+- **Project commands preserve existing projects when `config.yaml` is missing** — when `.skillshare/` already contains skills or agents but `.skillshare/config.yaml` has disappeared, project-mode commands now stop with recovery guidance instead of silently re-initializing an empty config, dropping target configuration, and leaving stale links. Fresh projects and shared repositories that intentionally gitignore `config.yaml` still initialize automatically.
+- **Windows can uninstall nested skills again** — uninstalling a skill stored under a folder no longer passes Windows backslashes into the trash-name validator and fails with `trash name must not contain backslash`. Nested skill names are normalized to slash-separated paths in global and project mode without weakening traversal checks. Refs: #264.
+
 ## [0.20.24] - 2026-08-03
 
 ### Bug Fixes

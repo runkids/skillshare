@@ -616,10 +616,11 @@ func resolveSkillStatuses(
 			}
 		}
 
-		// Fetch remote tree hashes once per URL (nil on error → fallback)
+		// Fetch remote tree hashes once per URL+branch (nil on error → fallback)
 		var remoteTreeHashes map[string]string
 		if len(subdirs) > 0 {
-			remoteTreeHashes = check.FetchRemoteTreeHashes(url)
+			repoURL, branch := splitURLBranch(url)
+			remoteTreeHashes = check.FetchRemoteTreeHashesForRef(repoURL, branch)
 		}
 
 		for i, it := range items {

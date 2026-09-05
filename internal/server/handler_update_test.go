@@ -165,7 +165,7 @@ func TestUpdateRegularSkill_NestedSkillRefreshesRootMetadataStore(t *testing.T) 
 	}
 	s.skillsStore = store
 
-	result := s.updateRegularSkill("tools/agent-browser", localSkill, true)
+	result := s.updateRegularSkill("tools/agent-browser", localSkill, false, true)
 	if result.Action != "updated" {
 		t.Fatalf("expected updated action, got %q: %s", result.Action, result.Message)
 	}
@@ -250,7 +250,7 @@ func TestAuditGateTrackedRepo_RollbackFailure_ReportsWarning(t *testing.T) {
 	s := &Server{cfg: cfg}
 
 	// Pass an invalid beforeHash so git reset --hard will fail
-	result, _ := s.auditGateTrackedRepo("test-repo", repoDir, "0000000000000000000000000000000000000000", s.updateAuditThreshold())
+	result, _ := s.auditGateTrackedRepo("test-repo", repoDir, "0000000000000000000000000000000000000000", false, s.updateAuditThreshold())
 
 	if result == nil {
 		t.Fatal("expected blocked result, got nil (audit should detect HIGH finding)")
@@ -275,7 +275,7 @@ func TestAuditGateTrackedRepo_ScanError_RollbackFailure_ReportsWarning(t *testin
 
 	// Non-existent path → audit.ScanSkill returns error, git.ResetHard also fails
 	nonExistentPath := filepath.Join(t.TempDir(), "does-not-exist")
-	result, _ := s.auditGateTrackedRepo("test-repo", nonExistentPath, "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef", s.updateAuditThreshold())
+	result, _ := s.auditGateTrackedRepo("test-repo", nonExistentPath, "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef", false, s.updateAuditThreshold())
 
 	if result == nil {
 		t.Fatal("expected blocked result")
@@ -312,7 +312,7 @@ func TestAuditGateTrackedRepo_Clean_ReturnsNil(t *testing.T) {
 	cfg := &config.Config{Source: t.TempDir()}
 	s := &Server{cfg: cfg}
 
-	blocked, auditResult := s.auditGateTrackedRepo("clean-repo", repoDir, "doesntmatter", s.updateAuditThreshold())
+	blocked, auditResult := s.auditGateTrackedRepo("clean-repo", repoDir, "doesntmatter", false, s.updateAuditThreshold())
 	if blocked != nil {
 		t.Errorf("expected nil for clean repo, got action=%q message=%q", blocked.Action, blocked.Message)
 	}

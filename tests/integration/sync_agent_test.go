@@ -391,3 +391,44 @@ targets:
 	result.AssertAnyOutputContains(t, "skipped")
 	result.AssertAnyOutputContains(t, "windsurf")
 }
+
+func TestSync_Agents_FrontmatterTargetsRestrictsTargets(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	agentsDir := filepath.Join(filepath.Dir(sb.SourcePath), "agents")
+	os.MkdirAll(agentsDir, 0755)
+	os.WriteFile(filepath.Join(agentsDir, "shared.md"), []byte("# Shared"), 0644)
+	os.WriteFile(filepath.Join(agentsDir, "claude-only.md"), []byte("---\ntargets: [claude]\n---\n# Claude only"), 0644)
+
+	claudeAgents := filepath.Join(sb.Home, ".claude", "agents")
+	cursorAgents := filepath.Join(sb.Home, ".cursor", "agents")
+	os.MkdirAll(claudeAgents, 0755)
+	os.MkdirAll(cursorAgents, 0755)
+
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets:
+  claude:
+    skills:
+      path: "` + filepath.Join(sb.Home, ".claude", "skills") + `"
+    agents:
+      path: "` + claudeAgents + `"
+  cursor:
+    skills:
+      path: "` + filepath.Join(sb.Home, ".cursor", "skills") + `"
+    agents:
+      path: "` + cursorAgents + `"
+`)
+
+	sb.RunCLI("sync", "agents").AssertSuccess(t)
+
+	if _, err := os.Lstat(filepath.Join(claudeAgents, "claude-only.md")); err != nil {
+		t.Error("claude-only.md should be synced to claude")
+	}
+	if _, err := os.Lstat(filepath.Join(cursorAgents, "shared.md")); err != nil {
+		t.Error("shared.md (no targets field) should be synced to cursor")
+	}
+	if _, err := os.Lstat(filepath.Join(cursorAgents, "claude-only.md")); !os.IsNotExist(err) {
+		t.Error("claude-only.md should NOT be synced to cursor")
+	}
+}

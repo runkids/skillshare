@@ -18,6 +18,7 @@ import (
 // within a project's .skillshare/skills directory.
 func resolveProjectUninstallTarget(skillName, sourceDir string) (*uninstallTarget, error) {
 	skillName = strings.TrimRight(strings.TrimSpace(skillName), `/\`)
+	skillName = normalizeUninstallName(skillName)
 	if skillName == "" || skillName == "." {
 		return nil, fmt.Errorf("invalid skill name: %q", skillName)
 	}

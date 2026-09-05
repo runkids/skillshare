@@ -345,6 +345,7 @@ func batchUpdateAgents(agentsDir string, agents []check.AgentCheckResult, opts *
 			installOpts := install.InstallOptions{
 				Kind:             "agent",
 				Force:            opts.force,
+				AuditOverride:    opts.force,
 				Update:           true,
 				SkipAudit:        opts.skipAudit,
 				AuditThreshold:   opts.threshold,
@@ -470,6 +471,7 @@ func reinstallAgent(agentsDir string, r check.AgentCheckResult, store *install.M
 	installOpts := install.InstallOptions{
 		Kind:             "agent",
 		Force:            opts.force,
+		AuditOverride:    opts.force,
 		Update:           true,
 		SkipAudit:        opts.skipAudit,
 		AuditThreshold:   opts.threshold,

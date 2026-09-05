@@ -58,7 +58,7 @@ func auditInstalledResource(
 		result.Warnings = append(result.Warnings, msg)
 	}
 
-	if scanResult.IsBlocked && !opts.Force {
+	if scanResult.IsBlocked && !opts.AuditOverride {
 		details := blockedFindingDetails(scanResult.Findings, threshold)
 		if cleanupErr := cleanupOnBlock(); cleanupErr != nil {
 			return fmt.Errorf(
@@ -78,7 +78,7 @@ func auditInstalledResource(
 		)
 	}
 
-	if scanResult.IsBlocked && opts.Force {
+	if scanResult.IsBlocked && opts.AuditOverride {
 		result.Warnings = append(result.Warnings,
 			fmt.Sprintf("audit findings at/above block threshold (%s); proceeding due to --force", threshold))
 	} else if !scanResult.IsBlocked {
@@ -180,7 +180,7 @@ func auditTrackedRepo(repoPath string, result *TrackedRepoResult, opts InstallOp
 		result.Warnings = append(result.Warnings, msg)
 	}
 
-	if scanResult.IsBlocked && !opts.Force {
+	if scanResult.IsBlocked && !opts.AuditOverride {
 		details := blockedFindingDetails(scanResult.Findings, threshold)
 		if removeErr := removeAll(repoPath); removeErr != nil {
 			return fmt.Errorf(
@@ -200,7 +200,7 @@ func auditTrackedRepo(repoPath string, result *TrackedRepoResult, opts InstallOp
 		)
 	}
 
-	if scanResult.IsBlocked && opts.Force {
+	if scanResult.IsBlocked && opts.AuditOverride {
 		result.Warnings = append(result.Warnings,
 			fmt.Sprintf("audit findings at/above block threshold (%s); proceeding due to --force", threshold))
 	} else if !scanResult.IsBlocked {
@@ -214,7 +214,7 @@ func auditTrackedRepo(repoPath string, result *TrackedRepoResult, opts InstallOp
 // auditGateFailClosed scans a repo after git pull and rolls back on scan
 // error or findings at/above threshold. Used by handleUpdate for non-tracked
 // skill updates where fail-closed is the only behaviour.
-func auditGateFailClosed(repoPath, beforeHash, threshold, projectRoot string) (*audit.Result, error) {
+func auditGateFailClosed(repoPath, beforeHash, threshold, projectRoot string, auditOverride bool) (*audit.Result, error) {
 	if beforeHash == "" {
 		return nil, fmt.Errorf(
 			"post-update audit failed — rollback commit unavailable, update aborted and repository state is unknown: %w",
@@ -240,13 +240,15 @@ func auditGateFailClosed(repoPath, beforeHash, threshold, projectRoot string) (*
 		}
 		return nil, fmt.Errorf("post-update audit failed: %v — rolled back (use --skip-audit to bypass): %w", scanErr, audit.ErrBlocked)
 	}
-	if scanResult.HasSeverityAtOrAbove(normalizedThreshold) {
+	// A scan that could not run stays fail-closed regardless of auditOverride:
+	// "I accept these findings" is not the same as "I could not be told any".
+	if scanResult.HasSeverityAtOrAbove(normalizedThreshold) && !auditOverride {
 		details := blockedFindingDetails(scanResult.Findings, normalizedThreshold)
 		if resetErr := gitResetHard(repoPath, beforeHash); resetErr != nil {
 			return nil, fmt.Errorf("post-update audit found findings at/above %s; WARNING: rollback also failed: %v — malicious content may remain: %w", normalizedThreshold, resetErr, audit.ErrBlocked)
 		}
 		return nil, fmt.Errorf(
-			"post-update audit failed — findings at/above %s detected (rolled back to %s):\n%s\n\nUse --skip-audit to bypass: %w",
+			"post-update audit failed — findings at/above %s detected (rolled back to %s):\n%s\n\nUse --force to override or --skip-audit to bypass scanning: %w",
 			normalizedThreshold,
 			shortHash(beforeHash),
 			strings.Join(details, "\n"),
@@ -314,7 +316,7 @@ func auditTrackedRepoUpdate(repoPath, beforeHash string, result *TrackedRepoResu
 		result.Warnings = append(result.Warnings, msg)
 	}
 
-	if scanResult.IsBlocked && !opts.Force {
+	if scanResult.IsBlocked && !opts.AuditOverride {
 		if beforeHash == "" {
 			return fmt.Errorf(
 				"security audit found findings at/above %s in tracked repository — rollback commit unavailable, update aborted and repository state is unknown: %w",
@@ -338,7 +340,7 @@ func auditTrackedRepoUpdate(repoPath, beforeHash string, result *TrackedRepoResu
 		)
 	}
 
-	if scanResult.IsBlocked && opts.Force {
+	if scanResult.IsBlocked && opts.AuditOverride {
 		result.Warnings = append(result.Warnings,
 			fmt.Sprintf("audit findings at/above block threshold (%s); proceeding due to --force", threshold))
 	} else if !scanResult.IsBlocked {

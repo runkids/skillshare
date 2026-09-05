@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider } from '../i18n';
 import { ToastProvider } from '../components/Toast';
-import UpdatePage from './UpdatePage';
+import UpdatePage, { isForceRetryable, stripCliHint } from './UpdatePage';
 import { api } from '../api/client';
 
 vi.mock('react-virtuoso', () => ({
@@ -212,5 +212,39 @@ describe('UpdatePage', () => {
     await user.click(rehydrateBtn);
 
     await waitFor(() => expect(api.rehydrateTrackedRepos).toHaveBeenCalled());
+  });
+});
+
+describe('update failure message helpers', () => {
+  const auditBlocked =
+    'security audit failed — findings at/above CRITICAL detected:\n' +
+    '  CRITICAL: Prompt injection attempt detected (SKILL.md:28)\n\n' +
+    'Use --force to override or --skip-audit to bypass scanning: blocked by security audit';
+
+  it('offers force retry for failures force can actually resolve', () => {
+    expect(isForceRetryable(auditBlocked)).toBe(true);
+    expect(isForceRetryable('non-fast-forward pull rejected (try force update)')).toBe(true);
+  });
+
+  it('hides force retry where retrying with force fails identically', () => {
+    expect(
+      isForceRetryable('failed to remove existing skill: unlinkat /x/trash.md: permission denied'),
+    ).toBe(false);
+    // scan failures stay fail-closed, so force cannot get past them
+    expect(
+      isForceRetryable('post-update audit failed: scanner crashed — rolled back (use --skip-audit to bypass): blocked by security audit'),
+    ).toBe(false);
+    expect(isForceRetryable(undefined)).toBe(false);
+  });
+
+  it('drops CLI-only hints from messages shown in the web UI', () => {
+    const shown = stripCliHint(auditBlocked);
+    expect(shown).not.toContain('--force');
+    expect(shown).not.toContain('--skip-audit');
+    expect(shown).toContain('CRITICAL: Prompt injection attempt detected (SKILL.md:28)');
+    expect(shown).toContain('blocked by security audit');
+
+    expect(stripCliHint('rolled back (use --skip-audit to bypass)')).toBe('rolled back');
+    expect(stripCliHint('pull rejected (try force update)')).toBe('pull rejected');
   });
 });

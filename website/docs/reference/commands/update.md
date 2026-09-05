@@ -58,7 +58,7 @@ flowchart TD
 |------|-------------|
 | `--all, -a` | Update all tracked repos/skills, or all agents when used as `update agents --all` |
 | `--group, -G <name>` | Update all updatable skills in a group, or all agents in an agent subdirectory |
-| `--force, -f` | Discard local changes and force update |
+| `--force, -f` | Discard local changes and proceed despite audit findings |
 | `--dry-run, -n` | Preview without making changes |
 | `--skip-audit` | Skip the post-update security audit gate |
 | `--audit-threshold <t>`, `--threshold <t>`, `-T <t>` | Override update audit block threshold (`critical|high|medium|low|info`; shorthand: `c|h|m|l|i`, plus `crit`, `med`) |

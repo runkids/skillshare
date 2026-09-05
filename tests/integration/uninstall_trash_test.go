@@ -47,6 +47,38 @@ targets: {}
 	}
 }
 
+func TestUninstall_NestedSkillByShortNameMovesToTrash(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sb.CreateNestedSkill("coding/_skill", map[string]string{"SKILL.md": "# Nested Skill"})
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets: {}
+`)
+
+	result := sb.RunCLI("uninstall", "_skill", "--force")
+	result.AssertSuccess(t)
+	result.AssertOutputContains(t, "Moved to trash")
+
+	if sb.FileExists(filepath.Join(sb.SourcePath, "coding", "_skill")) {
+		t.Error("nested skill should be removed from source")
+	}
+
+	trashGroup := filepath.Join(sb.Home, ".local", "share", "skillshare", "trash", "coding")
+	entries, err := os.ReadDir(trashGroup)
+	if err != nil {
+		t.Fatalf("nested trash directory should exist: %v", err)
+	}
+	if len(entries) != 1 {
+		t.Fatalf("expected 1 nested trash entry, got %d", len(entries))
+	}
+
+	trashedSkill := filepath.Join(trashGroup, entries[0].Name(), "SKILL.md")
+	if _, err := os.Stat(trashedSkill); err != nil {
+		t.Errorf("trashed nested skill should contain SKILL.md: %v", err)
+	}
+}
+
 func TestUninstall_WithMeta_PrintsReinstallHint(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
