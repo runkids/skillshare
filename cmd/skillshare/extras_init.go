@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"skillshare/internal/config"
@@ -119,6 +120,10 @@ func extrasInitGlobal(name string, targets []string, syncMode string, sourceOver
 	if err != nil {
 		return err
 	}
+	targets, err = resolveExtraInitTargetPresets(name, targets, modeGlobal)
+	if err != nil {
+		return err
+	}
 
 	if force {
 		cfg.Extras = removeExtraByName(cfg.Extras, name)
@@ -161,6 +166,10 @@ func extrasInitGlobal(name string, targets []string, syncMode string, sourceOver
 
 func extrasInitProject(cwd, name string, targets []string, syncMode string, flatten bool, force bool, start time.Time) error {
 	projCfg, err := config.LoadProject(cwd)
+	if err != nil {
+		return err
+	}
+	targets, err = resolveExtraInitTargetPresets(name, targets, modeProject)
 	if err != nil {
 		return err
 	}
@@ -216,6 +225,47 @@ func removeExtraByName(extras []config.ExtraConfig, name string) []config.ExtraC
 	return result
 }
 
+func resolveExtraInitTargetPresets(name string, targets []string, mode runMode) ([]string, error) {
+	if name != "commands" {
+		return targets, nil
+	}
+	resolved := make([]string, 0, len(targets))
+	for _, target := range targets {
+		path, ok, err := resolveCommandTargetPreset(target, mode)
+		if err != nil {
+			return nil, err
+		}
+		if ok {
+			resolved = append(resolved, path)
+			continue
+		}
+		resolved = append(resolved, target)
+	}
+	return resolved, nil
+}
+
+func resolveCommandTargetPreset(target string, mode runMode) (string, bool, error) {
+	switch strings.ToLower(strings.TrimSpace(target)) {
+	case "claude", "claude-code":
+		if mode == modeProject {
+			return ".claude/commands", true, nil
+		}
+		return "~/.claude/commands", true, nil
+	case "cursor":
+		if mode == modeProject {
+			return ".cursor/commands", true, nil
+		}
+		return "~/.cursor/commands", true, nil
+	case "codex":
+		if mode == modeProject {
+			return "", true, fmt.Errorf("codex command preset is global-only; use --global or pass --target ~/.codex/prompts explicitly")
+		}
+		return "~/.codex/prompts", true, nil
+	default:
+		return "", false, nil
+	}
+}
+
 func printExtrasInitHelp() {
 	fmt.Println(`Usage: skillshare extras init <name> [options]
 
@@ -225,7 +275,7 @@ Arguments:
   name                Name for the extra (e.g., rules, commands, prompts)
 
 Options:
-  --target <path>     Target directory (repeatable)
+  --target <path>     Target directory (repeatable); commands also supports claude/cursor/codex
   --source <path>     Custom source directory (overrides extras_source and default; global mode only)
   --mode <mode>       Sync mode: merge (default), copy, symlink
   --flatten           Flatten files from subdirectories into target root
@@ -237,6 +287,7 @@ Options:
 
 Examples:
   skillshare extras init rules --target ~/.claude/rules --target ~/.cursor/rules
+  skillshare extras init commands --target claude --target cursor --target codex
   skillshare extras init commands --target ~/.claude/commands --mode copy
   skillshare extras init rules --source ~/company-shared/rules --target ~/.claude/rules
   skillshare extras init rules --target ~/.claude/rules --force

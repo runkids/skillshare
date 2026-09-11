@@ -101,7 +101,7 @@ func (m extrasInitTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.targets = m.targets[:len(m.targets)-1] // remove the pending target
 				m.phase = extrasPhaseTargetInput
 				m.textInput.SetValue("")
-				m.textInput.Placeholder = targetPlaceholder(len(m.targets))
+				m.textInput.Placeholder = targetPlaceholder(m.name, len(m.targets))
 				return m, nil
 			case extrasPhaseFlattenToggle:
 				m.phase = extrasPhaseModeSelect
@@ -144,7 +144,7 @@ func (m extrasInitTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.sourceValue = strings.TrimSpace(m.sourceInput.Value())
 				m.phase = extrasPhaseTargetInput
 				m.textInput.SetValue("")
-				m.textInput.Placeholder = targetPlaceholder(0)
+				m.textInput.Placeholder = targetPlaceholder(m.name, 0)
 				return m, nil
 			}
 
@@ -201,7 +201,7 @@ func (m extrasInitTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case "y", "Y":
 				m.phase = extrasPhaseTargetInput
 				m.textInput.SetValue("")
-				m.textInput.Placeholder = targetPlaceholder(len(m.targets))
+				m.textInput.Placeholder = targetPlaceholder(m.name, len(m.targets))
 				return m, nil
 			case "n", "N", "enter":
 				m.phase = extrasPhaseConfirm
@@ -365,7 +365,14 @@ func (m extrasInitTUIModel) View() string {
 }
 
 // targetPlaceholder returns a contextual placeholder for the target input.
-func targetPlaceholder(n int) string {
+func targetPlaceholder(name string, n int) string {
+	if name == "commands" {
+		placeholders := []string{"claude", "cursor", "codex"}
+		if n < len(placeholders) {
+			return placeholders[n]
+		}
+		return "~/.<tool>/commands"
+	}
 	placeholders := []string{
 		"~/.claude/rules",
 		"~/.cursor/rules",
