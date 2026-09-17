@@ -2,7 +2,6 @@ package main
 
 import (
 	"os"
-	"strings"
 
 	"skillshare/internal/config"
 	"skillshare/internal/mcp"
@@ -33,15 +32,10 @@ func mcpContext(args []string) (*mcp.Service, []string, error) {
 			mode = modeProject
 		}
 	}
-	service := &mcp.Service{ConfigPath: config.ConfigPath(), StateDir: config.StateDir(), ConfigDirs: map[string]string{}}
+	service := &mcp.Service{ConfigPath: config.ConfigPath(), StateDir: config.StateDir(), ConfigDirs: mcp.ConfigDirsFromEnv()}
 	if mode == modeProject {
 		service.ConfigPath = config.ProjectConfigPath(cwd)
 		service.ProjectRoot = cwd
-	}
-	for key, env := range map[string]string{"codex": "CODEX_HOME", "claude": "CLAUDE_CONFIG_DIR", "xdg": "XDG_CONFIG_HOME", "appdata": "APPDATA"} {
-		if value := strings.TrimSpace(os.Getenv(env)); value != "" {
-			service.ConfigDirs[key] = value
-		}
 	}
 	applyModeLabel(mode)
 	return service, rest, nil

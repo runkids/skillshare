@@ -71,31 +71,37 @@ func writeJSONFile(path string, value any) error {
 	return atomicWrite(path, append(data, '\n'), 0600)
 }
 
-func (s *Service) recoverPending() error {
-	path := filepath.Join(s.StateDir, "mcp", "pending.json")
-	data, exists, _, err := safeRead(path)
+// readPending returns an interrupted write's journal and whether its native
+// file was written, in which case recovery records the journal's ownership.
+func (s *Service) readPending() (*journal, bool, error) {
+	data, exists, _, err := safeRead(filepath.Join(s.StateDir, "mcp", "pending.json"))
 	if err != nil || !exists {
-		return err
+		return nil, false, err
 	}
 	var pending journal
-	if json.Unmarshal(data, &pending) != nil || pending.Path == "" || pending.State.Version != 1 {
-		return fmt.Errorf("MCP recovery journal is invalid; manual recovery required")
+	if json.Unmarshal(data, &pending) != nil || pending.Path == "" || pending.State.Version != 1 || pending.State.Entries == nil {
+		return nil, false, fmt.Errorf("MCP recovery journal is invalid; manual recovery required")
 	}
 	current, exists, _, err := safeRead(pending.Path)
 	if err != nil {
+		return nil, false, err
+	}
+	return &pending, exists && digest(current) == pending.After, nil
+}
+
+func (s *Service) recoverPending() error {
+	pending, written, err := s.readPending()
+	if err != nil || pending == nil {
 		return err
 	}
-	switch {
-	case exists && digest(current) == pending.After:
+	if written {
 		if err := writeJSONFile(s.statePath(), pending.State); err != nil {
 			return err
 		}
-	case exists == pending.BeforeExists && digest(current) == pending.Before:
-		// Native write did not occur. Keep the previous ownership ledger.
-	default:
-		return fmt.Errorf("MCP interrupted write was followed by external changes to %s; recover from backup before syncing", pending.Path)
 	}
-	return os.Remove(path)
+	// Otherwise the write did not occur, or the file changed again; ownership
+	// hashes flag any entry that no longer matches, so the journal is obsolete.
+	return os.Remove(filepath.Join(s.StateDir, "mcp", "pending.json"))
 }
 
 // Apply requires the revision shown in a preview. An empty revision is reserved
@@ -136,7 +142,7 @@ func (s *Service) applyPlan(p *Plan) (*Result, error) {
 	}
 	// Check every file before the first write, and each file again at its write.
 	for _, f := range p.files {
-		if err := checkFile(f); err != nil {
+		if _, _, _, _, err := refreshFile(f); err != nil {
 			return result, err
 		}
 	}
@@ -144,14 +150,19 @@ func (s *Service) applyPlan(p *Plan) (*Result, error) {
 		if bytes.Equal(f.before, f.after) || len(f.changes) == 0 {
 			continue
 		}
-		if err := checkFile(f); err != nil {
-			return result, err
-		}
-		native, err := ParseNative(f.target, f.before)
+		data, exists, mode, native, err := refreshFile(f)
 		if err != nil {
 			return result, err
 		}
-		id := fmt.Sprintf("%d-%s", time.Now().UnixNano(), digest([]byte(f.path))[:8])
+		// Apply the previewed entry edits to the file as it is now, keeping
+		// settings the Agent wrote since the preview.
+		// ponytail: the Agent can still write between this read and the rename;
+		// closing that window needs a lock that Agents do not take.
+		after, err := native.Edit(f.changes)
+		if err != nil {
+			return result, fmt.Errorf("%s: %w", f.path, err)
+		}
+		id := fmt.Sprintf("%d-%s", time.Now().UnixNano(), backupSuffix(f.path))
 		backup := backupRecord{ID: id, Owner: p.source.ConfigPath, Target: f.target, Path: f.path, Before: map[string]map[string]any{}, After: f.changes, Ownership: map[string]ownership{}}
 		for name := range f.changes {
 			key := ownershipKey(f.path, name)
@@ -169,12 +180,15 @@ func (s *Service) applyPlan(p *Plan) (*Result, error) {
 		if err := writeJSONFile(backupPath, backup); err != nil {
 			return result, fmt.Errorf("MCP backup failed: %w", err)
 		}
-		pending := journal{Path: f.path, Before: digest(f.before), After: digest(f.after), BeforeExists: f.exists, State: state}
+		pending := journal{Path: f.path, Before: digest(data), After: digest(after), BeforeExists: exists, State: state}
 		journalPath := filepath.Join(s.StateDir, "mcp", "pending.json")
 		if err := writeJSONFile(journalPath, pending); err != nil {
 			return result, err
 		}
-		if err := atomicWrite(f.path, f.after, f.mode); err != nil {
+		if err := atomicWrite(f.path, after, mode); err != nil {
+			// The rename is the last step, so the file is untouched; a journal left
+			// behind by a failed removal is recovered by the next operation.
+			_ = os.Remove(journalPath)
 			return result, fmt.Errorf("MCP write failed for %s: %w", f.path, err)
 		}
 		result.Applied = append(result.Applied, f.path)
@@ -185,6 +199,7 @@ func (s *Service) applyPlan(p *Plan) (*Result, error) {
 		if err := os.Remove(journalPath); err != nil {
 			return result, err
 		}
+		s.pruneBackups(f.path)
 	}
 	finalState, err := json.Marshal(p.state)
 	if err != nil {
@@ -199,13 +214,20 @@ func (s *Service) applyPlan(p *Plan) (*Result, error) {
 	return result, nil
 }
 
-func checkFile(f *filePlan) error {
-	data, exists, _, err := safeRead(f.path)
+// refreshFile rereads an Agent file and confirms its MCP entries still match
+// the preview. Other settings may change: Agents such as Claude Code rewrite
+// their configuration files constantly.
+func refreshFile(f *filePlan) ([]byte, bool, os.FileMode, *Native, error) {
+	data, exists, mode, err := safeRead(f.path)
 	if err != nil {
-		return err
+		return nil, false, 0, nil, err
 	}
-	if exists != f.exists || !bytes.Equal(data, f.before) {
-		return fmt.Errorf("%s changed since preview; preview again", f.path)
+	native, err := ParseNative(f.target, data)
+	if err != nil {
+		return nil, false, 0, nil, fmt.Errorf("%s: %w", f.path, err)
 	}
-	return nil
+	if sectionDigest(native) != f.section {
+		return nil, false, 0, nil, fmt.Errorf("%s MCP entries changed since preview; preview again", f.path)
+	}
+	return data, exists, mode, native, nil
 }

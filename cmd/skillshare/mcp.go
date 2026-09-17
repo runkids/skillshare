@@ -227,7 +227,8 @@ Options:
   --file <path>      Native configuration file to import
   --url <url>        Streamable HTTP endpoint
   --sync            Save and synchronize (non-interactive default: save only)
-  --replace         Explicitly replace an existing source entry
+  --replace         Replace an existing source entry; on import, also rewrite
+                    the imported client's entry when it differs
   --dry-run, -n     Preview without writing
   --json            Machine-readable, credential-free sync results
   --revision <id>   Require the matching preview revision

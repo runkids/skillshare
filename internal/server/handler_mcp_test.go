@@ -41,6 +41,27 @@ func TestMCPAPIPreviewAndApply(t *testing.T) {
 	}
 }
 
+func TestMCPListIgnoresUnresolvableUnusedTarget(t *testing.T) {
+	s, _ := newTestServerWithExtras(t, nil, "")
+	xdg := t.TempDir()
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("XDG_CONFIG_HOME", xdg)
+	for _, name := range []string{"opencode.json", "opencode.jsonc"} {
+		path := filepath.Join(xdg, "opencode", name)
+		if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, []byte("{}"), 0644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	w := httptest.NewRecorder()
+	s.handleMCPList(w, httptest.NewRequest(http.MethodGet, "/api/mcp", nil))
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d body = %s", w.Code, w.Body.String())
+	}
+}
+
 func TestMCPAPIRequiresPreviewForSync(t *testing.T) {
 	s, _ := newTestServerWithExtras(t, nil, "")
 	w := httptest.NewRecorder()

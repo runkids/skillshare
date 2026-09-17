@@ -2,6 +2,7 @@ package mcp
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -134,7 +135,14 @@ func TestInterruptedWriteRecovery(t *testing.T) {
 					t.Fatal(err)
 				}
 			}
-			if _, err := s.Apply(""); err != nil {
+			p, err = s.Preview()
+			if err != nil || p.Blocked {
+				t.Fatalf("interrupted write blocked preview: %v", err)
+			}
+			if _, err := os.Stat(filepath.Join(s.StateDir, "mcp", "pending.json")); err != nil {
+				t.Fatal("preview wrote recovery state")
+			}
+			if _, err := s.Apply(p.Revision); err != nil {
 				t.Fatal(err)
 			}
 			p, err = s.Preview()
@@ -147,6 +155,80 @@ func TestInterruptedWriteRecovery(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestInterruptedWriteThenExternalChangeRecovers(t *testing.T) {
+	s := testService(t)
+	p, err := s.Preview()
+	if err != nil {
+		t.Fatal(err)
+	}
+	f := p.files[0]
+	j := journal{Path: f.path, Before: digest(f.before), After: digest(f.after), BeforeExists: f.exists, State: ledger{Version: 1, Entries: map[string]ownership{}}}
+	if err := writeJSONFile(filepath.Join(s.StateDir, "mcp", "pending.json"), j); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(f.path, []byte(`{"personal":true}`), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.Apply(""); err != nil {
+		t.Fatalf("stale journal blocked MCP: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(s.StateDir, "mcp", "pending.json")); !os.IsNotExist(err) {
+		t.Fatal("stale journal was kept")
+	}
+}
+
+func TestBackupsAreBoundedAndSkipDamagedFiles(t *testing.T) {
+	s := testService(t)
+	dir := filepath.Join(s.StateDir, "mcp", "backups")
+	for i := 0; i < keepBackups+2; i++ {
+		id := fmt.Sprintf("17000000000000000%02d-%s", i, backupSuffix("/agent.json"))
+		if err := writeJSONFile(filepath.Join(dir, id+".json"), backupRecord{ID: id, Owner: s.ConfigPath, Target: "claude", Path: "/agent.json"}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.WriteFile(filepath.Join(dir, "1800000000000000000-abcdef12.json"), []byte("{"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	s.pruneBackups("/agent.json")
+	backups, err := s.Backups()
+	if err != nil || len(backups) != keepBackups {
+		t.Fatalf("got %d backups: %v", len(backups), err)
+	}
+}
+
+func TestImportAdoptsIdenticalEntry(t *testing.T) {
+	s := testService(t)
+	path := filepath.Join(s.Home, ".claude.json")
+	if err := os.WriteFile(path, []byte(`{"mcpServers":{"docs":{"type":"http","url":"https://example.com/mcp"}}}`), 0600); err != nil {
+		t.Fatal(err)
+	}
+	m := Mutation{Name: "docs", Server: &Server{URL: "https://example.com/mcp", Targets: []string{"claude"}}, Replace: true, Resolutions: []Resolution{{Target: "claude", Name: "docs", Action: "adopt"}}}
+	if _, err := s.Mutate(m, "", true); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.Mutate(Mutation{Name: "docs", Remove: true}, "", true); err != nil {
+		t.Fatal(err)
+	}
+	data, _ := os.ReadFile(path)
+	if strings.Contains(string(data), "example.com") {
+		t.Fatalf("adopted entry was not managed: %s", data)
+	}
+}
+
+func TestSaveOnlyRejectsServerWithoutTargets(t *testing.T) {
+	s := testService(t)
+	config := "mcp:\n  servers: {}\n"
+	if err := os.WriteFile(s.ConfigPath, []byte(config), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.Mutate(Mutation{Name: "docs", Server: &Server{URL: "https://example.com/mcp"}}, "", false); err == nil {
+		t.Fatal("saved a server that can never sync")
+	}
+	if data, _ := os.ReadFile(s.ConfigPath); string(data) != config {
+		t.Fatal("rejected server was saved")
 	}
 }
 
@@ -191,7 +273,7 @@ func TestUnselectedResolutionCannotAcquireOwnership(t *testing.T) {
 }
 
 func TestImportSecretsAndUnsupportedFields(t *testing.T) {
-	candidates, err := Import("claude", []byte(`{"mcpServers":{"docs":{"url":"https://example.com/mcp","headers":{"Authorization":"Bearer do-not-copy"},"custom":true}}}`), "")
+	candidates, err := Import("claude", []byte(`{"mcpServers":{"docs":{"url":"https://example.com/mcp","headers":{"Authorization":"Bearer do-not-copy"},"type":"sse"}}}`), "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -208,5 +290,28 @@ func TestImportSecretsAndUnsupportedFields(t *testing.T) {
 		if err := s.Validate("docs"); err == nil {
 			t.Fatalf("unsafe portable definition accepted: %+v", s)
 		}
+	}
+}
+
+func TestImportWarnsAboutAgentSpecificFields(t *testing.T) {
+	for target, data := range map[string]string{
+		"codex":  "[mcp_servers.docs]\ncommand = 'tool'\nstartup_timeout_sec = 20\n",
+		"claude": `{"mcpServers":{"docs":{"type":"streamable-http","url":"https://example.com/mcp","timeout":5}}}`,
+	} {
+		items, err := Import(target, []byte(data), "")
+		if err != nil || len(items) != 1 || len(items[0].Problems) != 0 || len(items[0].Warnings) != 1 {
+			t.Fatalf("%s: %+v %v", target, items, err)
+		}
+	}
+}
+
+func TestImportFlagsCredentialsOutsideSecretKeys(t *testing.T) {
+	items, err := Import("claude", []byte(`{"mcpServers":{"db":{"command":"tool","args":["--api-key","plain-arg"],"env":{"DATABASE_URL":"postgres://app:do-not-copy@db/app"}}}}`), "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	data, _ := json.Marshal(items)
+	if strings.Contains(string(data), "do-not-copy") || items[0].Server.Env["DATABASE_URL"].FromEnv != "DATABASE_URL" || len(items[0].Warnings) != 2 {
+		t.Fatalf("credential not handled: %s", data)
 	}
 }

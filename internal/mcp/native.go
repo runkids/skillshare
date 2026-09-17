@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"maps"
+	"slices"
 	"sort"
 	"strings"
 
@@ -148,11 +150,14 @@ func (n *Native) Edit(changes map[string]map[string]any) ([]byte, error) {
 	if len(patches) == 0 {
 		return append([]byte(nil), n.data...), nil
 	}
-	patch, err := json.Marshal(patches)
-	if err != nil {
+	// Keep URLs such as ?a=1&b=2 readable instead of \u0026-escaped.
+	var patch bytes.Buffer
+	encoder := json.NewEncoder(&patch)
+	encoder.SetEscapeHTML(false)
+	if err := encoder.Encode(patches); err != nil {
 		return nil, err
 	}
-	if err := v.Patch(patch); err != nil {
+	if err := v.Patch(patch.Bytes()); err != nil {
 		return nil, fmt.Errorf("cannot safely edit native MCP entries")
 	}
 	out := v.Pack()
@@ -171,6 +176,83 @@ func entryHash(entry map[string]any) string {
 }
 
 func sameEntry(a, b map[string]any) bool { return entryHash(a) == entryHash(b) }
+
+// managedFields are the native fields Render writes, plus the switches that turn
+// a server off. Anything else, such as a timeout or envFile, belongs to the
+// Agent and survives synchronization.
+var managedFields = map[string][]string{
+	"claude":   {"type", "command", "args", "env", "url", "headers", "enabled", "disabled"},
+	"cursor":   {"type", "command", "args", "env", "url", "headers", "enabled", "disabled"},
+	"vscode":   {"type", "command", "args", "env", "url", "headers", "enabled", "disabled"},
+	"opencode": {"type", "command", "environment", "url", "headers", "enabled", "disabled"},
+	"codex":    {"command", "args", "env", "env_vars", "url", "http_headers", "env_http_headers", "bearer_token_env_var", "enabled", "disabled"},
+	"grok":     {"command", "args", "env", "url", "headers", "enabled", "disabled"},
+}
+
+// managedEntry is the part of a native entry that ownership hashes cover. It
+// drops defaults Render adds or omits (stdio/http type, empty collections,
+// enabled: true) and header name case, so hand-written equivalents match.
+func managedEntry(target string, entry map[string]any) map[string]any {
+	if entry == nil {
+		return nil
+	}
+	subset := map[string]any{}
+	for _, key := range managedFields[target] {
+		if value, ok := entry[key]; ok {
+			subset[key] = value
+		}
+	}
+	// Rendered entries use typed maps and slices; compare their JSON shape.
+	data, _ := json.Marshal(subset)
+	out := map[string]any{}
+	_ = json.Unmarshal(data, &out)
+	for key, value := range out {
+		switch v := value.(type) {
+		case map[string]any:
+			if len(v) == 0 {
+				delete(out, key)
+			} else if strings.Contains(key, "headers") {
+				lower := map[string]any{}
+				for name, item := range v {
+					lower[strings.ToLower(name)] = item
+				}
+				out[key] = lower
+			}
+		case []any:
+			if len(v) == 0 {
+				delete(out, key)
+			}
+		}
+	}
+	if out["enabled"] == true {
+		delete(out, "enabled")
+	}
+	if out["disabled"] == false {
+		delete(out, "disabled")
+	}
+	if kind := out["type"]; out["command"] != nil && kind == "stdio" || out["url"] != nil && (kind == "http" || kind == "streamable-http") {
+		delete(out, "type")
+	}
+	return out
+}
+
+// sectionDigest identifies only the MCP entries, so an Agent may rewrite its
+// other settings between preview and apply.
+func sectionDigest(n *Native) string {
+	data, _ := json.Marshal(n.Entries)
+	return digest(data)
+}
+
+// withAgentFields keeps the Agent-only fields of the current entry in a rewrite.
+func withAgentFields(target string, current, want map[string]any) map[string]any {
+	out := maps.Clone(want)
+	for key, value := range current {
+		if !slices.Contains(managedFields[target], key) {
+			out[key] = value
+		}
+	}
+	return out
+}
 
 func trimTrailingComments(data []byte, start, end int) int {
 	for end > start {

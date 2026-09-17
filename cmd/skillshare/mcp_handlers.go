@@ -135,15 +135,41 @@ func runMCPImport(service *mcp.Service, o mcpOptions) error {
 			return fmt.Errorf("MCP source entry exists; use --replace")
 		}
 		c.Server.Targets = o.targets
-		mutation := mcp.Mutation{Name: c.Name, Server: &c.Server}
 		selectedTargets := c.Server.Targets
 		if selectedTargets == nil {
 			selectedTargets = source.Targets
 		}
-		if c.From != "" && slices.Contains(selectedTargets, c.From) {
-			mutation.Resolutions = []mcp.Resolution{{Target: c.From, Name: c.Name, Action: "replace"}}
+		mutation, err := mcpImportMutation(service, c, selectedTargets, o)
+		if err != nil {
+			return err
 		}
 		return finishMCPMutation(service, mutation, o, time.Now())
 	}
 	return fmt.Errorf("MCP server %q not found in import", o.name)
+}
+
+// mcpImportMutation adopts the imported client's own entry when it already
+// matches and rewrites it only with --replace: a converted entry (a literal
+// token becoming an environment reference) would otherwise silently change an
+// Agent that works today.
+func mcpImportMutation(service *mcp.Service, c mcp.Candidate, targets []string, o mcpOptions) (mcp.Mutation, error) {
+	mutation := mcp.Mutation{Name: c.Name, Server: &c.Server, Replace: o.replace}
+	if c.From == "" || !slices.Contains(targets, c.From) {
+		return mutation, nil
+	}
+	if o.replace {
+		mutation.Resolutions = []mcp.Resolution{{Target: c.From, Name: c.Name, Action: "replace"}}
+		return mutation, nil
+	}
+	mutation.Resolutions = []mcp.Resolution{{Target: c.From, Name: c.Name, Action: "adopt"}}
+	p, err := service.PreviewMutation(mutation)
+	if err != nil {
+		return mutation, err
+	}
+	for _, change := range p.Changes {
+		if change.Target == c.From && change.Name == c.Name && change.Action == "conflict" {
+			return mutation, fmt.Errorf("%s already has %s with different settings, such as a literal token that import turned into an environment reference; set any reported variables, then rerun with --replace to rewrite it, or leave %s out of --target", c.From, c.Name, c.From)
+		}
+	}
+	return mutation, nil
 }

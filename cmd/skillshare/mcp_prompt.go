@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"slices"
 	"strings"
 	"time"
 
@@ -111,9 +110,9 @@ func mcpCandidateWizard(service *mcp.Service, c mcp.Candidate, o mcpOptions) err
 	for _, i := range selected {
 		c.Server.Targets = append(c.Server.Targets, mcp.Targets[i])
 	}
-	mutation := mcp.Mutation{Name: c.Name, Server: &c.Server, Replace: o.replace}
-	if c.From != "" && slices.Contains(c.Server.Targets, c.From) {
-		mutation.Resolutions = []mcp.Resolution{{Target: c.From, Name: c.Name, Action: "replace"}}
+	mutation, err := mcpImportMutation(service, c, c.Server.Targets, o)
+	if err != nil {
+		return err
 	}
 	p, err := service.PreviewMutation(mutation)
 	if err != nil {

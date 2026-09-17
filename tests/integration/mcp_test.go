@@ -116,3 +116,18 @@ func TestMCPImportIntoDifferentClient(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestMCPImportDoesNotRewriteSourceClientWithoutReplace(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	sb.WriteConfig("targets: {}\n")
+	path := filepath.Join(sb.Home, ".claude.json")
+	before := `{"mcpServers":{"github":{"type":"stdio","command":"github-mcp","env":{"GITHUB_TOKEN":"literal-token"}}}}`
+	if err := os.WriteFile(path, []byte(before), 0600); err != nil {
+		t.Fatal(err)
+	}
+	sb.RunCLI("mcp", "import", "github", "--from", "claude", "--target", "claude", "--sync", "-g").AssertFailure(t)
+	if sb.ReadFile(path) != before {
+		t.Fatal("import rewrote the working client entry without --replace")
+	}
+}

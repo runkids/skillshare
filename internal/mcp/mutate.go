@@ -3,6 +3,7 @@ package mcp
 import (
 	"bytes"
 	"fmt"
+	"path/filepath"
 
 	"gopkg.in/yaml.v3"
 )
@@ -94,11 +95,16 @@ func (s *Source) save() error {
 		return err
 	}
 	data := buffer.Bytes()
-	_, _, mode, err := safeRead(s.Path)
+	// Dotfile managers often symlink config.yaml; write its target so the link survives.
+	path := s.Path
+	if resolved, err := filepath.EvalSymlinks(path); err == nil {
+		path = resolved
+	}
+	_, _, mode, err := safeRead(path)
 	if err != nil {
 		return err
 	}
-	return atomicWrite(s.Path, data, mode)
+	return atomicWrite(path, data, mode)
 }
 
 func blockCollections(node *yaml.Node) {
@@ -129,7 +135,12 @@ func (s *Service) Mutate(m Mutation, revision string, sync bool) (*Result, error
 		return nil, err
 	}
 	var preview *Plan
-	if sync || revision != "" || len(m.Resolutions) > 0 {
+	if !sync && revision == "" && len(m.Resolutions) == 0 {
+		// Save only still refuses definitions that could never synchronize.
+		if _, _, err := s.render(source); err != nil {
+			return nil, err
+		}
+	} else {
 		p, err := s.previewResolved(source, m.Resolutions)
 		if err != nil {
 			return nil, err
@@ -162,12 +173,9 @@ func (s *Service) Mutate(m Mutation, revision string, sync bool) (*Result, error
 				return nil, fmt.Errorf("source saved; ownership changed, preview again")
 			}
 			for _, f := range preview.files {
-				if err := checkFile(f); err != nil {
-					return nil, fmt.Errorf("source saved; %w", err)
-				}
-				native, err := ParseNative(f.target, f.before)
+				_, _, _, native, err := refreshFile(f)
 				if err != nil {
-					return nil, err
+					return nil, fmt.Errorf("source saved; %w", err)
 				}
 				for _, r := range m.Resolutions {
 					if r.Target != f.target || native.Entries[r.Name] == nil {
@@ -177,7 +185,7 @@ func (s *Service) Mutate(m Mutation, revision string, sync bool) (*Result, error
 					if !ok || approved.Owner != source.ConfigPath {
 						continue
 					}
-					state.Entries[ownershipKey(f.path, r.Name)] = ownership{Owner: source.ConfigPath, Target: f.target, Path: f.path, Name: r.Name, Hash: entryHash(native.Entries[r.Name])}
+					state.Entries[ownershipKey(f.path, r.Name)] = ownership{Owner: source.ConfigPath, Target: f.target, Path: f.path, Name: r.Name, Hash: entryHash(managedEntry(f.target, native.Entries[r.Name]))}
 				}
 			}
 			if err := writeJSONFile(s.statePath(), state); err != nil {
@@ -199,7 +207,7 @@ func (s *Service) Mutate(m Mutation, revision string, sync bool) (*Result, error
 			return nil, fmt.Errorf("source saved; ownership changed, preview again")
 		}
 		for _, f := range preview.files {
-			if err := checkFile(f); err != nil {
+			if _, _, _, _, err := refreshFile(f); err != nil {
 				return nil, fmt.Errorf("source saved; %w", err)
 			}
 		}

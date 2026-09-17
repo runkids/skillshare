@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"os"
 	"strings"
 	"time"
 
@@ -14,13 +13,7 @@ import (
 )
 
 func (s *Server) mcpService() *mcp.Service {
-	service := &mcp.Service{ConfigPath: s.configPath(), ProjectRoot: s.projectRoot, StateDir: config.StateDir(), ConfigDirs: map[string]string{}}
-	for key, env := range map[string]string{"codex": "CODEX_HOME", "claude": "CLAUDE_CONFIG_DIR", "xdg": "XDG_CONFIG_HOME", "appdata": "APPDATA"} {
-		if value := strings.TrimSpace(os.Getenv(env)); value != "" {
-			service.ConfigDirs[key] = value
-		}
-	}
-	return service
+	return &mcp.Service{ConfigPath: s.configPath(), ProjectRoot: s.projectRoot, StateDir: config.StateDir(), ConfigDirs: mcp.ConfigDirsFromEnv()}
 }
 
 type mcpRequest struct {
@@ -55,11 +48,8 @@ func (s *Server) handleMCPList(w http.ResponseWriter, r *http.Request) {
 		writeError(w, 400, err.Error())
 		return
 	}
-	paths, err := service.ClientPaths()
-	if err != nil {
-		writeError(w, 400, err.Error())
-		return
-	}
+	// Unresolvable paths are omitted; selected targets report them via previewError.
+	paths := service.ClientPaths()
 	p, previewErr := service.Preview()
 	message := ""
 	if previewErr != nil {

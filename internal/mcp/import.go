@@ -3,6 +3,7 @@ package mcp
 import (
 	"encoding/json"
 	"fmt"
+	"net/url"
 	"regexp"
 	"strings"
 )
@@ -21,11 +22,21 @@ var sensitiveKey = regexp.MustCompile(`(?i)(token|secret|password|api.?key|autho
 var variableReference = regexp.MustCompile(`^\$\{(?:env:)?([A-Za-z_][A-Za-z0-9_]*)\}$`)
 var openCodeReference = regexp.MustCompile(`^\{env:([A-Za-z_][A-Za-z0-9_]*)\}$`)
 
+// hasURLPassword reports a URL with an embedded password, such as a database DSN.
+func hasURLPassword(value string) bool {
+	u, err := url.Parse(value)
+	if err != nil || u.User == nil {
+		return false
+	}
+	_, ok := u.User.Password()
+	return ok
+}
+
 func importValue(key, value string, warnings *[]string) Value {
 	if match := variableReference.FindStringSubmatch(value); match != nil {
 		return Value{FromEnv: match[1]}
 	}
-	if sensitiveKey.MatchString(key) {
+	if sensitiveKey.MatchString(key) || hasURLPassword(value) {
 		name := strings.ToUpper(regexp.MustCompile(`[^A-Za-z0-9_]`).ReplaceAllString(key, "_"))
 		if !envName.MatchString(name) {
 			name = "MCP_" + name
@@ -64,12 +75,12 @@ func Import(target string, data []byte, singleName string) ([]Candidate, error) 
 	for _, name := range sortedKeys(native.Entries) {
 		entry := native.Entries[name]
 		c := Candidate{Name: name, Problems: []string{}, Warnings: []string{}}
-		if target == "opencode" || target == "grok" {
-			if enabled, exists := entry["enabled"]; exists {
-				if enabled != true {
+		for key, active := range map[string]any{"enabled": true, "disabled": false} {
+			if value, exists := entry[key]; exists {
+				if value != active {
 					c.Problems = append(c.Problems, "Disabled servers cannot be imported as active connections")
 				}
-				delete(entry, "enabled")
+				delete(entry, key)
 			}
 		}
 		if target == "opencode" {
@@ -100,9 +111,10 @@ func Import(target string, data []byte, singleName string) ([]Candidate, error) 
 		if target == "codex" {
 			allowed = map[string]bool{"command": true, "args": true, "url": true, "env": true, "env_vars": true, "http_headers": true, "env_http_headers": true, "bearer_token_env_var": true}
 		}
+		// Agent-only fields such as timeouts stay in existing Agent entries on sync.
 		for _, key := range sortedKeys(entry) {
 			if !allowed[key] {
-				c.Problems = append(c.Problems, "Unsupported native field: "+key)
+				c.Warnings = append(c.Warnings, "Agent-specific field not imported: "+key)
 			}
 		}
 		for key, dest := range map[string]*string{"command": &c.Server.Command, "url": &c.Server.URL} {
@@ -119,7 +131,7 @@ func Import(target string, data []byte, singleName string) ([]Candidate, error) 
 			switch value {
 			case "stdio":
 				c.Server.Transport = "stdio"
-			case "http":
+			case "http", "streamable-http":
 				c.Server.Transport = "streamable-http"
 			default:
 				c.Problems = append(c.Problems, "Unsupported native transport")
@@ -214,6 +226,15 @@ func Import(target string, data []byte, singleName string) ([]Candidate, error) 
 		for _, arg := range c.Server.Args {
 			if strings.Contains(arg, "${") {
 				c.Problems = append(c.Problems, "Argument interpolation must be converted to a portable literal before importing")
+				break
+			}
+		}
+		// Arguments have no portable reference syntax, so credentials there can only be flagged.
+		for i, arg := range c.Server.Args {
+			key, value, assigned := strings.Cut(strings.TrimLeft(arg, "-"), "=")
+			flagWithValue := !assigned && strings.HasPrefix(arg, "-") && i+1 < len(c.Server.Args) && !strings.HasPrefix(c.Server.Args[i+1], "-")
+			if hasURLPassword(arg) || hasURLPassword(value) || sensitiveKey.MatchString(key) && (value != "" || flagWithValue) {
+				c.Warnings = append(c.Warnings, "An argument looks like a credential and is saved as plain text; use an environment variable if the server supports one")
 				break
 			}
 		}

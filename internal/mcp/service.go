@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"sort"
+	"strings"
 
 	"github.com/gofrs/flock"
 )
@@ -144,15 +145,25 @@ func sortedKeys[T any](m map[string]T) []string {
 	return keys
 }
 
-// ClientPaths exposes native destinations for the current scope.
-func (s *Service) ClientPaths() (map[string]string, error) {
+// ClientPaths exposes native destinations for the current scope. A client whose
+// path cannot be resolved is omitted; preview reports it when that client is used.
+func (s *Service) ClientPaths() map[string]string {
 	out := map[string]string{}
 	for _, target := range Targets {
-		path, err := s.nativePath(target)
-		if err != nil {
-			return nil, err
+		if path, err := s.nativePath(target); err == nil {
+			out[target] = path
 		}
-		out[target] = path
 	}
-	return out, nil
+	return out
+}
+
+// ConfigDirsFromEnv reads the Agent directory overrides Agents themselves honor.
+func ConfigDirsFromEnv() map[string]string {
+	dirs := map[string]string{}
+	for key, env := range map[string]string{"codex": "CODEX_HOME", "claude": "CLAUDE_CONFIG_DIR", "grok": "GROK_HOME", "xdg": "XDG_CONFIG_HOME", "appdata": "APPDATA"} {
+		if value := strings.TrimSpace(os.Getenv(env)); value != "" {
+			dirs[key] = value
+		}
+	}
+	return dirs
 }

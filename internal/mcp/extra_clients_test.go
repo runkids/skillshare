@@ -112,6 +112,8 @@ func TestAdditionalClientImportRejectsDisabled(t *testing.T) {
 	for target, data := range map[string]string{
 		"opencode": `{"mcp":{"docs":{"type":"remote","url":"https://example.com/mcp","enabled":false}}}`,
 		"grok":     "[mcp_servers.docs]\nurl='https://example.com/mcp'\nenabled=false\n",
+		"codex":    "[mcp_servers.docs]\nurl='https://example.com/mcp'\nenabled=false\n",
+		"cursor":   `{"mcpServers":{"docs":{"url":"https://example.com/mcp","disabled":true}}}`,
 	} {
 		items, err := Import(target, []byte(data), "")
 		if err != nil || len(items) != 1 || len(items[0].Problems) == 0 {

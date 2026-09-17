@@ -3,7 +3,6 @@ package mcp
 import (
 	"bytes"
 	"fmt"
-	"sort"
 
 	"github.com/pelletier/go-toml/v2"
 	"github.com/pelletier/go-toml/v2/unstable"
@@ -59,32 +58,61 @@ func (n *Native) editTOML(changes map[string]map[string]any) ([]byte, error) {
 	if parser.Error() != nil {
 		return nil, fmt.Errorf("cannot safely locate %s MCP tables", n.Target)
 	}
-	var out bytes.Buffer
-	pos := 0
-	for _, span := range spans {
-		if _, changed := changes[span.name]; span.name == "" || !changed {
-			continue
-		}
-		out.Write(n.data[pos:span.start])
-		pos = trimTrailingComments(n.data, span.start, span.end)
+	newline := []byte("\n")
+	if bytes.Contains(n.data, []byte("\r\n")) {
+		newline = []byte("\r\n")
 	}
-	out.Write(n.data[pos:])
-	names := make([]string, 0, len(changes))
-	for name := range changes {
-		names = append(names, name)
-	}
-	sort.Strings(names)
-	for _, name := range names {
-		if changes[name] == nil {
-			continue
-		}
+	encode := func(name string) ([]byte, error) {
 		encoded, err := toml.Marshal(map[string]any{"mcp_servers": map[string]any{name: changes[name]}})
 		if err != nil {
 			return nil, fmt.Errorf("cannot render %s MCP entry", n.Target)
 		}
 		// The parent table may already exist in the original file.
 		encoded = bytes.TrimPrefix(encoded, []byte("[mcp_servers]\n"))
-		out.WriteByte('\n')
+		return bytes.ReplaceAll(encoded, []byte("\n"), newline), nil
+	}
+	var out bytes.Buffer
+	pos := 0
+	written := map[string]bool{}
+	for _, span := range spans {
+		if _, changed := changes[span.name]; span.name == "" || !changed {
+			continue
+		}
+		out.Write(n.data[pos:span.start])
+		pos = trimTrailingComments(n.data, span.start, span.end)
+		// An update keeps the entry's position; its sub-tables are rendered with it.
+		if changes[span.name] != nil && !written[span.name] {
+			encoded, err := encode(span.name)
+			if err != nil {
+				return nil, err
+			}
+			out.Write(encoded)
+			written[span.name] = true
+		}
+	}
+	out.Write(n.data[pos:])
+	var added []string
+	for _, name := range sortedKeys(changes) {
+		if changes[name] != nil && !written[name] {
+			added = append(added, name)
+		}
+	}
+	// Removing or appending the last table must not accumulate blank lines.
+	if pos == len(n.data) || len(added) > 0 {
+		trimmed := bytes.TrimRight(out.Bytes(), "\r\n")
+		out.Truncate(len(trimmed))
+		if out.Len() > 0 {
+			out.Write(newline)
+		}
+	}
+	for _, name := range added {
+		encoded, err := encode(name)
+		if err != nil {
+			return nil, err
+		}
+		if out.Len() > 0 {
+			out.Write(newline)
+		}
 		out.Write(encoded)
 	}
 	result := out.Bytes()

@@ -48,3 +48,51 @@ func TestNativeRejectsMalformedOrDuplicateEntries(t *testing.T) {
 		}
 	}
 }
+
+func TestTOMLEditsKeepLayout(t *testing.T) {
+	for _, newline := range []string{"\n", "\r\n"} {
+		input := strings.ReplaceAll("model = 'example'\n\n[mcp_servers.docs]\nurl = 'https://old.example/mcp'\n\n[features]\nmulti_agent = true\n", "\n", newline)
+		n, err := ParseNative("codex", []byte(input))
+		if err != nil {
+			t.Fatal(err)
+		}
+		out, err := n.Edit(map[string]map[string]any{"docs": {"url": "https://example.com/mcp"}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		want := strings.ReplaceAll("model = 'example'\n\n[mcp_servers.docs]\nurl = 'https://example.com/mcp'\n\n[features]\nmulti_agent = true\n", "\n", newline)
+		if string(out) != want {
+			t.Fatalf("update moved or reformatted the entry:\n%q", out)
+		}
+	}
+}
+
+func TestTOMLRemoveThenAddDoesNotGrowBlankLines(t *testing.T) {
+	input := "model = 'example'\n"
+	data := []byte(input)
+	for i := 0; i < 2; i++ {
+		for _, entry := range []map[string]any{{"url": "https://example.com/mcp"}, nil} {
+			n, err := ParseNative("codex", data)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if data, err = n.Edit(map[string]map[string]any{"docs": entry}); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+	if string(data) != input {
+		t.Fatalf("got %q", data)
+	}
+}
+
+func TestJSONEditDoesNotEscapeHTML(t *testing.T) {
+	n, err := ParseNative("claude", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	out, err := n.Edit(map[string]map[string]any{"docs": {"url": "https://example.com/mcp?a=1&b=2"}})
+	if err != nil || !strings.Contains(string(out), "a=1&b=2") {
+		t.Fatalf("got %s: %v", out, err)
+	}
+}

@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"path/filepath"
 	"regexp"
 	"strings"
 )
@@ -50,6 +49,7 @@ type filePlan struct {
 	before, after []byte
 	exists        bool
 	mode          os.FileMode
+	section       string
 	changes       map[string]map[string]any
 }
 
@@ -71,8 +71,19 @@ func safeRead(path string) ([]byte, bool, os.FileMode, error) {
 }
 
 func (s *Service) loadLedger() (ledger, []byte, error) {
-	data, exists, _, err := safeRead(s.statePath())
 	state := ledger{Version: 1, Entries: map[string]ownership{}}
+	// Only writes recover an interrupted write, under the lock. Until then, read
+	// the ownership that recovery will record, byte for byte, so a preview's
+	// revision stays valid across that recovery.
+	pending, written, err := s.readPending()
+	if err != nil {
+		return state, nil, err
+	}
+	if written {
+		data, err := json.MarshalIndent(pending.State, "", "  ")
+		return pending.State, append(data, '\n'), err
+	}
+	data, exists, _, err := safeRead(s.statePath())
 	if err != nil {
 		return state, nil, err
 	}
@@ -84,13 +95,9 @@ func (s *Service) loadLedger() (ledger, []byte, error) {
 	return state, data, nil
 }
 
-// Preview reads source, ownership and native files without creating files.
+// Preview reads source, ownership and native files without writing. Writes
+// recover an interrupted operation first, while holding the lock.
 func (s *Service) Preview() (*Plan, error) {
-	if _, err := os.Stat(filepath.Join(s.StateDir, "mcp", "pending.json")); err == nil {
-		return nil, fmt.Errorf("an interrupted MCP operation needs recovery; run sync mcp again")
-	} else if !os.IsNotExist(err) {
-		return nil, err
-	}
 	source, err := LoadSource(s.ConfigPath)
 	if err != nil {
 		return nil, err
@@ -100,6 +107,41 @@ func (s *Service) Preview() (*Plan, error) {
 
 func (s *Service) previewSource(source *Source) (*Plan, error) {
 	return s.previewResolved(source, nil)
+}
+
+// render builds every native entry the source asks for, keyed by native path.
+func (s *Service) render(source *Source) (map[string]map[string]map[string]any, map[string]string, error) {
+	desired := map[string]map[string]map[string]any{}
+	targets := map[string]string{}
+	for _, name := range sortedKeys(source.Servers) {
+		server := source.Servers[name]
+		selected := server.Targets
+		if selected == nil {
+			selected = source.Targets
+		}
+		if len(selected) == 0 {
+			return nil, nil, fmt.Errorf("MCP %s has no targets; select at least one Agent", name)
+		}
+		for _, target := range selected {
+			if target == "grok" && (!grokServerName.MatchString(name) || strings.Contains(name, "__") || strings.HasSuffix(name, "_")) {
+				return nil, nil, fmt.Errorf("Grok MCP %s: use a name starting with a letter or underscore, containing only letters, digits, hyphens and single underscores, and not ending in underscore", name)
+			}
+			path, err := s.nativePath(target)
+			if err != nil {
+				return nil, nil, err
+			}
+			targets[path] = target
+			entry, err := Render(target, server)
+			if err != nil {
+				return nil, nil, fmt.Errorf("%s / %s: %w", target, name, err)
+			}
+			if desired[path] == nil {
+				desired[path] = map[string]map[string]any{}
+			}
+			desired[path][name] = entry
+		}
+	}
+	return desired, targets, nil
 }
 
 func (s *Service) previewResolved(source *Source, resolutions []Resolution) (*Plan, error) {
@@ -116,35 +158,9 @@ func (s *Service) previewResolved(source *Source, resolutions []Resolution) (*Pl
 		return nil, err
 	}
 	p := &Plan{SourcePath: source.Path, Changes: []Change{}, source: source, state: state, stateBytes: stateBytes}
-	desired := map[string]map[string]map[string]any{}
-	targets := map[string]string{}
-	for _, name := range sortedKeys(source.Servers) {
-		server := source.Servers[name]
-		selected := server.Targets
-		if selected == nil {
-			selected = source.Targets
-		}
-		if len(selected) == 0 {
-			return nil, fmt.Errorf("MCP %s has no targets; select at least one Agent", name)
-		}
-		for _, target := range selected {
-			if target == "grok" && (!grokServerName.MatchString(name) || strings.Contains(name, "__") || strings.HasSuffix(name, "_")) {
-				return nil, fmt.Errorf("Grok MCP %s: use a name starting with a letter or underscore, containing only letters, digits, hyphens and single underscores, and not ending in underscore", name)
-			}
-			path, err := s.nativePath(target)
-			if err != nil {
-				return nil, err
-			}
-			targets[path] = target
-			entry, err := Render(target, server)
-			if err != nil {
-				return nil, fmt.Errorf("%s / %s: %w", target, name, err)
-			}
-			if desired[path] == nil {
-				desired[path] = map[string]map[string]any{}
-			}
-			desired[path][name] = entry
-		}
+	desired, targets, err := s.render(source)
+	if err != nil {
+		return nil, err
 	}
 	for _, owned := range state.Entries {
 		if owned.Owner == source.ConfigPath {
@@ -167,8 +183,8 @@ func (s *Service) previewResolved(source *Source, resolutions []Resolution) (*Pl
 		if err != nil {
 			return nil, fmt.Errorf("%s: %w", path, err)
 		}
-		f := &filePlan{path: path, target: target, before: data, exists: exists, mode: mode, changes: map[string]map[string]any{}}
-		revision += path + fmt.Sprint(exists) + digest(data)
+		f := &filePlan{path: path, target: target, before: data, exists: exists, mode: mode, section: sectionDigest(native), changes: map[string]map[string]any{}}
+		revision += path + f.section
 		names := map[string]bool{}
 		for name := range desired[path] {
 			names[name] = true
@@ -182,7 +198,9 @@ func (s *Service) previewResolved(source *Source, resolutions []Resolution) (*Pl
 			key := ownershipKey(path, name)
 			owned, managed := state.Entries[key]
 			current := native.Entries[name]
+			currentHash := entryHash(managedEntry(target, current))
 			want := desired[path][name]
+			wantHash := entryHash(managedEntry(target, want))
 			for _, resolution := range resolutions {
 				if resolution.Target != target || resolution.Name != name {
 					continue
@@ -191,13 +209,12 @@ func (s *Service) previewResolved(source *Source, resolutions []Resolution) (*Pl
 				if managed && owned.Owner != source.ConfigPath {
 					break
 				}
-				if resolution.Action != "replace" && resolution.Action != "adopt" {
-					return nil, fmt.Errorf("unknown conflict resolution")
+				// adopt claims only an entry that already matches; anything else
+				// stays a conflict for an explicit replace.
+				if resolution.Action == "adopt" && currentHash != wantHash {
+					continue
 				}
-				if resolution.Action == "adopt" && !sameEntry(current, want) {
-					return nil, fmt.Errorf("%s / %s differs from the imported source; preview an explicit replacement", target, name)
-				}
-				owned = ownership{Owner: source.ConfigPath, Target: target, Path: path, Name: name, Hash: entryHash(current)}
+				owned = ownership{Owner: source.ConfigPath, Target: target, Path: path, Name: name, Hash: currentHash}
 				managed = true
 				p.state.Entries[key] = owned
 			}
@@ -205,7 +222,19 @@ func (s *Service) previewResolved(source *Source, resolutions []Resolution) (*Pl
 			switch {
 			case managed && owned.Owner != source.ConfigPath:
 				change.Action, change.Message = "conflict", "managed by another Skillshare config"
-			case managed && entryHash(current) != owned.Hash:
+			case currentHash == wantHash:
+				// Already as desired, e.g. after pulling a teammate's change or
+				// moving a project. Refresh an owned baseline, but never claim an
+				// unmanaged entry: removing the server must not delete the user's own.
+				if want == nil {
+					delete(p.state.Entries, key)
+					continue
+				}
+				change.Action = "unchanged"
+				if managed {
+					p.state.Entries[key] = ownership{Owner: source.ConfigPath, Target: target, Path: path, Name: name, Hash: currentHash}
+				}
+			case managed && currentHash != owned.Hash:
 				change.Action, change.Message = "conflict", "Agent configuration changed; import it or explicitly replace this entry"
 			case !managed && current != nil:
 				change.Action, change.Message = "conflict", "existing entry is not managed; import it to explicitly adopt it"
@@ -213,15 +242,13 @@ func (s *Service) previewResolved(source *Source, resolutions []Resolution) (*Pl
 				change.Action = "remove"
 				f.changes[name] = nil
 				delete(p.state.Entries, key)
-			case sameEntry(current, want):
-				change.Action = "unchanged"
 			default:
 				change.Action = "add"
 				if managed {
 					change.Action = "update"
 				}
-				f.changes[name] = want
-				p.state.Entries[key] = ownership{Owner: source.ConfigPath, Target: target, Path: path, Name: name, Hash: entryHash(want)}
+				f.changes[name] = withAgentFields(target, current, want)
+				p.state.Entries[key] = ownership{Owner: source.ConfigPath, Target: target, Path: path, Name: name, Hash: wantHash}
 			}
 			if change.Action == "conflict" {
 				p.Blocked = true

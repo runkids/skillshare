@@ -46,7 +46,7 @@ func (s *Service) PreviewRestore(id string) (*Plan, error) {
 		return nil, err
 	}
 	p := &Plan{SourcePath: source.Path, source: source, state: state, stateBytes: stateBytes, Changes: []Change{}}
-	f := &filePlan{path: backup.Path, target: backup.Target, before: before, exists: exists, mode: mode, changes: backup.Before}
+	f := &filePlan{path: backup.Path, target: backup.Target, before: before, exists: exists, mode: mode, section: sectionDigest(native), changes: backup.Before}
 	for _, name := range sortedKeys(backup.Before) {
 		key := ownershipKey(backup.Path, name)
 		change := Change{Target: backup.Target, Path: backup.Path, Name: name, Action: "restore"}
@@ -69,7 +69,7 @@ func (s *Service) PreviewRestore(id string) (*Plan, error) {
 		}
 	}
 	p.files = []*filePlan{f}
-	p.Revision = digest([]byte(digest(data) + digest(before) + digest(stateBytes) + digest(source.configBytes) + digest(source.bytes)))
+	p.Revision = digest([]byte(digest(data) + f.section + digest(stateBytes) + digest(source.configBytes) + digest(source.bytes)))
 	return p, nil
 }
 
