@@ -93,7 +93,7 @@ export default function Tooltip({ children, content, side = 'bottom', followCurs
       {pos && createPortal(
         <div
           ref={tooltipRef}
-          className="ss-tooltip fixed z-[9999] max-w-sm whitespace-pre-line bg-pencil text-paper text-xs px-2.5 py-1.5 shadow-lg pointer-events-none animate-fade-in rounded-[var(--radius-sm)]"
+          className="ss-tip fixed z-[9999] max-w-sm whitespace-pre-line pointer-events-none animate-fade-in"
           style={{ left: 0, top: 0, visibility: 'hidden' }}
         >
           {content}

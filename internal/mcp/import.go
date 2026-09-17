@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/tailscale/hujson"
+	"gopkg.in/yaml.v3"
 )
 
 // Candidate is a portable import draft. Problems block saving, warnings describe
@@ -55,12 +56,47 @@ func importValue(key, value string, warnings *[]string) Value {
 func detectJSONFormat(data []byte) string {
 	v, err := hujson.Parse(data)
 	if err != nil {
+		var doc yaml.Node
+		if parseYAML(data, &doc) == nil && field(&doc, "extensions") != nil {
+			return "goose"
+		}
 		return "claude" // ParseNative reports the syntax error.
 	}
 	v.Standardize()
 	var document map[string]json.RawMessage
 	_ = json.Unmarshal(v.Pack(), &document)
-	for _, target := range []string{"claude", "vscode", "opencode"} {
+	if _, ok := document["serverUrl"]; ok {
+		return "antigravity"
+	}
+	if _, ok := document["httpUrl"]; ok {
+		return "gemini"
+	}
+	var servers map[string]map[string]any
+	if json.Unmarshal(document["mcpServers"], &servers) == nil {
+		for _, entry := range servers {
+			if entry["type"] == "streamableHttp" {
+				return "cline"
+			}
+			if entry["type"] == "local" {
+				return "copilot"
+			}
+			if _, ok := entry["httpUrl"]; ok {
+				return "gemini"
+			}
+			if _, ok := entry["serverUrl"]; ok {
+				return "antigravity"
+			}
+		}
+	}
+	var kind string
+	_ = json.Unmarshal(document["type"], &kind)
+	if kind == "streamableHttp" {
+		return "cline"
+	}
+	if kind == "local" && document["command"] != nil {
+		return "copilot"
+	}
+	for _, target := range []string{"goose", "amp", "claude", "vscode", "opencode"} {
 		if _, ok := document[nativeKey(target)]; ok {
 			return target
 		}
@@ -77,14 +113,14 @@ func Import(target string, data []byte, singleName string) ([]Candidate, error) 
 	if err != nil {
 		return nil, err
 	}
-	if len(native.Entries) == 0 && singleName != "" && !isTOMLTarget(target) {
+	if len(native.Entries) == 0 && singleName != "" && !isTOMLTarget(target) && target != "goose" {
 		v := native.json.Clone()
 		v.Standardize()
 		var entry map[string]any
 		if json.Unmarshal(v.Pack(), &entry) != nil {
 			return nil, fmt.Errorf("invalid server JSON")
 		}
-		if entry["command"] == nil && entry["url"] == nil {
+		if entry["command"] == nil && entry["url"] == nil && entry["serverUrl"] == nil && entry["httpUrl"] == nil {
 			return nil, fmt.Errorf("no MCP entries found")
 		}
 		native.Entries[singleName] = entry
@@ -96,6 +132,18 @@ func Import(target string, data []byte, singleName string) ([]Candidate, error) 
 	for _, name := range sortedKeys(native.Entries) {
 		entry := native.Entries[name]
 		c := Candidate{Name: name, Problems: []string{}, Warnings: []string{}}
+		normalizeClientImport(target, entry, &c)
+		if target == "antigravity" {
+			if value, exists := entry["serverUrl"]; exists {
+				if entry["url"] != nil {
+					c.Problems = append(c.Problems, "Antigravity requires serverUrl, not both url and serverUrl")
+				}
+				entry["url"] = value
+				delete(entry, "serverUrl")
+			} else if entry["url"] != nil {
+				c.Problems = append(c.Problems, "Antigravity remote servers require serverUrl")
+			}
+		}
 		for key, active := range map[string]any{"enabled": true, "disabled": false} {
 			if value, exists := entry[key]; exists {
 				if value != active {

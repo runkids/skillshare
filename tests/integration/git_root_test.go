@@ -214,7 +214,7 @@ func TestGitRoot_PushCoversAgents(t *testing.T) {
 }
 
 // pull with git_root=root brings remote changes under agents/ into the root
-// working tree (not just skills/).
+// working tree (not just skills/) and syncs them to targets.
 func TestGitRoot_PullRootScope(t *testing.T) {
 	requireWorkingGit(t)
 
@@ -227,7 +227,9 @@ func TestGitRoot_PullRootScope(t *testing.T) {
 	grMkdir(t, skills)
 	grMkdir(t, agents)
 
-	sb.WriteConfig("git_root: root\nsources:\n  skills: " + skills + "\n  agents: " + agents + "\ntargets: {}\n")
+	claudeAgents := createAgentTarget(t, sb, "claude")
+	sb.WriteConfig("git_root: root\nsources:\n  skills: " + skills + "\n  agents: " + agents +
+		"\ntargets:\n  claude:\n    skills:\n      path: " + sb.CreateTarget("claude") + "\n    agents:\n      path: " + claudeAgents + "\n")
 
 	bareRepo := testutil.SetupBareRemoteRepo(t, t.TempDir())
 
@@ -257,6 +259,10 @@ func TestGitRoot_PullRootScope(t *testing.T) {
 
 	if _, err := os.Stat(filepath.Join(agents, "remote-agent.md")); err != nil {
 		t.Errorf("expected agents/remote-agent.md after pull at root scope: %v", err)
+	}
+	// The root scope holds agents too, so pull syncs them to targets.
+	if _, err := os.Lstat(filepath.Join(claudeAgents, "remote-agent.md")); err != nil {
+		t.Errorf("expected remote-agent.md synced to the claude agents target: %v", err)
 	}
 }
 

@@ -27,6 +27,7 @@ interface DialogShellProps {
   onClose: () => void;
   children: ReactNode;
   maxWidth?: keyof typeof maxWidthClass;
+  /** Use "none" with the .dh / .db / .df sections for the standard header, body and footer */
   padding?: keyof typeof paddingClass;
   /** Prevent close on Escape / backdrop click (e.g. during loading) */
   preventClose?: boolean;
@@ -67,7 +68,7 @@ export default function DialogShell({
 
   return createPortal(
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      className="ss-scrim p-4"
       role="dialog"
       aria-modal="true"
       aria-label={ariaLabel}
@@ -75,13 +76,9 @@ export default function DialogShell({
         if (e.target === e.currentTarget && !preventClose) onClose();
       }}
     >
-      {/* Backdrop */}
-      <div className="ss-dialog-backdrop absolute inset-0 bg-pencil/30 backdrop-blur-[2px]" />
-
-      {/* Content */}
       <div
         ref={trapRef as RefObject<HTMLDivElement>}
-        className={`ss-dialog relative w-full ${maxWidthClass[maxWidth]} bg-surface border-2 border-pencil ${paddingClass[padding]} animate-dialog-in rounded-[var(--radius-md)] ${className}`}
+        className={`ss-dlg relative w-full max-h-[calc(100vh-2rem)] ${maxWidthClass[maxWidth]} ${paddingClass[padding]} animate-dialog-in ${className}`}
       >
         {children}
       </div>

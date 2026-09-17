@@ -1,569 +1,238 @@
-import { useState, useMemo, useCallback, useEffect } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, ArrowRight, Check, FolderPlus } from 'lucide-react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
 import { queryKeys, staleTimes } from '../lib/queryKeys';
-import Card from '../components/Card';
 import Button from '../components/Button';
+import CodeView from '../components/CodeView';
 import PageHeader from '../components/PageHeader';
-import { Input } from '../components/Input';
+import { Checkbox, Select } from '../components/Input';
 import { PageSkeleton } from '../components/Skeleton';
 import { useToast } from '../components/Toast';
 import { api } from '../api/client';
-import type { SkillPattern, SkillCategory } from '../api/client';
 import { useT } from '../i18n';
 
-/* -- Step definitions -------------------------------- */
-
-type StepId = 'name' | 'pattern' | 'category' | 'scaffold' | 'confirm';
-
-function computeSteps(selectedPattern: SkillPattern | null): StepId[] {
-  const steps: StepId[] = ['name', 'pattern'];
-  if (selectedPattern && selectedPattern.name !== 'none') {
-    steps.push('category');
-    if (selectedPattern.scaffoldDirs.length > 0) {
-      steps.push('scaffold');
-    }
-  }
-  steps.push('confirm');
-  return steps;
-}
-
-/* -- Name validation --------------------------------- */
-
 const NAME_REGEX = /^[a-z_][a-z0-9_-]*$/;
-
-// Validation uses i18n keys resolved at call site
-const VALIDATION_KEYS = {
-  required: 'newSkill.name.validation.required',
-  format: 'newSkill.name.validation.format',
-  alreadyExists: 'newSkill.name.validation.alreadyExists',
-} as const;
-
-function validateNameKey(name: string, existingNames: Set<string>): string | null {
-  if (!name) return VALIDATION_KEYS.required;
-  if (!NAME_REGEX.test(name)) return VALIDATION_KEYS.format;
-  if (existingNames.has(name)) return VALIDATION_KEYS.alreadyExists;
-  return null;
-}
-
-/* -- Main wizard component --------------------------- */
+const MAX_DESCRIPTION = 1024;
+// Display order for scaffold folders; the blank template may create any of them
+const DIR_ORDER = ['scripts', 'references', 'assets'];
 
 export default function NewSkillPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const t = useT();
-  // Form state
   const [name, setName] = useState('');
-  const [selectedPattern, setSelectedPattern] = useState<SkillPattern | null>(null);
-  const [selectedCategory, setSelectedCategory] = useState<SkillCategory | null>(null);
-  const [scaffoldDirs, setScaffoldDirs] = useState<Set<string>>(new Set());
+  const [description, setDescription] = useState('');
+  const [patternName, setPatternName] = useState('none');
+  const [category, setCategory] = useState('');
+  const [dirs, setDirs] = useState<Set<string>>(new Set());
+  const [into, setInto] = useState('');
   const [creating, setCreating] = useState(false);
 
-  // Step navigation
-  const [stepIndex, setStepIndex] = useState(0);
-
-  // Fetch templates
-  const { data: templatesData, isPending: templatesPending } = useQuery({
+  const { data: templates, isPending } = useQuery({
     queryKey: queryKeys.templates,
     queryFn: () => api.getTemplates(),
     staleTime: staleTimes.config,
   });
-
-  // Fetch existing skills for duplicate check
   const { data: skillsData } = useQuery({
     queryKey: queryKeys.skills.all,
     queryFn: () => api.listSkills(),
     staleTime: staleTimes.skills,
   });
+  const { data: overview } = useQuery({
+    queryKey: queryKeys.overview,
+    queryFn: () => api.getOverview(),
+    staleTime: staleTimes.overview,
+  });
 
-  const existingNames = useMemo(() => {
-    const names = new Set<string>();
-    if (skillsData?.resources) {
-      for (const s of skillsData.resources) {
-        names.add(s.name);
-      }
+  const skills = useMemo(() => (skillsData?.resources ?? []).filter((r) => r.kind === 'skill'), [skillsData]);
+  // Folders that already hold local skills. Tracked repos are git clones, so new skills stay out of them
+  const folders = useMemo(() => {
+    const set = new Set<string>();
+    for (const r of skills) {
+      if (r.isInRepo) continue;
+      const parts = r.relPath.split('/').slice(0, -1);
+      parts.forEach((_, i) => set.add(parts.slice(0, i + 1).join('/')));
     }
-    return names;
-  }, [skillsData]);
+    return [...set].sort();
+  }, [skills]);
 
-  const patterns = templatesData?.patterns ?? [];
-  const categories = templatesData?.categories ?? [];
+  const patterns = useMemo(
+    () => [...(templates?.patterns ?? [])].sort((a, b) => Number(b.name === 'none') - Number(a.name === 'none')),
+    [templates],
+  );
+  const pattern = patterns.find((p) => p.name === patternName);
+  const allDirs = useMemo(() => new Set(patterns.flatMap((p) => p.scaffoldDirs)), [patterns]);
+  const dirOptions = DIR_ORDER.filter((d) => (pattern?.scaffoldDirs.length ? pattern.scaffoldDirs : [...allDirs]).includes(d));
 
-  // Compute dynamic steps
-  const steps = useMemo(() => computeSteps(selectedPattern), [selectedPattern]);
-  const currentStep = steps[stepIndex] ?? 'name';
+  const relPath = into ? `${into}/${name}` : name;
+  const nameError = !name
+    ? null
+    : !NAME_REGEX.test(name)
+      ? t('newSkill.name.validation.format')
+      : skills.some((r) => r.relPath === relPath)
+        ? t('newSkill.name.validation.alreadyExists')
+        : null;
+  const tooLong = description.length > MAX_DESCRIPTION;
+  const canCreate = name !== '' && !nameError && !tooLong && !creating;
 
-  // When pattern changes, reset downstream state
-  const handlePatternSelect = useCallback((pattern: SkillPattern) => {
-    setSelectedPattern(pattern);
-    setSelectedCategory(null);
-    setScaffoldDirs(new Set(pattern.scaffoldDirs));
-  }, []);
-
-  // Toggle a scaffold directory
-  const toggleScaffoldDir = useCallback((dir: string) => {
-    setScaffoldDirs((prev) => {
-      const next = new Set(prev);
-      if (next.has(dir)) next.delete(dir);
-      else next.add(dir);
-      return next;
-    });
-  }, []);
-
-  // Step validation
-  const nameErrorKey = useMemo(() => {
-    if (!name) return null; // Don't show error for empty (user hasn't typed yet)
-    return validateNameKey(name, existingNames);
-  }, [name, existingNames]);
-  const nameError = nameErrorKey ? t(nameErrorKey) : null;
-
-  const canAdvance = useMemo(() => {
-    switch (currentStep) {
-      case 'name':
-        return name.length > 0 && nameErrorKey === null;
-      case 'pattern':
-        return selectedPattern !== null;
-      case 'category':
-      case 'scaffold':
-      case 'confirm':
-        return true;
-      default:
-        return false;
-    }
-  }, [currentStep, name, nameError, selectedPattern]);
-
-  // Navigation
-  const goNext = useCallback(() => {
-    if (stepIndex < steps.length - 1) {
-      setStepIndex(stepIndex + 1);
-      window.history.pushState({ step: stepIndex + 1 }, '');
-    }
-  }, [stepIndex, steps.length]);
-
-  const goBack = useCallback(() => {
-    if (stepIndex > 0) {
-      setStepIndex(stepIndex - 1);
-    } else {
-      navigate('/resources');
-    }
-  }, [stepIndex, navigate]);
-
-  // Listen for browser back button
+  // The preview comes from the server's own template, debounced while typing
+  const request = { name: name && !nameError ? name : 'my-skill', pattern: patternName, category: pattern?.name !== 'none' ? category : '', description, into };
+  const requestKey = JSON.stringify(request);
+  const [previewRequest, setPreviewRequest] = useState(request);
   useEffect(() => {
-    const handler = (e: PopStateEvent) => {
-      const step = e.state?.step;
-      if (typeof step === 'number') {
-        setStepIndex(step);
-      } else {
-        setStepIndex(0);
-      }
-    };
-    window.addEventListener('popstate', handler);
-    return () => window.removeEventListener('popstate', handler);
-  }, []);
+    const timer = window.setTimeout(() => setPreviewRequest(JSON.parse(requestKey)), 250);
+    return () => window.clearTimeout(timer);
+  }, [requestKey]);
+  const { data: preview } = useQuery({
+    queryKey: queryKeys.skillPreview(previewRequest),
+    queryFn: () => api.previewSkill(previewRequest),
+    placeholderData: keepPreviousData,
+    enabled: !tooLong,
+  });
 
-  // Push initial history entry on mount
-  useEffect(() => {
-    window.history.replaceState({ step: 0 }, '');
-  }, []);
+  const pickPattern = (next: string) => {
+    setPatternName(next);
+    setDirs(new Set(patterns.find((p) => p.name === next)?.scaffoldDirs ?? []));
+  };
 
-  // Create skill
-  const handleCreate = async () => {
+  const toggleDir = (dir: string) => {
+    const next = new Set(dirs);
+    if (next.has(dir)) next.delete(dir);
+    else next.add(dir);
+    setDirs(next);
+  };
+
+  const create = async () => {
+    if (!canCreate) return;
     setCreating(true);
     try {
-      const res = await api.createSkill({
-        name,
-        pattern: selectedPattern?.name ?? 'none',
-        category: selectedCategory?.key,
-        scaffoldDirs: selectedPattern && selectedPattern.scaffoldDirs.length > 0
-          ? [...scaffoldDirs]
-          : undefined,
-      });
+      const res = await api.createSkill({ ...request, name, scaffoldDirs: dirOptions.filter((d) => dirs.has(d)) });
       queryClient.invalidateQueries({ queryKey: queryKeys.skills.all });
       queryClient.invalidateQueries({ queryKey: queryKeys.overview });
       toast(t('newSkill.toast.created', { name: res.skill.name }), 'success');
-      navigate(`/resources/${encodeURIComponent(res.skill.flatName)}`);
-    } catch (e: unknown) {
+      navigate(`/skills/${encodeURIComponent(res.skill.flatName)}`);
+    } catch (e) {
       toast((e as Error).message, 'error');
-    } finally {
       setCreating(false);
     }
   };
 
-  if (templatesPending) return <PageSkeleton />;
+  if (isPending) return <PageSkeleton />;
+
+  const sourceDir = overview?.source.replace(/\/+$/, '').split('/').pop() || 'skills';
 
   return (
-    <div className="space-y-5 animate-fade-in">
+    <div className="animate-fade-in">
       <PageHeader
-        icon={<></>}
         title={t('newSkill.title')}
-        backTo="/resources"
+        subtitle={t('newSkill.subtitle')}
+        crumbs={[{ label: t('layout.nav.skills'), to: '/skills' }, { label: t('newSkill.title') }]}
       />
 
-      {/* Progress bar */}
-      <ProgressBar current={stepIndex} steps={steps} />
+      <div className="grid grid-cols-2 items-start gap-12">
+        <form className="flex min-w-0 flex-col gap-[22px]" onSubmit={(e) => { e.preventDefault(); void create(); }}>
+          <div className="ss-fld">
+            <label htmlFor="new-skill-name">{t('newSkill.name.label')}</label>
+            <span className="ss-inp">
+              <input
+                id="new-skill-name"
+                autoFocus
+                value={name}
+                placeholder={t('newSkill.name.placeholder')}
+                onChange={(e) => setName(e.target.value.toLowerCase())}
+                aria-invalid={nameError ? true : undefined}
+              />
+            </span>
+            <span className="hp">
+              {nameError ? <span className="text-bad">{nameError}</span> : name && <span className="text-ok">{t('newSkill.name.available')}</span>}{' '}
+              {t('newSkill.name.hint')}
+            </span>
+          </div>
 
-      {/* Step content */}
-      <div>
-        {currentStep === 'name' && (
-          <NameStep
-            value={name}
-            onChange={setName}
-            error={nameError}
-          />
-        )}
-        {currentStep === 'pattern' && (
-          <PatternStep
-            patterns={patterns}
-            selected={selectedPattern}
-            onSelect={handlePatternSelect}
-          />
-        )}
-        {currentStep === 'category' && (
-          <CategoryStep
-            categories={categories}
-            selected={selectedCategory}
-            onSelect={setSelectedCategory}
-          />
-        )}
-        {currentStep === 'scaffold' && selectedPattern && (
-          <ScaffoldStep
-            dirs={selectedPattern.scaffoldDirs}
-            selected={scaffoldDirs}
-            onToggle={toggleScaffoldDir}
-          />
-        )}
-        {currentStep === 'confirm' && (
-          <ConfirmStep
-            name={name}
-            pattern={selectedPattern}
-            category={selectedCategory}
-            scaffoldDirs={scaffoldDirs}
-          />
-        )}
-      </div>
+          <div className="ss-fld">
+            <label htmlFor="new-skill-description">
+              {t('newSkill.description.label')}{' '}
+              <span className={`font-normal ${tooLong ? 'text-bad' : 'text-ink-3'}`}>· {description.length} / {MAX_DESCRIPTION}</span>
+            </label>
+            <textarea
+              id="new-skill-description"
+              className="ss-inp area min-h-[84px] resize-y outline-none"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+            />
+            <span className="hp">{t('newSkill.description.hint')}</span>
+          </div>
 
-      {/* Navigation buttons */}
-      <div className="flex items-center justify-between">
-        <Button variant="secondary" onClick={goBack}>
-          <ArrowLeft size={16} strokeWidth={2.5} />
-          {t('newSkill.back')}
-        </Button>
-        {currentStep === 'confirm' ? (
-          <Button
-            variant="primary"
-            onClick={handleCreate}
-            loading={creating}
-            disabled={!canAdvance}
-          >
-            {!creating && <Check size={16} strokeWidth={2.5} />}
-            {t('newSkill.createSkill')}
-          </Button>
-        ) : (
-          <Button
-            variant="primary"
-            onClick={goNext}
-            disabled={!canAdvance}
-          >
-            {t('newSkill.next')}
-            <ArrowRight size={16} strokeWidth={2.5} />
-          </Button>
-        )}
-      </div>
-    </div>
-  );
-}
-
-/* -- Progress bar ------------------------------------ */
-
-function ProgressBar({ current, steps }: { current: number; steps: StepId[] }) {
-  const t = useT();
-  const total = steps.length;
-  const labels: Record<StepId, string> = {
-    name: t('newSkill.step.name'),
-    pattern: t('newSkill.step.pattern'),
-    category: t('newSkill.step.category'),
-    scaffold: t('newSkill.step.scaffold'),
-    confirm: t('newSkill.step.confirm'),
-  };
-
-  return (
-    <div>
-      {/* Step labels */}
-      <div className="flex items-center justify-between mb-2">
-        {steps.map((step, i) => (
-          <span
-            key={step}
-            className={`text-sm font-medium ${
-              i === current ? 'text-pencil' : i < current ? 'text-pencil-light' : 'text-muted-dark'
-            }`}
-          >
-            {labels[step]}
-          </span>
-        ))}
-      </div>
-      {/* Bar */}
-      <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
-        <div
-          className="h-full bg-pencil rounded-full transition-all duration-300"
-          style={{ width: `${((current + 1) / total) * 100}%` }}
-        />
-      </div>
-      <p className="text-sm text-pencil-light mt-1">
-        {t('newSkill.progress.stepOf', { current: current + 1, total })}
-      </p>
-    </div>
-  );
-}
-
-/* -- Step: Name -------------------------------------- */
-
-function NameStep({
-  value,
-  onChange,
-  error,
-}: {
-  value: string;
-  onChange: (v: string) => void;
-  error: string | null;
-}) {
-  const t = useT();
-  return (
-    <Card>
-      <h3 className="text-lg font-bold text-pencil mb-1">{t('newSkill.name.title')}</h3>
-      <p className="text-pencil-light text-sm mb-4">
-        {t('newSkill.name.subtitle')}
-      </p>
-      <Input
-        type="text"
-        placeholder={t('newSkill.name.placeholder')}
-        value={value}
-        onChange={(e) => onChange(e.target.value.toLowerCase())}
-        autoFocus
-      />
-      {error && (
-        <p className="text-danger text-sm mt-2">{error}</p>
-      )}
-      {value && !error && (
-        <p className="text-success text-sm mt-2">{t('newSkill.name.available')}</p>
-      )}
-    </Card>
-  );
-}
-
-/* -- Step: Pattern ----------------------------------- */
-
-function PatternStep({
-  patterns,
-  selected,
-  onSelect,
-}: {
-  patterns: SkillPattern[];
-  selected: SkillPattern | null;
-  onSelect: (p: SkillPattern) => void;
-}) {
-  const t = useT();
-  return (
-    <div>
-      <h3 className="text-lg font-bold text-pencil mb-1">{t('newSkill.pattern.title')}</h3>
-      <p className="text-pencil-light text-sm mb-4">
-        {t('newSkill.pattern.subtitle')}
-      </p>
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-        {patterns.map((p) => (
-          <button
-            key={p.name}
-            type="button"
-            onClick={() => onSelect(p)}
-            className={`
-              ss-card text-left p-4 border-2 cursor-pointer transition-all duration-150
-              rounded-[var(--radius-md)]
-              ${selected?.name === p.name
-                ? 'border-pencil shadow-md'
-                : 'border-muted bg-surface hover:border-muted-dark hover:shadow-sm'
-              }
-            `}
-          >
-            <h4 className="font-bold text-pencil text-base mb-1">{t(`newSkill.pattern.${p.name}.label`, {}, p.name)}</h4>
-            <p className="text-pencil-light text-sm leading-snug">{t(`newSkill.pattern.${p.name}.description`, {}, p.description)}</p>
-            {p.scaffoldDirs.length > 0 && (
-              <div className="flex flex-wrap gap-1 mt-2">
-                {p.scaffoldDirs.map((d) => (
-                  <span key={d} className="text-xs bg-muted text-pencil-light px-1.5 py-0.5 rounded-[var(--radius-sm)]">
-                    {d}/
+          <div className="ss-fld">
+            <span id="new-skill-pattern" className="text-[13px] font-semibold">{t('newSkill.pattern.label')}</span>
+            <div role="radiogroup" aria-labelledby="new-skill-pattern" className="grid grid-cols-2 gap-2">
+              {patterns.map((p) => (
+                <button
+                  key={p.name}
+                  type="button"
+                  role="radio"
+                  aria-checked={p.name === patternName}
+                  className={`ss-pick text-left ${p.name === patternName ? 'on' : ''}`}
+                  onClick={() => pickPattern(p.name)}
+                >
+                  <span className={`ss-chk rad ${p.name === patternName ? 'on' : ''}`} />
+                  <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                    <span className="font-semibold">{t(`newSkill.pattern.${p.name}.label`, {}, p.name)}</span>
+                    <span className="text-[13px] text-ink-2">{t(`newSkill.pattern.${p.name}.description`, {}, p.description)}</span>
                   </span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {patternName !== 'none' && (
+            <div className="ss-fld">
+              <span className="text-[13px] font-semibold">{t('newSkill.category.label')}</span>
+              <Select
+                value={category}
+                onChange={setCategory}
+                options={[
+                  { value: '', label: t('newSkill.category.noCategory') },
+                  ...(templates?.categories ?? []).map((c) => ({ value: c.key, label: t(`newSkill.category.${c.key}.label`, {}, c.label) })),
+                ]}
+              />
+            </div>
+          )}
+
+          {dirOptions.length > 0 && (
+            <div role="group" aria-labelledby="new-skill-dirs" className="flex flex-col gap-1.5">
+              <span id="new-skill-dirs" className="text-[13px] font-semibold">{t('newSkill.folders.label')}</span>
+              <div className="flex flex-wrap gap-[18px]">
+                {dirOptions.map((d) => (
+                  <Checkbox key={d} label={`${d}/`} checked={dirs.has(d)} onChange={() => toggleDir(d)} className="font-mono text-[13px]" />
                 ))}
               </div>
-            )}
-          </button>
-        ))}
-      </div>
-    </div>
-  );
-}
+            </div>
+          )}
 
-/* -- Step: Category ---------------------------------- */
-
-function CategoryStep({
-  categories,
-  selected,
-  onSelect,
-}: {
-  categories: SkillCategory[];
-  selected: SkillCategory | null;
-  onSelect: (c: SkillCategory | null) => void;
-}) {
-  const t = useT();
-  return (
-    <div>
-      <h3 className="text-lg font-bold text-pencil mb-1">{t('newSkill.category.title')}</h3>
-      <p className="text-pencil-light text-sm mb-4">
-        {t('newSkill.category.subtitle')}
-      </p>
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-        {/* Skip option */}
-        <button
-          type="button"
-          onClick={() => onSelect(null)}
-          className={`
-            ss-card text-left p-4 border-2 cursor-pointer transition-all duration-150
-            rounded-[var(--radius-md)]
-            ${selected === null
-              ? 'border-pencil shadow-md'
-              : 'border-muted bg-surface hover:border-muted-dark hover:shadow-sm'
-            }
-          `}
-        >
-          <h4 className="font-bold text-pencil text-base mb-1">{t('newSkill.category.skip')}</h4>
-          <p className="text-pencil-light text-sm leading-snug">{t('newSkill.category.noCategory')}</p>
-        </button>
-        {categories.map((c) => (
-          <button
-            key={c.key}
-            type="button"
-            onClick={() => onSelect(c)}
-            className={`
-              ss-card text-left p-4 border-2 cursor-pointer transition-all duration-150
-              rounded-[var(--radius-md)]
-              ${selected?.key === c.key
-                ? 'border-pencil shadow-md'
-                : 'border-muted bg-surface hover:border-muted-dark hover:shadow-sm'
-              }
-            `}
-          >
-            <h4 className="font-bold text-pencil text-base mb-1">{t(`newSkill.category.${c.key}.label`, {}, c.label)}</h4>
-            <p className="text-pencil-light text-sm leading-snug">{c.key}</p>
-          </button>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-/* -- Step: Scaffold ---------------------------------- */
-
-function ScaffoldStep({
-  dirs,
-  selected,
-  onToggle,
-}: {
-  dirs: string[];
-  selected: Set<string>;
-  onToggle: (dir: string) => void;
-}) {
-  const t = useT();
-  return (
-    <div>
-      <h3 className="text-lg font-bold text-pencil mb-1">{t('newSkill.scaffold.title')}</h3>
-      <p className="text-pencil-light text-sm mb-4">
-        {t('newSkill.scaffold.subtitle')}
-      </p>
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-        {dirs.map((dir) => {
-          const isOn = selected.has(dir);
-          return (
-            <button
-              key={dir}
-              type="button"
-              onClick={() => onToggle(dir)}
-              className={`
-                ss-card flex items-center gap-3 p-4 border-2 cursor-pointer transition-all duration-150
-                rounded-[var(--radius-md)]
-                ${isOn
-                  ? 'border-pencil shadow-md'
-                  : 'border-muted bg-surface hover:border-muted-dark hover:shadow-sm opacity-60'
-                }
-              `}
-            >
-              <FolderPlus size={20} strokeWidth={2} className={isOn ? 'text-pencil' : 'text-muted-dark'} />
-              <span className={`font-mono text-sm ${isOn ? 'text-pencil font-medium' : 'text-pencil-light'}`}>
-                {dir}/
-              </span>
-              {isOn && (
-                <Check size={16} strokeWidth={3} className="text-pencil ml-auto" />
-              )}
-            </button>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-/* -- Step: Confirm ----------------------------------- */
-
-function ConfirmStep({
-  name,
-  pattern,
-  category,
-  scaffoldDirs,
-}: {
-  name: string;
-  pattern: SkillPattern | null;
-  category: SkillCategory | null;
-  scaffoldDirs: Set<string>;
-}) {
-  const t = useT();
-  return (
-    <Card>
-      <h3 className="text-lg font-bold text-pencil mb-4">{t('newSkill.confirm.title')}</h3>
-      <dl className="space-y-3">
-        <div className="flex items-start gap-3">
-          <dt className="text-pencil-light text-sm w-28 shrink-0">{t('newSkill.confirm.name')}</dt>
-          <dd className="font-mono font-bold text-pencil">{name}</dd>
-        </div>
-        <div className="flex items-start gap-3">
-          <dt className="text-pencil-light text-sm w-28 shrink-0">{t('newSkill.confirm.pattern')}</dt>
-          <dd className="text-pencil capitalize">{pattern?.name ?? 'none'}</dd>
-        </div>
-        {category && (
-          <div className="flex items-start gap-3">
-            <dt className="text-pencil-light text-sm w-28 shrink-0">{t('newSkill.confirm.category')}</dt>
-            <dd className="text-pencil">{t(`newSkill.category.${category.key}.label`, {}, category.label)}</dd>
+          <div className="ss-fld">
+            <span className="text-[13px] font-semibold">{t('newSkill.folder.label')}</span>
+            <Select
+              value={into}
+              onChange={setInto}
+              options={[{ value: '', label: t('newSkill.folder.top', { dir: sourceDir }) }, ...folders.map((f) => ({ value: f, label: `${f}/` }))]}
+            />
           </div>
-        )}
-        {pattern && pattern.scaffoldDirs.length > 0 && (
-          <div className="flex items-start gap-3">
-            <dt className="text-pencil-light text-sm w-28 shrink-0">{t('newSkill.confirm.directories')}</dt>
-            <dd className="flex flex-wrap gap-1.5">
-              {[...scaffoldDirs].map((dir) => (
-                <span
-                  key={dir}
-                  className="text-sm bg-muted text-pencil px-2 py-0.5 rounded-[var(--radius-sm)]"
-                >
-                  <FolderPlus size={12} strokeWidth={2.5} className="inline mr-1" />
-                  {dir}/
-                </span>
-              ))}
-              {scaffoldDirs.size === 0 && (
-                <span className="text-pencil-light text-sm">{t('newSkill.confirm.none')}</span>
-              )}
-            </dd>
+
+          <div className="flex justify-end gap-2">
+            <Button variant="ghost" onClick={() => navigate('/skills')}>{t('common.cancel')}</Button>
+            <Button type="submit" variant="primary" loading={creating} disabled={!canCreate}>{t('newSkill.createSkill')}</Button>
           </div>
-        )}
-      </dl>
-    </Card>
+        </form>
+
+        {/* The preview stays in view while the form scrolls; the offset clears the fixed account avatar */}
+        <div className="sticky top-20 flex min-w-0 flex-col">
+          <div className="ss-sec"><h2 className="ss-h2">{t('newSkill.preview.title')}</h2></div>
+          <CodeView content={preview?.content ?? ''} lang="md" className="max-h-[calc(100vh-190px)] min-h-[330px]" />
+          {preview && <p className="mt-2.5 truncate font-mono text-[13px] text-ink-3" title={preview.path}>{preview.path}</p>}
+        </div>
+      </div>
+    </div>
   );
 }

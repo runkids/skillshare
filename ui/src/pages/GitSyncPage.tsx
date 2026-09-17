@@ -1,751 +1,359 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
-import { useT } from '../i18n';
-import ConfirmDialog from '../components/ConfirmDialog';
-import {
-  GitBranch,
-  ArrowUpCircle,
-  ArrowDownCircle,
-  GitCommit,
-  AlertTriangle,
-  CheckCircle,
-  ChevronDown,
-  ChevronRight,
-  Github,
-  Gitlab,
-  ExternalLink,
-  Loader2,
-  RefreshCw,
-} from 'lucide-react';
-import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
-import { api } from '../api/client';
-import type { PullResponse } from '../api/client';
-import { queryKeys, staleTimes } from '../lib/queryKeys';
-import { useAppContext } from '../context/AppContext';
-import { parseRemoteURL } from '../lib/parseRemoteURL';
-import type { Platform } from '../lib/parseRemoteURL';
-import Card from '../components/Card';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { AlertCircle, AlertTriangle, ArrowDownToLine, ArrowUpFromLine, CircleCheck, CloudUpload, ExternalLink, FolderGit2, GitBranch, GitCommitHorizontal, Info, RefreshCw, X } from 'lucide-react';
+import { api, ApiError, type GitStatus, type PullResponse } from '../api/client';
 import Button from '../components/Button';
-import CopyButton from '../components/CopyButton';
-import { Input, Checkbox } from '../components/Input';
-import { Select } from '../components/Select';
-import type { SelectOption } from '../components/Select';
-import Badge from '../components/Badge';
+import ConfirmDialog from '../components/ConfirmDialog';
+import DialogShell from '../components/DialogShell';
+import EmptyState from '../components/EmptyState';
+import { Input } from '../components/Input';
 import PageHeader from '../components/PageHeader';
+import { Select } from '../components/Select';
 import { PageSkeleton } from '../components/Skeleton';
 import { useToast } from '../components/Toast';
+import { parseStatusLine } from '../components/git/gitView';
+import { useAppContext } from '../context/AppContext';
+import { useT } from '../i18n';
+import { parseRemoteURL } from '../lib/parseRemoteURL';
+import { queryKeys, staleTimes } from '../lib/queryKeys';
 
-function fileStatusBadge(line: string) {
-  const code = line.trim().substring(0, 2).trim();
-  if (code === 'M') return <Badge variant="warning">M</Badge>;
-  if (code === 'A') return <Badge variant="success">A</Badge>;
-  if (code === 'D') return <Badge variant="danger">D</Badge>;
-  if (code === 'R') return <Badge variant="info">R</Badge>;
-  if (code === '??') return <Badge variant="default">??</Badge>;
-  return <Badge variant="default">{code}</Badge>;
-}
-
-function fileName(line: string): string {
-  return line.trim().substring(2).trim();
-}
-
-function platformIcon(platform: Platform) {
-  switch (platform) {
-    case 'github':
-      return <Github size={16} strokeWidth={2.5} />;
-    case 'gitlab':
-      return <Gitlab size={16} strokeWidth={2.5} />;
-    default:
-      return <GitBranch size={16} strokeWidth={2.5} />;
-  }
-}
-
-function platformLabel(platform: Platform, t: (key: string) => string): string | null {
-  switch (platform) {
-    case 'github': return t('gitSync.platformLabel.github');
-    case 'gitlab': return t('gitSync.platformLabel.gitlab');
-    case 'bitbucket': return t('gitSync.platformLabel.bitbucket');
-    default: return null;
-  }
-}
-
-function errorMessage(err: unknown): string {
-  return err instanceof Error ? err.message : String(err);
-}
+const SCOPES = ['skills', 'agents', 'extras', 'root'];
+const TONE = { New: 'ok', Changed: 'warn', Renamed: 'warn', Deleted: 'bad' } as const;
+const PULLED_SHOWN = 5;
+type Setup = { kind: 'init' | 'scope' | 'remote'; scope: string };
 
 export default function GitSyncPage() {
   const t = useT();
   const { isProjectMode } = useAppContext();
-  const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const { data: status, isPending, error } = useQuery({ queryKey: queryKeys.gitStatus, queryFn: () => api.gitStatus(), staleTime: staleTimes.gitStatus, enabled: !isProjectMode });
+  const branches = useQuery({ queryKey: queryKeys.gitBranches, queryFn: () => api.gitBranches(), staleTime: staleTimes.gitStatus, enabled: !isProjectMode && !!status?.isRepo });
 
-  const { data: status, isPending, error } = useQuery({
-    queryKey: queryKeys.gitStatus,
-    queryFn: () => api.gitStatus(),
-    staleTime: staleTimes.gitStatus,
-  });
+  const [message, setMessage] = useState('');
+  const [dryRun, setDryRun] = useState(false);
+  const [busy, setBusy] = useState<'commit' | 'push' | 'upload' | 'pull' | 'branch' | 'fetch' | 'nested' | 'scope' | null>(null);
+  const [runError, setRunError] = useState('');
+  // A first pull whose history cannot merge; the error note then offers a force pull.
+  const [mergeFailed, setMergeFailed] = useState(false);
+  const [confirmForce, setConfirmForce] = useState(false);
+  const [note, setNote] = useState('');
+  const [pulled, setPulled] = useState<PullResponse | null>(null);
+  const [setup, setSetup] = useState<Setup | null>(null);
 
-
-  const { data: branches } = useQuery({
-    queryKey: queryKeys.gitBranches,
-    queryFn: () => api.gitBranches(),
-    staleTime: staleTimes.gitStatus,
-    enabled: !isProjectMode && !!status?.isRepo,
-  });
-
-  const fetchBranchesMutation = useMutation({
-    mutationFn: () => api.gitBranches({ fetch: true }),
-    onSuccess: (data) => {
-      queryClient.setQueryData(queryKeys.gitBranches, data);
-      toast(t('gitSync.toast.branchListRefreshed'), 'info');
-    },
-    onError: (err: unknown) => {
-      toast(errorMessage(err), 'error');
-    },
-  });
-
-  const checkoutMutation = useMutation({
-    mutationFn: (branch: string) => api.gitCheckout(branch),
-    onSuccess: (res) => {
-      toast(t('gitSync.toast.switchedTo', { branch: res.branch }), 'success');
-      queryClient.invalidateQueries({ queryKey: queryKeys.gitStatus });
-      queryClient.invalidateQueries({ queryKey: queryKeys.gitBranches });
-      queryClient.invalidateQueries({ queryKey: queryKeys.skills.all });
-      queryClient.invalidateQueries({ queryKey: queryKeys.overview });
-    },
-    onError: (err: unknown) => {
-      toast(errorMessage(err), 'error');
-    },
-  });
-
-  const [pendingScope, setPendingScope] = useState<string | null>(null);
-  const [pendingRemote, setPendingRemote] = useState('');
-
-  const setRootMutation = useMutation({
-    mutationFn: ({ scope, remoteURL }: { scope: string; remoteURL?: string }) =>
-      api.gitSetRoot(scope, remoteURL),
-    onSuccess: (res) => {
-      toast(t('gitSync.scope.switched', { scope: res.scope }), 'success');
-      queryClient.invalidateQueries({ queryKey: queryKeys.gitStatus });
-      queryClient.invalidateQueries({ queryKey: queryKeys.gitBranches });
-      queryClient.invalidateQueries({ queryKey: queryKeys.config });
-      queryClient.invalidateQueries({ queryKey: queryKeys.overview });
-    },
-    onError: (err: unknown) => {
-      toast(errorMessage(err), 'error');
-    },
-  });
-
-  const absorbNestedMutation = useMutation({
-    mutationFn: (subdirs: string[]) => api.gitAbsorbNested(subdirs),
-    onSuccess: (res) => {
-      toast(t('gitSync.nested.disabled', { dirs: res.disabled.join(', ') }), 'success');
-      queryClient.invalidateQueries({ queryKey: queryKeys.gitStatus });
-    },
-    onError: (err: unknown) => {
-      toast(errorMessage(err), 'error');
-    },
-  });
-
-  const [commitMsg, setCommitMsg] = useState('');
-  const [pushDryRun, setPushDryRun] = useState(false);
-  const [pullDryRun, setPullDryRun] = useState(false);
-  const [committing, setCommitting] = useState(false);
-  const [pushing, setPushing] = useState(false);
-  const [pulling, setPulling] = useState(false);
-  const [filesExpanded, setFilesExpanded] = useState(false);
-  const [commitResult, setCommitResult] = useState<string | null>(null);
-  const [pushResult, setPushResult] = useState<string | null>(null);
-  const [pullResult, setPullResult] = useState<PullResponse | null>(null);
-
-  const repoDisabled = !status?.isRepo;
-  const remoteDisabled = !status?.hasRemote;
-  // Nested git repos at the root scope upload as empty submodules (silent data
-  // loss). Block commit/push until the user disables them — parity with the CLI
-  // sweep, which aborts on the same hazard.
-  const hasNested = (status?.nestedRepos?.length ?? 0) > 0;
-
-  // Build branch options for Select
-  const branchOptions: SelectOption[] = [];
-  if (branches) {
-    for (const b of branches.local) {
-      branchOptions.push({ value: b, label: b });
+  const refresh = () => {
+    for (const queryKey of [queryKeys.gitStatus, queryKeys.gitBranches, queryKeys.skills.all, queryKeys.overview, queryKeys.config, queryKeys.targets.all, queryKeys.diff()]) {
+      void queryClient.invalidateQueries({ queryKey });
     }
-    for (const b of branches.remote) {
-      branchOptions.push({ value: b, label: `${b} (remote)`, description: 'Remote-only branch' });
-    }
-  }
-
-  const handleCommit = async () => {
-    setCommitting(true);
-    setCommitResult(null);
-    setPushResult(null);
+  };
+  const run = async (kind: NonNullable<typeof busy>, work: () => Promise<void>) => {
+    setBusy(kind);
+    setRunError('');
+    setMergeFailed(false);
+    setNote('');
     try {
-      const res = await api.gitCommit({ message: commitMsg || undefined, dryRun: pushDryRun });
-      setCommitResult(res.message);
-      if (pushDryRun) {
-        toast(res.message ?? '', 'info');
-      } else {
-        toast(res.message, 'success');
-        setCommitMsg('');
-      }
-      queryClient.invalidateQueries({ queryKey: queryKeys.gitStatus });
-      queryClient.invalidateQueries({ queryKey: queryKeys.skills.all });
-      queryClient.invalidateQueries({ queryKey: queryKeys.overview });
-    } catch (e: unknown) {
-      toast(errorMessage(e), 'error');
+      await work();
+    } catch (err) {
+      setRunError((err as Error).message);
+      setMergeFailed(err instanceof ApiError && err.code === 'merge_failed');
     } finally {
-      setCommitting(false);
+      setBusy(null);
+      refresh();
     }
   };
 
-  const handlePush = async () => {
-    setPushing(true);
-    setCommitResult(null);
-    setPushResult(null);
-    try {
-      const res = await api.push({ message: commitMsg || undefined, dryRun: pushDryRun });
-      setPushResult(res.message);
-      if (pushDryRun) {
-        toast(res.message ?? '', 'info');
-      } else {
-        toast(res.message, 'success');
-        setCommitMsg('');
-      }
-      queryClient.invalidateQueries({ queryKey: queryKeys.gitStatus });
-      queryClient.invalidateQueries({ queryKey: queryKeys.skills.all });
-      queryClient.invalidateQueries({ queryKey: queryKeys.overview });
-    } catch (e: unknown) {
-      toast(errorMessage(e), 'error');
-    } finally {
-      setPushing(false);
-    }
-  };
+  const commit = (push: boolean) => run(push ? 'push' : 'commit', async () => {
+    const res = await (push ? api.push : api.gitCommit)({ message: message.trim() || undefined, dryRun });
+    // Dry runs and a clean tree come back as plain server messages.
+    if (dryRun || res.message.startsWith('nothing')) return setNote(res.message);
+    setMessage('');
+    toast(t(push ? 'gitSync.toast.pushed' : 'gitSync.toast.committed'), 'success');
+  });
+  // A clean tree with commits the remote lacks: push them as they are.
+  const upload = (count: number) => run('upload', async () => {
+    await api.push({});
+    toast(t(count === 1 ? 'gitSync.toast.uploaded.one' : 'gitSync.toast.uploaded.other', { count }), 'success');
+  });
+  const pull = (force = false) => run('pull', async () => {
+    setPulled(null);
+    const res = await api.pull({ force });
+    setPulled(res);
+    if (res.upToDate) toast(t('gitSync.pull.alreadyUpToDate'), 'info');
+  });
+  const checkout = (branch: string) => run('branch', async () => {
+    const res = await api.gitCheckout(branch);
+    toast(t('gitSync.toast.switchedTo', { branch: res.branch }), 'success');
+  });
+  const fetchBranches = () => run('fetch', async () => {
+    queryClient.setQueryData(queryKeys.gitBranches, await api.gitBranches({ fetch: true }));
+    toast(t('gitSync.toast.branchListRefreshed'), 'info');
+  });
+  const absorb = (dirs: string[]) => run('nested', async () => {
+    const res = await api.gitAbsorbNested(dirs);
+    toast(t('gitSync.nested.disabled', { dirs: res.disabled.join(', ') }), 'success');
+  });
+  const setRoot = (scope: string, remoteURL?: string) => run('scope', async () => {
+    const res = await api.gitSetRoot(scope, remoteURL);
+    toast(t('gitSync.scope.switched', { scope: res.scope }), 'success');
+  });
 
-  const handlePull = async () => {
-    setPulling(true);
-    setPullResult(null);
-    try {
-      const res = await api.pull({ dryRun: pullDryRun });
-      setPullResult(res);
-      if (pullDryRun) {
-        toast(res.message || t('gitSync.pull.dryRunComplete'), 'info');
-      } else if (res.upToDate) {
-        toast(t('gitSync.toast.alreadyUpToDate'), 'info');
-      } else {
-        const n = res.commits?.length ?? 0;
-        toast(t('gitSync.pull.pulled', { count: n }), 'success');
-      }
-      queryClient.invalidateQueries({ queryKey: queryKeys.gitStatus });
-      queryClient.invalidateQueries({ queryKey: queryKeys.skills.all });
-      queryClient.invalidateQueries({ queryKey: queryKeys.overview });
-    } catch (e: unknown) {
-      toast(errorMessage(e), 'error');
-    } finally {
-      setPulling(false);
-    }
-  };
+  const header = (actions?: React.ReactNode) => <PageHeader title={t('gitSync.title')} subtitle={t('gitSync.subtitle')} actions={actions} />;
 
   if (isProjectMode) {
     return (
-      <div className="space-y-5 animate-fade-in">
-        <Card className="text-center py-12">
-          <GitBranch size={40} strokeWidth={2} className="text-pencil-light mx-auto mb-4" />
-          <h2
-            className="text-2xl font-bold text-pencil mb-2"
-          >
-            {t('gitSync.projectMode.title')}
-          </h2>
-          <p className="text-pencil-light mb-4">
-            {t('gitSync.projectMode.description')}
-          </p>
-          <Link
-            to="/"
-            className="text-blue hover:underline"
-          >
-            {t('common.back')}
-          </Link>
-        </Card>
+      <div className="animate-fade-in">
+        {header()}
+        <EmptyState icon={GitBranch} title={t('gitSync.projectMode.title')} description={t('gitSync.projectMode.description')} />
+      </div>
+    );
+  }
+  if (isPending) return <div className="animate-fade-in">{header()}<PageSkeleton /></div>;
+  if (error || !status) return <div className="animate-fade-in">{header()}<div className="ss-note bad"><AlertCircle size={16} /><span className="flex-1">{error?.message}</span></div></div>;
+  if (!status.gitInstalled) {
+    return (
+      <div className="animate-fade-in">
+        {header()}
+        <EmptyState icon={AlertTriangle} title={t('gitSync.gitNotInstalled.title')} description={t('gitSync.gitNotInstalled.hint')} />
       </div>
     );
   }
 
-  if (isPending) {
-    return (
-      <div className="space-y-5 animate-fade-in">
-        <PageHeader
-          icon={<GitBranch size={24} strokeWidth={2.5} />}
-          title={t('gitSync.title')}
-          subtitle={t('gitSync.subtitle')}
-        />
-        <PageSkeleton />
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="space-y-5 animate-fade-in">
-        <PageHeader
-          icon={<GitBranch size={24} strokeWidth={2.5} />}
-          title={t('gitSync.title')}
-          subtitle={t('gitSync.subtitle')}
-        />
-        <Card variant="accent">
-          <p className="text-danger">{error.message}</p>
-        </Card>
-      </div>
-    );
-  }
+  const scope = status.scope || 'skills';
+  const files = (status.files ?? []).map(parseStatusLine);
+  const nested = status.nestedRepos ?? [];
+  const remote = parseRemoteURL(status.remoteURL);
+  const platform = remote && remote.platform !== 'other' ? t(`gitSync.platformLabel.${remote.platform}`) : null;
+  const branchNames = branches.data ? [...branches.data.local, ...branches.data.remote] : [status.branch];
+  const writing = busy !== null;
 
   return (
-    <div className="space-y-5 animate-fade-in">
-      {/* Header */}
-      <PageHeader
-        icon={<GitBranch size={24} strokeWidth={2.5} />}
-        title={t('gitSync.title')}
-        subtitle={t('gitSync.subtitle')}
-      />
+    <div className="animate-fade-in">
+      {header(status.isRepo && (
+        <span data-tour="git-actions" className="flex items-center gap-2.5">
+          {status.hasRemote && !status.isDirty && status.ahead > 0 && (
+            <Button variant="secondary" onClick={() => upload(status.ahead)} loading={busy === 'upload'} disabled={writing || nested.length > 0}>
+              {busy !== 'upload' && <ArrowUpFromLine size={16} />}
+              {t(status.ahead === 1 ? 'gitSync.actions.pushCommits.one' : 'gitSync.actions.pushCommits.other', { count: status.ahead })}
+            </Button>
+          )}
+          <Button variant="secondary" onClick={() => pull()} loading={busy === 'pull'} disabled={writing || !status.hasRemote || status.isDirty} title={!status.hasRemote ? t('gitSync.noRemoteHint') : undefined}>
+            {busy !== 'pull' && <ArrowDownToLine size={16} />}
+            {t('gitSync.actions.pull')}
+          </Button>
+        </span>
+      ))}
 
-      {/* Root-scope hazards: nested submodule traps and a leaked config.yaml */}
-      {status?.isRepo && ((status.nestedRepos?.length ?? 0) > 0 || status.configTracked) && (
-        <Card variant="outlined" padding="md" className="space-y-3">
-          <div className="flex items-center gap-2">
-            <AlertTriangle size={18} strokeWidth={2.5} className="text-warning shrink-0" />
-            <span className="font-bold text-pencil">{t('gitSync.nested.title')}</span>
+      <div className="mb-6 flex flex-col gap-4 empty:hidden">
+        {status.scopeMismatch && status.mismatchScope && (
+          <div className="ss-note bad !items-center">
+            <AlertTriangle size={16} />
+            <span className="flex-1"><b>{t('gitSync.mismatch.title')}.</b> {t('gitSync.mismatch.description', { scope, repoScope: status.mismatchScope })}</span>
+            <Button variant="secondary" size="sm" onClick={() => setRoot(status.mismatchScope!)} loading={busy === 'scope'} disabled={writing}>{t('gitSync.mismatch.switch', { scope: status.mismatchScope })}</Button>
           </div>
-          {(status.nestedRepos?.length ?? 0) > 0 && (
-            <div className="space-y-2.5">
-              <p className="text-sm text-pencil-light">{t('gitSync.nested.hint')}</p>
-              <div className="flex flex-wrap items-center gap-2">
-                {status.nestedRepos.map((d) => (
-                  <code
-                    key={d}
-                    className="font-mono text-xs px-2 py-0.5 rounded bg-muted/60 text-pencil"
-                  >
-                    {d}
-                  </code>
-                ))}
-              </div>
-              <Button
-                variant="secondary"
-                size="sm"
-                loading={absorbNestedMutation.isPending}
-                onClick={() => absorbNestedMutation.mutate(status.nestedRepos)}
-              >
-                {t('gitSync.nested.disableButton')}
+        )}
+        {nested.length > 0 && (
+          <div className="ss-note warn !items-center">
+            <FolderGit2 size={16} />
+            <span className="flex-1"><b>{t('gitSync.nested.title')}.</b> {t('gitSync.nested.hint', { dirs: nested.join(', ') })}</span>
+            <Button variant="secondary" size="sm" onClick={() => absorb(nested)} loading={busy === 'nested'} disabled={writing}>{t('gitSync.nested.disableButton')}</Button>
+          </div>
+        )}
+        {status.configTracked && <div className="ss-note inf"><Info size={16} /><span className="flex-1">{t('gitSync.nested.configTracked')}</span></div>}
+        {status.isRepo && status.isDirty && status.hasRemote && <div className="ss-note warn"><AlertCircle size={16} /><span className="flex-1">{t('gitSync.pull.blocked')}</span></div>}
+        {runError && (
+          <div className="ss-note bad">
+            <AlertCircle size={16} />
+            <span className="flex-1 whitespace-pre-wrap break-words">{runError}</span>
+            {mergeFailed && <Button variant="secondary" size="sm" onClick={() => setConfirmForce(true)} disabled={writing}>{t('gitSync.pull.force.button')}</Button>}
+            <button type="button" className="ss-ib !h-6 !w-6" aria-label={t('common.close')} onClick={() => setRunError('')}><X size={14} /></button>
+          </div>
+        )}
+        {pulled && !pulled.upToDate && (
+          <div className="ss-note inf">
+            <CircleCheck size={16} />
+            <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+              <span>
+                {pulled.commits.length > 0 ? t(pulled.commits.length === 1 ? 'gitSync.pull.pulled.one' : 'gitSync.pull.pulled.other', { count: pulled.commits.length }) : t('gitSync.pull.pulledNone')}{' '}
+                {t('gitSync.pull.synced')}
+              </span>
+              {pulled.commits.slice(0, PULLED_SHOWN).map((c) => (
+                <span key={c.hash} className="truncate text-[13px]"><span className="font-mono text-[12.5px] text-ink-3">{c.hash}</span> {c.message}</span>
+              ))}
+              {pulled.commits.length > PULLED_SHOWN && <span className="text-[13px] text-ink-3">{t('gitSync.pull.more', { count: pulled.commits.length - PULLED_SHOWN })}</span>}
+            </div>
+          </div>
+        )}
+        {pulled?.warnings?.map((w) => <div key={w} className="ss-note warn"><AlertTriangle size={16} /><span className="flex-1 break-words">{w}</span></div>)}
+      </div>
+
+      {!status.isRepo ? (
+        !status.scopeMismatch && (
+          <EmptyState
+            icon={GitBranch}
+            title={t('gitSync.setup.title')}
+            description={t('gitSync.setup.description')}
+            action={<Button variant="primary" onClick={() => setSetup({ kind: 'init', scope })}>{t('gitSync.setup.button')}</Button>}
+          />
+        )
+      ) : (
+        <div className="grid grid-cols-[minmax(0,1fr)_340px] items-start gap-10">
+          <div className="flex min-w-0 flex-col gap-4">
+            <div className="ss-sec !mb-0">
+              <h2 className="ss-h2">{t('gitSync.changes.title')}</h2>
+              <span className="ss-cnt">{files.length}</span>
+            </div>
+            <div className="ss-list">
+              {files.length === 0 ? (
+                <div className="ss-r !min-h-11 text-[13px] text-ink-2"><CircleCheck size={16} className="text-ok" />{t('gitSync.changes.none')}</div>
+              ) : (
+                <>
+                  <div className="ss-lh">
+                    <span className="flex-1">{t('gitSync.changes.file')}</span>
+                    <span>{t('gitSync.changes.change')}</span>
+                  </div>
+                  <div className="max-h-[320px] overflow-y-auto">
+                    {files.map((f) => (
+                      <div key={f.path} className="ss-r !min-h-10">
+                        <span className="min-w-0 flex-1 truncate font-mono text-[13px]" title={f.path}>{f.path}</span>
+                        <span className={`ss-st ${TONE[f.change]}`}>{f.change}</span>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+            <Input label={t('gitSync.commit.message')} placeholder="Update skills" value={message} onChange={(e) => setMessage(e.target.value)} disabled={writing} />
+            <div className="flex items-center gap-2.5">
+              <button type="button" role="switch" aria-checked={dryRun} aria-labelledby="git-dry-run" className={`ss-sw ${dryRun ? 'on' : ''}`} onClick={() => setDryRun(!dryRun)}>
+                <i />
+              </button>
+              <span id="git-dry-run" className="text-[13px] font-semibold">{t('gitSync.dryRun')}</span>
+              <span className="min-w-0 flex-1 truncate text-[13px] text-ink-3">{t('gitSync.dryRunHint')}</span>
+              <Button variant="secondary" onClick={() => commit(false)} loading={busy === 'commit'} disabled={writing || !status.isDirty || nested.length > 0}>
+                {busy !== 'commit' && <GitCommitHorizontal size={16} />}
+                {t('gitSync.actions.commit')}
+              </Button>
+              <Button variant="primary" onClick={() => commit(true)} loading={busy === 'push'} disabled={writing || !status.isDirty || !status.hasRemote || nested.length > 0} title={!status.hasRemote ? t('gitSync.noRemoteHint') : undefined}>
+                {busy !== 'push' && <CloudUpload size={16} />}
+                {t('gitSync.actions.commitPush')}
               </Button>
             </div>
-          )}
-          {status.configTracked && (
-            <p className="text-sm text-pencil-light">{t('gitSync.nested.configTracked')}</p>
-          )}
-        </Card>
+            {note && <div className="ss-note inf"><Info size={16} /><span className="flex-1">{note}</span></div>}
+          </div>
+
+          <aside className="flex flex-col gap-4">
+            <div className="ss-box flex flex-col gap-4">
+              <div className="flex items-center justify-between gap-3">
+                <h3 className="text-[15px] font-semibold">{t('gitSync.repo.title')}</h3>
+                {remote?.webURL && platform && (
+                  <a href={remote.webURL} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-[13px] font-medium">
+                    {platform}<ExternalLink size={13} />
+                  </a>
+                )}
+              </div>
+              <dl className="ss-kv !grid-cols-[84px_minmax(0,1fr)]">
+                <dt>{t('gitSync.repo.remote')}</dt>
+                <dd className="min-w-0">
+                  {status.remoteURL ? (
+                    <span className="block truncate font-mono text-[12.5px]" title={status.remoteURL}>{platform ? remote!.ownerRepo : status.remoteURL}</span>
+                  ) : (
+                    <span className="flex items-center gap-2">
+                      <span className="ss-st warn">{t('gitSync.repo.noRemote')}</span>
+                      <button type="button" className="text-[13px] font-semibold" onClick={() => setSetup({ kind: 'remote', scope })}>{t('gitSync.repo.addRemote')}</button>
+                    </span>
+                  )}
+                </dd>
+                <dt>{t('gitSync.repo.status')}</dt>
+                <dd>
+                  {status.isDirty
+                    ? <span className="ss-st warn">{t(files.length === 1 ? 'gitSync.repo.dirty.one' : 'gitSync.repo.dirty.other', { count: files.length })}</span>
+                    : status.hasRemote && status.ahead > 0
+                      ? <span className="ss-st warn">{t(status.ahead === 1 ? 'gitSync.repo.ahead.one' : 'gitSync.repo.ahead.other', { count: status.ahead })}</span>
+                      : <span className="ss-st ok">{t('gitSync.repo.clean')}</span>}
+                </dd>
+                {status.headHash && (
+                  <>
+                    <dt>{t('gitSync.repo.lastCommit')}</dt>
+                    <dd className="min-w-0"><span className="block truncate" title={status.headMessage}><span className="font-mono text-[12.5px] text-ink-3">{status.headHash}</span> {status.headMessage}</span></dd>
+                  </>
+                )}
+              </dl>
+              <div className="ss-fld">
+                <label>{t('gitSync.branch.label')}</label>
+                <div className="flex items-center gap-2">
+                  <Select
+                    className="min-w-0 flex-1"
+                    value={status.branch}
+                    onChange={(b) => b !== status.branch && checkout(b)}
+                    options={branchNames.map((b) => ({ value: b, label: b, description: branches.data?.remote.includes(b) ? t('gitSync.branch.remoteOnly') : undefined }))}
+                    disabled={writing || status.isDirty}
+                  />
+                  {status.hasRemote && (
+                    <button type="button" className="ss-ib" aria-label={t('gitSync.branch.fetchRemote')} title={t('gitSync.branch.fetchRemote')} onClick={fetchBranches} disabled={writing}>
+                      <RefreshCw size={15} className={busy === 'fetch' ? 'animate-spin' : ''} />
+                    </button>
+                  )}
+                </div>
+                {status.isDirty && <span className="hp">{t('gitSync.branch.dirty')}</span>}
+              </div>
+              <div className="ss-fld">
+                <label>{t('gitSync.scope.label')}</label>
+                <Select value={scope} onChange={(s) => s !== scope && setSetup({ kind: 'scope', scope: s })} options={SCOPES.map((s) => ({ value: s, label: s }))} disabled={writing} />
+                <span className="hp">{t('gitSync.scope.hint')}</span>
+              </div>
+            </div>
+            {status.hasRemote && <div className="ss-note inf"><Info size={16} /><span className="flex-1">{t('gitSync.pull.hint')}</span></div>}
+          </aside>
+        </div>
       )}
 
-      {/* Repository Info Card — z-10 so branch dropdown renders above cards below */}
-      <Card overflow className="relative z-10" padding="none">
-        {!status?.isRepo ? (
-          status && !status.gitInstalled ? (
-            <div className="flex items-start gap-2 text-pencil p-4">
-              <AlertTriangle size={18} strokeWidth={2.5} className="text-danger shrink-0 mt-0.5" />
-              <div className="space-y-1 text-sm">
-                <span className="font-bold">{t('gitSync.gitNotInstalled.title')}</span>
-                <p className="text-pencil-light">{t('gitSync.gitNotInstalled.hint')}</p>
-              </div>
-            </div>
-          ) : status?.scopeMismatch ? (
-            <div className="flex items-start gap-2 text-pencil p-4">
-              <AlertTriangle size={18} strokeWidth={2.5} className="text-warning shrink-0 mt-0.5" />
-              <div className="space-y-1 text-sm">
-                <div className="flex items-center gap-2">
-                  <span className="font-bold">{t('gitSync.mismatch.title')}</span>
-                  <Badge variant="warning">{status.mismatchScope}</Badge>
-                </div>
-                <p className="text-pencil-light">
-                  {t('gitSync.mismatch.description', {
-                    scope: status.scope || 'skills',
-                    repoScope: status.mismatchScope ?? '',
-                  })}
-                </p>
-                <p className="text-pencil-light font-mono text-xs truncate max-w-[480px]">
-                  {status.mismatchDir}
-                </p>
-                <p className="text-pencil-light">{t('gitSync.mismatch.hint')}</p>
-              </div>
-            </div>
-          ) : (
-            <div className="p-4 flex items-center justify-between gap-3 flex-wrap">
-              <div className="flex items-center gap-2 text-pencil">
-                <AlertTriangle size={18} strokeWidth={2.5} className="text-danger shrink-0" />
-                <span>{t('gitSync.notARepo')}</span>
-                <Badge variant="danger">{t('gitSync.repo.notARepoLabel')}</Badge>
-              </div>
-              <Button
-                variant="primary"
-                size="sm"
-                onClick={() => {
-                  setPendingRemote('');
-                  setPendingScope(status?.scope || 'skills');
-                }}
-              >
-                {t('gitSync.scope.initButton')}
-              </Button>
-            </div>
-          )
-        ) : (() => {
-          const parsed = parseRemoteURL(status.remoteURL);
-          const linkLabel = parsed ? platformLabel(parsed.platform, t) : null;
-          return (
-            <>
-              {/* ── Header: repo identity ── */}
-              <div className="px-4 pt-4 pb-3 space-y-1.5">
-                {status.hasRemote && status.remoteURL ? (
-                  parsed ? (
-                    <div className="flex items-center gap-2 flex-wrap">
-                      {platformIcon(parsed.platform)}
-                      <span className="font-bold text-pencil text-base">{parsed.ownerRepo}</span>
-                      {parsed.webURL && linkLabel && (
-                        <a
-                          href={parsed.webURL}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 text-sm text-blue hover:underline"
-                        >
-                          {linkLabel}
-                          <ExternalLink size={12} strokeWidth={2.5} />
-                        </a>
-                      )}
-                      {status.isDirty ? (
-                        <Badge variant="warning">{status.files?.length ?? 0} dirty</Badge>
-                      ) : (
-                        <Badge variant="success">clean</Badge>
-                      )}
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-2">
-                      <GitBranch size={16} strokeWidth={2.5} />
-                      <span className="font-bold text-pencil">{status.remoteURL}</span>
-                    </div>
-                  )
-                ) : (
-                  <div className="flex items-center gap-2">
-                    <GitBranch size={16} strokeWidth={2.5} />
-                    <span className="font-bold text-pencil">{t('gitSync.repo.localRepository')}</span>
-                    <Badge variant="danger">{t('gitSync.repo.noRemote')}</Badge>
-                  </div>
-                )}
-
-                {/* Raw URL — compact inline with copy */}
-                {status.hasRemote && status.remoteURL && (
-                  <div className="flex items-center gap-1 text-xs text-pencil-light">
-                    <span className="font-mono truncate max-w-[400px]">{status.remoteURL}</span>
-                    <CopyButton value={status.remoteURL} title="Copy remote URL" />
-                  </div>
-                )}
-              </div>
-
-              {/* ── Status bar: scope / branch / HEAD ── */}
-              <div className="px-4 py-2.5 border-t border-dashed border-pencil-light/20 bg-muted/30 flex items-center gap-x-5 gap-y-2 flex-wrap text-sm">
-                {/* Scope */}
-                <div className="flex items-center gap-2">
-                  <span className="text-pencil-light">{t('gitSync.scope.label')}</span>
-                  <Select
-                    value={status.scope || 'skills'}
-                    onChange={(val) => {
-                      if (val !== status.scope) {
-                        setPendingRemote('');
-                        setPendingScope(val);
-                      }
-                    }}
-                    options={[
-                      { value: 'skills', label: 'skills' },
-                      { value: 'agents', label: 'agents' },
-                      { value: 'extras', label: 'extras' },
-                      { value: 'root', label: 'root' },
-                    ]}
-                    size="sm"
-                    disabled={setRootMutation.isPending}
-                    className="min-w-[110px]"
-                  />
-                </div>
-
-                <span className="hidden sm:inline text-pencil-light/30">|</span>
-
-                {/* Branch */}
-                <div className="flex items-center gap-2">
-                  <GitBranch size={14} strokeWidth={2.5} className="text-pencil-light" />
-                  {branchOptions.length > 1 ? (
-                    <>
-                      <Select
-                        value={status.branch || ''}
-                        onChange={(val) => {
-                          if (val !== status.branch) {
-                            checkoutMutation.mutate(val);
-                          }
-                        }}
-                        options={branchOptions}
-                        size="sm"
-                        disabled={!!branches?.isDirty || checkoutMutation.isPending}
-                        className="min-w-[140px]"
-                      />
-                      <button
-                        type="button"
-                        title={t('gitSync.branch.fetchRemote')}
-                        disabled={fetchBranchesMutation.isPending}
-                        onClick={() => fetchBranchesMutation.mutate()}
-                        className="p-1 rounded text-pencil-light hover:text-pencil hover:bg-muted/60 transition-colors disabled:opacity-50 cursor-pointer"
-                      >
-                        <RefreshCw size={14} strokeWidth={2.5} className={fetchBranchesMutation.isPending ? 'animate-spin' : ''} />
-                      </button>
-                      {checkoutMutation.isPending && (
-                        <Loader2 size={14} className="animate-spin text-pencil-light" />
-                      )}
-                    </>
-                  ) : (
-                    <>
-                      <strong>{status.branch || 'unknown'}</strong>
-                      {status.hasRemote && (
-                        <button
-                          type="button"
-                          title={t('gitSync.branch.fetchRemote')}
-                          disabled={fetchBranchesMutation.isPending}
-                          onClick={() => fetchBranchesMutation.mutate()}
-                          className="p-1 rounded text-pencil-light hover:text-pencil hover:bg-muted/60 transition-colors disabled:opacity-50 cursor-pointer"
-                        >
-                          <RefreshCw size={14} strokeWidth={2.5} className={fetchBranchesMutation.isPending ? 'animate-spin' : ''} />
-                        </button>
-                      )}
-                    </>
-                  )}
-                  {status.trackingBranch && (
-                    <span className="text-pencil-light">→ {status.trackingBranch}</span>
-                  )}
-                </div>
-
-                {/* Separator */}
-                {status.headHash && <span className="hidden sm:inline text-pencil-light/30">|</span>}
-
-                {/* HEAD */}
-                {status.headHash && (
-                  <div className="flex items-center gap-1.5">
-                    <GitCommit size={14} strokeWidth={2.5} className="text-pencil-light" />
-                    <code className="font-mono text-info">{status.headHash}</code>
-                    {status.headMessage && (
-                      <span className="text-pencil-light truncate max-w-[260px]" title={status.headMessage}>
-                        {status.headMessage.length > 50
-                          ? status.headMessage.slice(0, 50) + '…'
-                          : status.headMessage}
-                      </span>
-                    )}
-                  </div>
-                )}
-              </div>
-            </>
-          );
-        })()}
-      </Card>
-
       <ConfirmDialog
-        open={pendingScope !== null}
-        onCancel={() => {
-          setPendingScope(null);
-          setPendingRemote('');
-        }}
-        onConfirm={() => {
-          if (pendingScope) {
-            setRootMutation.mutate({ scope: pendingScope, remoteURL: pendingRemote.trim() || undefined });
-          }
-          setPendingScope(null);
-          setPendingRemote('');
-        }}
-        title={t(status?.isRepo ? 'gitSync.scope.confirmTitle' : 'gitSync.scope.initTitle')}
-        message={
-          <div className="space-y-3">
-            <p>
-              {t(status?.isRepo ? 'gitSync.scope.confirmMessage' : 'gitSync.scope.initMessage', {
-                scope: pendingScope ?? '',
-              })}
-            </p>
-            <Input
-              label={t('gitSync.scope.remoteLabel')}
-              value={pendingRemote}
-              onChange={(e) => setPendingRemote(e.target.value)}
-              placeholder="git@github.com:user/skills.git"
-              disabled={setRootMutation.isPending}
-            />
-            <p className="text-xs text-muted-dark">{t('gitSync.scope.remoteHint')}</p>
-          </div>
-        }
-        loading={setRootMutation.isPending}
-        variant="default"
+        open={confirmForce}
+        variant="danger"
+        title={t('gitSync.pull.force.title')}
+        message={t('gitSync.pull.force.message', { scope })}
+        confirmText={t('gitSync.pull.force.confirm')}
+        onCancel={() => setConfirmForce(false)}
+        onConfirm={() => { setConfirmForce(false); void pull(true); }}
       />
 
-      {/* Push / Pull Actions */}
-      <Card className={repoDisabled ? 'opacity-50 pointer-events-none' : ''} padding="none">
-        <div data-tour="git-actions" className="grid grid-cols-1 md:grid-cols-2">
-          {/* Push Section */}
-          <div className="p-4 flex flex-col">
-            <div className="space-y-4 flex-1">
-              <h3 className="text-xl font-bold text-pencil flex items-center gap-2">
-                <ArrowUpCircle size={20} strokeWidth={2.5} />
-                {t('gitSync.push.title')}
-              </h3>
+      {setup && (
+        <SetupDialog
+          setup={setup}
+          status={status}
+          onClose={() => setSetup(null)}
+          onConfirm={(remoteURL) => { setSetup(null); void setRoot(setup.scope, remoteURL); }}
+        />
+      )}
+    </div>
+  );
+}
 
-              <Input
-                label={t('gitSync.commit.message')}
-                placeholder={t('gitSync.commit.placeholder')}
-                value={commitMsg}
-                onChange={(e) => setCommitMsg(e.target.value)}
-              />
-
-              {status && status.files?.length > 0 && (
-                <div>
-                  <button
-                    className="flex items-center gap-1 text-sm text-pencil-light hover:text-pencil transition-colors cursor-pointer"
-                    onClick={() => setFilesExpanded(!filesExpanded)}
-                  >
-                    {filesExpanded ? (
-                      <ChevronDown size={14} strokeWidth={2.5} />
-                    ) : (
-                      <ChevronRight size={14} strokeWidth={2.5} />
-                    )}
-                    {t('gitSync.files.changedFiles', { count: status.files.length })}
-                  </button>
-                  {filesExpanded && (
-                    <div className="mt-2 space-y-1 p-2 border border-dashed border-pencil-light/30 rounded">
-                      {status.files.map((f, i) => (
-                        <div key={i} className="flex items-center gap-2 text-sm">
-                          {fileStatusBadge(f)}
-                          <span className="font-mono truncate">{fileName(f)}</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {status && !status.isDirty && !commitResult && !pushResult && (
-                <p className="text-sm text-pencil-light">
-                  {t('gitSync.noUncommitted')}
-                </p>
-              )}
-
-              {(commitResult || pushResult) && (
-                <p className="text-sm flex items-center gap-1 text-success">
-                  <CheckCircle size={14} strokeWidth={2.5} />
-                  {commitResult || pushResult}
-                </p>
-              )}
-            </div>
-
-            <div className="space-y-3 mt-4 border-t border-dashed border-pencil-light/20 pt-3">
-              <div className="flex items-center justify-between gap-4">
-                <Checkbox label={t('gitSync.dryRun')} checked={pushDryRun} onChange={setPushDryRun} />
-                <div className="flex flex-wrap justify-end gap-2">
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={handleCommit}
-                    loading={committing}
-                    disabled={hasNested || (!status?.isDirty && !pushDryRun) || pushing}
-                  >
-                    {!committing && <GitCommit size={16} strokeWidth={2.5} />}
-                    {committing ? t('gitSync.actions.committing') : t('gitSync.actions.commit')}
-                  </Button>
-                  <Button
-                    variant="primary"
-                    size="sm"
-                    onClick={handlePush}
-                    loading={pushing}
-                    disabled={hasNested || remoteDisabled || (!status?.isDirty && !pushDryRun) || committing}
-                  >
-                    {!pushing && <ArrowUpCircle size={16} strokeWidth={2.5} />}
-                    {pushing ? t('gitSync.actions.pushing') : t('gitSync.actions.push')}
-                  </Button>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Divider */}
-          <div className="border-t md:border-t-0 md:border-l border-dashed border-pencil-light/20 p-4 flex flex-col">
-            {/* Pull Section */}
-            <div className="space-y-4 flex-1">
-              <h3 className="text-xl font-bold text-pencil flex items-center gap-2">
-                <ArrowDownCircle size={20} strokeWidth={2.5} />
-                {t('gitSync.pull.title')}
-              </h3>
-
-              {status?.isDirty ? (
-                <p className="text-sm text-warning flex items-center gap-1">
-                  <AlertTriangle size={14} strokeWidth={2.5} />
-                  {t('gitSync.pull.commitOrStash')}
-                </p>
-              ) : (
-                <p className="text-sm text-pencil-light">
-                  {t('gitSync.pull.fetchLatest')}
-                </p>
-              )}
-
-              {/* Pull Results — in content area, above the action footer */}
-              {pullResult && !pullResult.dryRun && !pullResult.upToDate && (
-                <div className="space-y-2 border-t border-dashed border-pencil-light/30 pt-3">
-                  {pullResult.commits?.length > 0 && (
-                    <div className="space-y-1">
-                      {pullResult.commits.map((c, i) => (
-                        <div key={i} className="flex items-center gap-2 text-sm">
-                          <GitCommit size={14} strokeWidth={2.5} className="text-info" />
-                          <code className="font-mono text-info">{c.hash}</code>
-                          <span className="truncate">{c.message}</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  {pullResult.stats && (
-                    <p className="text-sm text-pencil-light">
-                      <span className="text-success">+{pullResult.stats.insertions}</span>
-                      {' '}
-                      <span className="text-danger">-{pullResult.stats.deletions}</span>
-                      {' across '}
-                      {pullResult.stats.filesChanged} file(s)
-                    </p>
-                  )}
-                  {pullResult.syncResults?.length > 0 && (
-                    <p className="text-sm text-pencil-light flex items-center gap-1">
-                      <CheckCircle size={14} strokeWidth={2.5} className="text-success" />
-                      {t('gitSync.pull.autoSynced', { count: pullResult.syncResults.length })}
-                    </p>
-                  )}
-                </div>
-              )}
-
-              {pullResult && pullResult.upToDate && (
-                <p className="text-sm text-pencil-light flex items-center gap-1">
-                  <CheckCircle size={14} strokeWidth={2.5} className="text-success" />
-                  {t('gitSync.pull.alreadyUpToDate')}
-                </p>
-              )}
-            </div>
-
-            <div className="space-y-3 mt-4 border-t border-dashed border-pencil-light/20 pt-3">
-              <div className="flex items-center justify-between gap-4">
-                <Checkbox label={t('gitSync.dryRun')} checked={pullDryRun} onChange={setPullDryRun} />
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={handlePull}
-                  loading={pulling}
-                  disabled={remoteDisabled || (!!status?.isDirty && !pullDryRun)}
-                >
-                  {!pulling && <ArrowDownCircle size={16} strokeWidth={2.5} />}
-                  {pulling ? t('gitSync.actions.pulling') : t('gitSync.actions.pull')}
-                </Button>
-              </div>
-            </div>
+/** Starts a repository, points the source at another scope, or adds a remote. All three go through POST /api/git/root. */
+function SetupDialog({ setup, status, onClose, onConfirm }: { setup: Setup; status: GitStatus; onClose: () => void; onConfirm: (remoteURL?: string) => void }) {
+  const t = useT();
+  const [url, setUrl] = useState('');
+  const title = t({ init: 'gitSync.scope.initTitle', scope: 'gitSync.scope.confirmTitle', remote: 'gitSync.repo.addRemote' }[setup.kind]);
+  const required = setup.kind === 'remote';
+  return (
+    <DialogShell open onClose={onClose} padding="none" ariaLabel={title} className="!max-w-[500px]">
+      <div className="dh">
+        <h2 className="ss-h2">{title}</h2>
+        <button type="button" className="ss-ib" aria-label={t('common.close')} onClick={onClose}><X size={16} /></button>
+      </div>
+      <form className="contents" onSubmit={(e) => { e.preventDefault(); if (!required || url.trim()) onConfirm(url.trim() || undefined); }}>
+        <div className="db text-[13.5px] leading-relaxed">
+          {setup.kind !== 'remote' && <p>{t(setup.kind === 'init' ? 'gitSync.scope.initMessage' : 'gitSync.scope.confirmMessage', { scope: setup.scope })}</p>}
+          <div className="ss-fld">
+            <Input label={t(required ? 'gitSync.remote.label' : 'gitSync.scope.remoteLabel')} value={url} onChange={(e) => setUrl(e.target.value)} placeholder="git@github.com:you/skills.git" autoFocus />
+            <span className="hp">{t(required ? 'gitSync.remote.hint' : status.hasRemote ? 'gitSync.scope.remoteHint' : 'gitSync.remote.laterHint')}</span>
           </div>
         </div>
-      </Card>
-    </div>
+        <div className="df">
+          <Button type="button" variant="ghost" onClick={onClose}>{t('common.cancel')}</Button>
+          <Button type="submit" variant="primary" disabled={required && !url.trim()}>{t(setup.kind === 'init' ? 'gitSync.setup.button' : setup.kind === 'remote' ? 'common.save' : 'common.confirm')}</Button>
+        </div>
+      </form>
+    </DialogShell>
   );
 }

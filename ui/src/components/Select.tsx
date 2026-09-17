@@ -1,7 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { Check, ChevronDown } from 'lucide-react';
-import { radius, shadows } from '../design';
 
 export interface SelectOption {
   value: string;
@@ -17,11 +16,13 @@ interface SelectProps {
   className?: string;
   size?: 'sm' | 'md';
   disabled?: boolean;
+  /** Muted text shown before the value inside the trigger, e.g. "Sort". */
+  prefix?: string;
 }
 
 const selectTriggerSizes = {
-  sm: 'px-3 py-1.5 text-xs',
-  md: 'px-4 py-2 text-sm',
+  sm: 'h-[30px] text-xs',
+  md: '',
 };
 
 // Position the dropdown in viewport (fixed) coordinates relative to the trigger.
@@ -32,7 +33,7 @@ interface DropdownPos {
   bottom?: number;
 }
 
-export function Select({ label, value, onChange, options, className = '', size = 'md', disabled = false }: SelectProps) {
+export function Select({ label, value, onChange, options, className = '', size = 'md', disabled = false, prefix }: SelectProps) {
   const [open, setOpen] = useState(false);
   const [focusIdx, setFocusIdx] = useState(-1);
   const [pos, setPos] = useState<DropdownPos | null>(null);
@@ -162,7 +163,7 @@ export function Select({ label, value, onChange, options, className = '', size =
   return (
     <div ref={triggerRef} className={`relative ${className}`}>
       {label && (
-        <label className="block text-xs font-medium text-pencil-light mb-1">
+        <label className="block text-[13px] font-semibold mb-1.5">
           {label}
         </label>
       )}
@@ -175,43 +176,30 @@ export function Select({ label, value, onChange, options, className = '', size =
           else { openMenu(); setFocusIdx(options.findIndex((o) => o.value === value)); }
         }}
         onKeyDown={handleKeyDown}
-        className={`
-          ss-select
-          w-full bg-surface border-2 text-pencil text-left
-          flex items-center justify-between gap-2
-          focus:outline-none focus:border-pencil
-          transition-all duration-150
-          rounded-[var(--radius-sm)]
-          ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
-          ${selectTriggerSizes[size]}
-          ${open ? 'border-pencil' : 'border-muted hover:border-muted-dark'}
-        `}
+        className={`ss-inp w-full justify-between text-left outline-none ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'} ${selectTriggerSizes[size]} ${open ? 'border-accent' : ''}`}
         role="combobox"
         aria-expanded={open}
         aria-haspopup="listbox"
       >
-        <span className="truncate">{selectedLabel}</span>
+        <span className="flex items-center gap-1.5 min-w-0">
+          {prefix && <span className="text-ink-3 shrink-0">{prefix}</span>}
+          <span className="truncate">{selectedLabel}</span>
+        </span>
         <ChevronDown
           size={size === 'sm' ? 13 : 15}
           strokeWidth={2}
-          className={`shrink-0 text-muted-dark transition-transform duration-200 ${open ? 'rotate-180' : ''}`}
+          className={`shrink-0 text-ink-3 transition-transform duration-200 ${open ? 'rotate-180' : ''}`}
         />
       </button>
       {open && pos && createPortal(
         <ul
           ref={listRef}
           role="listbox"
-          className={`
-            ss-select-menu
-            fixed z-[9999] bg-surface border-2 border-muted overflow-auto py-1 animate-dropdown-in
-            ${size === 'sm' ? 'text-xs' : 'text-sm'}
-          `}
+          className={`ss-menu fixed z-[9999] !w-auto overflow-auto animate-dropdown-in ${size === 'sm' ? 'text-xs' : 'text-[13px]'}`}
           style={{
             left: pos.left,
             top: pos.top,
             bottom: pos.bottom,
-            borderRadius: radius.md,
-            boxShadow: shadows.lg,
             maxHeight: '16rem',
             // At least as wide as the trigger; wider for description options so
             // they wrap nicely. Bounded so long descriptions never stretch the
@@ -228,24 +216,19 @@ export function Select({ label, value, onChange, options, className = '', size =
                 key={opt.value}
                 role="option"
                 aria-selected={isSelected}
-                className={`
-                  ${size === 'sm' ? 'px-3 py-1.5' : 'px-3.5 py-2'} cursor-pointer flex items-center gap-2 transition-colors duration-100
-                  ${isFocused ? 'bg-muted/60' : ''}
-                  ${isSelected ? 'text-pencil' : 'text-pencil-light'}
-                  hover:bg-muted/60
-                `}
+                className={`min-h-8 px-2 py-1.5 rounded-[7px] cursor-pointer flex items-center gap-2 ${isFocused ? 'bg-sel text-sel-ink' : isSelected ? 'text-ink' : 'text-ink-2'}`}
                 onMouseEnter={() => setFocusIdx(i)}
                 onMouseDown={(e) => { e.preventDefault(); select(opt.value); }}
               >
                 <span className="w-4 shrink-0 flex items-center justify-center">
-                  {isSelected && <Check size={size === 'sm' ? 12 : 14} strokeWidth={2.5} className="text-pencil" />}
+                  {isSelected && <Check size={size === 'sm' ? 12 : 14} />}
                 </span>
                 <span className="flex-1 min-w-0">
                   <span className={`block truncate ${isSelected ? 'font-medium' : ''}`}>
                     {opt.label}
                   </span>
                   {opt.description && (
-                    <span className="block text-xs text-pencil-light/60 mt-0.5">
+                    <span className="block text-xs text-ink-3 mt-0.5">
                       {opt.description}
                     </span>
                   )}

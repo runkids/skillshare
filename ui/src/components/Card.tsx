@@ -1,5 +1,4 @@
 import type { ReactNode, CSSProperties } from 'react';
-import { shadows } from '../design';
 
 interface CardProps {
   children: ReactNode;
@@ -7,30 +6,16 @@ interface CardProps {
   variant?: 'default' | 'accent' | 'outlined';
   hover?: boolean;
   overflow?: boolean;
+  /** @deprecated Cards no longer tilt. Kept so existing call sites compile. */
   tilt?: boolean;
   padding?: 'none' | 'sm' | 'md';
   style?: CSSProperties;
+  /** @deprecated No visual effect. */
   skillCard?: boolean;
   onClick?: () => void;
 }
 
-const variantStyles = {
-  default: 'bg-surface border border-muted',
-  accent: 'bg-surface border-2 border-muted-dark/30',
-  outlined: 'border border-muted',
-};
-
-const variantShadows = {
-  default: shadows.sm,
-  accent: shadows.sm,
-  outlined: 'none',
-};
-
-const paddingClasses = {
-  none: 'p-0',
-  sm: 'p-3',
-  md: 'p-4',
-};
+const paddingClasses = { none: 'p-0', sm: 'p-3', md: '' };
 
 export default function Card({
   children,
@@ -38,10 +23,8 @@ export default function Card({
   variant = 'default',
   hover = false,
   overflow = false,
-  tilt = false,
   padding = 'md',
   style,
-  skillCard = false,
   onClick,
 }: CardProps) {
   const interactive = !!onClick;
@@ -51,22 +34,8 @@ export default function Card({
       onKeyDown={interactive ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick!(); } } : undefined}
       role={interactive ? 'button' : undefined}
       tabIndex={interactive ? 0 : undefined}
-      className={`
-        ss-card
-        ${skillCard ? 'ss-skill-card' : ''}
-        relative ${paddingClasses[padding]}
-        ${overflow ? 'overflow-visible' : 'overflow-hidden'}
-        transition-all duration-150
-        rounded-[var(--radius-md)]
-        ${variantStyles[variant]}
-        ${hover ? 'cursor-pointer hover:shadow-md hover:translate-y-[-1px]' : ''}
-        ${tilt ? 'card-tilt' : ''}
-        ${className}
-      `}
-      style={{
-        boxShadow: variantShadows[variant],
-        ...style,
-      }}
+      className={`ss-box relative ${paddingClasses[padding]} ${overflow ? '' : 'overflow-hidden'} ${variant === 'outlined' ? 'bg-transparent shadow-none' : ''} ${hover ? 'cursor-pointer transition-transform hover:-translate-y-px' : ''} ${className}`}
+      style={style}
     >
       {children}
     </div>

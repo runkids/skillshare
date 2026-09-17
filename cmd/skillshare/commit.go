@@ -40,13 +40,13 @@ func cmdCommit(args []string) error {
 	ui.Header("Committing local changes")
 
 	spinner := ui.StartSpinner("Checking repository...")
-	source, ok := resolveGitRoot(cfg, spinner)
-	if !ok {
-		return nil // Mismatch guidance already displayed
+	source, err := resolveGitRoot(cfg, spinner)
+	if err != nil {
+		return err
 	}
 
 	if err := checkGitWorktree(source, spinner); err != nil {
-		return nil // Error already displayed
+		return err
 	}
 
 	if sweep := rootScopeSafetySweep(cfg, source, opts.dryRun); sweep.hasNotice() {

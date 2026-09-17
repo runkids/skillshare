@@ -8,10 +8,34 @@ MCP lets an Agent use tools supplied by another program or service. Skillshare
 stores the connection settings once and writes each supported Agent's native
 configuration. It does not run a gateway or keep a background server alive.
 
-Supported MCP clients are Claude Code, Codex, Cursor, VS Code, OpenCode and the
-official Grok CLI. Pi requires a separate MCP extension and is not supported yet.
+Supported MCP clients include Claude Code, Codex, Cursor, VS Code, OpenCode,
+Grok CLI, Antigravity (AGY), Amp, Claude Desktop, Cline, Copilot CLI, Factory,
+Gemini CLI, Goose, Junie, Kiro, LM Studio, Warp and Windsurf. Pi requires a
+separate MCP extension and is not supported yet. See the
+[destination and authentication limits](/docs/reference/commands/mcp#native-destinations)
+for each client. The dashboard shows the clients available in your current scope.
+
+For example, share Playwright with Amp, Gemini CLI and Kiro:
+
+```yaml
+mcp:
+  servers:
+    playwright:
+      command: npx
+      args: ["-y", "@playwright/mcp@latest"]
+      targets: [amp, gemini, kiro]
+```
+
+You do not need to learn each client's JSON or YAML format. Skillshare converts
+the definition when you run `skillshare sync mcp`. The receiving client starts
+the command, so Node.js/npx must be available in that client's environment.
 
 ## Start with the guided setup
+
+Run `skillshare mcp` to browse and manage connections from the terminal. Use `/`
+to search, `Enter` for details, `e` to edit, `x` to remove, or `b` to browse
+backups. Every interactive change is previewed before saving. Use
+`skillshare mcp --no-tui` for plain status output.
 
 Initialize Skillshare first if this is a new installation, then run:
 

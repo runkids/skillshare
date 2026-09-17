@@ -1,445 +1,251 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useT } from '../i18n';
-import {
-  Archive,
-  Clock,
-  RotateCcw,
-  Trash2,
-  Target,
-  Plus,
-  RefreshCw,
-  ChevronDown,
-} from 'lucide-react';
-import { api } from '../api/client';
-import type { BackupInfo, RestoreValidateResponse } from '../api/client';
-import { useAppContext } from '../context/AppContext';
-import Spinner from '../components/Spinner';
-import { queryKeys, staleTimes } from '../lib/queryKeys';
-import { formatSize } from '../lib/format';
-import Card from '../components/Card';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Archive, Link2, Plus, Trash2 } from 'lucide-react';
+import { api, type BackupInfo, type RestoreValidateResponse } from '../api/client';
+import AgentIcon from '../components/AgentIcon';
 import Button from '../components/Button';
-import PageHeader from '../components/PageHeader';
-import Badge from '../components/Badge';
 import ConfirmDialog from '../components/ConfirmDialog';
+import DialogShell from '../components/DialogShell';
 import EmptyState from '../components/EmptyState';
+import PageHeader from '../components/PageHeader';
 import { PageSkeleton } from '../components/Skeleton';
 import { useToast } from '../components/Toast';
+import { useAppContext } from '../context/AppContext';
+import { formatDateTime, formatRelativeTime, formatSize, useI18n, useT } from '../i18n';
+import { shortenHome } from '../lib/paths';
+import { queryKeys, staleTimes } from '../lib/queryKeys';
+import { SettingsTabs } from './SettingsPage';
 
-function timeAgo(dateStr: string): string {
-  const now = Date.now();
-  const then = new Date(dateStr).getTime();
-  const diff = now - then;
-  const mins = Math.floor(diff / 60000);
-  if (mins < 1) return 'just now';
-  if (mins < 60) return `${mins}m ago`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}h ago`;
-  const days = Math.floor(hrs / 24);
-  if (days < 30) return `${days}d ago`;
-  return `${Math.floor(days / 30)}mo ago`;
-}
+const CONFLICTS_SHOWN = 6;
 
-function formatDate(dateStr: string): string {
-  return new Date(dateStr).toLocaleString(undefined, {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-  });
-}
+/** Backups all sit side by side, so any one of them names the folder they share. */
+const backupsDir = (path: string) => path.replace(/[/\\][^/\\]+$/, '');
 
 export default function BackupPage() {
   const t = useT();
+  const { locale } = useI18n();
   const { isProjectMode } = useAppContext();
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data, isPending, error } = useQuery({
-    queryKey: queryKeys.backups,
-    queryFn: () => api.listBackups(),
-    staleTime: staleTimes.backups,
-  });
-
-  // All hooks must be called before any conditional return
-  const [creating, setCreating] = useState(false);
+  const overview = useQuery({ queryKey: queryKeys.overview, queryFn: () => api.getOverview(), staleTime: staleTimes.overview });
+  const { data, isPending, error } = useQuery({ queryKey: queryKeys.backups, queryFn: () => api.listBackups(), staleTime: staleTimes.backups, enabled: !isProjectMode });
   const [cleanupOpen, setCleanupOpen] = useState(false);
-  const [cleaningUp, setCleaningUp] = useState(false);
-  const [restoreTarget, setRestoreTarget] = useState<{ timestamp: string; target: string } | null>(null);
-  const [restoring, setRestoring] = useState(false);
-  const [validation, setValidation] = useState<{
-    loading: boolean;
-    result: RestoreValidateResponse | null;
-  }>({ loading: false, result: null });
+  const [restore, setRestore] = useState<{ backup: BackupInfo; target: string | null } | null>(null);
 
   const backups = data?.backups ?? [];
+  const refresh = () => queryClient.invalidateQueries({ queryKey: queryKeys.backups });
 
-  const handleRefresh = () => {
-    queryClient.invalidateQueries({ queryKey: queryKeys.backups });
-  };
+  const create = useMutation({
+    mutationFn: () => api.createBackup(),
+    onSuccess: (res) => {
+      toast(res.backedUpTargets?.length ? t('backup.toast.backedUp', { count: res.backedUpTargets.length }) : t('backup.toast.nothingToBackUp'), res.backedUpTargets?.length ? 'success' : 'info');
+      refresh();
+    },
+    onError: (e: Error) => toast(e.message, 'error'),
+  });
+  const cleanup = useMutation({
+    mutationFn: () => api.cleanupBackups(),
+    onSuccess: (res) => { toast(t('backup.toast.cleanedUp', { count: res.removed }), 'success'); refresh(); setCleanupOpen(false); },
+    onError: (e: Error) => { toast(e.message, 'error'); setCleanupOpen(false); },
+  });
 
-  const handleCreate = async () => {
-    setCreating(true);
-    try {
-      const res = await api.createBackup();
-      if (res.backedUpTargets?.length) {
-        toast(t('backup.toast.backedUp', { count: res.backedUpTargets.length }), 'success');
-      } else {
-        toast(t('backup.toast.nothingToBackUp'), 'info');
-      }
-      queryClient.invalidateQueries({ queryKey: queryKeys.backups });
-    } catch (e: any) {
-      toast(e.message, 'error');
-    } finally {
-      setCreating(false);
-    }
-  };
-
-  const handleCleanup = async () => {
-    setCleaningUp(true);
-    try {
-      const res = await api.cleanupBackups();
-      toast(t('backup.toast.cleanedUp', { count: res.removed }), 'success');
-      queryClient.invalidateQueries({ queryKey: queryKeys.backups });
-    } catch (e: any) {
-      toast(e.message, 'error');
-    } finally {
-      setCleaningUp(false);
-      setCleanupOpen(false);
-    }
-  };
-
-  const openRestoreDialog = async (timestamp: string, target: string) => {
-    setRestoreTarget({ timestamp, target });
-    setValidation({ loading: true, result: null });
-    try {
-      const result = await api.validateRestore({ timestamp, target });
-      setValidation({ loading: false, result });
-    } catch {
-      setValidation({ loading: false, result: null });
-    }
-  };
-
-  const closeRestoreDialog = () => {
-    setRestoreTarget(null);
-    setValidation({ loading: false, result: null });
-  };
-
-  const handleRestore = async () => {
-    if (!restoreTarget) return;
-    setRestoring(true);
-    const needsForce = (validation.result?.conflicts?.length ?? 0) > 0;
-    try {
-      await api.restore({ ...restoreTarget, force: needsForce });
-      toast(t('backup.toast.restored', { target: restoreTarget.target }), 'success');
-      queryClient.invalidateQueries({ queryKey: queryKeys.backups });
-      queryClient.invalidateQueries({ queryKey: queryKeys.targets.all });
-    } catch (e: any) {
-      toast(e.message, 'error');
-    } finally {
-      setRestoring(false);
-      closeRestoreDialog();
-    }
-  };
-
-  // Project mode guard — after all hooks
   if (isProjectMode) {
     return (
-      <div className="animate-fade-in">
-        <Card className="text-center py-12">
-          <Archive size={40} strokeWidth={2} className="text-pencil-light mx-auto mb-4" />
-          <h2 className="text-2xl font-bold text-pencil mb-2">
-            {t('backup.projectMode.title')}
-          </h2>
-          <p className="text-pencil-light mb-4">
-            {t('backup.projectMode.description')}
-          </p>
-          <Link
-            to="/"
-            className="text-blue hover:underline"
-          >
-            {t('common.back')}
-          </Link>
-        </Card>
+      <div className="ss-wrap animate-fade-in">
+        <SettingsHeader />
+        <EmptyState icon={Archive} title={t('backup.projectMode.title')} description={t('backup.projectMode.description')} action={<Link to="/" className="ss-btn">{t('common.back')}</Link>} />
       </div>
     );
   }
 
-  if (isPending) return <PageSkeleton />;
-
-  if (error) {
-    return (
-      <Card>
-        <p className="text-danger">{error.message}</p>
-      </Card>
-    );
-  }
-
   return (
-    <div className="space-y-5 animate-fade-in">
-      <PageHeader
-        icon={<Archive size={24} strokeWidth={2.5} />}
-        title={t('backup.title')}
-        subtitle={t('backup.subtitle')}
-        actions={
-          <>
-            <Button onClick={handleRefresh} variant="secondary" size="sm">
-              <RefreshCw size={16} /> {t('backup.actions.refresh')}
-            </Button>
-            <Button
-              variant="primary"
-              size="sm"
-              onClick={handleCreate}
-              disabled={creating}
-            >
-              {creating ? (
-                <><Spinner size="sm" /> {t('backup.actions.creating')}</>
-              ) : (
-                <><Plus size={16} strokeWidth={2.5} /> {t('backup.actions.createBackup')}</>
-              )}
-            </Button>
-            {backups.length > 0 && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setCleanupOpen(true)}
-              >
-                <Trash2 size={16} strokeWidth={2.5} /> {t('backup.actions.cleanup')}
-              </Button>
-            )}
-          </>
-        }
-      />
+    <div className="ss-wrap animate-fade-in">
+      <SettingsHeader />
 
-      {/* Summary line */}
-      {backups.length > 0 && (
-        <p className="text-sm text-pencil-light">
-          {t('backup.summary.backupsOnFile', { count: backups.length, s: backups.length !== 1 ? 's' : '' })}
-          {data && data.totalSizeBytes > 0 && ` · ${formatSize(data.totalSizeBytes)}`}
-        </p>
-      )}
+      <div className="flex items-center justify-between gap-6">
+        <p className="max-w-[620px] text-[13px] leading-relaxed text-ink-2">{t('backup.intro')}</p>
+        <Button variant="primary" onClick={() => create.mutate()} loading={create.isPending}><Plus size={15} />{t('backup.actions.backUpNow')}</Button>
+      </div>
 
-      {/* Content */}
-      {backups.length === 0 ? (
-        <EmptyState
-          icon={Archive}
-          title={t('backup.empty.title')}
-          description={t('backup.empty.description')}
-          action={
-            <Button variant="primary" onClick={handleCreate} disabled={creating}>
-              <Archive size={16} strokeWidth={2.5} /> {t('backup.actions.createFirstBackup')}
-            </Button>
-          }
-        />
+      {isPending ? (
+        <PageSkeleton />
+      ) : error ? (
+        <div className="ss-note bad"><span className="flex-1">{error.message}</span></div>
+      ) : backups.length === 0 ? (
+        <EmptyState icon={Archive} title={t('backup.empty.title')} description={t('backup.empty.description')} />
       ) : (
-        <div className="space-y-4">
-          {backups.map((backup) => (
-            <BackupCard
-              key={backup.timestamp}
-              backup={backup}
-              onRestore={(target) =>
-                openRestoreDialog(backup.timestamp, target)
-              }
-            />
-          ))}
-        </div>
+        <>
+          <div className="ss-list">
+            <div className="ss-lh">
+              <span className="flex-1">{t('backup.col.taken')}</span>
+              <span className="w-[180px]">{t('backup.col.targets')}</span>
+              <span className="w-[80px] text-right">{t('backup.col.size')}</span>
+              <span className="w-[86px]" />
+            </div>
+            {backups.map((b) => (
+              <div key={b.timestamp} className="ss-r">
+                <span className="flex min-w-0 flex-1 items-baseline gap-2.5">
+                  <span className="nm">{formatDateTime(b.date, locale, { dateStyle: 'medium', timeStyle: 'short' })}</span>
+                  <span className="text-[13px] text-ink-3">{formatRelativeTime(b.date, locale)}</span>
+                </span>
+                <span className="ss-stack flex w-[180px] shrink-0 items-center">
+                  {b.targets.map((name) => (
+                    <span key={name} className="ss-at" title={name}><AgentIcon target={name} size={14} /></span>
+                  ))}
+                </span>
+                <span className="w-[80px] shrink-0 text-right font-mono text-[13px] text-ink-2">{b.sizeBytes > 0 ? formatSize(b.sizeBytes, locale) : '—'}</span>
+                <span className="w-[86px] shrink-0 text-right">
+                  <Button variant="secondary" size="sm" onClick={() => setRestore({ backup: b, target: b.targets.length === 1 ? b.targets[0] : null })}>
+                    {t('backup.actions.restore')}
+                  </Button>
+                </span>
+              </div>
+            ))}
+          </div>
+          <div className="flex items-center gap-3 text-[13px] text-ink-3">
+            <span>
+              {t('backup.footer.count', { count: backups.length })}
+              {data && data.totalSizeBytes > 0 ? ` · ${formatSize(data.totalSizeBytes, locale)}` : ''}
+              {` · ${shortenHome(backupsDir(backups[0].path))}`}
+            </span>
+            <span className="flex-1" />
+            <button type="button" className="ss-btn sm ghost" onClick={() => setCleanupOpen(true)}><Trash2 size={14} />{t('backup.actions.cleanup')}</button>
+          </div>
+        </>
       )}
 
-      {/* Cleanup Dialog */}
+      {restore && (
+        <RestoreDialog
+          backup={restore.backup}
+          target={restore.target}
+          onPick={(target) => setRestore({ backup: restore.backup, target })}
+          onClose={() => setRestore(null)}
+          onDone={() => {
+            setRestore(null);
+            refresh();
+            queryClient.invalidateQueries({ queryKey: queryKeys.targets.all });
+          }}
+        />
+      )}
+
       <ConfirmDialog
         open={cleanupOpen}
         title={t('backup.cleanup.title')}
-        message={
-          <span>
-            {t('backup.cleanup.message')}
-          </span>
-        }
+        message={t('backup.cleanup.message')}
         confirmText={t('backup.cleanup.confirmText')}
         variant="danger"
-        loading={cleaningUp}
-        onConfirm={handleCleanup}
+        loading={cleanup.isPending}
+        onConfirm={() => cleanup.mutate()}
         onCancel={() => setCleanupOpen(false)}
-      />
-
-      {/* Restore Dialog */}
-      <ConfirmDialog
-        open={restoreTarget !== null}
-        title={t('backup.restore.title')}
-        wide
-        message={
-          restoreTarget ? (
-            <div className="text-left space-y-3">
-              <div className="space-y-1 text-sm">
-                <div><strong>{t('backup.card.target')}</strong> {restoreTarget.target}</div>
-                <div><strong>{t('backup.card.from')}</strong> <code className="text-xs bg-paper-dark/50 px-1 rounded">{restoreTarget.timestamp}</code></div>
-                {validation.result && validation.result.backupSizeBytes > 0 && (
-                  <div><strong>{t('backup.card.backupSize')}</strong> {formatSize(validation.result.backupSizeBytes)}</div>
-                )}
-              </div>
-
-              {validation.loading && (
-                <p className="text-pencil-light italic text-sm">{t('backup.restore.checkingTarget')}</p>
-              )}
-
-              {validation.result?.currentIsSymlink && (
-                <p className="text-blue text-sm">
-                  {t('backup.restore.symlinkNote')}
-                </p>
-              )}
-
-              {(validation.result?.conflicts?.length ?? 0) > 0 && (
-                <div className="bg-warning/10 border border-warning/30 rounded p-2 text-sm">
-                  <p className="font-medium text-warning mb-1">
-                    {t('backup.restore.overwriteWarning', { count: validation.result!.conflicts.length })}
-                  </p>
-                  <ul className="list-disc list-inside text-pencil-light max-h-24 overflow-y-auto">
-                    {validation.result!.conflicts.slice(0, 10).map((f) => (
-                      <li key={f}>{f}</li>
-                    ))}
-                    {validation.result!.conflicts.length > 10 && (
-                      <li>...and {validation.result!.conflicts.length - 10} more</li>
-                    )}
-                  </ul>
-                </div>
-              )}
-
-              {validation.result && !validation.result.currentIsSymlink && validation.result.conflicts.length === 0 && (
-                <p className="text-green text-sm">
-                  {t('backup.restore.emptyOrMissing')}
-                </p>
-              )}
-            </div>
-          ) : <span />
-        }
-        confirmText={
-          (validation.result?.conflicts?.length ?? 0) > 0
-            ? t('backup.actions.restoreOverwrite')
-            : t('backup.actions.restore')
-        }
-        variant="danger"
-        loading={restoring || validation.loading}
-        onConfirm={handleRestore}
-        onCancel={closeRestoreDialog}
       />
     </div>
   );
+
+  function SettingsHeader() {
+    return (
+      <>
+        <PageHeader
+          className="!mb-0"
+          title={t('layout.nav.settings')}
+          subtitle={`${t(isProjectMode ? 'app.project' : 'app.global')}${overview.data?.configDir ? ` · ${shortenHome(overview.data.configDir)}` : ''}`}
+        />
+        <SettingsTabs current="backup" />
+      </>
+    );
+  }
 }
 
-function BackupCard({
-  backup,
-  onRestore,
-}: {
+function RestoreDialog({ backup, target, onPick, onClose, onDone }: {
   backup: BackupInfo;
-  onRestore: (target: string) => void;
+  target: string | null;
+  onPick: (target: string) => void;
+  onClose: () => void;
+  onDone: () => void;
 }) {
   const t = useT();
-  const [dropdownOpen, setDropdownOpen] = useState(false);
-  const [openUpward, setOpenUpward] = useState(false);
-  const dropdownRef = useRef<HTMLDivElement>(null);
-  const btnRef = useRef<HTMLButtonElement>(null);
+  const { locale } = useI18n();
+  const { toast } = useToast();
+  const [more, setMore] = useState(false);
 
-  useEffect(() => {
-    if (!dropdownOpen) return;
-    const handleClick = (e: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
-        setDropdownOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClick);
-    return () => document.removeEventListener('mousedown', handleClick);
-  }, [dropdownOpen]);
+  const check = useQuery<RestoreValidateResponse>({
+    queryKey: queryKeys.restoreValidate(backup.timestamp, target ?? ''),
+    queryFn: () => api.validateRestore({ timestamp: backup.timestamp, target: target! }),
+    enabled: target !== null,
+    staleTime: 0,
+  });
+  const conflicts = check.data?.conflicts ?? [];
+  const run = useMutation({
+    mutationFn: () => api.restore({ timestamp: backup.timestamp, target: target!, force: conflicts.length > 0 }),
+    onSuccess: () => { toast(t('backup.toast.restored', { target: target! }), 'success'); onDone(); },
+    onError: (e: Error) => toast(e.message, 'error'),
+  });
 
-  const toggleDropdown = () => {
-    if (!dropdownOpen && btnRef.current) {
-      const rect = btnRef.current.getBoundingClientRect();
-      const spaceBelow = window.innerHeight - rect.bottom;
-      const estimatedHeight = backup.targets.length * 36 + 8;
-      setOpenUpward(spaceBelow < estimatedHeight + 8);
-    }
-    setDropdownOpen((prev) => !prev);
-  };
-
-  const hasManyTargets = backup.targets.length > 3;
+  const taken = formatDateTime(backup.date, locale, { dateStyle: 'medium', timeStyle: 'short' });
 
   return (
-    <Card overflow className={dropdownOpen ? 'z-10' : ''}>
-      <div className="space-y-3">
-        {/* Timestamp row */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2 text-pencil">
-            <Clock size={16} strokeWidth={2.5} />
-            <span className="font-medium">{formatDate(backup.date)}</span>
-            <span className="text-sm text-pencil-light">
-              {timeAgo(backup.date)}
-            </span>
-          </div>
-          {backup.sizeBytes > 0 && (
-            <span className="text-xs text-pencil-light">
-              {formatSize(backup.sizeBytes)}
-            </span>
-          )}
-        </div>
-
-        {/* Targets */}
-        <div className="flex items-center gap-2 flex-wrap">
-          <Target size={14} strokeWidth={2.5} className="text-pencil-light" />
-          {backup.targets.map((t) => (
-            <Badge key={t} variant="info">{t}</Badge>
-          ))}
-        </div>
-
-        {/* Actions */}
-        <div className="border-t border-dashed border-pencil-light/30 pt-3 flex gap-2 flex-wrap">
-          {hasManyTargets ? (
-            <div className="relative" ref={dropdownRef}>
-              <Button
-                ref={btnRef}
-                variant="secondary"
-                size="sm"
-                onClick={toggleDropdown}
-              >
-                <RotateCcw size={14} strokeWidth={2.5} />
-                {t('backup.actions.restoreTarget')}
-                <ChevronDown
-                  size={14}
-                  strokeWidth={2.5}
-                  className={`transition-transform duration-150 ${dropdownOpen ? 'rotate-180' : ''}`}
-                />
-              </Button>
-              {dropdownOpen && (
-                <div className={`absolute left-0 z-50 min-w-[180px] bg-surface border border-muted rounded-[var(--radius-md)] shadow-md py-1 animate-fade-in ${openUpward ? 'bottom-full mb-1' : 'top-full mt-1'}`}>
-                  {backup.targets.map((t) => (
-                    <button
-                      key={t}
-                      className="w-full text-left px-3 py-2 text-sm text-pencil hover:bg-muted/40 transition-colors cursor-pointer flex items-center gap-2"
-                      onClick={() => {
-                        setDropdownOpen(false);
-                        onRestore(t);
-                      }}
-                    >
-                      <RotateCcw size={12} strokeWidth={2.5} className="text-pencil-light" />
-                      {t}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          ) : (
-            backup.targets.map((t) => (
-              <Button
-                key={t}
-                variant="secondary"
-                size="sm"
-                onClick={() => onRestore(t)}
-              >
-                <RotateCcw size={14} strokeWidth={2.5} /> Restore {t}
-              </Button>
-            ))
-          )}
+    <DialogShell open onClose={onClose} padding="none" preventClose={run.isPending} ariaLabel={t('backup.restore.title')}>
+      <div className="dh">
+        <div>
+          <h2 className="ss-h2">{t('backup.restore.title')}</h2>
+          <p className="mt-1 text-[13px] text-ink-3">{t('backup.restore.taken', { date: taken })}</p>
         </div>
       </div>
-    </Card>
+
+      {target === null ? (
+        <>
+          <div className="db">
+            <p className="text-[13px] text-ink-2">{t('backup.restore.pickTarget')}</p>
+            <div className="ss-list">
+              {backup.targets.map((name) => (
+                <button key={name} type="button" className="ss-r link w-full text-left" onClick={() => onPick(name)}>
+                  <span className="ss-at"><AgentIcon target={name} size={16} /></span>
+                  <span className="nm flex-1">{name}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="df"><Button variant="ghost" onClick={onClose}>{t('common.cancel')}</Button></div>
+        </>
+      ) : (
+        <>
+          <div className="db">
+            <div className="ss-r !min-h-0 !px-0">
+              <span className="ss-at"><AgentIcon target={target} size={16} /></span>
+              <span className="nm flex-1">{target}</span>
+            </div>
+            {check.isPending ? (
+              <p className="text-[13px] text-ink-3">{t('backup.restore.checkingTarget')}</p>
+            ) : check.error ? (
+              <div className="ss-note bad"><span className="flex-1">{check.error.message}</span></div>
+            ) : conflicts.length > 0 ? (
+              <div className="ss-note warn flex-col !items-stretch">
+                <span>{t('backup.restore.overwriteWarning', { count: conflicts.length })}</span>
+                <ul className="mt-2 flex flex-col gap-1 font-mono text-[12px]">
+                  {(more ? conflicts : conflicts.slice(0, CONFLICTS_SHOWN)).map((f) => <li key={f}>{f}</li>)}
+                </ul>
+                {!more && conflicts.length > CONFLICTS_SHOWN && (
+                  <button type="button" className="ss-btn sm ghost mt-1 self-start !px-0" onClick={() => setMore(true)}>
+                    {t('backup.restore.moreConflicts', { count: conflicts.length - CONFLICTS_SHOWN })}
+                  </button>
+                )}
+              </div>
+            ) : (
+              <p className="text-[13px] text-ink-2">{t('backup.restore.emptyOrMissing')}</p>
+            )}
+            {check.data?.currentIsSymlink && (
+              <div className="ss-note inf"><Link2 size={15} /><span className="flex-1">{t('backup.restore.symlinkNote')}</span></div>
+            )}
+          </div>
+          <div className="df">
+            <Button variant="ghost" onClick={onClose} disabled={run.isPending}>{t('common.cancel')}</Button>
+            <Button variant="danger" onClick={() => run.mutate()} loading={run.isPending} disabled={check.isPending || !!check.error}>
+              {conflicts.length > 0 ? t('backup.actions.restoreOverwrite') : t('backup.actions.restore')}
+            </Button>
+          </div>
+        </>
+      )}
+    </DialogShell>
   );
 }

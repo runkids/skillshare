@@ -8,14 +8,12 @@ import (
 	"strings"
 	"time"
 
-	"golang.org/x/term"
-
 	"skillshare/internal/mcp"
 )
 
 func runMCPAdd(service *mcp.Service, o mcpOptions) error {
 	if o.name == "" || o.url == "" && len(o.command) == 0 {
-		if !term.IsTerminal(int(os.Stdin.Fd())) {
+		if !mcpInteractive(o) {
 			return fmt.Errorf("provide a name and --url URL or -- command args; run without flags in a terminal for guided setup")
 		}
 		return mcpAddWizard(service, o)
@@ -61,17 +59,18 @@ func finishMCPMutation(service *mcp.Service, mutation mcp.Mutation, o mcpOptions
 
 func runMCPImport(service *mcp.Service, o mcpOptions) error {
 	if o.from == "" && o.file == "" {
-		if !term.IsTerminal(int(os.Stdin.Fd())) {
+		if !mcpInteractive(o) {
 			return fmt.Errorf("import requires --from <client> or --file <path>")
 		}
-		selected, err := runChecklistTUI(checklistConfig{title: "Import MCP from which Agent?", singleSelect: true, items: mcpTargetItems()})
+		items := mcpTargetItems(service, nil)
+		selected, err := runChecklistTUI(checklistConfig{title: "Import MCP from which Agent?", singleSelect: true, items: items})
 		if err != nil {
 			return err
 		}
 		if len(selected) == 0 {
 			return nil
 		}
-		o.from = mcp.Targets[selected[0]]
+		o.from = items[selected[0]].label
 	}
 	var candidates []mcp.Candidate
 	var err error
@@ -92,25 +91,10 @@ func runMCPImport(service *mcp.Service, o mcpOptions) error {
 		return err
 	}
 	if o.name == "" {
-		if !term.IsTerminal(int(os.Stdin.Fd())) {
+		if !mcpInteractive(o) {
 			return json.NewEncoder(os.Stdout).Encode(candidates)
 		}
-		items := []checklistItemData{}
-		for _, c := range candidates {
-			items = append(items, checklistItemData{label: c.Name, desc: strings.Join(c.Problems, "; ")})
-		}
-		if len(items) == 0 {
-			return fmt.Errorf("no MCP servers found")
-		}
-		selected, err := runChecklistTUI(checklistConfig{title: "Choose a server to import", items: items, singleSelect: true})
-		if err != nil {
-			return err
-		}
-		if len(selected) == 0 {
-			return nil
-		}
-		c := candidates[selected[0]]
-		return mcpCandidateWizard(service, c, o)
+		return mcpBatchImportWizard(service, candidates, o, terminalMCPPrompts{})
 	}
 	for _, c := range candidates {
 		if c.Name != o.name {

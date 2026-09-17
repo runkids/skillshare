@@ -1,71 +1,80 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { ShieldCheck, Trash2, X } from 'lucide-react';
+import { Info, X } from 'lucide-react';
 import { mcpApi } from '../../api/mcp';
-import Badge from '../Badge';
+import AgentIcon from '../AgentIcon';
 import Button from '../Button';
 import DialogShell from '../DialogShell';
-import IconButton from '../IconButton';
 import Spinner from '../Spinner';
 import { useT } from '../../i18n';
-import AgentIcon from '../AgentIcon';
-import { describeMessage, statusVariant } from './mcpView';
+import { shortenHome } from '../../lib/paths';
+import { describeMessage } from './mcpView';
 
 interface Props {
   name: string;
-  targets: string[];
   onClose: () => void;
-  onSaved: (backups: string[]) => void;
+  onSaved: () => void;
 }
 
-export default function MCPRemoveDialog({ name, targets, onClose, onSaved }: Props) {
+export default function MCPRemoveDialog({ name, onClose, onSaved }: Props) {
   const t = useT();
   const { data: plan, error, isPending } = useQuery({ queryKey: ['mcp-remove-preview', name], queryFn: () => mcpApi.preview({ name, remove: true }), gcTime: 0 });
   const [busy, setBusy] = useState(false);
   const [saveError, setSaveError] = useState('');
-  const changes = plan?.changes.filter(change => change.name === name) ?? [];
-  const untouched = targets.filter(target => !changes.some(change => change.target === target));
+  const changes = plan?.changes.filter((c) => c.name === name) ?? [];
+  const title = t('mcp.removeTitle', { name });
 
   const save = async (sync: boolean) => {
     if (!plan) return;
-    setBusy(true); setSaveError('');
-    try { onSaved((await mcpApi.configure({ name, remove: true }, plan.revision, sync)).backupIds ?? []); }
-    catch (e) { setSaveError(e instanceof Error ? e.message : t('common.error.generic')); }
-    finally { setBusy(false); }
+    setBusy(true);
+    setSaveError('');
+    try {
+      await mcpApi.configure({ name, remove: true }, plan.revision, sync);
+      onSaved();
+    } catch (e) {
+      setSaveError((e as Error).message);
+      setBusy(false);
+    }
   };
 
-  return <DialogShell open onClose={onClose} preventClose={busy} maxWidth="lg" ariaLabel={t('mcp.removeTitle', { name })}>
-    <div className="space-y-4">
-      <div className="flex items-start justify-between gap-3">
-        <div className="w-11 h-11 rounded-full bg-danger-light text-danger flex items-center justify-center"><Trash2 size={20} aria-hidden="true" /></div>
-        <IconButton icon={<X size={16} strokeWidth={2.5} />} label={t('common.close')} disabled={busy} onClick={onClose} />
+  return (
+    <DialogShell open onClose={onClose} padding="none" preventClose={busy} ariaLabel={title} className="!max-w-[460px]">
+      <div className="dh">
+        <h2 className="ss-h2">{title}</h2>
+        <button type="button" className="ss-ib" aria-label={t('common.close')} onClick={onClose} disabled={busy}><X size={16} /></button>
       </div>
-      <div className="space-y-1">
-        <h2 className="text-xl font-semibold">{t('mcp.removeTitle', { name })}</h2>
-        <p className="text-sm text-pencil-light">{t('mcp.removeDesc')}</p>
+      <div className="db">
+        <p className="text-[13px]">{t('mcp.removeDesc')}</p>
+        {isPending ? (
+          <Spinner size="sm" />
+        ) : changes.length > 0 ? (
+          <div className="ss-list !shadow-none">
+            {changes.map((c) => (
+              <div key={c.path} className="ss-r !min-h-10">
+                <span className="ss-at"><AgentIcon target={c.target} size={17} /></span>
+                <span className="flex min-w-0 flex-1 flex-col">
+                  <span className="truncate font-mono text-[13px]" title={c.path}>{shortenHome(c.path)}</span>
+                  {c.message && <span className="text-xs text-warn">{describeMessage(t, c.message)}</span>}
+                </span>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-[13px] text-ink-3">{t('mcp.notWritten')}</p>
+        )}
+        {(error || saveError) && <div className="ss-note bad" role="alert"><span className="flex-1">{error?.message ?? saveError}</span></div>}
+        {plan?.blocked ? (
+          <div className="ss-note warn"><Info size={16} /><span className="flex-1">{t('mcp.removeBlocked')}</span></div>
+        ) : (
+          <div className="ss-note inf"><Info size={16} /><span className="flex-1">{t('mcp.backupNote')}</span></div>
+        )}
       </div>
-      {error || saveError ? <p role="alert" className="text-sm text-danger">{error?.message ?? saveError}</p> : null}
-      {isPending ? <Spinner /> : <ul className="border border-muted rounded-[var(--radius-md)] divide-y divide-dashed divide-pencil-light/30">
-        {changes.map(change => <li key={change.target} className="flex flex-wrap items-center gap-3 px-3 py-2.5">
-          <Badge size="md" variant={statusVariant[change.action]}>{t(`mcp.status.${change.action}`)}</Badge>
-          <span className="w-24 inline-flex items-center gap-1.5 font-semibold"><AgentIcon target={change.target} />{change.target}</span>
-          {change.message
-            ? <span className="text-sm text-pencil-light">{describeMessage(t, change.message)}</span>
-            : <span className="font-mono text-xs text-pencil-light break-all">{change.path}</span>}
-        </li>)}
-        {untouched.map(target => <li key={target} className="flex flex-wrap items-center gap-3 px-3 py-2.5 text-pencil-light">
-          <span aria-hidden="true" className="w-12 text-center">—</span>
-          <span className="w-24 inline-flex items-center gap-1.5 font-semibold"><AgentIcon target={target} />{target}</span>
-          <span className="text-xs">{t('mcp.notWritten')}</span>
-        </li>)}
-      </ul>}
-      {plan?.blocked ? <p className="text-sm text-warning">{t('mcp.conflictHint')}</p> : null}
-      <p className="flex items-center gap-1.5 text-xs text-pencil-light"><ShieldCheck size={14} className="text-success" aria-hidden="true" />{t('mcp.backupNote')}</p>
-      <div className="flex flex-wrap justify-end gap-2 pt-4 border-t border-dashed border-pencil-light/30">
-        <Button variant="ghost" disabled={busy} onClick={onClose}>{t('common.cancel')}</Button>
+      <div className="df">
+        <Button variant="ghost" onClick={onClose} disabled={busy}>{t('common.cancel')}</Button>
+        <span className="flex-1" />
         <Button variant="secondary" disabled={!plan} loading={busy} onClick={() => save(false)}>{t('mcp.removeSourceOnly')}</Button>
-        <Button variant="danger" disabled={!plan || plan.blocked} loading={busy} onClick={() => save(true)}>{t('mcp.removeSync')}</Button>
+        <Button variant="primary" disabled={!plan || plan.blocked} loading={busy} onClick={() => save(true)}>{t('mcp.removeSync')}</Button>
       </div>
-    </div>
-  </DialogShell>;
+    </DialogShell>
+  );
 }

@@ -66,6 +66,27 @@ func GenerateContent(name, pattern, category string) string {
 	return generatePatternTemplate(name, pattern, category)
 }
 
+// WithDescription replaces the template's placeholder description with text,
+// folded onto one line. Empty text keeps the placeholder.
+func WithDescription(content, text string) string {
+	text = strings.Join(strings.Fields(text), " ")
+	const key = "description: >-\n"
+	start := strings.Index(content, key)
+	if text == "" || start < 0 {
+		return content
+	}
+	end := start + len(key)
+	for strings.HasPrefix(content[end:], "  ") {
+		next := strings.IndexByte(content[end:], '\n')
+		if next < 0 {
+			end = len(content)
+			break
+		}
+		end += next + 1
+	}
+	return content[:start] + key + "  " + text + "\n" + content[end:]
+}
+
 // ToTitleCase converts kebab-case to Title Case.
 func ToTitleCase(s string) string {
 	words := strings.Split(s, "-")

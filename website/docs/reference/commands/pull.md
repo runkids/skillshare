@@ -40,6 +40,8 @@ flowchart TD
 
 `pull` operates on the directory selected by the `git_root` config field (default: `skills` source). See [commit — Git Root Scope](./commit.md#git-root-scope) for the scope table. If `git_root` was changed but the git repo still lives in another scope's directory, `pull` prints a "Git root mismatch" error with the exact `git init` / `mv` commands to fix it. See [Changing the scope after init](../targets/configuration.md#git-root).
 
+After pulling, `pull` syncs what the scope holds: `skills` runs `sync`, `agents` runs `sync agents`, `root` runs both, and `extras` runs `sync extras`.
+
 ## Prerequisites
 
 Your source directory must be a git repository with a remote:
@@ -87,7 +89,8 @@ If there are **merge conflicts**, `pull` fails with a non-zero exit code:
 
 ```bash
 $ skillshare pull
-Failed to merge remote history
+Pull failed
+  Resolve manually: cd ~/.config/skillshare/skills && git merge --allow-unrelated-histories <remote branch>
   Or force-pull: skillshare pull --force  (replaces local with remote)
 ```
 

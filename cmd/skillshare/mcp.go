@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -13,10 +14,10 @@ import (
 )
 
 type mcpOptions struct {
-	name, url, from, file, revision string
-	targets                         []string
-	command                         []string
-	sync, dryRun, json, replace     bool
+	name, url, from, file, revision    string
+	targets                            []string
+	command                            []string
+	sync, dryRun, json, replace, noTUI bool
 }
 
 func parseMCPOptions(args []string) (mcpOptions, error) {
@@ -50,6 +51,8 @@ func parseMCPOptions(args []string) (mcpOptions, error) {
 			o.dryRun = true
 		case "--json":
 			o.json = true
+		case "--no-tui":
+			o.noTUI = true
 		case "--replace":
 			o.replace = true
 		default:
@@ -62,7 +65,12 @@ func parseMCPOptions(args []string) (mcpOptions, error) {
 	return o, nil
 }
 
-func cmdMCP(args []string) error {
+func cmdMCP(args []string) (resultErr error) {
+	defer func() {
+		if errors.Is(resultErr, errMCPCancelled) {
+			resultErr = nil
+		}
+	}()
 	helpArgs := args
 	for i, arg := range args {
 		if arg == "--" {
@@ -74,8 +82,8 @@ func cmdMCP(args []string) error {
 		printMCPHelp()
 		return nil
 	}
-	if len(args) == 0 {
-		return cmdMCP([]string{"list"})
+	if len(args) == 0 || strings.HasPrefix(args[0], "-") {
+		args = append([]string{"list"}, args...)
 	}
 	sub, args := args[0], args[1:]
 	service, rest, err := mcpContext(args)
@@ -89,6 +97,9 @@ func cmdMCP(args []string) error {
 	start := time.Now()
 	switch sub {
 	case "list":
+		if mcpInteractive(o) && !o.dryRun {
+			return runMCPManager(service)
+		}
 		p, err := service.Preview()
 		if err != nil {
 			return err
@@ -96,29 +107,20 @@ func cmdMCP(args []string) error {
 		return printMCPPlan(p, o.json)
 	case "add":
 		return runMCPAdd(service, o)
+	case "edit":
+		return runMCPEdit(service, o)
 	case "import":
 		return runMCPImport(service, o)
 	case "remove":
+		if mcpInteractive(o) {
+			return mcpRemoveWizard(service, o, terminalMCPPrompts{})
+		}
 		if o.name == "" {
 			return fmt.Errorf("usage: skillshare mcp remove <name> [--sync]")
 		}
 		return finishMCPMutation(service, mcp.Mutation{Name: o.name, Remove: true}, o, start)
 	case "restore":
-		p, err := service.PreviewRestore(o.name)
-		if err != nil {
-			return err
-		}
-		if o.dryRun {
-			return printMCPPlan(p, o.json)
-		}
-		result, err := service.Restore(o.name, p.Revision)
-		logMCPOp(service.ConfigPath, "mcp restore", start, err)
-		if result != nil {
-			if outputErr := printMCPResult(result, o.json); outputErr != nil {
-				return outputErr
-			}
-		}
-		return err
+		return runMCPRestore(service, o, terminalMCPPrompts{})
 	default:
 		return fmt.Errorf("unknown MCP command %q; run skillshare mcp --help", sub)
 	}
@@ -209,18 +211,19 @@ func logMCPOp(path, command string, start time.Time, err error) {
 }
 
 func printMCPHelp() {
-	fmt.Println(`Usage: skillshare mcp <command> [options]
+	fmt.Println(`Usage: skillshare mcp [command] [options]
 
 Commands:
   add [name]        Guided setup, or --url URL / -- command args...
-  import [name]     Import --from <client> or --file <JSON/TOML file>
-  list              Show per-client sync status
-  remove <name>     Remove from source (sync to remove managed native entries)
-  restore <id>      Restore MCP entries from a backup
+  edit [name]       Interactive editor, or update --url / --target / -- command
+  import [name]     Import --from <client> or --file <JSON/TOML/YAML file>
+  list             Browse connections and per-client sync status (default)
+  remove [name]     Select and remove a source entry; optionally sync removal
+  restore [id]      Browse backups, preview and restore Agent entries
 
 Options:
   --target <client>  Receiving client; repeat for multiple clients
-  --from <client>    claude, codex, cursor, vscode, opencode, or grok
+  --from <client>    Native client ID (see mcp documentation for destinations)
   --file <path>      Native configuration file to import
   --url <url>        Streamable HTTP endpoint
   --sync            Save and synchronize (non-interactive default: save only)
@@ -228,10 +231,15 @@ Options:
                     the imported client's entry when it differs
   --dry-run, -n     Preview without writing
   --json            Machine-readable, credential-free sync results
+  --no-tui          Disable interactive menus (also honors tui: false)
   --revision <id>   Require the matching preview revision
   --global, -g      Global configuration
   --project, -p     Project configuration
 
-Sync: skillshare sync mcp [--dry-run] [--json] [-g|-p]
+With no command, opens the MCP manager in a terminal; otherwise prints status.
+Manager keys: / search, Enter details, a add, i import, e edit, x remove,
+              s sync, b backups, r refresh, q quit.
+JSON and non-TTY output never open a TUI. Scripted edits require a name.
+Sync: skillshare sync mcp [--dry-run] [--json] [--no-tui] [-g|-p]
 Import does not start MCP servers or copy OAuth credentials.`)
 }

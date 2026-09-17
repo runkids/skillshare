@@ -5,37 +5,12 @@ interface BadgeProps {
   dot?: boolean;
 }
 
-const variants: Record<string, string> = {
-  default: 'bg-muted text-pencil-light',
-  success: 'bg-success-light text-success',
-  warning: 'bg-warning-light text-warning',
-  danger: 'bg-danger-light text-danger',
-  info: 'bg-info-light text-blue',
-  accent: 'bg-accent/10 text-accent',
-};
-
-const dotColors: Record<string, string> = {
-  default: 'bg-pencil-light',
-  success: 'bg-success',
-  warning: 'bg-warning',
-  danger: 'bg-danger',
-  info: 'bg-blue',
-  accent: 'bg-accent',
-};
-
-const sizeClasses = {
-  sm: 'px-1.5 py-0 text-[10px]',
-  md: 'px-2 py-0.5 text-xs',
-};
+const variants = { default: '', success: 'ok', warning: 'warn', danger: 'bad', info: 'inf', accent: 'warn' };
 
 export default function Badge({ children, variant = 'default', size = 'sm', dot = false }: BadgeProps) {
   return (
-    <span
-      className={`ss-badge inline-flex items-center gap-1 font-medium rounded-[var(--radius-sm)] ${variants[variant]} ${sizeClasses[size]}`}
-    >
-      {dot && (
-        <span className={`w-1.5 h-1.5 rounded-full ${dotColors[variant]}`} />
-      )}
+    <span className={`ss-tag ${variants[variant]} ${size === 'md' ? 'h-[22px] px-2 text-xs' : ''}`}>
+      {dot && <span className="w-1.5 h-1.5 rounded-full bg-current" />}
       {children}
     </span>
   );

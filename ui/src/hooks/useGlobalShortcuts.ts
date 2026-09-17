@@ -25,7 +25,7 @@ export const SHORTCUT_ENTRIES: ShortcutEntry[] = [
   { keys: '/', labelKey: 'shortcuts.focusSearch' },
   { keys: 'r', labelKey: 'shortcuts.refreshPage' },
   { keys: 'g d', labelKey: 'shortcuts.goToDashboard' },
-  { keys: 'g s', labelKey: 'shortcuts.goToResources' },
+  { keys: 'g s', labelKey: 'shortcuts.goToSkills' },
   { keys: 'g t', labelKey: 'shortcuts.goToTargets' },
   { keys: 'g l', labelKey: 'shortcuts.goToLog' },
   { keys: 'g a', labelKey: 'shortcuts.goToAudit' },
@@ -35,11 +35,11 @@ export const SHORTCUT_ENTRIES: ShortcutEntry[] = [
 
 const NAV_MAP: Record<string, string> = {
   d: '/',
-  s: '/resources',
+  s: '/skills',
   t: '/targets',
   l: '/log',
   a: '/audit',
-  u: '/update',
+  u: '/skills?tab=updates',
 };
 
 const CHORD_TIMEOUT = 500;

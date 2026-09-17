@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 )
@@ -135,10 +136,18 @@ func (s *Service) render(source *Source) (map[string]map[string]map[string]any, 
 			if err != nil {
 				return nil, nil, fmt.Errorf("%s / %s: %w", target, name, err)
 			}
+			if target == "goose" {
+				entry["name"] = name
+			}
 			if desired[path] == nil {
 				desired[path] = map[string]map[string]any{}
 			}
 			desired[path][name] = entry
+		}
+	}
+	if s.ProjectRoot != "" {
+		if desired[filepath.Join(s.ProjectRoot, ".mcp.json")] != nil && desired[filepath.Join(s.ProjectRoot, ".github", "mcp.json")] != nil {
+			return nil, nil, fmt.Errorf("Claude and Copilot project MCP destinations overlap in precedence; use global mode for one client")
 		}
 	}
 	return desired, targets, nil

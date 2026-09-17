@@ -1,17 +1,12 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider } from '../i18n';
 import { ToastProvider } from '../components/Toast';
 import UpdatePage, { isForceRetryable, stripCliHint } from './UpdatePage';
 import { api } from '../api/client';
-
-vi.mock('react-virtuoso', () => ({
-  Virtuoso: ({ totalCount, itemContent }: { totalCount: number; itemContent: (index: number) => React.ReactNode }) => (
-    <div>{Array.from({ length: totalCount }, (_, index) => <div key={index}>{itemContent(index)}</div>)}</div>
-  ),
-}));
 
 vi.mock('../api/client', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../api/client')>();
@@ -35,14 +30,31 @@ function renderUpdatePage() {
 
   return render(
     <QueryClientProvider client={queryClient}>
-      <I18nProvider>
-        <ToastProvider>
-          <UpdatePage />
-        </ToastProvider>
-      </I18nProvider>
+      <MemoryRouter>
+        <I18nProvider>
+          <ToastProvider>
+            <UpdatePage kind="skill" />
+          </ToastProvider>
+        </I18nProvider>
+      </MemoryRouter>
     </QueryClientProvider>,
   );
 }
+
+async function findRow(name: string) {
+  const row = (await screen.findByText(name, { selector: '.nm' })).closest('.ss-r');
+  expect(row).not.toBeNull();
+  return within(row as HTMLElement);
+}
+
+function cacheStatus(name: string, status: string) {
+  localStorage.setItem(
+    'skillshare.updateCheckCache.global',
+    JSON.stringify({ version: 1, items: { [name]: { status, checkedAt: new Date(Date.now() - 60_000).toISOString() } } }),
+  );
+}
+
+const noResults = { results: [], summary: { updated: 0, upToDate: 0, blocked: 0, errors: 0, skipped: 0 } };
 
 describe('UpdatePage', () => {
   beforeEach(() => {
@@ -86,39 +98,26 @@ describe('UpdatePage', () => {
     const user = userEvent.setup();
     renderUpdatePage();
 
-    await user.click(await screen.findByRole('button', { name: /check all/i }));
+    await user.click(await screen.findByRole('button', { name: /check for updates/i }));
 
-    const row = await screen.findByText('agent-browser').then((el) => el.closest('button'));
-    expect(row).not.toBeNull();
+    const row = await findRow('agent-browser');
     await waitFor(() => {
-      expect(within(row as HTMLElement).getByText('Update available')).toBeInTheDocument();
+      expect(row.getByText('Update available')).toBeInTheDocument();
     });
-    expect(within(row as HTMLElement).queryByText('Checking')).not.toBeInTheDocument();
+    expect(row.queryByText('Checking')).not.toBeInTheDocument();
   });
 
   it('restores cached check status and last check time on entry', async () => {
     vi.mocked(api.listSkills).mockResolvedValue({
       resources: [nestedSkill],
     });
-    localStorage.setItem(
-      'skillshare.updateCheckCache.global',
-      JSON.stringify({
-        version: 1,
-        items: {
-          'agent-browser': {
-            status: 'update-available',
-            checkedAt: new Date(Date.now() - 60_000).toISOString(),
-          },
-        },
-      }),
-    );
+    cacheStatus('agent-browser', 'update-available');
 
     renderUpdatePage();
 
-    const row = await screen.findByText('agent-browser').then((el) => el.closest('button'));
-    expect(row).not.toBeNull();
-    expect(within(row as HTMLElement).getByText('Update available')).toBeInTheDocument();
-    expect(within(row as HTMLElement).getByText(/checked 1m ago/i)).toBeInTheDocument();
+    const row = await findRow('agent-browser');
+    expect(row.getByText('Update available')).toBeInTheDocument();
+    expect(screen.getByText(/checked 1 minute ago/i)).toBeInTheDocument();
     expect(api.checkStream).not.toHaveBeenCalled();
   });
 
@@ -127,15 +126,15 @@ describe('UpdatePage', () => {
       resources: [nestedSkill],
     });
     vi.mocked(api.updateAllStream).mockImplementation((_onStart, _onResult, onDone) => {
-      queueMicrotask(() => onDone({ results: [], summary: { updated: 0, upToDate: 0, blocked: 0, errors: 0, skipped: 0 } }));
+      queueMicrotask(() => onDone(noResults));
       return { close: vi.fn() } as unknown as EventSource;
     });
 
     const user = userEvent.setup();
     renderUpdatePage();
 
-    await user.click(await screen.findByText('agent-browser'));
-    await user.click(screen.getByRole('button', { name: /update selected \(1\)/i }));
+    await user.click(await screen.findByRole('checkbox', { name: 'agent-browser' }));
+    await user.click(screen.getByRole('button', { name: /update 1 selected/i }));
 
     expect(api.updateAllStream).toHaveBeenCalledWith(
       expect.any(Function),
@@ -146,7 +145,30 @@ describe('UpdatePage', () => {
     );
   });
 
-  it('keeps updated items checked as up to date when returning to the list', async () => {
+  it('updates a tracked repo once for all of its skills', async () => {
+    const inRepo = (name: string) => ({
+      ...nestedSkill,
+      name,
+      flatName: `_team__${name}`,
+      relPath: `_team/${name}`,
+      isInRepo: true,
+      source: 'https://github.com/example/team',
+    });
+    vi.mocked(api.listSkills).mockResolvedValue({ resources: [inRepo('lint'), inRepo('review')] });
+    vi.mocked(api.updateAllStream).mockImplementation((_onStart, _onResult, onDone) => {
+      queueMicrotask(() => onDone(noResults));
+      return { close: vi.fn() } as unknown as EventSource;
+    });
+
+    const user = userEvent.setup();
+    renderUpdatePage();
+
+    await user.click(await screen.findByRole('button', { name: /update all/i }));
+
+    expect(vi.mocked(api.updateAllStream).mock.calls[0][4]).toEqual({ names: ['_team'], force: false });
+  });
+
+  it('marks updated items as up to date', async () => {
     const updatedResult = {
       name: 'tools/agent-browser',
       action: 'updated',
@@ -156,18 +178,7 @@ describe('UpdatePage', () => {
     vi.mocked(api.listSkills).mockResolvedValue({
       resources: [nestedSkill],
     });
-    localStorage.setItem(
-      'skillshare.updateCheckCache.global',
-      JSON.stringify({
-        version: 1,
-        items: {
-          'agent-browser': {
-            status: 'update-available',
-            checkedAt: new Date(Date.now() - 60_000).toISOString(),
-          },
-        },
-      }),
-    );
+    cacheStatus('agent-browser', 'update-available');
     vi.mocked(api.updateAllStream).mockImplementation((onStart, onResult, onDone) => {
       queueMicrotask(() => {
         onStart(1);
@@ -183,14 +194,11 @@ describe('UpdatePage', () => {
     const user = userEvent.setup();
     renderUpdatePage();
 
-    await user.click(await screen.findByText('agent-browser'));
-    await user.click(screen.getByRole('button', { name: /update selected \(1\)/i }));
-    await user.click(await screen.findByRole('button', { name: /back to list/i }));
+    const row = await findRow('agent-browser');
+    await user.click(row.getByRole('button', { name: /^update$/i }));
 
-    const row = await screen.findByText('agent-browser').then((el) => el.closest('button'));
-    expect(row).not.toBeNull();
-    expect(within(row as HTMLElement).getByText('Up to date')).toBeInTheDocument();
-    expect(within(row as HTMLElement).queryByText('Unchecked')).not.toBeInTheDocument();
+    await waitFor(() => expect(row.getByText('Updated')).toBeInTheDocument());
+    expect(row.getByText('Up to date')).toBeInTheDocument();
   });
 
   it('warns about missing tracked repos and rehydrates on click (issue #212)', async () => {
@@ -208,8 +216,7 @@ describe('UpdatePage', () => {
     // Banner lists the missing repo.
     expect(await screen.findByText('_team-skills')).toBeInTheDocument();
 
-    const rehydrateBtn = screen.getByRole('button', { name: /rehydrate/i });
-    await user.click(rehydrateBtn);
+    await user.click(screen.getByRole('button', { name: /rehydrate/i }));
 
     await waitFor(() => expect(api.rehydrateTrackedRepos).toHaveBeenCalled());
   });

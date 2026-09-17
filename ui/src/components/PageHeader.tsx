@@ -1,48 +1,56 @@
+import { Fragment } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft } from 'lucide-react';
-import { radius, shadows } from '../design';
+import { ArrowLeft, ChevronRight } from 'lucide-react';
 import { useT } from '../i18n';
 
 interface PageHeaderProps {
   title: string;
   subtitle?: React.ReactNode;
-  icon: React.ReactNode;
+  /** @deprecated Page headers no longer show an icon. Kept so existing call sites compile. */
+  icon?: React.ReactNode;
   actions?: React.ReactNode;
   className?: string;
-  /** Show a styled back button linking to this path */
+  /** Show a back link to this path above the title */
   backTo?: string;
+  /** Breadcrumb trail above the title; the last crumb is the current page */
+  crumbs?: { label: string; to?: string; onClick?: () => void }[];
+  /** Set the title in monospace, for resource names */
+  mono?: boolean;
 }
 
-export default function PageHeader({ title, subtitle, icon, actions, className = '', backTo }: PageHeaderProps) {
+export default function PageHeader({ title, subtitle, actions, className = '', backTo, crumbs, mono }: PageHeaderProps) {
   const t = useT();
-  const heading = (
-    <div className="flex items-center gap-3">
+  return (
+    <div className={`mb-7 flex flex-col gap-3 ${className}`}>
       {backTo && (
-        <Link
-          to={backTo}
-          className="inline-flex items-center justify-center shrink-0 w-9 h-9 border-2 border-transparent hover:border-muted-dark text-pencil-light hover:text-pencil bg-surface transition-all duration-150 active:scale-95"
-          aria-label={t('common.back')}
-          style={{ borderRadius: radius.sm, boxShadow: shadows.sm }}
-        >
-          <ArrowLeft size={18} strokeWidth={2.5} />
+        <Link to={backTo} className="ss-crumb !mb-0 w-fit hover:text-ink">
+          <ArrowLeft size={14} />
+          {t('common.back')}
         </Link>
       )}
-      <div>
-        <h2 className="text-2xl md:text-3xl font-bold text-pencil flex items-center gap-2">
-          {icon}
-          {title}
-        </h2>
-        {subtitle && <p className="text-pencil-light mt-1">{subtitle}</p>}
+      {crumbs && (
+        <nav className="ss-crumb !mb-0" aria-label="Breadcrumb">
+          {crumbs.map((c, i) => (
+            <Fragment key={i}>
+              {i > 0 && <ChevronRight size={13} />}
+              {c.to ? (
+                <Link to={c.to} className="hover:text-ink">{c.label}</Link>
+              ) : c.onClick ? (
+                <button type="button" className="cursor-pointer hover:text-ink" onClick={c.onClick}>{c.label}</button>
+              ) : (
+                <span aria-current="page">{c.label}</span>
+              )}
+            </Fragment>
+          ))}
+        </nav>
+      )}
+      <div className="ss-ph">
+        <div className="tt min-w-0">
+          <h1 className="ss-h1"><span className={mono ? 'm' : undefined}>{title}</span></h1>
+          {subtitle && <p>{subtitle}</p>}
+        </div>
+        {actions && <div className="flex shrink-0 items-center gap-2">{actions}</div>}
       </div>
-    </div>
-  );
-
-  return (
-    <div
-      className={`mb-6 ${actions ? 'flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4' : ''} ${className}`.trim()}
-    >
-      {heading}
-      {actions && <div className="flex items-center gap-2">{actions}</div>}
     </div>
   );
 }

@@ -10,6 +10,7 @@ export function formatTrackedRepoName(name: string): string {
   return name.replace(/^_/, '').replace(/__/g, '/');
 }
 
-export function formatPreviewResourceName(name: string, kind: 'skill' | 'agent'): string {
-  return kind === 'agent' ? formatAgentDisplayName(name) : formatSkillDisplayName(name);
+/** Detail page URL. Skills and agents live under their own top-level routes. */
+export function resourceHref(resource: { flatName: string; kind: 'skill' | 'agent' }): string {
+  return `/${resource.kind === 'agent' ? 'agents' : 'skills'}/${encodeURIComponent(resource.flatName)}`;
 }

@@ -1,10 +1,11 @@
-import { useMemo, type ReactNode } from 'react';
-import { Check, Code2 } from 'lucide-react';
+import { Fragment, useMemo } from 'react';
 import Button from '../Button';
 import DialogShell from '../DialogShell';
 import { useT } from '../../i18n';
 
 type DiffOp = { t: 'eq'; a: string; b: string } | { t: 'del'; a: string } | { t: 'ins'; b: string };
+
+const CONTEXT = 3;
 
 export function diffLines(a: string[], b: string[]): DiffOp[] {
   const n = a.length;
@@ -36,172 +37,65 @@ export function diffLines(a: string[], b: string[]): DiffOp[] {
   return out;
 }
 
-interface DiffViewProps {
-  open: boolean;
+interface Props {
   oldText: string;
   newText: string;
-  oldLabel?: string;
-  newLabel?: string;
+  saving: boolean;
   onConfirm: () => void;
   onCancel: () => void;
-  saving?: boolean;
 }
 
-export default function DiffView({
-  open,
-  oldText,
-  newText,
-  oldLabel,
-  newLabel,
-  onConfirm,
-  onCancel,
-  saving = false,
-}: DiffViewProps) {
+/** Unified diff of the pending save, with unchanged runs cut down to a few lines of context. */
+export default function DiffView({ oldText, newText, saving, onConfirm, onCancel }: Props) {
   const t = useT();
-  const resolvedOldLabel = oldLabel ?? t('diffView.oldLabel');
-  const resolvedNewLabel = newLabel ?? t('diffView.newLabel');
-  const rows = useMemo(() => {
-    const a = (oldText ?? '').split('\n');
-    const b = (newText ?? '').split('\n');
-    return diffLines(a, b);
-  }, [oldText, newText]);
-
-  const { adds, dels } = useMemo(() => {
-    let adds = 0;
-    let dels = 0;
-    for (const r of rows) {
-      if (r.t === 'ins') adds++;
-      else if (r.t === 'del') dels++;
-    }
-    return { adds, dels };
-  }, [rows]);
-
-  const rendered = useMemo(() => {
-    let la = 0;
-    let lb = 0;
-    return rows.map((r, idx) => {
-      if (r.t === 'eq') {
-        la++;
-        lb++;
-        return {
-          idx,
-          kind: 'eq' as const,
-          left: { n: la, s: r.a },
-          right: { n: lb, s: r.b },
-        };
-      }
-      if (r.t === 'del') {
-        la++;
-        return { idx, kind: 'del' as const, left: { n: la, s: r.a }, right: null };
-      }
-      lb++;
-      return { idx, kind: 'ins' as const, left: null, right: { n: lb, s: r.b } };
+  const ops = useMemo(() => diffLines(oldText.split('\n'), newText.split('\n')), [oldText, newText]);
+  const changed = ops.filter((op) => op.t !== 'eq').length;
+  // Distance from each line to the nearest change decides whether an unchanged line is shown
+  const near = useMemo(() => {
+    const dist = ops.map(() => Infinity);
+    let last = -Infinity;
+    ops.forEach((op, i) => {
+      if (op.t !== 'eq') last = i;
+      dist[i] = i - last;
     });
-  }, [rows]);
-
-  const noChanges = adds === 0 && dels === 0;
-  const changedCount = adds + dels;
+    last = Infinity;
+    for (let i = ops.length - 1; i >= 0; i--) {
+      if (ops[i].t !== 'eq') last = i;
+      dist[i] = Math.min(dist[i], last - i);
+    }
+    return dist.map((d) => d <= CONTEXT);
+  }, [ops]);
+  const title = t('skillEditor.review.title');
 
   return (
-    <DialogShell
-      open={open}
-      onClose={onCancel}
-      maxWidth="3xl"
-      className="!max-w-[60rem]"
-      padding="none"
-      preventClose={saving}
-    >
-      <div className="ss-skill-editor-diff flex flex-col max-h-[85vh]">
-        <div className="flex items-center gap-3 px-5 py-4 border-b-2 border-muted">
-          <Code2 size={18} className="text-pencil-light" />
-          <h2 className="text-base font-bold text-pencil">{t('diffView.reviewTitle')}</h2>
-          <div className="flex items-center gap-2 font-mono text-sm font-bold">
-            <span className="text-success">+{adds}</span>
-            <span className="text-danger">−{dels}</span>
-          </div>
-        </div>
-
-        <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
-          <div className="grid grid-cols-2 border-b border-muted bg-paper">
-            <span className="px-4 py-2 text-[11px] font-bold uppercase tracking-wider text-danger bg-danger/5">
-              {resolvedOldLabel}
-            </span>
-            <span className="px-4 py-2 text-[11px] font-bold uppercase tracking-wider text-success bg-success/5 border-l border-muted">
-              {resolvedNewLabel}
-            </span>
-          </div>
-          <div className="flex-1 overflow-auto bg-surface font-mono text-[12.5px] leading-relaxed">
-            {rendered.map((row) => (
-              <div className="grid grid-cols-2" key={row.idx}>
-                <DiffCell side="left" kind={row.kind} data={row.left} />
-                <DiffCell side="right" kind={row.kind} data={row.right} />
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="flex items-center gap-3 px-5 py-3 border-t-2 border-muted bg-paper">
-          <span className="text-xs text-pencil-light">
-            {noChanges
-              ? t('diffView.noChanges')
-              : changedCount === 1
-                ? t('diffView.lineChanged', { count: changedCount })
-                : t('diffView.linesChanged', { count: changedCount })}
-          </span>
-          <div className="flex-1" />
-          <Button variant="secondary" size="md" onClick={onCancel} disabled={saving}>
-            {t('diffView.keepEditing')}
-          </Button>
-          <Button
-            variant="primary"
-            size="md"
-            onClick={onConfirm}
-            disabled={noChanges || saving}
-            loading={saving}
-          >
-            <Check size={14} /> {t('diffView.confirmSave')}
-          </Button>
+    <DialogShell open onClose={onCancel} padding="none" className="!max-w-[760px]" ariaLabel={title} preventClose={saving}>
+      <div className="dh">
+        <div className="flex flex-col gap-1">
+          <h2 className="ss-h2">{title}</h2>
+          <p className="text-[13px] text-ink-2">{t(changed === 1 ? 'skillEditor.review.line' : 'skillEditor.review.lines', { count: changed })}</p>
         </div>
       </div>
+      <div className="db">
+        <div className="ss-code !overflow-auto max-h-[60vh]">
+          <div className="min-w-max">
+            {ops.map((op, i) => {
+              if (!near[i]) return near[i - 1] ? <span key={i} className="block text-ink-3">⋯</span> : null;
+              return (
+                <Fragment key={i}>
+                  {op.t === 'eq' && <span className="block">{'  '}{op.a}</span>}
+                  {op.t === 'del' && <span className="del">- {op.a}</span>}
+                  {op.t === 'ins' && <span className="add">+ {op.b}</span>}
+                </Fragment>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+      <div className="df">
+        <span className="flex-1" />
+        <Button variant="ghost" onClick={onCancel} disabled={saving}>{t('common.back')}</Button>
+        <Button variant="primary" loading={saving} onClick={onConfirm}>{t('skillEditor.saveButton')}</Button>
+      </div>
     </DialogShell>
-  );
-}
-
-interface DiffCellProps {
-  side: 'left' | 'right';
-  kind: 'eq' | 'del' | 'ins';
-  data: { n: number; s: string } | null;
-}
-
-function DiffCell({ side, kind, data }: DiffCellProps): ReactNode {
-  const gutter =
-    kind === 'del' && side === 'left'
-      ? '−'
-      : kind === 'ins' && side === 'right'
-        ? '+'
-        : '\u00a0';
-  const bgClass =
-    kind === 'del' && side === 'left'
-      ? 'bg-danger/10'
-      : kind === 'ins' && side === 'right'
-        ? 'bg-success/10'
-        : '';
-  const gutterColor =
-    kind === 'del' && side === 'left'
-      ? 'text-danger'
-      : kind === 'ins' && side === 'right'
-        ? 'text-success'
-        : 'text-muted-dark';
-  const borderClass = side === 'right' ? 'border-l border-muted' : '';
-  return (
-    <div className={`grid grid-cols-[40px_16px_1fr] items-start py-px min-w-0 ${borderClass} ${bgClass}`}>
-      <span className="text-right px-2 text-[11px] text-muted-dark select-none">
-        {data ? data.n : ''}
-      </span>
-      <span className={`text-center font-bold select-none ${gutterColor}`}>{gutter}</span>
-      <span className="pr-4 whitespace-pre-wrap break-words min-w-0">
-        {data ? data.s || '\u00a0' : ''}
-      </span>
-    </div>
   );
 }

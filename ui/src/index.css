@@ -1,888 +1,88 @@
 @import "tailwindcss";
+@import "./components.css";
 @custom-variant dark (&:where(.dark, .dark *));
 
-@theme {
-  /* Minimal Color Palette — Light */
-  --color-paper: #f7f6f3;
-  --color-paper-warm: #ffffff;
-  --color-pencil: #141312;
-  --color-pencil-light: #5a5750;
-  --color-muted: #e2dfd8;
-  --color-muted-dark: #9e9b94;
-  --color-accent: #dc4538;
-  --color-accent-dark: #c43d31;
-  --color-blue: #2d5da1;
-  --color-blue-light: #4a7ec4;
-  --color-success: #2e8b57;
-  --color-success-light: #e8f5ed;
-  --color-warning: #d4870e;
-  --color-warning-light: #fef7e8;
-  --color-danger: #c0392b;
-  --color-danger-light: #fdecea;
-  --color-info: #2d5da1;
-  --color-info-light: #e8eff8;
-  --color-surface: #ffffff;
-  --color-border-light: #f0ede6;
-  --color-accent-light: rgba(220, 69, 56, 0.1);
+/* Tailwind colour, font, radius and shadow names resolve to the design tokens in components.css,
+   so every utility follows the active style (Clean / Playful) and mode (light / dark).
+   The pencil / paper / muted names are kept as aliases for markup not yet moved to the new names. */
+@theme inline {
+  --color-bg: var(--bg);
+  --color-side: var(--side);
+  --color-surface: var(--surface);
+  --color-sunken: var(--sunken);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
+  --color-line: var(--line);
+  --color-line-2: var(--line-2);
+  --color-line-soft: var(--line-soft);
+  --color-sel: var(--sel);
+  --color-sel-ink: var(--sel-ink);
+  --color-pri: var(--pri);
+  --color-on-pri: var(--on-pri);
+  --color-ok: var(--ok);
+  --color-ok-bg: var(--ok-bg);
+  --color-warn: var(--warn);
+  --color-warn-bg: var(--warn-bg);
+  --color-bad: var(--bad);
+  --color-bad-bg: var(--bad-bg);
+  --color-link: var(--accent);
+  --color-link-bg: var(--accent-bg);
 
-  /* Typography */
-  --font-hand: 'DM Sans', sans-serif;
-  --font-heading: 'DM Sans', sans-serif;
-  --font-mono: 'SFMono-Regular', Menlo, Consolas, 'Liberation Mono', monospace;
+  /* Old names, still used by the audit and config panels; each maps onto a token above. */
+  --color-paper: var(--bg);
+  --color-paper-warm: var(--side);
+  --color-pencil: var(--ink);
+  --color-pencil-light: var(--ink-2);
+  --color-muted: var(--line-soft);
+  --color-muted-dark: var(--ink-3);
+  --color-border-light: var(--sunken);
+  --color-accent: var(--accent);
+  --color-accent-dark: var(--accent);
+  --color-accent-light: var(--accent-bg);
+  --color-blue: var(--accent);
+  --color-blue-light: var(--accent);
+  --color-info: var(--accent);
+  --color-info-light: var(--accent-bg);
+  --color-success: var(--ok);
+  --color-success-light: var(--ok-bg);
+  --color-warning: var(--warn);
+  --color-warning-light: var(--warn-bg);
+  --color-danger: var(--bad);
+  --color-danger-light: var(--bad-bg);
 
-  /* Shadows — subtle, no hard offset */
-  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.04);
-  --shadow-md: 0 2px 6px rgba(0, 0, 0, 0.06);
-  --shadow-lg: 0 4px 12px rgba(0, 0, 0, 0.08);
-  --shadow-hover: 0 2px 8px rgba(0, 0, 0, 0.1);
-  --shadow-accent: 0 2px 6px rgba(220, 69, 56, 0.15);
-  --shadow-blue: 0 2px 6px rgba(45, 93, 161, 0.15);
+  --font-sans: var(--f);
+  --font-hand: var(--f);
+  --font-heading: var(--fh);
+  --font-mono: var(--fm);
 
-  /* Border radius tokens */
-  --radius-sm: 4px;
-  --radius-md: 8px;
-  --radius-lg: 12px;
-  --radius-btn: 9999px;
+  --radius-sm: var(--r-tag);
+  --radius-md: var(--r-ctl);
+  --radius-lg: var(--r-box);
+  --radius-btn: var(--r-btn);
   --radius-full: 9999px;
 
-}
-
-/* Dark theme overrides */
-.dark {
-  --color-paper: #111110;
-  --color-paper-warm: #1c1b19;
-  --color-pencil: #ededeb;
-  --color-pencil-light: #a3a09a;
-  --color-muted: #2e2d2a;
-  --color-muted-dark: #706c66;
-  --color-accent: #dc4538;
-  --color-accent-dark: #c43d31;
-  --color-blue: #a3a09a;
-  --color-blue-light: #c0bdb7;
-  --color-success: #5cc98a;
-  --color-success-light: rgba(92, 201, 138, 0.15);
-  --color-warning: #f0b840;
-  --color-warning-light: rgba(240, 184, 64, 0.15);
-  --color-danger: #e8564a;
-  --color-danger-light: rgba(232, 86, 74, 0.15);
-  --color-info: #a3a09a;
-  --color-info-light: rgba(163, 160, 154, 0.12);
-  --color-surface: #1c1b19;
-  --color-border-light: #242320;
-  --color-accent-light: rgba(232, 86, 74, 0.1);
-
-  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
-  --shadow-md: 0 2px 6px rgba(0, 0, 0, 0.4);
-  --shadow-lg: 0 4px 12px rgba(0, 0, 0, 0.5);
-  --shadow-hover: 0 2px 8px rgba(0, 0, 0, 0.5);
-  --shadow-accent: 0 2px 6px rgba(232, 86, 74, 0.3);
-  --shadow-blue: 0 2px 6px rgba(0, 0, 0, 0.3);
-
-}
-
-/* Dialog base shadow */
-.ss-dialog { box-shadow: 4px 4px 0 rgba(0,0,0,0.15); }
-.dark .ss-dialog { box-shadow: 4px 4px 0 rgba(0,0,0,0.4); }
-
-/* ═══════════════════════════════════════════
-   Playful (Hand-Drawn) theme
-   ═══════════════════════════════════════════ */
-
-[data-theme="playful"] {
-  /* Font override — only headings use Caveat, body stays DM Sans */
-  --font-heading: 'Caveat', 'DM Sans', sans-serif;
-  /* --font-hand is NOT overridden — body text remains DM Sans for readability */
-
-  /* Radius overrides — larger, softer */
-  --radius-sm: 12px;
-  --radius-md: 20px;
-  --radius-lg: 28px;
-
-  /* Shadow overrides — hard offset, no blur */
-  --shadow-sm: 2px 2px 0 var(--color-shadow);
-  --shadow-md: 3px 3px 0 var(--color-shadow);
-  --shadow-lg: 4px 4px 0 var(--color-shadow);
-  --shadow-hover: 4px 4px 0 var(--color-shadow);
-  --shadow-accent: 3px 3px 0 rgba(220, 69, 56, 0.3);
-  --shadow-blue: 3px 3px 0 rgba(45, 93, 161, 0.3);
-
-  /* Shadow color — light mode uses pencil, dark mode overridden below */
-  --color-shadow: var(--color-pencil);
-
-  /* Wobble patterns — matching designprompts.dev/sketch reference
-     Reference uses 255px 15px 225px / 15px 225px 15px 255px for buttons/cards.
-     Dashboard elements use the same extreme values for authentic hand-drawn feel. */
-  --radius-wobble-card:   255px 15px 225px 15px / 15px 225px 15px 255px;
-  --radius-wobble-btn:    255px 15px 225px 15px / 15px 225px 15px 255px;
-  --radius-wobble-badge:  120px 8px 100px 8px   / 8px 100px 8px 120px;
-  --radius-wobble-input:  255px 15px 225px 15px / 15px 225px 15px 255px;
-  --radius-wobble-dialog: 255px 15px 225px 15px / 15px 225px 15px 255px;
-
-  /* Multi-color accent */
-  --accent-1: #dc4538;
-  --accent-2: #2d5da1;
-  --accent-3: #d4870e;
-  --accent-4: #2e8b57;
-
-  /* Sidebar — warm paper instead of plain white */
-  --color-paper-warm: var(--color-paper);
-
-  /* Heading scale (Caveat renders larger than DM Sans) */
-  --heading-scale: 0.92;
-}
-
-/* Playful Dark — shadow + refinements */
-[data-theme="playful"].dark {
-  --color-shadow: rgba(0, 0, 0, 0.6);
-}
-
-/* ── Playful: Paper Texture (0.8px dots using muted-dark) ── */
-[data-theme="playful"] body {
-  background-image: radial-gradient(var(--color-muted-dark) 0.8px, transparent 0.8px);
-  background-size: 24px 24px;
-}
-[data-theme="playful"].dark body {
-  background-image: radial-gradient(rgba(255,255,255,0.04) 0.8px, transparent 0.8px);
-  background-size: 24px 24px;
-}
-
-/* ── Playful: Heading Scale (scoped to main content, not sidebar) ── */
-[data-theme="playful"] main h1 { font-size: calc(var(--heading-scale) * 2rem); }
-[data-theme="playful"] main h2 { font-size: calc(var(--heading-scale) * 1.5rem); }
-[data-theme="playful"] main h3 { font-size: calc(var(--heading-scale) * 1.25rem); }
-
-/* ── Playful: Card ── */
-[data-theme="playful"] .ss-card {
-  border: 2px solid var(--color-pencil);
-  border-radius: var(--radius-wobble-card);
-  box-shadow: 3px 3px 0 rgba(45, 45, 45, 0.15);
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-}
-/* No rotation — user explicitly requested no tilted cards */
-/* Hover: lift shadow only */
-[data-theme="playful"] .ss-card:hover {
-  box-shadow: 5px 5px 0 rgba(45, 45, 45, 0.2);
-  translate: -1px -1px;
-}
-
-/* ── Playful: Card accent rotation ── */
-[data-theme="playful"] .ss-card:nth-child(4n+1) { --card-accent: var(--accent-1); }
-[data-theme="playful"] .ss-card:nth-child(4n+2) { --card-accent: var(--accent-2); }
-[data-theme="playful"] .ss-card:nth-child(4n+3) { --card-accent: var(--accent-3); }
-[data-theme="playful"] .ss-card:nth-child(4n+4) { --card-accent: var(--accent-4); }
-
-/* ── Playful: Skill Card — Hand-Drawn sticky-note aesthetic ── */
-/*
- * Bold hand-drawn card style:
- *  - Thick dark border (2px solid pencil) — pencil outline feel
- *  - Wobbly border-radius for organic hand-drawn shape
- *  - Prominent hard offset shadow (NO blur) — classic sketch style
- *  - Bright pastel background from JS --skill-pastel var
- *  - Tape strip via ::before (wide, visible, slightly rotated)
- *  - NO corner peel (::after removed per reference)
- *  - NO rotation (user explicitly rejected tilted cards)
- */
-[data-theme="playful"] .ss-skill-card {
-  background: var(--skill-pastel, #fff9c4);
-  border: 2px solid var(--color-pencil) !important;
-  border-radius: 255px 15px 225px 15px / 15px 225px 15px 255px !important;
-  box-shadow: 4px 4px 0 rgba(0, 0, 0, 0.2);
-  position: relative;
-  overflow: visible;
-  margin-top: 18px;
-  transition: box-shadow 0.15s ease, translate 0.15s ease;
-}
-/* Per-card wobble variety — each card gets a unique organic shape */
-[data-theme="playful"] .ss-skill-card:nth-child(6n+1) { border-radius: 225px 12px 245px 18px / 18px 240px 12px 230px !important; }
-[data-theme="playful"] .ss-skill-card:nth-child(6n+2) { border-radius: 240px 20px 210px 10px / 12px 215px 22px 250px !important; }
-[data-theme="playful"] .ss-skill-card:nth-child(6n+3) { border-radius: 215px 8px 255px 14px / 20px 250px 10px 220px !important; }
-[data-theme="playful"] .ss-skill-card:nth-child(6n+4) { border-radius: 250px 18px 220px 12px / 10px 230px 16px 245px !important; }
-[data-theme="playful"] .ss-skill-card:nth-child(6n+5) { border-radius: 230px 10px 240px 22px / 16px 245px 8px 215px !important; }
-/* Hover: lift slightly */
-[data-theme="playful"] .ss-skill-card:hover {
-  box-shadow: 6px 6px 0 rgba(0, 0, 0, 0.22);
-  translate: -1px -1px;
-}
-/* Active: press flat */
-[data-theme="playful"] .ss-skill-card:active {
-  box-shadow: 1px 1px 0 rgba(0, 0, 0, 0.12);
-  translate: 2px 2px;
-}
-/* Dark mode */
-[data-theme="playful"].dark .ss-skill-card {
-  background: var(--skill-pastel-dark, rgba(255,249,196,0.08));
-  border-color: rgba(255, 255, 255, 0.15) !important;
-  box-shadow: 4px 4px 0 rgba(0, 0, 0, 0.5);
-}
-[data-theme="playful"].dark .ss-skill-card:hover {
-  box-shadow: 6px 6px 0 rgba(0, 0, 0, 0.6);
-  border-color: rgba(255, 255, 255, 0.25) !important;
-}
-/* Skill card heading — Caveat hand-drawn font, larger + bolder for impact */
-[data-theme="playful"] .ss-skill-card h3 {
-  font-family: var(--font-heading) !important;
-  font-size: 1.6rem;
-  font-weight: 700;
-  line-height: 1.2;
-}
-/* No ::after corner peel — removed per reference screenshot */
-[data-theme="playful"] .ss-skill-card::after {
-  display: none;
-}
-/*
- * Tape strip — wide, visible masking tape pinning the note.
- * Semi-transparent with subtle edge borders for realism.
- */
-[data-theme="playful"] .ss-skill-card::before {
-  content: '';
-  position: absolute;
-  top: -11px;
-  left: 50%;
-  transform: translateX(-50%) rotate(-2deg);
-  width: 80px;
-  height: 24px;
-  /* Semi-transparent tape — warm-tinted like real masking tape */
-  background: rgba(215, 210, 190, 0.6);
-  /* Slightly irregular edges for torn-tape feel */
-  border-radius: 2px 3px 3px 1px;
-  border-top: 1px solid rgba(190, 185, 165, 0.4);
-  border-bottom: 1px solid rgba(190, 185, 165, 0.3);
-  box-shadow: 1px 1px 0 rgba(0, 0, 0, 0.08);
-  pointer-events: none;
-  z-index: 2;
-}
-/* Tape position/rotation variety — each card gets unique placement */
-[data-theme="playful"] .ss-skill-card:nth-child(6n+1)::before { left: 36%; transform: translateX(-50%) rotate(-3.5deg); width: 76px; }
-[data-theme="playful"] .ss-skill-card:nth-child(6n+2)::before { left: 58%; transform: translateX(-50%) rotate(2.5deg); width: 84px; }
-[data-theme="playful"] .ss-skill-card:nth-child(6n+3)::before { left: 42%; transform: translateX(-50%) rotate(-1deg); width: 78px; }
-[data-theme="playful"] .ss-skill-card:nth-child(6n+4)::before { left: 62%; transform: translateX(-50%) rotate(3.5deg); width: 74px; }
-[data-theme="playful"] .ss-skill-card:nth-child(6n+5)::before { left: 32%; transform: translateX(-50%) rotate(-2.5deg); width: 82px; }
-[data-theme="playful"] .ss-skill-card:nth-child(6n+6)::before { left: 52%; transform: translateX(-50%) rotate(1deg); width: 76px; }
-
-/* ── Playful: Button ── */
-[data-theme="playful"] .ss-btn {
-  border: 3px solid var(--color-pencil);
-  border-radius: var(--radius-wobble-btn);
-  box-shadow: 4px 4px 0 var(--color-shadow);
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-}
-[data-theme="playful"] .ss-btn:hover {
-  box-shadow: 2px 2px 0 var(--color-shadow);
-  translate: 2px 2px;
-}
-[data-theme="playful"] .ss-btn:active {
-  box-shadow: none;
-  translate: 4px 4px;
-}
-
-/* ── Playful: Badge ── */
-[data-theme="playful"] .ss-badge {
-  border: 1.5px solid var(--color-pencil);
-  border-radius: var(--radius-wobble-badge);
-  box-shadow: 1.5px 1.5px 0 var(--color-shadow);
-}
-
-/* ── Playful: Input / Textarea ── */
-[data-theme="playful"] .ss-input {
-  border: 2px solid var(--color-pencil);
-  border-radius: var(--radius-wobble-input);
-}
-[data-theme="playful"] .ss-input:focus {
-  border-style: dashed;
-  box-shadow: 2px 2px 0 var(--color-shadow);
-}
-
-/* ── Playful: Select trigger ── */
-[data-theme="playful"] .ss-select {
-  border: 2px solid var(--color-pencil);
-  border-radius: var(--radius-wobble-input);
-  box-shadow: 2px 2px 0 var(--color-shadow);
-}
-
-/* ── Playful: Dialog ── */
-[data-theme="playful"] .ss-dialog {
-  border: 2px solid var(--color-pencil);
-  border-radius: var(--radius-wobble-dialog);
-  box-shadow: 4px 4px 0 var(--color-shadow);
-}
-[data-theme="playful"] .ss-dialog-backdrop {
-  backdrop-filter: none;
-  background: rgba(0, 0, 0, 0.3);
-}
-
-/* ── Playful: Toast ── */
-[data-theme="playful"] .ss-toast {
-  border: 2px solid var(--color-pencil);
-  border-radius: var(--radius-wobble-card);
-  box-shadow: 3px 3px 0 var(--color-shadow);
-}
-
-/* ── Playful: Tooltip ── */
-[data-theme="playful"] .ss-tooltip {
-  border: 1.5px solid var(--color-pencil);
-  border-radius: var(--radius-wobble-badge);
-  box-shadow: 2px 2px 0 var(--color-shadow);
-}
-
-/* ── Playful: Select dropdown menu ── */
-/* Match the trigger (.ss-select uses --radius-wobble-input) so the menu shares
-   the same hand-drawn wobble instead of the inline uniform radius.md set in
-   Select.tsx. !important overrides that inline radius/shadow. */
-[data-theme="playful"] .ss-select-menu {
-  border: 2px solid var(--color-pencil) !important;
-  border-radius: var(--radius-wobble-input) !important;
-  box-shadow: 3px 3px 0 var(--color-shadow) !important;
-}
-
-/* ── Playful: Split menu ── */
-[data-theme="playful"] .ss-split-menu {
-  border: 2px solid var(--color-pencil) !important;
-  border-radius: var(--radius-wobble-badge) !important;
-  box-shadow: 3px 3px 0 var(--color-shadow) !important;
-}
-[data-theme="playful"] .ss-context-menu {
-  border: 2px solid var(--color-pencil) !important;
-  border-radius: var(--radius-wobble-badge) !important;
-  box-shadow: 3px 3px 0 var(--color-shadow) !important;
-}
-[data-theme="playful"] .ss-tip-banner {
-  box-shadow: 2px 2px 0 var(--color-shadow);
-  transform: rotate(-0.3deg);
-  /* Keep the rotated top edge from tucking under the sticky toolbar above. */
-  margin-block-start: 4px;
-  margin-inline: 4px;
-  background: var(--color-paper-warm) !important;
-}
-
-/* ── Playful: Sidebar ── */
-[data-theme="playful"] aside {
-  border-right: 2px dashed var(--color-muted-dark);
-}
-/* Sidebar "skillshare" heading uses Caveat in playful mode */
-[data-theme="playful"] aside h1 {
-  font-family: var(--font-heading) !important;
-  font-size: 2rem;
-  font-weight: 700;
-  letter-spacing: -0.01em;
-}
-/* "Web Dashboard" subtitle — hand-drawn Caveat + wavy underline */
-[data-theme="playful"] aside h1 + div > p {
-  font-family: var(--font-heading) !important;
-  font-size: 0.95rem;
-  text-decoration: underline;
-  text-decoration-style: wavy;
-  text-decoration-color: var(--color-muted-dark);
-  text-underline-offset: 4px;
-  text-decoration-thickness: 1.5px;
-}
-/* Section group headers — Caveat headings, lighter than nav items */
-[data-theme="playful"] aside nav > div > div:first-child {
-  font-family: var(--font-heading) !important;
-  font-size: 0.85rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  color: var(--color-muted-dark);
-}
-/* Sidebar nav items — keep DM Sans for readability, wobbly shape + interactive hover */
-[data-theme="playful"] aside nav a {
-  border-radius: var(--radius-wobble-badge) !important;
-  transition: all 0.1s ease;
-}
-/* Nav item hover — slight lift + tiny shadow for sketch personality */
-[data-theme="playful"] aside nav a:hover {
-  box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.06);
-  translate: -1px -1px;
-}
-/* Active sidebar link — dashed pencil border + accent highlight + hard shadow */
-[data-theme="playful"] aside a[aria-current="page"] {
-  border-left: 3px dashed var(--color-accent) !important;
-  background: var(--color-accent-light) !important;
-  box-shadow: 2px 2px 0 rgba(220, 69, 56, 0.12);
-  font-weight: 700 !important;
-}
-/* Active link should not translate on hover — already "pinned" */
-[data-theme="playful"] aside a[aria-current="page"]:hover {
-  translate: none;
-  box-shadow: 2px 2px 0 rgba(220, 69, 56, 0.12);
-}
-
-/* ── Playful: Sidebar bottom section ── */
-/* Dashed top border to match sidebar's dashed right edge */
-[data-theme="playful"] aside > div:last-child {
-  border-top: 1.5px dashed var(--color-muted-dark) !important;
-}
-[data-theme="playful"] aside button {
-  border-radius: var(--radius-wobble-badge) !important;
-  transition: all 0.1s ease;
-}
-/* Bottom buttons hover — same lift micro-interaction as nav items */
-[data-theme="playful"] aside button:hover {
-  box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.06);
-  translate: -1px -1px;
-}
-/* Logo section bottom border — dashed to match */
-[data-theme="playful"] aside > div:first-child {
-  border-bottom: 1.5px dashed var(--color-muted-dark) !important;
-}
-
-/* ── Playful: ShortcutHUD (⌘ S toast) ── */
-[data-theme="playful"] .ss-shortcut-hud {
-  border-radius: 200px 12px 180px 12px / 12px 180px 12px 200px !important;
-  box-shadow: 3px 3px 0 rgba(0, 0, 0, 0.15) !important;
-}
-
-/* ── Playful: SegmentedControl (non-connected = filter tabs) ── */
-/*
- * Filter tabs get wobbly pill borders per item.
- * Active tab: filled dark bg + white text + hard offset shadow.
- * Inactive: transparent with pencil border.
- */
-[data-theme="playful"] .ss-segmented:not(.ss-segmented-connected) .ss-segmented-item {
-  border-width: 2px !important;
-  border-color: var(--color-muted-dark) !important;
-  border-radius: var(--radius-wobble-badge) !important;
-  transition: all 0.15s ease;
-}
-[data-theme="playful"] .ss-segmented:not(.ss-segmented-connected) .ss-segmented-item[aria-pressed="true"] {
-  background: var(--color-pencil) !important;
-  color: var(--color-paper) !important;
-  border-color: var(--color-pencil) !important;
-  box-shadow: 3px 3px 0 var(--color-pencil) !important;
-  border-radius: var(--radius-wobble-badge) !important;
-}
-[data-theme="playful"] .ss-segmented:not(.ss-segmented-connected) .ss-segmented-item[aria-pressed="false"] {
-  border-color: var(--color-muted-dark) !important;
-}
-[data-theme="playful"] .ss-segmented:not(.ss-segmented-connected) .ss-segmented-item[aria-pressed="false"]:hover {
-  border-color: var(--color-pencil) !important;
-  box-shadow: 2px 2px 0 rgba(45, 45, 45, 0.15);
-}
-
-/* ── Playful: SegmentedControl (connected = view switcher) ── */
-/*
- * Container gets wobbly inset border.
- * Active button gets wobbly shape with white fill.
- */
-[data-theme="playful"] .ss-segmented-connected {
-  border: 2px solid var(--color-pencil) !important;
-  border-radius: var(--radius-wobble-badge) !important;
-  background: var(--color-muted) !important;
-  box-shadow: 2px 2px 0 rgba(45, 45, 45, 0.12);
-}
-[data-theme="playful"] .ss-segmented-connected .ss-segmented-item {
-  border-radius: 80px 6px 70px 6px / 6px 70px 6px 80px !important;
-  transition: all 0.15s ease;
-}
-[data-theme="playful"] .ss-segmented-connected .ss-segmented-item[aria-pressed="true"] {
-  background: var(--color-surface) !important;
-  border: 2px solid var(--color-pencil) !important;
-  box-shadow: 2px 2px 0 rgba(45, 45, 45, 0.1);
-}
-
-/* ── Playful: Resource Tabs ── */
-[data-theme="playful"] .ss-resource-tabs {
-  border-bottom: 3px solid var(--color-pencil) !important;
-  border-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='4'%3E%3Cpath d='M0 2 Q25 0 50 2 T100 2 T150 2 T200 2' stroke='%23141312' stroke-width='2' fill='none'/%3E%3C/svg%3E") 2 stretch;
-}
-.dark[data-theme="playful"] .ss-resource-tabs {
-  border-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='4'%3E%3Cpath d='M0 2 Q25 0 50 2 T100 2 T150 2 T200 2' stroke='%232e2d2a' stroke-width='2' fill='none'/%3E%3C/svg%3E") 2 stretch;
-}
-[data-theme="playful"] .ss-resource-tab[aria-selected="true"] {
-  border-bottom-color: var(--color-pencil) !important;
-  border-bottom-width: 3px !important;
-  font-weight: 700;
-}
-[data-theme="playful"] .ss-resource-tab[aria-selected="true"] span {
-  background: var(--color-pencil) !important;
-  color: var(--color-paper) !important;
-  border-radius: var(--radius-wobble-badge, 4px) !important;
-}
-
-/* ── Playful: Links ── */
-[data-theme="playful"] a:not(.ss-btn):not([class*="nav"]) {
-  text-decoration-style: wavy;
-  text-underline-offset: 4px;
-}
-/* link-subtle uses border-bottom normally — in playful, replace with wavy underline */
-[data-theme="playful"] .link-subtle {
-  border-bottom: none !important;
-  text-decoration: underline;
-  text-decoration-style: wavy;
-  text-underline-offset: 4px;
-}
-[data-theme="playful"] .link-subtle:hover {
-  border-bottom: none !important;
-}
-
-/* ── Playful: Scrollbar ── */
-[data-theme="playful"] ::-webkit-scrollbar-thumb {
-  border-radius: 8px;
-  border: 2px solid var(--color-paper);
-}
-
-/* ── Playful: Prose overrides ── */
-[data-theme="playful"] .prose-hand h1,
-[data-theme="playful"] .prose-hand h2,
-[data-theme="playful"] .prose-hand h3,
-[data-theme="playful"] .prose-hand h4 {
-  font-family: var(--font-heading);
-  font-weight: 700;
-}
-[data-theme="playful"] .prose-hand h1 { font-size: 2rem; }
-[data-theme="playful"] .prose-hand h2 { font-size: 1.6rem; }
-[data-theme="playful"] .prose-hand h3 { font-size: 1.35rem; }
-[data-theme="playful"] .prose-hand h4 { font-size: 1.15rem; }
-[data-theme="playful"] .prose-hand blockquote {
-  border-left-width: 3px;
-  border-style: dashed;
-}
-
-/* ── Skill Detail Page — clean theme: neutral gray backgrounds ── */
-:root:not([data-theme]) .ss-detail-manifest,
-:root:not([data-theme]) .ss-detail-pinned,
-:root:not([data-theme]) .ss-detail-pinned-blue,
-:root:not([data-theme]) .ss-detail-pinned-cyan,
-:root:not([data-theme]) .ss-detail-pinned-green { background-color: #ffffff !important; }
-:root:not([data-theme]).dark .ss-detail-manifest,
-:root:not([data-theme]).dark .ss-detail-pinned,
-:root:not([data-theme]).dark .ss-detail-pinned-blue,
-:root:not([data-theme]).dark .ss-detail-pinned-cyan,
-:root:not([data-theme]).dark .ss-detail-pinned-green { background-color: rgba(255,255,255,0.06) !important; }
-
-/* ── Playful: Skill Detail Page — bulletin board aesthetic ── */
-/*
- * The detail page sidebar cards look like sticky notes pinned to a corkboard.
- * Manifest block = yellow post-it with tape. Metadata/Files = pinned notes.
- * Stats bar = dashed pencil divider. Section headings = Caveat font.
- */
-
-/* Manifest block — sketchy dashed border, tape strip, slight tilt */
-[data-theme="playful"] .ss-detail-manifest {
-  background-color: #fffde7 !important;
-  border: 2.5px dashed var(--color-pencil) !important;
-  border-radius: 240px 12px 220px 18px / 14px 230px 10px 245px !important;
-  box-shadow: 3px 3px 0 rgba(0, 0, 0, 0.12);
-  position: relative;
-  overflow: visible;
-}
-/* Tape strip on manifest */
-[data-theme="playful"] .ss-detail-manifest::before {
-  content: '';
-  position: absolute;
-  top: -10px;
-  left: 24%;
-  transform: rotate(-2.5deg);
-  width: 72px;
-  height: 22px;
-  background: rgba(215, 210, 190, 0.55);
-  border-radius: 2px 3px 3px 1px;
-  border-top: 1px solid rgba(190, 185, 165, 0.35);
-  border-bottom: 1px solid rgba(190, 185, 165, 0.25);
-  box-shadow: 1px 1px 0 rgba(0, 0, 0, 0.06);
-  pointer-events: none;
-  z-index: 2;
-}
-/* Manifest label text — Caveat heading font */
-[data-theme="playful"] .ss-detail-manifest dt {
-  font-family: var(--font-heading) !important;
-  font-size: 0.85rem;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-}
-
-/* Sidebar pinned card — thumbtack pin decoration + per-card pastel colors */
-[data-theme="playful"] .ss-detail-pinned {
-  position: relative;
-  overflow: visible;
-  margin-top: 12px;
-  background-color: #fffde7 !important;
-}
-/* Semantic pastel variants — keep pin decoration, override background only */
-[data-theme="playful"] .ss-detail-pinned-blue  { background-color: #ffffff !important; }
-[data-theme="playful"] .ss-detail-pinned-cyan  { background-color: #ffffff !important; }
-[data-theme="playful"] .ss-detail-pinned-green { background-color: #ffffff !important; }
-/* Red thumbtack pin */
-[data-theme="playful"] .ss-detail-pinned::before {
-  content: '';
-  position: absolute;
-  top: -7px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  background: var(--color-accent);
-  border: 2px solid var(--color-pencil);
-  box-shadow: 1px 1px 0 rgba(0, 0, 0, 0.2);
-  pointer-events: none;
-  z-index: 2;
-}
-/* Pin variety — alternating position */
-[data-theme="playful"] .ss-detail-pinned:nth-child(even)::before {
-  left: 40%;
-}
-[data-theme="playful"] .ss-detail-pinned:nth-child(3n)::before {
-  left: 60%;
-}
-
-/* Sidebar section headings — Caveat font for hand-drawn feel */
-[data-theme="playful"] .ss-detail-heading {
-  font-family: var(--font-heading) !important;
-  font-size: 1.25rem !important;
-  font-weight: 700;
-}
-
-/* Stats bar — sketchy dashed pencil divider */
-[data-theme="playful"] .ss-detail-stats {
-  border-bottom: 2px dashed var(--color-pencil) !important;
-}
-
-/* Tone down buttons inside pinned cards */
-[data-theme="playful"] .ss-detail-pinned .ss-btn {
-  box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.08) !important;
-  border-width: 1.5px !important;
-}
-
-/* Skill name in header — wavy underline accent */
-[data-theme="playful"] .ss-detail-title {
-  font-family: var(--font-heading) !important;
-  font-size: 2.2rem !important;
-  text-decoration: underline;
-  text-decoration-style: wavy;
-  text-decoration-color: var(--color-accent);
-  text-underline-offset: 6px;
-  text-decoration-thickness: 2px;
-}
-
-/* Target Distribution / Sync Status — dashed left accent border */
-[data-theme="playful"] .ss-detail-outlined {
-  border-left: 3px dashed var(--color-pencil-light) !important;
-}
-
-/* Dark mode adjustments for detail page decorations */
-[data-theme="playful"].dark .ss-detail-manifest {
-  background-color: rgba(255,249,196,0.08) !important;
-  border-color: rgba(255, 255, 255, 0.2) !important;
-  box-shadow: 3px 3px 0 var(--color-shadow);
-}
-[data-theme="playful"].dark .ss-detail-manifest::before {
-  background: rgba(180, 175, 155, 0.25);
-  border-color: rgba(150, 145, 125, 0.2);
-}
-[data-theme="playful"].dark .ss-detail-pinned {
-  background-color: rgba(255,249,196,0.08) !important;
-}
-[data-theme="playful"].dark .ss-detail-pinned::before {
-  border-color: rgba(255, 255, 255, 0.15);
-  box-shadow: 1px 1px 0 rgba(0, 0, 0, 0.4);
-}
-/* Dark pastel variants — low-opacity tints */
-[data-theme="playful"].dark .ss-detail-pinned-blue  { background-color: rgba(220,238,251,0.08) !important; }
-[data-theme="playful"].dark .ss-detail-pinned-cyan  { background-color: rgba(224,247,250,0.08) !important; }
-[data-theme="playful"].dark .ss-detail-pinned-green { background-color: rgba(224,242,225,0.08) !important; }
-[data-theme="playful"].dark .ss-detail-outlined {
-  border-left-color: var(--color-pencil-light) !important;
-}
-
-/* ── Playful Dark: refinements ── */
-[data-theme="playful"].dark .ss-card,
-[data-theme="playful"].dark .ss-btn,
-[data-theme="playful"].dark .ss-input,
-[data-theme="playful"].dark .ss-select,
-[data-theme="playful"].dark .ss-select-menu,
-[data-theme="playful"].dark .ss-dialog,
-[data-theme="playful"].dark .ss-toast,
-[data-theme="playful"].dark .ss-split-menu {
-  border-width: 2px;
-}
-[data-theme="playful"].dark .ss-context-menu {
-  border-width: 2px;
-}
-[data-theme="playful"].dark .ss-tip-banner {
-  border-width: 2px;
-}
-[data-theme="playful"].dark .ss-card {
-  box-shadow: 3px 3px 0 var(--color-shadow);
-}
-[data-theme="playful"].dark .ss-card:hover {
-  box-shadow: 5px 5px 0 var(--color-shadow);
-}
-[data-theme="playful"].dark .ss-btn {
-  box-shadow: 3px 3px 0 var(--color-shadow);
-}
-[data-theme="playful"].dark aside nav a:hover {
-  box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.2);
-}
-[data-theme="playful"].dark aside button:hover {
-  box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.2);
-}
-
-/* ── Playful: Assistant Panel ── */
-/* Remove inner left border (Card already has its pencil border),
-   warm paper bg, and inset padding so children don't reach the
-   wobbly border-radius clip zone (15px axis values). */
-[data-theme="playful"] .ss-assistant-panel,
-[data-theme="playful"] .ss-audit-assistant-panel {
-  border-left: none !important;
-  background: var(--color-paper) !important;
-}
-/* Textareas inside panels — moderate radius (not blobby 28px), subtle border */
-[data-theme="playful"] .ss-assistant-panel textarea,
-[data-theme="playful"] .ss-audit-assistant-panel textarea {
-  border-radius: 12px !important;
-  border-color: var(--color-muted-dark) !important;
-  background: var(--color-surface) !important;
-}
-
-[data-theme="playful"] .ss-status-bar {
-  border-bottom: 2px dashed var(--color-muted-dark);
-  background: var(--color-paper);
-  overflow: visible;
-}
-/* Ensure panel overflow doesn't clip dashed borders at edges */
-[data-theme="playful"] .ss-assistant-panel,
-[data-theme="playful"] .ss-audit-assistant-panel {
-  overflow: visible !important;
-}
-[data-theme="playful"] .ss-panel-content {
-  overflow: visible auto !important;
-}
-
-[data-theme="playful"] .ss-error-item {
-  border-radius: var(--radius-wobble-badge);
-}
-
-[data-theme="playful"] .ss-tree-node {
-  border-radius: 6px;
-  border-left-style: dashed !important;
-}
-[data-theme="playful"] .ss-tree-node[aria-selected="true"] {
-  border-left: 2.5px dashed var(--color-blue) !important;
-}
-
-[data-theme="playful"] .ss-diff-line {
-  border-radius: 4px;
-  border-left-style: dashed !important;
-}
-
-/* ── Playful: Panel Toolbar ── */
-[data-theme="playful"] .ss-panel-toolbar {
-  border-top: 2px dashed var(--color-muted-dark) !important;
-}
-[data-theme="playful"] .ss-panel-tabs {
-  border: 1.5px solid var(--color-muted-dark) !important;
-  border-radius: var(--radius-wobble-badge) !important;
-  background: var(--color-muted) !important;
-  box-shadow: 1.5px 1.5px 0 rgba(45, 45, 45, 0.06);
-}
-[data-theme="playful"] .ss-panel-tab {
-  border-radius: 80px 6px 70px 6px / 6px 70px 6px 80px !important;
-  transition: all 0.15s ease;
-}
-[data-theme="playful"] .ss-panel-tab[aria-pressed="true"] {
-  background: var(--color-surface) !important;
-  border: 1.5px solid var(--color-muted-dark) !important;
-  box-shadow: 1px 1px 0 rgba(45, 45, 45, 0.06);
-}
-
-/* ── Playful: Tone down badges inside panels — dense UI needs lighter treatment ── */
-[data-theme="playful"] .ss-assistant-panel .ss-badge,
-[data-theme="playful"] .ss-audit-assistant-panel .ss-badge {
-  border-width: 1px;
-  border-color: var(--color-muted-dark);
-  box-shadow: 1px 1px 0 rgba(45, 45, 45, 0.03);
-}
-
-/* ── Playful: Panel content — notebook ruled lines ── */
-[data-theme="playful"] .ss-panel-content {
-  background-image: repeating-linear-gradient(
-    transparent,
-    transparent 27px,
-    var(--color-muted) 27px,
-    var(--color-muted) 28px
-  );
-  background-position: 0 3px;
-}
-[data-theme="playful"].dark .ss-panel-content {
-  background-image: repeating-linear-gradient(
-    transparent,
-    transparent 27px,
-    rgba(255, 255, 255, 0.04) 27px,
-    rgba(255, 255, 255, 0.04) 28px
-  );
-}
-
-/* ── Playful: Panel section headers — hand-drawn font ── */
-[data-theme="playful"] .ss-panel-content label,
-[data-theme="playful"] .ss-panel-content .tracking-wider {
-  font-family: var(--font-heading);
-  font-weight: 700;
-  letter-spacing: 0.04em;
-}
-
-/* ── Playful: Panel Idle State ── */
-[data-theme="playful"] .ss-panel-idle p {
-  font-family: var(--font-heading);
-  font-size: 0.9rem;
-}
-[data-theme="playful"] .ss-panel-idle kbd {
-  border: 1.5px solid var(--color-pencil);
-  border-radius: var(--radius-wobble-badge);
-  box-shadow: 1.5px 1.5px 0 rgba(45, 45, 45, 0.1);
-}
-
-/* ── Playful Dark: Panel ── */
-[data-theme="playful"].dark .ss-assistant-panel textarea,
-[data-theme="playful"].dark .ss-audit-assistant-panel textarea {
-  background: var(--color-surface) !important;
-  border-color: rgba(255, 255, 255, 0.15) !important;
-}
-[data-theme="playful"].dark .ss-panel-tabs {
-  border-color: rgba(255, 255, 255, 0.15) !important;
-  box-shadow: 1.5px 1.5px 0 rgba(0, 0, 0, 0.2);
-}
-[data-theme="playful"].dark .ss-panel-tab[aria-pressed="true"] {
-  border-color: rgba(255, 255, 255, 0.15) !important;
-}
-[data-theme="playful"].dark .ss-assistant-panel .ss-badge,
-[data-theme="playful"].dark .ss-audit-assistant-panel .ss-badge {
-  border-color: rgba(255, 255, 255, 0.12);
-  box-shadow: 1px 1px 0 rgba(0, 0, 0, 0.15);
-}
-
-/* ── prefers-reduced-motion ── */
-@media (prefers-reduced-motion: reduce) {
-  [data-theme="playful"] .ss-card:hover { translate: none; }
-  [data-theme="playful"] .ss-skill-card::before { transform: translateX(-50%); }
-  [data-theme="playful"] aside nav a:hover { translate: none; }
-  [data-theme="playful"] aside button:hover { translate: none; }
+  --shadow-sm: var(--sh-box);
+  --shadow-md: var(--sh-box);
+  --shadow-lg: var(--sh-float);
+  --shadow-hover: var(--sh-box);
+  --shadow-accent: var(--sh-box);
+  --shadow-blue: var(--sh-box);
 }
 
 /* ── Theme transition (user-initiated only) ── */
 html.theme-transitioning,
 html.theme-transitioning > body,
-html.theme-transitioning aside,
+html.theme-transitioning .ss-side,
 html.theme-transitioning main,
-html.theme-transitioning .ss-card,
-html.theme-transitioning .ss-btn,
-html.theme-transitioning .ss-badge,
-html.theme-transitioning .ss-input,
-html.theme-transitioning .ss-select,
-html.theme-transitioning .ss-dialog {
+html.theme-transitioning :is(.ss-box, .ss-list, .ss-btn, .ss-tag, .ss-inp, .ss-dlg, .ss-nv) {
   transition: background-color 0.2s ease, border-color 0.2s ease,
               box-shadow 0.2s ease, color 0.2s ease, border-radius 0.2s ease;
 }
 
-/* Promote toast z-index during tour so it's visible above overlay */
+/* Promote toast above the tour overlay */
 .tour-active [data-toast-container] {
   z-index: 80 !important;
-}
-
-/* Base styles */
-body {
-  background-color: var(--color-paper);
-  color: var(--color-pencil);
-  font-family: var(--font-hand);
 }
 
 /* Scrollbar styling */
@@ -891,108 +91,30 @@ body {
   height: 8px;
 }
 
+/* The track stays transparent and inset: a painted track draws a square strip over rounded, scrolling frames */
 ::-webkit-scrollbar-track {
-  background: var(--color-paper);
+  background: transparent;
+}
+
+:not(html)::-webkit-scrollbar-track {
+  margin: 8px;
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
-  background-color: var(--color-muted-dark);
+  background-color: var(--ink-3);
   border-radius: 4px;
-  border: 2px solid var(--color-paper);
+  border: 2px solid transparent;
+  background-clip: padding-box;
 }
 
 /* Selection color */
 ::selection {
-  background-color: rgba(220, 69, 56, 0.1);
-  color: var(--color-pencil);
-}
-
-/* Markdown prose overrides */
-.prose-hand {
-  h1, h2, h3, h4, h5, h6 {
-    font-family: var(--font-heading);
-    color: var(--color-pencil);
-    font-weight: 600;
-  }
-  h1 { font-size: 1.5rem; margin-bottom: 0.75rem; }
-  h2 { font-size: 1.25rem; margin-bottom: 0.5rem; margin-top: 1.5rem; }
-  h3 { font-size: 1.1rem; margin-bottom: 0.25rem; margin-top: 1rem; }
-  p { color: var(--color-pencil-light); font-size: 1rem; margin-bottom: 0.75rem; line-height: 1.7; }
-  ul, ol { color: var(--color-pencil-light); font-size: 1rem; margin-bottom: 0.75rem; padding-left: 1.25rem; }
-  ul { list-style-type: disc; }
-  ol { list-style-type: decimal; }
-  li { margin-bottom: 0.25rem; }
-  code {
-    background-color: var(--color-muted);
-    color: var(--color-blue);
-    padding: 0.12rem 0.45rem;
-    border-radius: 4px;
-    font-size: 0.875rem;
-    font-family: 'SFMono-Regular', Menlo, Consolas, monospace;
-    border: 1px solid var(--color-muted);
-  }
-  pre {
-    position: relative;
-    background: #1e1e2e;
-    color: #cdd6f4;
-    padding: 1rem;
-    border: 1px solid var(--color-muted);
-    border-radius: 8px;
-    overflow-x: auto;
-    margin-bottom: 1rem;
-    box-shadow: var(--shadow-sm);
-  }
-  pre code {
-    display: block;
-    background: transparent;
-    padding: 0;
-    border: none;
-    box-shadow: none;
-    color: inherit;
-    font-size: 0.9rem;
-    line-height: 1.65;
-    font-family: 'SFMono-Regular', Menlo, Consolas, monospace;
-  }
-  a {
-    color: var(--color-blue);
-    text-decoration: underline;
-    text-underline-offset: 3px;
-  }
-  a:hover { color: var(--color-accent); }
-  hr {
-    border-color: var(--color-muted);
-    margin: 1.5rem 0;
-  }
-  blockquote {
-    border-left: 3px solid var(--color-blue);
-    padding: 0.75rem 1rem;
-    color: var(--color-pencil-light);
-    font-style: italic;
-    background: var(--color-paper-warm);
-    border-radius: 0 6px 6px 0;
-  }
-  table {
-    width: 100%;
-    border-collapse: separate;
-    border-spacing: 0;
-    margin-bottom: 1rem;
-    border: 1px solid var(--color-muted);
-    border-radius: 8px;
-    overflow: hidden;
-    background: var(--color-paper-warm);
-  }
-  thead tr { background: var(--color-paper); }
-  th, td {
-    border-bottom: 1px solid var(--color-muted);
-    border-right: 1px solid var(--color-muted);
-    padding: 0.5rem 0.75rem;
-    text-align: left;
-    vertical-align: top;
-    font-size: 0.95rem;
-    color: var(--color-pencil);
-  }
-  th:last-child, td:last-child { border-right: none; }
-  tbody tr:last-child td { border-bottom: none; }
+  background-color: var(--sel);
+  color: var(--sel-ink);
 }
 
 /* Animation keyframes */
@@ -1015,98 +137,6 @@ body {
   animation: dropdownIn 0.15s ease-out;
 }
 
-/* Split button menu — spring pop animation */
-@keyframes splitMenuPop {
-  0%   { opacity: 0; transform: translateY(-6px) scale(0.96); }
-  60%  { opacity: 1; transform: translateY(1px) scale(1.005); }
-  100% { opacity: 1; transform: translateY(0) scale(1); }
-}
-
-.ss-split-menu {
-  animation: splitMenuPop 0.18s cubic-bezier(0.34, 1.4, 0.64, 1);
-  transform-origin: top center;
-  backdrop-filter: blur(8px);
-}
-
-.ss-split-menu-item {
-  transition: background-color 0.12s ease;
-}
-.ss-split-menu-item:active {
-  opacity: 0.7;
-  transition: opacity 0.05s;
-}
-.ss-split-menu-item .ss-split-menu-icon {
-  transition: transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-.ss-split-menu-item:hover .ss-split-menu-icon {
-  transform: scale(1.15);
-}
-
-/* Context menu — spring pop animation + theme integration */
-.ss-context-menu {
-  animation: contextMenuPop 0.16s cubic-bezier(0.34, 1.4, 0.64, 1);
-  transform-origin: top left;
-  backdrop-filter: blur(8px);
-}
-.ss-context-submenu {
-  animation: contextSubmenuSlide 0.14s cubic-bezier(0.34, 1.2, 0.64, 1);
-  transform-origin: left center;
-}
-@keyframes contextMenuPop {
-  0%   { opacity: 0; transform: scale(0.95) translateY(-4px); }
-  60%  { opacity: 1; transform: scale(1.005) translateY(0); }
-  100% { opacity: 1; transform: scale(1) translateY(0); }
-}
-@keyframes contextSubmenuSlide {
-  0%   { opacity: 0; transform: translateX(-6px) scale(0.97); }
-  100% { opacity: 1; transform: translateX(0) scale(1); }
-}
-.ss-context-menu-item {
-  transition: background-color 0.1s ease;
-}
-.ss-context-menu-item:active {
-  opacity: 0.7;
-  transition: opacity 0.05s;
-}
-.ss-context-menu-item .ss-context-menu-icon {
-  transition: transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-.ss-context-menu-item:hover .ss-context-menu-icon {
-  transform: scale(1.15);
-}
-
-/* Sync progress shimmer animation */
-@keyframes shimmer {
-  0% { transform: translateX(-100%); }
-  100% { transform: translateX(350%); }
-}
-
-.animate-shimmer {
-  animation: shimmer 1.5s ease-in-out infinite;
-}
-
-/* Pipeline flow animation — dashed line movement */
-@keyframes flow {
-  0% { stroke-dashoffset: 0; }
-  100% { stroke-dashoffset: -16; }
-}
-
-.animate-flow {
-  animation: flow 0.6s linear infinite;
-}
-
-/* Subtle underline link — border-bottom style */
-.link-subtle {
-  color: var(--color-pencil-light);
-  border-bottom: 1px solid var(--color-muted);
-  padding-bottom: 1px;
-  transition: color 0.15s, border-color 0.15s;
-}
-.link-subtle:hover {
-  color: var(--color-pencil);
-  border-bottom-color: var(--color-pencil);
-}
-
 /* Dialog entrance */
 @keyframes dialogIn {
   from { opacity: 0; transform: scale(0.97) translateY(4px); }
@@ -1122,7 +152,7 @@ body {
   100% { background-position: 200% 0; }
 }
 .animate-skeleton {
-  background: linear-gradient(90deg, var(--color-muted) 25%, color-mix(in srgb, var(--color-muted-dark) 40%, transparent) 37%, var(--color-muted) 63%);
+  background: linear-gradient(90deg, var(--line-soft) 25%, var(--sunken) 37%, var(--line-soft) 63%);
   background-size: 200% 100%;
   animation: skeleton-shimmer 1.8s ease-in-out infinite;
 }
@@ -1141,19 +171,15 @@ body {
   to { width: 0%; }
 }
 
-/* Card tilt */
-.card-tilt:nth-child(odd) { transform: rotate(-0.15deg); }
-.card-tilt:nth-child(even) { transform: rotate(0.15deg); }
-
 /* $ARGUMENTS token highlight (shared across editor + detail pages) */
 .arg-token {
   display: inline-block;
-  background: var(--color-warning-light);
-  color: var(--color-warning);
-  font-family: var(--font-mono, monospace);
+  background: var(--warn-bg);
+  color: var(--warn);
+  font-family: var(--fm);
   font-weight: 700;
   padding: 0 5px;
-  border-radius: 3px;
-  border: 1px solid rgba(212,135,14,0.4);
+  border-radius: var(--r-tag);
+  border: 1px solid var(--warn);
   font-size: 0.9em;
 }

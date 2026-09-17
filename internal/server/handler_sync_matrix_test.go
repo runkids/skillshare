@@ -261,6 +261,38 @@ func TestHandleSyncMatrixPreview_IncludesAgents(t *testing.T) {
 	}
 }
 
+func TestHandleSyncMatrixPreview_AgentExactNameExclude(t *testing.T) {
+	home := filepath.Join(t.TempDir(), "home")
+	os.MkdirAll(home, 0755)
+	t.Setenv("HOME", home)
+
+	tgtPath := filepath.Join(t.TempDir(), "claude-skills")
+	s, _ := newTestServerWithTargets(t, map[string]string{"claude": tgtPath})
+	addAgentFile(t, s.cfg.EffectiveAgentsSource(), "draft-helper.md")
+
+	// Sync matches agent patterns without the .md extension, so the matrix must too.
+	body := `{"target":"claude","include":[],"exclude":[],"agent_include":[],"agent_exclude":["draft-helper"]}`
+	req := httptest.NewRequest(http.MethodPost, "/api/sync-matrix/preview", strings.NewReader(body))
+	rr := httptest.NewRecorder()
+	s.handler.ServeHTTP(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rr.Code, rr.Body.String())
+	}
+
+	var resp struct {
+		Entries []struct {
+			Skill  string `json:"skill"`
+			Status string `json:"status"`
+		} `json:"entries"`
+	}
+	json.Unmarshal(rr.Body.Bytes(), &resp)
+	for _, e := range resp.Entries {
+		if e.Skill == "draft-helper.md" && e.Status != "excluded" {
+			t.Errorf("draft-helper.md: expected excluded, got %q", e.Status)
+		}
+	}
+}
+
 func TestHandleSyncMatrixPreview_NoAgentsWhenNoAgentPath(t *testing.T) {
 	// custom-tool has no agent path in builtin targets
 	tgtPath := filepath.Join(t.TempDir(), "custom-skills")

@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"slices"
 	"time"
 
 	"gopkg.in/yaml.v3"
@@ -32,6 +33,61 @@ func (s *Server) handleGetConfig(w http.ResponseWriter, r *http.Request) {
 		"config": cfgObj,
 		"raw":    string(raw),
 	})
+}
+
+var syncModes = []string{"merge", "copy", "symlink"}
+
+// handlePatchConfig — PATCH /api/config
+// Sets single settings the Settings page owns, so the UI never rewrites the whole YAML.
+// Both fields live in the global config only; project mode has no default mode or log limit.
+func (s *Server) handlePatchConfig(w http.ResponseWriter, r *http.Request) {
+	start := time.Now()
+
+	var body struct {
+		Mode          *string `json:"mode"`
+		LogMaxEntries *int    `json:"logMaxEntries"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid JSON body")
+		return
+	}
+	if body.Mode == nil && body.LogMaxEntries == nil {
+		writeError(w, http.StatusBadRequest, "mode or logMaxEntries is required")
+		return
+	}
+	if body.Mode != nil && !slices.Contains(syncModes, *body.Mode) {
+		writeError(w, http.StatusBadRequest, "invalid mode: "+*body.Mode)
+		return
+	}
+	if body.LogMaxEntries != nil && *body.LogMaxEntries < 0 {
+		writeError(w, http.StatusBadRequest, "logMaxEntries cannot be negative")
+		return
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.IsProjectMode() {
+		writeError(w, http.StatusBadRequest, "these settings are global only")
+		return
+	}
+	// /api/config skips the auto-reload middleware, so pick up outside edits before writing.
+	_ = s.reloadConfig()
+	args := map[string]any{"scope": "ui"}
+	if body.Mode != nil {
+		s.cfg.Mode = *body.Mode
+		args["mode"] = *body.Mode
+	}
+	if body.LogMaxEntries != nil {
+		s.cfg.Log.MaxEntries = body.LogMaxEntries
+		args["log_max_entries"] = *body.LogMaxEntries
+	}
+	if err := s.saveConfig(); err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to save config: "+err.Error())
+		return
+	}
+
+	s.writeOpsLog("config-patch", "ok", start, args, "")
+	writeJSON(w, map[string]any{"mode": s.cfg.Mode, "logMaxEntries": s.cfg.Log.MaxEntries})
 }
 
 func (s *Server) handlePutConfig(w http.ResponseWriter, r *http.Request) {

@@ -1,674 +1,280 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
-import {
-  RefreshCw,
-  Eye,
-  EyeOff,
-  Zap,
-  ChevronDown,
-  ChevronRight,
-  CheckCircle,
-  AlertCircle,
-  Folder,
-  ArrowRight,
-  Target,
-  FileText,
-  Info,
-} from 'lucide-react';
-import { Virtuoso } from 'react-virtuoso';
-import Card from '../components/Card';
+import { Fragment, useState } from 'react';
+import { Link } from 'react-router-dom';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { AlertCircle, ArrowDownToLine, Bot, ChevronDown, ChevronRight, CircleCheck, CircleMinus, EyeOff, FolderPlus, Gauge, Minus, Plug, Plus, Puzzle, RefreshCw, TriangleAlert } from 'lucide-react';
+import { api, formatTokenK, type SyncResponse } from '../api/client';
+import { mcpApi } from '../api/mcp';
+import AgentIcon from '../components/AgentIcon';
+import Button from '../components/Button';
+import CollectDialog from '../components/CollectDialog';
+import { Checkbox } from '../components/Input';
 import PageHeader from '../components/PageHeader';
-import Badge from '../components/Badge';
-import SplitButton from '../components/SplitButton';
 import Spinner from '../components/Spinner';
 import { useToast } from '../components/Toast';
-import { api, type SyncResult, type DiffTarget, type IgnoreSources, type ContextCost, formatTokenK } from '../api/client';
-import { formatSyncToast, invalidateAfterSync } from '../lib/sync';
-import StreamProgressBar from '../components/StreamProgressBar';
-import SyncResultList from '../components/SyncResultList';
-import { radius, shadows } from '../design';
-import KindBadge from '../components/KindBadge';
-import SegmentedControl from '../components/SegmentedControl';
-import { useT } from '../i18n';
-import MCPSyncAll from '../components/mcp/MCPSyncAll';
+import { describeMessage, targetLabel } from '../components/mcp/mcpView';
+import { countChanges, countEdited, extraGroups, MCP_CHANGED, mcpGroups, resourceGroups, runSync, type ChangeGroup, type Part, type RowIcon } from '../components/sync/syncView';
+import { refreshTargets } from '../components/targets/targetView';
+import { formatDateTime, formatRelativeTime, useI18n, useT } from '../i18n';
+import { shortenHome } from '../lib/paths';
+import { formatAgentDisplayName } from '../lib/resourceNames';
+import { queryKeys, staleTimes } from '../lib/queryKeys';
 
-function extractIgnoreSources(data: IgnoreSources): IgnoreSources {
-  return {
-    ignored_count: data.ignored_count,
-    ignored_skills: data.ignored_skills ?? [],
-    ignore_root: data.ignore_root ?? '',
-    ignore_repos: data.ignore_repos ?? [],
-    agent_ignore_root: data.agent_ignore_root ?? '',
-    agent_ignored_count: data.agent_ignored_count ?? 0,
-    agent_ignored_skills: data.agent_ignored_skills ?? [],
-  };
-}
+const ROW_ICON: Record<RowIcon, React.ReactNode> = {
+  add: <Plus size={16} className="shrink-0 text-ok" />,
+  update: <RefreshCw size={15} className="shrink-0 text-info" />,
+  remove: <Minus size={16} className="shrink-0 text-bad" />,
+  kept: <CircleMinus size={15} className="shrink-0 text-ink-3" />,
+  conflict: <TriangleAlert size={15} className="shrink-0 text-warn" />,
+};
+const PART_ICON: Record<Part, React.ReactNode> = { skill: <Puzzle size={14} />, agent: <Bot size={14} />, extra: <FolderPlus size={14} />, mcp: <Plug size={14} /> };
+const PART_LABEL: Record<Part, string> = { skill: 'Skills', agent: 'Agents', extra: 'Extras', mcp: 'MCP' };
+const PARTS = Object.keys(PART_LABEL) as Part[];
 
 export default function SyncPage() {
   const t = useT();
+  const { locale } = useI18n();
   const queryClient = useQueryClient();
-  const [syncing, setSyncing] = useState(false);
-  const [results, setResults] = useState<SyncResult[] | null>(null);
-  const [syncWarnings, setSyncWarnings] = useState<string[]>([]);
-  const [lastDryRun, setLastDryRun] = useState(false);
-  const [ignoreSources, setIgnoreSources] = useState<IgnoreSources | null>(null);
-  const [ignoredExpanded, setIgnoredExpanded] = useState(false);
-  const [contextCost, setContextCost] = useState<ContextCost | null>(null);
   const { toast } = useToast();
-  const [syncScope, setSyncScope] = useState<'skill' | 'agent' | 'both'>('both');
-  const toastRef = useRef(toast);
-  useEffect(() => { toastRef.current = toast; });
+  const targets = useQuery({ queryKey: queryKeys.targets.all, queryFn: () => api.listTargets(), staleTime: staleTimes.targets });
+  const diff = useQuery({ queryKey: queryKeys.diff(), queryFn: () => api.diff(), staleTime: staleTimes.diff });
+  const extras = useQuery({ queryKey: queryKeys.extrasDiff(), queryFn: () => api.diffExtras(), staleTime: staleTimes.extras });
+  const mcp = useQuery({ queryKey: queryKeys.mcp, queryFn: () => mcpApi.list(), staleTime: staleTimes.extras });
+  const log = useQuery({ queryKey: queryKeys.log('ops', 20, { cmd: 'sync' }), queryFn: () => api.listLog('ops', 20, { cmd: 'sync' }), staleTime: staleTimes.log });
 
-  // Diff state (SSE-based)
-  const [diffData, setDiffData] = useState<DiffTarget[] | null>(null);
-  const [diffLoading, setDiffLoading] = useState(false);
-  const [diffProgress, setDiffProgress] = useState<{ checked: number; total: number } | null>(null);
-  const esRef = useRef<EventSource | null>(null);
-  const startTimeRef = useRef<number>(0);
+  const [off, setOff] = useState<Set<Part>>(new Set());
+  const [force, setForce] = useState(false);
+  const [open, setOpen] = useState<Set<string>>(new Set());
+  const [collecting, setCollecting] = useState(false);
+  const [running, setRunning] = useState(false);
+  const [runError, setRunError] = useState('');
+  const [outcome, setOutcome] = useState<SyncResponse | null>(null);
 
-  useEffect(() => {
-    return () => { esRef.current?.close(); };
-  }, []);
+  const plan = mcp.data?.plan;
+  const parts = new Set(PARTS.filter((p) => !off.has(p)));
+  const diffs = diff.data?.diffs ?? [];
+  const resources = resourceGroups(diffs, targets.data?.targets ?? [], parts, force, { skill: diff.data?.ignored_skills, agent: diff.data?.agent_ignored_skills });
+  const mcpShown = parts.has('mcp') ? mcpGroups(plan) : [];
+  const groups: ChangeGroup[] = [...resources.groups, ...(parts.has('extra') ? extraGroups(extras.data?.extras ?? [], force) : []), ...mcpShown];
+  // A blocked plan applies nothing, so its rows are shown but not counted.
+  const count = countChanges(groups) - (plan?.blocked ? countChanges(mcpShown) : 0);
+  const edited = countEdited(groups);
+  const loading = diff.isPending || targets.isPending;
 
-  const runDiff = useCallback(() => {
-    esRef.current?.close();
-    setDiffLoading(true);
-    setDiffProgress(null);
-    setIgnoreSources(null);
-    startTimeRef.current = Date.now();
+  const local = diffs.flatMap((d) => (d.items ?? []).filter((i) => i.action === 'local' && parts.has(i.kind === 'agent' ? 'agent' : 'skill')));
+  const ignored = [...(parts.has('skill') ? diff.data?.ignored_skills ?? [] : []), ...(parts.has('agent') ? diff.data?.agent_ignored_skills ?? [] : [])];
+  const skipped = parts.has('skill') ? diffs.filter((d) => (d.skippedCount ?? 0) > 0) : [];
+  const last = log.data?.entries.find((e) => !e.args?.dry_run);
 
-    esRef.current = api.diffStream(
-      () => setDiffProgress({ checked: 0, total: 0 }),
-      (total) => setDiffProgress({ checked: 0, total }),
-      (_diff, checked) => setDiffProgress((p) => p ? { ...p, checked } : null),
-      (data) => {
-        setDiffData(data.diffs);
-        setIgnoreSources(extractIgnoreSources(data));
-        setDiffLoading(false);
-        setDiffProgress(null);
-      },
-      (err) => {
-        toastRef.current(err.message, 'error');
-        setDiffLoading(false);
-        setDiffProgress(null);
-      },
-    );
-  }, []);
+  const toggle = (set: Set<string>, key: string) => { const next = new Set(set); if (next.has(key)) next.delete(key); else next.add(key); return next; };
 
-  useEffect(() => { runDiff(); }, [runDiff]);
-
-  const handleSync = async (opts: { dryRun?: boolean; force?: boolean } = {}) => {
-    const dryRun = opts.dryRun ?? false;
-    const force = opts.force ?? false;
-    setSyncing(true);
-    setLastDryRun(dryRun);
-    setSyncWarnings([]);
+  const sync = async () => {
+    setRunning(true);
+    setRunError('');
+    setOutcome(null);
     try {
-      const res = await api.sync({
-        dryRun,
+      const { resources: result } = await runSync({
+        resources: parts.has('skill') && parts.has('agent') ? 'both' : parts.has('skill') ? 'skill' : parts.has('agent') ? 'agent' : null,
+        extras: parts.has('extra') && !!extras.data?.extras.length,
+        mcp: parts.has('mcp') && plan && !plan.blocked && plan.changes.some((c) => c.action !== 'unchanged') ? plan : null,
         force,
-        ...(syncScope !== 'both' ? { kind: syncScope } : {}),
       });
-      setResults(res.results);
-      setSyncWarnings(res.warnings ?? []);
-      setIgnoreSources(extractIgnoreSources(res));
-      setContextCost(res.context_cost ?? null);
-      if (dryRun) {
-        toast(t('sync.toast.dryRunComplete'), 'info');
-      } else {
-        toast(formatSyncToast(res.results), 'success');
-      }
-      runDiff();
-      invalidateAfterSync(queryClient);
-    } catch (e: unknown) {
-      toast((e as Error).message, 'error');
+      setOutcome(result ?? null);
+      toast(t('sync.toast.done'), 'success');
+    } catch (err) {
+      const message = (err as Error).message;
+      setRunError(message === MCP_CHANGED ? t('sync.mcpChanged') : message);
     } finally {
-      setSyncing(false);
+      setRunning(false);
+      refreshTargets(queryClient);
+      for (const queryKey of [queryKeys.extrasDiff(), queryKeys.extras, queryKeys.mcp, ['log']]) void queryClient.invalidateQueries({ queryKey });
     }
   };
 
-  // Derived ignored skills/agents list
-  const ignoredSkills = ignoreSources?.ignored_skills ?? [];
-  const ignoredAgents = ignoreSources?.agent_ignored_skills ?? [];
-  const allIgnored = [...ignoredSkills, ...ignoredAgents];
-
-  // Calculate diff summary by kind (single pass)
-  const diffs = diffData ?? [];
-  const counts = useMemo(() => {
-    const c = { skill: { link: 0, update: 0, prune: 0, skip: 0, local: 0 }, agent: { link: 0, update: 0, prune: 0, skip: 0, local: 0 } };
-    for (const d of diffs) {
-      for (const i of d.items ?? []) {
-        const kind = (i.kind ?? 'skill') as 'skill' | 'agent';
-        const action = i.action as keyof typeof c.skill;
-        if (c[kind] && action in c[kind]) c[kind][action]++;
-      }
-    }
-    return c;
-  }, [diffs]);
-
-  const skillSync = counts.skill.link + counts.skill.update + counts.skill.prune + counts.skill.skip;
-  const agentSync = counts.agent.link + counts.agent.update + counts.agent.prune + counts.agent.skip;
-  const pendingLocal = counts.skill.local + counts.agent.local;
-  const syncActions = skillSync + agentSync;
-  const totalLink = counts.skill.link + counts.agent.link;
-  const totalUpdate = counts.skill.update + counts.agent.update;
-  const totalSkip = counts.skill.skip + counts.agent.skip;
-  const totalPrune = counts.skill.prune + counts.agent.prune;
-
-  const statParts = [
-    totalLink > 0 && { n: totalLink, label: t('sync.stat.toLink'), cls: 'text-success' },
-    totalUpdate > 0 && { n: totalUpdate, label: t('sync.stat.toUpdate'), cls: 'text-info' },
-    totalSkip > 0 && { n: totalSkip, label: t('sync.stat.skipped'), cls: 'text-warning' },
-    totalPrune > 0 && { n: totalPrune, label: t('sync.stat.toPrune'), cls: 'text-danger' },
-    pendingLocal > 0 && { n: pendingLocal, label: t('sync.stat.localOnly'), cls: 'text-pencil-light' },
-    allIgnored.length > 0 && { n: allIgnored.length, label: t('sync.stat.ignored'), cls: 'text-muted-dark' },
-  ].filter((x): x is { n: number; label: string; cls: string } => !!x);
-
-  return (
-    <div className="space-y-5 animate-fade-in">
-      <PageHeader icon={<RefreshCw size={24} strokeWidth={2.5} />} title={t('sync.title')} subtitle={t('sync.subtitle')} actions={<MCPSyncAll />} />
-
-      {/* Visual Pipeline */}
-      <div className="hidden md:flex items-center justify-center gap-4">
-        <div
-          className="flex items-center gap-2 px-4 py-2 bg-paper border-2 border-pencil"
-          style={{ borderRadius: radius.sm, boxShadow: shadows.sm }}
-        >
-          <Folder size={18} strokeWidth={2.5} className="text-warning" />
-          <span className="text-base font-medium">
-            {t('sync.pipeline.source')}
-          </span>
-        </div>
-
-        <div className="flex items-center gap-1">
-          <svg width="60" height="20" viewBox="0 0 60 20" className="text-pencil-light">
-            <path
-              d="M0 10 Q15 4 30 10 Q45 16 60 10"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeDasharray="4 4"
-              className={syncing ? 'animate-flow' : ''}
-            />
-          </svg>
-        </div>
-
-        <div
-          className="flex items-center gap-2 px-4 py-2 bg-info-light border-2 border-pencil"
-          style={{ borderRadius: radius.sm, boxShadow: shadows.sm }}
-        >
-          {syncing ? (
-            <Spinner size="sm" className="text-blue" />
-          ) : (
-            <RefreshCw size={18} strokeWidth={2.5} className="text-blue" />
-          )}
-          <span className="text-base font-medium">
-            {t('sync.pipeline.syncEngine')}
-          </span>
-        </div>
-
-        <div className="flex items-center gap-1">
-          <svg width="60" height="20" viewBox="0 0 60 20" className="text-pencil-light">
-            <path
-              d="M0 10 Q15 4 30 10 Q45 16 60 10"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeDasharray="4 4"
-              className={syncing ? 'animate-flow' : ''}
-            />
-          </svg>
-        </div>
-
-        <div
-          className="flex items-center gap-2 px-4 py-2 bg-success-light border-2 border-pencil"
-          style={{ borderRadius: radius.sm, boxShadow: shadows.sm }}
-        >
-          <Target size={18} strokeWidth={2.5} className="text-success" />
-          <span className="text-base font-medium">
-            {t('sync.pipeline.targets', { count: diffs.length })}
-          </span>
-        </div>
-      </div>
-
-      {/* Sync control area */}
-      <Card className="text-center">
-        <div data-tour="sync-actions" className="flex flex-col items-center gap-4">
-          {/* Status indicator */}
-          {diffLoading ? (
-            <p className="text-pencil-light text-base">{t('sync.status.checking')}</p>
-          ) : syncActions > 0 ? (
-            <div className="space-y-1 text-center">
-              <p className="text-sm">
-                {statParts.map((p, i) => (
-                  <span key={i}>
-                    {i > 0 && <span className="text-muted-dark mx-1.5">·</span>}
-                    <strong className={p.cls}>{p.n}</strong>{' '}
-                    <span className="text-pencil-light">{p.label}</span>
-                  </span>
-                ))}
-              </p>
-              <p className="text-xs text-pencil-light/60">
-                {[
-                  skillSync > 0 && `${skillSync} skill${skillSync !== 1 ? 's' : ''}`,
-                  agentSync > 0 && `${agentSync} agent${agentSync !== 1 ? 's' : ''}`,
-                ].filter(Boolean).join(' · ')}
-              </p>
-            </div>
-          ) : (
-            <div className="flex flex-wrap items-center justify-center gap-2 text-sm">
-              <CheckCircle size={16} strokeWidth={2.5} className="text-success" />
-              <span className="font-medium text-success">{t('sync.status.allInSync')}</span>
-              {pendingLocal > 0 && <><span className="text-muted-dark">·</span><span className="text-pencil-light">{t('sync.status.localOnlyCount', { count: pendingLocal })}</span></>}
-              {allIgnored.length > 0 && <><span className="text-muted-dark">·</span><span className="text-pencil-light">{t('sync.badge.ignored', { count: allIgnored.length })}</span></>}
-            </div>
-          )}
-
-          {/* Action bar */}
-          <div className="flex flex-wrap items-center justify-center gap-3">
-            <SegmentedControl
-              value={syncScope}
-              onChange={setSyncScope}
-              options={[
-                { value: 'skill' as const, label: t('sync.scope.skills') },
-                { value: 'agent' as const, label: t('sync.scope.agents') },
-                { value: 'both' as const, label: t('sync.scope.both') },
-              ]}
-              size="sm"
-              connected
-            />
-            <SplitButton
-              onClick={() => handleSync()}
-              loading={syncing}
-              variant="primary"
-              size="sm"
-              dropdownAlign="right"
-              items={[
-                {
-                  label: syncScope === 'agent' ? t('sync.button.forceSyncAgents') : syncScope === 'skill' ? t('sync.button.forceSyncSkills') : t('sync.button.forceSync'),
-                  icon: <Zap size={16} strokeWidth={2.5} />,
-                  onClick: () => handleSync({ force: true }),
-                  confirm: true,
-                },
-                {
-                  label: t('sync.button.dryRun'),
-                  icon: <Eye size={16} strokeWidth={2.5} />,
-                  onClick: () => handleSync({ dryRun: true }),
-                },
-              ]}
-            >
-              {!syncing && <RefreshCw size={18} strokeWidth={2.5} />}
-              {syncing
-                ? t('sync.button.syncing')
-                : syncScope === 'skill'
-                  ? t('sync.button.syncSkills')
-                  : syncScope === 'agent'
-                    ? t('sync.button.syncAgents')
-                    : t('sync.button.syncNow')}
-            </SplitButton>
-          </div>
-        </div>
-      </Card>
-
-      {/* Sync warnings */}
-      {syncWarnings.length > 0 && (
-        <Card className="animate-fade-in">
-          <div className="flex items-start gap-2 text-sm text-pencil">
-            <AlertCircle size={16} className="mt-0.5 shrink-0 text-warning" />
-            <div className="space-y-1">
-              {syncWarnings.map((w, i) => <p key={i}>{w}</p>)}
-            </div>
-          </div>
-        </Card>
-      )}
-
-      {/* Sync results */}
-      {results && results.length > 0 && (
-        <div className="space-y-3">
-          <h2
-            className="text-lg font-bold text-pencil"
-          >
-            {lastDryRun ? t('sync.results.preview') : t('sync.results.title')}
-          </h2>
-          <SyncResultList results={results} />
-        </div>
-      )}
-
-      {/* Context cost summary */}
-      {contextCost && (
-        <div className="space-y-3 animate-fade-in">
-          <h2 className="text-lg font-bold text-pencil">{t('sync.contextCost.title')}</h2>
-
-          {/* Budget warnings */}
-          {contextCost.warnings && contextCost.warnings.length > 0 && (
-            <div className="space-y-2">
-              {contextCost.warnings.map((w, i) => (
-                <Card key={i} className="bg-warning-light border-warning">
-                  <div className="flex items-start gap-2 text-sm">
-                    <AlertCircle size={16} className="mt-0.5 shrink-0 text-warning" />
-                    <div className="space-y-1 flex-1">
-                      <p className="font-medium text-pencil">
-                        {w.target && <strong>{w.target}: </strong>}
-                        {t('sync.contextCost.budgetExceeded', {
-                          type: t(w.type === 'always_loaded' ? 'sync.contextCost.typeAlwaysLoaded' : 'sync.contextCost.typeOnDemand'),
-                          actual: formatTokenK(w.actual),
-                          budget: formatTokenK(w.budget),
-                        })}
-                      </p>
-                      {w.top_offenders.length > 0 && (
-                        <div className="space-y-0.5">
-                          <p className="text-xs text-pencil-light">{t('sync.contextCost.topOffenders')}</p>
-                          {w.top_offenders.slice(0, 3).map((o) => (
-                            <div key={o.name} className="flex items-center gap-2 text-xs">
-                              <span className="font-mono text-pencil truncate">{o.name}</span>
-                              <span className="text-pencil-light shrink-0">{t('sync.contextCost.tokens', { count: formatTokenK(o.tokens) })}</span>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </Card>
-              ))}
-            </div>
-          )}
-
-          {/* Token groups */}
-          <Card>
-            <div className="space-y-2">
-              {contextCost.groups.map((g, i) => (
-                <div key={i} className="flex items-center gap-3 text-sm">
-                  <div className="flex-1 min-w-0">
-                    <span className="font-mono text-pencil-light text-xs truncate">
-                      {g.targets.join(', ')}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-3 shrink-0 text-xs text-pencil-light">
-                    <span>
-                      <strong className="text-pencil">{formatTokenK(g.always_loaded_tokens)}</strong> {t('sync.contextCost.always')}
-                    </span>
-                    <span className="text-pencil-light/40">·</span>
-                    <span>
-                      <strong className="text-pencil">{formatTokenK(g.on_demand_tokens)}</strong> {t('sync.contextCost.onDemand')}
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </Card>
-        </div>
-      )}
-
-      {/* Ignored skills/agents collapsible card */}
-      {allIgnored.length > 0 && (
-        <Card>
-          <button
-            onClick={() => setIgnoredExpanded((prev) => !prev)}
-            className="w-full flex items-center gap-3 cursor-pointer"
-          >
-            {ignoredExpanded ? (
-              <ChevronDown size={16} strokeWidth={2.5} className="text-pencil-light shrink-0" />
-            ) : (
-              <ChevronRight size={16} strokeWidth={2.5} className="text-pencil-light shrink-0" />
-            )}
-            <EyeOff size={16} strokeWidth={2.5} className="text-pencil-light shrink-0" />
-            <span className="font-medium text-pencil-light text-left flex-1">
-              {t('sync.ignored.label')}
-            </span>
-            <Badge variant="default">{allIgnored.length !== 1 ? t('sync.badge.resourceCountPlural', { count: allIgnored.length }) : t('sync.badge.resourceCount', { count: allIgnored.length })}</Badge>
-          </button>
-
-          {ignoredExpanded && (() => {
-            const hasRoot = !!ignoreSources?.ignore_root;
-            const repoCount = ignoreSources?.ignore_repos?.length ?? 0;
-            const hasAgentRoot = !!ignoreSources?.agent_ignore_root;
-            return (
-              <div className="mt-3 pl-8 space-y-3 animate-fade-in">
-                {ignoredSkills.length > 0 && (
-                  <div className="space-y-1.5">
-                    <div className="flex items-center gap-2">
-                      <KindBadge kind="skill" />
-                      <span className="text-xs text-pencil-light/70">{ignoredSkills.length}</span>
-                    </div>
-                    {ignoredSkills.map((name) => (
-                      <div key={name} className="flex items-center gap-2 text-base py-0.5 pl-1">
-                        <EyeOff size={12} className="text-pencil-light/50 shrink-0" />
-                        <span className="font-mono text-pencil-light text-sm truncate">{name}</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-                {ignoredAgents.length > 0 && (
-                  <div className="space-y-1.5">
-                    <div className="flex items-center gap-2">
-                      <KindBadge kind="agent" />
-                      <span className="text-xs text-pencil-light/70">{ignoredAgents.length}</span>
-                    </div>
-                    {ignoredAgents.map((name) => (
-                      <div key={name} className="flex items-center gap-2 text-base py-0.5 pl-1">
-                        <EyeOff size={12} className="text-pencil-light/50 shrink-0" />
-                        <span className="font-mono text-pencil-light text-sm truncate">{name}</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-                <div className="pt-2 border-t border-dashed border-pencil-light/30 space-y-1">
-                  {hasRoot && (
-                    <div className="flex items-center gap-1.5 text-xs text-pencil-light">
-                      <Info size={12} className="shrink-0" />
-                      <span>{t('sync.ignored.skillignoreActive')}</span>
-                    </div>
-                  )}
-                  {repoCount > 0 && (
-                    <div className="flex items-center gap-1.5 text-xs text-pencil-light">
-                      <Info size={12} className="shrink-0" />
-                      <span>{t('sync.ignored.repoFilesActive', { count: repoCount, files: repoCount === 1 ? 'file' : 'files' })}</span>
-                    </div>
-                  )}
-                  {hasAgentRoot && (
-                    <div className="flex items-center gap-1.5 text-xs text-pencil-light">
-                      <Info size={12} className="shrink-0" />
-                      <span>{t('sync.ignored.agentignoreActive')}</span>
-                    </div>
-                  )}
-                  {!hasRoot && repoCount === 0 && !hasAgentRoot && (
-                    <div className="flex items-center gap-1.5 text-xs text-pencil-light">
-                      <Info size={12} className="shrink-0" />
-                      <span>{t('sync.ignored.editSkillignore')}</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-            );
-          })()}
-        </Card>
-      )}
-
-      {/* Diff preview */}
-      <div>
-        <h3
-          className="text-xl font-bold text-pencil mb-4"
-        >
-          {t('sync.diff.title')}
-        </h3>
-        {diffLoading && diffProgress && (
-          <StreamProgressBar
-            count={diffProgress.checked}
-            total={diffProgress.total}
-            startTime={startTimeRef.current}
-            icon={RefreshCw}
-            labelDiscovering={t('sync.diff.discoveringSkills')}
-            labelRunning={t('sync.diff.computingDiff')}
-            units={t('sync.diff.units')}
-          />
-        )}
-        {!diffLoading && diffData && <DiffView diffs={diffData} />}
-      </div>
-    </div>
-  );
-}
-
-function ActionBadge({ action }: { action: string }) {
-  const map: Record<string, { variant: 'success' | 'info' | 'warning' | 'danger' | 'default'; label: string }> = {
-    link: { variant: 'success', label: 'link' },
-    linked: { variant: 'success', label: 'linked' },
-    update: { variant: 'info', label: 'update' },
-    updated: { variant: 'info', label: 'updated' },
-    skip: { variant: 'warning', label: 'skip' },
-    skipped: { variant: 'warning', label: 'skipped' },
-    prune: { variant: 'danger', label: 'prune' },
-    pruned: { variant: 'danger', label: 'pruned' },
-    local: { variant: 'default', label: 'local' },
-  };
-  const entry = map[action] ?? { variant: 'default' as const, label: action };
-  return <Badge variant={entry.variant}>{entry.label}</Badge>;
-}
-
-/** Diff preview with expandable targets */
-function DiffView({ diffs: rawDiffs }: { diffs: DiffTarget[] }) {
-  const t = useT();
-  const diffs = rawDiffs ?? [];
-
-  if (diffs.length === 0) {
+  const groupHead = (g: ChangeGroup) => {
+    const n = countChanges([g]);
     return (
-      <Card variant="outlined">
-        <div className="flex items-center justify-center gap-2 py-4 text-pencil-light">
-          <AlertCircle size={18} strokeWidth={2} />
-          <span>{t('sync.diff.noTargets')}</span>
-        </div>
-      </Card>
+      <div className="ss-gh">
+        {g.part === 'extra' ? <span className="ss-cat sm extra">{PART_ICON.extra}</span> : <span className="ss-at"><AgentIcon target={g.name} size={17} /></span>}
+        <span className="font-semibold">{g.part === 'mcp' ? targetLabel(g.name) : g.name}</span>
+        <span className="ss-tag">{g.part === 'mcp' ? 'MCP' : g.mode}</span>
+        {g.path && <span className="min-w-0 truncate font-mono text-[12px] text-ink-3" title={g.path}>{shortenHome(g.path)}</span>}
+        <span className="flex-1" />
+        {n > 0 && <span className="shrink-0 text-[12px] text-ink-2">{t(n === 1 ? 'sync.changes.one' : 'sync.changes.other', { count: n })}</span>}
+      </div>
     );
-  }
+  };
 
   return (
-    <div className="space-y-4">
-      {diffs.map((d) => (
-        <DiffTargetCard key={d.target} diff={d} />
-      ))}
-    </div>
-  );
-}
-
-/** Max items before switching from flat list to virtualized scroll */
-const VIRTUALIZE_THRESHOLD = 100;
-/** Height of the virtualized container */
-const VIRTUOSO_HEIGHT = 400;
-
-function DiffTargetCard({ diff }: { diff: DiffTarget }) {
-  const t = useT();
-  const items = diff.items ?? [];
-  const [expanded, setExpanded] = useState(items.length <= VIRTUALIZE_THRESHOLD);
-  const localOnly = useMemo(() => items.filter((i) => i.action === 'local'), [items]);
-  const syncItems = useMemo(() => items.filter((i) => i.action !== 'local'), [items]);
-  const inSync = items.length === 0;
-  const onlyLocal = syncItems.length === 0 && localOnly.length > 0;
-
-  const hasSyncable = syncItems.some((i) => ['link', 'update', 'skip'].includes(i.action));
-  const hasLocal = localOnly.length > 0;
-  const useVirtualized = items.length > VIRTUALIZE_THRESHOLD;
-
-  return (
-    <Card>
-      <button
-        onClick={() => setExpanded(!expanded)}
-        className="w-full flex items-center gap-3 cursor-pointer"
-      >
-        {expanded ? (
-          <ChevronDown size={16} strokeWidth={2.5} className="text-pencil-light shrink-0" />
-        ) : (
-          <ChevronRight size={16} strokeWidth={2.5} className="text-pencil-light shrink-0" />
-        )}
-        <Target size={16} strokeWidth={2.5} className="text-success shrink-0" />
-        <h4
-          className="font-bold text-pencil text-left flex-1"
-        >
-          {diff.target}
-        </h4>
-        {inSync ? (
-          <Badge variant="success">{t('sync.badge.inSync')}</Badge>
-        ) : onlyLocal ? (
-          <Badge variant="default">{t('sync.badge.localOnly', { count: localOnly.length })}</Badge>
-        ) : (
-          <div className="flex items-center gap-2">
-            <Badge variant="info">{t('sync.badge.pendingCount', { count: syncItems.length })}</Badge>
-            {localOnly.length > 0 && <Badge variant="default">{t('sync.badge.localCount', { count: localOnly.length })}</Badge>}
+    <div className="animate-fade-in">
+      <PageHeader
+        title={t('sync.title')}
+        subtitle={t('sync.subtitle')}
+        actions={
+          <span data-tour="sync-actions">
+            <Button variant="primary" onClick={sync} loading={running} disabled={loading || parts.size === 0}>
+              {!running && <RefreshCw size={16} />}
+              {count > 0 ? t(count === 1 ? 'sync.run.one' : 'sync.run.other', { count }) : t('sync.run.none')}
+            </Button>
+          </span>
+        }
+      />
+      <div className="grid grid-cols-[minmax(0,1fr)_280px] items-start gap-8">
+        <div className="flex min-w-0 flex-col gap-4">
+          <div className="flex flex-wrap items-center gap-[18px]">
+            <span className="text-[13px] text-ink-3">{t('sync.include')}</span>
+            {PARTS.map((p) => (
+              <Checkbox key={p} size="sm" label={PART_LABEL[p]} checked={parts.has(p)} disabled={running} onChange={() => setOff((s) => toggle(s, p) as Set<Part>)} />
+            ))}
+            <span className="flex-1" />
+            <span className="flex items-center gap-2" title={t('sync.forceHint')}>
+              <button type="button" role="switch" aria-checked={force} aria-labelledby="sync-force" aria-describedby="sync-force-hint" className={`ss-sw ${force ? 'on' : ''} disabled:opacity-50`} disabled={running} onClick={() => setForce(!force)}>
+                <i />
+              </button>
+              <span id="sync-force" className="text-[13px] font-semibold">Force</span>
+              <span id="sync-force-hint" className="sr-only">{t('sync.forceHint')}</span>
+            </span>
           </div>
-        )}
-      </button>
+          {edited > 0 && (
+            <div className={`ss-note ${force ? 'warn' : 'inf'}`}>
+              {force ? <TriangleAlert size={16} /> : <CircleMinus size={16} />}
+              <span className="flex-1">{t(`sync.edited.${force ? 'replace' : 'kept'}.${edited === 1 ? 'one' : 'other'}`, { count: edited })}</span>
+            </div>
+          )}
 
-      {expanded && items.length > 0 && (
-        <div className="mt-3 pl-8 animate-fade-in">
-          {useVirtualized ? (
-            <Virtuoso
-              style={{ height: VIRTUOSO_HEIGHT }}
-              totalCount={items.length}
-              overscan={200}
-              itemContent={(i) => <DiffItemRow item={items[i]} />}
-            />
-          ) : (
-            <div className="space-y-1.5">
-              {items.map((item) => (
-                <DiffItemRow key={`${item.action}:${item.skill}`} item={item} />
+          {runError && <div className="ss-note bad"><AlertCircle size={16} /><span className="flex-1">{runError}</span></div>}
+          {parts.has('mcp') && plan?.blocked && (
+            <div className="ss-note warn !items-center">
+              <TriangleAlert size={16} />
+              <span className="flex-1">{t('sync.mcpBlocked')}</span>
+              <Link to="/mcp" className="ss-btn sm">{t('sync.openMcp')}</Link>
+            </div>
+          )}
+          {parts.has('mcp') && mcp.data?.previewError && <div className="ss-note bad"><AlertCircle size={16} /><span className="flex-1">{mcp.data.previewError}</span></div>}
+          {outcome?.warnings?.map((w) => <div key={w} className="ss-note warn"><TriangleAlert size={16} /><span className="flex-1">{w}</span></div>)}
+
+          <div className="ss-list">
+            {loading ? (
+              <div className="ss-r gap-2 text-[13px] text-ink-2"><Spinner size="sm" />{t('sync.checking')}</div>
+            ) : diff.error ? (
+              <div className="ss-r text-[13px] text-bad"><AlertCircle size={16} />{diff.error.message}</div>
+            ) : diffs.length === 0 && groups.length === 0 ? (
+              <div className="ss-r text-[13px] text-ink-2">
+                <span className="flex-1">{t('sync.noTargets')}</span>
+                <Link to="/targets" className="ss-btn sm">{t('sync.addTarget')}</Link>
+              </div>
+            ) : (
+              <>
+                {groups.length === 0 && (
+                  <div className="ss-r text-[13px]"><CircleCheck size={16} className="text-ok" />{t('sync.nothing')}</div>
+                )}
+                {groups.map((g) => (
+                  <Fragment key={g.key}>
+                    {groupHead(g)}
+                    {g.rows.map((r) => (
+                      <div key={r.key} className="ss-r !min-h-[46px]">
+                        {ROW_ICON[r.icon]}
+                        <span className={`ss-cat sm ${r.part}`}>{PART_ICON[r.part]}</span>
+                        <span className="w-[220px] shrink-0 truncate font-mono text-[13px] font-semibold" title={r.name}>{r.name}</span>
+                        <span className={`min-w-0 flex-1 truncate text-[13px] ${r.icon === 'conflict' ? 'text-warn' : 'text-ink-2'}`} title={r.detail}>
+                          {r.text ? t(r.text) : r.part === 'mcp' ? describeMessage(t, r.detail) : r.detail}
+                        </span>
+                      </div>
+                    ))}
+                  </Fragment>
+                ))}
+                {resources.inSync.length > 0 && (
+                  <button type="button" className="ss-gh w-full text-left" aria-expanded={open.has('inSync')} onClick={() => setOpen((s) => toggle(s, 'inSync'))}>
+                    <span className="ss-stack ml-1.5">{resources.inSync.slice(0, 4).map((name) => <span key={name} className="ss-at"><AgentIcon target={name} size={14} /></span>)}</span>
+                    <span className="font-semibold">{t(resources.inSync.length === 1 ? 'sync.inSync.one' : 'sync.inSync.other', { count: resources.inSync.length })}</span>
+                    <span className="flex-1" />
+                    {open.has('inSync') ? <ChevronDown size={15} className="text-ink-3" /> : <ChevronRight size={15} className="text-ink-3" />}
+                  </button>
+                )}
+                {open.has('inSync') && <div className="ss-r text-[13px] text-ink-2">{resources.inSync.join(', ')}</div>}
+              </>
+            )}
+          </div>
+
+          {outcome?.context_cost?.warnings?.map((w) => (
+            <div key={`${w.type}/${w.target}`} className="ss-note warn !items-center">
+              <Gauge size={16} />
+              <span className="flex-1">
+                <b>{t(w.type === 'always_loaded' ? 'sync.budget.always' : 'sync.budget.onDemand')}</b>{' '}
+                {t('sync.budget.detail', { actual: formatTokenK(w.actual), budget: formatTokenK(w.budget), target: w.target })}{' '}
+                {w.top_offenders.length > 0 && t('sync.budget.biggest', { names: w.top_offenders.slice(0, 3).map((o) => `${o.name} ${formatTokenK(o.tokens)}`).join(', ') })}
+              </span>
+              <Link to="/skills?tab=analyze" className="ss-btn sm">{t('sync.budget.analyze')}</Link>
+            </div>
+          ))}
+
+          {!loading && (ignored.length > 0 || skipped.length > 0 || local.length > 0) && (
+            <div className="ss-list">
+              {ignored.length > 0 && (
+                <>
+                  <div className="ss-r !min-h-11 text-[13px]">
+                    <button type="button" className="flex min-w-0 flex-1 items-center gap-2.5 text-left" aria-expanded={open.has('ignored')} onClick={() => setOpen((s) => toggle(s, 'ignored'))}>
+                      {open.has('ignored') ? <ChevronDown size={14} className="shrink-0 text-ink-3" /> : <ChevronRight size={14} className="shrink-0 text-ink-3" />}
+                      <EyeOff size={15} className="shrink-0 text-ink-3" />
+                      <span><b>{t(ignored.length === 1 ? 'sync.ignored.one' : 'sync.ignored.other', { count: ignored.length })}</b> <span className="text-ink-2">{t('sync.ignored.by')}</span></span>
+                    </button>
+                    <Link to="/config" className="shrink-0 font-semibold">{t('sync.ignored.edit')}</Link>
+                  </div>
+                  {open.has('ignored') && <div className="ss-r pl-[62px] font-mono text-[12.5px] text-ink-2">{ignored.join(', ')}</div>}
+                </>
+              )}
+              {skipped.map((d) => (
+                <div key={d.target} className="ss-r !min-h-11 text-[13px]">
+                  <TriangleAlert size={15} className="ml-6 shrink-0 text-warn" />
+                  <span className="min-w-0 flex-1">
+                    <b>{t((d.skippedCount ?? 0) === 1 ? 'sync.skipped.one' : 'sync.skipped.other', { count: d.skippedCount ?? 0, name: d.target })}</b>{' '}
+                    <span className="text-ink-2">{t('sync.skipped.hint', { name: d.target })}</span>
+                  </span>
+                  <Link to={`/targets/${encodeURIComponent(d.target)}`} className="shrink-0 font-semibold">{t('sync.skipped.open')}</Link>
+                </div>
               ))}
-            </div>
-          )}
-
-          {/* Action hints */}
-          {(hasSyncable || hasLocal) && (
-            <div className="mt-3 pt-2 border-t border-dashed border-pencil-light/30 space-y-1">
-              {hasSyncable && (
-                <div className="flex items-center gap-1.5 text-xs text-pencil-light">
-                  <Info size={12} className="shrink-0" />
-                  <span>
-                    {t('sync.hint.runSync')}
-                  </span>
-                </div>
-              )}
-              {hasLocal && (
-                <div className="flex items-center gap-1.5 text-xs text-pencil-light">
-                  <FileText size={12} className="shrink-0" />
-                  <span>
-                    {t('sync.hint.useCollect')}
-                  </span>
-                </div>
+              {local.length > 0 && (
+                <>
+                  <div className="ss-r !min-h-11 text-[13px]">
+                    <button type="button" className="flex min-w-0 flex-1 items-center gap-2.5 text-left" aria-expanded={open.has('local')} onClick={() => setOpen((s) => toggle(s, 'local'))}>
+                      {open.has('local') ? <ChevronDown size={14} className="shrink-0 text-ink-3" /> : <ChevronRight size={14} className="shrink-0 text-ink-3" />}
+                      <ArrowDownToLine size={15} className="shrink-0 text-ink-3" />
+                      <span><b>{t(local.length === 1 ? 'sync.local.one' : 'sync.local.other', { count: local.length })}</b> <span className="text-ink-2">{t('sync.local.hint')}</span></span>
+                    </button>
+                    <button type="button" className="shrink-0 font-semibold" onClick={() => setCollecting(true)}>{t('sync.local.collect')}</button>
+                  </div>
+                  {open.has('local') && <div className="ss-r pl-[62px] font-mono text-[12.5px] text-ink-2">{[...new Set(local.map((i) => (i.kind === 'agent' ? formatAgentDisplayName(i.skill) : i.skill)))].join(', ')}</div>}
+                </>
               )}
             </div>
           )}
-        </div>
-      )}
 
-      {expanded && inSync && (
-        <div className="mt-2 pl-8">
-          <p className="text-base text-pencil-light">
-            {t('sync.status.inSyncDetail')}
-          </p>
-          {(diff.skippedCount ?? 0) > 0 && (
-            <p className="text-sm text-warning mt-1">
-              {t('sync.warning.skippedNamingConflicts', { count: diff.skippedCount ?? 0 })}
-              {(diff.collisionCount ?? 0) > 0 && <> {t('sync.warning.collisionCount', { count: diff.collisionCount ?? 0 })}</>}
-              {' '}{t('sync.warning.skippedSwitchToFlat')}
-            </p>
-          )}
         </div>
-      )}
-    </Card>
-  );
-}
 
-function DiffItemRow({ item }: { item: { action: string; skill: string; reason?: string; kind?: 'skill' | 'agent' } }) {
-  return (
-    <div className="flex items-center gap-2 text-base py-0.5">
-      <ActionBadge action={item.action} />
-      <ArrowRight size={12} className="text-muted-dark shrink-0" />
-      <KindBadge kind={item.kind ?? 'skill'} />
-      <span className="font-mono text-pencil-light text-sm truncate">
-        {item.skill}
-      </span>
-      {item.reason && (
-        <span className="text-pencil-light/60 text-xs shrink-0">({item.reason})</span>
-      )}
+        <aside className="flex flex-col">
+          <div className="ss-box flex flex-col gap-3.5">
+            <div className="flex items-center justify-between">
+              <h3 className="text-[15px] font-semibold">{t('sync.last.title')}</h3>
+              {last && <span className={`ss-st ${last.status === 'ok' ? 'ok' : last.status === 'partial' ? 'warn' : 'bad'}`}>{last.status === 'ok' ? 'OK' : last.status}</span>}
+            </div>
+            {last ? (
+              <dl className="ss-kv !grid-cols-[80px_minmax(0,1fr)]">
+                <dt>{t('sync.last.when')}</dt>
+                <dd title={formatDateTime(last.ts, locale)}>{formatRelativeTime(last.ts, locale)}</dd>
+                {typeof last.args?.targets_total === 'number' && <><dt>{t('sync.last.targets')}</dt><dd>{last.args.targets_total}</dd></>}
+                {typeof last.ms === 'number' && <><dt>{t('sync.last.took')}</dt><dd className="font-mono">{(last.ms / 1000).toFixed(1)} s</dd></>}
+                {last.msg && <><dt>{t('sync.last.error')}</dt><dd className="break-words text-bad">{last.msg}</dd></>}
+              </dl>
+            ) : (
+              <p className="text-[13px] text-ink-2">{t('sync.last.never')}</p>
+            )}
+            <Link to="/log" className="ss-btn sm">{t('sync.last.openLog')}</Link>
+          </div>
+          <p className="mt-3.5 px-1 text-[13px] leading-relaxed text-ink-3">{t('sync.backupNote')} <Link to="/backup" className="font-semibold">{t('sync.backupLink')}</Link></p>
+          <p className="ss-hand ss-only-playful ml-2 mt-[18px] max-w-[150px]">{t('sync.handNote')}</p>
+        </aside>
+      </div>
+
+      {collecting && <CollectDialog onClose={() => setCollecting(false)} />}
     </div>
   );
 }

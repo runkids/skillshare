@@ -9,6 +9,7 @@ import (
 	"sort"
 	"time"
 
+	"skillshare/internal/backup"
 	"skillshare/internal/config"
 	"skillshare/internal/skillignore"
 	ssync "skillshare/internal/sync"
@@ -64,6 +65,37 @@ func (s *Server) handleSync(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	out, code, err := s.syncResources(start, body.DryRun, body.Force, body.Kind)
+	if err != nil {
+		writeError(w, code, err.Error())
+		return
+	}
+
+	resp := map[string]any{
+		"results":  out.results,
+		"warnings": out.warnings,
+	}
+	if len(out.skills) > 0 {
+		if contextCost := s.computeContextCost(out.skills); contextCost != nil {
+			resp["context_cost"] = contextCost
+		}
+	}
+	maps.Copy(resp, ignorePayload(out.ignoreStats))
+	maps.Copy(resp, agentIgnorePayload(s.agentsSource(), nil))
+	writeJSON(w, resp)
+}
+
+type syncOutcome struct {
+	results     []syncTargetResult
+	warnings    []string
+	skills      []ssync.DiscoveredSkill
+	ignoreStats *skillignore.IgnoreStats
+}
+
+// syncResources links skills and agents (kind "" means both) into every target
+// and logs the sync. On failure it returns the HTTP status to report; agent
+// failures only add warnings. Callers must hold s.mu.
+func (s *Server) syncResources(start time.Time, dryRun, force bool, kind string) (*syncOutcome, int, error) {
 	globalMode := s.cfg.Mode
 	if globalMode == "" {
 		globalMode = "merge"
@@ -72,12 +104,15 @@ func (s *Server) handleSync(w http.ResponseWriter, r *http.Request) {
 	// Pre-check warnings via shared config validation
 	warnings, validErr := config.ValidateConfig(s.cfg)
 	if validErr != nil {
-		writeError(w, http.StatusBadRequest, validErr.Error())
-		return
+		return nil, http.StatusBadRequest, validErr
 	}
 
 	if involved := config.DetectPathOverlap(s.cfg.Targets, s.IsProjectMode()); len(involved) > 0 {
 		warnings = append(warnings, fmt.Sprintf("Skill path overlap across %d target(s) — see Health Check for details", len(involved)))
+	}
+
+	if !dryRun {
+		warnings = append(warnings, s.backupBeforeSync(kind != kindAgent, kind != kindSkill)...)
 	}
 
 	results := make([]syncTargetResult, 0)
@@ -87,12 +122,11 @@ func (s *Server) handleSync(w http.ResponseWriter, r *http.Request) {
 	ignorePatterns := ssync.EffectiveFileIgnorePatterns(s.cfg.Ignore)
 
 	// Skill sync (skip when kind == "agent")
-	if body.Kind != kindAgent {
+	if kind != kindAgent {
 		var err error
 		allSkills, ignoreStats, err = ssync.DiscoverSourceSkillsWithStatsAndContext(s.cfg.EffectiveSkillsSource())
 		if err != nil {
-			writeError(w, http.StatusInternalServerError, "failed to discover skills: "+err.Error())
-			return
+			return nil, http.StatusInternalServerError, fmt.Errorf("failed to discover skills: %w", err)
 		}
 
 		if len(allSkills) == 0 {
@@ -122,18 +156,17 @@ func (s *Server) handleSync(w http.ResponseWriter, r *http.Request) {
 				"targets_total":  len(s.cfg.Targets),
 				"targets_failed": 1,
 				"target":         name,
-				"dry_run":        body.DryRun,
-				"force":          body.Force,
+				"dry_run":        dryRun,
+				"force":          force,
 				"scope":          "ui",
 			}
 
 			switch mode {
 			case "merge":
-				mergeResult, err := ssync.SyncTargetMergeWithSkills(name, target, allSkills, s.cfg.EffectiveSkillsSource(), body.DryRun, body.Force, s.projectRoot)
+				mergeResult, err := ssync.SyncTargetMergeWithSkills(name, target, allSkills, s.cfg.EffectiveSkillsSource(), dryRun, force, s.projectRoot)
 				if err != nil {
 					s.writeOpsLog("sync", "error", start, syncErrArgs, err.Error())
-					writeError(w, http.StatusInternalServerError, "sync failed for "+name+": "+err.Error())
-					return
+					return nil, http.StatusInternalServerError, fmt.Errorf("sync failed for %s: %w", name, err)
 				}
 				res.Linked = mergeResult.Linked
 				res.Updated = mergeResult.Updated
@@ -143,35 +176,33 @@ func (s *Server) handleSync(w http.ResponseWriter, r *http.Request) {
 				pruneResult, err := ssync.PruneOrphanLinksWithSkills(ssync.PruneOptions{
 					TargetPath: sc.Path, SourcePath: s.cfg.EffectiveSkillsSource(), Skills: allSkills,
 					Include: sc.Include, Exclude: sc.Exclude, TargetNaming: sc.TargetNaming, TargetName: name,
-					DryRun: body.DryRun, Force: body.Force,
+					DryRun: dryRun, Force: force,
 				})
 				if err == nil {
 					res.Pruned = pruneResult.Removed
 				}
 
 			case "copy":
-				copyResult, err := ssync.SyncTargetCopyWithSkillsOptions(name, target, allSkills, s.cfg.EffectiveSkillsSource(), body.DryRun, body.Force, nil, ssync.CopyOptions{IgnorePatterns: ignorePatterns})
+				copyResult, err := ssync.SyncTargetCopyWithSkillsOptions(name, target, allSkills, s.cfg.EffectiveSkillsSource(), dryRun, force, nil, ssync.CopyOptions{IgnorePatterns: ignorePatterns})
 				if err != nil {
 					s.writeOpsLog("sync", "error", start, syncErrArgs, err.Error())
-					writeError(w, http.StatusInternalServerError, "sync failed for "+name+": "+err.Error())
-					return
+					return nil, http.StatusInternalServerError, fmt.Errorf("sync failed for %s: %w", name, err)
 				}
 				res.Linked = copyResult.Copied
 				res.Updated = copyResult.Updated
 				res.Skipped = copyResult.Skipped
 				res.DirCreated = copyResult.DirCreated
 
-				pruneResult, err := ssync.PruneOrphanCopiesWithSkills(sc.Path, allSkills, sc.Include, sc.Exclude, name, sc.TargetNaming, body.DryRun)
+				pruneResult, err := ssync.PruneOrphanCopiesWithSkills(sc.Path, allSkills, sc.Include, sc.Exclude, name, sc.TargetNaming, dryRun)
 				if err == nil {
 					res.Pruned = pruneResult.Removed
 				}
 
 			default:
-				err := ssync.SyncTarget(name, target, s.cfg.EffectiveSkillsSource(), body.DryRun, s.projectRoot)
+				err := ssync.SyncTarget(name, target, s.cfg.EffectiveSkillsSource(), dryRun, s.projectRoot)
 				if err != nil {
 					s.writeOpsLog("sync", "error", start, syncErrArgs, err.Error())
-					writeError(w, http.StatusInternalServerError, "sync failed for "+name+": "+err.Error())
-					return
+					return nil, http.StatusInternalServerError, fmt.Errorf("sync failed for %s: %w", name, err)
 				}
 				res.Linked = []string{"(symlink mode)"}
 			}
@@ -181,7 +212,7 @@ func (s *Server) handleSync(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Agent sync (skip when kind == "skill")
-	if body.Kind != kindSkill {
+	if kind != kindSkill {
 		agentsSource := s.agentsSource()
 		if info, err := os.Stat(agentsSource); err == nil && info.IsDir() {
 			agents := discoverActiveAgents(agentsSource)
@@ -206,7 +237,7 @@ func (s *Server) handleSync(w http.ResponseWriter, r *http.Request) {
 				}
 				filteredAgents = ssync.FilterAgentsByTarget(filteredAgents, name)
 
-				agentResult, err := ssync.SyncAgents(filteredAgents, agentsSource, agentPath, agentMode, body.DryRun, body.Force, s.projectRoot)
+				agentResult, err := ssync.SyncAgents(filteredAgents, agentsSource, agentPath, agentMode, dryRun, force, s.projectRoot)
 				if err != nil {
 					warnings = append(warnings, "agent sync failed for "+name+": "+err.Error())
 					continue
@@ -216,9 +247,9 @@ func (s *Server) handleSync(w http.ResponseWriter, r *http.Request) {
 				// matches skills and clears previously synced target entries.
 				var pruned []string
 				if agentMode == "merge" {
-					pruned, _ = ssync.PruneOrphanAgentLinks(agentPath, filteredAgents, body.DryRun)
+					pruned, _ = ssync.PruneOrphanAgentLinks(agentPath, filteredAgents, dryRun)
 				} else if agentMode == "copy" {
-					pruned, _ = ssync.PruneOrphanAgentCopies(agentPath, filteredAgents, body.DryRun)
+					pruned, _ = ssync.PruneOrphanAgentCopies(agentPath, filteredAgents, dryRun)
 				}
 
 				// Find or create result entry for this target
@@ -254,27 +285,42 @@ func (s *Server) handleSync(w http.ResponseWriter, r *http.Request) {
 	s.writeOpsLog("sync", "ok", start, map[string]any{
 		"targets_total":  len(results),
 		"targets_failed": 0,
-		"dry_run":        body.DryRun,
-		"force":          body.Force,
-		"kind":           body.Kind,
+		"dry_run":        dryRun,
+		"force":          force,
+		"kind":           kind,
 		"scope":          "ui",
 	}, "")
 
-	var contextCost map[string]any
-	if len(allSkills) > 0 {
-		contextCost = s.computeContextCost(allSkills)
-	}
+	return &syncOutcome{results: results, warnings: warnings, skills: allSkills, ignoreStats: ignoreStats}, 0, nil
+}
 
-	resp := map[string]any{
-		"results":  results,
-		"warnings": warnings,
+// backupBeforeSync snapshots the target folders a sync may overwrite, as the
+// CLI does, then trims old snapshots. Project mode backs up agents only, like
+// `sync -p`. Failures come back as warnings. Callers must hold s.mu.
+func (s *Server) backupBeforeSync(skills, agents bool) []string {
+	var warnings []string
+	dir := backup.BackupDir()
+	if s.IsProjectMode() {
+		dir, skills = backup.ProjectBackupDir(s.projectRoot), false
 	}
-	if contextCost != nil {
-		resp["context_cost"] = contextCost
+	snapshot := func(entry, path string) {
+		if _, err := backup.CreateInDir(dir, entry, path); err != nil {
+			warnings = append(warnings, "backup failed for "+entry+": "+err.Error())
+		}
 	}
-	maps.Copy(resp, ignorePayload(ignoreStats))
-	maps.Copy(resp, agentIgnorePayload(s.agentsSource(), nil))
-	writeJSON(w, resp)
+	builtinAgents := s.builtinAgentTargets()
+	for name, target := range s.cfg.Targets {
+		if skills {
+			snapshot(name, target.SkillsConfig().Path)
+		}
+		if p := resolveAgentPath(target, builtinAgents, name, s.IsProjectMode()); agents && p != "" {
+			snapshot(name+"-agents", resolveExtrasTargetPath(s.projectRoot, p))
+		}
+	}
+	if _, err := backup.CleanupInDir(dir, backup.DefaultCleanupConfig()); err != nil {
+		warnings = append(warnings, "backup cleanup failed: "+err.Error())
+	}
+	return warnings
 }
 
 func (s *Server) computeContextCost(skills []ssync.DiscoveredSkill) map[string]any {

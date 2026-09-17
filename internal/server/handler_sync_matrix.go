@@ -3,6 +3,7 @@ package server
 import (
 	"encoding/json"
 	"net/http"
+	"strings"
 
 	"skillshare/internal/config"
 	"skillshare/internal/resource"
@@ -35,6 +36,11 @@ func syncMatrixReason(status, reason string) (string, map[string]string) {
 	default:
 		return "", nil
 	}
+}
+
+// agentFilterName is the name agent filter patterns match against, mirroring ssync.FilterAgents.
+func agentFilterName(flatName string) string {
+	return strings.TrimSuffix(flatName, ".md")
 }
 
 func newSyncMatrixEntry(skill, target, status, reason, kind string) syncMatrixEntry {
@@ -116,7 +122,7 @@ func (s *Server) handleSyncMatrix(w http.ResponseWriter, r *http.Request) {
 			}
 		} else {
 			for _, agent := range agents {
-				status, reason := ssync.ClassifySkillForTarget(agent.FlatName, agent.Targets, name, ac.Include, ac.Exclude)
+				status, reason := ssync.ClassifySkillForTarget(agentFilterName(agent.FlatName), agent.Targets, name, ac.Include, ac.Exclude)
 				entries = append(entries, newSyncMatrixEntry(agent.FlatName, name, status, reason, "agent"))
 			}
 		}
@@ -209,7 +215,7 @@ func (s *Server) handleSyncMatrixPreview(w http.ResponseWriter, r *http.Request)
 				}
 			} else {
 				for _, agent := range agents {
-					status, reason := ssync.ClassifySkillForTarget(agent.FlatName, agent.Targets, body.Target, body.AgentInclude, body.AgentExclude)
+					status, reason := ssync.ClassifySkillForTarget(agentFilterName(agent.FlatName), agent.Targets, body.Target, body.AgentInclude, body.AgentExclude)
 					entries = append(entries, newSyncMatrixEntry(agent.FlatName, body.Target, status, reason, "agent"))
 				}
 			}

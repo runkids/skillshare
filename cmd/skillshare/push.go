@@ -136,26 +136,7 @@ func gitPush(sourcePath string, spinner *ui.Spinner) error {
 	spinner.Update("Pushing to remote...")
 
 	authEnv := gitops.AuthEnvForRepo(sourcePath)
-	args := []string{"push"}
-	localBranch, err := gitops.GetCurrentBranch(sourcePath)
-	if err != nil {
-		localBranch = "main"
-	}
-
-	if !gitops.HasUpstream(sourcePath) {
-		remoteBranch := detectRemoteDefaultBranchForPush(sourcePath, authEnv)
-		if remoteBranch != "" && remoteBranch != localBranch {
-			args = append(args, "-u", "origin", localBranch+":"+remoteBranch)
-		} else {
-			args = append(args, "-u", "origin", localBranch)
-		}
-	} else if remoteName, upstreamBranch := upstreamTrackingBranch(sourcePath); remoteName != "" && upstreamBranch != "" && upstreamBranch != localBranch {
-		// push.default=simple refuses pushing when upstream branch name differs
-		// from local branch name. Push explicitly to tracked upstream branch.
-		args = []string{"push", remoteName, "HEAD:" + upstreamBranch}
-	}
-
-	cmd := exec.Command("git", args...)
+	cmd := exec.Command("git", gitops.PushArgs(sourcePath, authEnv)...)
 	cmd.Dir = sourcePath
 	cmd.Env = append(os.Environ(), "LC_ALL=C")
 	if len(authEnv) > 0 {
@@ -177,39 +158,7 @@ func gitPush(sourcePath string, spinner *ui.Spinner) error {
 	return nil
 }
 
-func upstreamTrackingBranch(sourcePath string) (remoteName, branch string) {
-	cmd := exec.Command("git", "rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}")
-	cmd.Dir = sourcePath
-	out, err := cmd.Output()
-	if err != nil {
-		return "", ""
-	}
-	ref := strings.TrimSpace(string(out))
-	parts := strings.SplitN(ref, "/", 2)
-	if len(parts) != 2 {
-		return "", ""
-	}
-	return parts[0], parts[1]
-}
-
-func detectRemoteDefaultBranchForPush(sourcePath string, authEnv []string) string {
-	fetchCmd := exec.Command("git", "fetch", "origin")
-	fetchCmd.Dir = sourcePath
-	if len(authEnv) > 0 {
-		fetchCmd.Env = append(os.Environ(), authEnv...)
-	}
-	if err := fetchCmd.Run(); err != nil {
-		return ""
-	}
-
-	branch, err := gitops.GetRemoteDefaultBranch(sourcePath)
-	if err != nil {
-		return ""
-	}
-	return branch
-}
-
-func cmdPush(args []string) error {
+func cmdPush(args []string) (err error) {
 	if wantsHelp(args) {
 		printPushHelp()
 		return nil
@@ -223,17 +172,28 @@ func cmdPush(args []string) error {
 		return fmt.Errorf("config not found: run 'skillshare init' first")
 	}
 
+	if !opts.dryRun {
+		defer func() {
+			e := oplog.NewEntry("push", statusFromErr(err), time.Since(start))
+			e.Args = map[string]any{"message": opts.message}
+			if err != nil {
+				e.Message = err.Error()
+			}
+			oplog.WriteWithLimit(config.ConfigPath(), oplog.OpsFile, e, logMaxEntries()) //nolint:errcheck
+		}()
+	}
+
 	ui.Header("Pushing to remote")
 
 	spinner := ui.StartSpinner("Checking repository...")
 
-	source, ok := resolveGitRoot(cfg, spinner)
-	if !ok {
-		return nil // Mismatch guidance already displayed
+	source, err := resolveGitRoot(cfg, spinner)
+	if err != nil {
+		return err
 	}
 
 	if err := checkGitRepo(source, spinner); err != nil {
-		return nil // Error already displayed
+		return err
 	}
 
 	if sweep := rootScopeSafetySweep(cfg, source, opts.dryRun); sweep.hasNotice() {
@@ -277,16 +237,11 @@ func cmdPush(args []string) error {
 	}
 
 	if err := gitPush(source, spinner); err != nil {
-		return nil // Error already displayed
+		return err
 	}
 
 	spinner.Stop()
 	ui.SuccessMsg("Push complete (%.1fs)", time.Since(start).Seconds())
-
-	e := oplog.NewEntry("push", "ok", time.Since(start))
-	e.Args = map[string]any{"message": opts.message}
-	oplog.WriteWithLimit(config.ConfigPath(), oplog.OpsFile, e, logMaxEntries()) //nolint:errcheck
-
 	return nil
 }
 

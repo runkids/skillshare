@@ -10,7 +10,10 @@ Start with [Set up MCP once](/docs/how-to/daily-tasks/sharing-mcp).
 ## Commands
 
 ```bash
+skillshare mcp
 skillshare mcp add
+skillshare mcp edit
+skillshare mcp edit docs --url https://updated.example/mcp --no-tui
 skillshare mcp add docs --url https://example.com/mcp --target claude --sync
 skillshare mcp add local --target codex -- company-mcp --workspace /path/to/workspace
 skillshare mcp import docs --from claude --target claude --target cursor --sync
@@ -29,27 +32,68 @@ skillshare sync --all
 | `--url URL` | Streamable HTTP endpoint for `add` |
 | `-- command args...` | Local executable and literal arguments for `add` |
 | `--from CLIENT` | Existing client to import, or the format of `--file` |
-| `--file PATH` | Native JSON/JSONC or TOML to import; `.toml` defaults to Codex, JSON is detected from its `mcpServers`, `servers` or `mcp` key |
+| `--file PATH` | Native JSON/JSONC, TOML or Goose YAML; `.toml` defaults to Codex, other formats are detected from their MCP section; use `--from` for an explicit dialect |
 | `--sync` | Save and synchronize; noninteractive add/import/remove otherwise save only |
 | `--replace` | Explicitly replace an existing source definition during add/import; on import, also rewrite the imported client's entry when it differs |
 | `--dry-run`, `-n` | Preview without saving or writing native configuration |
 | `--json` | Structured output; sync/preview reports contain names, paths and actions, not server values |
+| `--no-tui` | Disable interactive menus; also disabled by `tui: false`, `--json`, or non-terminal input/output |
 | `--revision ID` | Require a matching preview for add/import/remove or `sync mcp` |
 | `--global`, `-g` | Use global Skillshare configuration |
 | `--project`, `-p` | Use project Skillshare configuration |
 
-With no subcommand, `mcp` lists status. Noninteractive import without a name lists
+With no subcommand, `mcp` opens the searchable manager in an interactive terminal,
+or prints status in noninteractive mode. Noninteractive import without a name lists
 parsed candidates for selection and does not save. Candidates contain portable
 definitions, with recognizable secrets converted to references. Agent-specific
 fields are listed as warnings and left out; disabled servers and unsupported
 transports block the candidate. `restore` always previews again before applying;
 use `--dry-run` to inspect it without applying.
 
-`sync mcp` accepts scope flags, `--dry-run`, `--json`, and `--revision`.
+`sync mcp` accepts scope flags, `--dry-run`, `--json`, `--no-tui`, and `--revision`.
 `sync --all` includes skills, agents, extras and MCP; plain `sync` keeps its
 existing resource behavior. MCP conflicts are checked before `--all` changes
 other resources. Resource types and native files are separate operations, not a
 single transaction.
+
+## Interactive management
+
+Run `skillshare mcp` or `skillshare mcp list`. Like the skills list, the manager
+supports `/` to search and `Enter` for details. Connection lists hide argument,
+header and environment values, and omit URL queries.
+
+| Key | Action |
+|---|---|
+| `a` | Add a connection |
+| `i` | Import one or more connections |
+| `e` | Edit the selected connection |
+| `x` | Remove the selected connection |
+| `s` | Preview and confirm synchronization |
+| `b` | Browse backups by client, then newest first |
+| `r` | Refresh status |
+| `q` | Quit |
+
+`mcp edit`, `mcp remove`, and `mcp restore` offer selection menus when their name
+or backup ID is omitted. The editor covers command/URL, arguments, environment
+variables, HTTP headers, bearer-token environment references and receiving
+targets. Arguments accept one literal argument per line or a JSON array. Switching
+transport clears fields that do not apply to the new connection type.
+
+Add, edit, remove and import show a preview before **Save and sync** or **Save
+only**. Escape cancels the pending draft. Restore previews and confirms changes
+to Agent entries; it does not rewrite the source definition.
+
+Import without a server name supports multiple selections (`Space` toggles,
+`a` selects all). Invalid candidates are skipped; existing source names are skipped
+unless `--replace` is specified. Select one set of compatible receiving clients
+for the batch. The entire batch is validated before the source is saved once;
+later native-file I/O failures retain the existing recovery behavior.
+
+For scripts, provide a name and flags. `mcp edit NAME --url URL`,
+`mcp edit NAME --target CLIENT`, and `mcp edit NAME -- command args...` update the
+specified fields while preserving other applicable settings. They save only
+unless `--sync` is added. With `--no-tui`, remove requires a name and restore
+requires a backup ID. `--dry-run` never saves or synchronizes changes.
 
 ## Source fields
 
@@ -68,7 +112,9 @@ Skillshare config. The schema is `schemas/mcp.schema.json` in the repository.
 | `transport` | Optional `stdio` or `streamable-http`; inferred when omitted |
 | `targets` | Optional receiving clients; overrides `mcp.targets` |
 
-Client IDs are `claude`, `codex`, `cursor`, `vscode`, `opencode`, and `grok`.
+Client IDs are `claude`, `codex`, `cursor`, `vscode`, `opencode`, `grok`,
+`antigravity`, `amp`, `claude-desktop`, `cline`, `copilot`, `factory`, `gemini`,
+`goose`, `junie`, `kiro`, `lmstudio`, `warp`, and `windsurf`.
 `grok` means the official xAI Grok CLI. Server names use letters,
 digits, dots, underscores and hyphens. A server must select at least one client
 either directly or through `mcp.targets` before synchronization.
@@ -87,6 +133,61 @@ Names such as `company-docs` work across all supported clients.
 | VS Code | User `mcp.json` (below) | `.vscode/mcp.json` | `servers` |
 | OpenCode | `~/.config/opencode/opencode.json` | `opencode.json` | `mcp` |
 | Grok CLI | `~/.grok/config.toml` | `.grok/config.toml` | `mcp_servers` |
+| Antigravity (AGY) | `~/.gemini/config/mcp_config.json` | `.agents/mcp_config.json` | `mcpServers` |
+| [Amp](https://ampcode.com/docs/customize/mcp) | `~/.config/amp/settings.json` | `.amp/settings.json` | `amp.mcpServers` (literal key) |
+| [Claude Desktop](https://modelcontextprotocol.io/docs/develop/connect-local-servers) | Claude application data directory, `claude_desktop_config.json` | Global only | `mcpServers` |
+| [Cline (VS Code)](https://github.com/cline/cline/tree/main/apps/vscode/src/services/mcp) | VS Code User directory, `globalStorage/saoudrizwan.claude-dev/settings/cline_mcp_settings.json` | Global only | `mcpServers` |
+| [Copilot CLI](https://docs.github.com/en/copilot/how-tos/copilot-cli/customize-copilot/add-mcp-servers) | `~/.copilot/mcp-config.json` | `.github/mcp.json` | `mcpServers` |
+| [Factory Droid](https://docs.factory.ai/harness/mcp) | `~/.factory/mcp.json` | `.factory/mcp.json` | `mcpServers` |
+| [Gemini CLI](https://geminicli.com/docs/tools/mcp-server/) | `~/.gemini/settings.json` | `.gemini/settings.json` | `mcpServers` |
+| [Goose](https://block.github.io/goose/docs/guides/config-files/) | `~/.config/goose/config.yaml` | Global only | `extensions` (YAML) |
+| [Junie](https://junie.jetbrains.com/docs/junie-cli-mcp-configuration.html) | `~/.junie/mcp/mcp.json` | `.junie/mcp/mcp.json` | `mcpServers` |
+| [Kiro](https://kiro.dev/docs/mcp/configuration/) | `~/.kiro/settings/mcp.json` | `.kiro/settings/mcp.json` | `mcpServers` |
+| [LM Studio](https://lmstudio.ai/docs/app/mcp) | `~/.lmstudio/mcp.json` | Global only | `mcpServers` |
+| [Warp](https://docs.warp.dev/agents/capabilities/mcp/) | `~/.warp/.mcp.json` | `.warp/.mcp.json` | `mcpServers` |
+| [Windsurf (Cascade)](https://docs.devin.ai/desktop/cascade/mcp) | `~/.codeium/windsurf/mcp_config.json` | Global only | `mcpServers` |
+
+The dashboard only offers destinations available in the current scope and host
+platform. Each server is one row; the count button on the right opens the full
+client list for that server. Global-only clients cannot be selected in project mode.
+
+Additional client details:
+
+- Claude Desktop file sync supports **stdio only**, on macOS and Windows.
+  Its directory is `~/Library/Application Support/Claude` on macOS and
+  `%APPDATA%/Claude` on Windows. Configure remote connectors in the application.
+- Cline targets the default VS Code Stable profile, not Cline CLI or other IDEs.
+- Copilot CLI exports `tools: ["*"]` for new entries and preserves existing tool
+  filters. If a project `.mcp.json` exists, sync stops because Copilot reads that
+  file ahead of `.github/mcp.json`; consolidate the files first.
+  Selecting Claude Code and Copilot CLI together in project mode is also blocked
+  before writing either file. Use global mode for one of these clients.
+- Gemini uses `httpUrl` for Streamable HTTP. Its `url` field means legacy SSE
+  and is rejected on import. Cline uses `type: streamableHttp`; Goose uses
+  `type: streamable_http` and `uri`. Skillshare converts these automatically.
+- Goose on Windows uses `%APPDATA%/Block/goose/config/config.yaml`. YAML edits
+  preserve unrelated settings, comments and built-in extensions, but may change
+  formatting. Aliases, merges, duplicate keys and multiple documents block edits.
+  Built-in extensions and keychain `env_keys` cannot be imported as portable MCP
+  connections.
+- Windsurf support is for the documented Cascade configuration. Warp project
+  connections still require approval inside Warp each session.
+
+Environment references are exported as `${VARIABLE}` for Amp, Copilot CLI,
+Factory, Gemini CLI and Kiro, and `${env:VARIABLE}` for Cline and Windsurf.
+Claude Desktop, Goose, Junie, LM Studio and Warp currently reject `fromEnv` and
+`bearerToken` exports because their native interpolation has not been verified.
+Use connections without custom credentials or authenticate in the receiving
+client where supported. Skillshare never resolves references into plaintext.
+
+Antigravity uses the current [official MCP configuration](https://antigravity.google/docs/mcp),
+including `serverUrl` for remote connections. Skillshare converts portable `url`
+automatically. Older `.gemini/antigravity/` and `.gemini/antigravity-cli/` config
+locations are not managed. Antigravity `fromEnv` and `bearerToken` exports are
+blocked because its documented configuration does not specify environment
+interpolation. Use connections that need no custom secret headers, and complete
+supported OAuth login inside Antigravity. Skillshare never expands references
+into plaintext credentials.
 
 OpenCode respects `XDG_CONFIG_HOME` for its global directory. An existing
 `opencode.jsonc` is used instead of creating `opencode.json`; if both exist in
@@ -108,8 +209,9 @@ VS Code Stable's default user file is:
 - Linux: `${XDG_CONFIG_HOME:-~/.config}/Code/User/mcp.json`
 - Windows: `%APPDATA%/Code/User/mcp.json`
 
-Global Claude, Codex and Grok paths respect `CLAUDE_CONFIG_DIR`, `CODEX_HOME`
-and `GROK_HOME`.
+Global Claude, Codex, Grok and Copilot paths respect `CLAUDE_CONFIG_DIR`, `CODEX_HOME`,
+`GROK_HOME` and `COPILOT_HOME`. Amp and Goose honor `XDG_CONFIG_HOME` on the
+platforms using their `.config` paths.
 Project destinations are relative to the selected project root. Project trust,
 server approval and authentication remain the receiving Agent's responsibility.
 

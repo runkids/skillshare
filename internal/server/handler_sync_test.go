@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	"skillshare/internal/backup"
 	"skillshare/internal/config"
 	"skillshare/internal/install"
 )
@@ -36,6 +37,24 @@ func TestHandleSync_MergeMode(t *testing.T) {
 	}
 	if resp.Results[0]["target"] != "claude" {
 		t.Errorf("expected target 'claude', got %v", resp.Results[0]["target"])
+	}
+}
+
+func TestHandleSync_BacksUpTargetsFirst(t *testing.T) {
+	tgtPath := filepath.Join(t.TempDir(), "claude-skills")
+	s, src := newTestServerWithTargets(t, map[string]string{"claude": tgtPath})
+	addSkill(t, src, "alpha")
+	addSkill(t, tgtPath, "local-only")
+
+	req := httptest.NewRequest(http.MethodPost, "/api/sync", strings.NewReader(`{}`))
+	rr := httptest.NewRecorder()
+	s.handler.ServeHTTP(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rr.Code, rr.Body.String())
+	}
+
+	if backups, err := backup.List(); err != nil || len(backups) != 1 {
+		t.Fatalf("expected one pre-sync backup, got %d (err: %v)", len(backups), err)
 	}
 }
 

@@ -1,710 +1,300 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { FolderOpen, FolderPlus, Lock, Plus, Puzzle, RefreshCw, Target, Trash2, X, Zap } from 'lucide-react';
+import { Ellipsis, FoldVertical, Folder, FolderPlus, Link2, Plus, Puzzle, RefreshCw, Trash2, X, Zap } from 'lucide-react';
 import { api } from '../api/client';
-import type { Extra } from '../api/client';
+import type { AvailableTarget, Extra, ExtraTarget } from '../api/client';
 import { queryKeys, staleTimes } from '../lib/queryKeys';
 import { useAppContext } from '../context/AppContext';
 import { useToast } from '../components/Toast';
-import Card from '../components/Card';
+import AgentIcon from '../components/AgentIcon';
 import Button from '../components/Button';
-import IconButton from '../components/IconButton';
-import SplitButton from '../components/SplitButton';
 import DialogShell from '../components/DialogShell';
-import { Input, Select, type SelectOption } from '../components/Input';
-import Badge from '../components/Badge';
+import { Select } from '../components/Input';
 import EmptyState from '../components/EmptyState';
 import PageHeader from '../components/PageHeader';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { PageSkeleton } from '../components/Skeleton';
-import Tooltip from '../components/Tooltip';
+import { SkillContextMenu, type ContextMenuItem } from '../components/TargetMenu';
 import { useT } from '../i18n';
-import { buildSyncToast, sumAll, sumEntry, syncToastType } from '../lib/extrasSyncToast';
+import { buildSyncToast, sumEntry, syncToastType } from '../lib/extrasSyncToast';
+import { shortenHome } from '../lib/paths';
 
-// ─── AddExtraModal ────────────────────────────────────────────────────────────
+const MODES = ['merge', 'copy', 'symlink'] as const;
 
-interface TargetEntry {
-  id: string; // stable React key — paths can be empty/duplicate while editing
+// Status and mode labels stay in English, like the CLI
+const STATUS: Record<string, { tone: string; label: string }> = {
+  synced: { tone: 'ok', label: 'In sync' },
+  drift: { tone: 'warn', label: 'Drift' },
+  'not synced': { tone: 'warn', label: 'Not synced' },
+  'no source': { tone: 'bad', label: 'Source missing' },
+};
+
+/** The tool a target folder belongs to: the known target whose home folder (e.g. ~/.claude) holds the path. */
+function targetOf(path: string, known: AvailableTarget[]): string | null {
+  const p = shortenHome(path.replace(/\/+$/, ''));
+  let best: { name: string; len: number } | null = null;
+  for (const k of known) {
+    const dir = shortenHome(k.path).replace(/\/[^/]+\/?$/, '');
+    if (dir && (p === dir || p.startsWith(`${dir}/`)) && dir.length > (best?.len ?? 0)) best = { name: k.name, len: dir.length };
+  }
+  return best?.name ?? null;
+}
+
+function TargetMark({ path, known }: { path: string; known: AvailableTarget[] }) {
+  const name = targetOf(path, known);
+  return <span className="ss-at">{name ? <AgentIcon target={name} size={17} /> : <Folder size={15} className="text-ink-3" />}</span>;
+}
+
+interface Draft {
+  id: string; // stable key: paths can be empty or repeated while editing
   path: string;
   mode: string;
   flatten: boolean;
   extension: string;
 }
 
-const newTarget = (): TargetEntry => ({
-  id: crypto.randomUUID(),
-  path: '',
-  mode: 'merge',
-  flatten: false,
-  extension: '',
-});
+const newDraft = (): Draft => ({ id: crypto.randomUUID(), path: '', mode: 'merge', flatten: false, extension: '' });
 
-type TFunction = ReturnType<typeof useT>;
-
-const MODE_VALUES = ['merge', 'copy', 'symlink'] as const;
-
-type ModeValue = (typeof MODE_VALUES)[number];
-
-function isModeValue(mode: string): mode is ModeValue {
-  return (MODE_VALUES as readonly string[]).includes(mode);
+/** Folder · Extension · Mode · flatten, shared by the Add extra dialog and the inline Add target row. */
+function DraftFields({ draft, onChange, extensions, known, disabled }: {
+  draft: Draft;
+  onChange: (next: Draft) => void;
+  extensions: string[];
+  known: AvailableTarget[];
+  disabled: boolean;
+}) {
+  const t = useT();
+  const locked = draft.extension !== '';
+  return (
+    <>
+      <TargetMark path={draft.path} known={known} />
+      <span className="ss-inp min-w-0 flex-1">
+        <input
+          value={draft.path}
+          onChange={(e) => onChange({ ...draft, path: e.target.value })}
+          placeholder="~/.claude/commands"
+          aria-label={t('extras.modal.colPath')}
+          disabled={disabled}
+        />
+      </span>
+      <Select
+        className="w-[170px] shrink-0"
+        value={draft.extension}
+        // An extension converts each file, so it always writes copies
+        onChange={(v) => onChange({ ...draft, extension: v, ...(v ? { mode: 'copy' } : {}) })}
+        options={[{ value: '', label: t('extras.noExtension') }, ...extensions.map((e) => ({ value: e, label: e }))]}
+        disabled={disabled || extensions.length === 0}
+      />
+      <Select
+        className="w-[104px] shrink-0"
+        value={locked ? 'copy' : draft.mode}
+        onChange={(v) => onChange({ ...draft, mode: v, ...(v === 'symlink' ? { flatten: false } : {}) })}
+        options={MODES.map((m) => ({ value: m, label: m, description: t(`extras.modeDescription.${m}`) }))}
+        disabled={disabled || locked}
+      />
+      <span className="flex w-[96px] shrink-0 items-center gap-2">
+        <button
+          type="button"
+          role="switch"
+          aria-checked={draft.flatten}
+          aria-label={t('extras.flatten')}
+          className={`ss-sw ${draft.flatten ? 'on' : ''} disabled:opacity-50`}
+          onClick={() => onChange({ ...draft, flatten: !draft.flatten })}
+          disabled={disabled || draft.mode === 'symlink'}
+        >
+          <i />
+        </button>
+        <span className="text-xs text-ink-2">flatten</span>
+      </span>
+    </>
+  );
 }
 
-function formatMode(t: TFunction, mode: string) {
-  return isModeValue(mode) ? t(`extras.mode.${mode}`) : mode;
+function DraftHints({ extensions }: { extensions: string[] }) {
+  const t = useT();
+  return (
+    <div className="flex flex-col gap-0.5 text-[12.5px] text-ink-3">
+      <span>
+        {t('extras.hint.extension')}{' '}
+        {extensions.length === 0 && <Link to="/config?tab=extensions" className="font-semibold text-ink-2 hover:text-ink">{t('extras.installExtensionHint')}</Link>}
+      </span>
+      <span>{t('extras.hint.flatten')}</span>
+    </div>
+  );
 }
 
-function getModeOptions(t: TFunction): SelectOption[] {
-  return MODE_VALUES.map((mode) => ({
-    value: mode,
-    label: formatMode(t, mode),
-    description: t(`extras.modeDescription.${mode}`),
-  }));
-}
-
-// Flatten is a boolean, but rendered as a Select so it visually matches the
-// Extension / Mode dropdowns it sits beside.
-function getFlattenOptions(t: TFunction): SelectOption[] {
-  return [
-    { value: 'on', label: t('extras.flattenOn', {}, 'On'), description: t('extras.flattenTitle') },
-    { value: 'off', label: t('extras.flattenOff', {}, 'Off') },
-  ];
-}
-
-function formatTargetStatus(t: TFunction, status: string) {
-  switch (status) {
-    case 'synced':
-      return t('extras.status.synced');
-    case 'drift':
-      return t('extras.status.drift');
-    case 'not synced':
-      return t('extras.status.notSynced');
-    case 'no source':
-      return t('extras.status.noSource');
-    default:
-      return status;
-  }
-}
-
-function AddExtraModal({
-  onClose,
-  onCreated,
-  availableExtensions,
-}: {
+function AddExtraDialog({ onClose, onCreated, extensions, known, sharedDir }: {
   onClose: () => void;
   onCreated: () => void;
-  availableExtensions: string[];
+  extensions: string[];
+  known: AvailableTarget[];
+  sharedDir: string;
 }) {
   const { toast } = useToast();
   const t = useT();
   const [name, setName] = useState('');
+  const [custom, setCustom] = useState(false);
   const [source, setSource] = useState('');
-  const [targets, setTargets] = useState<TargetEntry[]>(() => [newTarget()]);
+  const [drafts, setDrafts] = useState<Draft[]>(() => [newDraft()]);
   const [saving, setSaving] = useState(false);
-  const modeOptions = getModeOptions(t);
-  const flattenOptions = getFlattenOptions(t);
+  const title = t('extras.addExtraTitle');
+  const valid = drafts.filter((d) => d.path.trim());
+  const canCreate = name.trim() !== '' && valid.length > 0 && (!custom || source.trim() !== '') && !saving;
 
-  const addTarget = () => setTargets((prev) => [...prev, newTarget()]);
-
-  const updateTarget = (i: number, field: keyof TargetEntry, value: string | boolean) => {
-    setTargets((prev) => prev.map((t, idx) => (idx === i ? { ...t, [field]: value } : t)));
-  };
-
-  const removeTarget = (i: number) => {
-    setTargets((prev) => prev.filter((_, idx) => idx !== i));
-  };
-
-  const handleCreate = async () => {
-    if (!name.trim()) {
-      toast(t('extras.error.nameRequired'), 'error');
-      return;
-    }
-    const validTargets = targets.filter((tgt) => tgt.path.trim());
-    if (validTargets.length === 0) {
-      toast(t('extras.error.targetRequired'), 'error');
-      return;
-    }
+  const create = async () => {
+    if (!canCreate) return;
     setSaving(true);
     try {
       await api.createExtra({
         name: name.trim(),
-        ...(source.trim() && { source: source.trim() }),
-        targets: validTargets.map((tgt) => ({
-          path: tgt.path.trim(),
-          mode: tgt.mode,
-          flatten: tgt.flatten,
-          ...(tgt.extension && { extension: tgt.extension }),
-        })),
+        ...(custom && { source: source.trim() }),
+        targets: valid.map((d) => ({ path: d.path.trim(), mode: d.extension ? 'copy' : d.mode, flatten: d.flatten, ...(d.extension && { extension: d.extension }) })),
       });
       toast(t('extras.toast.created', { name: name.trim() }), 'success');
       onCreated();
-    } catch (err: any) {
-      toast(err.message, 'error');
-    } finally {
+    } catch (err) {
+      toast((err as Error).message, 'error');
       setSaving(false);
     }
   };
 
   return (
-    <DialogShell open={true} onClose={onClose} maxWidth="2xl" preventClose={saving}>
-          <div className="flex items-center justify-between mb-4">
-            <h3
-              className="text-xl font-bold text-pencil"
-            >
-              {t('extras.addExtraTitle')}
-            </h3>
-            <IconButton
-              icon={<X size={20} strokeWidth={2.5} />}
-              label={t('common.close')}
-              size="sm"
-              variant="ghost"
-              onClick={onClose}
-              disabled={saving}
-            />
+    <DialogShell open onClose={onClose} padding="none" preventClose={saving} ariaLabel={title} className="!max-w-[800px]">
+      <div className="dh">
+        <div className="flex flex-col gap-1">
+          <h2 className="ss-h2">{title}</h2>
+          <p className="text-[13px] text-ink-2">{t('extras.modal.subtitle')}</p>
+        </div>
+        <button type="button" className="ss-ib" aria-label={t('common.close')} onClick={onClose} disabled={saving}><X size={16} /></button>
+      </div>
+      <div className="db">
+        <div className="grid grid-cols-2 gap-3.5">
+          <div className="ss-fld">
+            <label htmlFor="extra-name">{t('extras.modal.name')}</label>
+            <span className="ss-inp">
+              <input id="extra-name" autoFocus value={name} onChange={(e) => setName(e.target.value)} placeholder={t('extras.modal.namePlaceholder')} disabled={saving} />
+            </span>
+            <span className="hp">{t('extras.modal.nameHint')}</span>
           </div>
-
-          <div className="space-y-4">
-            {/* Name */}
-            <Input
-              label={t('extras.modal.name')}
-              placeholder={t('extras.modal.namePlaceholder')}
-              value={name}
-              onChange={(e) => setName(e.target.value)}
+          <div className="ss-fld">
+            <span className="text-[13px] font-semibold">{t('extras.modal.source')}</span>
+            <Select
+              value={custom ? 'custom' : 'shared'}
+              onChange={(v) => setCustom(v === 'custom')}
+              options={[
+                { value: 'shared', label: t('extras.sourceType.shared') },
+                { value: 'custom', label: t('extras.sourceType.custom') },
+              ]}
               disabled={saving}
             />
+            {custom ? (
+              <span className="ss-inp">
+                <input value={source} onChange={(e) => setSource(e.target.value)} placeholder={t('extras.modal.sourcePathPlaceholder')} aria-label={t('extras.sourceType.custom')} disabled={saving} />
+              </span>
+            ) : (
+              <span className="hp truncate font-mono">{`${shortenHome(sharedDir)}/${name.trim() || '…'}`}</span>
+            )}
+          </div>
+        </div>
 
-            {/* Source path (optional) */}
-            <div>
-              <Input
-                id="extra-source-path"
-                label={t('extras.modal.sourcePath')}
-                placeholder={t('extras.modal.sourcePathPlaceholder')}
-                value={source}
-                onChange={(e) => setSource(e.target.value)}
-                disabled={saving}
-                aria-describedby="extra-source-path-help"
-              />
-              <p id="extra-source-path-help" className="mt-1.5 text-xs leading-relaxed text-pencil-light/70">
-                {t('extras.modal.sourcePathHelp')}
-              </p>
+        <div className="flex flex-col gap-1.5">
+          <span className="text-[13px] font-semibold">{t('extras.modal.targets')}</span>
+          <div className="ss-list !shadow-none">
+            <div className="ss-lh !px-3">
+              <span className="w-[30px]" />
+              <span className="flex-1">{t('extras.modal.colPath')}</span>
+              <span className="w-[170px]">{t('extras.modal.colExtension')}</span>
+              <span className="w-[104px]">{t('extras.modal.colMode')}</span>
+              <span className="w-[96px]" />
+              <span className="w-[30px]" />
             </div>
-
-            {/* Targets */}
-            <div>
-              <label
-                className="block text-base text-pencil-light mb-2"
-              >
-                {t('extras.modal.targets')}
-              </label>
-              <div className="space-y-3">
-                {targets.map((tgt, i) => {
-                  const fieldLabel = 'block text-xs font-medium text-pencil-light mb-1';
-                  return (
-                  <div key={tgt.id} className="rounded-[var(--radius-md)] border border-muted bg-muted/10 p-3 space-y-2.5">
-                    {/* Path — full width, like Name / Source above */}
-                    <div>
-                      <label className={fieldLabel}>{t('extras.modal.colPath', {}, 'Path')}</label>
-                      <Input
-                        placeholder={t('extras.modal.targetPathPlaceholder')}
-                        value={tgt.path}
-                        onChange={(e) => updateTarget(i, 'path', e.target.value)}
-                        disabled={saving}
-                      />
-                    </div>
-                    {/* Extension · Mode · Flatten — second row with room to breathe */}
-                    <div className="flex flex-wrap items-end gap-3">
-                      <div className="w-44">
-                        <label className={fieldLabel}>{t('extras.modal.colExtension', {}, 'Extension')}</label>
-                        {availableExtensions.length > 0 || tgt.extension ? (
-                          <Select
-                            value={tgt.extension}
-                            onChange={(v) => {
-                              // selecting an extension forces copy mode
-                              setTargets((prev) =>
-                                prev.map((te, idx) =>
-                                  idx === i ? { ...te, extension: v, ...(v ? { mode: 'copy' } : {}) } : te,
-                                ),
-                              );
-                            }}
-                            options={[
-                              { value: '', label: t('extras.noExtension', {}, 'no extension') },
-                              ...availableExtensions.map((e) => ({ value: e, label: e })),
-                            ]}
-                            disabled={saving}
-                          />
-                        ) : (
-                          // None installed: guide the user to install one in Config.
-                          <Link
-                            to="/config?tab=extensions"
-                            className="inline-flex items-center gap-1.5 py-2 text-sm text-blue hover:underline"
-                          >
-                            <Puzzle size={14} strokeWidth={2.5} className="shrink-0" />
-                            {t('extras.installExtensionHint', {}, 'Install an extension')}
-                          </Link>
-                        )}
-                      </div>
-                      <div className="w-36">
-                        <label className={fieldLabel}>{t('extras.modal.colMode', {}, 'Mode')}</label>
-                        {tgt.extension ? (
-                          // Extension forces copy mode: read-only locked chip, not a greyed-out select.
-                          <div className="flex items-center gap-1.5 px-4 py-2 rounded-[var(--radius-sm)] border-2 border-muted bg-muted/40 text-sm text-pencil-light">
-                            <Lock size={13} strokeWidth={2.5} className="shrink-0" />
-                            <span>{formatMode(t, 'copy')}</span>
-                          </div>
-                        ) : (
-                          <Select
-                            value={tgt.mode}
-                            onChange={(v) => {
-                              updateTarget(i, 'mode', v);
-                              if (v === 'symlink') updateTarget(i, 'flatten', false);
-                            }}
-                            options={modeOptions}
-                            disabled={saving}
-                          />
-                        )}
-                      </div>
-                      <div className="w-32">
-                        <label className={fieldLabel}>{t('extras.flatten')}</label>
-                        <Select
-                          value={tgt.flatten ? 'on' : 'off'}
-                          onChange={(v) => updateTarget(i, 'flatten', v === 'on')}
-                          options={flattenOptions}
-                          disabled={saving || tgt.mode === 'symlink'}
-                        />
-                      </div>
-                      {targets.length > 1 && (
-                        <div className="ml-auto h-[2.6rem] flex items-center">
-                          <IconButton
-                            icon={<X size={16} strokeWidth={2.5} />}
-                            label={t('extras.removeTarget')}
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => removeTarget(i)}
-                            disabled={saving}
-                            className="hover:text-danger"
-                          />
-                        </div>
-                      )}
-                    </div>
-                    {tgt.extension && (
-                      <p className="flex items-center gap-1 text-xs text-pencil-light/70">
-                        <Lock size={11} strokeWidth={2.5} className="shrink-0" />
-                        {t('extras.modal.extensionLockedHint', {}, 'Extensions run in copy mode')}
-                      </p>
-                    )}
-                  </div>
-                  );
-                })}
+            {drafts.map((d, i) => (
+              <div key={d.id} className="ss-r !min-h-[52px] !px-3 !py-1.5">
+                <DraftFields draft={d} onChange={(next) => setDrafts(drafts.map((x, j) => (j === i ? next : x)))} extensions={extensions} known={known} disabled={saving} />
+                <button
+                  type="button"
+                  className="ss-ib shrink-0 disabled:invisible"
+                  aria-label={t('extras.removeTarget')}
+                  onClick={() => setDrafts(drafts.filter((_, j) => j !== i))}
+                  disabled={saving || drafts.length === 1}
+                >
+                  <X size={16} />
+                </button>
               </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={addTarget}
-                disabled={saving}
-                className="mt-2"
-              >
-                <Plus size={14} strokeWidth={2.5} /> {t('extras.addTarget')}
-              </Button>
+            ))}
+            <div className="ss-r !min-h-10 !px-3">
+              <button type="button" className="flex items-center gap-[7px] pl-4 text-[13px] text-ink-2 hover:text-ink" onClick={() => setDrafts([...drafts, newDraft()])} disabled={saving}>
+                <Plus size={14} />
+                {t('extras.addTarget')}
+              </button>
             </div>
           </div>
-
-          <div className="flex gap-3 justify-end mt-6">
-            <Button variant="secondary" size="sm" onClick={onClose} disabled={saving}>
-              {t('extras.cancel')}
-            </Button>
-            <Button variant="primary" size="sm" onClick={handleCreate} disabled={saving}>
-              {saving ? t('extras.creating') : t('extras.create')}
-            </Button>
-          </div>
+          <DraftHints extensions={extensions} />
+        </div>
+      </div>
+      <div className="df">
+        <span className="flex-1" />
+        <Button variant="ghost" onClick={onClose} disabled={saving}>{t('extras.cancel')}</Button>
+        <Button variant="primary" loading={saving} disabled={!canCreate} onClick={create}>{t('extras.create')}</Button>
+      </div>
     </DialogShell>
   );
 }
 
-// ─── AddTargetRow ─────────────────────────────────────────────────────────────
-
-function AddTargetRow({
-  onAdd,
-  onCancel,
-}: {
-  onAdd: (path: string, mode: string) => Promise<void>;
+function AddTargetRow({ onAdd, onCancel, extensions, known }: {
+  onAdd: (draft: Draft) => Promise<boolean>;
   onCancel: () => void;
+  extensions: string[];
+  known: AvailableTarget[];
 }) {
   const t = useT();
-  const [path, setPath] = useState('');
-  const [mode, setMode] = useState('merge');
+  const [draft, setDraft] = useState(newDraft);
   const [busy, setBusy] = useState(false);
-  const modeOptions = getModeOptions(t);
-  return (
-    <div className="mt-2 flex items-center gap-2 rounded-[var(--radius-md)] border border-dashed border-pencil-light/30 bg-muted/10 p-2">
-      <div className="flex-1 min-w-0">
-        <Input
-          value={path}
-          onChange={(e) => setPath(e.target.value)}
-          placeholder={t('extras.modal.targetPathPlaceholder')}
-          size="sm"
-          autoFocus
-        />
-      </div>
-      <Select
-        value={mode}
-        onChange={(v) => setMode(v)}
-        options={modeOptions}
-        size="sm"
-        className="w-32 shrink-0"
-      />
-      <Button
-        variant="ghost"
-        size="sm"
-        disabled={busy || path.trim() === ''}
-        onClick={async () => {
-          setBusy(true);
-          try {
-            await onAdd(path.trim(), mode);
-            setPath('');
-          } finally {
-            setBusy(false);
-          }
-        }}
-      >
-        <Plus size={14} strokeWidth={2.5} /> {t('extras.addTarget')}
-      </Button>
-      <IconButton
-        icon={<X size={16} strokeWidth={2.5} />}
-        label={t('extras.cancel')}
-        size="sm"
-        variant="ghost"
-        onClick={onCancel}
-        disabled={busy}
-      />
-    </div>
-  );
-}
-
-// ─── ExtraCard ────────────────────────────────────────────────────────────────
-
-function ExtraCard({
-  extra,
-  onSync,
-  onForceSync,
-  onRemove,
-  onModeChange,
-  onAddTarget,
-  onRemoveTarget,
-  availableExtensions,
-}: {
-  extra: Extra;
-  index?: number;
-  onSync: (name: string) => Promise<void>;
-  onForceSync: (name: string) => Promise<void>;
-  onRemove: (name: string) => void;
-  onModeChange: (name: string, target: string, mode: string, flatten?: boolean, extension?: string) => Promise<void>;
-  onAddTarget: (name: string, path: string, mode: string) => Promise<void>;
-  onRemoveTarget: (name: string, path: string) => Promise<void>;
-  availableExtensions: string[];
-}) {
-  const t = useT();
-  const sourceTypeLabel = extra.source_type === 'per-extra'
-    ? t('extras.sourceType.custom')
-    : extra.source_type === 'extras_source'
-      ? t('extras.sourceType.shared')
-      : '';
-  const [syncing, setSyncing] = useState(false);
-  const [changingMode, setChangingMode] = useState<string | null>(null);
-  const [addingTarget, setAddingTarget] = useState(false);
-  const [confirmRemoveTarget, setConfirmRemoveTarget] = useState<string | null>(null);
-  const modeOptions = getModeOptions(t);
-  const flattenOptions = getFlattenOptions(t);
-
-  const handleSync = async (force?: boolean) => {
-    setSyncing(true);
-    try {
-      if (force) {
-        await onForceSync(extra.name);
-      } else {
-        await onSync(extra.name);
-      }
-    } finally {
-      setSyncing(false);
-    }
+  const add = async () => {
+    if (!draft.path.trim() || busy) return;
+    setBusy(true);
+    if (!(await onAdd(draft))) setBusy(false);
   };
-
   return (
-    <Card overflow className="hover:shadow-md">
-      {/* Header */}
-      <div className="flex items-center justify-between gap-4">
-        <div className="flex items-center gap-2.5 min-w-0">
-          <span className="shrink-0 inline-flex items-center justify-center w-8 h-8 rounded-[var(--radius-md)] bg-blue/10 text-blue">
-            <FolderPlus size={16} strokeWidth={2.5} />
-          </span>
-          <div className="min-w-0 flex items-center gap-2 flex-wrap">
-            <span className="font-bold text-pencil truncate">{extra.name}</span>
-            <Badge variant={extra.source_exists ? 'success' : 'warning'} size="sm">
-              {t('extras.fileCount', { count: extra.file_count })}
-            </Badge>
-            {!extra.source_exists && (
-              <Badge variant="danger" size="sm">{t('extras.sourceMissing')}</Badge>
-            )}
-            {sourceTypeLabel && (
-              <span className="text-xs text-pencil-light/60">· {sourceTypeLabel}</span>
-            )}
-          </div>
-        </div>
-        <div className="flex items-center gap-2 shrink-0">
-          <SplitButton
-            variant="secondary"
-            size="sm"
-            onClick={() => handleSync()}
-            loading={syncing}
-            dropdownAlign="right"
-            items={[
-              {
-                label: t('extras.forceSync'),
-                icon: <Zap size={14} strokeWidth={2.5} />,
-                onClick: () => handleSync(true),
-                confirm: true,
-              },
-            ]}
-          >
-            <RefreshCw size={12} strokeWidth={2.5} />
-            {syncing ? t('extras.syncing') : t('extras.sync')}
-          </SplitButton>
-          <span className="w-px h-5 bg-pencil-light/20 mx-0.5" aria-hidden="true" />
-          <IconButton
-            icon={<Trash2 size={16} strokeWidth={2.5} />}
-            label={t('extras.removeConfirm.title')}
-            size="md"
-            variant="danger-outline"
-            onClick={() => onRemove(extra.name)}
-          />
-        </div>
-      </div>
-
-      {/* Source */}
-      <div className="mt-4">
-        <div className="flex items-center gap-1.5 mb-1.5">
-          <FolderOpen size={12} strokeWidth={2.5} className="text-warning shrink-0" />
-          <span className="text-[10px] font-medium text-pencil-light/70 uppercase tracking-wider">{t('preview.source')}</span>
-        </div>
-        <div className="rounded-[var(--radius-md)] border border-muted bg-muted/20 px-3 py-2">
-          <p className="font-mono text-sm text-pencil-light truncate">{extra.source_dir}</p>
-        </div>
-      </div>
-
-      {/* Targets */}
-      <div className="flex items-center gap-1.5 mt-4 mb-1">
-        <Target size={12} strokeWidth={2.5} className="text-success shrink-0" />
-        <span className="text-[10px] font-medium text-pencil-light/70 uppercase tracking-wider">{t('extras.modal.targets')}</span>
-        {extra.targets.length > 0 && (
-          <span className="text-[10px] text-pencil-light/45 tabular-nums">· {extra.targets.length}</span>
-        )}
-      </div>
-      <div className="mt-1">
-        {extra.targets.length > 0 ? (
-          <>
-            {/* Column headers — label the per-target controls so the dropdowns are self-explanatory */}
-            <div className="flex items-center gap-3 px-3 pb-1 text-[10px] font-medium uppercase tracking-wider text-pencil-light/45">
-              <div className="min-w-0 flex-1" />
-              <div className="w-28 shrink-0">{t('extras.flatten')}</div>
-              <div className="w-40 shrink-0">{t('extras.modal.colExtension')}</div>
-              <div className="w-36 shrink-0">{t('extras.modal.colMode')}</div>
-              {extra.targets.length > 1 && <div className="w-8 shrink-0" />}
-            </div>
-            <div className="space-y-0.5">
-              {extra.targets.map((tgt, ti) => (
-                <div
-                  key={`${tgt.path}::${ti}`}
-                  className="group/row flex items-center gap-3 rounded-[var(--radius-md)] px-3 py-2 transition-colors hover:bg-muted/25"
-                >
-                  {/* Data: path + status (status omitted when the source itself is missing) */}
-                  <div className="flex items-center gap-2 min-w-0 flex-1">
-                    <span className="font-mono text-sm truncate text-pencil">{tgt.path}</span>
-                    {extra.source_exists && (
-                      <Badge
-                        variant={
-                          tgt.status === 'synced'
-                            ? 'success'
-                            : tgt.status === 'drift'
-                            ? 'warning'
-                            : 'danger'
-                        }
-                        size="sm"
-                      >
-                        {formatTargetStatus(t, tgt.status)}
-                      </Badge>
-                    )}
-                  </div>
-                  {/* Settings: flatten · extension · mode */}
-                  <div className="w-28 shrink-0">
-                    <Select
-                      value={tgt.flatten ? 'on' : 'off'}
-                      onChange={async (v) => {
-                        const next = v === 'on';
-                        if (next === tgt.flatten) return;
-                        setChangingMode(tgt.path);
-                        try {
-                          await onModeChange(extra.name, tgt.path, tgt.mode, next);
-                        } finally {
-                          setChangingMode(null);
-                        }
-                      }}
-                      options={flattenOptions}
-                      size="sm"
-                      className="w-full"
-                      disabled={changingMode === tgt.path || tgt.mode === 'symlink'}
-                    />
-                  </div>
-                  <div className="w-40 shrink-0">
-                    {availableExtensions.length > 0 || tgt.extension ? (
-                      <Select
-                        value={tgt.extension ?? ''}
-                        onChange={async (v) => {
-                          if (v === (tgt.extension ?? '')) return;
-                          setChangingMode(tgt.path);
-                          try {
-                            // selecting an extension forces copy; clearing keeps the current mode
-                            await onModeChange(extra.name, tgt.path, v ? 'copy' : tgt.mode, undefined, v);
-                          } finally {
-                            setChangingMode(null);
-                          }
-                        }}
-                        options={[
-                          { value: '', label: t('extras.noExtension', {}, 'no extension') },
-                          ...availableExtensions.map((e) => ({ value: e, label: e })),
-                          ...(tgt.extension && !availableExtensions.includes(tgt.extension)
-                            ? [{ value: tgt.extension, label: t('extras.extensionMissing', { extension: tgt.extension }) }]
-                            : []),
-                        ]}
-                        size="sm"
-                        className="w-full"
-                        disabled={changingMode === tgt.path}
-                      />
-                    ) : (
-                      // None installed: guide the user to install one in Config.
-                      <Link
-                        to="/config?tab=extensions"
-                        className="inline-flex items-center gap-1.5 text-xs text-blue hover:underline"
-                      >
-                        <Puzzle size={12} strokeWidth={2.5} className="shrink-0" />
-                        {t('extras.installExtensionHint', {}, 'Install an extension')}
-                      </Link>
-                    )}
-                  </div>
-                  <div className="w-36 shrink-0">
-                    {tgt.extension ? (
-                      // Extension forces copy mode: read-only locked chip, matching the Add Extra modal.
-                      <Tooltip content={t('extras.modal.extensionLockedHint', {}, 'Extensions run in copy mode')} side="bottom">
-                        <div className="w-full flex items-center gap-1.5 px-3 py-1.5 rounded-[var(--radius-sm)] border-2 border-muted bg-muted/40 text-xs text-pencil-light">
-                          <Lock size={12} strokeWidth={2.5} className="shrink-0" />
-                          <span>{formatMode(t, 'copy')}</span>
-                        </div>
-                      </Tooltip>
-                    ) : (
-                      <Select
-                        value={tgt.mode}
-                        onChange={async (v) => {
-                          if (v === tgt.mode) return;
-                          setChangingMode(tgt.path);
-                          try {
-                            await onModeChange(extra.name, tgt.path, v);
-                          } finally {
-                            setChangingMode(null);
-                          }
-                        }}
-                        options={modeOptions}
-                        size="sm"
-                        className="w-full"
-                        disabled={changingMode === tgt.path}
-                      />
-                    )}
-                  </div>
-                  {extra.targets.length > 1 && (
-                    <div className="w-8 shrink-0 flex justify-end">
-                      <IconButton
-                        icon={<Trash2 size={14} strokeWidth={2.5} />}
-                        label={t('extras.removeTarget')}
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => setConfirmRemoveTarget(tgt.path)}
-                        className="hover:text-danger"
-                      />
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          </>
-        ) : (
-          <p className="text-sm text-pencil-light/70 italic px-3 py-2">{t('extras.noTargets')}</p>
-        )}
-      </div>
-      {addingTarget ? (
-        <AddTargetRow
-          onAdd={async (path, mode) => {
-            await onAddTarget(extra.name, path, mode);
-            setAddingTarget(false);
-          }}
-          onCancel={() => setAddingTarget(false)}
-        />
-      ) : (
-        <Button
-          variant="ghost"
-          size="sm"
-          className="mt-1"
-          onClick={() => setAddingTarget(true)}
-        >
-          <Plus size={14} strokeWidth={2.5} /> {t('extras.addTarget')}
-        </Button>
-      )}
-
-      <ConfirmDialog
-        open={confirmRemoveTarget !== null}
-        title={t('extras.removeTargetConfirm.title')}
-        message={
-          confirmRemoveTarget ? (
-            <span>{t('extras.removeTargetConfirm.message', { path: confirmRemoveTarget })}</span>
-          ) : (
-            <span />
-          )
-        }
-        confirmText={t('extras.removeConfirm.confirmText')}
-        variant="danger"
-        onConfirm={async () => {
-          if (confirmRemoveTarget) await onRemoveTarget(extra.name, confirmRemoveTarget);
-          setConfirmRemoveTarget(null);
-        }}
-        onCancel={() => setConfirmRemoveTarget(null)}
-      />
-    </Card>
+    <form className="ss-r !min-h-[52px] !py-1.5" onSubmit={(e) => { e.preventDefault(); void add(); }}>
+      <DraftFields draft={draft} onChange={setDraft} extensions={extensions} known={known} disabled={busy} />
+      <Button type="submit" variant="primary" size="sm" loading={busy} disabled={!draft.path.trim()}>{t('extras.addTarget')}</Button>
+      <button type="button" className="ss-ib shrink-0" aria-label={t('extras.cancel')} onClick={onCancel} disabled={busy}><X size={16} /></button>
+    </form>
   );
 }
 
-// ─── ExtrasPage ───────────────────────────────────────────────────────────────
+function TargetTags({ target }: { target: ExtraTarget }) {
+  return (
+    <span className="flex w-[210px] shrink-0 items-center gap-1.5">
+      {target.extension && <span className="ss-tag"><Puzzle size={11} />{target.extension}</span>}
+      <span className="ss-tag">{target.mode}</span>
+      {target.flatten && <span className="ss-tag">flatten</span>}
+    </span>
+  );
+}
 
 export default function ExtrasPage() {
   const { isProjectMode } = useAppContext();
   const { toast } = useToast();
-  const tr = useT();
+  const t = useT();
   const queryClient = useQueryClient();
 
-  const { data, isPending, error } = useQuery({
-    queryKey: queryKeys.extras,
-    queryFn: () => api.listExtras(),
-    staleTime: staleTimes.extras,
-  });
-
-  // Available transform extensions for the current mode (-g/-p), used to
-  // populate the per-target extension picker.
-  const { data: extData } = useQuery({
-    queryKey: ['extras', 'extensions'],
-    queryFn: () => api.listExtraExtensions(),
-    staleTime: staleTimes.extras,
-  });
-  const availableExtensions = extData?.extensions ?? [];
+  const { data, isPending, error } = useQuery({ queryKey: queryKeys.extras, queryFn: () => api.listExtras(), staleTime: staleTimes.extras });
+  const { data: extData } = useQuery({ queryKey: ['extras', 'extensions'], queryFn: () => api.listExtraExtensions(), staleTime: staleTimes.extras });
+  const { data: availData } = useQuery({ queryKey: queryKeys.targets.available, queryFn: () => api.availableTargets(), staleTime: staleTimes.targets });
+  const { data: overview } = useQuery({ queryKey: queryKeys.overview, queryFn: () => api.getOverview(), staleTime: staleTimes.overview });
+  const extensions = extData?.extensions ?? [];
+  const known = useMemo(() => availData?.targets ?? [], [availData]);
+  // Mirrors config.ResolveExtrasSourceDir: extras_source, else "extras" next to the skills source
+  const sharedDir = overview?.extrasSource ?? `${(overview?.source ?? '').replace(/\/[^/]*\/?$/, '')}/extras`;
 
   const [showAdd, setShowAdd] = useState(false);
-  const [removeName, setRemoveName] = useState<string | null>(null);
-  const [removing, setRemoving] = useState(false);
-  const [syncingAll, setSyncingAll] = useState(false);
+  const [addingTo, setAddingTo] = useState<string | null>(null);
+  const [menu, setMenu] = useState<{ x: number; y: number; items: ContextMenuItem[] } | null>(null);
+  const [removeExtra, setRemoveExtra] = useState<string | null>(null);
+  const [removeTarget, setRemoveTarget] = useState<{ name: string; path: string } | null>(null);
 
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: queryKeys.extras });
@@ -713,232 +303,229 @@ export default function ExtrasPage() {
     queryClient.invalidateQueries({ queryKey: queryKeys.overview });
   };
 
-  const handleSyncAll = async (force = false) => {
-    setSyncingAll(true);
-    try {
-      const res = await api.syncExtras({ force });
-      const totals = sumAll(res.extras);
-      toast(buildSyncToast(tr('extras.toast.syncAll'), tr('extras.toast.syncAllFailed'), totals, force, tr), syncToastType(totals));
-      invalidate();
-    } catch (err: any) {
-      toast(err.message, 'error');
-    } finally {
-      setSyncingAll(false);
-    }
+  const openMenu = (e: React.MouseEvent<HTMLButtonElement>, items: ContextMenuItem[]) => {
+    const r = e.currentTarget.getBoundingClientRect();
+    setMenu({ x: r.left, y: r.bottom + 4, items });
   };
 
-  const handleSync = async (name: string, force = false) => {
+  const sync = async (name: string, force: boolean) => {
     try {
       const res = await api.syncExtras({ name, force });
-      const entry = res.extras.find((e) => e.name === name);
-      const totals = sumEntry(entry);
-      toast(buildSyncToast(tr('extras.toast.syncOne', { name }), tr('extras.toast.syncOneFailed', { name }), totals, force, tr), syncToastType(totals));
+      const totals = sumEntry(res.extras.find((e) => e.name === name));
+      toast(buildSyncToast(t('extras.toast.syncOne', { name }), t('extras.toast.syncOneFailed', { name }), totals, force, t), syncToastType(totals));
       invalidate();
-    } catch (err: any) {
-      toast(err.message, 'error');
+    } catch (err) {
+      toast((err as Error).message, 'error');
     }
   };
 
-  const handleRemove = async () => {
-    if (!removeName) return;
-    setRemoving(true);
-    try {
-      await api.deleteExtra(removeName);
-      toast(tr('extras.toast.removed', { name: removeName }), 'success');
-      invalidate();
-    } catch (err: any) {
-      toast(err.message, 'error');
-    } finally {
-      setRemoving(false);
-      setRemoveName(null);
-    }
-  };
-
-  const handleModeChange = async (name: string, target: string, mode: string, flatten?: boolean, extension?: string) => {
-    // Optimistically patch the cache so the dropdown reflects the choice
-    // immediately, instead of waiting for the PATCH + refetch round-trip.
+  const changeTarget = async (name: string, target: ExtraTarget, patch: { mode?: string; flatten?: boolean; extension?: string }, message: string) => {
+    // Show the choice right away instead of waiting for the PATCH and refetch
     const prev = queryClient.getQueryData<{ extras: Extra[] }>(queryKeys.extras);
-    queryClient.setQueryData<{ extras: Extra[] }>(queryKeys.extras, (old) =>
-      old
-        ? {
-            extras: old.extras.map((e) =>
-              e.name !== name
-                ? e
-                : {
-                    ...e,
-                    targets: e.targets.map((tg) =>
-                      tg.path !== target
-                        ? tg
-                        : {
-                            ...tg,
-                            mode,
-                            ...(flatten !== undefined && { flatten }),
-                            ...(extension !== undefined && { extension }),
-                          },
-                    ),
-                  },
-            ),
-          }
-        : old,
-    );
+    queryClient.setQueryData<{ extras: Extra[] }>(queryKeys.extras, (old) => old && {
+      extras: old.extras.map((e) => e.name !== name ? e : { ...e, targets: e.targets.map((tg) => tg.path !== target.path ? tg : { ...tg, ...patch }) }),
+    });
     try {
-      await api.setExtraMode(name, target, mode, flatten, extension);
-      let msg: string;
-      if (extension !== undefined) {
-        msg = extension
-          ? tr('extras.toast.extensionChanged', { extension }, `Extension set to ${extension} (copy mode)`)
-          : tr('extras.toast.extensionCleared', {}, 'Extension cleared');
-      } else if (flatten !== undefined) {
-        msg = tr('extras.toast.flattenChanged', { flatten: String(flatten) });
-      } else {
-        msg = tr('extras.toast.modeChanged', { mode: formatMode(tr, mode) });
-      }
-      toast(msg, 'success');
+      await api.setExtraMode(name, target.path, patch.mode ?? target.mode, patch.flatten, patch.extension);
+      toast(message, 'success');
       invalidate();
-    } catch (err: any) {
-      // Roll back the optimistic cache update on failure.
+    } catch (err) {
       if (prev) queryClient.setQueryData(queryKeys.extras, prev);
-      toast(err.message, 'error');
+      toast((err as Error).message, 'error');
     }
   };
 
-  const handleAddTarget = async (name: string, path: string, mode: string) => {
+  const addTarget = async (name: string, d: Draft) => {
+    const path = d.path.trim();
     try {
-      await api.addExtraTarget(name, { path, mode });
-      toast(tr('extras.toast.targetAdded', { path }, `Added target ${path}`), 'success');
+      await api.addExtraTarget(name, { path, mode: d.extension ? 'copy' : d.mode, flatten: d.flatten });
+      // The add endpoint takes no extension, so set it on the new target afterwards
+      if (d.extension) await api.setExtraMode(name, path, 'copy', undefined, d.extension);
+      toast(t('extras.toast.targetAdded', { path }), 'success');
+      setAddingTo(null);
       invalidate();
-    } catch (err: any) {
-      toast(err.message, 'error');
+      return true;
+    } catch (err) {
+      toast((err as Error).message, 'error');
+      invalidate();
+      return false;
     }
   };
 
-  const handleRemoveTarget = async (name: string, path: string) => {
-    try {
-      await api.removeExtraTarget(name, path);
-      toast(tr('extras.toast.targetRemoved', { path }, `Removed target ${path}`), 'success');
-      invalidate();
-    } catch (err: any) {
-      toast(err.message, 'error');
-    }
-  };
+  const extraMenu = (extra: Extra): ContextMenuItem[] => [
+    { key: 'sync', label: t('extras.sync'), icon: <RefreshCw size={14} />, onSelect: () => void sync(extra.name, false) },
+    { key: 'force', label: t('extras.forceSync'), icon: <Zap size={14} />, onSelect: () => void sync(extra.name, true) },
+    { key: 'remove', label: t('extras.removeConfirm.title'), icon: <Trash2 size={14} />, danger: true, onSelect: () => setRemoveExtra(extra.name) },
+  ];
 
-  const handleCreated = () => {
-    setShowAdd(false);
-    invalidate();
-  };
+  const targetMenu = (extra: Extra, tg: ExtraTarget): ContextMenuItem[] => [
+    ...(extensions.length > 0 || tg.extension
+      ? [{
+          key: 'extension',
+          label: t('extras.modal.colExtension'),
+          icon: <Puzzle size={14} />,
+          items: [
+            { key: '', label: t('extras.noExtension'), selected: !tg.extension, onSelect: () => void changeTarget(extra.name, tg, { extension: '' }, t('extras.toast.extensionCleared')) },
+            ...[...new Set([...extensions, ...(tg.extension ? [tg.extension] : [])])].map((e) => ({
+              key: e,
+              label: extensions.includes(e) ? e : t('extras.extensionMissing', { extension: e }),
+              selected: tg.extension === e,
+              onSelect: () => void changeTarget(extra.name, tg, { mode: 'copy', extension: e }, t('extras.toast.extensionChanged', { extension: e })),
+            })),
+          ],
+        }]
+      : []),
+    ...(tg.extension
+      ? []
+      : [{
+          key: 'mode',
+          label: t('extras.modal.colMode'),
+          icon: <Link2 size={14} />,
+          items: MODES.map((m) => ({
+            key: m,
+            label: m,
+            selected: tg.mode === m,
+            onSelect: () => void changeTarget(extra.name, tg, { mode: m, ...(m === 'symlink' && tg.flatten ? { flatten: false } : {}) }, t('extras.toast.modeChanged', { mode: m })),
+          })),
+        }]),
+    ...(tg.mode === 'symlink'
+      ? []
+      : [{
+          key: 'flatten',
+          label: t('extras.flatten'),
+          icon: <FoldVertical size={14} />,
+          items: [true, false].map((on) => ({
+            key: String(on),
+            label: t(on ? 'extras.flattenOn' : 'extras.flattenOff'),
+            selected: tg.flatten === on,
+            onSelect: () => void changeTarget(extra.name, tg, { flatten: on }, t('extras.toast.flattenChanged', { flatten: String(on) })),
+          })),
+        }]),
+    // The last target can't go: an extra needs somewhere to sync to
+    ...(extra.targets.length > 1
+      ? [{ key: 'remove', label: t('extras.removeTarget'), icon: <Trash2 size={14} />, danger: true, onSelect: () => setRemoveTarget({ name: extra.name, path: tg.path }) }]
+      : []),
+  ];
 
   const extras = data?.extras ?? [];
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
+    <div className="animate-fade-in">
       <PageHeader
-        icon={<FolderPlus size={24} strokeWidth={2.5} />}
-        title={tr('extras.title')}
-        subtitle={isProjectMode
-          ? tr('extras.subtitle.project')
-          : tr('extras.subtitle.global')}
-        actions={
-          <>
-            {extras.length > 0 && (
-              <SplitButton
-                variant="secondary"
-                size="sm"
-                onClick={() => handleSyncAll()}
-                loading={syncingAll}
-                dropdownAlign="right"
-                items={[
-                  {
-                    label: tr('extras.syncForceSyncAll'),
-                    icon: <Zap size={14} strokeWidth={2.5} />,
-                    onClick: () => handleSyncAll(true),
-                    confirm: true,
-                  },
-                ]}
-              >
-                <RefreshCw size={14} strokeWidth={2.5} />
-                {syncingAll ? tr('extras.syncing') : tr('extras.syncAll')}
-              </SplitButton>
-            )}
-            <Button variant="primary" size="sm" onClick={() => setShowAdd(true)}>
-              <Plus size={14} strokeWidth={2.5} /> {tr('extras.addExtra')}
-            </Button>
-          </>
-        }
+        title={t('extras.title')}
+        subtitle={t(isProjectMode ? 'extras.subtitle.project' : 'extras.subtitle.global')}
+        actions={<span data-tour="extras-list"><Button variant="primary" onClick={() => setShowAdd(true)}><Plus size={15} />{t('extras.addExtra')}</Button></span>}
       />
 
-      {/* Loading */}
-      {isPending && <PageSkeleton />}
-
-      {/* Error */}
-      {error && (
-        <Card>
-          <p className="text-danger">{error.message}</p>
-        </Card>
+      {isPending ? (
+        <PageSkeleton />
+      ) : error ? (
+        <div className="ss-note bad"><span className="flex-1">{error.message}</span></div>
+      ) : extras.length === 0 ? (
+        <EmptyState
+          icon={FolderPlus}
+          title={t('extras.empty.title')}
+          description={t('extras.empty.description')}
+          action={<Button variant="primary" onClick={() => setShowAdd(true)}><Plus size={15} />{t('extras.addExtra')}</Button>}
+        />
+      ) : (
+        <>
+          <div className="ss-list">
+            {extras.map((extra) => (
+              <div key={extra.name} className="contents">
+                <div className="ss-gh !min-h-12">
+                  <span className="ss-cat sm extra"><FolderPlus size={14} /></span>
+                  <span className="font-mono font-semibold">{extra.name}</span>
+                  <span className="min-w-0 truncate font-mono text-ink-3" title={extra.source_dir}>{shortenHome(extra.source_dir)}</span>
+                  <span className="shrink-0 text-ink-3">· {t(extra.file_count === 1 ? 'extras.files.one' : 'extras.files.other', { count: extra.file_count })}</span>
+                  <span className="flex-1" />
+                  <button type="button" className="ss-ib" aria-label={t('extras.moreActions', { name: extra.name })} onClick={(e) => openMenu(e, extraMenu(extra))}>
+                    <Ellipsis size={16} />
+                  </button>
+                </div>
+                {extra.targets.map((tg) => {
+                  const status = STATUS[tg.status];
+                  return (
+                    <div key={tg.path} className="ss-r !min-h-[46px]">
+                      <TargetMark path={tg.path} known={known} />
+                      <span className="min-w-0 flex-1 truncate font-mono text-[13px]" title={tg.path}>{shortenHome(tg.path)}</span>
+                      <TargetTags target={tg} />
+                      <span className="w-[120px] shrink-0">
+                        <span className={`ss-st ${status?.tone ?? ''}`}>{status?.label ?? tg.status}</span>
+                      </span>
+                      <button type="button" className="ss-ib" aria-label={t('extras.targetActions', { path: tg.path })} onClick={(e) => openMenu(e, targetMenu(extra, tg))}>
+                        <Ellipsis size={16} />
+                      </button>
+                    </div>
+                  );
+                })}
+                {addingTo === extra.name ? (
+                  <AddTargetRow onAdd={(d) => addTarget(extra.name, d)} onCancel={() => setAddingTo(null)} extensions={extensions} known={known} />
+                ) : (
+                  <div className="ss-r !min-h-10">
+                    <button type="button" className="flex items-center gap-[7px] text-[13px] text-ink-2 hover:text-ink" onClick={() => setAddingTo(extra.name)}>
+                      <Plus size={14} />
+                      {t('extras.addTarget')}
+                    </button>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+          <p className="mt-6 text-[13px] leading-relaxed text-ink-3">
+            {t('extras.footnote')}{' '}
+            <Link to="/config?tab=extensions" className="text-ink-2 hover:text-ink">{t('extras.footnoteLink')}</Link>
+          </p>
+        </>
       )}
 
-      {/* Empty state / Extras list */}
-      {!isPending && !error && (
-        <div data-tour="extras-list">
-          {extras.length === 0 ? (
-            <EmptyState
-              icon={FolderPlus}
-              title={tr('extras.empty.title')}
-              description={tr('extras.empty.description')}
-              action={
-                <Button variant="primary" size="md" onClick={() => setShowAdd(true)}>
-                  <Plus size={16} strokeWidth={2.5} /> {tr('extras.addExtra')}
-                </Button>
-              }
-            />
-          ) : (
-            <div className="space-y-4">
-              {extras.map((extra, i) => (
-                <ExtraCard
-                  key={extra.name}
-                  extra={extra}
-                  index={i}
-                  onSync={(name) => handleSync(name)}
-                  onForceSync={(name) => handleSync(name, true)}
-                  onRemove={(name) => setRemoveName(name)}
-                  onModeChange={handleModeChange}
-                  onAddTarget={handleAddTarget}
-                  onRemoveTarget={handleRemoveTarget}
-                  availableExtensions={availableExtensions}
-                />
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Add Extra modal */}
       {showAdd && (
-        <AddExtraModal
+        <AddExtraDialog
           onClose={() => setShowAdd(false)}
-          onCreated={handleCreated}
-          availableExtensions={availableExtensions}
+          onCreated={() => { setShowAdd(false); invalidate(); }}
+          extensions={extensions}
+          known={known}
+          sharedDir={sharedDir}
         />
       )}
-
-      {/* Remove confirm dialog */}
+      <SkillContextMenu open={!!menu} anchorPoint={menu ?? undefined} items={menu?.items ?? []} onClose={() => setMenu(null)} />
       <ConfirmDialog
-        open={removeName !== null}
-        title={tr('extras.removeConfirm.title')}
-        message={
-          removeName ? (
-            <span>
-              {tr('extras.removeConfirm.message', { name: removeName })}
-            </span>
-          ) : (
-            <span />
-          )
-        }
-        confirmText={tr('extras.removeConfirm.confirmText')}
+        open={removeExtra !== null}
+        title={t('extras.removeConfirm.title')}
+        message={t('extras.removeConfirm.message', { name: removeExtra ?? '' })}
+        confirmText={t('extras.removeConfirm.confirmText')}
         variant="danger"
-        loading={removing}
-        onConfirm={handleRemove}
-        onCancel={() => setRemoveName(null)}
+        onConfirm={async () => {
+          const name = removeExtra!;
+          setRemoveExtra(null);
+          try {
+            await api.deleteExtra(name);
+            toast(t('extras.toast.removed', { name }), 'success');
+            invalidate();
+          } catch (err) {
+            toast((err as Error).message, 'error');
+          }
+        }}
+        onCancel={() => setRemoveExtra(null)}
+      />
+      <ConfirmDialog
+        open={removeTarget !== null}
+        title={t('extras.removeTargetConfirm.title')}
+        message={t('extras.removeTargetConfirm.message', { path: removeTarget?.path ?? '' })}
+        confirmText={t('extras.removeConfirm.confirmText')}
+        variant="danger"
+        onConfirm={async () => {
+          const target = removeTarget!;
+          setRemoveTarget(null);
+          try {
+            await api.removeExtraTarget(target.name, target.path);
+            toast(t('extras.toast.targetRemoved', { path: target.path }), 'success');
+            invalidate();
+          } catch (err) {
+            toast((err as Error).message, 'error');
+          }
+        }}
+        onCancel={() => setRemoveTarget(null)}
       />
     </div>
   );

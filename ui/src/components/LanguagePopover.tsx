@@ -1,12 +1,10 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { Languages } from 'lucide-react';
-import { shadows } from '../design';
-import { supportedLocales, useI18n, type Locale } from '../i18n';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Check, Languages } from 'lucide-react';
+import { messagesByLocale, supportedLocales, useI18n, type Locale } from '../i18n';
 
 export default function LanguagePopover() {
   const { locale, setLocale, t } = useI18n();
   const [open, setOpen] = useState(false);
-  const [dropUp, setDropUp] = useState(true);
   const containerRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -38,13 +36,6 @@ export default function LanguagePopover() {
     return () => document.removeEventListener('keydown', handler);
   }, [open]);
 
-  useLayoutEffect(() => {
-    if (!open || !containerRef.current) return;
-    const rect = containerRef.current.getBoundingClientRect();
-    const panelHeight = 320;
-    setDropUp(rect.top > panelHeight);
-  }, [open]);
-
   useEffect(() => {
     if (!open || !panelRef.current) return;
     const selected = panelRef.current.querySelector('[aria-checked="true"]') as HTMLElement | null;
@@ -61,13 +52,14 @@ export default function LanguagePopover() {
     <div ref={containerRef} className="relative">
       <button
         ref={triggerRef}
+        type="button"
         onClick={() => setOpen(!open)}
-        className="flex items-center gap-3 px-3 py-1.5 text-sm text-pencil-light hover:text-pencil hover:bg-muted/20 transition-colors cursor-pointer w-full"
+        className={`ss-ib ${open ? 'bg-sel text-sel-ink' : ''}`}
         aria-label={t('language.settings')}
+        title={t('language.settings')}
         aria-expanded={open}
       >
-        <Languages size={16} strokeWidth={2.5} />
-        {t('language.settings')}
+        <Languages size={16} />
       </button>
 
       {open && (
@@ -75,31 +67,27 @@ export default function LanguagePopover() {
           ref={panelRef}
           role="radiogroup"
           aria-label={t('language.settings')}
-          className={`
-            absolute left-0 z-50 w-64 max-h-[320px] overflow-y-auto bg-surface border border-muted p-2 rounded-[var(--radius-md)] animate-dropdown-in
-            ${dropUp ? 'bottom-full mb-2' : 'top-full mt-2'}
-          `}
-          style={{ boxShadow: shadows.lg }}
+          className="ss-menu absolute left-0 bottom-full mb-3 z-50 !w-[300px] animate-dropdown-in"
         >
-          {localeOptions.map((entry) => (
-            <button
-              key={entry.code}
-              role="radio"
-              aria-checked={locale === entry.code}
-              onClick={() => selectLocale(entry.code)}
-              className={`
-                w-full flex items-center justify-between gap-3 px-3 py-2 text-sm rounded-lg transition-colors cursor-pointer
-                focus-visible:ring-2 focus-visible:ring-pencil/20 focus-visible:outline-none
-                ${locale === entry.code
-                  ? 'bg-pencil text-paper font-medium'
-                  : 'bg-transparent text-pencil-light hover:text-pencil hover:bg-muted/30'}
-              `}
-              tabIndex={locale === entry.code ? 0 : -1}
-            >
-              <span>{entry.nativeName}</span>
-              <span className="text-xs opacity-75">{t(`language.${entry.code}`)}</span>
-            </button>
-          ))}
+          {localeOptions.map((entry) => {
+            const on = locale === entry.code;
+            const english = messagesByLocale.en[`language.${entry.code}`];
+            return (
+              <button
+                key={entry.code}
+                type="button"
+                role="radio"
+                aria-checked={on}
+                onClick={() => selectLocale(entry.code)}
+                className={on ? 'hv' : ''}
+                tabIndex={on ? 0 : -1}
+              >
+                <span className="whitespace-nowrap">{entry.nativeName}</span>
+                <span className="ml-auto text-xs text-ink-3 whitespace-nowrap">{english !== entry.nativeName ? t(`language.${entry.code}`) : ''}</span>
+                {on ? <Check size={14} /> : <span className="w-3.5" />}
+              </button>
+            );
+          })}
         </div>
       )}
     </div>

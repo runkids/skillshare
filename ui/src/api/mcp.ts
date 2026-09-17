@@ -1,6 +1,6 @@
 import { apiFetch } from './client';
 
-export const mcpTargets = ['claude', 'codex', 'cursor', 'vscode', 'opencode', 'grok'] as const;
+export const mcpTargets = ['claude', 'codex', 'cursor', 'vscode', 'opencode', 'grok', 'antigravity', 'amp', 'claude-desktop', 'cline', 'copilot', 'factory', 'gemini', 'goose', 'junie', 'kiro', 'lmstudio', 'warp', 'windsurf'] as const;
 export type MCPValue = string | { fromEnv: string };
 export interface MCPServer {
   command?: string;
@@ -36,6 +36,9 @@ export const mcpApi = {
   }>('/mcp'),
   preview: (mutation: MCPMutation = {}) => post<MCPPlan>('/mcp/preview', { mutation }),
   configure: (mutation: MCPMutation, revision: string, sync: boolean) => post<MCPResult>('/mcp', { mutation, revision, sync }),
+  /** Save to the source only. The server refuses a write it has not previewed; the revision also catches concurrent edits. */
+  save: async (mutation: MCPMutation) =>
+    post<MCPResult>('/mcp', { mutation, revision: (await post<MCPPlan>('/mcp/preview', { mutation })).revision, sync: false }),
   import: (body: { from?: string; content?: string; name?: string }) => post<{ candidates: MCPCandidate[] }>('/mcp/import', body),
   previewRestore: (backupId: string) => post<MCPPlan>('/mcp/restore', { backupId, preview: true }),
   restore: (backupId: string, revision: string) => post<MCPResult>('/mcp/restore', { backupId, revision }),

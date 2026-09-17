@@ -107,7 +107,7 @@ Expected:
 - jq: .applied | length == 1
 - jq: .plan.changes[0].action == "restore"
 
-### Step 5: OpenCode and Grok project sync
+### Step 5: OpenCode, Grok and Antigravity project sync
 
 ```bash
 set -eu
@@ -116,11 +116,12 @@ mkdir -p "$MCP_CASE/.skillshare"
 printf 'targets: []\n' > "$MCP_CASE/.skillshare/config.yaml"
 cd "$MCP_CASE"
 printf '{\n// keep\n"model":"example"\n}\n' > opencode.jsonc
-ss mcp add company-docs --url https://example.com/mcp --target opencode --target grok --sync -p >/dev/null
+ss mcp add company-docs --url https://example.com/mcp --target opencode --target grok --target antigravity --sync -p >/dev/null
 test ! -f opencode.json
 grep -q '// keep' opencode.jsonc
 grep -q 'remote' opencode.jsonc
 grep -q 'mcp_servers.company-docs' .grok/config.toml
+jq -e '.mcpServers["company-docs"].serverUrl == "https://example.com/mcp"' .agents/mcp_config.json >/dev/null
 ss mcp remove company-docs --sync --json -p > removal.json
 MCP_BACKUP=$(jq -r '.backupIds[0]' removal.json)
 ss mcp restore "$MCP_BACKUP" --json -p
@@ -153,7 +154,58 @@ Expected:
 - jq: .blocked == false
 - jq: .changes[0].action == "unchanged"
 
+### Step 7: Expanded project clients and Goose YAML import
+
+```bash
+set -eu
+MCP_CASE=$(mktemp -d "$HOME/mcp-expanded.XXXXXX")
+mkdir -p "$MCP_CASE/.skillshare"
+printf 'targets: []\n' > "$MCP_CASE/.skillshare/config.yaml"
+cd "$MCP_CASE"
+ss mcp add browser --target amp --target copilot --target factory --target gemini --target junie --target kiro --target warp --sync -p -- npx -y @playwright/mcp@latest >/dev/null
+jq -e '."amp.mcpServers".browser.command == "npx"' .amp/settings.json >/dev/null
+jq -e '.mcpServers.browser.type == "local" and .mcpServers.browser.tools == ["*"]' .github/mcp.json >/dev/null
+ss sync mcp --json -p | jq -e '.applied == [] and (.plan.changes | length == 7)' >/dev/null
+ss mcp add remote --url https://example.com/mcp --target gemini --sync -p >/dev/null
+jq -e '.mcpServers.remote.httpUrl == "https://example.com/mcp" and .mcpServers.remote.url == null' .gemini/settings.json >/dev/null
+printf 'extensions:\n  imported:\n    type: stdio\n    name: imported\n    enabled: true\n    cmd: echo\n    args: [ready]\n' > goose.yaml
+ss mcp import imported --from goose --file goose.yaml --target amp --sync -p >/dev/null
+jq -e '."amp.mcpServers".imported.command == "echo"' .amp/settings.json >/dev/null
+ss mcp list --json -p
+```
+
+Expected:
+- exit_code: 0
+- jq: .blocked == false
+- jq: .changes | length == 9
+
+### Step 8: Scripted editing and TUI opt-out
+
+```bash
+set -eu
+MCP_CASE=$(mktemp -d "$HOME/mcp-edit.XXXXXX")
+export SKILLSHARE_CONFIG="$MCP_CASE/config.yaml"
+printf 'targets: {}\n' > "$SKILLSHARE_CONFIG"
+ss mcp add editable --url https://example.com/mcp --target claude --no-tui -g >/dev/null
+ss mcp edit editable --url https://updated.example/mcp --no-tui -g >/dev/null
+grep -q 'updated.example' "$SKILLSHARE_CONFIG"
+ss mcp edit editable --url https://preview.example/mcp --dry-run --json -g >/dev/null
+! grep -q 'preview.example' "$SKILLSHARE_CONFIG"
+ss mcp edit editable --no-tui -g -- echo ready >/dev/null
+! grep -q 'url:' "$SKILLSHARE_CONFIG"
+ss mcp --no-tui -g >/dev/null
+ss mcp --json -g
+```
+
+Expected:
+- exit_code: 0
+- jq: .blocked == false
+- jq: .changes[0].name == "editable"
+
 ## Pass Criteria
 
-All six steps pass. Core Go tests additionally cover multi-file recovery,
+All eight steps pass. Core Go tests additionally cover multi-file recovery,
 stale revisions, Agent-specific fields, credential references and foreign ownership.
+TUI model tests cover search shortcuts, hidden credentials, edit cancellation and
+batch import cancellation. In a real terminal, also verify `mcp` search/detail,
+edit and remove previews, multi-selection import, and the client/backup picker.

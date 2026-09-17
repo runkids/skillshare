@@ -108,3 +108,22 @@ func TestValidNameRe(t *testing.T) {
 		}
 	}
 }
+
+func TestWithDescription(t *testing.T) {
+	for _, p := range Patterns {
+		content := WithDescription(GenerateContent("my-skill", p.Name, ""), "  Does a thing.\n Use when   asked. ")
+		if !strings.Contains(content, "description: >-\n  Does a thing. Use when asked.\n") {
+			t.Errorf("%s: description not replaced:\n%s", p.Name, content)
+		}
+		if strings.Contains(content, "Describe what this skill does") {
+			t.Errorf("%s: placeholder left behind", p.Name)
+		}
+	}
+}
+
+func TestWithDescription_EmptyKeepsPlaceholder(t *testing.T) {
+	content := GenerateContent("my-skill", "none", "")
+	if WithDescription(content, "  ") != content {
+		t.Error("blank description should keep the template unchanged")
+	}
+}

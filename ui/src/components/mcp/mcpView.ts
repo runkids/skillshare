@@ -1,5 +1,4 @@
 import type { MCPPlan, MCPServer } from '../../api/mcp';
-import { formatDateTime, type Locale } from '../../i18n';
 
 export type MCPChange = MCPPlan['changes'][number];
 
@@ -56,35 +55,41 @@ export const describeMessage = (t: (key: string) => string, message = '') =>
 export const isResolvable = (change: MCPChange) =>
   change.action === 'conflict' && ['mcp.conflictChanged', 'mcp.conflictUnmanaged'].includes(conflictKeys[change.message ?? '']);
 
-export const describeEndpoint = (server: MCPServer) => server.url ?? [server.command, ...(server.args ?? [])].join(' ');
+/** Display names for the MCP clients, as in their own docs. */
+export const targetLabel = (target: string) =>
+  ({ claude: 'Claude', codex: 'Codex', cursor: 'Cursor', vscode: 'VS Code', opencode: 'OpenCode', grok: 'Grok', antigravity: 'Antigravity', amp: 'Amp', 'claude-desktop': 'Claude Desktop', cline: 'Cline (VS Code)', copilot: 'Copilot CLI', factory: 'Factory', gemini: 'Gemini CLI', goose: 'Goose', junie: 'Junie', kiro: 'Kiro', lmstudio: 'LM Studio', warp: 'Warp', windsurf: 'Windsurf' })[target] ?? target;
 
-/** Credential references only; literal values are never shown. */
-export function describeCredentials(server: MCPServer): string[] {
-  const ref = (key: string, value: string | { fromEnv: string }) => typeof value === 'string' ? key : `${key} ← $${value.fromEnv}`;
-  return [
-    ...(server.bearerToken ? [`Bearer ← $${server.bearerToken.fromEnv}`] : []),
-    ...Object.entries(server.headers ?? {}).map(([key, value]) => ref(key, value)),
-    ...Object.entries(server.env ?? {}).map(([key, value]) => ref(key, value)),
-  ];
+/** Splits a command line into words, honouring single and double quotes. */
+// ponytail: no backslash escapes; a word holding both quote kinds needs the YAML config.
+export function splitCommand(line: string): string[] {
+  const words: string[] = [];
+  let word = '';
+  let quote = '';
+  let started = false;
+  for (const ch of line) {
+    if (quote) {
+      if (ch === quote) quote = '';
+      else word += ch;
+    } else if (ch === '"' || ch === "'") {
+      quote = ch;
+      started = true;
+    } else if (/\s/.test(ch)) {
+      if (started) words.push(word);
+      word = '';
+      started = false;
+    } else {
+      word += ch;
+      started = true;
+    }
+  }
+  if (started) words.push(word);
+  return words;
 }
+
+export const joinCommand = (words: string[]) =>
+  words.map(w => (w === '' || /[\s"']/.test(w) ? (w.includes("'") ? `"${w}"` : `'${w}'`) : w)).join(' ');
+
+export const describeEndpoint = (server: MCPServer) => server.url ?? joinCommand([server.command ?? '', ...(server.args ?? [])]);
 
 /** Backup IDs start with the Unix time in nanoseconds. */
 export const backupTime = (id: string) => new Date(Number(id.split('-')[0]) / 1e6);
-
-export function groupBackupsByDay<T extends { id: string }>(backups: T[]) {
-  const days = new Map<string, { date: Date; backups: T[] }>();
-  for (const backup of backups) {
-    const date = backupTime(backup.id);
-    const day = days.get(date.toDateString()) ?? { date, backups: [] };
-    day.backups.push(backup);
-    days.set(date.toDateString(), day);
-  }
-  return [...days.values()];
-}
-
-export function dayLabel(date: Date, locale: Locale, now = new Date()) {
-  const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
-  const diff = Math.round((startOfDay(date) - startOfDay(now)) / 86_400_000);
-  const day = formatDateTime(date, locale, { month: 'long', day: 'numeric' });
-  return diff === 0 || diff === -1 ? `${new Intl.RelativeTimeFormat(locale, { numeric: 'auto' }).format(diff, 'day')} · ${day}` : day;
-}

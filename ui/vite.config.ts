@@ -33,7 +33,9 @@ export default defineConfig({
       '/api/update/stream': SSE_PROXY,
       '/api/check/stream': SSE_PROXY,
       '/api/diff/stream': SSE_PROXY,
-      '/api': 'http://localhost:19420',
+      // Keep the browser's Host header: the MCP endpoints compare it against Origin,
+      // and changeOrigin (the string shorthand's default) would rewrite it to the target.
+      '/api': { target: 'http://localhost:19420', changeOrigin: false },
     },
   },
   build: {

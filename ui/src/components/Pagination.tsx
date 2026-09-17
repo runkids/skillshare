@@ -1,6 +1,5 @@
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import SegmentedControl from './SegmentedControl';
-import { radius } from '../design';
 import { useT } from '../i18n';
 
 interface PageSizeConfig {
@@ -19,17 +18,11 @@ interface PaginationProps {
   pageSize?: PageSizeConfig;
 }
 
-export default function Pagination({
-  page,
-  totalPages,
-  onPageChange,
-  rangeText,
-  pageSize,
-}: PaginationProps) {
+export default function Pagination({ page, totalPages, onPageChange, rangeText, pageSize }: PaginationProps) {
   const t = useT();
   return (
-    <div className="flex items-center justify-between pt-4 mt-4 border-t-2 border-dashed border-muted">
-      <div className="flex items-center gap-2 text-sm text-pencil-light">
+    <div className="flex items-center justify-between pt-4 mt-4 [border-top:var(--sep)]">
+      <div className="flex items-center gap-2 text-[13px] text-ink-2">
         {pageSize && (
           <>
             <span>{t('pagination.show')}</span>
@@ -37,40 +30,19 @@ export default function Pagination({
               value={String(pageSize.value)}
               onChange={(v) => pageSize.onChange(Number(v))}
               options={pageSize.options.map((s) => ({ value: String(s), label: String(s) }))}
-              size="sm"
             />
           </>
         )}
         {rangeText && <span className="ml-1">{rangeText}</span>}
       </div>
 
-      <div className="flex items-center gap-1">
-        <button
-          onClick={() => onPageChange(Math.max(0, page - 1))}
-          disabled={page === 0}
-          className={`p-1.5 border-2 transition-all duration-150 cursor-pointer ${
-            page === 0
-              ? 'border-transparent text-muted-dark cursor-not-allowed'
-              : 'border-transparent text-pencil hover:bg-paper-warm hover:border-muted-dark'
-          }`}
-          style={{ borderRadius: radius.sm }}
-        >
-          <ChevronLeft size={20} />
+      <div className="ss-pager">
+        <button type="button" className="ss-ib" onClick={() => onPageChange(Math.max(0, page - 1))} disabled={page === 0} aria-label={t('pagination.previous')}>
+          <ChevronLeft size={16} />
         </button>
-        <span className="text-sm text-pencil px-2">
-          {page + 1} / {totalPages}
-        </span>
-        <button
-          onClick={() => onPageChange(Math.min(totalPages - 1, page + 1))}
-          disabled={page >= totalPages - 1}
-          className={`p-1.5 border-2 transition-all duration-150 cursor-pointer ${
-            page >= totalPages - 1
-              ? 'border-transparent text-muted-dark cursor-not-allowed'
-              : 'border-transparent text-pencil hover:bg-paper-warm hover:border-muted-dark'
-          }`}
-          style={{ borderRadius: radius.sm }}
-        >
-          <ChevronRight size={20} />
+        <span className="!cursor-default font-mono">{page + 1} / {totalPages}</span>
+        <button type="button" className="ss-ib" onClick={() => onPageChange(Math.min(totalPages - 1, page + 1))} disabled={page >= totalPages - 1} aria-label={t('pagination.next')}>
+          <ChevronRight size={16} />
         </button>
       </div>
     </div>

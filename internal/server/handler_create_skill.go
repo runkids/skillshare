@@ -7,8 +7,10 @@ import (
 	"os"
 	"path/filepath"
 	"time"
+	"unicode/utf8"
 
 	"skillshare/internal/skill"
+	"skillshare/internal/utils"
 )
 
 func (s *Server) handleGetTemplates(w http.ResponseWriter, r *http.Request) {
@@ -22,7 +24,47 @@ type createSkillRequest struct {
 	Name         string   `json:"name"`
 	Pattern      string   `json:"pattern"`
 	Category     string   `json:"category"`
+	Description  string   `json:"description"`
+	Into         string   `json:"into"`
 	ScaffoldDirs []string `json:"scaffoldDirs"`
+}
+
+// maxDescriptionLen is the longest description every target accepts (Codex rejects longer ones).
+const maxDescriptionLen = 1024
+
+// validate checks the fields shared by create and preview and returns an error message.
+func (req *createSkillRequest) validate() string {
+	if !skill.ValidNameRe.MatchString(req.Name) {
+		return "invalid skill name: use lowercase letters, numbers, hyphens, underscores; must start with letter or underscore"
+	}
+	if skill.FindPattern(req.Pattern) == nil {
+		return fmt.Sprintf("unknown pattern: %s", req.Pattern)
+	}
+	if utf8.RuneCountInString(req.Description) > maxDescriptionLen {
+		return fmt.Sprintf("description is longer than %d characters", maxDescriptionLen)
+	}
+	if req.Into != "" && !filepath.IsLocal(req.Into) {
+		return "invalid folder: must be a relative path inside the source directory"
+	}
+	return ""
+}
+
+func (req *createSkillRequest) content() string {
+	return skill.WithDescription(skill.GenerateContent(req.Name, req.Pattern, req.Category), req.Description)
+}
+
+// handlePreviewSkill returns the SKILL.md that create would write, so the form can show it before creating.
+func (s *Server) handlePreviewSkill(w http.ResponseWriter, r *http.Request) {
+	q := r.URL.Query()
+	req := createSkillRequest{Name: q.Get("name"), Pattern: q.Get("pattern"), Category: q.Get("category"), Description: q.Get("description"), Into: q.Get("into")}
+	if msg := req.validate(); msg != "" {
+		writeError(w, http.StatusBadRequest, msg)
+		return
+	}
+	writeJSON(w, map[string]any{
+		"content": req.content(),
+		"path":    filepath.Join(s.cfg.EffectiveSkillsSource(), req.Into, req.Name, "SKILL.md"),
+	})
 }
 
 func (s *Server) handleCreateSkill(w http.ResponseWriter, r *http.Request) {
@@ -34,30 +76,26 @@ func (s *Server) handleCreateSkill(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Validate name
-	if !skill.ValidNameRe.MatchString(req.Name) {
-		writeError(w, http.StatusBadRequest, "invalid skill name: use lowercase letters, numbers, hyphens, underscores; must start with letter or underscore")
+	if msg := req.validate(); msg != "" {
+		writeError(w, http.StatusBadRequest, msg)
 		return
 	}
-
-	// Validate pattern
 	pattern := skill.FindPattern(req.Pattern)
-	if pattern == nil {
-		writeError(w, http.StatusBadRequest, fmt.Sprintf("unknown pattern: %s", req.Pattern))
-		return
-	}
 
-	// Validate scaffoldDirs against pattern's allowed dirs
-	if len(req.ScaffoldDirs) > 0 && len(pattern.ScaffoldDirs) > 0 {
-		allowed := make(map[string]bool, len(pattern.ScaffoldDirs))
-		for _, d := range pattern.ScaffoldDirs {
-			allowed[d] = true
-		}
-		for _, d := range req.ScaffoldDirs {
-			if !allowed[d] {
-				writeError(w, http.StatusBadRequest, fmt.Sprintf("scaffold dir %q not valid for pattern %q", d, req.Pattern))
-				return
+	// Validate scaffoldDirs against the pattern's dirs. A blank template may use any
+	// pattern's dirs; anything else would let a request create folders outside the skill.
+	allowed := map[string]bool{}
+	for _, p := range skill.Patterns {
+		if p.Name == pattern.Name || len(pattern.ScaffoldDirs) == 0 {
+			for _, d := range p.ScaffoldDirs {
+				allowed[d] = true
 			}
+		}
+	}
+	for _, d := range req.ScaffoldDirs {
+		if !allowed[d] {
+			writeError(w, http.StatusBadRequest, fmt.Sprintf("scaffold dir %q not valid for pattern %q", d, req.Pattern))
+			return
 		}
 	}
 
@@ -65,7 +103,8 @@ func (s *Server) handleCreateSkill(w http.ResponseWriter, r *http.Request) {
 	defer s.mu.Unlock()
 
 	source := s.cfg.EffectiveSkillsSource()
-	skillDir := filepath.Join(source, req.Name)
+	relPath := filepath.ToSlash(filepath.Join(req.Into, req.Name))
+	skillDir := filepath.Join(source, req.Into, req.Name)
 
 	// Check if skill already exists
 	if _, err := os.Stat(skillDir); err == nil {
@@ -74,7 +113,7 @@ func (s *Server) handleCreateSkill(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Generate SKILL.md content
-	content := skill.GenerateContent(req.Name, req.Pattern, req.Category)
+	content := req.content()
 
 	// Create directory
 	if err := os.MkdirAll(skillDir, 0755); err != nil {
@@ -110,19 +149,23 @@ func (s *Server) handleCreateSkill(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Ops log
-	s.writeOpsLog("create-skill", "ok", start, map[string]any{
+	args := map[string]any{
 		"name":     req.Name,
 		"pattern":  req.Pattern,
 		"category": req.Category,
 		"scope":    "ui",
-	}, "")
+	}
+	if req.Into != "" {
+		args["into"] = req.Into
+	}
+	s.writeOpsLog("create-skill", "ok", start, args, "")
 
 	w.WriteHeader(http.StatusCreated)
 	writeJSON(w, map[string]any{
 		"skill": map[string]any{
 			"name":       req.Name,
-			"flatName":   req.Name,
-			"relPath":    req.Name,
+			"flatName":   utils.PathToFlatName(relPath),
+			"relPath":    relPath,
 			"sourcePath": skillDir,
 		},
 		"createdFiles": createdFiles,

@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
 import { useFocusTrap } from '../../hooks/useFocusTrap';
-import { radius } from '../../design';
 import { useT } from '../../i18n';
 import Button from '../Button';
 import { useTour } from './TourProvider';
@@ -44,12 +43,13 @@ export default function TourTooltip() {
 
   if (!isActive || !step || isWaiting || !targetRect) return null;
 
+  const title = t(`tour.steps.${step.id}.title`);
   const isFirst = currentStep === 0;
   const isLast = currentStep === steps.length - 1;
 
   const arrowStyle = (() => {
     const base: React.CSSProperties = { position: 'absolute', width: 0, height: 0 };
-    const color = 'var(--color-paper-warm)';
+    const color = 'var(--line)';
     switch (step.placement) {
       case 'bottom': return { ...base, top: -ARROW_SIZE, left: '50%', transform: 'translateX(-50%)', borderLeft: `${ARROW_SIZE}px solid transparent`, borderRight: `${ARROW_SIZE}px solid transparent`, borderBottom: `${ARROW_SIZE}px solid ${color}` };
       case 'top': return { ...base, bottom: -ARROW_SIZE, left: '50%', transform: 'translateX(-50%)', borderLeft: `${ARROW_SIZE}px solid transparent`, borderRight: `${ARROW_SIZE}px solid transparent`, borderTop: `${ARROW_SIZE}px solid ${color}` };
@@ -60,11 +60,11 @@ export default function TourTooltip() {
 
   const content = (
     <div ref={focusRef}>
-      <p className="text-pencil font-semibold text-base mb-1">{t(`tour.steps.${step.id}.title`, {}, step.title)}</p>
-      <p className="text-pencil-light text-sm leading-relaxed mb-3">{t(`tour.steps.${step.id}.description`, {}, step.description)}</p>
+      <p className="mb-1 text-[15px] font-semibold text-ink">{title}</p>
+      <p className="mb-3 text-[13px] leading-relaxed text-ink-2">{t(`tour.steps.${step.id}.${step.empty ? 'emptyDescription' : 'description'}`)}</p>
       <div className="flex items-center gap-1.5 mb-3">
         {steps.map((_, i) => (
-          <div key={i} className={`w-1.5 h-1.5 rounded-full transition-colors ${i <= currentStep ? 'bg-accent' : 'bg-muted'}`} />
+          <div key={i} className={`w-1.5 h-1.5 rounded-full transition-colors ${i <= currentStep ? 'bg-accent' : 'bg-line-soft'}`} />
         ))}
       </div>
       <div className="flex items-center justify-between">
@@ -79,14 +79,14 @@ export default function TourTooltip() {
 
   if (isMobile) {
     return (
-      <div key={currentStep} ref={tooltipRef} className="fixed bottom-0 left-0 right-0 z-[70] bg-paper-warm border-t border-muted p-4 animate-fade-in" style={{ boxShadow: 'var(--shadow-lg)' }} role="dialog" aria-modal="true" aria-label={`Tour step ${currentStep + 1} of ${steps.length}: ${step.title}`}>
+      <div key={currentStep} ref={tooltipRef} className="ss-box fixed bottom-0 left-0 right-0 z-[70] !rounded-none !p-4 animate-fade-in" role="dialog" aria-modal="true" aria-label={`Tour step ${currentStep + 1} of ${steps.length}: ${title}`}>
         {content}
       </div>
     );
   }
 
   return (
-    <div key={currentStep} ref={tooltipRef} className="fixed z-[70] bg-paper-warm border border-muted p-4 animate-fade-in" style={{ top: pos.top, left: pos.left, maxWidth: MAX_WIDTH, borderRadius: radius.lg, boxShadow: 'var(--shadow-lg)' }} role="dialog" aria-modal="true" aria-label={`Tour step ${currentStep + 1} of ${steps.length}: ${step.title}`}>
+    <div key={currentStep} ref={tooltipRef} className="ss-box fixed z-[70] !p-4 animate-fade-in" style={{ top: pos.top, left: pos.left, maxWidth: MAX_WIDTH }} role="dialog" aria-modal="true" aria-label={`Tour step ${currentStep + 1} of ${steps.length}: ${title}`}>
       <div style={arrowStyle} />
       {content}
     </div>

@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"strings"
-	"time"
 
 	"github.com/charmbracelet/bubbles/textarea"
 	tea "github.com/charmbracelet/bubbletea"
@@ -49,14 +48,23 @@ func promptMCPText(title, initial string) (string, error) {
 	}
 	m := result.(mcpInput)
 	if m.cancelled {
-		return "", fmt.Errorf("MCP setup cancelled; no settings saved")
+		return "", errMCPCancelled
 	}
 	return strings.TrimSpace(m.input.Value()), nil
 }
 
-func mcpTargetItems() []checklistItemData {
+func mcpTargetItems(service *mcp.Service, server *mcp.Server) []checklistItemData {
 	items := []checklistItemData{}
+	paths := service.ClientPaths()
 	for _, name := range mcp.Targets {
+		if paths[name] == "" {
+			continue
+		}
+		if server != nil {
+			if _, err := mcp.Render(name, *server); err != nil {
+				continue
+			}
+		}
 		items = append(items, checklistItemData{label: name})
 	}
 	return items
@@ -95,38 +103,25 @@ func mcpCandidateWizard(service *mcp.Service, c mcp.Candidate, o mcpOptions) err
 	for _, warning := range c.Warnings {
 		fmt.Println(warning)
 	}
-	selected, err := runChecklistTUI(checklistConfig{title: "Which Agents should receive this MCP?", header: "Config: " + service.ConfigPath, items: mcpTargetItems()})
+	source, err := mcp.LoadSource(service.ConfigPath)
 	if err != nil {
 		return err
 	}
-	if len(selected) == 0 {
-		return fmt.Errorf("select at least one Agent")
+	initial := o.targets
+	if initial == nil {
+		initial = source.Targets
 	}
-	c.Server.Targets = nil
-	for _, i := range selected {
-		c.Server.Targets = append(c.Server.Targets, mcp.Targets[i])
+	prompts := terminalMCPPrompts{}
+	c.Server.Targets, err = chooseMCPTargets(service, []mcp.Server{c.Server}, initial, prompts)
+	if err != nil {
+		return err
 	}
 	mutation, err := mcpImportMutation(service, c, c.Server.Targets, o)
 	if err != nil {
 		return err
 	}
-	p, err := service.PreviewMutation(mutation)
-	if err != nil {
+	if err := source.CheckUnchanged(); err != nil {
 		return err
 	}
-	if err := printMCPPlan(p, false); err != nil {
-		return err
-	}
-	if p.Blocked {
-		return fmt.Errorf("resolve existing entries by importing them before syncing; no settings saved")
-	}
-	choices, err := runChecklistTUI(checklistConfig{title: "Finish MCP setup", singleSelect: true, items: []checklistItemData{{label: "Save and sync", desc: "Write the previewed settings to your Agents", preSelected: true}, {label: "Save only", desc: "Synchronize later with skillshare sync mcp"}}})
-	if err != nil {
-		return err
-	}
-	if len(choices) == 0 {
-		return nil
-	}
-	o.sync, o.revision = choices[0] == 0, p.Revision
-	return finishMCPMutation(service, mutation, o, time.Now())
+	return reviewMCPMutations(service, []mcp.Mutation{mutation}, o, prompts)
 }

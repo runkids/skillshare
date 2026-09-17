@@ -24,7 +24,7 @@ targets: {}
 
 	result := sb.RunCLI("pull")
 
-	result.AssertSuccess(t)
+	result.AssertFailure(t)
 	result.AssertOutputContains(t, "not a git repository")
 }
 
@@ -45,7 +45,7 @@ targets: {}
 
 	result := sb.RunCLI("pull")
 
-	result.AssertSuccess(t)
+	result.AssertFailure(t)
 	result.AssertOutputContains(t, "No git remote")
 }
 
@@ -93,7 +93,7 @@ targets: {}
 
 	result := sb.RunCLI("pull")
 
-	result.AssertSuccess(t)
+	result.AssertFailure(t)
 	result.AssertOutputContains(t, "Local changes detected")
 }
 

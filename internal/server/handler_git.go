@@ -2,13 +2,14 @@ package server
 
 import (
 	"encoding/json"
+	"errors"
+	"fmt"
 	"net/http"
 	"strings"
 	"time"
 
 	"skillshare/internal/config"
 	"skillshare/internal/git"
-	ssync "skillshare/internal/sync"
 )
 
 type gitStatusResponse struct {
@@ -27,6 +28,8 @@ type gitStatusResponse struct {
 	HeadHash       string   `json:"headHash,omitempty"`
 	HeadMessage    string   `json:"headMessage,omitempty"`
 	TrackingBranch string   `json:"trackingBranch,omitempty"`
+	// Ahead counts commits no remote-tracking branch has yet, i.e. what a push uploads.
+	Ahead int `json:"ahead"`
 	// Root-scope hazards (populated only when scope == "root"): NestedRepos are
 	// subdirectories with their own .git that commit as empty submodules;
 	// ConfigTracked means config.yaml leaked into version control.
@@ -101,6 +104,10 @@ func (s *Server) handleGitStatus(w http.ResponseWriter, r *http.Request) {
 
 	if tb, err := git.GetTrackingBranch(src); err == nil {
 		resp.TrackingBranch = tb
+	}
+
+	if resp.HasRemote {
+		resp.Ahead = git.AheadCount(src)
 	}
 
 	// Root-scope hazards: nested submodule traps and a leaked config.yaml.
@@ -422,7 +429,8 @@ func (s *Server) handleGitCommit(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, pushResponse{Success: true, Message: "committed successfully"})
 }
 
-// handlePush stages, commits, and pushes changes
+// handlePush commits pending changes, then pushes every commit the remote
+// does not have yet. The first push sets upstream.
 func (s *Server) handlePush(w http.ResponseWriter, r *http.Request) {
 	start := time.Now()
 	s.mu.Lock()
@@ -452,13 +460,13 @@ func (s *Server) handlePush(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Check for changes
 	status, err := git.GetStatus(src)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to get git status: "+err.Error())
 		return
 	}
-	if status == "" {
+	ahead := git.AheadCount(src)
+	if status == "" && ahead == 0 {
 		s.writeOpsLog("push", "ok", start, map[string]any{
 			"summary": "nothing to push",
 			"dry_run": body.DryRun,
@@ -474,38 +482,43 @@ func (s *Server) handlePush(w http.ResponseWriter, r *http.Request) {
 			"dry_run": true,
 			"scope":   "ui",
 		}, "")
-		writeJSON(w, pushResponse{Success: true, Message: "dry run: would stage, commit, and push changes", DryRun: true})
+		msg := "dry run: would stage, commit, and push changes"
+		if status == "" {
+			msg = fmt.Sprintf("dry run: would push %d commit(s)", ahead)
+		}
+		writeJSON(w, pushResponse{Success: true, Message: msg, DryRun: true})
 		return
 	}
 
-	// Stage all
-	if err := git.StageAll(src); err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to stage changes: "+err.Error())
-		return
-	}
-
-	// Commit
 	msg := body.Message
 	if msg == "" {
 		msg = "Update skills"
 	}
-	if err := git.Commit(src, msg); err != nil {
+	args := map[string]any{"message": msg, "dry_run": false, "scope": "ui"}
+	fail := func(err error) {
+		s.writeOpsLog("push", "error", start, args, err.Error())
 		writeError(w, http.StatusInternalServerError, err.Error())
-		return
 	}
 
-	// Push
+	if status != "" {
+		if err := git.StageAll(src); err != nil {
+			fail(fmt.Errorf("failed to stage changes: %w", err))
+			return
+		}
+		if err := git.Commit(src, msg); err != nil {
+			fail(err)
+			return
+		}
+	} else {
+		args["message"] = "" // nothing new was committed
+	}
+
 	if err := git.PushRemoteWithAuth(src); err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
+		fail(err)
 		return
 	}
 
-	s.writeOpsLog("push", "ok", start, map[string]any{
-		"message": msg,
-		"dry_run": false,
-		"scope":   "ui",
-	}, "")
-
+	s.writeOpsLog("push", "ok", start, args, "")
 	writeJSON(w, pushResponse{Success: true, Message: "pushed successfully"})
 }
 
@@ -614,6 +627,7 @@ type pullResponse struct {
 	SyncResults []syncTargetResult `json:"syncResults"`
 	DryRun      bool               `json:"dryRun"`
 	Message     string             `json:"message,omitempty"`
+	Warnings    []string           `json:"warnings,omitempty"`
 }
 
 // handlePull pulls changes and syncs to targets
@@ -624,6 +638,8 @@ func (s *Server) handlePull(w http.ResponseWriter, r *http.Request) {
 
 	var body struct {
 		DryRun bool `json:"dryRun"`
+		// Force replaces local files with the remote on a first pull instead of merging.
+		Force bool `json:"force"`
 	}
 	json.NewDecoder(r.Body).Decode(&body)
 
@@ -662,105 +678,74 @@ func (s *Server) handlePull(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Pull
-	info, err := git.PullWithAuth(src)
+	// A branch without upstream (e.g. a repo created here with a remote added
+	// later) is attached to the remote default branch first, like the CLI.
+	var info *git.UpdateInfo
+	if git.HasUpstream(src) {
+		info, err = git.PullWithAuth(src)
+	} else {
+		info, err = git.FirstPull(src, body.Force)
+	}
+	if errors.Is(err, git.ErrNoRemoteBranches) {
+		writeError(w, http.StatusBadRequest, "the remote has no branches yet; push first")
+		return
+	}
 	if err != nil {
+		s.writeOpsLog("pull", "error", start, map[string]any{"dry_run": false, "force": body.Force, "scope": "ui"}, err.Error())
+		if errors.Is(err, git.ErrMergeFailed) {
+			// The UI offers a force pull for this code.
+			writeCodedError(w, http.StatusConflict, "merge_failed", "git pull failed: "+err.Error(), nil)
+			return
+		}
 		writeError(w, http.StatusInternalServerError, "git pull failed: "+err.Error())
 		return
 	}
 
 	resp := pullResponse{
-		Success:  true,
-		UpToDate: info.UpToDate,
-		Commits:  info.Commits,
-		Stats:    info.Stats,
+		Success:     true,
+		UpToDate:    info.UpToDate,
+		Commits:     info.Commits,
+		Stats:       info.Stats,
+		SyncResults: make([]syncTargetResult, 0),
 	}
-
 	if resp.Commits == nil {
 		resp.Commits = make([]git.CommitInfo, 0)
 	}
 
-	// Auto-sync to targets (same logic as handleSync). The git pull above runs
-	// at the git_root scope, but skills must always sync from the skills source:
-	// when git_root is root/agents/extras, src is the config/agents/extras dir,
-	// not the skills directory, so discovering from src would mangle rel paths
-	// (e.g. skills/foo → skills__foo). Mirror the CLI, which pulls at the git
-	// root then runs `skillshare sync --global` against EffectiveSkillsSource().
-	if !info.UpToDate {
-		globalMode := s.cfg.Mode
-		if globalMode == "" {
-			globalMode = "merge"
+	// Sync what the pulled scope holds, as the CLI does. Skills always sync
+	// from the skills source, whatever directory git_root points at.
+	switch scope := s.cfg.GitRoot; {
+	case info.UpToDate:
+	case scope == "extras":
+		for _, extra := range s.syncExtras("", false, false) {
+			for _, t := range extra.Targets {
+				for _, msg := range append([]string{t.Error}, t.Errors...) {
+					if msg != "" {
+						resp.Warnings = append(resp.Warnings, fmt.Sprintf("extras sync failed for %s (%s): %s", extra.Name, t.Target, msg))
+					}
+				}
+			}
 		}
-
-		skillsSrc := s.cfg.EffectiveSkillsSource()
-
-		// Discover skills once for all targets
-		allSkills, discoverErr := ssync.DiscoverSourceSkills(skillsSrc)
-
-		ignorePatterns := ssync.EffectiveFileIgnorePatterns(s.cfg.Ignore)
-		for name, target := range s.cfg.Targets {
-			sc := target.SkillsConfig()
-			mode := sc.Mode
-			if mode == "" {
-				mode = globalMode
-			}
-
-			res := syncTargetResult{
-				Target:  name,
-				Linked:  make([]string, 0),
-				Updated: make([]string, 0),
-				Skipped: make([]string, 0),
-				Pruned:  make([]string, 0),
-			}
-
-			if discoverErr != nil {
-				resp.SyncResults = append(resp.SyncResults, res)
-				continue
-			}
-
-			switch mode {
-			case "merge":
-				mergeResult, err := ssync.SyncTargetMergeWithSkills(name, target, allSkills, skillsSrc, false, false, s.projectRoot)
-				if err == nil {
-					res.Linked = mergeResult.Linked
-					res.Updated = mergeResult.Updated
-					res.Skipped = mergeResult.Skipped
-				}
-				pruneResult, err := ssync.PruneOrphanLinksWithSkills(ssync.PruneOptions{
-					TargetPath: sc.Path, SourcePath: skillsSrc, Skills: allSkills,
-					Include: sc.Include, Exclude: sc.Exclude, TargetNaming: sc.TargetNaming, TargetName: name,
-				})
-				if err == nil {
-					res.Pruned = pruneResult.Removed
-				}
-			case "copy":
-				copyResult, err := ssync.SyncTargetCopyWithSkillsOptions(name, target, allSkills, skillsSrc, false, false, nil, ssync.CopyOptions{IgnorePatterns: ignorePatterns})
-				if err == nil {
-					res.Linked = copyResult.Copied
-					res.Updated = copyResult.Updated
-					res.Skipped = copyResult.Skipped
-				}
-				pruneResult, err := ssync.PruneOrphanCopiesWithSkills(sc.Path, allSkills, sc.Include, sc.Exclude, name, sc.TargetNaming, false)
-				if err == nil {
-					res.Pruned = pruneResult.Removed
-				}
-			default:
-				ssync.SyncTarget(name, target, skillsSrc, false, s.projectRoot)
-				res.Linked = []string{"(symlink mode)"}
-			}
-
-			resp.SyncResults = append(resp.SyncResults, res)
+	default:
+		kind := "" // root holds both
+		if scope == "" || scope == "skills" {
+			kind = kindSkill
+		} else if scope == "agents" {
+			kind = kindAgent
 		}
-	}
-
-	if resp.SyncResults == nil {
-		resp.SyncResults = make([]syncTargetResult, 0)
+		if out, _, err := s.syncResources(start, false, false, kind); err != nil {
+			resp.Warnings = append(resp.Warnings, "sync after pull failed: "+err.Error())
+		} else {
+			resp.SyncResults = out.results
+			resp.Warnings = append(resp.Warnings, out.warnings...)
+		}
 	}
 
 	s.writeOpsLog("pull", "ok", start, map[string]any{
 		"dry_run":      false,
 		"up_to_date":   resp.UpToDate,
 		"commits":      len(resp.Commits),
+		"force":        body.Force,
 		"targets_sync": len(resp.SyncResults),
 		"scope":        "ui",
 	}, "")

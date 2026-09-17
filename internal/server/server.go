@@ -374,6 +374,7 @@ func (s *Server) registerRoutes() {
 	// Resources (skills + agents)
 	s.mux.HandleFunc("GET /api/resources", s.handleListSkills)
 	s.mux.HandleFunc("GET /api/resources/templates", s.handleGetTemplates)
+	s.mux.HandleFunc("GET /api/resources/templates/preview", s.handlePreviewSkill)
 	s.mux.HandleFunc("POST /api/resources", s.handleCreateSkill)
 	s.mux.HandleFunc("GET /api/resources/{name}", s.handleGetSkill)
 	s.mux.HandleFunc("GET /api/resources/{name}/files/{filepath...}", s.handleGetSkillFile)
@@ -487,6 +488,7 @@ func (s *Server) registerRoutes() {
 
 	// Audit
 	s.mux.HandleFunc("GET /api/audit/stream", s.handleAuditStream)
+	s.mux.HandleFunc("PATCH /api/audit/policy", s.handleAuditPolicy)
 	s.mux.HandleFunc("GET /api/audit/rules/compiled", s.handleGetCompiledRules)
 	s.mux.HandleFunc("POST /api/audit/rules/toggle", s.handleToggleRule)
 	s.mux.HandleFunc("POST /api/audit/rules/reset", s.handleResetRules)
@@ -507,6 +509,7 @@ func (s *Server) registerRoutes() {
 	// Config
 	s.mux.HandleFunc("GET /api/config", s.handleGetConfig)
 	s.mux.HandleFunc("PUT /api/config", s.handlePutConfig)
+	s.mux.HandleFunc("PATCH /api/config", s.handlePatchConfig)
 	s.mux.HandleFunc("GET /api/config/available-targets", s.handleAvailableTargets)
 
 	// Skillignore

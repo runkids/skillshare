@@ -13,7 +13,22 @@ func Render(target string, s Server) (map[string]any, error) {
 	if err := s.Validate("server"); err != nil {
 		return nil, err
 	}
+	if format, ok := clientFormats[target]; ok {
+		return renderAdditionalClient(target, format, s)
+	}
 	out := map[string]any{}
+	if target == "antigravity" {
+		if s.BearerToken != nil {
+			return nil, fmt.Errorf("Antigravity: bearerToken/fromEnv is not supported; complete OAuth authentication in Antigravity")
+		}
+		for _, values := range []map[string]Value{s.Env, s.Headers} {
+			for _, value := range values {
+				if value.FromEnv != "" {
+					return nil, fmt.Errorf("Antigravity: fromEnv is not supported because native environment interpolation is not documented")
+				}
+			}
+		}
+	}
 	resolve := func(v Value) string {
 		if v.FromEnv == "" {
 			return v.Literal
@@ -28,7 +43,7 @@ func Render(target string, s Server) (map[string]any, error) {
 	}
 	if s.Command != "" {
 		out["command"] = s.Command
-		if target != "codex" && target != "grok" {
+		if target != "codex" && target != "grok" && target != "antigravity" {
 			out["type"] = "stdio"
 		}
 		if len(s.Args) > 0 {
@@ -64,6 +79,10 @@ func Render(target string, s Server) (map[string]any, error) {
 		}
 	} else {
 		out["url"] = s.URL
+		if target == "antigravity" {
+			out["serverUrl"] = s.URL
+			delete(out, "url")
+		}
 		if target == "opencode" {
 			out["type"] = "remote"
 		}

@@ -250,3 +250,96 @@ func TestHandleCreateSkill_NonePattern(t *testing.T) {
 		t.Error("SKILL.md missing 'name: plain-skill'")
 	}
 }
+
+func TestHandleCreateSkill_DescriptionAndInto(t *testing.T) {
+	s, src := newTestServer(t)
+
+	body := `{"name":"release-notes","pattern":"none","description":"Draft release notes. Use when asked what shipped.","into":"writing"}`
+	req := httptest.NewRequest(http.MethodPost, "/api/resources", bytes.NewBufferString(body))
+	rr := httptest.NewRecorder()
+	s.handler.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusCreated {
+		t.Fatalf("expected 201, got %d: %s", rr.Code, rr.Body.String())
+	}
+	var resp struct {
+		Skill struct {
+			FlatName string `json:"flatName"`
+			RelPath  string `json:"relPath"`
+		} `json:"skill"`
+	}
+	json.Unmarshal(rr.Body.Bytes(), &resp)
+	if resp.Skill.RelPath != "writing/release-notes" || resp.Skill.FlatName != "writing__release-notes" {
+		t.Errorf("expected nested paths, got relPath %q flatName %q", resp.Skill.RelPath, resp.Skill.FlatName)
+	}
+	data, err := os.ReadFile(filepath.Join(src, "writing", "release-notes", "SKILL.md"))
+	if err != nil {
+		t.Fatalf("SKILL.md not created in folder: %v", err)
+	}
+	if !strings.Contains(string(data), "description: >-\n  Draft release notes. Use when asked what shipped.\n") {
+		t.Errorf("SKILL.md missing description:\n%s", data)
+	}
+}
+
+func TestHandleCreateSkill_RejectsPathsOutsideSource(t *testing.T) {
+	s, _ := newTestServer(t)
+
+	tests := []struct{ name, body string }{
+		{"into parent", `{"name":"x","pattern":"none","into":"../outside"}`},
+		{"into absolute", `{"name":"x","pattern":"none","into":"/tmp/outside"}`},
+		{"scaffold dir on blank template", `{"name":"x","pattern":"none","scaffoldDirs":["../outside"]}`},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodPost, "/api/resources", bytes.NewBufferString(tc.body))
+			rr := httptest.NewRecorder()
+			s.handler.ServeHTTP(rr, req)
+			if rr.Code != http.StatusBadRequest {
+				t.Errorf("expected 400, got %d: %s", rr.Code, rr.Body.String())
+			}
+		})
+	}
+}
+
+func TestHandleCreateSkill_BlankTemplateScaffoldDirs(t *testing.T) {
+	s, src := newTestServer(t)
+
+	body := `{"name":"plain-dirs","pattern":"none","scaffoldDirs":["scripts","assets"]}`
+	req := httptest.NewRequest(http.MethodPost, "/api/resources", bytes.NewBufferString(body))
+	rr := httptest.NewRecorder()
+	s.handler.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusCreated {
+		t.Fatalf("expected 201, got %d: %s", rr.Code, rr.Body.String())
+	}
+	if _, err := os.Stat(filepath.Join(src, "plain-dirs", "scripts", ".gitkeep")); err != nil {
+		t.Errorf("scripts/ not created: %v", err)
+	}
+}
+
+func TestHandlePreviewSkill(t *testing.T) {
+	s, src := newTestServer(t)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/resources/templates/preview?name=code-review&pattern=reviewer&category=quality&description=Review+code&into=team", nil)
+	rr := httptest.NewRecorder()
+	s.handler.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rr.Code, rr.Body.String())
+	}
+	var resp struct {
+		Content string `json:"content"`
+		Path    string `json:"path"`
+	}
+	json.Unmarshal(rr.Body.Bytes(), &resp)
+	want := skill.WithDescription(skill.GenerateContent("code-review", "reviewer", "quality"), "Review code")
+	if resp.Content != want {
+		t.Errorf("preview differs from created content:\n%s", resp.Content)
+	}
+	if resp.Path != filepath.Join(src, "team", "code-review", "SKILL.md") {
+		t.Errorf("unexpected path %q", resp.Path)
+	}
+	if _, err := os.Stat(filepath.Join(src, "team")); !os.IsNotExist(err) {
+		t.Error("preview must not create anything on disk")
+	}
+}

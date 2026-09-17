@@ -10,20 +10,15 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 const variantClasses = {
-  primary: 'bg-pencil text-paper border-2 border-pencil hover:bg-pencil/85',
-  secondary: 'bg-transparent text-pencil border-2 border-muted-dark hover:bg-muted/30 hover:border-pencil hover:shadow-sm',
-  danger: 'bg-transparent text-danger border-2 border-danger hover:bg-danger hover:text-white',
-  warning: 'bg-transparent text-warning border-2 border-warning hover:bg-warning hover:text-white',
-  ghost: 'bg-transparent text-pencil-light hover:text-pencil hover:bg-muted/30',
-  link: 'bg-transparent text-pencil-light hover:text-pencil hover:underline border-none',
+  primary: 'ss-btn pri',
+  secondary: 'ss-btn',
+  danger: 'ss-btn dng',
+  warning: 'ss-btn text-warn border-warn',
+  ghost: 'ss-btn ghost',
+  link: 'inline-flex items-center gap-1.5 text-[13px] font-medium text-link hover:underline cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed',
 };
 
-const sizeClasses = {
-  xs: 'px-2 py-1 text-xs',
-  sm: 'px-3 py-1.5 text-sm',
-  md: 'px-5 py-2.5 text-sm',
-  lg: 'px-6 py-3 text-base',
-};
+const sizeClasses = { xs: 'sm', sm: 'sm', md: '', lg: 'lg' };
 
 export default function Button({
   children,
@@ -32,33 +27,20 @@ export default function Button({
   className = '',
   disabled,
   loading = false,
-  style,
+  type = 'button',
   ref,
   ...props
 }: ButtonProps) {
   const isLink = variant === 'link';
-  const isGhostOrLink = variant === 'ghost' || variant === 'link';
-  const isDisabled = disabled || loading;
   return (
     <button
       ref={ref}
-      className={`
-        ${isGhostOrLink ? '' : 'ss-btn'}
-        inline-flex items-center justify-center gap-2
-        font-medium
-        transition-all duration-150 cursor-pointer
-        active:scale-[0.98]
-        focus-visible:ring-2 focus-visible:ring-pencil/20 focus-visible:ring-offset-2
-        disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100
-        ${variantClasses[variant]}
-        ${isLink ? 'text-sm p-0' : `${sizeClasses[size]} rounded-[var(--radius-btn)]`}
-        ${className}
-      `}
-      style={style}
-      disabled={isDisabled}
+      type={type}
+      className={`${variantClasses[variant]} ${isLink ? '' : sizeClasses[size]} ${className}`}
+      disabled={disabled || loading}
       {...props}
     >
-      {loading && <Spinner size="sm" className="text-current" />}
+      {loading && (isLink ? <Spinner size="sm" className="text-current" /> : <span className="spin animate-spin" aria-hidden="true" />)}
       {children}
     </button>
   );

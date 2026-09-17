@@ -42,7 +42,7 @@ func TestMCPInlineLifecycle(t *testing.T) {
 }
 
 func TestMCPAdditionalClients(t *testing.T) {
-	for _, target := range []string{"opencode", "grok"} {
+	for _, target := range []string{"opencode", "grok", "antigravity", "amp", "cline", "copilot", "factory", "gemini", "goose", "junie", "kiro", "lmstudio", "warp", "windsurf"} {
 		t.Run(target, func(t *testing.T) {
 			sb := testutil.NewSandbox(t)
 			defer sb.Cleanup()

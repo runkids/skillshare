@@ -34,7 +34,7 @@ targets: {}
 
 	result := sb.RunCLI("push")
 
-	result.AssertSuccess(t) // Command succeeds but shows error message
+	result.AssertFailure(t)
 	result.AssertOutputContains(t, "not a git repository")
 }
 
@@ -55,7 +55,7 @@ targets: {}
 
 	result := sb.RunCLI("push")
 
-	result.AssertSuccess(t)
+	result.AssertFailure(t)
 	result.AssertOutputContains(t, "No git remote")
 }
 

@@ -1,16 +1,16 @@
-import { useState, useCallback } from 'react';
-import { List, GitCompare, Unlock, EyeOff } from 'lucide-react';
+import { useCallback, useState } from 'react';
 import type { EditorView } from '@codemirror/view';
 import type { ValidationError } from '../../hooks/useYamlValidation';
 import type { DiffResult } from '../../hooks/useLineDiff';
-import Badge from '../Badge';
-import ConfigStatusBar from './ConfigStatusBar';
+import { useT } from '../../i18n';
 import ErrorList from './ErrorList';
 import FieldDocs from './FieldDocs';
 import StructureTree from './StructureTree';
 import DiffPreview from './DiffPreview';
 
-type LockedView = 'auto' | 'structure' | 'diff';
+type View = 'field' | 'structure' | 'changes';
+
+const VIEWS: View[] = ['field', 'structure', 'changes'];
 
 interface Props {
   errors: ValidationError[];
@@ -20,14 +20,13 @@ interface Props {
   source: string;
   diff: DiffResult;
   editorRef: React.RefObject<EditorView | null>;
-  collapsed: boolean;
-  onToggleCollapse: () => void;
   onRevert: () => void;
   mode?: 'config' | 'skillignore' | 'agentignore';
   ignoredSkills?: string[];
   ignoredAgents?: string[];
 }
 
+/** The panel beside the editor: what the cursor is on, the file's shape, or what changed. */
 export default function AssistantPanel({
   errors,
   changeCount,
@@ -36,158 +35,101 @@ export default function AssistantPanel({
   source,
   diff,
   editorRef,
-  collapsed,
-  onToggleCollapse,
   onRevert,
   mode = 'config',
   ignoredSkills = [],
   ignoredAgents = [],
 }: Props) {
-  const [lockedView, setLockedView] = useState<LockedView>('auto');
+  const t = useT();
+  const [view, setView] = useState<View>('field');
 
   const jumpToLine = useCallback(
     (line: number) => {
-      const view = editorRef.current;
-      if (!view) return;
-      const lineInfo = view.state.doc.line(Math.min(line, view.state.doc.lines));
-      view.dispatch({ selection: { anchor: lineInfo.from }, scrollIntoView: true });
-      view.focus();
+      const editor = editorRef.current;
+      if (!editor) return;
+      const info = editor.state.doc.line(Math.min(line, editor.state.doc.lines));
+      editor.dispatch({ selection: { anchor: info.from }, scrollIntoView: true });
+      editor.focus();
     },
     [editorRef],
   );
 
-  const handleErrorsClick = useCallback(() => {
-    // Scroll to errors view — just ensure auto mode shows ErrorList
-    setLockedView('auto');
-  }, []);
-
-  const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent) => {
-      if (e.key === 'Escape' && lockedView !== 'auto') {
-        setLockedView('auto');
-      }
-    },
-    [lockedView],
-  );
-
-  const toggleLock = useCallback((view: 'structure' | 'diff') => {
-    setLockedView(prev => (prev === view ? 'auto' : view));
-  }, []);
-
-  // Determine which context panel to render
-  const renderContextArea = () => {
-    if (mode === 'skillignore' || mode === 'agentignore') {
-      const isAgent = mode === 'agentignore';
-      const items = isAgent ? ignoredAgents : ignoredSkills;
-      const label = isAgent ? 'Ignored Agents' : 'Ignored Skills';
-      const emptyLabel = isAgent ? 'No agents ignored yet.' : 'No skills ignored yet.';
-      return (
-        <div className="flex flex-col gap-1 p-3">
-          <p className="text-xs font-medium text-pencil-light uppercase tracking-wide mb-2 flex items-center gap-1.5">
-            <EyeOff size={12} strokeWidth={2} />
-            {label}
-          </p>
-          {items.length === 0 ? (
-            <p className="text-xs text-pencil-light italic">{emptyLabel}</p>
-          ) : (
-            <ul className="flex flex-col gap-0.5">
-              {items.map(item => (
-                <li key={item} className="text-xs text-pencil font-mono bg-paper rounded px-2 py-0.5">
-                  {item}
-                </li>
-              ))}
-            </ul>
-          )}
+  if (mode !== 'config') {
+    const agents = mode === 'agentignore';
+    const items = agents ? ignoredAgents : ignoredSkills;
+    return (
+      <div className="ss-box flex flex-col gap-3.5 !p-3.5">
+        <div className="flex items-center justify-between gap-3">
+          <span className="text-[13px] font-semibold">{t(agents ? 'config.ignore.ignoredAgents' : 'config.ignore.ignoredSkills')}</span>
+          <span className="text-xs text-ink-3">{items.length}</span>
         </div>
-      );
-    }
+        {items.length === 0 ? (
+          <p className="text-[13px] text-ink-3">{t(agents ? 'config.ignore.noneAgents' : 'config.ignore.noneSkills')}</p>
+        ) : (
+          <div className="ss-list !shadow-none max-h-[420px] overflow-y-auto">
+            {items.map((item) => (
+              <div key={item} className="ss-r !min-h-[34px] !px-2.5">
+                <span className="min-w-0 flex-1 truncate font-mono text-[13px]">{item}</span>
+              </div>
+            ))}
+          </div>
+        )}
+        <p className="text-xs text-ink-3">{t('config.ignore.syntaxNote')}</p>
+      </div>
+    );
+  }
 
-    // Config mode
-    if (lockedView === 'structure') {
-      return <StructureTree source={source} cursorLine={cursorLine} parseError={errors.some(e => e.severity === 'error')} onClickNode={jumpToLine} />;
-    }
-
-    if (lockedView === 'diff') {
-      return <DiffPreview diff={diff} onClickLine={jumpToLine} onRevert={onRevert} />;
-    }
-
-    // Auto mode
-    if (errors.length > 0) {
-      return <ErrorList errors={errors} onClickError={jumpToLine} />;
-    }
-
-    if (fieldPath) {
-      return <FieldDocs fieldPath={fieldPath} />;
-    }
-
-    return <StructureTree source={source} cursorLine={cursorLine} parseError={errors.some(e => e.severity === 'error')} onClickNode={jumpToLine} />;
-  };
+  const errorCount = errors.filter((e) => e.severity === 'error').length;
+  const warningCount = errors.length - errorCount;
 
   return (
-    <div
-      className="ss-assistant-panel flex flex-col h-full overflow-hidden border-l border-muted bg-surface"
-      onKeyDown={handleKeyDown}
-    >
-      {/* Status bar */}
-      <ConfigStatusBar
-        errors={errors}
-        changeCount={changeCount}
-        collapsed={collapsed}
-        onToggleCollapse={onToggleCollapse}
-        onErrorsClick={handleErrorsClick}
-        mode={mode}
-      />
+    <div className="ss-box flex flex-col gap-3.5 !p-3.5">
+      <div className="flex items-center justify-between gap-3">
+        {errors.length === 0 ? (
+          <span className="ss-st ok">Valid YAML</span>
+        ) : (
+          <span className={`ss-st ${errorCount > 0 ? 'bad' : 'warn'}`}>
+            {[
+              errorCount > 0 && t(errorCount === 1 ? 'config.panel.errors.one' : 'config.panel.errors.other', { count: errorCount }),
+              warningCount > 0 && t(warningCount === 1 ? 'config.panel.warnings.one' : 'config.panel.warnings.other', { count: warningCount }),
+            ].filter(Boolean).join(', ')}
+          </span>
+        )}
+        <span className="text-xs text-ink-3">
+          {errorCount > 0
+            ? t('config.panel.saveBlocked')
+            : changeCount > 0
+              ? t(changeCount === 1 ? 'config.panel.changes.one' : 'config.panel.changes.other', { count: changeCount })
+              : t('config.panel.noChanges')}
+        </span>
+      </div>
 
-      {/* Context area */}
-      <div className="ss-panel-content h-[500px] overflow-y-auto animate-fade-in">{renderContextArea()}</div>
-
-      {/* Bottom bar — config mode only */}
-      {mode === 'config' && (
-        <div className="ss-panel-toolbar flex items-center gap-2 px-2 py-1.5 border-t border-muted/40 bg-paper">
-          <div className="ss-panel-tabs inline-flex items-center p-0.5 bg-muted/20 border border-muted/40 rounded-[var(--radius-sm)]">
-            <button
-              type="button"
-              aria-pressed={lockedView === 'structure'}
-              onClick={() => toggleLock('structure')}
-              className={`ss-panel-tab inline-flex items-center gap-1.5 px-2.5 py-1 rounded-[3px] text-xs font-medium transition-all duration-150 cursor-pointer ${
-                lockedView === 'structure'
-                  ? 'bg-surface text-pencil shadow-sm'
-                  : 'text-pencil-light hover:text-pencil'
-              }`}
-            >
-              <List size={12} strokeWidth={2} />
-              Structure
-            </button>
-            <button
-              type="button"
-              aria-pressed={lockedView === 'diff'}
-              onClick={() => toggleLock('diff')}
-              className={`ss-panel-tab inline-flex items-center gap-1.5 px-2.5 py-1 rounded-[3px] text-xs font-medium transition-all duration-150 cursor-pointer ${
-                lockedView === 'diff'
-                  ? 'bg-surface text-pencil shadow-sm'
-                  : 'text-pencil-light hover:text-pencil'
-              }`}
-            >
-              <GitCompare size={12} strokeWidth={2} />
-              Diff
-            </button>
+      {errors.length > 0 ? (
+        <>
+          <div className="max-h-[420px] overflow-y-auto">
+            <ErrorList errors={errors} onClickError={jumpToLine} />
           </div>
-
-          <span className="flex-1" />
-
-          {lockedView !== 'auto' && (
-            <button
-              type="button"
-              onClick={() => setLockedView('auto')}
-              className="transition-all duration-150"
-            >
-              <Badge variant="default">
-                <Unlock size={10} strokeWidth={2} />
-                Auto
-              </Badge>
-            </button>
-          )}
-        </div>
+          <p className="text-xs text-ink-3">{t('config.panel.errorHint')}</p>
+        </>
+      ) : (
+        <>
+          <div className="ss-seg self-start" role="radiogroup" aria-label={t('settings.tab.files')}>
+            {VIEWS.map((v) => (
+              <button key={v} type="button" role="radio" aria-checked={view === v} className={view === v ? 'on' : ''} onClick={() => setView(v)}>
+                {t(`config.panel.tab.${v}`)}
+              </button>
+            ))}
+          </div>
+          <div className="max-h-[420px] overflow-y-auto">
+            {view === 'field' ? (
+              fieldPath ? <FieldDocs fieldPath={fieldPath} /> : <p className="text-[13px] text-ink-3">{t('config.panel.fieldHint')}</p>
+            ) : view === 'structure' ? (
+              <StructureTree source={source} cursorLine={cursorLine} parseError={false} onClickNode={jumpToLine} />
+            ) : (
+              <DiffPreview diff={diff} onClickLine={jumpToLine} onRevert={onRevert} />
+            )}
+          </div>
+        </>
       )}
     </div>
   );

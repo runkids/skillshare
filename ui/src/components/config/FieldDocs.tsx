@@ -1,7 +1,6 @@
 import { useMemo } from 'react';
-import { BookOpen, HelpCircle } from 'lucide-react';
 import { fieldDocs, type FieldDoc } from '../../lib/fieldDocs';
-import Badge from '../Badge';
+import { useT } from '../../i18n';
 
 interface FieldDocsProps {
   fieldPath: string | null;
@@ -72,72 +71,38 @@ function lookupFieldDoc(fieldPath: string | null, docsMap: Record<string, FieldD
 }
 
 export default function FieldDocs({ fieldPath, docs }: FieldDocsProps) {
+  const t = useT();
   const docsMap = docs ?? fieldDocs;
   const doc = useMemo(() => lookupFieldDoc(fieldPath, docsMap), [fieldPath, docsMap]);
 
-  if (!fieldPath) {
-    return (
-      <div className="flex flex-col items-center justify-center gap-3 py-10 px-4 text-center text-pencil-light animate-fade-in">
-        <BookOpen size={32} strokeWidth={1.2} className="opacity-25" />
-        <p className="text-sm">Move cursor to a field to see documentation</p>
-      </div>
-    );
-  }
+  if (!fieldPath) return <p className="text-[13px] text-ink-3">{t('config.panel.fieldHint')}</p>;
 
   if (!doc) {
     return (
-      <div className="flex flex-col items-start gap-2 px-3 py-4 animate-fade-in">
-        <Badge variant="warning">
-          <HelpCircle size={12} strokeWidth={2} />
-          Unknown field
-        </Badge>
-        <p className="text-sm text-pencil-light font-mono break-all">{fieldPath}</p>
+      <div className="flex flex-col items-start gap-2">
+        <span className="ss-tag warn">{t('config.panel.unknownField')}</span>
+        <p className="break-all font-mono text-[13px] text-ink-2">{fieldPath}</p>
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col gap-3 px-3 py-3 text-sm animate-fade-in">
-      {/* Field path */}
-      <div className="flex items-center gap-1.5">
-        <BookOpen size={13} strokeWidth={2} className="text-info flex-shrink-0" />
-        <Badge variant="info">{fieldPath}</Badge>
-      </div>
-
-      {/* Separator */}
-      <div className="border-t border-dashed border-pencil-light/30" />
-
-      {/* Description */}
-      <p className="text-sm text-pencil leading-relaxed">{doc.description}</p>
-
-      {/* Type */}
-      <div className="flex items-center gap-2">
-        <span className="text-[10px] font-medium text-muted-dark uppercase tracking-wider">Type</span>
-        <Badge variant="default">{doc.type}</Badge>
-      </div>
-
-      {/* Allowed values */}
-      {doc.allowedValues && doc.allowedValues.length > 0 && (
-        <>
-          <div className="border-t border-dashed border-pencil-light/30" />
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-[10px] font-medium text-muted-dark uppercase tracking-wider">Values</span>
-            <div className="flex flex-wrap gap-1">
-              {doc.allowedValues.map(val => (
-                <Badge key={val} variant="accent" size="sm">{val}</Badge>
-              ))}
-            </div>
-          </div>
-        </>
-      )}
-
-      {/* Example */}
-      <div className="border-t border-dashed border-pencil-light/30" />
+    <div className="flex flex-col gap-3">
+      <span className="ss-tag self-start font-mono">{fieldPath}</span>
+      <p className="text-[13px] leading-relaxed">{doc.description}</p>
+      <dl className="ss-kv !grid-cols-[64px_minmax(0,1fr)]">
+        <dt>{t('resources.table.type')}</dt>
+        <dd className="font-mono">{doc.type}</dd>
+        {doc.allowedValues && doc.allowedValues.length > 0 && (
+          <>
+            <dt>{t('config.panel.fieldValues')}</dt>
+            <dd className="font-mono">{doc.allowedValues.join(', ')}</dd>
+          </>
+        )}
+      </dl>
       <div className="flex flex-col gap-1.5">
-        <span className="text-[10px] font-medium text-muted-dark uppercase tracking-wider">Example</span>
-        <pre className="text-xs bg-paper border border-dashed border-pencil-light/30 rounded-lg p-2.5 font-mono text-pencil overflow-x-auto whitespace-pre-wrap break-all">
-          {doc.example}
-        </pre>
+        <span className="text-[12px] font-semibold text-ink-3">{t('config.panel.fieldExample')}</span>
+        <pre className="ss-code !whitespace-pre-wrap break-all !px-3 !py-2.5">{doc.example}</pre>
       </div>
     </div>
   );

@@ -18,15 +18,15 @@ import (
 
 // DiffStats holds git diff statistics
 type DiffStats struct {
-	FilesChanged int
-	Insertions   int
-	Deletions    int
+	FilesChanged int `json:"filesChanged"`
+	Insertions   int `json:"insertions"`
+	Deletions    int `json:"deletions"`
 }
 
 // CommitInfo holds a single commit info
 type CommitInfo struct {
-	Hash    string
-	Message string
+	Hash    string `json:"hash"`
+	Message string `json:"message"`
 }
 
 // UpdateInfo holds info about changes from an update
@@ -495,13 +495,12 @@ func PushRemoteWithAuth(dir string) error {
 }
 
 // PushRemoteWithEnv pushes to the default remote with additional environment
-// variables. Error output is sanitized of credential values via WrapGitError.
+// variables, setting upstream on the first push (see PushArgs). Error output is
+// sanitized of credential values via WrapGitError.
 func PushRemoteWithEnv(dir string, extraEnv []string) error {
-	cmd := exec.Command("git", "push")
+	cmd := exec.Command("git", PushArgs(dir, extraEnv)...)
 	cmd.Dir = dir
-	if len(extraEnv) > 0 {
-		cmd.Env = append(os.Environ(), extraEnv...)
-	}
+	cmd.Env = append(append(os.Environ(), "LC_ALL=C"), extraEnv...)
 
 	var outBuf bytes.Buffer
 	cmd.Stdout = &outBuf
@@ -512,6 +511,111 @@ func PushRemoteWithEnv(dir string, extraEnv []string) error {
 		return install.WrapGitError(outBuf.String(), err, install.UsedTokenAuth(extraEnv))
 	}
 	return nil
+}
+
+// PushArgs returns the git push arguments for dir. The first push sets
+// upstream, targeting origin's default branch when it is named differently
+// from the local branch (origin is fetched to find it). Later pushes name a
+// differently named upstream branch explicitly, which push.default=simple
+// otherwise refuses.
+func PushArgs(dir string, extraEnv []string) []string {
+	local, err := GetCurrentBranch(dir)
+	if err != nil {
+		local = "main"
+	}
+	if !HasUpstream(dir) {
+		fetch := exec.Command("git", "fetch", "origin")
+		fetch.Dir = dir
+		fetch.Env = append(os.Environ(), extraEnv...)
+		if fetch.Run() == nil {
+			if remote, err := GetRemoteDefaultBranch(dir); err == nil && remote != local {
+				return []string{"push", "-u", "origin", local + ":" + remote}
+			}
+		}
+		return []string{"push", "-u", "origin", local}
+	}
+	upstream, _ := GetTrackingBranch(dir)
+	if remote, branch, ok := strings.Cut(upstream, "/"); ok && remote != "" && branch != "" && branch != local {
+		return []string{"push", remote, "HEAD:" + branch}
+	}
+	return []string{"push"}
+}
+
+// AheadCount returns how many commits on HEAD are not on any remote-tracking
+// branch, which is what a push would upload. It returns 0 when unknown, e.g.
+// before the first commit.
+func AheadCount(dir string) int {
+	cmd := exec.Command("git", "rev-list", "--count", "HEAD", "--not", "--remotes")
+	cmd.Dir = dir
+	out, err := cmd.Output()
+	if err != nil {
+		return 0
+	}
+	n, _ := strconv.Atoi(strings.TrimSpace(string(out)))
+	return n
+}
+
+// ErrMergeFailed reports that merging origin's history during a first pull
+// failed, usually on a conflict. The merge has been aborted.
+var ErrMergeFailed = errors.New("merging remote history failed")
+
+// FirstPull attaches a branch without upstream tracking to origin's default
+// branch. Local directories are kept by merging the remote history (it may be
+// unrelated); with force, or with nothing local, the branch is reset to the
+// remote instead. Returns ErrNoRemoteBranches while origin is still empty.
+func FirstPull(dir string, force bool) (*UpdateInfo, error) {
+	authEnv := AuthEnvForRepo(dir)
+	fetch := exec.Command("git", "fetch", "origin")
+	fetch.Dir = dir
+	fetch.Env = append(append(os.Environ(), "LC_ALL=C"), authEnv...)
+	if out, err := fetch.CombinedOutput(); err != nil {
+		return nil, install.WrapGitError(string(out), err, install.UsedTokenAuth(authEnv))
+	}
+
+	branch, err := GetRemoteDefaultBranch(dir)
+	if err != nil {
+		return nil, err
+	}
+	hasLocal, err := HasLocalSkillDirs(dir)
+	if err != nil {
+		return nil, err
+	}
+
+	info := &UpdateInfo{}
+	info.BeforeHash, _ = GetCurrentFullHash(dir) // empty before the first commit
+	remote := "origin/" + branch
+	if hasLocal && !force {
+		merge := exec.Command("git", "-c", "merge.ff=false", "merge", "--allow-unrelated-histories", "--no-edit", remote)
+		merge.Dir = dir
+		if out, err := merge.CombinedOutput(); err != nil {
+			abort := exec.Command("git", "merge", "--abort")
+			abort.Dir = dir
+			abort.Run() // best-effort cleanup
+			return nil, fmt.Errorf("%w with %s: %s", ErrMergeFailed, remote, strings.TrimSpace(string(out)))
+		}
+	} else {
+		reset := exec.Command("git", "reset", "--hard", remote)
+		reset.Dir = dir
+		if out, err := reset.CombinedOutput(); err != nil {
+			return nil, fmt.Errorf("reset to %s failed: %s", remote, strings.TrimSpace(string(out)))
+		}
+	}
+
+	local, _ := GetCurrentBranch(dir)
+	if local == "" {
+		local = "main"
+	}
+	track := exec.Command("git", "branch", "--set-upstream-to="+remote, local)
+	track.Dir = dir
+	track.Run() // best-effort
+
+	info.AfterHash, _ = GetCurrentFullHash(dir)
+	info.UpToDate = info.BeforeHash == info.AfterHash
+	if info.BeforeHash != "" && !info.UpToDate {
+		info.Commits, _ = GetCommitsBetween(dir, info.BeforeHash, info.AfterHash)
+		info.Stats, _ = GetDiffStats(dir, info.BeforeHash, info.AfterHash)
+	}
+	return info, nil
 }
 
 // GetStatus returns git status --porcelain output

@@ -1,38 +1,24 @@
-import { useState, useEffect, useRef, useCallback, useMemo, useDeferredValue, forwardRef } from 'react';
-import { useT } from '../i18n';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import {
-  ArrowUpCircle, RefreshCw, Search, Check, Zap, Trash2,
-  Circle, CheckCircle, XCircle, MinusCircle, ShieldAlert, Loader2,
-  LayoutGrid, Users, Globe, Cloud, Puzzle, Bot, AlertTriangle, DownloadCloud,
-} from 'lucide-react';
-import { Virtuoso } from 'react-virtuoso';
-import Card from '../components/Card';
-import Button from '../components/Button';
-import SplitButton from '../components/SplitButton';
-import PageHeader from '../components/PageHeader';
-import EmptyState from '../components/EmptyState';
-import Badge from '../components/Badge';
-import SegmentedControl from '../components/SegmentedControl';
-import StreamProgressBar from '../components/StreamProgressBar';
-import KindBadge from '../components/KindBadge';
-import SourceBadge, { resolveSource } from '../components/SourceBadge';
-import { PageSkeleton } from '../components/Skeleton';
-import { Input } from '../components/Input';
-import { Checkbox } from '../components/Checkbox';
-import { useToast } from '../components/Toast';
+import { Bot, CircleAlert, CircleArrowUp, CircleCheck, FolderX, GitBranch, Loader2, Puzzle, RefreshCw, Trash2 } from 'lucide-react';
 import { api } from '../api/client';
-import type { CheckResult, UpdateResultItem } from '../api/client';
+import type { CheckResult, Skill, UpdateResultItem } from '../api/client';
 import { queryKeys, staleTimes } from '../lib/queryKeys';
 import { clearAuditCache } from '../lib/auditCache';
-import { globToRegex } from '../lib/glob';
-import { radius } from '../design';
+import { parseRemoteURL } from '../lib/parseRemoteURL';
+import { formatTrackedRepoName } from '../lib/resourceNames';
+import { formatRelativeTime, useI18n, useT } from '../i18n';
+import Button from '../components/Button';
+import { Checkbox } from '../components/Checkbox';
+import EmptyState from '../components/EmptyState';
+import { useToast } from '../components/Toast';
 
-/* ── Types ──────────────────────────────────────────── */
+/* -- Types ---------------------------------------- */
 
-type UpdatePhase = 'selecting' | 'updating' | 'done';
+type Kind = Skill['kind'];
 
-type CheckStatus = 'unchecked' | 'checking' | 'behind' | 'up-to-date' | 'update-available' | 'error';
+type CheckStatus = 'unchecked' | 'checking' | 'behind' | 'dirty' | 'up-to-date' | 'update-available' | 'error';
 
 interface CheckItemStatus {
   status: CheckStatus;
@@ -41,14 +27,9 @@ interface CheckItemStatus {
   checkedAt?: string;
 }
 
-const CHECK_STATUS_VALUES: CheckStatus[] = [
-  'unchecked',
-  'checking',
-  'behind',
-  'up-to-date',
-  'update-available',
-  'error',
-];
+type CheckStatuses = Map<string, CheckItemStatus>;
+
+const CHECK_STATUS_VALUES: CheckStatus[] = ['unchecked', 'checking', 'behind', 'dirty', 'up-to-date', 'update-available', 'error'];
 const UPDATE_CHECK_CACHE_KEY = 'skillshare.updateCheckCache.global';
 const UPDATE_CHECK_CACHE_VERSION = 1;
 
@@ -57,319 +38,197 @@ interface StoredCheckCache {
   items: Record<string, CheckItemStatus>;
 }
 
-type TypeFilter = 'all' | 'tracked' | 'github' | 'remote';
-
-type ResourceTab = 'skills' | 'agents';
-
-interface UpdatableItem {
+/** One thing the update API can act on: a whole tracked repo, or a single installed item. */
+export interface UpdateUnit {
+  /** Name sent to the update API: the repo directory, or the item's relative path. */
   name: string;
-  flatName: string;
-  kind: 'skill' | 'agent';
-  isInRepo: boolean;
+  label: string;
+  isRepo: boolean;
+  items: Skill[];
   source?: string;
-  type?: string;
-  relPath: string;
-  installedAt?: string;
 }
 
-interface ItemUpdateStatus {
-  name: string;
-  kind?: 'skill' | 'agent';
-  isRepo: boolean;
-  status: 'pending' | 'in-progress' | 'success' | 'error' | 'blocked' | 'skipped';
+type RunStatus = 'pending' | 'in-progress' | 'success' | 'error' | 'blocked' | 'skipped';
+
+interface RunState {
+  status: RunStatus;
   message?: string;
   auditRiskLabel?: string;
 }
 
-/* ── Component ──────────────────────────────────────── */
+/* -- Shared check state --------------------------- */
 
-export default function UpdatePage() {
+const NO_STATUSES: CheckStatuses = new Map();
+
+/** Check results survive navigation (query cache) and reloads (localStorage). */
+export function useCheckStatuses() {
+  const queryClient = useQueryClient();
+  const { data } = useQuery({
+    queryKey: queryKeys.updateCheck,
+    queryFn: readStoredCheckStatuses,
+    initialData: readStoredCheckStatuses,
+    staleTime: Infinity,
+  });
+  const setStatuses = useCallback((fn: (prev: CheckStatuses) => CheckStatuses) => {
+    const next = fn(queryClient.getQueryData<CheckStatuses>(queryKeys.updateCheck) ?? new Map());
+    queryClient.setQueryData(queryKeys.updateCheck, next);
+    if (![...next.values()].some((s) => s.status === 'checking')) writeStoredCheckStatuses(next);
+  }, [queryClient]);
+  return [data ?? NO_STATUSES, setStatuses] as const;
+}
+
+export function updateUnits(resources: Skill[], kind: Kind): UpdateUnit[] {
+  const repos = new Map<string, UpdateUnit>();
+  const units: UpdateUnit[] = [];
+  for (const s of resources) {
+    if (s.kind !== kind || !(s.isInRepo || s.source)) continue;
+    if (!s.isInRepo) {
+      units.push({ name: s.relPath, label: s.name, isRepo: false, items: [s], source: s.source });
+      continue;
+    }
+    const dir = s.relPath.split('/')[0];
+    let unit = repos.get(dir);
+    if (!unit) {
+      unit = { name: dir, label: formatTrackedRepoName(dir), isRepo: true, items: [], source: s.repoUrl ?? s.source };
+      repos.set(dir, unit);
+      units.push(unit);
+    }
+    unit.items.push(s);
+  }
+  return units.sort((a, b) => a.label.localeCompare(b.label));
+}
+
+/** Repo status is copied to every item in the repo, so the first item speaks for the unit. */
+function unitCheck(statuses: CheckStatuses, unit: UpdateUnit): CheckItemStatus {
+  return statuses.get(unit.items[0].name) ?? { status: 'unchecked' };
+}
+
+export function hasUpdate(status: CheckItemStatus) {
+  return status.status === 'behind' || status.status === 'update-available';
+}
+
+export function countUpdates(statuses: CheckStatuses, units: UpdateUnit[]) {
+  return units.filter((u) => hasUpdate(unitCheck(statuses, u))).length;
+}
+
+/* -- Tab ------------------------------------------ */
+
+export default function UpdatePage({ kind }: { kind: Kind }) {
   const t = useT();
+  const { locale } = useI18n();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  // Phase state machine
-  const [phase, setPhase] = useState<UpdatePhase>('selecting');
-
-  // Data: skills list
-  const { data: skillsData, isPending } = useQuery({
+  const { data: skillsData } = useQuery({
     queryKey: queryKeys.skills.all,
     queryFn: () => api.listSkills(),
     staleTime: staleTimes.skills,
   });
-
   // Tracked repos declared in metadata but missing on disk (issue #212)
   const { data: missingReposData } = useQuery({
     queryKey: queryKeys.missingTrackedRepos,
     queryFn: () => api.missingTrackedRepos(),
     staleTime: staleTimes.missingTrackedRepos,
   });
-  const missingTrackedRepos = missingReposData?.repos ?? [];
-  const [rehydrating, setRehydrating] = useState(false);
-  const allSkills = skillsData?.resources ?? [];
+  const missingRepos = missingReposData?.repos ?? [];
 
-  // Tab state (skills vs agents)
-  const [activeTab, setActiveTab] = useState<ResourceTab>('skills');
+  const resources = useMemo(() => skillsData?.resources ?? [], [skillsData]);
+  // A full check covers both kinds, so results are applied to every updatable item.
+  const updatable = useMemo(() => resources.filter((s) => s.isInRepo || s.source), [resources]);
+  const units = useMemo(() => updateUnits(resources, kind), [resources, kind]);
 
-  // All updatable items (both skills and agents): tracked repos + GitHub-installed
-  const allUpdatableItems: UpdatableItem[] = useMemo(
-    () =>
-      allSkills
-        .filter((s) => s.isInRepo || s.source)
-        .map((s) => ({
-          name: s.name,
-          flatName: s.flatName,
-          kind: s.kind,
-          isInRepo: s.isInRepo,
-          source: s.source,
-          type: s.type,
-          relPath: s.relPath,
-          installedAt: s.installedAt,
-        })),
-    [allSkills],
-  );
-
-  // Tab counts
-  const skillTabCount = useMemo(
-    () => allUpdatableItems.filter((i) => i.kind !== 'agent').length,
-    [allUpdatableItems],
-  );
-  const agentTabCount = useMemo(
-    () => allUpdatableItems.filter((i) => i.kind === 'agent').length,
-    [allUpdatableItems],
-  );
-
-  // Tab-scoped items
-  const updatableItems: UpdatableItem[] = useMemo(
-    () =>
-      activeTab === 'agents'
-        ? allUpdatableItems.filter((i) => i.kind === 'agent')
-        : allUpdatableItems.filter((i) => i.kind !== 'agent'),
-    [allUpdatableItems, activeTab],
-  );
-
-  // Check state
-  const [checkStatuses, setCheckStatuses] = useState<Map<string, CheckItemStatus>>(() => readStoredCheckStatuses());
+  const [statuses, setStatuses] = useCheckStatuses();
   const [checking, setChecking] = useState(false);
-  const [checkMode, setCheckMode] = useState<'all' | 'selected' | null>(null);
-  const esRef = useRef<EventSource | null>(null);
-  const startTimeRef = useRef<number>(0);
-
-  // Selection state
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [force, setForce] = useState(false);
+  const [run, setRun] = useState<Map<string, RunState>>(new Map());
+  const [running, setRunning] = useState(false);
+  const [finished, setFinished] = useState(false);
+  const [rehydrating, setRehydrating] = useState(false);
+  const esRef = useRef<EventSource | null>(null);
 
-  // Filter state
-  const [search, setSearch] = useState('');
-  const [typeFilter, setTypeFilter] = useState<TypeFilter>('all');
-  const deferredSearch = useDeferredValue(search);
+  useEffect(() => () => esRef.current?.close(), []);
 
-  // Updating state
-  const [itemStatuses, setItemStatuses] = useState<ItemUpdateStatus[]>([]);
-  const itemRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const lastChecked = useMemo(() => {
+    const times = units.map((u) => unitCheck(statuses, u).checkedAt).filter((v): v is string => !!v);
+    return times.length ? times.reduce((a, b) => (a > b ? a : b)) : undefined;
+  }, [units, statuses]);
 
-  // Clean up EventSource on unmount
-  useEffect(() => {
-    return () => { esRef.current?.close(); };
-  }, []);
+  /* -- Check -- */
 
-  // Keep the last completed check in browser storage so revisiting the page
-  // does not reset every item to "unchecked".
-  useEffect(() => {
-    if ([...checkStatuses.values()].some((status) => status.status === 'checking')) return;
-    writeStoredCheckStatuses(checkStatuses);
-  }, [checkStatuses]);
-
-  // Auto-scroll to the item currently being updated
-  useEffect(() => {
-    if (phase !== 'updating') return;
-    const inProgressItem = itemStatuses.find((s) => s.status === 'in-progress');
-    if (inProgressItem) {
-      const el = itemRefs.current[inProgressItem.name];
-      if (el) {
-        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      }
-    }
-  }, [itemStatuses, phase]);
-
-  /* ── Check logic ─────────────────────────────────── */
-
-  const applyCheckResult = useCallback((result: CheckResult, filterNames?: Set<string>) => {
-    setCheckStatuses((prev) => {
+  const applyCheckResult = useCallback((result: CheckResult) => {
+    setStatuses((prev) => {
       const next = new Map(prev);
-      const pending = new Set(filterNames ?? allUpdatableItems.map((item) => item.name));
+      const pending = new Set(updatable.map((item) => item.name));
       const checkedAt = new Date().toISOString();
 
-      // Tracked repos: propagate the repo's status to every item belonging to it.
-      // The backend returns one entry per repo directory (e.g. `_awesome-claude-agents`)
-      // but the UI uses per-item keys (`api-architect`, `backend-developer`, ...).
+      // The backend returns one entry per repo directory (e.g. `_awesome-claude-agents`);
+      // copy it to every item in that repo.
       for (const repo of result.tracked_repos) {
         const repoStatus: CheckItemStatus = repo.status === 'behind'
           ? { status: 'behind', message: repo.message, behind: repo.behind, checkedAt }
-          : repo.status === 'error' || repo.status === 'dirty'
+          : repo.status === 'dirty'
+          ? { status: 'dirty', message: repo.message, checkedAt }
+          : repo.status === 'error'
           ? { status: 'error', message: repo.message, checkedAt }
           : { status: 'up-to-date', message: repo.message, checkedAt };
-        for (const item of allUpdatableItems) {
-          if (!item.isInRepo) continue;
-          if (item.relPath.split('/')[0] !== repo.name) continue;
-          if (filterNames && !filterNames.has(item.name)) continue;
+        for (const item of updatable) {
+          if (!item.isInRepo || item.relPath.split('/')[0] !== repo.name) continue;
           next.set(item.name, repoStatus);
           pending.delete(item.name);
         }
       }
 
-      // Individual non-repo skills (GitHub-installed). Backend check results use
-      // metadata relative paths for nested installs, while the list displays the
-      // basename; match all stable identifiers so nested items don't stay checking.
+      // Nested installs are reported by metadata relative path while the list shows the
+      // basename; match every stable identifier so nested items don't stay checking.
       for (const skill of result.skills) {
-        const item = allUpdatableItems.find(
-          (i) => !i.isInRepo && matchesCheckSkill(i, skill.name),
-        );
+        const item = updatable.find((i) => !i.isInRepo && matchesCheckSkill(i, skill.name));
         if (!item) continue;
-        if (filterNames && !filterNames.has(item.name)) continue;
         next.set(item.name, {
-          status: skill.status === 'update_available'
-            ? 'update-available'
-            : skill.status === 'error'
-            ? 'error'
-            : 'up-to-date',
+          status: skill.status === 'update_available' ? 'update-available' : skill.status === 'error' ? 'error' : 'up-to-date',
           checkedAt,
         });
         pending.delete(item.name);
       }
 
       for (const name of pending) {
-        if (next.get(name)?.status === 'checking') {
-          next.set(name, { status: 'error', checkedAt });
-        }
+        if (next.get(name)?.status === 'checking') next.set(name, { status: 'error', checkedAt });
       }
-
       return next;
     });
-  }, [allUpdatableItems]);
+  }, [updatable, setStatuses]);
 
-  const runCheck = useCallback((filterNames?: Set<string>) => {
+  const runCheck = useCallback(() => {
     esRef.current?.close();
     setChecking(true);
-    setCheckMode(filterNames ? 'selected' : 'all');
-    startTimeRef.current = Date.now();
-
-    // Mark items as checking. "Check All" marks every item (across both tabs)
-    // because a full scan updates results for all of them.
-    setCheckStatuses((prev) => {
+    setStatuses((prev) => {
       const next = new Map(prev);
-      if (filterNames) {
-        for (const name of filterNames) next.set(name, { status: 'checking' });
-      } else {
-        for (const item of allUpdatableItems) next.set(item.name, { status: 'checking' });
-      }
+      for (const item of updatable) next.set(item.name, { status: 'checking' });
       return next;
     });
-
     esRef.current = api.checkStream(
       () => {},
       () => {},
       () => {},
       (result) => {
-        applyCheckResult(result, filterNames);
+        applyCheckResult(result);
         setChecking(false);
-        setCheckMode(null);
       },
       (err) => {
         toast(err.message, 'error');
-        // Mark items as error
-        setCheckStatuses((prev) => {
+        setStatuses((prev) => {
           const next = new Map(prev);
           const checkedAt = new Date().toISOString();
-          if (filterNames) {
-            for (const name of filterNames) next.set(name, { status: 'error', checkedAt });
-          } else {
-            for (const item of allUpdatableItems) next.set(item.name, { status: 'error', checkedAt });
-          }
+          for (const item of updatable) next.set(item.name, { status: 'error', checkedAt });
           return next;
         });
         setChecking(false);
-        setCheckMode(null);
       },
     );
-  }, [allUpdatableItems, applyCheckResult, toast]);
+  }, [updatable, applyCheckResult, setStatuses, toast]);
 
-  const handleCheckAll = useCallback(() => runCheck(), [runCheck]);
-  const handleCheckSelected = useCallback(() => {
-    if (selected.size === 0) return;
-    runCheck(new Set(selected));
-  }, [runCheck, selected]);
-
-  /* ── Tab switching ───────────────────────────────── */
-
-  const changeTab = useCallback((tab: ResourceTab) => {
-    setActiveTab(tab);
-    setSelected(new Set());
-    setSearch('');
-    setTypeFilter('all');
-  }, []);
-
-  /* ── Filtering ───────────────────────────────────── */
-
-  const filterCounts = useMemo(() => {
-    const counts: Record<TypeFilter, number> = { all: updatableItems.length, tracked: 0, github: 0, remote: 0 };
-    for (const item of updatableItems) {
-      const source = resolveSource(item.type, item.isInRepo);
-      if (source !== 'local') counts[source]++;
-    }
-    return counts;
-  }, [updatableItems]);
-
-  const filtered = useMemo(() => {
-    let list = updatableItems;
-    if (deferredSearch.trim()) {
-      const re = globToRegex(deferredSearch.trim());
-      list = list.filter((s) => re.test(s.name) || re.test(s.relPath));
-    }
-    if (typeFilter !== 'all') {
-      list = list.filter((s) => resolveSource(s.type, s.isInRepo) === typeFilter);
-    }
-    // Sort by group (top-level directory of relPath) then by name
-    return [...list].sort((a, b) => {
-      const groupA = a.relPath.split('/')[0];
-      const groupB = b.relPath.split('/')[0];
-      if (groupA !== groupB) return groupA.localeCompare(groupB);
-      return a.name.localeCompare(b.name);
-    });
-  }, [updatableItems, deferredSearch, typeFilter]);
-
-  /* ── Selection ───────────────────────────────────── */
-
-  const toggleSelect = useCallback((name: string) => {
-    setSelected((prev) => {
-      const next = new Set(prev);
-      if (next.has(name)) {
-        next.delete(name);
-      } else {
-        next.add(name);
-      }
-      return next;
-    });
-  }, []);
-
-  const allInViewSelected = filtered.length > 0 && filtered.every((s) => selected.has(s.name));
-
-  const selectAll = useCallback(() => {
-    setSelected((prev) => {
-      const next = new Set(prev);
-      filtered.forEach((s) => next.add(s.name));
-      return next;
-    });
-  }, [filtered]);
-
-  const deselectAll = useCallback(() => {
-    setSelected((prev) => {
-      const next = new Set(prev);
-      filtered.forEach((s) => next.delete(s.name));
-      return next;
-    });
-  }, [filtered]);
-
-  /* ── Update logic ────────────────────────────────── */
+  /* -- Update -- */
 
   const invalidateSkillData = useCallback(() => {
     clearAuditCache(queryClient);
@@ -377,171 +236,92 @@ export default function UpdatePage() {
     queryClient.invalidateQueries({ queryKey: queryKeys.skills.all });
   }, [queryClient]);
 
-  const applyUpdateResultsToCheckStatuses = useCallback((results: UpdateResultItem[]) => {
+  const applyUpdateResults = useCallback((results: UpdateResultItem[]) => {
     if (results.length === 0) return;
-
-    setCheckStatuses((prev) => {
+    setStatuses((prev) => {
       const next = new Map(prev);
-      const checkedAt = new Date().toISOString();
-
+      const status: CheckItemStatus = { status: 'up-to-date', checkedAt: new Date().toISOString() };
       for (const result of results) {
         if (!isSuccessfulUpdateAction(result.action)) continue;
-
-        const status: CheckItemStatus = {
-          status: 'up-to-date',
-          message: result.message,
-          checkedAt,
-        };
-
-        if (result.isRepo) {
-          for (const item of allUpdatableItems) {
-            if (!item.isInRepo) continue;
-            if (item.relPath.split('/')[0] !== result.name) continue;
-            next.set(item.name, status);
-          }
-          continue;
+        for (const item of updatable) {
+          const hit = result.isRepo
+            ? item.isInRepo && item.relPath.split('/')[0] === result.name
+            : !item.isInRepo && matchesCheckSkill(item, result.name);
+          if (hit) next.set(item.name, { ...status, message: result.message });
         }
-
-        const item = allUpdatableItems.find(
-          (candidate) => !candidate.isInRepo && matchesCheckSkill(candidate, result.name),
-        );
-        if (item) next.set(item.name, status);
       }
-
       return next;
     });
-  }, [allUpdatableItems]);
+  }, [updatable, setStatuses]);
 
-  const handleUpdate = useCallback((opts?: { force?: boolean }) => {
-    if (selected.size === 0) return;
+  const patchRun = useCallback((name: string, patch: RunState) => {
+    setRun((prev) => new Map(prev).set(name, patch));
+  }, []);
 
-    // Repo deduplication: multiple skills in same repo -> one update
-    const seenRepos = new Set<string>();
-    const names: string[] = [];
-    const items: ItemUpdateStatus[] = [];
+  const startUpdate = useCallback((names: string[], forceUpdate: boolean) => {
+    if (names.length === 0) return;
+    esRef.current?.close();
+    setRun(new Map(names.map((n) => [n, { status: 'pending' }])));
+    setRunning(true);
+    setFinished(false);
 
-    for (const name of selected) {
-      const item = updatableItems.find((i) => i.name === name);
-      if (!item) continue;
-
-      if (item.isInRepo) {
-        const repoDir = item.relPath.split('/')[0];
-        if (seenRepos.has(repoDir)) continue;
-        seenRepos.add(repoDir);
-        names.push(repoDir);
-        items.push({ name: repoDir, kind: item.kind, isRepo: true, status: 'pending' });
-      } else {
-        names.push(item.relPath);
-        items.push({ name: item.relPath, kind: item.kind, isRepo: false, status: 'pending' });
-      }
-    }
-
-    setItemStatuses(items);
-    startTimeRef.current = Date.now();
-    setPhase('updating');
-
-    let resultIndex = 0;
-
+    let index = 0;
     esRef.current = api.updateAllStream(
-      () => {
-        setItemStatuses((prev) =>
-          prev.map((s, idx) => (idx === 0 ? { ...s, status: 'in-progress' } : s)),
-        );
-      },
+      () => patchRun(names[0], { status: 'in-progress' }),
       (item) => {
-        const i = resultIndex;
-        resultIndex++;
-        setItemStatuses((prev) =>
-          prev.map((s, idx) => {
-            if (idx === i) {
-              return {
-                ...s,
-                kind: item.kind,
-                status: actionToStatus(item.action),
-                message: item.message,
-                auditRiskLabel: item.auditRiskLabel,
-              };
-            }
-            if (idx === i + 1) {
-              return { ...s, status: 'in-progress' };
-            }
-            return s;
-          }),
-        );
+        const name = names[index++];
+        if (name) patchRun(name, { status: actionToStatus(item.action), message: item.message, auditRiskLabel: item.auditRiskLabel });
+        if (names[index]) patchRun(names[index], { status: 'in-progress' });
       },
       (data) => {
-        applyUpdateResultsToCheckStatuses(data.results);
-        setPhase('done');
+        applyUpdateResults(data.results);
         invalidateSkillData();
+        setSelected(new Set());
+        setRunning(false);
+        setFinished(true);
       },
       (err) => {
         toast(err.message, 'error');
-        setPhase('done');
+        setRun((prev) => new Map([...prev].map(([n, s]) => [n, s.status === 'pending' || s.status === 'in-progress' ? { status: 'error', message: err.message } : s])));
+        setRunning(false);
+        setFinished(true);
       },
-      { names, force: opts?.force ?? false },
+      { names, force: forceUpdate },
     );
-  }, [selected, updatableItems, applyUpdateResultsToCheckStatuses, invalidateSkillData, toast]);
+  }, [patchRun, applyUpdateResults, invalidateSkillData, toast]);
 
-  const patchItem = useCallback(
-    (name: string, patch: Partial<ItemUpdateStatus>) =>
-      setItemStatuses((prev) => prev.map((s) => (s.name === name ? { ...s, ...patch } : s))),
-    [],
-  );
-
-  const handleRetryForce = useCallback(
-    (name: string) => {
-      patchItem(name, { status: 'in-progress', message: undefined });
-      esRef.current = api.updateAllStream(
-        () => {},
-        (item) => {
-          patchItem(name, {
-            status: actionToStatus(item.action),
-            message: item.message,
-            auditRiskLabel: item.auditRiskLabel,
-          });
-        },
-        (data) => {
-          applyUpdateResultsToCheckStatuses(data.results);
-          invalidateSkillData();
-        },
-        (err) => patchItem(name, { status: 'error', message: err.message }),
-        { names: [name], force: true },
-      );
-    },
-    [patchItem, applyUpdateResultsToCheckStatuses, invalidateSkillData],
-  );
-
-  const handlePurge = useCallback(
-    async (name: string) => {
-      patchItem(name, { status: 'in-progress', message: t('update.updating.purging') });
-      try {
-        await api.batchUninstall({ names: [name], force: true });
-        patchItem(name, { status: 'skipped', message: t('update.updating.purged') });
+  const retryForce = useCallback((name: string) => {
+    patchRun(name, { status: 'in-progress' });
+    esRef.current = api.updateAllStream(
+      () => {},
+      (item) => patchRun(name, { status: actionToStatus(item.action), message: item.message, auditRiskLabel: item.auditRiskLabel }),
+      (data) => {
+        applyUpdateResults(data.results);
         invalidateSkillData();
-      } catch (err) {
-        patchItem(name, { status: 'error', message: (err as Error).message });
-      }
-    },
-    [patchItem, invalidateSkillData],
-  );
+      },
+      (err) => patchRun(name, { status: 'error', message: err.message }),
+      { names: [name], force: true },
+    );
+  }, [patchRun, applyUpdateResults, invalidateSkillData]);
 
-  const handleBackToList = useCallback(() => {
-    setPhase('selecting');
-    setItemStatuses([]);
-    setSelected(new Set());
-    itemRefs.current = {};
-  }, []);
+  const purge = useCallback(async (name: string) => {
+    patchRun(name, { status: 'in-progress', message: t('update.updating.purging') });
+    try {
+      await api.batchUninstall({ names: [name], force: true });
+      patchRun(name, { status: 'skipped', message: t('update.updating.purged') });
+      invalidateSkillData();
+    } catch (err) {
+      patchRun(name, { status: 'error', message: (err as Error).message });
+    }
+  }, [patchRun, invalidateSkillData, t]);
 
-  const handleRehydrate = useCallback(async () => {
+  const rehydrate = useCallback(async () => {
     setRehydrating(true);
     try {
       const { results } = await api.rehydrateTrackedRepos();
       const failed = results.filter((r) => r.action !== 'rehydrated');
-      if (failed.length > 0) {
-        toast(t('update.missingRepos.rehydratePartial', { count: failed.length }), 'error');
-      } else {
-        toast(t('update.missingRepos.rehydrateSuccess', { count: results.length }), 'success');
-      }
+      if (failed.length > 0) toast(t('update.missingRepos.rehydratePartial', { count: failed.length }), 'error');
+      else toast(t('update.missingRepos.rehydrateSuccess', { count: results.length }), 'success');
       queryClient.invalidateQueries({ queryKey: queryKeys.missingTrackedRepos });
       invalidateSkillData();
     } catch (err) {
@@ -551,499 +331,247 @@ export default function UpdatePage() {
     }
   }, [t, toast, queryClient, invalidateSkillData]);
 
-  /* ── Derived counts ──────────────────────────────── */
+  /* -- Render -- */
 
-  const { successCount, skippedCount, blockedCount, errorCount, completedCount } = useMemo(() => {
-    let success = 0, skipped = 0, blocked = 0, error = 0;
-    for (const s of itemStatuses) {
-      switch (s.status) {
-        case 'success': success++; break;
-        case 'skipped': skipped++; break;
-        case 'blocked': blocked++; break;
-        case 'error': error++; break;
-      }
+  const busy = running || checking;
+  const shown = units.filter((u) => selected.has(u.name));
+  const allSelected = units.length > 0 && shown.length === units.length;
+  const toggle = (name: string) => setSelected((prev) => {
+    const next = new Set(prev);
+    if (!next.delete(name)) next.add(name);
+    return next;
+  });
+
+  const tally = { success: 0, skipped: 0, blocked: 0, error: 0 } as Record<RunStatus, number>;
+  for (const s of run.values()) tally[s.status] = (tally[s.status] ?? 0) + 1;
+  const troubled = tally.blocked + tally.error > 0;
+
+  const checkCell = (unit: UpdateUnit) => {
+    const c = unitCheck(statuses, unit);
+    switch (c.status) {
+      case 'checking':
+        return <span className="inline-flex items-center gap-2 text-[13px] text-ink-2"><Loader2 size={13} className="animate-spin" />{t('update.check.checking')}</span>;
+      case 'behind':
+        return <span className="ss-st warn">{c.behind ? t('update.check.behind', { count: c.behind }) : t('update.check.behindFallback')}</span>;
+      case 'update-available':
+        return <span className="ss-st warn">{t('update.check.updateAvailable')}</span>;
+      case 'dirty':
+        return <span className="ss-st warn" title={c.message}>{t('update.check.dirty')}</span>;
+      case 'up-to-date':
+        return <span className="ss-st ok">{t('update.check.upToDate')}</span>;
+      case 'error':
+        return <span className="ss-st bad" title={c.message}>{t('update.check.error')}</span>;
+      default:
+        return <span className="ss-st off">{t('update.check.unchecked')}</span>;
     }
-    return {
-      successCount: success,
-      skippedCount: skipped,
-      blockedCount: blocked,
-      errorCount: error,
-      completedCount: success + skipped + blocked + error,
-    };
-  }, [itemStatuses]);
+  };
 
-  /* ── Render ──────────────────────────────────────── */
-
-  if (isPending) return <PageSkeleton />;
-
-  // ── Selecting phase ──────────────────────────────
-
-  if (phase === 'selecting') {
-    const typeFilterOptions = [
-      {
-        value: 'all' as TypeFilter,
-        label: <span className="inline-flex items-center gap-1.5"><LayoutGrid size={14} strokeWidth={2.5} />{t('update.filter.all')}</span>,
-        count: filterCounts.all,
-      },
-      {
-        value: 'tracked' as TypeFilter,
-        label: <span className="inline-flex items-center gap-1.5"><Users size={14} strokeWidth={2.5} />{t('update.filter.tracked')}</span>,
-        count: filterCounts.tracked,
-      },
-      {
-        value: 'github' as TypeFilter,
-        label: <span className="inline-flex items-center gap-1.5"><Globe size={14} strokeWidth={2.5} />{t('update.filter.github')}</span>,
-        count: filterCounts.github,
-      },
-      {
-        value: 'remote' as TypeFilter,
-        label: <span className="inline-flex items-center gap-1.5"><Cloud size={14} strokeWidth={2.5} />{t('update.filter.remote')}</span>,
-        count: filterCounts.remote,
-      },
-    ];
-
-    return (
-      <div className="space-y-3 animate-fade-in">
-        <PageHeader
-          icon={<ArrowUpCircle size={24} strokeWidth={2.5} />}
-          title={t('update.header.title')}
-          subtitle={t('update.header.subtitle')}
-          actions={
-            <>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleCheckAll}
-                loading={checking && checkMode === 'all'}
-                disabled={checking || updatableItems.length === 0}
-              >
-                <RefreshCw size={16} />
-                {t('update.header.checkAll')}
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleCheckSelected}
-                loading={checking && checkMode === 'selected'}
-                disabled={checking || selected.size === 0}
-              >
-                <RefreshCw size={16} />
-                {t('update.header.checkSelected')}
-              </Button>
-              <SplitButton
-                variant="primary"
-                size="sm"
-                onClick={() => handleUpdate()}
-                disabled={selected.size === 0}
-                dropdownAlign="right"
-                items={[
-                  {
-                    label: t('update.header.forceUpdate'),
-                    icon: <Zap size={14} strokeWidth={2.5} />,
-                    onClick: () => handleUpdate({ force: true }),
-                    confirm: true,
-                  },
-                ]}
-              >
-                <ArrowUpCircle size={16} />
-                {t('update.header.updateSelected', { count: selected.size })}
-              </SplitButton>
-            </>
-          }
-        />
-
-        {missingTrackedRepos.length > 0 && (
-          <div
-            className="flex items-start gap-2 p-3 bg-warning/10 text-sm"
-            style={{ borderRadius: radius.md }}
-          >
-            <AlertTriangle size={16} className="text-warning shrink-0 mt-0.5" />
-            <div className="flex-1 min-w-0">
-              <p className="font-medium text-pencil">
-                {t('update.missingRepos.title', { count: missingTrackedRepos.length })}
-              </p>
-              <p className="text-pencil-light mt-0.5">{t('update.missingRepos.description')}</p>
-              <ul className="mt-2 space-y-1">
-                {missingTrackedRepos.map((repo) => (
-                  <li key={repo.name} className="flex items-center gap-2 min-w-0">
-                    <span className="w-1.5 h-1.5 rounded-full bg-warning shrink-0" />
-                    <span className="font-mono text-pencil shrink-0">{repo.name}</span>
-                    {repo.source && (
-                      <span className="text-pencil-light truncate text-xs">{repo.source}</span>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            </div>
-            <Button variant="primary" size="sm" onClick={handleRehydrate} loading={rehydrating}>
-              <DownloadCloud size={16} />
-              {t('update.missingRepos.rehydrate')}
-            </Button>
-          </div>
-        )}
-
-        {allUpdatableItems.length === 0 && missingTrackedRepos.length === 0 ? (
-          <EmptyState
-            icon={Check}
-            title={t('update.empty.title')}
-            description={t('update.empty.description')}
-          />
-        ) : allUpdatableItems.length === 0 ? null : (
+  // After a run, result cells (risk tag + status + retry) and row messages need room; before it the action cell only holds
+  // the Update button, so Source takes the space
+  const [sourceFlex, actionWidth] = run.size > 0 ? ['flex-1', 'w-[230px]'] : ['flex-[2]', 'w-[90px]'];
+  const actionCell = (unit: UpdateUnit) => {
+    const r = run.get(unit.name);
+    if (!r) {
+      const c = unitCheck(statuses, unit).status;
+      if (c === 'up-to-date' || c === 'checking') return null;
+      return (
+        <Button variant="secondary" size="sm" disabled={busy} onClick={() => startUpdate([unit.name], force)}>
+          {t('update.row.update')}
+        </Button>
+      );
+    }
+    const risk = r.auditRiskLabel && r.auditRiskLabel !== 'clean' ? <span className="ss-tag">{r.auditRiskLabel}</span> : null;
+    switch (r.status) {
+      case 'pending':
+        return <span className="ss-st off">{t('update.status.pending')}</span>;
+      case 'in-progress':
+        return <span className="inline-flex items-center gap-2 text-[13px] text-ink-2"><Loader2 size={13} className="animate-spin" />{t('update.status.updating')}</span>;
+      case 'success':
+        return <>{risk}<span className="ss-st ok">{t('update.status.updated')}</span></>;
+      case 'skipped':
+        return <span className="ss-st off">{t('update.status.skipped')}</span>;
+      case 'blocked':
+        return (
           <>
-            {/* Resource type tabs (Skills / Agents) */}
-            <nav
-              className="ss-resource-tabs flex items-center gap-6 border-b-2 border-muted -mx-4 px-4 md:-mx-8 md:px-8"
-              role="tablist"
-            >
-              {([
-                { key: 'skills' as ResourceTab, icon: <Puzzle size={16} strokeWidth={2.5} />, label: t('resources.tab.skills'), count: skillTabCount },
-                { key: 'agents' as ResourceTab, icon: <Bot size={16} strokeWidth={2.5} />, label: t('resources.tab.agents'), count: agentTabCount },
-              ]).map((tab) => (
-                <button
-                  key={tab.key}
-                  type="button"
-                  role="tab"
-                  aria-selected={activeTab === tab.key}
-                  onClick={() => changeTab(tab.key)}
-                  className={`
-                    ss-resource-tab
-                    inline-flex items-center gap-1.5 px-1 pb-2.5 text-sm font-semibold cursor-pointer
-                    transition-all duration-150 border-b-[3px] -mb-[2px]
-                    ${activeTab === tab.key
-                      ? 'border-pencil text-pencil'
-                      : 'border-transparent text-pencil-light hover:text-pencil hover:border-muted-dark'
-                    }
-                  `}
-                >
-                  {tab.icon}
-                  {tab.label}
-                  <span className={`
-                    text-[11px] font-medium px-1.5 py-0.5 rounded-[var(--radius-sm)]
-                    ${activeTab === tab.key ? 'bg-pencil/10 text-pencil' : 'bg-muted text-pencil-light'}
-                  `}>
-                    {tab.count}
-                  </span>
-                </button>
-              ))}
-            </nav>
-
-            {/* Sticky toolbar */}
-            <div className="sticky top-0 z-20 bg-paper -mx-4 px-4 md:-mx-8 md:px-8 py-2 mb-1 space-y-2">
-              {/* Search */}
-              <div className="relative">
-                <Search
-                  size={18}
-                  strokeWidth={2.5}
-                  className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-dark pointer-events-none"
-                />
-                <Input
-                  placeholder={t('update.list.searchPlaceholder', { kind: activeTab === 'agents' ? t('resources.tab.agents').toLowerCase() : t('resources.tab.skills').toLowerCase() })}
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  className="!pl-11"
-                />
-              </div>
-
-              {/* Filters + selection actions */}
-              <div className="flex flex-wrap items-center gap-3">
-                <SegmentedControl
-                  value={typeFilter}
-                  onChange={setTypeFilter}
-                  size="sm"
-                  options={typeFilterOptions}
-                />
-                <div className="flex items-center gap-2 ml-auto">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={allInViewSelected ? deselectAll : selectAll}
-                    disabled={filtered.length === 0}
-                  >
-                    {allInViewSelected ? t('update.list.deselectAll') : t('update.list.selectAll')}
-                  </Button>
-                  {selected.size > 0 && (
-                    <Button variant="ghost" size="sm" onClick={() => setSelected(new Set())}>
-                      {t('update.list.clear')}
-                    </Button>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* Virtuoso list */}
-            {filtered.length === 0 ? (
-              <div className="py-12 text-center">
-                <p className="text-pencil-light text-sm">
-                  {updatableItems.length === 0
-                    ? t('update.list.noUpdatable', { kind: activeTab === 'agents' ? t('resources.tab.agents').toLowerCase() : t('resources.tab.skills').toLowerCase() })
-                    : t('update.list.noMatch', { kind: activeTab === 'agents' ? t('resources.tab.agents').toLowerCase() : t('resources.tab.skills').toLowerCase() })}
-                </p>
-              </div>
-            ) : (
-              <div
-                className="border border-muted bg-surface overflow-hidden"
-                style={{ borderRadius: radius.md }}
-              >
-                <Virtuoso
-                  useWindowScroll
-                  totalCount={filtered.length}
-                  overscan={200}
-                  itemContent={(index) => {
-                    const item = filtered[index];
-                    const isSelected = selected.has(item.name);
-                    const checkStatus = checkStatuses.get(item.name) ?? { status: 'unchecked' as CheckStatus };
-                    return (
-                      <button
-                        type="button"
-                        className={`
-                          w-full text-left px-4 py-2.5 flex items-center gap-3
-                          transition-colors duration-100 cursor-pointer
-                          ${index > 0 ? 'border-t border-muted/40' : ''}
-                          ${isSelected ? 'bg-blue/5' : 'hover:bg-muted/15'}
-                        `}
-                        onClick={() => toggleSelect(item.name)}
-                      >
-                        <Checkbox
-                          label=""
-                          checked={isSelected}
-                          onChange={() => toggleSelect(item.name)}
-                          size="sm"
-                        />
-                        <div className="flex-1 min-w-0">
-                          <span className="font-mono text-sm text-pencil truncate flex items-center gap-1.5">
-                            <KindBadge kind={item.kind} />
-                            {item.name}
-                          </span>
-                          {item.source && (
-                            <span className="text-xs text-pencil-light truncate block">
-                              {[item.source, item.installedAt && formatRelativeTime(item.installedAt)]
-                                .filter(Boolean)
-                                .join(' · ')}
-                            </span>
-                          )}
-                        </div>
-                        <div className="flex items-center justify-end gap-3 shrink-0 sm:min-w-[15rem]">
-                          <SourceBadge type={item.type} isInRepo={item.isInRepo} />
-                          <CheckStatusBadge status={checkStatus} />
-                        </div>
-                      </button>
-                    );
-                  }}
-                />
-              </div>
-            )}
+            {risk}
+            <span className="ss-st bad">{t('update.status.blocked')}</span>
+            <Button variant="ghost" size="sm" disabled={running} onClick={() => retryForce(unit.name)}>{t('update.updating.forceRetry')}</Button>
           </>
-        )}
-      </div>
-    );
-  }
+        );
+      case 'error':
+        return (
+          <>
+            <span className="ss-st bad">{t('update.status.failed')}</span>
+            {isStaleError(r.message) ? (
+              <Button variant="ghost" size="sm" disabled={running} onClick={() => purge(unit.name)}>
+                <Trash2 size={14} />
+                {t('update.updating.purge')}
+              </Button>
+            ) : isForceRetryable(r.message) ? (
+              <Button variant="ghost" size="sm" disabled={running} onClick={() => retryForce(unit.name)}>{t('update.updating.forceRetry')}</Button>
+            ) : null}
+          </>
+        );
+    }
+  };
 
-  // ── Updating phase ───────────────────────────────
+  const subLine = (unit: UpdateUnit) => {
+    const r = run.get(unit.name);
+    if (r?.message && (r.status === 'error' || r.status === 'blocked')) {
+      return <span className="text-[13px] text-bad whitespace-pre-wrap break-words">{stripCliHint(r.message)}</span>;
+    }
+    if (r?.message) return <span className="text-[13px] text-ink-3 truncate">{stripCliHint(r.message)}</span>;
+    if (!unit.isRepo) {
+      const dir = unit.name.includes('/') ? unit.name.slice(0, unit.name.lastIndexOf('/')) : '';
+      return dir ? <span className="font-mono text-xs text-ink-3 truncate">{dir}</span> : null;
+    }
+    const meta = [t(`resources.count.${kind}${unit.items.length === 1 ? '' : 's'}`, { count: unit.items.length }), unit.items[0].branch];
+    return <span className="text-xs text-ink-3 truncate">{meta.filter(Boolean).join(' · ')}</span>;
+  };
 
-  if (phase === 'updating') {
-    return (
-      <div className="space-y-4 animate-fade-in">
-        <PageHeader
-          icon={<ArrowUpCircle size={24} strokeWidth={2.5} />}
-          title={t('update.header.title')}
-          subtitle={t('update.updating.subtitle')}
-        />
-
-        {/* Sticky progress bar */}
-        <div className="sticky top-0 z-20 bg-paper -mx-4 px-4 md:-mx-8 md:px-8 pt-2 pb-3">
-          <StreamProgressBar
-            count={completedCount}
-            total={itemStatuses.length}
-            startTime={startTimeRef.current}
-            icon={ArrowUpCircle}
-            iconClassName=""
-            labelDiscovering={t('update.progress.labelDiscovering')}
-            labelRunning={t('update.progress.labelRunning')}
-            units={t('update.progress.units')}
-          />
-        </div>
-
-        {/* Per-item status cards */}
-        <div className="space-y-2">
-          {itemStatuses.map((item, i) => (
-            <ItemStatusCard
-              key={item.name}
-              item={item}
-              index={i}
-              ref={(el) => { itemRefs.current[item.name] = el; }}
-            />
-          ))}
-        </div>
-      </div>
-    );
-  }
-
-  // ── Done phase ───────────────────────────────────
+  const summary = checking
+    ? t('update.tab.checking')
+    : lastChecked
+    ? t('update.check.checkedAt', { time: formatRelativeTime(lastChecked, locale) })
+    : t('update.tab.notChecked');
 
   return (
-    <div className="space-y-4 animate-fade-in">
-      <PageHeader
-        icon={<ArrowUpCircle size={24} strokeWidth={2.5} />}
-        title={t('update.header.title')}
-        subtitle={t('update.done.subtitle')}
-        actions={
-          <Button variant="ghost" size="sm" onClick={handleBackToList}>
-            {t('update.done.backToList')}
+    <>
+      {units.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2 -mt-2">
+          <span className="flex-1 min-w-[260px] text-[13px] text-ink-2">{summary} {t('update.tab.audited')}</span>
+          <Checkbox size="sm" className="mr-2 text-[13px]" label={t('update.tab.force')} checked={force} onChange={setForce} disabled={busy} />
+          <Button variant="secondary" loading={checking} disabled={running} onClick={runCheck}>
+            <RefreshCw size={15} />
+            {t(lastChecked ? 'update.tab.checkAgain' : 'update.tab.checkNow')}
           </Button>
-        }
-      />
+          {shown.length > 0 && (
+            <Button variant="secondary" disabled={busy} onClick={() => startUpdate(shown.map((u) => u.name), force)}>
+              {t('update.header.updateSelected', { count: shown.length })}
+            </Button>
+          )}
+          <Button variant="primary" disabled={busy} onClick={() => startUpdate(units.map((u) => u.name), force)}>
+            <CircleArrowUp size={15} />
+            {t('update.tab.updateAll')}
+          </Button>
+        </div>
+      )}
 
-      {/* Summary card */}
-      <Card tilt>
-        <div className="flex items-center justify-between flex-wrap gap-3">
-          <div className="flex items-center gap-2 flex-wrap">
-            {successCount > 0 && <Badge variant="success">{t('update.summary.updated', { count: successCount })}</Badge>}
-            {skippedCount > 0 && <Badge>{t('update.summary.skipped', { count: skippedCount })}</Badge>}
-            {blockedCount > 0 && <Badge variant="warning">{t('update.summary.blocked', { count: blockedCount })}</Badge>}
-            {errorCount > 0 && <Badge variant="danger">{t('update.summary.failed', { count: errorCount })}</Badge>}
+      {finished && run.size > 0 && (
+        <div className={`ss-note ${troubled ? 'warn' : 'inf'}`}>
+          {troubled ? <CircleAlert size={16} /> : <CircleCheck size={16} />}
+          <div className="flex-1">
+            <b>{t('update.done.subtitle')}</b>{' '}
+            {[
+              tally.success && t('update.summary.updated', { count: tally.success }),
+              tally.skipped && t('update.summary.skipped', { count: tally.skipped }),
+              tally.blocked && t('update.summary.blocked', { count: tally.blocked }),
+              tally.error && t('update.summary.failed', { count: tally.error }),
+            ].filter(Boolean).join(' · ')}
+            {tally.success > 0 && <div>{t('update.done.syncHint')}</div>}
           </div>
+          {tally.success > 0 && (
+            <Button variant="secondary" size="sm" onClick={() => navigate('/sync')}>{t('batchUninstall.results.goToSync')}</Button>
+          )}
         </div>
-      </Card>
+      )}
 
-      {/* Per-item result cards with action buttons */}
-      <div className="space-y-2">
-        {itemStatuses.map((item, i) => (
-          <ItemStatusCard
-            key={item.name}
-            item={item}
-            index={i}
-            showActions
-            onRetryForce={handleRetryForce}
-            onPurge={handlePurge}
+      {missingRepos.length > 0 && (
+        <div className="ss-note warn">
+          <FolderX size={16} />
+          <div className="flex-1">
+            <b>{t('update.missingRepos.title', { count: missingRepos.length })}</b>{' '}
+            <span className="font-mono">{missingRepos.map((r) => r.name).join(', ')}</span>. {t('update.missingRepos.description')}
+          </div>
+          <Button variant="secondary" size="sm" loading={rehydrating} onClick={rehydrate}>{t('update.missingRepos.rehydrate')}</Button>
+        </div>
+      )}
+
+      {units.length === 0 ? (
+        missingRepos.length === 0 && (
+          <EmptyState
+            icon={CircleCheck}
+            title={t(kind === 'agent' ? 'update.empty.agentsTitle' : 'update.empty.title')}
+            description={t(kind === 'agent' ? 'update.empty.agentsDescription' : 'update.empty.description')}
           />
-        ))}
-      </div>
-    </div>
+        )
+      ) : (
+        <div className="-mt-3 flex flex-col gap-3">
+          <div className="ss-list">
+            <div className="ss-lh">
+              <Checkbox
+                hideLabel
+                label={t('resources.select.selectAll')}
+                checked={allSelected}
+                indeterminate={shown.length > 0 && !allSelected}
+                disabled={busy}
+                onChange={() => setSelected(allSelected ? new Set() : new Set(units.map((u) => u.name)))}
+              />
+              <span className="w-[26px]" />
+              <span className="flex-1">{t('resources.col.name')}</span>
+              <span className="w-[150px]">{t('resources.col.status')}</span>
+              <span className={`min-w-0 ${sourceFlex}`}>{t('resources.col.source')}</span>
+              <span className={actionWidth} />
+            </div>
+            {units.map((unit) => (
+              <div key={unit.name} className={`ss-r ${selected.has(unit.name) ? 'sel' : ''}`}>
+                <Checkbox hideLabel label={unit.label} checked={selected.has(unit.name)} disabled={busy} onChange={() => toggle(unit.name)} />
+                {unit.isRepo
+                  ? <span className="w-[26px] grid place-items-center text-ink-2"><GitBranch size={15} /></span>
+                  : <span className={`ss-cat sm ${kind}`}>{kind === 'agent' ? <Bot size={14} /> : <Puzzle size={14} />}</span>}
+                <span className="flex flex-col min-w-0 flex-1 gap-px py-2">
+                  <span className="flex items-center gap-2 min-w-0">
+                    <span className="nm m truncate">{unit.label}</span>
+                    {unit.isRepo && <span className="ss-tag">tracked</span>}
+                  </span>
+                  {subLine(unit)}
+                </span>
+                <span className="w-[150px]">{checkCell(unit)}</span>
+                <span className={`min-w-0 ${sourceFlex} font-mono text-xs text-ink-3 truncate`}>{sourceLabel(unit.source)}</span>
+                <span className={`${actionWidth} flex items-center justify-end gap-2`}>{actionCell(unit)}</span>
+              </div>
+            ))}
+          </div>
+          {troubled && <p className="text-[13px] text-ink-3">{t('update.tab.footer')}</p>}
+        </div>
+      )}
+    </>
   );
 }
 
-/* ── Shared item status card ─────────────────────────── */
+/* -- Helpers -------------------------------------- */
 
-interface ItemStatusCardProps {
-  item: ItemUpdateStatus;
-  index: number;
-  showActions?: boolean;
-  onRetryForce?: (name: string) => void;
-  onPurge?: (name: string) => void;
+function sourceLabel(source?: string): string {
+  if (!source) return '';
+  return parseRemoteURL(source)?.ownerRepo ?? source;
 }
 
-const ItemStatusCard = forwardRef<HTMLDivElement, ItemStatusCardProps>(
-  ({ item, index, showActions, onRetryForce, onPurge }, ref) => {
-  const t = useT();
-  return (
-    <div
-      ref={ref}
-      className={`flex items-center gap-3 px-3 py-2 border transition-colors animate-fade-in ${
-        item.status === 'error'
-          ? 'border-danger/40 bg-danger-light/50'
-          : item.status === 'blocked'
-          ? 'border-warning/40 bg-warning-light/50'
-          : 'border-muted hover:bg-muted/30'
-      }`}
-      style={{
-        borderRadius: radius.sm,
-        animationDelay: `${index * 50}ms`,
-        animationFillMode: 'backwards',
-      }}
-    >
-      <StatusIcon status={item.status} />
-      <div className="flex-1 min-w-0">
-        <span className="text-pencil font-medium flex items-center gap-1.5">
-          {item.kind && <KindBadge kind={item.kind} />}
-          {item.name}
-        </span>
-        {item.message && (
-          <span
-            className={`text-sm block ${
-              item.status === 'error'
-                ? 'text-danger font-medium whitespace-pre-wrap mt-1'
-                : item.status === 'blocked'
-                ? 'text-warning whitespace-pre-wrap mt-1'
-                : 'text-pencil-light truncate'
-            }`}
-          >
-            {stripCliHint(item.message)}
-          </span>
-        )}
-      </div>
-      <div className="flex items-center gap-2 shrink-0">
-        {item.auditRiskLabel && item.auditRiskLabel !== 'clean' && (
-          <Badge variant={item.auditRiskLabel === 'critical' || item.auditRiskLabel === 'high' ? 'danger' : 'warning'}>
-            <ShieldAlert size={12} className="mr-1" />
-            {item.auditRiskLabel}
-          </Badge>
-        )}
-        {showActions && item.status === 'error' && (
-          isStaleError(item.message) ? (
-            <Button variant="danger" size="sm" onClick={() => onPurge?.(item.name)}>
-              <Trash2 size={14} />
-              {t('update.updating.purge')}
-            </Button>
-          ) : isForceRetryable(item.message) ? (
-            <Button variant="danger" size="sm" onClick={() => onRetryForce?.(item.name)}>
-              <RefreshCw size={14} />
-              {t('update.updating.forceRetry')}
-            </Button>
-          ) : null
-        )}
-        {showActions && item.status === 'blocked' && (
-          <Button variant="warning" size="sm" onClick={() => onRetryForce?.(item.name)}>
-            <RefreshCw size={14} />
-            {t('update.updating.forceRetry')}
-          </Button>
-        )}
-        <StatusBadge status={item.status} />
-      </div>
-    </div>
-  );
-  }
-);
-ItemStatusCard.displayName = 'ItemStatusCard';
-
-/* ── Helper functions ──────────────────────────────── */
-
-function readStoredCheckStatuses(): Map<string, CheckItemStatus> {
+function readStoredCheckStatuses(): CheckStatuses {
   if (typeof window === 'undefined') return new Map();
   try {
     const raw = window.localStorage.getItem(UPDATE_CHECK_CACHE_KEY);
     if (!raw) return new Map();
-
     const parsed = JSON.parse(raw) as Partial<StoredCheckCache>;
     if (parsed.version !== UPDATE_CHECK_CACHE_VERSION || !parsed.items) return new Map();
-
-    const entries: Array<[string, CheckItemStatus]> = [];
-    for (const [name, status] of Object.entries(parsed.items)) {
-      if (isStoredCheckStatus(status)) entries.push([name, status]);
-    }
-    return new Map(entries);
+    return new Map(Object.entries(parsed.items).filter(([, status]) => isStoredCheckStatus(status)));
   } catch {
     return new Map();
   }
 }
 
-function writeStoredCheckStatuses(statuses: Map<string, CheckItemStatus>) {
+function writeStoredCheckStatuses(statuses: CheckStatuses) {
   if (typeof window === 'undefined') return;
-
   const items: Record<string, CheckItemStatus> = {};
   for (const [name, status] of statuses) {
     if (status.status === 'checking' || status.status === 'unchecked') continue;
     items[name] = status;
   }
-
   try {
     if (Object.keys(items).length === 0) {
       window.localStorage.removeItem(UPDATE_CHECK_CACHE_KEY);
       return;
     }
-    window.localStorage.setItem(
-      UPDATE_CHECK_CACHE_KEY,
-      JSON.stringify({ version: UPDATE_CHECK_CACHE_VERSION, items }),
-    );
+    window.localStorage.setItem(UPDATE_CHECK_CACHE_KEY, JSON.stringify({ version: UPDATE_CHECK_CACHE_VERSION, items }));
   } catch {
     // Best-effort UI cache only.
   }
@@ -1056,19 +584,6 @@ function isStoredCheckStatus(value: unknown): value is CheckItemStatus {
     && CHECK_STATUS_VALUES.includes(status as CheckStatus)
     && status !== 'checking'
     && status !== 'unchecked';
-}
-
-function formatRelativeTime(dateStr: string): string {
-  const now = Date.now();
-  const then = new Date(dateStr).getTime();
-  if (isNaN(then)) return dateStr;
-  const diff = Math.floor((now - then) / 1000);
-  if (diff < 60) return 'just now';
-  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
-  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
-  if (diff < 2592000) return `${Math.floor(diff / 86400)}d ago`;
-  if (diff < 31536000) return `${Math.floor(diff / 2592000)}mo ago`;
-  return `${Math.floor(diff / 31536000)}y ago`;
 }
 
 function isStaleError(message?: string): boolean {
@@ -1096,7 +611,7 @@ export function stripCliHint(message?: string): string | undefined {
     .replace(/ \(try force update\)/, '');
 }
 
-function matchesCheckSkill(item: UpdatableItem, resultName: string): boolean {
+function matchesCheckSkill(item: Skill, resultName: string): boolean {
   return item.name === resultName || item.flatName === resultName || item.relPath === resultName;
 }
 
@@ -1104,7 +619,7 @@ function isSuccessfulUpdateAction(action: string): boolean {
   return action === 'updated' || action === 'up-to-date';
 }
 
-function actionToStatus(action: string): ItemUpdateStatus['status'] {
+function actionToStatus(action: string): RunStatus {
   switch (action) {
     case 'updated': return 'success';
     case 'error': return 'error';
@@ -1113,75 +628,4 @@ function actionToStatus(action: string): ItemUpdateStatus['status'] {
     case 'up-to-date': return 'skipped';
     default: return 'success';
   }
-}
-
-function StatusIcon({ status }: { status: ItemUpdateStatus['status'] }) {
-  switch (status) {
-    case 'pending':
-      return <Circle size={16} className="text-muted-dark shrink-0" />;
-    case 'in-progress':
-      return <Loader2 size={16} className="text-blue animate-spin shrink-0" />;
-    case 'success':
-      return <CheckCircle size={16} className="text-success shrink-0" />;
-    case 'error':
-      return <XCircle size={16} className="text-danger shrink-0" />;
-    case 'blocked':
-      return <ShieldAlert size={16} className="text-warning shrink-0" />;
-    case 'skipped':
-      return <MinusCircle size={16} className="text-muted-dark shrink-0" />;
-  }
-}
-
-function StatusBadge({ status }: { status: ItemUpdateStatus['status'] }) {
-  const t = useT();
-  switch (status) {
-    case 'pending':
-      return <Badge>{t('update.status.pending')}</Badge>;
-    case 'in-progress':
-      return <Badge variant="info">{t('update.status.updating')}</Badge>;
-    case 'success':
-      return <Badge variant="success">{t('update.status.updated')}</Badge>;
-    case 'error':
-      return <Badge variant="danger">{t('update.status.failed')}</Badge>;
-    case 'blocked':
-      return <Badge variant="warning">{t('update.status.blocked')}</Badge>;
-    case 'skipped':
-      return <Badge>{t('update.status.skipped')}</Badge>;
-  }
-}
-
-function CheckStatusBadge({ status }: { status: CheckItemStatus }) {
-  const t = useT();
-  let badge: React.ReactNode;
-  switch (status.status) {
-    case 'unchecked':
-      badge = <Badge size="sm">{t('update.check.unchecked')}</Badge>;
-      break;
-    case 'checking':
-      badge = <Badge variant="info" size="sm"><Loader2 size={10} className="animate-spin mr-1" />{t('update.check.checking')}</Badge>;
-      break;
-    case 'behind':
-      badge = <Badge variant="warning" size="sm">{status.behind ? t('update.check.behind', { count: status.behind }) : t('update.check.behindFallback')}</Badge>;
-      break;
-    case 'up-to-date':
-      badge = <Badge variant="success" size="sm">{t('update.check.upToDate')}</Badge>;
-      break;
-    case 'update-available':
-      badge = <Badge variant="warning" size="sm">{t('update.check.updateAvailable')}</Badge>;
-      break;
-    case 'error':
-      badge = <Badge variant="danger" size="sm">{t('update.check.error')}</Badge>;
-      break;
-  }
-
-  return (
-    <span className="inline-flex min-w-[8.5rem] flex-col items-end gap-1.5 py-0.5">
-      {badge}
-      {status.checkedAt && status.status !== 'checking' && status.status !== 'unchecked' && (
-        <span className="text-[10px] leading-tight text-muted-dark whitespace-nowrap">
-          {t('update.check.checkedAt', { time: formatRelativeTime(status.checkedAt) })}
-        </span>
-      )}
-    </span>
-  );
 }

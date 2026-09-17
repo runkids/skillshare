@@ -16,6 +16,7 @@ export const queryKeys = {
   collectScan: (target?: string) => ['collect-scan', target ?? '__all'] as const,
 
   backups: ['backups'] as const,
+  restoreValidate: (timestamp: string, target: string) => ['restore-validate', timestamp, target] as const,
   trash: ['trash'] as const,
   gitStatus: ['git-status'] as const,
   gitBranches: ['git-branches'] as const,
@@ -35,12 +36,18 @@ export const queryKeys = {
   config: ['config'] as const,
   check: ['check'] as const,
   missingTrackedRepos: ['missing-tracked-repos'] as const,
+  // Last update check, kept client-side (see UpdatePage) and shared by the Updates tab and its count.
+  updateCheck: ['update-check'] as const,
   syncMatrix: (target?: string) => ['sync-matrix', target ?? '__all'] as const,
 
   templates: ['templates'] as const,
+  skillPreview: (req: object) => ['skill-preview', req] as const,
   extras: ['extras'] as const,
   mcp: ['mcp'] as const,
+  hubConfig: ['hub-config'] as const,
+  preview: (source: string) => ['preview', source] as const,
   extrasDiff: (name?: string) => ['extras-diff', name ?? '__all'] as const,
+  analyze: ['analyze'] as const,
   doctor: ['doctor'] as const,
   skillignore: ['skillignore'] as const,
   agentignore: ['agentignore'] as const,
@@ -65,6 +72,7 @@ export const staleTimes = {
   missingTrackedRepos: 60 * 1000, // 1min
   syncMatrix: 30 * 1000,       // 30s — changes after filter edits
   extras: 30 * 1000,        // 30s — fast-changing like diff
+  analyze: 2 * 60 * 1000,   // 2min — walks every skill file
   doctor: 60 * 1000,        // 1min — health checks
   skillignore: 5 * 60 * 1000, // 5min — rarely changes
   agentignore: 5 * 60 * 1000, // 5min — rarely changes

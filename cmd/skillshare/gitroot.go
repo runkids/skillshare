@@ -21,12 +21,12 @@ func hasGitDir(dir string) bool {
 //
 // Option (a) mismatch handling: if the configured scope has no repo directly at
 // its directory but another scope's directory does, the user changed git_root
-// without relocating the repo. We print guidance and return ok=false so the
+// without relocating the repo. We print guidance and return an error so the
 // caller aborts. When no stray repo is found we return the resolved directory and
 // let the caller's existing repo check emit the standard "not a git repository"
 // guidance (this also preserves the legacy case of a skills source nested inside
 // an unrelated parent git repo).
-func resolveGitRoot(cfg *config.Config, spinner *ui.Spinner) (string, bool) {
+func resolveGitRoot(cfg *config.Config, spinner *ui.Spinner) (string, error) {
 	// Reject an unknown git_root before resolving: ScopeDir silently falls back
 	// to the skills scope for any unrecognized value, which would make
 	// commit/push/pull operate on the wrong repository without warning.
@@ -34,7 +34,7 @@ func resolveGitRoot(cfg *config.Config, spinner *ui.Spinner) (string, bool) {
 		spinner.Fail("Invalid git_root")
 		ui.Info("  git_root %q is not a valid scope", cfg.GitRoot)
 		ui.Info("  valid values: %s (or leave empty for skills)", strings.Join(config.ValidGitRoots, ", "))
-		return "", false
+		return "", fmt.Errorf("invalid git_root %q", cfg.GitRoot)
 	}
 
 	root := cfg.EffectiveGitRoot()
@@ -50,9 +50,9 @@ func resolveGitRoot(cfg *config.Config, spinner *ui.Spinner) (string, bool) {
 		ui.Info("    - skillshare init --git-root %s   (start a fresh repo at the configured scope)", configured)
 		ui.Info("    - mv \"%s/.git\" \"%s/.git\"   (move the existing repo over, keeps history)", dir, root)
 		ui.Info("    - set 'git_root: %s' in %s   (keep using the existing repo)", scope, config.ConfigPath())
-		return "", false
+		return "", fmt.Errorf("git root mismatch (see guidance above)")
 	}
-	return root, true
+	return root, nil
 }
 
 // rootSweepResult reports what the root-scope safety sweep changed or found.

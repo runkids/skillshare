@@ -1,10 +1,8 @@
-import { useState, useCallback, useEffect } from 'react';
-import { List, GitCompare, FlaskConical, Unlock } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
 import type { EditorView } from '@codemirror/view';
 import type { ValidationError } from '../../hooks/useYamlValidation';
 import type { DiffResult } from '../../hooks/useLineDiff';
-import Badge from '../Badge';
-import ConfigStatusBar from '../config/ConfigStatusBar';
+import { useT } from '../../i18n';
 import ErrorList from '../config/ErrorList';
 import FieldDocs from '../config/FieldDocs';
 import StructureTree from '../config/StructureTree';
@@ -12,7 +10,9 @@ import DiffPreview from '../config/DiffPreview';
 import RegexTester from './RegexTester';
 import { auditFieldDocs } from '../../lib/auditFieldDocs';
 
-type LockedView = 'auto' | 'structure' | 'diff' | 'test';
+type View = 'field' | 'structure' | 'changes' | 'test';
+
+const VIEWS: View[] = ['field', 'structure', 'changes', 'test'];
 
 interface Props {
   errors: ValidationError[];
@@ -22,13 +22,12 @@ interface Props {
   source: string;
   diff: DiffResult;
   editorRef: React.RefObject<EditorView | null>;
-  collapsed: boolean;
-  onToggleCollapse: () => void;
   onRevert: () => void;
   cursorRegex?: string;
   cursorExclude?: string;
 }
 
+/** The panel beside the rules editor: field docs, file shape, changes, or a regex bench. */
 export default function AuditAssistantPanel({
   errors,
   changeCount,
@@ -37,199 +36,84 @@ export default function AuditAssistantPanel({
   source,
   diff,
   editorRef,
-  collapsed,
-  onToggleCollapse,
   onRevert,
   cursorRegex,
   cursorExclude,
 }: Props) {
-  const [lockedView, setLockedView] = useState<LockedView>('auto');
-  const [regexPattern, setRegexPattern] = useState(cursorRegex ?? '');
+  const t = useT();
+  const [view, setView] = useState<View>('field');
+  const [pattern, setPattern] = useState(cursorRegex ?? '');
 
-  // Sync regexPattern when cursorRegex changes (only in auto mode)
+  // Moving the cursor onto another rule loads that rule's pattern into the bench
   useEffect(() => {
-    if (lockedView === 'auto') {
-      setRegexPattern(cursorRegex ?? '');
-    }
-  }, [cursorRegex, lockedView]);
+    if (cursorRegex) setPattern(cursorRegex);
+  }, [cursorRegex]);
 
   const jumpToLine = useCallback(
     (line: number) => {
-      const view = editorRef.current;
-      if (!view) return;
-      const lineInfo = view.state.doc.line(Math.min(line, view.state.doc.lines));
-      view.dispatch({ selection: { anchor: lineInfo.from }, scrollIntoView: true });
-      view.focus();
+      const editor = editorRef.current;
+      if (!editor) return;
+      const info = editor.state.doc.line(Math.min(line, editor.state.doc.lines));
+      editor.dispatch({ selection: { anchor: info.from }, scrollIntoView: true });
+      editor.focus();
     },
     [editorRef],
   );
 
-  const handleErrorsClick = useCallback(() => {
-    setLockedView('auto');
-  }, []);
-
-  const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent) => {
-      if (e.key === 'Escape' && lockedView !== 'auto') {
-        setLockedView('auto');
-      }
-    },
-    [lockedView],
-  );
-
-  const toggleLock = useCallback((view: 'structure' | 'diff' | 'test') => {
-    setLockedView(prev => (prev === view ? 'auto' : view));
-  }, []);
-
-  // YAML mode — collapsed
-  if (collapsed) {
-    return (
-      <div className="ss-audit-assistant-panel flex flex-col h-full border-l border-muted bg-surface">
-        <ConfigStatusBar
-          errors={errors}
-          changeCount={changeCount}
-          collapsed={collapsed}
-          onToggleCollapse={onToggleCollapse}
-          onErrorsClick={handleErrorsClick}
-          mode="audit"
-        />
-      </div>
-    );
-  }
-
-  // YAML mode — expanded
-  const renderContextArea = () => {
-    if (lockedView === 'structure') {
-      return (
-        <StructureTree
-          source={source}
-          cursorLine={cursorLine}
-          parseError={errors.some(e => e.severity === 'error')}
-          onClickNode={jumpToLine}
-        />
-      );
-    }
-
-    if (lockedView === 'diff') {
-      return <DiffPreview diff={diff} onClickLine={jumpToLine} onRevert={onRevert} />;
-    }
-
-    if (lockedView === 'test') {
-      return (
-        <RegexTester
-          pattern={regexPattern}
-          excludePattern={cursorExclude}
-          onPatternChange={setRegexPattern}
-        />
-      );
-    }
-
-    // Auto mode
-    if (errors.length > 0) {
-      return <ErrorList errors={errors} onClickError={jumpToLine} />;
-    }
-
-    if (cursorRegex) {
-      return (
-        <RegexTester
-          pattern={regexPattern}
-          excludePattern={cursorExclude}
-          onPatternChange={setRegexPattern}
-        />
-      );
-    }
-
-    if (fieldPath) {
-      return <FieldDocs fieldPath={fieldPath} docs={auditFieldDocs} />;
-    }
-
-    return (
-      <StructureTree
-        source={source}
-        cursorLine={cursorLine}
-        parseError={errors.some(e => e.severity === 'error')}
-        onClickNode={jumpToLine}
-      />
-    );
-  };
+  const errorCount = errors.filter((e) => e.severity === 'error').length;
+  const warningCount = errors.length - errorCount;
 
   return (
-    <div
-      className="ss-audit-assistant-panel flex flex-col h-full overflow-hidden border-l border-muted bg-surface"
-      onKeyDown={handleKeyDown}
-    >
-      {/* Status bar */}
-      <ConfigStatusBar
-        errors={errors}
-        changeCount={changeCount}
-        collapsed={collapsed}
-        onToggleCollapse={onToggleCollapse}
-        onErrorsClick={handleErrorsClick}
-        mode="audit"
-      />
-
-      {/* Context area */}
-      <div className="ss-panel-content h-[500px] overflow-y-auto animate-fade-in">{renderContextArea()}</div>
-
-      {/* Bottom bar */}
-      <div className="ss-panel-toolbar flex items-center gap-2 px-2 py-1.5 border-t border-muted/40 bg-paper">
-        <div className="ss-panel-tabs inline-flex items-center p-0.5 bg-muted/20 border border-muted/40 rounded-[var(--radius-sm)]">
-          <button
-            type="button"
-            aria-pressed={lockedView === 'structure'}
-            onClick={() => toggleLock('structure')}
-            className={`ss-panel-tab inline-flex items-center gap-1.5 px-2.5 py-1 rounded-[3px] text-xs font-medium transition-all duration-150 cursor-pointer ${
-              lockedView === 'structure'
-                ? 'bg-surface text-pencil shadow-sm'
-                : 'text-pencil-light hover:text-pencil'
-            }`}
-          >
-            <List size={12} strokeWidth={2} />
-            Structure
-          </button>
-          <button
-            type="button"
-            aria-pressed={lockedView === 'diff'}
-            onClick={() => toggleLock('diff')}
-            className={`ss-panel-tab inline-flex items-center gap-1.5 px-2.5 py-1 rounded-[3px] text-xs font-medium transition-all duration-150 cursor-pointer ${
-              lockedView === 'diff'
-                ? 'bg-surface text-pencil shadow-sm'
-                : 'text-pencil-light hover:text-pencil'
-            }`}
-          >
-            <GitCompare size={12} strokeWidth={2} />
-            Diff
-          </button>
-          <button
-            type="button"
-            aria-pressed={lockedView === 'test'}
-            onClick={() => toggleLock('test')}
-            className={`ss-panel-tab inline-flex items-center gap-1.5 px-2.5 py-1 rounded-[3px] text-xs font-medium transition-all duration-150 cursor-pointer ${
-              lockedView === 'test'
-                ? 'bg-surface text-pencil shadow-sm'
-                : 'text-pencil-light hover:text-pencil'
-            }`}
-          >
-            <FlaskConical size={12} strokeWidth={2} />
-            Test
-          </button>
-        </div>
-
-        <span className="flex-1" />
-
-        {lockedView !== 'auto' && (
-          <button
-            type="button"
-            onClick={() => setLockedView('auto')}
-            className="transition-all duration-150"
-          >
-            <Badge variant="default">
-              <Unlock size={10} strokeWidth={2} />
-              Auto
-            </Badge>
-          </button>
+    <div className="ss-box flex flex-col gap-3.5 !p-3.5">
+      <div className="flex items-center justify-between gap-3">
+        {errors.length === 0 ? (
+          <span className="ss-st ok">Valid YAML</span>
+        ) : (
+          <span className={`ss-st ${errorCount > 0 ? 'bad' : 'warn'}`}>
+            {[
+              errorCount > 0 && t(errorCount === 1 ? 'config.panel.errors.one' : 'config.panel.errors.other', { count: errorCount }),
+              warningCount > 0 && t(warningCount === 1 ? 'config.panel.warnings.one' : 'config.panel.warnings.other', { count: warningCount }),
+            ].filter(Boolean).join(', ')}
+          </span>
         )}
+        <span className="text-xs text-ink-3">
+          {errorCount > 0
+            ? t('config.panel.saveBlocked')
+            : changeCount > 0
+              ? t(changeCount === 1 ? 'config.panel.changes.one' : 'config.panel.changes.other', { count: changeCount })
+              : t('config.panel.noChanges')}
+        </span>
       </div>
+
+      {errors.length > 0 ? (
+        <>
+          <div className="max-h-[420px] overflow-y-auto">
+            <ErrorList errors={errors} onClickError={jumpToLine} />
+          </div>
+          <p className="text-xs text-ink-3">{t('config.panel.errorHint')}</p>
+        </>
+      ) : (
+        <>
+          <div className="ss-seg self-start" role="radiogroup" aria-label={t('audit.tab.rules')}>
+            {VIEWS.map((v) => (
+              <button key={v} type="button" role="radio" aria-checked={view === v} className={view === v ? 'on' : ''} onClick={() => setView(v)}>
+                {t(`config.panel.tab.${v}`)}
+              </button>
+            ))}
+          </div>
+          <div className="max-h-[420px] overflow-y-auto">
+            {view === 'field' ? (
+              fieldPath ? <FieldDocs fieldPath={fieldPath} docs={auditFieldDocs} /> : <p className="text-[13px] text-ink-3">{t('config.panel.fieldHint')}</p>
+            ) : view === 'structure' ? (
+              <StructureTree source={source} cursorLine={cursorLine} parseError={false} onClickNode={jumpToLine} />
+            ) : view === 'changes' ? (
+              <DiffPreview diff={diff} onClickLine={jumpToLine} onRevert={onRevert} />
+            ) : (
+              <RegexTester pattern={pattern} excludePattern={cursorExclude} onPatternChange={setPattern} />
+            )}
+          </div>
+        </>
+      )}
     </div>
   );
 }

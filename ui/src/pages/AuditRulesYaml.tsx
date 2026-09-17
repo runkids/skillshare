@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useT } from '../i18n';
-import { FileCode, FilePlus, PanelRightOpen } from 'lucide-react';
+import { FilePlus } from 'lucide-react';
 import CodeMirror from '@uiw/react-codemirror';
 import { yaml } from '@codemirror/lang-yaml';
 import { EditorView, keymap } from '@codemirror/view';
@@ -10,10 +10,8 @@ import type { ValidationError } from '../hooks/useAuditYamlValidation';
 import { useAuditYamlValidation } from '../hooks/useAuditYamlValidation';
 import { useLineDiff } from '../hooks/useLineDiff';
 import { useCursorField } from '../hooks/useCursorField';
-import Card from '../components/Card';
 import Button from '../components/Button';
 import EmptyState from '../components/EmptyState';
-import IconButton from '../components/IconButton';
 import { useToast } from '../components/Toast';
 import AuditAssistantPanel from '../components/audit/AuditAssistantPanel';
 import { api } from '../api/client';
@@ -26,8 +24,6 @@ import { PageSkeleton } from '../components/Skeleton';
  * ────────────────────────────────────────────────────────────────────── */
 
 interface AuditRulesYamlProps {
-  panelCollapsed: boolean;
-  onTogglePanel: () => void;
   isProjectMode: boolean;
   onSaveStateChange?: (dirty: boolean, saving: boolean, onSave: () => void) => void;
 }
@@ -68,8 +64,6 @@ function extractExcludeNearby(lines: string[], lineIndex: number): string | null
  * ────────────────────────────────────────────────────────────────────── */
 
 export default function AuditRulesYaml({
-  panelCollapsed,
-  onTogglePanel,
   isProjectMode,
   onSaveStateChange,
 }: AuditRulesYamlProps) {
@@ -106,7 +100,7 @@ export default function AuditRulesYaml({
   // ─── Panel hooks ───
   const { errors } = useAuditYamlValidation(raw);
   const { fieldPath, cursorLine, extension: cursorExtension } = useCursorField();
-  const { diff, changeCount } = useLineDiff(rawQuery.data?.raw ?? '', raw, !panelCollapsed);
+  const { diff, changeCount } = useLineDiff(rawQuery.data?.raw ?? '', raw, true);
 
   // ─── Derive cursor regex / exclude from editor state ───
   const lines = useMemo(() => raw.split('\n'), [raw]);
@@ -229,121 +223,79 @@ export default function AuditRulesYaml({
   if (rawQuery.isPending) return <PageSkeleton />;
   if (rawQuery.error) {
     return (
-      <Card variant="accent" className="text-center py-8">
-        <p className="text-danger text-lg">{t('auditRules.error.failedToLoad')}</p>
-        <p className="text-pencil-light text-sm mt-1">{rawQuery.error.message}</p>
-      </Card>
+      <div className="ss-note bad">
+        <span className="flex-1">
+          <b>{t('auditRules.error.failedToLoad')}</b> {rawQuery.error.message}
+        </span>
+      </div>
     );
   }
 
-  // ─── File doesn't exist: show create UI with panel ───
+  const panel = (
+    <AuditAssistantPanel
+      errors={errors}
+      changeCount={changeCount}
+      fieldPath={fieldPath}
+      cursorLine={cursorLine}
+      source={raw}
+      diff={diff}
+      editorRef={editorRef}
+      onRevert={handleRevert}
+      cursorRegex={cursorRegex}
+      cursorExclude={cursorExclude}
+    />
+  );
+
+  // The file can be long, so the panel stays where the eye is.
+  const layout = (content: React.ReactNode) => (
+    <div className="grid grid-cols-[minmax(0,1fr)_300px] items-start gap-6">
+      <div className="flex min-w-0 flex-col gap-3">{content}</div>
+      <div className="sticky top-6">{panel}</div>
+    </div>
+  );
+
+  // Nothing to inspect until the file exists, so the panel stays out of the way.
   if (rawQuery.data && !rawQuery.data.exists) {
     return (
-      <div className="flex gap-4">
-        <div className="flex-[3] min-w-0 transition-[flex] duration-300 ease-in-out">
-          <EmptyState
-            icon={FilePlus}
-            title={t('auditRulesYaml.empty.title')}
-            description={t('auditRulesYaml.empty.description', { scope: isProjectMode ? 'a project-level' : 'a global' })}
-            action={
-              <Button variant="primary" onClick={handleCreate} disabled={creating}>
-                <FilePlus size={16} strokeWidth={2.5} />
-                {creating ? t('auditRulesYaml.creating') : t('auditRulesYaml.createButton')}
-              </Button>
-            }
-          />
-        </div>
-
-        <div
-          className={`hidden lg:block transition-all duration-300 ease-in-out overflow-hidden ${
-            panelCollapsed ? 'flex-[0] w-0 opacity-0 pointer-events-none' : 'flex-[2] opacity-100'
-          }`}
-        >
-          <Card className="!p-0 !overflow-visible min-w-[280px]">
-            <AuditAssistantPanel
-              errors={[]}
-              changeCount={0}
-              fieldPath={null}
-              cursorLine={1}
-              source=""
-              diff={{ lines: [], changeCount: 0 }}
-              editorRef={editorRef}
-              collapsed={panelCollapsed}
-              onToggleCollapse={onTogglePanel}
-              onRevert={handleRevert}
-            />
-          </Card>
-        </div>
-      </div>
+      <EmptyState
+        icon={FilePlus}
+        title={t('auditRulesYaml.empty.title')}
+        description={t(isProjectMode ? 'auditRulesYaml.empty.descriptionProject' : 'auditRulesYaml.empty.descriptionGlobal')}
+        action={
+          <Button variant="primary" onClick={handleCreate} disabled={creating}>
+            <FilePlus size={15} />
+            {creating ? t('auditRulesYaml.creating') : t('auditRulesYaml.createButton')}
+          </Button>
+        }
+      />
     );
   }
 
-  // ─── Editor view ───
-  return (
-    <div className="flex gap-4">
-      <Card className="flex-[3] min-w-0 transition-[flex] duration-300 ease-in-out">
-        {/* Header: file path + save + collapse toggle */}
-        <div className="flex items-center gap-2 mb-3">
-          <FileCode size={16} strokeWidth={2.5} className="text-blue" />
-          <span className="text-base text-pencil-light">
-            {rawQuery.data!.path}
-          </span>
-          <span className="flex-1" />
-          {panelCollapsed && (
-            <IconButton
-              icon={<PanelRightOpen size={14} strokeWidth={2} />}
-              label={t('auditRulesYaml.expandPanel')}
-              size="sm"
-              variant="ghost"
-              onClick={onTogglePanel}
-              className="hidden lg:inline-flex"
-            />
-          )}
-        </div>
-        <div className="min-w-0 -mx-4 -mb-4">
-          <CodeMirror
-            value={raw}
-            onChange={handleChange}
-            extensions={extensions}
-            theme="none"
-            height="500px"
-            onCreateEditor={(view) => { editorRef.current = view; }}
-            basicSetup={{
-              lineNumbers: true,
-              foldGutter: true,
-              highlightActiveLine: true,
-              highlightSelectionMatches: true,
-              bracketMatching: true,
-              indentOnInput: true,
-              autocompletion: false,
-            }}
-          />
-        </div>
-      </Card>
-
-      {/* Assistant Panel */}
-      <div
-        className={`hidden lg:block transition-all duration-300 ease-in-out overflow-hidden ${
-          panelCollapsed ? 'flex-[0] w-0 opacity-0 pointer-events-none' : 'flex-[2] opacity-100'
-        }`}
-      >
-        <Card className="!p-0 !overflow-visible min-w-[280px]">
-          <AuditAssistantPanel
-            errors={errors}
-            changeCount={changeCount}
-            fieldPath={fieldPath}
-            cursorLine={cursorLine}
-            source={raw}
-            diff={diff}
-            editorRef={editorRef}
-            collapsed={panelCollapsed}
-            onToggleCollapse={onTogglePanel}
-            onRevert={handleRevert}
-            cursorRegex={cursorRegex}
-            cursorExclude={cursorExclude}
-          />
-        </Card>
+  return layout(
+    <>
+      <div className="ss-code !overflow-hidden !p-0">
+        <CodeMirror
+          value={raw}
+          onChange={handleChange}
+          extensions={extensions}
+          theme="none"
+          height="500px"
+          onCreateEditor={(view) => { editorRef.current = view; }}
+          basicSetup={{
+            lineNumbers: true,
+            foldGutter: true,
+            highlightActiveLine: true,
+            highlightSelectionMatches: true,
+            bracketMatching: true,
+            indentOnInput: true,
+            autocompletion: false,
+          }}
+        />
       </div>
-    </div>
+      <div className="flex items-center justify-between gap-4">
+        <span className="font-mono text-[13px] text-ink-3">{rawQuery.data!.path}</span>
+        <span className="text-[13px] text-ink-3">{t('config.saveShortcutHint')}</span>
+      </div>
+    </>,
   );
 }

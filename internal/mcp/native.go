@@ -11,6 +11,7 @@ import (
 
 	"github.com/pelletier/go-toml/v2"
 	"github.com/tailscale/hujson"
+	"gopkg.in/yaml.v3"
 )
 
 // Native is a parsed target document; edits preserve unrelated source bytes.
@@ -19,11 +20,15 @@ type Native struct {
 	Entries map[string]map[string]any
 	data    []byte
 	json    hujson.Value
+	yaml    yaml.Node
 }
 
 func isTOMLTarget(target string) bool { return target == "codex" || target == "grok" }
 
 func nativeKey(target string) string {
+	if format, ok := clientFormats[target]; ok {
+		return format.key
+	}
 	if isTOMLTarget(target) {
 		return "mcp_servers"
 	}
@@ -75,7 +80,21 @@ func ParseNative(target string, data []byte) (*Native, error) {
 	}
 	n := &Native{Target: target, data: data, Entries: map[string]map[string]any{}}
 	var document map[string]any
-	if isTOMLTarget(target) {
+	if target == "goose" {
+		if len(data) == 0 {
+			data = []byte("{}\n")
+			n.data = data
+		}
+		if err := parseYAML(data, &n.yaml); err != nil {
+			return nil, err
+		}
+		if err := plainYAML(&n.yaml); err != nil {
+			return nil, err
+		}
+		if err := n.yaml.Decode(&document); err != nil {
+			return nil, fmt.Errorf("invalid Goose YAML configuration")
+		}
+	} else if isTOMLTarget(target) {
 		if err := toml.Unmarshal(data, &document); err != nil {
 			return nil, fmt.Errorf("invalid TOML; target was not changed")
 		}
@@ -125,6 +144,9 @@ func (n *Native) Edit(changes map[string]map[string]any) ([]byte, error) {
 	}
 	if isTOMLTarget(n.Target) {
 		return n.editTOML(changes)
+	}
+	if n.Target == "goose" {
+		return n.editYAML(changes)
 	}
 	v := n.json.Clone()
 	key := "/" + nativeKey(n.Target)
@@ -181,12 +203,13 @@ func sameEntry(a, b map[string]any) bool { return entryHash(a) == entryHash(b) }
 // a server off. Anything else, such as a timeout or envFile, belongs to the
 // Agent and survives synchronization.
 var managedFields = map[string][]string{
-	"claude":   {"type", "command", "args", "env", "url", "headers", "enabled", "disabled"},
-	"cursor":   {"type", "command", "args", "env", "url", "headers", "enabled", "disabled"},
-	"vscode":   {"type", "command", "args", "env", "url", "headers", "enabled", "disabled"},
-	"opencode": {"type", "command", "environment", "url", "headers", "enabled", "disabled"},
-	"codex":    {"command", "args", "env", "env_vars", "url", "http_headers", "env_http_headers", "bearer_token_env_var", "enabled", "disabled"},
-	"grok":     {"command", "args", "env", "url", "headers", "enabled", "disabled"},
+	"antigravity": {"command", "args", "env", "serverUrl", "headers", "enabled", "disabled"},
+	"claude":      {"type", "command", "args", "env", "url", "headers", "enabled", "disabled"},
+	"cursor":      {"type", "command", "args", "env", "url", "headers", "enabled", "disabled"},
+	"vscode":      {"type", "command", "args", "env", "url", "headers", "enabled", "disabled"},
+	"opencode":    {"type", "command", "environment", "url", "headers", "enabled", "disabled"},
+	"codex":       {"command", "args", "env", "env_vars", "url", "http_headers", "env_http_headers", "bearer_token_env_var", "enabled", "disabled"},
+	"grok":        {"command", "args", "env", "url", "headers", "enabled", "disabled"},
 }
 
 // managedEntry is the part of a native entry that ownership hashes cover. It
@@ -197,7 +220,7 @@ func managedEntry(target string, entry map[string]any) map[string]any {
 		return nil
 	}
 	subset := map[string]any{}
-	for _, key := range managedFields[target] {
+	for _, key := range additionalManagedFields(target) {
 		if value, ok := entry[key]; ok {
 			subset[key] = value
 		}
@@ -247,7 +270,7 @@ func sectionDigest(n *Native) string {
 func withAgentFields(target string, current, want map[string]any) map[string]any {
 	out := maps.Clone(want)
 	for key, value := range current {
-		if !slices.Contains(managedFields[target], key) {
+		if !slices.Contains(additionalManagedFields(target), key) {
 			out[key] = value
 		}
 	}

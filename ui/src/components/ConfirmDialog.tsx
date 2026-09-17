@@ -32,38 +32,21 @@ export default function ConfirmDialog({
   const resolvedCancelText = cancelText ?? t('common.cancel');
   const resolvedConfirmText = confirmText ?? t('common.confirm');
   return (
-    <DialogShell
-      open={open}
-      onClose={onCancel}
-      maxWidth={wide ? '2xl' : 'lg'}
-      preventClose={loading}
-    >
-        <h3 className="text-lg font-bold text-pencil mb-2">
-          {title}
-        </h3>
-        <div className="text-pencil-light mb-6">
-          {message}
-        </div>
-        <div className="flex gap-3 justify-end">
-          {resolvedCancelText && (
-            <Button
-              variant="secondary"
-              size="md"
-              onClick={onCancel}
-              disabled={loading}
-            >
-              {resolvedCancelText}
-            </Button>
-          )}
-          <Button
-            variant={variant === 'danger' ? 'danger' : 'primary'}
-            size="md"
-            onClick={onConfirm}
-            loading={loading}
-          >
-            {resolvedConfirmText}
+    <DialogShell open={open} onClose={onCancel} maxWidth={wide ? '2xl' : 'md'} padding="none" preventClose={loading} ariaLabel={title}>
+      <div className="dh">
+        <h2 className="ss-h2">{title}</h2>
+      </div>
+      <div className="db text-ink-2 overflow-y-auto">{message}</div>
+      <div className="df">
+        {resolvedCancelText && (
+          <Button variant="ghost" onClick={onCancel} disabled={loading}>
+            {resolvedCancelText}
           </Button>
-        </div>
+        )}
+        <Button variant={variant === 'danger' ? 'danger' : 'primary'} onClick={onConfirm} loading={loading}>
+          {resolvedConfirmText}
+        </Button>
+      </div>
     </DialogShell>
   );
 }

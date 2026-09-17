@@ -1,108 +1,167 @@
-import { useState, useMemo } from 'react';
-import {
-  Stethoscope,
-  RefreshCw,
-  CheckCircle2,
-  AlertTriangle,
-  XCircle,
-  Info,
-  ChevronDown,
-  ChevronRight,
-  ArrowUpCircle,
-  PartyPopper,
-} from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { api } from '../api/client';
-import type { DoctorCheck } from '../api/client';
-import { queryKeys, staleTimes } from '../lib/queryKeys';
-import Card from '../components/Card';
+import { AlertTriangle, ArrowUpCircle, CheckCircle2, ChevronDown, ChevronRight, Info, Pencil, RefreshCw, XCircle } from 'lucide-react';
+import { api, type DoctorCheck } from '../api/client';
 import Button from '../components/Button';
-import Badge from '../components/Badge';
-import SegmentedControl from '../components/SegmentedControl';
+import CopyButton from '../components/CopyButton';
 import PageHeader from '../components/PageHeader';
 import { PageSkeleton } from '../components/Skeleton';
-import { palette } from '../design';
+import { useAppContext } from '../context/AppContext';
 import { useT } from '../i18n';
+import { shortenHome } from '../lib/paths';
+import { queryKeys, staleTimes } from '../lib/queryKeys';
+import { SettingsTabs } from './SettingsPage';
 
-type StatusFilter = 'all' | 'error' | 'warning' | 'pass';
+type Filter = 'all' | 'error' | 'warning' | 'pass';
 
-const checkLabelFallbacks: Record<string, string> = {
-  source: 'Source Directory',
-  symlink_support: 'Symlink Support',
-  git_status: 'Git Status',
-  skills_validity: 'Skill Files',
-  skill_integrity: 'Skill Integrity',
-  skill_targets_field: 'Target References',
-  targets: 'Targets',
-  sync_drift: 'Sync Status',
-  broken_symlinks: 'Broken Symlinks',
-  duplicate_skills: 'Duplicate Skills',
-  extras: 'Extras',
-  backup: 'Backups',
-  trash: 'Trash',
-  agents_source: 'Agents Source',
-  theme: 'Theme',
-  cli_version: 'CLI Version',
-  skill_version: 'Skill Version',
-  skillignore: 'Skillignore',
-};
+const FILTERS: Filter[] = ['all', 'error', 'warning', 'pass'];
+const ICON = { pass: CheckCircle2, warning: AlertTriangle, error: XCircle, info: Info } as const;
+const TONE = { pass: 'text-ok', warning: 'text-warn', error: 'text-bad', info: 'text-accent' } as const;
 
-function statusIcon(status: DoctorCheck['status'], size = 16) {
-  switch (status) {
-    case 'pass':
-      return <CheckCircle2 size={size} strokeWidth={2.5} style={{ color: palette.success }} />;
-    case 'warning':
-      return <AlertTriangle size={size} strokeWidth={2.5} style={{ color: palette.warning }} />;
-    case 'error':
-      return <XCircle size={size} strokeWidth={2.5} style={{ color: palette.danger }} />;
-    case 'info':
-      return <Info size={size} strokeWidth={2.5} style={{ color: palette.info }} />;
-  }
-}
+/** Check names come from the CLI; a missing translation still reads as a phrase. */
+const checkLabel = (name: string) => name.replace(/_/g, ' ').replace(/^./, (c) => c.toUpperCase());
 
-function CheckRow({ check }: { check: DoctorCheck }) {
+export default function DoctorPage() {
   const t = useT();
-  const [expanded, setExpanded] = useState(false);
-  const hasDetails = check.details && check.details.length > 0;
-  const hasSuggestions = check.suggestions && check.suggestions.length > 0;
-  const expandable = hasDetails || hasSuggestions;
-  const fallback = checkLabelFallbacks[check.name] ?? check.name.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
-  const label = t(`doctor.check.${check.name}`, {}, fallback);
+  const { isProjectMode } = useAppContext();
+  const queryClient = useQueryClient();
+  const [filter, setFilter] = useState<Filter>('all');
+  const [open, setOpen] = useState<string | null>(null);
+  const [upgrading, setUpgrading] = useState(false);
+  const [upgradeMessage, setUpgradeMessage] = useState<string | null>(null);
+
+  const overview = useQuery({ queryKey: queryKeys.overview, queryFn: () => api.getOverview(), staleTime: staleTimes.overview });
+  const { data, isPending, error, isFetching, refetch } = useQuery({ queryKey: queryKeys.doctor, queryFn: () => api.doctor(), staleTime: staleTimes.doctor });
+
+  const checks = useMemo(() => {
+    const all = data?.checks ?? [];
+    if (filter === 'all') return all;
+    if (filter === 'pass') return all.filter((c) => c.status === 'pass' || c.status === 'info');
+    return all.filter((c) => c.status === filter);
+  }, [data, filter]);
+
+  const report = useMemo(
+    () => (data?.checks ?? []).map((c) => [`[${c.status}] ${checkLabel(c.name)}: ${c.message}`, ...(c.details ?? []).map((d) => `  ${d}`)].join('\n')).join('\n'),
+    [data],
+  );
+
+  const upgrade = async () => {
+    setUpgrading(true);
+    setUpgradeMessage(t('updateDialog.updating'));
+    try {
+      const result = await api.upgradeApp();
+      if (result.devMode) {
+        setUpgradeMessage(t('updateDialog.restartDev'));
+        await Promise.all([refetch(), queryClient.invalidateQueries({ queryKey: queryKeys.versionCheck })]);
+        setUpgrading(false);
+        return;
+      }
+      setUpgradeMessage(t('updateDialog.restarting'));
+      await api.restartApp({ clearCache: true });
+      // The server is coming back up; poll until it answers, then show the new build.
+      for (let i = 0; i < 40; i++) {
+        await new Promise((resolve) => setTimeout(resolve, 500));
+        try {
+          await api.health();
+          window.location.reload();
+          return;
+        } catch { /* still restarting */ }
+      }
+      setUpgradeMessage(t('updateDialog.restartManual'));
+      setUpgrading(false);
+    } catch (e) {
+      setUpgradeMessage((e as Error).message);
+      setUpgrading(false);
+    }
+  };
+
+  const header = (
+    <>
+      <PageHeader
+        className="!mb-0"
+        title={t('layout.nav.settings')}
+        subtitle={`${t(isProjectMode ? 'app.project' : 'app.global')}${overview.data?.configDir ? ` · ${shortenHome(overview.data.configDir)}` : ''}`}
+      />
+      <SettingsTabs current="doctor" />
+    </>
+  );
+
+  if (isPending) return <div className="ss-wrap animate-fade-in">{header}<PageSkeleton /></div>;
+  if (error) {
+    return (
+      <div className="ss-wrap animate-fade-in">
+        {header}
+        <div className="ss-note bad"><span className="flex-1">{t('doctor.error.failedToLoad', { error: error.message })}</span></div>
+      </div>
+    );
+  }
+
+  const summary = data!.summary;
+  const counts: Record<Filter, number> = { all: summary.total, error: summary.errors, warning: summary.warnings, pass: summary.pass };
+  // Only the parts that have something to report, so a healthy setup reads "13 passed."
+  const summaryLine = [
+    summary.errors > 0 && t(summary.errors === 1 ? 'doctor.summary.errors.one' : 'doctor.summary.errors.other', { count: summary.errors }),
+    summary.warnings > 0 && t(summary.warnings === 1 ? 'doctor.summary.warnings.one' : 'doctor.summary.warnings.other', { count: summary.warnings }),
+    t('doctor.summary.passed', { count: summary.pass }),
+  ].filter(Boolean).join(', ');
 
   return (
-    <div className="border-b border-muted last:border-b-0">
-      <button
-        onClick={() => expandable && setExpanded((v) => !v)}
-        className={`w-full flex items-center gap-3 px-4 py-3 text-left transition-colors ${expandable ? 'cursor-pointer hover:bg-muted/20' : 'cursor-default'}`}
-      >
-        {statusIcon(check.status)}
-        <div className="flex-1 min-w-0">
-          <span className="font-medium text-pencil text-sm">{label}</span>
-          <p className="text-pencil-light text-sm mt-0.5 truncate">{check.message}</p>
+    <div className="ss-wrap animate-fade-in">
+      {header}
+
+      <div className="flex items-center justify-between gap-6">
+        <p className="max-w-[560px] text-[13px] leading-relaxed text-ink-2">
+          {t('doctor.subtitle')} <b className="font-semibold text-ink">{summaryLine}</b>
+        </p>
+        <div className="flex items-center gap-2">
+          <CopyButton unstyled value={report} size={14} className="ss-btn sm" title={t('doctor.copyReport')} label={t('doctor.copyReport')} copiedLabel={t('doctor.copied')} />
+          <Button variant="secondary" size="sm" onClick={() => refetch()} loading={isFetching}><RefreshCw size={14} />{t('doctor.recheck')}</Button>
         </div>
-        {expandable && (
-          <span className="text-pencil-light shrink-0">
-            {expanded
-              ? <ChevronDown size={16} strokeWidth={2.5} />
-              : <ChevronRight size={16} strokeWidth={2.5} />}
-          </span>
+      </div>
+
+      <div className="ss-seg self-start" role="radiogroup" aria-label={t('doctor.filter.all')}>
+        {FILTERS.map((f) => (
+          <button
+            key={f}
+            type="button"
+            role="radio"
+            aria-checked={filter === f}
+            className={filter === f ? 'on' : ''}
+            disabled={counts[f] === 0 && f !== 'all'}
+            onClick={() => { setFilter(f); setOpen(null); }}
+          >
+            {t(`doctor.filter.${f}`)}
+            <span className="ss-cnt">{counts[f]}</span>
+          </button>
+        ))}
+      </div>
+
+      <div className="ss-list">
+        {checks.length === 0 ? (
+          <p className="px-4 py-8 text-center text-[13px] text-ink-3">{t('doctor.filter.noMatch')}</p>
+        ) : (
+          checks.map((check, i) => <CheckRow key={`${check.name}-${i}`} check={check} open={open === `${check.name}-${i}`} onToggle={() => setOpen(open === `${check.name}-${i}` ? null : `${check.name}-${i}`)} />)
         )}
-      </button>
-      {expanded && expandable && (
-        <div className="px-4 pb-3 pl-11 space-y-3">
-          {hasDetails && <CheckDetails details={check.details!} name={check.name} />}
-          {hasSuggestions && (
-            <div>
-              <p className="text-xs font-medium text-pencil-light mb-1.5">{t('doctor.suggestions')}</p>
-              <ul className="space-y-1">
-                {check.suggestions!.map((s, i) => (
-                  <li key={i} className="text-sm text-pencil-light flex items-start gap-2">
-                    <span className="text-muted-dark mt-0.5 shrink-0">&rarr;</span>
-                    <span>{s}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
+      </div>
+
+      {data!.version && (
+        <div className="ss-box flex items-center gap-4 !py-3.5">
+          {data!.version.update_available
+            ? <ArrowUpCircle size={18} className="shrink-0 text-accent" />
+            : <CheckCircle2 size={18} className="shrink-0 text-ok" />}
+          <span className="flex min-w-0 flex-1 flex-col">
+            <span className="text-[13px] font-semibold">{t('doctor.version.title')}</span>
+            <span className="font-mono text-[12.5px] text-ink-2">
+              {data!.version.current}
+              {data!.version.latest && data!.version.latest !== data!.version.current ? ` → ${data!.version.latest}` : ''}
+            </span>
+          </span>
+          {upgradeMessage && <span className="text-[13px] text-ink-2">{upgradeMessage}</span>}
+          {data!.version.update_available ? (
+            <Button variant="primary" size="sm" onClick={upgrade} loading={upgrading}><ArrowUpCircle size={14} />{t('updateDialog.updateNow')}</Button>
+          ) : (
+            <span className="ss-st ok">{t('dashboard.version.upToDate')}</span>
           )}
         </div>
       )}
@@ -110,300 +169,75 @@ function CheckRow({ check }: { check: DoctorCheck }) {
   );
 }
 
-function CheckDetails({ details, name }: { details: string[]; name: string }) {
+function CheckRow({ check, open, onToggle }: { check: DoctorCheck; open: boolean; onToggle: () => void }) {
   const t = useT();
-  // Skillignore check uses --- to separate patterns from ignored skills
-  const sepIdx = details.indexOf('---');
-  if (name === 'skillignore' && sepIdx !== -1) {
-    const patterns = details.slice(0, sepIdx);
-    const ignored = details.slice(sepIdx + 1);
-    return (
-      <div className="space-y-3">
-        {patterns.length > 0 && (
-          <div>
-            <p className="text-xs font-medium text-pencil-light mb-1.5">{t('doctor.skillignore.patterns')}</p>
-            <div className="flex flex-wrap gap-1.5">
-              {patterns.map((p, i) => (
-                <span key={i} className="font-mono text-xs px-2 py-0.5 rounded bg-muted/60 text-pencil-light border border-muted">
-                  {p}
-                </span>
-              ))}
-            </div>
-          </div>
-        )}
-        {ignored.length > 0 && (
-          <div>
-            <p className="text-xs font-medium text-pencil-light mb-1.5">{t('doctor.skillignore.ignoredSkills')}</p>
-            <div className="flex flex-wrap gap-1.5">
-              {ignored.map((s, i) => (
-                <span key={i} className="font-mono text-xs px-2 py-0.5 rounded bg-warning-light/50 text-pencil-light border border-warning/30">
-                  {s}
-                </span>
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
-    );
-  }
+  const details = check.details ?? [];
+  const suggestions = check.suggestions ?? [];
+  const expandable = details.length > 0 || suggestions.length > 0;
+  const Icon = ICON[check.status];
+  const label = t(`doctor.check.${check.name}`, {}, checkLabel(check.name));
 
-  // Default: bullet list for all other checks
+  const row = (
+    <>
+      <Icon size={16} className={`shrink-0 ${TONE[check.status]}`} />
+      <span className="nm m w-[210px] shrink-0 truncate">{label}</span>
+      <span className="min-w-0 flex-1 truncate text-[13px] text-ink-2">{check.message}</span>
+      {expandable && (open ? <ChevronDown size={15} className="shrink-0 text-ink-3" /> : <ChevronRight size={15} className="shrink-0 text-ink-3" />)}
+    </>
+  );
+
+  if (!expandable) return <div className="ss-r">{row}</div>;
+
   return (
-    <ul className="space-y-1">
-      {details.map((detail, i) => (
-        <li key={i} className="text-sm text-pencil-light flex items-start gap-2">
-          <span className="text-muted-dark mt-0.5 shrink-0">&bull;</span>
-          <span>{detail}</span>
-        </li>
-      ))}
-    </ul>
+    <div>
+      <button type="button" className="ss-r link w-full text-left" aria-expanded={open} onClick={onToggle}>{row}</button>
+      {open && (
+        <div className="ss-r fold !items-start !py-3.5 !pl-[44px]">
+          <div className="flex min-w-0 flex-1 flex-col gap-3">
+            {details.length > 0 && <DetailList name={check.name} details={details} />}
+            {check.name === 'skillignore' && (
+              <Link to="/config?tab=skillignore" className="ss-btn sm self-start"><Pencil size={14} />{t('sync.ignored.edit')}</Link>
+            )}
+            {suggestions.length > 0 && (
+              <div className="flex flex-col gap-1.5">
+                <span className="text-[12px] font-semibold text-ink-3">{t('doctor.suggestions')}</span>
+                <ul className="flex flex-col gap-1 text-[13px] text-ink-2">
+                  {suggestions.map((s) => <li key={s}>→ {s}</li>)}
+                </ul>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 
-export default function DoctorPage() {
+function DetailList({ name, details }: { name: string; details: string[] }) {
   const t = useT();
-  const queryClient = useQueryClient();
-  const { data, isPending, error, isFetching, refetch } = useQuery({
-    queryKey: queryKeys.doctor,
-    queryFn: () => api.doctor(),
-    staleTime: staleTimes.doctor,
-  });
-  const [filter, setFilter] = useState<StatusFilter>('all');
-  const [upgrading, setUpgrading] = useState(false);
-  const [upgradeMessage, setUpgradeMessage] = useState<string | null>(null);
-
-  const filteredChecks = useMemo(() => {
-    if (!data) return [];
-    if (filter === 'all') return data.checks;
-    if (filter === 'pass') return data.checks.filter((c) => c.status === 'pass' || c.status === 'info');
-    return data.checks.filter((c) => c.status === filter);
-  }, [data, filter]);
-
-  const allPassed = data && data.summary.errors === 0 && data.summary.warnings === 0;
-
-  const waitForRestartThenReload = async () => {
-    await new Promise((resolve) => setTimeout(resolve, 800));
-    for (let i = 0; i < 40; i++) {
-      try {
-        await api.health();
-        window.location.reload();
-        return;
-      } catch {
-        await new Promise((resolve) => setTimeout(resolve, 500));
-      }
-    }
-    setUpgradeMessage(t('updateDialog.restartManual'));
-    setUpgrading(false);
-  };
-
-  const handleUpgradeNow = async () => {
-    setUpgrading(true);
-    setUpgradeMessage(t('updateDialog.updating'));
-    try {
-      const result = await api.upgradeApp();
-      if (result.devMode) {
-        setUpgradeMessage(t('updateDialog.restartDev'));
-        await new Promise((resolve) => setTimeout(resolve, 900));
-        await Promise.all([
-          refetch(),
-          queryClient.invalidateQueries({ queryKey: queryKeys.versionCheck }),
-        ]);
-        setUpgrading(false);
-        return;
-      }
-      setUpgradeMessage(t('updateDialog.restarting'));
-      await api.restartApp({ clearCache: true });
-      void waitForRestartThenReload();
-    } catch (err) {
-      setUpgradeMessage((err as Error).message);
-      setUpgrading(false);
-    }
-  };
-
-  if (isPending) return <PageSkeleton />;
-
-  if (error) {
+  // The skillignore check packs two lists into one array, separated by "---".
+  const sep = details.indexOf('---');
+  if (name === 'skillignore' && sep !== -1) {
+    const groups: [string, string[]][] = [
+      [t('doctor.skillignore.patterns'), details.slice(0, sep)],
+      [t('doctor.skillignore.ignoredSkills'), details.slice(sep + 1)],
+    ];
     return (
-      <div className="space-y-6">
-        <PageHeader
-          title={t('doctor.title')}
-          icon={<Stethoscope size={28} strokeWidth={2.5} />}
-        />
-        <Card>
-          <div className="text-danger text-sm">
-            {t('doctor.error.failedToLoad', { error: error instanceof Error ? error.message : t('common.unknownError') })}
+      <div className="flex flex-col gap-3">
+        {groups.filter(([, items]) => items.length > 0).map(([title, items]) => (
+          <div key={title} className="flex flex-col gap-1.5">
+            <span className="text-[12px] font-semibold text-ink-3">{title}</span>
+            <div className="flex flex-wrap gap-1.5">
+              {items.map((item) => <span key={item} className="ss-tag font-mono">{item}</span>)}
+            </div>
           </div>
-        </Card>
+        ))}
       </div>
     );
   }
-
   return (
-    <div className="space-y-6">
-      <PageHeader
-        title={t('doctor.title')}
-        icon={<Stethoscope size={28} strokeWidth={2.5} />}
-        subtitle={t('doctor.subtitle')}
-        actions={
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => refetch()}
-            loading={isFetching}
-          >
-            <RefreshCw size={14} strokeWidth={2.5} />
-            {t('doctor.recheck')}
-          </Button>
-        }
-      />
-
-      {/* Summary cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card>
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: `${palette.success}18` }}>
-              <CheckCircle2 size={20} strokeWidth={2.5} style={{ color: palette.success }} />
-            </div>
-            <div>
-              <div className="text-2xl font-bold text-pencil">{data!.summary.pass}</div>
-              <div className="text-sm text-pencil-light">{t('doctor.summary.passed')}</div>
-            </div>
-          </div>
-        </Card>
-        <Card>
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: `${palette.warning}18` }}>
-              <AlertTriangle size={20} strokeWidth={2.5} style={{ color: palette.warning }} />
-            </div>
-            <div>
-              <div className="text-2xl font-bold text-pencil">{data!.summary.warnings}</div>
-              <div className="text-sm text-pencil-light">{t('doctor.summary.warnings')}</div>
-            </div>
-          </div>
-        </Card>
-        <Card>
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: `${palette.danger}18` }}>
-              <XCircle size={20} strokeWidth={2.5} style={{ color: palette.danger }} />
-            </div>
-            <div>
-              <div className="text-2xl font-bold text-pencil">{data!.summary.errors}</div>
-              <div className="text-sm text-pencil-light">{t('doctor.summary.errors')}</div>
-            </div>
-          </div>
-        </Card>
-      </div>
-
-      {/* All passed banner */}
-      {allPassed && (
-        <Card className="!bg-success-light border-success/30">
-          <div className="flex items-center gap-3">
-            <PartyPopper size={22} strokeWidth={2.5} style={{ color: palette.success }} />
-            <div>
-              <div className="font-semibold text-pencil">{t('doctor.allPassed.title')}</div>
-              <div className="text-sm text-pencil-light">
-                {t('doctor.allPassed.message', { count: data!.summary.total })}
-              </div>
-            </div>
-          </div>
-        </Card>
-      )}
-
-      {/* Filter toggles */}
-      <SegmentedControl<StatusFilter>
-        value={filter}
-        onChange={setFilter}
-        options={[
-          { value: 'all', label: t('doctor.filter.all'), count: data!.summary.total },
-          { value: 'error', label: t('doctor.filter.error'), count: data!.summary.errors },
-          { value: 'warning', label: t('doctor.filter.warning'), count: data!.summary.warnings },
-          { value: 'pass', label: t('doctor.filter.pass'), count: data!.summary.pass },
-        ]}
-      />
-
-      {/* Checks list */}
-      <Card padding="none">
-        {filteredChecks.length === 0 ? (
-          <div className="py-8 text-center text-pencil-light text-sm">
-            {t('doctor.filter.noMatch')}
-          </div>
-        ) : (
-          filteredChecks.map((check, i) => (
-            <CheckRow key={`${check.name}-${i}`} check={check} />
-          ))
-        )}
-      </Card>
-
-      {/* Version info */}
-      {data!.version && (() => {
-        const updateAvailable = data!.version.update_available;
-        const messageIsError = upgradeMessage && (upgradeMessage.includes('failed') || upgradeMessage.includes('失敗'));
-        const messageTone = upgrading ? 'progress' : messageIsError ? 'error' : 'success';
-        const messageColor = palette[updateAvailable ? 'info' : 'success'];
-        return (
-          <Card>
-            <div className="flex items-start gap-4">
-              {/* Status icon — semantic anchor, mirrors Summary card style */}
-              <div
-                className="shrink-0 w-10 h-10 rounded-full flex items-center justify-center"
-                style={{ backgroundColor: `${messageColor}18` }}
-              >
-                {updateAvailable ? (
-                  <ArrowUpCircle size={20} strokeWidth={2.5} style={{ color: messageColor }} />
-                ) : (
-                  <CheckCircle2 size={20} strokeWidth={2.5} style={{ color: messageColor }} />
-                )}
-              </div>
-
-              {/* Content */}
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-sm font-medium text-pencil">{t('doctor.version.title')}</span>
-                  {updateAvailable ? (
-                    <Badge variant="info" size="sm" dot>{t('doctor.version.updateAvailable')}</Badge>
-                  ) : (
-                    <Badge variant="success" size="sm" dot>{t('dashboard.version.upToDate')}</Badge>
-                  )}
-                </div>
-
-                <div className="flex items-center gap-1.5 text-sm mt-1 flex-wrap">
-                  <span className="font-mono text-pencil-light">{data!.version.current}</span>
-                  {data!.version.latest && data!.version.latest !== data!.version.current && (
-                    <>
-                      <ChevronRight size={14} className="text-pencil-light shrink-0" />
-                      <span className="font-mono font-semibold text-pencil">{data!.version.latest}</span>
-                    </>
-                  )}
-                </div>
-
-                {upgradeMessage && (
-                  <p
-                    className={`mt-2 inline-flex items-center gap-1.5 text-sm ${
-                      messageTone === 'progress' ? 'text-pencil-light'
-                        : messageTone === 'error' ? 'text-danger'
-                        : 'text-success'
-                    }`}
-                  >
-                    {messageTone === 'success' && <CheckCircle2 size={14} strokeWidth={2.5} />}
-                    {messageTone === 'error' && <XCircle size={14} strokeWidth={2.5} />}
-                    {upgradeMessage}
-                  </p>
-                )}
-              </div>
-
-              {/* CTA — only show when an update is actually available */}
-              {updateAvailable && (
-                <div className="shrink-0 self-center">
-                  <Button variant="primary" size="sm" onClick={handleUpgradeNow} loading={upgrading}>
-                    <ArrowUpCircle size={14} strokeWidth={2.5} />
-                    {t('updateDialog.updateNow')}
-                  </Button>
-                </div>
-              )}
-            </div>
-          </Card>
-        );
-      })()}
-    </div>
+    <ul className="flex flex-col gap-1 text-[13px] text-ink-2">
+      {details.map((d) => <li key={d}>· {d}</li>)}
+    </ul>
   );
 }

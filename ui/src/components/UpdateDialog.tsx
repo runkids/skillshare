@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { X, Copy, Check } from 'lucide-react';
+import { X, Copy, Check, CircleArrowUp } from 'lucide-react';
 import { queryKeys, staleTimes } from '../lib/queryKeys';
-import { radius } from '../design';
 import { api } from '../api/client';
 import type { VersionCheck } from '../api/client';
 import DialogShell from './DialogShell';
@@ -106,74 +105,50 @@ export default function UpdateDialog() {
   };
 
   return (
-    <DialogShell open={open} onClose={dismiss} maxWidth="sm" preventClose={updating}>
-        {/* Close */}
-        <button
-          onClick={dismiss}
-          className="absolute top-3 right-3 p-1 text-pencil-light hover:text-pencil transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-          aria-label={t('common.close')}
-          disabled={updating}
-        >
+    <DialogShell open={open} onClose={dismiss} maxWidth="md" padding="none" preventClose={updating} ariaLabel={t('updateDialog.newVersion')}>
+      <div className="dh">
+        <h2 className="ss-h2">{t('updateDialog.newVersion')}</h2>
+        <button type="button" className="ss-ib" onClick={dismiss} aria-label={t('common.close')} disabled={updating}>
           <X size={16} />
         </button>
-
-        {/* Title — plain text, no icon block */}
-        <p className="text-sm font-medium text-pencil mb-3 pr-6">
-          {t('updateDialog.newVersion')}
-        </p>
-
-        {/* Version lines */}
-        <div className="space-y-1.5 mb-4">
+      </div>
+      <div className="db">
+        <dl className="ss-kv">
           {data.cliUpdateAvailable && (
-            <div className="flex items-baseline gap-2 text-sm">
-              <span className="text-pencil-light w-10">CLI</span>
-              <span className="font-mono text-pencil-light">{data.cliVersion}</span>
-              <span className="text-pencil-light">&rarr;</span>
-              <span className="font-mono font-medium text-pencil">{data.cliLatest}</span>
-            </div>
+            <>
+              <dt>CLI</dt>
+              <dd className="font-mono">{data.cliVersion} → <b>{data.cliLatest}</b></dd>
+            </>
           )}
           {data.skillUpdateAvailable && (
-            <div className="flex items-baseline gap-2 text-sm">
-              <span className="text-pencil-light w-10">Skill</span>
-              <span className="font-mono text-pencil-light">{data.skillVersion}</span>
-              <span className="text-pencil-light">&rarr;</span>
-              <span className="font-mono font-medium text-pencil">{data.skillLatest}</span>
-            </div>
+            <>
+              <dt>Skill</dt>
+              <dd className="font-mono">{data.skillVersion} → <b>{data.skillLatest}</b></dd>
+            </>
           )}
+        </dl>
+        <div className="ss-fld">
+          <label>{t('updateDialog.terminal')}</label>
+          <div className="flex items-center gap-2">
+            <code className="ss-code flex-1 !py-2">skillshare upgrade</code>
+            <Button variant="secondary" onClick={handleCopy} disabled={updating}>
+              {copied ? <Check size={15} className="text-ok" /> : <Copy size={15} />}
+              {t('updateDialog.copyCommand')}
+            </Button>
+          </div>
         </div>
-
-        {/* Upgrade command — inline copyable */}
-        <div
-          className="flex items-center justify-between py-2 px-3 bg-muted/30 border border-dashed border-pencil-light/30"
-          style={{ borderRadius: radius.sm }}
-        >
-          <code className="font-mono text-sm text-pencil">skillshare upgrade</code>
-          <button
-            onClick={handleCopy}
-            className="p-1 text-pencil-light hover:text-pencil transition-colors cursor-pointer"
-            aria-label={t('updateDialog.copyCommand')}
-            disabled={updating}
-          >
-            {copied
-              ? <Check size={14} className="text-success" />
-              : <Copy size={14} />}
-          </button>
-        </div>
-
-        {status && (
-          <p className={`mt-3 text-sm ${updating ? 'text-pencil-light' : 'text-danger'}`}>
-            {status}
-          </p>
-        )}
-
-        <div className="mt-4 flex justify-end gap-2">
-          <Button variant="ghost" size="sm" onClick={dismiss} disabled={updating}>
-            {t('common.cancel')}
-          </Button>
-          <Button variant="primary" size="sm" onClick={handleUpdateNow} loading={updating}>
-            {t('updateDialog.updateNow', {}, 'Update now')}
-          </Button>
-        </div>
+        <p className="text-[13px] text-ink-2">{t('updateDialog.restartNote')}</p>
+        {status && <p className={`text-[13px] ${updating ? 'text-ink-2' : 'text-bad'}`}>{status}</p>}
+      </div>
+      <div className="df">
+        <Button variant="ghost" onClick={dismiss} disabled={updating}>
+          {t('updateDialog.later')}
+        </Button>
+        <Button variant="primary" onClick={handleUpdateNow} loading={updating}>
+          <CircleArrowUp size={15} />
+          {t('updateDialog.updateNow', {}, 'Update now')}
+        </Button>
+      </div>
     </DialogShell>
   );
 }

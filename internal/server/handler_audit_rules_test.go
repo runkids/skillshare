@@ -6,6 +6,8 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"skillshare/internal/config"
 )
 
 func TestHandleGetAuditRules_NotExist(t *testing.T) {
@@ -89,5 +91,60 @@ func TestHandlePutAuditRules_InvalidYAML(t *testing.T) {
 
 	if rr.Code != http.StatusBadRequest {
 		t.Errorf("expected 400, got %d: %s", rr.Code, rr.Body.String())
+	}
+}
+
+func TestHandleAuditPolicy_SavesBlockThreshold(t *testing.T) {
+	s, _ := newTestServer(t)
+
+	patch := func(body string) *httptest.ResponseRecorder {
+		req := httptest.NewRequest(http.MethodPatch, "/api/audit/policy", strings.NewReader(body))
+		rr := httptest.NewRecorder()
+		s.handler.ServeHTTP(rr, req)
+		return rr
+	}
+
+	if rr := patch(`{"blockThreshold":"nonsense"}`); rr.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400 for an unknown severity, got %d: %s", rr.Code, rr.Body.String())
+	}
+	if rr := patch(`{"blockThreshold":"medium"}`); rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rr.Code, rr.Body.String())
+	}
+
+	cfg, err := config.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Audit.BlockThreshold != "MEDIUM" {
+		t.Fatalf("expected the saved threshold to be MEDIUM, got %q", cfg.Audit.BlockThreshold)
+	}
+}
+
+func TestHandleAuditPolicy_SavesProfile(t *testing.T) {
+	s, _ := newTestServer(t)
+
+	patch := func(body string) *httptest.ResponseRecorder {
+		req := httptest.NewRequest(http.MethodPatch, "/api/audit/policy", strings.NewReader(body))
+		rr := httptest.NewRecorder()
+		s.handler.ServeHTTP(rr, req)
+		return rr
+	}
+
+	if rr := patch(`{"profile":"nonsense"}`); rr.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400 for an unknown profile, got %d: %s", rr.Code, rr.Body.String())
+	}
+	if rr := patch(`{}`); rr.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400 when nothing is sent, got %d: %s", rr.Code, rr.Body.String())
+	}
+	if rr := patch(`{"profile":"strict"}`); rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rr.Code, rr.Body.String())
+	}
+
+	cfg, err := config.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Audit.Profile != "strict" {
+		t.Fatalf("expected the saved profile to be strict, got %q", cfg.Audit.Profile)
 	}
 }

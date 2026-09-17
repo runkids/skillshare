@@ -7,6 +7,10 @@ interface CopyButtonProps {
   title?: string;
   className?: string;
   copiedLabel?: string;
+  /** Shown next to the icon before copying; without it the button is icon-only. */
+  label?: string;
+  /** Drop the icon-button styling so `className` alone decides how it looks. */
+  unstyled?: boolean;
   copiedLabelClassName?: string;
   errorMessage?: string;
   size?: number;
@@ -20,7 +24,9 @@ export default function CopyButton({
   title = 'Copy to clipboard',
   className,
   copiedLabel = 'Copied!',
-  copiedLabelClassName = 'text-xs',
+  label,
+  unstyled = false,
+  copiedLabelClassName = unstyled ? '' : 'text-xs',
   errorMessage = 'Failed to copy to clipboard.',
   size = 12,
   strokeWidth = 2.5,
@@ -62,8 +68,9 @@ export default function CopyButton({
     <button
       type="button"
       onClick={handleCopy}
-      className={className ? `${baseClassName} ${className}` : baseClassName}
-      title={title}
+      className={unstyled ? className : className ? `${baseClassName} ${className}` : baseClassName}
+      // A visible label says what the button does, so a hover tooltip would only repeat it
+      title={label ? undefined : title}
       aria-label={title}
     >
       {copied ? (
@@ -72,7 +79,10 @@ export default function CopyButton({
           <span className={copiedLabelClassName}>{copiedLabel}</span>
         </>
       ) : (
-        <Copy size={size} strokeWidth={strokeWidth} />
+        <>
+          <Copy size={size} strokeWidth={strokeWidth} />
+          {label && <span className={copiedLabelClassName}>{label}</span>}
+        </>
       )}
     </button>
   );

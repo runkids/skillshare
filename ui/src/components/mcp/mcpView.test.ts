@@ -1,10 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import type { MCPPlan } from '../../api/mcp';
-import { buildMatrix, dayLabel, describeCredentials, groupBackupsByDay, isResolvable } from './mcpView';
+import { buildMatrix, isResolvable, joinCommand, splitCommand, targetLabel } from './mcpView';
+import { mcpTargets } from '../../api/mcp';
 
 const change = (name: string, target: string, action: string, message?: string) => ({ name, target, action, message, path: `/${target}.json` });
 
 describe('MCP view helpers', () => {
+  it('includes Antigravity in the shared matrix and dialog targets', () => {
+    expect(mcpTargets).toContain('antigravity');
+    expect(targetLabel('antigravity')).toBe('Antigravity');
+  });
   it('keeps source servers and adds rows for entries only the plan removes', () => {
     const plan: MCPPlan = { revision: 'r', sourcePath: '/c.yaml', blocked: false, changes: [change('docs', 'claude', 'unchanged'), change('old', 'codex', 'remove')] };
     const rows = buildMatrix({ docs: { url: 'https://docs.example/mcp' } }, plan);
@@ -19,15 +24,9 @@ describe('MCP view helpers', () => {
     ].map(isResolvable)).toEqual([true, true, false]);
   });
 
-  it('shows credential references without literal values', () => {
-    expect(describeCredentials({ command: 'npx', env: { MODE: 'fast', TOKEN: { fromEnv: 'GH_TOKEN' } }, bearerToken: { fromEnv: 'DOCS' } }))
-      .toEqual(['Bearer ← $DOCS', 'MODE', 'TOKEN ← $GH_TOKEN']);
-  });
-
-  it('groups backups by the day encoded in their nanosecond IDs', () => {
-    const at = (iso: string) => `${BigInt(Date.parse(iso)) * 1_000_000n}-abcd1234`;
-    const days = groupBackupsByDay([{ id: at('2026-09-17T10:56:00') }, { id: at('2026-09-17T08:55:00') }, { id: at('2026-09-16T18:03:00') }]);
-    expect(days.map(day => day.backups.length)).toEqual([2, 1]);
-    expect(dayLabel(days[1].date, 'en', new Date('2026-09-17T12:00:00'))).toBe('yesterday · September 16');
+  it('round-trips quoted command arguments', () => {
+    const words = splitCommand(`npx -y @scope/server "~/My Notes" --label='a b' ''`);
+    expect(words).toEqual(['npx', '-y', '@scope/server', '~/My Notes', '--label=a b', '']);
+    expect(splitCommand(joinCommand(words))).toEqual(words);
   });
 });

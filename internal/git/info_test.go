@@ -1,6 +1,7 @@
 package git
 
 import (
+	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -808,5 +809,42 @@ func TestSetOrAddRemote(t *testing.T) {
 	}
 	if got, _ := GetRemoteURL(repo); got != "https://example.com/b.git" {
 		t.Errorf("origin changed after rejected input: %q", got)
+	}
+}
+
+func TestAheadCount_CountsUnpushedCommits(t *testing.T) {
+	repo := cloneRepo(t, createBareRemoteWithBranch(t, "main", map[string]string{"a/SKILL.md": "# a\n"}))
+	runGit(t, repo, "-c", "user.name=test", "-c", "user.email=test@test.com", "commit", "--allow-empty", "-m", "local")
+
+	if got := AheadCount(repo); got != 1 {
+		t.Fatalf("AheadCount() = %d, want 1", got)
+	}
+}
+
+func TestFirstPull_MergesUnrelatedRemoteHistory(t *testing.T) {
+	remote := createBareRemoteWithBranch(t, "main", map[string]string{"remote-skill/SKILL.md": "# remote\n"})
+	repo := initTestRepo(t)
+	if err := os.MkdirAll(filepath.Join(repo, "local-skill"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	runGit(t, repo, "remote", "add", "origin", remote)
+
+	if _, err := FirstPull(repo, false); err != nil {
+		t.Fatalf("FirstPull() error: %v", err)
+	}
+	_, statErr := os.Stat(filepath.Join(repo, "remote-skill", "SKILL.md"))
+	if statErr != nil || !HasUpstream(repo) {
+		t.Fatalf("expected remote files merged and upstream set (stat err: %v, upstream: %v)", statErr, HasUpstream(repo))
+	}
+}
+
+func TestFirstPull_EmptyRemoteReportsNoBranches(t *testing.T) {
+	remote := filepath.Join(t.TempDir(), "remote.git")
+	runGit(t, "", "init", "--bare", remote)
+	repo := initTestRepo(t)
+	runGit(t, repo, "remote", "add", "origin", remote)
+
+	if _, err := FirstPull(repo, false); !errors.Is(err, ErrNoRemoteBranches) {
+		t.Fatalf("FirstPull() error = %v, want ErrNoRemoteBranches", err)
 	}
 }

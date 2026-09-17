@@ -24,39 +24,59 @@ type Mutation struct {
 	Replace     bool         `json:"replace,omitempty"`
 }
 
-func (s *Service) draft(m Mutation) (*Source, error) {
+func (s *Service) draftMutations(mutations []Mutation) (*Source, error) {
 	source, err := LoadSource(s.ConfigPath)
 	if err != nil {
 		return nil, err
 	}
-	if m.Remove && m.Server != nil {
-		return nil, fmt.Errorf("cannot add and remove the same server")
-	}
-	if m.Remove {
-		if _, ok := source.Servers[m.Name]; !ok {
-			return nil, fmt.Errorf("MCP server %q not found", m.Name)
+	seen := map[string]bool{}
+	for _, m := range mutations {
+		if m.Name != "" && seen[m.Name] {
+			return nil, fmt.Errorf("duplicate MCP mutation for %q", m.Name)
 		}
-		delete(source.Servers, m.Name)
-	}
-	if m.Server != nil {
-		if _, exists := source.Servers[m.Name]; exists && !m.Replace {
-			return nil, fmt.Errorf("MCP server %q already exists; explicitly choose edit or replace", m.Name)
+		seen[m.Name] = true
+		if m.Remove && m.Server != nil {
+			return nil, fmt.Errorf("cannot add and remove the same server")
 		}
-		if err := m.Server.Validate(m.Name); err != nil {
-			return nil, err
+		if m.Remove {
+			if _, ok := source.Servers[m.Name]; !ok {
+				return nil, fmt.Errorf("MCP server %q not found", m.Name)
+			}
+			delete(source.Servers, m.Name)
 		}
-		source.Servers[m.Name] = *m.Server
+		if m.Server != nil {
+			if _, exists := source.Servers[m.Name]; exists && !m.Replace {
+				return nil, fmt.Errorf("MCP server %q already exists; explicitly choose edit or replace", m.Name)
+			}
+			if err := m.Server.Validate(m.Name); err != nil {
+				return nil, err
+			}
+			source.Servers[m.Name] = *m.Server
+		}
 	}
 	return source, nil
 }
 
 // PreviewMutation does not persist a draft or claim ownership.
 func (s *Service) PreviewMutation(m Mutation) (*Plan, error) {
-	source, err := s.draft(m)
+	return s.PreviewMutations([]Mutation{m})
+}
+
+// PreviewMutations validates a complete batch without persisting any entry.
+func (s *Service) PreviewMutations(mutations []Mutation) (*Plan, error) {
+	source, err := s.draftMutations(mutations)
 	if err != nil {
 		return nil, err
 	}
-	return s.previewResolved(source, m.Resolutions)
+	return s.previewResolved(source, batchResolutions(mutations))
+}
+
+func batchResolutions(mutations []Mutation) []Resolution {
+	var resolutions []Resolution
+	for _, m := range mutations {
+		resolutions = append(resolutions, m.Resolutions...)
+	}
+	return resolutions
 }
 
 func (s *Source) save() error {
@@ -122,6 +142,12 @@ func blockCollections(node *yaml.Node) {
 // Mutate validates before saving. With sync enabled, it preflights all native
 // destinations before saving the source. Later I/O failures report partial work.
 func (s *Service) Mutate(m Mutation, revision string, sync bool) (*Result, error) {
+	return s.MutateBatch([]Mutation{m}, revision, sync)
+}
+
+// MutateBatch preflights every entry and saves the source once under one lock.
+// Native writes use the existing recovery journal, just like a single mutation.
+func (s *Service) MutateBatch(mutations []Mutation, revision string, sync bool) (*Result, error) {
 	lock, err := s.lock()
 	if err != nil {
 		return nil, err
@@ -130,18 +156,19 @@ func (s *Service) Mutate(m Mutation, revision string, sync bool) (*Result, error
 	if err := s.recoverPending(); err != nil {
 		return nil, err
 	}
-	source, err := s.draft(m)
+	source, err := s.draftMutations(mutations)
 	if err != nil {
 		return nil, err
 	}
 	var preview *Plan
-	if !sync && revision == "" && len(m.Resolutions) == 0 {
+	resolutions := batchResolutions(mutations)
+	if !sync && revision == "" && len(resolutions) == 0 {
 		// Save only still refuses definitions that could never synchronize.
 		if _, _, err := s.render(source); err != nil {
 			return nil, err
 		}
 	} else {
-		p, err := s.previewResolved(source, m.Resolutions)
+		p, err := s.previewResolved(source, resolutions)
 		if err != nil {
 			return nil, err
 		}
@@ -153,7 +180,11 @@ func (s *Service) Mutate(m Mutation, revision string, sync bool) (*Result, error
 			return &Result{Plan: p}, fmt.Errorf("MCP conflicts found; no files changed")
 		}
 	}
-	if m.Server != nil || m.Remove {
+	changed := false
+	for _, m := range mutations {
+		changed = changed || m.Server != nil || m.Remove
+	}
+	if changed {
 		if err := source.save(); err != nil {
 			return nil, err
 		}
@@ -161,7 +192,7 @@ func (s *Service) Mutate(m Mutation, revision string, sync bool) (*Result, error
 	if !sync {
 		// Saving an explicit import also records the native baseline. The next
 		// sync can update it, but still detects any edits made in the meantime.
-		if len(m.Resolutions) > 0 {
+		if len(resolutions) > 0 {
 			if preview.Blocked {
 				return nil, fmt.Errorf("source saved; unresolved conflicts prevented adoption")
 			}
@@ -177,7 +208,7 @@ func (s *Service) Mutate(m Mutation, revision string, sync bool) (*Result, error
 				if err != nil {
 					return nil, fmt.Errorf("source saved; %w", err)
 				}
-				for _, r := range m.Resolutions {
+				for _, r := range resolutions {
 					if r.Target != f.target || native.Entries[r.Name] == nil {
 						continue
 					}
@@ -198,7 +229,7 @@ func (s *Service) Mutate(m Mutation, revision string, sync bool) (*Result, error
 	if err != nil {
 		return nil, err
 	}
-	p, err := s.previewResolved(source, m.Resolutions)
+	p, err := s.previewResolved(source, resolutions)
 	if err != nil {
 		return nil, err
 	}

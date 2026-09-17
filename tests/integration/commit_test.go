@@ -31,7 +31,7 @@ targets: {}
 
 	result := sb.RunCLI("commit")
 
-	result.AssertSuccess(t)
+	result.AssertFailure(t)
 	result.AssertOutputContains(t, "not a git repository")
 }
 

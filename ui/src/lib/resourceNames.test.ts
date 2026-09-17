@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatAgentDisplayName, formatPreviewResourceName, formatSkillDisplayName } from './resourceNames';
+import { formatAgentDisplayName, formatSkillDisplayName } from './resourceNames';
 
 describe('resourceNames', () => {
   it('formats nested agent flat names as slash paths without markdown suffix', () => {
@@ -12,13 +12,5 @@ describe('resourceNames', () => {
 
   it('formats nested skill flat names as slash paths', () => {
     expect(formatSkillDisplayName('_team__frontend__ui')).toBe('_team/frontend/ui');
-  });
-
-  it('formats skill preview names', () => {
-    expect(formatPreviewResourceName('_team__frontend__ui', 'skill')).toBe('_team/frontend/ui');
-  });
-
-  it('formats agent preview names', () => {
-    expect(formatPreviewResourceName('demo__code-archaeologist.md', 'agent')).toBe('demo/code-archaeologist');
   });
 });

@@ -33,6 +33,7 @@ func (s *Server) handleOverview(w http.ResponseWriter, r *http.Request) {
 	cfgMode := s.cfg.Mode
 	targetCount := len(s.cfg.Targets)
 	projectRoot := s.projectRoot
+	configDir := filepath.Dir(s.configPath())
 	s.mu.RUnlock()
 
 	isProjectMode := projectRoot != ""
@@ -79,6 +80,7 @@ func (s *Server) handleOverview(w http.ResponseWriter, r *http.Request) {
 		"version":       versioncheck.Version,
 		"trackedRepos":  trackedRepos,
 		"isProjectMode": isProjectMode,
+		"configDir":     configDir,
 	}
 	if agentsSource != "" {
 		resp["agentsSource"] = agentsSource

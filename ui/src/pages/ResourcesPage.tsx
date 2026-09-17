@@ -1,281 +1,111 @@
-import { useState, useMemo, useCallback, useEffect, forwardRef, memo, type ReactElement } from 'react';
+import { useMemo, useState, type CSSProperties, type MouseEvent as ReactMouseEvent } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
-  Asterisk,
-  Search,
-  GitBranch,
+  Bot,
+  ChevronDown,
+  ChevronRight,
+  ChevronsDownUp,
+  ChevronsUpDown,
+  CircleCheck,
+  CircleX,
+  Download,
+  Ellipsis,
+  ExternalLink,
   Folder,
-  Puzzle,
-  ArrowUpDown,
-  Users,
-  Globe,
-  Cloud,
   FolderOpen,
+  FolderTree,
+  GitBranch,
+  Github,
+  Globe,
+  Info,
   LayoutGrid,
   List,
   Plus,
-  ChevronRight,
-  ChevronDown,
-  ChevronsUpDown,
-  ChevronsDownUp,
+  Power,
+  Puzzle,
+  RefreshCw,
+  Search,
   Target,
-  MoreHorizontal,
   Trash2,
-  Eye,
-  EyeOff,
-  ExternalLink,
-  MousePointerClick,
+  TriangleAlert,
   X,
-  Bot,
-  Layers,
-  FileText,
-  Check,
-  Minus,
-  CheckSquare,
 } from 'lucide-react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { VirtuosoGrid, Virtuoso } from 'react-virtuoso';
-import type { GridComponents } from 'react-virtuoso';
+import { api } from '../api/client';
+import type { BatchUninstallItemResult, Skill } from '../api/client';
 import { queryKeys, staleTimes } from '../lib/queryKeys';
 import { clearAuditCache } from '../lib/auditCache';
-import Badge from '../components/Badge';
-import KindBadge from '../components/KindBadge';
-import SourceBadge, { resolveSource, type SourceType } from '../components/SourceBadge';
-import { Input, Select, type SelectOption } from '../components/Input';
-import { PageSkeleton } from '../components/Skeleton';
-import EmptyState from '../components/EmptyState';
-import Card from '../components/Card';
+import { globToRegex } from '../lib/glob';
+import { parseRemoteURL } from '../lib/parseRemoteURL';
+import { formatTrackedRepoName, resourceHref } from '../lib/resourceNames';
+import { useSyncMatrix } from '../hooks/useSyncMatrix';
+import { useRepoUpdate } from '../hooks/useRepoUpdate';
+import { useT } from '../i18n';
+import AgentIcon from '../components/AgentIcon';
 import Button from '../components/Button';
+import { Checkbox } from '../components/Checkbox';
+import ConfirmDialog from '../components/ConfirmDialog';
+import DialogShell from '../components/DialogShell';
+import AnalyzePanel from '../components/analyze/AnalyzePanel';
+import EmptyState from '../components/EmptyState';
+import InstallDialog from '../components/InstallDialog';
 import PageHeader from '../components/PageHeader';
 import SegmentedControl from '../components/SegmentedControl';
-import Pagination from '../components/Pagination';
-import { api } from '../api/client';
-import type { Skill, SyncMatrixEntry } from '../api/client';
-import { radius } from '../design';
-import ScrollToTop from '../components/ScrollToTop';
-import Tooltip from '../components/Tooltip';
-import { parseRemoteURL } from '../lib/parseRemoteURL';
-import { formatSkillDisplayName, formatAgentDisplayName, formatTrackedRepoName } from '../lib/resourceNames';
+import { Select } from '../components/Select';
+import { PageSkeleton } from '../components/Skeleton';
+import { resolveSource, type SourceType } from '../components/SourceBadge';
+import TargetMenu, { SkillContextMenu } from '../components/TargetMenu';
 import { useToast } from '../components/Toast';
-import TargetMenu, { SkillContextMenu, type ContextMenuItem } from '../components/TargetMenu';
-import ConfirmDialog from '../components/ConfirmDialog';
-import Spinner from '../components/Spinner';
-import { Checkbox } from '../components/Checkbox';
-import { useSyncMatrix } from '../hooks/useSyncMatrix';
-import { useT } from '../i18n';
+import TrashPage from './TrashPage';
+import UpdatePage, { countUpdates, updateUnits, useCheckStatuses } from './UpdatePage';
 
-/* -- Sticky-note pastel palette (8 colors) --------- */
-
-const SKILL_PASTELS = [
-  '#fff9c4', '#dceefb', '#fce4ec', '#e0f2e1',
-  '#f3e5f5', '#fff3e0', '#e0f7fa', '#fbe9e7',
-];
-const SKILL_PASTELS_DARK = [
-  'rgba(255,249,196,0.08)', 'rgba(220,238,251,0.08)',
-  'rgba(252,228,236,0.08)', 'rgba(224,242,225,0.08)',
-  'rgba(243,229,245,0.08)', 'rgba(255,243,224,0.08)',
-  'rgba(224,247,250,0.08)', 'rgba(251,233,231,0.08)',
-];
-
-/* -- Shared skill action items hook --------------- */
-
+type Kind = Skill['kind'];
+type SourceFilter = 'all' | SourceType;
+type StatusFilter = 'all' | 'enabled' | 'disabled';
+type SortType = 'name-asc' | 'name-desc' | 'newest' | 'oldest';
+type ViewType = 'list' | 'cards' | 'tree';
+type GroupBy = 'source' | 'none';
+type Tone = 'ok' | 'off';
+type Point = { x: number; y: number };
+type MenuState =
+  | { mode: 'item'; skill: Skill; point: Point }
+  | { mode: 'folder'; path: string; summary: TargetSummary; point: Point }
+  | { mode: 'repo'; repo: string; point: Point }
+  | { mode: 'bulk'; point: Point };
 type SkillsData = { resources: Skill[] };
-const EMPTY_RESOURCES: Skill[] = [];
 
-function resourceDetailHref(resource: Pick<Skill, 'flatName' | 'kind'>): string {
-  const kindQuery = resource.kind === 'agent' ? '?kind=agent' : '';
-  return `/resources/${encodeURIComponent(resource.flatName)}${kindQuery}`;
+const EMPTY: Skill[] = [];
+// ponytail: "Show more" paging instead of virtualization; add a virtual list if 1000+ rows get slow.
+const STEP = 100;
+const SOURCE_ORDER: SourceType[] = ['tracked', 'github', 'remote', 'local'];
+// Source names stay in English, like the CLI.
+const SOURCE_LABEL: Record<SourceFilter, string> = { all: 'All', tracked: 'Tracked', github: 'GitHub', remote: 'Remote', local: 'Local' };
+const SOURCE_ICON = { tracked: GitBranch, github: Github, remote: Globe, local: Folder };
+// Status labels stay in English too.
+const STATUS_LABEL: Record<StatusFilter, string> = { all: 'All', enabled: 'Enabled', disabled: 'Disabled' };
+const VIEW_KEY = 'skillshare:skills-view';
+const COLLAPSED_KEY = 'skillshare:folder-collapsed';
+
+function loadView(): ViewType {
+  try {
+    const v = localStorage.getItem(VIEW_KEY);
+    // 'grid' and 'grouped' are the names the previous dashboard stored.
+    if (v === 'cards' || v === 'grid') return 'cards';
+    if (v === 'tree' || v === 'grouped') return 'tree';
+  } catch { /* storage unavailable */ }
+  return 'list';
 }
 
-function resourceLabel(kind: Skill['kind'], capitalize = false): string {
-  const label = kind === 'agent' ? 'agent' : 'skill';
-  return capitalize ? label[0].toUpperCase() + label.slice(1) : label;
+function loadCollapsed(): Set<string> {
+  try {
+    const raw = localStorage.getItem(COLLAPSED_KEY);
+    if (raw) return new Set(JSON.parse(raw));
+  } catch { /* corrupt or unavailable */ }
+  return new Set();
 }
 
-function summarizeAgentTargets(entries: SyncMatrixEntry[], t: (key: string, params?: Record<string, string | number>) => string): { label: string; title: string } {
-  if (entries.length === 0) {
-    return {
-      label: t('resources.tree.noAgentTargets.label'),
-      title: t('resources.tree.noAgentTargets.title'),
-    };
-  }
-
-  const applicable = entries.filter((entry) => entry.status !== 'na');
-  const synced = applicable
-    .filter((entry) => entry.status === 'synced')
-    .map((entry) => entry.target)
-    .sort();
-
-  if (synced.length === 0) {
-    return {
-      label: t('resources.tree.filteredOut.label'),
-      title: t('resources.tree.filteredOut.title'),
-    };
-  }
-
-  // All applicable targets synced → "All"
-  if (synced.length === applicable.length) {
-    return {
-      label: t('resources.targets.all'),
-      title: t('resources.tree.allTargets'),
-    };
-  }
-
-  return {
-    label: synced.length > 2 ? t('resources.targets.nTargets', { count: synced.length }) : synced.join(', '),
-    title: synced.join(', '),
-  };
-}
-
-/** Optimistic update helper: patch skills cache and return rollback snapshot. */
-function optimisticPatch(
-  queryClient: ReturnType<typeof useQueryClient>,
-  patchFn: (skills: Skill[]) => Skill[],
-) {
-  queryClient.cancelQueries({ queryKey: queryKeys.skills.all });
-  const previous = queryClient.getQueryData<SkillsData>(queryKeys.skills.all);
-  if (previous) {
-    queryClient.setQueryData<SkillsData>(queryKeys.skills.all, {
-      ...previous,
-      resources: patchFn(previous.resources),
-    });
-  }
-  return previous;
-}
-
-function useResourceActions() {
-  const queryClient = useQueryClient();
-  const { toast } = useToast();
-  const navigate = useNavigate();
-  const t = useT();
-
-  const toggleMutation = useMutation({
-    mutationFn: ({ name, kind, disable }: { name: string; kind: Skill['kind']; disable: boolean }) =>
-      disable ? api.disableResource(name, kind) : api.enableResource(name, kind),
-    onMutate: async ({ name, kind, disable }) => {
-      const previous = optimisticPatch(queryClient, (skills) =>
-        skills.map((s) => s.flatName === name && s.kind === kind ? { ...s, disabled: disable } : s),
-      );
-      return { previous };
-    },
-    onSuccess: (_, { name, kind, disable }) => {
-      const display = formatAgentDisplayName(name);
-      const kindLabel = resourceLabel(kind, true);
-      toast(disable ? t('resources.toast.disabled', { kind: kindLabel, name: display }) : t('resources.toast.enabled', { kind: kindLabel, name: display }), 'success');
-    },
-    onError: (err: Error, _, ctx) => {
-      if (ctx?.previous) queryClient.setQueryData(queryKeys.skills.all, ctx.previous);
-      toast(err.message, 'error');
-    },
-    onSettled: () => queryClient.invalidateQueries({ queryKey: queryKeys.skills.all }),
-  });
-
-  const uninstallMutation = useMutation({
-    mutationFn: ({ name, kind }: { name: string; kind: Skill['kind'] }) => api.deleteResource(name, kind),
-    onMutate: async ({ name, kind }) => {
-      const previous = optimisticPatch(queryClient, (skills) =>
-        skills.filter((s) => !(s.flatName === name && s.kind === kind)),
-      );
-      return { previous };
-    },
-    onSuccess: (_, { name, kind }) => {
-      clearAuditCache(queryClient);
-      const display = formatAgentDisplayName(name);
-      toast(t('resources.toast.uninstalled', { kind: resourceLabel(kind), name: display }), 'success');
-    },
-    onError: (err: Error, _, ctx) => {
-      if (ctx?.previous) queryClient.setQueryData(queryKeys.skills.all, ctx.previous);
-      toast(err.message, 'error');
-    },
-    onSettled: () => queryClient.invalidateQueries({ queryKey: queryKeys.skills.all }),
-  });
-
-  const uninstallRepoMutation = useMutation({
-    mutationFn: (repoName: string) => api.deleteRepo(repoName),
-    onMutate: async (repoName) => {
-      const prefix = repoName + '/';
-      const previous = optimisticPatch(queryClient, (skills) =>
-        skills.filter((s) => !s.relPath.startsWith(prefix) && s.relPath !== repoName),
-      );
-      return { previous };
-    },
-    onSuccess: (_, repoName) => {
-      clearAuditCache(queryClient);
-      const display = formatTrackedRepoName(repoName);
-      toast(t('resources.toast.repoUninstalled', { name: display }), 'success');
-    },
-    onError: (err: Error, _, ctx) => {
-      if (ctx?.previous) queryClient.setQueryData(queryKeys.skills.all, ctx.previous);
-      toast(err.message, 'error');
-    },
-    onSettled: () => queryClient.invalidateQueries({ queryKey: queryKeys.skills.all }),
-  });
-
-  /** Optimistic target update for a single skill. */
-  const setTargetMutation = useMutation({
-    mutationFn: ({ name, target }: { name: string; target: string | null }) =>
-      api.setSkillTargets(name, target),
-    onMutate: async ({ name, target }) => {
-      const previous = optimisticPatch(queryClient, (skills) =>
-        skills.map((s) => s.flatName === name
-          ? { ...s, targets: target ? [target] : undefined }
-          : s,
-        ),
-      );
-      return { previous };
-    },
-    onSuccess: (_, { name, target }) => {
-      const display = formatAgentDisplayName(name);
-      toast(t('resources.toast.nowAvailableIn', { name: display, target: target ?? t('resources.targets.all') }), 'success');
-    },
-    onError: (err: Error, _, ctx) => {
-      if (ctx?.previous) queryClient.setQueryData(queryKeys.skills.all, ctx.previous);
-      toast(err.message, 'error');
-    },
-    onSettled: () => queryClient.invalidateQueries({ queryKey: queryKeys.skills.all }),
-  });
-
-  /** Build extra context menu items for a single skill. */
-  function buildResourceExtraItems(
-    skill: Pick<Skill, 'flatName' | 'name' | 'relPath' | 'disabled' | 'isInRepo' | 'kind'>,
-    onUninstall: () => void,
-    onUninstallRepo: (repoName: string) => void,
-  ): ContextMenuItem[] {
-    const items: ContextMenuItem[] = [
-      {
-        key: 'detail',
-        label: t('resources.contextMenu.viewDetail'),
-        icon: <ExternalLink size={13} strokeWidth={2.5} />,
-        onSelect: () => navigate(resourceDetailHref(skill)),
-      },
-      {
-        key: 'toggle',
-        label: skill.disabled ? t('resources.contextMenu.enable') : t('resources.contextMenu.disable'),
-        icon: skill.disabled
-          ? <Eye size={13} strokeWidth={2.5} />
-          : <EyeOff size={13} strokeWidth={2.5} />,
-        onSelect: () => toggleMutation.mutate({ name: skill.flatName, kind: skill.kind, disable: !skill.disabled }),
-      },
-    ];
-    if (skill.kind === 'skill' && skill.isInRepo) {
-      items.push({
-        key: 'uninstall-repo',
-        label: t('resources.contextMenu.uninstallRepo'),
-        icon: <Trash2 size={13} strokeWidth={2.5} />,
-        onSelect: () => onUninstallRepo(skill.relPath.split('/')[0]),
-      });
-    } else {
-      items.push({
-        key: 'uninstall',
-        label: t('resources.contextMenu.uninstall'),
-        icon: <Trash2 size={13} strokeWidth={2.5} />,
-        onSelect: onUninstall,
-      });
-    }
-    return items;
-  }
-
-  return { uninstallMutation, uninstallRepoMutation, setTargetMutation, buildResourceExtraItems };
+function saveCollapsed(collapsed: Set<string>) {
+  try { localStorage.setItem(COLLAPSED_KEY, JSON.stringify([...collapsed])); } catch { /* storage unavailable */ }
 }
 
 /** Normalize skill targets: ["*"] or empty/null → [] (meaning All). */
@@ -284,830 +114,706 @@ function normalizeTargets(targets?: string[] | null): string[] {
   return targets;
 }
 
-/** Deterministic hash → palette index. Same string always maps to same color. */
-function hashToIndex(s: string, len: number): number {
-  let h = 0;
-  for (let i = 0; i < s.length; i++) h = ((h << 5) - h + s.charCodeAt(i)) | 0;
-  return ((h % len) + len) % len;
-}
-
-/** Extract owner/repo from a git remote URL, fallback to raw string. */
-function shortSource(source: string): string {
-  return parseRemoteURL(source)?.ownerRepo ?? source;
-}
-
-/* -- Folder tree types & helpers -------------------- */
-
-interface TargetSummary {
-  display: string;      // "All" | "claude" | "claude, cursor" | "3 targets"
-  targets: string[];    // full union list (sorted)
-  isUniform: boolean;   // all skills in subtree have identical target sets
-}
-
-const defaultTargetSummary: TargetSummary = { display: 'All', targets: [], isUniform: true };
-
-interface FolderNode {
-  name: string;
-  path: string;
-  children: Map<string, FolderNode>;
-  skills: Skill[];
-  skillCount: number;
-  targetSummary: TargetSummary;
-}
-
-interface TreeNode {
-  type: 'folder' | 'skill';
-  name: string;
-  path: string;
-  depth: number;
-  skill?: Skill;
-  childCount: number;
-  isRoot?: boolean;
-  targetSummary?: TargetSummary;
-}
-
-/** Build a nested folder tree from skills' relPath values. Computes skillCount bottom-up. */
-function buildTree(skills: Skill[]): FolderNode {
-  const root: FolderNode = { name: '', path: '', children: new Map(), skills: [], skillCount: 0, targetSummary: defaultTargetSummary };
-  for (const skill of skills) {
-    const rp = skill.relPath ?? '';
-    const lastSlash = rp.lastIndexOf('/');
-    if (lastSlash <= 0) {
-      root.skills.push(skill);
-      continue;
-    }
-    const dirPath = rp.substring(0, lastSlash);
-    const segments = dirPath.split('/');
-    let node = root;
-    let currentPath = '';
-    for (const seg of segments) {
-      currentPath = currentPath ? `${currentPath}/${seg}` : seg;
-      if (!node.children.has(seg)) {
-        node.children.set(seg, { name: seg, path: currentPath, children: new Map(), skills: [], skillCount: 0, targetSummary: defaultTargetSummary });
-      }
-      node = node.children.get(seg)!;
-    }
-    node.skills.push(skill);
-  }
-  // Compute skillCount bottom-up (O(n) total)
-  function computeCounts(node: FolderNode): number {
-    let count = node.skills.length;
-    for (const child of node.children.values()) count += computeCounts(child);
-    node.skillCount = count;
-    return count;
-  }
-  computeCounts(root);
-
-  // Compute targetSummary for each folder from its DIRECT skills only.
-  // Child folders have their own visible badges — aggregating them into
-  // the parent would be misleading (batch target on root only affects
-  // root-level skills, not descendants in subfolders).
-  function computeTargets(node: FolderNode) {
-    // Recurse into children first so they get their own summaries
-    for (const child of node.children.values()) {
-      computeTargets(child);
-    }
-
-    const allSets: string[][] = [];
-    for (const sk of node.skills) {
-      const t = normalizeTargets(sk.targets);
-      allSets.push(t.length > 0 ? [...t].sort() : []);
-    }
-
-    if (allSets.length === 0) {
-      node.targetSummary = defaultTargetSummary;
-      return;
-    }
-
-    const first = allSets[0];
-    const isUniform = allSets.every(
-      (s) => s.length === first.length && s.every((v, i) => v === first[i]),
-    );
-
-    if (isUniform) {
-      if (first.length === 0) {
-        node.targetSummary = { display: 'All', targets: [], isUniform: true };
-      } else {
-        const display = first.length > 3 ? `${first.length} targets` : first.join(', ');
-        node.targetSummary = { display, targets: first, isUniform: true };
-      }
-    } else {
-      const unionSet = new Set<string>();
-      let hasAll = false;
-      for (const s of allSets) {
-        if (s.length === 0) hasAll = true;
-        else s.forEach((v) => unionSet.add(v));
-      }
-      const union = [...unionSet].sort();
-      let display: string;
-      if (hasAll) {
-        display = 'Mixed';
-      } else if (union.length > 3) {
-        display = `${union.length} targets`;
-      } else {
-        display = union.join(', ');
-      }
-      node.targetSummary = { display, targets: union, isUniform: false };
-    }
-  }
-  computeTargets(root);
-
-  return root;
-}
-
-/** Flatten the tree into a list of TreeNode for virtualized rendering. */
-function flattenTree(
-  root: FolderNode,
-  collapsed: ReadonlySet<string>,
-  isSearching: boolean,
-): TreeNode[] {
-  const result: TreeNode[] = [];
-
-  function walkFolder(node: FolderNode, depth: number) {
-    // Sort child folders alphabetically
-    const sortedChildren = [...node.children.entries()].sort((a, b) => a[0].localeCompare(b[0]));
-    for (const [, child] of sortedChildren) {
-      const cc = child.skillCount;
-      if (cc === 0) continue; // skip empty folders (filtered out)
-      result.push({
-        type: 'folder',
-        name: child.name,
-        path: child.path,
-        depth,
-        childCount: cc,
-        targetSummary: child.targetSummary,
-      });
-      const isCollapsed = !isSearching && collapsed.has(child.path);
-      if (!isCollapsed) {
-        walkFolder(child, depth + 1);
-      }
-    }
-    // Skills directly in this folder
-    for (const skill of node.skills) {
-      result.push({
-        type: 'skill',
-        name: skill.name,
-        path: skill.relPath,
-        depth,
-        skill,
-        childCount: 0,
-      });
-    }
-  }
-
-  // Walk top-level children
-  const sortedChildren = [...root.children.entries()].sort((a, b) => a[0].localeCompare(b[0]));
-  for (const [, child] of sortedChildren) {
-    const cc = child.skillCount;
-    if (cc === 0) continue;
-    result.push({
-      type: 'folder',
-      name: child.name,
-      path: child.path,
-      depth: 0,
-      childCount: cc,
-      targetSummary: child.targetSummary,
-    });
-    const isCollapsed = !isSearching && collapsed.has(child.path);
-    if (!isCollapsed) {
-      walkFolder(child, 1);
-    }
-  }
-
-  // Root-level skills last, under a virtual "(root)" folder
-  if (root.skills.length > 0) {
-    result.push({
-      type: 'folder',
-      name: '(root)',
-      path: '',
-      depth: 0,
-      childCount: root.skills.length,
-      isRoot: true,
-      targetSummary: root.targetSummary,
-    });
-    const rootCollapsed = !isSearching && collapsed.has('');
-    if (!rootCollapsed) {
-      for (const skill of root.skills) {
-        result.push({
-          type: 'skill',
-          name: skill.name,
-          path: skill.relPath,
-          depth: 1,
-          skill,
-          childCount: 0,
-        });
-      }
-    }
-  }
-
-  return result;
-}
-
-/** Collect all folder paths from a tree (for Expand/Collapse All). */
-function collectAllFolderPaths(root: FolderNode): string[] {
-  const paths: string[] = [];
-  function walk(node: FolderNode) {
-    for (const child of node.children.values()) {
-      paths.push(child.path);
-      walk(child);
-    }
-  }
-  walk(root);
-  if (root.skills.length > 0) paths.push(''); // root virtual folder
-  return paths;
-}
-
-const COLLAPSED_STORAGE_KEY = 'skillshare:folder-collapsed';
-
-function loadCollapsed(): Set<string> {
-  try {
-    const raw = localStorage.getItem(COLLAPSED_STORAGE_KEY);
-    if (raw) return new Set(JSON.parse(raw));
-  } catch { /* ignore corrupt data */ }
-  return new Set();
-}
-
-function saveCollapsed(collapsed: Set<string>) {
-  localStorage.setItem(COLLAPSED_STORAGE_KEY, JSON.stringify([...collapsed]));
-}
-
-/* -- Filter, Sort & View types -------------------- */
-
-type ResourceTab = 'skills' | 'agents';
-type FilterType = 'all' | SourceType;
-type StatusFilter = 'all' | 'enabled' | 'disabled';
-type SortType = 'name-asc' | 'name-desc' | 'newest' | 'oldest';
-type ViewType = 'grid' | 'grouped' | 'table';
-
-const filterOptions: { key: FilterType; label: string; icon: React.ReactNode }[] = [
-  { key: 'all', label: 'All', icon: <LayoutGrid size={14} strokeWidth={2.5} /> },
-  { key: 'tracked', label: 'Tracked', icon: <Users size={14} strokeWidth={2.5} /> },
-  { key: 'github', label: 'GitHub', icon: <Globe size={14} strokeWidth={2.5} /> },
-  { key: 'remote', label: 'Remote', icon: <Cloud size={14} strokeWidth={2.5} /> },
-  { key: 'local', label: 'Local', icon: <FolderOpen size={14} strokeWidth={2.5} /> },
-];
-
-const statusOptions: { key: StatusFilter; label: string; icon: React.ReactNode }[] = [
-  { key: 'all', label: 'All', icon: <Asterisk size={14} strokeWidth={2.5} /> },
-  { key: 'enabled', label: 'Enabled', icon: <Eye size={14} strokeWidth={2.5} /> },
-  { key: 'disabled', label: 'Disabled', icon: <EyeOff size={14} strokeWidth={2.5} /> },
-];
-
-function matchFilter(skill: Skill, filterType: FilterType): boolean {
-  if (filterType === 'all') return true;
-  return resolveSource(skill.type, skill.isInRepo) === filterType;
-}
-
-function matchStatus(skill: Skill, statusFilter: StatusFilter): boolean {
-  switch (statusFilter) {
-    case 'all':
-      return true;
-    case 'enabled':
-      return !skill.disabled;
-    case 'disabled':
-      return !!skill.disabled;
-  }
-}
-
-
-// Extract group key from relPath for sorting: tracked repo name or first dir segment.
+// Group key for sorting: tracked repo name or first dir segment.
 function sortGroup(s: Skill): string {
   const slash = s.relPath.indexOf('/');
   return slash > 0 ? s.relPath.slice(0, slash) : '';
 }
 
 function sortSkills(skills: Skill[], sortType: SortType): Skill[] {
+  const byName = (a: Skill, b: Skill) => sortGroup(a).localeCompare(sortGroup(b)) || a.name.localeCompare(b.name);
+  const byDate = (dir: 1 | -1) => (a: Skill, b: Skill) => {
+    if (!a.installedAt && !b.installedAt) return byName(a, b);
+    if (!a.installedAt) return 1;
+    if (!b.installedAt) return -1;
+    return dir * (new Date(a.installedAt).getTime() - new Date(b.installedAt).getTime());
+  };
   const sorted = [...skills];
   switch (sortType) {
-    case 'name-asc':
-      return sorted.sort((a, b) => sortGroup(a).localeCompare(sortGroup(b)) || a.name.localeCompare(b.name));
-    case 'name-desc':
-      return sorted.sort((a, b) => sortGroup(a).localeCompare(sortGroup(b)) || b.name.localeCompare(a.name));
-    case 'newest':
-      return sorted.sort((a, b) => {
-        if (!a.installedAt && !b.installedAt) return sortGroup(a).localeCompare(sortGroup(b)) || a.name.localeCompare(b.name);
-        if (!a.installedAt) return 1;
-        if (!b.installedAt) return -1;
-        return new Date(b.installedAt).getTime() - new Date(a.installedAt).getTime();
-      });
-    case 'oldest':
-      return sorted.sort((a, b) => {
-        if (!a.installedAt && !b.installedAt) return sortGroup(a).localeCompare(sortGroup(b)) || a.name.localeCompare(b.name);
-        if (!a.installedAt) return 1;
-        if (!b.installedAt) return -1;
-        return new Date(a.installedAt).getTime() - new Date(b.installedAt).getTime();
-      });
+    case 'name-asc': return sorted.sort(byName);
+    case 'name-desc': return sorted.sort((a, b) => sortGroup(a).localeCompare(sortGroup(b)) || b.name.localeCompare(a.name));
+    case 'newest': return sorted.sort(byDate(-1));
+    case 'oldest': return sorted.sort(byDate(1));
   }
 }
 
-/* -- VirtuosoGrid components (OUTSIDE component function) -- */
-
-const GridList = forwardRef<HTMLDivElement, React.ComponentPropsWithRef<'div'>>(
-  ({ style, children, ...props }, ref) => (
-    <div
-      ref={ref}
-      {...props}
-      style={{ display: 'flex', flexWrap: 'wrap', gap: '1.25rem', ...style }}
-    >
-      {children}
-    </div>
-  ),
-);
-GridList.displayName = 'GridList';
-
-const GridItem = ({ children, ...props }: React.ComponentPropsWithRef<'div'>) => (
-  <div
-    {...props}
-    className="!w-full md:!w-[calc(50%-0.625rem)] xl:!w-[calc(33.333%-0.834rem)]"
-    style={{ display: 'flex', flex: 'none', boxSizing: 'border-box' }}
-  >
-    {children}
-  </div>
-);
-
-const GridPlaceholder = () => (
-  <div
-    className="!w-full md:!w-[calc(50%-0.625rem)] xl:!w-[calc(33.333%-0.834rem)]"
-    style={{ display: 'flex', flex: 'none', boxSizing: 'border-box' }}
-  >
-    <div className="w-full h-32 bg-muted animate-pulse" style={{ borderRadius: radius.md }} />
-  </div>
-);
-
-const gridComponents: GridComponents = {
-  List: GridList as GridComponents['List'],
-  Item: GridItem as GridComponents['Item'],
-  ScrollSeekPlaceholder: GridPlaceholder as GridComponents['ScrollSeekPlaceholder'],
-};
-
-/* -- Selection (multi-select) ---------------------- */
-
-interface SelectionApi {
-  selectionMode: boolean;
-  selected: ReadonlySet<string>;
-  onToggleSelect: (flatName: string) => void;
-  onToggleMany: (flatNames: string[], select: boolean) => void;
+function repoOf(s: Skill): string | undefined {
+  return s.isInRepo ? s.relPath.split('/')[0] : undefined;
 }
 
-/** Presentational checkbox mirroring the shared Checkbox (square, blue) so the
- *  selection visual is identical across grid / tree / table. The parent
- *  row/card owns the click handler. */
-function SelectBox({ checked, indeterminate = false, className = '' }: { checked: boolean; indeterminate?: boolean; className?: string }) {
-  const active = checked || indeterminate;
+/** Parent folder shown under the name. Inside a repo group the repo prefix is already in the header. */
+function parentPath(s: Skill, inGroup = false): string {
+  const i = s.relPath.lastIndexOf('/');
+  if (i <= 0) return '';
+  const dir = s.relPath.slice(0, i);
+  const repo = inGroup ? repoOf(s) : undefined;
+  if (repo) return dir === repo ? '' : dir.slice(repo.length + 1);
+  return formatTrackedRepoName(dir);
+}
+
+function sourceName(s: Skill): string {
+  const repo = repoOf(s);
+  if (repo) return formatTrackedRepoName(repo);
+  if (s.source) return parseRemoteURL(s.source)?.ownerRepo ?? s.source;
+  return SOURCE_LABEL.local;
+}
+
+/* -- Source groups -------------------------------- */
+
+interface Group { key: string; source: SourceType; repo?: string; items: Skill[] }
+
+function groupBySource(items: Skill[]): Group[] {
+  const groups = new Map<string, Group>();
+  for (const s of items) {
+    const source = resolveSource(s.type, s.isInRepo);
+    const repo = repoOf(s);
+    const key = repo ?? source;
+    if (!groups.has(key)) groups.set(key, { key, source, repo, items: [] });
+    groups.get(key)!.items.push(s);
+  }
+  return [...groups.values()].sort((a, b) => SOURCE_ORDER.indexOf(a.source) - SOURCE_ORDER.indexOf(b.source) || a.key.localeCompare(b.key));
+}
+
+/** Cut groups down to the first `limit` items, keeping headers only for groups that still show something. */
+function limitGroups(groups: Group[], limit: number): Group[] {
+  const out: Group[] = [];
+  let left = limit;
+  for (const g of groups) {
+    if (left <= 0) break;
+    out.push({ ...g, items: g.items.slice(0, left) });
+    left -= g.items.length;
+  }
+  return out;
+}
+
+/* -- Folder tree ---------------------------------- */
+
+interface TargetSummary {
+  display: string;      // "claude" | "claude, cursor" | "4 targets"
+  targets: string[];    // sorted union
+  isUniform: boolean;   // every direct skill has the same target set
+}
+
+interface FolderNode {
+  name: string;
+  path: string;
+  children: Map<string, FolderNode>;
+  skills: Skill[];
+  count: number;
+  summary: TargetSummary;
+}
+
+type TreeRow =
+  | { type: 'folder'; node: FolderNode; depth: number; collapsed: boolean }
+  | { type: 'item'; skill: Skill; depth: number };
+
+const ALL_TARGETS: TargetSummary = { display: '', targets: [], isUniform: true };
+
+function summarize(skills: Skill[]): TargetSummary {
+  const sets = skills.map((s) => [...normalizeTargets(s.targets)].sort());
+  if (sets.length === 0) return ALL_TARGETS;
+  const first = sets[0];
+  const isUniform = sets.every((x) => x.length === first.length && x.every((v, i) => v === first[i]));
+  const union = [...new Set(sets.flat())].sort();
+  const shown = isUniform ? first : union;
+  return { display: shown.length > 3 ? `${shown.length} targets` : shown.join(', '), targets: shown, isUniform };
+}
+
+function buildTree(skills: Skill[]): FolderNode {
+  const root: FolderNode = { name: '', path: '', children: new Map(), skills: [], count: 0, summary: ALL_TARGETS };
+  for (const skill of skills) {
+    const slash = skill.relPath.lastIndexOf('/');
+    let node = root;
+    if (slash > 0) {
+      for (const seg of skill.relPath.slice(0, slash).split('/')) {
+        if (!node.children.has(seg)) {
+          const path = node.path ? `${node.path}/${seg}` : seg;
+          node.children.set(seg, { name: seg, path, children: new Map(), skills: [], count: 0, summary: ALL_TARGETS });
+        }
+        node = node.children.get(seg)!;
+      }
+    }
+    node.skills.push(skill);
+  }
+  // Counts include subfolders; the target summary covers direct skills only, because
+  // a folder's batch target change only touches the skills directly inside it.
+  const finish = (node: FolderNode): number => {
+    node.summary = summarize(node.skills);
+    node.count = node.skills.length;
+    for (const child of node.children.values()) node.count += finish(child);
+    return node.count;
+  };
+  finish(root);
+  return root;
+}
+
+function flattenTree(root: FolderNode, collapsed: ReadonlySet<string>, expandAll: boolean): TreeRow[] {
+  const rows: TreeRow[] = [];
+  const walk = (node: FolderNode, depth: number) => {
+    for (const child of [...node.children.values()].sort((a, b) => a.name.localeCompare(b.name))) {
+      const isCollapsed = !expandAll && collapsed.has(child.path);
+      rows.push({ type: 'folder', node: child, depth, collapsed: isCollapsed });
+      if (!isCollapsed) walk(child, depth + 1);
+    }
+    for (const skill of node.skills) rows.push({ type: 'item', skill, depth });
+  };
+  walk(root, 0);
+  return rows;
+}
+
+function folderPaths(node: FolderNode): string[] {
+  return [...node.children.values()].flatMap((c) => [c.path, ...folderPaths(c)]);
+}
+
+/* -- Small pieces --------------------------------- */
+
+function TargetStack({ names, max = 4 }: { names: string[]; max?: number }) {
+  if (names.length === 0) return <span className="text-ink-3">—</span>;
   return (
-    <span
-      className={`w-4 h-4 flex items-center justify-center border shrink-0 transition-colors ${active ? 'bg-blue border-blue' : 'bg-surface border-muted-dark'} ${className}`}
-      style={{ borderRadius: radius.sm }}
-      aria-hidden="true"
-    >
-      {indeterminate ? <Minus size={12} strokeWidth={3} className="text-white" /> : checked ? <Check size={12} strokeWidth={3} className="text-white" /> : null}
+    <span className="inline-flex items-center" title={names.join(', ')}>
+      <span className="ss-stack">
+        {names.slice(0, max).map((n) => (
+          <span key={n} className="ss-at"><AgentIcon target={n} size={14} /></span>
+        ))}
+      </span>
+      {names.length > max && <span className="ml-1.5 text-xs text-ink-3">+{names.length - max}</span>}
     </span>
   );
 }
 
-/* -- Skill card ----------------------------------- */
-
-const SkillPostit = memo(function SkillPostit({
-  skill,
-  onContextMenu,
-  highlighted = false,
-  selectionMode = false,
-  isSelected = false,
-  onToggleSelect,
-}: {
-  skill: Skill;
-  onContextMenu?: (e: React.MouseEvent) => void;
-  highlighted?: boolean;
-  selectionMode?: boolean;
-  isSelected?: boolean;
-  onToggleSelect?: (flatName: string) => void;
-}) {
-  // Extract repo name from relPath (e.g., "_awesome-skillshare-skills/frontend-dugong" -> "awesome-skillshare-skills")
-  const repoName = skill.isInRepo && skill.relPath.startsWith('_')
-    ? formatTrackedRepoName(skill.relPath.split('/')[0])
-    : undefined;
-
-  // Color key: tracked skills from the same repo share a color
-  const colorKey = repoName ?? skill.name;
-  const colorIdx = hashToIndex(colorKey, SKILL_PASTELS.length);
-
-  return (
-    <Link
-      to={resourceDetailHref(skill)}
-      className={`w-full h-full${skill.disabled ? ' opacity-50' : ''}`}
-      onContextMenu={selectionMode ? undefined : onContextMenu}
-      onClick={selectionMode ? (e) => { e.preventDefault(); onToggleSelect?.(skill.flatName); } : undefined}
-    >
-      <div
-        className={`ss-card ss-skill-card relative p-5 pb-4 bg-surface cursor-pointer border shadow-sm rounded-[var(--radius-md)] transition-all duration-150 hover:shadow-hover hover:border-muted-dark h-full flex flex-col ${isSelected ? 'border-blue ring-2 ring-blue/30 shadow-hover' : highlighted ? 'border-muted-dark shadow-hover' : 'border-muted'}`}
-        style={{
-          '--skill-pastel': SKILL_PASTELS[colorIdx],
-          '--skill-pastel-dark': SKILL_PASTELS_DARK[colorIdx],
-        } as React.CSSProperties}
-      >
-        {selectionMode && (
-          <span className="absolute top-3 right-3 z-10">
-            <SelectBox checked={isSelected} />
-          </span>
-        )}
-        {/* Skill name row */}
-        <div className="flex items-center gap-2 mb-2">
-          <div className="shrink-0">
-            {skill.isInRepo
-              ? <GitBranch size={18} strokeWidth={2.5} className="text-pencil-light" />
-              : skill.kind === 'agent'
-                ? <FileText size={18} strokeWidth={2.5} className="text-pencil-light" />
-                : <Folder size={18} strokeWidth={2.5} className="text-pencil-light" />
-            }
-          </div>
-          <h3 className="font-bold text-pencil text-lg truncate leading-tight flex items-center gap-1.5">
-            {skill.kind && <KindBadge kind={skill.kind} />}
-            {skill.name}
-          </h3>
-        </div>
-
-        {/* Org banner (tracked only) */}
-        {skill.isInRepo && repoName && (
-          <div className="flex items-center gap-1 mb-2">
-            <Users size={12} strokeWidth={2.5} className="text-pencil-light shrink-0" />
-            <span className="text-xs text-pencil-light truncate">{repoName}</span>
-          </div>
-        )}
-
-        {/* Path */}
-        <p
-          className="font-mono text-sm text-pencil-light truncate mb-2"
-        >
-          {formatSkillDisplayName(skill.relPath)}
-        </p>
-
-        {/* Bottom row */}
-        <div className="flex items-center justify-between gap-2 mt-auto">
-          {skill.source ? (
-            <span className="text-sm text-pencil-light truncate flex-1">{shortSource(skill.source)}</span>
-          ) : (
-            <span />
-          )}
-          <div className="flex items-center gap-1.5 shrink-0">
-            {skill.disabled && <Badge variant="danger">Disabled</Badge>}
-            <SourceBadge type={skill.type} isInRepo={skill.isInRepo} />
-            {skill.branch && (
-              <Badge variant="default">
-                <GitBranch size={10} strokeWidth={2.5} className="inline -mt-px mr-0.5" />
-                {skill.branch}
-              </Badge>
-            )}
-            {skill.targets && skill.targets.length > 0 && (
-              <Badge variant="default">
-                <Target size={10} strokeWidth={2.5} className="inline -mt-px mr-0.5" />
-                {skill.targets.length > 2 ? `${skill.targets.length} targets` : skill.targets.join(', ')}
-              </Badge>
-            )}
-          </div>
-        </div>
-      </div>
-    </Link>
-  );
-});
-
-/* -- Right-click tip banner ----------------------- */
-
-const TIP_DISMISSED_KEY = 'skillshare:skills-context-menu-tip';
-
-function ContextMenuTip() {
-  const t = useT();
-  const [dismissed, setDismissed] = useState(() =>
-    localStorage.getItem(TIP_DISMISSED_KEY) === '1',
-  );
-
-  if (dismissed) return null;
-
-  return (
-    <div className="ss-tip-banner mb-3 flex items-center gap-3 px-4 py-2.5 bg-muted/40 border-2 border-dashed border-muted-dark/40 text-sm text-pencil-light"
-      style={{ borderRadius: 'var(--radius-md)' }}
-    >
-      <MousePointerClick size={18} strokeWidth={2} className="text-pencil-light/60 shrink-0" />
-      <p className="flex-1">
-        <span className="font-medium text-pencil">{t('resources.tip.rightClick')}</span> {t('resources.tip.message')}
-      </p>
-      <button
-        className="shrink-0 px-2.5 py-1 text-xs font-medium text-pencil-light hover:text-pencil hover:bg-muted/60 transition-colors cursor-pointer"
-        style={{ borderRadius: 'var(--radius-sm)' }}
-        onClick={() => {
-          localStorage.setItem(TIP_DISMISSED_KEY, '1');
-          setDismissed(true);
-        }}
-        aria-label={t('resources.tip.dismiss')}
-      >
-        <X size={14} strokeWidth={2.5} />
-      </button>
-    </div>
-  );
+/** "1 skill" / "3 agents". The i18n layer has no plural rules, so pick the key by count. */
+function countLabel(t: ReturnType<typeof useT>, kind: Kind, count: number): string {
+  return t(`resources.count.${kind}${count === 1 ? '' : 's'}`, { count });
 }
 
-/* -- Main page ------------------------------------ */
+function menuPoint(e: ReactMouseEvent): Point {
+  if (e.type === 'contextmenu') return { x: e.clientX, y: e.clientY };
+  const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+  return { x: r.left, y: r.bottom + 4 };
+}
 
-export default function SkillsPage() {
+/* -- Page ----------------------------------------- */
+
+export default function ResourcesPage({ kind }: { kind: Kind }) {
   const t = useT();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const isAgent = kind === 'agent';
+
   const { data, isPending, error } = useQuery({
     queryKey: queryKeys.skills.all,
     queryFn: () => api.listSkills(),
     staleTime: staleTimes.skills,
   });
-
-  const [toolbarH, setToolbarH] = useState(0);
-  const toolbarRef = useCallback((node: HTMLDivElement | null) => {
-    if (!node) return;
-    const ro = new ResizeObserver(() => setToolbarH(node.offsetHeight));
-    ro.observe(node);
-    return () => ro.disconnect();
-  }, []);
-  const [searchParams] = useSearchParams();
-  const [activeTab, setActiveTab] = useState<ResourceTab>(() => {
-    const urlTab = searchParams.get('tab');
-    if (urlTab === 'agents') return 'agents';
-    const saved = localStorage.getItem('skillshare:resources-tab');
-    return saved === 'agents' ? 'agents' : 'skills';
+  const { data: trashData } = useQuery({
+    queryKey: queryKeys.trash,
+    queryFn: () => api.listTrash(),
+    staleTime: staleTimes.trash,
   });
-  // Sync tab from URL when navigating (e.g. Dashboard cards)
-  useEffect(() => {
-    const urlTab = searchParams.get('tab');
-    if (urlTab === 'agents' && activeTab !== 'agents') {
-      setActiveTab('agents');
-    } else if (urlTab === 'skills' && activeTab !== 'skills') {
-      setActiveTab('skills');
-    }
-  }, [searchParams]); // eslint-disable-line react-hooks/exhaustive-deps
-  const changeTab = (tab: ResourceTab) => {
-    setActiveTab(tab);
-    localStorage.setItem('skillshare:resources-tab', tab);
-    setFilterType('all');
-    setStatusFilter('all');
-    setSearch('');
-    setSelected(new Set());
-  };
+  const { matrix, getSkillTargets } = useSyncMatrix();
+  const { updating, update } = useRepoUpdate();
+  const [checks] = useCheckStatuses();
+  const [params, setParams] = useSearchParams();
+  const requestedTab = params.get('tab');
+  // Analyze only measures skills, so the tab is hidden on the agents page.
+  const tab = requestedTab === 'updates' ? 'updates' : requestedTab === 'trash' ? 'trash' : requestedTab === 'analyze' && !isAgent ? 'analyze' : 'installed';
+  // The dialog lives in the URL so the old /install and /search routes can open it.
+  const installTab = params.get('install');
+  const setInstall = (value: string | null) =>
+    setParams((p) => {
+      if (value) p.set('install', value);
+      else p.delete('install');
+      return p;
+    }, { replace: true });
+
   const [search, setSearch] = useState('');
-  const [filterType, setFilterType] = useState<FilterType>('all');
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
-  const [sortType, setSortType] = useState<SortType>('name-asc');
-  const [viewType, setViewType] = useState<ViewType>(() => {
-    const saved = localStorage.getItem('skillshare:skills-view');
-    return (saved === 'grid' || saved === 'grouped' || saved === 'table') ? saved : 'grid';
+  const [source, setSource] = useState<SourceFilter>('all');
+  const [status, setStatus] = useState<StatusFilter>('all');
+  const [sort, setSort] = useState<SortType>('name-asc');
+  const [group, setGroup] = useState<GroupBy>(isAgent ? 'none' : 'source');
+  const [view, setView] = useState<ViewType>(loadView);
+  const [limit, setLimit] = useState(STEP);
+  const [collapsed, setCollapsed] = useState<Set<string>>(loadCollapsed);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [menu, setMenu] = useState<MenuState | null>(null);
+  const [uninstalling, setUninstalling] = useState<Skill[] | null>(null);
+  const [confirmDisable, setConfirmDisable] = useState<string[] | null>(null);
+
+  const all = data?.resources ?? EMPTY;
+  const items = useMemo(() => all.filter((s) => s.kind === kind), [all, kind]);
+  const updateCount = useMemo(() => countUpdates(checks, updateUnits(all, kind)), [checks, all, kind]);
+  const query = search.trim();
+  const isGlob = /[*?]/.test(query);
+  const filtering = query !== '' || source !== 'all' || status !== 'all';
+
+  const filtered = useMemo(() => {
+    const re = query ? globToRegex(query) : null;
+    const glob = /[*?]/.test(query);
+    return sortSkills(items.filter((s) =>
+      (!re || re.test(s.name) || re.test(s.relPath) || re.test(s.flatName) || (!glob && re.test(s.source ?? ''))) &&
+      (source === 'all' || resolveSource(s.type, s.isInRepo) === source) &&
+      (status === 'all' || (status === 'disabled') === !!s.disabled),
+    ), sort);
+  }, [items, query, source, status, sort]);
+
+  const groups = useMemo(() => groupBySource(filtered), [filtered]);
+  const tree = useMemo(() => buildTree(filtered), [filtered]);
+  const treeRows = useMemo(() => flattenTree(tree, collapsed, filtering), [tree, collapsed, filtering]);
+
+  const selectedItems = useMemo(() => items.filter((s) => selected.has(s.flatName)), [items, selected]);
+  const allSelected = filtered.length > 0 && filtered.every((s) => selected.has(s.flatName));
+  const someSelected = !allSelected && filtered.some((s) => selected.has(s.flatName));
+  const trashCount = (trashData?.items ?? []).filter((i) => (i.kind ?? 'skill') === kind).length;
+
+  // Which targets can receive agents at all. Only agents get 'na' entries in the matrix.
+  const agentSupport = useMemo(() => {
+    if (!isAgent) return null;
+    const names = new Set(items.map((s) => s.flatName));
+    const targets = new Set<string>();
+    const supported = new Set<string>();
+    for (const e of matrix) {
+      targets.add(e.target);
+      if (names.has(e.skill) && e.status !== 'na') supported.add(e.target);
+    }
+    return { supported: [...supported].sort(), total: targets.size };
+  }, [isAgent, items, matrix]);
+
+  const rowInfo = (s: Skill): { synced: string[]; tone: Tone; label: string } => {
+    const entries = getSkillTargets(s.flatName);
+    const synced = entries.filter((e) => e.status === 'synced').map((e) => e.target).sort();
+    const applicable = entries.some((e) => e.status !== 'na');
+    if (s.disabled) return { synced, tone: 'off', label: STATUS_LABEL.disabled };
+    if (entries.length > 0 && !applicable) return { synced, tone: 'off', label: t('resources.tree.noAgentTargets.label') };
+    if (applicable && synced.length === 0) return { synced, tone: 'off', label: t('resources.tree.filteredOut.label') };
+    return { synced, tone: 'ok', label: STATUS_LABEL.enabled };
+  };
+
+  /* -- Mutations -- */
+
+  const refreshAfterTargets = () => {
+    queryClient.invalidateQueries({ queryKey: queryKeys.skills.all });
+    queryClient.invalidateQueries({ queryKey: ['sync-matrix'] });
+  };
+
+  /** Optimistic patch of the skills cache; returns the snapshot to roll back to. */
+  const patch = (fn: (skills: Skill[]) => Skill[]) => {
+    queryClient.cancelQueries({ queryKey: queryKeys.skills.all });
+    const previous = queryClient.getQueryData<SkillsData>(queryKeys.skills.all);
+    if (previous) queryClient.setQueryData<SkillsData>(queryKeys.skills.all, { ...previous, resources: fn(previous.resources) });
+    return { previous };
+  };
+  const rollback = (err: Error, _: unknown, ctx?: { previous?: SkillsData }) => {
+    if (ctx?.previous) queryClient.setQueryData(queryKeys.skills.all, ctx.previous);
+    toast(err.message, 'error');
+  };
+
+  const toggleOne = useMutation({
+    mutationFn: ({ s, disable }: { s: Skill; disable: boolean }) =>
+      disable ? api.disableResource(s.flatName, s.kind) : api.enableResource(s.flatName, s.kind),
+    onMutate: ({ s, disable }) => patch((list) => list.map((x) => (x.flatName === s.flatName && x.kind === s.kind ? { ...x, disabled: disable } : x))),
+    onSuccess: (_, { s, disable }) => {
+      const kindLabel = isAgent ? 'Agent' : 'Skill';
+      toast(t(disable ? 'resources.toast.disabled' : 'resources.toast.enabled', { kind: kindLabel, name: s.name }), 'success');
+    },
+    onError: rollback,
+    onSettled: refreshAfterTargets,
   });
 
-  const changeViewType = (v: ViewType) => {
-    setViewType(v);
-    localStorage.setItem('skillshare:skills-view', v);
-  };
-
-  // Multi-select state (keyed by flatName; kind is the active tab)
-  const [selectionMode, setSelectionMode] = useState(false);
-  const [selected, setSelected] = useState<Set<string>>(new Set());
-  const toggleSelect = useCallback((flatName: string) => {
-    setSelected((prev) => {
-      const next = new Set(prev);
-      if (next.has(flatName)) next.delete(flatName);
-      else next.add(flatName);
-      return next;
-    });
-  }, []);
-  const toggleMany = useCallback((flatNames: string[], select: boolean) => {
-    setSelected((prev) => {
-      const next = new Set(prev);
-      for (const f of flatNames) {
-        if (select) next.add(f);
-        else next.delete(f);
-      }
-      return next;
-    });
-  }, []);
-  const exitSelection = useCallback(() => {
-    setSelectionMode(false);
-    setSelected(new Set());
-  }, []);
-
-  const [gridContextMenu, setGridContextMenu] = useState<{
-    point: { x: number; y: number };
-    skillFlatName: string;
-    skillName: string;
-    kind: Skill['kind'];
-    relPath: string;
-    disabled: boolean;
-    isInRepo: boolean;
-    currentTargets: string[] | null;
-  } | null>(null);
-
-  const {
-    uninstallMutation: gridUninstallMutation,
-    uninstallRepoMutation: gridUninstallRepoMutation,
-    setTargetMutation: gridSingleMutation,
-    buildResourceExtraItems,
-  } = useResourceActions();
-
-  const [gridConfirmUninstall, setGridConfirmUninstall] = useState<{
-    flatName: string;
-    name: string;
-    kind: Skill['kind'];
-  } | null>(null);
-  const [gridConfirmUninstallRepo, setGridConfirmUninstallRepo] = useState<string | null>(null);
-
-  const skills = data?.resources ?? EMPTY_RESOURCES;
-
-  // Compute counts for each filter type — scoped to the active tab
-  const filterCounts = useMemo(() => {
-    const tabSkills = activeTab === 'agents'
-      ? skills.filter((s) => s.kind === 'agent')
-      : skills.filter((s) => s.kind !== 'agent');
-    const counts: Record<FilterType, number> = {
-      all: tabSkills.length,
-      tracked: 0,
-      github: 0,
-      remote: 0,
-      local: 0,
-    };
-    for (const s of tabSkills) counts[resolveSource(s.type, s.isInRepo)]++;
-    return counts;
-  }, [skills, activeTab]);
-
-  // Compute enabled/disabled counts — scoped to the active tab, independent of
-  // the source filter so the two filter dimensions stay orthogonal.
-  const statusCounts = useMemo(() => {
-    const tabSkills = activeTab === 'agents'
-      ? skills.filter((s) => s.kind === 'agent')
-      : skills.filter((s) => s.kind !== 'agent');
-    let disabled = 0;
-    for (const s of tabSkills) if (s.disabled) disabled++;
-    return { all: tabSkills.length, enabled: tabSkills.length - disabled, disabled };
-  }, [skills, activeTab]);
-
-  // Status filter is a single toggle button cycling All → Enabled → Disabled.
-  const nextStatusFilter: Record<StatusFilter, StatusFilter> = {
-    all: 'enabled',
-    enabled: 'disabled',
-    disabled: 'all',
-  };
-  const curStatus = statusOptions.find((o) => o.key === statusFilter)!;
-
-  // Apply text filter -> source filter -> status filter -> sort
-  const filtered = useMemo(() => {
-    const q = search.toLowerCase();
-    const result = skills.filter(
-      (s) =>
-        (s.name.toLowerCase().includes(q) ||
-          s.flatName.toLowerCase().includes(q) ||
-          (s.source ?? '').toLowerCase().includes(q)) &&
-        matchFilter(s, filterType) &&
-        matchStatus(s, statusFilter),
-    );
-    return sortSkills(result, sortType);
-  }, [skills, search, filterType, statusFilter, sortType]);
-
-  const skillItems = useMemo(() => filtered.filter((s) => s.kind !== 'agent'), [filtered]);
-  const agentItems = useMemo(() => filtered.filter((s) => s.kind === 'agent'), [filtered]);
-  const tabFiltered = activeTab === 'agents' ? agentItems : skillItems;
-
-  // Batch enable/disable across the current selection.
-  const [confirmDisable, setConfirmDisable] = useState<string[] | null>(null);
-  const batchToggleMutation = useMutation({
-    mutationFn: ({ names, enable }: { names: string[]; enable: boolean }) =>
-      api.batchToggleResources(names, enable, activeTab === 'agents' ? 'agent' : 'skill'),
-    onMutate: async ({ names, enable }) => {
+  const toggleMany = useMutation({
+    mutationFn: ({ names, enable }: { names: string[]; enable: boolean }) => api.batchToggleResources(names, enable, kind),
+    onMutate: ({ names, enable }) => {
       const set = new Set(names);
-      const isAgent = activeTab === 'agents';
-      const previous = optimisticPatch(queryClient, (skills) =>
-        skills.map((s) =>
-          set.has(s.flatName) && (isAgent ? s.kind === 'agent' : s.kind !== 'agent')
-            ? { ...s, disabled: !enable }
-            : s,
-        ),
-      );
-      return { previous };
+      return patch((list) => list.map((x) => (x.kind === kind && set.has(x.flatName) ? { ...x, disabled: !enable } : x)));
     },
-    onSuccess: (data, { enable }) => {
-      const { updated, unchanged, failed } = data.summary;
-      if (failed > 0 && updated > 0) {
-        toast(t('resources.batchToggle.toast.partial', { updated, failed }), 'warning');
-      } else if (failed > 0) {
-        toast(t('resources.batchToggle.toast.failed', { count: failed }), 'error');
-      } else if (updated === 0 && unchanged > 0) {
-        toast(t('resources.batchToggle.toast.noChange'), 'info');
-      } else {
-        toast(
-          enable
-            ? t('resources.batchToggle.toast.enabled', { count: updated })
-            : t('resources.batchToggle.toast.disabled', { count: updated }),
-          'success',
-        );
-      }
-      exitSelection();
+    onSuccess: (res, { enable }) => {
+      const { updated, unchanged, failed } = res.summary;
+      if (failed > 0 && updated > 0) toast(t('resources.batchToggle.toast.partial', { updated, failed }), 'warning');
+      else if (failed > 0) toast(t('resources.batchToggle.toast.failed', { count: failed }), 'error');
+      else if (updated === 0 && unchanged > 0) toast(t('resources.batchToggle.toast.noChange'), 'info');
+      else toast(t(enable ? 'resources.batchToggle.toast.enabled' : 'resources.batchToggle.toast.disabled', { count: updated }), 'success');
+      setSelected(new Set());
     },
-    onError: (err: Error, _, ctx) => {
-      if (ctx?.previous) queryClient.setQueryData(queryKeys.skills.all, ctx.previous);
-      toast(err.message, 'error');
-    },
+    onError: rollback,
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.skills.all });
+      refreshAfterTargets();
       queryClient.invalidateQueries({ queryKey: queryKeys.overview });
     },
   });
 
-  const selectedNames = useMemo(() => Array.from(selected), [selected]);
-  const selectedInView = useMemo(
-    () => tabFiltered.filter((s) => selected.has(s.flatName)).length,
-    [tabFiltered, selected],
-  );
-  const allInViewSelected = tabFiltered.length > 0 && selectedInView === tabFiltered.length;
-  const selectAllInView = () => setSelected(new Set(tabFiltered.map((s) => s.flatName)));
+  const setTargets = useMutation({
+    mutationFn: ({ name, target }: { name: string; target: string | null }) => api.setSkillTargets(name, target),
+    onMutate: ({ name, target }) => patch((list) => list.map((x) => (x.flatName === name ? { ...x, targets: target ? [target] : undefined } : x))),
+    onSuccess: (_, { name, target }) => toast(t('resources.toast.nowAvailableIn', { name, target: target ?? t('resources.targets.all') }), 'success'),
+    onError: rollback,
+    onSettled: refreshAfterTargets,
+  });
+
+  const setFolderTargets = useMutation({
+    mutationFn: ({ folder, target }: { folder: string; target: string | null }) => api.batchSetTargets(folder, target),
+    onSuccess: (res, { folder, target }) => {
+      if (res.updated === 0 && res.skipped > 0) toast(t('resources.folder.noEditableSkills', { folder }), 'error');
+      else toast(t('resources.folder.skillsUpdated', { count: res.updated, folder, target: target ?? t('resources.targets.all') }), 'success');
+    },
+    onError: (err: Error) => toast(err.message, 'error'),
+    onSettled: refreshAfterTargets,
+  });
+
+  const setSelectedTargets = async (target: string | null) => {
+    const names = selectedItems.map((s) => s.flatName);
+    const results = await Promise.allSettled(names.map((n) => api.setSkillTargets(n, target)));
+    const failed = results.filter((r) => r.status === 'rejected').length;
+    if (failed === 0) toast(t('resources.bulk.targetsSet', { count: names.length, target: target ?? t('resources.targets.all') }), 'success');
+    else toast(t('resources.batchToggle.toast.partial', { updated: names.length - failed, failed }), failed === names.length ? 'error' : 'warning');
+    refreshAfterTargets();
+  };
+
+  /* -- Selection & filters -- */
+
+  const toggle = (name: string) => setSelected((prev) => {
+    const next = new Set(prev);
+    if (!next.delete(name)) next.add(name);
+    return next;
+  });
+  const selectAll = (on: boolean) => setSelected(on ? new Set(filtered.map((s) => s.flatName)) : new Set());
+  const resetting = <T,>(set: (v: T) => void) => (v: T) => { set(v); setLimit(STEP); };
+  const clearFilters = () => { setSearch(''); setSource('all'); setStatus('all'); setLimit(STEP); };
+
+  const changeView = (v: ViewType) => {
+    setView(v);
+    setLimit(STEP);
+    try { localStorage.setItem(VIEW_KEY, v); } catch { /* storage unavailable */ }
+  };
+  const updateCollapsed = (next: Set<string>) => { setCollapsed(next); saveCollapsed(next); };
+  const toggleFolder = (path: string) => {
+    const next = new Set(collapsed);
+    if (!next.delete(path)) next.add(path);
+    updateCollapsed(next);
+  };
+
+  const openItemMenu = (e: ReactMouseEvent, skill: Skill) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setMenu({ mode: 'item', skill, point: menuPoint(e) });
+  };
+  const openRow = (e: ReactMouseEvent, s: Skill) => {
+    if ((e.target as HTMLElement).closest('a,button,label,input')) return;
+    navigate(resourceHref(s));
+  };
 
   if (isPending) return <PageSkeleton />;
   if (error) {
     return (
-      <Card variant="accent" className="text-center py-8">
-        <p className="text-danger text-lg">
-          {t('resources.error.failedToLoad')}
-        </p>
-        <p className="text-pencil-light text-base mt-1">{error.message}</p>
-      </Card>
+      <div className="ss-empty">
+        <TriangleAlert size={24} className="text-bad" />
+        <h3 className="font-semibold text-ink">{t('resources.error.failedToLoad')}</h3>
+        <p className="text-[13px]">{error.message}</p>
+      </div>
     );
   }
 
-  return (
-    <div data-tour="skills-view" className={`animate-fade-in${selectionMode && selected.size > 0 ? ' pb-20' : ''}`}>
-      {/* Header */}
-      <PageHeader
-        icon={<Layers size={24} strokeWidth={2.5} />}
-        title={t('resources.title')}
-        subtitle=""
-        className="mb-4!"
-        actions={activeTab === 'skills' ? (
-          <Link to="/resources/new">
-            <Button variant="primary" size="sm">
-              <Plus size={16} strokeWidth={2.5} />
-              {t('resources.newSkill')}
+  /* -- Rendering helpers -- */
+
+  const status$ = (tone: Tone, label: string) => <span className={`ss-st ${tone}`}>{label}</span>;
+  const actionsButton = (s: Skill) => (
+    <button type="button" className="ss-ib" aria-label={t('resources.table.actions')} onClick={(e) => openItemMenu(e, s)}>
+      <Ellipsis size={16} />
+    </button>
+  );
+  const selectBox = (s: Skill) => (
+    <Checkbox hideLabel label={s.name} checked={selected.has(s.flatName)} onChange={() => toggle(s.flatName)} />
+  );
+
+  const repoActions = (repo: string) => (
+    <>
+      <Button variant="secondary" size="sm" loading={updating === repo} disabled={updating !== null} onClick={() => update(repo)}>
+        {t('resources.repo.update')}
+      </Button>
+      <button
+        type="button"
+        className="ss-ib"
+        aria-label={t('resources.repo.actions')}
+        onClick={(e) => { e.stopPropagation(); setMenu({ mode: 'repo', repo, point: menuPoint(e) }); }}
+      >
+        <Ellipsis size={16} />
+      </button>
+    </>
+  );
+
+  const groupHead = (g: Group, asLabel: boolean) => {
+    const Icon = SOURCE_ICON[g.source];
+    const meta = [countLabel(t, kind, g.items.length), g.repo ? g.items[0].branch : ''];
+    return (
+      <div key={`g:${g.key}`} className={asLabel ? 'ss-gl' : 'ss-gh'}>
+        <Icon size={15} className="shrink-0 text-ink-2" />
+        {g.repo ? <b className="font-mono">{formatTrackedRepoName(g.repo)}</b> : <b>{SOURCE_LABEL[g.source]}</b>}
+        {g.repo && <span className="ss-tag">tracked</span>}
+        <span className="text-ink-3">{meta.filter(Boolean).join(' · ')}</span>
+        <span className="flex-1" />
+        {g.repo && !isAgent && repoActions(g.repo)}
+      </div>
+    );
+  };
+
+  const itemRow = (s: Skill, depth?: number) => {
+    const { synced, tone, label } = rowInfo(s);
+    const sub = depth === undefined ? parentPath(s, group === 'source') : '';
+    return (
+      <div
+        key={s.flatName}
+        className={`ss-r link ${depth !== undefined ? 'tr' : ''} ${selected.has(s.flatName) ? 'sel' : ''}`}
+        style={depth !== undefined ? ({ '--d': depth } as CSSProperties) : undefined}
+        onClick={(e) => openRow(e, s)}
+        onContextMenu={(e) => openItemMenu(e, s)}
+      >
+        {selectBox(s)}
+        <span className="flex flex-col min-w-0 flex-1 gap-px">
+          <Link to={resourceHref(s)} className={`nm m truncate hover:underline ${s.disabled ? 'text-ink-3' : ''}`}>{s.name}</Link>
+          {sub && <span className="font-mono text-xs text-ink-3 truncate">{sub}</span>}
+        </span>
+        {group === 'none' && view === 'list' && <span className="w-[150px] font-mono text-xs text-ink-3 truncate">{sourceName(s)}</span>}
+        <span className="w-[140px]"><TargetStack names={synced} /></span>
+        <span className="w-[120px]">{status$(tone, label)}</span>
+        {actionsButton(s)}
+      </div>
+    );
+  };
+
+  const folderRow = (row: Extract<TreeRow, { type: 'folder' }>) => {
+    const { node, depth } = row;
+    const repo = depth === 0 && node.name.startsWith('_') ? node.path : null;
+    const editable = !isAgent && !node.path.startsWith('_') && node.skills.length > 0;
+    return (
+      <div key={`f:${node.path}`} className={`ss-r fold tr ${depth > 0 ? 'sub' : ''}`} style={{ '--d': depth } as CSSProperties}>
+        <button
+          type="button"
+          className="flex items-center gap-[9px] min-w-0 flex-1 text-left cursor-pointer"
+          aria-expanded={!row.collapsed}
+          onClick={() => toggleFolder(node.path)}
+        >
+          {row.collapsed ? <ChevronRight size={14} className="shrink-0 text-ink-3" /> : <ChevronDown size={14} className="shrink-0 text-ink-3" />}
+          {repo ? <GitBranch size={15} className="shrink-0" /> : row.collapsed ? <Folder size={15} className="shrink-0" /> : <FolderOpen size={15} className="shrink-0" />}
+          <b className="font-mono truncate">{repo ? formatTrackedRepoName(node.name) : node.name}</b>
+          {repo && <span className="ss-tag">tracked</span>}
+          <span className="text-ink-3 whitespace-nowrap">{countLabel(t, kind, node.count)}</span>
+        </button>
+        {repo && !isAgent && repoActions(repo)}
+        {editable && (
+          <>
+            {!node.summary.isUniform
+              ? status$('off', t('resources.tree.mixed'))
+              : node.summary.targets.length > 0 && <span className="text-xs text-ink-3">{node.summary.display}</span>}
+            <Button variant="ghost" size="sm" onClick={(e) => setMenu({ mode: 'folder', path: node.path, summary: node.summary, point: menuPoint(e) })}>
+              <Target size={14} />
+              {t('resources.setTargets')}
             </Button>
-          </Link>
-        ) : undefined}
+          </>
+        )}
+      </div>
+    );
+  };
+
+  const card = (s: Skill) => {
+    const { synced, tone, label } = rowInfo(s);
+    return (
+      <div
+        key={s.flatName}
+        className={`ss-tile cursor-pointer ${selected.has(s.flatName) ? 'sel' : ''}`}
+        onClick={(e) => openRow(e, s)}
+        onContextMenu={(e) => openItemMenu(e, s)}
+      >
+        <div className="hd flex items-center gap-2.5">
+          {selectBox(s)}
+          <Link to={resourceHref(s)} className={`nm flex-1 min-w-0 break-words hover:underline ${s.disabled ? 'text-ink-3' : ''}`}>{s.name}</Link>
+          {actionsButton(s)}
+        </div>
+        <span className="ds text-[13px] text-ink-2">{group === 'source' ? parentPath(s, true) : parentPath(s) || sourceName(s)}</span>
+        <div className="ft">
+          <TargetStack names={synced} max={3} />
+          {status$(tone, label)}
+        </div>
+      </div>
+    );
+  };
+
+  /* -- Content -- */
+
+  const treeItemTotal = treeRows.filter((r) => r.type === 'item').length;
+  const total = view === 'tree' ? treeItemTotal : filtered.length;
+  const shown = Math.min(limit, total);
+  let content: React.ReactNode;
+
+  if (items.length === 0 || filtered.length === 0) {
+    content = items.length === 0 ? (
+      <EmptyState
+        icon={isAgent ? Bot : Puzzle}
+        title={t(isAgent ? 'resources.agents.empty.title' : 'resources.skills.empty.title')}
+        description={t(isAgent ? 'resources.agents.empty.description' : 'resources.skills.empty.description')}
+        action={<Button variant="primary" onClick={() => setInstall('search')}><Download size={15} />{t('resources.install')}</Button>}
+      />
+    ) : (
+      <EmptyState
+        icon={Search}
+        title={t('resources.noMatches.title')}
+        description={t('resources.noMatches.description')}
+        action={<Button variant="secondary" size="sm" onClick={clearFilters}>{t('resources.clearFilters')}</Button>}
+      />
+    );
+  } else if (view === 'cards') {
+    const shownGroups = group === 'source' ? limitGroups(groups, limit) : null;
+    content = shownGroups ? (
+      <div className="flex flex-col gap-6">
+        {shownGroups.map((g) => (
+          <div key={g.key}>
+            {groupHead(g, true)}
+            <div className="ss-tiles mt-3">{g.items.map(card)}</div>
+          </div>
+        ))}
+      </div>
+    ) : (
+      <div className="ss-tiles">{filtered.slice(0, limit).map(card)}</div>
+    );
+  } else {
+    const header = (
+      <div className="ss-lh">
+        <Checkbox hideLabel label={t('resources.select.selectAll')} checked={allSelected} indeterminate={someSelected} onChange={selectAll} />
+        {isGlob ? (
+          <span className="flex-1 flex items-center gap-3 text-[13px] text-ink-2 normal-case tracking-normal">
+            <span>{t('resources.glob.match', { count: filtered.length, total: items.length })} <span className="font-mono">{query}</span></span>
+            <button type="button" className="font-semibold text-ink hover:underline cursor-pointer" onClick={() => selectAll(true)}>
+              {t('resources.glob.selectAll', { count: filtered.length })}
+            </button>
+          </span>
+        ) : (
+          <span className="flex-1">{t(view === 'tree' ? 'resources.col.folderName' : 'resources.col.name')}</span>
+        )}
+        {group === 'none' && view === 'list' && <span className="w-[150px]">{t('resources.col.source')}</span>}
+        <span className="w-[140px]">{t('resources.col.targets')}</span>
+        <span className="w-[120px]">{t('resources.col.status')}</span>
+        <span className="w-[30px]" />
+      </div>
+    );
+    let body: React.ReactNode;
+    if (view === 'tree') {
+      let left = limit;
+      const rows: TreeRow[] = [];
+      for (const r of treeRows) {
+        if (r.type === 'item' && left-- <= 0) break;
+        rows.push(r);
+      }
+      body = rows.map((r) => (r.type === 'folder' ? folderRow(r) : itemRow(r.skill, r.depth)));
+    } else if (group === 'source') {
+      body = limitGroups(groups, limit).map((g) => [groupHead(g, false), ...g.items.map((s) => itemRow(s))]);
+    } else {
+      body = filtered.slice(0, limit).map((s) => itemRow(s));
+    }
+    content = <div className="ss-list">{header}{body}</div>;
+  }
+
+  const count = selectedItems.length;
+
+  return (
+    <div className={`ss-wrap animate-fade-in ${tab === 'installed' && count > 0 ? 'pb-16' : ''}`}>
+      <PageHeader
+        className="!mb-0"
+        title={t(isAgent ? 'layout.nav.agents' : 'layout.nav.skills')}
+        subtitle={isAgent ? t('resources.agents.subtitle') : t('resources.skills.subtitle', { count: items.length })}
+        actions={tab === 'installed' && (
+          <>
+            {!isAgent && (
+              <Link to="/skills/new" className="ss-btn">
+                <Plus size={15} />
+                {t('resources.newSkill')}
+              </Link>
+            )}
+            <Button variant="primary" data-tour="install-button" onClick={() => setInstall('search')}>
+              <Download size={15} />
+              {t('resources.install')}
+            </Button>
+          </>
+        )}
       />
 
-      {/* Resource type underline tabs */}
-      <nav className="ss-resource-tabs flex items-center gap-6 border-b-2 border-muted mb-3 -mx-4 px-4 md:-mx-8 md:px-8" role="tablist">
+      <nav className="ss-tabs" aria-label={t(isAgent ? 'layout.nav.agents' : 'layout.nav.skills')} data-tour="skills-view">
         {([
-          { key: 'skills' as ResourceTab, icon: <Puzzle size={16} strokeWidth={2.5} />, label: t('resources.tab.skills'), count: skillItems.length },
-          { key: 'agents' as ResourceTab, icon: <Bot size={16} strokeWidth={2.5} />, label: t('resources.tab.agents'), count: agentItems.length },
-        ]).map((tab) => (
-          <button
-            key={tab.key}
-            role="tab"
-            aria-selected={activeTab === tab.key}
-            onClick={() => changeTab(tab.key)}
-            className={`
-              ss-resource-tab
-              inline-flex items-center gap-1.5 px-1 pb-2.5 text-sm font-semibold cursor-pointer
-              transition-all duration-150 border-b-[3px] -mb-[2px]
-              ${activeTab === tab.key
-                ? 'border-pencil text-pencil'
-                : 'border-transparent text-pencil-light hover:text-pencil hover:border-muted-dark'
-              }
-            `}
-          >
-            {tab.icon}
-            {tab.label}
-            <span className={`
-              text-[11px] font-medium px-1.5 py-0.5 rounded-[var(--radius-sm)]
-              ${activeTab === tab.key ? 'bg-pencil/10 text-pencil' : 'bg-muted text-pencil-light'}
-            `}>
-              {tab.count}
-            </span>
-          </button>
+          ['installed', '', t('resources.tab.installed'), items.length],
+          ['updates', '?tab=updates', t('resources.tab.updates'), updateCount],
+          ['trash', '?tab=trash', t('trash.title'), trashCount],
+          ...(isAgent ? [] : [['analyze', '?tab=analyze', t('resources.tab.analyze'), 0] as const]),
+        ] as const).map(([key, query, label, n]) => (
+          <Link key={key} to={`${isAgent ? '/agents' : '/skills'}${query}`} className={tab === key ? 'on' : ''} aria-current={tab === key ? 'page' : undefined}>
+            {label}
+            {(key === 'installed' || n > 0) && <span className="ss-cnt">{n}</span>}
+          </Link>
         ))}
       </nav>
 
-      {/* Sticky toolbar */}
-      <div ref={toolbarRef} className="sticky top-0 z-20 bg-paper -mx-4 px-4 md:-mx-8 md:px-8 pt-2 pb-4">
-        {/* Search + Sort + View row */}
-        <div className="flex flex-col sm:flex-row gap-3 mb-2">
-          <div className="relative flex-1">
-            <Search
-              size={18}
-              strokeWidth={2.5}
-              className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-dark pointer-events-none"
+      {tab === 'analyze' ? (
+        <AnalyzePanel />
+      ) : tab === 'installed' ? (
+        <>
+          {agentSupport && items.length > 0 && agentSupport.supported.length > 0 && agentSupport.supported.length < agentSupport.total && (
+            <div className="ss-note inf">
+              <Info size={16} />
+              <div className="flex-1">
+                <b>{t('resources.agents.supportTitle', { count: agentSupport.supported.length, total: agentSupport.total })}</b>{' '}
+                {agentSupport.supported.join(', ')}. {t('resources.agents.supportRest')}
+              </div>
+            </div>
+          )}
+
+          <div className="flex flex-wrap items-center gap-2 -mt-2">
+            <label className="ss-inp w-[200px] shrink-0">
+              <Search size={15} className="shrink-0 text-ink-3" />
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => { setSearch(e.target.value); setLimit(STEP); }}
+                placeholder={t(isAgent ? 'resources.search.agents' : 'resources.search.skills')}
+                aria-label={t(isAgent ? 'resources.search.agents' : 'resources.search.skills')}
+              />
+              {!search && <span className="k">/</span>}
+            </label>
+            <SegmentedControl
+              className="!flex-nowrap shrink-0"
+              value={source}
+              onChange={resetting(setSource)}
+              options={(['all', ...SOURCE_ORDER] as SourceFilter[]).map((v) => ({ value: v, label: SOURCE_LABEL[v] }))}
             />
-            <Input
-              type="text"
-              placeholder={t('resources.filter.placeholder')}
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="!pl-11"
-            />
-          </div>
-          <div className="flex items-center gap-2 sm:w-52">
-            <ArrowUpDown size={16} strokeWidth={2.5} className="text-pencil-light shrink-0" />
+            <span className="flex-1" />
             <Select
-              value={sortType}
-              onChange={(v) => setSortType(v as SortType)}
-              size="sm"
+              className="w-[112px] shrink-0"
+              prefix={t('resources.toolbar.status')}
+              value={status}
+              onChange={(v) => resetting(setStatus)(v as StatusFilter)}
+              options={(['all', 'enabled', 'disabled'] as StatusFilter[]).map((v) => ({ value: v, label: STATUS_LABEL[v] }))}
+            />
+            {view === 'tree' ? (
+              tree.children.size > 0 && <div className="ss-seg ic !flex-nowrap shrink-0" role="group">
+                <button type="button" title={t('resources.folder.expandAll')} aria-label={t('resources.folder.expandAll')} onClick={() => updateCollapsed(new Set())}>
+                  <ChevronsUpDown size={16} />
+                </button>
+                <button type="button" title={t('resources.folder.collapseAll')} aria-label={t('resources.folder.collapseAll')} onClick={() => updateCollapsed(new Set(folderPaths(tree)))}>
+                  <ChevronsDownUp size={16} />
+                </button>
+              </div>
+            ) : (
+              <Select
+                className="w-[140px] shrink-0"
+                prefix={t('resources.toolbar.group')}
+                value={group}
+                onChange={(v) => setGroup(v as GroupBy)}
+                options={[
+                  { value: 'source', label: t('resources.group.source') },
+                  { value: 'none', label: t('resources.group.none') },
+                ]}
+              />
+            )}
+            <Select
+              className="w-[124px] shrink-0"
+              prefix={t('resources.toolbar.sort')}
+              value={sort}
+              onChange={(v) => setSort(v as SortType)}
               options={[
                 { value: 'name-asc', label: t('resources.sort.nameAsc') },
                 { value: 'name-desc', label: t('resources.sort.nameDesc') },
@@ -1115,1087 +821,283 @@ export default function SkillsPage() {
                 { value: 'oldest', label: t('resources.sort.oldestFirst') },
               ]}
             />
+            <SegmentedControl
+              className="ic !flex-nowrap shrink-0"
+              value={view}
+              onChange={changeView}
+              options={[
+                { value: 'list', label: <List size={15} />, title: t('resources.view.list') },
+                { value: 'cards', label: <LayoutGrid size={15} />, title: t('resources.view.cards') },
+                { value: 'tree', label: <FolderTree size={15} />, title: t('resources.view.tree') },
+              ]}
+            />
           </div>
-          {/* View toggle */}
-          <SegmentedControl
-            value={viewType}
-            onChange={changeViewType}
-            options={[
-              { value: 'grid', label: <LayoutGrid size={16} strokeWidth={2.5} /> },
-              { value: 'grouped', label: <FolderOpen size={16} strokeWidth={2.5} /> },
-              { value: 'table', label: <List size={16} strokeWidth={2.5} /> },
-            ]}
-            size="md"
-            connected
-          />
-        </div>
 
-        {/* Filters — source chips (outlined) + status pill-group (connected),
-            two orthogonal dimensions distinguished by control style */}
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-          <SegmentedControl
-            value={filterType}
-            onChange={setFilterType}
-            options={filterOptions.map((opt) => ({
-              value: opt.key,
-              label: <span className="inline-flex items-center gap-1.5">{opt.icon}{opt.label}</span>,
-              count: filterCounts[opt.key],
-            }))}
-          />
-          <div className="h-6 w-px self-center bg-pencil-light/30" aria-hidden="true" />
-          <button
-            type="button"
-            onClick={() => setStatusFilter(nextStatusFilter[statusFilter])}
-            title={`Status: ${curStatus.label} · click to cycle`}
-            aria-label={`Status filter: ${curStatus.label}. Click to cycle through all, enabled, and disabled.`}
-            className={`inline-flex items-center gap-1.5 rounded border px-3 py-1.5 text-sm font-medium transition-all duration-150 cursor-pointer ${
-              statusFilter === 'all'
-                ? 'border-muted bg-transparent text-pencil-light hover:border-muted-dark hover:text-pencil'
-                : 'border-muted-dark bg-surface text-pencil'
-            }`}
-          >
-            {curStatus.icon}
-            {curStatus.label}
-            {statusFilter !== 'all' && (
-              <span className="opacity-60">{statusCounts[statusFilter]}</span>
-            )}
-          </button>
-
-          {/* Multi-select controls */}
-          <div className="ml-auto flex items-center gap-2">
-            {!selectionMode ? (
-              <Button variant="ghost" size="sm" onClick={() => setSelectionMode(true)} disabled={tabFiltered.length === 0}>
-                <CheckSquare size={16} strokeWidth={2.5} />
-                {t('resources.select.toggle')}
-              </Button>
-            ) : (
-              <>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={allInViewSelected ? () => toggleMany(tabFiltered.map((s) => s.flatName), false) : selectAllInView}
-                  disabled={tabFiltered.length === 0}
-                >
-                  <CheckSquare size={16} strokeWidth={2.5} />
-                  {allInViewSelected ? t('resources.select.clear') : t('resources.select.selectAll')}
-                </Button>
-                <Button variant="ghost" size="sm" onClick={exitSelection}>
-                  <X size={16} strokeWidth={2.5} />
-                  {t('resources.select.done')}
-                </Button>
-              </>
+          <div className="-mt-3">
+            {content}
+            {total > 0 && (
+              <div className="flex items-center justify-between mt-3">
+                <span className="text-[13px] text-ink-3">{t('resources.shown', { shown, total })}</span>
+                {shown < total && (
+                  <Button variant="ghost" size="sm" onClick={() => setLimit((l) => l + STEP)}>{t('resources.showMore')}</Button>
+                )}
+              </div>
             )}
           </div>
-        </div>
-      </div>
 
-      {/* Result count — hidden in folder view (merged into folder toolbar) */}
-      {(filterType !== 'all' || statusFilter !== 'all' || search) && viewType !== 'grouped' && (
-        <p className="text-pencil-light text-sm mb-3">
-          {t('resources.showing', { count: tabFiltered.length, total: skills.length })}
-          {(filterType !== 'all' || statusFilter !== 'all') && (
-            <>
-              {' '}
-              &middot;{' '}
-              <Button
-                variant="link"
-                onClick={() => {
-                  setFilterType('all');
-                  setStatusFilter('all');
-                  setSearch('');
-                }}
-              >
-                {t('resources.clearFilters')}
+          {count > 0 && (
+            <div className="ss-bulk" role="toolbar" aria-label={t('resources.select.count', { count })}>
+              <b>{t('resources.select.count', { count })}</b>
+              <span className="dv" />
+              <Button variant="secondary" size="sm" disabled={toggleMany.isPending} onClick={() => toggleMany.mutate({ names: selectedItems.map((s) => s.flatName), enable: true })}>
+                <CircleCheck size={15} />
+                {t('resources.batchToggle.enable')}
               </Button>
-            </>
-          )}
-        </p>
-      )}
-
-      {/* Right-click tip — shown once, dismissed permanently */}
-      <ContextMenuTip />
-
-      {/* Skills grid / grouped / table view */}
-      {tabFiltered.length > 0 ? (
-        viewType === 'grid' ? (
-          <VirtuosoGrid
-            useWindowScroll
-            totalCount={tabFiltered.length}
-            overscan={200}
-            components={gridComponents}
-            scrollSeekConfiguration={{
-              enter: (velocity) => Math.abs(velocity) > 800,
-              exit: (velocity) => Math.abs(velocity) < 200,
-            }}
-            itemContent={(index) => {
-              const skill = tabFiltered[index];
-              return (
-                <SkillPostit
-                  skill={skill}
-                  highlighted={gridContextMenu?.skillFlatName === skill.flatName}
-                  selectionMode={selectionMode}
-                  isSelected={selected.has(skill.flatName)}
-                  onToggleSelect={toggleSelect}
-                  onContextMenu={(e) => {
-                    e.preventDefault();
-                    setGridContextMenu({
-                      point: { x: e.clientX, y: e.clientY },
-                      skillFlatName: skill.flatName,
-                      skillName: skill.name,
-                      kind: skill.kind,
-                      relPath: skill.relPath,
-                      disabled: !!skill.disabled,
-                      isInRepo: !!skill.isInRepo,
-                      currentTargets: skill.targets ?? null,
-                    });
-                  }}
-                />
-              );
-            }}
-          />
-        ) : viewType === 'grouped' ? (
-          <FolderTreeView
-            skills={tabFiltered}
-            resourceKind={activeTab === 'agents' ? 'agent' : 'skill'}
-            totalCount={skills.length}
-            isSearching={!!search || filterType !== 'all' || statusFilter !== 'all'}
-            stickyTop={toolbarH}
-            selection={{ selectionMode, selected, onToggleSelect: toggleSelect, onToggleMany: toggleMany }}
-            onClearFilters={(filterType !== 'all' || statusFilter !== 'all' || search) ? () => { setFilterType('all'); setStatusFilter('all'); setSearch(''); } : undefined}
-          />
-        ) : (
-          <SkillsTable
-            skills={tabFiltered}
-            resourceKind={activeTab === 'agents' ? 'agent' : 'skill'}
-            selection={{ selectionMode, selected, onToggleSelect: toggleSelect, onToggleMany: toggleMany }}
-          />
-        )
-      ) : (
-        <EmptyState
-          icon={activeTab === 'agents' ? Bot : Puzzle}
-          title={search || filterType !== 'all' || statusFilter !== 'all' ? t('resources.noMatches.title') : activeTab === 'agents' ? t('resources.agents.empty.title') : t('resources.skills.empty.title')}
-          description={
-            search || filterType !== 'all' || statusFilter !== 'all'
-              ? t('resources.noMatches.description')
-              : activeTab === 'agents'
-                ? t('resources.agents.empty.description')
-                : t('resources.skills.empty.description')
-          }
-        />
-      )}
-
-      <ScrollToTop />
-
-      {gridContextMenu && (
-        <TargetMenu
-          open={true}
-          anchorPoint={gridContextMenu.point}
-          currentTargets={gridContextMenu.currentTargets}
-          isUniform={true}
-          extraItems={buildResourceExtraItems(
-            {
-              flatName: gridContextMenu.skillFlatName,
-              name: gridContextMenu.skillName,
-              relPath: gridContextMenu.relPath,
-              disabled: gridContextMenu.disabled,
-              isInRepo: gridContextMenu.isInRepo,
-              kind: gridContextMenu.kind,
-            },
-            () => setGridConfirmUninstall({ flatName: gridContextMenu.skillFlatName, name: gridContextMenu.skillName, kind: gridContextMenu.kind }),
-            (repoName) => { setGridConfirmUninstallRepo(repoName); setGridContextMenu(null); },
-          )}
-          onSelect={(target) => {
-            gridSingleMutation.mutate({ name: gridContextMenu.skillFlatName, target });
-            setGridContextMenu(null);
-          }}
-          onClose={() => setGridContextMenu(null)}
-        />
-      )}
-      <ConfirmDialog
-        open={!!gridConfirmUninstall}
-        title={t('resources.confirm.uninstallTitle', { kind: resourceLabel(gridConfirmUninstall?.kind ?? 'skill') })}
-        message={<>Are you sure you want to uninstall <strong>{gridConfirmUninstall?.name}</strong>?</>}
-        confirmText={t('resources.confirm.uninstall')}
-        variant="danger"
-        loading={gridUninstallMutation.isPending}
-        onConfirm={() => {
-          if (gridConfirmUninstall) gridUninstallMutation.mutate({ name: gridConfirmUninstall.flatName, kind: gridConfirmUninstall.kind });
-          setGridConfirmUninstall(null);
-        }}
-        onCancel={() => setGridConfirmUninstall(null)}
-      />
-      <ConfirmDialog
-        open={!!gridConfirmUninstallRepo}
-        title={t('resources.confirm.uninstallRepoTitle')}
-        message={<>Are you sure you want to uninstall all skills in <strong>{gridConfirmUninstallRepo}</strong>?</>}
-        confirmText={t('resources.confirm.uninstallRepo')}
-        variant="danger"
-        loading={gridUninstallRepoMutation.isPending}
-        onConfirm={() => {
-          if (gridConfirmUninstallRepo) gridUninstallRepoMutation.mutate(gridConfirmUninstallRepo);
-          setGridConfirmUninstallRepo(null);
-        }}
-        onCancel={() => setGridConfirmUninstallRepo(null)}
-      />
-
-      {/* Batch enable/disable confirm (disable only) */}
-      <ConfirmDialog
-        open={!!confirmDisable}
-        title={t('resources.batchToggle.confirmTitle', { count: confirmDisable?.length ?? 0 })}
-        confirmText={t('resources.batchToggle.confirmButton', { count: confirmDisable?.length ?? 0 })}
-        variant="danger"
-        wide
-        loading={batchToggleMutation.isPending}
-        onConfirm={() => {
-          if (confirmDisable) batchToggleMutation.mutate({ names: confirmDisable, enable: false });
-          setConfirmDisable(null);
-        }}
-        onCancel={() => setConfirmDisable(null)}
-        message={
-          <div className="space-y-3">
-            <p className="text-pencil-light">{t('resources.batchToggle.confirmMessage')}</p>
-            <div className="max-h-48 overflow-y-auto bg-muted/10 p-3 space-y-1" style={{ borderRadius: radius.md }}>
-              {(confirmDisable ?? []).map((n) => (
-                <div key={n} className="font-mono text-sm text-pencil">{formatSkillDisplayName(n)}</div>
-              ))}
+              <Button variant="secondary" size="sm" disabled={toggleMany.isPending} onClick={() => setConfirmDisable(selectedItems.map((s) => s.flatName))}>
+                <Power size={15} />
+                {t('resources.batchToggle.disable')}
+              </Button>
+              {!isAgent && (
+                <Button variant="secondary" size="sm" onClick={(e) => setMenu({ mode: 'bulk', point: menuPoint(e) })}>
+                  <Target size={15} />
+                  {t('resources.setTargets')}
+                </Button>
+              )}
+              <Button variant="secondary" size="sm" onClick={() => setUninstalling(selectedItems)}>
+                <Trash2 size={15} />
+                {t('resources.contextMenu.uninstall')}
+              </Button>
+              <span className="dv" />
+              <button type="button" className="ss-ib" aria-label={t('resources.select.clear')} onClick={() => setSelected(new Set())}>
+                <X size={16} />
+              </button>
             </div>
-          </div>
-        }
-      />
+          )}
 
-      {/* Bottom action bar */}
-      {selectionMode && selected.size > 0 && (
-        <div className="fixed bottom-0 right-0 left-60 max-md:left-0 bg-paper/95 backdrop-blur-sm border-t-2 border-blue/25 px-6 py-3 flex items-center justify-between z-30 animate-fade-in">
-          <span className="inline-flex items-center gap-2 text-sm font-semibold text-pencil">
-            <SelectBox checked />
-            {t('resources.select.count', { count: selected.size })}
-          </span>
-          <div className="flex items-center gap-3">
-            <Button
-              variant="secondary"
-              size="md"
-              disabled={batchToggleMutation.isPending}
-              onClick={() => batchToggleMutation.mutate({ names: selectedNames, enable: true })}
-            >
-              <Eye size={16} strokeWidth={2.5} />
-              {t('resources.batchToggle.enable')}
-            </Button>
-            <Button
-              variant="danger"
-              size="md"
-              disabled={batchToggleMutation.isPending}
-              onClick={() => setConfirmDisable(selectedNames)}
-            >
-              <EyeOff size={16} strokeWidth={2.5} />
-              {t('resources.batchToggle.disable')}
-            </Button>
-          </div>
-        </div>
+          {menu?.mode === 'item' && (
+            <TargetMenu
+              open
+              anchorPoint={menu.point}
+              currentTargets={menu.skill.targets ?? null}
+              label={t('resources.contextMenu.availableIn')}
+              showTargets={!isAgent}
+              onSelect={(target) => setTargets.mutate({ name: menu.skill.flatName, target })}
+              onClose={() => setMenu(null)}
+              extraItems={[
+                { key: 'detail', label: t('resources.contextMenu.viewDetail'), icon: <ExternalLink size={14} />, onSelect: () => navigate(resourceHref(menu.skill)) },
+                {
+                  key: 'toggle',
+                  label: t(menu.skill.disabled ? 'resources.contextMenu.enable' : 'resources.contextMenu.disable'),
+                  icon: menu.skill.disabled ? <CircleCheck size={14} /> : <Power size={14} />,
+                  onSelect: () => toggleOne.mutate({ s: menu.skill, disable: !menu.skill.disabled }),
+                },
+                {
+                  key: 'uninstall',
+                  label: t(menu.skill.isInRepo && !isAgent ? 'resources.contextMenu.uninstallRepo' : 'resources.contextMenu.uninstall'),
+                  icon: <Trash2 size={14} />,
+                  danger: true,
+                  onSelect: () => setUninstalling([menu.skill]),
+                },
+              ]}
+            />
+          )}
+          {menu?.mode === 'folder' && (
+            <TargetMenu
+              open
+              flat
+              anchorPoint={menu.point}
+              currentTargets={menu.summary.targets}
+              isUniform={menu.summary.isUniform}
+              onSelect={(target) => setFolderTargets.mutate({ folder: menu.path, target })}
+              onClose={() => setMenu(null)}
+            />
+          )}
+          {menu?.mode === 'bulk' && (
+            <TargetMenu open flat anchorPoint={menu.point} currentTargets={null} isUniform={false} onSelect={setSelectedTargets} onClose={() => setMenu(null)} />
+          )}
+          {menu?.mode === 'repo' && (
+            <SkillContextMenu
+              open
+              anchorPoint={menu.point}
+              onClose={() => setMenu(null)}
+              items={[{
+                key: 'uninstall-repo',
+                label: t('resources.contextMenu.uninstallRepo'),
+                icon: <Trash2 size={14} />,
+                danger: true,
+                onSelect: () => setUninstalling(items.filter((s) => repoOf(s) === menu.repo)),
+              }]}
+            />
+          )}
+
+          <ConfirmDialog
+            open={!!confirmDisable}
+            title={t('resources.batchToggle.confirmTitle', { count: confirmDisable?.length ?? 0 })}
+            confirmText={t('resources.batchToggle.confirmButton', { count: confirmDisable?.length ?? 0 })}
+            variant="danger"
+            loading={toggleMany.isPending}
+            onConfirm={() => {
+              if (confirmDisable) toggleMany.mutate({ names: confirmDisable, enable: false });
+              setConfirmDisable(null);
+            }}
+            onCancel={() => setConfirmDisable(null)}
+            message={t('resources.batchToggle.confirmMessage')}
+          />
+
+          {uninstalling && (
+            <UninstallDialog
+              kind={kind}
+              selection={uninstalling}
+              all={items}
+              onClose={(removed) => {
+                if (removed) setSelected(new Set());
+                setUninstalling(null);
+              }}
+            />
+          )}
+        </>
+      ) : tab === 'updates' ? (
+        <UpdatePage kind={kind} />
+      ) : (
+        <TrashPage kind={kind} />
       )}
+      {installTab && <InstallDialog kind={kind} initialTab={installTab === 'url' ? 'url' : 'search'} onClose={() => setInstall(null)} />}
     </div>
   );
 }
 
-/* -- Folder tree view (virtualized flat list) -------- */
+/* -- Uninstall dialog ----------------------------- */
 
-const INDENT_PX = 24;
-
-
-function FolderTreeView({ skills, resourceKind, totalCount, isSearching, stickyTop = 0, selection, onClearFilters }: {
-  skills: Skill[];
-  resourceKind: Skill['kind'];
-  totalCount: number;
-  isSearching: boolean;
-  stickyTop?: number;
-  selection?: SelectionApi;
-  onClearFilters?: () => void;
+export function UninstallDialog({ kind, selection, all, onClose }: {
+  kind: Kind;
+  selection: Skill[];
+  all: Skill[];
+  onClose: (removed: boolean) => void;
 }) {
-  const [collapsed, setCollapsed] = useState<Set<string>>(loadCollapsed);
-  const [stickyFolder, setStickyFolder] = useState<{ node: TreeNode; index: number } | null>(null);
-  const [contextMenu, setContextMenu] = useState<{
-    point: { x: number; y: number };
-    mode: 'folder' | 'skill';
-    folderPath?: string;
-    skillFlatName?: string;
-    skillName?: string;
-    kind?: Skill['kind'];
-    relPath?: string;
-    disabled?: boolean;
-    isInRepo?: boolean;
-    currentTargets: string[] | null;
-    isUniform: boolean;
-  } | null>(null);
-
   const t = useT();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { toast } = useToast();
-  const { getSkillTargets: treeGetSkillTargets } = useSyncMatrix();
-  const {
-    uninstallMutation,
-    uninstallRepoMutation,
-    setTargetMutation: singleMutation,
-    buildResourceExtraItems: buildExtraItems,
-  } = useResourceActions();
-  const [confirmUninstallRepo, setConfirmUninstallRepo] = useState<string | null>(null);
+  const [force, setForce] = useState(false);
+  const [running, setRunning] = useState(false);
+  const [results, setResults] = useState<BatchUninstallItemResult[] | null>(null);
 
-  const batchMutation = useMutation({
-    mutationFn: ({ folder, target }: { folder: string; target: string | null }) =>
-      api.batchSetTargets(folder, target),
-    onMutate: async ({ folder, target }) => {
-      setContextMenu(null);
-      const newTargets = target ? [target] : undefined;
-      const previous = optimisticPatch(queryClient, (skills) =>
-        skills.map((s) => {
-          // Match the same logic as the server's matchesFolder
-          if (s.disabled || s.isInRepo) return s;
-          const dir = s.relPath.substring(0, s.relPath.lastIndexOf('/')) || '.';
-          const matches = folder === '*'
-            ? true
-            : folder === ''
-              ? dir === '.'
-              : dir === folder || dir.startsWith(folder + '/');
-          return matches ? { ...s, targets: newTargets } : s;
-        }),
-      );
-      return { previous };
-    },
-    onSuccess: (data, { folder, target }) => {
-      const label = target ?? t('resources.targets.all');
-      const folderLabel = folder || '(root)';
-      if (data.updated === 0 && data.skipped > 0) {
-        toast(t('resources.folder.noEditableSkills', { folder: folderLabel }), 'error');
-      } else {
-        toast(t('resources.folder.skillsUpdated', { count: data.updated, folder: folderLabel, target: label }), 'success');
+  // A skill inside a tracked repo can only go with its repo. Agents are removed one by one.
+  const repos = new Map<string, number>();
+  const singles: Skill[] = [];
+  for (const s of selection) {
+    const repo = kind === 'skill' ? repoOf(s) : undefined;
+    if (repo) repos.set(repo, all.filter((x) => repoOf(x) === repo).length);
+    else singles.push(s);
+  }
+  const names = [...repos.keys(), ...singles.map((s) => s.flatName)];
+  const removedCount = singles.length + [...repos.values()].reduce((a, b) => a + b, 0);
+
+  const run = async (targets: string[], withForce: boolean) => {
+    setRunning(true);
+    try {
+      const res = await api.batchUninstall({ names: targets, kind, force: withForce });
+      clearAuditCache(queryClient);
+      queryClient.invalidateQueries({ queryKey: queryKeys.skills.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.overview });
+      queryClient.invalidateQueries({ queryKey: queryKeys.trash });
+      queryClient.invalidateQueries({ queryKey: ['sync-matrix'] });
+      if (res.summary.failed === 0) {
+        toast(t('batchUninstall.toast.success', { count: res.summary.succeeded }), 'success');
+        onClose(true);
+        return;
       }
-    },
-    onError: (err: Error, _, ctx) => {
-      if (ctx?.previous) queryClient.setQueryData(queryKeys.skills.all, ctx.previous);
-      toast(err.message, 'error');
-    },
-    onSettled: () => queryClient.invalidateQueries({ queryKey: queryKeys.skills.all }),
-  });
-
-  const pendingFolder = batchMutation.isPending ? (batchMutation.variables?.folder ?? null) : null;
-
-  const [confirmUninstall, setConfirmUninstall] = useState<{
-    flatName: string;
-    name: string;
-    kind: Skill['kind'];
-  } | null>(null);
-
-  const tree = useMemo(() => buildTree(skills), [skills]);
-
-  const rows = useMemo(
-    () => flattenTree(tree, collapsed, isSearching),
-    [tree, collapsed, isSearching],
-  );
-
-  const folderCount = useMemo(() => {
-    let count = 0;
-    for (const r of rows) if (r.type === 'folder') count++;
-    return count;
-  }, [rows]);
-
-  // Descendant skills of a folder row (for tri-state select-all in selection mode)
-  const descendantFlatNames = useCallback((folderPath: string, isRoot: boolean): string[] => {
-    if (isRoot || folderPath === '') {
-      return skills.filter((s) => !s.relPath.includes('/')).map((s) => s.flatName);
+      setResults(res.results);
+    } catch (err) {
+      toast(t('batchUninstall.toast.uninstallFailed', { error: err instanceof Error ? err.message : String(err) }), 'error');
+    } finally {
+      setRunning(false);
     }
-    return skills
-      .filter((s) => s.relPath === folderPath || s.relPath.startsWith(folderPath + '/'))
-      .map((s) => s.flatName);
-  }, [skills]);
+  };
 
-  const folderSelectState = useCallback((folderPath: string, isRoot: boolean) => {
-    if (!selection) return { checked: false, indeterminate: false, names: [] as string[] };
-    const names = descendantFlatNames(folderPath, isRoot);
-    let n = 0;
-    for (const f of names) if (selection.selected.has(f)) n++;
-    return { checked: names.length > 0 && n === names.length, indeterminate: n > 0 && n < names.length, names };
-  }, [selection, descendantFlatNames]);
-
-  // Track scroll to find which folder should be sticky.
-  // Uses DOM positions to find the row index at the toolbar edge,
-  // then walks backwards in the rows DATA array (not DOM) to find
-  // the nearest folder — works even if Virtuoso unmounted that folder row.
-  useEffect(() => {
-    let ticking = false;
-    const onScroll = () => {
-      if (ticking) return;
-      ticking = true;
-      requestAnimationFrame(() => {
-        ticking = false;
-        const allEls = document.querySelectorAll<HTMLElement>('[data-tree-idx]');
-        if (allEls.length === 0) { setStickyFolder(null); return; }
-
-        // Find the index of the first row at or below the toolbar bottom
-        let edgeIdx = -1;
-        for (const el of allEls) {
-          if (el.getBoundingClientRect().top >= stickyTop) {
-            edgeIdx = parseInt(el.dataset.treeIdx!, 10);
-            break;
-          }
-        }
-        // All rendered rows are above toolbar — use the last one's index + 1
-        if (edgeIdx < 0) {
-          const lastEl = allEls[allEls.length - 1];
-          edgeIdx = parseInt(lastEl.dataset.treeIdx!, 10) + 1;
-        }
-        if (edgeIdx <= 0) { setStickyFolder(null); return; }
-
-        // Walk backwards in rows DATA to find nearest folder above the edge
-        for (let i = edgeIdx - 1; i >= 0; i--) {
-          if (rows[i]?.type === 'folder') {
-            setStickyFolder({ node: rows[i], index: i });
-            return;
-          }
-        }
-        setStickyFolder(null);
-      });
-    };
-    window.addEventListener('scroll', onScroll, { passive: true });
-    onScroll();
-    return () => window.removeEventListener('scroll', onScroll);
-  }, [rows, stickyTop]);
-
-  const toggleFolder = useCallback((path: string) => {
-    setCollapsed((prev) => {
-      const next = new Set(prev);
-      if (next.has(path)) next.delete(path);
-      else next.add(path);
-      saveCollapsed(next);
-      return next;
-    });
-  }, []);
-
-  const expandAll = useCallback(() => {
-    setCollapsed(new Set());
-    saveCollapsed(new Set());
-  }, []);
-
-  const collapseAll = useCallback(() => {
-    const all = new Set(collectAllFolderPaths(tree));
-    setCollapsed(all);
-    saveCollapsed(all);
-  }, [tree]);
-
-  const renderItem = useCallback((index: number): ReactElement => {
-    const node = rows[index];
-    const indentGuides = node.depth > 0 ? (
-      Array.from({ length: node.depth }, (_, i) => (
-        <span
-          key={i}
-          className="absolute top-0 bottom-0 border-l border-muted/40"
-          style={{ left: i * INDENT_PX + 14 }}
-        />
-      ))
-    ) : null;
-
-    if (node.type === 'folder') {
-      const isFolderCollapsed = !isSearching && collapsed.has(node.path);
-      return (
-        <div
-          data-tree-idx={index}
-          className={`relative flex items-center gap-1.5 py-1.5 px-1 cursor-pointer select-none hover:bg-muted/50 transition-colors${node.isRoot ? ' border-t border-muted/60 mt-2 pt-3' : ''}${contextMenu?.mode === 'folder' && contextMenu.folderPath === node.path ? ' bg-muted/50' : ''}`}
-          style={{ paddingLeft: node.depth * INDENT_PX + 4 }}
-          onClick={() => toggleFolder(node.path)}
-          onContextMenu={(e) => {
-            e.preventDefault();
-            if (resourceKind === 'agent' || batchMutation.isPending) return;
-            setContextMenu({
-              point: { x: e.clientX, y: e.clientY },
-              mode: 'folder',
-              folderPath: node.path,
-              currentTargets: node.targetSummary?.targets ?? null,
-              isUniform: node.targetSummary?.isUniform ?? true,
-            });
-          }}
-          role="treeitem"
-          aria-expanded={!isFolderCollapsed}
-        >
-          {indentGuides}
-          {selection?.selectionMode && (() => {
-            const st = folderSelectState(node.path, !!node.isRoot);
-            return (
-              <span className="shrink-0 flex items-center mr-0.5" onClick={(e) => e.stopPropagation()}>
-                <Checkbox
-                  label=""
-                  size="sm"
-                  checked={st.checked}
-                  indeterminate={st.indeterminate}
-                  onChange={(c) => selection.onToggleMany(st.names, c)}
-                />
-              </span>
-            );
-          })()}
-          {isFolderCollapsed
-            ? <ChevronRight size={14} strokeWidth={2.5} className="text-pencil-light shrink-0" />
-            : <ChevronDown size={14} strokeWidth={2.5} className="text-pencil-light shrink-0" />
-          }
-          {node.name.startsWith('_')
-            ? <GitBranch size={16} strokeWidth={2.5} className="text-pencil shrink-0" />
-            : isFolderCollapsed
-              ? <Folder size={16} strokeWidth={2.5} className="text-pencil shrink-0" />
-              : <FolderOpen size={16} strokeWidth={2.5} className="text-pencil shrink-0" />
-          }
-          <span className={`font-bold text-pencil shrink-0${node.isRoot ? ' text-pencil-light font-semibold' : ''}`}>
-            {node.name.startsWith('_') ? formatTrackedRepoName(node.name) : formatSkillDisplayName(node.name)}
-          </span>
-          <span
-            className="text-[11px] text-pencil-light px-1.5 py-0 bg-muted shrink-0 ml-1.5"
-            style={{ borderRadius: radius.sm }}
-          >
-            {node.childCount}
-          </span>
-          {resourceKind === 'skill' && node.targetSummary && (
-            <span className="ml-auto shrink-0 flex items-center gap-1.5">
-              {pendingFolder === node.path && <Spinner size="sm" />}
-              <Tooltip content={
-                node.targetSummary.display === 'Mixed'
-                  ? t('resources.tree.mixedTooltip', { targets: node.targetSummary.targets.join(', ') })
-                  : node.targetSummary.targets.length > 0
-                    ? node.targetSummary.targets.join(', ')
-                    : t('resources.tree.allTargets')
-              }>
-                <Badge variant={node.targetSummary.isUniform ? 'default' : 'warning'}>
-                  <Target size={10} strokeWidth={2.5} className="inline -mt-px mr-0.5" />
-                  {node.targetSummary.display}
-                </Badge>
-              </Tooltip>
-            </span>
-          )}
-        </div>
-      );
-    }
-
-    const skill = node.skill!;
-    const nt = normalizeTargets(skill.targets);
-    const skillTargetLabel = nt.length > 0 ? nt.join(', ') : t('resources.targets.all');
-    const agentTargetInfo = skill.kind === 'agent' ? summarizeAgentTargets(treeGetSkillTargets(skill.flatName), t) : null;
-    const tooltipContent = (
-      <div>
-        <div>{skill.relPath}</div>
-        {(skill.source || skill.installedAt) && (
-          <>
-            <hr className="border-paper/30 my-1" />
-            {skill.source && <div>{t('resources.tree.source', { source: shortSource(skill.source) })}</div>}
-            {skill.installedAt && <div>{t('resources.tree.installed', { date: new Date(skill.installedAt).toLocaleDateString() })}</div>}
-          </>
-        )}
-      </div>
-    );
-
+  if (results) {
+    const failed = results.filter((r) => !r.success);
     return (
-      <div
-        data-tree-idx={index}
-        onContextMenu={(e) => {
-          e.preventDefault();
-          if (selection?.selectionMode || batchMutation.isPending) return;
-          setContextMenu({
-            point: { x: e.clientX, y: e.clientY },
-            mode: 'skill',
-            skillFlatName: skill.flatName,
-            skillName: skill.name,
-            kind: skill.kind,
-            relPath: skill.relPath,
-            disabled: !!skill.disabled,
-            isInRepo: !!skill.isInRepo,
-            currentTargets: skill.targets ?? null,
-            isUniform: true,
-          });
-        }}
-      >
-        <Tooltip content={tooltipContent} followCursor delay={1000}>
-          <Link
-            to={resourceDetailHref(skill)}
-            onClick={selection?.selectionMode ? (e) => { e.preventDefault(); selection.onToggleSelect(skill.flatName); } : undefined}
-            className={`relative flex items-center gap-1.5 py-1 px-1 hover:bg-muted/50 transition-colors no-underline${skill.disabled ? ' opacity-40' : ''}${selection?.selected.has(skill.flatName) ? ' bg-blue/10' : ''}${contextMenu?.mode === 'skill' && contextMenu.skillFlatName === skill.flatName ? ' bg-muted/50' : ''}`}
-            style={{ paddingLeft: node.depth * INDENT_PX + 4 }}
-          >
-            {indentGuides}
-            {selection?.selectionMode
-              ? <SelectBox checked={selection.selected.has(skill.flatName)} className="ml-0.5" />
-              : <span style={{ width: 14 }} className="shrink-0" />}
-            {skill.kind === 'agent'
-              ? <FileText size={14} strokeWidth={2} className="text-pencil-light/60 shrink-0" />
-              : <Puzzle size={14} strokeWidth={2} className="text-pencil-light/60 shrink-0" />
-            }
-            <span className="text-sm text-pencil truncate">{skill.name}</span>
-            <span className="ml-auto shrink-0 flex items-center gap-1">
-              {skill.disabled && <Badge variant="danger">Disabled</Badge>}
-              <SourceBadge type={skill.type} isInRepo={skill.isInRepo} />
-              {skill.branch && (
-                <Badge variant="default">
-                  <GitBranch size={10} strokeWidth={2.5} className="inline -mt-px mr-0.5" />
-                  {skill.branch}
-                </Badge>
-              )}
-              {resourceKind === 'skill' && (
-                <Tooltip content={skillTargetLabel === t('resources.targets.all') ? t('resources.tree.allTargets') : skillTargetLabel}>
-                  <Badge variant="default">
-                    <Target size={10} strokeWidth={2.5} className="inline -mt-px mr-0.5" />
-                    {skillTargetLabel}
-                  </Badge>
-                </Tooltip>
-              )}
-              {resourceKind === 'agent' && agentTargetInfo && (
-                <Tooltip content={agentTargetInfo.title}>
-                  <Badge variant="default">
-                    <Target size={10} strokeWidth={2.5} className="inline -mt-px mr-0.5" />
-                    {agentTargetInfo.label}
-                  </Badge>
-                </Tooltip>
-              )}
-            </span>
-          </Link>
-        </Tooltip>
-      </div>
-    );
-  }, [rows, collapsed, isSearching, toggleFolder, contextMenu, pendingFolder, resourceKind, batchMutation.isPending, selection, folderSelectState]);
-
-  return (
-    <div>
-      {/* Toolbar: stats + Expand/Collapse All */}
-      <div className="flex items-center gap-2 mb-3 flex-wrap">
-        <span className="text-sm text-pencil-light">
-          {isSearching ? (
-            <>
-              {t('resources.folder.showingFiltered', { count: skills.length, total: totalCount, kind: resourceKind === 'agent' ? t('resources.tab.agents').toLowerCase() : t('resources.tab.skills').toLowerCase() })}
-              {onClearFilters && (
-                <>
-                  {' '}&middot;{' '}
-                  <Button variant="link" onClick={onClearFilters}>{t('resources.clearFilters')}</Button>
-                </>
-              )}
-            </>
-          ) : (
-            <>{t('resources.folder.itemsInFolders', { items: skills.length, folders: folderCount })}</>
-          )}
-        </span>
-        {folderCount > 1 && (
-          <span className="ml-auto flex items-center gap-2">
-            <Button variant="ghost" size="sm" onClick={expandAll}>
-              <ChevronsUpDown size={14} strokeWidth={2.5} /> {t('resources.folder.expandAll')}
-            </Button>
-            <Button variant="ghost" size="sm" onClick={collapseAll}>
-              <ChevronsDownUp size={14} strokeWidth={2.5} /> {t('resources.folder.collapseAll')}
-            </Button>
-          </span>
-        )}
-      </div>
-
-      {/* Sticky folder header — appears when parent folder scrolls out of view */}
-      {stickyFolder && (
-        <div className="sticky z-10 bg-paper -mx-4 px-4 md:-mx-8 md:px-8 border-b border-dashed border-muted" style={{ top: stickyTop }}>
-          <div
-            className="flex items-center gap-1.5 py-1.5 px-1 cursor-pointer select-none"
-            style={{ paddingLeft: 4 }}
-            onClick={() => {
-              const allEls = document.querySelectorAll<HTMLElement>('[data-tree-idx]');
-              if (allEls.length < 2) return;
-              const firstEl = allEls[0];
-              const lastEl = allEls[allEls.length - 1];
-              const firstIdx = parseInt(firstEl.dataset.treeIdx!, 10);
-              const lastIdx = parseInt(lastEl.dataset.treeIdx!, 10);
-              const avgH = (lastEl.getBoundingClientRect().top - firstEl.getBoundingClientRect().top) / (lastIdx - firstIdx);
-              // Estimated viewport position of the folder - desired position (toolbar bottom)
-              const offset = firstEl.getBoundingClientRect().top + (stickyFolder.index - firstIdx) * avgH - stickyTop;
-              window.scrollBy({ top: offset, behavior: 'smooth' });
-            }}
-          >
-            {stickyFolder.node.path?.startsWith('_')
-              ? <GitBranch size={16} strokeWidth={2.5} className="text-pencil-light shrink-0" />
-              : <FolderOpen size={16} strokeWidth={2.5} className="text-pencil-light shrink-0" />
-            }
-            <span className={`font-semibold text-sm${stickyFolder.node.isRoot ? ' text-pencil-light' : ' text-pencil'}`}>
-              {stickyFolder.node.path
-                ? (stickyFolder.node.path.startsWith('_')
-                    ? formatTrackedRepoName(stickyFolder.node.path)
-                    : formatSkillDisplayName(stickyFolder.node.path))
-                : '(root)'}
-            </span>
-            <span
-              className="text-xs text-pencil-light px-1.5 py-0 bg-muted shrink-0 ml-1"
-              style={{ borderRadius: radius.sm }}
-            >
-              {stickyFolder.node.childCount}
-            </span>
-            {resourceKind === 'skill' && stickyFolder.node.targetSummary && (
-              <span className="ml-auto shrink-0 flex items-center gap-1">
-                <Tooltip content={
-                  stickyFolder.node.targetSummary.targets.length > 0
-                    ? stickyFolder.node.targetSummary.targets.join(', ')
-                    : t('resources.tree.allTargets')
-                }>
-                  <Badge variant={stickyFolder.node.targetSummary.isUniform ? 'default' : 'warning'}>
-                    <Target size={10} strokeWidth={2.5} className="inline -mt-px mr-0.5" />
-                    {stickyFolder.node.targetSummary.display}
-                  </Badge>
-                </Tooltip>
-              </span>
-            )}
+      <DialogShell open onClose={() => onClose(true)} maxWidth="lg" padding="none" ariaLabel={t('batchUninstall.results.partialResult')} preventClose={running}>
+        <div className="dh">
+          <div className="flex flex-col gap-1">
+            <h2 className="ss-h2">{t('batchUninstall.results.partialResult')}</h2>
+            <p className="text-[13px] text-ink-2">{t('resources.uninstall.resultSummary', { removed: results.length - failed.length, failed: failed.length })}</p>
           </div>
         </div>
-      )}
-
-      {/* Virtualized tree */}
-      <Virtuoso
-        useWindowScroll
-        totalCount={rows.length}
-        overscan={600}
-        itemContent={renderItem}
-      />
-
-      {contextMenu && (
-        <TargetMenu
-          open={true}
-          anchorPoint={contextMenu.point}
-          currentTargets={contextMenu.currentTargets}
-          isUniform={contextMenu.isUniform}
-          label={contextMenu.mode === 'folder' ? t('resources.contextMenu.folderAvailableIn') : t('resources.contextMenu.availableIn')}
-          extraItems={contextMenu.mode === 'skill' ? buildExtraItems(
-              {
-                flatName: contextMenu.skillFlatName!,
-                name: contextMenu.skillName ?? contextMenu.skillFlatName!,
-                relPath: contextMenu.relPath ?? '',
-                disabled: !!contextMenu.disabled,
-                isInRepo: !!contextMenu.isInRepo,
-                kind: contextMenu.kind ?? resourceKind,
-              },
-              () => setConfirmUninstall({
-                flatName: contextMenu.skillFlatName!,
-                name: contextMenu.skillName ?? contextMenu.skillFlatName!,
-                kind: contextMenu.kind ?? resourceKind,
-              }),
-              (repoName) => { setConfirmUninstallRepo(repoName); setContextMenu(null); },
-          ) : undefined}
-          onSelect={(target) => {
-            if (batchMutation.isPending) return;
-            if (contextMenu.mode === 'folder') {
-              batchMutation.mutate({ folder: contextMenu.folderPath ?? '', target });
-            } else {
-              singleMutation.mutate({ name: contextMenu.skillFlatName!, target });
-            }
-            setContextMenu(null);
-          }}
-          onClose={() => setContextMenu(null)}
-        />
-      )}
-      <ConfirmDialog
-        open={!!confirmUninstall}
-        title={t('resources.confirm.uninstallTitle', { kind: resourceLabel(confirmUninstall?.kind ?? resourceKind) })}
-        message={<>Are you sure you want to uninstall <strong>{confirmUninstall?.name}</strong>?</>}
-        confirmText={t('resources.confirm.uninstall')}
-        variant="danger"
-        loading={uninstallMutation.isPending}
-        onConfirm={() => {
-          if (confirmUninstall) uninstallMutation.mutate({ name: confirmUninstall.flatName, kind: confirmUninstall.kind });
-          setConfirmUninstall(null);
-        }}
-        onCancel={() => setConfirmUninstall(null)}
-      />
-      <ConfirmDialog
-        open={!!confirmUninstallRepo}
-        title={t('resources.confirm.uninstallRepoTitle')}
-        message={<>Are you sure you want to uninstall all skills in <strong>{confirmUninstallRepo}</strong>?</>}
-        confirmText={t('resources.confirm.uninstallRepo')}
-        variant="danger"
-        loading={uninstallRepoMutation.isPending}
-        onConfirm={() => {
-          if (confirmUninstallRepo) uninstallRepoMutation.mutate(confirmUninstallRepo);
-          setConfirmUninstallRepo(null);
-        }}
-        onCancel={() => setConfirmUninstallRepo(null)}
-      />
-    </div>
-  );
-}
-
-/* -- Table view with pagination ------------------- */
-
-const TABLE_PAGE_SIZES = [10, 25, 50] as const;
-
-function SkillsTable({ skills, resourceKind, selection }: { skills: Skill[]; resourceKind: Skill['kind']; selection?: SelectionApi }) {
-  const [page, setPage] = useState(0);
-  const [pageSize, setPageSize] = useState<number>(() => {
-    const saved = localStorage.getItem('skillshare:table-page-size');
-    const n = saved ? parseInt(saved, 10) : 0;
-    return TABLE_PAGE_SIZES.some((size) => size === n) ? n : 10;
-  });
-  const [prevSkills, setPrevSkills] = useState(skills);
-  if (skills !== prevSkills) {
-    setPrevSkills(skills);
-    setPage(0);
+        <div className="db">
+          <div className="ss-list !shadow-none">
+            {results.map((r) => (
+              <div key={r.name} className="ss-r !min-h-11">
+                {r.success ? <CircleCheck size={16} className="shrink-0 text-ok" /> : <CircleX size={16} className="shrink-0 text-bad" />}
+                <span className="nm m flex-1 truncate">{formatTrackedRepoName(r.name)}</span>
+                <span className={`text-[13px] ${r.success ? 'text-ink-2' : 'text-bad'}`}>{r.success ? t('resources.uninstall.movedToTrash') : r.error}</span>
+              </div>
+            ))}
+          </div>
+          <div className="ss-note warn">
+            <RefreshCw size={16} />
+            <div className="flex-1">{t('resources.uninstall.syncReminder')}</div>
+          </div>
+        </div>
+        <div className="df">
+          {!force && failed.length > 0 && (
+            <Button variant="ghost" loading={running} onClick={() => { setForce(true); run(failed.map((r) => r.name), true); }}>
+              {t('resources.uninstall.retryForce')}
+            </Button>
+          )}
+          <span className="flex-1" />
+          <Button variant="secondary" onClick={() => onClose(true)}>{t('batchUninstall.results.continueButton')}</Button>
+          <Button variant="primary" onClick={() => navigate('/sync')}>
+            <RefreshCw size={15} />
+            {t('batchUninstall.results.goToSync')}
+          </Button>
+        </div>
+      </DialogShell>
+    );
   }
 
-  const [actionMenu, setActionMenu] = useState<{
-    point: { x: number; y: number };
-    skillFlatName: string;
-    skillName: string;
-    kind: Skill['kind'];
-    relPath: string;
-    disabled: boolean;
-    isInRepo: boolean;
-  } | null>(null);
-  const [confirmUninstall, setConfirmUninstall] = useState<{
-    flatName: string;
-    name: string;
-    kind: Skill['kind'];
-  } | null>(null);
-
-  const t = useT();
-  const {
-    uninstallMutation,
-    uninstallRepoMutation: tableUninstallRepoMutation,
-    setTargetMutation: targetMutation,
-    buildResourceExtraItems: buildTableExtraItems,
-  } = useResourceActions();
-  const [tableConfirmUninstallRepo, setTableConfirmUninstallRepo] = useState<string | null>(null);
-  const { getSkillTargets } = useSyncMatrix();
-
-  // Available targets for the inline Select
-  const { data: availableData } = useQuery({
-    queryKey: queryKeys.targets.available,
-    queryFn: () => api.availableTargets(),
-    staleTime: staleTimes.targets,
-  });
-  const targetOptions: SelectOption[] = useMemo(() => {
-    const installed = (availableData?.targets ?? []).filter((t) => t.installed);
-    return [
-      { value: '__all__', label: t('resources.targets.all') },
-      ...installed.map((t) => ({ value: t.name, label: t.name })),
-    ];
-  }, [availableData]);
-
-  // targetMutation from useSkillActions (optimistic)
-
-  const totalPages = Math.max(1, Math.ceil(skills.length / pageSize));
-  const start = page * pageSize;
-  const visible = skills.slice(start, start + pageSize);
-
-  // Build action menu items
-  const actionItems: ContextMenuItem[] = actionMenu
-    ? buildTableExtraItems(
-        {
-          flatName: actionMenu.skillFlatName,
-          name: actionMenu.skillName,
-          relPath: actionMenu.relPath,
-          disabled: actionMenu.disabled,
-          isInRepo: actionMenu.isInRepo,
-          kind: actionMenu.kind,
-        },
-        () => setConfirmUninstall({ flatName: actionMenu.skillFlatName, name: actionMenu.skillName, kind: actionMenu.kind }),
-        (repoName) => { setTableConfirmUninstallRepo(repoName); setActionMenu(null); },
-      )
-    : [];
-
+  const title = t('resources.uninstall.title', { what: countLabel(t, kind, removedCount) });
   return (
-    <Card>
-      <div className="overflow-auto max-h-[calc(100vh-320px)]">
-        <table className="w-full text-left">
-          <thead className="sticky top-0 z-10 bg-surface">
-            <tr className="border-b-2 border-dashed border-muted-dark">
-              {selection?.selectionMode && (() => {
-                const visFlat = visible.map((s) => s.flatName);
-                const n = visFlat.filter((f) => selection.selected.has(f)).length;
-                return (
-                  <th className="pb-3 pr-3 w-0">
-                    <Checkbox
-                      label=""
-                      size="sm"
-                      checked={visFlat.length > 0 && n === visFlat.length}
-                      indeterminate={n > 0 && n < visFlat.length}
-                      onChange={(c) => selection.onToggleMany(visFlat, c)}
-                    />
-                  </th>
-                );
-              })()}
-              <th className="pb-3 pr-4 text-pencil-light text-sm font-medium w-0" />
-              <th className="pb-3 pr-4 text-pencil-light text-sm font-medium">{t('resources.table.name')}</th>
-              <th className="pb-3 pr-4 text-pencil-light text-sm font-medium">{t('resources.table.type')}</th>
-              <th className="pb-3 pr-4 text-pencil-light text-sm font-medium">
-                {resourceKind === 'agent' ? t('resources.table.syncedTo') : t('resources.table.availableIn')}
-              </th>
-              <th className="pb-3 text-pencil-light text-sm font-medium w-10" />
-            </tr>
-          </thead>
-          <tbody>
-            {visible.map((skill) => {
-              const currentValue = skill.targets?.length === 1 ? skill.targets[0] : '__all__';
-              const showPath = skill.relPath !== skill.name;
-              const agentTargets = summarizeAgentTargets(getSkillTargets(skill.flatName), t);
-              return (
-                <tr
-                  key={skill.flatName}
-                  className={`border-b border-dashed border-muted hover:bg-paper-warm/60 transition-colors${selection?.selected.has(skill.flatName) ? ' bg-blue/10' : actionMenu?.skillFlatName === skill.flatName ? ' bg-paper-warm/60' : ''}`}
-                >
-                  {selection?.selectionMode && (
-                    <td className="py-3.5 pr-3 w-0">
-                      <Checkbox
-                        label=""
-                        size="sm"
-                        checked={selection.selected.has(skill.flatName)}
-                        onChange={() => selection.onToggleSelect(skill.flatName)}
-                      />
-                    </td>
-                  )}
-                  {/* Status stripe */}
-                  <td className="py-3.5 pr-0 w-1">
-                    <div
-                      className="w-1 h-6 rounded-full"
-                      style={{
-                        backgroundColor: skill.isInRepo
-                          ? 'var(--color-pencil-light)'
-                          : 'var(--color-muted)',
-                      }}
-                      title={skill.isInRepo ? 'Tracked' : 'Local'}
-                    />
-                  </td>
-                  {/* Name + path subtitle + source */}
-                  <td className="py-3.5 pr-4">
-                    <div className="flex items-center gap-2">
-                      <div className="min-w-0 flex-1">
-                        <Link
-                          to={resourceDetailHref(skill)}
-                          onClick={selection?.selectionMode ? (e) => { e.preventDefault(); selection.onToggleSelect(skill.flatName); } : undefined}
-                          className="font-medium text-pencil hover:underline block truncate"
-                        >
-                          {skill.name}
-                        </Link>
-                        {showPath && (
-                          <span className="block text-xs font-mono text-pencil-light/60 truncate mt-0.5">
-                            {skill.relPath}
-                          </span>
-                        )}
-                      </div>
-                      {skill.source && (() => {
-                        const parsed = parseRemoteURL(skill.source);
-                        const raw = parsed?.webURL ?? skill.source;
-                        const href = raw.startsWith('http') ? raw : `https://${raw}`;
-                        return (
-                          <Tooltip content={parsed?.ownerRepo ?? skill.source} delay={500}>
-                            <a href={href} target="_blank" rel="noopener noreferrer" className="text-pencil-light/40 hover:text-pencil-light shrink-0 transition-colors" onClick={(e) => e.stopPropagation()}>
-                              <Globe size={13} strokeWidth={2} />
-                            </a>
-                          </Tooltip>
-                        );
-                      })()}
-                    </div>
-                  </td>
-                  {/* Type badges */}
-                  <td className="py-3.5 pr-4">
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      {skill.disabled && <Badge variant="danger">Disabled</Badge>}
-                      <SourceBadge type={skill.type} isInRepo={skill.isInRepo} />
-                      {skill.branch && (
-                        <Badge variant="default">
-                          <GitBranch size={10} strokeWidth={2.5} className="inline -mt-px mr-0.5" />
-                          {skill.branch}
-                        </Badge>
-                      )}
-                    </div>
-                  </td>
-                  {/* Available in — inline Select */}
-                  <td className="py-3" onClick={(e) => e.stopPropagation()}>
-                    {resourceKind === 'agent' ? (
-                      <Tooltip content={agentTargets.title}>
-                        <span className="inline-flex items-center text-sm text-pencil-light">
-                          {agentTargets.label}
-                        </span>
-                      </Tooltip>
-                    ) : (
-                      <Select
-                        value={currentValue}
-                        onChange={(val) => {
-                          targetMutation.mutate({
-                            name: skill.flatName,
-                            target: val === '__all__' ? null : val,
-                          });
-                        }}
-                        options={targetOptions}
-                        size="sm"
-                        className="min-w-[7rem] max-w-[9rem]"
-                      />
-                    )}
-                  </td>
-                  {/* Actions ⋯ */}
-                  <td className="py-3.5 w-10">
-                    <button
-                      className="p-1 rounded hover:bg-muted/60 transition-colors text-pencil-light"
-                      style={{ borderRadius: radius.sm }}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-                        setActionMenu({
-                          point: { x: rect.right, y: rect.bottom },
-                          skillFlatName: skill.flatName,
-                          skillName: skill.name,
-                          kind: skill.kind,
-                          relPath: skill.relPath,
-                          disabled: !!skill.disabled,
-                          isInRepo: !!skill.isInRepo,
-                        });
-                      }}
-                      title={t('resources.table.actions')}
-                    >
-                      <MoreHorizontal size={16} strokeWidth={2} />
-                    </button>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+    <DialogShell open onClose={() => onClose(false)} maxWidth="lg" padding="none" ariaLabel={title} preventClose={running}>
+      <div className="dh">
+        <h2 className="ss-h2">{title}</h2>
       </div>
-
-      {/* Pagination */}
-      {skills.length > TABLE_PAGE_SIZES[0] && (
-        <Pagination
-          page={page}
-          totalPages={totalPages}
-          onPageChange={(p) => setPage(p)}
-          rangeText={`${start + 1}–${Math.min(start + pageSize, skills.length)} of ${skills.length}`}
-          pageSize={{
-            value: pageSize,
-            options: TABLE_PAGE_SIZES,
-            onChange: (s) => { setPageSize(s); setPage(0); localStorage.setItem('skillshare:table-page-size', String(s)); },
-          }}
-        />
-      )}
-      {actionMenu && (
-        <SkillContextMenu
-          open={true}
-          items={actionItems}
-          anchorPoint={actionMenu.point}
-          onClose={() => setActionMenu(null)}
-        />
-      )}
-      <ConfirmDialog
-        open={!!confirmUninstall}
-        title={t('resources.confirm.uninstallTitle', { kind: resourceLabel(confirmUninstall?.kind ?? resourceKind) })}
-        message={<>Are you sure you want to uninstall <strong>{confirmUninstall?.name}</strong>?</>}
-        confirmText={t('resources.confirm.uninstall')}
-        variant="danger"
-        loading={uninstallMutation.isPending}
-        onConfirm={() => {
-          if (confirmUninstall) uninstallMutation.mutate({ name: confirmUninstall.flatName, kind: confirmUninstall.kind });
-          setConfirmUninstall(null);
-        }}
-        onCancel={() => setConfirmUninstall(null)}
-      />
-      <ConfirmDialog
-        open={!!tableConfirmUninstallRepo}
-        title={t('resources.confirm.uninstallRepoTitle')}
-        message={<>Are you sure you want to uninstall all skills in <strong>{tableConfirmUninstallRepo}</strong>?</>}
-        confirmText={t('resources.confirm.uninstallRepo')}
-        variant="danger"
-        loading={tableUninstallRepoMutation.isPending}
-        onConfirm={() => {
-          if (tableConfirmUninstallRepo) tableUninstallRepoMutation.mutate(tableConfirmUninstallRepo);
-          setTableConfirmUninstallRepo(null);
-        }}
-        onCancel={() => setTableConfirmUninstallRepo(null)}
-      />
-    </Card>
+      <div className="db">
+        <div className="ss-list !shadow-none max-h-64 overflow-y-auto">
+          {[...repos].map(([repo, n]) => (
+            <div key={repo} className="ss-r !min-h-[42px]">
+              <GitBranch size={15} className="shrink-0 text-ink-2" />
+              <span className="nm m flex-1 truncate">{formatTrackedRepoName(repo)}</span>
+              <span className="text-xs text-ink-3">{t('resources.uninstall.wholeRepo', { what: countLabel(t, 'skill', n) })}</span>
+            </div>
+          ))}
+          {singles.map((s) => (
+            <div key={s.flatName} className="ss-r !min-h-[42px]">
+              <span className={`ss-cat sm ${kind}`}>{kind === 'agent' ? <Bot size={14} /> : <Puzzle size={14} />}</span>
+              <span className="nm m flex-1 truncate">{s.name}</span>
+              <span className="font-mono text-xs text-ink-3 truncate">{parentPath(s)}</span>
+            </div>
+          ))}
+        </div>
+        {repos.size > 0 && (
+          <div className="ss-note warn">
+            <TriangleAlert size={16} />
+            <div className="flex-1">{t('resources.uninstall.repoNote')}</div>
+          </div>
+        )}
+        {repos.size > 0 && (
+          <Checkbox size="sm" label={t('batchUninstall.confirm.forceLabel')} checked={force} onChange={setForce} />
+        )}
+        <p className="text-[13px] text-ink-2">{t('resources.uninstall.trashNote')}</p>
+      </div>
+      <div className="df">
+        <Button variant="ghost" onClick={() => onClose(false)} disabled={running}>{t('common.cancel')}</Button>
+        <Button variant="secondary" loading={running} onClick={() => run(names, force)}>
+          <Trash2 size={15} />
+          {t('resources.contextMenu.uninstall')}
+        </Button>
+      </div>
+    </DialogShell>
   );
 }

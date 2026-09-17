@@ -1,610 +1,307 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { useT } from '../i18n';
-import {
-  Puzzle,
-  Target,
-  ArrowRight,
-  RefreshCw,
-  Star,
-  X,
-  Download,
-  GitBranch,
-  AlertTriangle,
-  Trash2,
-  Package,
-  Zap,
-  ShieldCheck,
-  ShieldAlert,
-  FolderPlus,
-  LayoutDashboard,
-  Bot,
-} from 'lucide-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { queryKeys, staleTimes } from '../lib/queryKeys';
-import Card from '../components/Card';
-import Badge from '../components/Badge';
-import Button from '../components/Button';
-import IconButton from '../components/IconButton';
-import Skeleton from '../components/Skeleton';
-import { PageSkeleton } from '../components/Skeleton';
-import StatusBadge from '../components/StatusBadge';
-import PageHeader from '../components/PageHeader';
-import ConfirmDialog from '../components/ConfirmDialog';
-import { useToast } from '../components/Toast';
+import {
+  Bot,
+  ChevronRight,
+  CircleArrowUp,
+  CircleCheck,
+  Ellipsis,
+  FolderPlus,
+  Github,
+  Info,
+  Plug,
+  Puzzle,
+  RefreshCw,
+  ShieldAlert,
+  Star,
+  Trash2,
+  TriangleAlert,
+  X,
+} from 'lucide-react';
 import { api } from '../api/client';
-import type { Target as TargetType, CheckResult, AuditAllResponse, Extra } from '../api/client';
-import { radius, shadows } from '../design';
+import type { AuditAllResponse, CheckResult, LogEntry, Overview, Target } from '../api/client';
+import { mcpApi } from '../api/mcp';
+import { queryKeys, staleTimes } from '../lib/queryKeys';
 import { clearAuditCache } from '../lib/auditCache';
-import { formatSkillDisplayName } from '../lib/resourceNames';
+import { formatLogDetail } from '../lib/logFormat';
+import { formatDateTime, formatRelativeTime, useI18n, useT } from '../i18n';
+import AgentIcon from '../components/AgentIcon';
+import Button from '../components/Button';
+import ConfirmDialog from '../components/ConfirmDialog';
+import PageHeader from '../components/PageHeader';
+import { PageSkeleton } from '../components/Skeleton';
+import { useToast } from '../components/Toast';
+import { useAppContext } from '../context/AppContext';
+import { useRepoUpdate } from '../hooks/useRepoUpdate';
 
 const STAR_CTA_DISMISSED_KEY = 'skillshare.dashboard.starCta.dismissed';
 
+type Kind = 'ok' | 'warn' | 'bad' | 'off';
+interface Health {
+  kind: Kind;
+  label: string;
+  detail: string;
+  pending: number;
+}
+
+function useTargetHealth() {
+  const t = useT();
+  return (tgt: Target, sourceSkillCount: number): Health => {
+    if (tgt.status === 'not exist') return { kind: 'bad', label: t('dashboard.targets.problem'), detail: t('dashboard.targets.folderMissing'), pending: 0 };
+    if (tgt.status === 'conflict' || tgt.status === 'broken') return { kind: 'bad', label: t('dashboard.targets.problem'), detail: tgt.status, pending: 0 };
+    if (tgt.status === 'has files') return { kind: 'warn', label: tgt.status, detail: '', pending: 0 };
+    if (tgt.status === 'unknown') return { kind: 'off', label: tgt.status, detail: '', pending: 0 };
+    const counted = (tgt.mode === 'merge' && tgt.status === 'merged') || (tgt.mode === 'copy' && tgt.status === 'copied');
+    const pending = counted ? Math.max(0, (tgt.expectedSkillCount || sourceSkillCount) - tgt.linkedCount) : 0;
+    const linked = tgt.linkedCount > 0
+      ? t(tgt.mode === 'copy' ? 'dashboard.targets.managed' : 'dashboard.targets.linked', { count: tgt.linkedCount })
+      : '';
+    if (pending > 0) {
+      const label = t('dashboard.pending', { count: pending });
+      return { kind: 'warn', label, detail: [linked, label].filter(Boolean).join(' · '), pending };
+    }
+    return { kind: 'ok', label: t('dashboard.targets.inSync'), detail: linked, pending: 0 };
+  };
+}
+
 export default function DashboardPage() {
   const t = useT();
+  const { locale } = useI18n();
+  const { isProjectMode } = useAppContext();
   const { data, isPending, error } = useQuery({
     queryKey: queryKeys.overview,
     queryFn: () => api.getOverview(),
     staleTime: staleTimes.overview,
+  });
+  const { data: targetsData } = useQuery({
+    queryKey: queryKeys.targets.all,
+    queryFn: () => api.listTargets(),
+    staleTime: staleTimes.targets,
   });
   const { data: extrasData } = useQuery({
     queryKey: queryKeys.extras,
     queryFn: () => api.listExtras(),
     staleTime: staleTimes.extras,
   });
-  const queryClient = useQueryClient();
-  const [updatingAll, setUpdatingAll] = useState(false);
-  const [showUpdateConfirm, setShowUpdateConfirm] = useState(false);
-  const [showStarCta, setShowStarCta] = useState(() => {
-    if (typeof window === 'undefined') return true;
-    return window.localStorage.getItem(STAR_CTA_DISMISSED_KEY) !== '1';
+  const { data: mcpData } = useQuery({ queryKey: queryKeys.mcp, queryFn: mcpApi.list });
+  const { data: lastSync } = useQuery({
+    queryKey: queryKeys.log('ops', 1, { cmd: 'sync' }),
+    queryFn: () => api.listLog('ops', 1, { cmd: 'sync' }),
+    staleTime: staleTimes.log,
   });
-  const { toast } = useToast();
+  const health = useTargetHealth();
 
   if (isPending) return <PageSkeleton />;
   if (error) {
     return (
-      <Card variant="accent" className="text-center py-8">
-        <p className="text-danger text-lg">
-          {t("dashboard.error.title")}
-        </p>
-        <p className="text-pencil-light text-sm mt-1">{error.message}</p>
-      </Card>
+      <div className="ss-empty">
+        <TriangleAlert size={24} className="text-bad" />
+        <h3 className="font-semibold text-ink">{t('dashboard.error.title')}</h3>
+        <p className="text-[13px]">{error.message}</p>
+      </div>
     );
   }
   if (!data) return null;
 
-  const handleUpdateAll = async () => {
-    setUpdatingAll(true);
-    try {
-      const res = await api.update({ all: true });
-      const results = res.results ?? [];
-      const updated = results.filter((r) => r.action === 'updated').length;
-      const upToDate = results.filter((r) => r.action === 'up-to-date').length;
-      const errors = results.filter((r) => r.action === 'error');
-      const blocked = results.filter((r) => r.action === 'blocked');
-      const missing = res.missingTrackedRepos ?? [];
-      if (results.length === 0 && missing.length === 0) {
-        toast(t("dashboard.toast.noTrackedRepos"), 'info');
-      } else if (results.length > 0) {
-        const parts = [`${updated} updated`, `${upToDate} up-to-date`];
-        if (blocked.length > 0) parts.push(`${blocked.length} blocked`);
-        toast(t("dashboard.toast.updateComplete", { summary: parts.join(', ') }), blocked.length > 0 ? 'warning' : updated > 0 ? 'success' : 'info');
-      }
-      // Tracked repos declared in metadata but absent on disk (issue #212):
-      // point the user to the Updates page where they can rehydrate.
-      if (missing.length > 0) {
-        toast(t("dashboard.toast.missingTrackedRepos", { count: missing.length }), 'warning');
-      }
-      const allUpdateErrors = [
-        ...blocked.map((r) => `${formatSkillDisplayName(r.name)}: ${r.message}`),
-        ...errors.map((r) => `${formatSkillDisplayName(r.name)}: ${r.message}`),
-      ];
-      if (allUpdateErrors.length > 0) {
-        const key = allUpdateErrors.length !== 1 ? "dashboard.toast.issueCount" : "dashboard.toast.issueCountSingular";
-        toast(t(key, { count: allUpdateErrors.length, details: allUpdateErrors.join('; ') }), 'error');
-      }
-      await queryClient.invalidateQueries({ queryKey: queryKeys.skills.all });
-      await queryClient.invalidateQueries({ queryKey: queryKeys.overview });
-    } catch (e: unknown) {
-      toast((e as Error).message, 'error');
-    } finally {
-      setUpdatingAll(false);
-    }
-  };
-
-  const dismissStarCta = () => {
-    setShowStarCta(false);
-    if (typeof window === 'undefined') return;
-    window.localStorage.setItem(STAR_CTA_DISMISSED_KEY, '1');
-  };
-
-  const totalExtraFiles = extrasData?.extras?.reduce((sum: number, e: Extra) => sum + e.file_count, 0) ?? 0;
-  const totalExtraTargets = extrasData?.extras?.reduce((sum: number, e: Extra) => sum + e.targets.length, 0) ?? 0;
-
-  const stats = [
-    {
-      label: t("dashboard.stats.skills"),
-      value: data.skillCount,
-      subtitle: t("dashboard.stats.topLevel", { count: data.topLevelCount }),
-      icon: Puzzle,
-      color: 'text-blue',
-      bg: 'bg-info-light',
-      to: '/resources?tab=skills',
-    },
-    {
-      label: t("dashboard.stats.agents"),
-      value: data.agentCount,
-      subtitle: t("dashboard.stats.installed"),
-      icon: Bot,
-      color: 'text-accent',
-      bg: 'bg-accent/10',
-      to: '/resources?tab=agents',
-    },
-    {
-      label: t("dashboard.stats.targets"),
-      value: data.targetCount,
-      subtitle: t("dashboard.stats.configured"),
-      icon: Target,
-      color: 'text-success',
-      bg: 'bg-success-light',
-      to: '/targets',
-    },
-    {
-      label: t("dashboard.stats.extras"),
-      value: extrasData?.extras?.length ?? 0,
-      subtitle: t("dashboard.stats.extrasSubtitle", { files: totalExtraFiles, targets: totalExtraTargets }),
-      icon: FolderPlus,
-      color: 'text-lime-600',
-      bg: 'bg-lime-100',
-      to: '/extras',
-    },
+  const targets = targetsData?.targets ?? [];
+  const healths = targets.map((tgt) => health(tgt, targetsData?.sourceSkillCount ?? 0));
+  const synced = healths.filter((h) => h.kind === 'ok').length;
+  const pending = healths.reduce((max, h) => Math.max(max, h.pending), 0);
+  const lastSyncTs = lastSync?.entries[0]?.ts;
+  const counts = [
+    { kind: 'skill', icon: Puzzle, value: data.skillCount, label: t('dashboard.stats.skills'), to: '/skills' },
+    { kind: 'agent', icon: Bot, value: data.agentCount, label: t('dashboard.stats.agents'), to: '/agents' },
+    { kind: 'extra', icon: FolderPlus, value: extrasData?.extras?.length ?? 0, label: t('dashboard.stats.extras'), to: '/extras' },
+    { kind: 'mcp', icon: Plug, value: mcpData ? Object.keys(mcpData.source.servers ?? {}).length : 0, label: t('dashboard.stats.mcp'), to: '/mcp' },
   ];
 
+  const subtitle = [
+    isProjectMode ? t('dashboard.projectSummary') : '',
+    t('dashboard.summary', { synced, total: targets.length }),
+    lastSyncTs ? t('dashboard.lastSync', { time: formatRelativeTime(lastSyncTs, locale) }) : '',
+  ].filter(Boolean).join(' ');
+
   return (
-    <div className="animate-fade-in">
-      <PageHeader icon={<LayoutDashboard size={24} strokeWidth={2.5} />} title={t("dashboard.title")} subtitle={t("dashboard.subtitle")} />
+    <div className="ss-wrap animate-fade-in">
+      <PageHeader
+        className="!mb-0"
+        title={t('dashboard.title')}
+        subtitle={subtitle}
+        actions={
+          <span data-tour="quick-actions" className="flex items-center gap-3">
+            {pending > 0 && <span className="ss-st warn">{t('dashboard.pending', { count: pending })}</span>}
+            <Link to="/sync" className="ss-btn pri">
+              <RefreshCw size={15} />
+              {t('layout.nav.sync')}
+            </Link>
+          </span>
+        }
+      />
 
-      {/* Stats grid */}
-      <div data-tour="stats-grid" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
-        {stats.map(({ label, value, subtitle, icon: Icon, color, bg, to }) => (
-          <Link key={label} to={to}>
-            <Card
-              hover
-              className="h-full"
-            >
-              <div className="flex items-start gap-3">
-                <div
-                  className={`w-11 h-11 ${bg} border-2 border-pencil flex items-center justify-center shrink-0`}
-                  style={{ borderRadius: '50%' }}
-                >
-                  <Icon size={20} strokeWidth={2.5} className={color} />
-                </div>
-                <div className="min-w-0">
-                  <p
-                    className="text-sm text-pencil-light uppercase tracking-wider"
-                  >
-                    {label}
-                  </p>
-                  <p
-                    className="text-2xl font-bold text-pencil leading-tight"
-                  >
-                    {value}
-                  </p>
-                  <p className="text-sm text-muted-dark">{subtitle}</p>
-                </div>
-              </div>
-            </Card>
-          </Link>
-        ))}
-      </div>
-
-      {/* Source path card */}
-      <Card className="mb-8">
-        <h3 className="text-lg font-bold text-pencil mb-3">
-          {t("dashboard.source.title")}
-        </h3>
-        <div className="space-y-2.5">
-          <SourceRow label={t("dashboard.stats.skills")} path={data.source} />
-          {data.agentsSource && <SourceRow label={t("dashboard.stats.agents")} path={data.agentsSource} />}
-          {data.extrasSource && <SourceRow label={t("dashboard.stats.extras")} path={data.extrasSource} />}
+      {isProjectMode && (
+        <div className="ss-note inf">
+          <Info size={16} />
+          <div className="flex-1">{t('dashboard.projectNote')}</div>
         </div>
-        <p className="text-sm text-muted-dark mt-3">
-          {t("dashboard.source.allTargetsSyncFrom")}
-        </p>
-      </Card>
+      )}
 
-      {/* Support CTA */}
-      {showStarCta && (
-        <Card className="mb-8">
-          <div className="flex items-start justify-between gap-3">
-            <div className="flex items-start gap-3">
-              <div
-                className="w-10 h-10 bg-warning-light border-2 border-pencil flex items-center justify-center shrink-0"
-                style={{ borderRadius: '50%' }}
-              >
-                <Star size={18} strokeWidth={2.5} className="text-warning" />
-              </div>
-              <div>
-                <h3
-                  className="text-lg font-bold text-pencil"
-                >
-                  {t("dashboard.starCta.enjoying")}
-                </h3>
-                <p className="text-sm text-pencil-light mt-1">
-                  {t("dashboard.starCta.message")}
-                  {' '}
-                  <a
-                    href="https://github.com/runkids/skillshare"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-blue hover:underline"
-                  >
-                    github.com/runkids/skillshare ⭐
-                  </a>
-                </p>
-              </div>
-            </div>
-            <IconButton
-              icon={<X size={16} strokeWidth={2.5} />}
-              label={t("dashboard.starCta.dismiss")}
-              size="sm"
-              variant="ghost"
-              onClick={dismissStarCta}
-            />
+      <div data-tour="stats-grid" className="flex flex-col gap-7">
+        <div className="ss-counts ss-only-clean">
+          {counts.map(({ kind, icon: Icon, value, label, to }) => (
+            <Link key={kind} to={to}>
+              <span className={`ss-cat ${kind}`}><Icon size={17} /></span>
+              <span className="flex flex-col gap-[3px]">
+                <b>{value}</b>
+                <span className="lbl">{label}</span>
+              </span>
+            </Link>
+          ))}
+        </div>
+
+        <div>
+          <div className="ss-sec ss-only-clean">
+            <h2>{t('dashboard.stats.targets')}</h2>
+            <span className="ss-cnt">{targets.length}</span>
+            <Link to="/targets" className="more">{t('dashboard.targets.manage')}</Link>
           </div>
-        </Card>
-      )}
-
-      {/* Tracked Repositories */}
-      {data.trackedRepos && data.trackedRepos.length > 0 && (
-        <TrackedReposSection repos={data.trackedRepos} />
-      )}
-
-      {/* Skill Updates Check */}
-      <SkillUpdatesSection />
-
-      {/* Security Audit */}
-      <SecurityAuditSection />
-
-      {/* Targets Health */}
-      <TargetsHealthSection />
-
-      {/* Version Status */}
-      <VersionStatusSection />
-
-      {/* Quick actions */}
-      <div data-tour="quick-actions" className="mb-4">
-        <h3
-          className="text-xl font-bold text-pencil mb-4"
-        >
-          {t("dashboard.quickActions.title")}
-        </h3>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <Link to="/sync" className="h-full">
-            <div
-              className="flex items-center gap-3 px-5 py-4 h-full bg-paper border-2 border-pencil transition-all duration-100 hover:translate-x-[2px] hover:translate-y-[2px] cursor-pointer group"
-              style={{
-                borderRadius: radius.md,
-                boxShadow: shadows.md,
-              }}
-              onMouseEnter={(e) => {
-                (e.currentTarget as HTMLDivElement).style.boxShadow = shadows.hover;
-              }}
-              onMouseLeave={(e) => {
-                (e.currentTarget as HTMLDivElement).style.boxShadow = shadows.md;
-              }}
-            >
-              <RefreshCw
-                size={22}
-                strokeWidth={2.5}
-                className="text-pencil group-hover:animate-spin"
-              />
-              <div className="flex-1">
-                <p className="font-medium text-pencil">
-                  {t("dashboard.quickActions.syncNow")}
-                </p>
-                <p className="text-sm text-pencil-light">{t("dashboard.quickActions.syncNow.description")}</p>
-              </div>
-              <ArrowRight size={16} className="text-pencil-light" />
-            </div>
-          </Link>
-
-          <Link to="/audit" className="h-full">
-            <div
-              className="flex items-center gap-3 px-5 py-4 h-full bg-info-light border-2 border-pencil transition-all duration-100 hover:translate-x-[2px] hover:translate-y-[2px] cursor-pointer group"
-              style={{
-                borderRadius: radius.md,
-                boxShadow: shadows.md,
-              }}
-              onMouseEnter={(e) => {
-                (e.currentTarget as HTMLDivElement).style.boxShadow = shadows.hover;
-              }}
-              onMouseLeave={(e) => {
-                (e.currentTarget as HTMLDivElement).style.boxShadow = shadows.md;
-              }}
-            >
-              <ShieldCheck size={22} strokeWidth={2.5} className="text-blue group-hover:animate-pulse" />
-              <div className="flex-1">
-                <p className="font-medium text-pencil">
-                  {t("dashboard.quickActions.securityAudit")}
-                </p>
-                <p className="text-sm text-pencil-light">{t("dashboard.quickActions.securityAudit.description")}</p>
-              </div>
-              <ArrowRight size={16} className="text-pencil-light" />
-            </div>
-          </Link>
-
-          <Link to="/resources" className="h-full">
-            <div
-              className="flex items-center gap-3 px-5 py-4 h-full bg-success-light border-2 border-pencil transition-all duration-100 hover:translate-x-[2px] hover:translate-y-[2px] cursor-pointer group"
-              style={{
-                borderRadius: radius.md,
-                boxShadow: shadows.md,
-              }}
-              onMouseEnter={(e) => {
-                (e.currentTarget as HTMLDivElement).style.boxShadow = shadows.hover;
-              }}
-              onMouseLeave={(e) => {
-                (e.currentTarget as HTMLDivElement).style.boxShadow = shadows.md;
-              }}
-            >
-              <Puzzle size={22} strokeWidth={2.5} className="text-success group-hover:animate-bounce" />
-              <div className="flex-1">
-                <p className="font-medium text-pencil">
-                  {t("dashboard.quickActions.browseSkills")}
-                </p>
-                <p className="text-sm text-pencil-light">{t("dashboard.quickActions.browseSkills.description")}</p>
-              </div>
-              <ArrowRight size={16} className="text-pencil-light" />
-            </div>
-          </Link>
-
-          <button
-            onClick={() => setShowUpdateConfirm(true)}
-            disabled={updatingAll}
-            className="text-left w-full h-full"
-          >
-            <div
-              className="flex items-center gap-3 px-5 py-4 h-full bg-warning-light border-2 border-pencil transition-all duration-100 hover:translate-x-[2px] hover:translate-y-[2px] cursor-pointer group"
-              style={{
-                borderRadius: radius.md,
-                boxShadow: shadows.md,
-                opacity: updatingAll ? 0.6 : 1,
-              }}
-              onMouseEnter={(e) => {
-                (e.currentTarget as HTMLDivElement).style.boxShadow = shadows.hover;
-              }}
-              onMouseLeave={(e) => {
-                (e.currentTarget as HTMLDivElement).style.boxShadow = shadows.md;
-              }}
-            >
-              <Download
-                size={22}
-                strokeWidth={2.5}
-                className={`text-warning ${updatingAll ? 'animate-bounce' : 'group-hover:animate-bounce'}`}
-              />
-              <div className="flex-1">
-                <p className="font-medium text-pencil">
-                  {updatingAll ? t("dashboard.quickActions.updating") : t("dashboard.quickActions.updateAll")}
-                </p>
-                <p className="text-sm text-pencil-light">{t("dashboard.quickActions.updateAll.description")}</p>
-              </div>
-              {!updatingAll && <ArrowRight size={16} className="text-pencil-light" />}
-            </div>
-          </button>
-
-          <ConfirmDialog
-            open={showUpdateConfirm}
-            onConfirm={() => {
-              setShowUpdateConfirm(false);
-              handleUpdateAll();
-            }}
-            onCancel={() => setShowUpdateConfirm(false)}
-            title={t("dashboard.quickActions.updateAll.confirm.title")}
-            message={t("dashboard.quickActions.updateAll.confirm.message")}
-            confirmText={t("dashboard.trackedRepos.update")}
-            cancelText={t("common.cancel")}
-          />
+          <div className="ss-list ss-only-clean">
+            {targets.length === 0 && <div className="ss-r text-[13px] text-ink-2">{t('dashboard.targets.noTargets')}</div>}
+            {targets.map((tgt, i) => (
+              <Link key={tgt.name} to="/targets" className="ss-r link">
+                <span className="ss-at"><AgentIcon target={tgt.name} size={17} /></span>
+                <span className="flex flex-col min-w-0 flex-1 gap-px">
+                  <span className="font-semibold">{tgt.name}</span>
+                  <span className="font-mono text-xs text-ink-3 truncate">{tgt.path}</span>
+                </span>
+                <span className="w-[70px]"><span className="ss-tag">{tgt.mode}</span></span>
+                <span className="w-[190px] text-[13px] text-ink-2 truncate">{healths[i].detail}</span>
+                <span className="w-[96px]"><span className={`ss-st ${healths[i].kind}`}>{healths[i].label}</span></span>
+                <ChevronRight size={15} className="text-ink-3" />
+              </Link>
+            ))}
+          </div>
+          <TargetBoard data={data} targets={targets} healths={healths} counts={counts} />
         </div>
       </div>
 
-      {/* Decorative hand-drawn divider */}
-      <div className="mt-8 flex justify-center">
-        <svg width="120" height="20" viewBox="0 0 120 20" className="text-muted-dark">
-          <path
-            d="M5 10 Q20 2 35 10 Q50 18 65 10 Q80 2 95 10 Q110 18 115 10"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-          />
-        </svg>
+      <div className="grid grid-cols-[minmax(0,1.45fr)_minmax(0,1fr)] gap-10">
+        <NeedsAttention targets={targets} healths={healths} />
+        <RecentLog />
       </div>
+
+      <div className="grid grid-cols-[minmax(0,1.45fr)_minmax(0,1fr)] gap-10">
+        {(data.trackedRepos?.length ?? 0) > 0 && <TrackedRepos repos={data.trackedRepos} />}
+        <Versions data={data} />
+      </div>
+
+      <StarReminder />
     </div>
   );
 }
 
-function SourceRow({ label, path }: { label: string; path: string }) {
+/* ── Playful: source note strung to every target ── */
+
+const STRING_STYLE: Record<Kind, { stroke: string; width: number; dash?: string }> = {
+  ok: { stroke: '#2D5DA1', width: 2.2 },
+  warn: { stroke: '#B26A00', width: 2.2, dash: '7 6' },
+  bad: { stroke: '#C8372D', width: 2.2, dash: '2 7' },
+  off: { stroke: '#B9AF9A', width: 1.8, dash: '3 6' },
+};
+
+function TargetBoard({ data, targets, healths, counts }: {
+  data: Overview;
+  targets: Target[];
+  healths: Health[];
+  counts: { kind: string; icon: typeof Puzzle; value: number; label: string }[];
+}) {
+  const t = useT();
+  // ponytail: fixed 1080px canvas like the design; desktop widths only.
+  const height = Math.max(340, 24 + targets.length * 66 + 20);
+  const sx = 340;
+  const sy = height / 2;
+  const dashed = healths.some((h) => h.kind !== 'ok');
   return (
-    <div className="flex items-baseline gap-3">
-      <span className="text-xs font-bold uppercase tracking-wider text-pencil-light w-12 shrink-0">{label}</span>
-      <span className="font-mono text-sm text-pencil break-all">{path}</span>
+    <div className="ss-board ss-only-playful" style={{ height }}>
+      <svg className="strings" width="1080" height={height} viewBox={`0 0 1080 ${height}`} aria-hidden="true">
+        {targets.map((tgt, i) => {
+          const ty = 24 + i * 66 + 27;
+          const s = STRING_STYLE[healths[i].kind];
+          return (
+            <path key={tgt.name} d={`M${sx} ${sy} C ${sx + 190} ${sy}, 516 ${ty}, 716 ${ty}`} fill="none" strokeLinecap="round" stroke={s.stroke} strokeWidth={s.width} strokeDasharray={s.dash} />
+          );
+        })}
+        {dashed && (
+          <>
+            <path d="M468 86 q 26 10 34 40" fill="none" stroke="#5A5A5A" strokeWidth="1.6" strokeLinecap="round" />
+            <path d="M494 118 l 8 8 l 3 -11" fill="none" stroke="#5A5A5A" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+          </>
+        )}
+      </svg>
+      <div className="ss-pinnote src flex-col !items-stretch justify-center gap-2.5 !px-5 !py-4" style={{ left: 40, top: sy - 108, width: 300, height: 216 }}>
+        <span className="flex flex-col gap-0.5">
+          <span className="ss-hand !text-[22px] !font-bold !text-ink">{t('dashboard.board.source')}</span>
+          <span className="font-mono text-[11.5px] text-ink-3 truncate">{data.source}</span>
+        </span>
+        <span className="flex flex-col gap-[7px]">
+          {counts.map(({ kind, icon: Icon, value, label }) => (
+            <span key={kind} className="flex items-center gap-[9px]">
+              <span className={`ss-cat sm ${kind}`}><Icon size={14} /></span>
+              <b className="w-[26px]">{value}</b>
+              <span className="text-[13px] text-ink-2">{label}</span>
+            </span>
+          ))}
+        </span>
+      </div>
+      <span className="ss-pin blue" style={{ left: sx - 7, top: sy - 7 }} />
+      {targets.map((tgt, i) => {
+        const y = 24 + i * 66;
+        const h = healths[i];
+        return (
+          <span key={tgt.name}>
+            <Link to="/targets" className={`ss-pinnote ${h.kind === 'off' ? 'off' : ''}`} style={{ left: 716, top: y, width: 324, height: 54 }}>
+              <AgentIcon target={tgt.name} size={20} />
+              <span className="flex flex-col min-w-0 flex-1 gap-px">
+                <span className="font-semibold">{tgt.name}</span>
+                <span className="font-mono text-[11.5px] text-ink-3 truncate">{tgt.path}</span>
+              </span>
+              <span className={`ss-st ${h.kind}`}>{h.label}</span>
+            </Link>
+            <span className={`ss-pin ${h.kind === 'off' ? 'off' : ''}`} style={{ left: 709, top: y + 20 }} />
+          </span>
+        );
+      })}
+      {dashed && <span className="ss-hand absolute -rotate-3" style={{ left: 372, top: 44 }}>{t('dashboard.board.dashed')}</span>}
+      <span className="ss-hand absolute -rotate-[1.5deg]" style={{ left: 60, top: sy + 132 }}>{t('dashboard.board.caption')}</span>
     </div>
   );
 }
 
-/* -- Tracked Repositories Section --------------------- */
+/* ── Needs attention ── */
 
-function TrackedReposSection({ repos }: { repos: { name: string; skillCount: number; dirty: boolean }[] }) {
+function NeedsAttention({ targets, healths }: { targets: Target[]; healths: Health[] }) {
   const t = useT();
   const queryClient = useQueryClient();
   const { toast } = useToast();
-  const [updatingRepos, setUpdatingRepos] = useState<Set<string>>(new Set());
-  const [repoToDelete, setRepoToDelete] = useState<string | null>(null);
-  const [deletingRepos, setDeletingRepos] = useState<Set<string>>(new Set());
-
-  const invalidateRepoData = async () => {
-    clearAuditCache(queryClient);
-    await queryClient.invalidateQueries({ queryKey: queryKeys.overview });
-    await queryClient.invalidateQueries({ queryKey: queryKeys.skills.all });
-    await queryClient.invalidateQueries({ queryKey: queryKeys.trash });
-  };
-
-  const handleUpdateRepo = async (repoName: string) => {
-    setUpdatingRepos((prev) => new Set(prev).add(repoName));
-    try {
-      const res = await api.update({ name: repoName });
-      const item = res.results[0];
-      const displayName = repoName.replace(/^_/, '');
-
-      if (item?.action === 'updated') {
-        toast(t("dashboard.toast.repoUpdated", { name: displayName, message: item.message ?? 'done' }), 'success');
-      } else if (item?.action === 'up-to-date') {
-        toast(t("dashboard.toast.repoAlreadyUpToDate", { name: displayName }), 'info');
-      } else if (item?.action === 'blocked') {
-        toast(item.message ?? t("dashboard.toast.updateBlockedFor", { name: displayName }), 'error');
-      } else if (item?.action === 'error') {
-        toast(item.message ?? t("dashboard.toast.updateFailedFor", { name: displayName }), 'error');
-      } else {
-        toast(item?.message ?? t("dashboard.toast.repoSkipped", { name: displayName }), 'warning');
-      }
-
-      await invalidateRepoData();
-    } catch (e: unknown) {
-      toast((e as Error).message, 'error');
-    } finally {
-      setUpdatingRepos((prev) => {
-        const next = new Set(prev);
-        next.delete(repoName);
-        return next;
-      });
-    }
-  };
-
-  const handleDeleteRepo = async () => {
-    if (!repoToDelete) return;
-
-    const targetRepo = repoToDelete;
-    setDeletingRepos((prev) => new Set(prev).add(targetRepo));
-    try {
-      const displayName = targetRepo.replace(/^_/, '');
-      await api.deleteRepo(targetRepo);
-      toast(t("dashboard.toast.repoUninstalled", { name: displayName }), 'success');
-      setRepoToDelete(null);
-      await invalidateRepoData();
-    } catch (e: unknown) {
-      toast((e as Error).message, 'error');
-    } finally {
-      setDeletingRepos((prev) => {
-        const next = new Set(prev);
-        next.delete(targetRepo);
-        return next;
-      });
-    }
-  };
-
-  return (
-    <>
-      <Card className="mb-8">
-        <div className="flex items-center gap-2 mb-4">
-          <GitBranch size={20} strokeWidth={2.5} className="text-blue" />
-          <h3
-            className="text-lg font-bold text-pencil"
-          >
-            {t("dashboard.trackedRepos.title")}
-          </h3>
-        </div>
-        <div className="space-y-3">
-          {repos.map((repo) => {
-            const displayName = repo.name.replace(/^_/, '');
-            const isUpdating = updatingRepos.has(repo.name);
-            const isDeleting = deletingRepos.has(repo.name);
-            const hasAnyDeleteInProgress = deletingRepos.size > 0;
-            const isBusy = isUpdating || isDeleting;
-
-            return (
-              <div
-                key={repo.name}
-                className="flex flex-col gap-3 py-3 px-3 bg-paper-warm border border-muted md:flex-row md:items-center md:justify-between"
-                style={{ borderRadius: radius.sm }}
-              >
-                <div className="flex items-center gap-2 min-w-0">
-                  <GitBranch size={16} className="text-pencil-light shrink-0" />
-                  <span
-                    className="font-medium text-pencil truncate"
-                  >
-                    {displayName}
-                  </span>
-                  <Badge variant="info">{t("dashboard.trackedRepos.skillCount", { count: repo.skillCount })}</Badge>
-                  {repo.dirty ? (
-                    <Badge variant="warning" dot>{t("dashboard.trackedRepos.modified")}</Badge>
-                  ) : (
-                    <Badge variant="default">{t("dashboard.trackedRepos.clean")}</Badge>
-                  )}
-                </div>
-                <div className="flex flex-wrap items-center gap-2 shrink-0">
-                  <Button
-                    variant="secondary"
-                    size="xs"
-                    onClick={() => handleUpdateRepo(repo.name)}
-                    loading={isUpdating}
-                    disabled={hasAnyDeleteInProgress}
-                  >
-                    <RefreshCw size={12} />
-                    {t("dashboard.trackedRepos.update")}
-                  </Button>
-                  <Button
-                    variant="danger"
-                    size="xs"
-                    onClick={() => setRepoToDelete(repo.name)}
-                    disabled={isBusy || repoToDelete !== null || updatingRepos.size > 0}
-                  >
-                    <Trash2 size={12} />
-                    {t("dashboard.trackedRepos.uninstall")}
-                  </Button>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </Card>
-
-      <ConfirmDialog
-        open={repoToDelete !== null}
-        title={t("dashboard.trackedRepos.uninstallConfirm.title")}
-        message={
-          repoToDelete
-            ? t("dashboard.trackedRepos.uninstallConfirm.message", { name: repoToDelete.replace(/^_/, '') })
-            : ''
-        }
-        confirmText={t("dashboard.trackedRepos.uninstall")}
-        variant="danger"
-        loading={repoToDelete !== null && deletingRepos.has(repoToDelete)}
-        onConfirm={handleDeleteRepo}
-        onCancel={() => {
-          if (repoToDelete === null || !deletingRepos.has(repoToDelete)) setRepoToDelete(null);
-        }}
-      />
-    </>
-  );
-}
-
-/* -- Skill Updates Section ---------------------------- */
-
-function SkillUpdatesSection() {
-  const t = useT();
-  const [checkData, setCheckData] = useState<CheckResult | null>(null);
+  const [check, setCheck] = useState<CheckResult | null>(null);
   const [checking, setChecking] = useState(false);
-  const [checked, setChecked] = useState(false);
-  const { toast } = useToast();
+  const [scanning, setScanning] = useState(false);
+  // Reads a scan the Audit page (or this page) already ran; never scans on its own.
+  const { data: audit } = useQuery<AuditAllResponse>({
+    queryKey: queryKeys.audit.all('skills'),
+    queryFn: () => api.auditAll('skills'),
+    enabled: false,
+    staleTime: staleTimes.audit,
+  });
 
-  const handleCheck = async () => {
+  const runCheck = async () => {
     setChecking(true);
     try {
-      const result = await api.check();
-      setCheckData(result);
-      setChecked(true);
+      const res = await api.check();
+      setCheck(res);
+      if (!res.tracked_repos.some((r) => r.status === 'behind') && !res.skills.some((s) => s.status === 'update_available')) {
+        toast(t('dashboard.updates.allUpToDate'), 'success');
+      }
     } catch (e: unknown) {
       toast((e as Error).message, 'error');
     } finally {
@@ -612,119 +309,12 @@ function SkillUpdatesSection() {
     }
   };
 
-  const updatableCount = checkData
-    ? checkData.tracked_repos.filter((r) => r.status === 'behind').length +
-      checkData.skills.filter((s) => s.status === 'update_available').length
-    : 0;
-
-  return (
-    <Card className="mb-8">
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2">
-          <Download size={20} strokeWidth={2.5} className="text-blue" />
-          <h3
-            className="text-lg font-bold text-pencil"
-          >
-            {t("dashboard.updates.title")}
-          </h3>
-          {checked && updatableCount > 0 && (
-            <Badge variant="warning">{t("dashboard.updates.available", { count: updatableCount })}</Badge>
-          )}
-          {checked && updatableCount === 0 && (
-            <Badge variant="success">{t("dashboard.updates.allUpToDate")}</Badge>
-          )}
-        </div>
-        <Button variant="link" onClick={handleCheck} disabled={checking}>
-          {checking ? t("dashboard.updates.checking") : checked ? t("dashboard.updates.recheck") : t("dashboard.updates.runCheck")}
-        </Button>
-      </div>
-
-      {!checked && !checking && (
-        <p className="text-pencil-light text-sm">
-          {t("dashboard.updates.runCheckDescription")}
-        </p>
-      )}
-
-      {checking && (
-        <div className="space-y-3">
-          <Skeleton className="w-full h-8" />
-          <Skeleton className="w-3/4 h-8" />
-        </div>
-      )}
-
-      {checked && checkData && (
-        <div className="space-y-2">
-          {checkData.tracked_repos.map((repo) => (
-            <div
-              key={repo.name}
-              className="flex items-center justify-between py-2 px-3 bg-paper-warm border border-muted"
-              style={{ borderRadius: radius.sm }}
-            >
-              <div className="flex items-center gap-2">
-                <GitBranch size={14} className="text-pencil-light" />
-                <span className="text-pencil text-sm">
-                  {repo.name.replace(/^_/, '')}
-                </span>
-              </div>
-              {repo.status === 'up_to_date' && <Badge variant="success">{t("dashboard.updates.status.upToDate")}</Badge>}
-              {repo.status === 'behind' && <Badge variant="warning">{t("dashboard.updates.status.behind", { count: repo.behind })}</Badge>}
-              {repo.status === 'dirty' && <Badge variant="default">{t("dashboard.updates.status.modified")}</Badge>}
-              {repo.status === 'error' && <Badge variant="danger">{t("dashboard.updates.status.error")}</Badge>}
-            </div>
-          ))}
-          {checkData.skills.map((skill) => (
-            <div
-              key={skill.name}
-              className="flex items-center justify-between py-2 px-3 bg-paper-warm border border-muted"
-              style={{ borderRadius: radius.sm }}
-            >
-              <div className="flex items-center gap-2">
-                <Puzzle size={14} className="text-pencil-light" />
-                <span className="text-pencil text-sm">
-                  {skill.name}
-                </span>
-                {skill.source && (
-                  <span className="text-xs text-muted-dark truncate max-w-[200px]">{skill.source}</span>
-                )}
-              </div>
-              {skill.status === 'up_to_date' && <Badge variant="success">{t("dashboard.updates.status.upToDate")}</Badge>}
-              {skill.status === 'update_available' && <Badge variant="warning">{t("dashboard.updates.status.updateAvailable")}</Badge>}
-              {skill.status === 'local' && <Badge variant="default">{t("dashboard.updates.status.local")}</Badge>}
-              {skill.status === 'error' && <Badge variant="danger">{t("dashboard.updates.status.error")}</Badge>}
-            </div>
-          ))}
-          {checkData.tracked_repos.length === 0 && checkData.skills.length === 0 && (
-            <p className="text-pencil-light text-sm">{t("dashboard.updates.noTrackedRepos")}</p>
-          )}
-        </div>
-      )}
-    </Card>
-  );
-}
-
-/* -- Security Audit Section --------------------------- */
-
-const riskLabelVariant: Record<string, 'success' | 'default' | 'info' | 'warning' | 'danger'> = {
-  clean: 'success',
-  low: 'default',
-  medium: 'info',
-  high: 'warning',
-  critical: 'danger',
-};
-
-function SecurityAuditSection() {
-  const t = useT();
-  const [auditData, setAuditData] = useState<AuditAllResponse | null>(null);
-  const [scanning, setScanning] = useState(false);
-  const [scanned, setScanned] = useState(false);
-  const { toast } = useToast();
-
-  const handleScan = async () => {
+  const runScan = async () => {
     setScanning(true);
     try {
-      const result = await api.auditAll();
-      setAuditData(result);
-      setScanned(true);
+      const res = await api.auditAll('skills');
+      queryClient.setQueryData(queryKeys.audit.all('skills'), res);
+      if (res.summary.critical + res.summary.high === 0) toast(t('dashboard.security.allClear'), 'success');
     } catch (e: unknown) {
       toast((e as Error).message, 'error');
     } finally {
@@ -732,315 +322,282 @@ function SecurityAuditSection() {
     }
   };
 
-  const hasCritical = scanned && auditData && auditData.summary.critical > 0;
-  const hasFindings = scanned && auditData && (
-    auditData.summary.critical + auditData.summary.high + auditData.summary.medium +
-    auditData.summary.low + auditData.summary.info
-  ) > 0;
-  const ShieldIcon = hasCritical ? ShieldAlert : ShieldCheck;
-
-  const severityCounts: { label: string; count: number; variant: 'danger' | 'warning' | 'info' | 'default' }[] = scanned && auditData
-    ? [
-        { label: 'CRITICAL', count: auditData.summary.critical, variant: 'danger' },
-        { label: 'HIGH', count: auditData.summary.high, variant: 'warning' },
-        { label: 'MEDIUM', count: auditData.summary.medium, variant: 'info' },
-        { label: 'LOW', count: auditData.summary.low, variant: 'default' },
-        { label: 'INFO', count: auditData.summary.info, variant: 'default' },
-      ]
-    : [];
-
-  return (
-    <Card variant={hasCritical ? 'accent' : 'default'} className="mb-8">
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2">
-          <ShieldIcon
-            size={20}
-            strokeWidth={2.5}
-            className={hasCritical ? 'text-danger' : 'text-blue'}
-          />
-          <h3
-            className="text-lg font-bold text-pencil"
-          >
-            {t("dashboard.security.title")}
-          </h3>
-          {scanned && auditData && (
-            <Badge variant={riskLabelVariant[auditData.summary.riskLabel] ?? 'default'}>
-              {auditData.summary.riskLabel}
-            </Badge>
-          )}
-        </div>
-        <Link to="/audit" className="text-sm text-blue hover:underline">
-          {scanned ? t("dashboard.security.viewDetails") : t("dashboard.security.runScan")}
-        </Link>
-      </div>
-
-      {!scanned && !scanning && (
-        <div className="flex items-center justify-between">
-          <p className="text-pencil-light text-sm">
-            {t("dashboard.security.scanDescription")}
-          </p>
-          <Button variant="link" onClick={handleScan} className="shrink-0 ml-4">
-            {t("dashboard.security.quickScan")}
-          </Button>
-        </div>
-      )}
-
-      {scanning && (
-        <div className="space-y-3">
-          <Skeleton className="w-full h-8" />
-          <Skeleton className="w-3/4 h-8" />
-        </div>
-      )}
-
-      {scanned && auditData && (
-        <div className="space-y-4">
-          {/* Summary stats row */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <div
-              className="py-2 px-3 bg-paper-warm border border-muted text-center"
-              style={{ borderRadius: radius.sm }}
-            >
-              <p className="text-lg font-bold text-pencil">
-                {auditData.summary.total}
-              </p>
-              <p className="text-xs text-pencil-light">{t("dashboard.security.scanned")}</p>
-            </div>
-            <div
-              className="py-2 px-3 bg-paper-warm border border-muted text-center"
-              style={{ borderRadius: radius.sm }}
-            >
-              <p className="text-lg font-bold text-success">
-                {auditData.summary.passed}
-              </p>
-              <p className="text-xs text-pencil-light">{t("dashboard.security.passed")}</p>
-            </div>
-            <div
-              className="py-2 px-3 bg-paper-warm border border-muted text-center"
-              style={{ borderRadius: radius.sm }}
-            >
-              <p className="text-lg font-bold text-warning">
-                {auditData.summary.warning}
-              </p>
-              <p className="text-xs text-pencil-light">{t("dashboard.security.warnings")}</p>
-            </div>
-            <div
-              className={`py-2 px-3 bg-paper-warm border text-center ${auditData.summary.failed > 0 ? 'border-danger' : 'border-muted'}`}
-              style={{ borderRadius: radius.sm }}
-            >
-              <p
-                className={`text-lg font-bold ${auditData.summary.failed > 0 ? 'text-danger' : 'text-pencil'}`}
-              >
-                {auditData.summary.failed}
-              </p>
-              <p className="text-xs text-pencil-light">{t("dashboard.security.failed")}</p>
-            </div>
-          </div>
-
-          {/* Severity breakdown */}
-          {hasFindings ? (
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="text-sm text-pencil-light">
-                {t("dashboard.security.findings")}
-              </span>
-              {severityCounts
-                .filter((s) => s.count > 0)
-                .map((s) => (
-                  <Badge key={s.label} variant={s.variant}>
-                    {s.count} {s.label}
-                  </Badge>
-                ))}
-            </div>
-          ) : (
-            <div className="flex items-center gap-2 text-success">
-              <ShieldCheck size={16} strokeWidth={2.5} />
-              <span className="text-sm font-medium">
-                {t("dashboard.security.allClear")}
-              </span>
-            </div>
-          )}
-        </div>
-      )}
-    </Card>
-  );
-}
-
-/* -- Targets Health Section --------------------------- */
-
-function TargetsHealthSection() {
-  const t = useT();
-  const { data, isPending } = useQuery({
-    queryKey: queryKeys.targets.all,
-    queryFn: () => api.listTargets(),
-    staleTime: staleTimes.targets,
+  const rows: { key: string; kind: 'warn' | 'bad'; icon: typeof Puzzle; title: string; sub: string; action: string; to: string }[] = [];
+  if (check) {
+    const names = [
+      ...check.tracked_repos.filter((r) => r.status === 'behind').map((r) => r.name.replace(/^_/, '')),
+      ...check.skills.filter((s) => s.status === 'update_available').map((s) => s.name),
+    ];
+    if (names.length > 0) {
+      rows.push({ key: 'updates', kind: 'warn', icon: CircleArrowUp, title: t('dashboard.attention.updates', { count: names.length }), sub: names.join(', '), action: t('dashboard.trackedRepos.update'), to: '/skills?tab=updates' });
+    }
+  }
+  if (audit && audit.summary.critical + audit.summary.high > 0) {
+    const names = audit.results.filter((r) => r.riskLabel === 'high' || r.riskLabel === 'critical').map((r) => r.skillName);
+    rows.push({ key: 'audit', kind: 'bad', icon: ShieldAlert, title: t('dashboard.attention.audit', { count: audit.summary.critical + audit.summary.high }), sub: names.join(', '), action: t('dashboard.attention.review'), to: '/audit' });
+  }
+  targets.forEach((tgt, i) => {
+    if (healths[i].kind !== 'bad') return;
+    const title = tgt.status === 'not exist' ? t('dashboard.attention.targetMissing', { name: tgt.name }) : `${tgt.name}: ${tgt.status}`;
+    rows.push({ key: `target-${tgt.name}`, kind: 'bad', icon: TriangleAlert, title, sub: tgt.path, action: t('dashboard.attention.open'), to: '/targets' });
   });
 
-  const sourceSkillCount = data?.sourceSkillCount ?? 0;
-  const driftTargets = (data?.targets ?? []).filter(
-    (tgt) => {
-      const expected = tgt.expectedSkillCount || sourceSkillCount;
-      return (tgt.mode === 'merge' && tgt.status === 'merged' || tgt.mode === 'copy' && tgt.status === 'copied') && tgt.linkedCount < expected;
-    }
-  );
-  const maxDrift = driftTargets.reduce(
-    (max, tgt) => Math.max(max, (tgt.expectedSkillCount || sourceSkillCount) - tgt.linkedCount),
-    0
-  );
-
   return (
-    <Card className="mb-8">
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2">
-          <Target size={20} strokeWidth={2.5} className="text-success" />
-          <h3
-            className="text-lg font-bold text-pencil"
-          >
-            {t("dashboard.targets.title")}
-          </h3>
-          {maxDrift > 0 && (
-            <Badge variant="warning">{t("dashboard.targets.notSynced", { count: maxDrift })}</Badge>
-          )}
-        </div>
-        <Link to="/targets" className="text-sm text-blue hover:underline">
-          {t("dashboard.targets.viewAll")}
-        </Link>
+    <div>
+      <div className="ss-sec">
+        <h2>{t('dashboard.attention.title')}</h2>
+        {rows.length > 0 && <span className="ss-cnt">{rows.length}</span>}
+        <span className="ml-auto flex items-center gap-4">
+          <button type="button" className="ss-more cursor-pointer disabled:opacity-50" onClick={runCheck} disabled={checking}>
+            {checking ? t('dashboard.updates.checking') : t('dashboard.attention.checkUpdates')}
+          </button>
+          <button type="button" className="ss-more cursor-pointer disabled:opacity-50" onClick={runScan} disabled={scanning}>
+            {t('dashboard.security.quickScan')}
+          </button>
+        </span>
       </div>
-      {isPending ? (
-        <div className="space-y-3">
-          <Skeleton className="w-full h-10" />
-          <Skeleton className="w-full h-10" />
-          <Skeleton className="w-3/4 h-10" />
-        </div>
-      ) : data?.targets && data.targets.length > 0 ? (
-        <>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {data.targets.map((tgt: TargetType) => {
-              const expected = tgt.expectedSkillCount || sourceSkillCount;
-              const hasDrift = (tgt.mode === 'merge' && tgt.status === 'merged' || tgt.mode === 'copy' && tgt.status === 'copied') && tgt.linkedCount < expected;
-              return (
-                <Link key={tgt.name} to="/targets">
-                  <div
-                    className={`flex items-center justify-between py-2 px-3 bg-paper-warm border ${hasDrift ? 'border-warning' : 'border-muted'} hover:border-pencil-light transition-colors`}
-                    style={{ borderRadius: radius.sm }}
-                  >
-                    <div className="flex items-center gap-2 min-w-0">
-                      <Target size={14} className="text-pencil-light shrink-0" />
-                      <span
-                        className="font-medium text-pencil truncate"
-                      >
-                        {tgt.name}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0 ml-2">
-                      <StatusBadge status={tgt.status} />
-                      {hasDrift ? (
-                        <Badge variant="warning">{t("dashboard.targets.synced", { linked: tgt.linkedCount, expected })}</Badge>
-                      ) : tgt.linkedCount > 0 ? (
-                        <span className="text-xs text-muted-dark">{tgt.mode === 'copy' ? t("dashboard.targets.managed", { count: tgt.linkedCount }) : t("dashboard.targets.linked", { count: tgt.linkedCount })}</span>
-                      ) : null}
-                    </div>
-                  </div>
-                </Link>
-              );
-            })}
+      <div className="ss-list">
+        {rows.length === 0 ? (
+          <div className="ss-r text-[13px] text-ink-2">
+            <CircleCheck size={16} className="text-ok" />
+            {t('dashboard.attention.none')}
           </div>
-          {maxDrift > 0 && (
-            <div className="mt-3 flex items-center gap-2 text-warning text-sm">
-              <AlertTriangle size={14} strokeWidth={2.5} />
-              <span>{t("dashboard.targets.driftWarning", { count: maxDrift })} <Link to="/sync" className="underline hover:text-pencil">{t("dashboard.targets.goToSync")}</Link></span>
-            </div>
-          )}
-        </>
-      ) : (
-        <p className="text-pencil-light text-sm">{t("dashboard.targets.noTargets")}</p>
-      )}
-    </Card>
+        ) : rows.map(({ key, kind, icon: Icon, title, sub, action, to }) => (
+          <div key={key} className="ss-r">
+            <span className={`ss-cat sm ${kind}`}><Icon size={14} /></span>
+            <span className="flex flex-col min-w-0 flex-1">
+              <span className="font-semibold">{title}</span>
+              <span className="font-mono text-[13px] text-ink-2 truncate">{sub}</span>
+            </span>
+            <Link to={to} className="ss-btn sm">{action}</Link>
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }
 
-/* -- Version Status Section --------------------------- */
+/* ── Recent operations ── */
 
-function VersionStatusSection() {
+function RecentLog() {
   const t = useT();
-  const { data, isPending } = useQuery({
+  const { locale } = useI18n();
+  const { data } = useQuery({
+    queryKey: queryKeys.log('ops', 5),
+    queryFn: () => api.listLog('ops', 5),
+    staleTime: staleTimes.log,
+  });
+  const when = (e: LogEntry) => {
+    const d = new Date(e.ts);
+    const age = Date.now() - d.getTime();
+    if (new Date().toDateString() === d.toDateString()) return formatDateTime(d, locale, { hour: '2-digit', minute: '2-digit', hour12: false });
+    if (age < 6 * 24 * 3600 * 1000) return formatDateTime(d, locale, { weekday: 'short' });
+    return formatDateTime(d, locale, { month: 'numeric', day: 'numeric' });
+  };
+  const entries = data?.entries ?? [];
+  return (
+    <div>
+      <div className="ss-sec">
+        <h2>{t('dashboard.recent.title')}</h2>
+        <Link to="/log" className="more">{t('dashboard.recent.openLog')}</Link>
+      </div>
+      <div className="ss-plain">
+        {entries.length === 0 && <div className="ss-r text-[13px] text-ink-2">{t('dashboard.recent.empty')}</div>}
+        {entries.map((e, i) => (
+          <div key={`${e.ts}-${i}`} className="ss-r">
+            <span className="w-11 font-mono text-xs text-ink-3">{when(e)}</span>
+            <span className={`min-w-16 shrink-0 whitespace-nowrap font-semibold ${e.status === 'error' ? 'text-bad' : ''}`}>{e.cmd}</span>
+            <span className="flex-1 min-w-0 truncate text-[13px] text-ink-2">{formatLogDetail(e)}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ── Tracked repositories ── */
+
+function TrackedRepos({ repos }: { repos: Overview['trackedRepos'] }) {
+  const t = useT();
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const { updating, update } = useRepoUpdate();
+  const [menuFor, setMenuFor] = useState<string | null>(null);
+  const [toDelete, setToDelete] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!menuFor) return;
+    const close = (e: MouseEvent | KeyboardEvent) => {
+      if (e instanceof KeyboardEvent ? e.key === 'Escape' : !menuRef.current?.contains(e.target as Node)) setMenuFor(null);
+    };
+    document.addEventListener('mousedown', close);
+    document.addEventListener('keydown', close);
+    return () => {
+      document.removeEventListener('mousedown', close);
+      document.removeEventListener('keydown', close);
+    };
+  }, [menuFor]);
+
+  const refresh = async () => {
+    clearAuditCache(queryClient);
+    await queryClient.invalidateQueries({ queryKey: queryKeys.overview });
+    await queryClient.invalidateQueries({ queryKey: queryKeys.skills.all });
+    await queryClient.invalidateQueries({ queryKey: queryKeys.trash });
+  };
+
+  const uninstall = async () => {
+    if (!toDelete) return;
+    setDeleting(true);
+    try {
+      await api.deleteRepo(toDelete);
+      toast(t('dashboard.toast.repoUninstalled', { name: toDelete.replace(/^_/, '') }), 'success');
+      setToDelete(null);
+      await refresh();
+    } catch (e: unknown) {
+      toast((e as Error).message, 'error');
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  return (
+    <div>
+      <div className="ss-sec">
+        <h2>{t('dashboard.trackedRepos.title')}</h2>
+        <span className="ss-cnt">{repos.length}</span>
+      </div>
+      <div className="ss-list !overflow-visible">
+        {repos.map((repo) => (
+          <div key={repo.name} className="ss-r">
+            <Github size={15} />
+            <span className="flex flex-col min-w-0 flex-1 gap-px">
+              <span className="font-mono text-[13px] font-semibold truncate">{repo.name.replace(/^_/, '')}</span>
+              <span className="text-[13px] text-ink-2">{t('dashboard.trackedRepos.skillCount', { count: repo.skillCount })}</span>
+            </span>
+            <span className={`ss-st ${repo.dirty ? 'warn' : 'ok'}`}>
+              {repo.dirty ? t('dashboard.trackedRepos.modified') : t('dashboard.trackedRepos.clean')}
+            </span>
+            <Button variant="secondary" size="sm" onClick={() => update(repo.name)} loading={updating === repo.name} disabled={updating !== null || deleting}>
+              {t('dashboard.trackedRepos.update')}
+            </Button>
+            <div className="relative" ref={menuFor === repo.name ? menuRef : undefined}>
+              <button type="button" className="ss-ib" aria-label={t('dashboard.trackedRepos.actions')} aria-expanded={menuFor === repo.name} onClick={() => setMenuFor(menuFor === repo.name ? null : repo.name)}>
+                <Ellipsis size={16} />
+              </button>
+              {menuFor === repo.name && (
+                <div className="ss-menu absolute right-0 top-full mt-1 z-20 !w-44 animate-dropdown-in" role="menu">
+                  <button type="button" role="menuitem" className="dng" onClick={() => { setMenuFor(null); setToDelete(repo.name); }}>
+                    <Trash2 size={15} />
+                    {t('dashboard.trackedRepos.uninstall')}
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+      <ConfirmDialog
+        open={toDelete !== null}
+        title={t('dashboard.trackedRepos.uninstallConfirm.title')}
+        message={toDelete ? t('dashboard.trackedRepos.uninstallConfirm.message', { name: toDelete.replace(/^_/, '') }) : ''}
+        confirmText={t('dashboard.trackedRepos.uninstall')}
+        variant="danger"
+        loading={deleting}
+        onConfirm={uninstall}
+        onCancel={() => !deleting && setToDelete(null)}
+      />
+    </div>
+  );
+}
+
+/* ── Versions ── */
+
+function Versions({ data }: { data: Overview }) {
+  const t = useT();
+  const { data: v, isPending } = useQuery({
     queryKey: queryKeys.versionCheck,
     queryFn: () => api.getVersionCheck(),
     staleTime: staleTimes.version,
   });
-
+  const ver = (s?: string) => (s && /^\d/.test(s) ? `v${s}` : s);
+  const sources = [data.source, data.agentsSource, data.extrasSource].filter(Boolean);
   return (
-    <Card className="mb-8">
-      <div className="flex items-center gap-2 mb-4">
-        <Package size={20} strokeWidth={2.5} className="text-pencil-light" />
-        <h3
-          className="text-lg font-bold text-pencil"
-        >
-          {t("dashboard.version.title")}
-        </h3>
+    <div>
+      <div className="ss-sec">
+        <h2>{t('dashboard.version.title')}</h2>
       </div>
-      {isPending ? (
-        <div className="space-y-3">
-          <Skeleton className="w-full h-8" />
-          <Skeleton className="w-3/4 h-8" />
-        </div>
-      ) : data ? (
-        <div className="space-y-3">
-          {/* CLI Version */}
-          <div
-            className="flex items-center justify-between py-2 px-3 bg-paper-warm border border-muted"
-            style={{ borderRadius: radius.sm }}
-          >
-            <div className="flex items-center gap-2">
-              <Zap size={14} className="text-pencil-light" />
-              <span className="text-pencil text-sm">
-                {t("dashboard.version.cli")}
-              </span>
-              <span
-                className="font-mono font-medium text-pencil"
-                style={{ fontSize: '0.85rem' }}
-              >
-                {data.cliVersion}
-              </span>
+      <div className="ss-list">
+        {isPending ? (
+          <div className="ss-r"><span className="ss-skel w-2/3" /></div>
+        ) : !v ? (
+          <div className="ss-r text-[13px] text-ink-2">{t('dashboard.version.couldNotCheck')}</div>
+        ) : (
+          <>
+            <div className="ss-r">
+              <span className="w-[120px] font-semibold">{t('dashboard.version.cli')}</span>
+              <span className="flex-1 font-mono text-[13px]">{ver(v.cliVersion)}</span>
+              {v.cliUpdateAvailable
+                ? <span className="ss-st warn">{t('dashboard.version.update', { version: ver(v.cliLatest) })}</span>
+                : <span className="ss-st ok">{t('dashboard.version.upToDate')}</span>}
             </div>
-            {data.cliUpdateAvailable ? (
-              <Badge variant="warning">{t("dashboard.version.update", { version: data.cliLatest })}</Badge>
-            ) : (
-              <Badge variant="success">{t("dashboard.version.upToDate")}</Badge>
-            )}
-          </div>
+            <div className="ss-r">
+              <span className="w-[120px] font-semibold">{t('dashboard.version.builtInSkill')}</span>
+              <span className="flex-1 font-mono text-[13px]">{ver(v.skillVersion) || '—'}</span>
+              {!v.skillVersion
+                ? <span className="ss-st off">{t('dashboard.version.notInstalled')}</span>
+                : v.skillUpdateAvailable
+                  ? <span className="ss-st warn">{t('dashboard.version.update', { version: ver(v.skillLatest) })}</span>
+                  : v.skillLatest
+                    ? <span className="ss-st ok">{t('dashboard.version.upToDate')}</span>
+                    : <span className="ss-st off">{t('dashboard.version.checkFailed')}</span>}
+            </div>
+          </>
+        )}
+      </div>
+      <div className="mt-2.5 flex flex-col gap-0.5 min-w-0 text-[13px] text-ink-3">
+        <span>{t('dashboard.source.label')}</span>
+        {sources.map((s) => (
+          <span key={s} className="font-mono text-xs truncate">{s}</span>
+        ))}
+      </div>
+    </div>
+  );
+}
 
-          {/* Skill Version */}
-          <div
-            className="flex items-center justify-between py-2 px-3 bg-paper-warm border border-muted"
-            style={{ borderRadius: radius.sm }}
-          >
-            <div className="flex items-center gap-2">
-              <Puzzle size={14} className="text-pencil-light" />
-              <span className="text-pencil text-sm">
-                {t("dashboard.version.skill")}
-              </span>
-              <span
-                className="font-mono font-medium text-pencil"
-                style={{ fontSize: '0.85rem' }}
-              >
-                {data.skillVersion || 'N/A'}
-              </span>
-            </div>
-            {data.skillVersion ? (
-              data.skillUpdateAvailable ? (
-                <Badge variant="warning">{t("dashboard.version.update", { version: data.skillLatest })}</Badge>
-              ) : data.skillLatest ? (
-                <Badge variant="success">{t("dashboard.version.upToDate")}</Badge>
-              ) : (
-                <Badge variant="default">{t("dashboard.version.checkFailed")}</Badge>
-              )
-            ) : (
-              <Badge variant="default">{t("dashboard.version.notInstalled")}</Badge>
-            )}
-          </div>
-        </div>
-      ) : (
-        <p className="text-pencil-light text-sm">{t("dashboard.version.couldNotCheck")}</p>
-      )}
-    </Card>
+/* ── Star reminder ── */
+
+function StarReminder() {
+  const t = useT();
+  const [show, setShow] = useState(() => {
+    try {
+      return window.localStorage.getItem(STAR_CTA_DISMISSED_KEY) !== '1';
+    } catch {
+      return true;
+    }
+  });
+  if (!show) return null;
+  const dismiss = () => {
+    setShow(false);
+    try {
+      window.localStorage.setItem(STAR_CTA_DISMISSED_KEY, '1');
+    } catch {
+      // Storage unavailable: the reminder simply comes back next visit.
+    }
+  };
+  return (
+    <div className="flex items-center gap-2 text-[13px] text-ink-2">
+      <Star size={14} />
+      <span>
+        {t('dashboard.starCta.enjoying')}{' '}
+        <a href="https://github.com/runkids/skillshare" target="_blank" rel="noopener noreferrer" className="font-semibold text-ink hover:underline">
+          {t('dashboard.starCta.link')}
+        </a>
+      </span>
+      <button type="button" className="ss-ib !w-6 !h-6" onClick={dismiss} aria-label={t('dashboard.starCta.dismiss')}>
+        <X size={14} />
+      </button>
+    </div>
   );
 }

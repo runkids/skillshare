@@ -1,122 +1,54 @@
-import { useParams, useNavigate, Link, useSearchParams } from 'react-router-dom';
+import { useMemo, useState } from 'react';
+import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { useQuery, useQueryClient, type UseQueryResult } from '@tanstack/react-query';
+import type { Components } from 'react-markdown';
 import {
-  ArrowLeft, Trash2, ExternalLink, FileText, ArrowUpRight, RefreshCw, Target,
-  Type, AlignLeft, Files, Scale, Zap,
-  FileCode2, Braces, Settings, BookOpen, File, FolderOpen,
-  ShieldCheck, Link2, EyeOff, Eye, Pencil,
+  ChevronDown, CircleArrowUp, CircleCheck, Copy, Ellipsis, ExternalLink, File, FileCode2, FileText, Folder,
+  FolderOpen, Github, Globe, Pencil, Power, RefreshCw, ShieldAlert, ShieldCheck, Trash2, TriangleAlert, X,
 } from 'lucide-react';
-import Markdown, { type Components } from 'react-markdown';
-import remarkGfm from 'remark-gfm';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { api, type AuditResult, type Skill } from '../api/client';
 import { queryKeys, staleTimes } from '../lib/queryKeys';
-import Badge from '../components/Badge';
-import KindBadge from '../components/KindBadge';
-import SourceBadge from '../components/SourceBadge';
-import Card from '../components/Card';
-import CopyButton from '../components/CopyButton';
-import Button from '../components/Button';
-import Tooltip from '../components/Tooltip';
-import IconButton from '../components/IconButton';
-import { SkillDetailSkeleton } from '../components/Skeleton';
-import { useToast } from '../components/Toast';
-import Spinner from '../components/Spinner';
-import ConfirmDialog from '../components/ConfirmDialog';
-import { api, type Skill } from '../api/client';
-import { lazy, Suspense, useState, useMemo } from 'react';
-import { radius, shadows } from '../design';
-import { BlockStamp, RiskMeter } from '../components/audit';
-import { severityBadgeVariant } from '../lib/severity';
-import { useSyncMatrix } from '../hooks/useSyncMatrix';
 import { clearAuditCache } from '../lib/auditCache';
-import { formatSkillDisplayName, formatTrackedRepoName } from '../lib/resourceNames';
-import { syncMatrixReasonText } from '../lib/syncMatrixText';
-import { SkillEditor, Outline } from '../components/skill-editor';
-import ScrollToTop from '../components/ScrollToTop';
+import { SEV, parseFindings, thresholdOf } from '../lib/auditMessage';
 import { parseSkillMarkdown } from '../lib/frontmatter';
-import { highlightArgs } from '../lib/highlightArgs';
-import { useT } from '../i18n';
+import { isMarkdown } from '../lib/highlight';
+import { parseRemoteURL } from '../lib/parseRemoteURL';
+import { resourceHref } from '../lib/resourceNames';
+import { targetFilterPatch } from '../lib/targetFilter';
+import { useSyncMatrix } from '../hooks/useSyncMatrix';
+import { formatDateTime, formatRelativeTime, useI18n, useT } from '../i18n';
+import AgentIcon from '../components/AgentIcon';
+import Button from '../components/Button';
+import DialogShell from '../components/DialogShell';
+import EmptyState from '../components/EmptyState';
+import FindingList from '../components/FindingList';
+import PageHeader from '../components/PageHeader';
+import CodeView from '../components/CodeView';
+import MarkdownView, { ViewToggle } from '../components/MarkdownView';
+import { SkillDetailSkeleton } from '../components/Skeleton';
+import Spinner from '../components/Spinner';
+import { SkillContextMenu, type ContextMenuItem } from '../components/TargetMenu';
+import { useToast } from '../components/Toast';
+import { SkillEditor } from '../components/skill-editor';
+import { UninstallDialog } from './ResourcesPage';
+import { hasUpdate, updateUnits, useCheckStatuses } from './UpdatePage';
 
-const FileViewerModal = lazy(() => import('../components/FileViewerModal'));
+type Tab = 'doc' | 'files' | 'audit';
 
-type SkillManifest = {
-  name?: string;
-  description?: string;
-  license?: string;
-};
+const SEV_RANK: Record<string, number> = { CRITICAL: 0, HIGH: 1, MEDIUM: 2, LOW: 3, INFO: 4 };
 
-function parseSkillDoc(content: string): { manifest: SkillManifest; markdown: string } {
-  const { frontmatter, body } = parseSkillMarkdown(content ?? '');
-  const pick = (k: 'name' | 'description' | 'license'): string | undefined => {
-    const v = frontmatter[k];
-    if (v == null) return undefined;
-    const s = String(v).trim();
-    return s || undefined;
-  };
-  return {
-    manifest: { name: pick('name'), description: pick('description'), license: pick('license') },
-    markdown: body,
-  };
-}
+const str = (v: unknown) => (v == null ? '' : Array.isArray(v) ? v.join(', ') : String(v).trim());
+const words = (s: string) => s.split(/\s+/).filter(Boolean).length;
 
-/** Returns a lucide icon component + color class for a filename */
-function getFileIcon(filename: string): { icon: typeof File; className: string } {
-  if (filename === 'SKILL.md') return { icon: FileText, className: 'text-blue' };
-  if (/\.(ts|tsx|js|jsx|go|py|rs|rb|sh|bash)$/i.test(filename)) return { icon: FileCode2, className: 'text-pencil-light' };
-  if (/\.json$/i.test(filename)) return { icon: Braces, className: 'text-pencil-light' };
-  if (/\.(yaml|yml|toml)$/i.test(filename)) return { icon: Settings, className: 'text-pencil-light' };
-  if (/\.md$/i.test(filename)) return { icon: BookOpen, className: 'text-pencil-light' };
-  if (filename.endsWith('/')) return { icon: FolderOpen, className: 'text-warning' };
-  return { icon: File, className: 'text-pencil-light' };
-}
-
-/** Content stats bar showing word count, line count, file count, license */
-function ContentStatsBar({ content, description, body, fileCount, license, trailing }: { content: string; description?: string; body?: string; fileCount: number; license?: string; trailing?: React.ReactNode }) {
-  const t = useT();
-  const trimmed = content.trim();
-  const wordCount = trimmed ? trimmed.split(/\s+/).length : 0;
-  const lineCount = trimmed ? trimmed.split(/\r?\n/).length : 0;
-  const descTokens = description ? Math.round(description.length / 4) : 0;
-  const bodyTokens = body ? Math.round(body.trim().length / 4) : 0;
-  const totalTokens = descTokens + bodyTokens || Math.round(trimmed.length / 4);
-
-  return (
-    <div className="ss-detail-stats flex items-center gap-4 flex-wrap text-sm text-pencil-light py-3 mb-4 border-b border-muted">
-      <Tooltip content={t('resourceDetail.stats.tokensDesc', { desc: descTokens.toLocaleString(), body: bodyTokens.toLocaleString(), total: totalTokens.toLocaleString() })}>
-        <span className="inline-flex items-center gap-1.5">
-          <Zap size={12} strokeWidth={2.5} />
-          {t('resourceDetail.stats.tokens', { count: totalTokens.toLocaleString() })}
-          {descTokens > 0 && <span className="text-pencil-light/60">{t('resourceDetail.stats.tokensParts', { desc: descTokens.toLocaleString(), body: bodyTokens.toLocaleString() })}</span>}
-        </span>
-      </Tooltip>
-      <span className="inline-flex items-center gap-1.5">
-        <Type size={12} strokeWidth={2.5} />
-        {t('resourceDetail.stats.words', { count: wordCount.toLocaleString() })}
-      </span>
-      <span className="inline-flex items-center gap-1.5">
-        <AlignLeft size={12} strokeWidth={2.5} />
-        {t('resourceDetail.stats.lines', { count: lineCount.toLocaleString() })}
-      </span>
-      <span className="inline-flex items-center gap-1.5">
-        <Files size={12} strokeWidth={2.5} />
-        {t('resourceDetail.stats.files', { count: fileCount })}
-      </span>
-      {license && (
-        <span className="inline-flex items-center gap-1.5">
-          <Scale size={12} strokeWidth={2.5} />
-          {license}
-        </span>
-      )}
-      {trailing && <span className="ml-auto">{trailing}</span>}
-    </div>
-  );
-}
-
-export default function SkillDetailPage() {
+export default function ResourceDetailPage() {
   const { name } = useParams<{ name: string }>();
   const [searchParams] = useSearchParams();
+  const { pathname } = useLocation();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const requestedKind = searchParams.get('kind') === 'agent'
+  const { toast } = useToast();
+  const t = useT();
+  const requestedKind = pathname.startsWith('/agents/') || searchParams.get('kind') === 'agent'
     ? 'agent'
     : searchParams.get('kind') === 'skill'
       ? 'skill'
@@ -127,44 +59,28 @@ export default function SkillDetailPage() {
     staleTime: staleTimes.skills,
     enabled: !!name,
   });
-  const allSkills = useQuery({
-    queryKey: queryKeys.skills.all,
-    queryFn: () => api.listSkills(),
-    staleTime: staleTimes.skills,
-  });
-  const allTargets = useQuery({
-    queryKey: queryKeys.targets.all,
-    queryFn: () => api.listTargets(),
-    staleTime: staleTimes.targets,
-  });
-  const skillKind = data?.resource.kind;
+  const allSkills = useQuery({ queryKey: queryKeys.skills.all, queryFn: () => api.listSkills(), staleTime: staleTimes.skills });
+  const kind = data?.resource.kind;
   const auditQuery = useQuery({
-    queryKey: [...queryKeys.audit.skill(name!), skillKind],
-    queryFn: () => api.auditSkill(name!, skillKind),
+    queryKey: [...queryKeys.audit.skill(name!), kind],
+    // The server resolves skills by path under the source dir; nested skills have a flat name in the URL
+    queryFn: () => api.auditSkill(kind === 'agent' ? name! : data!.resource.relPath, kind),
     staleTime: staleTimes.auditSkill,
-    enabled: !!name && !!skillKind,
+    enabled: !!name && !!kind,
   });
-  const diffQuery = useQuery({
-    queryKey: queryKeys.diff(),
-    queryFn: () => api.diff(),
-    staleTime: staleTimes.diff,
-  });
-  const [deleting, setDeleting] = useState(false);
-  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [statuses, setStatuses] = useCheckStatuses();
+  const [editing, setEditing] = useState(false);
+  const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
+  const [uninstalling, setUninstalling] = useState(false);
   const [updating, setUpdating] = useState(false);
   const [toggling, setToggling] = useState(false);
-  const [blockedMessage, setBlockedMessage] = useState<string | null>(null);
-  const [viewingFile, setViewingFile] = useState<string | null>(null);
-  const [editMode, setEditMode] = useState(false);
-  const { toast } = useToast();
-  const t = useT();
+  const [blocked, setBlocked] = useState<string | null>(null);
+  const [raw, setRaw] = useState(false);
 
-  // Build lookup maps for skill cross-referencing
   const skillMaps = useMemo(() => {
-    const skills = allSkills.data?.resources ?? [];
     const byName = new Map<string, Skill>();
     const byFlat = new Map<string, Skill>();
-    for (const s of skills) {
+    for (const s of allSkills.data?.resources ?? []) {
       byName.set(s.name, s);
       byFlat.set(s.flatName, s);
     }
@@ -172,167 +88,104 @@ export default function SkillDetailPage() {
   }, [allSkills.data]);
 
   if (isPending) return <SkillDetailSkeleton />;
-  if (error) {
+  if (error || !data) {
     return (
-      <Card variant="accent" className="text-center py-8">
-        <p className="text-danger text-lg">
-          {t('resourceDetail.error.failedToLoad')}
-        </p>
-        <p className="text-pencil-light text-sm mt-1">{error.message}</p>
-      </Card>
+      <div className="ss-note bad">
+        <TriangleAlert size={16} />
+        <div className="flex-1"><b>{t('resourceDetail.error.failedToLoad')}</b> {error?.message}</div>
+      </div>
     );
   }
-  if (!data) return null;
 
-  const { resource, skillMdContent, files: rawFiles } = data;
-  const files = rawFiles ?? [];
-  const parsedDoc = parseSkillDoc(skillMdContent ?? '');
-  const hasManifest = Boolean(parsedDoc.manifest.name || parsedDoc.manifest.description || parsedDoc.manifest.license);
-  const renderedMarkdown = parsedDoc.markdown.trim() ? parsedDoc.markdown : skillMdContent;
+  const { resource, skillMdContent = '' } = data;
+  const files = data.files ?? [];
+  const isAgent = resource.kind === 'agent';
+  const listPath = isAgent ? '/agents' : '/skills';
+  const { frontmatter, body } = parseSkillMarkdown(skillMdContent);
+  const docName = isAgent ? resource.relPath.split('/').pop()! : 'SKILL.md';
+  const unit = updateUnits(allSkills.data?.resources ?? [resource], resource.kind)
+    .find((u) => u.items.some((i) => i.flatName === resource.flatName));
+  const check = statuses.get(resource.name) ?? { status: 'unchecked' as const };
+  const updateAvailable = hasUpdate(check);
+  const audit = auditQuery.data?.result;
 
-  /** Try to resolve a reference to a known skill */
-  function resolveSkillRef(ref: string): Skill | undefined {
-    // Direct name match
-    if (skillMaps.byName.has(ref)) return skillMaps.byName.get(ref);
-    // Try as child: currentFlatName__ref (with / replaced by __)
-    const childFlat = `${resource.flatName}__${ref.replace(/\//g, '__')}`;
-    if (skillMaps.byFlat.has(childFlat)) return skillMaps.byFlat.get(childFlat);
-    return undefined;
-  }
-
-  /** Try to resolve a file path to a known skill */
-  function resolveFileSkill(filePath: string): Skill | undefined {
-    // Skip non-directory files (files with extensions)
-    if (/\.[a-z]+$/i.test(filePath) && !filePath.endsWith('.md')) return undefined;
-    const flat = `${resource.flatName}__${filePath.replace(/\//g, '__')}`;
-    return skillMaps.byFlat.get(flat);
-  }
-
-  // Custom Markdown link component: resolve skill references to internal links
-  const mdComponents: Components = {
-    p: ({ children }) => <p>{highlightArgs(children)}</p>,
-    li: ({ children }) => <li>{highlightArgs(children)}</li>,
-    a: ({ href, children, ...props }) => {
-      if (href) {
-        // Check if href is a skill reference (not a URL)
-        if (!href.startsWith('http') && !href.startsWith('#')) {
-          const resolved = resolveSkillRef(href);
-          if (resolved) {
-            return (
-              <Link
-                to={`/resources/${encodeURIComponent(resolved.flatName)}`}
-                className="link-subtle inline-flex items-center gap-0.5"
-              >
-                {children}
-                <ArrowUpRight size={12} strokeWidth={2.5} className="shrink-0" />
-              </Link>
-            );
-          }
-          // Check if href matches a file in this skill — open in modal
-          const matchedFile = files.find((f) => f === href || f.endsWith('/' + href));
-          if (matchedFile) {
-            return (
-              <Button
-                variant="link"
-                onClick={() => setViewingFile(matchedFile)}
-                className="link-subtle inline-flex items-center gap-0.5"
-                style={{ font: 'inherit' }}
-              >
-                {children}
-              </Button>
-            );
-          }
-        }
-      }
-      // Default: external link
-      return (
-        <a href={href} target="_blank" rel="noopener noreferrer" {...props}>
-          {children}
-        </a>
-      );
-    },
+  const requestedTab = searchParams.get('tab');
+  const tab: Tab = requestedTab === 'audit' ? 'audit' : requestedTab === 'files' && !isAgent ? 'files' : 'doc';
+  const tabSearch = (next: Tab, extra: Record<string, string | number> = {}) => {
+    const p = new URLSearchParams();
+    const k = searchParams.get('kind');
+    if (k) p.set('kind', k);
+    if (next !== 'doc') p.set('tab', next);
+    for (const [key, v] of Object.entries(extra)) p.set(key, String(v));
+    const s = p.toString();
+    return s ? `?${s}` : pathname;
   };
 
-  const handleDelete = async () => {
-    setDeleting(true);
-    try {
-      if (resource.isInRepo) {
-        const repoName = resource.relPath.split('/')[0];
-        await api.deleteRepo(repoName);
-        toast(t('resourceDetail.toast.repoUninstalled', { name: formatTrackedRepoName(repoName) }), 'success');
-      } else {
-        await api.deleteResource(resource.flatName, resource.kind);
-        toast(t('resourceDetail.toast.resourceUninstalled', { kind: resource.kind === 'agent' ? 'Agent' : 'Skill', name: resource.name }), 'success');
-      }
-      clearAuditCache(queryClient);
-      await queryClient.invalidateQueries({ queryKey: queryKeys.skills.all });
-      await queryClient.invalidateQueries({ queryKey: queryKeys.overview });
-      await queryClient.invalidateQueries({ queryKey: queryKeys.trash });
-      navigate('/resources');
-    } catch (e: unknown) {
-      toast((e as Error).message, 'error');
-      setDeleting(false);
-      setConfirmDelete(false);
-    }
+  const refreshResource = async () => {
+    await queryClient.invalidateQueries({ queryKey: queryKeys.skills.detail(name!) });
+    await queryClient.invalidateQueries({ queryKey: queryKeys.skills.all });
+    await queryClient.invalidateQueries({ queryKey: queryKeys.overview });
   };
 
-  const handleUpdate = async (skipAudit = false) => {
+  // The check result belongs to the whole update unit, so a repo marks every skill in it
+  const markUpToDate = () => {
+    const names = unit?.items.map((i) => i.name) ?? [resource.name];
+    const checkedAt = new Date().toISOString();
+    setStatuses((prev) => {
+      const next = new Map(prev);
+      for (const n of names) next.set(n, { status: 'up-to-date', checkedAt });
+      return next;
+    });
+  };
+
+  const runUpdate = async (skipAudit: boolean) => {
     setUpdating(true);
-    setBlockedMessage(null);
     try {
-      const resourceName = resource.isInRepo
-        ? resource.relPath.split('/')[0]
-        : resource.kind === 'agent'
-          ? resource.flatName
-          : resource.relPath;
-      const res = await api.update({ name: resourceName, kind: resource.kind, skipAudit });
+      const target = resource.isInRepo ? resource.relPath.split('/')[0] : isAgent ? resource.flatName : resource.relPath;
+      const res = await api.update({ name: target, kind: resource.kind, skipAudit });
       const item = res.results[0];
       if (item?.action === 'updated') {
+        setBlocked(null);
         const auditInfo = item.auditRiskLabel
           ? ` · Security: ${item.auditRiskLabel.toUpperCase()}${item.auditRiskScore ? ` (${item.auditRiskScore}/100)` : ''}`
           : '';
-        toast(t('resourceDetail.toast.updated', { name: formatSkillDisplayName(item.name), message: item.message ?? '', auditInfo }), 'success');
+        toast(t('resourceDetail.toast.updated', { name: resource.name, message: item.message ?? '', auditInfo }), 'success');
+        markUpToDate();
         clearAuditCache(queryClient);
-        await queryClient.invalidateQueries({ queryKey: queryKeys.skills.detail(name!) });
-        await queryClient.invalidateQueries({ queryKey: queryKeys.skills.all });
-        await queryClient.invalidateQueries({ queryKey: queryKeys.overview });
+        await refreshResource();
       } else if (item?.action === 'up-to-date') {
-        toast(t('resourceDetail.toast.upToDate', { name: formatSkillDisplayName(item.name) }), 'info');
+        toast(t('resourceDetail.toast.upToDate', { name: resource.name }), 'info');
+        markUpToDate();
       } else if (item?.action === 'blocked') {
-        setBlockedMessage(item.message ?? t('resourceDetail.toast.blockedDefault'));
+        setBlocked(item.message ?? '');
       } else if (item?.action === 'error') {
         toast(item.message ?? t('resourceDetail.toast.updateFailed'), 'error');
       } else {
         toast(item?.message ?? t('resourceDetail.toast.skipped'), 'warning');
       }
-    } catch (e: unknown) {
+    } catch (e) {
       toast((e as Error).message, 'error');
     } finally {
       setUpdating(false);
     }
   };
 
-  const handleToggleDisabled = async () => {
+  const toggleDisabled = async () => {
     setToggling(true);
     try {
-      if (resource.disabled) {
-        await api.enableResource(resource.flatName, resource.kind);
-        toast(t('resourceDetail.toast.enabled', { name: resource.name }), 'success');
-      } else {
-        await api.disableResource(resource.flatName, resource.kind);
-        toast(t('resourceDetail.toast.disabled', { name: resource.name }), 'success');
-      }
-      await queryClient.invalidateQueries({ queryKey: queryKeys.skills.detail(name!) });
-      await queryClient.invalidateQueries({ queryKey: queryKeys.skills.all });
-      await queryClient.invalidateQueries({ queryKey: queryKeys.overview });
-    } catch (e: unknown) {
+      if (resource.disabled) await api.enableResource(resource.flatName, resource.kind);
+      else await api.disableResource(resource.flatName, resource.kind);
+      toast(t(resource.disabled ? 'resourceDetail.toast.enabled' : 'resourceDetail.toast.disabled', { name: resource.name }), 'success');
+      await refreshResource();
+      queryClient.invalidateQueries({ queryKey: ['sync-matrix'] });
+    } catch (e) {
       toast((e as Error).message, 'error');
     } finally {
       setToggling(false);
     }
   };
 
-  const handleOpenInEditor = async () => {
+  const openInEditor = async () => {
     try {
       const resp = await api.openSkillInEditor(resource.flatName, { kind: resource.kind });
       toast(t('resourceDetail.toast.openedIn', { editor: resp.editor }), 'info');
@@ -341,609 +194,616 @@ export default function SkillDetailPage() {
     }
   };
 
-  if (editMode) {
-    // Show all configured targets so the user can toggle each on/off.
-    // Targets currently linked to this resource start as enabled.
-    const linkedTargetNames = new Set(resource.targets ?? []);
-    const configuredTargets = allTargets.data?.targets ?? [];
-    const editorTargets = (configuredTargets.length > 0
-      ? configuredTargets.map((t) => ({
-          id: t.name,
-          name: t.name,
-          status: (linkedTargetNames.has(t.name) ? 'ok' : 'off') as 'ok' | 'off',
-        }))
-      : Array.from(linkedTargetNames).map((tname) => ({
-          id: tname,
-          name: tname,
-          status: 'ok' as const,
-        })));
-
+  if (editing) {
     return (
-      <div className="-mx-4 -my-3 md:-mx-8 md:-my-3 animate-fade-in">
-        <ScrollToTop />
-        <SkillEditor
-          skillName={resource.flatName}
-          displayName={resource.name}
-          kind={resource.kind}
-          path={resource.relPath}
-          tracked={resource.isInRepo}
-          initialContent={skillMdContent ?? ''}
-          fileCount={files.length}
-          derived={{
-            path: resource.relPath,
-            source: resource.source,
-            version: resource.version,
-            branch: resource.branch,
-            license: parsedDoc.manifest.license,
-          }}
-          availableTargets={editorTargets}
-          onBack={() => setEditMode(false)}
-          onSaved={async (next) => {
-            queryClient.setQueryData(
-              [...queryKeys.skills.detail(name!), requestedKind],
-              (prev: unknown) => {
-                if (!prev || typeof prev !== 'object') return prev;
-                return { ...(prev as object), skillMdContent: next };
-              }
-            );
-            await queryClient.invalidateQueries({ queryKey: queryKeys.skills.detail(name!) });
-            setEditMode(false);
-          }}
-        />
-      </div>
+      <SkillEditor
+        resource={resource}
+        docName={docName}
+        initialContent={skillMdContent}
+        onBack={() => setEditing(false)}
+        onSaved={async (next) => {
+          queryClient.setQueryData([...queryKeys.skills.detail(name!), requestedKind], (prev: unknown) =>
+            prev && typeof prev === 'object' ? { ...prev, skillMdContent: next } : prev);
+          await queryClient.invalidateQueries({ queryKey: queryKeys.skills.detail(name!) });
+          setEditing(false);
+        }}
+      />
     );
   }
+
+  const menuItems: ContextMenuItem[] = [
+    { key: 'open', label: t('resourceDetail.actions.openInEditor'), icon: <FolderOpen size={14} />, onSelect: openInEditor },
+    ...(unit && !updateAvailable && !updating
+      ? [{ key: 'update', label: t('resourceDetail.actions.update'), icon: <CircleArrowUp size={14} />, onSelect: () => runUpdate(false) }]
+      : []),
+    {
+      key: 'toggle',
+      label: t(resource.disabled ? 'resourceDetail.actions.enable' : 'resourceDetail.actions.disable'),
+      icon: resource.disabled ? <CircleCheck size={14} /> : <Power size={14} />,
+      onSelect: toggleDisabled,
+    },
+    {
+      key: 'uninstall',
+      label: t(resource.isInRepo && !isAgent ? 'resourceDetail.actions.uninstallRepo' : 'resourceDetail.actions.uninstall'),
+      icon: <Trash2 size={14} />,
+      danger: true,
+      onSelect: () => setUninstalling(true),
+    },
+  ];
+
+  const resolveSkillRef = (ref: string) =>
+    skillMaps.byName.get(ref) ?? skillMaps.byFlat.get(`${resource.flatName}__${ref.replace(/\//g, '__')}`);
+
+  const md: Components = {
+    a: ({ href, children }) => {
+      if (href && !href.startsWith('http') && !href.startsWith('#')) {
+        const ref = resolveSkillRef(href);
+        if (ref) return <Link to={resourceHref(ref)}>{children}</Link>;
+        const file = files.find((f) => f === href || f.endsWith('/' + href));
+        if (file && !isAgent) return <Link to={tabSearch('files', { file })}>{children}</Link>;
+      }
+      return <a href={href} target="_blank" rel="noopener noreferrer">{children}</a>;
+    },
+  };
+
+  const findingCount = audit?.findings.length ?? 0;
+  const tabs = (
+    <nav className="ss-tabs" aria-label={t('resourceDetail.tabs.label')}>
+      <Link to={tabSearch('doc')} className={tab === 'doc' ? 'on' : ''}>{docName}</Link>
+      {!isAgent && (
+        <Link to={tabSearch('files')} className={tab === 'files' ? 'on' : ''}>
+          {t('resourceDetail.tabs.files')} <span className="ss-cnt">{files.length}</span>
+        </Link>
+      )}
+      <Link to={tabSearch('audit')} className={tab === 'audit' ? 'on' : ''}>
+        {t('resourceDetail.tabs.audit')} {findingCount > 0 && <span className="ss-cnt">{findingCount}</span>}
+      </Link>
+    </nav>
+  );
+
+  const description = str(frontmatter.description);
 
   return (
     <div className="animate-fade-in">
-      <ScrollToTop />
-      {/* Header — sticky */}
-      <div className="flex items-center gap-3 mb-2 sticky top-0 z-20 bg-paper py-3 -mx-4 px-4 md:-mx-8 md:px-8 -mt-3">
-        <IconButton
-          icon={<ArrowLeft size={18} strokeWidth={2.5} />}
-          label={t('resourceDetail.backToResources')}
-          size="lg"
-          variant="outline"
-          onClick={() => navigate('/resources')}
-          className="bg-surface"
-          style={{ boxShadow: shadows.sm }}
-        />
-        <div className="flex items-center gap-3 flex-wrap">
-          <h2
-            className="ss-detail-title text-2xl md:text-3xl font-bold text-pencil"
-          >
-            {resource.name}
-          </h2>
-          <KindBadge kind={resource.kind} />
-          {resource.disabled && <Badge variant="danger">Disabled</Badge>}
-          <SourceBadge type={resource.type} isInRepo={resource.isInRepo} />
-          {resource.targets && resource.targets.length > 0 && (
-            <span className="inline-flex items-center gap-1">
-              <Target size={13} strokeWidth={2.5} className="text-pencil-light" />
-              {resource.targets.map((t) => (
-                <Badge key={t} variant="default">{t}</Badge>
-              ))}
-            </span>
-          )}
-        </div>
-        <div className="ml-auto flex items-center gap-2">
-          <Button variant="ghost" size="sm" onClick={handleOpenInEditor}>
-            <ExternalLink size={14} /> {t('resourceDetail.actions.openInEditor')}
-          </Button>
-          <Button variant="primary" size="sm" onClick={() => setEditMode(true)}>
-            <Pencil size={14} /> {t('resourceDetail.actions.edit')}
-          </Button>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Main content: SKILL.md */}
-        <div className="lg:col-span-2">
-          <Card>
-            {hasManifest && (
-              <div
-                className="ss-detail-manifest mb-4 p-4 pt-5 border-2 border-dashed border-pencil-light/30"
-                style={{ borderRadius: radius.sm }}
-              >
-                <dl className="space-y-2">
-                  {parsedDoc.manifest.name && (
-                    <div>
-                      <dt className="text-sm text-muted-dark uppercase tracking-wide">{t('resourceDetail.manifest.name')}</dt>
-                      <dd className="text-xl font-bold text-pencil">{parsedDoc.manifest.name}</dd>
-                    </div>
-                  )}
-                  {parsedDoc.manifest.description && (
-                    <div>
-                      <dt className="text-sm text-muted-dark uppercase tracking-wide">{t('resourceDetail.manifest.description')}</dt>
-                      <dd className="text-base text-pencil">{parsedDoc.manifest.description}</dd>
-                    </div>
-                  )}
-                  {parsedDoc.manifest.license && (
-                    <div>
-                      <dt className="text-sm text-muted-dark uppercase tracking-wide">{t('resourceDetail.manifest.license')}</dt>
-                      <dd className="text-base text-pencil">{parsedDoc.manifest.license}</dd>
-                    </div>
-                  )}
-                </dl>
-              </div>
-            )}
-            <ContentStatsBar
-              content={skillMdContent ?? ''}
-              description={parsedDoc.manifest.description}
-              body={parsedDoc.markdown}
-              fileCount={files.length}
-              license={parsedDoc.manifest.license}
-              trailing={
-                renderedMarkdown ? (
-                  <Outline
-                    markdown={renderedMarkdown}
-                    onJump={(h) => {
-                      const candidates = document.querySelectorAll<HTMLElement>(
-                        '.prose-hand h1, .prose-hand h2, .prose-hand h3, .prose-hand h4, .prose-hand h5, .prose-hand h6'
-                      );
-                      const target = Array.from(candidates).find(
-                        (el) => (el.textContent ?? '').trim() === h.text.trim()
-                      );
-                      target?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                    }}
-                  />
-                ) : undefined
-              }
-            />
-            <div className="prose-hand">
-              {renderedMarkdown ? (
-                <Markdown remarkPlugins={[remarkGfm]} components={mdComponents}>
-                  {renderedMarkdown}
-                </Markdown>
-              ) : (
-                <p className="text-pencil-light italic text-center py-8">
-                  {t('resourceDetail.noContent')}
-                </p>
-              )}
-            </div>
-          </Card>
-        </div>
-
-        {/* Sidebar: metadata + files — sticky + independently scrollable */}
-        <div className="space-y-5 lg:sticky lg:top-16 lg:self-start lg:max-h-[calc(100vh-5rem)] lg:overflow-y-auto lg:-mr-2 lg:pr-2">
-          <Card className="ss-detail-pinned" overflow >
-            <h3
-              className="ss-detail-heading font-bold text-pencil mb-3"
-            >
-              {t('resourceDetail.metadata.title')}
-            </h3>
-            <dl className="space-y-2">
-              <MetaItem label={t('resourceDetail.metadata.path')} value={resource.relPath} mono copyable copyValue={resource.sourcePath} />
-              {resource.source && <MetaItem label={t('resourceDetail.metadata.source')} value={resource.source} mono />}
-              {resource.version && <MetaItem label={t('resourceDetail.metadata.version')} value={resource.version} mono />}
-              {resource.branch && <MetaItem label={t('resourceDetail.metadata.branch')} value={resource.branch} mono />}
-              {resource.installedAt && (
-                <MetaItem
-                  label={t('resourceDetail.metadata.installed')}
-                  value={new Date(resource.installedAt).toLocaleDateString()}
-                />
-              )}
-              {resource.targets && resource.targets.length > 0 && (
-                <div className="flex items-baseline gap-3">
-                  <dt className="text-xs text-pencil-light uppercase tracking-wider shrink-0 min-w-[4.5rem]">{t('resourceDetail.metadata.targets')}</dt>
-                  <dd className="min-w-0 flex flex-wrap gap-1.5">
-                    {resource.targets.map((tgt) => (
-                      <Badge key={tgt} variant="default">{tgt}</Badge>
-                    ))}
-                  </dd>
-                </div>
-              )}
-              {resource.repoUrl && (
-                <div className="flex items-baseline gap-3">
-                  <dt className="text-xs text-pencil-light uppercase tracking-wider shrink-0 min-w-[4.5rem]">{t('resourceDetail.metadata.repo')}</dt>
-                  <dd className="min-w-0">
-                    <a
-                      href={resource.repoUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="link-subtle text-sm break-all"
-                    >
-                      <ExternalLink size={11} strokeWidth={2.5} className="inline -mt-0.5 mr-0.5" />
-                      {resource.repoUrl.replace('https://', '').replace('.git', '')}
-                    </a>
-                  </dd>
-                </div>
-              )}
-            </dl>
-
-            {/* Actions */}
-            <div className="flex flex-col gap-2 mt-4 pt-4 border-t border-dashed border-pencil-light/30">
-              <div className="flex gap-2">
-                <Button
-                  onClick={handleToggleDisabled}
-                  disabled={toggling}
-                  variant={resource.disabled ? 'primary' : 'secondary'}
-                  size="sm"
-                  className="flex-1"
-                >
-                  {toggling ? (
-                    <Spinner size="sm" />
-                  ) : resource.disabled ? (
-                    <Eye size={14} strokeWidth={2.5} />
-                  ) : (
-                    <EyeOff size={14} strokeWidth={2.5} />
-                  )}
-                  {toggling
-                    ? (resource.disabled ? t('resourceDetail.actions.enabling') : t('resourceDetail.actions.disabling'))
-                    : (resource.disabled ? t('resourceDetail.actions.enable') : t('resourceDetail.actions.disable'))}
-                </Button>
-                {(resource.isInRepo || resource.source) && (
-                  <Button
-                    onClick={() => handleUpdate()}
-                    disabled={updating}
-                    variant="secondary"
-                    size="sm"
-                    className="flex-1"
-                  >
-                    {updating ? <Spinner size="sm" /> : <RefreshCw size={14} strokeWidth={2.5} />}
-                    {updating ? t('resourceDetail.actions.updating') : t('resourceDetail.actions.update')}
-                  </Button>
-                )}
-              </div>
-              <Button
-                onClick={() => setConfirmDelete(true)}
-                disabled={deleting}
-                variant="danger"
-                size="sm"
-              >
-                <Trash2 size={12} strokeWidth={2.5} />
-                {deleting
-                  ? t('resourceDetail.actions.uninstalling')
-                  : resource.isInRepo
-                    ? t('resourceDetail.actions.uninstallRepo')
-                    : t('resourceDetail.actions.uninstall')}
-              </Button>
-            </div>
-          </Card>
-
-          {resource.kind !== 'agent' && <Card className="ss-detail-pinned" overflow>
-            <h3
-              className="ss-detail-heading font-bold text-pencil mb-3 flex items-center gap-2"
-            >
-              <FileText size={16} strokeWidth={2.5} />
-              {t('resourceDetail.files.title', { count: files.length })}
-            </h3>
-            {files.length > 0 ? (
-              <ul className="space-y-1.5 max-h-80 overflow-y-auto">
-                {files.map((f) => {
-                  const linkedSkill = resolveFileSkill(f);
-                  const isSkillMd = f === 'SKILL.md';
-                  const { icon: FileIcon, className: iconClass } = getFileIcon(f);
-                  return (
-                    <li
-                      key={f}
-                      className="text-sm text-pencil-light truncate flex items-center gap-2"
-                    >
-                      <FileIcon size={14} strokeWidth={2} className={`shrink-0 ${iconClass}`} />
-                      {linkedSkill ? (
-                        <Link
-                          to={`/resources/${encodeURIComponent(linkedSkill.flatName)}`}
-                          className="font-mono link-subtle inline-flex items-center gap-1"
-                          style={{ fontSize: '0.8125rem' }}
-                          title={`View skill: ${linkedSkill.name}`}
-                        >
-                          {f}
-                          <ArrowUpRight size={11} strokeWidth={2.5} className="shrink-0" />
-                        </Link>
-                      ) : isSkillMd ? (
-                        <span
-                          className="font-mono truncate"
-                        >
-                          {f}
-                        </span>
-                      ) : (
-                        <Button
-                          variant="link"
-                          onClick={() => setViewingFile(f)}
-                          className="font-mono link-subtle text-left truncate inline-flex items-center gap-1"
-                          style={{ fontSize: '0.8125rem' }}
-                          title={`View file: ${f}`}
-                        >
-                          {f}
-                        </Button>
-                      )}
-                    </li>
-                  );
-                })}
-              </ul>
-            ) : (
-              <p className="text-sm text-muted-dark italic">{t('resourceDetail.files.noFiles')}</p>
-            )}
-          </Card>}
-
-          {/* Security Audit */}
-          <SecurityAuditCard auditQuery={auditQuery} />
-
-          {/* Target Distribution */}
-          <TargetDistribution flatName={resource.flatName} kind={resource.kind} />
-
-          {/* Target Sync Status */}
-          <SyncStatusCard diffQuery={diffQuery} skillFlatName={resource.flatName} />
-        </div>
-      </div>
-
-      {/* File viewer modal */}
-      {viewingFile && (
-        <Suspense fallback={null}>
-          <FileViewerModal
-            skillName={resource.flatName}
-            filepath={viewingFile}
-            sourcePath={resource.sourcePath}
-            onClose={() => setViewingFile(null)}
-          />
-        </Suspense>
-      )}
-
-      {/* Blocked by security audit dialog */}
-      <ConfirmDialog
-        open={blockedMessage !== null}
-        title={t('resourceDetail.blocked.title')}
-        message={
+      <PageHeader
+        crumbs={[{ label: t(isAgent ? 'layout.nav.agents' : 'layout.nav.skills'), to: listPath }, { label: resource.name }]}
+        title={resource.name}
+        mono
+        subtitle={description && <span className="block max-w-[640px] truncate">{description}</span>}
+        actions={
           <>
-            <p className="text-danger text-sm mb-2">{blockedMessage}</p>
-            <p className="text-pencil-light text-sm">{t('resourceDetail.blocked.skipPrompt')}</p>
+            <button type="button" className="ss-ib" aria-label={t('resourceDetail.actions.more')} onClick={(e) => {
+              const r = e.currentTarget.getBoundingClientRect();
+              setMenu({ x: r.left, y: r.bottom + 4 });
+            }}>
+              <Ellipsis size={16} />
+            </button>
+            <Button variant="secondary" onClick={() => setEditing(true)}>
+              <Pencil size={15} />
+              {t('resourceDetail.actions.edit')}
+            </Button>
+            {/* Also shown while an update started from the menu runs, so it has visible progress */}
+            {unit && (updateAvailable || updating) && (
+              <Button variant="primary" loading={updating} onClick={() => runUpdate(false)}>
+                {!updating && <CircleArrowUp size={15} />}
+                {t('resourceDetail.actions.update')}
+              </Button>
+            )}
           </>
         }
-        confirmText={t('resourceDetail.blocked.skipAuditAndUpdate')}
-        variant="danger"
-        loading={updating}
-        onConfirm={() => {
-          setBlockedMessage(null);
-          handleUpdate(true);
-        }}
-        onCancel={() => setBlockedMessage(null)}
       />
 
-      {/* Confirm uninstall dialog */}
-      <ConfirmDialog
-        open={confirmDelete}
-        title={resource.isInRepo ? t('resourceDetail.confirm.titleRepo') : t('resourceDetail.confirm.titleResource', { kind: resource.kind === 'agent' ? 'Agent' : 'Skill' })}
-        message={
-          resource.isInRepo
-            ? t('resourceDetail.confirm.repoMessage', { name: resource.relPath.split('/')[0] })
-            : t('resourceDetail.confirm.resourceMessage', { kind: resource.kind === 'agent' ? 'agent' : 'skill', name: resource.name })
-        }
-        confirmText={t('resourceDetail.actions.uninstall')}
-        variant="danger"
-        loading={deleting}
-        onConfirm={handleDelete}
-        onCancel={() => setConfirmDelete(false)}
-      />
-    </div>
-  );
-}
-
-function MetaItem({
-  label,
-  value,
-  mono,
-  copyable,
-  copyValue,
-}: {
-  label: string;
-  value: string;
-  mono?: boolean;
-  copyable?: boolean;
-  copyValue?: string;
-}) {
-  return (
-    <div className="flex items-baseline gap-3">
-      <dt className="text-xs text-pencil-light uppercase tracking-wider shrink-0 min-w-[4.5rem]">
-        {label}
-      </dt>
-      <dd
-        className={`text-sm text-pencil min-w-0 break-all${mono ? ' font-mono' : ''}`}
-      >
-        {value}
-        {copyable && (
-          <CopyButton
-            value={copyValue ?? value}
-            className="ml-1 align-middle"
-          />
-        )}
-      </dd>
-    </div>
-  );
-}
-
-/** Security Audit sidebar card */
-function SecurityAuditCard({
-  auditQuery,
-}: {
-  auditQuery: ReturnType<typeof useQuery<Awaited<ReturnType<typeof api.auditSkill>>>>;
-}) {
-  const t = useT();
-  if (auditQuery.isPending) {
-    return (
-      <Card variant="outlined">
-        <div className="flex items-center gap-2 animate-pulse">
-          <ShieldCheck size={16} strokeWidth={2.5} className="text-pencil-light" />
-          <span className="text-sm text-pencil-light">
-            {t('resourceDetail.security.scanning')}
-          </span>
+      {resource.disabled && (
+        <div className="ss-note warn mb-5">
+          <Power size={16} />
+          <div className="flex-1">{t(isAgent ? 'resourceDetail.disabled.agent' : 'resourceDetail.disabled.skill')}</div>
+          <Button variant="secondary" size="sm" loading={toggling} onClick={toggleDisabled}>{t('resourceDetail.actions.enable')}</Button>
         </div>
-      </Card>
-    );
-  }
+      )}
 
-  if (auditQuery.error || !auditQuery.data) return null;
-
-  const { result } = auditQuery.data;
-  const findingCounts = result.findings.reduce(
-    (acc, f) => {
-      acc[f.severity] = (acc[f.severity] || 0) + 1;
-      return acc;
-    },
-    {} as Record<string, number>,
-  );
-
-  return (
-    <Card variant="outlined" className="ss-detail-pinned ss-detail-pinned-green ss-detail-outlined">
-      <h3
-        className="ss-detail-heading font-bold text-pencil mb-3 flex items-center gap-2"
-      >
-        <ShieldCheck size={16} strokeWidth={2.5} />
-        {t('resourceDetail.security.title')}
-      </h3>
-      <div className="space-y-3">
-        <div className="flex items-stretch gap-2 flex-wrap">
-          <BlockStamp isBlocked={result.isBlocked} />
-          <RiskMeter riskLabel={result.riskLabel} riskScore={result.riskScore} />
-        </div>
-        {result.findings.length > 0 && (
-          <div className="flex flex-wrap gap-1.5 pt-2" style={{ borderTop: '1px dashed rgba(139,132,120,0.3)' }}>
-            {Object.entries(findingCounts)
-              .sort(([a], [b]) => sevOrder(a) - sevOrder(b))
-              .map(([sev, count]) => (
-                <Badge key={sev} variant={severityBadgeVariant(sev)}>
-                  {count} {sev}
-                </Badge>
-              ))}
+      {tab === 'doc' ? (
+        <div className="grid grid-cols-[minmax(0,1fr)_330px] items-start gap-8">
+          <div className="flex min-w-0 flex-col gap-[18px]">
+            <div className="ss-tabbar">
+              {tabs}
+              {skillMdContent.trim() && <ViewToggle raw={raw} onChange={setRaw} />}
+            </div>
+            {!skillMdContent.trim() ? (
+              <div className="ss-box !px-[30px] !py-[26px] text-ink-3">{t('resourceDetail.noContent')}</div>
+            ) : raw ? (
+              // Markdown wraps, so the page scrolls instead of a nested box
+              <CodeView content={skillMdContent} lang="md" className="min-h-[330px]" />
+            ) : (
+              <div className="ss-box !px-[30px] !py-[26px]">
+                <MarkdownView size="lg" components={md}>{body.trim() ? body : skillMdContent}</MarkdownView>
+              </div>
+            )}
           </div>
-        )}
-        {result.findings.length === 0 && (
-          <p className="text-sm text-success">
-            {t('resourceDetail.security.noIssues')}
-          </p>
-        )}
-      </div>
-    </Card>
+          <div className="flex flex-col gap-7">
+            <MetaBox
+              resource={resource}
+              frontmatter={frontmatter}
+              body={body}
+              fileCount={files.length}
+              check={check}
+              audit={audit}
+              auditPending={auditQuery.isPending}
+              auditHref={tabSearch('audit')}
+            />
+            {!resource.disabled && <TargetsSection resource={resource} />}
+          </div>
+        </div>
+      ) : (
+        <div className="flex flex-col gap-5">
+          {tabs}
+          {tab === 'files'
+            ? <FilesTab resource={resource} files={files} skillMd={skillMdContent} tabSearch={tabSearch} components={md} raw={raw} onRaw={setRaw} />
+            : <AuditTab query={auditQuery} files={files} tabSearch={tabSearch} />}
+        </div>
+      )}
+
+      <SkillContextMenu open={!!menu} anchorPoint={menu ?? undefined} items={menuItems} onClose={() => setMenu(null)} />
+      {uninstalling && (
+        <UninstallDialog
+          kind={resource.kind}
+          selection={[resource]}
+          all={allSkills.data?.resources ?? [resource]}
+          onClose={(removed) => {
+            setUninstalling(false);
+            if (removed) navigate(listPath);
+          }}
+        />
+      )}
+      {blocked !== null && (
+        <BlockedDialog name={resource.name} message={blocked} loading={updating} onSkip={() => runUpdate(true)} onClose={() => setBlocked(null)} />
+      )}
+    </div>
   );
 }
 
-function sevOrder(sev: string): number {
-  switch (sev) {
-    case 'CRITICAL': return 0;
-    case 'HIGH': return 1;
-    case 'MEDIUM': return 2;
-    case 'LOW': return 3;
-    case 'INFO': return 4;
-    default: return 5;
-  }
-}
+/* -- Sidebar -------------------------------------- */
 
-/** Target Distribution sidebar card */
-function TargetDistribution({ flatName, kind }: { flatName: string; kind: 'skill' | 'agent' }) {
-  const { getSkillTargets } = useSyncMatrix();
+function MetaBox({ resource, frontmatter, body, fileCount, check, audit, auditPending, auditHref }: {
+  resource: Skill;
+  frontmatter: Record<string, unknown>;
+  body: string;
+  fileCount: number;
+  check: { status: string; behind?: number };
+  audit?: AuditResult;
+  auditPending: boolean;
+  auditHref: string;
+}) {
   const t = useT();
-  const entries = getSkillTargets(flatName);
+  const { locale } = useI18n();
+  const isAgent = resource.kind === 'agent';
+  const remote = parseRemoteURL(resource.repoUrl ?? resource.source);
+  const compact = new Intl.NumberFormat(locale, { notation: 'compact', maximumFractionDigits: 1 });
+  const always = Math.round((str(frontmatter.description).length + str(frontmatter.when_to_use).length) / 4);
+  const onDemand = Math.round(body.trim().length / 4);
+  const lineCount = body.trim() ? body.trim().split(/\r?\n/).length : 0;
+  const behind = check.status === 'behind';
+  const updateNote = behind || check.status === 'update-available'
+    ? (behind && check.behind ? t('update.check.behind', { count: check.behind }) : t('update.check.updateAvailable'))
+    : '';
+  const findings = audit?.findings.length ?? 0;
 
-  if (entries.length === 0) return null;
+  const rows: [string, React.ReactNode][] = [];
+  if (isAgent && str(frontmatter.model)) rows.push([t('resourceDetail.meta.model'), <span className="font-mono">{str(frontmatter.model)}</span>]);
+  if (isAgent && str(frontmatter.tools)) rows.push([t('resourceDetail.meta.tools'), <span className="font-mono">{str(frontmatter.tools)}</span>]);
+  rows.push([
+    t('resourceDetail.metadata.source'),
+    remote ? (
+      <a href={remote.webURL ?? undefined} target="_blank" rel="noopener noreferrer" className="inline-flex max-w-full items-center gap-1.5 hover:underline">
+        {remote.platform === 'github' ? <Github size={14} className="shrink-0" /> : <Globe size={14} className="shrink-0" />}
+        <span className="truncate font-mono">{remote.ownerRepo}</span>
+        <ExternalLink size={12} className="shrink-0 text-ink-3" />
+      </a>
+    ) : resource.source ? <span className="block truncate font-mono">{resource.source}</span> : t('resourceDetail.meta.local'),
+  ]);
+  if (resource.source || resource.isInRepo) {
+    rows.push([
+      t('resourceDetail.meta.tracked'),
+      resource.isInRepo
+        ? (resource.branch ? t('resourceDetail.meta.trackedBranch', { branch: resource.branch }) : t('resourceDetail.meta.yes'))
+        : t('resourceDetail.meta.no'),
+    ]);
+  }
+  if (resource.version || updateNote) {
+    rows.push([
+      t('resourceDetail.metadata.version'),
+      <>{resource.version && <span className="font-mono">{resource.version}</span>}{updateNote && <span className="text-warn">{resource.version && ' · '}{updateNote}</span>}</>,
+    ]);
+  }
+  if (resource.installedAt) rows.push([t('resourceDetail.metadata.installed'), formatDateTime(resource.installedAt, locale, { dateStyle: 'medium' })]);
+  if (str(frontmatter.license)) rows.push([t('resourceDetail.manifest.license'), str(frontmatter.license)]);
+  rows.push([t('resourceDetail.metadata.path'), <span className="block truncate font-mono">{resource.relPath}</span>]);
+  if (!isAgent) {
+    rows.push([t('resourceDetail.meta.size'), [
+      t(fileCount === 1 ? 'resourceDetail.meta.file' : 'resourceDetail.meta.files', { count: fileCount }),
+      t(lineCount === 1 ? 'resourceDetail.meta.line' : 'resourceDetail.meta.lines', { count: compact.format(lineCount) }),
+      t('resourceDetail.meta.words', { count: compact.format(words(body)) }),
+    ].join(' · ')]);
+  }
+  rows.push([t('resourceDetail.meta.context'), t('resourceDetail.meta.contextValue', { always: compact.format(always), onDemand: compact.format(onDemand) })]);
+  rows.push([
+    t('resourceDetail.tabs.audit'),
+    auditPending ? <span className="ss-st off">{t('resourceDetail.security.scanning')}</span> : audit ? (
+      <Link to={auditHref} className={`ss-st hover:underline ${findings === 0 ? 'ok' : audit.isBlocked ? 'bad' : 'warn'}`}>
+        {findings === 0 ? t('resourceDetail.audit.noFindings') : t(findings === 1 ? 'resourceDetail.audit.finding' : 'resourceDetail.audit.findings', { count: findings })}
+      </Link>
+    ) : <span className="ss-st off">—</span>,
+  ]);
 
   return (
-    <Card className="ss-detail-pinned ss-detail-pinned-blue ss-detail-outlined">
-      <h3 className="ss-detail-heading font-bold text-pencil mb-3 flex items-center gap-2">
-        <Target size={16} strokeWidth={2.5} />
-        {t('resourceDetail.targetDistribution.title')}
-      </h3>
-      <div className="space-y-3">
-        {entries.map(e => (
-          <div key={e.target} className="text-sm border-b border-dashed border-pencil-light/30 pb-2 last:border-0 last:pb-0">
-            <div className="flex items-center gap-2">
-              <span className={`w-2 h-2 rounded-full shrink-0 ${
-                e.status === 'synced' ? 'bg-success' :
-                e.status === 'na' ? 'bg-muted' : 'bg-danger'
-              }`} />
-              <Link to={`/targets/${encodeURIComponent(e.target)}/filters?kind=${kind}`}
-                    className="font-bold text-pencil hover:text-blue truncate">
-                {e.target}
-              </Link>
-            </div>
-            <div className="flex items-center justify-between mt-1 pl-4">
-              <span className={`text-xs ${
-                e.status === 'synced' ? 'text-success' :
-                e.status === 'skill_target_mismatch' ? 'text-purple-600' :
-                e.status === 'na' ? 'text-muted-dark' : 'text-danger'
-              }`}>
-                {e.status === 'synced' && `\u2713 ${syncMatrixReasonText(e, t)}`}
-                {e.status === 'excluded' && `\u2717 ${syncMatrixReasonText(e, t)}`}
-                {e.status === 'not_included' && `\u2717 ${syncMatrixReasonText(e, t)}`}
-                {e.status === 'skill_target_mismatch' && syncMatrixReasonText(e, t)}
-                {e.status === 'na' && `\u2014 ${syncMatrixReasonText(e, t)}`}
-              </span>
-            </div>
+    <div className="ss-box">
+      <dl className="ss-kv">
+        {rows.map(([label, value]) => (
+          <div key={label} className="contents">
+            <dt>{label}</dt>
+            <dd>{value}</dd>
           </div>
         ))}
-      </div>
-      <p className="text-xs text-pencil-light mt-3">
-        {t('resourceDetail.targetDistribution.filterNote')}{' '}
-        <Link to="/targets" className="text-blue hover:underline">{t('resourceDetail.targetDistribution.manageTargets')}</Link>
-      </p>
-    </Card>
+      </dl>
+    </div>
   );
 }
 
-/** Sync Status sidebar card */
-function SyncStatusCard({
-  diffQuery,
-  skillFlatName,
-}: {
-  diffQuery: ReturnType<typeof useQuery<Awaited<ReturnType<typeof api.diff>>>>;
-  skillFlatName: string;
-}) {
+function TargetsSection({ resource }: { resource: Skill }) {
   const t = useT();
-  if (diffQuery.isPending || !diffQuery.data) return null;
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const isAgent = resource.kind === 'agent';
+  const targetsQuery = useQuery({ queryKey: queryKeys.targets.all, queryFn: () => api.listTargets(), staleTime: staleTimes.targets });
+  const { getSkillTargets, isLoading } = useSyncMatrix();
+  const diffQuery = useQuery({ queryKey: queryKeys.diff(), queryFn: () => api.diff(), staleTime: staleTimes.diff, enabled: !isAgent });
+  const [pending, setPending] = useState<string | null>(null);
 
-  // Find which targets have this skill and their status
-  const targetStatuses: { name: string; status: 'linked' | 'missing' | 'excluded' | 'conflict' }[] = [];
+  const targets = [...(targetsQuery.data?.targets ?? [])].sort((a, b) => a.name.localeCompare(b.name));
+  if (targets.length === 0 || isLoading) return null;
 
-  for (const dt of diffQuery.data.diffs) {
-    const item = dt.items.find((i) => i.skill === skillFlatName);
-    if (item) {
-      const status = item.action === 'ok' || item.action === 'linked'
-        ? 'linked'
-        : item.action === 'excluded'
-          ? 'excluded'
-          : item.action === 'conflict' || item.action === 'broken'
-            ? 'conflict'
-            : 'missing';
-      targetStatuses.push({ name: dt.target, status });
-    } else {
-      // Skill not in diff for this target — check if it's because it's already synced (no diff entry = linked)
-      targetStatuses.push({ name: dt.target, status: 'linked' });
+  const entries = new Map(
+    getSkillTargets(resource.flatName).filter((e) => (e.kind ?? 'skill') === resource.kind).map((e) => [e.target, e]),
+  );
+  const rows = targets.map((target) => {
+    const entry = entries.get(target.name);
+    const action = diffQuery.data?.diffs.find((d) => d.target === target.name)?.items
+      .find((i) => i.skill === resource.flatName && (i.kind ?? 'skill') === 'skill')?.action;
+    return { target, entry, action, on: entry?.status === 'synced' || entry?.status === 'na' };
+  });
+  const supported = rows.filter((r) => r.entry);
+
+  const toggle = async (row: (typeof rows)[number]) => {
+    const patch = row.entry && targetFilterPatch(row.entry, row.target, resource.kind, resource.flatName);
+    if (!patch) return;
+    setPending(row.target.name);
+    try {
+      await api.updateTarget(row.target.name, patch);
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: queryKeys.targets.all }),
+        queryClient.invalidateQueries({ queryKey: ['sync-matrix'] }),
+        queryClient.invalidateQueries({ queryKey: ['diff'] }),
+      ]);
+    } catch (e) {
+      toast((e as Error).message, 'error');
+    } finally {
+      setPending(null);
     }
-  }
-
-  if (targetStatuses.length === 0) return null;
-
-  const statusDot: Record<string, string> = {
-    linked: 'bg-success',
-    missing: 'bg-warning',
-    conflict: 'bg-danger',
-    excluded: 'bg-muted-dark',
   };
 
-  const statusLabel: Record<string, string> = {
-    linked: t('resourceDetail.syncStatus.linked'),
-    missing: t('resourceDetail.syncStatus.notSynced'),
-    conflict: t('resourceDetail.syncStatus.conflict'),
-    excluded: t('resourceDetail.syncStatus.excluded'),
+  const label = (row: (typeof rows)[number]) => {
+    const { entry, action } = row;
+    switch (entry?.status) {
+      case 'synced':
+        if (action === 'skip') return <span className="text-bad">{t('resourceDetail.targets.conflict')}</span>;
+        if (action === 'link' || action === 'update') return <span className="text-warn">{t('resourceDetail.targets.notSynced')}</span>;
+        return !isAgent && diffQuery.data ? t('resourceDetail.targets.linked') : null;
+      case 'excluded':
+        return t('resourceDetail.targets.excludedBy', { pattern: entry.reason });
+      case 'not_included':
+        return t('resourceDetail.targets.notIncluded');
+      case 'skill_target_mismatch':
+        return t('resourceDetail.targets.mismatch');
+      case 'na':
+        return t('resourceDetail.targets.symlink');
+      default:
+        return null;
+    }
   };
 
   return (
-    <Card variant="outlined" className="ss-detail-pinned ss-detail-pinned-cyan ss-detail-outlined">
-      <h3
-        className="ss-detail-heading font-bold text-pencil mb-3 flex items-center gap-2"
-      >
-        <Link2 size={16} strokeWidth={2.5} />
-        {t('resourceDetail.syncStatus.title')}
-      </h3>
-      <ul className="space-y-1.5">
-        {targetStatuses.map((t) => (
-          <li key={t.name} className="flex items-center gap-2 text-sm">
-            <span className={`w-2 h-2 rounded-full shrink-0 ${statusDot[t.status]}`} />
-            <span className="font-mono text-pencil font-medium" style={{ fontSize: '0.8125rem' }}>
-              {t.name}
-            </span>
-            <span className="text-pencil-light text-xs">{statusLabel[t.status]}</span>
-          </li>
-        ))}
-      </ul>
-    </Card>
+    <section>
+      <div className="ss-sec">
+        <h2>{t('resourceDetail.targets.title')}</h2>
+        <span className="ss-cnt">{t('resourceDetail.targets.count', { on: supported.filter((r) => r.on).length, total: supported.length })}</span>
+      </div>
+      <div className="ss-list">
+        {rows.map((row) => {
+          if (!row.entry) {
+            return (
+              <div key={row.target.name} className="ss-r !min-h-11 opacity-55">
+                <span className="ss-at"><AgentIcon target={row.target.name} /></span>
+                <span className="min-w-0 flex-1 truncate">{row.target.name}</span>
+                <span className="text-xs text-ink-3">{t('resourceDetail.targets.noAgentSupport')}</span>
+              </div>
+            );
+          }
+          const patch = targetFilterPatch(row.entry, row.target, resource.kind, resource.flatName);
+          const text = label(row);
+          return (
+            <div key={row.target.name} className="ss-r !min-h-[50px]">
+              <span className="ss-at"><AgentIcon target={row.target.name} /></span>
+              <div className="flex min-w-0 flex-1 flex-col gap-px">
+                <span className="truncate font-semibold">{row.target.name}</span>
+                {text && <span className="text-xs text-ink-3">{text}</span>}
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={row.on}
+                aria-label={row.target.name}
+                disabled={!patch || pending !== null}
+                className={`ss-sw ${row.on ? 'on' : ''} disabled:cursor-not-allowed disabled:opacity-50`}
+                onClick={() => toggle(row)}
+              >
+                <i />
+              </button>
+            </div>
+          );
+        })}
+      </div>
+      <p className="mt-2.5 text-[13px] text-ink-3">{t(isAgent ? 'resourceDetail.targets.footnoteAgent' : 'resourceDetail.targets.footnote')}</p>
+    </section>
+  );
+}
+
+/* -- Files ---------------------------------------- */
+
+const CODE_EXT = /\.(ts|tsx|js|jsx|mjs|go|py|rs|rb|sh|bash|zsh|ps1|json|ya?ml|toml)$/i;
+
+function FilesTab({ resource, files, skillMd, tabSearch, components, raw, onRaw }: {
+  resource: Skill;
+  files: string[];
+  skillMd: string;
+  tabSearch: (tab: Tab, extra?: Record<string, string | number>) => string;
+  components: Components;
+  raw: boolean;
+  onRaw: (raw: boolean) => void;
+}) {
+  const t = useT();
+  const { toast } = useToast();
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const sorted = useMemo(() => {
+    const rest = files.filter((f) => f !== 'SKILL.md').sort((a, b) => a.localeCompare(b));
+    return ['SKILL.md', ...rest];
+  }, [files]);
+  const requested = searchParams.get('file');
+  const selected = requested && sorted.includes(requested) ? requested : 'SKILL.md';
+  const line = Number(searchParams.get('line')) || 0;
+
+  const fileQuery = useQuery({
+    queryKey: ['skill-file', resource.flatName, selected],
+    queryFn: () => api.getSkillFile(resource.flatName, selected),
+    enabled: selected !== 'SKILL.md',
+  });
+  const content = selected === 'SKILL.md' ? skillMd : fileQuery.data?.content;
+  const markdown = isMarkdown(selected);
+  // A line link (from an audit finding) only makes sense in the raw view
+  const showRaw = !markdown || raw || line > 0;
+  const setView = (next: boolean) => {
+    onRaw(next);
+    if (!next && line > 0) navigate(tabSearch('files', { file: selected }), { replace: true });
+  };
+
+  // Folder rows are emitted once, the first time a file inside them appears
+  const tree: { path: string; label: string; depth: number; folder: boolean }[] = [];
+  const seen = new Set<string>();
+  for (const path of sorted) {
+    const parts = path.split('/');
+    for (let i = 0; i < parts.length - 1; i++) {
+      const dir = parts.slice(0, i + 1).join('/');
+      if (!seen.has(dir)) {
+        seen.add(dir);
+        tree.push({ path: dir, label: parts[i], depth: i, folder: true });
+      }
+    }
+    tree.push({ path, label: parts[parts.length - 1], depth: parts.length - 1, folder: false });
+  }
+
+  const copyPath = () => {
+    void navigator.clipboard?.writeText(`${resource.sourcePath}/${selected}`);
+    toast(t('skillEditor.toast.pathCopied'), 'info');
+  };
+
+  return (
+    <div className="grid grid-cols-[240px_minmax(0,1fr)] items-start gap-6">
+      <div className="flex flex-col gap-0.5">
+        {tree.map((row) => {
+          const Icon = row.folder ? Folder : row.label.endsWith('.md') ? FileText : CODE_EXT.test(row.label) ? FileCode2 : File;
+          const inner = (
+            <>
+              <Icon size={15} className="shrink-0" />
+              <span className="truncate font-mono text-[13px]">{row.label}</span>
+            </>
+          );
+          const style = { paddingLeft: 10 + row.depth * 20 };
+          return row.folder
+            ? <div key={row.path} className="ss-nv" style={style}>{inner}</div>
+            : <Link key={row.path} to={tabSearch('files', { file: row.path })} replace className={`ss-nv ${row.path === selected ? 'on' : ''}`} style={style}>{inner}</Link>;
+        })}
+        <p className="ml-2.5 mt-3 text-xs text-ink-3">
+          {t(sorted.length === 1 ? 'resourceDetail.meta.file' : 'resourceDetail.meta.files', { count: sorted.length })}
+        </p>
+      </div>
+      {/* The viewer stays in view while a long file list scrolls the page. The offsets keep it clear of the
+          fixed account avatar (top right) and the scroll-to-top button (bottom right) */}
+      <div className="sticky top-20 flex h-[calc(100vh-160px)] min-h-[360px] min-w-0 flex-col gap-2.5">
+        <div className="flex min-h-8 items-center justify-between gap-3">
+          <span className="truncate font-mono text-[13px] font-semibold">{selected}</span>
+          <div className="flex shrink-0 items-center gap-2">
+            {markdown && content !== undefined && <ViewToggle raw={showRaw} onChange={setView} />}
+            <Button variant="ghost" size="sm" onClick={copyPath}>
+              <Copy size={14} />
+              {t('skillEditor.copyPath')}
+            </Button>
+          </div>
+        </div>
+        {fileQuery.error ? (
+          <div className="ss-note bad"><TriangleAlert size={16} /><div className="flex-1">{fileQuery.error.message}</div></div>
+        ) : content === undefined ? (
+          <div className="ss-code grid min-h-0 flex-1 place-items-center"><Spinner /></div>
+        ) : content.includes('\u0000') ? (
+          <div className="ss-note"><File size={16} /><div className="flex-1">{t('resourceDetail.files.binary')}</div></div>
+        ) : showRaw ? (
+          <CodeView content={content} lang={selected} line={line} className="min-h-0 flex-1" />
+        ) : (
+          <div className="ss-box min-h-0 flex-1 overflow-auto !shadow-none !px-7 !py-6">
+            <MarkdownView size="lg" components={components}>{content}</MarkdownView>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* -- Audit ---------------------------------------- */
+
+function AuditTab({ query, files, tabSearch }: {
+  query: UseQueryResult<{ result: AuditResult }>;
+  files: string[];
+  tabSearch: (tab: Tab, extra?: Record<string, string | number>) => string;
+}) {
+  const t = useT();
+  const { locale } = useI18n();
+  const { toast } = useToast();
+  const [toggled, setToggled] = useState<Set<number>>(new Set());
+  const [rescanning, setRescanning] = useState(false);
+
+  if (query.isPending) return <div className="grid min-h-40 place-items-center"><Spinner /></div>;
+  if (query.error) {
+    return <div className="ss-note bad"><TriangleAlert size={16} /><div className="flex-1">{query.error.message}</div></div>;
+  }
+
+  const { findings, threshold, isBlocked } = query.data.result;
+  const rescanNow = async () => {
+    setRescanning(true);
+    // A scan usually takes milliseconds and returns the same result, so hold the spinner and report the outcome
+    const [res] = await Promise.all([query.refetch(), new Promise((r) => window.setTimeout(r, 600))]);
+    setRescanning(false);
+    if (res.error) {
+      toast(res.error.message, 'error');
+      return;
+    }
+    const count = res.data?.result.findings.length ?? 0;
+    const key = count === 0 ? 'rescanClean' : count === 1 ? 'rescanFinding' : 'rescanFindings';
+    toast(t(`resourceDetail.audit.${key}`, { count }), count === 0 ? 'success' : 'warning');
+  };
+  const busy = rescanning || query.isFetching;
+  const rescan = (
+    <Button variant="secondary" size="sm" loading={busy} onClick={rescanNow}>
+      {!busy && <RefreshCw size={14} />}
+      {t('resourceDetail.audit.scanAgain')}
+    </Button>
+  );
+  const scanned = t('resourceDetail.audit.scanned', { time: formatRelativeTime(query.dataUpdatedAt, locale), threshold });
+
+  if (findings.length === 0) {
+    return <EmptyState icon={ShieldCheck} title={t('resourceDetail.audit.noFindings')} description={scanned} action={rescan} />;
+  }
+
+  const sorted = [...findings].sort((a, b) => SEV_RANK[a.severity] - SEV_RANK[b.severity]);
+  // At or above the block threshold starts open; toggling flips that default
+  const defaultOpen = (i: number) => i === 0 || SEV_RANK[sorted[i].severity] <= (SEV_RANK[threshold.toUpperCase()] ?? -1);
+  const flip = (i: number) => setToggled((prev) => {
+    const next = new Set(prev);
+    if (!next.delete(i)) next.add(i);
+    return next;
+  });
+
+  return (
+    <>
+      {isBlocked && (
+        <div className="ss-note bad">
+          <ShieldAlert size={16} />
+          <div className="flex-1">{t('resourceDetail.audit.blocked', { threshold })}</div>
+          {rescan}
+        </div>
+      )}
+      <div className="ss-list">
+        {sorted.map((f, i) => {
+          const open = defaultOpen(i) !== toggled.has(i);
+          const where = [f.file && (f.line ? `${f.file}:${f.line}` : f.file), f.ruleId && t('resourceDetail.audit.rule', { id: f.ruleId })].filter(Boolean).join(' · ');
+          return (
+            <div key={i} className="ss-r !items-start !py-3.5">
+              <button type="button" aria-expanded={open} className="flex min-w-0 flex-1 cursor-pointer items-start gap-3 text-left" onClick={() => flip(i)}>
+                <span className="w-[74px] shrink-0 pt-px"><span className={`ss-sev ${SEV[f.severity]}`}>{f.severity}</span></span>
+                <span className="flex min-w-0 flex-1 flex-col gap-2">
+                  <span className="font-semibold">{f.message}</span>
+                  {open && f.snippet && (
+                    <span className="ss-code block !overflow-x-auto !py-2.5">
+                      {f.line > 0 && <span className="ln">{f.line}</span>}
+                      {f.snippet}
+                    </span>
+                  )}
+                  {where && <span className="truncate font-mono text-xs text-ink-3">{where}</span>}
+                </span>
+                {!open && <ChevronDown size={16} className="mt-0.5 shrink-0 text-ink-3" />}
+              </button>
+              {open && files.includes(f.file) && (
+                <Link to={tabSearch('files', { file: f.file, ...(f.line ? { line: f.line } : {}) })} className="ss-btn sm">
+                  {t('resourceDetail.audit.openFile')}
+                </Link>
+              )}
+            </div>
+          );
+        })}
+      </div>
+      <div className="flex items-center gap-3">
+        <p className="flex-1 text-[13px] text-ink-3">{scanned}</p>
+        {!isBlocked && rescan}
+      </div>
+    </>
+  );
+}
+
+/* -- Dialogs -------------------------------------- */
+
+function BlockedDialog({ name, message, loading, onSkip, onClose }: {
+  name: string;
+  message: string;
+  loading: boolean;
+  onSkip: () => void;
+  onClose: () => void;
+}) {
+  const t = useT();
+  const findings = parseFindings(message.split('\n'), false);
+  const threshold = thresholdOf(message);
+  const title = t('resourceDetail.blocked.title');
+  return (
+    <DialogShell open onClose={onClose} padding="none" className="!max-w-[560px]" ariaLabel={title} preventClose={loading}>
+      <div className="dh">
+        <div className="flex flex-col gap-1">
+          <h2 className="ss-h2">{title}</h2>
+          <p className="font-mono text-[13px] text-ink-2">{name}</p>
+        </div>
+        <button type="button" className="ss-ib" aria-label={t('common.close')} onClick={onClose} disabled={loading}><X size={16} /></button>
+      </div>
+      <div className="db">
+        <div className="ss-note bad">
+          <TriangleAlert size={16} />
+          <div className="flex-1">
+            <b>{t('resourceDetail.blocked.notApplied')}</b>{' '}
+            {threshold ? t('resourceDetail.blocked.reason', { threshold }) : t('resourceDetail.blocked.reasonNoThreshold')}
+          </div>
+        </div>
+        {findings.length > 0 && <FindingList findings={findings} header={t('resourceDetail.blocked.findings')} showName={false} />}
+        <p className="text-[13px] text-ink-2">{t('resourceDetail.blocked.skipPrompt')}</p>
+      </div>
+      <div className="df">
+        <Button variant="danger" loading={loading} onClick={onSkip}>{t('resourceDetail.blocked.skipAuditAndUpdate')}</Button>
+        <span className="flex-1" />
+        <Button variant="primary" onClick={onClose} disabled={loading}>{t('resourceDetail.blocked.keep')}</Button>
+      </div>
+    </DialogShell>
   );
 }

@@ -1,86 +1,103 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { X } from 'lucide-react';
+import { RotateCcw, X } from 'lucide-react';
 import { mcpApi } from '../../api/mcp';
-import Badge from '../Badge';
+import AgentIcon from '../AgentIcon';
 import Button from '../Button';
 import DialogShell from '../DialogShell';
-import IconButton from '../IconButton';
 import Spinner from '../Spinner';
 import { formatDateTime, useI18n } from '../../i18n';
-import AgentIcon from '../AgentIcon';
-import { backupTime, dayLabel, describeMessage, groupBackupsByDay, statusVariant } from './mcpView';
+import { shortenHome } from '../../lib/paths';
+import { backupTime, describeMessage } from './mcpView';
 
 interface Props {
   backups: { id: string; target: string; path: string }[];
   onClose: () => void;
-  onRestored: (backups: string[]) => void;
+  onRestored: () => void;
 }
 
 export default function MCPRestoreDialog({ backups, onClose, onRestored }: Props) {
   const { t, locale } = useI18n();
-  const [expanded, setExpanded] = useState('');
+  const [selected, setSelected] = useState(backups[0]?.id ?? '');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  const preview = useQuery({ queryKey: ['mcp-restore-preview', expanded], queryFn: () => mcpApi.previewRestore(expanded), enabled: Boolean(expanded), gcTime: 0 });
+  const preview = useQuery({ queryKey: ['mcp-restore-preview', selected], queryFn: () => mcpApi.previewRestore(selected), enabled: Boolean(selected), gcTime: 0, retry: false });
+  const conflict = preview.data?.changes.find((c) => c.action === 'conflict');
+  const title = t('mcp.backups');
 
   const restore = async () => {
     if (!preview.data) return;
-    setBusy(true); setError('');
-    try { onRestored((await mcpApi.restore(expanded, preview.data.revision)).backupIds ?? []); }
-    catch (e) { setError(e instanceof Error ? e.message : t('common.error.generic')); }
-    finally { setBusy(false); }
+    setBusy(true);
+    setError('');
+    try {
+      await mcpApi.restore(selected, preview.data.revision);
+      onRestored();
+    } catch (e) {
+      setError((e as Error).message);
+      setBusy(false);
+    }
   };
 
-  return <DialogShell open onClose={onClose} preventClose={busy} maxWidth="2xl" ariaLabel={t('mcp.backups')}>
-    <div className="space-y-5">
-      <div className="flex items-start justify-between gap-3">
-        <div className="space-y-1">
-          <h2 className="text-xl font-semibold">{t('mcp.backups')}</h2>
-          <p className="text-sm text-pencil-light">{t('mcp.backupsHint')}</p>
+  return (
+    <DialogShell open onClose={onClose} padding="none" preventClose={busy} ariaLabel={title} className="!max-w-[680px]">
+      <div className="dh">
+        <div className="flex flex-col gap-1">
+          <h2 className="ss-h2">{title}</h2>
+          <p className="text-[13px] text-ink-2">{t('mcp.backupsHint')}</p>
         </div>
-        <IconButton icon={<X size={16} strokeWidth={2.5} />} label={t('common.close')} disabled={busy} onClick={onClose} />
+        <button type="button" className="ss-ib" aria-label={t('common.close')} onClick={onClose} disabled={busy}><X size={16} /></button>
       </div>
-      {error || preview.error ? <p role="alert" className="text-sm text-danger">{error || preview.error?.message}</p> : null}
-      <div className="space-y-5 max-h-[65vh] overflow-auto">
-        {groupBackupsByDay(backups).map(day => {
-          const label = dayLabel(day.date, locale);
-          return <section key={label} aria-label={label} className="space-y-2">
-            <h3 className="text-xs font-medium text-pencil-light">{label}</h3>
-            <ul className="space-y-2">
-              {day.backups.map(backup => {
-                const open = expanded === backup.id;
-                return <li key={backup.id} className={`border rounded-[var(--radius-md)] overflow-hidden ${open ? 'border-pencil ring-1 ring-pencil' : 'border-muted'}`}>
-                  <div className="flex flex-wrap items-center gap-3 px-3 py-2.5">
-                    <span className="min-w-12 shrink-0 whitespace-nowrap font-semibold tabular-nums">{formatDateTime(backupTime(backup.id), locale, { hour: '2-digit', minute: '2-digit' })}</span>
-                    <span className="w-24 inline-flex items-center gap-1.5 font-semibold"><AgentIcon target={backup.target} />{backup.target}</span>
-                    <span className="flex-1 min-w-0 font-mono text-xs text-pencil-light truncate" title={backup.path}>{backup.path}</span>
-                    <Button size="sm" variant={open ? 'ghost' : 'secondary'} aria-expanded={open} disabled={busy} onClick={() => setExpanded(open ? '' : backup.id)}>
-                      {open ? t('mcp.collapse') : t('mcp.previewRestore')}
-                    </Button>
-                  </div>
-                  {open ? <div className="space-y-3 px-3 py-3 bg-paper border-t border-dashed border-pencil-light/30">
-                    {preview.isPending ? <Spinner size="sm" /> : preview.data ? <>
-                      <p className="text-sm">{t('mcp.restoreHint')}</p>
-                      <ul className="space-y-1.5">
-                        {preview.data.changes.map(change => <li key={change.name} className="flex flex-wrap items-center gap-2">
-                          <Badge size="md" variant={statusVariant[change.action]}>{t(`mcp.status.${change.action}`)}</Badge>
-                          <span className="font-medium">{change.name}</span>
-                          {change.message ? <span className="text-sm text-pencil-light">{describeMessage(t, change.message)}</span> : null}
-                        </li>)}
-                      </ul>
-                      <div className="flex flex-wrap items-center justify-between gap-2">
-                        <span className="font-mono text-[11px] text-pencil-light">{t('mcp.backupId')} {backup.id}</span>
-                        <Button size="sm" loading={busy} disabled={preview.data.blocked} onClick={restore}>{t('mcp.restoreFile')}</Button>
-                      </div>
-                    </> : null}
-                  </div> : null}
-                </li>;
-              })}
-            </ul>
-          </section>;
-        })}
+      <div className="db">
+        <div role="radiogroup" aria-label={title} className="ss-list max-h-[40vh] overflow-auto !shadow-none">
+          {backups.map((b) => {
+            const on = b.id === selected;
+            return (
+              <button
+                key={b.id}
+                type="button"
+                role="radio"
+                aria-checked={on}
+                className={`ss-r w-full !min-h-[46px] text-left ${on ? 'sel' : ''}`}
+                onClick={() => setSelected(b.id)}
+                disabled={busy}
+              >
+                <span className={`ss-chk rad ${on ? 'on' : ''}`} />
+                <span className="ss-at"><AgentIcon target={b.target} size={17} /></span>
+                <span className="flex min-w-0 flex-1 flex-col gap-px">
+                  <span className="truncate font-mono text-[13px]" title={b.path}>{shortenHome(b.path)}</span>
+                  <span className={`text-xs ${on && conflict ? 'text-warn' : 'text-ink-3'}`}>
+                    {formatDateTime(backupTime(b.id), locale, { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                    {on && conflict && ` · ${describeMessage(t, conflict.message)}`}
+                  </span>
+                </span>
+              </button>
+            );
+          })}
+        </div>
+        <div className="ss-fld">
+          <span className="text-[13px] font-semibold">{t('mcp.restorePreview')}</span>
+          {preview.isPending ? (
+            <Spinner size="sm" />
+          ) : preview.error || error ? (
+            <div className="ss-note bad" role="alert"><span className="flex-1">{error || preview.error?.message}</span></div>
+          ) : (
+            <div className="ss-code">
+              {preview.data?.changes.map((c) => (
+                <span key={c.name} className={`block ${c.action === 'conflict' ? 'del' : ''}`}>{`${c.action.padEnd(9)} ${c.name}`}</span>
+              ))}
+            </div>
+          )}
+          <span className="hp">{t('mcp.restoreHint')}</span>
+        </div>
       </div>
-    </div>
-  </DialogShell>;
+      <div className="df">
+        <span className="flex-1" />
+        <Button variant="ghost" onClick={onClose} disabled={busy}>{t('common.close')}</Button>
+        <Button variant="primary" loading={busy} disabled={!preview.data || preview.data.blocked} onClick={restore}>
+          <RotateCcw size={15} />
+          {t('mcp.restoreFile')}
+        </Button>
+      </div>
+    </DialogShell>
+  );
 }

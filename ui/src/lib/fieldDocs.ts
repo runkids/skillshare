@@ -16,7 +16,7 @@ export const fieldDocs: Record<string, FieldDoc> = {
   },
   'mcp.targets': {
     description: 'Default MCP clients. Individual servers can override this list.',
-    type: 'string[]', example: 'targets: [claude, codex, cursor, vscode, opencode, grok]',
+    type: 'string[]', example: 'targets: [claude, codex, cursor, vscode, opencode, grok, antigravity]',
   },
   'mcp.servers': {
     description: 'Named MCP connections. Names such as docs are your own labels, not built-in services. Each connection needs a command or a URL.',

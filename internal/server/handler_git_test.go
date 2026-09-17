@@ -357,3 +357,129 @@ func TestHandleGitCommit_DryRun_DoesNotUntrackConfig(t *testing.T) {
 		t.Error("dry-run must not untrack config.yaml, but it is no longer tracked")
 	}
 }
+
+func TestHandlePush_CleanTreePushesUnpushedCommits(t *testing.T) {
+	s, src := newTestServer(t)
+	initServerGitRepo(t, src)
+	remote := filepath.Join(t.TempDir(), "remote.git")
+	testutil.RunGit(t, "", "init", "--bare", remote)
+	testutil.RunGit(t, src, "remote", "add", "origin", remote)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/push", strings.NewReader(`{}`))
+	rr := httptest.NewRecorder()
+	s.handler.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rr.Code, rr.Body.String())
+	}
+	branch := testutil.RunGit(t, src, "rev-parse", "--abbrev-ref", "HEAD")
+	if got, want := testutil.RunGit(t, remote, "rev-parse", branch), testutil.RunGit(t, src, "rev-parse", "HEAD"); got != want {
+		t.Fatalf("remote %s = %s, want local HEAD %s", branch, got, want)
+	}
+}
+
+func TestHandlePull_ReportsPulledCommits(t *testing.T) {
+	s, src := newTestServer(t)
+	initServerGitRepo(t, src)
+	remote := filepath.Join(t.TempDir(), "remote.git")
+	testutil.RunGit(t, "", "init", "--bare", remote)
+	testutil.RunGit(t, src, "remote", "add", "origin", remote)
+	testutil.RunGit(t, src, "push", "-u", "origin", "HEAD")
+
+	other := filepath.Join(t.TempDir(), "other")
+	testutil.RunGit(t, "", "clone", remote, other)
+	testutil.ConfigureGitUser(t, other)
+	addSkill(t, other, "remote-skill")
+	testutil.RunGit(t, other, "add", "-A")
+	testutil.RunGit(t, other, "commit", "-m", "add remote skill")
+	testutil.RunGit(t, other, "push", "origin", "HEAD")
+
+	req := httptest.NewRequest(http.MethodPost, "/api/pull", strings.NewReader(`{}`))
+	rr := httptest.NewRecorder()
+	s.handler.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rr.Code, rr.Body.String())
+	}
+	var resp struct {
+		Commits []map[string]string `json:"commits"`
+	}
+	if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+	if len(resp.Commits) != 1 || resp.Commits[0]["message"] != "add remote skill" {
+		t.Fatalf("expected the pulled commit with lowercase JSON keys, got %s", rr.Body.String())
+	}
+}
+
+// pushRemoteFile commits a file from a separate clone of remote, as another machine would.
+func pushRemoteFile(t *testing.T, remote, rel, content string) {
+	t.Helper()
+	other := filepath.Join(t.TempDir(), "other")
+	testutil.RunGit(t, "", "clone", remote, other)
+	testutil.ConfigureGitUser(t, other)
+	if err := os.MkdirAll(filepath.Dir(filepath.Join(other, rel)), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(other, rel), []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	testutil.RunGit(t, other, "add", "-A")
+	testutil.RunGit(t, other, "commit", "-m", "add "+rel)
+	testutil.RunGit(t, other, "push", "origin", "HEAD")
+}
+
+func postPull(s *Server, body string) *httptest.ResponseRecorder {
+	req := httptest.NewRequest(http.MethodPost, "/api/pull", strings.NewReader(body))
+	rr := httptest.NewRecorder()
+	s.handler.ServeHTTP(rr, req)
+	return rr
+}
+
+func TestHandlePull_FirstPullConflictCanBeForced(t *testing.T) {
+	s, src := newTestServer(t)
+	initServerGitRepo(t, src)
+	addSkill(t, src, "shared")
+	testutil.RunGit(t, src, "add", "-A")
+	testutil.RunGit(t, src, "commit", "-m", "local skill")
+	remote := filepath.Join(t.TempDir(), "remote.git")
+	testutil.RunGit(t, "", "init", "--bare", remote)
+	pushRemoteFile(t, remote, "shared/SKILL.md", "# remote version\n")
+	testutil.RunGit(t, src, "remote", "add", "origin", remote)
+
+	if rr := postPull(s, `{}`); rr.Code != http.StatusConflict || !strings.Contains(rr.Body.String(), `"merge_failed"`) {
+		t.Fatalf("expected 409 merge_failed, got %d: %s", rr.Code, rr.Body.String())
+	}
+	if rr := postPull(s, `{"force":true}`); rr.Code != http.StatusOK {
+		t.Fatalf("expected force pull to succeed, got %d: %s", rr.Code, rr.Body.String())
+	}
+	if got, _ := os.ReadFile(filepath.Join(src, "shared", "SKILL.md")); string(got) != "# remote version\n" {
+		t.Fatalf("expected the remote file after force pull, got %q", got)
+	}
+}
+
+func TestHandlePull_ExtrasScopeSyncsExtras(t *testing.T) {
+	s, src := newTestServer(t)
+	extrasDir := filepath.Join(filepath.Dir(src), "extras")
+	targetDir := t.TempDir()
+	cfg := "git_root: extras\nsource: " + src + "\nmode: merge\ntargets: {}\nextras:\n  - name: rules\n    targets:\n      - path: " + targetDir + "\n"
+	if err := os.WriteFile(config.ConfigPath(), []byte(cfg), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(extrasDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	initServerGitRepo(t, extrasDir)
+	remote := filepath.Join(t.TempDir(), "remote.git")
+	testutil.RunGit(t, "", "init", "--bare", remote)
+	testutil.RunGit(t, extrasDir, "remote", "add", "origin", remote)
+	testutil.RunGit(t, extrasDir, "push", "-u", "origin", "HEAD")
+	pushRemoteFile(t, remote, "rules/team.md", "# team rule\n")
+
+	if rr := postPull(s, `{}`); rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rr.Code, rr.Body.String())
+	}
+	if _, err := os.Lstat(filepath.Join(targetDir, "team.md")); err != nil {
+		t.Fatalf("expected the pulled extra synced to its target: %v", err)
+	}
+}

@@ -1,5 +1,6 @@
 import { render, screen, cleanup } from '@testing-library/react';
 import { afterEach, expect, it } from 'vitest';
+import { I18nProvider } from '../../i18n';
 import FieldDocs from './FieldDocs';
 import { fieldDocs } from '../../lib/fieldDocs';
 
@@ -14,7 +15,7 @@ it.each([
   ['mcp.servers.docs.headers.Authorization.fromEnv', 'mcp.servers.headers.fromEnv'],
   ['mcp.servers.docs.bearerToken.fromEnv', 'mcp.servers.bearerToken.fromEnv'],
 ])('documents %s', (path, key) => {
-  render(<FieldDocs fieldPath={path} />);
+  render(<I18nProvider><FieldDocs fieldPath={path} /></I18nProvider>);
   expect(screen.getByText(fieldDocs[key].description)).toBeTruthy();
   expect(screen.queryByText('Unknown field')).toBeNull();
 });

@@ -27,7 +27,13 @@ func (s *Service) nativePath(target string) (string, error) {
 	if !validTarget(target) {
 		return "", fmt.Errorf("unsupported MCP target %q", target)
 	}
+	if format, ok := clientFormats[target]; ok {
+		return s.additionalClientPath(target, format)
+	}
 	if s.ProjectRoot != "" {
+		if target == "antigravity" {
+			return filepath.Join(s.ProjectRoot, ".agents", "mcp_config.json"), nil
+		}
 		if target == "opencode" {
 			return openCodePath(s.ProjectRoot)
 		}
@@ -56,6 +62,8 @@ func (s *Service) nativePath(target string) (string, error) {
 		return filepath.Join(dir, file), nil
 	}
 	switch target {
+	case "antigravity":
+		return filepath.Join(home, ".gemini", "config", "mcp_config.json"), nil
 	case "grok":
 		return filepath.Join(home, ".grok", "config.toml"), nil
 	case "opencode":
@@ -160,7 +168,7 @@ func (s *Service) ClientPaths() map[string]string {
 // ConfigDirsFromEnv reads the Agent directory overrides Agents themselves honor.
 func ConfigDirsFromEnv() map[string]string {
 	dirs := map[string]string{}
-	for key, env := range map[string]string{"codex": "CODEX_HOME", "claude": "CLAUDE_CONFIG_DIR", "grok": "GROK_HOME", "xdg": "XDG_CONFIG_HOME", "appdata": "APPDATA"} {
+	for key, env := range map[string]string{"codex": "CODEX_HOME", "claude": "CLAUDE_CONFIG_DIR", "grok": "GROK_HOME", "copilot": "COPILOT_HOME", "xdg": "XDG_CONFIG_HOME", "appdata": "APPDATA"} {
 		if value := strings.TrimSpace(os.Getenv(env)); value != "" {
 			dirs[key] = value
 		}

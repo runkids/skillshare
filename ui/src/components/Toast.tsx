@@ -1,6 +1,5 @@
 import { createContext, useContext, useState, useCallback, useRef, useEffect, type ReactNode } from 'react';
 import { X, CheckCircle, AlertTriangle, XCircle, Info } from 'lucide-react';
-import { shadows } from '../design';
 
 interface Toast {
   id: number;
@@ -35,18 +34,12 @@ const icons = {
   info: Info,
 };
 
-const typeStyles = {
-  success: 'bg-success-light border-success text-success',
-  error: 'bg-danger-light border-danger text-danger',
-  warning: 'bg-warning-light border-warning text-warning',
-  info: 'bg-info-light border-blue text-blue',
-};
-
-const progressColors = {
-  success: 'bg-success',
-  error: 'bg-danger',
-  warning: 'bg-warning',
-  info: 'bg-blue',
+// The toast is always dark, so icon colours are fixed light tones rather than theme tokens.
+const iconColors = {
+  success: 'text-[#8FD6A4]',
+  error: 'text-[#FF9C8F]',
+  warning: 'text-[#FFD37A]',
+  info: 'text-[#A9C8FF]',
 };
 
 const TOAST_DURATION = 4000;
@@ -92,34 +85,26 @@ function ToastItem({
 
   return (
     <div
-      className={`
-        ss-toast
-        relative flex items-start gap-3 px-4 py-3 border-2 text-base overflow-hidden
-        rounded-[var(--radius-sm)]
-        ${exiting ? 'animate-toast-out' : 'animate-fade-in'}
-        ${typeStyles[t.type]}
-      `}
-      style={{
-        boxShadow: shadows.md,
-      }}
+      className={`ss-toast relative !flex !h-auto min-h-[42px] !items-start py-2.5 overflow-hidden ${exiting ? 'animate-toast-out' : 'animate-fade-in'}`}
       onMouseEnter={() => { setPaused(true); pauseTimer(); }}
       onMouseLeave={() => { setPaused(false); startTimer(); }}
     >
-      <Icon size={18} strokeWidth={2.5} className="shrink-0 mt-0.5" />
+      <Icon size={16} className={`shrink-0 mt-px ${iconColors[t.type]}`} />
       <div className="flex-1 min-w-0">
         {t.title && <p className="font-bold break-words leading-snug">{t.title}</p>}
-        <span className="block whitespace-pre-line break-words leading-relaxed">{t.message}</span>
+        <span className="block whitespace-pre-line break-words leading-normal">{t.message}</span>
       </div>
       <button
         onClick={() => startExit()}
-        className="shrink-0 opacity-60 hover:opacity-100 transition-opacity"
+        type="button"
+        className="shrink-0 grid place-items-center w-6 h-6 -my-0.5 rounded-md opacity-60 hover:opacity-100 hover:bg-white/10 cursor-pointer"
       >
-        <X size={16} strokeWidth={2.5} />
+        <X size={14} />
       </button>
       {/* Progress bar */}
-      <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-black/5">
+      <div className="absolute bottom-0 left-0 right-0 h-0.5">
         <div
-          className={`h-full ${progressColors[t.type]}`}
+          className="h-full bg-white/25"
           style={{
             animation: paused ? 'none' : `toastProgress ${duration}ms linear forwards`,
           }}
@@ -145,7 +130,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     <ToastContext.Provider value={{ toast: addToast }}>
       {children}
       {/* Toast container */}
-      <div data-toast-container className="fixed bottom-6 right-6 z-[60] flex flex-col gap-3 w-[min(32rem,calc(100vw-3rem))]">
+      <div data-toast-container className="fixed bottom-7 left-1/2 -translate-x-1/2 z-[70] flex flex-col items-center gap-2 w-[min(36rem,calc(100vw-3rem))]">
         {toasts.map((t) => (
           <ToastItem key={t.id} toast={t} onRemove={removeToast} />
         ))}

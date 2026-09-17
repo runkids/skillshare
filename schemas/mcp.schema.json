@@ -7,7 +7,7 @@
   "additionalProperties": false,
   "properties": {"servers": {"$ref": "#/$defs/servers"}},
   "$defs": {
-    "targets": {"type": "array", "uniqueItems": true, "items": {"enum": ["claude", "codex", "cursor", "vscode", "opencode", "grok"]}},
+    "targets": {"type": "array", "uniqueItems": true, "items": {"enum": ["claude", "codex", "cursor", "vscode", "opencode", "grok", "antigravity", "amp", "claude-desktop", "cline", "copilot", "factory", "gemini", "goose", "junie", "kiro", "lmstudio", "warp", "windsurf"]}},
     "reference": {
       "type": "object", "required": ["fromEnv"], "additionalProperties": false,
       "properties": {"fromEnv": {"type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"}}

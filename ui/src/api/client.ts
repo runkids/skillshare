@@ -251,6 +251,10 @@ export const api = {
     }
     return res;
   },
+  previewSkill: (data: Omit<CreateSkillRequest, 'scaffoldDirs'>) =>
+    apiFetch<{ content: string; path: string }>(
+      `/resources/templates/preview?${new URLSearchParams(Object.entries(data).filter(([, v]) => v) as [string, string][])}`,
+    ),
   createSkill: (data: CreateSkillRequest) =>
     apiFetch<CreateSkillResponse>('/resources', {
       method: 'POST',
@@ -484,6 +488,12 @@ export const api = {
 
   // Config
   getConfig: () => apiFetch<{ config: unknown; raw: string }>('/config'),
+  /** Settings the Settings page owns; the rest of config.yaml stays untouched. */
+  patchConfig: (body: { mode?: string; logMaxEntries?: number }) =>
+    apiFetch<{ mode: string; logMaxEntries: number | null }>('/config', {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    }),
   putConfig: (raw: string) =>
     apiFetch<ConfigSaveResponse>('/config', {
       method: 'PUT',
@@ -636,6 +646,18 @@ export const api = {
       method: 'POST',
     }),
   getCompiledRules: () => apiFetch<CompiledRulesResponse>('/audit/rules/compiled'),
+  /** Severity at which install and sync refuse a resource. */
+  setAuditThreshold: (blockThreshold: string) =>
+    apiFetch<AuditPolicy>('/audit/policy', {
+      method: 'PATCH',
+      body: JSON.stringify({ blockThreshold }),
+    }),
+  /** Preset for how strict a scan is: default, strict, or permissive. */
+  setAuditProfile: (profile: string) =>
+    apiFetch<AuditPolicy>('/audit/policy', {
+      method: 'PATCH',
+      body: JSON.stringify({ profile }),
+    }),
   toggleRule: (req: { id?: string; pattern?: string; enabled: boolean; severity?: string }) =>
     apiFetch<{ success: boolean }>('/audit/rules/toggle', {
       method: 'POST',
@@ -675,7 +697,8 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(opts),
     }),
-  pull: (opts?: { dryRun?: boolean }) =>
+  /** force replaces local files with the remote when a first pull cannot merge (error code merge_failed). */
+  pull: (opts?: { dryRun?: boolean; force?: boolean }) =>
     apiFetch<PullResponse>('/pull', {
       method: 'POST',
       body: JSON.stringify(opts ?? {}),
@@ -724,6 +747,8 @@ export interface Overview {
   trackedRepos: TrackedRepo[];
   isProjectMode: boolean;
   projectRoot?: string;
+  /** Folder holding config.yaml */
+  configDir: string;
 }
 
 export interface VersionCheck {
@@ -773,6 +798,9 @@ export interface CreateSkillRequest {
   name: string;
   pattern: string;
   category?: string;
+  description?: string;
+  /** Folder under the source to create the skill in */
+  into?: string;
   scaffoldDirs?: string[];
 }
 
@@ -1121,6 +1149,8 @@ export interface GitStatus {
   headHash?: string;
   headMessage?: string;
   trackingBranch?: string;
+  /** Commits no remote-tracking branch has yet (what a push uploads); 0 without a remote. */
+  ahead: number;
   // Root-scope hazards (populated only when scope === 'root').
   nestedRepos: string[];
   configTracked: boolean;
@@ -1154,6 +1184,7 @@ export interface PullResponse {
   syncResults: SyncResult[];
   dryRun?: boolean;
   message?: string;
+  warnings?: string[];
 }
 
 // Log types
@@ -1270,6 +1301,13 @@ export interface PatternGroup {
 export interface CompiledRulesResponse {
   rules: CompiledRule[];
   patterns: PatternGroup[];
+  /** Preset the scan runs under: default, strict, or permissive. */
+  profile: string;
+}
+
+export interface AuditPolicy {
+  threshold: string;
+  profile: string;
 }
 
 // Doctor health check types

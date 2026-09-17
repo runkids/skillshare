@@ -479,6 +479,22 @@ func (s *Server) handleExtrasCreate(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, map[string]any{"success": true, "name": body.Name})
 }
 
+type extraTargetSyncResult struct {
+	Target   string   `json:"target"`
+	Mode     string   `json:"mode"`
+	Synced   int      `json:"synced"`
+	Skipped  int      `json:"skipped"`
+	Pruned   int      `json:"pruned"`
+	Errors   []string `json:"errors,omitempty"`
+	Error    string   `json:"error,omitempty"`
+	Warnings []string `json:"warnings,omitempty"`
+}
+
+type extraSyncResult struct {
+	Name    string                  `json:"name"`
+	Targets []extraTargetSyncResult `json:"targets"`
+}
+
 // handleExtrasSync — POST /api/extras/sync
 func (s *Server) handleExtrasSync(w http.ResponseWriter, r *http.Request) {
 	start := time.Now()
@@ -494,7 +510,28 @@ func (s *Server) handleExtrasSync(w http.ResponseWriter, r *http.Request) {
 	}
 
 	s.mu.RLock()
-	extras := s.extrasConfig()
+	results := s.syncExtras(body.Name, body.DryRun, body.Force)
+	s.mu.RUnlock()
+
+	if body.Name != "" && len(results) == 0 {
+		writeError(w, http.StatusNotFound, "extra not found: "+body.Name)
+		return
+	}
+
+	s.writeOpsLog("extras-sync", "ok", start, map[string]any{
+		"name":   body.Name,
+		"dryRun": body.DryRun,
+		"force":  body.Force,
+		"count":  len(results),
+		"scope":  "ui",
+	}, "")
+
+	writeJSON(w, map[string]any{"extras": results})
+}
+
+// syncExtras syncs every extra (or only the one named) into its targets.
+// Per-target failures are reported in the results. Callers must hold s.mu.
+func (s *Server) syncExtras(name string, dryRun, force bool) []extraSyncResult {
 	projectRoot := s.projectRoot
 	source := s.cfg.EffectiveSkillsSource()
 	extrasSource := s.cfg.EffectiveExtrasSource()
@@ -502,30 +539,13 @@ func (s *Server) handleExtrasSync(w http.ResponseWriter, r *http.Request) {
 	if s.IsProjectMode() {
 		projectExtrasParent = s.projectCfg.EffectiveExtrasSource(s.projectRoot)
 	}
-	s.mu.RUnlock()
-
-	type targetSyncResult struct {
-		Target   string   `json:"target"`
-		Mode     string   `json:"mode"`
-		Synced   int      `json:"synced"`
-		Skipped  int      `json:"skipped"`
-		Pruned   int      `json:"pruned"`
-		Errors   []string `json:"errors,omitempty"`
-		Error    string   `json:"error,omitempty"`
-		Warnings []string `json:"warnings,omitempty"`
-	}
-	type extraSyncResult struct {
-		Name    string             `json:"name"`
-		Targets []targetSyncResult `json:"targets"`
-	}
 
 	results := make([]extraSyncResult, 0)
 
-	for _, extra := range extras {
-		if body.Name != "" && extra.Name != body.Name {
+	for _, extra := range s.extrasConfig() {
+		if name != "" && extra.Name != name {
 			continue
 		}
-
 		var sourceDir string
 		if projectRoot != "" {
 			sourceDir = config.ExtrasSourceDirProject(projectExtrasParent, extra.Name)
@@ -540,13 +560,13 @@ func (s *Server) handleExtrasSync(w http.ResponseWriter, r *http.Request) {
 
 		result := extraSyncResult{
 			Name:    extra.Name,
-			Targets: make([]targetSyncResult, 0, len(extra.Targets)),
+			Targets: make([]extraTargetSyncResult, 0, len(extra.Targets)),
 		}
 
 		for _, t := range extra.Targets {
 			m := syncpkg.EffectiveMode(t.Mode)
 
-			tr := targetSyncResult{
+			tr := extraTargetSyncResult{
 				Target: t.Path,
 				Mode:   m,
 				Errors: []string{},
@@ -577,7 +597,7 @@ func (s *Server) handleExtrasSync(w http.ResponseWriter, r *http.Request) {
 			}
 
 			targetPath := resolveExtrasTargetPath(projectRoot, t.Path)
-			res, err := syncpkg.SyncExtra(sourceDir, targetPath, m, body.DryRun, body.Force, t.Flatten, projectRoot, spec)
+			res, err := syncpkg.SyncExtra(sourceDir, targetPath, m, dryRun, force, t.Flatten, projectRoot, spec)
 			if err != nil {
 				tr.Error = err.Error()
 			} else {
@@ -597,20 +617,7 @@ func (s *Server) handleExtrasSync(w http.ResponseWriter, r *http.Request) {
 		results = append(results, result)
 	}
 
-	if body.Name != "" && len(results) == 0 {
-		writeError(w, http.StatusNotFound, "extra not found: "+body.Name)
-		return
-	}
-
-	s.writeOpsLog("extras-sync", "ok", start, map[string]any{
-		"name":   body.Name,
-		"dryRun": body.DryRun,
-		"force":  body.Force,
-		"count":  len(results),
-		"scope":  "ui",
-	}, "")
-
-	writeJSON(w, map[string]any{"extras": results})
+	return results
 }
 
 // handleExtrasMode — PATCH /api/extras/{name}/mode

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useLayoutEffect, useState } from 'react';
+import { Fragment, useEffect, useRef, useLayoutEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Check, ChevronRight, Target } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
@@ -27,14 +27,13 @@ export interface ContextMenuItem {
   onSelect?: () => void;
   /** Submenu items — hover/click to expand. Mutually exclusive with `onSelect` */
   items?: ContextMenuSubItem[];
+  /** Destructive action: red text, separated from the items above. */
+  danger?: boolean;
 }
 
 /* ------------------------------------------------------------------ */
 /*  SkillContextMenu — extensible right-click / action menu           */
 /*                                                                    */
-/*  Uses ss-context-menu CSS class for theme integration:             */
-/*  - Default theme: radius-lg + subtle shadow                        */
-/*  - Playful theme: wobble border-radius + hard offset shadow        */
 /* ------------------------------------------------------------------ */
 
 interface SkillContextMenuProps {
@@ -103,7 +102,6 @@ export function SkillContextMenu({
   // propagate to underlying Links — first click only dismisses the menu.
   return createPortal(
     <>
-      {/* Dismiss overlay — blocks click-through to Links/cards beneath */}
       <div
         className="fixed inset-0 z-[99]"
         onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); onClose(); }}
@@ -111,18 +109,13 @@ export function SkillContextMenu({
       />
       <div
         ref={menuRef}
-        className="ss-context-menu fixed z-[100] min-w-[11rem] bg-surface/95 backdrop-blur-sm border-2 border-pencil/80 py-1.5 text-sm"
-        style={{
-          top: position.top,
-          left: position.left,
-          borderRadius: 'var(--radius-lg)',
-          boxShadow: 'var(--shadow-lg)',
-        }}
+        className="ss-menu fixed z-[100] !w-auto min-w-[190px] max-h-[70vh] overflow-y-auto animate-dropdown-in"
+        style={{ top: position.top, left: position.left }}
         role="menu"
       >
         {items.map((item, i) => (
-          <div key={item.key}>
-            {i > 0 && <div className="border-t border-dashed border-muted-dark/40 my-1 mx-2" />}
+          <Fragment key={item.key}>
+            {item.danger && !items[i - 1]?.danger && i > 0 && <hr />}
             {item.items ? (
               <SubmenuTrigger
                 item={item}
@@ -134,20 +127,17 @@ export function SkillContextMenu({
               />
             ) : (
               <button
-                className="ss-context-menu-item w-full px-3 py-1.5 cursor-pointer flex items-center gap-2.5 hover:bg-muted/60 text-left text-pencil"
+                type="button"
+                className={item.danger ? 'dng' : ''}
                 role="menuitem"
                 onMouseDown={(e) => { e.preventDefault(); item.onSelect?.(); onClose(); }}
                 onMouseEnter={() => setExpandedKey(null)}
               >
-                {item.icon && (
-                  <span className="ss-context-menu-icon w-4 shrink-0 flex items-center justify-center text-pencil-light">
-                    {item.icon}
-                  </span>
-                )}
-                <span className="font-medium">{item.label}</span>
+                {item.icon && <span className="w-4 shrink-0 flex items-center justify-center">{item.icon}</span>}
+                {item.label}
               </button>
             )}
-          </div>
+          </Fragment>
         ))}
       </div>
     </>,
@@ -174,7 +164,7 @@ function SubmenuTrigger({
   onClose: () => void;
   parentMenuRef: React.RefObject<HTMLDivElement | null>;
 }) {
-  const triggerRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
   const [subPos, setSubPos] = useState<{ top: number; left: number } | null>(null);
 
   // Position submenu relative to trigger + parent
@@ -209,15 +199,10 @@ function SubmenuTrigger({
 
   return (
     <>
-      {/* Trigger row */}
-      <div
+      <button
+        type="button"
         ref={triggerRef}
-        className={`
-          ss-context-menu-item w-full px-3 py-1.5 cursor-pointer
-          flex items-center gap-2.5 text-left text-pencil
-          transition-colors duration-100
-          ${expanded ? 'bg-muted/60' : 'hover:bg-muted/60'}
-        `}
+        className={expanded ? 'hv' : ''}
         role="menuitem"
         aria-haspopup="true"
         aria-expanded={expanded}
@@ -225,41 +210,29 @@ function SubmenuTrigger({
         onMouseLeave={handleLeave}
         onClick={handleEnter}
       >
-        {item.icon && (
-          <span className="ss-context-menu-icon w-4 shrink-0 flex items-center justify-center text-pencil-light">
-            {item.icon}
-          </span>
-        )}
-        <span className="flex-1 font-medium">{item.label}</span>
-        <ChevronRight size={12} strokeWidth={2.5} className="text-pencil-light shrink-0" />
-      </div>
+        {item.icon && <span className="w-4 shrink-0 flex items-center justify-center">{item.icon}</span>}
+        <span className="flex-1">{item.label}</span>
+        <ChevronRight size={14} className="shrink-0 text-ink-3" />
+      </button>
 
       {/* Submenu panel — portaled to body to escape parent's transform containing block */}
       {expanded && subPos && createPortal(
         <div
-          className="ss-context-menu ss-context-submenu fixed z-[101] min-w-[10rem] bg-surface/95 backdrop-blur-sm border-2 border-pencil/80 py-1.5 text-sm"
-          style={{
-            top: subPos.top,
-            left: subPos.left,
-            borderRadius: 'var(--radius-lg)',
-            boxShadow: 'var(--shadow-lg)',
-            maxHeight: '16rem',
-            overflowY: 'auto',
-          }}
+          className="ss-menu fixed z-[101] !w-auto min-w-[176px] max-h-64 overflow-y-auto"
+          style={{ top: subPos.top, left: subPos.left }}
           role="menu"
           onMouseEnter={handleSubEnter}
           onMouseLeave={handleSubLeave}
         >
           {item.items?.map((sub) => (
             <button
+              type="button"
               key={sub.key}
-              className="ss-context-menu-item w-full px-3 py-1.5 cursor-pointer flex items-center gap-2 hover:bg-muted/60 text-left text-pencil"
-              role="menuitem"
+              role="menuitemradio"
+              aria-checked={!!sub.selected}
               onMouseDown={(e) => { e.preventDefault(); sub.onSelect(); onClose(); }}
             >
-              <span className="w-4 shrink-0 flex items-center justify-center">
-                {sub.selected && <Check size={12} strokeWidth={2.5} className="text-pencil" />}
-              </span>
+              <span className="w-4 shrink-0 flex items-center justify-center">{sub.selected && <Check size={14} />}</span>
               <span className={sub.selected ? 'font-semibold' : ''}>{sub.label}</span>
             </button>
           ))}
@@ -282,6 +255,8 @@ interface TargetMenuProps {
   label?: string;
   /** Additional flat action items appended after the target submenu (e.g. Uninstall). */
   extraItems?: ContextMenuItem[];
+  /** List the targets directly instead of behind an "Available in" submenu. */
+  flat?: boolean;
   onSelect: (target: string | null) => void;
   anchorPoint?: { x: number; y: number };
   open: boolean;
@@ -294,6 +269,7 @@ export default function TargetMenu({
   showTargets = true,
   label = 'Available in...',
   extraItems,
+  flat = false,
   onSelect,
   anchorPoint,
   open,
@@ -312,28 +288,24 @@ export default function TargetMenu({
   const targets = (availableData?.targets ?? []).filter((t) => t.installed);
   const isAllSelected = isUniform && (!currentTargets || currentTargets.length === 0);
 
-  const items: ContextMenuItem[] = [];
-  if (showTargets) {
-    items.push({
-      key: 'set-target',
-      label,
-      icon: <Target size={13} strokeWidth={2.5} />,
-      items: [
-        {
-          key: '__all__',
-          label: t('targetMenu.allTargets'),
-          selected: isAllSelected,
-          onSelect: () => onSelect(null),
-        },
-        ...targets.map((t) => ({
-          key: t.name,
-          label: t.name,
-          selected: isUniform && currentTargets?.length === 1 && currentTargets[0] === t.name,
-          onSelect: () => onSelect(t.name),
-        })),
-      ],
-    });
-  }
+  const targetItems: ContextMenuSubItem[] = [
+    {
+      key: '__all__',
+      label: t('targetMenu.allTargets'),
+      selected: isAllSelected,
+      onSelect: () => onSelect(null),
+    },
+    ...targets.map((t) => ({
+      key: t.name,
+      label: t.name,
+      selected: isUniform && currentTargets?.length === 1 && currentTargets[0] === t.name,
+      onSelect: () => onSelect(t.name),
+    })),
+  ];
+
+  const items: ContextMenuItem[] = flat
+    ? targetItems.map((sub) => ({ key: sub.key, label: sub.label, icon: sub.selected ? <Check size={14} /> : <span />, onSelect: sub.onSelect }))
+    : showTargets ? [{ key: 'set-target', label, icon: <Target size={14} />, items: targetItems }] : [];
   items.push(...(extraItems ?? []));
 
   if (items.length === 0) return null;

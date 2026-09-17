@@ -76,23 +76,29 @@ skillshare ui start --clear-cache
 
 ## Dashboard Pages
 
+The sidebar groups pages by task: syncing, what you manage, where it goes, and upkeep. The line under the name shows the mode and its folder, such as `Global · ~/.config/skillshare`.
+
+Some pages show a count in the sidebar when they need attention. The counts refresh every 15 seconds while the dashboard tab is open:
+
+- **Sync**: changes a sync would apply
+- **Git Sync**: uncommitted files, or commits not pushed yet when the tree is clean
+- **Audit**: skills and agents blocked by the last scan (shown after you run one)
+
 | Page | Description |
 |------|-------------|
-| **Dashboard** | Overview cards — skill count, target count, sync mode, version |
-| **Skills** | Searchable skill grid with metadata. Toggle between **Grid** and **Grouped** (by directory) views. Click to view SKILL.md content. **"+ New Skill"** button opens the creation wizard |
-| **New Skill** | Step-by-step wizard to create a skill: Name → Pattern → Category → Scaffold → Confirm. Accessible via the **"+ New Skill"** button on the Skills page |
-| **Install** | Install from local path, git URL, or GitHub shorthand |
-| **Targets** | Target list with status badges. Add/remove targets |
-| **Sync** | Sync controls with scope selector (Skills / Agents / Both), dry-run toggle, and diff preview with kind-separated summary |
-| **Collect** | Scan targets and collect selected skills back to source. Agent collect remains CLI-only. |
-| **Backup** | View backup list, restore snapshots, and clean up entries |
-| **Git Sync** | Commit locally, push/pull source repo with dirty-state checks, dry-run previews, and force pull |
-| **Search** | GitHub skill search with one-click install |
-| **Audit** | Security scan all skills, view findings by severity |
-| **Audit Rules** | Create and edit custom `audit-rules.yaml` with YAML editor |
-| **Trash** | View soft-deleted skills, restore or permanently delete |
-| **Log** | Operations and audit logs with command/status/time filters |
-| **Config** | YAML config editor + `.skillignore` editor (tab switching) |
+| **Dashboard** | Counts for skills, agents, extras, MCP servers, and targets, plus items that need attention |
+| **Sync** | Preview every change per target before writing. Choose which parts to include (Skills, Agents, Extras, MCP). Files edited inside a target are kept unless **Force** is on. Items that exist only in a target can be collected back to source from here. Each sync backs up target folders first |
+| **Git Sync** | Commit and push the source repo, push commits that aren't on the remote yet, and pull. Pull syncs what the repo scope holds (`skills`, `agents`, `extras`, or `root`), like [`pull`](/docs/reference/commands/pull). When a first pull can't merge with the remote, it offers a force pull that replaces local files with the remote branch |
+| **Skills** / **Agents** | Installed items, the **Updates** tab, and the **Trash** tab. Skills also have an **Analyze** tab that estimates how many tokens each skill adds to a target's context. **Install** searches GitHub or installs from a URL or path. **+ New Skill** opens the creation wizard |
+| **Extras** | Rules, commands, and other folders synced alongside skills |
+| **MCP** | MCP servers and the targets they sync to |
+| **Targets** | Target list with status. Each target's page edits include/exclude filters and collects local-only skills back to source |
+| **Audit** | Security scan of skills and agents, with findings by severity. The **Rules** tab browses every rule by category: switch one off, change its severity, apply a severity to a whole category, pick the scan profile (`default`, `strict`, `permissive`), or open the editor for custom `audit-rules.yaml` |
+| **Settings** | Tabbed: **General** (source paths, sync mode, appearance), **Backup** (snapshots and restore), **Log** (operation history), **Health** (the same checks as [`doctor`](/docs/reference/commands/doctor)), **Extensions** (sync-time file transforms), **Files** (direct editors for `config.yaml`, `.skillignore`, and `.agentignore`) |
+
+Old links such as `/collect`, `/install`, `/search`, `/trash`, `/analyze`, `/backup`, `/log`, and `/doctor` redirect to their new place.
+
+The **Files** tab puts a panel beside the editor. For `config.yaml` it shows what the field under the cursor does, the file's structure, and the unsaved changes; for the ignore files it lists what the patterns currently hide. `Cmd+S` / `Ctrl+S` saves. The rules editor under **Audit -> Rules -> Edit YAML** has the same panel plus a **Test** tab that runs a rule's regex against lines you paste.
 
 ### Theme System
 
@@ -109,11 +115,12 @@ Theme preferences persist in localStorage across sessions.
 
 When running in project mode (`-p`), the dashboard adapts:
 
-- **"Project" badge** in the sidebar indicates project mode
+- **Sidebar** shows `Project · <project path>` under the name
 - **Git Sync page** is hidden (project skills use the project's own git)
-- **Backup & Restore page** is hidden (use version control instead)
+- **Sync** backs up agent target folders only, like `skillshare sync -p`
+- **Backup tab** is hidden in Settings (use version control instead)
 - **Tracked Repos section** is hidden from Dashboard (not applicable)
-- **Config page** shows `.skillshare/config.yaml` and project-level `.skillignore` instead of the global versions
+- **Settings -> Files** shows `.skillshare/config.yaml` and the project-level `.skillignore` instead of the global versions
 - **Available targets** lists project-level targets (e.g., `.claude/skills/` relative to project root)
 - **Install** automatically reconciles `skills:` entries in the project config
 
@@ -134,7 +141,7 @@ The web dashboard exposes a REST API at `/api/`. All endpoints return JSON.
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/api/overview` | Skill/target counts, mode, version |
+| GET | `/api/overview` | Skill/target counts, mode, version, config folder (`configDir`) |
 | GET | `/api/skills` | List all skills with metadata |
 | GET | `/api/skills/{name}` | Skill detail + SKILL.md content |
 | GET | `/api/skills/templates` | Get available patterns and categories for skill creation |
@@ -143,8 +150,11 @@ The web dashboard exposes a REST API at `/api/`. All endpoints return JSON.
 | GET | `/api/targets` | List targets with status, include/exclude filters, and per-target expected counts |
 | POST | `/api/targets` | Add a target |
 | DELETE | `/api/targets/{name}` | Remove a target |
-| POST | `/api/sync` | Run sync (supports `dryRun`, `force`, `kind`) |
+| POST | `/api/sync` | Run sync (supports `dryRun`, `force`, `kind`). Backs up targets first unless `dryRun` is set |
 | POST | `/api/git/commit` | Create a local git commit from the source repo without pushing |
+| GET | `/api/git/status` | Source repo status, including commits not pushed yet (`ahead`) |
+| POST | `/api/push` | Commit any changes, then push. Sets the upstream on the first push |
+| POST | `/api/pull` | Pull, then sync what the repo scope holds. When a first pull can't merge, it fails with error code `merge_failed`; retry with `force: true` to replace local files with the remote branch |
 | GET | `/api/diff` | Diff between source and targets |
 | GET | `/api/search?q=` | Search GitHub for skills |
 | POST | `/api/install` | Install a skill from source |
@@ -152,6 +162,10 @@ The web dashboard exposes a REST API at `/api/`. All endpoints return JSON.
 | GET | `/api/audit/rules` | Get custom audit rules YAML |
 | PUT | `/api/audit/rules` | Save custom audit rules (validates regex) |
 | POST | `/api/audit/rules` | Create starter audit-rules.yaml |
+| GET | `/api/audit/rules/compiled` | Every rule after merging built-ins with custom rules, plus the active profile |
+| POST | `/api/audit/rules/toggle` | Enable, disable, or re-rate a rule or a whole pattern |
+| POST | `/api/audit/rules/reset` | Delete custom rules and restore the built-in defaults |
+| PATCH | `/api/audit/policy` | Set `blockThreshold`, `profile`, or both |
 | GET | `/api/log` | List log entries with optional filters |
 | GET | `/api/config` | Get config as YAML |
 | PUT | `/api/config` | Update config YAML |

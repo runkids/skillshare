@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"slices"
 	"time"
 
 	"skillshare/internal/audit"
@@ -499,6 +500,67 @@ func boolToInt(v bool) int {
 	return 0
 }
 
+var auditProfiles = []string{string(audit.ProfileDefault), string(audit.ProfileStrict), string(audit.ProfilePermissive)}
+
+// handleAuditPolicy — PATCH /api/audit/policy
+// Sets the severity at which install and sync refuse a resource, and the profile
+// that presets how strict a scan is. Each field is optional; only what is sent changes.
+func (s *Server) handleAuditPolicy(w http.ResponseWriter, r *http.Request) {
+	start := time.Now()
+
+	var body struct {
+		BlockThreshold string `json:"blockThreshold"`
+		Profile        string `json:"profile"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body: "+err.Error())
+		return
+	}
+	if body.BlockThreshold == "" && body.Profile == "" {
+		writeError(w, http.StatusBadRequest, "blockThreshold or profile is required")
+		return
+	}
+	var threshold string
+	if body.BlockThreshold != "" {
+		var err error
+		if threshold, err = audit.NormalizeThreshold(body.BlockThreshold); err != nil {
+			writeError(w, http.StatusBadRequest, "invalid blockThreshold: "+err.Error())
+			return
+		}
+	}
+	if body.Profile != "" && !slices.Contains(auditProfiles, body.Profile) {
+		writeError(w, http.StatusBadRequest, "invalid profile: "+body.Profile)
+		return
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	cfg := &s.cfg.Audit
+	if s.IsProjectMode() {
+		cfg = &s.projectCfg.Audit
+	}
+	if threshold != "" {
+		cfg.BlockThreshold = threshold
+	}
+	if body.Profile != "" {
+		cfg.Profile = body.Profile
+	}
+	if err := s.saveConfig(); err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to save config: "+err.Error())
+		return
+	}
+
+	args := map[string]any{"scope": "ui"}
+	if threshold != "" {
+		args["block_threshold"] = threshold
+	}
+	if body.Profile != "" {
+		args["profile"] = body.Profile
+	}
+	s.writeOpsLog("audit-policy", "ok", start, args, "")
+	writeJSON(w, map[string]any{"threshold": cfg.BlockThreshold, "profile": cfg.Profile})
+}
+
 func (s *Server) auditPolicy() audit.Policy {
 	var in audit.PolicyInputs
 	in.ConfigThreshold = s.cfg.Audit.BlockThreshold
@@ -619,9 +681,14 @@ func (s *Server) handleGetCompiledRules(w http.ResponseWriter, r *http.Request) 
 	// Snapshot config under RLock, then release before I/O.
 	s.mu.RLock()
 	projectRoot := s.projectRoot
+	auditCfg := s.cfg.Audit
+	if s.IsProjectMode() {
+		auditCfg = s.projectCfg.Audit
+	}
 	s.mu.RUnlock()
 
 	isProjectMode := projectRoot != ""
+	policy := audit.ResolvePolicy(audit.PolicyInputs{ConfigProfile: auditCfg.Profile, ConfigThreshold: auditCfg.BlockThreshold, ConfigDedupe: auditCfg.DedupeMode})
 
 	var rules []audit.CompiledRule
 	var err error
@@ -640,6 +707,7 @@ func (s *Server) handleGetCompiledRules(w http.ResponseWriter, r *http.Request) 
 	writeJSON(w, map[string]any{
 		"rules":    rules,
 		"patterns": patterns,
+		"profile":  string(policy.Profile),
 	})
 }
 

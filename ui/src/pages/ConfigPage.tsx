@@ -1,35 +1,39 @@
-import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Save, FileCode, Settings, EyeOff, RefreshCw, PanelRightOpen, Puzzle, FolderOpen, Download, Check, Trash2 } from 'lucide-react';
+import { Save, FileCode, Info, RefreshCw, FileCog, FolderOpen, Download } from 'lucide-react';
 import { useT } from '../i18n';
 import CodeMirror from '@uiw/react-codemirror';
 import { yaml } from '@codemirror/lang-yaml';
 import { EditorView, keymap } from '@codemirror/view';
 import { linter, lintGutter } from '@codemirror/lint';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import type { SkillignoreResponse, AgentignoreResponse, ExtensionInfo } from '../api/client';
+import type { ExtensionInfo } from '../api/client';
 import type { ValidationError } from '../hooks/useYamlValidation';
 import { useYamlValidation } from '../hooks/useYamlValidation';
 import { useLineDiff, computeSimpleChangeCount } from '../hooks/useLineDiff';
 import { useCursorField } from '../hooks/useCursorField';
-import Card from '../components/Card';
 import Button from '../components/Button';
-import Badge from '../components/Badge';
 import PageHeader from '../components/PageHeader';
-import SegmentedControl from '../components/SegmentedControl';
 import { PageSkeleton } from '../components/Skeleton';
 import { useToast } from '../components/Toast';
 import AssistantPanel from '../components/config/AssistantPanel';
-import IconButton from '../components/IconButton';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { api } from '../api/client';
 import { queryKeys, staleTimes } from '../lib/queryKeys';
 import { useAppContext } from '../context/AppContext';
 import { handTheme } from '../lib/codemirror-theme';
 import SyncPreviewModal from '../components/SyncPreviewModal';
+import { SettingsTabs } from './SettingsPage';
 import { formatYaml } from '../lib/formatYaml';
+import { shortenHome } from '../lib/paths';
 
 type ConfigTab = 'config' | 'skillignore' | 'agentignore' | 'extensions';
+
+const FILES: { value: ConfigTab; label: string }[] = [
+  { value: 'config', label: 'config.yaml' },
+  { value: 'skillignore', label: '.skillignore' },
+  { value: 'agentignore', label: '.agentignore' },
+];
 
 export default function ConfigPage() {
   const t = useT();
@@ -45,13 +49,15 @@ export default function ConfigPage() {
       ? requested
       : 'config';
   });
+  const overview = useQuery({ queryKey: queryKeys.overview, queryFn: () => api.getOverview(), staleTime: staleTimes.overview });
+  const configDir = overview.data?.configDir;
+  const urlTab = searchParams.get('tab');
+  useEffect(() => {
+    setTab(urlTab === 'extensions' || urlTab === 'skillignore' || urlTab === 'agentignore' ? urlTab : 'config');
+  }, [urlTab]);
   const [showSyncBanner, setShowSyncBanner] = useState(false);
   const [showSyncPreview, setShowSyncPreview] = useState(false);
   const editorRef = useRef<EditorView | null>(null);
-  const [panelCollapsed, setPanelCollapsed] = useState(() => {
-    try { return localStorage.getItem('config-panel-collapsed') === 'true'; }
-    catch { return false; }
-  });
   const [showDiscardDialog, setShowDiscardDialog] = useState(false);
   const [pendingTab, setPendingTab] = useState<ConfigTab | null>(null);
   const [showRevertDialog, setShowRevertDialog] = useState(false);
@@ -114,7 +120,7 @@ export default function ConfigPage() {
   // Assistant panel hooks
   const { errors: yamlErrors } = useYamlValidation(raw);
   const { fieldPath, cursorLine, extension: cursorExtension } = useCursorField();
-  const { diff, changeCount } = useLineDiff(configData?.raw ?? '', raw, !panelCollapsed);
+  const { diff, changeCount } = useLineDiff(configData?.raw ?? '', raw, true);
 
   // Linter reads errors from ref to stay stable
   const errorsRef = useRef<ValidationError[]>([]);
@@ -192,6 +198,7 @@ export default function ConfigPage() {
       toast(t('config.skillignore.savedSuccess'), 'success');
       setIgnoreDirty(false);
       queryClient.invalidateQueries({ queryKey: queryKeys.skillignore });
+      queryClient.invalidateQueries({ queryKey: queryKeys.diff() });
       queryClient.invalidateQueries({ queryKey: queryKeys.overview });
       queryClient.invalidateQueries({ queryKey: queryKeys.skills.all });
       queryClient.invalidateQueries({ queryKey: queryKeys.doctor });
@@ -239,6 +246,7 @@ export default function ConfigPage() {
       toast(t('config.agentignore.savedSuccess'), 'success');
       setAgentIgnoreDirty(false);
       queryClient.invalidateQueries({ queryKey: queryKeys.agentignore });
+      queryClient.invalidateQueries({ queryKey: queryKeys.diff() });
       queryClient.invalidateQueries({ queryKey: queryKeys.overview });
       queryClient.invalidateQueries({ queryKey: queryKeys.skills.all });
       queryClient.invalidateQueries({ queryKey: queryKeys.doctor });
@@ -254,27 +262,17 @@ export default function ConfigPage() {
   const activeSaving = tab === 'config' ? saving : tab === 'skillignore' ? ignoreSaving : tab === 'agentignore' ? agentIgnoreSaving : false;
   const handleSave = tab === 'config' ? handleConfigSave : tab === 'skillignore' ? handleIgnoreSave : tab === 'agentignore' ? handleAgentIgnoreSave : () => {};
   saveRef.current = handleSave;
+  const activeChangeCount = tab === 'config' ? changeCount : tab === 'skillignore' ? ignoreChangeCount : agentIgnoreChangeCount;
+  const dirtyOf = (file: ConfigTab) => (file === 'config' ? dirty : file === 'skillignore' ? ignoreDirty : agentIgnoreDirty);
 
-  // --- panel toggle + Cmd+B ---
-  const togglePanel = useCallback(() => {
-    setPanelCollapsed(prev => {
-      const next = !prev;
-      try { localStorage.setItem('config-panel-collapsed', String(next)); }
-      catch { /* ignore */ }
-      return next;
-    });
-  }, []);
-
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === 'b') {
-        e.preventDefault();
-        togglePanel();
-      }
-    };
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
-  }, [togglePanel]);
+  // What the editor edits, and the line under it that says what the side panel is for.
+  const ignoreHint = (data?: { exists: boolean }, fileName?: string, itemLabel?: string) =>
+    data && !data.exists ? t('config.ignore.createHint', { fileName, itemLabel }) : t('config.panel.ignoreHint');
+  const editor = tab === 'skillignore'
+    ? { value: ignoreRaw, onChange: handleIgnoreChange, extensions: ignoreExtensions, hint: ignoreHint(ignoreData, '.skillignore', 'skill') }
+    : tab === 'agentignore'
+      ? { value: agentIgnoreRaw, onChange: handleAgentIgnoreChange, extensions: ignoreExtensions, hint: ignoreHint(agentIgnoreData, '.agentignore', 'agent') }
+      : { value: raw, onChange: handleConfigChange, extensions: yamlExtensions, hint: t('config.saveShortcutHint') };
 
   // --- dirty state guard for tab switch ---
   const handleTabChange = (newTab: ConfigTab) => {
@@ -310,238 +308,106 @@ export default function ConfigPage() {
   if (isPending) return <PageSkeleton />;
   if (error) {
     return (
-      <Card variant="accent" className="text-center py-8">
-        <p className="text-danger text-lg">
-          {t('config.errorLoading', { file: tab === 'config' ? 'config' : tab === 'skillignore' ? '.skillignore' : '.agentignore' })}
-        </p>
-        <p className="text-pencil-light text-sm mt-1">{error.message}</p>
-      </Card>
+      <div className="ss-note bad">
+        <span className="flex-1">
+          {t('config.errorLoading', { file: tab === 'config' ? 'config' : tab === 'skillignore' ? '.skillignore' : '.agentignore' })} {error.message}
+        </span>
+      </div>
     );
   }
 
   return (
-    <div className="animate-fade-in">
-      {/* Header */}
+    <div className="ss-wrap animate-fade-in">
       <PageHeader
-        icon={<Settings size={24} strokeWidth={2.5} />}
-        title={t('config.title')}
-        subtitle={isProjectMode ? t('config.subtitle.project') : t('config.subtitle.global')}
-        actions={
-          tab === 'extensions' ? undefined : (
-            <>
-              {activeDirty && (
-                <span
-                  className="text-sm text-warning px-2 py-1 bg-warning-light rounded-full border border-warning"
-                >
-                  {t('config.unsavedChanges')}
-                </span>
-              )}
-              <Button
-                onClick={handleSave}
-                disabled={activeSaving || !activeDirty}
-                variant="primary"
-                size="sm"
-              >
-                <Save size={16} strokeWidth={2.5} />
-                {activeSaving ? t('config.saving') : t('config.save')}
-              </Button>
-            </>
-          )
-        }
+        className="!mb-0"
+        title={t('layout.nav.settings')}
+        subtitle={`${t(isProjectMode ? 'app.project' : 'app.global')}${configDir ? ` · ${shortenHome(configDir)}` : ''}`}
       />
+      <SettingsTabs current={tab === 'extensions' ? 'extensions' : 'files'} />
 
-      <div className="mb-4">
-        <SegmentedControl
-          value={tab}
-          onChange={handleTabChange}
-          options={[
-            { value: 'config' as ConfigTab, label: 'config.yaml' },
-            { value: 'skillignore' as ConfigTab, label: '.skillignore' },
-            { value: 'agentignore' as ConfigTab, label: '.agentignore' },
-            { value: 'extensions' as ConfigTab, label: 'Extensions' },
-          ]}
-        />
-      </div>
+      {tab === 'extensions' ? (
+        <ExtensionsSection isProjectMode={isProjectMode} />
+      ) : (
+        <>
+          <div className="ss-note inf"><Info size={16} /><span className="flex-1">{t('config.filesIntro')}</span></div>
 
-      {showSyncBanner && (
-        <Card className="mb-4 animate-fade-in">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <RefreshCw size={18} strokeWidth={2.5} className="text-blue shrink-0" />
-              <span className="text-pencil">
-                {t('config.banner.message')}
-              </span>
+          {showSyncBanner && (
+            <div className="ss-note inf">
+              <RefreshCw size={16} />
+              <span className="flex-1">{t('config.banner.message')}</span>
+              <Button variant="ghost" size="sm" onClick={() => setShowSyncBanner(false)}>{t('config.banner.dismiss')}</Button>
+              <Button variant="secondary" size="sm" onClick={() => { setShowSyncPreview(true); setShowSyncBanner(false); }}>{t('config.banner.previewSync')}</Button>
             </div>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={() => setShowSyncBanner(false)}
-              >
-                {t('config.banner.dismiss')}
-              </Button>
-              <Button
-                variant="primary"
-                size="sm"
-                onClick={() => {
-                  setShowSyncPreview(true);
-                  setShowSyncBanner(false);
-                }}
-              >
-                {t('config.banner.previewSync')}
-              </Button>
-            </div>
-          </div>
-        </Card>
-      )}
+          )}
 
-      {tab === 'config' && (
-        <div className="flex gap-4">
-          <Card className="flex-[3] min-w-0 transition-[flex] duration-300 ease-in-out">
-            <div className="flex items-center gap-2 mb-3">
-              <FileCode size={16} strokeWidth={2.5} className="text-blue" />
-              <span className="text-base text-pencil-light">
-                {isProjectMode ? '.skillshare/config.yaml' : 'config.yaml'}
-              </span>
-              <span className="flex-1" />
-              {panelCollapsed && (
-                <IconButton
-                  icon={<PanelRightOpen size={14} strokeWidth={2} />}
-                  label={t('config.expandAssistantPanel')}
-                  size="sm"
-                  variant="ghost"
-                  onClick={togglePanel}
-                  className="hidden lg:inline-flex"
+          <div className="grid grid-cols-[190px_minmax(0,1fr)_300px] items-start gap-6">
+            <nav className="flex flex-col" aria-label={t('settings.tab.files')}>
+              {FILES.map(({ value, label }) => (
+                <button
+                  key={value}
+                  type="button"
+                  className={`ss-nv ${tab === value ? 'on' : ''}`}
+                  aria-current={tab === value ? 'page' : undefined}
+                  onClick={() => handleTabChange(value)}
+                >
+                  <FileCode size={15} className="shrink-0" />
+                  <span className="min-w-0 flex-1 truncate font-mono text-[13px]">{label}</span>
+                  {dirtyOf(value) && <span className="n" title={t('config.unsavedChanges')} aria-label={t('config.unsavedChanges')}>•</span>}
+                </button>
+              ))}
+            </nav>
+
+            <div className="flex min-w-0 flex-col gap-3">
+              <div className="ss-code !overflow-hidden !p-0">
+                <CodeMirror
+                  key={tab}
+                  value={editor.value}
+                  onChange={editor.onChange}
+                  extensions={editor.extensions}
+                  theme="none"
+                  height="500px"
+                  onCreateEditor={(view) => { editorRef.current = view; }}
+                  basicSetup={{
+                    lineNumbers: true,
+                    foldGutter: tab === 'config',
+                    highlightActiveLine: true,
+                    highlightSelectionMatches: true,
+                    bracketMatching: tab === 'config',
+                    indentOnInput: tab === 'config',
+                    autocompletion: false,
+                  }}
                 />
-              )}
+              </div>
+              <div className="flex items-center justify-between gap-4">
+                <span className="text-[13px] text-ink-3">{editor.hint}</span>
+                <span className="flex items-center gap-2.5">
+                  <Button variant="ghost" size="sm" onClick={() => setShowRevertDialog(true)} disabled={!activeDirty || activeSaving}>{t('config.revert')}</Button>
+                  <Button variant="primary" size="sm" onClick={handleSave} disabled={activeSaving || !activeDirty}>
+                    <Save size={15} />{activeSaving ? t('config.saving') : t('config.save')}
+                  </Button>
+                </span>
+              </div>
             </div>
-            <div className="min-w-0 -mx-4 -mb-4">
-              <CodeMirror
-                value={raw}
-                onChange={handleConfigChange}
-                extensions={yamlExtensions}
-                theme="none"
-                height="500px"
-                onCreateEditor={(view) => { editorRef.current = view; }}
-                basicSetup={{
-                  lineNumbers: true,
-                  foldGutter: true,
-                  highlightActiveLine: true,
-                  highlightSelectionMatches: true,
-                  bracketMatching: true,
-                  indentOnInput: true,
-                  autocompletion: false,
-                }}
-              />
-            </div>
-          </Card>
 
-          {/* Assistant panel */}
-          <div
-            className={`hidden lg:block min-w-0 transition-all duration-300 ease-in-out ${
-              panelCollapsed ? 'flex-[0] w-0 opacity-0 pointer-events-none overflow-hidden' : 'flex-[2] opacity-100 overflow-visible'
-            }`}
-          >
-            <Card className="!p-0 min-w-0">
+            {/* Sticky: the file can be long, the panel should stay where the eye is */}
+            <div className="sticky top-6">
               <AssistantPanel
-                errors={yamlErrors}
-                changeCount={changeCount}
-                fieldPath={fieldPath}
+                mode={tab}
+                errors={tab === 'config' ? yamlErrors : []}
+                changeCount={activeChangeCount}
+                fieldPath={tab === 'config' ? fieldPath : null}
                 cursorLine={cursorLine}
-                source={raw}
-                diff={diff}
+                source={editor.value}
+                diff={tab === 'config' ? diff : { lines: [], changeCount: 0 }}
                 editorRef={editorRef}
-                collapsed={panelCollapsed}
-                onToggleCollapse={togglePanel}
                 onRevert={() => setShowRevertDialog(true)}
-              />
-            </Card>
-          </div>
-
-        </div>
-      )}
-
-      {tab === 'skillignore' && (
-        <div className="flex gap-4">
-          <div className="flex-[3] min-w-0 transition-[flex] duration-300 ease-in-out">
-            <IgnoreTab
-              kind="skill"
-              data={ignoreData!}
-              raw={ignoreRaw}
-              onChange={handleIgnoreChange}
-              extensions={ignoreExtensions}
-              panelCollapsed={panelCollapsed}
-              onTogglePanel={togglePanel}
-            />
-          </div>
-
-          <div
-            className={`hidden lg:block transition-all duration-300 ease-in-out ${
-              panelCollapsed ? 'flex-[0] w-0 opacity-0 pointer-events-none overflow-hidden' : 'flex-[2] opacity-100 overflow-visible'
-            }`}
-          >
-            <Card className="!p-0 !overflow-visible min-w-[280px]">
-              <AssistantPanel
-                mode="skillignore"
-                errors={[]}
-                changeCount={ignoreChangeCount}
-                fieldPath={null}
-                cursorLine={1}
-                source={ignoreRaw}
-                diff={{ lines: [], changeCount: 0 }}
-                editorRef={editorRef}
-                collapsed={panelCollapsed}
-                onToggleCollapse={togglePanel}
-                onRevert={() => {}}
                 ignoredSkills={ignoreData?.stats?.ignored_skills ?? []}
-              />
-            </Card>
-          </div>
-
-        </div>
-      )}
-
-      {tab === 'agentignore' && (
-        <div className="flex gap-4">
-          <div className="flex-[3] min-w-0 transition-[flex] duration-300 ease-in-out">
-            <IgnoreTab
-              kind="agent"
-              data={agentIgnoreData!}
-              raw={agentIgnoreRaw}
-              onChange={handleAgentIgnoreChange}
-              extensions={ignoreExtensions}
-              panelCollapsed={panelCollapsed}
-              onTogglePanel={togglePanel}
-            />
-          </div>
-
-          <div
-            className={`hidden lg:block transition-all duration-300 ease-in-out ${
-              panelCollapsed ? 'flex-[0] w-0 opacity-0 pointer-events-none overflow-hidden' : 'flex-[2] opacity-100 overflow-visible'
-            }`}
-          >
-            <Card className="!p-0 !overflow-visible min-w-[280px]">
-              <AssistantPanel
-                mode="agentignore"
-                errors={[]}
-                changeCount={agentIgnoreChangeCount}
-                fieldPath={null}
-                cursorLine={1}
-                source={agentIgnoreRaw}
-                diff={{ lines: [], changeCount: 0 }}
-                editorRef={editorRef}
-                collapsed={panelCollapsed}
-                onToggleCollapse={togglePanel}
-                onRevert={() => {}}
                 ignoredAgents={agentIgnoreData?.stats?.ignored_agents ?? []}
               />
-            </Card>
+            </div>
           </div>
-
-        </div>
+        </>
       )}
-
-      {tab === 'extensions' && <ExtensionsSection isProjectMode={isProjectMode} />}
 
       <SyncPreviewModal
         open={showSyncPreview}
@@ -567,84 +433,6 @@ export default function ConfigPage() {
         confirmText={t('config.revert.confirmText')}
         variant="danger"
       />
-    </div>
-  );
-}
-
-function IgnoreTab({
-  kind,
-  data,
-  raw,
-  onChange,
-  extensions,
-  panelCollapsed,
-  onTogglePanel,
-}: {
-  kind: 'skill' | 'agent';
-  data: SkillignoreResponse | AgentignoreResponse;
-  raw: string;
-  onChange: (value: string) => void;
-  extensions: any[];
-  panelCollapsed?: boolean;
-  onTogglePanel?: () => void;
-}) {
-  const t = useT();
-  const stats = data.stats;
-  const fileName = kind === 'skill' ? '.skillignore' : '.agentignore';
-  const itemLabel = kind === 'skill' ? 'skill' : 'agent';
-
-  return (
-    <div className="space-y-4">
-      <Card>
-        <div className="flex items-center gap-2 mb-3">
-          <EyeOff size={16} strokeWidth={2.5} className="text-pencil-light" />
-          <span className="text-base text-pencil-light">
-            {data.path}
-          </span>
-          {stats && stats.ignored_count > 0 && (
-            <span className="text-xs text-pencil-light px-2 py-0.5 bg-muted rounded-full border border-muted-dark">
-              {t('config.ignore.ignoredCount', { count: stats.ignored_count, s: stats.ignored_count !== 1 ? 's' : '' })}
-            </span>
-          )}
-          <span className="flex-1" />
-          {panelCollapsed && onTogglePanel && (
-            <IconButton
-              icon={<PanelRightOpen size={14} strokeWidth={2} />}
-              label={t('config.expandAssistantPanel')}
-              size="sm"
-              variant="ghost"
-              onClick={onTogglePanel}
-              className="hidden lg:inline-flex"
-            />
-          )}
-        </div>
-
-        {!data.exists && (
-          <p className="text-sm text-pencil-light mb-3">
-            {t('config.ignore.createHint', { fileName, itemLabel })}
-          </p>
-        )}
-
-        <div className="min-w-0 -mx-4 -mb-4">
-          <CodeMirror
-            value={raw}
-            onChange={onChange}
-            extensions={extensions}
-            theme="none"
-            height="500px"
-            basicSetup={{
-              lineNumbers: true,
-              foldGutter: false,
-              highlightActiveLine: true,
-              highlightSelectionMatches: true,
-              bracketMatching: false,
-              indentOnInput: false,
-              autocompletion: false,
-            }}
-          />
-        </div>
-      </Card>
-
     </div>
   );
 }
@@ -732,76 +520,52 @@ function ExtensionsSection({ isProjectMode }: { isProjectMode: boolean }) {
 
   return (
     <>
-    <Card>
-      <div className="flex items-center justify-between gap-4 mb-3">
-        <div className="flex items-center gap-2 min-w-0">
-          <Puzzle size={16} strokeWidth={2.5} className="text-blue shrink-0" />
-          <span className="font-bold text-pencil">Extensions</span>
-          <span className="text-xs text-pencil-light font-mono truncate">({dirLabel})</span>
-        </div>
-        <Button variant="secondary" size="sm" onClick={handleOpenDir} loading={opening}>
-          <FolderOpen size={14} strokeWidth={2.5} />
+      <div className="flex items-start justify-between gap-6">
+        <p className="max-w-[720px] text-[13px] leading-relaxed text-ink-2">
+          {t('config.extensions.description', {}, 'Extensions pass each file through a script during sync, so it arrives in the format a tool expects. Install one here, then select it on a target in Extras.')}
+        </p>
+        <Button variant="secondary" onClick={handleOpenDir} loading={opening}>
+          <FolderOpen size={15} />
           {t('config.extensions.openDir', {}, 'Open directory')}
         </Button>
       </div>
 
-      <p className="text-sm text-pencil-light max-w-2xl">
-        {t('config.extensions.description', {}, 'Extensions pipe each file through a script during sync, so you can reshape its content or format for a specific tool — for example, Markdown agents into Codex CLI TOML. Install one below, then select it on a target in Extras.')}
-      </p>
-
-      <div className="border-t border-dashed border-pencil-light/30 my-4" />
-
       {isPending ? (
-        <div className="space-y-1.5">
-          <div className="h-14 rounded-[var(--radius-md)] bg-muted/40 animate-pulse" />
-          <div className="h-14 rounded-[var(--radius-md)] bg-muted/40 animate-pulse" />
-        </div>
+        <PageSkeleton />
       ) : (
-        <div className="space-y-5">
-          <div>
-            <div className="text-xs text-pencil-light uppercase tracking-wider mb-2">
-              {t('config.extensions.installedHeading', {}, 'Installed extensions')} ({installed.length})
+        <div className="flex max-w-[860px] flex-col gap-8">
+          <section>
+            <div className="ss-sec">
+              <h2>{t('config.extensions.installedHeading', {}, 'Installed')}</h2>
+              <span className="ss-cnt">{installed.length}</span>
+              <span className="ml-auto font-mono text-xs text-ink-3">{dirLabel}</span>
             </div>
             {installed.length > 0 ? (
-              <div className="space-y-2">
+              <div className="ss-list">
                 {installed.map((e) => (
-                  <ExtensionItem
-                    key={e.name}
-                    ext={e}
-                    onRemove={() => handleRemove(e)}
-                    removing={removing === e.name}
-                  />
+                  <ExtensionItem key={e.name} ext={e} onRemove={() => handleRemove(e)} removing={removing === e.name} />
                 ))}
               </div>
             ) : (
-              <div className="rounded-[var(--radius-md)] border border-dashed border-pencil-light/30 px-4 py-5 text-center">
-                <p className="text-sm text-pencil-light">
-                  {t('config.extensions.none', {}, 'No extensions installed yet.')}
-                </p>
-              </div>
+              <p className="ss-empty">{t('config.extensions.none', {}, 'No extensions installed yet.')}</p>
             )}
-          </div>
+          </section>
 
           {available.length > 0 && (
-            <div>
-              <div className="text-xs text-pencil-light uppercase tracking-wider mb-2">
-                {t('config.extensions.available', {}, 'Available to download')} ({available.length})
+            <section>
+              <div className="ss-sec">
+                <h2>{t('config.extensions.available', {}, 'Available to download')}</h2>
+                <span className="ss-cnt">{available.length}</span>
               </div>
-              <div className="space-y-2">
+              <div className="ss-list">
                 {available.map((e) => (
-                  <ExtensionItem
-                    key={e.name}
-                    ext={e}
-                    onInstall={() => handleInstall(e.name)}
-                    installing={installing.has(e.name)}
-                  />
+                  <ExtensionItem key={e.name} ext={e} onInstall={() => handleInstall(e.name)} installing={installing.has(e.name)} />
                 ))}
               </div>
-            </div>
+            </section>
           )}
         </div>
       )}
-    </Card>
 
     <ConfirmDialog
       open={removeTarget !== null}
@@ -833,9 +597,7 @@ function ExtensionsSection({ isProjectMode }: { isProjectMode: boolean }) {
   );
 }
 
-// A single extension row-card. Shows an icon, name, optional built-in badge and
-// description. Installed items show a success check; available items show a
-// Download action that triggers `onInstall`.
+// One extension row: name, what it does, and the action for its state.
 function ExtensionItem({
   ext,
   onInstall,
@@ -851,60 +613,25 @@ function ExtensionItem({
 }) {
   const t = useT();
   return (
-    <div
-      className={`flex items-center gap-3 rounded-[var(--radius-md)] border border-muted bg-paper px-3 py-2.5 transition-all duration-150 ${
-        onInstall ? 'hover:border-muted-dark hover:shadow-sm' : ''
-      }`}
-    >
-      <div
-        className={`w-8 h-8 rounded-[var(--radius-sm)] flex items-center justify-center shrink-0 ${
-          ext.installed ? 'bg-success-light' : 'bg-muted/60'
-        }`}
-      >
-        {ext.installed ? (
-          <Check size={16} strokeWidth={2.5} className="text-success" />
-        ) : (
-          <Puzzle size={15} strokeWidth={2.5} className="text-pencil-light" />
-        )}
-      </div>
-
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="font-mono text-sm text-pencil">{ext.name}</span>
-          {ext.builtin && <Badge variant="default">built-in</Badge>}
-        </div>
-        {ext.description && (
-          <p className="text-sm text-pencil-light mt-0.5">{ext.description}</p>
-        )}
-      </div>
-
+    <div className="ss-r">
+      <FileCog size={16} className="shrink-0 text-ink-3" />
+      <span className="flex min-w-0 flex-1 flex-col gap-px">
+        <span className="nm m">{ext.name}</span>
+        {ext.description && <span className="truncate text-[13px] text-ink-2">{ext.description}</span>}
+      </span>
+      {ext.builtin && <span className="ss-tag">built-in</span>}
+      {ext.used_by && ext.used_by.length > 0 && (
+        <span className="ss-tag">{t('config.extensions.usedByBadge', { count: ext.used_by.length }, `in use \u00b7 ${ext.used_by.length}`)}</span>
+      )}
       {onInstall ? (
         <Button variant="secondary" size="sm" onClick={onInstall} loading={installing}>
-          <Download size={14} strokeWidth={2.5} />
+          <Download size={14} />
           {t('config.extensions.download', {}, 'Download')}
         </Button>
       ) : (
-        <div className="flex items-center gap-2 shrink-0">
-          {ext.used_by && ext.used_by.length > 0 && (
-            <Badge variant="default">
-              {t('config.extensions.usedByBadge', { count: ext.used_by.length }, `in use · ${ext.used_by.length}`)}
-            </Badge>
-          )}
-          <span className="text-xs text-success font-medium">
-            {t('config.extensions.installedLabel', {}, 'Installed')}
-          </span>
-          {onRemove && (
-            <IconButton
-              icon={<Trash2 size={15} strokeWidth={2.5} />}
-              label={t('config.extensions.remove', {}, 'Remove')}
-              size="sm"
-              variant="ghost"
-              onClick={onRemove}
-              disabled={removing}
-              className="hover:text-danger"
-            />
-          )}
-        </div>
+        <Button variant="ghost" size="sm" onClick={onRemove} loading={removing}>
+          {t('config.extensions.remove', {}, 'Remove')}
+        </Button>
       )}
     </div>
   );
