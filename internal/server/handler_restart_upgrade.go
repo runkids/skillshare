@@ -174,6 +174,28 @@ func restartRequestAllowed(r *http.Request, serverAddr string) bool {
 	return originOK || fetchSite == "same-origin" || fetchSite == "same-site"
 }
 
+// MCP settings can hold stdio commands an agent runs. DNS rebinding makes Origin
+// match an attacker Host on any bind (0.0.0.0 in Docker included), but it always
+// needs a domain name, so the Host must be localhost or an IP literal.
+func mcpRequestAllowed(r *http.Request, serverAddr string) bool {
+	if !restartRequestAllowed(r, serverAddr) {
+		return false
+	}
+	host, _ := splitHostPortDefault(r.Host)
+	host = strings.TrimSuffix(strings.Trim(host, "[]"), ".")
+	return strings.EqualFold(host, "localhost") || net.ParseIP(host) != nil
+}
+
+func (s *Server) requireLocalMCP(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if !mcpRequestAllowed(r, s.addr) {
+			writeError(w, http.StatusForbidden, "MCP settings are available only when the dashboard is opened by localhost or an IP address, not a domain name")
+			return
+		}
+		next(w, r)
+	}
+}
+
 func requestFromLoopback(r *http.Request) bool {
 	if r.RemoteAddr == "" {
 		return true

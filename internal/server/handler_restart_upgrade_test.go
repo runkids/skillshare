@@ -35,6 +35,39 @@ func TestRestartRequestAllowedRejectsCrossSite(t *testing.T) {
 	}
 }
 
+func TestMCPRequestAllowed(t *testing.T) {
+	tests := []struct {
+		name       string
+		serverAddr string
+		remoteAddr string
+		host       string
+		fetchSite  string
+		want       bool
+	}{
+		{"rebinding host on loopback bind", "127.0.0.1:19420", "127.0.0.1:5555", "attacker.example:19420", "same-origin", false},
+		{"rebinding host on remote bind", "0.0.0.0:19420", "172.17.0.1:5555", "attacker.example:19420", "same-origin", false},
+		{"localhost host", "127.0.0.1:19420", "127.0.0.1:5555", "localhost:5173", "", true},
+		{"localhost trailing dot", "127.0.0.1:19420", "127.0.0.1:5555", "LOCALHOST.:19420", "", true},
+		{"ipv4 loopback host", "127.0.0.1:19420", "127.0.0.1:5555", "127.0.0.1:19420", "", true},
+		{"ipv6 loopback host", "127.0.0.1:19420", "[::1]:5555", "[::1]:19420", "", true},
+		{"lan ip on remote bind", "0.0.0.0:19420", "192.168.1.30:5555", "192.168.1.20:19420", "same-origin", true},
+		{"cross-site fetch", "127.0.0.1:19420", "127.0.0.1:5555", "localhost:19420", "cross-site", false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodGet, "/api/mcp", nil)
+			req.RemoteAddr = tt.remoteAddr
+			req.Host = tt.host
+			if tt.fetchSite != "" {
+				req.Header.Set("Sec-Fetch-Site", tt.fetchSite)
+			}
+			if got := mcpRequestAllowed(req, tt.serverAddr); got != tt.want {
+				t.Fatalf("mcpRequestAllowed = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestHandleUpgradeUsesInjectedRunner(t *testing.T) {
 	old := runUIUpgrade
 	runUIUpgrade = func() (uiUpgradeResult, error) {

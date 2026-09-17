@@ -62,11 +62,19 @@ func TestMCPListIgnoresUnresolvableUnusedTarget(t *testing.T) {
 	}
 }
 
-func TestMCPAPIRequiresPreviewForSync(t *testing.T) {
+func TestMCPRoutesRejectRebindingHost(t *testing.T) {
 	s, _ := newTestServerWithExtras(t, nil, "")
-	w := httptest.NewRecorder()
-	s.handleMCPSync(w, httptest.NewRequest(http.MethodPost, "/api/mcp/sync", strings.NewReader(`{}`)))
-	if w.Code != http.StatusBadRequest {
-		t.Fatalf("expected missing revision rejection: %d", w.Code)
+	s.addr = "127.0.0.1:19420"
+	routes := []string{"GET /api/mcp", "POST /api/mcp", "POST /api/mcp/preview", "POST /api/mcp/import", "POST /api/mcp/restore"}
+	for _, route := range routes {
+		method, path, _ := strings.Cut(route, " ")
+		req := httptest.NewRequest(method, path, strings.NewReader(`{}`))
+		req.RemoteAddr = "127.0.0.1:5555"
+		req.Host = "attacker.example:19420"
+		w := httptest.NewRecorder()
+		s.mux.ServeHTTP(w, req)
+		if w.Code != http.StatusForbidden {
+			t.Fatalf("%s: status = %d, want 403", route, w.Code)
+		}
 	}
 }

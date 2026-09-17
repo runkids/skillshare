@@ -107,31 +107,6 @@ func (s *Server) handleMCPConfigure(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, result)
 }
 
-func (s *Server) handleMCPSync(w http.ResponseWriter, r *http.Request) {
-	var body mcpRequest
-	if !decodeMCPRequest(w, r, &body) {
-		return
-	}
-	if body.Revision == "" {
-		writeError(w, 400, "preview MCP settings before syncing")
-		return
-	}
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	start := time.Now()
-	result, err := s.mcpService().Mutate(body.Mutation, body.Revision, true)
-	status := "ok"
-	if err != nil {
-		status = "error"
-	}
-	s.writeOpsLog("sync mcp", status, start, map[string]any{"scope": "ui"}, "")
-	if err != nil {
-		writeMCPFailure(w, result, err)
-		return
-	}
-	writeJSON(w, result)
-}
-
 func (s *Server) handleMCPImport(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		From    string `json:"from"`

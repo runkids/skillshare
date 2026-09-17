@@ -454,12 +454,11 @@ func (s *Server) registerRoutes() {
 	s.mux.HandleFunc("POST /api/trash/empty", s.handleEmptyTrash)
 
 	// Extras
-	s.mux.HandleFunc("GET /api/mcp", s.handleMCPList)
-	s.mux.HandleFunc("POST /api/mcp", s.handleMCPConfigure)
-	s.mux.HandleFunc("POST /api/mcp/preview", s.handleMCPPreview)
-	s.mux.HandleFunc("POST /api/mcp/sync", s.handleMCPSync)
-	s.mux.HandleFunc("POST /api/mcp/import", s.handleMCPImport)
-	s.mux.HandleFunc("POST /api/mcp/restore", s.handleMCPRestore)
+	s.mux.HandleFunc("GET /api/mcp", s.requireLocalMCP(s.handleMCPList))
+	s.mux.HandleFunc("POST /api/mcp", s.requireLocalMCP(s.handleMCPConfigure))
+	s.mux.HandleFunc("POST /api/mcp/preview", s.requireLocalMCP(s.handleMCPPreview))
+	s.mux.HandleFunc("POST /api/mcp/import", s.requireLocalMCP(s.handleMCPImport))
+	s.mux.HandleFunc("POST /api/mcp/restore", s.requireLocalMCP(s.handleMCPRestore))
 	s.mux.HandleFunc("GET /api/extras", s.handleExtras)
 	s.mux.HandleFunc("GET /api/extras/extensions", s.handleExtrasExtensions)
 	s.mux.HandleFunc("GET /api/extras/diff", s.handleExtrasDiff)
