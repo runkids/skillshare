@@ -552,9 +552,6 @@ func Load() (*Config, error) {
 	if err := yaml.Unmarshal(data, &cfg); err != nil {
 		return nil, fmt.Errorf("failed to parse config: %w", err)
 	}
-	if err := validateMCP(cfg.MCP, cfg.Sources.MCP); err != nil {
-		return nil, err
-	}
 
 	threshold, err := normalizeAuditBlockThreshold(cfg.Audit.BlockThreshold)
 	if err != nil {
@@ -632,9 +629,6 @@ func Load() (*Config, error) {
 
 // Save writes the config to the default location
 func (c *Config) Save() error {
-	if err := validateMCP(c.MCP, c.Sources.MCP); err != nil {
-		return err
-	}
 	path := ConfigPath()
 
 	// Ensure directory exists

@@ -14,9 +14,27 @@ import (
 type MCPConfig struct {
 	Targets []string   `yaml:"targets,omitempty" json:"targets,omitempty"`
 	Servers *yaml.Node `yaml:"servers,omitempty" json:"-"`
+	// A section that does not parse is kept as written, so a mistake in MCP
+	// settings never stops skills commands from loading or saving the config.
+	raw *yaml.Node
+	err error
 }
 
 func (c *MCPConfig) UnmarshalYAML(node *yaml.Node) error {
+	*c = MCPConfig{raw: node}
+	c.err = c.decode(node)
+	return nil
+}
+
+func (c *MCPConfig) MarshalYAML() (any, error) {
+	if c.err != nil {
+		return c.raw, nil
+	}
+	type plain MCPConfig
+	return (*plain)(c), nil
+}
+
+func (c *MCPConfig) decode(node *yaml.Node) error {
 	if node.Kind != yaml.MappingNode {
 		return fmt.Errorf("mcp must be a mapping")
 	}
@@ -25,7 +43,6 @@ func (c *MCPConfig) UnmarshalYAML(node *yaml.Node) error {
 			return fmt.Errorf("unknown MCP configuration field")
 		}
 	}
-	*c = MCPConfig{}
 	for i := 0; i < len(node.Content); i += 2 {
 		switch node.Content[i].Value {
 		case "targets":
@@ -39,9 +56,14 @@ func (c *MCPConfig) UnmarshalYAML(node *yaml.Node) error {
 	return nil
 }
 
-func validateMCP(cfg *MCPConfig, external string) error {
+// ValidateMCP checks the MCP section. Only the config editor and MCP commands
+// call it; other commands ignore MCP settings.
+func ValidateMCP(cfg *MCPConfig, external string) error {
 	if cfg == nil {
 		return nil
+	}
+	if cfg.err != nil {
+		return cfg.err
 	}
 	if external != "" && cfg.Servers != nil {
 		return fmt.Errorf("choose sources.mcp or mcp.servers, not both")

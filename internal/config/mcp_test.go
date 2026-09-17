@@ -48,21 +48,32 @@ func TestMCPEmptyInlinePresenceSurvivesSave(t *testing.T) {
 	if !strings.Contains(string(data), "servers: {}") {
 		t.Fatalf("lost explicit empty source: %s", data)
 	}
-	if err := validateMCP(cfg.MCP, "mcp.yaml"); err == nil {
+	if err := ValidateMCP(cfg.MCP, "mcp.yaml"); err == nil {
 		t.Fatal("accepted two sources")
 	}
 }
 
-func TestMCPGenericValidationRejectsTwoSources(t *testing.T) {
+func TestMCPValidationRejectsTwoSources(t *testing.T) {
 	var cfg Config
 	if err := yaml.Unmarshal([]byte("sources:\n  mcp: ./mcp.yaml\nmcp:\n  servers: {}\n"), &cfg); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := ValidateConfig(&cfg); err == nil || !strings.Contains(err.Error(), "not both") {
-		t.Fatalf("generic config validation accepted ambiguous source: %v", err)
+	if err := ValidateMCP(cfg.MCP, cfg.Sources.MCP); err == nil || !strings.Contains(err.Error(), "not both") {
+		t.Fatalf("MCP validation accepted ambiguous source: %v", err)
 	}
-	project := ProjectConfig{MCP: cfg.MCP, Sources: ProjectSources{MCP: cfg.Sources.MCP}}
-	if _, err := ValidateProjectConfig(&project, t.TempDir()); err == nil || !strings.Contains(err.Error(), "not both") {
-		t.Fatalf("project validation accepted ambiguous source: %v", err)
+}
+
+func TestInvalidMCPSectionStillLoadsAndSaves(t *testing.T) {
+	const input = "mcp:\n  targets: claude\n  typo: true\n"
+	var cfg Config
+	if err := yaml.Unmarshal([]byte(input), &cfg); err != nil {
+		t.Fatalf("invalid MCP section broke config loading: %v", err)
+	}
+	if err := ValidateMCP(cfg.MCP, ""); err == nil {
+		t.Fatal("invalid MCP section passed validation")
+	}
+	data, err := yaml.Marshal(cfg)
+	if err != nil || !strings.Contains(string(data), "typo: true") {
+		t.Fatalf("invalid MCP section was not kept as written: %v\n%s", err, data)
 	}
 }
