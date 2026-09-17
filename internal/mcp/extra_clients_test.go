@@ -89,6 +89,24 @@ func TestImportDetectsPastedJSONFormat(t *testing.T) {
 	}
 }
 
+func TestDetectedClients(t *testing.T) {
+	s := testService(t)
+	paths := s.ClientPaths()
+	// claude's file lives in home, so home alone must not count; cursor has only
+	// its directory; codex has its file.
+	for _, dir := range []string{filepath.Dir(paths["cursor"]), filepath.Dir(paths["codex"])} {
+		if err := os.MkdirAll(dir, 0700); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.WriteFile(paths["codex"], nil, 0600); err != nil {
+		t.Fatal(err)
+	}
+	if got := strings.Join(s.DetectedClients(paths), ","); got != "codex,cursor" {
+		t.Fatalf("detected %q", got)
+	}
+}
+
 func TestAdditionalClientRemoteReferences(t *testing.T) {
 	for _, target := range []string{"opencode", "grok"} {
 		s := Server{URL: "https://example.com/mcp", BearerToken: &Value{FromEnv: "MCP_TOKEN"}}

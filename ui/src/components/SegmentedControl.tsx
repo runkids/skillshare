@@ -34,7 +34,7 @@ export default function SegmentedControl<T extends string>({
   if (connected) {
     return (
       <div
-        className="ss-segmented ss-segmented-connected inline-flex items-center gap-0.5 p-1 border border-muted bg-muted/40"
+        className="ss-segmented ss-segmented-connected inline-flex flex-wrap items-center gap-0.5 p-1 border border-muted bg-muted/40"
         style={{ borderRadius: radius.sm }}
       >
         {options.map((opt) => {
@@ -45,7 +45,7 @@ export default function SegmentedControl<T extends string>({
               key={opt.value}
               onClick={() => onChange(opt.value)}
               className={`
-                ss-segmented-item inline-flex items-center ${sizeClasses[size]} transition-colors cursor-pointer font-medium
+                ss-segmented-item inline-flex items-center whitespace-nowrap ${sizeClasses[size]} transition-colors cursor-pointer font-medium
                 ${isActive
                   ? color ? '' : 'bg-surface text-pencil shadow-sm border border-muted'
                   : 'text-pencil-light hover:text-pencil border border-transparent'
@@ -71,7 +71,7 @@ export default function SegmentedControl<T extends string>({
   }
 
   return (
-    <div className="ss-segmented inline-flex items-center gap-1">
+    <div className="ss-segmented inline-flex flex-wrap items-center gap-1">
       {options.map((opt) => {
         const isActive = value === opt.value;
         const color = colorFn?.(opt.value);
@@ -80,7 +80,7 @@ export default function SegmentedControl<T extends string>({
             key={opt.value}
             onClick={() => onChange(opt.value)}
             className={`
-              ss-segmented-item inline-flex items-center ${sizeClasses[size]} border transition-all duration-150 cursor-pointer font-medium
+              ss-segmented-item inline-flex items-center whitespace-nowrap ${sizeClasses[size]} border transition-all duration-150 cursor-pointer font-medium
               ${isActive
                 ? color ? '' : 'bg-surface text-pencil border-muted-dark'
                 : 'bg-transparent text-pencil-light border-muted hover:border-muted-dark hover:text-pencil'

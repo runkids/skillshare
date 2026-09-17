@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Trash2, Plus, Target, ArrowDownToLine, Search, CircleDot, PenLine, AlertTriangle, X } from 'lucide-react';
 import Card from '../components/Card';
 import StatusBadge from '../components/StatusBadge';
+import Badge from '../components/Badge';
 import Button from '../components/Button';
 import IconButton from '../components/IconButton';
 import { Input, Select } from '../components/Input';
@@ -17,6 +18,7 @@ import { api } from '../api/client';
 import type { AvailableTarget, Target as TargetType } from '../api/client';
 import { queryKeys, staleTimes } from '../lib/queryKeys';
 import { radius, shadows } from '../design';
+import AgentIcon from '../components/AgentIcon';
 import { shortenHome } from '../lib/paths';
 import { useSyncMatrix } from '../hooks/useSyncMatrix';
 import { useT } from '../i18n';
@@ -498,8 +500,9 @@ export default function TargetsPage() {
                 {/* Top row: name + action icons */}
                 <div className="flex items-center justify-between gap-4">
                   <div className="flex items-center gap-2 min-w-0">
-                    <Target size={16} strokeWidth={2.5} className="text-success shrink-0" />
+                    <AgentIcon target={target.name} size={18} />
                     <span className="font-bold text-pencil">{target.name}</span>
+                    {target.name === 'universal' && <Badge>{t('targets.sharedPath')}</Badge>}
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
                     {collectScope && (
@@ -769,11 +772,7 @@ function TargetPickerItem({
       onClick={() => onSelect(target)}
       className="w-full text-left px-3 py-2.5 flex items-center gap-3 border-b border-muted/60 hover:bg-muted/20 transition-colors cursor-pointer group"
     >
-      {isDetected ? (
-        <span className="w-2.5 h-2.5 rounded-full bg-success shrink-0" />
-      ) : (
-        <span className="w-2.5 h-2.5 rounded-full border-2 border-muted-dark shrink-0" />
-      )}
+      <AgentIcon target={target.name} size={20} />
       <div className="min-w-0 flex-1">
         <span className="font-bold text-pencil group-hover:text-blue transition-colors">
           {target.name}

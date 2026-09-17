@@ -31,7 +31,7 @@ const post = <T,>(path: string, body: unknown) => apiFetch<T>(path, { method: 'P
 export const mcpApi = {
   list: () => apiFetch<{
     source: { path: string; configPath: string; targets: string[] | null; servers: Record<string, MCPServer> };
-    paths: Record<string, string>; plan: MCPPlan | null; previewError: string;
+    paths: Record<string, string>; detected: string[]; plan: MCPPlan | null; previewError: string;
     backups: { id: string; target: string; path: string }[];
   }>('/mcp'),
   preview: (mutation: MCPMutation = {}) => post<MCPPlan>('/mcp/preview', { mutation }),

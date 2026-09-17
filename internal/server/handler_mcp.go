@@ -60,7 +60,7 @@ func (s *Server) handleMCPList(w http.ResponseWriter, r *http.Request) {
 		writeError(w, 500, err.Error())
 		return
 	}
-	writeJSON(w, map[string]any{"source": source, "paths": paths, "plan": p, "previewError": message, "backups": backups})
+	writeJSON(w, map[string]any{"source": source, "paths": paths, "detected": service.DetectedClients(paths), "plan": p, "previewError": message, "backups": backups})
 }
 
 func (s *Server) handleMCPPreview(w http.ResponseWriter, r *http.Request) {

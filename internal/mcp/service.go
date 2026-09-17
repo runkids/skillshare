@@ -167,3 +167,32 @@ func ConfigDirsFromEnv() map[string]string {
 	}
 	return dirs
 }
+
+// DetectedClients lists Agents that look installed: their native MCP file
+// exists, or its own config directory does. A file placed directly in the home
+// or project root only counts when the file itself exists.
+func (s *Service) DetectedClients(paths map[string]string) []string {
+	home := s.Home
+	if home == "" {
+		home, _ = os.UserHomeDir()
+	}
+	out := []string{}
+	for _, target := range Targets {
+		path := paths[target]
+		if path == "" {
+			continue
+		}
+		if _, err := os.Lstat(path); err == nil {
+			out = append(out, target)
+			continue
+		}
+		dir := filepath.Dir(path)
+		if dir == filepath.Clean(home) || (s.ProjectRoot != "" && dir == filepath.Clean(s.ProjectRoot)) {
+			continue
+		}
+		if info, err := os.Stat(dir); err == nil && info.IsDir() {
+			out = append(out, target)
+		}
+	}
+	return out
+}
