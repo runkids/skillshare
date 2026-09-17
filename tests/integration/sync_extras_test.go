@@ -139,6 +139,26 @@ targets:
 	result.AssertAnyOutputContains(t, "No extras configured")
 }
 
+func TestSyncExtras_AfterFlags(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sb.CreateSkill("placeholder", map[string]string{
+		"SKILL.md": "# Placeholder",
+	})
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets:
+  claude:
+    path: ` + sb.CreateTarget("claude") + `
+`)
+
+	result := sb.RunCLI("sync", "-g", "--dry-run", "extras")
+
+	result.AssertSuccess(t)
+	result.AssertAnyOutputContains(t, "No extras configured")
+	result.AssertOutputNotContains(t, "Syncing skills")
+}
+
 func TestSyncExtras_PrunesOrphans(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()

@@ -194,6 +194,30 @@ targets:
 	}
 }
 
+func TestSync_Agents_AfterFlags(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	createAgentSource(t, sb, map[string]string{
+		"tutor.md": "# Tutor agent",
+	})
+	claudeAgents := createAgentTarget(t, sb, "claude")
+
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets:
+  claude:
+    skills:
+      path: ` + sb.CreateTarget("claude") + `
+    agents:
+      path: ` + claudeAgents + `
+`)
+
+	result := sb.RunCLI("sync", "--dry-run", "agents")
+	result.AssertSuccess(t)
+	result.AssertAnyOutputContains(t, "Syncing agents")
+	result.AssertOutputNotContains(t, "Syncing skills")
+}
+
 func TestSync_Default_SkillsOnly_NoAgentSync(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()

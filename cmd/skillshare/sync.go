@@ -69,9 +69,9 @@ func cmdSync(args []string) error {
 		return nil
 	}
 
-	// Subcommand: sync extras
-	if len(args) > 0 && args[0] == "extras" {
-		return cmdSyncExtras(args[1:])
+	// Subcommand: sync extras, also after flags, e.g. "sync -g extras".
+	if i := slices.Index(args, "extras"); i >= 0 {
+		return cmdSyncExtras(slices.Delete(slices.Clone(args), i, i+1))
 	}
 
 	// Extract --all flag before mode parsing
@@ -108,7 +108,14 @@ func cmdSync(args []string) error {
 
 	applyModeLabel(mode)
 
-	// Extract kind filter (e.g. "skillshare sync agents").
+	// Extract kind filter (e.g. "skillshare sync agents"). Sync flags take no
+	// values, so the kind may also follow them: "sync --dry-run agents".
+	if i := slices.IndexFunc(rest, func(arg string) bool {
+		_, remaining := parseKindArg([]string{arg})
+		return len(remaining) == 0
+	}); i > 0 {
+		rest = append([]string{rest[i]}, slices.Delete(slices.Clone(rest), i, i+1)...)
+	}
 	kind, rest := parseKindArg(rest)
 
 	dryRun, force, jsonOutput, quiet := parseSyncFlags(rest)
