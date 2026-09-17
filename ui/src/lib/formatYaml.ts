@@ -1,11 +1,8 @@
-import { isCollection, parseDocument, visit } from 'yaml';
+import { parseDocument } from 'yaml';
 
-/** Format the document without losing comments, scalar types, or anchors. */
+/** Normalize indentation without losing comments, scalar types, anchors, or flow/block style. */
 export function formatYaml(source: string): string {
   const doc = parseDocument(source);
   if (doc.errors.length) throw new Error(doc.errors[0].message);
-  visit(doc, (_key, node) => {
-    if (isCollection(node)) node.flow = false;
-  });
-  return doc.toString({ indent: 2, lineWidth: 0 });
+  return doc.toString({ indent: 2, lineWidth: 0, flowCollectionPadding: false });
 }

@@ -3,10 +3,10 @@ import { parse } from 'yaml';
 import { formatYaml } from '../formatYaml';
 
 describe('formatYaml', () => {
-  it('expands MCP flow mappings and retains comments and values', () => {
-    const source = "# config\nmcp: {servers: {docs: {url: 'https://example.com/mcp', targets: [claude]}}}\n";
+  it('normalizes block indentation while keeping comments and flow collections', () => {
+    const source = "# config\ntargets: [claude, codex]\nmcp:\n    servers:\n        docs: {url: 'https://example.com/mcp'}\n";
     const formatted = formatYaml(source);
-    expect(formatted).toContain('# config\nmcp:\n  servers:\n    docs:\n');
+    expect(formatted).toBe("# config\ntargets: [claude, codex]\nmcp:\n  servers:\n    docs: {url: 'https://example.com/mcp'}\n");
     expect(parse(formatted)).toEqual(parse(source));
     expect(formatYaml(formatted)).toBe(formatted);
   });
