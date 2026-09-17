@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"slices"
 	"strings"
 	"time"
 
@@ -59,8 +60,9 @@ type syncModeStats struct {
 }
 
 func cmdSync(args []string) error {
-	if len(args) > 0 && args[0] == "mcp" {
-		return cmdSyncMCP(args[1:])
+	// "mcp" is a subcommand in any position, e.g. "sync -g --dry-run mcp".
+	if i := slices.Index(args, "mcp"); i >= 0 {
+		return cmdSyncMCP(slices.Delete(slices.Clone(args), i, i+1))
 	}
 	if wantsHelp(args) {
 		printSyncHelp()
@@ -114,6 +116,12 @@ func cmdSync(args []string) error {
 	var mcpResult *mcp.Result
 	var mcpService *mcp.Service
 	if hasAll {
+		preflightErr := func(err error) error {
+			if jsonOutput {
+				return writeJSONError(err)
+			}
+			return err
+		}
 		// Loading can migrate legacy skill/extras configuration. Complete that
 		// existing normalization before fingerprinting the MCP source.
 		if mode == modeProject {
@@ -122,7 +130,7 @@ func cmdSync(args []string) error {
 			_, err = config.Load()
 		}
 		if err != nil {
-			return err
+			return preflightErr(err)
 		}
 		scope := "-g"
 		if mode == modeProject {
@@ -130,22 +138,34 @@ func cmdSync(args []string) error {
 		}
 		mcpService, _, err = mcpContext([]string{scope})
 		if err != nil {
-			return err
+			return preflightErr(err)
 		}
 		plan, planErr := mcpService.Preview()
 		if planErr != nil {
-			return fmt.Errorf("MCP preflight: %w", planErr)
-		}
-		if plan.Blocked {
-			if !jsonOutput {
-				_ = printMCPPlan(plan, false)
-			}
-			return fmt.Errorf("MCP conflicts found; no resources synchronized")
+			return preflightErr(fmt.Errorf("MCP preflight: %w", planErr))
 		}
 		mcpResult = &mcp.Result{Plan: plan, Applied: []string{}, BackupIDs: []string{}}
+		if plan.Blocked {
+			err = fmt.Errorf("MCP conflicts found; no resources synchronized")
+			if jsonOutput {
+				// Changes are credential-free and tell scripts which entries conflict.
+				return writeJSONResult(map[string]any{"error": err.Error(), "mcp": mcpResult}, err)
+			}
+			_ = printMCPPlan(plan, false)
+			return err
+		}
 	}
 	finishMCP := func(previous error) error {
-		if !hasAll || previous != nil {
+		if !hasAll {
+			return previous
+		}
+		if previous != nil {
+			// Keep MCP untouched after a resource failure; drop the preflight plan
+			// so JSON output does not look processed.
+			mcpResult = nil
+			if !jsonOutput {
+				ui.Warning("MCP settings were not applied because resource sync failed")
+			}
 			return previous
 		}
 		if len(mcpResult.Plan.Changes) == 0 {
@@ -153,7 +173,9 @@ func cmdSync(args []string) error {
 		}
 		var applyErr error
 		if !dryRun {
-			mcpResult, applyErr = mcpService.Apply(mcpResult.Plan.Revision)
+			// Skills sync ran after the preflight; plan again under the MCP lock so
+			// unrelated config writes cannot fail the run with a stale revision.
+			mcpResult, applyErr = mcpService.Apply("")
 			logMCPOp(mcpService.ConfigPath, "sync mcp", start, applyErr)
 		}
 		if !jsonOutput && !quiet && mcpResult != nil {
