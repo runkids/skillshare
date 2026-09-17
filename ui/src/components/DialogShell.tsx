@@ -31,6 +31,7 @@ interface DialogShellProps {
   /** Prevent close on Escape / backdrop click (e.g. during loading) */
   preventClose?: boolean;
   className?: string;
+  ariaLabel?: string;
 }
 
 export default function DialogShell({
@@ -41,6 +42,7 @@ export default function DialogShell({
   padding = 'lg',
   preventClose = false,
   className = '',
+  ariaLabel,
 }: DialogShellProps) {
   const trapRef = useFocusTrap(open);
 
@@ -68,6 +70,7 @@ export default function DialogShell({
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
       role="dialog"
       aria-modal="true"
+      aria-label={ariaLabel}
       onMouseDown={(e) => {
         if (e.target === e.currentTarget && !preventClose) onClose();
       }}

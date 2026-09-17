@@ -30,6 +30,7 @@ import { radius, shadows } from '../design';
 import KindBadge from '../components/KindBadge';
 import SegmentedControl from '../components/SegmentedControl';
 import { useT } from '../i18n';
+import MCPSyncAll from '../components/mcp/MCPSyncAll';
 
 function extractIgnoreSources(data: IgnoreSources): IgnoreSources {
   return {
@@ -165,7 +166,7 @@ export default function SyncPage() {
 
   return (
     <div className="space-y-5 animate-fade-in">
-      <PageHeader icon={<RefreshCw size={24} strokeWidth={2.5} />} title={t('sync.title')} subtitle={t('sync.subtitle')} />
+      <PageHeader icon={<RefreshCw size={24} strokeWidth={2.5} />} title={t('sync.title')} subtitle={t('sync.subtitle')} actions={<MCPSyncAll />} />
 
       {/* Visual Pipeline */}
       <div className="hidden md:flex items-center justify-center gap-4">

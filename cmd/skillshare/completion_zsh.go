@@ -10,7 +10,8 @@ _skillshare() {
         'uninstall:Remove skills/agents from source directory'
         'list:List installed skills'
         'search:Search or browse GitHub for skills'
-        'sync:Sync skills/agents/extras to targets'
+        'sync:Sync skills/agents/extras/MCP to targets'
+        'mcp:Manage MCP connections'
         'status:Show status of all targets'
         'diff:Show differences between source and targets'
         'backup:Create backup of targets'
@@ -155,7 +156,7 @@ _skillshare() {
                     ;;
                 sync)
                     _arguments \
-                        '1:scope:(agents extras)' \
+                        '1:scope:(agents extras mcp)' \
                         '--all[Sync skills + agents + extras]' \
                         '--dry-run[Preview changes]' \
                         '-n[Preview changes]' \

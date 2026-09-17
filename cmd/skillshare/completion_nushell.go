@@ -9,7 +9,8 @@ def "nu-complete skillshare commands" [] {
         { value: "uninstall", description: "Remove skills/agents from source directory" }
         { value: "list", description: "List installed skills" }
         { value: "search", description: "Search or browse GitHub for skills" }
-        { value: "sync", description: "Sync skills/agents/extras to targets" }
+        { value: "sync", description: "Sync skills/agents/extras/MCP to targets" }
+        { value: "mcp", description: "Manage MCP connections" }
         { value: "status", description: "Show status of all targets" }
         { value: "diff", description: "Show differences between source and targets" }
         { value: "backup", description: "Create backup of targets" }
@@ -223,7 +224,7 @@ export extern "skillshare list" [
 
 # Sync
 export extern "skillshare sync" [
-    scope?: string           # agents, extras
+    scope?: string           # agents, extras, mcp
     --all                    # Sync skills + agents + extras
     --dry-run(-n)            # Preview changes
     --force(-f)              # Force sync

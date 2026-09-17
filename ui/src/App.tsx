@@ -18,6 +18,7 @@ const ResourcesPage = lazy(() => import('./pages/ResourcesPage'));
 const ResourceDetailPage = lazy(() => import('./pages/ResourceDetailPage'));
 const TargetsPage = lazy(() => import('./pages/TargetsPage'));
 const ExtrasPage = lazy(() => import('./pages/ExtrasPage'));
+const MCPPage = lazy(() => import('./pages/MCPPage'));
 const SyncPage = lazy(() => import('./pages/SyncPage'));
 const CollectPage = lazy(() => import('./pages/CollectPage'));
 const BackupPage = lazy(() => import('./pages/BackupPage'));
@@ -62,6 +63,7 @@ export default function App() {
                         <Route path="targets" element={<Lazy><TargetsPage /></Lazy>} />
                         <Route path="targets/:name/filters" element={<Lazy><FilterStudioPage /></Lazy>} />
                         <Route path="extras" element={<Lazy><ExtrasPage /></Lazy>} />
+                        <Route path="mcp" element={<Lazy><MCPPage /></Lazy>} />
                         <Route path="sync" element={<Lazy><SyncPage /></Lazy>} />
                         <Route path="collect" element={<Lazy><CollectPage /></Lazy>} />
                         <Route path="backup" element={<Lazy><BackupPage /></Lazy>} />

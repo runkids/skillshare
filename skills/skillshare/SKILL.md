@@ -25,6 +25,27 @@ Auto-detects project mode from `.skillshare/config.yaml` or `skillshare/config.y
 
 ## Recipes
 
+### MCP Connections
+
+```bash
+skillshare mcp add                                  # Guided URL/JSON setup
+skillshare mcp add docs --url https://example.com/mcp --target claude --sync
+skillshare mcp import docs --from claude --target claude --sync
+skillshare sync mcp --dry-run --json                 # Preview without executing servers
+skillshare sync mcp                                 # Apply native settings
+skillshare mcp remove docs --sync                    # Remove unchanged managed entries
+skillshare mcp restore BACKUP_ID --dry-run           # Preview entry-level restoration
+```
+
+MCP supports Claude Code, Codex, Cursor and VS Code in global/project scopes.
+Definitions live in `mcp.servers`, or in `sources.mcp` (a YAML file with `servers`).
+Never define both; external paths are relative to the config directory.
+Use `mcp.targets` or per-server `targets`; MCP targets are independent of skill targets.
+Credentials use `{fromEnv: VARIABLE}`. Never resolve secrets, launch servers or
+copy OAuth credentials while managing settings. Import/adoption or an explicit
+entry replacement is required for native conflicts; `--force` cannot bypass them.
+`sync --all` includes MCP as well as skills, agents and extras.
+
 ### Getting Started
 ```bash
 skillshare init --no-copy --all-targets --git --skill  # Fresh global setup
@@ -66,7 +87,7 @@ skillshare extras rules --add-target ~/.cursor/rules            # Add a target t
 skillshare extras rules --remove-target ~/.cursor/rules --prune # Remove a target (--prune deletes synced files)
 skillshare sync extras                               # Sync all extras to targets
 skillshare sync extras --dry-run --force             # Preview / overwrite conflicts
-skillshare sync --all                                # Sync skills + extras together
+skillshare sync --all                                # Sync skills + agents + extras + MCP
 ```
 Project extras always read from `<sources.extras>/<name>` (default `.skillshare/extras/<name>`); per-extra `source` and `extras source` are global-only. For project agents, prefer target `agents:` unless you need extras-only flatten/extension.
 

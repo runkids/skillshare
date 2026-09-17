@@ -6,6 +6,66 @@ export interface FieldDoc {
 }
 
 export const fieldDocs: Record<string, FieldDoc> = {
+  'sources.mcp': {
+    description: 'Optional MCP YAML file, relative to config.yaml or an absolute path. Its root contains servers. Use this instead of inline mcp.servers; do not define both.',
+    type: 'string', example: 'sources:\n  mcp: ./mcp.yaml',
+  },
+  mcp: {
+    description: 'MCP connection settings. Define servers here, or use sources.mcp for a separate file. Skillshare writes client configuration files; it does not run servers.',
+    type: 'object', example: 'mcp:\n  servers:\n    docs:\n      url: https://example.com/mcp\n      targets: [claude]',
+  },
+  'mcp.targets': {
+    description: 'Default MCP clients. Individual servers can override this list.',
+    type: 'string[]', example: 'targets: [claude, codex, cursor, vscode, opencode, grok]',
+  },
+  'mcp.servers': {
+    description: 'Named MCP connections. Names such as docs are your own labels, not built-in services. Each connection needs a command or a URL.',
+    type: 'object', example: 'servers:\n  docs:\n    url: https://example.com/mcp',
+  },
+  'mcp.servers.command': {
+    description: 'Executable launched locally by the client for stdio. Use command or url, never both.',
+    type: 'string', example: 'command: my-mcp-server',
+  },
+  'mcp.servers.args': {
+    description: 'Arguments passed to the local command, one list item per argument.',
+    type: 'string[]', example: 'args: [--directory, /workspace]',
+  },
+  'mcp.servers.url': {
+    description: 'HTTP or HTTPS MCP endpoint. The client connects to this service. Do not put credentials in the URL.',
+    type: 'string', example: 'url: https://example.com/mcp',
+  },
+  'mcp.servers.transport': {
+    description: 'Optional transport. Inferred from command (stdio) or url (streamable-http).',
+    type: 'string', allowedValues: ['stdio', 'streamable-http'], example: 'transport: stdio',
+  },
+  'mcp.servers.targets': {
+    description: 'Clients receiving this connection; overrides mcp.targets. An explicit list must not be empty.',
+    type: 'string[]', example: 'targets: [claude, codex]',
+  },
+  'mcp.servers.env': {
+    description: 'Environment variables for the local command. Use fromEnv for secrets, rather than storing their values.',
+    type: 'object', example: 'env:\n  API_TOKEN:\n    fromEnv: API_TOKEN',
+  },
+  'mcp.servers.env.fromEnv': {
+    description: 'Name of an environment variable available to the client. Skillshare stores a reference and does not read its secret value.',
+    type: 'string', example: 'fromEnv: API_TOKEN',
+  },
+  'mcp.servers.headers': {
+    description: 'HTTP request headers. Values can be literals or environment references; sensitive values require fromEnv.',
+    type: 'object', example: 'headers:\n  X-API-Key:\n    fromEnv: API_KEY',
+  },
+  'mcp.servers.headers.fromEnv': {
+    description: 'Environment variable supplying this HTTP header when the client connects.',
+    type: 'string', example: 'fromEnv: API_KEY',
+  },
+  'mcp.servers.bearerToken': {
+    description: 'Bearer authentication using an environment variable reference. Keep the token itself outside this file.',
+    type: 'object', example: 'bearerToken:\n  fromEnv: MCP_TOKEN',
+  },
+  'mcp.servers.bearerToken.fromEnv': {
+    description: 'Environment variable containing the bearer token, available to the client.',
+    type: 'string', example: 'fromEnv: MCP_TOKEN',
+  },
   // --- Top-level ---
   sync_mode: {
     description: 'Alias for "mode". Controls how skills are synced from source to target directories.',
@@ -24,7 +84,7 @@ export const fieldDocs: Record<string, FieldDoc> = {
     example: 'extras_source: ~/.config/skillshare/extras',
   },
   sources: {
-    description: 'Custom source directories. Each key (skills, agents, extras) overrides the default source path. All keys are optional. Project mode falls back to .skillshare/<type>/; global mode falls back to <base>/<type>/ (or the legacy source / agents_source / extras_source field if present).',
+    description: 'Custom source paths. skills, agents, and extras select directories; mcp selects an optional YAML file instead of inline mcp.servers. Directory defaults are .skillshare/<type>/ in project mode and <base>/<type>/ in global mode (or the legacy source fields).',
     type: 'object',
     example: 'sources:\n  skills: ./docs/skills\n  agents: ./docs/agents\n  extras: ./docs/extras',
   },

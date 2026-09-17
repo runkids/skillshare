@@ -8,9 +8,12 @@ require (
 	github.com/charmbracelet/glamour v0.10.0
 	github.com/charmbracelet/lipgloss v1.1.1-0.20250404203927-76690c660834
 	github.com/charmbracelet/x/ansi v0.11.6
+	github.com/gofrs/flock v0.12.1
 	github.com/mattn/go-runewidth v0.0.19
+	github.com/pelletier/go-toml/v2 v2.2.4
 	github.com/pterm/pterm v0.12.82
 	github.com/sergi/go-diff v1.4.0
+	github.com/tailscale/hujson v0.0.0-20221223112325-20486734a56a
 	golang.org/x/sys v0.38.0
 	golang.org/x/term v0.32.0
 	gopkg.in/yaml.v3 v3.0.1
@@ -46,6 +49,7 @@ require (
 	github.com/muesli/reflow v0.3.0 // indirect
 	github.com/muesli/termenv v0.16.0 // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect
+	github.com/rogpeppe/go-internal v1.16.0 // indirect
 	github.com/sahilm/fuzzy v0.1.1 // indirect
 	github.com/xo/terminfo v0.0.0-20220910002029-abceb7e1c41e // indirect
 	github.com/yuin/goldmark v1.7.8 // indirect

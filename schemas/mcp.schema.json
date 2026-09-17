@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/runkids/skillshare/main/schemas/mcp.schema.json",
+  "title": "Skillshare MCP Source",
+  "type": "object",
+  "required": ["servers"],
+  "additionalProperties": false,
+  "properties": {"servers": {"$ref": "#/$defs/servers"}},
+  "$defs": {
+    "targets": {"type": "array", "uniqueItems": true, "items": {"enum": ["claude", "codex", "cursor", "vscode", "opencode", "grok"]}},
+    "reference": {
+      "type": "object", "required": ["fromEnv"], "additionalProperties": false,
+      "properties": {"fromEnv": {"type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"}}
+    },
+    "value": {"oneOf": [{"type": "string"}, {"$ref": "#/$defs/reference"}]},
+    "servers": {
+      "type": "object",
+      "propertyNames": {"pattern": "^[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}$"},
+      "additionalProperties": {"$ref": "#/$defs/server"}
+    },
+    "configuration": {
+      "type": "object", "additionalProperties": false,
+      "properties": {
+        "targets": {"$ref": "#/$defs/targets"},
+        "servers": {"$ref": "#/$defs/servers"}
+      }
+    },
+    "server": {
+      "type": "object", "additionalProperties": false,
+      "properties": {
+        "transport": {"enum": ["stdio", "streamable-http"]},
+        "command": {"type": "string", "minLength": 1},
+        "args": {"type": "array", "items": {"type": "string"}},
+        "url": {"type": "string", "pattern": "^https?://"},
+        "env": {"type": "object", "additionalProperties": {"$ref": "#/$defs/value"}},
+        "headers": {"type": "object", "additionalProperties": {"$ref": "#/$defs/value"}},
+        "bearerToken": {"$ref": "#/$defs/reference"},
+        "targets": {"$ref": "#/$defs/targets"}
+      },
+      "oneOf": [
+        {"required": ["command"], "not": {"anyOf": [{"required": ["url"]}, {"required": ["headers"]}, {"required": ["bearerToken"]}]}, "properties": {"transport": {"const": "stdio"}}},
+        {"required": ["url"], "not": {"anyOf": [{"required": ["command"]}, {"required": ["args"]}, {"required": ["env"]}]}, "properties": {"transport": {"const": "streamable-http"}}}
+      ]
+    }
+  }
+}

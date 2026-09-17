@@ -6,12 +6,15 @@
   "type": "object",
   "required": ["targets"],
   "additionalProperties": false,
+  "allOf": [{"not": {"required": ["sources", "mcp"], "properties": {"sources": {"required": ["mcp"]}, "mcp": {"required": ["servers"]}}}}],
   "properties": {
+    "mcp": {"$ref": "mcp.schema.json#/$defs/configuration"},
     "sources": {
       "type": "object",
       "description": "Custom source directories for project resources. Each key overrides the default <project-dir>/{key}/ path. Relative paths resolve from the project root.",
       "additionalProperties": false,
       "properties": {
+        "mcp": {"type": "string", "minLength": 1, "description": "External MCP YAML file. Relative to this config.yaml (unlike directory sources); mutually exclusive with mcp.servers."},
         "skills": {
           "type": "string",
           "description": "Custom skills source directory. Default: .skillshare/skills/",

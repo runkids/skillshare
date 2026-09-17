@@ -12,7 +12,8 @@ $_skillshareCompleter = {
             @{ Name = 'uninstall'; Desc = 'Remove skills/agents from source directory' }
             @{ Name = 'list'; Desc = 'List installed skills' }
             @{ Name = 'search'; Desc = 'Search or browse GitHub for skills' }
-            @{ Name = 'sync'; Desc = 'Sync skills/agents/extras to targets' }
+            @{ Name = 'sync'; Desc = 'Sync skills/agents/extras/MCP to targets' }
+            @{ Name = 'mcp'; Desc = 'Manage MCP connections' }
             @{ Name = 'status'; Desc = 'Show status of all targets' }
             @{ Name = 'diff'; Desc = 'Show differences between source and targets' }
             @{ Name = 'backup'; Desc = 'Create backup of targets' }

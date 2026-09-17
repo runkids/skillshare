@@ -27,6 +27,7 @@ import { queryKeys, staleTimes } from '../lib/queryKeys';
 import { useAppContext } from '../context/AppContext';
 import { handTheme } from '../lib/codemirror-theme';
 import SyncPreviewModal from '../components/SyncPreviewModal';
+import { formatYaml } from '../lib/formatYaml';
 
 type ConfigTab = 'config' | 'skillignore' | 'agentignore' | 'extensions';
 
@@ -82,7 +83,9 @@ export default function ConfigPage() {
   const handleConfigSave = async () => {
     setSaving(true);
     try {
-      const res = await api.putConfig(raw);
+      const formatted = formatYaml(raw);
+      const res = await api.putConfig(formatted);
+      setRaw(formatted);
       if (res.warnings?.length) {
         toast(t('config.toast.savedWithWarnings', { warnings: res.warnings.join('; ') }), 'warning');
       } else {
@@ -92,6 +95,7 @@ export default function ConfigPage() {
       setDirty(false);
       // Invalidate all data that depends on config
       queryClient.invalidateQueries({ queryKey: queryKeys.config });
+      queryClient.invalidateQueries({ queryKey: queryKeys.mcp });
       queryClient.invalidateQueries({ queryKey: queryKeys.overview });
       queryClient.invalidateQueries({ queryKey: queryKeys.targets.all });
       queryClient.invalidateQueries({ queryKey: queryKeys.skills.all });
@@ -434,11 +438,11 @@ export default function ConfigPage() {
 
           {/* Assistant panel */}
           <div
-            className={`hidden lg:block transition-all duration-300 ease-in-out ${
+            className={`hidden lg:block min-w-0 transition-all duration-300 ease-in-out ${
               panelCollapsed ? 'flex-[0] w-0 opacity-0 pointer-events-none overflow-hidden' : 'flex-[2] opacity-100 overflow-visible'
             }`}
           >
-            <Card className="!p-0 !overflow-visible min-w-[280px]">
+            <Card className="!p-0 min-w-0">
               <AssistantPanel
                 errors={yamlErrors}
                 changeCount={changeCount}

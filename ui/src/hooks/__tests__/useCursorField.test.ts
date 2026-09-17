@@ -40,8 +40,16 @@ describe('resolveFieldPath', () => {
     expect(resolveFieldPath(sampleLines, 100)).toBeNull();
   });
 
-  it('resolves bare list values as short-form keys', () => {
-    expect(resolveFieldPath(sampleLines, 5)).toBe('targets.claude.include.skill-a');
+  it('resolves scalar list values to their containing field', () => {
+    expect(resolveFieldPath(sampleLines, 5)).toBe('targets.claude.include');
+  });
+
+  it.each(['__pycache__/', '.git/', '*.tmp', '"quoted path/"', 'https://example.com'])('resolves ignore item %s', (value) => {
+    expect(resolveFieldPath(['ignore:', '  - .DS_Store', `  - ${value}`], 2)).toBe('ignore');
+  });
+
+  it('supports sequences without extra indentation', () => {
+    expect(resolveFieldPath(['ignore:', '- .git/', '- __pycache__/'], 2)).toBe('ignore');
   });
 
   // YAML list items with keys: "- name: rules"

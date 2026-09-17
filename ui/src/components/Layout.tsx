@@ -5,6 +5,7 @@ import {
   Layers,
   Target,
   FolderPlus,
+  Plug,
   RefreshCw,
   ArrowDownToLine,
   Archive,
@@ -59,6 +60,7 @@ const navGroups: NavGroup[] = [
     items: [
       { to: '/resources', icon: Layers, labelKey: 'layout.nav.resources' },
       { to: '/extras', icon: FolderPlus, labelKey: 'layout.nav.extras' },
+      { to: '/mcp', icon: Plug, labelKey: 'mcp.title' },
       { to: '/targets', icon: Target, labelKey: 'layout.nav.targets' },
       { to: '/search', icon: Search, labelKey: 'layout.nav.search' },
     ],

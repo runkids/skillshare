@@ -47,6 +47,7 @@ var commands = map[string]func([]string) error{
 	"__ui-restart": cmdUIRestart,
 	"tui":          cmdTUIToggle,
 	"extras":       cmdExtras,
+	"mcp":          cmdMCP,
 	"enable":       cmdEnable,
 	"disable":      cmdDisable,
 	"completion":   cmdCompletion,
@@ -214,7 +215,8 @@ func printUsage() {
 	cmd("uninstall", "<name>...", "Remove skills/agents from source directory")
 	cmd("list", "[agents] [pattern] [--all]", "List installed skills (or agents)")
 	cmd("search", "[query]", "Search or browse GitHub for skills")
-	cmd("sync", "[agents] [--all]", "Sync skills/agents/extras to targets")
+	cmd("sync", "[agents|mcp] [--all]", "Sync skills/agents/extras/MCP to targets")
+	cmd("mcp", "<command>", "Set up and manage MCP connections")
 	cmd("status", "", "Show status of all targets")
 	fmt.Println()
 
@@ -285,7 +287,7 @@ func printUsage() {
 	fmt.Println(g + "  skillshare status                                   # Check current state")
 	fmt.Println("  skillshare sync --dry-run                           # Preview before sync")
 	fmt.Println("  skillshare sync agents                              # Sync agents only")
-	fmt.Println("  skillshare sync --all                               # Sync skills + agents + extras")
+	fmt.Println("  skillshare sync --all                               # Sync skills + agents + extras + MCP")
 	fmt.Println("  skillshare list --all                               # List skills + agents")
 	fmt.Println("  skillshare collect claude                           # Import local skills")
 	fmt.Println("  skillshare install anthropics/skills/pdf -p         # Project install")

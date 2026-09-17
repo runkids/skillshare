@@ -9,6 +9,7 @@ import (
 
 	"skillshare/internal/backup"
 	"skillshare/internal/config"
+	"skillshare/internal/mcp"
 	"skillshare/internal/oplog"
 	"skillshare/internal/skillignore"
 	"skillshare/internal/sync"
@@ -39,6 +40,7 @@ type syncJSONOutput struct {
 	Details       []syncJSONTargetDetail `json:"details"`
 	Extras        []syncExtrasJSONEntry  `json:"extras,omitempty"`
 	ContextCost   *contextCostJSON       `json:"context_cost,omitempty"`
+	MCP           *mcp.Result            `json:"mcp,omitempty"`
 }
 
 type syncJSONTargetDetail struct {
@@ -57,6 +59,9 @@ type syncModeStats struct {
 }
 
 func cmdSync(args []string) error {
+	if len(args) > 0 && args[0] == "mcp" {
+		return cmdSyncMCP(args[1:])
+	}
 	if wantsHelp(args) {
 		printSyncHelp()
 		return nil
@@ -106,6 +111,60 @@ func cmdSync(args []string) error {
 
 	dryRun, force, jsonOutput, quiet := parseSyncFlags(rest)
 
+	var mcpResult *mcp.Result
+	var mcpService *mcp.Service
+	if hasAll {
+		// Loading can migrate legacy skill/extras configuration. Complete that
+		// existing normalization before fingerprinting the MCP source.
+		if mode == modeProject {
+			_, err = config.LoadProject(cwd)
+		} else {
+			_, err = config.Load()
+		}
+		if err != nil {
+			return err
+		}
+		scope := "-g"
+		if mode == modeProject {
+			scope = "-p"
+		}
+		mcpService, _, err = mcpContext([]string{scope})
+		if err != nil {
+			return err
+		}
+		plan, planErr := mcpService.Preview()
+		if planErr != nil {
+			return fmt.Errorf("MCP preflight: %w", planErr)
+		}
+		if plan.Blocked {
+			if !jsonOutput {
+				_ = printMCPPlan(plan, false)
+			}
+			return fmt.Errorf("MCP conflicts found; no resources synchronized")
+		}
+		mcpResult = &mcp.Result{Plan: plan, Applied: []string{}, BackupIDs: []string{}}
+	}
+	finishMCP := func(previous error) error {
+		if !hasAll || previous != nil {
+			return previous
+		}
+		if len(mcpResult.Plan.Changes) == 0 {
+			return nil
+		}
+		var applyErr error
+		if !dryRun {
+			mcpResult, applyErr = mcpService.Apply(mcpResult.Plan.Revision)
+			logMCPOp(mcpService.ConfigPath, "sync mcp", start, applyErr)
+		}
+		if !jsonOutput && !quiet && mcpResult != nil {
+			_ = printMCPPlan(mcpResult.Plan, false)
+			for _, id := range mcpResult.BackupIDs {
+				fmt.Printf("MCP backup: %s\n", id)
+			}
+		}
+		return applyErr
+	}
+
 	prevDiagOutput := sync.DiagOutput
 	if jsonOutput {
 		sync.DiagOutput = io.Discard
@@ -141,6 +200,7 @@ func cmdSync(args []string) error {
 		}
 
 		if jsonOutput {
+			err = finishMCP(err)
 			if hasAll {
 				projCfg, loadErr := config.LoadProject(cwd)
 				if loadErr == nil && len(projCfg.Extras) > 0 {
@@ -148,12 +208,12 @@ func cmdSync(args []string) error {
 					extrasEntries := runExtrasSyncEntries(projCfg.Extras, func(extra config.ExtraConfig) string {
 						return config.ExtrasSourceDirProject(projCfg.EffectiveExtrasSource(cwd), extra.Name)
 					}, dryRun, force, cwd, agentPaths)
-					return syncOutputJSON(results, dryRun, start, projIgnoreStats, err, projCtxCost, extrasEntries)
+					return syncOutputJSON(results, dryRun, start, projIgnoreStats, err, projCtxCost, mcpResult, extrasEntries)
 				}
 			}
-			return syncOutputJSON(results, dryRun, start, projIgnoreStats, err, projCtxCost)
+			return syncOutputJSON(results, dryRun, start, projIgnoreStats, err, projCtxCost, mcpResult)
 		}
-		return err
+		return finishMCP(err)
 	}
 
 	cfg, err := config.Load()
@@ -289,7 +349,15 @@ func cmdSync(args []string) error {
 		Force:   force,
 	}, start, syncErr)
 
+	// Agents are included in --all in both human-readable and JSON output.
+	if kind == kindAll || hasAll {
+		if _, agentErr := syncAgentsGlobal(cfg, dryRun, force, jsonOutput, start); agentErr != nil && syncErr == nil {
+			syncErr = agentErr
+		}
+	}
+
 	if jsonOutput {
+		syncErr = finishMCP(syncErr)
 		var ctxCost *contextCostJSON
 		if analyzeErr == nil && len(analyzeEntries) > 0 {
 			ctxCost = buildContextCostJSON(analyzeEntries, cfg.ContextBudget)
@@ -299,16 +367,9 @@ func cmdSync(args []string) error {
 			extrasEntries := runExtrasSyncEntries(cfg.Extras, func(extra config.ExtraConfig) string {
 				return config.ResolveExtrasSourceDir(extra, cfg.EffectiveExtrasSource(), cfg.EffectiveSkillsSource())
 			}, dryRun, force, "", agentPaths)
-			return syncOutputJSON(results, dryRun, start, ignoreStats, syncErr, ctxCost, extrasEntries)
+			return syncOutputJSON(results, dryRun, start, ignoreStats, syncErr, ctxCost, mcpResult, extrasEntries)
 		}
-		return syncOutputJSON(results, dryRun, start, ignoreStats, syncErr, ctxCost)
-	}
-
-	// Agent sync when kind=all or --all (after skill sync)
-	if kind == kindAll || hasAll {
-		if _, agentErr := syncAgentsGlobal(cfg, dryRun, force, jsonOutput, start); agentErr != nil && syncErr == nil {
-			syncErr = agentErr
-		}
+		return syncOutputJSON(results, dryRun, start, ignoreStats, syncErr, ctxCost, mcpResult)
 	}
 
 	if hasAll {
@@ -317,7 +378,7 @@ func cmdSync(args []string) error {
 		}
 	}
 
-	return syncErr
+	return finishMCP(syncErr)
 }
 
 func parseSyncFlags(args []string) (dryRun, force, jsonOutput, quiet bool) {
@@ -405,7 +466,7 @@ func printIgnoredSkills(stats *skillignore.IgnoreStats) {
 
 // syncOutputJSON converts sync results to JSON and writes to stdout.
 // extras is optional and included when --all is used.
-func syncOutputJSON(results []syncTargetResult, dryRun bool, start time.Time, iStats *skillignore.IgnoreStats, syncErr error, ctxCost *contextCostJSON, extras ...[]syncExtrasJSONEntry) error {
+func syncOutputJSON(results []syncTargetResult, dryRun bool, start time.Time, iStats *skillignore.IgnoreStats, syncErr error, ctxCost *contextCostJSON, mcpResult *mcp.Result, extras ...[]syncExtrasJSONEntry) error {
 	var totals syncModeStats
 	var details []syncJSONTargetDetail
 	for _, r := range results {
@@ -443,6 +504,7 @@ func syncOutputJSON(results []syncTargetResult, dryRun bool, start time.Time, iS
 		output.Extras = extras[0]
 	}
 	output.ContextCost = ctxCost
+	output.MCP = mcpResult
 	return writeJSONResult(&output, syncErr)
 }
 
@@ -849,12 +911,12 @@ func syncSymlinkMode(name string, target config.TargetConfig, source string, dry
 }
 
 func printSyncHelp() {
-	fmt.Println(`Usage: skillshare sync [agents] [options]
+	fmt.Println(`Usage: skillshare sync [agents|mcp] [options]
 
 Sync skills from source to all configured targets.
 
 Options:
-  --all             Sync skills, agents, and extras
+  --all             Sync skills, agents, extras, and MCP
   --dry-run, -n     Preview changes without applying
   --force, -f       Force sync (overwrite local changes)
   --json            Output results as JSON
@@ -864,12 +926,13 @@ Options:
   --help, -h        Show this help
 
 Subcommands:
+  mcp               Sync only MCP settings (no --force; conflicts require review)
   extras            Sync only extras (see: skillshare sync extras --help)
 
 Examples:
   skillshare sync                Sync skills to all targets
   skillshare sync --dry-run      Preview sync changes
-  skillshare sync --all          Sync skills, agents, and extras
+  skillshare sync --all          Sync skills, agents, extras, and MCP
   skillshare sync -p             Sync project-level skills
   skillshare sync agents         Sync agents only`)
 }

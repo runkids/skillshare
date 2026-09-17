@@ -29,7 +29,9 @@ complete -c skillshare -n __fish_skillshare_no_subcommand -a install -d 'Install
 complete -c skillshare -n __fish_skillshare_no_subcommand -a uninstall -d 'Remove skills/agents from source directory'
 complete -c skillshare -n __fish_skillshare_no_subcommand -a list -d 'List installed skills'
 complete -c skillshare -n __fish_skillshare_no_subcommand -a search -d 'Search or browse GitHub for skills'
-complete -c skillshare -n __fish_skillshare_no_subcommand -a sync -d 'Sync skills/agents/extras to targets'
+complete -c skillshare -n __fish_skillshare_no_subcommand -a sync -d 'Sync skills/agents/extras/MCP to targets'
+complete -c skillshare -n __fish_skillshare_no_subcommand -a mcp -d 'Manage MCP connections'
+complete -c skillshare -n '__fish_skillshare_using_command mcp' -a 'add import list remove restore'
 complete -c skillshare -n __fish_skillshare_no_subcommand -a status -d 'Show status of all targets'
 complete -c skillshare -n __fish_skillshare_no_subcommand -a diff -d 'Show differences between source and targets'
 complete -c skillshare -n __fish_skillshare_no_subcommand -a backup -d 'Create backup of targets'
@@ -123,7 +125,7 @@ complete -c skillshare -n '__fish_skillshare_using_command list' -l all -d 'List
 complete -c skillshare -n '__fish_skillshare_using_command list' -l help -s h -d 'Show help'
 
 # sync
-complete -c skillshare -n '__fish_skillshare_using_command sync' -a 'agents extras' -d 'Sync scope'
+complete -c skillshare -n '__fish_skillshare_using_command sync' -a 'agents extras mcp' -d 'Sync scope'
 complete -c skillshare -n '__fish_skillshare_using_command sync' -l all -d 'Sync skills + agents + extras'
 complete -c skillshare -n '__fish_skillshare_using_command sync' -l dry-run -s n -d 'Preview changes'
 complete -c skillshare -n '__fish_skillshare_using_command sync' -l force -s f -d 'Force sync'

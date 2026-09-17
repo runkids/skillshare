@@ -39,6 +39,7 @@ export const queryKeys = {
 
   templates: ['templates'] as const,
   extras: ['extras'] as const,
+  mcp: ['mcp'] as const,
   extrasDiff: (name?: string) => ['extras-diff', name ?? '__all'] as const,
   doctor: ['doctor'] as const,
   skillignore: ['skillignore'] as const,

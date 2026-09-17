@@ -11,6 +11,9 @@ import (
 // ValidateConfig validates a global config semantically (after YAML parsing).
 // Returns warnings (non-fatal) and error (fatal, should return 400).
 func ValidateConfig(cfg *Config) (warnings []string, err error) {
+	if err := validateMCP(cfg.MCP, cfg.Sources.MCP); err != nil {
+		return nil, err
+	}
 	var errs []string
 
 	// Source path validation checks the effective source, including the default
@@ -74,6 +77,9 @@ func ValidateConfig(cfg *Config) (warnings []string, err error) {
 
 // ValidateProjectConfig validates a project config semantically.
 func ValidateProjectConfig(cfg *ProjectConfig, projectRoot string) (warnings []string, err error) {
+	if err := validateMCP(cfg.MCP, cfg.Sources.MCP); err != nil {
+		return nil, err
+	}
 	var errs []string
 
 	sourcePath := cfg.EffectiveSkillsSource(projectRoot)

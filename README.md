@@ -186,16 +186,28 @@ skillshare init -p && skillshare sync
 
 ```bash
 skillshare sync agents            # sync agents only
-skillshare sync --all             # sync skills + agents + extras together
+skillshare sync --all             # sync skills + agents + extras + MCP together
 ```
 
 **Extras** —manage rules, commands, prompts & more
 
 ```bash
 skillshare extras init rules          # create a "rules" extra
-skillshare sync --all                 # sync skills + extras together
+skillshare sync --all                 # sync skills + agents + extras + MCP together
 skillshare extras collect rules       # collect local files back to source
 ```
+
+**MCP connections** —configure once for Claude Code, Codex, Cursor and VS Code
+
+```bash
+skillshare mcp add                    # guided URL or JSON setup
+skillshare sync mcp --dry-run         # preview native configuration changes
+skillshare sync mcp                   # apply connection settings
+```
+
+Keep definitions in `config.yaml` or reference a separate `mcp.yaml`.
+See [MCP setup](https://skillshare.runkids.cc/docs/how-to/daily-tasks/sharing-mcp)
+for examples, environment references and importing existing connections.
 
 **Shell completion** —tab-complete commands, flags, and subcommands
 

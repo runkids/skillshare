@@ -18,6 +18,18 @@ interface FieldDocsProps {
 function lookupFieldDoc(fieldPath: string | null, docsMap: Record<string, FieldDoc>): FieldDoc | null {
   if (!fieldPath) return null;
 
+  // MCP server names and env/header names are user-defined, even when they
+  // happen to match a schema field such as "targets" or "url".
+  if (fieldPath.startsWith('mcp.servers.')) {
+    const parts = fieldPath.slice('mcp.servers.'.length).split('.');
+    const field = parts[1];
+    if (!field) return docsMap['mcp.servers'] ?? null;
+    const suffix = (field === 'env' || field === 'headers')
+      ? (parts.length > 3 ? '.fromEnv' : '')
+      : (parts[2] === 'fromEnv' ? '.fromEnv' : '');
+    return docsMap[`mcp.servers.${field}${suffix}`] ?? null;
+  }
+
   let doc = docsMap[fieldPath];
   if (!doc) {
     const parts = fieldPath.split('.');

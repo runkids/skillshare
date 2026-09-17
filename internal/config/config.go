@@ -260,6 +260,7 @@ type ExtraConfig struct {
 // fall back to <BaseDir>/<type>/ defaults (or, for extras, the derivation
 // described in ExtrasParentDir).
 type GlobalSources struct {
+	MCP    string `yaml:"mcp,omitempty"`
 	Skills string `yaml:"skills,omitempty"`
 	Agents string `yaml:"agents,omitempty"`
 	Extras string `yaml:"extras,omitempty"`
@@ -267,6 +268,7 @@ type GlobalSources struct {
 
 // Config holds the application configuration
 type Config struct {
+	MCP          *MCPConfig    `yaml:"mcp,omitempty"`
 	Source       string        `yaml:"source,omitempty"`
 	AgentsSource string        `yaml:"agents_source,omitempty"`
 	ExtrasSource string        `yaml:"extras_source,omitempty"`
@@ -550,6 +552,9 @@ func Load() (*Config, error) {
 	if err := yaml.Unmarshal(data, &cfg); err != nil {
 		return nil, fmt.Errorf("failed to parse config: %w", err)
 	}
+	if err := validateMCP(cfg.MCP, cfg.Sources.MCP); err != nil {
+		return nil, err
+	}
 
 	threshold, err := normalizeAuditBlockThreshold(cfg.Audit.BlockThreshold)
 	if err != nil {
@@ -627,6 +632,9 @@ func Load() (*Config, error) {
 
 // Save writes the config to the default location
 func (c *Config) Save() error {
+	if err := validateMCP(c.MCP, c.Sources.MCP); err != nil {
+		return err
+	}
 	path := ConfigPath()
 
 	// Ensure directory exists

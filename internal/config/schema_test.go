@@ -156,6 +156,7 @@ func TestSchemaFiles_ValidJSON(t *testing.T) {
 	}{
 		{"schemas/config.schema.json", "Skillshare Global Configuration"},
 		{"schemas/project-config.schema.json", "Skillshare Project Configuration"},
+		{"schemas/mcp.schema.json", "Skillshare MCP Source"},
 	}
 
 	for _, tt := range tests {

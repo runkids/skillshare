@@ -12,11 +12,8 @@ function extractKey(line: string): string | null {
   const plain = line.match(/^\s*([a-zA-Z_][\w.-]*)\s*:/);
   if (plain) return plain[1];
   // Try list item key: "  - key: value"
-  const listItem = line.match(/^\s*-\s+([a-zA-Z_][\w.-]*)\s*:/);
+  const listItem = line.match(/^\s*-\s+([a-zA-Z_][\w.-]*)\s*:(?:\s|$)/);
   if (listItem) return listItem[1];
-  // Bare list value: "  - agents" (no colon, e.g. short-form target name)
-  const bare = line.match(/^\s*-\s+([a-zA-Z_][\w.-]+)\s*$/);
-  if (bare) return bare[1];
   return null;
 }
 
@@ -28,10 +25,13 @@ export function resolveFieldPath(lines: string[], lineIndex: number): string | n
   if (targetIndent < 0) return null;
 
   const key = extractKey(targetLine);
-  if (!key) return null;
+  const scalarItem = !key && /^\s*-\s+\S/.test(targetLine);
+  if (!key && !scalarItem) return null;
 
-  const parts: string[] = [key];
-  let currentIndent = targetIndent;
+  const parts: string[] = key ? [key] : [];
+  // Scalar items belong to the containing field. YAML also permits sequence
+  // dashes at the same indentation as their parent mapping key.
+  let currentIndent = targetIndent + (scalarItem ? 1 : 0);
 
   for (let i = lineIndex - 1; i >= 0; i--) {
     const line = lines[i];
@@ -47,7 +47,7 @@ export function resolveFieldPath(lines: string[], lineIndex: number): string | n
     if (currentIndent === 0) break;
   }
 
-  return parts.join('.');
+  return parts.length ? parts.join('.') : null;
 }
 
 export function useCursorField() {

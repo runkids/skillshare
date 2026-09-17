@@ -257,6 +257,7 @@ func PruneStaleSkills(skills []SkillEntry, live map[string]bool, skillsOnly bool
 // ProjectSources overrides default source directories for project resources.
 // Relative paths resolve from the project root, not from the project directory.
 type ProjectSources struct {
+	MCP    string `yaml:"mcp,omitempty"`
 	Skills string `yaml:"skills,omitempty"`
 	Agents string `yaml:"agents,omitempty"`
 	Extras string `yaml:"extras,omitempty"`
@@ -269,6 +270,7 @@ func ProjectDir(projectRoot string) string {
 
 // ProjectConfig holds project-level config (<project-dir>/config.yaml).
 type ProjectConfig struct {
+	MCP           *MCPConfig           `yaml:"mcp,omitempty"`
 	Sources       ProjectSources       `yaml:"sources,omitempty"`
 	Targets       []ProjectTargetEntry `yaml:"targets"`
 	Skills        []SkillEntry         `yaml:"skills,omitempty"`
@@ -368,6 +370,9 @@ func LoadProject(projectRoot string) (*ProjectConfig, error) {
 	if err := yaml.Unmarshal(data, &cfg); err != nil {
 		return nil, fmt.Errorf("failed to parse project config: %w", err)
 	}
+	if err := validateMCP(cfg.MCP, cfg.Sources.MCP); err != nil {
+		return nil, err
+	}
 
 	threshold, err := normalizeAuditBlockThreshold(cfg.Audit.BlockThreshold)
 	if err != nil {
@@ -427,6 +432,9 @@ func (c *ProjectConfig) Save(projectRoot string) error {
 // SaveIn writes the project config into an explicit project directory. Use it
 // during init, when the directory is chosen rather than discovered.
 func (c *ProjectConfig) SaveIn(projectDir string) error {
+	if err := validateMCP(c.MCP, c.Sources.MCP); err != nil {
+		return err
+	}
 	path := filepath.Join(projectDir, projectdir.ConfigFileName)
 	dir := filepath.Dir(path)
 	if err := os.MkdirAll(dir, 0755); err != nil {

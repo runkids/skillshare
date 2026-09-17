@@ -6,6 +6,10 @@ sidebar_position: 2
 
 Push skills from source to all targets.
 
+Use `skillshare sync mcp` for MCP connection settings, or `skillshare sync --all`
+to include skills, agents, extras and MCP. MCP synchronization uses entry
+ownership and conflict checks rather than skill symlinks. See [mcp](/docs/reference/commands/mcp).
+
 :::info Why is sync a separate command?
 Operations like `install` and `uninstall` only modify source — sync propagates to targets. This lets you batch changes, preview with `--dry-run`, and control when targets update. See [Why Sync is a Separate Step](/docs/understand/source-and-targets#why-sync-is-a-separate-step).
 :::

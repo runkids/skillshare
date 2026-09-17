@@ -5,7 +5,9 @@
   "description": "Configuration file for skillshare — the universal AI skill manager. Location: ~/.config/skillshare/config.yaml",
   "type": "object",
   "additionalProperties": false,
+  "allOf": [{"not": {"required": ["sources", "mcp"], "properties": {"sources": {"required": ["mcp"]}, "mcp": {"required": ["servers"]}}}}],
   "properties": {
+    "mcp": {"$ref": "mcp.schema.json#/$defs/configuration"},
     "source": {
       "type": "string",
       "description": "Legacy top-level skills source path. Prefer sources.skills (added in v0.19.16). When both are set, sources.skills wins. Supports ~ for home directory.",
@@ -23,6 +25,7 @@
       "description": "Custom source directories for global resources (added in v0.19.16). Mirrors project-mode sources. When set, each key overrides the corresponding legacy top-level field (source / agents_source / extras_source). Supports ~ for home directory.",
       "additionalProperties": false,
       "properties": {
+        "mcp": {"type": "string", "minLength": 1, "description": "External MCP YAML file. Relative to this config.yaml; mutually exclusive with mcp.servers."},
         "skills": {
           "type": "string",
           "description": "Custom skills source directory. Falls back to source (legacy) or ~/.config/skillshare/skills.",
