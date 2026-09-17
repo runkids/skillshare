@@ -1,6 +1,6 @@
 # Security Audit
 
-Scan skills for prompt injection, data exfiltration, credential access, destructive commands, obfuscation, suspicious URLs, and broken local links. 100+ built-in rules across 6 analyzers.
+Scan skills for prompt injection, data exfiltration, credential access, destructive commands, obfuscation, suspicious URLs, and broken local links. Use `audit rules --no-tui` for the installed rule set.
 
 ## Usage
 
@@ -42,7 +42,7 @@ skillshare audit --analyzer static # Run only the static analyzer
 |---------|-----------|--------|----------|
 | `default` | `CRITICAL` | `global` | Standard — block only critical threats |
 | `strict` | `HIGH` | `global` | Security-conscious teams |
-| `permissive` | `CRITICAL` | `legacy` | Advisory-only — minimal blocking |
+| `permissive` | `CRITICAL` | `legacy` | Legacy deduplication; still blocks CRITICAL |
 
 Explicit flags always override profile defaults.
 
@@ -73,7 +73,7 @@ CLI flags override config values. Precedence: CLI > project config > global conf
 
 `skillshare install` auto-scans after download:
 
-- **Findings at/above threshold → install blocked.** User must `--force` to proceed.
+- **Findings at/above threshold → install blocked.** Inspect findings; explicit `--force` overrides the gate.
 - **Findings below threshold → warning displayed** after successful install.
 - **`--skip-audit`** skips security scanning entirely for a single install.
 
@@ -82,6 +82,9 @@ skillshare install user/repo              # Auto-audit, block on threshold
 skillshare install user/repo --force      # Override block
 skillshare install user/repo --skip-audit # Skip audit entirely
 ```
+
+`install --json` retains the audit gate even though it enables overwrite/noninteractive
+selection. Explicit `--force` and `--skip-audit` have different security effects.
 
 ## Managing Rules
 

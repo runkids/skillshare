@@ -1,6 +1,6 @@
 # Operation Log
 
-JSONL-based persistent audit trail. All mutating commands (sync, install, uninstall, audit, etc.) are logged automatically.
+JSONL-based persistent audit trail. Instrumented operations (including sync, install, uninstall, and audit) record results.
 
 ## Usage
 
@@ -40,7 +40,7 @@ When `--cmd` targets a command that only exists in one log file (e.g. `--cmd aud
 
 | File | Contents |
 |------|----------|
-| `operations.log` | All CLI commands (sync, install, update, etc.) |
+| `operations.log` | Recorded operations (sync, install, update, etc.) |
 | `audit.log` | Security scan results |
 
 Location: `~/.config/skillshare/logs/` (global) or `.skillshare/logs/` (project).

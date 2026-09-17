@@ -1,4 +1,4 @@
-# Sync, Collect, Push & Pull
+# Sync, Collect, Commit, Push & Pull
 
 | Command | Direction | Project? |
 |---------|-----------|:--------:|
@@ -7,7 +7,7 @@
 | `push` | Source → Remote | ✗ |
 | `pull` | Remote → Source → Targets | ✗ |
 
-**Auto-detection:** `sync` and `collect` auto-detect project mode when `.skillshare/config.yaml` exists. Use `-g` to force global.
+**Auto-detection:** `sync` and `collect` auto-detect project mode when `.skillshare/config.yaml` or `skillshare/config.yaml` is found. Use `-g` to force global.
 
 ## sync
 
@@ -15,7 +15,7 @@ Distribute skills from source to all targets using each target's sync mode (`mer
 
 ```bash
 skillshare sync                # Execute (auto-detects mode)
-skillshare sync --all          # Sync skills + extras
+skillshare sync --all          # Sync skills + agents + extras + MCP
 skillshare sync --dry-run      # Preview
 skillshare sync --force        # Override conflicts
 skillshare sync --json         # JSON output
@@ -31,6 +31,11 @@ skillshare sync -g             # Force global mode
 Copy mode note:
 - `skillshare doctor` duplicate checks ignore manifest-managed copy entries (expected mirrors of source).
 - Duplicate warnings in copy mode are for true local copies that collide with source skill names.
+
+## Agents and MCP
+
+`skillshare sync agents` distributes native agents. `skillshare sync mcp` applies
+MCP settings; see [native-agents.md](native-agents.md) and [mcp.md](mcp.md).
 
 ## sync extras
 
@@ -76,6 +81,14 @@ skillshare collect -p --json       # Project JSON output
 skillshare collect -p agents --json   # Project agent JSON output
 ```
 
+## commit and Git scope
+
+`skillshare commit -m "Update resources"` creates a local checkpoint without pushing.
+Global `commit`, `push`, and `pull` use `git_root`: `skills` (default), `agents`,
+`extras`, or `root`. Inspect the configured repository rather than assuming it is
+always the skills directory. A Git-root mismatch is an error; do not relocate `.git`
+or initialize a replacement repository as an automatic recovery step.
+
 ## push
 
 Git commit and push source to remote. **Global mode only.**
@@ -101,7 +114,8 @@ skillshare pull --dry-run      # Preview
 
 ## Common Workflows
 
-**Local editing:** Edit skill anywhere → `sync` (symlinks update source automatically)
+**Local editing:** Edit the source → `sync`. Editing a merge/symlink target also edits
+the source; editing a copy target does not. Inspect `diff` before collecting copies.
 
 **Import local changes:** `collect <target>` → `sync`
 

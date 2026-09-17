@@ -1,6 +1,7 @@
 # Install, Update, Uninstall & New
 
-All commands support project mode with `-p` flag. Auto-detected for `install -p` (when config lists remote skills).
+Use `-p` for project resources or `-g` for global resources. For native agent workflows,
+see [native-agents.md](native-agents.md). These examples use skills unless specified otherwise.
 
 ## install
 
@@ -63,7 +64,10 @@ skillshare install user/repo --skip-audit             # Skip security scan
 |------|-------------|
 | `-p, --project` | Install to project source |
 | `--name <n>` | Override skill name |
-| `--force, -f` | Overwrite existing |
+| `--kind <skill\|agent>` | Restrict resource discovery |
+| `--agent, -a <names>` | Select agents by name (comma-separated) |
+| `--branch, -b <name>` | Select a Git branch |
+| `--force, -f` | Overwrite existing and explicitly override audit blocking |
 | `--update, -u` | Update if exists |
 | `--track, -t` | Track for updates (preserves .git) |
 | `--skill, -s <names>` | Select specific skills from multi-skill repo (comma-separated) |
@@ -73,7 +77,7 @@ skillshare install user/repo --skip-audit             # Skip security scan
 | `--exclude <name>` | Skip specific skills during multi-skill install (repeatable) |
 | `--skip-audit` | Skip security audit for this install |
 | `--audit-threshold <t>` / `--threshold <t>` / `-T <t>` | Override block threshold for this run (`critical\|high\|medium\|low\|info`; shorthand: `c\|h\|m\|l\|i`, plus `crit`, `med`) |
-| `--json` | JSON output (implies `--force` + `--all`, non-interactive) |
+| `--json` | Noninteractive JSON; permits overwrite and selects all when no skill/agent filter is given; retains audit blocking |
 | `--dry-run, -n` | Preview |
 
 **Fuzzy subdirectory resolution:** When a monorepo has nested skill directories, you can specify just the skill name — e.g., `user/repo/vue-best-practices` finds `skills/vue-best-practices/` automatically. Fails with an error if multiple matches exist.
@@ -148,7 +152,10 @@ skillshare update _repo --force -p  # Discard local changes
 
 **Safety:** Tracked repos with uncommitted changes are skipped. Use `--force` to override.
 
-**Security:** Post-update audit gate rolls back tracked repos on HIGH/CRITICAL findings. Risk label and score displayed after updates. Use `--skip-audit` to bypass.
+**Security:** Updates roll back when findings reach the configured block threshold.
+`--audit-threshold` / `--threshold` / `-T` overrides the threshold for the run.
+Explicit `--force` can discard local changes and override audit blocking;
+`--skip-audit` skips scanning. Review findings before selecting either override.
 
 **After update:** `skillshare sync`
 
@@ -192,11 +199,15 @@ Create a new skill template.
 
 ```bash
 # Global
-skillshare new <name>               # Create SKILL.md template
+skillshare new <name> -P none       # Minimal template without pattern selection
+skillshare new <name> -P reviewer   # Reviewer scaffold
 
 # Project
 skillshare new <name> -p            # Create in .skillshare/skills/
 skillshare new <name> --dry-run -p  # Preview
 ```
+
+Without `-P`, a terminal may offer pattern selection. Available patterns: `tool-wrapper`,
+`generator`, `reviewer`, `inversion`, `pipeline`, `none`.
 
 **After create:** Edit SKILL.md → `skillshare sync`

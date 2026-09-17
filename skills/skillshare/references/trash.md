@@ -29,7 +29,7 @@ skillshare trash restore <name> -p       # Restore to project source
 skillshare trash agents list -p          # Project agent trash
 ```
 
-Auto-detects mode when `.skillshare/config.yaml` exists.
+Use `-p` or `-g` to select scope explicitly when both configurations exist.
 
 ## Behavior
 
@@ -42,7 +42,7 @@ Auto-detects mode when `.skillshare/config.yaml` exists.
 
 ```bash
 # Undo an accidental uninstall
-skillshare trash list                   # Find the skill
+skillshare trash list --no-tui          # Find the skill
 skillshare trash restore my-skill       # Restore it
 skillshare sync                         # Re-sync to targets
 

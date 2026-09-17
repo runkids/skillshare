@@ -1,6 +1,7 @@
 # Target Management
 
-Manage AI CLI tool targets (Claude, Cursor, Windsurf, Firebender, etc.). Skillshare supports 49+ built-in targets.
+Manage AI CLI tool targets (Claude, Cursor, Windsurf, Firebender, etc.). Use `skillshare target list --json` to inspect configured targets; avoid assuming skill
+and MCP client support are identical.
 
 ## Global Targets
 
@@ -110,4 +111,6 @@ Global and project modes use the **same short names** (e.g., `claude`, `cursor`,
 
 **Always use** `target remove` to unlink targets.
 
-**NEVER** `rm -rf` on symlinked targets — this deletes the source!
+Inspect whether a path is a symlink before filesystem operations. Removing a symlink
+itself and traversing its target are different operations; `target remove` handles the
+managed relationship without requiring manual recursive deletion.

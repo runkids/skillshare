@@ -21,6 +21,7 @@ Initialize skillshare configuration (global or project).
 | `--discover --select "a,b"` | Non-interactive discovery |
 | `-s, --source <path>` | Custom source path |
 | `--remote <url>` | Set git remote (implies --git) |
+| `--git-root <scope>` | Git scope: `skills`, `agents`, `extras`, or `root` |
 | `--skill` | Install built-in skillshare skill (opt-in) |
 | `--no-skill` | Skip built-in skill installation |
 | `-n, --dry-run` | Preview changes |
@@ -51,13 +52,15 @@ skillshare init --discover --select "windsurf,kilocode"
 
 ## Project Init (`-p`)
 
-Creates `.skillshare/` in current directory with `config.yaml`, `.gitignore`, and `skills/`.
+Creates `.skillshare/` in the current directory. `--visible` uses `skillshare/` instead.
+Examples below use the default hidden directory.
 
 ### Flags
 
 | Flag | Description |
 |------|-------------|
 | `-p, --project` | Enable project mode |
+| `--visible` | Use `skillshare/` instead of `.skillshare/` |
 | `-t, --targets "claude,cursor"` | Specific targets (non-interactive) |
 | `-d, --discover` | Discover new AI tools |
 | `--discover --select "a,b"` | Non-interactive discovery |

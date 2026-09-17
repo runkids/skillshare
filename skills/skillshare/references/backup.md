@@ -28,6 +28,10 @@ skillshare restore claude                            # Latest backup
 skillshare restore claude --from 2026-01-14_21-22   # Specific backup
 ```
 
+For native agents, use `restore agents <target>` (and `-p` for project agents).
+MCP recovery is separate: `mcp restore <backup-id>` restores managed native entries
+without changing source definitions; see [mcp.md](mcp.md).
+
 ## Best Practices
 
 - Run `backup` before major changes

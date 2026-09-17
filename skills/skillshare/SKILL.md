@@ -1,18 +1,11 @@
 ---
 name: skillshare
 description: |
-  Manages and syncs AI CLI skills and agents across 50+ tools from a single source.
-  Use this skill whenever the user mentions "skillshare", runs skillshare commands,
-  manages skills or agents (install, update, uninstall, sync, commit, audit, analyze, check, diff, search),
-  or troubleshoots skill/agent configuration (orphaned symlinks, broken targets, sync
-  issues). Covers both global (~/.config/skillshare/) and project (.skillshare/ or skillshare/)
-  modes. Also use when: adding new AI tool targets (Claude, Cursor, Windsurf, etc.),
-  setting target include/exclude filters or copy vs symlink mode, using backup/restore
-  or trash recovery, piping skillshare output to scripts (--json), setting up CI/CD
-  audit pipelines, building/sharing skill hubs (hub index, hub add), or working with
-  agents (single .md files synced to agent-capable targets like Claude, Cursor,
-  Augment, OpenCode) via positional `agents` filter or `--kind agent`, plus
-  `.agentignore` and `enable`/`disable` for per-agent toggles.
+  Manage skills, agents, extras, and MCP connection settings with the Skillshare CLI.
+  Use when the user asks to configure or run Skillshare, install or sync resources
+  across AI tools, import MCP settings, manage targets, audit skills, recover backups,
+  or troubleshoot Skillshare configuration and sync. Covers global and project modes,
+  noninteractive automation, and guidance for the terminal UI.
 argument-hint: "[command] [target] [--json] [--dry-run] [-p|-g]"
 metadata:
   version: v0.20.29
@@ -20,141 +13,102 @@ metadata:
 
 # Skillshare CLI
 
-Global: `~/.config/skillshare/skills/` → all AI CLIs. Project: `.skillshare/skills/` → repo-local.
-Auto-detects project mode from `.skillshare/config.yaml` or `skillshare/config.yaml` (hidden wins when both exist). Force with `-p` or `-g`.
+Use Skillshare to maintain a source and distribute resources to configured targets.
+Read only the reference relevant to the requested operation; the routing table is below.
+Check `skillshare <command> --help` if the installed version differs from these examples.
 
-## Recipes
+## Scope and resource selection
 
-### MCP Connections
+- Global config: `~/.config/skillshare/config.yaml`. Project config: `.skillshare/config.yaml`
+  or `skillshare/config.yaml`; hidden wins when both exist. Use `-g` or `-p` explicitly
+  when location matters instead of relying on auto-detection.
+- Skills are directories containing `SKILL.md`; agents are single Markdown files.
+  Source paths can be customized. Use the configured sources instead of assuming defaults.
+- Use native agents targets for agents. Use extras for arbitrary file resources or when
+  flattening/content transformation is required; `extension:` works only on extras targets.
+- MCP uses its own receiving targets and source definitions. Read [mcp.md](references/mcp.md)
+  before editing MCP settings or importing native configurations.
+
+## Execution rules
+
+1. **Choose noninteractive inputs.** Supply names and selection flags supported by the
+   specific command. Use `--no-tui` for plain output or `--json` where supported.
+   Do not add `--force` simply to avoid a prompt: it can overwrite conflicts or override audits.
+2. **Keep previews separate from writes.** Use `--dry-run` where supported. After changing
+   skills or agents, sync the intended resource and scope. MCP mutations save source only
+   unless `--sync` is supplied; `sync --all` also includes extras and MCP.
+3. **Inspect audit blocks.** Review findings before choosing an override. `install --json`
+   permits overwrite and selects all when no skill/agent filter is given, but retains
+   the audit gate; it is not merely an output format. Read [install.md](references/install.md)
+   and [audit.md](references/audit.md) before using it for automation.
+4. **Use the matching recovery mechanism.** Uninstalled skills go to trash; native MCP
+   entries use MCP backups. Do not substitute filesystem deletion for CLI uninstall.
+5. **Keep credentials out of MCP definitions.** Use `{fromEnv: VARIABLE}` references.
+   Managing settings does not require resolving secrets, copying OAuth credentials,
+   starting servers, or probing their tools.
+6. **Respect operation scope.** Local configuration work does not imply permission to
+   commit, push, or publish. Run those commands when included in the user's request.
+
+## Common workflows
+
+### Inspect and diagnose
 
 ```bash
-skillshare mcp add                                  # Guided URL/JSON setup
-skillshare mcp add docs --url https://example.com/mcp --target claude --sync
-skillshare mcp import docs --from claude --target claude --sync
-skillshare sync mcp --dry-run --json                 # Preview without executing servers
-skillshare sync mcp                                 # Apply native settings
-skillshare mcp remove docs --sync                    # Remove unchanged managed entries
-skillshare mcp restore BACKUP_ID --dry-run           # Preview entry-level restoration
+skillshare status --json
+skillshare list --json
+skillshare diff --json
+skillshare doctor --json
+skillshare mcp --json
 ```
 
-MCP supports Claude Code, Codex, Cursor, VS Code, OpenCode and Grok in global/project scopes.
-Definitions live in `mcp.servers`, or in `sources.mcp` (a YAML file with `servers`).
-Never define both; external paths are relative to the config directory.
-Use `mcp.targets` or per-server `targets`; MCP targets are independent of skill targets.
-Credentials use `{fromEnv: VARIABLE}`. Never resolve secrets, launch servers or
-copy OAuth credentials while managing settings. A matching native entry that
-Skillshare does not manage stays unmanaged until imported. A differing one needs
-`mcp import --replace` or an explicit entry replacement; `--force` cannot bypass it.
-`sync --all` includes MCP as well as skills, agents and extras.
+`doctor` exits 1 when it finds errors. Audit uses `--format json`; JSON flags and
+TUI availability vary by command. See the relevant reference rather than assuming parity.
 
-### Getting Started
-```bash
-skillshare init --no-copy --all-targets --git --skill  # Fresh global setup
-skillshare init -p --targets "claude,cursor"            # Fresh project setup
-skillshare init -p --visible                           # Use skillshare/ instead of .skillshare/
-skillshare init --copy-from claude --all-targets --git  # Import from existing CLI
-skillshare init --discover --select "windsurf"          # Add new AI tool later
-```
-### Installing Skills
-```bash
-skillshare install user/repo -s pdf,commit       # Select specific skills
-skillshare install user/repo --all               # Install everything
-skillshare install user/repo --into frontend     # Place in subdirectory
-skillshare install gitlab.com/team/repo          # Any Git host
-skillshare install user/repo --track             # Enable `update` later
-skillshare install user/repo -b develop --all    # Install from branch
-skillshare install user/repo --track -b develop  # Track specific branch
-skillshare install user/repo -s pdf -p           # Install to project
-skillshare install                               # Rehydrate remote skills/tracked repos
-skillshare sync                                  # Always sync after install
-```
-### Extras (Rules, Commands, Prompts)
-```bash
-skillshare extras init rules --target ~/.claude/rules --target ~/.cursor/rules
-skillshare extras init commands --target ~/.claude/commands --mode copy
-skillshare extras init rules --target ~/.claude/rules --source ~/shared/rules  # custom source (global only)
-skillshare extras init rules --target ~/.cursor/rules --force                  # overwrite existing
-skillshare extras init                               # Interactive TUI wizard (incl. source step)
-skillshare extras source                             # Show current extras_source
-skillshare extras source ~/shared/extras             # Set global extras_source
-skillshare extras list                               # Show status per target
-skillshare extras list --json                        # JSON with source_type field
-skillshare extras collect rules                      # Pull local files into source
-skillshare extras remove rules                       # Remove from config (source preserved)
-skillshare extras init agents --target ~/.claude/agents --flatten  # Flatten subdirs into root
-skillshare extras rules --mode copy                  # Change sync mode of a target
-skillshare extras agents --flatten                   # Enable flatten on existing target
-skillshare extras rules --add-target ~/.cursor/rules            # Add a target to an existing extra
-skillshare extras rules --remove-target ~/.cursor/rules --prune # Remove a target (--prune deletes synced files)
-skillshare sync extras                               # Sync all extras to targets
-skillshare sync extras --dry-run --force             # Preview / overwrite conflicts
-skillshare sync --all                                # Sync skills + agents + extras + MCP
-```
-Project extras always read from `<sources.extras>/<name>` (default `.skillshare/extras/<name>`); per-extra `source` and `extras source` are global-only. For project agents, prefer target `agents:` unless you need extras-only flatten/extension.
+### Install, update, and sync skills
 
-A target can set an `extension:` field in config.yaml to transform each source file during sync (e.g. markdown → TOML for Gemini/Codex); implies `copy` mode. See [extras.md](references/extras.md) for details.
-### Extensions (Content Transformation)
 ```bash
-# Extension is a directory at .skillshare/extensions/<name>/
-# extension.yaml controls: run command, output_ext, description
-# Official extensions: https://github.com/runkids/skillshare/tree/main/extensions
+skillshare install user/repo -s pdf,commit
+skillshare install user/repo --track -b develop --all
+skillshare sync
+skillshare check --json
+skillshare update my-skill
+skillshare sync
 ```
 
-extension.yaml format:
-```yaml
-run: ["node", "convert.js"]   # or ["python3", "convert.py"] etc.
-output_ext: toml              # renames output file extension
-description: "MD → Codex TOML"
+For project setup, use `init -p`, then `install -p` and `sync -p`. Rehydrate configured
+remote dependencies with `install` without a source. For full flag details and agents,
+read [install.md](references/install.md) and [sync.md](references/sync.md).
+
+### Disable or remove
+
+```bash
+skillshare disable 'draft-*' --dry-run
+skillshare disable 'draft-*'
+skillshare enable 'draft-*'
+skillshare uninstall my-skill
+skillshare sync
+skillshare trash restore my-skill
+skillshare sync
 ```
 
-Add extension to an extras target in config.yaml:
-```yaml
-extras:
-  - name: agents
-    targets:
-      - path: .claude/agents          # plain copy/merge
-      - path: .codex/agents
-        extension: codex-agents       # transform + rename to .toml
+Run the requested operation, not this entire example sequence. Quote glob patterns so
+Skillshare receives them unchanged. Disabling uses ignore rules; uninstall uses trash.
+
+### MCP settings
+
+```bash
+skillshare mcp import --from claude --json
+skillshare mcp add docs --url https://example.com/mcp --target claude --no-tui
+skillshare sync mcp --dry-run --json
+skillshare sync mcp
 ```
 
-Caveats:
-- `extension:` is only supported on **extras** targets — native agents targets ignore it
-- Implies `copy` mode; merge/symlink won't apply
-- Claude Code sets NODE_OPTIONS that break node extensions — use `env -u NODE_OPTIONS node convert.js` in run
-- Files missing required frontmatter fields fail validation and are skipped
-### Creating & Discovering Skills
-```bash
-skillshare new my-skill                          # Create with interactive pattern selection
-skillshare new my-skill -P reviewer              # Use reviewer pattern directly
-skillshare search "react testing"                # Search GitHub for skills
-skillshare collect                               # Pull target-local changes back to source
-```
-### Removing Skills
-```bash
-skillshare uninstall my-skill                    # Remove one (moves to trash)
-skillshare uninstall skill-a skill-b             # Remove multiple
-skillshare uninstall -G frontend                 # Remove entire group
-skillshare sync                                  # Always sync after uninstall
-```
-### Enable / Disable Skills
-```bash
-skillshare disable draft-*                       # Hide from sync (adds to .skillignore)
-skillshare enable draft-*                        # Restore (removes from .skillignore)
-skillshare disable my-skill -p                   # Project mode
-skillshare disable my-skill --dry-run            # Preview
-# TUI: press E in `skillshare list` to toggle
-skillshare sync                                  # Always sync after toggle
-```
-### Team / Organization
-```bash
-# Creator: init project (see Getting Started) → add skills → commit .skillshare/
-skillshare install -p && skillshare sync                  # Member: clone → install → sync
-skillshare install github.com/team/repo --track -p        # Track shared repo
-skillshare commit -m "Update skill"                       # Local checkpoint, no push
-skillshare push                                           # Cross-machine: push on A
-skillshare pull                                           # Cross-machine: pull on B
-```
-### Skill Hubs
+`--target` is singular and repeatable. A preview does not apply changes. For revisions,
+editing, import conflicts, credentials, backups, and human-operated TUI commands, read
+[mcp.md](references/mcp.md).
+
+### Skill hubs
+
 ```bash
 skillshare hub add https://example.com/hub.json          # Save a hub source
 skillshare hub add https://example.com/hub.json --label my-hub  # With custom label
@@ -164,77 +118,15 @@ skillshare hub default my-hub                            # Set default hub
 skillshare hub remove my-hub                             # Remove a hub
 skillshare hub index --source ~/.config/skillshare/skills/ --full --audit  # Build hub index
 ```
-### Controlling Where Skills Go
-```bash
-# SKILL.md frontmatter: metadata.targets: [claude] → only syncs to Claude
-skillshare target claude --add-include "team-*"   # glob filter
-skillshare target claude --add-agent-include "team-*"  # agent glob filter
-skillshare target claude --add-exclude "_legacy*"  # exclude pattern
-skillshare target claude --agent-mode copy         # agents copy mode
-skillshare target codex --mode copy && skillshare sync --force  # copy mode
-# .skillignore — hide skills/dirs from discovery (gitignore syntax)
-#   Root-level: <source>/.skillignore (affects all commands)
-#   Repo-level: <source>/_repo/.skillignore (scoped to that repo)
-#   .skillignore.local — local override (not committed), negation overrides base
-```
-See [targets.md](references/targets.md) for details.
-### Updates & Maintenance
-```bash
-skillshare check                              # See what has updates
-skillshare update my-skill && skillshare sync  # Update one
-skillshare update --all && skillshare sync     # Update all
-skillshare update --all --diff                 # Show what changed
-```
-### Scripting & CI/CD
-```bash
-skillshare status --json                       # Full status as JSON
-skillshare check --json                        # Update status as JSON
-skillshare sync --json                         # Sync results as JSON
-skillshare diff --json                         # Diff results as JSON
-skillshare install user/repo --json            # Install result as JSON (implies --force --all)
-skillshare update --all --json                 # Update results as JSON
-skillshare uninstall my-skill --json           # Global JSON; dirty tracked repos still require --force
-skillshare collect claude --json               # Collect result as JSON; existing items still require --force
-skillshare target list --json                  # Target list as JSON
-skillshare list --json                         # Skill list as JSON
-skillshare search react --json                 # Search results as JSON
-skillshare audit --format json                 # Audit results as JSON
-skillshare doctor --json                       # Health check as JSON (exit 1 on errors)
-```
-### Recovery & Troubleshooting
-```bash
-skillshare trash restore <name> && skillshare sync  # Undo delete
-skillshare sync                                     # Skill missing? Re-sync
-skillshare doctor && skillshare status              # Diagnose issues
-skillshare install user/repo --force                 # Override audit block
-skillshare install user/repo --skip-audit            # Bypass scan entirely
-```
-See [TROUBLESHOOTING.md](references/TROUBLESHOOTING.md) for more.
-
-## Quick Lookup
-| Commands | Project? | `--json`? |
-|----------|:--------:|:---------:|
-| `status`, `diff`, `list`, `doctor` | ✓ (auto) | ✓ |
-| `sync`, `collect` | ✓ (auto) | ✓ |
-| `install`, `uninstall`, `update`, `check`, `search`, `new` | ✓ (`-p`) | ✓ (except new) |
-| `target`, `audit`, `analyze`, `trash`, `log`, `hub` | ✓ (`-p`) | ✓ (target list, audit, analyze, log) |
-| `extras init/list/remove/collect/source` (+ `--mode`/`--add-target`/`--remove-target` flags on `extras <name>`) | ✓ (`-p`, except source) | ✓ (list, mode, targets) |
-| `enable`, `disable` | ✓ (auto) | ✗ |
-| `commit`, `push`, `pull`, `backup`, `restore` | ✗ | ✗ |
-| `tui`, `upgrade` | ✗ | ✗ |
-| `ui` | ✓ (`-p`) | ✗ |
-
-## AI Caller Rules
-1. **Non-interactive** — AI cannot answer prompts. Use `--force`, `--all`, `-s`, `--targets`, `--no-copy`, `--all-targets`, `--yes`.
-2. **Sync after mutations** — `install`, `uninstall`, `update`, `collect`, `target` all need `sync`.
-3. **Audit** — `install` auto-scans; CRITICAL blocks. `--force` to override, `--skip-audit` to bypass. Detects hardcoded secrets (API keys, tokens, private keys).
-4. **Uninstall safely** — moves to trash (7 days). `trash restore <name>` to undo. **NEVER** `rm -rf` symlinks.
-5. **Output** — `--json` for structured data (12 commands support it, see Quick Lookup). `--no-tui` for plain text on TUI commands (`list`, `log`, `audit`, `analyze`, `diff`, `trash list`, `backup list`, `target list`). `tui off` disables TUI globally. `--dry-run` to preview.
-6. **Node extensions in Claude Code** — `NODE_OPTIONS` is preloaded by the Claude Code harness and causes node to crash when running extensions. Always use `run: ["env", "-u", "NODE_OPTIONS", "node", "convert.js"]` in `extension.yaml` when writing extensions that use Node.js.
-
 ## References
+
+Read the matching file for command flags, examples, and limitations. Avoid loading all
+references for a single task.
+
 | Topic | File |
 |-------|------|
+| Native agents, selection, ignore rules, and recovery | [native-agents.md](references/native-agents.md) |
+| MCP configuration, imports, TUI, and recovery | [mcp.md](references/mcp.md) |
 | Init flags | [init.md](references/init.md) |
 | Sync/collect/commit/push/pull | [sync.md](references/sync.md) |
 | Install/update/uninstall/new | [install.md](references/install.md) |

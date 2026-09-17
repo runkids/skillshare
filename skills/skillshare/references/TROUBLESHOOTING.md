@@ -1,96 +1,60 @@
 # Troubleshooting
 
-## Quick Fixes
+## Start with evidence
 
-| Problem | Solution |
-|---------|----------|
-| "config not found" | `skillshare init` (global) or `skillshare init -p` (project) |
-| Target shows differences | `skillshare sync` |
-| Sync drift warning | `skillshare sync` to re-link missing skills |
-| Lost source files (global) | `cd ~/.config/skillshare/skills && git checkout -- .` |
-| Lost source files (project) | `git checkout -- .skillshare/skills/` |
-| Accidentally uninstalled | `skillshare trash restore <name>` (within 7 days) |
-| Skill not appearing | `skillshare sync` after install |
-| Install blocked by audit | `skillshare install ... --force` to override CRITICAL |
-| Git push fails | Check remote: `git -C ~/.config/skillshare/skills remote -v` |
-| Project mode not detected | Verify `.skillshare/config.yaml` exists in cwd |
-| Wrong mode detected | Use `-p` (project) or `-g` (global) to force |
-| Custom audit rules not applying | Verify `audit-rules.yaml` path: global (`~/.config/skillshare/`) or project (`.skillshare/`). Run `skillshare audit --init-rules` to create template |
-| Nested skill not found | `update`/`uninstall` resolve short names — e.g., `skillshare update vue` finds `frontend/vue/vue-best-practices`. Use full path if ambiguous |
-| Config in wrong location | Skillshare respects `$XDG_CONFIG_HOME`. If set, config is at `$XDG_CONFIG_HOME/skillshare/`. Otherwise `~/.config/skillshare/` |
-| Skill not syncing to target | Check target filters (`target <name>`) and skill-level `targets` field in SKILL.md. Both can restrict which skills sync where |
-| Old project target names | Old names like `claude-code` still work as aliases. New canonical name is `claude` |
-
-## Diagnostic Commands
+Select the intended scope (`-p` or `-g`) and inspect before changing configuration:
 
 ```bash
-skillshare doctor          # Check environment + sync drift
-skillshare status          # Overview (auto-detects mode)
-skillshare diff            # Show differences
-skillshare log             # Recent operations and audit log
-skillshare log --audit     # Security scan history
-ls -la ~/.claude/skills    # Check global symlinks
-ls -la .claude/skills      # Check project symlinks
+skillshare status --json
+skillshare doctor --json
+skillshare diff --no-tui
+skillshare log --no-tui --status error
 ```
 
-## Recovery
+`doctor` can exit 1 because it found issues. Inspect the output rather than assuming
+execution failed. Use the configured source paths; XDG settings and custom sources can
+make the default `~/.config/skillshare/skills` path incorrect.
+
+| Symptom | Check and next step |
+|---------|---------------------|
+| Config not found | Confirm scope and config location, then use `init` or `init -p` if setup is needed. |
+| Wrong project selected | Check `.skillshare/config.yaml` and `skillshare/config.yaml`; hidden wins. Force scope with `-p` or `-g`. |
+| Skill or agent missing from target | Inspect source discovery, ignore rules, target include/exclude filters, and skill `metadata.targets`; preview sync for that resource. |
+| Target differs from source | Inspect `diff`; decide whether to distribute source with `sync` or collect target-local changes with `collect`. |
+| Audit blocks install/update | Read findings and the effective threshold. Fix the issue or use an explicitly intended override; do not automatically retry with `--force`. |
+| Accidentally uninstalled | Find the item in skill/agent trash, restore it, then sync the same resource. |
+| Ambiguous short name | Use the full source-relative name shown by `list`. |
+| Git push/pull fails | Inspect the configured `git_root`, repository status, remote, and exact error. See [sync.md](sync.md). |
+| MCP conflict | Inspect `mcp --json`; use the import/replacement workflow in [mcp.md](mcp.md). Ordinary `sync --force` is not an MCP override. |
+| Custom rules missing | Check global/project `audit-rules.yaml` and `audit rules --no-tui`; do not overwrite existing rules with a starter file. |
+| CLI waits for input | Provide names/selections and the command's supported noninteractive flags. Do not use `--force` as a universal prompt bypass. |
+
+## Source recovery
+
+For an uninstall, prefer [trash recovery](trash.md). For tracked source files, inspect
+the actual repository and restore only the intended file:
 
 ```bash
-skillshare backup          # Safety backup first (global only)
-skillshare sync --dry-run  # Preview changes
-skillshare sync            # Apply fix
+git -C <repository> status --short
+git -C <repository> diff -- <source-relative-file>
+git -C <repository> log --oneline -- <source-relative-file>
 ```
 
-## Git Recovery (Global)
+After identifying the version and confirming local edits may be replaced:
 
 ```bash
-cd ~/.config/skillshare/skills
-git status                 # Check state
-git checkout -- <skill>/   # Restore specific skill
-git checkout -- .          # Restore all skills
+git -C <repository> restore --source=<commit> -- <source-relative-file>
 ```
 
-## Project Recovery
+Avoid broad `git checkout -- .` recovery: it discards unrelated edits. Remote dependencies
+can also be rehydrated with `skillshare install -p` in a project. Preview and sync after
+source recovery; target backups do not replace source version control.
 
-```bash
-# Re-install remote skills from config
-skillshare install -p
+## Target recovery and symlinks
 
-# Re-sync to targets
-skillshare sync
-```
-
-## AI Assistant Notes
-
-### Symlink Safety
-
-- **merge mode** (default): Per-skill symlinks. Edit anywhere = edit source.
-- **symlink mode**: Entire directory symlinked.
-
-Both modes apply to global and project targets.
-
-**Safe commands:** `skillshare uninstall`, `skillshare target remove`
-
-**DANGEROUS:** `rm -rf` on symlinked skills deletes source!
-
-### Non-Interactive Usage
-
-AI cannot respond to CLI prompts. Always use flags:
-
-```bash
-# Good (non-interactive)
-skillshare init --copy-from claude --all-targets --git
-skillshare init -p --targets "claude,cursor"
-skillshare uninstall my-skill --force
-skillshare uninstall my-skill --force -p
-
-# Bad (requires user input)
-skillshare init
-skillshare uninstall my-skill
-```
-
-### When to Use --dry-run
-
-- First-time operations
-- Before `sync`, `collect --all`, `restore`
-- Before `install` from unknown sources
+- Merge/symlink targets reference the source; editing through them changes source files.
+- Copy targets contain separate files; inspect differences before collecting or overwriting.
+- Removing a symlink itself is different from traversing its destination. Use
+  `target remove` for detaching targets and `uninstall` for removing source resources.
+- Use [backup/restore](backup.md) for target snapshots and [MCP restore](mcp.md) for
+  managed MCP entries. Choose the resource and scope before restoring.
