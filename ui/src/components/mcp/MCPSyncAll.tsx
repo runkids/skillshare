@@ -10,6 +10,9 @@ import DialogShell from '../DialogShell';
 import SyncResultList from '../SyncResultList';
 import MCPPreview from './MCPPreview';
 
+// Revisions move on any config write, including the resource sync; only the reviewed changes must hold.
+const changeKey = (plan: MCPPlan) => plan.changes.filter(c => c.action !== 'unchanged').map(c => JSON.stringify([c.target, c.name, c.action])).sort().join();
+
 export default function MCPSyncAll() {
   const t = useT();
   const cache = useQueryClient();
@@ -36,16 +39,20 @@ export default function MCPSyncAll() {
   const apply = async () => {
     if (!preview) return;
     setBusy(true); setError('');
-    try {
-      // Recheck MCP before changing any resource; native apply rechecks once more.
+    const recheck = async () => {
       const fresh = await mcpApi.preview();
-      if (fresh.revision !== preview.mcp.revision || fresh.blocked) throw new Error(t('mcp.previewAgain'));
+      if (fresh.blocked || changeKey(fresh) !== changeKey(preview.mcp)) throw new Error(t('mcp.previewAgain'));
+      return fresh.revision;
+    };
+    try {
+      // Recheck MCP before changing any resource and again after; native apply checks the fresh revision.
+      await recheck();
       const resources = await api.sync({}); setCompleted(['Skills / Agents']); setWarnings(resources.warnings ?? []);
       const extras = await api.syncExtras();
       const failed = extras.extras.flatMap(e => e.targets).find(e => e.error || e.errors?.length);
       if (failed) throw new Error(failed.error || failed.errors?.join('; '));
       setCompleted(['Skills / Agents', 'Extras']);
-      const result = await mcpApi.configure({}, preview.mcp.revision, true);
+      const result = await mcpApi.configure({}, await recheck(), true);
       setCompleted(['Skills / Agents', 'Extras', 'MCP', ...result.backupIds.map(id => `${t('mcp.backupId')}: ${id}`)]);
       setFinished(true);
     } catch (e) { setError((e as Error).message); }
