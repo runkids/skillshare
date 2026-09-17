@@ -76,11 +76,7 @@ func mcpAddWizard(service *mcp.Service, o mcpOptions) error {
 	}
 	candidate := mcp.Candidate{Name: name, Server: mcp.Server{URL: input}}
 	if strings.HasPrefix(input, "{") {
-		format := "claude"
-		if strings.Contains(input, `"servers"`) && !strings.Contains(input, `"mcpServers"`) {
-			format = "vscode"
-		}
-		candidates, err := mcp.Import(format, []byte(input), name)
+		candidates, err := mcp.Import("", []byte(input), name)
 		if err != nil {
 			return err
 		}

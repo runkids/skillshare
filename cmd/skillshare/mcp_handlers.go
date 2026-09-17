@@ -81,11 +81,8 @@ func runMCPImport(service *mcp.Service, o mcpOptions) error {
 			return readErr
 		}
 		format := o.from
-		if format == "" {
-			format = "claude"
-			if strings.HasSuffix(o.file, ".toml") {
-				format = "codex"
-			}
+		if format == "" && strings.HasSuffix(o.file, ".toml") {
+			format = "codex"
 		}
 		candidates, err = mcp.Import(format, data, o.name)
 	} else {

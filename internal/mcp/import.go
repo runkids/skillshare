@@ -6,6 +6,8 @@ import (
 	"net/url"
 	"regexp"
 	"strings"
+
+	"github.com/tailscale/hujson"
 )
 
 // Candidate is a portable import draft. Problems block saving, warnings describe
@@ -47,10 +49,29 @@ func importValue(key, value string, warnings *[]string) Value {
 	return Value{Literal: value}
 }
 
+// detectJSONFormat picks the client whose top-level MCP key pasted JSON uses.
+// A bare server object reads as Claude's single-entry shape. TOML is ambiguous
+// between Codex and Grok, so callers must name that format explicitly.
+func detectJSONFormat(data []byte) string {
+	v, err := hujson.Parse(data)
+	if err != nil {
+		return "claude" // ParseNative reports the syntax error.
+	}
+	v.Standardize()
+	var document map[string]json.RawMessage
+	_ = json.Unmarshal(v.Pack(), &document)
+	for _, target := range []string{"claude", "vscode", "opencode"} {
+		if _, ok := document[nativeKey(target)]; ok {
+			return target
+		}
+	}
+	return "claude"
+}
+
 // Import parses a native file or a single JSON entry without persisting it.
 func Import(target string, data []byte, singleName string) ([]Candidate, error) {
 	if target == "" {
-		target = "claude"
+		target = detectJSONFormat(data)
 	}
 	native, err := ParseNative(target, data)
 	if err != nil {

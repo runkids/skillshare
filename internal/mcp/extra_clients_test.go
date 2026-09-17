@@ -76,6 +76,19 @@ func TestOpenCodeJSONCPath(t *testing.T) {
 	}
 }
 
+func TestImportDetectsPastedJSONFormat(t *testing.T) {
+	for _, content := range []string{
+		`{"mcpServers":{"docs":{"url":"https://example.com/mcp"}}}`,
+		`{"servers":{"docs":{"type":"http","url":"https://example.com/mcp"}}}`,
+		`{"$schema":"https://opencode.ai/config.json","mcp":{"docs":{"type":"remote","url":"https://example.com/mcp"}}}`,
+	} {
+		candidates, err := Import("", []byte(content), "")
+		if err != nil || len(candidates) != 1 || candidates[0].Server.URL != "https://example.com/mcp" || len(candidates[0].Problems) != 0 {
+			t.Fatalf("%s: %+v %v", content, candidates, err)
+		}
+	}
+}
+
 func TestAdditionalClientRemoteReferences(t *testing.T) {
 	for _, target := range []string{"opencode", "grok"} {
 		s := Server{URL: "https://example.com/mcp", BearerToken: &Value{FromEnv: "MCP_TOKEN"}}
