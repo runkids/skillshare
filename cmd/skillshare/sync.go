@@ -159,7 +159,7 @@ func cmdSync(args []string) error {
 		if !jsonOutput && !quiet && mcpResult != nil {
 			_ = printMCPPlan(mcpResult.Plan, false)
 			for _, id := range mcpResult.BackupIDs {
-				fmt.Printf("MCP backup: %s\n", id)
+				ui.Info("MCP backup: %s", id)
 			}
 		}
 		return applyErr

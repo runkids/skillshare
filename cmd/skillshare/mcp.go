@@ -9,6 +9,7 @@ import (
 
 	"skillshare/internal/mcp"
 	"skillshare/internal/oplog"
+	"skillshare/internal/ui"
 )
 
 type mcpOptions struct {
@@ -167,16 +168,16 @@ func printMCPPlan(p *mcp.Plan, asJSON bool) error {
 	if asJSON {
 		return json.NewEncoder(os.Stdout).Encode(p)
 	}
-	fmt.Printf("MCP source: %s\n", p.SourcePath)
+	ui.Info("MCP source: %s", p.SourcePath)
 	for _, c := range p.Changes {
-		fmt.Printf("  %-10s %-8s %s", c.Action, c.Target, c.Name)
+		detail := c.Target
 		if c.Message != "" {
-			fmt.Printf(" — %s", c.Message)
+			detail += " — " + c.Message
 		}
-		fmt.Println()
+		ui.Status(c.Name, c.Action, detail)
 	}
 	if len(p.Changes) == 0 {
-		fmt.Println("No MCP servers configured. Run 'skillshare mcp add' to get started.")
+		ui.Info("No MCP servers configured. Run 'skillshare mcp add' to get started.")
 	}
 	return nil
 }
@@ -191,22 +192,18 @@ func printMCPResult(result *mcp.Result, asJSON bool) error {
 		}
 	}
 	for _, id := range result.BackupIDs {
-		fmt.Printf("Backup: %s\n", id)
+		ui.Info("Backup: %s", id)
 	}
 	if result.Plan == nil {
-		fmt.Println("MCP source saved. Run 'skillshare sync mcp' when ready.")
+		ui.Success("MCP source saved. Run 'skillshare sync mcp' when ready.")
 	} else if !result.Plan.Blocked {
-		fmt.Printf("MCP files applied: %d. Reload your Agent after synchronization and complete any required login.\n", len(result.Applied))
+		ui.Success("MCP files applied: %d. Reload your Agent after synchronization and complete any required login.", len(result.Applied))
 	}
 	return nil
 }
 
 func logMCPOp(path, command string, start time.Time, err error) {
-	status := "ok"
-	if err != nil {
-		status = "error"
-	}
-	if logErr := oplog.Write(path, oplog.OpsFile, oplog.NewEntry(command, status, time.Since(start))); logErr != nil {
+	if logErr := oplog.Write(path, oplog.OpsFile, oplog.NewEntry(command, statusFromErr(err), time.Since(start))); logErr != nil {
 		fmt.Fprintln(os.Stderr, "Warning: could not write MCP operation log")
 	}
 }
