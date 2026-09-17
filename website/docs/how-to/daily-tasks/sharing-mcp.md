@@ -24,7 +24,8 @@ Agents, and review the changes. **Save and sync** applies the settings immediate
 **Save only** keeps the definition for a later `skillshare sync mcp`.
 
 In the dashboard, open **MCP → Add MCP**. Choose a URL, pasted configuration, or
-an existing Agent configuration. The dashboard uses the same source, validation,
+an existing Agent configuration. Pasted JSON is recognized automatically; for
+TOML, choose whether it came from Codex or Grok. The dashboard uses the same source, validation,
 preview and conflict rules as the CLI. The Sync page also has **Sync all resources**
 for skills, agents, extras and MCP.
 
@@ -133,14 +134,18 @@ set only in a terminal may not reach an Agent launched from the desktop.
 
 Skillshare writes variable references and never resolves them. Keep actual tokens
 out of source files, URLs and command arguments. Known sensitive environment or
-header keys require `fromEnv`. Import converts recognizable literal secrets to
-references and reports the variable you need to set; it cannot identify every
-possible credential format.
+header keys require `fromEnv`. Import converts recognizable literal secrets,
+including a password inside a URL value such as `DATABASE_URL`, to references and
+reports the variable you need to set. Command arguments have no portable reference
+syntax: import warns when an argument looks like a credential but keeps it as plain
+text. Import cannot identify every credential format, such as a token in a URL path.
 
 Codex forwards local variables by name, so `env.KEY.fromEnv` must also be `KEY`
 when Codex is selected. A target that cannot represent a setting blocks the
-preview instead of dropping it. Client-specific placeholders, input prompts and
-unknown native fields must be resolved explicitly before import.
+preview instead of dropping it. Client-specific placeholders and input prompts must
+be resolved explicitly before import. Agent-specific fields such as Codex
+`startup_timeout_sec` or `cwd` are not imported; import lists them as warnings, and
+sync keeps them in that Agent's existing entry.
 
 ## Import existing connections
 
@@ -149,16 +154,20 @@ skillshare mcp import                         # Choose an Agent and a server
 skillshare mcp import docs --from claude --target claude --target codex --sync
 ```
 
-Import one server at a time. The original native definition is treated as an
-explicit adoption only for the Agent you imported from. Entries with the same
-name in other Agents still require review. **Save only** records the imported
-native baseline without changing that Agent's file, so a later sync can detect
-new edits correctly.
+Import one server at a time. When an Agent's entry already matches the imported
+definition, it becomes managed without changing that Agent's file. When it
+differs, most often because a literal token became an environment reference, the
+CLI stops instead of rewriting a working entry. Set the reported variables, then
+rerun with `--replace`, or leave that Agent out of `--target`. The dashboard
+preview shows the same entry as a conflict.
 
 If the source already contains the name, use the dashboard's **Edit** action or
-CLI `--replace`. This replaces the source definition, not arbitrary conflicting
-native entries. In the MCP dashboard, preview a conflict and explicitly choose
-the affected entry's replacement, or import the Agent's version instead.
+CLI `--replace`. On import, `--replace` also rewrites the imported Agent's own
+entry; **Save only** then records that entry as the baseline without changing the
+file, so the next sync rewrites it and still detects edits made in the meantime.
+It never overrides other conflicting native entries. In the MCP dashboard, each
+conflict offers an import action named after the Agent, such as **Import from
+cursor**, to adopt that version, or **Replace with source** to overwrite that entry.
 
 ## Remove and restore
 
@@ -169,15 +178,26 @@ skillshare sync mcp
 ```
 
 Only unchanged entries previously managed by this configuration are removed.
-Unmanaged entries and entries edited by another program are protected.
+Unmanaged entries and entries edited by another program are protected. An Agent
+entry that already matched the source before Skillshare managed it, for example
+in a moved project, also stays; import it first if Skillshare should remove it.
+
+In the dashboard, use the delete action on a server row. The dialog lists each
+Agent file that will change. **Remove from source only** matches `mcp remove`
+without syncing; **Remove and sync** also cleans the Agent files and is disabled
+while a conflict is present.
 
 Every native file change creates a private backup of the affected MCP entries.
-The output includes its ID:
+Skillshare keeps the newest 20 backups for each Agent file. The output includes
+its ID:
 
 ```bash
 skillshare mcp restore BACKUP_ID --dry-run
 skillshare mcp restore BACKUP_ID
 ```
+
+In the dashboard, **Backups & restore** lists backups by day. Preview a backup
+to see the entries it would restore, then choose **Restore this file**.
 
 Restore preserves unrelated settings and refuses to overwrite newer changes to
 the affected entries. It does not revert your source file; edit the source too
@@ -186,7 +206,10 @@ native credentials, so keep the local state directory private.
 
 Writes are atomic per file. A failure midway through multiple files leaves
 completed files applied and reports their backup IDs. Fix the reported cause and
-retry; an interrupted native write is reconciled with the ownership journal.
+retry. The next MCP write, such as `sync mcp` or a dashboard sync, finishes
+recovering an interrupted write, and previews already show that result. If the
+Agent file was edited again in the meantime, entries that no longer match are
+reported as conflicts.
 Do not delete ownership state to “fix” conflicts: existing entries would become
 unmanaged and need explicit import again.
 

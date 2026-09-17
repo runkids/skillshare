@@ -211,6 +211,10 @@ handle_path /skillshare/* {
 Without `--base-path`, the dashboard behaves identically to before — no configuration needed for direct access on `localhost:19420`.
 :::
 
+:::note MCP settings
+The MCP page works only when the browser opens the dashboard by `localhost` or an IP address, such as `http://192.168.1.20:19420`. Through a domain name, including a reverse proxy, MCP requests return 403: DNS rebinding attacks always use a domain name. To manage MCP settings on a remote machine, forward the port with `ssh -L 19420:127.0.0.1:19420 HOST` and open `http://localhost:19420`.
+:::
+
 ## Docker Usage
 
 To use the web UI inside Docker (requires network access for first-time UI download):

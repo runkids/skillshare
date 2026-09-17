@@ -29,9 +29,9 @@ skillshare sync --all
 | `--url URL` | Streamable HTTP endpoint for `add` |
 | `-- command args...` | Local executable and literal arguments for `add` |
 | `--from CLIENT` | Existing client to import, or the format of `--file` |
-| `--file PATH` | Native JSON/JSONC or TOML to import; `.toml` defaults to Codex, otherwise Claude |
+| `--file PATH` | Native JSON/JSONC or TOML to import; `.toml` defaults to Codex, JSON is detected from its `mcpServers`, `servers` or `mcp` key |
 | `--sync` | Save and synchronize; noninteractive add/import/remove otherwise save only |
-| `--replace` | Explicitly replace an existing source definition during add/import |
+| `--replace` | Explicitly replace an existing source definition during add/import; on import, also rewrite the imported client's entry when it differs |
 | `--dry-run`, `-n` | Preview without saving or writing native configuration |
 | `--json` | Structured output; sync/preview reports contain names, paths and actions, not server values |
 | `--revision ID` | Require a matching preview for add/import/remove or `sync mcp` |
@@ -40,8 +40,9 @@ skillshare sync --all
 
 With no subcommand, `mcp` lists status. Noninteractive import without a name lists
 parsed candidates for selection and does not save. Candidates contain portable
-definitions, with recognizable secrets converted to references. Unsupported
-fields block the candidate. `restore` always previews again before applying;
+definitions, with recognizable secrets converted to references. Agent-specific
+fields are listed as warnings and left out; disabled servers and unsupported
+transports block the candidate. `restore` always previews again before applying;
 use `--dry-run` to inspect it without applying.
 
 `sync mcp` accepts scope flags, `--dry-run`, `--json`, and `--revision`.
@@ -94,9 +95,11 @@ paths, directory overrides, inline config and inherited ancestor files are not
 managed. They may override the selected destination in OpenCode.
 
 OpenCode uses `local`/`remote` types and `{env:VARIABLE}` references; Grok uses
-`${VARIABLE}` references. Skillshare converts these automatically. Native
-options without a portable equivalent, including disabled connections, block
-import rather than silently changing behavior. Pi has no built-in MCP support
+`${VARIABLE}` references. Skillshare converts these automatically. Claude's
+`"type": "streamable-http"` imports as HTTP. Disabled connections block import.
+Other native options without a portable equivalent, such as Codex
+`startup_timeout_sec` or `envFile`, are left out of the import with a warning;
+sync keeps them in the Agent's existing entry. Pi has no built-in MCP support
 and is not a supported MCP target.
 
 VS Code Stable's default user file is:
@@ -105,27 +108,49 @@ VS Code Stable's default user file is:
 - Linux: `${XDG_CONFIG_HOME:-~/.config}/Code/User/mcp.json`
 - Windows: `%APPDATA%/Code/User/mcp.json`
 
-Global Claude and Codex paths respect `CLAUDE_CONFIG_DIR` and `CODEX_HOME`.
+Global Claude, Codex and Grok paths respect `CLAUDE_CONFIG_DIR`, `CODEX_HOME`
+and `GROK_HOME`.
 Project destinations are relative to the selected project root. Project trust,
 server approval and authentication remain the receiving Agent's responsibility.
 
 ## Safety and limitations
 
 - JSONC comments and unrelated settings are preserved. Changed owned entries
-  are replaced as a unit, so comments inside those entries may change.
+  are replaced as a unit, so comments inside those entries may change. Only the
+  fields Skillshare writes are compared and replaced; Agent-specific fields such
+  as timeouts are kept.
+  Defaults an Agent fills in, such as `"type": "stdio"`, an empty `env` or
+  header name case, are not changes. Turning a managed server off with
+  `enabled: false` or `disabled: true` is reported as a conflict.
+- A preview stays valid while an Agent rewrites unrelated settings in the same
+  file, as Claude Code does with `~/.claude.json`. Only a change to that file's
+  MCP entries requires a new preview.
 - Codex and Grok edits support ordinary `[mcp_servers.NAME]` tables and their subtables.
+  Updated entries stay in place, and CRLF line endings are kept.
   Inline/dotted MCP definitions must be converted to tables before writing;
   they are rejected without modifying the file.
-- Native file symlinks, malformed files, duplicate JSON properties and
-  unsupported fields block writes. File permissions are preserved; new native
+- Native file symlinks, malformed files and duplicate JSON properties block
+  writes. A symlinked Skillshare `config.yaml` is written through to its target. File permissions are preserved; new native
   files, ownership records and backups use private permissions.
-- Matching unmanaged entries are not automatically acquired. Import or an
-  explicit per-entry replacement is required; another Skillshare configuration's
-  ownership cannot be overridden.
+- An entry that already matches the source is reported as unchanged without a
+  write, for example after pulling a teammate's change. If this configuration
+  did not manage it before, such as after moving a project, it stays unmanaged:
+  removing the server leaves it in place until you import it. A different
+  unmanaged entry requires import or an explicit per-entry replacement; another
+  Skillshare configuration's ownership cannot be overridden.
+- The dashboard's MCP settings work only when the browser opens the dashboard by
+  `localhost` or an IP address. Through a domain name, including a reverse
+  proxy, MCP requests return 403, because DNS rebinding attacks always use a
+  domain name.
 - Credentials use environment references; no secret store, OAuth session sync,
   runtime health check, package installation, gateway, registry or plugin sync.
-- VS Code Insiders, custom profiles, remote workspaces, legacy SSE and native
-  fields without a portable mapping are not supported in this version.
+- VS Code Insiders, custom profiles, remote workspaces and legacy SSE are not
+  supported in this version.
+- VS Code does not currently substitute `${env:VARIABLE}` inside `headers`
+  ([microsoft/vscode#336232](https://github.com/microsoft/vscode/issues/336232)),
+  so header and `bearerToken` references synced to VS Code reach the server
+  unresolved until that is fixed.
 - Local operation records live under the Skillshare state directory's `mcp/`:
-  `state.json`, `pending.json` during a write, and `backups/`. Do not share this
+  `state.json`, `pending.json` during a write, and `backups/` (the newest 20 per
+  Agent file). Do not share this
   directory as a portable manifest.

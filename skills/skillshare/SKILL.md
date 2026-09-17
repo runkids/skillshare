@@ -37,13 +37,14 @@ skillshare mcp remove docs --sync                    # Remove unchanged managed 
 skillshare mcp restore BACKUP_ID --dry-run           # Preview entry-level restoration
 ```
 
-MCP supports Claude Code, Codex, Cursor and VS Code in global/project scopes.
+MCP supports Claude Code, Codex, Cursor, VS Code, OpenCode and Grok in global/project scopes.
 Definitions live in `mcp.servers`, or in `sources.mcp` (a YAML file with `servers`).
 Never define both; external paths are relative to the config directory.
 Use `mcp.targets` or per-server `targets`; MCP targets are independent of skill targets.
 Credentials use `{fromEnv: VARIABLE}`. Never resolve secrets, launch servers or
-copy OAuth credentials while managing settings. Import/adoption or an explicit
-entry replacement is required for native conflicts; `--force` cannot bypass them.
+copy OAuth credentials while managing settings. A matching native entry that
+Skillshare does not manage stays unmanaged until imported. A differing one needs
+`mcp import --replace` or an explicit entry replacement; `--force` cannot bypass it.
 `sync --all` includes MCP as well as skills, agents and extras.
 
 ### Getting Started
