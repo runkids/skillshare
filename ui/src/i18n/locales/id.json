@@ -1476,6 +1476,7 @@
   "plugins.subtitle": "Pertahankan plugin lengkap dan pilih tujuan sinkronisasi.",
   "plugins.add": "Tambah plugin",
   "plugins.import": "Impor yang terpasang",
+  "plugins.importOne": "Impor",
   "plugins.source": "Repositori atau folder",
   "plugins.sourceHelp": "Tempel owner/repo, URL Git HTTPS, atau direktori lokal. Pratinjau tidak memasang apa pun.",
   "plugins.discover": "Cari plugin",

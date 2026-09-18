@@ -1,15 +1,17 @@
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Package, Plus, Download, RefreshCw } from 'lucide-react';
+import { ChevronRight, Download, Package, Plus, RefreshCw, Trash2, Users, X } from 'lucide-react';
 import { pluginsApi, pluginTargets, type PluginPlan, type PluginRequest, type PluginResult, type PluginTarget } from '../api/plugins';
+import AgentIcon from '../components/AgentIcon';
 import Button from '../components/Button';
-import Card from '../components/Card';
 import DialogShell from '../components/DialogShell';
 import EmptyState from '../components/EmptyState';
+import IconButton from '../components/IconButton';
 import PageHeader from '../components/PageHeader';
 import { PageSkeleton } from '../components/Skeleton';
-import { Checkbox } from '../components/Input';
+import { SkillContextMenu, type ContextMenuItem } from '../components/TargetMenu';
 import PluginAddDialog from '../components/plugins/PluginAddDialog';
+import PluginList from '../components/plugins/PluginList';
 import { useT } from '../i18n';
 import { queryKeys } from '../lib/queryKeys';
 
@@ -23,6 +25,7 @@ export default function PluginsPage() {
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState('');
   const [result, setResult] = useState<PluginResult | null>(null);
+  const [menu, setMenu] = useState<{ x: number; y: number; items: ContextMenuItem[] } | null>(null);
   const refresh = () => { void cache.invalidateQueries({ queryKey: queryKeys.plugins }); void cache.invalidateQueries({ queryKey: queryKeys.config }); };
   const preview = async (request: PluginRequest) => {
     setBusy(true); setFailure(''); setResult(null);
@@ -51,55 +54,153 @@ export default function PluginsPage() {
   };
   if (isPending) return <PageSkeleton />;
   const actionText = (action: string) => t(({
-    noop: 'plugins.noChanges', install: 'plugins.add', import: 'plugins.import', update: 'plugins.update',
+    noop: 'plugins.noChanges', install: 'resources.install', import: 'plugins.import', update: 'plugins.update',
     remove: 'plugins.remove', uninstall: 'plugins.remove', forget: 'plugins.remove', selection: 'common.save',
     blocked: 'plugins.blocked', 'update-available': 'plugins.update', 'native-check': 'plugins.unverified',
   } as Record<string, string>)[action] ?? 'plugins.pending');
   const packages = Object.entries(data?.packages ?? {});
-  return <div className="space-y-5 animate-fade-in">
-    <PageHeader icon={<Package />} title={t('plugins.title')} subtitle={t('plugins.subtitle')} actions={<>
-      <Button variant="ghost" disabled={busy} onClick={refresh} aria-label={t('plugins.refresh')}><RefreshCw size={16} /></Button>
-      <Button variant="secondary" disabled={busy} onClick={() => setImporting(true)}><Download size={16} />{t('plugins.import')}</Button>
-      <Button disabled={busy} onClick={() => setAdding({})}><Plus size={16} />{t('plugins.add')}</Button>
-    </>} />
-    {(failure || error) && <p role="alert" className="text-danger text-sm">{failure || (error as Error).message}</p>}
-    <p className="text-sm text-pencil-light">{t('plugins.selectionHelp')}</p>
-    <details className="rounded-lg border border-muted p-3">
-      <summary className="cursor-pointer text-sm font-medium">{t('plugins.targets')}</summary>
-      <ul className="mt-3 space-y-3">{data?.hosts.map((h) => <li key={h.target} className="text-sm"><strong>{pluginTargets[h.target].label}</strong>{h.version && <span className="ms-2 text-pencil-light">{h.version}</span>}{h.error && <p className="text-warning">{h.error}</p>}{h.note && <p className="text-pencil-light">{h.note}</p>}</li>)}</ul>
-    </details>
-    {result?.result && <Card><ul className="space-y-2" aria-live="polite">{result.result.results.map((r) => <li key={`${r.name}:${r.target}`} className={r.status === 'failed' ? 'text-danger' : 'text-pencil'}><strong>{r.name} · {r.target}</strong> — {r.status}<p className="text-sm text-pencil-light">{r.message}</p></li>)}</ul></Card>}
-    {packages.length === 0 ? <EmptyState icon={Package} title={t('plugins.empty')} description={t('plugins.emptyHelp')} action={<Button onClick={() => setAdding({})}>{t('plugins.add')}</Button>} /> : <>
-      <div className="flex gap-2"><Button disabled={busy} onClick={() => begin({ action: 'sync' })}>{t('plugins.sync')}</Button><Button variant="secondary" disabled={busy} onClick={() => begin({ action: 'check' })}>{t('plugins.check')}</Button></div>
-      {packages.map(([name, pack]) => <Card key={name}>
-        <div className="flex flex-wrap justify-between gap-3"><h2 className="text-lg font-semibold">{name}</h2><div className="flex gap-2"><Button size="sm" variant="secondary" disabled={busy} onClick={() => setAdding({ name, source: Object.values(pack.bindings).find((b) => b.source)?.source })}>{t('plugins.targets')}</Button><Button size="sm" variant="secondary" disabled={busy} onClick={() => begin({ action: 'update', name })}>{t('plugins.update')}</Button><Button size="sm" variant="secondary" disabled={busy} onClick={() => begin({ action: 'remove', name })}>{t('plugins.remove')}</Button></div></div>
-        <div className="mt-4 space-y-4">{Object.entries(pack.bindings).map(([target, b]) => {
-          const host = data?.hosts.find((h) => h.target === target);
-          const installed = host?.installed.find((i) => i.id === b.id);
-          const state = b.pending ? t('plugins.pending') : host?.error ? t('plugins.unverified') : installed ? t('plugins.installed') : t('plugins.absent');
-          return <div key={target} className="flex flex-wrap gap-3 items-start justify-between border-t border-dashed border-pencil-light/30 pt-3">
-            <div className="space-y-1 min-w-0"><Checkbox label={pluginTargets[target as PluginTarget].label} checked={b.sync !== false} disabled={busy} onChange={(on) => void selectTarget(name, target as PluginTarget, on)} /><p className="text-xs text-pencil-light break-all">{b.id} {b.version && `· ${b.version}`}</p>{b.components?.length ? <p className="text-xs text-pencil-light">{b.components.join(' · ')}</p> : null}{b.source && <p className="text-xs text-muted-dark break-all">{b.source}</p>}</div>
-            <div className="text-sm text-pencil-light text-end"><p>{state}</p>{installed && !installed.enabled && <p>{t('plugins.nativeDisabled')}</p>}
-              <Button variant="link" size="sm" disabled={busy} onClick={() => begin({ action: 'sync', name, targets: [target as PluginTarget] })}>{t('plugins.sync')}</Button>
-              <Button variant="link" size="sm" disabled={busy || b.sync === false} onClick={() => begin({ action: 'update', name, targets: [target as PluginTarget] })}>{t('plugins.update')}</Button>
+  const pending = packages.reduce((n, [, pack]) => n + Object.values(pack.bindings).filter((b) => b.pending).length, 0);
+  const actionTone = (action: string) => (action === 'blocked' ? 'bad' : action === 'noop' ? '' : 'inf');
+  const openMenu = (e: React.MouseEvent<HTMLButtonElement>, name: string) => {
+    const r = e.currentTarget.getBoundingClientRect();
+    const source = Object.values(data?.packages[name]?.bindings ?? {}).find((b) => b.source)?.source;
+    setMenu({
+      x: r.left,
+      y: r.bottom + 4,
+      items: [
+        { key: 'sync', label: t('plugins.sync'), icon: <ChevronRight size={14} />, onSelect: () => begin({ action: 'sync', name }) },
+        { key: 'update', label: t('plugins.update'), icon: <RefreshCw size={14} />, onSelect: () => begin({ action: 'update', name }) },
+        { key: 'targets', label: t('plugins.targets'), icon: <Users size={14} />, onSelect: () => setAdding({ name, source }) },
+        { key: 'remove', label: t('plugins.remove'), icon: <Trash2 size={14} />, danger: true, onSelect: () => begin({ action: 'remove', name }) },
+      ],
+    });
+  };
+  const addActions = <>
+    <Button variant="secondary" disabled={busy} onClick={() => setImporting(true)}><Download size={15} />{t('plugins.import')}</Button>
+    <Button disabled={busy} onClick={() => setAdding({})}><Plus size={15} />{t('plugins.add')}</Button>
+  </>;
+
+  return (
+    <div className="ss-wrap animate-fade-in">
+      <PageHeader title={t('plugins.title')} subtitle={t('plugins.subtitle')} actions={<>
+        {packages.length > 0 && <Button variant="ghost" disabled={busy} onClick={() => begin({ action: 'check' })}><RefreshCw size={15} />{t('plugins.check')}</Button>}
+        {addActions}
+      </>} />
+
+      {(failure || error) && <div role="alert" className="ss-note bad"><span className="flex-1">{failure || (error as Error).message}</span></div>}
+
+      {result?.result && result.result.results.length > 0 && (
+        <div className="ss-list" aria-live="polite">
+          {result.result.results.map((r) => (
+            <div key={`${r.name}:${r.target}`} className="ss-r">
+              <span className="ss-at"><AgentIcon target={r.target} size={17} /></span>
+              <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                <span className="flex items-center gap-2"><span className="font-mono font-semibold">{r.name}</span><span className="text-[13px] text-ink-2">{pluginTargets[r.target]?.label ?? r.target}</span></span>
+                {r.message && <span className="text-xs text-ink-3">{r.message}</span>}
+              </span>
+              <span className={`ss-st ${r.status === 'failed' ? 'bad' : 'ok'}`}>{r.status}</span>
             </div>
-          </div>;
-        })}</div>
-      </Card>)}
-    </>}
-    {adding && <PluginAddDialog initialName={adding.name} initialSource={adding.source} onClose={() => setAdding(null)} onPreview={preview} />}
-    <DialogShell open={importing} onClose={() => setImporting(false)} preventClose={busy} ariaLabel={t('plugins.import')} maxWidth="2xl">
-      <div className="space-y-4"><h2 className="text-xl font-semibold">{t('plugins.import')}</h2><p className="text-sm text-pencil-light">{t('plugins.importHelp')}</p>
-        {data?.hosts.map((h) => <div key={h.target}><h3 className="font-medium mb-2">{pluginTargets[h.target].label}</h3>{h.installed.length === 0 && <p className="text-sm text-pencil-light">{h.error || t('plugins.absent')}</p>}{h.installed.map((i) => <Button key={i.id} variant="secondary" className="mb-2 me-2" disabled={busy || i.filtered || h.target === 'cursor' || h.target === 'antigravity'} onClick={() => begin({ action: 'import', from: h.target, plugin: i.id })}>{i.id}</Button>)}</div>)}
-        <Button variant="ghost" disabled={busy} onClick={() => setImporting(false)}>{t('common.cancel')}</Button>
-      </div>
-    </DialogShell>
-    <DialogShell open={!!review} onClose={() => setReview(null)} preventClose={busy} ariaLabel={t('plugins.preview')} maxWidth="2xl">
-      <div className="space-y-4"><h2 className="text-xl font-semibold">{t('plugins.preview')}</h2><p className="text-sm text-pencil-light">{t('plugins.nativeHelp')}</p>
-        <ul className="space-y-3">{review?.plan.changes.map((c) => <li key={`${c.name}:${c.target}`}><strong>{c.name} · {c.target}</strong> — <span className={c.action === 'blocked' ? 'text-danger' : ''}>{actionText(c.action)}</span>{c.components?.length ? <p className="text-xs text-pencil-light">{c.components.join(' · ')}</p> : null}{c.message && <p className="text-sm text-pencil-light">{c.message}</p>}</li>)}</ul>
-        {review?.plan.changes.length === 0 && <p>{t('plugins.noChanges')}</p>}
-        <div className="flex gap-2"><Button variant="ghost" disabled={busy} onClick={() => setReview(null)}>{t('common.cancel')}</Button>{review?.request.action !== 'check' && <Button loading={busy} disabled={review?.plan.blocked || !review?.plan.changes.length} onClick={() => void apply()}>{t('plugins.apply')}</Button>}</div>
-      </div>
-    </DialogShell>
-  </div>;
+          ))}
+        </div>
+      )}
+
+      {packages.length === 0 ? (
+        <EmptyState icon={Package} title={t('plugins.empty')} description={t('plugins.emptyHelp')} action={addActions} />
+      ) : (
+        <>
+          <div className="flex flex-col gap-3">
+            <PluginList inventory={data!} busy={busy} onToggle={(name, target, on) => void selectTarget(name, target, on)} onMenu={openMenu} />
+            <p className="text-xs text-ink-3">{t('plugins.selectionHelp')}</p>
+          </div>
+          <div className="flex items-center justify-between gap-3">
+            <span>{pending > 0 && <span className="ss-st warn text-[13px]">{t(pending === 1 ? 'mcp.pending.one' : 'mcp.pending.other', { count: pending })}</span>}</span>
+            <Button variant="secondary" disabled={busy} onClick={() => begin({ action: 'sync' })}>{t('plugins.sync')}<ChevronRight size={15} /></Button>
+          </div>
+        </>
+      )}
+
+      {data && data.hosts.length > 0 && (
+        <section>
+          <div className="ss-sec">
+            <h2>{t('layout.nav.agents')}</h2>
+            <span className="ss-cnt">{data.hosts.length}</span>
+            <IconButton className="ml-auto" icon={<RefreshCw size={15} />} label={t('plugins.refresh')} disabled={busy} onClick={refresh} />
+          </div>
+          <div className="ss-list">
+            {data.hosts.map((h) => (
+              <div key={h.target} className="ss-r !min-h-11">
+                <span className="ss-at"><AgentIcon target={h.target} size={17} /></span>
+                <span className="w-32 shrink-0 font-semibold">{pluginTargets[h.target].label}</span>
+                <span className="w-24 shrink-0 truncate font-mono text-xs text-ink-3">{h.version}</span>
+                <span className="flex min-w-0 flex-1 flex-col gap-1 py-1">
+                  {h.note && <span className="text-[13px] text-ink-2">{h.note}</span>}
+                  {h.error && <span className="ss-st warn wrap">{h.error}</span>}
+                </span>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {adding && <PluginAddDialog initialName={adding.name} initialSource={adding.source} onClose={() => setAdding(null)} onPreview={preview} />}
+
+      <DialogShell open={importing} onClose={() => setImporting(false)} preventClose={busy} ariaLabel={t('plugins.import')} maxWidth="2xl" padding="none">
+        <div className="dh">
+          <div className="flex flex-col gap-1"><h2 className="ss-h2">{t('plugins.import')}</h2><p className="text-[13px] text-ink-2">{t('plugins.importHelp')}</p></div>
+          <IconButton icon={<X size={16} />} label={t('common.close')} disabled={busy} onClick={() => setImporting(false)} />
+        </div>
+        <div className="db overflow-y-auto">
+          <div className="ss-list">
+            {data?.hosts.map((h) => {
+              const locked = h.target === 'cursor' || h.target === 'antigravity';
+              return (
+                <div key={h.target}>
+                  <div className="ss-gh"><span className="ss-at"><AgentIcon target={h.target} size={17} /></span><span className="font-semibold">{pluginTargets[h.target].label}</span><span className="ss-cnt">{h.installed.length}</span></div>
+                  {h.installed.length === 0 && <div className="ss-r !min-h-11"><span className="text-[13px] text-ink-3">{h.error || t('plugins.absent')}</span></div>}
+                  {h.installed.map((i) => (
+                    <div key={i.id} className="ss-r !min-h-11">
+                      <span className="min-w-0 flex-1 truncate font-mono text-[13px] font-semibold" title={i.id}>{i.id}</span>
+                      {!i.enabled && <span className="ss-tag">{t('plugins.nativeDisabled')}</span>}
+                      <span className="font-mono text-xs text-ink-3">{i.version}</span>
+                      <Button size="sm" variant="secondary" disabled={busy || i.filtered || locked} onClick={() => begin({ action: 'import', from: h.target, plugin: i.id })}>{t('plugins.importOne')}</Button>
+                    </div>
+                  ))}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+        <div className="df"><Button variant="ghost" disabled={busy} onClick={() => setImporting(false)}>{t('common.close')}</Button></div>
+      </DialogShell>
+
+      <DialogShell open={!!review} onClose={() => setReview(null)} preventClose={busy} ariaLabel={t('plugins.preview')} maxWidth="2xl" padding="none">
+        <div className="dh">
+          <div className="flex flex-col gap-1"><h2 className="ss-h2">{t('plugins.preview')}</h2><p className="text-[13px] text-ink-2">{t('plugins.nativeHelp')}</p></div>
+          <IconButton icon={<X size={16} />} label={t('common.close')} disabled={busy} onClick={() => setReview(null)} />
+        </div>
+        <div className="db overflow-y-auto">
+          {review?.plan.changes.length === 0 ? <p className="text-[13px] text-ink-2">{t('plugins.noChanges')}</p> : (
+            <div className="ss-list">
+              {review?.plan.changes.map((c) => (
+                <div key={`${c.name}:${c.target}`} className="ss-r">
+                  <span className="ss-at"><AgentIcon target={c.target} size={17} /></span>
+                  <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                    <span className="flex items-center gap-2"><span className="font-mono font-semibold">{c.name}</span><span className="text-[13px] text-ink-2">{pluginTargets[c.target]?.label ?? c.target}</span></span>
+                    {(c.message || c.components?.length) && <span className="text-xs text-ink-3">{c.message || c.components!.join(' · ')}</span>}
+                  </span>
+                  <span className={`ss-tag ${actionTone(c.action)}`}>{actionText(c.action)}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+        <div className="df">
+          <Button variant="ghost" disabled={busy} onClick={() => setReview(null)}>{t('common.cancel')}</Button>
+          {review?.request.action !== 'check' && <Button loading={busy} disabled={review?.plan.blocked || !review?.plan.changes.length} onClick={() => void apply()}>{t('plugins.apply')}</Button>}
+        </div>
+      </DialogShell>
+
+      <SkillContextMenu open={!!menu} anchorPoint={menu ?? undefined} items={menu?.items ?? []} onClose={() => setMenu(null)} />
+    </div>
+  );
 }

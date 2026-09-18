@@ -1476,6 +1476,7 @@
   "plugins.subtitle": "افزونه‌ها را کامل نگه دارید و مقصد همگام‌سازی را انتخاب کنید.",
   "plugins.add": "افزودن افزونه",
   "plugins.import": "وارد کردن نصب‌شده‌ها",
+  "plugins.importOne": "وارد کردن",
   "plugins.source": "مخزن یا پوشه",
   "plugins.sourceHelp": "owner/repo، نشانی HTTPS Git یا پوشه محلی را وارد کنید. پیش‌نمایش چیزی نصب نمی‌کند.",
   "plugins.discover": "یافتن افزونه‌ها",

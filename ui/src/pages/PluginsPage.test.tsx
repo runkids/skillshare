@@ -19,7 +19,8 @@ describe('PluginsPage', () => {
   });
   it('saves sync selection independently of native enabled state', async () => {
     mount();
-    const checkbox = await screen.findByRole('checkbox', { name: 'Codex' });
+    fireEvent.click(await screen.findByRole('button', { name: 'mcp.chooseAgents' }));
+    const checkbox = screen.getByRole('checkbox', { name: 'Codex' });
     expect(checkbox).toBeChecked();
     expect(screen.getByText('plugins.nativeDisabled')).toBeInTheDocument();
     fireEvent.click(checkbox);
@@ -28,8 +29,7 @@ describe('PluginsPage', () => {
   it('requires a preview before sync and preserves partial failures', async () => {
     vi.mocked(pluginsApi.apply).mockResolvedValue({ result: { results: [{ name: 'demo', target: 'codex', status: 'failed', message: 'Native authentication required' }] }, failure: 'One target failed' });
     mount();
-    await screen.findByRole('checkbox', { name: 'Codex' });
-    fireEvent.click(screen.getAllByRole('button', { name: 'plugins.sync' })[0]);
+    fireEvent.click(await screen.findByRole('button', { name: 'plugins.sync' }));
     await screen.findByRole('dialog');
     expect(pluginsApi.apply).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole('button', { name: 'plugins.apply' }));

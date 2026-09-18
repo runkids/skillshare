@@ -1476,6 +1476,7 @@
   "plugins.subtitle": "Vollständige Plugins behalten und Synchronisierungsziele wählen.",
   "plugins.add": "Plugin hinzufügen",
   "plugins.import": "Installierte importieren",
+  "plugins.importOne": "Importieren",
   "plugins.source": "Repository oder Ordner",
   "plugins.sourceHelp": "owner/repo, HTTPS-Git-URL oder lokalen Ordner eingeben. Die Vorschau installiert nichts.",
   "plugins.discover": "Plugins suchen",

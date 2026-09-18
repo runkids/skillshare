@@ -1476,6 +1476,7 @@
   "plugins.subtitle": "Keep complete plugins together and choose where to sync them.",
   "plugins.add": "Add plugin",
   "plugins.import": "Import installed",
+  "plugins.importOne": "Import",
   "plugins.source": "Repository or folder",
   "plugins.sourceHelp": "Paste owner/repo, an HTTPS Git URL, or a local directory. Preview does not install anything.",
   "plugins.discover": "Find plugins",

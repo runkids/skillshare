@@ -1476,6 +1476,7 @@
   "plugins.subtitle": "プラグイン全体を保ち、同期先を選択します。",
   "plugins.add": "プラグインを追加",
   "plugins.import": "インストール済みを取り込む",
+  "plugins.importOne": "取り込む",
   "plugins.source": "リポジトリまたはフォルダー",
   "plugins.sourceHelp": "owner/repo、HTTPS Git URL、ローカルディレクトリを入力します。プレビューではインストールしません。",
   "plugins.discover": "プラグインを探す",
