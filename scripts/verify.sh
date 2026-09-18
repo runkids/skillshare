@@ -44,6 +44,7 @@ usage() {
   echo "Commands:"
   echo "  up        Build, seed the dashboard, start the UI against a throwaway HOME"
   echo "  shell     Enter a shell wired to that HOME ('ss' is on PATH)"
+  echo "  run <cmd> Run one command in that HOME, non-interactively"
   echo "  down      Stop the verification UI"
   echo "  status    Show paths and whether the UI is running"
   echo "  reset     Stop the UI and delete the throwaway HOME"
@@ -173,6 +174,15 @@ cmd_shell() {
   run_in_env "${SHELL:-/bin/bash}" -i
 }
 
+# Same environment as 'shell', for scripts and one-off checks.
+cmd_run() {
+  assert_safe_home
+  [[ -x "$BIN" ]] || die "nothing built yet. Run: make verify"
+  [[ $# -gt 0 ]] || die "run needs a command, e.g. ./scripts/verify.sh run ss mcp list -g"
+  cd "$VERIFY_HOME"
+  run_in_env "$@"
+}
+
 cmd_down() {
   assert_safe_home
   [[ -x "$BIN" ]] || die "nothing built yet. Run: make verify"
@@ -226,6 +236,7 @@ shift
 case "$CMD" in
   up) cmd_up "$@" ;;
   shell) cmd_shell "$@" ;;
+  run) cmd_run "$@" ;;
   down) cmd_down "$@" ;;
   status) cmd_status "$@" ;;
   reset) cmd_reset "$@" ;;

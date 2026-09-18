@@ -1,5 +1,5 @@
 import { Fragment, useState } from 'react';
-import { Check, ChevronDown, Ellipsis, Package } from 'lucide-react';
+import { Check, ChevronDown, Ellipsis, Loader2, Package } from 'lucide-react';
 import { pluginTargets, type PluginInventory, type PluginTarget } from '../../api/plugins';
 import AgentIcon from '../AgentIcon';
 import { useT } from '../../i18n';
@@ -9,13 +9,15 @@ const STACK = 6;
 interface Props {
   inventory: PluginInventory;
   busy: boolean;
+  /** `name:target` of the selection being applied right now. */
+  working: string;
   onToggle: (name: string, target: PluginTarget, on: boolean) => void;
   /** With a target, the menu acts on that one agent. */
   onMenu: (e: React.MouseEvent<HTMLButtonElement>, name: string, target?: PluginTarget) => void;
 }
 
 /** One row per plugin, agents as toggles inside it: the same shape as the MCP server list, for the same reason. */
-export default function PluginList({ inventory, busy, onToggle, onMenu }: Props) {
+export default function PluginList({ inventory, busy, working, onToggle, onMenu }: Props) {
   const t = useT();
   const [open, setOpen] = useState<string[]>([]);
 
@@ -67,6 +69,7 @@ export default function PluginList({ inventory, busy, onToggle, onMenu }: Props)
               <div className="ss-r fold !min-h-0 flex-wrap gap-x-6 gap-y-3.5 !py-3.5">
                 {bindings.map(([target, b]) => {
                   const on = b.sync !== false;
+                  const applying = working === `${name}:${target}`;
                   const host = inventory.hosts.find((h) => h.target === target);
                   const installed = host?.installed.find((i) => i.id === b.id);
                   const state = b.pending ? 'plugins.pending' : host?.error ? 'plugins.unverified' : !installed ? (on ? 'plugins.absent' : '') : !installed.enabled ? 'plugins.nativeDisabled' : '';
@@ -78,11 +81,11 @@ export default function PluginList({ inventory, busy, onToggle, onMenu }: Props)
                         aria-checked={on}
                         aria-label={pluginTargets[target].label}
                         title={b.id}
-                        className={`ss-tgl ${on ? 'on' : ''}`}
+                        className={`ss-tgl ${on ? 'on' : ''} ${applying ? 'working' : ''}`}
                         onClick={() => onToggle(name, target, !on)}
                         disabled={busy}
                       >
-                        <span className="ic"><AgentIcon target={target} size={20} /><i><Check size={9} strokeWidth={3.5} /></i></span>
+                        <span className="ic"><AgentIcon target={target} size={20} /><i>{applying ? <Loader2 size={9} className="animate-spin" /> : <Check size={9} strokeWidth={3.5} />}</i></span>
                         {pluginTargets[target].label}
                       </button>
                       {state && <span className={`ss-tag ${b.pending ? 'warn' : ''}`}>{t(state)}</span>}

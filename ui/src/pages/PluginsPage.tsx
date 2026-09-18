@@ -23,6 +23,7 @@ export default function PluginsPage() {
   const [importing, setImporting] = useState(false);
   const [review, setReview] = useState<{ request: PluginRequest; plan: PluginPlan } | null>(null);
   const [busy, setBusy] = useState(false);
+  const [working, setWorking] = useState('');
   const [failure, setFailure] = useState('');
   const [result, setResult] = useState<PluginResult | null>(null);
   const [menu, setMenu] = useState<{ x: number; y: number; items: ContextMenuItem[] } | null>(null);
@@ -42,7 +43,7 @@ export default function PluginsPage() {
     finally { setBusy(false); }
   };
   const selectTarget = async (name: string, target: PluginTarget, selected: boolean) => {
-    setBusy(true); setFailure(''); setResult(null);
+    setBusy(true); setWorking(`${name}:${target}`); setFailure(''); setResult(null);
     try {
       const request: PluginRequest = { action: selected ? 'enable' : 'disable', name, targets: [target] };
       const plan = await pluginsApi.preview(request);
@@ -50,7 +51,7 @@ export default function PluginsPage() {
       if (response.failure) setFailure(response.failure);
       refresh();
     } catch (e) { setFailure((e as Error).message); }
-    finally { setBusy(false); }
+    finally { setBusy(false); setWorking(''); }
   };
   if (isPending) return <PageSkeleton />;
   const actionText = (action: string) => t(({
@@ -116,7 +117,7 @@ export default function PluginsPage() {
       ) : (
         <>
           <div className="flex flex-col gap-3">
-            <PluginList inventory={data!} busy={busy} onToggle={(name, target, on) => void selectTarget(name, target, on)} onMenu={openMenu} />
+            <PluginList inventory={data!} busy={busy} working={working} onToggle={(name, target, on) => void selectTarget(name, target, on)} onMenu={openMenu} />
             <p className="text-xs text-ink-3">{t('plugins.selectionHelp')}</p>
           </div>
           <div className="flex items-center justify-between gap-3">
@@ -138,7 +139,7 @@ export default function PluginsPage() {
               <div key={h.target} className="ss-r !min-h-11">
                 <span className="ss-at"><AgentIcon target={h.target} size={17} /></span>
                 <span className="w-32 shrink-0 font-semibold">{pluginTargets[h.target].label}</span>
-                <span className="w-24 shrink-0 truncate font-mono text-xs text-ink-3">{h.version}</span>
+                <span className="w-40 shrink-0 truncate font-mono text-xs text-ink-3" title={h.version}>{h.version}</span>
                 <span className="flex min-w-0 flex-1 flex-col gap-1 py-1">
                   {h.note && <span className="text-[13px] text-ink-2">{h.note}</span>}
                   {h.error && <span className="ss-st warn wrap">{h.error}</span>}
