@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Braces, Check, Download, FileUp, Info, Plus, X } from 'lucide-react';
 import { mcpApi, mcpTargets, type MCPCandidate, type MCPMutation, type MCPServer } from '../../api/mcp';
+import PiExtensionField from './PiExtensionField';
 import AgentIcon from '../AgentIcon';
 import Button from '../Button';
 import CodeEditor from '../CodeEditor';
@@ -58,6 +59,7 @@ export default function MCPImportDialog({ source, servers, defaultTargets, paths
   const [tomlFrom, setTomlFrom] = useState('codex');
   const [picked, setPicked] = useState<string[] | null>(null);
   const [targets, setTargets] = useState<string[]>(defaultTargets);
+  const [piExtension, setPiExtension] = useState(() => Object.values(servers).find((s) => s.piExtension)?.piExtension ?? '');
   const [saving, setSaving] = useState(false);
   const visibleTargets = new Set([...availableTargets, ...targets]);
 
@@ -101,7 +103,7 @@ export default function MCPImportDialog({ source, servers, defaultTargets, paths
       // A takeover keeps the targets the existing server already has
       const own = servers[c.name]?.targets;
       const write = own ?? (inherited ? undefined : mcpTargets.filter((x) => targets.includes(x)));
-      const mutation: MCPMutation = { name: c.name, server: { ...c.server, ...(write && { targets: write }) }, replace: c.name in servers };
+      const mutation: MCPMutation = { name: c.name, server: { ...c.server, ...(piExtension && { piExtension }), ...(write && { targets: write }) }, replace: c.name in servers };
       // Adopting records the tool's identical entry as managed, so the next sync has no conflict there
       if (c.from && (own ?? targets).includes(c.from)) mutation.resolutions = [{ target: c.from, name: c.name, action: 'adopt' }];
       try {
@@ -280,6 +282,7 @@ export default function MCPImportDialog({ source, servers, defaultTargets, paths
           </div>
         </div>
 
+        {(targets.includes('pi') || chosen.some((c) => servers[c.name]?.targets?.includes('pi'))) && <PiExtensionField value={piExtension} onChange={setPiExtension} disabled={saving} />}
         {tab === 'target' && candidates.length > 0 && (
           <div className="ss-note inf">
             <Info size={16} />
@@ -295,7 +298,7 @@ export default function MCPImportDialog({ source, servers, defaultTargets, paths
             : <span className="text-ink-2">{t(targets.length === 1 ? 'mcp.writes.one' : 'mcp.writes.other', { count: targets.length })}</span>}
         </span>
         <Button variant="ghost" onClick={onClose} disabled={saving}>{t('common.cancel')}</Button>
-        <Button variant="primary" loading={saving} disabled={count === 0 || targets.length === 0} onClick={run}>
+        <Button variant="primary" loading={saving} disabled={count === 0 || targets.length === 0 || ((targets.includes('pi') || chosen.some((c) => servers[c.name]?.targets?.includes('pi'))) && !piExtension)} onClick={run}>
           {adding ? <Plus size={15} /> : <Download size={15} />}
           {/* "Add 0 servers" reads as a bug before anything is pasted; the plain verb doesn't. */}
           {count === 0

@@ -52,9 +52,10 @@ function useTargetHealth() {
   return (tgt: Target, sourceSkillCount: number): Health => {
     if (tgt.status === 'not exist') return { kind: 'bad', label: t('dashboard.targets.problem'), detail: t('dashboard.targets.folderMissing'), pending: 0 };
     if (tgt.status === 'conflict' || tgt.status === 'broken') return { kind: 'bad', label: t('dashboard.targets.problem'), detail: tgt.status, pending: 0 };
-    if (tgt.status === 'has files') return { kind: 'warn', label: tgt.status, detail: '', pending: 0 };
+    // Only a symlink target has to give its folder up; merge and copy keep local files, so they are counted below.
+    if (tgt.status === 'has files' && tgt.mode === 'symlink') return { kind: 'warn', label: t('targets.state.migrate'), detail: t('targets.syncing.migrate'), pending: 0 };
     if (tgt.status === 'unknown') return { kind: 'off', label: tgt.status, detail: '', pending: 0 };
-    const counted = (tgt.mode === 'merge' && tgt.status === 'merged') || (tgt.mode === 'copy' && tgt.status === 'copied');
+    const counted = tgt.status === 'has files' || (tgt.mode === 'merge' && tgt.status === 'merged') || (tgt.mode === 'copy' && tgt.status === 'copied');
     const pending = counted ? Math.max(0, (tgt.expectedSkillCount || sourceSkillCount) - tgt.linkedCount) : 0;
     const linked = tgt.linkedCount > 0
       ? t(tgt.mode === 'copy' ? 'dashboard.targets.managed' : 'dashboard.targets.linked', { count: tgt.linkedCount })
@@ -87,7 +88,7 @@ export default function DashboardPage() {
     staleTime: staleTimes.extras,
   });
   const { data: mcpData } = useQuery({ queryKey: queryKeys.mcp, queryFn: mcpApi.list });
-  const { data: pluginData } = useQuery({ queryKey: queryKeys.plugins, queryFn: pluginsApi.list });
+  const { data: pluginData } = useQuery({ queryKey: queryKeys.pluginPackages, queryFn: () => pluginsApi.list(false) });
   const { data: lastSync } = useQuery({
     queryKey: queryKeys.log('ops', 1, { cmd: 'sync' }),
     queryFn: () => api.listLog('ops', 1, { cmd: 'sync' }),

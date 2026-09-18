@@ -57,7 +57,7 @@ export const isResolvable = (change: MCPChange) =>
 
 /** Display names for the MCP clients, as in their own docs. */
 export const targetLabel = (target: string) =>
-  ({ claude: 'Claude', codex: 'Codex', cursor: 'Cursor', vscode: 'VS Code', opencode: 'OpenCode', grok: 'Grok', antigravity: 'Antigravity', amp: 'Amp', 'claude-desktop': 'Claude Desktop', cline: 'Cline (VS Code)', copilot: 'Copilot CLI', factory: 'Factory', gemini: 'Gemini CLI', goose: 'Goose', junie: 'Junie', kiro: 'Kiro', lmstudio: 'LM Studio', warp: 'Warp', windsurf: 'Windsurf' })[target] ?? target;
+  ({ pi: 'Pi', claude: 'Claude', codex: 'Codex', cursor: 'Cursor', vscode: 'VS Code', opencode: 'OpenCode', grok: 'Grok', antigravity: 'Antigravity', amp: 'Amp', 'claude-desktop': 'Claude Desktop', cline: 'Cline (VS Code)', copilot: 'Copilot CLI', factory: 'Factory', gemini: 'Gemini CLI', goose: 'Goose', junie: 'Junie', kiro: 'Kiro', lmstudio: 'LM Studio', warp: 'Warp', windsurf: 'Windsurf' })[target] ?? target;
 
 /** Splits a command line into words, honouring single and double quotes. */
 // ponytail: no backslash escapes; a word holding both quote kinds needs the YAML config.

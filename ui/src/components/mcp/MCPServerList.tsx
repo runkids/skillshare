@@ -35,27 +35,28 @@ export default function MCPServerList({ rows, targets, targetsOf, onToggle, onMe
               <span className="flex min-w-0 flex-1 flex-col gap-0.5">
                 <span className="flex items-center gap-2">
                   <span title={row.name} className={`truncate font-mono font-semibold ${row.server ? '' : 'text-ink-3 line-through'}`}>{row.name}</span>
-                  {row.server ? <span className="ss-tag">{http ? 'http' : 'stdio'}</span> : <span className="ss-st bad">{t('mcp.removedFromSource')}</span>}
+                  {row.server && Object.values(row.cells).some((c) => c.action === 'add' || c.action === 'update' || c.action === 'remove') && <span className="ss-tag warn">{t('plugins.pending')}</span>}
+                  {!row.server && <span className="ss-st bad">{t('mcp.removedFromSource')}</span>}
                 </span>
-                <span className="truncate font-mono text-xs text-ink-3">{row.server ? describeEndpoint(row.server) : t('mcp.removedHint')}</span>
+                {/* Transport and endpoint on one quiet line, the same shape as a plugin row. */}
+                <span className="truncate text-xs text-ink-3">{row.server ? <>{http ? 'http' : 'stdio'} · <span className="font-mono">{describeEndpoint(row.server)}</span></> : t('mcp.removedHint')}</span>
               </span>
               {row.server && (
                 <>
-                  {!expanded && selected.length > 0 && (
-                    <span className="ss-stack" aria-hidden="true">
-                      {selected.slice(0, STACK).map((target) => (
-                        <span key={target} className="ss-at"><AgentIcon target={target} size={13} /></span>
-                      ))}
-                      {selected.length > STACK && <span className="ss-at text-[10px] font-semibold">+{selected.length - STACK}</span>}
-                    </span>
-                  )}
                   <button
                     type="button"
-                    className="ss-btn sm"
+                    className={`ss-btn ${selected.length > 0 ? '!pl-1.5' : ''}`}
                     aria-expanded={expanded}
                     aria-label={t('mcp.chooseAgents', { name: row.name })}
                     onClick={() => setOpen((prev) => (expanded ? prev.filter((x) => x !== row.name) : [...prev, row.name]))}
                   >
+                    {selected.length > 0 && (
+                      <span className="ss-stack" aria-hidden="true">
+                        {selected.slice(0, STACK).map((target) => (
+                          <span key={target} className="ss-at"><AgentIcon target={target} size={13} /></span>
+                        ))}
+                      </span>
+                    )}
                     {selected.length}/{targets.length}
                     <ChevronDown size={14} className={expanded ? 'rotate-180' : ''} />
                   </button>

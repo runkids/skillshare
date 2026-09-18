@@ -24,6 +24,7 @@ import EmptyState from '../components/EmptyState';
 import FindingList from '../components/FindingList';
 import PageHeader from '../components/PageHeader';
 import CodeView from '../components/CodeView';
+import { CODE_EXT, fileTree } from '../lib/fileTree';
 import MarkdownView, { ViewToggle } from '../components/MarkdownView';
 import { SkillDetailSkeleton } from '../components/Skeleton';
 import Spinner from '../components/Spinner';
@@ -558,8 +559,6 @@ function TargetsSection({ resource }: { resource: Skill }) {
 
 /* -- Files ---------------------------------------- */
 
-const CODE_EXT = /\.(ts|tsx|js|jsx|mjs|go|py|rs|rb|sh|bash|zsh|ps1|json|ya?ml|toml)$/i;
-
 function FilesTab({ resource, files, skillMd, tabSearch, components, raw, onRaw }: {
   resource: Skill;
   files: string[];
@@ -595,20 +594,7 @@ function FilesTab({ resource, files, skillMd, tabSearch, components, raw, onRaw 
     if (!next && line > 0) navigate(tabSearch('files', { file: selected }), { replace: true });
   };
 
-  // Folder rows are emitted once, the first time a file inside them appears
-  const tree: { path: string; label: string; depth: number; folder: boolean }[] = [];
-  const seen = new Set<string>();
-  for (const path of sorted) {
-    const parts = path.split('/');
-    for (let i = 0; i < parts.length - 1; i++) {
-      const dir = parts.slice(0, i + 1).join('/');
-      if (!seen.has(dir)) {
-        seen.add(dir);
-        tree.push({ path: dir, label: parts[i], depth: i, folder: true });
-      }
-    }
-    tree.push({ path, label: parts[parts.length - 1], depth: parts.length - 1, folder: false });
-  }
+  const tree = fileTree(sorted);
 
   const copyPath = () => {
     void navigator.clipboard?.writeText(`${resource.sourcePath}/${selected}`);

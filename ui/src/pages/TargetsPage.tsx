@@ -10,13 +10,13 @@ import PageHeader from '../components/PageHeader';
 import { PageSkeleton } from '../components/Skeleton';
 import { useToast } from '../components/Toast';
 import AddTargetDialog from '../components/targets/AddTargetDialog';
-import { refreshTargets, targetHealth } from '../components/targets/targetView';
+import { refreshTargets, targetHealth, type TargetState } from '../components/targets/targetView';
 import { queryKeys, staleTimes } from '../lib/queryKeys';
 import { shortenHome } from '../lib/paths';
 import { useT } from '../i18n';
 
-const TONE = { synced: 'ok', pending: 'warn', missing: 'warn', problem: 'bad', unknown: 'off' } as const;
-const PROBLEM_TEXT: Record<string, string> = { 'not exist': 'targets.syncing.missing', conflict: 'targets.syncing.conflict', broken: 'targets.syncing.broken', 'has files': 'targets.syncing.hasFiles' };
+const TONE = { synced: 'ok', pending: 'warn', missing: 'warn', migrate: 'warn', problem: 'bad', unknown: 'off' } as const;
+const PROBLEM_TEXT: Record<string, string> = { 'not exist': 'targets.syncing.missing', conflict: 'targets.syncing.conflict', broken: 'targets.syncing.broken' };
 
 export default function TargetsPage() {
   const t = useT();
@@ -31,11 +31,13 @@ export default function TargetsPage() {
   const known = available.data?.targets ?? [];
   const found = known.filter((a) => a.detected && !a.installed).sort((a, b) => a.name.localeCompare(b.name));
 
-  const syncing = (tg: Target, pending: number) => {
+  const syncing = (tg: Target, state: TargetState, pending: number) => {
     if (PROBLEM_TEXT[tg.status]) return t(PROBLEM_TEXT[tg.status]);
+    if (state === 'migrate') return t('targets.syncing.migrate');
     if (tg.mode === 'symlink') return t('targets.syncing.folderLinked');
     return [
-      t(tg.mode === 'copy' ? 'targets.syncing.copied' : 'targets.syncing.linked', { count: tg.linkedCount }),
+      // "0 linked" beside "In sync" reads as a contradiction when the source simply has nothing for this target.
+      tg.linkedCount === 0 && pending === 0 ? t('targets.syncing.nothing') : t(tg.mode === 'copy' ? 'targets.syncing.copied' : 'targets.syncing.linked', { count: tg.linkedCount }),
       pending > 0 && t('targets.syncing.pending', { count: pending }),
       tg.localCount > 0 && t('targets.syncing.local', { count: tg.localCount }),
     ].filter(Boolean).join(' · ');
@@ -75,7 +77,7 @@ export default function TargetsPage() {
                   <span className="truncate font-mono text-[12px] text-ink-3" title={tg.path}>{shortenHome(tg.path)}</span>
                 </span>
                 <span className="w-[92px] shrink-0"><span className="ss-tag">{tg.mode}</span></span>
-                <span className="w-[210px] shrink-0 truncate text-[13px] text-ink-2">{syncing(tg, pending)}</span>
+                <span className="w-[210px] shrink-0 truncate text-[13px] text-ink-2">{syncing(tg, state, pending)}</span>
                 <span className="w-[130px] shrink-0">
                   <span className={`ss-st ${TONE[state]}`}>
                     {state === 'pending' ? t('targets.state.pending', { count: pending }) : state === 'unknown' ? tg.status : t(`targets.state.${state}`)}

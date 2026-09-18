@@ -1,19 +1,20 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { AlertCircle, Archive, ChevronRight, Copy, Download, Pencil, Plug, Plus, Trash2, X } from 'lucide-react';
+import { AlertCircle, Archive, ChevronDown, ChevronRight, Copy, Download, Eye, Pencil, Plug, Plus, Trash2, X } from 'lucide-react';
 import { mcpApi, mcpTargets, type MCPMutation, type MCPPlan } from '../api/mcp';
-import AgentIcon from '../components/AgentIcon';
 import Button from '../components/Button';
 import DialogShell from '../components/DialogShell';
 import EmptyState from '../components/EmptyState';
 import PageHeader from '../components/PageHeader';
 import { PageSkeleton } from '../components/Skeleton';
+import { RailGroup, RailLayout, RailLine, RailRow, RailSection, SyncBox } from '../components/StatusRail';
 import { SkillContextMenu, type ContextMenuItem } from '../components/TargetMenu';
 import { useToast } from '../components/Toast';
 import MCPImportDialog from '../components/mcp/MCPImportDialog';
 import MCPServerList from '../components/mcp/MCPServerList';
 import MCPPreview, { type MCPResolve } from '../components/mcp/MCPPreview';
+import { MCPConfigDialog } from '../components/mcp/MCPConfigView';
 import MCPRemoveDialog from '../components/mcp/MCPRemoveDialog';
 import MCPRestoreDialog from '../components/mcp/MCPRestoreDialog';
 import MCPServerDialog from '../components/mcp/MCPServerDialog';
@@ -32,11 +33,13 @@ export default function MCPPage() {
   const navigate = useNavigate();
   const cache = useQueryClient();
   const { data, error, isPending } = useQuery({ queryKey: queryKeys.mcp, queryFn: mcpApi.list });
+  const [piSetupName, setPiSetupName] = useState<string | null>(null);
   const [editing, setEditing] = useState<string | null>(null); // '' adds a new server
   // Adding takes two shapes: fill the fields, or paste a snippet. Both end up saving one source server.
   const [addMode, setAddMode] = useState<'form' | 'paste'>('form');
   const [importing, setImporting] = useState<{ conflict?: { target: string; name: string } } | null>(null);
   const [removing, setRemoving] = useState('');
+  const [viewing, setViewing] = useState('');
   const [backupsOpen, setBackupsOpen] = useState(false);
   const [replace, setReplace] = useState<{ plan: MCPPlan; mutation: MCPMutation } | null>(null);
   const [busy, setBusy] = useState(false);
@@ -48,7 +51,7 @@ export default function MCPPage() {
     void cache.invalidateQueries({ queryKey: queryKeys.config });
   };
   const done = (message: string) => {
-    setEditing(null); setAddMode('form'); setImporting(null); setRemoving(''); setBackupsOpen(false); setReplace(null);
+    setPiSetupName(null); setEditing(null); setAddMode('form'); setImporting(null); setRemoving(''); setBackupsOpen(false); setReplace(null);
     refresh();
     toast(message, 'success');
   };
@@ -66,10 +69,10 @@ export default function MCPPage() {
   const detected = new Set(data?.detected);
   const files = mcpTargets.filter((x) => data?.paths[x]);
   const matrixTargets = new Set([...files, ...rows.flatMap((row) => [...targetsOf(row.name), ...Object.keys(row.cells)])]);
-  const shownFiles = allFiles ? files : files.filter((x) => detected.has(x));
-  const hiddenFiles = files.length - shownFiles.length;
+  const undetected = files.filter((x) => !detected.has(x));
 
   const toggle = async (name: string, target: string, on: boolean) => {
+    if (target === 'pi' && on && !servers[name].piExtension) { setPiSetupName(name); setEditing(name); return; }
     const current = targetsOf(name);
     const next = mcpTargets.filter((x) => (x === target ? on : current.includes(x)));
     if (next.length === 0) {
@@ -124,7 +127,8 @@ export default function MCPPage() {
       x: r.left,
       y: r.bottom + 4,
       items: [
-        { key: 'edit', label: t('mcp.edit'), icon: <Pencil size={14} />, onSelect: () => setEditing(name) },
+        { key: 'edit', label: t('mcp.edit'), icon: <Pencil size={14} />, onSelect: () => { setPiSetupName(null); setEditing(name); } },
+        ...(targetsOf(name).length > 0 ? [{ key: 'view', label: t('mcp.viewConfig'), icon: <Eye size={14} />, onSelect: () => setViewing(name) }] : []),
         { key: 'remove', label: t('mcp.remove'), icon: <Trash2 size={14} />, danger: true, onSelect: () => setRemoving(name) },
       ],
     });
@@ -153,21 +157,44 @@ export default function MCPPage() {
       {data?.previewError && <div className="ss-note bad mb-4"><AlertCircle size={16} /><span className="flex-1">{data.previewError}</span></div>}
 
       {data && (
-        <div className="flex flex-col gap-7">
-          {rows.length > 0 ? (
-            <MCPServerList rows={rows} targets={mcpTargets.filter((x) => matrixTargets.has(x))} targetsOf={targetsOf} onToggle={(n, x, on) => void toggle(n, x, on)} onMenu={openMenu} />
-          ) : (
-            <EmptyState
-              icon={Plug}
-              title={t('mcp.empty')}
-              description={t('mcp.emptyHint')}
-              action={<div className="flex gap-2">
-                <Button variant="secondary" onClick={() => setImporting({})}><Download size={15} />{t('mcp.importFromTarget')}</Button>
-                <Button variant="primary" onClick={() => { setAddMode('form'); setEditing(''); }}><Plus size={15} />{t('mcp.addServer')}</Button>
-              </div>}
-            />
+        <RailLayout rail={<>
+          {data.plan && rows.length > 0 && (pending > 0 || conflicts.length === 0) && (
+            <SyncBox tone={pending > 0 ? 'warn' : 'ok'} state={pending > 0 ? t(pending === 1 ? 'mcp.pending.one' : 'mcp.pending.other', { count: pending }) : t('targets.state.synced')}>
+              {pending > 0 && (
+                <>
+                  <div className="flex flex-col gap-1.5">
+                    {changes.filter((c) => c.action === 'add' || c.action === 'update' || c.action === 'remove').map((c) => (
+                      <RailLine key={`${c.target}:${c.name}`} name={c.name} agent={targetLabel(c.target)} word={c.action} />
+                    ))}
+                  </div>
+                  <Button className="w-full justify-center" onClick={() => navigate('/sync')}>{t('mcp.reviewInSync')}<ChevronRight size={15} /></Button>
+                </>
+              )}
+              {/* Ticks only change the source; MCP files are written from the Sync page, so say so where the state is. */}
+              <p className={pending > 0 ? 'text-xs leading-normal text-ink-2' : 'text-[13px] leading-normal text-ink-2'}>{t('mcp.syncHint')}</p>
+              {pending === 0 && <button type="button" className="ss-more self-start" onClick={() => navigate('/sync')}>{t('mcp.reviewInSync')}</button>}
+            </SyncBox>
           )}
 
+          <RailSection title={t('layout.nav.agents')} count={files.length}>
+            {/* The file name is enough to recognise; the full path is one hover or one copy away. */}
+            <RailGroup label={t('mcp.fileDetected')} count={files.length - undetected.length}>
+              {files.filter((x) => detected.has(x)).map((target) => (
+                <RailRow key={target} target={target} label={targetLabel(target)} right={<>
+                  <span className="max-w-[130px] truncate font-mono text-xs text-ink-3" title={data.paths[target]}>{data.paths[target].split(/[\\/]/).pop()}</span>
+                  <button type="button" className="ss-ib" aria-label={`${t('mcp.copyPath')} · ${targetLabel(target)}`} onClick={() => { copy(data.paths[target]); toast(t('mcp.copied'), 'success'); }}><Copy size={14} /></button>
+                </>} />
+              ))}
+            </RailGroup>
+            {undetected.length > 0 && (
+              <RailGroup label={t('mcp.notDetected')} count={undetected.length} right={
+                <button type="button" className="ss-ib !h-6 !w-6" aria-expanded={allFiles} aria-label={t('mcp.moreFiles', { count: undetected.length })} onClick={() => setAllFiles(!allFiles)}><ChevronDown size={14} className={allFiles ? 'rotate-180' : ''} /></button>
+              }>
+                {allFiles && <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 pt-0.5 text-[13px] text-ink-2">{undetected.map((target) => <span key={target} className="truncate" title={data.paths[target]}>{targetLabel(target)}</span>)}</div>}
+              </RailGroup>
+            )}
+          </RailSection>
+        </>}>
           {conflicts.length > 0 && (
             <div className="ss-note warn !items-center">
               <AlertCircle size={16} className="self-start mt-0.5" />
@@ -187,44 +214,24 @@ export default function MCPPage() {
               </div>
             </div>
           )}
-
-          {data.plan && rows.length > 0 && (
-            <div className="flex items-center justify-between gap-3">
-              {pending > 0 ? (
-                <>
-                  <span className="ss-st warn text-[13px]">{t(pending === 1 ? 'mcp.pending.one' : 'mcp.pending.other', { count: pending })}</span>
-                  <Button variant="secondary" onClick={() => navigate('/sync')}>{t('mcp.reviewInSync')}<ChevronRight size={15} /></Button>
-                </>
-              ) : conflicts.length === 0 ? (
-                <span className="ss-st ok text-[13px]">{t('mcp.allSynced')}</span>
-              ) : null}
-            </div>
+          {rows.length > 0 ? (
+            <MCPServerList rows={rows} targets={mcpTargets.filter((x) => matrixTargets.has(x))} targetsOf={targetsOf} onToggle={(n, x, on) => void toggle(n, x, on)} onMenu={openMenu} />
+          ) : (
+            <EmptyState
+              icon={Plug}
+              title={t('mcp.empty')}
+              description={t('mcp.emptyHint')}
+              action={<div className="flex gap-2">
+                <Button variant="secondary" onClick={() => setImporting({})}><Download size={15} />{t('mcp.importFromTarget')}</Button>
+                <Button variant="primary" onClick={() => { setAddMode('form'); setEditing(''); }}><Plus size={15} />{t('mcp.addServer')}</Button>
+              </div>}
+            />
           )}
-
-          <section>
-            <div className="ss-sec">
-              <h2>{t('mcp.configFiles')}</h2>
-              <span className="ss-cnt">{files.length}</span>
-            </div>
-            <div className="ss-list">
-              {shownFiles.map((target) => (
-                <div key={target} className="ss-r !min-h-10">
-                  <span className="ss-at"><AgentIcon target={target} size={17} /></span>
-                  <span className="min-w-0 flex-1 truncate font-mono text-[13px]" title={data.paths[target]}>{shortenHome(data.paths[target])}</span>
-                  {detected.has(target) ? <span className="ss-st ok">{t('mcp.fileDetected')}</span> : <span className="ss-st off">{t('mcp.notDetected')}</span>}
-                  <button type="button" className="ss-ib" aria-label={t('mcp.copyPath')} onClick={() => { copy(data.paths[target]); toast(t('mcp.copied'), 'success'); }}><Copy size={15} /></button>
-                </div>
-              ))}
-              <div className="ss-r !min-h-[38px]">
-                <span className="min-w-0 flex-1 truncate text-[13px] text-ink-3">
-                  {hiddenFiles > 0 && <><button type="button" className="hover:text-ink" onClick={() => setAllFiles(true)}>{t('mcp.moreFiles', { count: hiddenFiles })}</button> · </>}
-                  {t('mcp.source')}: <span className="font-mono" title={data.source.path}>{shortenHome(data.source.path)}</span>
-                </span>
-                <button type="button" className="ss-ib" aria-label={t('mcp.copySource')} onClick={() => { copy(data.source.path); toast(t('mcp.copied'), 'success'); }}><Copy size={15} /></button>
-              </div>
-            </div>
-          </section>
-        </div>
+          <div className="flex items-center gap-1 px-1 text-xs text-ink-3">
+            <span className="min-w-0 truncate">{t('mcp.source')}: <span className="font-mono" title={data.source.path}>{shortenHome(data.source.path)}</span></span>
+            <button type="button" className="ss-ib" aria-label={t('mcp.copySource')} onClick={() => { copy(data.source.path); toast(t('mcp.copied'), 'success'); }}><Copy size={14} /></button>
+          </div>
+        </RailLayout>
       )}
 
       {editing !== null && data && (editing === '' && addMode === 'paste' ? (
@@ -240,7 +247,8 @@ export default function MCPPage() {
         />
       ) : (
         <MCPServerDialog
-          initial={editing ? { name: editing, server: servers[editing] } : undefined}
+          defaultPiExtension={Object.values(servers).find((s) => s.piExtension)?.piExtension}
+          initial={editing ? { name: editing, server: piSetupName === editing ? { ...servers[editing], targets: [...targetsOf(editing), 'pi'] } : servers[editing] } : undefined}
           defaultTargets={defaults}
           existingNames={Object.keys(servers)}
           availableTargets={files}
@@ -261,6 +269,7 @@ export default function MCPPage() {
           onImported={() => { setImporting(null); refresh(); }}
         />
       )}
+      {viewing && servers[viewing] && <MCPConfigDialog mutation={{ name: viewing, server: { ...servers[viewing], targets: mcpTargets.filter((x) => targetsOf(viewing).includes(x)) } }} onClose={() => setViewing('')} />}
       {removing && <MCPRemoveDialog name={removing} onClose={() => setRemoving('')} onSaved={() => done(t('mcp.toast.removed', { name: removing }))} />}
       {backupsOpen && data && <MCPRestoreDialog backups={data.backups} onClose={() => setBackupsOpen(false)} onRestored={() => done(t('mcp.toast.restored'))} />}
       <DialogShell open={Boolean(replace)} onClose={() => setReplace(null)} padding="none" preventClose={busy} ariaLabel={t('mcp.replace')} className="!max-w-[640px]">

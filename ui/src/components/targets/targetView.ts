@@ -2,7 +2,7 @@ import type { QueryClient } from '@tanstack/react-query';
 import type { SyncMatrixEntry, Target } from '../../api/client';
 import { queryKeys } from '../../lib/queryKeys';
 
-export type TargetState = 'synced' | 'pending' | 'missing' | 'problem' | 'unknown';
+export type TargetState = 'synced' | 'pending' | 'missing' | 'migrate' | 'problem' | 'unknown';
 
 /** Where a target stands, and how many skills and agents the next sync would add. */
 export function targetHealth(target: Target): { state: TargetState; pending: number } {
@@ -15,9 +15,13 @@ export function targetHealth(target: Target): { state: TargetState; pending: num
       return { state: pending > 0 ? 'pending' : 'synced', pending };
     case 'not exist':
       return { state: 'missing', pending };
+    case 'has files':
+      // A real folder sits where the symlink goes, so sync moves its files into the source first.
+      if (target.mode === 'symlink') return { state: 'migrate', pending };
+      // Merge and copy keep local files: here it only says nothing from the source is in the folder yet.
+      return { state: pending > 0 ? 'pending' : 'synced', pending };
     case 'conflict':
     case 'broken':
-    case 'has files':
       return { state: 'problem', pending };
     default:
       return { state: 'unknown', pending };

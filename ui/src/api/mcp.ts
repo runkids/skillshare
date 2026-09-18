@@ -1,8 +1,9 @@
 import { apiFetch } from './client';
 
-export const mcpTargets = ['claude', 'codex', 'cursor', 'vscode', 'opencode', 'grok', 'antigravity', 'amp', 'claude-desktop', 'cline', 'copilot', 'factory', 'gemini', 'goose', 'junie', 'kiro', 'lmstudio', 'warp', 'windsurf'] as const;
+export const mcpTargets = ['claude', 'codex', 'cursor', 'vscode', 'opencode', 'grok', 'antigravity', 'amp', 'claude-desktop', 'cline', 'copilot', 'factory', 'gemini', 'goose', 'junie', 'kiro', 'lmstudio', 'warp', 'windsurf', 'pi'] as const;
 export type MCPValue = string | { fromEnv: string };
 export interface MCPServer {
+  piExtension?: string;
   command?: string;
   args?: string[];
   url?: string;
@@ -39,6 +40,8 @@ export const mcpApi = {
   /** Save to the source only. The server refuses a write it has not previewed; the revision also catches concurrent edits. */
   save: async (mutation: MCPMutation) =>
     post<MCPResult>('/mcp', { mutation, revision: (await post<MCPPlan>('/mcp/preview', { mutation })).revision, sync: false }),
+  /** One server as each of its targets' config files would hold it. Reads and writes nothing, so an unsaved form can ask. */
+  render: (mutation: MCPMutation) => post<{ rendered: { target: string; path: string; content?: string; error?: string }[] }>('/mcp/render', { mutation }),
   import: (body: { from?: string; content?: string; name?: string }) => post<{ candidates: MCPCandidate[] }>('/mcp/import', body),
   previewRestore: (backupId: string) => post<MCPPlan>('/mcp/restore', { backupId, preview: true }),
   restore: (backupId: string, revision: string) => post<MCPResult>('/mcp/restore', { backupId, revision }),

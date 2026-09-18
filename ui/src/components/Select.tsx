@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, useId } from 'react';
 import { createPortal } from 'react-dom';
 import { Check, ChevronDown } from 'lucide-react';
 
@@ -34,6 +34,7 @@ interface DropdownPos {
 }
 
 export function Select({ label, value, onChange, options, className = '', size = 'md', disabled = false, prefix }: SelectProps) {
+  const labelId = useId();
   const [open, setOpen] = useState(false);
   const [focusIdx, setFocusIdx] = useState(-1);
   const [pos, setPos] = useState<DropdownPos | null>(null);
@@ -163,7 +164,7 @@ export function Select({ label, value, onChange, options, className = '', size =
   return (
     <div ref={triggerRef} className={`relative ${className}`}>
       {label && (
-        <label className="block text-[13px] font-semibold mb-1.5">
+        <label id={labelId} className="block text-[13px] font-semibold mb-1.5">
           {label}
         </label>
       )}
@@ -178,6 +179,7 @@ export function Select({ label, value, onChange, options, className = '', size =
         onKeyDown={handleKeyDown}
         className={`ss-inp w-full justify-between text-left outline-none ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'} ${selectTriggerSizes[size]} ${open ? 'border-accent' : ''}`}
         role="combobox"
+        aria-labelledby={label ? labelId : undefined}
         aria-expanded={open}
         aria-haspopup="listbox"
       >

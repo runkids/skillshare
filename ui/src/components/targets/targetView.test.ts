@@ -16,6 +16,11 @@ describe('targetHealth', () => {
   it('reports a folder that has not been created yet separately from a problem', () => {
     expect([targetHealth(target({ status: 'not exist' })).state, targetHealth(target({ status: 'conflict' })).state]).toEqual(['missing', 'problem']);
   });
+
+  it('reads "has files" as a problem in no mode: nothing linked yet for merge, files to move for symlink', () => {
+    const states = [{}, { expectedSkillCount: 2 }, { mode: 'symlink' }].map((over) => targetHealth(target({ status: 'has files', ...over })).state);
+    expect(states).toEqual(['synced', 'pending', 'migrate']);
+  });
 });
 
 describe('togglePatterns', () => {

@@ -19,7 +19,19 @@ const renderDialog = (props: Partial<Parameters<typeof MCPImportDialog>[0]> = {}
 describe('MCP import dialog', () => {
   beforeEach(() => {
     vi.clearAllMocks(); localStorage.clear();
+    HTMLElement.prototype.scrollIntoView = vi.fn();
     vi.mocked(mcpApi.save).mockResolvedValue({ applied: [], backupIds: [] });
+  });
+
+  it('requires a Pi extension when importing into Pi', async () => {
+    vi.mocked(mcpApi.import).mockResolvedValue({ candidates: [{ name: 'docs', server: { url: 'https://example.com/mcp' }, problems: [], warnings: [], from: 'pi' }] });
+    const user = userEvent.setup();
+    renderDialog({ servers: {}, defaultTargets: ['pi'], paths: { pi: '/home/me/.pi/agent/mcp.json' }, detected: ['pi'] });
+    expect(await screen.findByRole('button', { name: 'Import 1 server' })).toBeDisabled();
+    await user.click(screen.getByRole('combobox', { name: 'MCP extension installed in Pi' }));
+    await user.click(screen.getByRole('option', { name: 'pi-mcp-adapter' }));
+    await user.click(screen.getByRole('button', { name: 'Import 1 server' }));
+    await waitFor(() => expect(mcpApi.save).toHaveBeenCalledWith(expect.objectContaining({ server: { url: 'https://example.com/mcp', piExtension: 'pi-mcp-adapter' }, resolutions: [{ target: 'pi', name: 'docs', action: 'adopt' }] })));
   });
 
   it('imports every new server from a target and adopts the entries that target keeps', async () => {

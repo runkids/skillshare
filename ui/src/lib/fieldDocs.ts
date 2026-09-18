@@ -48,6 +48,7 @@ export const fieldDocs: Record<string, FieldDoc> = {
     description: 'HTTP or HTTPS MCP endpoint. The client connects to this service. Do not put credentials in the URL.',
     type: 'string', example: 'url: https://example.com/mcp',
   },
+  'mcp.servers.piExtension': { description: 'Required when targeting Pi. Choose the third-party package installed in Pi: pi-mcp-adapter or pi-mcp-extension. Sync only writes configuration.', type: 'string', example: 'piExtension: pi-mcp-adapter' },
   'mcp.servers.transport': {
     description: 'Optional transport. Inferred from command (stdio) or url (streamable-http).',
     type: 'string', allowedValues: ['stdio', 'streamable-http'], example: 'transport: stdio',
