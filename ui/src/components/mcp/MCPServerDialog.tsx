@@ -23,12 +23,14 @@ interface Props {
   defaultTargets: string[];
   existingNames: string[];
   availableTargets?: readonly string[];
+  /** Present when adding, so the user can swap to pasting a snippet instead of filling the fields. */
+  onMode?: (mode: 'form' | 'paste') => void;
   onClose: () => void;
   onSaved: () => void;
 }
 
 /** Add or edit one source server. Saving only changes the source; Sync writes the config files. */
-export default function MCPServerDialog({ initial, defaultTargets, existingNames, availableTargets = mcpTargets, onClose, onSaved }: Props) {
+export default function MCPServerDialog({ initial, defaultTargets, existingNames, availableTargets = mcpTargets, onMode, onClose, onSaved }: Props) {
   const t = useT();
   const server = initial?.server;
   const [name, setName] = useState(initial?.name ?? '');
@@ -90,6 +92,14 @@ export default function MCPServerDialog({ initial, defaultTargets, existingNames
         <button type="button" className="ss-ib" aria-label={t('common.close')} onClick={onClose} disabled={saving}><X size={16} /></button>
       </div>
       <form id="mcp-server" className="db" onSubmit={(e) => { e.preventDefault(); void save(); }}>
+        {onMode && (
+          <SegmentedControl<'form' | 'paste'>
+            className="self-start"
+            value="form"
+            onChange={onMode}
+            options={[{ value: 'form', label: t('mcp.manualTab') }, { value: 'paste', label: t('mcp.pasteTab') }]}
+          />
+        )}
         <div className="grid grid-cols-2 gap-3.5">
           <div className="ss-fld">
             <label htmlFor="mcp-name">{t('mcp.name')}</label>
@@ -195,7 +205,11 @@ export default function MCPServerDialog({ initial, defaultTargets, existingNames
         {error && <div className="ss-note bad"><span className="flex-1">{error}</span></div>}
       </form>
       <div className="df">
-        <span className="flex-1 text-[13px] text-ink-2">{t(targets.length === 1 ? 'mcp.writes.one' : 'mcp.writes.other', { count: targets.length })}</span>
+        <span className="flex-1 text-[13px]">
+          {targets.length === 0
+            ? <span className="ss-st warn">{t('mcp.pickTarget')}</span>
+            : <span className="text-ink-2">{t(targets.length === 1 ? 'mcp.writes.one' : 'mcp.writes.other', { count: targets.length })}</span>}
+        </span>
         <Button variant="ghost" onClick={onClose} disabled={saving}>{t('common.cancel')}</Button>
         <Button type="submit" form="mcp-server" variant="primary" loading={saving} disabled={!canSave}>{t('common.save')}</Button>
       </div>

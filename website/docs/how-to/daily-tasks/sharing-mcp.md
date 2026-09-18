@@ -47,11 +47,14 @@ Paste the URL or JSON supplied by your MCP provider, give it a name, select your
 Agents, and review the changes. **Save and sync** applies the settings immediately;
 **Save only** keeps the definition for a later `skillshare sync mcp`.
 
-In the dashboard, open **MCP → Add MCP**. Choose a URL, pasted configuration, or
-an existing Agent configuration. Pasted JSON is recognized automatically; for
-TOML, choose whether it came from Codex or Grok. The dashboard uses the same source, validation,
-preview and conflict rules as the CLI. The Sync page also has **Sync all resources**
-for skills, agents, extras and MCP.
+In the dashboard, **Add server** takes either shape: fill in the fields, or paste
+a configuration. The paste side also loads a file, which is the browser's
+equivalent of `mcp import --file`. Pasted JSON is recognized automatically; for
+TOML, choose whether it came from Codex or Grok. **Import from a target** is
+separate and reads the servers an installed Agent already has. Either way the
+dashboard uses the same source, validation, preview and conflict rules as the
+CLI. The Sync page also has **Sync all resources** for skills, agents, extras
+and MCP.
 
 The Config editor formats YAML when you save, using two-space indentation and
 preserving comments. Click a field to see its explanation in the right panel,

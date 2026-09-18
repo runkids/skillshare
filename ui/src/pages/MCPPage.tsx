@@ -33,6 +33,8 @@ export default function MCPPage() {
   const cache = useQueryClient();
   const { data, error, isPending } = useQuery({ queryKey: queryKeys.mcp, queryFn: mcpApi.list });
   const [editing, setEditing] = useState<string | null>(null); // '' adds a new server
+  // Adding takes two shapes: fill the fields, or paste a snippet. Both end up saving one source server.
+  const [addMode, setAddMode] = useState<'form' | 'paste'>('form');
   const [importing, setImporting] = useState<{ conflict?: { target: string; name: string } } | null>(null);
   const [removing, setRemoving] = useState('');
   const [backupsOpen, setBackupsOpen] = useState(false);
@@ -46,7 +48,7 @@ export default function MCPPage() {
     void cache.invalidateQueries({ queryKey: queryKeys.config });
   };
   const done = (message: string) => {
-    setEditing(null); setImporting(null); setRemoving(''); setBackupsOpen(false); setReplace(null);
+    setEditing(null); setAddMode('form'); setImporting(null); setRemoving(''); setBackupsOpen(false); setReplace(null);
     refresh();
     toast(message, 'success');
   };
@@ -143,7 +145,7 @@ export default function MCPPage() {
         actions={<span className="flex items-center gap-2.5" data-tour="mcp-actions">
           {data?.backups.length ? <Button variant="ghost" onClick={() => setBackupsOpen(true)}><Archive size={15} />{t('mcp.backupsButton')}</Button> : null}
           <Button variant="secondary" onClick={() => setImporting({})}><Download size={15} />{t('mcp.importFromTarget')}</Button>
-          <Button variant="primary" onClick={() => setEditing('')}><Plus size={15} />{t('mcp.addServer')}</Button>
+          <Button variant="primary" onClick={() => { setAddMode('form'); setEditing(''); }}><Plus size={15} />{t('mcp.addServer')}</Button>
         </span>}
       />
 
@@ -161,7 +163,7 @@ export default function MCPPage() {
               description={t('mcp.emptyHint')}
               action={<div className="flex gap-2">
                 <Button variant="secondary" onClick={() => setImporting({})}><Download size={15} />{t('mcp.importFromTarget')}</Button>
-                <Button variant="primary" onClick={() => setEditing('')}><Plus size={15} />{t('mcp.addServer')}</Button>
+                <Button variant="primary" onClick={() => { setAddMode('form'); setEditing(''); }}><Plus size={15} />{t('mcp.addServer')}</Button>
               </div>}
             />
           )}
@@ -225,18 +227,31 @@ export default function MCPPage() {
         </div>
       )}
 
-      {editing !== null && data && (
+      {editing !== null && data && (editing === '' && addMode === 'paste' ? (
+        <MCPImportDialog
+          source="paste"
+          servers={servers}
+          defaultTargets={defaults}
+          paths={data.paths}
+          detected={data.detected}
+          onMode={setAddMode}
+          onClose={() => setEditing(null)}
+          onImported={() => done(t('mcp.toast.saved'))}
+        />
+      ) : (
         <MCPServerDialog
           initial={editing ? { name: editing, server: servers[editing] } : undefined}
           defaultTargets={defaults}
           existingNames={Object.keys(servers)}
           availableTargets={files}
+          onMode={editing === '' ? setAddMode : undefined}
           onClose={() => setEditing(null)}
           onSaved={() => done(t('mcp.toast.saved'))}
         />
-      )}
+      ))}
       {importing && data && (
         <MCPImportDialog
+          source="target"
           servers={servers}
           defaultTargets={defaults}
           paths={data.paths}

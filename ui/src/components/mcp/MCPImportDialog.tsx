@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Braces, Check, Download, Info, X } from 'lucide-react';
+import { Braces, Check, Download, FileUp, Info, Plus, X } from 'lucide-react';
 import { mcpApi, mcpTargets, type MCPCandidate, type MCPMutation, type MCPServer } from '../../api/mcp';
 import AgentIcon from '../AgentIcon';
 import Button from '../Button';
@@ -13,7 +13,8 @@ import { useT } from '../../i18n';
 import { shortenHome } from '../../lib/paths';
 import { describeEndpoint, targetLabel } from './mcpView';
 
-type Tab = 'target' | 'paste';
+/** Where the configuration comes from. Each entry point fixes one; the dialog never switches. */
+type Source = 'target' | 'paste';
 
 const SNIPPET_PLACEHOLDER = `{
   "mcpServers": {
@@ -33,20 +34,23 @@ function formatJSON(text: string) {
 }
 
 interface Props {
+  source: Source;
   servers: Record<string, MCPServer>;
   defaultTargets: string[];
   paths: Record<string, string>;
   detected: string[];
   /** A conflicting entry to take over: it may replace the source server of the same name. */
   conflict?: { target: string; name: string };
+  /** Present when this is the paste half of "add a server", so the user can swap back to the form. */
+  onMode?: (mode: 'form' | 'paste') => void;
   onClose: () => void;
   onImported: () => void;
 }
 
-export default function MCPImportDialog({ servers, defaultTargets, paths, detected, conflict, onClose, onImported }: Props) {
+export default function MCPImportDialog({ source, servers, defaultTargets, paths, detected, conflict, onMode, onClose, onImported }: Props) {
   const t = useT();
   const { toast } = useToast();
-  const [tab, setTab] = useState<Tab>('target');
+  const tab = source;
   const availableTargets = mcpTargets.filter((x) => paths[x]);
   const [from, setFrom] = useState(conflict?.target ?? availableTargets.find((x) => detected.includes(x)) ?? availableTargets[0] ?? '');
   const [content, setContent] = useState('');
@@ -112,7 +116,8 @@ export default function MCPImportDialog({ servers, defaultTargets, paths, detect
     onImported();
   };
 
-  const title = t('mcp.importTitle');
+  const adding = source === 'paste';
+  const title = t(adding ? 'mcp.addServer' : 'mcp.importTitle');
   const count = chosen.length;
 
   return (
@@ -120,17 +125,19 @@ export default function MCPImportDialog({ servers, defaultTargets, paths, detect
       <div className="dh">
         <div className="flex flex-col gap-1">
           <h2 className="ss-h2">{title}</h2>
-          <p className="text-[13px] text-ink-2">{t('mcp.importSubtitle')}</p>
+          <p className="text-[13px] text-ink-2">{t(adding ? 'mcp.pasteSubtitle' : 'mcp.importSubtitle')}</p>
         </div>
         <button type="button" className="ss-ib" aria-label={t('common.close')} onClick={onClose} disabled={saving}><X size={16} /></button>
       </div>
       <div className="db">
-        <SegmentedControl<Tab>
-          className="self-start"
-          value={tab}
-          onChange={(v) => { setTab(v); reset(); }}
-          options={[{ value: 'target', label: t('mcp.fromTarget') }, { value: 'paste', label: t('mcp.pasteTab') }]}
-        />
+        {onMode && (
+          <SegmentedControl<'form' | 'paste'>
+            className="self-start"
+            value="paste"
+            onChange={onMode}
+            options={[{ value: 'form', label: t('mcp.manualTab') }, { value: 'paste', label: t('mcp.pasteTab') }]}
+          />
+        )}
 
         {tab === 'target' ? (
           <div className="ss-fld">
@@ -148,12 +155,30 @@ export default function MCPImportDialog({ servers, defaultTargets, paths, detect
             <div className="ss-fld">
               <span className="flex items-center justify-between">
                 <span className="text-[13px] font-semibold">{t('mcp.snippet')}</span>
-                {formatted !== null && formatted !== content && (
-                  <button type="button" className="flex items-center gap-1.5 text-[13px] text-ink-2 hover:text-ink" onClick={() => { setContent(formatted); reset(); }} disabled={saving}>
-                    <Braces size={14} />
-                    {t('mcp.format')}
-                  </button>
-                )}
+                <span className="flex items-center gap-4">
+                  {formatted !== null && formatted !== content && (
+                    <button type="button" className="flex items-center gap-1.5 text-[13px] text-ink-2 hover:text-ink" onClick={() => { setContent(formatted); reset(); }} disabled={saving}>
+                      <Braces size={14} />
+                      {t('mcp.format')}
+                    </button>
+                  )}
+                  {/* The CLI takes `--file`; in a browser the file picker fills the editor and the flow is the same from there. */}
+                  <label className="flex cursor-pointer items-center gap-1.5 text-[13px] text-ink-2 hover:text-ink">
+                    <FileUp size={14} />
+                    {t('mcp.loadFile')}
+                    <input
+                      type="file"
+                      className="sr-only"
+                      accept=".json,.jsonc,.toml,.yaml,.yml"
+                      disabled={saving}
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        e.target.value = ''; // so picking the same file again still fires
+                        if (file) void file.text().then((text) => { setContent(text); reset(); });
+                      }}
+                    />
+                  </label>
+                </span>
               </span>
               <CodeEditor
                 value={content}
@@ -232,30 +257,28 @@ export default function MCPImportDialog({ servers, defaultTargets, paths, detect
           </div>
         )}
 
-        {candidates.length > 0 && (
-          <div className="ss-fld">
-            <span className="text-[13px] font-semibold">{t('mcp.targets')}</span>
-            <div className="flex flex-wrap gap-x-5 gap-y-3">
-              {mcpTargets.filter((target) => visibleTargets.has(target)).map((target) => {
-                const on = targets.includes(target);
-                return (
-                  <button
-                    key={target}
-                    type="button"
-                    role="checkbox"
-                    aria-checked={on}
-                    className={`ss-tgl ${on ? 'on' : ''}`}
-                    onClick={() => setTargets(on ? targets.filter((x) => x !== target) : [...targets, target])}
-                    disabled={saving}
-                  >
-                    <span className="ic"><AgentIcon target={target} size={20} /><i><Check size={9} strokeWidth={3.5} /></i></span>
-                    {targetLabel(target)}
-                  </button>
-                );
-              })}
-            </div>
+        <div className="ss-fld">
+          <span className="text-[13px] font-semibold">{t('mcp.targets')}</span>
+          <div className="flex flex-wrap gap-x-5 gap-y-3">
+            {mcpTargets.filter((target) => visibleTargets.has(target)).map((target) => {
+              const on = targets.includes(target);
+              return (
+                <button
+                  key={target}
+                  type="button"
+                  role="checkbox"
+                  aria-checked={on}
+                  className={`ss-tgl ${on ? 'on' : ''}`}
+                  onClick={() => setTargets(on ? targets.filter((x) => x !== target) : [...targets, target])}
+                  disabled={saving}
+                >
+                  <span className="ic"><AgentIcon target={target} size={20} /><i><Check size={9} strokeWidth={3.5} /></i></span>
+                  {targetLabel(target)}
+                </button>
+              );
+            })}
           </div>
-        )}
+        </div>
 
         {tab === 'target' && candidates.length > 0 && (
           <div className="ss-note inf">
@@ -265,13 +288,21 @@ export default function MCPImportDialog({ servers, defaultTargets, paths, detect
         )}
       </div>
       <div className="df">
-        <span className="flex-1 text-[13px] text-ink-2">
-          {candidates.length > 0 && t(targets.length === 1 ? 'mcp.writes.one' : 'mcp.writes.other', { count: targets.length })}
+        {/* Name what is missing: a greyed-out button next to "writes 0 config files" reads as a bug. */}
+        <span className="flex-1 text-[13px]">
+          {targets.length === 0
+            ? <span className="ss-st warn">{t('mcp.pickTarget')}</span>
+            : <span className="text-ink-2">{t(targets.length === 1 ? 'mcp.writes.one' : 'mcp.writes.other', { count: targets.length })}</span>}
         </span>
         <Button variant="ghost" onClick={onClose} disabled={saving}>{t('common.cancel')}</Button>
         <Button variant="primary" loading={saving} disabled={count === 0 || targets.length === 0} onClick={run}>
-          <Download size={15} />
-          {t(count === 1 ? 'mcp.importCount.one' : 'mcp.importCount.other', { count })}
+          {adding ? <Plus size={15} /> : <Download size={15} />}
+          {/* "Add 0 servers" reads as a bug before anything is pasted; the plain verb doesn't. */}
+          {count === 0
+            ? t(adding ? 'mcp.addServer' : 'mcp.importAction')
+            : t(adding
+              ? (count === 1 ? 'mcp.addCount.one' : 'mcp.addCount.other')
+              : (count === 1 ? 'mcp.importCount.one' : 'mcp.importCount.other'), { count })}
         </Button>
       </div>
     </DialogShell>
