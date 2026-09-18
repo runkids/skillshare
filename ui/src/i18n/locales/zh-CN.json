@@ -1490,6 +1490,7 @@
   "plugins.unsupported": "此范围没有兼容的原生包。",
   "plugins.preview": "预览更改",
   "plugins.selectionHelp": "复选框决定同步目标。执行同步后才会安装或移除；原生启用设置仍由各 Agent 管理。",
+  "plugins.lastRun": "上次操作",
   "plugins.empty": "暂无 plugins",
   "plugins.emptyHelp": "添加来源，或直接导入现有安装，无需重装。",
   "plugins.sync": "同步",

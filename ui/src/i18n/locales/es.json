@@ -1490,6 +1490,7 @@
   "plugins.unsupported": "No hay paquete nativo compatible en este ámbito.",
   "plugins.preview": "Revisar cambios",
   "plugins.selectionHelp": "Las casillas seleccionan destinos. Sincronizar instala o elimina; la activación nativa se gestiona en cada Agent.",
+  "plugins.lastRun": "Última acción",
   "plugins.empty": "Sin plugins",
   "plugins.emptyHelp": "Añade una fuente o importa una instalación existente sin reinstalar.",
   "plugins.sync": "Sincronizar",

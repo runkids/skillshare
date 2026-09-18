@@ -1490,6 +1490,7 @@
   "plugins.unsupported": "このスコープに対応するネイティブパッケージはありません。",
   "plugins.preview": "変更を確認",
   "plugins.selectionHelp": "チェックボックスで同期先を選択します。同期時にインストールまたは削除します。有効化設定は各 Agent で管理します。",
+  "plugins.lastRun": "直前の操作",
   "plugins.empty": "プラグインはありません",
   "plugins.emptyHelp": "ソースを追加するか、再インストールせず既存のものを取り込みます。",
   "plugins.sync": "同期",

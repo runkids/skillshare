@@ -1490,6 +1490,7 @@
   "plugins.unsupported": "이 범위에 호환되는 네이티브 패키지가 없습니다.",
   "plugins.preview": "변경 검토",
   "plugins.selectionHelp": "체크박스로 동기화 대상을 선택합니다. 동기화할 때 설치하거나 제거하며 활성화 설정은 각 Agent에서 관리합니다.",
+  "plugins.lastRun": "마지막 작업",
   "plugins.empty": "플러그인 없음",
   "plugins.emptyHelp": "소스를 추가하거나 재설치 없이 기존 설치를 가져오세요.",
   "plugins.sync": "동기화",

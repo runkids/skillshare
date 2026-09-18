@@ -99,18 +99,26 @@ export default function PluginsPage() {
       {(failure || error) && <div role="alert" className="ss-note bad"><span className="flex-1">{failure || (error as Error).message}</span></div>}
 
       {result?.result && result.result.results.length > 0 && (
-        <div className="ss-list" aria-live="polite">
-          {result.result.results.map((r) => (
-            <div key={`${r.name}:${r.target}`} className="ss-r">
-              <span className="ss-at"><AgentIcon target={r.target} size={17} /></span>
-              <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-                <span className="flex items-center gap-2"><span className="font-mono font-semibold">{r.name}</span><span className="text-[13px] text-ink-2">{pluginTargets[r.target]?.label ?? r.target}</span></span>
-                {r.message && <span className="text-xs text-ink-3">{r.message}</span>}
-              </span>
-              <span className={`ss-st ${r.status === 'failed' ? 'bad' : 'ok'}`}>{r.status}</span>
-            </div>
-          ))}
-        </div>
+        <section aria-live="polite">
+          {/* These are outcomes of the action just run, not plugin state. Unlabelled they read as more inventory. */}
+          <div className="ss-sec">
+            <h2>{t('plugins.lastRun')}</h2>
+            <span className="ss-cnt">{result.result.results.length}</span>
+            <IconButton className="ml-auto" icon={<X size={16} />} label={t('common.close')} onClick={() => setResult(null)} />
+          </div>
+          <div className="ss-list">
+            {result.result.results.map((r) => (
+              <div key={`${r.name}:${r.target}`} className="ss-r">
+                <span className="ss-at"><AgentIcon target={r.target} size={17} /></span>
+                <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                  <span className="flex items-center gap-2"><span className="font-mono font-semibold">{r.name}</span><span className="text-[13px] text-ink-2">{pluginTargets[r.target]?.label ?? r.target}</span></span>
+                  {r.message && <span className="text-xs text-ink-3">{r.message}</span>}
+                </span>
+                <span className={`ss-st ${r.status === 'failed' ? 'bad' : 'ok'}`}>{r.status}</span>
+              </div>
+            ))}
+          </div>
+        </section>
       )}
 
       {packages.length === 0 ? (

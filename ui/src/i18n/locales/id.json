@@ -1490,6 +1490,7 @@
   "plugins.unsupported": "Tidak ada paket native yang kompatibel dalam cakupan ini.",
   "plugins.preview": "Tinjau perubahan",
   "plugins.selectionHelp": "Kotak centang memilih tujuan. Sinkronisasi memasang atau menghapus; pengaktifan native dikelola di setiap Agent.",
+  "plugins.lastRun": "Aksi terakhir",
   "plugins.empty": "Belum ada plugin",
   "plugins.emptyHelp": "Tambahkan sumber atau impor instalasi yang ada tanpa memasang ulang.",
   "plugins.sync": "Sinkronkan",

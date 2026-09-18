@@ -1490,6 +1490,7 @@
   "plugins.unsupported": "此範圍沒有相容的原生套件。",
   "plugins.preview": "預覽變更",
   "plugins.selectionHelp": "勾選框決定同步目標。執行同步後才會安裝或移除；原生啟用設定仍由各 Agent 管理。",
+  "plugins.lastRun": "上次動作",
   "plugins.empty": "尚無 plugins",
   "plugins.emptyHelp": "新增來源，或直接匯入既有安裝，不必重裝。",
   "plugins.sync": "同步",
