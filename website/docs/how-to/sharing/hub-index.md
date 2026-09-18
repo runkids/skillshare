@@ -138,51 +138,42 @@ When a GitHub/GHE hub is loaded over SSH, same-host domain-prefixed skill source
 
 ## Web Dashboard
 
-The web dashboard (`skillshare ui`) supports hub search:
+### Create a Hub without writing JSON
 
-1. Open the **Search** page
-2. Click **Hub** tab
-3. Click **Manage** to add hub sources (URL or local path)
-4. Select a hub from the dropdown and search
-5. Install directly from the UI
+Open **Skills → My Hubs → New Hub** in the dashboard (`skillshare ui`).
 
-Saved hubs persist in browser localStorage.
+1. Give the draft a name and optional description. These identify the draft locally; they are not included in the exported index.
+2. Choose **Choose installed skills**, select the skills to share, and add them. Or use **Add source manually**.
+3. Edit each skill's display name, description, tags, and install source. For example, `runkids/demo-skills/skills/pdf` identifies a skill inside a remote repository. The **Advanced** section preserves an optional `skill` selector for repositories containing multiple skills.
+4. Choose **Save draft**. The page checks every entry and displays any export blockers.
+5. Choose **Download index** to obtain `skillshare-hub.json`.
+6. Commit the downloaded file to your own Git repository or upload it to an HTTP server. Enter that location in the page to copy a `skillshare hub add` command for recipients.
 
-### Hub Search
+Downloading does **not** publish anything. The catalog references skills; it does not bundle their files. Source validation checks syntax, not whether a repository exists or whether recipients have permission. Private repositories still require access.
 
-<p align="center">
-  <img src="/img/web-hub-search-demo.png" alt="Hub search page" width="720" />
-</p>
-
-Select a hub source from the dropdown and search for skills.
-
-### Switch Between Hubs
-
-<p align="center">
-  <img src="/img/web-hub-dropdown-demo.png" alt="Hub dropdown selector" width="720" />
-</p>
-
-Use the dropdown to switch between multiple hub sources.
-
-### Manage Hubs
-
-<p align="center">
-  <img src="/img/web-hub-manage-demo.png" alt="Manage hubs modal" width="720" />
-</p>
-
-Click **Manage** to add, view, or remove hub sources. Enter a URL or local file path to a `skillshare-hub.json` file.
-
-:::note SSH hubs in the dashboard
-The dashboard only clones **saved** SSH hub sources. Add an SSH hub here (or via [`hub add`](../../reference/commands/hub.md#hub-add)) before searching it — the server will not clone an arbitrary SSH URL passed ad hoc.
+:::tip Local skills can stay in drafts
+An installed skill with no known remote origin remains visible with its local source. You can save it in a draft. Export is blocked until you provide a remote install source or remove that entry; the builder never silently leaves it out.
 :::
 
-### Delete Confirmation
+### Resume or import a catalog
 
-<p align="center">
-  <img src="/img/web-hub-delete-confirm-demo.png" alt="Hub delete confirmation" width="720" />
-</p>
+Drafts are stored on the machine running the dashboard in `hub-drafts/` next to the active configuration file. Global and project configurations have separate drafts. Use **Save draft** before reloading. Leaving with unsaved changes prompts you to discard them; saves from an outdated window are rejected so they cannot overwrite a newer revision. **Reload saved draft** retrieves the latest version.
 
-Removing a hub requires confirmation to prevent accidental deletion.
+Use **Import JSON** for an existing v1 `skillshare-hub.json` (up to 4 MB). Unsupported versions and invalid field types produce errors. Entries with the same display name remain separate. Extra JSON fields and `skill` selectors are preserved. If an older index includes `sourcePath`, relative sources are resolved as local paths, matching the existing index reader; they must be changed to remote sources before export.
+
+The portable export removes the author's `sourcePath` and known local metadata (`relPath`, `flatName`, `installedAt`, `isInRepo`). It contains the index, not the draft's name, description, IDs, or revisions. Changing an entry's source or skill selector clears its previous audit score, label, and timestamp. URL credentials, query strings, and fragments are rejected; configure repository authentication separately.
+
+**Delete draft** asks for confirmation and deletes only that draft. It does not uninstall skills, delete a hosted index, or remove a subscribed Hub.
+
+### Search a shared Hub
+
+1. Open **Skills → Install**.
+2. Choose a Hub from the search source selector. Use the Hub manager in the install dialog to add a URL, SSH repository, or local index path.
+3. Search, preview, and install skills.
+
+Subscribed Hub sources are saved in the active skillshare configuration and shared with the CLI. They are separate from the drafts in **My Hubs**.
+
+The existing `skillshare hub index` command and `/api/hub/index` endpoint continue to generate indexes as before, including support for local sources. The portable-export rules above apply to the dashboard builder.
 
 ## Index Schema
 

@@ -9,6 +9,7 @@ import {
   Bot,
   FolderPlus,
   Plug,
+  Library,
   Target,
   ShieldCheck,
   Settings,
@@ -55,6 +56,7 @@ const navGroups: { labelKey?: string; items: NavItem[] }[] = [
       { to: '/agents', icon: Bot, labelKey: 'layout.nav.agents' },
       { to: '/extras', icon: FolderPlus, labelKey: 'layout.nav.extras' },
       { to: '/mcp', icon: Plug, labelKey: 'mcp.title' },
+      { to: '/hubs', icon: Library, labelKey: 'hubs.title' },
     ],
   },
   {

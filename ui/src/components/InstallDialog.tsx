@@ -1,4 +1,5 @@
 import { useId, useMemo, useState, type ReactNode } from 'react';
+import { Link } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   ChevronDown,
@@ -12,14 +13,12 @@ import {
   KeyRound,
   Library,
   Link as LinkIcon,
-  Plus,
   Puzzle,
   Search,
   Settings2,
   ShieldAlert,
   ShieldCheck,
   Star,
-  Trash2,
   X,
 } from 'lucide-react';
 import { api, ApiError, type DiscoverResult, type DiscoveredSkill, type HubSavedEntry, type SearchResult } from '../api/client';
@@ -42,7 +41,7 @@ import { useToast } from './Toast';
 
 type Kind = 'skill' | 'agent';
 type Tab = 'search' | 'url';
-type View = 'preview' | 'kind' | 'blocked' | 'warnings' | 'hubs';
+type View = 'preview' | 'kind' | 'blocked' | 'warnings';
 type InstallOpts = Parameters<typeof api.install>[0];
 type BatchOpts = Parameters<typeof api.installBatch>[0];
 type Blocked = { source: string; names: string[]; threshold: string; findings: Finding[]; retry: InstallOpts | BatchOpts };
@@ -62,7 +61,6 @@ const WIDTH: Record<Tab | View, string> = {
   search: '!max-w-[700px]',
   url: '!max-w-[700px]',
   preview: '!max-w-[640px]',
-  hubs: '!max-w-[640px]',
   blocked: '!max-w-[600px]',
   warnings: '!max-w-[600px]',
   kind: '!max-w-[460px]',
@@ -86,7 +84,7 @@ function readCount(params: Record<string, unknown> | undefined, key: string): nu
   return Number.isFinite(n) && n > 0 ? n : 0;
 }
 
-export default function InstallDialog({ kind, initialTab, onClose }: { kind: Kind; initialTab: Tab; onClose: () => void }) {
+export default function InstallDialog({ kind, initialTab, initialSource, onClose }: { kind: Kind; initialTab: Tab; initialSource?: string; onClose: () => void }) {
   const t = useT();
   const { locale } = useI18n();
   const { toast } = useToast();
@@ -106,11 +104,8 @@ export default function InstallDialog({ kind, initialTab, onClose }: { kind: Kin
   const [shown, setShown] = useState(STEP);
   const [previewing, setPreviewing] = useState<SearchResult | null>(null);
   const [rawPreview, setRawPreview] = useState(false);
-  const [hubURL, setHubURL] = useState('');
-  const [hubLabel, setHubLabel] = useState('');
-  const [hubError, setHubError] = useState('');
 
-  const [source, setSource] = useState('');
+  const [source, setSource] = useState(initialSource ?? '');
   const [track, setTrack] = useState(false);
   const [advanced, setAdvanced] = useState(false);
   const [into, setInto] = useState('');
@@ -365,36 +360,6 @@ export default function InstallDialog({ kind, initialTab, onClose }: { kind: Kin
     saveHubs(hubs, defaultLabelFor(hubs, where)).catch(() => undefined);
   };
 
-  const addHub = async () => {
-    const url = hubURL.trim().replace(/\/+$/, '');
-    if (!url) {
-      setHubError(t('install.hubs.urlRequired'));
-      return;
-    }
-    if (hubs.some((h) => sameURL(h.url, url))) {
-      setHubError(t('install.hubs.urlExists'));
-      return;
-    }
-    const list = [...hubs, { label: hubLabel.trim() || url.split('/').pop() || url, url }];
-    try {
-      await saveHubs(list, defaultLabelFor(list, searchIn));
-      setHubURL('');
-      setHubLabel('');
-      setHubError('');
-    } catch (e) {
-      toast((e as Error).message, 'error');
-    }
-  };
-
-  const removeHub = async (url: string) => {
-    const list = hubs.filter((h) => h.url !== url);
-    try {
-      await saveHubs(list, defaultLabelFor(list, searchIn));
-    } catch (e) {
-      toast((e as Error).message, 'error');
-    }
-  };
-
   const tabs = !isAgent && (
     <div className="ss-tabs" role="tablist">
       {(['search', 'url'] as const).map((k) => (
@@ -538,46 +503,6 @@ export default function InstallDialog({ kind, initialTab, onClose }: { kind: Kin
       </>
     );
     foot = <Button variant="primary" onClick={() => (tab === 'url' ? onClose() : setView(null))}>{t('install.done')}</Button>;
-  } else if (view === 'hubs') {
-    title = t('install.hubs.title');
-    sub = t('install.hubs.subtitle');
-    body = (
-      <>
-        <div className="ss-list !shadow-none">
-          {hubs.map((h) => (
-            <div key={h.url} className="ss-r">
-              <Library size={16} className="shrink-0 text-ink-3" />
-              <div className="flex min-w-0 flex-1 flex-col gap-px">
-                <span className="font-semibold">{h.label}</span>
-                <span className="truncate font-mono text-xs text-ink-3">{h.url}</span>
-              </div>
-              {h.builtIn ? (
-                <span className="ss-tag">Built-in</span>
-              ) : (
-                <button type="button" className="ss-ib" title={t('install.hubs.remove')} aria-label={t('install.hubs.remove')} onClick={() => removeHub(h.url)}>
-                  <Trash2 size={16} />
-                </button>
-              )}
-            </div>
-          ))}
-        </div>
-        <div className="ss-fld">
-          <label htmlFor={`${ids}hub`}>{t('install.hubs.add')}</label>
-          <div className="flex items-center gap-2">
-            <span className={`ss-inp flex-1 ${hubError ? 'err' : ''}`}>
-              <LinkIcon size={15} className="shrink-0 text-ink-3" />
-              <input id={`${ids}hub`} value={hubURL} onChange={(e) => { setHubURL(e.target.value); setHubError(''); }} onKeyDown={(e) => e.key === 'Enter' && addHub()} placeholder={t('install.hubs.urlPlaceholder')} />
-            </span>
-            <span className="ss-inp w-[170px] shrink-0">
-              <input value={hubLabel} onChange={(e) => setHubLabel(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && addHub()} placeholder={t('install.hubs.labelPlaceholder')} aria-label={t('install.hubs.labelPlaceholder')} />
-            </span>
-            <Button variant="secondary" onClick={addHub}><Plus size={15} />{t('install.hubs.addButton')}</Button>
-          </div>
-          <span className={`hp ${hubError ? '!text-bad' : ''}`}>{hubError || t('install.hubs.hint')}</span>
-        </div>
-      </>
-    );
-    foot = <Button variant="primary" onClick={() => setView(null)}>{t('common.close')}</Button>;
   } else if (tab === 'search') {
     const visible = tag ? (results ?? []).filter((r) => r.tags?.includes(tag)) : (results ?? []);
     const hasTags = visible.some((r) => (r.tags?.length ?? 0) > 0);
@@ -692,9 +617,9 @@ export default function InstallDialog({ kind, initialTab, onClose }: { kind: Kin
             onChange={pickIn}
             options={[{ value: GITHUB, label: 'GitHub' }, ...hubs.map((h) => ({ value: h.url, label: h.label }))]}
           />
-          <button type="button" className="ss-ib" title={t('install.search.manageHubs')} aria-label={t('install.search.manageHubs')} onClick={() => setView('hubs')}>
+          <Link to="/hubs" className="ss-ib" title={t('install.search.manageHubs')} aria-label={t('install.search.manageHubs')} onClick={onClose}>
             <Settings2 size={16} />
-          </button>
+          </Link>
         </div>
         {content}
       </>

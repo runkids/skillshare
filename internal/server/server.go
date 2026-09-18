@@ -408,6 +408,14 @@ func (s *Server) registerRoutes() {
 	s.mux.HandleFunc("POST /api/collect", s.handleCollect)
 
 	// Hub
+	s.mux.HandleFunc("GET /api/hub/drafts", s.handleHubDrafts)
+	s.mux.HandleFunc("POST /api/hub/drafts", s.handleHubDrafts)
+	s.mux.HandleFunc("GET /api/hub/drafts/candidates", s.handleHubDraftCandidates)
+	s.mux.HandleFunc("POST /api/hub/drafts/import", s.handleHubDraftImport)
+	s.mux.HandleFunc("GET /api/hub/drafts/{id}", s.handleHubDraft)
+	s.mux.HandleFunc("PUT /api/hub/drafts/{id}", s.handleHubDraft)
+	s.mux.HandleFunc("DELETE /api/hub/drafts/{id}", s.handleHubDraft)
+	s.mux.HandleFunc("POST /api/hub/drafts/{id}/export", s.handleHubDraftExport)
 	s.mux.HandleFunc("GET /api/hub/index", s.handleHubIndex)
 	s.mux.HandleFunc("GET /api/hub/saved", s.handleGetHubSaved)
 	s.mux.HandleFunc("PUT /api/hub/saved", s.handlePutHubSaved)

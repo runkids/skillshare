@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { api, ApiError } from '../api/client';
 import { I18nProvider } from '../i18n';
@@ -27,13 +28,15 @@ vi.mock('../api/client', async (importOriginal) => {
 function renderDialog(initialTab: 'search' | 'url') {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
-    <QueryClientProvider client={queryClient}>
+    <MemoryRouter>
+      <QueryClientProvider client={queryClient}>
       <I18nProvider>
         <ToastProvider>
           <InstallDialog kind="skill" initialTab={initialTab} onClose={() => undefined} />
         </ToastProvider>
       </I18nProvider>
-    </QueryClientProvider>,
+    </QueryClientProvider>
+    </MemoryRouter>,
   );
 }
 

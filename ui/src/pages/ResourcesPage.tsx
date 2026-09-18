@@ -323,7 +323,7 @@ export default function ResourcesPage({ kind }: { kind: Kind }) {
   const setInstall = (value: string | null) =>
     setParams((p) => {
       if (value) p.set('install', value);
-      else p.delete('install');
+      else { p.delete('install'); p.delete('source'); }
       return p;
     }, { replace: true });
 
@@ -720,6 +720,7 @@ export default function ResourcesPage({ kind }: { kind: Kind }) {
         subtitle={isAgent ? t('resources.agents.subtitle') : t('resources.skills.subtitle', { count: items.length })}
         actions={tab === 'installed' && (
           <>
+            {!isAgent && <Link to="/hubs" className="ss-btn">{t('hubs.title')}</Link>}
             {!isAgent && (
               <Link to="/skills/new" className="ss-btn">
                 <Plus size={15} />
@@ -961,7 +962,7 @@ export default function ResourcesPage({ kind }: { kind: Kind }) {
       ) : (
         <TrashPage kind={kind} />
       )}
-      {installTab && <InstallDialog kind={kind} initialTab={installTab === 'url' ? 'url' : 'search'} onClose={() => setInstall(null)} />}
+      {installTab && <InstallDialog kind={kind} initialTab={installTab === 'url' ? 'url' : 'search'} initialSource={params.get('source') ?? undefined} onClose={() => setInstall(null)} />}
     </div>
   );
 }

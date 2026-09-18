@@ -1,5 +1,5 @@
 import { lazy, Suspense } from 'react';
-import { BrowserRouter, Routes, Route, Navigate, useParams, useSearchParams } from 'react-router-dom';
+import { createBrowserRouter, RouterProvider, Routes, Route, Navigate, useRouteError, useParams, useSearchParams } from 'react-router-dom';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { queryClient } from './lib/queryClient';
@@ -15,6 +15,7 @@ import TruncateTip from './components/TruncateTip';
 import DashboardPage from './pages/DashboardPage';
 import { BASE_PATH } from './lib/basePath';
 
+const HubPage = lazy(() => import('./pages/HubPage'));
 const ResourcesPage = lazy(() => import('./pages/ResourcesPage'));
 const ResourceDetailPage = lazy(() => import('./pages/ResourceDetailPage'));
 const TargetsPage = lazy(() => import('./pages/TargetsPage'));
@@ -54,6 +55,58 @@ function LegacyTargetRedirect() {
   return <Navigate to={`/targets/${encodeURIComponent(target)}${agents ? '?tab=agents' : ''}`} replace />;
 }
 
+function AppRoutes() {
+  return (
+    <ErrorBoundary>
+      <TourProvider>
+        <TourOverlay />
+        <TourTooltip />
+        <TruncateTip />
+        <Routes>
+          <Route element={<Layout />}>
+            <Route index element={<DashboardPage />} />
+            <Route path="skills" element={<Lazy><ResourcesPage key="skill" kind="skill" /></Lazy>} />
+            <Route path="hubs" element={<Lazy><HubPage /></Lazy>} />
+            <Route path="skills/new" element={<Lazy><NewSkillPage /></Lazy>} />
+            <Route path="skills/:name" element={<Lazy><ResourceDetailPage /></Lazy>} />
+            <Route path="agents" element={<Lazy><ResourcesPage key="agent" kind="agent" /></Lazy>} />
+            <Route path="agents/:name" element={<Lazy><ResourceDetailPage /></Lazy>} />
+            <Route path="resources" element={<LegacyResourceRedirect />} />
+            <Route path="resources/new" element={<Navigate to="/skills/new" replace />} />
+            <Route path="resources/:name" element={<LegacyResourceRedirect />} />
+            <Route path="uninstall" element={<Navigate to="/skills" replace />} />
+            <Route path="targets" element={<Lazy><TargetsPage /></Lazy>} />
+            <Route path="targets/:name" element={<Lazy><TargetDetailPage /></Lazy>} />
+            <Route path="targets/:name/filters" element={<LegacyTargetRedirect />} />
+            <Route path="extras" element={<Lazy><ExtrasPage /></Lazy>} />
+            <Route path="mcp" element={<Lazy><MCPPage /></Lazy>} />
+            <Route path="sync" element={<Lazy><SyncPage /></Lazy>} />
+            <Route path="collect" element={<LegacyTargetRedirect />} />
+            <Route path="backup" element={<Lazy><BackupPage /></Lazy>} />
+            <Route path="trash" element={<Navigate to="/skills?tab=trash" replace />} />
+            <Route path="git" element={<Lazy><GitSyncPage /></Lazy>} />
+            <Route path="search" element={<Navigate to="/skills?install=search" replace />} />
+            <Route path="install" element={<Navigate to="/skills?install=url" replace />} />
+            <Route path="update" element={<Navigate to="/skills?tab=updates" replace />} />
+            <Route path="audit" element={<Lazy><AuditPage /></Lazy>} />
+            <Route path="audit/rules" element={<Lazy><AuditRulesPage /></Lazy>} />
+            <Route path="analyze" element={<Navigate to="/skills?tab=analyze" replace />} />
+            <Route path="log" element={<Lazy><LogPage /></Lazy>} />
+            <Route path="settings" element={<Lazy><SettingsPage /></Lazy>} />
+            <Route path="config" element={<Lazy><ConfigPage /></Lazy>} />
+            <Route path="doctor" element={<Lazy><DoctorPage /></Lazy>} />
+          </Route>
+        </Routes>
+      </TourProvider>
+    </ErrorBoundary>
+  );
+}
+
+// Forward router failures to the same fallback as render failures.
+function RouteError(): never { throw useRouteError(); }
+
+const router = createBrowserRouter([{ path: "*", element: <AppRoutes />, errorElement: <ErrorBoundary><RouteError /></ErrorBoundary> }], { basename: BASE_PATH });
+
 export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
@@ -61,49 +114,7 @@ export default function App() {
         <I18nProvider>
           <ToastProvider>
             <AppProvider>
-              <BrowserRouter basename={BASE_PATH}>
-                <ErrorBoundary>
-                  <TourProvider>
-                    <TourOverlay />
-                    <TourTooltip />
-                    <TruncateTip />
-                    <Routes>
-                      <Route element={<Layout />}>
-                        <Route index element={<DashboardPage />} />
-                        <Route path="skills" element={<Lazy><ResourcesPage key="skill" kind="skill" /></Lazy>} />
-                        <Route path="skills/new" element={<Lazy><NewSkillPage /></Lazy>} />
-                        <Route path="skills/:name" element={<Lazy><ResourceDetailPage /></Lazy>} />
-                        <Route path="agents" element={<Lazy><ResourcesPage key="agent" kind="agent" /></Lazy>} />
-                        <Route path="agents/:name" element={<Lazy><ResourceDetailPage /></Lazy>} />
-                        <Route path="resources" element={<LegacyResourceRedirect />} />
-                        <Route path="resources/new" element={<Navigate to="/skills/new" replace />} />
-                        <Route path="resources/:name" element={<LegacyResourceRedirect />} />
-                        <Route path="uninstall" element={<Navigate to="/skills" replace />} />
-                        <Route path="targets" element={<Lazy><TargetsPage /></Lazy>} />
-                        <Route path="targets/:name" element={<Lazy><TargetDetailPage /></Lazy>} />
-                        <Route path="targets/:name/filters" element={<LegacyTargetRedirect />} />
-                        <Route path="extras" element={<Lazy><ExtrasPage /></Lazy>} />
-                        <Route path="mcp" element={<Lazy><MCPPage /></Lazy>} />
-                        <Route path="sync" element={<Lazy><SyncPage /></Lazy>} />
-                        <Route path="collect" element={<LegacyTargetRedirect />} />
-                        <Route path="backup" element={<Lazy><BackupPage /></Lazy>} />
-                        <Route path="trash" element={<Navigate to="/skills?tab=trash" replace />} />
-                        <Route path="git" element={<Lazy><GitSyncPage /></Lazy>} />
-                        <Route path="search" element={<Navigate to="/skills?install=search" replace />} />
-                        <Route path="install" element={<Navigate to="/skills?install=url" replace />} />
-                        <Route path="update" element={<Navigate to="/skills?tab=updates" replace />} />
-                        <Route path="audit" element={<Lazy><AuditPage /></Lazy>} />
-                        <Route path="audit/rules" element={<Lazy><AuditRulesPage /></Lazy>} />
-                        <Route path="analyze" element={<Navigate to="/skills?tab=analyze" replace />} />
-                        <Route path="log" element={<Lazy><LogPage /></Lazy>} />
-                        <Route path="settings" element={<Lazy><SettingsPage /></Lazy>} />
-                        <Route path="config" element={<Lazy><ConfigPage /></Lazy>} />
-                        <Route path="doctor" element={<Lazy><DoctorPage /></Lazy>} />
-                      </Route>
-                    </Routes>
-                  </TourProvider>
-                </ErrorBoundary>
-              </BrowserRouter>
+              <RouterProvider router={router} />
             </AppProvider>
           </ToastProvider>
         </I18nProvider>
