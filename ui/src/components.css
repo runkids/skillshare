@@ -263,6 +263,9 @@ svg.lucide { flex: none; stroke-width: var(--isw); }
 .ss-pin { position: absolute; width: 14px; height: 14px; border-radius: 99px; background: radial-gradient(circle at 35% 30%, #FF9A93 0 18%, #E5484D 19% 100%); border: 1.5px solid #8E1F22; box-shadow: 1px 2px 0 rgba(0,0,0,.25); }
 .ss-pin.off { background: #CFC7B6; border-color: #9A917F; box-shadow: none; }
 .ss-pin.blue { background: radial-gradient(circle at 35% 30%, #9DBDF0 0 18%, #2D5DA1 19% 100%); border-color: #1B3C6B; }
+/* Counts in the source note link to their pages; currentColor is the note's own ink. */
+.ss-pinnote.src a { margin: 0 -7px; padding: 0 7px; border-radius: 8px; transition: background .12s; }
+.ss-pinnote.src a:hover { background: color-mix(in srgb, currentColor 13%, transparent); }
 .ss-squig { display: block; margin-top: -2px; color: #C8372D; }
 .ss-tabs .ss-cnt { position: relative; top: 0; }
 .ss-scrim { position: fixed; z-index: 60; inset: 0; background: rgba(20,19,18,.36); display: grid; place-items: center; }

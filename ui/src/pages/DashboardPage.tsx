@@ -213,7 +213,7 @@ function TargetBoard({ data, targets, healths, counts }: {
   data: Overview;
   targets: Target[];
   healths: Health[];
-  counts: { kind: string; icon: typeof Puzzle; value: number; label: string }[];
+  counts: { kind: string; icon: typeof Puzzle; value: number; label: string; to: string }[];
 }) {
   const t = useT();
   // ponytail: fixed 1080px canvas like the design; desktop widths only.
@@ -244,12 +244,12 @@ function TargetBoard({ data, targets, healths, counts }: {
           <span className="font-mono text-[11.5px] text-ink-3 truncate">{data.source}</span>
         </span>
         <span className="flex flex-col gap-[7px]">
-          {counts.map(({ kind, icon: Icon, value, label }) => (
-            <span key={kind} className="flex items-center gap-[9px]">
+          {counts.map(({ kind, icon: Icon, value, label, to }) => (
+            <Link key={kind} to={to} className="flex items-center gap-[9px]">
               <span className={`ss-cat sm ${kind}`}><Icon size={14} /></span>
               <b className="w-[26px]">{value}</b>
               <span className="text-[13px] text-ink-2">{label}</span>
-            </span>
+            </Link>
           ))}
         </span>
       </div>
