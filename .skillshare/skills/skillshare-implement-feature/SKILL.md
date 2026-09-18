@@ -157,7 +157,7 @@ All interactive prompts use **bubbletea** (not survey). Key components:
 
 Color palette: cyan `Color("6")`, gray `Color("8")`, yellow `#D4D93C`.
 
-Dispatch order: JSON output → TUI (if TTY + items + !`--no-tui`) → empty check → plain text.
+Dispatch order: JSON output → TUI (if TTY + items + no `--no-tui` flag) → empty check → plain text.
 
 ### Web API Endpoint
 
