@@ -41,6 +41,7 @@ import zedMono from '../assets/agents/zed.svg?url';
 const colored: Record<string, string> = {
   amp: ampColor,
   antigravity: antigravityColor,
+  'antigravity-cli': antigravityColor,
   claude: claudecodeColor,
   codearts: huaweiColor,
   codebuddy: codebuddyColor,

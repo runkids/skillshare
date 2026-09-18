@@ -4,7 +4,8 @@ sidebar_position: 4
 
 # plugin
 
-Manage complete plugins with Claude Code, Codex, Cursor, Antigravity, Pi, and OpenCode. Start with
+Manage complete native plugins across supported tools. Capability checks distinguish
+installation support from format discovery. Start with
 [Manage plugins across tools](/docs/how-to/daily-tasks/sharing-plugins).
 
 ```bash
@@ -52,11 +53,13 @@ commands require explicit inputs. `sync` and `check` may operate on all packages
 
 | Option | Meaning |
 |---|---|
-| `--target TARGET` | Repeatable selection: `claude`, `codex`, `cursor`, `antigravity` (`agy` alias), `pi`, `opencode` |
+| `--target TARGET` | Repeatable selection: `claude`, `codex`, `cursor`, `antigravity` (`agy` alias), `antigravity-cli`, `copilot`, `grok`, `pi`, `opencode`; see the capability table below |
 | `--plugin NAME` | Select one plugin from a source marketplace |
 | `--name NAME` | Logical package name when adding or importing |
-| `--from TARGET` | Import from Claude, Codex, Pi, or OpenCode |
+| `--from TARGET` | Import from Claude, Codex, Antigravity CLI, Copilot, Grok, Pi, or OpenCode |
 | `--dry-run`, `-n` | Preview without changing Skillshare or Agent configuration |
+| `--source-ref REF` | Git branch, tag, or commit for `discover`, `add`, and `update`; remote sources only |
+| `--entry PATH` | Explicit built OpenCode JS/TS entry, relative to the package root (`discover` and `add`) |
 | `--revision ID` | Refuse application if source, configuration, or native inventory changed since preview |
 | `--json` | Machine-readable output; disables TUI |
 | `--no-tui` | Disable interactive menus; also respects `tui: false` |
@@ -74,9 +77,25 @@ the CLI exits nonzero when any target fails. Inspect the result before retrying.
 | Claude Code | `.claude-plugin/plugin.json` | Yes | Yes | Native update |
 | Codex | `.codex-plugin/plugin.json` or Agent Plugins root manifest | Yes | No | Not supported |
 | Cursor | `.cursor-plugin/plugin.json` or Agent Plugins root manifest | Yes | No | Replace reviewed local copy |
-| Antigravity | Root `plugin.json` with an explicit name | Yes | Yes | Replace reviewed local copy |
-| Pi | `package.json` with a `pi` resource manifest | Yes | Yes, with native project trust | Refresh managed source snapshot |
-| OpenCode | `package.json` referencing `@opencode-ai/plugin`, with a built entry | Yes | Yes | Refresh managed source snapshot |
+| Antigravity Desktop | Root `plugin.json` with an explicit name | Yes | Yes | Replace reviewed local copy |
+| Pi | `package.json` with `pi` resources, or `pi-package` keyword and conventional resource folders | Yes | Yes, with native project trust | Refresh managed source snapshot |
+| OpenCode | `package.json` with an SDK dependency, `.opencode/plugins/` entry, or explicit `--entry` | Yes | Yes | Refresh managed source snapshot |
+
+| Antigravity CLI | Native root manifest or Claude manifest accepted by `agy` | Yes | No | Update natively to preserve enablement |
+| GitHub Copilot CLI | `.plugin/plugin.json`, `.github/plugin/plugin.json`, Claude manifest, or Agent Plugins root manifest | Yes | No | Refresh reviewed source, only if native enabled state is known and enabled |
+| Grok Build | `.grok-plugin/plugin.json` or Claude manifest | Import/remove only; native trust required for install | No | Update natively |
+| Kimi Code | `kimi.plugin.json` or `.kimi-plugin/plugin.json` | Discovery only | No | Not automated |
+| Hermes | `.hermes-plugin/plugin.yaml` | Discovery only | No | Not automated |
+| Devin | `.devin-plugin/plugin.json` | Discovery only | No | Not automated |
+
+Kimi's noninteractive lifecycle, Hermes's profile inventory/consent, and Devin's
+local inventory/trust/cloud distinction are not yet verified by these adapters.
+Their formats are shown during discovery, but installation is disabled with a
+reason. A source declaring a target does not imply that Skillshare can manage it.
+`list --json` and `discover --json` include `targetDefinitions` with allowed
+operations; discovery also exposes `targetInfo` for each format's version,
+components, entry, and validation problem. A broken manifest is isolated to its
+target; a malformed catalog is reported as a warning without hiding valid formats.
 
 ### Cursor and Antigravity
 
@@ -91,7 +110,8 @@ They do not require a CLI executable or modify marketplace registries:
   directories exist, consolidate them first.
 - The standalone **agy CLI** has a separate plugin store. The `antigravity` target
   manages the desktop/workspace discovery paths, not that CLI store. `agy` is only
-  a Skillshare target alias.
+  a Skillshare target alias. Use `--target antigravity-cli` for the standalone CLI;
+  `--target agy` retains its existing desktop meaning.
 
 Use `plugin add` for these local packages. Importing pre-existing local folders or
 marketplace installs is not supported. Skillshare refuses to overwrite unowned
@@ -117,8 +137,9 @@ proof the module loaded successfully; check OpenCode after reload.
 
 Import accepts plain Pi package sources and plain OpenCode config entries.
 Entries with resource filters/options are rejected to preserve those settings.
-Imported packages are updated in their native tool; Skillshare updates only
-reviewed source snapshots for these two targets.
+Imported Pi and OpenCode v1 packages are updated in their native tool. OpenCode
+v2 global imports can use its native update command; project imports must be
+updated natively because the v2 update command is global.
 
 ```bash
 skillshare plugin add ./cursor-plugin --target cursor --no-tui
@@ -128,16 +149,42 @@ skillshare plugin add ./opencode-package --target opencode --no-tui
 skillshare plugin import npm:my-pi-package --from pi --name my-package --no-tui
 ```
 
+## Refs and explicit entries
+
+Advanced options in **Add plugin** accept an optional Git ref and OpenCode entry.
+Leave them empty for the normal guided flow. The terminal wizard accepts the same
+flags; automation can use:
+
+```bash
+skillshare plugin discover obra/superpowers --source-ref v6.3.0 --json
+skillshare plugin add owner/repo --source-ref v1.0.0 --target copilot --no-tui
+skillshare plugin add ./package --entry dist/plugin.js --target opencode --no-tui
+skillshare plugin update review --source-ref v1.1.0 --target claude --dry-run --json
+```
+
+Bindings record `source_ref` and the resolved `commit`. Installation uses the
+reviewed commit; `check` and `update` resolve the configured ref again, so a branch
+can advance while a commit remains pinned. `--revision` is a preview token, not
+a Git ref. `--entry` is relative to each candidate's package root and must already
+exist; it does not trigger a build or package-manager install.
+
+Copilot and Antigravity CLI installs use reviewed local snapshots. Imports have
+no reviewed source for reinstall: after removal, install in the native client and
+sync again. Grok also requires native trust before install/reinstall. Skillshare
+never supplies native trust approval flags.
+
 ## Compatibility and boundaries
 
 - Claude requires its native `.claude-plugin/plugin.json` package.
 - Codex accepts `.codex-plugin/plugin.json` and recognized portable root
   `plugin.json` packages. A Claude-only package is not silently converted.
 - Sources may contain a marketplace with local plugin entries. External catalog
+  catalogs are merged by plugin name/path. Conflicting paths are rejected; external
   entries are reported with instructions to add their repository directly or
   install natively and import. Command-based sources are not auto-approved.
-- Complete source snapshots retain plugin scripts and assets. Symlinks and special
-  files are rejected; sources are limited to 20,000 files and 100 MiB.
+- Complete source snapshots retain plugin scripts, assets, and safe relative
+  symlinks (including `AGENTS.md → CLAUDE.md`). Absolute, escaping, dangling,
+  cyclic, and `.git`-referencing links and special files are rejected; sources are limited to 20,000 files and 100 MiB.
 - Native installation is not proof of runtime activation. Restart/reload the
   Agent and complete authentication or hook trust in that Agent.
 - Codex native project installation and plugin updates are not provided by this
@@ -148,7 +195,8 @@ skillshare plugin import npm:my-pi-package --from pi --name my-package --no-tui
   does not delete unrelated plugins or native caches directly.
 
 The native lifecycle is exercised with Claude Code `2.1.276`, Codex CLI
-`0.154.0`, and Pi `0.85.1`. OpenCode `1.18.31` is used to verify version-aware
+`0.154.0`, Pi `0.85.1`, and Copilot CLI `1.0.86`. Antigravity CLI
+`1.2.6` was checked with isolated native install/list/remove operations. OpenCode `1.18.31` is used to verify version-aware
 registration; the v2 schema is covered by fixture tests. Cursor and Antigravity
 filesystem lifecycles are tested in isolated directories, without claiming GUI
 runtime activation. Installed command capabilities and inventory schemas are checked at

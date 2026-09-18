@@ -28,12 +28,16 @@ func (s *Service) materialize(ctx context.Context, b Binding, target string) (st
 			return expected, nil
 		}
 	}
-	root, normalized, cleanup, err := acquire(ctx, b.Source)
+	ref := b.Commit
+	if ref == "" {
+		ref = b.SourceRef
+	}
+	root, normalized, cleanup, err := acquireRef(ctx, b.Source, ref)
 	if err != nil {
 		return "", err
 	}
 	defer cleanup()
-	d, err := discoverRoot(root, normalized)
+	d, err := discoverRoot(root, normalized, b.Entry)
 	if err != nil {
 		return "", err
 	}
@@ -122,13 +126,39 @@ func (s *Service) materialize(ctx context.Context, b Binding, target string) (st
 		}
 		return "", err
 	}
-	if hadOld {
-		_ = os.RemoveAll(backup)
-	}
+	// Keep the previous snapshot until the native operation succeeds.
 	return expected, nil
 }
 
-func (s *Service) applyChange(ctx context.Context, c Change, b Binding) error {
+func (s *Service) applyChange(ctx context.Context, c Change, b Binding) (resultErr error) {
+	if b.Source != "" && (c.Action == "install" || c.Action == "update") {
+		if _, err := os.Stat(s.snapshotPath(b, c.Target) + ".previous"); err == nil {
+			return fmt.Errorf("unfinished snapshot replacement; inspect previous snapshot before retrying")
+		}
+		defer func() {
+			path := s.snapshotPath(b, c.Target)
+			backup := path + ".previous"
+			if _, err := os.Stat(backup); err != nil {
+				return
+			}
+			if resultErr == nil {
+				_ = os.RemoveAll(backup)
+				return
+			}
+			failed := path + ".failed"
+			if _, err := os.Stat(failed); err == nil {
+				return
+			}
+			if err := os.Rename(path, failed); err != nil {
+				return
+			}
+			if err := os.Rename(backup, path); err != nil {
+				_ = os.Rename(failed, path)
+				return
+			}
+			_ = os.RemoveAll(failed)
+		}()
+	}
 	if c.Action == "import" || c.Action == "forget" || c.Action == "selection" {
 		return nil
 	}

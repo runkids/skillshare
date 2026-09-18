@@ -57,7 +57,7 @@ func pluginWizard(s *plugin.Service, o pluginOptions) error {
 			}
 			r.Source = v
 		}
-		d, err := plugin.Discover(ctx, r.Source)
+		d, err := plugin.DiscoverOptions(ctx, r.Source, r.SourceRef, r.Entry)
 		if err != nil {
 			return err
 		}
@@ -90,12 +90,16 @@ func pluginWizard(s *plugin.Service, o pluginOptions) error {
 		if len(r.Targets) == 0 {
 			items = nil
 			targets := []string{}
-			for _, target := range chosen.Targets {
+			for _, definition := range plugin.TargetDefinitions() {
+				target := definition.Target
+				if !slices.Contains(chosen.Targets, target) || !slices.Contains(definition.Operations, "add") {
+					continue
+				}
 				if s.ProjectRoot != "" && !plugin.ProjectSupported(target) {
 					continue
 				}
 				targets = append(targets, target)
-				items = append(items, checklistItemData{label: target})
+				items = append(items, checklistItemData{label: definition.Label, desc: strings.Join(chosen.TargetInfo[target].Components, ", ")})
 			}
 			if len(items) == 0 {
 				return fmt.Errorf("no compatible native clients in this scope")
@@ -117,10 +121,22 @@ func pluginWizard(s *plugin.Service, o pluginOptions) error {
 		choices := []selection{}
 		items := []checklistItemData{}
 		for _, h := range inventory.Hosts {
+			supported := false
+			for _, definition := range inventory.TargetDefinitions {
+				if definition.Target == h.Target && slices.Contains(definition.Operations, "import") {
+					supported = true
+				}
+			}
+			if !supported || h.Error != "" {
+				continue
+			}
 			if r.From != "" && r.From != h.Target {
 				continue
 			}
 			for _, i := range h.Installed {
+				if i.Filtered {
+					continue
+				}
 				if r.Plugin != "" && r.Plugin != i.ID {
 					continue
 				}
@@ -170,11 +186,18 @@ func pluginWizard(s *plugin.Service, o pluginOptions) error {
 		}
 		targets := []string{}
 		items := []checklistItemData{}
-		for _, target := range plugin.Targets {
+		for _, definition := range inventory.TargetDefinitions {
+			target := definition.Target
+			if !slices.Contains(definition.Operations, r.Action) {
+				continue
+			}
 			if b, ok := inventory.Packages[r.Name].Bindings[target]; ok {
 				targets = append(targets, target)
-				items = append(items, checklistItemData{label: target, desc: b.ID})
+				items = append(items, checklistItemData{label: definition.Label, desc: b.ID})
 			}
+		}
+		if len(items) == 0 {
+			return fmt.Errorf("no managed targets support %s; inspect plugin capabilities and use the native client", r.Action)
 		}
 		selected, err := pluginChoose("Which targets?", items, true, "target")
 		if err != nil {

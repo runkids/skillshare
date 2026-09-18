@@ -13,6 +13,23 @@ import (
 	"time"
 )
 
+// ErrCLIMissing marks the one host failure fixed by installing something rather than
+// by opening the Agent. Hosts carrying it are grouped together in the dashboard, so the
+// same sentence is not repeated once per Agent.
+var ErrCLIMissing = errors.New("native CLI not on PATH")
+
+// agentError names a fixed failure template so the dashboard can show it in the reader's
+// language. message stays the English the CLI prints and is the fallback; cause is
+// ErrCLIMissing when installing something, not opening the Agent, is the remedy.
+type agentError struct {
+	cause   error
+	key     string
+	message string
+}
+
+func (e agentError) Error() string { return e.message }
+func (e agentError) Unwrap() error { return e.cause }
+
 func runCommand(ctx context.Context, dir, bin string, args ...string) ([]byte, error) {
 	ctx, cancel := context.WithTimeout(ctx, 90*time.Second)
 	defer cancel()
@@ -25,13 +42,13 @@ func runCommand(ctx context.Context, dir, bin string, args ...string) ([]byte, e
 	cmd.Stderr = &stderr
 	if err := cmd.Run(); err != nil {
 		if errors.Is(err, exec.ErrNotFound) {
-			return nil, fmt.Errorf("%s CLI is not installed or not on PATH on the machine running Skillshare; install it there before syncing plugins", bin)
+			return nil, agentError{cause: ErrCLIMissing, key: "plugins.error.cliMissing", message: fmt.Sprintf("%s CLI is not installed or not on PATH on the machine running Skillshare; install it there before syncing plugins", bin)}
 		}
 		if ctx.Err() != nil {
-			return nil, fmt.Errorf("%s timed out or was cancelled; inspect native status before retrying", bin)
+			return nil, agentError{key: "plugins.error.timeout", message: fmt.Sprintf("%s timed out or was cancelled; inspect native status before retrying", bin)}
 		}
 		// Native output can contain credentials or command-source scripts.
-		return nil, fmt.Errorf("%s command failed; open the native client to resolve authentication, trust, or configuration", bin)
+		return nil, agentError{key: "plugins.error.commandFailed", message: fmt.Sprintf("%s command failed; open the native client to resolve authentication, trust, or configuration", bin)}
 	}
 	return stdout.Bytes(), nil
 }
@@ -48,6 +65,9 @@ func (s *Service) run(ctx context.Context, target string, args ...string) ([]byt
 		if err != nil {
 			return nil, err
 		}
+	}
+	if target == "antigravity-cli" {
+		target = "agy"
 	}
 	return run(ctx, dir, target, args...)
 }
@@ -79,6 +99,7 @@ func parseInventory(target string, data []byte, project string) ([]Installed, er
 	}
 	filtered := []Installed{}
 	for _, item := range result {
+		item.EnabledKnown = true
 		if !validID(item.ID) {
 			return nil, fmt.Errorf("native plugin list contains an unsupported plugin identifier")
 		}
@@ -104,25 +125,25 @@ func (s *Service) host(ctx context.Context, target string) Host {
 	if target != "claude" && target != "codex" {
 		return s.additionalHost(ctx, target)
 	}
-	h := Host{Target: target, Installed: []Installed{}}
+	h := Host{Target: target, Status: HostReady, Installed: []Installed{}}
 	if target == "codex" && s.ProjectRoot != "" {
-		h.Error = "Codex native plugin installation is user-scoped; use global mode. Project operations never fall back to global."
+		h.block("plugins.error.userScoped", "Codex native plugin installation is user-scoped; use global mode. Project operations never fall back to global.")
 		return h
 	}
 	version, err := s.run(ctx, target, "--version")
 	if err != nil {
-		h.Error = err.Error()
+		h.fail(err)
 		return h
 	}
 	h.Version = strings.TrimSpace(string(version))
 	data, err := s.run(ctx, target, "plugin", "list", "--json")
 	if err != nil {
-		h.Error = err.Error()
+		h.fail(err)
 		return h
 	}
 	h.Installed, err = parseInventory(target, data, s.ProjectRoot)
 	if err != nil {
-		h.Error = err.Error()
+		h.fail(err)
 	}
 	return h
 }
@@ -132,7 +153,7 @@ func (s *Service) Inventory(ctx context.Context) (*Inventory, error) {
 	if err != nil {
 		return nil, err
 	}
-	result := &Inventory{Packages: cfg.packages, Hosts: []Host{}}
+	result := &Inventory{TargetDefinitions: TargetDefinitions(), Packages: cfg.packages, Hosts: []Host{}}
 	for _, target := range Targets {
 		result.Hosts = append(result.Hosts, s.host(ctx, target))
 	}

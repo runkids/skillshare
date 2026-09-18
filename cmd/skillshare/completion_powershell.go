@@ -127,7 +127,7 @@ $_skillshareCompleter = {
         'enable' = '--dry-run', '-n', '--help', '-h', '--project', '-p', '--global', '-g'
         'disable' = '--dry-run', '-n', '--help', '-h', '--project', '-p', '--global', '-g'
         'analyze' = '--no-tui', '--json', '--help', '-h', '--project', '-p', '--global', '-g'
-        'plugin' = '--target', '--from', '--plugin', '--name', '--revision', '--dry-run', '--json', '--no-tui', '--help', '--project', '--global'
+        'plugin' = '--target', '--from', '--plugin', '--name', '--source-ref', '--entry', '--revision', '--dry-run', '--json', '--no-tui', '--help', '--project', '--global'
         'extras' = '--help', '-h', '--project', '-p', '--global', '-g'
         'completion' = '--install', '--help', '-h'
     }
@@ -139,7 +139,7 @@ $_skillshareCompleter = {
     $previousIndex = $elements.Count - 1
     if ($wordToComplete -ne '') { $previousIndex-- }
     if ($cmd -eq 'plugin' -and $previousIndex -ge 0 -and $elements[$previousIndex] -in @('--target', '--from')) {
-        @('claude', 'codex', 'cursor', 'antigravity', 'agy', 'pi', 'opencode') | Where-Object { $_ -like "$wordToComplete*" } | ForEach-Object {
+        @('claude', 'codex', 'cursor', 'antigravity', 'agy', 'antigravity-cli', 'copilot', 'grok', 'kimi', 'hermes', 'devin', 'pi', 'opencode') | Where-Object { $_ -like "$wordToComplete*" } | ForEach-Object {
             [System.Management.Automation.CompletionResult]::new($_, $_, 'ParameterValue', $_)
         }
         return

@@ -23,13 +23,18 @@ Options:
   --name <name>              Logical Skillshare package name
   --from <target>           Import from this native client in the selected scope
   --dry-run, -n              Preview without writing config or Agent state
+  --source-ref <ref>        Git branch, tag or commit (discover/add/update)
+  --entry <path>            Explicit OpenCode JS/TS entry (discover/add)
   --revision <id>            Require the matching preview before applying
   --json                    Machine-readable output, no interactive prompts
   --no-tui                  Plain output, no interactive prompts
   --global, -g              Global configuration (native user scope)
   --project, -p             Project configuration (supported targets only)
 
-Targets: claude, codex, cursor, antigravity (alias: agy), pi, opencode
+Targets: claude, codex, cursor, antigravity (desktop; alias: agy),
+         antigravity-cli, copilot, grok, pi, opencode
+Discovery only: kimi, hermes, devin (native automation not yet verified)
+Grok requires native trust: install there first, then import.
 Project targets: claude, antigravity, pi, opencode
 Cursor/Antigravity sync whole local folders; OpenCode syncs registrations.
 Pi project operations require native project trust.

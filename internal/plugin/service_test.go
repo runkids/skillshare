@@ -31,7 +31,7 @@ func TestDiscoverPreservesComponentsAndRejectsEscapes(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(d.Candidates) != 1 || len(d.Candidates[0].Targets) != 2 {
+	if len(d.Candidates) != 1 || len(d.Candidates[0].Targets) != 5 {
 		t.Fatalf("unexpected discovery: %+v", d)
 	}
 	if err := os.Symlink("/etc/passwd", filepath.Join(root, "escape")); err != nil {

@@ -56,12 +56,14 @@ func (s *Server) handlePluginList(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handlePluginDiscover(w http.ResponseWriter, r *http.Request) {
 	var body struct {
-		Source string `json:"source"`
+		Source    string `json:"source"`
+		SourceRef string `json:"sourceRef,omitempty"`
+		Entry     string `json:"entry,omitempty"`
 	}
 	if !decodePluginRequest(w, r, &body) {
 		return
 	}
-	result, err := plugin.Discover(r.Context(), body.Source)
+	result, err := plugin.DiscoverOptions(r.Context(), body.Source, body.SourceRef, body.Entry)
 	if err != nil {
 		writeError(w, 400, err.Error())
 		return

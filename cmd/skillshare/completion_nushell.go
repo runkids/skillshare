@@ -47,7 +47,7 @@ def "nu-complete skillshare plugin" [] {
 }
 
 def "nu-complete skillshare plugin-target" [] {
-    [claude codex cursor antigravity agy pi opencode]
+    [claude codex cursor antigravity agy antigravity-cli copilot grok kimi hermes devin pi opencode]
 }
 
 export extern "skillshare plugin" [
@@ -57,6 +57,8 @@ export extern "skillshare plugin" [
     --from: string@"nu-complete skillshare plugin-target"
     --plugin: string
     --name: string
+    --source-ref: string
+    --entry: string
     --revision: string
     --dry-run(-n)
     --json

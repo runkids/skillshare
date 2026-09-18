@@ -86,3 +86,34 @@ pnpm exec vitest run src/components/plugins/PluginAddDialog.test.tsx
 All steps pass, including the opt-in native test (not skipped). Installing source
 files is not evidence that an Agent has loaded a skill or trusted a hook; those
 runtime activation claims are outside this test.
+
+
+### 5. Source compatibility and new native target
+
+```bash
+cd /workspace
+go test ./internal/plugin -run 'TestSource|TestUnsafe|TestManifest|TestBrokenCatalog|TestExplicitOpenCode|TestOpenCodeProject|TestNativePackage|TestFailedUpdate|TestDroidPluginTargetNotSupported' -count=1
+PATH=/tmp/skillshare-plugin-clients/node_modules/.bin:$PATH SKILLSHARE_PLUGIN_EXPANDED_E2E=1 go test ./internal/plugin -run TestExpandedNativeLifecycle -count=1 -v
+```
+
+**Expected**:
+- Safe internal file/directory links survive snapshots; unsafe links are rejected.
+- Multiple catalogs and per-target metadata preserve valid formats.
+- Copilot CLI 1.0.86 completes add, deselect/sync, reselect/sync, update, and removal
+  in temporary HOME. A skipped native test is not a pass.
+- Antigravity CLI uses `agy`, separate from the desktop alias. Native 1.2.6
+  install/list/remove was checked separately with isolated HOME/XDG directories.
+- Kimi/Hermes/Devin remain discovery-only. Grok install/update requires native trust.
+- Factory Droid is not offered as a plugin target.
+- OpenCode project imported update never runs a global native command.
+- A failed native update restores the previous managed source snapshot.
+
+### 6. Dashboard compatibility
+
+```bash
+cd /workspace/ui
+pnpm exec vitest run src/components/plugins/PluginAddDialog.test.tsx src/pages/PluginsPage.test.tsx src/i18n/i18n.test.ts
+```
+
+Check Clean and Playful in light/dark: advanced source options, per-target reasons,
+registered/loading-unverified state, and identical Antigravity Desktop/CLI logos.

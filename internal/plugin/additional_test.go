@@ -190,7 +190,7 @@ func TestPluginFormatsRemainDistinct(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !slices.Equal(d.Candidates[0].Targets, []string{"codex", "cursor"}) {
+	if !slices.Equal(d.Candidates[0].Targets, []string{"codex", "copilot", "cursor"}) {
 		t.Fatalf("silently converted portable plugin: %+v", d.Candidates)
 	}
 	writePluginFile(t, root, "plugin.json", `{"$schema":"https://antigravity.google/schemas/v1/plugin.json","name":"demo"}`)
@@ -198,7 +198,7 @@ func TestPluginFormatsRemainDistinct(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !slices.Equal(d.Candidates[0].Targets, []string{"antigravity"}) {
+	if !slices.Equal(d.Candidates[0].Targets, []string{"antigravity", "antigravity-cli"}) {
 		t.Fatalf("silently converted Antigravity plugin: %+v", d.Candidates)
 	}
 }
@@ -259,5 +259,28 @@ func TestUnavailableNativeClientDoesNotForgetBinding(t *testing.T) {
 	}
 	if !p.Blocked || p.Changes[0].Action != "blocked" {
 		t.Fatalf("unavailable is not absent: %+v", p)
+	}
+}
+
+func TestOpenCodeProjectImportedUpdateNeverUsesGlobalCLI(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, ".config"))
+	t.Setenv("OPENCODE_CONFIG", "")
+	t.Setenv("OPENCODE_CONFIG_DIR", "")
+	t.Setenv("OPENCODE_CONFIG_CONTENT", "")
+	project := t.TempDir()
+	writePluginFile(t, project, "opencode.json", `{"plugins":["demo"]}`)
+	s := &Service{ConfigPath: filepath.Join(project, "config.yaml"), StateDir: filepath.Join(home, "state"), ProjectRoot: project,
+		Run: func(_ context.Context, _, _ string, args ...string) ([]byte, error) {
+			if strings.Join(args, " ") != "--version" {
+				t.Fatalf("unexpected native operation: %v", args)
+			}
+			return []byte("2.0.0"), nil
+		}}
+	applyPluginRequest(t, s, Request{Action: "import", From: "opencode", Plugin: "demo"})
+	plan, err := s.Preview(context.Background(), Request{Action: "update", Name: "demo"})
+	if err != nil || !plan.Blocked {
+		t.Fatalf("project update must be blocked: %+v %v", plan, err)
 	}
 }

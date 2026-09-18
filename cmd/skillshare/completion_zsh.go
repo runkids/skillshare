@@ -91,10 +91,12 @@ _skillshare() {
                 plugin)
                     _arguments \
                         '1:command:(add discover import list inspect sync check update enable disable remove)' \
-                        '--target[Receiving target]:target:(claude codex cursor antigravity agy pi opencode)' \
-                        '--from[Import target]:target:(claude codex cursor antigravity agy pi opencode)' \
+                        '--target[Receiving target]:target:(claude codex cursor antigravity agy antigravity-cli copilot grok kimi hermes devin pi opencode)' \
+                        '--from[Import target]:target:(claude codex cursor antigravity agy antigravity-cli copilot grok kimi hermes devin pi opencode)' \
                         '--plugin[Source plugin]:name:' \
                         '--name[Logical package name]:name:' \
+                        '--source-ref[Git branch, tag or commit]:ref:' \
+                        '--entry[OpenCode entry path]:path:' \
                         '--revision[Preview revision]:revision:' \
                         '--dry-run[Preview changes]' \
                         '--json[JSON output]' \

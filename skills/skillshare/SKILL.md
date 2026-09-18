@@ -122,7 +122,8 @@ skillshare sync plugins demo --dry-run --json
 Run only the requested operation. `add` installs a whole native package; `import`
 adopts an existing installation. Plugin enable/disable saves sync selection only;
 the next `sync plugins` installs or removes the managed target. It is excluded
-from `sync --all`. Read [plugins.md](references/plugins.md) before applying changes.
+from `sync --all`. Inspect `targetDefinitions` for supported operations and scopes;
+format discovery alone does not mean installation is supported. Read [plugins.md](references/plugins.md) before applying changes.
 
 ### Skill hubs
 

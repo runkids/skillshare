@@ -122,3 +122,31 @@ func TestAdditionalNativeLifecycle(t *testing.T) {
 		})
 	}
 }
+
+func TestExpandedNativeLifecycle(t *testing.T) {
+	if os.Getenv("SKILLSHARE_PLUGIN_EXPANDED_E2E") != "1" {
+		t.Skip("set SKILLSHARE_PLUGIN_EXPANDED_E2E=1 with copilot on PATH")
+	}
+	for _, target := range []string{"copilot"} {
+		t.Run(target, func(t *testing.T) {
+			home := t.TempDir()
+			t.Setenv("HOME", home)
+			t.Setenv("COPILOT_HOME", filepath.Join(home, ".copilot"))
+			t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, ".config"))
+			source := fixture(t)
+			s := &Service{ConfigPath: filepath.Join(home, "config.yaml"), StateDir: filepath.Join(home, "state")}
+			applyPluginRequest(t, s, Request{Action: "add", Source: source, Targets: []string{target}})
+			applyPluginRequest(t, s, Request{Action: "disable", Name: "demo"})
+			applyPluginRequest(t, s, Request{Action: "sync"})
+			applyPluginRequest(t, s, Request{Action: "enable", Name: "demo"})
+			applyPluginRequest(t, s, Request{Action: "sync"})
+			writePluginFile(t, source, "skills/demo/SKILL.md", "updated")
+			applyPluginRequest(t, s, Request{Action: "update", Name: "demo"})
+			applyPluginRequest(t, s, Request{Action: "remove", Name: "demo"})
+			h := s.host(context.Background(), target)
+			if h.Error != "" || len(h.Installed) != 0 {
+				t.Fatalf("cleanup: %+v", h)
+			}
+		})
+	}
+}

@@ -213,6 +213,9 @@ func (s *Service) openCodeInventory(version string) ([]Installed, string, error)
 			}
 			id = object.Package
 		}
+		if key == "plugins" && (strings.HasPrefix(id, "-") || id == "*" || strings.HasSuffix(id, ".*")) {
+			continue
+		}
 		if !validTargetID("opencode", id) {
 			return nil, "", fmt.Errorf("unsupported OpenCode plugin control entry; manage it in OpenCode")
 		}
@@ -222,15 +225,20 @@ func (s *Service) openCodeInventory(version string) ([]Installed, string, error)
 }
 
 func (s *Service) applyOpenCode(ctx context.Context, c Change, b Binding) error {
-	if c.Action == "update" && b.Source == "" {
-		return fmt.Errorf("update imported packages in OpenCode; Skillshare updates reviewed source snapshots only")
-	}
+
 	version, err := s.run(ctx, "opencode", "--version")
 	if err != nil {
 		return err
 	}
 	key, err := openCodeKey(string(version))
 	if err != nil {
+		return err
+	}
+	if c.Action == "update" && b.Source == "" {
+		if key != "plugins" || s.ProjectRoot != "" {
+			return fmt.Errorf("imported package updates require OpenCode v2 global scope")
+		}
+		_, err := s.run(ctx, "opencode", "plugin", "update", b.ID)
 		return err
 	}
 	path, err := s.openCodeConfigPath()

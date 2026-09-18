@@ -30,6 +30,12 @@ func (s *Service) validate(r Request) error {
 	if r.Source != "" && r.Action != "add" {
 		return fmt.Errorf("source is only valid for add")
 	}
+	if r.SourceRef != "" && r.Action != "add" && r.Action != "update" {
+		return fmt.Errorf("source ref is only valid for add or update")
+	}
+	if r.Entry != "" && r.Action != "add" {
+		return fmt.Errorf("entry is only valid for add")
+	}
 	if r.From != "" && r.Action != "import" {
 		return fmt.Errorf("from is only valid for import")
 	}
@@ -93,9 +99,32 @@ func (s *Service) Preview(ctx context.Context, r Request) (*Plan, error) {
 				c.Message = err.Error()
 			}
 		}
-		if c.Action == "update" && c.Binding.Source == "" && (c.Target == "pi" || c.Target == "opencode") {
+		if c.Action == "update" && c.Target == "antigravity-cli" {
+			c.Action = "blocked"
+			c.Message = "Update in Antigravity CLI to preserve native enablement; automatic reinstall updates are not supported."
+		}
+		if c.Action == "update" && c.Binding.Source == "" && (c.Target == "pi" || (c.Target == "opencode" && (s.ProjectRoot != "" || !strings.HasPrefix(strings.TrimPrefix(h.Version, "v"), "2.")))) {
 			c.Action = "blocked"
 			c.Message = "Update imported packages in the native client; Skillshare updates reviewed source snapshots only."
+		}
+		if c.Action == "update" && c.Target == "opencode" && c.Binding.Source == "" {
+			help, err := s.run(ctx, "opencode", "plugin", "update", "--help")
+			if err != nil || !strings.Contains(string(help), "update") {
+				c.Action = "blocked"
+				c.Message = "Installed OpenCode does not expose a verified plugin update command."
+			}
+		}
+		if c.Binding.Source == "" && commandTarget(c.Target) && (c.Action == "install" || c.Action == "update") {
+			c.Action = "blocked"
+			c.Message = "This imported plugin has no reviewed reinstall source; install or update in the native client."
+		}
+		if c.Action == "update" && c.Target == "copilot" {
+			for _, item := range h.Installed {
+				if item.ID == c.ID && (!item.EnabledKnown || !item.Enabled) {
+					c.Action = "blocked"
+					c.Message = "Update in Copilot to preserve native enablement."
+				}
+			}
 		}
 		if c.Action == "blocked" {
 			p.Blocked = true
@@ -111,7 +140,7 @@ func (s *Service) Preview(ctx context.Context, r Request) (*Plan, error) {
 		return Installed{}, false
 	}
 	if r.Action == "add" {
-		discovered, err := Discover(ctx, r.Source)
+		discovered, err := DiscoverOptions(ctx, r.Source, r.SourceRef, r.Entry)
 		if err != nil {
 			return nil, err
 		}
@@ -133,25 +162,29 @@ func (s *Service) Preview(ctx context.Context, r Request) (*Plan, error) {
 		}
 		for _, target := range slices.Compact(slices.Sorted(slices.Values(r.Targets))) {
 			market := "skillshare-" + hash([]byte(s.ConfigPath + "\x00" + discovered.Source + "\x00" + c.Name + "\x00" + target))[:16]
-			b := Binding{ID: c.Name + "@" + market, Source: discovered.Source, Plugin: c.Name, Digest: discovered.Digest, Version: c.Version, Components: c.Components}
+			b := Binding{ID: c.Name + "@" + market, Source: discovered.Source, SourceRef: discovered.SourceRef, Commit: discovered.Commit, Plugin: c.Name, Digest: discovered.Digest, Version: c.TargetInfo[target].Version, Components: c.TargetInfo[target].Components}
 			switch target {
-			case "cursor", "antigravity":
+			case "cursor", "antigravity", "antigravity-cli", "copilot", "grok", "kimi", "hermes", "devin":
 				b.ID = c.Name
 			case "pi":
 				b.ID = filepath.Join(s.snapshotPath(b, target), "content", filepath.FromSlash(c.Path))
 			case "opencode":
+				b.Entry = c.Entry
 				b.ID = fileURL(filepath.Join(s.snapshotPath(b, target), "content", filepath.FromSlash(c.Path), c.Entry))
 			}
-			change := Change{Name: name, Target: target, ID: b.ID, Binding: b, Action: "install", Components: c.Components}
+			change := Change{Name: name, Target: target, ID: b.ID, Binding: b, Action: "install", Components: b.Components}
 			if c.Problem != "" || !slices.Contains(c.Targets, target) {
 				change.Action = "blocked"
 				change.Message = c.Problem
+				if info, ok := c.TargetInfo[target]; ok && info.Problem != "" {
+					change.Message = info.Problem
+				}
 				if change.Message == "" {
 					change.Message = "No native manifest for this target; plugin components will not be silently converted or omitted."
 				}
 			}
 			if old, ok := d.packages[name].Bindings[target]; ok {
-				if old.Source == b.Source && old.Plugin == b.Plugin {
+				if old.Source == b.Source && old.Plugin == b.Plugin && old.SourceRef == b.SourceRef {
 					change.Binding = old
 					change.ID = old.ID
 					if _, ok := find(target, old.ID); ok {
@@ -275,13 +308,18 @@ func (s *Service) Preview(ctx context.Context, r Request) (*Plan, error) {
 						}
 						break
 					}
-					disc := discoveries[b.Source]
+					ref := b.SourceRef
+					if r.SourceRef != "" {
+						ref = r.SourceRef
+					}
+					discoveryKey := b.Source + "\x00" + ref + "\x00" + b.Entry
+					disc := discoveries[discoveryKey]
 					if disc == nil {
-						disc, err = Discover(ctx, b.Source)
+						disc, err = DiscoverOptions(ctx, b.Source, ref, b.Entry)
 						if err != nil {
 							return nil, err
 						}
-						discoveries[b.Source] = disc
+						discoveries[discoveryKey] = disc
 					}
 					var candidate *Candidate
 					for _, x := range disc.Candidates {
@@ -298,16 +336,18 @@ func (s *Service) Preview(ctx context.Context, r Request) (*Plan, error) {
 						c.Message = "Updated source no longer provides a compatible native plugin"
 						break
 					}
-					c.Components = candidate.Components
-					if disc.Digest == b.Digest && b.Pending == "" {
+					c.Components = candidate.TargetInfo[target].Components
+					if disc.Digest == b.Digest && b.Pending == "" && ref == b.SourceRef {
 						c.Action = "noop"
 					} else if r.Action == "check" {
 						c.Action = "update-available"
 						c.Message = "Source content changed; review an update before applying."
 					} else {
 						c.Binding.Digest = disc.Digest
-						c.Binding.Version = candidate.Version
-						c.Binding.Components = candidate.Components
+						c.Binding.Commit = disc.Commit
+						c.Binding.SourceRef = disc.SourceRef
+						c.Binding.Version = candidate.TargetInfo[target].Version
+						c.Binding.Components = candidate.TargetInfo[target].Components
 					}
 				}
 				if c.Action == "install" && b.Source == "" && (target == "antigravity" || target == "cursor") {

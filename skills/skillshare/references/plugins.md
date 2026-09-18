@@ -1,8 +1,11 @@
 # Plugins
 
 Plugins are complete native packages, not standalone skills. Keep their components
-together. Targets: `claude`, `codex`, `cursor`, `antigravity` (`agy` alias), `pi`,
-and `opencode`. Each has its own format and capabilities.
+together. Install targets: `claude`, `codex`, `cursor`, `antigravity` (`agy` alias),
+`antigravity-cli`, `copilot`, `pi`, and `opencode`. Grok supports native import/removal,
+with trust/install handled in Grok. Kimi, Hermes, and Devin are discovery-only.
+Read `targetDefinitions` from JSON output instead of assuming every format supports
+all operations. `targetInfo` reports per-target components, version, and problems.
 
 ## Inspect before changing
 
@@ -15,7 +18,14 @@ skillshare plugin add ./plugin-directory --plugin demo --target claude --dry-run
 `add` accepts a local folder, owner/repo, or HTTPS Git URL. For a multi-plugin
 marketplace, select a named candidate with `--plugin`. Use `--name` to bind
 different native distributions under one logical package, never infer equivalence
-from display names. External catalog sources are not auto-converted.
+from display names. External catalog sources are not auto-converted. Multiple local catalogs are merged.
+Safe internal relative symlinks are preserved; escaping, absolute, broken, cyclic,
+and `.git` links are rejected. A malformed manifest does not hide other formats.
+
+Use `--source-ref TAG_OR_COMMIT` with discover/add/update for a remote Git source.
+Bindings retain `source_ref` and the reviewed `commit`; `--revision` is a separate
+preview token. Use `--entry dist/plugin.js` with discover/add for an explicit
+OpenCode entry. Never build or execute package code just to discover it.
 
 ## Apply and adopt
 
@@ -53,8 +63,9 @@ skillshare plugin remove demo --dry-run --json -g
 ```
 
 Claude supports native updates; Codex does not. Cursor/Antigravity replace managed
-local copies; Pi/OpenCode refresh reviewed source snapshots. Imported Pi/OpenCode
-packages must be updated natively. Project mode supports Claude, Antigravity, Pi,
+local copies; Pi/OpenCode refresh reviewed source snapshots. Imported Pi/OpenCode v1 packages must be updated natively. OpenCode v2 global
+imports may use native update; project imports may not. Copilot source updates
+require known native enabled state; Antigravity CLI and Grok update natively. Project mode supports Claude, Antigravity, Pi,
 and OpenCode, never falling back to global scope.
 
 ## Additional formats and scopes
@@ -65,11 +76,13 @@ and OpenCode, never falling back to global scope.
 - Antigravity: root `plugin.json` with explicit `name`; copy to
   `~/.gemini/config/plugins/`, or project `.agents/plugins/` (existing `_agents/plugins/`
   is supported). This targets desktop/workspace discovery, not the separate
-  standalone agy CLI plugin store. No Gemini CLI adapter is provided.
-- Pi: `package.json` with a `pi` resource manifest. Native install/remove; read-only
+  standalone agy CLI plugin store. Use `antigravity-cli` for that store; `agy`
+  remains the desktop alias. No Gemini CLI adapter is provided.
+- Pi: `package.json` with a `pi` resource manifest or `pi-package` conventions. Native install/remove; read-only
   settings inventory honors `PI_CODING_AGENT_DIR`. Project trust must be completed
   in Pi; do not bypass it with automatic approval flags.
-- OpenCode: package referencing `@opencode-ai/plugin` with a built JS/TS entry.
+- OpenCode: SDK dependency, `.opencode/plugins/` convention, or explicit `--entry`,
+  with an existing JS/TS entry.
   Preserve the whole tree and register its file URL in the native JSON/JSONC config.
   Version 1 uses `plugin`, version 2 uses `plugins`. Runtime dependencies must already
   be available. The CLI version selects the schema; do not guess from docs alone.
@@ -88,3 +101,16 @@ Do not delete native caches or rewrite native installed-plugin registries. Remov
 retains shared marketplaces and snapshots. Installed does not mean loaded, logged
 in, or hook-trusted. Interactive humans can use the bare `skillshare plugin` manager;
 automation must provide explicit arguments and use `--json` or `--no-tui`.
+
+## Native capability boundaries
+
+- Copilot installs a reviewed snapshot. An imported binding without a source cannot
+  be reinstalled automatically after removal; install natively, then sync again.
+- Antigravity CLI accepts native and Claude manifests using its own CLI. Its native
+  list does not expose enablement; never present unknown as disabled. Update in agy.
+- Grok install/update requires native trust; never add `--trust` automatically.
+- Kimi, Hermes, and Devin discovery does not authorize native installation,
+  capability consent, or cloud changes. Explain the adapter limitation.
+- Registration is not proof of resource loading. Verify inside the target Agent.
+- Failed snapshot updates restore the previous managed snapshot; this is not a
+  claim that every native cache side effect can be rolled back.

@@ -13,7 +13,7 @@ function mount() { return render(<QueryClientProvider client={new QueryClient({ 
 describe('PluginsPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(pluginsApi.list).mockResolvedValue({ packages: { demo: { bindings: { codex: { id: 'demo@market' } } } }, hosts: [{ target: 'codex', version: '0.154', installed: [{ id: 'demo@market', enabled: false }] }] });
+    vi.mocked(pluginsApi.list).mockResolvedValue({ targetDefinitions: [{target:'codex',label:'Codex',project:false,operations:['add','sync','import']}], packages: { demo: { bindings: { codex: { id: 'demo@market' } } } }, hosts: [{ target: 'codex', version: '0.154', status: 'ready', installed: [{ id: 'demo@market', enabled: false }] }] });
     vi.mocked(pluginsApi.preview).mockResolvedValue({ revision: 'reviewed', blocked: false, changes: [{ name: 'demo', target: 'codex', id: 'demo@market', action: 'selection' }] });
     vi.mocked(pluginsApi.apply).mockResolvedValue({ result: { results: [] }, failure: '' });
   });
@@ -43,4 +43,26 @@ describe('PluginsPage', () => {
     fireEvent.mouseDown(screen.getByRole('menuitem', { name: 'plugins.sync' }));
     await waitFor(() => expect(pluginsApi.preview).toHaveBeenCalledWith({ action: 'sync', name: 'demo', targets: ['codex'] }));
   });
+  it('separates unsupported integrations from errors and links official docs', async () => {
+    vi.mocked(pluginsApi.list).mockResolvedValue({
+      packages: {},
+      targetDefinitions: [
+        { target: 'kimi', label: 'Kimi Code', project: false, operations: [] },
+        { target: 'codex', label: 'Codex', project: false, operations: ['add'] },
+      ],
+      hosts: [
+        { target: 'kimi', version: '', status: 'blocked', installed: [], error: 'not automated', errorKey: 'plugins.problem.kimi' },
+        { target: 'codex', version: '', status: 'blocked', installed: [], error: 'check failed', errorKey: 'plugins.error.commandFailed' },
+      ],
+    });
+    mount();
+    expect(await screen.findByText('plugins.hostManual')).toBeInTheDocument();
+    expect(screen.getByText('plugins.hostManualHelp')).toBeInTheDocument();
+    const manual = screen.getByText('plugins.hostManual').parentElement!;
+    expect(manual).toHaveTextContent('Kimi Code');
+    expect(manual).not.toHaveTextContent('Codex');
+    expect(screen.getByRole('link', { name: 'Kimi Code · plugins.officialDocs' })).toHaveAttribute('href', 'https://www.kimi.com/code/docs/en/kimi-code-cli/customization/plugins');
+    expect(screen.getByRole('link', { name: 'Codex · plugins.officialDocs' })).toHaveAttribute('rel', 'noopener noreferrer');
+  });
+
 });

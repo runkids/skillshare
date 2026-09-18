@@ -69,7 +69,7 @@ _skillshare() {
     local cmd="${words[1]}"
 
     if [[ "${cmd}" == plugin && ( "${prev}" == --target || "${prev}" == --from ) ]]; then
-        COMPREPLY=($(compgen -W "claude codex cursor antigravity agy pi opencode" -- "${cur}"))
+        COMPREPLY=($(compgen -W "claude codex cursor antigravity agy antigravity-cli copilot grok kimi hermes devin pi opencode" -- "${cur}"))
         return
     fi
 
@@ -157,7 +157,7 @@ _skillshare() {
         uninstall)  COMPREPLY=($(compgen -W "${uninstall_flags} ${global_flags}" -- "${cur}")) ;;
         list)       COMPREPLY=($(compgen -W "${list_flags} ${global_flags}" -- "${cur}")) ;;
         sync)       COMPREPLY=($(compgen -W "${sync_flags} ${global_flags}" -- "${cur}")) ;;
-        plugin)     COMPREPLY=($(compgen -W "add discover import list inspect sync check update enable disable remove --target --from --plugin --name --revision --dry-run --json --no-tui ${global_flags}" -- "${cur}")) ;;
+        plugin)     COMPREPLY=($(compgen -W "add discover import list inspect sync check update enable disable remove --target --from --plugin --name --source-ref --entry --revision --dry-run --json --no-tui ${global_flags}" -- "${cur}")) ;;
         mcp)        COMPREPLY=($(compgen -W "add import list remove restore ${mcp_flags} ${global_flags}" -- "${cur}")) ;;
         status)     COMPREPLY=($(compgen -W "${global_flags}" -- "${cur}")) ;;
         diff)       COMPREPLY=($(compgen -W "${diff_flags} ${global_flags}" -- "${cur}")) ;;

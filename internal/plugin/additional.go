@@ -21,15 +21,22 @@ func NormalizeTarget(target string) string {
 
 // ProjectSupported never falls back to a user-scoped installation.
 func ProjectSupported(target string) bool {
-	return target == "claude" || target == "antigravity" || target == "pi" || target == "opencode"
+	for _, d := range TargetDefinitions() {
+		if d.Target == target {
+			return d.Project
+		}
+	}
+	return false
 }
 
 func validTargetID(target, id string) bool {
 	switch target {
 	case "claude", "codex":
 		return validID(id)
-	case "cursor", "antigravity":
+	case "cursor", "antigravity", "antigravity-cli", "grok", "kimi", "hermes", "devin":
 		return namePattern.MatchString(id)
+	case "copilot":
+		return namePattern.MatchString(id) || validID(id)
 	case "pi", "opencode":
 		return id != "" && !strings.HasPrefix(id, "-") && !strings.ContainsAny(id, "\x00\r\n")
 	}
@@ -45,7 +52,7 @@ func (s *Service) snapshotPath(b Binding, target string) string {
 }
 
 // Require an explicit, existing entry. Do not execute package code to discover it.
-func openCodeEntry(root string) (string, error) {
+func openCodeEntry(root string, explicit ...string) (string, error) {
 	data, err := os.ReadFile(filepath.Join(root, "package.json"))
 	if err != nil {
 		return "", err
@@ -58,13 +65,16 @@ func openCodeEntry(root string) (string, error) {
 		return "", err
 	}
 	entry := m.Main
-	if len(m.Exports) > 0 {
+	if len(m.Exports) > 0 && (len(explicit) == 0 || explicit[0] == "") {
 		if json.Unmarshal(m.Exports, &entry) != nil {
 			var exports map[string]json.RawMessage
 			if json.Unmarshal(m.Exports, &exports) != nil || json.Unmarshal(exports["."], &entry) != nil {
 				return "", fmt.Errorf("OpenCode package needs an unambiguous string root export; conditional exports are not supported")
 			}
 		}
+	}
+	if len(explicit) > 0 && explicit[0] != "" {
+		entry = explicit[0]
 	}
 	if entry == "" {
 		entry = "index.js"
@@ -85,17 +95,26 @@ func openCodeEntry(root string) (string, error) {
 }
 
 func (s *Service) additionalHost(ctx context.Context, target string) Host {
-	h := Host{Target: target, Installed: []Installed{}}
+	h := Host{Target: target, Status: HostReady, Installed: []Installed{}}
+	if problem := automationProblem(target); problem != "" {
+		h.block("plugins.problem."+target, problem)
+		return h
+	}
+	if commandTarget(target) {
+		return s.commandHost(ctx, target)
+	}
 	if s.ProjectRoot != "" && !ProjectSupported(target) {
-		h.Error = target + " plugins are user-scoped; use global mode. Project operations never fall back to global."
+		h.block("plugins.error.userScoped", target+" plugins are user-scoped; use global mode. Project operations never fall back to global.")
 		return h
 	}
 	var err error
 	switch target {
 	case "cursor":
+		h.NoteKey = "plugins.note.cursor"
 		h.Note = "Local plugin files only. Reload Cursor and allow local plugin imports; marketplace installations take precedence."
 		h.Installed, h.Fingerprint, err = s.localInventory(target)
 	case "antigravity":
+		h.NoteKey = "plugins.note.antigravity"
 		h.Note = "Custom plugin files for Antigravity desktop/workspaces; verify loading in Antigravity. The standalone agy CLI uses a separate plugin store."
 		h.Installed, h.Fingerprint, err = s.localInventory(target)
 	case "pi":
@@ -105,6 +124,7 @@ func (s *Service) additionalHost(ctx context.Context, target string) Host {
 		if err == nil {
 			h.Installed, h.Fingerprint, err = s.piInventory()
 		}
+		h.NoteKey = "plugins.note.pi"
 		h.Note = "Package registrations from Pi settings; resource loading is verified in Pi."
 	case "opencode":
 		var data []byte
@@ -113,17 +133,21 @@ func (s *Service) additionalHost(ctx context.Context, target string) Host {
 		if err == nil {
 			h.Installed, h.Fingerprint, err = s.openCodeInventory(h.Version)
 		}
+		h.NoteKey = "plugins.note.opencode"
 		h.Note = "Plugin registrations only. OpenCode loads code and resolves dependencies on startup."
 	default:
 		err = fmt.Errorf("unsupported plugin target %q", target)
 	}
 	if err != nil {
-		h.Error = err.Error()
+		h.fail(err)
 	}
 	return h
 }
 
 func (s *Service) verifyAdditional(ctx context.Context, target, action, id string) error {
+	if commandTarget(target) {
+		return s.verifyNativeTarget(ctx, target, action, id)
+	}
 	if s.ProjectRoot != "" && !ProjectSupported(target) {
 		return fmt.Errorf("%s project plugins are unsupported", target)
 	}
@@ -152,7 +176,7 @@ func (s *Service) applyAdditional(ctx context.Context, c Change, b Binding) erro
 		if err != nil {
 			return err
 		}
-		d, err := discoverRoot(filepath.Join(snapshot, "content"), b.Source)
+		d, err := discoverRoot(filepath.Join(snapshot, "content"), b.Source, b.Entry)
 		if err != nil {
 			return err
 		}
@@ -164,6 +188,9 @@ func (s *Service) applyAdditional(ctx context.Context, c Change, b Binding) erro
 		if root == "" {
 			return fmt.Errorf("plugin missing from snapshot")
 		}
+	}
+	if commandTarget(c.Target) {
+		return s.applyNativeTarget(ctx, c, b, root)
 	}
 	remove := c.Action == "remove" || c.Action == "uninstall"
 	switch c.Target {

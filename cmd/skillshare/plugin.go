@@ -36,7 +36,7 @@ func parsePluginOptions(args []string) (pluginOptions, error) {
 			o.dryRun = true
 		case "--no-tui":
 			o.noTUI = true
-		case "--target", "--from", "--plugin", "--name", "--revision":
+		case "--target", "--from", "--plugin", "--name", "--revision", "--source-ref", "--entry":
 			if i+1 == len(args) {
 				return o, fmt.Errorf("%s requires a value", a)
 			}
@@ -54,6 +54,10 @@ func parsePluginOptions(args []string) (pluginOptions, error) {
 				o.request.Plugin = v
 			case "--name":
 				o.request.Name = v
+			case "--entry":
+				o.request.Entry = v
+			case "--source-ref":
+				o.request.SourceRef = v
 			case "--revision":
 				o.revision = v
 			}
@@ -141,12 +145,15 @@ func executePlugin(s *plugin.Service, o pluginOptions) error {
 	r := o.request
 	switch r.Action {
 	case "discover":
-		d, err := plugin.Discover(ctx, r.Source)
+		d, err := plugin.DiscoverOptions(ctx, r.Source, r.SourceRef, r.Entry)
 		if err != nil {
 			return err
 		}
 		if o.json {
 			return json.NewEncoder(os.Stdout).Encode(d)
+		}
+		for _, warning := range d.Warnings {
+			fmt.Println("Warning:", warning)
 		}
 		for _, c := range d.Candidates {
 			fmt.Printf("%s · %s · %s\n", c.Name, strings.Join(c.Targets, ", "), strings.Join(c.Components, ", "))
@@ -186,8 +193,8 @@ func executePlugin(s *plugin.Service, o pluginOptions) error {
 						}
 						for _, i := range h.Installed {
 							if i.ID == b.ID {
-								state = "installed"
-								if !i.Enabled {
+								state = "registered (loading unverified)"
+								if i.EnabledKnown && !i.Enabled {
 									state = "disabled"
 								}
 							}
