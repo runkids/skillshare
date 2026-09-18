@@ -313,7 +313,7 @@ The devcontainer reuses the same `docker/sandbox/Dockerfile` as the sandbox, so 
 - Go 1.25 toolchain
 - Node.js 24 + pnpm (bundled in the Docker image) — enables `make ui-dev` and `cd website && pnpm start` inside the container
 - VS Code extensions: Go, Tailwind CSS, ESLint, Prettier
-- Ports forwarded: `19420` (Web UI), `5173` (Vite HMR), `3000` (Docusaurus)
+- Ports forwarded: `45173` (Vite HMR), `49420` (Go API), `48888` (Docusaurus) — uncommon on purpose, so they do not clash with other projects on your host
 - Source code mounted at `/workspace`
 - **Pre-configured demo environment** — same as the interactive playground:
   - Shortcut commands in PATH (`ss`, `ui`, `docs`)
@@ -332,26 +332,26 @@ ss audit                  # run audit with custom rules
 cd ~/demo-project
 ss status                 # auto-detects project mode
 ss audit                  # project-level audit
-ui -p                     # switch API to project mode → http://localhost:5173
+ui -p                     # switch API to project mode → http://localhost:45173
 ```
 
 ### Frontend development
 
 | Port | Service | Command |
 |------|---------|---------|
-| `5173` | Vite (React UI + HMR) | `ui` or `ui -p` |
-| `19420` | Go API backend | started by `ui` / `ui -p` |
-| `3000` | Docusaurus | `docs` |
+| `45173` | Vite (React UI + HMR) | `ui` or `ui -p` |
+| `49420` | Go API backend | started by `ui` / `ui -p` |
+| `48888` | Docusaurus | `docs` |
 
 ```bash
-ui                        # global mode: API + Vite → http://localhost:5173
-ui -p                     # project mode: API + Vite → http://localhost:5173
+ui                        # global mode: API + Vite → http://localhost:45173
+ui -p                     # project mode: API + Vite → http://localhost:45173
 ui stop                   # stop API + Vite
-docs                      # documentation site → http://localhost:3000
+docs                      # documentation site → http://localhost:48888
 docs stop                 # stop Docusaurus
 ```
 
-`ui` starts both the Go API backend (port 19420, background) and Vite dev server (port 5173, HMR). Switching between `ui` and `ui -p` automatically restarts the API in the new mode. VS Code auto-forwards ports to your host browser.
+`ui` starts both the Go API backend (port 49420, background) and Vite dev server (port 45173, HMR). Switching between `ui` and `ui -p` automatically restarts the API in the new mode. VS Code auto-forwards ports to your host browser.
 
 ### Token configuration
 

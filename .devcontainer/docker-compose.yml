@@ -15,15 +15,17 @@ services:
       # miss file saves. Force polling-based file watching inside the container.
       CHOKIDAR_USEPOLLING: "true"
       GOCACHE: /go/build-cache
+      SKILLSHARE_API_PORT: "49420"
       GITHUB_TOKEN: ${GITHUB_TOKEN:-}
       GITLAB_TOKEN: ${GITLAB_TOKEN:-}
       BITBUCKET_TOKEN: ${BITBUCKET_TOKEN:-}
       BITBUCKET_USERNAME: ${BITBUCKET_USERNAME:-}
       SKILLSHARE_GIT_TOKEN: ${SKILLSHARE_GIT_TOKEN:-}
+    # Uncommon ports: 5173/8888/19420 clash with whatever else is running on the host.
     ports:
-      - "5173:5173"
-      - "19420:19420"
-      - "8888:8888"
+      - "45173:45173"
+      - "49420:49420"
+      - "48888:48888"
     volumes:
       - ..:/workspace
       # Container-local node_modules (anonymous volumes) so platform-native

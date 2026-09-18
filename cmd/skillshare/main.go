@@ -216,7 +216,6 @@ func printUsage() {
 	cmd("list", "[agents] [pattern] [--all]", "List installed skills (or agents)")
 	cmd("search", "[query]", "Search or browse GitHub for skills")
 	cmd("sync", "[agents|mcp] [--all]", "Sync skills/agents/extras/MCP to targets")
-	cmd("mcp", "<command>", "Set up and manage MCP connections")
 	cmd("status", "", "Show status of all targets")
 	fmt.Println()
 
@@ -254,6 +253,16 @@ func printUsage() {
 	cmd("extras", "list", "List all configured extras and sync status")
 	cmd("extras", "remove <name>", "Remove an extra resource type")
 	cmd("extras", "collect <name>", "Collect local files into extras source")
+	fmt.Println()
+
+	// MCP
+	fmt.Println("MCP")
+	cmd("mcp add", "[name]", "Add a connection (guided, --url or -- command)")
+	cmd("mcp edit", "[name]", "Change an endpoint, command or its clients")
+	cmd("mcp import", "[name]", "Import from a client (--from) or file (--file)")
+	cmd("mcp list", "", "Browse connections and per-client sync status")
+	cmd("mcp remove", "[name]", "Remove a connection from the source")
+	cmd("mcp restore", "[id]", "Restore client entries from a backup")
 	fmt.Println()
 
 	// Git Remote

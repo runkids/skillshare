@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
 # Devcontainer: launch dashboard (API backend + Vite frontend).
-# Usage: ui          # global mode → http://localhost:5173
-#        ui -p       # project mode (~/demo-project) → http://localhost:5173
+# Usage: ui          # global mode → http://localhost:45173
+#        ui -p       # project mode (~/demo-project) → http://localhost:45173
 #        ui stop     # stop API + Vite
 set -euo pipefail
 
-PORT=19420
-VITE_PORT=5173
+# Uncommon ports so the devcontainer does not fight other projects for 5173/19420.
+PORT=49420
+VITE_PORT=45173
 PIDDIR=/tmp/dev-servers
 LOGDIR=/tmp
 mkdir -p "$PIDDIR"

@@ -3,11 +3,11 @@
   "dockerComposeFile": "docker-compose.yml",
   "service": "skillshare-devcontainer",
   "workspaceFolder": "/workspace",
-  "forwardPorts": [5173, 19420, 8888],
+  "forwardPorts": [45173, 49420, 48888],
   "portsAttributes": {
-    "5173": { "label": "Dashboard (ui)" },
-    "19420": { "label": "API Backend" },
-    "8888": { "label": "Docs (docs)" }
+    "45173": { "label": "Dashboard (ui)" },
+    "49420": { "label": "API Backend" },
+    "48888": { "label": "Docs (docs)" }
   },
   "remoteEnv": {
     "PATH": "/workspace/.devcontainer/bin:/usr/local/bin:${containerEnv:PATH}",

@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # Devcontainer: start/stop Docusaurus.
-# Usage: docs         # start → http://localhost:8888
+# Usage: docs         # start → http://localhost:48888
 #        docs stop    # stop
 set -euo pipefail
 
-PORT=8888
+PORT=48888
 PIDDIR=/tmp/dev-servers
 LOGDIR=/tmp
 mkdir -p "$PIDDIR"

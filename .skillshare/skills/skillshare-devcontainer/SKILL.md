@@ -167,8 +167,8 @@ docker exec $CONTAINER ui -p
 docker exec $CONTAINER ui stop
 ```
 
-Dashboard accessible at `http://localhost:5173` (Vite dev server with HMR).
-API backend at `http://localhost:19420`.
+Dashboard accessible at `http://localhost:45173` (Vite dev server with HMR).
+API backend at `http://localhost:49420`.
 Logs: `/tmp/api-dev.log`, `/tmp/vite-dev.log`.
 
 ## ssenv Quick Reference
@@ -188,9 +188,9 @@ For automation (non-interactive), prefer `ssenv enter <name> -- <command>` over 
 
 | Port | Service | Notes |
 |------|---------|-------|
-| 5173 | Vite dev server | React dashboard with HMR |
-| 19420 | Go API backend | `skillshare ui` server |
-| 3000 | Docusaurus | `docs` command in devcontainer |
+| 45173 | Vite dev server | React dashboard with HMR |
+| 49420 | Go API backend | `skillshare ui` server |
+| 48888 | Docusaurus | `docs` command in devcontainer |
 
 ## Common Mistakes to Avoid
 

@@ -48,10 +48,10 @@ if [ -z "${GITHUB_TOKEN:-}" ] && command -v gh &>/dev/null; then
 fi
 
 echo "Dev servers ready:"
-echo "  ui          # global-mode dashboard → :5173"
-echo "  ui -p       # project-mode dashboard → :5173"
+echo "  ui          # global-mode dashboard → :45173"
+echo "  ui -p       # project-mode dashboard → :45173"
 echo "  ui stop     # stop dashboard"
-echo "  docs        # documentation site → :8888"
+echo "  docs        # documentation site → :48888"
 echo "  docs stop   # stop docs"
 echo "  ss ...      # instant mode (go run, no manual rebuild)"
 echo "  ssenv ...   # isolated HOME environments (create/use/enter/list/reset/delete)"
