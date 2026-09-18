@@ -91,7 +91,7 @@ Push skills from source to all targets.
 ```bash
 skillshare sync              # Sync skills to all targets
 skillshare sync agents       # Sync agents only
-skillshare sync --all        # Sync skills + agents + extras
+skillshare sync --all        # Sync skills + agents + extras + MCP
 skillshare sync --dry-run    # Preview changes
 skillshare sync -n           # Short form
 skillshare sync --force      # Overwrite all managed skills
@@ -100,7 +100,7 @@ skillshare sync -f           # Short form
 
 | Flag | Short | Description |
 |------|-------|-------------|
-| `--all` | | Also sync agents and extras after skills |
+| `--all` | | Also sync agents, extras, and MCP after skills (excludes plugins) |
 | `--dry-run` | `-n` | Preview changes without writing |
 | `--force` | `-f` | Overwrite all managed entries regardless of checksum (copy mode) or replace existing directories with symlinks (merge mode) |
 | `--json` | | Output as JSON |
@@ -498,12 +498,12 @@ flowchart TD
 
 ## Agent Sync {#agent-sync}
 
-Agents are synced separately from skills. Use `sync agents` for agent-only sync, or `sync --all` to sync everything:
+Agents are synced separately from skills. Use `sync agents` for agent-only sync, or `sync --all` to include skills, agents, extras, and MCP:
 
 ```bash
 skillshare sync              # Sync skills only (default)
 skillshare sync agents       # Sync agents only
-skillshare sync --all        # Sync skills + agents + extras
+skillshare sync --all        # Sync skills + agents + extras + MCP
 ```
 
 Agent sync supports all three modes (merge, copy, symlink), matching the target's configured mode. Only targets with an `agents` path definition receive agent syncs — currently Claude, Cursor, OpenCode, and Augment. See [Agents — Supported Targets](/docs/understand/agents#supported-targets) for the full list.
@@ -511,6 +511,24 @@ Agent sync supports all three modes (merge, copy, symlink), matching the target'
 Orphan cleanup, `.agentignore` filtering, and per-target include/exclude filters all work the same way as for skills.
 
 ---
+
+## Sync Plugins
+
+`sync plugins [name]` is an alias for [`plugin sync`](./plugin.md). Plugins are
+**excluded from `sync --all`** and use native installation operations instead of
+skill sync modes.
+
+```bash
+skillshare sync plugins --dry-run --json
+skillshare sync plugins demo --target claude --no-tui
+```
+
+`plugin enable` and `plugin disable` save target selection only. The next plugin
+sync installs selected bindings and uninstalls deselected ones while keeping their
+definitions. Unmanaged plugins are unaffected. Plugin sync accepts `--target`,
+`--dry-run`, `--json`, `--no-tui`, `--revision`, and mode flags; ordinary sync options
+such as `--force`, `--quiet`, and `--all` do not apply. See [plugin](./plugin.md) for
+native client requirements, project scope, and partial-failure recovery.
 
 ## Sync Extras {#sync-extras}
 
@@ -520,7 +538,7 @@ Sync non-skill resources (rules, commands, prompts, etc.) to arbitrary directori
 skillshare sync extras            # Sync all configured extras
 skillshare sync extras --dry-run  # Preview changes
 skillshare sync extras --force    # Overwrite conflicting files
-skillshare sync --all             # Sync skills + extras in one command
+skillshare sync --all             # Sync skills + agents + extras + MCP
 ```
 
 | Flag | Short | Description |
@@ -529,7 +547,7 @@ skillshare sync --all             # Sync skills + extras in one command
 | `--force` | `-f` | Overwrite conflicting files at target |
 
 :::info Both modes supported
-`sync extras` works in both global and project mode. Use `sync --all` to sync skills + extras together, or `sync extras` to sync extras only. In project mode, extras source is `.skillshare/extras/<name>/`.
+`sync extras` works in both global and project mode. Use `sync --all` to sync skills, agents, extras, and MCP together, or `sync extras` to sync extras only. In project mode, extras source is `.skillshare/extras/<name>/`.
 :::
 
 ### Configuration

@@ -44,6 +44,7 @@ export const queryKeys = {
   skillPreview: (req: object) => ['skill-preview', req] as const,
   extras: ['extras'] as const,
   mcp: ['mcp'] as const,
+  plugins: ['plugins'] as const,
   hubConfig: ['hub-config'] as const,
   preview: (source: string) => ['preview', source] as const,
   extrasDiff: (name?: string) => ['extras-diff', name ?? '__all'] as const,

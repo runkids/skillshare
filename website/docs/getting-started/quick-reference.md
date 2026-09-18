@@ -67,12 +67,39 @@ Command cheat sheet for skillshare.
 | `enable --kind agent <name>` | Re-enable a disabled agent |
 | `disable --kind agent <name>` | Disable an agent via `.agentignore` |
 
+## Plugin Management
+
+| Command | Description |
+|---------|-------------|
+| `plugin` | Open the interactive plugin manager |
+| `plugin list` | Show managed plugins and native installation state |
+| `plugin discover <source>` | Inspect a directory or Git repository |
+| `plugin add [source]` | Install a complete native plugin |
+| `plugin import [plugin@market] --from claude` | Adopt an existing native installation |
+| `plugin inspect <name>` | Inspect a managed package |
+| `plugin check [name]` | Check source changes without applying |
+| `plugin update [name] --target claude` | Update a supported target from a reviewed source |
+| `plugin enable [name] --target codex` | Select a target for the next sync |
+| `plugin disable [name] --target codex` | Deselect a target for the next sync |
+| `plugin remove [name]` | Uninstall managed bindings and remove definitions |
+| `sync plugins [name]` | Apply plugin sync selection; alias for `plugin sync` |
+
+Targets: Claude Code, Codex, Cursor, Antigravity (`agy`), Pi, and OpenCode.
+Project mode supports Claude, Antigravity, Pi, and OpenCode.
+
+Enable/disable only saves the selection. The next plugin sync installs selected
+bindings or uninstalls deselected bindings while retaining their definitions.
+Plugins are excluded from `sync --all`. Use `--dry-run --json` to preview mutations;
+use `--no-tui` with explicit inputs for automation. See [plugin](../reference/commands/plugin.md)
+for native client requirements and supported targets.
+
 ## Sync Operations
 
 | Command | Description |
 |---------|-------------|
 | `sync extras` | Sync non-skill resources (rules, commands, etc.) |
-| `sync --all` | Sync skills + extras together |
+| `sync mcp` | Sync MCP connection settings |
+| `sync --all` | Sync skills + agents + extras + MCP (excludes plugins) |
 | `collect <target>` | Collect skills from target to source |
 | `collect --all` | Collect from all targets |
 | `backup [target]` | Create backup |

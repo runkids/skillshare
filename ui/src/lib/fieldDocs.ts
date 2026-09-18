@@ -6,6 +6,17 @@ export interface FieldDoc {
 }
 
 export const fieldDocs: Record<string, FieldDoc> = {
+  plugins: { description: 'Complete native plugins managed by Skillshare. Use the Plugins page or plugin commands to add or import packages.', type: 'object', example: 'plugins:\n  packages: {}' },
+  'plugins.packages': { description: 'Named plugin packages. Each package has native bindings for its receiving tools.', type: 'object', example: 'packages:\n  review:\n    bindings:\n      claude:\n        id: review@team' },
+  'plugins.packages.bindings': { description: 'Native plugin identities per target (claude, codex, cursor, antigravity, pi, or opencode). Plugin contents stay together.', type: 'object', example: 'bindings:\n  claude:\n    id: review@team\n    sync: true' },
+  'plugins.packages.bindings.id': { description: 'Native identifier: marketplace ID, local plugin name, package source, or file URL. Import existing installations instead of guessing this identifier.', type: 'string', example: 'id: review@team' },
+  'plugins.packages.bindings.sync': { description: 'Whether to sync this plugin to the target. False schedules removal on the next sync while retaining its definition. Does not change native enable settings.', type: 'boolean', example: 'sync: false' },
+  'plugins.packages.bindings.source': { description: 'Original directory or HTTPS Git repository used to acquire the complete package. Omitted for imported native installations.', type: 'string', example: 'source: https://github.com/example/plugins.git' },
+  'plugins.packages.bindings.plugin': { description: 'Selected plugin name within the source marketplace.', type: 'string', example: 'plugin: review' },
+  'plugins.packages.bindings.digest': { description: 'Recorded source content digest. Changed source content must be reviewed through plugin update.', type: 'string', example: 'digest: <sha256>' },
+  'plugins.packages.bindings.version': { description: 'Version declared by the source manifest or imported native installation; not proof of runtime activation.', type: 'string', example: 'version: 1.0.0' },
+  'plugins.packages.bindings.pending': { description: 'An unfinished native operation. Sync retries it; do not edit this field to bypass verification.', type: 'string', example: 'pending: install' },
+  'plugins.packages.bindings.components': { description: 'Component kinds observed in the source manifest and package tree. This inventory does not prove runtime activation.', type: 'string[]', example: 'components: [skills, mcpServers]' },
   'sources.mcp': {
     description: 'Optional MCP YAML file, relative to config.yaml or an absolute path. Its root contains servers. Use this instead of inline mcp.servers; do not define both.',
     type: 'string', example: 'sources:\n  mcp: ./mcp.yaml',

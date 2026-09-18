@@ -13,6 +13,7 @@ $_skillshareCompleter = {
             @{ Name = 'list'; Desc = 'List installed skills' }
             @{ Name = 'search'; Desc = 'Search or browse GitHub for skills' }
             @{ Name = 'sync'; Desc = 'Sync skills/agents/extras/MCP to targets' }
+            @{ Name = 'plugin'; Desc = 'Manage complete native plugins' }
             @{ Name = 'mcp'; Desc = 'Manage MCP connections' }
             @{ Name = 'status'; Desc = 'Show status of all targets' }
             @{ Name = 'diff'; Desc = 'Show differences between source and targets' }
@@ -41,6 +42,19 @@ $_skillshareCompleter = {
             @{ Name = 'completion'; Desc = 'Generate shell completion scripts' }
             @{ Name = 'version'; Desc = 'Show version' }
             @{ Name = 'help'; Desc = 'Show help' }
+        )
+        'plugin' = @(
+            @{ Name = 'add'; Desc = 'Plugin add' }
+            @{ Name = 'discover'; Desc = 'Plugin discover' }
+            @{ Name = 'import'; Desc = 'Plugin import' }
+            @{ Name = 'list'; Desc = 'Plugin list' }
+            @{ Name = 'inspect'; Desc = 'Plugin inspect' }
+            @{ Name = 'sync'; Desc = 'Plugin sync' }
+            @{ Name = 'check'; Desc = 'Plugin check' }
+            @{ Name = 'update'; Desc = 'Plugin update' }
+            @{ Name = 'enable'; Desc = 'Plugin enable' }
+            @{ Name = 'disable'; Desc = 'Plugin disable' }
+            @{ Name = 'remove'; Desc = 'Plugin remove' }
         )
         'target' = @(
             @{ Name = 'add'; Desc = 'Add a target' }
@@ -113,6 +127,7 @@ $_skillshareCompleter = {
         'enable' = '--dry-run', '-n', '--help', '-h', '--project', '-p', '--global', '-g'
         'disable' = '--dry-run', '-n', '--help', '-h', '--project', '-p', '--global', '-g'
         'analyze' = '--no-tui', '--json', '--help', '-h', '--project', '-p', '--global', '-g'
+        'plugin' = '--target', '--from', '--plugin', '--name', '--revision', '--dry-run', '--json', '--no-tui', '--help', '--project', '--global'
         'extras' = '--help', '-h', '--project', '-p', '--global', '-g'
         'completion' = '--install', '--help', '-h'
     }
@@ -120,6 +135,15 @@ $_skillshareCompleter = {
     $elements = $commandAst.ToString().Split(' ', [StringSplitOptions]::RemoveEmptyEntries)
     $cmd = if ($elements.Count -gt 1) { $elements[1] } else { '' }
     $subcmd = if ($elements.Count -gt 2) { $elements[2] } else { '' }
+
+    $previousIndex = $elements.Count - 1
+    if ($wordToComplete -ne '') { $previousIndex-- }
+    if ($cmd -eq 'plugin' -and $previousIndex -ge 0 -and $elements[$previousIndex] -in @('--target', '--from')) {
+        @('claude', 'codex', 'cursor', 'antigravity', 'agy', 'pi', 'opencode') | Where-Object { $_ -like "$wordToComplete*" } | ForEach-Object {
+            [System.Management.Automation.CompletionResult]::new($_, $_, 'ParameterValue', $_)
+        }
+        return
+    }
 
     # Complete subcommands
     if ($elements.Count -le 2 -or ($elements.Count -eq 2 -and $wordToComplete -ne '')) {

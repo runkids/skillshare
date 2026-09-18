@@ -14,7 +14,7 @@ _skillshare() {
         cword=$COMP_CWORD
     fi
 
-    local commands="init install uninstall list search sync mcp status diff backup restore collect pull push commit doctor target upgrade update check new trash analyze audit hub log ui tui extras enable disable completion version help"
+    local commands="init install uninstall list search sync mcp plugin status diff backup restore collect pull push commit doctor target upgrade update check new trash analyze audit hub log ui tui extras enable disable completion version help"
 
     local global_flags="--project -p --global -g"
 
@@ -68,6 +68,11 @@ _skillshare() {
 
     local cmd="${words[1]}"
 
+    if [[ "${cmd}" == plugin && ( "${prev}" == --target || "${prev}" == --from ) ]]; then
+        COMPREPLY=($(compgen -W "claude codex cursor antigravity agy pi opencode" -- "${cur}"))
+        return
+    fi
+
     # Handle subcommands (cword == 2)
     if [[ ${cword} -eq 2 ]]; then
         case "${cmd}" in
@@ -100,7 +105,7 @@ _skillshare() {
                 return
                 ;;
             sync)
-                COMPREPLY=($(compgen -W "agents extras mcp ${sync_flags} ${global_flags}" -- "${cur}"))
+                COMPREPLY=($(compgen -W "agents extras mcp plugins ${sync_flags} ${global_flags}" -- "${cur}"))
                 return
                 ;;
             list)
@@ -152,6 +157,7 @@ _skillshare() {
         uninstall)  COMPREPLY=($(compgen -W "${uninstall_flags} ${global_flags}" -- "${cur}")) ;;
         list)       COMPREPLY=($(compgen -W "${list_flags} ${global_flags}" -- "${cur}")) ;;
         sync)       COMPREPLY=($(compgen -W "${sync_flags} ${global_flags}" -- "${cur}")) ;;
+        plugin)     COMPREPLY=($(compgen -W "add discover import list inspect sync check update enable disable remove --target --from --plugin --name --revision --dry-run --json --no-tui ${global_flags}" -- "${cur}")) ;;
         mcp)        COMPREPLY=($(compgen -W "add import list remove restore ${mcp_flags} ${global_flags}" -- "${cur}")) ;;
         status)     COMPREPLY=($(compgen -W "${global_flags}" -- "${cur}")) ;;
         diff)       COMPREPLY=($(compgen -W "${diff_flags} ${global_flags}" -- "${cur}")) ;;

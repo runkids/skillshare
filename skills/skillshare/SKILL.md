@@ -1,7 +1,7 @@
 ---
 name: skillshare
 description: |
-  Manage skills, agents, extras, and MCP connection settings with the Skillshare CLI.
+  Manage skills, agents, extras, plugins, and MCP connection settings with the Skillshare CLI.
   Use when the user asks to configure or run Skillshare, install or sync resources
   across AI tools, import MCP settings, manage targets, audit skills, recover backups,
   or troubleshoot Skillshare configuration and sync. Covers global and project modes,
@@ -28,6 +28,9 @@ Check `skillshare <command> --help` if the installed version differs from these 
   flattening/content transformation is required; `extension:` works only on extras targets.
 - MCP uses its own receiving targets and source definitions. Read [mcp.md](references/mcp.md)
   before editing MCP settings or importing native configurations.
+- Plugins keep their native components together. Read [plugins.md](references/plugins.md)
+  for installation, import, sync selection, updates, and native compatibility limits
+  across Claude, Codex, Cursor, Antigravity, Pi, and OpenCode.
 
 ## Execution rules
 
@@ -36,7 +39,7 @@ Check `skillshare <command> --help` if the installed version differs from these 
    Do not add `--force` simply to avoid a prompt: it can overwrite conflicts or override audits.
 2. **Keep previews separate from writes.** Use `--dry-run` where supported. After changing
    skills or agents, sync the intended resource and scope. MCP mutations save source only
-   unless `--sync` is supplied; `sync --all` also includes extras and MCP.
+   unless `--sync` is supplied; `sync --all` also includes extras and MCP, but excludes plugins.
 3. **Inspect audit blocks.** Review findings before choosing an override. `install --json`
    permits overwrite and selects all when no skill/agent filter is given, but retains
    the audit gate; it is not merely an output format. Read [install.md](references/install.md)
@@ -107,6 +110,20 @@ skillshare sync mcp
 editing, import conflicts, credentials, backups, and human-operated TUI commands, read
 [mcp.md](references/mcp.md).
 
+### Complete plugins
+
+```bash
+skillshare plugin list --json
+skillshare plugin add ./my-plugin --target claude --dry-run --json
+skillshare plugin disable demo --target claude --no-tui
+skillshare sync plugins demo --dry-run --json
+```
+
+Run only the requested operation. `add` installs a whole native package; `import`
+adopts an existing installation. Plugin enable/disable saves sync selection only;
+the next `sync plugins` installs or removes the managed target. It is excluded
+from `sync --all`. Read [plugins.md](references/plugins.md) before applying changes.
+
 ### Skill hubs
 
 ```bash
@@ -127,6 +144,7 @@ references for a single task.
 |-------|------|
 | Native agents, selection, ignore rules, and recovery | [native-agents.md](references/native-agents.md) |
 | MCP configuration, imports, TUI, and recovery | [mcp.md](references/mcp.md) |
+| Complete plugins, native lifecycle, and sync selection | [plugins.md](references/plugins.md) |
 | Init flags | [init.md](references/init.md) |
 | Sync/collect/commit/push/pull | [sync.md](references/sync.md) |
 | Install/update/uninstall/new | [install.md](references/install.md) |

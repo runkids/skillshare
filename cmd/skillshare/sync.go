@@ -60,6 +60,9 @@ type syncModeStats struct {
 }
 
 func cmdSync(args []string) error {
+	if i := slices.Index(args, "plugins"); i >= 0 {
+		return cmdPlugin(append([]string{"sync"}, slices.Delete(slices.Clone(args), i, i+1)...))
+	}
 	// "mcp" is a subcommand in any position, e.g. "sync -g --dry-run mcp".
 	if i := slices.Index(args, "mcp"); i >= 0 {
 		return cmdSyncMCP(slices.Delete(slices.Clone(args), i, i+1))
@@ -940,7 +943,7 @@ func syncSymlinkMode(name string, target config.TargetConfig, source string, dry
 }
 
 func printSyncHelp() {
-	fmt.Println(`Usage: skillshare sync [agents|mcp] [options]
+	fmt.Println(`Usage: skillshare sync [agents|extras|mcp|plugins] [options]
 
 Sync skills from source to all configured targets.
 
@@ -955,6 +958,8 @@ Options:
   --help, -h        Show this help
 
 Subcommands:
+  agents            Sync only agents
+  plugins [name]    Apply plugin sync selection (see: skillshare plugin --help)
   mcp               Sync only MCP settings (no --force; conflicts require review)
   extras            Sync only extras (see: skillshare sync extras --help)
 
@@ -963,5 +968,11 @@ Examples:
   skillshare sync --dry-run      Preview sync changes
   skillshare sync --all          Sync skills, agents, extras, and MCP
   skillshare sync -p             Sync project-level skills
-  skillshare sync agents         Sync agents only`)
+  skillshare sync agents         Sync agents only
+  skillshare sync plugins        Apply selected plugin installations/removals
+  skillshare sync plugins --dry-run --json   Preview plugin changes
+
+Plugins are not included in --all. Plugin sync uses its own options;
+--force and --quiet do not apply. Enable/disable saves selection only;
+run sync plugins to install selected targets or uninstall deselected targets.`)
 }

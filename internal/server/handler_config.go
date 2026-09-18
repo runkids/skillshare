@@ -10,6 +10,7 @@ import (
 
 	"gopkg.in/yaml.v3"
 	"skillshare/internal/config"
+	"skillshare/internal/plugin"
 )
 
 func (s *Server) handleGetConfig(w http.ResponseWriter, r *http.Request) {
@@ -100,6 +101,11 @@ func (s *Server) handlePutConfig(w http.ResponseWriter, r *http.Request) {
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid JSON body")
+		return
+	}
+
+	if err := plugin.Validate([]byte(body.Raw)); err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 

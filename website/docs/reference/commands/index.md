@@ -19,6 +19,7 @@ Complete reference for all skillshare commands.
 | Update installed skills | [`check`](./check.md) then [`update`](./update.md) |
 | Temporarily hide a skill without removing it | [`enable` / `disable`](./enable.md) |
 | Save or sync changes with git | [`commit`](./commit.md) / [`push`](./push.md) / [`pull`](./pull.md) |
+| Manage complete plugins across supported tools | [`plugin`](./plugin.md) |
 | Manage non-skill resources (rules, commands) | [`extras`](./extras.md) |
 | Manage single-file `.md` agents | Most commands accept `agents` or `--kind agent` — see [Agents](/docs/understand/agents) |
 | See which skills use the most context tokens | [`analyze`](./analyze.md) |
@@ -34,6 +35,7 @@ Complete reference for all skillshare commands.
 |----------|----------|
 | **Core** | `init`, `install`, `uninstall`, `list`, `search`, `sync`, `status` |
 | **Skill Management** | `new`, `check`, `update`, `upgrade`, `enable`, `disable` |
+| **Plugin Management** | `plugin` (`list`, `discover`, `add`, `import`, `inspect`, `sync`, `check`, `update`, `enable`, `disable`, `remove`) |
 | **Target Management** | `target`, `diff` |
 | **Extras Management** | `extras` (`init`, `list`, `remove`, `collect`) |
 | **Sync Operations** | `collect`, `backup`, `restore`, `trash`, `commit`, `push`, `pull` |
@@ -74,7 +76,8 @@ Complete reference for all skillshare commands.
 
 | Command | Description |
 |---------|-------------|
-| [extras](./extras.md) | Manage non-skill resources (rules, commands, prompts) |
+| [extras](./extras.md) | Manage complete plugins across supported tools | [`plugin`](./plugin.md) |
+| Manage non-skill resources (rules, commands, prompts) |
 
 ## Sync Operations
 

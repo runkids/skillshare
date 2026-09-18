@@ -268,6 +268,7 @@ type GlobalSources struct {
 
 // Config holds the application configuration
 type Config struct {
+	Plugins      yaml.Node     `yaml:"plugins,omitempty"`
 	MCP          *MCPConfig    `yaml:"mcp,omitempty"`
 	Source       string        `yaml:"source,omitempty"`
 	AgentsSource string        `yaml:"agents_source,omitempty"`

@@ -54,3 +54,17 @@ func TestUnknownCommand_ShowsError(t *testing.T) {
 	result.AssertFailure(t)
 	result.AssertAnyOutputContains(t, "Unknown command")
 }
+
+func TestHelp_PluginCommandsAndSyncBoundary(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	result := sb.RunCLI("--help")
+	result.AssertSuccess(t)
+	for _, command := range []string{"PLUGIN MANAGEMENT", "plugin list", "plugin discover", "plugin add", "plugin import", "plugin inspect", "plugin sync", "plugin check", "plugin update", "plugin enable", "plugin disable", "plugin remove", "sync plugins"} {
+		result.AssertOutputContains(t, command)
+	}
+	result = sb.RunCLI("sync", "--help")
+	result.AssertSuccess(t)
+	result.AssertOutputContains(t, "Plugins are not included in --all")
+	result.AssertOutputContains(t, "skillshare sync plugins")
+}

@@ -11,6 +11,7 @@ _skillshare() {
         'list:List installed skills'
         'search:Search or browse GitHub for skills'
         'sync:Sync skills/agents/extras/MCP to targets'
+        'plugin:Manage complete native plugins'
         'mcp:Manage MCP connections'
         'status:Show status of all targets'
         'diff:Show differences between source and targets'
@@ -87,6 +88,20 @@ _skillshare() {
                         '--help[Show help]' \
                         '-h[Show help]'
                     ;;
+                plugin)
+                    _arguments \
+                        '1:command:(add discover import list inspect sync check update enable disable remove)' \
+                        '--target[Receiving target]:target:(claude codex cursor antigravity agy pi opencode)' \
+                        '--from[Import target]:target:(claude codex cursor antigravity agy pi opencode)' \
+                        '--plugin[Source plugin]:name:' \
+                        '--name[Logical package name]:name:' \
+                        '--revision[Preview revision]:revision:' \
+                        '--dry-run[Preview changes]' \
+                        '--json[JSON output]' \
+                        '--no-tui[Disable interactive menus]' \
+                        $global_flags \
+                        '--help[Show help]'
+                    ;;
                 install)
                     _arguments \
                         '1:source:_files' \
@@ -156,7 +171,7 @@ _skillshare() {
                     ;;
                 sync)
                     _arguments \
-                        '1:scope:(agents extras mcp)' \
+                        '1:scope:(agents extras mcp plugins)' \
                         '--all[Sync skills + agents + extras]' \
                         '--dry-run[Preview changes]' \
                         '-n[Preview changes]' \

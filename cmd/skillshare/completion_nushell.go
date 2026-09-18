@@ -10,6 +10,7 @@ def "nu-complete skillshare commands" [] {
         { value: "list", description: "List installed skills" }
         { value: "search", description: "Search or browse GitHub for skills" }
         { value: "sync", description: "Sync skills/agents/extras/MCP to targets" }
+        { value: "plugin", description: "Manage complete native plugins" }
         { value: "mcp", description: "Manage MCP connections" }
         { value: "status", description: "Show status of all targets" }
         { value: "diff", description: "Show differences between source and targets" }
@@ -40,6 +41,30 @@ def "nu-complete skillshare commands" [] {
         { value: "help", description: "Show help" }
     ]
 }
+
+def "nu-complete skillshare plugin" [] {
+    [add discover import list inspect sync check update enable disable remove]
+}
+
+def "nu-complete skillshare plugin-target" [] {
+    [claude codex cursor antigravity agy pi opencode]
+}
+
+export extern "skillshare plugin" [
+    command?: string@"nu-complete skillshare plugin"
+    value?: string
+    --target: string@"nu-complete skillshare plugin-target"
+    --from: string@"nu-complete skillshare plugin-target"
+    --plugin: string
+    --name: string
+    --revision: string
+    --dry-run(-n)
+    --json
+    --no-tui
+    --global(-g)
+    --project(-p)
+    --help(-h)
+]
 
 def "nu-complete skillshare target" [] {
     [
@@ -224,7 +249,7 @@ export extern "skillshare list" [
 
 # Sync
 export extern "skillshare sync" [
-    scope?: string           # agents, extras, mcp
+    scope?: string           # agents, extras, mcp, plugins
     --all                    # Sync skills + agents + extras
     --dry-run(-n)            # Preview changes
     --force(-f)              # Force sync

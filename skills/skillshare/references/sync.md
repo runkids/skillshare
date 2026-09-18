@@ -37,6 +37,19 @@ Copy mode note:
 `skillshare sync agents` distributes native agents. `skillshare sync mcp` applies
 MCP settings; see [native-agents.md](native-agents.md) and [mcp.md](mcp.md).
 
+## sync plugins
+
+`skillshare sync plugins [name]` is an alias for `plugin sync [name]`.
+It uses native clients to install selected bindings and uninstall deselected ones,
+retaining their definitions. `plugin enable` / `plugin disable` only save selection.
+Plugins are excluded from `sync --all`; ordinary sync flags such as `--force` do
+not apply. See [plugins.md](plugins.md) for compatibility and recovery.
+
+```bash
+skillshare sync plugins --dry-run --json
+skillshare sync plugins demo --target claude --no-tui
+```
+
 ## sync extras
 
 Sync non-skill resources (rules, commands, prompts) to arbitrary directories. Supports both global and project mode.

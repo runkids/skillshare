@@ -48,6 +48,7 @@ var commands = map[string]func([]string) error{
 	"tui":          cmdTUIToggle,
 	"extras":       cmdExtras,
 	"mcp":          cmdMCP,
+	"plugin":       cmdPlugin,
 	"enable":       cmdEnable,
 	"disable":      cmdDisable,
 	"completion":   cmdCompletion,
@@ -215,7 +216,7 @@ func printUsage() {
 	cmd("uninstall", "<name>...", "Remove skills/agents from source directory")
 	cmd("list", "[agents] [pattern] [--all]", "List installed skills (or agents)")
 	cmd("search", "[query]", "Search or browse GitHub for skills")
-	cmd("sync", "[agents|mcp] [--all]", "Sync skills/agents/extras/MCP to targets")
+	cmd("sync", "[scope] [--all]", "Sync skills/agents/extras/MCP to targets")
 	cmd("status", "", "Show status of all targets")
 	fmt.Println()
 
@@ -253,6 +254,22 @@ func printUsage() {
 	cmd("extras", "list", "List all configured extras and sync status")
 	cmd("extras", "remove <name>", "Remove an extra resource type")
 	cmd("extras", "collect <name>", "Collect local files into extras source")
+	fmt.Println()
+
+	// Plugins
+	fmt.Println("PLUGIN MANAGEMENT")
+	cmd("plugin list", "", "Browse plugins and native installation state (TUI)")
+	cmd("plugin discover", "<source>", "Inspect plugins in a directory or Git repository")
+	cmd("plugin add", "[source]", "Install a complete plugin (guided in a terminal)")
+	cmd("plugin import", "[native-id]", "Adopt a native install with --from <target>")
+	cmd("plugin inspect", "<name>", "Show a managed plugin and its target bindings")
+	cmd("plugin sync", "[name]", "Apply sync selection using native clients")
+	cmd("plugin check", "[name]", "Check source changes without applying")
+	cmd("plugin update", "[name]", "Update supported targets from reviewed sources")
+	cmd("plugin enable", "[name]", "Select targets for the next plugin sync")
+	cmd("plugin disable", "[name]", "Deselect targets; next sync removes their installs")
+	cmd("plugin remove", "[name]", "Uninstall managed plugins and remove definitions")
+	cmd("sync plugins", "[name]", "Alias for plugin sync; excluded from sync --all")
 	fmt.Println()
 
 	// MCP
@@ -297,6 +314,8 @@ func printUsage() {
 	fmt.Println("  skillshare sync --dry-run                           # Preview before sync")
 	fmt.Println("  skillshare sync agents                              # Sync agents only")
 	fmt.Println("  skillshare sync --all                               # Sync skills + agents + extras + MCP")
+	fmt.Println("  skillshare plugin                                  # Open the plugin manager")
+	fmt.Println("  skillshare sync plugins --dry-run --json            # Preview plugin changes")
 	fmt.Println("  skillshare list --all                               # List skills + agents")
 	fmt.Println("  skillshare collect claude                           # Import local skills")
 	fmt.Println("  skillshare install anthropics/skills/pdf -p         # Project install")

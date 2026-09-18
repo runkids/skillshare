@@ -30,6 +30,16 @@ complete -c skillshare -n __fish_skillshare_no_subcommand -a uninstall -d 'Remov
 complete -c skillshare -n __fish_skillshare_no_subcommand -a list -d 'List installed skills'
 complete -c skillshare -n __fish_skillshare_no_subcommand -a search -d 'Search or browse GitHub for skills'
 complete -c skillshare -n __fish_skillshare_no_subcommand -a sync -d 'Sync skills/agents/extras/MCP to targets'
+complete -c skillshare -n __fish_skillshare_no_subcommand -a plugin -d 'Manage complete native plugins'
+complete -c skillshare -n '__fish_skillshare_using_command plugin' -a 'add discover import list inspect sync check update enable disable remove'
+complete -c skillshare -n '__fish_skillshare_using_command plugin' -l target -r -a 'claude codex cursor antigravity agy pi opencode' -d 'Plugin target'
+complete -c skillshare -n '__fish_skillshare_using_command plugin' -l from -r -a 'claude codex cursor antigravity agy pi opencode' -d 'Plugin target'
+complete -c skillshare -n '__fish_skillshare_using_command plugin' -l plugin -r
+complete -c skillshare -n '__fish_skillshare_using_command plugin' -l name -r
+complete -c skillshare -n '__fish_skillshare_using_command plugin' -l revision -r
+complete -c skillshare -n '__fish_skillshare_using_command plugin' -l dry-run
+complete -c skillshare -n '__fish_skillshare_using_command plugin' -l json
+complete -c skillshare -n '__fish_skillshare_using_command plugin' -l no-tui
 complete -c skillshare -n __fish_skillshare_no_subcommand -a mcp -d 'Manage MCP connections'
 complete -c skillshare -n '__fish_skillshare_using_command mcp' -a 'add import list remove restore'
 complete -c skillshare -n __fish_skillshare_no_subcommand -a status -d 'Show status of all targets'
@@ -125,7 +135,7 @@ complete -c skillshare -n '__fish_skillshare_using_command list' -l all -d 'List
 complete -c skillshare -n '__fish_skillshare_using_command list' -l help -s h -d 'Show help'
 
 # sync
-complete -c skillshare -n '__fish_skillshare_using_command sync' -a 'agents extras mcp' -d 'Sync scope'
+complete -c skillshare -n '__fish_skillshare_using_command sync' -a 'agents extras mcp plugins' -d 'Sync scope'
 complete -c skillshare -n '__fish_skillshare_using_command sync' -l all -d 'Sync skills + agents + extras'
 complete -c skillshare -n '__fish_skillshare_using_command sync' -l dry-run -s n -d 'Preview changes'
 complete -c skillshare -n '__fish_skillshare_using_command sync' -l force -s f -d 'Force sync'

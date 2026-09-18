@@ -271,6 +271,7 @@ func ProjectDir(projectRoot string) string {
 
 // ProjectConfig holds project-level config (<project-dir>/config.yaml).
 type ProjectConfig struct {
+	Plugins       yaml.Node            `yaml:"plugins,omitempty"`
 	MCP           *MCPConfig           `yaml:"mcp,omitempty"`
 	Sources       ProjectSources       `yaml:"sources,omitempty"`
 	Targets       []ProjectTargetEntry `yaml:"targets"`
