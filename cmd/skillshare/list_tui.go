@@ -100,6 +100,9 @@ type detailData struct {
 	License       string
 	Files         []string
 	SyncedTargets []string
+	// ModelInvocationOff mirrors disable-model-invocation: the skill stays installed and
+	// user-invocable, but the model no longer loads it on its own.
+	ModelInvocationOff bool
 }
 
 // listTUIModel is the bubbletea model for the interactive skill list.
@@ -142,7 +145,8 @@ type listTUIModel struct {
 
 	// In-TUI confirmation overlay
 	confirming    bool   // true when confirmation overlay is shown
-	confirmAction string // "audit", "update", "uninstall"
+	confirmAction string // "audit", "update", "uninstall", or confirmModelInvocation
+	confirmNote   string // consequence shown by the in-place confirmations
 	confirmSkill  string // skill name for confirmation display
 	confirmKind   string // "skill" or "agent"
 
@@ -427,12 +431,13 @@ func (m listTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.confirming {
 			switch msg.String() {
 			case "y", "Y", "enter":
+				if m.confirmAction == confirmModelInvocation {
+					m.clearConfirm()
+					return m.toggleModelInvocation()
+				}
 				return m.quitWithAction(m.confirmAction)
 			case "n", "N", "esc", "q":
-				m.confirming = false
-				m.confirmAction = ""
-				m.confirmSkill = ""
-				m.confirmKind = ""
+				m.clearConfirm()
 				return m, nil
 			}
 			return m, nil
@@ -513,6 +518,8 @@ func (m listTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m.enterConfirm("uninstall")
 		case "E":
 			return m.toggleDisabled()
+		case "M":
+			return m.pressModelInvocation()
 		}
 	}
 
@@ -616,6 +623,58 @@ func (m listTUIModel) toggleDisabled() (tea.Model, tea.Cmd) {
 }
 
 // quitWithAction sets the action on the selected skill and exits the TUI.
+const (
+	modelInvocationKey     = "disable-model-invocation"
+	confirmModelInvocation = "model-invocation"
+)
+
+func (m *listTUIModel) clearConfirm() {
+	m.confirming = false
+	m.confirmAction = ""
+	m.confirmSkill = ""
+	m.confirmKind = ""
+	m.confirmNote = ""
+}
+
+// pressModelInvocation handles M. Unlike E, which only touches the ignore file beside the
+// skill, this edits SKILL.md itself — so when upstream owns that file it says what that costs
+// before writing. Turning the flag back off restores the file and needs no warning.
+func (m listTUIModel) pressModelInvocation() (tea.Model, tea.Cmd) {
+	item, ok := m.list.SelectedItem().(skillItem)
+	if !ok || item.entry.Kind == "agent" { // agent harnesses do not read this key
+		return m, nil
+	}
+	e := item.entry
+	if m.getDetailData(e).ModelInvocationOff || (e.RepoName == "" && e.Source == "") {
+		return m.toggleModelInvocation()
+	}
+
+	m.confirming = true
+	m.confirmAction = confirmModelInvocation
+	m.confirmSkill = e.RelPath
+	m.confirmKind = e.Kind
+	if e.RepoName != "" {
+		m.confirmNote = "This edits SKILL.md inside a tracked repo. 'skillshare update' skips\n  repos with local changes until you press M again to restore the file."
+	} else {
+		m.confirmNote = "This edits an installed SKILL.md. The next 'skillshare update' reinstalls\n  the skill and drops the change."
+	}
+	return m, nil
+}
+
+// toggleModelInvocation flips disable-model-invocation in the selected skill's SKILL.md.
+func (m listTUIModel) toggleModelInvocation() (tea.Model, tea.Cmd) {
+	item, ok := m.list.SelectedItem().(skillItem)
+	if !ok {
+		return m, nil
+	}
+	skillMD := filepath.Join(m.sourcePath, item.entry.RelPath, "SKILL.md")
+	if _, err := utils.ToggleFrontmatterFlag(skillMD, modelInvocationKey); err != nil {
+		return m, nil
+	}
+	delete(m.detailCache, item.entry.RelPath) // the chip re-reads the file
+	return m, nil
+}
+
 func (m listTUIModel) quitWithAction(action string) (tea.Model, tea.Cmd) {
 	if _, ok := m.list.SelectedItem().(skillItem); ok {
 		m.action = action
@@ -648,6 +707,10 @@ func (m listTUIModel) View() string {
 		kindArg := ""
 		if m.confirmKind == "agent" {
 			kindArg = "agents "
+		}
+		if m.confirmAction == confirmModelInvocation {
+			return fmt.Sprintf("\n  %s\n\n  %s\n\n  Proceed? [Y/n] ",
+				theme.Warning().Render("Make "+m.confirmSkill+" manual only?"), m.confirmNote)
 		}
 		cmd := fmt.Sprintf("skillshare %s %s%s %s", m.confirmAction, kindArg, flag, m.confirmSkill)
 		if m.confirmAction == "uninstall" {
@@ -801,7 +864,7 @@ func (m listTUIModel) viewSplit() string {
 	b.WriteString(m.renderFilterBar())
 	b.WriteString(m.renderSummaryFooter())
 	b.WriteString("\n")
-	helpText := "Tab skills/agents  s status  ↑↓ navigate  ←→ page  / filter  Ctrl+d/u detail  Enter view  A audit  U update  E enable/disable  X uninstall  q quit"
+	helpText := "Tab skills/agents  s status  ↑↓ navigate  ←→ page  / filter  Ctrl+d/u detail  Enter view  A audit  U update  E enable/disable  M manual only  X uninstall  q quit"
 	if m.filtering {
 		helpText = "t:type g:group r:repo k:kind  Enter lock  Esc clear  q quit"
 	}
@@ -842,7 +905,7 @@ func (m listTUIModel) viewVertical() string {
 
 	b.WriteString(m.renderSummaryFooter())
 	b.WriteString("\n")
-	helpText := "Tab skills/agents  s status  ↑↓ navigate  ←→ page  / filter  Ctrl+d/u detail  Enter view  A audit  U update  E enable/disable  X uninstall  q quit"
+	helpText := "Tab skills/agents  s status  ↑↓ navigate  ←→ page  / filter  Ctrl+d/u detail  Enter view  A audit  U update  E enable/disable  M manual only  X uninstall  q quit"
 	if m.filtering {
 		helpText = "t:type g:group r:repo k:kind  Enter lock  Esc clear  q quit"
 	}
@@ -965,13 +1028,14 @@ func (m listTUIModel) getDetailData(e skillEntry) *detailData {
 	skillMD := filepath.Join(skillDir, "SKILL.md")
 
 	// Single file open for both description and license
-	fm := utils.ParseFrontmatterFields(skillMD, []string{"description", "license"})
+	fm := utils.ParseFrontmatterFields(skillMD, []string{"description", "license", modelInvocationKey})
 
 	d := &detailData{
-		Description:   fm["description"],
-		License:       fm["license"],
-		Files:         listSkillFiles(skillDir),
-		SyncedTargets: m.findSyncedTargets(e),
+		Description:        fm["description"],
+		License:            fm["license"],
+		Files:              listSkillFiles(skillDir),
+		SyncedTargets:      m.findSyncedTargets(e),
+		ModelInvocationOff: strings.EqualFold(fm[modelInvocationKey], "true"),
 	}
 	m.detailCache[key] = d
 	return d
@@ -1083,6 +1147,9 @@ func renderDetailHeader(e skillEntry, d *detailData, width int) string {
 	// Line 2: Compact metadata — status · date · targets on one line
 	var metaParts []string
 	metaParts = append(metaParts, detailStatusBits(e))
+	if d.ModelInvocationOff {
+		metaParts = append(metaParts, theme.Warning().Render("manual only"))
+	}
 	if e.InstalledAt != "" {
 		metaParts = append(metaParts, theme.Dim().Render(e.InstalledAt))
 	}
