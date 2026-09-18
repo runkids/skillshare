@@ -10,8 +10,9 @@ configuration. It does not run a gateway or keep a background server alive.
 
 Supported MCP clients include Claude Code, Codex, Cursor, VS Code, OpenCode,
 Grok CLI, Antigravity (AGY), Amp, Claude Desktop, Cline, Copilot CLI, Factory,
-Gemini CLI, Goose, Junie, Kiro, LM Studio, Warp and Windsurf. Pi requires a
-separate MCP extension and is not supported yet. See the
+Gemini CLI, Goose, Junie, Kiro, LM Studio, Warp and Windsurf. Pi works through a
+third-party MCP extension that you
+[choose explicitly](/docs/reference/commands/mcp#pi-choose-your-mcp-extension). See the
 [destination and authentication limits](/docs/reference/commands/mcp#native-destinations)
 for each client. The dashboard shows the clients available in your current scope.
 

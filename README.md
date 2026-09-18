@@ -40,7 +40,7 @@
 </p>
 
 > [!NOTE]
-> **Latest**: [v0.20.0](https://github.com/runkids/skillshare/releases/tag/v0.20.0) — choose what `commit`/`push`/`pull` version with **git_root scope** (skills, agents, extras, or all together in one repo); extras **extension transforms** convert Markdown to native formats (Gemini TOML commands, Codex TOML agents) during sync. [All releases →](https://github.com/runkids/skillshare/releases)
+> **Latest**: [v0.21.0](https://github.com/runkids/skillshare/releases/tag/v0.21.0) — define **MCP connections** once and sync them into each Agent's native config; install and sync **complete plugins** across Claude, Codex, Cursor and more; and a **redesigned web dashboard** with Clean and Playful styles. [All releases →](https://github.com/runkids/skillshare/releases)
 
 ## Why skillshare
 
@@ -52,6 +52,8 @@ skillshare fixes this:
 - **One source, every agent** — sync to Claude, Cursor, Codex & 60+ more with `skillshare sync`
 - **Agent management** — sync custom agents alongside skills to agent-capable targets
 - **More than skills** — manage rules, commands, prompts & any file-based resource with [extras](https://skillshare.runkids.cc/docs/reference/targets/configuration#extras)
+- **MCP connections** — define a server once, sync it into each Agent's own config format with [`sync mcp`](https://skillshare.runkids.cc/docs/how-to/daily-tasks/sharing-mcp)
+- **Complete plugins** — keep a plugin's skills, hooks and MCP settings together and choose which tools receive it with [`plugin`](https://skillshare.runkids.cc/docs/how-to/daily-tasks/sharing-plugins)
 - **Install from anywhere** — GitHub, GitLab, Bitbucket, Azure DevOps, or any self-hosted Git
 - **Built-in security** — audit skills for prompt injection and data exfiltration before use
 - **Team-ready** — project skills in `.skillshare/`, org-wide skills via tracked repos
@@ -197,7 +199,7 @@ skillshare sync --all                 # sync skills + agents + extras + MCP toge
 skillshare extras collect rules       # collect local files back to source
 ```
 
-**MCP connections** —configure once for Claude Code, Codex, Cursor and VS Code
+**MCP connections** —configure once for Claude Code, Codex, Cursor, VS Code, OpenCode and more
 
 ```bash
 skillshare mcp add                    # guided URL or JSON setup
@@ -208,6 +210,17 @@ skillshare sync mcp                   # apply connection settings
 Keep definitions in `config.yaml` or reference a separate `mcp.yaml`.
 See [MCP setup](https://skillshare.runkids.cc/docs/how-to/daily-tasks/sharing-mcp)
 for examples, environment references and importing existing connections.
+
+**Plugins** —install a complete plugin and pick which tools receive it
+
+```bash
+skillshare plugin add                 # guided: source, plugin, targets, review
+skillshare plugin add owner/repo --target claude --target codex --no-tui
+skillshare sync plugins --dry-run     # plugins sync separately from sync --all
+```
+
+Existing native installations can be adopted with `plugin import`.
+See [Manage plugins across tools](https://skillshare.runkids.cc/docs/how-to/daily-tasks/sharing-plugins).
 
 **Shell completion** —tab-complete commands, flags, and subcommands
 

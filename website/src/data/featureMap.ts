@@ -21,7 +21,7 @@ export type FeatureGroup = {
 const C = '/docs/reference/commands/';
 const D = '/docs/';
 
-export const COMMAND_COUNT = 32;
+export const COMMAND_COUNT = 34;
 export const TARGET_COUNT = 66;
 
 export const FEATURE_GROUPS: FeatureGroup[] = [
@@ -127,12 +127,14 @@ export const FEATURE_GROUPS: FeatureGroup[] = [
     num: '06',
     title: 'Write & organize',
     when: 'authoring your own, or keeping a big set tidy',
-    teaser: 'new · analyze · extras',
+    teaser: 'new · extras · mcp',
     items: [
       {cmd: 'new', what: 'Scaffold a skill with a valid SKILL.md', kw: 'create author scaffold template', href: C + 'new'},
       {cmd: 'analyze', what: 'Context window usage and skill quality per target', kw: 'tokens size budget quality', href: C + 'analyze'},
       {cmd: 'enable / disable', what: 'Turn skills off without removing them', kw: 'toggle off pause', href: C + 'enable'},
       {cmd: 'extras', what: 'Sync rules, commands and prompts alongside skills', kw: 'rules prompts agents non-skill', href: C + 'extras'},
+      {cmd: 'mcp', what: 'Define an MCP server once, write it into each tool\'s own config', kw: 'model context protocol server connection json toml import', href: C + 'mcp'},
+      {cmd: 'plugin', what: 'Install a complete plugin and choose which tools receive it', kw: 'package marketplace hooks bundle claude codex', href: C + 'plugin'},
       {cmd: '.skillignore', what: 'Include, exclude and filter what gets synced', kw: 'filter ignore exclude include', href: D + 'reference/filtering'},
     ],
     guides: [

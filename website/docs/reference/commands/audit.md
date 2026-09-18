@@ -212,6 +212,8 @@ If both are provided, `--skip-audit` effectively wins because audit is not execu
 
 `skillshare update` runs a security audit after pulling tracked repos. Findings at or above the active threshold (`audit.block_threshold` by default, or `--audit-threshold` / `--threshold` / `-T` override) trigger rollback. See [`update --skip-audit`](/docs/reference/commands/update#security-audit-gate) for details.
 
+Findings you accept with `--force` are remembered for that skill, so later updates do not block on the same rule matching the same text. A new finding, or the same rule matching different text, blocks again. See [Accepted Findings](/docs/reference/commands/update#accepted-findings).
+
 When updating tracked repos via install (`skillshare install <repo> --track --update`), the gate uses the same threshold policy (`audit.block_threshold` or `--audit-threshold` / `--threshold` / `-T`).
 
 ## CI/CD Integration

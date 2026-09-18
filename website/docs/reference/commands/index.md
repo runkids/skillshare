@@ -19,6 +19,7 @@ Complete reference for all skillshare commands.
 | Update installed skills | [`check`](./check.md) then [`update`](./update.md) |
 | Temporarily hide a skill without removing it | [`enable` / `disable`](./enable.md) |
 | Save or sync changes with git | [`commit`](./commit.md) / [`push`](./push.md) / [`pull`](./pull.md) |
+| Set up an MCP server once for every tool | [`mcp`](./mcp.md) |
 | Manage complete plugins across supported tools | [`plugin`](./plugin.md) |
 | Manage non-skill resources (rules, commands) | [`extras`](./extras.md) |
 | Manage single-file `.md` agents | Most commands accept `agents` or `--kind agent` — see [Agents](/docs/understand/agents) |
@@ -35,6 +36,7 @@ Complete reference for all skillshare commands.
 |----------|----------|
 | **Core** | `init`, `install`, `uninstall`, `list`, `search`, `sync`, `status` |
 | **Skill Management** | `new`, `check`, `update`, `upgrade`, `enable`, `disable` |
+| **MCP Connections** | `mcp` (`add`, `edit`, `import`, `list`, `remove`, `restore`), `sync mcp` |
 | **Plugin Management** | `plugin` (`list`, `discover`, `add`, `import`, `inspect`, `sync`, `check`, `update`, `enable`, `disable`, `remove`) |
 | **Target Management** | `target`, `diff` |
 | **Extras Management** | `extras` (`init`, `list`, `remove`, `collect`) |
@@ -76,8 +78,14 @@ Complete reference for all skillshare commands.
 
 | Command | Description |
 |---------|-------------|
-| [extras](./extras.md) | Manage complete plugins across supported tools | [`plugin`](./plugin.md) |
-| Manage non-skill resources (rules, commands, prompts) |
+| [extras](./extras.md) | Manage non-skill resources (rules, commands, prompts) |
+
+## MCP and Plugins
+
+| Command | Description |
+|---------|-------------|
+| [mcp](./mcp.md) | Define MCP servers once and sync them into each tool's native config |
+| [plugin](./plugin.md) | Install complete plugins and choose which tools receive them |
 
 ## Sync Operations
 

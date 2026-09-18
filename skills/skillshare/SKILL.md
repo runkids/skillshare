@@ -8,7 +8,7 @@ description: |
   noninteractive automation, and guidance for the terminal UI.
 argument-hint: "[command] [target] [--json] [--dry-run] [-p|-g]"
 metadata:
-  version: v0.20.29
+  version: v0.21.0
 ---
 
 # Skillshare CLI
@@ -27,7 +27,8 @@ Check `skillshare <command> --help` if the installed version differs from these 
 - Use native agents targets for agents. Use extras for arbitrary file resources or when
   flattening/content transformation is required; `extension:` works only on extras targets.
 - MCP uses its own receiving targets and source definitions. Read [mcp.md](references/mcp.md)
-  before editing MCP settings or importing native configurations.
+  before editing MCP settings or importing native configurations. Pi requires an explicit
+  MCP extension choice; follow its setup instructions in that reference.
 - Plugins keep their native components together. Read [plugins.md](references/plugins.md)
   for installation, import, sync selection, updates, and native compatibility limits
   across Claude, Codex, Cursor, Antigravity, Pi, and OpenCode.

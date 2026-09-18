@@ -14,9 +14,9 @@ skillshare mcp restore BACKUP_ID --dry-run --json     # Preview entry-level rest
 skillshare mcp restore BACKUP_ID --no-tui            # Apply restoration; source stays unchanged
 ```
 
-MCP supports 19 clients including Claude Code, Codex, Cursor, VS Code, OpenCode,
+MCP supports 20 clients including Claude Code, Codex, Cursor, VS Code, OpenCode,
 Grok, Antigravity, Amp, Cline, Copilot CLI, Factory, Gemini CLI, Goose, Junie,
-Kiro, LM Studio, Warp, Windsurf and Claude Desktop. Client scope and transport
+Kiro, LM Studio, Warp, Windsurf, Claude Desktop and Pi (with a third-party MCP extension). Client scope and transport
 support vary; see the MCP command reference for native destinations and limits.
 Interactive `mcp` provides search, details, add/edit/remove, sync and backup
 browsing. Import supports multi-selection with one preview before saving the
@@ -49,3 +49,23 @@ Preview with `skillshare sync mcp --dry-run --json`, then apply with
 Noninteractive import without a name only lists candidates. Use `--replace`
 only when replacement is intended. Sync writes settings; it does not start
 servers or verify connectivity.
+
+An `update` with the message `same settings, laid out one field per line` is a
+formatting-only rewrite of a managed JSON entry that still sat on one line. Values do
+not change, and entries formatted by hand are left alone.
+
+
+## Pi extension setup
+
+Pi MCP requires one of `pi-mcp-adapter` or `pi-mcp-extension`, installed by the user
+with `pi install npm:<package>`. Do not equate config sync with installation or
+runtime connectivity. Use `--target pi --pi-extension pi-mcp-adapter` (or
+`pi-mcp-extension`) with add/edit/import. The source field is `piExtension`;
+all Pi servers in a source must use the same extension. The UI and TUI offer a chooser.
+
+Global destination: `~/.pi/agent/mcp.json`; project: `.pi/mcp.json`. Adapter global
+paths honor `PI_CODING_AGENT_DIR`; extension global sync rejects that override.
+Adapter supports environment references. Extension HTTP references are rejected;
+matching stdio variable names are inherited from Pi, never resolved by Skillshare.
+Extension new servers need `/mcp:start <server>` after restart; existing lifecycle
+settings survive sync. Adapter connects on demand. The website MCP command reference links to both packages and their setup documentation.

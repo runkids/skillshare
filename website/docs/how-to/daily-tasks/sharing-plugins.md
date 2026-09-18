@@ -17,9 +17,11 @@ In the dashboard, open **Plugins → Add plugin**:
 3. Review the changes and apply them.
 
 Most users only need a repository and target checkboxes. **Advanced options** adds
-an optional Git ref (to choose a release) and OpenCode entry path (for packages
-whose entry cannot be detected). Discovery shows each target's components and
-compatibility separately. Safe relative repository symlinks are preserved.
+a Git ref, to choose a release. Discovery shows each target's components and
+compatibility separately. When OpenCode is listed as unsupported because its entry
+could not be detected, **Set entry path** on that row takes the built file and
+searches the source again, keeping what you already chose. Safe relative repository
+symlinks are preserved.
 
 The same guided flow is available in a terminal:
 
@@ -62,16 +64,27 @@ Each managed binding has a checkbox. The checkbox means **include this target in
 sync**, not “enable inside the Agent.”
 
 - Check it, then sync to install a missing plugin.
+- Opening a plugin's row also lists, unticked, the other Agents its source has a package
+  for. Ticking one opens the install preview. Agents the source cannot serve are counted
+  at the end of the row, and that count opens the reasons.
 - Uncheck it, then sync to remove that managed installation.
 - The package definition remains, so you can select the target again later.
 - A plugin disabled inside Claude or Codex stays disabled; manage native settings
   in that tool.
+
+In the dashboard, the **Sync** box at the top right of the Plugins page lists what
+the next sync would install or remove for each Agent. Its button opens a preview;
+nothing changes in an Agent until you confirm it. The plugin list appears at once,
+while the **Agents** column below the box fills in as each Agent's CLI answers.
 
 ```bash
 skillshare plugin disable review --target codex --no-tui
 skillshare sync plugins --dry-run
 skillshare sync plugins --no-tui
 ```
+
+A plugin's menu has **View files**: the reviewed local copy of its source, read only,
+with rendered Markdown. An imported plugin has no local copy, so it has no such entry.
 
 Plugins are separate from ordinary skills and MCP synchronization. Their bundled
 components are not also copied into standalone Skillshare sources.

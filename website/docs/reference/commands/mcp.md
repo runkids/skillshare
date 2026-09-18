@@ -114,7 +114,7 @@ Skillshare config. The schema is `schemas/mcp.schema.json` in the repository.
 
 Client IDs are `claude`, `codex`, `cursor`, `vscode`, `opencode`, `grok`,
 `antigravity`, `amp`, `claude-desktop`, `cline`, `copilot`, `factory`, `gemini`,
-`goose`, `junie`, `kiro`, `lmstudio`, `warp`, and `windsurf`.
+`goose`, `junie`, `kiro`, `lmstudio`, `warp`, `windsurf`, and `pi`.
 `grok` means the official xAI Grok CLI. Server names use letters,
 digits, dots, underscores and hyphens. A server must select at least one client
 either directly or through `mcp.targets` before synchronization.
@@ -147,9 +147,22 @@ Names such as `company-docs` work across all supported clients.
 | [Warp](https://docs.warp.dev/agents/capabilities/mcp/) | `~/.warp/.mcp.json` | `.warp/.mcp.json` | `mcpServers` |
 | [Windsurf (Cascade)](https://docs.devin.ai/desktop/cascade/mcp) | `~/.codeium/windsurf/mcp_config.json` | Global only | `mcpServers` |
 
+The dashboard's server form edits HTTP headers the same way as environment variables,
+including `fromEnv` references. **View what each Agent gets**, in a server's menu and
+beside the file count in its form, shows read only the native text Sync would write for
+the selected client; in the form it reflects edits that are not saved yet. Secrets stay
+as references.
+
+JSON entries are written one field per line at the file's own indentation. An entry
+Skillshare owns that still sits on one line is reported as an `update` and written again
+laid out. Entries it does not own, and entries someone formatted by hand, keep their layout.
+
 The dashboard only offers destinations available in the current scope and host
 platform. Each server is one row; the count button on the right opens the full
 client list for that server. Global-only clients cannot be selected in project mode.
+The **Sync** box on the right lists the changes not yet written: ticking a client
+only edits the source, and the files are written after you confirm on the Sync page.
+Below it, **Agents** lists the clients whose config file was detected.
 
 Additional client details:
 
@@ -200,8 +213,8 @@ OpenCode uses `local`/`remote` types and `{env:VARIABLE}` references; Grok uses
 `"type": "streamable-http"` imports as HTTP. Disabled connections block import.
 Other native options without a portable equivalent, such as Codex
 `startup_timeout_sec` or `envFile`, are left out of the import with a warning;
-sync keeps them in the Agent's existing entry. Pi has no built-in MCP support
-and is not a supported MCP target.
+sync keeps them in the Agent's existing entry. Pi is supported through an explicitly
+selected third-party extension; see below.
 
 VS Code Stable's default user file is:
 
@@ -256,3 +269,63 @@ server approval and authentication remain the receiving Agent's responsibility.
   `state.json`, `pending.json` during a write, and `backups/` (the newest 20 per
   Agent file). Do not share this
   directory as a portable manifest.
+
+
+## Pi: choose your MCP extension
+
+Pi can use MCP through either [pi-mcp-adapter](https://pi.dev/packages/pi-mcp-adapter)
+or [pi-mcp-extension](https://pi.dev/packages/pi-mcp-extension). These are third-party
+packages listed on Pi's website, not built-in Pi features. Install **one** in Pi:
+
+```bash
+pi install npm:pi-mcp-adapter
+```
+
+Restart Pi after installation. In Skillshare's MCP form, select **Pi**, then choose
+the package you installed. The import dialog offers the same choice. In the terminal,
+`mcp add` / `mcp edit` guide the selection; scripts must supply `--pi-extension`:
+
+```bash
+skillshare mcp add docs --url https://example.com/mcp --target pi --pi-extension pi-mcp-adapter --no-tui
+skillshare sync mcp --dry-run
+skillshare sync mcp
+```
+
+The saved server definition is:
+
+```yaml
+mcp:
+  servers:
+    docs:
+      url: https://example.com/mcp
+      targets: [pi]
+      piExtension: pi-mcp-adapter
+```
+
+For the other package, use `pi-mcp-extension` in both the install command and the
+selection. Every server targeting Pi within a Skillshare source must choose the
+same package, because both packages read the same destination file.
+
+| Package | Native output | What to do after sync |
+|---|---|---|
+| `pi-mcp-adapter` | `command`/`args` or `url`; `${VARIABLE}` references | Restart/reload Pi; use `/mcp` to inspect connections. Tools connect on demand. |
+| `pi-mcp-extension` | Explicit `transport: stdio` or `streamable-http` | Restart Pi; new servers default to manual start with `/mcp:start <server>`. Existing `lifecycle` settings are preserved. |
+
+Both use `~/.pi/agent/mcp.json` globally and `.pi/mcp.json` in project mode.
+Skillshare uses these Pi-specific files, not the adapter's shared `.mcp.json` or
+`~/.config/mcp/mcp.json` inputs. Project entries override global entries with the
+same name. For the adapter, a global `PI_CODING_AGENT_DIR` override is honored.
+The extension does not honor that override; global sync refuses it rather than
+writing a file the extension would ignore.
+
+The adapter supports `fromEnv` in environment variables and HTTP headers.
+The extension does **not** interpolate environment references: matching stdio
+variables (for example `TOKEN: {fromEnv: TOKEN}`) are inherited from Pi's process
+instead; renaming variables and environment-backed HTTP credentials are rejected.
+Use the adapter for those cases. Skillshare never reads or copies secret values.
+
+Import with `--from pi` reads the Pi-specific file. Choose `--pi-extension` when
+saving an imported connection; a file alone cannot identify which package is
+installed. Unsupported legacy SSE remains blocked. OAuth and package-only options
+stay managed in Pi. Sync success means the configuration was written, not that
+an extension is installed or a server has connected.

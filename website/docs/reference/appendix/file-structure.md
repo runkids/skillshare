@@ -12,6 +12,7 @@ Directory layout and file locations for skillshare.
 ~/.config/skillshare/        # XDG_CONFIG_HOME
 ├── config.yaml              # Configuration file
 ├── audit-rules.yaml         # Custom audit rules (optional)
+├── mcp.yaml                 # MCP servers, if sources.mcp points here (optional)
 ├── skills/                  # Skills source (skills + metadata)
 │   ├── .metadata.json       # Installed skill metadata (auto-managed)
 │   ├── .skillignore         # Optional: exclude skills from sync
@@ -52,9 +53,13 @@ Directory layout and file locations for skillshare.
         └── SKILL.md
 
 ~/.local/state/skillshare/   # XDG_STATE_HOME
-└── logs/                    # Operation logs (JSONL)
-    ├── operations.log       # install, sync, update, etc.
-    └── audit.log            # Security audit scans
+├── logs/                    # Operation logs (JSONL)
+│   ├── operations.log       # install, sync, update, etc.
+│   └── audit.log            # Security audit scans
+├── mcp/                     # MCP sync state (auto-managed)
+│   ├── state.json           # Which native entries Skillshare owns
+│   └── backups/             # Agent files before each write (newest 20 per file)
+└── plugins/                 # Reviewed local copies of plugin sources
 
 ~/.cache/skillshare/         # XDG_CACHE_HOME      
 ├── version-check.json       # Version check cache (24h TTL)

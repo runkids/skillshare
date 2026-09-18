@@ -1,5 +1,81 @@
 # Changelog
 
+## [0.21.0] - 2026-09-19
+
+### New Features
+
+#### MCP connections
+
+- **Define an MCP server once, sync it into each Agent's own config** — a server lives in `config.yaml` (or a separate `mcp.yaml`) as a portable definition, and `sync mcp` writes it in the format each client expects: JSON, JSONC, TOML or YAML, under that client's own key. Nothing is started or proxied; Skillshare only manages the settings.
+
+  ```bash
+  skillshare mcp add                                   # guided: URL, command, or pasted JSON
+  skillshare mcp add docs --url https://example.com/mcp --target claude --target cursor
+  skillshare mcp import docs --from claude --sync      # adopt what an Agent already has
+  skillshare sync mcp --dry-run                        # preview every file that would change
+  skillshare sync mcp
+  ```
+
+  Supported clients: Claude Code, Codex, Cursor, VS Code, OpenCode, Grok CLI, Antigravity, Amp, Claude Desktop, Cline, Copilot CLI, Factory, Gemini CLI, Goose, Junie, Kiro, LM Studio, Warp, Windsurf and Pi. Global and project scope are both supported where the client has them. `skillshare mcp` without arguments opens a TUI for browsing, editing and syncing.
+
+- **Secrets stay out of the files** — headers and environment values are written as `{fromEnv: VARIABLE}` references and rendered in each client's own reference syntax. On import, literal tokens and values carrying a URL password, such as database DSNs, are turned into references, and credential-like arguments are flagged.
+- **Only entries Skillshare wrote are ever changed** — ownership is tracked per entry. An entry you wrote by hand is left alone even when it matches the source, and stays that way until you `import` it. A managed entry edited in the Agent is reported as a conflict instead of being overwritten, Agent-only fields such as timeouts survive a sync, and previews stay valid while an Agent rewrites unrelated settings in the same file.
+- **Backups and restore** — every write backs up the Agent file first, keeping the newest 20 per file.
+
+  ```bash
+  skillshare mcp restore BACKUP_ID --dry-run
+  skillshare mcp restore BACKUP_ID
+  ```
+
+- **Pasted snippets are recognised by shape** — `mcp import --file` and the add wizard pick the client format from the top-level key, so VS Code `servers` and OpenCode `mcp` snippets copied from a provider's docs import without naming a client. TOML still needs `--from`, because Codex and Grok share the format.
+- **Pi through a chosen extension** — Pi has no built-in MCP support, so a server targeting Pi names the third-party package that reads the file, `pi-mcp-adapter` or `pi-mcp-extension`. Install one in Pi yourself; Skillshare only writes its configuration.
+
+  ```bash
+  skillshare mcp add docs --url https://example.com/mcp --target pi --pi-extension pi-mcp-adapter --no-tui
+  ```
+
+- **`sync --all` includes MCP** — it syncs skills, agents, extras and MCP settings together, and `--json` reports the MCP plan alongside the rest.
+
+#### Plugins
+
+- **Install a complete plugin and choose which tools receive it** — a plugin bundles skills, hooks, MCP settings and scripts that only work together. `plugin` keeps that package intact and installs it through each Agent's own CLI, so native formats and unrelated installations are untouched.
+
+  ```bash
+  skillshare plugin add                                          # guided: source, plugin, targets, review
+  skillshare plugin add owner/repo --target claude --target codex --no-tui
+  skillshare plugin import review@team --from claude             # adopt an existing native installation
+  skillshare plugin disable review --target codex                # save the selection only
+  skillshare sync plugins --dry-run                              # then install or remove on sync
+  skillshare plugin check review
+  skillshare plugin update review --target claude
+  ```
+
+  Install targets: Claude Code, Codex, Cursor, Antigravity Desktop, Antigravity CLI, GitHub Copilot CLI, Pi and OpenCode. Grok Build supports import and removal, with install and trust handled in Grok. Sources can be a local folder, `owner/repo` or an HTTPS Git URL, pinned with `--source-ref`. Plugins are synced with `sync plugins` and are not part of `sync --all`.
+
+#### Dashboard
+
+- **Redesigned in two styles** — the dashboard now comes in **Clean** and **Playful**, each in light and dark, switched from the theme menu. Skills and Agents are separate pages that hold their own install, search, updates and trash, and General, Backup, Log, Health, Extensions and Files are collected into one Settings page. Old routes redirect.
+- **MCP page** — one row per server with its Agents as toggles. Add a server from a URL, a command, a pasted snippet or a file, or import what an installed Agent already has. Conflicts explain their cause and offer Import or Replace, backups are grouped by day with a preview before restoring, and **View what each Agent gets** shows exactly what each Agent would receive, including edits you have not saved yet. MCP settings are only served when the dashboard is opened through `localhost` or an IP address.
+- **Plugins page** — one row per plugin with its Agents as toggles, the same as MCP. Expanding a row also lists the other Agents the source supports, so ticking one previews an install there. **View files** opens a read-only browser of the local copy Skillshare reviewed.
+- **Hubs page** — browse a hub and install from it, or assemble your own index from installed skills, validate it and export it, all at `/hubs`. A draft can be browsed straight away, before it is hosted anywhere.
+- **Filter skills and agents by target**, and a **Remote** source filter for skills from GitLab, Gitea, self-hosted and SSH sources, which previously matched no filter. Refs: #278.
+- **Config editors explain themselves** — the Files tab and the audit rules editor keep a panel beside the YAML showing what the field under the cursor does and the unsaved changes. Audit rules also get a **Test** tab that runs a rule's regex against pasted lines.
+- Dashboard source counts link to their pages, and plugins are counted alongside the other kinds.
+
+#### Audit
+
+- **Findings accepted with `--force` are remembered** — a skill that legitimately quotes attack strings, such as a security scanner or red-team notes, no longer has to be forced on every `update --all`. The accepted findings are recorded for that skill, and later updates treat the same rule matching the same text as acknowledged. Any new finding, or the same rule matching different text, still blocks. Refs: #279.
+
+#### List TUI
+
+- **Press `M` to make a skill manual only** — toggles `disable-model-invocation` in the selected skill's `SKILL.md`, so the skill stays installed and can be invoked by name but is no longer loaded by the model on its own. The detail panel shows a **manual only** badge. For a tracked or installed skill the TUI asks first, because the edit counts as a local change; pressing `M` again restores the file exactly. Refs: #283.
+
+### Bug Fixes
+
+- **`sync --dry-run agents` and `sync -g extras` no longer sync skills** — the resource kind was only recognised as the first argument, so putting a flag before it silently synced skills instead. The kind now matches in any position.
+- **A mistake in the `mcp` section no longer breaks every command** — an invalid MCP setting is reported by MCP commands and the config editor, while `sync`, `install`, `list` and the dashboard keep working.
+- **Web UI: saving the config keeps flow-style YAML** — a hand-written `targets: [claude, codex]` is no longer expanded into a block list on every save. Indentation is still normalised and comments are preserved.
+
 ## [0.20.29] - 2026-09-11
 
 ### Bug Fixes

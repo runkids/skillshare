@@ -22,7 +22,7 @@ skillshare tui off      # Disable TUI for all commands (plain text output)
 
 ## Behavior
 
-When TUI is disabled, commands that normally launch an interactive interface (`list`, `log`, `search`, `audit rules`, `trash`, `restore`, `diff`, `target list`) fall back to plain text output — equivalent to passing `--no-tui` on every command.
+When TUI is disabled, commands that normally launch an interactive interface (`list`, `log`, `search`, `audit rules`, `trash`, `restore`, `diff`, `target list`, `mcp`) fall back to plain text output — equivalent to passing `--no-tui` on every command.
 
 | State | Meaning |
 |-------|---------|
