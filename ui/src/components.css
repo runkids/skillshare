@@ -470,6 +470,12 @@ button:not(:disabled), summary { cursor: pointer; }
 button:disabled { cursor: not-allowed; }
 .ss-btn { transition: filter .12s, transform .12s, box-shadow .12s; }
 :root[data-theme="playful"] .ss-btn:disabled { transform: none; box-shadow: var(--sh-btn); }
+/* Frameless buttons have nothing to cast a shadow from, and the hover and disabled rules above outrank
+   their box-shadow: none, so without this a lone shadow arc appears under them. */
+:root[data-theme="playful"] :is(.ss-btn.ghost, .ss-bulk .ss-btn, .ss-toast .ss-btn):is(:hover, :disabled) { transform: none; box-shadow: none; }
+/* Next to 2px ink frames a bare label does not read as a button, so ghost gets a soft outline here. */
+:root[data-theme="playful"] .ss-btn.ghost { color: var(--ink); border-color: var(--line-soft); }
+:root[data-theme="playful"] .ss-btn.ghost:hover:not(:disabled) { background: var(--sunken); border-color: var(--ink-3); }
 .ss-btn:focus-visible, .ss-ib:focus-visible, .ss-nv:focus-visible, .ss-seg>*:focus-visible, .ss-tabs>*:focus-visible, .ss-menu>:is(a,button):focus-visible, .ss-sw:focus-visible, .ss-r.link:focus-visible, .ss-counts>a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .ss-ib { transition: background-color .12s, color .12s; }
 .ss-ib:hover:not(:disabled) { background: var(--sel); color: var(--ink); }
