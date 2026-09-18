@@ -111,6 +111,71 @@ Resolution: pick one target as the writer for the shared content, or accept the 
 
 Both checks are pure metadata — they read configured paths and the built-in `also_scans` table, no filesystem probing.
 
+#### Codex: keep shared targets, disable redundant entries
+
+If another tool needs the overlapping target, removing that writer is not always
+the right fix. Codex can disable an individual skill entry without deleting its
+files or changing another tool's configuration.
+
+First distinguish the possible causes:
+
+- **Multiple discovery roots:** a copy in `~/.codex/skills` and a symlink under
+  `~/.agents/skills` can expose the same source skill twice.
+- **Multiple source locations:** a standalone skill and a bundled or archived
+  copy can have the same frontmatter `name`. Codex does not merge entries just
+  because their names match.
+- **Nested skills:** a synchronized parent skill may contain another `SKILL.md`
+  under `references/`. Excluding the child's flattened target name does not
+  remove that file from the parent directory or stop Codex from discovering it.
+
+For example, a standalone `gem/SKILL.md` and an identical
+`archive/references/originals/gem/SKILL.md` can produce four `gem` entries when
+both a copy target and a shared symlink target are visible to Codex. Excluding
+`archive__*` still leaves the nested entry reachable through `archive/`.
+
+To resolve this for Codex only:
+
+1. Inspect Codex's skill entries and identify the paths it actually loads. For
+   a structured inventory, the [Codex app-server `skills/list`
+   method](https://developers.openai.com/codex/app-server) returns each entry's
+   `name`, `path`, and `enabled` state. Symlink paths may resolve into
+   Skillshare's source directory.
+2. Choose which entry to retain. Compare instructions, supporting files and
+   `agents/openai.yaml`, not just the name or `SKILL.md` hash. Keep any local
+   customizations and the relative references needed by the retained version.
+3. Back up Codex's user configuration, normally `~/.codex/config.toml`, and add
+   a path override for each redundant entry, preserving existing settings:
+
+   ```toml
+   [[skills.config]]
+   path = "/absolute/path/to/redundant/skill/SKILL.md"
+   enabled = false
+   ```
+
+   Use the redundant entry's exact path from Codex. Disabling a canonical path
+   can affect every symlink alias of that file in Codex; do not disable the path
+   of the entry you intend to keep. These overrides are Codex configuration,
+   even when their paths point into Skillshare's shared source.
+4. Restart Codex, then check its picker or reload `skills/list` with
+   `forceReload: true`. Disabled entries may remain in the API inventory; count
+   entries with `enabled: true`. Confirm one enabled entry for each name you
+   chose to deduplicate and that every skill you need is still available.
+
+See [OpenAI's skill configuration documentation](https://developers.openai.com/codex/skills)
+for the supported setting. Remove the specific override, or set it to
+`enabled = true`, to restore an entry. Review these path-specific overrides when
+installations move, a retained version is removed, or new duplicate paths appear.
+
+:::note What this verifies
+Doctor's `duplicate_skills` check looks for unintended local collisions in
+targets; it does not inventory Codex's combined runtime catalog. A
+`duplicate_skills` pass can coexist with a `cross_target_discovery` warning.
+The overlap warning may remain after Codex overrides because the directory
+topology has not changed. Likewise, a deduplicated catalog may still exceed
+Codex's description budget. Verify enabled entries rather than expecting every
+warning to disappear.
+:::
+
 ### Version
 
 - CLI version
