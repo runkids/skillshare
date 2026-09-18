@@ -39,6 +39,7 @@ complete -c skillshare -n __fish_skillshare_no_subcommand -a pull -d 'Pull from 
 complete -c skillshare -n __fish_skillshare_no_subcommand -a push -d 'Commit and push source to git remote'
 complete -c skillshare -n __fish_skillshare_no_subcommand -a commit -d 'Create local git commit without pushing'
 complete -c skillshare -n __fish_skillshare_no_subcommand -a doctor -d 'Check environment and diagnose issues'
+complete -c skillshare -n __fish_skillshare_no_subcommand -a dedup -d 'Deduplicate identical Codex skills'
 complete -c skillshare -n __fish_skillshare_no_subcommand -a target -d 'Manage targets'
 complete -c skillshare -n __fish_skillshare_no_subcommand -a upgrade -d 'Upgrade CLI and/or skillshare skill'
 complete -c skillshare -n __fish_skillshare_no_subcommand -a update -d 'Update skills/agents or tracked repositories'
@@ -165,6 +166,12 @@ complete -c skillshare -n '__fish_skillshare_using_command push' -l message -s m
 complete -c skillshare -n '__fish_skillshare_using_command commit' -l dry-run -s n -d 'Preview changes'
 complete -c skillshare -n '__fish_skillshare_using_command commit' -l message -s m -r -d 'Commit message'
 complete -c skillshare -n '__fish_skillshare_using_command commit' -l help -s h -d 'Show help'
+
+# dedup
+complete -c skillshare -n '__fish_skillshare_using_command dedup' -a codex -d 'Codex runtime'
+complete -c skillshare -n '__fish_skillshare_using_command dedup' -l apply -d 'Apply Codex skill overrides'
+complete -c skillshare -n '__fish_skillshare_using_command dedup' -l json -d 'JSON output'
+complete -c skillshare -n '__fish_skillshare_using_command dedup' -l help -s h -d 'Show help'
 
 # doctor
 complete -c skillshare -n '__fish_skillshare_using_command doctor' -l json -d 'JSON output'

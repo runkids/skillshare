@@ -32,6 +32,7 @@ var commands = map[string]func([]string) error{
 	"push":         cmdPush,
 	"commit":       cmdCommit,
 	"doctor":       cmdDoctor,
+	"dedup":        cmdDedup,
 	"target":       cmdTarget,
 	"upgrade":      cmdUpgrade,
 	"update":       cmdUpdate,
@@ -269,6 +270,7 @@ func printUsage() {
 	cmd("tui", "[on|off]", "Toggle interactive TUI mode")
 	cmd("ui", "", "Launch web dashboard")
 	cmd("doctor", "", "Check environment and diagnose issues")
+	cmd("dedup", "codex", "Preview or apply identical-skill deduplication in Codex")
 	cmd("completion", "<shell>", "Generate shell completion scripts")
 	cmd("version", "", "Show version")
 	cmd("help", "", "Show this help")

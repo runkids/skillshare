@@ -20,6 +20,7 @@ _skillshare() {
         'push:Commit and push source to git remote'
         'commit:Create local git commit without pushing'
         'doctor:Check environment and diagnose issues'
+        'dedup:Preview or apply identical-skill deduplication in Codex'
         'target:Manage targets'
         'upgrade:Upgrade CLI and/or skillshare skill'
         'update:Update skills/agents or tracked repositories'
@@ -242,6 +243,14 @@ _skillshare() {
                     ;;
                 doctor)
                     _arguments \
+                        '--json[JSON output]' \
+                        '--help[Show help]' \
+                        '-h[Show help]'
+                    ;;
+                dedup)
+                    _arguments \
+                        '1:runtime:(codex)' \
+                        '--apply[Apply Codex skill overrides]' \
                         '--json[JSON output]' \
                         '--help[Show help]' \
                         '-h[Show help]'

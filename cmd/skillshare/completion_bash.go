@@ -14,7 +14,7 @@ _skillshare() {
         cword=$COMP_CWORD
     fi
 
-    local commands="init install uninstall list search sync status diff backup restore collect pull push commit doctor target upgrade update check new trash analyze audit hub log ui tui extras enable disable completion version help"
+    local commands="init install uninstall list search sync status diff backup restore collect pull push commit doctor dedup target upgrade update check new trash analyze audit hub log ui tui extras enable disable completion version help"
 
     local global_flags="--project -p --global -g"
 
@@ -41,6 +41,7 @@ _skillshare() {
     local push_flags="--dry-run -n --message -m"
     local commit_flags="--dry-run -n --message -m --help -h"
     local doctor_flags="--json --help -h"
+    local dedup_flags="--apply --json --help -h"
     local target_flags="--json --no-tui --help -h --mode --agent-mode --target-naming --add-include --add-exclude --remove-include --remove-exclude --add-agent-include --add-agent-exclude --remove-agent-include --remove-agent-exclude"
     local target_remove_flags="--all -a --dry-run -n"
     local upgrade_flags="--dry-run -n --force -f --skill --cli --help -h"
@@ -70,6 +71,10 @@ _skillshare() {
     # Handle subcommands (cword == 2)
     if [[ ${cword} -eq 2 ]]; then
         case "${cmd}" in
+            dedup)
+                COMPREPLY=($(compgen -W "codex ${dedup_flags}" -- "${cur}"))
+                return
+                ;;
             target)
                 COMPREPLY=($(compgen -W "${target_subcmds} ${target_flags} ${global_flags}" -- "${cur}"))
                 return
@@ -160,6 +165,7 @@ _skillshare() {
         push)       COMPREPLY=($(compgen -W "${push_flags} ${global_flags}" -- "${cur}")) ;;
         commit)     COMPREPLY=($(compgen -W "${commit_flags} ${global_flags}" -- "${cur}")) ;;
         doctor)     COMPREPLY=($(compgen -W "${doctor_flags} ${global_flags}" -- "${cur}")) ;;
+        dedup)      COMPREPLY=($(compgen -W "${dedup_flags}" -- "${cur}")) ;;
         target)     COMPREPLY=($(compgen -W "${target_flags} ${global_flags}" -- "${cur}")) ;;
         upgrade)    COMPREPLY=($(compgen -W "${upgrade_flags} ${global_flags}" -- "${cur}")) ;;
         update)     COMPREPLY=($(compgen -W "${update_flags} ${global_flags}" -- "${cur}")) ;;

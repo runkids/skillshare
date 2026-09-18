@@ -117,6 +117,34 @@ If another tool needs the overlapping target, removing that writer is not always
 the right fix. Codex can disable an individual skill entry without deleting its
 files or changing another tool's configuration.
 
+For identical local skill folders, the explicit repair command automates this
+workaround using your installed Codex CLI:
+
+```bash
+skillshare dedup codex           # Preview only
+skillshare dedup codex --json    # Inspect retained/disabled paths and skipped names
+skillshare dedup codex --apply   # Back up config, write overrides, verify
+```
+
+The command reads Codex's actual catalog for the current working directory. It
+only deduplicates enabled **user** skills whose complete folders match, including
+supporting files, invocation metadata and executable bits. It prefers an entry
+in Skillshare's global source, then the shallower path, then lexical path order.
+It skips an entire same-name group if any version differs, comes from a plugin,
+repository or system scope, contains an internal symlink/special file, or has
+parent-relative Markdown references. These cases need the manual review below.
+
+`--apply` saves a private `config.toml.skillshare-dedup-backup-*` file beside
+Codex's config, uses Codex's native path-specific settings API, and checks the
+resulting enabled states. No model turn is started. Repeating the command after
+a successful repair performs no further writes. Ordinary `skillshare sync` is
+unchanged; new paths introduced by future installs require another preview.
+
+If a write or verification fails, the command exits nonzero and reports the
+backup and acknowledged writes (`applied`, `verified`, and `error` in JSON).
+Inspect the current settings before restoring a backup so that concurrent edits
+are preserved. The command does not restore an entire config automatically.
+
 First distinguish the possible causes:
 
 - **Multiple discovery roots:** a copy in `~/.codex/skills` and a symlink under
