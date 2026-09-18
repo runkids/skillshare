@@ -19,6 +19,7 @@ def "nu-complete skillshare commands" [] {
         { value: "push", description: "Commit and push source to git remote" }
         { value: "commit", description: "Create local git commit without pushing" }
         { value: "doctor", description: "Check environment and diagnose issues" }
+        { value: "dedup", description: "Deduplicate identical Codex skills" }
         { value: "target", description: "Manage targets" }
         { value: "upgrade", description: "Upgrade CLI and/or skillshare skill" }
         { value: "update", description: "Update skills/agents or tracked repositories" }
@@ -291,6 +292,13 @@ export extern "skillshare commit" [
     --message(-m): string    # Commit message
     --project(-p)            # Use project-level config
     --global(-g)             # Use global config
+    --help(-h)               # Show help
+]
+
+# Dedup
+export extern "skillshare dedup codex" [
+    --apply                  # Apply Codex skill overrides
+    --json                   # JSON output
     --help(-h)               # Show help
 ]
 

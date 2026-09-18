@@ -22,6 +22,7 @@ $_skillshareCompleter = {
             @{ Name = 'push'; Desc = 'Commit and push source to git remote' }
             @{ Name = 'commit'; Desc = 'Create local git commit without pushing' }
             @{ Name = 'doctor'; Desc = 'Check environment and diagnose issues' }
+            @{ Name = 'dedup'; Desc = 'Deduplicate identical Codex skills' }
             @{ Name = 'target'; Desc = 'Manage targets' }
             @{ Name = 'upgrade'; Desc = 'Upgrade CLI and/or skillshare skill' }
             @{ Name = 'update'; Desc = 'Update skills/agents or tracked repositories' }
@@ -40,6 +41,9 @@ $_skillshareCompleter = {
             @{ Name = 'completion'; Desc = 'Generate shell completion scripts' }
             @{ Name = 'version'; Desc = 'Show version' }
             @{ Name = 'help'; Desc = 'Show help' }
+        )
+        'dedup' = @(
+            @{ Name = 'codex'; Desc = 'Codex runtime' }
         )
         'target' = @(
             @{ Name = 'add'; Desc = 'Add a target' }
@@ -87,6 +91,7 @@ $_skillshareCompleter = {
     }
 
     $flags = @{
+        'dedup' = '--apply', '--json', '--help', '-h'
         'init' = '--source', '-s', '--remote', '--copy-from', '-c', '--no-copy', '--targets', '-t', '--all-targets', '--no-targets', '--mode', '-m', '--git', '--no-git', '--skill', '--no-skill', '--discover', '-d', '--select', '--subdir', '--dry-run', '-n', '--help', '-h', '--project', '-p', '--global', '-g'
         'install' = '--source', '-s', '--name', '--force', '-f', '--update', '-u', '--dry-run', '-n', '--skip-audit', '--audit-verbose', '--audit-threshold', '--threshold', '-T', '--branch', '-b', '--track', '-t', '--kind', '--agent', '-a', '--skill', '--exclude', '--into', '--all', '--yes', '-y', '--json', '--help', '-h', '--project', '-p', '--global', '-g'
         'uninstall' = '--all', '--force', '-f', '--dry-run', '-n', '--json', '--group', '-G', '--help', '-h', '--project', '-p', '--global', '-g'
