@@ -109,7 +109,10 @@ svg.lucide { flex: none; stroke-width: var(--isw); }
 :root[data-theme="playful"] .ss-tabs>* { margin-bottom: -2px; border-bottom-width: 4px; }
 :root[data-theme="playful"] .ss-tabs>*.on { border-bottom-color: #C8372D; }
 .ss-cnt { font: 500 12px/1 var(--f); color: var(--ink-3); }
-.ss-chk { width: 16px; height: 16px; flex: none; display: grid; place-items: center; background: var(--surface); border: 1.5px solid var(--line-2); border-radius: 4px; color: var(--on-pri); }
+.ss-chk { position: relative; width: 16px; height: 16px; flex: none; display: grid; place-items: center; background: var(--surface); border: 1.5px solid var(--line-2); border-radius: 4px; color: var(--on-pri); }
+/* The 16px box is under the 24px WCAG 2.2 minimum, and these sit in rows that navigate on click.
+   Grow the hit area only; the visual box and the layout stay put. */
+.ss-chk::after { content: ''; position: absolute; inset: -8px; border-radius: 8px; }
 :root:not([data-theme="playful"]) .ss-chk:not(.on) { border-color: #B9B5AC; }
 :root[data-theme="playful"] .ss-chk { width: 17px; height: 17px; border: 2px solid var(--line); border-radius: 5px; }
 :root[data-theme="playful"] .ss-chk.rad { border-radius: 99px; }

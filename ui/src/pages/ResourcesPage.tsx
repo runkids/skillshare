@@ -32,7 +32,7 @@ import {
   X,
 } from 'lucide-react';
 import { api } from '../api/client';
-import type { BatchUninstallItemResult, Skill } from '../api/client';
+import type { BatchUninstallItemResult, Skill, SyncMatrixEntry } from '../api/client';
 import { queryKeys, staleTimes } from '../lib/queryKeys';
 import { clearAuditCache } from '../lib/auditCache';
 import { globToRegex } from '../lib/glob';
@@ -112,6 +112,23 @@ function saveCollapsed(collapsed: Set<string>) {
 function normalizeTargets(targets?: string[] | null): string[] {
   if (!targets || targets.length === 0 || targets.includes('*')) return [];
   return targets;
+}
+
+/**
+ * Which of `items` each target actually receives, keyed by target name.
+ * Reads the sync matrix — the same source the Targets column renders — so a
+ * filter result always matches the icons the rows show.
+ */
+export function syncedByTarget(items: Skill[], matrix: SyncMatrixEntry[]): Map<string, Set<string>> {
+  const names = new Set(items.map((s) => s.flatName));
+  const byTarget = new Map<string, Set<string>>();
+  for (const e of matrix) {
+    if (e.status !== 'synced' || !names.has(e.skill)) continue;
+    let set = byTarget.get(e.target);
+    if (!set) byTarget.set(e.target, (set = new Set()));
+    set.add(e.skill);
+  }
+  return byTarget;
 }
 
 // Group key for sorting: tracked repo name or first dir segment.
@@ -330,6 +347,7 @@ export default function ResourcesPage({ kind }: { kind: Kind }) {
   const [search, setSearch] = useState('');
   const [source, setSource] = useState<SourceFilter>('all');
   const [status, setStatus] = useState<StatusFilter>('all');
+  const [target, setTarget] = useState('all');
   const [sort, setSort] = useState<SortType>('name-asc');
   const [group, setGroup] = useState<GroupBy>(isAgent ? 'none' : 'source');
   const [view, setView] = useState<ViewType>(loadView);
@@ -342,10 +360,14 @@ export default function ResourcesPage({ kind }: { kind: Kind }) {
 
   const all = data?.resources ?? EMPTY;
   const items = useMemo(() => all.filter((s) => s.kind === kind), [all, kind]);
+
+  const targetIndex = useMemo(() => syncedByTarget(items, matrix), [items, matrix]);
+  // A target that stopped appearing (kind switch, uninstall) would filter everything out.
+  const activeTarget = targetIndex.has(target) ? target : 'all';
   const updateCount = useMemo(() => countUpdates(checks, updateUnits(all, kind)), [checks, all, kind]);
   const query = search.trim();
   const isGlob = /[*?]/.test(query);
-  const filtering = query !== '' || source !== 'all' || status !== 'all';
+  const filtering = query !== '' || source !== 'all' || status !== 'all' || activeTarget !== 'all';
 
   const filtered = useMemo(() => {
     const re = query ? globToRegex(query) : null;
@@ -353,9 +375,10 @@ export default function ResourcesPage({ kind }: { kind: Kind }) {
     return sortSkills(items.filter((s) =>
       (!re || re.test(s.name) || re.test(s.relPath) || re.test(s.flatName) || (!glob && re.test(s.source ?? ''))) &&
       (source === 'all' || resolveSource(s.type, s.isInRepo) === source) &&
-      (status === 'all' || (status === 'disabled') === !!s.disabled),
+      (status === 'all' || (status === 'disabled') === !!s.disabled) &&
+      (activeTarget === 'all' || (targetIndex.get(activeTarget)?.has(s.flatName) ?? false)),
     ), sort);
-  }, [items, query, source, status, sort]);
+  }, [items, query, source, status, sort, activeTarget, targetIndex]);
 
   const groups = useMemo(() => groupBySource(filtered), [filtered]);
   const tree = useMemo(() => buildTree(filtered), [filtered]);
@@ -763,6 +786,8 @@ export default function ResourcesPage({ kind }: { kind: Kind }) {
             </div>
           )}
 
+          {/* Every control sizes to its label: fixed widths truncated the longer values
+              ("xcode-claude", "Disabled") and pushed the row past the container. */}
           <div className="flex flex-wrap items-center gap-2 -mt-2">
             <label className="ss-inp w-[200px] shrink-0">
               <Search size={15} className="shrink-0 text-ink-3" />
@@ -775,20 +800,35 @@ export default function ResourcesPage({ kind }: { kind: Kind }) {
               />
               {!search && <span className="k">/</span>}
             </label>
-            <SegmentedControl
-              className="!flex-nowrap shrink-0"
-              value={source}
-              onChange={resetting(setSource)}
-              options={(['all', ...SOURCE_ORDER] as SourceFilter[]).map((v) => ({ value: v, label: SOURCE_LABEL[v] }))}
-            />
             <span className="flex-1" />
             <Select
-              className="w-[112px] shrink-0"
+              className="shrink-0"
+              prefix={t('resources.toolbar.source')}
+              value={source}
+              onChange={(v) => resetting(setSource)(v as SourceFilter)}
+              options={(['all', ...SOURCE_ORDER] as SourceFilter[]).map((v) => ({ value: v, label: SOURCE_LABEL[v] }))}
+            />
+            <Select
+              className="shrink-0"
               prefix={t('resources.toolbar.status')}
               value={status}
               onChange={(v) => resetting(setStatus)(v as StatusFilter)}
               options={(['all', 'enabled', 'disabled'] as StatusFilter[]).map((v) => ({ value: v, label: STATUS_LABEL[v] }))}
             />
+            {targetIndex.size > 1 && (
+              <Select
+                className="shrink-0"
+                prefix={t('resources.toolbar.target')}
+                value={activeTarget}
+                onChange={resetting(setTarget)}
+                options={[
+                  { value: 'all', label: 'All' },
+                  ...[...targetIndex]
+                    .sort((a, b) => a[0].localeCompare(b[0]))
+                    .map(([name, set]) => ({ value: name, label: `${name} (${set.size})` })),
+                ]}
+              />
+            )}
             {view === 'tree' ? (
               tree.children.size > 0 && <div className="ss-seg ic !flex-nowrap shrink-0" role="group">
                 <button type="button" title={t('resources.folder.expandAll')} aria-label={t('resources.folder.expandAll')} onClick={() => updateCollapsed(new Set())}>
@@ -800,7 +840,7 @@ export default function ResourcesPage({ kind }: { kind: Kind }) {
               </div>
             ) : (
               <Select
-                className="w-[140px] shrink-0"
+                className="shrink-0"
                 prefix={t('resources.toolbar.group')}
                 value={group}
                 onChange={(v) => setGroup(v as GroupBy)}
@@ -811,7 +851,7 @@ export default function ResourcesPage({ kind }: { kind: Kind }) {
               />
             )}
             <Select
-              className="w-[124px] shrink-0"
+              className="shrink-0"
               prefix={t('resources.toolbar.sort')}
               value={sort}
               onChange={(v) => setSort(v as SortType)}
