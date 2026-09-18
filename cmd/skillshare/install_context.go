@@ -65,6 +65,8 @@ func (g *globalInstallContext) PostInstallSkill(string) error { return nil }
 func (g *globalInstallContext) Mode() string                  { return "global" }
 func (g *globalInstallContext) GitLabHosts() []string         { return g.cfg.EffectiveGitLabHosts() }
 func (g *globalInstallContext) AzureHosts() []string          { return g.cfg.EffectiveAzureHosts() }
+func (g *globalInstallContext) CNBHosts() []string            { return g.cfg.EffectiveCNBHosts() }
+func (g *globalInstallContext) GiteaHosts() []string          { return g.cfg.EffectiveGiteaHosts() }
 
 // ---------------------------------------------------------------------------
 // projectInstallContext
@@ -106,4 +108,10 @@ func (p *projectInstallContext) GitLabHosts() []string {
 }
 func (p *projectInstallContext) AzureHosts() []string {
 	return p.runtime.config.EffectiveAzureHosts()
+}
+func (p *projectInstallContext) CNBHosts() []string {
+	return p.runtime.config.EffectiveCNBHosts()
+}
+func (p *projectInstallContext) GiteaHosts() []string {
+	return p.runtime.config.EffectiveGiteaHosts()
 }

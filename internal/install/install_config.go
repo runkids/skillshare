@@ -108,6 +108,8 @@ func InstallFromConfig(ctx InstallContext, opts InstallOptions) (ConfigInstallRe
 	parseOpts := ParseOptions{
 		GitLabHosts: ctx.GitLabHosts(),
 		AzureHosts:  ctx.AzureHosts(),
+		CNBHosts:    ctx.CNBHosts(),
+		GiteaHosts:  ctx.GiteaHosts(),
 	}
 
 	// ── Classify skills: tracked / plain (groupable vs singles) ──

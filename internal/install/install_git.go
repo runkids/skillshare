@@ -75,7 +75,7 @@ func WrapGitError(stderr string, err error, tokenAuthAttempted bool) error {
 		}
 		return fmt.Errorf("authentication required — options:\n"+
 			"       1. SSH URL: git@<host>:<owner>/<repo>.git\n"+
-			"       2. Token env var: GITHUB_TOKEN, GITLAB_TOKEN, BITBUCKET_TOKEN, AZURE_DEVOPS_TOKEN, or SKILLSHARE_GIT_TOKEN\n"+
+			"       2. Token env var: GITHUB_TOKEN, GITLAB_TOKEN, BITBUCKET_TOKEN, AZURE_DEVOPS_TOKEN, CNB_TOKEN, GITEA_TOKEN, or SKILLSHARE_GIT_TOKEN\n"+
 			"       3. Git credential helper: gh auth login\n       %s", s)
 	}
 	if s != "" {
@@ -139,6 +139,10 @@ func extractGitFatal(stderr string) string {
 // GIT_CONFIG env vars without modifying the stored remote URL.
 // branch specifies the branch to clone; empty string uses the remote default.
 func cloneRepo(url, destPath, branch string, shallow bool, onProgress ProgressCallback) error {
+	return cloneRepoWithEnv(url, destPath, branch, shallow, authEnv(url), onProgress)
+}
+
+func cloneRepoWithEnv(url, destPath, branch string, shallow bool, extraEnv []string, onProgress ProgressCallback) error {
 	args := []string{"clone"}
 	if onProgress != nil {
 		args = append(args, "--progress")
@@ -152,11 +156,11 @@ func cloneRepo(url, destPath, branch string, shallow bool, onProgress ProgressCa
 		args = append(args, "--branch", branch)
 	}
 	args = append(args, url, destPath)
-	return runGitCommandWithProgress(args, "", authEnv(url), onProgress)
+	return runGitCommandWithProgress(args, "", extraEnv, onProgress)
 }
 
 func cloneRepoForSource(source *Source, destPath, branch string, shallow bool, onProgress ProgressCallback) error {
-	err := cloneRepo(source.CloneURL, destPath, branch, shallow, onProgress)
+	err := cloneRepoWithEnv(source.CloneURL, destPath, branch, shallow, source.authEnv(), onProgress)
 	if err == nil {
 		return nil
 	}
@@ -172,7 +176,7 @@ func cloneRepoForSource(source *Source, destPath, branch string, shallow bool, o
 		if onProgress != nil {
 			onProgress("Clone failed; retrying as a nested GitLab repository...")
 		}
-		fallbackErr := cloneRepo(fallback.CloneURL, destPath, branch, shallow, onProgress)
+		fallbackErr := cloneRepoWithEnv(fallback.CloneURL, destPath, branch, shallow, fallback.authEnv(), onProgress)
 		if fallbackErr == nil {
 			*source = fallback
 			return nil

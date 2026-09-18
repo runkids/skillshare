@@ -176,11 +176,15 @@ func (s *Server) parseOpts() install.ParseOptions {
 		return install.ParseOptions{
 			GitLabHosts: s.projectCfg.EffectiveGitLabHosts(),
 			AzureHosts:  s.projectCfg.EffectiveAzureHosts(),
+			CNBHosts:    s.projectCfg.EffectiveCNBHosts(),
+			GiteaHosts:  s.projectCfg.EffectiveGiteaHosts(),
 		}
 	}
 	return install.ParseOptions{
 		GitLabHosts: s.cfg.EffectiveGitLabHosts(),
 		AzureHosts:  s.cfg.EffectiveAzureHosts(),
+		CNBHosts:    s.cfg.EffectiveCNBHosts(),
+		GiteaHosts:  s.cfg.EffectiveGiteaHosts(),
 	}
 }
 

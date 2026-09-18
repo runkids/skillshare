@@ -197,7 +197,7 @@ func cloneRepoFull(url, destPath, branch string, onProgress ProgressCallback) er
 }
 
 func cloneTrackedRepoForSource(source *Source, destPath, branch string, onProgress ProgressCallback) error {
-	err := cloneTrackedRepo(source.CloneURL, source.Subdir, destPath, branch, onProgress)
+	err := cloneTrackedRepoForParsedSource(source, destPath, branch, onProgress)
 	if err == nil {
 		return nil
 	}
@@ -213,7 +213,7 @@ func cloneTrackedRepoForSource(source *Source, destPath, branch string, onProgre
 		if onProgress != nil {
 			onProgress("Clone failed; retrying as a nested GitLab repository...")
 		}
-		fallbackErr := cloneTrackedRepo(fallback.CloneURL, fallback.Subdir, destPath, branch, onProgress)
+		fallbackErr := cloneTrackedRepoForParsedSource(&fallback, destPath, branch, onProgress)
 		if fallbackErr == nil {
 			*source = fallback
 			return nil
@@ -234,13 +234,36 @@ func cloneTrackedRepoForSource(source *Source, destPath, branch string, onProgre
 // When subdir is provided, sparse checkout is attempted first to reduce payload
 // while preserving .git for future tracked updates.
 func cloneTrackedRepo(url, subdir, destPath, branch string, onProgress ProgressCallback) error {
+	return cloneTrackedRepoWithEnv(url, subdir, destPath, branch, authEnv(url), onProgress)
+}
+
+func cloneTrackedRepoForParsedSource(source *Source, destPath, branch string, onProgress ProgressCallback) error {
+	if source == nil {
+		return fmt.Errorf("nil source")
+	}
+	return cloneTrackedRepoWithEnv(source.CloneURL, source.Subdir, destPath, branch, source.authEnv(), onProgress)
+}
+
+func cloneTrackedRepoWithEnv(url, subdir, destPath, branch string, extraEnv []string, onProgress ProgressCallback) error {
 	subdir = strings.TrimSpace(subdir)
 	if subdir != "" && gitSupportsSparseCheckout() {
 		if onProgress != nil {
 			onProgress("Preparing sparse checkout...")
 		}
-		if err := sparseCloneSubdir(url, subdir, destPath, branch, authEnv(url), onProgress); err == nil {
-			return nil
+		if err := sparseCloneSubdir(url, subdir, destPath, branch, extraEnv, onProgress); err == nil {
+			checkedSubdir := strings.TrimLeft(subdir, "/")
+			if checkedSubdir == "" {
+				return nil
+			}
+			if info, statErr := os.Stat(filepath.Join(destPath, checkedSubdir)); statErr == nil && info.IsDir() {
+				return nil
+			}
+			if cleanupErr := removeAll(destPath); cleanupErr != nil {
+				return fmt.Errorf("sparse checkout produced no subdirectory %q, and cleanup failed: %w", subdir, cleanupErr)
+			}
+			if onProgress != nil {
+				onProgress("Sparse checkout path missing; retrying standard clone...")
+			}
 		} else if shouldFallbackSparseTrackedClone(err) {
 			// sparseCloneSubdir may have already created destPath. Clean it before
 			// falling back to a standard clone strategy.
@@ -271,7 +294,7 @@ func cloneTrackedRepo(url, subdir, destPath, branch string, onProgress ProgressC
 	}
 	args = append(args, url, destPath)
 
-	err := runGitCommandWithProgress(args, "", authEnv(url), onProgress)
+	err := runGitCommandWithProgress(args, "", extraEnv, onProgress)
 	if err == nil {
 		return nil
 	}
@@ -281,7 +304,7 @@ func cloneTrackedRepo(url, subdir, destPath, branch string, onProgress ProgressC
 	if onProgress != nil {
 		onProgress("Remote lacks partial clone support; retrying standard clone...")
 	}
-	return cloneRepoFull(url, destPath, branch, onProgress)
+	return cloneRepoWithEnv(url, destPath, branch, false, extraEnv, onProgress)
 }
 
 // isAuthOrAccessError returns true for auth failures and access denials that
