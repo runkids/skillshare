@@ -349,6 +349,68 @@ extras:
 
 ---
 
+## Recipe: shared instructions across agents
+
+Most coding agents now read an `AGENTS.md` for standing instructions, but each
+one keeps its user-level copy in a different directory. One extra with several
+targets distributes a single source file to all of them:
+
+```bash
+skillshare extras init instructions \
+  --target ~/.codex \
+  --target ~/.config/opencode \
+  --target ~/.claude \
+  --target ~/.gemini \
+  --no-tui
+```
+
+Put your `AGENTS.md` in the resolved source directory
+(`~/.config/skillshare/extras/instructions/` by default), then
+`skillshare sync extras`.
+
+| Agent | Global path | Reads `AGENTS.md` |
+|-------|-------------|-------------------|
+| Codex CLI | `~/.codex/AGENTS.md` | Directly |
+| opencode | `~/.config/opencode/AGENTS.md` | Directly |
+| Claude Code | `~/.claude/AGENTS.md` | Through a `CLAUDE.md` import |
+| Antigravity | `~/.gemini/AGENTS.md` | Through a `GEMINI.md` import |
+
+Two agents read a fixed filename of their own at the user level, so each needs a
+one-line file next to the synced one. Write these once; skillshare never touches
+them again:
+
+```markdown title="~/.claude/CLAUDE.md"
+@AGENTS.md
+```
+
+```markdown title="~/.gemini/GEMINI.md"
+@AGENTS.md
+```
+
+Claude Code reads `CLAUDE.md` and not `AGENTS.md`, and the import is the approach
+its [memory documentation](https://code.claude.com/docs/en/memory) recommends for
+sharing one file with other agents. Antigravity keeps its global rules in
+`~/.gemini/GEMINI.md` and resolves a relative `@filename` against the rules file's
+own directory, so the same one-liner picks up the synced `AGENTS.md`. The
+`~/.gemini` target also covers Antigravity CLI, which reads the same global file.
+
+Keep the source file named `AGENTS.md`. A neutral name such as `memory.md` syncs
+just as well but stops being read: Codex concatenates `AGENTS.md` files by name
+and has no import syntax, so it recognises the file only by that name.
+
+Because targets are directories, every target receives each file under its source
+name. Keep the source directory to the files you want everywhere — an extra file
+lands in all four targets.
+
+:::note
+This recipe shares the instructions you write, not the memory an agent writes for
+itself. Agents store their own learnings in private formats — a directory of
+Markdown for Claude Code, a database for Codex, non-file storage for Cursor — and
+those are not portable by copying files between targets.
+:::
+
+---
+
 ## Directory Structure
 
 ```
