@@ -33,7 +33,7 @@ _skillshare() {
     local uninstall_flags="--all --force -f --dry-run -n --json --group -G --help -h"
     local list_flags="--verbose -v --json -j --no-tui --type -t --status --sort -s --all --help -h"
     local sync_flags="--all --dry-run -n --force -f --json --help -h"
-    local mcp_flags="--url --target --from --file --sync --replace --revision --dry-run -n --json --help -h"
+    local mcp_flags="--pi-extension --url --target --from --file --sync --replace --revision --dry-run -n --json --help -h"
     local diff_flags="--no-tui --patch --stat --json --help -h"
     local backup_flags="--list -l --cleanup -c --dry-run -n --target -t --help -h"
     local restore_flags="--from -f --force --dry-run -n --no-tui --help -h"
@@ -70,6 +70,11 @@ _skillshare() {
 
     if [[ "${cmd}" == plugin && ( "${prev}" == --target || "${prev}" == --from ) ]]; then
         COMPREPLY=($(compgen -W "claude codex cursor antigravity agy antigravity-cli copilot grok kimi hermes devin pi opencode" -- "${cur}"))
+        return
+    fi
+
+    if [[ "${cmd}" == mcp && "${prev}" == --pi-extension ]]; then
+        COMPREPLY=($(compgen -W "pi-mcp-adapter pi-mcp-extension" -- "${cur}"))
         return
     fi
 

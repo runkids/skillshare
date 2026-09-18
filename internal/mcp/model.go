@@ -68,6 +68,7 @@ func (v Value) MarshalJSON() ([]byte, error) {
 
 // Server contains only settings that have explicit native adapter mappings.
 type Server struct {
+	PiExtension string           `yaml:"piExtension,omitempty" json:"piExtension,omitempty"`
 	Transport   string           `yaml:"transport,omitempty" json:"transport,omitempty"`
 	Command     string           `yaml:"command,omitempty" json:"command,omitempty"`
 	Args        []string         `yaml:"args,omitempty" json:"args,omitempty"`
@@ -82,7 +83,7 @@ var envName = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
 var serverName = regexp.MustCompile(`^[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}$`)
 
 // Targets are MCP clients, independently of installed skill targets.
-var Targets = []string{"claude", "codex", "cursor", "vscode", "opencode", "grok", "antigravity", "amp", "claude-desktop", "cline", "copilot", "factory", "gemini", "goose", "junie", "kiro", "lmstudio", "warp", "windsurf"}
+var Targets = []string{"claude", "codex", "cursor", "vscode", "opencode", "grok", "antigravity", "amp", "claude-desktop", "cline", "copilot", "factory", "gemini", "goose", "junie", "kiro", "lmstudio", "warp", "windsurf", "pi"}
 
 func hasInterpolation(value string) bool {
 	return strings.Contains(value, "${") || strings.Contains(value, "{env:") || strings.Contains(value, "{file:")
@@ -113,6 +114,9 @@ func validateTargets(targets []string) error {
 
 // Validate checks a portable server without executing or connecting to it.
 func (s Server) Validate(name string) error {
+	if s.PiExtension != "" && s.PiExtension != "pi-mcp-adapter" && s.PiExtension != "pi-mcp-extension" {
+		return fmt.Errorf("MCP %s: piExtension must be pi-mcp-adapter or pi-mcp-extension", name)
+	}
 	if s.Targets != nil && len(s.Targets) == 0 {
 		return fmt.Errorf("MCP %s: select at least one target or omit targets to inherit defaults", name)
 	}

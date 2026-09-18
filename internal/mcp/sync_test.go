@@ -183,3 +183,39 @@ func TestSyncKeepsAgentSpecificFields(t *testing.T) {
 		t.Fatalf("Agent-specific field lost or entry not updated: %s", data)
 	}
 }
+
+func TestSyncLaysOutAnOwnedEntryThatIsStillOnOneLine(t *testing.T) {
+	s := testService(t)
+	plan, err := s.Preview()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.Apply(plan.Revision); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(s.Home, ".cursor", "mcp.json")
+	if err := os.WriteFile(path, []byte(`{"mcpServers":{"docs":{"url":"https://example.com/mcp"}}}`), 0600); err != nil {
+		t.Fatal(err)
+	}
+	plan, err = s.Preview()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.Apply(plan.Revision); err != nil {
+		t.Fatal(err)
+	}
+	got, _ := os.ReadFile(path)
+	if want := "{\n  \"mcpServers\": {\n    \"docs\": {\n      \"url\": \"https://example.com/mcp\"\n    }\n  }\n}"; string(got) != want { // no newline at the end: the file had none
+		t.Fatalf("got %q", got)
+	}
+	// Laid out once, it is left alone: Sync has nothing more to do.
+	plan, err = s.Preview()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, c := range plan.Changes {
+		if c.Action != "unchanged" {
+			t.Fatalf("%s %s is %q after the layout", c.Target, c.Name, c.Action)
+		}
+	}
+}

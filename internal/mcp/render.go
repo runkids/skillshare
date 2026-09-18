@@ -13,6 +13,9 @@ func Render(target string, s Server) (map[string]any, error) {
 	if err := s.Validate("server"); err != nil {
 		return nil, err
 	}
+	if target == "pi" {
+		return renderPi(s)
+	}
 	if format, ok := clientFormats[target]; ok {
 		return renderAdditionalClient(target, format, s)
 	}
@@ -117,4 +120,42 @@ func Render(target string, s Server) (map[string]any, error) {
 		}
 	}
 	return out, nil
+}
+
+// Rendered is one server as one Agent's config file would hold it.
+type Rendered struct {
+	Target  string `json:"target"`
+	Path    string `json:"path"`
+	Content string `json:"content,omitempty"`
+	Error   string `json:"error,omitempty"`
+}
+
+// RenderNative writes the server into an empty file per target, so the wrapper key and the
+// format (JSON, TOML, YAML) come from the code that writes the real file, not from a guess
+// made in the dashboard. Nothing is read from the environment or written to disk.
+func (s *Service) RenderNative(name string, server Server) []Rendered {
+	out := make([]Rendered, 0, len(server.Targets))
+	for _, target := range server.Targets {
+		r := Rendered{Target: target}
+		r.Path, _ = s.nativePath(target)
+		entry, err := Render(target, server)
+		var n *Native
+		if err == nil {
+			if target == "goose" {
+				entry["name"] = name
+			}
+			n, err = ParseNative(target, nil)
+		}
+		var data []byte
+		if err == nil {
+			data, err = n.Edit(map[string]map[string]any{name: entry})
+		}
+		if err != nil {
+			r.Error = err.Error()
+		} else {
+			r.Content = string(data)
+		}
+		out = append(out, r)
+	}
+	return out
 }

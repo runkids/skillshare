@@ -209,3 +209,27 @@ stale revisions, Agent-specific fields, credential references and foreign owners
 TUI model tests cover search shortcuts, hidden credentials, edit cancellation and
 batch import cancellation. In a real terminal, also verify `mcp` search/detail,
 edit and remove previews, multi-selection import, and the client/backup picker.
+
+### Pi extension selection and output
+
+Inside a fresh ssenv HOME (do not install or launch either Pi extension):
+
+```bash
+set -eu
+PI_CASE=$(mktemp -d "$HOME/mcp-pi.XXXXXX")
+export SKILLSHARE_CONFIG="$PI_CASE/config.yaml"
+printf 'targets: {}\n' > "$SKILLSHARE_CONFIG"
+ss mcp add pi-docs --target pi --pi-extension pi-mcp-extension --url https://example.com/mcp --no-tui -g
+ss sync mcp --dry-run --json -g | jq -e '.changes[] | select(.target == "pi" and .action == "add")'
+ss sync mcp -g
+jq -e '.mcpServers["pi-docs"].transport == "streamable-http"' "$HOME/.pi/agent/mcp.json"
+ss sync mcp --dry-run --json -g | jq -e '.changes[] | select(.target == "pi" and .action == "unchanged")'
+ss mcp edit pi-docs --pi-extension pi-mcp-adapter --no-tui -g
+ss sync mcp -g
+jq -e '.mcpServers["pi-docs"] | has("transport") | not' "$HOME/.pi/agent/mcp.json"
+ss mcp remove pi-docs --sync --no-tui -g
+```
+
+**Expected:** explicit extension choice is saved, extension output includes transport,
+adapter output omits it, the second sync is unchanged, and removal affects only
+the managed entry. No MCP server or Pi package is installed or executed.

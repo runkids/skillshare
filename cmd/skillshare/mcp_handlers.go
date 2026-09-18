@@ -18,7 +18,7 @@ func runMCPAdd(service *mcp.Service, o mcpOptions) error {
 		}
 		return mcpAddWizard(service, o)
 	}
-	server := mcp.Server{URL: o.url, Targets: o.targets}
+	server := mcp.Server{URL: o.url, Targets: o.targets, PiExtension: o.piExtension}
 	if len(o.command) > 0 {
 		server.Command, server.Args = o.command[0], o.command[1:]
 	}
@@ -116,6 +116,7 @@ func runMCPImport(service *mcp.Service, o mcpOptions) error {
 			return fmt.Errorf("MCP source entry exists; use --replace")
 		}
 		c.Server.Targets = o.targets
+		c.Server.PiExtension = o.piExtension
 		selectedTargets := c.Server.Targets
 		if selectedTargets == nil {
 			selectedTargets = source.Targets

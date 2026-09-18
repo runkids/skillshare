@@ -182,11 +182,87 @@ func (n *Native) Edit(changes map[string]map[string]any) ([]byte, error) {
 	if err := v.Patch(patch.Bytes()); err != nil {
 		return nil, fmt.Errorf("cannot safely edit native MCP entries")
 	}
+	layOut(&v, nativeKey(n.Target), changes)
 	out := v.Pack()
 	if _, err := ParseNative(n.Target, out); err != nil {
 		return nil, err
 	}
 	return out, nil
+}
+
+// cramped reports an entry that sits on one line: what Skillshare wrote before it laid
+// entries out, or a minifier's work. An entry someone formatted by hand has line breaks
+// and is left alone.
+func (n *Native) cramped(name string) bool {
+	if isTOMLTarget(n.Target) || n.Target == "goose" || n.json.Value == nil {
+		return false
+	}
+	v := n.json.Find("/" + nativeKey(n.Target) + "/" + pointerKey(name))
+	if v == nil {
+		return false
+	}
+	object, ok := v.Value.(*hujson.Object)
+	return ok && len(object.Members) > 0 && !bytes.Contains(v.Pack(), []byte("\n"))
+}
+
+// layOut gives the entries this edit wrote one line per field, at the indent the file already
+// uses. Patch inserts values without any whitespace, which left every server on a single line.
+// Only members named in changes are touched, so the rest of the file keeps the owner's layout.
+func layOut(v *hujson.Value, key string, changes map[string]map[string]any) {
+	root, ok := v.Value.(*hujson.Object)
+	if !ok || len(root.Members) == 0 {
+		return
+	}
+	indent := "  "
+	if before := string(root.Members[0].Name.BeforeExtra); strings.Contains(before, "\n") {
+		if ws := before[strings.LastIndex(before, "\n")+1:]; ws != "" && strings.TrimLeft(ws, " \t") == "" {
+			indent = ws
+		}
+	}
+	for i := range root.Members {
+		member := &root.Members[i]
+		section, ok := member.Value.Value.(*hujson.Object)
+		if !ok || literalString(member.Name) != key {
+			continue
+		}
+		if len(member.Name.BeforeExtra) == 0 { // the section itself was just created
+			member.Name.BeforeExtra = []byte("\n" + indent)
+			member.Value.BeforeExtra = []byte(" ")
+		}
+		for j := range section.Members {
+			entry := changes[literalString(section.Members[j].Name)]
+			if entry == nil {
+				continue
+			}
+			var text bytes.Buffer
+			encoder := json.NewEncoder(&text)
+			encoder.SetEscapeHTML(false)
+			encoder.SetIndent(indent+indent, indent)
+			if encoder.Encode(entry) != nil {
+				continue
+			}
+			parsed, err := hujson.Parse(bytes.TrimSpace(text.Bytes()))
+			if err != nil {
+				continue
+			}
+			section.Members[j].Name.BeforeExtra = []byte("\n" + indent + indent)
+			parsed.BeforeExtra = []byte(" ")
+			section.Members[j].Value = parsed
+		}
+		if len(section.Members) > 0 && !bytes.Contains(section.AfterExtra, []byte("\n")) {
+			section.AfterExtra = []byte("\n" + indent)
+		}
+	}
+	if !bytes.Contains(root.AfterExtra, []byte("\n")) { // a file that started empty
+		root.AfterExtra = []byte("\n")
+	}
+}
+
+func literalString(v hujson.Value) string {
+	if lit, ok := v.Value.(hujson.Literal); ok {
+		return lit.String()
+	}
+	return ""
 }
 
 func entryHash(entry map[string]any) string {

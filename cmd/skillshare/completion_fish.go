@@ -43,6 +43,7 @@ complete -c skillshare -n '__fish_skillshare_using_command plugin' -l dry-run
 complete -c skillshare -n '__fish_skillshare_using_command plugin' -l json
 complete -c skillshare -n '__fish_skillshare_using_command plugin' -l no-tui
 complete -c skillshare -n __fish_skillshare_no_subcommand -a mcp -d 'Manage MCP connections'
+complete -c skillshare -n '__fish_skillshare_using_command mcp' -l pi-extension -r -a 'pi-mcp-adapter pi-mcp-extension' -d 'MCP extension installed in Pi'
 complete -c skillshare -n '__fish_skillshare_using_command mcp' -a 'add import list remove restore'
 complete -c skillshare -n __fish_skillshare_no_subcommand -a status -d 'Show status of all targets'
 complete -c skillshare -n __fish_skillshare_no_subcommand -a diff -d 'Show differences between source and targets'

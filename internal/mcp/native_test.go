@@ -96,3 +96,50 @@ func TestJSONEditDoesNotEscapeHTML(t *testing.T) {
 		t.Fatalf("got %s: %v", out, err)
 	}
 }
+
+func TestRenderNativeUsesEachAgentsOwnFormatAndKeepsSecretsAsReferences(t *testing.T) {
+	t.Setenv("DOCS_KEY", "must-not-appear")
+	service := testService(t)
+	got := map[string]Rendered{}
+	for _, r := range service.RenderNative("docs", Server{URL: "https://example.com/mcp", Headers: map[string]Value{"X-Key": {FromEnv: "DOCS_KEY"}}, Targets: []string{"claude", "codex", "goose"}}) {
+		got[r.Target] = r
+	}
+	got["goose-literal"] = service.RenderNative("docs", Server{Command: "npx", Targets: []string{"goose"}})[0]
+	for target, want := range map[string]string{"claude": `"mcpServers"`, "codex": "[mcp_servers.docs", "goose-literal": "extensions:"} {
+		if !strings.Contains(got[target].Content, want) || strings.Contains(got[target].Content, "must-not-appear") {
+			t.Fatalf("%s: %+v", target, got[target])
+		}
+	}
+	if got["goose"].Error == "" {
+		t.Fatal("Goose cannot take fromEnv, and the view has to say so")
+	}
+}
+
+func TestEditLaysOutWhatItWritesAndLeavesTheRestAlone(t *testing.T) {
+	for name, input := range map[string]string{
+		"existing section, 4 spaces": "{\n    // mine\n    \"theme\": \"dark\",\n    \"mcpServers\": {\"personal\":{\"command\":\"custom\"}}\n}\n",
+		"no section yet":             "{\n  \"theme\": \"dark\"\n}\n",
+		"empty file":                 "",
+	} {
+		t.Run(name, func(t *testing.T) {
+			n, err := ParseNative("claude", []byte(input))
+			if err != nil {
+				t.Fatal(err)
+			}
+			out, err := n.Edit(map[string]map[string]any{"docs": {"command": "npx", "args": []string{"-y", "pkg"}}})
+			if err != nil {
+				t.Fatal(err)
+			}
+			text := string(out)
+			if !strings.Contains(text, "\"docs\": {\n") || !strings.Contains(text, "\"command\": \"npx\"\n") {
+				t.Fatalf("entry is still on one line:\n%s", text)
+			}
+			if strings.Contains(input, "personal") && !strings.Contains(text, `{"personal":{"command":"custom"}`) {
+				t.Fatalf("an entry the edit did not write was reformatted:\n%s", text)
+			}
+			if !strings.HasSuffix(strings.TrimSpace(text), "\n}") {
+				t.Fatalf("closing brace shares a line:\n%s", text)
+			}
+		})
+	}
+}

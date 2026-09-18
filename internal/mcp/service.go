@@ -168,7 +168,7 @@ func (s *Service) ClientPaths() map[string]string {
 // ConfigDirsFromEnv reads the Agent directory overrides Agents themselves honor.
 func ConfigDirsFromEnv() map[string]string {
 	dirs := map[string]string{}
-	for key, env := range map[string]string{"codex": "CODEX_HOME", "claude": "CLAUDE_CONFIG_DIR", "grok": "GROK_HOME", "copilot": "COPILOT_HOME", "xdg": "XDG_CONFIG_HOME", "appdata": "APPDATA"} {
+	for key, env := range map[string]string{"pi": "PI_CODING_AGENT_DIR", "codex": "CODEX_HOME", "claude": "CLAUDE_CONFIG_DIR", "grok": "GROK_HOME", "copilot": "COPILOT_HOME", "xdg": "XDG_CONFIG_HOME", "appdata": "APPDATA"} {
 		if value := strings.TrimSpace(os.Getenv(env)); value != "" {
 			dirs[key] = value
 		}

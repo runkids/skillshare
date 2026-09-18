@@ -65,6 +65,9 @@ func detectJSONFormat(data []byte) string {
 	v.Standardize()
 	var document map[string]json.RawMessage
 	_ = json.Unmarshal(v.Pack(), &document)
+	if _, ok := document["transport"]; ok {
+		return "pi"
+	}
 	if _, ok := document["serverUrl"]; ok {
 		return "antigravity"
 	}
@@ -74,6 +77,9 @@ func detectJSONFormat(data []byte) string {
 	var servers map[string]map[string]any
 	if json.Unmarshal(document["mcpServers"], &servers) == nil {
 		for _, entry := range servers {
+			if _, ok := entry["transport"]; ok {
+				return "pi"
+			}
 			if entry["type"] == "streamableHttp" {
 				return "cline"
 			}

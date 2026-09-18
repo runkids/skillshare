@@ -183,7 +183,7 @@ func LoadSource(configPath string) (*Source, error) {
 		decoder := yaml.NewDecoder(bytes.NewReader(data))
 		decoder.KnownFields(true)
 		if err := decoder.Decode(&s.Servers); err != nil {
-			return nil, fmt.Errorf("invalid MCP server fields: use command/args/env or url/headers/bearerToken and optional targets/transport")
+			return nil, fmt.Errorf("invalid MCP server fields: use command/args/env or url/headers/bearerToken and optional targets/transport/piExtension")
 		}
 	}
 	for name, server := range s.Servers {

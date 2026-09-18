@@ -78,6 +78,20 @@ func (s *Server) handleMCPPreview(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, p)
 }
 
+// handleMCPRender shows the server in the request as each of its targets would store it.
+// It reads and writes nothing, so an unsaved form can ask.
+func (s *Server) handleMCPRender(w http.ResponseWriter, r *http.Request) {
+	var body mcpRequest
+	if !decodeMCPRequest(w, r, &body) {
+		return
+	}
+	if body.Mutation.Server == nil {
+		writeError(w, 400, "server is required")
+		return
+	}
+	writeJSON(w, map[string]any{"rendered": s.mcpService().RenderNative(body.Mutation.Name, *body.Mutation.Server)})
+}
+
 func (s *Server) handleMCPConfigure(w http.ResponseWriter, r *http.Request) {
 	var body mcpRequest
 	if !decodeMCPRequest(w, r, &body) {

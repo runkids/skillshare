@@ -14,10 +14,10 @@ import (
 )
 
 type mcpOptions struct {
-	name, url, from, file, revision    string
-	targets                            []string
-	command                            []string
-	sync, dryRun, json, replace, noTUI bool
+	name, url, from, file, revision, piExtension string
+	targets                                      []string
+	command                                      []string
+	sync, dryRun, json, replace, noTUI           bool
 }
 
 func parseMCPOptions(args []string) (mcpOptions, error) {
@@ -27,13 +27,15 @@ func parseMCPOptions(args []string) (mcpOptions, error) {
 		case "--":
 			o.command = args[i+1:]
 			return o, nil
-		case "--url", "--target", "--from", "--file", "--revision":
+		case "--url", "--target", "--from", "--file", "--revision", "--pi-extension":
 			if i+1 == len(args) {
 				return o, fmt.Errorf("%s requires a value", a)
 			}
 			i++
 			value := args[i]
 			switch a {
+			case "--pi-extension":
+				o.piExtension = value
 			case "--url":
 				o.url = value
 			case "--target":
@@ -139,7 +141,7 @@ func cmdSyncMCP(args []string) error {
 	if err != nil {
 		return err
 	}
-	if o.name != "" || o.url != "" || o.from != "" || o.file != "" || len(o.command) > 0 || len(o.targets) > 0 || o.replace || o.sync {
+	if o.piExtension != "" || o.name != "" || o.url != "" || o.from != "" || o.file != "" || len(o.command) > 0 || len(o.targets) > 0 || o.replace || o.sync {
 		return fmt.Errorf("sync mcp accepts only --dry-run, --json, --revision and scope flags")
 	}
 	if o.dryRun {
@@ -222,6 +224,7 @@ Commands:
   restore [id]      Browse backups, preview and restore Agent entries
 
 Options:
+  --pi-extension <package>  pi-mcp-adapter or pi-mcp-extension (requires installation in Pi)
   --target <client>  Receiving client; repeat for multiple clients
   --from <client>    Native client ID (see mcp documentation for destinations)
   --file <path>      Native configuration file to import

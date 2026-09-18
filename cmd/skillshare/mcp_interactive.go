@@ -82,6 +82,9 @@ func chooseMCPTargets(service *mcp.Service, servers []mcp.Server, initial []stri
 	for _, item := range items {
 		compatible := true
 		for _, server := range servers {
+			if item.label == "pi" && server.PiExtension == "" {
+				server.PiExtension = "pi-mcp-adapter"
+			}
 			if _, err := mcp.Render(item.label, server); err != nil {
 				compatible = false
 				break
@@ -102,6 +105,26 @@ func chooseMCPTargets(service *mcp.Service, servers []mcp.Server, initial []stri
 	targets := make([]string, 0, len(selected))
 	for _, i := range selected {
 		targets = append(targets, available[i].label)
+	}
+
+	if slices.Contains(targets, "pi") {
+		initial := ""
+		for _, server := range servers {
+			if server.PiExtension != "" {
+				initial = server.PiExtension
+				break
+			}
+		}
+		extension, err := choosePiExtension(initial, p)
+		if err != nil {
+			return nil, err
+		}
+		for i := range servers {
+			servers[i].PiExtension = extension
+			if _, err := mcp.Render("pi", servers[i]); err != nil {
+				return nil, err
+			}
+		}
 	}
 	return targets, nil
 }
@@ -262,4 +285,17 @@ func runMCPRestore(service *mcp.Service, o mcpOptions, prompts mcpPrompts) error
 		}
 	}
 	return err
+}
+
+func choosePiExtension(initial string, p mcpPrompts) (string, error) {
+	packages := []string{"pi-mcp-adapter", "pi-mcp-extension"}
+	items := []checklistItemData{
+		{label: packages[0], desc: "On-demand tools; supports environment-backed headers", preSelected: initial == packages[0]},
+		{label: packages[1], desc: "Direct tools; start with /mcp:start <server>; no header interpolation", preSelected: initial == packages[1]},
+	}
+	selected, err := chooseMCP(p, checklistConfig{title: "Which MCP extension do you use in Pi?", header: "Install ONE with pi install npm:<package>. Sync only writes config; it does not install or verify the extension. Docs: https://pi.dev/packages/pi-mcp-adapter and https://pi.dev/packages/pi-mcp-extension", items: items, singleSelect: true, itemName: "extension"})
+	if err != nil {
+		return "", err
+	}
+	return packages[selected[0]], nil
 }

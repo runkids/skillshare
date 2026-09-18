@@ -16,6 +16,7 @@ type clientFormat struct {
 }
 
 var clientFormats = map[string]clientFormat{
+	"pi":             {key: "mcpServers", urlKey: "url", globalPath: ".pi/agent/mcp.json", projectPath: ".pi/mcp.json"},
 	"amp":            {key: "amp.mcpServers", urlKey: "url", refPrefix: "${", globalPath: ".config/amp/settings.json", projectPath: ".amp/settings.json"},
 	"claude-desktop": {key: "mcpServers", urlKey: "url", stdioOnly: true},
 	"cline":          {key: "mcpServers", localType: "stdio", remoteType: "streamableHttp", urlKey: "url", refPrefix: "${env:"},
@@ -82,6 +83,13 @@ func (s *Service) additionalClientPath(target string, format clientFormat) (stri
 			return "", err
 		}
 		return filepath.Join(filepath.Dir(vscode), "globalStorage", "saoudrizwan.claude-dev", "settings", "cline_mcp_settings.json"), nil
+	case "pi":
+		if dir := s.ConfigDirs["pi"]; dir != "" {
+			if !filepath.IsAbs(dir) {
+				return "", fmt.Errorf("PI_CODING_AGENT_DIR must be absolute")
+			}
+			return filepath.Join(dir, "mcp.json"), nil
+		}
 	case "copilot":
 		if dir := s.ConfigDirs["copilot"]; dir != "" {
 			if !filepath.IsAbs(dir) {
@@ -175,6 +183,9 @@ func renderAdditionalClient(target string, format clientFormat, s Server) (map[s
 }
 
 func additionalManagedFields(target string) []string {
+	if target == "pi" {
+		return []string{"command", "args", "env", "url", "headers", "transport", "disabled", "enabled"}
+	}
 	format, ok := clientFormats[target]
 	if !ok {
 		return managedFields[target]

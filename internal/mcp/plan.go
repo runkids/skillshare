@@ -114,6 +114,7 @@ func (s *Service) previewSource(source *Source) (*Plan, error) {
 func (s *Service) render(source *Source) (map[string]map[string]map[string]any, map[string]string, error) {
 	desired := map[string]map[string]map[string]any{}
 	targets := map[string]string{}
+	piExtension := ""
 	for _, name := range sortedKeys(source.Servers) {
 		server := source.Servers[name]
 		selected := server.Targets
@@ -124,6 +125,15 @@ func (s *Service) render(source *Source) (map[string]map[string]map[string]any, 
 			return nil, nil, fmt.Errorf("MCP %s has no targets; select at least one Agent", name)
 		}
 		for _, target := range selected {
+			if target == "pi" {
+				if s.ProjectRoot == "" && s.ConfigDirs["pi"] != "" && server.PiExtension == "pi-mcp-extension" {
+					return nil, nil, fmt.Errorf("pi-mcp-extension uses ~/.pi/agent/mcp.json and does not honor PI_CODING_AGENT_DIR; unset the override before syncing")
+				}
+				if piExtension != "" && piExtension != server.PiExtension {
+					return nil, nil, fmt.Errorf("Pi servers share one config file; select the same piExtension for every Pi server")
+				}
+				piExtension = server.PiExtension
+			}
 			if target == "grok" && (!grokServerName.MatchString(name) || strings.Contains(name, "__") || strings.HasSuffix(name, "_")) {
 				return nil, nil, fmt.Errorf("Grok MCP %s: use a name starting with a letter or underscore, containing only letters, digits, hyphens and single underscores, and not ending in underscore", name)
 			}
@@ -231,6 +241,12 @@ func (s *Service) previewResolved(source *Source, resolutions []Resolution) (*Pl
 			switch {
 			case managed && owned.Owner != source.ConfigPath:
 				change.Action, change.Message = "conflict", "managed by another Skillshare config"
+			case currentHash == wantHash && managed && want != nil && native.cramped(name):
+				// The content is right but it is all on one line. Sync owns this entry, so it
+				// writes it again, laid out; the person pressing Sync expects a file they can read.
+				change.Action, change.Message = "update", "same settings, laid out one field per line"
+				f.changes[name] = withAgentFields(target, current, want)
+				p.state.Entries[key] = ownership{Owner: source.ConfigPath, Target: target, Path: path, Name: name, Hash: wantHash}
 			case currentHash == wantHash:
 				// Already as desired, e.g. after pulling a teammate's change or
 				// moving a project. Refresh an owned baseline, but never claim an

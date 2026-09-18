@@ -88,6 +88,23 @@ _skillshare() {
                         '--help[Show help]' \
                         '-h[Show help]'
                     ;;
+                mcp)
+                    _arguments \
+                        '1:command:(add edit import list remove restore)' \
+                        '--pi-extension[MCP extension installed in Pi]:extension:(pi-mcp-adapter pi-mcp-extension)' \
+                        '--target[Receiving client]:target:' \
+                        '--from[Import client]:target:' \
+                        '--url[MCP endpoint]:url:' \
+                        '--file[Import file]:file:_files' \
+                        '--sync[Sync after saving]' \
+                        '--replace[Replace an existing entry]' \
+                        '--revision[Preview revision]:revision:' \
+                        '--dry-run[Preview changes]' \
+                        '--json[JSON output]' \
+                        '--no-tui[Disable interactive menus]' \
+                        $global_flags \
+                        '--help[Show help]'
+                    ;;
                 plugin)
                     _arguments \
                         '1:command:(add discover import list inspect sync check update enable disable remove)' \

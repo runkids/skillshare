@@ -35,7 +35,9 @@ func mcpBatchImportWizard(service *mcp.Service, candidates []mcp.Candidate, o mc
 	}
 	servers := make([]mcp.Server, 0, len(selected))
 	for _, i := range selected {
-		servers = append(servers, eligible[i].Server)
+		server := eligible[i].Server
+		server.PiExtension = o.piExtension
+		servers = append(servers, server)
 	}
 	initial := o.targets
 	if initial == nil {
@@ -46,8 +48,9 @@ func mcpBatchImportWizard(service *mcp.Service, candidates []mcp.Candidate, o mc
 		return err
 	}
 	mutations := make([]mcp.Mutation, 0, len(selected))
-	for _, i := range selected {
+	for position, i := range selected {
 		candidate := eligible[i]
+		candidate.Server.PiExtension = servers[position].PiExtension
 		for _, warning := range candidate.Warnings {
 			fmt.Printf("%s: %s\n", candidate.Name, warning)
 		}

@@ -50,6 +50,25 @@ def "nu-complete skillshare plugin-target" [] {
     [claude codex cursor antigravity agy antigravity-cli copilot grok kimi hermes devin pi opencode]
 }
 
+export extern "skillshare mcp" [
+    command?: string
+    name?: string
+    --pi-extension: string # pi-mcp-adapter or pi-mcp-extension
+    --target: string
+    --from: string
+    --url: string
+    --file: string
+    --revision: string
+    --sync
+    --replace
+    --dry-run(-n)
+    --json
+    --no-tui
+    --project(-p)
+    --global(-g)
+    --help(-h)
+]
+
 export extern "skillshare plugin" [
     command?: string@"nu-complete skillshare plugin"
     value?: string
