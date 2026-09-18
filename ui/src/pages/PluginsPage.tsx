@@ -18,7 +18,7 @@ import { queryKeys } from '../lib/queryKeys';
 export default function PluginsPage() {
   const t = useT();
   const cache = useQueryClient();
-  const { data, error, isPending } = useQuery({ queryKey: queryKeys.plugins, queryFn: pluginsApi.list });
+  const { data, error, isPending, isFetching } = useQuery({ queryKey: queryKeys.plugins, queryFn: pluginsApi.list });
   const [adding, setAdding] = useState<{ source?: string; name?: string } | null>(null);
   const [importing, setImporting] = useState(false);
   const [review, setReview] = useState<{ request: PluginRequest; plan: PluginPlan } | null>(null);
@@ -28,13 +28,14 @@ export default function PluginsPage() {
   const [result, setResult] = useState<PluginResult | null>(null);
   const [menu, setMenu] = useState<{ x: number; y: number; items: ContextMenuItem[] } | null>(null);
   const refresh = () => { void cache.invalidateQueries({ queryKey: queryKeys.plugins }); void cache.invalidateQueries({ queryKey: queryKeys.config }); };
-  const preview = async (request: PluginRequest) => {
-    setBusy(true); setFailure(''); setResult(null);
+  // `key` names the control that started this, so only it shows a spinner.
+  const preview = async (request: PluginRequest, key = '') => {
+    setBusy(true); setWorking(key); setFailure(''); setResult(null);
     try { const plan = await pluginsApi.preview(request); setReview({ request, plan }); setAdding(null); setImporting(false); }
     catch (e) { setFailure((e as Error).message); throw e; }
-    finally { setBusy(false); }
+    finally { setBusy(false); setWorking(''); }
   };
-  const begin = (request: PluginRequest) => { void preview(request).catch(() => {}); };
+  const begin = (request: PluginRequest, key = '') => { void preview(request, key).catch(() => {}); };
   const apply = async () => {
     if (!review) return;
     setBusy(true); setFailure('');
@@ -71,14 +72,14 @@ export default function PluginsPage() {
       x: r.left,
       y: r.bottom + 4,
       items: [
-        { key: 'sync', label: t('plugins.sync'), icon: <ChevronRight size={14} />, onSelect: () => begin({ action: 'sync', name, targets }) },
+        { key: 'sync', label: t('plugins.sync'), icon: <ChevronRight size={14} />, onSelect: () => begin({ action: 'sync', name, targets }, target ? `${name}:${target}` : name) },
         // A deselected agent has nothing installed to update.
         ...(target && bindings[target]?.sync === false ? [] : [
-          { key: 'update', label: t('plugins.update'), icon: <RefreshCw size={14} />, onSelect: () => begin({ action: 'update', name, targets }) },
+          { key: 'update', label: t('plugins.update'), icon: <RefreshCw size={14} />, onSelect: () => begin({ action: 'update', name, targets }, target ? `${name}:${target}` : name) },
         ]),
         ...(target ? [] : [
           { key: 'targets', label: t('plugins.targets'), icon: <Users size={14} />, onSelect: () => setAdding({ name, source }) },
-          { key: 'remove', label: t('plugins.remove'), icon: <Trash2 size={14} />, danger: true, onSelect: () => begin({ action: 'remove', name }) },
+          { key: 'remove', label: t('plugins.remove'), icon: <Trash2 size={14} />, danger: true, onSelect: () => begin({ action: 'remove', name }, name) },
         ]),
       ],
     });
@@ -91,7 +92,7 @@ export default function PluginsPage() {
   return (
     <div className="ss-wrap animate-fade-in">
       <PageHeader title={t('plugins.title')} subtitle={t('plugins.subtitle')} actions={<>
-        {packages.length > 0 && <Button variant="ghost" disabled={busy} onClick={() => begin({ action: 'check' })}><RefreshCw size={15} />{t('plugins.check')}</Button>}
+        {packages.length > 0 && <Button variant="ghost" loading={working === 'check'} disabled={busy} onClick={() => begin({ action: 'check' }, 'check')}><RefreshCw size={15} />{t('plugins.check')}</Button>}
         {addActions}
       </>} />
 
@@ -122,7 +123,7 @@ export default function PluginsPage() {
           </div>
           <div className="flex items-center justify-between gap-3">
             <span>{pending > 0 && <span className="ss-st warn text-[13px]">{t(pending === 1 ? 'mcp.pending.one' : 'mcp.pending.other', { count: pending })}</span>}</span>
-            <Button variant="secondary" disabled={busy} onClick={() => begin({ action: 'sync' })}>{t('plugins.sync')}<ChevronRight size={15} /></Button>
+            <Button variant="secondary" loading={working === 'sync'} disabled={busy} onClick={() => begin({ action: 'sync' }, 'sync')}>{t('plugins.sync')}<ChevronRight size={15} /></Button>
           </div>
         </>
       )}
@@ -132,7 +133,7 @@ export default function PluginsPage() {
           <div className="ss-sec">
             <h2>{t('layout.nav.agents')}</h2>
             <span className="ss-cnt">{data.hosts.length}</span>
-            <IconButton className="ml-auto" icon={<RefreshCw size={15} />} label={t('plugins.refresh')} disabled={busy} onClick={refresh} />
+            <IconButton className="ml-auto" icon={<RefreshCw size={15} className={isFetching ? 'animate-spin' : ''} />} label={t('plugins.refresh')} disabled={busy || isFetching} onClick={refresh} />
           </div>
           <div className="ss-list">
             {data.hosts.map((h) => (
@@ -170,7 +171,7 @@ export default function PluginsPage() {
                       <span className="min-w-0 flex-1 truncate font-mono text-[13px] font-semibold" title={i.id}>{i.id}</span>
                       {!i.enabled && <span className="ss-tag">{t('plugins.nativeDisabled')}</span>}
                       <span className="font-mono text-xs text-ink-3">{i.version}</span>
-                      <Button size="sm" variant="secondary" disabled={busy || i.filtered || locked} onClick={() => begin({ action: 'import', from: h.target, plugin: i.id })}>{t('plugins.importOne')}</Button>
+                      <Button size="sm" variant="secondary" loading={working === `${h.target}:${i.id}`} disabled={busy || i.filtered || locked} onClick={() => begin({ action: 'import', from: h.target, plugin: i.id }, `${h.target}:${i.id}`)}>{t('plugins.importOne')}</Button>
                     </div>
                   ))}
                 </div>

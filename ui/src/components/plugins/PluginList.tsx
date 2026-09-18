@@ -30,6 +30,7 @@ export default function PluginList({ inventory, busy, working, onToggle, onMenu 
         const parts = [...new Set(bindings.flatMap(([, b]) => b.components ?? []))];
         const source = bindings.find(([, b]) => b.source)?.[1].source;
         const expanded = open.includes(name);
+        const rowBusy = working === name;
         return (
           <Fragment key={name}>
             <div className="ss-r">
@@ -61,8 +62,8 @@ export default function PluginList({ inventory, busy, working, onToggle, onMenu 
                 {selected.length}/{bindings.length}
                 <ChevronDown size={14} className={expanded ? 'rotate-180' : ''} />
               </button>
-              <button type="button" className="ss-ib" aria-label={t('mcp.moreActions', { name })} onClick={(e) => onMenu(e, name)}>
-                <Ellipsis size={16} />
+              <button type="button" className="ss-ib" aria-label={t('mcp.moreActions', { name })} onClick={(e) => onMenu(e, name)} disabled={busy}>
+                {rowBusy ? <Loader2 size={16} className="animate-spin" /> : <Ellipsis size={16} />}
               </button>
             </div>
             {expanded && (
