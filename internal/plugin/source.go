@@ -206,6 +206,7 @@ func discoverRoot(root, source string, explicit ...string) (*Discovery, error) {
 			c := Candidate{Name: entry.Name, Marketplace: catalog.Name, Targets: []string{}, Components: []string{}}
 			if rel == "" {
 				c.Problem = "This entry uses an external source. Add its Git repository directly, or install with the native client and import it."
+				c.ProblemKey = "plugins.problem.externalSource"
 			} else {
 				clean := filepath.Clean(rel)
 				if filepath.IsAbs(clean) || clean == ".." || strings.HasPrefix(clean, ".."+string(filepath.Separator)) {

@@ -464,6 +464,8 @@ func (s *Server) registerRoutes() {
 
 	// Extras
 	s.mux.HandleFunc("GET /api/plugins", s.requireLocalPlugin(s.handlePluginList))
+	s.mux.HandleFunc("GET /api/plugins/{name}/files", s.requireLocalPlugin(s.handlePluginFiles))
+	s.mux.HandleFunc("GET /api/plugins/{name}/files/{filepath...}", s.requireLocalPlugin(s.handlePluginFile))
 	s.mux.HandleFunc("POST /api/plugins/discover", s.requireLocalPlugin(s.handlePluginDiscover))
 	s.mux.HandleFunc("POST /api/plugins/preview", s.requireLocalPlugin(s.handlePluginPreview))
 	s.mux.HandleFunc("POST /api/plugins/apply", s.requireLocalPlugin(s.handlePluginApply))

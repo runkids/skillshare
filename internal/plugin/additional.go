@@ -69,7 +69,7 @@ func openCodeEntry(root string, explicit ...string) (string, error) {
 		if json.Unmarshal(m.Exports, &entry) != nil {
 			var exports map[string]json.RawMessage
 			if json.Unmarshal(m.Exports, &exports) != nil || json.Unmarshal(exports["."], &entry) != nil {
-				return "", fmt.Errorf("OpenCode package needs an unambiguous string root export; conditional exports are not supported")
+				return "", agentError{key: "plugins.problem.opencodeExports", message: "OpenCode package needs an unambiguous string root export; conditional exports are not supported"}
 			}
 		}
 	}
@@ -81,15 +81,15 @@ func openCodeEntry(root string, explicit ...string) (string, error) {
 	}
 	clean := filepath.Clean(entry)
 	if filepath.IsAbs(clean) || clean == ".." || strings.HasPrefix(clean, ".."+string(filepath.Separator)) {
-		return "", fmt.Errorf("OpenCode package entry escapes its directory")
+		return "", agentError{key: "plugins.problem.opencodeEscapes", message: "OpenCode package entry escapes its directory"}
 	}
 	ext := filepath.Ext(clean)
 	if ext != ".js" && ext != ".mjs" && ext != ".ts" {
-		return "", fmt.Errorf("OpenCode package requires a built JavaScript or TypeScript entry")
+		return "", agentError{key: "plugins.problem.opencodeEntryType", message: "OpenCode package requires a built JavaScript or TypeScript entry"}
 	}
 	info, err := os.Lstat(filepath.Join(root, clean))
 	if err != nil || !info.Mode().IsRegular() {
-		return "", fmt.Errorf("OpenCode package entry %s is missing; build the package before adding it", clean)
+		return "", agentError{key: "plugins.problem.opencodeEntryMissing", message: fmt.Sprintf("OpenCode package entry %s is missing; build the package before adding it", clean), args: map[string]string{"entry": clean}}
 	}
 	return clean, nil
 }

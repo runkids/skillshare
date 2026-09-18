@@ -2,7 +2,9 @@ package server
 
 import (
 	"encoding/json"
+	"errors"
 	"io"
+	"io/fs"
 	"net/http"
 	"time"
 
@@ -46,7 +48,15 @@ func decodePluginRequest(w http.ResponseWriter, r *http.Request, v any) bool {
 func (s *Server) handlePluginList(w http.ResponseWriter, r *http.Request) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	inventory, err := s.pluginService().Inventory(r.Context())
+	// hosts=false skips the Agent CLIs: the page draws the plugin list from this answer
+	// and fills in the Agents when the full one arrives.
+	var inventory *plugin.Inventory
+	var err error
+	if r.URL.Query().Get("hosts") == "false" {
+		inventory, err = s.pluginService().Packages()
+	} else {
+		inventory, err = s.pluginService().Inventory(r.Context())
+	}
 	if err != nil {
 		writeError(w, 400, err.Error())
 		return
@@ -111,4 +121,27 @@ func (s *Server) handlePluginApply(w http.ResponseWriter, r *http.Request) {
 	}
 	// Preserve all per-target outcomes even when only some targets succeed.
 	writeJSON(w, map[string]any{"result": result, "failure": message})
+}
+
+// handlePluginFiles lists the reviewed snapshot of a plugin; an imported one has none and lists nothing.
+func (s *Server) handlePluginFiles(w http.ResponseWriter, r *http.Request) {
+	files, err := s.pluginService().Files(r.PathValue("name"))
+	if err != nil {
+		writeError(w, 400, err.Error())
+		return
+	}
+	writeJSON(w, map[string]any{"files": files})
+}
+
+func (s *Server) handlePluginFile(w http.ResponseWriter, r *http.Request) {
+	data, err := s.pluginService().ReadFile(r.PathValue("name"), r.PathValue("filepath"))
+	if errors.Is(err, fs.ErrNotExist) {
+		writeError(w, http.StatusNotFound, "file not found: "+r.PathValue("filepath"))
+		return
+	}
+	if err != nil {
+		writeError(w, 400, err.Error())
+		return
+	}
+	writeJSON(w, map[string]any{"content": string(data)})
 }

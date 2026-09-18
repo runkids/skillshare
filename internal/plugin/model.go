@@ -44,12 +44,21 @@ type Request struct {
 	From      string   `json:"from,omitempty"`
 }
 
+// ProblemKey names the sentence the dashboard can translate and ProblemArgs fill its
+// {placeholders}. Problem stays the English the CLI prints, and is the fallback.
 type TargetPackage struct {
-	Manifest   string   `json:"manifest"`
-	Version    string   `json:"version,omitempty"`
-	Entry      string   `json:"entry,omitempty"`
-	Components []string `json:"components"`
-	Problem    string   `json:"problem,omitempty"`
+	Manifest    string            `json:"manifest"`
+	Version     string            `json:"version,omitempty"`
+	Entry       string            `json:"entry,omitempty"`
+	Components  []string          `json:"components"`
+	Problem     string            `json:"problem,omitempty"`
+	ProblemKey  string            `json:"problemKey,omitempty"`
+	ProblemArgs map[string]string `json:"problemArgs,omitempty"`
+}
+
+// block records why this Agent cannot take the package.
+func (p *TargetPackage) block(key, message string, args map[string]string) {
+	p.Problem, p.ProblemKey, p.ProblemArgs = message, key, args
 }
 
 type Candidate struct {
@@ -63,6 +72,7 @@ type Candidate struct {
 	Targets     []string                 `json:"targets"`
 	Components  []string                 `json:"components"`
 	Problem     string                   `json:"problem,omitempty"`
+	ProblemKey  string                   `json:"problemKey,omitempty"`
 }
 
 type Discovery struct {

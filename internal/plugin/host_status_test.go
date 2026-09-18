@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os/exec"
 	"path/filepath"
+	"sync/atomic"
 	"testing"
 )
 
@@ -85,6 +86,38 @@ func TestFixedMessagesCarryATranslationKey(t *testing.T) {
 		}
 		if automationProblem(target) != "" && h.ErrorKey == "" {
 			t.Errorf("%s: automation problem has no key", target)
+		}
+	}
+}
+
+// The dashboard draws the plugin list from Packages before any Agent has answered, so it
+// must not wait on one. Inventory asks them all at once and still lists them in order.
+func TestPackagesSkipsTheAgentsAndInventoryKeepsTheirOrder(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	var asked atomic.Int32
+	s := &Service{ConfigPath: filepath.Join(home, "config.yaml"), StateDir: filepath.Join(home, "state")}
+	s.Run = func(_ context.Context, _, _ string, args ...string) ([]byte, error) {
+		asked.Add(1)
+		if args[0] == "--version" {
+			return []byte("1.0.0"), nil
+		}
+		return []byte(`[]`), nil
+	}
+	quick, err := s.Packages()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if asked.Load() != 0 || len(quick.Hosts) != 0 {
+		t.Fatalf("Packages asked %d Agents and returned %d hosts, want none", asked.Load(), len(quick.Hosts))
+	}
+	full, err := s.Inventory(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i, target := range Targets {
+		if full.Hosts[i].Target != target {
+			t.Fatalf("hosts[%d] = %q, want %q", i, full.Hosts[i].Target, target)
 		}
 	}
 }

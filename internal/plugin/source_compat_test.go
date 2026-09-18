@@ -54,6 +54,19 @@ func TestPiConventionalPackage(t *testing.T) {
 	}
 }
 
+func TestMissingOpenCodeEntryNamesTheSentenceAndTheFile(t *testing.T) {
+	root := fixture(t)
+	writeFile(t, root, "package.json", `{"name":"demo","dependencies":{"@opencode-ai/plugin":"1"}}`)
+	d, err := DiscoverOptions(context.Background(), root, "", "dist/main.js")
+	if err != nil {
+		t.Fatal(err)
+	}
+	info := d.Candidates[0].TargetInfo["opencode"]
+	if info.ProblemKey != "plugins.problem.opencodeEntryMissing" || info.ProblemArgs["entry"] != "dist/main.js" || info.Problem == "" {
+		t.Fatalf("problem is not translatable: %+v", info)
+	}
+}
+
 func TestExplicitOpenCodeEntry(t *testing.T) {
 	root := t.TempDir()
 	writeFile(t, root, "package.json", `{"name":"custom","main":"index.js"}`)

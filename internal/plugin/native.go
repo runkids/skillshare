@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -20,11 +21,13 @@ var ErrCLIMissing = errors.New("native CLI not on PATH")
 
 // agentError names a fixed failure template so the dashboard can show it in the reader's
 // language. message stays the English the CLI prints and is the fallback; cause is
-// ErrCLIMissing when installing something, not opening the Agent, is the remedy.
+// ErrCLIMissing when installing something, not opening the Agent, is the remedy. args fill
+// the {placeholders} of the translated sentence, for the part only known at runtime.
 type agentError struct {
 	cause   error
 	key     string
 	message string
+	args    map[string]string
 }
 
 func (e agentError) Error() string { return e.message }
@@ -148,15 +151,29 @@ func (s *Service) host(ctx context.Context, target string) Host {
 	return h
 }
 
-func (s *Service) Inventory(ctx context.Context) (*Inventory, error) {
+// Packages is the part of the inventory that config alone answers, so the dashboard can
+// draw the plugin list while Inventory is still waiting on each Agent's CLI.
+func (s *Service) Packages() (*Inventory, error) {
 	cfg, err := s.load()
 	if err != nil {
 		return nil, err
 	}
-	result := &Inventory{TargetDefinitions: TargetDefinitions(), Packages: cfg.packages, Hosts: []Host{}}
-	for _, target := range Targets {
-		result.Hosts = append(result.Hosts, s.host(ctx, target))
+	return &Inventory{TargetDefinitions: TargetDefinitions(), Packages: cfg.packages, Hosts: []Host{}}, nil
+}
+
+func (s *Service) Inventory(ctx context.Context) (*Inventory, error) {
+	result, err := s.Packages()
+	if err != nil {
+		return nil, err
 	}
+	// Each Agent answers through its own CLI and none depends on another, so the slowest
+	// one sets the wait instead of the sum of all of them.
+	result.Hosts = make([]Host, len(Targets))
+	var wg sync.WaitGroup
+	for i, target := range Targets {
+		wg.Go(func() { result.Hosts[i] = s.host(ctx, target) })
+	}
+	wg.Wait()
 	return result, nil
 }
 

@@ -2,6 +2,7 @@ package plugin
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -33,7 +34,7 @@ func inspect(root string, explicit ...string) (Candidate, error) {
 			err = json.Unmarshal(data, &m)
 		}
 		if err != nil {
-			info.Problem = "Invalid " + spec.path
+			info.block("plugins.problem.invalidManifest", "Invalid "+spec.path, map[string]string{"manifest": spec.path})
 			if _, exists := c.TargetInfo[spec.target]; !exists {
 				c.TargetInfo[spec.target] = info
 			}
@@ -50,7 +51,7 @@ func inspect(root string, explicit ...string) (Candidate, error) {
 			case "", "https://antigravity.google/schemas/v1/plugin.json":
 				spec.target = "antigravity"
 			default:
-				info.Problem = "Unsupported root plugin.json schema"
+				info.block("plugins.problem.rootSchema", "Unsupported root plugin.json schema", nil)
 				c.TargetInfo[spec.target] = info
 				continue
 			}
@@ -61,7 +62,7 @@ func inspect(root string, explicit ...string) (Candidate, error) {
 				var resources map[string]json.RawMessage
 				if m["pi"] != nil {
 					if json.Unmarshal(m["pi"], &resources) != nil || resources == nil {
-						info.Problem = "package.json pi must be an object"
+						info.block("plugins.problem.piObject", "package.json pi must be an object", nil)
 					}
 				} else {
 					var keywords []string
@@ -89,16 +90,18 @@ func inspect(root string, explicit ...string) (Candidate, error) {
 				}
 				info.Entry, err = openCodeEntry(root, explicit...)
 				if err != nil {
-					info.Problem = err.Error()
+					var keyed agentError
+					errors.As(err, &keyed)
+					info.block(keyed.key, err.Error(), keyed.args)
 				}
 				info.Components = append(info.Components, "extensions")
 			}
 		}
 		if !namePattern.MatchString(name) {
-			info.Problem = spec.path + " requires a valid plugin name"
+			info.block("plugins.problem.manifestName", spec.path+" requires a valid plugin name", map[string]string{"manifest": spec.path})
 		}
 		if c.Name != "" && c.Name != name {
-			info.Problem = "Native manifest name differs from " + c.Name
+			info.block("plugins.problem.nameDiffers", "Native manifest name differs from "+c.Name, map[string]string{"name": c.Name})
 		}
 		if info.Problem == "" {
 			if c.Name == "" {
