@@ -336,14 +336,33 @@ func copyDirectory(src, dst string) error {
 
 // copyDirectoryOpts controls behavior of copyDirectoryWithState.
 type copyDirectoryOpts struct {
-	SkipGit bool // skip .git directories
-	Ignore  *skillignore.Matcher
+	SkipGit     bool // skip .git directories
+	Ignore      *skillignore.Matcher
+	SymlinkRoot string // when set, reject symlinks that resolve outside this directory
 }
 
 // copyDirectorySkipGit copies a directory recursively, skipping .git directories.
 // Use this for collect/pull operations where .git is not wanted in the destination.
 func copyDirectorySkipGit(src, dst string) error {
-	return copyDirectoryWithState(src, dst, map[string]bool{}, &copyDirectoryOpts{SkipGit: true})
+	info, err := os.Lstat(src)
+	if err != nil {
+		return fmt.Errorf("failed to inspect source directory %s: %w", src, err)
+	}
+	if utils.IsSymlinkOrJunction(src) || !info.IsDir() {
+		return fmt.Errorf("refusing to collect a source that is not a real directory: %s", src)
+	}
+	absSrc, err := filepath.Abs(src)
+	if err != nil {
+		return fmt.Errorf("failed to resolve source directory %s: %w", src, err)
+	}
+	resolvedRoot, err := filepath.EvalSymlinks(absSrc)
+	if err != nil {
+		return fmt.Errorf("failed to resolve source directory %s: %w", src, err)
+	}
+	return copyDirectoryWithState(src, dst, map[string]bool{}, &copyDirectoryOpts{
+		SkipGit:     true,
+		SymlinkRoot: resolvedRoot,
+	})
 }
 
 func copyDirectoryWithIgnore(src, dst string, ignorePatterns []string) error {
@@ -397,17 +416,26 @@ func copyDirectoryWithState(src, dst string, active map[string]bool, opts *copyD
 		// In copy mode we need real files/dirs, so directory symlinks are
 		// dereferenced and copied as concrete directories.
 		if info.Mode()&os.ModeSymlink != 0 {
-			targetInfo, statErr := os.Stat(path)
+			absLinkPath, resolveErr := filepath.Abs(path)
+			if resolveErr != nil {
+				return fmt.Errorf("failed to resolve symlink target %s: %w", path, resolveErr)
+			}
+			resolvedTarget, resolveErr := filepath.EvalSymlinks(absLinkPath)
+			if resolveErr != nil {
+				return fmt.Errorf("failed to resolve symlink target %s: %w", path, resolveErr)
+			}
+			if opts != nil && opts.SymlinkRoot != "" && !utils.PathWithin(resolvedTarget, opts.SymlinkRoot) {
+				return fmt.Errorf("refusing to copy symlink outside skill root: %s -> %s", path, resolvedTarget)
+			}
+
+			targetInfo, statErr := os.Stat(resolvedTarget)
 			if statErr != nil {
 				return fmt.Errorf("failed to stat symlink target %s: %w", path, statErr)
 			}
 			if targetInfo.IsDir() {
-				resolvedDir, resolveErr := filepath.EvalSymlinks(path)
-				if resolveErr != nil {
-					return fmt.Errorf("failed to resolve symlink directory %s: %w", path, resolveErr)
-				}
-				return copyDirectoryWithState(resolvedDir, dstPath, active, opts)
+				return copyDirectoryWithState(resolvedTarget, dstPath, active, opts)
 			}
+			return copyFile(resolvedTarget, dstPath)
 		}
 
 		return copyFile(path, dstPath)

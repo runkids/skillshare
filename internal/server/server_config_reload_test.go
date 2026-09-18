@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"skillshare/internal/config"
 )
@@ -83,6 +84,95 @@ func TestServer_AutoReloadsConfigForAPIRequests(t *testing.T) {
 	}
 }
 
+func TestServer_ReadRequestProceedsDuringAdoptAndReloadsConfig(t *testing.T) {
+	s, _ := newTestServer(t)
+	sourceB := filepath.Join(t.TempDir(), "skills-b")
+	if err := os.MkdirAll(sourceB, 0755); err != nil {
+		t.Fatalf("failed to create replacement source: %v", err)
+	}
+	if err := os.WriteFile(config.ConfigPath(), []byte("source: "+sourceB+"\nmode: symlink\ntargets: {}\n"), 0644); err != nil {
+		t.Fatalf("failed to rewrite config: %v", err)
+	}
+
+	// The exclusive gate represents an adopt apply already past body decoding.
+	// Reads do not take the gate, so the routed request must still auto-reload
+	// and complete while adoption owns it.
+	s.adoptMu.Lock()
+	defer s.adoptMu.Unlock()
+
+	type response struct {
+		Source string `json:"source"`
+	}
+	firstDone := make(chan struct{})
+	firstRecorder := httptest.NewRecorder()
+	go func() {
+		defer close(firstDone)
+		req := httptest.NewRequest(http.MethodGet, "/api/overview", nil)
+		s.handler.ServeHTTP(firstRecorder, req)
+	}()
+
+	select {
+	case <-firstDone:
+	case <-time.After(2 * time.Second):
+		t.Fatal("routed read request blocked behind an active adopt operation")
+	}
+
+	if firstRecorder.Code != http.StatusOK {
+		t.Fatalf("unexpected status while config lock was busy: %d body=%s", firstRecorder.Code, firstRecorder.Body.String())
+	}
+	var first response
+	if err := json.Unmarshal(firstRecorder.Body.Bytes(), &first); err != nil {
+		t.Fatalf("failed to decode response while config lock was busy: %v", err)
+	}
+	if first.Source != sourceB {
+		t.Fatalf("source during adopt = %q, want auto-reloaded source %q", first.Source, sourceB)
+	}
+}
+
+func TestServer_MutationWaitsForAdoptThenReloadsConfig(t *testing.T) {
+	s, _ := newTestServer(t)
+	sourceB := filepath.Join(t.TempDir(), "skills-b")
+	if err := os.MkdirAll(sourceB, 0755); err != nil {
+		t.Fatalf("failed to create replacement source: %v", err)
+	}
+	if err := os.WriteFile(config.ConfigPath(), []byte("source: "+sourceB+"\nmode: symlink\ntargets: {}\n"), 0644); err != nil {
+		t.Fatalf("failed to rewrite config: %v", err)
+	}
+
+	seenSource := make(chan string, 1)
+	wrapped := s.withConfigAutoReload(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		s.mu.RLock()
+		seenSource <- s.cfg.EffectiveSkillsSource()
+		s.mu.RUnlock()
+		w.WriteHeader(http.StatusNoContent)
+	}))
+
+	s.adoptMu.Lock()
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		req := httptest.NewRequest(http.MethodPost, "/api/test-mutation", nil)
+		wrapped.ServeHTTP(httptest.NewRecorder(), req)
+	}()
+
+	select {
+	case <-done:
+		s.adoptMu.Unlock()
+		t.Fatal("mutating request bypassed the active adopt operation")
+	case <-time.After(100 * time.Millisecond):
+	}
+	s.adoptMu.Unlock()
+
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		t.Fatal("mutating request did not resume after adopt completed")
+	}
+	if got := <-seenSource; got != sourceB {
+		t.Fatalf("mutation used source %q, want freshly reloaded source %q", got, sourceB)
+	}
+}
+
 func TestServer_ConfigEndpointStillWorksWhenConfigTemporarilyInvalid(t *testing.T) {
 	tmp := t.TempDir()
 	sourceDir := filepath.Join(tmp, "skills")
@@ -127,5 +217,53 @@ func TestServer_ConfigEndpointStillWorksWhenConfigTemporarilyInvalid(t *testing.
 	}
 	if resp.Raw != invalidRaw {
 		t.Fatalf("expected raw config to match file content")
+	}
+}
+
+func TestServerCloneTargetsDeepCopiesNestedConfig(t *testing.T) {
+	s := &Server{cfg: &config.Config{Targets: map[string]config.TargetConfig{
+		"claude": {
+			Include: []string{"legacy-include"},
+			Exclude: []string{"legacy-exclude"},
+			Skills: &config.ResourceTargetConfig{
+				Mode:    "merge",
+				Include: []string{"skill-include"},
+				Exclude: []string{"skill-exclude"},
+			},
+			Agents: &config.ResourceTargetConfig{
+				Mode:    "copy",
+				Include: []string{"agent-include"},
+				Exclude: []string{"agent-exclude"},
+			},
+		},
+	}}}
+
+	s.mu.RLock()
+	cloned := s.cloneTargets()
+	s.mu.RUnlock()
+
+	copy := cloned["claude"]
+	copy.Include[0] = "changed"
+	copy.Exclude[0] = "changed"
+	copy.Skills.Mode = "copy"
+	copy.Skills.Include[0] = "changed"
+	copy.Skills.Exclude[0] = "changed"
+	copy.Agents.Mode = "merge"
+	copy.Agents.Include[0] = "changed"
+	copy.Agents.Exclude[0] = "changed"
+	delete(cloned, "claude")
+
+	original := s.cfg.Targets["claude"]
+	if original.Include[0] != "legacy-include" || original.Exclude[0] != "legacy-exclude" {
+		t.Fatalf("legacy target slices were aliased: %+v", original)
+	}
+	if original.Skills.Mode != "merge" || original.Skills.Include[0] != "skill-include" || original.Skills.Exclude[0] != "skill-exclude" {
+		t.Fatalf("skills config was aliased: %+v", original.Skills)
+	}
+	if original.Agents.Mode != "copy" || original.Agents.Include[0] != "agent-include" || original.Agents.Exclude[0] != "agent-exclude" {
+		t.Fatalf("agents config was aliased: %+v", original.Agents)
+	}
+	if _, ok := s.cfg.Targets["claude"]; !ok {
+		t.Fatal("cloned map shared ownership with server config")
 	}
 }

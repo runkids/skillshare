@@ -24,6 +24,7 @@ import {
   ChevronDown,
   Stethoscope,
   BarChart3,
+  PackagePlus,
 } from 'lucide-react';
 import { radius } from '../design';
 import { useAppContext } from '../context/AppContext';
@@ -68,6 +69,7 @@ const navGroups: NavGroup[] = [
     items: [
       { to: '/sync', icon: RefreshCw, labelKey: 'layout.nav.sync' },
       { to: '/collect', icon: ArrowDownToLine, labelKey: 'layout.nav.collect' },
+      { to: '/adopt', icon: PackagePlus, labelKey: 'layout.nav.adopt' },
       { to: '/install', icon: Download, labelKey: 'layout.nav.install' },
       { to: '/update', icon: ArrowUpCircle, labelKey: 'layout.nav.update' },
       { to: '/uninstall', icon: Trash2, labelKey: 'layout.nav.uninstall' },

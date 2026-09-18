@@ -348,4 +348,205 @@ func TestPullSkill_ForceOverwrite(t *testing.T) {
 	if string(data) != "new" {
 		t.Errorf("expected 'new' content after force pull, got %q", string(data))
 	}
+	stagingDirs, err := filepath.Glob(filepath.Join(src, ".skillshare-pull-*"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(stagingDirs) != 0 {
+		t.Fatalf("pull staging directories remain after successful replacement: %v", stagingDirs)
+	}
+}
+
+func TestPullSkill_ForcePreservesExistingOnCopyFailure(t *testing.T) {
+	tmp := t.TempDir()
+	src := filepath.Join(tmp, "source")
+	tgt := filepath.Join(tmp, "target")
+
+	existingSkill := filepath.Join(src, "my-skill")
+	if err := os.MkdirAll(existingSkill, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(existingSkill, "SKILL.md"), []byte("old"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	localSkill := filepath.Join(tgt, "my-skill")
+	if err := os.MkdirAll(localSkill, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(localSkill, "SKILL.md"), []byte("new"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(filepath.Join(tmp, "missing"), filepath.Join(localSkill, "broken")); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+
+	err := PullSkill(LocalSkillInfo{Name: "my-skill", Path: localSkill}, src, true)
+	if err == nil {
+		t.Fatal("expected pull to fail for a broken symlink")
+	}
+
+	data, readErr := os.ReadFile(filepath.Join(existingSkill, "SKILL.md"))
+	if readErr != nil {
+		t.Fatalf("existing source skill was lost after failed pull: %v", readErr)
+	}
+	if string(data) != "old" {
+		t.Fatalf("existing source content = %q after failed pull, want %q", data, "old")
+	}
+	stagingDirs, globErr := filepath.Glob(filepath.Join(src, ".skillshare-pull-*"))
+	if globErr != nil {
+		t.Fatal(globErr)
+	}
+	if len(stagingDirs) != 0 {
+		t.Fatalf("pull staging directories remain after failed copy: %v", stagingDirs)
+	}
+}
+
+func TestPullSkill_RejectsSymlinkToFileOutsideSkill(t *testing.T) {
+	tmp := t.TempDir()
+	src := filepath.Join(tmp, "source")
+	localSkill := filepath.Join(tmp, "target", "my-skill")
+	if err := os.MkdirAll(src, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(localSkill, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	externalFile := filepath.Join(tmp, "private.txt")
+	if err := os.WriteFile(externalFile, []byte("do not collect"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(externalFile, filepath.Join(localSkill, "linked.txt")); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+
+	err := PullSkill(LocalSkillInfo{Name: "my-skill", Path: localSkill}, src, false)
+	if err == nil {
+		t.Fatal("expected pull to reject a symlink that resolves outside the skill")
+	}
+	if _, statErr := os.Stat(filepath.Join(src, "my-skill")); !os.IsNotExist(statErr) {
+		t.Fatalf("rejected skill was materialized in source: %v", statErr)
+	}
+}
+
+func TestPullSkill_RejectsSymlinkToDirectoryOutsideSkill(t *testing.T) {
+	tmp := t.TempDir()
+	src := filepath.Join(tmp, "source")
+	localSkill := filepath.Join(tmp, "target", "my-skill")
+	if err := os.MkdirAll(src, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(localSkill, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	externalDir := filepath.Join(tmp, "private")
+	if err := os.MkdirAll(externalDir, 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(externalDir, "secret.txt"), []byte("do not collect"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(externalDir, filepath.Join(localSkill, "linked-dir")); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+
+	err := PullSkill(LocalSkillInfo{Name: "my-skill", Path: localSkill}, src, false)
+	if err == nil {
+		t.Fatal("expected pull to reject a directory symlink that resolves outside the skill")
+	}
+	if _, statErr := os.Stat(filepath.Join(src, "my-skill")); !os.IsNotExist(statErr) {
+		t.Fatalf("rejected skill was materialized in source: %v", statErr)
+	}
+}
+
+func TestPullSkill_RejectsSkillPathReplacedBySymlink(t *testing.T) {
+	tmp := t.TempDir()
+	src := filepath.Join(tmp, "source")
+	externalSkill := filepath.Join(tmp, "external")
+	if err := os.MkdirAll(src, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(externalSkill, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(externalSkill, "SKILL.md"), []byte("external"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	linkPath := filepath.Join(tmp, "candidate")
+	if err := os.Symlink(externalSkill, linkPath); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+
+	err := PullSkill(LocalSkillInfo{Name: "candidate", Path: linkPath}, src, false)
+	if err == nil {
+		t.Fatal("expected pull to reject a candidate replaced by a symlink")
+	}
+	if _, statErr := os.Stat(filepath.Join(src, "candidate")); !os.IsNotExist(statErr) {
+		t.Fatalf("replaced candidate was materialized in source: %v", statErr)
+	}
+	data, readErr := os.ReadFile(filepath.Join(externalSkill, "SKILL.md"))
+	if readErr != nil || string(data) != "external" {
+		t.Fatalf("external target was modified: data=%q err=%v", data, readErr)
+	}
+}
+
+func TestPullSkill_MaterializesSymlinksWithinSkill(t *testing.T) {
+	tmp := t.TempDir()
+	src := filepath.Join(tmp, "source")
+	localSkill := filepath.Join(tmp, "target", "my-skill")
+	if err := os.MkdirAll(src, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(localSkill, "templates"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(localSkill, "content.txt"), []byte("content"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(localSkill, "templates", "template.txt"), []byte("template"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink("content.txt", filepath.Join(localSkill, "linked-file.txt")); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+	if err := os.Symlink("templates", filepath.Join(localSkill, "linked-dir")); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+
+	if err := PullSkill(LocalSkillInfo{Name: "my-skill", Path: localSkill}, src, false); err != nil {
+		t.Fatal(err)
+	}
+
+	linkedDirInfo, err := os.Lstat(filepath.Join(src, "my-skill", "linked-dir"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !linkedDirInfo.IsDir() || linkedDirInfo.Mode()&os.ModeSymlink != 0 {
+		t.Fatalf("linked-dir was not materialized as a real directory: %v", linkedDirInfo.Mode())
+	}
+
+	checks := map[string]string{
+		"linked-file.txt":         "content",
+		"linked-dir/template.txt": "template",
+	}
+	for rel, want := range checks {
+		path := filepath.Join(src, "my-skill", rel)
+		info, err := os.Lstat(path)
+		if err != nil {
+			t.Fatalf("materialized path %s is missing: %v", rel, err)
+		}
+		if info.Mode()&os.ModeSymlink != 0 {
+			t.Fatalf("%s remained a symlink after pull", rel)
+		}
+		data, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if string(data) != want {
+			t.Fatalf("%s content = %q, want %q", rel, data, want)
+		}
+	}
 }

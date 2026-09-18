@@ -14,7 +14,7 @@ _skillshare() {
         cword=$COMP_CWORD
     fi
 
-    local commands="init install uninstall list search sync status diff backup restore collect pull push commit doctor target upgrade update check new trash analyze audit hub log ui tui extras enable disable completion version help"
+    local commands="init install uninstall list search sync status diff backup restore collect adopt pull push commit doctor target upgrade update check new trash analyze audit hub log ui tui extras enable disable completion version help"
 
     local global_flags="--project -p --global -g"
 
@@ -37,6 +37,7 @@ _skillshare() {
     local backup_flags="--list -l --cleanup -c --dry-run -n --target -t --help -h"
     local restore_flags="--from -f --force --dry-run -n --no-tui --help -h"
     local collect_flags="--all -a --dry-run -n --force -f --json --help -h"
+    local adopt_flags="--all -a --dry-run -n --force -f --json --help -h"
     local pull_flags="--dry-run -n --force -f"
     local push_flags="--dry-run -n --message -m"
     local commit_flags="--dry-run -n --message -m --help -h"
@@ -156,6 +157,7 @@ _skillshare() {
         backup)     COMPREPLY=($(compgen -W "${backup_flags} ${global_flags}" -- "${cur}")) ;;
         restore)    COMPREPLY=($(compgen -W "${restore_flags} ${global_flags}" -- "${cur}")) ;;
         collect)    COMPREPLY=($(compgen -W "${collect_flags} ${global_flags}" -- "${cur}")) ;;
+        adopt)      COMPREPLY=($(compgen -W "${adopt_flags} ${global_flags}" -- "${cur}")) ;;
         pull)       COMPREPLY=($(compgen -W "${pull_flags} ${global_flags}" -- "${cur}")) ;;
         push)       COMPREPLY=($(compgen -W "${push_flags} ${global_flags}" -- "${cur}")) ;;
         commit)     COMPREPLY=($(compgen -W "${commit_flags} ${global_flags}" -- "${cur}")) ;;

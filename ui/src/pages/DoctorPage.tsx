@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Stethoscope,
   RefreshCw,
@@ -9,6 +10,8 @@ import {
   ChevronDown,
   ChevronRight,
   ArrowUpCircle,
+  ArrowRight,
+  PackagePlus,
   PartyPopper,
 } from 'lucide-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -162,6 +165,7 @@ function CheckDetails({ details, name }: { details: string[]; name: string }) {
 
 export default function DoctorPage() {
   const t = useT();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { data, isPending, error, isFetching, refetch } = useQuery({
     queryKey: queryKeys.doctor,
@@ -308,6 +312,32 @@ export default function DoctorPage() {
           </div>
         </Card>
       )}
+
+      {/* Repair entry points */}
+      <Card>
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
+          <div
+            className="shrink-0 w-10 h-10 rounded-full flex items-center justify-center"
+            style={{ backgroundColor: `${palette.info}18` }}
+          >
+            <PackagePlus size={20} strokeWidth={2.5} style={{ color: palette.info }} />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-sm font-medium text-pencil">{t('doctor.adopt.title')}</span>
+              <Badge variant="info" size="sm" dot>{t('doctor.adopt.badge')}</Badge>
+            </div>
+            <p className="text-sm text-pencil-light mt-1">{t('doctor.adopt.description')}</p>
+          </div>
+          <div className="shrink-0 sm:self-center">
+            <Button variant="secondary" size="sm" onClick={() => navigate('/adopt')}>
+              <PackagePlus size={14} strokeWidth={2.5} />
+              {t('doctor.adopt.action')}
+              <ArrowRight size={14} strokeWidth={2.5} />
+            </Button>
+          </div>
+        </div>
+      </Card>
 
       {/* Filter toggles */}
       <SegmentedControl<StatusFilter>

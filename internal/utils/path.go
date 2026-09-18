@@ -36,6 +36,17 @@ func PathHasPrefix(path, prefix string) bool {
 	return strings.HasPrefix(path, prefix)
 }
 
+// PathWithin reports whether path is root itself or a descendant of root.
+// Unlike a string-prefix check, sibling paths with the same leading text are
+// not treated as descendants.
+func PathWithin(path, root string) bool {
+	rel, err := filepath.Rel(root, path)
+	if err != nil || filepath.IsAbs(rel) {
+		return false
+	}
+	return rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator))
+}
+
 // FoldHomePath folds an absolute path under the user's home directory back to
 // the ~ form for stable, machine-agnostic YAML serialization.
 //
