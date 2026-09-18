@@ -5,285 +5,255 @@ description: >-
   website (website/). Use this skill whenever you: build or modify a dashboard page
   or component in ui/src/, style or layout website pages or custom CSS in website/,
   create new React components for the dashboard, add pages to the dashboard, fix
-  visual bugs in either frontend, or need to know which design tokens, components,
-  or patterns to use. This skill covers color tokens, typography, component API,
-  page structure, accessibility, keyboard shortcuts, animations, and anti-patterns
-  for both frontends. Even if the user just says "fix the styling" or "add a card",
-  use this skill to ensure consistency.
+  visual bugs in either frontend, or need to know which design tokens, ss-* classes,
+  components, or patterns to use. Covers the two dashboard styles (Clean / Playful)
+  in light and dark, design tokens, the ss-* class system, component API, page
+  structure, accessibility, keyboard shortcuts, and anti-patterns. Even if the user
+  just says "fix the styling" or "add a card", use this skill to ensure consistency.
 metadata: 
   targets: [claude, universal]
 ---
 
 Enforce the skillshare design system across the two frontends. $ARGUMENTS is the file or area being worked on.
 
-**Companion skill**: For UX design decisions beyond token/component usage — layout strategy, information hierarchy, interaction patterns, micro-copy, or when designing a new page from scratch — also invoke `/ui-ux-pro-max` for higher-level design guidance. This skill handles *what components and tokens to use*; `/ui-ux-pro-max` handles *how to design the experience*.
-
-The project has **two distinct design systems** sharing semantic color names but with different visual treatments:
-
 | Aspect | UI Dashboard (`ui/`) | Website (`website/`) |
 |--------|---------------------|----------------------|
 | Stack | React 19 + Vite + Tailwind CSS v4 | Docusaurus 3 + custom CSS |
-| Font body | DM Sans | IBM Plex Sans |
-| Font heading | DM Sans | Inter |
-| Font mono | SFMono-Regular, Menlo | JetBrains Mono |
-| Border-radius | Clean: `4px`/`8px`/`12px`/pill | Wobbly: `255px 15px 225px 15px / ...` |
-| Shadows | Subtle blur: `0 1px 3px rgba(...)` | Hard offset: `4px 4px 0px 0px #2d2d2d` |
-| Background | Flat `#f7f6f3` | Dot grid on `#fdfbf7` |
-| Philosophy | skillshare-inspired minimal | Hand-drawn sketchy organic |
+| Source of truth | `ui/src/components.css` (tokens + `ss-*` classes), `ui/src/index.css` (Tailwind mapping) | `website/src/css/custom.css` (docs), `website/src/pages/*.module.css` (homepage, features) |
+| Looks | Two styles, **Clean** and **Playful**, each in light and dark | Docs: clean. Homepage: hand-drawn string board |
+
+**This file names tokens and classes and says when to use them. It does not copy their values.** Colours, radii, fonts and shadows change; read them from the CSS when you need one.
 
 ---
 
 ## UI Dashboard (`ui/`)
 
-Reference implementation: `ui/src/pages/LogPage.tsx`
+Reference pages: `ui/src/pages/TargetsPage.tsx` (list page), `ui/src/pages/HubPage.tsx` (tabs), `ui/src/pages/ResourcesPage.tsx` (list + tiles + bulk toolbar).
 
-> For the full human-readable style guide (design philosophy, visual rules, anti-patterns), see `references/STYLE_GUIDE.md` bundled with this skill.
+> Design rules and the reasoning behind them: `references/STYLE_GUIDE.md`.
 
-### Design Tokens
+### Two styles, two modes
 
-Defined in `ui/src/index.css` (@theme) and `ui/src/design.ts`:
+Style and mode are independent, so every screen has four looks.
 
-```ts
-// ui/src/design.ts
-import { radius, shadows, palette } from '../design';
+| Axis | Values | How it is set |
+|------|--------|---------------|
+| Style | Clean, Playful (default) | `html[data-theme="playful"]`; attribute absent = Clean |
+| Mode | light, dark, system | `html.dark` |
 
-radius.sm   // '4px'  — badges, chips
-radius.md   // '8px'  — cards, containers
-radius.lg   // '12px' — modals, panels
-radius.btn  // '9999px' — pill buttons (skillshare style)
-radius.full // '9999px' — avatars
+Set by `ui/src/context/ThemeContext.tsx`, switched in `ThemePopover.tsx`. `?theme=clean|playful|dark|light` in the URL forces one, which is handy for screenshots.
 
-shadows.sm / .md / .lg / .hover / .active / .accent / .blue
-palette.accent / .info / .success / .warning / .danger
+All four looks come from CSS variables alone. A page that uses only tokens and `ss-*` classes gets all four for free; a hardcoded colour, radius or shadow breaks three of them.
+
+- Clean: system font, 1px hairlines, soft shadows, ink-coloured primary button.
+- Playful: Kalam headings, 2px ink borders, hard offset shadows, dashed separators, yellow primary, pastel accents, dot-grid background, sticky-note tiles.
+- Style-only markup: `.ss-only-clean` / `.ss-only-playful` (Dashboard shows a count strip in Clean and a pin board in Playful).
+
+### Design tokens
+
+Defined per look at the top of `ui/src/components.css`. `ui/src/index.css` exposes them to Tailwind through `@theme inline`, so `text-ink-2`, `bg-surface`, `border-line` all follow the active look.
+
+| Group | Tokens | Use |
+|-------|--------|-----|
+| Surfaces | `--bg` `--side` `--surface` `--sunken` | Page, sidebar, cards and inputs, recessed headers and footers |
+| Text | `--ink` `--ink-2` `--ink-3` | Primary, secondary, tertiary and placeholder |
+| Lines | `--line` `--line-2` `--line-soft` | Frames, control borders, soft dividers |
+| Borders | `--sep` `--frame` `--bw` | Whole `border` values: row separator, box frame, control border width |
+| Action | `--pri` `--on-pri` `--accent` `--accent-bg` `--sel` `--sel-ink` | Primary button, links and focus, selected nav and menu items |
+| Status | `--ok` `--warn` `--bad`, each with `-bg` | Text or dot colour, plus its tinted background |
+| Kind | `--c-skill` `--c-agent` `--c-extra` `--c-mcp` `--c-target`, each with `-bg` | Resource-kind colour, used by `.ss-cat` |
+| Pastels | `--pa` `--pb` `--pc` `--pd` `--pe` | **Playful only.** Never reference outside a `[data-theme="playful"]` rule |
+| Type | `--f` `--fh` `--fm` `--h1` `--h2` | Body, heading (Kalam in Playful), mono, heading shorthands |
+| Shape | `--r-ctl` `--r-btn` `--r-box` `--r-tag` | Controls, buttons (pill), boxes, tags |
+| Shadow | `--sh-box` `--sh-btn` `--sh-float` `--sh-dialog` | Boxes, buttons, menus and toasts, dialogs |
+
+Tailwind names: `bg` `side` `surface` `sunken` `ink` `ink-2` `ink-3` `line` `line-2` `line-soft` `sel` `pri` `on-pri` `ok` `warn` `bad` (with `-bg`) and `link` / `link-bg` for `--accent`.
+
+**Legacy names**: `pencil`, `pencil-light`, `paper`, `paper-warm`, `muted`, `muted-dark`, `success`, `warning`, `danger`, `blue`, `info`, `accent` still resolve as aliases for markup not yet migrated. Do not use them in new code. When you touch a line that has one, replace it:
+
+| Legacy | Use |
+|--------|-----|
+| `text-pencil` | `text-ink` |
+| `text-pencil-light` | `text-ink-2` |
+| `text-muted-dark` | `text-ink-3` |
+| `bg-paper` / `bg-paper-warm` | `bg-bg` / `bg-side` |
+| `border-muted` | `border-line` |
+| `text-success` / `text-warning` / `text-danger` | `text-ok` / `text-warn` / `text-bad` |
+| `text-blue` / `text-info` | `text-link` |
+
+`ui/src/design.ts` (`radius`, `shadows`, `palette`) forwards to the same variables, for inline styles only.
+
+### The `ss-*` classes
+
+All in `@layer components` in `ui/src/components.css`. List what exists today:
+
+```bash
+grep -o '\.ss-[a-z0-9-]*' ui/src/components.css | sort -u
 ```
 
-### Color Tokens (Tailwind classes)
+State and variant are short modifier classes on the same element: `.on` (selected or checked), `.sel` (selected row or tile), `.ok` `.warn` `.bad` `.inf` (tone), `.sm` `.lg` (size).
 
-| Role | Class | When |
-|------|-------|------|
-| Primary text | `text-pencil` | Titles, names, values |
-| Secondary | `text-pencil-light` | Descriptions, timestamps, labels |
-| Tertiary | `text-muted-dark` | Hints, placeholders |
-| Success | `text-success` | Passed, synced, clean |
-| Warning | `text-warning` | Dirty, behind, partial |
-| Danger | `text-danger` | Failed, blocked, critical |
-| Info / Blue | `text-blue` | Links, info badges, repo URLs |
-| Background | `bg-surface` | Cards, inputs |
-| Page bg | `bg-paper` | Root background |
-| Borders | `border-muted` | Default borders |
+| Area | Classes |
+|------|---------|
+| Page | `.ss-wrap` (1080px column, 28px gap), `.ss-pgh` + `.ss-ph` (header, via `PageHeader`), `.ss-crumb`, `.ss-sec` (section heading row; `h2` inside, `.more` link on the right), `.ss-h1` `.ss-h2`, `.ss-hand` (Kalam aside) |
+| Shell | `.ss-side` `.ss-wm` `.ss-nvg` `.ss-nv` `.ss-sidefoot` — `Layout.tsx` only |
+| Buttons | `.ss-btn` + `.pri` `.ghost` `.dng` + `.sm` `.lg`; `.ss-ib` (30px icon button); `.ss-more` (text link) |
+| Forms | `.ss-fld` (label + control + `.hp` help), `.ss-inp` (+ `.area` `.err`, `.k` key hint), `.ss-chk` (+ `.rad`), `.ss-sw` (switch), `.ss-tgl` (icon toggle), `.ss-seg` (+ `.ic` icon-only) |
+| Navigation | `.ss-tabs`, `.ss-tabbar` (tabs with controls on the right), `.ss-pager`, `.ss-menu` (+ `.hv` `.dng`, `hr`, `.k`) |
+| Lists | `.ss-list` (framed container), `.ss-lh` (column header), `.ss-gh` (group header), `.ss-r` (row; `.link` clickable, `.sel`, `.fold`; `.nm` name, `.nm.m` mono name), `.ss-plain` (rows without side padding), `.tr` with `--d` (tree indent) |
+| Boxes | `.ss-box` (card, via `Card`), `.ss-tiles` + `.ss-tile` (grid; sticky notes in Playful), `.ss-kv` (`dl` key/value), `.ss-setrow` (settings row), `.ss-counts` (stat strip) |
+| Status | `.ss-st` (dot + text; `.ok` `.warn` `.bad` `.off`, `.wrap` for long messages), `.ss-tag` (mono label; `.ok` `.warn` `.bad` `.inf`), `.ss-sev` (audit severity; `.c` `.h` `.md` `.l` `.n`), `.ss-cnt` (count) |
+| Icons | `.ss-cat` (kind tile; `.skill` `.agent` `.extra` `.mcp` `.target`, tones, `.sm`), `.ss-at` (agent or tool logo; `.lg`), `.ss-stack` (overlapping logos) |
+| Feedback | `.ss-note` (+ `.warn` `.bad` `.inf`), `.ss-empty` (via `EmptyState`), `.ss-prog`, `.ss-skel`, `.ss-toast`, `.ss-tip` |
+| Overlays | `.ss-scrim` + `.ss-dlg` with `.dh` `.db` `.df` (via `DialogShell`), `.ss-bulk` (selection toolbar), `.ss-top` |
+| Content | `.ss-prose` (rendered markdown), `.ss-code` (+ `.ln` `.cur`), `.ss-pre`, `.ss-ed` (editor) |
+| Dashboard | `.ss-board` `.ss-pin` `.ss-pinnote` `.ss-squig` — Playful pin board |
 
-**Rule**: Max one accent color per visual region. Don't double up — if a row has a colored dot, skip the colored badge (or vice versa).
+Tailwind utilities are for layout inside these (`flex`, `gap-*`, `min-w-0`, `w-[92px]`, `truncate`). Colour, border, radius and shadow come from `ss-*` classes or token utilities.
 
-### Typography
+**Cascade gotcha**: the `ss-*` classes sit in `@layer components`, so a Tailwind utility on the same element always wins, whatever the selector specificity. Do not put `mb-*` on something `.ss-wrap` already spaces. To override an `ss-*` property from markup, use the Tailwind important prefix, as in `className="ss-r link !min-h-[56px]"`.
 
-- Body: DM Sans (via `--font-hand`)
-- `font-mono`: timestamps, file paths, durations, code, hashes
-- `uppercase tracking-wider`: command names, stat labels
-- Size: `text-2xl` > `text-xl` > `text-base` > `text-sm` > `text-xs`
-
-### Page Structure (mandatory order)
-
-Every page follows this layout:
+### Page structure
 
 ```tsx
-<div className="space-y-5 animate-fade-in">
-  <PageHeader icon={<Icon />} title="..." subtitle="..." actions={<>...</>} />
+<div className="ss-wrap animate-fade-in">
+  <PageHeader title={t('x.title')} subtitle={t('x.subtitle')} actions={<>...</>} />
 
-  {/* Toolbar: tabs + filters */}
-  <div className="flex flex-wrap items-end gap-3">
-    <SegmentedControl ... />
-    <Select ... />
-  </div>
+  {/* optional: tabs, or tabs with controls on the right */}
+  <nav className="ss-tabs" aria-label={t('x.title')}>
+    <button type="button" className={on ? 'on' : ''} aria-current={on}>...</button>
+  </nav>
 
-  {/* Summary line or stat cards */}
-  <SummaryLine ... />
+  {error && <div className="ss-note bad"><span className="flex-1">{error.message}</span></div>}
 
-  {/* Content: table, card list, or card grid */}
-  {empty ? <EmptyState ... /> : <ContentArea />}
+  {empty ? (
+    <EmptyState icon={SomeIcon} title="..." description="..." action={...} />
+  ) : (
+    <div className="ss-list">
+      <div className="ss-lh">{/* column labels; widths match the row cells */}</div>
+      <Link to="..." className="ss-r link">
+        <span className="ss-cat skill"><Puzzle size={16} /></span>
+        <span className="nm m min-w-0 flex-1 truncate">name</span>
+        <span className="w-[92px] shrink-0"><span className="ss-tag">merge</span></span>
+        <span className="ss-st ok">synced</span>
+      </Link>
+    </div>
+  )}
 
-  {/* Dialogs (rendered at bottom, portal via DialogShell) */}
-  <ConfirmDialog ... />
+  {/* a second section */}
+  <section>
+    <div className="ss-sec"><h2>Title</h2><span className="ss-cnt">12</span></div>
+    <div className="ss-list">...</div>
+  </section>
+
+  {/* dialogs last; DialogShell portals to body */}
 </div>
 ```
 
-### Component Library
+- `.ss-wrap` spaces its children with a 28px gap. Do not add `space-y-*` or margins between them.
+- A page that is one child of a wider layout, without `.ss-wrap`, still gets header spacing from `.ss-pgh`.
+- `PageHeader` no longer renders `icon`; do not pass it. Use `backTo` for a sub-page of a nav item, `crumbs` for deeper trails, `mono` when the title is a resource name.
+- A sub-page reached from a nav item keeps that item lit through `also` in the `Layout.tsx` nav definition (Skills stays active on `/hubs`).
 
-| Component | File | API |
-|-----------|------|-----|
-| `Card` | `Card.tsx` | `variant="default\|accent\|outlined"`, `hover`, `overflow`, `tilt?`, `padding="none\|sm\|md"` — accent uses thicker border for emphasis (no stripe) |
-| `Button` | `Button.tsx` | `variant="primary\|secondary\|danger\|ghost\|link"`, `size="sm\|md\|lg"`, `loading?` |
-| `Badge` | `Badge.tsx` | `variant="default\|success\|warning\|danger\|info\|accent"`, `size="sm\|md"`, `dot?` |
-| `PageHeader` | `PageHeader.tsx` | `icon`, `title`, `subtitle?`, `actions?`, `backTo?` (styled back arrow) |
-| `EmptyState` | `EmptyState.tsx` | `icon` (LucideIcon), `title`, `description?`, `action?` |
-| `ConfirmDialog` | `ConfirmDialog.tsx` | `open`, `onConfirm`, `onCancel`, `title`, `message`, `variant="default\|danger"` |
-| `DialogShell` | `DialogShell.tsx` | `open`, `onClose`, `maxWidth`, `preventClose` (backdrop blur + dialog-in animation) |
-| `Input` | `Input.tsx` | `label?` + standard input props (re-exports Checkbox, Select) |
-| `Textarea` | `Input.tsx` | `label?` + standard textarea props |
-| `Select` | `Select.tsx` | `label?`, `value`, `onChange`, `options[]`, `size="sm\|md"` |
-| `Checkbox` | `Checkbox.tsx` | `label`, `checked`, `onChange`, `indeterminate?`, `disabled?`, `size="sm\|md"` |
-| `Spinner` | `Spinner.tsx` | `size="sm\|md\|lg"` — use instead of `<RefreshCw className="animate-spin">` |
-| `Tooltip` | `Tooltip.tsx` | `content: string`, `side="top\|bottom"` — portal-based, 200ms delay |
-| `SegmentedControl` | `SegmentedControl.tsx` | `value`, `onChange`, `options[]`, `connected?`, `colorFn?` |
-| `Pagination` | `Pagination.tsx` | `page`, `totalPages`, `onPageChange`, `rangeText?`, `pageSize?` |
-| `StatusBadge` | `StatusBadge.tsx` | Status display |
-| `Skeleton` / `PageSkeleton` | `Skeleton.tsx` | Shimmer animation loading states |
-| `Toast` / `useToast` | `Toast.tsx` | `toast(message, 'success'\|'error')` — exit animation, progress bar, hover pause |
-| `FilterTagInput` | `FilterTagInput.tsx` | Tag-based filter input |
-| `IconButton` | `IconButton.tsx` | Icon-only button with `aria-label` |
+### Components
 
-### Stats Patterns (choose one)
+Shared components in `ui/src/components/` wrap the `ss-*` classes. Use the component when one exists; write the class directly for things that have none (`.ss-list` rows, `.ss-note`, `.ss-tabs`, `.ss-st`, `.ss-tag`, `.ss-kv`).
 
-| Pattern | When |
-|---------|------|
-| **Inline summary text** | 1-3 stats: `"42 ops · 3 errors · last: 2m ago"` |
-| **Stat card grid** | Dashboard overview KPIs only |
+| Component | Renders | API |
+|-----------|---------|-----|
+| `PageHeader` | `.ss-pgh` `.ss-ph` | `title`, `subtitle?`, `actions?`, `backTo?`, `crumbs?`, `mono?` |
+| `Button` | `.ss-btn` | `variant="primary\|secondary\|danger\|warning\|ghost\|link"`, `size="xs\|sm\|md\|lg"`, `loading?` |
+| `IconButton` | `.ss-ib` | `icon`, `label` (required, becomes `aria-label`), `size`, `variant="ghost\|danger-outline"` |
+| `Card` | `.ss-box` | `padding="none\|sm\|md"`, `variant="default\|outlined"`, `hover?`, `overflow?`, `onClick?`. `tilt` and `skillCard` do nothing |
+| `Badge` | `.ss-tag` | `variant="default\|success\|warning\|danger\|info"`, `size`, `dot?` |
+| `KindBadge` | `.ss-tag` | `kind="skill\|agent"` |
+| `EmptyState` | `.ss-empty` | `icon` (LucideIcon), `title`, `description?`, `action?` |
+| `DialogShell` | `.ss-scrim` `.ss-dlg` | `open`, `onClose`, `maxWidth="sm".."7xl"`, `padding`, `preventClose?`, `ariaLabel`. Use `padding="none"` with `.dh` / `.db` / `.df` children for the standard header, body and footer |
+| `ConfirmDialog` | `DialogShell` | `open`, `onConfirm`, `onCancel`, `title`, `message`, `variant="default\|danger"`, `loading?`, `wide?` |
+| `Input`, `Textarea` | `.ss-fld` `.ss-inp` | `label?`, `size="sm\|md"` + native props. `Input.tsx` re-exports `Checkbox` and `Select` |
+| `Select` | `.ss-inp` + `.ss-menu` | `label?`, `value`, `onChange`, `options[]` (`description?`), `size`, `prefix?` |
+| `Checkbox` | `.ss-chk` | `label` (required), `checked`, `onChange`, `indeterminate?`, `hideLabel?` for row selection |
+| `SegmentedControl` | `.ss-seg` | `value`, `onChange`, `options[]` (`count?`, `title?` for icon-only), `colorFn?` |
+| `Pagination` | `.ss-pager` | `page`, `totalPages`, `onPageChange`, `rangeText?`, `pageSize?` |
+| `Tooltip`, `TruncateTip` | `.ss-tip` | `content`, `side`, `delay`, `followCursor?` |
+| `Spinner` | lucide `Loader2` | `size="sm\|md\|lg"` |
+| `Skeleton`, `PageSkeleton` | shimmer | `variant="text\|card\|circle"` |
+| `useToast()` | `.ss-toast` | `toast(message, 'success'\|'error'\|'warning'\|'info', { title? })` |
+| `AgentIcon` | real agent logo | For targets and agents. Do not substitute a generic lucide icon |
+| `CopyButton`, `CodeView`, `CodeEditor`, `MarkdownView` | `.ss-code` `.ss-prose` | Code and markdown display |
 
-### Status Patterns (choose one per element)
+Feature folders (`audit/`, `config/`, `git/`, `hub/`, `mcp/`, `plugins/`, `skill-editor/`, `sync/`, `targets/`, `tour/`) hold page-specific pieces.
 
-| Pattern | Markup | When |
-|---------|--------|------|
-| Colored dot | `w-2 h-2 rounded-full` | Table rows, list items, audit findings/rules |
-| Badge | `<Badge variant="...">` | Standalone labels |
+### Icons
 
-### List Patterns
+lucide-react only. 14–16px inline, 16px inside `.ss-cat`, 24px in `EmptyState`. Stroke width comes from `--isw`; do not set `strokeWidth`, except the check mark inside `.ss-chk`. One icon per concept across the app: check `Layout.tsx` and neighbouring pages before picking one.
 
-| Pattern | When |
-|---------|------|
-| Table | Uniform rows, sortable columns, many items |
-| Card list (vertical) | Mixed content per row, expandable |
-| Card grid | Visual overview, few fields per item |
+### Data fetching
 
-### Button Variants
-
-| Variant | When |
-|---------|------|
-| `danger` | Permanent destructive: clear log, empty trash, delete forever |
-| `secondary` | Reversible removal: uninstall, remove, restore |
-| `ghost` | Cancel, clear filter, reset |
-| `primary` | Positive action: save, sync, install, run |
-
-### Separator
-
-Always: `border-dashed border-pencil-light/30` (unified opacity, not `/20` or `/40`)
-
-### Animations
-
-| Context | Value |
-|---------|-------|
-| Card rotation | `rotate(+-0.15deg)` via `:nth-child(odd/even)` |
-| Standalone accent | Max `rotate(+-0.3deg)` |
-| Hover | `transition-all duration-150` |
-| Page entry | `animate-fade-in` (0.2s ease-out) |
-
-### Keyboard Shortcuts
-
-Registered in `KeyboardShortcutsModal.tsx` and `useGlobalShortcuts.ts`:
-- `?` — shortcuts modal
-- `/` — focus search
-- `g d/s/t/l` — go to Dashboard/Skills/Targets/Log
-- `r` — refresh page
-- Only fire when no `<input>` / `<textarea>` focused
-- Chord timeout: 500ms
-- New shortcuts must be added to `KeyboardShortcutsModal`
-- Never override browser-native shortcuts (`Cmd+C`, etc.)
-
-### Accessibility
-
-| Concern | Requirement |
-|---------|-------------|
-| Focus ring | `focus:ring-2 focus:ring-blue/20` |
-| Touch target | Min 44x44px |
-| Color contrast | 4.5:1 (WCAG AA) |
-| Icon buttons | `aria-label` required |
-| Modals | `role="dialog"` + `aria-modal="true"` + `useFocusTrap` |
-| Select | `role="combobox"` + `aria-expanded` + `role="listbox/option"` |
-
-### Card Overflow Gotcha
-
-`Card.tsx` has `overflow-hidden` by default for border-radius clipping. Absolute-positioned children (dropdowns, tooltips) get clipped. Fix: pass `overflow` prop or add `className="!overflow-visible"`.
-
-### Data Fetching Pattern
-
-Pages use `@tanstack/react-query`:
 ```tsx
-const { data, isPending } = useQuery({
-  queryKey: queryKeys.someKey(...),
-  queryFn: () => api.someEndpoint(...),
+const { data, error, isPending } = useQuery({
+  queryKey: queryKeys.someKey,
+  queryFn: () => api.someEndpoint(),
   staleTime: staleTimes.someCategory,
 });
+if (isPending) return <PageSkeleton />;
 ```
-- Query keys: `ui/src/lib/queryKeys.ts`
-- API client: `ui/src/api/client.ts`
-- App context: `ui/src/context/AppContext.tsx` provides `{ isProjectMode, projectRoot }`
+
+Keys in `ui/src/lib/queryKeys.ts`, client in `ui/src/api/client.ts`, `useAppContext()` gives `{ isProjectMode, projectRoot }`. Every user-visible string goes through `useT()`; status, mode and kind labels (`merge`, `linked`, `skill`) stay in English.
+
+### Verifying a change
+
+Run the dev server inside the devcontainer with the `ui` command, never on the host. There Vite listens on :45173 (`make ui-dev` on a host with Go uses :5173). Screenshot the page in all four looks, at desktop width only: `?theme=clean`, `?theme=playful`, then each in dark. Look at the screenshots before reporting done. Do not run prettier in `ui/`; it has no config and rewrites whole files.
 
 ---
 
 ## Website (`website/`)
 
-Docusaurus with hand-drawn "sketchy organic" design in `website/src/css/custom.css`.
+Two separate treatments share one palette in `website/src/css/custom.css`.
 
-### Key Differences from UI Dashboard
+| Area | Files | Look |
+|------|-------|------|
+| Docs, navbar, footer | `src/css/custom.css` | Clean: pill buttons, solid 1px borders, soft shadows, plain underlined links, no dot grid |
+| Homepage, feature map | `src/pages/index.tsx` + `index.module.css`, `features.tsx` + `features.module.css` | Hand-drawn string board: pinned notes, tape, string lines, wobbly radii, hard offset shadows, Kalam accents, slight rotation |
 
-- **Wobbly borders**: `border-radius: var(--radius-wobbly)` (not clean px values)
-- **Hard shadows**: `4px 4px 0px 0px #2d2d2d` (no blur)
-- **Dot grid bg**: `radial-gradient(var(--color-muted) 1px, transparent 1px)` on body
-- **Post-it yellow**: `--color-postit: #fff9c4` for highlights
-- **Dashed borders everywhere**: navbar, sidebar, tables, pagination, code blocks
-- **Button hover**: `transform: translate(2px, 2px)` + shadow shrinks (press-down feel)
-- **Links**: wavy underline (`text-decoration-style: wavy`)
-- **Dark mode**: amber/gold primary (`#e8a84c`) instead of blue
-
-### CSS Variables
-
-See `website/src/css/custom.css` for full list. Key additions beyond shared palette:
-- `--radius-wobbly[-sm|-md|-btn]` — hand-drawn border-radius
-- `--color-postit[-dark]` — yellow highlight
-- `--shadow-md: 4px 4px 0px 0px #2d2d2d` — hard offset
-- `--card-bg`, `--card-border`, `--install-bg` — component-specific
-
-### Docusaurus Classes
-
-- `.button--primary` — green bg, pencil border, hard shadow
-- `.button--secondary` — dashed border, no fill
-- `.markdown h2` — dashed bottom border
-- `.admonition` — wobbly border-radius, left stripe
-- `.menu__link--active` — post-it yellow background
-- `.target-badge` — wobbly border for target grid
-- Code blocks get `box-shadow: 4px 4px 0px 0px #101827`
-
-### Homepage Components (`website/src/pages/index.tsx`)
-
-- `CARD_ROTATIONS` array for random hand-drawn tilt
-- `WavyDivider` — SVG dashed wavy line between sections
-- `InstallTabs` — tabbed install commands with copy button
-- Hero has hand-drawn SVG connector + underline
+- Fonts: IBM Plex Sans body, Inter headings, JetBrains Mono code. Kalam appears on the homepage only.
+- Palette variables keep the `--color-pencil` / `--color-paper` / `--color-postit` names here. That is current for the website; only the dashboard moved to `--ink` / `--bg`.
+- `--radius-wobbly*` and the hard `--shadow-*` are defined globally but belong to the homepage modules. Do not apply them to docs chrome.
+- Dark mode swaps the blue primary for amber. Check both modes.
+- Docs chrome is styled by overriding Docusaurus classes (`.button--primary`, `.menu__link--active`, `.admonition`, `.table-of-contents`, `.target-badge`). Each block in `custom.css` has a titled banner comment; find the block, edit it there.
+- Homepage sections are local components in `index.tsx` (`HeroSection`, `StringBoard`, `PinList`, `SyncTerminal`, `InstallTabs`, `FourMovesSection`, `FeatureMapTeaser`, `CtaSection`), styled from the CSS module.
+- Mermaid diagrams use the global `handDrawn` config in `docusaurus.config.ts`: labels of one or two lines, `<br/>` for line breaks, and verify with a screenshot.
+- Docs are English only. `~` inside an HTML `<code>` in MDX must be written `&#126;`.
 
 ---
 
-## Anti-Patterns (Both Systems)
+## Anti-patterns
 
-| Don't | Do Instead |
+| Don't | Do instead |
 |-------|------------|
-| Emojis as status icons | Colored dots, badges, or semantic icons |
-| Stat cards for 1-3 values | Inline summary text |
-| Left-border colored stripes (`border-l-*`) | Colored dots or badges — never use left stripe for emphasis or status |
-| Stripe + badge for same status | Pick one per element |
-| Mixed separator opacity (`/20`, `/40`) | Always `border-pencil-light/30` |
-| `window.confirm()` | `<ConfirmDialog>` component |
-| Custom empty-state markup | `<EmptyState>` component |
-| Inline styles for design tokens | Use Tailwind classes or `design.ts` exports |
-| `overflow-visible` on Card without `overflow` prop | Pass `overflow` prop to Card |
-| Dropdowns inside `flex-wrap` title rows | Put dropdowns on their own row |
+| Hardcoded hex, radius, shadow or font in a page | Token utility (`text-ink-2`) or `ss-*` class |
+| Legacy names (`text-pencil-light`, `border-muted`, `text-danger`) in new code | `text-ink-2`, `border-line`, `text-bad` |
+| Root `<div className="space-y-5">` | `.ss-wrap` |
+| Hand-rolled dashed separators | `.ss-r` inside `.ss-list`, or `border: var(--sep)` |
+| `<details>`, bare `<ul>` or `<p role="alert">` for app content | `.ss-list` rows, `.ss-note bad` |
+| Playful pastels (`--pa`…`--pe`) in a shared rule | Scope to `:root[data-theme="playful"]` |
+| Tilted cards | Nothing tilts in the dashboard. Rotation exists only on the website homepage |
+| Dot and tag both carrying the same status | One per element: `.ss-st` for state, `.ss-tag` for a label |
+| Left colour stripes (`border-l-*`) | `.ss-st`, `.ss-tag` or `.ss-note` |
+| Emoji as icons | lucide, or `AgentIcon` for real tools |
+| Stat cards for one to three numbers | Inline text, or `.ss-cnt` beside the heading |
+| `window.confirm()` | `ConfirmDialog` |
+| Custom empty-state markup | `EmptyState` |
+| A small checkbox or icon as the only click target in a clickable row | Keep the hit area at 24px or more; `.ss-chk` already does this with `::after` |
+| Dropdown inside a `Card` getting clipped | `overflow` prop on `Card` |
+| Wording that drifts from the CLI | Use the CLI's terms: sync, target, collect, tracked, merge |
 
-## Checklist Before Submitting
+## Checklist
 
-- [ ] Uses existing components (Card, Badge, Button, etc.) — no custom markup for solved patterns
-- [ ] Page follows PageHeader → Toolbar → Summary → Content structure
-- [ ] Color tokens from Tailwind (`text-pencil`, not hardcoded `#141312`)
-- [ ] Separator is `border-dashed border-pencil-light/30`
-- [ ] Empty states use `<EmptyState>`
-- [ ] Destructive actions use `<ConfirmDialog>`
-- [ ] All icon buttons have `aria-label`
-- [ ] New shortcuts registered in `KeyboardShortcutsModal`
-- [ ] `animate-fade-in` on root container
-- [ ] Dark mode works (check both themes)
+- [ ] Root is `.ss-wrap animate-fade-in`; `PageHeader` first, without `icon`
+- [ ] No hardcoded colours, radii or shadows; no legacy token names added
+- [ ] Shared components used where they exist; lists are `.ss-list` / `.ss-r`
+- [ ] Errors are `.ss-note bad`, empty states are `EmptyState`, destructive actions go through `ConfirmDialog`
+- [ ] Icon-only buttons have an accessible name; click targets are 24px or more
+- [ ] Strings go through `useT()`; new shortcuts are added to `useGlobalShortcuts.ts`
+- [ ] Screenshots checked in Clean and Playful, light and dark

@@ -106,7 +106,7 @@ The dashboard supports two visual styles and three color modes, switchable via t
 
 | Setting | Options | Default |
 |---------|---------|---------|
-| **Style** | `Clean` (professional), `Playful` (hand-drawn borders, organic shapes) | Playful |
+| **Style** | `Clean` (professional), `Playful` (bold outlines, hard shadows, handwritten headings) | Playful |
 | **Mode** | `Light`, `Dark`, `System` (follows OS preference) | Light |
 
 Theme preferences persist in localStorage across sessions.
