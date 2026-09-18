@@ -151,7 +151,14 @@ func PullSkills(skills []LocalSkillInfo, sourcePath string, opts PullOptions) (*
 
 	for _, skill := range skills {
 		if opts.DryRun {
-			result.Pulled = append(result.Pulled, skill.Name)
+			// Classify exactly as a real pull would: a same-name skill already
+			// in source is skipped unless --force, so the preview must not
+			// report it as pulled.
+			if _, statErr := os.Stat(filepath.Join(sourcePath, skill.Name)); statErr == nil && !opts.Force {
+				result.Skipped = append(result.Skipped, skill.Name)
+			} else {
+				result.Pulled = append(result.Pulled, skill.Name)
+			}
 			continue
 		}
 
