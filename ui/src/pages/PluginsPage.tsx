@@ -61,17 +61,24 @@ export default function PluginsPage() {
   const packages = Object.entries(data?.packages ?? {});
   const pending = packages.reduce((n, [, pack]) => n + Object.values(pack.bindings).filter((b) => b.pending).length, 0);
   const actionTone = (action: string) => (action === 'blocked' ? 'bad' : action === 'noop' ? '' : 'inf');
-  const openMenu = (e: React.MouseEvent<HTMLButtonElement>, name: string) => {
+  const openMenu = (e: React.MouseEvent<HTMLButtonElement>, name: string, target?: PluginTarget) => {
     const r = e.currentTarget.getBoundingClientRect();
-    const source = Object.values(data?.packages[name]?.bindings ?? {}).find((b) => b.source)?.source;
+    const targets = target && [target];
+    const bindings = data?.packages[name]?.bindings ?? {};
+    const source = Object.values(bindings).find((b) => b.source)?.source;
     setMenu({
       x: r.left,
       y: r.bottom + 4,
       items: [
-        { key: 'sync', label: t('plugins.sync'), icon: <ChevronRight size={14} />, onSelect: () => begin({ action: 'sync', name }) },
-        { key: 'update', label: t('plugins.update'), icon: <RefreshCw size={14} />, onSelect: () => begin({ action: 'update', name }) },
-        { key: 'targets', label: t('plugins.targets'), icon: <Users size={14} />, onSelect: () => setAdding({ name, source }) },
-        { key: 'remove', label: t('plugins.remove'), icon: <Trash2 size={14} />, danger: true, onSelect: () => begin({ action: 'remove', name }) },
+        { key: 'sync', label: t('plugins.sync'), icon: <ChevronRight size={14} />, onSelect: () => begin({ action: 'sync', name, targets }) },
+        // A deselected agent has nothing installed to update.
+        ...(target && bindings[target]?.sync === false ? [] : [
+          { key: 'update', label: t('plugins.update'), icon: <RefreshCw size={14} />, onSelect: () => begin({ action: 'update', name, targets }) },
+        ]),
+        ...(target ? [] : [
+          { key: 'targets', label: t('plugins.targets'), icon: <Users size={14} />, onSelect: () => setAdding({ name, source }) },
+          { key: 'remove', label: t('plugins.remove'), icon: <Trash2 size={14} />, danger: true, onSelect: () => begin({ action: 'remove', name }) },
+        ]),
       ],
     });
   };

@@ -36,4 +36,11 @@ describe('PluginsPage', () => {
     expect(await screen.findByText('Native authentication required')).toBeInTheDocument();
     expect(screen.getByRole('alert')).toHaveTextContent('One target failed');
   });
+  it('previews a sync for one agent from its own menu', async () => {
+    mount();
+    fireEvent.click(await screen.findByRole('button', { name: 'mcp.chooseAgents' }));
+    fireEvent.click(screen.getAllByRole('button', { name: 'mcp.moreActions' })[1]);
+    fireEvent.mouseDown(screen.getByRole('menuitem', { name: 'plugins.sync' }));
+    await waitFor(() => expect(pluginsApi.preview).toHaveBeenCalledWith({ action: 'sync', name: 'demo', targets: ['codex'] }));
+  });
 });

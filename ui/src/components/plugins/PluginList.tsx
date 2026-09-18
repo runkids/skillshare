@@ -1,17 +1,17 @@
-import { Fragment, useState, type CSSProperties } from 'react';
+import { Fragment, useState } from 'react';
 import { Check, ChevronDown, Ellipsis, Package } from 'lucide-react';
 import { pluginTargets, type PluginInventory, type PluginTarget } from '../../api/plugins';
 import AgentIcon from '../AgentIcon';
 import { useT } from '../../i18n';
 
 const STACK = 6;
-const neutral = { '--c': 'var(--ink-2)', '--cb': 'var(--sunken)' } as CSSProperties;
 
 interface Props {
   inventory: PluginInventory;
   busy: boolean;
   onToggle: (name: string, target: PluginTarget, on: boolean) => void;
-  onMenu: (e: React.MouseEvent<HTMLButtonElement>, name: string) => void;
+  /** With a target, the menu acts on that one agent. */
+  onMenu: (e: React.MouseEvent<HTMLButtonElement>, name: string, target?: PluginTarget) => void;
 }
 
 /** One row per plugin, agents as toggles inside it: the same shape as the MCP server list, for the same reason. */
@@ -31,7 +31,7 @@ export default function PluginList({ inventory, busy, onToggle, onMenu }: Props)
         return (
           <Fragment key={name}>
             <div className="ss-r">
-              <span className="ss-cat sm" style={neutral}><Package size={14} /></span>
+              <span className="ss-cat plugin sm"><Package size={14} /></span>
               <span className="flex min-w-0 flex-1 flex-col gap-0.5">
                 <span className="flex items-center gap-2">
                   <span title={name} className="truncate font-mono font-semibold">{name}</span>
@@ -86,6 +86,9 @@ export default function PluginList({ inventory, busy, onToggle, onMenu }: Props)
                         {pluginTargets[target].label}
                       </button>
                       {state && <span className={`ss-tag ${b.pending ? 'warn' : ''}`}>{t(state)}</span>}
+                      <button type="button" className="ss-ib" aria-label={t('mcp.moreActions', { name: `${name} · ${pluginTargets[target].label}` })} onClick={(e) => onMenu(e, name, target)}>
+                        <Ellipsis size={16} />
+                      </button>
                     </span>
                   );
                 })}

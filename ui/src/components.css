@@ -8,7 +8,7 @@
   --accent: #2D5DA1; --accent-bg: #EBF1FA; --sel: rgba(20,19,18,.065); --sel-ink: #141312;
   --pri: #141312; --on-pri: #FFFFFF;
   --ok: #1B7345; --ok-bg: #E7F4EC; --warn: #8A5200; --warn-bg: #FBF0DA; --bad: #B3261E; --bad-bg: #FBEAE8;
-  --c-skill: #2D5DA1; --c-skill-bg: #EBF1FA; --c-agent: #B83B2B; --c-agent-bg: #FBECE9; --c-extra: #4D7C0F; --c-extra-bg: #EEF5E1; --c-mcp: #6D45A8; --c-mcp-bg: #F1EBFA; --c-target: #1B7345; --c-target-bg: #E7F4EC;
+  --c-skill: #2D5DA1; --c-skill-bg: #EBF1FA; --c-agent: #B83B2B; --c-agent-bg: #FBECE9; --c-extra: #4D7C0F; --c-extra-bg: #EEF5E1; --c-mcp: #6D45A8; --c-mcp-bg: #F1EBFA; --c-target: #1B7345; --c-target-bg: #E7F4EC; --c-plugin: #A82A74; --c-plugin-bg: #FAEAF3;
   --f: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI Variable Text', 'Segoe UI', system-ui, sans-serif; --fh: var(--f); --fm: ui-monospace, 'SF Mono', 'JetBrains Mono', Menlo, Consolas, monospace;
   --h1: 700 28px/1.15 var(--fh); --h1-track: -0.022em; --h2: 600 15px/1.3 var(--fh); --h2-track: -0.008em;
   --r-ctl: 8px; --r-btn: 999px; --r-box: 12px; --r-tag: 5px; --bw: 1px;
@@ -20,7 +20,7 @@
   --line: #2A2825; --line-soft: #2A2825; --line-2: #3A3833; --sep: 1px solid #262421; --frame: 1px solid #2C2A26;
   --accent: #8FB4EC; --accent-bg: #1A2535; --sel: rgba(255,255,255,.08); --sel-ink: #EDEBE6; --pri: #EDEBE6; --on-pri: #141312;
   --ok: #5CC98A; --ok-bg: #14261C; --warn: #F0B840; --warn-bg: #2A2110; --bad: #F2837A; --bad-bg: #2E1716;
-  --c-skill: #8FB4EC; --c-skill-bg: #1A2535; --c-agent: #F2937F; --c-agent-bg: #2E1A16; --c-extra: #A3CF62; --c-extra-bg: #1D2612; --c-mcp: #BFA0F0; --c-mcp-bg: #231A33; --c-target: #5CC98A; --c-target-bg: #14261C;
+  --c-skill: #8FB4EC; --c-skill-bg: #1A2535; --c-agent: #F2937F; --c-agent-bg: #2E1A16; --c-extra: #A3CF62; --c-extra-bg: #1D2612; --c-mcp: #BFA0F0; --c-mcp-bg: #231A33; --c-target: #5CC98A; --c-target-bg: #14261C; --c-plugin: #F09CCB; --c-plugin-bg: #2E1726;
   --sh-box: none; --sh-float: 0 12px 32px rgba(0,0,0,.5), 0 0 0 1px rgba(255,255,255,.08); --sh-dialog: 0 24px 64px rgba(0,0,0,.6), 0 0 0 1px rgba(255,255,255,.08);
 }
 :root[data-theme="playful"] {
@@ -30,7 +30,7 @@
   --accent: #2D5DA1; --accent-bg: #E6EEF9; --sel: #FFDC73; --sel-ink: #26201A;
   --pri: #FFDC73; --on-pri: #26201A;
   --ok: #1B7345; --ok-bg: #DDF1E3; --warn: #8A5200; --warn-bg: #FFEDC4; --bad: #B3261E; --bad-bg: #FFDFDA;
-  --c-skill: #2D5DA1; --c-skill-bg: #E6EEF9; --c-agent: #C8372D; --c-agent-bg: #FFE4DF; --c-extra: #4D7C0F; --c-extra-bg: #ECF6D8; --c-mcp: #6D45A8; --c-mcp-bg: #EFE6FB; --c-target: #1B7345; --c-target-bg: #DDF1E3;
+  --c-skill: #2D5DA1; --c-skill-bg: #E6EEF9; --c-agent: #C8372D; --c-agent-bg: #FFE4DF; --c-extra: #4D7C0F; --c-extra-bg: #ECF6D8; --c-mcp: #6D45A8; --c-mcp-bg: #EFE6FB; --c-target: #1B7345; --c-target-bg: #DDF1E3; --c-plugin: #B02A78; --c-plugin-bg: #FDE3F1;
   --f: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI Variable Text', 'Segoe UI', system-ui, sans-serif; --fh: 'Kalam', var(--f); --fm: ui-monospace, 'SF Mono', 'JetBrains Mono', Menlo, Consolas, monospace;
   --h1: 700 38px/1.05 var(--fh); --h1-track: -0.005em; --h2: 700 22px/1.2 var(--fh); --h2-track: 0;
   --r-ctl: 10px; --r-btn: 999px; --r-box: 14px; --r-tag: 6px; --bw: 2px;
@@ -43,7 +43,7 @@
   --accent: #9DBDF0; --accent-bg: #1E2939; --sel: #E8A84C; --sel-ink: #1B1916; --pri: #E8A84C; --on-pri: #1B1916;
   --pa: #E8A84C; --pb: #D98BA3; --pc: #7FB4E0; --pd: #94C27A; --pe: #4A3C1C;
   --ok: #6FD39A; --ok-bg: #17281E; --warn: #F2C053; --warn-bg: #2E2411; --bad: #F58C82; --bad-bg: #321A18;
-  --c-skill: #9DBDF0; --c-skill-bg: #1E2939; --c-agent: #F59A88; --c-agent-bg: #321C18; --c-extra: #A9D46A; --c-extra-bg: #1F2813; --c-mcp: #C4A8F2; --c-mcp-bg: #261D36; --c-target: #6FD39A; --c-target-bg: #17281E;
+  --c-skill: #9DBDF0; --c-skill-bg: #1E2939; --c-agent: #F59A88; --c-agent-bg: #321C18; --c-extra: #A9D46A; --c-extra-bg: #1F2813; --c-mcp: #C4A8F2; --c-mcp-bg: #261D36; --c-target: #6FD39A; --c-target-bg: #17281E; --c-plugin: #F2A6D1; --c-plugin-bg: #321A2A;
   --sh-box: 4px 4px 0 #000; --sh-btn: 3px 3px 0 #000; --sh-float: 5px 5px 0 #000; --sh-dialog: 8px 8px 0 #000; --dots: #2B2721;
 }
 
@@ -166,6 +166,7 @@ svg.lucide { flex: none; stroke-width: var(--isw); }
 .ss-cat.extra { --c: var(--c-extra); --cb: var(--c-extra-bg); }
 .ss-cat.mcp { --c: var(--c-mcp); --cb: var(--c-mcp-bg); }
 .ss-cat.target { --c: var(--c-target); --cb: var(--c-target-bg); }
+.ss-cat.plugin { --c: var(--c-plugin); --cb: var(--c-plugin-bg); }
 .ss-cat.warn { --c: var(--warn); --cb: var(--warn-bg); }
 .ss-cat.bad { --c: var(--bad); --cb: var(--bad-bg); }
 .ss-cat.ok { --c: var(--ok); --cb: var(--ok-bg); }
