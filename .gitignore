@@ -54,6 +54,9 @@ ui/node_modules/
 ui/dist/
 internal/server/dist/
 
+# Host verification environment (scripts/verify.sh)
+.verify-home/
+
 # Air hot-reload
 tmp/
 MEMORY.md

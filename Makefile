@@ -1,4 +1,4 @@
-.PHONY: help build build-meta build-windows run test test-unit test-int test-docker test-docker-online test-redteam test-redteam-signal test-redteam-rules-signal playground playground-down devc devc-up devc-down devc-restart devc-reset devc-status dev-docker dev-docker-down docker-build docker-build-multiarch lint fmt fmt-check check install clean ui-install ui-build ui-dev build-all
+.PHONY: help build build-meta build-windows run test test-unit test-int test-docker test-docker-online test-redteam test-redteam-signal test-redteam-rules-signal playground playground-down devc devc-up devc-down devc-restart devc-reset devc-status dev-docker dev-docker-down docker-build docker-build-multiarch lint fmt fmt-check check install clean ui-install ui-build ui-dev build-all verify verify-shell verify-down verify-status verify-reset
 
 help:
 	@echo "Common tasks:"
@@ -20,6 +20,11 @@ help:
 	@echo "  make devc-restart   # restart devcontainer"
 	@echo "  make devc-reset     # full reset (remove volumes)"
 	@echo "  make devc-status    # show devcontainer status"
+	@echo "  make verify         # host verify env: real AI CLIs, throwaway config"
+	@echo "  make verify-shell   # enter the verify env shell"
+	@echo "  make verify-down    # stop the verify dashboard"
+	@echo "  make verify-status  # show verify env paths and state"
+	@echo "  make verify-reset   # delete the throwaway HOME"
 	@echo "  make lint           # go vet"
 	@echo "  make fmt            # format Go files"
 	@echo "  make check          # fmt-check + lint + test"
@@ -97,6 +102,21 @@ devc-reset:
 
 devc-status:
 	./scripts/devc.sh status
+
+verify:
+	./scripts/verify.sh up
+
+verify-shell:
+	./scripts/verify.sh shell
+
+verify-down:
+	./scripts/verify.sh down
+
+verify-status:
+	./scripts/verify.sh status
+
+verify-reset:
+	./scripts/verify.sh reset
 
 dev-docker:
 	docker compose -f docker-compose.sandbox.yml --profile dev watch

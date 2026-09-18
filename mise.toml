@@ -22,6 +22,11 @@ echo "  mise run devc:down      # stop devcontainer"
 echo "  mise run devc:restart   # restart devcontainer"
 echo "  mise run devc:reset     # full reset (remove volumes)"
 echo "  mise run devc:status    # show devcontainer status"
+echo "  mise run verify         # host verify env: real AI CLIs, throwaway config"
+echo "  mise run verify:shell   # enter the verify env shell"
+echo "  mise run verify:down    # stop the verify dashboard"
+echo "  mise run verify:status  # show verify env paths and state"
+echo "  mise run verify:reset   # delete the throwaway HOME"
 echo "  mise run lint           # go vet"
 echo "  mise run fmt            # format Go files"
 echo "  mise run check          # fmt:check + lint + test"
@@ -120,6 +125,26 @@ run = "./scripts/devc.sh reset"
 [tasks."devc:status"]
 description = "Show devcontainer status"
 run = "./scripts/devc.sh status"
+
+[tasks.verify]
+description = "Host verify env: real AI CLIs, throwaway config"
+run = "./scripts/verify.sh up"
+
+[tasks."verify:shell"]
+description = "Enter the verify env shell"
+run = "./scripts/verify.sh shell"
+
+[tasks."verify:down"]
+description = "Stop the verify dashboard"
+run = "./scripts/verify.sh down"
+
+[tasks."verify:status"]
+description = "Show verify env paths and state"
+run = "./scripts/verify.sh status"
+
+[tasks."verify:reset"]
+description = "Delete the throwaway HOME"
+run = "./scripts/verify.sh reset"
 
 [tasks."dev:docker"]
 description = "Go API in Docker + auto-rebuild (pair with: cd ui && pnpm run dev)"
