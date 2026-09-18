@@ -219,7 +219,6 @@
   "dashboard.stats.extras": "Extras",
   "dashboard.stats.skills": "Skills",
   "dashboard.stats.targets": "대상",
-  "dashboard.stats.mcp": "MCP 서버",
   "dashboard.targets.linked": "{count}개 연결됨",
   "dashboard.targets.managed": "{count}개 관리됨",
   "dashboard.targets.noTargets": "설정된 대상이 없습니다.",

@@ -10,6 +10,7 @@ import {
   FolderPlus,
   Github,
   Info,
+  Package,
   Plug,
   Puzzle,
   RefreshCw,
@@ -22,6 +23,7 @@ import {
 import { api } from '../api/client';
 import type { AuditAllResponse, CheckResult, LogEntry, Overview, Target } from '../api/client';
 import { mcpApi } from '../api/mcp';
+import { pluginsApi } from '../api/plugins';
 import { queryKeys, staleTimes } from '../lib/queryKeys';
 import { clearAuditCache } from '../lib/auditCache';
 import { formatLogDetail } from '../lib/logFormat';
@@ -85,6 +87,7 @@ export default function DashboardPage() {
     staleTime: staleTimes.extras,
   });
   const { data: mcpData } = useQuery({ queryKey: queryKeys.mcp, queryFn: mcpApi.list });
+  const { data: pluginData } = useQuery({ queryKey: queryKeys.plugins, queryFn: pluginsApi.list });
   const { data: lastSync } = useQuery({
     queryKey: queryKeys.log('ops', 1, { cmd: 'sync' }),
     queryFn: () => api.listLog('ops', 1, { cmd: 'sync' }),
@@ -113,7 +116,8 @@ export default function DashboardPage() {
     { kind: 'skill', icon: Puzzle, value: data.skillCount, label: t('dashboard.stats.skills'), to: '/skills' },
     { kind: 'agent', icon: Bot, value: data.agentCount, label: t('dashboard.stats.agents'), to: '/agents' },
     { kind: 'extra', icon: FolderPlus, value: extrasData?.extras?.length ?? 0, label: t('dashboard.stats.extras'), to: '/extras' },
-    { kind: 'mcp', icon: Plug, value: mcpData ? Object.keys(mcpData.source.servers ?? {}).length : 0, label: t('dashboard.stats.mcp'), to: '/mcp' },
+    { kind: 'mcp', icon: Plug, value: mcpData ? Object.keys(mcpData.source.servers ?? {}).length : 0, label: t('mcp.title'), to: '/mcp' },
+    { kind: 'plugin', icon: Package, value: Object.keys(pluginData?.packages ?? {}).length, label: t('plugins.title'), to: '/plugins' },
   ];
 
   const subtitle = [
@@ -147,7 +151,7 @@ export default function DashboardPage() {
       )}
 
       <div data-tour="stats-grid" className="flex flex-col gap-7">
-        <div className="ss-counts ss-only-clean">
+        <div className="ss-counts ss-only-clean !grid-cols-5">
           {counts.map(({ kind, icon: Icon, value, label, to }) => (
             <Link key={kind} to={to}>
               <span className={`ss-cat ${kind}`}><Icon size={17} /></span>
@@ -217,7 +221,7 @@ function TargetBoard({ data, targets, healths, counts }: {
 }) {
   const t = useT();
   // ponytail: fixed 1080px canvas like the design; desktop widths only.
-  const height = Math.max(340, 24 + targets.length * 66 + 20);
+  const height = Math.max(374, 24 + targets.length * 66 + 20);
   const sx = 340;
   const sy = height / 2;
   const dashed = healths.some((h) => h.kind !== 'ok');
@@ -238,7 +242,7 @@ function TargetBoard({ data, targets, healths, counts }: {
           </>
         )}
       </svg>
-      <div className="ss-pinnote src flex-col !items-stretch justify-center gap-2.5 !px-5 !py-4" style={{ left: 40, top: sy - 108, width: 300, height: 216 }}>
+      <div className="ss-pinnote src flex-col !items-stretch justify-center gap-2.5 !px-5 !py-4" style={{ left: 40, top: sy - 125, width: 300, height: 250 }}>
         <span className="flex flex-col gap-0.5">
           <span className="ss-hand !text-[22px] !font-bold !text-ink">{t('dashboard.board.source')}</span>
           <span className="font-mono text-[11.5px] text-ink-3 truncate">{data.source}</span>
@@ -272,7 +276,7 @@ function TargetBoard({ data, targets, healths, counts }: {
         );
       })}
       {dashed && <span className="ss-hand absolute -rotate-3" style={{ left: 372, top: 44 }}>{t('dashboard.board.dashed')}</span>}
-      <span className="ss-hand absolute -rotate-[1.5deg]" style={{ left: 60, top: sy + 132 }}>{t('dashboard.board.caption')}</span>
+      <span className="ss-hand absolute -rotate-[1.5deg]" style={{ left: 60, top: sy + 149 }}>{t('dashboard.board.caption')}</span>
     </div>
   );
 }

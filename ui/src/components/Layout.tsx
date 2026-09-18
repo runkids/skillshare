@@ -55,8 +55,8 @@ const navGroups: { labelKey?: string; items: NavItem[] }[] = [
       { to: '/skills', icon: Puzzle, labelKey: 'layout.nav.skills', also: ['/hubs'] },
       { to: '/agents', icon: Bot, labelKey: 'layout.nav.agents' },
       { to: '/extras', icon: FolderPlus, labelKey: 'layout.nav.extras' },
-      { to: '/plugins', icon: Package, labelKey: 'plugins.title' },
       { to: '/mcp', icon: Plug, labelKey: 'mcp.title' },
+      { to: '/plugins', icon: Package, labelKey: 'plugins.title' },
     ],
   },
   {

@@ -219,7 +219,6 @@
   "dashboard.stats.extras": "Extras",
   "dashboard.stats.skills": "Skill",
   "dashboard.stats.targets": "目标",
-  "dashboard.stats.mcp": "MCP 服务器",
   "dashboard.targets.linked": "已链接 {count} 个",
   "dashboard.targets.managed": "已管理 {count} 个",
   "dashboard.targets.noTargets": "未配置任何目标。",

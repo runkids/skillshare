@@ -219,7 +219,6 @@
   "dashboard.stats.extras": "Extras",
   "dashboard.stats.skills": "Skills",
   "dashboard.stats.targets": "Destinos",
-  "dashboard.stats.mcp": "Servidores MCP",
   "dashboard.targets.linked": "{count} vinculado(s)",
   "dashboard.targets.managed": "{count} gerenciado(s)",
   "dashboard.targets.noTargets": "Nenhum destino configurado.",

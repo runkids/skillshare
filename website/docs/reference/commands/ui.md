@@ -86,7 +86,7 @@ Some pages show a count in the sidebar when they need attention. The counts refr
 
 | Page | Description |
 |------|-------------|
-| **Dashboard** | Counts for skills, agents, extras, MCP servers, and targets, plus items that need attention |
+| **Dashboard** | Counts for skills, agents, extras, MCP servers, plugins, and targets, plus items that need attention |
 | **Sync** | Preview every change per target before writing. Choose which parts to include (Skills, Agents, Extras, MCP). Files edited inside a target are kept unless **Force** is on. Items that exist only in a target can be collected back to source from here. Each sync backs up target folders first |
 | **Git Sync** | Commit and push the source repo, push commits that aren't on the remote yet, and pull. Pull syncs what the repo scope holds (`skills`, `agents`, `extras`, or `root`), like [`pull`](/docs/reference/commands/pull). When a first pull can't merge with the remote, it offers a force pull that replaces local files with the remote branch |
 | **Skills** / **Agents** | Installed items, the **Updates** tab, and the **Trash** tab. Skills also have an **Analyze** tab that estimates how many tokens each skill adds to a target's context. **Install** searches GitHub or installs from a URL or path. **+ New Skill** opens the creation wizard |

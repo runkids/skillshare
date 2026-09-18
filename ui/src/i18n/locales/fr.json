@@ -219,7 +219,6 @@
   "dashboard.stats.extras": "Extras",
   "dashboard.stats.skills": "Skills",
   "dashboard.stats.targets": "Cibles",
-  "dashboard.stats.mcp": "Serveurs MCP",
   "dashboard.targets.linked": "{count} lié(s)",
   "dashboard.targets.managed": "{count} géré(s)",
   "dashboard.targets.noTargets": "Aucune cible configurée.",

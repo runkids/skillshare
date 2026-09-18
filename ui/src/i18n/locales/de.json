@@ -219,7 +219,6 @@
   "dashboard.stats.extras": "Extras",
   "dashboard.stats.skills": "Skills",
   "dashboard.stats.targets": "Ziele",
-  "dashboard.stats.mcp": "MCP-Server",
   "dashboard.targets.linked": "{count} verknüpft",
   "dashboard.targets.managed": "{count} verwaltet",
   "dashboard.targets.noTargets": "Keine Ziele konfiguriert.",

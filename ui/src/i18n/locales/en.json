@@ -211,7 +211,6 @@
   "dashboard.stats.extras": "Extras",
   "dashboard.stats.skills": "Skills",
   "dashboard.stats.targets": "Targets",
-  "dashboard.stats.mcp": "MCP servers",
   "dashboard.targets.linked": "{count} linked",
   "dashboard.targets.managed": "{count} managed",
   "dashboard.targets.noTargets": "No targets configured.",

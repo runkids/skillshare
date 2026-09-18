@@ -219,7 +219,6 @@
   "dashboard.stats.extras": "Extras",
   "dashboard.stats.skills": "Skill",
   "dashboard.stats.targets": "Target",
-  "dashboard.stats.mcp": "Server MCP",
   "dashboard.targets.linked": "{count} terhubung",
   "dashboard.targets.managed": "{count} dikelola",
   "dashboard.targets.noTargets": "Tidak ada target yang dikonfigurasi.",

@@ -219,7 +219,6 @@
   "dashboard.stats.extras": "Extras",
   "dashboard.stats.skills": "スキル",
   "dashboard.stats.targets": "ターゲット",
-  "dashboard.stats.mcp": "MCP サーバー",
   "dashboard.targets.linked": "{count} 件リンク済み",
   "dashboard.targets.managed": "{count} 件管理済み",
   "dashboard.targets.noTargets": "ターゲットが設定されていません。",

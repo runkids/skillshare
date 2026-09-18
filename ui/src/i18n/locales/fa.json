@@ -219,7 +219,6 @@
   "dashboard.stats.extras": "موارد اضافی",
   "dashboard.stats.skills": "اسکیل‌ها",
   "dashboard.stats.targets": "هدف‌ها",
-  "dashboard.stats.mcp": "سرورهای MCP",
   "dashboard.targets.linked": "{count} لینک‌شده",
   "dashboard.targets.managed": "{count} مدیریت‌شده",
   "dashboard.targets.noTargets": "هیچ هدفی پیکربندی نشده.",
