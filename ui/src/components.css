@@ -69,6 +69,10 @@ svg.lucide { flex: none; stroke-width: var(--isw); }
 :root[data-theme="playful"] .ss-nv .n { border: 1.5px solid currentColor; }
 .ss-sidefoot { margin-top: auto; padding: 10px 6px 0; border-top: var(--sep); display: flex; align-items: center; justify-content: space-between; }
 .ss-wrap { max-width: 1080px; margin: 0 auto; display: flex; flex-direction: column; gap: 28px; }
+/* Page headers space themselves for pages that lay out their own children; inside
+   .ss-wrap the 28px flex gap already does it, and both together left a 56px hole. */
+.ss-pgh { margin-bottom: 28px; }
+.ss-wrap > .ss-pgh { margin-bottom: 0; }
 .ss-ph { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; }
 .ss-ph .tt { display: flex; flex-direction: column; gap: 6px; }
 .ss-ph p { color: var(--ink-2); }

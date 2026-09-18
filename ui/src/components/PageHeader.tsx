@@ -21,7 +21,7 @@ interface PageHeaderProps {
 export default function PageHeader({ title, subtitle, actions, className = '', backTo, crumbs, mono }: PageHeaderProps) {
   const t = useT();
   return (
-    <div className={`mb-7 flex flex-col gap-3 ${className}`}>
+    <div className={`ss-pgh flex flex-col gap-3 ${className}`}>
       {backTo && (
         <Link to={backTo} className="ss-crumb !mb-0 w-fit hover:text-ink">
           <ArrowLeft size={14} />
