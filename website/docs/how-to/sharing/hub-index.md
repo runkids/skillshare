@@ -225,6 +225,19 @@ source:     _team/frontend-skill
 
 This prevents relative paths from being misinterpreted as GitHub shorthand (`owner/repo`).
 
+### Pinning a Source to a Tag or Commit
+
+To pin an entry to a specific version, use a GitHub web URL with the ref in the path. The tag or commit SHA after `tree/` (or `blob/`) is used as the install ref, the same as `install --branch`:
+
+```json
+{
+  "name": "reviewer",
+  "source": "github.com/owner/repo/tree/v1.2.0/skills/reviewer"
+}
+```
+
+Everyone who installs from the hub gets that revision, and `skillshare update` keeps it. Move the pin by editing the ref in the index.
+
 Absolute paths, URLs, and domain-prefixed paths are never joined:
 
 | Source Pattern | Joined? |
