@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"skillshare/internal/install"
+	"skillshare/internal/search"
 )
 
 func TestClassifyFailureDetail(t *testing.T) {
@@ -168,5 +169,25 @@ func TestRepoSourceForGroupedClone(t *testing.T) {
 				t.Errorf("parsed root CloneURL = %q, want %q", parsedRoot.CloneURL, src.CloneURL)
 			}
 		})
+	}
+}
+
+func TestGroupByRepo_SeparatesRefs(t *testing.T) {
+	selected := []search.SearchResult{
+		{Name: "a", Source: "github.com/org/skills/tree/v1/skills/a"},
+		{Name: "b", Source: "github.com/org/skills/tree/v1/skills/b"},
+		{Name: "c", Source: "github.com/org/skills/tree/v2/skills/c"},
+	}
+
+	groups, singles := groupByRepo(selected)
+
+	if len(groups) != 1 || len(groups[0].results) != 2 {
+		t.Fatalf("groups = %+v, want one group holding the two v1 skills", groups)
+	}
+	if got := groups[0].source.Branch; got != "v1" {
+		t.Errorf("group ref = %q, want v1", got)
+	}
+	if len(singles) != 1 || singles[0].Name != "c" {
+		t.Errorf("singles = %+v, want only the v2 skill", singles)
 	}
 }

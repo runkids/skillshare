@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"skillshare/internal/install"
 )
 
 func writeTestIndex(t *testing.T, dir, filename, content string) string {
@@ -586,5 +588,34 @@ func TestHubHTTPError_NonAuthStatus(t *testing.T) {
 	err = hubHTTPError(url, 500)
 	if err == nil || !strings.Contains(err.Error(), "500") || !strings.Contains(err.Error(), url) {
 		t.Fatalf("500 error = %v, want code and URL", err)
+	}
+}
+
+func TestSearchFromIndexURL_PinnedSourceKeepsRef(t *testing.T) {
+	dir := t.TempDir()
+	indexPath := writeTestIndex(t, dir, "skillshare-hub.json", `{
+		"skills": [{
+			"name": "writing-for-agents",
+			"source": "github.com/mattpocock/skills/tree/v1.2.0/skills/productivity/writing-for-agents"
+		}]
+	}`)
+
+	results, err := SearchFromIndexURL("", 0, indexPath)
+	if err != nil {
+		t.Fatalf("SearchFromIndexURL: %v", err)
+	}
+	if len(results) != 1 {
+		t.Fatalf("got %d results, want 1", len(results))
+	}
+
+	src, err := install.ParseSource(results[0].Source)
+	if err != nil {
+		t.Fatalf("ParseSource(%q): %v", results[0].Source, err)
+	}
+	if src.Branch != "v1.2.0" {
+		t.Errorf("Branch = %q, want v1.2.0", src.Branch)
+	}
+	if src.Subdir != "skills/productivity/writing-for-agents" {
+		t.Errorf("Subdir = %q", src.Subdir)
 	}
 }

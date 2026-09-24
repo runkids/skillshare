@@ -90,6 +90,7 @@ func TestParseSource_GitHubShorthand(t *testing.T) {
 		wantSubdir   string
 		wantName     string
 		wantExplicit bool
+		wantBranch   string
 	}{
 		{
 			name:         "basic github shorthand",
@@ -138,6 +139,7 @@ func TestParseSource_GitHubShorthand(t *testing.T) {
 			wantSubdir:   "path/to/skill",
 			wantName:     "skill",
 			wantExplicit: false,
+			wantBranch:   "main",
 		},
 		{
 			name:         "github web URL with tree/master",
@@ -146,6 +148,7 @@ func TestParseSource_GitHubShorthand(t *testing.T) {
 			wantSubdir:   "skills/my-skill",
 			wantName:     "my-skill",
 			wantExplicit: false,
+			wantBranch:   "master",
 		},
 		{
 			name:         "github web URL with blob (file view)",
@@ -154,6 +157,7 @@ func TestParseSource_GitHubShorthand(t *testing.T) {
 			wantSubdir:   "path/to/skill",
 			wantName:     "skill",
 			wantExplicit: false,
+			wantBranch:   "main",
 		},
 		{
 			name:         "github web URL tree/branch only (no subdir)",
@@ -162,6 +166,7 @@ func TestParseSource_GitHubShorthand(t *testing.T) {
 			wantSubdir:   "",
 			wantName:     "repo",
 			wantExplicit: false,
+			wantBranch:   "main",
 		},
 		{
 			name:         "github dot subdir normalized to root",
@@ -180,6 +185,7 @@ func TestParseSource_GitHubShorthand(t *testing.T) {
 			wantSubdir:   "",
 			wantName:     "OfficeCLI",
 			wantExplicit: true,
+			wantBranch:   "main",
 		},
 		{
 			name:         "github blob URL at nested SKILL.md",
@@ -188,6 +194,7 @@ func TestParseSource_GitHubShorthand(t *testing.T) {
 			wantSubdir:   "skills/foo",
 			wantName:     "foo",
 			wantExplicit: true,
+			wantBranch:   "main",
 		},
 		{
 			name:         "github blob URL at SKILL.md lowercase (case-insensitive)",
@@ -196,6 +203,23 @@ func TestParseSource_GitHubShorthand(t *testing.T) {
 			wantSubdir:   "",
 			wantName:     "repo",
 			wantExplicit: true,
+			wantBranch:   "main",
+		},
+		{
+			name:         "github web URL pinned to a tag",
+			input:        "https://github.com/user/repo/tree/v1.2.0/skills/foo",
+			wantCloneURL: "https://github.com/user/repo.git",
+			wantSubdir:   "skills/foo",
+			wantName:     "foo",
+			wantBranch:   "v1.2.0",
+		},
+		{
+			name:         "github web URL pinned to a commit SHA",
+			input:        "github.com/user/repo/tree/8f14e45fceea167a5a36dedd4bea2543ce848564/skills/foo",
+			wantCloneURL: "https://github.com/user/repo.git",
+			wantSubdir:   "skills/foo",
+			wantName:     "foo",
+			wantBranch:   "8f14e45fceea167a5a36dedd4bea2543ce848564",
 		},
 	}
 
@@ -216,6 +240,9 @@ func TestParseSource_GitHubShorthand(t *testing.T) {
 			}
 			if source.Name != tt.wantName {
 				t.Errorf("Name = %v, want %v", source.Name, tt.wantName)
+			}
+			if source.Branch != tt.wantBranch {
+				t.Errorf("Branch = %q, want %q", source.Branch, tt.wantBranch)
 			}
 			if source.TargetsExplicitSkill() != tt.wantExplicit {
 				t.Errorf("TargetsExplicitSkill() = %v, want %v", source.TargetsExplicitSkill(), tt.wantExplicit)

@@ -62,7 +62,9 @@ func (s *Server) handleDiscover(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid source: "+err.Error())
 		return
 	}
-	source.Branch = body.Branch
+	if body.Branch != "" {
+		source.Branch = body.Branch
+	}
 
 	discovery, err := discoverInstallSource(source)
 	if err != nil {
@@ -122,7 +124,9 @@ func (s *Server) handleInstallBatch(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid source: "+err.Error())
 		return
 	}
-	source.Branch = body.Branch
+	if body.Branch != "" {
+		source.Branch = body.Branch
+	}
 
 	if s.IsProjectMode() {
 		if err := install.RejectProjectRootLocalInstall(source, s.projectRoot); err != nil {
@@ -340,7 +344,9 @@ func (s *Server) handleInstall(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid source: "+err.Error())
 		return
 	}
-	source.Branch = body.Branch
+	if body.Branch != "" {
+		source.Branch = body.Branch
+	}
 
 	if s.IsProjectMode() {
 		if err := install.RejectProjectRootLocalInstall(source, s.projectRoot); err != nil {

@@ -384,9 +384,14 @@ func parseGitHub(matches []string, source *Source) (*Source, error) {
 		subdir = matches[3]
 	}
 
-	// Handle GitHub web URL format: /tree/{branch}/path or /blob/{branch}/path
-	// Strip the tree/branch or blob/branch prefix to get the actual subdir
-	subdir, source.ExplicitSkill = stripGitHubBranchPrefix(subdir)
+	// Handle GitHub web URL format: /tree/{ref}/path or /blob/{ref}/path.
+	// The ref (branch, tag, or commit SHA) becomes the clone ref, so a pasted
+	// or hub-listed URL installs the version it names.
+	var ref string
+	subdir, ref, source.ExplicitSkill = stripGitHubBranchPrefix(subdir)
+	if ref != "" {
+		source.Branch = ref
+	}
 
 	// Normalize "." subdir (explicit root) to empty string
 	if subdir == "." {
@@ -417,29 +422,31 @@ func parseGitHub(matches []string, source *Source) (*Source, error) {
 	return source, nil
 }
 
-// stripGitHubBranchPrefix removes tree/{branch}/ or blob/{branch}/ from GitHub web URLs.
-// When a blob/ URL points directly at a SKILL.md file, the containing directory is
-// used instead so the resulting subdir represents a skill (not a literal file name).
-func stripGitHubBranchPrefix(subdir string) (string, bool) {
+// stripGitHubBranchPrefix removes tree/{ref}/ or blob/{ref}/ from GitHub web URLs
+// and returns the ref it removed. When a blob/ URL points directly at a SKILL.md
+// file, the containing directory is used instead so the resulting subdir
+// represents a skill (not a literal file name).
+func stripGitHubBranchPrefix(subdir string) (string, string, bool) {
 	if subdir == "" {
-		return "", false
+		return "", "", false
 	}
 
 	parts := strings.SplitN(subdir, "/", 3)
 	// Check if starts with "tree" or "blob" (GitHub web URL format)
 	if len(parts) >= 2 && (parts[0] == "tree" || parts[0] == "blob") {
 		// parts[0] = "tree" or "blob"
-		// parts[1] = branch name (e.g., "main", "master", "v1.0")
+		// parts[1] = ref (e.g., "main", "v1.0", or a commit SHA)
 		// parts[2] = actual path (if exists)
 		isBlob := parts[0] == "blob"
 		if len(parts) == 3 {
-			return trimSkillFileSuffix(parts[2], isBlob)
+			path, explicit := trimSkillFileSuffix(parts[2], isBlob)
+			return path, parts[1], explicit
 		}
-		// Only tree/branch, no actual subdir
-		return "", false
+		// Only tree/ref, no actual subdir
+		return "", parts[1], false
 	}
 
-	return subdir, false
+	return subdir, "", false
 }
 
 // trimSkillFileSuffix strips a trailing SKILL.md segment from a blob URL path so

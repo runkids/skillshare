@@ -272,12 +272,12 @@ func repoSourceForGroupedClone(src *install.Source) install.Source {
 	return repoSource
 }
 
-// groupByRepo partitions selected search results by CloneURL.
-// Results that share the same git repo are grouped together for a single clone.
+// groupByRepo partitions selected search results by CloneURL and ref.
+// Results that share the same git repo and ref are grouped together for a single clone.
 // Results that cannot be grouped (parse failure, local path, non-subdir singles)
 // are returned in the singles slice to be installed individually.
 func groupByRepo(selected []search.SearchResult) (groups []sourceGroup, singles []search.SearchResult) {
-	buckets := make(map[string]*sourceGroup) // keyed by CloneURL
+	buckets := make(map[string]*sourceGroup) // keyed by CloneURL and ref
 	var order []string                       // preserve insertion order
 
 	for _, sr := range selected {
@@ -288,12 +288,13 @@ func groupByRepo(selected []search.SearchResult) (groups []sourceGroup, singles 
 			continue
 		}
 
-		key := src.CloneURL
+		// Skills pinned to different refs of one repo need separate clones.
+		key := src.CloneURL + "@" + src.Branch
 		if g, ok := buckets[key]; ok {
 			g.results = append(g.results, sr)
 		} else {
 			buckets[key] = &sourceGroup{
-				cloneURL: key,
+				cloneURL: src.CloneURL,
 				source:   src,
 				results:  []search.SearchResult{sr},
 			}
