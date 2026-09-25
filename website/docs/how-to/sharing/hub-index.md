@@ -227,7 +227,7 @@ This prevents relative paths from being misinterpreted as GitHub shorthand (`own
 
 ### Pinning a Source to a Tag or Commit
 
-To pin an entry to a specific version, use a GitHub web URL with the ref in the path. The tag or commit SHA after `tree/` (or `blob/`) is used as the install ref, the same as `install --branch`:
+To pin an entry to a specific version, use a web URL with the ref in the path. The branch, tag or commit SHA after `tree/` or `blob/` (GitHub), `-/tree/` or `-/blob/` (GitLab), or `src/` (Bitbucket) is used as the install ref, the same as `install --branch`:
 
 ```json
 {
@@ -236,7 +236,7 @@ To pin an entry to a specific version, use a GitHub web URL with the ref in the 
 }
 ```
 
-Everyone who installs from the hub gets that revision, and `skillshare update` keeps it. Move the pin by editing the ref in the index.
+Everyone who installs from the hub gets that revision, and `skillshare update` keeps it. Move the pin by editing the ref in the index. A ref that the remote does not have fails the install instead of falling back to the default branch.
 
 Absolute paths, URLs, and domain-prefixed paths are never joined:
 

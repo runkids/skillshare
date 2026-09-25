@@ -450,7 +450,7 @@ skillshare install github.com/team/skills --branch v1.2.0 --all
 skillshare install github.com/team/skills --branch 8f14e45fceea167a5a36dedd4bea2543ce848564 --all
 ```
 
-A GitHub web URL pins the same way: `skillshare install github.com/team/skills/tree/v1.2.0/skills/foo` installs from tag `v1.2.0`. An explicit `--branch` overrides the ref in the URL.
+A web URL pins the same way: `skillshare install github.com/team/skills/tree/v1.2.0/skills/foo` installs from tag `v1.2.0`. GitLab (`-/tree/<ref>/`) and Bitbucket (`src/<ref>/`) URLs work too. Branch names containing `/`, such as `tree/feature/x/skills/foo`, are matched against the remote's branches and tags. An explicit `--branch` overrides the ref in the URL.
 
 In a project you usually do not need this: `.skillshare/skills.lock.json` already pins every remote skill to the commit it was installed from, and `skillshare update` moves the pin. See [Lockfile](/docs/understand/project-skills#lockfile).
 
