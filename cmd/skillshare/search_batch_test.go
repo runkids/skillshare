@@ -172,22 +172,22 @@ func TestRepoSourceForGroupedClone(t *testing.T) {
 	}
 }
 
-func TestGroupByRepo_SeparatesRefs(t *testing.T) {
+func TestGroupByRepo_PinnedWebURLsInstallAlone(t *testing.T) {
+	// tree/feature/x/... and tree/feature/y/... both parse with ref "feature"
+	// until install resolves them, so grouping them could clone the wrong ref.
 	selected := []search.SearchResult{
-		{Name: "a", Source: "github.com/org/skills/tree/v1/skills/a"},
-		{Name: "b", Source: "github.com/org/skills/tree/v1/skills/b"},
-		{Name: "c", Source: "github.com/org/skills/tree/v2/skills/c"},
+		{Name: "a", Source: "github.com/org/skills/tree/feature/x/skills/a"},
+		{Name: "b", Source: "github.com/org/skills/tree/feature/y/skills/b"},
+		{Name: "c", Source: "github.com/org/skills/skills/c"},
+		{Name: "d", Source: "github.com/org/skills/skills/d"},
 	}
 
 	groups, singles := groupByRepo(selected)
 
 	if len(groups) != 1 || len(groups[0].results) != 2 {
-		t.Fatalf("groups = %+v, want one group holding the two v1 skills", groups)
+		t.Fatalf("groups = %+v, want one group holding c and d", groups)
 	}
-	if got := groups[0].source.Branch; got != "v1" {
-		t.Errorf("group ref = %q, want v1", got)
-	}
-	if len(singles) != 1 || singles[0].Name != "c" {
-		t.Errorf("singles = %+v, want only the v2 skill", singles)
+	if len(singles) != 2 || singles[0].Name != "a" || singles[1].Name != "b" {
+		t.Errorf("singles = %+v, want a and b", singles)
 	}
 }

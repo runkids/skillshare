@@ -42,7 +42,7 @@ func groupConfigSkillsByRepo(entries []configSkillEntry) (groups []configSkillGr
 	var order []string
 
 	for _, e := range entries {
-		if !e.source.IsGit() || e.source.Subdir == "" {
+		if !e.source.IsGit() || e.source.Subdir == "" || e.source.HasAmbiguousWebRef() {
 			singles = append(singles, e)
 			continue
 		}

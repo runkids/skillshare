@@ -272,29 +272,29 @@ func repoSourceForGroupedClone(src *install.Source) install.Source {
 	return repoSource
 }
 
-// groupByRepo partitions selected search results by CloneURL and ref.
-// Results that share the same git repo and ref are grouped together for a single clone.
+// groupByRepo partitions selected search results by CloneURL.
+// Results that share the same git repo are grouped together for a single clone.
 // Results that cannot be grouped (parse failure, local path, non-subdir singles)
 // are returned in the singles slice to be installed individually.
 func groupByRepo(selected []search.SearchResult) (groups []sourceGroup, singles []search.SearchResult) {
-	buckets := make(map[string]*sourceGroup) // keyed by CloneURL and ref
+	buckets := make(map[string]*sourceGroup) // keyed by CloneURL
 	var order []string                       // preserve insertion order
 
 	for _, sr := range selected {
 		src, err := install.ParseSource(sr.Source)
-		if err != nil || !src.IsGit() || src.Subdir == "" {
-			// Cannot group: parse failure, local path, or root-level repo skill
+		if err != nil || !src.IsGit() || src.Subdir == "" || src.HasAmbiguousWebRef() {
+			// Cannot group: parse failure, local path, root-level repo skill, or
+			// a web URL whose ref (which may contain "/") is resolved at install
 			singles = append(singles, sr)
 			continue
 		}
 
-		// Skills pinned to different refs of one repo need separate clones.
-		key := src.CloneURL + "@" + src.Branch
+		key := src.CloneURL
 		if g, ok := buckets[key]; ok {
 			g.results = append(g.results, sr)
 		} else {
 			buckets[key] = &sourceGroup{
-				cloneURL: src.CloneURL,
+				cloneURL: key,
 				source:   src,
 				results:  []search.SearchResult{sr},
 			}

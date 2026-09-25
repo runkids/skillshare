@@ -10,8 +10,8 @@ import (
 // newRefsRemote makes a repo with a "feature/x" branch and a "v1.0" tag.
 func newRefsRemote(t *testing.T) string {
 	t.Helper()
-	dir := t.TempDir()
-	runGit(t, dir, "init", "-q", "-b", "main")
+	dir := filepath.Join(t.TempDir(), "r") // matches the repo name in the test URLs
+	runGit(t, "", "init", "-q", "-b", "main", dir)
 	if err := os.WriteFile(filepath.Join(dir, "README.md"), []byte("x"), 0644); err != nil {
 		t.Fatal(err)
 	}
@@ -39,8 +39,10 @@ func TestResolveWebRef(t *testing.T) {
 		name       string
 		raw        string
 		branch     string // set after parsing, as --branch or a saved config would
+		repoRoot   bool   // Subdir cleared, as for a grouped whole-repo clone
 		wantBranch string
 		wantSubdir string
+		wantName   string
 		wantErr    string
 	}{
 		{
@@ -58,6 +60,29 @@ func TestResolveWebRef(t *testing.T) {
 		{
 			name:       "branch containing a slash with no subdir",
 			raw:        "github.com/o/r/tree/feature/x",
+			wantBranch: "feature/x",
+			wantSubdir: "",
+			wantName:   "r",
+		},
+		{
+			name:       "saved slash branch that is the whole tail",
+			raw:        "github.com/o/r/tree/feature/x",
+			branch:     "feature/x",
+			wantBranch: "feature/x",
+			wantSubdir: "",
+			wantName:   "r",
+		},
+		{
+			name:       "unrelated --branch keeps the URL's real subdir",
+			raw:        "github.com/o/r/tree/feature/x/skills/foo",
+			branch:     "main",
+			wantBranch: "main",
+			wantSubdir: "skills/foo",
+		},
+		{
+			name:       "repo-root copy resolves the ref but keeps its root",
+			raw:        "github.com/o/r/tree/feature/x/skills/foo",
+			repoRoot:   true,
 			wantBranch: "feature/x",
 			wantSubdir: "",
 		},
@@ -93,6 +118,9 @@ func TestResolveWebRef(t *testing.T) {
 			if tt.branch != "" {
 				source.Branch = tt.branch
 			}
+			if tt.repoRoot {
+				source.Subdir = ""
+			}
 			err := resolveWebRef(source)
 			if tt.wantErr != "" {
 				if err == nil || !strings.Contains(err.Error(), tt.wantErr) {
@@ -108,6 +136,9 @@ func TestResolveWebRef(t *testing.T) {
 			}
 			if source.Subdir != tt.wantSubdir {
 				t.Errorf("Subdir = %q, want %q", source.Subdir, tt.wantSubdir)
+			}
+			if tt.wantName != "" && source.Name != tt.wantName {
+				t.Errorf("Name = %q, want %q", source.Name, tt.wantName)
 			}
 		})
 	}
