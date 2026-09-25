@@ -137,6 +137,9 @@ type Source struct {
 	// ExplicitSkill is true when the user pointed directly at a SKILL.md file.
 	// That intent should resolve to exactly one skill, not a pack/discovery view.
 	ExplicitSkill bool
+	// webRef is the {ref}/{path} tail of a tree/, blob/ or src/ web URL,
+	// kept so a ref containing "/" can be resolved at install time.
+	webRef webRef
 }
 
 // GitHub URL pattern: github.com/owner/repo[/path/to/subdir]
@@ -385,12 +388,8 @@ func parseGitHub(matches []string, source *Source) (*Source, error) {
 	}
 
 	// Handle GitHub web URL format: /tree/{ref}/path or /blob/{ref}/path.
-	// The ref (branch, tag, or commit SHA) becomes the clone ref, so a pasted
-	// or hub-listed URL installs the version it names.
-	var ref string
-	subdir, ref, source.ExplicitSkill = stripGitHubBranchPrefix(subdir)
-	if ref != "" {
-		source.Branch = ref
+	if w, ok := splitGitHubWebRef(subdir); ok {
+		subdir = source.applyWebRef(w)
 	}
 
 	// Normalize "." subdir (explicit root) to empty string
@@ -422,31 +421,14 @@ func parseGitHub(matches []string, source *Source) (*Source, error) {
 	return source, nil
 }
 
-// stripGitHubBranchPrefix removes tree/{ref}/ or blob/{ref}/ from GitHub web URLs
-// and returns the ref it removed. When a blob/ URL points directly at a SKILL.md
-// file, the containing directory is used instead so the resulting subdir
-// represents a skill (not a literal file name).
-func stripGitHubBranchPrefix(subdir string) (string, string, bool) {
-	if subdir == "" {
-		return "", "", false
+// splitGitHubWebRef recognises the tree/{ref}/{path} and blob/{ref}/{path}
+// parts of a GitHub web URL.
+func splitGitHubWebRef(subdir string) (webRef, bool) {
+	kind, tail, _ := strings.Cut(subdir, "/")
+	if (kind == "tree" || kind == "blob") && tail != "" {
+		return webRef{tail: tail, blob: kind == "blob"}, true
 	}
-
-	parts := strings.SplitN(subdir, "/", 3)
-	// Check if starts with "tree" or "blob" (GitHub web URL format)
-	if len(parts) >= 2 && (parts[0] == "tree" || parts[0] == "blob") {
-		// parts[0] = "tree" or "blob"
-		// parts[1] = ref (e.g., "main", "v1.0", or a commit SHA)
-		// parts[2] = actual path (if exists)
-		isBlob := parts[0] == "blob"
-		if len(parts) == 3 {
-			path, explicit := trimSkillFileSuffix(parts[2], isBlob)
-			return path, parts[1], explicit
-		}
-		// Only tree/ref, no actual subdir
-		return "", parts[1], false
-	}
-
-	return subdir, "", false
+	return webRef{}, false
 }
 
 // trimSkillFileSuffix strips a trailing SKILL.md segment from a blob URL path so
@@ -717,8 +699,10 @@ func parseGitHTTPS(matches []string, source *Source, opts ParseOptions) (*Source
 		}
 	}
 
-	// Strip platform-specific branch prefixes from web URLs
-	subdir, source.ExplicitSkill = stripGitBranchPrefix(host, subdir)
+	// Handle GitLab and Bitbucket web URLs: -/tree/{ref}/path, src/{ref}/path.
+	if w, ok := splitGitWebRef(host, subdir); ok {
+		subdir = source.applyWebRef(w)
+	}
 
 	// Normalize "." subdir (explicit root) to empty string
 	if subdir == "." {
@@ -812,46 +796,27 @@ func detectPlatformFromHost(host string, cnbHosts, giteaHosts []string) Platform
 	return PlatformUnknown
 }
 
-// stripGitBranchPrefix removes platform-specific branch path segments from web URLs.
-// Bitbucket: src/{branch}/path → path
-// GitLab:    -/tree/{branch}/path → path, -/blob/{branch}/path → path
-func stripGitBranchPrefix(host, subdir string) (string, bool) {
-	if subdir == "" {
-		return "", false
-	}
-
+// splitGitWebRef recognises the {ref}/{path} part of Bitbucket (src/{ref}/path)
+// and GitLab (-/tree/{ref}/path, -/blob/{ref}/path) web URLs.
+func splitGitWebRef(host, subdir string) (webRef, bool) {
 	subdir = strings.TrimRight(subdir, "/")
-	parts := strings.SplitN(subdir, "/", 3)
 
-	// Bitbucket: src/{branch}/path — there is no separate blob marker, so we
-	// best-effort treat a trailing SKILL.md the same as a blob URL.
-	if strings.Contains(host, "bitbucket") && len(parts) >= 2 && parts[0] == "src" {
-		if len(parts) == 3 {
-			return trimSkillFileSuffix(parts[2], true)
-		}
-		return "", false
-	}
-
-	// GitLab: -/tree/{branch}/path or -/blob/{branch}/path
-	if parts[0] == "-" && len(parts) >= 2 {
-		rest := strings.SplitN(parts[1], "/", 2)
-		if rest[0] == "tree" || rest[0] == "blob" {
-			isBlob := rest[0] == "blob"
-			// subdir is "-/tree/{branch}/path" or "-/blob/{branch}/path"
-			// After SplitN(subdir, "/", 3): parts = ["-", "tree", "{branch}/path"]
-			// Need to further split parts[2] to get past branch
-			if len(parts) == 3 {
-				inner := strings.SplitN(parts[2], "/", 2)
-				// inner[0] = branch, inner[1] = actual path
-				if len(inner) == 2 {
-					return trimSkillFileSuffix(inner[1], isBlob)
-				}
-			}
-			return "", false
+	// Bitbucket has no separate blob marker, so a trailing SKILL.md is treated
+	// the same as a blob URL.
+	if strings.Contains(host, "bitbucket") {
+		if tail, ok := strings.CutPrefix(subdir, "src/"); ok && tail != "" {
+			return webRef{tail: tail, blob: true}, true
 		}
 	}
 
-	return subdir, false
+	if rest, ok := strings.CutPrefix(subdir, "-/"); ok {
+		kind, tail, _ := strings.Cut(rest, "/")
+		if kind == "tree" || kind == "blob" {
+			return webRef{tail: tail, blob: kind == "blob"}, true
+		}
+	}
+
+	return webRef{}, false
 }
 
 // HasSubdir returns true if this source requires subdirectory extraction

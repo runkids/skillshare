@@ -11,6 +11,9 @@ func installTrackedRepoImpl(source *Source, sourceDir string, opts InstallOption
 	if !source.IsGit() {
 		return nil, fmt.Errorf("--track requires a git repository source")
 	}
+	if err := resolveWebRef(source); err != nil {
+		return nil, err
+	}
 
 	// Determine repo name: opts.Name > source.Name (from config) > TrackName (derived from URL)
 	repoName := opts.Name

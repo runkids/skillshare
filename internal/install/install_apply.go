@@ -269,6 +269,9 @@ func installFromGit(source *Source, destPath string, result *InstallResult, opts
 	if !isGitInstalled() {
 		return nil, fmt.Errorf("git is not installed or not in PATH")
 	}
+	if err := resolveWebRef(source); err != nil {
+		return nil, err
+	}
 
 	// If subdir is specified, install directly
 	if source.HasSubdir() {
