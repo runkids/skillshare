@@ -19,6 +19,9 @@ func discoverFromGitWithProgressImpl(source *Source, onProgress ProgressCallback
 	if !isGitInstalled() {
 		return nil, fmt.Errorf("git is not installed or not in PATH")
 	}
+	if err := resolveWebRef(source); err != nil {
+		return nil, err
+	}
 
 	// Clone to temp directory
 	tempDir, err := os.MkdirTemp("", "skillshare-discover-*")
@@ -318,6 +321,13 @@ func discoverFromGitSubdirWithProgressImpl(source *Source, onProgress ProgressCa
 
 	if !source.HasSubdir() {
 		return nil, fmt.Errorf("source has no subdirectory specified")
+	}
+	if err := resolveWebRef(source); err != nil {
+		return nil, err
+	}
+	if !source.HasSubdir() {
+		// The whole path was the ref, e.g. tree/feature/x.
+		return discoverFromGitWithProgressImpl(source, onProgress)
 	}
 
 	// Prepare temporary repo directory

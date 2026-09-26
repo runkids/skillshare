@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"skillshare/internal/install"
+	"skillshare/internal/search"
 )
 
 func TestClassifyFailureDetail(t *testing.T) {
@@ -168,5 +169,25 @@ func TestRepoSourceForGroupedClone(t *testing.T) {
 				t.Errorf("parsed root CloneURL = %q, want %q", parsedRoot.CloneURL, src.CloneURL)
 			}
 		})
+	}
+}
+
+func TestGroupByRepo_PinnedWebURLsInstallAlone(t *testing.T) {
+	// tree/feature/x/... and tree/feature/y/... both parse with ref "feature"
+	// until install resolves them, so grouping them could clone the wrong ref.
+	selected := []search.SearchResult{
+		{Name: "a", Source: "github.com/org/skills/tree/feature/x/skills/a"},
+		{Name: "b", Source: "github.com/org/skills/tree/feature/y/skills/b"},
+		{Name: "c", Source: "github.com/org/skills/skills/c"},
+		{Name: "d", Source: "github.com/org/skills/skills/d"},
+	}
+
+	groups, singles := groupByRepo(selected)
+
+	if len(groups) != 1 || len(groups[0].results) != 2 {
+		t.Fatalf("groups = %+v, want one group holding c and d", groups)
+	}
+	if len(singles) != 2 || singles[0].Name != "a" || singles[1].Name != "b" {
+		t.Errorf("singles = %+v, want a and b", singles)
 	}
 }

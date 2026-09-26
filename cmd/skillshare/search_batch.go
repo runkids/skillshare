@@ -282,8 +282,9 @@ func groupByRepo(selected []search.SearchResult) (groups []sourceGroup, singles 
 
 	for _, sr := range selected {
 		src, err := install.ParseSource(sr.Source)
-		if err != nil || !src.IsGit() || src.Subdir == "" {
-			// Cannot group: parse failure, local path, or root-level repo skill
+		if err != nil || !src.IsGit() || src.Subdir == "" || src.HasAmbiguousWebRef() {
+			// Cannot group: parse failure, local path, root-level repo skill, or
+			// a web URL whose ref (which may contain "/") is resolved at install
 			singles = append(singles, sr)
 			continue
 		}

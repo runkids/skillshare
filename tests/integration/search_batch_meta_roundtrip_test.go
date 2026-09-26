@@ -34,6 +34,8 @@ func TestSearchBatchGroupedInstall_MetadataSourceParseRoundTrip(t *testing.T) {
 		t.Fatal(err)
 	}
 	initGitRepo(t, repoPath)
+	// The sources below pin -/tree/main/, so the branch must exist.
+	run(t, repoPath, "git", "branch", "-M", "main")
 
 	// Route GitLab clone URL to the local test repo so the test remains offline.
 	configureGitURLRewriteOrSkip(t, sb.Home, repoPath, "https://gitlab.com/team/monorepo.git")
