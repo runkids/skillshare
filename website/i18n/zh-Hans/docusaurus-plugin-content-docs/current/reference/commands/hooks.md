@@ -79,6 +79,8 @@ hooks:
 
 传给 `hooks add check --file check.yaml` 的文件只包含 Entry 的 `description`、`enabled`、`bindings`，不包含 `hooks.entries` 外层。
 
+Skillshare 以缩进的 block 格式写入 `hooks` 区段；每次保存也会把之前被挤成一行的 entry 展开。Hooks 页的 **config.yaml** 按钮会打开“设置 → 文件”并定位到 `hooks:` 区段；点击 `hooks` 下的字段，右侧面板会显示说明。**美化** 会展开嵌套的单行区段，`targets: [claude, codex]` 这类短列表则保持一行。
+
 | Option | Meaning |
 |---|---|
 | `description` | 可选描述 |
@@ -106,7 +108,7 @@ Agent ID 为 `claude`、`codex`、`gemini`、`copilot`、`cursor`、`droid`、`q
 | [Amp](https://ampcode.com/docs/plugin-api) | `~/.config/amp/plugins/skillshare-NAME.ts` | `.amp/plugins/skillshare-NAME.ts` | Native plugin code |
 | [OpenCode](https://opencode.ai/docs/plugins/) | `~/.config/opencode/plugins/skillshare-NAME.ts` | `.opencode/plugins/skillshare-NAME.ts` | Supplied v1/v2 plugin code |
 
-global scope 使用原生配置目录的环境变量 override；project scope 只写入项目，不回退到 global。Codex inline TOML 等其他来源仍独立存在。Antigravity 及其 CLI（`agy`）读取同一份 `hooks.json`；每个 hook 是一个以其名称命名的 block，导入时保留原名。CLI 的 `~/.gemini/antigravity-cli/settings.json` 中的 hooks 保持独立。Droid 发布独立 hooks 文件会影响原生加载来源，请先检查已有 inline hooks。
+global scope 使用原生配置目录的环境变量 override；project scope 只写入项目，不回退到 global。Codex inline TOML 等其他来源仍独立存在。Antigravity 及其 CLI（`agy`）读取同一份 `hooks.json`；每个 hook 是一个以其名称命名的 block，导入时保留原名。CLI 的 `~/.gemini/antigravity-cli/settings.json` 中的 hooks 保持独立。Droid 发布独立 hooks 文件会影响原生加载来源，请先检查已有 inline hooks。Copilot 只在受信任的文件夹中加载 `.github/hooks` 的项目 hooks。
 
 
 Droid 存在有效 inline hooks 时，同步会拒绝创建独立文件。先导入并检查，移除原 inline hooks 后再同步。

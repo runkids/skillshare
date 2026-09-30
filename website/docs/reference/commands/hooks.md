@@ -108,6 +108,13 @@ hooks:
 The file passed to `hooks add check --file check.yaml` contains only the Entry:
 `description`, `enabled` and `bindings`, without the `hooks.entries` wrapper.
 
+Skillshare writes the `hooks` section in indented block style, and each save
+unfolds entries an earlier edit left on one line. The **config.yaml** button on
+the Hooks page opens **Settings → Files** at the `hooks:` section. There,
+clicking a `hooks` key explains it in the right panel, and **Beautify** unfolds
+nested one-line sections while short lists such as `targets: [claude, codex]`
+stay on one line.
+
 | Field | Meaning |
 |---|---|
 | `description` | Optional description |
@@ -156,6 +163,7 @@ Other native sources, such as Codex inline TOML declarations, remain separate.
 Antigravity and its CLI (`agy`) read the same `hooks.json`; each hook is one
 block named after it, so importing a block keeps its name. Hooks in the CLI's
 `~/.gemini/antigravity-cli/settings.json` stay separate.
+Copilot loads project hooks from `.github/hooks` only in a trusted folder.
 Sync refuses to create a Droid standalone file while active inline hooks exist.
 Import them first, review and remove the original inline hooks, then sync; this
 avoids silently changing which native source Droid loads.

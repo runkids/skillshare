@@ -79,6 +79,8 @@ hooks:
 
 `hooks add check --file check.yaml` 파일에는 Entry의 `description`, `enabled`, `bindings`만 포함하고 바깥쪽 `hooks.entries`는 넣지 않습니다.
 
+Skillshare는 `hooks` 섹션을 들여쓴 block 형식으로 쓰며, 저장할 때마다 이전에 한 줄로 압축된 entry도 펼칩니다. Hooks 페이지의 **config.yaml** 버튼은 **Settings → Files**를 `hooks:` 섹션 위치에서 엽니다. `hooks` 키를 클릭하면 오른쪽 패널에 설명이 표시되고, **정리**는 중첩된 한 줄 섹션을 펼칩니다. `targets: [claude, codex]` 같은 짧은 목록은 한 줄로 유지됩니다.
+
 | Option | Meaning |
 |---|---|
 | `description` | 선택 설명 |
@@ -106,7 +108,7 @@ Agent ID는 `claude`, `codex`, `gemini`, `copilot`, `cursor`, `droid`, `qwen`, `
 | [Amp](https://ampcode.com/docs/plugin-api) | `~/.config/amp/plugins/skillshare-NAME.ts` | `.amp/plugins/skillshare-NAME.ts` | Native plugin code |
 | [OpenCode](https://opencode.ai/docs/plugins/) | `~/.config/opencode/plugins/skillshare-NAME.ts` | `.opencode/plugins/skillshare-NAME.ts` | Supplied v1/v2 plugin code |
 
-global scope는 네이티브 설정 디렉터리 환경 변수 override를 사용합니다. project scope는 프로젝트에만 쓰며 global 경로로 대체하지 않습니다. Codex inline TOML 같은 다른 소스는 별도로 유지됩니다. Antigravity와 CLI(`agy`)는 같은 `hooks.json`을 읽습니다. 각 hook은 이름이 붙은 블록 하나이며 가져와도 이름이 유지됩니다. CLI의 `~/.gemini/antigravity-cli/settings.json`에 있는 hooks는 별도로 유지됩니다. Droid의 독립 hooks 파일은 로딩 소스를 바꿀 수 있으므로 기존 inline hooks를 먼저 확인하세요.
+global scope는 네이티브 설정 디렉터리 환경 변수 override를 사용합니다. project scope는 프로젝트에만 쓰며 global 경로로 대체하지 않습니다. Codex inline TOML 같은 다른 소스는 별도로 유지됩니다. Antigravity와 CLI(`agy`)는 같은 `hooks.json`을 읽습니다. 각 hook은 이름이 붙은 블록 하나이며 가져와도 이름이 유지됩니다. CLI의 `~/.gemini/antigravity-cli/settings.json`에 있는 hooks는 별도로 유지됩니다. Droid의 독립 hooks 파일은 로딩 소스를 바꿀 수 있으므로 기존 inline hooks를 먼저 확인하세요. Copilot은 신뢰된 폴더에서만 `.github/hooks`의 프로젝트 hooks를 불러옵니다.
 
 
 Droid inline hooks가 활성화된 경우 독립 파일 생성을 거부합니다. 가져와서 검토하고 원래 inline hooks를 제거한 뒤 동기화하세요.

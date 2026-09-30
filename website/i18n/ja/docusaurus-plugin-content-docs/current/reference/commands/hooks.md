@@ -79,6 +79,8 @@ hooks:
 
 `hooks add check --file check.yaml` のファイルは Entry の `description`、`enabled`、`bindings` のみを含み、外側の `hooks.entries` は不要です。
 
+Skillshare は `hooks` セクションをインデントした block 形式で書き込み、保存のたびに以前 1 行に詰め込まれた entry も展開します。Hooks ページの **config.yaml** ボタンは **Settings → Files** を `hooks:` セクションの位置で開きます。`hooks` のキーをクリックすると右側のパネルに説明が表示され、**整形** はネストした 1 行のセクションを展開します。`targets: [claude, codex]` のような短いリストは 1 行のままです。
+
 | Option | Meaning |
 |---|---|
 | `description` | 任意の説明 |
@@ -106,7 +108,7 @@ Agent ID は `claude`、`codex`、`gemini`、`copilot`、`cursor`、`droid`、`q
 | [Amp](https://ampcode.com/docs/plugin-api) | `~/.config/amp/plugins/skillshare-NAME.ts` | `.amp/plugins/skillshare-NAME.ts` | Native plugin code |
 | [OpenCode](https://opencode.ai/docs/plugins/) | `~/.config/opencode/plugins/skillshare-NAME.ts` | `.opencode/plugins/skillshare-NAME.ts` | Supplied v1/v2 plugin code |
 
-global scope はネイティブ設定ディレクトリの環境変数 override を使います。project scope はプロジェクト内にのみ書き込み、global にフォールバックしません。Codex inline TOML など他のソースは別のままです。Antigravity とその CLI（`agy`）は同じ `hooks.json` を読みます。各 hook は名前付きの 1 ブロックで、インポートしても名前は変わりません。CLI の `~/.gemini/antigravity-cli/settings.json` にある hooks は別のままです。Droid の独立 hooks ファイルは読み込むソースを変えるため、既存 inline hooks を先に確認してください。
+global scope はネイティブ設定ディレクトリの環境変数 override を使います。project scope はプロジェクト内にのみ書き込み、global にフォールバックしません。Codex inline TOML など他のソースは別のままです。Antigravity とその CLI（`agy`）は同じ `hooks.json` を読みます。各 hook は名前付きの 1 ブロックで、インポートしても名前は変わりません。CLI の `~/.gemini/antigravity-cli/settings.json` にある hooks は別のままです。Droid の独立 hooks ファイルは読み込むソースを変えるため、既存 inline hooks を先に確認してください。 Copilot は `.github/hooks` のプロジェクト hooks を信頼済みフォルダーでのみ読み込みます。
 
 
 Droid の inline hooks が有効な場合、同期は独立ファイルの作成を拒否します。インポートして確認し、元の inline hooks を削除してから同期してください。
