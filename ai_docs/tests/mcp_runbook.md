@@ -3,7 +3,8 @@
 ## Scope
 
 Verify inline and external declarations, global/project destinations, preview,
-idempotence, removal, import/adoption, conflict protection and entry restoration.
+idempotence, removal, import/adoption, conflict protection, entry restoration,
+Pi built-in MCP and its 0.22 migration, and the per-Agent tool policy.
 No server is launched and all endpoints are inert example URLs.
 
 ## Environment
@@ -202,67 +203,157 @@ Expected:
 - jq: .blocked == false
 - jq: .changes[0].name == "editable"
 
-## Pass Criteria
-
-All eight steps pass. Core Go tests additionally cover multi-file recovery,
-stale revisions, Agent-specific fields, credential references and foreign ownership.
-TUI model tests cover search shortcuts, hidden credentials, edit cancellation and
-batch import cancellation. In a real terminal, also verify `mcp` search/detail,
-edit and remove previews, multi-selection import, and the client/backup picker.
-
-### Pi extension selection and output
-
-Inside a fresh ssenv HOME (do not install or launch either Pi extension):
+### Step 9: Pi built-in MCP and cleared options
 
 ```bash
 set -eu
-PI_CASE=$(mktemp -d "$HOME/mcp-pi.XXXXXX")
-export SKILLSHARE_CONFIG="$PI_CASE/config.yaml"
-printf 'targets: {}\n' > "$SKILLSHARE_CONFIG"
-ss mcp add pi-docs --target pi --pi-extension pi-mcp-extension --url https://example.com/mcp --no-tui -g
-ss sync mcp --dry-run --json -g | jq -e '.changes[] | select(.target == "pi" and .action == "add")'
-ss sync mcp -g
-jq -e '.mcpServers["pi-docs"].transport == "streamable-http"' "$HOME/.pi/agent/mcp.json"
-ss sync mcp --dry-run --json -g | jq -e '.changes[] | select(.target == "pi" and .action == "unchanged")'
-ss mcp edit pi-docs --pi-extension pi-mcp-adapter --no-tui -g
-ss sync mcp -g
-jq -e '.mcpServers["pi-docs"] | has("transport") | not' "$HOME/.pi/agent/mcp-adapter.json"
-jq -e '.mcpServers | has("pi-docs") | not' "$HOME/.pi/agent/mcp.json"
-ss mcp remove pi-docs --sync --no-tui -g
-```
-
-**Expected:** explicit extension choice is saved, extension output includes transport,
-adapter output omits it and moves from `mcp.json` to `mcp-adapter.json`, the second
-sync is unchanged, and removal affects only
-the managed entry. No MCP server or Pi package is installed or executed.
-
-### Pi built-in MCP (0.99.0+) and cleared options
-
-```bash
-set -eu
+mkdir -p "$HOME/.config/skillshare/skills"
 MCP_CASE=$(mktemp -d "$HOME/mcp-pi-builtin.XXXXXX")
 export SKILLSHARE_CONFIG="$MCP_CASE/config.yaml"
 export PI_CODING_AGENT_DIR="$MCP_CASE/pi"
 printf 'targets: {}\n' > "$SKILLSHARE_CONFIG"
-ss mcp add docs --target pi --pi-extension builtin --url https://example.com/mcp \
-  --pi-options '{"exposure":"deferred","timeout":120,"toolExposure":{"get_*":"direct","*":"hidden"},"custom":{"flag":true}}' --no-tui -g
-ss sync mcp --dry-run --json -g | jq -e '.blocked == false and (.changes[0].fields.added | length > 0)'
-ss sync mcp -g
-jq -e '.mcpServers.docs.exposure == "deferred" and .mcpServers.docs.transport == null' "$PI_CODING_AGENT_DIR/mcp.json"
-ss mcp import --from pi --dry-run --json -g
-ss mcp edit docs --pi-options '{}' --no-tui -g
-ss sync mcp -g
-jq -e '.mcpServers.docs.custom.flag == true' "$PI_CODING_AGENT_DIR/mcp.json"
-# Re-manage the fields before testing explicit removal.
-ss mcp edit docs --pi-options '{"exposure":"deferred","timeout":120}' --no-tui -g
-ss sync mcp -g
-ss mcp edit docs --pi-options '{}' --pi-options-prune --no-tui -g
-ss sync mcp -g
-jq -e '.mcpServers.docs.exposure == null and .mcpServers.docs.timeout == null and .mcpServers.docs.custom.flag == true' "$PI_CODING_AGENT_DIR/mcp.json"
+ss mcp add docs --target pi --url https://example.com/mcp \
+  --pi-options '{"exposure":"deferred","timeout":120,"custom":{"flag":true}}' --no-tui -g >/dev/null
+ss sync mcp -g >/dev/null
+jq -e '.mcpServers.docs.exposure == "deferred" and .mcpServers.docs.transport == null' "$PI_CODING_AGENT_DIR/mcp.json" >/dev/null
+test ! -e "$PI_CODING_AGENT_DIR/mcp-adapter.json"
+ss mcp edit docs --pi-options '{"custom":{"flag":true}}' --no-tui -g >/dev/null
+ss sync mcp -g >/dev/null
+jq -e '.mcpServers.docs.exposure == null and .mcpServers.docs.timeout == null and .mcpServers.docs.custom.flag == true' "$PI_CODING_AGENT_DIR/mcp.json" >/dev/null
+ss sync mcp --dry-run --json -g
 ```
 
 Expected:
 - exit_code: 0
-- Global destination is `<PI_CODING_AGENT_DIR>/mcp.json`; project mode uses `.pi/mcp.json`.
-- Import keeps Pi-only fields. Clearing preserves values by default, explicit prune removes only owned unchanged fields.
-- No server is launched, no OAuth login or project trust is granted.
+- jq: .blocked == false
+- jq: .changes[0].action == "unchanged"
+
+### Step 10: A 0.22 Pi config converts on the first sync
+
+The owned `mcp-adapter.json` entry of a real 0.22 sync needs a 0.22 ledger; Go tests
+(`TestPiAdapterServerMovesToBuiltin`, `TestMCPPiAdapterServerSyncsToBuiltin`) cover its
+removal. This step covers the config, the notices, the backup and a hand-written
+adapter entry.
+
+```bash
+set -eu
+mkdir -p "$HOME/.config/skillshare/skills"
+MCP_CASE=$(mktemp -d "$HOME/mcp-pi-migrate.XXXXXX")
+export SKILLSHARE_CONFIG="$MCP_CASE/config.yaml"
+export PI_CODING_AGENT_DIR="$MCP_CASE/pi"
+mkdir -p "$PI_CODING_AGENT_DIR"
+printf '{"mcpServers":{"mine":{"command":"my-mcp"}}}\n' > "$PI_CODING_AGENT_DIR/mcp-adapter.json"
+cp "$PI_CODING_AGENT_DIR/mcp-adapter.json" "$MCP_CASE/adapter.before"
+cat > "$SKILLSHARE_CONFIG" <<'YAML'
+targets: {}
+mcp:
+  directTools: search
+  servers:
+    docs:
+      url: https://example.com/mcp
+      targets: [pi]
+      piExtension: pi-mcp-adapter
+      piOptionsPrune: true
+      piOptions:
+        lifecycle: lazy
+        excludeTools: [delete_repo]
+    lister:
+      command: lister-mcp
+      targets: [pi]
+      piExtension: builtin
+      directTools: [list_items]
+YAML
+cp "$SKILLSHARE_CONFIG" "$MCP_CASE/config.before"
+ss sync mcp --dry-run --json -g > "$MCP_CASE/plan.json"
+jq -e '.migrates == true and (.notices | length == 4)' "$MCP_CASE/plan.json" >/dev/null
+jq -e '.notices[0] == "Pi now uses its built-in MCP; the next sync updates the config: docs, lister"' "$MCP_CASE/plan.json" >/dev/null
+cmp "$SKILLSHARE_CONFIG" "$MCP_CASE/config.before"
+ss sync mcp -g > "$MCP_CASE/sync.out"
+grep -q 'Updated config.yaml for 0.23.0 (backup: ' "$MCP_CASE/sync.out"
+! grep -Eq 'piExtension|piOptionsPrune|directTools|lifecycle|excludeTools' "$SKILLSHARE_CONFIG"
+jq -e '.mcpServers.docs.exposure == "deferred" and .mcpServers.docs.toolExposure.delete_repo == "hidden"' "$PI_CODING_AGENT_DIR/mcp.json" >/dev/null
+jq -e '.mcpServers.lister.toolExposure.list_items == "direct"' "$PI_CODING_AGENT_DIR/mcp.json" >/dev/null
+cmp "$PI_CODING_AGENT_DIR/mcp-adapter.json" "$MCP_CASE/adapter.before"
+ss backup files show "$SKILLSHARE_CONFIG" -g | grep -q 'history/migrate'
+ss mcp import --from pi --json -g | jq -e 'any(.[]; .name == "mine")' >/dev/null
+ss sync mcp --dry-run --json -g
+```
+
+Expected:
+- exit_code: 0
+- jq: .notices == null
+- jq: .migrates == null
+- jq: .changes | length == 2
+
+### Step 11: Removed Pi flags explain the change
+
+```bash
+set -eu
+mkdir -p "$HOME/.config/skillshare/skills"
+MCP_CASE=$(mktemp -d "$HOME/mcp-pi-flags.XXXXXX")
+export SKILLSHARE_CONFIG="$MCP_CASE/config.yaml"
+export PI_CODING_AGENT_DIR="$MCP_CASE/pi"
+printf 'targets: {}\n' > "$SKILLSHARE_CONFIG"
+ss mcp add docs --url https://example.com/mcp --target pi --no-tui -g >/dev/null
+for flag in '--pi-extension builtin' '--pi-options-prune' '--direct-tools true'; do
+  if ss mcp edit docs $flag --no-tui -g > "$MCP_CASE/out" 2>&1; then exit 1; fi
+  grep -q 'was removed in 0.23.0' "$MCP_CASE/out"
+done
+grep -q 'tools-expose direct' "$MCP_CASE/out"
+ss mcp list --json -g
+```
+
+Expected:
+- exit_code: 0
+- jq: .blocked == false
+
+### Step 12: Tool policy per Agent
+
+```bash
+set -eu
+mkdir -p "$HOME/.config/skillshare/skills"
+unset SKILLSHARE_CONFIG PI_CODING_AGENT_DIR
+MCP_CASE=$(mktemp -d "$HOME/mcp-tools.XXXXXX")
+mkdir -p "$MCP_CASE/.skillshare"
+printf 'targets: []\n' > "$MCP_CASE/.skillshare/config.yaml"
+cd "$MCP_CASE"
+ss mcp add github --target pi --target codex --target copilot --target opencode \
+  --tools-expose deferred --tools-allow 'get_*,search_code' --tools-deny get_secret --no-tui -p -- github-mcp >/dev/null
+ss sync mcp --dry-run --json -p > plan.json
+jq -e '.notices == ["tool policy not applied for codex: expose, allow patterns (github)", "tool policy not applied for copilot: expose, allow patterns, deny (github)", "tool policy not applied for opencode: expose, allow, deny (github)"]' plan.json >/dev/null
+ss sync mcp -p >/dev/null
+jq -e '.mcpServers.github.exposure == "deferred" and (.mcpServers.github.toolExposure | keys_unsorted) == ["get_secret", "get_*", "search_code", "*"]' .pi/mcp.json >/dev/null
+grep -q "disabled_tools = \['get_secret'\]" .codex/config.toml
+! grep -q enabled_tools .codex/config.toml
+jq -e '.mcpServers.github.tools == ["*"]' .github/mcp.json >/dev/null
+jq -e '.mcp.github | has("tools") | not' opencode.json >/dev/null
+# github-mcp is not installed, so check exits 1 for the missing command.
+ss mcp check github --json --no-dns -p > check.json || test $? -eq 1
+jq -e '[.servers[].findings[] | select(.check == "tools") | .target] == ["codex", "copilot", "opencode"]' check.json >/dev/null
+ss mcp edit github --tools-expose '' --tools-allow 'search_code,list_issues' --tools-deny '' --no-tui -p >/dev/null
+ss sync mcp -p >/dev/null
+grep -q "enabled_tools = \['search_code', 'list_issues'\]" .codex/config.toml
+jq -e '.mcpServers.github.tools == ["search_code", "list_issues"]' .github/mcp.json >/dev/null
+ss mcp edit github --tools-allow '' --no-tui -p >/dev/null
+ss sync mcp -p >/dev/null
+! grep -q _tools .codex/config.toml
+if ss mcp edit github --tools-allow x --tools-deny x --no-tui -p > err 2>&1; then exit 1; fi
+grep -q 'tools.deny removes every tool tools.allow keeps' err
+printf '[mcp_servers.imp]\ncommand = "imp-mcp"\nenabled_tools = ["a"]\n' > imp.toml
+ss mcp import imp --file imp.toml --from codex --target codex --no-tui -p >/dev/null
+grep -A6 '  imp:' .skillshare/config.yaml | grep -q -- '- a'
+ss sync mcp --dry-run --json -p
+```
+
+Expected:
+- exit_code: 0
+- jq: .blocked == false
+- jq: .notices == null
+
+## Pass Criteria
+
+All twelve steps pass. Core Go tests additionally cover multi-file recovery,
+stale revisions, Agent-specific fields, credential references and foreign ownership.
+TUI model tests cover search shortcuts, hidden credentials, edit cancellation and
+batch import cancellation. In a real terminal, also verify `mcp` search/detail,
+edit and remove previews, multi-selection import, and the client/backup picker.
