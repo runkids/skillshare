@@ -1,7 +1,7 @@
 import { hookAgents, hookCodeAgents, type HookChange, type HookEntry, type HookPlan } from '../../api/hooks';
 
 export const hookLabel = (agent: string) =>
-  ({ claude: 'Claude', codex: 'Codex', gemini: 'Gemini CLI', copilot: 'Copilot CLI', cursor: 'Cursor', droid: 'Droid', qwen: 'Qwen Code', pi: 'Pi', amp: 'Amp', opencode: 'OpenCode' })[agent] ?? agent;
+  ({ claude: 'Claude', codex: 'Codex', gemini: 'Gemini CLI', copilot: 'Copilot CLI', cursor: 'Cursor', droid: 'Droid', qwen: 'Qwen Code', antigravity: 'Antigravity', pi: 'Pi', amp: 'Amp', opencode: 'OpenCode' })[agent] ?? agent;
 
 /** The dashboard's own wording of an Agent's native loading and trust guidance. Only an Agent this build does not know falls back to the server's English note. */
 export const hookNote = (t: (key: string) => string, agent: string, fallback?: string) =>
@@ -44,9 +44,14 @@ export const actionLabel = (t: (key: string) => string, action: string) => (KNOW
 // Domain notes the user can act on in this UI, reworded around its own take-over action; any other note is shown as sent.
 const messageKeys: Record<string, string> = {
   'an identical hook exists that Skillshare does not manage; import it or explicitly replace it': 'hooks.message.identicalUnmanaged',
-  'the existing registrations stay in place and unmanaged; sync with replace to take them over instead of adding duplicates': 'hooks.message.importUnmanaged',
+  'saving the import takes over the existing registrations in place; sync leaves them as they are instead of adding duplicates': 'hooks.message.importUnmanaged',
 };
-export const hookMessage = (t: (key: string) => string, message: string) => (messageKeys[message] ? t(messageKeys[message]) : message);
+const UNKNOWN_EVENT = /^hook (.+): (\S+) does not document the event "(.+)"; check its spelling$/;
+export const hookMessage = (t: (key: string, params?: Record<string, string>) => string, message: string) => {
+  if (messageKeys[message]) return t(messageKeys[message]);
+  const unknown = UNKNOWN_EVENT.exec(message);
+  return unknown ? t('hooks.message.unknownEvent', { name: unknown[1], agent: hookLabel(unknown[2]), event: unknown[3] }) : message;
+};
 export const needsTakeover = (change: HookChange) => change.action === 'conflict' && messageKeys[change.message ?? ''] === 'hooks.message.identicalUnmanaged';
 
 export const blockedHint = (t: (key: string) => string, plan: HookPlan) => {
@@ -98,15 +103,18 @@ let seq = 0;
 const rowId = () => `row-${++seq}`;
 const omit = (o: Record<string, unknown>, keys: string[]) => Object.fromEntries(Object.entries(o).filter(([k]) => !keys.includes(k)));
 
+/** Whether an Agent's registration for an event is a matcher group or a bare handler. Antigravity groups only its tool events. */
+export const rowShape = (agent: string, event: string): HookRow['shape'] =>
+  agent === 'copilot' || agent === 'cursor' || (agent === 'antigravity' && event !== 'PreToolUse' && event !== 'PostToolUse') ? 'flat' : 'group';
+
 /** How a fresh row is written for an Agent: the native shape, not a translation of another Agent's. */
 export function newRow(agent: string, event = ''): HookRow {
-  const flat = agent === 'copilot' || agent === 'cursor';
   return {
     id: rowId(), event, matcher: '', command: '', timeout: '',
-    shape: flat ? 'flat' : 'group',
+    shape: rowShape(agent, event),
     commandKey: agent === 'copilot' ? 'bash' : 'command',
     timeoutKey: agent === 'copilot' ? 'timeoutSec' : 'timeout',
-    handler: agent === 'cursor' ? {} : { type: 'command' },
+    handler: agent === 'cursor' || agent === 'antigravity' ? {} : { type: 'command' },
     group: {},
   };
 }
@@ -332,6 +340,8 @@ export const rootName = (root: string) => root.replace(/[\\/]+$/, '').split(/[\\
 
 /** The Agent behind a target: a project target is `<project>@<tool>`. Undefined for a tool hooks are not managed for. */
 export const hookAgentOf = (target: string) => {
-  const name = target.slice(target.lastIndexOf('@') + 1);
+  const tool = target.slice(target.lastIndexOf('@') + 1);
+  // The Antigravity IDE and CLI share one hooks file, so both are the one hooks target.
+  const name = tool === 'antigravity-cli' || tool === 'agy' ? 'antigravity' : tool;
   return (hookAgents as readonly string[]).includes(name) ? name : undefined;
 };

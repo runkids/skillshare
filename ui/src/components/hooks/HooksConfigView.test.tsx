@@ -46,7 +46,7 @@ describe('Hooks native config view', () => {
     view({ name: 'lint', entry: { enabled: false, bindings: {} } });
     expect(await screen.findByText('Sync writes 0 files')).toBeInTheDocument();
     expect(await screen.findByText(/This hook is disabled/)).toBeInTheDocument();
-    expect(screen.getByText(/no Agents selected/)).toBeInTheDocument();
+    expect(screen.getByText(/no targets selected/)).toBeInTheDocument();
     expect(screen.getByRole('dialog')).toHaveTextContent('"enabled": false');
   });
 

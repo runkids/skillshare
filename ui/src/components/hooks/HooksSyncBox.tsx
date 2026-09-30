@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { AlertCircle, CircleCheck, RefreshCw } from 'lucide-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { hooksApi, type HookChange, type HookEntry, type HookMutation, type HookPlan } from '../../api/hooks';
+import { useTheme } from '../../context/ThemeContext';
 import { useT } from '../../i18n';
 import { shortenHome } from '../../lib/paths';
 import { queryKeys } from '../../lib/queryKeys';
@@ -83,12 +84,14 @@ export function HooksSyncDialog({ project, takeover, canTakeOver, onTakeover, on
 /** What Sync would write. This is Skillshare's side only: whether an Agent trusts and loads it is that Agent's call. */
 export default function HooksSyncBox({ plan, project, canTakeOver, onTakeover }: { plan: HookPlan; project?: string; canTakeOver?: (c: HookChange) => boolean; onTakeover?: (name: string) => void }) {
   const t = useT();
+  const { style } = useTheme();
   const [reviewing, setReviewing] = useState(false);
   const pending = plan.changes.filter(writes);
   const conflicts = plan.changes.filter((c) => c.action === 'conflict');
   const state = pending.length > 0 ? t(pending.length === 1 ? 'mcp.pending.one' : 'mcp.pending.other', { count: pending.length }) : conflicts.length > 0 ? t(conflicts.every(needsTakeover) ? 'hooks.status.unmanaged' : 'mcp.status.conflict') : t('targets.state.synced');
   return (
-    <SyncBox tone={pending.length > 0 || conflicts.length > 0 ? 'warn' : 'ok'} state={state}>
+    // The clean theme is black and white only; playful keeps its tint.
+    <SyncBox tone={pending.length > 0 || conflicts.length > 0 ? (style === 'clean' ? 'plain' : 'warn') : style === 'clean' ? 'plain' : 'ok'} state={state}>
       {pending.length > 0 && (
         <div className="flex flex-col gap-1.5">
           {pending.map((c) => <RailLine key={`${c.path}:${c.target}:${c.name}`} name={c.name} agent={[hookLabel(c.target), c.root && !project && shortenHome(c.root), fileName(c.path)].filter(Boolean).join(' · ')} word={actionLabel(t, c.action)} />)}

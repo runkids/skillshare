@@ -1,7 +1,12 @@
 import { useMemo } from 'react';
 import CodeMirror from '@uiw/react-codemirror';
+import { autocompletion } from '@codemirror/autocomplete';
+import type { CompletionSource } from '@codemirror/autocomplete';
+import { javascript } from '@codemirror/lang-javascript';
 import { json } from '@codemirror/lang-json';
 import { syntaxHighlighting } from '@codemirror/language';
+import { linter, lintGutter } from '@codemirror/lint';
+import type { Diagnostic } from '@codemirror/lint';
 import { Decoration, EditorView, WidgetType } from '@codemirror/view';
 import { classHighlighter } from '@lezer/highlight';
 
@@ -18,6 +23,15 @@ const chrome = EditorView.theme({
   '.cm-selectionBackground, &.cm-focused .cm-selectionBackground, ::selection': { backgroundColor: 'var(--accent-bg) !important' },
   '.cm-matchingBracket': { backgroundColor: 'var(--accent-bg)', outline: 'none' },
   '.cm-placeholder': { color: 'var(--ink-3)' },
+  '.cm-lintRange-error': { backgroundImage: 'none', textDecoration: 'underline wavy var(--bad)', textUnderlineOffset: '3px' },
+  '.cm-lintRange-warning': { backgroundImage: 'none', textDecoration: 'underline wavy var(--ink-3)', textUnderlineOffset: '3px' },
+  '.cm-tooltip': { backgroundColor: 'var(--surface)', color: 'var(--ink)', border: '1px solid var(--line)', borderRadius: '8px', fontFamily: 'var(--f)', fontSize: '12.5px', overflow: 'hidden' },
+  '.cm-tooltip-autocomplete > ul > li': { padding: '3px 10px !important', fontFamily: 'var(--fm)' },
+  '.cm-tooltip-autocomplete > ul > li[aria-selected]': { backgroundColor: 'var(--sel)', color: 'var(--sel-ink)' },
+  '.cm-completionDetail': { marginLeft: '12px', fontFamily: 'var(--f)', fontStyle: 'normal', color: 'var(--ink-3)' },
+  '.cm-diagnostic': { padding: '6px 10px', borderLeft: 'none' },
+  '.cm-diagnostic-error': { color: 'var(--bad)' },
+  '.cm-diagnostic-warning': { color: 'var(--ink-2)' },
   '.cm-marked': { backgroundColor: 'var(--warn-bg)' },
   '.cm-marked .cm-gutterElement, .cm-gutterElement.cm-marked': { color: 'var(--warn)' },
   // A noted line holds its floating note, so a note that does not fit drops under this line, not beside the next.
@@ -83,7 +97,7 @@ function markLines(markLine: (text: string) => boolean) {
 interface Props {
   value: string;
   onChange: (value: string) => void;
-  /** 'json' highlights and auto-indents; anything else edits plain text. */
+  /** 'json' highlights and auto-indents; 'typescript' and 'javascript' use the JavaScript mode; anything else edits plain text. */
   lang?: string;
   placeholder?: string;
   ariaLabel: string;
@@ -99,20 +113,27 @@ interface Props {
   wrap?: boolean;
   /** Takes the full height of its parent (a sized flex item) and scrolls inside, instead of min/max height. */
   fill?: boolean;
+  /** Marks problems in the text, recomputed as it changes. Keep it stable between renders. */
+  lint?: (text: string) => Diagnostic[];
+  /** Offers completions as you type. Keep it stable between renders. */
+  completions?: CompletionSource;
 }
 
-export default function CodeEditor({ value, onChange, lang = '', placeholder, ariaLabel, disabled = false, className = '', minHeight = '140px', maxHeight = '320px', markLine, lineDecor, wrap = false, fill = false }: Props) {
+export default function CodeEditor({ value, onChange, lang = '', placeholder, ariaLabel, disabled = false, className = '', minHeight = '140px', maxHeight = '320px', markLine, lineDecor, wrap = false, fill = false, lint, completions }: Props) {
   const extensions = useMemo(
     () => [
       chrome,
       syntaxHighlighting(classHighlighter),
       EditorView.contentAttributes.of({ 'aria-label': ariaLabel }),
       ...(lang === 'json' ? [json()] : []),
+      ...(lang === 'typescript' || lang === 'javascript' ? [javascript({ typescript: lang === 'typescript' })] : []),
+      ...(lint ? [linter((view) => lint(view.state.doc.toString()), { delay: 250 }), lintGutter()] : []),
+      ...(completions ? [autocompletion({ override: [completions], icons: false })] : []),
       ...(markLine ? [markLines(markLine)] : []),
       ...(lineDecor ? [decorateLines(lineDecor)] : []),
       ...(wrap ? [EditorView.lineWrapping] : []),
     ],
-    [lang, ariaLabel, markLine, lineDecor, wrap],
+    [lang, ariaLabel, markLine, lineDecor, wrap, lint, completions],
   );
   return (
     <div className={`ss-code !overflow-hidden !p-0 !whitespace-normal focus-within:!border-[var(--accent)] ${className}`}>

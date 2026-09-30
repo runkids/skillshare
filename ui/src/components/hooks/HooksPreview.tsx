@@ -1,50 +1,88 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { AlertTriangle } from 'lucide-react';
-import type { HookChange, HookPlan } from '../../api/hooks';
+import { AlertTriangle, TriangleAlert } from 'lucide-react';
+import type { HookChange, HookFileDiff, HookPreview, HookUnmanaged } from '../../api/hooks';
 import { useT } from '../../i18n';
 import { shortenHome } from '../../lib/paths';
 import AgentIcon from '../AgentIcon';
 import { Checkbox } from '../Checkbox';
 import Tooltip from '../Tooltip';
-import { actionLabel, blockedHint, fileName, groupByFile, hookLabel, hookMessage, needsTakeover, statusTone } from './hooksView';
+import { actionLabel, blockedHint, groupByFile, hookLabel, hookMessage, needsTakeover } from './hooksView';
+import { diffLines, eventLabels, foldDiff, lineEvent } from './hookCatalog';
 
-/** What a sync would write, one block per native file. Nothing here has been written or executed. `onTakeover` offers the take-over preview on conflicts `canTakeOver` accepts. */
-export default function HooksPreview({ plan, canTakeOver, onTakeover }: { plan: HookPlan; canTakeOver?: (c: HookChange) => boolean; onTakeover?: (name: string) => void }) {
+/** A real line diff of one file; unchanged runs fold, and a user's own hooks are marked as untouched. */
+function FileDiff({ file, untouched }: { file: HookFileDiff; untouched: string[] }) {
+  const t = useT();
+  const lines = foldDiff(diffLines(file.before, file.after));
+  return (
+    <div className="max-h-[260px] overflow-auto border-t border-line py-1.5 font-mono text-[12px] leading-[1.7]" aria-label={t('hooks.preview.diff', { path: file.path })}>
+      {lines.map((line, i) => {
+        if ('skip' in line) return <div key={i} className="px-3.5 text-ink-3">{t('hooks.preview.folded', { count: String(line.skip) })}</div>;
+        const event = line.op === ' ' ? lineEvent(line.text) : undefined;
+        return (
+          <div key={i} className={`flex gap-3 whitespace-pre px-3.5 ${line.op === ' ' ? 'text-ink-3' : line.op === '+' ? 'bg-sunken font-semibold text-ink' : 'bg-sunken text-ink-2 line-through decoration-ink-3'}`}>
+            <span className="w-3 shrink-0 select-none" aria-hidden="true">{line.op === ' ' ? '' : line.op === '+' ? '+' : '−'}</span>
+            <span className="min-w-0">{line.text}</span>
+            {event && untouched.includes(event) && <span className="shrink-0 font-sans text-ink-3">{t('hooks.preview.untouched')}</span>}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/**
+ * What a sync would write, one card per native file: the action, the events it changes and the file's
+ * diff when the plan carries its contents. Nothing here has been written or executed. `onTakeover`
+ * offers the take-over preview on conflicts `canTakeOver` accepts.
+ */
+export default function HooksPreview({ plan, unmanaged = [], canTakeOver, onTakeover }: { plan: HookPreview; unmanaged?: HookUnmanaged[]; canTakeOver?: (c: HookChange) => boolean; onTakeover?: (name: string) => void }) {
   const t = useT();
   const [hideSynced, setHideSynced] = useState(true);
   const unchanged = plan.changes.filter((c) => c.action === 'unchanged').length;
   const canHide = unchanged > 0 && unchanged < plan.changes.length;
   const files = groupByFile(plan.changes.filter((c) => !(canHide && hideSynced && c.action === 'unchanged')));
+  // A plan with both global and project files says which is which; a single scope needs no label.
+  const mixed = plan.changes.some((c) => c.root) && plan.changes.some((c) => !c.root);
+  // Name the hook on a file card only when the plan covers more than one.
+  const named = new Set(plan.changes.map((c) => c.name)).size > 1;
   return (
     <div className="flex flex-col gap-3">
       {plan.blocked && <div className="ss-note warn" role="alert"><AlertTriangle size={16} /><span className="flex-1">{blockedHint(t, plan)}</span></div>}
+      {plan.warnings?.map((w) => <div key={w} className="flex items-start gap-2 text-[13px] text-ink-2"><TriangleAlert size={14} className="mt-0.5 shrink-0" /><span className="flex-1">{hookMessage(t, w)}</span></div>)}
       {plan.changes.length === 0 && <p className="text-[13px] text-ink-2">{t('hooks.preview.nothing')}</p>}
       {canHide && <Checkbox size="sm" label={t('mcp.hideSynced')} checked={hideSynced} onChange={setHideSynced} />}
-      <div className="flex max-h-[50vh] flex-col gap-3 overflow-auto">
-        {files.map((file) => (
-          <section key={file.path} aria-label={file.path} className="ss-list !shadow-none">
-            <div className="ss-r fold !min-h-10">
-              <span className="ss-at"><AgentIcon target={file.target} size={17} /></span>
-              <div className="min-w-0 flex-1">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="font-semibold">{hookLabel(file.target)}</span>
-                  <span className="ss-tag">{file.root ? t('hooks.preview.project', { name: fileName(file.root) }) : t('hooks.preview.global')}</span>
+      <div className="flex max-h-[55vh] flex-col gap-3 overflow-auto">
+        {files.map((file) => {
+          const single = file.changes.length === 1 ? file.changes[0] : undefined;
+          const diff = plan.files?.find((f) => f.path === file.path);
+          const untouched = unmanaged.filter((u) => u.path === file.path).flatMap((u) => u.names);
+          return (
+            <section key={file.path} aria-label={file.path} className="overflow-hidden rounded-[12px] border border-line">
+              <div className="flex min-h-11 items-center gap-2.5 bg-sunken px-3.5 py-2">
+                <AgentIcon target={file.target} size={17} />
+                <span className="shrink-0 font-semibold">{hookLabel(file.target)}</span>
+                {single && named && <span className="min-w-0 truncate font-mono text-[13px]">{single.name}</span>}
+                <span className="min-w-0 flex-1 truncate font-mono text-xs text-ink-3" title={file.path}>{shortenHome(file.path)}</span>
+                {mixed && <span className="ss-tag shrink-0 !font-sans">{file.root ? t('hooks.preview.project', { name: file.root.split(/[\\/]/).pop() ?? file.root }) : t('hooks.preview.global')}</span>}
+                {single && <span className="shrink-0 text-xs text-ink-2">{needsTakeover(single) ? t('hooks.status.unmanaged') : actionLabel(t, single.action)}</span>}
+                {single && eventLabels(single).map((l) => <span key={l} className="shrink-0 font-mono text-xs text-ink-2">{l}</span>)}
+              </div>
+              {file.changes.filter((c) => !single || c.message || c.action === 'conflict').map((c) => (
+                <div key={`${c.name}:${c.action}`} className="flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-line px-3.5 py-2">
+                  {!single && <span className="w-[80px] shrink-0 text-xs text-ink-2">{needsTakeover(c) ? t('hooks.status.unmanaged') : actionLabel(t, c.action)}</span>}
+                  {!single && <span className="min-w-0 truncate font-mono text-[13px]">{c.name}</span>}
+                  {!single && eventLabels(c).map((l) => <span key={l} className="shrink-0 font-mono text-xs text-ink-2">{l}</span>)}
+                  <span className="flex-1" />
+                  {onTakeover && canTakeOver?.(c) && <button type="button" className="shrink-0 text-xs font-semibold text-ink-2 hover:text-ink" aria-label={`${t('hooks.takeoverMenu')} · ${c.name}`} onClick={() => onTakeover(c.name)}>{t('hooks.takeoverMenu')}</button>}
+                  {c.action === 'conflict' && c.root && !canTakeOver?.(c) && <Link to={`/projects/${encodeURIComponent(c.root)}?tab=hooks`} className="shrink-0 text-xs font-semibold text-ink-2 hover:text-ink">{t('hooks.preview.openProject')}</Link>}
+                  {c.message && <span className={c.action === 'conflict' ? 'w-full' : 'min-w-0 max-w-[55%]'}><Tooltip block content={hookMessage(t, c.message)}><span className={`block text-xs text-ink-2 ${c.action === 'conflict' ? 'w-full break-words leading-normal' : 'truncate'}`}>{hookMessage(t, c.message)}</span></Tooltip></span>}
                 </div>
-                <span className="block truncate font-mono text-xs text-ink-3" title={file.path}>{shortenHome(file.path)}</span>
-              </div>
-            </div>
-            {file.changes.map((c) => (
-              <div key={`${c.name}:${c.action}`} className="ss-r !min-h-10 !flex-wrap !gap-y-1.5">
-                <span className={`ss-st w-[110px] shrink-0 ${needsTakeover(c) ? 'warn' : statusTone[c.action] ?? ''}`}>{needsTakeover(c) ? t('hooks.status.unmanaged') : actionLabel(t, c.action)}</span>
-                <span className="min-w-0 flex-1 truncate font-mono text-[13px]">{c.name}</span>
-                {onTakeover && canTakeOver?.(c) && <button type="button" className="shrink-0 text-xs font-semibold text-ink-2 hover:text-ink" aria-label={`${t('hooks.takeoverMenu')} · ${c.name}`} onClick={() => onTakeover(c.name)}>{t('hooks.takeoverMenu')}</button>}
-                {c.action === 'conflict' && c.root && !canTakeOver?.(c) && <Link to={`/projects/${encodeURIComponent(c.root)}?tab=hooks`} className="shrink-0 text-xs font-semibold text-ink-2 hover:text-ink">{t('hooks.preview.openProject')}</Link>}
-                {c.message && <span className={c.action === 'conflict' ? 'w-full' : 'min-w-0 max-w-[55%]'}><Tooltip block content={hookMessage(t, c.message)}><span className={`block text-xs text-ink-2 ${c.action === 'conflict' ? 'w-full break-words leading-normal' : 'truncate'}`}>{hookMessage(t, c.message)}</span></Tooltip></span>}
-              </div>
-            ))}
-          </section>
-        ))}
+              ))}
+              {diff && <FileDiff file={diff} untouched={untouched} />}
+            </section>
+          );
+        })}
       </div>
     </div>
   );

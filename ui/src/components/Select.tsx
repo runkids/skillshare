@@ -13,6 +13,8 @@ export interface SelectOption {
   note?: string;
   /** Shown but cannot be picked; the description says why. */
   disabled?: boolean;
+  /** A short tag at the right end of the option, e.g. a capability. */
+  badge?: string;
 }
 
 interface SelectProps {
@@ -39,6 +41,10 @@ interface SelectProps {
   chip?: { clearValue: string; clearLabel: string };
   /** Which trigger edge the menu lines up with; end opens it leftward, for a trigger at the right of a row. */
   align?: 'start' | 'end';
+  /** Options as one line each: a monospace name column, the description beside it and the badge at the end. */
+  columns?: boolean;
+  /** Marks the trigger as a field with a problem, like an input with `err`. */
+  invalid?: boolean;
 }
 
 const selectTriggerSizes = {
@@ -56,7 +62,7 @@ interface DropdownPos {
   bottom?: number;
 }
 
-export function Select({ label, ariaLabel, value = '', onChange, values, onChangeValues, placeholder, options, className = '', size = 'md', disabled = false, prefix, chip, align = 'start' }: SelectProps) {
+export function Select({ label, ariaLabel, value = '', onChange, values, onChangeValues, placeholder, options, className = '', size = 'md', disabled = false, prefix, chip, align = 'start', columns = false, invalid = false }: SelectProps) {
   const labelId = useId();
   const [open, setOpen] = useState(false);
   const [focusIdx, setFocusIdx] = useState(-1);
@@ -79,7 +85,7 @@ export function Select({ label, ariaLabel, value = '', onChange, values, onChang
     if (!triggerRef.current) return;
     const rect = triggerRef.current.getBoundingClientRect();
     const dropdownHeight = Math.min(options.length * 48, 256); // rough est, max 16rem
-    const minWidth = hasDescriptions ? Math.max(rect.width, 240) : rect.width;
+    const minWidth = columns ? Math.max(rect.width, 520) : hasDescriptions ? Math.max(rect.width, 240) : rect.width;
 
     // Vertical: prefer below, flip up if not enough space below but enough above.
     const spaceBelow = window.innerHeight - rect.bottom;
@@ -99,7 +105,7 @@ export function Select({ label, ariaLabel, value = '', onChange, values, onChang
       top: dropUp ? undefined : rect.bottom + 4,
       bottom: dropUp ? window.innerHeight - rect.top + 4 : undefined,
     });
-  }, [options.length, hasDescriptions, align]);
+  }, [options.length, hasDescriptions, align, columns]);
 
   // Open the menu, computing position from the live trigger rect first so the
   // portal renders already positioned (no mispositioned flash, no setState in
@@ -237,8 +243,9 @@ export function Select({ label, ariaLabel, value = '', onChange, values, onChang
         disabled={disabled}
         onClick={toggle}
         onKeyDown={handleKeyDown}
-        className={`ss-inp w-full justify-between text-left outline-none ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'} ${selectTriggerSizes[size]} ${open ? 'border-accent' : ''}`}
+        className={`ss-inp w-full justify-between text-left outline-none ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'} ${selectTriggerSizes[size]} ${open ? 'border-accent' : ''} ${invalid ? 'err' : ''}`}
         role="combobox"
+        aria-invalid={invalid || undefined}
         aria-labelledby={label ? labelId : undefined}
         aria-label={label ? undefined : ariaLabel}
         aria-expanded={open}
@@ -251,7 +258,7 @@ export function Select({ label, ariaLabel, value = '', onChange, values, onChang
               {chosen.slice(0, 6).map((o) => <span key={o.value} className={values ? 'ss-at' : 'flex items-center'}>{o.icon}</span>)}
             </span>
           )}
-          <span className={`truncate ${chosen.length === 0 && placeholder ? 'text-ink-3' : ''}`}>{chosen.length === 0 && placeholder ? placeholder : selectedLabel}</span>
+          <span className={`truncate ${columns ? 'font-mono' : ''} ${chosen.length === 0 && placeholder ? 'text-ink-3' : ''}`}>{chosen.length === 0 && placeholder ? placeholder : selectedLabel}</span>
         </span>
         <ChevronDown
           size={size === 'sm' ? 13 : 15}
@@ -271,12 +278,12 @@ export function Select({ label, ariaLabel, value = '', onChange, values, onChang
             right: pos.right,
             top: pos.top,
             bottom: pos.bottom,
-            maxHeight: '16rem',
+            maxHeight: columns ? '20rem' : '16rem',
             // At least as wide as the trigger; wider for description options so
             // they wrap nicely. Bounded so long descriptions never stretch the
             // dropdown across the page.
             minWidth: pos.minWidth,
-            maxWidth: 'min(22rem, calc(100vw - 1rem))',
+            maxWidth: columns ? 'min(40rem, calc(100vw - 1rem))' : 'min(22rem, calc(100vw - 1rem))',
           }}
         >
           {options.map((opt, i) => {
@@ -298,6 +305,13 @@ export function Select({ label, ariaLabel, value = '', onChange, values, onChang
                   {isSelected && <Check size={size === 'sm' ? 12 : 14} />}
                 </span>
                 {opt.icon && <span className="flex shrink-0 items-center">{opt.icon}</span>}
+                {columns ? (
+                  <>
+                    <span className={`w-[160px] shrink-0 truncate font-mono ${isSelected ? 'font-medium' : ''}`}>{opt.label}</span>
+                    <span className={`min-w-0 flex-1 truncate ${isFocused && !opt.disabled ? '' : 'text-ink-2'}`}>{opt.description}</span>
+                    {opt.badge && <span className="ss-tag shrink-0 !font-sans">{opt.badge}</span>}
+                  </>
+                ) : (
                 <span className="flex-1 min-w-0">
                   <span className={`block truncate ${isSelected ? 'font-medium' : ''}`}>
                     {opt.label}
@@ -309,6 +323,7 @@ export function Select({ label, ariaLabel, value = '', onChange, values, onChang
                     </span>
                   )}
                 </span>
+                )}
               </li>
               </Fragment>
             );

@@ -10,7 +10,7 @@ import HooksPage from './HooksPage';
 
 vi.mock('../api/hooks', async (load) => ({
   ...await load<typeof import('../api/hooks')>(),
-  hooksApi: { list: vi.fn(), preview: vi.fn(), render: vi.fn(), save: vi.fn(), configure: vi.fn(), import: vi.fn(), previewRestore: vi.fn(), restore: vi.fn() },
+  hooksApi: { list: vi.fn(), catalog: vi.fn(), preview: vi.fn(), render: vi.fn(), save: vi.fn(), configure: vi.fn(), import: vi.fn(), previewRestore: vi.fn(), restore: vi.fn() },
 }));
 
 const plan = (changes: HookPlan['changes']) => ({ revision: 'rev-1', fingerprint: 'fp', sourcePath: '/s.yaml', blocked: false, changes });
@@ -31,21 +31,34 @@ const inventory = (over: Partial<HookInventory> = {}): HookInventory => ({
   ...over,
 });
 
+const catalog = {
+  claude: { timeoutUnit: 'seconds' as const, events: [
+    { name: 'PreToolUse', description: 'Before a tool runs', matcher: true },
+    { name: 'PostToolUse', description: 'After a tool succeeds', matcher: true },
+    { name: 'Stop', description: 'When the main agent finishes', matcher: false },
+  ] },
+};
+
 const renderPage = () => render(<MemoryRouter><QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><I18nProvider><ToastProvider><HooksPage /></ToastProvider></I18nProvider></QueryClientProvider></MemoryRouter>);
 
 describe('Hooks page', () => {
   beforeEach(() => {
     vi.resetAllMocks();
     vi.mocked(hooksApi.list).mockResolvedValue(inventory());
+    vi.mocked(hooksApi.catalog).mockResolvedValue(catalog);
+    // jsdom has no scrollIntoView, which the dropdown calls on its focused option.
+    HTMLElement.prototype.scrollIntoView = vi.fn();
+    // Nor Range.getClientRects, which the code editor measures a filled template with.
+    Range.prototype.getClientRects = () => ({ length: 0, item: () => null, [Symbol.iterator]: [][Symbol.iterator] }) as unknown as DOMRectList;
   });
 
-  it('shows what Skillshare synchronized apart from what the Agent itself trusts', async () => {
-    const user = userEvent.setup();
+  it('shows what each hook runs and its sync state per target on the card', async () => {
     renderPage();
-    await user.click(await screen.findByRole('button', { name: 'Show Agents for guard' }));
-    expect(screen.getByText('Synced')).toBeInTheDocument();
-    expect(screen.getByText('Not synced yet')).toBeInTheDocument();
-    expect(screen.getAllByText(/Each Agent decides|check its own hook list/).length).toBeGreaterThan(0);
+    const card = await screen.findByRole('article', { name: 'guard' });
+    expect(within(card).getByText('Pending sync')).toBeInTheDocument();
+    expect(within(card).getByText('Claude · Synced')).toBeInTheDocument();
+    expect(within(card).getByText('OpenCode · Not synced yet')).toBeInTheDocument();
+    expect(within(card).getByText('./guard.sh')).toBeInTheDocument();
   });
 
   it('disables a hook by saving it as disabled, without touching its bindings', async () => {
@@ -65,10 +78,11 @@ describe('Hooks page', () => {
     const dialog = await screen.findByRole('dialog', { name: 'Add hook' });
     await user.type(within(dialog).getByLabelText('Name'), 'audit');
     await user.click(within(dialog).getByRole('checkbox', { name: /OpenCode/ }));
+    // An untouched target is not filled yet, so the hook cannot be saved.
+    expect(within(dialog).getByRole('button', { name: 'Save' })).toBeDisabled();
+    await user.click(within(dialog).getByRole('button', { name: 'Start from scratch' }));
     expect(within(dialog).queryByLabelText('Event 1')).not.toBeInTheDocument();
     expect(within(dialog).getByText(/not converted or checked against your OpenCode version/)).toBeInTheDocument();
-    // Without code the hook is incomplete and cannot be saved.
-    expect(within(dialog).getByRole('button', { name: 'Save' })).toBeDisabled();
   });
 
   it('builds a command hook from plain fields and saves it in the Agent-native shape', async () => {
@@ -80,8 +94,9 @@ describe('Hooks page', () => {
     const dialog = await screen.findByRole('dialog', { name: 'Add hook' });
     await user.type(within(dialog).getByLabelText('Name'), 'lint');
     await user.click(within(dialog).getByRole('checkbox', { name: /Claude/ }));
-    await user.type(within(dialog).getByLabelText('Event 1'), 'PostToolUse');
-    await user.type(within(dialog).getByLabelText('Matcher 1'), 'Edit');
+    await user.click(within(dialog).getByRole('combobox', { name: 'Event 1' }));
+    await user.click(await screen.findByRole('option', { name: /^PostToolUse/ }));
+    await user.type(within(dialog).getByLabelText('Tool filter 1'), 'Edit');
     await user.type(within(dialog).getByLabelText('Command 1'), './lint.sh');
     await user.type(within(dialog).getByLabelText('Timeout 1'), '20');
     await user.click(within(dialog).getByRole('button', { name: 'Save' }));
@@ -137,7 +152,7 @@ describe('Hooks page', () => {
     vi.mocked(hooksApi.list).mockResolvedValue(inventory({ source: { path: '/s', configPath: '', entries: {} }, plan: null }));
     renderPage();
     expect(await screen.findByText('No hooks yet')).toBeInTheDocument();
-    expect(screen.getAllByRole('button', { name: /Import from a target/ }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole('button', { name: 'Import' }).length).toBeGreaterThan(0);
   });
 
   it('keeps the sync box when the last hook was removed from the source but its native output is still pending', async () => {

@@ -14,7 +14,7 @@ import HooksUnmanagedNote from './HooksUnmanagedNote';
 
 vi.mock('../../api/hooks', async (load) => ({
   ...await load<typeof import('../../api/hooks')>(),
-  hooksApi: { list: vi.fn(), preview: vi.fn(), save: vi.fn(), configure: vi.fn(), syncProject: vi.fn(), render: vi.fn() },
+  hooksApi: { list: vi.fn(), catalog: vi.fn(), preview: vi.fn(), save: vi.fn(), configure: vi.fn(), syncProject: vi.fn(), render: vi.fn() },
 }));
 
 const APP = '/work/app';
@@ -26,10 +26,24 @@ const plan = (mine: HookChange[]): HookPlan => ({
 });
 const mine = (action: string) => change({ name: 'lint', root: APP, path: `${APP}/.claude/settings.json`, action });
 
+const catalog = { claude: { timeoutUnit: 'seconds' as const, events: [
+  { name: 'PostToolUse', description: 'After a tool succeeds', matcher: true },
+  { name: 'Stop', description: 'When the main agent finishes', matcher: false },
+] } };
+const pickEvent = async (user: ReturnType<typeof userEvent.setup>, row: number, event: string) => {
+  await user.click(screen.getByRole('combobox', { name: `Event ${row}` }));
+  await user.click(await screen.findByRole('option', { name: new RegExp(`^${event}`) }));
+};
+
 const wrap = (ui: React.ReactNode) => render(<MemoryRouter><QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><I18nProvider><ToastProvider>{ui}</ToastProvider></I18nProvider></QueryClientProvider></MemoryRouter>);
 
 describe('project scope in hooks dialogs', () => {
-  beforeEach(() => vi.resetAllMocks());
+  beforeEach(() => {
+    vi.resetAllMocks();
+    vi.mocked(hooksApi.catalog).mockResolvedValue(catalog);
+    // jsdom has no scrollIntoView, which the dropdown calls on its focused option.
+    HTMLElement.prototype.scrollIntoView = vi.fn();
+  });
   afterEach(() => vi.restoreAllMocks());
 
   it('saves and syncs a project hook with one configure call carrying the whole plan revision', async () => {
@@ -40,7 +54,7 @@ describe('project scope in hooks dialogs', () => {
     wrap(<HookDialog existingNames={[]} project={APP} onClose={vi.fn()} onSaved={onSaved} />);
     await user.type(screen.getByLabelText('Name'), 'lint');
     await user.click(screen.getByRole('checkbox', { name: /Claude/ }));
-    await user.type(screen.getByLabelText('Event 1'), 'PostToolUse');
+    await pickEvent(user, 1, 'PostToolUse');
     await user.type(screen.getByLabelText('Command 1'), './lint.sh');
     await user.click(screen.getByRole('button', { name: 'Preview' }));
     // Neither the global pending change nor the other project's conflict is shown or blocks this root.
@@ -59,15 +73,15 @@ describe('project scope in hooks dialogs', () => {
     wrap(<HookDialog existingNames={[]} project={APP} onClose={vi.fn()} onSaved={vi.fn()} />);
     await user.type(screen.getByLabelText('Name'), 'lint');
     await user.click(screen.getByRole('checkbox', { name: /Claude/ }));
-    await user.type(screen.getByLabelText('Event 1'), 'Stop');
+    await pickEvent(user, 1, 'Stop');
     await user.type(screen.getByLabelText('Command 1'), 'true');
     await user.click(screen.getByRole('button', { name: 'Add command' }));
-    await user.type(screen.getByLabelText('Matcher 2'), 'Bash');
+    await user.type(screen.getByLabelText('Tool filter 2'), 'Bash');
     expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Preview' })).toBeDisabled();
-    expect(screen.getByLabelText('Event 2').parentElement).toHaveClass('err');
+    expect(screen.getByRole('combobox', { name: 'Event 2' })).toHaveAttribute('aria-invalid', 'true');
     expect(screen.getByLabelText('Command 2').parentElement).toHaveClass('err');
-    expect(screen.getByLabelText('Matcher 2')).toHaveValue('Bash');
+    expect(screen.getByLabelText('Tool filter 2')).toHaveValue('Bash');
   });
 
   it('keeps the preview current while its Save and sync is in flight', async () => {
@@ -79,7 +93,7 @@ describe('project scope in hooks dialogs', () => {
     wrap(<HookDialog existingNames={[]} project={APP} onClose={vi.fn()} onSaved={onSaved} />);
     await user.type(screen.getByLabelText('Name'), 'lint');
     await user.click(screen.getByRole('checkbox', { name: /Claude/ }));
-    await user.type(screen.getByLabelText('Event 1'), 'Stop');
+    await pickEvent(user, 1, 'Stop');
     await user.type(screen.getByLabelText('Command 1'), 'true');
     await user.click(screen.getByRole('button', { name: 'Preview' }));
     await user.click(await screen.findByRole('button', { name: 'Save and sync' }));
@@ -97,7 +111,7 @@ describe('project scope in hooks dialogs', () => {
     wrap(<HookDialog existingNames={[]} project={APP} onClose={vi.fn()} onSaved={vi.fn()} />);
     await user.type(screen.getByLabelText('Name'), 'lint');
     await user.click(screen.getByRole('checkbox', { name: /Claude/ }));
-    await user.type(screen.getByLabelText('Event 1'), 'Stop');
+    await pickEvent(user, 1, 'Stop');
     await user.type(screen.getByLabelText('Command 1'), 'true');
     await user.click(screen.getByRole('button', { name: 'Preview' }));
     await user.click(await screen.findByRole('button', { name: 'Back' }));
@@ -114,7 +128,7 @@ describe('project scope in hooks dialogs', () => {
     wrap(<HookDialog existingNames={[]} project={APP} onClose={vi.fn()} onSaved={vi.fn()} />);
     await user.type(screen.getByLabelText('Name'), 'lint');
     await user.click(screen.getByRole('checkbox', { name: /Claude/ }));
-    await user.type(screen.getByLabelText('Event 1'), 'PostToolUse');
+    await pickEvent(user, 1, 'PostToolUse');
     await user.type(screen.getByLabelText('Command 1'), './lint.sh');
     await user.click(screen.getByRole('button', { name: 'Preview' }));
     expect(await screen.findByRole('button', { name: 'Save and sync' })).toBeDisabled();
@@ -206,7 +220,7 @@ describe('project scope in hooks dialogs', () => {
     wrap(<HookDialog existingNames={[]} project={APP} onClose={vi.fn()} onSaved={onSaved} />);
     await user.type(screen.getByLabelText('Name'), 'lint');
     await user.click(screen.getByRole('checkbox', { name: /Claude/ }));
-    await user.type(screen.getByLabelText('Event 1'), 'PostToolUse');
+    await pickEvent(user, 1, 'PostToolUse');
     await user.type(screen.getByLabelText('Command 1'), './lint.sh');
     await user.click(screen.getByRole('button', { name: 'Preview' }));
     await user.click(await screen.findByRole('button', { name: 'Save and sync' }));
@@ -254,16 +268,16 @@ describe('sync box and unmanaged note', () => {
     expect(screen.getByRole('button', { name: 'Sync hooks' })).toBeEnabled();
   });
 
-  it('lists each Agent once, counts every hook and titles the full native path', () => {
-    const error = vi.spyOn(console, 'error').mockImplementation(() => undefined);
-    wrap(<HooksUnmanagedNote onImport={vi.fn()} entries={[
+  it('lists each target once, counts every hook across its files and opens the import', async () => {
+    const user = userEvent.setup();
+    const onImport = vi.fn();
+    wrap(<HooksUnmanagedNote onImport={onImport} entries={[
       { target: 'claude', path: '/home/u/.claude/settings.json', names: ['a', 'b'] },
       { target: 'claude', path: `${APP}/.claude/settings.json`, names: ['c'] },
     ]} />);
-    expect(screen.getByText(/3/)).toBeInTheDocument();
-    expect(screen.getByTitle(`${APP}/.claude/settings.json`)).toBeInTheDocument();
-    expect(within(document.body).getAllByTitle(/settings\.json$/)).toHaveLength(2);
-    expect(error).not.toHaveBeenCalled();
+    expect(screen.getByText('Claude has 3 hooks skillshare does not manage yet')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Review and import' }));
+    expect(onImport).toHaveBeenCalled();
   });
 });
 

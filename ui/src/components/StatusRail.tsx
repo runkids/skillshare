@@ -44,8 +44,8 @@ export function RailSection({ title, count, action, children }: { title: string;
   );
 }
 
-/** `warn` tints the box. It is the only colour in the rail, so pending work is seen first. */
-export function SyncBox({ tone, state, children }: { tone: 'ok' | 'warn' | 'busy'; state: string; children: ReactNode }) {
+/** `warn` tints the box. It is the only colour in the rail, so pending work is seen first. `plain` marks pending work without colour. */
+export function SyncBox({ tone, state, children }: { tone: 'ok' | 'warn' | 'busy' | 'plain'; state: string; children: ReactNode }) {
   const t = useT();
   return (
     <div className={`ss-box flex shrink-0 flex-col gap-3 ${tone === 'warn' ? 'bg-warn-bg' : ''}`}>

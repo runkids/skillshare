@@ -160,8 +160,9 @@ describe('project isolation', () => {
 describe('hookMessage', () => {
   it('words the known domain notes with UI keys and passes any other note through', () => {
     const t = (key: string) => `[${key}]`;
-    expect(hookMessage(t, 'the existing registrations stay in place and unmanaged; sync with replace to take them over instead of adding duplicates')).toBe('[hooks.message.importUnmanaged]');
+    expect(hookMessage(t, 'saving the import takes over the existing registrations in place; sync leaves them as they are instead of adding duplicates')).toBe('[hooks.message.importUnmanaged]');
     expect(hookMessage(t, 'an identical hook exists that Skillshare does not manage; import it or explicitly replace it')).toBe('[hooks.message.identicalUnmanaged]');
+    expect(hookMessage(t, 'hook guard: gemini does not document the event "Stopp"; check its spelling')).toBe('[hooks.message.unknownEvent]');
     expect(hookMessage(t, 'something new')).toBe('something new');
   });
 });

@@ -43,7 +43,7 @@ export default function HooksRemoveDialog({ name, project, onClose, onSaved }: P
         <button type="button" className="ss-ib" aria-label={t('common.close')} onClick={onClose} disabled={busy}><X size={16} /></button>
       </div>
       <div className="db">
-        <p className="text-[13px]">{t('hooks.removeDesc')}</p>
+        <p className="text-[13px]">{t('hooks.removeDesc', { name })}</p>
         {isPending ? <Spinner size="sm" /> : shown && <HooksPreview plan={shown} />}
         {(error || saveError) && <div className="ss-note bad" role="alert"><span className="flex-1">{error?.message ?? saveError}</span></div>}
         <div className={`ss-note ${blocked ? 'warn' : 'inf'}`}><Info size={16} /><span className="flex-1">{blocked ? t('hooks.removeBlocked') : t('mcp.backupNote')}</span></div>

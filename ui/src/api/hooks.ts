@@ -1,7 +1,7 @@
 import { apiFetch } from './client';
 
 /** The Agents hooks can be managed for, in display order. */
-export const hookAgents = ['claude', 'codex', 'gemini', 'copilot', 'cursor', 'droid', 'qwen', 'pi', 'amp', 'opencode'] as const;
+export const hookAgents = ['claude', 'codex', 'gemini', 'copilot', 'cursor', 'droid', 'qwen', 'antigravity', 'pi', 'amp', 'opencode'] as const;
 export type HookAgent = (typeof hookAgents)[number];
 /** Agents whose hooks are one standalone native TypeScript/JavaScript file, not a command event map. */
 export const hookCodeAgents: readonly string[] = ['pi', 'amp', 'opencode'];

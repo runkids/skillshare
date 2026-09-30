@@ -51,7 +51,8 @@ export default function DialogShell({
   useEffect(() => {
     if (!open) return;
     const handleKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && !preventClose) onClose();
+      // An inner control that used the key (an editor's completion list) keeps the dialog open.
+      if (e.key === 'Escape' && !preventClose && !e.defaultPrevented) onClose();
     };
     document.addEventListener('keydown', handleKey);
     return () => document.removeEventListener('keydown', handleKey);

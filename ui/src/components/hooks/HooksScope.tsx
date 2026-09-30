@@ -1,13 +1,14 @@
 import { useState, type ReactNode } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { AlertCircle, Archive, Copy, Download, Eye, Pencil, Plus, Trash2, Webhook } from 'lucide-react';
+import { AlertCircle, Archive, Copy, Download, Eye, Info, Pencil, Plus, Trash2, Webhook } from 'lucide-react';
 import { hooksApi, type HookChange, type HookEntry, type HookInventory } from '../../api/hooks';
 import { useT } from '../../i18n';
 import { shortenHome } from '../../lib/paths';
 import { queryKeys } from '../../lib/queryKeys';
 import Button from '../Button';
 import EmptyState from '../EmptyState';
-import { RailGroup, RailLayout, RailRow, RailSection } from '../StatusRail';
+import { RailLayout, RailRow, RailSection } from '../StatusRail';
+import Tooltip from '../Tooltip';
 import { SkillContextMenu, type ContextMenuItem } from '../TargetMenu';
 import { useToast } from '../Toast';
 import HookDialog from './HookDialog';
@@ -36,7 +37,7 @@ export default function HooksScope({ data, project, header }: Props) {
   const { toast } = useToast();
   const cache = useQueryClient();
   const [editing, setEditing] = useState<string | null>(null); // '' adds a new hook
-  const [importing, setImporting] = useState<{ from?: string } | null>(null);
+  const [importing, setImporting] = useState(false);
   const [removing, setRemoving] = useState('');
   const [takingOver, setTakingOver] = useState('');
   const [viewing, setViewing] = useState('');
@@ -49,7 +50,7 @@ export default function HooksScope({ data, project, header }: Props) {
     void cache.invalidateQueries({ queryKey: queryKeys.config });
   };
   const done = (message: string) => {
-    setEditing(null); setImporting(null); setRemoving(''); setBackupsOpen(false);
+    setEditing(null); setImporting(false); setRemoving(''); setBackupsOpen(false);
     refresh();
     toast(message, 'success');
   };
@@ -101,7 +102,7 @@ export default function HooksScope({ data, project, header }: Props) {
   const actions = (
     <span className="flex flex-wrap items-center justify-end gap-2.5">
       {backups.length > 0 ? <Button variant="ghost" onClick={() => setBackupsOpen(true)}><Archive size={15} />{t('hooks.backupsButton')}</Button> : null}
-      <Button variant="secondary" onClick={() => setImporting({})}><Download size={15} />{t('hooks.import')}</Button>
+      <Button variant="secondary" onClick={() => setImporting(true)}><Download size={15} />{t('hooks.import')}</Button>
       <Button variant="primary" onClick={add}><Plus size={15} />{t('hooks.add')}</Button>
     </span>
   );
@@ -113,30 +114,36 @@ export default function HooksScope({ data, project, header }: Props) {
       <RailLayout className="max-[900px]:grid-cols-1 max-[900px]:[&>*]:static max-[900px]:[&>*]:max-h-none" pageScroll={Boolean(project)} rail={<>
         {/* Removing the last hook leaves native changes pending, so the box also shows without a source entry. */}
         {railPlan && (names.length > 0 || railPlan.changes.some((c) => writes(c) || c.action === 'conflict')) && <HooksSyncBox plan={railPlan} project={project} canTakeOver={canTakeOver} onTakeover={setTakingOver} />}
+        <HooksUnmanagedNote entries={unmanaged} onImport={() => setImporting(true)} />
         {!project && (
-          <RailSection title={t('layout.nav.agents')} count={targets.length}>
-            <RailGroup label={t('hooks.agentFiles')} count={targets.length}>
+          <RailSection title={t('hooks.targets')} count={targets.length} action={<Tooltip content={t('hooks.targetsInfo')}><Info size={14} className="text-ink-3" aria-label={t('hooks.targetsInfo')} /></Tooltip>}>
+            <div className="flex flex-col">
               {targets.map((tg) => (
-                <RailRow key={tg.name} target={tg.name} label={hookLabel(tg.name)} sub={hookNote(t, tg.name, tg.note)} right={paths[tg.name] ? <>
-                  <span className="max-w-[130px] truncate font-mono text-xs text-ink-3" title={paths[tg.name]}>{paths[tg.name].split(/[\\/]/).pop()}</span>
-                  <button type="button" className="ss-ib" aria-label={`${t('mcp.copyPath')} · ${hookLabel(tg.name)}`} onClick={() => { copy(paths[tg.name]); toast(t('mcp.copied'), 'success'); }}><Copy size={14} /></button>
-                </> : null} />
+                <RailRow
+                  key={tg.name}
+                  target={tg.name}
+                  label={hookLabel(tg.name)}
+                  right={paths[tg.name] ? <span className="max-w-[150px] truncate font-mono text-xs text-ink-3" title={paths[tg.name]}>{shortenHome(paths[tg.name])}</span> : null}
+                  detail={<>
+                    <span>{hookNote(t, tg.name, tg.note)}</span>
+                    {paths[tg.name] && <button type="button" className="flex items-center gap-1.5 text-xs font-semibold text-ink-2 hover:text-ink" onClick={() => { copy(paths[tg.name]); toast(t('mcp.copied'), 'success'); }}><Copy size={13} />{t('mcp.copyPath')}</button>}
+                  </>}
+                />
               ))}
-            </RailGroup>
+            </div>
           </RailSection>
         )}
       </>}>
         {plan?.blocked && <div className="ss-note warn"><AlertCircle size={16} /><span className="flex-1">{blockedHint(t, railPlan ?? plan)}</span></div>}
-        <HooksUnmanagedNote entries={unmanaged} onImport={(from) => setImporting({ from })} />
         {names.length > 0 ? (
-          <HooksList entries={entries} plan={plan} paths={paths} disabled={busy} onToggle={(n, on) => void toggle(n, on)} onMenu={openMenu} />
+          <HooksList entries={entries} plan={plan} disabled={busy} onToggle={(n, on) => void toggle(n, on)} onMenu={openMenu} />
         ) : (
           <EmptyState
             icon={Webhook}
             title={t('hooks.empty')}
             description={t('hooks.emptyHint')}
             action={<div className="flex gap-2">
-              <Button variant="secondary" onClick={() => setImporting({})}><Download size={15} />{t('hooks.import')}</Button>
+              <Button variant="secondary" onClick={() => setImporting(true)}><Download size={15} />{t('hooks.import')}</Button>
               <Button variant="primary" onClick={add}><Plus size={15} />{t('hooks.add')}</Button>
             </div>}
           />
@@ -150,9 +157,9 @@ export default function HooksScope({ data, project, header }: Props) {
       </RailLayout>
 
       {editing !== null && (
-        <HookDialog initial={editing ? { name: editing, entry: entries[editing] } : undefined} existingNames={names} project={project} onClose={() => setEditing(null)} onSaved={() => done(t('hooks.toast.saved'))} />
+        <HookDialog initial={editing ? { name: editing, entry: entries[editing] } : undefined} existingNames={names} project={project} unmanaged={unmanaged} onClose={() => setEditing(null)} onSaved={() => done(t('hooks.toast.saved'))} />
       )}
-      {importing && <HooksImportDialog data={data} defaultFrom={importing.from} project={project} onClose={() => setImporting(null)} onImported={(count) => done(t('hooks.toast.imported', { count }))} />}
+      {importing && <HooksImportDialog data={data} project={project} onClose={() => setImporting(false)} onImported={(count) => done(t('hooks.toast.imported', { count }))} />}
       {removing && <HooksRemoveDialog name={removing} project={project} onClose={() => setRemoving('')} onSaved={() => done(t('hooks.toast.removed', { name: removing }))} />}
       {viewing && entries[viewing] && <HooksConfigDialog mutation={{ ...(project && { project }), name: viewing, entry: entries[viewing] }} sourcePath={data.source.path} onClose={() => setViewing('')} />}
       {takingOver && entries[takingOver] && <HooksSyncDialog project={project} takeover={{ name: takingOver, entry: entries[takingOver] }} onClose={() => { setTakingOver(''); refresh(); }} />}
