@@ -859,6 +859,29 @@ skillshare mcp edit docs --pi-options '{}' --no-tui
 
 ### 0.22 からの Pi のアップグレード {#pi-migration}
 
+アップグレード後の最初の sync の前に、Pi で次の 2 点を確認してください。
+
+- **Pi 0.99.0 以降であること。** Skillshare は Pi のサーバーを `mcp.json` にだけ書き込み、
+  Pi は 0.99.0 で追加された内蔵 MCP でこれを読みます。古い Pi はこのファイルを読まないため、
+  Pi を更新するまでこれらのサーバーは読み込まれません。Skillshare は Pi のバージョンを確認しません。
+- **`pi-mcp-adapter` または `pi-mcp-extension` がまだ入っていれば Pi から削除すること。** Pi の
+  [MCP ドキュメント](https://github.com/earendil-works/pi/blob/v0.99.0/packages/coding-agent/docs/mcp.md)
+  によると、`/mcp` を登録する extension がインストールされていると内蔵 MCP が置き換えられます。
+  `pi-mcp-extension` は自身でも `mcp.json` を読みます。`pi-mcp-adapter` は 3.0.0 以降これを読まない
+  ため、Skillshare が移したサーバーは adapter 経由では読み込まれません。
+
+sync がサーバーをこれらの extension から移すとき、`sync mcp --dry-run`、`sync mcp`、`--json` は
+一度だけ次のように表示します。
+
+```text
+! Pi's built-in MCP needs Pi 0.99.0 or later; on older Pi these servers stop loading until Pi is updated. If pi-mcp-adapter or pi-mcp-extension is still installed in Pi, remove it, because it can take the place of Pi's built-in MCP
+```
+
+この表示が出るのは、sync が Skillshare の書いた `mcp-adapter.json` のエントリを削除するとき、
+`pi-mcp-extension` 向けに書いたエントリを書き換えるとき、またはこれらの extension だけが読む設定
+（`piExtension: pi-mcp-adapter` または `pi-mcp-extension`、`directTools`、下記の `piOptions`
+フィールド）が見つかったときです。その sync の後は表示されません。
+
 0.23.0 では、Pi のモード選択（`piExtension`: `builtin`、`pi-mcp-adapter`、`pi-mcp-extension`）、
 `piOptionsPrune` スイッチ、`directTools` が削除されました。古い config も引き続き読み込めます。
 `sync mcp --dry-run` と `sync mcp` は、見つかった廃止設定の種類ごとに、該当サーバーを列挙した warning を
@@ -881,8 +904,8 @@ skillshare mcp edit docs --pi-options '{}' --no-tui
 | サーバーの `directTools` | `true` → `piOptions.exposure: direct`、`"search"` → `deferred`、名前のリスト → それらのツールを `direct` にした `piOptions.toolExposure` |
 | `mcp.directTools`、または `mcp.projects` 配下の project の `directTools` | 既定値が、Pi に届き自身の値を持たない各サーバーに上記のとおり書き込まれる。project の `false` はグローバルの値より優先される |
 | `piOptions.includeTools` / `excludeTools` | `tools.allow` / `tools.deny`。一緒に設定した `directTools` は引き続き `piOptions.exposure` になる |
-| `piOptions` 内のその他の `pi-mcp-adapter` フィールド（`lifecycle`、`idleTimeout`、`toolPrefix`、`bearerTokenEnv` など） | Pi の内蔵 MCP が読まないため削除される |
-| `disabled` エントリの `targets` 内の `pi` | そのリストから `pi` が削除される |
+| `piOptions` 内のその他の `pi-mcp-adapter` フィールド: `approveTools`、`auth`、`bearerToken`、`bearerTokenEnv`、`bearerTokenStore`、`caFile`、`debug`、`exposeResources`、`idleTimeout`、`inheritEnv`、`lifecycle`、`protocolVersion`、`requestHeadersCommand`、`requestTimeoutMs`、`searchKeywords`、`socket`、`tasks`、`toolPrefix`、`trace` | Pi の内蔵 MCP が読まないため削除される |
+| `disabled` エントリの `targets` 内の `pi` | そのリストから `pi` が削除される。Pi には 1 つの project で global サーバーを 1 つだけオフにするスイッチがないため、そのサーバーはその project で再びオンになる |
 
 サーバーがすでに設定している exposure を上書きしてしまう `directTools`、`includeTools`、`excludeTools`、
 またはツール名のリストではないものは、それぞれ独自の warning とともに破棄されます。
@@ -910,7 +933,7 @@ sync で行われます。`--dry-run` とプレビューは何も書き込みま
 
 `skillshare mcp import --from pi` は、Pi の `mcp.json` の隣にある `pi-mcp-adapter` の `mcp-adapter.json` も
 引き続き読み込むため、サーバーを移行できます。両方のファイルが同じサーバーを定義している場合は `mcp.json` が
-優先されます。adapter のファイルは読み込むだけで、sync はサーバーを Pi の `mcp.json` に書き込み、
-`mcp-adapter.json` を変更することはありません。その `directTools`、`includeTools`、`excludeTools` は上記の
+優先されます。sync はサーバーを Pi の `mcp.json` に書き込みます。`mcp-adapter.json` では、
+0.23.0 より前に自分が書き込んだエントリを削除するだけです。その `directTools`、`includeTools`、`excludeTools` は上記の
 とおり変換され、その他の adapter 専用フィールドは warning 付きで除外されます。ダッシュボードでは、
 **target からインポート** が 2 つの Pi ファイルを別々のインポート元として一覧表示します。

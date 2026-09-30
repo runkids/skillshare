@@ -950,6 +950,29 @@ skillshare mcp edit docs --pi-options '{}' --no-tui
 
 ### 从 0.22 升级 Pi {#pi-migration}
 
+升级后第一次同步之前，请先在 Pi 中确认两件事：
+
+- **Pi 0.99.0 或更高版本。** Skillshare 现在只把 Pi 的 server 写入 `mcp.json`，由 Pi 在
+  0.99.0 加入的内置 MCP 读取。较旧的 Pi 不会读取这个文件，因此在更新 Pi 之前，这些 server
+  都不会加载。Skillshare 不会检查 Pi 的版本。
+- **如果 Pi 仍安装着 `pi-mcp-adapter` 或 `pi-mcp-extension`，请将其移除。** Pi 的
+  [MCP 文档](https://github.com/earendil-works/pi/blob/v0.99.0/packages/coding-agent/docs/mcp.md)
+  说明，已安装且注册了 `/mcp` 的 extension 会取代内置 MCP。`pi-mcp-extension` 自身也会读取
+  `mcp.json`；`pi-mcp-adapter` 从 3.0.0 起不再读取它，所以 Skillshare 迁移过去的 server 不会
+  再通过 adapter 加载。
+
+当同步把 server 从这两个 extension 迁走时，`sync mcp --dry-run`、`sync mcp` 和 `--json`
+会提示一次：
+
+```text
+! Pi's built-in MCP needs Pi 0.99.0 or later; on older Pi these servers stop loading until Pi is updated. If pi-mcp-adapter or pi-mcp-extension is still installed in Pi, remove it, because it can take the place of Pi's built-in MCP
+```
+
+以下情况会出现这条提示：同步移除 Skillshare 写在 `mcp-adapter.json` 中的条目、改写它为
+`pi-mcp-extension` 写的条目，或发现只有这两个 extension 会读取的设置（`piExtension:
+pi-mcp-adapter` 或 `pi-mcp-extension`、`directTools`，以及下方列出的 `piOptions` 字段）。
+那次同步之后就不会再出现。
+
 0.23.0 移除了 Pi 模式选择（`piExtension`：`builtin`、`pi-mcp-adapter`、
 `pi-mcp-extension`）、`piOptionsPrune` 开关和 `directTools`。旧的配置仍然可以加载。
 `sync mcp --dry-run` 和 `sync mcp` 会为发现的每一类已停用设置打印一条 warning，
@@ -972,8 +995,8 @@ skillshare mcp edit docs --pi-options '{}' --no-tui
 | server 上的 `directTools` | `true` → `piOptions.exposure: direct`；`"search"` → `deferred`；名称列表 → `piOptions.toolExposure`，其中这些工具为 `direct` |
 | `mcp.directTools`，或 `mcp.projects` 下某个项目的 `directTools` | 该默认值会写入每个送往 Pi 且没有自身值的 server，转换方式同上。项目的 `false` 会覆盖 global 值 |
 | `piOptions.includeTools` / `excludeTools` | `tools.allow` / `tools.deny`；同时设置的 `directTools` 仍会转为 `piOptions.exposure` |
-| `piOptions` 中其他 `pi-mcp-adapter` 字段，例如 `lifecycle`、`idleTimeout`、`toolPrefix` 或 `bearerTokenEnv` | 移除，因为 Pi 的内置 MCP 不会读取它们 |
-| `disabled` 条目 `targets` 中的 `pi` | 从该列表中移除 `pi` |
+| `piOptions` 中其他 `pi-mcp-adapter` 字段：`approveTools`、`auth`、`bearerToken`、`bearerTokenEnv`、`bearerTokenStore`、`caFile`、`debug`、`exposeResources`、`idleTimeout`、`inheritEnv`、`lifecycle`、`protocolVersion`、`requestHeadersCommand`、`requestTimeoutMs`、`searchKeywords`、`socket`、`tasks`、`toolPrefix`、`trace` | 移除，因为 Pi 的内置 MCP 不会读取它们 |
+| `disabled` 条目 `targets` 中的 `pi` | 从该列表中移除 `pi`。Pi 没有在单个 project 中关闭某个全局 server 的开关，因此该 server 在那个 project 中会重新启用 |
 
 如果 `directTools`、`includeTools` 或 `excludeTools` 会覆盖该 server 已设置的
 exposure，或者不是工具名称列表，就会被丢弃，并给出单独的 warning。
@@ -1001,7 +1024,7 @@ Agent 文件已经写入，而配置保持原样；错误信息会说明这一�
 
 `skillshare mcp import --from pi` 仍会读取 `pi-mcp-adapter` 的 `mcp-adapter.json`
 （位于 Pi 的 `mcp.json` 旁边），方便你把 server 迁移过来。当两个文件都定义了某个
-server 时，以 `mcp.json` 为准。adapter 文件只会被读取：同步会把该 server 写入 Pi 的
-`mcp.json`，绝不会修改 `mcp-adapter.json`。其中的 `directTools`、`includeTools` 和
+server 时，以 `mcp.json` 为准。同步会把该 server 写入 Pi 的 `mcp.json`；在
+`mcp-adapter.json` 中只会移除它在 0.23.0 之前写入的条目。其中的 `directTools`、`includeTools` 和
 `excludeTools` 会按上述方式转换，其他 adapter 专用字段会被省略并给出 warning。
 在仪表盘中，**从目标导入** 会把这两个 Pi 文件列为不同的来源。

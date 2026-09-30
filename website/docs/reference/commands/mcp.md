@@ -1005,6 +1005,29 @@ shows the exposure in a few words, such as `through code` for `codemode`.
 
 ### Upgrading Pi from 0.22 {#pi-migration}
 
+Before the first sync after upgrading, check two things in Pi:
+
+- **Pi 0.99.0 or later.** Skillshare now writes Pi's servers only to `mcp.json`, which
+  Pi reads through its built-in MCP, added in 0.99.0. Older Pi does not read it, so the
+  servers stop loading until Pi is updated. Skillshare does not check Pi's version.
+- **Remove `pi-mcp-adapter` or `pi-mcp-extension` from Pi** if either is still
+  installed. Pi's [MCP documentation](https://github.com/earendil-works/pi/blob/v0.99.0/packages/coding-agent/docs/mcp.md)
+  says an installed extension that registers `/mcp` replaces the built-in MCP.
+  `pi-mcp-extension` also reads `mcp.json` itself, and `pi-mcp-adapter` 3.0.0 and later
+  no longer read it, so the servers Skillshare moved do not load through the adapter.
+
+When a sync moves servers off either extension, `sync mcp --dry-run`, `sync mcp` and
+`--json` say so once:
+
+```text
+! Pi's built-in MCP needs Pi 0.99.0 or later; on older Pi these servers stop loading until Pi is updated. If pi-mcp-adapter or pi-mcp-extension is still installed in Pi, remove it, because it can take the place of Pi's built-in MCP
+```
+
+It appears when the sync removes an entry Skillshare wrote to `mcp-adapter.json`,
+rewrites an entry it wrote for `pi-mcp-extension`, or finds settings only the extensions
+read (`piExtension: pi-mcp-adapter` or `pi-mcp-extension`, `directTools`, and the
+`piOptions` fields listed below). After that sync, it is gone.
+
 0.23.0 removed the Pi mode choice (`piExtension`: `builtin`, `pi-mcp-adapter`,
 `pi-mcp-extension`), the `piOptionsPrune` switch and `directTools`. An older config
 still loads. `sync mcp --dry-run` and `sync mcp` print a warning for each kind of retired setting they found, naming the servers, for example:
@@ -1027,8 +1050,8 @@ What the next sync does:
 | `directTools` on a server | `true` → `piOptions.exposure: direct`; `"search"` → `deferred`; a list of names → `piOptions.toolExposure` with those tools `direct` |
 | `mcp.directTools`, or a project's `directTools` under `mcp.projects` | The default is written into each server that reaches Pi and has no value of its own, as above. A project's `false` overrides the global value |
 | `piOptions.includeTools` / `excludeTools` | `tools.allow` / `tools.deny`; a `directTools` next to them still becomes `piOptions.exposure` |
-| Other `pi-mcp-adapter` fields in `piOptions`, such as `lifecycle`, `idleTimeout`, `toolPrefix` or `bearerTokenEnv` | Removed, because Pi's built-in MCP does not read them |
-| `pi` in the `targets` of a `disabled` entry | `pi` is removed from that list |
+| Other `pi-mcp-adapter` fields in `piOptions`: `approveTools`, `auth`, `bearerToken`, `bearerTokenEnv`, `bearerTokenStore`, `caFile`, `debug`, `exposeResources`, `idleTimeout`, `inheritEnv`, `lifecycle`, `protocolVersion`, `requestHeadersCommand`, `requestTimeoutMs`, `searchKeywords`, `socket`, `tasks`, `toolPrefix`, `trace` | Removed, because Pi's built-in MCP does not read them |
+| `pi` in the `targets` of a `disabled` entry | `pi` is removed from that list. Pi has no switch to turn off one global server in one project, so that server is on again there |
 
 A `directTools`, `includeTools` or `excludeTools` that would overwrite an exposure the
 server already sets, or that is not a list of tool names, is dropped with its own
@@ -1059,8 +1082,8 @@ Removed flags now fail with a message:
 
 `skillshare mcp import --from pi` still reads `pi-mcp-adapter`'s `mcp-adapter.json`,
 next to Pi's `mcp.json`, so you can bring servers across. When both files define a
-server, `mcp.json` wins. The adapter file is only read: sync writes the server to Pi's
-`mcp.json` and never changes `mcp-adapter.json`. Its `directTools`, `includeTools` and
+server, `mcp.json` wins. Sync writes the server to Pi's `mcp.json`; in
+`mcp-adapter.json` it only removes entries it wrote there before 0.23.0. Its `directTools`, `includeTools` and
 `excludeTools` are converted as above, and other adapter-only fields are left out with
 a warning. In the dashboard, **Import from a target** lists the two Pi files as
 separate sources.

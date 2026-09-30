@@ -191,6 +191,9 @@ setups usually go wrong.
 
 Pi >= 0.99.0 has built-in MCP, and it is the only Pi format Skillshare writes. The
 third-party `pi-mcp-adapter` and `pi-mcp-extension` are not sync destinations.
+Upgrading from 0.22 moves their servers to `mcp.json`: older Pi then stops loading them,
+and an extension still installed can replace Pi's built-in MCP, so update Pi and remove
+the extension from Pi. Sync warns once when it moves them.
 
 | Scope | File |
 |---|---|
