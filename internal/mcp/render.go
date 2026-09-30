@@ -161,6 +161,9 @@ type Rendered struct {
 	Path    string `json:"path"`
 	Content string `json:"content,omitempty"`
 	Error   string `json:"error,omitempty"`
+	// ToolGaps are the parts of the server's tool policy this Agent cannot hold, as the
+	// plan's notices name them, so an editor can say so before the server is saved.
+	ToolGaps []string `json:"toolGaps,omitempty"`
 }
 
 // RenderNative writes the server into an empty file per target, so the wrapper key and the
@@ -177,6 +180,7 @@ func (s *Service) RenderNative(name string, server Server) []Rendered {
 	for _, target := range server.Targets {
 		r := Rendered{Target: target}
 		client, agent := s.forTarget(target)
+		r.ToolGaps = toolPolicyGaps(agent, server.Tools)
 		path, native, err := client.destination(agent, server)
 		r.Path = path
 		if err == nil {

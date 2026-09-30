@@ -191,6 +191,18 @@ func TestToolPolicyImportRoundTrip(t *testing.T) {
 	}
 }
 
+func TestRenderNativeNamesTheToolPolicyPartsEachAgentCannotHold(t *testing.T) {
+	service := testService(t)
+	got := map[string][]string{}
+	for _, r := range service.RenderNative("docs", Server{Command: "docs", Targets: TargetList{"pi", "copilot", "opencode"}, Tools: ToolPolicy{Allow: []string{"get_*"}, Deny: []string{"delete_issue"}}}) {
+		got[r.Target] = r.ToolGaps
+	}
+	want := map[string][]string{"pi": nil, "copilot": {"allow patterns", "deny"}, "opencode": {"allow", "deny"}}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("got %v, want %v", got, want)
+	}
+}
+
 // Pi exposure a policy cannot express exactly stays in piOptions, for Pi only.
 func TestPiExposureKeptWhenNotExpressible(t *testing.T) {
 	candidates, err := Import("pi", []byte(`{"mcpServers":{"docs":{"command":"docs","exposure":"codemode-deferred","toolExposure":{"a":"direct"}}}}`), "")
