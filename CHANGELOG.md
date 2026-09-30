@@ -1,5 +1,66 @@
 # Changelog
 
+## [0.23.0] - 2026-10-01
+
+### New Features
+
+#### Hooks
+
+- **Manage native hooks** — `skillshare hooks` keeps named hooks in `hooks.entries` and writes them into each Agent's own hook configuration: Claude Code, Codex, Gemini CLI, Copilot CLI, Cursor, Factory Droid, Qwen Code, Antigravity (and its CLI, `agy`), Pi, Amp and OpenCode, in global and project scope. Each binding keeps that Agent's own event names and format; Skillshare does not translate between Agents. Sync previews every file it changes, keeps your other settings and hooks, reports a hook you edited by hand as a conflict, and backs files up before writing. It never runs a hook or changes an Agent's trust.
+  ```bash
+  skillshare hooks add check --file ./check.yaml
+  skillshare hooks sync --dry-run
+  skillshare hooks sync
+  skillshare sync --all              # now includes hooks
+  ```
+- **Import the hooks you already have** — `hooks import --from AGENT` lists that Agent's existing hooks. Saving one takes over those registrations in place, so the next sync does not add a duplicate.
+  ```bash
+  skillshare hooks import --from claude
+  ```
+- **Disable, stop managing and restore** — `hooks disable` keeps the definition and removes it from the Agents on the next sync. `hooks remove --keep-files` stops managing a hook and leaves its entries in the Agent files as yours; `hooks import` offers them again. `hooks restore` brings back a backup of an Agent file without touching unrelated later edits.
+  ```bash
+  skillshare hooks disable check --sync
+  skillshare hooks remove check --keep-files
+  skillshare hooks restore BACKUP_ID --dry-run
+  ```
+- **Project hooks from the global config** — `hooks.projects` holds hooks for other project folders, so one sync from the global config reaches each of them.
+- **Removal cleans up after itself** — removing a hook deletes a hook file Skillshare created once nothing else is left in it, together with the folders it created that are now empty. Files and folders that existed before, and anything you added, stay.
+
+#### MCP
+
+- **Tool policy per server** — `tools.allow` and `tools.deny` say which of a server's tools reach the model. Write them once; sync translates them into Pi's `toolExposure`, Codex's `enabled_tools` and `disabled_tools`, and Copilot's `tools`. Parts an Agent cannot hold, such as the whole policy for OpenCode and Kilo Code, are named in the sync plan and by `mcp check` instead of being dropped.
+  ```bash
+  skillshare mcp add github --target pi --target codex --tools-allow 'get_*,search_code' --tools-deny get_secret -- github-mcp
+  skillshare mcp edit github --tools-allow ''    # clear the allow list
+  ```
+
+#### Dashboard
+
+- **Hooks page** — add and edit hooks by picking each target's documented events, copy commands from another target's tab, or edit the native JSON with completion and checks. Every sync shows a diff of each file it changes. Import lists each target's hooks that Skillshare does not manage yet. Hooks also appear on target and project pages, on the Sync page and in **Settings → Backups**.
+- **Clear remove choices** — removing a hook offers **Remove and sync**, **Remove from source only** and **Stop managing**; hovering or focusing a button explains what it does to the target files. In the hook and MCP remove dialogs, **Remove and sync** names the other pending hooks or servers that go out with it.
+- **Tools in the MCP server dialog** — load a server's tool list with the dialog's current settings, even before saving, and tick the tools the model gets. The dialog says which selected Agents follow the policy fully, partly or not at all.
+- **Plan notices before an MCP sync** — the MCP sync dialog and the Sync page list the plan's notices, such as Pi's built-in MCP needing Pi 0.99.0, before you sync.
+- **Open config.yaml at the right place** — the **config.yaml** button in the Hooks and MCP page headers opens **Settings → Files** at the `hooks:` or `mcp:` section. The field panel there explains every `hooks` key.
+
+### Bug Fixes
+
+- **Script installs no longer need administrator access** — `install.sh` now installs to `~/.local/bin` by default and prints PATH setup only when that folder is not on your PATH. `INSTALL_DIR` still overrides the location, and an existing installation is upgraded where it is.
+- **Stop managing an MCP server works in the dashboard** — **Stop managing** in the MCP remove dialog always failed with a "changed since preview" error. It now succeeds, and its message says the entries stay in the Agent files.
+- **Beautify unfolds one-line YAML** — in **Settings → Files**, **Beautify** left a section squeezed onto one line, such as `servers: {docs: {url: …}}`, unchanged and said there was nothing to tidy. It now unfolds nested one-line sections; short lists such as `targets: [claude, codex]` stay on one line.
+
+### Breaking Changes
+
+#### Pi MCP
+
+- **Pi uses only its built-in MCP** — Skillshare now writes Pi's servers only to Pi's own `mcp.json` (`~/.pi/agent/mcp.json`, or `.pi/mcp.json` in a project). It no longer writes for `pi-mcp-adapter` or `pi-mcp-extension`, and the `piExtension` choice is gone. The first sync after upgrading moves your servers: entries Skillshare wrote to `mcp-adapter.json` are removed and written to `mcp.json`, and `pi-mcp-extension` entries are rewritten in place. Entries you added to `mcp-adapter.json` yourself are left alone, and `mcp import --from pi` still reads them.
+- **Needs Pi 0.99.0 or later** — Pi added its built-in MCP in 0.99.0. On older Pi the moved servers stop loading until you update Pi. Skillshare does not check Pi's version; the sync that moves servers prints a warning.
+- **Remove the old extension from Pi** — if `pi-mcp-adapter` or `pi-mcp-extension` is still installed in Pi, uninstall it. Pi's docs say an installed extension that registers `/mcp` replaces the built-in MCP, and `pi-mcp-adapter` 3.0.0 and later no longer read `mcp.json`.
+- **Adapter-only server options are dropped** — Pi's built-in MCP does not read these `piOptions` fields, so the next sync removes them from your config: `approveTools`, `auth`, `bearerToken`, `bearerTokenEnv`, `bearerTokenStore`, `caFile`, `debug`, `exposeResources`, `idleTimeout`, `inheritEnv`, `lifecycle`, `protocolVersion`, `requestHeadersCommand`, `requestTimeoutMs`, `searchKeywords`, `socket`, `tasks`, `toolPrefix`, `trace`.
+- **No per-project off switch for Pi** — Pi cannot turn off one global server in one project. The next sync removes `pi` from the targets of `disabled` entries, so that server is on again in that project. To keep a server off for Pi, set `piOptions: {enabled: false}` on a complete entry.
+- **`directTools` becomes Pi's exposure** — `directTools: true` becomes `piOptions.exposure: direct`, `"search"` becomes `deferred`, and a list of tool names becomes `piOptions.toolExposure` with those tools `direct`. `mcp.directTools` and a project's default are copied into each Pi server that sets none. `piOptions.includeTools` / `excludeTools` become `tools.allow` / `tools.deny`.
+- **Removed flags** — `--pi-extension`, `--direct-tools` and `--pi-options-prune` now fail with a message saying what to use. Use `--pi-options '{"exposure":"direct"}'` or `--pi-options '{"toolExposure":{"TOOL":"direct"}}'` instead of `--direct-tools`. Sync always removes unchanged Pi fields Skillshare wrote earlier, so `--pi-options-prune` is no longer needed.
+- **Your config is updated on the first sync** — the old config still loads, and `sync mcp --dry-run` names each retired setting. The first `sync mcp`, `sync --all` or dashboard sync saves `config.yaml` (or the `sources.mcp` file) without them, keeping the previous version in the file history.
+
 ## [0.22.2] - 2026-09-30
 
 ### New Features
