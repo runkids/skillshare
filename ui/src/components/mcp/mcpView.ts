@@ -175,6 +175,56 @@ const matchTool = (pattern: string, tool: string) => new RegExp(`^${pattern.repl
 export const denyRemovesAll = (tools: MCPToolPolicy) =>
   Boolean(tools.allow?.length) && tools.allow!.every((tool) => !tool.includes('*') && (tools.deny ?? []).some((pattern) => matchTool(pattern, tool)));
 
+/** Whether a tool reaches the model: Allow is empty or keeps it, and Deny does not remove it. */
+export const toolAllowed = (tools: MCPToolPolicy, tool: string) =>
+  (!tools.allow?.length || tools.allow.some((pattern) => matchTool(pattern, tool))) && !(tools.deny ?? []).some((pattern) => matchTool(pattern, tool));
+
+/** The Deny rule other than the tool's own name that removes it, which ticking the tool cannot undo. */
+export const toolBlockedBy = (tools: MCPToolPolicy, tool: string) => (tools.deny ?? []).find((pattern) => pattern !== tool && matchTool(pattern, tool));
+
+/**
+ * Ticks or unticks one tool by its exact name. Unticking denies it; ticking drops its own Deny entry and,
+ * when a non-empty Allow still leaves it out, allows it by name.
+ */
+export const setToolChecked = (tools: MCPToolPolicy, tool: string, on: boolean): MCPToolPolicy => {
+  const deny = tools.deny ?? [];
+  if (!on) return deny.includes(tool) ? tools : { ...tools, deny: [...deny, tool] };
+  const next = { ...tools, deny: deny.filter((name) => name !== tool) };
+  if (next.allow?.length && !next.allow.some((pattern) => matchTool(pattern, tool))) next.allow = [...next.allow, tool];
+  return next;
+};
+
+/** Mirrors mcp.toolPolicyGaps: Codex and Copilot list exact tool names, so they hold part of a policy; another Agent with a gap holds none of it. */
+const namedToolClients = new Set(['codex', 'copilot']);
+
+/** What each selected Agent does with a tool policy: follows all of it, part of it (with the parts it drops), or none. Pi's exposure is left out; its select says so. */
+export const toolOutcomes = (rendered: { target: string; toolGaps?: string[] }[]) => {
+  const full: string[] = [];
+  const partial: { target: string; gaps: string[] }[] = [];
+  const none: string[] = [];
+  for (const { target, toolGaps } of rendered) {
+    const gaps = (toolGaps ?? []).filter((gap) => gap !== 'expose');
+    if (!gaps.length) full.push(target);
+    else if (namedToolClients.has(mcpClient(target))) partial.push({ target, gaps });
+    else none.push(target);
+  }
+  return { full, partial, none };
+};
+
+/** An example rule for the server's tools: their shared prefix, such as clickup_, before delete_*. */
+export const toolRuleExample = (names: string[]) => {
+  let prefix = names[0] ?? '';
+  for (const name of names) while (!name.startsWith(prefix)) prefix = prefix.slice(0, -1);
+  const cut = Math.max(prefix.lastIndexOf('_'), prefix.lastIndexOf('-'));
+  return `${names.length > 1 && cut > 0 ? prefix.slice(0, cut + 1) : ''}delete_*`;
+};
+
+/** The Allow and Deny entries a loaded tool row does not show: patterns, and names the server does not list. */
+export const toolRules = (tools: MCPToolPolicy, names: string[]) => ({
+  allow: (tools.allow ?? []).filter((entry) => !names.includes(entry)),
+  deny: (tools.deny ?? []).filter((entry) => !names.includes(entry)),
+});
+
 /** Whether a policy says anything; an empty one is no policy. */
 export const hasToolPolicy = (tools?: MCPToolPolicy): tools is MCPToolPolicy => Boolean(tools?.expose || tools?.allow?.length || tools?.deny?.length);
 

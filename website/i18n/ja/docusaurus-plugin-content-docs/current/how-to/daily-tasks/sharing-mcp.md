@@ -111,8 +111,8 @@ skillshare mcp edit github --tools-allow 'get_*,search_code' --tools-deny get_se
 skillshare sync mcp --dry-run
 ```
 
-ダッシュボードでは、サーバーを開いて **ツール** セクションを使います。**サーバーからツールを読み込む** で
-選択できるツール名が一覧表示されます。Pi はポリシー全体を適用し、Codex と Copilot CLI は完全一致の
+ダッシュボードでは、サーバーを開いて **ツール** セクションを使います。**ツールを読み込む** で
+サーバーのツールが一覧表示されるので、モデルに渡さないツールのチェックを外します。Pi はポリシー全体を適用し、Codex と Copilot CLI は完全一致の
 名前を適用します。その他の Agent は適用しません。プレビューと `skillshare mcp check` は、ポリシーの
 一部を適用しない Agent をそれぞれ示します。[ツールポリシー](/docs/reference/commands/mcp#tool-policy)を
 参照してください。

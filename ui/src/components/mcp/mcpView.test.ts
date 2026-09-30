@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { MCPPlan } from '../../api/mcp';
-import { buildMatrix, denyRemovesAll, describeError, describeMessage, canImportConflict, groupByFile, isResolvable, joinCommand, mcpClient, parsePiOptions, parseToolNotice, serverCount, splitCommand, switchTargets, targetLabel } from './mcpView';
+import { buildMatrix, denyRemovesAll, describeError, describeMessage, canImportConflict, groupByFile, isResolvable, joinCommand, mcpClient, parsePiOptions, parseToolNotice, serverCount, setToolChecked, splitCommand, switchTargets, targetLabel, toolRules } from './mcpView';
 import { mcpTargets } from '../../api/mcp';
 
 const change = (name: string, target: string, action: string, message?: string) => ({ name, target, action, message, path: `/${target}.json` });
@@ -109,6 +109,24 @@ describe('denyRemovesAll', () => {
     expect(denyRemovesAll({ allow: ['delete_issue', 'search'], deny: ['delete_*'] })).toBe(false);
     expect(denyRemovesAll({ allow: ['get_*'], deny: ['get_*'] })).toBe(false);
     expect(denyRemovesAll({ deny: ['*'] })).toBe(false);
+  });
+});
+
+describe('tool checklist', () => {
+  it('unticking a tool denies it by its exact name', () => {
+    expect(setToolChecked({ deny: ['delete_*'] }, 'search', false)).toEqual({ deny: ['delete_*', 'search'] });
+  });
+
+  it('ticking a tool again drops its own Deny entry', () => {
+    expect(setToolChecked({ deny: ['search', 'delete_*'] }, 'search', true)).toEqual({ deny: ['delete_*'] });
+  });
+
+  it('ticking a tool that a non-empty Allow leaves out allows it by name', () => {
+    expect(setToolChecked({ allow: ['get_*'] }, 'search', true)).toEqual({ allow: ['get_*', 'search'], deny: [] });
+  });
+
+  it('keeps patterns and names the server does not list as rules, not the names a row shows', () => {
+    expect(toolRules({ allow: ['get_*', 'search'], deny: ['fetch', 'delete_*', 'gone'] }, ['fetch', 'search'])).toEqual({ allow: ['get_*'], deny: ['delete_*', 'gone'] });
   });
 });
 

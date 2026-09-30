@@ -116,7 +116,7 @@ skillshare sync mcp --dry-run
 ```
 
 In the dashboard, open the server and use its **Tools** section; **Load tools from
-server** lists the tool names to pick from. Pi applies the whole policy; Codex and
+server** lists the server's tools; untick the ones the model should not get. Pi applies the whole policy; Codex and
 Copilot CLI apply exact names; other Agents do not apply it. The preview and
 `skillshare mcp check` name each Agent that leaves part of it out. See
 [Tool policy](/docs/reference/commands/mcp#tool-policy).

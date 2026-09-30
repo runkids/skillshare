@@ -155,7 +155,7 @@ function ServerForm({ draft, validation, patch, off, saving, editing, order, vis
         </div>
       </div>
       {/* A switch-only entry only turns a server off, so it has no tools to choose. */}
-      {!off && <ToolPolicyFields tools={draft.tools} onChange={(tools) => patch({ tools })} error={validation.toolsError} disabled={saving} probe={probe} mutation={mutation} />}
+      {!off && <ToolPolicyFields tools={draft.tools} onChange={(tools) => patch({ tools })} error={validation.toolsError} disabled={saving} probe={probe} mutation={mutation} pi={targets.includes('pi')} />}
       {targets.includes('pi') && !off && <PiSettingsFields optionsText={draft.piOptions} options={validation.options} optionsError={validation.optionsError} onOptions={(piOptions) => patch({ piOptions })} disabled={saving} project={isProject} toolsSet={hasToolPolicy(draft.tools)} />}
       {error && <div className="ss-note bad"><span className="flex-1">{error}</span></div>}
     </form>

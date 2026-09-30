@@ -17,7 +17,7 @@ interface Props {
 }
 
 /** An info icon that explains in a tooltip, reachable by keyboard. */
-function InfoTip({ label, content }: { label: string; content: string }) {
+export function InfoTip({ label, content }: { label: string; content: string }) {
   return (
     <Tooltip content={content}>
       <button type="button" className="ss-ib !h-6 !w-6" aria-label={label}><Info size={14} /></button>

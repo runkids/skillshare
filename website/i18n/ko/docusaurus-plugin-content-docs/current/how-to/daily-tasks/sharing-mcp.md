@@ -107,8 +107,8 @@ skillshare mcp edit github --tools-allow 'get_*,search_code' --tools-deny get_se
 skillshare sync mcp --dry-run
 ```
 
-대시보드에서는 서버를 열어 **도구** 섹션을 사용하세요. **서버에서 도구 불러오기**가
-고를 수 있는 도구 이름을 나열합니다. Pi는 정책 전체를 적용하고, Codex와 Copilot CLI는
+대시보드에서는 서버를 열어 **도구** 섹션을 사용하세요. **도구 불러오기**가
+서버의 도구를 나열하면, 모델에 주지 않을 도구의 선택을 해제하세요. Pi는 정책 전체를 적용하고, Codex와 Copilot CLI는
 정확한 이름을 적용하며, 그 밖의 Agent는 적용하지 않습니다. 미리보기와
 `skillshare mcp check`는 정책 일부를 적용하지 않는 Agent를 각각 알려줍니다.
 [도구 정책](/docs/reference/commands/mcp#tool-policy)을 참고하세요.

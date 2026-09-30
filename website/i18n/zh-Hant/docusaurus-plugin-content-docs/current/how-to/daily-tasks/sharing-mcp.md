@@ -103,8 +103,8 @@ skillshare mcp edit github --tools-allow 'get_*,search_code' --tools-deny get_se
 skillshare sync mcp --dry-run
 ```
 
-在 dashboard 中，開啟該伺服器並使用它的 **工具** 區塊；**從伺服器載入工具** 會列出可供挑選的
-工具名稱。Pi 會套用整份政策；Codex 與 Copilot CLI 只套用完整的工具名稱；其他 Agents 則不套用。
+在 dashboard 中，開啟該伺服器並使用它的 **工具** 區塊；**載入工具** 會列出伺服器的
+工具，取消勾選不想給模型用的工具。Pi 會套用整份政策；Codex 與 Copilot CLI 只套用完整的工具名稱；其他 Agents 則不套用。
 預覽與 `skillshare mcp check` 會指出每個省略部分政策的 Agent。請參閱
 [工具政策](/docs/reference/commands/mcp#tool-policy)。
 

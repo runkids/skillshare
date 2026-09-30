@@ -716,7 +716,7 @@ With `--json`, a server that answered also gets a `live` object:
 omitted when the server was not probed or the probe failed.
 
 The dashboard's **Check** button runs the static check only. The dashboard probes a
-server in one place: **Load tools from server** in the server dialog's
+server in one place: **Load tools** in the server dialog's
 [Tools section](#tool-policy-dashboard), which starts the server once, as the dialog's
 fields describe it, to list its tools. With `--json`, `live` also holds `toolNames`, the names `tools/list` returned.
 
@@ -890,21 +890,32 @@ warning.
 ### Tools in the dashboard {#tool-policy-dashboard}
 
 The server dialog has a **Tools** section after the targets, for every server except a
-`disabled` entry. It is collapsed while the server has no policy; the header then shows
-a summary, such as `Tools · 1 allowed`.
+`disabled` entry, and is always shown. Beside the title, an info
+icon explains the section and a summary shows `All tools`, the policy (such as
+`1 allowed · 2 denied`), or `9 of 14 selected` once the tools are loaded.
 
-- **How tools are offered** picks `expose`.
-- **Allow** and **Deny** take names or `*` patterns: type one and press Enter, or pick a
-  suggestion. A bad name, or a deny list that removes every allowed tool, is shown
-  under the field and blocks **Save**.
-- **Load tools from server** starts the server once with the settings in the dialog,
-  saved or not, using the same probe as [`mcp check --live`](#probe-servers-live), and
-  offers its tool names as suggestions. It runs only when clicked and saves nothing, so
-  it also works for a new server. A failure is described in plain words, with the raw
-  error under **Details**. Changing the command, URL, or their settings afterwards
-  clears the loaded names.
-- Under the fields, the dialog lists each selected Agent that cannot hold part of the
-  policy, such as `Copilot CLI: * patterns in Allow`.
+- The box under the title holds the tool list. Before loading it offers **Load tools**,
+  which starts the server once with the settings in the dialog, saved or not, using the
+  same probe as [`mcp check --live`](#probe-servers-live). It runs only when clicked and
+  saves nothing, so it also works for a new server. A failure is described in plain words,
+  with the raw error in the info tooltip beside it, and the button becomes **Retry**.
+  Changing the command, URL, or their settings afterwards clears the loaded list.
+- Once loaded, each tool has a checkbox, and a ticked tool reaches the model. Unticking a
+  tool adds its exact name to `deny`. Ticking it removes that name from `deny`, and adds
+  it to `allow` when a non-empty `allow` leaves it out. A tool that a `deny` pattern
+  removes cannot be ticked; its tooltip names the rule. The search box filters the list,
+  **Select all** and **Select none** act on the rows it shows, and the refresh button loads
+  the list again.
+- The **Exclude rules** row at the bottom of the box takes `*` patterns and names the server
+  does not list; type one and press Enter. When `allow` has entries, an **Allow only** row
+  above it does the same for `allow`. Before the tools are loaded, every saved entry is
+  shown there. A bad name, or a deny list that removes every allowed tool, is shown in the
+  dialog and blocks **Save**.
+- **How tools are offered** picks `expose`. Only Pi reads it, so it appears when Pi is a
+  selected target or `expose` is already set.
+- Below that, the dialog says what each selected Agent will get: which ones follow the list
+  as it is, what an Agent that follows part of it will do (for example, Copilot CLI still
+  offers unticked tools because it has no deny list), and which ones cannot filter tools.
 
 The server row shows a tag with the policy, and **View what each Agent gets** warns per
 Agent about the parts it does not apply.
