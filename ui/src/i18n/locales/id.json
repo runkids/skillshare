@@ -2549,6 +2549,12 @@
   "hooks.takeoverMenu": "Ambil alih hook native",
   "hooks.takeoverTitle": "Ambil alih {name}?",
   "hooks.takeoverMessage": "Entri Agent yang identik atau berkonflik untuk hook ini akan dikelola oleh Skillshare dan ditulis ulang saat Anda menyinkronkan di bawah. Cadangan dibuat terlebih dahulu.",
-  "hooks.message.identicalUnmanaged": "Hook yang identik sudah ada di file Agent dan tidak dikelola Skillshare. Gunakan “Ambil alih hook native” untuk mengelolanya.",
-  "hooks.message.importUnmanaged": "Hook yang sudah ada di Agent tetap di tempatnya dan tidak dikelola. Setelah impor, gunakan “Ambil alih hook native” agar sinkronisasi tidak menambahkan duplikat."
+  "hooks.message.identicalUnmanaged": "Hook yang sama sudah ada di file ini, tetapi belum dikelola Skillshare. Gunakan “Ambil alih hook native” untuk mengelolanya.",
+  "hooks.message.importUnmanaged": "Hook yang sudah ada di Agent tetap di tempatnya dan tidak dikelola. Setelah impor, gunakan “Ambil alih hook native” agar sinkronisasi tidak menambahkan duplikat.",
+  "hooks.preview.global": "Global",
+  "hooks.preview.project": "Proyek · {name}",
+  "hooks.preview.openProject": "Buka proyek",
+  "hooks.status.unmanaged": "Belum diambil alih",
+  "hooks.unmanagedHint": "Hook native yang sudah ada perlu diambil alih. Tidak ada yang ditulis sebelum item ini diselesaikan.",
+  "hooks.syncDialog.globalSubtitle": "Sinkronisasi ini mencakup hooks global dan proyek yang dikonfigurasi. File native akan ditulis; hook tidak dijalankan."
 }

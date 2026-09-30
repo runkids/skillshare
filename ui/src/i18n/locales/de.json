@@ -2549,6 +2549,12 @@
   "hooks.takeoverMenu": "Native Hooks übernehmen",
   "hooks.takeoverTitle": "{name} übernehmen?",
   "hooks.takeoverMessage": "Die identischen oder in Konflikt stehenden Einträge des Agents für diesen Hook werden von Skillshare verwaltet und neu geschrieben, sobald du unten synchronisierst. Zuvor wird ein Backup erstellt.",
-  "hooks.message.identicalUnmanaged": "Ein identischer Hook existiert bereits in der Datei des Agents und wird nicht von Skillshare verwaltet. Nutze „Native Hooks übernehmen“, um ihn zu verwalten.",
-  "hooks.message.importUnmanaged": "Der vorhandene Hook des Agents bleibt bestehen und unverwaltet. Nutze nach dem Import „Native Hooks übernehmen“, damit die Synchronisierung kein Duplikat hinzufügt."
+  "hooks.message.identicalUnmanaged": "Derselbe Hook ist bereits in dieser Datei vorhanden, wird aber noch nicht von Skillshare verwaltet. Nutze „Native Hooks übernehmen“, um ihn zu verwalten.",
+  "hooks.message.importUnmanaged": "Der vorhandene Hook des Agents bleibt bestehen und unverwaltet. Nutze nach dem Import „Native Hooks übernehmen“, damit die Synchronisierung kein Duplikat hinzufügt.",
+  "hooks.preview.global": "Global",
+  "hooks.preview.project": "Projekt · {name}",
+  "hooks.preview.openProject": "Projekt öffnen",
+  "hooks.status.unmanaged": "Nicht übernommen",
+  "hooks.unmanagedHint": "Bestehende native Hooks müssen übernommen werden. Bis diese Einträge geklärt sind, wird nichts geschrieben.",
+  "hooks.syncDialog.globalSubtitle": "Diese Synchronisierung umfasst globale Hooks und Hooks konfigurierter Projekte. Native Dateien werden geschrieben; Hooks werden nicht ausgeführt."
 }

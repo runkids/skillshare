@@ -11,7 +11,7 @@ import DialogShell from '../DialogShell';
 import Spinner from '../Spinner';
 import { RailLine, SyncBox } from '../StatusRail';
 import HooksPreview from './HooksPreview';
-import { actionLabel, fileName, hookLabel, rootPlan, writes } from './hooksView';
+import { actionLabel, blockedHint, fileName, hookLabel, needsTakeover, rootPlan, writes } from './hooksView';
 
 /**
  * Confirm, then write. The dialog previews afresh and applies exactly that plan, so a source or native
@@ -58,7 +58,7 @@ export function HooksSyncDialog({ project, takeover, canTakeOver, onTakeover, on
       <div className="dh">
         <div className="flex flex-col gap-1">
           <h2 className="ss-h2">{done ? t('syncPreview.titleComplete') : title}</h2>
-          {!done && <p className="text-[13px] text-ink-2">{takeover ? t('hooks.takeoverMessage') : t('hooks.syncDialog.subtitle')}</p>}
+          {!done && <p className="text-[13px] text-ink-2">{takeover ? t('hooks.takeoverMessage') : t(project ? 'hooks.syncDialog.subtitle' : 'hooks.syncDialog.globalSubtitle')}</p>}
         </div>
       </div>
       <div className="db">
@@ -86,7 +86,7 @@ export default function HooksSyncBox({ plan, project, canTakeOver, onTakeover }:
   const [reviewing, setReviewing] = useState(false);
   const pending = plan.changes.filter(writes);
   const conflicts = plan.changes.filter((c) => c.action === 'conflict');
-  const state = pending.length > 0 ? t(pending.length === 1 ? 'mcp.pending.one' : 'mcp.pending.other', { count: pending.length }) : conflicts.length > 0 ? t('mcp.status.conflict') : t('targets.state.synced');
+  const state = pending.length > 0 ? t(pending.length === 1 ? 'mcp.pending.one' : 'mcp.pending.other', { count: pending.length }) : conflicts.length > 0 ? t(conflicts.every(needsTakeover) ? 'hooks.status.unmanaged' : 'mcp.status.conflict') : t('targets.state.synced');
   return (
     <SyncBox tone={pending.length > 0 || conflicts.length > 0 ? 'warn' : 'ok'} state={state}>
       {pending.length > 0 && (
@@ -110,7 +110,7 @@ export default function HooksSyncBox({ plan, project, canTakeOver, onTakeover }:
         <>
           {/* A blocked plan stays reviewable; the dialog is what refuses to write it. */}
           <Button className="w-full justify-center" variant={plan.blocked ? 'secondary' : undefined} onClick={() => setReviewing(true)}>{plan.blocked ? <AlertCircle size={15} /> : <RefreshCw size={15} />}{t(plan.blocked ? 'hooks.viewConflicts' : 'hooks.syncButton')}</Button>
-          {plan.blocked && <p className="text-xs leading-normal text-warn">{t('hooks.blockedHint')}</p>}
+          {plan.blocked && <p className="text-xs leading-normal text-warn">{blockedHint(t, plan)}</p>}
         </>
       )}
       <p className="text-xs leading-normal text-ink-2">{t('hooks.syncHint')}</p>

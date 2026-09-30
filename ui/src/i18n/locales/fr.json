@@ -2549,6 +2549,12 @@
   "hooks.takeoverMenu": "Reprendre les hooks natifs",
   "hooks.takeoverTitle": "Reprendre {name} ?",
   "hooks.takeoverMessage": "Les entrées identiques ou en conflit de l'Agent pour ce hook sont désormais gérées par Skillshare et réécrites lorsque vous synchronisez ci-dessous. Une sauvegarde est faite au préalable.",
-  "hooks.message.identicalUnmanaged": "Un hook identique existe déjà dans le fichier de l'Agent et n'est pas géré par Skillshare. Utilisez « Reprendre les hooks natifs » pour le gérer.",
-  "hooks.message.importUnmanaged": "Le hook existant de l'Agent reste en place, non géré. Après l'import, utilisez « Reprendre les hooks natifs » pour que la synchronisation n'ajoute pas de doublon."
+  "hooks.message.identicalUnmanaged": "Le même hook existe déjà dans ce fichier, mais Skillshare ne le gère pas encore. Utilisez « Reprendre les hooks natifs » pour le gérer.",
+  "hooks.message.importUnmanaged": "Le hook existant de l'Agent reste en place, non géré. Après l'import, utilisez « Reprendre les hooks natifs » pour que la synchronisation n'ajoute pas de doublon.",
+  "hooks.preview.global": "Global",
+  "hooks.preview.project": "Projet · {name}",
+  "hooks.preview.openProject": "Ouvrir le projet",
+  "hooks.status.unmanaged": "Non repris",
+  "hooks.unmanagedHint": "Les hooks natifs existants doivent être repris. Rien ne sera écrit tant que ces éléments ne seront pas résolus.",
+  "hooks.syncDialog.globalSubtitle": "Cette synchronisation inclut les hooks globaux et ceux des projets configurés. Les fichiers natifs seront écrits ; les hooks ne sont pas exécutés."
 }

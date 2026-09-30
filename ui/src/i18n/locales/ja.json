@@ -2549,6 +2549,12 @@
   "hooks.takeoverMenu": "ネイティブ hook を引き継ぐ",
   "hooks.takeoverTitle": "{name} を引き継ぎますか？",
   "hooks.takeoverMessage": "この hook について、Agent 側の同一または競合するエントリは Skillshare の管理下に置かれ、下で同期するときに書き換えられます。事前にバックアップが作成されます。",
-  "hooks.message.identicalUnmanaged": "Agent のファイルに同じ hook が既にあり、Skillshare では管理されていません。「ネイティブ hook を引き継ぐ」で管理できます。",
-  "hooks.message.importUnmanaged": "Agent の既存の hook はそのまま残り、管理されません。インポート後に「ネイティブ hook を引き継ぐ」を使うと、同期で重複して追加されません。"
+  "hooks.message.identicalUnmanaged": "このファイルには同じ hook が既にありますが、Skillshare はまだ管理していません。「ネイティブ hook を引き継ぐ」で管理できます。",
+  "hooks.message.importUnmanaged": "Agent の既存の hook はそのまま残り、管理されません。インポート後に「ネイティブ hook を引き継ぐ」を使うと、同期で重複して追加されません。",
+  "hooks.preview.global": "グローバル",
+  "hooks.preview.project": "プロジェクト · {name}",
+  "hooks.preview.openProject": "プロジェクトで対応",
+  "hooks.status.unmanaged": "未引き継ぎ",
+  "hooks.unmanagedHint": "既存のネイティブ hook が未引き継ぎです。これらの項目を解決するまで書き込みません。",
+  "hooks.syncDialog.globalSubtitle": "グローバルと設定済みプロジェクトの hooks を同期します。ネイティブファイルに書き込みますが、hook は実行しません。"
 }

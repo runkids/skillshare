@@ -21,6 +21,20 @@ const box = (p: MCPPlan = plan) =>
 describe('MCP sync box', () => {
   beforeEach(() => { vi.mocked(runSync).mockReset(); });
 
+  it('localizes every pending action in the sync rail', () => {
+    const previous = localStorage.getItem('skillshare:locale');
+    localStorage.setItem('skillshare:locale', 'zh-TW');
+    try {
+      const changes = ['add', 'remove', 'adopt', 'update'].map((action) => ({ ...own, name: `docs-${action}`, action }));
+      render(<MemoryRouter><QueryClientProvider client={new QueryClient()}><I18nProvider><MCPSyncBox changes={changes} roots={[]} plan={{ ...plan, changes }} /></I18nProvider></QueryClientProvider></MemoryRouter>);
+      for (const label of ['新增', '移除', '接管', '更新']) expect(screen.getByText(label)).toBeInTheDocument();
+      for (const raw of ['add', 'remove', 'adopt', 'update']) expect(screen.queryByText(raw)).not.toBeInTheDocument();
+    } finally {
+      if (previous === null) localStorage.removeItem('skillshare:locale');
+      else localStorage.setItem('skillshare:locale', previous);
+    }
+  });
+
   it('confirms every pending change, then writes only MCP with the reviewed plan', async () => {
     const user = userEvent.setup();
     vi.mocked(runSync).mockResolvedValue({ resources: undefined, failures: [] });

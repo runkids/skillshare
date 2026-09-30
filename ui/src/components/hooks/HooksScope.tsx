@@ -18,7 +18,7 @@ import HooksRemoveDialog from './HooksRemoveDialog';
 import HooksRestoreDialog from './HooksRestoreDialog';
 import HooksSyncBox, { HooksSyncDialog } from './HooksSyncBox';
 import HooksUnmanagedNote from './HooksUnmanagedNote';
-import { hookLabel, hookNote, scopeBackups, scopeChanges, scopeEntries, scopePaths, scopePlan, scopeUnmanaged, writes } from './hooksView';
+import { blockedHint, hookLabel, hookNote, scopeBackups, scopeChanges, scopeEntries, scopePaths, scopePlan, scopeUnmanaged, writes } from './hooksView';
 
 const copy = (text: string) => void navigator.clipboard?.writeText(text);
 
@@ -126,7 +126,7 @@ export default function HooksScope({ data, project, header }: Props) {
           </RailSection>
         )}
       </>}>
-        {plan?.blocked && <div className="ss-note warn"><AlertCircle size={16} /><span className="flex-1">{t('hooks.blockedHint')}</span></div>}
+        {plan?.blocked && <div className="ss-note warn"><AlertCircle size={16} /><span className="flex-1">{blockedHint(t, railPlan ?? plan)}</span></div>}
         <HooksUnmanagedNote entries={unmanaged} onImport={(from) => setImporting({ from })} />
         {names.length > 0 ? (
           <HooksList entries={entries} plan={plan} paths={paths} disabled={busy} onToggle={(n, on) => void toggle(n, on)} onMenu={openMenu} />

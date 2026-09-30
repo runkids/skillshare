@@ -2549,6 +2549,12 @@
   "hooks.takeoverMenu": "Take over native hooks",
   "hooks.takeoverTitle": "Take over {name}?",
   "hooks.takeoverMessage": "The Agent's identical or conflicting entries for this hook become managed by Skillshare and are rewritten when you sync below. A backup is taken first.",
-  "hooks.message.identicalUnmanaged": "An identical hook already exists in the Agent's file and is not managed by Skillshare. Use “Take over native hooks” to manage it.",
-  "hooks.message.importUnmanaged": "The Agent's existing hook stays in place and unmanaged. After importing, use “Take over native hooks” so sync does not add a duplicate."
+  "hooks.message.identicalUnmanaged": "The same hook already exists in this file, but Skillshare does not manage it yet. Use “Take over native hooks” to manage it.",
+  "hooks.message.importUnmanaged": "The Agent's existing hook stays in place and unmanaged. After importing, use “Take over native hooks” so sync does not add a duplicate.",
+  "hooks.preview.global": "Global",
+  "hooks.preview.project": "Project · {name}",
+  "hooks.preview.openProject": "Open project",
+  "hooks.status.unmanaged": "Not taken over",
+  "hooks.unmanagedHint": "Existing native hooks need to be taken over. Nothing will be written until these items are resolved.",
+  "hooks.syncDialog.globalSubtitle": "This sync includes global and configured project hooks. Native files will be written; hooks are not executed."
 }

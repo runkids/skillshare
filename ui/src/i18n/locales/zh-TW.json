@@ -2549,6 +2549,12 @@
   "hooks.takeoverMenu": "接管原生 hook",
   "hooks.takeoverTitle": "要接管 {name} 嗎？",
   "hooks.takeoverMessage": "Agent 中與此 hook 相同或衝突的項目將由 Skillshare 管理，並在你於下方同步時被改寫。會先建立備份。",
-  "hooks.message.identicalUnmanaged": "Agent 檔案中已有相同的 hook，但不受 Skillshare 管理。請使用「接管原生 hook」來管理它。",
-  "hooks.message.importUnmanaged": "Agent 中既有的 hook 會保留原位且不受管理。匯入後請使用「接管原生 hook」，同步時才不會重複新增。"
+  "hooks.message.identicalUnmanaged": "這個檔案已經有相同的 hook，但還沒交給 Skillshare 管理。請使用「接管原生 hook」來管理它。",
+  "hooks.message.importUnmanaged": "Agent 中既有的 hook 會保留原位且不受管理。匯入後請使用「接管原生 hook」，同步時才不會重複新增。",
+  "hooks.preview.global": "全域",
+  "hooks.preview.project": "專案 · {name}",
+  "hooks.preview.openProject": "前往專案處理",
+  "hooks.status.unmanaged": "尚未接管",
+  "hooks.unmanagedHint": "既有的原生 hook 尚未接管。處理這些項目後，才能同步。",
+  "hooks.syncDialog.globalSubtitle": "這次同步包含全域與已設定專案的 hooks，將寫入原生檔案，不會執行 hook。"
 }

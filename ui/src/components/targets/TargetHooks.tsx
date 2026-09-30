@@ -8,7 +8,7 @@ import EmptyState from '../EmptyState';
 import { useToast } from '../Toast';
 import HookDialog from '../hooks/HookDialog';
 import { HooksSyncDialog } from '../hooks/HooksSyncBox';
-import { boundAgents, hookLabel, hookMessage, hookNote, isCodeAgent, scopeEntries, scopePlan, syncState, writes } from '../hooks/hooksView';
+import { blockedHint, boundAgents, hookLabel, hookMessage, hookNote, isCodeAgent, scopeEntries, scopePlan, syncState, writes } from '../hooks/hooksView';
 import { useT } from '../../i18n';
 import { queryKeys } from '../../lib/queryKeys';
 
@@ -83,7 +83,7 @@ export default function TargetHooks({ agent, data, project }: { agent: string; d
               <p className="text-[13px] text-ink-2">{t(all === 1 ? 'targetDetail.hooks.syncHint.one' : 'targetDetail.hooks.syncHint.other', { count: all })}</p>
               {/* A conflict anywhere in the plan holds this sync too; the review shows where, and its Sync Now stays disabled. */}
               <Button variant="secondary" className="self-start" onClick={() => setSyncing(true)}>{plan?.blocked ? <AlertCircle size={15} /> : <RefreshCw size={15} />}{t(plan?.blocked ? 'hooks.viewConflicts' : 'targetDetail.hooks.syncAll')}</Button>
-              {plan?.blocked && <p className="text-[13px] text-warn">{t('hooks.blockedHint')}</p>}
+              {plan?.blocked && <p className="text-[13px] text-warn">{blockedHint(t, (project ? plan : data.plan) ?? plan)}</p>}
             </>
           )}
           {note && <p className="text-[13px] text-ink-2">{note}</p>}

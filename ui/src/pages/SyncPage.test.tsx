@@ -102,7 +102,7 @@ describe('Sync page hooks conflicts', () => {
         <QueryClientProvider client={new QueryClient()}><I18nProvider><ToastProvider><SyncPage /></ToastProvider></I18nProvider></QueryClientProvider>
       </MemoryRouter>,
     );
-    const reason = await screen.findByText(/is not managed by Skillshare/);
+    const reason = await screen.findByText(/The same hook already exists/);
     expect(screen.queryByText(raw)).not.toBeInTheDocument();
     await user.hover(reason);
     expect(await screen.findByRole('tooltip')).toHaveTextContent(/Take over native hooks/);

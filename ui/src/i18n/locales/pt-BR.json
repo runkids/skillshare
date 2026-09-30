@@ -2549,6 +2549,12 @@
   "hooks.takeoverMenu": "Assumir hooks nativos",
   "hooks.takeoverTitle": "Assumir {name}?",
   "hooks.takeoverMessage": "As entradas idênticas ou em conflito do Agent para este hook passam a ser gerenciadas pelo Skillshare e são regravadas quando você sincronizar abaixo. Um backup é feito antes.",
-  "hooks.message.identicalUnmanaged": "Já existe um hook idêntico no arquivo do Agent que não é gerenciado pelo Skillshare. Use “Assumir hooks nativos” para gerenciá-lo.",
-  "hooks.message.importUnmanaged": "O hook existente do Agent permanece no lugar, sem gerenciamento. Depois de importar, use “Assumir hooks nativos” para que a sincronização não adicione uma duplicata."
+  "hooks.message.identicalUnmanaged": "O mesmo hook já existe neste arquivo, mas o Skillshare ainda não o gerencia. Use “Assumir hooks nativos” para gerenciá-lo.",
+  "hooks.message.importUnmanaged": "O hook existente do Agent permanece no lugar, sem gerenciamento. Depois de importar, use “Assumir hooks nativos” para que a sincronização não adicione uma duplicata.",
+  "hooks.preview.global": "Global",
+  "hooks.preview.project": "Projeto · {name}",
+  "hooks.preview.openProject": "Abrir projeto",
+  "hooks.status.unmanaged": "Não assumido",
+  "hooks.unmanagedHint": "Os hooks nativos existentes ainda precisam ser assumidos. Nada será gravado até resolver estes itens.",
+  "hooks.syncDialog.globalSubtitle": "Esta sincronização inclui hooks globais e dos projetos configurados. Os arquivos nativos serão gravados; os hooks não são executados."
 }

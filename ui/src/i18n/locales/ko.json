@@ -2549,6 +2549,12 @@
   "hooks.takeoverMenu": "네이티브 hook 인수",
   "hooks.takeoverTitle": "{name}을(를) 인수할까요?",
   "hooks.takeoverMessage": "이 hook에 대해 Agent의 동일하거나 충돌하는 항목이 Skillshare 관리로 전환되며, 아래에서 동기화할 때 다시 기록됩니다. 먼저 백업이 생성됩니다.",
-  "hooks.message.identicalUnmanaged": "Agent 파일에 동일한 hook이 이미 있지만 Skillshare가 관리하지 않습니다. “네이티브 hook 인수”로 관리하세요.",
-  "hooks.message.importUnmanaged": "Agent의 기존 hook은 그대로 남고 관리되지 않습니다. 가져온 뒤 “네이티브 hook 인수”를 사용하면 동기화 시 중복으로 추가되지 않습니다."
+  "hooks.message.identicalUnmanaged": "이 파일에 동일한 hook이 이미 있지만 Skillshare가 아직 관리하지 않습니다. “네이티브 hook 인수”로 관리하세요.",
+  "hooks.message.importUnmanaged": "Agent의 기존 hook은 그대로 남고 관리되지 않습니다. 가져온 뒤 “네이티브 hook 인수”를 사용하면 동기화 시 중복으로 추가되지 않습니다.",
+  "hooks.preview.global": "전역",
+  "hooks.preview.project": "프로젝트 · {name}",
+  "hooks.preview.openProject": "프로젝트에서 처리",
+  "hooks.status.unmanaged": "아직 인수되지 않음",
+  "hooks.unmanagedHint": "기존 네이티브 hook이 아직 인수되지 않았습니다. 이 항목들을 해결하기 전에는 쓰지 않습니다.",
+  "hooks.syncDialog.globalSubtitle": "전역 및 설정된 프로젝트의 hooks를 함께 동기화합니다. 네이티브 파일에 쓰지만 hook은 실행하지 않습니다."
 }

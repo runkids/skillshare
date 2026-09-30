@@ -79,7 +79,7 @@ describe('Target hooks conflicts', () => {
 
   it("words this Agent's unmanaged-hook conflict for the dashboard", () => {
     show(blocked([{ target: 'codex', path: '/home/me/.codex/hooks.json', name: 'global-lint', action: 'conflict', message: 'an identical hook exists that Skillshare does not manage; import it or explicitly replace it' }]));
-    expect(screen.getByText(/is not managed by Skillshare/)).toBeInTheDocument();
+    expect(screen.getByText(/The same hook already exists/)).toBeInTheDocument();
     expect(screen.queryByText(/explicitly replace it/)).not.toBeInTheDocument();
   });
 

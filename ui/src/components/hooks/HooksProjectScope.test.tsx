@@ -133,6 +133,24 @@ describe('project scope in hooks dialogs', () => {
     await waitFor(() => expect(hooksApi.syncProject).toHaveBeenCalledWith(APP, 'rev-all'));
   });
 
+  it('distinguishes global and project hooks and explains the takeover needed before global sync', async () => {
+    const identical = 'an identical hook exists that Skillshare does not manage; import it or explicitly replace it';
+    vi.mocked(hooksApi.preview).mockResolvedValue({ ...plan([]), changes: [
+      change({ action: 'add' }),
+      { ...mine('conflict'), target: 'cursor', path: `${APP}/.cursor/hooks.json`, message: identical },
+    ] });
+    wrap(<HooksSyncDialog onClose={vi.fn()} />);
+    const dialog = await screen.findByRole('dialog');
+    expect(await within(dialog).findByText('Global')).toBeInTheDocument();
+    expect(within(dialog).getByText('Project · app')).toBeInTheDocument();
+    expect(within(dialog).getByText('Not taken over')).toBeInTheDocument();
+    expect(within(dialog).getByText(/The same hook already exists/)).toHaveClass('w-full');
+    expect(within(dialog).getByRole('link', { name: 'Open project' })).toHaveAttribute('href', `/projects/${encodeURIComponent(APP)}?tab=hooks`);
+    expect(within(dialog).getByText(/includes global and configured project hooks/)).toBeInTheDocument();
+    expect(within(dialog).getByRole('button', { name: 'Sync Now' })).toBeDisabled();
+    expect(hooksApi.configure).not.toHaveBeenCalled();
+  });
+
   it('applies a project takeover through one scoped mutation, not the whole plan', async () => {
     const user = userEvent.setup();
     vi.mocked(hooksApi.preview).mockResolvedValue(plan([mine('add')]));
@@ -294,9 +312,9 @@ describe('project row preview', () => {
     wrap(<HooksScope data={conflictData()} project={APP} header={() => null} />);
     await user.click(screen.getByRole('button', { name: 'View conflicts' }));
     const review = await screen.findByRole('dialog');
-    expect(await within(review).findByText(/is not managed by Skillshare/)).toBeInTheDocument();
+    expect(await within(review).findByText(/The same hook already exists/)).toBeInTheDocument();
     expect(within(review).queryByText(IDENTICAL)).not.toBeInTheDocument();
-    await user.hover(within(review).getByText(/is not managed by Skillshare/));
+    await user.hover(within(review).getByText(/The same hook already exists/));
     expect(await screen.findByRole('tooltip')).toHaveTextContent(/Take over native hooks/);
     await user.click(within(review).getByRole('button', { name: 'Take over native hooks · lint' }));
     expect(await screen.findByRole('dialog', { name: 'Take over lint?' })).toBeInTheDocument();

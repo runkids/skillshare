@@ -47,14 +47,20 @@ const messageKeys: Record<string, string> = {
   'the existing registrations stay in place and unmanaged; sync with replace to take them over instead of adding duplicates': 'hooks.message.importUnmanaged',
 };
 export const hookMessage = (t: (key: string) => string, message: string) => (messageKeys[message] ? t(messageKeys[message]) : message);
+export const needsTakeover = (change: HookChange) => change.action === 'conflict' && messageKeys[change.message ?? ''] === 'hooks.message.identicalUnmanaged';
+
+export const blockedHint = (t: (key: string) => string, plan: HookPlan) => {
+  const conflicts = plan.changes.filter((c) => c.action === 'conflict');
+  return t(conflicts.length > 0 && conflicts.every(needsTakeover) ? 'hooks.unmanagedHint' : 'hooks.blockedHint');
+};
 
 /** The last part of a native path, which tells a hook's settings file from its script. */
 export const fileName = (path: string) => path.split(/[\\/]/).pop() ?? path;
 
 export function groupByFile(changes: HookChange[]) {
-  const files = new Map<string, { target: string; path: string; changes: HookChange[] }>();
+  const files = new Map<string, { target: string; path: string; root?: string; changes: HookChange[] }>();
   for (const change of changes) {
-    const file = files.get(change.path) ?? { target: change.target, path: change.path, changes: [] };
+    const file = files.get(change.path) ?? { target: change.target, path: change.path, root: change.root, changes: [] };
     file.changes.push(change);
     files.set(change.path, file);
   }

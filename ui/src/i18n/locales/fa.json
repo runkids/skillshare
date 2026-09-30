@@ -2549,6 +2549,12 @@
   "hooks.takeoverMenu": "در اختیار گرفتن hookهای بومی",
   "hooks.takeoverTitle": "{name} در اختیار گرفته شود؟",
   "hooks.takeoverMessage": "ورودی‌های یکسان یا دارای تداخل Agent برای این hook توسط Skillshare مدیریت می‌شوند و هنگامی که در پایین همگام‌سازی کنید بازنویسی می‌شوند. ابتدا یک پشتیبان گرفته می‌شود.",
-  "hooks.message.identicalUnmanaged": "یک hook یکسان از قبل در فایل Agent وجود دارد و Skillshare آن را مدیریت نمی‌کند. برای مدیریت آن از «در اختیار گرفتن hookهای بومی» استفاده کنید.",
-  "hooks.message.importUnmanaged": "hook موجود Agent سر جای خود و بدون مدیریت می‌ماند. پس از وارد کردن، از «در اختیار گرفتن hookهای بومی» استفاده کنید تا همگام‌سازی نسخهٔ تکراری اضافه نکند."
+  "hooks.message.identicalUnmanaged": "همین hook از قبل در این فایل وجود دارد، اما Skillshare هنوز آن را مدیریت نمی‌کند. برای مدیریت آن از «در اختیار گرفتن hookهای بومی» استفاده کنید.",
+  "hooks.message.importUnmanaged": "hook موجود Agent سر جای خود و بدون مدیریت می‌ماند. پس از وارد کردن، از «در اختیار گرفتن hookهای بومی» استفاده کنید تا همگام‌سازی نسخهٔ تکراری اضافه نکند.",
+  "hooks.preview.global": "سراسری",
+  "hooks.preview.project": "پروژه · {name}",
+  "hooks.preview.openProject": "باز کردن پروژه",
+  "hooks.status.unmanaged": "هنوز در اختیار گرفته نشده",
+  "hooks.unmanagedHint": "hookهای بومی موجود باید در اختیار گرفته شوند. تا رفع این موارد چیزی نوشته نمی‌شود.",
+  "hooks.syncDialog.globalSubtitle": "این همگام‌سازی شامل hooks سراسری و پروژه‌های پیکربندی‌شده است. فایل‌های بومی نوشته می‌شوند؛ hookها اجرا نمی‌شوند."
 }
