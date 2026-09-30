@@ -109,6 +109,8 @@ skillshare sync  # 分发到所有 targets
 Downloading v0.21.4...  3.2 MB / 9.1 MB
 ```
 
+安装脚本现在默认使用 `~/.local/bin`，正常更新不需要 `sudo`。现有安装仍保留原来的位置。
+
 如果该二进制文件位于受保护的目录中（例如 `/usr/local/bin`），skillshare 只会使用 `sudo` 替换二进制文件——无需手动加前缀。内置 skill、UI 资源和日志仍以你的身份写入，所以不要用 `sudo` 运行整个升级：这会在 skill 源目录留下 root 拥有的文件，之后 `git pull` 会出现 `Permission denied`。
 
 如果之前的升级已经留下这类文件，更新内置 skill 会以 `permission denied` 失败，错误信息会附上把 skill 源目录还给你的命令，例如：

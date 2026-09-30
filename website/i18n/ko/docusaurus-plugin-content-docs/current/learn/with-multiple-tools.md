@@ -18,6 +18,11 @@ skillshare는 단일 Source 디렉터리를 유지하고, 명령어 하나로 �
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/runkids/skillshare/main/install.sh | sh
+```
+
+설치 프로그램이 PATH 설정 안내를 표시할 때만 안내에 따라 설정한 후 아래 명령을 실행하세요. PATH 경고가 없으면 추가 설정은 필요하지 않습니다.
+
+```bash
 skillshare init
 ```
 

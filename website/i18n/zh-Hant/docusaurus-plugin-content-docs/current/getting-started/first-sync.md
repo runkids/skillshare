@@ -27,6 +27,16 @@ Homebrew 的版本可能會落後幾天。想要最新版請改用安裝腳本�
 curl -fsSL https://raw.githubusercontent.com/runkids/skillshare/main/install.sh | sh
 ```
 
+腳本預設安裝到 `~/.local/bin`，正常安裝與更新不需要 `sudo`。只有安裝器顯示 PATH 設定提示時，才需要依提示設定後再執行 `skillshare`。可把提示的指令加入 shell 設定檔（例如 `~/.zshrc` 或 `~/.bashrc`），讓之後開啟的終端機也能使用。可用 `INSTALL_DIR` 指定其他安裝位置。
+
+既有安裝不會被搬移或刪除。如果 PATH 優先選到舊執行檔，安裝器會顯示它的位置；請把新安裝目錄放在 PATH 前面。自訂的受保護目錄仍可能需要 `sudo`。
+
+如需整台電腦共用的安裝：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/runkids/skillshare/main/install.sh | INSTALL_DIR=/usr/local/bin sh
+```
+
 **Windows（PowerShell）：**
 ```powershell
 irm https://raw.githubusercontent.com/runkids/skillshare/main/install.ps1 | iex

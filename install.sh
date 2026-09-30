@@ -4,7 +4,7 @@ set -e
 REPO="runkids/skillshare"
 BINARY_NAME="skillshare"
 if [ -z "${INSTALL_DIR}" ]; then
-	INSTALL_DIR="/usr/local/bin"
+	INSTALL_DIR="$HOME/.local/bin"
 fi
 
 # Colors (if terminal supports it)
@@ -84,30 +84,39 @@ install() {
   fi
 
   # Install
+  mkdir -p "$INSTALL_DIR"
+  chmod +x "$TMP_DIR/$BINARY_NAME"
   if [ -w "$INSTALL_DIR" ]; then
     mv "$TMP_DIR/$BINARY_NAME" "$INSTALL_DIR/"
   else
     warn "Need sudo to install to $INSTALL_DIR"
     sudo mv "$TMP_DIR/$BINARY_NAME" "$INSTALL_DIR/"
   fi
-
-  chmod +x "$INSTALL_DIR/$BINARY_NAME"
 }
 
 # Verify installation
 verify() {
-  if command -v "$BINARY_NAME" >/dev/null 2>&1; then
-    info ""
-    info "Successfully installed skillshare to $INSTALL_DIR/$BINARY_NAME"
-    info ""
-    "$BINARY_NAME" version
-    info ""
-    info "Get started:"
-    info "  skillshare init"
-    info "  skillshare --help"
-  else
-    warn "Installed but '$BINARY_NAME' not in PATH. Add $INSTALL_DIR to your PATH."
+  info ""
+  info "Successfully installed skillshare to $INSTALL_DIR/$BINARY_NAME"
+  info ""
+  "$INSTALL_DIR/$BINARY_NAME" version
+
+  ACTIVE_BINARY=$(command -v "$BINARY_NAME" || true)
+  if [ "$ACTIVE_BINARY" != "$INSTALL_DIR/$BINARY_NAME" ]; then
+    if [ -n "$ACTIVE_BINARY" ]; then
+      warn "$ACTIVE_BINARY takes precedence over the newly installed binary."
+    else
+      warn "Installed but '$BINARY_NAME' not in PATH."
+    fi
+    info "Use the new installation in this terminal:"
+    printf '  export PATH="%s:$PATH"\n' "$INSTALL_DIR"
+    info "Add that line to your shell config (e.g., ~/.zshrc or ~/.bashrc) for future terminals."
   fi
+
+  info ""
+  info "Get started:"
+  info "  skillshare init"
+  info "  skillshare --help"
 }
 
 main() {

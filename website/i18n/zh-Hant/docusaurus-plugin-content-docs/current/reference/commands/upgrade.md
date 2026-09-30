@@ -108,6 +108,8 @@ skillshare sync  # 分發到所有 targets
 Downloading v0.21.4...  3.2 MB / 9.1 MB
 ```
 
+安裝腳本現在預設使用 `~/.local/bin`，正常更新不需要 `sudo`。既有安裝仍保留原本的位置。
+
 若執行檔位於受保護的目錄（例如 `/usr/local/bin`），skillshare 只會用 `sudo` 替換執行檔 — 不需要手動加上前綴。內建 skill、UI 資源與紀錄仍以你的身分寫入，所以不要用 `sudo` 執行整個升級：這會在 skill 來源目錄留下 root 擁有的檔案，之後 `git pull` 會出現 `Permission denied`。
 
 如果先前的升級已經留下這類檔案，更新內建 skill 會以 `permission denied` 失敗，錯誤訊息會附上把 skill 來源目錄還給你的指令，例如：

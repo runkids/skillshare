@@ -141,6 +141,11 @@ skillshare はすべてを 1 か所にまとめます。
 ```bash
 # macOS / Linux
 curl -fsSL https://raw.githubusercontent.com/runkids/skillshare/main/install.sh | sh
+```
+
+インストーラーが PATH 設定の案内を表示した場合のみ、その案内に従ってから以下のコマンドを実行してください。PATH の警告がなければ追加の設定は不要です。
+
+```bash
 
 # Homebrew
 brew install skillshare

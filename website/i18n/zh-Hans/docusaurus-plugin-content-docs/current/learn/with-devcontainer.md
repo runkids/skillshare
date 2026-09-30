@@ -22,9 +22,11 @@ skillshare 能自然融入这个工作流。将它加入 `postCreateCommand`，�
 
 ```json
 {
-  "postCreateCommand": "curl -fsSL https://raw.githubusercontent.com/runkids/skillshare/main/install.sh | sh && skillshare init --no-copy --all-targets --no-skill && skillshare sync"
+  "postCreateCommand": "curl -fsSL https://raw.githubusercontent.com/runkids/skillshare/main/install.sh | sh && export PATH=\"$HOME/.local/bin:$PATH\" && skillshare init --no-copy --all-targets --no-skill && skillshare sync"
 }
 ```
+
+这里的 PATH 设置仅适用于这次设置命令。请把 `export PATH="$HOME/.local/bin:$PATH"` 加入容器内的 shell 配置文件（例如 `~/.bashrc`），让之后打开的终端也能使用。
 
 就这样。当团队成员在 VS Code 中打开项目并点击「Reopen in Container」时：
 
@@ -46,7 +48,7 @@ skillshare install your-org/team-skills -p
 
 ```json
 {
-  "postCreateCommand": "curl -fsSL https://raw.githubusercontent.com/runkids/skillshare/main/install.sh | sh && skillshare init --no-copy --all-targets --no-skill && skillshare sync && skillshare sync -p"
+  "postCreateCommand": "curl -fsSL https://raw.githubusercontent.com/runkids/skillshare/main/install.sh | sh && export PATH=\"$HOME/.local/bin:$PATH\" && skillshare init --no-copy --all-targets --no-skill && skillshare sync && skillshare sync -p"
 }
 ```
 

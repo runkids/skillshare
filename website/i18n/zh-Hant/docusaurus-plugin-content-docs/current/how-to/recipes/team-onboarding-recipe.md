@@ -25,6 +25,7 @@ set -e
 
 echo "正在安裝 skillshare..."
 curl -fsSL https://raw.githubusercontent.com/runkids/skillshare/main/install.sh | sh
+export PATH="$HOME/.local/bin:$PATH"
 
 echo "正在初始化..."
 skillshare init

@@ -90,6 +90,11 @@ Use `--no-tui` for plain terminal output.
 
 Upgrade CLI binary and/or built-in skillshare skill.
 
+The macOS/Linux install script defaults to `~/.local/bin`, so normal updates do not
+need `sudo`. Keep that directory first in PATH; the installer warns if an older
+binary takes precedence. Existing installations stay in place, and updates to a
+protected custom directory can still require `sudo`.
+
 ```bash
 skillshare upgrade              # Both CLI + skill
 skillshare upgrade --cli        # CLI only

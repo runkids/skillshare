@@ -121,6 +121,8 @@ skillshare가 이 문제를 해결합니다.
 curl -fsSL https://raw.githubusercontent.com/runkids/skillshare/main/install.sh | sh
 ```
 
+스크립트는 기본적으로 `~/.local/bin`에 설치하므로 일반적인 설치와 업데이트에는 `sudo`가 필요하지 않습니다. 설치 프로그램이 PATH 설정 안내를 표시할 때만 안내에 따라 설정한 후 `skillshare`를 실행하세요. 이후 터미널에서도 사용할 수 있도록 안내된 명령을 shell 설정 파일(예: `~/.zshrc` 또는 `~/.bashrc`)에 추가할 수 있습니다. 다른 설치 위치는 `INSTALL_DIR`로 지정할 수 있습니다.
+
 ### Windows PowerShell
 
 ```powershell

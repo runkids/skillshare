@@ -33,6 +33,11 @@ skillshare push
 ```bash
 # Install skillshare
 curl -fsSL https://raw.githubusercontent.com/runkids/skillshare/main/install.sh | sh
+```
+
+If the installer prints PATH setup instructions, follow them before running the commands below. If it prints no PATH warning, no extra setup is needed.
+
+```bash
 
 # Initialize
 skillshare init

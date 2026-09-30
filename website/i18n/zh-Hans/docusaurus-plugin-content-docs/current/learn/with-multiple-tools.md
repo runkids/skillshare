@@ -18,6 +18,11 @@ skillshare 维护一个单一的 Source 目录，并用一条命令 Sync 到你�
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/runkids/skillshare/main/install.sh | sh
+```
+
+只有安装器显示 PATH 设置提示时，才需要按提示设置后再运行下方命令。没有 PATH 警告就不需要额外设置。
+
+```bash
 skillshare init
 ```
 

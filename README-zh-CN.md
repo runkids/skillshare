@@ -121,6 +121,8 @@ skillshare 解决这个问题：
 curl -fsSL https://raw.githubusercontent.com/runkids/skillshare/main/install.sh | sh
 ```
 
+脚本默认安装到 `~/.local/bin`，正常安装与更新不需要 `sudo`。只有安装器显示 PATH 设置提示时，才需要按提示设置后再运行 `skillshare`。可把提示的命令加入 shell 配置文件（例如 `~/.zshrc` 或 `~/.bashrc`），让之后打开的终端也能使用。可用 `INSTALL_DIR` 指定其他安装位置。
+
 ### Windows PowerShell
 
 ```powershell

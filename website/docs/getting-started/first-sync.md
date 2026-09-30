@@ -27,6 +27,16 @@ Homebrew releases can lag behind by a few days. For the latest, use the install 
 curl -fsSL https://raw.githubusercontent.com/runkids/skillshare/main/install.sh | sh
 ```
 
+The script installs to `~/.local/bin` by default, so normal installs and updates do not need `sudo`. If the installer prints PATH setup instructions, follow them before running `skillshare`. Add the suggested line to your shell config (such as `~/.zshrc` or `~/.bashrc`) for future terminals. Set `INSTALL_DIR` to use another location.
+
+Existing installations are not moved or removed. If an older binary takes precedence in PATH, the installer reports its location; put the new installation first in PATH to use it. A protected custom directory can still require `sudo`.
+
+For a system-wide installation:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/runkids/skillshare/main/install.sh | INSTALL_DIR=/usr/local/bin sh
+```
+
 **Windows (PowerShell):**
 ```powershell
 irm https://raw.githubusercontent.com/runkids/skillshare/main/install.ps1 | iex

@@ -109,6 +109,8 @@ look like a hang. The Web UI assets below show the same.
 Downloading v0.21.4...  3.2 MB / 9.1 MB
 ```
 
+The install script now defaults to `~/.local/bin`, where normal updates do not need `sudo`. Existing installations keep their current location.
+
 If the binary is in a protected directory (e.g., `/usr/local/bin`), skillshare asks `sudo` to replace only the binary — no manual prefix needed. The built-in skill, UI assets, and logs are still written as you, so don't run the whole upgrade with `sudo`: that leaves root-owned files in your skills source, and a later `git pull` fails with `Permission denied`.
 
 If an earlier upgrade already left such files, updating the built-in skill fails with `permission denied`, and the error shows the command that gives the skills source back to you, for example:

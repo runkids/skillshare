@@ -109,6 +109,8 @@ skillshare sync  # 모든 target으로 배포
 Downloading v0.21.4...  3.2 MB / 9.1 MB
 ```
 
+설치 스크립트의 기본 위치는 이제 `~/.local/bin`이며 일반적인 업데이트에는 `sudo`가 필요하지 않습니다. 기존 설치 위치는 유지됩니다.
+
 binary가 보호된 디렉터리(예: `/usr/local/bin`)에 있으면, skillshare는 별도의 접두사 없이 `sudo`로 binary 교체만 수행합니다. 내장 skill, UI 에셋, 로그는 여전히 사용자 권한으로 기록되므로 업그레이드 전체를 `sudo`로 실행하지 마세요. skill 소스에 root 소유 파일이 남아 이후 `git pull`이 `Permission denied`로 실패합니다.
 
 이전 업그레이드가 이미 그런 파일을 남겼다면 내장 skill 업데이트가 `permission denied`로 실패하며, 오류 메시지에 skill 소스를 다시 사용자 소유로 돌리는 명령이 표시됩니다. 예:

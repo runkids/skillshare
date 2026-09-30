@@ -27,6 +27,16 @@ Homebrew 릴리스는 며칠 늦어질 수 있습니다. 최신 버전을 원한
 curl -fsSL https://raw.githubusercontent.com/runkids/skillshare/main/install.sh | sh
 ```
 
+스크립트는 기본적으로 `~/.local/bin`에 설치하므로 일반적인 설치와 업데이트에는 `sudo`가 필요하지 않습니다. 설치 프로그램이 PATH 설정 안내를 표시할 때만 안내에 따라 설정한 후 `skillshare`를 실행하세요. 이후 터미널에서도 사용할 수 있도록 안내된 명령을 shell 설정 파일(예: `~/.zshrc` 또는 `~/.bashrc`)에 추가할 수 있습니다. 다른 설치 위치는 `INSTALL_DIR`로 지정할 수 있습니다.
+
+기존 설치는 이동하거나 삭제하지 않습니다. PATH에서 이전 실행 파일이 우선하면 설치 프로그램이 해당 위치를 표시합니다. 새 설치 디렉터리를 PATH 앞에 두세요. 보호된 사용자 지정 디렉터리는 여전히 `sudo`가 필요할 수 있습니다.
+
+시스템 전체에서 공유하는 설치가 필요하면:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/runkids/skillshare/main/install.sh | INSTALL_DIR=/usr/local/bin sh
+```
+
 **Windows (PowerShell):**
 ```powershell
 irm https://raw.githubusercontent.com/runkids/skillshare/main/install.ps1 | iex

@@ -22,9 +22,11 @@ Add two things to your `.devcontainer/devcontainer.json`:
 
 ```json
 {
-  "postCreateCommand": "curl -fsSL https://raw.githubusercontent.com/runkids/skillshare/main/install.sh | sh && skillshare init --no-copy --all-targets --no-skill && skillshare sync"
+  "postCreateCommand": "curl -fsSL https://raw.githubusercontent.com/runkids/skillshare/main/install.sh | sh && export PATH=\"$HOME/.local/bin:$PATH\" && skillshare init --no-copy --all-targets --no-skill && skillshare sync"
 }
 ```
+
+The PATH export applies to this setup command. For later terminals, add `export PATH="$HOME/.local/bin:$PATH"` to your shell config inside the container (such as `~/.bashrc`).
 
 That's it. When a team member opens the project in VS Code and clicks "Reopen in Container":
 
@@ -46,7 +48,7 @@ Then commit and update `postCreateCommand` to also sync project skills:
 
 ```json
 {
-  "postCreateCommand": "curl -fsSL https://raw.githubusercontent.com/runkids/skillshare/main/install.sh | sh && skillshare init --no-copy --all-targets --no-skill && skillshare sync && skillshare sync -p"
+  "postCreateCommand": "curl -fsSL https://raw.githubusercontent.com/runkids/skillshare/main/install.sh | sh && export PATH=\"$HOME/.local/bin:$PATH\" && skillshare init --no-copy --all-targets --no-skill && skillshare sync && skillshare sync -p"
 }
 ```
 

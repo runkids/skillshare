@@ -86,7 +86,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: curl -fsSL https://raw.githubusercontent.com/runkids/skillshare/main/install.sh | sh
+      - run: |
+          curl -fsSL https://raw.githubusercontent.com/runkids/skillshare/main/install.sh | sh
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
       - run: skillshare init --no-copy --all-targets --no-git --no-skill --source ./skills
       - run: skillshare audit --threshold high --format json
       - run: skillshare sync --dry-run

@@ -25,9 +25,11 @@ skillshare はこのワークフローに自然に組み込めます。`postCrea
 
 ```json
 {
-  "postCreateCommand": "curl -fsSL https://raw.githubusercontent.com/runkids/skillshare/main/install.sh | sh && skillshare init --no-copy --all-targets --no-skill && skillshare sync"
+  "postCreateCommand": "curl -fsSL https://raw.githubusercontent.com/runkids/skillshare/main/install.sh | sh && export PATH=\"$HOME/.local/bin:$PATH\" && skillshare init --no-copy --all-targets --no-skill && skillshare sync"
 }
 ```
+
+この PATH 設定はセットアップコマンド内にのみ適用されます。今後のターミナルでも使えるよう、コンテナ内の shell 設定ファイル（`~/.bashrc` など）に `export PATH="$HOME/.local/bin:$PATH"` を追加してください。
 
 これだけです。チームメンバーが VS Code でプロジェクトを開き「Reopen in Container」をクリックすると:
 
@@ -50,7 +52,7 @@ skillshare install your-org/team-skills -p
 
 ```json
 {
-  "postCreateCommand": "curl -fsSL https://raw.githubusercontent.com/runkids/skillshare/main/install.sh | sh && skillshare init --no-copy --all-targets --no-skill && skillshare sync && skillshare sync -p"
+  "postCreateCommand": "curl -fsSL https://raw.githubusercontent.com/runkids/skillshare/main/install.sh | sh && export PATH=\"$HOME/.local/bin:$PATH\" && skillshare init --no-copy --all-targets --no-skill && skillshare sync && skillshare sync -p"
 }
 ```
 

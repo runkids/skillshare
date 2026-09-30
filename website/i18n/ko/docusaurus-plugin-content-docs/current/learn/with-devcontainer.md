@@ -22,9 +22,11 @@ skillshare는 이 워크플로우에 자연스럽게 맞아 들어갑니다. `po
 
 ```json
 {
-  "postCreateCommand": "curl -fsSL https://raw.githubusercontent.com/runkids/skillshare/main/install.sh | sh && skillshare init --no-copy --all-targets --no-skill && skillshare sync"
+  "postCreateCommand": "curl -fsSL https://raw.githubusercontent.com/runkids/skillshare/main/install.sh | sh && export PATH=\"$HOME/.local/bin:$PATH\" && skillshare init --no-copy --all-targets --no-skill && skillshare sync"
 }
 ```
+
+이 PATH 설정은 해당 설정 명령에만 적용됩니다. 이후 터미널에서도 사용할 수 있도록 컨테이너 안의 shell 설정 파일(예: `~/.bashrc`)에 `export PATH="$HOME/.local/bin:$PATH"`를 추가하세요.
 
 이게 전부입니다. 팀원이 VS Code에서 프로젝트를 열고 "Reopen in Container"를 클릭하면:
 
@@ -46,7 +48,7 @@ skillshare install your-org/team-skills -p
 
 ```json
 {
-  "postCreateCommand": "curl -fsSL https://raw.githubusercontent.com/runkids/skillshare/main/install.sh | sh && skillshare init --no-copy --all-targets --no-skill && skillshare sync && skillshare sync -p"
+  "postCreateCommand": "curl -fsSL https://raw.githubusercontent.com/runkids/skillshare/main/install.sh | sh && export PATH=\"$HOME/.local/bin:$PATH\" && skillshare init --no-copy --all-targets --no-skill && skillshare sync && skillshare sync -p"
 }
 ```
 
