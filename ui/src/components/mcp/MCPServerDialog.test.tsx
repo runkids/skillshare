@@ -24,6 +24,12 @@ describe('MCP server dialog', () => {
     renderDialog({ initial: { name: 'docs', server: { url: 'https://example.com/mcp', targets: ['pi'] } } });
     expect(screen.getByRole('combobox', { name: 'Tool exposure' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Pi MCP · Official documentation' })).toBeInTheDocument();
+    // Help sits behind keyboard-reachable info icons, not in lines under the fields.
+    expect(screen.getByRole('button', { name: 'About Pi settings' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'About tool exposure' })).toBeInTheDocument();
+    expect(screen.queryByText(/Pi ≥ 0.99.0 includes MCP/)).not.toBeInTheDocument();
+    screen.getByRole('button', { name: 'About Pi settings' }).focus();
+    expect(await screen.findByRole('tooltip')).toHaveTextContent(/Pi ≥ 0.99.0 includes MCP.*~\/\.pi\/agent\/mcp\.json/);
     expect(screen.queryByRole('combobox', { name: 'Pi MCP mode' })).not.toBeInTheDocument();
     expect(screen.queryByRole('checkbox', { name: 'Remove cleared settings from Pi' })).not.toBeInTheDocument();
     expect(screen.queryByText('Direct tools')).not.toBeInTheDocument();
