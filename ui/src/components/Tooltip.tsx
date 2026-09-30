@@ -15,7 +15,8 @@ const OFFSET = 12;
 const MARGIN = 8;
 
 export default function Tooltip({ children, content, side = 'bottom', followCursor, delay = 200, block }: TooltipProps) {
-  const [pos, setPos] = useState<{ x: number; y: number } | null>(null);
+  // `above` is where the tip's bottom edge goes when it does not fit below its anchor.
+  const [pos, setPos] = useState<{ x: number; y: number; above?: number } | null>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   const visibleRef = useRef(false);
   const tooltipRef = useRef<HTMLDivElement>(null);
@@ -36,7 +37,7 @@ export default function Tooltip({ children, content, side = 'bottom', followCurs
     let y = pos.y;
     if (x + w > vw - MARGIN) x = vw - MARGIN - w;
     if (x < MARGIN) x = MARGIN;
-    if (y + h > vh - MARGIN) y = pos.y - h - OFFSET * 2;
+    if (y + h > vh - MARGIN) y = pos.above !== undefined ? pos.above - h : pos.y - h - OFFSET * 2;
     if (y < MARGIN) y = MARGIN;
 
     el.style.left = `${x}px`;
@@ -60,6 +61,7 @@ export default function Tooltip({ children, content, side = 'bottom', followCurs
         setPos({
           x: rect.left,
           y: side === 'top' ? rect.top - 4 : rect.bottom + 4,
+          above: rect.top - 4,
         });
       }, delay);
     }
@@ -93,7 +95,8 @@ export default function Tooltip({ children, content, side = 'bottom', followCurs
       <span className={block ? 'block' : undefined} onMouseEnter={show} onMouseLeave={hide} onMouseMove={followCursor ? move : undefined} onFocus={followCursor ? undefined : show} onBlur={hide}>
         {children}
       </span>
-      {pos && createPortal(
+      {/* No content leaves the wrapper in place, so a caller can keep its tree stable while the text loads. */}
+      {pos && content && createPortal(
         <div
           ref={tooltipRef}
           role="tooltip"

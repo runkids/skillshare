@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Info, X } from 'lucide-react';
 import { hooksApi } from '../../api/hooks';
@@ -6,6 +6,7 @@ import { useI18n } from '../../i18n';
 import Button from '../Button';
 import DialogShell from '../DialogShell';
 import Spinner from '../Spinner';
+import Tooltip from '../Tooltip';
 import HooksPreview from './HooksPreview';
 import { joinList } from '../targets/targetView';
 import { hookLabel, rootPlan, writes } from './hooksView';
@@ -28,11 +29,7 @@ export default function HooksRemoveDialog({ name, project, onClose, onSaved }: P
   const targetText = targets.length > 3 ? t('hooks.removeTargetCount', { count: targets.length }) : joinList(targets, locale);
   // "Remove and sync" writes the whole scope, so other hooks' pending changes go out with it.
   const others = [...new Set(shown?.changes.filter((c) => c.name !== name && writes(c)).map((c) => c.name))];
-  const choices = targets.length > 0 && [
-    ['mcp.removeSync', 'hooks.removeChoiceSync'],
-    ['mcp.removeSourceOnly', 'hooks.removeChoiceSource'],
-    ['mcp.removeUnmanage', 'hooks.removeChoiceUnmanage'],
-  ];
+  const tipId = useId();
 
   // unmanage keeps the target entries and forgets them, so it never syncs.
   const save = async (sync: boolean, unmanage = false) => {
@@ -60,13 +57,6 @@ export default function HooksRemoveDialog({ name, project, onClose, onSaved }: P
       </div>
       <div className="db">
         <p className="text-[13px]">{t('hooks.removeDesc', { name })}</p>
-        {choices && (
-          <dl className="grid grid-cols-[max-content_1fr] gap-x-3 gap-y-1 text-[13px]">
-            {choices.map(([button, consequence]) => (
-              <div key={button} className="contents"><dt className="font-semibold">{t(button)}</dt><dd>{t(consequence, { targets: targetText })}</dd></div>
-            ))}
-          </dl>
-        )}
         {others.length > 0 && <p className="text-[13px] text-ink-2">{t(others.length === 1 ? 'hooks.removeOthers.one' : 'hooks.removeOthers.other', { count: others.length, names: joinList(others, locale) })}</p>}
         {isPending ? <Spinner size="sm" /> : shown && <HooksPreview plan={shown} />}
         {(error || saveError) && <div className="ss-note bad" role="alert"><span className="flex-1">{error?.message ?? saveError}</span></div>}
@@ -75,9 +65,21 @@ export default function HooksRemoveDialog({ name, project, onClose, onSaved }: P
       <div className="df">
         <Button variant="ghost" onClick={onClose} disabled={busy}>{t('common.cancel')}</Button>
         <span className="flex-1" />
-        <Button variant="secondary" disabled={!plan} loading={busy} onClick={() => void save(false, true)}>{t('mcp.removeUnmanage')}</Button>
-        <Button variant="secondary" disabled={!plan} loading={busy} onClick={() => void save(false)}>{t('mcp.removeSourceOnly')}</Button>
-        <Button variant="primary" disabled={!plan || blocked} loading={busy} onClick={() => void save(true)}>{t('mcp.removeSync')}</Button>
+        {([
+          ['unmanage', 'mcp.removeUnmanage', 'hooks.removeChoiceUnmanage', !plan, () => save(false, true)],
+          ['source', 'mcp.removeSourceOnly', 'hooks.removeChoiceSource', !plan, () => save(false)],
+          ['sync', 'mcp.removeSync', 'hooks.removeChoiceSync', !plan || blocked, () => save(true)],
+        ] as const).map(([key, label, consequence, disabled, run]) => {
+          // What each choice does to the target files, on hover and focus; screen readers get it as the button's description.
+          // The wrapper stays while the preview loads, so the button is not remounted when the text arrives.
+          const note = targets.length > 0 ? t(consequence, { targets: targetText }) : '';
+          return (
+            <Tooltip key={key} content={note}>
+              <Button variant={key === 'sync' ? 'primary' : 'secondary'} disabled={disabled} loading={busy} aria-describedby={note ? `${tipId}-${key}` : undefined} onClick={() => void run()}>{t(label)}</Button>
+              {note && <span id={`${tipId}-${key}`} className="sr-only">{note}</span>}
+            </Tooltip>
+          );
+        })}
       </div>
     </DialogShell>
   );

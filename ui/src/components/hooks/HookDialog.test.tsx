@@ -206,7 +206,10 @@ describe('hooks remove', () => {
     vi.mocked(hooksApi.configure).mockResolvedValue({ applied: [], backupIds: [] });
     const onSaved = vi.fn();
     wrap(<HooksRemoveDialog name="guard" onClose={vi.fn()} onSaved={onSaved} />);
-    expect(await screen.findByText('Leaves the files for now, but the next sync also deletes it from the Claude settings files.')).toBeInTheDocument();
+    const sourceOnly = screen.getByRole('button', { name: 'Remove from source only' });
+    await waitFor(() => expect(sourceOnly).toHaveAccessibleDescription('Leaves the files for now, but the next sync also deletes it from the Claude settings files.'));
+    await user.hover(sourceOnly);
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('Leaves the files for now, but the next sync also deletes it from the Claude settings files.');
     await user.click(screen.getByRole('button', { name: 'Stop managing' }));
     await waitFor(() => expect(onSaved).toHaveBeenCalledWith(true));
     expect(hooksApi.configure).toHaveBeenCalledWith({ name: 'guard', remove: true, unmanage: true }, 'kept', false);
@@ -220,7 +223,8 @@ describe('hooks remove', () => {
       { target: 'claude', path: '/home/u/claude.json', name: 'fmt', action: 'unchanged' },
     ] });
     wrap(<HooksRemoveDialog name="guard" onClose={vi.fn()} onSaved={vi.fn()} />);
-    expect(await screen.findByText('Deletes what it wrote from the 4 target settings files now.')).toBeInTheDocument();
-    expect(screen.getByText('Syncing also writes 1 other pending hook: lint.')).toBeInTheDocument();
+    expect(await screen.findByText('Syncing also writes 1 other pending hook: lint.')).toBeInTheDocument();
+    screen.getByRole('button', { name: 'Remove and sync' }).focus();
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('Deletes what it wrote from the 4 target settings files now.');
   });
 });
