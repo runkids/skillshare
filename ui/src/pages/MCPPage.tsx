@@ -70,7 +70,7 @@ function MCPHeader({ source, onImport, onAdd }: { source?: { path: string; confi
       title="MCP"
       subtitle={t('mcp.subtitle')}
       actions={<span className="flex items-center gap-2.5" data-tour="mcp-actions">
-        {source && <SourcePathButton path={source.path} configPath={source.configPath} />}
+        {source && <SourcePathButton path={source.path} configPath={source.configPath} section="mcp" />}
         <Button variant="secondary" onClick={onImport}><Download size={15} />{t('mcp.importFromTarget')}</Button>
         <Button variant="primary" onClick={onAdd}><Plus size={15} />{t('mcp.addServer')}</Button>
       </span>}

@@ -102,7 +102,7 @@ export default function HooksScope({ data, project, header }: Props) {
   const add = () => setEditing('');
   const actions = (
     <span className="flex flex-wrap items-center justify-end gap-2.5">
-      {!project && <SourcePathButton path={data.source.path} configPath={data.source.configPath} />}
+      {!project && <SourcePathButton path={data.source.path} configPath={data.source.configPath} section="hooks" />}
       {backups.length > 0 ? <Button variant="ghost" onClick={() => setBackupsOpen(true)}><Archive size={15} />{t('hooks.backupsButton')}</Button> : null}
       <Button variant="secondary" onClick={() => setImporting(true)}><Download size={15} />{t('hooks.import')}</Button>
       <Button variant="primary" onClick={add}><Plus size={15} />{t('hooks.add')}</Button>
