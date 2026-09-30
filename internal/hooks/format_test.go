@@ -67,3 +67,14 @@ func TestPlanFiles_AfterIsWhatSyncWrites(t *testing.T) {
 		t.Fatalf("unchanged files are skipped: %+v", p.Files())
 	}
 }
+
+func TestSync_OneLineArraysStayOnOneLine(t *testing.T) {
+	e := newEnv(t)
+	path := filepath.Join(e.home, ".claude", "settings.json")
+	write(t, path, "{\n  \"hooks\": {\n    \"Stop\": [{\"hooks\": [{\"type\": \"command\", \"command\": \"mine\"}]}]\n  }\n}\n")
+	save(t, e.service, Mutation{Name: "stop", Entry: entry(t, stopEntry)})
+	want := "{\n  \"hooks\": {\n    \"Stop\": [{\"hooks\": [{\"type\": \"command\", \"command\": \"mine\"}]}, {\"hooks\":[{\"command\":\"echo stop\",\"type\":\"command\"}]}]\n  }\n}\n"
+	if got := read(t, path); got != want {
+		t.Fatalf("appended:\n%s", got)
+	}
+}

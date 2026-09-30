@@ -326,8 +326,13 @@ func TestHooksImport_TakesOverAndPlansShowEventDetail(t *testing.T) {
 	settings := filepath.Join(sb.Home, ".claude", "settings.json")
 	sb.WriteFile(settings, `{"model":"opus","hooks":{"Stop":[{"hooks":[{"type":"command","command":"echo stop","timeout":5}]}],"PreToolUse":[{"matcher":"Bash","hooks":[{"type":"command","command":"echo guard"}]}]}}`)
 
+	r := sb.RunCLI("hooks", "import", "--from", "claude", "-g")
+	r.AssertSuccess(t)
+	if n := strings.Count(r.Stdout, "takes over the existing registrations"); n != 1 {
+		t.Fatalf("the shared import explanation must be printed once, got %d:\n%s", n, r.Stdout)
+	}
 	sb.RunCLI("hooks", "import", "--from", "claude", "claude-stop", "-g").AssertSuccess(t)
-	r := sb.RunCLI("hooks", "sync", "--dry-run", "-g")
+	r = sb.RunCLI("hooks", "sync", "--dry-run", "-g")
 	r.AssertSuccess(t)
 	r.AssertOutputContains(t, "adopt")
 	r.AssertOutputNotContains(t, "conflict")

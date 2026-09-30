@@ -206,6 +206,15 @@ func (n *nativeDoc) edit(ops []elementOp, track map[string]map[int]string, drop 
 				ids[i] = key
 			}
 		}
+		// A one-line array keeps its elements on that line.
+		inline := len(arr.Elements) > 0 && !bytes.Contains(hujson.Value{Value: arr}.Pack(), []byte("\n"))
+		layout := func(v any) (hujson.Value, error) {
+			value, err := formatted(v, indent, depth+1)
+			if inline {
+				value.Minimize()
+			}
+			return value, err
+		}
 		removed := map[int]bool{}
 		var appended []elementOp
 		for _, op := range byEvent[event] {
@@ -217,7 +226,7 @@ func (n *nativeDoc) edit(ops []elementOp, track map[string]map[int]string, drop 
 			case op.Value == nil:
 				removed[op.Index] = true
 			default:
-				value, err := formatted(op.Value, indent, depth+1)
+				value, err := layout(op.Value)
 				if err != nil {
 					return nil, nil, err
 				}
@@ -235,11 +244,14 @@ func (n *nativeDoc) edit(ops []elementOp, track map[string]map[int]string, drop 
 			}
 		}
 		for _, op := range appended {
-			value, err := formatted(op.Value, indent, depth+1)
+			value, err := layout(op.Value)
 			if err != nil {
 				return nil, nil, err
 			}
 			value.BeforeExtra = hujson.Extra("\n" + strings.Repeat(indent, depth+1))
+			if inline {
+				value.BeforeExtra = hujson.Extra(" ")
+			}
 			kept = append(kept, value)
 			keptIDs = append(keptIDs, op.Key)
 		}
@@ -249,7 +261,7 @@ func (n *nativeDoc) edit(ops []elementOp, track map[string]map[int]string, drop 
 			continue
 		}
 		arr.Elements = kept
-		if len(appended) > 0 && !bytes.Contains(arr.AfterExtra, []byte("\n")) {
+		if len(appended) > 0 && !inline && !bytes.Contains(arr.AfterExtra, []byte("\n")) {
 			arr.AfterExtra = hujson.Extra("\n" + strings.Repeat(indent, depth))
 		}
 		for i, id := range keptIDs {

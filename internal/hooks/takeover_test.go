@@ -113,3 +113,35 @@ func TestPlan_NarrowedEntryIsAnUpdateWithEventDetail(t *testing.T) {
 		t.Fatalf("leaving the file entirely is a remove: %+v %+v", c, c.Events)
 	}
 }
+
+func TestReplace_OwnedRegistrationEditedOutsideIsReplacedInPlace(t *testing.T) {
+	for _, viaSync := range []bool{false, true} {
+		e := newEnv(t)
+		path := filepath.Join(e.home, ".claude", "settings.json")
+		write(t, path, `{"hooks":{"Stop":[{"hooks":[{"type":"command","command":"say done"}]}]}}`)
+		c := importOne(t, e.service, "claude", "claude-stop")
+		save(t, e.service, Mutation{Name: c.Name, Entry: &c.Entry, Adopt: true})
+		write(t, path, strings.Replace(read(t, path), "say done", "say finished", 1))
+		if p, _ := e.service.Preview(); !p.Blocked {
+			t.Fatalf("an outside edit is a conflict: %s", actions(p))
+		}
+		m := Mutation{Name: c.Name, Entry: &c.Entry, Replace: true}
+		if viaSync {
+			m = Mutation{Name: c.Name, Replace: true}
+		}
+		p, err := e.service.PreviewMutation(m)
+		must(t, err)
+		files := p.Files()
+		save(t, e.service, m)
+		got := events(t, path, true)["Stop"]
+		if len(got) != 1 || !strings.Contains(read(t, path), "say done") {
+			t.Fatalf("replace must take the edited group over in place (sync=%t):\n%s", viaSync, read(t, path))
+		}
+		if len(files) != 1 || files[0].After != read(t, path) {
+			t.Fatalf("preview after must match the written file: %+v", files)
+		}
+		if p, _ := e.service.Preview(); actions(p) != "claude:claude-stop:unchanged" {
+			t.Fatalf("after replace: %s", actions(p))
+		}
+	}
+}

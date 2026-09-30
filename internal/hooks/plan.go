@@ -618,9 +618,18 @@ func (pl *planner) planShared(path, target, root string, want []wantElement, sta
 				continue
 			}
 			op := elementOp{Key: key, Event: w.event, Index: -1, Value: w.value}
-			if target == "antigravity" && len(items) > 0 {
-				// A block has one place: its name.
-				op.Index, op.Before = 0, items[0]
+			if i := r.Index; i < len(items) && taken[w.event][i] == "" {
+				// The edited registration sits where Skillshare last wrote it and no one
+				// owns it: replace it in place rather than adding a second one. For
+				// Antigravity that place is the block's name.
+				op.Index, op.Before = i, items[i]
+				if taken[w.event] == nil {
+					taken[w.event] = map[int]string{}
+				}
+				taken[w.event][i] = key
+			} else if target == "antigravity" && len(items) > 0 {
+				pl.note(target, path, w.root, w.entry, "conflict", "a hook with this name is managed by another Skillshare config")
+				continue
 			}
 			f.ops = append(f.ops, op)
 			p.state.Records[key] = next

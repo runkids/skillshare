@@ -320,15 +320,33 @@ func printHooksCandidates(candidates []hooks.Candidate, asJSON bool) error {
 	if asJSON {
 		return writeJSON(candidates)
 	}
+	// A warning several candidates share is printed once, after the rows.
+	seen := map[string]int{}
 	for _, c := range candidates {
-		switch {
-		case len(c.Problems) > 0:
-			ui.Status(c.Name, "blocked", strings.Join(c.Problems, "; "))
-		case len(c.Warnings) > 0:
-			ui.Status(c.Name, "importable", strings.Join(c.Warnings, "; "))
-		default:
-			ui.Status(c.Name, "importable", "")
+		for _, w := range c.Warnings {
+			seen[w]++
 		}
+	}
+	var shared []string
+	for _, c := range candidates {
+		var own []string
+		for _, w := range c.Warnings {
+			if seen[w] > 1 {
+				if !slices.Contains(shared, w) {
+					shared = append(shared, w)
+				}
+				continue
+			}
+			own = append(own, w)
+		}
+		if len(c.Problems) > 0 {
+			ui.Status(c.Name, "blocked", strings.Join(c.Problems, "; "))
+		} else {
+			ui.Status(c.Name, "importable", strings.Join(own, "; "))
+		}
+	}
+	for _, w := range shared {
+		ui.Info("%s%s", strings.ToUpper(w[:1]), w[1:]+".")
 	}
 	if len(candidates) == 0 {
 		ui.Info("No hooks found to import.")
