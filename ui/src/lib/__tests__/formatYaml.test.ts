@@ -10,6 +10,12 @@ describe('formatYaml', () => {
     expect(parse(formatted)).toEqual(parse(source));
     expect(formatYaml(formatted)).toBe(formatted);
   });
+  it('expands nested flow collections on request and keeps short flow lists', () => {
+    const source = 'targets: [claude, codex]\nempty: {}\nhooks:\n  entries: {guard: {bindings: {claude: {events: {Stop: [{command: echo hi}]}}}}}\n';
+    const formatted = formatYaml(source, { expandNested: true });
+    expect(formatted).toBe('targets: [claude, codex]\nempty: {}\nhooks:\n  entries:\n    guard:\n      bindings:\n        claude:\n          events:\n            Stop:\n              - command: echo hi\n');
+    expect(parse(formatted)).toEqual(parse(source));
+  });
   it('rejects invalid YAML instead of replacing it', () => {
     expect(() => formatYaml('mcp: [')).toThrow();
   });

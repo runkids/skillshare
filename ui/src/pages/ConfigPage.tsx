@@ -125,7 +125,7 @@ export default function ConfigPage() {
   // the user sees it before committing.
   const handleBeautify = () => {
     try {
-      const formatted = formatYaml(raw);
+      const formatted = formatYaml(raw, { expandNested: true });
       if (formatted === raw) {
         toast(t('config.beautify.noChange'), 'info');
         return;
