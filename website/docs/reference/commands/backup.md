@@ -120,6 +120,7 @@ The reason says what skillshare was about to do:
 | `history` | `collect` | Collecting a target's changes into the shared file |
 | `history` | `attach` | The shared file replaced it when first attached |
 | `history` | `restore` | Restoring an older version |
+| `history` | `migrate` | A sync saving the config without the MCP settings 0.23.0 retired. See [Upgrading Pi from 0.22](/docs/reference/commands/mcp#pi-migration) |
 | `drift` | `overwrite` | You edited the file directly and chose **Overwrite** |
 | `drift` | `mode` | Switching the location's mode |
 | `drift` | `restore` | Restoring the location |

@@ -11,8 +11,8 @@ configuration. It does not run a gateway or keep a background server alive.
 Supported MCP clients include Claude Code, Codex (the CLI, the IDE extension and the
 ChatGPT desktop app share one config), Cursor, VS Code, OpenCode,
 Kilo Code, Grok CLI, Antigravity (AGY), Amp, Claude Desktop, Cline, Copilot CLI, Factory,
-Gemini CLI, Goose, Junie, Kiro, LM Studio, Warp and Windsurf. Pi ≥ 0.99.0 includes MCP; choose built-in or an extension
-[explicitly](/docs/reference/commands/mcp#pi-choose-your-mcp-extension). See the
+Gemini CLI, Goose, Junie, Kiro, LM Studio, Warp and Windsurf, plus Pi ≥ 0.99.0 through
+its [built-in MCP](/docs/reference/commands/mcp#pi). See the
 [destination and authentication limits](/docs/reference/commands/mcp#native-destinations)
 for each client. The dashboard shows the clients available in your current scope.
 
@@ -52,17 +52,18 @@ In the dashboard, **Add server** takes either shape: fill in the fields, or past
 a configuration. The paste side also loads a file, which is the browser's
 equivalent of `mcp import --file`. Pasted JSON is recognized automatically; for
 TOML, choose whether it came from Codex or Grok. When the paste holds one server
-and Pi is ticked, the dialog also shows the Pi settings of the form: mode, tool
-exposure and other Pi settings. **Import from a target** is
+and Pi is ticked, the dialog also shows the Pi settings of the form: tool exposure and
+other Pi settings. **Import from a target** is
 separate and reads the servers an installed Agent already has. Either way the
 dashboard uses the same source, validation, preview and conflict rules as the
 CLI. **Sync MCP**, in the MCP page's Sync box, writes the MCP config files only. The
 Sync page also has **Sync all resources** for skills, agents, extras and MCP.
 
-For Pi, the import source menu offers built-in, `pi-mcp-adapter`, and
-`pi-mcp-extension` separately and reads only the selected file. Built-in and
-extension use `mcp.json`; adapter uses `mcp-adapter.json`. The displayed paths
-follow the current scope, `PI_CODING_AGENT_DIR`, and any account directory.
+For Pi, the import source menu lists Pi's `mcp.json` and, for servers set up with
+`pi-mcp-adapter` before 0.23.0, its `mcp-adapter.json`; each reads only that file.
+The adapter file is only read: sync writes the imported servers to Pi's `mcp.json`.
+The displayed paths follow the current scope, `PI_CODING_AGENT_DIR`, and any account
+directory.
 Project imports read `.pi/` inside that project. Keep personal servers and
 credentials in the global file; use project files only in trusted projects.
 
@@ -103,6 +104,22 @@ You usually do not need to set `transport`; Skillshare infers it from `command`
 or `url`. A URL can point to a service on your own computer or a remote service.
 Use the provider's actual MCP endpoint, not an ordinary website URL. Legacy SSE
 configuration is rejected rather than silently converted.
+
+## Limit which tools reach the model
+
+A server can offer many tools. Set `tools` once to keep only some of them, or to hide
+some, and Skillshare writes it in each Agent's own format:
+
+```bash
+skillshare mcp edit github --tools-allow 'get_*,search_code' --tools-deny get_secret
+skillshare sync mcp --dry-run
+```
+
+In the dashboard, open the server and use its **Tools** section; **Load tools from
+server** lists the tool names to pick from. Pi applies the whole policy; Codex and
+Copilot CLI apply exact names; other Agents do not apply it. The preview and
+`skillshare mcp check` name each Agent that leaves part of it out. See
+[Tool policy](/docs/reference/commands/mcp#tool-policy).
 
 ## Keep everything in one file
 
@@ -252,8 +269,8 @@ skillshare sync mcp
 In the dashboard, open it from the project folder with `skillshare ui` and choose
 **Turn off a global server**, the button beside **Add server**.
 
-This works with Claude Code, OpenCode, Kilo Code, and Pi with `pi-mcp-adapter`. Other Agents
-are refused. For Pi, add `--pi-extension pi-mcp-adapter`. The
+This works with Claude Code, OpenCode and Kilo Code. Other Agents, Pi included, are
+refused. The
 [command reference](/docs/reference/commands/mcp#turn-off-a-global-server-in-one-project)
 shows what is written for each Agent and why the others are not supported.
 
