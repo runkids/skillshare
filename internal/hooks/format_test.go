@@ -98,3 +98,15 @@ func TestSync_ReplacedElementKeepsKeyOrderAndSpacing(t *testing.T) {
 		})
 	}
 }
+
+func TestSave_EntriesAddedToAnEmptiedSectionAreBlockStyle(t *testing.T) {
+	e := newEnv(t)
+	// An emptied section, plus an entry already squeezed onto one line by the earlier bug.
+	write(t, e.config, "targets: {}\nhooks:\n  entries: {old: {bindings: {}}}\n")
+	if _, err := e.service.Mutate(Mutation{Name: "stop", Entry: entry(t, stopEntry)}, "", false); err != nil {
+		t.Fatal(err)
+	}
+	if got := read(t, e.config); strings.Contains(got, "entries: {") || strings.Contains(got, "old: {") || !strings.Contains(got, "\n    stop:\n") {
+		t.Fatalf("entries not written in block style:\n%s", got)
+	}
+}

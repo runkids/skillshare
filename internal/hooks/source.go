@@ -308,6 +308,9 @@ func (s *Source) save() error {
 			drop(section, "projects")
 		}
 	}
+	// Empty mappings are encoded in flow style, and entries added to one would inherit it,
+	// so the section is expanded like the MCP section to stay readable in the editor.
+	blockStyle(section)
 	data, err := utils.MarshalYAML(&s.doc)
 	if err != nil {
 		return err
