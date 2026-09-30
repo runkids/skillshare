@@ -1,7 +1,8 @@
 import { useMemo, useRef, useState } from 'react';
+import type { ReactNode } from 'react';
 import type { CompletionSource } from '@codemirror/autocomplete';
 import type { Diagnostic } from '@codemirror/lint';
-import { Plus, SquareTerminal, WandSparkles, X } from 'lucide-react';
+import { Maximize2, Minimize2, Plus, SquareTerminal, WandSparkles, X } from 'lucide-react';
 import { useT } from '../../i18n';
 import CodeEditor from '../CodeEditor';
 import { Select } from '../Select';
@@ -165,6 +166,40 @@ function ScriptFiles({ name, draft, onChange, disabled }: Pick<Props, 'name' | '
   );
 }
 
+/**
+ * An editor that grows to nearly the whole window, over the dialog, and back. It stays the same element, so the
+ * editor keeps its text, cursor, lint and completion, and ⌘S still saves the dialog. Esc collapses it once the
+ * editor has used the key (closing its completion list) or had no use for it.
+ */
+function Expandable({ title, tools, children }: { title: string; tools: (expanded: boolean) => ReactNode; children: (expanded: boolean) => ReactNode }) {
+  const t = useT();
+  const [expanded, setExpanded] = useState(false);
+  return (
+    <>
+      {expanded && <div className="fixed inset-0 z-[70] bg-[rgba(20,19,18,.36)]" aria-hidden="true" onClick={() => setExpanded(false)} />}
+      <div
+        role={expanded ? 'group' : undefined}
+        aria-label={expanded ? title : undefined}
+        className={expanded ? 'fixed inset-6 z-[71] flex flex-col gap-2.5 rounded-[14px] border border-line bg-surface p-4 shadow-[var(--sh-dialog)]' : 'ss-fld'}
+        onKeyDown={(e) => {
+          if (!expanded || e.key !== 'Escape' || e.defaultPrevented) return;
+          e.preventDefault();
+          setExpanded(false);
+        }}
+      >
+        <div className="flex items-center gap-3">
+          {expanded && <span className="shrink-0 text-[13px] font-semibold">{title}</span>}
+          {tools(expanded)}
+          <button type="button" className="flex shrink-0 items-center gap-1.5 text-xs font-semibold text-ink-2 hover:text-ink" aria-expanded={expanded} onClick={() => setExpanded(!expanded)}>
+            {expanded ? <Minimize2 size={13} /> : <Maximize2 size={13} />}{t(expanded ? 'hooks.collapse' : 'hooks.expand')}
+          </button>
+        </div>
+        {children(expanded)}
+      </div>
+    </>
+  );
+}
+
 /** One target's part of a hook: command targets edit events, code targets edit their native extension. */
 export default function HookBindingEditor({ agent, name, draft, check, onChange, disabled, catalog }: Props) {
   const t = useT();
@@ -175,11 +210,14 @@ export default function HookBindingEditor({ agent, name, draft, check, onChange,
   if (isCodeAgent(agent)) {
     return (
       <div className="flex flex-col gap-3.5">
-        <div className="ss-fld">
-          <span className="text-[13px] font-semibold">{t('hooks.code')}</span>
-          <CodeEditor value={draft.code} onChange={(code) => onChange({ ...draft, code })} lang="typescript" ariaLabel={`${hookLabel(agent)} ${t('hooks.code')}`} placeholder={t('hooks.codePlaceholder')} disabled={disabled} minHeight="240px" maxHeight="480px" />
-          {check.codeMissing ? <span className="hp !text-bad">{t('hooks.codeRequired')}</span> : <span className="hp">{t('hooks.codeHint', { agent: hookLabel(agent), name: name || '<name>' })}</span>}
-        </div>
+        <Expandable title={`${hookLabel(agent)} ${t('hooks.code')}`} tools={(expanded) => <span className="flex-1 text-[13px] font-semibold">{!expanded && t('hooks.code')}</span>}>
+          {(expanded) => (
+            <>
+              <CodeEditor value={draft.code} onChange={(code) => onChange({ ...draft, code })} lang="typescript" ariaLabel={`${hookLabel(agent)} ${t('hooks.code')}`} placeholder={t('hooks.codePlaceholder')} disabled={disabled} minHeight="240px" maxHeight="480px" fill={expanded} className={expanded ? 'min-h-0 flex-1' : ''} />
+              {check.codeMissing ? <span className="hp !text-bad">{t('hooks.codeRequired')}</span> : <span className="hp">{t('hooks.codeHint', { agent: hookLabel(agent), name: name || '<name>' })}</span>}
+            </>
+          )}
+        </Expandable>
         <p className="text-xs leading-normal text-ink-2">{t('hooks.codeVersionNote', { agent: hookLabel(agent) })}</p>
       </div>
     );
@@ -208,32 +246,43 @@ export default function HookBindingEditor({ agent, name, draft, check, onChange,
           {errors.length > 0 && <span className="ss-cnt !bg-bad !text-surface" aria-label={t('hooks.errorCount', { count: String(errors.length) })}>{errors.length}</span>}
         </button>
       </div>
+      {native && stuck && <div className="ss-note bad" role="alert"><span className="flex-1">{stuck}</span></div>}
       {native ? (
-        <div className="ss-fld">
-          <div className="flex items-center justify-between gap-2">
-            <span className="hp">{t('hooks.nativeHint', { agent: hookLabel(agent) })}</span>
-            <button type="button" className="flex shrink-0 items-center gap-1.5 text-xs font-semibold text-ink-2 hover:text-ink disabled:opacity-50" disabled={disabled || Boolean(parsed.error)} onClick={() => onChange({ ...draft, native: formatJson(draft.native) })}>
-              <WandSparkles size={13} />{t('hooks.format')}
-            </button>
-          </div>
-          <CodeEditor
-            value={draft.native}
-            onChange={(text) => { setStuck(''); onChange({ ...draft, native: text }); }}
-            lang="json"
-            lint={lint}
-            completions={completions}
-            ariaLabel={`${hookLabel(agent)} ${t('hooks.mode.native')}`}
-            placeholder={'{\n  "PreToolUse": [\n    { "matcher": "Bash", "hooks": [{ "type": "command", "command": "./check.sh", "timeout": 30 }] }\n  ]\n}'}
-            disabled={disabled}
-            minHeight="180px"
-            maxHeight="420px"
-          />
-          {stuck ? <div className="ss-note bad" role="alert"><span className="flex-1">{stuck}</span></div>
-            : problems.slice(0, 3).map((d) => (
-              <span key={`${d.from}:${d.key}`} className={`hp ${d.severity === 'error' ? '!text-bad' : ''}`}>{t('hooks.lint.atLine', { line: String(lineOf(draft.native, d.from)) })} {diagnosticText(t, d)}</span>
-            ))}
-          {!stuck && !parsed.error && !canSimple && <span className="hp">{t('hooks.nativeOnly')}</span>}
-        </div>
+        <Expandable
+          title={`${hookLabel(agent)} ${t('hooks.mode.native')}`}
+          tools={(expanded) => (
+            <>
+              <span className="hp flex-1">{t('hooks.nativeHint', { agent: hookLabel(agent) })}</span>
+              {expanded && errors.length > 0 && <span className="ss-cnt shrink-0 !bg-bad !text-surface" aria-hidden="true">{errors.length}</span>}
+              <button type="button" className="flex shrink-0 items-center gap-1.5 text-xs font-semibold text-ink-2 hover:text-ink disabled:opacity-50" disabled={disabled || Boolean(parsed.error)} onClick={() => onChange({ ...draft, native: formatJson(draft.native) })}>
+                <WandSparkles size={13} />{t('hooks.format')}
+              </button>
+            </>
+          )}
+        >
+          {(expanded) => (
+            <>
+              <CodeEditor
+                value={draft.native}
+                onChange={(text) => { setStuck(''); onChange({ ...draft, native: text }); }}
+                lang="json"
+                lint={lint}
+                completions={completions}
+                ariaLabel={`${hookLabel(agent)} ${t('hooks.mode.native')}`}
+                placeholder={'{\n  "PreToolUse": [\n    { "matcher": "Bash", "hooks": [{ "type": "command", "command": "./check.sh", "timeout": 30 }] }\n  ]\n}'}
+                disabled={disabled}
+                minHeight="180px"
+                maxHeight="420px"
+                fill={expanded}
+                className={expanded ? 'min-h-0 flex-1' : ''}
+              />
+              {!stuck && problems.slice(0, 3).map((d) => (
+                <span key={`${d.from}:${d.key}`} className={`hp ${d.severity === 'error' ? '!text-bad' : ''}`}>{t('hooks.lint.atLine', { line: String(lineOf(draft.native, d.from)) })} {diagnosticText(t, d)}</span>
+              ))}
+              {!stuck && !parsed.error && !canSimple && <span className="hp">{t('hooks.nativeOnly')}</span>}
+            </>
+          )}
+        </Expandable>
       ) : <SimpleEvents agent={agent} draft={draft} onChange={onChange} disabled={disabled} catalog={catalog} />}
       <ScriptFiles name={name} draft={draft} onChange={onChange} disabled={disabled} />
     </div>

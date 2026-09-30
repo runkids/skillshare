@@ -26,6 +26,10 @@
   --color-warn-bg: var(--warn-bg);
   --color-bad: var(--bad);
   --color-bad-bg: var(--bad-bg);
+  --color-diff-add: var(--diff-add);
+  --color-diff-add-bg: var(--diff-add-bg);
+  --color-diff-del: var(--diff-del);
+  --color-diff-del-bg: var(--diff-del-bg);
   --color-link: var(--accent);
   --color-link-bg: var(--accent-bg);
 

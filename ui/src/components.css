@@ -47,6 +47,9 @@
   --sh-box: 4px 4px 0 #000; --sh-btn: 3px 3px 0 #000; --sh-float: 5px 5px 0 #000; --sh-dialog: 8px 8px 0 #000; --dots: #2B2721;
 }
 
+/* Diffs are the one place the Clean style uses colour: removed lines red, added lines green. */
+:root { --diff-add: var(--ok); --diff-add-bg: var(--ok-bg); --diff-del: var(--bad); --diff-del-bg: var(--bad-bg); }
+
 /* Base */
 body { font: 400 14px/1.45 var(--f); color: var(--ink); background-color: var(--bg); background-image: radial-gradient(var(--dots) 1px, transparent 1px); background-size: 24px 24px; -webkit-font-smoothing: antialiased; font-feature-settings: 'tnum' 1; }
 svg.lucide { flex: none; stroke-width: var(--isw); }

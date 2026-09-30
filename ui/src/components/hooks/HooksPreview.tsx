@@ -10,20 +10,25 @@ import Tooltip from '../Tooltip';
 import { actionLabel, blockedHint, groupByFile, hookLabel, hookMessage, needsTakeover } from './hooksView';
 import { diffLines, eventLabels, foldDiff, lineEvent } from './hookCatalog';
 
-/** A real line diff of one file; unchanged runs fold, and a user's own hooks are marked as untouched. */
+const lineTone = { ' ': 'text-ink-3', '+': 'bg-diff-add-bg text-ink', '-': 'bg-diff-del-bg text-ink' };
+const signTone = { ' ': '', '+': 'text-diff-add', '-': 'text-diff-del' };
+
+/** A real line diff of one file; unchanged runs fold, long lines wrap, and a user's own hooks are marked as untouched on a line of their own. */
 function FileDiff({ file, untouched }: { file: HookFileDiff; untouched: string[] }) {
   const t = useT();
   const lines = foldDiff(diffLines(file.before, file.after));
   return (
-    <div className="max-h-[260px] overflow-auto border-t border-line py-1.5 font-mono text-[12px] leading-[1.7]" aria-label={t('hooks.preview.diff', { path: file.path })}>
+    <div className="max-h-[320px] overflow-y-auto border-t border-line py-1.5 font-mono text-[12px] leading-[1.7]" aria-label={t('hooks.preview.diff', { path: file.path })}>
       {lines.map((line, i) => {
         if ('skip' in line) return <div key={i} className="px-3.5 text-ink-3">{t('hooks.preview.folded', { count: String(line.skip) })}</div>;
         const event = line.op === ' ' ? lineEvent(line.text) : undefined;
         return (
-          <div key={i} className={`flex gap-3 whitespace-pre px-3.5 ${line.op === ' ' ? 'text-ink-3' : line.op === '+' ? 'bg-sunken font-semibold text-ink' : 'bg-sunken text-ink-2 line-through decoration-ink-3'}`}>
-            <span className="w-3 shrink-0 select-none" aria-hidden="true">{line.op === ' ' ? '' : line.op === '+' ? '+' : '−'}</span>
-            <span className="min-w-0">{line.text}</span>
-            {event && untouched.includes(event) && <span className="shrink-0 font-sans text-ink-3">{t('hooks.preview.untouched')}</span>}
+          <div key={i} className={lineTone[line.op]}>
+            <div className="flex gap-3 px-3.5">
+              <span className={`w-3 shrink-0 select-none font-semibold ${signTone[line.op]}`} aria-hidden="true">{line.op === ' ' ? '' : line.op === '+' ? '+' : '−'}</span>
+              <span className="min-w-0 flex-1 whitespace-pre-wrap [overflow-wrap:anywhere]">{line.text}</span>
+            </div>
+            {event && untouched.includes(event) && <div className="pl-[calc(0.875rem+1.5rem)] font-sans text-[11px] text-ink-3">{t('hooks.preview.untouched')}</div>}
           </div>
         );
       })}
@@ -46,6 +51,8 @@ export default function HooksPreview({ plan, unmanaged = [], canTakeOver, onTake
   const mixed = plan.changes.some((c) => c.root) && plan.changes.some((c) => !c.root);
   // Name the hook on a file card only when the plan covers more than one.
   const named = new Set(plan.changes.map((c) => c.name)).size > 1;
+  // Adopting claims registrations already in the file, so its card has no diff and says so.
+  const action = (c: HookChange) => (needsTakeover(c) ? t('hooks.status.unmanaged') : c.action === 'adopt' ? t('hooks.preview.adoptUnchanged') : actionLabel(t, c.action));
   return (
     <div className="flex flex-col gap-3">
       {plan.blocked && <div className="ss-note warn" role="alert"><AlertTriangle size={16} /><span className="flex-1">{blockedHint(t, plan)}</span></div>}
@@ -65,12 +72,12 @@ export default function HooksPreview({ plan, unmanaged = [], canTakeOver, onTake
                 {single && named && <span className="min-w-0 truncate font-mono text-[13px]">{single.name}</span>}
                 <span className="min-w-0 flex-1 truncate font-mono text-xs text-ink-3" title={file.path}>{shortenHome(file.path)}</span>
                 {mixed && <span className="ss-tag shrink-0 !font-sans">{file.root ? t('hooks.preview.project', { name: file.root.split(/[\\/]/).pop() ?? file.root }) : t('hooks.preview.global')}</span>}
-                {single && <span className="shrink-0 text-xs text-ink-2">{needsTakeover(single) ? t('hooks.status.unmanaged') : actionLabel(t, single.action)}</span>}
+                {single && <span className="shrink-0 text-xs text-ink-2">{action(single)}</span>}
                 {single && eventLabels(single).map((l) => <span key={l} className="shrink-0 font-mono text-xs text-ink-2">{l}</span>)}
               </div>
               {file.changes.filter((c) => !single || c.message || c.action === 'conflict').map((c) => (
                 <div key={`${c.name}:${c.action}`} className="flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-line px-3.5 py-2">
-                  {!single && <span className="w-[80px] shrink-0 text-xs text-ink-2">{needsTakeover(c) ? t('hooks.status.unmanaged') : actionLabel(t, c.action)}</span>}
+                  {!single && <span className="min-w-[80px] shrink-0 text-xs text-ink-2">{action(c)}</span>}
                   {!single && <span className="min-w-0 truncate font-mono text-[13px]">{c.name}</span>}
                   {!single && eventLabels(c).map((l) => <span key={l} className="shrink-0 font-mono text-xs text-ink-2">{l}</span>)}
                   <span className="flex-1" />

@@ -90,7 +90,7 @@ export default function HooksScope({ data, project, header }: Props) {
       x: r.left, y: r.bottom + 4,
       items: [
         { key: 'edit', label: t('mcp.edit'), icon: <Pencil size={14} />, onSelect: () => setEditing(name) },
-        { key: 'view', label: t('mcp.viewConfig'), icon: <Eye size={14} />, onSelect: () => setViewing(name) },
+        { key: 'view', label: t('hooks.viewConfig'), icon: <Eye size={14} />, onSelect: () => setViewing(name) },
         ...(scopeChanges(data, project).some((c) => c.name === name && c.action === 'conflict')
           ? [{ key: 'takeover', label: t('hooks.takeoverMenu'), icon: <Download size={14} />, onSelect: () => setTakingOver(name) }] : []),
         { key: 'remove', label: t('mcp.remove'), icon: <Trash2 size={14} />, danger: true, onSelect: () => setRemoving(name) },
@@ -111,7 +111,7 @@ export default function HooksScope({ data, project, header }: Props) {
     <>
       {header(actions)}
       {data.previewError && <div className="ss-note bad mb-4"><AlertCircle size={16} /><span className="flex-1">{data.previewError}</span></div>}
-      <RailLayout className="max-[900px]:grid-cols-1 max-[900px]:[&>*]:static max-[900px]:[&>*]:max-h-none" pageScroll={Boolean(project)} rail={<>
+      <RailLayout className="max-[900px]:grid-cols-1 max-[900px]:[&>*]:static max-[900px]:[&>*]:max-h-none [&>aside]:static [&>aside]:max-h-none" pageScroll rail={<>
         {/* Removing the last hook leaves native changes pending, so the box also shows without a source entry. */}
         {railPlan && (names.length > 0 || railPlan.changes.some((c) => writes(c) || c.action === 'conflict')) && <HooksSyncBox plan={railPlan} project={project} canTakeOver={canTakeOver} onTakeover={setTakingOver} />}
         <HooksUnmanagedNote entries={unmanaged} onImport={() => setImporting(true)} />
@@ -123,7 +123,7 @@ export default function HooksScope({ data, project, header }: Props) {
                   key={tg.name}
                   target={tg.name}
                   label={hookLabel(tg.name)}
-                  right={paths[tg.name] ? <span className="max-w-[150px] truncate font-mono text-xs text-ink-3" title={paths[tg.name]}>{shortenHome(paths[tg.name])}</span> : null}
+                  path={paths[tg.name] && shortenHome(paths[tg.name])}
                   detail={<>
                     <span>{hookNote(t, tg.name, tg.note)}</span>
                     {paths[tg.name] && <button type="button" className="flex items-center gap-1.5 text-xs font-semibold text-ink-2 hover:text-ink" onClick={() => { copy(paths[tg.name]); toast(t('mcp.copied'), 'success'); }}><Copy size={13} />{t('mcp.copyPath')}</button>}

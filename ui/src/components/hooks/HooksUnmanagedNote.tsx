@@ -18,7 +18,7 @@ export default function HooksUnmanagedNote({ entries, onImport }: { entries: Hoo
       {[...counts].map(([target, count]) => (
         <span key={target} className="flex items-center gap-2 text-[13px] text-ink-2">
           <AgentIcon target={target} size={15} />
-          <span className="min-w-0 flex-1">{t(count === 1 ? 'hooks.unmanaged.one' : 'hooks.unmanaged.other', { count: String(count), target: hookLabel(target) })}</span>
+          <span className="min-w-0 flex-1 [text-wrap:balance]">{t(count === 1 ? 'hooks.unmanaged.one' : 'hooks.unmanaged.other', { count: String(count), target: hookLabel(target) })}</span>
         </span>
       ))}
       <Button size="sm" variant="secondary" className="self-start" onClick={onImport}><Download size={14} />{t('hooks.unmanaged.review')}</Button>

@@ -78,6 +78,52 @@ describe('hook dialog', () => {
   });
 });
 
+describe('expanded editor', () => {
+  beforeEach(() => {
+    vi.resetAllMocks();
+    vi.mocked(hooksApi.catalog).mockResolvedValue(catalog);
+    vi.mocked(hooksApi.save).mockResolvedValue({ applied: [], backupIds: [] });
+  });
+
+  const expand = async (user: ReturnType<typeof userEvent.setup>) => {
+    await openClaude(user);
+    await user.click(screen.getByRole('tab', { name: 'Native JSON' }));
+    const editor = screen.getByLabelText('Claude Native JSON');
+    await user.clear(editor);
+    await user.click(editor);
+    await user.paste('{ "Stop": [] }');
+    await user.click(screen.getByRole('button', { name: 'Expand' }));
+    return screen.getByRole('group', { name: 'Claude Native JSON' });
+  };
+
+  it('opens the same editor over the dialog, and Esc brings it back with the text kept', async () => {
+    const user = userEvent.setup();
+    const expanded = await expand(user);
+    const editor = within(expanded).getByLabelText('Claude Native JSON');
+    await user.type(editor, ' ');
+    await user.keyboard('{Escape}');
+    expect(screen.queryByRole('group', { name: 'Claude Native JSON' })).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Claude Native JSON')).toHaveValue('{ "Stop": [] } ');
+    expect(screen.getByLabelText('Name')).toBeInTheDocument();
+  });
+
+  it('leaves an Esc the editor already used (its completion list) to the editor', async () => {
+    const user = userEvent.setup();
+    const expanded = await expand(user);
+    const esc = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true });
+    esc.preventDefault();
+    within(expanded).getByLabelText('Claude Native JSON').dispatchEvent(esc);
+    expect(screen.getByRole('group', { name: 'Claude Native JSON' })).toBeInTheDocument();
+  });
+
+  it('saves with Cmd+S while expanded', async () => {
+    const user = userEvent.setup();
+    await expand(user);
+    await user.keyboard('{Meta>}s{/Meta}');
+    await waitFor(() => expect(hooksApi.save).toHaveBeenCalledTimes(1));
+  });
+});
+
 describe('hooks import', () => {
   beforeEach(() => vi.resetAllMocks());
 
@@ -112,8 +158,8 @@ describe('hooks import', () => {
 describe('hooks preview', () => {
   it("shows each file's event changes and diff, marking the user's own hooks as untouched", () => {
     const path = '/home/u/.claude/settings.json';
-    const before = '{\n  "hooks": {\n    "PreToolUse": [\n      { "hooks": [] }\n    ]\n  }\n}';
-    const after = '{\n  "hooks": {\n    "PreToolUse": [\n      { "hooks": [] }\n    ],\n    "Stop": [\n      { "hooks": [] }\n    ]\n  }\n}';
+    const before = '{\n  "hooks": {\n    "PreToolUse": [{ "hooks": [] }]\n  }\n}';
+    const after = '{\n  "hooks": {\n    "PreToolUse": [{ "hooks": [] }],\n    "Stop": [\n      { "hooks": [] }\n    ]\n  }\n}';
     wrap(<HooksPreview
       plan={{ revision: 'r', fingerprint: 'fp', sourcePath: '/s.yaml', blocked: false,
         changes: [{ target: 'claude', path, name: 'lint', action: 'update', events: { added: ['Stop'] } }],

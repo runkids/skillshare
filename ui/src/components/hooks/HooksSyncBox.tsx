@@ -10,7 +10,7 @@ import { queryKeys } from '../../lib/queryKeys';
 import Button from '../Button';
 import DialogShell from '../DialogShell';
 import Spinner from '../Spinner';
-import { RailLine, SyncBox } from '../StatusRail';
+import { SyncBox } from '../StatusRail';
 import HooksPreview from './HooksPreview';
 import { actionLabel, blockedHint, fileName, hookLabel, needsTakeover, rootPlan, writes } from './hooksView';
 
@@ -94,7 +94,16 @@ export default function HooksSyncBox({ plan, project, canTakeOver, onTakeover }:
     <SyncBox tone={pending.length > 0 || conflicts.length > 0 ? (style === 'clean' ? 'plain' : 'warn') : style === 'clean' ? 'plain' : 'ok'} state={state}>
       {pending.length > 0 && (
         <div className="flex flex-col gap-1.5">
-          {pending.map((c) => <RailLine key={`${c.path}:${c.target}:${c.name}`} name={c.name} agent={[hookLabel(c.target), c.root && !project && shortenHome(c.root), fileName(c.path)].filter(Boolean).join(' · ')} word={actionLabel(t, c.action)} />)}
+          {/* The target file gets its own line, so it wraps instead of being cut short at rail width. */}
+          {pending.map((c) => (
+            <div key={`${c.path}:${c.target}:${c.name}`} className="flex flex-col text-[13px] text-ink-2">
+              <span className="flex items-baseline gap-1.5">
+                <span className="min-w-0 flex-1 break-all font-mono text-[12.5px] font-semibold text-ink">{c.name}</span>
+                <span className="shrink-0 font-mono text-xs text-ink">{actionLabel(t, c.action)}</span>
+              </span>
+              <span className="break-all text-xs">{[hookLabel(c.target), c.root && !project && shortenHome(c.root), fileName(c.path)].filter(Boolean).join(' · ')}</span>
+            </div>
+          ))}
         </div>
       )}
       {conflicts.length > 0 && (

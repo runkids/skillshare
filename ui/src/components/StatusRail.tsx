@@ -89,8 +89,9 @@ export function RailGroup({ label, count, right, foot, children }: { label: stri
 /**
  * One Agent per line. With `detail` the row is a disclosure: the rail stays a list of names
  * until one is asked about. `right` sits inside that button, so it must not be interactive.
+ * `path` shows in full under the name, wrapping instead of being cut short.
  */
-export function RailRow({ target, label, dim, sub, right, detail }: { target: string; label: string; dim?: boolean; sub?: string; right?: ReactNode; detail?: ReactNode }) {
+export function RailRow({ target, label, dim, sub, path, right, detail }: { target: string; label: string; dim?: boolean; sub?: string; path?: string; right?: ReactNode; detail?: ReactNode }) {
   const [open, setOpen] = useState(false);
   const head = (
     <>
@@ -98,6 +99,7 @@ export function RailRow({ target, label, dim, sub, right, detail }: { target: st
       <span className="flex min-w-0 flex-1 flex-col gap-px">
         <span className={`truncate text-[13.5px] font-medium ${dim ? 'text-ink-2' : ''}`}>{label}</span>
         {sub && !open && <span className="truncate text-xs text-ink-3">{sub}</span>}
+        {path && <span className="break-all font-mono text-xs text-ink-3">{path}</span>}
       </span>
       {right}
     </>

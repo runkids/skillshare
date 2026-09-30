@@ -179,7 +179,7 @@ export default function HookDialog({ initial, existingNames, project, agents = h
   };
 
   return (
-    <DialogShell open onClose={requestClose} padding="none" preventClose={saving} ariaLabel={title} className="!max-w-[800px]">
+    <DialogShell open onClose={requestClose} padding="none" preventClose={saving} ariaLabel={title} className="!max-w-[880px]">
       <div className="dh" ref={scope}>
         <div className="flex min-w-0 flex-col gap-1">
           <h2 className="ss-h2">{showPreview ? t('hooks.previewTitle') : title}</h2>

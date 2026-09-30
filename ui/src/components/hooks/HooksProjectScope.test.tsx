@@ -291,7 +291,7 @@ describe('project row preview', () => {
     const data = { source: { path: '/s.yaml', configPath: '/s.yaml', entries: { g: { bindings: {} } }, projects: { [APP]: { entries: { lint: entry } } } }, targets: [], paths: {}, backups: [], unmanaged: [], projectConfigs: [], projectPaths: {} } as never;
     wrap(<HooksScope data={data} project={APP} header={() => null} />);
     await user.click(await screen.findByRole('button', { name: 'More actions for lint' }));
-    await user.click(screen.getByRole('menuitem', { name: 'View what each Agent gets' }));
+    await user.click(screen.getByRole('menuitem', { name: 'View what each target gets' }));
     const dialog = await screen.findByRole('dialog');
     expect(hooksApi.render).toHaveBeenCalledWith({ project: APP, name: 'lint', entry });
     expect(await within(dialog).findByText('projectClaudeFile')).toBeInTheDocument();
@@ -349,7 +349,7 @@ describe('project row preview', () => {
     wrap(<HooksSyncBox project={APP} plan={{ revision: 'r', fingerprint: 'fp', sourcePath: '', blocked: false, changes: [
       mine('add'), { ...mine('add'), path: `${APP}/.claude/hooks/skillshare/lint/check.sh` },
     ] }} />);
-    expect(screen.getByText('→ Claude · settings.json')).toBeInTheDocument();
-    expect(screen.getByText('→ Claude · check.sh')).toBeInTheDocument();
+    expect(screen.getByText('Claude · settings.json')).toBeInTheDocument();
+    expect(screen.getByText('Claude · check.sh')).toBeInTheDocument();
   });
 });

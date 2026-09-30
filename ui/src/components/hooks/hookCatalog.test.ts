@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { copyDraft, eventLabels, lintNative, lineOf } from './hookCatalog';
+import { copyDraft, diffLines, eventLabels, lintNative, lineOf, suggestName } from './hookCatalog';
 import type { HookCatalog } from './hookCatalog';
 import { emptyBinding, newRow } from './hooksView';
 
@@ -59,5 +59,33 @@ describe('lintNative', () => {
 describe('eventLabels', () => {
   it('lists added, updated and removed events in that order', () => {
     expect(eventLabels({ events: { added: ['Stop'], updated: ['PostToolUse'], removed: ['PreToolUse'] } })).toEqual(['+ Stop', '~ PostToolUse', '− PreToolUse']);
+  });
+});
+
+describe('diffLines', () => {
+  it('lists removed lines before added ones within a change', () => {
+    expect(diffLines('a\nold\nb', 'a\nnew\nb').map((l) => l.op)).toEqual([' ', '-', '+', ' ']);
+  });
+
+  it('keeps a line that only gained a trailing comma as unchanged, showing the new text', () => {
+    expect(diffLines('{\n  "A": []\n}', '{\n  "A": [],\n  "B": []\n}')).toEqual([
+      { op: ' ', text: '{' }, { op: ' ', text: '  "A": [],' }, { op: '+', text: '  "B": []' }, { op: ' ', text: '}' },
+    ]);
+  });
+});
+
+describe('suggestName', () => {
+  const none = () => false;
+
+  it("keeps the CLI's target-event name for an inline command", () => {
+    expect(suggestName('claude-stop', 'echo done', none)).toBe('claude-stop');
+  });
+
+  it("uses a script's basename when the command runs one by path", () => {
+    expect(suggestName('claude-pretooluse', '~/.claude/guard.sh --strict', none)).toBe('guard');
+  });
+
+  it('numbers a name that is taken', () => {
+    expect(suggestName('claude-stop', 'echo done', (n) => n === 'claude-stop')).toBe('claude-stop-2');
   });
 });

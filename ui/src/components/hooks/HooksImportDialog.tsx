@@ -69,7 +69,7 @@ export default function HooksImportDialog({ data, project, onClose, onImported }
   for (const row of rows) {
     const line = bindingLines(row.candidate.entry.bindings[row.target])[0];
     const taken = (n: string) => n in existing || Object.values(defaults).includes(n);
-    defaults[row.id] = isCodeAgent(row.target) || !line ? (taken(row.candidate.name) ? suggestName(row.candidate.name, '', '', taken) : row.candidate.name) : suggestName(row.candidate.name, line.command, line.matcher, taken);
+    defaults[row.id] = suggestName(row.candidate.name, isCodeAgent(row.target) ? '' : line?.command ?? '', taken);
   }
   const nameOf = (row: Row) => names[row.id] ?? defaults[row.id];
   const nameError = (row: Row) => {
@@ -154,7 +154,7 @@ export default function HooksImportDialog({ data, project, onClose, onImported }
   const found = rows.filter((r) => r.adopt);
   const title = t('hooks.importTitle');
   return (
-    <DialogShell open onClose={onClose} padding="none" preventClose={busy} ariaLabel={title} className="!max-w-[800px]">
+    <DialogShell open onClose={onClose} padding="none" preventClose={busy} ariaLabel={title} className="!max-w-[880px]">
       <div className="dh">
         <div className="flex flex-col gap-1">
           <h2 className="ss-h2">{title}</h2>

@@ -71,7 +71,7 @@ export default function HooksList({ entries, plan, onToggle, onMenu, disabled = 
                 <Ellipsis size={16} />
               </button>
             </div>
-            <span className="text-[13px] text-ink-2">{entry.description || t('hooks.noDescription')}</span>
+            {entry.description && <span className="text-[13px] text-ink-2">{entry.description}</span>}
             {lines.length > 0 && (
               <div className={`flex flex-col gap-1 border-t border-line pt-2.5 font-mono text-[12.5px] ${enabled ? '' : 'text-ink-3'}`}>
                 {lines.map((l) => (

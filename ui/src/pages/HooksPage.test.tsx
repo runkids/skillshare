@@ -126,8 +126,8 @@ describe('Hooks page', () => {
     renderPage();
     await user.click(await screen.findByRole('button', { name: 'More actions for guard' }));
     expect(screen.queryByText(/Synced means Skillshare wrote the native file/)).not.toBeInTheDocument();
-    await user.click(screen.getByRole('menuitem', { name: 'View what each Agent gets' }));
-    const dialog = await screen.findByRole('dialog', { name: 'View what each Agent gets' });
+    await user.click(screen.getByRole('menuitem', { name: 'View what each target gets' }));
+    const dialog = await screen.findByRole('dialog', { name: 'View what each target gets' });
     await waitFor(() => expect(hooksApi.render).toHaveBeenCalledWith({ name: 'guard', entry: inventory().source.entries.guard }));
     expect(await within(dialog).findByText('Sync writes 2 files')).toBeInTheDocument();
     expect(within(dialog).getByText('claude native file')).toBeInTheDocument();

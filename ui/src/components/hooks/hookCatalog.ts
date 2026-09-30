@@ -308,12 +308,14 @@ export function completionContext(text: string, pos: number): CompletionContext 
 
 const slugPart = (s: string) => s.toLowerCase().replace(/[^a-z0-9_.-]+/g, '-').replace(/^[-.]+|[-.]+$/g, '');
 
-/** A readable hook name from what it runs: the script's name plus its matcher, e.g. guard-bash. */
-export function suggestName(fallback: string, command: string, matcher: string, taken: (name: string) => boolean) {
-  const tokens = command.trim().split(/\s+/).filter(Boolean);
-  const script = tokens.find((x) => /[\\/]/.test(x) || /\.(sh|py|js|ts|rb|ps1)$/.test(x)) ?? tokens[0] ?? '';
-  const base = slugPart((script.split(/[\\/]/).pop() ?? '').replace(/\.[A-Za-z0-9]+$/, ''));
-  const stem = [base, slugPart(matcher)].filter(Boolean).join('-').slice(0, 60) || fallback;
+/**
+ * An import's default name: the script's basename when the command runs a file by path (`~/.claude/guard.sh` → guard),
+ * otherwise the CLI's candidate name, `<target>-<event>` (claude-stop). Numbered when taken.
+ */
+export function suggestName(candidate: string, command: string, taken: (name: string) => boolean) {
+  const first = command.trim().split(/\s+/)[0] ?? '';
+  const script = /[\\/]/.test(first) ? slugPart((first.split(/[\\/]/).pop() ?? '').replace(/\.[A-Za-z0-9]+$/, '')) : '';
+  const stem = script.slice(0, 60) || candidate;
   let name = stem;
   for (let n = 2; taken(name); n++) name = `${stem}-${n}`;
   return name;
@@ -323,20 +325,28 @@ export function suggestName(fallback: string, command: string, matcher: string, 
 
 export interface DiffLine { op: ' ' | '+' | '-'; text: string }
 
-/** A line diff of two small files (LCS); files too large for that show as replaced. */
+// A line that only gained or lost a trailing comma or whitespace, because a neighbour was added or removed, is unchanged.
+const sameLine = (line: string) => line.trim().replace(/,$/, '');
+
+/**
+ * A line diff of two small files (LCS); files too large for that show as replaced. Lines match ignoring a
+ * trailing comma and whitespace, and show the new text; within a change, removed lines come first.
+ */
 export function diffLines(before: string, after: string): DiffLine[] {
-  const a = before ? before.replace(/\n$/, '').split('\n') : [];
+  const oldLines = before ? before.replace(/\n$/, '').split('\n') : [];
   const b = after ? after.replace(/\n$/, '').split('\n') : [];
-  if (a.length * b.length > 4_000_000) return [...a.map((text) => ({ op: '-' as const, text })), ...b.map((text) => ({ op: '+' as const, text }))];
+  const a = oldLines.map(sameLine);
+  const keys = b.map(sameLine);
+  if (a.length * b.length > 4_000_000) return [...oldLines.map((text) => ({ op: '-' as const, text })), ...b.map((text) => ({ op: '+' as const, text }))];
   const lcs = Array.from({ length: a.length + 1 }, () => new Uint32Array(b.length + 1));
-  for (let i = a.length - 1; i >= 0; i--) for (let j = b.length - 1; j >= 0; j--) lcs[i][j] = a[i] === b[j] ? lcs[i + 1][j + 1] + 1 : Math.max(lcs[i + 1][j], lcs[i][j + 1]);
+  for (let i = a.length - 1; i >= 0; i--) for (let j = b.length - 1; j >= 0; j--) lcs[i][j] = a[i] === keys[j] ? lcs[i + 1][j + 1] + 1 : Math.max(lcs[i + 1][j], lcs[i][j + 1]);
   const out: DiffLine[] = [];
   let i = 0;
   let j = 0;
   while (i < a.length || j < b.length) {
-    if (i < a.length && j < b.length && a[i] === b[j]) { out.push({ op: ' ', text: a[i] }); i++; j++; }
-    else if (j < b.length && (i >= a.length || lcs[i][j + 1] >= lcs[i + 1][j])) out.push({ op: '+', text: b[j++] });
-    else out.push({ op: '-', text: a[i++] });
+    if (i < a.length && j < b.length && a[i] === keys[j]) { out.push({ op: ' ', text: b[j] }); i++; j++; }
+    else if (i < a.length && (j >= b.length || lcs[i + 1][j] >= lcs[i][j + 1])) out.push({ op: '-', text: oldLines[i++] });
+    else out.push({ op: '+', text: b[j++] });
   }
   return out;
 }
