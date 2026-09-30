@@ -124,6 +124,28 @@ describe('expanded editor', () => {
   });
 });
 
+describe('copying to a target without close events', () => {
+  beforeEach(() => {
+    vi.resetAllMocks();
+    vi.mocked(hooksApi.catalog).mockResolvedValue({
+      claude: { timeoutUnit: 'seconds', events: [{ name: 'Notification', description: 'When a notification is sent', matcher: true }] },
+      cursor: { timeoutUnit: 'seconds', events: [{ name: 'stop', description: 'When the agent stops', matcher: false }] },
+    });
+    HTMLElement.prototype.scrollIntoView = vi.fn();
+  });
+
+  it('says the events must be picked by hand instead of promising the closest ones', async () => {
+    const user = userEvent.setup();
+    await openClaude(user);
+    await user.click(screen.getByRole('combobox', { name: 'Event 1' }));
+    await user.click(await screen.findByRole('option', { name: /^Notification/ }));
+    await user.type(screen.getByLabelText('Command 1'), './ping.sh');
+    await user.click(screen.getByRole('checkbox', { name: /Cursor/ }));
+    expect(await screen.findByText('Claude already runs on Notification. Cursor has no close match for them; after copying, pick each event yourself.')).toBeInTheDocument();
+    expect(screen.queryByText(/copying picks the closest/)).not.toBeInTheDocument();
+  });
+});
+
 describe('hooks import', () => {
   beforeEach(() => vi.resetAllMocks());
 
@@ -188,5 +210,17 @@ describe('hooks remove', () => {
     await user.click(screen.getByRole('button', { name: 'Stop managing' }));
     await waitFor(() => expect(onSaved).toHaveBeenCalledWith(true));
     expect(hooksApi.configure).toHaveBeenCalledWith({ name: 'guard', remove: true, unmanage: true }, 'kept', false);
+  });
+
+  it('counts many targets instead of listing them, and names the other hooks a sync also writes', async () => {
+    const agents = ['claude', 'codex', 'gemini', 'cursor'];
+    vi.mocked(hooksApi.preview).mockResolvedValue({ revision: 'r', fingerprint: 'fp', sourcePath: '/s.yaml', blocked: false, changes: [
+      ...agents.map((target) => ({ target, path: `/home/u/${target}.json`, name: 'guard', action: 'remove' })),
+      { target: 'claude', path: '/home/u/claude.json', name: 'lint', action: 'add' },
+      { target: 'claude', path: '/home/u/claude.json', name: 'fmt', action: 'unchanged' },
+    ] });
+    wrap(<HooksRemoveDialog name="guard" onClose={vi.fn()} onSaved={vi.fn()} />);
+    expect(await screen.findByText('Deletes what it wrote from the 4 target settings files now.')).toBeInTheDocument();
+    expect(screen.getByText('Syncing also writes 1 other pending hook: lint.')).toBeInTheDocument();
   });
 });

@@ -14,19 +14,23 @@ interface Props {
   disabled?: boolean;
 }
 
-/** What a hook runs, one line per distinct event, matcher and command across its targets. */
+/**
+ * What a hook runs, one line per distinct event, matcher and command, with the targets that run it.
+ * Event names that differ only in case (SessionStart, sessionStart) are one line.
+ */
 function summaryLines(entry: HookEntry) {
-  const seen = new Set<string>();
-  const out: { event: string; matcher: string; command: string }[] = [];
+  const rows = new Map<string, { event: string; matcher: string; command: string; agents: string[] }>();
   for (const agent of boundAgents(entry)) {
     const binding = entry.bindings[agent] ?? entry.bindings.factory;
     const lines = isCodeAgent(agent) ? [{ event: hookLabel(agent), matcher: '', command: '' }] : bindingLines(binding);
     for (const line of lines) {
-      const key = `${line.event}\0${line.matcher}\0${line.command}`;
-      if (!seen.has(key)) { seen.add(key); out.push(line); }
+      const key = `${line.event.toLowerCase()}\0${line.matcher}\0${line.command}`;
+      const row = rows.get(key);
+      if (!row) rows.set(key, { ...line, agents: [agent] });
+      else if (!row.agents.includes(agent)) row.agents.push(agent);
     }
   }
-  return out;
+  return [...rows.values()];
 }
 
 /**
@@ -47,6 +51,8 @@ export default function HooksList({ entries, plan, onToggle, onMenu, disabled = 
               : states.includes('pending') ? t('plugins.pending')
                 : t('hooks.sync.synced');
         const lines = summaryLines(entry);
+        // Each line names its targets unless every line runs on all of them.
+        const perLine = lines.some((l) => l.agents.length < agents.length);
         return (
           <article key={name} aria-label={name} className="ss-box flex flex-col gap-2.5 !p-4">
             <div className="flex items-center gap-2.5">
@@ -77,7 +83,12 @@ export default function HooksList({ entries, plan, onToggle, onMenu, disabled = 
                 {lines.map((l) => (
                   <div key={`${l.event}\0${l.matcher}\0${l.command}`} className="flex min-w-0 items-baseline gap-2">
                     <span className="w-[150px] shrink-0 truncate" title={l.matcher ? `${l.event} · ${l.matcher}` : l.event}>{l.event}{l.matcher && <span className="text-ink-2"> · {l.matcher}</span>}</span>
-                    {l.command ? <><span className="shrink-0 text-ink-3">→</span><span className="min-w-0 truncate" title={l.command}>{l.command}</span></> : <span className="font-sans text-xs text-ink-3">{t('hooks.summary.code')}</span>}
+                    {l.command ? <><span className="shrink-0 text-ink-3">→</span><span className="min-w-0 flex-1 truncate" title={l.command}>{l.command}</span></> : <span className="flex-1 font-sans text-xs text-ink-3">{t('hooks.summary.code')}</span>}
+                    {perLine && (
+                      <span className={`flex shrink-0 items-center gap-1 self-center ${enabled ? '' : 'opacity-45 grayscale'}`}>
+                        {l.agents.map((a) => <span key={a} title={hookLabel(a)}><AgentIcon target={a} size={13} /><span className="sr-only">{hookLabel(a)}</span></span>)}
+                      </span>
+                    )}
                   </div>
                 ))}
               </div>

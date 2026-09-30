@@ -107,7 +107,7 @@ export function RailRow({ target, label, dim, sub, path, right, detail }: { targ
   if (!detail) return <div className="flex min-h-8 items-center gap-2.5 py-1">{head}</div>;
   return (
     <>
-      <button type="button" aria-expanded={open} className="group flex min-h-8 w-full items-center gap-2.5 py-1 text-left" onClick={() => setOpen(!open)}>
+      <button type="button" aria-expanded={open} aria-label={label} className="group flex min-h-8 w-full items-center gap-2.5 py-1 text-left" onClick={() => setOpen(!open)}>
         {head}
         <ChevronDown size={14} className={`shrink-0 text-ink-3 ${open ? 'rotate-180' : 'opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100'}`} />
       </button>

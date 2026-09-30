@@ -6,9 +6,10 @@ import AgentIcon from '../AgentIcon';
 import Button from '../Button';
 import DialogShell from '../DialogShell';
 import Spinner from '../Spinner';
-import { useT } from '../../i18n';
+import { useI18n } from '../../i18n';
 import { shortenHome } from '../../lib/paths';
-import { describeMessage } from './mcpView';
+import { joinList } from '../targets/targetView';
+import { describeMessage, writes } from './mcpView';
 import type { MCPChange } from './mcpView';
 
 interface Props {
@@ -23,11 +24,13 @@ interface Props {
 }
 
 export default function MCPRemoveDialog({ name, project, inScope = () => true, onClose, onSaved }: Props) {
-  const t = useT();
+  const { t, locale } = useI18n();
   const { data: plan, error, isPending } = useQuery({ queryKey: ['mcp-remove-preview', project, name], queryFn: () => mcpApi.preview({ project, name, remove: true }), gcTime: 0 });
   const [busy, setBusy] = useState(false);
   const [saveError, setSaveError] = useState('');
   const changes = plan?.changes.filter((c) => c.name === name && inScope(c)) ?? [];
+  // "Remove and sync" applies the whole plan, so other servers' pending changes go out with it.
+  const others = [...new Set(plan?.changes.filter((c) => writes(c) && !(c.name === name && inScope(c))).map((c) => c.name))];
   const title = t('mcp.removeTitle', { name });
 
   // unmanage keeps the Agent entries and forgets them, so it never syncs.
@@ -72,6 +75,7 @@ export default function MCPRemoveDialog({ name, project, inScope = () => true, o
         ) : (
           <p className="text-[13px] text-ink-3">{t('mcp.notWritten')}</p>
         )}
+        {others.length > 0 && <p className="text-[13px] text-ink-2">{t(others.length === 1 ? 'mcp.removeOthers.one' : 'mcp.removeOthers.other', { count: others.length, names: joinList(others, locale) })}</p>}
         {(error || saveError) && <div className="ss-note bad" role="alert"><span className="flex-1">{error?.message ?? saveError}</span></div>}
         {plan?.blocked ? (
           <div className="ss-note warn"><Info size={16} /><span className="flex-1">{t('mcp.removeBlocked')}</span></div>

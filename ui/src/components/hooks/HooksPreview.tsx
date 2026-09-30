@@ -66,7 +66,7 @@ export default function HooksPreview({ plan, unmanaged = [], canTakeOver, onTake
           const diff = plan.files?.find((f) => f.path === file.path);
           const untouched = unmanaged.filter((u) => u.path === file.path).flatMap((u) => u.names);
           return (
-            <section key={file.path} aria-label={file.path} className="overflow-hidden rounded-[12px] border border-line">
+            <section key={file.path} aria-label={file.path} className="shrink-0 overflow-hidden rounded-[12px] border border-line">
               <div className="flex min-h-11 items-center gap-2.5 bg-sunken px-3.5 py-2">
                 <AgentIcon target={file.target} size={17} />
                 <span className="shrink-0 font-semibold">{hookLabel(file.target)}</span>

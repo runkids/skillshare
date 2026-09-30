@@ -62,7 +62,7 @@ describe('project scope in hooks dialogs', () => {
     expect(screen.queryByText('o')).not.toBeInTheDocument();
     expect(save).toBeEnabled();
     await user.click(save);
-    await waitFor(() => expect(onSaved).toHaveBeenCalled());
+    await waitFor(() => expect(onSaved).toHaveBeenCalledWith(true));
     expect(hooksApi.configure).toHaveBeenCalledTimes(1);
     expect(hooksApi.configure).toHaveBeenCalledWith(expect.objectContaining({ project: APP, name: 'lint' }), 'rev-all', true);
     expect(hooksApi.syncProject).not.toHaveBeenCalled();

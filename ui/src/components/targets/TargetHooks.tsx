@@ -102,10 +102,10 @@ export default function TargetHooks({ agent, data, project }: { agent: string; d
           existingNames={Object.keys(entries)}
           project={project}
           onClose={() => setEditing('')}
-          onSaved={() => {
+          onSaved={(synced) => {
             setEditing('');
             for (const queryKey of [queryKeys.hooks, queryKeys.config]) void cache.invalidateQueries({ queryKey });
-            toast(t('hooks.toast.saved'), 'success');
+            toast(t(synced ? 'hooks.toast.savedSynced' : 'hooks.toast.saved'), 'success');
           }}
         />
       )}

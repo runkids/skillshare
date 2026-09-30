@@ -32,3 +32,13 @@ it('stops managing a server without syncing, in the project it belongs to', asyn
   await waitFor(() => expect(saved).toHaveBeenCalledWith(true));
   expect(mcpApi.configure).toHaveBeenCalledWith({ project: '/work/app', name: 'docs', remove: true, unmanage: true }, 'kept', false);
 });
+
+it('names the other servers that removing and syncing also writes', async () => {
+  vi.mocked(mcpApi.preview).mockResolvedValue({ revision: 'reviewed', sourcePath: '/config.yaml', blocked: false, changes: [
+    { target: 'claude', path: '/.claude.json', name: 'docs', action: 'remove' },
+    { target: 'claude', path: '/.claude.json', name: 'search', action: 'add' },
+    { target: 'cursor', path: '/.cursor/mcp.json', name: 'git', action: 'update' },
+  ] });
+  render(<QueryClientProvider client={new QueryClient()}><I18nProvider><MCPRemoveDialog name="docs" onClose={vi.fn()} onSaved={vi.fn()} /></I18nProvider></QueryClientProvider>);
+  expect(await screen.findByText('Syncing also writes 2 other pending MCP servers: search and git.')).toBeInTheDocument();
+});

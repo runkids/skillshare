@@ -30,7 +30,8 @@ interface Props {
   /** Native hooks Skillshare does not manage, marked as untouched in the preview. */
   unmanaged?: HookUnmanaged[];
   onClose: () => void;
-  onSaved: () => void;
+  /** `synced` when the save also wrote the target files. */
+  onSaved: (synced: boolean) => void;
 }
 
 const catalogQuery = { queryKey: [...queryKeys.hooks, 'catalog'], queryFn: () => hooksApi.catalog(), staleTime: Infinity };
@@ -132,9 +133,10 @@ export default function HookDialog({ initial, existingNames, project, agents = h
     try {
       // Sync only applies the plan the user has just seen; without a fresh one, save the source alone.
       // A project mutation syncs only its own root on the server, so this is one call for both scopes.
-      if (sync && fresh && preview) await hooksApi.configure(mutation(), preview.plan.revision, true);
+      const synced = sync && fresh && preview !== null;
+      if (synced) await hooksApi.configure(mutation(), preview.plan.revision, true);
       else await hooksApi.save(mutation());
-      onSaved();
+      onSaved(synced);
     } catch (e) {
       setError((e as Error).message);
       setSaving(false);
@@ -161,13 +163,17 @@ export default function HookDialog({ initial, existingNames, project, agents = h
     const from = copySource(order, agent, draftOf);
     const rows = from ? draftRows(draftOf(from)) ?? [] : [];
     const events = [...new Set(rows.map((r) => r.event))];
-    const same = from ? copyDraft(catalog, from, agent, draftOf(from)).notes.length === 0 : false;
+    const notes = from ? copyDraft(catalog, from, agent, draftOf(from)).notes : [];
+    const same = from !== undefined && notes.length === 0;
+    // Some events with no close match must be picked by hand; the line says so instead of promising the closest.
+    const noClose = notes.filter((n) => n.kind === 'none').length;
+    const copyNote = same ? 'hooks.emptyTarget.same' : noClose === 0 ? 'hooks.emptyTarget.differs' : noClose === notes.length ? 'hooks.emptyTarget.none' : 'hooks.emptyTarget.partial';
     return (
       <div className="flex flex-col items-center gap-3 rounded-[12px] border border-dashed border-line-2 px-6 py-8 text-center">
         <h3 className="text-[15px] font-semibold">{t('hooks.emptyTarget.title', { agent: hookLabel(agent) })}</h3>
         <p className="text-[13px] text-ink-2">
           {from
-            ? t(same ? 'hooks.emptyTarget.same' : 'hooks.emptyTarget.differs', { from: hookLabel(from), agent: hookLabel(agent), events: events.join(', ') })
+            ? t(copyNote, { from: hookLabel(from), agent: hookLabel(agent), events: events.join(', ') })
             : t(isCodeAgent(agent) ? 'hooks.emptyTarget.code' : 'hooks.emptyTarget.scratch', { agent: hookLabel(agent) })}
         </p>
         <div className="flex flex-wrap justify-center gap-2">

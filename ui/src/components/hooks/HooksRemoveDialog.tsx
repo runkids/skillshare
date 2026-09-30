@@ -8,7 +8,7 @@ import DialogShell from '../DialogShell';
 import Spinner from '../Spinner';
 import HooksPreview from './HooksPreview';
 import { joinList } from '../targets/targetView';
-import { hookLabel, rootPlan } from './hooksView';
+import { hookLabel, rootPlan, writes } from './hooksView';
 
 interface Props { name: string; project?: string; onClose: () => void; onSaved: (unmanaged: boolean) => void }
 
@@ -24,6 +24,10 @@ export default function HooksRemoveDialog({ name, project, onClose, onSaved }: P
   const blocked = shown?.blocked;
   // The targets whose files hold what this hook wrote; each choice says what happens to them.
   const targets = [...new Set(shown?.changes.filter((c) => c.name === name && c.action === 'remove').map((c) => hookLabel(c.target)))];
+  // Many targets make each choice line a long list; past three, a count says the same.
+  const targetText = targets.length > 3 ? t('hooks.removeTargetCount', { count: targets.length }) : joinList(targets, locale);
+  // "Remove and sync" writes the whole scope, so other hooks' pending changes go out with it.
+  const others = [...new Set(shown?.changes.filter((c) => c.name !== name && writes(c)).map((c) => c.name))];
   const choices = targets.length > 0 && [
     ['mcp.removeSync', 'hooks.removeChoiceSync'],
     ['mcp.removeSourceOnly', 'hooks.removeChoiceSource'],
@@ -59,10 +63,11 @@ export default function HooksRemoveDialog({ name, project, onClose, onSaved }: P
         {choices && (
           <dl className="grid grid-cols-[max-content_1fr] gap-x-3 gap-y-1 text-[13px]">
             {choices.map(([button, consequence]) => (
-              <div key={button} className="contents"><dt className="font-semibold">{t(button)}</dt><dd>{t(consequence, { targets: joinList(targets, locale) })}</dd></div>
+              <div key={button} className="contents"><dt className="font-semibold">{t(button)}</dt><dd>{t(consequence, { targets: targetText })}</dd></div>
             ))}
           </dl>
         )}
+        {others.length > 0 && <p className="text-[13px] text-ink-2">{t(others.length === 1 ? 'hooks.removeOthers.one' : 'hooks.removeOthers.other', { count: others.length, names: joinList(others, locale) })}</p>}
         {isPending ? <Spinner size="sm" /> : shown && <HooksPreview plan={shown} />}
         {(error || saveError) && <div className="ss-note bad" role="alert"><span className="flex-1">{error?.message ?? saveError}</span></div>}
         <div className={`ss-note ${blocked ? 'warn' : ''}`}><Info size={16} /><span className="flex-1">{blocked ? t('hooks.removeBlocked') : t('mcp.backupNote')}</span></div>

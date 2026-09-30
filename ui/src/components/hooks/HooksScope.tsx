@@ -153,7 +153,7 @@ export default function HooksScope({ data, project, header }: Props) {
       </RailLayout>
 
       {editing !== null && (
-        <HookDialog initial={editing ? { name: editing, entry: entries[editing] } : undefined} existingNames={names} project={project} unmanaged={unmanaged} onClose={() => setEditing(null)} onSaved={() => done(t('hooks.toast.saved'))} />
+        <HookDialog initial={editing ? { name: editing, entry: entries[editing] } : undefined} existingNames={names} project={project} unmanaged={unmanaged} onClose={() => setEditing(null)} onSaved={(synced) => done(t(synced ? 'hooks.toast.savedSynced' : 'hooks.toast.saved'))} />
       )}
       {importing && <HooksImportDialog data={data} project={project} onClose={() => setImporting(false)} onImported={(count) => done(t('hooks.toast.imported', { count }))} />}
       {removing && <HooksRemoveDialog name={removing} project={project} onClose={() => setRemoving('')} onSaved={(unmanaged) => done(t(unmanaged ? 'hooks.toast.unmanaged' : 'hooks.toast.removed', { name: removing }))} />}
