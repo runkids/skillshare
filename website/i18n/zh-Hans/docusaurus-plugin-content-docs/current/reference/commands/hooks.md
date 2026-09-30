@@ -115,7 +115,7 @@ Droid 存在有效 inline hooks 时，同步会拒绝创建独立文件。先导
 
 global 配置的 `hooks.projects` 将绝对项目路径映射到相同 Entry 格式的 `entries`，可在“项目 → Hooks”管理。已有 `.skillshare/config.yaml` 的项目须使用 project scope；单个项目同步只处理该项目。
 
-同步保留无关配置和非 Skillshare 管理的 hooks。内容相同不代表所有权。自有输出若被外部修改，停用、移除及恢复也会报告冲突。明确替换只作用于选定 entry；预览列出完整动作和路径。共享文件的每一行 plan 会列出该 entry 新增（`+`）、更新（`~`）、移除（`−`）的 event，JSON plan 的 `events` 也包含相同信息。`update` 表示该 entry 在文件中仍有注册，`remove` 表示完全离开该文件。编辑会保留文件原有格式（紧凑或缩进）；Skillshare 添加的 `hooks` key 在最后一个 hook 移除时一并移除。
+同步保留无关配置和非 Skillshare 管理的 hooks。内容相同不代表所有权。自有输出若被外部修改，停用、移除及恢复也会报告冲突。明确替换只作用于选定 entry；预览列出完整动作和路径。共享文件的每一行 plan 会列出该 entry 新增（`+`）、更新（`~`）、移除（`−`）的 event，JSON plan 的 `events` 也包含相同信息。`update` 表示该 entry 在文件中仍有注册，`remove` 表示完全离开该文件。编辑会保留文件原有格式（紧凑或缩进）；Skillshare 添加的 `hooks` key 在最后一个 hook 移除时一并移除。Skillshare 创建的文件若已没有其他内容就会删除，连同它创建且已清空的文件夹；预览会把这显示为删除文件。原本就存在的文件和文件夹，以及你添加的任何内容都会保留。
 
 备份恢复原生输出并保留后续无关改动，不改写来源定义。使用“设置 → 备份 → Hooks”或 `hooks restore` 先预览再恢复。
 

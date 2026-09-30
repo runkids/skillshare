@@ -58,7 +58,7 @@ func TestProjects_GlobalConfigPublishesIntoRootsOnly(t *testing.T) {
 	}
 	// A full sync then prunes a.
 	sync(t, e.service)
-	if n := len(events(t, filepath.Join(a, ".claude", "settings.json"), true)["PreToolUse"]); n != 0 {
+	if exists(filepath.Join(a, ".claude", "settings.json")) {
 		t.Fatal("removed block's output must be pruned on sync")
 	}
 }
@@ -144,7 +144,7 @@ func TestProjects_BlockRemovalSyncPrunesOnlyItsRoot(t *testing.T) {
 	must(t, err)
 
 	save(t, e.service, Mutation{Project: a, Remove: true})
-	if n := len(events(t, filepath.Join(a, ".claude", "settings.json"), true)["PreToolUse"]); n != 0 {
+	if exists(filepath.Join(a, ".claude", "settings.json")) {
 		t.Fatal("removing a block with sync must prune its root")
 	}
 	if !strings.Contains(read(t, filepath.Join(b, ".claude", "settings.json")), "echo guard") {

@@ -175,7 +175,10 @@ plan line lists the events the entry adds (`+`), updates (`~`) and removes (`−
 also available as `events` in JSON plans. `update` means the entry keeps
 registrations in that file; `remove` means it leaves the file entirely. Edits keep
 the file's style, compact or indented, and a `hooks` key Skillshare added is
-removed again when its last hook leaves. An externally edited
+removed again when its last hook leaves. A file Skillshare created is deleted
+once nothing else is left in it, together with the folders it created that are
+now empty; the preview shows this as a file deletion. Files and folders that
+existed before, and anything you added, stay. An externally edited
 output that can no longer be identified safely is released from ownership and
 left untouched; inspect the preview before publishing another registration.
 

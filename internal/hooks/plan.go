@@ -42,6 +42,11 @@ type ledger struct {
 	// Created are shared files whose hooks key Skillshare added, so it removes the key
 	// again when it removes the last hook there.
 	Created map[string]bool `json:"created,omitempty"`
+	// NewFiles are shared files that did not exist before Skillshare wrote them, so
+	// it deletes them once they hold nothing but what Skillshare put there.
+	NewFiles map[string]bool `json:"newFiles,omitempty"`
+	// Dirs are folders Skillshare created for its files, removed again once empty.
+	Dirs map[string]bool `json:"dirs,omitempty"`
 }
 
 func elementKey(owner, root, path, event, entry string, ordinal int) string {
@@ -420,7 +425,7 @@ func (s *Service) previewSource(source *Source, replace, adopt map[string]bool) 
 	if err != nil {
 		return nil, err
 	}
-	p := &Plan{SourcePath: source.ConfigPath, Changes: []Change{}, Warnings: []string{}, source: source, stateBytes: stateBytes, state: ledger{Version: 1, Records: maps.Clone(state.Records), Created: maps.Clone(state.Created)}}
+	p := &Plan{SourcePath: source.ConfigPath, Changes: []Change{}, Warnings: []string{}, source: source, stateBytes: stateBytes, state: ledger{Version: 1, Records: maps.Clone(state.Records), Created: maps.Clone(state.Created), NewFiles: maps.Clone(state.NewFiles), Dirs: maps.Clone(state.Dirs)}}
 	pl := &planner{s: s, source: source, p: p, replace: replace, adopt: adopt, changes: map[string]*Change{}, events: map[string]map[string]string{}}
 	for _, name := range sortedKeys(source.Entries) {
 		p.Warnings = append(p.Warnings, EventWarnings(name, source.Entries[name])...)
@@ -723,6 +728,14 @@ func (pl *planner) planShared(path, target, root string, want []wantElement, sta
 		return nil, fmt.Errorf("%s: %w", path, err)
 	}
 	f.after = after
+	if len(f.ops) > 0 && p.state.NewFiles[path] && skeleton(target, after) {
+		f.remove, f.after = true, nil
+		for _, key := range pl.order {
+			if c := pl.changes[key]; c.Path == path && c.Action == "remove" {
+				c.Message = "deletes the file: Skillshare created it and nothing else is left"
+			}
+		}
+	}
 	for _, op := range f.ops {
 		f.keys = append(f.keys, op.Key)
 	}

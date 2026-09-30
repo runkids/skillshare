@@ -412,6 +412,8 @@ func (s *Service) applyScoped(p *Plan, root *string) (*Result, error) {
 			if after, _, err = doc.edit(f.ops, nil, f.created); err != nil {
 				return result, fmt.Errorf("%s: %w", f.path, err)
 			}
+			// Settings added since the preview keep a file the plan deletes.
+			remove = f.remove && skeleton(f.target, after)
 		}
 		id := fmt.Sprintf("%d-%s", time.Now().UnixNano(), digest([]byte(f.path))[:8])
 		backup := backupRecord{ID: id, Owner: p.source.ConfigPath, Target: f.target, Path: f.path, Root: f.root, Kind: f.kind, Ops: f.ops, OwnedBefore: map[string]*record{}, OwnedAfter: map[string]*record{}}
@@ -448,6 +450,23 @@ func (s *Service) applyScoped(p *Plan, root *string) (*Result, error) {
 			} else {
 				delete(state.Created, f.path)
 			}
+			switch {
+			case remove:
+				delete(state.NewFiles, f.path)
+			case !exists:
+				if state.NewFiles == nil {
+					state.NewFiles = map[string]bool{}
+				}
+				state.NewFiles[f.path] = true
+			}
+		}
+		if !remove {
+			for _, dir := range missingDirs(filepath.Dir(f.path)) {
+				if state.Dirs == nil {
+					state.Dirs = map[string]bool{}
+				}
+				state.Dirs[dir] = true
+			}
 		}
 		pending := journal{Path: f.path, State: state}
 		if !remove {
@@ -460,6 +479,7 @@ func (s *Service) applyScoped(p *Plan, root *string) (*Result, error) {
 			err = os.Remove(f.path)
 			if err == nil {
 				pruneEmptyDirs(filepath.Dir(f.path))
+				pruneCreatedDirs(state.Dirs, filepath.Dir(f.path))
 			}
 		} else {
 			err = atomicWrite(f.path, after, mode)
@@ -479,7 +499,7 @@ func (s *Service) applyScoped(p *Plan, root *string) (*Result, error) {
 		s.pruneBackups(f.path)
 	}
 	// Records that moved without a write, such as an adoption or a refreshed index.
-	final := ledger{Version: 1, Records: map[string]record{}, Created: state.Created}
+	final := ledger{Version: 1, Records: map[string]record{}, Created: state.Created, NewFiles: state.NewFiles, Dirs: state.Dirs}
 	for key, r := range state.Records {
 		if !inScope(r.Root) {
 			final.Records[key] = r
@@ -509,6 +529,34 @@ func pruneEmptyDirs(dir string) {
 		if os.Remove(dir) != nil { // fails unless empty
 			return
 		}
+		dir = filepath.Dir(dir)
+	}
+}
+
+// missingDirs lists dir and each missing parent, nearest first: what MkdirAll creates.
+func missingDirs(dir string) []string {
+	var out []string
+	for {
+		if _, err := os.Lstat(dir); !os.IsNotExist(err) {
+			return out
+		}
+		out = append(out, dir)
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			return out
+		}
+		dir = parent
+	}
+}
+
+// pruneCreatedDirs removes dir and its parents while Skillshare created them and they
+// are empty, stopping at a folder that existed before or still holds anything.
+func pruneCreatedDirs(created map[string]bool, dir string) {
+	for created[dir] {
+		if err := os.Remove(dir); err != nil && !os.IsNotExist(err) {
+			return
+		}
+		delete(created, dir)
 		dir = filepath.Dir(dir)
 	}
 }

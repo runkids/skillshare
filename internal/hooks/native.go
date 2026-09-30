@@ -29,6 +29,20 @@ type nativeDoc struct {
 	hasSection bool
 }
 
+// skeleton reports a shared file left with only what Skillshare writes into a new one:
+// an empty object, or Cursor's version header. A comment or trailing comma is the
+// user's, and strict JSON rejects both.
+func skeleton(target string, data []byte) bool {
+	var doc map[string]any
+	if json.Unmarshal(data, &doc) != nil || doc == nil {
+		return false
+	}
+	if target == "cursor" && doc["version"] == float64(1) {
+		delete(doc, "version")
+	}
+	return len(doc) == 0
+}
+
 // wrapped reports whether the event map sits under a "hooks" key.
 func wrapped(target string) bool { return target != "droid" && target != "antigravity" }
 

@@ -161,8 +161,8 @@ func TestSync_ScriptFilesArePrunedWithTheirFolder(t *testing.T) {
 	if exists(filepath.Join(e.home, ".cursor", "hooks", "skillshare")) {
 		t.Fatal("empty script folders must be pruned")
 	}
-	if !exists(filepath.Join(e.home, ".cursor", "hooks.json")) {
-		t.Fatal("hooks.json itself stays")
+	if exists(filepath.Join(e.home, ".cursor")) {
+		t.Fatal("the hooks.json and folders Skillshare created go with the last hook")
 	}
 }
 

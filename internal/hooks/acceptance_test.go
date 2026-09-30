@@ -335,6 +335,7 @@ func TestRestore_SymlinkedParentRefusedForExistingAndMissingLeaf(t *testing.T) {
 				must(t, os.Rename(filepath.Join(dir, "skillshare-demo.ts"), filepath.Join(outside, "skillshare-demo.ts")))
 			}
 			must(t, os.RemoveAll(dir))
+			must(t, os.MkdirAll(filepath.Dir(dir), 0755)) // removal pruned the folders it created
 			must(t, os.Symlink(outside, dir))
 			before, _ := os.ReadDir(outside)
 			if _, err := e.service.PreviewRestore(r.BackupIDs[0]); err == nil || !strings.Contains(err.Error(), "symlink") {
