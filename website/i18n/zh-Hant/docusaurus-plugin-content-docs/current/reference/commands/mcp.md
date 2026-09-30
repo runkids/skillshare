@@ -657,8 +657,8 @@ skillshare mcp check docs --live --timeout 30s --json
 `serverInfo` 是 server 對自己的描述，沒有任何驗證。server 未被探測或探測失敗時，會省略 `live`。
 
 dashboard 的 **檢查** 按鈕只執行靜態檢查。dashboard 只在一個地方探測 server：server 對話框
-[工具區塊](#tool-policy-dashboard)中的 **從伺服器載入工具**，它會啟動那一個已儲存的 server 來列出
-它的工具。搭配 `--json` 時，`live` 也會包含 `toolNames`，即 `tools/list` 回傳的名稱。
+[工具區塊](#tool-policy-dashboard)中的 **從伺服器載入工具**，它會依對話框目前的欄位啟動 server 一次，
+列出它的工具。搭配 `--json` 時，`live` 也會包含 `toolNames`，即 `tools/list` 回傳的名稱。
 
 ## 停止管理某個 server {#stop-managing-a-server}
 
@@ -822,9 +822,10 @@ server 沒有政策時它會收合；此時標題會顯示摘要，例如 `工�
 - **工具提供方式** 用來選擇 `expose`。
 - **允許** 與 **拒絕** 接受名稱或 `*` 萬用字元：輸入一個後按 Enter，或挑選建議項目。
   無效的名稱，或移除所有允許工具的拒絕清單，會顯示在欄位下方，並擋下 **儲存**。
-- **從伺服器載入工具** 會啟動**已儲存**的 server 一次，與
+- **從伺服器載入工具** 會用對話框目前的設定（不論是否已儲存）啟動 server 一次，與
   [`mcp check --live`](#probe-servers-live) 使用相同的探測，並把它的工具名稱列為建議。
-  只在點擊時執行。尚未儲存的 server 請先儲存。
+  只在點擊時執行，也不會儲存任何東西，所以新的 server 也能使用。失敗時會用白話說明原因，
+  原始錯誤放在 **詳細** 裡。之後修改指令、網址或相關設定，已載入的名稱會被清除。
 - 欄位下方，對話框會列出每個無法容納部分政策的已選 Agent，例如
   `Copilot CLI：允許中的 * 萬用字元`。
 

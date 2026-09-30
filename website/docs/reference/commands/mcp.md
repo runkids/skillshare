@@ -717,8 +717,8 @@ omitted when the server was not probed or the probe failed.
 
 The dashboard's **Check** button runs the static check only. The dashboard probes a
 server in one place: **Load tools from server** in the server dialog's
-[Tools section](#tool-policy-dashboard), which starts that one saved server to list its
-tools. With `--json`, `live` also holds `toolNames`, the names `tools/list` returned.
+[Tools section](#tool-policy-dashboard), which starts the server once, as the dialog's
+fields describe it, to list its tools. With `--json`, `live` also holds `toolNames`, the names `tools/list` returned.
 
 ## Stop managing a server {#stop-managing-a-server}
 
@@ -897,9 +897,12 @@ a summary, such as `Tools · 1 allowed`.
 - **Allow** and **Deny** take names or `*` patterns: type one and press Enter, or pick a
   suggestion. A bad name, or a deny list that removes every allowed tool, is shown
   under the field and blocks **Save**.
-- **Load tools from server** starts the **saved** server once, the same probe as
-  [`mcp check --live`](#probe-servers-live), and offers its tool names as suggestions.
-  It runs only when clicked. For a server not saved yet, save it first.
+- **Load tools from server** starts the server once with the settings in the dialog,
+  saved or not, using the same probe as [`mcp check --live`](#probe-servers-live), and
+  offers its tool names as suggestions. It runs only when clicked and saves nothing, so
+  it also works for a new server. A failure is described in plain words, with the raw
+  error under **Details**. Changing the command, URL, or their settings afterwards
+  clears the loaded names.
 - Under the fields, the dialog lists each selected Agent that cannot hold part of the
   policy, such as `Copilot CLI: * patterns in Allow`.
 

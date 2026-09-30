@@ -691,8 +691,8 @@ skillshare mcp check docs --live --timeout 30s --json
 省略 `live`。
 
 仪表盘的 **检查** 按钮只运行静态检查。仪表盘只在一个地方探测 server：server 对话框
-[工具区块](#tool-policy-dashboard)中的 **从服务器加载工具**，它会启动那一个已保存的 server
-来列出它的工具。使用 `--json` 时，`live` 还包含 `toolNames`，即 `tools/list` 返回的名称。
+[工具区块](#tool-policy-dashboard)中的 **从服务器加载工具**，它会按对话框当前的字段启动 server
+一次，列出它的工具。使用 `--json` 时，`live` 还包含 `toolNames`，即 `tools/list` 返回的名称。
 
 ## 停止管理某个 server {#stop-managing-a-server}
 
@@ -859,9 +859,10 @@ server 对话框在 targets 之后有一个 **工具** 区块，除 `disabled` �
 - **工具提供方式** 用于选择 `expose`。
 - **允许** 和 **拒绝** 接受名称或 `*` 通配符：输入一个后按 Enter，或选择一个
   建议项。无效的名称，或移除所有允许工具的拒绝列表，会显示在字段下方并阻止 **保存**。
-- **从服务器加载工具** 会启动**已保存的** server 一次，与
+- **从服务器加载工具** 会用对话框当前的设置（无论是否已保存）启动 server 一次，与
   [`mcp check --live`](#probe-servers-live) 是同一种探测，并把它的工具名称作为建议项提供。
-  它只在点击时运行。尚未保存的 server 请先保存。
+  它只在点击时运行，也不会保存任何内容，所以新的 server 也能使用。失败时会用通俗的话说明原因，
+  原始错误放在 **详情** 里。之后修改命令、网址或相关设置，已加载的名称会被清除。
 - 字段下方，对话框会列出每个无法容纳部分策略的所选 Agent，例如
   `Copilot CLI：允许中的 * 通配符`。
 
