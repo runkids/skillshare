@@ -71,7 +71,9 @@ export default function HooksImportDialog({ data, project, onClose, onImported }
     const taken = (n: string) => n in existing || Object.values(defaults).includes(n);
     defaults[row.id] = suggestName(row.candidate.name, isCodeAgent(row.target) ? '' : line?.command ?? '', taken);
   }
-  const nameOf = (row: Row) => names[row.id] ?? defaults[row.id];
+  // An Antigravity hook is the block of that name, so taking one over keeps the block's name.
+  const fixedName = (row: Row) => row.adopt && row.target === 'antigravity';
+  const nameOf = (row: Row) => (fixedName(row) ? row.candidate.name : names[row.id] ?? defaults[row.id]);
   const nameError = (row: Row) => {
     const name = nameOf(row).trim();
     if (!HOOK_NAME.test(name)) return t('hooks.nameHint');
@@ -138,7 +140,7 @@ export default function HooksImportDialog({ data, project, onClose, onImported }
               <span className="flex items-center gap-2">
                 <span className="text-xs text-ink-2">{t('hooks.name')}</span>
                 <span className={`ss-inp w-[170px] font-mono ${error ? 'err' : ''}`}>
-                  <input value={nameOf(row)} onChange={(e) => setNames((prev) => ({ ...prev, [row.id]: e.target.value }))} aria-label={t('hooks.importNameFor', { name: row.candidate.name })} disabled={!checked(row) || busy} />
+                  <input value={nameOf(row)} onChange={(e) => setNames((prev) => ({ ...prev, [row.id]: e.target.value }))} aria-label={t('hooks.importNameFor', { name: row.candidate.name })} disabled={!checked(row) || busy || fixedName(row)} />
                 </span>
               </span>
               {error && <span className="text-xs text-bad">{error}</span>}

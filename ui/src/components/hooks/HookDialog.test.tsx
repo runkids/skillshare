@@ -175,6 +175,20 @@ describe('hooks import', () => {
     expect(hooksApi.save).toHaveBeenCalledTimes(1);
     expect(hooksApi.save).toHaveBeenCalledWith(expect.objectContaining({ entry: candidate('notify', './notify.sh').entry, adopt: true }));
   });
+
+  it("keeps an Antigravity block's own name, since the block is the hook", async () => {
+    const user = userEvent.setup();
+    const block: HookCandidate = { name: 'lint', problems: [], warnings: [], entry: { bindings: { antigravity: { events: { Stop: [{ command: './run-lint.sh' }] } } } } };
+    vi.mocked(hooksApi.import).mockResolvedValue([block]);
+    vi.mocked(hooksApi.save).mockResolvedValue({ applied: [], backupIds: [] });
+    const agy = { ...data, paths: { antigravity: '/home/u/.gemini/config/hooks.json' }, unmanaged: [{ target: 'antigravity', path: '/home/u/.gemini/config/hooks.json', names: ['lint'] }] } as unknown as HookInventory;
+    wrap(<HooksImportDialog data={agy} onClose={vi.fn()} onImported={vi.fn()} />);
+    const name = await screen.findByRole('textbox', { name: 'Name for lint' });
+    expect(name).toHaveValue('lint');
+    expect(name).toBeDisabled();
+    await user.click(screen.getByRole('button', { name: 'Import 1' }));
+    await waitFor(() => expect(hooksApi.save).toHaveBeenCalledWith(expect.objectContaining({ name: 'lint', adopt: true })));
+  });
 });
 
 describe('hooks preview', () => {

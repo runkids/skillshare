@@ -696,6 +696,10 @@ func (pl *planner) planShared(path, target, root string, want []wantElement, sta
 			p.state.Records[key] = next
 			touch(w.root, w.entry, w.event, items[0], w.value)
 			pl.note(target, path, w.root, w.entry, "update", "replacing a hook Skillshare did not write")
+		case target == "antigravity" && pl.adopts(w.root, w.entry):
+			// An Antigravity hook is the block of that name. Taking over a block under
+			// another name would add a second block and leave the original running.
+			pl.note(target, path, w.root, w.entry, "conflict", "Antigravity names each hook after its block; import it under the block's own name")
 		default:
 			f.ops = append(f.ops, elementOp{Key: key, Event: w.event, Index: -1, Value: w.value})
 			p.state.Records[key] = next

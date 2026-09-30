@@ -38,6 +38,18 @@ func TestAntigravity_ImportTakesOverNamedBlockInPlace(t *testing.T) {
 	}
 }
 
+func TestAntigravity_ImportUnderAnotherNameIsAConflict(t *testing.T) {
+	e := newEnv(t)
+	path := filepath.Join(e.home, ".gemini", "config", "hooks.json")
+	write(t, path, agyNative)
+	c := importOne(t, e.service, "agy", "lint")
+	p, err := e.service.PreviewMutation(Mutation{Name: "renamed", Entry: &c.Entry, Adopt: true})
+	must(t, err)
+	if !p.Blocked || actions(p) != "antigravity:renamed:conflict" {
+		t.Fatalf("a renamed takeover would leave the original block running beside a copy: %s", actions(p))
+	}
+}
+
 func TestAntigravity_SameNamedUnmanagedBlockIsAConflict(t *testing.T) {
 	e := newEnv(t)
 	path := filepath.Join(e.home, ".gemini", "config", "hooks.json")
