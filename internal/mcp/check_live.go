@@ -8,6 +8,8 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
+	"net"
 	"net/http"
 	"os"
 	"os/exec"
@@ -151,15 +153,7 @@ func (p *liveProbe) redact(text string) string {
 }
 
 func (p *liveProbe) run() (*CheckLive, CheckFinding) {
-	ctx, cancel := context.WithTimeout(context.Background(), p.timeout)
-	defer cancel()
-	var live *CheckLive
-	var err error
-	if p.server.Command != "" {
-		live, err = p.stdio(ctx)
-	} else {
-		live, err = p.http(ctx)
-	}
+	live, err := p.probe()
 	if err != nil {
 		var auth *authRequiredError
 		if errors.As(err, &auth) {
@@ -172,12 +166,6 @@ func (p *liveProbe) run() (*CheckLive, CheckFinding) {
 		}
 		return nil, CheckFinding{Level: "error", Check: "live", Message: p.redact("live probe failed: " + err.Error())}
 	}
-	live.ProtocolVersion = p.redact(live.ProtocolVersion)
-	live.ServerInfo.Name = p.redact(live.ServerInfo.Name)
-	live.ServerInfo.Version = p.redact(live.ServerInfo.Version)
-	for i, name := range live.ToolNames {
-		live.ToolNames[i] = p.redact(name)
-	}
 	who := strings.TrimSpace(live.ServerInfo.Name + " " + live.ServerInfo.Version)
 	if who == "" {
 		who = "unnamed server"
@@ -185,6 +173,111 @@ func (p *liveProbe) run() (*CheckLive, CheckFinding) {
 	return live, CheckFinding{Level: "info", Check: "live", Subject: live.ServerInfo.Name,
 		Message: fmt.Sprintf("responds: %s, protocol %s, %d tool(s)", who, live.ProtocolVersion, live.Tools)}
 }
+
+// probe returns what the server reported about itself, with configured values redacted.
+func (p *liveProbe) probe() (*CheckLive, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), p.timeout)
+	defer cancel()
+	var live *CheckLive
+	var err error
+	if p.server.Command != "" {
+		live, err = p.stdio(ctx)
+	} else {
+		live, err = p.http(ctx)
+	}
+	if err != nil {
+		return nil, err
+	}
+	live.ProtocolVersion = p.redact(live.ProtocolVersion)
+	live.ServerInfo.Name = p.redact(live.ServerInfo.Name)
+	live.ServerInfo.Version = p.redact(live.ServerInfo.Version)
+	for i, name := range live.ToolNames {
+		live.ToolNames[i] = p.redact(name)
+	}
+	return live, nil
+}
+
+// DraftProbe is a live probe of a server definition that is not saved.
+type DraftProbe struct {
+	Live *CheckLive `json:"live,omitempty"`
+	// ErrorKind classifies a failure for a client to phrase: connect, timeout, auth,
+	// protocol, command, or unknown. Error is its detail, with configured values redacted.
+	ErrorKind string `json:"errorKind,omitempty"`
+	Error     string `json:"error,omitempty"`
+}
+
+// ProbeDraft probes server as written rather than as saved, the way a live check probes a
+// saved one; root is the mcp.projects root it belongs to. It saves and syncs nothing, and
+// fails only for a definition that is not a valid server.
+func ProbeDraft(server Server, root string, opts CheckOptions) (DraftProbe, error) {
+	if opts.LookupEnv == nil {
+		opts.LookupEnv = os.LookupEnv
+	}
+	if opts.LookPath == nil {
+		opts.LookPath = exec.LookPath
+	}
+	// Only the connection matters; a half-written tool policy must not stop a probe.
+	server = Server{Transport: server.Transport, Command: server.Command, Args: server.Args, URL: server.URL,
+		Env: server.Env, Headers: server.Headers, BearerToken: server.BearerToken}
+	if err := server.Validate("draft"); err != nil {
+		return DraftProbe{}, err
+	}
+	if missing := checkEnv(server, opts.LookupEnv); len(missing) > 0 {
+		return DraftProbe{ErrorKind: "auth", Error: missing[0].Message}, nil
+	}
+	for _, f := range checkLaunch(server, CheckOptions{SkipDNS: true, LookPath: opts.LookPath}) {
+		if f.Level == "error" {
+			return DraftProbe{ErrorKind: "command", Error: f.Message}, nil
+		}
+	}
+	timeout := opts.Timeout
+	if timeout <= 0 {
+		timeout = DefaultLiveTimeout
+	}
+	p := newLiveProbe(server, root, timeout, opts)
+	live, err := p.probe()
+	if err != nil {
+		return DraftProbe{ErrorKind: liveErrorKind(err), Error: p.redact(err.Error())}, nil
+	}
+	return DraftProbe{Live: live}, nil
+}
+
+// liveErrorKind classifies why a probe failed.
+func liveErrorKind(err error) string {
+	var auth *authRequiredError
+	var status *httpStatusError
+	var timeout *liveTimeoutError
+	var dns *net.DNSError
+	var op *net.OpError
+	var rpc *rpcError
+	var bad *protocolError
+	switch {
+	case errors.As(err, &auth), errors.As(err, &status) && (status.code == http.StatusUnauthorized || status.code == http.StatusForbidden):
+		return "auth"
+	case errors.As(err, &timeout):
+		return "timeout"
+	case errors.Is(err, exec.ErrNotFound), errors.Is(err, fs.ErrNotExist):
+		return "command"
+	case errors.As(err, &dns), errors.As(err, &op):
+		return "connect"
+	case errors.As(err, &status), errors.As(err, &rpc), errors.As(err, &bad):
+		return "protocol"
+	}
+	return "unknown"
+}
+
+// protocolError is a reply that is not the MCP a probe expects.
+type protocolError struct{ message string }
+
+func (e *protocolError) Error() string { return e.message }
+
+func badReply(format string, args ...any) error {
+	return &protocolError{fmt.Sprintf(format, args...)}
+}
+
+type liveTimeoutError struct{ timeout time.Duration }
+
+func (e *liveTimeoutError) Error() string { return fmt.Sprintf("no answer within %s", e.timeout) }
 
 // rpcConn sends JSON-RPC over one transport. legacy switches it to a 2025-11-25 session.
 type rpcConn interface {
@@ -238,14 +331,14 @@ func callResult(ctx context.Context, conn rpcConn, method string, params, out an
 		ResultType string `json:"resultType"`
 	}
 	if err := json.Unmarshal(raw, &kind); err != nil {
-		return fmt.Errorf("%s returned an invalid result", method)
+		return badReply("%s returned an invalid result", method)
 	}
 	// Servers before 2026-07-28 leave resultType out; that means complete.
 	if kind.ResultType != "" && kind.ResultType != "complete" {
-		return fmt.Errorf("%s returned resultType %q", method, kind.ResultType)
+		return badReply("%s returned resultType %q", method, kind.ResultType)
 	}
 	if err := json.Unmarshal(raw, out); err != nil {
-		return fmt.Errorf("%s returned an invalid result", method)
+		return badReply("%s returned an invalid result", method)
 	}
 	return nil
 }
@@ -258,7 +351,7 @@ func (p *liveProbe) handshake(ctx context.Context, conn rpcConn, discoverWait ti
 		live, err = p.initialize(ctx, conn)
 	}
 	if err != nil && ctx.Err() != nil {
-		return nil, fmt.Errorf("no answer within %s", p.timeout)
+		return nil, &liveTimeoutError{p.timeout}
 	}
 	return live, err
 }
@@ -309,7 +402,7 @@ func (p *liveProbe) discover(ctx context.Context, conn rpcConn, wait time.Durati
 }
 
 func unsupportedVersions(versions []string) error {
-	return fmt.Errorf("server supports protocol version(s) %s; skillshare probes %s or the initialize handshake", strings.Join(versions, ", "), liveProtocolVersion)
+	return badReply("server supports protocol version(s) %s; skillshare probes %s or the initialize handshake", strings.Join(versions, ", "), liveProtocolVersion)
 }
 
 func (p *liveProbe) initialize(ctx context.Context, conn rpcConn) (*CheckLive, error) {
@@ -660,7 +753,7 @@ func (c *httpConn) call(ctx context.Context, method string, params any) (json.Ra
 			err = json.NewDecoder(body).Decode(msg)
 		}
 		if err != nil || (msg.Error == nil && msg.Result == nil) {
-			return nil, fmt.Errorf("%s: the response is not a JSON-RPC response", method)
+			return nil, badReply("%s: the response is not a JSON-RPC response", method)
 		}
 	case status.fallsBack():
 		// A modern server explains a rejection in a JSON-RPC error body.
@@ -740,7 +833,7 @@ func readSSE(r io.Reader, id string) (*rpcMessage, error) {
 	if err := scanner.Err(); err != nil {
 		return nil, err
 	}
-	return nil, errors.New("the event stream ended without a response")
+	return nil, badReply("the event stream ended without a response")
 }
 
 var resourceMetadataParam = regexp.MustCompile(`resource_metadata="([^"]*)"|resource_metadata=([^,\s]+)`)

@@ -120,24 +120,35 @@ func (s *Server) handleMCPRender(w http.ResponseWriter, r *http.Request) {
 		writeError(w, 400, "server is required")
 		return
 	}
-	service := s.mcpService()
-	if body.Mutation.Project != "" {
-		if service.ProjectRoot != "" {
-			writeError(w, 400, "MCP project overrides are not available in project mode; omit mutation.project")
-			return
-		}
-		source, err := mcp.LoadSource(service.ConfigPath)
-		if err != nil {
-			writeError(w, 400, err.Error())
-			return
-		}
-		if _, ok := source.Projects[body.Mutation.Project]; !ok {
-			writeError(w, 400, "unknown MCP project")
-			return
-		}
-		service.ProjectRoot = body.Mutation.Project
+	service, ok := s.mcpProjectService(w, body.Mutation.Project)
+	if !ok {
+		return
 	}
 	writeJSON(w, map[string]any{"rendered": service.RenderNative(body.Mutation.Name, *body.Mutation.Server)})
+}
+
+// mcpProjectService is the service for one mcp.projects root, or for this scope when
+// project is empty. It writes the error and reports false when the root is not configured.
+func (s *Server) mcpProjectService(w http.ResponseWriter, project string) (*mcp.Service, bool) {
+	service := s.mcpService()
+	if project == "" {
+		return service, true
+	}
+	if service.ProjectRoot != "" {
+		writeError(w, 400, "MCP project overrides are not available in project mode; omit mutation.project")
+		return nil, false
+	}
+	source, err := mcp.LoadSource(service.ConfigPath)
+	if err != nil {
+		writeError(w, 400, err.Error())
+		return nil, false
+	}
+	if _, ok := source.Projects[project]; !ok {
+		writeError(w, 400, "unknown MCP project")
+		return nil, false
+	}
+	service.ProjectRoot = project
+	return service, true
 }
 
 func (s *Server) handleMCPConfigure(w http.ResponseWriter, r *http.Request) {

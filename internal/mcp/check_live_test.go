@@ -335,3 +335,39 @@ func TestLiveHTTPServerErrorIsError(t *testing.T) {
 		t.Fatalf("finding = %+v", f)
 	}
 }
+
+func TestProbeDraftErrorKinds(t *testing.T) {
+	status := func(code int) Server {
+		ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(code) }))
+		t.Cleanup(ts.Close)
+		return Server{URL: ts.URL + "/mcp"}
+	}
+	for name, tc := range map[string]struct {
+		server Server
+		want   string
+	}{
+		"401":             {status(http.StatusUnauthorized), "auth"},
+		"403":             {status(http.StatusForbidden), "auth"},
+		"500":             {status(http.StatusInternalServerError), "protocol"},
+		"unset variable":  {Server{URL: "https://mcp.skillshare.invalid/mcp", BearerToken: &Value{FromEnv: "PROBE_DRAFT_UNSET"}}, "auth"},
+		"missing command": {Server{Command: "skillshare-probe-draft-missing"}, "command"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			got, err := ProbeDraft(tc.server, "", CheckOptions{Timeout: 5 * time.Second, LookupEnv: func(string) (string, bool) { return "", false }})
+			if err != nil || got.ErrorKind != tc.want || got.Error == "" {
+				t.Fatalf("got %+v, %v; want kind %s", got, err, tc.want)
+			}
+		})
+	}
+}
+
+func TestProbeDraftTimesOut(t *testing.T) {
+	release := make(chan struct{})
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { <-release }))
+	defer ts.Close()
+	defer close(release)
+	got, err := ProbeDraft(Server{URL: ts.URL + "/mcp"}, "", CheckOptions{Timeout: 200 * time.Millisecond})
+	if err != nil || got.ErrorKind != "timeout" {
+		t.Fatalf("got %+v, %v", got, err)
+	}
+}

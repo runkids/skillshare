@@ -71,3 +71,57 @@ func TestMCPCheckFailsWhenCheckCannotRun(t *testing.T) {
 		t.Fatalf("status = %d body = %s", w.Code, w.Body.String())
 	}
 }
+
+func probeDraft(t *testing.T, s *Server, server string) map[string]any {
+	t.Helper()
+	w := httptest.NewRecorder()
+	s.handleMCPProbe(w, httptest.NewRequest(http.MethodPost, "/api/mcp/probe", strings.NewReader(`{"mutation":{"name":"docs","server":`+server+`}}`)))
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d body = %s", w.Code, w.Body.String())
+	}
+	var result map[string]any
+	if err := json.Unmarshal(w.Body.Bytes(), &result); err != nil {
+		t.Fatal(err)
+	}
+	return result
+}
+
+func TestMCPProbeListsToolsOfAnUnsavedServer(t *testing.T) {
+	s, _ := newTestServerWithExtras(t, nil, "")
+	mcpServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var req struct {
+			ID     json.RawMessage `json:"id"`
+			Method string          `json:"method"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&req)
+		result := map[string]any{"tools": []any{map[string]string{"name": "search"}, map[string]string{"name": "fetch"}}}
+		if req.Method == "server/discover" {
+			result = map[string]any{"supportedVersions": []string{"2026-07-28"}, "capabilities": map[string]any{"tools": map[string]any{}}}
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{"jsonrpc": "2.0", "id": req.ID, "result": result})
+	}))
+	defer mcpServer.Close()
+	before, err := os.ReadFile(s.configPath())
+	if err != nil {
+		t.Fatal(err)
+	}
+	result := probeDraft(t, s, `{"url":"`+mcpServer.URL+`/mcp","tools":{"allow":["half typed"]}}`)
+	live, _ := result["live"].(map[string]any)
+	if live == nil || live["tools"] != float64(2) || result["errorKind"] != nil {
+		t.Fatalf("result = %v", result)
+	}
+	if after, _ := os.ReadFile(s.configPath()); string(after) != string(before) {
+		t.Fatal("a probe must not save the server")
+	}
+}
+
+func TestMCPProbeClassifiesARefusedConnection(t *testing.T) {
+	s, _ := newTestServerWithExtras(t, nil, "")
+	closed := httptest.NewServer(http.NotFoundHandler())
+	closed.Close()
+	result := probeDraft(t, s, `{"url":"`+closed.URL+`/mcp"}`)
+	if result["errorKind"] != "connect" || !strings.Contains(result["error"].(string), "refused") {
+		t.Fatalf("result = %v", result)
+	}
+}

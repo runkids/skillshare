@@ -28,3 +28,33 @@ func (s *Server) handleMCPCheck(w http.ResponseWriter, r *http.Request) {
 	}
 	writeJSON(w, report)
 }
+
+// handleMCPProbe probes the server in the request, as the dashboard's form describes it
+// before it is saved, the way ?live=1 probes a saved one. It saves and syncs nothing.
+func (s *Server) handleMCPProbe(w http.ResponseWriter, r *http.Request) {
+	var body mcpRequest
+	if !decodeMCPRequest(w, r, &body) {
+		return
+	}
+	if body.Mutation.Server == nil {
+		writeError(w, 400, "server is required")
+		return
+	}
+	s.mu.RLock()
+	service, ok := s.mcpProjectService(w, body.Mutation.Project)
+	s.mu.RUnlock()
+	if !ok {
+		return
+	}
+	// A project server starts in its root, as a live check of a saved one does.
+	root := ""
+	if body.Mutation.Project != "" {
+		root = service.ProjectRoot
+	}
+	result, err := mcp.ProbeDraft(*body.Mutation.Server, root, mcp.CheckOptions{ClientVersion: version.Version})
+	if err != nil {
+		writeError(w, 400, err.Error())
+		return
+	}
+	writeJSON(w, result)
+}

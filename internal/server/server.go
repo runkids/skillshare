@@ -545,6 +545,7 @@ func (s *Server) registerRoutes() {
 	s.mux.HandleFunc("GET /api/mcp", s.requireLocalMCP(s.handleMCPList))
 	s.mux.HandleFunc("POST /api/mcp", s.requireLocalMCP(s.handleMCPConfigure))
 	s.mux.HandleFunc("GET /api/mcp/check", s.requireLocalMCP(s.handleMCPCheck))
+	s.mux.HandleFunc("POST /api/mcp/probe", s.requireLocalMCP(s.handleMCPProbe))
 	s.mux.HandleFunc("POST /api/mcp/preview", s.requireLocalMCP(s.handleMCPPreview))
 	s.mux.HandleFunc("POST /api/mcp/render", s.requireLocalMCP(s.handleMCPRender))
 	s.mux.HandleFunc("POST /api/mcp/import", s.requireLocalMCP(s.handleMCPImport))
