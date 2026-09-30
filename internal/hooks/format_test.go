@@ -43,3 +43,27 @@ func TestSync_EmptiedHooksKeyFollowsWhoCreatedIt(t *testing.T) {
 		t.Fatalf("a hooks key the user had stays:\n%q", got)
 	}
 }
+
+func TestPlanFiles_AfterIsWhatSyncWrites(t *testing.T) {
+	e := newEnv(t)
+	path := filepath.Join(e.home, ".claude", "settings.json")
+	write(t, path, `{"model":"opus"}`)
+	m := Mutation{Name: "stop", Entry: entry(t, `{"bindings":{"claude":{"events":{"Stop":[{"hooks":[{"type":"command","command":"echo stop"}]}]}},"opencode":{"code":"export default {}\n"}}}`)}
+	p, err := e.service.PreviewMutation(m)
+	must(t, err)
+	files := p.Files()
+	if len(files) != 2 || files[0].Before != `{"model":"opus"}` || files[1].Before != "" {
+		t.Fatalf("files: %+v", files)
+	}
+	save(t, e.service, m)
+	for _, f := range files {
+		if got := read(t, f.Path); got != f.After {
+			t.Fatalf("%s: preview after differs from the written file:\n%q\n%q", f.Target, f.After, got)
+		}
+	}
+	p, err = e.service.Preview()
+	must(t, err)
+	if len(p.Files()) != 0 {
+		t.Fatalf("unchanged files are skipped: %+v", p.Files())
+	}
+}

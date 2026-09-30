@@ -85,6 +85,28 @@ type Plan struct {
 	adopted []string
 }
 
+// FileDiff is one native file's text before and after a planned sync.
+type FileDiff struct {
+	Target string `json:"target"`
+	Path   string `json:"path"`
+	Root   string `json:"root,omitempty"`
+	// Before is the current text, "" when the file is missing; After is exactly what
+	// sync writes, "" when it removes the file.
+	Before string `json:"before"`
+	After  string `json:"after"`
+}
+
+// Files returns each native file the plan would change, with its full text.
+func (p *Plan) Files() []FileDiff {
+	out := []FileDiff{}
+	for _, f := range p.files {
+		if f.changed() && string(f.before) != string(f.after) {
+			out = append(out, FileDiff{Target: f.target, Path: f.path, Root: f.root, Before: string(f.before), After: string(f.after)})
+		}
+	}
+	return out
+}
+
 // Result reports applied files individually; a multi-file operation is not a
 // filesystem transaction and may leave completed files when a later one fails.
 type Result struct {

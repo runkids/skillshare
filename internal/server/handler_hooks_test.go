@@ -393,3 +393,28 @@ func TestHooksAPIImportSaveTakesOverWithoutReplace(t *testing.T) {
 		t.Fatalf("sync after an imported save: %s", preview.Body)
 	}
 }
+
+func TestHooksAPIPreviewCarriesFileTexts(t *testing.T) {
+	s, _ := newTestServerWithExtras(t, nil, "")
+	home := hooksTestHome(t)
+	w := hooksPost(s, s.handleHooksPreview, "/api/hooks/preview", `{"mutation":`+hooksTestMutation+`}`)
+	var p struct {
+		Revision string `json:"revision"`
+		Files    []struct {
+			Target, Path, Before, After string
+		} `json:"files"`
+	}
+	if w.Code != http.StatusOK || json.Unmarshal(w.Body.Bytes(), &p) != nil || len(p.Files) != 1 {
+		t.Fatalf("preview: %d %s", w.Code, w.Body)
+	}
+	f := p.Files[0]
+	if f.Target != "claude" || f.Path != filepath.Join(home, ".claude", "settings.json") || f.Before != "" || !strings.Contains(f.After, "skillshare-hooks-test") {
+		t.Fatalf("file diff: %+v", f)
+	}
+	if w := hooksPost(s, s.handleHooksConfigure, "/api/hooks", `{"mutation":`+hooksTestMutation+`,"revision":"`+p.Revision+`","sync":true}`); w.Code != http.StatusOK {
+		t.Fatalf("apply: %d %s", w.Code, w.Body)
+	}
+	if data, _ := os.ReadFile(f.Path); string(data) != f.After {
+		t.Fatalf("written file differs from the preview:\n%s", data)
+	}
+}

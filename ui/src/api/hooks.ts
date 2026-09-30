@@ -40,6 +40,10 @@ export interface HookPlan { revision: string; fingerprint: string; sourcePath: s
 export interface HookCatalogEvent { name: string; description: string; matcher: boolean }
 /** A command Agent's documented events; code Agents are not listed. */
 export interface HookAgentCatalog { events: HookCatalogEvent[]; timeoutUnit: 'seconds' | 'milliseconds' }
+/** A native file the preview would change: full text now (`""` when missing) and exactly what sync writes (`""` when removed). */
+export interface HookFileDiff { target: string; path: string; root?: string; before: string; after: string }
+/** Only POST /hooks/preview carries `files`. */
+export type HookPreview = HookPlan & { files?: HookFileDiff[] };
 export interface HookResult { plan?: HookPlan; applied: string[]; backupIds: string[] }
 export interface HookTargetDef { name: string; kind: string; note?: string }
 /** Hooks in an Agent's native configuration that Skillshare does not manage. */
@@ -70,7 +74,7 @@ export const hooksApi = {
   list: () => apiFetch<HookInventory>('/hooks'),
   catalog: () => apiFetch<Record<string, HookAgentCatalog>>('/hooks/catalog'),
   /** An empty mutation previews synchronizing the current source. */
-  preview: (mutation: HookMutation = {}) => post<HookPlan>('/hooks/preview', { mutation }),
+  preview: (mutation: HookMutation = {}) => post<HookPreview>('/hooks/preview', { mutation }),
   configure: (mutation: HookMutation, revision: string, sync: boolean) => post<HookResult>('/hooks', { mutation, revision, sync }),
   /** Save to the source only. The server refuses a write it has not previewed; the revision also catches concurrent edits. */
   save: async (mutation: HookMutation) =>

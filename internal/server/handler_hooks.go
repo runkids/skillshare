@@ -94,7 +94,11 @@ func (s *Server) handleHooksPreview(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	writeJSON(w, p)
+	// Only the preview carries full file texts, for the dashboard's diff.
+	writeJSON(w, struct {
+		*hooks.Plan
+		Files []hooks.FileDiff `json:"files"`
+	}{p, p.Files()})
 }
 
 // handleHooksRender shows one hook's native files without planning, saving or writing.
