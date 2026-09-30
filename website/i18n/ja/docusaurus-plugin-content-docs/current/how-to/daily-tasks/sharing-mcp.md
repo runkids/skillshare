@@ -11,7 +11,7 @@ MCP は、Agent が別のプログラムやサービスが提供するツール�
 対応する MCP クライアントには Claude Code、Codex（CLI、IDE 拡張機能、ChatGPT デスクトップアプリは
 1つの設定を共有します）、Cursor、VS Code、OpenCode、Kilo Code、Grok CLI、Antigravity (AGY)、
 Amp、Claude Desktop、Cline、Copilot CLI、Factory、Gemini CLI、Goose、Junie、Kiro、LM Studio、
-Warp、Windsurf が含まれます。Pi ≥ 0.99.0 は MCP を内蔵し、[拡張モードも選べます](/docs/reference/commands/mcp#pi-choose-your-mcp-extension)。
+Warp、Windsurf、そして[内蔵 MCP](/docs/reference/commands/mcp#pi) を通じた Pi ≥ 0.99.0 が含まれます。
 [送信先と認証の制限](/docs/reference/commands/mcp#native-destinations)を参照してください。ダッシュボードには、
 現在の scope で利用可能なクライアントが表示されます。
 
@@ -50,16 +50,16 @@ MCP プロバイダーから提供された URL または JSON を貼り付け�
 貼り付けるかです。貼り付け側はファイルの読み込みにも対応しており、これはブラウザ版の
 `mcp import --file` に相当します。貼り付けられた JSON は自動的に認識されます。TOML の場合は、
 Codex 由来か Grok 由来かを選択します。貼り付けた内容がサーバー 1 つだけで Pi にチェックが入っている場合は、
-ダイアログにフォームの Pi 設定（モード、ツールの公開方法、その他の Pi 設定）も表示されます。**Import from a target** は別の機能で、すでにインストールされて
+ダイアログにフォームの Pi 設定（ツールの公開方法、その他の Pi 設定）も表示されます。**Import from a target** は別の機能で、すでにインストールされて
 いる Agent が持つサーバーを読み込みます。いずれの方法でも、ダッシュボードは CLI と同じ source、検証、
 プレビュー、競合ルールを使用します。MCP ページの Sync ボックスにある **Sync MCP** は、MCP の設定ファイルだけを
 書き込みます。Sync ページには、skills、agents、extras、MCP をまとめて Sync するための
 **Sync all resources** もあります。
 
-Pi のインポート元メニューでは内蔵、`pi-mcp-adapter`、`pi-mcp-extension` を個別に選び、
-選択したファイルだけを読み込みます。内蔵と extension は `mcp.json`、adapter は
-`mcp-adapter.json` を使います。表示パスは現在のスコープ、`PI_CODING_AGENT_DIR`、
-アカウントのディレクトリに従います。プロジェクトではその `.pi/` を読み込みます。
+Pi のインポート元メニューには、Pi の `mcp.json` と、0.23.0 より前に `pi-mcp-adapter` で
+設定したサーバー用の `mcp-adapter.json` が並び、それぞれそのファイルだけを読み込みます。
+adapter のファイルは読み込むだけで、sync はインポートしたサーバーを Pi の `mcp.json` に書き込みます。
+表示パスは現在のスコープ、`PI_CODING_AGENT_DIR`、アカウントのディレクトリに従います。プロジェクトではその `.pi/` を読み込みます。
 個人用 server と認証情報はグローバルファイルに置き、プロジェクトファイルは信頼できる
 プロジェクトでのみ使ってください。
 
@@ -100,6 +100,22 @@ flowchart LR
 URL は自分のコンピューター上のサービスを指すことも、リモートサービスを指すこともできます。通常の
 Web サイトの URL ではなく、プロバイダーの実際の MCP エンドポイントを使用してください。従来の SSE
 設定は、暗黙に変換されるのではなく拒否されます。
+
+## モデルに渡すツールを絞る
+
+1 つのサーバーが多数のツールを提供することがあります。`tools` を一度設定すれば、一部だけを残したり、
+一部を隠したりでき、skillshare はそれを各 Agent 独自の形式で書き込みます。
+
+```bash
+skillshare mcp edit github --tools-allow 'get_*,search_code' --tools-deny get_secret
+skillshare sync mcp --dry-run
+```
+
+ダッシュボードでは、サーバーを開いて **ツール** セクションを使います。**サーバーからツールを読み込む** で
+選択できるツール名が一覧表示されます。Pi はポリシー全体を適用し、Codex と Copilot CLI は完全一致の
+名前を適用します。その他の Agent は適用しません。プレビューと `skillshare mcp check` は、ポリシーの
+一部を適用しない Agent をそれぞれ示します。[ツールポリシー](/docs/reference/commands/mcp#tool-policy)を
+参照してください。
 
 ## すべてを1つのファイルにまとめる
 
@@ -243,8 +259,7 @@ skillshare sync mcp
 ダッシュボードでは、`skillshare ui` でプロジェクトフォルダから開き、**サーバーを追加** の
 横にある **グローバルサーバーをオフにする** ボタンを選びます。
 
-これは Claude Code、OpenCode、Kilo Code、および `pi-mcp-adapter` を使う Pi で動作します。他の Agent
-は拒否されます。Pi の場合は `--pi-extension pi-mcp-adapter` を追加してください。各 Agent に対して
+これは Claude Code、OpenCode、Kilo Code で動作します。Pi を含む他の Agent は拒否されます。各 Agent に対して
 何が書き込まれるか、また他の Agent が対応していない理由については
 [コマンドリファレンス](/docs/reference/commands/mcp#turn-off-a-global-server-in-one-project)
 を参照してください。

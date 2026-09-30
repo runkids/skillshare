@@ -10,7 +10,7 @@ MCP를 사용하면 Agent가 다른 프로그램이나 서비스가 제공하는
 
 지원되는 MCP 클라이언트에는 Claude Code, Codex(CLI, IDE 확장, ChatGPT 데스크톱 앱이 하나의 설정을
 공유), Cursor, VS Code, OpenCode, Kilo Code, Grok CLI, Antigravity(AGY), Amp, Claude Desktop, Cline,
-Copilot CLI, Factory, Gemini CLI, Goose, Junie, Kiro, LM Studio, Warp, Windsurf가 포함됩니다. Pi ≥ 0.99.0에는 MCP가 내장되어 있으며 [확장 모드도 선택할 수 있습니다](/docs/reference/commands/mcp#pi-choose-your-mcp-extension).
+Copilot CLI, Factory, Gemini CLI, Goose, Junie, Kiro, LM Studio, Warp, Windsurf가 포함되며, Pi ≥ 0.99.0도 [내장 MCP](/docs/reference/commands/mcp#pi)를 통해 지원됩니다.
 [대상 및 인증 제한](/docs/reference/commands/mcp#native-destinations)을
 참고하세요. 대시보드에는 현재 스코프에서 사용 가능한 클라이언트가 표시됩니다.
 
@@ -49,14 +49,14 @@ MCP 제공자로부터 받은 URL이나 JSON을 붙여넣고, 이름을 지정�
 방식입니다. 붙여넣기 쪽에서는 파일을 불러올 수도 있는데, 이는 브라우저에서 `mcp import --file`에
 해당하는 기능입니다. 붙여넣은 JSON은 자동으로 인식되며, TOML의 경우 Codex에서 온 것인지 Grok에서
 온 것인지 선택해야 합니다. 붙여넣은 내용에 서버가 하나이고 Pi가 체크되어 있으면, 대화상자에
-폼의 Pi 설정인 모드, 도구 노출 방식, 기타 Pi 설정도 표시됩니다. **Import from a target**은 별도 기능으로, 이미 설치된 Agent가 가진
+폼의 Pi 설정인 도구 노출 방식과 기타 Pi 설정도 표시됩니다. **Import from a target**은 별도 기능으로, 이미 설치된 Agent가 가진
 서버를 읽어옵니다. 어느 경우든 대시보드는 CLI와 동일한 소스, 검증, 미리보기, 충돌 규칙을
 사용합니다. MCP 페이지의 Sync 박스에 있는 **Sync MCP**는 MCP 설정 파일만 작성합니다.
 Sync 페이지에는 Skill, Agent, 추가 항목, MCP를 위한 **Sync all resources**도 있습니다.
 
-Pi 가져오기 원본 메뉴는 내장, `pi-mcp-adapter`, `pi-mcp-extension`을 각각 제공하며 선택한
-파일만 읽습니다. 내장과 extension은 `mcp.json`, adapter는 `mcp-adapter.json`을 사용합니다.
-표시 경로는 현재 범위, `PI_CODING_AGENT_DIR`, 계정 디렉터리를 따릅니다. 프로젝트에서는
+Pi 가져오기 원본 메뉴는 Pi의 `mcp.json`과, 0.23.0 이전에 `pi-mcp-adapter`로 설정한
+서버를 위한 `mcp-adapter.json`을 나열하며, 각각 해당 파일만 읽습니다. adapter 파일은
+읽기만 합니다: sync는 가져온 서버를 Pi의 `mcp.json`에 작성합니다. 표시 경로는 현재 범위, `PI_CODING_AGENT_DIR`, 계정 디렉터리를 따릅니다. 프로젝트에서는
 해당 프로젝트의 `.pi/`를 읽습니다. 개인 server와 인증 정보는 전역 파일에 두고, 프로젝트
 파일은 신뢰할 수 있는 프로젝트에서만 사용하세요.
 
@@ -96,6 +96,22 @@ flowchart LR
 자동으로 추론합니다. URL은 여러분의 컴퓨터에서 실행 중인 서비스를 가리킬 수도, 원격 서비스를
 가리킬 수도 있습니다. 일반적인 웹사이트 URL이 아니라 제공자의 실제 MCP 엔드포인트를 사용하세요.
 레거시 SSE 설정은 자동으로 변환되지 않고 거부됩니다.
+
+## 모델에 전달되는 도구 제한하기
+
+서버 하나가 많은 도구를 제공할 수 있습니다. `tools`를 한 번 설정해 일부만 남기거나
+일부를 숨기면, Skillshare가 각 Agent 고유의 형식으로 작성합니다:
+
+```bash
+skillshare mcp edit github --tools-allow 'get_*,search_code' --tools-deny get_secret
+skillshare sync mcp --dry-run
+```
+
+대시보드에서는 서버를 열어 **도구** 섹션을 사용하세요. **서버에서 도구 불러오기**가
+고를 수 있는 도구 이름을 나열합니다. Pi는 정책 전체를 적용하고, Codex와 Copilot CLI는
+정확한 이름을 적용하며, 그 밖의 Agent는 적용하지 않습니다. 미리보기와
+`skillshare mcp check`는 정책 일부를 적용하지 않는 Agent를 각각 알려줍니다.
+[도구 정책](/docs/reference/commands/mcp#tool-policy)을 참고하세요.
 
 ## 모든 것을 하나의 파일에 유지하기
 
@@ -241,9 +257,8 @@ skillshare sync mcp
 대시보드에서는 `skillshare ui`로 프로젝트 폴더에서 열어 **서버 추가** 옆에 있는
 **전역 서버 끄기** 버튼을 선택하세요.
 
-이 기능은 Claude Code, OpenCode, Kilo Code, 그리고 `pi-mcp-adapter`를 사용하는 Pi에서
-작동합니다. 다른 Agent는 거부됩니다. Pi의 경우 `--pi-extension pi-mcp-adapter`를
-추가하세요. 각 Agent에 무엇이 기록되는지, 그리고 나머지가 왜 지원되지 않는지는
+이 기능은 Claude Code, OpenCode, Kilo Code에서 작동합니다. Pi를 포함한 다른 Agent는
+거부됩니다. 각 Agent에 무엇이 기록되는지, 그리고 나머지가 왜 지원되지 않는지는
 [명령어 레퍼런스](/docs/reference/commands/mcp#turn-off-a-global-server-in-one-project)를
 참고하세요.
 

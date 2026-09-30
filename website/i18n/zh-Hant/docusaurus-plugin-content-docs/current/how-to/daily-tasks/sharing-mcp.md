@@ -9,8 +9,8 @@ MCP 讓一個 Agent 能使用其他程式或服務提供的工具。Skillshare �
 
 支援的 MCP client 包含 Claude Code、Codex（CLI、IDE 擴充功能與 ChatGPT 桌面應用程式共用同一份設定）、
 Cursor、VS Code、OpenCode、Kilo Code、Grok CLI、Antigravity（AGY）、Amp、Claude Desktop、
-Cline、Copilot CLI、Factory、Gemini CLI、Goose、Junie、Kiro、LM Studio、Warp 與 Windsurf。
-Pi ≥ 0.99.0 已內建 MCP，也可[選擇擴充模式](/docs/reference/commands/mcp#pi-choose-your-mcp-extension)。
+Cline、Copilot CLI、Factory、Gemini CLI、Goose、Junie、Kiro、LM Studio、Warp 與 Windsurf，
+以及透過[內建 MCP](/docs/reference/commands/mcp#pi) 支援的 Pi ≥ 0.99.0。
 [目的地與驗證限制](/docs/reference/commands/mcp#native-destinations)請參閱該頁。
 Dashboard 會顯示目前範圍內可用的 client。
 
@@ -47,13 +47,14 @@ skillshare mcp add
 在 dashboard 中，**Add server** 支援兩種形式：填寫欄位，或貼上一份設定。
 貼上這一側也支援載入檔案，等同於瀏覽器版的 `mcp import --file`。貼上的 JSON 會自動被辨識；
 若是 TOML，則需選擇它來自 Codex 還是 Grok。若貼上的內容只有一個伺服器且勾選了 Pi，
-對話框也會顯示表單中的 Pi 設定：模式、工具曝光方式與其他 Pi 設定。**Import from a target** 是另一個獨立功能，
+對話框也會顯示表單中的 Pi 設定：工具曝光模式與其他 Pi 設定。**Import from a target** 是另一個獨立功能，
 會讀取已安裝的 Agent 目前已有的伺服器設定。無論哪種方式，dashboard 都使用與 CLI 相同的來源、
 驗證、預覽與衝突規則。MCP 頁面 Sync 框中的 **Sync MCP** 只會寫入 MCP 設定檔。
 Sync 頁面也提供 **Sync all resources**，可同步 Skills、agents、extras 與 MCP。
 
-Pi 的匯入來源選單分別提供內建、`pi-mcp-adapter` 與 `pi-mcp-extension`，只讀取所選的檔案。
-內建與 extension 使用 `mcp.json`；adapter 使用 `mcp-adapter.json`。顯示的路徑遵循目前範圍、
+Pi 的匯入來源選單會列出 Pi 的 `mcp.json`，以及（針對 0.23.0 之前以 `pi-mcp-adapter` 設定的伺服器）
+它的 `mcp-adapter.json`；每個來源只讀取該檔案。adapter 檔案只會被讀取：同步會把匯入的伺服器
+寫入 Pi 的 `mcp.json`。顯示的路徑遵循目前範圍、
 `PI_CODING_AGENT_DIR` 與自訂帳號目錄。專案匯入讀取該專案的 `.pi/`。
 個人伺服器與憑證請保留在全域檔案；專案檔案只應用於受信任的專案。
 
@@ -91,6 +92,21 @@ flowchart LR
 你通常不需要自行設定 `transport`；Skillshare 會從 `command` 或 `url` 自動推斷。
 URL 可以指向你自己電腦上的服務，也可以是遠端服務。請使用提供者實際的 MCP endpoint，
 而不是一般的網站 URL。舊式的 SSE 設定會被拒絕，而不會被靜默轉換。
+
+## 限制哪些工具會提供給模型
+
+一個伺服器可能提供很多工具。只要設定一次 `tools`，就能只保留其中一部分或隱藏部分工具，
+Skillshare 會依各 Agent 自己的格式寫入：
+
+```bash
+skillshare mcp edit github --tools-allow 'get_*,search_code' --tools-deny get_secret
+skillshare sync mcp --dry-run
+```
+
+在 dashboard 中，開啟該伺服器並使用它的 **工具** 區塊；**從伺服器載入工具** 會列出可供挑選的
+工具名稱。Pi 會套用整份政策；Codex 與 Copilot CLI 只套用完整的工具名稱；其他 Agents 則不套用。
+預覽與 `skillshare mcp check` 會指出每個省略部分政策的 Agent。請參閱
+[工具政策](/docs/reference/commands/mcp#tool-policy)。
 
 ## 全部保留在同一份檔案中
 
@@ -226,8 +242,7 @@ skillshare sync mcp
 在 dashboard 中，從專案資料夾以 `skillshare ui` 開啟，選擇 **新增伺服器** 旁邊的
 **關閉全域伺服器** 按鈕。
 
-這適用於 Claude Code、OpenCode、Kilo Code，以及搭配 `pi-mcp-adapter` 的 Pi。
-其他 Agents 則會被拒絕。若是 Pi，請加上 `--pi-extension pi-mcp-adapter`。
+這適用於 Claude Code、OpenCode 與 Kilo Code。其他 Agents（包括 Pi）則會被拒絕。
 [指令參考](/docs/reference/commands/mcp#turn-off-a-global-server-in-one-project)
 說明了各個 Agent 會寫入什麼內容，以及為什麼其他 Agent 不受支援。
 

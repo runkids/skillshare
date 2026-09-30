@@ -120,6 +120,7 @@ Versions of /Users/me/.claude/CLAUDE.md
 | `history` | `collect` | ターゲットの変更を共有ファイルに取り込む前 |
 | `history` | `attach` | 最初につないだときに共有ファイルで置き換える前 |
 | `history` | `restore` | 古いバージョンを復元する前 |
+| `history` | `migrate` | 0.23.0 で廃止された MCP 設定を除いて sync が config を保存する前。[0.22 からの Pi のアップグレード](/docs/reference/commands/mcp#pi-migration)を参照 |
 | `drift` | `overwrite` | ファイルを直接編集し、**上書き** を選んだとき |
 | `drift` | `mode` | 配置先のモードを切り替える前 |
 | `drift` | `restore` | 配置先を復元する前 |

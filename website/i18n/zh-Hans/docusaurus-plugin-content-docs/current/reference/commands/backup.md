@@ -120,6 +120,7 @@ reason 说明 skillshare 当时要做什么：
 | `history` | `collect` | 把某个 target 的修改收进共享文件之前 |
 | `history` | `attach` | 共享文件第一次接上并替换它之前 |
 | `history` | `restore` | 还原某个较早版本之前 |
+| `history` | `migrate` | 同步保存不含 0.23.0 已停用 MCP 设置的配置之前。参见[从 0.22 升级 Pi](/docs/reference/commands/mcp#pi-migration) |
 | `drift` | `overwrite` | 你直接编辑了该文件，然后选择了 **覆盖** |
 | `drift` | `mode` | 切换该位置的模式之前 |
 | `drift` | `restore` | 还原该位置之前 |

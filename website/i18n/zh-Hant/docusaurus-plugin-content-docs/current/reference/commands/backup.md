@@ -120,6 +120,7 @@ reason 說明 skillshare 當時正要做什麼：
 | `history` | `collect` | 把 target 的改動收進共用檔案 |
 | `history` | `attach` | 第一次接上時被共用檔案取代 |
 | `history` | `restore` | 還原較舊的版本 |
+| `history` | `migrate` | 同步儲存設定時，移除 0.23.0 淘汰的 MCP 設定。請參閱[從 0.22 升級 Pi](/docs/reference/commands/mcp#pi-migration) |
 | `drift` | `overwrite` | 你直接修改了檔案，並選擇 **覆蓋** |
 | `drift` | `mode` | 切換該位置的模式 |
 | `drift` | `restore` | 還原該位置 |

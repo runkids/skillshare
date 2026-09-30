@@ -120,6 +120,7 @@ reason은 skillshare가 하려던 작업을 나타냅니다.
 | `history` | `collect` | target의 변경 사항을 공유 파일로 수집하기 전 |
 | `history` | `attach` | 처음 연결할 때 공유 파일이 이를 교체하기 전 |
 | `history` | `restore` | 이전 버전을 복원하기 전 |
+| `history` | `migrate` | 0.23.0에서 폐지된 MCP 설정을 뺀 config를 sync가 저장하기 전. [0.22에서 Pi 업그레이드하기](/docs/reference/commands/mcp#pi-migration) 참고 |
 | `drift` | `overwrite` | 파일을 직접 편집한 뒤 **공유 파일로 덮어쓰기**를 선택했을 때 |
 | `drift` | `mode` | 위치의 mode를 바꾸기 전 |
 | `drift` | `restore` | 위치를 복원하기 전 |

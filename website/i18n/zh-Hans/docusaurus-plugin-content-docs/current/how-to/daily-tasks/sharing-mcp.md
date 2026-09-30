@@ -11,7 +11,8 @@ MCP 让 Agent 能够使用由其他程序或服务提供的工具。Skillshare
 受支持的 MCP 客户端包括 Claude Code、Codex（CLI、IDE 扩展与
 ChatGPT 桌面应用共享同一份配置）、Cursor、VS Code、OpenCode、
 Kilo Code、Grok CLI、Antigravity（AGY）、Amp、Claude Desktop、Cline、Copilot CLI、Factory、
-Gemini CLI、Goose、Junie、Kiro、LM Studio、Warp 与 Windsurf。Pi ≥ 0.99.0 已内置 MCP，也可[选择扩展模式](/docs/reference/commands/mcp#pi-choose-your-mcp-extension)。
+Gemini CLI、Goose、Junie、Kiro、LM Studio、Warp 与 Windsurf，以及通过
+[内置 MCP](/docs/reference/commands/mcp#pi) 支持的 Pi ≥ 0.99.0。
 [目的地与身份验证限制](/docs/reference/commands/mcp#native-destinations)
 请参见相应说明。控制台会显示你目前范围内可用的客户端。
 
@@ -51,14 +52,15 @@ Agent，并检查变更内容。**Save and sync** 会立即应用设置；
 一份配置。粘贴选项也可以加载一个文件，其作用相当于浏览器版本的
 `mcp import --file`。粘贴的 JSON 会被自动识别；对于
 TOML，则需要选择它来自 Codex 还是 Grok。如果粘贴的内容只有一个服务器且勾选了 Pi，
-对话框还会显示表单中的 Pi 设置：模式、工具暴露方式和其他 Pi 设置。**Import from a target** 是
+对话框还会显示表单中的 Pi 设置：工具暴露方式和其他 Pi 设置。**Import from a target** 是
 另一个独立功能，用于读取某个已安装 Agent 已有的服务器。无论哪种方式，
 控制台都使用与 CLI 相同的来源、验证、预览与冲突规则。MCP 页面 Sync 框中的
 **Sync MCP** 只写入 MCP 配置文件。Sync 页面也提供
 **Sync all resources**，用于同步 Skill、Agent、extras 与 MCP。
 
-Pi 的导入来源菜单分别提供内置、`pi-mcp-adapter` 与 `pi-mcp-extension`，只读取所选的文件。
-内置与 extension 使用 `mcp.json`；adapter 使用 `mcp-adapter.json`。显示的路径遵循当前范围、
+Pi 的导入来源菜单会列出 Pi 的 `mcp.json`，以及（针对 0.23.0 之前用
+`pi-mcp-adapter` 设置的服务器）它的 `mcp-adapter.json`；每一项只读取对应的文件。
+adapter 文件只会被读取：同步会把导入的服务器写入 Pi 的 `mcp.json`。显示的路径遵循当前范围、
 `PI_CODING_AGENT_DIR` 与自定义账号目录。项目导入读取该项目的 `.pi/`。
 个人服务器与凭据请保留在全局文件；项目文件只应用于受信任的项目。
 
@@ -98,6 +100,22 @@ flowchart LR
 或 `url` 中自动推断。URL 既可以指向你自己电脑上的服务，也可以指向远程服务。
 请使用提供者实际的 MCP 端点，而不是一般网站的 URL。旧式的 SSE
 配置会被拒绝，而不是被静默转换。
+
+## 限制哪些工具提供给模型
+
+一个服务器可能提供很多工具。设置一次 `tools` 就能只保留其中一部分，或隐藏部分工具，
+Skillshare 会按每个 Agent 自己的格式写入：
+
+```bash
+skillshare mcp edit github --tools-allow 'get_*,search_code' --tools-deny get_secret
+skillshare sync mcp --dry-run
+```
+
+在控制台中，打开该服务器并使用它的 **工具** 区块；**从服务器加载工具**
+会列出可供选择的工具名称。Pi 会应用完整的策略；Codex 与
+Copilot CLI 会应用精确名称；其他 Agent 不会应用。预览与
+`skillshare mcp check` 会指出每个未应用部分策略的 Agent。参见
+[工具策略](/docs/reference/commands/mcp#tool-policy)。
 
 ## 将所有内容保存在同一个文件中
 
@@ -241,8 +259,8 @@ skillshare sync mcp
 在控制台中，从项目文件夹使用 `skillshare ui` 打开它，选择 **添加服务器** 旁边的
 **关闭全局服务器** 按钮。
 
-此功能适用于 Claude Code、OpenCode、Kilo Code，以及搭配 `pi-mcp-adapter` 的 Pi。其他
-Agent 则会被拒绝。对于 Pi，请加上 `--pi-extension pi-mcp-adapter`。
+此功能适用于 Claude Code、OpenCode 与 Kilo Code。其他 Agent（包括 Pi）则会被
+拒绝。
 [命令参考文档](/docs/reference/commands/mcp#turn-off-a-global-server-in-one-project)
 说明了针对每个 Agent 会写入什么内容，以及为何其他 Agent 不受支持。
 
