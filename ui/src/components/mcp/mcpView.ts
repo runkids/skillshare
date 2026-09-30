@@ -328,3 +328,29 @@ export const describeEndpoint = (server: MCPServer) => server.url ?? joinCommand
 
 /** Backup IDs start with the Unix time in nanoseconds. */
 export const backupTime = (id: string) => new Date(Number(id.split('-')[0]) / 1e6);
+
+// The plan's notices come from internal/mcp worded in English; each known one maps to a key, and any
+// other is shown as sent. A legacy notice ends in ": <servers>", a tool policy one in " (<servers>)".
+const noticeKeys: Record<string, string> = {
+  "Pi's built-in MCP needs Pi 0.99.0 or later; on older Pi these servers stop loading until Pi is updated. If pi-mcp-adapter or pi-mcp-extension is still installed in Pi, remove it, because it can take the place of Pi's built-in MCP": 'mcp.notice.piBuiltin',
+};
+const legacyNoticeKeys: Record<string, string> = {
+  'Pi now uses its built-in MCP; the next sync updates the config': 'mcp.notice.piExtension',
+  'piOptionsPrune is no longer used; the next sync removes it': 'mcp.notice.piOptionsPrune',
+  'Pi cannot turn off a server per project; the next sync removes pi from these entries': 'mcp.notice.piSwitch',
+  'directTools, includeTools and excludeTools become tool settings; the next sync converts them': 'mcp.notice.piTools',
+  'directTools, includeTools or excludeTools the server already covers, or that are not tool lists, are dropped; the next sync removes them': 'mcp.notice.piToolsDropped',
+};
+const ADAPTER_OPTIONS = /^Pi's built-in MCP does not read (.+); the next sync removes them: (.+)$/;
+export const mcpNotice = (t: (key: string, params?: Record<string, string>) => string, notice: string) => {
+  if (noticeKeys[notice]) return t(noticeKeys[notice]);
+  const cut = notice.lastIndexOf(': ');
+  const key = cut > 0 ? legacyNoticeKeys[notice.slice(0, cut)] : undefined;
+  if (key) return t(key, { names: notice.slice(cut + 2) });
+  const adapter = ADAPTER_OPTIONS.exec(notice);
+  if (adapter) return t('mcp.notice.adapterOptions', { fields: adapter[1], names: adapter[2] });
+  const policy = parseToolNotice(notice);
+  if (!policy) return notice;
+  const parts = policy.gaps.map((gap) => t(toolGapKey(gap))).join(t('mcp.tools.partSeparator'));
+  return t('mcp.notice.toolPolicy', { agent: targetLabel(policy.target), parts, names: policy.names.join(', ') });
+};

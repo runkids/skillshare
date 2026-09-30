@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { MCPPlan } from '../../api/mcp';
-import { buildMatrix, denyRemovesAll, describeError, describeMessage, canImportConflict, groupByFile, isResolvable, joinCommand, mcpClient, parsePiOptions, parseToolNotice, serverCount, setToolChecked, splitCommand, switchTargets, targetLabel, toolRules, toolSummary } from './mcpView';
+import { buildMatrix, denyRemovesAll, describeError, describeMessage, canImportConflict, groupByFile, isResolvable, joinCommand, mcpClient, mcpNotice, parsePiOptions, parseToolNotice, serverCount, setToolChecked, splitCommand, switchTargets, targetLabel, toolRules, toolSummary } from './mcpView';
 import { mcpTargets } from '../../api/mcp';
 
 const change = (name: string, target: string, action: string, message?: string) => ({ name, target, action, message, path: `/${target}.json` });
@@ -175,5 +175,20 @@ describe('parsePiOptions', () => {
   it('counts the servers an Agent gets, inherited ones too, but not a switch that turns one off', () => {
     const servers = { own: { command: 'a', targets: ['claude'] }, inherited: { command: 'b' }, off: { disabled: true, targets: ['claude'] } };
     expect(serverCount({ source: { servers, targets: ['claude'] }, paths: { claude: '/c.json' } }, 'claude')).toBe(2);
+  });
+});
+
+describe('mcpNotice', () => {
+  const t = (key: string, params?: Record<string, string>) => `[${key}${params ? ' ' + JSON.stringify(params) : ''}]`;
+
+  it('words the plan notices with UI keys, keeping the servers they name', () => {
+    expect(mcpNotice(t, "Pi's built-in MCP needs Pi 0.99.0 or later; on older Pi these servers stop loading until Pi is updated. If pi-mcp-adapter or pi-mcp-extension is still installed in Pi, remove it, because it can take the place of Pi's built-in MCP")).toBe('[mcp.notice.piBuiltin]');
+    expect(mcpNotice(t, 'Pi now uses its built-in MCP; the next sync updates the config: docs, local (shop)')).toBe('[mcp.notice.piExtension {"names":"docs, local (shop)"}]');
+    expect(mcpNotice(t, "Pi's built-in MCP does not read idleTimeout, lifecycle; the next sync removes them: docs")).toBe('[mcp.notice.adapterOptions {"fields":"idleTimeout, lifecycle","names":"docs"}]');
+    expect(mcpNotice(t, 'tool policy not applied for opencode: allow (lists)')).toBe('[mcp.notice.toolPolicy {"agent":"OpenCode","parts":"[mcp.tools.gap.allow]","names":"lists"}]');
+  });
+
+  it('shows a notice it does not know as the server sent it', () => {
+    expect(mcpNotice(t, 'something new: docs')).toBe('something new: docs');
   });
 });

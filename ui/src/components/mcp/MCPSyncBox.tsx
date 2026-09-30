@@ -5,6 +5,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import type { MCPPlan } from '../../api/mcp';
 import Button from '../Button';
 import DialogShell from '../DialogShell';
+import MCPNotices from './MCPNotices';
 import { RailLine, SyncBox } from '../StatusRail';
 import SyncResultList from '../SyncResultList';
 import { MCP_CHANGED, mcpGroups, runSync } from '../sync/syncView';
@@ -73,6 +74,7 @@ export function MCPSyncDialog({ plan, shown, onClose }: { plan: MCPPlan; shown: 
           <div className="ss-note inf"><CircleCheck size={16} /><span className="flex-1">{t('mcp.syncDialog.done')}</span></div>
         ) : (
           <>
+            <MCPNotices notices={plan.notices} />
             {/* One row per Agent file can outgrow the dialog; scroll the list so the buttons stay reachable. */}
             <SyncResultList groups={groups} inSync={inSync} className="max-h-[50vh] !overflow-y-auto" />
             {outside > 0 && <p className="text-[13px] text-ink-2">{t(outside === 1 ? 'mcp.syncDialog.outside.one' : 'mcp.syncDialog.outside.other', { count: outside })}</p>}

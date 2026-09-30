@@ -12,6 +12,7 @@ import Spinner from '../components/Spinner';
 import Tooltip from '../components/Tooltip';
 import { useToast } from '../components/Toast';
 import { hookLabel, hookMessage, rootName } from '../components/hooks/hooksView';
+import MCPNotices from '../components/mcp/MCPNotices';
 import { describeMessage, mcpClient, targetLabel } from '../components/mcp/mcpView';
 import { countChanges, countEdited, extraGroups, groupByFolder, groupInSync, HOOKS_CHANGED, hooksGroups, MCP_CHANGED, mcpGroups, otherWarnings, resourceGroups, runSync, type ChangeGroup, type Part, type RowIcon, type SyncFailure } from '../components/sync/syncView';
 import SyncResult from '../components/sync/SyncResult';
@@ -208,6 +209,7 @@ export default function SyncPage() {
               <Link to="/hooks" className="ss-btn sm">{t('sync.openHooks')}</Link>
             </div>
           )}
+          {parts.has('mcp') && <MCPNotices notices={plan?.notices} />}
           {parts.has('hooks') && hooks.data?.previewError && <div className="ss-note bad"><AlertCircle size={16} /><span className="flex-1">{hooks.data.previewError}</span></div>}
           {parts.has('mcp') && mcp.data?.previewError && <div className="ss-note bad"><AlertCircle size={16} /><span className="flex-1">{mcp.data.previewError}</span></div>}
           <SyncResult failures={failures} warnings={otherWarnings(outcome)} synced={syncedTargets} force={force} onForce={() => setForce(true)} />

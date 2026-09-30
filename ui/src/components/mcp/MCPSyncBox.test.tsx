@@ -87,6 +87,13 @@ describe('MCP sync box', () => {
     expect(await screen.findByText(/The MCP changes shifted during the sync/)).toBeInTheDocument();
   });
 
+  it('shows the plan notices, worded for the dashboard, before writing', async () => {
+    const user = userEvent.setup();
+    box({ ...plan, notices: ["Pi's built-in MCP needs Pi 0.99.0 or later; on older Pi these servers stop loading until Pi is updated. If pi-mcp-adapter or pi-mcp-extension is still installed in Pi, remove it, because it can take the place of Pi's built-in MCP"] });
+    await user.click(screen.getByRole('button', { name: 'Sync MCP' }));
+    expect(screen.getByText(/On older Pi these servers stop loading until Pi is updated\./)).toBeInTheDocument();
+  });
+
   it('sends a blocked plan to the Sync page instead of offering to write it', () => {
     box({ ...plan, blocked: true });
     expect(screen.queryByRole('button', { name: 'Sync MCP' })).not.toBeInTheDocument();
