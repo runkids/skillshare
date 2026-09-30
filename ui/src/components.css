@@ -153,7 +153,8 @@ svg.lucide { flex: none; stroke-width: var(--isw); }
 :root[data-theme="playful"].dark .ss-tgl .ic>i { background: var(--pa); color: #1B1916; }
 .ss-sw { width: 34px; height: 20px; flex: none; padding: 2px; display: flex; border-radius: 99px; background: var(--line-2); }
 .ss-sw i { width: 16px; height: 16px; border-radius: 99px; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.25); }
-.ss-sw.on { background: var(--ok); justify-content: flex-end; }
+.ss-sw.on { background: var(--ink); justify-content: flex-end; }
+.ss-sw.on i { background: var(--surface); }
 /* Some of the items it covers are on: knob in the middle, track as for off. */
 .ss-sw.mix { justify-content: center; }
 :root[data-theme="playful"] .ss-sw { width: 38px; height: 22px; background: var(--surface); border: 2px solid var(--line); padding: 2px; }
@@ -418,7 +419,7 @@ svg.lucide { flex: none; stroke-width: var(--isw); }
 .ss-disc { display: flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 600; color: var(--ink-2); }
 .ss-pick { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border: var(--bw) solid var(--line-2); border-radius: 10px; background: var(--surface); }
 :root[data-theme="playful"] .ss-pick { border-radius: 12px; }
-.ss-pick.on { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-bg); }
+.ss-pick.on { border-color: var(--ink); box-shadow: 0 0 0 1px var(--ink); }
 :root[data-theme="playful"] .ss-pick.on { border-color: var(--line); background: var(--pe); box-shadow: 3px 3px 0 var(--line); }
 :root[data-theme="playful"].dark .ss-pick.on { background: #332B17; }
 .ss-bulk.static { position: static; transform: none; margin: 0; align-self: flex-start; }
