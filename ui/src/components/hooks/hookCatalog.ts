@@ -326,12 +326,13 @@ export function suggestName(candidate: string, command: string, taken: (name: st
 export interface DiffLine { op: ' ' | '+' | '-'; text: string }
 
 // A line that only gained or lost a trailing comma or whitespace, because a neighbour was added or removed, is unchanged.
-const sameLine = (line: string) => line.trim().replace(/,$/, '');
+const sameLine = (line: string) => line.replace(/,?\s*$/, '');
 
 /**
  * A line diff of two small files (LCS); files too large for that show as replaced. Lines align ignoring a
- * trailing comma and whitespace, so an added sibling does not shift the rest, but a line whose text still
- * differs shows as removed and added. Within a change, removed lines come first.
+ * trailing comma, so an added sibling does not shift the rest, but a line whose text still differs shows
+ * as removed and added. Indentation counts, so a closing bracket never pairs with a nested one. Within a
+ * change, removed lines come first.
  */
 export function diffLines(before: string, after: string): DiffLine[] {
   const oldLines = before ? before.replace(/\n$/, '').split('\n') : [];

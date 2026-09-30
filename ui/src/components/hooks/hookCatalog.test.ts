@@ -77,6 +77,12 @@ describe('diffLines', () => {
     expect(diffLines('[\n  1,\n  2\n]', '[\n  1\n]').map((l) => `${l.op}${l.text}`)).toEqual([' [', '-  1,', '-  2', '+  1', ' ]']);
   });
 
+  it('adds an event after the last one as a comma pair plus the new lines, closing brackets untouched', () => {
+    const before = '{\n  "hooks": {\n    "A": [\n      {}\n    ]\n  }\n}';
+    const after = '{\n  "hooks": {\n    "A": [\n      {}\n    ],\n    "B": [\n      {}\n    ]\n  }\n}';
+    expect(diffLines(before, after).filter((l) => l.op !== ' ').map((l) => `${l.op}${l.text}`)).toEqual(['-    ]', '+    ],', '+    "B": [', '+      {}', '+    ]']);
+  });
+
   it('keeps unrelated lines aligned when a comma changes', () => {
     const before = '{\n  "A": [],\n  "B": [],\n  "C": []\n}';
     const after = '{\n  "A": [],\n  "B": [],\n  "C": [],\n  "D": []\n}';
