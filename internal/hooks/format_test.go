@@ -73,8 +73,28 @@ func TestSync_OneLineArraysStayOnOneLine(t *testing.T) {
 	path := filepath.Join(e.home, ".claude", "settings.json")
 	write(t, path, "{\n  \"hooks\": {\n    \"Stop\": [{\"hooks\": [{\"type\": \"command\", \"command\": \"mine\"}]}]\n  }\n}\n")
 	save(t, e.service, Mutation{Name: "stop", Entry: entry(t, stopEntry)})
-	want := "{\n  \"hooks\": {\n    \"Stop\": [{\"hooks\": [{\"type\": \"command\", \"command\": \"mine\"}]}, {\"hooks\":[{\"command\":\"echo stop\",\"type\":\"command\"}]}]\n  }\n}\n"
+	want := "{\n  \"hooks\": {\n    \"Stop\": [{\"hooks\": [{\"type\": \"command\", \"command\": \"mine\"}]}, {\"hooks\": [{\"command\": \"echo stop\", \"type\": \"command\"}]}]\n  }\n}\n"
 	if got := read(t, path); got != want {
 		t.Fatalf("appended:\n%s", got)
+	}
+}
+
+// An element replaced in place keeps its key order and the separators of the line it is on.
+func TestSync_ReplacedElementKeepsKeyOrderAndSpacing(t *testing.T) {
+	for _, tc := range []struct{ name, file string }{
+		{"spaced", "{\n  \"hooks\": {\n    \"Stop\": [{\"hooks\": [{\"type\": \"command\", \"command\": \"chime\", \"timeout\": 5}]}]\n  }\n}\n"},
+		{"compact", `{"hooks":{"Stop":[{"hooks":[{"type":"command","command":"chime","timeout":5}]}]}}` + "\n"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			e := newEnv(t)
+			path := filepath.Join(e.home, ".claude", "settings.json")
+			write(t, path, tc.file)
+			c := importOne(t, e.service, "claude", "claude-stop")
+			save(t, e.service, Mutation{Name: c.Name, Entry: &c.Entry, Adopt: true})
+			save(t, e.service, Mutation{Name: c.Name, Entry: entry(t, `{"bindings":{"claude":{"events":{"Stop":[{"hooks":[{"type":"command","command":"chime","timeout":10}]}]}}}}`)})
+			if got, want := read(t, path), strings.Replace(tc.file, "5}", "10}", 1); got != want {
+				t.Fatalf("replaced:\n%s\nwant:\n%s", got, want)
+			}
+		})
 	}
 }

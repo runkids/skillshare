@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"regexp"
+	"sort"
 	"strings"
 
 	"github.com/tailscale/hujson"
@@ -206,14 +208,24 @@ func (n *nativeDoc) edit(ops []elementOp, track map[string]map[int]string, drop 
 				ids[i] = key
 			}
 		}
-		// A one-line array keeps its elements on that line.
-		inline := len(arr.Elements) > 0 && !bytes.Contains(hujson.Value{Value: arr}.Pack(), []byte("\n"))
-		layout := func(v any) (hujson.Value, error) {
+		// A one-line array keeps its elements on that line, with the line's own separators.
+		line := hujson.Value{Value: arr}.Pack()
+		inline := len(arr.Elements) > 0 && !bytes.Contains(line, []byte("\n"))
+		colon, comma := separators(line)
+		// like is the element being replaced, whose key order the new one keeps.
+		layout := func(v any, like *hujson.Value) (hujson.Value, error) {
 			value, err := formatted(v, indent, depth+1)
+			if err != nil {
+				return value, err
+			}
+			if like != nil {
+				keepKeyOrder(&value, *like)
+			}
 			if inline {
 				value.Minimize()
+				spaceOut(&value, colon, comma)
 			}
-			return value, err
+			return value, nil
 		}
 		removed := map[int]bool{}
 		var appended []elementOp
@@ -226,7 +238,7 @@ func (n *nativeDoc) edit(ops []elementOp, track map[string]map[int]string, drop 
 			case op.Value == nil:
 				removed[op.Index] = true
 			default:
-				value, err := layout(op.Value)
+				value, err := layout(op.Value, &arr.Elements[op.Index])
 				if err != nil {
 					return nil, nil, err
 				}
@@ -244,7 +256,7 @@ func (n *nativeDoc) edit(ops []elementOp, track map[string]map[int]string, drop 
 			}
 		}
 		for _, op := range appended {
-			value, err := layout(op.Value)
+			value, err := layout(op.Value, nil)
 			if err != nil {
 				return nil, nil, err
 			}
@@ -363,6 +375,91 @@ func detectIndent(root *hujson.Object) string {
 		}
 	}
 	return "  "
+}
+
+// separators reports whether a one-line JSON text puts a space after its colons
+// and after its commas. Without any comma, commas follow the colons.
+func separators(line []byte) (colon, comma bool) {
+	colon = colonSpace.Match(line)
+	comma = colon
+	if bytes.Contains(line, []byte(",")) {
+		comma = commaSpace.Match(line)
+	}
+	return colon, comma
+}
+
+var (
+	colonSpace = regexp.MustCompile(`"\s*:[ \t]`)
+	commaSpace = regexp.MustCompile(`,[ \t]`)
+)
+
+// spaceOut puts single spaces after the colons and commas of a minimized value.
+func spaceOut(v *hujson.Value, colon, comma bool) {
+	after := func(on bool) hujson.Extra {
+		if on {
+			return hujson.Extra(" ")
+		}
+		return nil
+	}
+	switch value := v.Value.(type) {
+	case *hujson.Object:
+		for i := range value.Members {
+			m := &value.Members[i]
+			if i > 0 {
+				m.Name.BeforeExtra = after(comma)
+			}
+			m.Value.BeforeExtra = after(colon)
+			spaceOut(&m.Value, colon, comma)
+		}
+	case *hujson.Array:
+		for i := range value.Elements {
+			if i > 0 {
+				value.Elements[i].BeforeExtra = after(comma)
+			}
+			spaceOut(&value.Elements[i], colon, comma)
+		}
+	}
+}
+
+// keepKeyOrder orders v's object keys as they are in like, at every depth;
+// keys like does not have follow in their own order.
+func keepKeyOrder(v *hujson.Value, like hujson.Value) {
+	switch value := v.Value.(type) {
+	case *hujson.Object:
+		old, ok := like.Value.(*hujson.Object)
+		if !ok || len(value.Members) == 0 {
+			return
+		}
+		rank := map[string]int{}
+		for i, m := range old.Members {
+			rank[literalString(m.Name)] = i
+		}
+		pos := func(m hujson.ObjectMember) int {
+			if i, ok := rank[literalString(m.Name)]; ok {
+				return i
+			}
+			return len(old.Members)
+		}
+		// Every member but the first carries the same layout, so moving whole members keeps it.
+		first := value.Members[0].Name.BeforeExtra
+		sort.SliceStable(value.Members, func(i, j int) bool { return pos(value.Members[i]) < pos(value.Members[j]) })
+		for i := range value.Members {
+			value.Members[i].Name.BeforeExtra = first
+			if j, ok := rank[literalString(value.Members[i].Name)]; ok {
+				keepKeyOrder(&value.Members[i].Value, old.Members[j].Value)
+			}
+		}
+	case *hujson.Array:
+		old, ok := like.Value.(*hujson.Array)
+		if !ok {
+			return
+		}
+		for i := range value.Elements {
+			if i < len(old.Elements) {
+				keepKeyOrder(&value.Elements[i], old.Elements[i])
+			}
+		}
+	}
 }
 
 // formatted encodes a value laid out at depth, so written elements stay readable.
