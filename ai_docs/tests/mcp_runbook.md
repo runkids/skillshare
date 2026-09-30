@@ -299,7 +299,7 @@ for flag in '--pi-extension builtin' '--pi-options-prune' '--direct-tools true';
   if ss mcp edit docs $flag --no-tui -g > "$MCP_CASE/out" 2>&1; then exit 1; fi
   grep -q 'was removed in 0.23.0' "$MCP_CASE/out"
 done
-grep -q 'tools-expose direct' "$MCP_CASE/out"
+grep -q '"exposure":"direct"' "$MCP_CASE/out"
 ss mcp list --json -g
 ```
 
@@ -318,9 +318,9 @@ mkdir -p "$MCP_CASE/.skillshare"
 printf 'targets: []\n' > "$MCP_CASE/.skillshare/config.yaml"
 cd "$MCP_CASE"
 ss mcp add github --target pi --target codex --target copilot --target opencode \
-  --tools-expose deferred --tools-allow 'get_*,search_code' --tools-deny get_secret --no-tui -p -- github-mcp >/dev/null
+  --pi-options '{"exposure":"deferred"}' --tools-allow 'get_*,search_code' --tools-deny get_secret --no-tui -p -- github-mcp >/dev/null
 ss sync mcp --dry-run --json -p > plan.json
-jq -e '.notices == ["tool policy not applied for codex: expose, allow patterns (github)", "tool policy not applied for copilot: expose, allow patterns, deny (github)", "tool policy not applied for opencode: expose, allow, deny (github)"]' plan.json >/dev/null
+jq -e '.notices == ["tool policy not applied for codex: allow patterns (github)", "tool policy not applied for copilot: allow patterns, deny (github)", "tool policy not applied for opencode: allow, deny (github)"]' plan.json >/dev/null
 ss sync mcp -p >/dev/null
 jq -e '.mcpServers.github.exposure == "deferred" and (.mcpServers.github.toolExposure | keys_unsorted) == ["get_secret", "get_*", "search_code", "*"]' .pi/mcp.json >/dev/null
 grep -q "disabled_tools = \['get_secret'\]" .codex/config.toml
@@ -330,7 +330,7 @@ jq -e '.mcp.github | has("tools") | not' opencode.json >/dev/null
 # github-mcp is not installed, so check exits 1 for the missing command.
 ss mcp check github --json --no-dns -p > check.json || test $? -eq 1
 jq -e '[.servers[].findings[] | select(.check == "tools") | .target] == ["codex", "copilot", "opencode"]' check.json >/dev/null
-ss mcp edit github --tools-expose '' --tools-allow 'search_code,list_issues' --tools-deny '' --no-tui -p >/dev/null
+ss mcp edit github --tools-allow 'search_code,list_issues' --tools-deny '' --no-tui -p >/dev/null
 ss sync mcp -p >/dev/null
 grep -q "enabled_tools = \['search_code', 'list_issues'\]" .codex/config.toml
 jq -e '.mcpServers.github.tools == ["search_code", "list_issues"]' .github/mcp.json >/dev/null

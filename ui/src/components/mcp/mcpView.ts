@@ -127,7 +127,7 @@ export const piExposures = ['codemode', 'codemode-deferred', 'deferred', 'direct
 
 /**
  * piOptions as typed. An empty box sets nothing; `invalid` is text that is not a JSON object, `taken` a field Skillshare writes,
- * `adapter`/`adapterTools` a pi-mcp-adapter field, and `overlap` Pi's exposure while the server has a tool policy (`tools`), which sets it.
+ * `adapter`/`adapterTools` a pi-mcp-adapter field, and `overlap` Pi's toolExposure while the server has a tool policy (`tools`), which writes it.
  */
 export const parsePiOptions = (text: string, tools = false): { value?: Record<string, unknown>; invalid?: true; taken?: string; bad?: string; adapter?: string; adapterTools?: string; overlap?: string } => {
   if (!text.trim()) return {};
@@ -141,7 +141,7 @@ export const parsePiOptions = (text: string, tools = false): { value?: Record<st
     if (adapterTools) return { adapterTools };
     const adapter = keys.find((key) => adapterFields.has(key));
     if (adapter) return { adapter };
-    const overlap = tools ? keys.find((key) => key === 'exposure' || key === 'toolExposure') : undefined;
+    const overlap = tools ? keys.find((key) => key === 'toolExposure') : undefined;
     if (overlap) return { overlap };
     const options = value as Record<string, unknown>;
     const object = (v: unknown): v is Record<string, unknown> => Boolean(v) && typeof v === 'object' && !Array.isArray(v);
@@ -166,8 +166,6 @@ export const parsePiOptions = (text: string, tools = false): { value?: Record<st
 
 /** Mirrors mcp.toolPattern: a tool name in which * matches any characters. */
 export const toolNamePattern = /^[^\s,?[\]{}]+$/;
-
-export const toolExposures = ['direct', 'deferred', 'hidden'] as const;
 
 const matchTool = (pattern: string, tool: string) => new RegExp(`^${pattern.replace(/[.+?^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*')}$`).test(tool);
 
@@ -197,13 +195,13 @@ export const setToolChecked = (tools: MCPToolPolicy, tool: string, on: boolean):
 /** Mirrors mcp.toolPolicyGaps: Codex and Copilot list exact tool names, so they hold part of a policy; another Agent with a gap holds none of it. */
 const namedToolClients = new Set(['codex', 'copilot']);
 
-/** What each selected Agent does with a tool policy: follows all of it, part of it (with the parts it drops), or none. Pi's exposure is left out; its select says so. */
+/** What each selected Agent does with a tool policy: follows all of it, part of it (with the parts it drops), or none. */
 export const toolOutcomes = (rendered: { target: string; toolGaps?: string[] }[]) => {
   const full: string[] = [];
   const partial: { target: string; gaps: string[] }[] = [];
   const none: string[] = [];
   for (const { target, toolGaps } of rendered) {
-    const gaps = (toolGaps ?? []).filter((gap) => gap !== 'expose');
+    const gaps = toolGaps ?? [];
     if (!gaps.length) full.push(target);
     else if (namedToolClients.has(mcpClient(target))) partial.push({ target, gaps });
     else none.push(target);
@@ -226,20 +224,22 @@ export const toolRules = (tools: MCPToolPolicy, names: string[]) => ({
 });
 
 /** Whether a policy says anything; an empty one is no policy. */
-export const hasToolPolicy = (tools?: MCPToolPolicy): tools is MCPToolPolicy => Boolean(tools?.expose || tools?.allow?.length || tools?.deny?.length);
+export const hasToolPolicy = (tools?: MCPToolPolicy): tools is MCPToolPolicy => Boolean(tools?.allow?.length || tools?.deny?.length);
 
 /** The policy without its empty parts, or undefined when nothing is left. */
 export const cleanToolPolicy = (tools?: MCPToolPolicy): MCPToolPolicy | undefined =>
-  hasToolPolicy(tools) ? { ...(tools.expose && { expose: tools.expose }), ...(tools.allow?.length && { allow: tools.allow }), ...(tools.deny?.length && { deny: tools.deny }) } : undefined;
+  hasToolPolicy(tools) ? { ...(tools.allow?.length && { allow: tools.allow }), ...(tools.deny?.length && { deny: tools.deny }) } : undefined;
 
-/** A policy in a few words, e.g. "direct · 3 allowed · 1 denied". */
-export const toolSummary = (t: (key: string, params?: Record<string, string | number>) => string, tools: MCPToolPolicy) => [
-  tools.expose,
-  tools.allow?.length && t('mcp.tools.chipAllow', { count: tools.allow.length }),
-  tools.deny?.length && t('mcp.tools.chipDeny', { count: tools.deny.length }),
-].filter(Boolean).join(' · ');
+/** A policy in plain words, e.g. "Only 3 allowed, 1 excluded". */
+export const toolSummary = (t: (key: string, params?: Record<string, string | number>) => string, tools: MCPToolPolicy) => {
+  const allow = tools.allow?.length ?? 0;
+  const deny = tools.deny?.length ?? 0;
+  if (allow && deny) return t('mcp.tools.summaryBoth', { allow, deny });
+  const [key, count] = allow ? ['mcp.tools.summaryAllow', allow] as const : ['mcp.tools.summaryDeny', deny] as const;
+  return t(`${key}.${count === 1 ? 'one' : 'other'}`, { count });
+};
 
-/** The parts of a tool policy an Agent does not apply, as the backend names them: expose, allow, deny, allow patterns, deny patterns. */
+/** The parts of a tool policy an Agent does not apply, as the backend names them: allow, deny, allow patterns, deny patterns. */
 export const toolGapKey = (gap: string) => `mcp.tools.gap.${gap.replace(' patterns', 'Patterns')}`;
 
 /** Just past the "(" of the last top-level pair of parentheses, or -1. */
@@ -254,7 +254,7 @@ const topLevelGroupStart = (text: string) => {
 
 const toolNoticePrefix = 'tool policy not applied for ';
 
-/** A plan notice or check finding about a tool policy, "tool policy not applied for codex: expose, allow patterns (docs, wiki)", taken apart. */
+/** A plan notice or check finding about a tool policy, "tool policy not applied for codex: allow patterns (docs, wiki)", taken apart. */
 export const parseToolNotice = (message: string) => {
   if (!message.startsWith(toolNoticePrefix)) return undefined;
   const rest = message.slice(toolNoticePrefix.length);

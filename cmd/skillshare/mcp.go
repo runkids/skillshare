@@ -18,9 +18,9 @@ import (
 
 type mcpOptions struct {
 	name, url, from, file, revision string
-	// toolsExpose, toolsAllow and toolsDeny are nil unless their --tools-* flag was given;
-	// an empty value clears that part of the tool policy.
-	toolsExpose, toolsAllow, toolsDeny *string
+	// toolsAllow and toolsDeny are nil unless their --tools-* flag was given; an empty
+	// value clears that part of the tool policy.
+	toolsAllow, toolsDeny *string
 	// piOptions is nil unless --pi-options was given.
 	piOptions                                    mcp.PiOptions
 	targets                                      []string
@@ -34,7 +34,7 @@ type mcpOptions struct {
 var removedMCPFlags = map[string]string{
 	"--pi-extension":     "--pi-extension was removed in 0.23.0: Pi always uses its built-in MCP (~/.pi/agent/mcp.json or .pi/mcp.json); drop the flag",
 	"--pi-options-prune": "--pi-options-prune was removed in 0.23.0: sync always removes Pi fields Skillshare wrote earlier that are unchanged; drop the flag",
-	"--direct-tools":     "--direct-tools was removed in 0.23.0: use --tools-expose direct for every tool, or --pi-options '{\"toolExposure\":{\"TOOL\":\"direct\"}}' for single tools in Pi",
+	"--direct-tools":     "--direct-tools was removed in 0.23.0: use --pi-options '{\"exposure\":\"direct\"}' for every tool, or --pi-options '{\"toolExposure\":{\"TOOL\":\"direct\"}}' for single tools in Pi",
 }
 
 func parseMCPOptions(args []string) (mcpOptions, error) {
@@ -48,15 +48,13 @@ func parseMCPOptions(args []string) (mcpOptions, error) {
 		case "--":
 			o.command = args[i+1:]
 			i = len(args)
-		case "--url", "--target", "--from", "--file", "--revision", "--tools-expose", "--tools-allow", "--tools-deny", "--pi-options":
+		case "--url", "--target", "--from", "--file", "--revision", "--tools-allow", "--tools-deny", "--pi-options":
 			if i+1 == len(args) {
 				return o, fmt.Errorf("%s requires a value", a)
 			}
 			i++
 			value := args[i]
 			switch a {
-			case "--tools-expose":
-				o.toolsExpose = &value
 			case "--tools-allow":
 				o.toolsAllow = &value
 			case "--tools-deny":
@@ -109,7 +107,7 @@ func parseMCPOptions(args []string) (mcpOptions, error) {
 
 // toolFlags reports whether any --tools-* flag was given.
 func (o mcpOptions) toolFlags() bool {
-	return o.toolsExpose != nil || o.toolsAllow != nil || o.toolsDeny != nil
+	return o.toolsAllow != nil || o.toolsDeny != nil
 }
 
 // applyToolFlags sets the parts of a tool policy that --tools-* flags name. Lists are
@@ -123,9 +121,6 @@ func (o mcpOptions) applyToolFlags(t mcp.ToolPolicy) mcp.ToolPolicy {
 			}
 		}
 		return tools
-	}
-	if o.toolsExpose != nil {
-		t.Expose = *o.toolsExpose
 	}
 	if o.toolsAllow != nil {
 		t.Allow = list(*o.toolsAllow)
@@ -369,8 +364,6 @@ Commands:
   restore [id]      Browse backups, preview and restore Agent entries
 
 Options:
-  --tools-expose <value>    How the model reaches the tools: direct, deferred or
-                            hidden ("" clears); Pi only, other Agents are named
   --tools-allow <tools>     Only these tools, separated by commas; * matches any
                             characters ("" clears)
   --tools-deny <tools>      Never these tools, separated by commas; beats allow

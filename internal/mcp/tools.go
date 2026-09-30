@@ -11,28 +11,19 @@ import (
 // ToolPolicy says which of a server's tools reach the model. It is written once and
 // translated per Agent; the plan and check name each Agent that cannot hold a part of it.
 type ToolPolicy struct {
-	// Expose is how the model reaches the tools: direct, deferred (loaded through tool
-	// search) or hidden. Empty leaves each Agent's default.
-	Expose string `yaml:"expose,omitempty" json:"expose,omitempty"`
 	// Allow, when set, keeps only the tools that match. Deny removes the tools that match and
 	// beats Allow. Entries are tool names in which * matches any characters.
 	Allow []string `yaml:"allow,omitempty" json:"allow,omitempty"`
 	Deny  []string `yaml:"deny,omitempty" json:"deny,omitempty"`
 }
 
-// ToolExposures are the values of ToolPolicy.Expose.
-var ToolExposures = []string{"direct", "deferred", "hidden"}
-
 // IsZero makes an empty policy mean no policy, and keeps it out of YAML and JSON.
-func (t ToolPolicy) IsZero() bool { return t.Expose == "" && len(t.Allow) == 0 && len(t.Deny) == 0 }
+func (t ToolPolicy) IsZero() bool { return len(t.Allow) == 0 && len(t.Deny) == 0 }
 
 // toolPattern leaves out the wildcards other than * and the comma the CLI splits lists on.
 var toolPattern = regexp.MustCompile(`^[^\s,?\[\]{}]+$`)
 
 func (t ToolPolicy) validate(name string) error {
-	if t.Expose != "" && !slices.Contains(ToolExposures, t.Expose) {
-		return fmt.Errorf("MCP %s: tools.expose must be direct, deferred or hidden", name)
-	}
 	for part, patterns := range map[string][]string{"allow": t.Allow, "deny": t.Deny} {
 		for i, pattern := range patterns {
 			if !toolPattern.MatchString(pattern) {
@@ -64,14 +55,12 @@ func (t ToolPolicy) denied(tool string) bool {
 // pattern, and among patterns the first that matches, so the denied tools come first,
 // then the allowed ones, then "*": "hidden" to close the list. An allowed name that a
 // denied pattern matches is left out, or it would win over that pattern. Allowed tools
-// get the policy's exposure, or Pi's default, codemode, when that is unset or hidden.
+// get the entry's exposure (piOptions.exposure), or Pi's default, codemode, when that is
+// unset or hidden.
 func piToolPolicy(entry map[string]any, t ToolPolicy) {
-	if t.Expose != "" {
-		entry["exposure"] = t.Expose
-	}
 	allowed := "codemode"
-	if t.Expose == "direct" || t.Expose == "deferred" {
-		allowed = t.Expose
+	if exposure, _ := entry["exposure"].(string); exposure != "" && exposure != "hidden" {
+		allowed = exposure
 	}
 	var exposure piToolExposure
 	add := func(tool, value string) {
@@ -101,9 +90,6 @@ func piToolPolicy(entry map[string]any, t ToolPolicy) {
 func namedTools(t ToolPolicy, denyList bool) (allow, deny, gaps []string) {
 	all := len(t.Allow) == 0 || slices.Contains(t.Allow, "*")
 	names := !all && !slices.ContainsFunc(t.Allow, isToolPattern)
-	if t.Expose != "" {
-		gaps = append(gaps, "expose")
-	}
 	if !all && !names {
 		gaps = append(gaps, "allow patterns")
 	}
@@ -138,9 +124,6 @@ func toolPolicyGaps(agent string, t ToolPolicy) []string {
 		return gaps
 	}
 	var gaps []string
-	if t.Expose != "" {
-		gaps = append(gaps, "expose")
-	}
 	if len(t.Allow) > 0 {
 		gaps = append(gaps, "allow")
 	}
@@ -214,16 +197,15 @@ func directToolsExposure(value any) (exposure string, direct []string) {
 }
 
 // adoptAdapterTools moves pi-mcp-adapter's tool settings into what Pi's built-in MCP reads.
-// includeTools and excludeTools become tools.allow and tools.deny. directTools becomes the
-// exposure: tools.expose next to them, otherwise piOptions.exposure, or for a list of names
-// piOptions.toolExposure, which unlike tools.allow keeps the other tools. It returns each
-// setting it dropped because the server already sets that part, or it does not convert.
+// includeTools and excludeTools become tools.allow and tools.deny. directTools becomes
+// piOptions.exposure, or for a list of names piOptions.toolExposure, which unlike
+// tools.allow keeps the other tools. It returns each setting it dropped because the server
+// already sets that part, or it does not convert.
 func (s *Server) adoptAdapterTools(directTools any, include, exclude []any) (dropped []string) {
 	exposure, direct := directToolsExposure(directTools)
-	piSet := s.PiOptions["exposure"] != nil || s.PiOptions["toolExposure"] != nil
 	if include != nil || exclude != nil {
 		policy := ToolPolicy{Allow: toolNames(include), Deny: toolNames(exclude)}
-		if s.Disabled || !s.Tools.IsZero() || piSet || len(policy.Allow) != len(include) || len(policy.Deny) != len(exclude) || policy.validate("") != nil {
+		if s.Disabled || !s.Tools.IsZero() || s.PiOptions["toolExposure"] != nil || len(policy.Allow) != len(include) || len(policy.Deny) != len(exclude) || policy.validate("") != nil {
 			for key, list := range map[string][]any{"excludeTools": exclude, "includeTools": include} {
 				if list != nil {
 					dropped = append(dropped, key)
@@ -231,11 +213,7 @@ func (s *Server) adoptAdapterTools(directTools any, include, exclude []any) (dro
 			}
 			slices.Sort(dropped)
 		} else {
-			policy.Expose = exposure
 			s.Tools = policy
-			if exposure != "" {
-				return dropped
-			}
 		}
 	}
 	switch {
@@ -243,7 +221,8 @@ func (s *Server) adoptAdapterTools(directTools any, include, exclude []any) (dro
 		if directTools != nil && directTools != false {
 			dropped = append(dropped, "directTools")
 		}
-	case s.Disabled || !s.Tools.IsZero() || piSet:
+	case s.Disabled || s.PiOptions["exposure"] != nil,
+		exposure == "" && (!s.Tools.IsZero() || s.PiOptions["toolExposure"] != nil):
 		dropped = append(dropped, "directTools")
 	default:
 		if s.PiOptions == nil {
@@ -273,20 +252,14 @@ func toolNames(list []any) []string {
 	return names
 }
 
-// piImportPolicy reads Pi's exposure and toolExposure back into a tool policy when writing
-// that policy gives Pi exactly the same settings, and otherwise reports false.
+// piImportPolicy reads Pi's toolExposure back into a tool policy when writing that policy
+// next to the entry's exposure gives Pi exactly the same toolExposure, and otherwise
+// reports false.
 func piImportPolicy(options PiOptions) (ToolPolicy, bool) {
 	var t ToolPolicy
-	if value, set := options["exposure"]; set {
-		text, _ := value.(string)
-		if !slices.Contains(ToolExposures, text) {
-			return t, false
-		}
-		t.Expose = text
-	}
 	data, _ := json.Marshal(options["toolExposure"])
 	entries, err := orderedExposure(data)
-	if options["toolExposure"] != nil && err != nil {
+	if err != nil {
 		return t, false
 	}
 	for _, e := range entries {
@@ -300,15 +273,9 @@ func piImportPolicy(options PiOptions) (ToolPolicy, bool) {
 	if t.validate("") != nil {
 		return t, false
 	}
-	want := map[string]any{}
+	want := map[string]any{"exposure": options["exposure"]}
 	piToolPolicy(want, t)
-	got := map[string]any{}
-	for _, key := range []string{"exposure", "toolExposure"} {
-		if value, set := options[key]; set {
-			got[key] = value
-		}
-	}
-	a, _ := json.Marshal(want)
-	b, _ := json.Marshal(got)
+	a, _ := json.Marshal(want["toolExposure"])
+	b, _ := json.Marshal(options["toolExposure"])
 	return t, string(a) == string(b)
 }

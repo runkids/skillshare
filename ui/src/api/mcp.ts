@@ -7,7 +7,7 @@ export interface MCPSettings { targets?: string[] }
 /** One root under the global config's mcp.projects. */
 export interface MCPProject extends MCPSettings { servers?: Record<string, MCPServer> }
 /** Which of a server's tools reach the model, written once and translated per Agent. Names may use `*`. */
-export interface MCPToolPolicy { expose?: 'direct' | 'deferred' | 'hidden'; allow?: string[]; deny?: string[] }
+export interface MCPToolPolicy { allow?: string[]; deny?: string[] }
 export interface MCPServer {
   command?: string;
   args?: string[];

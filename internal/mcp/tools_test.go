@@ -30,19 +30,24 @@ func renderJSON(t *testing.T, target string, server Server, keys ...string) stri
 // come first and "*": "hidden" last; an allowed name a denied pattern matches is left out.
 func TestPiToolPolicyOrder(t *testing.T) {
 	for name, tc := range map[string]struct {
-		tools ToolPolicy
-		want  string
+		tools    ToolPolicy
+		exposure string
+		want     string
 	}{
-		"allow and deny": {ToolPolicy{Allow: []string{"get_*", "delete_all", "search"}, Deny: []string{"delete_*"}},
+		"allow and deny": {ToolPolicy{Allow: []string{"get_*", "delete_all", "search"}, Deny: []string{"delete_*"}}, "",
 			`{"toolExposure":{"delete_*":"hidden","get_*":"codemode","search":"codemode","*":"hidden"}}`},
-		"allowed tools take the exposure": {ToolPolicy{Expose: "direct", Allow: []string{"get_*"}},
-			`{"exposure":"direct","toolExposure":{"get_*":"direct","*":"hidden"}}`},
-		"hidden server, allowed tools at Pi's default": {ToolPolicy{Expose: "hidden", Allow: []string{"get_*"}},
+		"allowed tools take piOptions.exposure": {ToolPolicy{Allow: []string{"get_*"}}, "codemode-deferred",
+			`{"exposure":"codemode-deferred","toolExposure":{"get_*":"codemode-deferred","*":"hidden"}}`},
+		"hidden server, allowed tools at Pi's default": {ToolPolicy{Allow: []string{"get_*"}}, "hidden",
 			`{"exposure":"hidden","toolExposure":{"get_*":"codemode","*":"hidden"}}`},
-		"deny only": {ToolPolicy{Deny: []string{"delete_*"}}, `{"toolExposure":{"delete_*":"hidden"}}`},
-		"no policy": {ToolPolicy{}, `{}`},
+		"deny only": {ToolPolicy{Deny: []string{"delete_*"}}, "", `{"toolExposure":{"delete_*":"hidden"}}`},
+		"no policy": {ToolPolicy{}, "", `{}`},
 	} {
-		if got := renderJSON(t, "pi", Server{Command: "x", Tools: tc.tools}, "exposure", "toolExposure"); got != tc.want {
+		server := Server{Command: "x", Tools: tc.tools}
+		if tc.exposure != "" {
+			server.PiOptions = PiOptions{"exposure": tc.exposure}
+		}
+		if got := renderJSON(t, "pi", server, "exposure", "toolExposure"); got != tc.want {
 			t.Errorf("%s: got %s want %s", name, got, tc.want)
 		}
 	}
@@ -113,7 +118,6 @@ func TestToolPolicyNotAppliedIsReported(t *testing.T) {
     github:
       url: https://example.com/mcp
       tools:
-        expose: deferred
         allow: ["get_*"]
         deny: [delete_repo]
     plain:
@@ -124,9 +128,9 @@ func TestToolPolicyNotAppliedIsReported(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := []string{
-		"tool policy not applied for codex: expose, allow patterns (github)",
-		"tool policy not applied for copilot: expose, allow patterns, deny (github)",
-		"tool policy not applied for cursor: expose, allow, deny (github)",
+		"tool policy not applied for codex: allow patterns (github)",
+		"tool policy not applied for copilot: allow patterns, deny (github)",
+		"tool policy not applied for cursor: allow, deny (github)",
 	}
 	if !reflect.DeepEqual(plan.Notices, want) {
 		t.Fatalf("notices:\n%q", plan.Notices)
@@ -152,7 +156,6 @@ func TestToolPolicyRejected(t *testing.T) {
 		server Server
 		want   string
 	}{
-		"unknown exposure":      {Server{Command: "x", Tools: ToolPolicy{Expose: "codemode"}}, "tools.expose"},
 		"another wildcard":      {Server{Command: "x", Tools: ToolPolicy{Allow: []string{"get_?"}}}, "not a tool name"},
 		"listed twice":          {Server{Command: "x", Tools: ToolPolicy{Deny: []string{"a", "a"}}}, "twice"},
 		"every tool denied":     {Server{Command: "x", Tools: ToolPolicy{Allow: []string{"delete_a"}, Deny: []string{"delete_*"}}}, "removes every tool"},
@@ -166,10 +169,18 @@ func TestToolPolicyRejected(t *testing.T) {
 	}
 }
 
+// Pi's exposure mode lives in piOptions and sits next to a tool policy.
+func TestToolPolicyKeepsPiExposure(t *testing.T) {
+	server := Server{Command: "x", Tools: ToolPolicy{Deny: []string{"a"}}, PiOptions: PiOptions{"exposure": "direct"}}
+	if err := server.Validate("docs"); err != nil {
+		t.Fatal(err)
+	}
+}
+
 // What import reads back into tools renders to the same native fields.
 func TestToolPolicyImportRoundTrip(t *testing.T) {
 	for target, tools := range map[string]ToolPolicy{
-		"pi":      {Expose: "deferred", Allow: []string{"get_*", "search"}, Deny: []string{"delete_*"}},
+		"pi":      {Allow: []string{"get_*", "search"}, Deny: []string{"delete_*"}},
 		"copilot": {Allow: []string{"get_issue", "list_issues"}},
 		"codex":   {Allow: []string{"open", "screenshot"}, Deny: []string{"screenshot"}},
 	} {
@@ -210,7 +221,7 @@ func TestPiExposureKeptWhenNotExpressible(t *testing.T) {
 		t.Fatalf("%+v %v", candidates, err)
 	}
 	c := candidates[0]
-	if !c.Server.Tools.IsZero() || c.Server.PiOptions["exposure"] != "codemode-deferred" || !strings.Contains(strings.Join(c.Warnings, ";"), "stay in piOptions") {
+	if !c.Server.Tools.IsZero() || c.Server.PiOptions["exposure"] != "codemode-deferred" || c.Server.PiOptions["toolExposure"] == nil || !strings.Contains(strings.Join(c.Warnings, ";"), "stays in piOptions") {
 		t.Fatalf("%+v %v", c.Server, c.Warnings)
 	}
 }

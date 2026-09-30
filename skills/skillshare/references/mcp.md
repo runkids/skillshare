@@ -35,7 +35,7 @@ skillshare mcp check --live --timeout 30s --json     # Also start/call each serv
   `mcp.targets` instead, and fails when that is empty. Not valid with `--disabled`.
 - `add`, `edit`, `import` and `remove` save the source only. Add `--sync` to write the
   Agent files too. `sync --all` includes MCP along with skills, agents and extras.
-- Scripted `edit` accepts `--url`, repeated `--target`, `--tools-expose`, `--tools-allow`,
+- Scripted `edit` accepts `--url`, repeated `--target`, `--tools-allow`,
   `--tools-deny`, `--pi-options` or `-- command args`. Switching transport clears the
   fields of the other one.
 - `--pi-extension`, `--pi-options-prune` and `--direct-tools` were removed in 0.23.0 and
@@ -83,7 +83,7 @@ mcp:
 | `url`, `headers`, `bearerToken` | Streamable HTTP server. `bearerToken` is `{fromEnv: VARIABLE}` and cannot coexist with an Authorization header |
 | `transport` | Optional `stdio` or `streamable-http`; inferred when omitted. Legacy SSE is not supported |
 | `targets` | Receiving clients for this server. `[]` keeps it in Skillshare only |
-| `tools` | `{expose, allow, deny}`: which tools reach the model, translated per Agent. See [Tool policy](#tool-policy) |
+| `tools` | `{allow, deny}`: which tools reach the model, translated per Agent. See [Tool policy](#tool-policy) |
 | `piOptions` | Other Pi built-in per-server fields. See [Pi](#pi) |
 | `disabled` | `true` only, no connection fields, and a project must be in scope: project mode, or a root under `mcp.projects`. See [Turn off a global server in one project](#turn-off-a-global-server-in-one-project) |
 
@@ -213,11 +213,12 @@ order is preserved), positive seconds `timeout`, `cwd`, `enabled` and `oauth`. K
 values are checked; unknown fields pass through.
 
 ```bash
-skillshare mcp add docs --url https://example.com/mcp --target pi --tools-expose deferred --pi-options '{"timeout":120}' --no-tui
+skillshare mcp add docs --url https://example.com/mcp --target pi --pi-options '{"exposure":"deferred","timeout":120}' --no-tui
 skillshare mcp edit docs --pi-options '{}' --no-tui
 ```
 
-- Prefer `tools` over `exposure`/`toolExposure`; a server cannot set both.
+- `exposure` sits next to `tools` and also sets how allowed tools are offered. Prefer
+  `tools` over `toolExposure`; a server cannot set both.
 - JSON replaces the source options. A cleared field is removed from Pi's file when
   Skillshare wrote it and it is unchanged; a field the user added stays; a written
   field changed in Pi blocks sync until imported.
@@ -243,14 +244,13 @@ mcp:
       command: github-mcp
       targets: [pi, codex, copilot]
       tools:
-        expose: deferred            # direct | deferred | hidden; unset = Agent default
         allow: [get_*, search_code] # only these stay; * matches any characters
         deny: [get_secret]          # removed even when allowed
 ```
 
 ```bash
 skillshare mcp edit github --tools-allow 'get_*,search_code' --tools-deny get_secret --no-tui
-skillshare mcp edit github --tools-expose '' --no-tui     # empty value clears that part
+skillshare mcp edit github --tools-allow '' --no-tui      # empty value clears that part
 ```
 
 The flags work on `add`, `edit` and `import`; lists are comma-separated. Only `*` is a
@@ -259,16 +259,16 @@ allowed tool, and `tools` on a `disabled` entry are errors.
 
 | Agent | Applies |
 |---|---|
-| `pi` | Everything: `exposure`, and `toolExposure` (denied `hidden`, then allowed, then `"*": "hidden"` when allow is set) |
-| `codex` | `enabled_tools`/`disabled_tools`, exact names only; not `expose` or allow patterns |
-| `copilot` | `tools`: exact allowed names minus denied, else `["*"]`; no `expose`, allow patterns, or deny without exact allow names |
+| `pi` | Everything: `toolExposure` (denied `hidden`, then allowed at `piOptions.exposure` or `codemode`, then `"*": "hidden"` when allow is set) |
+| `codex` | `enabled_tools`/`disabled_tools`, exact names only; not allow patterns |
+| `copilot` | `tools`: exact allowed names minus denied, else `["*"]`; no allow patterns, or deny without exact allow names |
 | `opencode`, `kilocode`, all others | Nothing; their tool filters live in a top-level permission map |
 
 Unapplied parts are never dropped silently: the plan prints
 `tool policy not applied for <target>: <parts> (<servers>)` (JSON `notices`), and
 `mcp check` reports a `tools` warning per Agent. Import maps Codex and Copilot tool
-lists back to `tools`, and Pi `exposure`/`toolExposure` only when they round-trip
-exactly (otherwise they stay in `piOptions` with a warning).
+lists back to `tools`, and Pi `toolExposure` only when it round-trips exactly
+(otherwise it stays in `piOptions` with a warning); `exposure` stays in `piOptions`.
 
 ## Upgrading Pi from 0.22
 
@@ -285,11 +285,11 @@ printing `Updated config.yaml for 0.23.0 (backup: <path>)`. `--dry-run` writes n
 - `directTools`: `true` → `piOptions.exposure: direct`, `"search"` → `deferred`, a list
   → `toolExposure` entries `direct`. `mcp.directTools` and a project's `directTools`
   apply to servers that reach Pi without their own value.
-- `piOptions.includeTools`/`excludeTools` → `tools.allow`/`tools.deny` (with
-  `directTools` as `tools.expose`).
+- `piOptions.includeTools`/`excludeTools` → `tools.allow`/`tools.deny` (a
+  `directTools` next to them still becomes `piOptions.exposure`).
 - Other adapter-only `piOptions` are dropped; `pi` is removed from `disabled` entries.
 - `--pi-extension` and `--pi-options-prune`: drop them. `--direct-tools`: use
-  `--tools-expose direct`, or `--pi-options '{"toolExposure":{"TOOL":"direct"}}'`.
+  `--pi-options '{"exposure":"direct"}'`, or `--pi-options '{"toolExposure":{"TOOL":"direct"}}'`.
 - `mcp import --from pi` still reads `mcp-adapter.json` (read-only; `mcp.json` wins on
   the same name) and converts its tool settings.
 

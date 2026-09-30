@@ -249,10 +249,15 @@ func migrateAdapterTools(server *yaml.Node, m migration) ([]string, bool) {
 	// Only what decides the conversion is decoded; the rest of the node stays as written.
 	var draft Server
 	if n := field(server, "tools"); n != nil && n.Decode(&draft.Tools) != nil {
-		draft.Tools.Expose = "set"
+		draft.Tools.Deny = []string{"unreadable"} // still counts as set
 	}
-	if options != nil && (field(options, "exposure") != nil || field(options, "toolExposure") != nil) {
-		draft.PiOptions = PiOptions{"exposure": true}
+	for _, key := range []string{"exposure", "toolExposure"} {
+		if options != nil && field(options, key) != nil {
+			if draft.PiOptions == nil {
+				draft.PiOptions = PiOptions{}
+			}
+			draft.PiOptions[key] = true
+		}
 	}
 	draft.Disabled = disabled != nil && disabled.Value == "true"
 	before := draft
@@ -347,8 +352,8 @@ func (s Server) Validate(name string) error {
 		switch {
 		case s.Disabled:
 			return fmt.Errorf("MCP %s: tools cannot be set on a disabled entry; it only switches the server off", name)
-		case s.PiOptions["exposure"] != nil || s.PiOptions["toolExposure"] != nil:
-			return fmt.Errorf("MCP %s: tools and piOptions.exposure/toolExposure both set Pi's tool exposure; keep it in tools", name)
+		case s.PiOptions["toolExposure"] != nil:
+			return fmt.Errorf("MCP %s: tools and piOptions.toolExposure both set which tools Pi shows; keep it in tools", name)
 		}
 		if err := s.Tools.validate(name); err != nil {
 			return err

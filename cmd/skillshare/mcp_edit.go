@@ -38,7 +38,7 @@ func runMCPEdit(service *mcp.Service, o mcpOptions) error {
 		return finishMCPMutation(service, mcp.Mutation{Name: name, Server: &server, Replace: true}, o, time.Now())
 	}
 	if !interactive {
-		return fmt.Errorf("provide --url, --target, --tools-expose, --tools-allow, --tools-deny, --pi-options or -- command args with --no-tui/--json; omit --no-tui for the editor")
+		return fmt.Errorf("provide --url, --target, --tools-allow, --tools-deny, --pi-options or -- command args with --no-tui/--json; omit --no-tui for the editor")
 	}
 	server, err = editMCPDraft(service, name, server, source.Targets, prompts)
 	if err != nil {
@@ -197,9 +197,6 @@ func mcpToolsSummary(tools mcp.ToolPolicy) string {
 		return "Every tool, as each Agent shows it by default"
 	}
 	var parts []string
-	if tools.Expose != "" {
-		parts = append(parts, "shown "+tools.Expose)
-	}
 	if len(tools.Allow) > 0 {
 		parts = append(parts, "only "+strings.Join(tools.Allow, ", "))
 	}
@@ -209,19 +206,9 @@ func mcpToolsSummary(tools mcp.ToolPolicy) string {
 	return strings.Join(parts, "; ")
 }
 
-// editMCPTools asks for the tool policy the --tools-* flags set: how tools are shown, then
-// the allowed and the denied tools.
+// editMCPTools asks for the tool policy the --tools-* flags set: the allowed and the denied
+// tools.
 func editMCPTools(tools mcp.ToolPolicy, prompts mcpPrompts) (mcp.ToolPolicy, error) {
-	exposures := append([]string{""}, mcp.ToolExposures...)
-	items := []checklistItemData{{label: "Agent default", preSelected: tools.Expose == ""}}
-	for _, exposure := range mcp.ToolExposures {
-		items = append(items, checklistItemData{label: exposure, preSelected: tools.Expose == exposure})
-	}
-	selected, err := chooseMCP(prompts, checklistConfig{title: "How tools reach the model (Pi only)", items: items, singleSelect: true})
-	if err != nil {
-		return tools, err
-	}
-	expose := exposures[selected[0]]
 	allow, err := prompts.text("Allowed tools, separated by commas; * matches any characters; empty allows every tool", strings.Join(tools.Allow, ","))
 	if err != nil {
 		return tools, err
@@ -230,7 +217,7 @@ func editMCPTools(tools mcp.ToolPolicy, prompts mcpPrompts) (mcp.ToolPolicy, err
 	if err != nil {
 		return tools, err
 	}
-	return mcpOptions{toolsExpose: &expose, toolsAllow: &allow, toolsDeny: &deny}.applyToolFlags(mcp.ToolPolicy{}), nil
+	return mcpOptions{toolsAllow: &allow, toolsDeny: &deny}.applyToolFlags(mcp.ToolPolicy{}), nil
 }
 
 func parseMCPArgumentInput(text string) ([]string, error) {

@@ -36,7 +36,6 @@ skillshare sync --all
 | `--url URL` | `add` 用的 Streamable HTTP 端點 |
 | `-- command args...` | `add` 用的本機執行檔與字面參數 |
 | `--disabled` | Project mode，搭配 `add`：關閉一個由 Agent 的 global config 定義的 server。參見[下方說明](#turn-off-a-global-server-in-one-project) |
-| `--tools-expose VALUE` | 搭配 `add`、`edit` 或 `import`：`direct`、`deferred` 或 `hidden`；`""` 會清除。參見[工具政策](#tool-policy) |
 | `--tools-allow TOOLS` | 只保留這些工具，以逗號分隔；`*` 代表任意字元；`""` 會清除。參見[工具政策](#tool-policy) |
 | `--tools-deny TOOLS` | 永遠排除這些工具，以逗號分隔；優先於 allow；`""` 會清除。參見[工具政策](#tool-policy) |
 | `--pi-options JSON` | Pi 內建 MCP 的其他單一 server 欄位，以 JSON 物件表示。參見 [Pi](#pi-options) |
@@ -98,7 +97,7 @@ Add、edit、remove 與 import 在 **Save and sync** 或 **Save only** 之前會
 | `bearerToken` | `{fromEnv: VARIABLE}`；不可與 Authorization header 並存 |
 | `transport` | 選填的 `stdio` 或 `streamable-http`；省略時自動推斷 |
 | `targets` | 選填的接收端 clients；覆寫 `mcp.targets`。空清單會讓 server 只保留在 Skillshare 中。參見[下方說明](#keep-a-server-without-syncing-it) |
-| `tools` | 哪些工具會提供給模型：`expose`、`allow`、`deny`。只需寫一次，會依各 Agent 轉換。參見[工具政策](#tool-policy) |
+| `tools` | 哪些工具會提供給模型：`allow`、`deny`。只需寫一次，會依各 Agent 轉換。參見[工具政策](#tool-policy) |
 | `piOptions` | Pi 內建 MCP 的其他單一 server 欄位。參見 [Pi](#pi-options) |
 | `disabled` | 只能是 `true`，不能有其他連線欄位，且必須有 project 在作用範圍內：project mode，或 `mcp.projects` 下的某個 root。參見[下方說明](#turn-off-a-global-server-in-one-project) |
 
@@ -754,28 +753,26 @@ mcp:
       command: github-mcp
       targets: [pi, codex, copilot, opencode]
       tools:
-        expose: deferred          # direct, deferred or hidden
         allow: [get_*, search_code, list_issues]
         deny: [get_secret]
 ```
 
 ```bash
 skillshare mcp add github --target pi --target codex --tools-allow 'get_*,search_code' --tools-deny get_secret -- github-mcp
-skillshare mcp edit github --tools-expose deferred
 skillshare mcp edit github --tools-allow ''          # clear the allow list
-skillshare mcp import github --from claude --target pi --tools-expose direct
+skillshare mcp import github --from claude --target pi --tools-deny get_secret
 ```
 
 | 欄位 | 意義 |
 |---|---|
-| `expose` | 模型取得工具的方式：`direct`（一開始就宣告）、`deferred`（工具搜尋找到時才載入）或 `hidden`。未設定時沿用各 Agent 的預設 |
 | `allow` | 設定後，只保留符合的工具 |
 | `deny` | 移除符合的工具，即使 `allow` 也符合它們 |
 
 `allow` 與 `deny` 中的項目是工具名稱，`*` 代表任意字元。其他萬用字元（`? [ ] { }`）、
 空白與逗號都會被拒絕，重複列出的名稱也一樣。若 `deny` 清單移除了 `allow` 保留的每個工具，
-會是錯誤。`disabled` 項目不能設定 `tools`。這三個旗標可搭配 `mcp add`、`mcp edit` 與
+會是錯誤。`disabled` 項目不能設定 `tools`。這兩個旗標可搭配 `mcp add`、`mcp edit` 與
 `mcp import` 使用；清單以逗號分隔，空值會清除該部分。
+Pi 如何提供工具不屬於政策：那是 Pi 的 `exposure`，在 [`piOptions`](#pi-options) 中設定。
 
 ### 各 Agent 會收到什麼 {#tool-policy-agents}
 
@@ -784,22 +781,22 @@ skillshare mcp import github --from claude --target pi --tools-expose direct
 
 | Agent | 寫入內容 | 不套用 |
 |---|---|---|
-| [Pi](https://github.com/earendil-works/pi/blob/v0.99.0/packages/coding-agent/docs/mcp.md) | 由 `expose` 產生 `exposure`；`toolExposure` 依序為被拒絕的工具設為 `hidden`、允許的工具，以及設定 `allow` 時的 `"*": "hidden"` | 無 |
-| [Codex](https://developers.openai.com/codex/config-reference) | `enabled_tools` 與 `disabled_tools`，僅限完整名稱。Codex 會在 `enabled_tools` 之後套用 `disabled_tools` | `expose`；`allow` 中的 `*` 萬用字元；`deny` 中無法併入完整 `allow` 清單的 `*` 萬用字元 |
-| [Copilot CLI](https://docs.github.com/en/copilot/how-tos/copilot-cli/customize-copilot/add-mcp-servers) | `tools`：允許的完整名稱扣除被拒絕的名稱，否則為 `["*"]` | `expose`；`allow` 中的 `*` 萬用字元；`allow` 未列出完整名稱時的 `deny`，因為 Copilot 沒有拒絕清單 |
+| [Pi](https://github.com/earendil-works/pi/blob/v0.99.0/packages/coding-agent/docs/mcp.md) | `toolExposure` 依序為被拒絕的工具設為 `hidden`、允許的工具，以及設定 `allow` 時的 `"*": "hidden"` | 無 |
+| [Codex](https://developers.openai.com/codex/config-reference) | `enabled_tools` 與 `disabled_tools`，僅限完整名稱。Codex 會在 `enabled_tools` 之後套用 `disabled_tools` | `allow` 中的 `*` 萬用字元；`deny` 中無法併入完整 `allow` 清單的 `*` 萬用字元 |
+| [Copilot CLI](https://docs.github.com/en/copilot/how-tos/copilot-cli/customize-copilot/add-mcp-servers) | `tools`：允許的完整名稱扣除被拒絕的名稱，否則為 `["*"]` | `allow` 中的 `*` 萬用字元；`allow` 未列出完整名稱時的 `deny`，因為 Copilot 沒有拒絕清單 |
 | [OpenCode](https://opencode.ai/docs/permissions/)、[Kilo Code](https://kilo.ai/docs/code-with-ai/platforms/cli#permissions) | 無 | 全部。兩者都只在 server 項目之外、以 `<server>_<tool>` 為鍵的頂層 `permission` map 中篩選工具 |
 | 其他所有 Agent | 無 | 全部 |
 
 在 Pi 中，完整的工具名稱優先於任何萬用字元，因此若某個允許的完整名稱符合被拒絕的萬用字元，
-它就不會寫入 `toolExposure`。允許的工具會取得政策的曝光模式；當 `expose` 未設定或為 `hidden`
-時，則使用 Pi 預設的 `codemode`：因此 `hidden` 搭配 `allow` 代表只有允許的工具可見。
+它就不會寫入 `toolExposure`。允許的工具會取得 server 的 `piOptions.exposure`；當它未設定或為
+`hidden` 時，則使用 Pi 預設的 `codemode`：因此 `hidden` 搭配 `allow` 代表只有允許的工具可見。
 
 未套用的部分會出現在三個地方：
 
 - 同步計畫中，每個 Agent 一行 warning，並列出相關 servers：
 
   ```text
-  ! tool policy not applied for opencode: expose, allow, deny (github)
+  ! tool policy not applied for opencode: allow, deny (github)
   ```
 
   搭配 `--json` 時，同樣的文字會出現在計畫的 `notices` 中。
@@ -811,14 +808,15 @@ skillshare mcp import github --from claude --target pi --tools-expose direct
 Codex 的 `enabled_tools` 與 `disabled_tools` 是受管理的欄位：清除政策會移除它們，而在
 Skillshare 擁有的項目中手動編輯它們會顯示為衝突。匯入時會把 Codex 的
 `enabled_tools`/`disabled_tools` 與 Copilot 的 `tools` 讀回 `tools`。Pi 的
-`exposure`/`toolExposure` 只有在寫入該政策會產生完全相同的 Pi 設定時才會變成 `tools`；
-否則會保留在 `piOptions` 中，並顯示 warning。
+`toolExposure` 只有在搭配 server 的 `exposure` 寫入該政策會產生完全相同的 `toolExposure`
+時才會變成 `tools`；否則會保留在 `piOptions` 中，並顯示 warning。`exposure` 一律保留在
+`piOptions`。
 
 ### Dashboard 中的工具 {#tool-policy-dashboard}
 
 Server 對話框在 targets 之後有一個 **工具** 區塊，除了 `disabled` 項目以外的每個 server 都有。
 這個區塊一律顯示。標題旁的資訊圖示說明這個區塊，摘要則顯示 `全部工具`、政策內容
-（例如 `1 允許 · 2 拒絕`），或載入工具後的 `已選 9 / 14`。
+（例如 `只允許 1 個，排除 2 個`），或載入工具後的 `已選 9 / 14`。
 
 - 標題下方的方框放工具清單。尚未載入時提供 **載入工具**，它會用對話框目前的設定（不論是否
   已儲存）啟動 server 一次，與 [`mcp check --live`](#probe-servers-live) 使用相同的探測。只在
@@ -831,11 +829,10 @@ Server 對話框在 targets 之後有一個 **工具** 區塊，除了 `disabled
 - 方框底部的 **排除規則** 列用來輸入 `*` 萬用字元，以及 server 沒有列出的名稱：輸入一個後按
   Enter。`allow` 有項目時，上方另有一列 **只允許**，用法相同。載入工具前，所有已儲存的項目都
   顯示在這裡。無效的名稱，或移除所有允許工具的拒絕清單，會顯示在對話框中並擋下 **儲存**。
-- **工具提供方式** 用來選擇 `expose`。只有 Pi 會讀取它，所以只在已選 Pi 或 `expose` 已有值時顯示。
 - 再往下，對話框會說明每個已選 Agent 實際會拿到什麼：哪些會照這份清單提供工具、只套用一部分的
   Agent 會怎麼做（例如 Copilot CLI 沒有拒絕清單，仍會提供取消勾選的工具），以及哪些不支援篩選。
 
-Server 列會顯示帶有政策的標籤，而 **檢視各 Agent 會寫入的設定** 會針對每個 Agent
+Server 列會以白話顯示政策標籤（例如 `工具：已排除 2 個工具`），而 **檢視各 Agent 會寫入的設定** 會針對每個 Agent
 警告它不套用的部分。
 
 ## Pi {#pi}
@@ -852,7 +849,7 @@ Pi ≥ 0.99.0 已[內建 MCP](https://github.com/earendil-works/pi/blob/v0.99.0/
 個人及含憑證的 server 請放入 `~/.pi/agent/mcp.json`。僅在受信任的專案，將專案需要的 server 放入 `.pi/mcp.json`。同名 project entry 會完整取代 global entry。Skillshare 直接編輯檔案，提供預覽與備份；不會信任專案、啟動 server、安裝套件或核准 OAuth。
 
 ```bash
-skillshare mcp add docs --url https://example.com/mcp --target pi --tools-expose deferred --pi-options '{"timeout":120}' --no-tui
+skillshare mcp add docs --url https://example.com/mcp --target pi --tools-deny 'delete_*' --pi-options '{"exposure":"deferred","timeout":120}' --no-tui
 skillshare sync mcp --dry-run
 skillshare sync mcp
 ```
@@ -864,9 +861,9 @@ mcp:
       url: https://example.com/mcp
       targets: [pi]
       tools:
-        expose: deferred
         deny: [delete_*]
       piOptions:
+        exposure: deferred
         timeout: 120
 ```
 
@@ -885,9 +882,9 @@ server，因此 `disabled` 項目不能以 Pi 為目標；請改在完整的項�
 
 - `exposure` 支援 `codemode`（Pi 預設）、`codemode-deferred`、`deferred`、`direct`
   或 `hidden`。`toolExposure` 把工具名稱或萬用字元對應到上述其中一個值：完整名稱優先，
-  其次是第一個符合的萬用字元。匯入與 JSON／YAML 轉換會保留規則順序。這些設定建議改用
-  [`tools`](#tool-policy)，因為它也會套用到其他 Agents；同一個 server 不能同時設定 `tools`
-  與 `exposure`/`toolExposure`。
+  其次是第一個符合的萬用字元。匯入與 JSON／YAML 轉換會保留規則順序。`exposure` 也決定
+  [`tools`](#tool-policy) 允許清單保留的工具如何提供。建議用 `tools` 取代 `toolExposure`，
+  因為它也會套用到其他 Agents；同一個 server 不能同時設定 `tools` 與 `toolExposure`。
 - `timeout`（正數秒）、`cwd`、`enabled` 和 `oauth` 會經過驗證。未知欄位會原樣傳遞，
   供自訂的 Pi 版本使用。
 - 連線欄位請使用主要表單。`directTools`、`includeTools`、`excludeTools` 與其他
@@ -909,7 +906,9 @@ skillshare mcp edit docs --pi-options '{}' --no-tui
 在 dashboard 中，server 對話框的 Pi 區塊有 **工具曝光模式** 與 **其他 Pi 設定**。
 **Pi 設定** 與 **工具曝光模式** 旁的資訊圖示會說明它們，**Pi 設定** 旁的連結則會開啟
 Pi 的 MCP 文件。對話框會在你儲存前標出 **其他 Pi 設定** 中的 `pi-mcp-adapter` 欄位。
-當工具區塊有任何設定時，**工具曝光模式** 會停用，因為由 `tools` 決定。
+工具區塊有設定時，**工具曝光模式** 仍可編輯；此時只有 **其他 Pi 設定** 中的 `toolExposure`
+會被拒絕，因為它由 `tools` 寫入。Server 列上的 Pi 標籤會以簡短文字顯示曝光模式，例如
+`codemode` 顯示為 `透過程式碼`。
 
 ### 從 0.22 升級 Pi {#pi-migration}
 
@@ -934,7 +933,7 @@ servers，例如：
 | `piOptionsPrune` | 移除該鍵。同步一律會移除 Skillshare 寫入且未被修改的已清除欄位（[見上方](#pi-options)） |
 | server 上的 `directTools` | `true` → `piOptions.exposure: direct`；`"search"` → `deferred`；名稱清單 → `piOptions.toolExposure`，並把這些工具設為 `direct` |
 | `mcp.directTools`，或 `mcp.projects` 下某個 project 的 `directTools` | 預設值會依上述方式，寫入每個送往 Pi 且沒有自己值的 server。project 的 `false` 會覆寫 global 的值 |
-| `piOptions.includeTools` / `excludeTools` | `tools.allow` / `tools.deny`，並把 `directTools` 轉為 `tools.expose` |
+| `piOptions.includeTools` / `excludeTools` | `tools.allow` / `tools.deny`；同時設定的 `directTools` 仍會轉為 `piOptions.exposure` |
 | `piOptions` 中其他 `pi-mcp-adapter` 欄位，例如 `lifecycle`、`idleTimeout`、`toolPrefix` 或 `bearerTokenEnv` | 移除，因為 Pi 內建 MCP 不會讀取它們 |
 | `disabled` 項目 `targets` 中的 `pi` | 從該清單中移除 `pi` |
 
@@ -960,7 +959,7 @@ servers，例如：
 |---|---|
 | `--pi-extension` | 直接拿掉。Pi 一律使用其內建 MCP |
 | `--pi-options-prune` | 直接拿掉。同步一律會移除 Skillshare 先前寫入且未被修改的欄位 |
-| `--direct-tools` | 所有工具用 `--tools-expose direct`，Pi 中的個別工具則用 `--pi-options '{"toolExposure":{"TOOL":"direct"}}'` |
+| `--direct-tools` | 所有工具用 `--pi-options '{"exposure":"direct"}'`，Pi 中的個別工具則用 `--pi-options '{"toolExposure":{"TOOL":"direct"}}'` |
 
 `skillshare mcp import --from pi` 仍會讀取 Pi `mcp.json` 旁邊的 `pi-mcp-adapter`
 `mcp-adapter.json`，讓你把 servers 搬過來。兩個檔案都定義同一個 server 時，以 `mcp.json`

@@ -7,11 +7,10 @@ import { queryKeys } from '../../lib/queryKeys';
 import { useT } from '../../i18n';
 import AgentIcon from '../AgentIcon';
 import Button from '../Button';
-import { Select } from '../Input';
 import Spinner from '../Spinner';
 import Tooltip from '../Tooltip';
 import { InfoTip } from './PiSettingsFields';
-import { hasToolPolicy, setToolChecked, targetLabel, toolAllowed, toolBlockedBy, toolExposures, toolGapKey, toolNamePattern, toolOutcomes, toolRuleExample, toolRules, toolSummary } from './mcpView';
+import { hasToolPolicy, setToolChecked, targetLabel, toolAllowed, toolBlockedBy, toolGapKey, toolNamePattern, toolOutcomes, toolRuleExample, toolRules, toolSummary } from './mcpView';
 
 interface ListProps { label: string; hint: string; placeholder: string; values: string[]; onChange: (values: string[]) => void; disabled: boolean }
 
@@ -47,9 +46,20 @@ function ToolList({ label, hint, placeholder, values, onChange, disabled }: List
           onChange={(e) => { setText(e.target.value); setError(''); }}
           onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ',') { e.preventDefault(); add(text); } }}
           onBlur={() => { if (text.trim()) add(text); }} />
+        {text && <EnterHint />}
       </div>
       {error && <span className="text-[12.5px] text-bad">{error}</span>}
     </div>
+  );
+}
+
+/** "Press Enter to add", with Enter drawn as a key; the locale decides where the key goes. */
+function EnterHint() {
+  const [before, after] = useT()('mcp.tools.enterToAdd').split('{key}');
+  return (
+    <span className="shrink-0 whitespace-nowrap font-sans text-xs text-ink-3">
+      {before}<kbd className="rounded-[4px] border border-line bg-sunken px-1 py-px font-sans text-[11px] text-ink-2">Enter</kbd>{after}
+    </span>
   );
 }
 
@@ -74,11 +84,10 @@ interface Props {
   /** Why the policy cannot be saved, or empty. */
   error?: string;
   /** Pi is among the chosen targets; only Pi reads the exposure. */
-  pi?: boolean;
 }
 
 /** Which of the server's tools reach the model, for every Agent at once; each Agent that cannot follow a part is named. */
-export default function ToolPolicyFields({ tools, onChange, disabled, probe, mutation, error, pi = false }: Props) {
+export default function ToolPolicyFields({ tools, onChange, disabled, probe, mutation, error }: Props) {
   const t = useT();
   const set = hasToolPolicy(tools);
   const [query, setQuery] = useState('');
@@ -176,18 +185,6 @@ export default function ToolPolicyFields({ tools, onChange, disabled, probe, mut
         </div>
         {error && <span className="text-[12.5px] text-bad">{error}</span>}
       </div>
-      {(pi || tools.expose) && (
-        <div className="ss-fld">
-          <span className="flex items-center gap-1.5">
-            <label>{t('mcp.tools.expose')}</label>
-            <span className="text-xs text-ink-3">{t('mcp.tools.exposePiOnly')}</span>
-            <InfoTip label={t('mcp.tools.exposeInfo')} content={toolExposures.map((value) => `${value}: ${t(`mcp.tools.exposeNote.${value}`)}`).join('\n')} />
-          </span>
-          <Select ariaLabel={t('mcp.tools.expose')} value={tools.expose ?? ''} disabled={disabled}
-            onChange={(value) => onChange({ ...tools, expose: (value || undefined) as MCPToolPolicy['expose'] })}
-            options={[{ value: '', label: t('mcp.tools.exposeNone'), note: `· ${t('mcp.tools.exposeNoneNote')}` }, ...toolExposures.map((value) => ({ value, label: value, note: `· ${t(`mcp.tools.exposeNote.${value}`)}` }))]} />
-        </div>
-      )}
       {/* What each selected Agent will actually get, grouped by outcome; empty groups are left out. */}
       {(outcomes.full.length > 0 || outcomes.partial.length > 0 || outcomes.none.length > 0) && (
         <div className="flex flex-col gap-1.5 text-[13px] text-ink-3">

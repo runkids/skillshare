@@ -44,7 +44,7 @@ func TestMCPPiImportFile(t *testing.T) {
 		t.Fatal(err)
 	}
 	source, err := mcp.LoadSource(s.ConfigPath)
-	if err != nil || source.Servers["a"].Tools.Expose != "direct" {
+	if err != nil || source.Servers["a"].PiOptions["exposure"] != "direct" || !source.Servers["a"].Tools.IsZero() {
 		t.Fatalf("%+v %v", source, err)
 	}
 }
@@ -128,25 +128,25 @@ func TestMCPToolsFlags(t *testing.T) {
 		}
 		return source.Servers["tools"].Tools
 	}
-	got := run(runMCPAdd, "tools", "--target", "pi", "--tools-expose", "deferred", "--tools-allow", "search_*, get_issue", "--url", "https://example.com/mcp")
-	if want := (mcp.ToolPolicy{Expose: "deferred", Allow: []string{"search_*", "get_issue"}}); !reflect.DeepEqual(got, want) {
+	got := run(runMCPAdd, "tools", "--target", "pi", "--tools-allow", "search_*, get_issue", "--url", "https://example.com/mcp")
+	if want := (mcp.ToolPolicy{Allow: []string{"search_*", "get_issue"}}); !reflect.DeepEqual(got, want) {
 		t.Fatalf("add: %+v", got)
 	}
 	// Each flag sets its own part; the others stay.
 	got = run(runMCPEdit, "tools", "--tools-deny", "delete_*")
-	if want := (mcp.ToolPolicy{Expose: "deferred", Allow: []string{"search_*", "get_issue"}, Deny: []string{"delete_*"}}); !reflect.DeepEqual(got, want) {
+	if want := (mcp.ToolPolicy{Allow: []string{"search_*", "get_issue"}, Deny: []string{"delete_*"}}); !reflect.DeepEqual(got, want) {
 		t.Fatalf("edit deny: %+v", got)
 	}
 	// An empty value clears that part.
-	if got = run(runMCPEdit, "tools", "--tools-expose", "", "--tools-allow", "", "--tools-deny", ""); !got.IsZero() {
+	if got = run(runMCPEdit, "tools", "--tools-allow", "", "--tools-deny", ""); !got.IsZero() {
 		t.Fatalf("clear: %+v", got)
 	}
-	o, err := parseMCPOptions([]string{"tools", "--tools-expose", "sometimes", "--no-tui"})
+	o, err := parseMCPOptions([]string{"tools", "--tools-allow", "get?", "--no-tui"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := runMCPEdit(s, o); err == nil || !strings.Contains(err.Error(), "tools.expose") {
-		t.Fatalf("invalid exposure: %v", err)
+	if err := runMCPEdit(s, o); err == nil || !strings.Contains(err.Error(), "tools.allow") {
+		t.Fatalf("invalid tool name: %v", err)
 	}
 }
 

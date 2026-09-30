@@ -12,7 +12,7 @@ interface Props {
   onOptions: (text: string) => void;
   disabled: boolean;
   project: boolean;
-  /** The server has a tool policy, which sets Pi's exposure. */
+  /** The server has a tool policy, which writes Pi's toolExposure. */
   toolsSet?: boolean;
 }
 
@@ -40,13 +40,12 @@ export default function PiSettingsFields({ optionsText, options, optionsError, o
           <label>{t('mcp.piExposure')}</label>
           <InfoTip label={t('mcp.piExposureInfo')} content={t('mcp.piExposureTip')} />
         </span>
-        <Select ariaLabel={t('mcp.piExposure')} value={String(options.value?.exposure ?? '')} disabled={disabled || Boolean(optionsError) || toolsSet} onChange={(value) => {
+        <Select ariaLabel={t('mcp.piExposure')} value={String(options.value?.exposure ?? '')} disabled={disabled || Boolean(optionsError)} onChange={(value) => {
           const next = { ...options.value };
           if (value) next.exposure = value; else delete next.exposure;
-          onOptions(JSON.stringify(next, null, 2));
+          // Nothing left shows the editor's placeholder rather than "{}".
+          onOptions(Object.keys(next).length ? JSON.stringify(next, null, 2) : '');
         }} options={[{ value: '', label: t('mcp.piExposureNone'), note: `· ${t('mcp.piExposureUnset')}` }, ...piExposures.map((value) => ({ value, label: value, note: `· ${t(`mcp.piExposure.${value}`)}` }))]} />
-        {/* Says why the select is locked; the general explanation is in the tooltip. */}
-        {toolsSet && <span className="hp">{t('mcp.piExposureFromTools')}</span>}
       </div>
       <div className="ss-fld">
         <label>{t('mcp.piOptions')}</label>

@@ -60,7 +60,7 @@ func TestDirectToolsConvertedOnLoad(t *testing.T) {
 	if got := pi("held"); got != `{"exposure":"deferred"}` {
 		t.Errorf("search: %s", got)
 	}
-	if got, want := source.Servers["lists"].Tools, (ToolPolicy{Expose: "direct", Allow: []string{"get_*"}, Deny: []string{"delete_*"}}); !reflect.DeepEqual(got, want) || source.Servers["lists"].PiOptions != nil {
+	if got, want := source.Servers["lists"].Tools, (ToolPolicy{Allow: []string{"get_*"}, Deny: []string{"delete_*"}}); !reflect.DeepEqual(got, want) || pi("lists") != `{"exposure":"direct"}` {
 		t.Errorf("tool lists: %+v %v", got, source.Servers["lists"].PiOptions)
 	}
 	if got := source.Projects[filepath.Join(tmp, "quiet")].Servers["local"]; got.PiOptions != nil {
@@ -130,11 +130,11 @@ func TestAdapterToolsImportedFromPi(t *testing.T) {
 	if err != nil || len(candidates) != 1 || len(candidates[0].Problems) != 0 {
 		t.Fatalf("%+v %v", candidates, err)
 	}
-	if got, want := candidates[0].Server.Tools, (ToolPolicy{Expose: "direct", Deny: []string{"delete_*"}}); !reflect.DeepEqual(got, want) {
+	if got, want := candidates[0].Server.Tools, (ToolPolicy{Deny: []string{"delete_*"}}); !reflect.DeepEqual(got, want) {
 		t.Fatalf("tools: %+v", got)
 	}
-	if candidates[0].Server.PiOptions != nil {
-		t.Fatalf("adapter settings reached piOptions: %v", candidates[0].Server.PiOptions)
+	if got := candidates[0].Server.PiOptions; len(got) != 1 || got["exposure"] != "direct" {
+		t.Fatalf("directTools becomes piOptions.exposure, and nothing else reaches piOptions: %v", got)
 	}
 	if warnings := strings.Join(candidates[0].Warnings, ";"); !strings.Contains(warnings, "converted") || !strings.Contains(warnings, "not imported, because Pi's built-in MCP does not read it: lifecycle") {
 		t.Fatalf("warnings: %v", candidates[0].Warnings)

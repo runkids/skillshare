@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { MCPPlan } from '../../api/mcp';
-import { buildMatrix, denyRemovesAll, describeError, describeMessage, canImportConflict, groupByFile, isResolvable, joinCommand, mcpClient, parsePiOptions, parseToolNotice, serverCount, setToolChecked, splitCommand, switchTargets, targetLabel, toolRules } from './mcpView';
+import { buildMatrix, denyRemovesAll, describeError, describeMessage, canImportConflict, groupByFile, isResolvable, joinCommand, mcpClient, parsePiOptions, parseToolNotice, serverCount, setToolChecked, splitCommand, switchTargets, targetLabel, toolRules, toolSummary } from './mcpView';
 import { mcpTargets } from '../../api/mcp';
 
 const change = (name: string, target: string, action: string, message?: string) => ({ name, target, action, message, path: `/${target}.json` });
@@ -112,6 +112,16 @@ describe('denyRemovesAll', () => {
   });
 });
 
+describe('toolSummary', () => {
+  const t = (key: string, params?: Record<string, string | number>) => `${key} ${JSON.stringify(params)}`;
+
+  it('says in words how many tools a policy allows or excludes', () => {
+    expect([toolSummary(t, { deny: ['a', 'b'] }), toolSummary(t, { allow: ['a'] }), toolSummary(t, { allow: ['a', 'b', 'c'], deny: ['d'] })]).toEqual([
+      'mcp.tools.summaryDeny.other {"count":2}', 'mcp.tools.summaryAllow.one {"count":1}', 'mcp.tools.summaryBoth {"allow":3,"deny":1}',
+    ]);
+  });
+});
+
 describe('tool checklist', () => {
   it('unticking a tool denies it by its exact name', () => {
     expect(setToolChecked({ deny: ['delete_*'] }, 'search', false)).toEqual({ deny: ['delete_*', 'search'] });
@@ -132,8 +142,8 @@ describe('tool checklist', () => {
 
 describe('parseToolNotice', () => {
   it('takes apart a tool policy notice, keeping a project server with its root', () => {
-    expect(parseToolNotice('tool policy not applied for codex: expose, allow patterns (docs, wiki (/work/app))'))
-      .toEqual({ target: 'codex', gaps: ['expose', 'allow patterns'], names: ['docs', 'wiki (/work/app)'] });
+    expect(parseToolNotice('tool policy not applied for codex: allow patterns, deny (docs, wiki (/work/app))'))
+      .toEqual({ target: 'codex', gaps: ['allow patterns', 'deny'], names: ['docs', 'wiki (/work/app)'] });
     expect(parseToolNotice('piExtension is ignored since 0.23.0 (docs)')).toBeUndefined();
   });
 });
@@ -157,8 +167,8 @@ describe('parsePiOptions', () => {
       .toEqual([{ adapterTools: 'directTools' }, { adapterTools: 'excludeTools' }, { adapter: 'lifecycle' }]);
   });
 
-  it("refuses Pi's exposure fields only while the server has a tool policy", () => {
-    expect([parsePiOptions('{"toolExposure": {"a": "hidden"}}', true), parsePiOptions('{"exposure": "direct"}', false)])
+  it("refuses only Pi's toolExposure while the server has a tool policy", () => {
+    expect([parsePiOptions('{"toolExposure": {"a": "hidden"}}', true), parsePiOptions('{"exposure": "direct"}', true)])
       .toEqual([{ overlap: 'toolExposure' }, { value: { exposure: 'direct' } }]);
   });
 

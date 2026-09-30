@@ -59,18 +59,18 @@ func normalizeClientImport(target string, entry map[string]any, c *Candidate) {
 	}
 }
 
-// importPiTools moves Pi's exposure and toolExposure into tools when writing that policy
-// back gives Pi the same settings. Otherwise they stay in piOptions, for Pi only.
+// importPiTools moves Pi's toolExposure into tools when writing that policy back gives Pi
+// the same settings. Otherwise it stays in piOptions, for Pi only. exposure always stays
+// in piOptions.
 func importPiTools(c *Candidate) {
-	if c.Server.PiOptions["exposure"] == nil && c.Server.PiOptions["toolExposure"] == nil {
+	if c.Server.PiOptions["toolExposure"] == nil {
 		return
 	}
 	policy, ok := piImportPolicy(c.Server.PiOptions)
 	if !ok {
-		c.Warnings = append(c.Warnings, "Pi's exposure settings stay in piOptions and apply to Pi only; tools cannot express them exactly")
+		c.Warnings = append(c.Warnings, "Pi's toolExposure stays in piOptions and applies to Pi only; tools cannot express it exactly")
 		return
 	}
-	delete(c.Server.PiOptions, "exposure")
 	delete(c.Server.PiOptions, "toolExposure")
 	if len(c.Server.PiOptions) == 0 {
 		c.Server.PiOptions = nil

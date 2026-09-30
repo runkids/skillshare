@@ -36,7 +36,6 @@ skillshare sync --all
 | `--url URL` | `add` 用の Streamable HTTP エンドポイント |
 | `-- command args...` | `add` 用のローカル実行ファイルとリテラルな引数 |
 | `--disabled` | project mode で `add` と併用: Agent の global config が定義するサーバーをオフにする。[下記](#turn-off-a-global-server-in-one-project)を参照 |
-| `--tools-expose VALUE` | `add`、`edit`、`import` と併用: `direct`、`deferred`、`hidden`。`""` でクリア。[ツールポリシー](#tool-policy)を参照 |
 | `--tools-allow TOOLS` | これらのツールだけを残す。カンマ区切り。`*` は任意の文字に一致。`""` でクリア。[ツールポリシー](#tool-policy)を参照 |
 | `--tools-deny TOOLS` | これらのツールを常に除外する。カンマ区切り。allow より優先。`""` でクリア。[ツールポリシー](#tool-policy)を参照 |
 | `--pi-options JSON` | Pi の内蔵 MCP のその他のサーバー別フィールドを JSON オブジェクトで指定する。[Pi](#pi-options)を参照 |
@@ -99,7 +98,7 @@ Add、edit、remove、import では、**Save and sync** または **Save only** 
 | `bearerToken` | `{fromEnv: VARIABLE}`。Authorization ヘッダーと共存不可 |
 | `transport` | 任意の `stdio` または `streamable-http`。省略時は推測される |
 | `targets` | 任意の受け取り側クライアント。`mcp.targets` を上書きする。空のリストにすると、サーバーは Skillshare 内にのみ保持される。[下記](#keep-a-server-without-syncing-it)を参照 |
-| `tools` | どのツールをモデルに渡すか: `expose`、`allow`、`deny`。一度書けば Agent ごとに変換される。[ツールポリシー](#tool-policy)を参照 |
+| `tools` | どのツールをモデルに渡すか: `allow`、`deny`。一度書けば Agent ごとに変換される。[ツールポリシー](#tool-policy)を参照 |
 | `piOptions` | Pi の内蔵 MCP のその他のサーバー別フィールド。[Pi](#pi-options)を参照 |
 | `disabled` | `true` のみ、他の接続フィールドを伴わない、かつ project がスコープ内にあること: project mode、または `mcp.projects` 配下の root。[下記](#turn-off-a-global-server-in-one-project)を参照 |
 
@@ -693,29 +692,27 @@ mcp:
       command: github-mcp
       targets: [pi, codex, copilot, opencode]
       tools:
-        expose: deferred          # direct, deferred or hidden
         allow: [get_*, search_code, list_issues]
         deny: [get_secret]
 ```
 
 ```bash
 skillshare mcp add github --target pi --target codex --tools-allow 'get_*,search_code' --tools-deny get_secret -- github-mcp
-skillshare mcp edit github --tools-expose deferred
 skillshare mcp edit github --tools-allow ''          # clear the allow list
-skillshare mcp import github --from claude --target pi --tools-expose direct
+skillshare mcp import github --from claude --target pi --tools-deny get_secret
 ```
 
 | フィールド | 意味 |
 |---|---|
-| `expose` | モデルがツールにどう到達するか: `direct`（最初から宣言）、`deferred`（ツール検索で見つかったときに読み込む）、`hidden`。未設定の場合は各 Agent の既定のまま |
 | `allow` | 設定すると、一致するツールだけが残る |
 | `deny` | 一致するツールを除外する。`allow` に一致していても除外される |
 
 `allow` と `deny` のエントリはツール名で、`*` は任意の文字に一致します。その他のワイルドカード
 （`? [ ] { }`）、スペース、カンマは拒否され、同じ名前を 2 回書いた場合も拒否されます。
 `allow` で残したツールを `deny` がすべて除外する場合はエラーです。`disabled` エントリには `tools` を
-設定できません。3 つのフラグは `mcp add`、`mcp edit`、`mcp import` で使えます。リストはカンマ区切りで、
-空の値を渡すとその部分がクリアされます。
+設定できません。2 つのフラグは `mcp add`、`mcp edit`、`mcp import` で使えます。リストはカンマ区切りで、
+空の値を渡すとその部分がクリアされます。Pi がツールをどう提供するかはポリシーに含まれません。それは
+Pi の `exposure` で、[`piOptions`](#pi-options) で設定します。
 
 ### 各 Agent が受け取る内容 {#tool-policy-agents}
 
@@ -724,14 +721,14 @@ skillshare mcp import github --from claude --target pi --tools-expose direct
 
 | Agent | 書き込まれる内容 | 適用されない部分 |
 |---|---|---|
-| [Pi](https://github.com/earendil-works/pi/blob/v0.99.0/packages/coding-agent/docs/mcp.md) | `expose` から `exposure`。`toolExposure` には拒否したツールを `hidden` で、続いて許可したツールを、`allow` が設定されていれば最後に `"*": "hidden"` を書く | なし |
-| [Codex](https://developers.openai.com/codex/config-reference) | `enabled_tools` と `disabled_tools`（完全一致の名前のみ）。Codex は `enabled_tools` の後に `disabled_tools` を適用する | `expose`、`allow` 内の `*` パターン、完全一致の `allow` リストに畳み込めない `deny` 内の `*` パターン |
-| [Copilot CLI](https://docs.github.com/en/copilot/how-tos/copilot-cli/customize-copilot/add-mcp-servers) | `tools`: 許可した完全一致の名前から拒否した名前を除いたもの。それがなければ `["*"]` | `expose`、`allow` 内の `*` パターン、`allow` が完全一致の名前を列挙していない場合の `deny`（Copilot には拒否リストがないため） |
+| [Pi](https://github.com/earendil-works/pi/blob/v0.99.0/packages/coding-agent/docs/mcp.md) | `toolExposure` には拒否したツールを `hidden` で、続いて許可したツールを、`allow` が設定されていれば最後に `"*": "hidden"` を書く | なし |
+| [Codex](https://developers.openai.com/codex/config-reference) | `enabled_tools` と `disabled_tools`（完全一致の名前のみ）。Codex は `enabled_tools` の後に `disabled_tools` を適用する | `allow` 内の `*` パターン、完全一致の `allow` リストに畳み込めない `deny` 内の `*` パターン |
+| [Copilot CLI](https://docs.github.com/en/copilot/how-tos/copilot-cli/customize-copilot/add-mcp-servers) | `tools`: 許可した完全一致の名前から拒否した名前を除いたもの。それがなければ `["*"]` | `allow` 内の `*` パターン、`allow` が完全一致の名前を列挙していない場合の `deny`（Copilot には拒否リストがないため） |
 | [OpenCode](https://opencode.ai/docs/permissions/)、[Kilo Code](https://kilo.ai/docs/code-with-ai/platforms/cli#permissions) | なし | すべて。どちらもツールを絞り込めるのは `<server>_<tool>` をキーとするトップレベルの `permission` マップだけで、これはサーバーのエントリの外にある |
 | その他すべての Agent | なし | すべて |
 
 Pi では完全一致のツール名がどのパターンよりも優先されるため、拒否したパターンに一致する許可済みの
-完全一致名は `toolExposure` から除外されます。許可したツールにはポリシーの exposure が、`expose` が
+完全一致名は `toolExposure` から除外されます。許可したツールにはサーバーの `piOptions.exposure` が、それが
 未設定または `hidden` の場合は Pi の既定の `codemode` が設定されます。そのため `allow` と併せた
 `hidden` は、許可したツールだけが見えることを意味します。
 
@@ -740,7 +737,7 @@ Pi では完全一致のツール名がどのパターンよりも優先され�
 - sync のプランに、Agent ごとに該当サーバーを列挙した warning 行として:
 
   ```text
-  ! tool policy not applied for opencode: expose, allow, deny (github)
+  ! tool policy not applied for opencode: allow, deny (github)
   ```
 
   `--json` では、同じテキストがプランの `notices` に入ります。
@@ -751,14 +748,15 @@ Pi では完全一致のツール名がどのパターンよりも優先され�
 Codex の `enabled_tools` と `disabled_tools` は管理対象のフィールドです。ポリシーをクリアすると削除され、
 Skillshare が所有するエントリでこれらを手で編集すると競合として表示されます。インポートでは Codex の
 `enabled_tools`/`disabled_tools` と Copilot の `tools` を `tools` に読み戻します。Pi の
-`exposure`/`toolExposure` が `tools` になるのは、そのポリシーを書き込んだときにまったく同じ Pi 設定になる
-場合だけです。そうでなければ warning 付きで `piOptions` に残ります。
+`toolExposure` が `tools` になるのは、サーバーの `exposure` と併せてそのポリシーを書き込んだときにまったく同じ
+`toolExposure` になる場合だけです。そうでなければ warning 付きで `piOptions` に残ります。`exposure` は常に
+`piOptions` に残ります。
 
 ### ダッシュボードのツール {#tool-policy-dashboard}
 
 サーバーダイアログには、target の後に **ツール** セクションがあります（`disabled` エントリを除くすべての
 サーバー）。このセクションは常に表示されます。見出しの横の情報アイコンがセクションを説明し、
-概要には `すべてのツール`、ポリシーの内容（`1 許可 · 2 拒否` など）、またはツールを読み込んだ後の
+概要には `すべてのツール`、ポリシーの内容（`1 個のみ許可、2 個を除外` など）、またはツールを読み込んだ後の
 `9 / 14 選択` が表示されます。
 
 - 見出しの下の枠にツール一覧が入ります。読み込む前は **ツールを読み込む** があり、保存済みかどうかに
@@ -775,13 +773,11 @@ Skillshare が所有するエントリでこれらを手で編集すると競合
   Enter を押します。`allow` に項目があるときは、その上に同じ使い方の **許可のみ** の行があります。ツールを
   読み込む前は、保存済みの項目がすべてここに表示されます。不正な名前や、許可したツールをすべて除外する
   拒否リストはダイアログに表示され、**保存** をブロックします。
-- **ツールの提供方法** で `expose` を選びます。読むのは Pi だけなので、Pi を選択しているか `expose` が
-  設定済みのときだけ表示されます。
 - その下には、選択中の各 Agent が実際に何を受け取るかが表示されます。この一覧どおりに提供する Agent、
   一部だけ適用する Agent の動作（たとえば Copilot CLI は拒否リストがないため、チェックを外したツールも提供します）、
   そして絞り込みに対応していない Agent です。
 
-サーバーの行にはポリシーを示すタグが表示され、**各 Agent に書き込まれる設定を表示** は、適用されない部分に
+サーバーの行にはポリシーを言葉で示すタグ（`ツール: 2 個のツールを除外` など）が表示され、**各 Agent に書き込まれる設定を表示** は、適用されない部分に
 ついて Agent ごとに警告します。
 
 ## Pi {#pi}
@@ -798,7 +794,7 @@ Skillshare が Pi に MCP サーバーを書き込む方法はこれだけです
 個人用や認証情報を持つサーバーは `~/.pi/agent/mcp.json` に配置してください。`.pi/mcp.json` は信頼済みプロジェクトが必要とするサーバーだけに使用します。同名の project entry は global entry 全体を置き換えます。Skillshare はプレビューとバックアップ付きでファイルを編集します。信頼の承認、サーバー起動、拡張のインストール、OAuth 認可は行いません。
 
 ```bash
-skillshare mcp add docs --url https://example.com/mcp --target pi --tools-expose deferred --pi-options '{"timeout":120}' --no-tui
+skillshare mcp add docs --url https://example.com/mcp --target pi --tools-deny 'delete_*' --pi-options '{"exposure":"deferred","timeout":120}' --no-tui
 skillshare sync mcp --dry-run
 skillshare sync mcp
 ```
@@ -810,9 +806,9 @@ mcp:
       url: https://example.com/mcp
       targets: [pi]
       tools:
-        expose: deferred
         deny: [delete_*]
       piOptions:
+        exposure: deferred
         timeout: 120
 ```
 
@@ -833,9 +829,9 @@ Pi のサーバー名には英数字、`_`、`-` のみを使えます。Pi は 
 - `exposure` は `codemode`（Pi の既定）、`codemode-deferred`、`deferred`、`direct`、`hidden` を
   受け付けます。`toolExposure` はツール名またはワイルドカードパターンをこれらの値のいずれかに対応付けます。
   完全一致の名前が優先され、次に最初に一致したパターンが採用されます。Skillshare はインポートと
-  JSON／YAML 変換を通じてパターンの順序を保持します。これらには [`tools`](#tool-policy) を使うほうが
-  よいでしょう。他の Agent にも届くためです。1 つのサーバーで `tools` と `exposure`/`toolExposure` を
-  両方設定することはできません。
+  JSON／YAML 変換を通じてパターンの順序を保持します。`exposure` は、[`tools`](#tool-policy) の許可リストが
+  残したツールの提供方法も決めます。`toolExposure` より `tools` を使うほうがよいでしょう。他の Agent にも
+  届くためです。1 つのサーバーで `tools` と `toolExposure` を両方設定することはできません。
 - `timeout`（正の秒数）、`cwd`、`enabled`、`oauth` は検証されます。未知のフィールドはカスタム Pi ビルド向けに
   そのまま渡されます。
 - 接続フィールドはメインフォームに入力します。`directTools`、`includeTools`、`excludeTools` など
@@ -857,8 +853,9 @@ skillshare mcp edit docs --pi-options '{}' --no-tui
 ダッシュボードでは、サーバーダイアログの Pi ブロックに **ツール公開モード** と **その他の Pi 設定** があります。
 **Pi の設定** と **ツール公開モード** の横にある情報アイコンがそれぞれを説明し、**Pi の設定** の横の
 リンクから Pi の MCP ドキュメントを開けます。ダイアログは保存前に **その他の Pi 設定** 内の
-`pi-mcp-adapter` のフィールドを指摘します。ツールセクションに設定がある間は、`tools` が決めるため
-**ツール公開モード** は無効になります。
+`pi-mcp-adapter` のフィールドを指摘します。ツールセクションに設定がある間も **ツール公開モード** は
+編集できます。そのとき拒否されるのは **その他の Pi 設定** 内の `toolExposure` だけで、`tools` が書き込むため
+です。サーバー行の Pi チップは公開モードを短い言葉で表示します（`codemode` なら `コード経由`）。
 
 ### 0.22 からの Pi のアップグレード {#pi-migration}
 
@@ -883,7 +880,7 @@ skillshare mcp edit docs --pi-options '{}' --no-tui
 | `piOptionsPrune` | キーが削除される。sync は常に、Skillshare が書き込み、変更されていないクリア済みフィールドを削除する（[上記](#pi-options)） |
 | サーバーの `directTools` | `true` → `piOptions.exposure: direct`、`"search"` → `deferred`、名前のリスト → それらのツールを `direct` にした `piOptions.toolExposure` |
 | `mcp.directTools`、または `mcp.projects` 配下の project の `directTools` | 既定値が、Pi に届き自身の値を持たない各サーバーに上記のとおり書き込まれる。project の `false` はグローバルの値より優先される |
-| `piOptions.includeTools` / `excludeTools` | `tools.allow` / `tools.deny`。`directTools` は `tools.expose` になる |
+| `piOptions.includeTools` / `excludeTools` | `tools.allow` / `tools.deny`。一緒に設定した `directTools` は引き続き `piOptions.exposure` になる |
 | `piOptions` 内のその他の `pi-mcp-adapter` フィールド（`lifecycle`、`idleTimeout`、`toolPrefix`、`bearerTokenEnv` など） | Pi の内蔵 MCP が読まないため削除される |
 | `disabled` エントリの `targets` 内の `pi` | そのリストから `pi` が削除される |
 
@@ -909,7 +906,7 @@ sync で行われます。`--dry-run` とプレビューは何も書き込みま
 |---|---|
 | `--pi-extension` | 削除してください。Pi は常に内蔵 MCP を使います |
 | `--pi-options-prune` | 削除してください。sync は、Skillshare が以前に書き込んで変更されていないフィールドを常に削除します |
-| `--direct-tools` | すべてのツールには `--tools-expose direct`、Pi で個別のツールには `--pi-options '{"toolExposure":{"TOOL":"direct"}}'` |
+| `--direct-tools` | すべてのツールには `--pi-options '{"exposure":"direct"}'`、Pi で個別のツールには `--pi-options '{"toolExposure":{"TOOL":"direct"}}'` |
 
 `skillshare mcp import --from pi` は、Pi の `mcp.json` の隣にある `pi-mcp-adapter` の `mcp-adapter.json` も
 引き続き読み込むため、サーバーを移行できます。両方のファイルが同じサーバーを定義している場合は `mcp.json` が

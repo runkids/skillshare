@@ -36,7 +36,7 @@ _skillshare() {
     local uninstall_flags="--all --force -f --dry-run -n --json --group -G --help -h"
     local list_flags="--verbose -v --json -j --no-tui --type -t --status --sort -s --all --help -h"
     local sync_flags="--all --dry-run -n --force -f --json --quiet -q --help -h"
-    local mcp_flags="--tools-expose --tools-allow --tools-deny --pi-options --url --target --from --file --sync --replace --disabled --keep-files --revision --dry-run -n --json --no-tui --no-dns --live --timeout --help -h"
+    local mcp_flags="--tools-allow --tools-deny --pi-options --url --target --from --file --sync --replace --disabled --keep-files --revision --dry-run -n --json --no-tui --no-dns --live --timeout --help -h"
     local status_flags="--json --help -h"
     local hooks_flags="--file --from --sync --replace --revision --dry-run -n --json --help -h"
     local diff_flags="--no-tui --patch --stat --json --help -h"
@@ -86,11 +86,6 @@ _skillshare() {
 
     if [[ "${cmd}" == plugin && ( "${prev}" == --target || "${prev}" == --from ) ]]; then
         COMPREPLY=($(compgen -W "claude codex cursor antigravity agy antigravity-cli copilot grok kimi hermes devin pi opencode" -- "${cur}"))
-        return
-    fi
-
-    if [[ "${cmd}" == mcp && "${prev}" == --tools-expose ]]; then
-        COMPREPLY=($(compgen -W "direct deferred hidden" -- "${cur}"))
         return
     fi
 

@@ -95,7 +95,6 @@ _skillshare() {
                 mcp)
                     _arguments \
                         '1:command:(add check edit import list remove restore)' \
-                        '--tools-expose[How tools reach the model; empty clears]:value:(direct deferred hidden)' \
                         '--tools-allow[Only these tools, comma-separated, * matches any characters; empty clears]:tools:' \
                         '--tools-deny[Never these tools, comma-separated, * matches any characters; empty clears]:tools:' \
                         '--pi-options[Other Pi built-in per-server fields as JSON]:json:' \

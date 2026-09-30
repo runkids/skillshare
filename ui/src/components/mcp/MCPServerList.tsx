@@ -72,7 +72,7 @@ export default function MCPServerList({ rows, targets, targetsOf, onToggle, onMe
                       {targetLabel(target)}
                       {/* Only whether other Pi settings exist, never their contents: piOptions may hold anything. */}
                       {target === 'pi' && <>
-                        <span className="text-ink-2">· {String(row.server?.tools?.expose ?? row.server?.piOptions?.exposure ?? 'codemode')}</span>
+                        <PiExposureLabel exposure={String(row.server?.piOptions?.exposure ?? 'codemode')} />
                         {piOptions && <span className="text-ink-3">· {t('mcp.piOptions')}</span>}
                       </>}
                     </span>
@@ -92,4 +92,10 @@ export default function MCPServerList({ rows, targets, targetsOf, onToggle, onMe
       })}
     </div>
   );
+}
+
+/** Pi's exposure mode in a few words; the full wording is in the title. A value Pi adds later shows as written. */
+function PiExposureLabel({ exposure }: { exposure: string }) {
+  const t = useT();
+  return <span className="text-ink-2" title={t(`mcp.piExposure.${exposure}`, undefined, exposure)}>· {t(`mcp.piExposureShort.${exposure}`, undefined, exposure)}</span>;
 }

@@ -193,10 +193,24 @@ describe('MCP server dialog', () => {
     await waitFor(() => expect(mcpApi.save).toHaveBeenCalledWith(expect.objectContaining({ server: expect.objectContaining({ piOptions: { exposure: 'direct', custom: { keep: true } } }) })));
   });
 
+  it('empties the JSON when an exposure is set and then cleared, and saves no piOptions', async () => {
+    const user = userEvent.setup();
+    renderDialog({ initial: { name: 'docs', server: { command: 'docs', targets: ['pi'] } } });
+    const exposure = screen.getByRole('combobox', { name: 'Tool exposure' });
+    await user.click(exposure);
+    await user.click(screen.getByRole('option', { name: /^direct\b/ }));
+    await user.click(exposure);
+    await user.click(screen.getByRole('option', { name: /^Not set\b/ }));
+    expect(screen.getByLabelText('Other Pi settings')).toHaveValue('');
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(mcpApi.save).toHaveBeenCalled());
+    expect(vi.mocked(mcpApi.save).mock.calls[0][0].server).not.toHaveProperty('piOptions');
+  });
+
   it("keeps a server's tool policy when editing something else", async () => {
     const user = userEvent.setup();
     vi.mocked(mcpApi.render).mockResolvedValue({ rendered: [] });
-    const server = { command: 'docs', targets: ['claude'], tools: { expose: 'deferred' as const, allow: ['get_*'], deny: ['delete_issue'] } };
+    const server = { command: 'docs', targets: ['claude'], tools: { allow: ['get_*'], deny: ['delete_issue'] } };
     renderDialog({ initial: { name: 'docs', server } });
     await user.click(screen.getByRole('button', { name: 'Save' }));
     await waitFor(() => expect(mcpApi.save).toHaveBeenCalledWith(expect.objectContaining({ server })));
@@ -219,6 +233,17 @@ describe('MCP server dialog', () => {
     await waitFor(() => expect(mcpApi.save).toHaveBeenCalledWith(expect.objectContaining({ server: expect.objectContaining({ tools: { deny: ['fetch', 'delete_*'] } }) })));
   });
 
+  it('hints that Enter adds a rule only while the rule input has text', async () => {
+    const user = userEvent.setup();
+    vi.mocked(mcpApi.render).mockResolvedValue({ rendered: [] });
+    renderDialog({ initial: { name: 'docs', server: { command: 'docs', targets: ['claude'] } } });
+    expect(screen.queryByText('Enter', { selector: 'kbd' })).not.toBeInTheDocument();
+    await user.type(screen.getByLabelText('Exclude rules'), 'delete_');
+    expect(screen.getByText('Enter', { selector: 'kbd' }).parentElement).toHaveTextContent('Press Enter to add');
+    await user.clear(screen.getByLabelText('Exclude rules'));
+    expect(screen.queryByText('Enter', { selector: 'kbd' })).not.toBeInTheDocument();
+  });
+
   it('locks a row that a Deny pattern removes, naming the rule', async () => {
     const user = userEvent.setup();
     vi.mocked(mcpApi.render).mockResolvedValue({ rendered: [] });
@@ -238,6 +263,17 @@ describe('MCP server dialog', () => {
     await user.click(screen.getByRole('button', { name: 'Select none' }));
     await user.click(screen.getByRole('button', { name: 'Save' }));
     await waitFor(() => expect(mcpApi.save).toHaveBeenCalledWith(expect.objectContaining({ server: expect.objectContaining({ tools: { deny: ['get_issue', 'get_repo'] } }) })));
+  });
+
+  it("leaves Pi's exposure to the Pi settings, unlocked while Tools has a setting", () => {
+    renderDialog({ initial: { name: 'docs', server: { command: 'docs', targets: ['pi'], tools: { deny: ['a', 'b'] } } } });
+    expect(screen.getByRole('combobox', { name: 'Tool exposure' })).toBeEnabled();
+    expect(screen.getAllByRole('combobox')).toHaveLength(1);
+  });
+
+  it('sums up a policy in words before the tools are loaded', () => {
+    renderDialog({ initial: { name: 'docs', server: { command: 'docs', targets: ['claude'], tools: { deny: ['a', 'b'] } } } });
+    expect(screen.getByText('2 tools excluded')).toBeInTheDocument();
   });
 
   it('says under the JSON that Tools already sets the exposure it sets, before saving', async () => {
