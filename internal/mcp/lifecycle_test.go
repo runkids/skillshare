@@ -297,9 +297,10 @@ func TestNoTargetsSurvivesSaveAndTheAPI(t *testing.T) {
 	}
 }
 
-func TestDisabledEntryStillNeedsATarget(t *testing.T) {
-	if err := (Server{Disabled: true, Targets: []string{}}).Validate("docs"); err == nil {
-		t.Fatal("accepted a switch that turns nothing off")
+// A switch whose only target was pi loses it on load and stays, turning nothing off.
+func TestDisabledEntryMayHaveNoTargets(t *testing.T) {
+	if err := (Server{Disabled: true, Targets: []string{}}).Validate("docs"); err != nil {
+		t.Fatal(err)
 	}
 }
 

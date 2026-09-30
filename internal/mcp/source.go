@@ -174,6 +174,15 @@ func LoadSource(configPath string) (*Source, error) {
 			}
 		}
 	}
+	if s.Accounts, err = parseAccounts(field(&s.configDoc, "targets")); err != nil {
+		return nil, err
+	}
+	var piAccounts []string
+	for name, account := range s.Accounts {
+		if account.Agent == "pi" {
+			piAccounts = append(piAccounts, name)
+		}
+	}
 	legacy := map[string][]string{}
 	note := func(found map[string][]string, root string) {
 		for key, names := range found {
@@ -190,7 +199,7 @@ func LoadSource(configPath string) (*Source, error) {
 		servers = field(mcp, "servers")
 		if projects := field(mcp, "projects"); projects != nil && projects.Kind == yaml.MappingNode {
 			for i := 0; i+1 < len(projects.Content); i += 2 {
-				note(dropLegacyFields(field(projects.Content[i+1], "servers")), projects.Content[i].Value)
+				note(migrateServers(field(projects.Content[i+1], "servers"), piAccounts), projects.Content[i].Value)
 			}
 		}
 	}
@@ -238,7 +247,7 @@ func LoadSource(configPath string) (*Source, error) {
 		if servers.Kind != yaml.MappingNode {
 			return nil, fmt.Errorf("MCP servers must be a mapping")
 		}
-		note(dropLegacyFields(servers), "")
+		note(migrateServers(servers, piAccounts), "")
 		if s.Servers, err = ParseServers(servers); err != nil {
 			return nil, fmt.Errorf("invalid MCP server fields: use command/args/env or url/headers/bearerToken and optional targets/transport/piOptions, or disabled with targets")
 		}
@@ -247,9 +256,6 @@ func LoadSource(configPath string) (*Source, error) {
 		if err := server.Validate(name); err != nil {
 			return nil, err
 		}
-	}
-	if s.Accounts, err = parseAccounts(field(&s.configDoc, "targets")); err != nil {
-		return nil, err
 	}
 	s.Notices = legacyNotices(s, legacy)
 	return s, s.checkTargets()
@@ -267,6 +273,18 @@ func legacyNotices(s *Source, legacy map[string][]string) []string {
 	}
 	if names := legacy["piOptionsPrune"]; len(names) > 0 {
 		notices = append(notices, "piOptionsPrune is ignored since 0.23.0 ("+list(names)+"): sync always removes Pi fields Skillshare wrote earlier that are unchanged; saving the config drops the field")
+	}
+	var adapter []string
+	for _, key := range adapterPiOptions {
+		if names := legacy["piOptions."+key]; len(names) > 0 {
+			adapter = append(adapter, key+" ("+list(names)+")")
+		}
+	}
+	if len(adapter) > 0 {
+		notices = append(notices, "Pi's built-in MCP does not read these pi-mcp-adapter piOptions, so they are ignored since 0.23.0: "+strings.Join(adapter, "; ")+"; saving the config drops them")
+	}
+	if names := legacy["piSwitch"]; len(names) > 0 {
+		notices = append(notices, "Pi cannot turn off a global server per project, so pi is left out of these switch-only entries since 0.23.0 ("+list(names)+"); saving the config drops it from their targets")
 	}
 	var direct []string
 	if s.DirectTools != nil {
@@ -396,8 +414,8 @@ func ReferenceWarning(configPath, target string) string {
 	return fmt.Sprintf("%s %s %s; remove it there too or the next mcp sync fails", strings.Join(places, ", "), names, target)
 }
 
-// ParseServers decodes a servers mapping strictly, except for legacyServerFields, which it
-// ignores. It does not validate the servers.
+// ParseServers decodes a servers mapping strictly, after migrateServers has taken out what
+// 0.23.0 retired. It does not validate the servers.
 func ParseServers(node *yaml.Node) (map[string]Server, error) {
 	data, err := yaml.Marshal(expandAliases(node))
 	if err != nil {
@@ -407,7 +425,7 @@ func ParseServers(node *yaml.Node) (map[string]Server, error) {
 	if err := yaml.Unmarshal(data, &copied); err != nil {
 		return nil, err
 	}
-	dropLegacyFields(mapping(&copied))
+	migrateServers(mapping(&copied), nil)
 	if data, err = yaml.Marshal(&copied); err != nil {
 		return nil, err
 	}
@@ -438,7 +456,7 @@ func ParseProjects(node *yaml.Node) (map[string]Project, error) {
 	}
 	if projects := mapping(&copied); projects.Kind == yaml.MappingNode {
 		for i := 0; i+1 < len(projects.Content); i += 2 {
-			dropLegacyFields(field(projects.Content[i+1], "servers"))
+			migrateServers(field(projects.Content[i+1], "servers"), nil)
 		}
 	}
 	if data, err = yaml.Marshal(&copied); err != nil {

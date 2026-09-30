@@ -60,3 +60,40 @@ func TestPiOptionsSyncFollowsConfig(t *testing.T) {
 	}
 	sync("      piOptions:\n        excludeTools: [\"*emulator*\"]\n        retries: 3\n", "unchanged")
 }
+
+// pi-mcp-adapter options reached Pi's file through piOptions before 0.23.0. Pi's built-in
+// MCP does not read them, so loading drops them with a notice; other keys still pass through.
+func TestAdapterPiOptionsDroppedOnLoad(t *testing.T) {
+	s, _ := projectsService(t, `mcp:
+  targets: [pi]
+  servers:
+    docs:
+      command: docs
+      piOptions:
+        lifecycle: eager
+        idleTimeout: 5
+        timeout: 30
+        retries: 3
+`)
+	plan, err := s.Preview()
+	if err != nil || plan.Blocked {
+		t.Fatalf("%+v %v", plan, err)
+	}
+	if len(plan.Notices) != 1 || !strings.Contains(plan.Notices[0], "idleTimeout (docs); lifecycle (docs)") {
+		t.Fatalf("notices: %q", plan.Notices)
+	}
+	if _, err := s.Apply(plan.Revision); err != nil {
+		t.Fatal(err)
+	}
+	data, _ := os.ReadFile(filepath.Join(s.Home, ".pi", "agent", "mcp.json"))
+	if strings.Contains(string(data), "lifecycle") || strings.Contains(string(data), "idleTimeout") || !strings.Contains(string(data), `"retries": 3`) || !strings.Contains(string(data), `"timeout": 30`) {
+		t.Fatalf("pi file: %s", data)
+	}
+}
+
+func TestAdapterPiOptionsRejectedOnSave(t *testing.T) {
+	err := Server{Command: "echo", PiOptions: map[string]any{"lifecycle": "eager"}}.Validate("docs")
+	if err == nil || !strings.Contains(err.Error(), "piOptions.lifecycle is a pi-mcp-adapter setting") {
+		t.Fatalf("got %v", err)
+	}
+}

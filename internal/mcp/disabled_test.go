@@ -64,7 +64,6 @@ func TestDisabledRejected(t *testing.T) {
 		"global mode":       {false, "disabled: true\n      targets: [opencode]", "project"},
 		"whole-entry agent": {true, "disabled: true\n      targets: [cursor]", "cursor"},
 		"codex":             {true, "disabled: true\n      targets: [codex]", "whole config"},
-		"pi":                {true, "disabled: true\n      targets: [pi]", "pi cannot turn off"},
 		"with a command":    {true, "disabled: true\n      command: tool\n      targets: [opencode]", "leave out"},
 	} {
 		t.Run(name, func(t *testing.T) {
@@ -79,6 +78,19 @@ func TestDisabledRejected(t *testing.T) {
 				t.Fatalf("want %q, got %v", tc.want, err)
 			}
 		})
+	}
+}
+
+// Loading drops pi from an old switch, but saving a new one for pi still fails.
+func TestPiSwitchRejectedOnSave(t *testing.T) {
+	s := testService(t)
+	s.ProjectRoot = filepath.Join(s.Home, "project")
+	if err := os.WriteFile(s.ConfigPath, []byte("mcp:\n  servers: {}\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	_, err := s.Mutate(Mutation{Name: "docs", Server: &Server{Disabled: true, Targets: []string{"pi"}}}, "", false)
+	if err == nil || !strings.Contains(err.Error(), "pi cannot turn off") {
+		t.Fatalf("got %v", err)
 	}
 }
 
@@ -338,5 +350,45 @@ func TestSwitchLeavesPiAlone(t *testing.T) {
 	}
 	if !slices.Equal(got, []string{"opencode"}) {
 		t.Fatalf("got %v", got)
+	}
+}
+
+// Before 0.23.0 an adapter user could turn a global server off for one project in Pi. Pi's
+// built-in MCP has no such switch, so loading drops pi from the entry instead of failing sync.
+func TestPiSwitchLeavesPiOnLoad(t *testing.T) {
+	s, tmp := projectsService(t, `mcp:
+  targets: [opencode]
+  projects:
+    $TMP/both:
+      servers:
+        docs:
+          disabled: true
+          targets: [pi, opencode]
+    $TMP/only:
+      servers:
+        docs:
+          disabled: true
+          targets: [pi]
+`)
+	plan, err := s.Preview()
+	if err != nil || plan.Blocked {
+		t.Fatalf("%+v %v", plan, err)
+	}
+	if len(plan.Changes) != 1 || plan.Changes[0].Target != "opencode" || plan.Changes[0].Root != filepath.Join(tmp, "both") {
+		t.Fatalf("changes: %+v", plan.Changes)
+	}
+	want := "docs (" + filepath.Join(tmp, "both") + "), docs (" + filepath.Join(tmp, "only") + ")"
+	if len(plan.Notices) != 1 || !strings.Contains(plan.Notices[0], "Pi cannot turn off") || !strings.Contains(plan.Notices[0], want) {
+		t.Fatalf("notices: %q", plan.Notices)
+	}
+	if _, err := s.Mutate(Mutation{Name: "other", Server: &Server{Command: "other"}}, "", false); err != nil {
+		t.Fatal(err)
+	}
+	data, _ := os.ReadFile(s.ConfigPath)
+	if strings.Contains(string(data), "- pi") || strings.Count(string(data), "- opencode") != 2 || !strings.Contains(string(data), "targets: []") {
+		t.Fatalf("saved config: %s", data)
+	}
+	if source, err := LoadSource(s.ConfigPath); err != nil || len(source.Notices) != 0 {
+		t.Fatalf("%v %v", source, err)
 	}
 }

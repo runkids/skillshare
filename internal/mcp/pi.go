@@ -59,6 +59,11 @@ func (s Server) validatePiOptions(name string) error {
 			return fmt.Errorf("MCP %s: piOptions cannot set %s; Skillshare writes that field from the server's own settings", name, key)
 		}
 	}
+	for _, key := range adapterPiOptions {
+		if _, set := s.PiOptions[key]; set {
+			return fmt.Errorf("MCP %s: piOptions.%s is a pi-mcp-adapter setting that Pi's built-in MCP does not read", name, key)
+		}
+	}
 	return validatePiBuiltinOptions(name, s.PiOptions)
 }
 

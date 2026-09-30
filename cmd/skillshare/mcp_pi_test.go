@@ -156,7 +156,7 @@ func TestMCPPiOptionsFlag(t *testing.T) {
 	if got := run(runMCPAdd, "tools", "--target", "pi", "--pi-options", `{"excludeTools":["*emulator*"]}`, "--url", "https://example.com/mcp"); len(got) != 1 {
 		t.Fatalf("add: %v", got)
 	}
-	if got := run(runMCPEdit, "tools", "--pi-options", `{"approveTools":["delete_*"]}`); len(got) != 1 || got["approveTools"] == nil {
+	if got := run(runMCPEdit, "tools", "--pi-options", `{"timeout":30}`); len(got) != 1 || got["timeout"] == nil {
 		t.Fatalf("edit replaces the options: %v", got)
 	}
 	if got := run(runMCPEdit, "tools", "--pi-options", `{}`); len(got) != 0 {

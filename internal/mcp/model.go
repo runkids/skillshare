@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"net/url"
 	"regexp"
+	"slices"
 	"strings"
 
 	"gopkg.in/yaml.v3"
@@ -114,26 +115,62 @@ func (s *Server) UnmarshalJSON(data []byte) error {
 	return d.Decode((*plain)(s))
 }
 
-// dropLegacyFields removes legacyServerFields from every server of a servers mapping, in
-// place, and names the servers that had each field.
-func dropLegacyFields(servers *yaml.Node) map[string][]string {
-	found := map[string][]string{}
-	if servers != nil && servers.Kind == yaml.AliasNode {
-		servers = servers.Alias
+// adapterPiOptions are pi-mcp-adapter server fields that Pi's built-in MCP (0.99.0) does
+// not read. Before 0.23.0 they reached the adapter's file through piOptions.
+var adapterPiOptions = []string{"approveTools", "auth", "bearerToken", "bearerTokenEnv", "bearerTokenStore", "caFile", "debug", "exposeResources", "idleTimeout", "inheritEnv", "lifecycle", "protocolVersion", "requestHeadersCommand", "requestTimeoutMs", "searchKeywords", "socket", "tasks", "toolPrefix", "trace"}
+
+func deref(n *yaml.Node) *yaml.Node {
+	if n != nil && n.Kind == yaml.AliasNode {
+		return n.Alias
 	}
+	return n
+}
+
+// migrateServers rewrites, in place, what 0.23.0 retired in every server of a servers
+// mapping, and names the servers each change touched, keyed by what changed:
+//   - legacyServerFields are dropped;
+//   - pi-mcp-adapter piOptions are dropped, keyed "piOptions.<field>";
+//   - pi and piAccounts leave the targets of a switch-only entry, keyed "piSwitch": Pi has
+//     no per-project switch, and an entry left with no targets stays, turning nothing off.
+func migrateServers(servers *yaml.Node, piAccounts []string) map[string][]string {
+	found := map[string][]string{}
+	servers = deref(servers)
 	if servers == nil || servers.Kind != yaml.MappingNode {
 		return found
 	}
 	for i := 0; i+1 < len(servers.Content); i += 2 {
-		server := servers.Content[i+1]
-		if server.Kind == yaml.AliasNode {
-			server = server.Alias
+		name, server := servers.Content[i].Value, deref(servers.Content[i+1])
+		if server.Kind != yaml.MappingNode {
+			continue
 		}
 		for _, key := range legacyServerFields {
 			if field(server, key) != nil {
 				drop(server, key)
-				found[key] = append(found[key], servers.Content[i].Value)
+				found[key] = append(found[key], name)
 			}
+		}
+		if options := deref(field(server, "piOptions")); options != nil && options.Kind == yaml.MappingNode {
+			for _, key := range adapterPiOptions {
+				if field(options, key) != nil {
+					drop(options, key)
+					found["piOptions."+key] = append(found["piOptions."+key], name)
+				}
+			}
+		}
+		disabled := deref(field(server, "disabled"))
+		targets := deref(field(server, "targets"))
+		if disabled == nil || disabled.Tag != "!!bool" || disabled.Value != "true" || targets == nil || targets.Kind != yaml.SequenceNode {
+			continue
+		}
+		kept := []*yaml.Node{}
+		for _, target := range targets.Content {
+			if value := deref(target).Value; value != "pi" && !slices.Contains(piAccounts, value) {
+				kept = append(kept, target)
+			}
+		}
+		if len(kept) < len(targets.Content) {
+			targets.Content = kept
+			found["piSwitch"] = append(found["piSwitch"], name)
 		}
 	}
 	return found
@@ -216,9 +253,6 @@ func (s Server) Validate(name string) error {
 	if s.Disabled {
 		if s.Command != "" || s.URL != "" || s.Transport != "" || s.BearerToken != nil || len(s.Args)+len(s.Env)+len(s.Headers) > 0 {
 			return fmt.Errorf("MCP %s: disabled turns off a server the Agent already has; leave out its command, url and settings", name)
-		}
-		if s.Targets != nil && len(s.Targets) == 0 {
-			return fmt.Errorf("MCP %s: disabled needs at least one target to turn the server off for; omit targets to inherit defaults", name)
 		}
 		return validateTargets(s.Targets)
 	}
