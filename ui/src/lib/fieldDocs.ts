@@ -28,6 +28,21 @@ export const fieldDocs: Record<string, FieldDoc> = {
     description: 'MCP connection settings. Define servers here, or use sources.mcp for a separate file. Skillshare writes client configuration files; it does not run servers.',
     type: 'object', example: 'mcp:\n  servers:\n    docs:\n      url: https://example.com/mcp\n      targets: [claude]',
   },
+  hooks: {
+    description: 'Agent hooks that Skillshare writes into each Agent\'s own hook configuration. It does not run them; each Agent decides whether to trust and load them.',
+    type: 'object', example: 'hooks:\n  entries:\n    guard:\n      bindings:\n        claude:\n          events: {}',
+  },
+  'hooks.entries': {
+    description: 'Named hooks. Names are your own labels; each hook lists what it writes for every Agent under bindings.',
+    type: 'object', example: 'entries:\n  guard:\n    bindings: {}',
+  },
+  'hooks.entries.description': { description: 'Optional note shown on the hook card.', type: 'string', example: 'description: Block pushes to main' },
+  'hooks.entries.enabled': { description: 'Defaults to true. A disabled hook keeps its definition and is removed from the Agents at the next sync.', type: 'boolean', example: 'enabled: false' },
+  'hooks.entries.bindings': { description: 'What each Agent receives, keyed by Agent name. Written in that Agent\'s own format without translation.', type: 'object', example: 'bindings:\n  claude:\n    events: {}' },
+  'hooks.entries.bindings.events': { description: 'The Agent\'s own event map, such as SessionStart or Stop, copied into its hook file as written.', type: 'object', example: 'events:\n  Stop:\n    - command: echo done' },
+  'hooks.entries.bindings.code': { description: 'For Agents whose hooks are code (Pi, Amp, OpenCode): one TypeScript or JavaScript extension or plugin.', type: 'string', example: 'code: |\n  export default function (pi) {}' },
+  'hooks.entries.bindings.files': { description: 'Script files the hook calls, written to <Agent config dir>/hooks/skillshare/<hook>/.', type: 'object', example: 'files:\n  check.sh: |\n    #!/bin/sh' },
+  'hooks.projects': { description: 'Hooks for other projects, keyed by project path, so one sync from the global config reaches each project.', type: 'object', example: 'projects:\n  /work/app:\n    entries: {}' },
   'mcp.targets': {
     description: 'Default MCP clients. Individual servers can override this list.',
     type: 'string[]', example: 'targets: [claude, codex, cursor, vscode, opencode, grok, antigravity]',

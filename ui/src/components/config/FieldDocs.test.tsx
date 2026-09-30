@@ -14,6 +14,9 @@ it.each([
   ['mcp.servers.docs.env.URL.fromEnv', 'mcp.servers.env.fromEnv'],
   ['mcp.servers.docs.headers.Authorization.fromEnv', 'mcp.servers.headers.fromEnv'],
   ['mcp.servers.docs.bearerToken.fromEnv', 'mcp.servers.bearerToken.fromEnv'],
+  ['hooks', 'hooks'],
+  ['hooks.entries.guard.bindings.claude.events', 'hooks.entries.bindings.events'],
+  ['hooks.projects./work/app.entries.guard.enabled', 'hooks.entries.enabled'],
 ])('documents %s', (path, key) => {
   render(<I18nProvider><FieldDocs fieldPath={path} /></I18nProvider>);
   expect(screen.getByText(fieldDocs[key].description)).toBeTruthy();
