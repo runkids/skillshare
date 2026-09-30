@@ -8,6 +8,7 @@ import { useAppContext } from '../context/AppContext';
 import DialogShell from '../components/DialogShell';
 import EmptyState from '../components/EmptyState';
 import PageHeader from '../components/PageHeader';
+import SourcePathButton from '../components/SourcePathButton';
 import { PageSkeleton } from '../components/Skeleton';
 import { RailGroup, RailLayout, RailRow, RailSection } from '../components/StatusRail';
 import { SkillContextMenu, type ContextMenuItem } from '../components/TargetMenu';
@@ -62,13 +63,14 @@ type MCPCheck = ReturnType<typeof useMCPCheck>;
 type ImportRequest = { conflict?: { target: string; name: string }; from?: string; project?: string };
 
 // Check and Backups live in the sync card, and the off switch with the server list: the header keeps the two ways to add.
-function MCPHeader({ onImport, onAdd }: { onImport: () => void; onAdd: () => void }) {
+function MCPHeader({ source, onImport, onAdd }: { source?: { path: string; configPath: string }; onImport: () => void; onAdd: () => void }) {
   const t = useT();
   return (
     <PageHeader
       title="MCP"
       subtitle={t('mcp.subtitle')}
       actions={<span className="flex items-center gap-2.5" data-tour="mcp-actions">
+        {source && <SourcePathButton path={source.path} configPath={source.configPath} />}
         <Button variant="secondary" onClick={onImport}><Download size={15} />{t('mcp.importFromTarget')}</Button>
         <Button variant="primary" onClick={onAdd}><Plus size={15} />{t('mcp.addServer')}</Button>
       </span>}
@@ -123,7 +125,6 @@ interface ContentProps {
 
 function MCPContent({ data, model, order, allFiles, onShowAll, busy, onToggle, onMenu, onImport, onAdd, onSettings, resolve, check, isProjectMode, onOff, onBackups }: ContentProps) {
   const t = useT();
-  const { toast } = useToast();
   const { rows, roots, changes, conflicts, servers, defaults, matrixTargets, files, targetsOf, showSync } = model;
   const conflictText = (c: MCPChange) => {
     const params = { target: targetLabel(c.target), name: c.name };
@@ -190,10 +191,6 @@ function MCPContent({ data, model, order, allFiles, onShowAll, busy, onToggle, o
         />
       )}
       <MCPDefaults targets={defaults} offered={files} onSave={onSettings} />
-      <div className="flex items-center gap-1 px-1 text-xs text-ink-3">
-        <span className="min-w-0 truncate">{t('mcp.source')}: <span className="font-mono" title={data.source.path}>{shortenHome(data.source.path)}</span></span>
-        <button type="button" className="ss-ib" aria-label={t('mcp.copySource')} onClick={() => { copy(data.source.path); toast(t('mcp.copied'), 'success'); }}><Copy size={14} /></button>
-      </div>
     </RailLayout>
   );
 }
@@ -394,7 +391,7 @@ export default function MCPPage() {
   return (
     <MCPTargetOrder.Provider value={order}>
     <div className="animate-fade-in">
-      <MCPHeader onImport={() => setImporting({})} onAdd={() => { setAddingOff(false); setAddMode('form'); setEditing(''); }} />
+      <MCPHeader source={data?.source} onImport={() => setImporting({})} onAdd={() => { setAddingOff(false); setAddMode('form'); setEditing(''); }} />
 
       <MCPPageErrors error={error} previewError={data?.previewError} />
 
@@ -408,7 +405,7 @@ export default function MCPPage() {
         <MCPAgentImport data={data} model={model} importing={importing} onClose={() => setImporting(null)} onImported={() => { setImporting(null); refresh(); }} />
       )}
       {viewing && servers[viewing] && <MCPConfigDialog mutation={{ name: viewing, server: { ...servers[viewing], targets: order.filter((x) => targetsOf(viewing).includes(x)) } }} onClose={() => setViewing('')} />}
-      {removing && <MCPRemoveDialog name={removing} inScope={inGlobalScope} onClose={() => setRemoving('')} onSaved={() => done(t('mcp.toast.removed', { name: removing }))} />}
+      {removing && <MCPRemoveDialog name={removing} inScope={inGlobalScope} onClose={() => setRemoving('')} onSaved={(unmanaged) => done(t(unmanaged ? 'mcp.toast.unmanaged' : 'mcp.toast.removed', { name: removing }))} />}
       {backupsOpen && data && <MCPRestoreDialog backups={data.backups} onClose={() => setBackupsOpen(false)} onRestored={() => done(t('mcp.toast.restored'))} />}
       <MCPReplaceDialog replace={replace} busy={busy} onClose={() => setReplace(null)} onApply={applyReplace} />
       <SkillContextMenu open={!!menu} anchorPoint={menu ?? undefined} items={menu?.items ?? []} onClose={() => setMenu(null)} />

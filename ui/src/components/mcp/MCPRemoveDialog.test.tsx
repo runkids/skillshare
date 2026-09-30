@@ -24,11 +24,11 @@ it('removes from source without syncing when an Agent entry conflicts', async ()
 it('stops managing a server without syncing, in the project it belongs to', async () => {
   const user = userEvent.setup();
   const saved = vi.fn();
-  vi.mocked(mcpApi.preview).mockResolvedValue({ revision: 'reviewed', sourcePath: '/config.yaml', blocked: false, changes: [{ target: 'cursor', path: '/work/app/.cursor/mcp.json', name: 'docs', action: 'remove' }] });
+  vi.mocked(mcpApi.preview).mockImplementation(async (m) => ({ revision: m?.unmanage ? 'kept' : 'reviewed', sourcePath: '/config.yaml', blocked: false, changes: m?.unmanage ? [] : [{ target: 'cursor', path: '/work/app/.cursor/mcp.json', name: 'docs', action: 'remove' }] }));
   vi.mocked(mcpApi.configure).mockResolvedValue({ applied: [], backupIds: [] });
   render(<QueryClientProvider client={new QueryClient()}><I18nProvider><MCPRemoveDialog name="docs" project="/work/app" onClose={vi.fn()} onSaved={saved} /></I18nProvider></QueryClientProvider>);
   await waitFor(() => expect(screen.getByRole('button', { name: 'Stop managing' })).toBeEnabled());
   await user.click(screen.getByRole('button', { name: 'Stop managing' }));
-  await waitFor(() => expect(saved).toHaveBeenCalled());
-  expect(mcpApi.configure).toHaveBeenCalledWith({ project: '/work/app', name: 'docs', remove: true, unmanage: true }, 'reviewed', false);
+  await waitFor(() => expect(saved).toHaveBeenCalledWith(true));
+  expect(mcpApi.configure).toHaveBeenCalledWith({ project: '/work/app', name: 'docs', remove: true, unmanage: true }, 'kept', false);
 });

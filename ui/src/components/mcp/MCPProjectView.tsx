@@ -254,7 +254,7 @@ export default function MCPProjectView({ data, root, offered, onChanged, onRemov
           onImported={() => { setImportFrom(''); onChanged(); }}
         />
       )}
-      {removing && <MCPRemoveDialog name={removing} project={root} inScope={(c) => projectOf(roots, c) === root} onClose={() => setRemoving('')} onSaved={() => { const n = removing; setRemoving(''); onChanged(); toast(t('mcp.toast.removed', { name: n }), 'success'); }} />}
+      {removing && <MCPRemoveDialog name={removing} project={root} inScope={(c) => projectOf(roots, c) === root} onClose={() => setRemoving('')} onSaved={(unmanaged) => { const n = removing; setRemoving(''); onChanged(); toast(t(unmanaged ? 'mcp.toast.unmanaged' : 'mcp.toast.removed', { name: n }), 'success'); }} />}
       <ConfirmDialog open={dropping} variant="danger" loading={busy} title={t('projects.mcp.stopTitle', { name })} message={t('projects.mcp.stopMessage')} confirmText={t('projects.mcp.stop')} onCancel={() => setDropping(false)} onConfirm={() => void drop()} />
       <SkillContextMenu open={!!menu} anchorPoint={menu ?? undefined} items={menu?.items ?? []} onClose={() => setMenu(null)} />
     </div>

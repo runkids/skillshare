@@ -8,6 +8,7 @@ import { queryKeys } from '../../lib/queryKeys';
 import Button from '../Button';
 import EmptyState from '../EmptyState';
 import { RailLayout, RailRow, RailSection } from '../StatusRail';
+import SourcePathButton from '../SourcePathButton';
 import Tooltip from '../Tooltip';
 import { SkillContextMenu, type ContextMenuItem } from '../TargetMenu';
 import { useToast } from '../Toast';
@@ -101,6 +102,7 @@ export default function HooksScope({ data, project, header }: Props) {
   const add = () => setEditing('');
   const actions = (
     <span className="flex flex-wrap items-center justify-end gap-2.5">
+      {!project && <SourcePathButton path={data.source.path} configPath={data.source.configPath} />}
       {backups.length > 0 ? <Button variant="ghost" onClick={() => setBackupsOpen(true)}><Archive size={15} />{t('hooks.backupsButton')}</Button> : null}
       <Button variant="secondary" onClick={() => setImporting(true)}><Download size={15} />{t('hooks.import')}</Button>
       <Button variant="primary" onClick={add}><Plus size={15} />{t('hooks.add')}</Button>
@@ -148,19 +150,13 @@ export default function HooksScope({ data, project, header }: Props) {
             </div>}
           />
         )}
-        {!project && (
-          <div className="flex items-center gap-1 px-1 text-xs text-ink-3">
-            <span className="min-w-0 truncate">{t('mcp.source')}: <span className="font-mono" title={data.source.path}>{shortenHome(data.source.path)}</span></span>
-            <button type="button" className="ss-ib" aria-label={t('mcp.copySource')} onClick={() => { copy(data.source.path); toast(t('mcp.copied'), 'success'); }}><Copy size={14} /></button>
-          </div>
-        )}
       </RailLayout>
 
       {editing !== null && (
         <HookDialog initial={editing ? { name: editing, entry: entries[editing] } : undefined} existingNames={names} project={project} unmanaged={unmanaged} onClose={() => setEditing(null)} onSaved={() => done(t('hooks.toast.saved'))} />
       )}
       {importing && <HooksImportDialog data={data} project={project} onClose={() => setImporting(false)} onImported={(count) => done(t('hooks.toast.imported', { count }))} />}
-      {removing && <HooksRemoveDialog name={removing} project={project} onClose={() => setRemoving('')} onSaved={() => done(t('hooks.toast.removed', { name: removing }))} />}
+      {removing && <HooksRemoveDialog name={removing} project={project} onClose={() => setRemoving('')} onSaved={(unmanaged) => done(t(unmanaged ? 'hooks.toast.unmanaged' : 'hooks.toast.removed', { name: removing }))} />}
       {viewing && entries[viewing] && <HooksConfigDialog mutation={{ ...(project && { project }), name: viewing, entry: entries[viewing] }} sourcePath={data.source.path} onClose={() => setViewing('')} />}
       {takingOver && entries[takingOver] && <HooksSyncDialog project={project} takeover={{ name: takingOver, entry: entries[takingOver] }} onClose={() => { setTakingOver(''); refresh(); }} />}
       {backupsOpen && <HooksRestoreDialog backups={backups} onClose={() => setBackupsOpen(false)} onRestored={() => done(t('hooks.toast.restored'))} />}

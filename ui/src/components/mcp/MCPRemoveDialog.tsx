@@ -18,7 +18,8 @@ interface Props {
   /** Changes of this scope. One name can be in the global source and in projects, and only one of them goes. */
   inScope?: (change: MCPChange) => boolean;
   onClose: () => void;
-  onSaved: () => void;
+  /** `unmanaged` when the entries were kept and only forgotten. */
+  onSaved: (unmanaged: boolean) => void;
 }
 
 export default function MCPRemoveDialog({ name, project, inScope = () => true, onClose, onSaved }: Props) {
@@ -35,8 +36,11 @@ export default function MCPRemoveDialog({ name, project, inScope = () => true, o
     setBusy(true);
     setSaveError('');
     try {
-      await mcpApi.configure({ project, name, remove: true, ...(unmanage && { unmanage }) }, plan.revision, sync);
-      onSaved();
+      const mutation = { project, name, remove: true, ...(unmanage && { unmanage }) };
+      // Stopping managing plans nothing for the target files, so it has its own revision rather than the removal preview's.
+      const revision = unmanage ? (await mcpApi.preview(mutation)).revision : plan.revision;
+      await mcpApi.configure(mutation, revision, sync);
+      onSaved(unmanage);
     } catch (e) {
       setSaveError((e as Error).message);
       setBusy(false);

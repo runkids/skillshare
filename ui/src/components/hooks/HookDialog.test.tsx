@@ -180,13 +180,13 @@ describe('hooks remove', () => {
   it('stops managing without syncing, and says the source-only choice still deletes on the next sync', async () => {
     const user = userEvent.setup();
     const path = '/home/u/.claude/settings.json';
-    vi.mocked(hooksApi.preview).mockResolvedValue({ revision: 'r', fingerprint: 'fp', sourcePath: '/s.yaml', blocked: false, changes: [{ target: 'claude', path, name: 'guard', action: 'remove' }] });
+    vi.mocked(hooksApi.preview).mockImplementation(async (m) => ({ revision: m?.unmanage ? 'kept' : 'r', fingerprint: 'fp', sourcePath: '/s.yaml', blocked: false, changes: m?.unmanage ? [] : [{ target: 'claude', path, name: 'guard', action: 'remove' }] }));
     vi.mocked(hooksApi.configure).mockResolvedValue({ applied: [], backupIds: [] });
     const onSaved = vi.fn();
     wrap(<HooksRemoveDialog name="guard" onClose={vi.fn()} onSaved={onSaved} />);
     expect(await screen.findByText('Leaves the files for now, but the next sync also deletes it from the Claude settings files.')).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Stop managing' }));
-    await waitFor(() => expect(onSaved).toHaveBeenCalled());
-    expect(hooksApi.configure).toHaveBeenCalledWith({ name: 'guard', remove: true, unmanage: true }, 'r', false);
+    await waitFor(() => expect(onSaved).toHaveBeenCalledWith(true));
+    expect(hooksApi.configure).toHaveBeenCalledWith({ name: 'guard', remove: true, unmanage: true }, 'kept', false);
   });
 });

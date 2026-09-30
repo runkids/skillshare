@@ -10,7 +10,7 @@ import HooksPreview from './HooksPreview';
 import { joinList } from '../targets/targetView';
 import { hookLabel, rootPlan } from './hooksView';
 
-interface Props { name: string; project?: string; onClose: () => void; onSaved: () => void }
+interface Props { name: string; project?: string; onClose: () => void; onSaved: (unmanaged: boolean) => void }
 
 /** Removing prunes only the outputs Skillshare owns and that are still unchanged; the preview shows which. */
 export default function HooksRemoveDialog({ name, project, onClose, onSaved }: Props) {
@@ -37,8 +37,11 @@ export default function HooksRemoveDialog({ name, project, onClose, onSaved }: P
     setSaveError('');
     try {
       // A project mutation syncs only its own root on the server, so one call serves both scopes.
-      await hooksApi.configure({ project, name, remove: true, ...(unmanage && { unmanage }) }, plan.revision, sync);
-      onSaved();
+      const mutation = { project, name, remove: true, ...(unmanage && { unmanage }) };
+      // Stopping managing plans nothing for the target files, so it has its own revision rather than the removal preview's.
+      const revision = unmanage ? (await hooksApi.preview(mutation)).revision : plan.revision;
+      await hooksApi.configure(mutation, revision, sync);
+      onSaved(unmanage);
     } catch (e) {
       setSaveError((e as Error).message);
       setBusy(false);

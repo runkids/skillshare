@@ -5,11 +5,11 @@ import { I18nProvider } from '../../i18n';
 import MCPServerList from './MCPServerList';
 
 describe('MCP server list', () => {
-  it("shows a server's Pi exposure on its row, and only whether other Pi settings exist", () => {
+  it("shows a server's Pi exposure on its row, and none of its other Pi settings", () => {
     const server = { command: 'npx', targets: ['pi'], piOptions: { exposure: 'codemode-deferred', toolExposure: { 'secret_*': 'hidden' } } };
     render(<I18nProvider><MCPServerList rows={[{ name: 'docs', server, cells: {} }]} targets={['pi']} targetsOf={() => ['pi']} onToggle={vi.fn()} onMenu={vi.fn()} /></I18nProvider>);
     const line = screen.getByText('· on demand, through code').parentElement!;
-    expect(line).toHaveTextContent('Other Pi settings');
+    expect(line).not.toHaveTextContent('Other Pi settings');
     expect(line).not.toHaveTextContent('secret_');
   });
 

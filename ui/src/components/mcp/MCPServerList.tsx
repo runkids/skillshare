@@ -40,7 +40,6 @@ export default function MCPServerList({ rows, targets, targetsOf, onToggle, onMe
         const selected = row.server ? targetsOf(row.name).filter((x) => offered.includes(x)) : [];
         const expanded = open.includes(row.name);
         const http = Boolean(row.server?.url);
-        const piOptions = Object.keys(row.server?.piOptions ?? {}).length > 0;
         const targetPill = <TargetPill selected={selected} text={`${selected.length}/${offered.length}`} expanded={expanded} label={t('mcp.chooseAgents', { name: row.name })} onClick={() => setOpen((prev) => (expanded ? prev.filter((x) => x !== row.name) : [...prev, row.name]))} />;
         return (
           <Fragment key={row.name}>
@@ -70,11 +69,7 @@ export default function MCPServerList({ rows, targets, targetsOf, onToggle, onMe
                     <span key={target} className="inline-flex h-6 min-w-0 max-w-full items-center gap-1.5 whitespace-nowrap rounded-full bg-sunken pl-1.5 pr-2.5 text-xs text-ink">
                       <AgentIcon target={target} size={14} />
                       {targetLabel(target)}
-                      {/* Only whether other Pi settings exist, never their contents: piOptions may hold anything. */}
-                      {target === 'pi' && <>
-                        <PiExposureLabel exposure={String(row.server?.piOptions?.exposure ?? 'codemode')} />
-                        {piOptions && <span className="text-ink-3">· {t('mcp.piOptions')}</span>}
-                      </>}
+                      {target === 'pi' && <PiExposureLabel exposure={String(row.server?.piOptions?.exposure ?? 'codemode')} />}
                     </span>
                   ))}
                   {selected.length > CHIPS && <span className="text-xs text-ink-3">+{selected.length - CHIPS}</span>}
