@@ -2411,6 +2411,7 @@
   "mcp.tools.denyHint": "이 도구를 제거합니다. 허용했더라도 제거됩니다.",
   "mcp.tools.placeholder": "도구 이름이나 패턴 입력 후 Enter",
   "mcp.tools.badName": "{name}은(는) 도구 이름이 아닙니다. 문자, 숫자, 기호를 쓰고 *는 임의의 문자와 일치합니다.",
+  "mcp.tools.denyAll": "'거부'가 '허용'에 남긴 도구를 모두 제거해서 이 서버에서 쓸 수 있는 도구가 없습니다. '거부'에서 항목을 하나 빼거나 '허용'에 다른 도구를 추가하세요.",
   "mcp.tools.remove": "{name} 제거",
   "mcp.tools.load": "서버에서 도구 불러오기",
   "mcp.tools.loadHint": "저장된 서버를 한 번 실행해 도구 목록을 가져옵니다.",

@@ -32,7 +32,8 @@ export default function PiSettingsFields({ optionsText, options, optionsError, o
       </div>
       <div className="ss-fld">
         <label>{t('mcp.piOptions')}</label>
-        <CodeEditor value={optionsText} onChange={onOptions} lang="json" placeholder={'{\n  "timeout": 120,\n  "toolExposure": {"delete_*": "hidden"}\n}'} ariaLabel={t('mcp.piOptions')} disabled={disabled} minHeight="96px" />
+        {/* With Tools set, toolExposure is refused, so the example must not look like a value that was accepted. */}
+        <CodeEditor value={optionsText} onChange={onOptions} lang="json" placeholder={toolsSet ? '{\n  "timeout": 120\n}' : '{\n  "timeout": 120,\n  "toolExposure": {"delete_*": "hidden"}\n}'} ariaLabel={t('mcp.piOptions')} disabled={disabled} minHeight="96px" />
         {optionsError ? <span className="hp !text-bad">{optionsError}</span> : <span className="hp">{t('mcp.piOptionsHint')}</span>}
       </div>
     </>

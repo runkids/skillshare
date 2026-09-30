@@ -2411,6 +2411,7 @@
   "mcp.tools.denyHint": "Estas herramientas se quitan, aunque estén permitidas.",
   "mcp.tools.placeholder": "Nombre o patrón de herramienta y Enter",
   "mcp.tools.badName": "{name} no es un nombre de herramienta. Usa letras, dígitos y signos de puntuación; * coincide con cualquier carácter.",
+  "mcp.tools.denyAll": "«Denegar» quita todas las herramientas que «Permitir» conserva, así que el servidor no tendría herramientas. Quita una entrada de «Denegar» o añade otra herramienta a «Permitir».",
   "mcp.tools.remove": "Quitar {name}",
   "mcp.tools.load": "Cargar herramientas del servidor",
   "mcp.tools.loadHint": "Inicia una vez el servidor guardado para listar sus herramientas.",

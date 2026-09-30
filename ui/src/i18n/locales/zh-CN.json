@@ -2411,6 +2411,7 @@
   "mcp.tools.denyHint": "移除这些工具，即使它们在允许列表中。",
   "mcp.tools.placeholder": "工具名称或通配符，按 Enter 添加",
   "mcp.tools.badName": "{name} 不是有效的工具名称。请使用字母、数字和标点符号；* 代表任意字符。",
+  "mcp.tools.denyAll": "“拒绝”把“允许”保留的工具全部移除了，这个服务器将没有任何工具。请从“拒绝”删掉一项，或在“允许”中添加其他工具。",
   "mcp.tools.remove": "移除 {name}",
   "mcp.tools.load": "从服务器加载工具",
   "mcp.tools.loadHint": "会启动已保存的服务器一次，列出它的工具。",

@@ -2411,6 +2411,7 @@
   "mcp.tools.denyHint": "Diese Tools werden entfernt, auch wenn sie erlaubt sind.",
   "mcp.tools.placeholder": "Tool-Name oder Muster, dann Enter",
   "mcp.tools.badName": "{name} ist kein Tool-Name. Verwende Buchstaben, Ziffern und Satzzeichen; * steht für beliebige Zeichen.",
+  "mcp.tools.denyAll": "„Verweigern“ entfernt alle Tools, die „Erlauben“ behält, sodass der Server keine Tools hätte. Entferne einen Eintrag aus „Verweigern“ oder füge „Erlauben“ ein weiteres Tool hinzu.",
   "mcp.tools.remove": "{name} entfernen",
   "mcp.tools.load": "Tools vom Server laden",
   "mcp.tools.loadHint": "Startet den gespeicherten Server einmal, um seine Tools aufzulisten.",

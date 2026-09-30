@@ -2411,6 +2411,7 @@
   "mcp.tools.denyHint": "Alat ini dihapus, meskipun diizinkan.",
   "mcp.tools.placeholder": "Nama atau pola alat, lalu Enter",
   "mcp.tools.badName": "{name} bukan nama alat. Gunakan huruf, angka, dan tanda baca; * cocok dengan karakter apa pun.",
+  "mcp.tools.denyAll": "“Tolak” menghapus semua alat yang dipertahankan “Izinkan”, sehingga server tidak punya alat. Hapus satu entri dari “Tolak”, atau tambahkan alat lain ke “Izinkan”.",
   "mcp.tools.remove": "Hapus {name}",
   "mcp.tools.load": "Muat alat dari server",
   "mcp.tools.loadHint": "Menjalankan server yang tersimpan sekali untuk mendaftar alatnya.",

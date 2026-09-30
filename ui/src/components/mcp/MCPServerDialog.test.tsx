@@ -10,7 +10,7 @@ import MCPServerDialog from './MCPServerDialog';
 vi.mock('../CopyButton', () => ({ default: () => null }));
 // CodeMirror needs a real layout engine; a textarea stands in for it
 vi.mock('../CodeEditor', () => ({
-  default: ({ value, onChange, ariaLabel }: { value: string; onChange: (v: string) => void; ariaLabel: string }) => <textarea aria-label={ariaLabel} value={value} onChange={(e) => onChange(e.target.value)} />,
+  default: ({ value, onChange, ariaLabel, placeholder }: { value: string; onChange: (v: string) => void; ariaLabel: string; placeholder?: string }) => <textarea aria-label={ariaLabel} placeholder={placeholder} value={value} onChange={(e) => onChange(e.target.value)} />,
 }));
 vi.mock('../../api/mcp', async (load) => ({ ...await load<typeof import('../../api/mcp')>(), mcpApi: { save: vi.fn(), render: vi.fn() } }));
 vi.mock('../../api/mcpCheck', () => ({ mcpCheckApi: { live: vi.fn() } }));
@@ -211,6 +211,24 @@ describe('MCP server dialog', () => {
     expect(screen.getByText(/^bad name is not a tool name/)).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Save' }));
     await waitFor(() => expect(mcpApi.save).toHaveBeenCalledWith(expect.objectContaining({ server: expect.objectContaining({ tools: { allow: ['search', 'get_*'] } }) })));
+  });
+
+  it('says under the JSON that Tools already sets the exposure it sets, before saving', async () => {
+    const overlap = "Tools already sets Pi's tool exposure for this server. Remove toolExposure here, or clear Tools.";
+    renderDialog({ initial: { name: 'context7', server: { command: 'docs', targets: ['pi'], tools: { allow: ['resolve-*'] }, piOptions: { timeout: 120, toolExposure: { 'delete_*': 'hidden' } } } } });
+    expect(screen.getByText(overlap)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
+  });
+
+  it('does not suggest toolExposure in the empty JSON while Tools has a setting', () => {
+    renderDialog({ initial: { name: 'context7', server: { command: 'docs', targets: ['pi'], tools: { allow: ['resolve-*'] } } } });
+    expect(screen.getByLabelText('Other Pi settings').getAttribute('placeholder')).not.toContain('toolExposure');
+  });
+
+  it('explains in the Tools section, before saving, that Deny removes every allowed tool', () => {
+    renderDialog({ initial: { name: 'docs', server: { command: 'docs', targets: ['claude'], tools: { allow: ['delete_issue'], deny: ['delete_*'] } } } });
+    expect(screen.getByText('Deny removes every tool that Allow keeps, so the server would have no tools. Remove an entry from Deny, or add another tool to Allow.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
   });
 
   it('names each chosen Agent that does not apply part of the policy', async () => {

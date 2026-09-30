@@ -69,10 +69,12 @@ interface Props {
   project?: string;
   /** The server as the form describes it, once it is complete enough to preview. */
   mutation?: MCPMutation;
+  /** Why the policy cannot be saved, or empty. */
+  error?: string;
 }
 
 /** Which of the server's tools reach the model, for every Agent at once; each Agent that cannot follow a part is named. */
-export default function ToolPolicyFields({ tools, onChange, disabled, savedName, project, mutation }: Props) {
+export default function ToolPolicyFields({ tools, onChange, disabled, savedName, project, mutation, error }: Props) {
   const t = useT();
   const set = hasToolPolicy(tools);
   const [open, setOpen] = useState(set);
@@ -116,6 +118,7 @@ export default function ToolPolicyFields({ tools, onChange, disabled, savedName,
             <ToolList label={t('mcp.tools.allow')} hint={t('mcp.tools.allowHint')} values={tools.allow ?? []} suggestions={loaded.names ?? []} onChange={(allow) => onChange({ ...tools, allow })} disabled={disabled} />
             <ToolList label={t('mcp.tools.deny')} hint={t('mcp.tools.denyHint')} values={tools.deny ?? []} suggestions={loaded.names ?? []} onChange={(deny) => onChange({ ...tools, deny })} disabled={disabled} />
           </div>
+          {error && <span className="hp !text-bad">{error}</span>}
           <div className="flex flex-wrap items-center gap-2.5">
             <Button variant="secondary" size="sm" onClick={() => void load()} loading={loaded.loading} disabled={disabled || !savedName}>{!loaded.loading && <Download size={14} />}{t('mcp.tools.load')}</Button>
             <span className={`text-xs ${loaded.error ? 'text-bad' : 'text-ink-3'}`}>

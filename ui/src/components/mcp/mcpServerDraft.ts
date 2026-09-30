@@ -1,6 +1,6 @@
 import { mcpOffTargets, type MCPServer, type MCPToolPolicy, type MCPValue } from '../../api/mcp';
 import type { useT } from '../../i18n';
-import { hasToolPolicy, joinCommand, parsePiOptions, splitCommand } from './mcpView';
+import { denyRemovesAll, hasToolPolicy, joinCommand, parsePiOptions, splitCommand } from './mcpView';
 
 // Mirrors mcp.serverName.
 const NAME = /^[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}$/;
@@ -56,10 +56,11 @@ export function validateServerDraft(draft: ServerDraft, off: boolean, editing: b
   // Pi settings stay in the source while Pi is unticked, so ticking it again brings them back (#289).
   const options = off ? {} : parsePiOptions(piOptions, hasToolPolicy(tools));
   const optionsError = piOptionsError(options, t);
-  const canSave = Boolean(trimmed) && !nameError && (targets.length > 0 || !off) && (off || (http ? url.trim() !== '' : words.length > 0)) && !optionsError;
+  const toolsError = !off && denyRemovesAll(tools) ? t('mcp.tools.denyAll') : '';
+  const canSave = Boolean(trimmed) && !nameError && (targets.length > 0 || !off) && (off || (http ? url.trim() !== '' : words.length > 0)) && !optionsError && !toolsError;
   const title = t(off ? (editing ? 'mcp.editOff' : 'mcp.addOff') : (editing ? 'mcp.editServer' : 'mcp.addServer'));
   const complete = Boolean(trimmed) && !nameError && targets.length > 0 && (off || (http ? url.trim() !== '' : words.length > 0));
-  return { trimmed, nameError, words, options, optionsError, canSave, title, complete };
+  return { trimmed, nameError, words, options, optionsError, toolsError, canSave, title, complete };
 }
 
 export type ServerValidation = ReturnType<typeof validateServerDraft>;

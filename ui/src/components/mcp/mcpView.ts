@@ -169,6 +169,12 @@ export const toolNamePattern = /^[^\s,?[\]{}]+$/;
 
 export const toolExposures = ['direct', 'deferred', 'hidden'] as const;
 
+const matchTool = (pattern: string, tool: string) => new RegExp(`^${pattern.replace(/[.+?^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*')}$`).test(tool);
+
+/** Mirrors mcp.ToolPolicy.validate: Deny removes every tool Allow keeps, which the server refuses to save. */
+export const denyRemovesAll = (tools: MCPToolPolicy) =>
+  Boolean(tools.allow?.length) && tools.allow!.every((tool) => !tool.includes('*') && (tools.deny ?? []).some((pattern) => matchTool(pattern, tool)));
+
 /** Whether a policy says anything; an empty one is no policy. */
 export const hasToolPolicy = (tools?: MCPToolPolicy): tools is MCPToolPolicy => Boolean(tools?.expose || tools?.allow?.length || tools?.deny?.length);
 

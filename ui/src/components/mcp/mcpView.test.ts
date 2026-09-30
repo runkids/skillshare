@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { MCPPlan } from '../../api/mcp';
-import { buildMatrix, describeError, describeMessage, canImportConflict, groupByFile, isResolvable, joinCommand, mcpClient, parsePiOptions, parseToolNotice, serverCount, splitCommand, switchTargets, targetLabel } from './mcpView';
+import { buildMatrix, denyRemovesAll, describeError, describeMessage, canImportConflict, groupByFile, isResolvable, joinCommand, mcpClient, parsePiOptions, parseToolNotice, serverCount, splitCommand, switchTargets, targetLabel } from './mcpView';
 import { mcpTargets } from '../../api/mcp';
 
 const change = (name: string, target: string, action: string, message?: string) => ({ name, target, action, message, path: `/${target}.json` });
@@ -100,6 +100,15 @@ describe('canImportConflict', () => {
   it('offers no import for a changed switch, which only a replace can settle', () => {
     const changed = { target: 'opencode', path: '/work/app/opencode.json', name: 'docs', action: 'conflict', message: 'Agent configuration changed; import it or explicitly replace this entry' };
     expect([canImportConflict(changed), canImportConflict({ ...changed, root: '/work/app', switch: true })]).toEqual([true, false]);
+  });
+});
+
+describe('denyRemovesAll', () => {
+  it('matches the server: only named tools that Deny all removes leave nothing', () => {
+    expect(denyRemovesAll({ allow: ['delete_issue', 'delete_repo'], deny: ['delete_*'] })).toBe(true);
+    expect(denyRemovesAll({ allow: ['delete_issue', 'search'], deny: ['delete_*'] })).toBe(false);
+    expect(denyRemovesAll({ allow: ['get_*'], deny: ['get_*'] })).toBe(false);
+    expect(denyRemovesAll({ deny: ['*'] })).toBe(false);
   });
 });
 

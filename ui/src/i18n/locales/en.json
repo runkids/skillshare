@@ -2411,6 +2411,7 @@
   "mcp.tools.denyHint": "These tools are removed, even when allowed.",
   "mcp.tools.placeholder": "Tool name or pattern, then Enter",
   "mcp.tools.badName": "{name} is not a tool name. Use letters, digits and punctuation; * matches any characters.",
+  "mcp.tools.denyAll": "Deny removes every tool that Allow keeps, so the server would have no tools. Remove an entry from Deny, or add another tool to Allow.",
   "mcp.tools.remove": "Remove {name}",
   "mcp.tools.load": "Load tools from server",
   "mcp.tools.loadHint": "Starts the saved server once to list its tools.",

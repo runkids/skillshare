@@ -2411,6 +2411,7 @@
   "mcp.tools.denyHint": "Ces outils sont retirés, même s'ils sont autorisés.",
   "mcp.tools.placeholder": "Nom ou motif d'outil, puis Entrée",
   "mcp.tools.badName": "{name} n'est pas un nom d'outil. Utilisez des lettres, des chiffres et de la ponctuation ; * correspond à n'importe quels caractères.",
+  "mcp.tools.denyAll": "« Refuser » retire tous les outils que « Autoriser » conserve : le serveur n'aurait aucun outil. Retirez une entrée de « Refuser » ou ajoutez un autre outil à « Autoriser ».",
   "mcp.tools.remove": "Retirer {name}",
   "mcp.tools.load": "Charger les outils du serveur",
   "mcp.tools.loadHint": "Démarre une fois le serveur enregistré pour lister ses outils.",
