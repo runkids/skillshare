@@ -30,11 +30,17 @@ type record struct {
 	// tell whose, so the record no longer locates any of them.
 	Peers int    `json:"peers,omitempty"`
 	Hash  string `json:"hash"`
+	// Adopted marks a registration an import claimed without syncing; the next sync
+	// reports it as adopted once, then as unchanged.
+	Adopted bool `json:"adopted,omitempty"`
 }
 
 type ledger struct {
 	Version int               `json:"version"`
 	Records map[string]record `json:"records"`
+	// Created are shared files whose hooks key Skillshare added, so it removes the key
+	// again when it removes the last hook there.
+	Created map[string]bool `json:"created,omitempty"`
 }
 
 func elementKey(owner, root, path, event, entry string, ordinal int) string {
@@ -72,6 +78,8 @@ type filePlan struct {
 	remove bool
 	// keys are the ledger records this file's changes move.
 	keys []string
+	// created drops the hooks key once the edit empties it, because Skillshare added it.
+	created bool
 }
 
 func (f *filePlan) changed() bool {
@@ -316,12 +324,54 @@ type planner struct {
 	source  *Source
 	p       *Plan
 	replace map[string]bool // root + "\x00" + entry
+	adopt   map[string]bool // root + "\x00" + entry
 	changes map[string]*Change
 	order   []string
+	// events is each change's event detail: event -> added, updated or removed.
+	events map[string]map[string]string
+}
+
+func changeKey(target, path, root, entry string) string {
+	return target + "\x00" + path + "\x00" + root + "\x00" + entry
+}
+
+// event records what one change does to one event; "updated" wins over the others.
+func (pl *planner) event(target, path, root, entry, event, kind string) {
+	key := changeKey(target, path, root, entry)
+	if pl.events[key] == nil {
+		pl.events[key] = map[string]string{}
+	}
+	if pl.events[key][event] != "updated" {
+		pl.events[key][event] = kind
+	}
+}
+
+func (pl *planner) eventChanges(key string) *EventChanges {
+	events := pl.events[key]
+	if len(events) == 0 {
+		return nil
+	}
+	out := &EventChanges{}
+	for _, event := range sortedKeys(events) {
+		switch events[event] {
+		case "added":
+			out.Added = append(out.Added, event)
+		case "removed":
+			out.Removed = append(out.Removed, event)
+		default:
+			out.Updated = append(out.Updated, event)
+		}
+	}
+	return out
+}
+
+// keeps reports an action after which the entry still has registrations in the file.
+func keeps(action string) bool {
+	return action == "add" || action == "update" || action == "unchanged" || action == "adopt"
 }
 
 func (pl *planner) note(target, path, root, entry, action, message string) {
-	key := target + "\x00" + path + "\x00" + root + "\x00" + entry
+	key := changeKey(target, path, root, entry)
 	c, ok := pl.changes[key]
 	if !ok {
 		c = &Change{Target: target, Path: path, Name: entry, Root: root, Action: action, Message: message}
@@ -330,12 +380,16 @@ func (pl *planner) note(target, path, root, entry, action, message string) {
 		return
 	}
 	rank := map[string]int{"unchanged": 0, "adopt": 1, "release": 2, "add": 3, "remove": 3, "update": 4, "conflict": 5}
+	// An entry that leaves some events but keeps others in the file updates it; remove
+	// means it leaves the file entirely.
 	switch {
 	case action == c.Action:
-	case rank[action] > rank[c.Action] && (action != "remove" || c.Action == "unchanged"):
+	case action == "remove" && keeps(c.Action) || c.Action == "remove" && keeps(action):
+		if c.Action != "update" {
+			c.Action, c.Message = "update", ""
+		}
+	case rank[action] > rank[c.Action] && action != "remove":
 		c.Action, c.Message = action, message
-	case (action == "add" && c.Action == "remove") || (action == "remove" && c.Action == "add"):
-		c.Action, c.Message = "update", ""
 	}
 }
 
@@ -345,10 +399,11 @@ func (s *Service) Preview() (*Plan, error) {
 	if err != nil {
 		return nil, err
 	}
-	return s.previewSource(source, nil)
+	return s.previewSource(source, nil, nil)
 }
 
-func (s *Service) previewSource(source *Source, replace map[string]bool) (*Plan, error) {
+// previewSource plans a sync; replace and adopt are root + "\x00" + entry sets.
+func (s *Service) previewSource(source *Source, replace, adopt map[string]bool) (*Plan, error) {
 	state, stateBytes, err := s.loadLedger()
 	if err != nil {
 		return nil, err
@@ -357,8 +412,17 @@ func (s *Service) previewSource(source *Source, replace map[string]bool) (*Plan,
 	if err != nil {
 		return nil, err
 	}
-	p := &Plan{SourcePath: source.ConfigPath, Changes: []Change{}, source: source, stateBytes: stateBytes, state: ledger{Version: 1, Records: maps.Clone(state.Records)}}
-	pl := &planner{s: s, source: source, p: p, replace: replace, changes: map[string]*Change{}}
+	p := &Plan{SourcePath: source.ConfigPath, Changes: []Change{}, Warnings: []string{}, source: source, stateBytes: stateBytes, state: ledger{Version: 1, Records: maps.Clone(state.Records), Created: maps.Clone(state.Created)}}
+	pl := &planner{s: s, source: source, p: p, replace: replace, adopt: adopt, changes: map[string]*Change{}, events: map[string]map[string]string{}}
+	for _, name := range sortedKeys(source.Entries) {
+		p.Warnings = append(p.Warnings, EventWarnings(name, source.Entries[name])...)
+	}
+	for _, root := range sortedKeys(source.Projects) {
+		entries := source.Projects[root].Entries
+		for _, name := range sortedKeys(entries) {
+			p.Warnings = append(p.Warnings, EventWarnings(name, entries[name])...)
+		}
+	}
 	owner := source.ConfigPath
 	// A file the source no longer writes still needs a plan, to remove what it left there.
 	for _, r := range state.Records {
@@ -406,6 +470,7 @@ func (s *Service) previewSource(source *Source, replace map[string]bool) (*Plan,
 	}
 	for _, key := range pl.order {
 		c := pl.changes[key]
+		c.Events = pl.eventChanges(key)
 		if c.Action == "conflict" {
 			p.Blocked = true
 		}
@@ -418,6 +483,8 @@ func (s *Service) previewSource(source *Source, replace map[string]bool) (*Plan,
 }
 
 func (pl *planner) replaces(root, entry string) bool { return pl.replace[root+"\x00"+entry] }
+
+func (pl *planner) adopts(root, entry string) bool { return pl.adopt[root+"\x00"+entry] }
 
 func (pl *planner) planShared(path, target, root string, want []wantElement, state ledger) (*filePlan, error) {
 	s, p, owner := pl.s, pl.p, pl.source.ConfigPath
@@ -468,6 +535,33 @@ func (pl *planner) planShared(path, target, root string, want []wantElement, sta
 		}
 		track[event][i] = key
 	}
+	// prior and wantEvents are each entry's events in this file before and after.
+	prior, wantEvents := map[string]map[string]bool{}, map[string]map[string]bool{}
+	mark := func(sets map[string]map[string]bool, root, entry, event string) {
+		k := root + "\x00" + entry
+		if sets[k] == nil {
+			sets[k] = map[string]bool{}
+		}
+		sets[k][event] = true
+	}
+	for _, r := range all {
+		if r.Owner == owner {
+			mark(prior, r.Root, r.Entry, r.Event)
+		}
+	}
+	for _, w := range want {
+		mark(wantEvents, w.root, w.entry, w.event)
+	}
+	touch := func(root, entry, event string, removing bool) {
+		k, kind := root+"\x00"+entry, "updated"
+		switch {
+		case removing && !wantEvents[k][event]:
+			kind = "removed"
+		case !removing && !prior[k][event]:
+			kind = "added"
+		}
+		pl.event(target, path, root, entry, event, kind)
+	}
 	wanted := map[string]bool{}
 	for _, w := range want {
 		key := elementKey(owner, w.root, path, w.event, w.entry, w.ordinal)
@@ -481,10 +575,15 @@ func (pl *planner) planShared(path, target, root string, want []wantElement, sta
 					next.Index = i
 					p.state.Records[key] = next
 					keep(w.event, i, key)
-					pl.note(target, path, w.root, w.entry, "unchanged", "")
+					action := "unchanged"
+					if r.Adopted {
+						action = "adopt"
+					}
+					pl.note(target, path, w.root, w.entry, action, "")
 				} else {
 					f.ops = append(f.ops, elementOp{Key: key, Event: w.event, Index: i, Value: w.value, Before: items[i]})
 					p.state.Records[key] = next
+					touch(w.root, w.entry, w.event, false)
 					pl.note(target, path, w.root, w.entry, "update", "")
 				}
 				continue
@@ -495,6 +594,7 @@ func (pl *planner) planShared(path, target, root string, want []wantElement, sta
 			}
 			f.ops = append(f.ops, elementOp{Key: key, Event: w.event, Index: -1, Value: w.value})
 			p.state.Records[key] = next
+			touch(w.root, w.entry, w.event, false)
 			pl.note(target, path, w.root, w.entry, "update", "replacing a registration changed outside Skillshare")
 			continue
 		}
@@ -513,9 +613,12 @@ func (pl *planner) planShared(path, target, root string, want []wantElement, sta
 			break
 		}
 		switch {
-		case identical >= 0 && !pl.replaces(w.root, w.entry):
+		case identical >= 0 && !pl.replaces(w.root, w.entry) && !pl.adopts(w.root, w.entry):
 			pl.note(target, path, w.root, w.entry, "conflict", "an identical hook exists that Skillshare does not manage; import it or explicitly replace it")
 		case identical >= 0:
+			if pl.adopts(w.root, w.entry) {
+				p.adopted = append(p.adopted, key)
+			}
 			if taken[w.event] == nil {
 				taken[w.event] = map[int]string{}
 			}
@@ -537,6 +640,7 @@ func (pl *planner) planShared(path, target, root string, want []wantElement, sta
 		default:
 			f.ops = append(f.ops, elementOp{Key: key, Event: w.event, Index: -1, Value: w.value})
 			p.state.Records[key] = next
+			touch(w.root, w.entry, w.event, false)
 			pl.note(target, path, w.root, w.entry, "add", "")
 		}
 	}
@@ -548,6 +652,7 @@ func (pl *planner) planShared(path, target, root string, want []wantElement, sta
 		if i, ok := located[key]; ok {
 			f.ops = append(f.ops, elementOp{Key: key, Event: r.Event, Index: i, Before: doc.events[r.Event][i]})
 			delete(p.state.Records, key)
+			touch(r.Root, r.Entry, r.Event, true)
 			pl.note(target, path, r.Root, r.Entry, "remove", "")
 			continue
 		}
@@ -558,7 +663,8 @@ func (pl *planner) planShared(path, target, root string, want []wantElement, sta
 		}
 		pl.note(target, path, r.Root, r.Entry, "conflict", "a hook Skillshare wrote was changed or removed outside Skillshare, so it is not removed; explicitly replace to stop managing it")
 	}
-	after, positions, err := doc.edit(f.ops, track)
+	f.created = p.state.Created[path] || !doc.hasSection && slices.ContainsFunc(f.ops, func(op elementOp) bool { return op.Value != nil })
+	after, positions, err := doc.edit(f.ops, track, f.created)
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", path, err)
 	}
@@ -575,6 +681,16 @@ func (pl *planner) planShared(path, target, root string, want []wantElement, sta
 	written, err := parseNative(target, after)
 	if err != nil {
 		return nil, err
+	}
+	if len(f.ops) > 0 {
+		if f.created && written.hasSection {
+			if p.state.Created == nil {
+				p.state.Created = map[string]bool{}
+			}
+			p.state.Created[path] = true
+		} else {
+			delete(p.state.Created, path)
+		}
 	}
 	counts := map[string]int{}
 	for event, items := range written.events {

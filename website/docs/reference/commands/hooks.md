@@ -36,8 +36,11 @@ skillshare hooks restore BACKUP_ID
 ```
 
 Without a subcommand, `hooks` lists entries. `add` and `edit` read an Entry JSON
-or YAML document from `--file`. Import without a name lists candidates; choose
-one name to save. Import only reads configuration or code and never runs it.
+or YAML document from `--file`. Import without a name lists candidates, one per
+Agent event or file; choose one name to save. Saving an import takes over the
+registrations it read in place: the next sync adopts them without `--replace`,
+and events you did not import stay unmanaged. Import only reads configuration or
+code and never runs it.
 Add, edit, import, enable, disable and remove save source only unless `--sync`
 is supplied. Sync and restore always preview again before applying.
 `sync hooks` is the resource-only alias; `sync --all` includes hooks and checks
@@ -98,7 +101,10 @@ Agent IDs are `claude`, `codex`, `gemini`, `copilot`, `cursor`, `droid`, `qwen`,
 `pi`, `amp` and `opencode`. `factory` is accepted as an alias for `droid`.
 Keep event names, matchers, handler types, commands, timeout units and payloads
 in each Agent's native format. Skillshare does not translate one Agent's
-runtime behavior into another's.
+runtime behavior into another's. Event names are checked against each command
+Agent's documented events: an unknown name, such as a misspelled `Stopp`, is a
+warning in previews and in the plan's `warnings`, never a sync blocker, because
+Agents add events over time. Pi, Amp and OpenCode code is not checked.
 
 Pi, Amp and OpenCode use their own extension/plugin APIs. Supply code matching
 the installed Agent version, including its imports. Skillshare writes it to a
@@ -139,7 +145,12 @@ scope. Project-only sync applies that project's hook changes.
 Sync preserves unrelated settings and unowned hooks. Matching content alone
 does not establish ownership. Modified owned outputs are conflicts, including
 on disable, remove and restore. Use the preview to inspect exact actions; an
-explicit replacement applies only to the selected entry. An externally edited
+explicit replacement applies only to the selected entry. For a shared file, each
+plan line lists the events the entry adds (`+`), updates (`~`) and removes (`−`),
+also available as `events` in JSON plans. `update` means the entry keeps
+registrations in that file; `remove` means it leaves the file entirely. Edits keep
+the file's style, compact or indented, and a `hooks` key Skillshare added is
+removed again when its last hook leaves. An externally edited
 output that can no longer be identified safely is released from ownership and
 left untouched; inspect the preview before publishing another registration.
 

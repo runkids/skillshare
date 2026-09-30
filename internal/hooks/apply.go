@@ -118,26 +118,30 @@ func (s *Service) recoverPending() error {
 	return os.Remove(s.journalPath())
 }
 
-// draft applies a mutation to a fresh source and returns the entries it may replace.
-func (s *Service) draft(m Mutation) (*Source, map[string]bool, error) {
+// draft applies a mutation to a fresh source and returns the entries it may replace
+// and the entries that adopt their identical unmanaged registrations.
+func (s *Service) draft(m Mutation) (*Source, map[string]bool, map[string]bool, error) {
 	source, err := LoadSource(s.ConfigPath)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
+	}
+	if m.Adopt && (m.Entry == nil || m.Name == "") {
+		return nil, nil, nil, fmt.Errorf("adopt takes a hook name and entry")
 	}
 	if m.Entry != nil && m.Remove {
-		return nil, nil, fmt.Errorf("cannot save and remove the same hook")
+		return nil, nil, nil, fmt.Errorf("cannot save and remove the same hook")
 	}
 	if (m.Entry != nil || m.Remove || m.Replace) && m.Name == "" && m.Project == "" {
-		return nil, nil, fmt.Errorf("hook name is required")
+		return nil, nil, nil, fmt.Errorf("hook name is required")
 	}
 	root := ""
 	entries := source.Entries
 	if m.Project != "" {
 		if s.ProjectRoot != "" {
-			return nil, nil, fmt.Errorf("hooks.projects belongs in the global config")
+			return nil, nil, nil, fmt.Errorf("hooks.projects belongs in the global config")
 		}
 		if root, err = projectRoot(m.Project); err != nil {
-			return nil, nil, err
+			return nil, nil, nil, err
 		}
 		project, exists := source.Projects[root]
 		if _, known := source.projectKeys[root]; !known {
@@ -146,17 +150,17 @@ func (s *Service) draft(m Mutation) (*Source, map[string]bool, error) {
 		switch {
 		case m.Remove && m.Name == "":
 			if !exists {
-				return nil, nil, fmt.Errorf("%w: %s", ErrUnknownProject, m.Project)
+				return nil, nil, nil, fmt.Errorf("%w: %s", ErrUnknownProject, m.Project)
 			}
 			delete(source.Projects, root)
 			source.touchedProjects[root] = true
-			return source, nil, nil
+			return source, nil, nil, nil
 		case m.Name == "" && m.Entry == nil:
 			if !exists {
 				source.Projects[root] = Project{Entries: map[string]Entry{}}
 				source.touchedProjects[root] = true
 			}
-			return source, nil, nil
+			return source, nil, nil, nil
 		}
 		if project.Entries == nil {
 			project.Entries = map[string]Entry{}
@@ -165,39 +169,42 @@ func (s *Service) draft(m Mutation) (*Source, map[string]bool, error) {
 		entries = project.Entries
 		source.touchedProjects[root] = true
 	}
-	replace := map[string]bool{}
+	replace, adopt := map[string]bool{}, map[string]bool{}
 	if m.Replace {
 		replace[root+"\x00"+m.Name] = true
+	}
+	if m.Adopt {
+		adopt[root+"\x00"+m.Name] = true
 	}
 	switch {
 	case m.Remove:
 		if _, ok := entries[m.Name]; !ok {
-			return nil, nil, fmt.Errorf("hook %q not found", m.Name)
+			return nil, nil, nil, fmt.Errorf("hook %q not found", m.Name)
 		}
 		delete(entries, m.Name)
 	case m.Entry != nil:
 		entry := *m.Entry
 		if err := entry.normalize(); err != nil {
-			return nil, nil, err
+			return nil, nil, nil, err
 		}
 		if err := entry.Validate(m.Name); err != nil {
-			return nil, nil, err
+			return nil, nil, nil, err
 		}
 		entries[m.Name] = entry
 	}
 	if m.Project == "" && (m.Remove || m.Entry != nil) {
 		source.touched[m.Name] = true
 	}
-	return source, replace, nil
+	return source, replace, adopt, nil
 }
 
 // PreviewMutation does not persist a draft or claim ownership.
 func (s *Service) PreviewMutation(m Mutation) (*Plan, error) {
-	source, replace, err := s.draft(m)
+	source, replace, adopt, err := s.draft(m)
 	if err != nil {
 		return nil, err
 	}
-	return s.previewSource(source, replace)
+	return s.previewSource(source, replace, adopt)
 }
 
 // Mutate validates before saving. With sync, it refuses to save when native outputs
@@ -212,11 +219,11 @@ func (s *Service) Mutate(m Mutation, revision string, sync bool) (*Result, error
 	if err := s.recoverPending(); err != nil {
 		return nil, err
 	}
-	source, replace, err := s.draft(m)
+	source, replace, adopt, err := s.draft(m)
 	if err != nil {
 		return nil, err
 	}
-	if !sync && revision == "" {
+	if !sync && revision == "" && !m.Adopt {
 		// Saving the source alone needs only definitions every scope can render; a
 		// blocked or unreadable native file must not stop it.
 		if _, err := s.render(source); err != nil {
@@ -227,7 +234,7 @@ func (s *Service) Mutate(m Mutation, revision string, sync bool) (*Result, error
 		}
 		return &Result{Applied: []string{}, BackupIDs: []string{}}, nil
 	}
-	p, err := s.previewSource(source, replace)
+	p, err := s.previewSource(source, replace, adopt)
 	if err != nil {
 		return nil, err
 	}
@@ -251,6 +258,9 @@ func (s *Service) Mutate(m Mutation, revision string, sync bool) (*Result, error
 		return nil, err
 	}
 	if !sync {
+		if err := s.recordAdopted(p); err != nil {
+			return nil, fmt.Errorf("source saved; recording the imported registrations failed: %w", err)
+		}
 		return &Result{Plan: p, Applied: []string{}, BackupIDs: []string{}}, nil
 	}
 	// The plan was computed from the draft, which is now the saved source.
@@ -259,6 +269,24 @@ func (s *Service) Mutate(m Mutation, revision string, sync bool) (*Result, error
 		return result, fmt.Errorf("source saved; synchronization incomplete: %w", err)
 	}
 	return result, err
+}
+
+// recordAdopted claims the registrations an import adopts without syncing, so the
+// next sync adopts them in place instead of reporting a conflict.
+func (s *Service) recordAdopted(p *Plan) error {
+	if len(p.adopted) == 0 {
+		return nil
+	}
+	state, _, err := s.loadLedger()
+	if err != nil {
+		return err
+	}
+	for _, key := range p.adopted {
+		r := p.state.Records[key]
+		r.Adopted = true
+		state.Records[key] = r
+	}
+	return writeJSONFile(s.statePath(), state)
 }
 
 // ApplyProject applies only one hooks.projects root's changes. The revision still
@@ -340,7 +368,7 @@ func (s *Service) applyScoped(p *Plan, root *string) (*Result, error) {
 		after, remove := f.write, f.remove
 		if f.kind == kindJSON {
 			// Edit the file as it is now, keeping settings the Agent wrote since the preview.
-			if after, _, err = doc.edit(f.ops, nil); err != nil {
+			if after, _, err = doc.edit(f.ops, nil, f.created); err != nil {
 				return result, fmt.Errorf("%s: %w", f.path, err)
 			}
 		}
@@ -369,6 +397,16 @@ func (s *Service) applyScoped(p *Plan, root *string) (*Result, error) {
 		}
 		if err := writeJSONFile(filepath.Join(s.stateDir(), "backups", id+".json"), backup); err != nil {
 			return result, fmt.Errorf("hooks backup failed: %w", err)
+		}
+		if f.kind == kindJSON {
+			if p.state.Created[f.path] {
+				if state.Created == nil {
+					state.Created = map[string]bool{}
+				}
+				state.Created[f.path] = true
+			} else {
+				delete(state.Created, f.path)
+			}
 		}
 		pending := journal{Path: f.path, State: state}
 		if !remove {
@@ -400,7 +438,7 @@ func (s *Service) applyScoped(p *Plan, root *string) (*Result, error) {
 		s.pruneBackups(f.path)
 	}
 	// Records that moved without a write, such as an adoption or a refreshed index.
-	final := ledger{Version: 1, Records: map[string]record{}}
+	final := ledger{Version: 1, Records: map[string]record{}, Created: state.Created}
 	for key, r := range state.Records {
 		if !inScope(r.Root) {
 			final.Records[key] = r
@@ -528,7 +566,7 @@ func (s *Service) PreviewRestore(id string) (*Plan, error) {
 	if err != nil {
 		return nil, err
 	}
-	p := &Plan{SourcePath: source.ConfigPath, Changes: []Change{}, source: source, stateBytes: stateBytes, state: ledger{Version: 1, Records: map[string]record{}}}
+	p := &Plan{SourcePath: source.ConfigPath, Changes: []Change{}, Warnings: []string{}, source: source, stateBytes: stateBytes, state: ledger{Version: 1, Records: map[string]record{}, Created: state.Created}}
 	for k, r := range state.Records {
 		p.state.Records[k] = r
 	}
@@ -644,7 +682,7 @@ func (s *Service) PreviewRestore(id string) (*Plan, error) {
 			restoreOwnership(op.Key)
 		}
 		if !p.Blocked {
-			after, positions, err := doc.edit(f.ops, nil)
+			after, positions, err := doc.edit(f.ops, nil, false)
 			if err != nil {
 				return nil, err
 			}
@@ -659,7 +697,7 @@ func (s *Service) PreviewRestore(id string) (*Plan, error) {
 	}
 	if p.Blocked {
 		f.ops, f.write, f.remove, f.keys = nil, nil, false, nil
-		p.state = ledger{Version: 1, Records: state.Records}
+		p.state = ledger{Version: 1, Records: state.Records, Created: state.Created}
 	}
 	p.Changes = append(p.Changes, change)
 	p.files = []*filePlan{f}

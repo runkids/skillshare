@@ -35,6 +35,11 @@ type Mutation struct {
 	// identical unmanaged registration, an unmanaged file at an output path, or an
 	// owned output edited outside Skillshare. It never overrides another config.
 	Replace bool `json:"replace,omitempty"`
+	// Adopt saves an imported entry as the owner of the native registrations it was
+	// read from: identical unmanaged elements become its own without Replace, so the
+	// next sync adopts them in place. It never takes over edited outputs or another
+	// config's registrations.
+	Adopt bool `json:"adopt,omitempty"`
 }
 
 // Change deliberately carries no hook contents.
@@ -46,6 +51,16 @@ type Change struct {
 	Root    string `json:"root,omitempty"`
 	Action  string `json:"action"` // add, update, remove, unchanged, adopt, release, conflict
 	Message string `json:"message,omitempty"`
+	// Events names the native events this change writes into a shared hooks file.
+	Events *EventChanges `json:"events,omitempty"`
+}
+
+// EventChanges is the event-level detail of a change to a shared hooks file: events
+// the entry newly occupies, events whose registrations change, and events it leaves.
+type EventChanges struct {
+	Added   []string `json:"added,omitempty"`
+	Updated []string `json:"updated,omitempty"`
+	Removed []string `json:"removed,omitempty"`
 }
 
 // Plan is an optimistic-concurrency-protected preview.
@@ -58,11 +73,16 @@ type Plan struct {
 	SourcePath  string   `json:"sourcePath"`
 	Blocked     bool     `json:"blocked"`
 	Changes     []Change `json:"changes"`
+	// Warnings are advisory, such as event names an Agent does not document; they
+	// never block a sync.
+	Warnings []string `json:"warnings"`
 
 	source     *Source
 	state      ledger
 	stateBytes []byte
 	files      []*filePlan
+	// adopted are the ledger keys an Adopt mutation claims, recorded even without sync.
+	adopted []string
 }
 
 // Result reports applied files individually; a multi-file operation is not a

@@ -244,10 +244,10 @@ func TestSync_ProjectAncestorSymlinkRejected(t *testing.T) {
 func TestRecovery_InterruptedBeforeWriteKeepsOwnership(t *testing.T) {
 	e := newEnv(t)
 	m := Mutation{Name: "guard", Entry: entry(t, claudeEntry)}
-	source, replace, err := e.service.draft(m)
+	source, replace, adopt, err := e.service.draft(m)
 	must(t, err)
 	must(t, source.save())
-	p, err := e.service.previewSource(source, replace)
+	p, err := e.service.previewSource(source, replace, adopt)
 	must(t, err)
 	f := p.files[0]
 	must(t, writeJSONFile(e.service.journalPath(), journal{Path: f.path, After: digest(f.after), State: p.state}))

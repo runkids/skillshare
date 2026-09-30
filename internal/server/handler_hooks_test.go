@@ -155,7 +155,7 @@ func TestHooksAPIImportListsCandidatesWithoutExecuting(t *testing.T) {
 func TestHooksRoutesRejectRebindingHost(t *testing.T) {
 	s, _ := newTestServerWithExtras(t, nil, "")
 	s.addr = "127.0.0.1:19420"
-	for _, route := range []string{"GET /api/hooks", "POST /api/hooks", "POST /api/hooks/preview", "POST /api/hooks/render", "POST /api/hooks/import", "POST /api/hooks/restore"} {
+	for _, route := range []string{"GET /api/hooks", "POST /api/hooks", "POST /api/hooks/preview", "POST /api/hooks/render", "POST /api/hooks/import", "POST /api/hooks/restore", "GET /api/hooks/catalog"} {
 		method, path, _ := strings.Cut(route, " ")
 		req := httptest.NewRequest(method, path, strings.NewReader(`{}`))
 		req.RemoteAddr = "127.0.0.1:5555"
@@ -331,5 +331,65 @@ func TestHooksAPIImportReadsProjectRoot(t *testing.T) {
 	}
 	if w := hooksPost(s, s.handleHooksImport, "/api/hooks/import", `{"from":"claude","root":"`+t.TempDir()+`"}`); w.Code != http.StatusBadRequest {
 		t.Fatalf("unknown import root: %d %s", w.Code, w.Body)
+	}
+}
+
+func TestHooksAPICatalogListsCommandAgentEvents(t *testing.T) {
+	s, _ := newTestServerWithExtras(t, nil, "")
+	w := httptest.NewRecorder()
+	s.handleHooksCatalog(w, httptest.NewRequest(http.MethodGet, "/api/hooks/catalog", nil))
+	var catalog map[string]struct {
+		Events []struct {
+			Name        string `json:"name"`
+			Description string `json:"description"`
+			Matcher     bool   `json:"matcher"`
+		} `json:"events"`
+		TimeoutUnit string `json:"timeoutUnit"`
+	}
+	if w.Code != http.StatusOK || json.Unmarshal(w.Body.Bytes(), &catalog) != nil {
+		t.Fatalf("catalog: %d %s", w.Code, w.Body)
+	}
+	if c := catalog["gemini"]; c.TimeoutUnit != "milliseconds" || len(c.Events) == 0 || c.Events[0].Description == "" {
+		t.Fatalf("gemini catalog: %+v", c)
+	}
+	if _, ok := catalog["pi"]; ok {
+		t.Fatal("code Agents have no event catalog")
+	}
+}
+
+func TestHooksAPIImportSaveTakesOverWithoutReplace(t *testing.T) {
+	s, _ := newTestServerWithExtras(t, nil, "")
+	home := hooksTestHome(t)
+	settings := filepath.Join(home, ".claude", "settings.json")
+	native := `{"model":"opus","hooks":{"Stop":[{"hooks":[{"type":"command","command":"echo stop"}]}],"PreToolUse":[{"matcher":"Bash","hooks":[{"type":"command","command":"echo guard"}]}]}}`
+	if err := os.MkdirAll(filepath.Dir(settings), 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(settings, []byte(native), 0644); err != nil {
+		t.Fatal(err)
+	}
+	w := hooksPost(s, s.handleHooksImport, "/api/hooks/import", `{"from":"claude","name":"claude-stop"}`)
+	var imported struct {
+		Candidates []struct {
+			Entry json.RawMessage `json:"entry"`
+		} `json:"candidates"`
+	}
+	if w.Code != http.StatusOK || json.Unmarshal(w.Body.Bytes(), &imported) != nil || len(imported.Candidates) != 1 {
+		t.Fatalf("import: %d %s", w.Code, w.Body)
+	}
+	mutation := `{"name":"claude-stop","entry":` + string(imported.Candidates[0].Entry) + `,"adopt":true}`
+	revision := hooksPreviewRevision(t, s, mutation)
+	if w := hooksPost(s, s.handleHooksConfigure, "/api/hooks", `{"mutation":`+mutation+`,"revision":"`+revision+`","sync":false}`); w.Code != http.StatusOK {
+		t.Fatalf("save: %d %s", w.Code, w.Body)
+	}
+	preview := hooksPost(s, s.handleHooksPreview, "/api/hooks/preview", `{"mutation":{}}`)
+	var plan struct {
+		Blocked bool `json:"blocked"`
+		Changes []struct {
+			Action string `json:"action"`
+		} `json:"changes"`
+	}
+	if json.Unmarshal(preview.Body.Bytes(), &plan) != nil || plan.Blocked || len(plan.Changes) != 1 || plan.Changes[0].Action != "adopt" {
+		t.Fatalf("sync after an imported save: %s", preview.Body)
 	}
 }

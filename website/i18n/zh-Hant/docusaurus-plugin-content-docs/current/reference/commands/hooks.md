@@ -29,7 +29,7 @@ skillshare hooks restore BACKUP_ID --dry-run
 skillshare hooks restore BACKUP_ID
 ```
 
-沒有子指令時列出 entries。`add`／`edit` 從 `--file` 讀取 Entry JSON 或 YAML；匯入不指定名稱時列出候選項目，指定名稱才儲存。匯入只讀取設定或程式碼，不會執行。新增、編輯、匯入、啟用、停用與移除預設只儲存來源，加入 `--sync` 才同步。同步與還原會重新預覽。
+沒有子指令時列出 entries。`add`／`edit` 從 `--file` 讀取 Entry JSON 或 YAML；匯入不指定名稱時列出候選項目（每個 Agent event 或檔案各一項），指定名稱才儲存。儲存匯入即原地接管讀到的註冊：下次同步直接 adopt，不需 `--replace`；沒匯入的 event 維持不受管理。匯入只讀取設定或程式碼，不會執行。新增、編輯、匯入、啟用、停用與移除預設只儲存來源，加入 `--sync` 才同步。同步與還原會重新預覽。
 
 | Option | Meaning |
 |---|---|
@@ -76,7 +76,7 @@ hooks:
 | `bindings.AGENT.code` | Pi、Amp、OpenCode 的原生 extension/plugin 程式碼 |
 | `bindings.AGENT.files` | 可選 UTF-8 腳本檔，以相對檔名為 key |
 
-Agent ID 為 `claude`、`codex`、`gemini`、`copilot`、`cursor`、`droid`、`qwen`、`pi`、`amp`、`opencode`；`factory` 是 `droid` 的別名。event、matcher、handler type、command、timeout 單位與 payload 均保留原生格式，不自動跨 Agent 轉換。Pi、Amp、OpenCode 的程式碼與 imports 須符合已安裝版本；發布至獨立的 `skillshare-NAME.ts`，不產生共用執行引擎。command binding 的腳本位於 Agent 設定目錄的 `hooks/skillshare/NAME/`，command 保留你提供的原生 macro 或明確路徑。請在預覽確認完整路徑。
+Agent ID 為 `claude`、`codex`、`gemini`、`copilot`、`cursor`、`droid`、`qwen`、`pi`、`amp`、`opencode`；`factory` 是 `droid` 的別名。event、matcher、handler type、command、timeout 單位與 payload 均保留原生格式，不自動跨 Agent 轉換。event 名稱會對照各 command Agent 文件列出的事件檢查：未知名稱（例如拼錯的 `Stopp`）在預覽與 plan 的 `warnings` 中顯示警告，但不阻擋同步，因為 Agent 會陸續新增事件。Pi、Amp、OpenCode 的程式碼不檢查。Pi、Amp、OpenCode 的程式碼與 imports 須符合已安裝版本；發布至獨立的 `skillshare-NAME.ts`，不產生共用執行引擎。command binding 的腳本位於 Agent 設定目錄的 `hooks/skillshare/NAME/`，command 保留你提供的原生 macro 或明確路徑。請在預覽確認完整路徑。
 
 ## 原生目的地
 
@@ -102,7 +102,7 @@ Droid 有有效 inline hooks 時，同步會拒絕建立獨立檔案。先匯入
 
 global 設定的 `hooks.projects` 將絕對專案路徑對應到相同 Entry 格式的 `entries`，可在「專案 → Hooks」管理。已有 `.skillshare/config.yaml` 的專案須使用 project scope；單一專案同步只處理該專案。
 
-同步保留無關設定與非 Skillshare 管理的 hooks。內容相同不代表擁有權。自有輸出若被外部修改，停用、移除與還原也會回報衝突。明確取代僅作用於選定 entry；預覽會列出完整動作與路徑。
+同步保留無關設定與非 Skillshare 管理的 hooks。內容相同不代表擁有權。自有輸出若被外部修改，停用、移除與還原也會回報衝突。明確取代僅作用於選定 entry；預覽會列出完整動作與路徑。共用檔案的每一列 plan 會列出該 entry 新增（`+`）、更新（`~`）、移除（`−`）的 event，JSON plan 的 `events` 也有相同資訊。`update` 表示該 entry 在檔案中仍有註冊，`remove` 表示完全離開該檔案。編輯會保留檔案原本的格式（精簡或縮排）；Skillshare 新增的 `hooks` key 在最後一個 hook 移除時一併移除。
 
 備份還原原生輸出並保留之後新增的無關內容，不改寫來源定義。使用「設定 → 備份 → Hooks」或 `hooks restore` 先預覽再還原。
 

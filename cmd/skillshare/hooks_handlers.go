@@ -149,7 +149,9 @@ func runHooksImport(service *hooks.Service, o hooksOptions) error {
 		if _, err := hooksEntry(service, c.Name); err == nil && !o.replace {
 			return fmt.Errorf("hook %s already exists; use --replace to overwrite its definition", c.Name)
 		}
-		return finishHooksMutation(service, "hooks import", hooks.Mutation{Name: c.Name, Entry: &c.Entry, Replace: o.replace}, o)
+		// Importing takes over the registrations it read, so they are not reported as
+		// unmanaged duplicates on the next sync.
+		return finishHooksMutation(service, "hooks import", hooks.Mutation{Name: c.Name, Entry: &c.Entry, Replace: o.replace, Adopt: true}, o)
 	}
 	return fmt.Errorf("hook %q not found in %s", o.name, o.from)
 }
@@ -246,13 +248,49 @@ func printHooksPlan(p *hooks.Plan) {
 }
 
 func printHooksChanges(p *hooks.Plan) {
+	home, _ := os.UserHomeDir()
+	conflicts := []string{}
 	for _, c := range p.Changes {
-		detail := c.Target + "  " + c.Path
+		detail := c.Target + "  " + hooksDisplayPath(c.Path, home)
+		if c.Events != nil {
+			detail += "  " + hooksEventDetail(c.Events)
+		}
 		if c.Message != "" {
 			detail += " — " + c.Message
 		}
 		ui.Status(c.Name, c.Action, detail)
+		if c.Action == "conflict" && c.Name != "" && c.Root == "" && !slices.Contains(conflicts, c.Name) {
+			conflicts = append(conflicts, c.Name)
+		}
 	}
+	for _, w := range p.Warnings {
+		ui.Warning("%s", w)
+	}
+	for _, name := range conflicts {
+		ui.Info("To take over %s's conflicting Agent entries: skillshare hooks sync %s --replace", name, name)
+	}
+}
+
+// hooksDisplayPath shortens a path under the home directory to ~/...
+func hooksDisplayPath(path, home string) string {
+	if home != "" && strings.HasPrefix(path, home+string(os.PathSeparator)) {
+		return "~" + path[len(home):]
+	}
+	return path
+}
+
+// hooksEventDetail renders events added (+), updated (~) and removed (−).
+func hooksEventDetail(e *hooks.EventChanges) string {
+	var parts []string
+	for _, group := range []struct {
+		mark   string
+		events []string
+	}{{"+", e.Added}, {"~", e.Updated}, {"−", e.Removed}} {
+		if len(group.events) > 0 {
+			parts = append(parts, group.mark+" "+strings.Join(group.events, ", "))
+		}
+	}
+	return strings.Join(parts, "  ")
 }
 
 func printHooksResult(result *hooks.Result, err error, o hooksOptions) error {

@@ -210,8 +210,8 @@ func TestHooksImportDoesNotExecute(t *testing.T) {
 	}
 	sb.RunCLI("hooks", "import", "--from", "claude", name, "-g").AssertSuccess(t)
 	sb.RunCLI("hooks", "list", "-g").AssertOutputContains(t, name)
-	sb.RunCLI("hooks", "sync", "-g").AssertFailure(t)
-	sb.RunCLI("hooks", "sync", name, "--replace", "-g").AssertSuccess(t)
+	// Importing takes the registration over, so sync needs no --replace.
+	sb.RunCLI("hooks", "sync", "-g").AssertSuccess(t)
 	if n := strings.Count(sb.ReadFile(settings), "touch "); n != 1 {
 		t.Fatalf("taking over the imported hook left %d registrations, want 1", n)
 	}
@@ -318,4 +318,30 @@ func TestSyncAllHooksConflictStopsEveryResource(t *testing.T) {
 	if sb.FileExists(filepath.Join(sb.Home, ".claude.json")) {
 		t.Fatal("a hooks conflict still let MCP sync")
 	}
+}
+
+func TestHooksImport_TakesOverAndPlansShowEventDetail(t *testing.T) {
+	sb := newHooksSandbox(t)
+	defer sb.Cleanup()
+	settings := filepath.Join(sb.Home, ".claude", "settings.json")
+	sb.WriteFile(settings, `{"model":"opus","hooks":{"Stop":[{"hooks":[{"type":"command","command":"echo stop","timeout":5}]}],"PreToolUse":[{"matcher":"Bash","hooks":[{"type":"command","command":"echo guard"}]}]}}`)
+
+	sb.RunCLI("hooks", "import", "--from", "claude", "claude-stop", "-g").AssertSuccess(t)
+	r := sb.RunCLI("hooks", "sync", "--dry-run", "-g")
+	r.AssertSuccess(t)
+	r.AssertOutputContains(t, "adopt")
+	r.AssertOutputNotContains(t, "conflict")
+
+	both := filepath.Join(sb.Root, "both.yaml")
+	sb.WriteFile(both, "bindings:\n  claude:\n    events:\n      Stop: [{hooks: [{type: command, command: echo stop, timeout: 5}]}]\n      Stopp: [{hooks: [{type: command, command: echo typo}]}]\n")
+	sb.RunCLI("hooks", "edit", "claude-stop", "--file", both, "--sync", "-g").AssertSuccess(t)
+	narrowed := filepath.Join(sb.Root, "narrowed.yaml")
+	sb.WriteFile(narrowed, "bindings:\n  claude:\n    events:\n      Stop: [{hooks: [{type: command, command: echo stop, timeout: 5}]}]\n")
+	r = sb.RunCLI("hooks", "edit", "claude-stop", "--file", both, "--dry-run", "-g")
+	r.AssertSuccess(t)
+	r.AssertOutputContains(t, `does not document the event "Stopp"`)
+	r = sb.RunCLI("hooks", "edit", "claude-stop", "--file", narrowed, "--dry-run", "-g")
+	r.AssertSuccess(t)
+	r.AssertOutputContains(t, "~/.claude/settings.json  − Stopp")
+	r.AssertOutputNotContains(t, "remove")
 }

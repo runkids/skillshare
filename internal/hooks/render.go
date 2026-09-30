@@ -67,7 +67,7 @@ func (s *Service) RenderNative(m Mutation) ([]RenderedFile, error) {
 				ops[i] = elementOp{Event: w.event, Index: -1, Value: w.value}
 			}
 			doc, _ := parseNative(target, nil)
-			if data, _, err := doc.edit(ops, nil); err != nil {
+			if data, _, err := doc.edit(ops, nil, false); err != nil {
 				f.Error = err.Error()
 			} else {
 				f.Content = string(data)

@@ -27,11 +27,19 @@ export interface HookMutation {
   entry?: HookEntry;
   remove?: boolean;
   replace?: boolean;
+  /** Save an imported entry as the owner of the native registrations it was read from, so sync adopts them instead of reporting a conflict. */
+  adopt?: boolean;
 }
 /** `root`: the hooks.projects root a native file belongs to; left out for the global files. */
-export interface HookChange { target: string; path: string; name: string; root?: string; action: string; message?: string }
+/** Events a change adds to, updates in, or removes from a shared hooks file. */
+export interface HookEventChanges { added?: string[]; updated?: string[]; removed?: string[] }
+export interface HookChange { target: string; path: string; name: string; root?: string; action: string; message?: string; events?: HookEventChanges }
 /** `fingerprint` covers the hook content the plan proposes, which `changes` (no contents) cannot show: equal shape, different command, different fingerprint. */
-export interface HookPlan { revision: string; fingerprint: string; sourcePath: string; blocked: boolean; changes: HookChange[] }
+/** `warnings`: advisory only, such as event names an Agent does not document; they never block. */
+export interface HookPlan { revision: string; fingerprint: string; sourcePath: string; blocked: boolean; changes: HookChange[]; warnings?: string[] }
+export interface HookCatalogEvent { name: string; description: string; matcher: boolean }
+/** A command Agent's documented events; code Agents are not listed. */
+export interface HookAgentCatalog { events: HookCatalogEvent[]; timeoutUnit: 'seconds' | 'milliseconds' }
 export interface HookResult { plan?: HookPlan; applied: string[]; backupIds: string[] }
 export interface HookTargetDef { name: string; kind: string; note?: string }
 /** Hooks in an Agent's native configuration that Skillshare does not manage. */
@@ -60,6 +68,7 @@ const post = <T,>(path: string, body: unknown) => apiFetch<T>(path, { method: 'P
 
 export const hooksApi = {
   list: () => apiFetch<HookInventory>('/hooks'),
+  catalog: () => apiFetch<Record<string, HookAgentCatalog>>('/hooks/catalog'),
   /** An empty mutation previews synchronizing the current source. */
   preview: (mutation: HookMutation = {}) => post<HookPlan>('/hooks/preview', { mutation }),
   configure: (mutation: HookMutation, revision: string, sync: boolean) => post<HookResult>('/hooks', { mutation, revision, sync }),

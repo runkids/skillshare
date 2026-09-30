@@ -26,7 +26,7 @@ func (s *Service) List() (*Inventory, error) {
 		ProjectConfigs: []string{},
 		ProjectPaths:   map[string]map[string]string{},
 	}
-	if inv.Plan, err = s.previewSource(source, nil); err != nil {
+	if inv.Plan, err = s.previewSource(source, nil, nil); err != nil {
 		inv.Plan, inv.PreviewError = nil, err.Error()
 	}
 	if inv.Backups, err = s.Backups(); err != nil {
@@ -176,8 +176,9 @@ func candidateName(parts ...string) string {
 }
 
 // Import reads native hooks without executing them. Without Content it reads the
-// Agent's files in scope and offers only hooks no Skillshare config owns. With a
-// Name, everything found becomes that one candidate.
+// Agent's files in scope and offers only hooks no Skillshare config owns. A Name that
+// matches a candidate picks that one; any other Name merges everything found into one
+// candidate.
 func (s *Service) Import(req ImportRequest) ([]Candidate, error) {
 	target := canonicalTarget(req.From)
 	def, ok := targetDef(target)
@@ -219,14 +220,14 @@ func (s *Service) Import(req ImportRequest) ([]Candidate, error) {
 		return nil, err
 	}
 	shared := def.Kind == KindCommand && target != "copilot"
-	if req.Name != "" && req.Content == "" && !shared {
-		// Files are candidates by their own name; a name picks one of them.
-		picked := []Candidate{}
-		for _, c := range found {
-			if c.Name == req.Name {
-				picked = append(picked, c)
-			}
+	picked := []Candidate{}
+	for _, c := range found {
+		if c.Name == req.Name {
+			picked = append(picked, c)
 		}
+	}
+	if req.Name != "" && (len(picked) > 0 || req.Content == "" && !shared) {
+		// Candidates are per event or per file; a name picks one of them.
 		found = picked
 	} else if req.Name != "" && len(found) > 1 {
 		merged := Entry{Bindings: map[string]Binding{}}
@@ -277,7 +278,7 @@ func dedupe(items []string) []string {
 	return out
 }
 
-const adoptWarning = "the existing registrations stay in place and unmanaged; sync with replace to take them over instead of adding duplicates"
+const adoptWarning = "saving the import takes over the existing registrations in place; sync leaves them as they are instead of adding duplicates"
 
 func (s *Service) importShared(target string, req ImportRequest, state ledger) ([]Candidate, error) {
 	path, err := s.nativePath(target)

@@ -29,7 +29,7 @@ skillshare hooks restore BACKUP_ID --dry-run
 skillshare hooks restore BACKUP_ID
 ```
 
-サブコマンドなしでは entries を一覧表示します。`add`／`edit` は `--file` の Entry JSON/YAML を読み込みます。インポートで名前を省略すると候補を表示し、名前を指定すると保存します。設定とコードを読むだけで実行しません。追加、編集、インポート、有効化、無効化、削除はソースのみを保存し、`--sync` で同期します。同期と復元は適用前に再プレビューします。
+サブコマンドなしでは entries を一覧表示します。`add`／`edit` は `--file` の Entry JSON/YAML を読み込みます。インポートで名前を省略すると候補（Agent の event またはファイルごとに 1 件）を表示し、名前を指定すると保存します。インポートを保存すると、読み取った登録をその場で引き継ぎます。次回の同期は `--replace` なしで adopt し、インポートしなかった event は管理外のままです。設定とコードを読むだけで実行しません。追加、編集、インポート、有効化、無効化、削除はソースのみを保存し、`--sync` で同期します。同期と復元は適用前に再プレビューします。
 
 | Option | Meaning |
 |---|---|
@@ -76,7 +76,7 @@ hooks:
 | `bindings.AGENT.code` | Pi、Amp、OpenCode のネイティブ extension/plugin ソース |
 | `bindings.AGENT.files` | 相対ファイル名を key とした任意の UTF-8 スクリプト |
 
-Agent ID は `claude`、`codex`、`gemini`、`copilot`、`cursor`、`droid`、`qwen`、`pi`、`amp`、`opencode`。`factory` は `droid` の別名です。event、matcher、handler type、command、timeout 単位、payload はネイティブ形式のまま保持し、自動変換しません。Pi、Amp、OpenCode のコードと imports はインストール済みバージョンに合わせ、専用の `skillshare-NAME.ts` に出力します。共通実行エンジンは生成しません。command binding のスクリプトは Agent 設定ディレクトリの `hooks/skillshare/NAME/` に保存され、command 内の指定 macro／パスは変更しません。プレビューで完全なパスを確認してください。
+Agent ID は `claude`、`codex`、`gemini`、`copilot`、`cursor`、`droid`、`qwen`、`pi`、`amp`、`opencode`。`factory` は `droid` の別名です。event、matcher、handler type、command、timeout 単位、payload はネイティブ形式のまま保持し、自動変換しません。event 名は各 command Agent のドキュメントにある event と照合します。未知の名前（例：綴り違いの `Stopp`）はプレビューと plan の `warnings` に警告として表示されますが、Agent は event を追加していくため同期は止めません。Pi、Amp、OpenCode のコードは確認しません。Pi、Amp、OpenCode のコードと imports はインストール済みバージョンに合わせ、専用の `skillshare-NAME.ts` に出力します。共通実行エンジンは生成しません。command binding のスクリプトは Agent 設定ディレクトリの `hooks/skillshare/NAME/` に保存され、command 内の指定 macro／パスは変更しません。プレビューで完全なパスを確認してください。
 
 ## ネイティブの保存先
 
@@ -102,7 +102,7 @@ Droid の inline hooks が有効な場合、同期は独立ファイルの作成
 
 global 設定の `hooks.projects` は絶対プロジェクトパスを同じ Entry 形式の `entries` に対応づけます。**Projects → Hooks** で管理できます。独自の `.skillshare/config.yaml` があるプロジェクトは project scope で管理します。プロジェクト同期はそのルートだけを適用します。
 
-無関係な設定と所有していない hooks は保持します。内容の一致だけでは所有を判断しません。所有出力が外部編集されると、無効化、削除、復元も競合になります。明示的な置換は選択 entry のみが対象です。
+無関係な設定と所有していない hooks は保持します。内容の一致だけでは所有を判断しません。所有出力が外部編集されると、無効化、削除、復元も競合になります。明示的な置換は選択 entry のみが対象です。共有ファイルでは、plan の各行に entry が追加（`+`）、更新（`~`）、削除（`−`）する event を表示し、JSON plan の `events` にも含まれます。`update` は entry がそのファイルに登録を残すこと、`remove` はファイルから完全に外れることを意味します。編集はファイルの書式（コンパクトまたはインデント）を保ち、Skillshare が追加した `hooks` キーは最後の hook が外れると削除します。
 
 バックアップは後から加わった無関係な変更を保持してネイティブ出力を復元し、ソース定義は変更しません。**Settings → Backups → Hooks** または `hooks restore` でプレビューして復元します。
 

@@ -29,7 +29,7 @@ skillshare hooks restore BACKUP_ID --dry-run
 skillshare hooks restore BACKUP_ID
 ```
 
-하위 명령이 없으면 entries를 나열합니다. `add`／`edit`는 `--file`의 Entry JSON/YAML을 읽습니다. 이름 없는 가져오기는 후보를 나열하고 이름을 지정하면 저장합니다. 설정과 코드만 읽고 실행하지 않습니다. 추가, 편집, 가져오기, 활성화, 비활성화, 제거는 소스만 저장하며 `--sync`를 붙이면 동기화합니다. 동기화와 복원은 적용 전 다시 미리 봅니다.
+하위 명령이 없으면 entries를 나열합니다. `add`／`edit`는 `--file`의 Entry JSON/YAML을 읽습니다. 이름 없는 가져오기는 후보(Agent event 또는 파일마다 하나)를 나열하고 이름을 지정하면 저장합니다. 가져오기를 저장하면 읽은 등록을 그 자리에서 인수합니다. 다음 동기화는 `--replace` 없이 adopt하며, 가져오지 않은 event는 관리되지 않은 채 남습니다. 설정과 코드만 읽고 실행하지 않습니다. 추가, 편집, 가져오기, 활성화, 비활성화, 제거는 소스만 저장하며 `--sync`를 붙이면 동기화합니다. 동기화와 복원은 적용 전 다시 미리 봅니다.
 
 | Option | Meaning |
 |---|---|
@@ -76,7 +76,7 @@ hooks:
 | `bindings.AGENT.code` | Pi, Amp, OpenCode의 네이티브 extension/plugin 소스 |
 | `bindings.AGENT.files` | 상대 파일명을 key로 하는 선택 UTF-8 스크립트 |
 
-Agent ID는 `claude`, `codex`, `gemini`, `copilot`, `cursor`, `droid`, `qwen`, `pi`, `amp`, `opencode`입니다. `factory`는 `droid` 별칭입니다. event, matcher, handler type, command, timeout 단위와 payload는 원래 형식을 유지하고 자동 변환하지 않습니다. Pi, Amp, OpenCode의 코드와 imports는 설치된 버전에 맞춰 제공하며 전용 `skillshare-NAME.ts`에 기록됩니다. 공통 실행 엔진을 생성하지 않습니다. command binding 스크립트는 Agent 설정 디렉터리의 `hooks/skillshare/NAME/`에 저장하며 command의 macro／명시 경로를 변경하지 않습니다. 미리보기에서 전체 경로를 확인하세요.
+Agent ID는 `claude`, `codex`, `gemini`, `copilot`, `cursor`, `droid`, `qwen`, `pi`, `amp`, `opencode`입니다. `factory`는 `droid` 별칭입니다. event, matcher, handler type, command, timeout 단위와 payload는 원래 형식을 유지하고 자동 변환하지 않습니다. event 이름은 각 command Agent 문서의 event와 대조합니다. 알 수 없는 이름(예: 철자가 틀린 `Stopp`)은 미리보기와 plan의 `warnings`에 경고로 표시되지만, Agent가 event를 계속 추가하므로 동기화를 막지 않습니다. Pi, Amp, OpenCode 코드는 확인하지 않습니다. Pi, Amp, OpenCode의 코드와 imports는 설치된 버전에 맞춰 제공하며 전용 `skillshare-NAME.ts`에 기록됩니다. 공통 실행 엔진을 생성하지 않습니다. command binding 스크립트는 Agent 설정 디렉터리의 `hooks/skillshare/NAME/`에 저장하며 command의 macro／명시 경로를 변경하지 않습니다. 미리보기에서 전체 경로를 확인하세요.
 
 ## 네이티브 저장 위치
 
@@ -102,7 +102,7 @@ Droid inline hooks가 활성화된 경우 독립 파일 생성을 거부합니�
 
 global 설정의 `hooks.projects`는 절대 프로젝트 경로를 같은 Entry 형식의 `entries`에 연결합니다. **Projects → Hooks**에서 관리합니다. 자체 `.skillshare/config.yaml`이 있는 프로젝트는 project scope로 관리하고, 프로젝트 동기화는 해당 루트만 적용합니다.
 
-관련 없는 설정과 소유하지 않은 hooks는 유지합니다. 내용이 같다고 소유권을 부여하지 않습니다. 소유 출력이 외부에서 편집되면 비활성화, 제거, 복원도 충돌로 보고합니다. 명시적 교체는 선택한 entry에만 적용됩니다.
+관련 없는 설정과 소유하지 않은 hooks는 유지합니다. 내용이 같다고 소유권을 부여하지 않습니다. 소유 출력이 외부에서 편집되면 비활성화, 제거, 복원도 충돌로 보고합니다. 명시적 교체는 선택한 entry에만 적용됩니다. 공유 파일의 plan 각 행에는 entry가 추가(`+`), 업데이트(`~`), 제거(`−`)하는 event가 표시되며 JSON plan의 `events`에도 포함됩니다. `update`는 entry가 그 파일에 등록을 남긴다는 뜻이고, `remove`는 파일에서 완전히 빠진다는 뜻입니다. 편집은 파일의 형식(압축 또는 들여쓰기)을 유지하며, Skillshare가 추가한 `hooks` 키는 마지막 hook이 빠질 때 함께 제거합니다.
 
 백업은 이후의 관련 없는 변경을 유지하며 네이티브 출력을 복원하고 소스 정의는 바꾸지 않습니다. **Settings → Backups → Hooks** 또는 `hooks restore`로 미리 보고 복원하세요.
 

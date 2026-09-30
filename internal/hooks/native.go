@@ -20,6 +20,8 @@ type nativeDoc struct {
 	value  hujson.Value
 	// events holds each event's elements in their JSON shape, in file order.
 	events map[string][]any
+	// hasSection reports an existing event map: a "hooks" key, or Droid's whole file.
+	hasSection bool
 }
 
 // wrapped reports whether the event map sits under a "hooks" key.
@@ -83,9 +85,11 @@ func parseNative(target string, data []byte) (*nativeDoc, error) {
 		}
 	}
 	section := document
+	n.hasSection = true
 	if wrapped(target) {
 		raw, ok := document["hooks"]
 		if !ok {
+			n.hasSection = false
 			return n, nil
 		}
 		if section, ok = raw.(map[string]any); !ok {
@@ -126,10 +130,11 @@ type elementOp struct {
 }
 
 // edit applies ops and returns the new bytes plus the final index of each op key
-// and each tracked key (event -> original index -> key). It
-// fails when an op no longer fits the file, which callers have already ruled out
-// by comparing section digests.
-func (n *nativeDoc) edit(ops []elementOp, track map[string]map[int]string) ([]byte, map[string]int, error) {
+// and each tracked key (event -> original index -> key). With drop, a hooks key the
+// edit leaves empty is removed. The output keeps the file's style: a single-line file
+// stays compact, an indented one keeps its indent unit. It fails when an op no longer
+// fits the file, which callers have already ruled out by comparing section digests.
+func (n *nativeDoc) edit(ops []elementOp, track map[string]map[int]string, drop bool) ([]byte, map[string]int, error) {
 	positions := map[string]int{}
 	if len(ops) == 0 {
 		return append([]byte(nil), n.data...), positions, nil
@@ -141,6 +146,7 @@ func (n *nativeDoc) edit(ops []elementOp, track map[string]map[int]string) ([]by
 	}
 	indent := detectIndent(root)
 	fresh := len(root.Members) == 0
+	compact := !fresh && !bytes.Contains(bytes.TrimSpace(n.data), []byte("\n"))
 	section := root
 	depth := 1
 	if wrapped(n.target) {
@@ -228,11 +234,21 @@ func (n *nativeDoc) edit(ops []elementOp, track map[string]map[int]string) ([]by
 			}
 		}
 	}
-	if len(section.Members) > 0 && !bytes.Contains(section.AfterExtra, []byte("\n")) {
+	switch {
+	case len(section.Members) == 0 && drop && section != root:
+		removeMember(root, "hooks")
+	case len(section.Members) == 0:
+		section.AfterExtra = nil
+	case !bytes.Contains(section.AfterExtra, []byte("\n")):
 		section.AfterExtra = hujson.Extra("\n" + strings.Repeat(indent, depth-1))
 	}
-	if fresh || !bytes.Contains(root.AfterExtra, []byte("\n")) {
+	if len(root.Members) == 0 {
+		root.AfterExtra = nil
+	} else if fresh || !bytes.Contains(root.AfterExtra, []byte("\n")) {
 		root.AfterExtra = hujson.Extra("\n")
+	}
+	if compact {
+		v.Minimize()
 	}
 	out := v.Pack()
 	if !bytes.HasSuffix(out, []byte("\n")) {

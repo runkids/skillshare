@@ -77,6 +77,11 @@ func (s *Server) handleHooksList(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, inventory)
 }
 
+// handleHooksCatalog lists each command Agent's documented events and timeout unit.
+func (s *Server) handleHooksCatalog(w http.ResponseWriter, r *http.Request) {
+	writeJSON(w, hooks.Catalog)
+}
+
 func (s *Server) handleHooksPreview(w http.ResponseWriter, r *http.Request) {
 	var body hooksRequest
 	if !decodeHooksRequest(w, r, &body) {
