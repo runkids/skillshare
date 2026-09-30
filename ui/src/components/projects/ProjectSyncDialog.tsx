@@ -71,7 +71,7 @@ export default function ProjectSyncDialog({ open, onClose, project, targets }: P
       const { resources, failures: failed } = await runSync({
         resources: project.declared ? 'both' : null,
         extras: false,
-        mcp: plan && !mcpBlocked && changes.some((c) => c.action !== 'unchanged') ? plan : null,
+        mcp: plan && !mcpBlocked && (plan.migrates || changes.some((c) => c.action !== 'unchanged')) ? plan : null,
         hooks: hookPlan && !hooksBlocked && hookChanges.some((c) => c.action !== 'unchanged') ? hookPlan : null,
         force: false,
         project: { root: project.root, path: project.path },

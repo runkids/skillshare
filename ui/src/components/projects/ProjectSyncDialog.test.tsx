@@ -74,6 +74,21 @@ describe('Project sync dialog', () => {
     expect(hooksApi.configure).not.toHaveBeenCalled();
   });
 
+  it('syncs MCP when only the config needs saving without settings 0.23.0 retired', async () => {
+    vi.mocked(api.diff).mockResolvedValue({ diffs: [{ target: 'app@claude', items: [{ skill: 'team-a', action: 'link', reason: 'new' }] }] } as Awaited<ReturnType<typeof api.diff>>);
+    const migrates = { ...plan, changes: [], migrates: true };
+    vi.mocked(mcpApi.list).mockResolvedValue({ source: { path: '', configPath: '', targets: null, servers: {}, projects: { '/work/app': {} } }, projectConfigs: [], paths: {}, detected: [], plan: migrates, previewError: '', backups: [], unmanaged: [] });
+    vi.mocked(mcpApi.preview).mockResolvedValue({ ...migrates, revision: 'r2' });
+    vi.mocked(api.sync).mockResolvedValue({ results: [], warnings: [] } as unknown as Awaited<ReturnType<typeof api.sync>>);
+    vi.mocked(mcpApi.syncProject).mockResolvedValue({ applied: [], backupIds: [] });
+    vi.mocked(hooksApi.list).mockResolvedValue(inventory(null));
+    const user = userEvent.setup();
+    render(<MemoryRouter><QueryClientProvider client={new QueryClient()}><I18nProvider><ProjectSyncDialog open onClose={vi.fn()} project={project} targets={targets} /></I18nProvider></QueryClientProvider></MemoryRouter>);
+
+    await user.click(await screen.findByRole('button', { name: 'Sync Now' }));
+    await waitFor(() => expect(mcpApi.syncProject).toHaveBeenCalledWith('/work/app', 'r2'));
+  });
+
   it('lists a failed target like the Sync page, without Turn on Force', async () => {
     vi.mocked(api.diff).mockResolvedValue({ diffs: [{ target: 'app@claude', items: [{ skill: 'team-a', action: 'link', reason: 'new' }] }] } as Awaited<ReturnType<typeof api.diff>>);
     vi.mocked(mcpApi.list).mockResolvedValue({ source: { path: '', configPath: '', targets: null, servers: {}, projects: { '/work/app': {} } }, projectConfigs: [], paths: {}, detected: [], plan: { ...plan, changes: [] }, previewError: '', backups: [], unmanaged: [] });

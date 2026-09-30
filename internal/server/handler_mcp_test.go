@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	syncpkg "skillshare/internal/sync"
 )
 
 func TestMCPPiImportSourceSelection(t *testing.T) {
@@ -206,5 +208,42 @@ func TestMCPRenderRejectsProjectOverrideInProjectMode(t *testing.T) {
 	s.handleMCPRender(w, httptest.NewRequest(http.MethodPost, "/api/mcp/render", strings.NewReader(body)))
 	if w.Code != 400 || !strings.Contains(w.Body.String(), "project mode") {
 		t.Fatalf("%d %s", w.Code, w.Body)
+	}
+}
+
+// The dashboard's sync saves the config without the settings 0.23.0 retired, keeping the
+// previous version in the file history, so the list no longer shows their notices.
+func TestMCPSyncSavesTheConfigWithoutRetiredSettings(t *testing.T) {
+	s, sourceDir := newTestServerWithExtras(t, nil, "")
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("PI_CODING_AGENT_DIR", t.TempDir())
+	data := "source: " + sourceDir + "\nmcp:\n  targets: [pi]\n  servers:\n    docs:\n      command: docs\n      piExtension: pi-mcp-adapter\n"
+	if err := os.WriteFile(s.configPath(), []byte(data), 0600); err != nil {
+		t.Fatal(err)
+	}
+	plan, err := s.mcpService().Preview()
+	if err != nil || !plan.Migrates || len(plan.Notices) != 1 {
+		t.Fatalf("%+v %v", plan, err)
+	}
+	body, _ := json.Marshal(map[string]any{"mutation": map[string]any{}, "revision": plan.Revision, "sync": true})
+	w := httptest.NewRecorder()
+	s.handleMCPConfigure(w, httptest.NewRequest(http.MethodPost, "/api/mcp", strings.NewReader(string(body))))
+	if w.Code != 200 || !strings.Contains(w.Body.String(), `"migrated":[{"path":`) {
+		t.Fatalf("%d %s", w.Code, w.Body)
+	}
+	if saved, _ := os.ReadFile(s.configPath()); strings.Contains(string(saved), "piExtension") || !strings.Contains(string(saved), "command: docs") {
+		t.Fatalf("saved config:\n%s", saved)
+	}
+	versions, err := syncpkg.FileBackupVersions(s.configPath())
+	if err != nil || len(versions) != 1 || versions[0].Reason != syncpkg.BackupReasonMigrate {
+		t.Fatalf("backups: %+v %v", versions, err)
+	}
+	if kept, _, err := syncpkg.ReadFileBackupVersion(s.configPath(), versions[0].ID); err != nil || string(kept) != data {
+		t.Fatalf("backup: %s %v", kept, err)
+	}
+	list := httptest.NewRecorder()
+	s.handleMCPList(list, httptest.NewRequest(http.MethodGet, "/api/mcp", nil))
+	if list.Code != 200 || strings.Contains(list.Body.String(), `"notices"`) || strings.Contains(list.Body.String(), `"migrates"`) {
+		t.Fatalf("list: %s", list.Body)
 	}
 }

@@ -216,7 +216,7 @@ func TestPiAdapterServerMovesToBuiltin(t *testing.T) {
 	if c := changeFor(plan, builtin, "docs"); c == nil || c.Action != "add" {
 		t.Fatalf("built-in entry: %+v", c)
 	}
-	if len(plan.Notices) != 1 || !strings.Contains(plan.Notices[0], "piExtension") {
+	if len(plan.Notices) != 1 || plan.Notices[0] != "Pi now uses its built-in MCP; the next sync updates the config: docs" {
 		t.Fatalf("notices: %v", plan.Notices)
 	}
 	result, err := s.Apply(plan.Revision)

@@ -16,7 +16,7 @@ export function filterItems(items: BackupItem[], filter: string): BackupItem[] {
   return items.filter((i) => (filter === 'agents' ? i.kind === 'agents' : i.target === filter));
 }
 
-const HISTORY_REASONS = ['convert', 'shim', 'import', 'edit', 'collect', 'attach', 'restore'];
+const HISTORY_REASONS = ['convert', 'shim', 'import', 'edit', 'collect', 'attach', 'restore', 'migrate'];
 const DRIFT_REASONS = ['overwrite', 'mode', 'restore'];
 
 /** The i18n key of the sentence saying why a version was kept. */

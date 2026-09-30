@@ -237,6 +237,56 @@ func (s *Source) save() error {
 	return writeYAML(s.ConfigPath, doc, mcp)
 }
 
+// NeedsMigration reports settings 0.23.0 retired that loading converted in memory only.
+func (s *Source) NeedsMigration() bool { return s.migrateConfig || s.migrateExternal }
+
+// MigratedFile is a config file a sync saved without the settings 0.23.0 retired, and the
+// backup of its previous content.
+type MigratedFile struct {
+	Path   string `json:"path"`
+	Backup string `json:"backup,omitempty"`
+}
+
+// saveMigration writes back what loading converted from settings 0.23.0 retired, and
+// nothing else: the documents already hold the converted fields. backup, when set, keeps
+// each file's current content first.
+func (s *Source) saveMigration(backup func(path string) (string, error)) ([]MigratedFile, error) {
+	var saved []MigratedFile
+	if !s.NeedsMigration() {
+		return nil, nil
+	}
+	if err := s.CheckUnchanged(); err != nil {
+		return nil, err
+	}
+	write := func(path string, doc, section *yaml.Node) error {
+		file := MigratedFile{Path: path}
+		if backup != nil {
+			var err error
+			if file.Backup, err = backup(path); err != nil {
+				return err
+			}
+		}
+		if err := writeYAML(path, doc, section); err != nil {
+			return err
+		}
+		saved = append(saved, file)
+		return nil
+	}
+	if s.migrateExternal {
+		if err := write(s.Path, &s.doc, mapping(&s.doc)); err != nil {
+			return saved, err
+		}
+	}
+	if s.migrateConfig {
+		inlineOrphanAliases(&s.configDoc)
+		if err := write(s.ConfigPath, &s.configDoc, field(&s.configDoc, "mcp")); err != nil {
+			return saved, err
+		}
+	}
+	s.migrateConfig, s.migrateExternal, s.Notices = false, false, nil
+	return saved, nil
+}
+
 func putOrDrop(node *yaml.Node, key string, value any, keep bool) error {
 	if keep {
 		return put(node, key, value)
@@ -425,5 +475,5 @@ func (s *Service) MutateBatch(mutations []Mutation, revision string, sync bool) 
 	if err != nil {
 		return result, fmt.Errorf("source saved; synchronization incomplete: %w", err)
 	}
-	return result, nil
+	return result, s.migrate(result)
 }

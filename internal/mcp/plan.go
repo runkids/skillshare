@@ -59,7 +59,10 @@ type Plan struct {
 	Blocked    bool   `json:"blocked"`
 	// Notices are the source's, about settings it still has that no longer apply, and name
 	// each Agent that cannot hold a part of a server's tool policy.
-	Notices    []string `json:"notices,omitempty"`
+	Notices []string `json:"notices,omitempty"`
+	// Migrates is set when applying the plan also saves its source without the settings
+	// 0.23.0 retired, even when no Agent file changes.
+	Migrates   bool     `json:"migrates,omitempty"`
 	Changes    []Change `json:"changes"`
 	files      []*filePlan
 	state      ledger
@@ -436,7 +439,7 @@ func (s *Service) previewResolved(source *Source, resolutions []Resolution) (*Pl
 	if err != nil {
 		return nil, err
 	}
-	p := &Plan{SourcePath: source.Path, Notices: slices.Concat(source.Notices, source.toolPolicyNotices()), Changes: []Change{}, source: source, state: state, stateBytes: stateBytes}
+	p := &Plan{SourcePath: source.Path, Notices: slices.Concat(source.Notices, source.toolPolicyNotices()), Migrates: source.NeedsMigration(), Changes: []Change{}, source: source, state: state, stateBytes: stateBytes}
 	desired, err := s.render(source)
 	if err != nil {
 		return nil, err

@@ -196,7 +196,7 @@ func cmdSync(args []string) error {
 			}
 			return previous
 		}
-		if len(mcpResult.Plan.Changes) == 0 {
+		if len(mcpResult.Plan.Changes) == 0 && !mcpResult.Plan.Migrates {
 			return nil
 		}
 		var applyErr error
@@ -211,6 +211,7 @@ func cmdSync(args []string) error {
 			for _, id := range mcpResult.BackupIDs {
 				ui.Info("MCP backup: %s", id)
 			}
+			printMCPMigrated(mcpResult)
 		}
 		return applyErr
 	}

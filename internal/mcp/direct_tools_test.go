@@ -66,7 +66,7 @@ func TestDirectToolsConvertedOnLoad(t *testing.T) {
 	if got := source.Projects[filepath.Join(tmp, "quiet")].Servers["local"]; got.PiOptions != nil {
 		t.Errorf("a project's false overrides the global default: %+v", got)
 	}
-	if len(source.Notices) != 1 || !strings.Contains(source.Notices[0], "directTools ("+filepath.Join(tmp, "quiet")+"), held, inherits, lists, mcp.directTools, names") {
+	if len(source.Notices) != 1 || !strings.HasSuffix(source.Notices[0], "the next sync converts them: held, inherits, lists, names") {
 		t.Fatalf("notices: %q", source.Notices)
 	}
 	if _, err := s.Mutate(Mutation{Name: "other", Server: &Server{Command: "other"}}, "", false); err != nil {
@@ -101,7 +101,7 @@ func TestDirectToolsDroppedWhenExposureIsSet(t *testing.T) {
 	if got := source.Servers["docs"].PiOptions["exposure"]; got != "hidden" {
 		t.Fatalf("exposure: %v", got)
 	}
-	if len(source.Notices) != 2 || !strings.Contains(source.Notices[1], "ignored since 0.23.0") || !strings.Contains(source.Notices[1], "directTools (docs)") {
+	if len(source.Notices) != 2 || !strings.HasSuffix(source.Notices[1], "are dropped; the next sync removes them: docs") {
 		t.Fatalf("notices: %q", source.Notices)
 	}
 }

@@ -89,7 +89,7 @@ func TestRenderDoesNotResolveSecrets(t *testing.T) {
 // piExtension and piOptionsPrune were retired in 0.23.0. A config that still has them loads
 // with one notice each, and the next save drops them, from a project it did not touch too.
 func TestLegacyPiFieldsLoadAndDropOnSave(t *testing.T) {
-	s, tmp := projectsService(t, `mcp:
+	s, _ := projectsService(t, `mcp:
   targets: [opencode]
   servers:
     docs:
@@ -107,7 +107,7 @@ func TestLegacyPiFieldsLoadAndDropOnSave(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(source.Notices) != 2 || !strings.Contains(source.Notices[0], "docs, local ("+filepath.Join(tmp, "p1")+")") || !strings.Contains(source.Notices[1], "piOptionsPrune") {
+	if len(source.Notices) != 2 || source.Notices[0] != "Pi now uses its built-in MCP; the next sync updates the config: docs, local (p1)" || !strings.Contains(source.Notices[1], "piOptionsPrune") {
 		t.Fatalf("notices: %q", source.Notices)
 	}
 	if _, err := s.Mutate(Mutation{Name: "other", Server: &Server{Command: "other"}}, "", false); err != nil {

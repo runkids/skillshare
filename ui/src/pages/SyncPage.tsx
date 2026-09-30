@@ -119,7 +119,7 @@ export default function SyncPage() {
       const { resources: result, failures: failed } = await runSync({
         resources: parts.has('skill') && parts.has('agent') ? 'both' : parts.has('skill') ? 'skill' : parts.has('agent') ? 'agent' : null,
         extras: parts.has('extra') && !!extras.data?.extras.length,
-        mcp: parts.has('mcp') && plan && !plan.blocked && plan.changes.some((c) => c.action !== 'unchanged') ? plan : null,
+        mcp: parts.has('mcp') && plan && !plan.blocked && (plan.migrates || plan.changes.some((c) => c.action !== 'unchanged')) ? plan : null,
         hooks: parts.has('hooks') && hooksPlan && !hooksPlan.blocked && hooksPlan.changes.some((c) => c.action !== 'unchanged') ? hooksPlan : null,
         force,
       });

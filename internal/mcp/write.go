@@ -18,6 +18,29 @@ type Result struct {
 	Plan      *Plan    `json:"plan"`
 	Applied   []string `json:"applied"`
 	BackupIDs []string `json:"backupIds"`
+	// Migrated are the config files the sync also saved without the settings 0.23.0
+	// retired, which the plan's notices named.
+	Migrated []MigratedFile `json:"migrated,omitempty"`
+}
+
+// migrate saves the plan's source without the settings 0.23.0 retired once its files are
+// applied, so their notices go away. The Agent files are already written by then, so a
+// failure says so rather than undoing them.
+func (s *Service) migrate(result *Result) error {
+	source := result.Plan.source
+	if !source.NeedsMigration() {
+		return nil
+	}
+	legacy := len(source.Notices)
+	saved, err := source.saveMigration(s.BackupSource)
+	result.Migrated = saved
+	if err != nil {
+		return fmt.Errorf("MCP files applied, but saving %s without the settings 0.23.0 retired failed: %w", source.ConfigPath, err)
+	}
+	result.Plan.Migrates = false
+	// The plan's own notices start with the source's; those no longer apply.
+	result.Plan.Notices = result.Plan.Notices[legacy:]
+	return nil
 }
 
 type journal struct {
@@ -125,7 +148,11 @@ func (s *Service) Apply(revision string) (*Result, error) {
 	if revision != "" && revision != p.Revision {
 		return nil, fmt.Errorf("MCP configuration changed since preview; preview again")
 	}
-	return s.applyPlan(p)
+	result, err := s.applyPlan(p)
+	if err != nil {
+		return result, err
+	}
+	return result, s.migrate(result)
 }
 
 // ErrUnknownProject is returned for a root that mcp.projects does not declare.
@@ -157,7 +184,11 @@ func (s *Service) ApplyProject(revision, root string) (*Result, error) {
 	if revision != p.Revision {
 		return nil, fmt.Errorf("MCP configuration changed since preview; preview again")
 	}
-	return s.applyScoped(p, &root)
+	result, err := s.applyScoped(p, &root)
+	if err != nil {
+		return result, err
+	}
+	return result, s.migrate(result)
 }
 
 func (s *Service) applyPlan(p *Plan) (*Result, error) { return s.applyScoped(p, nil) }

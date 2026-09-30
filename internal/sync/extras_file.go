@@ -330,6 +330,21 @@ func ManagedImportLines(content string) []int {
 // reason is one of the BackupReason constants.
 func BackupFile(path, reason string) error { return backupExtraFile(path, reason) }
 
+// StoreBackup is BackupFile returning the backup that holds the current content: the new
+// copy, or the latest one when it already held the same content.
+func StoreBackup(path, reason string) (string, error) {
+	name, err := storeExtraBackup(path, reason)
+	if err != nil {
+		return "", err
+	}
+	dir := extraBackupDir(path)
+	if name == "" {
+		names := extraBackupNames(dir)
+		name = names[len(names)-1]
+	}
+	return filepath.Join(dir, name), nil
+}
+
 func syncExtraImport(f ExtraFile, dryRun bool) (*ExtraResult, error) {
 	result := &ExtraResult{Synced: 1}
 	attached := extraAttached(f.Target)

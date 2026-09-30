@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"maps"
 	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 	"time"
@@ -331,12 +332,20 @@ func printMCPResult(result *mcp.Result, asJSON bool) error {
 	for _, id := range result.BackupIDs {
 		ui.Info("Backup: %s", id)
 	}
+	printMCPMigrated(result)
 	if result.Plan == nil {
 		ui.Success("MCP source saved. Run 'skillshare sync mcp' when ready.")
 	} else if !result.Plan.Blocked {
 		ui.Success("MCP files applied: %d. Reload your Agent after synchronization and complete any required login.", len(result.Applied))
 	}
 	return nil
+}
+
+// printMCPMigrated says the sync also saved the config without the settings 0.23.0 retired.
+func printMCPMigrated(result *mcp.Result) {
+	for _, file := range result.Migrated {
+		ui.Info("Updated %s for 0.23.0 (backup: %s)", filepath.Base(file.Path), file.Backup)
+	}
 }
 
 func logMCPOp(path, command string, start time.Time, err error) {

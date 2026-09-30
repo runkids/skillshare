@@ -90,9 +90,16 @@ func TestMCPPiAdapterServerSyncsToBuiltin(t *testing.T) {
 	manual := `{"mcpServers":{"mine":{"command":"mine"}}}`
 	sb.WriteFile(adapter, manual)
 	sb.WriteConfig("targets: {}\nmcp:\n  targets: [pi]\n  servers:\n    docs:\n      url: https://example.com/mcp\n      piExtension: pi-mcp-adapter\n")
+	legacy := sb.ReadFile(sb.ConfigPath)
+	dry := sb.RunCLI("sync", "mcp", "-g", "--dry-run")
+	dry.AssertSuccess(t)
+	dry.AssertAnyOutputContains(t, "Pi now uses its built-in MCP; the next sync updates the config: docs")
+	if sb.ReadFile(sb.ConfigPath) != legacy {
+		t.Fatal("dry run changed the config")
+	}
 	r := sb.RunCLI("sync", "mcp", "-g")
 	r.AssertSuccess(t)
-	r.AssertAnyOutputContains(t, "piExtension is ignored since 0.23.0")
+	assertConfigMigrated(t, sb, r, sb.ConfigPath, legacy)
 	if !strings.Contains(sb.ReadFile(builtin), `"docs"`) || sb.ReadFile(adapter) != manual {
 		t.Fatalf("mcp.json: %s\nmcp-adapter.json: %s", sb.ReadFile(builtin), sb.ReadFile(adapter))
 	}
@@ -107,4 +114,67 @@ func TestMCPRemovedPiFlagsExplainTheChange(t *testing.T) {
 		r.AssertFailure(t)
 		r.AssertAnyOutputContains(t, flag+" was removed in 0.23.0")
 	}
+}
+
+// assertConfigMigrated checks a sync saved path without the settings 0.23.0 retired, named
+// the backup it kept of legacy, and the next sync has nothing left to say about them.
+func assertConfigMigrated(t *testing.T, sb *testutil.Sandbox, r *testutil.Result, path, legacy string) {
+	t.Helper()
+	output := r.Stdout + r.Stderr
+	prefix := "Updated config.yaml for 0.23.0 (backup: "
+	start := strings.Index(output, prefix)
+	if start < 0 {
+		t.Fatalf("no migration line:\n%s", output)
+	}
+	backup := output[start+len(prefix):]
+	backup = backup[:strings.Index(backup, ")")]
+	if sb.ReadFile(backup) != legacy {
+		t.Fatalf("backup %s: %s", backup, sb.ReadFile(backup))
+	}
+	if saved := sb.ReadFile(path); strings.Contains(saved, "piExtension") || strings.Contains(saved, "piOptionsPrune") {
+		t.Fatalf("saved config:\n%s", saved)
+	}
+	dir := filepath.Dir(filepath.Dir(path))
+	args := []string{"sync", "mcp", "--dry-run", "-g"}
+	if filepath.Base(filepath.Dir(path)) == ".skillshare" {
+		args[3] = "-p"
+	} else {
+		dir = sb.Home
+	}
+	again := sb.RunCLIInDir(dir, args...)
+	again.AssertSuccess(t)
+	again.AssertOutputNotContains(t, "0.23.0")
+}
+
+// Nothing in an Agent file changes, but the sync still saves the config, from sync --all
+// and in project mode too.
+func TestSyncSavesTheConfigWithoutRetiredSettings(t *testing.T) {
+	t.Run("sync", func(t *testing.T) {
+		sb := testutil.NewSandbox(t)
+		defer sb.Cleanup()
+		sb.WriteConfig("source: " + sb.SourcePath + "\ntargets: {}\nmcp:\n  servers:\n    docs:\n      url: https://example.com/mcp\n      targets: []\n      piOptionsPrune: true\n")
+		legacy := sb.ReadFile(sb.ConfigPath)
+		sb.RunCLI("sync", "--all", "-g", "--dry-run").AssertSuccess(t)
+		if sb.ReadFile(sb.ConfigPath) != legacy {
+			t.Fatal("dry run changed the config")
+		}
+		r := sb.RunCLI("sync", "--all", "-g")
+		r.AssertSuccess(t)
+		assertConfigMigrated(t, sb, r, sb.ConfigPath, legacy)
+	})
+	t.Run("project mode", func(t *testing.T) {
+		sb := testutil.NewSandbox(t)
+		defer sb.Cleanup()
+		sb.WriteConfig("targets: {}\n")
+		root := sb.SetupProjectDir()
+		sb.WriteProjectConfig(root, "targets: []\nmcp:\n  targets: [pi]\n  servers:\n    docs:\n      url: https://example.com/mcp\n      piExtension: pi-mcp-adapter\n")
+		path := filepath.Join(root, ".skillshare", "config.yaml")
+		legacy := sb.ReadFile(path)
+		r := sb.RunCLIInDir(root, "sync", "mcp", "-p")
+		r.AssertSuccess(t)
+		assertConfigMigrated(t, sb, r, path, legacy)
+		if !strings.Contains(sb.ReadFile(filepath.Join(root, ".pi", "mcp.json")), `"docs"`) {
+			t.Fatal("project Pi file lacks docs")
+		}
+	})
 }

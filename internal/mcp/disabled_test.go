@@ -377,8 +377,7 @@ func TestPiSwitchLeavesPiOnLoad(t *testing.T) {
 	if len(plan.Changes) != 1 || plan.Changes[0].Target != "opencode" || plan.Changes[0].Root != filepath.Join(tmp, "both") {
 		t.Fatalf("changes: %+v", plan.Changes)
 	}
-	want := "docs (" + filepath.Join(tmp, "both") + "), docs (" + filepath.Join(tmp, "only") + ")"
-	if len(plan.Notices) != 1 || !strings.Contains(plan.Notices[0], "Pi cannot turn off") || !strings.Contains(plan.Notices[0], want) {
+	if want := "Pi cannot turn off a server per project; the next sync removes pi from these entries: docs (both, only)"; len(plan.Notices) != 1 || plan.Notices[0] != want {
 		t.Fatalf("notices: %q", plan.Notices)
 	}
 	if _, err := s.Mutate(Mutation{Name: "other", Server: &Server{Command: "other"}}, "", false); err != nil {

@@ -15,10 +15,13 @@ import (
 
 	"skillshare/internal/config"
 	"skillshare/internal/mcp"
+	syncpkg "skillshare/internal/sync"
 )
 
 func (s *Server) mcpService() *mcp.Service {
-	return &mcp.Service{ConfigPath: s.configPath(), ProjectRoot: s.projectRoot, StateDir: config.StateDir(), ConfigDirs: mcp.ConfigDirsFromEnv()}
+	return &mcp.Service{ConfigPath: s.configPath(), ProjectRoot: s.projectRoot, StateDir: config.StateDir(), ConfigDirs: mcp.ConfigDirsFromEnv(), BackupSource: func(path string) (string, error) {
+		return syncpkg.StoreBackup(path, syncpkg.BackupReasonMigrate)
+	}}
 }
 
 type mcpRequest struct {

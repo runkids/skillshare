@@ -23,6 +23,10 @@ type Service struct {
 	Platform    string
 	// ConfigDirs contains explicitly resolved native client directory overrides.
 	ConfigDirs map[string]string
+	// BackupSource keeps a config file's content before a sync rewrites it without the
+	// settings 0.23.0 retired, and returns where. The CLI and the server keep it in the
+	// file history.
+	BackupSource func(path string) (string, error)
 	// accounts are the source's, set while rendering it.
 	accounts map[string]Account
 	// account is the one this Service was scoped to, empty when it is the Agent's own.

@@ -5,7 +5,14 @@ import (
 
 	"skillshare/internal/config"
 	"skillshare/internal/mcp"
+	syncpkg "skillshare/internal/sync"
 )
+
+// backupMCPSource keeps a config's content in the file history before a sync saves it
+// without the MCP settings 0.23.0 retired.
+func backupMCPSource(path string) (string, error) {
+	return syncpkg.StoreBackup(path, syncpkg.BackupReasonMigrate)
+}
 
 func mcpContext(args []string) (*mcp.Service, []string, error) {
 	// Do not interpret flags belonging to a spawned server after --.
@@ -32,7 +39,7 @@ func mcpContext(args []string) (*mcp.Service, []string, error) {
 			mode = modeProject
 		}
 	}
-	service := &mcp.Service{ConfigPath: config.ConfigPath(), StateDir: config.StateDir(), ConfigDirs: mcp.ConfigDirsFromEnv()}
+	service := &mcp.Service{ConfigPath: config.ConfigPath(), StateDir: config.StateDir(), ConfigDirs: mcp.ConfigDirsFromEnv(), BackupSource: backupMCPSource}
 	if mode == modeProject {
 		service.ConfigPath = config.ProjectConfigPath(cwd)
 		service.ProjectRoot = cwd

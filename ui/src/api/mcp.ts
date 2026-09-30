@@ -43,10 +43,13 @@ export interface MCPPlan {
   blocked: boolean;
   /** The source's notices, then one per Agent and set of tool policy parts it does not apply, worded in English. */
   notices?: string[];
+  /** Syncing also saves the config without the settings 0.23.0 retired, even when no Agent file changes. */
+  migrates?: boolean;
   /** `switch`: the entry only turns a global server off for one project, so adding it turns the server off there. */
   changes: { target: string; path: string; name: string; root?: string; switch?: boolean; action: string; message?: string; fields?: { added?: string[]; updated?: string[]; removed?: string[] } }[];
 }
-export interface MCPResult { plan?: MCPPlan; applied: string[]; backupIds: string[] }
+/** `migrated`: config files the sync also saved without the settings 0.23.0 retired, and each one's backup. */
+export interface MCPResult { plan?: MCPPlan; applied: string[]; backupIds: string[]; migrated?: { path: string; backup?: string }[] }
 /** Servers in one Agent file that skillshare does not manage; `project` is a root under mcp.projects. */
 export interface MCPUnmanaged { target: string; project?: string; path: string; names: string[] }
 /** `servers`: what the write the backup was taken before changed; `time`: when it was taken. */

@@ -38,6 +38,7 @@ const (
 	BackupReasonCollect = "collect" // before a target's edit is collected into the shared file
 	BackupReasonAttach  = "attach"  // the file replaced when a target was first attached
 	BackupReasonRestore = "restore" // before an older version is restored
+	BackupReasonMigrate = "migrate" // before a sync drops settings a release retired
 )
 
 // Why a drift backup (an edit skillshare replaced) was taken.
