@@ -2,13 +2,11 @@ import { apiFetch } from './client';
 
 export const mcpTargets = ['claude', 'codex', 'cursor', 'vscode', 'opencode', 'kilocode', 'grok', 'antigravity', 'amp', 'claude-desktop', 'cline', 'copilot', 'factory', 'gemini', 'goose', 'junie', 'kiro', 'lmstudio', 'warp', 'windsurf', 'pi'] as const;
 export type MCPValue = string | { fromEnv: string };
-export type MCPDirectTools = boolean | 'search' | string[];
-/** A scope's defaults. A save replaces both, so a value left out is cleared. */
-export interface MCPSettings { targets?: string[]; directTools?: MCPDirectTools }
+/** A scope's defaults. A save replaces them, so a value left out is cleared. */
+export interface MCPSettings { targets?: string[] }
 /** One root under the global config's mcp.projects. */
 export interface MCPProject extends MCPSettings { servers?: Record<string, MCPServer> }
 export interface MCPServer {
-  piExtension?: string;
   command?: string;
   args?: string[];
   url?: string;
@@ -17,16 +15,13 @@ export interface MCPServer {
   env?: Record<string, MCPValue>;
   headers?: Record<string, MCPValue>;
   bearerToken?: { fromEnv: string };
-  /** pi-mcp-adapter only. Left out, Skillshare does not touch the value in Pi's file. */
-  directTools?: MCPDirectTools;
-  /** Builtin or adapter: per-server fields written into Pi as given. */
+  /** Per-server fields written into Pi's built-in MCP as given. */
   piOptions?: Record<string, unknown>;
-  piOptionsPrune?: boolean;
   /** Project mode: the whole entry, turning off a server the Agent's global config defines. */
   disabled?: boolean;
 }
 /** Agents with a per-project switch: a field merged over the global entry, or Claude Code's own off list. */
-export const mcpOffTargets: readonly string[] = ['claude', 'opencode', 'kilocode', 'pi'];
+export const mcpOffTargets: readonly string[] = ['claude', 'opencode', 'kilocode'];
 export interface MCPMutation {
   /** A root under mcp.projects; with `remove` and no `name`, the project itself. */
   project?: string;
@@ -52,11 +47,14 @@ export interface MCPUnmanaged { target: string; project?: string; path: string; 
 /** `servers`: what the write the backup was taken before changed; `time`: when it was taken. */
 export interface MCPBackup { id: string; target: string; path: string; time?: string; servers?: { name: string; change: 'added' | 'changed' | 'removed' }[] }
 export interface MCPCandidate { name: string; server: MCPServer; problems: string[]; warnings: string[]; from?: string }
+/** `piExtension` only tells Pi's files apart: `builtin` is mcp.json, `pi-mcp-adapter` the legacy mcp-adapter.json. */
 export interface MCPImportSource { target: string; path: string; piExtension?: string }
 const post = <T,>(path: string, body: unknown) => apiFetch<T>(path, { method: 'POST', body: JSON.stringify(body) });
 export const mcpApi = {
   list: () => apiFetch<{
-    source: { path: string; configPath: string; targets: string[] | null; servers: Record<string, MCPServer>; directTools?: MCPDirectTools; projects?: Record<string, MCPProject>; /** Targets that are another config folder of an Agent, by name */ accounts?: Record<string, { agent: string; configDir: string }> };
+    source: { path: string; configPath: string; targets: string[] | null; servers: Record<string, MCPServer>; projects?: Record<string, MCPProject>; /** Targets that are another config folder of an Agent, by name */ accounts?: Record<string, { agent: string; configDir: string }>;
+      /** Settings the config still has that no longer apply, worded by the server in English. */
+      notices?: string[] };
     /** Project roots that also have their own .skillshare/config.yaml. */
     projectConfigs: string[];
     paths: Record<string, string>; detected: string[]; plan: MCPPlan | null; previewError: string;

@@ -30,11 +30,6 @@ export function buildMatrix(servers: Record<string, MCPServer>, plan: MCPPlan | 
 /** Every MCP target in display order; accounts of an Agent follow the Agents, by name. */
 export const mcpOrder = (accounts?: Record<string, unknown>) => [...mcpTargets, ...Object.keys(accounts ?? {}).sort()];
 
-/** Adapter defaults only apply to active servers sent to Pi in this scope. */
-export const usesPiAdapter = (servers: Record<string, MCPServer>, targets: string[], accounts?: Record<string, { agent: string }>) =>
-  Object.values(servers).some((server) => !server.disabled && server.piExtension === 'pi-mcp-adapter' &&
-    (server.targets ?? targets).some((target) => target === 'pi' || accounts?.[target]?.agent === 'pi'));
-
 /** A change that Sync applies; `adopt` only records an entry the Agent already has. `unchanged` and `conflict` do nothing. */
 export const writes = (change: { action: string }) => ['add', 'adopt', 'update', 'remove'].includes(change.action);
 
@@ -122,34 +117,32 @@ export const describeError = (t: (key: string, params?: Record<string, string>) 
 };
 
 /** Pi entry fields Skillshare writes from the server's own settings; the backend refuses them in piOptions. */
-const piOwnFields = new Set(['command', 'args', 'env', 'url', 'headers', 'transport', 'disabled', 'enabled', 'directTools', 'type', 'settings', 'autoEnableCodemode']);
+const piOwnFields = new Set(['command', 'args', 'env', 'url', 'headers', 'transport', 'disabled', 'directTools', 'type', 'settings', 'autoEnableCodemode']);
 
 export const piExposures = ['codemode', 'codemode-deferred', 'deferred', 'direct', 'hidden'];
 
 /** piOptions as typed. An empty box sets nothing; `invalid` is text that is not a JSON object, `taken` a field Skillshare writes. */
-export const parsePiOptions = (text: string, mode?: string): { value?: Record<string, unknown>; invalid?: true; taken?: string; bad?: string } => {
+export const parsePiOptions = (text: string): { value?: Record<string, unknown>; invalid?: true; taken?: string; bad?: string } => {
   if (!text.trim()) return {};
   try {
     const value: unknown = JSON.parse(text);
     if (!value || typeof value !== 'object' || Array.isArray(value)) return { invalid: true };
-    const taken = Object.keys(value).find((key) => piOwnFields.has(key) && !(key === 'enabled' && mode === 'builtin'));
+    const taken = Object.keys(value).find((key) => piOwnFields.has(key));
     if (taken) return { taken };
     const options = value as Record<string, unknown>;
-    if (mode === 'builtin') {
-      const object = (v: unknown): v is Record<string, unknown> => Boolean(v) && typeof v === 'object' && !Array.isArray(v);
-      if ('exposure' in options && !piExposures.includes(options.exposure as string)) return { bad: 'exposure' };
-      if ('toolExposure' in options && (!object(options.toolExposure) || Object.values(options.toolExposure).some((v) => !piExposures.includes(v as string)))) return { bad: 'toolExposure' };
-      if ('timeout' in options && (typeof options.timeout !== 'number' || options.timeout <= 0)) return { bad: 'timeout' };
-      if ('cwd' in options && typeof options.cwd !== 'string') return { bad: 'cwd' };
-      if ('enabled' in options && typeof options.enabled !== 'boolean') return { bad: 'enabled' };
-      if ('oauth' in options) {
-        if (!object(options.oauth)) return { bad: 'oauth' };
-        for (const key of ['clientId', 'clientSecret', 'callbackUrl', 'scope']) {
-          if (key in options.oauth && typeof options.oauth[key] !== 'string') return { bad: `oauth.${key}` };
-        }
-        const port = options.oauth.callbackPort;
-        if (port !== undefined && (!Number.isInteger(port) || Number(port) < 1 || Number(port) > 65535)) return { bad: 'oauth.callbackPort' };
+    const object = (v: unknown): v is Record<string, unknown> => Boolean(v) && typeof v === 'object' && !Array.isArray(v);
+    if ('exposure' in options && !piExposures.includes(options.exposure as string)) return { bad: 'exposure' };
+    if ('toolExposure' in options && (!object(options.toolExposure) || Object.values(options.toolExposure).some((v) => !piExposures.includes(v as string)))) return { bad: 'toolExposure' };
+    if ('timeout' in options && (typeof options.timeout !== 'number' || options.timeout <= 0)) return { bad: 'timeout' };
+    if ('cwd' in options && typeof options.cwd !== 'string') return { bad: 'cwd' };
+    if ('enabled' in options && typeof options.enabled !== 'boolean') return { bad: 'enabled' };
+    if ('oauth' in options) {
+      if (!object(options.oauth)) return { bad: 'oauth' };
+      for (const key of ['clientId', 'clientSecret', 'callbackUrl', 'scope']) {
+        if (key in options.oauth && typeof options.oauth[key] !== 'string') return { bad: `oauth.${key}` };
       }
+      const port = options.oauth.callbackPort;
+      if (port !== undefined && (!Number.isInteger(port) || Number(port) < 1 || Number(port) > 65535)) return { bad: 'oauth.callbackPort' };
     }
     return { value: options };
   } catch {
@@ -174,7 +167,7 @@ export const canImportConflict = (change: MCPChange) => isResolvable(change) && 
 
 /** Agents a project can turn a global server off for: those it uses, that the server reaches and that have a switch. */
 export const switchTargets = (server: MCPServer, defaults: string[], projectTargets: readonly string[]) =>
-  (server.targets ?? defaults).filter((x) => mcpOffTargets.includes(x) && projectTargets.includes(x) && (x !== 'pi' || server.piExtension === 'pi-mcp-adapter'));
+  (server.targets ?? defaults).filter((x) => mcpOffTargets.includes(x) && projectTargets.includes(x));
 
 /** The Agents a server of one scope goes to. A switch that names none follows the scope's, where the Agent has a switch, as sync works it out. */
 export const reachOf = (server: MCPServer, defaults: string[]) =>

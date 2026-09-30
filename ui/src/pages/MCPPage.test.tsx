@@ -50,7 +50,7 @@ describe('MCP page', () => {
   it('previews an adapter-file removal even when builtin owns the Pi path label', async () => {
     const user = userEvent.setup();
     vi.mocked(mcpApi.list).mockResolvedValue({
-      source: { path: '', configPath: '', targets: ['pi'], servers: { native: { command: 'n', piExtension: 'builtin' }, X: { command: 'x', piExtension: 'pi-mcp-adapter' } } },
+      source: { path: '', configPath: '', targets: ['pi'], servers: { native: { command: 'n' }, X: { command: 'x' } } },
       projectConfigs: [], paths: { pi: '/.pi/agent/mcp.json' }, detected: ['pi'], previewError: '', backups: [], unmanaged: [], plan: null,
     });
     vi.mocked(mcpApi.preview).mockResolvedValue({ revision: '', sourcePath: '', blocked: false, changes: [

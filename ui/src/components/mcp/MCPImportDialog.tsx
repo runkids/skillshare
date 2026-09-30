@@ -3,7 +3,6 @@ import { useQuery, type UseQueryResult } from '@tanstack/react-query';
 import { Braces, Check, Download, FileUp, Info, Plus, X } from 'lucide-react';
 import { mcpApi, type MCPCandidate, type MCPImportSource, type MCPMutation, type MCPServer } from '../../api/mcp';
 import MCPConfigView from './MCPConfigView';
-import PiExtensionField from './PiExtensionField';
 import PiSettingsFields from './PiSettingsFields';
 import { piOptionsError } from './mcpServerDraft';
 import AgentIcon from '../AgentIcon';
@@ -63,9 +62,10 @@ interface Props {
   onImported: () => void;
 }
 
+// Pi has two files, told apart by piExtension; the path shown is what tells them apart for the user.
 const sourceKey = (s: MCPImportSource) => `${s.target}:${s.piExtension ?? ''}`;
 
-function importSourceChoices({ paths, importSources, detected, conflict, defaultFrom, servers, defaultPath }: Props, order: readonly string[]) {
+function importSourceChoices({ paths, importSources, detected, conflict, defaultFrom, defaultPath }: Props, order: readonly string[]) {
   // An account of an Agent has its own file, so it is an import source under its own name.
   const sourcesByTarget = new Map<string, MCPImportSource[]>();
   for (const file of importSources ?? Object.entries(paths).map(([target, path]) => ({ target, path }))) {
@@ -77,8 +77,7 @@ function importSourceChoices({ paths, importSources, detected, conflict, default
   const detectedTargets = new Set(detected);
   const initialTarget = conflict?.target ?? defaultFrom ?? sources.find((s) => detectedTargets.has(s.target))?.target ?? sources[0]?.target;
   const initialSources = sources.filter((s) => s.target === initialTarget);
-  const inheritedMode = Object.values(servers).find((s) => s.piExtension)?.piExtension;
-  const initialSource = initialSources.find((s) => s.path === defaultPath && s.piExtension === inheritedMode) ?? initialSources.find((s) => s.path === defaultPath) ?? initialSources.find((s) => s.piExtension === inheritedMode) ?? initialSources[0];
+  const initialSource = initialSources.find((s) => s.path === defaultPath) ?? initialSources[0];
   return { sources, initialSource };
 }
 
@@ -89,23 +88,20 @@ interface ImportSelection {
   picked: string[] | null;
   targets: string[];
   defaultTargets: string[];
-  piExtension: string;
   previewName: string;
   tab: Source;
 }
 
-function importSelection({ candidates, servers, conflict, picked, targets, defaultTargets, piExtension, previewName, tab }: ImportSelection) {
+function importSelection({ candidates, servers, conflict, picked, targets, defaultTargets, previewName, tab }: ImportSelection) {
   const exists = (c: MCPCandidate) => c.name in servers && c.name !== conflict?.name;
   const importable = candidates.filter((c) => c.problems.length === 0 && !exists(c));
   // Everything importable starts ticked; a conflict import starts with just that entry
   const selected = picked ?? importable.filter((c) => !conflict || c.name === conflict.name).map((c) => c.name);
   const chosen = importable.filter((c) => selected.includes(c.name));
-  const modes = [...new Set(chosen.map((c) => c.server.piExtension).filter(Boolean))];
-  // A mode picked here applies to every server; otherwise each keeps its own and the rest are built-in.
-  const mode = piExtension || (modes.length === 1 ? modes[0] : 'builtin');
-  const modeOf = (c: MCPCandidate) => piExtension || c.server.piExtension || 'builtin';
   const piChosen = targets.includes('pi') || chosen.some((c) => servers[c.name]?.targets?.includes('pi'));
-  const incompatible = piChosen && chosen.some((c) => (c.server.directTools !== undefined && modeOf(c) !== 'pi-mcp-adapter') || (Object.keys(c.server.piOptions ?? {}).length > 0 && modeOf(c) === 'pi-mcp-extension') || Boolean(parsePiOptions(JSON.stringify(c.server.piOptions ?? {}), modeOf(c)).bad || parsePiOptions(JSON.stringify(c.server.piOptions ?? {}), modeOf(c)).taken));
+  // Pi's settings are checked as the form checks them, so an import cannot save what the form refuses.
+  const piProblem = piChosen ? chosen.map((c) => ({ name: c.name, options: parsePiOptions(JSON.stringify(c.server.piOptions ?? {})) })).find((p) => !p.options.value && Object.keys(p.options).length > 0) : undefined;
+  const incompatible = Boolean(piProblem);
   const preview = chosen.find((c) => c.name === previewName) ?? chosen[0];
 
   const showList = tab === 'target' || candidates.length > 1 || candidates.some((c) => c.problems.length || c.warnings.length || exists(c));
@@ -115,29 +111,20 @@ function importSelection({ candidates, servers, conflict, picked, targets, defau
   // A pasted snippet is a new server and may stay in Skillshare only. Importing from an Agent
   // takes over the entry that Agent has, so it still needs somewhere to write.
   const needsTarget = tab === 'target' && targets.length === 0;
-  return { exists, importable, selected, chosen, mode, modeOf, piChosen, incompatible, preview, showList, inherited, needsTarget };
+  return { exists, importable, selected, chosen, piChosen, piProblem, incompatible, preview, showList, inherited, needsTarget };
 }
 
-interface PiEdit { options?: string; prune?: boolean }
-
-/** Pi settings of the one pasted server: the fields start from its own, and only the ones edited change it. */
-function pastedPiSettings(single: MCPCandidate | undefined, mode: string, edit: PiEdit, t: ReturnType<typeof useT>) {
-  const keepsOptions = mode === 'builtin' || mode === 'pi-mcp-adapter';
-  const optionsText = edit.options ?? (single?.server.piOptions ? JSON.stringify(single.server.piOptions, null, 2) : '');
-  const options = single && keepsOptions ? parsePiOptions(optionsText, mode) : {};
+/** Pi settings of the one pasted server: the field starts from its own, and only an edit changes it. */
+function pastedPiSettings(single: MCPCandidate | undefined, edit: string | undefined, t: ReturnType<typeof useT>) {
+  const optionsText = edit ?? (single?.server.piOptions ? JSON.stringify(single.server.piOptions, null, 2) : '');
+  const options = single ? parsePiOptions(optionsText) : {};
   const optionsError = piOptionsError(options, t);
-  const prune = edit.prune ?? Boolean(single?.server.piOptionsPrune);
   let server: MCPServer | undefined;
-  if (single && keepsOptions && !optionsError && (edit.options !== undefined || edit.prune !== undefined)) {
+  if (single && !optionsError && edit !== undefined) {
     server = { ...single.server };
-    if (edit.options !== undefined) {
-      if (options.value && Object.keys(options.value).length > 0) server.piOptions = options.value; else delete server.piOptions;
-    }
-    if (edit.prune !== undefined) {
-      if (edit.prune) server.piOptionsPrune = true; else delete server.piOptionsPrune;
-    }
+    if (options.value && Object.keys(options.value).length > 0) server.piOptions = options.value; else delete server.piOptions;
   }
-  return { keepsOptions, optionsText, options, optionsError, prune, server };
+  return { optionsText, options, optionsError, server };
 }
 
 type ImportQuery = UseQueryResult<{ candidates: MCPCandidate[] }, Error>;
@@ -316,12 +303,12 @@ function useImportQuery(sourceID: string, selectedSource: MCPImportSource | unde
 
 function ImportPreview({ selection, targets, project, onPreviewName }: { selection: ReturnType<typeof importSelection>; targets: string[]; project?: string; onPreviewName: (name: string) => void }) {
   const t = useT();
-  const { preview, chosen, piChosen, modeOf } = selection;
+  const { preview, chosen } = selection;
   if (!preview || targets.length === 0) return null;
   return (
     <div className="ss-fld">
       {chosen.length > 1 && <Select ariaLabel={t('mcp.name')} value={preview.name} onChange={onPreviewName} options={chosen.map((c) => ({ value: c.name, label: c.name }))} />}
-      <MCPConfigView mutation={{ project, name: preview.name, server: { ...preview.server, ...((piChosen || preview.server.piExtension) && { piExtension: modeOf(preview) }), targets } }} />
+      <MCPConfigView mutation={{ project, name: preview.name, server: { ...preview.server, targets } }} />
     </div>
   );
 
@@ -343,9 +330,8 @@ export default function MCPImportDialog(props: Props) {
   const [tomlFrom, setTomlFrom] = useState('codex');
   const [picked, setPicked] = useState<string[] | null>(null);
   const [targets, setTargets] = useState<string[]>(defaultTargets);
-  const [piExtension, setPiExtension] = useState('');
   const [previewName, setPreviewName] = useState('');
-  const [piEdit, setPiEdit] = useState<PiEdit>({});
+  const [piEdit, setPiEdit] = useState<string>();
   const [saving, setSaving] = useState(false);
   const visibleTargets = new Set([...availableTargets, ...targets]);
 
@@ -358,14 +344,14 @@ export default function MCPImportDialog(props: Props) {
   const query = useImportQuery(sourceID, selectedSource, project, tab, pasted, tomlFrom);
   const candidates = query.data?.candidates ?? [];
 
-  const base = { servers, conflict, picked, targets, defaultTargets, piExtension, previewName, tab };
+  const base = { servers, conflict, picked, targets, defaultTargets, previewName, tab };
   const raw = importSelection({ ...base, candidates });
-  // One pasted server gets the form's full Pi settings; several keep only the shared mode.
+  // One pasted server gets the form's Pi settings; several keep their own.
   const single = tab === 'paste' && candidates.length === 1 && raw.chosen.length === 1 && raw.piChosen ? raw.chosen[0] : undefined;
-  const pi = pastedPiSettings(single, raw.mode ?? '', piEdit, t);
+  const pi = pastedPiSettings(single, piEdit, t);
   const selection = single && pi.server ? importSelection({ ...base, candidates: [{ ...single, server: pi.server }] }) : raw;
-  const { chosen, mode, modeOf, piChosen, incompatible, showList, inherited, needsTarget } = selection;
-  const reset = () => { setPicked(null); setPiEdit({}); };
+  const { chosen, piProblem, incompatible, showList, inherited, needsTarget } = selection;
+  const reset = () => { setPicked(null); setPiEdit(undefined); };
 
   const run = async () => {
     setSaving(true);
@@ -374,7 +360,7 @@ export default function MCPImportDialog(props: Props) {
       // A takeover keeps the targets the existing server already has
       const own = servers[c.name]?.targets;
       const write = own ?? (inherited ? undefined : order.filter((x) => targets.includes(x)));
-      const mutation: MCPMutation = { ...(project && { project }), name: c.name, server: { ...c.server, ...((piChosen || c.server.piExtension) && { piExtension: modeOf(c) }), ...(write && { targets: write }) }, replace: c.name in servers };
+      const mutation: MCPMutation = { ...(project && { project }), name: c.name, server: { ...c.server, ...(write && { targets: write }) }, replace: c.name in servers };
       // Adopting records the tool's identical entry as managed, so the next sync has no conflict there
       if (c.from && (own ?? targets).includes(c.from)) mutation.resolutions = [{ target: c.from, name: c.name, action: 'adopt' }];
       try {
@@ -418,8 +404,8 @@ export default function MCPImportDialog(props: Props) {
             <Select
               ariaLabel={t('mcp.target')}
               value={sourceID}
-              onChange={(v) => { setSourceID(v); reset(); setPiExtension(''); setPreviewName(''); }}
-              options={sources.map((s) => ({ value: sourceKey(s), label: `${targetLabel(s.target)}${s.piExtension ? ` · ${s.piExtension === 'builtin' ? t('mcp.piBuiltinShort') : s.piExtension}` : ''}  ${shortenHome(s.path)}`, icon: <AgentIcon target={s.target} size={16} /> }))}
+              onChange={(v) => { setSourceID(v); reset(); setPreviewName(''); }}
+              options={sources.map((s) => ({ value: sourceKey(s), label: `${targetLabel(s.target)}  ${shortenHome(s.path)}`, icon: <AgentIcon target={s.target} size={16} /> }))}
               disabled={saving}
             />
             <span className="hp">{t('mcp.fromTargetHint')}</span>
@@ -455,10 +441,8 @@ export default function MCPImportDialog(props: Props) {
           </div>
         </div>
 
-        {single ? (
-          <PiSettingsFields mode={mode ?? ''} onMode={setPiExtension} optionsText={pi.optionsText} options={pi.options} optionsError={pi.optionsError} onOptions={(options) => setPiEdit((prev) => ({ ...prev, options }))} keepsOptions={pi.keepsOptions} prune={pi.prune} onPrune={(prune) => setPiEdit((prev) => ({ ...prev, prune }))} disabled={saving} project={Boolean(project) || isProjectMode} />
-        ) : piChosen && <PiExtensionField value={mode ?? ''} onChange={setPiExtension} disabled={saving} project={Boolean(project) || isProjectMode} />}
-        {incompatible && <div className="ss-note bad"><span>{t('mcp.piOptionsTaken', { field: 'piOptions / directTools' })}</span></div>}
+        {single && <PiSettingsFields optionsText={pi.optionsText} options={pi.options} optionsError={pi.optionsError} onOptions={setPiEdit} disabled={saving} project={Boolean(project) || isProjectMode} />}
+        {piProblem && <div className="ss-note bad"><span><span className="font-mono">{piProblem.name}</span>: {piOptionsError(piProblem.options, t)}</span></div>}
         <ImportPreview selection={selection} targets={targets} project={project} onPreviewName={setPreviewName} />
         {tab === 'target' && candidates.length > 0 && (
           <div className="ss-note inf">

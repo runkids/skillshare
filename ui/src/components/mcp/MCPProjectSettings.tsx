@@ -1,18 +1,10 @@
 import { useState } from 'react';
-import { mcpTargets, type MCPDirectTools, type MCPSettings } from '../../api/mcp';
+import { mcpTargets } from '../../api/mcp';
 import ConfirmDialog from '../ConfirmDialog';
 import SegmentedControl from '../SegmentedControl';
 import { useT } from '../../i18n';
-import DirectToolsField, { directToolsComplete, directToolsDraft, directToolsValue, type DirectToolsDraft } from './DirectToolsField';
 import { TargetToggles } from './TargetPicker';
 import { targetLabel } from './mcpView';
-
-/** What a directTools value reads as in a sentence, such as the default a project inherits. */
-export function useDirectToolsLabel() {
-  const t = useT();
-  return (value: MCPDirectTools | undefined) =>
-    Array.isArray(value) ? value.join(', ') : value === undefined ? t('mcp.directToolsUnset') : t({ true: 'mcp.directToolsAll', false: 'mcp.directToolsOff', search: 'mcp.directToolsSearch' }[String(value) as 'true' | 'false' | 'search']);
-}
 
 interface TargetsProps {
   /** undefined follows mcp.targets. */
@@ -60,15 +52,3 @@ export function ProjectTargets({ value, defaults, offered, onChange, disabled }:
   );
 }
 
-/**
- * directTools that saves as it changes. Tool names are saved when the field is left,
- * so a half-typed list is never written.
- */
-export function DirectToolsSetting({ value, onSave, unsetLabel, disabled }: { value: MCPDirectTools | undefined; onSave: (value: MCPSettings['directTools']) => void; unsetLabel?: string; disabled?: boolean }) {
-  const [draft, setDraft] = useState<DirectToolsDraft>(() => directToolsDraft(value));
-  const change = (next: DirectToolsDraft) => {
-    setDraft(next);
-    if (next.mode !== draft.mode && next.mode !== 'list') onSave(directToolsValue(next));
-  };
-  return <DirectToolsField bare value={draft} onChange={change} unsetLabel={unsetLabel} disabled={disabled} onNamesBlur={() => { if (directToolsComplete(draft)) onSave(directToolsValue(draft)); }} />;
-}

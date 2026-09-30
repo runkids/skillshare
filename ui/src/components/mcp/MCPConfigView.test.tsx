@@ -14,7 +14,7 @@ it('keeps the previous native preview while a changed draft is rendering', async
   let resolve!: (value: typeof initial) => void;
   vi.mocked(mcpApi.render).mockResolvedValueOnce(initial).mockImplementationOnce(() => new Promise((done) => { resolve = done; }));
   const view = (command: string) => {
-    const mutation: MCPMutation = { name: 'docs', server: { command, piExtension: 'builtin', targets: ['pi'] } };
+    const mutation: MCPMutation = { name: 'docs', server: { command, targets: ['pi'] } };
     return <QueryClientProvider client={client}><I18nProvider><MCPConfigView mutation={mutation} /></I18nProvider></QueryClientProvider>;
   };
   const result = render(view('old'));

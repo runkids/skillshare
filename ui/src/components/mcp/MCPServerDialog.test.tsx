@@ -17,15 +17,17 @@ const renderDialog = (props: Partial<Parameters<typeof MCPServerDialog>[0]> = {}
   render(<QueryClientProvider client={new QueryClient()}><I18nProvider><MCPServerDialog defaultTargets={['claude']} existingNames={[]} onClose={vi.fn()} onSaved={vi.fn()} {...props} /></I18nProvider></QueryClientProvider>);
 
 describe('MCP server dialog', () => {
-  it('requires a Pi extension and persists the explicit selection', async () => {
+  it('offers Pi settings without a Pi mode, cleanup switch or Direct tools', async () => {
     const user = userEvent.setup();
     renderDialog({ initial: { name: 'docs', server: { url: 'https://example.com/mcp', targets: ['pi'] } } });
-    expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
-    await user.click(screen.getByRole('combobox', { name: 'Pi MCP mode' }));
-    await user.click(screen.getByRole('option', { name: 'pi-mcp-extension' }));
-    expect(screen.getByText('pi install npm:pi-mcp-extension')).toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: 'Tool exposure' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Pi MCP · Official documentation' })).toBeInTheDocument();
+    expect(screen.queryByRole('combobox', { name: 'Pi MCP mode' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('checkbox', { name: 'Remove cleared settings from Pi' })).not.toBeInTheDocument();
+    expect(screen.queryByText('Direct tools')).not.toBeInTheDocument();
+    expect(screen.queryByText(/pi-mcp-adapter|pi-mcp-extension/)).not.toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Save' }));
-    await waitFor(() => expect(mcpApi.save).toHaveBeenCalledWith(expect.objectContaining({ server: { url: 'https://example.com/mcp', targets: ['pi'], piExtension: 'pi-mcp-extension' } })));
+    await waitFor(() => expect(mcpApi.save).toHaveBeenCalledWith(expect.objectContaining({ server: { url: 'https://example.com/mcp', targets: ['pi'] } })));
   });
 
   it('limits new selections to clients available in this scope', () => {
@@ -123,84 +125,54 @@ describe('MCP server dialog', () => {
     expect(mcpApi.render).toHaveBeenCalledWith({ name: 'docs', server: { command: 'npx', targets: ['claude'] } });
   });
 
-  it('keeps Pi directTools when editing something else', async () => {
-    const user = userEvent.setup();
-    const server = { command: 'docs', targets: ['pi'], piExtension: 'pi-mcp-adapter', directTools: ['search'] };
-    renderDialog({ initial: { name: 'docs', server } });
-    await user.click(screen.getByRole('button', { name: 'Save' }));
-    await waitFor(() => expect(mcpApi.save).toHaveBeenCalledWith(expect.objectContaining({ server })));
-  });
-
-  it('sets Pi directTools from the field, offered only with pi-mcp-adapter', async () => {
-    const user = userEvent.setup();
-    renderDialog({ initial: { name: 'docs', server: { command: 'docs', targets: ['pi'], piExtension: 'pi-mcp-extension' } } });
-    expect(screen.queryByRole('combobox', { name: 'Direct tools' })).not.toBeInTheDocument();
-    await user.click(screen.getByRole('combobox', { name: 'Pi MCP mode' }));
-    await user.click(screen.getByRole('option', { name: 'pi-mcp-adapter' }));
-    await user.click(screen.getByRole('combobox', { name: 'Direct tools' }));
-    await user.click(screen.getByRole('option', { name: 'Only these tools' }));
-    expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
-    await user.type(screen.getByLabelText('Tool names'), 'search_docs, fetch');
-    await user.click(screen.getByRole('button', { name: 'Save' }));
-    await waitFor(() => expect(mcpApi.save).toHaveBeenCalledWith(expect.objectContaining({
-      server: { command: 'docs', targets: ['pi'], piExtension: 'pi-mcp-adapter', directTools: ['search_docs', 'fetch'] },
-    })));
-  });
-
   it('keeps Pi options when editing something else', async () => {
     const user = userEvent.setup();
-    const server = { command: 'docs', targets: ['pi'], piExtension: 'pi-mcp-adapter', piOptions: { excludeTools: ['*emulator*'] } };
+    const server = { command: 'docs', targets: ['pi'], piOptions: { timeout: 120 } };
     renderDialog({ initial: { name: 'docs', server } });
     await user.click(screen.getByRole('button', { name: 'Save' }));
     await waitFor(() => expect(mcpApi.save).toHaveBeenCalledWith(expect.objectContaining({ server })));
   });
 
-  // Refs: #289. Unticking Pi must not drop its adapter settings from the source.
-  it('keeps Pi adapter settings when Pi is unticked', async () => {
+  // Refs: #289. Unticking Pi must not drop its settings from the source.
+  it('keeps Pi settings when Pi is unticked', async () => {
     const user = userEvent.setup();
-    renderDialog({ initial: { name: 'docs', server: { command: 'npx', targets: ['pi'], piExtension: 'pi-mcp-adapter', directTools: true, piOptions: { excludeTools: ['x'] } } } });
+    renderDialog({ initial: { name: 'docs', server: { command: 'npx', targets: ['pi', 'claude'], piOptions: { timeout: 120 } } } });
     await user.click(screen.getByRole('checkbox', { name: 'Pi' }));
     await user.click(screen.getByRole('button', { name: 'Save' }));
     await waitFor(() => expect(mcpApi.save).toHaveBeenCalledWith(expect.objectContaining({
-      server: expect.objectContaining({ directTools: true, piOptions: { excludeTools: ['x'] } }),
+      server: expect.objectContaining({ targets: ['claude'], piOptions: { timeout: 120 } }),
     })));
   });
 
-  it('takes other Pi adapter settings as a JSON object', async () => {
+  it('takes other Pi settings as a JSON object', async () => {
     const user = userEvent.setup();
-    renderDialog({ initial: { name: 'docs', server: { command: 'docs', targets: ['pi'], piExtension: 'pi-mcp-adapter' } } });
+    renderDialog({ initial: { name: 'docs', server: { command: 'docs', targets: ['pi'] } } });
     const box = screen.getByLabelText('Other Pi settings');
     await user.click(box);
     await user.paste('["delete_*"]');
     expect(screen.getByText('Enter a JSON object.')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
     await user.clear(box);
-    await user.paste('{"approveTools": ["delete_*"]}');
+    await user.paste('{"cwd": "/work"}');
     await user.click(screen.getByRole('button', { name: 'Save' }));
     await waitFor(() => expect(mcpApi.save).toHaveBeenCalledWith(expect.objectContaining({
-      server: { command: 'docs', targets: ['pi'], piExtension: 'pi-mcp-adapter', piOptions: { approveTools: ['delete_*'] } },
+      server: { command: 'docs', targets: ['pi'], piOptions: { cwd: '/work' } },
     })));
   });
 
-  it('shows the adapter mode when editing an adapter server', () => {
-    renderDialog({ initial: { name: 'docs', server: { command: 'docs', targets: ['pi'], piExtension: 'pi-mcp-adapter' } } });
-    expect(screen.getByRole('combobox', { name: 'Pi MCP mode' })).toHaveTextContent('pi-mcp-adapter');
-  });
-
-  it('uses builtin for a new Pi server and previews the project scope', async () => {
+  it('previews a new Pi server in the project scope', async () => {
     const user = userEvent.setup();
     vi.mocked(mcpApi.render).mockResolvedValue({ rendered: [{ target: 'pi', path: '/project/.pi/mcp.json', content: '{"mcpServers":{}}' }] });
     renderDialog({ defaultTargets: ['pi'], project: '/project' });
     await user.type(screen.getByLabelText('Name'), 'docs');
     await user.type(screen.getByLabelText('Command'), 'docs');
-    expect(screen.queryByText('pi install npm:builtin')).not.toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'View them' }));
-    await waitFor(() => expect(mcpApi.render).toHaveBeenCalledWith(expect.objectContaining({ project: '/project', server: expect.objectContaining({ piExtension: 'builtin' }) })));
+    await waitFor(() => expect(mcpApi.render).toHaveBeenCalledWith({ project: '/project', name: 'docs', server: { command: 'docs', targets: ['pi'] } }));
   });
 
-  it('shares exposure with JSON and retains separate mode drafts', async () => {
+  it('shares exposure with JSON', async () => {
     const user = userEvent.setup();
-    renderDialog({ initial: { name: 'docs', server: { command: 'docs', targets: ['pi'], piExtension: 'builtin', piOptions: { exposure: 'deferred', custom: { keep: true } } } } });
+    renderDialog({ initial: { name: 'docs', server: { command: 'docs', targets: ['pi'], piOptions: { exposure: 'deferred', custom: { keep: true } } } } });
     const box = screen.getByLabelText('Other Pi settings');
     await user.clear(box);
     await user.click(box);
@@ -209,13 +181,8 @@ describe('MCP server dialog', () => {
     await user.click(screen.getByRole('combobox', { name: 'Tool exposure' }));
     await user.click(screen.getByRole('option', { name: /^direct\b/ }));
     expect(JSON.parse((box as HTMLTextAreaElement).value)).toEqual({ exposure: 'direct', custom: { keep: true } });
-    await user.click(screen.getByRole('combobox', { name: 'Pi MCP mode' }));
-    await user.click(screen.getByRole('option', { name: 'pi-mcp-adapter' }));
-    expect(screen.getByLabelText('Other Pi settings')).toHaveValue('');
-    await user.click(screen.getByRole('combobox', { name: 'Pi MCP mode' }));
-    await user.click(screen.getByRole('option', { name: 'Built-in (Pi ≥ 0.99.0)' }));
     await user.click(screen.getByRole('button', { name: 'Save' }));
-    await waitFor(() => expect(mcpApi.save).toHaveBeenCalledWith(expect.objectContaining({ server: expect.objectContaining({ piExtension: 'builtin', piOptions: { exposure: 'direct', custom: { keep: true } } }) })));
+    await waitFor(() => expect(mcpApi.save).toHaveBeenCalledWith(expect.objectContaining({ server: expect.objectContaining({ piOptions: { exposure: 'direct', custom: { keep: true } } }) })));
   });
 
   it('refuses a name that is already taken', async () => {

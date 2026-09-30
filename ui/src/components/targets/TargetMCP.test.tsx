@@ -41,12 +41,11 @@ describe('Target MCP tab', () => {
     await waitFor(() => expect(mcpApi.save).toHaveBeenCalledWith({ name: 'docs', replace: true, server: { disabled: true, targets: ['claude', 'opencode'] } }));
   });
 
-  // Pi gets the switch when the global server uses pi-mcp-adapter, which a -p scope cannot read.
   it("shows a switch that names no targets where the plan sends it", () => {
-    view('pi', { docs: { disabled: true } }, {
+    view('opencode', { docs: { disabled: true } }, {
       revision: 'r', sourcePath: '/work/app/.skillshare/config.yaml', blocked: false,
-      changes: [{ target: 'pi', path: '/work/app/.pi/mcp.json', name: 'docs', switch: true, action: 'unchanged' }],
-    }, ['claude', 'pi']);
+      changes: [{ target: 'opencode', path: '/work/app/opencode.json', name: 'docs', switch: true, action: 'unchanged' }],
+    }, ['claude', 'opencode']);
     expect(screen.getByRole('switch', { name: 'docs' })).toHaveAttribute('aria-checked', 'true');
   });
 

@@ -2,13 +2,11 @@ import { describe, expect, it } from 'vitest';
 import { initialServerDraft } from './mcpServerDraft';
 
 describe('MCP server drafts', () => {
-  it('starts a new server on the built-in mode, with its option draft under that mode', () => {
-    const draft = initialServerDraft(undefined, '', ['pi'], false);
-    expect(draft.piExtension).toBe('builtin');
-    expect(Object.keys(draft.modeDrafts)).toEqual([draft.piExtension]);
+  it('starts from the Pi settings of a server being edited', () => {
+    expect(JSON.parse(initialServerDraft({ command: 'docs', piOptions: { exposure: 'direct' } }, 'docs', ['pi'], false).piOptions)).toEqual({ exposure: 'direct' });
   });
 
-  it('keeps the mode of a server being edited', () => {
-    expect(initialServerDraft({ command: 'docs', piExtension: 'pi-mcp-adapter' }, 'docs', ['pi'], false).piExtension).toBe('pi-mcp-adapter');
+  it('leaves Pi out of the targets a new off switch starts with', () => {
+    expect(initialServerDraft(undefined, '', ['claude', 'pi'], true).targets).toEqual(['claude']);
   });
 });

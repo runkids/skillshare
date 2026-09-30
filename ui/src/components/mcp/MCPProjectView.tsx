@@ -9,7 +9,7 @@ import { SkillContextMenu, type ContextMenuItem } from '../TargetMenu';
 import { useToast } from '../Toast';
 import { useT } from '../../i18n';
 import { shortenHome } from '../../lib/paths';
-import { DirectToolsSetting, ProjectTargets, useDirectToolsLabel } from './MCPProjectSettings';
+import { ProjectTargets } from './MCPProjectSettings';
 import MCPCheckNote from './MCPCheckNote';
 import MCPImportDialog from './MCPImportDialog';
 import MCPRemoveDialog from './MCPRemoveDialog';
@@ -19,7 +19,7 @@ import MCPSyncBox, { MCPRailActions } from './MCPSyncBox';
 import MCPUnmanagedNote from './MCPUnmanagedNote';
 import { TargetPill } from './TargetPicker';
 import { problemsByServer, useMCPCheck } from './useMCPCheck';
-import { buildMatrix, describeEndpoint, describeError, projectOf, switchTargets, targetLabel, usesPiAdapter, writes } from './mcpView';
+import { buildMatrix, describeEndpoint, describeError, projectOf, switchTargets, targetLabel, writes } from './mcpView';
 
 type MCPList = Awaited<ReturnType<typeof mcpApi.list>>;
 
@@ -45,12 +45,10 @@ function projectViewModel(data: MCPList, root: string, offered: readonly string[
   const unmanaged = data.unmanaged.filter((u) => u.project === root);
   // A switch for a global server belongs to the list above; everything else is the project's own.
   const own = Object.fromEntries(Object.entries(servers).filter(([n, s]) => !(s.disabled && globals[n])));
-  // A switch that names no targets follows the project, and Pi has one only with pi-mcp-adapter.
-  const targetsOf = (n: string) => own[n]?.targets ?? (own[n]?.disabled ? targets.filter((x) => x !== 'pi' || own[n].piExtension === 'pi-mcp-adapter') : targets);
+  // A switch that names no targets follows the project, and Pi has none.
+  const targetsOf = (n: string) => own[n]?.targets ?? (own[n]?.disabled ? targets.filter((x) => x !== 'pi') : targets);
   const offTargets = mcpOffTargets;
-  // Pi reads one file per project through one extension, so the project's own servers decide it.
-  const ownPi = Object.values(servers).find((x) => !x.disabled && x.piExtension)?.piExtension;
-  const switchable = (server: MCPServer) => switchTargets(ownPi ? { ...server, piExtension: ownPi } : server, defaults, targets);
+  const switchable = (server: MCPServer) => switchTargets(server, defaults, targets);
   const ownRows = buildMatrix(own, data.plan && { ...data.plan, changes: changes.filter((c) => own[c.name]) });
   const shown = mcpTargets.filter((x) => offered.includes(x) || ownRows.some((row) => targetsOf(row.name).includes(x)));
   return { project, globals, defaults, targets, servers, shownGlobals, roots, changes, name, unmanaged, own, targetsOf, offTargets, switchable, ownRows, shown };
@@ -58,21 +56,16 @@ function projectViewModel(data: MCPList, root: string, offered: readonly string[
 
 type ProjectModel = ReturnType<typeof projectViewModel>;
 
-function ProjectSettings({ data, model, offered, pickTargets, onPickTargets, busy, save }: { data: MCPList; model: ProjectModel; offered: readonly string[]; pickTargets: boolean; onPickTargets: () => void; busy: boolean; save: (mutation: MCPMutation) => Promise<boolean> }) {
+function ProjectSettings({ model, offered, pickTargets, onPickTargets, busy, save }: { model: ProjectModel; offered: readonly string[]; pickTargets: boolean; onPickTargets: () => void; busy: boolean; save: (mutation: MCPMutation) => Promise<boolean> }) {
   const t = useT();
-  const directLabel = useDirectToolsLabel();
-  const { project, targets, defaults, own, name } = model;
+  const { project, targets, defaults, name } = model;
   return (
     <div className="ss-box flex flex-col gap-3.5">
       <dl className="ss-kv !grid-cols-[auto_minmax(0,1fr)] items-center">
         <dt>{t('mcp.targets')}</dt>
         <dd><TargetPill selected={targets} text={project.targets ? `${targets.length}/${offered.length}` : t('mcp.projects.inherit')} expanded={pickTargets} label={t('mcp.chooseAgents', { name })} onClick={() => onPickTargets()} /></dd>
         {/* In the value column, so the expanded control lines up under the pill that opened it. */}
-        {pickTargets && <dd className="col-start-2 !font-normal"><ProjectTargets value={project.targets} defaults={defaults} offered={offered} disabled={busy} onChange={(next) => void save({ replace: true, settings: { targets: next, directTools: project.directTools } })} /></dd>}
-        {usesPiAdapter(own, targets, data.source.accounts) && <>
-          <dt className="self-start pt-2.5">{t('mcp.directTools')}</dt>
-          <dd className="max-w-[320px]"><DirectToolsSetting value={project.directTools} disabled={busy} unsetLabel={t('mcp.directToolsInherit', { value: directLabel(data.source.directTools) })} onSave={(directTools) => void save({ replace: true, settings: { targets: project.targets, directTools } })} /></dd>
-        </>}
+        {pickTargets && <dd className="col-start-2 !font-normal"><ProjectTargets value={project.targets} defaults={defaults} offered={offered} disabled={busy} onChange={(next) => void save({ replace: true, settings: { targets: next } })} /></dd>}
       </dl>
     </div>
   );
@@ -152,7 +145,6 @@ export default function MCPProjectView({ data, root, offered, onChanged, onRemov
     const next = mcpTargets.filter((x) => (x === target ? on : targetsOf(n).includes(x)));
     // A switch-only entry needs an Agent to turn the server off for; a server may have none.
     if (next.length === 0 && own[n].disabled) return toast(t('mcp.needTarget'), 'warning');
-    if (target === 'pi' && on && !own[n].piExtension && !own[n].disabled) return setEditing(n);
     void save({ name: n, replace: true, server: { ...own[n], targets: next } }).then((saved) => { if (saved && next.length === 0) toast(t('mcp.noTargetsToast', { name: n }), 'info'); });
   };
 
@@ -180,7 +172,7 @@ export default function MCPProjectView({ data, root, offered, onChanged, onRemov
       <RailLayout pageScroll rail={data.plan
         ? <MCPSyncBox changes={changes} roots={roots} plan={data.plan} check={ownRows.length > 0 ? check : undefined} />
         : ownRows.length > 0 && <div className="ss-box"><MCPRailActions check={check} /></div>}>
-        <ProjectSettings data={data} model={model} offered={offered} pickTargets={pickTargets} onPickTargets={() => setPickTargets(!pickTargets)} busy={busy} save={save} />
+        <ProjectSettings model={model} offered={offered} pickTargets={pickTargets} onPickTargets={() => setPickTargets(!pickTargets)} busy={busy} save={save} />
 
         {ownRows.length > 0 && <div className="mt-3 empty:hidden"><MCPCheckNote report={check.report} checkedAt={check.checkedAt} error={check.error} running={check.running} onRun={() => void check.run()} project={root} /></div>}
         <div className="mt-3 empty:hidden"><MCPUnmanagedNote entries={unmanaged} onImport={setImportFrom} /></div>

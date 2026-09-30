@@ -1,22 +1,17 @@
 import { useContext, useState } from 'react';
-import type { MCPDirectTools, MCPServer, MCPSettings } from '../../api/mcp';
+import type { MCPSettings } from '../../api/mcp';
 import { useT } from '../../i18n';
-import { DirectToolsSetting } from './MCPProjectSettings';
 import { TargetPill, TargetToggles } from './TargetPicker';
 import { MCPTargetOrder } from './targetOrder';
-import { usesPiAdapter } from './mcpView';
 
 interface Props {
   targets: string[];
-  servers: Record<string, MCPServer>;
-  accounts?: Record<string, { agent: string }>;
-  directTools: MCPDirectTools | undefined;
   offered: readonly string[];
   onSave: (settings: MCPSettings) => void;
 }
 
-/** mcp.targets and mcp.directTools: what a server without its own setting falls back to. */
-export default function MCPDefaults({ targets, servers, accounts, directTools, offered, onSave }: Props) {
+/** mcp.targets: what a server without its own targets falls back to. */
+export default function MCPDefaults({ targets, offered, onSave }: Props) {
   const t = useT();
   const [open, setOpen] = useState(false);
   const order = useContext(MCPTargetOrder);
@@ -31,13 +26,7 @@ export default function MCPDefaults({ targets, servers, accounts, directTools, o
         </div>
         {open && (
           <div className="flex flex-wrap gap-x-6 gap-y-3.5 px-[18px] pb-4">
-            <TargetToggles offered={shown} selected={targets} onToggle={(target, on) => onSave({ targets: order.filter((x) => (x === target ? on : targets.includes(x))), directTools })} />
-          </div>
-        )}
-        {usesPiAdapter(servers, targets, accounts) && (
-          <div className="ss-setrow !items-start [border-top:var(--sep)]">
-            <div className="l"><b>{t('mcp.directTools')} · pi-mcp-adapter</b><span>{t('mcp.defaults.directToolsHint')}</span></div>
-            <div className="w-[260px] shrink-0"><DirectToolsSetting value={directTools} onSave={(value) => onSave({ targets, directTools: value })} /></div>
+            <TargetToggles offered={shown} selected={targets} onToggle={(target, on) => onSave({ targets: order.filter((x) => (x === target ? on : targets.includes(x))) })} />
           </div>
         )}
       </div>

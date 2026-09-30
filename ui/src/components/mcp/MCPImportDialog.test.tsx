@@ -24,29 +24,25 @@ describe('MCP import dialog', () => {
     vi.mocked(mcpApi.save).mockResolvedValue({ applied: [], backupIds: [] });
   });
 
-  it('selects each Pi source explicitly and resets selections between files', async () => {
-    vi.mocked(mcpApi.import).mockImplementation(async (body) => ({ candidates: [{ name: 'docs', server: { command: body.piExtension === 'pi-mcp-adapter' ? 'adapter' : 'native', piExtension: body.piExtension }, problems: [], warnings: [], from: 'pi' }] }));
+  it("reads each of Pi's files as picked and resets selections between files", async () => {
+    vi.mocked(mcpApi.import).mockImplementation(async (body) => ({ candidates: [{ name: 'docs', server: { command: body.piExtension === 'pi-mcp-adapter' ? 'adapter' : 'native' }, problems: [], warnings: [], from: 'pi' }] }));
     const user = userEvent.setup();
     renderDialog({ servers: {}, defaultTargets: ['pi'], paths: { pi: '/project/.pi/mcp.json' }, project: '/project', detected: ['pi'], importSources: [
       { target: 'pi', path: '/project/.pi/mcp.json', piExtension: 'builtin' },
       { target: 'pi', path: '/project/.pi/mcp-adapter.json', piExtension: 'pi-mcp-adapter' },
-      { target: 'pi', path: '/project/.pi/mcp.json', piExtension: 'pi-mcp-extension' },
     ] });
     await waitFor(() => expect(mcpApi.import).toHaveBeenCalledWith({ from: 'pi', root: '/project', piExtension: 'builtin' }));
-    expect(await screen.findByText(/Use .pi\/mcp.json only for servers this project needs/)).toBeInTheDocument();
     await user.click(await screen.findByRole('checkbox', { name: /docs/ }));
     await user.click(screen.getByRole('combobox', { name: 'Target' }));
-    expect(screen.getByRole('option', { name: 'Pi · Built-in /project/.pi/mcp.json' })).toBeInTheDocument();
-    expect(screen.getByRole('option', { name: 'Pi · pi-mcp-extension /project/.pi/mcp.json' })).toBeInTheDocument();
-    await user.click(screen.getByRole('option', { name: 'Pi · pi-mcp-adapter /project/.pi/mcp-adapter.json' }));
+    expect(screen.getByRole('option', { name: 'Pi /project/.pi/mcp.json' })).toBeInTheDocument();
+    await user.click(screen.getByRole('option', { name: 'Pi /project/.pi/mcp-adapter.json' }));
     await waitFor(() => expect(mcpApi.import).toHaveBeenLastCalledWith({ from: 'pi', root: '/project', piExtension: 'pi-mcp-adapter' }));
-    await waitFor(() => expect(screen.queryByText(/Use .pi\/mcp.json only for servers this project needs/)).not.toBeInTheDocument());
     await user.click(await screen.findByRole('button', { name: 'Import 1 server' }));
-    await waitFor(() => expect(mcpApi.save).toHaveBeenCalledWith(expect.objectContaining({ project: '/project', server: { command: 'adapter', piExtension: 'pi-mcp-adapter' }, resolutions: [{ target: 'pi', name: 'docs', action: 'adopt' }] })));
+    await waitFor(() => expect(mcpApi.save).toHaveBeenCalledWith(expect.objectContaining({ project: '/project', server: { command: 'adapter' }, resolutions: [{ target: 'pi', name: 'docs', action: 'adopt' }] })));
   });
 
   it('retains builtin custom settings and previews the project destination', async () => {
-    const server = { command: 'docs', piExtension: 'builtin', piOptions: { exposure: 'hidden', toolExposure: { 'get_*': 'direct' }, custom: { flag: true } } };
+    const server = { command: 'docs', piOptions: { exposure: 'hidden', toolExposure: { 'get_*': 'direct' }, custom: { flag: true } } };
     vi.mocked(mcpApi.import).mockResolvedValue({ candidates: [{ name: 'docs', server, problems: [], warnings: [], from: 'pi' }] });
     const user = userEvent.setup();
     renderDialog({ servers: {}, defaultTargets: ['pi'], paths: { pi: '/project/.pi/mcp.json' }, project: '/project', detected: ['pi'] });
@@ -64,26 +60,16 @@ describe('MCP import dialog', () => {
       { target: 'pi-work', path: '/work/pi/mcp-adapter.json', piExtension: 'pi-mcp-adapter' },
     ] }, [...mcpTargets, 'pi-work']);
     await waitFor(() => expect(mcpApi.import).toHaveBeenCalledWith({ from: 'pi-work', piExtension: 'pi-mcp-adapter' }));
-    expect(screen.getByRole('combobox', { name: 'Target' })).toHaveTextContent('pi-work · pi-mcp-adapter /work/pi/mcp-adapter.json');
+    expect(screen.getByRole('combobox', { name: 'Target' })).toHaveTextContent('pi-work /work/pi/mcp-adapter.json');
   });
 
-  it('imports into Pi on the built-in mode when no mode is chosen, whatever other servers use', async () => {
+  it('imports into Pi without a Pi mode', async () => {
     vi.mocked(mcpApi.import).mockResolvedValue({ candidates: [{ name: 'docs', server: { url: 'https://example.com/mcp' }, problems: [], warnings: [], from: 'claude' }] });
     const user = userEvent.setup();
-    renderDialog({ servers: { other: { command: 'other', piExtension: 'pi-mcp-adapter' } }, defaultTargets: ['pi'], paths: { claude: '/home/me/.claude.json' }, detected: ['claude'] });
+    renderDialog({ servers: { other: { command: 'other' } }, defaultTargets: ['pi'], paths: { claude: '/home/me/.claude.json' }, detected: ['claude'] });
     await user.click(await screen.findByRole('button', { name: 'Import 1 server' }));
-    await waitFor(() => expect(mcpApi.save).toHaveBeenCalledWith(expect.objectContaining({ server: { url: 'https://example.com/mcp', piExtension: 'builtin' } })));
-  });
-
-  it('applies a Pi mode picked when importing into Pi', async () => {
-    vi.mocked(mcpApi.import).mockResolvedValue({ candidates: [{ name: 'docs', server: { url: 'https://example.com/mcp' }, problems: [], warnings: [], from: 'pi' }] });
-    const user = userEvent.setup();
-    renderDialog({ servers: {}, defaultTargets: ['pi'], paths: { pi: '/home/me/.pi/agent/mcp.json' }, detected: ['pi'] });
-    await screen.findByRole('button', { name: 'Import 1 server' });
-    await user.click(screen.getByRole('combobox', { name: 'Pi MCP mode' }));
-    await user.click(screen.getByRole('option', { name: 'pi-mcp-adapter' }));
-    await user.click(screen.getByRole('button', { name: 'Import 1 server' }));
-    await waitFor(() => expect(mcpApi.save).toHaveBeenCalledWith(expect.objectContaining({ server: { url: 'https://example.com/mcp', piExtension: 'pi-mcp-adapter' }, resolutions: [{ target: 'pi', name: 'docs', action: 'adopt' }] })));
+    expect(screen.queryByRole('combobox', { name: 'Pi MCP mode' })).not.toBeInTheDocument();
+    await waitFor(() => expect(mcpApi.save).toHaveBeenCalledWith(expect.objectContaining({ server: { url: 'https://example.com/mcp' } })));
   });
 
   it('imports every new server from a target and adopts the entries that target keeps', async () => {
@@ -165,8 +151,8 @@ describe('MCP import dialog', () => {
     })));
   });
 
-  it('offers the full Pi settings for one pasted server and saves the edits', async () => {
-    const server = { command: 'docs', piExtension: 'builtin', piOptions: { exposure: 'hidden', toolExposure: { 'get_*': 'direct' } } };
+  it('offers the Pi settings for one pasted server and saves the edits', async () => {
+    const server = { command: 'docs', piOptions: { exposure: 'hidden', toolExposure: { 'get_*': 'direct' } } };
     vi.mocked(mcpApi.import).mockResolvedValue({ candidates: [{ name: 'docs', server, problems: [], warnings: [] }] });
     const user = userEvent.setup();
     renderDialog({ source: 'paste', servers: {}, defaultTargets: ['pi'] });
@@ -176,8 +162,7 @@ describe('MCP import dialog', () => {
     expect(exposure).toHaveTextContent('hidden');
     await user.click(exposure);
     await user.click(screen.getByRole('option', { name: /^direct\b/ }));
-    await user.click(screen.getByRole('checkbox', { name: 'Remove cleared settings from Pi' }));
-    const saved = { ...server, piOptions: { exposure: 'direct', toolExposure: { 'get_*': 'direct' } }, piOptionsPrune: true };
+    const saved = { ...server, piOptions: { exposure: 'direct', toolExposure: { 'get_*': 'direct' } } };
     await waitFor(() => expect(mcpApi.render).toHaveBeenLastCalledWith(expect.objectContaining({ server: expect.objectContaining(saved) })));
     await user.click(screen.getByRole('button', { name: 'Add 1 server' }));
     await waitFor(() => expect(mcpApi.save).toHaveBeenCalledWith(expect.objectContaining({ server: expect.objectContaining(saved) })));
@@ -194,7 +179,7 @@ describe('MCP import dialog', () => {
     expect(screen.getByRole('button', { name: 'Add 1 server' })).toBeDisabled();
   });
 
-  it('keeps only the Pi mode for several pasted servers', async () => {
+  it('offers no Pi settings for several pasted servers', async () => {
     vi.mocked(mcpApi.import).mockResolvedValue({ candidates: [
       { name: 'docs', server: { command: 'docs' }, problems: [], warnings: [] },
       { name: 'wiki', server: { command: 'wiki' }, problems: [], warnings: [] },
@@ -203,7 +188,7 @@ describe('MCP import dialog', () => {
     renderDialog({ source: 'paste', servers: {}, defaultTargets: ['pi'] });
     await user.click(screen.getByLabelText('Server snippet'));
     await user.paste('{"mcpServers":{"docs":{"command":"docs"},"wiki":{"command":"wiki"}}}');
-    expect(await screen.findByRole('combobox', { name: 'Pi MCP mode' })).toBeInTheDocument();
+    expect(await screen.findByRole('checkbox', { name: /wiki/ })).toBeInTheDocument();
     expect(screen.queryByRole('combobox', { name: 'Tool exposure' })).not.toBeInTheDocument();
     expect(screen.queryByLabelText('Other Pi settings')).not.toBeInTheDocument();
   });

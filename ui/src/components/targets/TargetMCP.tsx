@@ -1,28 +1,20 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useQueryClient } from '@tanstack/react-query';
 import { AlertCircle, ArrowRight, ChevronRight, Plug, RefreshCw } from 'lucide-react';
 import { mcpOffTargets, type MCPPlan, type MCPServer, type mcpApi } from '../../api/mcp';
 import Button from '../Button';
 import EmptyState from '../EmptyState';
-import { useToast } from '../Toast';
-import MCPServerDialog from '../mcp/MCPServerDialog';
 import { MCPSyncDialog } from '../mcp/MCPSyncBox';
 import { describeEndpoint, describeMessage, mcpOrder, reachOf, serverCount, writes } from '../mcp/mcpView';
-import { MCPTargetOrder } from '../mcp/targetOrder';
 import { useMCPToggle } from '../mcp/useMCPToggle';
 import { useT } from '../../i18n';
-import { queryKeys } from '../../lib/queryKeys';
 
 type MCPList = Awaited<ReturnType<typeof mcpApi.list>>;
 
 /** One Agent's column of the MCP page, laid out like the Skills tab: a row per server of the current scope, global or project. */
 export default function TargetMCP({ name, data }: { name: string; data: MCPList }) {
   const t = useT();
-  const { toast } = useToast();
-  const cache = useQueryClient();
   const navigate = useNavigate();
-  const [piSetup, setPiSetup] = useState('');
   // Each save previews first and sends that revision, so a second click waits for the first.
   const [busy, setBusy] = useState(false);
   // Held while the dialog is open, so the list it confirms stays put when the queries refresh.
@@ -32,7 +24,6 @@ export default function TargetMCP({ name, data }: { name: string; data: MCPList 
   const plan = data.plan;
   const servers = data.source.servers ?? {};
   const defaults = data.source.targets ?? [];
-  const targetsOf = (server: string) => servers[server]?.targets ?? defaults;
   // Changes under mcp.projects belong to the Projects page. A project's own Claude off list
   // carries its root too, so only those roots are left out.
   const roots = Object.keys(data.source.projects ?? {});
@@ -55,7 +46,6 @@ export default function TargetMCP({ name, data }: { name: string; data: MCPList 
   }
 
   const select = (server: string, on: boolean) => {
-    if (name === 'pi' && on && !servers[server].piExtension && !servers[server].disabled) return setPiSetup(server);
     setBusy(true);
     void toggle(server, name, on).finally(() => setBusy(false));
   };
@@ -82,7 +72,7 @@ export default function TargetMCP({ name, data }: { name: string; data: MCPList 
             </div>
             {rows.map(([server, s]) => {
               // Where a switch that names no targets goes, sync works out partly from the global config
-              // this scope cannot read (Pi follows the global server's extension); the plan says it outright.
+              // this scope cannot read; the plan says it outright.
               const on = !s ? false : s.disabled && !s.targets && plan ? changes.some((c) => c.name === server && c.action !== 'remove') : reachOf(s, defaults).includes(name);
               const http = Boolean(s?.url);
               const endpoint = !s ? t('mcp.removedFromSource') : s.disabled ? t('mcp.offHere') : `${http ? 'http' : 'stdio'} · ${describeEndpoint(s)}`;
@@ -137,24 +127,6 @@ export default function TargetMCP({ name, data }: { name: string; data: MCPList 
       </aside>
 
       {reviewing && <MCPSyncDialog {...reviewing} onClose={() => setReviewing(null)} />}
-
-      {/* Pi needs its extension chosen before it can take a server, as on the MCP page. */}
-      {piSetup && (
-        <MCPTargetOrder.Provider value={order}>
-          <MCPServerDialog
-            initial={{ name: piSetup, server: { ...servers[piSetup], targets: [...targetsOf(piSetup), 'pi'] } }}
-            defaultTargets={defaults}
-            existingNames={Object.keys(servers)}
-            availableTargets={order.filter((x) => data.paths[x])}
-            onClose={() => setPiSetup('')}
-            onSaved={() => {
-              setPiSetup('');
-              for (const queryKey of [queryKeys.mcp, queryKeys.config]) void cache.invalidateQueries({ queryKey });
-              toast(t('mcp.toast.saved'), 'success');
-            }}
-          />
-        </MCPTargetOrder.Provider>
-      )}
     </div>
   );
 }

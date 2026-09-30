@@ -25,7 +25,7 @@ describe('MCP view helpers', () => {
       { ...change('docs', 'pi', 'remove'), path: '/pi/mcp-adapter.json' },
       { ...change('docs', 'pi', 'unchanged'), path: '/pi/mcp.json' },
     ] };
-    expect(buildMatrix({ docs: { command: 'docs', piExtension: 'builtin' } }, plan)[0].cells.pi.action).toBe('remove');
+    expect(buildMatrix({ docs: { command: 'docs' } }, plan)[0].cells.pi.action).toBe('remove');
   });
 
   // A key that stops short of the whole sentence leaves the rest of the English message
@@ -72,10 +72,11 @@ describe('MCP view helpers', () => {
 });
 
 describe('switchTargets', () => {
-  const context7 = { command: 'npx', targets: ['claude', 'opencode', 'kilocode', 'pi'], piExtension: 'pi-mcp-adapter' };
+  const context7 = { command: 'npx', targets: ['claude', 'opencode', 'kilocode', 'pi'] };
 
+  // Pi has no per-project switch, so it is never among them.
   it('turns a global server off only for the Agents the project uses', () => {
-    expect(switchTargets(context7, [], ['opencode', 'pi'])).toEqual(['opencode', 'pi']);
+    expect(switchTargets(context7, [], ['opencode', 'pi'])).toEqual(['opencode']);
   });
 
   it('follows the default targets of a server that names none', () => {

@@ -5,11 +5,10 @@ import { I18nProvider } from '../../i18n';
 import MCPServerList from './MCPServerList';
 
 describe('MCP server list', () => {
-  it('shows which Pi adapter settings a server has on its row, without their contents', () => {
-    const server = { command: 'npx', targets: ['pi'], piExtension: 'pi-mcp-adapter', directTools: ['take_screenshot', 'list_pages'], piOptions: { excludeTools: ['secret_*'] } };
+  it("shows a server's Pi exposure on its row, and only whether other Pi settings exist", () => {
+    const server = { command: 'npx', targets: ['pi'], piOptions: { exposure: 'direct', toolExposure: { 'secret_*': 'hidden' } } };
     render(<I18nProvider><MCPServerList rows={[{ name: 'docs', server, cells: {} }]} targets={['pi']} targetsOf={() => ['pi']} onToggle={vi.fn()} onMenu={vi.fn()} /></I18nProvider>);
-    const line = screen.getByText('take_screenshot, list_pages').parentElement!;
-    expect(line).toHaveTextContent('Direct tools');
+    const line = screen.getByText('· direct').parentElement!;
     expect(line).toHaveTextContent('Other Pi settings');
     expect(line).not.toHaveTextContent('secret_');
   });

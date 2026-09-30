@@ -5,7 +5,6 @@ import AgentIcon from '../AgentIcon';
 import { mcpOffTargets } from '../../api/mcp';
 import { describeEndpoint, targetLabel, writes, type MatrixRow } from './mcpView';
 import { TargetPill, TargetToggles } from './TargetPicker';
-import { useDirectToolsLabel } from './MCPProjectSettings';
 import type { MCPCheckFinding } from '../../api/mcpCheck';
 import MCPCheckFindings, { MCPCheckTag } from './MCPCheckFindings';
 
@@ -32,7 +31,6 @@ const CHIPS = 6;
 export default function MCPServerList({ rows, targets, targetsOf, onToggle, onMenu, offTargets = mcpOffTargets, disabled = false, problems = {} }: Props) {
   const t = useT();
   const [open, setOpen] = useState<string[]>([]);
-  const directToolsLabel = useDirectToolsLabel();
 
   return (
     <div className="ss-list">
@@ -42,9 +40,7 @@ export default function MCPServerList({ rows, targets, targetsOf, onToggle, onMe
         const selected = row.server ? targetsOf(row.name).filter((x) => offered.includes(x)) : [];
         const expanded = open.includes(row.name);
         const http = Boolean(row.server?.url);
-        const direct = row.server?.directTools;
         const piOptions = Object.keys(row.server?.piOptions ?? {}).length > 0;
-        const piSettings = Boolean(row.server?.piExtension) && selected.includes('pi');
         const targetPill = <TargetPill selected={selected} text={`${selected.length}/${offered.length}`} expanded={expanded} label={t('mcp.chooseAgents', { name: row.name })} onClick={() => setOpen((prev) => (expanded ? prev.filter((x) => x !== row.name) : [...prev, row.name]))} />;
         return (
           <Fragment key={row.name}>
@@ -74,9 +70,8 @@ export default function MCPServerList({ rows, targets, targetsOf, onToggle, onMe
                       <AgentIcon target={target} size={14} />
                       {targetLabel(target)}
                       {/* Only whether other Pi settings exist, never their contents: piOptions may hold anything. */}
-                      {target === 'pi' && piSettings && <>
-                        <span className="text-ink-2">· {row.server?.piExtension === 'builtin' ? String(row.server.piOptions?.exposure ?? 'codemode') : row.server?.piExtension}</span>
-                        {direct !== undefined && <><span className="text-ink-3">· {t('mcp.directTools')}</span><span className={`min-w-0 truncate text-ink-2 ${Array.isArray(direct) ? 'font-mono' : ''}`} title={directToolsLabel(direct)}>{directToolsLabel(direct)}</span></>}
+                      {target === 'pi' && <>
+                        <span className="text-ink-2">· {String(row.server?.piOptions?.exposure ?? 'codemode')}</span>
                         {piOptions && <span className="text-ink-3">· {t('mcp.piOptions')}</span>}
                       </>}
                     </span>

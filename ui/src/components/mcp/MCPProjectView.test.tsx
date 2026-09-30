@@ -25,37 +25,6 @@ const view = (servers: Data['source']['servers'], project: NonNullable<Data['sou
 const context7 = { command: 'npx', targets: ['claude', 'cursor', 'opencode'] };
 
 describe('MCP project view', () => {
-  it.each(['builtin', 'pi-mcp-extension', 'pi-mcp-adapter'])('offers project Direct tools only for its own adapter servers: %s', (piExtension) => {
-    view({ global: { command: 'npx', piExtension: 'pi-mcp-adapter', targets: ['pi'] } }, { targets: ['pi'], servers: { docs: { command: 'npx', piExtension } } });
-    expect(Boolean(screen.queryByText('Direct tools'))).toBe(piExtension === 'pi-mcp-adapter');
-  });
-
-  it('starts a new server on the built-in mode even when this project uses pi-mcp-adapter', async () => {
-    const user = userEvent.setup();
-    view({}, { targets: ['pi'], servers: { docs: { command: 'npx', piExtension: 'pi-mcp-adapter' } } });
-    await user.click(screen.getByRole('button', { name: 'Add server' }));
-    expect(await screen.findByRole('combobox', { name: 'Pi MCP mode' })).toHaveTextContent('Built-in');
-  });
-
-  it('hides project adapter defaults when only global adapter servers exist', () => {
-    view({ global: { command: 'npx', piExtension: 'pi-mcp-adapter', targets: ['pi'] } }, { targets: ['pi'], directTools: 'search' });
-    expect(screen.queryByText('Direct tools')).not.toBeInTheDocument();
-  });
-
-  it('preserves hidden adapter defaults when project targets change', async () => {
-    const user = userEvent.setup();
-    view({}, { targets: ['pi'], directTools: 'search', servers: { docs: { command: 'npx', piExtension: 'builtin' } } });
-    expect(screen.queryByText('Direct tools')).not.toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: 'Choose which agents get /work/app' }));
-    await user.click(screen.getByRole('checkbox', { name: 'Claude' }));
-    await waitFor(() => expect(mcpApi.save).toHaveBeenLastCalledWith({ replace: true, settings: { targets: ['claude', 'pi'], directTools: 'search' }, project: '/work/app' }));
-  });
-
-  it('offers project adapter defaults for an explicit Pi target', () => {
-    view({}, { targets: ['claude'], servers: { docs: { command: 'npx', piExtension: 'pi-mcp-adapter', targets: ['pi'] } } });
-    expect(screen.getByText('Direct tools')).toBeInTheDocument();
-  });
-
   it('turns a global server off without storing targets, so the switch follows the project', async () => {
     const user = userEvent.setup();
     view({ context7 }, { targets: ['opencode'] });
@@ -82,8 +51,8 @@ describe('MCP project view', () => {
     await waitFor(() => expect(mcpApi.save).toHaveBeenLastCalledWith({ name: 'context7', replace: true, server: { disabled: true }, project: '/work/app' }));
   });
 
-  it("leaves Pi out where the project's own servers use another Pi extension", () => {
-    view({ docs: { command: 'npx', piExtension: 'pi-mcp-adapter', targets: ['opencode', 'pi'] } }, { targets: ['opencode', 'pi'], servers: { docs: { disabled: true }, mine: { command: 'npx', piExtension: 'pi-mcp-extension', targets: ['pi'] } } });
+  it('says Pi keeps loading a server turned off here, since Pi has no per-project switch', () => {
+    view({ docs: { command: 'npx', targets: ['opencode', 'pi'] } }, { targets: ['opencode', 'pi'], servers: { docs: { disabled: true } } });
     expect(screen.getByText('Still loads in Pi, which has no per-project switch.')).toBeInTheDocument();
   });
 
@@ -103,9 +72,9 @@ describe('MCP project view', () => {
     expect(screen.queryByText(/not managed by skillshare/)).not.toBeInTheDocument();
   });
 
-  it('counts Pi for a switch only with pi-mcp-adapter, as sync does', () => {
+  it('never counts Pi for a switch, as sync does', () => {
     view({}, { targets: ['opencode', 'pi'], servers: { gone: { disabled: true } } });
-    expect(screen.getByRole('button', { name: 'Choose which agents get gone' })).toHaveTextContent('1/3');
+    expect(screen.getByRole('button', { name: 'Choose which agents get gone' })).toHaveTextContent('1/2');
   });
 
   const env: MCPCheckFinding = { level: 'error', check: 'env', target: '', subject: 'TOKEN', message: 'TOKEN is not set' };

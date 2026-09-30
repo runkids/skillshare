@@ -9,7 +9,6 @@ import { Select } from '../Input';
 import { useT } from '../../i18n';
 import { useAppContext } from '../../context/AppContext';
 import PiSettingsFields from './PiSettingsFields';
-import DirectToolsField, { directToolsValue } from './DirectToolsField';
 import MCPConfigView from './MCPConfigView';
 import { describeError, targetLabel } from './mcpView';
 import { MCPTargetOrder } from './targetOrder';
@@ -77,7 +76,6 @@ interface ServerFormProps {
   draft: ServerDraft;
   validation: ServerValidation;
   patch: DraftPatch;
-  setPiOptions: (text: string) => void;
   off: boolean;
   saving: boolean;
   editing: boolean;
@@ -89,7 +87,7 @@ interface ServerFormProps {
   error: string;
 }
 
-function ServerForm({ draft, validation, patch, setPiOptions, off, saving, editing, order, visibleTargets, isProject, onMode, onSave, error }: ServerFormProps) {
+function ServerForm({ draft, validation, patch, off, saving, editing, order, visibleTargets, isProject, onMode, onSave, error }: ServerFormProps) {
   const t = useT();
   const { name, http, targets } = draft;
   const { nameError } = validation;
@@ -151,7 +149,7 @@ function ServerForm({ draft, validation, patch, setPiOptions, off, saving, editi
           })}
         </div>
       </div>
-      {targets.includes('pi') && <PiServerFields draft={draft} validation={validation} off={off} patch={patch} setPiOptions={setPiOptions} saving={saving} isProject={isProject} />}
+      {targets.includes('pi') && !off && <PiSettingsFields optionsText={draft.piOptions} options={validation.options} optionsError={validation.optionsError} onOptions={(piOptions) => patch({ piOptions })} disabled={saving} project={isProject} />}
       {error && <div className="ss-note bad"><span className="flex-1">{error}</span></div>}
     </form>
   );
@@ -198,20 +196,6 @@ function ConnectionFields({ draft, patch, saving }: Pick<ServerFormProps, 'draft
   );
 }
 
-function PiServerFields({ draft, validation, patch, setPiOptions, off, saving, isProject }: Pick<ServerFormProps, 'draft' | 'validation' | 'patch' | 'setPiOptions' | 'off' | 'saving' | 'isProject'>) {
-  const t = useT();
-  const { piExtension, directTools, prune, modeDrafts } = draft;
-  const { options, optionsError, keepsOptions, adapter, piOptions } = validation;
-  return (
-    <>
-      <PiSettingsFields mode={piExtension} onMode={off ? undefined : (piExtension) => patch({ piExtension })} optionsText={piOptions} options={options} optionsError={optionsError} onOptions={setPiOptions} keepsOptions={keepsOptions} prune={prune} onPrune={(prune) => patch({ prune })} disabled={saving} project={isProject}>
-        {adapter && <DirectToolsField value={directTools} onChange={(directTools) => patch({ directTools })} disabled={saving} />}
-      </PiSettingsFields>
-      {Object.entries(modeDrafts).some(([mode, text]) => mode !== piExtension && text.trim()) && <div className="ss-note inf"><span>{t('mcp.piDraftHint')}</span></div>}
-    </>
-  );
-}
-
 function ServerFooter({ targets, off, complete, canSave, saving, onView, onClose }: { targets: string[]; off: boolean; complete: boolean; canSave: boolean; saving: boolean; onView: () => void; onClose: () => void }) {
   const t = useT();
   return (
@@ -239,20 +223,19 @@ export default function MCPServerDialog({ initial, defaultTargets, existingNames
   const offTargets = mcpOffTargets;
   const [draft, setDraft] = useState(() => initialServerDraft(server, initial?.name ?? '', defaultTargets, off));
   const patch: DraftPatch = (change) => setDraft((prev) => ({ ...prev, ...change }));
-  const { piExtension, directTools, prune, http, url, tokenEnv, headers, env, targets } = draft;
-  const setPiOptions = (text: string) => setDraft((prev) => ({ ...prev, modeDrafts: { ...prev.modeDrafts, [prev.piExtension]: text } }));
+  const { http, url, tokenEnv, headers, env, targets } = draft;
   const [viewing, setViewing] = useState(false);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
   const validation = validateServerDraft(draft, off, Boolean(initial), existingNames, t);
-  const { trimmed, words, keepsAdapter, keepsOptions, options, title } = validation;
+  const { trimmed, words, options, title } = validation;
   const canSave = validation.canSave && !saving;
   const visibleTargets = new Set([...availableTargets, ...targets].filter((x) => !off || offTargets.includes(x)));
 
   /** The server as the fields describe it right now. */
   const build = (): MCPServer => {
     const [cmd, ...args] = words;
-    if (off) return { disabled: true, ...(targets.includes('pi') && { piExtension: 'pi-mcp-adapter' }) };
+    if (off) return { disabled: true };
     const next: MCPServer = http
       ? {
           url: url.trim(),
@@ -266,11 +249,7 @@ export default function MCPServerDialog({ initial, defaultTargets, existingNames
         };
     const transport = http ? 'streamable-http' : 'stdio';
     if (server?.transport === transport) next.transport = transport;
-    if (piExtension && (targets.includes('pi') || server?.piExtension)) next.piExtension = piExtension;
-    if (next.piExtension && keepsOptions && prune) next.piOptionsPrune = true;
-    const direct = directToolsValue(directTools);
-    if (next.piExtension && direct !== undefined && keepsAdapter) next.directTools = direct;
-    if (next.piExtension && options.value && Object.keys(options.value).length > 0) next.piOptions = options.value;
+    if (options.value && Object.keys(options.value).length > 0) next.piOptions = options.value;
     return next;
   };
   const ordered = order.filter((x) => targets.includes(x));
@@ -301,7 +280,7 @@ export default function MCPServerDialog({ initial, defaultTargets, existingNames
         <button type="button" className="ss-ib" aria-label={t('common.close')} onClick={onClose} disabled={saving}><X size={16} /></button>
       </div>
       {/* The view takes the whole body, so a long file has room; the fields live in state and come back as they were. */}
-      {viewing ? <div className="db"><MCPConfigView mutation={mutation} /></div> : <ServerForm draft={draft} validation={validation} patch={patch} setPiOptions={setPiOptions} off={off} saving={saving} editing={Boolean(initial)} order={order} visibleTargets={visibleTargets} isProject={Boolean(project) || isProjectMode} onMode={onMode} onSave={save} error={error} />}
+      {viewing ? <div className="db"><MCPConfigView mutation={mutation} /></div> : <ServerForm draft={draft} validation={validation} patch={patch} off={off} saving={saving} editing={Boolean(initial)} order={order} visibleTargets={visibleTargets} isProject={Boolean(project) || isProjectMode} onMode={onMode} onSave={save} error={error} />}
       {viewing ? <div className="df"><Button variant="secondary" onClick={() => setViewing(false)}>{t('common.back')}</Button></div> : <ServerFooter targets={targets} off={off} complete={complete} canSave={canSave} saving={saving} onView={() => setViewing(true)} onClose={onClose} />}
     </DialogShell>
   );
