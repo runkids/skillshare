@@ -29,7 +29,7 @@
     },
     "bindings": {
       "type": "object", "additionalProperties": false,
-      "description": "Keyed by Agent. An empty map keeps the hook in Skillshare without publishing it. factory is an alias for droid.",
+      "description": "Keyed by Agent. An empty map keeps the hook in Skillshare without publishing it. factory is an alias for droid; antigravity-cli and agy are aliases for antigravity.",
       "properties": {
         "claude": {"$ref": "#/$defs/commandBinding"},
         "codex": {"$ref": "#/$defs/commandBinding"},
@@ -39,6 +39,9 @@
         "cursor": {"$ref": "#/$defs/commandBinding"},
         "droid": {"$ref": "#/$defs/commandBinding"},
         "factory": {"$ref": "#/$defs/commandBinding"},
+        "antigravity": {"$ref": "#/$defs/commandBinding"},
+        "antigravity-cli": {"$ref": "#/$defs/commandBinding"},
+        "agy": {"$ref": "#/$defs/commandBinding"},
         "pi": {"$ref": "#/$defs/codeBinding"},
         "amp": {"$ref": "#/$defs/codeBinding"},
         "opencode": {"$ref": "#/$defs/codeBinding"}

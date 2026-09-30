@@ -207,7 +207,7 @@ func (s *Service) home() (string, error) {
 // falls back to a global path.
 func (s *Service) configDir(target string) (string, error) {
 	if s.ProjectRoot != "" {
-		dirs := map[string]string{"claude": ".claude", "codex": ".codex", "gemini": ".gemini", "qwen": ".qwen", "copilot": ".github", "cursor": ".cursor", "droid": ".factory", "pi": ".pi", "amp": ".amp", "opencode": ".opencode"}
+		dirs := map[string]string{"claude": ".claude", "codex": ".codex", "gemini": ".gemini", "qwen": ".qwen", "copilot": ".github", "cursor": ".cursor", "droid": ".factory", "antigravity": ".agents", "pi": ".pi", "amp": ".amp", "opencode": ".opencode"}
 		dir, ok := dirs[target]
 		if !ok {
 			return "", fmt.Errorf("unsupported hooks Agent %q", target)
@@ -233,6 +233,8 @@ func (s *Service) configDir(target string) (string, error) {
 		return filepath.Join(home, "."+target), nil
 	case "droid":
 		return filepath.Join(home, ".factory"), nil
+	case "antigravity":
+		return filepath.Join(home, ".gemini", "config"), nil
 	case "pi":
 		return filepath.Join(home, ".pi", "agent"), nil
 	case "amp":
@@ -253,7 +255,7 @@ func (s *Service) nativePath(target string) (string, error) {
 	switch target {
 	case "claude", "gemini", "qwen":
 		return filepath.Join(dir, "settings.json"), nil
-	case "codex", "cursor", "droid":
+	case "codex", "cursor", "droid", "antigravity":
 		return filepath.Join(dir, "hooks.json"), nil
 	case "copilot":
 		return filepath.Join(dir, "hooks"), nil

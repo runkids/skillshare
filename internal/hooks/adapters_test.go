@@ -9,16 +9,17 @@ import (
 
 // adapterEntry is one valid binding per Agent, in that Agent's own native shape.
 var adapterEntry = map[string]string{
-	"claude":   `{"events":{"PreToolUse":[{"matcher":"Bash","hooks":[{"type":"command","command":"echo claude","timeout":5}]}]}}`,
-	"codex":    `{"events":{"PreToolUse":[{"matcher":"shell","hooks":[{"type":"command","command":"echo codex","timeout":5}]}]}}`,
-	"gemini":   `{"events":{"BeforeTool":[{"matcher":"run_shell_command","hooks":[{"type":"command","command":"echo gemini","timeout":5000}]}]}}`,
-	"qwen":     `{"events":{"PreToolUse":[{"matcher":"Shell","hooks":[{"type":"command","command":"echo qwen"}]}]}}`,
-	"droid":    `{"events":{"PreToolUse":[{"matcher":"Execute","hooks":[{"type":"command","command":"echo droid"}]}]}}`,
-	"cursor":   `{"events":{"beforeShellExecution":[{"command":"./hooks/skillshare/demo/guard.sh"}]},"files":{"guard.sh":"#!/bin/sh\necho cursor\n"}}`,
-	"copilot":  `{"events":{"preToolUse":[{"type":"command","bash":"echo copilot","timeoutSec":10}]}}`,
-	"pi":       `{"code":"export default function (pi) {\n  pi.on(\"tool_call\", async () => {});\n}\n"}`,
-	"amp":      `{"code":"export default function (amp) {\n  amp.on(\"tool.call\", async () => ({ action: \"allow\" }));\n}\n"}`,
-	"opencode": `{"code":"export const Demo = async () => ({\n  \"tool.execute.before\": async () => {},\n})\n"}`,
+	"claude":      `{"events":{"PreToolUse":[{"matcher":"Bash","hooks":[{"type":"command","command":"echo claude","timeout":5}]}]}}`,
+	"codex":       `{"events":{"PreToolUse":[{"matcher":"shell","hooks":[{"type":"command","command":"echo codex","timeout":5}]}]}}`,
+	"gemini":      `{"events":{"BeforeTool":[{"matcher":"run_shell_command","hooks":[{"type":"command","command":"echo gemini","timeout":5000}]}]}}`,
+	"qwen":        `{"events":{"PreToolUse":[{"matcher":"Shell","hooks":[{"type":"command","command":"echo qwen"}]}]}}`,
+	"droid":       `{"events":{"PreToolUse":[{"matcher":"Execute","hooks":[{"type":"command","command":"echo droid"}]}]}}`,
+	"cursor":      `{"events":{"beforeShellExecution":[{"command":"./hooks/skillshare/demo/guard.sh"}]},"files":{"guard.sh":"#!/bin/sh\necho cursor\n"}}`,
+	"copilot":     `{"events":{"preToolUse":[{"type":"command","bash":"echo copilot","timeoutSec":10}]}}`,
+	"antigravity": `{"events":{"PreToolUse":[{"matcher":"run_command","hooks":[{"type":"command","command":"echo agy","timeout":10}]}],"Stop":[{"command":"echo stop"}]}}`,
+	"pi":          `{"code":"export default function (pi) {\n  pi.on(\"tool_call\", async () => {});\n}\n"}`,
+	"amp":         `{"code":"export default function (amp) {\n  amp.on(\"tool.call\", async () => ({ action: \"allow\" }));\n}\n"}`,
+	"opencode":    `{"code":"export const Demo = async () => ({\n  \"tool.execute.before\": async () => {},\n})\n"}`,
 }
 
 func TestAdapters_GlobalPathsAndNativeShape(t *testing.T) {
@@ -27,6 +28,7 @@ func TestAdapters_GlobalPathsAndNativeShape(t *testing.T) {
 		"qwen": ".qwen/settings.json", "droid": ".factory/hooks.json", "cursor": ".cursor/hooks.json",
 		"copilot": ".copilot/hooks/skillshare-demo.json", "pi": ".pi/agent/extensions/skillshare-demo.ts",
 		"amp": ".config/amp/plugins/skillshare-demo.ts", "opencode": ".config/opencode/plugins/skillshare-demo.ts",
+		"antigravity": ".gemini/config/hooks.json",
 	}
 	for target, binding := range adapterEntry {
 		t.Run(target, func(t *testing.T) {
@@ -40,6 +42,12 @@ func TestAdapters_GlobalPathsAndNativeShape(t *testing.T) {
 			case "pi", "amp", "opencode":
 				if content != b.Code {
 					t.Fatalf("code must be written verbatim, got %q", content)
+				}
+			case "antigravity":
+				var doc map[string]map[string]any
+				must(t, json.Unmarshal([]byte(content), &doc))
+				if len(doc) != 1 || doc["demo"]["PreToolUse"] == nil || doc["demo"]["Stop"] == nil {
+					t.Fatalf("antigravity writes one block named after the hook: %s", content)
 				}
 			case "copilot":
 				var doc map[string]any
@@ -81,6 +89,7 @@ func TestAdapters_ProjectPathsNeverFallBackToGlobal(t *testing.T) {
 		"qwen": ".qwen/settings.json", "droid": ".factory/hooks.json", "cursor": ".cursor/hooks.json",
 		"copilot": ".github/hooks/skillshare-demo.json", "pi": ".pi/extensions/skillshare-demo.ts",
 		"amp": ".amp/plugins/skillshare-demo.ts", "opencode": ".opencode/plugins/skillshare-demo.ts",
+		"antigravity": ".agents/hooks.json",
 	}
 	e := newEnv(t)
 	root := filepath.Join(filepath.Dir(e.home), "repo")

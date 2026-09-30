@@ -182,6 +182,11 @@ func (s *Service) renderScope(d *desired, root string, entries map[string]Entry)
 					return err
 				}
 				d.targets[path], d.roots[path] = target, root
+				if target == "antigravity" {
+					// One named block per hook, holding its whole event map.
+					d.elements[path] = append(d.elements[path], wantElement{target: target, path: path, root: root, entry: name, event: name, value: b.Events})
+					continue
+				}
 				for _, event := range sortedKeys(b.Events) {
 					for i, value := range b.Events[event].([]any) {
 						d.elements[path] = append(d.elements[path], wantElement{target: target, path: path, root: root, entry: name, event: event, ordinal: i, value: value})
@@ -552,12 +557,32 @@ func (pl *planner) planShared(path, target, root string, want []wantElement, sta
 	for _, w := range want {
 		mark(wantEvents, w.root, w.entry, w.event)
 	}
-	touch := func(root, entry, event string, removing bool) {
+	// touch records the events one element change adds, updates or removes; before is
+	// nil for an addition and after nil for a removal.
+	touch := func(root, entry, event string, before, after any) {
+		if target == "antigravity" {
+			// The element is a whole block: compare the events inside it.
+			old, _ := before.(map[string]any)
+			next, _ := after.(map[string]any)
+			for _, e := range sortedKeys(mergeKeys(old, next)) {
+				_, had := old[e]
+				_, has := next[e]
+				switch {
+				case !had:
+					pl.event(target, path, root, entry, e, "added")
+				case !has:
+					pl.event(target, path, root, entry, e, "removed")
+				case elementHash(old[e]) != elementHash(next[e]):
+					pl.event(target, path, root, entry, e, "updated")
+				}
+			}
+			return
+		}
 		k, kind := root+"\x00"+entry, "updated"
 		switch {
-		case removing && !wantEvents[k][event]:
+		case after == nil && !wantEvents[k][event]:
 			kind = "removed"
-		case !removing && !prior[k][event]:
+		case after != nil && !prior[k][event]:
 			kind = "added"
 		}
 		pl.event(target, path, root, entry, event, kind)
@@ -583,7 +608,7 @@ func (pl *planner) planShared(path, target, root string, want []wantElement, sta
 				} else {
 					f.ops = append(f.ops, elementOp{Key: key, Event: w.event, Index: i, Value: w.value, Before: items[i]})
 					p.state.Records[key] = next
-					touch(w.root, w.entry, w.event, false)
+					touch(w.root, w.entry, w.event, items[i], w.value)
 					pl.note(target, path, w.root, w.entry, "update", "")
 				}
 				continue
@@ -592,9 +617,14 @@ func (pl *planner) planShared(path, target, root string, want []wantElement, sta
 				pl.note(target, path, w.root, w.entry, "conflict", "a hook Skillshare wrote was changed or removed outside Skillshare; import it or explicitly replace it")
 				continue
 			}
-			f.ops = append(f.ops, elementOp{Key: key, Event: w.event, Index: -1, Value: w.value})
+			op := elementOp{Key: key, Event: w.event, Index: -1, Value: w.value}
+			if target == "antigravity" && len(items) > 0 {
+				// A block has one place: its name.
+				op.Index, op.Before = 0, items[0]
+			}
+			f.ops = append(f.ops, op)
 			p.state.Records[key] = next
-			touch(w.root, w.entry, w.event, false)
+			touch(w.root, w.entry, w.event, op.Before, w.value)
 			pl.note(target, path, w.root, w.entry, "update", "replacing a registration changed outside Skillshare")
 			continue
 		}
@@ -637,10 +667,22 @@ func (pl *planner) planShared(path, target, root string, want []wantElement, sta
 			p.state.Records[key] = next
 			keep(w.event, i, key)
 			pl.note(target, path, w.root, w.entry, "adopt", "taking over a hook left by a removed Skillshare config")
+		case target == "antigravity" && len(items) > 0 && other == "" && !pl.replaces(w.root, w.entry) && !pl.adopts(w.root, w.entry):
+			pl.note(target, path, w.root, w.entry, "conflict", "a hook with this name exists that Skillshare does not manage; import it or explicitly replace it")
+		case target == "antigravity" && len(items) > 0 && other == "":
+			if _, held := taken[w.event][0]; held {
+				pl.note(target, path, w.root, w.entry, "conflict", "a hook with this name is managed by another Skillshare config")
+				continue
+			}
+			// Importing or replacing takes over the block of the same name in place.
+			f.ops = append(f.ops, elementOp{Key: key, Event: w.event, Index: 0, Value: w.value, Before: items[0]})
+			p.state.Records[key] = next
+			touch(w.root, w.entry, w.event, items[0], w.value)
+			pl.note(target, path, w.root, w.entry, "update", "replacing a hook Skillshare did not write")
 		default:
 			f.ops = append(f.ops, elementOp{Key: key, Event: w.event, Index: -1, Value: w.value})
 			p.state.Records[key] = next
-			touch(w.root, w.entry, w.event, false)
+			touch(w.root, w.entry, w.event, nil, w.value)
 			pl.note(target, path, w.root, w.entry, "add", "")
 		}
 	}
@@ -652,7 +694,7 @@ func (pl *planner) planShared(path, target, root string, want []wantElement, sta
 		if i, ok := located[key]; ok {
 			f.ops = append(f.ops, elementOp{Key: key, Event: r.Event, Index: i, Before: doc.events[r.Event][i]})
 			delete(p.state.Records, key)
-			touch(r.Root, r.Entry, r.Event, true)
+			touch(r.Root, r.Entry, r.Event, doc.events[r.Event][i], nil)
 			pl.note(target, path, r.Root, r.Entry, "remove", "")
 			continue
 		}

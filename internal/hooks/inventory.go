@@ -250,7 +250,9 @@ func (s *Service) Import(req ImportRequest) ([]Candidate, error) {
 		found[0].Name = req.Name
 	}
 	for i := range found {
-		found[i].Problems = []string{}
+		if found[i].Problems == nil {
+			found[i].Problems = []string{}
+		}
 		if found[i].Warnings == nil {
 			found[i].Warnings = []string{}
 		}
@@ -352,9 +354,32 @@ func (s *Service) importShared(target string, req ImportRequest, state ledger) (
 		case req.Content == "":
 			c.Warnings = []string{adoptWarning}
 		}
+		if target == "antigravity" {
+			c = antigravityCandidate(event, items[0].(map[string]any), c.Warnings)
+		}
 		out = append(out, c)
 	}
 	return out, nil
+}
+
+// antigravityCandidate offers one named block. The hook keeps the block's name, so
+// saving the import takes that block over in place.
+func antigravityCandidate(name string, block map[string]any, warnings []string) Candidate {
+	events := map[string]any{}
+	for event, value := range block {
+		if event != "enabled" {
+			events[event] = value
+		}
+	}
+	c := Candidate{Name: name, Entry: Entry{Bindings: map[string]Binding{"antigravity": {Events: events}}}, Warnings: warnings}
+	if !entryName.MatchString(name) {
+		c.Name = candidateName(name)
+		c.Warnings = []string{fmt.Sprintf("%q is not a valid hook name, so the import is written as %q next to it; remove the original afterwards", name, c.Name)}
+	}
+	if _, disabled := block["enabled"]; disabled {
+		c.Problems = []string{"this hook is disabled in Antigravity (enabled: false); enable it there to import it"}
+	}
+	return c
 }
 
 func (s *Service) baseOrDir(target string) string {

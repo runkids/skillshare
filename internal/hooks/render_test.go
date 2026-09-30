@@ -41,6 +41,7 @@ func TestRender_AllAdaptersNativeShapesWithoutWriting(t *testing.T) {
 		".cursor/hooks/skillshare/demo/guard.sh": "cursor",
 		".copilot/hooks/skillshare-demo.json":    "copilot", ".pi/agent/extensions/skillshare-demo.ts": "pi",
 		".config/amp/plugins/skillshare-demo.ts": "amp", ".config/opencode/plugins/skillshare-demo.ts": "opencode",
+		".gemini/config/hooks.json": "antigravity",
 	}
 	if len(got) != len(want) {
 		t.Fatalf("rendered %d files: %+v", len(got), got)
@@ -67,7 +68,14 @@ func TestRender_AllAdaptersNativeShapesWithoutWriting(t *testing.T) {
 		var doc map[string]any
 		must(t, json.Unmarshal([]byte(f.Content), &doc))
 		section := doc
-		if target != "droid" {
+		switch target {
+		case "droid":
+		case "antigravity":
+			section, _ = doc["demo"].(map[string]any)
+			if len(doc) != 1 {
+				t.Fatalf("%s: one block named after the hook: %s", rel, f.Content)
+			}
+		default:
 			section, _ = doc["hooks"].(map[string]any)
 		}
 		for event := range b.Events {

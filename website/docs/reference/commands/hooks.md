@@ -98,7 +98,8 @@ The file passed to `hooks add check --file check.yaml` contains only the Entry:
 | `bindings.AGENT.files` | Optional UTF-8 script files for command bindings, keyed by relative filename |
 
 Agent IDs are `claude`, `codex`, `gemini`, `copilot`, `cursor`, `droid`, `qwen`,
-`pi`, `amp` and `opencode`. `factory` is accepted as an alias for `droid`.
+`antigravity`, `pi`, `amp` and `opencode`. `factory` is accepted as an alias for
+`droid`, and `antigravity-cli` and `agy` for `antigravity`.
 Keep event names, matchers, handler types, commands, timeout units and payloads
 in each Agent's native format. Skillshare does not translate one Agent's
 runtime behavior into another's. Event names are checked against each command
@@ -124,6 +125,7 @@ you provide. Inspect the exact paths in the preview.
 | [Cursor](https://cursor.com/docs/hooks) | `~/.cursor/hooks.json` | `.cursor/hooks.json` | Version 1, native lowerCamelCase events |
 | [Factory Droid](https://docs.factory.com/harness/hooks) | `~/.factory/hooks.json` | `.factory/hooks.json` | Unwrapped event map |
 | [Qwen Code](https://qwenlm.github.io/qwen-code-docs/en/users/features/hooks/) | `~/.qwen/settings.json` | `.qwen/settings.json` | `hooks` event map |
+| [Antigravity](https://antigravity.google/docs/hooks) | `~/.gemini/config/hooks.json` | `.agents/hooks.json` | Named hook blocks, one per hook |
 | [Pi](https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/extensions.md) | `~/.pi/agent/extensions/skillshare-NAME.ts` | `.pi/extensions/skillshare-NAME.ts` | Native extension code |
 | [Amp](https://ampcode.com/docs/plugin-api) | `~/.config/amp/plugins/skillshare-NAME.ts` | `.amp/plugins/skillshare-NAME.ts` | Native plugin code |
 | [OpenCode](https://opencode.ai/docs/plugins/) | `~/.config/opencode/plugins/skillshare-NAME.ts` | `.opencode/plugins/skillshare-NAME.ts` | Supplied v1/v2 plugin code |
@@ -131,6 +133,9 @@ you provide. Inspect the exact paths in the preview.
 Native config-directory environment overrides apply in global scope. Project
 operations write inside that project and never fall back to a global path.
 Other native sources, such as Codex inline TOML declarations, remain separate.
+Antigravity and its CLI (`agy`) read the same `hooks.json`; each hook is one
+block named after it, so importing a block keeps its name. Hooks in the CLI's
+`~/.gemini/antigravity-cli/settings.json` stay separate.
 Sync refuses to create a Droid standalone file while active inline hooks exist.
 Import them first, review and remove the original inline hooks, then sync; this
 avoids silently changing which native source Droid loads.

@@ -705,7 +705,7 @@ func (s *Service) PreviewRestore(id string) (*Plan, error) {
 	return p, nil
 }
 
-func mergeKeys(a, b map[string]*record) map[string]bool {
+func mergeKeys[T any](a, b map[string]T) map[string]bool {
 	out := map[string]bool{}
 	for k := range a {
 		out[k] = true

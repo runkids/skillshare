@@ -12,8 +12,11 @@ import (
 
 // nativeDoc is one shared hooks file of a command Agent: Claude, Gemini and Qwen
 // settings.json, Codex and Cursor hooks.json under "hooks", and Droid's hooks.json,
-// whose top level is the event map. Edits touch only the event arrays they change,
-// so comments, order and every other setting keep their bytes.
+// whose top level is the event map. Antigravity's hooks.json maps hook names to
+// blocks of events; each block is held as the only element of an "event" named after
+// it, so the same ownership rules apply to whole blocks. Edits touch only the event
+// arrays or blocks they change, so comments, order and every other setting keep
+// their bytes.
 type nativeDoc struct {
 	target string
 	data   []byte
@@ -25,7 +28,7 @@ type nativeDoc struct {
 }
 
 // wrapped reports whether the event map sits under a "hooks" key.
-func wrapped(target string) bool { return target != "droid" }
+func wrapped(target string) bool { return target != "droid" && target != "antigravity" }
 
 func uniqueJSON(v *hujson.Value) error {
 	switch value := v.Value.(type) {
@@ -83,6 +86,21 @@ func parseNative(target string, data []byte) (*nativeDoc, error) {
 		if version, ok := document["version"]; ok && version != float64(1) {
 			return nil, fmt.Errorf("unsupported Cursor hooks version %v; only version 1 is supported", version)
 		}
+	}
+	if target == "antigravity" {
+		n.hasSection = true
+		for name, raw := range document {
+			block, ok := raw.(map[string]any)
+			if !ok {
+				return nil, fmt.Errorf("hook %q must be an object", name)
+			}
+			// enabled defaults to true, so an explicit true is the same block.
+			if block["enabled"] == true {
+				delete(block, "enabled")
+			}
+			n.events[name] = []any{block}
+		}
+		return n, nil
 	}
 	section := document
 	n.hasSection = true
@@ -147,6 +165,12 @@ func (n *nativeDoc) edit(ops []elementOp, track map[string]map[int]string, drop 
 	indent := detectIndent(root)
 	fresh := len(root.Members) == 0
 	compact := !fresh && !bytes.Contains(bytes.TrimSpace(n.data), []byte("\n"))
+	if n.target == "antigravity" {
+		if err := n.editBlocks(root, ops, indent, positions); err != nil {
+			return nil, nil, err
+		}
+		return n.finish(&v, root, fresh, compact, positions)
+	}
 	section := root
 	depth := 1
 	if wrapped(n.target) {
@@ -242,6 +266,11 @@ func (n *nativeDoc) edit(ops []elementOp, track map[string]map[int]string, drop 
 	case !bytes.Contains(section.AfterExtra, []byte("\n")):
 		section.AfterExtra = hujson.Extra("\n" + strings.Repeat(indent, depth-1))
 	}
+	return n.finish(&v, root, fresh, compact, positions)
+}
+
+// finish lays out the edited document in the file's style and checks it parses.
+func (n *nativeDoc) finish(v *hujson.Value, root *hujson.Object, fresh, compact bool, positions map[string]int) ([]byte, map[string]int, error) {
 	if len(root.Members) == 0 {
 		root.AfterExtra = nil
 	} else if fresh || !bytes.Contains(root.AfterExtra, []byte("\n")) {
@@ -258,6 +287,32 @@ func (n *nativeDoc) edit(ops []elementOp, track map[string]map[int]string, drop 
 		return nil, nil, fmt.Errorf("cannot safely edit hooks: %w", err)
 	}
 	return out, positions, nil
+}
+
+// editBlocks adds, replaces or removes Antigravity's named blocks, one per op.
+func (n *nativeDoc) editBlocks(root *hujson.Object, ops []elementOp, indent string, positions map[string]int) error {
+	for _, op := range ops {
+		m := member(root, op.Event)
+		switch {
+		case op.Value == nil:
+			removeMember(root, op.Event)
+			continue
+		case op.Index < 0 && m != nil, op.Index >= 0 && m == nil:
+			return fmt.Errorf("hook %q changed; preview again", op.Event)
+		}
+		value, err := formatted(op.Value, indent, 1)
+		if err != nil {
+			return err
+		}
+		if m == nil {
+			addMember(root, op.Event, value, indent)
+		} else {
+			value.BeforeExtra = m.Value.BeforeExtra
+			m.Value = value
+		}
+		positions[op.Key] = 0
+	}
+	return nil
 }
 
 func member(obj *hujson.Object, name string) *hujson.ObjectMember {

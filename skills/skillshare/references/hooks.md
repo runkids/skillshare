@@ -38,7 +38,8 @@ conflict automatically. A stale preview requires refresh (`--revision` can
 require a specific one). Unrelated native settings and unowned hooks survive.
 
 Agent IDs: `claude`, `codex`, `gemini`, `copilot`, `cursor`, `droid`, `qwen`,
-`pi`, `amp`, `opencode`; `factory` aliases `droid`. Code must match the native
+`antigravity`, `pi`, `amp`, `opencode`; `factory` aliases `droid`, and
+`antigravity-cli`/`agy` alias `antigravity`. Code must match the native
 Agent's installed API version. Check actual destination paths in the inventory
 and preview; global config-directory overrides do not apply to project paths.
 

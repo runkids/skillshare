@@ -147,6 +147,14 @@ var Catalog = map[string]AgentCatalog{
 		ev("SessionStart", false, "On start, resume, clear or after compaction."),
 		ev("SessionEnd", false, "A session ends."),
 	}},
+	// https://antigravity.google/docs/hooks (the IDE and CLI tabs list the same events)
+	"antigravity": {TimeoutUnit: "seconds", Events: []CatalogEvent{
+		ev("PreToolUse", true, "Before a tool runs."),
+		ev("PostToolUse", true, "After a tool completes."),
+		ev("PreInvocation", false, "Before the model is called."),
+		ev("PostInvocation", false, "Right after each model invocation completes."),
+		ev("Stop", false, "Execution terminates."),
+	}},
 	// https://qwenlm.github.io/qwen-code-docs/en/users/features/hooks/
 	"qwen": {TimeoutUnit: "seconds", Events: []CatalogEvent{
 		ev("PreToolUse", true, "Before a tool runs; for permission checks and input validation."),

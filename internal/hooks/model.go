@@ -59,7 +59,7 @@ type TargetDef struct {
 	Note string `json:"note"`
 }
 
-// Targets are the ten supported Agents in display order.
+// Targets are the supported Agents in display order.
 var Targets = []TargetDef{
 	{Name: "claude", Kind: KindCommand, Note: "Claude Code runs settings.json hooks only after the workspace trust dialog is accepted; /hooks lists them read-only."},
 	{Name: "codex", Kind: KindCommand, Note: "Codex loads hooks.json together with inline [hooks] in config.toml, which Skillshare leaves untouched and lists as an additional source. Review and trust each new or changed hook in /hooks; project hooks load only when the project's .codex folder is trusted."},
@@ -68,13 +68,14 @@ var Targets = []TargetDef{
 	{Name: "cursor", Kind: KindCommand, Note: "Cursor reads hooks.json (version 1, lowerCamelCase events) and reloads it when it changes; project hooks need a trusted workspace."},
 	{Name: "droid", Kind: KindCommand, Note: "Factory Droid reads hooks.json, and settings.json hooks only while hooks.json is absent, so Skillshare never creates hooks.json over inline hooks. Droid snapshots hooks at startup; review changes in /hooks."},
 	{Name: "qwen", Kind: KindCommand, Note: "Qwen Code reads hooks from settings.json; project hooks load only in trusted folders. Opening /hooks reloads the definitions."},
+	{Name: "antigravity", Kind: KindCommand, Note: "Antigravity and its CLI (agy) share hooks.json: ~/.gemini/config/hooks.json globally and .agents/hooks.json in a project, where hooks load only in a trusted folder. Each hook is a named block; Skillshare writes one block per hook, named after it. The CLI can also read hooks from ~/.gemini/antigravity-cli/settings.json, which Skillshare leaves untouched."},
 	{Name: "pi", Kind: KindCode, Note: "Pi discovers extensions at startup; project extensions load only after project trust is granted. The code must use the extension API of your installed Pi version."},
 	{Name: "amp", Kind: KindCode, Note: "Amp runs plugins from its plugins folder with Bun; run 'plugins: reload' after sync. The code must use your Amp version's plugin API."},
 	{Name: "opencode", Kind: KindCode, Note: "OpenCode loads plugins from its plugins folder. v1 plugins are named exports and v2 plugins export default Plugin.define(...); Skillshare writes your code as given and never converts between them."},
 }
 
 // targetAliases are accepted spellings of canonical Agent names.
-var targetAliases = map[string]string{"factory": "droid"}
+var targetAliases = map[string]string{"factory": "droid", "antigravity-cli": "antigravity", "agy": "antigravity"}
 
 func targetDef(name string) (TargetDef, bool) {
 	for _, t := range Targets {
@@ -239,6 +240,8 @@ func validateElement(target, event string, obj map[string]any) error {
 		return requireString(obj, "command")
 	case "copilot":
 		return validateCopilot(event, obj)
+	case "antigravity":
+		return validateAntigravity(obj)
 	}
 	// Matcher groups: Claude, Codex, Gemini, Qwen and Droid.
 	if matcher, set := obj["matcher"]; set {
@@ -262,6 +265,42 @@ func validateElement(target, event string, obj map[string]any) error {
 			if err := requireString(handler, "command"); err != nil {
 				return fmt.Errorf("hooks[%d]: %w", i, err)
 			}
+		}
+		if timeout, set := handler["timeout"]; set {
+			if n, ok := timeout.(float64); !ok || n <= 0 {
+				return fmt.Errorf("hooks[%d]: timeout must be a positive number", i)
+			}
+		}
+	}
+	return nil
+}
+
+// validateAntigravity checks a matcher group (PreToolUse, PostToolUse) or, for the other
+// events, a handler listed directly under the event. type defaults to command.
+func validateAntigravity(obj map[string]any) error {
+	handlers := []any{obj}
+	if _, grouped := obj["hooks"]; grouped {
+		if matcher, set := obj["matcher"]; set {
+			if _, ok := matcher.(string); !ok {
+				return fmt.Errorf("matcher must be a string")
+			}
+		}
+		list, ok := obj["hooks"].([]any)
+		if !ok || len(list) == 0 {
+			return fmt.Errorf("requires a non-empty hooks array")
+		}
+		handlers = list
+	}
+	for i, h := range handlers {
+		handler, ok := h.(map[string]any)
+		if !ok {
+			return fmt.Errorf("hooks[%d] must be an object", i)
+		}
+		if kind, set := handler["type"]; set && kind != "command" {
+			return fmt.Errorf("hooks[%d]: type must be command", i)
+		}
+		if err := requireString(handler, "command"); err != nil {
+			return fmt.Errorf("hooks[%d]: %w", i, err)
 		}
 		if timeout, set := handler["timeout"]; set {
 			if n, ok := timeout.(float64); !ok || n <= 0 {
