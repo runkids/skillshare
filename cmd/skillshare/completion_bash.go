@@ -38,7 +38,7 @@ _skillshare() {
     local sync_flags="--all --dry-run -n --force -f --json --quiet -q --help -h"
     local mcp_flags="--tools-allow --tools-deny --pi-options --url --target --from --file --sync --replace --disabled --keep-files --revision --dry-run -n --json --no-tui --no-dns --live --timeout --help -h"
     local status_flags="--json --help -h"
-    local hooks_flags="--file --from --sync --replace --revision --dry-run -n --json --help -h"
+    local hooks_flags="--file --from --sync --replace --keep-files --revision --dry-run -n --json --help -h"
     local diff_flags="--no-tui --patch --stat --json --help -h"
     local backup_flags="--list -l --cleanup -c --delete --all --dry-run -n --target -t --help -h"
     local backup_files_restore_flags="--unlink --dry-run -n --help -h"

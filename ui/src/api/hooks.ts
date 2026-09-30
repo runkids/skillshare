@@ -26,6 +26,8 @@ export interface HookMutation {
   name?: string;
   entry?: HookEntry;
   remove?: boolean;
+  /** With remove: stop managing the hook and leave its target entries as they are. */
+  unmanage?: boolean;
   replace?: boolean;
   /** Save an imported entry as the owner of the native registrations it was read from, so sync adopts them instead of reporting a conflict. */
   adopt?: boolean;

@@ -25,12 +25,12 @@ func runHooks(service *hooks.Service, sub string, o hooksOptions) error {
 		return runHooksToggle(service, sub == "enable", o)
 	case "remove":
 		if o.name == "" {
-			return fmt.Errorf("usage: skillshare hooks remove <name> [--sync]")
+			return fmt.Errorf("usage: skillshare hooks remove <name> [--sync | --keep-files]")
 		}
 		if _, err := hooksEntry(service, o.name); err != nil {
 			return err
 		}
-		return finishHooksMutation(service, "hooks remove", hooks.Mutation{Name: o.name, Remove: true, Replace: o.replace}, o)
+		return finishHooksMutation(service, "hooks remove", hooks.Mutation{Name: o.name, Remove: true, Replace: o.replace, Unmanage: o.keepFiles}, o)
 	case "sync":
 		o.sync = true
 		// A name only scopes --replace; the sync itself covers every entry.

@@ -40,6 +40,9 @@ type Mutation struct {
 	// next sync adopts them in place. It never takes over edited outputs or another
 	// config's registrations.
 	Adopt bool `json:"adopt,omitempty"`
+	// Unmanage, with Remove and a Name, also forgets which native registrations the
+	// hook wrote, so sync leaves them in place as the user's own hooks.
+	Unmanage bool `json:"unmanage,omitempty"`
 }
 
 // Change deliberately carries no hook contents.

@@ -170,6 +170,31 @@ func TestHooksRevisionMustMatchPreview(t *testing.T) {
 	}
 }
 
+func TestHooksRemoveKeepFilesStopsManaging(t *testing.T) {
+	sb := newHooksSandbox(t)
+	defer sb.Cleanup()
+	settings := filepath.Join(sb.Home, ".claude", "settings.json")
+	sb.RunCLI("hooks", "add", "bash-log", "--file", writeHooksEntry(t, sb), "--sync", "-g").AssertSuccess(t)
+	written := sb.ReadFile(settings)
+
+	sb.RunCLI("hooks", "remove", "bash-log", "--keep-files", "--sync", "-g").AssertFailure(t)
+	dry := sb.RunCLI("hooks", "remove", "bash-log", "--keep-files", "--dry-run", "--json", "-g")
+	dry.AssertSuccess(t)
+	var plan struct {
+		Changes []any `json:"changes"`
+	}
+	if err := json.Unmarshal([]byte(dry.Stdout), &plan); err != nil || len(plan.Changes) != 0 {
+		t.Fatalf("dry-run plans changes (%v):\n%s", err, dry.Stdout)
+	}
+
+	sb.RunCLI("hooks", "remove", "bash-log", "--keep-files", "-g").AssertSuccess(t)
+	sb.RunCLI("hooks", "sync", "-g").AssertSuccess(t)
+	if sb.ReadFile(settings) != written {
+		t.Fatalf("sync touched the hook it no longer manages:\n%s", sb.ReadFile(settings))
+	}
+	sb.RunCLI("hooks", "import", "--from", "claude", "-g").AssertOutputContains(t, "claude-pretooluse")
+}
+
 func TestHooksRejectsInapplicableArguments(t *testing.T) {
 	sb := newHooksSandbox(t)
 	defer sb.Cleanup()
@@ -182,6 +207,7 @@ func TestHooksRejectsInapplicableArguments(t *testing.T) {
 		{"hooks", "restore"},
 		{"hooks", "bogus"},
 		{"hooks", "list", "--unknown"},
+		{"hooks", "edit", "bash-log", "--keep-files"},
 	} {
 		sb.RunCLI(append(args, "-g")...).AssertFailure(t)
 	}

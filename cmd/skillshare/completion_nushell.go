@@ -93,6 +93,7 @@ export extern "skillshare hooks" [
     --revision: string
     --sync
     --replace
+    --keep-files # remove: leave Agent entries as they are
     --dry-run(-n)
     --json
     --project(-p)

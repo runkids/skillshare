@@ -25,6 +25,7 @@ skillshare hooks sync check --replace --dry-run
 skillshare sync hooks --dry-run --json
 skillshare sync hooks
 skillshare hooks remove check --sync
+skillshare hooks remove check --keep-files
 skillshare hooks restore BACKUP_ID --dry-run
 skillshare hooks restore BACKUP_ID
 ```
@@ -36,6 +37,7 @@ skillshare hooks restore BACKUP_ID
 | `--file PATH` | Entry JSON/YAML；导入时为原生配置或代码 |
 | `--from AGENT` | 原生 Agent 格式或要读取的 Agent |
 | `--sync` | 保存并同步 |
+| `--keep-files` | 配合 `remove` 使用：停止管理该 hook，并让它的原生条目保持原样。不能与 `--sync` 同时使用。参见[下文](#stop-managing-a-hook) |
 | `--replace` | 明确替换已有来源 entry 或该 entry 冲突的原生输出 |
 | `--dry-run, -n` | 仅预览，不保存或写入 |
 | `--json` | 结构化输出 |
@@ -44,6 +46,16 @@ skillshare hooks restore BACKUP_ID
 | `--project, -p` | 使用 project 配置 |
 
 `hooks list --json` 显示备份 ID 和完整目标路径。配置变化后，旧预览失效；保存或同步前需要重新预览。
+
+## 停止管理某个 hook {#stop-managing-a-hook}
+
+```bash
+skillshare hooks remove check --keep-files
+```
+
+这会从来源移除 `check`，并忘记 Skillshare 为它写入的原生注册和文件。Agent 文件不会变动。之后这些条目就归你所有：同步不会再移除或更新它们，`hooks import` 也会再次列出它们。`--keep-files` 不能与 `--sync` 同时使用。Dashboard 的移除对话框在 Hooks 页面和项目的 **Hooks** 标签页都提供 **停止管理**。**仅从来源移除** 则不同：下次同步时，会从 Agent 文件删掉该 hook 的条目。
+
+只会影响你移除它的那个范围。停止管理 global hook 时，项目中同名的 hook 仍受管理，反之亦然。若要重新管理这些条目，请导入它们。
 
 ## 来源字段
 

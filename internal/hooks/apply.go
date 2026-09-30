@@ -131,6 +131,9 @@ func (s *Service) draft(m Mutation) (*Source, map[string]bool, map[string]bool, 
 	if m.Entry != nil && m.Remove {
 		return nil, nil, nil, fmt.Errorf("cannot save and remove the same hook")
 	}
+	if m.Unmanage && (!m.Remove || m.Name == "") {
+		return nil, nil, nil, fmt.Errorf("stop managing applies only to removing a named hook")
+	}
 	if (m.Entry != nil || m.Remove || m.Replace) && m.Name == "" && m.Project == "" {
 		return nil, nil, nil, fmt.Errorf("hook name is required")
 	}
@@ -182,6 +185,9 @@ func (s *Service) draft(m Mutation) (*Source, map[string]bool, map[string]bool, 
 			return nil, nil, nil, fmt.Errorf("hook %q not found", m.Name)
 		}
 		delete(entries, m.Name)
+		if m.Unmanage {
+			source.unmanaged[root+"\x00"+m.Name] = true
+		}
 	case m.Entry != nil:
 		entry := *m.Entry
 		if err := entry.normalize(); err != nil {
@@ -211,6 +217,9 @@ func (s *Service) PreviewMutation(m Mutation) (*Plan, error) {
 // conflict, then saves the source and applies the plan. Without sync, it saves the
 // source only, even when native sync would be blocked.
 func (s *Service) Mutate(m Mutation, revision string, sync bool) (*Result, error) {
+	if m.Unmanage && sync {
+		return nil, fmt.Errorf("stop managing keeps target files as they are, so it cannot be combined with sync")
+	}
 	lock, err := s.lock()
 	if err != nil {
 		return nil, err
@@ -230,6 +239,9 @@ func (s *Service) Mutate(m Mutation, revision string, sync bool) (*Result, error
 			return nil, err
 		}
 		if err := source.save(); err != nil {
+			return nil, err
+		}
+		if err := s.forgetUnmanaged(source); err != nil {
 			return nil, err
 		}
 		return &Result{Applied: []string{}, BackupIDs: []string{}}, nil
@@ -261,6 +273,9 @@ func (s *Service) Mutate(m Mutation, revision string, sync bool) (*Result, error
 		if err := s.recordAdopted(p); err != nil {
 			return nil, fmt.Errorf("source saved; recording the imported registrations failed: %w", err)
 		}
+		if err := s.forgetUnmanaged(source); err != nil {
+			return nil, err
+		}
 		return &Result{Plan: p, Applied: []string{}, BackupIDs: []string{}}, nil
 	}
 	// The plan was computed from the draft, which is now the saved source.
@@ -287,6 +302,32 @@ func (s *Service) recordAdopted(p *Plan) error {
 		state.Records[key] = r
 	}
 	return writeJSONFile(s.statePath(), state)
+}
+
+// forgetUnmanaged drops the ownership records of the hooks a draft stops managing, so
+// sync neither updates nor removes what they wrote.
+func (s *Service) forgetUnmanaged(source *Source) error {
+	if len(source.unmanaged) == 0 {
+		return nil
+	}
+	state, _, err := s.loadLedger()
+	if err != nil {
+		return err
+	}
+	source.forget(state)
+	if err := writeJSONFile(s.statePath(), state); err != nil {
+		return fmt.Errorf("source saved; forgetting the hook's registrations failed: %w", err)
+	}
+	return nil
+}
+
+// forget deletes the records of the hooks this draft stops managing.
+func (source *Source) forget(state ledger) {
+	for key, r := range state.Records {
+		if r.Owner == source.ConfigPath && source.unmanaged[r.Root+"\x00"+r.Entry] {
+			delete(state.Records, key)
+		}
+	}
 }
 
 // ApplyProject applies only one hooks.projects root's changes. The revision still

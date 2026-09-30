@@ -31,6 +31,7 @@ skillshare hooks sync check --replace --dry-run
 skillshare sync hooks --dry-run --json
 skillshare sync hooks
 skillshare hooks remove check --sync
+skillshare hooks remove check --keep-files
 skillshare hooks restore BACKUP_ID --dry-run
 skillshare hooks restore BACKUP_ID
 ```
@@ -53,6 +54,7 @@ not one transaction.
 | `--file PATH` | Entry JSON/YAML for add/edit; native configuration or code for import |
 | `--from AGENT` | Native Agent format or existing Agent configuration to import |
 | `--sync` | Save and synchronize the mutation |
+| `--keep-files` | With `remove`: stop managing the hook and leave its native entries as they are. Not with `--sync`. See [below](#stop-managing-a-hook) |
 | `--replace` | Explicitly replace an existing source entry or conflicting native output for that entry |
 | `--dry-run`, `-n` | Preview without saving or writing native configuration |
 | `--json` | Structured output |
@@ -62,6 +64,24 @@ not one transaction.
 
 Use `hooks list --json` to see backup IDs and exact destination paths. A changed
 configuration invalidates the preview; refresh it before saving or syncing.
+
+## Stop managing a hook {#stop-managing-a-hook}
+
+```bash
+skillshare hooks remove check --keep-files
+```
+
+This removes `check` from the source and forgets which native registrations and
+files Skillshare wrote for it. No Agent file changes. From then on those entries
+are yours: sync neither removes nor updates them, and `hooks import` offers them
+again. `--keep-files` cannot be combined with `--sync`. The dashboard's remove
+dialog offers it as **Stop managing**, on the Hooks page and in a project's
+**Hooks** tab. **Remove from source only** is different: the next sync deletes
+the hook's entries from the Agent files.
+
+Only the scope you remove it from changes. Stopping a global hook leaves a
+project's hook of the same name managed, and the other way round. To manage the
+entries again, import them.
 
 ## Source fields
 

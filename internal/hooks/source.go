@@ -28,6 +28,8 @@ type Source struct {
 	// root as the config spells it, so saving keeps a leading ~.
 	touchedProjects map[string]bool
 	projectKeys     map[string]string
+	// unmanaged are the hooks a draft stops managing, keyed by project root and name.
+	unmanaged map[string]bool
 }
 
 func mapping(node *yaml.Node) *yaml.Node {
@@ -106,7 +108,7 @@ func LoadSource(configPath string) (*Source, error) {
 }
 
 func parseSource(path string, data []byte) (*Source, error) {
-	s := &Source{ConfigPath: path, Entries: map[string]Entry{}, Projects: map[string]Project{}, touched: map[string]bool{}, touchedProjects: map[string]bool{}, projectKeys: map[string]string{}, bytes: data}
+	s := &Source{ConfigPath: path, Entries: map[string]Entry{}, Projects: map[string]Project{}, touched: map[string]bool{}, touchedProjects: map[string]bool{}, projectKeys: map[string]string{}, unmanaged: map[string]bool{}, bytes: data}
 	d := yaml.NewDecoder(bytes.NewReader(s.bytes))
 	if err := d.Decode(&s.doc); err != nil {
 		if err == io.EOF {

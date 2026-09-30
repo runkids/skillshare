@@ -9,6 +9,7 @@ import type { HookCandidate, HookInventory } from '../../api/hooks';
 import HookDialog from './HookDialog';
 import HooksImportDialog from './HooksImportDialog';
 import HooksPreview from './HooksPreview';
+import HooksRemoveDialog from './HooksRemoveDialog';
 
 vi.mock('../CodeEditor', () => ({
   default: ({ value, onChange, ariaLabel }: { value: string; onChange: (v: string) => void; ariaLabel: string }) => <textarea aria-label={ariaLabel} value={value} onChange={(e) => onChange(e.target.value)} />,
@@ -124,5 +125,22 @@ describe('hooks preview', () => {
     const diff = within(card).getByLabelText(`Changes to ${path}`);
     expect(within(diff).getByText('"Stop": [')).toBeInTheDocument();
     expect(within(diff).getByText("your own hook, left as is")).toBeInTheDocument();
+  });
+});
+
+describe('hooks remove', () => {
+  beforeEach(() => vi.resetAllMocks());
+
+  it('stops managing without syncing, and says the source-only choice still deletes on the next sync', async () => {
+    const user = userEvent.setup();
+    const path = '/home/u/.claude/settings.json';
+    vi.mocked(hooksApi.preview).mockResolvedValue({ revision: 'r', fingerprint: 'fp', sourcePath: '/s.yaml', blocked: false, changes: [{ target: 'claude', path, name: 'guard', action: 'remove' }] });
+    vi.mocked(hooksApi.configure).mockResolvedValue({ applied: [], backupIds: [] });
+    const onSaved = vi.fn();
+    wrap(<HooksRemoveDialog name="guard" onClose={vi.fn()} onSaved={onSaved} />);
+    expect(await screen.findByText('Leaves the files for now, but the next sync also deletes it from the Claude settings files.')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Stop managing' }));
+    await waitFor(() => expect(onSaved).toHaveBeenCalled());
+    expect(hooksApi.configure).toHaveBeenCalledWith({ name: 'guard', remove: true, unmanage: true }, 'r', false);
   });
 });

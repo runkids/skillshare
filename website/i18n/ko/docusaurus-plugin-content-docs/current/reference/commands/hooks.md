@@ -25,6 +25,7 @@ skillshare hooks sync check --replace --dry-run
 skillshare sync hooks --dry-run --json
 skillshare sync hooks
 skillshare hooks remove check --sync
+skillshare hooks remove check --keep-files
 skillshare hooks restore BACKUP_ID --dry-run
 skillshare hooks restore BACKUP_ID
 ```
@@ -36,6 +37,7 @@ skillshare hooks restore BACKUP_ID
 | `--file PATH` | 추가／편집의 Entry JSON/YAML 또는 가져올 네이티브 설정／코드 |
 | `--from AGENT` | 가져올 Agent 또는 네이티브 형식 |
 | `--sync` | 저장 후 동기화 |
+| `--keep-files` | `remove`와 함께 사용: hook 관리를 멈추고 네이티브 항목은 그대로 둡니다. `--sync`와 함께 쓸 수 없습니다. [아래](#stop-managing-a-hook) 참고 |
 | `--replace` | 기존 소스 entry 또는 해당 entry의 충돌 출력을 명시적으로 교체 |
 | `--dry-run, -n` | 저장하거나 쓰지 않고 미리보기 |
 | `--json` | 구조화된 출력 |
@@ -44,6 +46,16 @@ skillshare hooks restore BACKUP_ID
 | `--project, -p` | project 설정 |
 
 `hooks list --json`으로 백업 ID와 전체 대상 경로를 확인합니다. 설정이 바뀌면 이전 미리보기가 무효가 되므로 저장／동기화 전 새로 확인하세요.
+
+## hook 관리 중단 {#stop-managing-a-hook}
+
+```bash
+skillshare hooks remove check --keep-files
+```
+
+소스에서 `check`를 제거하고, Skillshare가 이 hook을 위해 쓴 네이티브 등록과 파일을 더 이상 기억하지 않습니다. Agent 파일은 바뀌지 않습니다. 이후 그 항목은 사용자의 것이 되어, 동기화가 제거하거나 업데이트하지 않으며 `hooks import`에서 다시 후보로 나타납니다. `--keep-files`는 `--sync`와 함께 쓸 수 없습니다. 대시보드의 제거 대화상자는 Hooks 페이지와 프로젝트의 **Hooks** 탭에서 **관리 중단**으로 이 선택지를 제공합니다. **소스에서만 제거**는 다릅니다. 다음 동기화 때 Agent 파일에서 해당 hook 항목을 삭제합니다.
+
+제거한 범위만 바뀝니다. global hook의 관리를 멈춰도 같은 이름의 프로젝트 hook은 계속 관리되며, 그 반대도 마찬가지입니다. 다시 관리하려면 가져오기(import)하세요.
 
 ## 소스 필드
 

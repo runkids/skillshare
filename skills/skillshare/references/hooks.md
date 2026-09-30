@@ -19,6 +19,7 @@ skillshare sync hooks --dry-run --json
 skillshare hooks disable check --sync
 skillshare hooks enable check --sync
 skillshare hooks remove check --sync
+skillshare hooks remove check --keep-files
 skillshare hooks restore BACKUP_ID --dry-run --json
 skillshare hooks restore BACKUP_ID
 ```
@@ -36,6 +37,8 @@ owned unchanged outputs. `--replace` explicitly replaces an existing source
 or the selected entry's conflicting native output. Never add it to bypass a
 conflict automatically. A stale preview requires refresh (`--revision` can
 require a specific one). Unrelated native settings and unowned hooks survive.
+`remove --keep-files` stops managing an entry: its native entries stay as they
+are, sync no longer touches them, and import offers them again (not with `--sync`).
 
 Agent IDs: `claude`, `codex`, `gemini`, `copilot`, `cursor`, `droid`, `qwen`,
 `antigravity`, `pi`, `amp`, `opencode`; `factory` aliases `droid`, and

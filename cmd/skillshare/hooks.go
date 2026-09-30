@@ -13,6 +13,7 @@ import (
 type hooksOptions struct {
 	name, file, from, revision  string
 	sync, dryRun, json, replace bool
+	keepFiles                   bool
 }
 
 func parseHooksOptions(args []string) (hooksOptions, error) {
@@ -40,6 +41,8 @@ func parseHooksOptions(args []string) (hooksOptions, error) {
 			o.json = true
 		case "--replace":
 			o.replace = true
+		case "--keep-files":
+			o.keepFiles = true
 		default:
 			if strings.HasPrefix(a, "-") || o.name != "" {
 				return o, fmt.Errorf("unknown hooks argument %q", a)
@@ -111,7 +114,7 @@ func cmdSyncHooks(args []string) error {
 	if err != nil {
 		return err
 	}
-	if o.name != "" || o.file != "" || o.from != "" || o.sync || o.replace {
+	if o.name != "" || o.file != "" || o.from != "" || o.sync || o.replace || o.keepFiles {
 		return fmt.Errorf("sync hooks accepts only --dry-run, --json, --revision and scope flags; use 'skillshare hooks sync <name> --replace' to take over conflicts")
 	}
 	return hooksJSONError(runHooks(service, "sync", o), o)
@@ -152,6 +155,9 @@ func checkHooksFlags(sub string, o hooksOptions) error {
 			return fmt.Errorf("--%s does not apply to hooks %s", flag, sub)
 		}
 	}
+	if o.keepFiles && (sub != "remove" || o.sync) {
+		return fmt.Errorf("--keep-files only applies to hooks remove without --sync: it leaves Agent files as they are")
+	}
 	if sub == "sync" && o.name != "" && !o.replace {
 		return fmt.Errorf("hooks sync takes a name only with --replace, to take over that hook's conflicting Agent entries")
 	}
@@ -172,7 +178,8 @@ Commands:
                     list candidates, or save one with a name
   enable <name>     Publish a disabled entry again on the next sync
   disable <name>    Keep the definition; the next sync removes its owned outputs
-  remove <name>     Delete the entry; the next sync prunes its owned outputs
+  remove <name>     Delete the entry; the next sync prunes its owned outputs,
+                    or stop managing it and keep its Agent entries (--keep-files)
   sync [name]       Write hooks to each Agent's native configuration; with a name
                     and --replace, take over that hook's conflicting Agent entries
   restore <id>      Preview and restore an Agent file from a hooks backup
@@ -183,6 +190,7 @@ Options:
   --sync            Save and synchronize (default: save the source only)
   --replace         Replace an existing entry, or take over its conflicting
                     Agent entries (unmanaged duplicates or outside edits)
+  --keep-files      remove only: stop managing the hook; its Agent entries stay
   --dry-run, -n     Preview without writing
   --json            Machine-readable output
   --revision <id>   Require the matching preview revision

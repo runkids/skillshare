@@ -413,6 +413,8 @@ func (s *Service) previewSource(source *Source, replace, adopt map[string]bool) 
 	if err != nil {
 		return nil, err
 	}
+	// A hook the draft stops managing already plans as the user's own.
+	source.forget(state)
 	d, err := s.render(source)
 	if err != nil {
 		return nil, err
