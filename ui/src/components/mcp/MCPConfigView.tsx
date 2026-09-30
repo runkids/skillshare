@@ -11,7 +11,7 @@ import DialogShell from '../DialogShell';
 import IconButton from '../IconButton';
 import Spinner from '../Spinner';
 import { useT } from '../../i18n';
-import { inside, targetLabel } from './mcpView';
+import { inside, targetLabel, toolGapKey } from './mcpView';
 import { queryKeys } from '../../lib/queryKeys';
 import { fileName, shortenHome } from '../../lib/paths';
 import { useAppContext } from '../../context/AppContext';
@@ -99,6 +99,7 @@ export default function MCPConfigView({ mutation }: { mutation: MCPMutation }) {
           </div>
           {shown !== SOURCE && view.isPending && <Spinner size="sm" />}
           {rendered?.error && <div className="ss-note warn"><span className="flex-1">{rendered.error}</span></div>}
+          {rendered?.toolGaps?.length ? <div className="ss-note warn"><span className="flex-1">{t('mcp.tools.notAppliedHere', { parts: rendered.toolGaps.map((gap) => t(toolGapKey(gap))).join(t('mcp.tools.partSeparator')) })}</span></div> : null}
           {content !== undefined && <CodeView content={content} lang={shown === SOURCE ? 'json' : path ?? ''} className="max-h-[420px]" />}
         </div>
       </div>

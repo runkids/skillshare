@@ -1,5 +1,5 @@
 import { mcpOffTargets, mcpTargets } from '../../api/mcp';
-import type { MCPPlan, MCPServer } from '../../api/mcp';
+import type { MCPPlan, MCPServer, MCPToolPolicy } from '../../api/mcp';
 
 export type MCPChange = MCPPlan['changes'][number];
 
@@ -117,18 +117,32 @@ export const describeError = (t: (key: string, params?: Record<string, string>) 
 };
 
 /** Pi entry fields Skillshare writes from the server's own settings; the backend refuses them in piOptions. */
-const piOwnFields = new Set(['command', 'args', 'env', 'url', 'headers', 'transport', 'disabled', 'directTools', 'type', 'settings', 'autoEnableCodemode']);
+const piOwnFields = new Set(['command', 'args', 'env', 'url', 'headers', 'transport', 'disabled', 'type', 'settings', 'autoEnableCodemode']);
+
+/** pi-mcp-adapter fields Pi's built-in MCP does not read; the backend refuses them. The first three are what tools now holds. */
+const adapterToolFields = new Set(['directTools', 'includeTools', 'excludeTools']);
+const adapterFields = new Set(['approveTools', 'auth', 'bearerToken', 'bearerTokenEnv', 'bearerTokenStore', 'caFile', 'debug', 'exposeResources', 'idleTimeout', 'inheritEnv', 'lifecycle', 'protocolVersion', 'requestHeadersCommand', 'requestTimeoutMs', 'searchKeywords', 'socket', 'tasks', 'toolPrefix', 'trace']);
 
 export const piExposures = ['codemode', 'codemode-deferred', 'deferred', 'direct', 'hidden'];
 
-/** piOptions as typed. An empty box sets nothing; `invalid` is text that is not a JSON object, `taken` a field Skillshare writes. */
-export const parsePiOptions = (text: string): { value?: Record<string, unknown>; invalid?: true; taken?: string; bad?: string } => {
+/**
+ * piOptions as typed. An empty box sets nothing; `invalid` is text that is not a JSON object, `taken` a field Skillshare writes,
+ * `adapter`/`adapterTools` a pi-mcp-adapter field, and `overlap` Pi's exposure while the server has a tool policy (`tools`), which sets it.
+ */
+export const parsePiOptions = (text: string, tools = false): { value?: Record<string, unknown>; invalid?: true; taken?: string; bad?: string; adapter?: string; adapterTools?: string; overlap?: string } => {
   if (!text.trim()) return {};
   try {
     const value: unknown = JSON.parse(text);
     if (!value || typeof value !== 'object' || Array.isArray(value)) return { invalid: true };
-    const taken = Object.keys(value).find((key) => piOwnFields.has(key));
+    const keys = Object.keys(value);
+    const taken = keys.find((key) => piOwnFields.has(key));
     if (taken) return { taken };
+    const adapterTools = keys.find((key) => adapterToolFields.has(key));
+    if (adapterTools) return { adapterTools };
+    const adapter = keys.find((key) => adapterFields.has(key));
+    if (adapter) return { adapter };
+    const overlap = tools ? keys.find((key) => key === 'exposure' || key === 'toolExposure') : undefined;
+    if (overlap) return { overlap };
     const options = value as Record<string, unknown>;
     const object = (v: unknown): v is Record<string, unknown> => Boolean(v) && typeof v === 'object' && !Array.isArray(v);
     if ('exposure' in options && !piExposures.includes(options.exposure as string)) return { bad: 'exposure' };
@@ -148,6 +162,53 @@ export const parsePiOptions = (text: string): { value?: Record<string, unknown>;
   } catch {
     return { invalid: true };
   }
+};
+
+/** Mirrors mcp.toolPattern: a tool name in which * matches any characters. */
+export const toolNamePattern = /^[^\s,?[\]{}]+$/;
+
+export const toolExposures = ['direct', 'deferred', 'hidden'] as const;
+
+/** Whether a policy says anything; an empty one is no policy. */
+export const hasToolPolicy = (tools?: MCPToolPolicy): tools is MCPToolPolicy => Boolean(tools?.expose || tools?.allow?.length || tools?.deny?.length);
+
+/** The policy without its empty parts, or undefined when nothing is left. */
+export const cleanToolPolicy = (tools?: MCPToolPolicy): MCPToolPolicy | undefined =>
+  hasToolPolicy(tools) ? { ...(tools.expose && { expose: tools.expose }), ...(tools.allow?.length && { allow: tools.allow }), ...(tools.deny?.length && { deny: tools.deny }) } : undefined;
+
+/** A policy in a few words, e.g. "direct · 3 allowed · 1 denied". */
+export const toolSummary = (t: (key: string, params?: Record<string, string | number>) => string, tools: MCPToolPolicy) => [
+  tools.expose,
+  tools.allow?.length && t('mcp.tools.chipAllow', { count: tools.allow.length }),
+  tools.deny?.length && t('mcp.tools.chipDeny', { count: tools.deny.length }),
+].filter(Boolean).join(' · ');
+
+/** The parts of a tool policy an Agent does not apply, as the backend names them: expose, allow, deny, allow patterns, deny patterns. */
+export const toolGapKey = (gap: string) => `mcp.tools.gap.${gap.replace(' patterns', 'Patterns')}`;
+
+/** Just past the "(" of the last top-level pair of parentheses, or -1. */
+const topLevelGroupStart = (text: string) => {
+  let depth = 0;
+  for (let i = text.length - 1; i >= 0; i--) {
+    if (text[i] === ')') depth++;
+    else if (text[i] === '(' && --depth === 0) return i + 1;
+  }
+  return -1;
+};
+
+const toolNoticePrefix = 'tool policy not applied for ';
+
+/** A plan notice or check finding about a tool policy, "tool policy not applied for codex: expose, allow patterns (docs, wiki)", taken apart. */
+export const parseToolNotice = (message: string) => {
+  if (!message.startsWith(toolNoticePrefix)) return undefined;
+  const rest = message.slice(toolNoticePrefix.length);
+  const colon = rest.indexOf(': ');
+  if (colon < 0) return undefined;
+  // The servers are in the last parentheses; a project server's root is nested in its own.
+  const open = rest.endsWith(')') ? topLevelGroupStart(rest) : -1;
+  const names = open > 0 ? rest.slice(open, -1) : '';
+  const end = open > 0 ? open - 2 : rest.length;
+  return { target: rest.slice(0, colon), gaps: rest.slice(colon + 2, end).split(', '), names: names ? names.split(', ') : [] };
 };
 
 /** A synced Claude entry that a local-scope server of the same name hides in this project. */

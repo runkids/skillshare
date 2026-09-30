@@ -15,7 +15,7 @@ import { useToast } from '../Toast';
 import { useT } from '../../i18n';
 import { useAppContext } from '../../context/AppContext';
 import { shortenHome } from '../../lib/paths';
-import { describeEndpoint, describeError, targetLabel, parsePiOptions } from './mcpView';
+import { describeEndpoint, describeError, hasToolPolicy, targetLabel, parsePiOptions } from './mcpView';
 import { MCPTargetOrder } from './targetOrder';
 
 /** Where the configuration comes from. Each entry point fixes one; the dialog never switches. */
@@ -100,7 +100,7 @@ function importSelection({ candidates, servers, conflict, picked, targets, defau
   const chosen = importable.filter((c) => selected.includes(c.name));
   const piChosen = targets.includes('pi') || chosen.some((c) => servers[c.name]?.targets?.includes('pi'));
   // Pi's settings are checked as the form checks them, so an import cannot save what the form refuses.
-  const piProblem = piChosen ? chosen.map((c) => ({ name: c.name, options: parsePiOptions(JSON.stringify(c.server.piOptions ?? {})) })).find((p) => !p.options.value && Object.keys(p.options).length > 0) : undefined;
+  const piProblem = piChosen ? chosen.map((c) => ({ name: c.name, options: parsePiOptions(JSON.stringify(c.server.piOptions ?? {}), hasToolPolicy(c.server.tools)) })).find((p) => !p.options.value && Object.keys(p.options).length > 0) : undefined;
   const incompatible = Boolean(piProblem);
   const preview = chosen.find((c) => c.name === previewName) ?? chosen[0];
 
@@ -117,7 +117,7 @@ function importSelection({ candidates, servers, conflict, picked, targets, defau
 /** Pi settings of the one pasted server: the field starts from its own, and only an edit changes it. */
 function pastedPiSettings(single: MCPCandidate | undefined, edit: string | undefined, t: ReturnType<typeof useT>) {
   const optionsText = edit ?? (single?.server.piOptions ? JSON.stringify(single.server.piOptions, null, 2) : '');
-  const options = single ? parsePiOptions(optionsText) : {};
+  const options = single ? parsePiOptions(optionsText, hasToolPolicy(single.server.tools)) : {};
   const optionsError = piOptionsError(options, t);
   let server: MCPServer | undefined;
   if (single && !optionsError && edit !== undefined) {
@@ -441,7 +441,7 @@ export default function MCPImportDialog(props: Props) {
           </div>
         </div>
 
-        {single && <PiSettingsFields optionsText={pi.optionsText} options={pi.options} optionsError={pi.optionsError} onOptions={setPiEdit} disabled={saving} project={Boolean(project) || isProjectMode} />}
+        {single && <PiSettingsFields optionsText={pi.optionsText} options={pi.options} optionsError={pi.optionsError} onOptions={setPiEdit} disabled={saving} project={Boolean(project) || isProjectMode} toolsSet={hasToolPolicy(single.server.tools)} />}
         {piProblem && <div className="ss-note bad"><span><span className="font-mono">{piProblem.name}</span>: {piOptionsError(piProblem.options, t)}</span></div>}
         <ImportPreview selection={selection} targets={targets} project={project} onPreviewName={setPreviewName} />
         {tab === 'target' && candidates.length > 0 && (

@@ -1,6 +1,6 @@
 import { useContext, useState } from 'react';
 import { Check, KeyRound, Link2, Plus, SquareTerminal, X } from 'lucide-react';
-import { mcpApi, mcpOffTargets, type MCPServer } from '../../api/mcp';
+import { mcpApi, mcpOffTargets, type MCPMutation, type MCPServer } from '../../api/mcp';
 import AgentIcon from '../AgentIcon';
 import Button from '../Button';
 import DialogShell from '../DialogShell';
@@ -9,8 +9,9 @@ import { Select } from '../Input';
 import { useT } from '../../i18n';
 import { useAppContext } from '../../context/AppContext';
 import PiSettingsFields from './PiSettingsFields';
+import ToolPolicyFields from './ToolPolicyFields';
 import MCPConfigView from './MCPConfigView';
-import { describeError, targetLabel } from './mcpView';
+import { cleanToolPolicy, describeError, hasToolPolicy, targetLabel } from './mcpView';
 import { MCPTargetOrder } from './targetOrder';
 import { initialServerDraft, validateServerDraft, type DraftPatch, type EnvRow, type ServerDraft, type ServerValidation } from './mcpServerDraft';
 
@@ -85,9 +86,14 @@ interface ServerFormProps {
   onMode: Props['onMode'];
   onSave: () => Promise<void>;
   error: string;
+  /** The saved server's name, for loading its tools. */
+  savedName?: string;
+  project?: string;
+  /** The server as the fields describe it, once complete; the Tools section previews it. */
+  mutation?: MCPMutation;
 }
 
-function ServerForm({ draft, validation, patch, off, saving, editing, order, visibleTargets, isProject, onMode, onSave, error }: ServerFormProps) {
+function ServerForm({ draft, validation, patch, off, saving, editing, order, visibleTargets, isProject, onMode, onSave, error, savedName, project, mutation }: ServerFormProps) {
   const t = useT();
   const { name, http, targets } = draft;
   const { nameError } = validation;
@@ -149,7 +155,9 @@ function ServerForm({ draft, validation, patch, off, saving, editing, order, vis
           })}
         </div>
       </div>
-      {targets.includes('pi') && !off && <PiSettingsFields optionsText={draft.piOptions} options={validation.options} optionsError={validation.optionsError} onOptions={(piOptions) => patch({ piOptions })} disabled={saving} project={isProject} />}
+      {/* A switch-only entry only turns a server off, so it has no tools to choose. */}
+      {!off && <ToolPolicyFields tools={draft.tools} onChange={(tools) => patch({ tools })} disabled={saving} savedName={savedName} project={project} mutation={mutation} />}
+      {targets.includes('pi') && !off && <PiSettingsFields optionsText={draft.piOptions} options={validation.options} optionsError={validation.optionsError} onOptions={(piOptions) => patch({ piOptions })} disabled={saving} project={isProject} toolsSet={hasToolPolicy(draft.tools)} />}
       {error && <div className="ss-note bad"><span className="flex-1">{error}</span></div>}
     </form>
   );
@@ -250,6 +258,8 @@ export default function MCPServerDialog({ initial, defaultTargets, existingNames
     const transport = http ? 'streamable-http' : 'stdio';
     if (server?.transport === transport) next.transport = transport;
     if (options.value && Object.keys(options.value).length > 0) next.piOptions = options.value;
+    const tools = cleanToolPolicy(draft.tools);
+    if (tools) next.tools = tools;
     return next;
   };
   const ordered = order.filter((x) => targets.includes(x));
@@ -280,7 +290,7 @@ export default function MCPServerDialog({ initial, defaultTargets, existingNames
         <button type="button" className="ss-ib" aria-label={t('common.close')} onClick={onClose} disabled={saving}><X size={16} /></button>
       </div>
       {/* The view takes the whole body, so a long file has room; the fields live in state and come back as they were. */}
-      {viewing ? <div className="db"><MCPConfigView mutation={mutation} /></div> : <ServerForm draft={draft} validation={validation} patch={patch} off={off} saving={saving} editing={Boolean(initial)} order={order} visibleTargets={visibleTargets} isProject={Boolean(project) || isProjectMode} onMode={onMode} onSave={save} error={error} />}
+      {viewing ? <div className="db"><MCPConfigView mutation={mutation} /></div> : <ServerForm draft={draft} validation={validation} patch={patch} off={off} saving={saving} editing={Boolean(initial)} order={order} visibleTargets={visibleTargets} isProject={Boolean(project) || isProjectMode} onMode={onMode} onSave={save} error={error} savedName={initial?.name} project={project} mutation={complete ? mutation : undefined} />}
       {viewing ? <div className="df"><Button variant="secondary" onClick={() => setViewing(false)}>{t('common.back')}</Button></div> : <ServerFooter targets={targets} off={off} complete={complete} canSave={canSave} saving={saving} onView={() => setViewing(true)} onClose={onClose} />}
     </DialogShell>
   );

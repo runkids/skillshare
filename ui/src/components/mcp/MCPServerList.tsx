@@ -3,7 +3,7 @@ import { Ellipsis } from 'lucide-react';
 import { useT } from '../../i18n';
 import AgentIcon from '../AgentIcon';
 import { mcpOffTargets } from '../../api/mcp';
-import { describeEndpoint, targetLabel, writes, type MatrixRow } from './mcpView';
+import { describeEndpoint, hasToolPolicy, targetLabel, toolSummary, writes, type MatrixRow } from './mcpView';
 import { TargetPill, TargetToggles } from './TargetPicker';
 import type { MCPCheckFinding } from '../../api/mcpCheck';
 import MCPCheckFindings, { MCPCheckTag } from './MCPCheckFindings';
@@ -50,6 +50,7 @@ export default function MCPServerList({ rows, targets, targetsOf, onToggle, onMe
                 {row.server && Object.values(row.cells).some(writes) && <span className="ss-tag warn">{t('plugins.pending')}</span>}
                 {row.server && !row.server.disabled && row.server.targets?.length === 0 && <span className="ss-tag">{t('plugins.noAgentsYet')}</span>}
                 {problems[row.name] && <MCPCheckTag findings={problems[row.name]} />}
+                {row.server && !row.server.disabled && hasToolPolicy(row.server.tools) && <span className="ss-tag">{t('mcp.tools.chip', { summary: toolSummary(t, row.server.tools) })}</span>}
                 {!row.server && <span className="ss-st bad">{t('mcp.removedFromSource')}</span>}
                 <span className="min-w-0 flex-1 truncate font-mono text-xs text-ink-3">{row.server && !row.server.disabled && describeEndpoint(row.server)}</span>
                 {row.server && targetPill}
@@ -71,7 +72,7 @@ export default function MCPServerList({ rows, targets, targetsOf, onToggle, onMe
                       {targetLabel(target)}
                       {/* Only whether other Pi settings exist, never their contents: piOptions may hold anything. */}
                       {target === 'pi' && <>
-                        <span className="text-ink-2">· {String(row.server?.piOptions?.exposure ?? 'codemode')}</span>
+                        <span className="text-ink-2">· {String(row.server?.tools?.expose ?? row.server?.piOptions?.exposure ?? 'codemode')}</span>
                         {piOptions && <span className="text-ink-3">· {t('mcp.piOptions')}</span>}
                       </>}
                     </span>

@@ -6,6 +6,8 @@ export type MCPValue = string | { fromEnv: string };
 export interface MCPSettings { targets?: string[] }
 /** One root under the global config's mcp.projects. */
 export interface MCPProject extends MCPSettings { servers?: Record<string, MCPServer> }
+/** Which of a server's tools reach the model, written once and translated per Agent. Names may use `*`. */
+export interface MCPToolPolicy { expose?: 'direct' | 'deferred' | 'hidden'; allow?: string[]; deny?: string[] }
 export interface MCPServer {
   command?: string;
   args?: string[];
@@ -17,6 +19,7 @@ export interface MCPServer {
   bearerToken?: { fromEnv: string };
   /** Per-server fields written into Pi's built-in MCP as given. */
   piOptions?: Record<string, unknown>;
+  tools?: MCPToolPolicy;
   /** Project mode: the whole entry, turning off a server the Agent's global config defines. */
   disabled?: boolean;
 }
@@ -38,6 +41,8 @@ export interface MCPPlan {
   revision: string;
   sourcePath: string;
   blocked: boolean;
+  /** The source's notices, then one per Agent and set of tool policy parts it does not apply, worded in English. */
+  notices?: string[];
   /** `switch`: the entry only turns a global server off for one project, so adding it turns the server off there. */
   changes: { target: string; path: string; name: string; root?: string; switch?: boolean; action: string; message?: string; fields?: { added?: string[]; updated?: string[]; removed?: string[] } }[];
 }
@@ -71,7 +76,8 @@ export const mcpApi = {
   save: async (mutation: MCPMutation) =>
     post<MCPResult>('/mcp', { mutation, revision: (await post<MCPPlan>('/mcp/preview', { mutation })).revision, sync: false }),
   /** One server as each of its targets' config files would hold it. Reads configuration only; no server is executed and no file is written. */
-  render: (mutation: MCPMutation) => post<{ rendered: { target: string; path: string; content?: string; error?: string }[] }>('/mcp/render', { mutation }),
+  /** `toolGaps`: the parts of the server's tool policy that Agent does not apply. */
+  render: (mutation: MCPMutation) => post<{ rendered: { target: string; path: string; content?: string; error?: string; toolGaps?: string[] }[] }>('/mcp/render', { mutation }),
   /** `root` reads the `from` target's file in that mcp.projects root. */
   import: (body: { from?: string; content?: string; name?: string; root?: string; piExtension?: string }) => post<{ candidates: MCPCandidate[] }>('/mcp/import', body),
   previewRestore: (backupId: string) => post<MCPPlan>('/mcp/restore', { backupId, preview: true }),

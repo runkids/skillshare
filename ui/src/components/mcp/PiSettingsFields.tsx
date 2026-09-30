@@ -10,20 +10,22 @@ interface Props {
   onOptions: (text: string) => void;
   disabled: boolean;
   project: boolean;
+  /** The server has a tool policy, which sets Pi's exposure. */
+  toolsSet?: boolean;
 }
 
 /** Pi's tool exposure and other settings, shared by the form and a single pasted server. */
-export default function PiSettingsFields({ optionsText, options, optionsError, onOptions, disabled, project }: Props) {
+export default function PiSettingsFields({ optionsText, options, optionsError, onOptions, disabled, project, toolsSet = false }: Props) {
   const t = useT();
   return (
     <>
       <div className="ss-fld">
-        <Select label={t('mcp.piExposure')} value={String(options.value?.exposure ?? '')} disabled={disabled || Boolean(optionsError)} onChange={(value) => {
+        <Select label={t('mcp.piExposure')} value={String(options.value?.exposure ?? '')} disabled={disabled || Boolean(optionsError) || toolsSet} onChange={(value) => {
           const next = { ...options.value };
           if (value) next.exposure = value; else delete next.exposure;
           onOptions(JSON.stringify(next, null, 2));
         }} options={[{ value: '', label: t('mcp.piExposureNone'), note: `· ${t('mcp.piExposureUnset')}` }, ...piExposures.map((value) => ({ value, label: value, note: `· ${t(`mcp.piExposure.${value}`)}` }))]} />
-        <span className="hp">{t('mcp.piExposureHint')}</span>
+        <span className="hp">{t(toolsSet ? 'mcp.piExposureFromTools' : 'mcp.piExposureHint')}</span>
         <span className="hp">{t('mcp.piBuiltinHelp')}</span>
         <span className="hp">{t(project ? 'mcp.piProjectHint' : 'mcp.piGlobalHint')}</span>
         <a className="self-start text-xs text-link underline" href="https://github.com/earendil-works/pi/blob/v0.99.0/packages/coding-agent/docs/mcp.md" target="_blank" rel="noopener noreferrer">Pi MCP · {t('plugins.officialDocs')}</a>

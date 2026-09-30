@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { MCPPlan } from '../../api/mcp';
-import { buildMatrix, describeError, describeMessage, canImportConflict, groupByFile, isResolvable, joinCommand, mcpClient, parsePiOptions, serverCount, splitCommand, switchTargets, targetLabel } from './mcpView';
+import { buildMatrix, describeError, describeMessage, canImportConflict, groupByFile, isResolvable, joinCommand, mcpClient, parsePiOptions, parseToolNotice, serverCount, splitCommand, switchTargets, targetLabel } from './mcpView';
 import { mcpTargets } from '../../api/mcp';
 
 const change = (name: string, target: string, action: string, message?: string) => ({ name, target, action, message, path: `/${target}.json` });
@@ -103,9 +103,17 @@ describe('canImportConflict', () => {
   });
 });
 
+describe('parseToolNotice', () => {
+  it('takes apart a tool policy notice, keeping a project server with its root', () => {
+    expect(parseToolNotice('tool policy not applied for codex: expose, allow patterns (docs, wiki (/work/app))'))
+      .toEqual({ target: 'codex', gaps: ['expose', 'allow patterns'], names: ['docs', 'wiki (/work/app)'] });
+    expect(parseToolNotice('piExtension is ignored since 0.23.0 (docs)')).toBeUndefined();
+  });
+});
+
 describe('parsePiOptions', () => {
   it('reads a JSON object and treats an empty box as nothing set', () => {
-    expect(parsePiOptions('{"excludeTools": ["a"]}')).toEqual({ value: { excludeTools: ['a'] } });
+    expect(parsePiOptions('{"timeout": 120}')).toEqual({ value: { timeout: 120 } });
     expect(parsePiOptions('  ')).toEqual({});
   });
 
@@ -114,7 +122,17 @@ describe('parsePiOptions', () => {
   });
 
   it('names a field Skillshare writes itself', () => {
-    expect(parsePiOptions('{"excludeTools": [], "directTools": true}')).toEqual({ taken: 'directTools' });
+    expect(parsePiOptions('{"timeout": 1, "command": "x"}')).toEqual({ taken: 'command' });
+  });
+
+  it('names a pi-mcp-adapter field, telling the tool lists apart from the rest', () => {
+    expect([parsePiOptions('{"directTools": true}'), parsePiOptions('{"excludeTools": ["a"]}'), parsePiOptions('{"lifecycle": "lazy"}')])
+      .toEqual([{ adapterTools: 'directTools' }, { adapterTools: 'excludeTools' }, { adapter: 'lifecycle' }]);
+  });
+
+  it("refuses Pi's exposure fields only while the server has a tool policy", () => {
+    expect([parsePiOptions('{"toolExposure": {"a": "hidden"}}', true), parsePiOptions('{"exposure": "direct"}', false)])
+      .toEqual([{ overlap: 'toolExposure' }, { value: { exposure: 'direct' } }]);
   });
 
   it('counts the servers an Agent gets, inherited ones too, but not a switch that turns one off', () => {

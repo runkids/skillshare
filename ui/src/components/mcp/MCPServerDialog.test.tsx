@@ -3,6 +3,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { mcpApi } from '../../api/mcp';
+import { mcpCheckApi } from '../../api/mcpCheck';
 import { I18nProvider } from '../../i18n';
 import MCPServerDialog from './MCPServerDialog';
 
@@ -12,6 +13,7 @@ vi.mock('../CodeEditor', () => ({
   default: ({ value, onChange, ariaLabel }: { value: string; onChange: (v: string) => void; ariaLabel: string }) => <textarea aria-label={ariaLabel} value={value} onChange={(e) => onChange(e.target.value)} />,
 }));
 vi.mock('../../api/mcp', async (load) => ({ ...await load<typeof import('../../api/mcp')>(), mcpApi: { save: vi.fn(), render: vi.fn() } }));
+vi.mock('../../api/mcpCheck', () => ({ mcpCheckApi: { live: vi.fn() } }));
 
 const renderDialog = (props: Partial<Parameters<typeof MCPServerDialog>[0]> = {}) =>
   render(<QueryClientProvider client={new QueryClient()}><I18nProvider><MCPServerDialog defaultTargets={['claude']} existingNames={[]} onClose={vi.fn()} onSaved={vi.fn()} {...props} /></I18nProvider></QueryClientProvider>);
@@ -183,6 +185,52 @@ describe('MCP server dialog', () => {
     expect(JSON.parse((box as HTMLTextAreaElement).value)).toEqual({ exposure: 'direct', custom: { keep: true } });
     await user.click(screen.getByRole('button', { name: 'Save' }));
     await waitFor(() => expect(mcpApi.save).toHaveBeenCalledWith(expect.objectContaining({ server: expect.objectContaining({ piOptions: { exposure: 'direct', custom: { keep: true } } }) })));
+  });
+
+  it("keeps a server's tool policy when editing something else", async () => {
+    const user = userEvent.setup();
+    vi.mocked(mcpApi.render).mockResolvedValue({ rendered: [] });
+    const server = { command: 'docs', targets: ['claude'], tools: { expose: 'deferred' as const, allow: ['get_*'], deny: ['delete_issue'] } };
+    renderDialog({ initial: { name: 'docs', server } });
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(mcpApi.save).toHaveBeenCalledWith(expect.objectContaining({ server })));
+  });
+
+  it('adds allowed tools from the names the saved server reports, and saves them as its policy', async () => {
+    const user = userEvent.setup();
+    vi.mocked(mcpApi.render).mockResolvedValue({ rendered: [] });
+    vi.mocked(mcpCheckApi.live).mockResolvedValue({ servers: [{ name: 'docs', ok: true, findings: [], live: { tools: 2, toolNames: ['search', 'fetch'] } }], summary: { errors: 0, warnings: 0 } });
+    renderDialog({ initial: { name: 'docs', server: { command: 'docs', targets: ['claude'] } } });
+    await user.click(screen.getByRole('button', { name: 'Tools' }));
+    await user.click(screen.getByRole('button', { name: 'Load tools from server' }));
+    expect(await screen.findByText('2 tools loaded. Pick them in Allow or Deny.')).toBeInTheDocument();
+    expect(mcpCheckApi.live).toHaveBeenCalledWith('docs');
+    expect([...document.querySelectorAll('datalist option')].map((o) => (o as HTMLOptionElement).value)).toEqual(['fetch', 'search', 'fetch', 'search']);
+    await user.type(screen.getByLabelText('Allow'), 'search{Enter}get_*{Enter}');
+    await user.type(screen.getByLabelText('Deny'), 'bad name{Enter}');
+    expect(screen.getByText(/^bad name is not a tool name/)).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(mcpApi.save).toHaveBeenCalledWith(expect.objectContaining({ server: expect.objectContaining({ tools: { allow: ['search', 'get_*'] } }) })));
+  });
+
+  it('names each chosen Agent that does not apply part of the policy', async () => {
+    vi.mocked(mcpApi.render).mockResolvedValue({ rendered: [{ target: 'copilot', path: '/c.json', toolGaps: ['allow patterns'] }, { target: 'pi', path: '/p.json' }] });
+    renderDialog({ initial: { name: 'docs', server: { command: 'docs', targets: ['copilot', 'pi'], tools: { allow: ['get_*'] } } } });
+    expect(await screen.findByText('Copilot CLI: * patterns in Allow')).toBeInTheDocument();
+    expect(screen.queryByText(/^Pi:/)).not.toBeInTheDocument();
+  });
+
+  it('explains that a new server can load its tools once it is saved', async () => {
+    const user = userEvent.setup();
+    renderDialog();
+    await user.click(screen.getByRole('button', { name: 'Tools' }));
+    expect(screen.getByRole('button', { name: 'Load tools from server' })).toBeDisabled();
+    expect(screen.getByText('Save the server first, then load its tools here.')).toBeInTheDocument();
+  });
+
+  it('has no Tools section for an entry that only turns a server off', () => {
+    renderDialog({ off: true });
+    expect(screen.queryByRole('button', { name: 'Tools' })).not.toBeInTheDocument();
   });
 
   it('refuses a name that is already taken', async () => {

@@ -142,7 +142,8 @@ function MCPContent({ data, model, order, allFiles, onShowAll, busy, onToggle, o
 
       <MCPFilesRail data={data} model={model} allFiles={allFiles} onShowAll={onShowAll} />
     </>}>
-      <MCPNotices notices={data.source.notices} />
+      {/* The plan repeats the source's notices and adds the tool policy ones. */}
+      <MCPNotices notices={[...new Set([...(data.source.notices ?? []), ...(data.plan?.notices ?? [])])]} />
       {changes.filter(isShadowed).map((c) => (
         <div key={`${c.target}:${c.name}`} className="ss-note warn">
           <AlertCircle size={16} />
