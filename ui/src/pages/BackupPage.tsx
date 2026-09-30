@@ -15,6 +15,7 @@ import Skeleton from '../components/Skeleton';
 import Spinner from '../components/Spinner';
 import { useToast } from '../components/Toast';
 import FileBackups from '../components/backups/FileBackups';
+import HooksBackups from '../components/backups/HooksBackups';
 import MCPBackups from '../components/backups/MCPBackups';
 import { backupItem, filterItems } from '../components/backups/backupView';
 import { TargetAgents } from '../components/targetAgents';
@@ -24,10 +25,10 @@ import type { Locale } from '../i18n/locales';
 import { shortenHome } from '../lib/paths';
 import { queryKeys, staleTimes } from '../lib/queryKeys';
 import { SettingsTabs } from './SettingsPage';
-import { useMcpQuery, useOverviewQuery } from '../hooks/useSharedQueries';
+import { useHooksQuery, useMcpQuery, useOverviewQuery } from '../hooks/useSharedQueries';
 
 const CONFLICTS_SHOWN = 6;
-const TABS = ['folders', 'files', 'mcp'] as const;
+const TABS = ['folders', 'files', 'mcp', 'hooks'] as const;
 
 /** Backups all sit side by side, so any one of them names the folder they share. */
 const backupsDir = (path: string) => path.replace(/[/\\][^/\\]+$/, '');
@@ -66,7 +67,8 @@ export default function BackupPage() {
   const folders = useQuery({ queryKey: queryKeys.backups, queryFn: () => api.listBackups(), staleTime: staleTimes.backups });
   const files = useQuery({ queryKey: queryKeys.fileBackups.all, queryFn: () => api.listFileBackups() });
   const mcp = useMcpQuery();
-  const counts = { folders: folders.data?.backups.length, files: files.data?.files.length, mcp: mcp.data?.backups.length };
+  const hooks = useHooksQuery();
+  const counts = { folders: folders.data?.backups.length, files: files.data?.files.length, mcp: mcp.data?.backups.length, hooks: hooks.data?.backups.length };
   const create = useCreateBackup();
 
   return (
@@ -93,7 +95,7 @@ export default function BackupPage() {
         )}
       </div>
 
-      {tab === 'files' ? <FileBackups /> : tab === 'mcp' ? <MCPBackups /> : <FolderBackups creating={create.isPending} />}
+      {tab === 'files' ? <FileBackups /> : tab === 'mcp' ? <MCPBackups /> : tab === 'hooks' ? <HooksBackups /> : <FolderBackups creating={create.isPending} />}
     </div>
   );
 }

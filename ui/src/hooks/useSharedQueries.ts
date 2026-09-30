@@ -1,5 +1,6 @@
 import { useQuery, type UseQueryOptions } from '@tanstack/react-query';
 import { api } from '../api/client';
+import { hooksApi } from '../api/hooks';
 import { mcpApi } from '../api/mcp';
 import { queryKeys, staleTimes } from '../lib/queryKeys';
 
@@ -15,6 +16,9 @@ export const useOverviewQuery = (options?: Options<Data<typeof api.getOverview>>
 // staleTimes.extras; the rest refetch on mount), so each passes its own.
 export const useMcpQuery = (options?: Options<Data<typeof mcpApi.list>>) =>
   useQuery({ queryKey: queryKeys.mcp, queryFn: () => mcpApi.list(), ...options });
+
+export const useHooksQuery = (options?: Options<Data<typeof hooksApi.list>>) =>
+  useQuery({ queryKey: queryKeys.hooks, queryFn: () => hooksApi.list(), ...options });
 
 export const useSkillsQuery = (options?: Options<Data<typeof api.listSkills>>) =>
   useQuery({ queryKey: queryKeys.skills.all, queryFn: () => api.listSkills(), staleTime: staleTimes.skills, ...options });

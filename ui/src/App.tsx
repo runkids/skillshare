@@ -22,6 +22,7 @@ const TargetsPage = lazy(() => import('./pages/TargetsPage'));
 const ExtrasPage = lazy(() => import('./pages/ExtrasPage'));
 const PluginsPage = lazy(() => import('./pages/PluginsPage'));
 const MCPPage = lazy(() => import('./pages/MCPPage'));
+const HooksPage = lazy(() => import('./pages/HooksPage'));
 const SyncPage = lazy(() => import('./pages/SyncPage'));
 const BackupPage = lazy(() => import('./pages/BackupPage'));
 const GitSyncPage = lazy(() => import('./pages/GitSyncPage'));
@@ -93,6 +94,7 @@ function AppRoutes() {
             <Route path="projects" element={<Lazy><ProjectsPage /></Lazy>} />
             <Route path="projects/:root" element={<Lazy><ProjectDetailPage /></Lazy>} />
             <Route path="mcp" element={<Lazy><MCPPage /></Lazy>} />
+            <Route path="hooks" element={<Lazy><HooksPage /></Lazy>} />
             <Route path="sync" element={<Lazy><SyncPage /></Lazy>} />
             <Route path="collect" element={<LegacyTargetRedirect />} />
             <Route path="backup" element={<Lazy><BackupPage /></Lazy>} />

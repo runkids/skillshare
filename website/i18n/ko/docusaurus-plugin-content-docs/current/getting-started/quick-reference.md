@@ -100,7 +100,7 @@ enable/disable은 선택 상태만 저장합니다. 다음 플러그인 Sync에�
 |---------|-------------|
 | `sync extras` | Skill이 아닌 리소스(rules, commands 등) Sync |
 | `sync mcp` | MCP 연결 설정 Sync |
-| `sync --all` | Skill + Agent + extras + MCP Sync (플러그인 제외) |
+| `sync --all` | Skill + Agent + extras + MCP + hooks Sync (플러그인 제외) |
 | `collect <target>` | Target의 Skill을 Source로 수집 |
 | `collect --all` | 모든 Target에서 수집 |
 | `backup [target]` | 백업 생성 |

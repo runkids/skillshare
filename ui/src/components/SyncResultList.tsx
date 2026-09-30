@@ -3,6 +3,7 @@ import { CircleCheck } from 'lucide-react';
 import type { ChangeGroup } from './sync/syncView';
 
 import AgentIcon from './AgentIcon';
+import { hookLabel } from './hooks/hooksView';
 import { targetLabel } from './mcp/mcpView';
 import { baseName } from './projects/projectView';
 import { useT } from '../i18n';
@@ -40,18 +41,20 @@ export default function SyncResultList({ groups, inSync, className = '' }: { gro
         const kept = count((r) => r.icon === 'kept');
         const conflict = count((r) => r.icon === 'conflict');
         const mcp = g.part === 'mcp';
+        const hooks = g.part === 'hooks';
+        const listed = mcp || hooks;
         return (
           <div key={g.key} className="ss-r">
             <span className="ss-at"><AgentIcon target={g.name} size={15} /></span>
-            <span className={`min-w-0 truncate text-[13px] font-semibold ${mcp ? 'shrink-0' : 'flex-1'}`} title={g.path ?? g.name}>{mcp ? targetLabel(g.name) : g.name}</span>
+            <span className={`min-w-0 truncate text-[13px] font-semibold ${listed ? 'shrink-0' : 'flex-1'}`} title={g.path ?? g.name}>{mcp ? targetLabel(g.name) : hooks ? hookLabel(g.name) : g.name}</span>
             {/* One Agent file holds many servers: name the ones that change, and the project the file is for. */}
-            {mcp && <span className="min-w-0 flex-1 truncate font-mono text-[12px] text-ink-3">{[g.project && projectLabel(g.project), g.rows.map((r) => r.name).join(', ')].filter(Boolean).join(' · ')}</span>}
+            {listed && <span className="min-w-0 flex-1 truncate font-mono text-[12px] text-ink-3">{[g.project && projectLabel(g.project), g.rows.map((r) => r.name).join(', ')].filter(Boolean).join(' · ')}</span>}
             <span className="flex shrink-0 flex-wrap justify-end gap-1.5">
               {folder > 0 && <span className="ss-tag inf">{t('syncResult.dirCreated')}</span>}
-              {linked > 0 && <span className="ss-tag ok">{t(mcp ? 'syncResult.mcp.add' : 'syncResult.linked', { count: linked })}</span>}
-              {updated > 0 && <span className="ss-tag inf">{t(mcp ? 'syncResult.mcp.update' : 'syncResult.updated', { count: updated })}</span>}
+              {linked > 0 && <span className="ss-tag ok">{t(listed ? 'syncResult.mcp.add' : 'syncResult.linked', { count: linked })}</span>}
+              {updated > 0 && <span className="ss-tag inf">{t(listed ? 'syncResult.mcp.update' : 'syncResult.updated', { count: updated })}</span>}
               {adopted > 0 && <span className="ss-tag inf">{t('syncResult.mcp.adopt', { count: adopted })}</span>}
-              {pruned > 0 && <span className="ss-tag warn">{t(mcp ? 'syncResult.mcp.remove' : 'syncResult.pruned', { count: pruned })}</span>}
+              {pruned > 0 && <span className="ss-tag warn">{t(listed ? 'syncResult.mcp.remove' : 'syncResult.pruned', { count: pruned })}</span>}
               {off > 0 && <span className="ss-tag warn">{t('syncResult.mcp.off', { count: off })}</span>}
               {on > 0 && <span className="ss-tag ok">{t('syncResult.mcp.on', { count: on })}</span>}
               {kept > 0 && <span className="ss-tag">{t('syncResult.skipped', { count: kept })}</span>}

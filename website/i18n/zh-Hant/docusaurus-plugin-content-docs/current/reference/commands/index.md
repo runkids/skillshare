@@ -85,6 +85,7 @@ skillshare 所有指令的完整參考。
 | 指令 | 說明 |
 |---------|-------------|
 | [mcp](./mcp.md) | 定義一次 MCP servers 並同步到每個工具的原生設定中 |
+| [hooks](./hooks.md) | 管理原生 hooks |
 | [plugin](./plugin.md) | 安裝完整的 plugins 並選擇哪些工具接收它們 |
 
 ## 同步操作

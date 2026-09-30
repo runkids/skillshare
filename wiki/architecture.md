@@ -4,7 +4,7 @@ Use when deciding which layer should own a change, tracing CLI or Web API data f
 
 ## Product Boundaries
 
-skillshare's source of truth is either the global configuration directory (`~/.config/skillshare/` by default on macOS/Linux) or project-local `.skillshare/` state. The CLI transforms or synchronizes skills, agents, extras, MCP servers, and plugins into each AI tool's native locations. Never infer runtime behavior from README files or documentation alone; verify the current implementation and embedded configuration.
+skillshare's source of truth is either the global configuration directory (`~/.config/skillshare/` by default on macOS/Linux) or project-local `.skillshare/` state. The CLI transforms or synchronizes skills, agents, extras, MCP servers, hooks, and plugins into each AI tool's native locations. Never infer runtime behavior from README files or documentation alone; verify the current implementation and embedded configuration.
 
 ## Repository Map
 
@@ -12,7 +12,7 @@ skillshare's source of truth is either the global configuration directory (`~/.c
 |---|---|
 | `cmd/skillshare/` | CLI entry point, flag parsing, mode routing, TUIs, and command orchestration |
 | `internal/config/` | Global/project configuration, registry, migrations, and target resolution; `targets.yaml` defines built-in targets |
-| `internal/<domain>/` | Domain logic such as install, sync, audit, MCP, plugins, and backup |
+| `internal/<domain>/` | Domain logic such as install, sync, audit, MCP, hooks, plugins, and backup |
 | `internal/server/` | Dashboard HTTP API; routes are registered in `server.go` and handlers live in `handler_*.go` |
 | `internal/testutil/` | Shared isolated `Sandbox` and CLI runner for integration tests |
 | `tests/integration/` | CLI integration tests |

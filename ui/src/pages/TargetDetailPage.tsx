@@ -15,6 +15,8 @@ import FilterSection, { ModePicker } from '../components/targets/FilterSection';
 import RemoveTargetDialog from '../components/targets/RemoveTargetDialog';
 import SkillsOffDialog from '../components/targets/SkillsOffDialog';
 import TargetMCP from '../components/targets/TargetMCP';
+import TargetHooks from '../components/targets/TargetHooks';
+import { hookAgentOf, hookCount, scopePaths } from '../components/hooks/hooksView';
 import TargetInstructions from '../components/instructions/TargetInstructions';
 import AddFileDialog from '../components/targetFiles/AddFileDialog';
 import FileTabMenu from '../components/targetFiles/FileTabMenu';
@@ -24,7 +26,7 @@ import { refreshTargets } from '../components/targets/targetView';
 import { queryKeys, staleTimes } from '../lib/queryKeys';
 import { fileName, shortenHome } from '../lib/paths';
 import { useT } from '../i18n';
-import { useAvailableTargetsQuery, useMcpQuery } from '../hooks/useSharedQueries';
+import { useAvailableTargetsQuery, useHooksQuery, useMcpQuery } from '../hooks/useSharedQueries';
 
 type Kind = 'skill' | 'agent';
 // File tabs (the instruction file first) past this many go into a menu.
@@ -64,15 +66,19 @@ function TargetEditor({ target, targets }: { target: Target; targets: Target[] }
   const { toast } = useToast();
   const [params] = useSearchParams();
   const mcp = useMcpQuery();
+  const hooks = useHooksQuery();
+  // Hooks are managed per Agent; a project target reads its project's hooks, never the global ones.
+  const hookAgent = hookAgentOf(target.name);
+  const hooksPath = hookAgent && hooks.data && scopePaths(hooks.data, target.project)[hookAgent];
   // Only an Agent that has an MCP file in this scope (global, or the -p project) gets the tab.
   const client = mcpClient(target.name);
   const mcpPath = mcp.data?.paths[client];
   // Until the list arrives, loading or failing, the tab stays so it can say which.
   const filePath = params.get('tab') === 'file' ? params.get('path') ?? '' : '';
-  const tab: Kind | 'mcp' | 'instructions' | 'file' = filePath ? 'file' : params.get('tab') === 'instructions' ? 'instructions'
-    : target.agentPath && params.get('tab') === 'agents' ? 'agent' : params.get('tab') === 'mcp' && (mcpPath || !mcp.data) ? 'mcp' : 'skill';
+  const tab: Kind | 'mcp' | 'hooks' | 'instructions' | 'file' = filePath ? 'file' : params.get('tab') === 'instructions' ? 'instructions'
+    : target.agentPath && params.get('tab') === 'agents' ? 'agent' : params.get('tab') === 'mcp' && (mcpPath || !mcp.data) ? 'mcp' : params.get('tab') === 'hooks' && hookAgent && (hooksPath || !hooks.data) ? 'hooks' : 'skill';
   const kind: Kind = tab === 'agent' ? 'agent' : 'skill';
-  const tabs = (['skill', 'agent', 'mcp', 'instructions'] as const).filter((k) => k === 'skill' || k === 'instructions' || (k === 'agent' ? target.agentPath : mcpPath || tab === 'mcp'));
+  const tabs = (['skill', 'agent', 'mcp', 'hooks', 'instructions'] as const).filter((k) => k === 'skill' || k === 'instructions' || (k === 'agent' ? target.agentPath : k === 'hooks' ? hookAgent && (hooksPath || tab === 'hooks') : mcpPath || tab === 'mcp'));
   const instructions = useQuery({ queryKey: queryKeys.instructions.target(target.name), queryFn: () => api.getTargetInstructions(target.name) });
   const files = useQuery({ queryKey: queryKeys.targetFiles.list(target.name), queryFn: () => api.listTargetFiles(target.name) });
   const syncTab = tab === 'skill' || tab === 'agent';
@@ -149,12 +155,13 @@ function TargetEditor({ target, targets }: { target: Target; targets: Target[] }
 
   const tabCount = (k: (typeof tabs)[number]) =>
     k === 'skill' && !skillsOn ? null : (k === 'mcp' ? mcp.data && serverCount(mcp.data, client)
+      : k === 'hooks' ? hooks.data && hookAgent && hookCount(hooks.data, hookAgent, target.project)
       : k === 'instructions' ? instructions.data?.read_order.filter((e) => e.read).length
         : entriesOf(k).length) || null;
   // Name the tab after the file this target actually reads (CLAUDE.md, GEMINI.md, …).
   const instructionsTab = instructions.data?.supported && instructions.data.path ? fileName(instructions.data.path) : 'AGENTS.md';
-  const tabLabel = (k: (typeof tabs)[number]) => (k === 'agent' ? 'Agents' : k === 'mcp' ? 'MCP' : k === 'instructions' ? instructionsTab : 'Skills');
-  const tabLink = (k: (typeof tabs)[number]) => (k === 'agent' ? '?tab=agents' : k === 'mcp' ? '?tab=mcp' : k === 'instructions' ? '?tab=instructions' : '?');
+  const tabLabel = (k: (typeof tabs)[number]) => (k === 'agent' ? 'Agents' : k === 'mcp' ? 'MCP' : k === 'hooks' ? 'Hooks' : k === 'instructions' ? instructionsTab : 'Skills');
+  const tabLink = (k: (typeof tabs)[number]) => (k === 'agent' ? '?tab=agents' : k === 'mcp' ? '?tab=mcp' : k === 'hooks' ? '?tab=hooks' : k === 'instructions' ? '?tab=instructions' : '?');
   // The instruction file and the other files the tool reads; the open one always shows, taking the last slot if it has to.
   const fileTabs = [
     ...(tabs.includes('instructions') ? [{ id: 'instructions', label: instructionsTab, to: tabLink('instructions') }] : []),
@@ -177,7 +184,7 @@ function TargetEditor({ target, targets }: { target: Target; targets: Target[] }
       setResuming(false);
     }
   };
-  const subtitle = tab === 'file' ? openFile?.abs ?? '' : tab === 'mcp' ? mcpPath ?? '' : tab === 'instructions' ? (instructions.data?.supported ? instructions.data.path ?? '' : '') : agent ? target.agentPath ?? '' : target.path;
+  const subtitle = tab === 'file' ? openFile?.abs ?? '' : tab === 'mcp' ? mcpPath ?? '' : tab === 'hooks' ? hooksPath || '' : tab === 'instructions' ? (instructions.data?.supported ? instructions.data.path ?? '' : '') : agent ? target.agentPath ?? '' : target.path;
   return (
     <div className="animate-fade-in">
       <PageHeader
@@ -225,6 +232,8 @@ function TargetEditor({ target, targets }: { target: Target; targets: Target[] }
         <TargetInstructions name={target.name} />
       ) : tab === 'mcp' ? (
         mcp.data ? <TargetMCP name={client} data={mcp.data} /> : mcp.error ? <div className="ss-note bad"><span className="flex-1">{mcp.error.message}</span></div> : <PageSkeleton />
+      ) : tab === 'hooks' && hookAgent ? (
+        hooks.data ? <TargetHooks agent={hookAgent} data={hooks.data} project={target.project} /> : hooks.error ? <div className="ss-note bad"><span className="flex-1">{hooks.error.message}</span></div> : <PageSkeleton />
       ) : !agent && !skillsOn ? (
         <div className="ss-empty !py-16">
           <CirclePause size={24} className="text-ink-3" />

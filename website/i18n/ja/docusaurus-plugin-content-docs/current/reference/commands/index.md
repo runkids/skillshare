@@ -85,6 +85,7 @@ skillshare のすべてのコマンドに関する完全なリファレンスで
 | コマンド | 説明 |
 |---------|-------------|
 | [mcp](./mcp.md) | MCP サーバーを一度定義し、各ツールのネイティブ config に sync |
+| [hooks](./hooks.md) | ネイティブ hooks を管理 |
 | [plugin](./plugin.md) | 完全な plugin をインストールし、どのツールに配布するか選択 |
 
 ## Sync 操作

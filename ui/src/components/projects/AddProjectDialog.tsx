@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Check, Folder, X } from 'lucide-react';
 import { api, type ProjectList } from '../../api/client';
+import { hooksApi } from '../../api/hooks';
 import { mcpApi, mcpTargets } from '../../api/mcp';
 import Button from '../Button';
 import DialogShell from '../DialogShell';
@@ -18,7 +19,7 @@ interface Props {
   onAdded: (root: string) => void;
 }
 
-const PARTS = ['skills', 'agents', 'mcp'] as const;
+const PARTS = ['skills', 'agents', 'mcp', 'hooks'] as const;
 type PartName = (typeof PARTS)[number];
 
 /** Add one folder to projects. Filters and MCP servers are edited on the project's page. */
@@ -26,7 +27,7 @@ export default function AddProjectDialog({ tools, common, existing, onClose, onA
   const t = useT();
   const [path, setPath] = useState('');
   const [targets, setTargets] = useState<string[]>([]);
-  const [parts, setParts] = useState<Record<PartName, boolean>>({ skills: true, agents: false, mcp: false });
+  const [parts, setParts] = useState<Record<PartName, boolean>>({ skills: true, agents: false, mcp: false, hooks: false });
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
 
@@ -57,6 +58,8 @@ export default function AddProjectDialog({ tools, common, existing, onClose, onA
         const clients = mcpTargets.filter((x) => targets.includes(x));
         await mcpApi.save({ project: root, settings: { targets: clients.length > 0 ? clients : undefined } });
       }
+      // An empty hooks block: the project's own hooks are added on its Hooks tab.
+      if (parts.hooks) await hooksApi.save({ project: saved.root });
       onAdded(saved.root);
     } catch (e) {
       setError((e as Error).message);
@@ -91,7 +94,7 @@ export default function AddProjectDialog({ tools, common, existing, onClose, onA
               <button key={p} type="button" role="checkbox" aria-checked={parts[p]} className={`ss-pick text-left ${parts[p] ? 'on' : ''}`} onClick={() => setParts({ ...parts, [p]: !parts[p] })} disabled={saving}>
                 <span className={`ss-chk ${parts[p] ? 'on' : ''}`}>{parts[p] && <Check size={12} strokeWidth={3} />}</span>
                 <span className="flex flex-col gap-0.5">
-                  <span className="font-semibold">{p === 'mcp' ? 'MCP' : p === 'agents' ? 'Agents' : 'Skills'}</span>
+                  <span className="font-semibold">{p === 'mcp' ? 'MCP' : p === 'hooks' ? 'Hooks' : p === 'agents' ? 'Agents' : 'Skills'}</span>
                   <span className="text-[13px] text-ink-2">{partHint(p)}</span>
                 </span>
               </button>

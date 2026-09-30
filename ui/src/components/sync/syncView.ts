@@ -1,9 +1,11 @@
 import { api, type DiffTarget, type ExtraDiffResult, type SyncResponse, type Target } from '../../api/client';
+import { hooksApi, type HookPlan } from '../../api/hooks';
 import { mcpApi, type MCPPlan } from '../../api/mcp';
 import { formatAgentDisplayName } from '../../lib/resourceNames';
+import { groupByFile as hookFiles } from '../hooks/hooksView';
 import { groupByFile, projectOf, type MCPChange } from '../mcp/mcpView';
 
-export type Part = 'skill' | 'agent' | 'extra' | 'mcp';
+export type Part = 'skill' | 'agent' | 'extra' | 'mcp' | 'hooks';
 export type RowIcon = 'add' | 'adopt' | 'update' | 'remove' | 'kept' | 'conflict';
 
 export interface ChangeRow {
@@ -24,7 +26,7 @@ export interface ChangeRow {
 
 export interface ChangeGroup {
   key: string;
-  part: 'target' | 'extra' | 'mcp';
+  part: 'target' | 'extra' | 'mcp' | 'hooks';
   name: string;
   mode?: string;
   path?: string;
@@ -116,6 +118,28 @@ export function mcpGroups(plan: MCPPlan | null | undefined): ChangeGroup[] {
   }));
 }
 
+const HOOK_ICON: Record<string, RowIcon> = { add: 'add', adopt: 'adopt', update: 'update', restore: 'update', remove: 'remove', conflict: 'conflict' };
+
+/** One group per native file; a project's file names its folder. */
+export function hooksGroups(plan: HookPlan | null | undefined): ChangeGroup[] {
+  return hookFiles((plan?.changes ?? []).filter((c) => HOOK_ICON[c.action])).map((file) => ({
+    key: `hooks/${file.path}`,
+    part: 'hooks',
+    name: file.target,
+    path: file.path,
+    project: file.changes[0].root,
+    rows: file.changes.map((c) => ({
+      key: `${file.path}/${c.name}`,
+      part: 'hooks',
+      name: c.name,
+      icon: HOOK_ICON[c.action],
+      text: c.action === 'conflict' ? null : `sync.row.hooks.${c.action === 'restore' ? 'update' : c.action}`,
+      detail: c.message,
+      counts: c.action !== 'conflict',
+    })),
+  }));
+}
+
 /** Targets already in sync, the global ones apart from each project's: a project target is `<project>@<tool>`. */
 export function groupInSync(names: string[]) {
   const global: string[] = [];
@@ -140,15 +164,17 @@ export function groupByFolder(names: string[]) {
 }
 
 export const countChanges = (groups: ChangeGroup[]) => groups.reduce((n, g) => n + g.rows.filter((r) => r.counts).length, 0);
-/** Changes a plain sync of every part would apply (the sidebar badge). A blocked MCP plan applies nothing. */
-export function pendingCount(diffs: DiffTarget[], targets: Target[], extras: ExtraDiffResult[], plan: MCPPlan | null | undefined): number {
-  const parts = new Set<Part>(['skill', 'agent', 'extra', 'mcp']);
-  return countChanges([...resourceGroups(diffs, targets, parts, false).groups, ...extraGroups(extras, false), ...(plan?.blocked ? [] : mcpGroups(plan))]);
+/** Changes a plain sync of every part would apply (the sidebar badge). A blocked MCP or hooks plan applies nothing. */
+export function pendingCount(diffs: DiffTarget[], targets: Target[], extras: ExtraDiffResult[], plan: MCPPlan | null | undefined, hooks?: HookPlan | null): number {
+  const parts = new Set<Part>(['skill', 'agent', 'extra', 'mcp', 'hooks']);
+  return countChanges([...resourceGroups(diffs, targets, parts, false).groups, ...extraGroups(extras, false), ...(plan?.blocked ? [] : mcpGroups(plan)), ...(hooks?.blocked ? [] : hooksGroups(hooks))]);
 }
 export const countEdited = (groups: ChangeGroup[]) => groups.reduce((n, g) => n + g.rows.filter((r) => r.edited).length, 0);
 
 /** Thrown when the MCP plan no longer matches the one on screen. */
 export const MCP_CHANGED = 'mcp-changed';
+/** Thrown when the hooks plan no longer matches the one on screen. */
+export const HOOKS_CHANGED = 'hooks-changed';
 
 /** The plan's changes for one mcp.projects root. */
 export const projectChanges = (plan: MCPPlan | null | undefined, root: string) => (plan?.changes ?? []).filter((c) => projectOf([root], c) === root);
@@ -156,11 +182,15 @@ export const projectChanges = (plan: MCPPlan | null | undefined, root: string) =
 // Revisions move on any config write, including the resource sync; only the reviewed changes must hold.
 const changeKey = (plan: MCPPlan, root?: string) => (root ? projectChanges(plan, root) : plan.changes).filter((c) => c.action !== 'unchanged').map((c) => JSON.stringify([c.target, c.name, c.action])).sort().join();
 
+const hookKey = (plan: HookPlan, root?: string) => plan.changes.filter((c) => (root ? c.root === root : true) && c.action !== 'unchanged').map((c) => JSON.stringify([c.target, c.path, c.name, c.action])).sort().join();
+
 export interface SyncRun {
   resources: 'skill' | 'agent' | 'both' | null;
   extras: boolean;
   /** The MCP plan the user reviewed, or null to leave MCP alone */
   mcp: MCPPlan | null;
+  /** The hooks plan the user reviewed, or null to leave hooks alone */
+  hooks?: HookPlan | null;
   force: boolean;
   /** Write one project only: `root` as declared under projects, `path` its folder (the mcp.projects key) */
   project?: { root: string; path: string };
@@ -217,7 +247,16 @@ export async function runSync(run: SyncRun) {
     if (blocked || changeKey(fresh, root) !== changeKey(reviewed!, root)) throw new Error(MCP_CHANGED);
     return fresh.revision;
   };
+  const reviewedHooks = run.hooks;
+  const recheckHooks = async () => {
+    const fresh = await hooksApi.preview();
+    const root = run.project?.path;
+    const blocked = root ? fresh.changes.some((c) => c.root === root && c.action === 'conflict') : fresh.blocked;
+    if (blocked || fresh.fingerprint !== reviewedHooks!.fingerprint || hookKey(fresh, root) !== hookKey(reviewedHooks!, root)) throw new Error(HOOKS_CHANGED);
+    return fresh.revision;
+  };
   if (reviewed) await recheck();
+  if (reviewedHooks) await recheckHooks();
   let resources: SyncResponse | undefined;
   if (run.resources) {
     resources = await api.sync({ force: run.force, ...(run.resources !== 'both' && { kind: run.resources }), ...(run.project && { project: run.project.root }) });
@@ -235,6 +274,10 @@ export async function runSync(run: SyncRun) {
   if (reviewed) {
     if (run.project) await mcpApi.syncProject(run.project.path, await recheck());
     else await mcpApi.configure({}, await recheck(), true);
+  }
+  if (reviewedHooks) {
+    if (run.project) await hooksApi.syncProject(run.project.path, await recheckHooks());
+    else await hooksApi.configure({}, await recheckHooks(), true);
   }
   return { resources, failures };
 }

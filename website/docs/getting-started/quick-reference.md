@@ -100,7 +100,9 @@ for native client requirements and supported targets.
 |---------|-------------|
 | `sync extras` | Sync non-skill resources (rules, commands, etc.) |
 | `sync mcp` | Sync MCP connection settings |
-| `sync --all` | Sync skills + agents + extras + MCP (excludes plugins) |
+| `hooks list` | List managed native hooks |
+| `sync hooks` | Sync native hooks without executing them |
+| `sync --all` | Sync skills + agents + extras + MCP + hooks (excludes plugins) |
 | `collect <target>` | Collect skills from target to source |
 | `collect --all` | Collect from all targets |
 | `backup [target]` | Create backup |

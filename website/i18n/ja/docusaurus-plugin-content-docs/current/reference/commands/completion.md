@@ -49,7 +49,7 @@ skillshare completion zsh > ~/.zsh/completions/_skillshare
 生成されるスクリプトは、以下のタブ補完を提供します。
 
 - **コマンド** — すべてのトップレベルコマンド（`sync`、`install`、`list` など）
-- **サブコマンド** — `target add/remove/list`、`trash list/restore/delete/empty`、`hub add/list/remove/default/index`、`extras init/list/remove/collect/source`、`audit rules disable/enable/severity/reset/init`、`backup files list/show/restore`、`ui start/stop`
+- **サブコマンド** — `target add/remove/list`、`trash list/restore/delete/empty`、`hub add/list/remove/default/index`、`extras init/list/remove/collect/source`、`audit rules disable/enable/severity/reset/init`、`backup files list/show/restore`、`ui start/stop`、`hooks add/disable/edit/enable/import/list/remove/restore/sync`
 - **フラグ** — コマンドごとのフラグと短縮形（`--dry-run`/`-n`、`--force`/`-f` など）
 - **グローバルフラグ** — `--project`/`-p`、`--global`/`-g`
 

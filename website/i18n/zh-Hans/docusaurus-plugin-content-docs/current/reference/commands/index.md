@@ -85,6 +85,7 @@ skillshare 全部命令的完整参考。
 | Command | Description |
 |---------|-------------|
 | [mcp](./mcp.md) | 定义一次 MCP server，并同步到每个工具的原生配置中 |
+| [hooks](./hooks.md) | 管理原生 hooks |
 | [plugin](./plugin.md) | 安装完整的插件，并选择哪些工具接收它们 |
 
 ## Sync 操作

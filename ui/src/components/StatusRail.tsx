@@ -21,9 +21,9 @@ const PANE = 'sticky top-6 max-h-[calc(100vh-11rem)]';
  * flex item go below its content height, and it would be squashed instead of scrolled.
  * `pageScroll` keeps the list in the page's own scroll, for a page that has more above it.
  */
-export function RailLayout({ rail, children, pageScroll }: { rail: ReactNode; children: ReactNode; pageScroll?: boolean }) {
+export function RailLayout({ rail, children, pageScroll, className = '' }: { rail: ReactNode; children: ReactNode; pageScroll?: boolean; /** Extra classes on the grid, for a page that needs its own narrow-width layout. */ className?: string }) {
   return (
-    <div className="grid grid-cols-[minmax(0,1fr)_320px] items-start gap-8">
+    <div className={`grid grid-cols-[minmax(0,1fr)_320px] items-start gap-8 ${className}`}>
       <div className={pageScroll ? 'flex min-w-0 flex-col gap-3' : `${PANE} -m-2 flex min-w-0 flex-col gap-3 overflow-y-auto p-2 [&>*]:shrink-0`}>{children}</div>
       <aside className={`${PANE} flex flex-col gap-7`}>{rail}</aside>
     </div>

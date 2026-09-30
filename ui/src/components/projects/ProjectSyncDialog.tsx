@@ -3,18 +3,19 @@ import { Link } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { AlertCircle, CircleCheck, TriangleAlert } from 'lucide-react';
 import { type SyncResponse, type Target } from '../../api/client';
+import { hookLabel } from '../hooks/hooksView';
 import { describeMessage, targetLabel } from '../mcp/mcpView';
 import Button from '../Button';
 import DialogShell from '../DialogShell';
 import Spinner from '../Spinner';
 import SyncResultList, { SyncUpToDate } from '../SyncResultList';
-import { countChanges, MCP_CHANGED, mcpGroups, otherWarnings, projectChanges, resourceGroups, runSync, type ChangeGroup, type SyncFailure } from '../sync/syncView';
+import { countChanges, HOOKS_CHANGED, hooksGroups, MCP_CHANGED, mcpGroups, otherWarnings, projectChanges, resourceGroups, runSync, type ChangeGroup, type SyncFailure } from '../sync/syncView';
 import SyncResult from '../sync/SyncResult';
 import { refreshTargets } from '../targets/targetView';
 import { useT } from '../../i18n';
 import { queryKeys } from '../../lib/queryKeys';
 import type { ProjectRow } from './projectView';
-import { useDiffQuery, useMcpQuery } from '../../hooks/useSharedQueries';
+import { useDiffQuery, useHooksQuery, useMcpQuery } from '../../hooks/useSharedQueries';
 
 interface Props {
   open: boolean;
@@ -30,6 +31,7 @@ export default function ProjectSyncDialog({ open, onClose, project, targets }: P
   const queryClient = useQueryClient();
   const diff = useDiffQuery({ enabled: open });
   const mcp = useMcpQuery({ enabled: open });
+  const hooks = useHooksQuery({ enabled: open });
   const [running, setRunning] = useState(false);
   const [error, setError] = useState('');
   // undefined until the sync ran
@@ -44,13 +46,17 @@ export default function ProjectSyncDialog({ open, onClose, project, targets }: P
   const changes = projectChanges(plan, project.path);
   const conflicts = changes.filter((c) => c.action === 'conflict');
   const mcpBlocked = conflicts.length > 0;
+  const hookPlan = hooks.data?.plan;
+  const hookChanges = (hookPlan?.changes ?? []).filter((c) => c.root === project.path);
+  const hooksBlocked = hookChanges.some((c) => c.action === 'conflict');
   const sections: { label: string; groups: ChangeGroup[] }[] = [
     { label: 'Skills', groups: resourceGroups(diffs, mine, new Set(['skill']), false, ignored).groups },
     { label: 'Agents', groups: resourceGroups(diffs, mine, new Set(['agent']), false, ignored).groups },
     { label: 'MCP', groups: plan ? mcpGroups({ ...plan, changes }) : [] },
+    { label: 'Hooks', groups: hookPlan ? hooksGroups({ ...hookPlan, changes: hookChanges }) : [] },
   ].filter((s) => s.groups.length > 0);
-  const count = sections.reduce((n, s) => n + (s.label === 'MCP' && mcpBlocked ? 0 : countChanges(s.groups)), 0);
-  const loading = diff.isPending || mcp.isPending || !targets;
+  const count = sections.reduce((n, s) => n + ((s.label === 'MCP' && mcpBlocked) || (s.label === 'Hooks' && hooksBlocked) ? 0 : countChanges(s.groups)), 0);
+  const loading = diff.isPending || mcp.isPending || (hooks.isPending && !hooks.error) || !targets;
 
   const close = () => {
     onClose();
@@ -66,6 +72,7 @@ export default function ProjectSyncDialog({ open, onClose, project, targets }: P
         resources: project.declared ? 'both' : null,
         extras: false,
         mcp: plan && !mcpBlocked && changes.some((c) => c.action !== 'unchanged') ? plan : null,
+        hooks: hookPlan && !hooksBlocked && hookChanges.some((c) => c.action !== 'unchanged') ? hookPlan : null,
         force: false,
         project: { root: project.root, path: project.path },
       });
@@ -73,11 +80,11 @@ export default function ProjectSyncDialog({ open, onClose, project, targets }: P
       setFailures(failed);
     } catch (err) {
       const message = (err as Error).message;
-      setError(message === MCP_CHANGED ? t('sync.mcpChanged') : message);
+      setError(message === MCP_CHANGED ? t('sync.mcpChanged') : message === HOOKS_CHANGED ? t('sync.hooksChanged') : message);
     } finally {
       setRunning(false);
       refreshTargets(queryClient);
-      for (const queryKey of [queryKeys.mcp, ['log']]) void queryClient.invalidateQueries({ queryKey });
+      for (const queryKey of [queryKeys.mcp, queryKeys.hooks, ['log']]) void queryClient.invalidateQueries({ queryKey });
     }
   };
 
@@ -110,6 +117,16 @@ export default function ProjectSyncDialog({ open, onClose, project, targets }: P
                 <span className="flex flex-1 flex-col gap-1">
                   {t('projects.sync.mcpConflict')}
                   {conflicts.map((c) => <span key={`${c.path}:${c.name}`}><span className="font-mono">{targetLabel(c.target)} · {c.name}</span>: {describeMessage(t, c.message)}</span>)}
+                </span>
+              </div>
+            )}
+            {hooks.error && <div className="ss-note bad"><AlertCircle size={16} /><span className="flex-1">{hooks.error.message}</span></div>}
+            {hooksBlocked && (
+              <div className="ss-note warn">
+                <TriangleAlert size={16} />
+                <span className="flex flex-1 flex-col gap-1">
+                  {t('sync.hooksBlocked')}
+                  {hookChanges.filter((c) => c.action === 'conflict').map((c) => <span key={`${c.path}:${c.name}`}><span className="font-mono">{hookLabel(c.target)} · {c.name}</span>{c.message && `: ${c.message}`}</span>)}
                 </span>
               </div>
             )}

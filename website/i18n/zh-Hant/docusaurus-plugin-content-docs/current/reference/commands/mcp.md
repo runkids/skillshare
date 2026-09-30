@@ -57,7 +57,7 @@ skillshare sync --all
 
 不帶任何 subcommand 時，`mcp` 會在互動式終端機中開啟可搜尋的管理介面，或在非互動模式下印出狀態。不帶名稱的非互動式匯入，會列出解析出的候選項供選擇，且不會儲存。候選項包含可攜式定義，可識別的機密資料會轉換為參照。Agent 專屬欄位會列為警告並被省略；已停用的 servers 與不支援的傳輸方式會擋下該候選項。`restore` 一律會先重新預覽再套用；使用 `--dry-run` 可只檢視而不套用。
 
-`sync mcp` 接受 scope flags、`--dry-run`、`--json`、`--no-tui` 與 `--revision`。`sync --all` 包含 skills、agents、extras 與 MCP；單獨的 `sync` 則維持既有的資源行為。MCP 衝突會在 `--all` 變更其他資源之前先檢查。資源類型與原生檔案是各自獨立的操作，而非單一交易。
+`sync mcp` 接受 scope flags、`--dry-run`、`--json`、`--no-tui` 與 `--revision`。`sync --all` 包含 skills、agents、extras 與 MCP + hooks；單獨的 `sync` 則維持既有的資源行為。MCP + hooks 衝突會在 `--all` 變更其他資源之前先檢查。資源類型與原生檔案是各自獨立的操作，而非單一交易。
 
 ## 互動式管理
 

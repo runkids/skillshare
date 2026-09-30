@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Folder, Folders, Plug, RefreshCw } from 'lucide-react';
+import { Folder, Folders, Plug, RefreshCw, Webhook } from 'lucide-react';
+import { hooksApi, type HookInventory } from '../api/hooks';
 import { api, type ProjectList, type ProjectResource } from '../api/client';
 import { mcpApi, mcpTargets } from '../api/mcp';
 import AgentIcon from '../components/AgentIcon';
@@ -11,6 +12,7 @@ import EmptyState from '../components/EmptyState';
 import PageHeader from '../components/PageHeader';
 import { PageSkeleton } from '../components/Skeleton';
 import { useToast } from '../components/Toast';
+import HooksScope from '../components/hooks/HooksScope';
 import MCPProjectView from '../components/mcp/MCPProjectView';
 import { targetLabel } from '../components/mcp/mcpView';
 import ProjectSyncDialog from '../components/projects/ProjectSyncDialog';
@@ -21,12 +23,12 @@ import { refreshTargets } from '../components/targets/targetView';
 import { queryKeys, staleTimes } from '../lib/queryKeys';
 import { shortenHome } from '../lib/paths';
 import { useT } from '../i18n';
-import { useAvailableTargetsQuery, useMcpQuery } from '../hooks/useSharedQueries';
+import { useAvailableTargetsQuery, useHooksQuery, useMcpQuery } from '../hooks/useSharedQueries';
 
 type MCPList = Awaited<ReturnType<typeof mcpApi.list>>;
-type Tab = 'skills' | 'agents' | 'mcp';
-const TABS: Tab[] = ['skills', 'agents', 'mcp'];
-const LABEL = { skills: 'Skills', agents: 'Agents', mcp: 'MCP' };
+type Tab = 'skills' | 'agents' | 'mcp' | 'hooks';
+const TABS: Tab[] = ['skills', 'agents', 'mcp', 'hooks'];
+const LABEL = { skills: 'Skills', agents: 'Agents', mcp: 'MCP', hooks: 'Hooks' };
 const EVERYTHING: ProjectResource = { mode: 'merge', include: [], exclude: [] };
 
 export default function ProjectDetailPage() {
@@ -34,9 +36,10 @@ export default function ProjectDetailPage() {
   const t = useT();
   const list = useQuery({ queryKey: queryKeys.projects, queryFn: () => api.listProjects(), staleTime: staleTimes.targets });
   const mcp = useMcpQuery();
-  const project = projectRows(list.data, mcp.data).find((p) => p.path === root);
+  const hooks = useHooksQuery();
+  const project = projectRows(list.data, mcp.data, hooks.data).find((p) => p.path === root);
 
-  if (list.isPending || mcp.isPending) return <PageSkeleton />;
+  if (list.isPending || mcp.isPending || hooks.isPending) return <PageSkeleton />;
   if (list.error) return <div className="ss-note bad"><span className="flex-1">{list.error.message}</span></div>;
   if (!project || !list.data) {
     return (
@@ -47,10 +50,10 @@ export default function ProjectDetailPage() {
       />
     );
   }
-  return <ProjectEditor key={root} project={project} tools={list.data.tools} mcp={mcp.data} />;
+  return <ProjectEditor key={root} project={project} tools={list.data.tools} mcp={mcp.data} hooks={hooks.data} hooksError={hooks.error?.message} />;
 }
 
-function ProjectEditor({ project, tools, mcp }: { project: ProjectRow; tools: ProjectList['tools']; mcp: MCPList | undefined }) {
+function ProjectEditor({ project, tools, mcp, hooks, hooksError }: { project: ProjectRow; tools: ProjectList['tools']; mcp: MCPList | undefined; hooks: HookInventory | undefined; hooksError?: string }) {
   const t = useT();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -86,13 +89,14 @@ function ProjectEditor({ project, tools, mcp }: { project: ProjectRow; tools: Pr
     queryKey: ['sync-matrix-preview', project.name, previewTool, filters.skills, filters.agents],
     queryFn: () => api.previewSyncMatrix(`${project.name}@${previewTool}`, filters.skills?.include ?? [], filters.skills?.exclude ?? [], filters.agents?.include ?? [], filters.agents?.exclude ?? []),
     placeholderData: keepPreviousData,
-    enabled: Boolean(previewTool) && tab !== 'mcp',
+    enabled: Boolean(previewTool) && tab !== 'mcp' && tab !== 'hooks',
   });
   const entries = (preview.data?.entries ?? []).filter((e) => (e.kind === 'agent') === agent && e.status !== 'na');
 
   const refresh = () => {
     refreshTargets(queryClient);
     void queryClient.invalidateQueries({ queryKey: queryKeys.mcp });
+    void queryClient.invalidateQueries({ queryKey: queryKeys.hooks });
   };
   const save = async () => {
     setSaving(true);
@@ -107,16 +111,29 @@ function ProjectEditor({ project, tools, mcp }: { project: ProjectRow; tools: Pr
     }
   };
   const mcpEntry = mcp?.source.projects?.[project.path];
+  const hooksEntry = hooks?.source.projects?.[project.path];
   const remove = async () => {
     setBusy(true);
     try {
       if (project.declared) await api.removeProject(project.root);
       if (mcpEntry) await mcpApi.save({ project: project.path, remove: true });
+      if (hooksEntry) await hooksApi.save({ project: project.path, remove: true });
       refresh();
       toast(t('projects.removed', { name: project.name }), 'success');
       navigate('/projects');
     } catch (e) {
       toast((e as Error).message, 'error');
+      setBusy(false);
+    }
+  };
+  const manageHooks = async () => {
+    setBusy(true);
+    try {
+      await hooksApi.save({ project: project.path });
+      refresh();
+    } catch (e) {
+      toast((e as Error).message, 'error');
+    } finally {
       setBusy(false);
     }
   };
@@ -133,7 +150,14 @@ function ProjectEditor({ project, tools, mcp }: { project: ProjectRow; tools: Pr
     }
   };
 
-  const health = projectHealth(project, targets.data?.targets ?? [], mcp);
+  const tabs = (
+    <nav className="ss-tabs" aria-label={project.name}>
+      {TABS.map((x) => (
+        <Link key={x} to={x === 'skills' ? '?' : `?tab=${x}`} replace className={tab === x ? 'on' : ''} aria-current={tab === x}>{LABEL[x]}</Link>
+      ))}
+    </nav>
+  );
+  const health = projectHealth(project, targets.data?.targets ?? [], mcp, hooks);
   const folders = agent
     ? draft.targets.map((tool) => ({ tools: [tool], path: tools.find((x) => x.name === tool)?.agentsPath ?? '' }))
     : toolGroups(tools, draft.targets).map((g) => ({ tools: g.tools, path: g.skillsPath }));
@@ -155,7 +179,7 @@ function ProjectEditor({ project, tools, mcp }: { project: ProjectRow; tools: Pr
               <Link to={`/skills?tab=analyze&target=${encodeURIComponent(`${project.name}@${previewTool}`)}`} className="ss-btn ghost">{t('analyze.open')}</Link>
             )}
             <Button variant="ghost" onClick={() => setRemoving(true)}>{t('projects.remove')}</Button>
-            {tab !== 'mcp' && <Button variant="primary" onClick={save} loading={saving} disabled={!canSave}>{t('common.save')}</Button>}
+            {tab !== 'mcp' && tab !== 'hooks' && <Button variant="primary" onClick={save} loading={saving} disabled={!canSave}>{t('common.save')}</Button>}
           </>
         }
       />
@@ -163,21 +187,20 @@ function ProjectEditor({ project, tools, mcp }: { project: ProjectRow; tools: Pr
       <div className="mb-6 flex flex-col gap-3 empty:hidden">
         {project.missing && <div className="ss-note bad"><span className="flex-1">{t('projects.note.missing')}</span></div>}
         {project.hasOwnConfig && <div className="ss-note warn"><span className="flex-1">{t('projects.note.ownConfig')}</span></div>}
-        {!dirty && health.state === 'pending' && (
-          <div className="ss-note inf">
-            <span className="flex-1">{t(health.count === 1 ? 'projects.note.pending.one' : 'projects.note.pending.other', { count: health.count })}</span>
-            <button type="button" className="shrink-0 font-semibold underline underline-offset-2" onClick={() => setSyncing(true)}>{t('projects.sync.review')}</button>
-          </div>
-        )}
       </div>
 
-      <nav className="ss-tabs mb-7" aria-label={project.name}>
-        {TABS.map((x) => (
-          <Link key={x} to={x === 'skills' ? '?' : `?tab=${x}`} replace className={tab === x ? 'on' : ''} aria-current={tab === x}>{LABEL[x]}</Link>
-        ))}
-      </nav>
+      {/* The Hooks tab carries its own actions, so it draws this bar itself with them at the right. */}
+      {!(tab === 'hooks' && !hooksError && hooks && hooksEntry) && <div className="mb-7">{tabs}</div>}
 
-      {tab === 'mcp' ? (
+      {tab === 'hooks' ? (
+        hooksError ? (
+          <div className="ss-note bad"><span className="flex-1">{hooksError}</span></div>
+        ) : hooks && hooksEntry ? (
+          <HooksScope data={hooks} project={project.path} header={(actions) => <div className="ss-tabbar mb-7 flex-wrap">{tabs}{actions}</div>} />
+        ) : (
+          <EmptyState icon={Webhook} title={t('projects.hooks.emptyTitle')} description={t('projects.hooks.emptyDescription')} action={<Button variant="primary" onClick={() => void manageHooks()} loading={busy}>{t('projects.hooks.manage')}</Button>} />
+        )
+      ) : tab === 'mcp' ? (
         mcp && mcpEntry ? (
           <MCPProjectView data={mcp} root={project.path} offered={mcpTargets.filter((x) => mcp.paths[x])} onChanged={refresh} onRemoved={project.declared ? refresh : () => { refresh(); navigate('/projects'); }} />
         ) : (

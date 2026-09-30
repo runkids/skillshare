@@ -1,0 +1,163 @@
+import { useState, type ReactNode } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import { AlertCircle, Archive, Copy, Download, Eye, Pencil, Plus, Trash2, Webhook } from 'lucide-react';
+import { hooksApi, type HookChange, type HookEntry, type HookInventory } from '../../api/hooks';
+import { useT } from '../../i18n';
+import { shortenHome } from '../../lib/paths';
+import { queryKeys } from '../../lib/queryKeys';
+import Button from '../Button';
+import EmptyState from '../EmptyState';
+import { RailGroup, RailLayout, RailRow, RailSection } from '../StatusRail';
+import { SkillContextMenu, type ContextMenuItem } from '../TargetMenu';
+import { useToast } from '../Toast';
+import HookDialog from './HookDialog';
+import { HooksConfigDialog } from './HooksConfigView';
+import HooksImportDialog from './HooksImportDialog';
+import HooksList from './HooksList';
+import HooksRemoveDialog from './HooksRemoveDialog';
+import HooksRestoreDialog from './HooksRestoreDialog';
+import HooksSyncBox, { HooksSyncDialog } from './HooksSyncBox';
+import HooksUnmanagedNote from './HooksUnmanagedNote';
+import { hookLabel, hookNote, scopeBackups, scopeChanges, scopeEntries, scopePaths, scopePlan, scopeUnmanaged, writes } from './hooksView';
+
+const copy = (text: string) => void navigator.clipboard?.writeText(text);
+
+interface Props {
+  data: HookInventory;
+  /** A root under hooks.projects. Left out, this is the global source; the two never show each other's hooks. */
+  project?: string;
+  /** Lays out what sits above the list; receives the buttons (backups, import, add). */
+  header: (actions: ReactNode) => ReactNode;
+}
+
+/** The hooks of one scope with everything you do to them, on the Hooks page and in a project's tab. */
+export default function HooksScope({ data, project, header }: Props) {
+  const t = useT();
+  const { toast } = useToast();
+  const cache = useQueryClient();
+  const [editing, setEditing] = useState<string | null>(null); // '' adds a new hook
+  const [importing, setImporting] = useState<{ from?: string } | null>(null);
+  const [removing, setRemoving] = useState('');
+  const [takingOver, setTakingOver] = useState('');
+  const [viewing, setViewing] = useState('');
+  const [backupsOpen, setBackupsOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [menu, setMenu] = useState<{ x: number; y: number; items: ContextMenuItem[] } | null>(null);
+
+  const refresh = () => {
+    void cache.invalidateQueries({ queryKey: queryKeys.hooks });
+    void cache.invalidateQueries({ queryKey: queryKeys.config });
+  };
+  const done = (message: string) => {
+    setEditing(null); setImporting(null); setRemoving(''); setBackupsOpen(false);
+    refresh();
+    toast(message, 'success');
+  };
+
+  const entries = scopeEntries(data, project);
+  const names = Object.keys(entries);
+  const plan = scopePlan(data, project);
+  // Global sync writes the whole plan, projects included, so the global rail shows all of it; a project's rail stays its root.
+  const railPlan = project ? plan : data.plan;
+  const paths = scopePaths(data, project);
+  const targets = data.targets;
+  const unmanaged = scopeUnmanaged(data, project);
+  const backups = scopeBackups(data, project);
+  // A conflict of one of this scope's own hooks opens the same take-over preview as the row menu.
+  const ownConflicts = new Set(scopeChanges(data, project).filter((c) => c.action === 'conflict' && c.name in entries).map((c) => `${c.root ?? ''}\0${c.name}`));
+  const canTakeOver = (c: HookChange) => c.action === 'conflict' && ownConflicts.has(`${c.root ?? ''}\0${c.name}`);
+
+  // Each save sends the revision it previewed, so the switch holds the others until it settles.
+  const toggle = async (name: string, enabled: boolean) => {
+    const entry: HookEntry = { ...entries[name] };
+    if (enabled) delete entry.enabled; else entry.enabled = false;
+    setBusy(true);
+    try {
+      await hooksApi.save({ ...(project && { project }), name, entry });
+      toast(t(enabled ? 'hooks.toast.enabled' : 'hooks.toast.disabled', { name }), 'success');
+    } catch (e) {
+      toast((e as Error).message, 'error');
+    } finally {
+      setBusy(false);
+      refresh();
+    }
+  };
+
+  const openMenu = (e: React.MouseEvent<HTMLButtonElement>, name: string) => {
+    const r = e.currentTarget.getBoundingClientRect();
+    setMenu({
+      x: r.left, y: r.bottom + 4,
+      items: [
+        { key: 'edit', label: t('mcp.edit'), icon: <Pencil size={14} />, onSelect: () => setEditing(name) },
+        { key: 'view', label: t('mcp.viewConfig'), icon: <Eye size={14} />, onSelect: () => setViewing(name) },
+        ...(scopeChanges(data, project).some((c) => c.name === name && c.action === 'conflict')
+          ? [{ key: 'takeover', label: t('hooks.takeoverMenu'), icon: <Download size={14} />, onSelect: () => setTakingOver(name) }] : []),
+        { key: 'remove', label: t('mcp.remove'), icon: <Trash2 size={14} />, danger: true, onSelect: () => setRemoving(name) },
+      ],
+    });
+  };
+
+  const add = () => setEditing('');
+  const actions = (
+    <span className="flex flex-wrap items-center justify-end gap-2.5">
+      {backups.length > 0 ? <Button variant="ghost" onClick={() => setBackupsOpen(true)}><Archive size={15} />{t('hooks.backupsButton')}</Button> : null}
+      <Button variant="secondary" onClick={() => setImporting({})}><Download size={15} />{t('hooks.import')}</Button>
+      <Button variant="primary" onClick={add}><Plus size={15} />{t('hooks.add')}</Button>
+    </span>
+  );
+
+  return (
+    <>
+      {header(actions)}
+      {data.previewError && <div className="ss-note bad mb-4"><AlertCircle size={16} /><span className="flex-1">{data.previewError}</span></div>}
+      <RailLayout className="max-[900px]:grid-cols-1 max-[900px]:[&>*]:static max-[900px]:[&>*]:max-h-none" pageScroll={Boolean(project)} rail={<>
+        {/* Removing the last hook leaves native changes pending, so the box also shows without a source entry. */}
+        {railPlan && (names.length > 0 || railPlan.changes.some((c) => writes(c) || c.action === 'conflict')) && <HooksSyncBox plan={railPlan} project={project} canTakeOver={canTakeOver} onTakeover={setTakingOver} />}
+        {!project && (
+          <RailSection title={t('layout.nav.agents')} count={targets.length}>
+            <RailGroup label={t('hooks.agentFiles')} count={targets.length}>
+              {targets.map((tg) => (
+                <RailRow key={tg.name} target={tg.name} label={hookLabel(tg.name)} sub={hookNote(t, tg.name, tg.note)} right={paths[tg.name] ? <>
+                  <span className="max-w-[130px] truncate font-mono text-xs text-ink-3" title={paths[tg.name]}>{paths[tg.name].split(/[\\/]/).pop()}</span>
+                  <button type="button" className="ss-ib" aria-label={`${t('mcp.copyPath')} · ${hookLabel(tg.name)}`} onClick={() => { copy(paths[tg.name]); toast(t('mcp.copied'), 'success'); }}><Copy size={14} /></button>
+                </> : null} />
+              ))}
+            </RailGroup>
+          </RailSection>
+        )}
+      </>}>
+        {plan?.blocked && <div className="ss-note warn"><AlertCircle size={16} /><span className="flex-1">{t('hooks.blockedHint')}</span></div>}
+        <HooksUnmanagedNote entries={unmanaged} onImport={(from) => setImporting({ from })} />
+        {names.length > 0 ? (
+          <HooksList entries={entries} plan={plan} paths={paths} disabled={busy} onToggle={(n, on) => void toggle(n, on)} onMenu={openMenu} />
+        ) : (
+          <EmptyState
+            icon={Webhook}
+            title={t('hooks.empty')}
+            description={t('hooks.emptyHint')}
+            action={<div className="flex gap-2">
+              <Button variant="secondary" onClick={() => setImporting({})}><Download size={15} />{t('hooks.import')}</Button>
+              <Button variant="primary" onClick={add}><Plus size={15} />{t('hooks.add')}</Button>
+            </div>}
+          />
+        )}
+        {!project && (
+          <div className="flex items-center gap-1 px-1 text-xs text-ink-3">
+            <span className="min-w-0 truncate">{t('mcp.source')}: <span className="font-mono" title={data.source.path}>{shortenHome(data.source.path)}</span></span>
+            <button type="button" className="ss-ib" aria-label={t('mcp.copySource')} onClick={() => { copy(data.source.path); toast(t('mcp.copied'), 'success'); }}><Copy size={14} /></button>
+          </div>
+        )}
+      </RailLayout>
+
+      {editing !== null && (
+        <HookDialog initial={editing ? { name: editing, entry: entries[editing] } : undefined} existingNames={names} project={project} onClose={() => setEditing(null)} onSaved={() => done(t('hooks.toast.saved'))} />
+      )}
+      {importing && <HooksImportDialog data={data} defaultFrom={importing.from} project={project} onClose={() => setImporting(null)} onImported={(count) => done(t('hooks.toast.imported', { count }))} />}
+      {removing && <HooksRemoveDialog name={removing} project={project} onClose={() => setRemoving('')} onSaved={() => done(t('hooks.toast.removed', { name: removing }))} />}
+      {viewing && entries[viewing] && <HooksConfigDialog mutation={{ ...(project && { project }), name: viewing, entry: entries[viewing] }} sourcePath={data.source.path} onClose={() => setViewing('')} />}
+      {takingOver && entries[takingOver] && <HooksSyncDialog project={project} takeover={{ name: takingOver, entry: entries[takingOver] }} onClose={() => { setTakingOver(''); refresh(); }} />}
+      {backupsOpen && <HooksRestoreDialog backups={backups} onClose={() => setBackupsOpen(false)} onRestored={() => done(t('hooks.toast.restored'))} />}
+      <SkillContextMenu open={!!menu} anchorPoint={menu ?? undefined} items={menu?.items ?? []} onClose={() => setMenu(null)} />
+    </>
+  );
+}

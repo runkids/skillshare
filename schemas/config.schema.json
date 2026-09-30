@@ -8,6 +8,7 @@
   "allOf": [{"not": {"required": ["sources", "mcp"], "properties": {"sources": {"required": ["mcp"]}, "mcp": {"required": ["servers"]}}}}],
   "properties": {
     "mcp": {"$ref": "mcp.schema.json#/$defs/globalConfiguration"},
+    "hooks": {"$ref": "hooks.schema.json#/$defs/globalConfiguration"},
     "source": {
       "type": "string",
       "description": "Legacy top-level skills source path. Prefer sources.skills (added in v0.19.16). When both are set, sources.skills wins. Supports ~ for home directory.",

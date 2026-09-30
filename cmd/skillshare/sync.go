@@ -11,6 +11,7 @@ import (
 
 	"skillshare/internal/backup"
 	"skillshare/internal/config"
+	"skillshare/internal/hooks"
 	"skillshare/internal/mcp"
 	"skillshare/internal/oplog"
 	"skillshare/internal/skillignore"
@@ -43,6 +44,7 @@ type syncJSONOutput struct {
 	Extras        []syncExtrasJSONEntry  `json:"extras,omitempty"`
 	ContextCost   *contextCostJSON       `json:"context_cost,omitempty"`
 	MCP           *mcp.Result            `json:"mcp,omitempty"`
+	Hooks         *hooks.Result          `json:"hooks,omitempty"`
 }
 
 type syncJSONTargetDetail struct {
@@ -69,6 +71,9 @@ func cmdSync(args []string) error {
 	// "mcp" is a subcommand in any position, e.g. "sync -g --dry-run mcp".
 	if i := slices.Index(args, "mcp"); i >= 0 {
 		return cmdSyncMCP(slices.Delete(slices.Clone(args), i, i+1))
+	}
+	if i := slices.Index(args, "hooks"); i >= 0 {
+		return cmdSyncHooks(slices.Delete(slices.Clone(args), i, i+1))
 	}
 	if wantsHelp(args) {
 		printSyncHelp()
@@ -122,6 +127,8 @@ func cmdSync(args []string) error {
 
 	var mcpResult *mcp.Result
 	var mcpService *mcp.Service
+	var hooksResult *hooks.Result
+	var hooksService *hooks.Service
 	if hasAll {
 		preflightErr := func(err error) error {
 			if jsonOutput {
@@ -161,11 +168,25 @@ func cmdSync(args []string) error {
 			_ = printMCPPlan(plan, false)
 			return err
 		}
+		hooksService, _, err = hooksContext([]string{scope})
+		if err != nil {
+			return preflightErr(err)
+		}
+		hooksPlan, planErr := hooksService.Preview()
+		if planErr != nil {
+			return preflightErr(fmt.Errorf("hooks preflight: %w", planErr))
+		}
+		hooksResult = &hooks.Result{Plan: hooksPlan, Applied: []string{}, BackupIDs: []string{}}
+		if hooksPlan.Blocked {
+			err = fmt.Errorf("hooks conflicts found; no resources synchronized")
+			if jsonOutput {
+				return writeJSONResult(map[string]any{"error": err.Error(), "hooks": hooksResult}, err)
+			}
+			printHooksPlan(hooksPlan)
+			return err
+		}
 	}
 	finishMCP := func(previous error) error {
-		if !hasAll {
-			return previous
-		}
 		if previous != nil {
 			// Keep MCP untouched after a resource failure; drop the preflight plan
 			// so JSON output does not look processed.
@@ -192,6 +213,37 @@ func cmdSync(args []string) error {
 			}
 		}
 		return applyErr
+	}
+	finishHooks := func(previous error) error {
+		if previous != nil {
+			hooksResult = nil
+			if !jsonOutput {
+				ui.Warning("Hooks were not applied because an earlier sync step failed")
+			}
+			return previous
+		}
+		if len(hooksResult.Plan.Changes) == 0 {
+			return nil
+		}
+		var applyErr error
+		if !dryRun {
+			// Resources synced after the preflight: preview again and apply that revision.
+			hooksResult, applyErr = applyHooksSync(hooksService, start)
+		}
+		if !jsonOutput && !quiet && hooksResult != nil {
+			printHooksPlan(hooksResult.Plan)
+			for _, id := range hooksResult.BackupIDs {
+				ui.Info("Hooks backup: %s", id)
+			}
+		}
+		return applyErr
+	}
+	// finishNative applies MCP, then hooks, only after every resource synced.
+	finishNative := func(previous error) error {
+		if !hasAll {
+			return previous
+		}
+		return finishHooks(finishMCP(previous))
 	}
 
 	prevDiagOutput := sync.DiagOutput
@@ -222,7 +274,7 @@ func cmdSync(args []string) error {
 		logSyncOp(config.ProjectConfigPath(cwd), stats, start, err)
 
 		if jsonOutput {
-			err = finishMCP(err)
+			err = finishNative(err)
 			if hasAll {
 				projCfg, loadErr := config.LoadProject(cwd)
 				if loadErr == nil && len(projCfg.Extras) > 0 {
@@ -233,12 +285,12 @@ func cmdSync(args []string) error {
 					if err == nil {
 						err = extrasErr
 					}
-					return syncOutputJSON(results, dryRun, start, projIgnoreStats, err, projCtxCost, mcpResult, extrasEntries)
+					return syncOutputJSON(results, dryRun, start, projIgnoreStats, err, projCtxCost, mcpResult, hooksResult, extrasEntries)
 				}
 			}
-			return syncOutputJSON(results, dryRun, start, projIgnoreStats, err, projCtxCost, mcpResult)
+			return syncOutputJSON(results, dryRun, start, projIgnoreStats, err, projCtxCost, mcpResult, hooksResult)
 		}
-		err = finishMCP(err)
+		err = finishNative(err)
 		if hasAll {
 			// Run project extras sync after project skills sync (text mode)
 			if extrasErr := cmdSyncExtras(append([]string{"-p"}, rest...)); extrasErr != nil {
@@ -415,7 +467,7 @@ func cmdSync(args []string) error {
 	logSyncOp(config.ConfigPath(), logStats, start, syncErr)
 
 	if jsonOutput {
-		syncErr = finishMCP(syncErr)
+		syncErr = finishNative(syncErr)
 		var ctxCost *contextCostJSON
 		if analyzeErr == nil && len(analyzeEntries) > 0 {
 			ctxCost = buildContextCostJSON(analyzeEntries, cfg.ContextBudget)
@@ -428,9 +480,9 @@ func cmdSync(args []string) error {
 			if syncErr == nil {
 				syncErr = extrasErr
 			}
-			return syncOutputJSON(results, dryRun, start, ignoreStats, syncErr, ctxCost, mcpResult, extrasEntries)
+			return syncOutputJSON(results, dryRun, start, ignoreStats, syncErr, ctxCost, mcpResult, hooksResult, extrasEntries)
 		}
-		return syncOutputJSON(results, dryRun, start, ignoreStats, syncErr, ctxCost, mcpResult)
+		return syncOutputJSON(results, dryRun, start, ignoreStats, syncErr, ctxCost, mcpResult, hooksResult)
 	}
 
 	var extrasErr error
@@ -440,8 +492,8 @@ func cmdSync(args []string) error {
 		}
 	}
 
-	// An extras failure fails the run but, as in JSON mode, does not hold back MCP.
-	if err := finishMCP(syncErr); err != nil {
+	// An extras failure fails the run but, as in JSON mode, does not hold back MCP or hooks.
+	if err := finishNative(syncErr); err != nil {
 		return err
 	}
 	return extrasErr
@@ -572,7 +624,7 @@ func printIgnoredSkills(stats *skillignore.IgnoreStats) {
 
 // syncOutputJSON converts sync results to JSON and writes to stdout.
 // extras is optional and included when --all is used.
-func syncOutputJSON(results []syncTargetResult, dryRun bool, start time.Time, iStats *skillignore.IgnoreStats, syncErr error, ctxCost *contextCostJSON, mcpResult *mcp.Result, extras ...[]syncExtrasJSONEntry) error {
+func syncOutputJSON(results []syncTargetResult, dryRun bool, start time.Time, iStats *skillignore.IgnoreStats, syncErr error, ctxCost *contextCostJSON, mcpResult *mcp.Result, hooksResult *hooks.Result, extras ...[]syncExtrasJSONEntry) error {
 	var totals syncModeStats
 	var details []syncJSONTargetDetail
 	for _, r := range results {
@@ -613,6 +665,7 @@ func syncOutputJSON(results []syncTargetResult, dryRun bool, start time.Time, iS
 	}
 	output.ContextCost = ctxCost
 	output.MCP = mcpResult
+	output.Hooks = hooksResult
 	return writeJSONResult(&output, syncErr)
 }
 
@@ -748,12 +801,12 @@ func reportCollisions(skills []sync.DiscoveredSkill, targets map[string]config.T
 }
 
 func printSyncHelp() {
-	fmt.Println(`Usage: skillshare sync [agents|extras|mcp|plugins] [options]
+	fmt.Println(`Usage: skillshare sync [agents|extras|mcp|hooks|plugins] [options]
 
 Sync skills from source to all configured targets.
 
 Options:
-  --all             Sync skills, agents, extras, and MCP
+  --all             Sync skills, agents, extras, MCP and hooks
   --dry-run, -n     Preview changes without applying
   --force, -f       Force sync (overwrite local changes)
   --json            Output results as JSON
@@ -766,12 +819,13 @@ Subcommands:
   agents            Sync only agents
   plugins [name]    Apply plugin sync selection (see: skillshare plugin --help)
   mcp               Sync only MCP settings (no --force; conflicts require review)
+  hooks             Sync only hooks (same as skillshare hooks sync)
   extras            Sync only extras (see: skillshare sync extras --help)
 
 Examples:
   skillshare sync                Sync skills to all targets
   skillshare sync --dry-run      Preview sync changes
-  skillshare sync --all          Sync skills, agents, extras, and MCP
+  skillshare sync --all          Sync skills, agents, extras, MCP and hooks
   skillshare sync -p             Sync project-level skills
   skillshare sync agents         Sync agents only
   skillshare sync plugins        Apply selected plugin installations/removals

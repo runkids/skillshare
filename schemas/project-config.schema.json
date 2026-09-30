@@ -9,6 +9,7 @@
   "allOf": [{"not": {"required": ["sources", "mcp"], "properties": {"sources": {"required": ["mcp"]}, "mcp": {"required": ["servers"]}}}}],
   "properties": {
     "mcp": {"$ref": "mcp.schema.json#/$defs/configuration"},
+    "hooks": {"$ref": "hooks.schema.json#/$defs/configuration"},
     "sources": {
       "type": "object",
       "description": "Custom source directories for project resources. Each key overrides the default <project-dir>/{key}/ path. Relative paths resolve from the project root.",

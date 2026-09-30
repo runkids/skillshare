@@ -6,8 +6,9 @@ sidebar_position: 2
 
 Push skills from source to all targets.
 
+Use `skillshare sync hooks` for native hooks (see [hooks](./hooks.md)).
 Use `skillshare sync mcp` for MCP connection settings, or `skillshare sync --all`
-to include skills, agents, extras and MCP. MCP synchronization uses entry
+to include skills, agents, extras, MCP and hooks. MCP synchronization uses entry
 ownership and conflict checks rather than skill symlinks. See [mcp](/docs/reference/commands/mcp).
 
 :::info Why is sync a separate command?
@@ -110,7 +111,7 @@ Push skills from source to all targets.
 ```bash
 skillshare sync              # Sync skills to all targets
 skillshare sync agents       # Sync agents only
-skillshare sync --all        # Sync skills + agents + extras + MCP
+skillshare sync --all        # Sync skills + agents + extras + MCP + hooks
 skillshare sync --dry-run    # Preview changes
 skillshare sync -n           # Short form
 skillshare sync --force      # Overwrite all managed skills
@@ -119,7 +120,7 @@ skillshare sync -f           # Short form
 
 | Flag | Short | Description |
 |------|-------|-------------|
-| `--all` | | Also sync agents, extras, and MCP after skills (excludes plugins) |
+| `--all` | | Also sync agents, extras, MCP and hooks after skills (excludes plugins) |
 | `--dry-run` | `-n` | Preview changes without writing |
 | `--force` | `-f` | Overwrite all managed entries regardless of checksum (copy mode) or replace existing directories with symlinks (merge mode) |
 | `--json` | | Output as JSON |
@@ -543,12 +544,12 @@ flowchart TD
 
 ## Agent Sync {#agent-sync}
 
-Agents are synced separately from skills. Use `sync agents` for agent-only sync, or `sync --all` to include skills, agents, extras, and MCP:
+Agents are synced separately from skills. Use `sync agents` for agent-only sync, or `sync --all` to include skills, agents, extras, MCP, and hooks:
 
 ```bash
 skillshare sync              # Sync skills only (default)
 skillshare sync agents       # Sync agents only
-skillshare sync --all        # Sync skills + agents + extras + MCP
+skillshare sync --all        # Sync skills + agents + extras + MCP + hooks
 ```
 
 Agent sync supports all three modes (merge, copy, symlink), matching the target's configured mode. On Windows without Developer Mode, merge mode copies agent files instead of linking them and prints `! <target>: agents file links need Windows Developer Mode; copying instead`; see [Windows troubleshooting](/docs/troubleshooting/windows#file-links-need-windows-developer-mode-copying-instead). Only targets with an `agents` path definition receive agent syncs — currently Claude, Cursor, OpenCode, and Augment. See [Agents — Supported Targets](/docs/understand/agents#supported-targets) for the full list.
@@ -583,7 +584,7 @@ Sync non-skill resources (rules, commands, prompts, etc.) to arbitrary directori
 skillshare sync extras            # Sync all configured extras
 skillshare sync extras --dry-run  # Preview changes
 skillshare sync extras --force    # Overwrite conflicting files
-skillshare sync --all             # Sync skills + agents + extras + MCP
+skillshare sync --all             # Sync skills + agents + extras + MCP + hooks
 ```
 
 | Flag | Short | Description |
@@ -597,7 +598,7 @@ directory does not exist is skipped with a hint, not created. For single-file ex
 `--dry-run` also reports edits that would be backed up before replacement.
 
 :::info Both modes supported
-`sync extras` works in both global and project mode. Use `sync --all` to sync skills, agents, extras, and MCP together, or `sync extras` to sync extras only. In project mode, extras source is `.skillshare/extras/<name>/`.
+`sync extras` works in both global and project mode. Use `sync --all` to sync skills, agents, extras, MCP, and hooks together, or `sync extras` to sync extras only. In project mode, extras source is `.skillshare/extras/<name>/`.
 :::
 
 ### Configuration

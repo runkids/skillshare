@@ -59,6 +59,7 @@ skillshare가 이 문제를 해결합니다.
 - **skills 그 이상** — [extras](https://skillshare.runkids.cc/docs/reference/targets/configuration#extras)로 rules, commands, prompts 등 파일 기반 리소스를 관리
 - **MCP 연결** — 서버는 한 번만 정의하고, [`sync mcp`](https://skillshare.runkids.cc/docs/how-to/daily-tasks/sharing-mcp)로 각 Agent 고유의 설정 형식에 기록
 - **완전한 plugin** — plugin의 skills, hooks, MCP 설정을 한 묶음으로 유지하고, [`plugin`](https://skillshare.runkids.cc/docs/how-to/daily-tasks/sharing-plugins)으로 설치할 도구를 선택
+- **네이티브 hooks** — Agent별 event 설정과 extension 코드를 관리하고 미리보기, 활성화／비활성화, 복원을 지원합니다. [hooks](https://skillshare.runkids.cc/docs/reference/commands/hooks)
 - **어디서든 설치** — GitHub, GitLab, Bitbucket, Azure DevOps, Gitea, CNB 또는 자체 호스팅 Git
 - **내장 보안 기능** — 사용하기 전에 skills에 prompt injection이나 데이터 유출 위험이 있는지 감사
 - **팀에 적합** — 프로젝트 skills는 `.skillshare/`에, 조직 공용 skills는 tracked repo로 배포
@@ -193,14 +194,14 @@ skillshare init -p && skillshare sync
 
 ```bash
 skillshare sync agents            # agents만 동기화
-skillshare sync --all             # skills, agents, extras, MCP를 함께 동기화
+skillshare sync --all             # skills, agents, extras, MCP, hooks를 함께 동기화
 ```
 
 **Extras** — rules, commands, prompts 등을 관리
 
 ```bash
 skillshare extras init rules          # "rules"라는 extra 생성
-skillshare sync --all                 # skills, agents, extras, MCP를 함께 동기화
+skillshare sync --all                 # skills, agents, extras, MCP, hooks를 함께 동기화
 skillshare extras collect rules       # 로컬 파일을 소스로 다시 수집
 ```
 
@@ -214,6 +215,14 @@ skillshare sync mcp                   # 연결 설정 적용
 
 정의는 `config.yaml`에 두거나 별도의 `mcp.yaml`을 참조할 수 있습니다.
 예시, 환경 변수 참조, 기존 연결 가져오기는 [MCP 설정](https://skillshare.runkids.cc/docs/how-to/daily-tasks/sharing-mcp)을 참고하세요.
+
+hook을 실행하지 않고 네이티브 hooks 관리:
+
+```bash
+skillshare hooks add check --file ./check.yaml
+skillshare hooks sync --dry-run
+skillshare hooks sync
+```
 
 **Plugins** — 완전한 plugin을 설치하고, 설치할 도구를 선택
 

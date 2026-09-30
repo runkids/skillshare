@@ -24,8 +24,8 @@ Run `python3 scripts/ai-context.py check` after changing topics. This table is t
 
 ## History (Milestone Logs; Read on Demand)
 
-No milestone logs have been moved yet. When adding `wiki/history/<milestone>.md`, add a row to this table.
+Completed milestones are recorded here and read only when relevant.
 
 | File | Contents |
 |---|---|
-| — | None yet |
+| [Native hooks management](history/hooks-management.md) | Native formats, CLI/dashboard scope, ownership and verification evidence |

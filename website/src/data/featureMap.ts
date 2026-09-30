@@ -21,7 +21,7 @@ export type FeatureGroup = {
 const C = '/docs/reference/commands/';
 const D = '/docs/';
 
-export const COMMAND_COUNT = 34;
+export const COMMAND_COUNT = 35;
 export const TARGET_COUNT = 67;
 
 export const FEATURE_GROUPS: FeatureGroup[] = [
@@ -134,6 +134,7 @@ export const FEATURE_GROUPS: FeatureGroup[] = [
       {cmd: 'enable / disable', what: 'Turn skills off without removing them', kw: 'toggle off pause', href: C + 'enable'},
       {cmd: 'extras', what: 'Sync rules, commands and prompts alongside skills', kw: 'rules prompts agents non-skill', href: C + 'extras'},
       {cmd: 'mcp', what: 'Define an MCP server once, write it into each tool\'s own config', kw: 'model context protocol server connection json toml import', href: C + 'mcp'},
+      {cmd: 'hooks', what: 'Manage native hooks, extensions and plugins with preview and recovery', kw: 'hooks event command matcher import backup pi amp opencode', href: C + 'hooks'},
       {cmd: 'plugin', what: 'Install a complete plugin and choose which tools receive it', kw: 'package marketplace hooks bundle claude codex', href: C + 'plugin'},
       {cmd: '.skillignore', what: 'Include, exclude and filter what gets synced', kw: 'filter ignore exclude include', href: D + 'reference/filtering'},
     ],

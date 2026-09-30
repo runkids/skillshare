@@ -59,6 +59,7 @@ skillshare 解决这个问题：
 - **不只是 skills** — 用 [extras](https://skillshare.runkids.cc/docs/reference/targets/configuration#extras) 管理 rules、commands、prompts 和任何基于文件的资源
 - **MCP 连接** — 服务器只定义一次，用 [`sync mcp`](https://skillshare.runkids.cc/docs/how-to/daily-tasks/sharing-mcp) 写入每个 Agent 自己的配置格式
 - **完整 plugin** — plugin 的 skills、hooks 和 MCP 设置保持完整，用 [`plugin`](https://skillshare.runkids.cc/docs/how-to/daily-tasks/sharing-plugins) 选择哪些工具要安装
+- **原生 hooks** — 管理各 Agent 的 event 配置或 extension 代码，支持预览、启用／停用与恢复。 [hooks](https://skillshare.runkids.cc/docs/reference/commands/hooks)
 - **从任何地方安装** — GitHub、GitLab、Bitbucket、Azure DevOps、Gitea、CNB，或任何自托管的 Git
 - **内置安全检查** — 使用前先审计 skills 是否含有 prompt injection 或数据外泄的内容
 - **适合团队** — 项目的 skills 放在 `.skillshare/`，组织共用的 skills 通过 tracked repo 发布
@@ -193,14 +194,14 @@ skillshare init -p && skillshare sync
 
 ```bash
 skillshare sync agents            # 只同步 agents
-skillshare sync --all             # skills、agents、extras、MCP 一起同步
+skillshare sync --all             # skills、agents、extras、MCP、hooks 一起同步
 ```
 
 **Extras** — 管理 rules、commands、prompts 等资源
 
 ```bash
 skillshare extras init rules          # 创建名为 "rules" 的 extra
-skillshare sync --all                 # skills、agents、extras、MCP 一起同步
+skillshare sync --all                 # skills、agents、extras、MCP、hooks 一起同步
 skillshare extras collect rules       # 把本地文件收回来源
 ```
 
@@ -214,6 +215,14 @@ skillshare sync mcp                   # 应用连接设置
 
 定义可以放在 `config.yaml`，或另外引用一个 `mcp.yaml`。
 示例、环境变量引用，以及导入已有连接的方式，请见 [MCP 配置](https://skillshare.runkids.cc/docs/how-to/daily-tasks/sharing-mcp)。
+
+管理原生 hooks，管理操作不执行 hook：
+
+```bash
+skillshare hooks add check --file ./check.yaml
+skillshare hooks sync --dry-run
+skillshare hooks sync
+```
 
 **Plugins** — 安装完整的 plugin，并选择哪些工具要安装
 

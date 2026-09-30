@@ -100,7 +100,7 @@ plugin は `sync --all` の対象外です。変更内容を事前確認する�
 |---------|-------------|
 | `sync extras` | Skill 以外のリソース（rules、commands など）を同期 |
 | `sync mcp` | MCP の接続設定を同期 |
-| `sync --all` | Skill + Agent + extras + MCP を同期（plugin は除く） |
+| `sync --all` | Skill + Agent + extras + MCP + hooks を同期（plugin は除く） |
 | `collect <target>` | Target から Source へ Skill を collect |
 | `collect --all` | すべての Target から collect |
 | `backup [target]` | バックアップを作成 |

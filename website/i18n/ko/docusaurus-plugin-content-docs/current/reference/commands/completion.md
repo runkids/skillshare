@@ -49,7 +49,7 @@ skillshare completion zsh > ~/.zsh/completions/_skillshare
 생성된 스크립트는 다음에 대한 tab-completion을 제공합니다.
 
 - **명령어** — 모든 최상위 명령(`sync`, `install`, `list` 등)
-- **하위 명령어** — `target add/remove/list`, `trash list/restore/delete/empty`, `hub add/list/remove/default/index`, `extras init/list/remove/collect/source`, `audit rules disable/enable/severity/reset/init`, `backup files list/show/restore`, `ui start/stop`
+- **하위 명령어** — `target add/remove/list`, `trash list/restore/delete/empty`, `hub add/list/remove/default/index`, `extras init/list/remove/collect/source`, `audit rules disable/enable/severity/reset/init`, `backup files list/show/restore`, `ui start/stop`, `hooks add/disable/edit/enable/import/list/remove/restore/sync`
 - **플래그** — short form을 포함한 명령별 플래그(`--dry-run`/`-n`, `--force`/`-f` 등)
 - **전역 플래그** — `--project`/`-p`, `--global`/`-g`
 

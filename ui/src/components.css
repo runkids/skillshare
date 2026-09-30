@@ -184,6 +184,7 @@ svg.lucide { flex: none; stroke-width: var(--isw); }
 .ss-cat.agent { --c: var(--c-agent); --cb: var(--c-agent-bg); }
 .ss-cat.extra { --c: var(--c-extra); --cb: var(--c-extra-bg); }
 .ss-cat.mcp { --c: var(--c-mcp); --cb: var(--c-mcp-bg); }
+.ss-cat.hooks { --c: var(--c-extra); --cb: var(--c-extra-bg); }
 .ss-cat.target { --c: var(--c-target); --cb: var(--c-target-bg); }
 .ss-cat.plugin { --c: var(--c-plugin); --cb: var(--c-plugin-bg); }
 .ss-cat.warn { --c: var(--warn); --cb: var(--warn-bg); }

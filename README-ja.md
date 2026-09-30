@@ -59,6 +59,7 @@ skillshare はこの問題を解決します。
 - **skills だけではない** — [extras](https://skillshare.runkids.cc/docs/reference/targets/configuration#extras) で rules、commands、prompts などファイルベースのリソースを管理
 - **MCP 接続** — サーバーの定義は一度だけ。[`sync mcp`](https://skillshare.runkids.cc/docs/how-to/daily-tasks/sharing-mcp) が各 Agent 固有の設定形式に書き込みます
 - **plugin 一式** — plugin の skills、hooks、MCP 設定をまとめたまま、[`plugin`](https://skillshare.runkids.cc/docs/how-to/daily-tasks/sharing-plugins) でインストール先のツールを選択
+- **ネイティブ hooks** — Agent ごとの event 設定や extension コードを管理。プレビュー、有効／無効、復元に対応。 [hooks](https://skillshare.runkids.cc/docs/reference/commands/hooks)
 - **どこからでもインストール** — GitHub、GitLab、Bitbucket、Azure DevOps、Gitea、CNB、またはセルフホストの Git
 - **セキュリティ機能を内蔵** — 使う前に、prompt injection やデータ流出につながる内容がないか skills を監査
 - **チームで使える** — プロジェクトの skills は `.skillshare/` に、組織共通の skills は tracked repo で配布
@@ -193,14 +194,14 @@ skillshare init -p && skillshare sync
 
 ```bash
 skillshare sync agents            # agents だけを同期
-skillshare sync --all             # skills、agents、extras、MCP をまとめて同期
+skillshare sync --all             # skills、agents、extras、MCP、hooks をまとめて同期
 ```
 
 **Extras** — rules、commands、prompts などを管理
 
 ```bash
 skillshare extras init rules          # "rules" という extra を作成
-skillshare sync --all                 # skills、agents、extras、MCP をまとめて同期
+skillshare sync --all                 # skills、agents、extras、MCP、hooks をまとめて同期
 skillshare extras collect rules       # ローカルのファイルをソースに取り込む
 ```
 
@@ -214,6 +215,14 @@ skillshare sync mcp                   # 接続設定を適用
 
 定義は `config.yaml` に書くか、別の `mcp.yaml` を参照できます。
 設定例、環境変数の参照、既存の接続のインポートは [MCP の設定](https://skillshare.runkids.cc/docs/how-to/daily-tasks/sharing-mcp)を参照してください。
+
+hook を実行せずにネイティブ hooks を管理：
+
+```bash
+skillshare hooks add check --file ./check.yaml
+skillshare hooks sync --dry-run
+skillshare hooks sync
+```
 
 **Plugins** — plugin 一式をインストールし、インストール先のツールを選択
 

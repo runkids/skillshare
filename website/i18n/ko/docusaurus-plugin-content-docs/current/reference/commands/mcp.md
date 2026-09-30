@@ -64,7 +64,7 @@ noninteractive mode에서는 상태를 출력합니다. 이름 없이 noninterac
 `--dry-run`을 사용하세요.
 
 `sync mcp`는 scope flag, `--dry-run`, `--json`, `--no-tui`, `--revision`을 받습니다.
-`sync --all`은 skill, agent, extras, MCP를 포함하며, 일반 `sync`는 기존 리소스 동작을
+`sync --all`은 skill, agent, extras, MCP + hooks를 포함하며, 일반 `sync`는 기존 리소스 동작을
 유지합니다. MCP 충돌은 `--all`이 다른 리소스를 변경하기 전에 확인됩니다. 리소스 유형과
 네이티브 파일은 하나의 트랜잭션이 아니라 별개의 작업입니다.
 

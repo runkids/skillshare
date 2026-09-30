@@ -15,7 +15,7 @@ Distribute skills from source to all targets using each target's sync mode (`mer
 
 ```bash
 skillshare sync                # Execute (auto-detects mode)
-skillshare sync --all          # Sync skills + agents + extras + MCP
+skillshare sync --all          # Sync skills + agents + extras + MCP + hooks
 skillshare sync --dry-run      # Preview
 skillshare sync --force        # Override conflicts
 skillshare sync --json         # JSON output

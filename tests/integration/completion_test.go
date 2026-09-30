@@ -134,6 +134,23 @@ func TestCompletion_Subcommands_AllShells(t *testing.T) {
 	}
 }
 
+func TestCompletion_Hooks_AllShells(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	for shell, subcommands := range map[string]string{
+		"bash":       "add disable edit enable import list remove restore sync",
+		"zsh":        "(add disable edit enable import list remove restore sync)",
+		"fish":       "-a 'add disable edit enable import list remove restore sync'",
+		"powershell": "@{ Name = 'sync'; Desc = 'Hooks sync' }",
+		"nushell":    "[add disable edit enable import list remove restore sync]",
+	} {
+		result := sb.RunCLI("completion", shell)
+		result.AssertSuccess(t)
+		result.AssertOutputContains(t, subcommands)
+	}
+}
+
 func TestCompletion_UnsupportedShell_Errors(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
@@ -164,6 +181,28 @@ func TestCompletion_Install_WritesFile(t *testing.T) {
 	if _, err := os.Stat(destPath); os.IsNotExist(err) {
 		t.Errorf("expected completion script at %s, but file does not exist", destPath)
 	}
+
+	assertCandidates(t, completeIn(t, "bash", "--noprofile", "--norc", "-c", `
+source "$1"
+COMP_WORDS=(skillshare hooks '')
+COMP_CWORD=2
+_skillshare
+printf '%s\n' "${COMPREPLY[@]}"
+`, "bash", destPath), "add", "disable", "edit", "enable", "import", "list", "remove", "restore", "sync")
+	assertCandidates(t, completeIn(t, "bash", "--noprofile", "--norc", "-c", `
+source "$1"
+COMP_WORDS=(skillshare sync '')
+COMP_CWORD=2
+_skillshare
+printf '%s\n' "${COMPREPLY[@]}"
+`, "bash", destPath), "agents", "extras", "mcp", "hooks", "plugins")
+	assertCandidates(t, completeIn(t, "bash", "--noprofile", "--norc", "-c", `
+source "$1"
+COMP_WORDS=(skillshare mcp check --)
+COMP_CWORD=3
+_skillshare
+printf '%s\n' "${COMPREPLY[@]}"
+`, "bash", destPath), "--live", "--timeout", "--no-dns")
 }
 
 // zshCapture completes a command line in an interactive zsh under zpty and prints each

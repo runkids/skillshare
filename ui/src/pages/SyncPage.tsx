@@ -1,7 +1,7 @@
 import { Fragment, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { AlertCircle, ArrowDownToLine, Bot, ChevronDown, ChevronRight, CircleCheck, CircleMinus, EyeOff, Folder, FolderPlus, Gauge, Globe, Import, Minus, Plug, Plus, Puzzle, RefreshCw, TriangleAlert } from 'lucide-react';
+import { AlertCircle, ArrowDownToLine, Bot, ChevronDown, ChevronRight, CircleCheck, CircleMinus, EyeOff, Folder, FolderPlus, Gauge, Globe, Import, Minus, Plug, Plus, Puzzle, RefreshCw, TriangleAlert, Webhook } from 'lucide-react';
 import { api, formatTokenK, type SyncResponse } from '../api/client';
 import AgentIcon from '../components/AgentIcon';
 import Button from '../components/Button';
@@ -9,9 +9,11 @@ import CollectDialog from '../components/CollectDialog';
 import { Checkbox } from '../components/Input';
 import PageHeader from '../components/PageHeader';
 import Spinner from '../components/Spinner';
+import Tooltip from '../components/Tooltip';
 import { useToast } from '../components/Toast';
+import { hookLabel, hookMessage, rootName } from '../components/hooks/hooksView';
 import { describeMessage, mcpClient, targetLabel } from '../components/mcp/mcpView';
-import { countChanges, countEdited, extraGroups, groupByFolder, groupInSync, MCP_CHANGED, mcpGroups, otherWarnings, resourceGroups, runSync, type ChangeGroup, type Part, type RowIcon, type SyncFailure } from '../components/sync/syncView';
+import { countChanges, countEdited, extraGroups, groupByFolder, groupInSync, HOOKS_CHANGED, hooksGroups, MCP_CHANGED, mcpGroups, otherWarnings, resourceGroups, runSync, type ChangeGroup, type Part, type RowIcon, type SyncFailure } from '../components/sync/syncView';
 import SyncResult from '../components/sync/SyncResult';
 import SkillsOffDialog from '../components/targets/SkillsOffDialog';
 import { joinList, refreshTargets } from '../components/targets/targetView';
@@ -19,7 +21,7 @@ import { formatDateTime, formatRelativeTime, useI18n, useT } from '../i18n';
 import { shortenHome } from '../lib/paths';
 import { formatAgentDisplayName } from '../lib/resourceNames';
 import { queryKeys, staleTimes } from '../lib/queryKeys';
-import { useDiffQuery, useMcpQuery, useSyncedTargetsQuery } from '../hooks/useSharedQueries';
+import { useDiffQuery, useHooksQuery, useMcpQuery, useSyncedTargetsQuery } from '../hooks/useSharedQueries';
 
 const ROW_ICON: Record<RowIcon, React.ReactNode> = {
   add: <Plus size={16} className="shrink-0 text-ok" />,
@@ -29,8 +31,8 @@ const ROW_ICON: Record<RowIcon, React.ReactNode> = {
   kept: <CircleMinus size={15} className="shrink-0 text-ink-3" />,
   conflict: <TriangleAlert size={15} className="shrink-0 text-warn" />,
 };
-const PART_ICON: Record<Part, React.ReactNode> = { skill: <Puzzle size={14} />, agent: <Bot size={14} />, extra: <FolderPlus size={14} />, mcp: <Plug size={14} /> };
-const PART_LABEL: Record<Part, string> = { skill: 'Skills', agent: 'Agents', extra: 'Extras', mcp: 'MCP' };
+const PART_ICON: Record<Part, React.ReactNode> = { skill: <Puzzle size={14} />, agent: <Bot size={14} />, extra: <FolderPlus size={14} />, mcp: <Plug size={14} />, hooks: <Webhook size={14} /> };
+const PART_LABEL: Record<Part, string> = { skill: 'Skills', agent: 'Agents', extra: 'Extras', mcp: 'MCP', hooks: 'Hooks' };
 const PARTS = Object.keys(PART_LABEL) as Part[];
 
 /** A target in an expanded list: its logo and name. */
@@ -65,6 +67,7 @@ export default function SyncPage() {
   const diff = useDiffQuery();
   const extras = useQuery({ queryKey: queryKeys.extrasDiff(), queryFn: () => api.diffExtras(), staleTime: staleTimes.extras });
   const mcp = useMcpQuery({ staleTime: staleTimes.extras });
+  const hooks = useHooksQuery({ staleTime: staleTimes.extras });
   const log = useQuery({ queryKey: queryKeys.log('ops', 20, { cmd: 'sync' }), queryFn: () => api.listLog('ops', 20, { cmd: 'sync' }), staleTime: staleTimes.log });
 
   const [off, setOff] = useState<Set<Part>>(new Set());
@@ -78,13 +81,15 @@ export default function SyncPage() {
   const [stopping, setStopping] = useState('');
 
   const plan = mcp.data?.plan;
+  const hooksPlan = hooks.data?.plan;
   const parts = new Set(PARTS.filter((p) => !off.has(p)));
   const diffs = diff.data?.diffs ?? [];
   const resources = resourceGroups(diffs, targets.data?.targets ?? [], parts, force, { skill: diff.data?.ignored_skills, agent: diff.data?.agent_ignored_skills });
   const mcpShown = parts.has('mcp') ? mcpGroups(plan) : [];
-  const groups: ChangeGroup[] = [...resources.groups, ...(parts.has('extra') ? extraGroups(extras.data?.extras ?? [], force) : []), ...mcpShown];
+  const hooksShown = parts.has('hooks') ? hooksGroups(hooksPlan) : [];
+  const groups: ChangeGroup[] = [...resources.groups, ...(parts.has('extra') ? extraGroups(extras.data?.extras ?? [], force) : []), ...mcpShown, ...hooksShown];
   // A blocked plan applies nothing, so its rows are shown but not counted.
-  const count = countChanges(groups) - (plan?.blocked ? countChanges(mcpShown) : 0);
+  const count = countChanges(groups) - (plan?.blocked ? countChanges(mcpShown) : 0) - (hooksPlan?.blocked ? countChanges(hooksShown) : 0);
   const edited = countEdited(groups);
   const loading = diff.isPending || targets.isPending;
 
@@ -115,6 +120,7 @@ export default function SyncPage() {
         resources: parts.has('skill') && parts.has('agent') ? 'both' : parts.has('skill') ? 'skill' : parts.has('agent') ? 'agent' : null,
         extras: parts.has('extra') && !!extras.data?.extras.length,
         mcp: parts.has('mcp') && plan && !plan.blocked && plan.changes.some((c) => c.action !== 'unchanged') ? plan : null,
+        hooks: parts.has('hooks') && hooksPlan && !hooksPlan.blocked && hooksPlan.changes.some((c) => c.action !== 'unchanged') ? hooksPlan : null,
         force,
       });
       setOutcome(result ?? null);
@@ -123,11 +129,11 @@ export default function SyncPage() {
       else toast(t('sync.toast.done'), 'success');
     } catch (err) {
       const message = (err as Error).message;
-      setRunError(message === MCP_CHANGED ? t('sync.mcpChanged') : message);
+      setRunError(message === MCP_CHANGED ? t('sync.mcpChanged') : message === HOOKS_CHANGED ? t('sync.hooksChanged') : message);
     } finally {
       setRunning(false);
       refreshTargets(queryClient);
-      for (const queryKey of [queryKeys.extrasDiff(), queryKeys.extras, queryKeys.mcp, ['log']]) void queryClient.invalidateQueries({ queryKey });
+      for (const queryKey of [queryKeys.extrasDiff(), queryKeys.extras, queryKeys.mcp, queryKeys.hooks, ['log']]) void queryClient.invalidateQueries({ queryKey });
     }
   };
 
@@ -139,11 +145,11 @@ export default function SyncPage() {
     return (
       <div className="ss-gh">
         {g.part === 'extra' ? <span className="ss-cat sm extra">{PART_ICON.extra}</span> : <span className="ss-at"><AgentIcon target={g.name} size={17} /></span>}
-        <span className="font-semibold">{g.part === 'mcp' ? targetLabel(g.name) : g.name}</span>
-        <span className="ss-tag">{g.part === 'mcp' ? 'MCP' : g.mode}</span>
+        <span className="font-semibold">{g.part === 'mcp' ? targetLabel(g.name) : g.part === 'hooks' ? hookLabel(g.name) : g.name}</span>
+        <span className="ss-tag">{g.part === 'mcp' ? 'MCP' : g.part === 'hooks' ? 'Hooks' : g.mode}</span>
         {g.path && <span className="min-w-0 truncate font-mono text-[12px] text-ink-3" title={g.path}>{shortenHome(g.path)}</span>}
         {g.part === 'target' && failedTargets.has(g.name) && <span className="ss-tag bad shrink-0">{t('sync.result.lastFailed')}</span>}
-        {g.project && <span className="ss-tag shrink-0" title={g.project}>{t('sync.mcp.offList', { project: shortenHome(g.project) })}</span>}
+        {g.project && <span className="ss-tag shrink-0" title={g.project}>{g.part === 'hooks' ? rootName(g.project) : t('sync.mcp.offList', { project: shortenHome(g.project) })}</span>}
         <span className="flex-1" />
         {n > 0 && <span className="shrink-0 text-[12px] text-ink-2">{t(n === 1 ? 'sync.changes.one' : 'sync.changes.other', { count: n })}</span>}
       </div>
@@ -195,6 +201,14 @@ export default function SyncPage() {
               <Link to="/mcp" className="ss-btn sm">{t('sync.openMcp')}</Link>
             </div>
           )}
+          {parts.has('hooks') && hooksPlan?.blocked && (
+            <div className="ss-note warn !items-center">
+              <TriangleAlert size={16} />
+              <span className="flex-1">{t('sync.hooksBlocked')}</span>
+              <Link to="/hooks" className="ss-btn sm">{t('sync.openHooks')}</Link>
+            </div>
+          )}
+          {parts.has('hooks') && hooks.data?.previewError && <div className="ss-note bad"><AlertCircle size={16} /><span className="flex-1">{hooks.data.previewError}</span></div>}
           {parts.has('mcp') && mcp.data?.previewError && <div className="ss-note bad"><AlertCircle size={16} /><span className="flex-1">{mcp.data.previewError}</span></div>}
           <SyncResult failures={failures} warnings={otherWarnings(outcome)} synced={syncedTargets} force={force} onForce={() => setForce(true)} />
           {!!outcome?.path_overlap && (
@@ -239,9 +253,18 @@ export default function SyncPage() {
                         {ROW_ICON[r.icon]}
                         <span className={`ss-cat sm ${r.part}`}>{PART_ICON[r.part]}</span>
                         <span className="w-[220px] shrink-0 truncate font-mono text-[13px] font-semibold" title={r.name}>{r.name}</span>
-                        <span className={`min-w-0 flex-1 truncate text-[13px] ${r.icon === 'conflict' ? 'text-warn' : 'text-ink-2'}`} title={r.detail}>
-                          {r.text ? t(r.text) : r.part === 'mcp' ? describeMessage(t, r.detail) : r.detail}
-                        </span>
+                        {r.part === 'hooks' && r.detail ? (
+                          // A hooks reason is worded for this UI and can be long: hover shows all of it.
+                          <span className="min-w-0 flex-1">
+                            <Tooltip block content={hookMessage(t, r.detail)}>
+                              <span className={`block truncate text-[13px] ${r.icon === 'conflict' ? 'text-warn' : 'text-ink-2'}`}>{r.text ? t(r.text) : hookMessage(t, r.detail)}</span>
+                            </Tooltip>
+                          </span>
+                        ) : (
+                          <span className={`min-w-0 flex-1 truncate text-[13px] ${r.icon === 'conflict' ? 'text-warn' : 'text-ink-2'}`} title={r.detail}>
+                            {r.text ? t(r.text) : r.part === 'mcp' ? describeMessage(t, r.detail) : r.detail}
+                          </span>
+                        )}
                       </div>
                     ))}
                   </Fragment>

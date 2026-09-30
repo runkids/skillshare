@@ -48,6 +48,7 @@ var commands = map[string]func([]string) error{
 	"tui":          cmdTUIToggle,
 	"extras":       cmdExtras,
 	"mcp":          cmdMCP,
+	"hooks":        cmdHooks,
 	"plugin":       cmdPlugin,
 	"enable":       cmdEnable,
 	"disable":      cmdDisable,
@@ -282,6 +283,19 @@ func printUsage() {
 	cmd("mcp list", "", "Browse connections and per-client sync status")
 	cmd("mcp remove", "[name]", "Remove a connection from the source")
 	cmd("mcp restore", "[id]", "Restore client entries from a backup")
+	fmt.Println()
+
+	// Hooks
+	fmt.Println("HOOKS")
+	cmd("hooks list", "", "Show hook entries and per-Agent sync status")
+	cmd("hooks add", "<name> --file <path>", "Add a hook entry from JSON or YAML")
+	cmd("hooks edit", "<name> --file <path>", "Replace a hook entry's definition")
+	cmd("hooks import", "--from <agent> [name]", "Import native hooks without running them")
+	cmd("hooks enable", "<name>", "Publish a disabled hook on the next sync")
+	cmd("hooks disable", "<name>", "Keep a hook but unpublish it on the next sync")
+	cmd("hooks remove", "<name>", "Remove a hook entry from the source")
+	cmd("hooks sync", "", "Write hooks to Agent configuration")
+	cmd("hooks restore", "<id>", "Restore Agent hook files from a backup")
 	fmt.Println()
 
 	// Git Remote

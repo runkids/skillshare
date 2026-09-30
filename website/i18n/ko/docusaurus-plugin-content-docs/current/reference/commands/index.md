@@ -85,6 +85,7 @@ sidebar_position: 1
 | 명령어 | 설명 |
 |---------|-------------|
 | [mcp](./mcp.md) | MCP 서버를 한 번 정의하고 각 도구의 네이티브 설정에 동기화 |
+| [hooks](./hooks.md) | 네이티브 hooks 관리 |
 | [plugin](./plugin.md) | 완전한 plugin을 설치하고 어떤 도구가 받을지 선택 |
 
 ## Sync Operations

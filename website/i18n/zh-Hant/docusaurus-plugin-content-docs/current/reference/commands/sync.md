@@ -7,7 +7,7 @@ sidebar_position: 2
 把 skills 從 source 推送到所有 targets。
 
 MCP 連線設定請用 `skillshare sync mcp`，或用 `skillshare sync --all`
-一併包含 skills、agents、extras 與 MCP。MCP 同步使用的是條目
+一併包含 skills、agents、extras 與 MCP + hooks。MCP + hooks 同步使用的是條目
 所有權與衝突檢查，而非 skill symlinks。見 [mcp](/docs/reference/commands/mcp)。
 
 :::info 為什麼 sync 是獨立指令？
@@ -103,7 +103,7 @@ Project sync 會把它們清掉。對於每個沒有明確指定 `path:` 的 tar
 ```bash
 skillshare sync              # 同步 skills 到所有 targets
 skillshare sync agents       # 只同步 agents
-skillshare sync --all        # 同步 skills + agents + extras + MCP
+skillshare sync --all        # 同步 skills + agents + extras + MCP + hooks
 skillshare sync --dry-run    # 預覽變更
 skillshare sync -n           # 簡寫
 skillshare sync --force      # 覆蓋所有受管理的 skills
@@ -112,7 +112,7 @@ skillshare sync -f           # 簡寫
 
 | 旗標 | 縮寫 | 說明 |
 |------|-------|-------------|
-| `--all` | | 在 skills 之後也同步 agents、extras 與 MCP（不含 plugins） |
+| `--all` | | 在 skills 之後也同步 agents、extras 與 MCP + hooks（不含 plugins） |
 | `--dry-run` | `-n` | 預覽變更而不實際寫入 |
 | `--force` | `-f` | 不論 checksum 一律覆蓋所有受管理的條目（copy mode），或以 symlink 取代既有目錄（merge mode） |
 | `--json` | | 以 JSON 輸出 |
@@ -536,12 +536,12 @@ flowchart TD
 
 ## Agent 同步 {#agent-sync}
 
-Agents 與 skills 是分開同步的。用 `sync agents` 只同步 agents，或用 `sync --all` 一併包含 skills、agents、extras 與 MCP：
+Agents 與 skills 是分開同步的。用 `sync agents` 只同步 agents，或用 `sync --all` 一併包含 skills、agents、extras 與 MCP + hooks：
 
 ```bash
 skillshare sync              # 只同步 skills（預設）
 skillshare sync agents       # 只同步 agents
-skillshare sync --all        # 同步 skills + agents + extras + MCP
+skillshare sync --all        # 同步 skills + agents + extras + MCP + hooks
 ```
 
 Agent sync 支援全部三種 modes（merge、copy、symlink），會依照 target 已設定的 mode 進行。在沒有開啟開發人員模式的 Windows 上，merge mode 會複製 agent 檔案而不是連結它們，並印出 `! <target>: agents file links need Windows Developer Mode; copying instead`；請參閱 [Windows 疑難排解](/docs/troubleshooting/windows#file-links-need-windows-developer-mode-copying-instead)。只有定義了 `agents` 路徑的 targets 才會收到 agent 同步 — 目前是 Claude、Cursor、OpenCode 與 Augment。完整清單見 [Agents — Supported Targets](/docs/understand/agents#supported-targets)。
@@ -575,7 +575,7 @@ sync 會安裝已選取的綁定並解除安裝已取消選取的，同時保留
 skillshare sync extras            # 同步所有已設定的 extras
 skillshare sync extras --dry-run  # 預覽變更
 skillshare sync extras --force    # 覆蓋衝突的檔案
-skillshare sync --all             # 同步 skills + agents + extras + MCP
+skillshare sync --all             # 同步 skills + agents + extras + MCP + hooks
 ```
 
 | 旗標 | 縮寫 | 說明 |
@@ -586,7 +586,7 @@ skillshare sync --all             # 同步 skills + agents + extras + MCP
 extras sync 發生錯誤時，`--json` 會以非零狀態結束。無論是否使用 `--json`，只要有 extras target 失敗，`sync --all` 也會以非零狀態結束。source 目錄不存在的 extra 會被略過並顯示提示，而不會被建立。對單一檔案 extra，`--dry-run` 也會指出哪些修改將在取代前備份。
 
 :::info 兩種 mode 都支援
-`sync extras` 在 global 與 project mode 中都能運作。用 `sync --all` 一起同步 skills、agents、extras 與 MCP，或用 `sync extras` 只同步 extras。在 project mode 中，extras source 為 `.skillshare/extras/<name>/`。
+`sync extras` 在 global 與 project mode 中都能運作。用 `sync --all` 一起同步 skills、agents、extras 與 MCP + hooks，或用 `sync extras` 只同步 extras。在 project mode 中，extras source 為 `.skillshare/extras/<name>/`。
 :::
 
 ### 設定
@@ -723,3 +723,5 @@ JSON 輸出（`--json`）不論是否加 `--quiet`，都一律包含 `context_co
 - [Cross-Machine Sync](/docs/how-to/sharing/cross-machine-sync) — 跨電腦同步
 - [install](/docs/reference/commands/install) — 安裝 skills
 - [Configuration](/docs/reference/targets/configuration#extras) — Extras 設定參考
+
+`skillshare sync hooks` 只同步 hooks。請見 [hooks](./hooks.md)。

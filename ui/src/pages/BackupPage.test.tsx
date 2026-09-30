@@ -5,6 +5,8 @@ import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { api } from '../api/client';
 import type { Overview } from '../api/client';
+import { hooksApi } from '../api/hooks';
+import type { HookInventory, HookPlan } from '../api/hooks';
 import { mcpApi } from '../api/mcp';
 import type { MCPPlan } from '../api/mcp';
 import { ToastProvider } from '../components/Toast';
@@ -32,6 +34,7 @@ vi.mock('../api/client', async (load) => {
   };
 });
 vi.mock('../api/mcp', async (load) => ({ ...await load<typeof import('../api/mcp')>(), mcpApi: { list: vi.fn(), previewRestore: vi.fn(), restore: vi.fn() } }));
+vi.mock('../api/hooks', async (load) => ({ ...await load<typeof import('../api/hooks')>(), hooksApi: { list: vi.fn(), previewRestore: vi.fn(), restore: vi.fn() } }));
 
 const TS = '2026-09-28_10-52-00';
 
@@ -147,7 +150,7 @@ describe('BackupPage', () => {
   });
 
   it('opens the MCP restore dialog on the backup picked', async () => {
-    vi.mocked(mcpApi.previewRestore).mockResolvedValue({ revision: 'r', sourcePath: '', blocked: false, changes: [] } as MCPPlan);
+    vi.mocked(mcpApi.previewRestore).mockResolvedValue({ revision: 'r', fingerprint: 'fp', sourcePath: '', blocked: false, changes: [] } as MCPPlan);
     const user = userEvent.setup();
     renderPage('mcp');
 
@@ -155,5 +158,33 @@ describe('BackupPage', () => {
     await user.click(screen.getAllByRole('button', { name: 'Preview and restore' })[1]);
 
     await waitFor(() => expect(mcpApi.previewRestore).toHaveBeenCalledWith('1780000000000000000-b'));
+  });
+
+  it('groups hook backups by Agent file and previews the one picked', async () => {
+    vi.mocked(hooksApi.list).mockResolvedValue({
+      source: { path: '', configPath: '', entries: {} }, targets: [], paths: {}, plan: null, previewError: '', unmanaged: [],
+      backups: [
+        { id: '1780000000000000000-a', target: 'codex', path: '/home/me/.codex/hooks.json' },
+        { id: '1790000000000000000-b', target: 'codex', path: '/home/me/.codex/hooks.json' },
+        { id: '1785000000000000000-c', target: 'claude', path: '/home/me/.claude/settings.json' },
+      ],
+    } as HookInventory);
+    vi.mocked(hooksApi.previewRestore).mockResolvedValue({ revision: 'r', fingerprint: 'fp', sourcePath: '', blocked: false, changes: [] } as HookPlan);
+    const user = userEvent.setup();
+    renderPage('hooks');
+
+    expect(await screen.findByText('2 backups')).toBeInTheDocument();
+    expect(screen.getByText('1 backup')).toBeInTheDocument();
+    await user.click(screen.getAllByRole('button', { name: 'Preview and restore' })[1]);
+
+    await waitFor(() => expect(hooksApi.previewRestore).toHaveBeenCalledWith('1780000000000000000-a'));
+    expect(hooksApi.restore).not.toHaveBeenCalled();
+  });
+
+  it('says so when there are no hook backups', async () => {
+    vi.mocked(hooksApi.list).mockResolvedValue({ source: { path: '', configPath: '', entries: {} }, targets: [], paths: {}, plan: null, previewError: '', unmanaged: [], backups: [] } as HookInventory);
+    renderPage('hooks');
+
+    expect(await screen.findByText('No hook backups yet')).toBeInTheDocument();
   });
 });

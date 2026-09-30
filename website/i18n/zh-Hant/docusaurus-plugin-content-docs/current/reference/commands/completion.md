@@ -49,7 +49,7 @@ skillshare completion zsh > ~/.zsh/completions/_skillshare
 產生的腳本提供以下項目的 Tab 補全：
 
 - **Commands** — 所有頂層 command（`sync`、`install`、`list` 等）
-- **Subcommands** — `target add/remove/list`、`trash list/restore/delete/empty`、`hub add/list/remove/default/index`、`extras init/list/remove/collect/source`、`audit rules disable/enable/severity/reset/init`、`backup files list/show/restore`、`ui start/stop`
+- **Subcommands** — `target add/remove/list`、`trash list/restore/delete/empty`、`hub add/list/remove/default/index`、`extras init/list/remove/collect/source`、`audit rules disable/enable/severity/reset/init`、`backup files list/show/restore`、`ui start/stop`、`hooks add/disable/edit/enable/import/list/remove/restore/sync`
 - **Flags** — 每個 command 的 flag 及其簡寫（`--dry-run`/`-n`、`--force`/`-f` 等）
 - **Global flags** — `--project`/`-p`、`--global`/`-g`
 

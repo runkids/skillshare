@@ -1,10 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { api, type DiffTarget, type Target } from '../../api/client';
+import { hooksApi, type HookPlan } from '../../api/hooks';
 import { mcpApi, type MCPPlan } from '../../api/mcp';
-import { countChanges, countEdited, extraGroups, failureExplanation, groupByFolder, groupInSync, MCP_CHANGED, mcpGroups, otherWarnings, pendingCount, resourceGroups, runSync, type SyncFailure } from './syncView';
+import { countChanges, countEdited, extraGroups, failureExplanation, groupByFolder, groupInSync, HOOKS_CHANGED, hooksGroups, MCP_CHANGED, mcpGroups, otherWarnings, pendingCount, resourceGroups, runSync, type SyncFailure } from './syncView';
 
 vi.mock('../../api/client', async (load) => ({ ...await load<typeof import('../../api/client')>(), api: { sync: vi.fn(), syncExtras: vi.fn() } }));
 vi.mock('../../api/mcp', async (load) => ({ ...await load<typeof import('../../api/mcp')>(), mcpApi: { preview: vi.fn(), configure: vi.fn() } }));
+vi.mock('../../api/hooks', async (load) => ({ ...await load<typeof import('../../api/hooks')>(), hooksApi: { preview: vi.fn(), configure: vi.fn(), syncProject: vi.fn() } }));
 
 const target = (name: string, mode = 'merge') => ({ name, mode, path: `/home/${name}/skills` }) as Target;
 const diff: DiffTarget[] = [
@@ -49,7 +51,29 @@ describe('extraGroups', () => {
   });
 });
 
+describe('hooksGroups', () => {
+  it('makes one group per native file and names the project a file belongs to', () => {
+    const plan: HookPlan = { revision: 'r', fingerprint: 'fp', sourcePath: '', blocked: false, changes: [
+      { target: 'codex', path: '/home/me/.codex/hooks.json', name: 'lint', action: 'add' },
+      { target: 'codex', path: '/work/app/.codex/hooks.json', name: 'fmt', root: '/work/app', action: 'conflict', message: 'not owned' },
+      { target: 'codex', path: '/home/me/.codex/hooks.json', name: 'same', action: 'unchanged' },
+    ] };
+    const groups = hooksGroups(plan);
+    expect(groups.map((g) => [g.path, g.project, g.rows.map((r) => r.name)])).toEqual([
+      ['/home/me/.codex/hooks.json', undefined, ['lint']],
+      ['/work/app/.codex/hooks.json', '/work/app', ['fmt']],
+    ]);
+    expect(countChanges(groups)).toBe(1);
+  });
+});
+
 describe('pendingCount', () => {
+  it('counts hook changes unless the hooks plan is blocked', () => {
+    const changes = [{ target: 'codex', path: '/h.json', name: 'lint', action: 'add' }];
+    expect(pendingCount(diff, [target('claude'), target('codex')], [], null, { revision: 'r', fingerprint: 'fp', sourcePath: '', blocked: false, changes })).toBe(3);
+    expect(pendingCount(diff, [target('claude'), target('codex')], [], null, { revision: 'r', fingerprint: 'fp', sourcePath: '', blocked: true, changes })).toBe(2);
+  });
+
   it('leaves out kept copies and a blocked MCP plan', () => {
     const plan = { blocked: true, changes: [{ target: 'claude', path: '/claude.json', name: 'docs', action: 'add' }] } as unknown as MCPPlan;
     expect(pendingCount(diff, [target('claude'), target('codex')], [], plan)).toBe(2);
@@ -107,7 +131,7 @@ describe('runSync', () => {
 });
 
 describe('mcpGroups', () => {
-  const plan = { revision: 'r', sourcePath: '', blocked: false, changes: [
+  const plan = { revision: 'r', fingerprint: 'fp', sourcePath: '', blocked: false, changes: [
     { target: 'claude', path: '/home/u/.claude.json', name: 'context7', root: '/work/app', switch: true, action: 'remove' },
     { target: 'opencode', path: '/work/app/opencode.json', name: 'context7', root: '/work/app', switch: true, action: 'add' },
     { target: 'opencode', path: '/work/app/opencode.json', name: 'own', root: '/work/app', action: 'add' },
@@ -170,5 +194,56 @@ describe('failureExplanation', () => {
 
   it('leaves an unknown error unexplained', () => {
     expect(failureExplanation(failure('disk quota exceeded'))).toBeNull();
+  });
+
+  describe('hooks', () => {
+    const hookChange = { target: 'codex', path: '/h.json', name: 'lint', action: 'add' };
+    const hooks: HookPlan = { revision: 'h1', fingerprint: 'fp', sourcePath: '', blocked: false, changes: [hookChange] };
+
+    beforeEach(() => vi.clearAllMocks());
+
+    it('applies the fresh revision of a reviewed hooks plan, after checking it is unchanged', async () => {
+      vi.mocked(hooksApi.preview).mockResolvedValue({ ...hooks, revision: 'h2' });
+      vi.mocked(hooksApi.configure).mockResolvedValue({ applied: [], backupIds: [] });
+      await runSync({ resources: null, extras: false, mcp: null, hooks, force: false });
+      expect(hooksApi.configure).toHaveBeenCalledWith({}, 'h2', true);
+    });
+
+    it('applies nothing when the hooks plan moved since it was reviewed', async () => {
+      vi.mocked(hooksApi.preview).mockResolvedValue({ ...hooks, changes: [{ ...hookChange, action: 'update' }] });
+      await expect(runSync({ resources: 'both', extras: false, mcp: null, hooks, force: false })).rejects.toThrow(HOOKS_CHANGED);
+      expect(api.sync).not.toHaveBeenCalled();
+      expect(hooksApi.configure).not.toHaveBeenCalled();
+    });
+
+    it('refuses a same-shaped plan whose content fingerprint differs, before any resource is written', async () => {
+      vi.mocked(hooksApi.preview).mockResolvedValue({ ...hooks, fingerprint: 'other-command' });
+      await expect(runSync({ resources: 'both', extras: false, mcp: null, hooks, force: false })).rejects.toThrow(HOOKS_CHANGED);
+      expect(api.sync).not.toHaveBeenCalled();
+      expect(hooksApi.configure).not.toHaveBeenCalled();
+    });
+
+    it('refuses hooks when the fingerprint changes during the run, after the resources were synced', async () => {
+      vi.mocked(api.sync).mockResolvedValue({ results: [], failed: [] } as never);
+      vi.mocked(hooksApi.preview).mockResolvedValueOnce({ ...hooks, revision: 'h2' }).mockResolvedValueOnce({ ...hooks, revision: 'h3', fingerprint: 'edited-mid-run' });
+      await expect(runSync({ resources: 'both', extras: false, mcp: null, hooks, force: false })).rejects.toThrow(HOOKS_CHANGED);
+      expect(api.sync).toHaveBeenCalledTimes(1);
+      expect(hooksApi.configure).not.toHaveBeenCalled();
+    });
+
+    it("syncs one project's root and ignores the other roots' changes", async () => {
+      const reviewed: HookPlan = { ...hooks, changes: [{ ...hookChange, root: '/work/app' }] };
+      vi.mocked(hooksApi.preview).mockResolvedValue({ ...reviewed, revision: 'h3', changes: [...reviewed.changes, { ...hookChange, name: 'other', root: '/work/other' }] });
+      vi.mocked(hooksApi.syncProject).mockResolvedValue({ applied: [], backupIds: [] });
+      await runSync({ resources: null, extras: false, mcp: null, hooks: reviewed, force: false, project: { root: '~/work/app', path: '/work/app' } });
+      expect(hooksApi.syncProject).toHaveBeenCalledWith('/work/app', 'h3');
+      expect(hooksApi.configure).not.toHaveBeenCalled();
+    });
+
+    it('refuses a project whose root now has a conflict', async () => {
+      const reviewed: HookPlan = { ...hooks, changes: [{ ...hookChange, root: '/work/app' }] };
+      vi.mocked(hooksApi.preview).mockResolvedValue({ ...reviewed, changes: [{ ...hookChange, root: '/work/app', action: 'conflict' }] });
+      await expect(runSync({ resources: null, extras: false, mcp: null, hooks: reviewed, force: false, project: { root: '~/work/app', path: '/work/app' } })).rejects.toThrow(HOOKS_CHANGED);
+    });
   });
 });

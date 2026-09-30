@@ -11,11 +11,12 @@ import { PageSkeleton } from '../components/Skeleton';
 import { useToast } from '../components/Toast';
 import AddTargetDialog from '../components/targets/AddTargetDialog';
 import { mcpClient, serverCount } from '../components/mcp/mcpView';
+import { hookAgentOf, hookCount } from '../components/hooks/hooksView';
 import { refreshTargets, targetHealth, type TargetState } from '../components/targets/targetView';
 import { queryKeys, staleTimes } from '../lib/queryKeys';
 import { shortenHome } from '../lib/paths';
 import { useT } from '../i18n';
-import { useAvailableTargetsQuery, useMcpQuery } from '../hooks/useSharedQueries';
+import { useAvailableTargetsQuery, useHooksQuery, useMcpQuery } from '../hooks/useSharedQueries';
 
 const TONE = { synced: 'ok', pending: 'warn', missing: 'warn', migrate: 'warn', problem: 'bad', unknown: 'off' } as const;
 const PROBLEM_TEXT: Record<string, string> = { 'not exist': 'targets.syncing.missing', conflict: 'targets.syncing.conflict', broken: 'targets.syncing.broken' };
@@ -27,6 +28,7 @@ export default function TargetsPage() {
   const { data, isPending, error } = useQuery({ queryKey: queryKeys.targets.all, queryFn: () => api.listTargets(), staleTime: staleTimes.targets });
   const available = useAvailableTargetsQuery();
   const mcp = useMcpQuery();
+  const hooks = useHooksQuery();
   const [adding, setAdding] = useState<{ initial?: string } | null>(null);
 
   // The API walks a map, so the order changes between requests.
@@ -49,7 +51,10 @@ export default function TargetsPage() {
   const content = (tg: Target, state: TargetState, pending: number) => {
     const servers = mcp.data ? serverCount(mcp.data, mcpClient(tg.name)) : 0;
     // With skills off only the rest of what the target gets is worth a word.
-    return [tg.skillsEnabled !== false && syncing(tg, state, pending), servers > 0 && t('projects.content.mcp', { count: servers })].filter(Boolean).join(' · ');
+    // Hooks follow the Agent, not the skills switch: a target with skills off still shows its hooks.
+    const agent = hookAgentOf(tg.name);
+    const hookN = hooks.data && agent ? hookCount(hooks.data, agent, tg.project) : 0;
+    return [tg.skillsEnabled !== false && syncing(tg, state, pending), servers > 0 && t('projects.content.mcp', { count: servers }), hookN > 0 && t('projects.content.hooks', { count: hookN })].filter(Boolean).join(' · ');
   };
   const addButton = <Button variant="primary" onClick={() => setAdding({})}><Plus size={15} />{t('targets.addTarget')}</Button>;
 

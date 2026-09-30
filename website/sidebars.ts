@@ -135,6 +135,7 @@ const sidebars: SidebarsConfig = {
                 'reference/commands/search',
                 'reference/commands/sync',
                 'reference/commands/mcp',
+                'reference/commands/hooks',
                 'reference/commands/plugin',
                 'reference/commands/status',
               ],

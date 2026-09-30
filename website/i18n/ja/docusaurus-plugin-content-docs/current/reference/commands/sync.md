@@ -6,7 +6,7 @@ sidebar_position: 2
 
 Skill を source からすべての targets にプッシュします。
 
-MCP 接続設定には `skillshare sync mcp` を、skills、agents、extras、MCP をまとめて含めるには
+MCP 接続設定には `skillshare sync mcp` を、skills、agents、extras、MCP、hooks をまとめて含めるには
 `skillshare sync --all` を使用してください。MCP の同期は skill のシンボリックリンクではなく、
 エントリの所有権とコンフリクトチェックを使用します。[mcp](/docs/reference/commands/mcp) を参照してください。
 
@@ -103,7 +103,7 @@ Skill を source からすべての targets にプッシュします。
 ```bash
 skillshare sync              # skill をすべての targets に sync
 skillshare sync agents       # agents のみを sync
-skillshare sync --all        # skills + agents + extras + MCP を sync
+skillshare sync --all        # skills + agents + extras + MCP + hooks を sync
 skillshare sync --dry-run    # 変更をプレビュー
 skillshare sync -n           # 短縮形
 skillshare sync --force      # 管理対象のすべての skill を上書き
@@ -112,7 +112,7 @@ skillshare sync -f           # 短縮形
 
 | フラグ | 短縮形 | 説明 |
 |------|-------|-------------|
-| `--all` | | skills の後に agents、extras、MCP も sync（plugins は除く） |
+| `--all` | | skills の後に agents、extras、MCP + hooks も sync（plugins は除く） |
 | `--dry-run` | `-n` | 書き込まずに変更をプレビュー |
 | `--force` | `-f` | チェックサムに関わらず管理対象のすべてのエントリを上書き（copy mode）、または既存のディレクトリをシンボリックリンクに置き換え（merge mode） |
 | `--json` | | JSON として出力 |
@@ -536,12 +536,12 @@ flowchart TD
 
 ## Agent の Sync {#agent-sync}
 
-Agents は skills とは別に sync されます。agents のみを sync するには `sync agents` を、skills、agents、extras、MCP をまとめて含めるには `sync --all` を使用してください。
+Agents は skills とは別に sync されます。agents のみを sync するには `sync agents` を、skills、agents、extras、MCP、hooks をまとめて含めるには `sync --all` を使用してください。
 
 ```bash
 skillshare sync              # skills のみを sync（デフォルト）
 skillshare sync agents       # agents のみを sync
-skillshare sync --all        # skills + agents + extras + MCP を sync
+skillshare sync --all        # skills + agents + extras + MCP + hooks を sync
 ```
 
 Agent sync は 3 つすべての mode（merge、copy、symlink）をサポートし、target に設定された mode に一致します。Developer Mode がオフの Windows では、merge mode は agent ファイルをリンクする代わりにコピーし、`! <target>: agents file links need Windows Developer Mode; copying instead` と表示します。[Windows のトラブルシューティング](/docs/troubleshooting/windows#file-links-need-windows-developer-mode-copying-instead) を参照してください。`agents` パス定義を持つ target のみが agent sync を受け取ります — 現在は Claude、Cursor、OpenCode、Augment です。全リストは [Agents — Supported Targets](/docs/understand/agents#supported-targets) を参照してください。
@@ -575,7 +575,7 @@ project スコープ、部分的な失敗からの復旧については [plugin]
 skillshare sync extras            # 設定済みのすべての extras を sync
 skillshare sync extras --dry-run  # 変更をプレビュー
 skillshare sync extras --force    # コンフリクトするファイルを上書き
-skillshare sync --all             # skills + agents + extras + MCP を sync
+skillshare sync --all             # skills + agents + extras + MCP + hooks を sync
 ```
 
 | フラグ | 短縮形 | 説明 |
@@ -586,7 +586,7 @@ skillshare sync --all             # skills + agents + extras + MCP を sync
 extras sync にエラーがある場合、`--json` はゼロ以外の終了コードを返します。`sync --all` も、`--json` の有無にかかわらず、extras の target が失敗するとゼロ以外の終了コードで終了します。ソースディレクトリが存在しない extra は作成されず、ヒントを表示してスキップされます。単一ファイルの Extras では、`--dry-run` が置き換え前にバックアップされる編集内容も示します。
 
 :::info 両方の mode をサポート
-`sync extras` は global mode と project mode の両方で動作します。skills、agents、extras、MCP をまとめて sync するには `sync --all` を、extras のみを sync するには `sync extras` を使用してください。project mode では、extras の source は `.skillshare/extras/<name>/` です。
+`sync extras` は global mode と project mode の両方で動作します。skills、agents、extras、MCP、hooks をまとめて sync するには `sync --all` を、extras のみを sync するには `sync extras` を使用してください。project mode では、extras の source は `.skillshare/extras/<name>/` です。
 :::
 
 ### 設定
@@ -723,3 +723,5 @@ JSON 出力（`--json`）には、`--quiet` に関わらず常に `context_cost`
 - [Cross-Machine Sync](/docs/how-to/sharing/cross-machine-sync) — コンピューター間で sync
 - [install](/docs/reference/commands/install) — Skill をインストール
 - [Configuration](/docs/reference/targets/configuration#extras) — Extras 設定リファレンス
+
+`skillshare sync hooks` は hooks だけを同期します。[hooks](./hooks.md) を参照してください。

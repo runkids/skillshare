@@ -5,6 +5,7 @@ import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { api } from '../api/client';
 import type { Target } from '../api/client';
+import { hooksApi } from '../api/hooks';
 import { mcpApi } from '../api/mcp';
 import { ToastProvider } from '../components/Toast';
 import { I18nProvider } from '../i18n';
@@ -15,6 +16,7 @@ vi.mock('../api/client', async (load) => ({
   api: { listTargets: vi.fn(), diff: vi.fn(), diffExtras: vi.fn(), listLog: vi.fn(), skillsOffPreview: vi.fn(), updateTarget: vi.fn() },
 }));
 vi.mock('../api/mcp', async (load) => ({ ...await load<typeof import('../api/mcp')>(), mcpApi: { list: vi.fn() } }));
+vi.mock('../api/hooks', async (load) => ({ ...await load<typeof import('../api/hooks')>(), hooksApi: { list: vi.fn(() => Promise.reject(new Error('offline'))) } }));
 
 const target = (name: string) => ({
   name, path: '/home/me/.agents/skills', mode: 'merge', targetNaming: 'flat', status: 'merged', linkedCount: 3, localCount: 0,
@@ -75,5 +77,34 @@ describe('Sync page last sync', () => {
     vi.mocked(api.listLog).mockResolvedValue({ entries: [{ ts: '2026-09-30T00:00:00Z', cmd: 'sync', status: 'partial', args: { targets_total: 3, targets_failed: 1 } }] } as never);
     renderPage();
     expect((await screen.findByText('Failed')).nextElementSibling).toHaveTextContent('1');
+  });
+});
+
+describe('Sync page hooks conflicts', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(api.listTargets).mockResolvedValue({ targets: [target('codex')], sourceSkillCount: 3 });
+    vi.mocked(api.diff).mockResolvedValue({ diffs: [], ignored_count: 0, ignored_skills: [], ignore_root: '', ignore_repos: [] });
+    vi.mocked(api.diffExtras).mockResolvedValue({ extras: [] });
+    vi.mocked(api.listLog).mockResolvedValue({ entries: [] } as never);
+    vi.mocked(mcpApi.list).mockResolvedValue({ paths: {}, source: { targets: [], servers: {} } } as never);
+  });
+
+  it('words the unmanaged-hook conflict for this UI and shows all of it on hover', async () => {
+    const raw = 'an identical hook exists that Skillshare does not manage; import it or explicitly replace it';
+    vi.mocked(hooksApi.list).mockResolvedValue({
+      source: { path: '/s.yaml', configPath: '/s.yaml', entries: {} }, targets: [], paths: {}, backups: [], unmanaged: [], previewError: '',
+      plan: { revision: 'r', fingerprint: 'f', sourcePath: '/s.yaml', blocked: true, changes: [{ target: 'codex', path: '/home/me/.codex/hooks.json', name: 'codex-stop', action: 'conflict', message: raw }] },
+    });
+    const user = userEvent.setup();
+    render(
+      <MemoryRouter>
+        <QueryClientProvider client={new QueryClient()}><I18nProvider><ToastProvider><SyncPage /></ToastProvider></I18nProvider></QueryClientProvider>
+      </MemoryRouter>,
+    );
+    const reason = await screen.findByText(/is not managed by Skillshare/);
+    expect(screen.queryByText(raw)).not.toBeInTheDocument();
+    await user.hover(reason);
+    expect(await screen.findByRole('tooltip')).toHaveTextContent(/Take over native hooks/);
   });
 });

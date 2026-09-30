@@ -7,7 +7,7 @@ sidebar_position: 2
 把 skills 从 Source 推送到所有 Target。
 
 使用 `skillshare sync mcp` 处理 MCP 连接设置，或使用 `skillshare sync --all`
-以包含 skills、agents、extras 和 MCP。MCP 同步使用条目所有权和冲突检查，
+以包含 skills、agents、extras 和 MCP + hooks。MCP + hooks 同步使用条目所有权和冲突检查，
 而非 skill symlink。参见 [mcp](/docs/reference/commands/mcp)。
 
 :::info 为什么 sync 是一个独立命令？
@@ -112,7 +112,7 @@ Project sync 会清理它们。对于每个没有显式设置 `path:` 的 Target
 ```bash
 skillshare sync              # 把 skills 同步到所有 Target
 skillshare sync agents       # 只同步 agents
-skillshare sync --all        # 同步 skills + agents + extras + MCP
+skillshare sync --all        # 同步 skills + agents + extras + MCP + hooks
 skillshare sync --dry-run    # 预览变更
 skillshare sync -n           # 简写形式
 skillshare sync --force      # 覆盖所有受管理的 skills
@@ -121,7 +121,7 @@ skillshare sync -f           # 简写形式
 
 | Flag | 简写 | 说明 |
 |------|-------|-------------|
-| `--all` | | 在 skills 之后额外同步 agents、extras 和 MCP（不含 plugins） |
+| `--all` | | 在 skills 之后额外同步 agents、extras 和 MCP + hooks（不含 plugins） |
 | `--dry-run` | `-n` | 预览变更但不写入 |
 | `--force` | `-f` | 无视 checksum 覆盖所有受管理条目（copy 模式），或用 symlink 替换现有目录（merge 模式） |
 | `--json` | | 以 JSON 格式输出 |
@@ -565,12 +565,12 @@ flowchart TD
 ## Agent Sync {#agent-sync}
 
 Agents 与 skills 分开同步。使用 `sync agents` 只同步 agents，或使用 `sync --all`
-以包含 skills、agents、extras 和 MCP：
+以包含 skills、agents、extras 和 MCP + hooks：
 
 ```bash
 skillshare sync              # 只同步 skills（默认）
 skillshare sync agents       # 只同步 agents
-skillshare sync --all        # 同步 skills + agents + extras + MCP
+skillshare sync --all        # 同步 skills + agents + extras + MCP + hooks
 ```
 
 Agent sync 支持全部三种模式（merge、copy、symlink），与 target 的配置模式一致。
@@ -611,7 +611,7 @@ skills 分开配置，拥有自己的 source 目录。
 skillshare sync extras            # 同步所有已配置的 extras
 skillshare sync extras --dry-run  # 预览变更
 skillshare sync extras --force    # 覆盖冲突的文件
-skillshare sync --all             # 同步 skills + agents + extras + MCP
+skillshare sync --all             # 同步 skills + agents + extras + MCP + hooks
 ```
 
 | Flag | 简写 | 说明 |
@@ -623,7 +623,7 @@ extras sync 发生错误时，`--json` 会以非零状态退出。无论是否�
 
 :::info 两种模式都支持
 `sync extras` 在 global mode 和 project mode 下都能运行。使用 `sync --all`
-一起同步 skills、agents、extras 和 MCP，或使用 `sync extras` 只同步 extras。
+一起同步 skills、agents、extras 和 MCP + hooks，或使用 `sync extras` 只同步 extras。
 在 project mode 下，extras source 位于 `.skillshare/extras/<name>/`。
 :::
 
@@ -762,3 +762,5 @@ JSON 输出（`--json`）无论是否带 `--quiet` 都始终包含 `context_cost
 - [Cross-Machine Sync](/docs/how-to/sharing/cross-machine-sync) —— 跨机器同步
 - [install](/docs/reference/commands/install) —— 安装 skills
 - [Configuration](/docs/reference/targets/configuration#extras) —— Extras 配置参考
+
+`skillshare sync hooks` 只同步 hooks。请见 [hooks](./hooks.md)。

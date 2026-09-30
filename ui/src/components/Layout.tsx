@@ -10,6 +10,7 @@ import {
   FolderPlus,
   Folders,
   Plug,
+  Webhook,
   Package,
   Target,
   ShieldCheck,
@@ -33,7 +34,7 @@ import { useTour } from './tour';
 import UpdateDialog from './UpdateDialog';
 import { useT } from '../i18n';
 import { shortenHome } from '../lib/paths';
-import { useDiffQuery, useMcpQuery, useOverviewQuery, useSyncedTargetsQuery } from '../hooks/useSharedQueries';
+import { useDiffQuery, useHooksQuery, useMcpQuery, useOverviewQuery, useSyncedTargetsQuery } from '../hooks/useSharedQueries';
 
 interface NavItem {
   to: string;
@@ -59,6 +60,7 @@ const navGroups: { labelKey?: string; items: NavItem[] }[] = [
       { to: '/agents', icon: Bot, labelKey: 'layout.nav.agents' },
       { to: '/extras', icon: FolderPlus, labelKey: 'layout.nav.extras' },
       { to: '/mcp', icon: Plug, labelKey: 'mcp.title' },
+      { to: '/hooks', icon: Webhook, labelKey: 'hooks.title' },
       { to: '/plugins', icon: Package, labelKey: 'plugins.title' },
     ],
   },
@@ -179,6 +181,7 @@ function useNavCounts(isProjectMode: boolean): Record<string, number> {
   const diff = useDiffQuery(live);
   const extras = useQuery({ queryKey: queryKeys.extrasDiff(), queryFn: () => api.diffExtras(), staleTime: staleTimes.extras, ...live });
   const mcp = useMcpQuery({ staleTime: staleTimes.extras, ...live });
+  const hooks = useHooksQuery({ staleTime: staleTimes.extras, ...live });
   const git = useQuery({ queryKey: queryKeys.gitStatus, queryFn: () => api.gitStatus(), staleTime: staleTimes.gitStatus, enabled: !isProjectMode, ...live });
   // Scans are expensive, so the badge only reads one the Audit page already ran.
   const auditSkills = useQuery<AuditAllResponse>({ queryKey: queryKeys.audit.all('skills'), queryFn: () => api.auditAll('skills'), enabled: false });
@@ -186,7 +189,7 @@ function useNavCounts(isProjectMode: boolean): Record<string, number> {
 
   const status = git.data;
   return {
-    '/sync': diff.data ? pendingCount(diff.data.diffs, targets.data?.targets ?? [], extras.data?.extras ?? [], mcp.data?.plan) : 0,
+    '/sync': diff.data ? pendingCount(diff.data.diffs, targets.data?.targets ?? [], extras.data?.extras ?? [], mcp.data?.plan, hooks.data?.plan) : 0,
     '/git': !status?.isRepo ? 0 : status.isDirty ? status.files.length : status.hasRemote ? status.ahead : 0,
     '/audit': (auditSkills.data?.summary.failed ?? 0) + (auditAgents.data?.summary.failed ?? 0),
   };

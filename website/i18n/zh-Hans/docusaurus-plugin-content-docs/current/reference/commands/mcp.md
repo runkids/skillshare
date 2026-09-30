@@ -64,7 +64,7 @@ skillshare sync --all
 使用 `--dry-run` 可以在不应用的情况下查看预览。
 
 `sync mcp` 接受作用域标志、`--dry-run`、`--json`、`--no-tui` 和 `--revision`。
-`sync --all` 包含 skills、agents、extras 和 MCP；普通的 `sync` 保持其
+`sync --all` 包含 skills、agents、extras 和 MCP + hooks；普通的 `sync` 保持其
 现有的资源行为。在 `--all` 更改其他资源之前会先检查 MCP 冲突。
 资源类型与原生文件是各自独立的操作，而非单一事务。
 

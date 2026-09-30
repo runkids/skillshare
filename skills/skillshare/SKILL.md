@@ -1,7 +1,7 @@
 ---
 name: skillshare
 description: |
-  Manage skills, agents, extras, plugins, and MCP connection settings with the Skillshare CLI.
+  Manage skills, agents, extras, hooks, plugins, and MCP connection settings with the Skillshare CLI.
   Use when the user asks to configure or run Skillshare, install or sync resources
   across AI tools, import MCP settings, manage targets, audit skills, recover backups,
   or troubleshoot Skillshare configuration and sync. Covers global and project modes,
@@ -35,6 +35,8 @@ Check `skillshare <command> --help` if the installed version differs from these 
 - Plugins keep their native components together. Read [plugins.md](references/plugins.md)
   for installation, import, sync selection, updates, and native compatibility limits
   across Claude, Codex, Cursor, Antigravity, Pi, and OpenCode.
+- Hooks preserve each Agent's native event map or extension/plugin code. Read
+  [hooks.md](references/hooks.md) before import, synchronization or recovery.
 
 ## Execution rules
 
@@ -42,8 +44,8 @@ Check `skillshare <command> --help` if the installed version differs from these 
    specific command. Use `--no-tui` for plain output or `--json` where supported.
    Do not add `--force` simply to avoid a prompt: it can overwrite conflicts or override audits.
 2. **Keep previews separate from writes.** Use `--dry-run` where supported. After changing
-   skills or agents, sync the intended resource and scope. MCP mutations save source only
-   unless `--sync` is supplied; `sync --all` also includes extras and MCP, but excludes plugins.
+   skills or agents, sync the intended resource and scope. MCP and hooks mutations save source only
+   unless `--sync` is supplied; `sync --all` also includes extras, MCP and hooks, but excludes plugins.
 3. **Inspect audit blocks.** Review findings before choosing an override. `install --json`
    permits overwrite and selects all when no skill/agent filter is given, but retains
    the audit gate; it is not merely an output format. Read [install.md](references/install.md)
@@ -149,6 +151,7 @@ references for a single task.
 |-------|------|
 | Native agents, selection, ignore rules, and recovery | [native-agents.md](references/native-agents.md) |
 | MCP configuration, imports, TUI, and recovery | [mcp.md](references/mcp.md) |
+| Native hooks, code bindings, scopes and recovery | [hooks.md](references/hooks.md) |
 | Complete plugins, native lifecycle, and sync selection | [plugins.md](references/plugins.md) |
 | Init flags | [init.md](references/init.md) |
 | Sync/collect/commit/push/pull | [sync.md](references/sync.md) |

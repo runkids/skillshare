@@ -13,6 +13,7 @@ _skillshare() {
         'sync:Sync skills/agents/extras/MCP to targets'
         'plugin:Manage complete native plugins'
         'mcp:Manage MCP connections'
+        'hooks:Manage Agent hooks'
         'status:Show status of all targets'
         'diff:Show differences between source and targets'
         'backup:Create backup of targets'
@@ -118,6 +119,20 @@ _skillshare() {
                         '--help[Show help]' \
                         '-h[Show help]'
                     ;;
+                hooks)
+                    _arguments \
+                        '1:command:(add disable edit enable import list remove restore sync)' \
+                        '--file[Entry or native file]:file:_files' \
+                        '--from[Import Agent]:agent:' \
+                        '--sync[Sync after saving]' \
+                        '--replace[Replace an existing entry]' \
+                        '--revision[Preview revision]:revision:' \
+                        '--dry-run[Preview changes]' \
+                        '-n[Preview changes]' \
+                        '--json[JSON output]' \
+                        $global_flags \
+                        '--help[Show help]'
+                    ;;
                 plugin)
                     _arguments \
                         '1:command:(add discover import list inspect sync check update enable disable remove)' \
@@ -205,7 +220,7 @@ _skillshare() {
                     ;;
                 sync)
                     _arguments \
-                        '1:scope:(agents extras mcp plugins)' \
+                        '1:scope:(agents extras mcp hooks plugins)' \
                         '--all[Sync skills + agents + extras]' \
                         '--dry-run[Preview changes]' \
                         '-n[Preview changes]' \

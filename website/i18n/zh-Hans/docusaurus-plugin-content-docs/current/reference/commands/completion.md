@@ -49,7 +49,7 @@ skillshare completion zsh > ~/.zsh/completions/_skillshare
 生成的脚本为以下内容提供 Tab 补全：
 
 - **命令**——所有顶级命令（`sync`、`install`、`list` 等）
-- **子命令**——`target add/remove/list`、`trash list/restore/delete/empty`、`hub add/list/remove/default/index`、`extras init/list/remove/collect/source`、`audit rules disable/enable/severity/reset/init`、`backup files list/show/restore`、`ui start/stop`
+- **子命令**——`target add/remove/list`、`trash list/restore/delete/empty`、`hub add/list/remove/default/index`、`extras init/list/remove/collect/source`、`audit rules disable/enable/severity/reset/init`、`backup files list/show/restore`、`ui start/stop`、`hooks add/disable/edit/enable/import/list/remove/restore/sync`
 - **标志**——各命令的标志及其简写形式（`--dry-run`/`-n`、`--force`/`-f` 等）
 - **全局标志**——`--project`/`-p`、`--global`/`-g`
 

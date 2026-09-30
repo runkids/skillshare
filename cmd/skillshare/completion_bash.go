@@ -14,7 +14,7 @@ _skillshare() {
         cword=$COMP_CWORD
     fi
 
-    local commands="init install uninstall list search sync mcp plugin status diff backup restore collect pull push commit doctor target upgrade update check new trash analyze audit hub log ui tui extras enable disable completion version help"
+    local commands="init install uninstall list search sync mcp hooks plugin status diff backup restore collect pull push commit doctor target upgrade update check new trash analyze audit hub log ui tui extras enable disable completion version help"
 
     local global_flags="--project -p --global -g"
 
@@ -38,6 +38,7 @@ _skillshare() {
     local sync_flags="--all --dry-run -n --force -f --json --quiet -q --help -h"
     local mcp_flags="--pi-extension --direct-tools --pi-options --pi-options-prune --url --target --from --file --sync --replace --disabled --keep-files --revision --dry-run -n --json --no-tui --no-dns --live --timeout --help -h"
     local status_flags="--json --help -h"
+    local hooks_flags="--file --from --sync --replace --revision --dry-run -n --json --help -h"
     local diff_flags="--no-tui --patch --stat --json --help -h"
     local backup_flags="--list -l --cleanup -c --delete --all --dry-run -n --target -t --help -h"
     local backup_files_restore_flags="--unlink --dry-run -n --help -h"
@@ -130,7 +131,7 @@ _skillshare() {
                 return
                 ;;
             sync)
-                COMPREPLY=($(compgen -W "agents extras mcp plugins ${sync_flags} ${global_flags}" -- "${cur}"))
+                COMPREPLY=($(compgen -W "agents extras mcp hooks plugins ${sync_flags} ${global_flags}" -- "${cur}"))
                 return
                 ;;
             list)
@@ -240,6 +241,7 @@ _skillshare() {
         plugin)     COMPREPLY=($(compgen -W "add discover import list inspect sync check update enable disable remove --target --from --plugin --name --source-ref --entry --revision --dry-run -n --json --no-tui --help -h ${global_flags}" -- "${cur}")) ;;
         mcp)        COMPREPLY=($(compgen -W "add check edit import list remove restore ${mcp_flags} ${global_flags}" -- "${cur}")) ;;
         status)     COMPREPLY=($(compgen -W "${status_flags} ${global_flags}" -- "${cur}")) ;;
+        hooks)      COMPREPLY=($(compgen -W "add disable edit enable import list remove restore sync ${hooks_flags} ${global_flags}" -- "${cur}")) ;;
         diff)       COMPREPLY=($(compgen -W "${diff_flags} ${global_flags}" -- "${cur}")) ;;
         backup)     COMPREPLY=($(compgen -W "${backup_flags} ${global_flags}" -- "${cur}")) ;;
         restore)    COMPREPLY=($(compgen -W "${restore_flags} ${global_flags}" -- "${cur}")) ;;

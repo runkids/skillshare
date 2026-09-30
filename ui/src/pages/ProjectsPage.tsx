@@ -16,7 +16,7 @@ import { refreshTargets } from '../components/targets/targetView';
 import { queryKeys, staleTimes } from '../lib/queryKeys';
 import { shortenHome } from '../lib/paths';
 import { useT } from '../i18n';
-import { useAvailableTargetsQuery, useMcpQuery } from '../hooks/useSharedQueries';
+import { useAvailableTargetsQuery, useHooksQuery, useMcpQuery } from '../hooks/useSharedQueries';
 
 const TONE = { missing: 'bad', conflict: 'warn', pending: 'warn', synced: 'ok', idle: 'off' } as const;
 const STACK = 6;
@@ -29,6 +29,7 @@ export default function ProjectsPage() {
   const list = useQuery({ queryKey: queryKeys.projects, queryFn: () => api.listProjects(), staleTime: staleTimes.targets });
   const targets = useQuery({ queryKey: queryKeys.targets.projects, queryFn: () => api.listTargets('projects'), staleTime: staleTimes.targets });
   const mcp = useMcpQuery();
+  const hooks = useHooksQuery();
   const available = useAvailableTargetsQuery();
   const [adding, setAdding] = useState(false);
   const [converting, setConverting] = useState<ProjectList['convertible'][number] | null>(null);
@@ -36,7 +37,7 @@ export default function ProjectsPage() {
 
   if (list.isPending) return <PageSkeleton />;
 
-  const rows = projectRows(list.data, mcp.data);
+  const rows = projectRows(list.data, mcp.data, hooks.data);
   const convertible = list.data?.convertible ?? [];
   const common = (available.data?.targets ?? []).filter((a) => a.installed || a.detected).map((a) => a.name);
 
@@ -45,11 +46,13 @@ export default function ProjectsPage() {
     const skills = Math.max(0, ...mine.map((tg) => tg.expectedSkillCount));
     const agents = Math.max(0, ...mine.map((tg) => tg.agentExpectedCount ?? 0));
     const servers = Object.keys(mcp.data?.source.projects?.[p.path]?.servers ?? {}).length;
+    const hookCount = Object.keys(hooks.data?.source.projects?.[p.path]?.entries ?? {}).length;
     const filtered = (p.skills?.include.length ?? 0) + (p.skills?.exclude.length ?? 0) > 0;
     return [
       p.skills && t(filtered ? (skills === 1 ? 'projects.content.skills.one' : 'projects.content.skills.other') : 'projects.content.allSkills', { count: skills }),
       p.agents && t(agents === 1 ? 'projects.content.agents.one' : 'projects.content.agents.other', { count: agents }),
       mcp.data?.source.projects?.[p.path] && (servers > 0 ? t('projects.content.mcp', { count: servers }) : 'MCP'),
+      hooks.data?.source.projects?.[p.path] && (hookCount > 0 ? t('projects.content.hooks', { count: hookCount }) : 'Hooks'),
     ].filter(Boolean).join(' · ') || t('projects.content.none');
   };
 
@@ -89,10 +92,10 @@ export default function ProjectsPage() {
             <span className="w-4" />
           </div>
           {rows.map((p) => {
-            const { state, count } = projectHealth(p, targets.data?.targets ?? [], mcp.data);
+            const { state, count } = projectHealth(p, targets.data?.targets ?? [], mcp.data, hooks.data);
             const tools = p.targets.length > 0 ? p.targets : mcp.data?.source.projects?.[p.path]?.targets ?? [];
             return (
-              <Link key={p.path} to={projectUrl(p.path, p.declared ? undefined : 'mcp')} className="ss-r link !min-h-[56px]">
+              <Link key={p.path} to={projectUrl(p.path, p.declared ? undefined : hooks.data?.source.projects?.[p.path] && !mcp.data?.source.projects?.[p.path] ? 'hooks' : 'mcp')} className="ss-r link !min-h-[56px]">
                 <span className="ss-cat target"><Folder size={16} /></span>
                 <span className="flex min-w-0 flex-1 flex-col">
                   <span className="font-semibold">{p.name}</span>

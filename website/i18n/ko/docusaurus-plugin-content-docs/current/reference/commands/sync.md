@@ -6,7 +6,7 @@ sidebar_position: 2
 
 Source에서 모든 Target으로 skill을 push합니다.
 
-MCP 연결 설정은 `skillshare sync mcp`를 사용하고, skill, agent, extras, MCP를
+MCP + hooks 연결 설정은 `skillshare sync mcp`를 사용하고, skill, agent, extras, MCP + hooks를
 모두 포함하려면 `skillshare sync --all`을 사용하세요. MCP synchronization은
 skill symlink 대신 entry ownership과 conflict check를 사용합니다. [mcp](/docs/reference/commands/mcp)를
 참고하세요.
@@ -104,7 +104,7 @@ Source에서 모든 target으로 skill을 push합니다.
 ```bash
 skillshare sync              # 모든 target에 skill을 sync
 skillshare sync agents       # agent만 sync
-skillshare sync --all        # skill + agent + extras + MCP를 sync
+skillshare sync --all        # skill + agent + extras + MCP + hooks를 sync
 skillshare sync --dry-run    # 변경 사항 미리보기
 skillshare sync -n           # 축약형
 skillshare sync --force      # 관리 중인 모든 skill을 덮어쓰기
@@ -113,7 +113,7 @@ skillshare sync -f           # 축약형
 
 | Flag | 축약형 | 설명 |
 |------|-------|-------------|
-| `--all` | | skill 이후 agent, extras, MCP도 함께 sync(plugin은 제외) |
+| `--all` | | skill 이후 agent, extras, MCP + hooks도 함께 sync(plugin은 제외) |
 | `--dry-run` | `-n` | 실제로 쓰지 않고 변경 사항 미리보기 |
 | `--force` | `-f` | checksum과 무관하게 관리 중인 모든 항목을 덮어쓰기(copy mode) 또는 기존 디렉터리를 symlink로 교체(merge mode) |
 | `--json` | | JSON으로 출력 |
@@ -537,12 +537,12 @@ flowchart TD
 
 ## Agent Sync {#agent-sync}
 
-Agent는 skill과 별도로 sync됩니다. agent만 sync하려면 `sync agents`를 사용하고, skill·agent·extras·MCP를 모두 포함하려면 `sync --all`을 사용하세요.
+Agent는 skill과 별도로 sync됩니다. agent만 sync하려면 `sync agents`를 사용하고, skill·agent·extras·MCP + hooks를 모두 포함하려면 `sync --all`을 사용하세요.
 
 ```bash
 skillshare sync              # skill만 sync(기본값)
 skillshare sync agents       # agent만 sync
-skillshare sync --all        # skill + agent + extras + MCP를 sync
+skillshare sync --all        # skill + agent + extras + MCP + hooks를 sync
 ```
 
 agent sync는 세 가지 mode(merge, copy, symlink) 모두를 지원하며, target에 설정된 mode와 일치합니다. Developer Mode가 없는 Windows에서는 merge mode가 agent 파일을 링크하는 대신 복사하고 `! <target>: agents file links need Windows Developer Mode; copying instead`를 출력합니다. [Windows 문제 해결](/docs/troubleshooting/windows#file-links-need-windows-developer-mode-copying-instead)을 참고하세요. `agents` path 정의가 있는 target만 agent sync를 받습니다 — 현재는 Claude, Cursor, OpenCode, Augment입니다. 전체 목록은 [Agents — Supported Targets](/docs/understand/agents#supported-targets)를 참고하세요.
@@ -578,7 +578,7 @@ non-skill 리소스(rule, command, prompt 등)를 임의의 디렉터리로 sync
 skillshare sync extras            # 구성된 모든 extras를 sync
 skillshare sync extras --dry-run  # 변경 사항 미리보기
 skillshare sync extras --force    # 충돌하는 파일을 덮어쓰기
-skillshare sync --all             # skill + agent + extras + MCP를 sync
+skillshare sync --all             # skill + agent + extras + MCP + hooks를 sync
 ```
 
 | Flag | 축약형 | 설명 |
@@ -589,7 +589,7 @@ skillshare sync --all             # skill + agent + extras + MCP를 sync
 extras sync에 오류가 있으면 `--json`은 0이 아닌 종료 코드를 반환합니다. `sync --all`도 `--json` 여부와 관계없이 extras target이 실패하면 0이 아닌 코드로 종료합니다. source 디렉터리가 없는 extra는 생성되지 않고 힌트와 함께 건너뜁니다. single-file extra에서는 `--dry-run`이 교체 전에 백업할 편집 내용도 알려 줍니다.
 
 :::info 두 mode 모두 지원
-`sync extras`는 global mode와 project mode 양쪽에서 작동합니다. skill·agent·extras·MCP를 함께 sync하려면 `sync --all`을, extras만 sync하려면 `sync extras`를 사용하세요. project mode에서 extras source는 `.skillshare/extras/<name>/`입니다.
+`sync extras`는 global mode와 project mode 양쪽에서 작동합니다. skill·agent·extras·MCP + hooks를 함께 sync하려면 `sync --all`을, extras만 sync하려면 `sync extras`를 사용하세요. project mode에서 extras source는 `.skillshare/extras/<name>/`입니다.
 :::
 
 ### 설정
@@ -726,3 +726,5 @@ JSON 출력(`--json`)은 `--quiet` 여부와 무관하게 항상 `context_cost`�
 - [Cross-Machine Sync](/docs/how-to/sharing/cross-machine-sync) — 여러 컴퓨터 간 sync
 - [install](/docs/reference/commands/install) — skill 설치
 - [Configuration](/docs/reference/targets/configuration#extras) — extras config 참고 자료
+
+`skillshare sync hooks`는 hooks만 동기화합니다. [hooks](./hooks.md)를 참고하세요.

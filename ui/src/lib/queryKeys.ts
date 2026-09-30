@@ -68,6 +68,7 @@ export const queryKeys = {
     content: (name: string, path: string) => ['target-files', name, 'content', path] as const,
   },
   mcp: ['mcp'] as const,
+  hooks: ['hooks'] as const,
   plugins: ['plugins'] as const,
   // Under `plugins`, so invalidating that key refreshes both.
   pluginPackages: ['plugins', 'packages'] as const,

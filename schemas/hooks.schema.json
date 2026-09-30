@@ -1,0 +1,72 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/runkids/skillshare/main/schemas/hooks.schema.json",
+  "title": "Skillshare Hooks",
+  "description": "One hook entry as read by 'skillshare hooks add|edit --file'. The same definitions describe the hooks section of config.yaml.",
+  "$ref": "#/$defs/entry",
+  "$defs": {
+    "name": {"type": "string", "pattern": "^[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}$"},
+    "commandBinding": {
+      "type": "object", "additionalProperties": false, "required": ["events"],
+      "properties": {
+        "events": {
+          "type": "object", "minProperties": 1,
+          "description": "The Agent's own native event map, written without translation: event names, matchers, timeout units and handler fields stay exactly as the Agent documents them.",
+          "propertyNames": {"pattern": "^[A-Za-z][A-Za-z0-9_]*$"},
+          "additionalProperties": {"type": "array", "minItems": 1, "items": {"type": "object"}}
+        },
+        "files": {
+          "type": "object",
+          "description": "Script files written to <Agent config dir>/hooks/skillshare/<entry>/. Commands must reference them by path themselves.",
+          "propertyNames": {"$ref": "#/$defs/name"},
+          "additionalProperties": {"type": "string"}
+        }
+      }
+    },
+    "codeBinding": {
+      "type": "object", "additionalProperties": false, "required": ["code"],
+      "properties": {"code": {"type": "string", "minLength": 1, "description": "One standalone native TypeScript/JavaScript extension or plugin, written verbatim as skillshare-<entry>.ts. It must use the plugin API of the installed Agent version."}}
+    },
+    "bindings": {
+      "type": "object", "additionalProperties": false,
+      "description": "Keyed by Agent. An empty map keeps the hook in Skillshare without publishing it. factory is an alias for droid.",
+      "properties": {
+        "claude": {"$ref": "#/$defs/commandBinding"},
+        "codex": {"$ref": "#/$defs/commandBinding"},
+        "gemini": {"$ref": "#/$defs/commandBinding"},
+        "qwen": {"$ref": "#/$defs/commandBinding"},
+        "copilot": {"$ref": "#/$defs/commandBinding"},
+        "cursor": {"$ref": "#/$defs/commandBinding"},
+        "droid": {"$ref": "#/$defs/commandBinding"},
+        "factory": {"$ref": "#/$defs/commandBinding"},
+        "pi": {"$ref": "#/$defs/codeBinding"},
+        "amp": {"$ref": "#/$defs/codeBinding"},
+        "opencode": {"$ref": "#/$defs/codeBinding"}
+      }
+    },
+    "entry": {
+      "type": "object", "additionalProperties": false, "required": ["bindings"],
+      "properties": {
+        "description": {"type": "string"},
+        "enabled": {"type": "boolean", "default": true, "description": "false keeps the definition and removes only its unchanged native outputs."},
+        "bindings": {"$ref": "#/$defs/bindings"}
+      }
+    },
+    "entries": {"type": "object", "propertyNames": {"$ref": "#/$defs/name"}, "additionalProperties": {"$ref": "#/$defs/entry"}},
+    "configuration": {
+      "type": "object", "additionalProperties": false,
+      "properties": {"entries": {"$ref": "#/$defs/entries"}}
+    },
+    "globalConfiguration": {
+      "type": "object", "additionalProperties": false,
+      "properties": {
+        "entries": {"$ref": "#/$defs/entries"},
+        "projects": {
+          "type": "object",
+          "description": "Project roots this global config publishes hooks into, keyed by absolute path or ~ path. A root with its own Skillshare config is managed there instead.",
+          "additionalProperties": {"type": "object", "additionalProperties": false, "properties": {"entries": {"$ref": "#/$defs/entries"}}}
+        }
+      }
+    }
+  }
+}

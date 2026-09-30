@@ -64,7 +64,7 @@ transports block the candidate. `restore` always previews again before applying;
 use `--dry-run` to inspect it without applying.
 
 `sync mcp` accepts scope flags, `--dry-run`, `--json`, `--no-tui`, and `--revision`.
-`sync --all` includes skills, agents, extras and MCP; plain `sync` keeps its
+`sync --all` includes skills, agents, extras, MCP and hooks; plain `sync` keeps its
 existing resource behavior. MCP conflicts are checked before `--all` changes
 other resources. Resource types and native files are separate operations, not a
 single transaction.

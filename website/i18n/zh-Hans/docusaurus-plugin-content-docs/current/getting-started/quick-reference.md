@@ -100,7 +100,7 @@ Plugins 不包含在 `sync --all` 中。用 `--dry-run --json` 预览将要发�
 |---------|-------------|
 | `sync extras` | 同步非 skill 资源（rules、commands 等） |
 | `sync mcp` | 同步 MCP 连接设置 |
-| `sync --all` | 同步 skills + agents + extras + MCP（不含 plugins） |
+| `sync --all` | 同步 skills + agents + extras + MCP + hooks（不含 plugins） |
 | `collect <target>` | 把 Target 中的 skills collect 回 Source |
 | `collect --all` | 从所有 Targets collect |
 | `backup [target]` | 创建备份 |
