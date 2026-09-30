@@ -64,7 +64,7 @@ var Targets = []TargetDef{
 	{Name: "claude", Kind: KindCommand, Note: "Claude Code runs settings.json hooks only after the workspace trust dialog is accepted; /hooks lists them read-only."},
 	{Name: "codex", Kind: KindCommand, Note: "Codex loads hooks.json together with inline [hooks] in config.toml, which Skillshare leaves untouched and lists as an additional source. Review and trust each new or changed hook in /hooks; project hooks load only when the project's .codex folder is trusted."},
 	{Name: "gemini", Kind: KindCommand, Note: "Gemini CLI reads hooks from settings.json. Project hooks are fingerprinted and warn until trusted again after any change; manage them with /hooks panel."},
-	{Name: "copilot", Kind: KindCommand, Note: "GitHub Copilot loads every JSON file in its hooks folder (COPILOT_HOME/hooks, or .github/hooks in a project). Skillshare writes one skillshare-<entry>.json per hook."},
+	{Name: "copilot", Kind: KindCommand, Note: "GitHub Copilot loads every JSON file in its hooks folder (COPILOT_HOME/hooks, or .github/hooks in a project, which loads only in a trusted folder). Skillshare writes one skillshare-<entry>.json per hook."},
 	{Name: "cursor", Kind: KindCommand, Note: "Cursor reads hooks.json (version 1, lowerCamelCase events) and reloads it when it changes; project hooks need a trusted workspace."},
 	{Name: "droid", Kind: KindCommand, Note: "Factory Droid reads hooks.json, and settings.json hooks only while hooks.json is absent, so Skillshare never creates hooks.json over inline hooks. Droid snapshots hooks at startup; review changes in /hooks."},
 	{Name: "qwen", Kind: KindCommand, Note: "Qwen Code reads hooks from settings.json; project hooks load only in trusted folders. Opening /hooks reloads the definitions."},

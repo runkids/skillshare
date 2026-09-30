@@ -105,7 +105,7 @@ export const commandVariables = (agent: string): string[] =>
 /** A starting point for a code target's hook file, in that target's own API. */
 export const codeTemplate = (agent: string) =>
   ({
-    pi: `import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
+    pi: `import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
 export default function (pi: ExtensionAPI) {
   pi.on("tool_call", async (event, ctx) => {
