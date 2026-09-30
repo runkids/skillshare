@@ -6,6 +6,7 @@ import (
 	"maps"
 	"os"
 	"path/filepath"
+	"reflect"
 	"slices"
 	"strings"
 
@@ -832,7 +833,37 @@ func (pl *planner) planFile(w wantFile, state ledger) (*filePlan, error) {
 	} else if !f.remove {
 		f.after = data
 	}
+	if w.target == "copilot" && (f.write != nil || f.remove) {
+		pl.fileEvents(w, data, f.write)
+	}
 	return f, nil
+}
+
+// fileEvents names the events a Copilot hook file gains, changes or loses, as a shared
+// file's changes do. A file that does not parse contributes no events.
+func (pl *planner) fileEvents(w wantFile, before, after []byte) {
+	hooksOf := func(data []byte) map[string]any {
+		var doc struct {
+			Hooks map[string]any `json:"hooks"`
+		}
+		_ = json.Unmarshal(data, &doc)
+		return doc.Hooks
+	}
+	old, next := hooksOf(before), hooksOf(after)
+	for event, value := range next {
+		prior, had := old[event]
+		switch {
+		case !had:
+			pl.event(w.target, w.path, w.root, w.entry, event, "added")
+		case !reflect.DeepEqual(prior, value):
+			pl.event(w.target, w.path, w.root, w.entry, event, "updated")
+		}
+	}
+	for event := range old {
+		if _, ok := next[event]; !ok {
+			pl.event(w.target, w.path, w.root, w.entry, event, "removed")
+		}
+	}
 }
 
 // refresh confirms a file still matches its preview; other settings may change.

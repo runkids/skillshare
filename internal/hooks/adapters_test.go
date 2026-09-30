@@ -3,6 +3,7 @@ package hooks
 import (
 	"encoding/json"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -149,5 +150,27 @@ func TestParseEntry_ValidatesNativeShape(t *testing.T) {
 	}
 	if e.Bindings["droid"].Events["Stop"].([]any)[0].(map[string]any)["hooks"].([]any)[0].(map[string]any)["timeout"] != float64(5) {
 		t.Fatal("YAML events must take their JSON shape")
+	}
+}
+
+func TestCopilotFileChangesNameTheirEvents(t *testing.T) {
+	e := newEnv(t)
+	start := `{"bindings":{"copilot":{"events":{"sessionStart":[{"type":"command","bash":"echo a"}]}}}}`
+	p, err := e.service.PreviewMutation(Mutation{Name: "demo", Entry: entry(t, start)})
+	must(t, err)
+	if len(p.Changes) != 1 || p.Changes[0].Events == nil || !slices.Equal(p.Changes[0].Events.Added, []string{"sessionStart"}) {
+		t.Fatalf("add: %+v", p.Changes)
+	}
+	save(t, e.service, Mutation{Name: "demo", Entry: entry(t, start)})
+	next := `{"bindings":{"copilot":{"events":{"sessionStart":[{"type":"command","bash":"echo b"}],"preToolUse":[{"type":"command","bash":"echo c"}]}}}}`
+	p, err = e.service.PreviewMutation(Mutation{Name: "demo", Entry: entry(t, next)})
+	must(t, err)
+	if ev := p.Changes[0].Events; ev == nil || !slices.Equal(ev.Added, []string{"preToolUse"}) || !slices.Equal(ev.Updated, []string{"sessionStart"}) {
+		t.Fatalf("update: %+v", p.Changes[0].Events)
+	}
+	p, err = e.service.PreviewMutation(Mutation{Name: "demo", Remove: true})
+	must(t, err)
+	if ev := p.Changes[0].Events; p.Changes[0].Action != "remove" || ev == nil || !slices.Equal(ev.Removed, []string{"sessionStart"}) {
+		t.Fatalf("remove: %+v", p.Changes[0])
 	}
 }
