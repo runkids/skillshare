@@ -29,7 +29,7 @@ func runMCPEdit(service *mcp.Service, o mcpOptions) error {
 	if o.url != "" && len(o.command) > 0 {
 		return fmt.Errorf("choose either --url or -- command args")
 	}
-	if o.piExtension != "" || o.directTools != nil || o.piOptions != nil || o.piOptionsPruneSet || o.piOptionsPrune || o.url != "" || len(o.command) > 0 || o.targets != nil {
+	if o.directTools != nil || o.piOptions != nil || o.url != "" || len(o.command) > 0 || o.targets != nil {
 		server = patchMCPServer(server, o)
 		if err := source.CheckUnchanged(); err != nil {
 			return err
@@ -38,7 +38,7 @@ func runMCPEdit(service *mcp.Service, o mcpOptions) error {
 		return finishMCPMutation(service, mcp.Mutation{Name: name, Server: &server, Replace: true}, o, time.Now())
 	}
 	if !interactive {
-		return fmt.Errorf("provide --url, --target, --pi-extension, --direct-tools, --pi-options or -- command args with --no-tui/--json; omit --no-tui for the editor")
+		return fmt.Errorf("provide --url, --target, --direct-tools, --pi-options or -- command args with --no-tui/--json; omit --no-tui for the editor")
 	}
 	server, err = editMCPDraft(service, name, server, source.Targets, prompts)
 	if err != nil {
@@ -51,14 +51,8 @@ func runMCPEdit(service *mcp.Service, o mcpOptions) error {
 }
 
 func patchMCPServer(server mcp.Server, o mcpOptions) mcp.Server {
-	if o.piExtension != "" {
-		server.PiExtension = o.piExtension
-	}
 	if o.directTools != nil {
 		server.DirectTools = o.directTools
-	}
-	if o.piOptionsPruneSet || o.piOptionsPrune {
-		server.PiOptionsPrune = o.piOptionsPrune
 	}
 	if o.piOptions != nil {
 		server.PiOptions = o.piOptions
@@ -104,7 +98,6 @@ func editMCPDraft(service *mcp.Service, name string, server mcp.Server, defaults
 			{label: "Bearer token", desc: "Environment variable name only"},
 			{label: "Targets", desc: mcpTargetSummary(targets)},
 			{label: "Review changes", desc: "Preview before saving"},
-			{label: "Pi extension", desc: server.PiExtension},
 		}
 		selected, err := chooseMCP(prompts, checklistConfig{title: "Edit MCP: " + name, header: "Esc cancels this draft without saving.", items: items, singleSelect: true})
 		if err != nil {
@@ -184,11 +177,7 @@ func editMCPDraft(service *mcp.Service, name string, server mcp.Server, defaults
 				server.BearerToken = &mcp.Value{FromEnv: name}
 			}
 		case 5:
-			servers := []mcp.Server{server}
-			server.Targets, err = chooseMCPTargets(service, servers, targets, prompts)
-			server.PiExtension = servers[0].PiExtension
-		case 7:
-			server.PiExtension, err = choosePiExtension(server.PiExtension, prompts)
+			server.Targets, err = chooseMCPTargets(service, []mcp.Server{server}, targets, prompts)
 		case 6:
 			if err := server.Validate(name); err != nil {
 				fmt.Println(err)

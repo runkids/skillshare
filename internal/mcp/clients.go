@@ -2,7 +2,6 @@ package mcp
 
 import (
 	"fmt"
-	"maps"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -16,33 +15,14 @@ type clientFormat struct {
 	stdioOnly                                     bool
 }
 
-// piExtensionPath is the file pi-mcp-extension reads, next to pi-mcp-adapter's. Since its
-// 3.0 the adapter reads mcp-adapter.json and leaves mcp.json to Pi's built-in MCP support,
-// so nativePath gives the adapter's file. Refs: #298.
-func piExtensionPath(adapterPath string) string {
-	return filepath.Join(filepath.Dir(adapterPath), "mcp.json")
-}
-
-// The older extension ignores Pi's global directory override and cannot use accounts.
-func (s *Service) piModePath(mode string) (string, error) {
-	if mode == "pi-mcp-extension" && s.ProjectRoot == "" {
-		if s.account != "" {
-			return "", fmt.Errorf("pi-mcp-extension always reads ~/.pi/agent/mcp.json and cannot use account %s", s.account)
-		}
-		scoped := *s
-		scoped.ConfigDirs = maps.Clone(s.ConfigDirs)
-		delete(scoped.ConfigDirs, "pi")
-		s = &scoped
-	}
-	path, err := s.nativePath("pi")
-	if mode == "builtin" || mode == "pi-mcp-extension" {
-		path = piExtensionPath(path)
-	}
-	return path, err
+// piAdapterPath is pi-mcp-adapter's file next to Pi's built-in mcp.json. Since 0.23.0
+// Skillshare only reads it, to import from it, and removes the entries it wrote there.
+func piAdapterPath(path string) string {
+	return filepath.Join(filepath.Dir(path), "mcp-adapter.json")
 }
 
 var clientFormats = map[string]clientFormat{
-	"pi":             {key: "mcpServers", urlKey: "url", globalPath: ".pi/agent/mcp-adapter.json", projectPath: ".pi/mcp-adapter.json"},
+	"pi":             {key: "mcpServers", urlKey: "url", refPrefix: "${", globalPath: ".pi/agent/mcp.json", projectPath: ".pi/mcp.json"},
 	"amp":            {key: "amp.mcpServers", urlKey: "url", refPrefix: "${", globalPath: ".config/amp/settings.json", projectPath: ".amp/settings.json"},
 	"claude-desktop": {key: "mcpServers", urlKey: "url", stdioOnly: true},
 	"cline":          {key: "mcpServers", localType: "stdio", remoteType: "streamableHttp", urlKey: "url", refPrefix: "${env:"},
@@ -137,7 +117,7 @@ func (s *Service) additionalClientPath(target string, format clientFormat) (stri
 			if !filepath.IsAbs(dir) {
 				return "", fmt.Errorf("PI_CODING_AGENT_DIR must be absolute")
 			}
-			return filepath.Join(dir, "mcp-adapter.json"), nil
+			return filepath.Join(dir, "mcp.json"), nil
 		}
 	case "copilot":
 		if dir := s.ConfigDirs["copilot"]; dir != "" {

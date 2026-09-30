@@ -17,10 +17,13 @@ func TestMCPSyncRejectsPiFlags(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
 	sb.WriteConfig("targets: {}\n" + mcpDocsConfig)
-	for _, flags := range [][]string{{"--pi-extension", "builtin"}, {"--pi-options", `{}`}, {"--pi-options-prune"}, {"--pi-options-prune=false"}} {
+	r := sb.RunCLI("sync", "mcp", "-g", "--pi-options", `{}`)
+	r.AssertFailure(t)
+	r.AssertOutputContains(t, "sync mcp accepts only")
+	for _, flags := range [][]string{{"--pi-extension", "builtin"}, {"--pi-options-prune"}, {"--pi-options-prune=false"}} {
 		r := sb.RunCLI(append([]string{"sync", "mcp", "-g"}, flags...)...)
 		r.AssertFailure(t)
-		r.AssertOutputContains(t, "sync mcp accepts only")
+		r.AssertOutputContains(t, "was removed in 0.23.0")
 	}
 }
 

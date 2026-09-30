@@ -1,6 +1,7 @@
 package mcp
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -82,5 +83,52 @@ func TestRenderDoesNotResolveSecrets(t *testing.T) {
 	server.Env = map[string]Value{"API_TOKEN": {FromEnv: "OTHER_TOKEN"}}
 	if _, err := Render("codex", server); err == nil {
 		t.Fatal("cannot silently rename Codex environment variables")
+	}
+}
+
+// piExtension and piOptionsPrune were retired in 0.23.0. A config that still has them loads
+// with one notice each, and the next save drops them, from a project it did not touch too.
+func TestLegacyPiFieldsLoadAndDropOnSave(t *testing.T) {
+	s, tmp := projectsService(t, `mcp:
+  targets: [opencode]
+  servers:
+    docs:
+      command: docs
+      piExtension: pi-mcp-adapter
+      piOptionsPrune: true
+  projects:
+    $TMP/p1:
+      servers:
+        local:
+          command: local
+          piExtension: pi-mcp-extension
+`)
+	source, err := LoadSource(s.ConfigPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(source.Notices) != 2 || !strings.Contains(source.Notices[0], "docs, local ("+filepath.Join(tmp, "p1")+")") || !strings.Contains(source.Notices[1], "piOptionsPrune") {
+		t.Fatalf("notices: %q", source.Notices)
+	}
+	if _, err := s.Mutate(Mutation{Name: "other", Server: &Server{Command: "other"}}, "", false); err != nil {
+		t.Fatal(err)
+	}
+	data, _ := os.ReadFile(s.ConfigPath)
+	if strings.Contains(string(data), "piExtension") || strings.Contains(string(data), "piOptionsPrune") || !strings.Contains(string(data), "command: local") {
+		t.Fatalf("saved config: %s", data)
+	}
+	if source, err = LoadSource(s.ConfigPath); err != nil || len(source.Notices) != 0 {
+		t.Fatalf("%v %v", source.Notices, err)
+	}
+}
+
+// The dashboard sent piExtension and piOptionsPrune before 0.23.0; they are accepted and ignored.
+func TestServerJSONIgnoresLegacyPiFields(t *testing.T) {
+	var server Server
+	if err := json.Unmarshal([]byte(`{"command":"docs","piExtension":"pi-mcp-adapter","piOptionsPrune":true}`), &server); err != nil || server.Command != "docs" {
+		t.Fatalf("%+v %v", server, err)
+	}
+	if err := json.Unmarshal([]byte(`{"command":"docs","unknown":true}`), &server); err == nil {
+		t.Fatal("unknown field accepted")
 	}
 }

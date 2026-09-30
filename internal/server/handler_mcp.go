@@ -184,9 +184,11 @@ func (s *Server) handleMCPConfigure(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleMCPImport(w http.ResponseWriter, r *http.Request) {
 	var body struct {
-		From        string `json:"from"`
-		Content     string `json:"content"`
-		Name        string `json:"name"`
+		From    string `json:"from"`
+		Content string `json:"content"`
+		Name    string `json:"name"`
+		// PiExtension picks one of Pi's files: pi-mcp-adapter for the adapter's, anything
+		// else for mcp.json. Pasted content ignores it.
 		PiExtension string `json:"piExtension"`
 		// Root reads the target's file in that mcp.projects root instead of this scope.
 		Root string `json:"root"`
@@ -199,10 +201,6 @@ func (s *Server) handleMCPImport(w http.ResponseWriter, r *http.Request) {
 	var candidates []mcp.Candidate
 	var err error
 	if body.Content != "" {
-		if body.PiExtension != "" {
-			writeError(w, 400, "Pi import mode requires a target file")
-			return
-		}
 		candidates, err = mcp.Import(body.From, []byte(body.Content), body.Name)
 	} else if body.Root != "" {
 		candidates, err = s.mcpService().ImportProjectClientMode(body.Root, body.From, body.PiExtension)

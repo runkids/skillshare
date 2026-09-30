@@ -9,7 +9,7 @@ import (
 )
 
 func TestPiBuiltinRenderAndValidation(t *testing.T) {
-	s := Server{URL: "https://example.com/mcp", PiExtension: "builtin", BearerToken: &Value{FromEnv: "TOKEN"}, PiOptions: map[string]any{"exposure": "deferred", "timeout": 120, "custom": map[string]any{"flag": true}}}
+	s := Server{URL: "https://example.com/mcp", BearerToken: &Value{FromEnv: "TOKEN"}, PiOptions: map[string]any{"exposure": "deferred", "timeout": 120, "custom": map[string]any{"flag": true}}}
 	out, err := Render("pi", s)
 	if err != nil || out["transport"] != nil || out["exposure"] != "deferred" || out["headers"].(map[string]string)["Authorization"] != "Bearer ${TOKEN}" {
 		t.Fatalf("%+v %v", out, err)
@@ -26,7 +26,7 @@ func TestPiBuiltinRenderAndValidation(t *testing.T) {
 	if got := service.RenderNative("docs.with.dot", s); got[0].Error == "" {
 		t.Fatal("Pi built-in rejects dots in names")
 	}
-	if _, err := Render("pi", Server{Command: "echo", PiExtension: "builtin", Env: map[string]Value{"MODE": {Literal: "!date"}}}); err == nil {
+	if _, err := Render("pi", Server{Command: "echo", Env: map[string]Value{"MODE": {Literal: "!date"}}}); err == nil {
 		t.Fatal("a portable literal must not execute as a Pi secret command")
 	}
 }
@@ -37,7 +37,7 @@ func TestPiBuiltinSyncImportAndScopes(t *testing.T) {
 		if project {
 			s.ProjectRoot = filepath.Join(s.Home, "project")
 		}
-		if err := os.WriteFile(s.ConfigPath, []byte("mcp:\n  targets: [pi]\n  servers:\n    docs:\n      command: docs\n      piExtension: builtin\n      piOptions:\n        exposure: deferred\n        timeout: 120\n        custom: {flag: true}\n"), 0600); err != nil {
+		if err := os.WriteFile(s.ConfigPath, []byte("mcp:\n  targets: [pi]\n  servers:\n    docs:\n      command: docs\n      piOptions:\n        exposure: deferred\n        timeout: 120\n        custom: {flag: true}\n"), 0600); err != nil {
 			t.Fatal(err)
 		}
 		p, err := s.Preview()
@@ -61,18 +61,20 @@ func TestPiBuiltinSyncImportAndScopes(t *testing.T) {
 	}
 }
 
+// Sync always prunes; a config that still opts out with piOptionsPrune: false loads and
+// prunes all the same.
 func TestPiOptionsPruneOnlyOwnedUnchangedFields(t *testing.T) {
 	s := testService(t)
 	write := func(options string) {
 		t.Helper()
-		if err := os.WriteFile(s.ConfigPath, []byte("mcp:\n  targets: [pi]\n  servers:\n    docs:\n      command: docs\n      piExtension: builtin\n      piOptionsPrune: true\n"+options), 0600); err != nil {
+		if err := os.WriteFile(s.ConfigPath, []byte("mcp:\n  targets: [pi]\n  servers:\n    docs:\n      command: docs\n      piOptionsPrune: false\n"+options), 0600); err != nil {
 			t.Fatal(err)
 		}
 	}
 	write("      piOptions: {exposure: deferred, timeout: 120}\n")
 	p, err := s.Preview()
-	if err != nil {
-		t.Fatal(err)
+	if err != nil || len(p.Notices) != 1 || !strings.Contains(p.Notices[0], "piOptionsPrune") {
+		t.Fatalf("%+v %v", p, err)
 	}
 	if _, err := s.Apply(p.Revision); err != nil {
 		t.Fatal(err)
@@ -180,7 +182,7 @@ func TestPiToolExposureOrderAndCredentialImport(t *testing.T) {
 
 func TestPiBuiltinEnabledAndNativePreview(t *testing.T) {
 	s := testService(t)
-	server := Server{Command: "docs", Targets: []string{"pi"}, PiExtension: "builtin", PiOptions: PiOptions{"enabled": false, "exposure": "direct"}}
+	server := Server{Command: "docs", Targets: []string{"pi"}, PiOptions: PiOptions{"enabled": false, "exposure": "direct"}}
 	if _, err := s.Mutate(Mutation{Name: "docs", Server: &server, Replace: true}, "", true); err != nil {
 		t.Fatal(err)
 	}
@@ -219,7 +221,7 @@ func TestPiBuiltinEnabledAndNativePreview(t *testing.T) {
 
 func TestPiBuiltinNativeDisableDoesNotConflict(t *testing.T) {
 	s := testService(t)
-	server := Server{Command: "docs", Targets: []string{"pi"}, PiExtension: "builtin"}
+	server := Server{Command: "docs", Targets: []string{"pi"}}
 	if _, err := s.Mutate(Mutation{Name: "docs", Server: &server, Replace: true}, "", true); err != nil {
 		t.Fatal(err)
 	}

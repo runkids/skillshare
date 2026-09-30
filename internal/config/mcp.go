@@ -1,7 +1,6 @@
 package config
 
 import (
-	"bytes"
 	"fmt"
 	"slices"
 
@@ -119,14 +118,8 @@ func ValidateMCP(cfg *MCPConfig, external string, accounts ...string) error {
 	if cfg.Servers.Kind != yaml.MappingNode {
 		return fmt.Errorf("mcp.servers must be a mapping")
 	}
-	data, err := yaml.Marshal(cfg.Servers)
+	servers, err := mcp.ParseServers(cfg.Servers)
 	if err != nil {
-		return err
-	}
-	var servers map[string]mcp.Server
-	d := yaml.NewDecoder(bytes.NewReader(data))
-	d.KnownFields(true)
-	if err := d.Decode(&servers); err != nil {
 		return fmt.Errorf("invalid MCP server fields")
 	}
 	for name, server := range servers {

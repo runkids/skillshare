@@ -95,10 +95,8 @@ _skillshare() {
                 mcp)
                     _arguments \
                         '1:command:(add check edit import list remove restore)' \
-                        '--pi-extension[Pi MCP mode]:extension:(builtin pi-mcp-adapter pi-mcp-extension)' \
-                        '--direct-tools[pi-mcp-adapter direct tools: true, false, search or tool names]:value:(true false search)' \
-                        '--pi-options[builtin or adapter: other per-server fields as JSON]:json:' \
-                        '--pi-options-prune[Remove only owned unchanged Pi fields]' \
+                        '--direct-tools[pi-mcp-adapter direct tools, kept but not synced: true, false, search or tool names]:value:(true false search)' \
+                        '--pi-options[Other Pi built-in per-server fields as JSON]:json:' \
                         '--target[Receiving client]:target:' \
                         '--from[Import client]:target:' \
                         '--url[MCP endpoint]:url:' \

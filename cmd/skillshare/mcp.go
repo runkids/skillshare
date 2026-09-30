@@ -7,7 +7,6 @@ import (
 	"maps"
 	"os"
 	"slices"
-	"strconv"
 	"strings"
 	"time"
 
@@ -17,7 +16,7 @@ import (
 )
 
 type mcpOptions struct {
-	name, url, from, file, revision, piExtension string
+	name, url, from, file, revision string
 	// directTools is nil unless --direct-tools was given.
 	directTools any
 	// piOptions is nil unless --pi-options was given.
@@ -26,26 +25,33 @@ type mcpOptions struct {
 	command                                      []string
 	sync, dryRun, json, replace, noTUI, disabled bool
 	keepFiles                                    bool
-	piOptionsPrune                               bool
-	piOptionsPruneSet                            bool
+}
+
+// removedMCPFlags were Pi settings until 0.23.0. Naming one says what replaced it rather
+// than calling the flag unknown.
+var removedMCPFlags = map[string]string{
+	"--pi-extension":     "--pi-extension was removed in 0.23.0: Pi always uses its built-in MCP (~/.pi/agent/mcp.json or .pi/mcp.json); drop the flag",
+	"--pi-options-prune": "--pi-options-prune was removed in 0.23.0: sync always removes Pi fields Skillshare wrote earlier that are unchanged; drop the flag",
 }
 
 func parseMCPOptions(args []string) (mcpOptions, error) {
 	var o mcpOptions
 	for i := 0; i < len(args); i++ {
+		flag, _, _ := strings.Cut(args[i], "=")
+		if message, removed := removedMCPFlags[flag]; removed {
+			return o, errors.New(message)
+		}
 		switch a := args[i]; a {
 		case "--":
 			o.command = args[i+1:]
 			i = len(args)
-		case "--url", "--target", "--from", "--file", "--revision", "--pi-extension", "--direct-tools", "--pi-options":
+		case "--url", "--target", "--from", "--file", "--revision", "--direct-tools", "--pi-options":
 			if i+1 == len(args) {
 				return o, fmt.Errorf("%s requires a value", a)
 			}
 			i++
 			value := args[i]
 			switch a {
-			case "--pi-extension":
-				o.piExtension = value
 			case "--direct-tools":
 				switch value {
 				case "true", "false":
@@ -82,21 +88,9 @@ func parseMCPOptions(args []string) (mcpOptions, error) {
 			o.replace = true
 		case "--disabled":
 			o.disabled = true
-		case "--pi-options-prune":
-			o.piOptionsPrune = true
-			o.piOptionsPruneSet = true
 		case "--keep-files":
 			o.keepFiles = true
 		default:
-			if value, found := strings.CutPrefix(a, "--pi-options-prune="); found {
-				var err error
-				o.piOptionsPrune, err = strconv.ParseBool(value)
-				if err != nil {
-					return o, fmt.Errorf("--pi-options-prune takes true or false")
-				}
-				o.piOptionsPruneSet = true
-				continue
-			}
 			if strings.HasPrefix(a, "-") || o.name != "" {
 				return o, fmt.Errorf("unknown MCP argument %q", a)
 			}
@@ -215,7 +209,7 @@ func cmdSyncMCP(args []string) error {
 	if err != nil {
 		return err
 	}
-	if o.piOptionsPruneSet || o.piOptionsPrune || o.piOptions != nil || o.directTools != nil || o.piExtension != "" || o.name != "" || o.url != "" || o.from != "" || o.file != "" || len(o.command) > 0 || o.targets != nil || o.replace || o.sync || o.disabled || o.keepFiles {
+	if o.piOptions != nil || o.directTools != nil || o.name != "" || o.url != "" || o.from != "" || o.file != "" || len(o.command) > 0 || o.targets != nil || o.replace || o.sync || o.disabled || o.keepFiles {
 		return fmt.Errorf("sync mcp accepts only --dry-run, --json, --revision and scope flags")
 	}
 	if o.dryRun {
@@ -273,6 +267,9 @@ func printMCPPlan(p *mcp.Plan, asJSON bool) error {
 		return json.NewEncoder(os.Stdout).Encode(p)
 	}
 	ui.Info("MCP source: %s", p.SourcePath)
+	for _, notice := range p.Notices {
+		ui.Warning("%s", notice)
+	}
 	// mcp.projects puts one server into several roots; name the file only then.
 	seen := map[string]int{}
 	for _, c := range p.Changes {
@@ -335,17 +332,16 @@ Commands:
   restore [id]      Browse backups, preview and restore Agent entries
 
 Options:
-  --pi-extension <mode>     builtin (Pi >= 0.99.0; default for a new server), pi-mcp-adapter or pi-mcp-extension
-  --direct-tools <value>    pi-mcp-adapter only: true, false, search, or tool names separated by commas
-  --pi-options <json>       builtin or adapter: other per-server fields as a JSON object
-  --pi-options-prune        Remove cleared Pi fields only if owned and unchanged (=false disables)
+  --direct-tools <value>    pi-mcp-adapter setting, kept but not synced: true, false,
+                            search, or tool names separated by commas
+  --pi-options <json>       Other Pi built-in per-server fields as a JSON object
   --target <client>  Receiving client; repeat for multiple clients, or none to keep
                     the server in Skillshare without writing it to any Agent
   --from <client>    Native client ID or account target (see mcp documentation)
   --file <path>      Native configuration file to import
   --url <url>        Streamable HTTP endpoint
   --disabled        Project mode: turn off a server from the Agent's global config
-                    (add NAME --disabled --target opencode; claude, opencode, kilocode, pi)
+                    (add NAME --disabled --target opencode; claude, opencode, kilocode)
   --sync            Save and synchronize (non-interactive default: save only)
   --keep-files      remove only: stop managing the server; its Agent entries stay
                     and sync no longer removes or updates them

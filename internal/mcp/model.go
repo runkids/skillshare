@@ -4,6 +4,7 @@
 package mcp
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"net/url"
@@ -69,7 +70,6 @@ func (v Value) MarshalJSON() ([]byte, error) {
 
 // Server contains only settings that have explicit native adapter mappings.
 type Server struct {
-	PiExtension string           `yaml:"piExtension,omitempty" json:"piExtension,omitempty"`
 	Transport   string           `yaml:"transport,omitempty" json:"transport,omitempty"`
 	Command     string           `yaml:"command,omitempty" json:"command,omitempty"`
 	Args        []string         `yaml:"args,omitempty" json:"args,omitempty"`
@@ -79,17 +79,64 @@ type Server struct {
 	BearerToken *Value           `yaml:"bearerToken,omitempty" json:"bearerToken,omitempty"`
 	Targets     TargetList       `yaml:"targets,omitempty" json:"targets,omitzero"`
 	// DirectTools is pi-mcp-adapter's directTools: true, false, "search" or a list of
-	// tool names. Only Pi receives it.
+	// tool names. Pi's built-in MCP does not read it, so it is kept but not synced.
 	DirectTools any `yaml:"directTools,omitempty" json:"directTools,omitempty"`
-	// PiOptions are builtin or adapter fields Skillshare has no setting for, such as
-	// excludeTools. They are written into Pi's entry as given.
+	// PiOptions are Pi built-in fields Skillshare has no setting for, such as timeout.
+	// They are written into Pi's entry as given.
 	PiOptions PiOptions `yaml:"piOptions,omitempty" json:"piOptions,omitempty"`
-	// PiOptionsPrune removes cleared fields only when the ledger owns their unchanged values.
-	PiOptionsPrune bool `yaml:"piOptionsPrune,omitempty" json:"piOptionsPrune,omitempty"`
 	// Disabled is the whole entry: it turns off, for one project, a server that the
 	// Agent's global config defines. Unselecting an Agent already covers a server
 	// Skillshare defines, so a disabled server carries no command or url.
 	Disabled bool `yaml:"disabled,omitempty" json:"disabled,omitempty"`
+}
+
+// legacyServerFields chose Pi's MCP extension and opted in to pruning Pi fields, before
+// 0.23.0 made Pi use its built-in MCP and always prune. A config that still has them loads,
+// and saving it drops them.
+var legacyServerFields = []string{"piExtension", "piOptionsPrune"}
+
+// UnmarshalJSON ignores legacyServerFields, so a dashboard that still sends them can save.
+func (s *Server) UnmarshalJSON(data []byte) error {
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal(data, &fields); err != nil {
+		return err
+	}
+	for _, key := range legacyServerFields {
+		delete(fields, key)
+	}
+	data, err := json.Marshal(fields)
+	if err != nil {
+		return err
+	}
+	type plain Server
+	d := json.NewDecoder(bytes.NewReader(data))
+	d.DisallowUnknownFields()
+	return d.Decode((*plain)(s))
+}
+
+// dropLegacyFields removes legacyServerFields from every server of a servers mapping, in
+// place, and names the servers that had each field.
+func dropLegacyFields(servers *yaml.Node) map[string][]string {
+	found := map[string][]string{}
+	if servers != nil && servers.Kind == yaml.AliasNode {
+		servers = servers.Alias
+	}
+	if servers == nil || servers.Kind != yaml.MappingNode {
+		return found
+	}
+	for i := 0; i+1 < len(servers.Content); i += 2 {
+		server := servers.Content[i+1]
+		if server.Kind == yaml.AliasNode {
+			server = server.Alias
+		}
+		for _, key := range legacyServerFields {
+			if field(server, key) != nil {
+				drop(server, key)
+				found[key] = append(found[key], servers.Content[i].Value)
+			}
+		}
+	}
+	return found
 }
 
 // TargetList tells a missing list from an empty one. Missing inherits mcp.targets; empty
@@ -152,9 +199,6 @@ func validateTargets(targets []string) error {
 
 // Validate checks a portable server without executing or connecting to it.
 func (s Server) Validate(name string) error {
-	if s.PiExtension != "" && s.PiExtension != "builtin" && s.PiExtension != "pi-mcp-adapter" && s.PiExtension != "pi-mcp-extension" {
-		return fmt.Errorf("MCP %s: piExtension must be builtin, pi-mcp-adapter or pi-mcp-extension", name)
-	}
 	for key := range s.Env {
 		if !envName.MatchString(key) {
 			return fmt.Errorf("MCP %s: invalid environment variable name", name)

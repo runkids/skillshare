@@ -44,10 +44,8 @@ complete -c skillshare -n '__fish_skillshare_using_command plugin' -l json
 complete -c skillshare -n '__fish_skillshare_using_command plugin' -l no-tui
 complete -c skillshare -n '__fish_skillshare_using_command plugin' -l help -s h
 complete -c skillshare -n __fish_skillshare_no_subcommand -a mcp -d 'Manage MCP connections'
-complete -c skillshare -n '__fish_skillshare_using_command mcp' -l pi-extension -r -a 'builtin pi-mcp-adapter pi-mcp-extension' -d 'Pi MCP mode'
-complete -c skillshare -n '__fish_skillshare_using_command mcp' -l direct-tools -r -a 'true false search' -d 'pi-mcp-adapter direct tools, or tool names separated by commas'
-complete -c skillshare -n '__fish_skillshare_using_command mcp' -l pi-options -r -d 'builtin or adapter: other per-server fields as JSON'
-complete -c skillshare -n '__fish_skillshare_using_command mcp' -l pi-options-prune -d 'Remove only owned unchanged Pi fields (=false disables)'
+complete -c skillshare -n '__fish_skillshare_using_command mcp' -l direct-tools -r -a 'true false search' -d 'pi-mcp-adapter direct tools, kept but not synced'
+complete -c skillshare -n '__fish_skillshare_using_command mcp' -l pi-options -r -d 'Other Pi built-in per-server fields as JSON'
 complete -c skillshare -n '__fish_skillshare_using_command mcp' -l no-dns -d 'Skip host lookups'
 complete -c skillshare -n '__fish_skillshare_using_command mcp' -l live -d 'check: start or call each server'
 complete -c skillshare -n '__fish_skillshare_using_command mcp' -l timeout -r -d 'check --live: per-server timeout'

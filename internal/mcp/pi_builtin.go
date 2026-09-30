@@ -123,7 +123,7 @@ func validatePiBuiltinOptions(name string, options map[string]any) error {
 	return nil
 }
 
-// Import extension options recursively without copying literal credentials into the source.
+// Import Pi options recursively without copying literal credentials into the source.
 func importPiOption(name, key string, value any, warnings *[]string) any {
 	if text, ok := value.(string); ok && (sensitiveKey.MatchString(key) || hasURLPassword(text)) {
 		if strings.Contains(text, "${") {
@@ -164,13 +164,6 @@ func piOwnedFields(entry map[string]any) map[string]string {
 		}
 	}
 	return fields
-}
-
-func piPrunes(source *Source, root, name string) bool {
-	if root != "" {
-		return source.Projects[root].Servers[name].PiOptionsPrune
-	}
-	return source.Servers[name].PiOptionsPrune
 }
 
 // FieldChanges contains names only: previews must not expose credentials from native files.

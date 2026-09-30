@@ -182,14 +182,14 @@ func TestCodexAccountSyncsIntoItsConfigToml(t *testing.T) {
 	}
 }
 
-// A Pi account keeps its own mcp-adapter.json, in the directory PI_CODING_AGENT_DIR moves.
-func TestPiAccountSyncsIntoItsAdapterFile(t *testing.T) {
-	s, work := agentAccountService(t, "pi", "mcp:\n  targets: [pi-work]\n  servers:\n    docs:\n      url: https://example.com/mcp\n      piExtension: pi-mcp-adapter\n")
+// A Pi account keeps its own mcp.json, in the directory PI_CODING_AGENT_DIR moves.
+func TestPiAccountSyncsIntoItsOwnFile(t *testing.T) {
+	s, work := agentAccountService(t, "pi", "mcp:\n  targets: [pi-work]\n  servers:\n    docs:\n      url: https://example.com/mcp\n")
 	plan, err := s.Preview()
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := filepath.Join(work, "mcp-adapter.json")
+	want := filepath.Join(work, "mcp.json")
 	if len(plan.Changes) != 1 || plan.Changes[0].Target != "pi-work" || plan.Changes[0].Path != want {
 		t.Fatalf("changes: %+v", plan.Changes)
 	}
@@ -201,19 +201,24 @@ func TestPiAccountSyncsIntoItsAdapterFile(t *testing.T) {
 	}
 }
 
-// pi-mcp-extension reads ~/.pi/agent/mcp.json whatever the directory is, so it cannot
-// serve an account.
-func TestPiAccountRefusesTheExtensionThatIgnoresTheDirectory(t *testing.T) {
-	s, work := agentAccountService(t, "pi", "mcp:\n  targets: [pi-work]\n  servers:\n    docs:\n      url: https://example.com/mcp\n      piExtension: pi-mcp-extension\n")
-	_, err := s.Preview()
-	if err == nil {
-		t.Fatal("pi-mcp-extension was accepted for an account")
+// What an account's server had in the account's mcp-adapter.json is removed under the
+// account's name, as its move to mcp.json is added.
+func TestPiAccountAdapterEntryRemovedAsTheAccount(t *testing.T) {
+	s, work := agentAccountService(t, "pi", "mcp:\n  targets: [pi-work]\n  servers:\n    docs:\n      url: https://example.com/mcp\n      piExtension: pi-mcp-adapter\n")
+	adapter, entry := filepath.Join(work, "mcp-adapter.json"), map[string]any{"url": "https://example.com/mcp"}
+	if err := writeJSONFile(adapter, map[string]any{"mcpServers": map[string]any{"docs": entry}}); err != nil {
+		t.Fatal(err)
 	}
-	// Nothing can be unset here, so the refusal names the account and what to select instead.
-	for _, want := range []string{"pi-work", work, "pi-mcp-adapter"} {
-		if !strings.Contains(err.Error(), want) {
-			t.Fatalf("the refusal does not say %q: %v", want, err)
-		}
+	record := ownership{Owner: s.ConfigPath, Target: "pi", Path: adapter, Name: "docs", Hash: entryHash(managedEntry("pi", entry))}
+	if err := writeJSONFile(s.statePath(), ledger{Version: 1, Entries: map[string]ownership{ownershipKey("pi", adapter, "docs"): record}}); err != nil {
+		t.Fatal(err)
+	}
+	plan, err := s.Preview()
+	if err != nil || plan.Blocked {
+		t.Fatalf("%+v %v", plan, err)
+	}
+	if c := changeFor(plan, adapter, "docs"); c == nil || c.Action != "remove" || c.Target != "pi-work" {
+		t.Fatalf("adapter entry: %+v", c)
 	}
 }
 

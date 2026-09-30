@@ -1,8 +1,5 @@
 package mcp
 
-// piExtensionWarning asks for the extension that an entry of Pi's mcp.json was written for.
-const piExtensionWarning = "Select the Pi MCP mode (builtin, pi-mcp-adapter or pi-mcp-extension); mcp.json alone does not identify the mode"
-
 // Normalize native dialects before applying the common import validation.
 func normalizeClientImport(target string, entry map[string]any, c *Candidate) {
 	if target == "pi" {
@@ -10,7 +7,6 @@ func normalizeClientImport(target string, entry map[string]any, c *Candidate) {
 			entry["type"] = kind
 			delete(entry, "transport")
 		}
-		c.Warnings = append(c.Warnings, piExtensionWarning)
 	}
 	format, ok := clientFormats[target]
 	if !ok {

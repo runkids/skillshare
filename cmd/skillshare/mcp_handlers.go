@@ -21,7 +21,7 @@ func runMCPAdd(service *mcp.Service, o mcpOptions) error {
 		}
 		return mcpAddWizard(service, o)
 	}
-	server := mcp.Server{URL: o.url, Targets: o.targets, PiExtension: o.piExtension, DirectTools: o.directTools, PiOptions: o.piOptions, PiOptionsPrune: o.piOptionsPrune, Disabled: o.disabled}
+	server := mcp.Server{URL: o.url, Targets: o.targets, DirectTools: o.directTools, PiOptions: o.piOptions, Disabled: o.disabled}
 	if len(o.command) > 0 {
 		server.Command, server.Args = o.command[0], o.command[1:]
 	}
@@ -31,10 +31,6 @@ func runMCPAdd(service *mcp.Service, o mcpOptions) error {
 	}
 	if _, exists := source.Servers[o.name]; exists && !o.replace {
 		return fmt.Errorf("MCP %s already exists; use --replace to explicitly replace its source definition", o.name)
-	}
-	// A switch-only entry takes the mode of the server it turns off.
-	if !server.Disabled {
-		source.DefaultPiExtension(&server)
 	}
 	return finishMCPMutation(service, mcp.Mutation{Name: o.name, Server: &server}, o, time.Now())
 }
@@ -94,29 +90,9 @@ func runMCPImport(service *mcp.Service, o mcpOptions) error {
 		if format == "" && strings.HasSuffix(o.file, ".toml") {
 			format = "codex"
 		}
-		if o.piExtension != "" && o.from == "" {
-			if format == "" {
-				format = mcp.DetectImportFormat(data)
-			}
-			if format != "pi" {
-				return fmt.Errorf("--pi-extension requires Pi input when --from is omitted; detected %s", format)
-			}
-		}
-		if format == "pi" && o.piExtension != "" {
-			candidates, err = mcp.ImportPi(data, o.name, o.piExtension)
-		} else {
-			candidates, err = mcp.Import(format, data, o.name)
-		}
+		candidates, err = mcp.Import(format, data, o.name)
 	} else {
-		format, formatErr := service.ImportFormat(o.from)
-		if formatErr != nil {
-			return formatErr
-		}
-		mode := ""
-		if format == "pi" {
-			mode = o.piExtension
-		}
-		candidates, err = service.ImportClientMode(o.from, mode)
+		candidates, err = service.ImportClient(o.from)
 	}
 	if err != nil {
 		return err
@@ -147,10 +123,6 @@ func runMCPImport(service *mcp.Service, o mcpOptions) error {
 			return fmt.Errorf("MCP source entry exists; use --replace")
 		}
 		c.Server.Targets = o.targets
-		if o.piExtension != "" {
-			c.Server.PiExtension = o.piExtension
-		}
-		source.DefaultPiExtension(&c.Server)
 		selectedTargets := c.Server.Targets
 		if selectedTargets == nil {
 			selectedTargets = source.Targets

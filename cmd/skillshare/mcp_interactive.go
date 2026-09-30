@@ -82,9 +82,6 @@ func chooseMCPTargets(service *mcp.Service, servers []mcp.Server, initial []stri
 	for _, item := range items {
 		compatible := true
 		for _, server := range servers {
-			if item.label == "pi" && server.PiExtension == "" {
-				server.PiExtension = "builtin"
-			}
 			if _, err := mcp.Render(item.label, server); err != nil {
 				compatible = false
 				break
@@ -109,26 +106,6 @@ func chooseMCPTargets(service *mcp.Service, servers []mcp.Server, initial []stri
 	targets := make([]string, 0, len(selected))
 	for _, i := range selected {
 		targets = append(targets, available[i].label)
-	}
-
-	if slices.Contains(targets, "pi") {
-		initial := ""
-		for _, server := range servers {
-			if server.PiExtension != "" {
-				initial = server.PiExtension
-				break
-			}
-		}
-		extension, err := choosePiExtension(initial, p)
-		if err != nil {
-			return nil, err
-		}
-		for i := range servers {
-			servers[i].PiExtension = extension
-			if _, err := mcp.Render("pi", servers[i]); err != nil {
-				return nil, err
-			}
-		}
 	}
 	return targets, nil
 }
@@ -304,21 +281,4 @@ func runMCPRestore(service *mcp.Service, o mcpOptions, prompts mcpPrompts) error
 		}
 	}
 	return err
-}
-
-func choosePiExtension(initial string, p mcpPrompts) (string, error) {
-	packages := []string{"builtin", "pi-mcp-adapter", "pi-mcp-extension"}
-	if initial == "" {
-		initial = "builtin"
-	}
-	items := []checklistItemData{
-		{label: packages[0], desc: "Pi >= 0.99.0; built-in MCP and codemode; manage with /mcp", preSelected: initial == packages[0]},
-		{label: packages[1], desc: "On-demand proxy tools; manage with /mcp-adapter", preSelected: initial == packages[1]},
-		{label: packages[2], desc: "Direct tools; start with /mcp:start <server>", preSelected: initial == packages[2]},
-	}
-	selected, err := chooseMCP(p, checklistConfig{title: "Which MCP mode do you use in Pi?", header: "Built-in requires Pi >= 0.99.0. Third-party packages need installation. Sync writes configuration only.", items: items, singleSelect: true, itemName: "mode"})
-	if err != nil {
-		return "", err
-	}
-	return packages[selected[0]], nil
 }

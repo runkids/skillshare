@@ -20,14 +20,16 @@ type Source struct {
 	Path       string            `json:"path"`
 	Targets    []string          `json:"targets"`
 	Servers    map[string]Server `json:"servers"`
-	// DirectTools is the default for pi-mcp-adapter servers that do not set their own,
-	// as Targets is for targets. It stands in for the adapter's settings.directTools,
-	// which shares Pi's file with the servers and a plan edits each file once.
+	// DirectTools was the default for pi-mcp-adapter servers that do not set their own.
+	// Pi's built-in MCP does not read it, so it is kept but not synced.
 	DirectTools any `json:"directTools,omitempty"`
 	// Projects are project roots a global config syncs into, keyed by absolute path.
 	Projects map[string]Project `json:"projects,omitempty"`
 	// Accounts are the config's targets that are another config directory of an Agent.
 	Accounts map[string]Account `json:"accounts,omitempty"`
+	// Notices name settings the config still has that no longer apply. Loading the config
+	// is not an error for them; saving it drops what can be dropped.
+	Notices []string `json:"notices,omitempty"`
 	// projectKeys holds each root as config.yaml spells it, so saving keeps a leading ~.
 	projectKeys map[string]string
 	// What a draft changed, so save re-encodes nothing else.
@@ -172,9 +174,25 @@ func LoadSource(configPath string) (*Source, error) {
 			}
 		}
 	}
+	legacy := map[string][]string{}
+	note := func(found map[string][]string, root string) {
+		for key, names := range found {
+			for _, name := range names {
+				if root != "" {
+					name += " (" + root + ")"
+				}
+				legacy[key] = append(legacy[key], name)
+			}
+		}
+	}
 	var servers *yaml.Node
 	if mcp != nil {
 		servers = field(mcp, "servers")
+		if projects := field(mcp, "projects"); projects != nil && projects.Kind == yaml.MappingNode {
+			for i := 0; i+1 < len(projects.Content); i += 2 {
+				note(dropLegacyFields(field(projects.Content[i+1], "servers")), projects.Content[i].Value)
+			}
+		}
 	}
 	if sources := field(&s.configDoc, "sources"); sources != nil {
 		if sources.Kind != yaml.MappingNode {
@@ -220,14 +238,9 @@ func LoadSource(configPath string) (*Source, error) {
 		if servers.Kind != yaml.MappingNode {
 			return nil, fmt.Errorf("MCP servers must be a mapping")
 		}
-		data, err := yaml.Marshal(servers)
-		if err != nil {
-			return nil, err
-		}
-		decoder := yaml.NewDecoder(bytes.NewReader(data))
-		decoder.KnownFields(true)
-		if err := decoder.Decode(&s.Servers); err != nil {
-			return nil, fmt.Errorf("invalid MCP server fields: use command/args/env or url/headers/bearerToken and optional targets/transport/piExtension, or disabled with targets")
+		note(dropLegacyFields(servers), "")
+		if s.Servers, err = ParseServers(servers); err != nil {
+			return nil, fmt.Errorf("invalid MCP server fields: use command/args/env or url/headers/bearerToken and optional targets/transport/piOptions, or disabled with targets")
 		}
 	}
 	for name, server := range s.Servers {
@@ -238,7 +251,46 @@ func LoadSource(configPath string) (*Source, error) {
 	if s.Accounts, err = parseAccounts(field(&s.configDoc, "targets")); err != nil {
 		return nil, err
 	}
+	s.Notices = legacyNotices(s, legacy)
 	return s, s.checkTargets()
+}
+
+// legacyNotices explains the settings 0.23.0 retired that the config still has.
+func legacyNotices(s *Source, legacy map[string][]string) []string {
+	var notices []string
+	list := func(names []string) string {
+		slices.Sort(names)
+		return strings.Join(names, ", ")
+	}
+	if names := legacy["piExtension"]; len(names) > 0 {
+		notices = append(notices, "piExtension is ignored since 0.23.0 ("+list(names)+"): Pi always uses its built-in MCP (mcp.json), sync moves these servers there and removes the entries Skillshare wrote to mcp-adapter.json; saving the config drops the field")
+	}
+	if names := legacy["piOptionsPrune"]; len(names) > 0 {
+		notices = append(notices, "piOptionsPrune is ignored since 0.23.0 ("+list(names)+"): sync always removes Pi fields Skillshare wrote earlier that are unchanged; saving the config drops the field")
+	}
+	var direct []string
+	if s.DirectTools != nil {
+		direct = append(direct, "mcp.directTools")
+	}
+	for name, server := range s.Servers {
+		if server.DirectTools != nil {
+			direct = append(direct, name)
+		}
+	}
+	for root, project := range s.Projects {
+		if project.DirectTools != nil {
+			direct = append(direct, "directTools ("+root+")")
+		}
+		for name, server := range project.Servers {
+			if server.DirectTools != nil {
+				direct = append(direct, name+" ("+root+")")
+			}
+		}
+	}
+	if len(direct) > 0 {
+		notices = append(notices, "directTools is a pi-mcp-adapter setting that Pi's built-in MCP does not read; it is kept but not synced ("+list(direct)+")")
+	}
+	return notices
 }
 
 // parseAccounts reads the targets that are another config directory of an Agent whose MCP
@@ -344,6 +396,30 @@ func ReferenceWarning(configPath, target string) string {
 	return fmt.Sprintf("%s %s %s; remove it there too or the next mcp sync fails", strings.Join(places, ", "), names, target)
 }
 
+// ParseServers decodes a servers mapping strictly, except for legacyServerFields, which it
+// ignores. It does not validate the servers.
+func ParseServers(node *yaml.Node) (map[string]Server, error) {
+	data, err := yaml.Marshal(expandAliases(node))
+	if err != nil {
+		return nil, err
+	}
+	var copied yaml.Node
+	if err := yaml.Unmarshal(data, &copied); err != nil {
+		return nil, err
+	}
+	dropLegacyFields(mapping(&copied))
+	if data, err = yaml.Marshal(&copied); err != nil {
+		return nil, err
+	}
+	servers := map[string]Server{}
+	decoder := yaml.NewDecoder(bytes.NewReader(data))
+	decoder.KnownFields(true)
+	if err := decoder.Decode(&servers); err != nil {
+		return nil, err
+	}
+	return servers, nil
+}
+
 // ParseProjects reads and validates mcp.projects. The config editor shares it, so it
 // never accepts a section that sync would then refuse.
 func ParseProjects(node *yaml.Node) (map[string]Project, error) {
@@ -354,6 +430,18 @@ func ParseProjects(node *yaml.Node) (map[string]Project, error) {
 	// anchor outside it, such as one on mcp.servers, has to be expanded first.
 	data, err := yaml.Marshal(expandAliases(node))
 	if err != nil {
+		return nil, err
+	}
+	var copied yaml.Node
+	if err := yaml.Unmarshal(data, &copied); err != nil {
+		return nil, err
+	}
+	if projects := mapping(&copied); projects.Kind == yaml.MappingNode {
+		for i := 0; i+1 < len(projects.Content); i += 2 {
+			dropLegacyFields(field(projects.Content[i+1], "servers"))
+		}
+	}
+	if data, err = yaml.Marshal(&copied); err != nil {
 		return nil, err
 	}
 	var declared map[string]Project

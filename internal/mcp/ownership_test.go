@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-const ownershipSource = "mcp:\n  targets: [pi]\n  servers:\n    mcp-test1:\n      url: https://example.com/mcp\n      piExtension: pi-mcp-extension\n"
+const ownershipSource = "mcp:\n  targets: [pi]\n  servers:\n    mcp-test1:\n      url: https://example.com/mcp\n"
 
 func writeSource(t *testing.T, path, body string) {
 	t.Helper()

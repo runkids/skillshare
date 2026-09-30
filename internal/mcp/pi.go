@@ -40,42 +40,26 @@ func (s Server) validateDirectTools(name string) error {
 		return fmt.Errorf("MCP %s: directTools must be true, false, \"search\" or a list of tool names", name)
 	case s.Disabled:
 		return fmt.Errorf("MCP %s: directTools cannot be set on a disabled entry; it only switches the server off", name)
-	case s.PiExtension != "pi-mcp-adapter":
-		return fmt.Errorf("MCP %s: directTools is a pi-mcp-adapter setting; set piExtension: pi-mcp-adapter", name)
 	}
 	return nil
 }
 
 func (s Server) validatePiOptions(name string) error {
-	if len(s.PiOptions) == 0 && !s.PiOptionsPrune {
+	if len(s.PiOptions) == 0 {
 		return nil
 	}
 	if s.Disabled {
 		return fmt.Errorf("MCP %s: piOptions cannot be set on a disabled entry; it only switches the server off", name)
 	}
-	if s.PiExtension != "pi-mcp-adapter" && s.PiExtension != "builtin" {
-		return fmt.Errorf("MCP %s: piOptions require piExtension: builtin or pi-mcp-adapter", name)
-	}
 	if field := piOptionCommand("", s.PiOptions); field != "" {
 		return fmt.Errorf("MCP %s: Pi option %s cannot contain a command beginning with !; keep it in Pi or use an environment reference", name, field)
 	}
 	for _, key := range append(additionalManagedFields("pi"), "directTools", "type", "settings", "autoEnableCodemode") {
-		if _, set := s.PiOptions[key]; set && !(key == "enabled" && s.PiExtension == "builtin") {
+		if _, set := s.PiOptions[key]; set && key != "enabled" {
 			return fmt.Errorf("MCP %s: piOptions cannot set %s; Skillshare writes that field from the server's own settings", name, key)
 		}
 	}
-	if s.PiExtension == "builtin" {
-		return validatePiBuiltinOptions(name, s.PiOptions)
-	}
-	return nil
-}
-
-// withDirectToolsDefault fills in mcp.directTools for a pi-mcp-adapter server that sets none.
-func (s Server) withDirectToolsDefault(value any) Server {
-	if s.DirectTools == nil && s.PiExtension == "pi-mcp-adapter" && !s.Disabled {
-		s.DirectTools = value
-	}
-	return s
+	return validatePiBuiltinOptions(name, s.PiOptions)
 }
 
 // agentFieldsChanged reports a field outside the ownership hash, Pi's directTools or a
@@ -96,76 +80,23 @@ func agentFieldsChanged(target string, current, want map[string]any) bool {
 	return false
 }
 
-// DefaultPiExtension gives a new server that reaches Pi, or an account of Pi, the built-in
-// mode when none was chosen. Other servers' modes are not consulted.
-func (s *Source) DefaultPiExtension(server *Server) {
-	if server.PiExtension != "" {
-		return
-	}
-	targets := server.Targets
-	if targets == nil {
-		targets = s.Targets
-	}
-	for _, target := range targets {
-		if target == "pi" || s.Accounts[target].Agent == "pi" {
-			server.PiExtension = "builtin"
-			return
-		}
-	}
-}
-
-// Pi's extensions differ in file, transport and credential syntax.
-// Sync config only: installing or starting either extension remains explicit.
+// renderPi writes an entry of Pi's built-in MCP (Pi >= 0.99.0). Sync writes configuration
+// only; it never installs or starts anything.
 func renderPi(s Server) (map[string]any, error) {
-	if s.PiExtension == "" {
-		return nil, fmt.Errorf("Pi requires piExtension: builtin (Pi >= 0.99.0), pi-mcp-adapter or pi-mcp-extension")
-	}
-	format := clientFormats["pi"]
-	if s.PiExtension == "pi-mcp-adapter" || s.PiExtension == "builtin" {
-		format.refPrefix = "${"
-	}
-	// The extension passes through the parent's environment, but cannot rename
-	// variables or interpolate headers. Never resolve credentials in Skillshare.
-	if s.PiExtension == "pi-mcp-extension" {
-		env := map[string]Value{}
-		for key, value := range s.Env {
-			if value.FromEnv != "" {
-				if value.FromEnv != key {
-					return nil, fmt.Errorf("pi-mcp-extension cannot rename environment variables; use matching names or pi-mcp-adapter")
-				}
-			} else {
-				env[key] = value
-			}
-		}
-		s.Env = env
-	}
-	out, err := renderAdditionalClient("pi", format, s)
+	out, err := renderAdditionalClient("pi", clientFormats["pi"], s)
 	if err != nil {
 		return nil, err
 	}
-	if s.PiExtension == "pi-mcp-extension" {
-		out["transport"] = "stdio"
-		if s.URL != "" {
-			out["transport"] = "streamable-http"
-		}
-	} else {
-		maps.Copy(out, s.PiOptions)
-		if s.DirectTools != nil {
-			out["directTools"] = s.DirectTools
-		}
-		for _, key := range []string{"env", "headers"} {
-			values, _ := out[key].(map[string]string)
-			for name, value := range values {
-				// Portable literals must not become executable secret commands.
-				if s.PiExtension == "builtin" && strings.HasPrefix(value, "!") {
-					return nil, fmt.Errorf("Pi built-in: a literal beginning with ! would run a command; use fromEnv instead")
-				}
-				if strings.HasPrefix(value, "!") {
-					values[name] = "!" + value
-				}
-				if strings.Contains(value, "$env:") {
-					return nil, fmt.Errorf("Pi: use fromEnv instead of $env: interpolation")
-				}
+	maps.Copy(out, s.PiOptions)
+	for _, key := range []string{"env", "headers"} {
+		values, _ := out[key].(map[string]string)
+		for _, value := range values {
+			// Portable literals must not become executable secret commands.
+			if strings.HasPrefix(value, "!") {
+				return nil, fmt.Errorf("Pi built-in: a literal beginning with ! would run a command; use fromEnv instead")
+			}
+			if strings.Contains(value, "$env:") {
+				return nil, fmt.Errorf("Pi: use fromEnv instead of $env: interpolation")
 			}
 		}
 	}

@@ -6,7 +6,6 @@ import (
 	"net/url"
 	"path/filepath"
 	"regexp"
-	"slices"
 	"strings"
 
 	"github.com/tailscale/hujson"
@@ -121,7 +120,7 @@ func detectJSONFormat(data []byte) string {
 
 // Import parses a native file or a single JSON entry without persisting it.
 func Import(target string, data []byte, singleName string) ([]Candidate, error) {
-	return importPiMode(target, data, singleName, "")
+	return importNative(target, data, singleName, false)
 }
 
 // DetectImportFormat identifies a native JSON shape; ambiguous connections use Claude's shape.
@@ -129,15 +128,9 @@ func DetectImportFormat(data []byte) string {
 	return detectJSONFormat(data)
 }
 
-// ImportPi parses an exported Pi file using the mode explicitly selected by the caller.
-func ImportPi(data []byte, singleName, mode string) ([]Candidate, error) {
-	if mode != "builtin" && mode != "pi-mcp-adapter" && mode != "pi-mcp-extension" {
-		return nil, fmt.Errorf("unsupported Pi MCP import mode %q", mode)
-	}
-	return importPiMode("pi", data, singleName, mode)
-}
-
-func importPiMode(target string, data []byte, singleName, mode string) ([]Candidate, error) {
+// importNative converts native entries to portable drafts. adapter marks pi-mcp-adapter's
+// mcp-adapter.json, whose !! escapes a literal beginning with !.
+func importNative(target string, data []byte, singleName string, adapter bool) ([]Candidate, error) {
 	if target == "" {
 		target = detectJSONFormat(data)
 	}
@@ -163,7 +156,6 @@ func importPiMode(target string, data []byte, singleName, mode string) ([]Candid
 	out := []Candidate{}
 	for _, name := range sortedKeys(native.Entries) {
 		entry := native.Entries[name]
-		_, piTransport := entry["transport"]
 		c := Candidate{Name: name, Problems: []string{}, Warnings: []string{}}
 		normalizeClientImport(target, entry, &c)
 		if target == "antigravity" {
@@ -215,19 +207,13 @@ func importPiMode(target string, data []byte, singleName, mode string) ([]Candid
 		if target == "codex" {
 			allowed = map[string]bool{"command": true, "args": true, "url": true, "env": true, "env_vars": true, "http_headers": true, "env_http_headers": true, "bearer_token_env_var": true}
 		}
-		if target == "pi" && mode != "pi-mcp-extension" {
+		if target == "pi" {
 			allowed["directTools"] = true
 			if c.Server.DirectTools = entry["directTools"]; c.Server.DirectTools != nil {
-				// Only pi-mcp-adapter has this field, so the file does identify the extension.
-				c.Server.PiExtension = "pi-mcp-adapter"
+				c.Warnings = append(c.Warnings, "directTools is a pi-mcp-adapter setting that Pi's built-in MCP does not read; it is kept but not synced")
 			}
-		}
-		if target == "pi" && mode != "pi-mcp-extension" && (mode != "" || !piTransport) {
 			for key, value := range entry {
 				if !allowed[key] {
-					if mode == "pi-mcp-adapter" && (key == "exposure" || key == "toolExposure") {
-						c.Warnings = append(c.Warnings, "Pi built-in field imported as a pi-mcp-adapter option; verify adapter support: "+key)
-					}
 					if c.Server.PiOptions == nil {
 						c.Server.PiOptions = PiOptions{}
 					}
@@ -235,16 +221,6 @@ func importPiMode(target string, data []byte, singleName, mode string) ([]Candid
 					allowed[key] = true
 				}
 			}
-			if len(c.Server.PiOptions) > 0 && c.Server.PiExtension == "" {
-				c.Server.PiExtension = "builtin"
-				if entry["excludeTools"] != nil || entry["approveTools"] != nil {
-					c.Server.PiExtension = "pi-mcp-adapter"
-				}
-			}
-		}
-		if target == "pi" && mode != "" {
-			c.Server.PiExtension = mode
-			c.Warnings = slices.DeleteFunc(c.Warnings, func(w string) bool { return w == piExtensionWarning })
 		}
 		// Agent-only fields such as timeouts stay in existing Agent entries on sync.
 		for _, key := range sortedKeys(entry) {
@@ -295,9 +271,9 @@ func importPiMode(target string, data []byte, singleName, mode string) ([]Candid
 					c.Problems = append(c.Problems, key+" values must be strings")
 					continue
 				}
-				if target == "pi" && c.Server.PiExtension == "pi-mcp-adapter" && strings.HasPrefix(value, "!!") {
+				if target == "pi" && adapter && strings.HasPrefix(value, "!!") {
 					value = strings.TrimPrefix(value, "!")
-				} else if target == "pi" && c.Server.PiExtension != "pi-mcp-extension" && strings.HasPrefix(value, "!") {
+				} else if target == "pi" && strings.HasPrefix(value, "!") {
 					c.Problems = append(c.Problems, "Pi command-based credentials must remain in Pi; use an environment reference to import this connection")
 					continue
 				}
@@ -432,15 +408,17 @@ func (s *Service) ImportClient(target string) ([]Candidate, error) {
 	return s.ImportClientMode(target, "")
 }
 
-// ImportClientMode reads exactly the selected Pi mode's file. With no mode,
-// legacy callers still read both files, with adapter entries taking precedence.
-func (s *Service) ImportClientMode(target, piMode string) ([]Candidate, error) {
+// ImportClientMode reads the target's file. Pi's pi-mcp-adapter file is still read, never
+// written, so servers written there by hand can move to Pi's built-in MCP: with no piFile,
+// both files, mcp.json first, and "pi-mcp-adapter" reads only the adapter's file. Any other
+// piFile, which named a Pi MCP mode before 0.23.0, reads only mcp.json.
+func (s *Service) ImportClientMode(target, piFile string) ([]Candidate, error) {
 	client, format, err := s.importClient(target)
 	if err != nil {
 		return nil, err
 	}
-	if piMode != "" && (format != "pi" || (piMode != "builtin" && piMode != "pi-mcp-adapter" && piMode != "pi-mcp-extension")) {
-		return nil, fmt.Errorf("unsupported Pi MCP import mode %q for %s", piMode, target)
+	if piFile != "" && (format != "pi" || (piFile != "builtin" && piFile != "pi-mcp-adapter" && piFile != "pi-mcp-extension")) {
+		return nil, fmt.Errorf("unsupported Pi MCP file %q for %s", piFile, target)
 	}
 	path, err := client.nativePath(format)
 	if err != nil {
@@ -448,16 +426,11 @@ func (s *Service) ImportClientMode(target, piMode string) ([]Candidate, error) {
 	}
 	paths := []string{path}
 	if format == "pi" {
-		switch piMode {
-		case "builtin", "pi-mcp-extension":
-			path, err = client.piModePath(piMode)
-			if err != nil {
-				return nil, err
-			}
-			paths = []string{path}
+		switch piFile {
+		case "":
+			paths = append(paths, piAdapterPath(path))
 		case "pi-mcp-adapter":
-		default:
-			paths = append(paths, piExtensionPath(path))
+			paths = []string{piAdapterPath(path)}
 		}
 	}
 	items, found := []Candidate{}, false
@@ -471,25 +444,20 @@ func (s *Service) ImportClientMode(target, piMode string) ([]Candidate, error) {
 			continue
 		}
 		found = true
-		mode := piMode
-		if format == "pi" && mode == "" && path == paths[0] {
-			mode = "pi-mcp-adapter"
-		}
-		read, err := importPiMode(format, data, "", mode)
+		adapter := format == "pi" && path == piAdapterPath(path)
+		read, err := importNative(format, data, "", adapter)
 		if err != nil {
 			return nil, err
 		}
 		for _, item := range read {
-			// mcp-adapter.json comes first and wins a name both files define.
+			// mcp.json comes first and wins a name both files define.
 			if seen[item.Name] {
 				continue
 			}
 			seen[item.Name] = true
 			item.From = target
-			if format == "pi" && mode == "pi-mcp-adapter" {
-				// Only pi-mcp-adapter reads this file, so it does identify the extension.
-				item.Server.PiExtension = "pi-mcp-adapter"
-				item.Warnings = slices.DeleteFunc(item.Warnings, func(w string) bool { return w == piExtensionWarning })
+			if adapter {
+				item.Warnings = append(item.Warnings, "Imported from pi-mcp-adapter's mcp-adapter.json; sync writes it to Pi's built-in mcp.json and leaves the adapter's file as it is")
 			}
 			items = append(items, item)
 		}
@@ -506,7 +474,7 @@ func (s *Service) ImportProjectClient(root, target string) ([]Candidate, error) 
 }
 
 // ImportProjectClientMode selects a Pi file within a configured project root.
-func (s *Service) ImportProjectClientMode(root, target, piMode string) ([]Candidate, error) {
+func (s *Service) ImportProjectClientMode(root, target, piFile string) ([]Candidate, error) {
 	source, err := LoadSource(s.ConfigPath)
 	if err != nil {
 		return nil, err
@@ -517,10 +485,11 @@ func (s *Service) ImportProjectClientMode(root, target, piMode string) ([]Candid
 	}
 	scoped := *s
 	scoped.ProjectRoot = root
-	return scoped.ImportClientMode(target, piMode)
+	return scoped.ImportClientMode(target, piFile)
 }
 
-// ImportSource is one selectable native file and, for Pi, its parsing mode.
+// ImportSource is one selectable native file. For Pi, PiExtension says which of its files:
+// builtin for mcp.json, or pi-mcp-adapter for the adapter's file, read-only since 0.23.0.
 type ImportSource struct {
 	Target      string `json:"target"`
 	Path        string `json:"path"`
@@ -546,23 +515,7 @@ func (s *Service) ImportSources(source *Source) map[string][]ImportSource {
 		for _, target := range sortedKeys(paths) {
 			path := paths[target]
 			if target == "pi" || source.Accounts[target].Agent == "pi" {
-				for _, mode := range []string{"builtin", "pi-mcp-adapter", "pi-mcp-extension"} {
-					if mode == "pi-mcp-extension" && target != "pi" {
-						continue
-					}
-					file := path
-					if mode != "pi-mcp-adapter" {
-						file = piExtensionPath(path)
-					}
-					if mode == "pi-mcp-extension" {
-						var err error
-						file, err = scope.piModePath(mode)
-						if err != nil {
-							continue
-						}
-					}
-					result[root] = append(result[root], ImportSource{Target: target, Path: file, PiExtension: mode})
-				}
+				result[root] = append(result[root], ImportSource{Target: target, Path: path, PiExtension: "builtin"}, ImportSource{Target: target, Path: piAdapterPath(path), PiExtension: "pi-mcp-adapter"})
 			} else {
 				result[root] = append(result[root], ImportSource{Target: target, Path: path})
 			}
@@ -608,11 +561,11 @@ func (s *Service) FindUnmanaged(source *Source) []Unmanaged {
 			found = append(found, Unmanaged{Target: target, Project: root, Path: path, Names: names})
 		}
 	}
-	// Pi's two files belong to different extensions, and ImportClient reads both.
+	// ImportClient still reads pi-mcp-adapter's file next to Pi's own.
 	scan := func(target, format, path, root string, defined map[string]Server) {
 		scanFile(target, format, path, root, defined)
 		if format == "pi" {
-			scanFile(target, format, piExtensionPath(path), root, defined)
+			scanFile(target, format, piAdapterPath(path), root, defined)
 		}
 	}
 	paths := s.ClientPaths()

@@ -126,12 +126,7 @@ func mcpCandidateWizard(service *mcp.Service, c mcp.Candidate, o mcpOptions) err
 		initial = source.Targets
 	}
 	prompts := terminalMCPPrompts{}
-	if o.piExtension != "" {
-		c.Server.PiExtension = o.piExtension
-	}
-	servers := []mcp.Server{c.Server}
-	c.Server.Targets, err = chooseMCPTargets(service, servers, initial, prompts)
-	c.Server.PiExtension = servers[0].PiExtension
+	c.Server.Targets, err = chooseMCPTargets(service, []mcp.Server{c.Server}, initial, prompts)
 	if err != nil {
 		return err
 	}

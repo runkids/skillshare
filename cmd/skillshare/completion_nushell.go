@@ -62,10 +62,8 @@ def "nu-complete skillshare plugin-target" [] {
 export extern "skillshare mcp" [
     command?: string@"nu-complete skillshare mcp"
     name?: string
-    --pi-extension: string # builtin, pi-mcp-adapter or pi-mcp-extension
-    --direct-tools: string # pi-mcp-adapter only: true, false, search or tool names
-    --pi-options: string # builtin or adapter: other per-server fields as JSON
-    --pi-options-prune # Remove only owned unchanged Pi fields
+    --direct-tools: string # pi-mcp-adapter direct tools, kept but not synced
+    --pi-options: string # Other Pi built-in per-server fields as JSON
     --target: string
     --from: string
     --url: string

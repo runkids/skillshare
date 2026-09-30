@@ -9,7 +9,7 @@
   "$defs": {
     "targets": {"type": "array", "uniqueItems": true, "items": {"anyOf": [{"enum": ["claude", "codex", "cursor", "vscode", "opencode", "kilocode", "grok", "antigravity", "amp", "claude-desktop", "cline", "copilot", "factory", "gemini", "goose", "junie", "kiro", "lmstudio", "warp", "windsurf", "pi"]}, {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$", "description": "A target that is another account of an Agent, declared under targets with agent and config_dir. Global config only."}]}},
     "directTools": {
-      "description": "pi-mcp-adapter only: register a server's tools as individual Pi tools. true for all, a list of tool names, or \"search\" to register them inactive until a search activates them. Other Agents ignore it. Under mcp or a project it is the default for servers that do not set their own.",
+      "description": "pi-mcp-adapter setting: true, a list of tool names, or \"search\". Since 0.23.0 Pi uses its built-in MCP, which does not read it, so it is kept but not synced.",
       "oneOf": [{"type": "boolean"}, {"const": "search"}, {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}}]
     },
     "reference": {
@@ -46,7 +46,7 @@
     "server": {
       "type": "object", "additionalProperties": false,
       "properties": {
-        "piExtension": {"enum": ["builtin", "pi-mcp-adapter", "pi-mcp-extension"]},
+        "piExtension": {"enum": ["builtin", "pi-mcp-adapter", "pi-mcp-extension"], "deprecated": true, "description": "Ignored since 0.23.0: Pi always uses its built-in MCP. Saving the config drops it."},
         "transport": {"enum": ["stdio", "streamable-http"]},
         "command": {"type": "string", "minLength": 1},
         "args": {"type": "array", "items": {"type": "string"}},
@@ -56,9 +56,9 @@
         "bearerToken": {"$ref": "#/$defs/reference"},
         "targets": {"$ref": "#/$defs/targets"},
         "directTools": {"$ref": "#/$defs/directTools"},
-        "piOptions": {"type": "object", "description": "Pi built-in or pi-mcp-adapter per-server options. Known built-in fields are validated; unknown fields are preserved."},
-        "piOptionsPrune": {"type": "boolean", "description": "Remove cleared Pi options only if Skillshare owns their unchanged values."},
-        "disabled": {"const": true, "description": "Project mode only: turn off a server that the Agent's global config defines. Supported by opencode, kilocode and pi with pi-mcp-adapter."}
+        "piOptions": {"type": "object", "description": "Pi built-in per-server options. Known built-in fields are validated; unknown fields are preserved."},
+        "piOptionsPrune": {"type": "boolean", "deprecated": true, "description": "Ignored since 0.23.0: sync always removes Pi options Skillshare wrote that are unchanged. Saving the config drops it."},
+        "disabled": {"const": true, "description": "Project mode only: turn off a server that the Agent's global config defines. Supported by claude, opencode and kilocode."}
       },
       "oneOf": [
         {"required": ["disabled"], "not": {"anyOf": [{"required": ["directTools"]}, {"required": ["command"]}, {"required": ["url"]}, {"required": ["args"]}, {"required": ["env"]}, {"required": ["headers"]}, {"required": ["bearerToken"]}, {"required": ["transport"]}]}},

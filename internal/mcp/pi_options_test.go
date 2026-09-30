@@ -7,9 +7,9 @@ import (
 	"testing"
 )
 
-// piOptions carries the pi-mcp-adapter fields Skillshare has no setting for. Refs: #289.
-func TestPiOptionsRenderedOnlyForPiAdapter(t *testing.T) {
-	server := Server{Command: "echo", PiExtension: "pi-mcp-adapter", PiOptions: map[string]any{"excludeTools": []any{"*emulator*"}}}
+// piOptions carries the Pi fields Skillshare has no setting for. Refs: #289.
+func TestPiOptionsRenderedOnlyForPi(t *testing.T) {
+	server := Server{Command: "echo", PiOptions: map[string]any{"excludeTools": []any{"*emulator*"}}}
 	out, err := Render("pi", server)
 	if err != nil {
 		t.Fatal(err)
@@ -26,11 +26,9 @@ func TestPiOptionsRenderedOnlyForPiAdapter(t *testing.T) {
 func TestPiOptionsRejected(t *testing.T) {
 	options := map[string]any{"excludeTools": []any{"a"}}
 	for name, server := range map[string]Server{
-		"other extension":           {Command: "echo", PiExtension: "pi-mcp-extension", PiOptions: options},
-		"no extension":              {Command: "echo", PiOptions: options},
-		"switch only":               {Disabled: true, PiExtension: "pi-mcp-adapter", PiOptions: options},
-		"a field Skillshare writes": {Command: "echo", PiExtension: "pi-mcp-adapter", PiOptions: map[string]any{"command": "other"}},
-		"directTools":               {Command: "echo", PiExtension: "pi-mcp-adapter", PiOptions: map[string]any{"directTools": true}},
+		"switch only":               {Disabled: true, PiOptions: options},
+		"a field Skillshare writes": {Command: "echo", PiOptions: map[string]any{"command": "other"}},
+		"directTools":               {Command: "echo", PiOptions: map[string]any{"directTools": true}},
 	} {
 		if err := server.Validate("docs"); err == nil || !strings.Contains(err.Error(), "piOptions") {
 			t.Errorf("%s: got %v", name, err)
@@ -42,7 +40,7 @@ func TestPiOptionsSyncFollowsConfig(t *testing.T) {
 	s := testService(t)
 	sync := func(options, wantAction string) string {
 		t.Helper()
-		config := "mcp:\n  targets: [pi]\n  servers:\n    docs:\n      command: docs\n      piExtension: pi-mcp-adapter\n" + options
+		config := "mcp:\n  targets: [pi]\n  servers:\n    docs:\n      command: docs\n" + options
 		if err := os.WriteFile(s.ConfigPath, []byte(config), 0600); err != nil {
 			t.Fatal(err)
 		}
@@ -53,7 +51,7 @@ func TestPiOptionsSyncFollowsConfig(t *testing.T) {
 		if _, err := s.Apply(plan.Revision); err != nil {
 			t.Fatal(err)
 		}
-		data, _ := os.ReadFile(filepath.Join(s.Home, ".pi", "agent", "mcp-adapter.json"))
+		data, _ := os.ReadFile(filepath.Join(s.Home, ".pi", "agent", "mcp.json"))
 		return string(data)
 	}
 	sync("", "add")

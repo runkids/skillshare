@@ -203,40 +203,10 @@ func (s *Service) AccountPaths(accounts map[string]Account) map[string]string {
 	return out
 }
 
-// ConfiguredClientPaths names the selected Pi mode's destination for dashboard labels.
+// ConfiguredClientPaths names each target's destination, accounts included, for dashboard labels.
 func (s *Service) ConfiguredClientPaths(source *Source) map[string]string {
 	paths := s.ClientPaths()
 	maps.Copy(paths, s.AccountPaths(source.Accounts))
-	scoped := *s
-	scoped.accounts = source.Accounts
-	for target := range paths {
-		if target != "pi" && source.Accounts[target].Agent != "pi" {
-			continue
-		}
-		modes := map[string]bool{}
-		for _, server := range source.Servers {
-			selected := server.Targets
-			if selected == nil {
-				selected = source.Targets
-			}
-			if !server.Disabled && slices.Contains(selected, target) && server.PiExtension != "" {
-				modes[server.PiExtension] = true
-			}
-		}
-		mode := "builtin"
-		for _, candidate := range []string{"builtin", "pi-mcp-adapter", "pi-mcp-extension"} {
-			if modes[candidate] {
-				mode = candidate
-				break
-			}
-		}
-		client, _ := scoped.forTarget(target)
-		if path, err := client.piModePath(mode); err == nil {
-			paths[target] = path
-		} else {
-			delete(paths, target)
-		}
-	}
 	return paths
 }
 

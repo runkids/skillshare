@@ -12,8 +12,6 @@ func renderDisabled(target string, s Server) (map[string]any, error) {
 	switch {
 	case openCodeFormat(target):
 		return map[string]any{"enabled": false}, nil
-	case target == "pi" && s.PiExtension == "pi-mcp-adapter":
-		return map[string]any{"disabled": true}, nil
 	case target == "claude":
 		// No entry to write: destination sends the name to Claude Code's per-project off list.
 		return map[string]any{}, nil
@@ -24,7 +22,7 @@ func renderDisabled(target string, s Server) (map[string]any, error) {
 		// usually committed, so one person's switch would break Codex for a teammate.
 		return nil, fmt.Errorf("codex cannot turn off a global server from a project file: on a machine whose global config lacks the server, Codex stops loading its whole config; set enabled = false in ~/.codex/config.toml instead")
 	}
-	return nil, fmt.Errorf("%s cannot turn off a global server from a project file; disabled supports claude, opencode, kilocode and pi with pi-mcp-adapter", target)
+	return nil, fmt.Errorf("%s cannot turn off a global server from a project file; disabled supports claude, opencode and kilocode", target)
 }
 
 // Render converts a portable definition to a native entry without reading env.
@@ -159,13 +157,8 @@ type Rendered struct {
 // format (JSON, TOML, YAML) come from the code that writes the real file, not from a guess
 // made in the dashboard. Existing Pi-only settings are included with native secrets redacted; nothing is executed or written.
 func (s *Service) RenderNative(name string, server Server) []Rendered {
-	// The saved mcp.directTools default is what sync would write; an unreadable config has none.
+	// An unreadable config has no accounts.
 	if source, err := LoadSource(s.ConfigPath); err == nil {
-		defaults := source.DirectTools
-		if project, ok := source.Projects[s.ProjectRoot]; ok && project.DirectTools != nil {
-			defaults = project.DirectTools
-		}
-		server = server.withDirectToolsDefault(defaults)
 		scoped := *s
 		scoped.accounts = source.Accounts
 		s = &scoped
@@ -192,27 +185,23 @@ func (s *Service) RenderNative(name string, server Server) []Rendered {
 			if readErr != nil {
 				err = readErr
 			} else {
-				before := current.Entries[name]
-				entry = withAgentFields("pi", before, entry)
-				if server.PiOptionsPrune {
-					state, _, stateErr := s.loadLedger()
-					if stateErr != nil {
-						err = stateErr
-					} else {
-						own := state.Entries[ownershipKey("pi", path, name)]
-						if own.Owner == s.ConfigPath {
-							for key, hash := range own.PiFields {
-								if _, set := server.PiOptions[key]; set || key == "directTools" && server.DirectTools != nil {
-									continue
-								}
-								if value, exists := before[key]; exists {
-									if piFieldHash(value) != hash {
-										err = fmt.Errorf("Pi setting changed since sync: %s", key)
-										break
-									}
-									delete(entry, key)
-								}
+				before, want := current.Entries[name], entry
+				entry = withAgentFields("pi", before, want)
+				// Sync removes the fields it wrote earlier that the server no longer sets.
+				state, _, stateErr := s.loadLedger()
+				if stateErr != nil {
+					err = stateErr
+				} else if own := state.Entries[ownershipKey("pi", path, name)]; own.Owner == s.ConfigPath {
+					for key, hash := range own.PiFields {
+						if _, set := want[key]; set {
+							continue
+						}
+						if value, exists := before[key]; exists {
+							if piFieldHash(value) != hash {
+								err = fmt.Errorf("Pi setting changed since sync: %s", key)
+								break
 							}
+							delete(entry, key)
 						}
 					}
 				}
