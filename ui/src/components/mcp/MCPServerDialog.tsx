@@ -86,14 +86,13 @@ interface ServerFormProps {
   onMode: Props['onMode'];
   onSave: () => Promise<void>;
   error: string;
-  /** The saved server's name, for loading its tools. */
-  savedName?: string;
-  project?: string;
+  /** How the server is reached, for loading its tools; absent until it has a command or URL. */
+  probe?: MCPMutation;
   /** The server as the fields describe it, once complete; the Tools section previews it. */
   mutation?: MCPMutation;
 }
 
-function ServerForm({ draft, validation, patch, off, saving, editing, order, visibleTargets, isProject, onMode, onSave, error, savedName, project, mutation }: ServerFormProps) {
+function ServerForm({ draft, validation, patch, off, saving, editing, order, visibleTargets, isProject, onMode, onSave, error, probe, mutation }: ServerFormProps) {
   const t = useT();
   const { name, http, targets } = draft;
   const { nameError } = validation;
@@ -156,7 +155,7 @@ function ServerForm({ draft, validation, patch, off, saving, editing, order, vis
         </div>
       </div>
       {/* A switch-only entry only turns a server off, so it has no tools to choose. */}
-      {!off && <ToolPolicyFields tools={draft.tools} onChange={(tools) => patch({ tools })} error={validation.toolsError} disabled={saving} savedName={savedName} project={project} mutation={mutation} />}
+      {!off && <ToolPolicyFields tools={draft.tools} onChange={(tools) => patch({ tools })} error={validation.toolsError} disabled={saving} probe={probe} mutation={mutation} />}
       {targets.includes('pi') && !off && <PiSettingsFields optionsText={draft.piOptions} options={validation.options} optionsError={validation.optionsError} onOptions={(piOptions) => patch({ piOptions })} disabled={saving} project={isProject} toolsSet={hasToolPolicy(draft.tools)} />}
       {error && <div className="ss-note bad"><span className="flex-1">{error}</span></div>}
     </form>
@@ -240,10 +239,9 @@ export default function MCPServerDialog({ initial, defaultTargets, existingNames
   const canSave = validation.canSave && !saving;
   const visibleTargets = new Set([...availableTargets, ...targets].filter((x) => !off || offTargets.includes(x)));
 
-  /** The server as the fields describe it right now. */
-  const build = (): MCPServer => {
+  /** How the server is reached, as the fields describe it right now. */
+  const connection = (): MCPServer => {
     const [cmd, ...args] = words;
-    if (off) return { disabled: true };
     const next: MCPServer = http
       ? {
           url: url.trim(),
@@ -257,6 +255,12 @@ export default function MCPServerDialog({ initial, defaultTargets, existingNames
         };
     const transport = http ? 'streamable-http' : 'stdio';
     if (server?.transport === transport) next.transport = transport;
+    return next;
+  };
+  /** The server as the fields describe it right now. */
+  const build = (): MCPServer => {
+    if (off) return { disabled: true };
+    const next = connection();
     if (options.value && Object.keys(options.value).length > 0) next.piOptions = options.value;
     const tools = cleanToolPolicy(draft.tools);
     if (tools) next.tools = tools;
@@ -265,6 +269,7 @@ export default function MCPServerDialog({ initial, defaultTargets, existingNames
   const ordered = order.filter((x) => targets.includes(x));
   const complete = validation.complete && ordered.length > 0;
   const mutation = { project, name: trimmed, server: { ...build(), targets: ordered } };
+  const probe = !off && (http ? url.trim() : words.length > 0) ? { project, server: connection() } : undefined;
 
   const save = async () => {
     if (!canSave) return;
@@ -290,7 +295,7 @@ export default function MCPServerDialog({ initial, defaultTargets, existingNames
         <button type="button" className="ss-ib" aria-label={t('common.close')} onClick={onClose} disabled={saving}><X size={16} /></button>
       </div>
       {/* The view takes the whole body, so a long file has room; the fields live in state and come back as they were. */}
-      {viewing ? <div className="db"><MCPConfigView mutation={mutation} /></div> : <ServerForm draft={draft} validation={validation} patch={patch} off={off} saving={saving} editing={Boolean(initial)} order={order} visibleTargets={visibleTargets} isProject={Boolean(project) || isProjectMode} onMode={onMode} onSave={save} error={error} savedName={initial?.name} project={project} mutation={complete ? mutation : undefined} />}
+      {viewing ? <div className="db"><MCPConfigView mutation={mutation} /></div> : <ServerForm draft={draft} validation={validation} patch={patch} off={off} saving={saving} editing={Boolean(initial)} order={order} visibleTargets={visibleTargets} isProject={Boolean(project) || isProjectMode} onMode={onMode} onSave={save} error={error} probe={probe} mutation={complete ? mutation : undefined} />}
       {viewing ? <div className="df"><Button variant="secondary" onClick={() => setViewing(false)}>{t('common.back')}</Button></div> : <ServerFooter targets={targets} off={off} complete={complete} canSave={canSave} saving={saving} onView={() => setViewing(true)} onClose={onClose} />}
     </DialogShell>
   );

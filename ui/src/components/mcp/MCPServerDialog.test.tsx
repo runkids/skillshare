@@ -13,7 +13,7 @@ vi.mock('../CodeEditor', () => ({
   default: ({ value, onChange, ariaLabel, placeholder }: { value: string; onChange: (v: string) => void; ariaLabel: string; placeholder?: string }) => <textarea aria-label={ariaLabel} placeholder={placeholder} value={value} onChange={(e) => onChange(e.target.value)} />,
 }));
 vi.mock('../../api/mcp', async (load) => ({ ...await load<typeof import('../../api/mcp')>(), mcpApi: { save: vi.fn(), render: vi.fn() } }));
-vi.mock('../../api/mcpCheck', () => ({ mcpCheckApi: { live: vi.fn() } }));
+vi.mock('../../api/mcpCheck', () => ({ mcpCheckApi: { probe: vi.fn() } }));
 
 const renderDialog = (props: Partial<Parameters<typeof MCPServerDialog>[0]> = {}) =>
   render(<QueryClientProvider client={new QueryClient()}><I18nProvider><MCPServerDialog defaultTargets={['claude']} existingNames={[]} onClose={vi.fn()} onSaved={vi.fn()} {...props} /></I18nProvider></QueryClientProvider>);
@@ -202,15 +202,14 @@ describe('MCP server dialog', () => {
     await waitFor(() => expect(mcpApi.save).toHaveBeenCalledWith(expect.objectContaining({ server })));
   });
 
-  it('adds allowed tools from the names the saved server reports, and saves them as its policy', async () => {
+  it('adds allowed tools from the names the server reports, and saves them as its policy', async () => {
     const user = userEvent.setup();
     vi.mocked(mcpApi.render).mockResolvedValue({ rendered: [] });
-    vi.mocked(mcpCheckApi.live).mockResolvedValue({ servers: [{ name: 'docs', ok: true, findings: [], live: { tools: 2, toolNames: ['search', 'fetch'] } }], summary: { errors: 0, warnings: 0 } });
+    vi.mocked(mcpCheckApi.probe).mockResolvedValue({ live: { tools: 2, toolNames: ['search', 'fetch'] } });
     renderDialog({ initial: { name: 'docs', server: { command: 'docs', targets: ['claude'] } } });
     await user.click(screen.getByRole('button', { name: 'Tools' }));
     await user.click(screen.getByRole('button', { name: 'Load tools from server' }));
     expect(await screen.findByText('2 tools loaded. Pick them in Allow or Deny.')).toBeInTheDocument();
-    expect(mcpCheckApi.live).toHaveBeenCalledWith('docs');
     expect([...document.querySelectorAll('datalist option')].map((o) => (o as HTMLOptionElement).value)).toEqual(['fetch', 'search', 'fetch', 'search']);
     await user.type(screen.getByLabelText('Allow'), 'search{Enter}get_*{Enter}');
     await user.type(screen.getByLabelText('Deny'), 'bad name{Enter}');
@@ -244,12 +243,69 @@ describe('MCP server dialog', () => {
     expect(screen.queryByText(/^Pi:/)).not.toBeInTheDocument();
   });
 
-  it('explains that a new server can load its tools once it is saved', async () => {
+  it('loads tools with the unsaved settings, not the saved ones', async () => {
     const user = userEvent.setup();
+    vi.mocked(mcpApi.render).mockResolvedValue({ rendered: [] });
+    vi.mocked(mcpCheckApi.probe).mockResolvedValue({ live: { tools: 1, toolNames: ['search'] } });
+    renderDialog({ project: '/work/app', initial: { name: 'docs', server: { url: 'http://127.0.0.1:3845/mcp', targets: ['claude'] } } });
+    await user.clear(screen.getByLabelText('URL'));
+    await user.type(screen.getByLabelText('URL'), 'https://docs.example/mcp');
+    await user.click(screen.getByRole('button', { name: 'Tools' }));
+    await user.click(screen.getByRole('button', { name: 'Load tools from server' }));
+    expect(await screen.findByText('1 tool loaded. Pick it in Allow or Deny.')).toBeInTheDocument();
+    expect(mcpCheckApi.probe).toHaveBeenCalledWith({ project: '/work/app', server: { url: 'https://docs.example/mcp' } });
+    expect(mcpApi.save).not.toHaveBeenCalled();
+  });
+
+  it('loads the tools of a new server once it has a command or URL', async () => {
+    const user = userEvent.setup();
+    vi.mocked(mcpCheckApi.probe).mockResolvedValue({ live: { tools: 1, toolNames: ['search'] } });
     renderDialog();
     await user.click(screen.getByRole('button', { name: 'Tools' }));
     expect(screen.getByRole('button', { name: 'Load tools from server' })).toBeDisabled();
-    expect(screen.getByText('Save the server first, then load its tools here.')).toBeInTheDocument();
+    expect(screen.getByText('Enter a command or URL first.')).toBeInTheDocument();
+    await user.type(screen.getByLabelText('Command'), 'npx -y docs');
+    await user.click(screen.getByRole('button', { name: 'Load tools from server' }));
+    expect(await screen.findByText('1 tool loaded. Pick it in Allow or Deny.')).toBeInTheDocument();
+    expect(mcpCheckApi.probe).toHaveBeenCalledWith({ server: { command: 'npx', args: ['-y', 'docs'] } });
+  });
+
+  it('says in plain words why tools did not load, with the raw error behind Details', async () => {
+    const user = userEvent.setup();
+    const detail = 'Post "http://127.0.0.1:3845/mcp": dial tcp 127.0.0.1:3845: connect: connection refused';
+    vi.mocked(mcpCheckApi.probe).mockResolvedValue({ errorKind: 'connect', error: detail });
+    renderDialog({ initial: { name: 'docs', server: { url: 'http://127.0.0.1:3845/mcp', targets: ['claude'] } } });
+    await user.click(screen.getByRole('button', { name: 'Tools' }));
+    await user.click(screen.getByRole('button', { name: 'Load tools from server' }));
+    expect(await screen.findByText('Could not connect to the server. Check the URL and that the server is running.')).toBeInTheDocument();
+    expect(screen.getByText(detail)).not.toBeVisible();
+    await user.click(screen.getByText('Details'));
+    expect(screen.getByText(detail)).toBeVisible();
+  });
+
+  it('falls back to a general message for an error it cannot name', async () => {
+    const user = userEvent.setup();
+    vi.mocked(mcpCheckApi.probe).mockRejectedValue(new Error('MCP draft requires exactly one of command or url'));
+    renderDialog({ initial: { name: 'docs', server: { command: 'docs', targets: ['claude'] } } });
+    await user.click(screen.getByRole('button', { name: 'Tools' }));
+    await user.click(screen.getByRole('button', { name: 'Load tools from server' }));
+    expect(await screen.findByText("Could not load the server's tools.")).toBeInTheDocument();
+    expect(screen.getByText('MCP draft requires exactly one of command or url')).toBeInTheDocument();
+  });
+
+  it('drops the loaded tools when the connection settings change', async () => {
+    const user = userEvent.setup();
+    vi.mocked(mcpApi.render).mockResolvedValue({ rendered: [] });
+    vi.mocked(mcpCheckApi.probe).mockResolvedValue({ live: { tools: 1, toolNames: ['search'] } });
+    renderDialog({ initial: { name: 'docs', server: { command: 'docs', targets: ['claude'] } } });
+    await user.click(screen.getByRole('button', { name: 'Tools' }));
+    await user.click(screen.getByRole('button', { name: 'Load tools from server' }));
+    expect(await screen.findByText('1 tool loaded. Pick it in Allow or Deny.')).toBeInTheDocument();
+    await user.type(screen.getByLabelText('Allow'), 'search{Enter}');
+    expect(screen.getByText('1 tool loaded. Pick it in Allow or Deny.')).toBeInTheDocument();
+    await user.type(screen.getByLabelText('Command'), '-v2');
+    expect(screen.queryByText('1 tool loaded. Pick it in Allow or Deny.')).not.toBeInTheDocument();
+    expect(document.querySelectorAll('datalist option')).toHaveLength(0);
   });
 
   it('has no Tools section for an entry that only turns a server off', () => {

@@ -9,8 +9,7 @@ import { useT } from '../../i18n';
 import AgentIcon from '../AgentIcon';
 import Button from '../Button';
 import { Select } from '../Input';
-import { serversFor } from './useMCPCheck';
-import { describeMessage, hasToolPolicy, targetLabel, toolExposures, toolGapKey, toolNamePattern, toolSummary } from './mcpView';
+import { hasToolPolicy, targetLabel, toolExposures, toolGapKey, toolNamePattern, toolSummary } from './mcpView';
 
 interface ListProps { label: string; hint: string; values: string[]; suggestions: string[]; onChange: (values: string[]) => void; disabled: boolean }
 
@@ -63,10 +62,8 @@ interface Props {
   tools: MCPToolPolicy;
   onChange: (tools: MCPToolPolicy) => void;
   disabled: boolean;
-  /** The saved server's name, which loading its tools starts; absent for a server not saved yet. */
-  savedName?: string;
-  /** The mcp.projects root the server is saved under. */
-  project?: string;
+  /** How the server is reached as the form describes it, saved or not, which loading its tools starts; absent until it has a command or URL. */
+  probe?: MCPMutation;
   /** The server as the form describes it, once it is complete enough to preview. */
   mutation?: MCPMutation;
   /** Why the policy cannot be saved, or empty. */
@@ -74,28 +71,29 @@ interface Props {
 }
 
 /** Which of the server's tools reach the model, for every Agent at once; each Agent that cannot follow a part is named. */
-export default function ToolPolicyFields({ tools, onChange, disabled, savedName, project, mutation, error }: Props) {
+export default function ToolPolicyFields({ tools, onChange, disabled, probe, mutation, error }: Props) {
   const t = useT();
   const set = hasToolPolicy(tools);
   const [open, setOpen] = useState(set);
-  const [loaded, setLoaded] = useState<{ loading?: boolean; names?: string[]; error?: string }>({});
+  const [result, setResult] = useState<{ key?: string; loading?: boolean; names?: string[]; error?: string; detail?: string }>({});
+  // A result belongs to the connection it was loaded with; after an edit it may not be this server's tools, so it is dropped.
+  const key = JSON.stringify(probe ?? null);
+  const loaded: typeof result = result.key === key ? result : {};
   // The same preview the config view reads, so opening it after this costs nothing.
   const view = useQuery({ queryKey: [...queryKeys.mcp, 'render', JSON.stringify(mutation)], queryFn: () => mcpApi.render(mutation!), enabled: set && Boolean(mutation), placeholderData: keepPreviousData });
   const gaps = set ? (view.data?.rendered ?? []).filter((r) => r.toolGaps?.length && mutation?.server?.targets?.includes(r.target)) : [];
 
   const load = async () => {
-    if (!savedName) return;
-    setLoaded({ loading: true });
+    if (!probe) return;
+    setResult({ key, loading: true });
     try {
-      const server = serversFor(await mcpCheckApi.live(savedName), project).find((s) => s.name === savedName);
-      const names = server?.live?.toolNames;
-      if (names?.length) setLoaded({ names: [...new Set(names)].sort() });
-      else {
-        const failure = server?.findings.find((f) => f.level === 'error');
-        setLoaded({ error: failure ? describeMessage(t, failure.message) : t(server?.live ? 'mcp.tools.loadEmpty' : 'mcp.tools.loadFailed') });
-      }
+      const { live, errorKind, error: detail } = await mcpCheckApi.probe(probe);
+      const names = live?.toolNames;
+      if (names?.length) setResult({ key, names: [...new Set(names)].sort() });
+      else if (live) setResult({ key, error: t('mcp.tools.loadEmpty') });
+      else setResult({ key, error: t(`mcp.tools.probeError.${errorKind ?? 'unknown'}`), detail });
     } catch (e) {
-      setLoaded({ error: (e as Error).message });
+      setResult({ key, error: t('mcp.tools.probeError.unknown'), detail: (e as Error).message });
     }
   };
 
@@ -120,11 +118,17 @@ export default function ToolPolicyFields({ tools, onChange, disabled, savedName,
           </div>
           {error && <span className="hp !text-bad">{error}</span>}
           <div className="flex flex-wrap items-center gap-2.5">
-            <Button variant="secondary" size="sm" onClick={() => void load()} loading={loaded.loading} disabled={disabled || !savedName}>{!loaded.loading && <Download size={14} />}{t('mcp.tools.load')}</Button>
+            <Button variant="secondary" size="sm" onClick={() => void load()} loading={loaded.loading} disabled={disabled || !probe}>{!loaded.loading && <Download size={14} />}{t('mcp.tools.load')}</Button>
             <span className={`text-xs ${loaded.error ? 'text-bad' : 'text-ink-3'}`}>
-              {!savedName ? t('mcp.tools.loadAfterSave') : loaded.error ?? (loaded.names ? t(loaded.names.length === 1 ? 'mcp.tools.loaded.one' : 'mcp.tools.loaded.other', { count: loaded.names.length }) : t('mcp.tools.loadHint'))}
+              {!probe ? t('mcp.tools.loadNeedsConnection') : loaded.error ?? (loaded.names ? t(loaded.names.length === 1 ? 'mcp.tools.loaded.one' : 'mcp.tools.loaded.other', { count: loaded.names.length }) : t('mcp.tools.loadHint'))}
             </span>
           </div>
+          {loaded.detail && (
+            <details className="text-xs text-ink-3">
+              <summary className="cursor-pointer select-none">{t('mcp.tools.probeDetails')}</summary>
+              <span className="mt-1 block break-all font-mono">{loaded.detail}</span>
+            </details>
+          )}
           {gaps.length > 0 && (
             <div className="ss-note warn">
               <TriangleAlert size={16} className="mt-0.5 shrink-0" />
