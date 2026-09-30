@@ -377,7 +377,7 @@ var managedFields = map[string][]string{
 	"vscode":      {"type", "command", "args", "env", "url", "headers", "enabled", "disabled"},
 	"opencode":    {"type", "command", "environment", "url", "headers", "enabled", "disabled"},
 	"kilocode":    {"type", "command", "environment", "url", "headers", "enabled", "disabled"},
-	"codex":       {"command", "args", "env", "env_vars", "url", "http_headers", "env_http_headers", "bearer_token_env_var", "enabled", "disabled"},
+	"codex":       {"command", "args", "env", "env_vars", "url", "http_headers", "env_http_headers", "bearer_token_env_var", "enabled_tools", "disabled_tools", "enabled", "disabled"},
 	"grok":        {"command", "args", "env", "url", "headers", "enabled", "disabled"},
 }
 

@@ -57,7 +57,8 @@ type Plan struct {
 	Revision   string `json:"revision"`
 	SourcePath string `json:"sourcePath"`
 	Blocked    bool   `json:"blocked"`
-	// Notices are the source's, about settings it still has that no longer apply.
+	// Notices are the source's, about settings it still has that no longer apply, and name
+	// each Agent that cannot hold a part of a server's tool policy.
 	Notices    []string `json:"notices,omitempty"`
 	Changes    []Change `json:"changes"`
 	files      []*filePlan
@@ -435,7 +436,7 @@ func (s *Service) previewResolved(source *Source, resolutions []Resolution) (*Pl
 	if err != nil {
 		return nil, err
 	}
-	p := &Plan{SourcePath: source.Path, Notices: source.Notices, Changes: []Change{}, source: source, state: state, stateBytes: stateBytes}
+	p := &Plan{SourcePath: source.Path, Notices: slices.Concat(source.Notices, source.toolPolicyNotices()), Changes: []Change{}, source: source, state: state, stateBytes: stateBytes}
 	desired, err := s.render(source)
 	if err != nil {
 		return nil, err
@@ -452,9 +453,8 @@ func (s *Service) previewResolved(source *Source, resolutions []Resolution) (*Pl
 		Servers     map[string]Server
 		Targets     []string
 		Resolutions []Resolution
-		DirectTools any
 		Projects    map[string]Project
-	}{source.Servers, source.Targets, resolutions, source.DirectTools, source.Projects})
+	}{source.Servers, source.Targets, resolutions, source.Projects})
 	revision := digest(source.configBytes) + digest(source.bytes) + digest(stateBytes) + digest(proposal)
 	// Claude's local scope is per project, so look it up by the project file it shadows.
 	local := map[string]map[string]any{}

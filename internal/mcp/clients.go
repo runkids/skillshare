@@ -194,7 +194,11 @@ func renderAdditionalClient(target string, format clientFormat, s Server) (map[s
 		}
 	}
 	if target == "copilot" {
+		// Copilot lists the tools it enables, by exact name, or "*" for all of them.
 		out["tools"] = []string{"*"}
+		if allow, _, _ := namedTools(s.Tools, false); allow != nil {
+			out["tools"] = allow
+		}
 	}
 	if target == "goose" {
 		out["enabled"] = true

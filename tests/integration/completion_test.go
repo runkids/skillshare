@@ -82,6 +82,10 @@ func TestCompletion_MCPCheck_AllShells(t *testing.T) {
 		result.AssertOutputContains(t, "no-dns")
 		result.AssertOutputContains(t, "live")
 		result.AssertOutputContains(t, "timeout")
+		for _, flag := range []string{"tools-expose", "tools-allow", "tools-deny"} {
+			result.AssertOutputContains(t, flag)
+		}
+		result.AssertOutputNotContains(t, "direct-tools")
 	}
 }
 

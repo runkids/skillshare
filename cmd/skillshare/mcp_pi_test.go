@@ -3,7 +3,9 @@ package main
 import (
 	"os"
 	"path/filepath"
+	"reflect"
 	"skillshare/internal/mcp"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -16,6 +18,7 @@ func TestMCPRemovedPiFlags(t *testing.T) {
 		{"docs", "--pi-extension=pi-mcp-adapter"},
 		{"docs", "--pi-options-prune"},
 		{"docs", "--pi-options-prune=false"},
+		{"docs", "--direct-tools", "true"},
 	} {
 		flag, _, _ := strings.Cut(args[1], "=")
 		if _, err := parseMCPOptions(args); err == nil || !strings.Contains(err.Error(), flag+" was removed in 0.23.0") {
@@ -41,7 +44,7 @@ func TestMCPPiImportFile(t *testing.T) {
 		t.Fatal(err)
 	}
 	source, err := mcp.LoadSource(s.ConfigPath)
-	if err != nil || source.Servers["a"].PiOptions["exposure"] != "direct" {
+	if err != nil || source.Servers["a"].Tools.Expose != "direct" {
 		t.Fatalf("%+v %v", source, err)
 	}
 }
@@ -64,7 +67,7 @@ func TestMCPPiImportReadsAdapterFile(t *testing.T) {
 		t.Fatal(err)
 	}
 	source, err := mcp.LoadSource(s.ConfigPath)
-	if err != nil || source.Servers["docs"].Command != "adapter" || source.Servers["docs"].PiOptions["excludeTools"] == nil {
+	if err != nil || source.Servers["docs"].Command != "adapter" || !slices.Equal(source.Servers["docs"].Tools.Deny, []string{"delete_*"}) {
 		t.Fatalf("%+v %v", source, err)
 	}
 	if data, _ := os.ReadFile(filepath.Join(dir, "mcp-adapter.json")); !strings.Contains(string(data), `"adapter"`) {
@@ -108,9 +111,9 @@ func TestMCPPiTUI(t *testing.T) {
 	}
 }
 
-func TestMCPDirectToolsFlag(t *testing.T) {
+func TestMCPToolsFlags(t *testing.T) {
 	s := mcpTUIService(t)
-	run := func(handler func(*mcp.Service, mcpOptions) error, args ...string) any {
+	run := func(handler func(*mcp.Service, mcpOptions) error, args ...string) mcp.ToolPolicy {
 		t.Helper()
 		o, err := parseMCPOptions(append(args, "--no-tui"))
 		if err != nil {
@@ -123,16 +126,27 @@ func TestMCPDirectToolsFlag(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		return source.Servers["tools"].DirectTools
+		return source.Servers["tools"].Tools
 	}
-	if got := run(runMCPAdd, "tools", "--target", "pi", "--direct-tools", "true", "--url", "https://example.com/mcp"); got != true {
-		t.Fatalf("add: %v", got)
+	got := run(runMCPAdd, "tools", "--target", "pi", "--tools-expose", "deferred", "--tools-allow", "search_*, get_issue", "--url", "https://example.com/mcp")
+	if want := (mcp.ToolPolicy{Expose: "deferred", Allow: []string{"search_*", "get_issue"}}); !reflect.DeepEqual(got, want) {
+		t.Fatalf("add: %+v", got)
 	}
-	if got, ok := run(runMCPEdit, "tools", "--direct-tools", "search_docs,fetch").([]any); !ok || len(got) != 2 || got[1] != "fetch" {
-		t.Fatalf("edit to a list: %v", got)
+	// Each flag sets its own part; the others stay.
+	got = run(runMCPEdit, "tools", "--tools-deny", "delete_*")
+	if want := (mcp.ToolPolicy{Expose: "deferred", Allow: []string{"search_*", "get_issue"}, Deny: []string{"delete_*"}}); !reflect.DeepEqual(got, want) {
+		t.Fatalf("edit deny: %+v", got)
 	}
-	if got := run(runMCPEdit, "tools", "--direct-tools", "search"); got != "search" {
-		t.Fatalf("edit to search: %v", got)
+	// An empty value clears that part.
+	if got = run(runMCPEdit, "tools", "--tools-expose", "", "--tools-allow", "", "--tools-deny", ""); !got.IsZero() {
+		t.Fatalf("clear: %+v", got)
+	}
+	o, err := parseMCPOptions([]string{"tools", "--tools-expose", "sometimes", "--no-tui"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := runMCPEdit(s, o); err == nil || !strings.Contains(err.Error(), "tools.expose") {
+		t.Fatalf("invalid exposure: %v", err)
 	}
 }
 
@@ -153,7 +167,7 @@ func TestMCPPiOptionsFlag(t *testing.T) {
 		}
 		return source.Servers["tools"].PiOptions
 	}
-	if got := run(runMCPAdd, "tools", "--target", "pi", "--pi-options", `{"excludeTools":["*emulator*"]}`, "--url", "https://example.com/mcp"); len(got) != 1 {
+	if got := run(runMCPAdd, "tools", "--target", "pi", "--pi-options", `{"retries":3}`, "--url", "https://example.com/mcp"); len(got) != 1 {
 		t.Fatalf("add: %v", got)
 	}
 	if got := run(runMCPEdit, "tools", "--pi-options", `{"timeout":30}`); len(got) != 1 || got["timeout"] == nil {

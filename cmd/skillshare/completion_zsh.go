@@ -95,7 +95,9 @@ _skillshare() {
                 mcp)
                     _arguments \
                         '1:command:(add check edit import list remove restore)' \
-                        '--direct-tools[pi-mcp-adapter direct tools, kept but not synced: true, false, search or tool names]:value:(true false search)' \
+                        '--tools-expose[How tools reach the model; empty clears]:value:(direct deferred hidden)' \
+                        '--tools-allow[Only these tools, comma-separated, * matches any characters; empty clears]:tools:' \
+                        '--tools-deny[Never these tools, comma-separated, * matches any characters; empty clears]:tools:' \
                         '--pi-options[Other Pi built-in per-server fields as JSON]:json:' \
                         '--target[Receiving client]:target:' \
                         '--from[Import client]:target:' \

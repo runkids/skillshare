@@ -22,14 +22,14 @@ func mutateSaved(t *testing.T, s *Service, m Mutation) *Source {
 
 func TestMutateSettingsSetsTheGlobalDefaults(t *testing.T) {
 	s, _ := projectsService(t, projectsConfig)
+	// directTools is ignored since 0.23.0; a dashboard that still sends it can save.
 	source := mutateSaved(t, s, Mutation{Settings: &Settings{Targets: []string{"opencode", "pi"}, DirectTools: "search"}})
-	if !reflect.DeepEqual(source.Targets, []string{"opencode", "pi"}) || source.DirectTools != "search" {
-		t.Fatalf("targets %v, directTools %v", source.Targets, source.DirectTools)
+	if !reflect.DeepEqual(source.Targets, []string{"opencode", "pi"}) {
+		t.Fatalf("targets %v", source.Targets)
 	}
-	// Both values are replaced, so leaving one out clears it.
-	source = mutateSaved(t, s, Mutation{Settings: &Settings{Targets: []string{"opencode"}}})
-	if source.DirectTools != nil {
-		t.Fatalf("directTools %v, want none", source.DirectTools)
+	data, _ := os.ReadFile(s.ConfigPath)
+	if strings.Contains(string(data), "directTools") {
+		t.Fatalf("directTools saved:\n%s", data)
 	}
 }
 
@@ -93,10 +93,10 @@ func TestMutateProjectLeavesOtherRootsAsWritten(t *testing.T) {
 func TestMutateProjectRejected(t *testing.T) {
 	s, tmp := projectsService(t, projectsConfig)
 	for name, m := range map[string]Mutation{
-		"relative root":  {Project: "work/p1", Settings: &Settings{}},
-		"unknown root":   {Project: filepath.Join(tmp, "nope"), Remove: true},
-		"bad directTool": {Project: filepath.Join(tmp, "projA"), Replace: true, Settings: &Settings{DirectTools: 3}},
-		"listed twice":   {Project: filepath.Join(tmp, "projA"), Settings: &Settings{}},
+		"relative root": {Project: "work/p1", Settings: &Settings{}},
+		"unknown root":  {Project: filepath.Join(tmp, "nope"), Remove: true},
+		"bad target":    {Project: filepath.Join(tmp, "projA"), Replace: true, Settings: &Settings{Targets: []string{"nope!"}}},
+		"listed twice":  {Project: filepath.Join(tmp, "projA"), Settings: &Settings{}},
 	} {
 		if _, err := s.Mutate(m, "", false); err == nil {
 			t.Errorf("%s: saved", name)

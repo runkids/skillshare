@@ -51,7 +51,8 @@ func TestPiBuiltinSyncImportAndScopes(t *testing.T) {
 			t.Fatal(err)
 		}
 		c, err := s.ImportClient("pi")
-		if err != nil || len(c) != 1 || c[0].Server.PiOptions["exposure"] != "deferred" || c[0].Server.PiOptions["custom"] == nil {
+		// exposure that a tool policy writes the same way is imported as tools.
+		if err != nil || len(c) != 1 || c[0].Server.Tools.Expose != "deferred" || c[0].Server.PiOptions["exposure"] != nil || c[0].Server.PiOptions["custom"] == nil {
 			t.Fatalf("%+v %v", c, err)
 		}
 		p, err = s.Preview()

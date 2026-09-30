@@ -207,10 +207,31 @@ func importNative(target string, data []byte, singleName string, adapter bool) (
 		if target == "codex" {
 			allowed = map[string]bool{"command": true, "args": true, "url": true, "env": true, "env_vars": true, "http_headers": true, "env_http_headers": true, "bearer_token_env_var": true}
 		}
+		if target == "codex" {
+			importCodexTools(entry, &c)
+			allowed["enabled_tools"], allowed["disabled_tools"] = true, true
+		}
+		if target == "copilot" {
+			importCopilotTools(entry, &c)
+			allowed["tools"] = true
+		}
 		if target == "pi" {
-			allowed["directTools"] = true
-			if c.Server.DirectTools = entry["directTools"]; c.Server.DirectTools != nil {
-				c.Warnings = append(c.Warnings, "directTools is a pi-mcp-adapter setting that Pi's built-in MCP does not read; it is kept but not synced")
+			// pi-mcp-adapter's settings: its tool lists convert, the rest Pi does not read.
+			list := func(key string) []any {
+				value, set := entry[key]
+				if !set {
+					return nil
+				}
+				if items, ok := value.([]any); ok && items != nil {
+					return items
+				}
+				return []any{}
+			}
+			directTools, include, exclude := entry["directTools"], list("includeTools"), list("excludeTools")
+			for _, key := range append([]string{"directTools", "includeTools", "excludeTools"}, adapterPiOptions...) {
+				if _, set := entry[key]; set {
+					allowed[key] = true
+				}
 			}
 			for key, value := range entry {
 				if !allowed[key] {
@@ -219,6 +240,22 @@ func importNative(target string, data []byte, singleName string, adapter bool) (
 					}
 					c.Server.PiOptions[key] = importPiOption(name, key, value, &c.Warnings)
 					allowed[key] = true
+				}
+			}
+			importPiTools(&c)
+			if directTools != nil || include != nil || exclude != nil {
+				before, _ := json.Marshal(c.Server)
+				dropped := c.Server.adoptAdapterTools(directTools, include, exclude)
+				if after, _ := json.Marshal(c.Server); string(after) != string(before) {
+					c.Warnings = append(c.Warnings, "pi-mcp-adapter's directTools, includeTools and excludeTools are converted to Pi's exposure settings and tools")
+				}
+				for _, key := range dropped {
+					c.Warnings = append(c.Warnings, "pi-mcp-adapter setting not imported: "+key+"; the entry already sets that part of its tool exposure, or it is not a list of tool names")
+				}
+			}
+			for _, key := range adapterPiOptions {
+				if _, set := entry[key]; set {
+					c.Warnings = append(c.Warnings, "pi-mcp-adapter setting not imported, because Pi's built-in MCP does not read it: "+key)
 				}
 			}
 		}

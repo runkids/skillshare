@@ -10,6 +10,8 @@ import (
 )
 
 // ValidDirectTools accepts what pi-mcp-adapter documents: a switch, "search", or tool names.
+// Loading converts it to Pi's exposure settings (see adoptAdapterTools); the config editor
+// still checks the value a config may carry until then.
 func ValidDirectTools(value any) bool {
 	valid := true
 	switch v := value.(type) {
@@ -29,19 +31,6 @@ func ValidDirectTools(value any) bool {
 		valid = false
 	}
 	return valid
-}
-
-func (s Server) validateDirectTools(name string) error {
-	if s.DirectTools == nil {
-		return nil
-	}
-	switch {
-	case !ValidDirectTools(s.DirectTools):
-		return fmt.Errorf("MCP %s: directTools must be true, false, \"search\" or a list of tool names", name)
-	case s.Disabled:
-		return fmt.Errorf("MCP %s: directTools cannot be set on a disabled entry; it only switches the server off", name)
-	}
-	return nil
 }
 
 func (s Server) validatePiOptions(name string) error {
@@ -64,12 +53,17 @@ func (s Server) validatePiOptions(name string) error {
 			return fmt.Errorf("MCP %s: piOptions.%s is a pi-mcp-adapter setting that Pi's built-in MCP does not read", name, key)
 		}
 	}
+	for key, part := range map[string]string{"includeTools": "allow", "excludeTools": "deny"} {
+		if _, set := s.PiOptions[key]; set {
+			return fmt.Errorf("MCP %s: piOptions.%s is a pi-mcp-adapter setting; use tools.%s", name, key, part)
+		}
+	}
 	return validatePiBuiltinOptions(name, s.PiOptions)
 }
 
-// agentFieldsChanged reports a field outside the ownership hash, Pi's directTools or a
-// piOptions key, that the config sets and the file does not have yet. These stay out of
-// the hash: people added them to Pi's file by hand before Skillshare could set them, and
+// agentFieldsChanged reports a field outside the ownership hash, such as a piOptions key,
+// that the config sets and the file does not have yet. These stay out of the hash: people
+// added them to Pi's file by hand before Skillshare could set them, and
 // hashing them would turn their next sync into a conflict.
 func agentFieldsChanged(target string, current, want map[string]any) bool {
 	for key, value := range want {
@@ -93,6 +87,7 @@ func renderPi(s Server) (map[string]any, error) {
 		return nil, err
 	}
 	maps.Copy(out, s.PiOptions)
+	piToolPolicy(out, s.Tools)
 	for _, key := range []string{"env", "headers"} {
 		values, _ := out[key].(map[string]string)
 		for _, value := range values {

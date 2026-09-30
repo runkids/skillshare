@@ -21,7 +21,7 @@ type Mutation struct {
 	// Project is a root under mcp.projects. Set, the rest of the mutation applies to that
 	// project; with Remove and no Name, the project itself is dropped.
 	Project string `json:"project,omitempty"`
-	// Settings replaces targets and directTools of the scope, so a value left out is cleared.
+	// Settings replaces the targets of the scope, so a value left out is cleared.
 	Settings *Settings `json:"settings,omitempty"`
 	Name     string    `json:"name,omitempty"`
 	Server   *Server   `json:"server,omitempty"`
@@ -33,16 +33,15 @@ type Mutation struct {
 	Replace     bool         `json:"replace,omitempty"`
 }
 
-// Settings are a scope's defaults: mcp.targets and mcp.directTools, or a project's own.
+// Settings are a scope's defaults: mcp.targets, or a project's own.
 type Settings struct {
-	Targets     []string `json:"targets,omitempty"`
-	DirectTools any      `json:"directTools,omitempty"`
+	Targets []string `json:"targets,omitempty"`
+	// DirectTools is ignored since 0.23.0, which converts it to each server's own tool
+	// exposure. It is accepted so a dashboard that still sends it can save.
+	DirectTools any `json:"directTools,omitempty"`
 }
 
 func (v Settings) validate() error {
-	if !ValidDirectTools(v.DirectTools) {
-		return fmt.Errorf("directTools must be true, false, \"search\" or a list of tool names")
-	}
 	return validateTargets(v.Targets)
 }
 
@@ -95,7 +94,7 @@ func (s *Source) draftProject(m Mutation) error {
 		if err := m.Settings.validate(); err != nil {
 			return err
 		}
-		project.Targets, project.DirectTools = m.Settings.Targets, m.Settings.DirectTools
+		project.Targets = m.Settings.Targets
 	}
 	if s.Projects == nil {
 		s.Projects = map[string]Project{}
@@ -135,7 +134,7 @@ func (s *Service) draftMutations(mutations []Mutation) (*Source, error) {
 			if err := m.Settings.validate(); err != nil {
 				return nil, err
 			}
-			source.Targets, source.DirectTools, source.settingsChanged = m.Settings.Targets, m.Settings.DirectTools, true
+			source.Targets, source.settingsChanged = m.Settings.Targets, true
 		}
 		source.serversChanged = source.serversChanged || m.Remove || m.Server != nil
 		if m.Remove {
@@ -213,9 +212,6 @@ func (s *Source) save() error {
 	}
 	if s.settingsChanged {
 		if err := putOrDrop(mcp, "targets", s.Targets, len(s.Targets) > 0); err != nil {
-			return err
-		}
-		if err := putOrDrop(mcp, "directTools", s.DirectTools, s.DirectTools != nil); err != nil {
 			return err
 		}
 	}

@@ -142,6 +142,16 @@ func Render(target string, s Server) (map[string]any, error) {
 			out["env_http_headers"] = envHeaders
 		}
 	}
+	if target == "codex" {
+		// Codex applies disabled_tools after enabled_tools; both list exact tool names.
+		allow, deny, _ := namedTools(s.Tools, true)
+		if allow != nil {
+			out["enabled_tools"] = allow
+		}
+		if deny != nil {
+			out["disabled_tools"] = deny
+		}
+	}
 	return out, nil
 }
 

@@ -102,7 +102,7 @@ func TestMCPRemovedPiFlagsExplainTheChange(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
 	sb.WriteConfig("targets: {}\n")
-	for _, flag := range []string{"--pi-extension", "--pi-options-prune"} {
+	for _, flag := range []string{"--pi-extension", "--pi-options-prune", "--direct-tools"} {
 		r := sb.RunCLI("mcp", "add", "docs", "--target", "pi", flag, "builtin", "--url", "https://example.com/mcp", "--no-tui", "-g")
 		r.AssertFailure(t)
 		r.AssertAnyOutputContains(t, flag+" was removed in 0.23.0")

@@ -9,8 +9,19 @@
   "$defs": {
     "targets": {"type": "array", "uniqueItems": true, "items": {"anyOf": [{"enum": ["claude", "codex", "cursor", "vscode", "opencode", "kilocode", "grok", "antigravity", "amp", "claude-desktop", "cline", "copilot", "factory", "gemini", "goose", "junie", "kiro", "lmstudio", "warp", "windsurf", "pi"]}, {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$", "description": "A target that is another account of an Agent, declared under targets with agent and config_dir. Global config only."}]}},
     "directTools": {
-      "description": "pi-mcp-adapter setting: true, a list of tool names, or \"search\". Since 0.23.0 Pi uses its built-in MCP, which does not read it, so it is kept but not synced.",
+      "deprecated": true,
+      "description": "Converted since 0.23.0: pi-mcp-adapter's setting becomes Pi's exposure (true: direct, \"search\": deferred) in piOptions, or piOptions.toolExposure for a list of tool names; a default under mcp or a project applies to each server that reaches Pi. Saving the config drops it.",
       "oneOf": [{"type": "boolean"}, {"const": "search"}, {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}}]
+    },
+    "toolList": {"type": "array", "uniqueItems": true, "minItems": 1, "items": {"type": "string", "pattern": "^[^\\s,?\\[\\]{}]+$", "description": "A tool name; * matches any characters."}},
+    "tools": {
+      "type": "object", "additionalProperties": false,
+      "description": "Which of the server's tools reach the model, translated per Agent. Pi holds all of it; Codex and Copilot take exact tool names; the plan and mcp check name each Agent that cannot hold a part.",
+      "properties": {
+        "expose": {"enum": ["direct", "deferred", "hidden"], "description": "How the model reaches the tools: declared directly, loaded through tool search, or hidden. Unset leaves each Agent's default."},
+        "allow": {"$ref": "#/$defs/toolList", "description": "Only the tools that match are available."},
+        "deny": {"$ref": "#/$defs/toolList", "description": "The tools that match are never available; deny beats allow."}
+      }
     },
     "reference": {
       "type": "object", "required": ["fromEnv"], "additionalProperties": false,
@@ -56,12 +67,13 @@
         "bearerToken": {"$ref": "#/$defs/reference"},
         "targets": {"$ref": "#/$defs/targets"},
         "directTools": {"$ref": "#/$defs/directTools"},
-        "piOptions": {"type": "object", "description": "Pi built-in per-server options. Known built-in fields are validated; unknown fields are preserved."},
+        "tools": {"$ref": "#/$defs/tools"},
+        "piOptions": {"type": "object", "description": "Pi built-in per-server options. Known built-in fields are validated; unknown fields are preserved. pi-mcp-adapter-only fields are refused: set tool lists in tools; exposure and toolExposure cannot be combined with tools."},
         "piOptionsPrune": {"type": "boolean", "deprecated": true, "description": "Ignored since 0.23.0: sync always removes Pi options Skillshare wrote that are unchanged. Saving the config drops it."},
         "disabled": {"const": true, "description": "Project mode only: turn off a server that the Agent's global config defines. Supported by claude, opencode and kilocode."}
       },
       "oneOf": [
-        {"required": ["disabled"], "not": {"anyOf": [{"required": ["directTools"]}, {"required": ["command"]}, {"required": ["url"]}, {"required": ["args"]}, {"required": ["env"]}, {"required": ["headers"]}, {"required": ["bearerToken"]}, {"required": ["transport"]}]}},
+        {"required": ["disabled"], "not": {"anyOf": [{"required": ["directTools"]}, {"required": ["tools"]}, {"required": ["command"]}, {"required": ["url"]}, {"required": ["args"]}, {"required": ["env"]}, {"required": ["headers"]}, {"required": ["bearerToken"]}, {"required": ["transport"]}]}},
         {"required": ["command"], "not": {"anyOf": [{"required": ["disabled"]}, {"required": ["url"]}, {"required": ["headers"]}, {"required": ["bearerToken"]}]}, "properties": {"transport": {"const": "stdio"}}},
         {"required": ["url"], "not": {"anyOf": [{"required": ["disabled"]}, {"required": ["command"]}, {"required": ["args"]}, {"required": ["env"]}]}, "properties": {"transport": {"const": "streamable-http"}}}
       ]

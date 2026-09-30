@@ -90,7 +90,7 @@ func TestMCPListKeysAndPrivateDetails(t *testing.T) {
 func TestMCPEditDraftDoesNotMutateOriginal(t *testing.T) {
 	s := mcpTUIService(t)
 	original := mcp.Server{Command: "echo", Env: map[string]mcp.Value{"TEAM": {Literal: "before"}}}
-	prompts := &scriptedMCPPrompts{choices: [][]int{{2}, {2}, {1}, {0}, {6}}, texts: []string{"after"}}
+	prompts := &scriptedMCPPrompts{choices: [][]int{{2}, {2}, {1}, {0}, {7}}, texts: []string{"after"}}
 	draft, err := editMCPDraft(s, "docs", original, []string{"claude"}, prompts)
 	if err != nil {
 		t.Fatal(err)

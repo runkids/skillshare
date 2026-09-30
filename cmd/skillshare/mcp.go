@@ -17,8 +17,9 @@ import (
 
 type mcpOptions struct {
 	name, url, from, file, revision string
-	// directTools is nil unless --direct-tools was given.
-	directTools any
+	// toolsExpose, toolsAllow and toolsDeny are nil unless their --tools-* flag was given;
+	// an empty value clears that part of the tool policy.
+	toolsExpose, toolsAllow, toolsDeny *string
 	// piOptions is nil unless --pi-options was given.
 	piOptions                                    mcp.PiOptions
 	targets                                      []string
@@ -32,6 +33,7 @@ type mcpOptions struct {
 var removedMCPFlags = map[string]string{
 	"--pi-extension":     "--pi-extension was removed in 0.23.0: Pi always uses its built-in MCP (~/.pi/agent/mcp.json or .pi/mcp.json); drop the flag",
 	"--pi-options-prune": "--pi-options-prune was removed in 0.23.0: sync always removes Pi fields Skillshare wrote earlier that are unchanged; drop the flag",
+	"--direct-tools":     "--direct-tools was removed in 0.23.0: use --tools-expose direct for every tool, or --pi-options '{\"toolExposure\":{\"TOOL\":\"direct\"}}' for single tools in Pi",
 }
 
 func parseMCPOptions(args []string) (mcpOptions, error) {
@@ -45,25 +47,22 @@ func parseMCPOptions(args []string) (mcpOptions, error) {
 		case "--":
 			o.command = args[i+1:]
 			i = len(args)
-		case "--url", "--target", "--from", "--file", "--revision", "--direct-tools", "--pi-options":
+		case "--url", "--target", "--from", "--file", "--revision", "--tools-expose", "--tools-allow", "--tools-deny", "--pi-options":
 			if i+1 == len(args) {
 				return o, fmt.Errorf("%s requires a value", a)
 			}
 			i++
 			value := args[i]
 			switch a {
-			case "--direct-tools":
-				switch value {
-				case "true", "false":
-					o.directTools = value == "true"
-				case "search":
-					o.directTools = value
-				default:
-					o.directTools = strings.Split(value, ",")
-				}
+			case "--tools-expose":
+				o.toolsExpose = &value
+			case "--tools-allow":
+				o.toolsAllow = &value
+			case "--tools-deny":
+				o.toolsDeny = &value
 			case "--pi-options":
 				if err := json.Unmarshal([]byte(value), &o.piOptions); err != nil || o.piOptions == nil {
-					return o, fmt.Errorf("--pi-options takes a JSON object, such as '{\"excludeTools\":[\"delete_*\"]}'")
+					return o, fmt.Errorf("--pi-options takes a JSON object, such as '{\"timeout\":30}'")
 				}
 			case "--url":
 				o.url = value
@@ -105,6 +104,35 @@ func parseMCPOptions(args []string) (mcpOptions, error) {
 		o.targets = []string{}
 	}
 	return o, nil
+}
+
+// toolFlags reports whether any --tools-* flag was given.
+func (o mcpOptions) toolFlags() bool {
+	return o.toolsExpose != nil || o.toolsAllow != nil || o.toolsDeny != nil
+}
+
+// applyToolFlags sets the parts of a tool policy that --tools-* flags name. Lists are
+// comma-separated; an empty value clears the part.
+func (o mcpOptions) applyToolFlags(t mcp.ToolPolicy) mcp.ToolPolicy {
+	list := func(value string) []string {
+		var tools []string
+		for _, tool := range strings.Split(value, ",") {
+			if tool = strings.TrimSpace(tool); tool != "" {
+				tools = append(tools, tool)
+			}
+		}
+		return tools
+	}
+	if o.toolsExpose != nil {
+		t.Expose = *o.toolsExpose
+	}
+	if o.toolsAllow != nil {
+		t.Allow = list(*o.toolsAllow)
+	}
+	if o.toolsDeny != nil {
+		t.Deny = list(*o.toolsDeny)
+	}
+	return t
 }
 
 func cmdMCP(args []string) (resultErr error) {
@@ -209,7 +237,7 @@ func cmdSyncMCP(args []string) error {
 	if err != nil {
 		return err
 	}
-	if o.piOptions != nil || o.directTools != nil || o.name != "" || o.url != "" || o.from != "" || o.file != "" || len(o.command) > 0 || o.targets != nil || o.replace || o.sync || o.disabled || o.keepFiles {
+	if o.piOptions != nil || o.toolFlags() || o.name != "" || o.url != "" || o.from != "" || o.file != "" || len(o.command) > 0 || o.targets != nil || o.replace || o.sync || o.disabled || o.keepFiles {
 		return fmt.Errorf("sync mcp accepts only --dry-run, --json, --revision and scope flags")
 	}
 	if o.dryRun {
@@ -332,8 +360,13 @@ Commands:
   restore [id]      Browse backups, preview and restore Agent entries
 
 Options:
-  --direct-tools <value>    pi-mcp-adapter setting, kept but not synced: true, false,
-                            search, or tool names separated by commas
+  --tools-expose <value>    How the model reaches the tools: direct, deferred or
+                            hidden ("" clears); Pi only, other Agents are named
+  --tools-allow <tools>     Only these tools, separated by commas; * matches any
+                            characters ("" clears)
+  --tools-deny <tools>      Never these tools, separated by commas; beats allow
+                            ("" clears). The plan names each Agent that cannot hold
+                            a part of the tool policy
   --pi-options <json>       Other Pi built-in per-server fields as a JSON object
   --target <client>  Receiving client; repeat for multiple clients, or none to keep
                     the server in Skillshare without writing it to any Agent

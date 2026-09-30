@@ -9,22 +9,22 @@ import (
 
 // piOptions carries the Pi fields Skillshare has no setting for. Refs: #289.
 func TestPiOptionsRenderedOnlyForPi(t *testing.T) {
-	server := Server{Command: "echo", PiOptions: map[string]any{"excludeTools": []any{"*emulator*"}}}
+	server := Server{Command: "echo", PiOptions: map[string]any{"retries": 3}}
 	out, err := Render("pi", server)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if list, ok := out["excludeTools"].([]any); !ok || len(list) != 1 {
+	if out["retries"] != 3 {
 		t.Fatalf("pi entry: %v", out)
 	}
 	out, err = Render("opencode", server)
-	if err != nil || out["excludeTools"] != nil {
+	if err != nil || out["retries"] != nil {
 		t.Fatalf("piOptions leaked into another Agent: %v %v", out, err)
 	}
 }
 
 func TestPiOptionsRejected(t *testing.T) {
-	options := map[string]any{"excludeTools": []any{"a"}}
+	options := map[string]any{"timeout": 30}
 	for name, server := range map[string]Server{
 		"switch only":               {Disabled: true, PiOptions: options},
 		"a field Skillshare writes": {Command: "echo", PiOptions: map[string]any{"command": "other"}},
@@ -55,10 +55,10 @@ func TestPiOptionsSyncFollowsConfig(t *testing.T) {
 		return string(data)
 	}
 	sync("", "add")
-	if got := sync("      piOptions:\n        excludeTools: [\"*emulator*\"]\n        retries: 3\n", "update"); !strings.Contains(got, `"*emulator*"`) || !strings.Contains(got, `"retries": 3`) {
+	if got := sync("      piOptions:\n        timeout: 30\n        retries: 3\n", "update"); !strings.Contains(got, `"timeout": 30`) || !strings.Contains(got, `"retries": 3`) {
 		t.Fatalf("options not written: %s", got)
 	}
-	sync("      piOptions:\n        excludeTools: [\"*emulator*\"]\n        retries: 3\n", "unchanged")
+	sync("      piOptions:\n        timeout: 30\n        retries: 3\n", "unchanged")
 }
 
 // pi-mcp-adapter options reached Pi's file through piOptions before 0.23.0. Pi's built-in

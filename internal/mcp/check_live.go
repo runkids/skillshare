@@ -40,6 +40,8 @@ type CheckLive struct {
 	ProtocolVersion string         `json:"protocolVersion"`
 	ServerInfo      LiveServerInfo `json:"serverInfo"`
 	Tools           int            `json:"tools"`
+	// ToolNames are the names tools/list returned, for choosing a tool policy.
+	ToolNames []string `json:"toolNames,omitempty"`
 }
 
 type LiveServerInfo struct {
@@ -173,6 +175,9 @@ func (p *liveProbe) run() (*CheckLive, CheckFinding) {
 	live.ProtocolVersion = p.redact(live.ProtocolVersion)
 	live.ServerInfo.Name = p.redact(live.ServerInfo.Name)
 	live.ServerInfo.Version = p.redact(live.ServerInfo.Version)
+	for i, name := range live.ToolNames {
+		live.ToolNames[i] = p.redact(name)
+	}
 	who := strings.TrimSpace(live.ServerInfo.Name + " " + live.ServerInfo.Version)
 	if who == "" {
 		who = "unnamed server"
@@ -297,7 +302,8 @@ func (p *liveProbe) discover(ctx context.Context, conn rpcConn, wait time.Durati
 	}
 	live := &CheckLive{ProtocolVersion: liveProtocolVersion, ServerInfo: result.Meta.ServerInfo}
 	if _, ok := result.Capabilities["tools"]; ok {
-		live.Tools, err = countTools(ctx, conn, p.modernParams)
+		live.ToolNames, err = listTools(ctx, conn, p.modernParams)
+		live.Tools = len(live.ToolNames)
 	}
 	return live, err
 }
@@ -324,7 +330,7 @@ func (p *liveProbe) initialize(ctx context.Context, conn rpcConn) (*CheckLive, e
 	live := &CheckLive{ProtocolVersion: result.ProtocolVersion, ServerInfo: result.ServerInfo}
 	if _, ok := result.Capabilities["tools"]; ok {
 		var err error
-		live.Tools, err = countTools(ctx, conn, func(cursor string) map[string]any {
+		live.ToolNames, err = listTools(ctx, conn, func(cursor string) map[string]any {
 			if cursor == "" {
 				return map[string]any{}
 			}
@@ -333,27 +339,32 @@ func (p *liveProbe) initialize(ctx context.Context, conn rpcConn) (*CheckLive, e
 		if err != nil {
 			return nil, err
 		}
+		live.Tools = len(live.ToolNames)
 	}
 	return live, nil
 }
 
-func countTools(ctx context.Context, conn rpcConn, params func(cursor string) map[string]any) (int, error) {
-	count, cursor := 0, ""
+func listTools(ctx context.Context, conn rpcConn, params func(cursor string) map[string]any) ([]string, error) {
+	names, cursor := []string{}, ""
 	for range liveMaxPages {
 		var page struct {
-			Tools      []json.RawMessage `json:"tools"`
-			NextCursor string            `json:"nextCursor"`
+			Tools []struct {
+				Name string `json:"name"`
+			} `json:"tools"`
+			NextCursor string `json:"nextCursor"`
 		}
 		if err := callResult(ctx, conn, "tools/list", params(cursor), &page); err != nil {
-			return 0, fmt.Errorf("tools/list: %w", err)
+			return nil, fmt.Errorf("tools/list: %w", err)
 		}
-		count += len(page.Tools)
+		for _, tool := range page.Tools {
+			names = append(names, tool.Name)
+		}
 		if page.NextCursor == "" {
 			break
 		}
 		cursor = page.NextCursor
 	}
-	return count, nil
+	return names, nil
 }
 
 // stdio starts the server, probes it over stdin/stdout, and always stops it again.

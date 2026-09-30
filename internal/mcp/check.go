@@ -133,6 +133,7 @@ func (s *Service) Check(opts CheckOptions) (*CheckReport, error) {
 			result.Findings = append(result.Findings, checkLaunch(server, opts)...)
 		}
 		result.Findings = append(result.Findings, preflight[k]...)
+		result.Findings = append(result.Findings, checkToolPolicy(source, k.root, server)...)
 		report.Servers = append(report.Servers, result)
 	}
 	byKey := map[checkKey]*CheckServer{}
@@ -297,6 +298,26 @@ func (s *Service) checkClientRules(source *Source, root, name string, server Ser
 		one.Targets = TargetList{target}
 		if err := render(one); err != nil {
 			out = append(out, CheckFinding{Level: "error", Check: "client-rule", Target: target, Message: err.Error()})
+		}
+	}
+	return out
+}
+
+// checkToolPolicy names each selected Agent that cannot hold a part of the server's tool
+// policy, the same gaps the plan's notices list.
+func checkToolPolicy(source *Source, root string, server Server) []CheckFinding {
+	defaults := source.Targets
+	if root != "" {
+		defaults = source.Projects[root].defaults(source)
+	}
+	var out []CheckFinding
+	for _, target := range server.Targets.orDefault(defaults) {
+		agent := target
+		if account, ok := source.Accounts[target]; ok {
+			agent = account.Agent
+		}
+		if gaps := toolPolicyGaps(agent, server.Tools); len(gaps) > 0 {
+			out = append(out, CheckFinding{Level: "warning", Check: "tools", Target: target, Message: toolPolicyMessage(target, gaps)})
 		}
 	}
 	return out
