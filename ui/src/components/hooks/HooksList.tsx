@@ -1,4 +1,5 @@
 import { Ellipsis } from 'lucide-react';
+import { useState } from 'react';
 import type { HookEntry, HookPlan } from '../../api/hooks';
 import { useT } from '../../i18n';
 import AgentIcon from '../AgentIcon';
@@ -39,6 +40,8 @@ function summaryLines(entry: HookEntry) {
  */
 export default function HooksList({ entries, plan, onToggle, onMenu, disabled = false }: Props) {
   const t = useT();
+  // The line under the pointer lights up its own targets in the header; the rest fade.
+  const [hovered, setHovered] = useState<{ name: string; agents: string[] } | null>(null);
   return (
     <div className="flex flex-col gap-3">
       {Object.entries(entries).map(([name, entry]) => {
@@ -62,10 +65,10 @@ export default function HooksList({ entries, plan, onToggle, onMenu, disabled = 
                 {status}
               </span>
               <span className="flex-1" />
-              <span className="flex items-center gap-1.5">
+              <span className={`ss-stack ${enabled ? '' : 'opacity-45 grayscale'}`}>
                 {agents.map((a, i) => (
-                  <span key={a} title={`${hookLabel(a)} · ${t(`hooks.sync.${states[i]}`)}`} className={enabled ? '' : 'opacity-45 grayscale'}>
-                    <AgentIcon target={a} size={16} />
+                  <span key={a} title={`${hookLabel(a)} · ${t(`hooks.sync.${states[i]}`)}`} className={`ss-at transition-opacity ${hovered?.name === name && !hovered.agents.includes(a) ? 'opacity-25' : ''}`}>
+                    <AgentIcon target={a} size={14} />
                     <span className="sr-only">{hookLabel(a)} · {t(`hooks.sync.${states[i]}`)}</span>
                   </span>
                 ))}
@@ -81,14 +84,15 @@ export default function HooksList({ entries, plan, onToggle, onMenu, disabled = 
             {lines.length > 0 && (
               <div className={`flex flex-col gap-1 border-t border-line pt-2.5 font-mono text-[12.5px] ${enabled ? '' : 'text-ink-3'}`}>
                 {lines.map((l) => (
-                  <div key={`${l.event}\0${l.matcher}\0${l.command}`} className="flex min-w-0 items-baseline gap-2">
+                  <div
+                    key={`${l.event}\0${l.matcher}\0${l.command}`}
+                    className={`flex min-w-0 items-baseline gap-2 ${perLine ? '-mx-2 rounded-md px-2 hover:bg-sunken' : ''}`}
+                    onMouseEnter={perLine ? () => setHovered({ name, agents: l.agents }) : undefined}
+                    onMouseLeave={perLine ? () => setHovered(null) : undefined}
+                  >
                     <span className="w-[150px] shrink-0 truncate" title={l.matcher ? `${l.event} · ${l.matcher}` : l.event}>{l.event}{l.matcher && <span className="text-ink-2"> · {l.matcher}</span>}</span>
                     {l.command ? <><span className="shrink-0 text-ink-3">→</span><span className="min-w-0 flex-1 truncate" title={l.command}>{l.command}</span></> : <span className="flex-1 font-sans text-xs text-ink-3">{t('hooks.summary.code')}</span>}
-                    {perLine && (
-                      <span className={`flex shrink-0 items-center gap-1 self-center ${enabled ? '' : 'opacity-45 grayscale'}`}>
-                        {l.agents.map((a) => <span key={a} title={hookLabel(a)}><AgentIcon target={a} size={13} /><span className="sr-only">{hookLabel(a)}</span></span>)}
-                      </span>
-                    )}
+                    {perLine && l.agents.map((a) => <span key={a} className="sr-only">{hookLabel(a)}</span>)}
                   </div>
                 ))}
               </div>
