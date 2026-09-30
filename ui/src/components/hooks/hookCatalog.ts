@@ -329,8 +329,9 @@ export interface DiffLine { op: ' ' | '+' | '-'; text: string }
 const sameLine = (line: string) => line.trim().replace(/,$/, '');
 
 /**
- * A line diff of two small files (LCS); files too large for that show as replaced. Lines match ignoring a
- * trailing comma and whitespace, and show the new text; within a change, removed lines come first.
+ * A line diff of two small files (LCS); files too large for that show as replaced. Lines align ignoring a
+ * trailing comma and whitespace, so an added sibling does not shift the rest, but a line whose text still
+ * differs shows as removed and added. Within a change, removed lines come first.
  */
 export function diffLines(before: string, after: string): DiffLine[] {
   const oldLines = before ? before.replace(/\n$/, '').split('\n') : [];
@@ -344,9 +345,21 @@ export function diffLines(before: string, after: string): DiffLine[] {
   let i = 0;
   let j = 0;
   while (i < a.length || j < b.length) {
-    if (i < a.length && j < b.length && a[i] === keys[j]) { out.push({ op: ' ', text: b[j] }); i++; j++; }
-    else if (i < a.length && (j >= b.length || lcs[i + 1][j] >= lcs[i][j + 1])) out.push({ op: '-', text: oldLines[i++] });
+    if (i < a.length && j < b.length && a[i] === keys[j]) {
+      if (oldLines[i] === b[j]) out.push({ op: ' ', text: b[j] });
+      else out.push({ op: '-', text: oldLines[i] }, { op: '+', text: b[j] });
+      i++; j++;
+    } else if (i < a.length && (j >= b.length || lcs[i + 1][j] >= lcs[i][j + 1])) out.push({ op: '-', text: oldLines[i++] });
     else out.push({ op: '+', text: b[j++] });
+  }
+  // A comma-only pair can land after an added line; each run of changes lists its removals first.
+  for (let start = 0; start < out.length; start++) {
+    if (out[start].op === ' ') continue;
+    let end = start;
+    while (end < out.length && out[end].op !== ' ') end++;
+    const run = out.slice(start, end);
+    out.splice(start, run.length, ...run.filter((l) => l.op === '-'), ...run.filter((l) => l.op === '+'));
+    start = end;
   }
   return out;
 }

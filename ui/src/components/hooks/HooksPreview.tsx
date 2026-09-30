@@ -21,7 +21,8 @@ function FileDiff({ file, untouched }: { file: HookFileDiff; untouched: string[]
     <div className="max-h-[320px] overflow-y-auto border-t border-line py-1.5 font-mono text-[12px] leading-[1.7]" aria-label={t('hooks.preview.diff', { path: file.path })}>
       {lines.map((line, i) => {
         if ('skip' in line) return <div key={i} className="px-3.5 text-ink-3">{t('hooks.preview.folded', { count: String(line.skip) })}</div>;
-        const event = line.op === ' ' ? lineEvent(line.text) : undefined;
+        // An event line of the user's own shows as added only when it just gained or lost a comma; mark its new text.
+        const event = line.op !== '-' ? lineEvent(line.text) : undefined;
         return (
           <div key={i} className={lineTone[line.op]}>
             <div className="flex gap-3 px-3.5">

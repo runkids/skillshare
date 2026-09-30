@@ -67,10 +67,20 @@ describe('diffLines', () => {
     expect(diffLines('a\nold\nb', 'a\nnew\nb').map((l) => l.op)).toEqual([' ', '-', '+', ' ']);
   });
 
-  it('keeps a line that only gained a trailing comma as unchanged, showing the new text', () => {
+  it('shows a line that only gained a trailing comma as removed and added, removals first', () => {
     expect(diffLines('{\n  "A": []\n}', '{\n  "A": [],\n  "B": []\n}')).toEqual([
-      { op: ' ', text: '{' }, { op: ' ', text: '  "A": [],' }, { op: '+', text: '  "B": []' }, { op: ' ', text: '}' },
+      { op: ' ', text: '{' }, { op: '-', text: '  "A": []' }, { op: '+', text: '  "A": [],' }, { op: '+', text: '  "B": []' }, { op: ' ', text: '}' },
     ]);
+  });
+
+  it('shows a line that only lost a trailing comma as removed and added', () => {
+    expect(diffLines('[\n  1,\n  2\n]', '[\n  1\n]').map((l) => `${l.op}${l.text}`)).toEqual([' [', '-  1,', '-  2', '+  1', ' ]']);
+  });
+
+  it('keeps unrelated lines aligned when a comma changes', () => {
+    const before = '{\n  "A": [],\n  "B": [],\n  "C": []\n}';
+    const after = '{\n  "A": [],\n  "B": [],\n  "C": [],\n  "D": []\n}';
+    expect(diffLines(before, after).filter((l) => l.op !== ' ').map((l) => `${l.op}${l.text}`)).toEqual(['-  "C": []', '+  "C": [],', '+  "D": []']);
   });
 });
 
