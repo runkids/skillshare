@@ -79,7 +79,7 @@ func TestAdapterPiOptionsDroppedOnLoad(t *testing.T) {
 	if err != nil || plan.Blocked {
 		t.Fatalf("%+v %v", plan, err)
 	}
-	if len(plan.Notices) != 1 || plan.Notices[0] != "Pi's built-in MCP does not read idleTimeout, lifecycle; the next sync removes them: docs" {
+	if len(plan.Notices) != 2 || plan.Notices[0] != "Pi's built-in MCP does not read idleTimeout, lifecycle; the next sync removes them: docs" || plan.Notices[1] != PiBuiltinNotice {
 		t.Fatalf("notices: %q", plan.Notices)
 	}
 	if _, err := s.Apply(plan.Revision); err != nil {

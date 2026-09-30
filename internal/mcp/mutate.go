@@ -283,7 +283,7 @@ func (s *Source) saveMigration(backup func(path string) (string, error)) ([]Migr
 			return saved, err
 		}
 	}
-	s.migrateConfig, s.migrateExternal, s.Notices = false, false, nil
+	s.migrateConfig, s.migrateExternal, s.piExtensionSettings, s.Notices = false, false, false, nil
 	return saved, nil
 }
 

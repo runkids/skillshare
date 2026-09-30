@@ -94,11 +94,14 @@ func TestMCPPiAdapterServerSyncsToBuiltin(t *testing.T) {
 	dry := sb.RunCLI("sync", "mcp", "-g", "--dry-run")
 	dry.AssertSuccess(t)
 	dry.AssertAnyOutputContains(t, "Pi now uses its built-in MCP; the next sync updates the config: docs")
+	dry.AssertAnyOutputContains(t, "Pi's built-in MCP needs Pi 0.99.0 or later")
+	sb.RunCLI("sync", "mcp", "-g", "--dry-run", "--json").AssertAnyOutputContains(t, "is still installed in Pi, remove it")
 	if sb.ReadFile(sb.ConfigPath) != legacy {
 		t.Fatal("dry run changed the config")
 	}
 	r := sb.RunCLI("sync", "mcp", "-g")
 	r.AssertSuccess(t)
+	r.AssertAnyOutputContains(t, "Pi's built-in MCP needs Pi 0.99.0 or later")
 	assertConfigMigrated(t, sb, r, sb.ConfigPath, legacy)
 	if !strings.Contains(sb.ReadFile(builtin), `"docs"`) || sb.ReadFile(adapter) != manual {
 		t.Fatalf("mcp.json: %s\nmcp-adapter.json: %s", sb.ReadFile(builtin), sb.ReadFile(adapter))

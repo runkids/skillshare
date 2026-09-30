@@ -265,7 +265,8 @@ mcp:
 YAML
 cp "$SKILLSHARE_CONFIG" "$MCP_CASE/config.before"
 ss sync mcp --dry-run --json -g > "$MCP_CASE/plan.json"
-jq -e '.migrates == true and (.notices | length == 4)' "$MCP_CASE/plan.json" >/dev/null
+jq -e '.migrates == true and (.notices | length == 5)' "$MCP_CASE/plan.json" >/dev/null
+jq -e '.notices[-1] | startswith("Pi'"'"'s built-in MCP needs Pi 0.99.0 or later")' "$MCP_CASE/plan.json" >/dev/null
 jq -e '.notices[0] == "Pi now uses its built-in MCP; the next sync updates the config: docs, lister"' "$MCP_CASE/plan.json" >/dev/null
 cmp "$SKILLSHARE_CONFIG" "$MCP_CASE/config.before"
 ss sync mcp -g > "$MCP_CASE/sync.out"

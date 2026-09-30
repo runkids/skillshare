@@ -222,7 +222,7 @@ func TestMCPSyncSavesTheConfigWithoutRetiredSettings(t *testing.T) {
 		t.Fatal(err)
 	}
 	plan, err := s.mcpService().Preview()
-	if err != nil || !plan.Migrates || len(plan.Notices) != 1 {
+	if err != nil || !plan.Migrates || len(plan.Notices) != 2 {
 		t.Fatalf("%+v %v", plan, err)
 	}
 	body, _ := json.Marshal(map[string]any{"mutation": map[string]any{}, "revision": plan.Revision, "sync": true})

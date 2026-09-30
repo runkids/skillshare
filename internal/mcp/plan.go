@@ -84,6 +84,21 @@ type ledger struct {
 	Entries map[string]ownership `json:"entries"`
 }
 
+// PiBuiltinNotice is the plan's notice when it moves servers from pi-mcp-adapter or
+// pi-mcp-extension to Pi's built-in MCP. Pi's MCP docs say an installed extension that
+// registers /mcp replaces the built-in support; pi-mcp-extension, and pi-mcp-adapter
+// before 3.0.0, read mcp.json too. The dashboard matches the text, so change both together.
+const PiBuiltinNotice = "Pi's built-in MCP needs Pi 0.99.0 or later; on older Pi these servers stop loading until Pi is updated. If pi-mcp-adapter or pi-mcp-extension is still installed in Pi, remove it, because it can take the place of Pi's built-in MCP"
+
+// piExtensionEntry reports an entry Skillshare wrote for pi-mcp-adapter or pi-mcp-extension
+// before 0.23.0: one in the adapter's own file, or one with the transport field only
+// pi-mcp-extension read. The built-in entry never has it, and it is part of the hash, so an
+// owned entry that still matches carries it only from Skillshare.
+func piExtensionEntry(target, path string, entry map[string]any) bool {
+	_, transport := entry["transport"]
+	return target == "pi" && (path == piAdapterPath(path) || transport)
+}
+
 // orphanedMessage leads a conflict whose owning config is gone. The dashboard matches
 // conflicts on how the message starts, so the path stays last and nothing else may.
 const orphanedMessage = "left over from a Skillshare config that was removed; import it or explicitly replace this entry"
@@ -472,6 +487,7 @@ func (s *Service) previewResolved(source *Source, resolutions []Resolution) (*Pl
 		}
 	}
 	projectRoots := sortedKeys(source.Projects)
+	piMoves := source.piExtensionSettings
 	keys := make([]fileKey, 0, len(desired))
 	for key := range desired {
 		keys = append(keys, key)
@@ -619,6 +635,9 @@ func (s *Service) previewResolved(source *Source, resolutions []Resolution) (*Pl
 					p.state.Entries[key] = own
 				}
 			}
+			if (change.Action == "remove" || change.Action == "update") && piExtensionEntry(target, path, current) {
+				piMoves = true
+			}
 			change.Fields = changedFieldNames(current, f.changes[name], change.Action)
 			if change.Action == "conflict" {
 				p.Blocked = true
@@ -634,6 +653,9 @@ func (s *Service) previewResolved(source *Source, resolutions []Resolution) (*Pl
 		p.files = append(p.files, f)
 	}
 	p.Revision = digest([]byte(revision))
+	if piMoves {
+		p.Notices = append(p.Notices, PiBuiltinNotice)
+	}
 	for _, found := range matched {
 		if !found {
 			return nil, fmt.Errorf("conflict resolution does not refer to a selected MCP entry")

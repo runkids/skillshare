@@ -78,15 +78,16 @@ func TestSyncSavesTheConfigWithoutRetiredSettings(t *testing.T) {
 	if err != nil || plan.Blocked {
 		t.Fatalf("%+v %v", plan, err)
 	}
-	// Five retired kinds, and the tool policy lists converted from includeTools.
-	if len(plan.Notices) != 6 || !plan.Migrates {
+	// Five retired kinds, the tool policy lists converted from includeTools, and what Pi's
+	// built-in MCP needs, which the sync keeps saying after the config is saved.
+	if len(plan.Notices) != 7 || plan.Notices[6] != PiBuiltinNotice || !plan.Migrates {
 		t.Fatalf("notices: %q", plan.Notices)
 	}
 	result, err := s.Apply(plan.Revision)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if want := []MigratedFile{{s.ConfigPath, s.ConfigPath + ".bak"}}; !reflect.DeepEqual(result.Migrated, want) || len(result.Plan.Notices) != 1 || len(*backups) != 1 {
+	if want := []MigratedFile{{s.ConfigPath, s.ConfigPath + ".bak"}}; !reflect.DeepEqual(result.Migrated, want) || len(result.Plan.Notices) != 2 || len(*backups) != 1 {
 		t.Fatalf("migrated %v, notices %q, backups %v", result.Migrated, result.Plan.Notices, *backups)
 	}
 	assertMigrated(t, s.ConfigPath)

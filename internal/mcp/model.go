@@ -157,7 +157,8 @@ func (m migration) reachesPi(server *yaml.Node) bool {
 
 // migrateServers rewrites, in place, what 0.23.0 retired in every server of a servers
 // mapping, and names the servers each change touched, keyed by what changed:
-//   - legacyServerFields are dropped;
+//   - legacyServerFields are dropped; a piExtension that chose pi-mcp-adapter or
+//     pi-mcp-extension is also keyed "piExtension.<extension>";
 //   - pi-mcp-adapter piOptions are dropped, keyed "piOptions.<field>";
 //   - directTools and piOptions includeTools/excludeTools become Pi exposure settings or
 //     tools (adoptAdapterTools), keyed "piTools", or are dropped, keyed "piTools.<field>";
@@ -175,7 +176,10 @@ func migrateServers(servers *yaml.Node, m migration) map[string][]string {
 			continue
 		}
 		for _, key := range legacyServerFields {
-			if field(server, key) != nil {
+			if n := deref(field(server, key)); n != nil {
+				if key == "piExtension" && (n.Value == "pi-mcp-adapter" || n.Value == "pi-mcp-extension") {
+					found[key+"."+n.Value] = append(found[key+"."+n.Value], name)
+				}
 				drop(server, key)
 				found[key] = append(found[key], name)
 			}

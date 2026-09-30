@@ -30,6 +30,9 @@ type Source struct {
 	// migrateConfig and migrateExternal mark the files loading converted from settings
 	// 0.23.0 retired; sync writes them back so the notices go away.
 	migrateConfig, migrateExternal bool
+	// piExtensionSettings marks settings only pi-mcp-adapter or pi-mcp-extension read, so
+	// the plan warns what Pi's built-in MCP needs (PiBuiltinNotice).
+	piExtensionSettings bool
 	// projectKeys holds each root as config.yaml spells it, so saving keeps a leading ~.
 	projectKeys map[string]string
 	// What a draft changed, so save re-encodes nothing else.
@@ -282,6 +285,11 @@ func LoadSource(configPath string) (*Source, error) {
 		}
 	}
 	s.Notices = legacyNotices(legacy)
+	for key := range legacy {
+		if key == "piTools" || strings.HasPrefix(key, "piOptions.") || strings.HasPrefix(key, "piExtension.") {
+			s.piExtensionSettings = true
+		}
+	}
 	return s, s.checkTargets()
 }
 

@@ -3,6 +3,7 @@ package mcp
 import (
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -176,11 +177,16 @@ func TestPiWritesOnlyBuiltinFile(t *testing.T) {
 
 // piMigration is a Pi home an earlier Skillshare synced docs into for the given extension,
 // with the ledger owning the entry where that extension read it, next to a server of the
-// user's own.
+// user's own. An empty extension leaves piExtension out of the config and the ledger owning
+// the entry in mcp-adapter.json, so only the ledger tells that the adapter had it.
 func piMigration(t *testing.T, extension string, entry map[string]any) (s *Service, builtin, adapter string) {
 	t.Helper()
 	s = testService(t)
-	if err := os.WriteFile(s.ConfigPath, []byte("mcp:\n  targets: [pi]\n  servers:\n    docs:\n      command: docs\n      piExtension: "+extension+"\n"), 0600); err != nil {
+	config := "mcp:\n  targets: [pi]\n  servers:\n    docs:\n      command: docs\n"
+	if extension != "" {
+		config += "      piExtension: " + extension + "\n"
+	}
+	if err := os.WriteFile(s.ConfigPath, []byte(config), 0600); err != nil {
 		t.Fatal(err)
 	}
 	dir := filepath.Join(s.Home, ".pi", "agent")
@@ -189,7 +195,7 @@ func piMigration(t *testing.T, extension string, entry map[string]any) (s *Servi
 		t.Fatal(err)
 	}
 	owned := builtin
-	if extension == "pi-mcp-adapter" {
+	if extension == "pi-mcp-adapter" || extension == "" {
 		owned = adapter
 	}
 	if err := writeJSONFile(owned, map[string]any{"mcpServers": map[string]any{"docs": entry, "mine": map[string]any{"command": "mine"}}}); err != nil {
@@ -216,7 +222,7 @@ func TestPiAdapterServerMovesToBuiltin(t *testing.T) {
 	if c := changeFor(plan, builtin, "docs"); c == nil || c.Action != "add" {
 		t.Fatalf("built-in entry: %+v", c)
 	}
-	if len(plan.Notices) != 1 || plan.Notices[0] != "Pi now uses its built-in MCP; the next sync updates the config: docs" {
+	if len(plan.Notices) != 2 || plan.Notices[0] != "Pi now uses its built-in MCP; the next sync updates the config: docs" || plan.Notices[1] != PiBuiltinNotice {
 		t.Fatalf("notices: %v", plan.Notices)
 	}
 	result, err := s.Apply(plan.Revision)
@@ -241,11 +247,77 @@ func TestPiExtensionServerRewrittenInPlace(t *testing.T) {
 	if c := changeFor(plan, builtin, "docs"); c == nil || c.Action != "update" {
 		t.Fatalf("entry: %+v", c)
 	}
+	if !slices.Contains(plan.Notices, PiBuiltinNotice) {
+		t.Fatalf("notices: %v", plan.Notices)
+	}
 	if _, err := s.Apply(plan.Revision); err != nil {
 		t.Fatal(err)
 	}
 	if data, _ := os.ReadFile(builtin); strings.Contains(string(data), `"transport"`) || !strings.Contains(string(data), `"mine"`) {
 		t.Fatalf("mcp.json: %s", data)
+	}
+}
+
+// A config without piExtension can still own an entry in mcp-adapter.json, e.g. one edited
+// by hand after a sync; the ledger alone shows the server leaving pi-mcp-adapter, and the
+// sync must still say what Pi needs now.
+func TestPiAdapterLedgerOnlyMoveWarns(t *testing.T) {
+	s, builtin, adapter := piMigration(t, "", map[string]any{"command": "docs"})
+	plan, err := s.Preview()
+	if err != nil || plan.Blocked {
+		t.Fatalf("%+v %v", plan, err)
+	}
+	if c := changeFor(plan, adapter, "docs"); c == nil || c.Action != "remove" {
+		t.Fatalf("adapter entry: %+v", c)
+	}
+	if c := changeFor(plan, builtin, "docs"); c == nil || c.Action != "add" {
+		t.Fatalf("built-in entry: %+v", c)
+	}
+	if len(plan.Notices) != 1 || plan.Notices[0] != PiBuiltinNotice {
+		t.Fatalf("notices: %v", plan.Notices)
+	}
+	result, err := s.Apply(plan.Revision)
+	if err != nil || !slices.Contains(result.Plan.Notices, PiBuiltinNotice) {
+		t.Fatalf("%+v %v", result, err)
+	}
+	again, err := s.Preview()
+	if err != nil || len(again.Notices) != 0 {
+		t.Fatalf("after sync: %v %v", again.Notices, err)
+	}
+}
+
+// A server already on Pi's built-in MCP syncs without the warning, including one whose
+// config still says so with piExtension: builtin.
+func TestPiBuiltinSyncHasNoMigrationNotice(t *testing.T) {
+	for _, extra := range []string{"", "      piExtension: builtin\n"} {
+		s := testService(t)
+		if err := os.WriteFile(s.ConfigPath, []byte("mcp:\n  targets: [pi]\n  servers:\n    docs:\n      command: docs\n"+extra), 0600); err != nil {
+			t.Fatal(err)
+		}
+		for range 2 {
+			plan, err := s.Preview()
+			if err != nil || slices.Contains(plan.Notices, PiBuiltinNotice) {
+				t.Fatalf("%q: %v %v", extra, plan.Notices, err)
+			}
+			if _, err := s.Apply(plan.Revision); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+}
+
+// A config set up for an old extension warns before its first sync, when nothing is
+// written yet for the ledger to show.
+func TestPiLegacyExtensionSettingsWarn(t *testing.T) {
+	for _, server := range []string{"piExtension: pi-mcp-extension", "piExtension: pi-mcp-adapter", "directTools: true", "piOptions:\n        lifecycle: lazy"} {
+		s := testService(t)
+		if err := os.WriteFile(s.ConfigPath, []byte("mcp:\n  targets: [pi]\n  servers:\n    docs:\n      command: docs\n      "+server+"\n"), 0600); err != nil {
+			t.Fatal(err)
+		}
+		plan, err := s.Preview()
+		if err != nil || !slices.Contains(plan.Notices, PiBuiltinNotice) {
+			t.Fatalf("%q: %v %v", server, plan.Notices, err)
+		}
 	}
 }
 
