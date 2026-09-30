@@ -10,6 +10,7 @@ import (
 
 	"gopkg.in/yaml.v3"
 	"skillshare/internal/config"
+	"skillshare/internal/hooks"
 	"skillshare/internal/plugin"
 )
 
@@ -124,6 +125,9 @@ func (s *Server) handlePutConfig(w http.ResponseWriter, r *http.Request) {
 		if validErr == nil {
 			validErr = config.ValidateMCP(testCfg.MCP, testCfg.Sources.MCP)
 		}
+		if validErr == nil {
+			validErr = hooks.ValidateSection(&testCfg.Hooks, true)
+		}
 		if validErr != nil {
 			writeError(w, http.StatusBadRequest, validErr.Error())
 			return
@@ -143,6 +147,9 @@ func (s *Server) handlePutConfig(w http.ResponseWriter, r *http.Request) {
 		w2, validErr := config.ValidateConfig(&testCfg)
 		if validErr == nil {
 			validErr = config.ValidateMCP(testCfg.MCP, testCfg.Sources.MCP, testCfg.AgentConfigDirTargets()...)
+		}
+		if validErr == nil {
+			validErr = hooks.ValidateSection(&testCfg.Hooks, false)
 		}
 		if validErr != nil {
 			writeError(w, http.StatusBadRequest, validErr.Error())

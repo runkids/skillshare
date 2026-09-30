@@ -190,3 +190,27 @@ func TestHandlePatchConfig_SavesModeAndLogLimit(t *testing.T) {
 		t.Fatalf("expected the saved log limit to be 500, got %v", cfg.Log.MaxEntries)
 	}
 }
+
+func TestHandlePutConfig_InvalidHooks_400(t *testing.T) {
+	s, sourceDir := newTestServer(t)
+	body := `{"raw":"source: ` + sourceDir + `\nmode: merge\ntargets: {}\nhooks:\n  entries:\n    guard:\n      bindings:\n        nosuchagent:\n          events: {}\n"}`
+	req := httptest.NewRequest(http.MethodPut, "/api/config", strings.NewReader(body))
+	rr := httptest.NewRecorder()
+	s.handler.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusBadRequest {
+		t.Errorf("expected 400, got %d: %s", rr.Code, rr.Body.String())
+	}
+}
+
+func TestHandlePutConfig_ProjectHooksProjects_400(t *testing.T) {
+	s, _ := newTestProjectServerWithExtras(t, nil)
+	body := `{"raw":"targets: [claude]\nhooks:\n  projects:\n    /work/app:\n      entries: {}\n"}`
+	req := httptest.NewRequest(http.MethodPut, "/api/config", strings.NewReader(body))
+	rr := httptest.NewRecorder()
+	s.handler.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusBadRequest || !strings.Contains(rr.Body.String(), "hooks.projects") {
+		t.Errorf("expected 400 naming hooks.projects, got %d: %s", rr.Code, rr.Body.String())
+	}
+}

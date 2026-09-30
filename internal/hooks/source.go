@@ -225,9 +225,9 @@ func projectRoot(key string) (string, error) {
 	return filepath.Clean(root), nil
 }
 
-// ValidateSection checks a config's hooks node the way LoadSource does. The config
-// package uses it so the config editor never accepts a section sync would refuse.
-func ValidateSection(node *yaml.Node) error {
+// ValidateSection checks a config's hooks node the way LoadSource and a project's
+// sync do, so the config editor never accepts a section sync would refuse.
+func ValidateSection(node *yaml.Node, project bool) error {
 	if node == nil || node.Kind == 0 {
 		return nil
 	}
@@ -236,8 +236,14 @@ func ValidateSection(node *yaml.Node) error {
 	if err != nil {
 		return err
 	}
-	_, err = parseSource("config.yaml", data)
-	return err
+	source, err := parseSource("config.yaml", data)
+	if err != nil {
+		return err
+	}
+	if project && len(source.Projects) > 0 {
+		return fmt.Errorf("hooks.projects belongs in the global config")
+	}
+	return nil
 }
 
 // checkUnchanged rejects edits made after the source was read.
