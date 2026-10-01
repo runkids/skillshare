@@ -2785,5 +2785,11 @@
   "gitSync.discard.message": "Abandonner toutes les modifications non committées du dépôt {scope} ? Les fichiers suivis seront restaurés au dernier commit et les fichiers et dossiers non suivis seront supprimés. Les fichiers ignorés, les dépôts imbriqués et config.yaml de root seront conservés. Cette action est irréversible.",
   "gitSync.discard.preview": "Dry run : les fichiers suivis seraient restaurés au dernier commit et les fichiers non suivis seraient supprimés.",
   "gitSync.discard.noCommit": "Créez un premier commit avant d’abandonner les modifications.",
-  "gitSync.toast.discarded": "Modifications abandonnées"
+  "gitSync.toast.discarded": "Modifications abandonnées",
+  "hooks.status.inactive": "inactif",
+  "hooks.sync.inactive": "Inactif",
+  "hooks.gitYAML": "Liaison YAML",
+  "hooks.gitYAMLHint": "Utilisez commands et, au besoin, files. Git 2.54 ou ultérieur est requis.",
+  "hooks.gitYAMLError": "Saisissez un objet YAML avec des clés uniques.",
+  "hooks.native.git": "Les hooks de configuration nécessitent Git 2.54 ou ultérieur ; parallel nécessite 2.55."
 }

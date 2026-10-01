@@ -41,7 +41,7 @@ require a specific one). Unrelated native settings and unowned hooks survive.
 are, sync no longer touches them, and import offers them again (not with `--sync`).
 
 Agent IDs: `claude`, `codex`, `gemini`, `copilot`, `cursor`, `droid`, `qwen`,
-`antigravity`, `pi`, `amp`, `opencode`; `factory` aliases `droid`, and
+`antigravity`, `pi`, `amp`, `opencode`, `git`; `factory` aliases `droid`, and
 `antigravity-cli`/`agy` alias `antigravity`. Code must match the native
 Agent's installed API version. Check actual destination paths in the inventory
 and preview; global config-directory overrides do not apply to project paths.
@@ -70,3 +70,39 @@ keep their ownership and files with a warning; explicitly preview and run
 `hooks sync NAME --replace -g` to release parked ownership without editing files.
 Import uses the account key: `hooks import --from codex-2 -g --json`.
 Each Codex home must trust its own changed hooks through `/hooks`.
+
+## Git config hooks
+
+Git 2.54+ reads `bindings.git.commands`, keyed by unique friendly names (never
+Git event names). Each value has `events: [pre-commit]`, a single-line `command`
+and optional `parallel` (Git 2.55+). Inline `files` provide executable UTF-8/LF
+helpers; `{files}` expands to their quoted absolute directory on each machine.
+Use a helper for compound shell logic: Git appends event arguments to commands.
+Do not pass those arguments blindly to tools that reject them.
+Use distinct friendly names across global and project commands: Git merges both scopes.
+
+Global output is `$XDG_CONFIG_HOME/git/skillshare/hooks.gitconfig` (default
+`~/.config/git/…`). Include-target precedence is absolute `GIT_CONFIG_GLOBAL`,
+existing `~/.gitconfig`, existing `$XDG_CONFIG_HOME/git/config`, new
+`~/.gitconfig`. Project output is `<git-common-dir>/skillshare/hooks.gitconfig`,
+included from the common `config`; linked worktrees share it. Declare one
+repository top-level root per common directory.
+
+Preview before sync. Regular writable configs receive an owned include;
+symlinks/unwritable targets receive exact manual lines with `inactive` status.
+Old Git is also inactive, with no dispatcher. Missing Git or roots skip outputs
+and preserve ownership. Manual and conditional includes stay user-owned,
+including nested includes beneath inactive parent conditions. Unreadable or
+excessively nested declarations block sync. Conditional presence does not prove
+activation. Check `hooks list -g --json`
+(`git`, `projectGit`) and read-only `git hook list --show-scope EVENT`.
+
+The generated include file is owned whole. `--replace` regenerates it after
+backup; never silently discard external edits. A colliding friendly name can
+be replaced only in the writable regular scope target, not system/included
+config. `enabled=false` overrides warn. Config operations use native locks and
+narrow backups, preserving unrelated later settings on restore.
+Git bindings refuse `--keep-files`. Git import, scripts bindings, hookdir
+scanning/recognizers and doctor checks are not implemented in this phase.
+Inspect old hookdir copies manually before migration; Git can execute both.
+Management never executes hooks. Native Windows execution is unverified.

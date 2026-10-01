@@ -1,13 +1,14 @@
 import { apiFetch } from './client';
 
 /** The Agents hooks can be managed for, in display order. */
-export const hookAgents = ['claude', 'codex', 'gemini', 'copilot', 'cursor', 'droid', 'qwen', 'antigravity', 'pi', 'amp', 'opencode'] as const;
+export const hookAgents = ['claude', 'codex', 'gemini', 'copilot', 'cursor', 'droid', 'qwen', 'antigravity', 'pi', 'amp', 'opencode', 'git'] as const;
 export type HookAgent = (typeof hookAgents)[number];
 /** Agents whose hooks are one standalone native TypeScript/JavaScript file, not a command event map. */
 export const hookCodeAgents: readonly string[] = ['pi', 'amp', 'opencode'];
 
 /** One Agent's part of a hook. Command Agents fill `events`, code Agents fill `code`. */
 export interface HookBinding {
+	commands?: Record<string, { events: string[]; command: string; parallel?: boolean }>;
   /** The Agent's own event map, passed through as written. */
   events?: Record<string, unknown>;
   code?: string;
@@ -41,7 +42,7 @@ export interface HookChange { target: string; path: string; name: string; root?:
 export interface HookPlan { revision: string; fingerprint: string; sourcePath: string; blocked: boolean; changes: HookChange[]; warnings?: string[] }
 export interface HookCatalogEvent { name: string; description: string; matcher: boolean }
 /** A command Agent's documented events; code Agents are not listed. */
-export interface HookAgentCatalog { events: HookCatalogEvent[]; timeoutUnit: 'seconds' | 'milliseconds' }
+export interface HookAgentCatalog { events: HookCatalogEvent[]; timeoutUnit: 'seconds' | 'milliseconds' | '' }
 /** A native file the preview would change: full text now (`""` when missing) and exactly what sync writes (`""` when removed). */
 export interface HookFileDiff { target: string; path: string; root?: string; before: string; after: string }
 /** Only POST /hooks/preview carries `files`. */
@@ -50,13 +51,15 @@ export interface HookResult { plan?: HookPlan; applied: string[]; backupIds: str
 export interface HookTargetDef { name: string; agent?: string; kind: string; note?: string }
 /** Hooks in an Agent's native configuration that Skillshare does not manage. */
 export interface HookUnmanaged { target: string; path: string; names: string[]; project?: string }
-export interface HookBackup { id: string; target: string; path: string; time?: string }
+export interface HookBackup { id: string; target: string; path: string; root?: string; time?: string }
 export interface HookCandidate { name: string; entry: HookEntry; problems: string[]; warnings: string[] }
 export interface HookImportRequest { from: string; content?: string; name?: string; /** Reads the Agent's file under this hooks.projects root. */ root?: string }
 /** One root under hooks.projects: hooks that live in that folder's own native files. */
 export interface HookProject { entries?: Record<string, HookEntry> }
 export interface HookRendered { target: string; path?: string; content?: string; error?: string }
 export interface HookInventory {
+	git?: HookGitInfo;
+	projectGit?: Record<string, HookGitInfo>;
   source: { path: string; configPath: string; entries: Record<string, HookEntry>; projects?: Record<string, HookProject> };
   /** Project roots that also have their own .skillshare/config.yaml. */
   projectConfigs?: string[];
@@ -68,6 +71,12 @@ export interface HookInventory {
   previewError: string;
   backups: HookBackup[];
   unmanaged: HookUnmanaged[];
+}
+
+export interface HookGitInfo {
+  version: string; configHooks: boolean; parallel: boolean; hooksFile: string;
+  include: { target: string; resolved: string; present: boolean; owned: boolean; writable: boolean; lines: string; conditional?: boolean; active?: boolean };
+  hooksPath: { value: string; origin: string }; reason?: string;
 }
 
 const post = <T,>(path: string, body: unknown) => apiFetch<T>(path, { method: 'POST', body: JSON.stringify(body) });

@@ -68,7 +68,7 @@ func hooksContext(args []string) (*hooks.Service, []string, error) {
 			mode = modeProject
 		}
 	}
-	service := &hooks.Service{ConfigPath: config.ConfigPath(), StateDir: config.StateDir(), ConfigDirs: hooks.ConfigDirsFromEnv()}
+	service := &hooks.Service{ConfigPath: config.ConfigPath(), StateDir: config.StateDir(), ConfigDirs: hooks.ConfigDirsFromEnv(), GitGlobalConfig: os.Getenv("GIT_CONFIG_GLOBAL")}
 	if mode == modeProject {
 		service.ConfigPath = config.ProjectConfigPath(cwd)
 		service.ProjectRoot = cwd
@@ -204,6 +204,8 @@ Options:
   --global, -g      Global configuration
   --project, -p     Project configuration
 
+Git bindings use commands and optional files (Git 2.54+); Git import is not supported yet.
+Git commands cannot use --keep-files; copy them to your own include first.
 Sync alias: skillshare sync hooks [--dry-run] [--json] [-g|-p]; sync --all includes hooks.
 Import reads configuration and code only; it never runs hook commands.`)
 }

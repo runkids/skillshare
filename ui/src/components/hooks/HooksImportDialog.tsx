@@ -43,7 +43,7 @@ export default function HooksImportDialog({ data, project, onClose, onImported }
   const accounts = project ? {} : hookAccounts(data.targets);
   const agentOf = (key: string) => agentOfKey(accounts, key);
   const labelOf = (key: string) => keyLabel(accounts, key);
-  const available = [...hookAgents, ...Object.keys(accounts).sort()];
+  const available = [...hookAgents.filter((a) => a !== 'git'), ...Object.keys(accounts).sort()];
   const targets = available.filter((a) => unmanaged.some((u) => u.target === a));
   const reads = useQueries({
     queries: targets.map((from) => ({
@@ -207,4 +207,3 @@ export default function HooksImportDialog({ data, project, onClose, onImported }
     </DialogShell>
   );
 }
-

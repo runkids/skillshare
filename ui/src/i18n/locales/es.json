@@ -2785,5 +2785,11 @@
   "gitSync.discard.message": "¿Descartar todos los cambios sin confirmar del repositorio {scope}? Los archivos rastreados volverán al último commit y los archivos y carpetas no rastreados se eliminarán. Se conservarán los archivos ignorados, los repositorios anidados y config.yaml de root. Esta acción no se puede deshacer.",
   "gitSync.discard.preview": "Dry run: se restaurarían los archivos rastreados al último commit y se eliminarían los archivos no rastreados.",
   "gitSync.discard.noCommit": "Crea un primer commit antes de descartar cambios.",
-  "gitSync.toast.discarded": "Cambios descartados"
+  "gitSync.toast.discarded": "Cambios descartados",
+  "hooks.status.inactive": "inactivo",
+  "hooks.sync.inactive": "Inactivo",
+  "hooks.gitYAML": "Configuración YAML",
+  "hooks.gitYAMLHint": "Usa commands y, si hace falta, files. Se requiere Git 2.54 o posterior.",
+  "hooks.gitYAMLError": "Introduce un mapa YAML con claves únicas.",
+  "hooks.native.git": "Los hooks de configuración requieren Git 2.54 o posterior; parallel requiere 2.55."
 }

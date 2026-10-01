@@ -90,12 +90,13 @@ Skillshare 以縮排的 block 格式寫入 `hooks` 區段；每次儲存也會�
 | `bindings.AGENT.code` | Pi、Amp、OpenCode 的原生 extension/plugin 程式碼 |
 | `bindings.AGENT.files` | 可選 UTF-8 腳本檔，以相對檔名為 key |
 
-Agent ID 為 `claude`、`codex`、`gemini`、`copilot`、`cursor`、`droid`、`qwen`、`antigravity`、`pi`、`amp`、`opencode`；`factory` 是 `droid` 的別名，`antigravity-cli` 與 `agy` 是 `antigravity` 的別名。event、matcher、handler type、command、timeout 單位與 payload 均保留原生格式，不自動跨 Agent 轉換。event 名稱會對照各 command Agent 文件列出的事件檢查：未知名稱（例如拼錯的 `Stopp`）在預覽與 plan 的 `warnings` 中顯示警告，但不阻擋同步，因為 Agent 會陸續新增事件。Pi、Amp、OpenCode 的程式碼不檢查。Pi、Amp、OpenCode 的程式碼與 imports 須符合已安裝版本；發布至獨立的 `skillshare-NAME.ts`，不產生共用執行引擎。command binding 的腳本位於 Agent 設定目錄的 `hooks/skillshare/NAME/`，command 保留你提供的原生 macro 或明確路徑。請在預覽確認完整路徑。 global binding 也可以使用在 `targets` 下宣告的帳號 target 名稱。
+Agent ID 為 `claude`、`codex`、`gemini`、`copilot`、`cursor`、`droid`、`qwen`、`antigravity`、`pi`、`amp`、`opencode` and `git`；`factory` 是 `droid` 的別名，`antigravity-cli` 與 `agy` 是 `antigravity` 的別名。event、matcher、handler type、command、timeout 單位與 payload 均保留原生格式，不自動跨 Agent 轉換。event 名稱會對照各 command Agent 文件列出的事件檢查：未知名稱（例如拼錯的 `Stopp`）在預覽與 plan 的 `warnings` 中顯示警告，但不阻擋同步，因為 Agent 會陸續新增事件。Pi、Amp、OpenCode 的程式碼不檢查。Pi、Amp、OpenCode 的程式碼與 imports 須符合已安裝版本；發布至獨立的 `skillshare-NAME.ts`，不產生共用執行引擎。command binding 的腳本位於 Agent 設定目錄的 `hooks/skillshare/NAME/`，command 保留你提供的原生 macro 或明確路徑。請在預覽確認完整路徑。 global binding 也可以使用在 `targets` 下宣告的帳號 target 名稱。
 
 ## 原生目的地
 
 | Agent | Global | Project | Format |
 |---|---|---|---|
+| Git | `$XDG_CONFIG_HOME/git/skillshare/hooks.gitconfig` | `<git-common-dir>/skillshare/hooks.gitconfig` | Git 2.54+ `hook.<name>` |
 | [Claude Code](https://code.claude.com/docs/en/hooks) | `~/.claude/settings.json` | `.claude/settings.json` | `hooks` event map with matcher groups |
 | [Codex](https://learn.chatgpt.com/docs/hooks) | `~/.codex/hooks.json` | `.codex/hooks.json` | Wrapped `hooks` event map |
 | [Gemini CLI](https://geminicli.com/docs/hooks/reference/) | `~/.gemini/settings.json` | `.gemini/settings.json` | `hooks` event map |
@@ -148,6 +149,42 @@ command 腳本寫入 `<config_dir>/hooks/skillshare/NAME/`。帳號僅用於 glo
 如果 target 已移除、目錄移動或帳號目錄不存在，已管理的輸出及其所有權記錄會保留，並顯示警告。恢復 target 或目錄即可繼續管理。若要釋放某個項目暫存的所有權而不修改檔案，請先預覽再執行 `skillshare hooks sync NAME --replace -g`。移除 target 時若 binding 仍使用該名稱會顯示警告；下次 hooks 同步前也要移除這些 binding。
 
 用 `skillshare hooks import --from codex-2 -g --json` 從帳號匯入。Dashboard 顯示 **codex-2 (Codex)**，並使用 Codex 的事件與編輯器。每個 Codex 目錄都需要在 `/hooks` 中個別審核並信任變更的 hooks；同步不會修改信任或執行 hooks。
+
+## Git hooks {#git-hooks}
+
+`bindings.git.commands` 宣告 Git 2.54+ 的具名 config hook。每個名稱包含
+`events: [pre-commit]`、單行 `command` 與選用 `parallel`（Git 2.55+）。
+名稱不能是 Git event 名，以字母或數字開頭，只含字母、數字、`_`、`-`、`.`，
+最多 128 字元，不含 `..`，也不能以 `.` 結尾。同一目標的已啟用 entry 名稱重複會衝突。
+未知 event 只警告。Dashboard 使用 YAML 編輯整個 Git binding；順序按 entry 名再按 hook 名排序。
+
+Git 會把 event 參數附加到 command，並向每個 hook 提供完整 stdin。
+複合 shell 邏輯放在 UTF-8 `files`，用 `command: "{files}/check.sh"` 引用。
+`{files}` 展開為各機器上帶引號的絕對 helper 路徑；檔案以 LF 與可執行權限產生。
+以 `fi`、`done`、`esac`、`}`、`)` 結尾的 command 會遭拒。
+
+global 輸出為 `$XDG_CONFIG_HOME/git/skillshare/hooks.gitconfig`（預設 `~/.config/git/…`）。
+include 寫入目標依序為絕對路徑 `GIT_CONFIG_GLOBAL`、既有 `~/.gitconfig`、
+既有 XDG `git/config`、新建 `~/.gitconfig`。project 輸出為
+`<git-common-dir>/skillshare/hooks.gitconfig`，由 common `config` 引入。
+linked worktree 共用目標，每個 common directory 只宣告一個非 bare 儲存庫頂層 root。
+
+只透過原生 lock 修改可寫的普通 config，不穿透 symlink 寫入。缺少 include 時顯示
+**inactive** 與手動加入的確切行。舊 Git 同樣 inactive，不產生 fallback dispatcher。
+缺少 Git 或 root 時略過輸出並保留所有權記錄。手動 include 與 includeIf 仍屬使用者所有，
+不會擴大條件。conditional include 存在不代表已啟用。用 `hooks list -g --json` 的
+`git`／`projectGit` 查看能力、include 與 `core.hooksPath`。
+
+產生的檔案由 Skillshare 整體擁有。`--replace` 備份後重新產生整個檔案，覆蓋外部編輯。
+同名外部 hook 只能在可寫普通目標 config 內取代；system／include 檔案衝突與其他 config
+的有效所有權不能取代。`enabled=false` 只警告。preview 與 section backup 不含無關私密設定。
+刪除或停用後的同步移除擁有的輸出與 include，保留手動 include 與無關設定。
+restore 保留後來無關的編輯，不更改 source。Git binding 因共用檔案而拒絕 `--keep-files`。
+
+config hook 與 hookdir script 可能都執行；遷移前手動檢查重複。Git import、hookdir 辨識、
+script mode、結構化 editor 與 doctor 留待後續 phase。產生 Windows 格式路徑，但 Windows 執行未驗證。
+
+全域與專案命令也應使用不同的名稱，Git 會合併兩個作用域。位於未啟用父條件下的巢狀 include 同樣保留條件。無法讀取或巢狀過深的 include 宣告會阻止同步。
 
 ## 專案、衝突與復原
 

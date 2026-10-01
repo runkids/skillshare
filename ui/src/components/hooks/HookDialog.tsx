@@ -39,7 +39,7 @@ const catalogQuery = { queryKey: [...queryKeys.hooks, 'catalog'], queryFn: () =>
 
 /** The filled command target a new target can copy from: the first one, in display order. */
 const copySource = (order: string[], agent: string, draftOf: (a: string) => BindingDraft, agentOf: (key: string) => string) =>
-  isCodeAgent(agentOf(agent)) ? undefined : order.find((a) => a !== agent && !isCodeAgent(agentOf(a)) && !draftEmpty(agentOf(a), draftOf(a)) && (draftRows(draftOf(a))?.length ?? 0) > 0);
+  isCodeAgent(agentOf(agent)) || agent === 'git' ? undefined : order.find((a) => a !== agent && a !== 'git' && !isCodeAgent(agentOf(a)) && !draftEmpty(agentOf(a), draftOf(a)) && (draftRows(draftOf(a))?.length ?? 0) > 0);
 
 /** Add or edit one source hook. Saving only changes the source; Sync writes the native files. */
 export default function HookDialog({ initial, existingNames, project, agents = hookAgents, accounts: configuredAccounts = {}, unmanaged = [], onClose, onSaved }: Props) {
@@ -190,7 +190,7 @@ export default function HookDialog({ initial, existingNames, project, agents = h
   };
 
   return (
-    <DialogShell open onClose={requestClose} padding="none" preventClose={saving} ariaLabel={title} className="!max-w-[880px]">
+    <DialogShell open onClose={requestClose} padding="none" preventClose={saving} ariaLabel={title} className="min-w-0 !max-w-[min(880px,calc(100vw-2rem))]">
       <div className="dh" ref={scope}>
         <div className="flex min-w-0 flex-col gap-1">
           <h2 className="ss-h2">{showPreview ? t('hooks.previewTitle') : title}</h2>
@@ -209,7 +209,7 @@ export default function HookDialog({ initial, existingNames, project, agents = h
         </div>
       ) : (
         <form id="hook-form" className="db" onSubmit={(e) => { e.preventDefault(); void save(false); }}>
-          <div className="grid grid-cols-2 gap-3.5">
+          <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
             <div className="ss-fld">
               <label htmlFor="hook-name">{t('hooks.name')}</label>
               <span className={`ss-inp font-mono ${nameError ? 'err' : ''}`}>
@@ -277,7 +277,7 @@ export default function HookDialog({ initial, existingNames, project, agents = h
           {error && <div className="ss-note bad" role="alert"><span className="flex-1">{error}</span></div>}
         </form>
       )}
-      <div className="df">
+      <div className="df flex-wrap [&>span]:basis-full sm:[&>span]:basis-auto">
         {confirmClose ? (
           <>
             <span className="flex-1 text-[13px] font-semibold" role="alert">{t('hooks.unsaved')}</span>

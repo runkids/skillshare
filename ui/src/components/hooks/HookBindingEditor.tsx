@@ -207,6 +207,16 @@ export default function HookBindingEditor({ agent, name, draft, check, onChange,
   const completions = useCompletions(agent, catalog);
   // Why the fields tab refused to open; cleared by any edit of the JSON.
   const [stuck, setStuck] = useState('');
+  if (agent === 'git') {
+    return (
+      <Expandable title={`Git ${t('hooks.gitYAML')}`} tools={() => <span className="flex-1 text-[13px] font-semibold">{t('hooks.gitYAML')}</span>}>
+        {(expanded) => <>
+          <CodeEditor value={draft.native} onChange={(native) => onChange({ ...draft, native })} lang="yaml" ariaLabel={`Git ${t('hooks.gitYAML')}`} placeholder={'commands:\n  tool.check:\n    events: [pre-commit]\n    command: echo check\n'} disabled={disabled} minHeight="240px" maxHeight="480px" fill={expanded} className={expanded ? 'min-h-0 flex-1' : ''} />
+          <span className={`hp ${check.nativeError ? '!text-bad' : ''}`}>{t(check.nativeError ? 'hooks.gitYAMLError' : 'hooks.gitYAMLHint')}</span>
+        </>}
+      </Expandable>
+    );
+  }
   if (isCodeAgent(agent)) {
     return (
       <div className="flex flex-col gap-3.5">
@@ -288,4 +298,3 @@ export default function HookBindingEditor({ agent, name, draft, check, onChange,
     </div>
   );
 }
-

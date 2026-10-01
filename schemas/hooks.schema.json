@@ -27,10 +27,105 @@
       "type": "object", "additionalProperties": false, "required": ["code"],
       "properties": {"code": {"type": "string", "minLength": 1, "description": "One standalone native TypeScript/JavaScript extension or plugin, written verbatim as skillshare-<entry>.ts. It must use the plugin API of the installed Agent version."}}
     },
+    "gitBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "commands"
+      ],
+      "properties": {
+        "commands": {
+          "type": "object",
+          "minProperties": 1,
+          "propertyNames": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$",
+            "not": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "applypatch-msg",
+                    "pre-applypatch",
+                    "post-applypatch",
+                    "pre-commit",
+                    "pre-merge-commit",
+                    "prepare-commit-msg",
+                    "commit-msg",
+                    "post-commit",
+                    "pre-rebase",
+                    "post-checkout",
+                    "post-merge",
+                    "pre-push",
+                    "pre-receive",
+                    "update",
+                    "proc-receive",
+                    "post-receive",
+                    "post-update",
+                    "reference-transaction",
+                    "push-to-checkout",
+                    "pre-auto-gc",
+                    "post-rewrite",
+                    "sendemail-validate",
+                    "fsmonitor-watchman",
+                    "p4-changelist",
+                    "p4-prepare-changelist",
+                    "p4-post-changelist",
+                    "p4-pre-submit",
+                    "post-index-change"
+                  ]
+                },
+                {
+                  "pattern": "\\.\\.|\\.$"
+                }
+              ]
+            }
+          },
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "events",
+              "command"
+            ],
+            "properties": {
+              "events": {
+                "type": "array",
+                "minItems": 1,
+                "uniqueItems": true,
+                "items": {
+                  "type": "string",
+                  "pattern": "^[a-z][a-z0-9-]*$"
+                }
+              },
+              "command": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "^[^\\n\\r\\u0000]+$"
+              },
+              "parallel": {
+                "type": "boolean",
+                "description": "Requires Git 2.55+."
+              }
+            }
+          }
+        },
+        "files": {
+          "type": "object",
+          "description": "Executable Git helpers under <git config dir>/skillshare/files/<entry>/ (project: <git-common-dir>/skillshare/files/<entry>/); reference with {files}/<name>. Commands must reference them by path themselves.",
+          "propertyNames": {
+            "$ref": "#/$defs/name"
+          },
+          "additionalProperties": {
+            "type": "string"
+          }
+        }
+      }
+    },
     "bindings": {
       "type": "object", "additionalProperties": false,
       "description": "Keyed by Agent. An empty map keeps the hook in Skillshare without publishing it. factory is an alias for droid; antigravity-cli and agy are aliases for antigravity.",
       "properties": {
+        "git": {"$ref": "#/$defs/gitBinding"},
         "claude": {"$ref": "#/$defs/commandBinding"},
         "codex": {"$ref": "#/$defs/commandBinding"},
         "gemini": {"$ref": "#/$defs/commandBinding"},
@@ -67,7 +162,7 @@
         "opencode": {"$ref": "#/$defs/codeBinding"}
       },
       "patternProperties": {
-        "^(?!(claude|codex|gemini|qwen|copilot|cursor|droid|factory|antigravity|antigravity-cli|agy|pi|amp|opencode)$)[A-Za-z0-9][A-Za-z0-9._-]*$": {
+        "^(?!(claude|codex|gemini|qwen|copilot|cursor|droid|factory|antigravity|antigravity-cli|agy|pi|amp|opencode|git)$)[A-Za-z0-9][A-Za-z0-9._-]*$": {
           "description": "Account keys are declared under targets with agent and config_dir and are valid in global config only.",
           "anyOf": [{"$ref": "#/$defs/commandBinding"}, {"$ref": "#/$defs/codeBinding"}]
         }

@@ -65,6 +65,13 @@ func (s *Service) RenderNative(m Mutation) ([]RenderedFile, error) {
 			continue
 		}
 		var files []RenderedFile
+		for _, w := range d.git {
+			files = append(files, RenderedFile{Target: target, Path: w.destination.hooksFile, Content: string(w.content)})
+		}
+		if len(d.notes) > 0 {
+			out = append(out, RenderedFile{Target: target, Error: d.notes[0].Message})
+			continue
+		}
 		for path, want := range d.elements {
 			f := RenderedFile{Target: target, Path: path}
 			ops := make([]elementOp, len(want))

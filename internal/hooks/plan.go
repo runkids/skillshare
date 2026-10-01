@@ -29,8 +29,9 @@ type record struct {
 	// Peers is how many identical elements the event held when Skillshare last wrote or
 	// synced it. A different count now means a copy was added or deleted and nobody can
 	// tell whose, so the record no longer locates any of them.
-	Peers int    `json:"peers,omitempty"`
-	Hash  string `json:"hash"`
+	Peers     int      `json:"peers,omitempty"`
+	Hash      string   `json:"hash"`
+	GitEvents []string `json:"gitEvents,omitempty"`
 	// Adopted marks a registration an import claimed without syncing; the next sync
 	// reports it as adopted once, then as unchanged.
 	Adopted bool `json:"adopted,omitempty"`
@@ -69,6 +70,12 @@ const (
 )
 
 type filePlan struct {
+	gitService         *Service
+	include            *gitIncludeOp
+	gitSection         *gitSectionOp
+	gitSectionAfter    string
+	gitGuard           *gitGuard
+	gitCreatedDirs     []string
 	path, target, root string
 	agent              string
 	// base is where no symlink may redirect the write; apply checks it again.
@@ -90,6 +97,12 @@ type filePlan struct {
 }
 
 func (f *filePlan) changed() bool {
+	if f.kind == kindGitInclude {
+		return f.include != nil
+	}
+	if f.kind == kindGitSection {
+		return f.gitSection != nil
+	}
 	if f.kind == kindJSON {
 		return len(f.ops) > 0
 	}
@@ -109,6 +122,8 @@ type wantFile struct {
 }
 
 type desired struct {
+	git map[string]gitWant
+	gitSkipped map[string]bool
 	elements map[string][]wantElement // by path
 	targets  map[string]string        // path -> target
 	roots    map[string]string        // path -> root
@@ -131,6 +146,13 @@ func (s *Service) scoped(root string) *Service {
 	c := *s
 	c.ProjectRoot = root
 	return &c
+}
+
+func (s *Service) scopedFor(root string) *Service {
+	if root == "" {
+		return s
+	}
+	return s.scoped(root)
 }
 
 // ownConfig reports a root with its own Skillshare config, which the global config
@@ -163,6 +185,9 @@ func (s *Service) render(source *Source) (*desired, error) {
 }
 
 func (s *Service) renderScope(d *desired, root string, entries map[string]Entry) error {
+	if err := s.renderGit(d, root, entries); err != nil {
+		return err
+	}
 	dirOwner := map[string]string{}
 	missing := map[string]bool{}
 	addFile := func(f wantFile) error {
@@ -178,6 +203,9 @@ func (s *Service) renderScope(d *desired, root string, entries map[string]Entry)
 			continue
 		}
 		for _, target := range sortedKeys(entry.Bindings) {
+			if target == "git" {
+				continue
+			}
 			b := entry.Bindings[target]
 			if s.accountMissing(target) {
 				if !missing[target] {
@@ -249,6 +277,10 @@ func (s *Service) renderScope(d *desired, root string, entries map[string]Entry)
 
 // base is the directory below which no symlink may redirect a write.
 func (s *Service) base(target, root string) (string, error) {
+	if target == "git" {
+		d, err := s.scopedFor(root).gitDestination(root)
+		return d.base, err
+	}
 	if root != "" {
 		return root, nil
 	}
@@ -423,7 +455,7 @@ func (pl *planner) note(target, path, root, entry, action, message string) {
 		pl.order = append(pl.order, key)
 		return
 	}
-	rank := map[string]int{"unchanged": 0, "adopt": 1, "release": 2, "add": 3, "remove": 3, "update": 4, "conflict": 5}
+	rank := map[string]int{"unchanged": 0, "adopt": 1, "release": 2, "add": 3, "remove": 3, "update": 4, "inactive": 5, "conflict": 6}
 	// An entry that leaves some events but keeps others in the file updates it; remove
 	// means it leaves the file entirely.
 	switch {
@@ -485,9 +517,17 @@ func (s *Service) previewSource(source *Source, replace, adopt map[string]bool) 
 	}
 	parked := map[string]*parkedGroup{}
 	owner := source.ConfigPath
+	pl.collectGitRetired(d, state)
 	// A file the source no longer writes still needs a plan, to remove what it left there.
 	for key, r := range state.Records {
 		if r.Owner != owner {
+			continue
+		}
+		if r.Target == "git" {
+			if d.gitSkipped[r.Root] || r.Event != "" || r.Entry == "" {
+				continue
+			}
+			d.addOwned(r)
 			continue
 		}
 		if reason := s.parkReason(r); reason != "" {
@@ -527,7 +567,34 @@ func (s *Service) previewSource(source *Source, replace, adopt map[string]bool) 
 	fingerprint := digest(proposal) + digest(owned)
 	for _, note := range d.notes {
 		p.Changes = append(p.Changes, note)
-		p.Blocked = true
+		p.Blocked = p.Blocked || note.Action == "conflict"
+	}
+	for _, identity := range sortedKeys(d.git) {
+		w := d.git[identity]
+		if w.destination.root != "" {
+			for _, global := range d.git {
+				if global.destination.root != "" {
+					continue
+				}
+				for _, localCommand := range w.commands {
+					for _, globalCommand := range global.commands {
+						if localCommand.name == globalCommand.name {
+							pl.note("git", w.destination.hooksFile, w.destination.root, localCommand.entry, "conflict", "hook."+localCommand.name+" is also planned globally; use distinct friendly names to avoid merged definitions")
+						}
+					}
+				}
+			}
+		}
+		files, section, err := pl.planGit(d.git[identity], state)
+		if err != nil {
+			return nil, err
+		}
+		revision += identity + section
+		for _, f := range files {
+			revision += fmt.Sprintf("%s\x00%s\x00%s\n", f.path, f.kind, f.section)
+		}
+		fingerprint += identity + section
+		p.files = append(p.files, files...)
 	}
 	for _, path := range sortedKeys(d.targets) {
 		f, err := pl.planShared(path, d.targets[path], d.roots[path], d.elements[path], state)
@@ -545,12 +612,16 @@ func (s *Service) previewSource(source *Source, replace, adopt map[string]bool) 
 		revision += path + f.section
 		p.files = append(p.files, f)
 	}
+	slices.SortStableFunc(p.files, func(a, b *filePlan) int { return gitWritePriority(a) - gitWritePriority(b) })
 	for _, f := range p.files {
 		fingerprint += fmt.Sprintf("%s\x00%s\x00%t\x00%s\n", f.path, f.kind, f.exists, f.section)
 	}
 	for _, key := range pl.order {
 		c := pl.changes[key]
 		c.Events = pl.eventChanges(key)
+		if c.Target == "git" && c.Action != "conflict" && p.gitInactive[c.Root] != "" {
+			c.Action, c.Message = "inactive", p.gitInactive[c.Root]
+		}
 		if c.Action == "conflict" {
 			p.Blocked = true
 		}
@@ -870,7 +941,7 @@ func (pl *planner) planFile(w wantFile, state ledger) (*filePlan, error) {
 		current = digest(data)
 	}
 	f := &filePlan{path: w.path, target: w.target, agent: s.agentOf(w.target), root: w.root, base: base, kind: kindFile, before: data, exists: exists, mode: w.mode, section: current}
-	if exists {
+	if exists && (w.target != "git" || w.content == nil) {
 		f.mode = mode
 	}
 	key := fileKey(w.path)
@@ -906,7 +977,12 @@ func (pl *planner) planFile(w wantFile, state ledger) (*filePlan, error) {
 	case w.content == nil:
 		pl.note(w.target, w.path, w.root, w.entry, "conflict", "file changed outside Skillshare, so it is not removed; explicitly replace to stop managing it")
 	case has && exists && current == r.Hash && current == next.Hash:
-		set("unchanged", "")
+		if w.target == "git" && mode != f.mode {
+			f.write = w.content
+			set("update", "restore Git helper permissions")
+		} else {
+			set("unchanged", "")
+		}
 	case has && exists && current == r.Hash:
 		f.write = w.content
 		set("update", "")
@@ -963,6 +1039,12 @@ func (pl *planner) fileEvents(w wantFile, before, after []byte) {
 
 // refresh confirms a file still matches its preview; other settings may change.
 func (f *filePlan) refresh() ([]byte, bool, os.FileMode, *nativeDoc, error) {
+	if f.kind == kindGitInclude {
+		return f.refreshGit()
+	}
+	if f.kind == kindGitSection {
+		return f.refreshGitSection()
+	}
 	if err := checkPath(f.base, f.path); err != nil {
 		return nil, false, 0, nil, err
 	}

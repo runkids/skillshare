@@ -4,7 +4,7 @@ sidebar_position: 4
 
 # hooks
 
-Manage named hooks and synchronize each receiving Agent's native configuration.
+Manage named hooks and synchronize each receiving Agent's or Git's native configuration.
 Use the dashboard's **Hooks** page to add, edit, import, enable or disable entries,
 then preview before syncing. Hooks also appear in destination **Targets** and
 **Projects**, **Sync**, and **Settings → Backups**.
@@ -79,6 +79,8 @@ dialog offers it as **Stop managing**, on the Hooks page and in a project's
 **Hooks** tab. **Remove from source only** is different: the next sync deletes
 the hook's entries from the Agent files.
 
+`--keep-files` is unavailable for Git bindings; see [Git hooks](#git-hooks).
+
 Only the scope you remove it from changes. Stopping a global hook leaves a
 project's hook of the same name managed, and the other way round. To manage the
 entries again, import them.
@@ -122,10 +124,11 @@ stay on one line.
 | `bindings` | Map of native Agent IDs to bindings |
 | `bindings.AGENT.events` | Native event map for command/configuration Agents |
 | `bindings.AGENT.code` | Supplied native extension/plugin source for Pi, Amp or OpenCode |
+| `bindings.git.commands` | Named Git config hooks: `events`, `command`, optional `parallel` |
 | `bindings.AGENT.files` | Optional UTF-8 script files for command bindings, keyed by relative filename |
 
 Agent IDs are `claude`, `codex`, `gemini`, `copilot`, `cursor`, `droid`, `qwen`,
-`antigravity`, `pi`, `amp` and `opencode`. `factory` is accepted as an alias for
+`antigravity`, `pi`, `amp` and `opencode` and `git`. `factory` is accepted as an alias for
 `droid`, and `antigravity-cli` and `agy` for `antigravity`. A binding may also
 name an account target declared under `targets` in global mode.
 Keep event names, matchers, handler types, commands, timeout units and payloads
@@ -146,6 +149,7 @@ you provide. Inspect the exact paths in the preview.
 
 | Agent | Global default | Project default | Native shape |
 |---|---|---|---|
+| Git | `$XDG_CONFIG_HOME/git/skillshare/hooks.gitconfig` (default `~/.config/git/…`) | `<git-common-dir>/skillshare/hooks.gitconfig` | Git 2.54+ `hook.<name>` sections |
 | [Claude Code](https://code.claude.com/docs/en/hooks) | `~/.claude/settings.json` | `.claude/settings.json` | `hooks` event map with matcher groups |
 | [Codex](https://learn.chatgpt.com/docs/hooks) | `~/.codex/hooks.json` | `.codex/hooks.json` | Wrapped `hooks` event map |
 | [Gemini CLI](https://geminicli.com/docs/hooks/reference/) | `~/.gemini/settings.json` | `.gemini/settings.json` | `hooks` event map |
@@ -221,6 +225,106 @@ Import from an account with `skillshare hooks import --from codex-2 -g --json`.
 The dashboard labels it **codex-2 (Codex)** and uses Codex's events and editor.
 Each Codex home needs its own review and trust of changed hooks in `/hooks`;
 sync never changes trust or executes a hook.
+
+## Git hooks
+
+Git bindings use `commands`, with friendly names distinct from Git event names:
+
+```yaml
+bindings:
+  git:
+    commands:
+      project.check:
+        events: [pre-commit]
+        command: "{files}/check.sh"
+        parallel: false
+    files:
+      check.sh: |
+        #!/bin/sh
+        exec make check
+```
+
+The dashboard edits the complete Git binding as YAML. Each command needs a
+nonempty list of unique, lowercase event names and a single-line command.
+Unknown events warn. Friendly names use letters, digits, `_`, `-` and `.`, begin
+with a letter or digit, have at most 128 characters, and cannot contain `..`, end
+in `.`, or equal a Git event name. Names must be unique across enabled entries
+sharing a destination. Use distinct friendly names for global and project
+commands too: Git merges both scopes. `parallel` needs Git 2.55+; older Git
+produces a warning.
+
+Git appends the event's arguments to each command and gives each hook the full
+stdin. Put compound shell logic in `files`: commands ending in `fi`, `done`,
+`esac`, `}`, or `)` are rejected because argument appending breaks them.
+`{files}` expands to a quoted absolute helper directory, requires `files`, and
+is regenerated for each machine. Helpers are UTF-8, normalized to LF and written
+executable. Commands retain native Git semantics and do not have Agent timeouts.
+Ordering is deterministic: entry names first, then friendly names; Git controls
+execution and parallelism. Skillshare leaves `hook.jobs` settings alone.
+
+### Includes and activation
+
+Global outputs use `$XDG_CONFIG_HOME/git/skillshare/` (default
+`~/.config/git/skillshare/`). The include is added to `GIT_CONFIG_GLOBAL` when
+set, otherwise an existing `~/.gitconfig`, otherwise an existing
+`$XDG_CONFIG_HOME/git/config`, otherwise a new `~/.gitconfig`.
+`GIT_CONFIG_GLOBAL` must be absolute. Includes inside HOME use `~/` paths.
+
+Project outputs and helpers live under Git's common directory. The include is
+`skillshare/hooks.gitconfig` in its `config` file. Linked worktrees share this
+destination; declare one root per common directory. Roots must be non-bare
+repository top levels. Unavailable roots or a missing Git executable skip Git
+outputs and retain their ownership records for a later retry.
+
+Skillshare edits regular, writable include targets using Git's native lock.
+It never writes through a symlink. An absent include in a symlinked or
+unwritable target yields **inactive** with the exact lines to add manually:
+
+```gitconfig
+[include]
+    path = ~/.config/git/skillshare/hooks.gitconfig
+```
+
+Generated files can still be written while inactive. Git below 2.54 also reports
+inactive: there is no fallback dispatcher. Manual includes stay user-owned,
+including conditional `includeIf` lines; Skillshare never adds an unconditional
+include to widen their scope, including nested includes beneath inactive
+conditions. Unreadable or excessively nested include declarations fail closed.
+Global conditional activation is unknown until Git evaluates it in a repository. Project activation is checked from effective
+config origins. A `present` include does not alone prove activation.
+`hooks list -g --json` exposes the `git` capability/include object and
+`projectGit` for declared roots, including manual lines and `core.hooksPath`.
+
+### Conflicts, removal and migration
+
+The generated `hooks.gitconfig` is owned as a whole file. Unmanaged or externally
+edited content conflicts even if identical. `--replace` explicitly adopts
+identical content or regenerates the whole file, discarding outside edits after
+backup. Active ownership by another config still blocks replacement. Friendly
+name collisions check command/event definitions across effective scopes and
+includes. Replacement can remove only that name's section in the writable
+regular target config; system or included-file collisions remain conflicts.
+`enabled=false` overrides warn rather than being overwritten. Previews and
+section backups expose only the affected hooks/include values, preserving
+unrelated private config.
+
+Disable or remove with `--sync` removes owned commands, helpers and includes,
+then prunes only directories Skillshare created. Manual includes remain.
+Backups can restore the whole generated file, helpers or a narrow config
+operation while preserving unrelated later edits. Source definitions do not
+change during restore. `remove --keep-files` is refused for any Git binding:
+commands share one generated file, so detaching an entry is ambiguous.
+
+Git config hooks coexist with hooks-directory scripts. Inspect existing
+`core.hooksPath` and hooks-directory registrations before migrating a tool;
+config hooks run before the hooks-directory hook and duplicates can run twice.
+Removing old copies is a separate user action. Git import, hooks-directory
+recognizers, script-mode bindings, the structured Git editor and doctor checks
+are reserved for later phases. This implementation supports config commands
+with inline helpers only. POSIX shell quoting and Windows-style forward-slash
+paths are rendered; native Windows hook execution is unverified.
+
+See the [Roborev recipe](../../how-to/recipes/git-hooks.md) for portable wrappers.
 
 ## Projects, conflicts and recovery
 

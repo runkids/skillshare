@@ -14,11 +14,12 @@ const lineTone = { ' ': 'text-ink-3', '+': 'bg-diff-add-bg text-ink', '-': 'bg-d
 const signTone = { ' ': '', '+': 'text-diff-add', '-': 'text-diff-del' };
 
 /** A real line diff of one file; unchanged runs fold, long lines wrap, and a user's own hooks are marked as untouched on a line of their own. */
-function FileDiff({ file, untouched }: { file: HookFileDiff; untouched: string[] }) {
+function FileDiff({ file, untouched, index, total }: { file: HookFileDiff; untouched: string[]; index: number; total: number }) {
   const t = useT();
   const lines = foldDiff(diffLines(file.before, file.after));
+  const label = t('hooks.preview.diff', { path: file.path });
   return (
-    <div className="max-h-[320px] overflow-y-auto border-t border-line py-1.5 font-mono text-[12px] leading-[1.7]" aria-label={t('hooks.preview.diff', { path: file.path })}>
+    <div role="region" className="max-h-[320px] overflow-y-auto border-t border-line py-1.5 font-mono text-[12px] leading-[1.7]" aria-label={total > 1 ? `${label} (${index + 1}/${total})` : label}>
       {lines.map((line, i) => {
         if ('skip' in line) return <div key={i} className="px-3.5 text-ink-3">{t('hooks.preview.folded', { count: String(line.skip) })}</div>;
         // An event line of the user's own shows as added only when it just gained or lost a comma; mark its new text.
@@ -63,7 +64,7 @@ export default function HooksPreview({ plan, unmanaged = [], canTakeOver, onTake
       <div className="flex max-h-[55vh] flex-col gap-3 overflow-auto">
         {files.map((file) => {
           const single = file.changes.length === 1 ? file.changes[0] : undefined;
-          const diff = plan.files?.find((f) => f.path === file.path);
+          const diffs = plan.files?.filter((f) => f.path === file.path) ?? [];
           const untouched = unmanaged.filter((u) => u.path === file.path).flatMap((u) => u.names);
           return (
             <section key={file.path} aria-label={file.path} className="shrink-0 overflow-hidden rounded-[12px] border border-line">
@@ -87,7 +88,7 @@ export default function HooksPreview({ plan, unmanaged = [], canTakeOver, onTake
                   {c.message && <span className={c.action === 'conflict' ? 'w-full' : 'min-w-0 max-w-[55%]'}><Tooltip block content={hookMessage(t, c.message)}><span className={`block text-xs text-ink-2 ${c.action === 'conflict' ? 'w-full break-words leading-normal' : 'truncate'}`}>{hookMessage(t, c.message)}</span></Tooltip></span>}
                 </div>
               ))}
-              {diff && <FileDiff file={diff} untouched={untouched} />}
+              {diffs.map((diff, i) => <FileDiff key={i} file={diff} untouched={untouched} index={i} total={diffs.length} />)}
             </section>
           );
         })}

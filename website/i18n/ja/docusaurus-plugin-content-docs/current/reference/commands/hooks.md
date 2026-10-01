@@ -90,12 +90,13 @@ Skillshare は `hooks` セクションをインデントした block 形式で�
 | `bindings.AGENT.code` | Pi、Amp、OpenCode のネイティブ extension/plugin ソース |
 | `bindings.AGENT.files` | 相対ファイル名を key とした任意の UTF-8 スクリプト |
 
-Agent ID は `claude`、`codex`、`gemini`、`copilot`、`cursor`、`droid`、`qwen`、`antigravity`、`pi`、`amp`、`opencode`。`factory` は `droid` の、`antigravity-cli` と `agy` は `antigravity` の別名です。event、matcher、handler type、command、timeout 単位、payload はネイティブ形式のまま保持し、自動変換しません。event 名は各 command Agent のドキュメントにある event と照合します。未知の名前（例：綴り違いの `Stopp`）はプレビューと plan の `warnings` に警告として表示されますが、Agent は event を追加していくため同期は止めません。Pi、Amp、OpenCode のコードは確認しません。Pi、Amp、OpenCode のコードと imports はインストール済みバージョンに合わせ、専用の `skillshare-NAME.ts` に出力します。共通実行エンジンは生成しません。command binding のスクリプトは Agent 設定ディレクトリの `hooks/skillshare/NAME/` に保存され、command 内の指定 macro／パスは変更しません。プレビューで完全なパスを確認してください。 global の binding は `targets` で宣言したアカウント target の名前も指定できます。
+Agent ID は `claude`、`codex`、`gemini`、`copilot`、`cursor`、`droid`、`qwen`、`antigravity`、`pi`、`amp`、`opencode` and `git`。`factory` は `droid` の、`antigravity-cli` と `agy` は `antigravity` の別名です。event、matcher、handler type、command、timeout 単位、payload はネイティブ形式のまま保持し、自動変換しません。event 名は各 command Agent のドキュメントにある event と照合します。未知の名前（例：綴り違いの `Stopp`）はプレビューと plan の `warnings` に警告として表示されますが、Agent は event を追加していくため同期は止めません。Pi、Amp、OpenCode のコードは確認しません。Pi、Amp、OpenCode のコードと imports はインストール済みバージョンに合わせ、専用の `skillshare-NAME.ts` に出力します。共通実行エンジンは生成しません。command binding のスクリプトは Agent 設定ディレクトリの `hooks/skillshare/NAME/` に保存され、command 内の指定 macro／パスは変更しません。プレビューで完全なパスを確認してください。 global の binding は `targets` で宣言したアカウント target の名前も指定できます。
 
 ## ネイティブの保存先
 
 | Agent | Global | Project | Format |
 |---|---|---|---|
+| Git | `$XDG_CONFIG_HOME/git/skillshare/hooks.gitconfig` | `<git-common-dir>/skillshare/hooks.gitconfig` | Git 2.54+ `hook.<name>` |
 | [Claude Code](https://code.claude.com/docs/en/hooks) | `~/.claude/settings.json` | `.claude/settings.json` | `hooks` event map with matcher groups |
 | [Codex](https://learn.chatgpt.com/docs/hooks) | `~/.codex/hooks.json` | `.codex/hooks.json` | Wrapped `hooks` event map |
 | [Gemini CLI](https://geminicli.com/docs/hooks/reference/) | `~/.gemini/settings.json` | `.gemini/settings.json` | `hooks` event map |
@@ -148,6 +149,48 @@ command のスクリプトは `<config_dir>/hooks/skillshare/NAME/` に入りま
 target が削除された、ホームが移動した、またはアカウントのホームが存在しない場合、所有出力とその記録をそのまま残し、警告します。target やディレクトリを戻せば管理を再開できます。ファイルを変えずに特定エントリの保留中の所有記録を解放するには、`skillshare hooks sync NAME --replace -g` をプレビューして実行します。target の削除時に binding がまだその名前を使っていれば警告します。次の hooks 同期前に binding も外してください。
 
 `skillshare hooks import --from codex-2 -g --json` でアカウントからインポートできます。ダッシュボードには **codex-2 (Codex)** と表示され、Codex の event とエディターを使います。Codex の各ホームで変更された hooks を `/hooks` から確認し、信頼する必要があります。同期は信頼を変更せず、hooks を実行しません。
+
+## Git hooks {#git-hooks}
+
+`bindings.git.commands` は Git 2.54+ の名前付き config hook を宣言します。
+各名前に `events: [pre-commit]`、1 行の `command`、任意の `parallel`
+（Git 2.55+）を指定します。名前は Git event 名以外で、英数字から始まる
+英数字・`_`・`-`・`.` の 128 文字以内です。`..` と末尾の `.` は使えません。
+同じ出力先の有効な entry 間で名前が重複すると競合します。未知の event は警告です。
+
+Git は event の引数を command に追加し、各 hook に stdin 全体を渡します。
+複合シェル処理は UTF-8 の `files` に置き、`command: "{files}/check.sh"` で参照します。
+`{files}` はマシンごとに引用済みの絶対パスへ展開され、files は LF・実行可能で出力されます。
+`fi`、`done`、`esac`、`}`、`)` で終わる command は拒否します。
+Dashboard は Git binding 全体を YAML で編集します。順序は entry 名、hook 名の順です。
+
+global 出力は `$XDG_CONFIG_HOME/git/skillshare/hooks.gitconfig`
+（既定 `~/.config/git/…`）。include の書き込み先は絶対パスの `GIT_CONFIG_GLOBAL`、
+既存の `~/.gitconfig`、既存の XDG `git/config`、新規 `~/.gitconfig` の順です。
+project 出力は `<git-common-dir>/skillshare/hooks.gitconfig` で、common `config` に include します。
+linked worktree は共通の出力先を共有するため、common directory ごとに root を 1 つ宣言します。
+root は bare でない repository の最上位です。
+
+通常の書き込み可能な config だけを native lock で更新します。symlink は辿って書き込みません。
+include がなければ **inactive** と手動追加する正確な行を表示します。古い Git も inactive で、
+dispatcher は生成しません。Git／root がなければ出力をスキップし、所有権記録は保持します。
+手動の include／includeIf はユーザー所有のままで、条件を広げません。
+conditional include の存在だけでは有効化を証明できません。`hooks list -g --json` の
+`git`／`projectGit` で capability、include、`core.hooksPath` を確認します。
+
+生成ファイルは全体を所有します。`--replace` はバックアップ後に全体を再生成し、外部編集を置換します。
+同名の外部 hook は、書き込み可能な通常の対象 config 内だけで置換できます。
+system／include 先の競合と別 config の有効な所有権は置換できません。
+`enabled=false` は警告です。preview／section backup に無関係な private config は含めません。
+削除・無効化の同期は所有する出力／include を削除し、手動 include と無関係な設定を残します。
+restore は後からの無関係な変更を保ち、source は変更しません。
+Git binding の `--keep-files` は共有ファイルのため拒否します。
+
+config hook と hookdir の script は両方実行され得ます。移行前に重複を手動確認してください。
+Git import、hookdir 認識、script mode、構造化 editor、doctor は後続 phase です。
+Windows 形式のパスは描画しますが、Windows での実行は未検証です。
+
+グローバルとプロジェクトでも別々のフレンドリ名を使ってください。Git は両方のスコープをマージします。無効な親条件の下にある入れ子の include も条件を保持します。読み取れない、または深すぎる include 宣言は安全のため同期を停止します。
 
 ## プロジェクト、競合と復元
 

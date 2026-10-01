@@ -11,10 +11,10 @@ import HooksPreview from './HooksPreview';
 import { joinList } from '../targets/targetView';
 import { hookLabel, rootPlan, writes } from './hooksView';
 
-interface Props { name: string; project?: string; onClose: () => void; onSaved: (unmanaged: boolean) => void }
+interface Props { name: string; project?: string; canUnmanage?: boolean; onClose: () => void; onSaved: (unmanaged: boolean) => void }
 
 /** Removing prunes only the outputs Skillshare owns and that are still unchanged; the preview shows which. */
-export default function HooksRemoveDialog({ name, project, onClose, onSaved }: Props) {
+export default function HooksRemoveDialog({ name, project, canUnmanage = true, onClose, onSaved }: Props) {
   const { t, locale } = useI18n();
   const { data: plan, error, isPending } = useQuery({ queryKey: ['hooks-remove-preview', project, name], queryFn: () => hooksApi.preview({ project, name, remove: true }), gcTime: 0, retry: false });
   const [busy, setBusy] = useState(false);
@@ -69,7 +69,7 @@ export default function HooksRemoveDialog({ name, project, onClose, onSaved }: P
           ['unmanage', 'mcp.removeUnmanage', 'hooks.removeChoiceUnmanage', !plan, () => save(false, true)],
           ['source', 'mcp.removeSourceOnly', 'hooks.removeChoiceSource', !plan, () => save(false)],
           ['sync', 'mcp.removeSync', 'hooks.removeChoiceSync', !plan || blocked, () => save(true)],
-        ] as const).map(([key, label, consequence, disabled, run]) => {
+        ] as const).filter(([key]) => key !== 'unmanage' || canUnmanage).map(([key, label, consequence, disabled, run]) => {
           // What each choice does to the target files, on hover and focus; screen readers get it as the button's description.
           // The wrapper stays while the preview loads, so the button is not remounted when the text arrives.
           const note = targets.length > 0 ? t(consequence, { targets: targetText }) : '';

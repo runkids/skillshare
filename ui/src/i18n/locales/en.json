@@ -2785,5 +2785,11 @@
   "gitSync.discard.message": "Discard all uncommitted changes in the {scope} repository? Tracked files will be restored to the last commit, and untracked files and folders will be deleted. Ignored files, nested repositories, and root config.yaml are kept. This cannot be undone.",
   "gitSync.discard.preview": "Dry run: would restore tracked files to the last commit and remove untracked files.",
   "gitSync.discard.noCommit": "Create a first commit before discarding changes.",
-  "gitSync.toast.discarded": "Changes discarded"
+  "gitSync.toast.discarded": "Changes discarded",
+  "hooks.status.inactive": "inactive",
+  "hooks.sync.inactive": "Inactive",
+  "hooks.gitYAML": "Binding YAML",
+  "hooks.gitYAMLHint": "Use commands and optional files. Git 2.54 or later is required.",
+  "hooks.gitYAMLError": "Enter a YAML mapping with unique keys.",
+  "hooks.native.git": "Git runs config hooks with Git 2.54 or later; parallel requires 2.55."
 }

@@ -52,6 +52,7 @@ export default function HooksList({ entries, plan, onToggle, onMenu, disabled = 
         const status = !enabled ? t('hooks.disabled')
           : agents.length === 0 ? t('plugins.noAgentsYet')
             : states.includes('conflict') ? t('hooks.status.conflict')
+              : states.includes('inactive') ? t('hooks.status.inactive')
               : states.includes('pending') ? t('plugins.pending')
                 : t('hooks.sync.synced');
         const lines = summaryLines(entry, accounts);

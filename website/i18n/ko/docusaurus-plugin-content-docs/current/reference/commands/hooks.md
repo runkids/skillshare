@@ -90,12 +90,13 @@ Skillshare는 `hooks` 섹션을 들여쓴 block 형식으로 쓰며, 저장할 �
 | `bindings.AGENT.code` | Pi, Amp, OpenCode의 네이티브 extension/plugin 소스 |
 | `bindings.AGENT.files` | 상대 파일명을 key로 하는 선택 UTF-8 스크립트 |
 
-Agent ID는 `claude`, `codex`, `gemini`, `copilot`, `cursor`, `droid`, `qwen`, `antigravity`, `pi`, `amp`, `opencode`입니다. `factory`는 `droid`, `antigravity-cli`와 `agy`는 `antigravity`의 별칭입니다. event, matcher, handler type, command, timeout 단위와 payload는 원래 형식을 유지하고 자동 변환하지 않습니다. event 이름은 각 command Agent 문서의 event와 대조합니다. 알 수 없는 이름(예: 철자가 틀린 `Stopp`)은 미리보기와 plan의 `warnings`에 경고로 표시되지만, Agent가 event를 계속 추가하므로 동기화를 막지 않습니다. Pi, Amp, OpenCode 코드는 확인하지 않습니다. Pi, Amp, OpenCode의 코드와 imports는 설치된 버전에 맞춰 제공하며 전용 `skillshare-NAME.ts`에 기록됩니다. 공통 실행 엔진을 생성하지 않습니다. command binding 스크립트는 Agent 설정 디렉터리의 `hooks/skillshare/NAME/`에 저장하며 command의 macro／명시 경로를 변경하지 않습니다. 미리보기에서 전체 경로를 확인하세요. global binding에는 `targets` 아래 선언한 계정 target 이름도 사용할 수 있습니다.
+Agent ID는 `claude`, `codex`, `gemini`, `copilot`, `cursor`, `droid`, `qwen`, `antigravity`, `pi`, `amp`, `opencode` and `git`입니다. `factory`는 `droid`, `antigravity-cli`와 `agy`는 `antigravity`의 별칭입니다. event, matcher, handler type, command, timeout 단위와 payload는 원래 형식을 유지하고 자동 변환하지 않습니다. event 이름은 각 command Agent 문서의 event와 대조합니다. 알 수 없는 이름(예: 철자가 틀린 `Stopp`)은 미리보기와 plan의 `warnings`에 경고로 표시되지만, Agent가 event를 계속 추가하므로 동기화를 막지 않습니다. Pi, Amp, OpenCode 코드는 확인하지 않습니다. Pi, Amp, OpenCode의 코드와 imports는 설치된 버전에 맞춰 제공하며 전용 `skillshare-NAME.ts`에 기록됩니다. 공통 실행 엔진을 생성하지 않습니다. command binding 스크립트는 Agent 설정 디렉터리의 `hooks/skillshare/NAME/`에 저장하며 command의 macro／명시 경로를 변경하지 않습니다. 미리보기에서 전체 경로를 확인하세요. global binding에는 `targets` 아래 선언한 계정 target 이름도 사용할 수 있습니다.
 
 ## 네이티브 저장 위치
 
 | Agent | Global | Project | Format |
 |---|---|---|---|
+| Git | `$XDG_CONFIG_HOME/git/skillshare/hooks.gitconfig` | `<git-common-dir>/skillshare/hooks.gitconfig` | Git 2.54+ `hook.<name>` |
 | [Claude Code](https://code.claude.com/docs/en/hooks) | `~/.claude/settings.json` | `.claude/settings.json` | `hooks` event map with matcher groups |
 | [Codex](https://learn.chatgpt.com/docs/hooks) | `~/.codex/hooks.json` | `.codex/hooks.json` | Wrapped `hooks` event map |
 | [Gemini CLI](https://geminicli.com/docs/hooks/reference/) | `~/.gemini/settings.json` | `.gemini/settings.json` | `hooks` event map |
@@ -148,6 +149,48 @@ command 스크립트는 `<config_dir>/hooks/skillshare/NAME/`에 기록됩니다
 target이 삭제되거나 홈이 이동하거나 계정 홈이 없으면 관리 중인 출력과 소유권 기록을 그대로 두고 경고합니다. target이나 디렉터리를 복원하면 다시 관리할 수 있습니다. 파일을 바꾸지 않고 특정 항목의 보류된 소유권을 해제하려면 `skillshare hooks sync NAME --replace -g`를 미리 보고 실행하세요. target 제거 시 binding이 여전히 그 이름을 쓰면 경고합니다. 다음 hooks 동기화 전에 binding도 제거하세요.
 
 `skillshare hooks import --from codex-2 -g --json`으로 계정에서 가져옵니다. 대시보드는 **codex-2 (Codex)**로 표시하고 Codex event와 편집기를 사용합니다. 각 Codex 홈에서 변경된 hooks를 `/hooks`로 검토하고 신뢰해야 합니다. 동기화는 신뢰를 바꾸거나 hooks를 실행하지 않습니다.
+
+## Git hooks {#git-hooks}
+
+`bindings.git.commands`는 Git 2.54+의 이름 있는 config hook을 선언합니다.
+각 이름에 `events: [pre-commit]`, 한 줄 `command`, 선택적 `parallel`
+(Git 2.55+)을 지정합니다. 이름은 Git event 이름과 달라야 하며 영숫자로 시작하는
+영숫자·`_`·`-`·`.` 128자 이내입니다. `..`와 끝의 `.`는 허용하지 않습니다.
+같은 대상의 활성 entry 사이에서 이름이 중복되면 충돌합니다. 알 수 없는 event는 경고입니다.
+
+Git은 event 인수를 command 뒤에 붙이고 각 hook에 전체 stdin을 제공합니다.
+복합 셸 로직은 UTF-8 `files`에 넣고 `command: "{files}/check.sh"`로 참조하세요.
+`{files}`는 각 머신의 따옴표 처리된 절대 helper 경로로 확장되며 파일은 LF와 실행 권한으로 출력됩니다.
+`fi`, `done`, `esac`, `}`, `)`로 끝나는 command는 거부합니다.
+Dashboard는 전체 Git binding을 YAML로 편집합니다. 순서는 entry 이름 다음 hook 이름입니다.
+
+global 출력은 `$XDG_CONFIG_HOME/git/skillshare/hooks.gitconfig`
+(기본 `~/.config/git/…`)입니다. include 대상은 절대 경로 `GIT_CONFIG_GLOBAL`,
+기존 `~/.gitconfig`, 기존 XDG `git/config`, 새 `~/.gitconfig` 순입니다.
+project 출력은 `<git-common-dir>/skillshare/hooks.gitconfig`이며 common `config`에 include합니다.
+linked worktree는 대상을 공유하므로 common directory마다 root 하나를 선언하세요.
+root는 bare가 아닌 repository의 최상위여야 합니다.
+
+쓰기 가능한 일반 config만 native lock으로 수정합니다. symlink를 통해 쓰지 않습니다.
+include가 없으면 **inactive**와 수동으로 추가할 정확한 행을 표시합니다. 오래된 Git도 inactive이며
+fallback dispatcher를 만들지 않습니다. Git이나 root가 없으면 출력을 건너뛰고 소유권 기록을 보존합니다.
+수동 include와 includeIf는 사용자 소유이며 조건을 넓히지 않습니다.
+conditional include가 있다는 사실만으로 활성화를 증명할 수 없습니다. `hooks list -g --json`의
+`git`과 `projectGit`에서 capability, include, `core.hooksPath`를 확인하세요.
+
+생성 파일 전체를 소유합니다. `--replace`는 백업 후 전체 파일을 다시 생성하며 외부 편집을 덮어씁니다.
+이름이 충돌하는 외부 hook은 쓰기 가능한 일반 대상 config 안에서만 교체할 수 있습니다.
+system/include 파일의 충돌과 다른 config의 활성 소유권은 교체할 수 없습니다.
+`enabled=false`는 경고입니다. preview와 section backup에는 관련 없는 private config가 없습니다.
+삭제/비활성화 동기화는 소유 출력과 include를 지우고 수동 include와 관련 없는 설정을 보존합니다.
+restore는 이후의 관련 없는 편집을 유지하며 source를 변경하지 않습니다.
+공유 파일 때문에 Git binding의 `--keep-files`는 거부합니다.
+
+config hook과 hookdir script가 모두 실행될 수 있습니다. 이동 전에 중복을 직접 확인하세요.
+Git import, hookdir 인식, script mode, 구조화 editor, doctor는 후속 phase입니다.
+Windows 형식 경로는 생성하지만 Windows 실행은 검증하지 않았습니다.
+
+전역과 프로젝트 명령에도 서로 다른 이름을 사용하세요. Git은 두 범위를 병합합니다. 비활성 상위 조건 아래의 중첩 include도 조건을 유지합니다. 읽을 수 없거나 지나치게 깊은 include 선언은 안전을 위해 동기화를 중단합니다.
 
 ## 프로젝트, 충돌과 복원
 

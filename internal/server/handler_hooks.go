@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"reflect"
 	"strings"
 	"time"
@@ -15,7 +16,7 @@ import (
 )
 
 func (s *Server) hooksService() *hooks.Service {
-	service := &hooks.Service{ConfigPath: s.configPath(), ProjectRoot: s.projectRoot, StateDir: config.StateDir(), ConfigDirs: hooks.ConfigDirsFromEnv()}
+	service := &hooks.Service{ConfigPath: s.configPath(), ProjectRoot: s.projectRoot, StateDir: config.StateDir(), ConfigDirs: hooks.ConfigDirsFromEnv(), GitGlobalConfig: os.Getenv("GIT_CONFIG_GLOBAL")}
 	if !s.IsProjectMode() {
 		service.Accounts = hooksAccounts(s.cfg)
 	}

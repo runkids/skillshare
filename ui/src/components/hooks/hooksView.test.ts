@@ -5,6 +5,38 @@ const claudeEvents = {
   PreToolUse: [{ matcher: 'Bash', hooks: [{ type: 'command', command: './check.sh', timeout: 30, statusMessage: 'checking' }] }],
 };
 
+describe('Git command binding editor', () => {
+  const binding = {
+    commands: { 'tool.check': { events: ['pre-commit', 'pre-push'], command: '{files}/check.sh', parallel: false } },
+    files: { 'check.sh': '#!/bin/sh\nprintf "%s\\n" "$@"\n' },
+  };
+  it('round-trips commands and helper contents through raw YAML', () => {
+    const draft = bindingToDraft('git', binding);
+    expect(draft.mode).toBe('native');
+    expect(draft.native).toContain('commands:');
+    expect(draft.rows).toEqual([]);
+    expect(checkBinding('git', draft)).toMatchObject({ nativeError: false, empty: false });
+    expect(draftToBinding('git', draft)).toEqual(binding);
+  });
+  it('rejects malformed YAML, duplicate keys, a sequence and empty commands', () => {
+    for (const native of ['commands: [', 'commands: {}\ncommands: {}', '- command', 'commands: {}']) {
+      const check = checkBinding('git', { ...bindingToDraft('git', binding), native });
+      expect(check.nativeError || check.empty).toBe(true);
+    }
+  });
+  it('reports inactive ahead of synced while preserving conflict priority', () => {
+    const plan = { revision: '', fingerprint: '', sourcePath: '', blocked: false, changes: [{ target: 'git', path: '/file', name: 'check', action: 'inactive' }] };
+    expect(syncState(plan, 'check', 'git')).toBe('inactive');
+    plan.changes.push({ target: 'git', path: '/file', name: 'check', action: 'conflict' });
+    expect(syncState(plan, 'check', 'git')).toBe('conflict');
+  });
+  it('selects linked-worktree backups by their declared root', () => {
+    const data = { source: { projects: { '/linked': {} } }, backups: [{ path: '/main/.git/config', root: '/linked' }] };
+    expect(scopeBackups(data, '/linked')).toEqual(data.backups);
+    expect(scopeBackups(data)).toEqual([]);
+  });
+});
+
 describe('command events editor', () => {
   it('round-trips a matcher group and keeps fields it has no input for', () => {
     const rows = eventsToRows(claudeEvents)!;

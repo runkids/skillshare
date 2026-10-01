@@ -4,6 +4,7 @@ import { autocompletion } from '@codemirror/autocomplete';
 import type { CompletionSource } from '@codemirror/autocomplete';
 import { javascript } from '@codemirror/lang-javascript';
 import { json } from '@codemirror/lang-json';
+import { yaml } from '@codemirror/lang-yaml';
 import { syntaxHighlighting } from '@codemirror/language';
 import { linter, lintGutter } from '@codemirror/lint';
 import type { Diagnostic } from '@codemirror/lint';
@@ -126,6 +127,7 @@ export default function CodeEditor({ value, onChange, lang = '', placeholder, ar
       syntaxHighlighting(classHighlighter),
       EditorView.contentAttributes.of({ 'aria-label': ariaLabel }),
       ...(lang === 'json' ? [json()] : []),
+      ...(lang === 'yaml' ? [yaml()] : []),
       ...(lang === 'typescript' || lang === 'javascript' ? [javascript({ typescript: lang === 'typescript' })] : []),
       ...(lint ? [linter((view) => lint(view.state.doc.toString()), { delay: 250 }), lintGutter()] : []),
       ...(completions ? [autocompletion({ override: [completions], icons: false })] : []),

@@ -29,6 +29,37 @@ func ev(name string, matcher bool, description string) CatalogEvent {
 // reference (accessed 2026-09-30). Agents add events over time, so an unknown name is
 // a warning, never an error. Code Agents (pi, amp, opencode) have no event map.
 var Catalog = map[string]AgentCatalog{
+	// Native Git githooks(5) events; Git appends event arguments to commands.
+	"git": {Events: []CatalogEvent{
+		ev("applypatch-msg", false, "Native applypatch-msg hook event."),
+		ev("pre-applypatch", false, "Native pre-applypatch hook event."),
+		ev("post-applypatch", false, "Native post-applypatch hook event."),
+		ev("pre-commit", false, "Before a commit is created."),
+		ev("pre-merge-commit", false, "Native pre-merge-commit hook event."),
+		ev("prepare-commit-msg", false, "Native prepare-commit-msg hook event."),
+		ev("commit-msg", false, "Native commit-msg hook event."),
+		ev("post-commit", false, "After a commit is created."),
+		ev("pre-rebase", false, "Native pre-rebase hook event."),
+		ev("post-checkout", false, "Native post-checkout hook event."),
+		ev("post-merge", false, "Native post-merge hook event."),
+		ev("pre-push", false, "Before refs are pushed; receives ref updates on stdin."),
+		ev("pre-receive", false, "Native pre-receive hook event."),
+		ev("update", false, "Native update hook event."),
+		ev("proc-receive", false, "Native proc-receive hook event."),
+		ev("post-receive", false, "Native post-receive hook event."),
+		ev("post-update", false, "Native post-update hook event."),
+		ev("reference-transaction", false, "Native reference-transaction hook event."),
+		ev("push-to-checkout", false, "Native push-to-checkout hook event."),
+		ev("pre-auto-gc", false, "Native pre-auto-gc hook event."),
+		ev("post-rewrite", false, "After commits are rewritten."),
+		ev("sendemail-validate", false, "Native sendemail-validate hook event."),
+		ev("fsmonitor-watchman", false, "Native fsmonitor-watchman hook event."),
+		ev("p4-changelist", false, "Native p4-changelist hook event."),
+		ev("p4-prepare-changelist", false, "Native p4-prepare-changelist hook event."),
+		ev("p4-post-changelist", false, "Native p4-post-changelist hook event."),
+		ev("p4-pre-submit", false, "Native p4-pre-submit hook event."),
+		ev("post-index-change", false, "Native post-index-change hook event."),
+	}},
 	// https://code.claude.com/docs/en/hooks
 	"claude": {TimeoutUnit: "seconds", Events: []CatalogEvent{
 		ev("SessionStart", true, "A session starts or resumes."),
@@ -200,7 +231,13 @@ func EventWarnings(name string, e Entry) []string {
 func eventWarnings(name string, e Entry, agentOf func(string) string) []string {
 	var out []string
 	for _, target := range sortedKeys(e.Bindings) {
-		for _, event := range sortedKeys(e.Bindings[target].Events) {
+		eventNames := sortedKeys(e.Bindings[target].Events)
+		if target == "git" {
+			for _, name := range sortedKeys(e.Bindings[target].Commands) {
+				eventNames = append(eventNames, e.Bindings[target].Commands[name].Events...)
+			}
+		}
+		for _, event := range eventNames {
 			if !knownEvent(agentOf(target), event) {
 				out = append(out, fmt.Sprintf("hook %s: %s does not document the event %q; check its spelling", name, target, event))
 			}

@@ -2785,5 +2785,11 @@
   "gitSync.discard.message": "Buang semua perubahan yang belum di-commit di repositori {scope}? File yang dilacak akan dipulihkan ke commit terakhir, dan file serta folder yang tidak dilacak akan dihapus. File yang diabaikan, repositori bersarang, dan config.yaml di root tetap disimpan. Tindakan ini tidak dapat dibatalkan.",
   "gitSync.discard.preview": "Dry run: akan memulihkan file yang dilacak ke commit terakhir dan menghapus file yang tidak dilacak.",
   "gitSync.discard.noCommit": "Buat commit pertama sebelum membuang perubahan.",
-  "gitSync.toast.discarded": "Perubahan dibuang"
+  "gitSync.toast.discarded": "Perubahan dibuang",
+  "hooks.status.inactive": "tidak aktif",
+  "hooks.sync.inactive": "Tidak aktif",
+  "hooks.gitYAML": "Binding YAML",
+  "hooks.gitYAMLHint": "Gunakan commands dan files bila perlu. Memerlukan Git 2.54 atau lebih baru.",
+  "hooks.gitYAMLError": "Masukkan pemetaan YAML dengan kunci unik.",
+  "hooks.native.git": "Hook konfigurasi memerlukan Git 2.54 atau lebih baru; parallel memerlukan 2.55."
 }

@@ -14,6 +14,17 @@ func TestCatalog_CoversEveryCommandAgent(t *testing.T) {
 			}
 			continue
 		}
+		if target.Kind == KindGit {
+			if !ok || len(c.Events) != 28 || c.TimeoutUnit != "" {
+				t.Fatalf("git catalog: %+v", c)
+			}
+			for _, event := range c.Events {
+				if !gitEventName.MatchString(event.Name) || event.Description == "" {
+					t.Fatalf("git event: %+v", event)
+				}
+			}
+			continue
+		}
 		if !ok || len(c.Events) == 0 || (c.TimeoutUnit != "seconds" && c.TimeoutUnit != "milliseconds") {
 			t.Fatalf("%s catalog: %+v", target.Name, c)
 		}

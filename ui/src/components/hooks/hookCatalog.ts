@@ -384,6 +384,9 @@ export const lineEvent = (text: string) => /^\s*"([^"]+)"\s*:\s*\[/.exec(text)?.
 /** Summary lines of a binding: event, matcher and command of each registration. */
 export function bindingLines(binding: HookBinding | undefined): { event: string; matcher: string; command: string }[] {
   const out: { event: string; matcher: string; command: string }[] = [];
+  for (const command of Object.values(binding?.commands ?? {})) {
+    for (const event of command.events) out.push({ event, matcher: '', command: command.command });
+  }
   const isObj = (v: unknown): v is Record<string, unknown> => Boolean(v) && typeof v === 'object' && !Array.isArray(v);
   for (const [event, list] of Object.entries(binding?.events ?? {})) {
     for (const item of Array.isArray(list) ? list : []) {

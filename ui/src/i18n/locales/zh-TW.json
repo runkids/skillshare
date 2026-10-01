@@ -2785,5 +2785,11 @@
   "gitSync.discard.message": "要捨棄 {scope} 儲存庫中所有尚未 commit 的變更嗎？已追蹤的檔案會還原至最後一次 commit，未追蹤的檔案與資料夾會被刪除。忽略的檔案、巢狀儲存庫與 root 的 config.yaml 會保留。此操作無法復原。",
   "gitSync.discard.preview": "Dry run：將還原已追蹤的檔案至最後一次 commit，並刪除未追蹤的檔案。",
   "gitSync.discard.noCommit": "請先建立第一個 commit，才能捨棄變更。",
-  "gitSync.toast.discarded": "已捨棄變更"
+  "gitSync.toast.discarded": "已捨棄變更",
+  "hooks.status.inactive": "未生效",
+  "hooks.sync.inactive": "未生效",
+  "hooks.gitYAML": "綁定 YAML",
+  "hooks.gitYAMLHint": "使用 commands 與選用的 files。需要 Git 2.54 以上版本。",
+  "hooks.gitYAMLError": "請輸入鍵值不重複的 YAML 對應。",
+  "hooks.native.git": "Git 2.54 以上版本可執行設定掛鉤；parallel 需要 2.55。"
 }

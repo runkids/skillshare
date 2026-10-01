@@ -40,6 +40,17 @@ type Binding struct {
 	Code string `yaml:"code,omitempty" json:"code,omitempty"`
 	// Files are script files written to <Agent config dir>/hooks/skillshare/<entry>/.
 	Files map[string]string `yaml:"files,omitempty" json:"files,omitempty"`
+	// Commands are Git's native hook.<name> definitions.
+	Commands map[string]GitCommand `yaml:"commands,omitempty" json:"commands,omitempty"`
+	// Scripts is reserved for Git whole-file hooks, which are not supported yet.
+	Scripts map[string]string `yaml:"scripts,omitempty" json:"scripts,omitempty"`
+}
+
+// GitCommand describes one friendly name, which Git may run for several events.
+type GitCommand struct {
+	Events   []string `yaml:"events" json:"events"`
+	Command  string   `yaml:"command" json:"command"`
+	Parallel *bool    `yaml:"parallel,omitempty" json:"parallel,omitempty"`
 }
 
 // IsEnabled reports the effective enabled state.
@@ -49,6 +60,7 @@ func (e Entry) IsEnabled() bool { return e.Enabled == nil || *e.Enabled }
 const (
 	KindCommand = "command"
 	KindCode    = "code"
+	KindGit     = "git"
 )
 
 // TargetDef describes one supported Agent.
@@ -62,6 +74,7 @@ type TargetDef struct {
 
 // Targets are the supported Agents in display order.
 var Targets = []TargetDef{
+	{Name: "git", Kind: KindGit, Note: "Git 2.54+ runs config-based hooks (hook.<name>). Skillshare writes its own included file and helper scripts. Git reads configuration on every command; management never executes hooks."},
 	{Name: "claude", Kind: KindCommand, Note: "Claude Code runs settings.json hooks only after the workspace trust dialog is accepted; /hooks lists them read-only."},
 	{Name: "codex", Kind: KindCommand, Note: "Codex loads hooks.json together with inline [hooks] in config.toml, which Skillshare leaves untouched and lists as an additional source. Review and trust each new or changed hook in /hooks; project hooks load only when the project's .codex folder is trusted."},
 	{Name: "gemini", Kind: KindCommand, Note: "Gemini CLI reads hooks from settings.json. Project hooks are fingerprinted and warn until trusted again after any change; manage them with /hooks panel."},
@@ -200,6 +213,15 @@ func (e Entry) validate(name string, accounts map[string]string, scope validatio
 			}
 		}
 		b := e.Bindings[target]
+		if def.Kind == KindGit {
+			if err := validateGit(b); err != nil {
+				return fmt.Errorf("hook %s: git: %w", name, err)
+			}
+			continue
+		}
+		if b.Commands != nil || b.Scripts != nil {
+			return fmt.Errorf("hook %s: %s does not accept Git commands or scripts", name, target)
+		}
 		if def.Kind == KindCode {
 			if len(b.Events) > 0 || len(b.Files) > 0 {
 				return fmt.Errorf("hook %s: %s takes code only, not events or files", name, target)

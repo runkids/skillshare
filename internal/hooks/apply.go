@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
 	"regexp"
 	"strconv"
 	"strings"
@@ -22,18 +23,26 @@ var backupID = regexp.MustCompile(`^[0-9]+-[a-f0-9]{8}$`)
 var ErrUnknownProject = errors.New("unknown hooks project")
 
 type journal struct {
-	Path  string `json:"path"`
-	After string `json:"after"` // digest of the written file, "" for a removal
-	State ledger `json:"state"`
+	Kind        string `json:"kind,omitempty"`
+	Value       string `json:"value,omitempty"`
+	Add         bool   `json:"add,omitempty"`
+	SectionName string `json:"sectionName,omitempty"`
+	Path        string `json:"path"`
+	After       string `json:"after"` // digest of the written file, "" for a removal
+	State       ledger `json:"state"`
 }
 
 type backupRecord struct {
-	ID     string `json:"id"`
-	Owner  string `json:"owner"`
-	Target string `json:"target"`
-	Path   string `json:"path"`
-	Root   string `json:"root,omitempty"`
-	Kind   string `json:"kind"`
+	GitInclude *gitIncludeOp `json:"gitInclude,omitempty"`
+	GitSection *gitSectionOp `json:"gitSection,omitempty"`
+	BeforeMode os.FileMode   `json:"beforeMode,omitempty"`
+	AfterMode  os.FileMode   `json:"afterMode,omitempty"`
+	ID         string        `json:"id"`
+	Owner      string        `json:"owner"`
+	Target     string        `json:"target"`
+	Path       string        `json:"path"`
+	Root       string        `json:"root,omitempty"`
+	Kind       string        `json:"kind"`
 	// Ops are the element edits of a shared file, with the values before and after.
 	Ops []elementOp `json:"ops,omitempty"`
 	// Before and After are a whole file's contents; nil means absent.
@@ -93,6 +102,37 @@ func (s *Service) readPending() (*journal, bool, error) {
 	if json.Unmarshal(data, &pending) != nil || pending.Path == "" || pending.State.Version != 1 || pending.State.Records == nil {
 		return nil, false, fmt.Errorf("hooks recovery journal is invalid; manual recovery required")
 	}
+	if pending.Kind == kindGitInclude {
+		_, exists, _, err := safeRead(pending.Path)
+		if err != nil {
+			return nil, false, err
+		}
+		if !exists {
+			return &pending, !pending.Add, nil
+		}
+		rows, err := s.gitFileIncludes(pending.Path)
+		if err != nil {
+			return nil, false, s.gitRecoveryError(err)
+		}
+		present := false
+		for _, row := range rows {
+			if row.Key == "include.path" && row.Value == pending.Value {
+				present = true
+			}
+		}
+		return &pending, present == pending.Add, nil
+	}
+	if pending.Kind == kindGitSection {
+		data, _, _, err := safeRead(pending.Path)
+		if err != nil {
+			return nil, false, err
+		}
+		rows, err := s.gitParseBytes(data)
+		if err != nil {
+			return nil, false, s.gitRecoveryError(err)
+		}
+		return &pending, gitValuesDigest(sectionRows(rows, pending.SectionName, true)) == pending.After, nil
+	}
 	current, exists, _, err := safeRead(pending.Path)
 	if err != nil {
 		return nil, false, err
@@ -101,6 +141,10 @@ func (s *Service) readPending() (*journal, bool, error) {
 		return &pending, !exists, nil
 	}
 	return &pending, exists && digest(current) == pending.After, nil
+}
+
+func (s *Service) gitRecoveryError(err error) error {
+	return fmt.Errorf("hooks recovery is blocked; keep journal %s intact, restore Git or repair the config, then retry: %w", s.journalPath(), err)
 }
 
 func (s *Service) recoverPending() error {
@@ -183,6 +227,9 @@ func (s *Service) draft(m Mutation) (*Source, map[string]bool, map[string]bool, 
 	case m.Remove:
 		if _, ok := entries[m.Name]; !ok {
 			return nil, nil, nil, fmt.Errorf("hook %q not found", m.Name)
+		}
+		if m.Unmanage && len(entries[m.Name].Bindings["git"].Commands) > 0 {
+			return nil, nil, nil, fmt.Errorf("Git commands cannot keep files while removing their declaration; copy them to your own include first")
 		}
 		delete(entries, m.Name)
 		if m.Unmanage {
@@ -391,6 +438,11 @@ func (s *Service) applyScoped(p *Plan, root *string) (*Result, error) {
 		return result, fmt.Errorf("hooks ownership changed: %w", ErrStaleRevision)
 	}
 	// Check every file before the first write, and each again at its write.
+	for _, guard := range p.gitGuards {
+		if err := guard.check(); err != nil {
+			return result, err
+		}
+	}
 	for _, f := range p.files {
 		if inScope(f.root) {
 			scope := s
@@ -409,9 +461,32 @@ func (s *Service) applyScoped(p *Plan, root *string) (*Result, error) {
 		if !inScope(f.root) || !f.changed() {
 			continue
 		}
+		if f.gitGuard != nil {
+			if err := f.gitGuard.check(); err != nil {
+				return result, err
+			}
+		}
+		var finishGit func() error
+		var releaseGit func()
+		if f.kind == kindGitInclude || f.kind == kindGitSection {
+			finishGit, releaseGit, err = f.prepareGitWrite(state.NewFiles[f.path])
+			if err != nil {
+				return result, err
+			}
+		}
 		data, exists, mode, doc, err := f.refresh()
 		if err != nil {
+			if releaseGit != nil {
+				releaseGit()
+			}
 			return result, err
+		}
+		if releaseGit != nil {
+			defer releaseGit()
+		}
+		beforeMode := mode
+		if f.target == "git" && f.kind == kindFile {
+			mode = f.mode
 		}
 		after, remove := f.write, f.remove
 		if f.kind == kindJSON {
@@ -423,7 +498,7 @@ func (s *Service) applyScoped(p *Plan, root *string) (*Result, error) {
 			remove = f.remove && skeleton(f.agent, after)
 		}
 		id := fmt.Sprintf("%d-%s", time.Now().UnixNano(), digest([]byte(f.path))[:8])
-		backup := backupRecord{ID: id, Owner: p.source.ConfigPath, Target: f.target, Path: f.path, Root: f.root, Kind: f.kind, Ops: f.ops, OwnedBefore: map[string]*record{}, OwnedAfter: map[string]*record{}}
+		backup := backupRecord{ID: id, Owner: p.source.ConfigPath, Target: f.target, Path: f.path, Root: f.root, Kind: f.kind, Ops: f.ops, OwnedBefore: map[string]*record{}, OwnedAfter: map[string]*record{}, GitInclude: f.include, GitSection: f.gitSection, BeforeMode: beforeMode, AfterMode: mode}
 		if f.kind == kindFile {
 			if exists {
 				before := string(data)
@@ -448,7 +523,7 @@ func (s *Service) applyScoped(p *Plan, root *string) (*Result, error) {
 		if err := writeJSONFile(filepath.Join(s.stateDir(), "backups", id+".json"), backup); err != nil {
 			return result, fmt.Errorf("hooks backup failed: %w", err)
 		}
-		if f.kind == kindJSON {
+		if f.kind == kindJSON || f.kind == kindGitInclude {
 			if p.state.Created[f.path] {
 				if state.Created == nil {
 					state.Created = map[string]bool{}
@@ -468,7 +543,7 @@ func (s *Service) applyScoped(p *Plan, root *string) (*Result, error) {
 			}
 		}
 		if !remove {
-			for _, dir := range missingDirs(filepath.Dir(f.path)) {
+			for _, dir := range append(missingDirs(filepath.Dir(f.path)), f.gitCreatedDirs...) {
 				if state.Dirs == nil {
 					state.Dirs = map[string]bool{}
 				}
@@ -479,17 +554,33 @@ func (s *Service) applyScoped(p *Plan, root *string) (*Result, error) {
 		if !remove {
 			pending.After = digest(after)
 		}
+		if f.include != nil {
+			pending.Kind, pending.Value, pending.Add = kindGitInclude, f.include.Value, f.include.Add
+		}
+		if f.gitSection != nil {
+			pending.Kind, pending.SectionName = kindGitSection, f.gitSection.Name
+			pending.After = f.gitSectionAfter
+		}
 		if err := writeJSONFile(s.journalPath(), pending); err != nil {
 			return result, err
 		}
-		if remove {
+		if finishGit != nil {
+			err = finishGit()
+			releaseGit()
+		} else if remove {
 			err = os.Remove(f.path)
 			if err == nil {
-				pruneEmptyDirs(filepath.Dir(f.path))
+				if f.target != "git" {
+					pruneEmptyDirs(filepath.Dir(f.path))
+				}
 				pruneCreatedDirs(state.Dirs, filepath.Dir(f.path))
 			}
 		} else {
 			err = atomicWrite(f.path, after, mode)
+		}
+		if err == nil && f.kind == kindGitInclude && !pathExists(f.path) {
+			delete(state.NewFiles, f.path)
+			pruneCreatedDirs(state.Dirs, filepath.Dir(f.path))
 		}
 		if err != nil {
 			_ = os.Remove(s.journalPath())
@@ -504,6 +595,13 @@ func (s *Service) applyScoped(p *Plan, root *string) (*Result, error) {
 			return result, err
 		}
 		s.pruneBackups(f.path)
+		if f.gitGuard != nil {
+			for _, guard := range p.gitGuards {
+				if err := guard.completed(f); err != nil {
+					return result, err
+				}
+			}
+		}
 	}
 	// Records that moved without a write, such as an adoption or a refreshed index.
 	final := ledger{Version: 1, Records: map[string]record{}, Created: state.Created, NewFiles: state.NewFiles, Dirs: state.Dirs}
@@ -581,7 +679,7 @@ func (s *Service) Backups() ([]Backup, error) {
 	out := []Backup{}
 	for _, r := range records {
 		if r.Owner == owner {
-			out = append(out, Backup{ID: r.ID, Target: r.Target, Path: r.Path, Time: backupTime(r.ID)})
+			out = append(out, Backup{ID: r.ID, Target: r.Target, Path: r.Path, Root: r.Root, Time: backupTime(r.ID)})
 		}
 	}
 	return out, nil
@@ -662,7 +760,7 @@ func (s *Service) PreviewRestore(id string) (*Plan, error) {
 	if err != nil {
 		return nil, err
 	}
-	p := &Plan{SourcePath: source.ConfigPath, Changes: []Change{}, Warnings: []string{}, source: source, stateBytes: stateBytes, state: ledger{Version: 1, Records: map[string]record{}, Created: state.Created}}
+	p := &Plan{SourcePath: source.ConfigPath, Changes: []Change{}, Warnings: []string{}, source: source, stateBytes: stateBytes, state: ledger{Version: 1, Records: map[string]record{}, Created: state.Created, NewFiles: state.NewFiles, Dirs: state.Dirs}}
 	for k, r := range state.Records {
 		p.state.Records[k] = r
 	}
@@ -709,6 +807,9 @@ func (s *Service) PreviewRestore(id string) (*Plan, error) {
 	if err != nil {
 		return nil, err
 	}
+	if b.Kind == kindGitInclude || b.Kind == kindGitSection {
+		base = filepath.Dir(b.Path)
+	}
 	if err := checkPath(base, b.Path); err != nil {
 		return nil, err
 	}
@@ -737,13 +838,85 @@ func (s *Service) PreviewRestore(id string) (*Plan, error) {
 		}
 		f.keys = append(f.keys, key)
 	}
-	if b.Kind == kindFile {
+	if b.Kind == kindGitInclude {
+		if b.GitInclude == nil {
+			return nil, fmt.Errorf("invalid Git include backup")
+		}
+		rows, err := s.scopedFor(b.Root).gitFileIncludes(b.Path)
+		if err != nil {
+			return nil, err
+		}
+		present, count := false, 0
+		for _, row := range rows {
+			if row.Key == "include.path" && row.Value == b.GitInclude.Value {
+				present = true
+				count++
+			}
+		}
+		f = gitIncludePlan(s.scopedFor(b.Root), gitDestination{root: b.Root, includeTarget: b.Path}, rows, b.GitInclude.Value, !b.GitInclude.Add)
+		if present != b.GitInclude.Add || count > 1 {
+			conflict("include changed after the backup")
+		}
+		for key := range mergeKeys(b.OwnedBefore, b.OwnedAfter) {
+			if !sameRecord(key, b.OwnedAfter[key]) {
+				conflict("include ownership changed after the backup")
+			} else {
+				restoreOwnership(key)
+			}
+		}
+	} else if b.Kind == kindGitSection {
+		if b.GitSection == nil {
+			return nil, fmt.Errorf("invalid Git section backup")
+		}
+		f.gitService = s.scopedFor(b.Root)
+		op := *b.GitSection
+		op.Restore = !op.Restore
+		f.gitSection = &op
+		f.section = gitSectionDigest(current, op.Name)
+		if op.Restore {
+			destination, err := f.gitService.gitDestination(b.Root)
+			if err != nil {
+				return nil, err
+			}
+			for _, r := range state.Records {
+				if r.Target == "git" && r.Event == "hook."+op.Name && sameGitPath(r.Path, destination.hooksFile) && !ownerGone(r.Owner) {
+					conflict("hook name is still managed; remove its managed command before restoring the foreign section")
+				}
+			}
+			_, err = f.gitService.restoreGitSection(current, op)
+			if err != nil {
+				conflict(err.Error())
+			} else {
+				for _, fragment := range op.Fragments {
+					f.after = append(f.after, []byte(fragment.Text)...)
+				}
+				f.before = nil
+			}
+		} else {
+			_, fragments, err := f.gitService.removeGitSection(current, op.Name)
+			if err != nil {
+				conflict(err.Error())
+			} else {
+				f.before = nil
+				if !reflect.DeepEqual(fragments, op.Fragments) {
+					conflict("section changed after the backup")
+				}
+				for _, fragment := range fragments {
+					f.before = append(f.before, []byte(fragment.Text)...)
+				}
+				f.after = nil
+			}
+		}
+	} else if b.Kind == kindFile {
 		f.section = ""
 		if exists {
 			f.section = digest(current)
 		}
 		if mode == 0 {
 			f.mode = 0644
+		}
+		if b.BeforeMode != 0 {
+			f.mode = b.BeforeMode
 		}
 		for key := range b.OwnedAfter {
 			change.Name = b.OwnedAfter[key].Entry
@@ -830,13 +1003,29 @@ func (s *Service) PreviewRestore(id string) (*Plan, error) {
 			}
 		}
 	}
+	gitRevision := ""
+	if !p.Blocked {
+		guard, reason, err := s.guardGitRestore(b, f, state)
+		if err != nil {
+			return nil, err
+		}
+		if guard != nil {
+			f.gitGuard = guard
+			p.gitGuards = append(p.gitGuards, guard)
+			gitRevision = guard.revision()
+		}
+		if reason != "" {
+			conflict(reason)
+		}
+	}
 	if p.Blocked {
 		f.ops, f.write, f.remove, f.keys = nil, nil, false, nil
-		p.state = ledger{Version: 1, Records: state.Records, Created: state.Created}
+		f.include, f.gitSection = nil, nil
+		p.state = ledger{Version: 1, Records: state.Records, Created: state.Created, NewFiles: state.NewFiles, Dirs: state.Dirs}
 	}
 	p.Changes = append(p.Changes, change)
 	p.files = []*filePlan{f}
-	p.Revision = digest([]byte(id + f.section + digest(stateBytes) + digest(source.bytes)))
+	p.Revision = digest([]byte(id + f.section + gitRevision + digest(stateBytes) + digest(source.bytes)))
 	return p, nil
 }
 

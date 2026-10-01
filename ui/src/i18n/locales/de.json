@@ -2785,5 +2785,11 @@
   "gitSync.discard.message": "Alle nicht committeten Änderungen im Repository {scope} verwerfen? Erfasste Dateien werden auf den letzten Commit zurückgesetzt, nicht erfasste Dateien und Ordner werden gelöscht. Ignorierte Dateien, verschachtelte Repositories und config.yaml im root bleiben erhalten. Dies kann nicht rückgängig gemacht werden.",
   "gitSync.discard.preview": "Dry run: Erfasste Dateien würden auf den letzten Commit zurückgesetzt und nicht erfasste Dateien entfernt.",
   "gitSync.discard.noCommit": "Erstelle vor dem Verwerfen einen ersten Commit.",
-  "gitSync.toast.discarded": "Änderungen verworfen"
+  "gitSync.toast.discarded": "Änderungen verworfen",
+  "hooks.status.inactive": "inaktiv",
+  "hooks.sync.inactive": "Inaktiv",
+  "hooks.gitYAML": "Bindung als YAML",
+  "hooks.gitYAMLHint": "Verwende commands und optional files. Git 2.54 oder neuer ist erforderlich.",
+  "hooks.gitYAMLError": "Gib eine YAML-Zuordnung mit eindeutigen Schlüsseln ein.",
+  "hooks.native.git": "Konfigurations-Hooks erfordern Git 2.54 oder neuer; parallel erfordert 2.55."
 }

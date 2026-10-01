@@ -32,6 +32,31 @@ const openClaude = async (user: ReturnType<typeof userEvent.setup>) => {
   await user.click(screen.getByRole('checkbox', { name: /Claude/ }));
 };
 
+describe('Git raw YAML dialog', () => {
+  beforeEach(() => {
+    vi.resetAllMocks();
+    vi.mocked(hooksApi.catalog).mockResolvedValue(catalog);
+    vi.mocked(hooksApi.save).mockResolvedValue({ applied: [], backupIds: [] });
+  });
+  it('edits and saves commands and files together without Agent event fields', async () => {
+    const user = userEvent.setup();
+    const binding = { commands: { 'tool.check': { events: ['pre-commit'], command: '{files}/check.sh', parallel: false } }, files: { 'check.sh': '#!/bin/sh\nexit 0\n' } };
+    wrap(<HookDialog initial={{ name: 'guard', entry: { bindings: { git: binding } } }} existingNames={['guard']} onClose={vi.fn()} onSaved={vi.fn()} />);
+    const editor = screen.getByLabelText('Git Binding YAML');
+    expect((editor as HTMLTextAreaElement).value).toContain('commands:');
+    expect(screen.queryByLabelText('Event 1')).not.toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: 'Fields' })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(hooksApi.save).toHaveBeenCalledWith({ name: 'guard', entry: { bindings: { git: binding } } }));
+  });
+  it('opens the YAML editor for a new Git binding', async () => {
+    const user = userEvent.setup();
+    wrap(<HookDialog existingNames={[]} onClose={vi.fn()} onSaved={vi.fn()} />);
+    await user.click(screen.getByRole('checkbox', { name: /^Git$/ }));
+    expect(screen.getByLabelText('Git Binding YAML')).toBeInTheDocument();
+  });
+});
+
 describe('hook dialog', () => {
   beforeEach(() => {
     vi.resetAllMocks();
@@ -192,6 +217,25 @@ describe('hooks import', () => {
 });
 
 describe('hooks preview', () => {
+  it('shows every narrow Git operation sharing a config file', () => {
+    const path = '/home/u/.gitconfig';
+    wrap(<HooksPreview plan={{ revision: 'r', fingerprint: 'fp', sourcePath: '/s.yaml', blocked: false,
+      changes: [{ target: 'git', path, name: 'guard', action: 'update' }],
+      files: [
+        { target: 'git', path, before: '[hook "check"]\n command = echo foreign\n', after: '' },
+        { target: 'git', path, before: '', after: '[include]\n path = ~/.config/git/skillshare/hooks.gitconfig\n' },
+      ] }} />);
+    const card = screen.getByRole('region', { name: path });
+    expect(within(card).getByText('command = echo foreign')).toBeInTheDocument();
+    expect(within(card).getByText('path = ~/.config/git/skillshare/hooks.gitconfig')).toBeInTheDocument();
+    const first = within(card).getByRole('region', { name: `Changes to ${path} (1/2)` });
+    const second = within(card).getByRole('region', { name: `Changes to ${path} (2/2)` });
+    expect(within(first).getByText('command = echo foreign')).toBeInTheDocument();
+    expect(within(first).queryByText('path = ~/.config/git/skillshare/hooks.gitconfig')).not.toBeInTheDocument();
+    expect(within(second).getByText('path = ~/.config/git/skillshare/hooks.gitconfig')).toBeInTheDocument();
+    expect(within(second).queryByText('command = echo foreign')).not.toBeInTheDocument();
+  });
+
   it("shows each file's event changes and diff, marking the user's own hooks as untouched", () => {
     const path = '/home/u/.claude/settings.json';
     const before = '{\n  "hooks": {\n    "PreToolUse": [{ "hooks": [] }]\n  }\n}';

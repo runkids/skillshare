@@ -2785,5 +2785,11 @@
   "gitSync.discard.message": "{scope} リポジトリの未コミットの変更をすべて破棄しますか？追跡中のファイルは最後のコミットに戻り、未追跡のファイルとフォルダーは削除されます。無視されたファイル、ネストしたリポジトリ、root の config.yaml は保持されます。この操作は元に戻せません。",
   "gitSync.discard.preview": "Dry run: 追跡中のファイルを最後のコミットに戻し、未追跡のファイルを削除します。",
   "gitSync.discard.noCommit": "変更を破棄する前に最初のコミットを作成してください。",
-  "gitSync.toast.discarded": "変更を破棄しました"
+  "gitSync.toast.discarded": "変更を破棄しました",
+  "hooks.status.inactive": "無効",
+  "hooks.sync.inactive": "無効",
+  "hooks.gitYAML": "バインディング YAML",
+  "hooks.gitYAMLHint": "commands と任意の files を使います。Git 2.54 以降が必要です。",
+  "hooks.gitYAMLError": "キーが重複しない YAML マッピングを入力してください。",
+  "hooks.native.git": "設定フックには Git 2.54 以降、parallel には 2.55 が必要です。"
 }

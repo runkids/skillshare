@@ -19,6 +19,7 @@ func (s *Service) List() (*Inventory, error) {
 		return nil, err
 	}
 	inv := &Inventory{
+		ProjectGit:     map[string]*GitInfo{},
 		Source:         SourceInfo{Path: source.ConfigPath, ConfigPath: source.ConfigPath, Entries: source.Entries, Projects: source.Projects},
 		Targets:        s.targetDefs(),
 		Paths:          s.Paths(),
@@ -37,14 +38,20 @@ func (s *Service) List() (*Inventory, error) {
 		return nil, err
 	}
 	inv.Unmanaged = append(inv.Unmanaged, s.unmanaged(state)...)
+	inv.Git = s.gitInventory("", state)
 	for _, root := range sortedKeys(source.Projects) {
 		if ownConfig(root) {
 			inv.ProjectConfigs = append(inv.ProjectConfigs, root)
 			continue
 		}
 		scoped := s.scoped(root)
+		inv.ProjectGit[root] = scoped.gitInventory(root, state)
 		inv.ProjectPaths[root] = scoped.Paths()
-		inv.Unmanaged = append(inv.Unmanaged, scoped.unmanaged(state)...)
+		unmanaged := scoped.unmanaged(state)
+		for i := range unmanaged {
+			unmanaged[i].Project = root
+		}
+		inv.Unmanaged = append(inv.Unmanaged, unmanaged...)
 	}
 	return inv, nil
 }
@@ -59,6 +66,10 @@ func (s *Service) unmanaged(state ledger) []Unmanaged {
 		}
 	}
 	for _, t := range s.targetDefs() {
+		if t.Kind == KindGit {
+			out = append(out, s.gitUnmanaged(state)...)
+			continue
+		}
 		sc, agent := s.forTarget(t.Name)
 		path, err := sc.nativePath(agent)
 		if err != nil {
@@ -184,6 +195,9 @@ func candidateName(parts ...string) string {
 // candidate.
 func (s *Service) Import(req ImportRequest) ([]Candidate, error) {
 	target := canonicalTarget(req.From)
+	if target == "git" {
+		return nil, fmt.Errorf("Git hooks import is not supported yet; define commands explicitly")
+	}
 	scope, agent := s.forTarget(target)
 	def, ok := targetDef(agent)
 	if !ok {

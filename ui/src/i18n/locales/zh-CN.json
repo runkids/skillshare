@@ -2785,5 +2785,11 @@
   "gitSync.discard.message": "要放弃 {scope} 仓库中所有尚未 commit 的更改吗？已跟踪的文件会恢复至最后一次 commit，未跟踪的文件和文件夹会被删除。忽略的文件、嵌套仓库及 root 的 config.yaml 会保留。此操作无法撤销。",
   "gitSync.discard.preview": "Dry run：将恢复已跟踪的文件至最后一次 commit，并删除未跟踪的文件。",
   "gitSync.discard.noCommit": "请先创建第一个 commit，才能放弃更改。",
-  "gitSync.toast.discarded": "已放弃更改"
+  "gitSync.toast.discarded": "已放弃更改",
+  "hooks.status.inactive": "未生效",
+  "hooks.sync.inactive": "未生效",
+  "hooks.gitYAML": "绑定 YAML",
+  "hooks.gitYAMLHint": "使用 commands 和可选的 files。需要 Git 2.54 或更新版本。",
+  "hooks.gitYAMLError": "请输入键不重复的 YAML 映射。",
+  "hooks.native.git": "Git 2.54 或更新版本可运行配置钩子；parallel 需要 2.55。"
 }

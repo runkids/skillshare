@@ -1,7 +1,8 @@
 import { hookAgents, hookCodeAgents, type HookChange, type HookEntry, type HookPlan, type HookTargetDef } from '../../api/hooks';
+import { parseDocument, stringify as stringifyYaml } from 'yaml';
 
 export const hookLabel = (agent: string) =>
-  ({ claude: 'Claude', codex: 'Codex', gemini: 'Gemini CLI', copilot: 'Copilot CLI', cursor: 'Cursor', droid: 'Droid', qwen: 'Qwen Code', antigravity: 'Antigravity', pi: 'Pi', amp: 'Amp', opencode: 'OpenCode' })[agent] ?? agent;
+  ({ claude: 'Claude', codex: 'Codex', gemini: 'Gemini CLI', copilot: 'Copilot CLI', cursor: 'Cursor', droid: 'Droid', qwen: 'Qwen Code', antigravity: 'Antigravity', pi: 'Pi', amp: 'Amp', opencode: 'OpenCode', git: 'Git' })[agent] ?? agent;
 
 /** The dashboard's own wording of an Agent's native loading and trust guidance. Only an Agent this build does not know falls back to the server's English note. */
 export const hookNote = (t: (key: string) => string, agent: string, fallback?: string) =>
@@ -28,22 +29,24 @@ const order = (agent: string) => {
 };
 
 /** A change Sync applies; `adopt` only records a registration the Agent already has. */
-export const writes = (change: { action: string }) => ['add', 'adopt', 'update', 'remove', 'restore'].includes(change.action);
+export const writes = (change: { action: string }) => ['add', 'adopt', 'update', 'remove', 'restore', 'inactive'].includes(change.action);
 
 /** The synchronized state of one entry in one Agent, from the plan. `none` when the plan says nothing (not published). */
-export type SyncState = 'synced' | 'pending' | 'conflict' | 'none';
+export type SyncState = 'synced' | 'pending' | 'conflict' | 'inactive' | 'none';
 export function syncState(plan: HookPlan | null | undefined, name: string, agent: string): SyncState {
   const changes = (plan?.changes ?? []).filter((c) => c.name === name && c.target === agent);
   if (changes.some((c) => c.action === 'conflict')) return 'conflict';
+  if (changes.some((c) => c.action === 'inactive')) return 'inactive';
   if (changes.some(writes)) return 'pending';
   return changes.length > 0 ? 'synced' : 'none';
 }
 
 export const statusTone: Record<string, 'ok' | 'warn' | 'bad' | ''> = {
   unchanged: 'ok', add: 'warn', update: 'warn', adopt: 'warn', restore: 'warn', remove: 'bad', conflict: 'bad',
+  inactive: 'warn',
 };
 
-const KNOWN_ACTIONS = new Set(['add', 'adopt', 'update', 'restore', 'unchanged', 'conflict', 'remove']);
+const KNOWN_ACTIONS = new Set(['add', 'adopt', 'update', 'restore', 'unchanged', 'conflict', 'remove', 'inactive']);
 /** Localized action word; an action the UI does not know is shown as the server sent it. */
 export const actionLabel = (t: (key: string) => string, action: string) => (KNOWN_ACTIONS.has(action) ? t(`hooks.status.${action}`) : action);
 
@@ -214,10 +217,11 @@ export interface BindingDraft {
   files: FileRow[];
 }
 
-export const emptyBinding = (agent: string): BindingDraft => ({ mode: 'simple', rows: isCodeAgent(agent) ? [] : [newRow(agent)], native: '', code: '', files: [] });
+export const emptyBinding = (agent: string): BindingDraft => ({ mode: agent === 'git' ? 'native' : 'simple', rows: isCodeAgent(agent) || agent === 'git' ? [] : [newRow(agent)], native: '', code: '', files: [] });
 
 export function bindingToDraft(agent: string, binding: HookEntry['bindings'][string] | undefined): BindingDraft {
   if (!binding) return emptyBinding(agent);
+  if (agent === 'git') return { ...emptyBinding(agent), native: stringifyYaml(binding) };
   const rows = eventsToRows(binding.events);
   return {
     mode: rows ? 'simple' : 'native',
@@ -237,6 +241,18 @@ export function parseNative(text: string): { value?: Record<string, unknown>; er
   } catch {
     return { error: true };
   }
+}
+
+/** Git edits the complete binding, including helpers, as YAML. Domain validation
+ * remains on the server; unknown properties are preserved so it can reject them. */
+export function parseGitBinding(text: string): { value?: HookEntry['bindings'][string]; error?: true } {
+  if (!text.trim()) return {};
+  try {
+    const doc = parseDocument(text);
+    if (doc.errors.length > 0) return { error: true };
+    const value: unknown = doc.toJS({ maxAliasCount: 100 });
+    return isObject(value) ? { value } : { error: true };
+  } catch { return { error: true }; }
 }
 
 /** Switching to the other editor carries the current content over; native text that is not simple stays native. */
@@ -259,6 +275,10 @@ export interface BindingCheck {
 }
 
 export function checkBinding(agent: string, d: BindingDraft): BindingCheck {
+  if (agent === 'git') {
+    const parsed = parseGitBinding(d.native);
+    return { nativeError: Boolean(parsed.error), rowErrors: 0, fileErrors: false, codeMissing: false, empty: !isObject(parsed.value?.commands) || Object.keys(parsed.value.commands).length === 0 };
+  }
   if (isCodeAgent(agent)) return { nativeError: false, rowErrors: 0, fileErrors: false, codeMissing: !d.code.trim(), empty: !d.code.trim() };
   const nativeError = d.mode === 'native' && Boolean(parseNative(d.native).error);
   const active = d.rows.filter((r) => !rowBlank(r));
@@ -272,6 +292,7 @@ export function checkBinding(agent: string, d: BindingDraft): BindingCheck {
 export const bindingInvalid = (c: BindingCheck) => c.nativeError || c.rowErrors > 0 || c.fileErrors || c.codeMissing || c.empty;
 
 export function draftToBinding(agent: string, d: BindingDraft) {
+  if (agent === 'git') return parseGitBinding(d.native).value ?? {};
   const files = Object.fromEntries(d.files.filter((f) => f.name.trim()).map((f) => [f.name.trim(), f.content]));
   const withFiles = Object.keys(files).length > 0 ? { files } : {};
   if (isCodeAgent(agent)) return { code: d.code, ...withFiles };
@@ -308,7 +329,7 @@ export const scopePaths = (data: { paths: Record<string, string>; projectPaths?:
 type Rooted = { source: { projects?: Record<string, unknown> }; projectPaths?: Record<string, unknown> };
 const under = (path: string, root: string) => path === root || path.startsWith(`${root.replace(/[\\/]+$/, '')}/`) || path.startsWith(`${root.replace(/[\\/]+$/, '')}\\`);
 
-/** The hooks.projects root a native file sits under (the deepest one), or undefined for the global files. The server sends no project on unmanaged hooks or backups. */
+/** The hooks.projects root a native file sits under (the deepest one), or undefined for the global files. Fallback for payloads without project/root metadata; linked-worktree outputs may sit outside their source root. */
 export const ownerRoot = (data: Rooted, path: string) =>
   [...new Set([...Object.keys(data.source.projects ?? {}), ...Object.keys(data.projectPaths ?? {})])]
     .filter((root) => under(path, root)).sort((a, b) => b.length - a.length)[0];
@@ -318,8 +339,8 @@ export const scopeUnmanaged = <T extends { path: string; project?: string }>(dat
   data.unmanaged.filter((u) => (u.project ?? ownerRoot(data, u.path)) === project);
 
 /** Backups of the files of one scope. */
-export const scopeBackups = <T extends { path: string }>(data: Rooted & { backups: T[] }, project?: string) =>
-  data.backups.filter((b) => ownerRoot(data, b.path) === project);
+export const scopeBackups = <T extends { path: string; root?: string }>(data: Rooted & { backups: T[] }, project?: string) =>
+  data.backups.filter((b) => (b.root || ownerRoot(data, b.path)) === project);
 
 /**
  * A plan seen from one project root: only that root's changes, blocked only by its own conflicts. The

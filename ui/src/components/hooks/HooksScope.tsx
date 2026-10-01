@@ -157,7 +157,7 @@ export default function HooksScope({ data, project, header }: Props) {
         <HookDialog accounts={accounts} initial={editing ? { name: editing, entry: entries[editing] } : undefined} existingNames={names} project={project} unmanaged={unmanaged} onClose={() => setEditing(null)} onSaved={(synced) => done(t(synced ? 'hooks.toast.savedSynced' : 'hooks.toast.saved'))} />
       )}
       {importing && <HooksImportDialog data={data} project={project} onClose={() => setImporting(false)} onImported={(count) => done(t('hooks.toast.imported', { count }))} />}
-      {removing && <HooksRemoveDialog name={removing} project={project} onClose={() => setRemoving('')} onSaved={(unmanaged) => done(t(unmanaged ? 'hooks.toast.unmanaged' : 'hooks.toast.removed', { name: removing }))} />}
+      {removing && <HooksRemoveDialog name={removing} project={project} canUnmanage={!entries[removing]?.bindings.git} onClose={() => setRemoving('')} onSaved={(unmanaged) => done(t(unmanaged ? 'hooks.toast.unmanaged' : 'hooks.toast.removed', { name: removing }))} />}
       {viewing && entries[viewing] && <HooksConfigDialog mutation={{ ...(project && { project }), name: viewing, entry: entries[viewing] }} sourcePath={data.source.path} onClose={() => setViewing('')} />}
       {takingOver && entries[takingOver] && <HooksSyncDialog project={project} takeover={{ name: takingOver, entry: entries[takingOver] }} onClose={() => { setTakingOver(''); refresh(); }} />}
       {backupsOpen && <HooksRestoreDialog backups={backups} onClose={() => setBackupsOpen(false)} onRestored={() => done(t('hooks.toast.restored'))} />}

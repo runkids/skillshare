@@ -2785,5 +2785,11 @@
   "gitSync.discard.message": "همه تغییرات commit نشده در مخزن {scope} حذف شوند؟ فایل‌های ردیابی‌شده به آخرین commit برمی‌گردند و فایل‌ها و پوشه‌های ردیابی‌نشده حذف می‌شوند. فایل‌های نادیده‌گرفته‌شده، مخزن‌های تو در تو و config.yaml در root حفظ می‌شوند. این عمل قابل بازگشت نیست.",
   "gitSync.discard.preview": "Dry run: فایل‌های ردیابی‌شده به آخرین commit بازمی‌گردند و فایل‌های ردیابی‌نشده حذف می‌شوند.",
   "gitSync.discard.noCommit": "پیش از حذف تغییرات، اولین commit را ایجاد کنید.",
-  "gitSync.toast.discarded": "تغییرات حذف شدند"
+  "gitSync.toast.discarded": "تغییرات حذف شدند",
+  "hooks.status.inactive": "غیرفعال",
+  "hooks.sync.inactive": "غیرفعال",
+  "hooks.gitYAML": "اتصال YAML",
+  "hooks.gitYAMLHint": "از commands و در صورت نیاز files استفاده کنید. Git 2.54 یا جدیدتر لازم است.",
+  "hooks.gitYAMLError": "یک نگاشت YAML با کلیدهای یکتا وارد کنید.",
+  "hooks.native.git": "هوک‌های تنظیمات به Git 2.54 یا جدیدتر نیاز دارند؛ parallel به 2.55 نیاز دارد."
 }
