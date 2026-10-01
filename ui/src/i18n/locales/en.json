@@ -2174,6 +2174,7 @@
   "plugins.skip.codexNoUpgrade": "This Codex version cannot upgrade marketplaces; update the plugin in Codex.",
   "plugins.note.codexUpgrade": "Upgrades the Codex marketplace {market}, which reinstalls every plugin installed from it.",
   "plugins.note.marketplaceCleanup": "The plugin is already gone; Sync removes the marketplace Skillshare registered for it.",
+  "plugins.note.skillsDirClash": "Claude's skills folder also has a {name} plugin; Claude will load this plugin and skip that copy until one of them is renamed or removed.",
   "plugins.outcome.saved": "Saved",
   "plugins.outcome.removed": "Removed",
   "plugins.outcome.excluded": "Excluded",

@@ -269,18 +269,13 @@ func (s *Service) removeMarketplace(ctx context.Context, target string, b Bindin
 	if !registered {
 		return nil
 	}
-	args := []string{"plugin", "marketplace", "remove", market}
-	if s.agentOf(target) == "claude" {
-		scope := "user"
-		if s.ProjectRoot != "" {
-			scope = "project"
-		}
-		args = append(args, "--scope", scope)
-	}
-	if _, err := s.run(ctx, target, args...); err != nil {
+	// No --scope: Claude refuses a scoped removal when only known_marketplaces.json records the
+	// marketplace, for example after synced settings dropped its declaration. The name is unique
+	// to this binding and its root was checked above, so every scope's copy is Skillshare's.
+	if _, err := s.run(ctx, target, "plugin", "marketplace", "remove", market); err != nil {
 		return kept(err)
 	}
-	// Claude lists every settings scope as one, so a copy declared in another scope survives.
+	// List again: a declaration the native client could not remove survives.
 	if registered, err = s.registered(ctx, target, b.ID, path); err == nil && registered {
 		err = fmt.Errorf("it is still registered, possibly in another settings scope")
 	}

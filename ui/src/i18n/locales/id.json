@@ -2174,6 +2174,7 @@
   "plugins.skip.codexNoUpgrade": "Versi Codex ini tidak bisa meng-upgrade marketplace; perbarui plugin di Codex.",
   "plugins.note.codexUpgrade": "Meng-upgrade marketplace Codex {market}, yang memasang ulang semua plugin yang dipasang darinya.",
   "plugins.note.marketplaceCleanup": "plugin sudah tidak ada; sinkronisasi akan menghapus marketplace yang didaftarkan Skillshare.",
+  "plugins.note.skillsDirClash": "Folder skills Claude juga berisi plugin {name}; Claude akan memuat plugin ini dan melewati salinan itu sampai salah satunya diganti nama atau dihapus.",
   "plugins.outcome.saved": "Tersimpan",
   "plugins.outcome.removed": "Dihapus",
   "plugins.outcome.excluded": "Dikecualikan",

@@ -210,6 +210,9 @@ Copilot 與 Antigravity CLI 的安裝使用已檢視過的本機快照。匯入�
 - 這些註冊指向本機的 Skillshare 狀態目錄，user 與 project 設定都一樣。透過 Git 或 dotfile
   管理工具共享 Agent 設定，會把其他機器上不存在的路徑帶過去；請在每台機器上從 source
   加入 plugin。
+- Claude 也會把 skills 目錄裡帶有 plugin manifest 的 skill 資料夾讀成名為
+  `<name>@skills-dir` 的 plugin，而且同名的 plugin 只載入一個。新增同名的 Claude plugin 時，
+  預覽會說明這點：Claude 會載入該 plugin 並略過那個 skill 資料夾，直到其中一個改名或移除。
 
 原生生命週期已在 Claude Code `2.1.276`、Codex CLI `0.154.0`、Pi `0.85.1`，以及 Copilot CLI
 `1.0.86` 上驗證過。Antigravity CLI `1.2.6` 則以獨立的原生安裝/清單/移除操作進行檢查。OpenCode

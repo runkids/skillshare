@@ -126,6 +126,17 @@ func (s *Service) Preview(ctx context.Context, r Request) (*Plan, error) {
 				skip("plugins.skip.marketplaceGone", fmt.Sprintf("The native marketplace %s is gone. Restore it in the native client, or remove this Agent and add the plugin again from its source.", market), map[string]string{"market": market})
 			}
 		}
+		// Claude reads a skill folder that has a plugin manifest as <name>@skills-dir, and loads
+		// only one plugin per name.
+		if c.Action == "install" && agent == "claude" && c.Message == "" {
+			name, _, _ := strings.Cut(c.ID, "@")
+			for _, item := range h.Installed {
+				if item.ID == name+"@skills-dir" {
+					c.Message = fmt.Sprintf("Claude's skills folder also has a %s plugin; Claude will load this plugin and skip that copy until one of them is renamed or removed.", name)
+					c.MessageKey, c.MessageArgs = "plugins.note.skillsDirClash", map[string]string{"name": name}
+				}
+			}
+		}
 		if c.Action == "update" && agent == "antigravity-cli" {
 			skip("plugins.skip.keepEnablement", "Update in Antigravity CLI to preserve native enablement; automatic reinstall updates are not supported.", map[string]string{"agent": "Antigravity CLI"})
 		}

@@ -380,6 +380,15 @@ func TestExcludingAManagedPluginRemovesItsMarketplace(t *testing.T) {
 	}
 }
 
+func TestAddingAClaudePluginNamedLikeASkillFolderExplainsTheClash(t *testing.T) {
+	agents := &fakeAgents{installed: map[string][]Installed{"claude": {{ID: "demo@skills-dir", PluginID: "demo@skills-dir", Installed: true, Enabled: true, Scope: "user"}}}}
+	s := agents.service(t)
+	p, err := s.Preview(context.Background(), Request{Action: "add", Source: fixture(t), Targets: []string{"claude"}})
+	if err != nil || len(p.Changes) != 1 || p.Changes[0].Action != "install" || p.Changes[0].MessageKey != "plugins.note.skillsDirClash" {
+		t.Fatalf("preview did not explain the skill folder clash: %+v %v", p, err)
+	}
+}
+
 // legacyBinding records a plugin under the older skillshare-<hash> marketplace name, whose
 // marketplace is still registered although the plugin itself is gone.
 func legacyBinding(t *testing.T, s *Service, agents *fakeAgents, extra string) Binding {
@@ -399,7 +408,7 @@ func TestExcludingAPluginAlreadyGoneStillRemovesItsMarketplace(t *testing.T) {
 		t.Fatalf("sync did not plan the marketplace cleanup: %+v %v", p, err)
 	}
 	applyPluginRequest(t, s, Request{Action: "sync"})
-	if len(agents.markets["claude"]) != 0 || !slices.Equal(agents.commands, []string{"claude plugin marketplace remove skillshare-0123456789abcdef --scope user"}) {
+	if len(agents.markets["claude"]) != 0 || !slices.Equal(agents.commands, []string{"claude plugin marketplace remove skillshare-0123456789abcdef"}) {
 		t.Fatalf("cleanup ran %q, left %v", agents.commands, agents.markets)
 	}
 }
@@ -602,6 +611,10 @@ func (f *fakeAgents) service(t *testing.T) *Service {
 			if f.failRemove > 0 {
 				f.failRemove--
 				return nil, agentError{key: "plugins.error.commandFailed", message: bin + " command failed"}
+			}
+			// Like Claude, a scoped removal fails when only known_marketplaces.json records it.
+			if slices.Contains(args, "--scope") {
+				return nil, agentError{key: "plugins.error.commandFailed", message: "Marketplace '" + args[3] + "' is not declared in user settings"}
 			}
 			if !f.stuck {
 				delete(f.market(bin), args[3])

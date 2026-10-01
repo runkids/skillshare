@@ -2174,6 +2174,7 @@
   "plugins.skip.codexNoUpgrade": "這個版本的 Codex 無法升級 marketplace，請在 Codex 裡更新這個 plugin。",
   "plugins.note.codexUpgrade": "會升級 Codex 的 marketplace {market}，並重新安裝從它安裝的所有 plugin。",
   "plugins.note.marketplaceCleanup": "plugin 已經不在了；同步時會移除 Skillshare 替它註冊的 marketplace。",
+  "plugins.note.skillsDirClash": "Claude 的 skills 資料夾裡也有一個 {name} plugin；Claude 會載入這個 plugin 並略過那一份，直到其中一個改名或移除。",
   "plugins.outcome.saved": "已儲存",
   "plugins.outcome.removed": "已移除",
   "plugins.outcome.excluded": "已排除",

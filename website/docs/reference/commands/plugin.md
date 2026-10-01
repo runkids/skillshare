@@ -242,6 +242,11 @@ never supplies native trust approval flags.
   user and project settings alike. Sharing Agent settings through Git or a
   dotfile manager carries paths that do not exist elsewhere; add the plugin from
   its source on each machine instead.
+- Claude also reads a skill folder in its skills directory that has a plugin
+  manifest as a plugin named `<name>@skills-dir`, and loads only one plugin per
+  name. Adding a Claude plugin with the same name says so in the preview: Claude
+  loads the plugin and skips the skill folder until one of them is renamed or
+  removed.
 
 The native lifecycle is exercised with Claude Code `2.1.276`, Codex CLI
 `0.154.0`, Pi `0.85.1`, and Copilot CLI `1.0.86`. Antigravity CLI

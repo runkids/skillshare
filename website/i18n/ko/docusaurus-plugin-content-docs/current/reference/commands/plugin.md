@@ -160,6 +160,7 @@ Copilot과 Antigravity CLI 설치는 검토된 로컬 스냅샷을 사용합니�
 - import된 plugin은 원래의 marketplace identity를 유지합니다. `check`는 source가 없는 import된 plugin에 대해 release 가능 여부를 추론할 수 없습니다. import한 Claude 또는 Codex plugin의 네이티브 marketplace가 사라지면 sync와 update는 해당 Target을 건너뛰고 이유를 알려 줍니다. Agent에서 marketplace를 복원하거나, 해당 Target을 제거한 뒤 source에서 plugin을 다시 추가하세요. Skillshare는 import된 plugin을 임의로 다른 source로 옮기지 않습니다.
 - Skillshare는 관리하는 Claude/Codex plugin마다 marketplace를 하나 등록하고 `skillshare-<plugin>-<hash>`로 이름을 붙입니다(이전 설치는 `skillshare-<hash>`를 유지). plugin을 제거하거나 제외하면 plugin이 이미 없더라도 그 marketplace도 제거하며, 실패한 정리는 다음 sync에서 다시 시도합니다. marketplace가 사라졌다면 update가 다시 등록합니다. 다른 경로에 있는 같은 이름의 등록과 import된 plugin의 marketplace는 건드리지 않습니다. 스냅샷과 네이티브 캐시는 유지됩니다.
 - 이 등록은 user 설정이든 project 설정이든 이 머신의 Skillshare 상태 디렉터리를 가리킵니다. Git이나 dotfile 관리 도구로 Agent 설정을 공유하면 다른 머신에는 없는 경로가 함께 옮겨집니다. 각 머신에서 source로부터 plugin을 추가하세요.
+- Claude는 skills 디렉터리에서 plugin manifest가 있는 skill 폴더도 `<name>@skills-dir`라는 plugin으로 읽으며, 같은 이름의 plugin은 하나만 불러옵니다. 같은 이름의 Claude plugin을 추가하면 미리보기에서 이를 알려 줍니다. 둘 중 하나의 이름을 바꾸거나 제거할 때까지 Claude는 plugin을 불러오고 skill 폴더는 건너뜁니다.
 
 네이티브 lifecycle은 Claude Code `2.1.276`, Codex CLI `0.154.0`, Pi `0.85.1`, Copilot CLI `1.0.86`으로 검증되었습니다. Antigravity CLI `1.2.6`은 격리된 네이티브 install/list/remove 작업으로 확인되었습니다. OpenCode `1.18.31`은 버전을 인식하는 등록을 검증하는 데 사용되며, v2 스키마는 fixture 테스트로 커버됩니다. Cursor와 Antigravity의 파일시스템 lifecycle은 격리된 디렉터리에서 테스트되며, GUI 런타임 활성화까지 보장하지는 않습니다. 설치된 command capability와 inventory 스키마는 런타임에 확인되며, 지원되지 않는 작업은 설명과 함께 차단됩니다.
 

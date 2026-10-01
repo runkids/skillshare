@@ -2174,6 +2174,7 @@
   "plugins.skip.codexNoUpgrade": "이 Codex 버전은 마켓플레이스를 업그레이드할 수 없습니다. Codex에서 플러그인을 업데이트하세요.",
   "plugins.note.codexUpgrade": "Codex 마켓플레이스 {market}을(를) 업그레이드하며, 여기서 설치된 모든 플러그인을 다시 설치합니다.",
   "plugins.note.marketplaceCleanup": "plugin은 이미 없습니다. 동기화하면 Skillshare가 등록한 marketplace를 제거합니다.",
+  "plugins.note.skillsDirClash": "Claude의 skills 폴더에도 {name} plugin이 있습니다. 둘 중 하나의 이름을 바꾸거나 제거할 때까지 Claude는 이 plugin을 불러오고 그쪽은 건너뜁니다.",
   "plugins.outcome.saved": "저장됨",
   "plugins.outcome.removed": "제거됨",
   "plugins.outcome.excluded": "제외됨",

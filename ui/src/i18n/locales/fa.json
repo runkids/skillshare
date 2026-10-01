@@ -2174,6 +2174,7 @@
   "plugins.skip.codexNoUpgrade": "این نسخه از Codex نمی‌تواند marketplace را ارتقا دهد؛ plugin را در Codex به‌روزرسانی کنید.",
   "plugins.note.codexUpgrade": "marketplace ‏Codex ‏{market} را ارتقا می‌دهد و همهٔ pluginهایی را که از آن نصب شده‌اند دوباره نصب می‌کند.",
   "plugins.note.marketplaceCleanup": "این plugin دیگر وجود ندارد؛ همگام‌سازی marketplace ثبت‌شده توسط Skillshare را حذف می‌کند.",
+  "plugins.note.skillsDirClash": "پوشهٔ skills در Claude هم یک plugin به نام {name} دارد؛ Claude این plugin را بارگذاری می‌کند و آن نسخه را نادیده می‌گیرد تا وقتی یکی از آن‌ها تغییر نام دهد یا حذف شود.",
   "plugins.outcome.saved": "ذخیره شد",
   "plugins.outcome.removed": "حذف شد",
   "plugins.outcome.excluded": "کنار گذاشته شد",

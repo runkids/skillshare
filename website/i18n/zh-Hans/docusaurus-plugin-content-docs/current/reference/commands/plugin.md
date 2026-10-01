@@ -217,6 +217,9 @@ Skillshare 从不提供原生信任的批准 flags。
 - 这些注册指向本机的 Skillshare 状态目录，user 与 project 设置都一样。通过 Git 或
   dotfile 管理工具共享 Agent 设置，会把其他机器上不存在的路径带过去；请在每台机器上
   从 source 添加 plugin。
+- Claude 也会把 skills 目录里带有 plugin manifest 的 skill 文件夹读成名为
+  `<name>@skills-dir` 的 plugin，而且同名的 plugin 只加载一个。添加同名的 Claude plugin
+  时，预览会说明这一点：Claude 会加载该 plugin 并跳过那个 skill 文件夹，直到其中一个改名或移除。
 
 原生生命周期已在 Claude Code `2.1.276`、Codex CLI
 `0.154.0`、Pi `0.85.1` 和 Copilot CLI `1.0.86` 上验证。Antigravity CLI
