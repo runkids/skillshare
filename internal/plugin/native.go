@@ -156,9 +156,9 @@ func parseInventory(target string, data []byte, project string) ([]Installed, er
 	filtered := []Installed{}
 	for _, item := range result {
 		item.EnabledKnown = true
-		if !validID(item.ID) {
-			return nil, fmt.Errorf("native plugin list contains an unsupported plugin identifier")
-		}
+		// Filter by scope before validating: Claude also lists other scopes' plugins
+		// (e.g. "(suppressed)@skills-dir" for the folder it runs in), and an entry this
+		// scope never uses must not block the whole target.
 		if target == "claude" {
 			if project == "" && item.Scope != "user" {
 				continue
@@ -166,6 +166,9 @@ func parseInventory(target string, data []byte, project string) ([]Installed, er
 			if project != "" && (item.Scope != "project" || filepath.Clean(item.ProjectPath) != filepath.Clean(project)) {
 				continue
 			}
+		}
+		if !validID(item.ID) {
+			return nil, fmt.Errorf("native plugin list contains an unsupported plugin identifier")
 		}
 		filtered = append(filtered, item)
 	}

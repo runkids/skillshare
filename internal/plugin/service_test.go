@@ -54,6 +54,17 @@ func TestNativeInventoryStrict(t *testing.T) {
 	}
 }
 
+func TestClaudeInventoryIgnoresOtherScopesBeforeValidating(t *testing.T) {
+	data := []byte(`[{"id":"demo@market","scope":"user"},{"id":"(suppressed)@skills-dir","scope":"project","projectPath":"/home/me"}]`)
+	items, err := parseInventory("claude", data, "")
+	if err != nil || len(items) != 1 || items[0].ID != "demo@market" {
+		t.Fatalf("%+v %v", items, err)
+	}
+	if _, err := parseInventory("claude", data, "/home/me"); err == nil {
+		t.Fatal("unsupported identifier in the active project accepted")
+	}
+}
+
 func TestPreviewCancelStaleAndPartialRetry(t *testing.T) {
 	root := fixture(t)
 	home := t.TempDir()
