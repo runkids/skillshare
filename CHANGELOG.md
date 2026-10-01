@@ -2,10 +2,18 @@
 
 ## [0.23.3] - 2026-10-01
 
-
 ### Bug Fixes
 
-* **plugin:** clean up and explain Skillshare marketplaces ([#321](https://github.com/runkids/skillshare/issues/321)) ([7f3b5e7](https://github.com/runkids/skillshare/commit/7f3b5e7b1ef9f7c9f56d68b8adaf02db3ff3c6d4))
+#### Plugins
+
+- **Plugin marketplaces are named after their plugin** — the local marketplace Skillshare registers for each Claude Code or Codex plugin was named `skillshare-<hash>`, which said nothing in `/plugin` or `codex plugin marketplace list`. New installs are named `skillshare-<plugin>-<hash>`, such as `skillshare-humanizer-322a2e01808560f4`. Existing installs keep their names.
+- **Excluding or removing a plugin removes its marketplace** — the marketplace stayed registered after its plugin was excluded or removed, and for good when the plugin had already been uninstalled in the Agent or its first install had failed. Skillshare now removes the marketplace it registered in those cases too, and a failed cleanup runs again on the next sync. A marketplace with the same name at another path, and imported plugins' marketplaces, are left alone. An update registers a missing Skillshare marketplace again.
+  ```bash
+  skillshare plugin disable humanizer --target claude -g
+  skillshare sync plugins -g
+  ```
+- **Imported plugins whose marketplace is gone are skipped with the reason** — when an imported plugin's native marketplace was no longer registered, for example after synced settings dropped it, sync failed with "claude command failed". Sync and update now skip that Agent and say how to recover, and the plugin's other Agents still sync. Skillshare does not switch an imported plugin to its recorded source by itself.
+- **Plugin errors are translated and shown once** — the Plugins page showed failed operations in English, and repeated the same message once per failed Agent.
 
 ## [0.23.2] - 2026-10-02
 
