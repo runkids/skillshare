@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.23.4](https://github.com/runkids/skillshare/compare/v0.23.3...v0.23.4) (2026-10-01)
+
+
+### Bug Fixes
+
+* **plugin:** remove Claude marketplaces in every scope and explain skill clashes ([#323](https://github.com/runkids/skillshare/issues/323)) ([d17c1ab](https://github.com/runkids/skillshare/commit/d17c1ab013e2dcd9d999792b8577ab8217603939))
+
 ## [0.23.3] - 2026-10-01
 
 ### Bug Fixes
