@@ -510,6 +510,15 @@ func (s *Service) previewSource(source *Source, replace, adopt map[string]bool) 
 			p.Warnings = append(p.Warnings, fmt.Sprintf("%s is %s, the config_dir of target %s; the %s binding syncs %s instead", configDirEnv[agent], s.ConfigDirs[agent], key, agent, dir))
 		}
 	}
+	if a, ok := s.Accounts["git"]; ok && s.ProjectRoot == "" && a.Dir != "" && slices.Contains(accountAgents, a.Agent) {
+		// Warn only when a git binding exists, which this account would otherwise appear to receive.
+		for _, name := range sortedKeys(source.Entries) {
+			if _, uses := source.Entries[name].Bindings["git"]; uses {
+				p.Warnings = append(p.Warnings, fmt.Sprintf("target git is a %s account, but the git binding always manages Git config hooks; rename the target to sync hooks into %s", a.Agent, a.Dir))
+				break
+			}
+		}
+	}
 	type parkedGroup struct {
 		target, dir, reason string
 		count               int
@@ -619,13 +628,9 @@ func (s *Service) previewSource(source *Source, replace, adopt map[string]bool) 
 	for _, key := range pl.order {
 		c := pl.changes[key]
 		c.Events = pl.eventChanges(key)
+		// The reason is reported once in Warnings, not repeated in every row's message.
 		if c.Target == "git" && c.Action != "conflict" && p.gitInactive[c.Root] != "" {
 			c.InactiveReason = p.gitInactive[c.Root]
-			if c.Message == "" {
-				c.Message = c.InactiveReason
-			} else {
-				c.Message += "; " + c.InactiveReason
-			}
 		}
 		if c.Action == "conflict" {
 			p.Blocked = true

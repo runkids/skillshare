@@ -116,7 +116,7 @@ Droid inline hooks가 활성화된 경우 독립 파일 생성을 거부합니�
 
 ## Agent의 다른 계정 {#accounts}
 
-`agent`와 `config_dir`을 선언한 target은 자기 이름으로 hooks를 받을 수 있습니다. Claude, Codex, Pi 계정은 해당 Agent의 네이티브 binding 형식을 사용합니다.
+`agent`와 `config_dir`을 선언한 target은 자기 이름으로 hooks를 받을 수 있습니다. Claude, Codex, Pi 계정은 해당 Agent의 네이티브 binding 형식을 사용합니다. `git` 키는 항상 Git config hooks를 뜻하므로 `git`이라는 이름의 계정은 hooks를 받지 않으며, `git` binding을 사용하는 entry가 있으면 계획에 경고가 표시됩니다. 다른 이름을 사용하세요.
 
 ```yaml
 targets:

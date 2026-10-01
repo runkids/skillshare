@@ -62,6 +62,8 @@ for example `codex-2: {events: ...}` for a Codex account. Claude, Codex and Pi
 accounts keep their Agent's native format and write into that account home.
 Accounts are global only; project configs and `hooks.projects` bind the Agent.
 Missing account homes are skipped with warnings and never created.
+The `git` key always means Git config hooks; an account named `git` gets no
+hooks, with a warning once an entry uses that binding.
 
 When a native directory environment override points at a declared account home,
 the plain Agent uses its built-in default instead. Other overrides still apply.

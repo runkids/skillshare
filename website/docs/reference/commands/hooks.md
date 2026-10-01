@@ -177,7 +177,10 @@ avoids silently changing which native source Droid loads.
 ## Another account of an Agent {#accounts}
 
 A target declared with `agent` and `config_dir` can receive hooks under its
-own name. Claude, Codex and Pi accounts use their Agent's native binding format:
+own name. Claude, Codex and Pi accounts use their Agent's native binding format.
+The `git` key always means [Git config hooks](#git-hooks), so an account named `git`
+receives no hooks, and the plan warns once an entry uses the `git` binding; give it
+another name:
 
 ```yaml
 targets:

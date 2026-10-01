@@ -21,7 +21,6 @@ func gitDraft(t *testing.T, e *env, m Mutation) *Plan {
 }
 
 func TestGitHooksFileDecisions(t *testing.T) {
-	requireGitVersion(t, 54)
 	for _, tc := range []struct {
 		name, current, record, action string
 		remove, replace, other        bool

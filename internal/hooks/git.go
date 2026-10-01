@@ -262,7 +262,12 @@ func (pl *planner) planGit(w gitWant, state ledger) ([]*filePlan, string, error)
 			pl.p.gitInactive = map[string]string{}
 		}
 		pl.p.gitInactive[d.root] = strings.Join(inactive, "; ")
-		pl.p.Warnings = append(pl.p.Warnings, inactive...)
+		// Global and project roots on the same Git share one reason.
+		for _, reason := range inactive {
+			if !slices.Contains(pl.p.Warnings, reason) {
+				pl.p.Warnings = append(pl.p.Warnings, reason)
+			}
+		}
 	}
 	for _, f := range plans {
 		f.gitGuard = guard

@@ -276,7 +276,6 @@ func TestGitKeepFilesRefusedInDomain(t *testing.T) {
 }
 
 func TestGitMainCheckoutOriginOutsideWorkingDirectory(t *testing.T) {
-	requireGitVersion(t, 54)
 	for _, declared := range []bool{false, true} {
 		for _, replace := range []bool{false, true} {
 			t.Run(fmt.Sprintf("declared=%v/replace=%v", declared, replace), func(t *testing.T) {
@@ -882,6 +881,44 @@ func TestGitBindingIgnoresSameNamedAgentAccount(t *testing.T) {
 			if inv.Paths["git"] != d.hooksFile {
 				t.Fatalf("Git path redirected: %v", inv.Paths)
 			}
+			p, err := e.service.Preview()
+			must(t, err)
+			if !strings.Contains(strings.Join(p.Warnings, "\n"), "target git is a codex account") {
+				t.Fatalf("same-named account ignored without warning: %v", p.Warnings)
+			}
 		})
+	}
+}
+
+func TestGitAccountWithoutGitBindingIsQuiet(t *testing.T) {
+	e := gitEnv(t)
+	e.service.Accounts = map[string]Account{"git": {Agent: "codex", Dir: filepath.Join(e.home, "account")}}
+	p := gitDraft(t, e, Mutation{Name: "guard", Entry: entry(t, claudeEntry)})
+	if strings.Contains(strings.Join(p.Warnings, "\n"), "target git") {
+		t.Fatalf("account warning without a git binding: %v", p.Warnings)
+	}
+}
+
+func TestGitInactiveReasonReportedOnce(t *testing.T) {
+	e := gitEnv(t)
+	e.service.Git = versionGit{GitRunner: e.service.gitRunner(), version: "2.39.5"}
+	root := t.TempDir()
+	gitSetup(t, root, "init", "--quiet")
+	save(t, e.service, Mutation{Name: "guard", Entry: entry(t, gitEntry)})
+	projectEntry := strings.Replace(gitEntry, `"check":`, `"project-check":`, 1)
+	p := gitDraft(t, e, Mutation{Project: root, Name: "guard", Entry: entry(t, projectEntry)})
+	count := 0
+	for _, w := range p.Warnings {
+		if strings.Contains(w, "2.39.5") {
+			count++
+		}
+	}
+	if count != 1 {
+		t.Fatalf("want the inactive reason once in warnings: %v", p.Warnings)
+	}
+	for _, c := range p.Changes {
+		if strings.Contains(c.Message, "2.39.5") {
+			t.Fatalf("inactive reason repeated in a change message: %+v", c)
+		}
 	}
 }

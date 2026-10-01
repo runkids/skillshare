@@ -116,7 +116,7 @@ Droid 有有效 inline hooks 時，同步會拒絕建立獨立檔案。先匯入
 
 ## 某個 Agent 的另一個帳號 {#accounts}
 
-宣告了 `agent` 與 `config_dir` 的 target 可以用自己的名稱接收 hooks。Claude、Codex 與 Pi 帳號使用其 Agent 的原生 binding 格式。
+宣告了 `agent` 與 `config_dir` 的 target 可以用自己的名稱接收 hooks。Claude、Codex 與 Pi 帳號使用其 Agent 的原生 binding 格式。`git` 這個 key 永遠代表 Git config hooks，名為 `git` 的帳號不會收到 hooks；只要有 entry 使用 `git` binding，計畫就會顯示警告；請改用其他名稱。
 
 ```yaml
 targets:

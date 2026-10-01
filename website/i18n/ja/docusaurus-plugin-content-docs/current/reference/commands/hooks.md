@@ -116,7 +116,7 @@ Droid の inline hooks が有効な場合、同期は独立ファイルの作成
 
 ## Agent の別のアカウント {#accounts}
 
-`agent` と `config_dir` を持つ target は、その名前で hooks を受け取れます。Claude、Codex、Pi のアカウントは Agent のネイティブ binding 形式を使います。
+`agent` と `config_dir` を持つ target は、その名前で hooks を受け取れます。Claude、Codex、Pi のアカウントは Agent のネイティブ binding 形式を使います。`git` キーは常に Git config hooks を指すため、`git` という名前のアカウントは hooks を受け取らず、`git` binding を使う entry があるとプランに警告が出ます。別の名前を付けてください。
 
 ```yaml
 targets:
