@@ -205,9 +205,18 @@ Skillshare 从不提供原生信任的批准 flags。
 - 更新遇到无法处理的 target 时会跳过并说明原因；该 plugin 的其他 Agent 仍会照常更新，
   被跳过的更新会保留为待处理，留给之后的 sync。
 - 已导入的 plugins 保留其原始的 marketplace 身份。`check` 无法为没有 source 的
-  已导入 plugin 推断发布可用性。
-- Removal 会保留共享的 marketplace 注册和受管理的快照；它
-  不会直接删除无关的 plugins 或原生缓存。
+  已导入 plugin 推断发布可用性。若已导入的 Claude 或 Codex plugin 的原生
+  marketplace 已经不在，sync 和 update 会跳过该 target 并说明原因。请在 Agent
+  中恢复该 marketplace，或移除该 target 后从 source 重新添加 plugin；Skillshare
+  不会自行把已导入的 plugin 改到其他 source。
+- Skillshare 为每个受管理的 Claude/Codex plugin 注册一个 marketplace，命名为
+  `skillshare-<plugin>-<hash>`（较早的安装保留 `skillshare-<hash>`）。移除或排除该
+  plugin 时，即使 plugin 已经不在，也会一并移除这个 marketplace；清理失败会在下次
+  sync 重试。若 marketplace 不见了，update 会重新注册。位于其他路径的同名注册与已导入
+  plugin 的 marketplace 不会被动到；快照与原生缓存会保留。
+- 这些注册指向本机的 Skillshare 状态目录，user 与 project 设置都一样。通过 Git 或
+  dotfile 管理工具共享 Agent 设置，会把其他机器上不存在的路径带过去；请在每台机器上
+  从 source 添加 plugin。
 
 原生生命周期已在 Claude Code `2.1.276`、Codex CLI
 `0.154.0`、Pi `0.85.1` 和 Copilot CLI `1.0.86` 上验证。Antigravity CLI

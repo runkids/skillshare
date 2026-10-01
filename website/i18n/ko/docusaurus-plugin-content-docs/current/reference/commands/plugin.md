@@ -157,8 +157,9 @@ Copilot과 Antigravity CLI 설치는 검토된 로컬 스냅샷을 사용합니�
 - Codex의 네이티브 project 설치는 이 adapter에서 제공되지 않습니다. global Codex 설치에 대해서는 sync 선택이 여전히 동작합니다.
 - Codex에는 update 명령이 없으므로, 업데이트는 갱신된 스냅샷에서 플러그인을 다시 add합니다. add는 항상 플러그인을 활성화하므로 Codex에서 비활성화된 플러그인은 건너뜁니다. Import한 Codex 플러그인은 `codex plugin marketplace upgrade NAME`으로 업데이트되며, 이는 Codex가 해당 마켓플레이스에서 설치한 모든 플러그인을 다시 설치합니다. Codex도 시작할 때 같은 작업을 합니다.
 - 업데이트는 처리할 수 없는 Target을 이유와 함께 건너뛰며, 해당 플러그인의 다른 Agent는 그대로 업데이트됩니다. 건너뛴 업데이트는 대기 상태로 남아 이후 sync에서 처리됩니다.
-- import된 plugin은 원래의 marketplace identity를 유지합니다. `check`는 source가 없는 import된 plugin에 대해 release 가능 여부를 추론할 수 없습니다.
-- 제거는 공유된 marketplace 등록과 관리되는 스냅샷을 유지합니다. 관련 없는 plugin이나 네이티브 캐시를 직접 삭제하지 않습니다.
+- import된 plugin은 원래의 marketplace identity를 유지합니다. `check`는 source가 없는 import된 plugin에 대해 release 가능 여부를 추론할 수 없습니다. import한 Claude 또는 Codex plugin의 네이티브 marketplace가 사라지면 sync와 update는 해당 Target을 건너뛰고 이유를 알려 줍니다. Agent에서 marketplace를 복원하거나, 해당 Target을 제거한 뒤 source에서 plugin을 다시 추가하세요. Skillshare는 import된 plugin을 임의로 다른 source로 옮기지 않습니다.
+- Skillshare는 관리하는 Claude/Codex plugin마다 marketplace를 하나 등록하고 `skillshare-<plugin>-<hash>`로 이름을 붙입니다(이전 설치는 `skillshare-<hash>`를 유지). plugin을 제거하거나 제외하면 plugin이 이미 없더라도 그 marketplace도 제거하며, 실패한 정리는 다음 sync에서 다시 시도합니다. marketplace가 사라졌다면 update가 다시 등록합니다. 다른 경로에 있는 같은 이름의 등록과 import된 plugin의 marketplace는 건드리지 않습니다. 스냅샷과 네이티브 캐시는 유지됩니다.
+- 이 등록은 user 설정이든 project 설정이든 이 머신의 Skillshare 상태 디렉터리를 가리킵니다. Git이나 dotfile 관리 도구로 Agent 설정을 공유하면 다른 머신에는 없는 경로가 함께 옮겨집니다. 각 머신에서 source로부터 plugin을 추가하세요.
 
 네이티브 lifecycle은 Claude Code `2.1.276`, Codex CLI `0.154.0`, Pi `0.85.1`, Copilot CLI `1.0.86`으로 검증되었습니다. Antigravity CLI `1.2.6`은 격리된 네이티브 install/list/remove 작업으로 확인되었습니다. OpenCode `1.18.31`은 버전을 인식하는 등록을 검증하는 데 사용되며, v2 스키마는 fixture 테스트로 커버됩니다. Cursor와 Antigravity의 파일시스템 lifecycle은 격리된 디렉터리에서 테스트되며, GUI 런타임 활성화까지 보장하지는 않습니다. 설치된 command capability와 inventory 스키마는 런타임에 확인되며, 지원되지 않는 작업은 설명과 함께 차단됩니다.
 

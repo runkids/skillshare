@@ -226,9 +226,22 @@ never supplies native trust approval flags.
 - An update skips a target it cannot reach and says why; the plugin's other
   Agents still update, and a skipped update stays pending for a later sync.
 - Imported plugins retain their original marketplace identity. `check` cannot
-  infer release availability for an imported plugin without a source.
-- Removal retains shared marketplace registrations and managed snapshots; it
-  does not delete unrelated plugins or native caches directly.
+  infer release availability for an imported plugin without a source. If an
+  imported Claude or Codex plugin's native marketplace is gone, sync and update
+  skip that target and say so. Restore the marketplace in the Agent, or remove
+  the target and add the plugin again from its source; Skillshare never moves an
+  imported plugin to another source on its own.
+- Skillshare registers one marketplace per managed Claude/Codex plugin, named
+  `skillshare-<plugin>-<hash>` (older installs keep `skillshare-<hash>`).
+  Removing or excluding the plugin also removes that marketplace, even when the
+  plugin is already gone; a failed cleanup is retried on the next sync. An update
+  registers it again if it went missing. Same-name registrations at another path
+  and imported plugins' marketplaces are left alone; snapshots and native caches
+  are retained.
+- These registrations point at this machine's Skillshare state directory, in
+  user and project settings alike. Sharing Agent settings through Git or a
+  dotfile manager carries paths that do not exist elsewhere; add the plugin from
+  its source on each machine instead.
 
 The native lifecycle is exercised with Claude Code `2.1.276`, Codex CLI
 `0.154.0`, Pi `0.85.1`, and Copilot CLI `1.0.86`. Antigravity CLI

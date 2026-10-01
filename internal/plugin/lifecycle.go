@@ -109,6 +109,7 @@ func (s *Service) Apply(ctx context.Context, r Request, revision string) (*Resul
 		if applyErr != nil {
 			outcome.Status = "failed"
 			outcome.Message = applyErr.Error()
+			outcome.MessageKey, outcome.MessageArgs = ErrorKey(applyErr)
 			failures = append(failures, applyErr)
 		} else {
 			pack := d.packages[c.Name]

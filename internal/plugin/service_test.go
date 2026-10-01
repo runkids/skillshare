@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"strings"
 	"testing"
@@ -185,6 +186,9 @@ func TestSyncSelectionDoesNotToggleNativeEnabledState(t *testing.T) {
 			}
 			return []byte(`{"installed":[],"available":[]}`), nil
 		}
+		if joined == "plugin marketplace list --json" {
+			return []byte(`{"marketplaces":[{"name":"market","root":"/market"}]}`), nil
+		}
 		mutations = append(mutations, joined)
 		if strings.HasPrefix(joined, "plugin remove") {
 			installed = false
@@ -324,6 +328,166 @@ func TestCheckReportsTheSourceVersion(t *testing.T) {
 	}
 }
 
+func TestManagedMarketplaceNameShowsThePlugin(t *testing.T) {
+	root := fixture(t)
+	for _, manifest := range []string{".claude-plugin/plugin.json", ".codex-plugin/plugin.json"} {
+		if err := os.WriteFile(filepath.Join(root, manifest), []byte(`{"name":"my.demo","version":"1.0.0"}`), 0644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	s, _, _ := fakeClaude(t)
+	p, err := s.Preview(context.Background(), Request{Action: "add", Source: root, Plugin: "my.demo", Targets: []string{"claude"}})
+	if err != nil || len(p.Changes) != 1 {
+		t.Fatalf("preview failed: %+v %v", p, err)
+	}
+	// Codex rejects marketplace names outside ASCII letters, digits, `_`, and `-`.
+	if id := p.Changes[0].ID; !regexp.MustCompile(`^my\.demo@skillshare-my-demo-[0-9a-f]{16}$`).MatchString(id) {
+		t.Fatalf("marketplace name does not show the plugin: %s", id)
+	}
+}
+
+func TestFailedNativeCommandOutcomeCarriesItsKey(t *testing.T) {
+	s, _, _ := fakeClaude(t)
+	run := s.Run
+	s.Run = func(ctx context.Context, dir string, env []string, bin string, args ...string) ([]byte, error) {
+		if len(args) > 1 && args[1] == "install" && !slices.Contains(args, "--help") {
+			return nil, agentError{key: "plugins.error.commandFailed", message: "claude command failed"}
+		}
+		return run(ctx, dir, env, bin, args...)
+	}
+	r := Request{Action: "add", Source: fixture(t), Plugin: "demo", Targets: []string{"claude"}}
+	p, err := s.Preview(context.Background(), r)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := s.Apply(context.Background(), r, p.Revision)
+	if result == nil || len(result.Results) != 1 || result.Results[0].MessageKey != "plugins.error.commandFailed" {
+		t.Fatalf("failed outcome lost its translation key: %+v %v", result, err)
+	}
+}
+
+func TestExcludingAManagedPluginRemovesItsMarketplace(t *testing.T) {
+	agents := &fakeAgents{version: "1.0.0"}
+	s := agents.service(t)
+	applyPluginRequest(t, s, Request{Action: "add", Source: fixture(t), Targets: []string{"claude", "codex"}})
+	if len(agents.markets["claude"]) != 1 || len(agents.markets["codex"]) != 1 {
+		t.Fatalf("install did not register marketplaces: %v", agents.markets)
+	}
+	applyPluginRequest(t, s, Request{Action: "disable", Name: "demo", Targets: []string{"claude", "codex"}})
+	applyPluginRequest(t, s, Request{Action: "sync"})
+	if len(agents.markets["claude"]) != 0 || len(agents.markets["codex"]) != 0 {
+		t.Fatalf("Skillshare marketplaces were left behind: %v", agents.markets)
+	}
+}
+
+// legacyBinding records a plugin under the older skillshare-<hash> marketplace name, whose
+// marketplace is still registered although the plugin itself is gone.
+func legacyBinding(t *testing.T, s *Service, agents *fakeAgents, extra string) Binding {
+	t.Helper()
+	b := Binding{ID: "demo@skillshare-0123456789abcdef", Source: "https://example.com/demo", Plugin: "demo"}
+	writePluginFile(t, filepath.Dir(s.ConfigPath), "config.yaml", "plugins:\n  packages:\n    demo:\n      bindings:\n        claude:\n          id: "+b.ID+"\n          source: "+b.Source+"\n          plugin: demo\n"+extra)
+	agents.market("claude")["skillshare-0123456789abcdef"] = s.snapshotPath(b, "claude")
+	return b
+}
+
+func TestExcludingAPluginAlreadyGoneStillRemovesItsMarketplace(t *testing.T) {
+	agents := &fakeAgents{}
+	s := agents.service(t)
+	legacyBinding(t, s, agents, "          sync: false\n")
+	p, err := s.Preview(context.Background(), Request{Action: "sync"})
+	if err != nil || len(p.Changes) != 1 || p.Changes[0].Action != "uninstall" || p.Changes[0].MessageKey != "plugins.note.marketplaceCleanup" {
+		t.Fatalf("sync did not plan the marketplace cleanup: %+v %v", p, err)
+	}
+	applyPluginRequest(t, s, Request{Action: "sync"})
+	if len(agents.markets["claude"]) != 0 || !slices.Equal(agents.commands, []string{"claude plugin marketplace remove skillshare-0123456789abcdef --scope user"}) {
+		t.Fatalf("cleanup ran %q, left %v", agents.commands, agents.markets)
+	}
+}
+
+func TestRemovingAPluginAlreadyGoneRemovesItsMarketplace(t *testing.T) {
+	agents := &fakeAgents{}
+	s := agents.service(t)
+	legacyBinding(t, s, agents, "")
+	applyPluginRequest(t, s, Request{Action: "remove", Name: "demo"})
+	inv, err := s.Packages()
+	if err != nil || len(agents.markets["claude"]) != 0 || len(inv.Packages) != 0 {
+		t.Fatalf("remove left %v, packages %v, err %v", agents.markets, inv, err)
+	}
+}
+
+func TestFailedMarketplaceCleanupIsRetriedOnTheNextSync(t *testing.T) {
+	agents := &fakeAgents{version: "1.0.0"}
+	s := agents.service(t)
+	applyPluginRequest(t, s, Request{Action: "add", Source: fixture(t), Targets: []string{"claude"}})
+	applyPluginRequest(t, s, Request{Action: "disable", Name: "demo", Targets: []string{"claude"}})
+	agents.failRemove = 1
+	r := Request{Action: "sync"}
+	p, err := s.Preview(context.Background(), r)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, _ := s.Apply(context.Background(), r, p.Revision)
+	if result == nil || len(result.Results) != 1 || result.Results[0].MessageKey != "plugins.error.marketplaceCleanup" {
+		t.Fatalf("cleanup failure was not reported: %+v", result)
+	}
+	applyPluginRequest(t, s, r)
+	if len(agents.markets["claude"]) != 0 {
+		t.Fatalf("retry left %v", agents.markets)
+	}
+}
+
+func TestMarketplaceStillRegisteredAfterRemovalIsReported(t *testing.T) {
+	agents := &fakeAgents{stuck: true}
+	s := agents.service(t)
+	legacyBinding(t, s, agents, "          sync: false\n")
+	r := Request{Action: "sync"}
+	p, err := s.Preview(context.Background(), r)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.Apply(context.Background(), r, p.Revision); err == nil {
+		t.Fatal("a marketplace that survived removal was reported as removed")
+	}
+}
+
+func TestForeignMarketplaceWithTheSameNameIsLeftAlone(t *testing.T) {
+	agents := &fakeAgents{}
+	s := agents.service(t)
+	legacyBinding(t, s, agents, "          sync: false\n")
+	agents.market("claude")["skillshare-0123456789abcdef"] = "/elsewhere"
+	applyPluginRequest(t, s, Request{Action: "sync"})
+	if len(agents.commands) != 0 || agents.markets["claude"]["skillshare-0123456789abcdef"] != "/elsewhere" {
+		t.Fatalf("foreign marketplace was touched: %q %v", agents.commands, agents.markets)
+	}
+}
+
+func TestSyncSkipsAnImportWhoseNativeMarketplaceIsGone(t *testing.T) {
+	agents := &fakeAgents{}
+	s := agents.service(t)
+	writePluginFile(t, filepath.Dir(s.ConfigPath), "config.yaml", "plugins:\n  packages:\n    demo:\n      source: https://example.com/demo\n      plugin: demo\n      bindings:\n        claude:\n          id: demo@team\n          pending: install\n")
+	p, err := s.Preview(context.Background(), Request{Action: "sync"})
+	if err != nil || p.Blocked || len(p.Changes) != 1 || p.Changes[0].Action != "skip" || p.Changes[0].MessageKey != "plugins.skip.marketplaceGone" {
+		t.Fatalf("sync did not skip the import: %+v %v", p, err)
+	}
+	applyPluginRequest(t, s, Request{Action: "sync"})
+	if len(agents.commands) != 0 {
+		t.Fatalf("skipped import still ran %q", agents.commands)
+	}
+}
+
+func TestUpdateRegistersAMissingManagedMarketplaceAgain(t *testing.T) {
+	agents := &fakeAgents{version: "1.0.0"}
+	s := agents.service(t)
+	source := fixture(t)
+	applyPluginRequest(t, s, Request{Action: "add", Source: source, Targets: []string{"claude"}})
+	agents.markets["claude"] = nil
+	bumpDemo(t, source, agents)
+	applyPluginRequest(t, s, Request{Action: "update", Name: "demo", Targets: []string{"claude"}})
+	if len(agents.markets["claude"]) != 1 || !strings.HasPrefix(agents.commands[0], "claude plugin marketplace add ") {
+		t.Fatalf("update did not register the marketplace again: %q", agents.commands)
+	}
+}
+
 func TestRecordedSourceDoesNotBlockAnotherDistribution(t *testing.T) {
 	s, _, _ := fakeClaude(t)
 	r := Request{Action: "add", Source: fixture(t), Plugin: "demo"}
@@ -345,7 +509,20 @@ func TestRecordedSourceDoesNotBlockAnotherDistribution(t *testing.T) {
 type fakeAgents struct {
 	version   string
 	installed map[string][]Installed
-	commands  []string
+	// markets maps each Agent to the root of every marketplace registered with it.
+	markets map[string]map[string]string
+	// failRemove fails that many marketplace removals; stuck keeps the registration anyway,
+	// as a copy declared in another Claude settings scope does.
+	failRemove int
+	stuck      bool
+	commands   []string
+}
+
+func (f *fakeAgents) market(bin string) map[string]string {
+	if f.markets[bin] == nil {
+		f.markets[bin] = map[string]string{}
+	}
+	return f.markets[bin]
 }
 
 func (f *fakeAgents) service(t *testing.T) *Service {
@@ -354,6 +531,9 @@ func (f *fakeAgents) service(t *testing.T) *Service {
 	t.Setenv("HOME", home)
 	if f.installed == nil {
 		f.installed = map[string][]Installed{}
+	}
+	if f.markets == nil {
+		f.markets = map[string]map[string]string{}
 	}
 	s := &Service{ConfigPath: filepath.Join(home, "config.yaml"), StateDir: filepath.Join(home, "state")}
 	s.Run = func(_ context.Context, _ string, _ []string, bin string, args ...string) ([]byte, error) {
@@ -367,14 +547,36 @@ func (f *fakeAgents) service(t *testing.T) *Service {
 			return json.Marshal(map[string]any{"installed": f.installed[bin], "available": []any{}})
 		case command == "plugin list --json":
 			return json.Marshal(append([]Installed{}, f.installed[bin]...))
-		case command == "plugin marketplace list --json" && bin == "codex":
-			return []byte(`{"marketplaces":[]}`), nil
 		case command == "plugin marketplace list --json":
-			return []byte(`[]`), nil
+			list := []map[string]string{}
+			for name, root := range f.market(bin) {
+				if bin == "codex" {
+					list = append(list, map[string]string{"name": name, "root": root})
+				} else {
+					list = append(list, map[string]string{"name": name, "installLocation": root})
+				}
+			}
+			if bin == "codex" {
+				return json.Marshal(map[string]any{"marketplaces": list})
+			}
+			return json.Marshal(list)
 		}
 		f.commands = append(f.commands, bin+" "+command)
-		if args[1] == "add" || args[1] == "install" || args[1] == "update" {
+		switch {
+		case args[1] == "marketplace" && args[2] == "add":
+			f.market(bin)[filepath.Base(args[3])] = args[3]
+		case args[1] == "marketplace" && args[2] == "remove":
+			if f.failRemove > 0 {
+				f.failRemove--
+				return nil, agentError{key: "plugins.error.commandFailed", message: bin + " command failed"}
+			}
+			if !f.stuck {
+				delete(f.market(bin), args[3])
+			}
+		case args[1] == "add" || args[1] == "install" || args[1] == "update":
 			f.installed[bin] = []Installed{{ID: args[2], PluginID: args[2], Installed: true, Enabled: true, Version: f.version, Scope: "user"}}
+		case args[1] == "remove" || args[1] == "uninstall":
+			f.installed[bin] = nil
 		}
 		return []byte(`{}`), nil
 	}
@@ -419,7 +621,7 @@ func TestCodexUpdateSkipsADisabledPlugin(t *testing.T) {
 
 // An imported plugin has no reviewed source; Codex upgrades it with its marketplace.
 func TestCodexUpdateOfAnImportUpgradesItsMarketplace(t *testing.T) {
-	agents := &fakeAgents{installed: map[string][]Installed{"codex": {{PluginID: "demo@team", Installed: true, Enabled: true, Version: "1.0.0"}}}}
+	agents := &fakeAgents{installed: map[string][]Installed{"codex": {{PluginID: "demo@team", Installed: true, Enabled: true, Version: "1.0.0"}}}, markets: map[string]map[string]string{"codex": {"team": "/team"}}}
 	s := agents.service(t)
 	applyPluginRequest(t, s, Request{Action: "import", From: "codex", Plugin: "demo@team"})
 	agents.commands = nil

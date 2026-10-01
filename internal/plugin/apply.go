@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 )
 
@@ -172,9 +173,10 @@ func (s *Service) applyChange(ctx context.Context, c Change, b Binding) (resultE
 		if err != nil {
 			return err
 		}
-		if c.Action == "install" {
-			// Re-adding our own marketplace is unnecessary on retry. Query native
-			// registration first, and refuse a same-name registration owned elsewhere.
+		if c.Action == "install" || c.Action == "update" {
+			// Re-adding our own marketplace is unnecessary on retry, and an update needs it back
+			// if it went missing. Query native registration first, and refuse a same-name
+			// registration owned elsewhere.
 			registered, err := s.registered(ctx, c.Target, b.ID, path)
 			if err != nil {
 				return err
@@ -201,6 +203,12 @@ func (s *Service) applyChange(ctx context.Context, c Change, b Binding) (resultE
 			if _, err := s.run(ctx, c.Target, "plugin", "marketplace", "update", market); err != nil {
 				return err
 			}
+		}
+	}
+	if (c.Action == "remove" || c.Action == "uninstall") && b.Source != "" {
+		// Removed natively already: only the marketplace Skillshare registered is left.
+		if h := s.host(ctx, c.Target); h.Error == "" && !slices.ContainsFunc(h.Installed, func(i Installed) bool { return i.ID == b.ID }) {
+			return s.removeMarketplace(ctx, c.Target, b)
 		}
 	}
 	args, err := s.nativeArgs(c.Target, c.Action, b.ID)
@@ -238,15 +246,72 @@ func (s *Service) applyChange(ctx context.Context, c Change, b Binding) (resultE
 		}
 	}
 	if c.Action == "remove" || c.Action == "uninstall" {
-		return nil
+		return s.removeMarketplace(ctx, c.Target, b)
 	}
 	return fmt.Errorf("native operation completed but plugin was not found; inspect the native client before retrying")
 }
 
+// removeMarketplace drops the marketplace Skillshare registered for one managed plugin; no
+// other plugin uses it. An imported plugin's marketplace is not Skillshare's to remove.
+func (s *Service) removeMarketplace(ctx context.Context, target string, b Binding) error {
+	path := s.snapshotPath(b, target)
+	market := filepath.Base(path)
+	if b.Source == "" || !strings.HasPrefix(market, "skillshare-") {
+		return nil
+	}
+	kept := func(cause error) error {
+		return agentError{cause: cause, key: "plugins.error.marketplaceCleanup", message: fmt.Sprintf("native plugin removed, but Skillshare could not finish removing its marketplace %s; check it in the native client, then sync again: %v", market, cause), args: map[string]string{"market": market}}
+	}
+	registered, err := s.registered(ctx, target, b.ID, path)
+	if err != nil {
+		return kept(err)
+	}
+	if !registered {
+		return nil
+	}
+	args := []string{"plugin", "marketplace", "remove", market}
+	if s.agentOf(target) == "claude" {
+		scope := "user"
+		if s.ProjectRoot != "" {
+			scope = "project"
+		}
+		args = append(args, "--scope", scope)
+	}
+	if _, err := s.run(ctx, target, args...); err != nil {
+		return kept(err)
+	}
+	// Claude lists every settings scope as one, so a copy declared in another scope survives.
+	if registered, err = s.registered(ctx, target, b.ID, path); err == nil && registered {
+		err = fmt.Errorf("it is still registered, possibly in another settings scope")
+	}
+	if err != nil {
+		return kept(err)
+	}
+	return nil
+}
+
 func (s *Service) registered(ctx context.Context, target, id, path string) (bool, error) {
-	data, err := s.run(ctx, target, "plugin", "marketplace", "list", "--json")
+	markets, err := s.marketplaces(ctx, target)
 	if err != nil {
 		return false, err
+	}
+	_, market, _ := strings.Cut(id, "@")
+	root, ok := markets[market]
+	if !ok {
+		return false, nil
+	}
+	if filepath.Clean(root) != filepath.Clean(path) {
+		return false, fmt.Errorf("marketplace name already registered at another path; resolve it in %s", target)
+	}
+	return true, nil
+}
+
+// marketplaces maps each marketplace the Agent knows to its root. Claude merges every
+// settings scope into one list without saying which scope declared an entry.
+func (s *Service) marketplaces(ctx context.Context, target string) (map[string]string, error) {
+	data, err := s.run(ctx, target, "plugin", "marketplace", "list", "--json")
+	if err != nil {
+		return nil, err
 	}
 	type entry struct {
 		Name            string `json:"name"`
@@ -261,29 +326,27 @@ func (s *Service) registered(ctx context.Context, target, id, path string) (bool
 			Marketplaces json.RawMessage `json:"marketplaces"`
 		}
 		if json.Unmarshal(data, &envelope) != nil || len(envelope.Marketplaces) == 0 {
-			return false, fmt.Errorf("unrecognized native marketplace list")
+			return nil, fmt.Errorf("unrecognized native marketplace list")
 		}
 		err = json.Unmarshal(envelope.Marketplaces, &entries)
 	} else {
 		err = json.Unmarshal(data, &entries)
 	}
 	if err != nil || entries == nil {
-		return false, fmt.Errorf("unrecognized native marketplace list")
+		return nil, fmt.Errorf("unrecognized native marketplace list")
 	}
-	_, market, _ := strings.Cut(id, "@")
+	markets := map[string]string{}
 	for _, e := range entries {
-		if e.Name == market {
-			root := e.Root
-			if agent == "claude" {
-				root = e.InstallLocation
-			}
-			if filepath.Clean(root) != filepath.Clean(path) {
-				return false, fmt.Errorf("marketplace name already registered at another path; resolve it in %s", target)
-			}
-			return true, nil
+		root := e.Root
+		if agent == "claude" {
+			root = e.InstallLocation
+		}
+		// Keep the first entry, as the registration check always did.
+		if _, ok := markets[e.Name]; !ok {
+			markets[e.Name] = root
 		}
 	}
-	return false, nil
+	return markets, nil
 }
 
 // pluginEntry is the one plugin in the catalog Skillshare writes next to a snapshot. For Claude,

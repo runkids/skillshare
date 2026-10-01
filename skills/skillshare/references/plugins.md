@@ -114,7 +114,11 @@ skillshare plugin add ./opencode-package --target opencode --no-tui -g
 
 On a partial failure, inspect each target outcome and retry with `sync plugins`.
 Do not delete native caches or rewrite native installed-plugin registries. Removal
-retains shared marketplaces and snapshots. Installed does not mean loaded, logged
+also removes the per-plugin marketplace Skillshare registered for Claude/Codex
+(`skillshare-<plugin>-<hash>`, or `skillshare-<hash>` for older installs), retrying on the
+next sync if cleanup fails, and retains imported plugins' marketplaces and all snapshots. An
+imported plugin whose native marketplace is gone is skipped: restore it natively or re-add
+from source. Installed does not mean loaded, logged
 in, or hook-trusted. Interactive humans can use the bare `skillshare plugin` manager;
 automation must provide explicit arguments and use `--json` or `--no-tui`.
 

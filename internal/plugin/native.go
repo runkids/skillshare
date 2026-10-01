@@ -217,7 +217,10 @@ func (s *Service) host(ctx context.Context, target string) Host {
 	h.Installed, err = parseInventory(agent, data, s.ProjectRoot)
 	if err != nil {
 		h.fail(err)
+		return h
 	}
+	// Without the list, planning keeps its earlier behavior instead of guessing.
+	h.Marketplaces, _ = s.marketplaces(ctx, target)
 	return h
 }
 

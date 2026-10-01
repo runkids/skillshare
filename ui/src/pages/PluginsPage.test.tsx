@@ -87,8 +87,23 @@ describe('PluginsPage', () => {
     await screen.findByRole('dialog');
     expect(pluginsApi.apply).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole('button', { name: 'plugins.apply' }));
-    expect(await screen.findByText('Native authentication required')).toBeInTheDocument();
-    expect(screen.getByRole('alert')).toHaveTextContent('One target failed');
+    expect(await screen.findAllByText('Native authentication required')).not.toHaveLength(0);
+    expect(screen.getByRole('alert')).toHaveTextContent('Native authentication required');
+  });
+  it('translates a keyed sync failure once in the alert', async () => {
+    const failed = { status: 'failed', message: 'claude command failed', messageKey: 'plugins.error.commandFailed' };
+    vi.mocked(pluginsApi.apply).mockResolvedValue({ result: { results: [{ name: 'a', target: 'claude', ...failed }, { name: 'b', target: 'claude', ...failed }] }, failure: 'claude command failed\nclaude command failed' });
+    mount();
+    fireEvent.click(await screen.findByRole('button', { name: 'plugins.syncAgain' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'plugins.apply' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent(/^plugins\.error\.commandFailed$/);
+  });
+  it('keeps every distinct failure in the alert, keyed or not', async () => {
+    vi.mocked(pluginsApi.apply).mockResolvedValue({ result: { results: [{ name: 'a', target: 'claude', status: 'failed', message: 'claude command failed', messageKey: 'plugins.error.commandFailed' }, { name: 'b', target: 'codex', status: 'failed', message: 'Native authentication required' }] }, failure: 'joined' });
+    mount();
+    fireEvent.click(await screen.findByRole('button', { name: 'plugins.syncAgain' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'plugins.apply' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('plugins.error.commandFailed Native authentication required');
   });
   it('lists the Agents the source can also go to as unticked, and a tick there previews an install', async () => {
     vi.mocked(pluginsApi.list).mockResolvedValue({ targetDefinitions: ['codex', 'claude', 'cursor'].map((target) => ({ target, label: target, project: false, operations: ['add', 'sync'] })), packages: { demo: { bindings: { codex: { id: 'demo@market', source: 'owner/demo', plugin: 'demo' } } } }, hosts: [] });

@@ -88,6 +88,13 @@ func (s *Service) Preview(ctx context.Context, r Request) (*Plan, error) {
 		hosts[target] = h
 		return h
 	}
+	// ownMarket reports whether the marketplace Skillshare registered for b is still in place.
+	ownMarket := func(target string, b Binding) bool {
+		agent := s.agentOf(target)
+		_, market, _ := strings.Cut(b.ID, "@")
+		root, ok := host(target).Marketplaces[market]
+		return (agent == "claude" || agent == "codex") && b.Source != "" && strings.HasPrefix(market, "skillshare-") && ok && filepath.Clean(root) == filepath.Clean(s.snapshotPath(b, target))
+	}
 	appendChange := func(c Change) {
 		h := host(c.Target)
 		agent := s.agentOf(c.Target)
@@ -105,6 +112,14 @@ func (s *Service) Preview(ctx context.Context, r Request) (*Plan, error) {
 		skip := func(key, message string, args map[string]string) {
 			c.Action = "skip"
 			c.Message, c.MessageKey, c.MessageArgs = message, key, args
+		}
+		// An import reinstalls and updates from its native marketplace. Once that is gone, only the
+		// native client, or adding the plugin again from a reviewed source, can bring it back.
+		if c.Binding.Source == "" && (agent == "claude" || agent == "codex") && (c.Action == "install" || c.Action == "update") && h.Marketplaces != nil {
+			_, market, _ := strings.Cut(c.ID, "@")
+			if _, ok := h.Marketplaces[market]; !ok {
+				skip("plugins.skip.marketplaceGone", fmt.Sprintf("The native marketplace %s is gone. Restore it in the native client, or remove this Agent and add the plugin again from its source.", market), map[string]string{"market": market})
+			}
 		}
 		if c.Action == "update" && agent == "antigravity-cli" {
 			skip("plugins.skip.keepEnablement", "Update in Antigravity CLI to preserve native enablement; automatic reinstall updates are not supported.", map[string]string{"agent": "Antigravity CLI"})
@@ -214,7 +229,8 @@ func (s *Service) Preview(ctx context.Context, r Request) (*Plan, error) {
 		}
 		for _, target := range slices.Compact(slices.Sorted(slices.Values(r.Targets))) {
 			agent := s.agentOf(target)
-			market := "skillshare-" + hash([]byte(s.ConfigPath + "\x00" + discovered.Source + "\x00" + c.Name + "\x00" + target))[:16]
+			// Name the plugin so native marketplace lists show what Skillshare added.
+			market := "skillshare-" + marketUnsafe.ReplaceAllString(c.Name, "-") + "-" + hash([]byte(s.ConfigPath + "\x00" + discovered.Source + "\x00" + c.Name + "\x00" + target))[:16]
 			b := Binding{ID: c.Name + "@" + market, Source: discovered.Source, SourceRef: discovered.SourceRef, Commit: discovered.Commit, Plugin: c.Name, Digest: discovered.Digest, Version: c.TargetInfo[agent].Version, Components: c.TargetInfo[agent].Components}
 			switch agent {
 			case "cursor", "antigravity", "antigravity-cli", "copilot", "grok", "kimi", "hermes", "devin":
@@ -319,7 +335,7 @@ func (s *Service) Preview(ctx context.Context, r Request) (*Plan, error) {
 				case "sync":
 					if !b.Selected() {
 						c.Action = "uninstall"
-						if !exists {
+						if !exists && !ownMarket(target, b) {
 							c.Action = "noop"
 						}
 						break
@@ -334,14 +350,14 @@ func (s *Service) Preview(ctx context.Context, r Request) (*Plan, error) {
 					if c.Action == "install" && exists {
 						c.Action = "noop"
 					}
-					if c.Action == "remove" && !exists && host(target).Error == "" {
+					if c.Action == "remove" && !exists && host(target).Error == "" && !ownMarket(target, b) {
 						c.Action = "forget"
 					}
 					if c.Action == "install" && b.Source == "" {
 						c.Message = "Reinstall using its existing native marketplace."
 					}
 				case "remove":
-					if !exists && host(target).Error == "" {
+					if !exists && host(target).Error == "" && !ownMarket(target, b) {
 						c.Action = "forget"
 					}
 				case "enable", "disable":
@@ -405,6 +421,9 @@ func (s *Service) Preview(ctx context.Context, r Request) (*Plan, error) {
 						c.Binding.Version = candidate.TargetInfo[agent].Version
 						c.Binding.Components = candidate.TargetInfo[agent].Components
 					}
+				}
+				if (c.Action == "uninstall" || c.Action == "remove") && !exists && ownMarket(target, b) {
+					c.Message, c.MessageKey = "The plugin is already gone; remove the marketplace Skillshare registered for it.", "plugins.note.marketplaceCleanup"
 				}
 				if c.Action == "install" && b.Source == "" && (agent == "antigravity" || agent == "cursor") {
 					c.Action = "blocked"

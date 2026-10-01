@@ -158,8 +158,9 @@ Copilot と Antigravity CLI のインストールは、reviewed されたロー�
 - Codex のネイティブな project インストールは、このアダプタでは提供されません。global の Codex インストールに対する sync 選択は引き続き機能します。
 - Codex には update コマンドがないため、update は更新後のスナップショットからプラグインを再度 add します。add は常にプラグインを有効にするため、Codex で無効化されたプラグインはスキップされます。Import した Codex プラグインは `codex plugin marketplace upgrade NAME` で更新されます。これは Codex がその marketplace からインストールしたすべてのプラグインを再インストールするもので、Codex も起動時に同じことを行います。
 - update は対応できない Target を理由を示してスキップし、そのプラグインのほかの Agent は通常どおり更新されます。スキップされた update は保留のまま残り、後の sync で処理されます。
-- インポートされた plugin は元のマーケットプレイス identity を保持します。`check` は、source のないインポート済み plugin についてリリースの有無を推測できません。
-- 削除は共有されたマーケットプレイス登録と管理下スナップショットを保持します。関連のない plugin やネイティブキャッシュを直接削除することはありません。
+- インポートされた plugin は元のマーケットプレイス identity を保持します。`check` は、source のないインポート済み plugin についてリリースの有無を推測できません。インポートした Claude または Codex の plugin のネイティブ marketplace がなくなった場合、sync と update はその Target をスキップして理由を示します。Agent で marketplace を復元するか、その Target を削除して source から plugin を追加し直してください。Skillshare がインポート済み plugin を勝手に別の source へ移すことはありません。
+- Skillshare は管理下の Claude/Codex plugin ごとに marketplace を 1 つ登録し、`skillshare-<plugin>-<hash>` と名付けます（以前のインストールは `skillshare-<hash>` のまま）。plugin を削除または除外すると、plugin がすでになくてもその marketplace も削除し、失敗したクリーンアップは次回の sync で再試行します。marketplace がなくなっていた場合、update で再登録します。別のパスにある同名の登録とインポート済み plugin の marketplace には触れません。スナップショットとネイティブキャッシュは保持されます。
+- これらの登録は、user 設定でも project 設定でも、このマシンの Skillshare 状態ディレクトリを指します。Git や dotfile マネージャーで Agent の設定を共有すると、ほかのマシンには存在しないパスが持ち込まれます。各マシンで source から plugin を追加してください。
 
 ネイティブなライフサイクルは、Claude Code `2.1.276`、Codex CLI `0.154.0`、Pi `0.85.1`、Copilot CLI `1.0.86` で動作確認されています。Antigravity CLI `1.2.6` は分離されたネイティブの install/list/remove 操作で確認済みです。OpenCode `1.18.31` は version 対応登録の検証に使用され、v2 スキーマは fixture テストでカバーされています。Cursor と Antigravity のファイルシステム上のライフサイクルは分離されたディレクトリでテストされていますが、GUI 上でのランタイム有効化は保証しません。インストール済みコマンドの capability とインベントリスキーマは実行時に確認され、非対応の操作は理由とともにブロックされます。
 

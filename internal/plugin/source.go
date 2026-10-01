@@ -22,6 +22,9 @@ import (
 var namePattern = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9._-]*$`)
 var githubPattern = regexp.MustCompile(`^[a-zA-Z0-9_.-]+/[a-zA-Z0-9_.-]+$`)
 
+// Codex accepts only ASCII letters, digits, `_`, and `-` in marketplace names.
+var marketUnsafe = regexp.MustCompile(`[^a-zA-Z0-9_-]+`)
+
 // acquire checks out remote sources in an ephemeral directory, without running
 // repository code or registering anything with an Agent. Callers must clean up.
 func acquire(ctx context.Context, source string) (string, string, func(), error) {

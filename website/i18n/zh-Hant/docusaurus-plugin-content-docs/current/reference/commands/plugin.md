@@ -199,9 +199,17 @@ Copilot 與 Antigravity CLI 的安裝使用已檢視過的本機快照。匯入�
 - Codex 沒有 update 指令，因此更新會以重新整理後的快照再次 add 該 plugin。add 一定會啟用它，所以在 Codex 中被停用的 plugin 會被略過。匯入的 Codex plugin 會以 `codex plugin marketplace upgrade NAME` 更新，這會重新安裝 Codex 從該 marketplace 安裝的所有 plugin，Codex 啟動時也會這麼做。
 - 更新遇到無法處理的 target 時會略過並說明原因；該 plugin 的其他 Agent 仍會照常更新，被略過的更新會保留為待處理，留待之後的 sync。
 - 匯入的 plugin 會保留其原始的 marketplace 身分。對於沒有 source 的匯入 plugin，`check` 無法
-  推斷是否有新版本可用。
-- 移除操作會保留共享的 marketplace 註冊與受管理的快照；不會直接刪除無關的 plugin 或原生
-  快取。
+  推斷是否有新版本可用。若匯入的 Claude 或 Codex plugin 的原生 marketplace 已經不在，
+  sync 和 update 會略過該 target 並說明原因。請在 Agent 中恢復該 marketplace，或移除該
+  target 後從 source 重新加入 plugin；Skillshare 不會自行把匯入的 plugin 改到其他 source。
+- Skillshare 會替每個受管理的 Claude/Codex plugin 註冊一個 marketplace，命名為
+  `skillshare-<plugin>-<hash>`（較早的安裝維持 `skillshare-<hash>`）。移除或排除該 plugin 時，
+  即使 plugin 已經不在，也會一併移除這個 marketplace；清理失敗會在下次 sync 重試。若
+  marketplace 不見了，update 會重新註冊。位於其他路徑的同名註冊與匯入 plugin 的
+  marketplace 不會被動到；快照與原生快取會保留。
+- 這些註冊指向本機的 Skillshare 狀態目錄，user 與 project 設定都一樣。透過 Git 或 dotfile
+  管理工具共享 Agent 設定，會把其他機器上不存在的路徑帶過去；請在每台機器上從 source
+  加入 plugin。
 
 原生生命週期已在 Claude Code `2.1.276`、Codex CLI `0.154.0`、Pi `0.85.1`，以及 Copilot CLI
 `1.0.86` 上驗證過。Antigravity CLI `1.2.6` 則以獨立的原生安裝/清單/移除操作進行檢查。OpenCode

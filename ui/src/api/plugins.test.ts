@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { apiFetch } from './client';
-import { pluginShareCommand, pluginsApi } from './plugins';
+import { pluginShareCommand, pluginsApi, syncAction } from './plugins';
 
 vi.mock('./client', () => ({ apiFetch: vi.fn() }));
 
@@ -25,5 +25,19 @@ describe('pluginShareCommand', () => {
   });
   it('offers nothing for a local directory', () => {
     expect(pluginShareCommand('demo', { source: '/Users/me/plugins/demo' })).toBe('');
+  });
+});
+
+describe('syncAction', () => {
+  const host = (marketplaces?: Record<string, string>) => ({ target: 'claude' as const, version: '1', status: 'ready', installed: [], marketplaces });
+  const excluded = { id: 'demo@skillshare-demo-0123', source: 'https://example.com/demo', sync: false };
+  it('still has work for an excluded plugin whose Skillshare marketplace is left', () => {
+    expect(syncAction(excluded, host({ 'skillshare-demo-0123': '/state/skillshare-demo-0123' }))).toBe('uninstall');
+  });
+  it('leaves an excluded plugin alone once its marketplace is gone', () => {
+    expect(syncAction(excluded, host({}))).toBe('');
+  });
+  it('never claims an imported plugin\'s marketplace', () => {
+    expect(syncAction({ id: 'demo@team', sync: false }, host({ team: '/team' }))).toBe('');
   });
 });

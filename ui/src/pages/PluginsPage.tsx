@@ -43,6 +43,11 @@ export default function PluginsPage() {
   const [working, setWorking] = useState('');
   const [failure, setFailure] = useState('');
   const [result, setResult] = useState<PluginResult | null>(null);
+  // The server joins each failed target's English text; show the translated messages once each instead.
+  const failureText = (response: PluginResult) => {
+    const failed = new Set((response.result?.results ?? []).filter((r) => r.status === 'failed').map((r) => keyedMessage(t, r)));
+    return response.failure && failed.size ? [...failed].join(' ') : response.failure;
+  };
   // The source version each plugin could update to, from the last check.
   const [updates, setUpdates] = useState<Record<string, string>>({});
   const [menu, setMenu] = useState<{ x: number; y: number; items: ContextMenuItem[] } | null>(null);
@@ -67,7 +72,7 @@ export default function PluginsPage() {
   const apply = async () => {
     if (!review) return;
     setBusy(true); setFailure('');
-    try { const response = await pluginsApi.apply(review.request, review.plan.revision); setResult(response); setFailure(response.failure); setReview(null); refresh(); }
+    try { const response = await pluginsApi.apply(review.request, review.plan.revision); setResult(response); setFailure(failureText(response)); setReview(null); refresh(); }
     catch (e) { setFailure((e as Error).message); refresh(); }
     finally { setBusy(false); }
   };
@@ -77,7 +82,7 @@ export default function PluginsPage() {
       const request: PluginRequest = { action: selected ? 'enable' : 'disable', name, targets: [target] };
       const plan = await pluginsApi.preview(request);
       const response = await pluginsApi.apply(request, plan.revision);
-      if (response.failure) setFailure(response.failure);
+      if (response.failure) setFailure(failureText(response));
       refresh();
     } catch (e) { setFailure((e as Error).message); }
     finally { setBusy(false); setWorking(''); }
