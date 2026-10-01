@@ -95,12 +95,13 @@ Plugin 与一般的 Skill 及 MCP 同步是彼此独立的。它们所打包的
 ## 更新与恢复
 
 使用 **Check updates**，然后针对受支持的 Target 检视一次更新。Claude 可以透过其
-原生 CLI 进行更新。Codex 的更新在此适配器中明确不可用；更新一个
-marketplace 并不等同于更新一个已安装的 plugin。
+原生 CLI 进行更新。Codex 会用经审核的快照再次 add 该 plugin；但若它在
+Codex 中被停用则不会更新，因为 add 会把它重新启用；导入的 Codex plugin 则通过升级其 marketplace 来更新。
 Cursor 与 Antigravity 会在检查本地编辑后替换受管理的本地副本。
 Pi 与 OpenCode 会更新经审核的快照。Copilot 可以在保留已知启用状态的
 同时刷新一份经审核的 Source。Antigravity CLI 与 Grok 的更新
 仍留在原生工具中处理；被 import 套件的限制请参见命令参考文档。
+更新无法处理的 Target 会被跳过并说明原因，该 plugin 的其他 Agent 仍会照常更新。
 
 如果某个 Target 失败，结果仍会保留那些成功的部分。请先解决该原生
 客户端的身份验证或配置问题，然后再次同步该 Target：

@@ -428,7 +428,8 @@ After `sync`, cursor receives:
 #### What gets removed when filters change
 
 When a filter is updated and `sync` runs:
-- Source-linked entries (symlink/junction) that are now filtered out are pruned
+- Links skillshare created for source skills that are now filtered out are pruned
+- A live symlink/junction into the source that skillshare never tracked is preserved and counted as local
 - Local non-symlink folders already in target are preserved
 
 ### Merge Mode (Default)

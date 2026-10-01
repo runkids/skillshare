@@ -70,11 +70,12 @@ skillshare plugin remove demo --dry-run --json -g
 `remove NAME --target` uninstalls that binding. `remove NAME` without `--target`, once
 no Agent holds it, drops the package from Skillshare entirely.
 
-Claude supports native updates; Codex does not. Cursor/Antigravity replace managed
-local copies; Pi/OpenCode refresh reviewed source snapshots. Imported Pi/OpenCode v1 packages must be updated natively. OpenCode v2 global
+Claude supports native updates; Codex re-adds the reviewed snapshot unless the plugin is disabled in Codex. Cursor/Antigravity replace managed
+local copies; Pi/OpenCode refresh reviewed source snapshots. Imported Codex plugins update by upgrading their marketplace; imported Pi packages through `pi update`, global only. Imported OpenCode v1 packages must be updated natively. OpenCode v2 global
 imports may use native update; project imports may not. Copilot source updates
 require known native enabled state; Antigravity CLI and Grok update natively. Project mode supports Claude, Antigravity, Pi,
-and OpenCode, never falling back to global scope.
+and OpenCode, never falling back to global scope. An update skips a target it
+cannot reach, says why, and still updates the other targets.
 
 ## Additional formats and scopes
 

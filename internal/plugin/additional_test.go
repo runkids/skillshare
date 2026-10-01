@@ -187,6 +187,26 @@ func TestPiFilteredImportRejected(t *testing.T) {
 	}
 }
 
+// pi update refreshes an imported package and keeps its settings entry.
+func TestPiImportedUpdateRunsPiUpdate(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("PI_CODING_AGENT_DIR", filepath.Join(home, ".pi/agent"))
+	writePluginFile(t, home, ".pi/agent/settings.json", `{"packages":["npm:demo"]}`)
+	var commands []string
+	s := &Service{ConfigPath: filepath.Join(home, "config.yaml"), StateDir: filepath.Join(home, "state"), Run: func(_ context.Context, _ string, _ []string, _ string, args ...string) ([]byte, error) {
+		if command := strings.Join(args, " "); !strings.HasPrefix(command, "--") && !strings.HasSuffix(command, "--help") {
+			commands = append(commands, command)
+		}
+		return []byte("0.99.2"), nil
+	}}
+	applyPluginRequest(t, s, Request{Action: "import", From: "pi", Plugin: "npm:demo"})
+	applyPluginRequest(t, s, Request{Action: "update", Name: "demo"})
+	if !slices.Equal(commands, []string{"update npm:demo"}) {
+		t.Fatalf("commands: %q", commands)
+	}
+}
+
 func TestPluginFormatsRemainDistinct(t *testing.T) {
 	root := t.TempDir()
 	writePluginFile(t, root, "plugin.json", `{"$schema":"https://agent-plugins.org/schemas/1.0.0/plugin.schema.json","name":"demo"}`)
@@ -285,8 +305,6 @@ func TestOpenCodeProjectImportedUpdateNeverUsesGlobalCLI(t *testing.T) {
 			return []byte("2.0.0"), nil
 		}}
 	applyPluginRequest(t, s, Request{Action: "import", From: "opencode", Plugin: "demo"})
-	plan, err := s.Preview(context.Background(), Request{Action: "update", Name: "demo"})
-	if err != nil || !plan.Blocked {
-		t.Fatalf("project update must be blocked: %+v %v", plan, err)
-	}
+	// Skipped, and applying it runs nothing native.
+	applyPluginRequest(t, s, Request{Action: "update", Name: "demo"})
 }

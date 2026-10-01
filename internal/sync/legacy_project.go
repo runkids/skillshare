@@ -93,7 +93,8 @@ func CleanMovedProjectDirs(root, sourcePath string, targets []MovedTarget, dryRu
 			// A dry run leaves both passes reporting the same entry, so count names.
 			removed := make(map[string]bool)
 			// ManagedOnly: this directory belongs to another tool, so a folder or
-			// link is ours only if it points into the source or is in the manifest.
+			// live link is ours only if the manifest tracks it; broken links into
+			// the source are also removed.
 			if r, err := PruneOrphanLinksWithSkills(PruneOptions{
 				TargetPath:   dir,
 				SourcePath:   sourcePath,

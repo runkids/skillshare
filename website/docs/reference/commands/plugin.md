@@ -82,7 +82,7 @@ the CLI exits nonzero when any target fails. Inspect the result before retrying.
 | Target | Format | Global | Project | Update |
 |---|---|:---:|:---:|---|
 | Claude Code | `.claude-plugin/plugin.json` | Yes | Yes | Native update |
-| Codex | `.codex-plugin/plugin.json` or Agent Plugins root manifest | Yes | No | Not supported |
+| Codex | `.codex-plugin/plugin.json` or Agent Plugins root manifest | Yes | No | Refresh reviewed source and add it again, only if enabled in Codex |
 | Cursor | `.cursor-plugin/plugin.json` or Agent Plugins root manifest | Yes | No | Replace reviewed local copy |
 | Antigravity Desktop | Root `plugin.json` with an explicit name | Yes | Yes | Replace reviewed local copy |
 | Pi | `package.json` with `pi` resources, or `pi-package` keyword and conventional resource folders | Yes | Yes, with native project trust | Refresh managed source snapshot |
@@ -164,8 +164,10 @@ proof the module loaded successfully; check OpenCode after reload.
 
 Import accepts plain Pi package sources and plain OpenCode config entries.
 Entries with resource filters/options are rejected to preserve those settings.
-Imported Pi and OpenCode v1 packages are updated in their native tool. OpenCode
-v2 global imports can use its native update command; project imports must be
+Imported Pi packages are updated with `pi update SOURCE` in global mode, which
+keeps their settings entry; a project's are updated in Pi, because `pi update`
+also reaches global packages. Imported OpenCode v1 packages are updated in their
+native tool. OpenCode v2 global imports can use its native update command; project imports must be
 updated natively because the v2 update command is global.
 
 ```bash
@@ -214,8 +216,15 @@ never supplies native trust approval flags.
   cyclic, and `.git`-referencing links and special files are rejected; sources are limited to 20,000 files and 100 MiB.
 - Native installation is not proof of runtime activation. Restart/reload the
   Agent and complete authentication or hook trust in that Agent.
-- Codex native project installation and plugin updates are not provided by this
-  adapter. Sync selection still works for global Codex installations.
+- Codex native project installation is not provided by this adapter. Sync
+  selection still works for global Codex installations.
+- Codex has no update command, so an update adds the plugin again from the
+  refreshed snapshot. Adding always enables it, so a plugin disabled in Codex is
+  skipped. An imported Codex plugin is updated with
+  `codex plugin marketplace upgrade NAME`, which reinstalls every plugin Codex
+  installed from that marketplace, as Codex also does when it starts.
+- An update skips a target it cannot reach and says why; the plugin's other
+  Agents still update, and a skipped update stays pending for a later sync.
 - Imported plugins retain their original marketplace identity. `check` cannot
   infer release availability for an imported plugin without a source.
 - Removal retains shared marketplace registrations and managed snapshots; it

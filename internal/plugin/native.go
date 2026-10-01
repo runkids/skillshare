@@ -261,7 +261,9 @@ func (s *Service) nativeArgs(target, action, id string) ([]string, error) {
 			return nil, fmt.Errorf("Codex project plugin operations are unsupported")
 		}
 		switch action {
-		case "install":
+		// Codex has no update command; add replaces an installed plugin with the
+		// marketplace's current copy.
+		case "install", "update":
 			return []string{"plugin", "add", id, "--json"}, nil
 		case "remove":
 			return []string{"plugin", "remove", id, "--json"}, nil

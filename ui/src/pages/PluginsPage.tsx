@@ -15,7 +15,7 @@ import { RailLayout, RailLine, SyncBox } from '../components/StatusRail';
 import PluginAddDialog from '../components/plugins/PluginAddDialog';
 import PluginFilesDialog from '../components/plugins/PluginFilesDialog';
 import PluginAgents from '../components/plugins/PluginAgents';
-import { outcomeMessage, outcomeStatus } from '../components/plugins/outcomeText';
+import { keyedMessage, outcomeStatus } from '../components/plugins/outcomeText';
 import PluginList, { VersionChange } from '../components/plugins/PluginList';
 import { useT } from '../i18n';
 import { useSlow } from '../hooks/useSlow';
@@ -82,7 +82,7 @@ export default function PluginsPage() {
   };
   if (!data && !error) return <PageSkeleton />;
   const actionText = (action: string) => t(({
-    noop: 'plugins.noChanges', install: 'resources.install', import: 'plugins.import', update: 'plugins.update',
+    noop: 'plugins.noChanges', skip: 'plugins.outcome.skipped', install: 'resources.install', import: 'plugins.import', update: 'plugins.update',
     remove: 'plugins.remove', uninstall: 'plugins.remove', forget: 'plugins.remove', selection: 'common.save', record: 'plugins.record',
     blocked: 'plugins.blocked', 'update-available': 'plugins.update', 'native-check': 'plugins.unverified',
   } as Record<string, string>)[action] ?? 'plugins.pending');
@@ -91,7 +91,7 @@ export default function PluginsPage() {
   const outcomes = result?.result?.results ?? [];
   const todo = packages.flatMap(([name, pack]) => Object.entries(pack.bindings).map(([target, b]) => ({ name, target, word: syncAction(b!, data?.hosts.find((h) => h.target === target)) }))).filter((x) => x.word);
   const pending = todo.length;
-  const actionTone = (action: string) => (action === 'blocked' ? 'bad' : action === 'noop' ? '' : 'inf');
+  const actionTone = (action: string) => (action === 'blocked' ? 'bad' : action === 'noop' ? '' : action === 'skip' ? 'warn' : 'inf');
   const openMenu = (e: React.MouseEvent<HTMLButtonElement>, name: string) => {
     const r = e.currentTarget.getBoundingClientRect();
     const bindings = data?.packages[name]?.bindings ?? {};
@@ -139,7 +139,7 @@ export default function PluginsPage() {
               {outcomes.map((r) => (
                 <Fragment key={`${r.name}:${r.target}`}>
                   <RailLine name={r.name} agent={agentLabel(r.target)} word={outcomeStatus(t, r.status)} bad={r.status === 'failed'} />
-                  {r.message && <span className="text-xs text-ink-3">{outcomeMessage(t, r.message)}</span>}
+                  {r.message && <span className="text-xs text-ink-3">{keyedMessage(t, r)}</span>}
                 </Fragment>
               ))}
             </div>
@@ -220,7 +220,7 @@ export default function PluginsPage() {
                   <span className="ss-at">{c.target ? <AgentIcon target={c.target} size={17} /> : c.logo ? <img src={c.logo} alt="" className="size-full rounded-[inherit] object-cover" /> : <Package size={15} />}</span>
                   <span className="flex min-w-0 flex-1 flex-col gap-0.5">
                     <span className="flex items-center gap-2"><span className="font-mono font-semibold">{c.name}</span><span className="text-[13px] text-ink-2">{agentLabel(c.target)}</span><VersionChange from={data?.packages[c.name]?.bindings[c.target]?.version} to={c.action.startsWith('update') ? c.binding?.version : undefined} /></span>
-                    {c.action === 'record' ? <span className="text-xs text-ink-3">{t('plugins.recordHelp')}</span> : (c.message || c.components?.length) && <span className="text-xs text-ink-3">{c.message || c.components!.join(' · ')}</span>}
+                    {c.action === 'record' ? <span className="text-xs text-ink-3">{t('plugins.recordHelp')}</span> : (c.message || c.components?.length) && <span className="text-xs text-ink-3">{c.message ? keyedMessage(t, c) : c.components!.join(' · ')}</span>}
                   </span>
                   <span className={`ss-tag ${actionTone(c.action)}`}>{actionText(c.action)}</span>
                 </div>

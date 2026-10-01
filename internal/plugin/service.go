@@ -95,36 +95,61 @@ func (s *Service) Preview(ctx context.Context, r Request) (*Plan, error) {
 			c.Action = "blocked"
 			c.Message = h.Error
 		}
-		if c.Action != "blocked" && c.Action != "noop" && c.Action != "import" && c.Action != "update-available" && c.Action != "native-check" {
+		if c.Action != "blocked" && c.Action != "noop" && c.Action != "skip" && c.Action != "import" && c.Action != "update-available" && c.Action != "native-check" {
 			if err := s.verifyCommand(ctx, c.Target, c.Action, c.ID); err != nil {
 				c.Action = "blocked"
 				c.Message = err.Error()
 			}
 		}
-		if c.Action == "update" && agent == "antigravity-cli" {
-			c.Action = "blocked"
-			c.Message = "Update in Antigravity CLI to preserve native enablement; automatic reinstall updates are not supported."
+		// An update that cannot reach a target skips it, so the plugin's other Agents still update.
+		skip := func(key, message string, args map[string]string) {
+			c.Action = "skip"
+			c.Message, c.MessageKey, c.MessageArgs = message, key, args
 		}
-		if c.Action == "update" && c.Binding.Source == "" && (agent == "pi" || (agent == "opencode" && (s.ProjectRoot != "" || !strings.HasPrefix(strings.TrimPrefix(h.Version, "v"), "2.")))) {
-			c.Action = "blocked"
-			c.Message = "Update imported packages in the native client; Skillshare updates reviewed source snapshots only."
+		if c.Action == "update" && agent == "antigravity-cli" {
+			skip("plugins.skip.keepEnablement", "Update in Antigravity CLI to preserve native enablement; automatic reinstall updates are not supported.", map[string]string{"agent": "Antigravity CLI"})
+		}
+		// pi update has no project scope, and OpenCode v1 has no update command.
+		if c.Action == "update" && c.Binding.Source == "" && s.ProjectRoot != "" && agent == "pi" || c.Action == "update" && c.Binding.Source == "" && agent == "opencode" && (s.ProjectRoot != "" || !strings.HasPrefix(strings.TrimPrefix(h.Version, "v"), "2.")) {
+			skip("plugins.skip.imported", "Update imported packages in the native client; Skillshare updates reviewed source snapshots only.", nil)
 		}
 		if c.Action == "update" && agent == "opencode" && c.Binding.Source == "" {
 			help, err := s.run(ctx, "opencode", "plugin", "update", "--help")
 			if err != nil || !strings.Contains(string(help), "update") {
-				c.Action = "blocked"
-				c.Message = "Installed OpenCode does not expose a verified plugin update command."
+				skip("plugins.skip.opencodeNoUpdate", "Installed OpenCode does not expose a verified plugin update command.", nil)
 			}
 		}
-		if c.Binding.Source == "" && commandTarget(agent) && (c.Action == "install" || c.Action == "update") {
+		if c.Binding.Source == "" && commandTarget(agent) && c.Action == "install" {
 			c.Action = "blocked"
 			c.Message = "This imported plugin has no reviewed reinstall source; install or update in the native client."
+		}
+		if c.Binding.Source == "" && commandTarget(agent) && c.Action == "update" {
+			skip("plugins.skip.imported", "This imported plugin has no reviewed reinstall source; update it in the native client.", nil)
 		}
 		if c.Action == "update" && agent == "copilot" {
 			for _, item := range h.Installed {
 				if item.ID == c.ID && (!item.EnabledKnown || !item.Enabled) {
-					c.Action = "blocked"
-					c.Message = "Update in Copilot to preserve native enablement."
+					skip("plugins.skip.keepEnablement", "Update in Copilot to preserve native enablement.", map[string]string{"agent": "GitHub Copilot CLI"})
+				}
+			}
+		}
+		if c.Action == "update" && agent == "codex" && c.Binding.Source == "" {
+			// An imported plugin comes from a Codex marketplace, which Codex upgrades together
+			// with every plugin installed from it, as it also does when it starts.
+			_, market, _ := strings.Cut(c.ID, "@")
+			help, err := s.run(ctx, c.Target, "plugin", "marketplace", "--help")
+			if err != nil || !strings.Contains(string(help), "upgrade") {
+				skip("plugins.skip.codexNoUpgrade", "Installed Codex cannot upgrade marketplaces; update the plugin in Codex.", nil)
+			} else {
+				c.Message = fmt.Sprintf("Upgrades the Codex marketplace %s, which reinstalls every plugin installed from it.", market)
+				c.MessageKey, c.MessageArgs = "plugins.note.codexUpgrade", map[string]string{"market": market}
+			}
+		}
+		if c.Action == "update" && agent == "codex" && c.Binding.Source != "" {
+			for _, item := range h.Installed {
+				// Codex's add, which updates the plugin, always enables it.
+				if item.ID == c.ID && !item.Enabled {
+					skip("plugins.skip.codexDisabled", "Enable the plugin in Codex before updating it; updating would turn it back on.", nil)
 				}
 			}
 		}
