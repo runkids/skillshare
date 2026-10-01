@@ -24,9 +24,17 @@ export interface BackupInfo {
   sizeBytes: number;
 }
 
+/** Limits applied after each sync and by Clean up; 0 means no limit. */
+export interface BackupRetention {
+  maxAgeDays: number;
+  maxCount: number;
+  maxSizeMB: number;
+}
+
 export interface BackupListResponse {
   backups: BackupInfo[];
   totalSizeBytes: number;
+  retention: BackupRetention;
 }
 
 /** A file with earlier versions kept. `target`/`extra` name who uses the path, when known. */

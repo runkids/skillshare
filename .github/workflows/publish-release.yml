@@ -1,0 +1,109 @@
+name: Publish Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Verified draft to publish and distribute (e.g. v0.24.0)
+        type: string
+        required: true
+
+concurrency:
+  group: publish-release
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      sha: ${{ steps.verify.outputs.sha }}
+    steps:
+      - name: Check out the exact release tag
+        uses: actions/checkout@v4
+        with:
+          ref: refs/tags/${{ inputs.tag }}
+          fetch-depth: 0
+
+      - name: Verify release metadata, checksums and the packaged CLI
+        id: verify
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ inputs.tag }}
+        run: |
+          VERSION=$(python3 scripts/release/release.py check --tag "$TAG")
+          gh api "repos/$GITHUB_REPOSITORY/releases/latest" --jq .tag_name > "$RUNNER_TEMP/latest-tag"
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+          from sys import path
+          path.insert(0, "scripts/release")
+          from release import VERSION
+          import re
+          latest = (Path(os.environ["RUNNER_TEMP"]) / "latest-tag").read_text().strip()
+          tag = os.environ["TAG"]
+          if not re.fullmatch("v" + VERSION, latest):
+              raise SystemExit("Latest published release must have a stable vX.Y.Z tag")
+          if tuple(map(int, latest[1:].split("."))) > tuple(map(int, tag[1:].split("."))):
+              raise SystemExit("Refusing to publish or redistribute an older version")
+          PY
+          gh release download "$TAG" --dir "$RUNNER_TEMP/release-assets"
+          python3 scripts/release/release.py verify-assets --tag "$TAG" --assets "$RUNNER_TEMP/release-assets"
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Publish the verified draft
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ inputs.tag }}
+        run: |
+          if test "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = true; then
+            gh release edit "$TAG" --draft=false --latest
+          fi
+
+      - name: Check out the Homebrew tap
+        uses: actions/checkout@v4
+        with:
+          repository: runkids/homebrew-tap
+          token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          path: homebrew-tap
+
+      - name: Publish the verified Homebrew formula
+        env:
+          VERSION: ${{ steps.verify.outputs.version }}
+        run: |
+          cp "$RUNNER_TEMP/release-assets/skillshare.rb" homebrew-tap/Formula/skillshare.rb
+          cd homebrew-tap
+          git add Formula/skillshare.rb
+          if ! git diff --cached --quiet; then
+            git -c user.name='github-actions[bot]' \
+              -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
+              commit -m "chore: release skillshare v$VERSION"
+            git push origin HEAD
+          fi
+
+  docker:
+    needs: publish
+    uses: ./.github/workflows/docker-publish.yml
+    permissions:
+      contents: read
+      packages: write
+    with:
+      tag: ${{ inputs.tag }}
+      sha: ${{ needs.publish.outputs.sha }}
+
+  website:
+    needs: publish
+    uses: ./.github/workflows/website-pages.yml
+    permissions:
+      contents: read
+      deployments: write
+    secrets:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    with:
+      ref: refs/tags/${{ inputs.tag }}

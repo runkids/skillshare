@@ -104,6 +104,15 @@ Extras
 ✓ rules: 4 files, 1/1 targets OK
 ✓ commands: 3 files, 1/1 targets OK
 
+MCP
+✓ All 2 MCP server(s) OK
+
+Hooks
+✓ All 1 hook(s) in sync
+
+Plugins
+→ Plugins: none configured
+
 Version
 ✓ CLI: 0.17.0
 ✓ Skill: 0.17.0
@@ -193,9 +202,37 @@ For installed skills with file hash metadata, doctor verifies that no files have
 ### Extras
 
 When extras are configured, verifies:
+- Each extra's settings are valid (mode, `flatten`, `as`) and no two extras claim the same file
 - Source directory exists for each extra
 - Target directories are reachable
-- Reports missing source directories or unreachable targets
+- Broken symlinks in each directory target (error)
+- Files that differ from the source, as `skillshare diff` reports them (warning). Targets with `flatten` or `extension` are not compared.
+
+```text
+! rules → ~/.claude/rules: 1 file(s) out of sync (a.md missing in target)
+✗ rules → ~/.claude/rules: broken symlink gone.md
+```
+
+### MCP
+
+Runs the static part of [`mcp check`](./mcp.md): referenced environment variables are set, `command` resolves on `PATH`, client rules accept the server, and every entry is synced. Doctor does not resolve hosts or start servers; run `skillshare mcp check` or `skillshare mcp check --live` for that. Shows `info` when no server is configured.
+
+```text
+✗ docs: command no-such-mcp-binary was not found on PATH
+! docs → claude: not synced yet; run skillshare sync mcp
+```
+
+### Hooks
+
+Previews `skillshare sync hooks` without writing. A failed preview is an error. Entries that sync would still add, update or remove, conflicts with native hooks, and advisory warnings (such as an event name the Agent does not document) are warnings. Shows `info` when no hook is configured.
+
+```text
+! bash-log → claude: not synced (add)
+```
+
+### Plugins
+
+Previews `skillshare sync plugins` without fetching any source. Doctor only asks each bound Agent's native CLI what is installed, and only when a plugin package exists. Blocked bindings (for example, the Agent's CLI is not installed) and bindings that still need a sync are warnings. Checking a source for new releases stays in `skillshare plugin check`. Shows `info` when no package is configured.
 
 ### Other
 

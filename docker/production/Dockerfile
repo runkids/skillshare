@@ -9,8 +9,9 @@ COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
 ARG TARGETARCH=amd64
+ARG VERSION=dev
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=${TARGETARCH} \
-    go build -trimpath -ldflags="-s -w" -o /skillshare ./cmd/skillshare
+    go build -trimpath -ldflags="-s -w -X main.version=${VERSION}" -o /skillshare ./cmd/skillshare
 
 # Stage 2: Minimal runtime
 FROM debian:bookworm-slim

@@ -1,30 +1,77 @@
-name: Release
+name: Build Release Draft
 
 on:
-  push:
-    tags:
-      - "v*"
+  workflow_call:
+    inputs:
+      tag:
+        type: string
+        required: true
+      sha:
+        description: Commit already verified before tagging
+        type: string
+        required: true
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing draft tag to rebuild (e.g. v0.24.0)
+        required: true
+        type: string
+
+concurrency:
+  group: release-draft-${{ inputs.tag }}
+  cancel-in-progress: false
 
 permissions:
   contents: write
 
 jobs:
+  resolve:
+    runs-on: ubuntu-latest
+    outputs:
+      sha: ${{ steps.resolve.outputs.sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: refs/tags/${{ inputs.tag }}
+          fetch-depth: 0
+      - name: Verify the tag, version and approved commit
+        id: resolve
+        env:
+          TAG: ${{ inputs.tag }}
+          APPROVED_SHA: ${{ inputs.sha }}
+        run: |
+          CURRENT_SHA=$(git rev-parse HEAD)
+          python3 scripts/release/release.py check --tag "$TAG" --sha "${APPROVED_SHA:-$CURRENT_SHA}"
+          echo "sha=$CURRENT_SHA" >> "$GITHUB_OUTPUT"
+
   test:
+    needs: resolve
+    if: github.event_name == 'workflow_dispatch' && inputs.sha == ''
     uses: ./.github/workflows/test.yaml
+    with:
+      ref: ${{ needs.resolve.outputs.sha }}
 
   release:
-    needs: test
+    needs: [resolve, test]
+    if: always() && needs.resolve.result == 'success' && (needs.test.result == 'success' || needs.test.result == 'skipped')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
+          ref: ${{ needs.resolve.outputs.sha }}
           fetch-depth: 0
+
+      - name: Require an unpublished draft
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ inputs.tag }}
+        run: test "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = true
 
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: "1.23"
+          go-version-file: go.mod
 
       - name: Set up pnpm
         uses: pnpm/action-setup@v4
@@ -41,24 +88,36 @@ jobs:
       - name: Build UI assets
         run: cd ui && pnpm install --frozen-lockfile && pnpm run build
 
-      - name: Create UI dist archive
-        run: tar czf skillshare-ui-dist.tar.gz -C ui/dist .
+      - name: Create UI archive and reviewed release notes
+        env:
+          TAG: ${{ inputs.tag }}
+        run: |
+          tar czf skillshare-ui-dist.tar.gz -C ui/dist .
+          python3 scripts/release/release.py notes --tag "$TAG" > "$RUNNER_TEMP/release-notes.md"
 
-      - name: Run GoReleaser
+      - name: Build and upload draft assets
         uses: goreleaser/goreleaser-action@v6
         with:
-          version: latest
-          args: release --clean --skip=validate
+          version: v2.18.2
+          args: release --clean --release-notes=${{ runner.temp }}/release-notes.md
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+
+      - name: Verify and upload the Homebrew formula and complete checksums
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ inputs.tag }}
+        run: |
+          python3 scripts/release/release.py prepare-assets --assets dist
+          python3 scripts/release/release.py verify-assets --tag "$TAG" --assets dist
+          gh release upload "$TAG" dist/skillshare.rb dist/checksums.txt --clobber
 
       - name: Add contributors to release notes
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ inputs.tag }}
         run: |
-          TAG="${GITHUB_REF#refs/tags/}"
-          PREV_TAG=$(git tag --sort=-v:refname | grep -v "^${TAG}$" | head -1)
+          PREV_TAG=$(git describe --tags --abbrev=0 "${TAG}^" 2>/dev/null || true)
 
           if [ -z "$PREV_TAG" ]; then
             echo "No previous tag found, skipping contributors"

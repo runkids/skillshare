@@ -1,9 +1,26 @@
 name: Docker Publish
 
 on:
-  push:
-    tags:
-      - "v*"
+  release:
+    types: [published]
+  workflow_call:
+    inputs:
+      tag:
+        type: string
+        required: true
+      sha:
+        type: string
+        required: true
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Published release tag to redistribute (e.g. v0.24.0)
+        type: string
+        required: true
+
+concurrency:
+  group: docker-publish
+  cancel-in-progress: false
 
 permissions:
   contents: read
@@ -25,6 +42,23 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: refs/tags/${{ inputs.tag || github.event.release.tag_name }}
+
+      - name: Verify the published version and exact commit
+        id: version
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ inputs.tag || github.event.release.tag_name }}
+          APPROVED_SHA: ${{ inputs.sha }}
+        run: |
+          CURRENT_SHA=$(git rev-parse HEAD)
+          VERSION=$(python3 scripts/release/release.py check --tag "$TAG" --sha "${APPROVED_SHA:-$CURRENT_SHA}")
+          test "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = false
+          test "$(gh api "repos/$GITHUB_REPOSITORY/releases/latest" --jq .tag_name)" = "$TAG"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "sha=$CURRENT_SHA" >> "$GITHUB_OUTPUT"
+          echo "short_sha=${CURRENT_SHA:0:7}" >> "$GITHUB_OUTPUT"
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
@@ -45,9 +79,9 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ github.repository }}${{ matrix.image_suffix }}
           tags: |
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=sha
+            type=semver,pattern={{version}},value=${{ inputs.tag || github.event.release.tag_name }}
+            type=semver,pattern={{major}}.{{minor}},value=${{ inputs.tag || github.event.release.tag_name }}
+            type=raw,value=sha-${{ steps.version.outputs.short_sha }}
 
       - name: Build and push
         uses: docker/build-push-action@v6
@@ -55,8 +89,13 @@ jobs:
           context: .
           file: ${{ matrix.dockerfile }}
           platforms: linux/amd64,linux/arm64
+          build-args: |
+            VERSION=${{ steps.version.outputs.version }}
           push: true
           tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
+          labels: |
+            ${{ steps.meta.outputs.labels }}
+            org.opencontainers.image.version=${{ steps.version.outputs.version }}
+            org.opencontainers.image.revision=${{ steps.version.outputs.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max

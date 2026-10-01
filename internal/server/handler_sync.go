@@ -417,7 +417,7 @@ func (s *Server) backupBeforeSync(targets map[string]config.TargetConfig, skills
 			snapshot(name+"-agents", resolveExtrasTargetPath(s.projectRoot, p))
 		}
 	}
-	if _, err := backup.CleanupInDir(dir, backup.DefaultCleanupConfig()); err != nil {
+	if _, err := backup.CleanupInDir(dir, s.backupRetention()); err != nil {
 		warnings = append(warnings, "backup cleanup failed: "+err.Error())
 	}
 	return warnings

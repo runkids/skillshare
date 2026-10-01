@@ -8,16 +8,16 @@ description: >-
   "what changed since last release", this is the skill to use. Do NOT manually
   edit CHANGELOG.md without this skill — it ensures proper formatting,
   user-perspective writing, and website changelog sync. For full release
-  workflows (tests, changelog, release notes, version bump, announcements),
+  workflows (Release PR review, tests, draft assets, publication, announcements),
   use /release instead.
 argument-hint: "[tag-version]"
 metadata:
   targets: [claude, universal]
 ---
 
-Generate a CHANGELOG.md entry for a release. $ARGUMENTS specifies the tag version (e.g., `v0.16.0`) or omit to auto-detect via `git describe --tags --abbrev=0`.
+Review or generate a user-facing changelog entry. Prefer the open Release Please PR and its manifest version for an upcoming release. For historical work, $ARGUMENTS specifies the requested tag or commit range.
 
-**Scope**: This skill updates `CHANGELOG.md` and syncs the website changelog (`website/src/pages/changelog.md`). It does NOT generate RELEASE_NOTES, update version numbers, or handle the full release workflow — use `/release` for that.
+**Scope**: This skill updates `CHANGELOG.md` and syncs the website changelog (`website/src/pages/changelog.md`). It does NOT generate RELEASE_NOTES, choose a new version, or handle the full release workflow — use `/release` for that.
 
 Before acting, run `python3 scripts/ai-context.py release`. That topic is the source of truth for authorization, changelog content and synchronization rules; this skill retains the entry-generation workflow.
 
@@ -25,20 +25,17 @@ Before acting, run `python3 scripts/ai-context.py release`. That topic is the so
 
 ### Step 1: Determine Version Range
 
-```bash
-# Auto-detect latest tag
-LATEST_TAG=$(git describe --tags --abbrev=0)
-# Find previous tag
-PREV_TAG=$(git describe --tags --abbrev=0 "${LATEST_TAG}^")
+For an upcoming release, work on the Release PR branch and read `.github/release-please-manifest.json`. Verify the latest published tag and use its range to the Release PR head. Keep the proposed version; this skill does not authorize a version change. Tags may exist for unpublished drafts, so do not assume the highest local tag is the latest published release.
 
-echo "Generating changelog: $PREV_TAG → $LATEST_TAG"
-```
+For historical work, use the user-requested tags or range.
 
 ### Step 2: Collect Commits
 
 ```bash
-git log "${PREV_TAG}..${LATEST_TAG}" --oneline --no-merges
+git log <previous-published-tag>..<release-pr-head-or-requested-tag> --oneline --no-merges
 ```
+
+Review the generated Release Please entry before writing. Preserve useful manual examples and migration notes. Do not add a second entry for the same version.
 
 ### Step 3: Categorize Changes
 
@@ -48,11 +45,11 @@ Group commits by conventional commit type:
 |--------|----------|
 | `feat` | New Features |
 | `fix` | Bug Fixes |
-| `refactor` | Refactoring |
-| `docs` | Documentation |
 | `perf` | Performance |
-| `test` | Tests |
-| `chore` | Maintenance |
+| breaking change | Breaking Changes and migration notes |
+| `revert` | Reverts, when user-visible |
+
+Exclude test-only, CI-only, pure refactoring, documentation-only and internal maintenance entries from published notes.
 
 ### Step 4: Read Existing Entries for Style Reference
 
@@ -83,7 +80,7 @@ Write from the **user's perspective**. Only include changes users will notice or
 
 ### Step 6: Update CHANGELOG.md
 
-Read existing `CHANGELOG.md` and insert new entry at the top, after the header. Match the style of the most recent entries exactly.
+Edit the existing generated entry on the Release PR branch. If the requested historical entry does not exist, insert it at the appropriate position. Match the style of the most recent entries.
 
 Structural conventions (based on actual entries):
 ```markdown
@@ -133,7 +130,16 @@ The website has its own changelog page at `website/src/pages/changelog.md`. Afte
 - Website file has a `---` separator after the intro, before the first version entry
 - The release entries themselves are identical in content
 
-**How to sync**: Read the website changelog, then insert the same new entry after the `---` separator (line after intro paragraph), before the first existing version entry. Do NOT replace the entire file — only insert the new entry block.
+For an upcoming Release PR, run inside the devcontainer:
+
+```bash
+python3 scripts/release/release.py sync
+python3 scripts/release/release.py check
+```
+
+The helper normalizes the generated version heading, replaces or prepends only the newest website entry, and synchronizes the built-in skill metadata to the already proposed manifest version. It preserves website frontmatter, intro and historical entries. It does not choose or bump a version.
+
+For historical corrections, edit the matching entry in both files directly; the helper handles only the current manifest release. Review the diff and run `python3 scripts/ai-context.py check`.
 
 ## Rules
 

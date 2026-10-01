@@ -1,6 +1,8 @@
 import { ApiError } from '../../api/client';
-import type { FileBackupVersion } from '../../api/client';
+import type { BackupRetention, FileBackupVersion } from '../../api/client';
 import type { MCPBackup } from '../../api/mcp';
+import type { useT } from '../../i18n';
+import type { Locale } from '../../i18n/locales';
 import { shortenHome } from '../../lib/paths';
 
 /** One folder in a snapshot: an agents snapshot is stored under `<target>-agents`. */
@@ -42,4 +44,14 @@ export function fileBackupErrorMessage(error: unknown, t: (key: string, params?:
     return t(`backup.files.error.${error.code}`, params, error.message);
   }
   return (error as Error).message;
+}
+
+/** "30 days · 10 backups · 500 MB", for the footer and the cleanup confirmation. */
+export function retentionSummary(t: ReturnType<typeof useT>, r: BackupRetention, locale: Locale) {
+  const num = (n: number) => new Intl.NumberFormat(locale).format(n);
+  return t('backup.retention.summary', {
+    days: num(r.maxAgeDays),
+    count: r.maxCount === 0 ? t('backup.retention.anyCount') : t('backup.retention.count', { count: num(r.maxCount) }),
+    size: r.maxSizeMB === 0 ? t('backup.retention.anySize') : `${num(r.maxSizeMB)} MB`,
+  });
 }

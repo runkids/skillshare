@@ -84,4 +84,4 @@ plugins/llms-txt.ts          Local plugin: writes build/llms.txt and llms-full.t
 
 ## Deployment
 
-Static site at `https://skillshare.runkids.cc`, built and deployed to Cloudflare Pages by `.github/workflows/website-pages.yml` on pushes to `main` that touch `website/`.
+Static site at `https://skillshare.runkids.cc`, built and deployed to Cloudflare Pages by `.github/workflows/website-pages.yml` from the release tag after **Publish Release** publishes it. Pushes to `main` do not deploy; dispatch **Website Pages** with a tag or branch to redeploy or ship a docs-only fix.

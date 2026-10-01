@@ -517,6 +517,7 @@ func (s *Server) registerRoutes() {
 
 	// Backups
 	s.mux.HandleFunc("GET /api/backups", s.handleListBackups)
+	s.mux.HandleFunc("DELETE /api/backups", s.handleDeleteAllBackups)
 	s.mux.HandleFunc("DELETE /api/backups/{timestamp}", s.handleDeleteBackup)
 	s.mux.HandleFunc("POST /api/backup", s.handleCreateBackup)
 	s.mux.HandleFunc("POST /api/backup/cleanup", s.handleCleanupBackups)

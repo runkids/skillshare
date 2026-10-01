@@ -104,6 +104,15 @@ Extras
 ✓ rules: 4 files, 1/1 targets OK
 ✓ commands: 3 files, 1/1 targets OK
 
+MCP
+✓ All 2 MCP server(s) OK
+
+Hooks
+✓ All 1 hook(s) in sync
+
+Plugins
+→ Plugins: none configured
+
 Version
 ✓ CLI: 0.17.0
 ✓ Skill: 0.17.0
@@ -193,9 +202,37 @@ Doctor는 런타임 피커에 도달하기 전에 두 가지 종류의 중복 sk
 ### Extras
 
 extras가 구성된 경우 다음을 검증합니다:
+- 각 extra의 설정이 유효한지(mode, `flatten`, `as`), 두 extra가 같은 파일을 차지하지 않는지
 - 각 extra에 대한 source 디렉터리 존재 여부
 - target 디렉터리 접근 가능 여부
-- 누락된 source 디렉터리 또는 접근 불가능한 target 보고
+- 디렉터리 target 안의 깨진 심볼릭 링크(error)
+- source와 다른 파일. `skillshare diff`와 같은 방식으로 판단합니다(warning). `flatten` 또는 `extension`을 설정한 target은 비교하지 않습니다.
+
+```text
+! rules → ~/.claude/rules: 1 file(s) out of sync (a.md missing in target)
+✗ rules → ~/.claude/rules: broken symlink gone.md
+```
+
+### MCP
+
+[`mcp check`](./mcp.md)의 정적 검사를 실행합니다. 참조된 환경 변수가 설정되어 있는지, `command`를 `PATH`에서 찾을 수 있는지, 클라이언트 규칙이 서버를 허용하는지, 모든 항목이 동기화되었는지 확인합니다. Doctor는 호스트를 확인하거나 서버를 시작하지 않습니다. 필요하면 `skillshare mcp check` 또는 `skillshare mcp check --live`를 실행하세요. 구성된 서버가 없으면 `info`로 표시합니다.
+
+```text
+✗ docs: command no-such-mcp-binary was not found on PATH
+! docs → claude: not synced yet; run skillshare sync mcp
+```
+
+### Hooks
+
+파일을 쓰지 않고 `skillshare sync hooks`를 미리 봅니다. 미리 보기 실패는 error입니다. sync가 아직 추가, 업데이트 또는 제거할 항목, 네이티브 hooks와의 충돌, 참고용 경고(예: Agent가 문서화하지 않은 이벤트 이름)는 warning입니다. 구성된 hook이 없으면 `info`로 표시합니다.
+
+```text
+! bash-log → claude: not synced (add)
+```
+
+### Plugins
+
+소스를 가져오지 않고 `skillshare sync plugins`를 미리 봅니다. Doctor는 플러그인 패키지가 있을 때만 바인딩된 각 Agent의 네이티브 CLI에 설치된 항목을 묻습니다. 차단된 바인딩(예: Agent의 CLI가 설치되지 않음)과 아직 sync가 필요한 바인딩은 warning입니다. 소스의 새 릴리스 확인은 계속 `skillshare plugin check`가 담당합니다. 구성된 패키지가 없으면 `info`로 표시합니다.
 
 ### 기타
 

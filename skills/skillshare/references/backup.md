@@ -18,7 +18,7 @@ skillshare backup --delete <timestamp> [-p] [--dry-run]  # Delete one backup (ti
 
 **Location:** `~/.local/share/skillshare/backups/<timestamp>/` (XDG data dir, not config). Project agent backups: `.skillshare/backups/`.
 
-**Scope:** Local target content only. Merge-mode symlinks are skipped — they point into the source, which is already the source of truth, and `sync` recreates them. A target holding only symlinks produces no backup. Retention (10 snapshots / 30 days / 500 MB, newest always kept) runs automatically after every `sync`.
+**Scope:** Local target content only. Merge-mode symlinks are skipped — they point into the source, which is already the source of truth, and `sync` recreates them. A target holding only symlinks produces no backup. Retention (10 snapshots / 30 days / 500 MB, newest always kept) runs automatically after every `sync`. Change the count and size in the global config with `backup.max_count` and `backup.max_size_mb` (`0` = no limit).
 
 ## backup files
 

@@ -244,6 +244,12 @@ type LogConfig struct {
 	MaxEntries *int `yaml:"max_entries,omitempty"` // nil = use default (1000), 0 = unlimited, >0 = limit
 }
 
+// BackupConfig holds the retention limits for target folder backups.
+type BackupConfig struct {
+	MaxCount  *int   `yaml:"max_count,omitempty"`   // nil = use default (10), 0 = unlimited, >0 = limit
+	MaxSizeMB *int64 `yaml:"max_size_mb,omitempty"` // nil = use default (500), 0 = unlimited, >0 = limit
+}
+
 // ContextBudgetConfig holds token budget warning thresholds.
 type ContextBudgetConfig struct {
 	WarnAlwaysLoadedTokens *int `yaml:"warn_always_loaded_tokens,omitempty"`
@@ -339,6 +345,7 @@ type Config struct {
 	Audit         AuditConfig               `yaml:"audit,omitempty"`
 	Hub           HubConfig                 `yaml:"hub,omitempty"`
 	Log           LogConfig                 `yaml:"log,omitempty"`
+	Backup        BackupConfig              `yaml:"backup,omitempty"`
 	ContextBudget ContextBudgetConfig       `yaml:"context_budget,omitempty"`
 	TUI           *bool                     `yaml:"tui,omitempty"` // nil = default true
 	GitLabHosts   []string                  `yaml:"gitlab_hosts,omitempty"`

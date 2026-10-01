@@ -22,11 +22,11 @@ builds:
       - -s -w -X main.version={{.Version}}
 
 archives:
-  - format: tar.gz
+  - formats: [tar.gz]
     name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
     format_overrides:
       - goos: windows
-        format: zip
+        formats: [zip]
 
 checksum:
   name_template: "checksums.txt"
@@ -42,14 +42,19 @@ changelog:
       - "^ci:"
 
 release:
+  draft: true
+  use_existing_draft: true
+  # Release Please fills the draft from its PR body; replace it with the reviewed CHANGELOG entry.
+  mode: replace
+  replace_existing_artifacts: true
   extra_files:
     - glob: skillshare-ui-dist.tar.gz
 
 brews:
-  - repository:
+  - skip_upload: true
+    repository:
       owner: runkids
       name: homebrew-tap
-      token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
     directory: Formula
     homepage: https://github.com/runkids/skillshare
     description: Share skills across AI CLI tools

@@ -17,6 +17,11 @@ on:
     - cron: "0 3 * * *"
   workflow_dispatch:
   workflow_call:
+    inputs:
+      ref:
+        description: Exact commit to verify for a release
+        type: string
+        default: ""
 
 jobs:
   unit-test:
@@ -24,6 +29,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.sha }}
 
       - name: Check AI context routes
         run: python3 scripts/ai-context.py check
@@ -31,13 +38,18 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: "1.23"
+          go-version-file: go.mod
 
       - name: Build
         run: make build
 
+      - name: Formatting, lint and release metadata tests
+        run: |
+          make fmt-check lint
+          python3 -B -m unittest discover -s scripts/release -p '*_test.py'
+
       - name: Unit Tests
-        run: go test -v -race ./internal/...
+        run: go test -v -race ./cmd/skillshare/... ./internal/...
 
   integration-test:
     runs-on: ${{ matrix.os }}
@@ -47,11 +59,13 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.sha }}
 
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: "1.23"
+          go-version-file: go.mod
 
       - name: Build Binary
         run: make build
@@ -66,6 +80,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.sha }}
 
       - name: Docker Sandbox Tests (Offline)
         run: ./scripts/test_docker.sh
@@ -76,6 +92,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.sha }}
 
       - name: Docker Sandbox Tests (Online)
         run: ./scripts/test_docker_online.sh
@@ -85,11 +103,13 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.sha }}
 
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: "1.23"
+          go-version-file: go.mod
 
       - name: Red Team Test
         run: make test-redteam
@@ -100,11 +120,13 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.sha }}
 
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: "1.23"
+          go-version-file: go.mod
 
       - name: Red Team Signal (Code Mutation)
         run: make test-redteam-signal

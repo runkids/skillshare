@@ -1,12 +1,24 @@
 name: Website Pages
 
+# Publish Release calls this after publication so the live docs match the released
+# version; dispatch it by hand to redeploy a tag or ship a docs-only fix.
 on:
-  push:
-    branches: [main]
-    paths:
-      - "website/**"
-      - ".github/workflows/website-pages.yml"
+  workflow_call:
+    inputs:
+      ref:
+        type: string
+        required: true
+    secrets:
+      CLOUDFLARE_API_TOKEN:
+        required: true
+      CLOUDFLARE_ACCOUNT_ID:
+        required: true
   workflow_dispatch:
+    inputs:
+      ref:
+        description: Tag or branch to deploy (e.g. v0.24.0)
+        type: string
+        required: true
 
 permissions:
   contents: read
@@ -26,6 +38,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
 
       - name: Check AI context routes
         run: python3 scripts/ai-context.py check
@@ -67,5 +81,5 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: pages deploy website/build --project-name=${{ env.CLOUDFLARE_PROJECT_NAME }} --branch=${{ github.ref_name }}
+          command: pages deploy website/build --project-name=${{ env.CLOUDFLARE_PROJECT_NAME }} --branch=main
           gitHubToken: ${{ secrets.GITHUB_TOKEN }}

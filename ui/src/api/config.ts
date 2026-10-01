@@ -4,7 +4,7 @@ import type { AgentignoreResponse, AvailableTarget, ConfigSaveResponse, Skillign
 export const configApi = {
   getConfig: () => apiFetch<{ config: unknown; raw: string }>('/config'),
   /** Settings the Settings page owns; the rest of config.yaml stays untouched. */
-  patchConfig: (body: { mode?: string; logMaxEntries?: number }) =>
+  patchConfig: (body: { mode?: string; logMaxEntries?: number; backupMaxCount?: number; backupMaxSizeMB?: number }) =>
     apiFetch<{ mode: string; logMaxEntries: number | null }>('/config', {
       method: 'PATCH',
       body: JSON.stringify(body),

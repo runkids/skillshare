@@ -47,6 +47,25 @@ func DeleteInDir(backupDir, timestamp string) error {
 	return nil
 }
 
+// DeleteAllInDir removes every snapshot in backupDir and returns how many it
+// removed. It keeps going past a snapshot it cannot remove and reports them all.
+func DeleteAllInDir(backupDir string) (int, error) {
+	backups, err := ListInDir(backupDir)
+	if err != nil {
+		return 0, err
+	}
+	removed := 0
+	var errs []error
+	for _, b := range backups {
+		if err := DeleteInDir(backupDir, b.Timestamp); err != nil {
+			errs = append(errs, err)
+			continue
+		}
+		removed++
+	}
+	return removed, errors.Join(errs...)
+}
+
 // TotalSizeInDir returns the total size of all backups in backupDir in bytes.
 func TotalSizeInDir(backupDir string) (int64, error) {
 	backups, err := ListInDir(backupDir)

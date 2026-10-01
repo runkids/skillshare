@@ -74,7 +74,7 @@ skillshare search <query> -n 10     # Limit results (default: 20)
 
 ## doctor
 
-Diagnose configuration and environment issues. Also checks for sync drift.
+Diagnose configuration and environment issues. Also checks sync drift for skills, agents and extras, plus MCP servers, hooks and plugins (offline; `mcp check --live` and `plugin check` go further).
 
 ```bash
 skillshare doctor

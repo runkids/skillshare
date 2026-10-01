@@ -70,6 +70,14 @@ Default cleanup policy:
 - Remove backups older than 30 days
 - Cap total size at 500 MB
 
+Change the count and size limits in the global config, or from the retention summary on the dashboard's **Target folders** tab. `0` means no limit. The 30-day limit is fixed, and project snapshots keep the defaults.
+
+```yaml
+backup:
+  max_count: 20      # default 10
+  max_size_mb: 1000  # default 500
+```
+
 The newest snapshot is always kept, even when it alone exceeds the size cap — you are never left without a restore point.
 
 This same policy runs automatically after every `sync`, so `--cleanup` is only needed to prune on demand.
@@ -135,7 +143,7 @@ Versions saved by older releases have no reason. The last 10 of each kind are ke
 
 **Settings › Backup** in [`skillshare ui`](/docs/reference/commands/ui) has three tabs:
 
-- **Target folders** — the snapshots above, grouped by day. Filter by target or **Agents only**. Open a snapshot to see each folder's file count and size, **Restore** any one of them (skill and agent entries alike), **Copy path**, or **Delete this backup**. **Back up now** and **Clean up old backups** match `backup` and `--cleanup`.
+- **Target folders** — the snapshots above, grouped by day. Filter by target or **Agents only**. Open a snapshot to see each folder's file count and size, **Restore** any one of them (skill and agent entries alike), **Copy path**, or **Delete this backup**. **Back up now** and **Clean up old backups** match `backup` and `--cleanup`. The retention summary next to them opens a panel to change the count and size limits, and **Delete all** removes every snapshot after you confirm. Files, MCP and Hooks backups are not affected.
 - **Files** — the file history above. Pick a file to see its versions with their reason, then **Preview and restore** shows the diff with the current file or the full version. A linked location is replaced by a regular file only after you confirm **Restore and cut the link**.
 - **MCP** — the backups taken before each MCP config write, grouped by Agent config, with the servers each one added, changed or removed. **Preview and restore** opens the same restore dialog as the **MCP** page (or [`mcp restore`](/docs/reference/commands/mcp) on the command line).
 

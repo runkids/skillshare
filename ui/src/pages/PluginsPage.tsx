@@ -1,7 +1,7 @@
 import { Fragment, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { ChevronRight, Download, FolderOpen, Package, Plus, RefreshCw, Trash2, X } from 'lucide-react';
-import { pluginsApi, syncAction, targetMap, type PluginPlan, type PluginRequest, type PluginResult, type PluginTarget, type PluginInventory } from '../api/plugins';
+import { ChevronRight, Download, FolderOpen, Package, Plus, RefreshCw, Share2, Trash2, X } from 'lucide-react';
+import { pluginShareCommand, pluginsApi, syncAction, targetMap, type PluginPlan, type PluginRequest, type PluginResult, type PluginTarget, type PluginInventory } from '../api/plugins';
 import AgentIcon from '../components/AgentIcon';
 import Button from '../components/Button';
 import DialogShell from '../components/DialogShell';
@@ -14,6 +14,7 @@ import Spinner from '../components/Spinner';
 import { RailLayout, RailLine, SyncBox } from '../components/StatusRail';
 import PluginAddDialog from '../components/plugins/PluginAddDialog';
 import PluginFilesDialog from '../components/plugins/PluginFilesDialog';
+import PluginShareDialog from '../components/plugins/PluginShareDialog';
 import PluginAgents from '../components/plugins/PluginAgents';
 import { keyedMessage, outcomeStatus } from '../components/plugins/outcomeText';
 import PluginList, { VersionChange } from '../components/plugins/PluginList';
@@ -35,6 +36,7 @@ export default function PluginsPage() {
   const error = quick.error ?? full.error;
   const [adding, setAdding] = useState<{ source?: string; name?: string; bound?: PluginInventory['packages'][string]['bindings']; recorded?: PluginInventory['packages'][string] } | null>(null);
   const [importing, setImporting] = useState(false);
+  const [sharing, setSharing] = useState<string[] | null>(null);
   const [browsing, setBrowsing] = useState<{ name: string; source?: string } | null>(null);
   const [review, setReview] = useState<{ request: PluginRequest; plan: PluginPlan } | null>(null);
   const [busy, setBusy] = useState(false);
@@ -89,6 +91,8 @@ export default function PluginsPage() {
   const pluginTargets = targetMap(data?.targetDefinitions);
   const packages = Object.entries(data?.packages ?? {});
   const outcomes = result?.result?.results ?? [];
+  // A plugin with no Agent yet has only what was recorded when it was added.
+  const shareable = packages.map(([name, pack]) => ({ name, command: pluginShareCommand(name, Object.values(pack.bindings).find((b) => b?.source) ?? pack) })).filter((p) => p.command);
   const todo = packages.flatMap(([name, pack]) => Object.entries(pack.bindings).map(([target, b]) => ({ name, target, word: syncAction(b!, data?.hosts.find((h) => h.target === target)) }))).filter((x) => x.word);
   const pending = todo.length;
   const actionTone = (action: string) => (action === 'blocked' ? 'bad' : action === 'noop' ? '' : action === 'skip' ? 'warn' : 'inf');
@@ -108,6 +112,7 @@ export default function PluginsPage() {
         ] : []),
         // Only a plugin added from a source has a local copy to read; an imported one lives in its Agent.
         ...(source ? [{ key: 'files', label: t('plugins.viewFiles'), icon: <FolderOpen size={14} />, onSelect: () => setBrowsing({ name, source }) }] : []),
+        ...(shareable.some((p) => p.name === name) ? [{ key: 'share', label: t('plugins.share'), icon: <Share2 size={14} />, onSelect: () => setSharing([name]) }] : []),
         { key: 'remove', label: t('plugins.remove'), icon: <Trash2 size={14} />, danger: true, onSelect: () => begin({ action: 'remove', name }, name) },
       ],
     });
@@ -159,6 +164,7 @@ export default function PluginsPage() {
   return (
     <div className="ss-wrap animate-fade-in">
       <PageHeader title={t('plugins.title')} subtitle={t('plugins.subtitle')} actions={<>
+        {shareable.length > 0 && <Button variant="ghost" disabled={busy} onClick={() => setSharing(shareable.map((p) => p.name))}><Share2 size={15} />{t('plugins.share')}</Button>}
         {packages.length > 0 && <Button variant="ghost" loading={working === 'check'} disabled={busy} onClick={() => begin({ action: 'check' }, 'check')}><RefreshCw size={15} />{t('plugins.check')}</Button>}
         {addActions}
       </>} />
@@ -173,6 +179,7 @@ export default function PluginsPage() {
         )}
       </RailLayout>}
 
+      {sharing && <PluginShareDialog plugins={shareable} initial={sharing} onClose={() => setSharing(null)} />}
       {browsing && <PluginFilesDialog name={browsing.name} source={browsing.source} onClose={() => setBrowsing(null)} />}
       {adding && <PluginAddDialog initialName={adding.name} initialSource={adding.source} bound={adding.bound} recorded={adding.recorded} onClose={() => setAdding(null)} onPreview={preview} />}
 

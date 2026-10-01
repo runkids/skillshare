@@ -1,0 +1,144 @@
+name: Release Please
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: release-please
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+    outputs:
+      release_sha: ${{ steps.pending.outputs.sha }}
+      release_pr: ${{ steps.pending.outputs.number }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Find a merged release awaiting verification
+        id: pending
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh pr list --repo "$GITHUB_REPOSITORY" --base main --state merged \
+            --label 'autorelease: pending' --limit 2 --json number,mergeCommit > "$RUNNER_TEMP/pending.json"
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          pending = json.loads((Path(os.environ["RUNNER_TEMP"]) / "pending.json").read_text())
+          if len(pending) > 1:
+              raise SystemExit("Resolve multiple pending releases before creating a tag")
+          if pending:
+              with open(os.environ["GITHUB_OUTPUT"], "a") as output:
+                  output.write(f"sha={pending[0]['mergeCommit']['oid']}\nnumber={pending[0]['number']}\n")
+          PY
+
+      - name: Create or update the Release PR
+        id: release_pr
+        if: steps.pending.outputs.sha == ''
+        uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
+        with:
+          config-file: .github/release-please-config.json
+          manifest-file: .github/release-please-manifest.json
+          target-branch: main
+          skip-github-release: true
+
+      - name: Check out the Release PR
+        if: steps.release_pr.outputs.pr != ''
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ fromJSON(steps.release_pr.outputs.pr).headBranchName }}
+
+      - name: Synchronize version and website changelog
+        if: steps.release_pr.outputs.pr != ''
+        run: |
+          python3 scripts/release/release.py sync
+          git add CHANGELOG.md website/src/pages/changelog.md skills/skillshare/SKILL.md
+          if ! git diff --cached --quiet; then
+            git -c user.name='github-actions[bot]' \
+              -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
+              commit -m 'chore(release): synchronize release metadata'
+            git push origin HEAD
+          fi
+
+  test:
+    needs: prepare
+    if: needs.prepare.outputs.release_sha != ''
+    uses: ./.github/workflows/test.yaml
+    with:
+      ref: ${{ needs.prepare.outputs.release_sha }}
+
+  tag:
+    needs: [prepare, test]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+    outputs:
+      tag: ${{ steps.release.outputs.tag_name }}
+      sha: ${{ steps.release.outputs.sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.prepare.outputs.release_sha }}
+
+      - name: Verify the approved version and commit
+        id: version
+        env:
+          APPROVED_SHA: ${{ needs.prepare.outputs.release_sha }}
+          RELEASE_PR: ${{ needs.prepare.outputs.release_pr }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION=$(python3 scripts/release/release.py check --sha "$APPROVED_SHA")
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          gh pr list --repo "$GITHUB_REPOSITORY" --base main --state merged \
+            --label 'autorelease: pending' --limit 2 --json number,mergeCommit > "$RUNNER_TEMP/pending.json"
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          pending = json.loads((Path(os.environ["RUNNER_TEMP"]) / "pending.json").read_text())
+          expected = [{"number": int(os.environ["RELEASE_PR"]), "mergeCommit": {"oid": os.environ["APPROVED_SHA"]}}]
+          if pending != expected:
+              raise SystemExit("Pending release changed while tests were running; rerun verification")
+          PY
+
+      - name: Create the tag and draft release after tests pass
+        id: release
+        uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
+        with:
+          config-file: .github/release-please-config.json
+          manifest-file: .github/release-please-manifest.json
+          target-branch: main
+          skip-github-pull-request: true
+
+      - name: Confirm Release Please tagged the verified commit
+        env:
+          APPROVED_SHA: ${{ needs.prepare.outputs.release_sha }}
+          CREATED_SHA: ${{ steps.release.outputs.sha }}
+          CREATED_TAG: ${{ steps.release.outputs.tag_name }}
+          CREATED: ${{ steps.release.outputs.release_created }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          test "$CREATED" = true
+          test "$CREATED_SHA" = "$APPROVED_SHA"
+          test "$CREATED_TAG" = "v$VERSION"
+
+  package:
+    needs: tag
+    uses: ./.github/workflows/release.yaml
+    permissions:
+      contents: write
+    with:
+      tag: ${{ needs.tag.outputs.tag }}
+      sha: ${{ needs.tag.outputs.sha }}

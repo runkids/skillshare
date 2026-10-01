@@ -137,7 +137,8 @@ func cmdDoctorGlobal(jsonMode bool) error {
 	}
 
 	runDoctorChecks(cfg, result, false)
-	checkExtras(cfg.Extras, result, false, cfg.EffectiveSkillsSource(), cfg.EffectiveExtrasSource(), "", "")
+	checkExtras(cfg.Extras, result, false, cfg.EffectiveSkillsSource(), cfg.EffectiveExtrasSource(), "", "", func() error { return cfg.ValidateExtras() })
+	checkNativeResources(cfg, "", result)
 	ui.Header("Storage")
 	checkBackupStatus(result, false, backup.BackupDir())
 	checkTrashStatus(result, trash.TrashDir())
@@ -195,7 +196,8 @@ func cmdDoctorProject(root string, jsonMode bool) error {
 	}
 
 	runDoctorChecks(cfg, result, true)
-	checkExtras(rt.config.Extras, result, true, "", "", root, rt.config.EffectiveExtrasSource(root))
+	checkExtras(rt.config.Extras, result, true, "", "", root, rt.config.EffectiveExtrasSource(root), func() error { return rt.config.ValidateExtras(root) })
+	checkNativeResources(nil, root, result)
 	ui.Header("Storage")
 	checkBackupStatus(result, true, "")
 	checkTrashStatus(result, trash.ProjectTrashDir(root))
@@ -1097,7 +1099,7 @@ func checkDuplicateSkills(cfg *config.Config, result *doctorResult, discovered [
 }
 
 // checkExtras verifies extras source directories exist and targets are reachable.
-func checkExtras(extras []config.ExtraConfig, result *doctorResult, isProject bool, source, extrasSource, projectRoot, projectExtrasParent string) {
+func checkExtras(extras []config.ExtraConfig, result *doctorResult, isProject bool, source, extrasSource, projectRoot, projectExtrasParent string, validate func() error) {
 	if len(extras) == 0 {
 		return
 	}
@@ -1105,9 +1107,17 @@ func checkExtras(extras []config.ExtraConfig, result *doctorResult, isProject bo
 	ui.Header("Extras")
 
 	var details []string
-	hasIssue := false
+	hasIssue, hasError := false, false
 
 	for _, extra := range extras {
+		if err := config.ValidateExtraConfig(extra); err != nil {
+			result.addError()
+			ui.Error("%s: %v", extra.Name, err)
+			details = append(details, fmt.Sprintf("%s: %v", extra.Name, err))
+			hasIssue, hasError = true, true
+			continue
+		}
+
 		var sourceDir string
 		if isProject {
 			sourceDir = config.ResolveExtrasSourceDirProject(extra, projectExtrasParent, projectRoot)
@@ -1126,20 +1136,21 @@ func checkExtras(extras []config.ExtraConfig, result *doctorResult, isProject bo
 
 		reachable := 0
 		var unreachableTargets []string
+		var targetErrors, targetWarnings []string
 		for _, t := range extra.Targets {
-			targetPath := config.ExpandPath(t.Path)
-			if isProject && !filepath.IsAbs(targetPath) {
-				targetPath = filepath.Join(projectRoot, targetPath)
-			}
+			targetPath := resolveDoctorExtraTarget(t.Path, isProject, projectRoot)
 			if _, err := os.Stat(filepath.Dir(targetPath)); err == nil {
 				reachable++
+				errs, warns := extraTargetFindings(extra, t, sourceDir, targetPath)
+				targetErrors = append(targetErrors, errs...)
+				targetWarnings = append(targetWarnings, warns...)
 			} else {
 				unreachableTargets = append(unreachableTargets, t.Path)
 			}
 		}
-		if reachable == len(extra.Targets) {
+		if reachable == len(extra.Targets) && len(targetErrors)+len(targetWarnings) == 0 {
 			ui.Success("%s: %d files, %d/%d targets OK", extra.Name, len(files), reachable, len(extra.Targets))
-		} else {
+		} else if reachable < len(extra.Targets) {
 			result.addWarning()
 			ui.Warning("%s: %d files, %d/%d targets unreachable", extra.Name, len(files), len(extra.Targets)-reachable, len(extra.Targets))
 			for _, t := range unreachableTargets {
@@ -1148,11 +1159,33 @@ func checkExtras(extras []config.ExtraConfig, result *doctorResult, isProject bo
 			details = append(details, fmt.Sprintf("%s: %d/%d targets unreachable", extra.Name, len(extra.Targets)-reachable, len(extra.Targets)))
 			hasIssue = true
 		}
+		printResourceFindings(targetErrors, targetWarnings)
+		for range targetErrors {
+			result.addError()
+		}
+		for range targetWarnings {
+			result.addWarning()
+		}
+		details = append(append(details, targetErrors...), targetWarnings...)
+		hasIssue = hasIssue || len(targetErrors)+len(targetWarnings) > 0
+		hasError = hasError || len(targetErrors) > 0
 	}
 
-	if hasIssue {
+	if !hasError {
+		if err := validate(); err != nil {
+			result.addError()
+			ui.Error("%v", err)
+			details = append(details, err.Error())
+			hasIssue, hasError = true, true
+		}
+	}
+
+	switch {
+	case hasError:
+		result.addCheck("extras", checkError, "Some extras have errors", details)
+	case hasIssue:
 		result.addCheck("extras", checkWarning, "Some extras have issues", details)
-	} else {
+	default:
 		result.addCheck("extras", checkPass, fmt.Sprintf("All %d extra(s) OK", len(extras)), nil)
 	}
 }

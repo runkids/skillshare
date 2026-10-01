@@ -20,6 +20,8 @@ export const backupsApi = {
       method: 'POST',
       body: JSON.stringify(opts),
     }),
+  deleteAllBackups: () =>
+    apiFetch<{ success: boolean; removed: number }>('/backups', { method: 'DELETE' }),
   deleteBackup: (timestamp: string) =>
     apiFetch<{ success: boolean }>(`/backups/${encodeURIComponent(timestamp)}`, { method: 'DELETE' }),
   // File history: earlier versions of single files skillshare rewrote

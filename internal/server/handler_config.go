@@ -41,13 +41,15 @@ var syncModes = []string{"merge", "copy", "symlink"}
 
 // handlePatchConfig — PATCH /api/config
 // Sets single settings the Settings page owns, so the UI never rewrites the whole YAML.
-// Both fields live in the global config only; project mode has no default mode or log limit.
+// All fields live in the global config only; project mode has no default mode, log limit or backup limits.
 func (s *Server) handlePatchConfig(w http.ResponseWriter, r *http.Request) {
 	start := time.Now()
 
 	var body struct {
-		Mode          *string `json:"mode"`
-		LogMaxEntries *int    `json:"logMaxEntries"`
+		Mode            *string `json:"mode"`
+		LogMaxEntries   *int    `json:"logMaxEntries"`
+		BackupMaxCount  *int    `json:"backupMaxCount"`
+		BackupMaxSizeMB *int64  `json:"backupMaxSizeMB"`
 	}
 	if err := decodeJSON(w, r, &body, defaultJSONBodyLimit); err != nil {
 		if !errors.Is(err, errBodyTooLarge) {
@@ -55,8 +57,8 @@ func (s *Server) handlePatchConfig(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
-	if body.Mode == nil && body.LogMaxEntries == nil {
-		writeError(w, http.StatusBadRequest, "mode or logMaxEntries is required")
+	if body.Mode == nil && body.LogMaxEntries == nil && body.BackupMaxCount == nil && body.BackupMaxSizeMB == nil {
+		writeError(w, http.StatusBadRequest, "mode, logMaxEntries, backupMaxCount or backupMaxSizeMB is required")
 		return
 	}
 	if body.Mode != nil && !slices.Contains(syncModes, *body.Mode) {
@@ -65,6 +67,10 @@ func (s *Server) handlePatchConfig(w http.ResponseWriter, r *http.Request) {
 	}
 	if body.LogMaxEntries != nil && *body.LogMaxEntries < 0 {
 		writeError(w, http.StatusBadRequest, "logMaxEntries cannot be negative")
+		return
+	}
+	if body.BackupMaxCount != nil && *body.BackupMaxCount < 0 || body.BackupMaxSizeMB != nil && *body.BackupMaxSizeMB < 0 {
+		writeError(w, http.StatusBadRequest, "backup limits cannot be negative")
 		return
 	}
 
@@ -84,6 +90,14 @@ func (s *Server) handlePatchConfig(w http.ResponseWriter, r *http.Request) {
 	if body.LogMaxEntries != nil {
 		s.cfg.Log.MaxEntries = body.LogMaxEntries
 		args["log_max_entries"] = *body.LogMaxEntries
+	}
+	if body.BackupMaxCount != nil {
+		s.cfg.Backup.MaxCount = body.BackupMaxCount
+		args["backup_max_count"] = *body.BackupMaxCount
+	}
+	if body.BackupMaxSizeMB != nil {
+		s.cfg.Backup.MaxSizeMB = body.BackupMaxSizeMB
+		args["backup_max_size_mb"] = *body.BackupMaxSizeMB
 	}
 	if err := s.saveConfig(); err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to save config: "+err.Error())

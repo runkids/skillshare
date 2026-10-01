@@ -62,3 +62,4 @@ MEMORY.md
 openspec/.vector-search.db*
 .spectra.yaml
 /specs/
+.archify/

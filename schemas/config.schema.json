@@ -109,6 +109,15 @@
     "hub": {
       "$ref": "#/$defs/hubConfig"
     },
+    "backup": {
+      "type": "object",
+      "description": "Retention limits for target folder backups, applied after each sync and by backup --cleanup. Backups older than 30 days are always removed, and the newest is always kept.",
+      "additionalProperties": false,
+      "properties": {
+        "max_count": {"type": "integer", "minimum": 0, "default": 10, "description": "Most backups to keep. 0 for unlimited."},
+        "max_size_mb": {"type": "integer", "minimum": 0, "default": 500, "description": "Most total size in MB. 0 for unlimited."}
+      }
+    },
     "tui": {
       "type": "boolean",
       "description": "Enable or disable interactive TUI mode globally. When false, all commands use plain text output (equivalent to --no-tui on every command).",

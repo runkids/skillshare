@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"skillshare/internal/config"
 )
 
 // CleanupConfig holds backup cleanup configuration
@@ -23,6 +25,22 @@ func DefaultCleanupConfig() CleanupConfig {
 		MaxCount:  10,                  // Keep last 10 backups
 		MaxSizeMB: 500,                 // 500 MB max
 	}
+}
+
+// RetentionConfig returns the defaults with the limits set in the global
+// config's backup section. A nil config, or a negative limit, keeps the default.
+func RetentionConfig(cfg *config.Config) CleanupConfig {
+	c := DefaultCleanupConfig()
+	if cfg == nil {
+		return c
+	}
+	if n := cfg.Backup.MaxCount; n != nil && *n >= 0 {
+		c.MaxCount = *n
+	}
+	if n := cfg.Backup.MaxSizeMB; n != nil && *n >= 0 {
+		c.MaxSizeMB = *n
+	}
+	return c
 }
 
 // Cleanup removes old backups from the global backup dir.

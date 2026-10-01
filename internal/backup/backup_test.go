@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"testing"
 	"time"
+
+	"skillshare/internal/config"
 )
 
 func TestCopyDir_RegularFiles(t *testing.T) {
@@ -604,5 +606,21 @@ func assertFileContent(t *testing.T, path, expected string) {
 	}
 	if string(data) != expected {
 		t.Errorf("%s: got %q, want %q", path, string(data), expected)
+	}
+}
+
+func TestRetentionConfig_OverridesOnlySetLimits(t *testing.T) {
+	count, size, negative := 3, int64(0), -1
+	got := []CleanupConfig{
+		RetentionConfig(nil),
+		RetentionConfig(&config.Config{Backup: config.BackupConfig{MaxCount: &count, MaxSizeMB: &size}}),
+		RetentionConfig(&config.Config{Backup: config.BackupConfig{MaxCount: &negative}}),
+	}
+	def := DefaultCleanupConfig()
+	want := []CleanupConfig{def, {MaxAge: def.MaxAge, MaxCount: 3, MaxSizeMB: 0}, def}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Errorf("case %d: got %+v, want %+v", i, got[i], want[i])
+		}
 	}
 }

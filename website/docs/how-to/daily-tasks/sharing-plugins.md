@@ -90,6 +90,15 @@ skillshare sync plugins --no-tui
 A plugin's menu has **View files**: the reviewed local copy of its source, read only,
 with rendered Markdown. An imported plugin has no local copy, so it has no such entry.
 
+**Share** in the page header, or in a plugin's menu, lists the plugins added from an
+HTTPS Git source. Tick several and copy one command that adds them all in order, each
+with the same source, plugin, name, ref, and entry. Every add passes `-g`, so the
+plugins go to the global configuration even when the command runs inside a project.
+By default the command also passes `--no-tui`, so it adds every plugin to Skillshare
+without prompting; whoever runs it then ticks Agents on the Plugins page to install. Tick **Ask which Agents to install each
+plugin to** to leave out `--no-tui`, so each add opens its Agent picker instead. Plugins from a local directory are not listed, because the path
+only exists on your machine.
+
 Plugins are separate from ordinary skills and MCP synchronization. Their bundled
 components are not also copied into standalone Skillshare sources.
 

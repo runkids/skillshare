@@ -104,6 +104,15 @@ Extras
 ✓ rules: 4 files, 1/1 targets OK
 ✓ commands: 3 files, 1/1 targets OK
 
+MCP
+✓ All 2 MCP server(s) OK
+
+Hooks
+✓ All 1 hook(s) in sync
+
+Plugins
+→ Plugins: none configured
+
 Version
 ✓ CLI: 0.17.0
 ✓ Skill: 0.17.0
@@ -193,9 +202,37 @@ Doctor 會在兩類重複 skill 風險到達 runtime picker 之前先標示出�
 ### Extras
 
 當有設定 extras 時，會驗證：
+- 每個 extra 的設定有效（mode、`flatten`、`as`），且沒有兩個 extras 搶同一個檔案
 - 每個 extra 的 source 目錄存在
 - Target 目錄可以連通
-- 回報遺失的 source 目錄或無法連通的 targets
+- 目錄型 target 裡的失效符號連結（error）
+- 與 source 不一致的檔案，判斷方式同 `skillshare diff`（warning）。設定了 `flatten` 或 `extension` 的 target 不做比對。
+
+```text
+! rules → ~/.claude/rules: 1 file(s) out of sync (a.md missing in target)
+✗ rules → ~/.claude/rules: broken symlink gone.md
+```
+
+### MCP
+
+執行 [`mcp check`](./mcp.md) 的靜態檢查：引用的環境變數有設定、`command` 能在 `PATH` 找到、client 規則接受這個 server，以及每個項目都已同步。Doctor 不解析 host，也不啟動 server；需要時請執行 `skillshare mcp check` 或 `skillshare mcp check --live`。沒有設定任何 server 時顯示 `info`。
+
+```text
+✗ docs: command no-such-mcp-binary was not found on PATH
+! docs → claude: not synced yet; run skillshare sync mcp
+```
+
+### Hooks
+
+預覽 `skillshare sync hooks`，不寫入任何檔案。預覽失敗是 error。Sync 還會新增、更新或移除的項目、與原生 hooks 的衝突，以及提示性警告（例如 Agent 未記載的事件名稱）是 warning。沒有設定 hook 時顯示 `info`。
+
+```text
+! bash-log → claude: not synced (add)
+```
+
+### Plugins
+
+預覽 `skillshare sync plugins`，不抓取任何來源。Doctor 只詢問各綁定 Agent 的原生 CLI 目前安裝了什麼，而且只在有 plugin package 時才會這樣做。被阻擋的綁定（例如 Agent 的 CLI 沒有安裝）和仍需 sync 的綁定是 warning。檢查來源是否有新版本仍由 `skillshare plugin check` 負責。沒有設定 package 時顯示 `info`。
 
 ### 其他
 

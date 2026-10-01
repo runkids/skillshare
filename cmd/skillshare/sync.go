@@ -674,7 +674,7 @@ func backupTargetsBeforeSync(cfg *config.Config) {
 	// Pre-sync backups are automatic, so retention must be too — otherwise
 	// every sync adds a snapshot that nothing ever removes.
 	defer func() {
-		if _, err := backup.Cleanup(backup.DefaultCleanupConfig()); err != nil {
+		if _, err := backup.Cleanup(backup.RetentionConfig(cfg)); err != nil {
 			ui.Warning("Failed to clean up old backups: %v", err)
 		}
 	}()

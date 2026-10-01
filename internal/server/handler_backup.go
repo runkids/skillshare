@@ -57,6 +57,15 @@ func (s *Server) backupDir() string {
 	return backup.BackupDir()
 }
 
+// backupRetention is the global config's retention limits; project snapshots
+// keep the defaults, since project configs have no backup section.
+func (s *Server) backupRetention() backup.CleanupConfig {
+	if s.IsProjectMode() {
+		return backup.DefaultCleanupConfig()
+	}
+	return backup.RetentionConfig(s.cfg)
+}
+
 // backupRestoreDest maps a snapshot entry to the directory it restores into:
 // "<target>-agents" is that target's agents directory, a bare target name its
 // skills directory (global mode only; project snapshots hold agents only).
@@ -94,9 +103,15 @@ func (s *Server) handleListBackups(w http.ResponseWriter, r *http.Request) {
 		items = append(items, item)
 	}
 
+	retention := s.backupRetention()
 	writeJSON(w, map[string]any{
 		"backups":        items,
 		"totalSizeBytes": total,
+		"retention": map[string]any{
+			"maxAgeDays": int(retention.MaxAge.Hours() / 24),
+			"maxCount":   retention.MaxCount,
+			"maxSizeMB":  retention.MaxSizeMB,
+		},
 	})
 }
 
@@ -179,8 +194,7 @@ func (s *Server) handleCleanupBackups(w http.ResponseWriter, r *http.Request) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	cfg := backup.DefaultCleanupConfig()
-	removed, err := backup.CleanupInDir(s.backupDir(), cfg)
+	removed, err := backup.CleanupInDir(s.backupDir(), s.backupRetention())
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -331,6 +345,23 @@ func (s *Server) handleValidateRestore(w http.ResponseWriter, r *http.Request) {
 		"backupSizeBytes":  backupSize,
 		"currentIsSymlink": isSymlink,
 	})
+}
+
+// handleDeleteAllBackups removes every snapshot folder — DELETE /api/backups
+func (s *Server) handleDeleteAllBackups(w http.ResponseWriter, r *http.Request) {
+	start := time.Now()
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	removed, err := backup.DeleteAllInDir(s.backupDir())
+	args := map[string]any{"action": "delete-all", "removed": removed, "scope": "ui"}
+	if err != nil {
+		s.writeOpsLog("backup", "error", start, args, err.Error())
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	s.writeOpsLog("backup", "ok", start, args, "")
+	writeJSON(w, map[string]any{"success": true, "removed": removed})
 }
 
 // handleDeleteBackup removes one snapshot folder — DELETE /api/backups/{timestamp}

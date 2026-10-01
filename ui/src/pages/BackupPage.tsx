@@ -17,7 +17,8 @@ import { useToast } from '../components/Toast';
 import FileBackups from '../components/backups/FileBackups';
 import HooksBackups from '../components/backups/HooksBackups';
 import MCPBackups from '../components/backups/MCPBackups';
-import { backupItem, filterItems } from '../components/backups/backupView';
+import RetentionPopover from '../components/backups/RetentionPopover';
+import { backupItem, filterItems, retentionSummary } from '../components/backups/backupView';
 import { TargetAgents } from '../components/targetAgents';
 import { useAppContext } from '../context/AppContext';
 import { formatDateTime, formatRelativeTime, formatSize, useI18n, useT } from '../i18n';
@@ -117,6 +118,7 @@ function useCreateBackup() {
 /** Snapshots of whole target folders, taken before each sync. */
 function FolderBackups({ creating }: { creating: boolean }) {
   const t = useT();
+  const { isProjectMode } = useAppContext();
   const { locale } = useI18n();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -124,6 +126,7 @@ function FolderBackups({ creating }: { creating: boolean }) {
   const { data, isPending, error } = useQuery({ queryKey: queryKeys.backups, queryFn: () => api.listBackups(), staleTime: staleTimes.backups });
   const [filter, setFilter] = useState('');
   const [cleanupOpen, setCleanupOpen] = useState(false);
+  const [deleteAllOpen, setDeleteAllOpen] = useState(false);
   const [deleting, setDeleting] = useState<BackupInfo | null>(null);
   const [open, setOpen] = useState<string | null>(null);
   const [restore, setRestore] = useState<{ backup: BackupInfo; target: string } | null>(null);
@@ -137,6 +140,16 @@ function FolderBackups({ creating }: { creating: boolean }) {
     mutationFn: () => api.cleanupBackups(),
     onSuccess: (res) => { toast(t('backup.toast.cleanedUp', { count: res.removed }), 'success'); refresh(); setCleanupOpen(false); },
     onError: (e: Error) => { toast(e.message, 'error'); setCleanupOpen(false); },
+  });
+  const removeAll = useMutation({
+    mutationFn: () => api.deleteAllBackups(),
+    onSuccess: (res) => { toast(t('backup.toast.deletedAll', { count: res.removed }), 'success'); refresh(); setDeleteAllOpen(false); },
+    onError: (e: Error) => { toast(e.message, 'error'); refresh(); setDeleteAllOpen(false); },
+  });
+  const limits = useMutation({
+    mutationFn: (l: { maxCount: number; maxSizeMB: number }) => api.patchConfig({ backupMaxCount: l.maxCount, backupMaxSizeMB: l.maxSizeMB }),
+    onSuccess: () => { toast(t('settings.toast.saved'), 'success'); refresh(); void queryClient.invalidateQueries({ queryKey: queryKeys.config }); },
+    onError: (e: Error) => toast(e.message, 'error'),
   });
   const remove = useMutation({
     mutationFn: (b: BackupInfo) => api.deleteBackup(b.timestamp),
@@ -178,20 +191,26 @@ function FolderBackups({ creating }: { creating: boolean }) {
         <EmptyState icon={Archive} title={t('backup.empty.title')} description={t('backup.empty.description')} />
       ) : (
         <>
-          {(targets.length > 1 || bothKinds) && (
-            <Select
-              className="self-start"
-              prefix={t('backup.filter.label')}
-              chip={{ clearValue: '', clearLabel: t('backup.filter.clear') }}
-              value={filter}
-              onChange={setFilter}
-              options={[
-                { value: '', label: t('backup.filter.all') },
-                ...(targets.length > 1 ? targets.map((name) => ({ value: name, label: name, icon: <AgentIcon target={name} size={14} /> })) : []),
-                ...(bothKinds ? [{ value: 'agents', label: t('backup.filter.agents') }] : []),
-              ]}
-            />
-          )}
+          <div className="flex flex-wrap items-center gap-2">
+            {(targets.length > 1 || bothKinds) && (
+              <Select
+                className="self-start"
+                prefix={t('backup.filter.label')}
+                chip={{ clearValue: '', clearLabel: t('backup.filter.clear') }}
+                value={filter}
+                onChange={setFilter}
+                options={[
+                  { value: '', label: t('backup.filter.all') },
+                  ...(targets.length > 1 ? targets.map((name) => ({ value: name, label: name, icon: <AgentIcon target={name} size={14} /> })) : []),
+                  ...(bothKinds ? [{ value: 'agents', label: t('backup.filter.agents') }] : []),
+                ]}
+              />
+            )}
+            <span className="flex-1" />
+            {data?.retention && <RetentionPopover retention={data.retention} editable={!isProjectMode} saving={limits.isPending} onSave={(l) => limits.mutateAsync(l)} />}
+            <button type="button" className="ss-btn sm ghost" onClick={() => setCleanupOpen(true)}><Trash2 size={14} />{t('backup.actions.cleanup')}</button>
+            <button type="button" className="ss-btn sm ghost !text-bad" onClick={() => setDeleteAllOpen(true)}><Trash2 size={14} />{t('backup.actions.deleteAll')}</button>
+          </div>
           <div className="ss-list">
             {rows.length === 0 && <div className="ss-r text-[13px] text-ink-3">{t('backup.filter.empty')}</div>}
             {dayGroups(rows, locale).map((g, gi) => (
@@ -252,9 +271,6 @@ function FolderBackups({ creating }: { creating: boolean }) {
               {data && data.totalSizeBytes > 0 ? ` · ${formatSize(data.totalSizeBytes, locale)}` : ''}
               {` · ${shortenHome(backupsDir(backups[0].path))}`}
             </span>
-            <span className="flex-1" />
-            <span>{t('backup.footer.retention')}</span>
-            <button type="button" className="ss-btn sm ghost" onClick={() => setCleanupOpen(true)}><Trash2 size={14} />{t('backup.actions.cleanup')}</button>
           </div>
         </>
       )}
@@ -282,12 +298,22 @@ function FolderBackups({ creating }: { creating: boolean }) {
       <ConfirmDialog
         open={cleanupOpen}
         title={t('backup.cleanup.title')}
-        message={t('backup.cleanup.message')}
+        message={t('backup.cleanup.message', { policy: data?.retention ? retentionSummary(t, data.retention, locale) : '' })}
         confirmText={t('backup.cleanup.confirmText')}
         variant="danger"
         loading={cleanup.isPending}
         onConfirm={() => cleanup.mutate()}
         onCancel={() => setCleanupOpen(false)}
+      />
+      <ConfirmDialog
+        open={deleteAllOpen}
+        title={t('backup.deleteAll.title', { count: String(backups.length) })}
+        message={t('backup.deleteAll.message', { size: formatSize(data?.totalSizeBytes ?? 0, locale) })}
+        confirmText={t('backup.deleteAll.confirmText')}
+        variant="danger"
+        loading={removeAll.isPending}
+        onConfirm={() => removeAll.mutate()}
+        onCancel={() => setDeleteAllOpen(false)}
       />
       <ConfirmDialog
         open={deleting !== null}

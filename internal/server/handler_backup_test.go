@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"skillshare/internal/backup"
 	"skillshare/internal/config"
@@ -154,6 +155,42 @@ func TestHandleDeleteBackup(t *testing.T) {
 	}
 	if rr := serveJSON(t, s, http.MethodDelete, "/api/backups/2024-01-15_14-30-4x", ""); rr.Code != http.StatusBadRequest {
 		t.Fatalf("invalid timestamp: %d, want 400", rr.Code)
+	}
+}
+
+func TestHandleDeleteAllBackups(t *testing.T) {
+	s, _ := newTestServer(t)
+	for _, ts := range []string{"2024-01-15_14-30-45", "2024-01-16_09-00-00"} {
+		seedSnapshot(t, backup.BackupDir(), ts, "claude", "SKILL.md", "")
+	}
+
+	rr := serveJSON(t, s, http.MethodDelete, "/api/backups", "")
+	if rr.Code != http.StatusOK || !strings.Contains(rr.Body.String(), `"removed":2`) {
+		t.Fatalf("delete all: %d %s", rr.Code, rr.Body.String())
+	}
+	if left, _ := backup.ListInDir(backup.BackupDir()); len(left) != 0 {
+		t.Fatalf("want no backups left, got %d", len(left))
+	}
+}
+
+func TestHandleBackups_RetentionFollowsConfig(t *testing.T) {
+	s, _ := newTestServer(t)
+	now := time.Now()
+	for i := range 3 {
+		seedSnapshot(t, backup.BackupDir(), now.Add(-time.Duration(i)*time.Hour).Format("2006-01-02_15-04-05"), "claude", "SKILL.md", "")
+	}
+
+	if rr := serveJSON(t, s, http.MethodPatch, "/api/config", `{"backupMaxCount":-1}`); rr.Code != http.StatusBadRequest {
+		t.Fatalf("negative limit: %d, want 400", rr.Code)
+	}
+	if rr := serveJSON(t, s, http.MethodPatch, "/api/config", `{"backupMaxCount":1,"backupMaxSizeMB":0}`); rr.Code != http.StatusOK {
+		t.Fatalf("patch: %d %s", rr.Code, rr.Body.String())
+	}
+	if rr := serveJSON(t, s, http.MethodGet, "/api/backups", ""); !strings.Contains(rr.Body.String(), `"retention":{"maxAgeDays":30,"maxCount":1,"maxSizeMB":0}`) {
+		t.Fatalf("list: %s", rr.Body.String())
+	}
+	if rr := serveJSON(t, s, http.MethodPost, "/api/backup/cleanup", ""); !strings.Contains(rr.Body.String(), `"removed":2`) {
+		t.Fatalf("cleanup: %d %s", rr.Code, rr.Body.String())
 	}
 }
 

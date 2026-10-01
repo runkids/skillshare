@@ -64,7 +64,7 @@ func syncAgentsGlobal(cfg *config.Config, dryRun, force, jsonOutput bool, start 
 			agentTargets = nil
 		} else {
 			defer func() {
-				if _, err := backup.CleanupInDir(backupDir, backup.DefaultCleanupConfig()); err != nil {
+				if _, err := backup.CleanupInDir(backupDir, backup.RetentionConfig(cfg)); err != nil {
 					ui.Warning("Failed to clean up old agent backups: %v", err)
 				}
 			}()

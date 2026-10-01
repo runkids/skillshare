@@ -24,6 +24,8 @@ vi.mock('../api/client', async (load) => {
       listBackups: vi.fn(),
       createBackup: vi.fn(),
       deleteBackup: vi.fn(),
+      deleteAllBackups: vi.fn(),
+      patchConfig: vi.fn(),
       validateRestore: vi.fn(),
       restore: vi.fn(),
       listFileBackups: vi.fn(),
@@ -53,6 +55,7 @@ describe('BackupPage', () => {
     vi.mocked(api.getOverview).mockResolvedValue({} as Overview);
     vi.mocked(api.listBackups).mockResolvedValue({
       totalSizeBytes: 10,
+      retention: { maxAgeDays: 30, maxCount: 10, maxSizeMB: 500 },
       backups: [{ timestamp: TS, path: `/home/me/.local/share/skillshare/backups/${TS}`, targets: ['claude-agents'], entries: [{ name: 'claude-agents', sizeBytes: 10, files: 2 }], date: new Date().toISOString(), sizeBytes: 10 }],
     });
     vi.mocked(api.listFileBackups).mockResolvedValue({ files: [{ path: '/home/me/.claude/CLAUDE.md', versions: 1, latest: new Date().toISOString(), target: 'claude' }] });
@@ -71,7 +74,7 @@ describe('BackupPage', () => {
     const user = userEvent.setup();
     renderPage();
 
-    await user.click(await screen.findByRole('button', { expanded: false }));
+    await user.click(await screen.findByRole('button', { name: /claude agents/, expanded: false }));
     await user.click(screen.getByRole('button', { name: 'Restore' }));
     const dialog = await screen.findByRole('dialog');
     await waitFor(() => expect(within(dialog).getByRole('button', { name: 'Restore' })).toBeEnabled());
@@ -107,7 +110,7 @@ describe('BackupPage', () => {
     const user = userEvent.setup();
     renderPage();
 
-    await user.click(await screen.findByRole('button', { expanded: false }));
+    await user.click(await screen.findByRole('button', { name: /claude agents/, expanded: false }));
 
     expect(screen.getByText('2 files · 10 B')).toBeInTheDocument();
   });
@@ -123,12 +126,38 @@ describe('BackupPage', () => {
     const user = userEvent.setup();
     renderPage();
 
-    await user.click(await screen.findByRole('button', { expanded: false }));
+    await user.click(await screen.findByRole('button', { name: /claude agents/, expanded: false }));
     await user.click(screen.getByRole('button', { name: 'Delete this backup' }));
     expect(api.deleteBackup).not.toHaveBeenCalled();
     await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Delete' }));
 
     await waitFor(() => expect(api.deleteBackup).toHaveBeenCalledWith(TS));
+  });
+
+  it('deletes every target folder backup only after confirmation', async () => {
+    vi.mocked(api.deleteAllBackups).mockResolvedValue({ success: true, removed: 1 });
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(await screen.findByRole('button', { name: 'Delete all' }));
+    expect(api.deleteAllBackups).not.toHaveBeenCalled();
+    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Delete all' }));
+
+    await waitFor(() => expect(api.deleteAllBackups).toHaveBeenCalled());
+  });
+
+  it('saves the count and size limits from the retention summary', async () => {
+    vi.mocked(api.patchConfig).mockResolvedValue({ mode: 'merge', logMaxEntries: null });
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(await screen.findByRole('button', { name: 'Kept: 30 days · 10 backups · 500 MB' }));
+    const panel = screen.getByRole('dialog', { name: 'Kept automatically' });
+    await user.click(within(within(panel).getByRole('radiogroup', { name: 'Most backups' })).getByRole('radio', { name: '20' }));
+    await user.click(within(within(panel).getByRole('radiogroup', { name: 'Most total size' })).getByRole('radio', { name: 'No limit' }));
+    await user.click(within(panel).getByRole('button', { name: 'Save' }));
+
+    await waitFor(() => expect(api.patchConfig).toHaveBeenCalledWith({ backupMaxCount: 20, backupMaxSizeMB: 0 }));
   });
 
   it('asks to cut the link when the file is now a link, and says so to the server', async () => {

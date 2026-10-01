@@ -4,13 +4,14 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import PluginsPage from './PluginsPage';
 import { pluginsApi } from '../api/plugins';
 import { ApiError } from '../api/client';
+import { ToastProvider } from '../components/Toast';
 
 vi.mock('../api/plugins', async (importOriginal) => ({ ...await importOriginal<typeof import('../api/plugins')>(), pluginsApi: { list: vi.fn(), files: vi.fn(), file: vi.fn(), discover: vi.fn(), preview: vi.fn(), apply: vi.fn() } }));
 vi.mock('../i18n', () => ({ useT: () => (key: string) => key }));
 vi.mock('../context/AppContext', () => ({ useAppContext: () => ({ isProjectMode: false }) }));
 vi.mock('../components/plugins/PluginAddDialog', () => ({ default: () => null }));
 
-function mount() { return render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><PluginsPage /></QueryClientProvider>); }
+function mount() { return render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><ToastProvider><PluginsPage /></ToastProvider></QueryClientProvider>); }
 
 describe('PluginsPage', () => {
   beforeEach(() => {
@@ -119,6 +120,38 @@ describe('PluginsPage', () => {
     fireEvent.mouseDown(screen.getByRole('menuitem', { name: 'plugins.viewFiles' }));
     expect(await screen.findByRole('button', { name: 'SKILL.md' })).toBeInTheDocument();
     await waitFor(() => expect(pluginsApi.file).toHaveBeenCalledWith('demo', 'README.md'));
+  });
+  it('shares several plugins as one command that adds them in order', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.assign(navigator, { clipboard: { writeText } });
+    vi.mocked(pluginsApi.list).mockResolvedValue({ targetDefinitions: [], packages: {
+      a: { source: 'https://github.com/owner/a.git', plugin: 'a', bindings: {} },
+      b: { source: 'https://github.com/owner/b.git', plugin: 'b', bindings: {} },
+      local: { source: '/home/me/local', bindings: {} },
+    }, hosts: [] });
+    vi.mocked(pluginsApi.discover).mockReturnValue(new Promise(() => {}));
+    mount();
+    fireEvent.click(await screen.findByRole('button', { name: 'plugins.share' }));
+    // A local directory only exists here, so it is not offered.
+    expect(screen.queryByRole('checkbox', { name: 'local' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'plugins.copyShare' }));
+    expect(writeText).toHaveBeenLastCalledWith('skillshare plugin add https://github.com/owner/a.git --plugin a -g --no-tui && skillshare plugin add https://github.com/owner/b.git --plugin b -g --no-tui');
+    // Asking drops --no-tui, so each add opens its Agent picker.
+    fireEvent.click(screen.getByRole('checkbox', { name: 'plugins.shareAsk' }));
+    fireEvent.click(screen.getByRole('button', { name: 'plugins.copyShare' }));
+    expect(writeText).toHaveBeenLastCalledWith('skillshare plugin add https://github.com/owner/a.git --plugin a -g && skillshare plugin add https://github.com/owner/b.git --plugin b -g');
+  });
+  it('opens sharing from a row with only that plugin ticked', async () => {
+    vi.mocked(pluginsApi.list).mockResolvedValue({ targetDefinitions: [], packages: {
+      a: { source: 'https://github.com/owner/a.git', plugin: 'a', bindings: {} },
+      b: { source: 'https://github.com/owner/b.git', plugin: 'b', bindings: {} },
+    }, hosts: [] });
+    vi.mocked(pluginsApi.discover).mockReturnValue(new Promise(() => {}));
+    mount();
+    fireEvent.click((await screen.findAllByRole('button', { name: 'mcp.moreActions' }))[1]);
+    fireEvent.mouseDown(screen.getByRole('menuitem', { name: 'plugins.share' }));
+    expect(screen.getByRole('checkbox', { name: 'a' })).not.toBeChecked();
+    expect(screen.getByRole('checkbox', { name: 'b' })).toBeChecked();
   });
   it('updates only the Agents that can be updated from here', async () => {
     vi.mocked(pluginsApi.list).mockResolvedValue({ targetDefinitions: [{ target: 'codex', label: 'Codex', project: false, operations: ['add', 'sync'] }, { target: 'claude', label: 'Claude', project: true, operations: ['add', 'sync', 'update'] }], packages: { demo: { bindings: { codex: { id: 'demo@market' }, claude: { id: 'demo@market' } } } }, hosts: [] });

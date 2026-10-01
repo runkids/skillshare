@@ -355,6 +355,23 @@ export const fieldDocs: Record<string, FieldDoc> = {
     example: 'hubs:\n  - label: internal\n    url: https://hub.company.com',
   },
 
+  // --- Backup ---
+  backup: {
+    description: 'Retention limits for target folder backups. Backups older than 30 days are always removed.',
+    type: 'object',
+    example: 'backup:\n  max_count: 20\n  max_size_mb: 1000',
+  },
+  'backup.max_count': {
+    description: 'Most backups to keep. 0 for unlimited.',
+    type: 'number',
+    example: 'max_count: 10',
+  },
+  'backup.max_size_mb': {
+    description: 'Most total size of backups in MB. 0 for unlimited. The newest backup is always kept.',
+    type: 'number',
+    example: 'max_size_mb: 500',
+  },
+
   // --- Log ---
   log: {
     description: 'Configure the operations log.',

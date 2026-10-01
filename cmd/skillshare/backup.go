@@ -86,10 +86,17 @@ func cmdBackup(args []string) error {
 		if doList {
 			return backupList(backupDir)
 		}
-		if dryRun {
-			return backupCleanupDryRun(backupDir)
+		// Retention limits come from the global config; project snapshots keep the defaults.
+		retention := backup.DefaultCleanupConfig()
+		if mode != modeProject {
+			if cfg, err := config.Load(); err == nil {
+				retention = backup.RetentionConfig(cfg)
+			}
 		}
-		return backupCleanup(backupDir)
+		if dryRun {
+			return backupCleanupDryRun(backupDir, retention)
+		}
+		return backupCleanup(backupDir, retention)
 	}
 
 	// Project mode is only supported for agents.
@@ -296,7 +303,7 @@ func backupDelete(mode runMode, cwd, timestamp string, dryRun bool) error {
 	return nil
 }
 
-func backupCleanup(backupDir string) error {
+func backupCleanup(backupDir string, cfg backup.CleanupConfig) error {
 	ui.Header("Cleaning up old backups")
 
 	// Show current state
@@ -313,8 +320,6 @@ func backupCleanup(backupDir string) error {
 	totalSize, _ := backup.TotalSizeInDir(backupDir)
 	ui.Info("Current: %d backups, %s total", len(backups), formatBytes(totalSize))
 
-	// Use default cleanup config
-	cfg := backup.DefaultCleanupConfig()
 	removed, err := backup.CleanupInDir(backupDir, cfg)
 	if err != nil {
 		return err
@@ -332,7 +337,7 @@ func backupCleanup(backupDir string) error {
 	return nil
 }
 
-func backupCleanupDryRun(backupDir string) error {
+func backupCleanupDryRun(backupDir string, cfg backup.CleanupConfig) error {
 	ui.Header("Cleaning up old backups")
 
 	backups, err := backup.ListInDir(backupDir)
@@ -348,7 +353,6 @@ func backupCleanupDryRun(backupDir string) error {
 	totalSize, _ := backup.TotalSizeInDir(backupDir)
 	ui.Info("Current: %d backups, %s total", len(backups), formatBytes(totalSize))
 
-	cfg := backup.DefaultCleanupConfig()
 	removed, freed := planBackupCleanup(backups, cfg, time.Now())
 	if removed > 0 {
 		ui.Warning("Dry run - would remove %d old backups (free %s)", removed, formatBytes(freed))

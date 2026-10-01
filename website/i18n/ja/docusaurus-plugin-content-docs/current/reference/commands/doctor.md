@@ -104,6 +104,15 @@ Extras
 ✓ rules: 4 files, 1/1 targets OK
 ✓ commands: 3 files, 1/1 targets OK
 
+MCP
+✓ All 2 MCP server(s) OK
+
+Hooks
+✓ All 1 hook(s) in sync
+
+Plugins
+→ Plugins: none configured
+
 Version
 ✓ CLI: 0.17.0
 ✓ Skill: 0.17.0
@@ -193,9 +202,37 @@ Doctor は、ランタイムのピッカーに到達する前に、Skill 重複�
 ### Extras
 
 Extras が設定されている場合、以下を検証します。
+- 各 Extras の設定が有効であること（mode、`flatten`、`as`）、および複数の Extras が同じファイルを奪い合っていないこと
 - 各 Extras の Source ディレクトリが存在すること
 - Target ディレクトリに到達可能であること
-- 存在しない Source ディレクトリや到達不能な Target を報告
+- ディレクトリ Target 内の壊れたシンボリックリンク（error）
+- Source と一致しないファイル。判定は `skillshare diff` と同じです（warning）。`flatten` または `extension` を設定した Target は比較しません。
+
+```text
+! rules → ~/.claude/rules: 1 file(s) out of sync (a.md missing in target)
+✗ rules → ~/.claude/rules: broken symlink gone.md
+```
+
+### MCP
+
+[`mcp check`](./mcp.md) の静的チェックを実行します。参照している環境変数が設定されていること、`command` が `PATH` で見つかること、クライアントのルールがサーバーを受け入れること、各エントリが同期済みであることを確認します。Doctor はホストを解決せず、サーバーも起動しません。必要な場合は `skillshare mcp check` または `skillshare mcp check --live` を実行してください。サーバーが設定されていない場合は `info` を表示します。
+
+```text
+✗ docs: command no-such-mcp-binary was not found on PATH
+! docs → claude: not synced yet; run skillshare sync mcp
+```
+
+### Hooks
+
+`skillshare sync hooks` を書き込みなしでプレビューします。プレビューの失敗は error です。Sync でまだ追加・更新・削除されるエントリ、ネイティブ Hooks との競合、注意喚起の警告（Agent が記載していないイベント名など）は warning です。Hook が設定されていない場合は `info` を表示します。
+
+```text
+! bash-log → claude: not synced (add)
+```
+
+### Plugins
+
+ソースを取得せずに `skillshare sync plugins` をプレビューします。Doctor は、プラグインパッケージがある場合にのみ、バインドされた各 Agent のネイティブ CLI にインストール済みの内容を問い合わせます。ブロックされたバインド（Agent の CLI が未インストールなど）と、まだ Sync が必要なバインドは warning です。ソースの新しいリリースの確認は引き続き `skillshare plugin check` が担当します。パッケージが設定されていない場合は `info` を表示します。
 
 ### その他
 
