@@ -69,7 +69,7 @@ JSON 出力には source パスとネイティブ識別子が含まれます。s
 | Target | フォーマット | Global | Project | Update |
 |---|---|:---:|:---:|---|
 | Claude Code | `.claude-plugin/plugin.json` | Yes | Yes | ネイティブ update |
-| Codex | `.codex-plugin/plugin.json` または Agent Plugins ルートマニフェスト | Yes | No | 未対応 |
+| Codex | `.codex-plugin/plugin.json` または Agent Plugins ルートマニフェスト | Yes | No | レビュー済みの Source を更新して再度 add。Codex で有効な場合のみ |
 | Cursor | `.cursor-plugin/plugin.json` または Agent Plugins ルートマニフェスト | Yes | No | reviewed されたローカルコピーを置き換え |
 | Antigravity Desktop | 明示的な name を持つルート `plugin.json` | Yes | Yes | reviewed されたローカルコピーを置き換え |
 | Pi | `pi` resources を持つ `package.json`、または `pi-package` キーワードと慣例的な resource フォルダ | Yes | Yes（ネイティブな project trust が必要） | 管理下 source スナップショットを更新 |
@@ -101,6 +101,8 @@ skillshare plugin add owner/repo --target claude-work
 skillshare plugin import demo@market --from claude-work
 ```
 
+[`cli`](/docs/reference/targets/configuration#agent-config-dir) を設定したアカウントは、代わりにその互換 CLI（Pi アカウントなら `omo` など）を同じ Config ディレクトリに対して実行します。Pi のアカウントでは `SENPI_CODING_AGENT_DIR` と `OMO_CODING_AGENT_DIR` も設定します。Pi の fork は `PI_CODING_AGENT_DIR` より先にこの 2 つを読むためです。CLI が見つからない場合、操作は失敗します。Skillshare が Agent 本体の CLI に切り替えることはありません。
+
 アカウントは、所属する Agent の操作をそのまま引き継ぎ、自分の名前で独自のバインディングを保持します。そのため、一方のアカウントにだけ plugin をインストールすることもできます。アカウントは global スコープにのみ存在します。project の plugin は、1 つのアカウントではなく project に属します。`--target` と `--from` はアカウント名を受け付け、ターミナルのピッカーとダッシュボードの Plugins ページでは Agent と並んで一覧表示されます。
 
 ### Cursor と Antigravity
@@ -121,7 +123,7 @@ OpenCode は、管理下エントリを `opencode.json` または既存の `open
 
 ローカルの OpenCode source は、ビルド済みのエントリ（`main`、文字列のルート export、または `index.js`）と必要なランタイム依存関係をすでに含んでいる必要があります。Skillshare はビルドスクリプトを実行したり、source に依存関係をインストールしたりしません。登録はモジュールが正常にロードされたことの証明ではありません。再読み込み後に OpenCode を確認してください。
 
-インポートは、通常の Pi package source と通常の OpenCode config エントリを受け付けます。resource フィルタ/オプション付きのエントリは、それらの設定を保持するために拒否されます。インポートされた Pi と OpenCode v1 の package は、そのネイティブツール上で更新されます。OpenCode v2 の global インポートはネイティブの update コマンドを使用できますが、v2 の update コマンドは global 向けであるため、project のインポートはネイティブに更新する必要があります。
+インポートは、通常の Pi package source と通常の OpenCode config エントリを受け付けます。resource フィルタ/オプション付きのエントリは、それらの設定を保持するために拒否されます。インポートされた Pi の package は、global モードでは `pi update SOURCE` で更新され、設定エントリは保持されます。project のものは Pi で更新してください。`pi update` は global の package にも及ぶためです。インポートされた OpenCode v1 の package は、そのネイティブツール上で更新されます。OpenCode v2 の global インポートはネイティブの update コマンドを使用できますが、v2 の update コマンドは global 向けであるため、project のインポートはネイティブに更新する必要があります。
 
 ```bash
 skillshare plugin add ./cursor-plugin --target cursor --no-tui
@@ -153,7 +155,9 @@ Copilot と Antigravity CLI のインストールは、reviewed されたロー�
 - source にはローカル plugin エントリを含むマーケットプレイスが含まれる場合があります。外部カタログは plugin の name/path でマージされます。パスが衝突する場合は拒否され、外部エントリはそのリポジトリを直接追加するか、ネイティブにインストールしてインポートするよう指示とともに報告されます。コマンドベースの source は自動承認されません。
 - 完全な source スナップショットは、plugin のスクリプト、アセット、および安全な相対 symlink（`AGENTS.md → CLAUDE.md` を含む）を保持します。絶対パス、脱出、dangling、循環、`.git` を参照する symlink や特殊ファイルは拒否されます。source は 20,000 ファイルおよび 100 MiB に制限されます。
 - ネイティブインストールは、ランタイムでの有効化を証明するものではありません。Agent を再起動/再読み込みし、その Agent 内で認証または hook trust を完了してください。
-- Codex のネイティブな project インストールと plugin の update は、このアダプタでは提供されません。global の Codex インストールに対する sync 選択は引き続き機能します。
+- Codex のネイティブな project インストールは、このアダプタでは提供されません。global の Codex インストールに対する sync 選択は引き続き機能します。
+- Codex には update コマンドがないため、update は更新後のスナップショットからプラグインを再度 add します。add は常にプラグインを有効にするため、Codex で無効化されたプラグインはスキップされます。Import した Codex プラグインは `codex plugin marketplace upgrade NAME` で更新されます。これは Codex がその marketplace からインストールしたすべてのプラグインを再インストールするもので、Codex も起動時に同じことを行います。
+- update は対応できない Target を理由を示してスキップし、そのプラグインのほかの Agent は通常どおり更新されます。スキップされた update は保留のまま残り、後の sync で処理されます。
 - インポートされた plugin は元のマーケットプレイス identity を保持します。`check` は、source のないインポート済み plugin についてリリースの有無を推測できません。
 - 削除は共有されたマーケットプレイス登録と管理下スナップショットを保持します。関連のない plugin やネイティブキャッシュを直接削除することはありません。
 

@@ -190,7 +190,13 @@ function TargetEditor({ target, targets }: { target: Target; targets: Target[] }
       <PageHeader
         crumbs={[{ label: t('targets.title'), to: '/targets' }, { label: target.name }]}
         title={target.name}
-        subtitle={subtitle && <span className="font-mono">{shortenHome(subtitle)}</span>}
+        subtitle={(subtitle || target.cli) && (
+          <span className="flex flex-wrap items-center gap-x-2">
+            {subtitle && <span className="font-mono">{shortenHome(subtitle)}</span>}
+            {subtitle && target.cli && <span aria-hidden>·</span>}
+            {target.cli && <span>{t('targets.add.accountCli')} <span className="font-mono">{shortenHome(target.cli)}</span></span>}
+          </span>
+        )}
         actions={
           <>
             {tab === 'skill' && <Link to={`/skills?tab=analyze&target=${encodeURIComponent(target.name)}`} className="ss-btn ghost">{t('analyze.open')}</Link>}

@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"skillshare/internal/config"
+	"skillshare/internal/hooks"
 	"skillshare/internal/mcp"
 	ssync "skillshare/internal/sync"
 	"skillshare/internal/targetsummary"
@@ -22,6 +23,7 @@ type targetItem struct {
 	Project            string   `json:"project,omitempty"` // root of the project this target belongs to
 	Agent              string   `json:"agent,omitempty"`   // the built-in Agent this is another config directory of
 	ConfigDir          string   `json:"configDir,omitempty"`
+	CLI                string   `json:"cli,omitempty"` // the executable that runs its plugin commands, when not the Agent's own
 	Path               string   `json:"path"`
 	Mode               string   `json:"mode"`
 	TargetNaming       string   `json:"targetNaming"`
@@ -112,6 +114,7 @@ func (s *Server) handleListTargets(w http.ResponseWriter, r *http.Request) {
 			Project:      target.ProjectRoot(),
 			Agent:        target.Agent,
 			ConfigDir:    target.ConfigDir,
+			CLI:          target.CLI,
 			Path:         sc.Path,
 			Mode:         mode,
 			TargetNaming: config.EffectiveTargetNaming(sc.TargetNaming),
@@ -222,6 +225,7 @@ func (s *Server) handleAddTarget(w http.ResponseWriter, r *http.Request) {
 		// Agent and ConfigDir add another config directory of a built-in Agent instead.
 		Agent     string `json:"agent"`
 		ConfigDir string `json:"configDir"`
+		CLI       string `json:"cli"`
 		// Instructions optionally names the instruction file of a custom target.
 		Instructions *config.TargetInstructionsConfig `json:"instructions"`
 		// SkillsEnabled false adds the target with skills off (default true).
@@ -248,7 +252,7 @@ func (s *Server) handleAddTarget(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusConflict, "target already exists: "+body.Name)
 			return
 		}
-		path, err := s.cfg.AddAgentConfigDirTarget(body.Name, body.Agent, body.ConfigDir)
+		path, err := s.cfg.AddAgentConfigDirTarget(body.Name, body.Agent, body.ConfigDir, body.CLI)
 		if err != nil {
 			writeError(w, http.StatusBadRequest, err.Error())
 			return
@@ -359,6 +363,9 @@ func (s *Server) handleRemoveTarget(w http.ResponseWriter, r *http.Request) {
 	var warnings []string
 	if target.Agent != "" {
 		if warning := mcp.ReferenceWarning(s.configPath(), name); warning != "" {
+			warnings = append(warnings, warning)
+		}
+		if warning := hooks.ReferenceWarning(s.configPath(), name); warning != "" {
 			warnings = append(warnings, warning)
 		}
 	}

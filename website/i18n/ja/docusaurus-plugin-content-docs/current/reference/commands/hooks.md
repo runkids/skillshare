@@ -35,7 +35,7 @@ skillshare hooks restore BACKUP_ID
 | Option | Meaning |
 |---|---|
 | `--file PATH` | 追加／編集の Entry JSON/YAML、またはインポートのネイティブ設定／コード |
-| `--from AGENT` | インポート元 Agent またはネイティブ形式 |
+| `--from AGENT` | `codex-2` などのアカウント target も可。  インポート元 Agent またはネイティブ形式 |
 | `--sync` | 保存して同期 |
 | `--keep-files` | `remove` と併用: hook の管理をやめ、ネイティブのエントリはそのまま残す。`--sync` とは併用できない。[下記](#stop-managing-a-hook)を参照 |
 | `--replace` | 既存ソース entry またはその entry の競合出力を明示的に置換 |
@@ -90,7 +90,7 @@ Skillshare は `hooks` セクションをインデントした block 形式で�
 | `bindings.AGENT.code` | Pi、Amp、OpenCode のネイティブ extension/plugin ソース |
 | `bindings.AGENT.files` | 相対ファイル名を key とした任意の UTF-8 スクリプト |
 
-Agent ID は `claude`、`codex`、`gemini`、`copilot`、`cursor`、`droid`、`qwen`、`antigravity`、`pi`、`amp`、`opencode`。`factory` は `droid` の、`antigravity-cli` と `agy` は `antigravity` の別名です。event、matcher、handler type、command、timeout 単位、payload はネイティブ形式のまま保持し、自動変換しません。event 名は各 command Agent のドキュメントにある event と照合します。未知の名前（例：綴り違いの `Stopp`）はプレビューと plan の `warnings` に警告として表示されますが、Agent は event を追加していくため同期は止めません。Pi、Amp、OpenCode のコードは確認しません。Pi、Amp、OpenCode のコードと imports はインストール済みバージョンに合わせ、専用の `skillshare-NAME.ts` に出力します。共通実行エンジンは生成しません。command binding のスクリプトは Agent 設定ディレクトリの `hooks/skillshare/NAME/` に保存され、command 内の指定 macro／パスは変更しません。プレビューで完全なパスを確認してください。
+Agent ID は `claude`、`codex`、`gemini`、`copilot`、`cursor`、`droid`、`qwen`、`antigravity`、`pi`、`amp`、`opencode`。`factory` は `droid` の、`antigravity-cli` と `agy` は `antigravity` の別名です。event、matcher、handler type、command、timeout 単位、payload はネイティブ形式のまま保持し、自動変換しません。event 名は各 command Agent のドキュメントにある event と照合します。未知の名前（例：綴り違いの `Stopp`）はプレビューと plan の `warnings` に警告として表示されますが、Agent は event を追加していくため同期は止めません。Pi、Amp、OpenCode のコードは確認しません。Pi、Amp、OpenCode のコードと imports はインストール済みバージョンに合わせ、専用の `skillshare-NAME.ts` に出力します。共通実行エンジンは生成しません。command binding のスクリプトは Agent 設定ディレクトリの `hooks/skillshare/NAME/` に保存され、command 内の指定 macro／パスは変更しません。プレビューで完全なパスを確認してください。 global の binding は `targets` で宣言したアカウント target の名前も指定できます。
 
 ## ネイティブの保存先
 
@@ -108,10 +108,46 @@ Agent ID は `claude`、`codex`、`gemini`、`copilot`、`cursor`、`droid`、`q
 | [Amp](https://ampcode.com/docs/plugin-api) | `~/.config/amp/plugins/skillshare-NAME.ts` | `.amp/plugins/skillshare-NAME.ts` | Native plugin code |
 | [OpenCode](https://opencode.ai/docs/plugins/) | `~/.config/opencode/plugins/skillshare-NAME.ts` | `.opencode/plugins/skillshare-NAME.ts` | Supplied v1/v2 plugin code |
 
-global scope はネイティブ設定ディレクトリの環境変数 override を使います。project scope はプロジェクト内にのみ書き込み、global にフォールバックしません。Codex inline TOML など他のソースは別のままです。Antigravity とその CLI（`agy`）は同じ `hooks.json` を読みます。各 hook は名前付きの 1 ブロックで、インポートしても名前は変わりません。CLI の `~/.gemini/antigravity-cli/settings.json` にある hooks は別のままです。Droid の独立 hooks ファイルは読み込むソースを変えるため、既存 inline hooks を先に確認してください。 Copilot は `.github/hooks` のプロジェクト hooks を信頼済みフォルダーでのみ読み込みます。
+アカウント target の `config_dir` を指す場合を除き、global scope はネイティブ設定ディレクトリの環境変数 override を使います。project scope はプロジェクト内にのみ書き込み、global にフォールバックしません。Codex inline TOML など他のソースは別のままです。Antigravity とその CLI（`agy`）は同じ `hooks.json` を読みます。各 hook は名前付きの 1 ブロックで、インポートしても名前は変わりません。CLI の `~/.gemini/antigravity-cli/settings.json` にある hooks は別のままです。Droid の独立 hooks ファイルは読み込むソースを変えるため、既存 inline hooks を先に確認してください。 Copilot は `.github/hooks` のプロジェクト hooks を信頼済みフォルダーでのみ読み込みます。
 
 
 Droid の inline hooks が有効な場合、同期は独立ファイルの作成を拒否します。インポートして確認し、元の inline hooks を削除してから同期してください。
+
+## Agent の別のアカウント {#accounts}
+
+`agent` と `config_dir` を持つ target は、その名前で hooks を受け取れます。Claude、Codex、Pi のアカウントは Agent のネイティブ binding 形式を使います。
+
+```yaml
+targets:
+  codex-2:
+    agent: codex
+    config_dir: ~/.codex-2
+    skills: {enabled: false}
+hooks:
+  entries:
+    check:
+      bindings:
+        codex-2:
+          events:
+            Stop:
+              - hooks:
+                  - type: command
+                    command: "echo checked"
+```
+
+| アカウントの Agent | 保存先 |
+|---|---|
+| `claude` | `<config_dir>/settings.json` |
+| `codex` | `<config_dir>/hooks.json` |
+| `pi` | `<config_dir>/extensions/skillshare-NAME.ts` |
+
+command のスクリプトは `<config_dir>/hooks/skillshare/NAME/` に入ります。アカウントは global のみです。project 設定と `hooks.projects` では、すべてのアカウントが同じプロジェクトファイルを読むため Agent 自体を指定します。`config_dir` がなければ警告してスキップし、アカウントのホームを作成しません。
+
+`CODEX_HOME`、`CLAUDE_CONFIG_DIR`、`PI_CODING_AGENT_DIR` が宣言済みアカウントのディレクトリを指すと、通常の Agent binding は組み込みの既定ホームを使い、plan に警告が表示されます。各アカウントは自分の `config_dir` を使い続けます。それ以外の override は従来どおりです。symlink を含め、同じディレクトリに 2 つの binding key を同期することはできません。
+
+target が削除された、ホームが移動した、またはアカウントのホームが存在しない場合、所有出力とその記録をそのまま残し、警告します。target やディレクトリを戻せば管理を再開できます。ファイルを変えずに特定エントリの保留中の所有記録を解放するには、`skillshare hooks sync NAME --replace -g` をプレビューして実行します。target の削除時に binding がまだその名前を使っていれば警告します。次の hooks 同期前に binding も外してください。
+
+`skillshare hooks import --from codex-2 -g --json` でアカウントからインポートできます。ダッシュボードには **codex-2 (Codex)** と表示され、Codex の event とエディターを使います。Codex の各ホームで変更された hooks を `/hooks` から確認し、信頼する必要があります。同期は信頼を変更せず、hooks を実行しません。
 
 ## プロジェクト、競合と復元
 

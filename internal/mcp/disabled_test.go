@@ -5,6 +5,7 @@ import (
 	"maps"
 	"os"
 	"path/filepath"
+	"reflect"
 	"slices"
 	"strings"
 	"testing"
@@ -81,7 +82,8 @@ func TestDisabledRejected(t *testing.T) {
 	}
 }
 
-// Loading drops pi from an old switch, but saving a new one for pi still fails.
+// A project's own config cannot see the global server, so it has no command or url to give
+// Pi's switch, and saving one for pi fails.
 func TestPiSwitchRejectedOnSave(t *testing.T) {
 	s := testService(t)
 	s.ProjectRoot = filepath.Join(s.Home, "project")
@@ -312,7 +314,7 @@ func TestSwitchWithoutTargetsFollowsTheProject(t *testing.T) {
 	}{
 		"only what the project uses":    {"claude, opencode, kilocode, pi", "opencode, kilocode", []string{"kilocode", "opencode"}},
 		"only what the server reaches":  {"claude, codex, pi", "claude, opencode", []string{"claude"}},
-		"skips an Agent with no switch": {"cursor, opencode, pi", "cursor, opencode, pi", []string{"opencode"}},
+		"skips an Agent with no switch": {"cursor, opencode, pi", "cursor, opencode, pi", []string{"opencode", "pi"}},
 	} {
 		t.Run(name, func(t *testing.T) {
 			s, tmp := projectsService(t, "mcp:\n  servers:\n    docs:\n      command: tool\n      targets: ["+tc.global+"]\n  projects:\n    $TMP/p1:\n      targets: ["+tc.project+"]\n      servers:\n        docs:\n          disabled: true\n")
@@ -334,60 +336,71 @@ func TestSwitchWithoutTargetsFollowsTheProject(t *testing.T) {
 	}
 }
 
-// Pi's built-in MCP has no per-project switch, so a switch that names no targets leaves Pi
-// alone even where the project and the global server both reach it.
-func TestSwitchLeavesPiAlone(t *testing.T) {
-	s, tmp := projectsService(t, "mcp:\n  servers:\n    docs:\n      command: tool\n      targets: [opencode, pi]\n  projects:\n    $TMP/p1:\n      targets: [opencode, pi]\n      servers:\n        mine:\n          command: tool\n          targets: [pi]\n        docs:\n          disabled: true\n")
-	plan, err := s.Preview()
+// Pi replaces a global entry with the project entry of the same name, so its switch carries
+// the global server's command or url, and nothing else: args, env, headers and the url's
+// query stay out of the project file.
+func TestPiSwitchCarriesTheGlobalEndpoint(t *testing.T) {
+	s, tmp := projectsService(t, "mcp:\n  servers:\n    docs:\n      command: tool\n      args: [--port, \"3000\"]\n      env: {TOKEN: {fromEnv: TOKEN}}\n      targets: [opencode, pi]\n    web:\n      url: https://example.com/mcp?key=secret\n      headers: {Authorization: {fromEnv: AUTH}}\n      targets: [pi]\n  projects:\n    $TMP/p1:\n      targets: [opencode, pi]\n      servers:\n        docs:\n          disabled: true\n        web:\n          disabled: true\n")
+	plan := applyProjects(t, s)
+	for _, c := range plan.Changes {
+		if c.Root == filepath.Join(tmp, "p1") && !c.Switch {
+			t.Fatalf("not a switch: %+v", c)
+		}
+	}
+	data, err := os.ReadFile(filepath.Join(tmp, "p1", ".pi", "mcp.json"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	var got []string
-	for _, c := range plan.Changes {
-		if c.Root == filepath.Join(tmp, "p1") && c.Name == "docs" {
-			got = append(got, c.Target)
-		}
+	var file struct{ McpServers map[string]map[string]any }
+	if err := json.Unmarshal(data, &file); err != nil {
+		t.Fatal(err)
 	}
-	if !slices.Equal(got, []string{"opencode"}) {
-		t.Fatalf("got %v", got)
+	want := map[string]map[string]any{"docs": {"command": "tool", "enabled": false}, "web": {"url": "https://example.com/mcp", "enabled": false}}
+	if !reflect.DeepEqual(file.McpServers, want) {
+		t.Fatalf("project .pi/mcp.json: %s", data)
+	}
+	if global, _ := os.ReadFile(filepath.Join(tmp, ".pi", "agent", "mcp.json")); !strings.Contains(string(global), "3000") {
+		t.Fatalf("global .pi/agent/mcp.json lost the server: %s", global)
 	}
 }
 
-// Before 0.23.0 an adapter user could turn a global server off for one project in Pi. Pi's
-// built-in MCP has no such switch, so loading drops pi from the entry instead of failing sync.
-func TestPiSwitchLeavesPiOnLoad(t *testing.T) {
-	s, tmp := projectsService(t, `mcp:
-  targets: [opencode]
-  projects:
-    $TMP/both:
-      servers:
-        docs:
-          disabled: true
-          targets: [pi, opencode]
-    $TMP/only:
-      servers:
-        docs:
-          disabled: true
-          targets: [pi]
-`)
-	plan, err := s.Preview()
-	if err != nil || plan.Blocked {
-		t.Fatalf("%+v %v", plan, err)
-	}
-	if len(plan.Changes) != 1 || plan.Changes[0].Target != "opencode" || plan.Changes[0].Root != filepath.Join(tmp, "both") {
-		t.Fatalf("changes: %+v", plan.Changes)
-	}
-	if want := "Pi cannot turn off a server per project; the next sync removes pi from these entries: docs (both, only)"; len(plan.Notices) != 1 || plan.Notices[0] != want {
-		t.Fatalf("notices: %q", plan.Notices)
-	}
-	if _, err := s.Mutate(Mutation{Name: "other", Server: &Server{Command: "other"}}, "", false); err != nil {
+// The switch follows the global server, and removing it takes the Pi entry away.
+func TestPiSwitchFollowsTheGlobalServer(t *testing.T) {
+	s, tmp := projectsService(t, "mcp:\n  servers:\n    docs:\n      command: tool\n      targets: [pi]\n  projects:\n    $TMP/p1:\n      targets: [pi]\n      servers:\n        docs:\n          disabled: true\n")
+	applyProjects(t, s)
+	project := filepath.Join(tmp, "p1", ".pi", "mcp.json")
+	config, _ := os.ReadFile(s.ConfigPath)
+	if err := os.WriteFile(s.ConfigPath, []byte(strings.Replace(string(config), "command: tool", "command: tool2", 1)), 0600); err != nil {
 		t.Fatal(err)
 	}
-	data, _ := os.ReadFile(s.ConfigPath)
-	if strings.Contains(string(data), "- pi") || strings.Count(string(data), "- opencode") != 2 || !strings.Contains(string(data), "targets: []") {
-		t.Fatalf("saved config: %s", data)
+	applyProjects(t, s)
+	if data, _ := os.ReadFile(project); !strings.Contains(string(data), `"tool2"`) {
+		t.Fatalf("switch did not follow the global command: %s", data)
 	}
-	if source, err := LoadSource(s.ConfigPath); err != nil || len(source.Notices) != 0 {
-		t.Fatalf("%v %v", source, err)
+	config, _ = os.ReadFile(s.ConfigPath)
+	if err := os.WriteFile(s.ConfigPath, []byte(strings.Replace(string(config), "        docs:\n          disabled: true\n", "        {}\n", 1)), 0600); err != nil {
+		t.Fatal(err)
+	}
+	applyProjects(t, s)
+	if data, _ := os.ReadFile(project); strings.Contains(string(data), "docs") {
+		t.Fatalf("switch still in Pi: %s", data)
+	}
+}
+
+// A switch that names pi keeps it; there is nothing left to migrate.
+func TestPiSwitchNamedInTargetsStays(t *testing.T) {
+	s, tmp := projectsService(t, "mcp:\n  servers:\n    docs:\n      command: tool\n      targets: [opencode, pi]\n  projects:\n    $TMP/p1:\n      servers:\n        docs:\n          disabled: true\n          targets: [pi]\n")
+	plan, err := s.Preview()
+	if err != nil || plan.Blocked || len(plan.Notices) != 0 {
+		t.Fatalf("%+v %v", plan, err)
+	}
+	var got []string
+	for _, c := range plan.Changes {
+		if c.Root == filepath.Join(tmp, "p1") {
+			got = append(got, c.Target)
+		}
+	}
+	if !slices.Equal(got, []string{"pi"}) {
+		t.Fatalf("got %v", got)
 	}
 }

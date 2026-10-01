@@ -428,7 +428,8 @@ After `sync`, cursor receives:
 #### What gets removed when filters change
 
 When a filter is updated and `sync` runs:
-- Source-linked entries (symlink/junction) that are now filtered out are pruned
+- Links skillshare created for source skills that are now filtered out are pruned
+- A live symlink/junction into the source that skillshare never tracked is preserved and counted as local
 - Local non-symlink folders already in target are preserved
 
 ### Merge Mode (Default)
@@ -554,7 +555,7 @@ skillshare sync --all        # Sync skills + agents + extras + MCP + hooks
 
 Agent sync supports all three modes (merge, copy, symlink), matching the target's configured mode. On Windows without Developer Mode, merge mode copies agent files instead of linking them and prints `! <target>: agents file links need Windows Developer Mode; copying instead`; see [Windows troubleshooting](/docs/troubleshooting/windows#file-links-need-windows-developer-mode-copying-instead). Only targets with an `agents` path definition receive agent syncs — currently Claude, Cursor, OpenCode, and Augment. See [Agents — Supported Targets](/docs/understand/agents#supported-targets) for the full list.
 
-Orphan cleanup, `.agentignore` filtering, and per-target include/exclude filters all work the same way as for skills.
+Orphan cleanup, `.agentignore` filtering, and per-target include/exclude filters all work the same way as for skills. In merge mode, orphan cleanup removes only broken links and links that point into the agents source; live links to agent files elsewhere and local files are preserved.
 
 ---
 
@@ -643,7 +644,7 @@ Source files live under the `extras/` subdirectory:
 | `copy` | Per-file copy |
 | `symlink` | Entire source directory symlinked to target path |
 
-In merge mode, only symlinks are pruned — user-created local files at the target are preserved.
+In merge mode, only broken symlinks and symlinks into the extra's source are pruned — user-created local files and live links to other locations are preserved.
 
 On Windows without Developer Mode, merge mode (and a [single-file extra](./extras.md#single-file-extras) in symlink mode) copies files instead, reports the target as `(copy)`, and prints `file links need Windows Developer Mode; copying instead` under it. These copies are updated and pruned like links, and replaced with links once file links work.
 

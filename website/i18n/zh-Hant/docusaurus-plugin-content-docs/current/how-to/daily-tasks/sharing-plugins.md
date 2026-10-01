@@ -81,10 +81,11 @@ Skillshare Source 中。
 ## 更新與復原
 
 使用 **Check updates**，然後檢視受支援 target 的更新內容。Claude 可透過其原生 CLI 更新。
-Codex 的更新在此 adapter 中明確不可用；更新一個 marketplace 並不等同於更新已安裝的 plugin。
+Codex 會以已審閱的快照再次 add 該 plugin；但若它在 Codex 中被停用則不會更新，因為 add 會把它重新啟用；匯入的 Codex plugin 則以升級其 marketplace 的方式更新。
 Cursor 與 Antigravity 會在檢查過本機是否有編輯後，取代受管理的本機副本。
 Pi 與 OpenCode 會更新已審閱的快照。Copilot 可以在保留已知啟用狀態的同時重新整理已審閱的來源。
 Antigravity CLI 與 Grok 的更新仍留在原生工具中進行；匯入套件的限制請參閱指令參考。
+更新無法處理的 target 會被略過並說明原因，該 plugin 的其他 Agent 仍會照常更新。
 
 如果某個 target 失敗，結果會保留其餘成功的結果。請先解決原生 client 的驗證或設定問題，
 再重新同步該 target：

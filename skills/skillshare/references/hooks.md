@@ -54,3 +54,19 @@ Settings > Backups groups hook backups by Agent and native file.
 Backups restore native output, not source definitions. Edited owned outputs
 conflict on sync/removal/restore. Native trust and loading remain controlled by
 the Agent: a successful sync is configuration-generation evidence only.
+
+## Accounts
+
+A global binding key can name a target declared with `agent` and `config_dir`,
+for example `codex-2: {events: ...}` for a Codex account. Claude, Codex and Pi
+accounts keep their Agent's native format and write into that account home.
+Accounts are global only; project configs and `hooks.projects` bind the Agent.
+Missing account homes are skipped with warnings and never created.
+
+When a native directory environment override points at a declared account home,
+the plain Agent uses its built-in default instead. Other overrides still apply.
+Outputs outside the target's current home, missing homes and removed targets
+keep their ownership and files with a warning; explicitly preview and run
+`hooks sync NAME --replace -g` to release parked ownership without editing files.
+Import uses the account key: `hooks import --from codex-2 -g --json`.
+Each Codex home must trust its own changed hooks through `/hooks`.

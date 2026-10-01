@@ -126,7 +126,7 @@ func (s *Server) handlePutConfig(w http.ResponseWriter, r *http.Request) {
 			validErr = config.ValidateMCP(testCfg.MCP, testCfg.Sources.MCP)
 		}
 		if validErr == nil {
-			validErr = hooks.ValidateSection(&testCfg.Hooks, true)
+			validErr = hooks.ValidateSection(&testCfg.Hooks, true, nil)
 		}
 		if validErr != nil {
 			writeError(w, http.StatusBadRequest, validErr.Error())
@@ -149,7 +149,7 @@ func (s *Server) handlePutConfig(w http.ResponseWriter, r *http.Request) {
 			validErr = config.ValidateMCP(testCfg.MCP, testCfg.Sources.MCP, testCfg.AgentConfigDirTargets()...)
 		}
 		if validErr == nil {
-			validErr = hooks.ValidateSection(&testCfg.Hooks, false)
+			validErr = hooks.ValidateSection(&testCfg.Hooks, false, testCfg.AgentConfigDirTargetAgents())
 		}
 		if validErr != nil {
 			writeError(w, http.StatusBadRequest, validErr.Error())

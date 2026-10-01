@@ -205,13 +205,16 @@ type Inventory struct {
 }
 
 type Change struct {
-	Name       string   `json:"name"`
-	Target     string   `json:"target"`
-	ID         string   `json:"id"`
-	Action     string   `json:"action"`
-	Message    string   `json:"message,omitempty"`
-	Binding    Binding  `json:"binding"`
-	Components []string `json:"components,omitempty"`
+	Name    string `json:"name"`
+	Target  string `json:"target"`
+	ID      string `json:"id"`
+	Action  string `json:"action"`
+	Message string `json:"message,omitempty"`
+	// MessageKey names Message for the dashboard to translate, with MessageArgs.
+	MessageKey  string            `json:"messageKey,omitempty"`
+	MessageArgs map[string]string `json:"messageArgs,omitempty"`
+	Binding     Binding           `json:"binding"`
+	Components  []string          `json:"components,omitempty"`
 	// Logo is the package logo for a change with no Agent, as a data: URI.
 	Logo string `json:"logo,omitempty"`
 }
@@ -227,6 +230,9 @@ type Outcome struct {
 	Target  string `json:"target"`
 	Status  string `json:"status"`
 	Message string `json:"message,omitempty"`
+	// MessageKey names Message for the dashboard to translate, with MessageArgs.
+	MessageKey  string            `json:"messageKey,omitempty"`
+	MessageArgs map[string]string `json:"messageArgs,omitempty"`
 }
 
 type Result struct {

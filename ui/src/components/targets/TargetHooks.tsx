@@ -8,7 +8,7 @@ import EmptyState from '../EmptyState';
 import { useToast } from '../Toast';
 import HookDialog from '../hooks/HookDialog';
 import { HooksSyncDialog } from '../hooks/HooksSyncBox';
-import { blockedHint, boundAgents, hookLabel, hookMessage, hookNote, isCodeAgent, scopeEntries, scopePlan, syncState, writes } from '../hooks/hooksView';
+import { blockedHint, boundAgents, hookAccounts, hookLabel, hookMessage, hookNote, isCodeAgent, scopeEntries, scopePlan, syncState, writes } from '../hooks/hooksView';
 import { useT } from '../../i18n';
 import { queryKeys } from '../../lib/queryKeys';
 
@@ -98,6 +98,7 @@ export default function TargetHooks({ agent, data, project }: { agent: string; d
       {syncing && <HooksSyncDialog project={project} onClose={() => setSyncing(false)} />}
       {editing && (
         <HookDialog
+          accounts={hookAccounts(data.targets)}
           initial={{ name: editing, entry: entries[editing] }}
           existingNames={Object.keys(entries)}
           project={project}

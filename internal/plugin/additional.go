@@ -207,10 +207,13 @@ func (s *Service) applyAdditional(ctx context.Context, c Change, b Binding) erro
 		return s.applyOpenCode(ctx, c, b)
 	case "pi":
 		if c.Action == "update" {
-			if root == "" {
-				return fmt.Errorf("update imported Pi packages in Pi; Skillshare updates reviewed source snapshots only")
-			}
+			// An imported package updates natively; pi update keeps its settings entry.
 			// Local Pi packages load directly from the managed snapshot.
+			if root == "" {
+				if _, err := s.run(ctx, c.Target, "update", b.ID); err != nil {
+					return fmt.Errorf("Pi update failed: %w", err)
+				}
+			}
 		} else {
 			command := "install"
 			if remove {

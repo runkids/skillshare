@@ -42,7 +42,7 @@ func (s *Service) RenderNative(m Mutation) ([]RenderedFile, error) {
 	if err := entry.normalize(); err != nil {
 		return nil, err
 	}
-	if err := entry.Validate(m.Name); err != nil {
+	if err := s.validateEntry(m.Name, entry, root); err != nil {
 		return nil, err
 	}
 	entry.Enabled = nil
@@ -52,6 +52,11 @@ func (s *Service) RenderNative(m Mutation) ([]RenderedFile, error) {
 		d := &desired{elements: map[string][]wantElement{}, targets: map[string]string{}, roots: map[string]string{}, files: map[string]wantFile{}}
 		if err := scope.renderScope(d, root, map[string]Entry{m.Name: one}); err != nil {
 			out = append(out, RenderedFile{Target: target, Error: err.Error()})
+			continue
+		}
+		// A skipped account home writes nothing; say why instead of rendering no file.
+		if len(d.warnings) > 0 {
+			out = append(out, RenderedFile{Target: target, Error: strings.Join(d.warnings, "; ")})
 			continue
 		}
 		base, err := scope.base(target, root)
@@ -66,7 +71,7 @@ func (s *Service) RenderNative(m Mutation) ([]RenderedFile, error) {
 			for i, w := range want {
 				ops[i] = elementOp{Event: w.event, Index: -1, Value: w.value}
 			}
-			doc, _ := parseNative(target, nil)
+			doc, _ := parseNative(scope.agentOf(target), nil)
 			if data, _, err := doc.edit(ops, nil, false); err != nil {
 				f.Error = err.Error()
 			} else {

@@ -228,8 +228,21 @@ Codex는 공유되는 `~/.agents/skills`도 읽지만, 계정은 자기 디렉�
 |-------|-------------|
 | `agent` | 내장 Agent. `claude`(`CLAUDE_CONFIG_DIR`), `codex`(`CODEX_HOME`), `pi`(`PI_CODING_AGENT_DIR`) |
 | `config_dir` | 해당 계정의 config 디렉터리. 절대 경로이거나 `~`로 시작해야 하고, Agent의 기본 디렉터리가 아니어야 하며, 하나의 target만 사용 |
+| `cli` | 선택 사항. 이 계정의 [plugin 명령](/docs/reference/commands/plugin#accounts)을 Agent 자체 대신 호환 CLI로 실행합니다(예: Pi의 `omo`). `PATH`에 있는 이름이나 절대 경로(`~`로 시작 가능). 인수 없는 실행 파일 하나만 가능하며, shell alias는 인식되지 않음 |
 
-`mode`, `include`, `exclude` 및 그 밖의 target 설정은 다른 target과 동일하게 동작합니다. 직접 작성한 `skills.path`나 `agents.path`는 파생된 경로보다 우선합니다. target 이름은 [MCP target](/docs/reference/commands/mcp#accounts)과 [plugin target](/docs/reference/commands/plugin#accounts)으로도 사용할 수 있습니다.
+Agent의 명령을 그대로 따르는 호환 CLI라면 이 계정의 plugin을 실행할 수 있습니다. 예를 들어 omo는 Pi를 기반으로 합니다.
+
+```yaml
+targets:
+  omo:
+    agent: pi
+    config_dir: ~/.omo/agent
+    cli: omo
+```
+
+`cli`는 plugin을 설치하고 제거하는 프로그램만 바꿉니다. Skill, agent, MCP 서버는 이전처럼 `config_dir`에 기록됩니다.
+
+`mode`, `include`, `exclude` 및 그 밖의 target 설정은 다른 target과 동일하게 동작합니다. 직접 작성한 `skills.path`나 `agents.path`는 파생된 경로보다 우선합니다. target 이름은 [MCP target](/docs/reference/commands/mcp#accounts)과 [plugin target](/docs/reference/commands/plugin#accounts)으로도 사용할 수 있습니다. [hooks target](/docs/reference/commands/hooks#accounts)으로도 사용할 수 있습니다.
 
 #### 지침 파일 {#target-instructions}
 

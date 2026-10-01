@@ -74,7 +74,7 @@ func TestSyncAgents_MergeWithoutFileLinksKeepsLocalAgents(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	PruneOrphanAgentLinks(tgt, agents, false)
+	PruneOrphanAgentLinks(tgt, src, agents, false)
 
 	if readFile(t, filepath.Join(tgt, "tutor.md")) != "mine" || readFile(t, filepath.Join(tgt, "local.md")) != "local" || len(res.Skipped) != 1 {
 		t.Errorf("local agents changed; result = %+v", res)
@@ -86,7 +86,7 @@ func TestPruneOrphanAgentLinks_RemovesTrackedCopies(t *testing.T) {
 	src, tgt, agents := agentFixture(t)
 	SyncAgents(agents, src, tgt, "merge", false, false)
 
-	removed, _ := PruneOrphanAgentLinks(tgt, nil, false)
+	removed, _ := PruneOrphanAgentLinks(tgt, src, nil, false)
 
 	if _, err := os.Stat(filepath.Join(tgt, "tutor.md")); len(removed) != 1 || !os.IsNotExist(err) {
 		t.Errorf("removed = %v, want the orphaned copy pruned", removed)
@@ -247,7 +247,7 @@ func TestSyncAgents_MergeWithoutFileLinksPreservesIdenticalLocalFile(t *testing.
 	if _, err := SyncAgents(agents, src, tgt, "merge", false, false); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := PruneOrphanAgentLinks(tgt, nil, false); err != nil {
+	if _, err := PruneOrphanAgentLinks(tgt, src, nil, false); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(p); err != nil {
@@ -304,7 +304,7 @@ func TestCopyFallbackMissingManifestIsSyncedButUnowned(t *testing.T) {
 	if n := SyncedAgentCopies(tgt, agents); n != 1 {
 		t.Errorf("synced=%d", n)
 	}
-	PruneOrphanAgentLinks(tgt, nil, false)
+	PruneOrphanAgentLinks(tgt, src, nil, false)
 	if got := readFile(t, filepath.Join(tgt, "tutor.md")); got != "v1" {
 		t.Fatal(got)
 	}

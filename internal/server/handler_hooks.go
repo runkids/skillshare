@@ -15,7 +15,11 @@ import (
 )
 
 func (s *Server) hooksService() *hooks.Service {
-	return &hooks.Service{ConfigPath: s.configPath(), ProjectRoot: s.projectRoot, StateDir: config.StateDir(), ConfigDirs: hooks.ConfigDirsFromEnv()}
+	service := &hooks.Service{ConfigPath: s.configPath(), ProjectRoot: s.projectRoot, StateDir: config.StateDir(), ConfigDirs: hooks.ConfigDirsFromEnv()}
+	if !s.IsProjectMode() {
+		service.Accounts = hooksAccounts(s.cfg)
+	}
+	return service
 }
 
 // requireLocalHooks applies the MCP DNS-rebinding guard: hooks write commands that Agents run.
@@ -242,4 +246,15 @@ func writeHooksFailure(w http.ResponseWriter, result *hooks.Result, err error) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusConflict)
 	_ = json.NewEncoder(w).Encode(map[string]any{"error": message, "result": result})
+}
+
+// hooksAccounts are the global targets with their own native config homes.
+func hooksAccounts(cfg *config.Config) map[string]hooks.Account {
+	accounts := map[string]hooks.Account{}
+	for name, target := range cfg.Targets {
+		if target.Agent != "" && target.ConfigDir != "" {
+			accounts[name] = hooks.Account{Agent: target.Agent, Dir: target.ConfigDir}
+		}
+	}
+	return accounts
 }

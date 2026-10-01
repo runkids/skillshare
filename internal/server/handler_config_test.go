@@ -2,6 +2,7 @@ package server
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -212,5 +213,36 @@ func TestHandlePutConfig_ProjectHooksProjects_400(t *testing.T) {
 
 	if rr.Code != http.StatusBadRequest || !strings.Contains(rr.Body.String(), "hooks.projects") {
 		t.Errorf("expected 400 naming hooks.projects, got %d: %s", rr.Code, rr.Body.String())
+	}
+}
+
+func TestHandleConfigSaveAcceptsAccountHooks(t *testing.T) {
+	for _, project := range []bool{false, true} {
+		t.Run(fmt.Sprint(project), func(t *testing.T) {
+			var s *Server
+			if project {
+				s, _ = newTestProjectServerWithExtras(t, nil)
+			} else {
+				s, _ = newTestServer(t)
+			}
+			home := hooksTestHome(t)
+			if err := os.MkdirAll(filepath.Join(home, "skills"), 0755); err != nil {
+				t.Fatal(err)
+			}
+			raw := "source: " + filepath.Join(home, "skills") + "\ntargets:\n  codex-2:\n    agent: codex\n    config_dir: " + filepath.Join(home, ".codex-2") + "\n    skills: {enabled: false}\nhooks:\n  entries:\n    x:\n      bindings:\n        codex-2:\n          events: {Stop: [{hooks: [{type: command, command: x}]}]}\n"
+			if project {
+				raw = "targets: []\nhooks:\n  entries:\n    x:\n      bindings:\n        codex-2:\n          events: {Stop: [{hooks: [{type: command, command: x}]}]}\n"
+			}
+			body, _ := json.Marshal(map[string]string{"raw": raw})
+			w := httptest.NewRecorder()
+			s.handlePutConfig(w, httptest.NewRequest(http.MethodPut, "/api/config", strings.NewReader(string(body))))
+			if project {
+				if w.Code != http.StatusBadRequest || !strings.Contains(w.Body.String(), "unsupported Agent") {
+					t.Fatalf("%d %s", w.Code, w.Body)
+				}
+			} else if w.Code != http.StatusOK {
+				t.Fatalf("%d %s", w.Code, w.Body)
+			}
+		})
 	}
 }

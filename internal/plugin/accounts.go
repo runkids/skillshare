@@ -11,11 +11,29 @@ import (
 type Account struct {
 	Agent string
 	Dir   string
+	// CLI runs the plugin commands instead of the Agent's own executable, for a compatible
+	// CLI such as omo for Pi. Empty means the Agent's.
+	CLI string
 }
 
 // accountEnv names, for each Agent whose plugins follow its config directory, the
 // environment variable that points its CLI at another one. Only these Agents have accounts.
 var accountEnv = map[string]string{"claude": "CLAUDE_CONFIG_DIR", "codex": "CODEX_HOME", "pi": "PI_CODING_AGENT_DIR"}
+
+// piForkEnv are the variables Pi forks read before PI_CODING_AGENT_DIR (senpi, and omo
+// built on it). One left in the user's environment would win over the account's directory.
+var piForkEnv = []string{"SENPI_CODING_AGENT_DIR", "OMO_CODING_AGENT_DIR"}
+
+// env points an account's CLI at the account's directory.
+func (a Account) env() []string {
+	env := []string{accountEnv[a.Agent] + "=" + a.Dir}
+	if a.Agent == "pi" {
+		for _, name := range piForkEnv {
+			env = append(env, name+"="+a.Dir)
+		}
+	}
+	return env
+}
 
 // account resolves a target that is another config directory of an Agent. A project's
 // plugins belong to the project rather than to one account, so accounts are global only.

@@ -90,6 +90,23 @@ func TestCompletion_MCPCheck_AllShells(t *testing.T) {
 	}
 }
 
+func TestCompletion_TargetCLIFlag_AllShells(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	for shell, flag := range map[string]string{
+		"bash":       "--config-dir --cli",
+		"zsh":        "'--cli[",
+		"fish":       "-l cli -r",
+		"powershell": "'--config-dir', '--cli'",
+		"nushell":    "--cli: string",
+	} {
+		result := sb.RunCLI("completion", shell)
+		result.AssertSuccess(t)
+		result.AssertOutputContains(t, flag)
+	}
+}
+
 func TestCompletion_Subcommands_AllShells(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()

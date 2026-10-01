@@ -274,14 +274,14 @@ Agent は自身の global MCP ファイルと project のファイルを合わ�
 ファイルで定義されたサーバーはすべての project で読み込まれます。1 つの project だけでそれを読み込まれないようにするには、**Agent の global ファイルが使っているのと同じ名前**のエントリを追加し、
 `disabled` を指定します。
 
-これは以下の 3 つのクライアントでのみ機能します。
+これは以下の 4 つのクライアントでのみ機能します。
 
 | クライアント | 対応 | Skillshare が書き込む内容 |
 |---|---|---|
 | Claude Code | Yes | `~/.claude.json`: この project の `disabledMcpServers` リストにその名前を追加 |
 | OpenCode | Yes | `opencode.json`: `"NAME": {"enabled": false}` |
 | Kilo Code | Yes | `kilo.jsonc`: `"NAME": {"enabled": false}` |
-| Pi | No | 完全なエントリが必要：command/url を持つサーバーに `piOptions: {enabled: false}` を設定 |
+| Pi | Yes（`mcp.projects` から） | `.pi/mcp.json`: `"NAME": {"command": "...", "enabled": false}`、下記参照 |
 | Codex | No | 下記参照 |
 | その他すべてのクライアント | No | 選択するとエラー。何も書き込まれない |
 
@@ -292,6 +292,13 @@ global config がそのサーバーを定義しているマシンでは `enabled
 `command` も `url` もなくなり、Codex は `invalid transport` で設定全体の読み込みに失敗します。`.codex/config.toml` は通常コミットされるため、あるチームメンバーのスイッチが
 別のメンバーの Codex の起動を止めてしまう可能性があります。代わりに、マシンごとに `~/.codex/config.toml` で
 `enabled = false` を指定してサーバーをオフにしてください。
+
+Pi は project の同名エントリで global エントリを丸ごと置き換え、`command` も `url` もないエントリは読み飛ばします。
+そのため Pi には、global サーバーの `command`、またはクエリを除いた `url` を `enabled: false` と一緒に書き込みます。
+オフにしたサーバーは起動しないので、args、env、headers は project ファイルに書き込まれず、他の project では
+そのサーバーがそのまま使われます。sync のたびにエントリは global サーバーから書き直されます。global サーバーが
+必要なので、これは global config の `mcp.projects` 配下の project でのみ機能します。project 自身の config からは
+global サーバーが見えないため、そこで `disabled` エントリに `pi` を指定するとエラーになります。
 
 ### OpenCode と Kilo Code
 
@@ -819,9 +826,8 @@ Pi だけの簡単な設定なら、`pi mcp add` でグローバルファイル�
 ユーザーの承認が必要です。
 
 Pi のサーバー名には英数字、`_`、`-` のみを使えます。Pi では project のエントリが同名の global
-エントリを丸ごと置き換えるため、スイッチだけの `disabled` エントリは Pi を対象にできません。
-1 つの project で global サーバーをオフにするには、完全なエントリに `piOptions: {enabled: false}`
-を設定してください。
+エントリを丸ごと置き換えます。1 つの project で global サーバーをオフにするには、
+[1 つの project だけで global サーバーをオフにする](#turn-off-a-global-server-in-one-project)を参照してください。
 
 ### その他の Pi 設定 {#pi-options}
 
@@ -906,7 +912,6 @@ sync がサーバーをこれらの extension から移すとき、`sync mcp --d
 | `mcp.directTools`、または `mcp.projects` 配下の project の `directTools` | 既定値が、Pi に届き自身の値を持たない各サーバーに上記のとおり書き込まれる。project の `false` はグローバルの値より優先される |
 | `piOptions.includeTools` / `excludeTools` | `tools.allow` / `tools.deny`。一緒に設定した `directTools` は引き続き `piOptions.exposure` になる |
 | `piOptions` 内のその他の `pi-mcp-adapter` フィールド: `approveTools`、`auth`、`bearerToken`、`bearerTokenEnv`、`bearerTokenStore`、`caFile`、`debug`、`exposeResources`、`idleTimeout`、`inheritEnv`、`lifecycle`、`protocolVersion`、`requestHeadersCommand`、`requestTimeoutMs`、`searchKeywords`、`socket`、`tasks`、`toolPrefix`、`trace` | Pi の内蔵 MCP が読まないため削除される |
-| `disabled` エントリの `targets` 内の `pi` | そのリストから `pi` が削除される。Pi はスイッチだけのエントリを受け付けないため、そのサーバーはその project で再びオンになる。オフのままにするには、`piOptions: {enabled: false}` を持つ完全なエントリを追加する |
 
 サーバーがすでに設定している exposure を上書きしてしまう `directTools`、`includeTools`、`excludeTools`、
 またはツール名のリストではないものは、それぞれ独自の warning とともに破棄されます。

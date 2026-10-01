@@ -230,8 +230,21 @@ Codex は共有の `~/.agents/skills` も読み込みますが、アカウント
 |-------|-------------|
 | `agent` | 組み込みの Agent。`claude`（`CLAUDE_CONFIG_DIR`）、`codex`（`CODEX_HOME`）、`pi`（`PI_CODING_AGENT_DIR`） |
 | `config_dir` | そのアカウントの Config ディレクトリ。絶対パスか `~` で始まること、Agent のデフォルトのディレクトリではないこと、1 つの Target だけが使うこと |
+| `cli` | 任意。このアカウントの [plugin コマンド](/docs/reference/commands/plugin#accounts)を、Agent 本体ではなく互換 CLI で実行します（Pi なら `omo` など）。`PATH` 上の名前か、絶対パス（`~` で始めても可）。引数なしの実行ファイル 1 つだけで、shell alias は使えません |
 
-`mode`、`include`、`exclude` などの Target 設定は、他の Target と同じように機能します。自分で書いた `skills.path` や `agents.path` は、導き出されたパスより優先されます。Target 名は [MCP Target](/docs/reference/commands/mcp#accounts) や [plugin Target](/docs/reference/commands/plugin#accounts) としても使えます。
+Agent のコマンドを引き継いだ互換 CLI なら、このアカウントの plugin を実行できます。たとえば omo は Pi をベースにしています。
+
+```yaml
+targets:
+  omo:
+    agent: pi
+    config_dir: ~/.omo/agent
+    cli: omo
+```
+
+`cli` が変えるのは、plugin のインストールと削除に使うプログラムだけです。Skill、Agent、MCP サーバーはこれまでどおり `config_dir` に書き込まれます。
+
+`mode`、`include`、`exclude` などの Target 設定は、他の Target と同じように機能します。自分で書いた `skills.path` や `agents.path` は、導き出されたパスより優先されます。Target 名は [MCP Target](/docs/reference/commands/mcp#accounts) や [plugin Target](/docs/reference/commands/plugin#accounts) としても使えます。 [hooks Target](/docs/reference/commands/hooks#accounts) としても使えます。
 
 #### ツールが読むファイル {#target-instructions}
 

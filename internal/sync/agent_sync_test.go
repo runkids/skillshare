@@ -170,7 +170,7 @@ func TestPruneOrphanAgentLinks(t *testing.T) {
 		{FlatName: "active.md"},
 	}
 
-	removed, err := PruneOrphanAgentLinks(targetDir, agents, false)
+	removed, err := PruneOrphanAgentLinks(targetDir, sourceDir, agents, false)
 	if err != nil {
 		t.Fatalf("PruneOrphanAgentLinks: %v", err)
 	}
@@ -188,8 +188,73 @@ func TestPruneOrphanAgentLinks(t *testing.T) {
 	}
 }
 
+// A link the user made to an agent outside the source is not skillshare's to remove.
+func TestPruneOrphanAgentLinks_KeepsExternalLink(t *testing.T) {
+	sourceDir := t.TempDir()
+	targetDir := t.TempDir()
+
+	extFile := filepath.Join(t.TempDir(), "mine.md")
+	os.WriteFile(extFile, []byte("# Mine"), 0644)
+	link := filepath.Join(targetDir, "mine.md")
+	os.Symlink(extFile, link)
+
+	removed, err := PruneOrphanAgentLinks(targetDir, sourceDir, nil, false)
+	if err != nil {
+		t.Fatalf("PruneOrphanAgentLinks: %v", err)
+	}
+	if len(removed) != 0 {
+		t.Errorf("expected external link kept, removed: %v", removed)
+	}
+	if _, err := os.Lstat(link); err != nil {
+		t.Error("external link should not be removed")
+	}
+}
+
+// A link left behind by an old source location is broken and still pruned.
+func TestPruneOrphanAgentLinks_RemovesBrokenExternalLink(t *testing.T) {
+	sourceDir := t.TempDir()
+	targetDir := t.TempDir()
+
+	os.Symlink(filepath.Join(t.TempDir(), "moved.md"), filepath.Join(targetDir, "moved.md"))
+
+	removed, err := PruneOrphanAgentLinks(targetDir, sourceDir, nil, false)
+	if err != nil {
+		t.Fatalf("PruneOrphanAgentLinks: %v", err)
+	}
+	if len(removed) != 1 {
+		t.Errorf("expected broken link removed, got %v", removed)
+	}
+}
+
+// Relative links are written from the target's real directory, so an orphan
+// under a symlinked target directory must still resolve into the source.
+func TestPruneOrphanAgentLinks_RelativeLinkUnderSymlinkedTarget(t *testing.T) {
+	tmp := t.TempDir()
+	sourceDir := filepath.Join(tmp, "proj", ".skillshare", "agents")
+	realDir := filepath.Join(tmp, "home", "dotfiles", "claude") // deeper than the lexical path
+	os.MkdirAll(sourceDir, 0755)
+	os.MkdirAll(filepath.Join(realDir, "agents"), 0755)
+	os.Symlink(realDir, filepath.Join(tmp, "proj", ".claude"))
+	targetDir := filepath.Join(tmp, "proj", ".claude", "agents")
+
+	srcFile := filepath.Join(sourceDir, "gone.md")
+	os.WriteFile(srcFile, []byte("# Gone"), 0644)
+	link := filepath.Join(targetDir, "gone.md")
+	if err := createLink(link, srcFile, true); err != nil {
+		t.Fatal(err)
+	}
+	// Keep the link live so only path resolution decides, not broken-link cleanup.
+	removed, err := PruneOrphanAgentLinks(targetDir, sourceDir, nil, false)
+	if err != nil {
+		t.Fatalf("PruneOrphanAgentLinks: %v", err)
+	}
+	if len(removed) != 1 {
+		t.Errorf("expected orphan relative link removed, got %v", removed)
+	}
+}
+
 func TestPruneOrphanAgentLinks_NonExistentDir(t *testing.T) {
-	removed, err := PruneOrphanAgentLinks("/nonexistent/path", nil, false)
+	removed, err := PruneOrphanAgentLinks("/nonexistent/path", "", nil, false)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

@@ -62,3 +62,36 @@ passed afterward; the rebuilt backend passed actual UI smoke. Mobile at 390px
 remains limited by the shared fixed sidebar. Native hook execution remains
 unverified for all ten Agents. React Doctor reports remaining complexity and
 semantic markup warnings.
+
+## Account targets
+
+Global hook bindings can now name another Claude, Codex or Pi account declared
+under `targets` with `agent` and `config_dir`. This lets one source and the
+existing Version 1 ownership ledger manage multiple Codex homes. Native format
+selection uses the account's Agent; inventory, changes, imports and backups keep
+the account name. Missing homes are skipped, and directory collisions are refused.
+
+Two rules protect other homes. An Agent environment override pointing at a
+declared account uses the plain Agent's default home instead (with a warning).
+Outputs from a former home, under a removed target, or in a
+missing account home are parked with ownership intact. An explicit entry-level
+`--replace` can release parked ownership without changing native files.
+
+Native regression tests cover separate homes, in-place adoption, binding removal,
+Claude settings, Pi code and scripts, symlink collisions, backups, environment
+shadowing, parking, API contracts and CLI sync-all. Config-aware validation also
+has built-in Go fuzz coverage. The English command/config references and their
+Japanese, Korean and Chinese translations describe these rules.
+
+Lifecycle review added regressions for another account reusing a parked path,
+explicit ownership release, moving a home to its ancestor, and symlinks introduced
+before cleanup or backup restore. Parked registrations remain protected during
+planning, and collision checks include owned cleanup outputs. Restore refuses a
+backup while its target resolves to a different home. The dashboard's full native
+suite passed 706 tests, including Pi account template guidance; the account picker
+and source-only save were also checked in Clean/Playful light and dark modes.
+
+Verification used the installed native toolchain with isolated test homes rather
+than Docker. Docker/ssenv-only `scripts/hooks/e2e.sh`, `scripts/hooks/real-agents.sh`
+and mdproof runbooks were not run. Native hook execution and trust remain the
+Agent's responsibility; no user configuration rollout is part of this change.

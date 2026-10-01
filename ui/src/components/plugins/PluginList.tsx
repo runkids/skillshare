@@ -87,7 +87,10 @@ function Row({ name, inventory, updates, busy, working, onToggle, onMenu, onAdd,
         <span className="flex min-w-0 flex-1 flex-col gap-0.5">
           <span className="flex items-center gap-2">
             <span title={name} className="truncate font-mono font-semibold">{name}</span>
-            <VersionChange from={versions.length === 1 ? versions[0] : undefined} to={updates?.[name]} />
+            {/* Agents at different versions, as after an update that skipped one, show each. */}
+            {versions.length > 1
+              ? <span className="ss-tag shrink-0 font-mono" title={bindings.filter(([, b]) => b.version).map(([target, b]) => `${pluginTargets[target]?.label ?? target} ${b.version}`).join(' · ')}>{versions.join(' / ')}</span>
+              : <VersionChange from={versions[0]} to={updates?.[name]} />}
             {bindings.some(([target, b]) => syncAction(b, inventory.hosts.find((h) => h.target === target))) && <span className="ss-tag warn">{t('plugins.pending')}</span>}
             {bindings.length === 0 && <span className="ss-tag">{t('plugins.noAgentsYet')}</span>}
           </span>

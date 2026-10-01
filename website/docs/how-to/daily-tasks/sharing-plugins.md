@@ -96,12 +96,15 @@ components are not also copied into standalone Skillshare sources.
 ## Updates and recovery
 
 Use **Check updates**, then review an update for a supported target. Claude can
-update through its native CLI. Codex update is explicitly unavailable in this
-adapter; updating a marketplace is not equivalent to updating an installed plugin.
+update through its native CLI. Codex adds the plugin again from the reviewed
+snapshot, unless it is disabled in Codex, which adding would turn back on; an
+imported Codex plugin is updated by upgrading its marketplace.
 Cursor and Antigravity replace managed local copies after checking for local edits.
 Pi and OpenCode update the reviewed snapshot. Copilot can refresh a reviewed
 source while preserving known enabled state. Antigravity CLI and Grok updates
 stay in the native tool; see the command reference for imported-package limits.
+A target an update cannot reach is skipped with the reason, and the plugin's
+other Agents still update.
 
 If one target fails, the result keeps the successful outcomes. Resolve the native
 client's authentication or configuration issue, then sync that target again:

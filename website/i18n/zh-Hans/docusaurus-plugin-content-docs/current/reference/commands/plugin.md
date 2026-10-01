@@ -76,7 +76,7 @@ JSON 输出包含来源路径和原生标识符。不要在来源 URL 中放置�
 | Target | Format | Global | Project | Update |
 |---|---|:---:|:---:|---|
 | Claude Code | `.claude-plugin/plugin.json` | Yes | Yes | Native update |
-| Codex | `.codex-plugin/plugin.json` or Agent Plugins root manifest | Yes | No | Not supported |
+| Codex | `.codex-plugin/plugin.json` or Agent Plugins root manifest | Yes | No | 刷新经审核的来源后再次 add，仅限在 Codex 中为启用状态 |
 | Cursor | `.cursor-plugin/plugin.json` or Agent Plugins root manifest | Yes | No | Replace reviewed local copy |
 | Antigravity Desktop | Root `plugin.json` with an explicit name | Yes | Yes | Replace reviewed local copy |
 | Pi | `package.json` with `pi` resources, or `pi-package` keyword and conventional resource folders | Yes | Yes, with native project trust | Refresh managed source snapshot |
@@ -111,6 +111,8 @@ targets:
 skillshare plugin add owner/repo --target claude-work
 skillshare plugin import demo@market --from claude-work
 ```
+
+设置了 [`cli`](/docs/reference/targets/configuration#agent-config-dir) 的账号会改用那个兼容的 CLI，例如 Pi 账号用 `omo`，并针对同一个配置目录运行。Pi 账号还会设置 `SENPI_CODING_AGENT_DIR` 和 `OMO_CODING_AGENT_DIR`，因为 Pi 的 fork 会先读这两个变量，再读 `PI_CODING_AGENT_DIR`。找不到 CLI 时操作会失败；Skillshare 不会改用 Agent 本身的 CLI。
 
 这个账号会沿用它所属 Agent 的各项操作，并以自己的名称保存自己的绑定，因此一个 plugin 可以只安装在其中一个账号而不装在另一个账号。账号只存在于 global 作用域：项目的 plugins 属于该项目，而不属于某一个账号。`--target` 和 `--from` 都接受账号名称，终端选择器和仪表盘的 Plugins 页面也会把它列在各个 Agent 旁边。
 
@@ -147,7 +149,7 @@ OpenCode 必须在 PATH 上，以便 Skillshare 能够选择对应版本的 sche
 注册成功并不代表模块已成功加载；请在重新加载后检查 OpenCode。
 
 Import 接受普通的 Pi package 来源和普通的 OpenCode 配置条目。带有资源过滤器/选项的
-条目会被拒绝，以保留这些设置。已导入的 Pi 和 OpenCode v1 packages 会在其原生工具中更新。
+条目会被拒绝，以保留这些设置。已导入的 Pi package 在全局模式下用 `pi update SOURCE` 更新，并保留其设置条目；project 中的则要在 Pi 里更新，因为 `pi update` 也会影响全局 package。已导入的 OpenCode v1 packages 会在其原生工具中更新。
 OpenCode v2 的全局导入可以使用其原生的更新命令；project 导入则必须原生更新，
 因为 v2 的更新命令是全局的。
 
@@ -194,8 +196,14 @@ Skillshare 从不提供原生信任的批准 flags。
   循环以及引用 `.git` 的链接和特殊文件会被拒绝；sources 限制为 20,000 个文件和 100 MiB。
 - 原生安装并不能证明运行时已激活。请重启/重新加载
   该 Agent，并在该 Agent 中完成认证或 hook trust。
-- Codex 原生 project 安装和 plugin 更新不由此适配器提供。同步选择
+- Codex 原生 project 安装不由此适配器提供。同步选择
   对全局 Codex 安装仍然有效。
+- Codex 没有 update 命令，因此更新会用刷新后的快照再次 add 该 plugin。
+  add 总会启用它，所以在 Codex 中被停用的 plugin 会被跳过。导入的 Codex
+  plugin 会用 `codex plugin marketplace upgrade NAME` 更新，这会重新安装 Codex
+  从该 marketplace 安装的所有 plugin，Codex 启动时也会这样做。
+- 更新遇到无法处理的 target 时会跳过并说明原因；该 plugin 的其他 Agent 仍会照常更新，
+  被跳过的更新会保留为待处理，留给之后的 sync。
 - 已导入的 plugins 保留其原始的 marketplace 身份。`check` 无法为没有 source 的
   已导入 plugin 推断发布可用性。
 - Removal 会保留共享的 marketplace 注册和受管理的快照；它

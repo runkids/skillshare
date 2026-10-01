@@ -40,6 +40,8 @@ export interface Target {
   agent?: string;
   /** That config folder; the skills and agents paths follow it */
   configDir?: string;
+  /** The executable that runs its plugin commands, when not the Agent's own */
+  cli?: string;
   path: string;
   mode: string;
   targetNaming: string;

@@ -282,9 +282,10 @@ export const isResolvable = (change: MCPChange) =>
 /** Whether importing can settle a conflict. It reads the Agent's global file, which never holds a project's switch. */
 export const canImportConflict = (change: MCPChange) => isResolvable(change) && !change.switch;
 
-/** Agents a project can turn a global server off for: those it uses, that the server reaches and that have a switch. */
+/** Agents a project can turn a global server off for: those it uses, that the server reaches and that have a switch.
+ * Pi takes one when given the global server itself, whose command or url its switch carries. */
 export const switchTargets = (server: MCPServer, defaults: string[], projectTargets: readonly string[]) =>
-  (server.targets ?? defaults).filter((x) => mcpOffTargets.includes(x) && projectTargets.includes(x));
+  (server.targets ?? defaults).filter((x) => (mcpOffTargets.includes(x) || (x === 'pi' && Boolean(server.command || server.url))) && projectTargets.includes(x));
 
 /** The Agents a server of one scope goes to. A switch that names none follows the scope's, where the Agent has a switch, as sync works it out. */
 export const reachOf = (server: MCPServer, defaults: string[]) =>
@@ -337,7 +338,6 @@ const noticeKeys: Record<string, string> = {
 const legacyNoticeKeys: Record<string, string> = {
   'Pi now uses its built-in MCP; the next sync updates the config': 'mcp.notice.piExtension',
   'piOptionsPrune is no longer used; the next sync removes it': 'mcp.notice.piOptionsPrune',
-  'Pi cannot turn off a server per project; the next sync removes pi from these entries': 'mcp.notice.piSwitch',
   'directTools, includeTools and excludeTools become tool settings; the next sync converts them': 'mcp.notice.piTools',
   'directTools, includeTools or excludeTools the server already covers, or that are not tool lists, are dropped; the next sync removes them': 'mcp.notice.piToolsDropped',
 };

@@ -35,7 +35,7 @@ skillshare hooks restore BACKUP_ID
 | Option | Meaning |
 |---|---|
 | `--file PATH` | 추가／편집의 Entry JSON/YAML 또는 가져올 네이티브 설정／코드 |
-| `--from AGENT` | 가져올 Agent 또는 네이티브 형식 |
+| `--from AGENT` | `codex-2` 계정 target도 지원.   가져올 Agent 또는 네이티브 형식 |
 | `--sync` | 저장 후 동기화 |
 | `--keep-files` | `remove`와 함께 사용: hook 관리를 멈추고 네이티브 항목은 그대로 둡니다. `--sync`와 함께 쓸 수 없습니다. [아래](#stop-managing-a-hook) 참고 |
 | `--replace` | 기존 소스 entry 또는 해당 entry의 충돌 출력을 명시적으로 교체 |
@@ -90,7 +90,7 @@ Skillshare는 `hooks` 섹션을 들여쓴 block 형식으로 쓰며, 저장할 �
 | `bindings.AGENT.code` | Pi, Amp, OpenCode의 네이티브 extension/plugin 소스 |
 | `bindings.AGENT.files` | 상대 파일명을 key로 하는 선택 UTF-8 스크립트 |
 
-Agent ID는 `claude`, `codex`, `gemini`, `copilot`, `cursor`, `droid`, `qwen`, `antigravity`, `pi`, `amp`, `opencode`입니다. `factory`는 `droid`, `antigravity-cli`와 `agy`는 `antigravity`의 별칭입니다. event, matcher, handler type, command, timeout 단위와 payload는 원래 형식을 유지하고 자동 변환하지 않습니다. event 이름은 각 command Agent 문서의 event와 대조합니다. 알 수 없는 이름(예: 철자가 틀린 `Stopp`)은 미리보기와 plan의 `warnings`에 경고로 표시되지만, Agent가 event를 계속 추가하므로 동기화를 막지 않습니다. Pi, Amp, OpenCode 코드는 확인하지 않습니다. Pi, Amp, OpenCode의 코드와 imports는 설치된 버전에 맞춰 제공하며 전용 `skillshare-NAME.ts`에 기록됩니다. 공통 실행 엔진을 생성하지 않습니다. command binding 스크립트는 Agent 설정 디렉터리의 `hooks/skillshare/NAME/`에 저장하며 command의 macro／명시 경로를 변경하지 않습니다. 미리보기에서 전체 경로를 확인하세요.
+Agent ID는 `claude`, `codex`, `gemini`, `copilot`, `cursor`, `droid`, `qwen`, `antigravity`, `pi`, `amp`, `opencode`입니다. `factory`는 `droid`, `antigravity-cli`와 `agy`는 `antigravity`의 별칭입니다. event, matcher, handler type, command, timeout 단위와 payload는 원래 형식을 유지하고 자동 변환하지 않습니다. event 이름은 각 command Agent 문서의 event와 대조합니다. 알 수 없는 이름(예: 철자가 틀린 `Stopp`)은 미리보기와 plan의 `warnings`에 경고로 표시되지만, Agent가 event를 계속 추가하므로 동기화를 막지 않습니다. Pi, Amp, OpenCode 코드는 확인하지 않습니다. Pi, Amp, OpenCode의 코드와 imports는 설치된 버전에 맞춰 제공하며 전용 `skillshare-NAME.ts`에 기록됩니다. 공통 실행 엔진을 생성하지 않습니다. command binding 스크립트는 Agent 설정 디렉터리의 `hooks/skillshare/NAME/`에 저장하며 command의 macro／명시 경로를 변경하지 않습니다. 미리보기에서 전체 경로를 확인하세요. global binding에는 `targets` 아래 선언한 계정 target 이름도 사용할 수 있습니다.
 
 ## 네이티브 저장 위치
 
@@ -108,10 +108,46 @@ Agent ID는 `claude`, `codex`, `gemini`, `copilot`, `cursor`, `droid`, `qwen`, `
 | [Amp](https://ampcode.com/docs/plugin-api) | `~/.config/amp/plugins/skillshare-NAME.ts` | `.amp/plugins/skillshare-NAME.ts` | Native plugin code |
 | [OpenCode](https://opencode.ai/docs/plugins/) | `~/.config/opencode/plugins/skillshare-NAME.ts` | `.opencode/plugins/skillshare-NAME.ts` | Supplied v1/v2 plugin code |
 
-global scope는 네이티브 설정 디렉터리 환경 변수 override를 사용합니다. project scope는 프로젝트에만 쓰며 global 경로로 대체하지 않습니다. Codex inline TOML 같은 다른 소스는 별도로 유지됩니다. Antigravity와 CLI(`agy`)는 같은 `hooks.json`을 읽습니다. 각 hook은 이름이 붙은 블록 하나이며 가져와도 이름이 유지됩니다. CLI의 `~/.gemini/antigravity-cli/settings.json`에 있는 hooks는 별도로 유지됩니다. Droid의 독립 hooks 파일은 로딩 소스를 바꿀 수 있으므로 기존 inline hooks를 먼저 확인하세요. Copilot은 신뢰된 폴더에서만 `.github/hooks`의 프로젝트 hooks를 불러옵니다.
+계정 target의 `config_dir`을 가리키는 경우를 제외하고 global scope는 네이티브 설정 디렉터리 환경 변수 override를 사용합니다. project scope는 프로젝트에만 쓰며 global 경로로 대체하지 않습니다. Codex inline TOML 같은 다른 소스는 별도로 유지됩니다. Antigravity와 CLI(`agy`)는 같은 `hooks.json`을 읽습니다. 각 hook은 이름이 붙은 블록 하나이며 가져와도 이름이 유지됩니다. CLI의 `~/.gemini/antigravity-cli/settings.json`에 있는 hooks는 별도로 유지됩니다. Droid의 독립 hooks 파일은 로딩 소스를 바꿀 수 있으므로 기존 inline hooks를 먼저 확인하세요. Copilot은 신뢰된 폴더에서만 `.github/hooks`의 프로젝트 hooks를 불러옵니다.
 
 
 Droid inline hooks가 활성화된 경우 독립 파일 생성을 거부합니다. 가져와서 검토하고 원래 inline hooks를 제거한 뒤 동기화하세요.
+
+## Agent의 다른 계정 {#accounts}
+
+`agent`와 `config_dir`을 선언한 target은 자기 이름으로 hooks를 받을 수 있습니다. Claude, Codex, Pi 계정은 해당 Agent의 네이티브 binding 형식을 사용합니다.
+
+```yaml
+targets:
+  codex-2:
+    agent: codex
+    config_dir: ~/.codex-2
+    skills: {enabled: false}
+hooks:
+  entries:
+    check:
+      bindings:
+        codex-2:
+          events:
+            Stop:
+              - hooks:
+                  - type: command
+                    command: "echo checked"
+```
+
+| 계정의 Agent | 네이티브 대상 |
+|---|---|
+| `claude` | `<config_dir>/settings.json` |
+| `codex` | `<config_dir>/hooks.json` |
+| `pi` | `<config_dir>/extensions/skillshare-NAME.ts` |
+
+command 스크립트는 `<config_dir>/hooks/skillshare/NAME/`에 기록됩니다. 계정은 global에서만 지원합니다. 모든 계정이 같은 프로젝트 파일을 읽으므로 project 설정과 `hooks.projects`에서는 Agent 자체를 지정합니다. `config_dir`이 없으면 경고하고 건너뛰며 계정 홈을 만들지 않습니다.
+
+`CODEX_HOME`, `CLAUDE_CONFIG_DIR`, `PI_CODING_AGENT_DIR`이 선언한 계정 디렉터리를 가리키면 일반 Agent binding은 내장 기본 홈을 사용하고 plan에 경고를 표시합니다. 각 계정은 자기 `config_dir`을 사용합니다. 다른 override는 기존대로 적용됩니다. symlink를 포함해 같은 디렉터리로 해석되는 두 binding key를 한 번에 동기화할 수 없습니다.
+
+target이 삭제되거나 홈이 이동하거나 계정 홈이 없으면 관리 중인 출력과 소유권 기록을 그대로 두고 경고합니다. target이나 디렉터리를 복원하면 다시 관리할 수 있습니다. 파일을 바꾸지 않고 특정 항목의 보류된 소유권을 해제하려면 `skillshare hooks sync NAME --replace -g`를 미리 보고 실행하세요. target 제거 시 binding이 여전히 그 이름을 쓰면 경고합니다. 다음 hooks 동기화 전에 binding도 제거하세요.
+
+`skillshare hooks import --from codex-2 -g --json`으로 계정에서 가져옵니다. 대시보드는 **codex-2 (Codex)**로 표시하고 Codex event와 편집기를 사용합니다. 각 Codex 홈에서 변경된 hooks를 `/hooks`로 검토하고 신뢰해야 합니다. 동기화는 신뢰를 바꾸거나 hooks를 실행하지 않습니다.
 
 ## 프로젝트, 충돌과 복원
 

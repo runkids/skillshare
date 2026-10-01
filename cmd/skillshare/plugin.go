@@ -92,7 +92,7 @@ func pluginAccounts(cfg *config.Config) map[string]plugin.Account {
 	accounts := map[string]plugin.Account{}
 	for name, target := range cfg.Targets {
 		if target.Agent != "" && target.ConfigDir != "" {
-			accounts[name] = plugin.Account{Agent: target.Agent, Dir: target.ConfigDir}
+			accounts[name] = plugin.Account{Agent: target.Agent, Dir: target.ConfigDir, CLI: target.CLI}
 		}
 	}
 	return accounts

@@ -90,6 +90,51 @@ func TestAgentConfigDir_Rejected(t *testing.T) {
 	}
 }
 
+// cli names the executable that runs an account's plugin commands: a name found on PATH,
+// or an absolute path.
+func TestAgentConfigDir_CLI(t *testing.T) {
+	home, _ := os.UserHomeDir()
+	for cli, want := range map[string]string{
+		"omo":              "omo",
+		"/opt/omo/bin/omo": "/opt/omo/bin/omo",
+		"~/bin/omo":        filepath.Join(home, "bin", "omo"),
+	} {
+		cfg, _, err := loadWithTargets(t, "  omo:\n    agent: pi\n    config_dir: $ROOT/.omo/agent\n    cli: "+cli+"\n")
+		if err != nil {
+			t.Fatalf("cli %s: %v", cli, err)
+		}
+		if got := cfg.Targets["omo"].CLI; got != want {
+			t.Errorf("cli %s: got %q, want %q", cli, got, want)
+		}
+	}
+}
+
+func TestAgentConfigDir_CLIRejected(t *testing.T) {
+	for name, body := range map[string]string{
+		"cli on a target that is no account": "  x:\n    path: $ROOT/x\n    cli: omo\n",
+		"a relative path":                    "  x:\n    agent: pi\n    config_dir: $ROOT/x\n    cli: bin/omo\n",
+		"a command line":                     "  x:\n    agent: pi\n    config_dir: $ROOT/x\n    cli: omo --beta\n",
+	} {
+		if _, _, err := loadWithTargets(t, body); err == nil {
+			t.Errorf("%s was accepted", name)
+		}
+	}
+}
+
+// With preserve_tilde_on_save, cli is saved under ~ like the other paths.
+func TestAgentConfigDir_SaveKeepsCLIUnderHome(t *testing.T) {
+	cfg, _, err := loadWithTargets(t, "  omo:\n    agent: pi\n    config_dir: $ROOT/.omo/agent\n    cli: ~/bin/omo\npreserve_tilde_on_save: true\n")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := cfg.Save(); err != nil {
+		t.Fatal(err)
+	}
+	if data, _ := os.ReadFile(ConfigPath()); !strings.Contains(string(data), "cli: ~/bin/omo") {
+		t.Fatalf("saved config:\n%s", data)
+	}
+}
+
 // The config editor validates what it is about to save without loading it.
 func TestAgentConfigDir_ConfigEditorValidation(t *testing.T) {
 	source := t.TempDir()

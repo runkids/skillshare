@@ -5,6 +5,7 @@ type T = ReturnType<typeof useT>;
 const statusKeys: Record<string, string> = {
   installed: 'plugins.outcome.installed',
   unchanged: 'plugins.outcome.unchanged',
+  skipped: 'plugins.outcome.skipped',
   saved: 'plugins.outcome.saved',
   removed: 'plugins.outcome.removed',
   excluded: 'plugins.outcome.excluded',
@@ -26,3 +27,6 @@ const messageKeys: Record<string, string> = {
 
 export const outcomeStatus = (t: T, status: string) => statusKeys[status] ? t(statusKeys[status], undefined, status) : status;
 export const outcomeMessage = (t: T, message: string) => messageKeys[message] ? t(messageKeys[message], undefined, message) : message;
+// A message the server names with a key, such as why an update skipped an Agent.
+export const keyedMessage = (t: T, m: { message?: string; messageKey?: string; messageArgs?: Record<string, string> }) =>
+  m.messageKey ? t(m.messageKey, m.messageArgs, m.message) : outcomeMessage(t, m.message ?? '');

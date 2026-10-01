@@ -4,10 +4,11 @@ import type { HookEntry, HookPlan } from '../../api/hooks';
 import { useT } from '../../i18n';
 import AgentIcon from '../AgentIcon';
 import { bindingLines } from './hookCatalog';
-import { boundAgents, hookLabel, isCodeAgent, syncState } from './hooksView';
+import { boundAgents, agentOfKey, keyLabel, isCodeAgent, syncState } from './hooksView';
 
 interface Props {
   entries: Record<string, HookEntry>;
+  accounts?: Record<string, string>;
   plan: HookPlan | null;
   onToggle: (name: string, enabled: boolean) => void;
   onMenu: (e: React.MouseEvent<HTMLButtonElement>, name: string) => void;
@@ -19,11 +20,11 @@ interface Props {
  * What a hook runs, one line per distinct event, matcher and command, with the targets that run it.
  * Event names that differ only in case (SessionStart, sessionStart) are one line.
  */
-function summaryLines(entry: HookEntry) {
+function summaryLines(entry: HookEntry, accounts: Record<string, string>) {
   const rows = new Map<string, { event: string; matcher: string; command: string; agents: string[] }>();
-  for (const agent of boundAgents(entry)) {
+  for (const agent of boundAgents(entry, accounts)) {
     const binding = entry.bindings[agent] ?? entry.bindings.factory;
-    const lines = isCodeAgent(agent) ? [{ event: hookLabel(agent), matcher: '', command: '' }] : bindingLines(binding);
+    const lines = isCodeAgent(agentOfKey(accounts, agent)) ? [{ event: keyLabel(accounts, agent), matcher: '', command: '' }] : bindingLines(binding);
     for (const line of lines) {
       const key = `${line.event.toLowerCase()}\0${line.matcher}\0${line.command}`;
       const row = rows.get(key);
@@ -38,14 +39,14 @@ function summaryLines(entry: HookEntry) {
  * One card per hook: its state, what it runs and the targets it goes to. The per-target sync state
  * is on each icon; whether a target trusts and loads the hook is that target's own call.
  */
-export default function HooksList({ entries, plan, onToggle, onMenu, disabled = false }: Props) {
+export default function HooksList({ entries, plan, onToggle, onMenu, disabled = false, accounts = {} }: Props) {
   const t = useT();
   // The line under the pointer lights up its own targets in the header; the rest fade.
   const [hovered, setHovered] = useState<{ name: string; agents: string[] } | null>(null);
   return (
     <div className="flex flex-col gap-3">
       {Object.entries(entries).map(([name, entry]) => {
-        const agents = boundAgents(entry);
+        const agents = boundAgents(entry, accounts);
         const enabled = entry.enabled !== false;
         const states = agents.map((a) => syncState(plan, name, a));
         const status = !enabled ? t('hooks.disabled')
@@ -53,7 +54,7 @@ export default function HooksList({ entries, plan, onToggle, onMenu, disabled = 
             : states.includes('conflict') ? t('hooks.status.conflict')
               : states.includes('pending') ? t('plugins.pending')
                 : t('hooks.sync.synced');
-        const lines = summaryLines(entry);
+        const lines = summaryLines(entry, accounts);
         // Each line names its targets unless every line runs on all of them.
         const perLine = lines.some((l) => l.agents.length < agents.length);
         return (
@@ -67,9 +68,9 @@ export default function HooksList({ entries, plan, onToggle, onMenu, disabled = 
               <span className="flex-1" />
               <span className={`ss-stack ${enabled ? '' : 'opacity-45 grayscale'}`}>
                 {agents.map((a, i) => (
-                  <span key={a} title={`${hookLabel(a)} · ${t(`hooks.sync.${states[i]}`)}`} className={`ss-at transition-opacity ${hovered?.name === name && !hovered.agents.includes(a) ? 'opacity-25' : ''}`}>
-                    <AgentIcon target={a} size={14} />
-                    <span className="sr-only">{hookLabel(a)} · {t(`hooks.sync.${states[i]}`)}</span>
+                  <span key={a} title={`${keyLabel(accounts, a)} · ${t(`hooks.sync.${states[i]}`)}`} className={`ss-at transition-opacity ${hovered?.name === name && !hovered.agents.includes(a) ? 'opacity-25' : ''}`}>
+                    <AgentIcon target={agentOfKey(accounts, a)} size={14} />
+                    <span className="sr-only">{keyLabel(accounts, a)} · {t(`hooks.sync.${states[i]}`)}</span>
                   </span>
                 ))}
               </span>
@@ -92,7 +93,7 @@ export default function HooksList({ entries, plan, onToggle, onMenu, disabled = 
                   >
                     <span className="w-[150px] shrink-0 truncate" title={l.matcher ? `${l.event} · ${l.matcher}` : l.event}>{l.event}{l.matcher && <span className="text-ink-2"> · {l.matcher}</span>}</span>
                     {l.command ? <><span className="shrink-0 text-ink-3">→</span><span className="min-w-0 flex-1 truncate" title={l.command}>{l.command}</span></> : <span className="flex-1 font-sans text-xs text-ink-3">{t('hooks.summary.code')}</span>}
-                    {perLine && l.agents.map((a) => <span key={a} className="sr-only">{hookLabel(a)}</span>)}
+                    {perLine && l.agents.map((a) => <span key={a} className="sr-only">{keyLabel(accounts, a)}</span>)}
                   </div>
                 ))}
               </div>

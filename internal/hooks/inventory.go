@@ -14,13 +14,13 @@ import (
 // List reads the source, ownership and native files without writing. A plan that
 // cannot be computed is reported in PreviewError so the rest stays visible.
 func (s *Service) List() (*Inventory, error) {
-	source, err := LoadSource(s.ConfigPath)
+	source, err := s.loadSource()
 	if err != nil {
 		return nil, err
 	}
 	inv := &Inventory{
 		Source:         SourceInfo{Path: source.ConfigPath, ConfigPath: source.ConfigPath, Entries: source.Entries, Projects: source.Projects},
-		Targets:        Targets,
+		Targets:        s.targetDefs(),
 		Paths:          s.Paths(),
 		Unmanaged:      []Unmanaged{},
 		ProjectConfigs: []string{},
@@ -58,16 +58,22 @@ func (s *Service) unmanaged(state ledger) []Unmanaged {
 			out = append(out, Unmanaged{Target: target, Path: path, Names: names})
 		}
 	}
-	for _, t := range Targets {
-		path, err := s.nativePath(t.Name)
+	for _, t := range s.targetDefs() {
+		sc, agent := s.forTarget(t.Name)
+		path, err := sc.nativePath(agent)
 		if err != nil {
 			continue
 		}
+		if agent == "codex" {
+			dir, _ := sc.configDir(agent)
+			inline := filepath.Join(dir, "config.toml")
+			add(t.Name, inline, codexInlineEvents(inline))
+		}
 		switch {
-		case t.Kind == KindCode || t.Name == "copilot":
-			add(t.Name, path, s.unownedFiles(t.Name, path, state))
+		case t.Kind == KindCode || agent == "copilot":
+			add(t.Name, path, sc.unownedFiles(agent, path, state))
 		default:
-			doc, _, err := s.readDoc(t.Name, path)
+			doc, _, err := sc.readDoc(agent, path)
 			if err != nil || doc == nil {
 				continue
 			}
@@ -75,9 +81,6 @@ func (s *Service) unmanaged(state ledger) []Unmanaged {
 		}
 	}
 	dir := func(target string) string { d, _ := s.configDir(target); return d }
-	if names := codexInlineEvents(filepath.Join(dir("codex"), "config.toml")); len(names) > 0 {
-		add("codex", filepath.Join(dir("codex"), "config.toml"), names)
-	}
 	// Droid runs settings.json hooks only while hooks.json is absent; its legacy
 	// hooks/hooks.json always loads.
 	if !exists(filepath.Join(dir("droid"), "hooks.json")) {
@@ -181,16 +184,19 @@ func candidateName(parts ...string) string {
 // candidate.
 func (s *Service) Import(req ImportRequest) ([]Candidate, error) {
 	target := canonicalTarget(req.From)
-	def, ok := targetDef(target)
+	scope, agent := s.forTarget(target)
+	def, ok := targetDef(agent)
 	if !ok {
 		return nil, fmt.Errorf("unsupported hooks Agent %q", req.From)
 	}
-	scope := s
+	if req.Root != "" && agent != target {
+		return nil, fmt.Errorf("hooks.projects roots are read by every account; import --from %s", agent)
+	}
 	if req.Root != "" {
 		if s.ProjectRoot != "" {
 			return nil, fmt.Errorf("hooks.projects belongs in the global config")
 		}
-		source, err := LoadSource(s.ConfigPath)
+		source, err := s.loadSource()
 		if err != nil {
 			return nil, err
 		}
@@ -210,11 +216,11 @@ func (s *Service) Import(req ImportRequest) ([]Candidate, error) {
 	found := []Candidate{}
 	switch {
 	case def.Kind == KindCode:
-		found, err = scope.importCode(target, req, state)
+		found, err = scope.importCode(agent, req, state)
 	case target == "copilot":
 		found, err = scope.importCopilot(req, state)
 	default:
-		found, err = scope.importShared(target, req, state)
+		found, err = scope.importShared(agent, req, state)
 	}
 	if err != nil {
 		return nil, err
@@ -256,7 +262,7 @@ func (s *Service) Import(req ImportRequest) ([]Candidate, error) {
 		if found[i].Warnings == nil {
 			found[i].Warnings = []string{}
 		}
-		if err := found[i].Entry.Validate(found[i].Name); err != nil {
+		if err := s.validateEntry(found[i].Name, found[i].Entry, req.Root); err != nil {
 			found[i].Problems = append(found[i].Problems, err.Error())
 		}
 	}
@@ -347,7 +353,7 @@ func (s *Service) importShared(target string, req ImportRequest, state ledger) (
 		if len(items) == 0 {
 			continue
 		}
-		c := Candidate{Name: candidateName(target, event), Entry: Entry{Bindings: map[string]Binding{target: {Events: map[string]any{event: items}}}}}
+		c := Candidate{Name: candidateName(s.targetKey(target), event), Entry: Entry{Bindings: map[string]Binding{s.targetKey(target): {Events: map[string]any{event: items}}}}}
 		switch {
 		case warnings != nil:
 			c.Warnings = warnings
@@ -437,9 +443,9 @@ func (s *Service) importCode(target string, req ImportRequest, state ledger) ([]
 	if req.Content != "" {
 		name := req.Name
 		if name == "" {
-			name = candidateName(target, "plugin")
+			name = candidateName(s.targetKey(target), "plugin")
 		}
-		return []Candidate{{Name: name, Entry: Entry{Bindings: map[string]Binding{target: {Code: req.Content}}}}}, nil
+		return []Candidate{{Name: name, Entry: Entry{Bindings: map[string]Binding{s.targetKey(target): {Code: req.Content}}}}}, nil
 	}
 	dir, err := s.nativePath(target)
 	if err != nil {
@@ -456,7 +462,7 @@ func (s *Service) importCode(target string, req ImportRequest, state ledger) ([]
 			return nil, err
 		}
 		name := candidateName(strings.TrimSuffix(strings.TrimPrefix(file, "skillshare-"), filepath.Ext(file)))
-		c := Candidate{Name: name, Entry: Entry{Bindings: map[string]Binding{target: {Code: string(data)}}}}
+		c := Candidate{Name: name, Entry: Entry{Bindings: map[string]Binding{s.targetKey(target): {Code: string(data)}}}}
 		c.Warnings = []string{fmt.Sprintf("%s keeps loading; remove it after syncing so the plugin does not run twice", path)}
 		if filepath.Ext(file) == ".js" {
 			c.Warnings = append(c.Warnings, "Skillshare writes code as a .ts file; plain JavaScript is valid TypeScript for the loader, but check any CommonJS syntax")

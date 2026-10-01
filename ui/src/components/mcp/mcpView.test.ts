@@ -74,9 +74,13 @@ describe('MCP view helpers', () => {
 describe('switchTargets', () => {
   const context7 = { command: 'npx', targets: ['claude', 'opencode', 'kilocode', 'pi'] };
 
-  // Pi has no per-project switch, so it is never among them.
   it('turns a global server off only for the Agents the project uses', () => {
-    expect(switchTargets(context7, [], ['opencode', 'pi'])).toEqual(['opencode']);
+    expect(switchTargets(context7, [], ['opencode', 'pi'])).toEqual(['opencode', 'pi']);
+  });
+
+  // Pi's switch carries the global server's command or url, so a switch entry alone cannot reach it.
+  it('leaves Pi out for a switch entry, which has no command or url', () => {
+    expect(switchTargets({ disabled: true }, ['opencode', 'pi'], ['opencode', 'pi'])).toEqual(['opencode']);
   });
 
   it('follows the default targets of a server that names none', () => {

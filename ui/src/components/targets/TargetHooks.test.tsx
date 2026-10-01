@@ -10,7 +10,7 @@ import { hookAgents } from '../../api/hooks';
 import { ToastProvider } from '../Toast';
 import TargetHooks from './TargetHooks';
 
-vi.mock('../../api/hooks', async (load) => ({ ...await load<typeof import('../../api/hooks')>(), hooksApi: { syncProject: vi.fn().mockResolvedValue({ applied: [], backupIds: [] }), configure: vi.fn().mockResolvedValue({ applied: [], backupIds: [] }), preview: vi.fn(), save: vi.fn() } }));
+vi.mock('../../api/hooks', async (load) => ({ ...await load<typeof import('../../api/hooks')>(), hooksApi: { syncProject: vi.fn().mockResolvedValue({ applied: [], backupIds: [] }), configure: vi.fn().mockResolvedValue({ applied: [], backupIds: [] }), preview: vi.fn(), save: vi.fn(), catalog: vi.fn().mockResolvedValue({}) } }));
 
 const codex = { bindings: { codex: { events: { Stop: [{ hooks: [{ type: 'command', command: 'true' }] }] } } } };
 const data = {
@@ -68,6 +68,19 @@ describe('Target hooks tab', () => {
     await user.click(await screen.findByRole('button', { name: 'Sync Now' }));
     await waitFor(() => expect(hooksApi.syncProject).toHaveBeenCalledWith('/work/app', 'r2'));
     expect(hooksApi.configure).not.toHaveBeenCalled();
+  });
+});
+
+describe('Target hooks editing', () => {
+  it("keeps the hook's account bindings when it is saved from an Agent's tab", async () => {
+    vi.mocked(hooksApi.save).mockResolvedValue({ applied: [], backupIds: [] });
+    const both = { bindings: { codex: codex.bindings.codex, 'codex-2': codex.bindings.codex } };
+    const inventory = { ...data, source: { ...data.source, entries: { 'global-lint': both } }, targets: [{ name: 'codex', kind: 'command' }, { name: 'codex-2', agent: 'codex', kind: 'command' }] } as unknown as HookInventory;
+    const user = userEvent.setup();
+    render(<MemoryRouter><QueryClientProvider client={new QueryClient()}><I18nProvider><ToastProvider><TargetHooks agent="codex" data={inventory} /></ToastProvider></I18nProvider></QueryClientProvider></MemoryRouter>);
+    await user.click(screen.getByRole('button', { name: 'Edit global-lint' }));
+    await user.click(await screen.findByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(hooksApi.save).toHaveBeenCalledWith({ name: 'global-lint', entry: both }));
   });
 });
 

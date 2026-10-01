@@ -42,7 +42,7 @@ Pi project operations require native project trust.
 
 Sync alias: skillshare sync plugins [name] [--dry-run] [--json]
 Plugins are not included in sync --all. Complete plugin trees stay together.
-Codex project installation and native updates are not supported here.
+Codex has no project installation; update re-adds a plugin enabled in Codex.
 Enable/disable saves sync selection only; run sync to install/remove the target.
 Authentication, hook trust and command-source approval remain in the native client.
 Use check before update. Import does not reinstall or change enabled state.`)

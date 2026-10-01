@@ -70,6 +70,7 @@ const (
 
 type filePlan struct {
 	path, target, root string
+	agent              string
 	// base is where no symlink may redirect the write; apply checks it again.
 	base          string
 	kind          string
@@ -112,7 +113,18 @@ type desired struct {
 	targets  map[string]string        // path -> target
 	roots    map[string]string        // path -> root
 	files    map[string]wantFile
+	warnings []string
 	notes    []Change
+}
+
+func (d *desired) addOwned(r record) {
+	if r.Event != "" {
+		if _, ok := d.targets[r.Path]; !ok {
+			d.targets[r.Path], d.roots[r.Path] = r.Target, r.Root
+		}
+	} else if _, ok := d.files[r.Path]; !ok {
+		d.files[r.Path] = wantFile{target: r.Target, path: r.Path, root: r.Root, entry: r.Entry}
+	}
 }
 
 func (s *Service) scoped(root string) *Service {
@@ -151,6 +163,8 @@ func (s *Service) render(source *Source) (*desired, error) {
 }
 
 func (s *Service) renderScope(d *desired, root string, entries map[string]Entry) error {
+	dirOwner := map[string]string{}
+	missing := map[string]bool{}
 	addFile := func(f wantFile) error {
 		if _, dup := d.files[f.path]; dup {
 			return fmt.Errorf("two hooks write %s", f.path)
@@ -165,14 +179,31 @@ func (s *Service) renderScope(d *desired, root string, entries map[string]Entry)
 		}
 		for _, target := range sortedKeys(entry.Bindings) {
 			b := entry.Bindings[target]
-			def, _ := targetDef(target)
-			if def.Kind == KindCode || target == "copilot" {
-				path, err := s.codePath(target, name)
+			if s.accountMissing(target) {
+				if !missing[target] {
+					d.warnings = append(d.warnings, fmt.Sprintf("target %s: config_dir %s does not exist on this machine; its hook bindings are skipped", target, s.Accounts[target].Dir))
+					missing[target] = true
+				}
+				continue
+			}
+			sc, agent := s.forTarget(target)
+			dir, err := sc.configDir(agent)
+			if err != nil {
+				return err
+			}
+			canonical := canonicalPath(dir)
+			if previous := dirOwner[canonical]; previous != "" && previous != target {
+				return fmt.Errorf("hooks: %s and %s both write %s; give each account its own config_dir", previous, target, canonical)
+			}
+			dirOwner[canonical] = target
+			def, _ := targetDef(agent)
+			if def.Kind == KindCode || agent == "copilot" {
+				path, err := sc.codePath(agent, name)
 				if err != nil {
 					return err
 				}
 				content := []byte(b.Code)
-				if target == "copilot" {
+				if agent == "copilot" {
 					data, err := json.MarshalIndent(map[string]any{"version": 1, "hooks": b.Events}, "", "  ")
 					if err != nil {
 						return err
@@ -183,12 +214,12 @@ func (s *Service) renderScope(d *desired, root string, entries map[string]Entry)
 					return err
 				}
 			} else {
-				path, err := s.nativePath(target)
+				path, err := sc.nativePath(agent)
 				if err != nil {
 					return err
 				}
 				d.targets[path], d.roots[path] = target, root
-				if target == "antigravity" {
+				if agent == "antigravity" {
 					// One named block per hook, holding its whole event map.
 					d.elements[path] = append(d.elements[path], wantElement{target: target, path: path, root: root, entry: name, event: name, value: b.Events})
 					continue
@@ -202,7 +233,7 @@ func (s *Service) renderScope(d *desired, root string, entries map[string]Entry)
 			if len(b.Files) == 0 {
 				continue
 			}
-			dir, err := s.scriptDir(target, name)
+			dir, err = sc.scriptDir(agent, name)
 			if err != nil {
 				return err
 			}
@@ -224,7 +255,8 @@ func (s *Service) base(target, root string) (string, error) {
 	if s.ProjectRoot != "" {
 		return s.ProjectRoot, nil
 	}
-	return s.configDir(target)
+	sc, agent := s.forTarget(target)
+	return sc.configDir(agent)
 }
 
 // checkPath rejects symlinks between base and path, so a link can never send a
@@ -336,6 +368,7 @@ type planner struct {
 	p       *Plan
 	replace map[string]bool // root + "\x00" + entry
 	adopt   map[string]bool // root + "\x00" + entry
+	parked  map[string]bool // owned outputs whose former home must remain untouched
 	changes map[string]*Change
 	order   []string
 	// events is each change's event detail: event -> added, updated or removed.
@@ -406,7 +439,7 @@ func (pl *planner) note(target, path, root, entry, action, message string) {
 
 // Preview reads source, ownership and native files without writing.
 func (s *Service) Preview() (*Plan, error) {
-	source, err := LoadSource(s.ConfigPath)
+	source, err := s.loadSource()
 	if err != nil {
 		return nil, err
 	}
@@ -425,10 +458,10 @@ func (s *Service) previewSource(source *Source, replace, adopt map[string]bool) 
 	if err != nil {
 		return nil, err
 	}
-	p := &Plan{SourcePath: source.ConfigPath, Changes: []Change{}, Warnings: []string{}, source: source, stateBytes: stateBytes, state: ledger{Version: 1, Records: maps.Clone(state.Records), Created: maps.Clone(state.Created), NewFiles: maps.Clone(state.NewFiles), Dirs: maps.Clone(state.Dirs)}}
-	pl := &planner{s: s, source: source, p: p, replace: replace, adopt: adopt, changes: map[string]*Change{}, events: map[string]map[string]string{}}
+	p := &Plan{SourcePath: source.ConfigPath, Changes: []Change{}, Warnings: append([]string{}, d.warnings...), source: source, stateBytes: stateBytes, state: ledger{Version: 1, Records: maps.Clone(state.Records), Created: maps.Clone(state.Created), NewFiles: maps.Clone(state.NewFiles), Dirs: maps.Clone(state.Dirs)}}
+	pl := &planner{s: s, source: source, p: p, replace: replace, adopt: adopt, parked: map[string]bool{}, changes: map[string]*Change{}, events: map[string]map[string]string{}}
 	for _, name := range sortedKeys(source.Entries) {
-		p.Warnings = append(p.Warnings, EventWarnings(name, source.Entries[name])...)
+		p.Warnings = append(p.Warnings, eventWarnings(name, source.Entries[name], s.agentOf)...)
 	}
 	for _, root := range sortedKeys(source.Projects) {
 		entries := source.Projects[root].Entries
@@ -436,19 +469,53 @@ func (s *Service) previewSource(source *Source, replace, adopt map[string]bool) 
 			p.Warnings = append(p.Warnings, EventWarnings(name, entries[name])...)
 		}
 	}
+	for _, agent := range sortedKeys(configDirEnv) {
+		if key := s.envShadow(agent); key != "" {
+			dir, err := s.defaultConfigDir(agent)
+			if err != nil {
+				return nil, err
+			}
+			p.Warnings = append(p.Warnings, fmt.Sprintf("%s is %s, the config_dir of target %s; the %s binding syncs %s instead", configDirEnv[agent], s.ConfigDirs[agent], key, agent, dir))
+		}
+	}
+	type parkedGroup struct {
+		target, dir, reason string
+		count               int
+		names               map[string]bool
+	}
+	parked := map[string]*parkedGroup{}
 	owner := source.ConfigPath
 	// A file the source no longer writes still needs a plan, to remove what it left there.
-	for _, r := range state.Records {
+	for key, r := range state.Records {
 		if r.Owner != owner {
 			continue
 		}
-		if r.Event != "" {
-			if _, ok := d.targets[r.Path]; !ok {
-				d.targets[r.Path], d.roots[r.Path] = r.Target, r.Root
+		if reason := s.parkReason(r); reason != "" {
+			if pl.replaces(r.Root, r.Entry) {
+				delete(p.state.Records, key)
+				delete(state.Records, key)
+				pl.note(r.Target, r.Path, r.Root, r.Entry, "release", "left in place; Skillshare no longer manages it")
+			} else {
+				pl.parked[key] = true
+				dir := recordDir(r)
+				groupKey := r.Target + "\x00" + dir
+				if parked[groupKey] == nil {
+					parked[groupKey] = &parkedGroup{target: r.Target, dir: dir, reason: reason}
+				}
+				parked[groupKey].count++
 			}
-		} else if _, ok := d.files[r.Path]; !ok {
-			d.files[r.Path] = wantFile{target: r.Target, path: r.Path, root: r.Root, entry: r.Entry}
+			continue
 		}
+		d.addOwned(r)
+	}
+	for _, key := range sortedKeys(parked) {
+		g := parked[key]
+		p.Warnings = append(p.Warnings, fmt.Sprintf("%s: %d hook outputs Skillshare manages in %s are left as they are because %s; sync from a shell where they resolve, or run 'skillshare hooks sync NAME --replace' to stop managing them", g.target, g.count, g.dir, g.reason))
+	}
+	// Cleanup outputs also claim their target's home. A symlink introduced since
+	// the last sync must not let cleanup remove another target's registrations.
+	if err := s.checkDesiredHomes(d); err != nil {
+		return nil, err
 	}
 	proposal, _ := json.Marshal(struct {
 		Entries  map[string]Entry
@@ -501,6 +568,7 @@ func (pl *planner) adopts(root, entry string) bool { return pl.adopt[root+"\x00"
 
 func (pl *planner) planShared(path, target, root string, want []wantElement, state ledger) (*filePlan, error) {
 	s, p, owner := pl.s, pl.p, pl.source.ConfigPath
+	agent := s.agentOf(target)
 	base, err := s.base(target, root)
 	if err != nil {
 		return nil, err
@@ -512,15 +580,15 @@ func (pl *planner) planShared(path, target, root string, want []wantElement, sta
 	if err != nil {
 		return nil, err
 	}
-	doc, err := parseNative(target, data)
+	doc, err := parseNative(agent, data)
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", path, err)
 	}
 	if mode == 0 {
 		mode = 0644
 	}
-	f := &filePlan{path: path, target: target, root: root, base: base, kind: kindJSON, before: data, exists: exists, mode: mode, section: doc.sectionDigest()}
-	if target == "droid" && !exists && len(want) > 0 {
+	f := &filePlan{path: path, target: target, agent: agent, root: root, base: base, kind: kindJSON, before: data, exists: exists, mode: mode, section: doc.sectionDigest()}
+	if agent == "droid" && !exists && len(want) > 0 {
 		settings := filepath.Join(filepath.Dir(path), "settings.json")
 		if inline, _ := droidInlineHooks(settings); len(inline) > 0 {
 			pl.note(target, path, root, want[0].entry, "conflict", "Droid runs the hooks in "+settings+" only while hooks.json is absent, so creating hooks.json would silently stop them; import them from droid, remove the hooks key from "+settings+", then sync")
@@ -568,7 +636,7 @@ func (pl *planner) planShared(path, target, root string, want []wantElement, sta
 	// touch records the events one element change adds, updates or removes; before is
 	// nil for an addition and after nil for a removal.
 	touch := func(root, entry, event string, before, after any) {
-		if target == "antigravity" {
+		if agent == "antigravity" {
 			// The element is a whole block: compare the events inside it.
 			old, _ := before.(map[string]any)
 			next, _ := after.(map[string]any)
@@ -602,6 +670,10 @@ func (pl *planner) planShared(path, target, root string, want []wantElement, sta
 		wantHash := elementHash(w.value)
 		next := record{Owner: owner, Target: target, Path: path, Root: w.root, Entry: w.entry, Event: w.event, Ordinal: w.ordinal, Hash: wantHash}
 		items := doc.events[w.event]
+		if pl.parked[key] {
+			pl.note(target, path, w.root, w.entry, "conflict", "still managed by parked target "+state.Records[key].Target+"; explicitly replace its owning entry to stop managing it")
+			continue
+		}
 		if r, has := state.Records[key]; has {
 			if i, ok := located[key]; ok {
 				if r.Hash == wantHash {
@@ -635,7 +707,7 @@ func (pl *planner) planShared(path, target, root string, want []wantElement, sta
 					taken[w.event] = map[int]string{}
 				}
 				taken[w.event][i] = key
-			} else if target == "antigravity" && len(items) > 0 {
+			} else if agent == "antigravity" && len(items) > 0 {
 				pl.note(target, path, w.root, w.entry, "conflict", "a hook with this name is managed by another Skillshare config")
 				continue
 			}
@@ -651,7 +723,7 @@ func (pl *planner) planShared(path, target, root string, want []wantElement, sta
 				continue
 			}
 			if holder, held := taken[w.event][i]; held {
-				if all[holder].Owner != owner && other == "" {
+				if (all[holder].Owner != owner || pl.parked[holder]) && other == "" {
 					other = holder
 				}
 				continue
@@ -674,6 +746,8 @@ func (pl *planner) planShared(path, target, root string, want []wantElement, sta
 			p.state.Records[key] = next
 			keep(w.event, identical, key)
 			pl.note(target, path, w.root, w.entry, "adopt", "")
+		case other != "" && pl.parked[other]:
+			pl.note(target, path, w.root, w.entry, "conflict", "still managed by parked target "+all[other].Target+"; explicitly replace its owning entry to stop managing it")
 		case other != "" && !(ownerGone(all[other].Owner) && pl.replaces(w.root, w.entry)):
 			pl.note(target, path, w.root, w.entry, "conflict", "an identical hook is managed by another Skillshare config: "+all[other].Owner)
 		case other != "":
@@ -684,9 +758,9 @@ func (pl *planner) planShared(path, target, root string, want []wantElement, sta
 			p.state.Records[key] = next
 			keep(w.event, i, key)
 			pl.note(target, path, w.root, w.entry, "adopt", "taking over a hook left by a removed Skillshare config")
-		case target == "antigravity" && len(items) > 0 && other == "" && !pl.replaces(w.root, w.entry) && !pl.adopts(w.root, w.entry):
+		case agent == "antigravity" && len(items) > 0 && other == "" && !pl.replaces(w.root, w.entry) && !pl.adopts(w.root, w.entry):
 			pl.note(target, path, w.root, w.entry, "conflict", "a hook with this name exists that Skillshare does not manage; import it or explicitly replace it")
-		case target == "antigravity" && len(items) > 0 && other == "":
+		case agent == "antigravity" && len(items) > 0 && other == "":
 			if _, held := taken[w.event][0]; held {
 				pl.note(target, path, w.root, w.entry, "conflict", "a hook with this name is managed by another Skillshare config")
 				continue
@@ -696,7 +770,7 @@ func (pl *planner) planShared(path, target, root string, want []wantElement, sta
 			p.state.Records[key] = next
 			touch(w.root, w.entry, w.event, items[0], w.value)
 			pl.note(target, path, w.root, w.entry, "update", "replacing a hook Skillshare did not write")
-		case target == "antigravity" && pl.adopts(w.root, w.entry):
+		case agent == "antigravity" && pl.adopts(w.root, w.entry):
 			// An Antigravity hook is the block of that name. Taking over a block under
 			// another name would add a second block and leave the original running.
 			pl.note(target, path, w.root, w.entry, "conflict", "Antigravity names each hook after its block; import it under the block's own name")
@@ -709,7 +783,7 @@ func (pl *planner) planShared(path, target, root string, want []wantElement, sta
 	}
 	for _, key := range sortedKeys(all) {
 		r := all[key]
-		if r.Owner != owner || wanted[key] {
+		if r.Owner != owner || wanted[key] || pl.parked[key] {
 			continue
 		}
 		if i, ok := located[key]; ok {
@@ -732,7 +806,7 @@ func (pl *planner) planShared(path, target, root string, want []wantElement, sta
 		return nil, fmt.Errorf("%s: %w", path, err)
 	}
 	f.after = after
-	if len(f.ops) > 0 && p.state.NewFiles[path] && skeleton(target, after) {
+	if len(f.ops) > 0 && p.state.NewFiles[path] && skeleton(agent, after) {
 		f.remove, f.after = true, nil
 		for _, key := range pl.order {
 			if c := pl.changes[key]; c.Path == path && c.Action == "remove" {
@@ -749,7 +823,7 @@ func (pl *planner) planShared(path, target, root string, want []wantElement, sta
 			p.state.Records[key] = r
 		}
 	}
-	written, err := parseNative(target, after)
+	written, err := parseNative(agent, after)
 	if err != nil {
 		return nil, err
 	}
@@ -795,12 +869,16 @@ func (pl *planner) planFile(w wantFile, state ledger) (*filePlan, error) {
 	if exists {
 		current = digest(data)
 	}
-	f := &filePlan{path: w.path, target: w.target, root: w.root, base: base, kind: kindFile, before: data, exists: exists, mode: w.mode, section: current}
+	f := &filePlan{path: w.path, target: w.target, agent: s.agentOf(w.target), root: w.root, base: base, kind: kindFile, before: data, exists: exists, mode: w.mode, section: current}
 	if exists {
 		f.mode = mode
 	}
 	key := fileKey(w.path)
 	r, has := state.Records[key]
+	if pl.parked[key] {
+		pl.note(w.target, w.path, w.root, w.entry, "conflict", "still managed by parked target "+r.Target+"; explicitly replace its owning entry to stop managing it")
+		return f, nil
+	}
 	replace := pl.replaces(w.root, w.entry)
 	if has && r.Owner != owner {
 		if !ownerGone(r.Owner) || !replace || w.content == nil {
@@ -905,7 +983,7 @@ func (f *filePlan) refresh() ([]byte, bool, os.FileMode, *nativeDoc, error) {
 		}
 		return data, exists, mode, nil, nil
 	}
-	doc, err := parseNative(f.target, data)
+	doc, err := parseNative(f.agent, data)
 	if err != nil {
 		return nil, false, 0, nil, fmt.Errorf("%s: %w", f.path, err)
 	}

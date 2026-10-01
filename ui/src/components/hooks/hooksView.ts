@@ -1,4 +1,4 @@
-import { hookAgents, hookCodeAgents, type HookChange, type HookEntry, type HookPlan } from '../../api/hooks';
+import { hookAgents, hookCodeAgents, type HookChange, type HookEntry, type HookPlan, type HookTargetDef } from '../../api/hooks';
 
 export const hookLabel = (agent: string) =>
   ({ claude: 'Claude', codex: 'Codex', gemini: 'Gemini CLI', copilot: 'Copilot CLI', cursor: 'Cursor', droid: 'Droid', qwen: 'Qwen Code', antigravity: 'Antigravity', pi: 'Pi', amp: 'Amp', opencode: 'OpenCode' })[agent] ?? agent;
@@ -13,8 +13,14 @@ export const isCodeAgent = (agent: string) => hookCodeAgents.includes(agent);
 export const HOOK_NAME = /^[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}$/;
 
 /** Bound Agents of an entry in display order; `factory` is accepted as an alias of `droid`. */
-export const boundAgents = (entry: HookEntry) =>
-  Object.keys(entry.bindings ?? {}).map((x) => (x === 'factory' ? 'droid' : x)).sort((a, b) => order(a) - order(b));
+export const hookAccounts = (targets: HookTargetDef[]): Record<string, string> =>
+  Object.fromEntries(targets.filter((t) => t.agent).map((t) => [t.name, t.agent!]));
+export const agentOfKey = (accounts: Record<string, string>, key: string): string => accounts[key] ?? key;
+export const keyLabel = (accounts: Record<string, string>, key: string): string => accounts[key] ? `${key} (${hookLabel(accounts[key])})` : hookLabel(key);
+
+export const boundAgents = (entry: HookEntry, accounts: Record<string, string> = {}) =>
+  Object.keys(entry.bindings ?? {}).map((x) => (x === 'factory' ? 'droid' : x)).sort((a, b) =>
+    order(agentOfKey(accounts, a)) - order(agentOfKey(accounts, b)) || Number(Boolean(accounts[a])) - Number(Boolean(accounts[b])) || a.localeCompare(b));
 
 const order = (agent: string) => {
   const i = (hookAgents as readonly string[]).indexOf(agent);

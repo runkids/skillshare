@@ -123,7 +123,7 @@ func TestAdapters_ConfigDirOverrides(t *testing.T) {
 
 func TestParseEntry_ValidatesNativeShape(t *testing.T) {
 	bad := map[string]string{
-		"unknown agent":        `{"bindings":{"kiro":{"events":{}}}}`,
+		"invalid agent key":    `{"bindings":{"kiro space":{"events":{}}}}`,
 		"code on command":      `{"bindings":{"claude":{"code":"x"}}}`,
 		"events on code":       `{"bindings":{"pi":{"events":{"x":[]}}}}`,
 		"missing hooks array":  `{"bindings":{"claude":{"events":{"PreToolUse":[{"matcher":"Bash"}]}}}}`,

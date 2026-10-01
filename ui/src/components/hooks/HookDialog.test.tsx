@@ -242,3 +242,43 @@ describe('hooks remove', () => {
     expect(await screen.findByRole('tooltip')).toHaveTextContent('Deletes what it wrote from the 4 target settings files now.');
   });
 });
+
+describe('account hook bindings', () => {
+  beforeEach(() => {
+    vi.resetAllMocks();
+    vi.mocked(hooksApi.catalog).mockResolvedValue({ codex: { timeoutUnit: 'seconds', events: [{ name: 'SessionStart', description: 'When a session starts', matcher: false }] } });
+    vi.mocked(hooksApi.save).mockResolvedValue({ applied: [], backupIds: [] });
+    HTMLElement.prototype.scrollIntoView = vi.fn();
+  });
+
+  it('offers the account with its Agent catalog and saves under the account key', async () => {
+    const user = userEvent.setup();
+    wrap(<HookDialog accounts={{ 'codex-2': 'codex' }} existingNames={[]} onClose={vi.fn()} onSaved={vi.fn()} />);
+    await user.type(screen.getByLabelText('Name'), 'account');
+    await user.click(screen.getByRole('checkbox', { name: 'codex-2 (Codex)' }));
+    await user.click(screen.getByRole('combobox', { name: 'Event 1' }));
+    await user.click(await screen.findByRole('option', { name: /^SessionStart/ }));
+    await user.type(screen.getByLabelText('Command 1'), 'echo account');
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(hooksApi.save).toHaveBeenCalledWith({ name: 'account', entry: { bindings: { 'codex-2': { events: { SessionStart: [{ hooks: [{ type: 'command', command: 'echo account' }] }] } } } } }));
+  });
+
+  it('offers no account in a project even if account metadata is passed', () => {
+    wrap(<HookDialog accounts={{ 'codex-2': 'codex' }} project="/p" existingNames={[]} onClose={vi.fn()} onSaved={vi.fn()} />);
+    expect(screen.queryByRole('checkbox', { name: 'codex-2 (Codex)' })).not.toBeInTheDocument();
+  });
+
+  it('explains that a fresh Pi account uses its plugin template', async () => {
+    const user = userEvent.setup();
+    wrap(<HookDialog accounts={{ 'pi-2': 'pi' }} existingNames={[]} onClose={vi.fn()} onSaved={vi.fn()} />);
+    await user.click(screen.getByRole('checkbox', { name: 'pi-2 (Pi)' }));
+    expect(screen.getByText('pi-2 (Pi) runs a plugin file written for its own API. Start from its template.')).toBeInTheDocument();
+  });
+
+  it('reads unmanaged native hooks from accounts', async () => {
+    vi.mocked(hooksApi.import).mockResolvedValue([]);
+    const data = { source: { path: '/s', configPath: '/s', entries: {} }, targets: [{ name: 'codex-2', agent: 'codex', kind: 'command' }], paths: { 'codex-2': '/home/u/.codex-2/hooks.json' }, unmanaged: [{ target: 'codex-2', path: '/home/u/.codex-2/hooks.json', names: ['Stop'] }], backups: [], plan: null, previewError: '' } satisfies HookInventory;
+    wrap(<HooksImportDialog data={data} onClose={vi.fn()} onImported={vi.fn()} />);
+    await waitFor(() => expect(hooksApi.import).toHaveBeenCalledWith({ from: 'codex-2' }));
+  });
+});

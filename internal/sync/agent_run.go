@@ -103,7 +103,7 @@ func runAgentTarget(t AgentTarget, agents []resource.DiscoveredResource, opts Ag
 	case "copy":
 		res.Pruned, res.PruneErr = PruneOrphanAgentCopies(t.Path, filtered, outputExt, opts.DryRun)
 	case "merge":
-		res.Pruned, res.PruneErr = PruneOrphanAgentLinks(t.Path, filtered, opts.DryRun)
+		res.Pruned, res.PruneErr = PruneOrphanAgentLinks(t.Path, opts.Source, filtered, opts.DryRun)
 	}
 	if res.PruneErr != nil {
 		res.Warnings = append(res.Warnings, fmt.Sprintf("%s: agents prune failed: %v", t.Name, res.PruneErr))

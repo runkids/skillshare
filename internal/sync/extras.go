@@ -376,7 +376,7 @@ func syncExtraPerFile(sourcePath, targetPath, mode string, dryRun, force, flatte
 			}
 		}
 		if mode == "merge" {
-			pruned, pruneErrors := pruneExtraOrphans(targetPath, sourceSet, mode)
+			pruned, pruneErrors := pruneExtraOrphans(targetPath, sourcePath, sourceSet, mode)
 			result.Pruned = pruned
 			result.Errors = append(result.Errors, pruneErrors...)
 		}
@@ -482,10 +482,10 @@ func syncOneExtraFile(srcFile, tgtFile, mode string, dryRun, force, relative boo
 }
 
 // pruneExtraOrphans walks the target directory and removes files that have no
-// corresponding source. In merge mode only symlinks are pruned; user-created
-// local files are preserved. Empty parent directories are cleaned up.
-// Hidden files (names starting with ".") are skipped.
-func pruneExtraOrphans(targetPath string, sourceFiles map[string]bool, mode string) (pruned int, errors []string) {
+// corresponding source. In merge mode only symlinks into sourcePath are pruned;
+// user-created local files and links elsewhere are preserved. Empty parent
+// directories are cleaned up. Hidden files (names starting with ".") are skipped.
+func pruneExtraOrphans(targetPath, sourcePath string, sourceFiles map[string]bool, mode string) (pruned int, errors []string) {
 	// Collect paths to prune (walk first, delete after to avoid mutation during walk)
 	var toRemove []string
 
@@ -524,7 +524,7 @@ func pruneExtraOrphans(targetPath string, sourceFiles map[string]bool, mode stri
 		// Source doesn't exist — candidate for pruning
 		if mode == "merge" {
 			// In merge mode, only prune symlinks (don't delete user's local files)
-			if !utils.IsLinkMode(path, info.Mode()) {
+			if !utils.IsLinkMode(path, info.Mode()) || !prunableLink(path, sourcePath) {
 				return nil
 			}
 		}
@@ -549,31 +549,31 @@ func pruneExtraOrphans(targetPath string, sourceFiles map[string]bool, mode stri
 
 // PruneExtraTarget removes all skillshare-managed files from a single extra
 // target directory. It is used when a target is removed from an extra: in
-// merge mode only symlinks are deleted (the user's own files are preserved);
-// in copy mode callers should prefer PruneExtraTargetFiles with a managed file
-// set. Empty parent directories are cleaned up. An empty mode is treated as
-// "merge".
-func PruneExtraTarget(targetPath, mode string) (pruned int, errors []string) {
+// merge mode only symlinks into sourcePath are deleted (the user's own files
+// and links are preserved); in copy mode callers should prefer
+// PruneExtraTargetFiles with a managed file set. Empty parent directories are
+// cleaned up. An empty mode is treated as "merge".
+func PruneExtraTarget(targetPath, sourcePath, mode string) (pruned int, errors []string) {
 	if mode == "" {
 		mode = "merge"
 	}
 	// An empty source set means "nothing should remain" — every managed file
 	// under the target is an orphan and gets pruned.
-	return pruneExtraOrphans(targetPath, map[string]bool{}, mode)
+	return pruneExtraOrphans(targetPath, sourcePath, map[string]bool{}, mode)
 }
 
 // PruneExtraTargetFiles removes the files known to be managed in a removed
 // target. Copy targets use the managed file set so local files in the same
 // directory survive. Merge targets keep the existing symlink-only pruning
 // behavior. Symlink targets remove only the target symlink itself.
-func PruneExtraTargetFiles(targetPath, mode string, managedFiles map[string]bool) (pruned int, errors []string) {
+func PruneExtraTargetFiles(targetPath, sourcePath, mode string, managedFiles map[string]bool) (pruned int, errors []string) {
 	if mode == "" {
 		mode = "merge"
 	}
 
 	switch mode {
 	case "merge":
-		return PruneExtraTarget(targetPath, mode)
+		return PruneExtraTarget(targetPath, sourcePath, mode)
 	case "copy":
 		return pruneExtraManagedFiles(targetPath, managedFiles)
 	case "symlink":

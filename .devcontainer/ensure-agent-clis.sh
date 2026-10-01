@@ -10,12 +10,15 @@ PREFIX="$HOME/.local/agent-clis"
 declare -A PACKAGES=(
   [claude]="@anthropic-ai/claude-code"
   [codex]="@openai/codex"
-  [pi]="@mariozechner/pi-coding-agent"
+  [pi]="@earendil-works/pi-coding-agent"
 )
 
 for bin in "${!PACKAGES[@]}"; do
-  if [ ! -x "$PREFIX/bin/$bin" ]; then
+  # Check the package, not the binary: a package that moved to a new name (Pi, from
+  # @mariozechner) leaves the old one's binary behind, which would never be replaced.
+  if [ ! -d "$PREFIX/lib/node_modules/${PACKAGES[$bin]}" ]; then
     echo "▸ Installing $bin (${PACKAGES[$bin]}) …"
+    rm -f "$PREFIX/bin/$bin"
     if ! npm install -g --prefix "$PREFIX" --no-fund --no-audit "${PACKAGES[$bin]}" >/dev/null 2>&1; then
       echo "⚠ Could not install $bin; plugin checks against it will report it missing." >&2
       continue

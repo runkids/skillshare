@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -336,5 +337,119 @@ func TestRecordedSourceDoesNotBlockAnotherDistribution(t *testing.T) {
 	p, err = s.Preview(context.Background(), Request{Action: "add", Source: fixture(t), Plugin: "demo", Name: "demo", Targets: []string{"claude"}})
 	if err != nil || p.Blocked {
 		t.Fatalf("another source for one Agent was blocked: %+v %v", p, err)
+	}
+}
+
+// fakeAgents installs plugins like Claude and Codex: installing or updating puts the
+// marketplace's current version in place, and Codex's add always enables the plugin.
+type fakeAgents struct {
+	version   string
+	installed map[string][]Installed
+	commands  []string
+}
+
+func (f *fakeAgents) service(t *testing.T) *Service {
+	t.Helper()
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	if f.installed == nil {
+		f.installed = map[string][]Installed{}
+	}
+	s := &Service{ConfigPath: filepath.Join(home, "config.yaml"), StateDir: filepath.Join(home, "state")}
+	s.Run = func(_ context.Context, _ string, _ []string, bin string, args ...string) ([]byte, error) {
+		command := strings.Join(args, " ")
+		switch {
+		case command == "--version":
+			return []byte("test"), nil
+		case strings.Contains(command, "--help"):
+			return []byte("--json --scope upgrade"), nil
+		case command == "plugin list --json" && bin == "codex":
+			return json.Marshal(map[string]any{"installed": f.installed[bin], "available": []any{}})
+		case command == "plugin list --json":
+			return json.Marshal(append([]Installed{}, f.installed[bin]...))
+		case command == "plugin marketplace list --json" && bin == "codex":
+			return []byte(`{"marketplaces":[]}`), nil
+		case command == "plugin marketplace list --json":
+			return []byte(`[]`), nil
+		}
+		f.commands = append(f.commands, bin+" "+command)
+		if args[1] == "add" || args[1] == "install" || args[1] == "update" {
+			f.installed[bin] = []Installed{{ID: args[2], PluginID: args[2], Installed: true, Enabled: true, Version: f.version, Scope: "user"}}
+		}
+		return []byte(`{}`), nil
+	}
+	return s
+}
+
+// bumpDemo releases version 2.0.0 of the fixture's plugin.
+func bumpDemo(t *testing.T, source string, agents *fakeAgents) {
+	t.Helper()
+	writeFile(t, source, ".claude-plugin/plugin.json", `{"name":"demo","version":"2.0.0"}`)
+	writeFile(t, source, ".codex-plugin/plugin.json", `{"name":"demo","version":"2.0.0","skills":"./skills"}`)
+	agents.version, agents.commands = "2.0.0", nil
+}
+
+// Codex has no update command, so an update adds the plugin again from the new snapshot.
+func TestCodexUpdateAddsThePluginAgain(t *testing.T) {
+	agents := &fakeAgents{version: "1.0.0"}
+	s := agents.service(t)
+	source := fixture(t)
+	applyPluginRequest(t, s, Request{Action: "add", Source: source, Targets: []string{"codex"}})
+	bumpDemo(t, source, agents)
+	applyPluginRequest(t, s, Request{Action: "update", Name: "demo", Targets: []string{"codex"}})
+	if len(agents.commands) != 1 || !strings.HasPrefix(agents.commands[0], "codex plugin add demo@") {
+		t.Fatalf("commands: %q", agents.commands)
+	}
+}
+
+// Adding would turn a plugin disabled in Codex back on, so the update skips it, and the
+// other Agents of the plugin are still updated.
+func TestCodexUpdateSkipsADisabledPlugin(t *testing.T) {
+	agents := &fakeAgents{version: "1.0.0"}
+	s := agents.service(t)
+	source := fixture(t)
+	applyPluginRequest(t, s, Request{Action: "add", Source: source, Targets: []string{"claude", "codex"}})
+	agents.installed["codex"][0].Enabled = false
+	bumpDemo(t, source, agents)
+	applyPluginRequest(t, s, Request{Action: "update", Name: "demo", Targets: []string{"claude", "codex"}})
+	if slices.ContainsFunc(agents.commands, func(c string) bool { return strings.HasPrefix(c, "codex ") }) || !slices.Contains(agents.commands, "claude plugin update "+agents.installed["claude"][0].ID+" --scope user --json") {
+		t.Fatalf("commands: %q", agents.commands)
+	}
+}
+
+// An imported plugin has no reviewed source; Codex upgrades it with its marketplace.
+func TestCodexUpdateOfAnImportUpgradesItsMarketplace(t *testing.T) {
+	agents := &fakeAgents{installed: map[string][]Installed{"codex": {{PluginID: "demo@team", Installed: true, Enabled: true, Version: "1.0.0"}}}}
+	s := agents.service(t)
+	applyPluginRequest(t, s, Request{Action: "import", From: "codex", Plugin: "demo@team"})
+	agents.commands = nil
+	applyPluginRequest(t, s, Request{Action: "update", Name: "demo", Targets: []string{"codex"}})
+	if !slices.Equal(agents.commands, []string{"codex plugin marketplace upgrade team"}) {
+		t.Fatalf("commands: %q", agents.commands)
+	}
+}
+
+// A skipped update stays pending, so a later sync still knows the plugin is behind.
+func TestSkippedUpdateStaysPending(t *testing.T) {
+	agents := &fakeAgents{version: "1.0.0"}
+	s := agents.service(t)
+	source := fixture(t)
+	applyPluginRequest(t, s, Request{Action: "add", Source: source, Targets: []string{"codex"}})
+	cfg, err := s.load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	pack := cfg.packages["demo"]
+	b := pack.Bindings["codex"]
+	b.Pending = "update"
+	pack.Bindings["codex"] = b
+	cfg.packages["demo"] = pack
+	if err := s.save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	agents.installed["codex"][0].Enabled = false
+	applyPluginRequest(t, s, Request{Action: "sync"})
+	if cfg, _ = s.load(); cfg.packages["demo"].Bindings["codex"].Pending != "update" {
+		t.Fatalf("pending cleared: %+v", cfg.packages["demo"].Bindings["codex"])
 	}
 }

@@ -362,14 +362,14 @@ mcp:
 某个项目中加载，请添加一个**名称与该 Agent 的 global 文件所用名称相同**的条目，
 并将其标记为 `disabled`。
 
-这个方法仅适用于三个 client：
+这个方法仅适用于四个 client：
 
 | Client | 是否支持 | Skillshare 写入的内容 |
 |---|---|---|
 | Claude Code | 是 | `~/.claude.json`：在此项目的 `disabledMcpServers` 列表中写入名称 |
 | OpenCode | 是 | `opencode.json`：`"NAME": {"enabled": false}` |
 | Kilo Code | 是 | `kilo.jsonc`：`"NAME": {"enabled": false}` |
-| Pi | 否 | 需要完整条目：在有 command/url 的 server 上使用 `piOptions: {enabled: false}` |
+| Pi | 是，从 `mcp.projects` | `.pi/mcp.json`: `"NAME": {"command": "...", "enabled": false}`，见下文 |
 | Codex | 否 | 见下文 |
 | 其他所有 client | 否 | 选择其中任何一个都会报错；不会写入任何内容 |
 
@@ -385,6 +385,13 @@ Codex 因不同的原因被拒绝。它确实会将 `.codex/config.toml` 逐字�
 整个配置。`.codex/config.toml` 通常会被提交到仓库，因此一位队友的开关
 可能会导致另一位队友的 Codex 无法启动。请改为在每台机器上单独
 关闭该 server，在 `~/.codex/config.toml` 中设置 `enabled = false`。
+
+Pi 会用项目中的同名条目整条替换 global 条目，并跳过没有 `command` 或 `url` 的条目。
+因此对 Pi，Skillshare 会写入 global server 的 `command`，或去掉 query 的 `url`，再加上
+`enabled: false`。被关闭的 server 不会启动，所以 args、env 和 headers 都不会写进项目文件，
+其他项目也照常使用该 server。每次同步都会根据 global server 重写这个条目。这需要 global
+server，所以只适用于 global 配置中 `mcp.projects` 下的项目；项目自己的配置看不到 global
+server，在那里的 `disabled` 条目中使用 `pi` 会报错。
 
 ### OpenCode 和 Kilo Code
 
@@ -911,8 +918,8 @@ mcp:
 `pi mcp list` 会启动每个已启用的 server 来检查连接；`pi mcp login NAME` 需要用户批准。
 
 Pi 的 server 名称只允许字母、数字、`_` 和 `-`。Pi 的项目条目会整条替换 global
-中的同名条目，因此 Pi 不接受只有开关的 `disabled` 条目。要在单个项目中关闭
-global server，请改为在完整条目上使用 `piOptions: {enabled: false}`。
+中的同名条目；要在单个项目中关闭 global server，请参阅
+[在单个项目中关闭一个 global server](#turn-off-a-global-server-in-one-project)。
 
 ### 其他 Pi 设置 {#pi-options}
 
@@ -996,7 +1003,6 @@ pi-mcp-adapter` 或 `pi-mcp-extension`、`directTools`，以及下方列出的 `
 | `mcp.directTools`，或 `mcp.projects` 下某个项目的 `directTools` | 该默认值会写入每个送往 Pi 且没有自身值的 server，转换方式同上。项目的 `false` 会覆盖 global 值 |
 | `piOptions.includeTools` / `excludeTools` | `tools.allow` / `tools.deny`；同时设置的 `directTools` 仍会转为 `piOptions.exposure` |
 | `piOptions` 中其他 `pi-mcp-adapter` 字段：`approveTools`、`auth`、`bearerToken`、`bearerTokenEnv`、`bearerTokenStore`、`caFile`、`debug`、`exposeResources`、`idleTimeout`、`inheritEnv`、`lifecycle`、`protocolVersion`、`requestHeadersCommand`、`requestTimeoutMs`、`searchKeywords`、`socket`、`tasks`、`toolPrefix`、`trace` | 移除，因为 Pi 的内置 MCP 不会读取它们 |
-| `disabled` 条目 `targets` 中的 `pi` | 从该列表中移除 `pi`。Pi 不接受只有开关的条目，因此该 server 在那个 project 中会重新启用；要保持关闭，请添加带有 `piOptions: {enabled: false}` 的完整条目 |
 
 如果 `directTools`、`includeTools` 或 `excludeTools` 会覆盖该 server 已设置的
 exposure，或者不是工具名称列表，就会被丢弃，并给出单独的 warning。

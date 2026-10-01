@@ -15,9 +15,9 @@ export const targetsApi = {
       method: 'POST',
       body: JSON.stringify({ name, path, ...(agentPath && { agentPath }), ...(instructions && { instructions }), ...(!skillsEnabled && { skills_enabled: false }) }),
     }),
-  /** Adds another config folder of a built-in Agent, such as a second account. */
-  addAgentConfigDir: (name: string, agent: string, configDir: string) =>
-    apiFetch<{ success: boolean }>('/targets', { method: 'POST', body: JSON.stringify({ name, agent, configDir }) }),
+  /** Adds another config folder of a built-in Agent, such as a second account. cli runs its plugin commands instead of the Agent's executable. */
+  addAgentConfigDir: (name: string, agent: string, configDir: string, cli?: string) =>
+    apiFetch<{ success: boolean }>('/targets', { method: 'POST', body: JSON.stringify({ name, agent, configDir, ...(cli && { cli }) }) }),
   removeTarget: (name: string) =>
     apiFetch<{ success: boolean; warnings?: string[] }>(`/targets/${encodeURIComponent(name)}`, { method: 'DELETE' }),
   /** skills_enabled false also removes the links skillshare made in the skills folder; detach says what went and what stayed. */

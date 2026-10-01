@@ -3,7 +3,7 @@
   "$id": "https://raw.githubusercontent.com/runkids/skillshare/main/schemas/hooks.schema.json",
   "title": "Skillshare Hooks",
   "description": "One hook entry as read by 'skillshare hooks add|edit --file'. The same definitions describe the hooks section of config.yaml.",
-  "$ref": "#/$defs/entry",
+  "$ref": "#/$defs/globalEntry",
   "$defs": {
     "name": {"type": "string", "pattern": "^[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}$"},
     "commandBinding": {
@@ -47,6 +47,45 @@
         "opencode": {"$ref": "#/$defs/codeBinding"}
       }
     },
+    "globalBindings": {
+      "type": "object", "additionalProperties": false,
+      "description": "Account keys are declared under targets with agent and config_dir and are valid in global config only.",
+      "properties": {
+        "claude": {"$ref": "#/$defs/commandBinding"},
+        "codex": {"$ref": "#/$defs/commandBinding"},
+        "gemini": {"$ref": "#/$defs/commandBinding"},
+        "qwen": {"$ref": "#/$defs/commandBinding"},
+        "copilot": {"$ref": "#/$defs/commandBinding"},
+        "cursor": {"$ref": "#/$defs/commandBinding"},
+        "droid": {"$ref": "#/$defs/commandBinding"},
+        "factory": {"$ref": "#/$defs/commandBinding"},
+        "antigravity": {"$ref": "#/$defs/commandBinding"},
+        "antigravity-cli": {"$ref": "#/$defs/commandBinding"},
+        "agy": {"$ref": "#/$defs/commandBinding"},
+        "pi": {"$ref": "#/$defs/codeBinding"},
+        "amp": {"$ref": "#/$defs/codeBinding"},
+        "opencode": {"$ref": "#/$defs/codeBinding"}
+      },
+      "patternProperties": {
+        "^(?!(claude|codex|gemini|qwen|copilot|cursor|droid|factory|antigravity|antigravity-cli|agy|pi|amp|opencode)$)[A-Za-z0-9][A-Za-z0-9._-]*$": {
+          "description": "Account keys are declared under targets with agent and config_dir and are valid in global config only.",
+          "anyOf": [{"$ref": "#/$defs/commandBinding"}, {"$ref": "#/$defs/codeBinding"}]
+        }
+      }
+    },
+    "globalEntry": {
+      "type": "object", "additionalProperties": false, "required": ["bindings"],
+      "description": "Account keys are declared under targets with agent and config_dir and are valid in global config only.",
+      "properties": {
+        "description": {"type": "string"},
+        "enabled": {"type": "boolean", "default": true, "description": "false keeps the definition and removes only its unchanged native outputs."},
+        "bindings": {"$ref": "#/$defs/globalBindings"}
+      }
+    },
+    "globalEntries": {
+      "type": "object", "description": "Account keys are declared under targets with agent and config_dir and are valid in global config only.",
+      "propertyNames": {"$ref": "#/$defs/name"}, "additionalProperties": {"$ref": "#/$defs/globalEntry"}
+    },
     "entry": {
       "type": "object", "additionalProperties": false, "required": ["bindings"],
       "properties": {
@@ -63,7 +102,7 @@
     "globalConfiguration": {
       "type": "object", "additionalProperties": false,
       "properties": {
-        "entries": {"$ref": "#/$defs/entries"},
+        "entries": {"$ref": "#/$defs/globalEntries"},
         "projects": {
           "type": "object",
           "description": "Project roots this global config publishes hooks into, keyed by absolute path or ~ path. A root with its own Skillshare config is managed there instead.",

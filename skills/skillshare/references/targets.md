@@ -18,7 +18,9 @@ Another account (`agent` + `config_dir` in config.yaml): `--agent` accepts `clau
 path follows the directory (`<config_dir>/skills` for Codex and Pi, even though Codex also
 reads the shared `~/.agents/skills`); only Claude has an agents directory. Any number of
 accounts can be added, and the target name is also valid in `mcp.targets` and a server's
-`targets`.
+`targets`. Optional `--cli <executable>` (`cli:` in config.yaml) runs the account's plugin
+commands with a compatible CLI, such as `omo` for Pi: a name on PATH or an absolute path, no
+arguments, shell aliases not seen. It affects plugins only.
 
 Instruction file of a custom target (`instructions` in config.yaml; `target add` has no
 flag for it, the dashboard sets it in the Custom target dialog or the target's file tab):

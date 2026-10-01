@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { bindingToDraft, checkBinding, draftToBinding, eventsToRows, hookAgentOf, hookCount, hookMessage, newRow, ownerRoot, rootPlan, rowsToEvents, scopeBackups, scopeChanges, scopeEntries, scopePaths, scopePlan, scopeUnmanaged, switchMode, syncState } from './hooksView';
+import { hookAccounts, keyLabel, agentOfKey, boundAgents, bindingToDraft, checkBinding, draftToBinding, eventsToRows, hookAgentOf, hookCount, hookMessage, newRow, ownerRoot, rootPlan, rowsToEvents, scopeBackups, scopeChanges, scopeEntries, scopePaths, scopePlan, scopeUnmanaged, switchMode, syncState } from './hooksView';
 
 const claudeEvents = {
   PreToolUse: [{ matcher: 'Bash', hooks: [{ type: 'command', command: './check.sh', timeout: 30, statusMessage: 'checking' }] }],
@@ -164,5 +164,16 @@ describe('hookMessage', () => {
     expect(hookMessage(t, 'an identical hook exists that Skillshare does not manage; import it or explicitly replace it')).toBe('[hooks.message.identicalUnmanaged]');
     expect(hookMessage(t, 'hook guard: gemini does not document the event "Stopp"; check its spelling')).toBe('[hooks.message.unknownEvent]');
     expect(hookMessage(t, 'something new')).toBe('something new');
+  });
+});
+
+describe('account target keys', () => {
+  it('resolves labels and places each account after its Agent', () => {
+    const accounts = { 'codex-2': 'codex' };
+    expect(keyLabel(accounts, 'codex-2')).toBe('codex-2 (Codex)');
+    expect(agentOfKey(accounts, 'codex-2')).toBe('codex');
+    expect(agentOfKey(accounts, 'claude')).toBe('claude');
+    expect(hookAccounts([{ name: 'codex-2', agent: 'codex', kind: 'command' }, { name: 'codex', kind: 'command' }])).toEqual(accounts);
+    expect(boundAgents({ bindings: { pi: { code: 'x' }, 'codex-2': { events: {} }, codex: { events: {} } } }, accounts)).toEqual(['codex', 'codex-2', 'pi']);
   });
 });

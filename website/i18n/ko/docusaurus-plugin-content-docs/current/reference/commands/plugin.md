@@ -69,7 +69,7 @@ JSON 출력에는 source 경로와 네이티브 식별자가 포함됩니다. so
 | Target | Format | Global | Project | Update |
 |---|---|:---:|:---:|---|
 | Claude Code | `.claude-plugin/plugin.json` | 예 | 예 | 네이티브 업데이트 |
-| Codex | `.codex-plugin/plugin.json` 또는 Agent Plugins 루트 매니페스트 | 예 | 아니요 | 지원되지 않음 |
+| Codex | `.codex-plugin/plugin.json` 또는 Agent Plugins 루트 매니페스트 | 예 | 아니요 | 검토된 Source를 갱신한 뒤 다시 add, Codex에서 활성화된 경우에만 |
 | Cursor | `.cursor-plugin/plugin.json` 또는 Agent Plugins 루트 매니페스트 | 예 | 아니요 | 검토된 로컬 사본 교체 |
 | Antigravity Desktop | 명시적 이름이 있는 루트 `plugin.json` | 예 | 예 | 검토된 로컬 사본 교체 |
 | Pi | `pi` 리소스가 있는 `package.json`, 또는 `pi-package` 키워드와 관례적인 리소스 폴더 | 예 | 예, 네이티브 project trust 사용 시 | 관리되는 source 스냅샷 새로고침 |
@@ -100,6 +100,8 @@ skillshare plugin add owner/repo --target claude-work
 skillshare plugin import demo@market --from claude-work
 ```
 
+[`cli`](/docs/reference/targets/configuration#agent-config-dir)가 설정된 계정은 대신 그 호환 CLI(예: Pi 계정의 `omo`)를 같은 config 디렉터리에 대해 실행합니다. Pi 계정은 `SENPI_CODING_AGENT_DIR`와 `OMO_CODING_AGENT_DIR`도 설정합니다. Pi의 fork는 `PI_CODING_AGENT_DIR`보다 이 두 변수를 먼저 읽기 때문입니다. CLI를 찾을 수 없으면 작업이 실패하며, Skillshare가 Agent 자체 CLI로 대신 실행하지는 않습니다.
+
 계정은 자신이 속한 Agent의 작업을 그대로 수행하면서 바인딩은 자기 이름으로 따로 관리하므로, 한 계정에는 plugin을 설치하고 다른 계정에는 설치하지 않을 수 있습니다. 계정은 global scope에만 존재합니다. 프로젝트의 plugin은 특정 계정이 아니라 프로젝트에 속합니다. `--target`과 `--from`은 계정 이름을 받으며, 터미널 선택기와 대시보드의 Plugins 페이지는 이를 Agent 옆에 나열합니다.
 
 ### Cursor와 Antigravity
@@ -120,7 +122,7 @@ OpenCode는 관리되는 entry를 `opencode.json` 또는 기존의 `opencode.jso
 
 로컬 OpenCode source는 빌드된 entry(`main`, 문자열 root export, 또는 `index.js`)와 필요한 런타임 의존성을 이미 포함하고 있어야 합니다. Skillshare는 빌드 스크립트를 실행하거나 source에 의존성을 설치하지 않습니다. 등록되었다고 해서 모듈이 성공적으로 로드되었다는 증거는 아닙니다. 다시 로드한 후 OpenCode를 확인하세요.
 
-Import는 일반적인 Pi 패키지 source와 일반적인 OpenCode config entry를 받아들입니다. 리소스 필터/옵션이 있는 entry는 해당 설정을 보존하기 위해 거부됩니다. import된 Pi와 OpenCode v1 패키지는 해당 네이티브 도구에서 업데이트됩니다. OpenCode v2의 global import는 자체 네이티브 업데이트 명령을 사용할 수 있지만, v2 업데이트 명령이 global이기 때문에 project import는 네이티브로 업데이트해야 합니다.
+Import는 일반적인 Pi 패키지 source와 일반적인 OpenCode config entry를 받아들입니다. 리소스 필터/옵션이 있는 entry는 해당 설정을 보존하기 위해 거부됩니다. import된 Pi 패키지는 global 모드에서 `pi update SOURCE`로 업데이트되며 설정 entry는 유지됩니다. project의 패키지는 Pi에서 업데이트하세요. `pi update`는 global 패키지에도 영향을 주기 때문입니다. import된 OpenCode v1 패키지는 해당 네이티브 도구에서 업데이트됩니다. OpenCode v2의 global import는 자체 네이티브 업데이트 명령을 사용할 수 있지만, v2 업데이트 명령이 global이기 때문에 project import는 네이티브로 업데이트해야 합니다.
 
 ```bash
 skillshare plugin add ./cursor-plugin --target cursor --no-tui
@@ -152,7 +154,9 @@ Copilot과 Antigravity CLI 설치는 검토된 로컬 스냅샷을 사용합니�
 - Source에는 local plugin entry가 있는 marketplace가 포함될 수 있습니다. 외부 카탈로그는 plugin 이름/경로로 병합됩니다. 충돌하는 경로는 거부됩니다. 외부 entry는 저장소를 직접 추가하거나 네이티브로 설치한 후 import하라는 안내와 함께 보고됩니다. command 기반 source는 자동으로 승인되지 않습니다.
 - 완전한 source 스냅샷은 plugin 스크립트, asset, 그리고 안전한 상대 symlink(`AGENTS.md → CLAUDE.md` 포함)를 유지합니다. 절대 경로, 범위를 벗어나는(escaping), 끊어진(dangling), 순환(cyclic), `.git`을 참조하는 링크와 특수 파일은 거부됩니다. source는 20,000개 파일과 100MiB로 제한됩니다.
 - 네이티브 설치가 런타임 활성화의 증거는 아닙니다. Agent를 재시작/다시 로드하고 해당 Agent에서 인증 또는 hook trust를 완료하세요.
-- Codex의 네이티브 project 설치와 plugin 업데이트는 이 adapter에서 제공되지 않습니다. global Codex 설치에 대해서는 sync 선택이 여전히 동작합니다.
+- Codex의 네이티브 project 설치는 이 adapter에서 제공되지 않습니다. global Codex 설치에 대해서는 sync 선택이 여전히 동작합니다.
+- Codex에는 update 명령이 없으므로, 업데이트는 갱신된 스냅샷에서 플러그인을 다시 add합니다. add는 항상 플러그인을 활성화하므로 Codex에서 비활성화된 플러그인은 건너뜁니다. Import한 Codex 플러그인은 `codex plugin marketplace upgrade NAME`으로 업데이트되며, 이는 Codex가 해당 마켓플레이스에서 설치한 모든 플러그인을 다시 설치합니다. Codex도 시작할 때 같은 작업을 합니다.
+- 업데이트는 처리할 수 없는 Target을 이유와 함께 건너뛰며, 해당 플러그인의 다른 Agent는 그대로 업데이트됩니다. 건너뛴 업데이트는 대기 상태로 남아 이후 sync에서 처리됩니다.
 - import된 plugin은 원래의 marketplace identity를 유지합니다. `check`는 source가 없는 import된 plugin에 대해 release 가능 여부를 추론할 수 없습니다.
 - 제거는 공유된 marketplace 등록과 관리되는 스냅샷을 유지합니다. 관련 없는 plugin이나 네이티브 캐시를 직접 삭제하지 않습니다.
 

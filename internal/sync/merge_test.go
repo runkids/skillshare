@@ -330,6 +330,45 @@ func TestPruneOrphanLinks_KeepsExternal(t *testing.T) {
 	}
 }
 
+// A live link into the source that skillshare never created belongs to the
+// user; pruning it by name destroys configuration it does not own.
+func TestPruneOrphanLinks_KeepsUnmanagedLiveLinkToSource(t *testing.T) {
+	src, tgt := setupMergeTest(t, "alpha", "handmade")
+	target := config.TargetConfig{Path: tgt, Mode: "merge", Include: []string{"alpha"}}
+
+	// skillshare manages only alpha, so "handmade" is never linked or tracked.
+	if _, err := SyncTargetMerge("test", target, src, false, false, ""); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := os.Symlink(filepath.Join(src, "handmade"), filepath.Join(tgt, "handmade")); err != nil {
+		t.Fatal(err)
+	}
+
+	result, err := PruneOrphanLinks(tgt, src, []string{"alpha"}, nil, "test", "", false, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Lstat(filepath.Join(tgt, "handmade")); err != nil {
+		t.Error("expected unmanaged live link to source to be kept")
+	}
+	if len(result.Removed) != 0 {
+		t.Errorf("expected 0 removed, got %d: %v", len(result.Removed), result.Removed)
+	}
+	if len(result.LocalDirs) != 1 {
+		t.Errorf("expected 1 local entry reported, got %d: %v", len(result.LocalDirs), result.LocalDirs)
+	}
+
+	// --force still reclaims the name, so the escape hatch survives the guard.
+	result, err = PruneOrphanLinks(tgt, src, []string{"alpha"}, nil, "test", "", false, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result.Removed) != 1 || result.Removed[0] != "handmade" {
+		t.Errorf("expected force to prune handmade, got %v", result.Removed)
+	}
+}
+
 func TestPruneOrphanLinks_ExcludedManagedDir_Removed(t *testing.T) {
 	src, tgt := setupMergeTest(t, "alpha", "beta")
 	target := config.TargetConfig{Path: tgt, Mode: "merge"}

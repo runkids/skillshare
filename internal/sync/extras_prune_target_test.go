@@ -26,7 +26,7 @@ func TestPruneExtraTarget_MergeRemovesSymlinksOnly(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	pruned, errs := PruneExtraTarget(tgt, "merge")
+	pruned, errs := PruneExtraTarget(tgt, src, "merge")
 	if len(errs) != 0 {
 		t.Fatalf("unexpected errors: %v", errs)
 	}
@@ -38,6 +38,56 @@ func TestPruneExtraTarget_MergeRemovesSymlinksOnly(t *testing.T) {
 	}
 	if _, err := os.Stat(local); err != nil {
 		t.Error("user's local file must be preserved")
+	}
+}
+
+// A link the user made to a file outside the extra's source is not skillshare's.
+func TestPruneExtraTarget_MergeKeepsExternalLinks(t *testing.T) {
+	src := t.TempDir()
+	tgt := t.TempDir()
+
+	extFile := filepath.Join(t.TempDir(), "mine.md")
+	if err := os.WriteFile(extFile, []byte("mine"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	link := filepath.Join(tgt, "mine.md")
+	if err := os.Symlink(extFile, link); err != nil {
+		t.Fatal(err)
+	}
+
+	pruned, errs := PruneExtraTarget(tgt, src, "merge")
+	if len(errs) != 0 {
+		t.Fatalf("unexpected errors: %v", errs)
+	}
+	if pruned != 0 {
+		t.Errorf("expected 0 pruned, got %d", pruned)
+	}
+	if _, err := os.Lstat(link); err != nil {
+		t.Error("external link must be preserved")
+	}
+}
+
+func TestSyncExtra_MergeKeepsExternalLinks(t *testing.T) {
+	src, tgt := setupExtrasTest(t, map[string]string{"a.md": "a"})
+
+	extFile := filepath.Join(t.TempDir(), "mine.md")
+	if err := os.WriteFile(extFile, []byte("mine"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	link := filepath.Join(tgt, "mine.md")
+	if err := os.Symlink(extFile, link); err != nil {
+		t.Fatal(err)
+	}
+
+	result, err := SyncExtra(src, tgt, "merge", false, false, false, "", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Pruned != 0 {
+		t.Errorf("expected 0 pruned, got %d", result.Pruned)
+	}
+	if _, err := os.Lstat(link); err != nil {
+		t.Error("external link must be preserved")
 	}
 }
 
@@ -53,7 +103,7 @@ func TestPruneExtraTargetFiles_CopyRemovesManagedOnly(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	pruned, errs := PruneExtraTargetFiles(tgt, "copy", map[string]bool{"managed.md": true})
+	pruned, errs := PruneExtraTargetFiles(tgt, "", "copy", map[string]bool{"managed.md": true})
 	if len(errs) != 0 {
 		t.Fatalf("unexpected errors: %v", errs)
 	}
@@ -75,7 +125,7 @@ func TestPruneExtraTargetFiles_SymlinkRequiresSymlink(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	pruned, errs := PruneExtraTargetFiles(tgt, "symlink", nil)
+	pruned, errs := PruneExtraTargetFiles(tgt, "", "symlink", nil)
 	if pruned != 0 {
 		t.Errorf("expected 0 pruned, got %d", pruned)
 	}

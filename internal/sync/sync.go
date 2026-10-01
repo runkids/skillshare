@@ -683,7 +683,7 @@ func SyncTargetMergeWithSkills(name string, target config.TargetConfig, allSkill
 type PruneResult struct {
 	Removed   []string // Items that were removed
 	Warnings  []string // Items that were kept with warnings
-	LocalDirs []string // User-created directories not managed by skillshare
+	LocalDirs []string // User-created entries (directories or links) not managed by skillshare
 }
 
 // PruneOptions holds parameters for PruneOrphanLinks / PruneOrphanCopies.
@@ -697,8 +697,8 @@ type PruneOptions struct {
 	TargetName   string
 	DryRun       bool
 	Force        bool
-	// ManagedOnly removes only entries that are provably skillshare's: symlinks
-	// into the source and manifest-tracked directories. The name heuristic and
+	// ManagedOnly removes only entries that are provably skillshare's: broken
+	// links into the source and manifest-tracked links and directories. The name heuristic and
 	// broken-external-link cleanup are skipped. For directories that are not a
 	// configured target's own path.
 	ManagedOnly bool
@@ -708,7 +708,9 @@ type PruneOptions struct {
 // This includes:
 // 1. Source-linked entries excluded by include/exclude filters (remove from target)
 // 2. Orphan links/directories that no longer exist in source
-// 3. Unknown local directories (kept with warning)
+// 3. Unknown local directories and live links skillshare never created (kept, reported as local)
+// A link that still resolves into the source is only removed when the manifest
+// records it (or force is set), so links created outside skillshare survive.
 func PruneOrphanLinks(targetPath, sourcePath string, include, exclude []string, targetName, targetNaming string, dryRun, force bool) (*PruneResult, error) {
 	allSourceSkills, err := DiscoverSourceSkills(sourcePath)
 	if err != nil {
@@ -812,9 +814,14 @@ func PruneOrphanLinksWithSkills(opts PruneOptions) (*PruneResult, error) {
 				if !targetExists {
 					shouldRemove = true
 					reason = "broken symlink to source"
-				} else {
+				} else if _, inManifest := manifest.Managed[name]; inManifest || force {
 					shouldRemove = true
 					reason = "orphan symlink to source"
+				} else {
+					// A live link into the source that skillshare never created is the
+					// user's own wiring. Keep it, like the directory branch below.
+					result.LocalDirs = append(result.LocalDirs, name)
+					continue
 				}
 			} else if !targetExists && !opts.ManagedOnly {
 				// External symlink whose target no longer exists (e.g. after data migration)

@@ -377,6 +377,7 @@ _skillshare() {
                         '--remove-agent-exclude[Remove agent exclude filter]:pattern:' \
                         '--agent[With add: the Agent this is another account of]:agent:(claude codex pi)' \
                         '--config-dir[With add: the config directory of that account]:dir:_files -/' \
+                        '--cli[With add: the executable that runs its plugin commands]:executable:_command_names' \
                         '--skills=[Sync skills to this target]:enabled:(true false)' \
                         '--no-skills[With add: do not sync skills]' \
                         '--all[With remove: remove all targets]' \

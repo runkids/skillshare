@@ -87,6 +87,32 @@ func linkResolvesToSource(absLink, absSource string) bool {
 	return utils.PathsEqual(utils.ResolveSymlink(absLink), utils.ResolveSymlink(absSource))
 }
 
+// prunableLink reports whether an orphan link at path may be removed: it is
+// broken, or it resolves inside sourceDir. Live links to other locations, which
+// skillshare never creates, survive.
+func prunableLink(path, sourceDir string) bool {
+	if _, err := os.Stat(path); err != nil {
+		return true
+	}
+	absDir, err := filepath.Abs(sourceDir)
+	if err != nil {
+		return false
+	}
+	sep := string(filepath.Separator)
+	under := func(p string) bool {
+		return utils.PathHasPrefix(p, absDir+sep) || utils.PathHasPrefix(p, utils.ResolveSymlink(absDir)+sep)
+	}
+	if absLink, err := utils.ResolveLinkTarget(path); err == nil && (under(absLink) || under(utils.ResolveSymlink(absLink))) {
+		return true
+	}
+	// createLink writes relative links from the real parent directory, which
+	// differs from the lexical one when a parent is itself a symlink.
+	if dest, err := os.Readlink(path); err == nil && !filepath.IsAbs(dest) {
+		return under(filepath.Join(utils.ResolveSymlink(filepath.Dir(path)), dest))
+	}
+	return false
+}
+
 // syncAgentsMerge creates per-file symlinks in targetDir for each discovered agent.
 // Existing non-symlink files are preserved (skipped) unless force is true.
 func syncAgentsMerge(agents []resource.DiscoveredResource, sourceDir, targetDir string, dryRun, force bool, projectRoot string) (*AgentSyncResult, error) {
@@ -471,9 +497,10 @@ func SyncAgentsToTarget(agents []resource.DiscoveredResource, targetDir string, 
 	return syncAgentsMerge(agents, "", targetDir, dryRun, force, "")
 }
 
-// PruneOrphanAgentLinks removes file symlinks in targetDir that don't
-// correspond to any discovered agent. For merge mode only.
-func PruneOrphanAgentLinks(targetDir string, agents []resource.DiscoveredResource, dryRun bool) (removed []string, _ error) {
+// PruneOrphanAgentLinks removes file symlinks in targetDir that point into
+// sourceDir but don't correspond to any discovered agent. Links to other
+// locations are kept. For merge mode only.
+func PruneOrphanAgentLinks(targetDir, sourceDir string, agents []resource.DiscoveredResource, dryRun bool) (removed []string, _ error) {
 	entries, err := os.ReadDir(targetDir)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -515,7 +542,7 @@ func PruneOrphanAgentLinks(targetDir string, agents []resource.DiscoveredResourc
 			continue
 		}
 
-		if expected[name] {
+		if expected[name] || !prunableLink(filepath.Join(targetDir, name), sourceDir) {
 			continue
 		}
 
