@@ -13,8 +13,8 @@ export interface PluginInventory {
   /** `source` and the rest are set when the plugin was added, so it stays managed with no Agent bound. */
   packages: Record<string, PluginPackage>;
   /** `status`: 'ready' | 'missing' (its CLI is not on PATH here) | 'blocked' (deal with it in the Agent). */
-  /** `marketplaces`: each Claude/Codex marketplace name and its root; absent when unknown. */
-  hosts: { target: PluginTarget; version: string; status: string; error?: string; errorKey?: string; note?: string; noteKey?: string; installed: NativePlugin[]; marketplaces?: Record<string, string> }[];
+  /** `managedMarketplaces`: the Claude/Codex marketplaces Skillshare registered from its own state directory. */
+  hosts: { target: PluginTarget; version: string; status: string; error?: string; errorKey?: string; note?: string; noteKey?: string; installed: NativePlugin[]; managedMarketplaces?: string[] }[];
 }
 /**
  * What Sync would do to one binding, '' when nothing. Without `host` (the Agents have not
@@ -25,8 +25,7 @@ export interface PluginInventory {
 export const syncAction = (b: PluginBinding, host?: PluginInventory['hosts'][number]) => {
   const exists = host?.installed.some((i) => i.id === b.id);
   // The plugin is gone but the marketplace Skillshare registered for it is still there.
-  const market = b.id.slice(b.id.indexOf('@') + 1);
-  const leftover = !exists && !!b.source && b.id.includes('@') && market.startsWith('skillshare-') && !!host?.marketplaces?.[market];
+  const leftover = !exists && !!b.source && b.id.includes('@') && !!host?.managedMarketplaces?.includes(b.id.slice(b.id.indexOf('@') + 1));
   if (b.sync === false) return exists || leftover ? 'uninstall' : '';
   if (b.pending) return b.pending === 'install' && exists ? '' : b.pending;
   return !host || host.error || exists ? '' : 'install';

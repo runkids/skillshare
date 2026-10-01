@@ -461,6 +461,39 @@ func TestForeignMarketplaceWithTheSameNameIsLeftAlone(t *testing.T) {
 	}
 }
 
+func TestRemoveKeepsTheBindingWhileMarketplacesAreUnknown(t *testing.T) {
+	agents := &fakeAgents{}
+	s := agents.service(t)
+	legacyBinding(t, s, agents, "")
+	run := s.Run
+	s.Run = func(ctx context.Context, dir string, env []string, bin string, args ...string) ([]byte, error) {
+		if strings.Join(args, " ") == "plugin marketplace list --json" {
+			return []byte(`not json`), nil
+		}
+		return run(ctx, dir, env, bin, args...)
+	}
+	r := Request{Action: "remove", Name: "demo"}
+	p, err := s.Preview(context.Background(), r)
+	if err != nil || len(p.Changes) == 0 || p.Changes[0].Action != "remove" {
+		t.Fatalf("remove forgot a binding whose marketplace may remain: %+v %v", p, err)
+	}
+	_, _ = s.Apply(context.Background(), r, p.Revision)
+	if inv, err := s.Packages(); err != nil || len(inv.Packages) != 1 {
+		t.Fatalf("binding was dropped before its marketplace cleanup: %+v %v", inv, err)
+	}
+}
+
+func TestHostReportsOnlyItsOwnManagedMarketplaces(t *testing.T) {
+	agents := &fakeAgents{}
+	s := agents.service(t)
+	b := legacyBinding(t, s, agents, "")
+	agents.market("claude")["skillshare-foreign"] = "/elsewhere/skillshare-foreign"
+	agents.market("claude")["team"] = filepath.Join(filepath.Dir(s.snapshotPath(b, "claude")), "team")
+	if got := s.host(context.Background(), "claude").ManagedMarketplaces; !slices.Equal(got, []string{"skillshare-0123456789abcdef"}) {
+		t.Fatalf("managed marketplaces = %v", got)
+	}
+}
+
 func TestSyncSkipsAnImportWhoseNativeMarketplaceIsGone(t *testing.T) {
 	agents := &fakeAgents{}
 	s := agents.service(t)

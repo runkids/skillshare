@@ -92,8 +92,13 @@ func (s *Service) Preview(ctx context.Context, r Request) (*Plan, error) {
 	ownMarket := func(target string, b Binding) bool {
 		agent := s.agentOf(target)
 		_, market, _ := strings.Cut(b.ID, "@")
-		root, ok := host(target).Marketplaces[market]
-		return (agent == "claude" || agent == "codex") && b.Source != "" && strings.HasPrefix(market, "skillshare-") && ok && filepath.Clean(root) == filepath.Clean(s.snapshotPath(b, target))
+		return (agent == "claude" || agent == "codex") && b.Source != "" && slices.Contains(host(target).ManagedMarketplaces, market)
+	}
+	// mayOwnMarket also covers an Agent whose marketplace list could not be read, so a removal
+	// stays pending instead of dropping the binding before its cleanup.
+	mayOwnMarket := func(target string, b Binding) bool {
+		agent := s.agentOf(target)
+		return ownMarket(target, b) || (agent == "claude" || agent == "codex") && b.Source != "" && host(target).Marketplaces == nil
 	}
 	appendChange := func(c Change) {
 		h := host(c.Target)
@@ -350,14 +355,14 @@ func (s *Service) Preview(ctx context.Context, r Request) (*Plan, error) {
 					if c.Action == "install" && exists {
 						c.Action = "noop"
 					}
-					if c.Action == "remove" && !exists && host(target).Error == "" && !ownMarket(target, b) {
+					if c.Action == "remove" && !exists && host(target).Error == "" && !mayOwnMarket(target, b) {
 						c.Action = "forget"
 					}
 					if c.Action == "install" && b.Source == "" {
 						c.Message = "Reinstall using its existing native marketplace."
 					}
 				case "remove":
-					if !exists && host(target).Error == "" && !ownMarket(target, b) {
+					if !exists && host(target).Error == "" && !mayOwnMarket(target, b) {
 						c.Action = "forget"
 					}
 				case "enable", "disable":

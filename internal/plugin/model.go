@@ -172,6 +172,8 @@ type Host struct {
 	Installed   []Installed `json:"installed"`
 	// Marketplaces maps each Claude/Codex marketplace name to its root; nil when unknown.
 	Marketplaces map[string]string `json:"marketplaces,omitempty"`
+	// ManagedMarketplaces names the ones Skillshare registered from its own state directory.
+	ManagedMarketplaces []string `json:"managedMarketplaces,omitempty"`
 }
 
 // fail records a failure and buckets it by its cause. A failed inventory call leaves
