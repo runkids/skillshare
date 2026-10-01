@@ -11,10 +11,15 @@ All notable changes to skillshare are documented here. For the full commit histo
 
 ## [0.23.4] - 2026-10-01
 
-
 ### Bug Fixes
 
-* **plugin:** remove Claude marketplaces in every scope and explain skill clashes ([#323](https://github.com/runkids/skillshare/issues/323)) ([d17c1ab](https://github.com/runkids/skillshare/commit/d17c1ab013e2dcd9d999792b8577ab8217603939))
+#### Plugins
+
+- **Claude marketplace cleanup no longer fails after settings lost the declaration** — when a Skillshare marketplace was only recorded in Claude's `known_marketplaces.json`, for example after a dotfile manager overwrote `~/.claude/settings.json`, every sync failed with "could not finish removing its marketplace" and the plugin stayed pending. The marketplace is now removed from every settings scope. A name also declared at another path is reported as a conflict and left in place.
+  ```bash
+  skillshare sync plugins -g
+  ```
+- **Skill and plugin name clashes are explained before install** — Claude reads a skill folder that has a plugin manifest as `<name>@skills-dir` and loads only one plugin per name, so adding a Claude plugin from the same repository as a synced skill made `/plugin` report the skill as not loaded. The install preview now says Claude will load the plugin and skip that folder until one of them is renamed or removed.
 
 ## [0.23.3] - 2026-10-01
 
