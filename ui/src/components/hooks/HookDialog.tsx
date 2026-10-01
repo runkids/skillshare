@@ -14,7 +14,7 @@ import { useSaveShortcut } from '../instructions/useSaveShortcut';
 import HookBindingEditor from './HookBindingEditor';
 import HooksPreview from './HooksPreview';
 import {
-  HOOK_NAME, bindingInvalid, bindingToDraft, boundAgents, checkBinding, draftToBinding, emptyBinding, hookLabel, isCodeAgent, rootPlan, writes,
+  HOOK_NAME, bindingInvalid, bindingToDraft, boundAgents, checkBinding, draftToBinding, emptyBinding, agentOfKey, keyLabel, isCodeAgent, rootPlan, writes,
 } from './hooksView';
 import type { BindingDraft } from './hooksView';
 import { catalogEvent, codeTemplate, copyDraft, draftEmpty, draftRows, eventDescription } from './hookCatalog';
@@ -27,6 +27,7 @@ interface Props {
   project?: string;
   /** Targets Skillshare can manage hooks for; defaults to all of them. */
   agents?: readonly string[];
+  accounts?: Record<string, string>;
   /** Native hooks Skillshare does not manage, marked as untouched in the preview. */
   unmanaged?: HookUnmanaged[];
   onClose: () => void;
@@ -37,19 +38,23 @@ interface Props {
 const catalogQuery = { queryKey: [...queryKeys.hooks, 'catalog'], queryFn: () => hooksApi.catalog(), staleTime: Infinity };
 
 /** The filled command target a new target can copy from: the first one, in display order. */
-const copySource = (order: string[], agent: string, draftOf: (a: string) => BindingDraft) =>
-  isCodeAgent(agent) ? undefined : order.find((a) => a !== agent && !isCodeAgent(a) && !draftEmpty(a, draftOf(a)) && (draftRows(draftOf(a))?.length ?? 0) > 0);
+const copySource = (order: string[], agent: string, draftOf: (a: string) => BindingDraft, agentOf: (key: string) => string) =>
+  isCodeAgent(agentOf(agent)) ? undefined : order.find((a) => a !== agent && !isCodeAgent(agentOf(a)) && !draftEmpty(agentOf(a), draftOf(a)) && (draftRows(draftOf(a))?.length ?? 0) > 0);
 
 /** Add or edit one source hook. Saving only changes the source; Sync writes the native files. */
-export default function HookDialog({ initial, existingNames, project, agents = hookAgents, unmanaged = [], onClose, onSaved }: Props) {
+export default function HookDialog({ initial, existingNames, project, agents = hookAgents, accounts: configuredAccounts = {}, unmanaged = [], onClose, onSaved }: Props) {
   const t = useT();
+  const accounts = project ? {} : configuredAccounts;
+  const agentOf = (key: string) => agentOfKey(accounts, key);
+  const labelOf = (key: string) => keyLabel(accounts, key);
+  const picker = agents.flatMap((agent) => [agent, ...Object.keys(accounts).filter((key) => accounts[key] === agent).sort()]);
   const editing = Boolean(initial);
   const { data: catalog } = useQuery<HookCatalog>(catalogQuery);
   const [name, setName] = useState(initial?.name ?? '');
   const [description, setDescription] = useState(initial?.entry.description ?? '');
-  const [selected, setSelected] = useState<string[]>(() => (initial ? boundAgents(initial.entry) : []));
+  const [selected, setSelected] = useState<string[]>(() => (initial ? boundAgents(initial.entry, accounts) : []));
   // A drafted target keeps its content when it is unticked and ticked again.
-  const [drafts, setDrafts] = useState<Record<string, BindingDraft>>(() => Object.fromEntries((initial ? boundAgents(initial.entry) : []).map((a) => [a, bindingToDraft(a, initial?.entry.bindings[a] ?? initial?.entry.bindings.factory)])));
+  const [drafts, setDrafts] = useState<Record<string, BindingDraft>>(() => Object.fromEntries((initial ? boundAgents(initial.entry, accounts) : []).map((a) => [a, bindingToDraft(agentOf(a), initial?.entry.bindings[a] ?? initial?.entry.bindings.factory)])));
   // Targets whose empty tab was opened with "start from scratch", so the form shows instead of the offer.
   const [started, setStarted] = useState<string[]>([]);
   const [active, setActive] = useState(selected[0] ?? '');
@@ -63,10 +68,10 @@ export default function HookDialog({ initial, existingNames, project, agents = h
 
   const trimmed = name.trim();
   const nameError = trimmed && !HOOK_NAME.test(trimmed) ? t('hooks.nameHint') : !editing && existingNames.includes(trimmed) ? t('mcp.nameTaken') : '';
-  const order = agents.filter((a) => selected.includes(a));
-  const draftOf = (agent: string) => drafts[agent] ?? emptyBinding(agent);
-  const checks = Object.fromEntries(order.map((a) => [a, checkBinding(a, draftOf(a))]));
-  const unfilled = order.filter((a) => draftEmpty(a, draftOf(a)));
+  const order = picker.filter((a) => selected.includes(a));
+  const draftOf = (agent: string) => drafts[agent] ?? emptyBinding(agentOf(agent));
+  const checks = Object.fromEntries(order.map((a) => [a, checkBinding(agentOf(a), draftOf(a))]));
+  const unfilled = order.filter((a) => draftEmpty(agentOf(a), draftOf(a)));
   const invalid = order.filter((a) => bindingInvalid(checks[a]));
   const valid = Boolean(trimmed) && !nameError && invalid.length === 0;
   const canSave = valid && !saving;
@@ -74,7 +79,7 @@ export default function HookDialog({ initial, existingNames, project, agents = h
   const entry = (): HookEntry => ({
     ...(description.trim() && { description: description.trim() }),
     ...(initial?.entry.enabled === false && { enabled: false }),
-    bindings: Object.fromEntries(order.map((a) => [a, draftToBinding(a, draftOf(a))])),
+    bindings: Object.fromEntries(order.map((a) => [a, draftToBinding(agentOf(a), draftOf(a))])),
   });
   const mutation = (): HookMutation => ({ ...(project && { project }), name: trimmed, entry: entry(), ...(takeover && { replace: true }) });
   // A preview is only good for the exact hook it was taken of; any edit makes it stale. Being busy is not an edit.
@@ -83,7 +88,7 @@ export default function HookDialog({ initial, existingNames, project, agents = h
   const shown = preview && rootPlan(preview.plan, project);
 
   // What the dialog holds, to tell an edit from an untouched dialog when closing.
-  const snapshot = JSON.stringify([trimmed, description.trim(), order, order.map((a) => draftToBinding(a, draftOf(a)))]);
+  const snapshot = JSON.stringify([trimmed, description.trim(), order, order.map((a) => draftToBinding(agentOf(a), draftOf(a)))]);
   const [initialSnapshot] = useState(snapshot);
   const dirty = snapshot !== initialSnapshot;
   const requestClose = () => {
@@ -103,11 +108,11 @@ export default function HookDialog({ initial, existingNames, project, agents = h
   };
   const setDraft = (agent: string, d: BindingDraft) => setDrafts((prev) => ({ ...prev, [agent]: d }));
   const copyFrom = (from: string, to: string) => {
-    setDraft(to, copyDraft(catalog, from, to, draftOf(from)).draft);
+    setDraft(to, copyDraft(catalog, agentOf(from), agentOf(to), draftOf(from)).draft);
     setStarted((prev) => [...prev, to]);
   };
   const startFresh = (agent: string) => {
-    if (isCodeAgent(agent)) setDraft(agent, { ...draftOf(agent), code: codeTemplate(agent) });
+    if (isCodeAgent(agentOf(agent))) setDraft(agent, { ...draftOf(agent), code: codeTemplate(agentOf(agent)) });
     setStarted((prev) => [...prev, agent]);
   };
 
@@ -153,31 +158,31 @@ export default function HookDialog({ initial, existingNames, project, agents = h
 
   // Unfilled command targets that would not get the same event names when copied: say what they get instead.
   const copyNotes = unfilled.flatMap((to) => {
-    const from = copySource(order, to, draftOf);
+    const from = copySource(order, to, draftOf, agentOf);
     if (!from) return [];
-    const { notes } = copyDraft(catalog, from, to, draftOf(from));
+    const { notes } = copyDraft(catalog, agentOf(from), agentOf(to), draftOf(from));
     return notes.map((n) => ({ agent: to, source: from, event: n.from, closest: n.to, kind: n.kind }));
   });
 
   const emptyTab = (agent: string) => {
-    const from = copySource(order, agent, draftOf);
+    const from = copySource(order, agent, draftOf, agentOf);
     const rows = from ? draftRows(draftOf(from)) ?? [] : [];
     const events = [...new Set(rows.map((r) => r.event))];
-    const notes = from ? copyDraft(catalog, from, agent, draftOf(from)).notes : [];
+    const notes = from ? copyDraft(catalog, agentOf(from), agentOf(agent), draftOf(from)).notes : [];
     const same = from !== undefined && notes.length === 0;
     // Some events with no close match must be picked by hand; the line says so instead of promising the closest.
     const noClose = notes.filter((n) => n.kind === 'none').length;
     const copyNote = same ? 'hooks.emptyTarget.same' : noClose === 0 ? 'hooks.emptyTarget.differs' : noClose === notes.length ? 'hooks.emptyTarget.none' : 'hooks.emptyTarget.partial';
     return (
       <div className="flex flex-col items-center gap-3 rounded-[12px] border border-dashed border-line-2 px-6 py-8 text-center">
-        <h3 className="text-[15px] font-semibold">{t('hooks.emptyTarget.title', { agent: hookLabel(agent) })}</h3>
+        <h3 className="text-[15px] font-semibold">{t('hooks.emptyTarget.title', { agent: labelOf(agent) })}</h3>
         <p className="text-[13px] text-ink-2">
           {from
-            ? t(copyNote, { from: hookLabel(from), agent: hookLabel(agent), events: events.join(', ') })
-            : t(isCodeAgent(agent) ? 'hooks.emptyTarget.code' : 'hooks.emptyTarget.scratch', { agent: hookLabel(agent) })}
+            ? t(copyNote, { from: labelOf(from), agent: labelOf(agent), events: events.join(', ') })
+            : t(isCodeAgent(agentOf(agent)) ? 'hooks.emptyTarget.code' : 'hooks.emptyTarget.scratch', { agent: labelOf(agent) })}
         </p>
         <div className="flex flex-wrap justify-center gap-2">
-          {from && <Button variant="secondary" size="sm" onClick={() => copyFrom(from, agent)} disabled={saving}><Copy size={14} />{t('hooks.copyFrom', { agent: hookLabel(from) })}</Button>}
+          {from && <Button variant="secondary" size="sm" onClick={() => copyFrom(from, agent)} disabled={saving}><Copy size={14} />{t('hooks.copyFrom', { agent: labelOf(from) })}</Button>}
           <Button variant="ghost" size="sm" onClick={() => startFresh(agent)} disabled={saving}><Plus size={14} />{t('hooks.startFresh')}</Button>
         </div>
       </div>
@@ -223,12 +228,12 @@ export default function HookDialog({ initial, existingNames, project, agents = h
           <div className="ss-fld">
             <span className="text-[13px] font-semibold">{t('hooks.agents')}</span>
             <div className="flex flex-wrap gap-x-5 gap-y-3">
-              {agents.map((agent) => {
+              {picker.map((agent) => {
                 const on = selected.includes(agent);
                 return (
                   <button key={agent} type="button" role="checkbox" aria-checked={on} className={`ss-tgl ${on ? 'on' : ''}`} onClick={() => toggle(agent)} disabled={saving}>
-                    <span className="ic"><AgentIcon target={agent} size={20} /><i><Check size={9} strokeWidth={3.5} /></i></span>
-                    {hookLabel(agent)}
+                    <span className="ic"><AgentIcon target={agentOf(agent)} size={20} /><i><Check size={9} strokeWidth={3.5} /></i></span>
+                    {labelOf(agent)}
                   </button>
                 );
               })}
@@ -246,7 +251,7 @@ export default function HookDialog({ initial, existingNames, project, agents = h
                   value: a,
                   label: (
                     <span className="inline-flex items-center gap-1.5">
-                      <AgentIcon target={a} size={14} />{hookLabel(a)}
+                      <AgentIcon target={agentOf(a)} size={14} />{labelOf(a)}
                       {unfilled.includes(a)
                         ? <span className="h-[5px] w-[5px] rounded-full bg-ink-2" aria-label={t('hooks.tabUnfilled')} />
                         : bindingInvalid(checks[a]) && <span className="ss-tag bad" aria-label={t('hooks.tabInvalid')}>!</span>}
@@ -254,16 +259,16 @@ export default function HookDialog({ initial, existingNames, project, agents = h
                   ),
                 }))}
               />
-              {unfilled.includes(current) && !started.includes(current) && (isCodeAgent(current) || copySource(order, current, draftOf))
+              {unfilled.includes(current) && !started.includes(current) && (isCodeAgent(agentOf(current)) || copySource(order, current, draftOf, agentOf))
                 ? emptyTab(current)
-                : <HookBindingEditor key={current} agent={current} name={trimmed} draft={draftOf(current)} check={checks[current]} catalog={catalog} onChange={(d) => setDraft(current, d)} disabled={saving} />}
+                : <HookBindingEditor key={current} agent={agentOf(current)} name={trimmed} draft={draftOf(current)} check={checks[current]} catalog={catalog} onChange={(d) => setDraft(current, d)} disabled={saving} />}
               {copyNotes.map((n) => (
                 <div key={`${n.agent}:${n.event}`} className="flex items-center gap-2.5 rounded-[10px] bg-sunken px-3.5 py-3 text-[13px] text-ink-2">
-                  <AgentIcon target={n.agent} size={16} />
+                  <AgentIcon target={agentOf(n.agent)} size={16} />
                   <span className="flex-1">
                     {n.kind === 'closest'
-                      ? t('hooks.copyNote.closest', { agent: hookLabel(n.agent), event: n.event, closest: n.closest, description: eventDescription(t, n.closest, catalogEvent(catalog, n.agent, n.closest)?.description ?? ''), from: hookLabel(n.source) })
-                      : t('hooks.copyNote.none', { agent: hookLabel(n.agent), event: n.event, from: hookLabel(n.source) })}
+                      ? t('hooks.copyNote.closest', { agent: labelOf(n.agent), event: n.event, closest: n.closest, description: eventDescription(t, n.closest, catalogEvent(catalog, agentOf(n.agent), n.closest)?.description ?? ''), from: labelOf(n.source) })
+                      : t('hooks.copyNote.none', { agent: labelOf(n.agent), event: n.event, from: labelOf(n.source) })}
                   </span>
                 </div>
               ))}
@@ -289,8 +294,8 @@ export default function HookDialog({ initial, existingNames, project, agents = h
         ) : (
           <>
             <span className="flex-1 text-[13px] text-ink-2">
-              {unfilled.length > 0 ? t('hooks.unfilled', { count: String(unfilled.length), agents: unfilled.map(hookLabel).join('、') })
-                : invalid.length > 0 ? t('hooks.incomplete', { agents: invalid.map(hookLabel).join('、') })
+              {unfilled.length > 0 ? t('hooks.unfilled', { count: String(unfilled.length), agents: unfilled.map(labelOf).join('、') })
+                : invalid.length > 0 ? t('hooks.incomplete', { agents: invalid.map(labelOf).join('、') })
                   : t('hooks.saveNote')}
             </span>
             <Button variant="ghost" onClick={requestClose} disabled={saving}>{t('common.cancel')}</Button>
@@ -302,4 +307,3 @@ export default function HookDialog({ initial, existingNames, project, agents = h
     </DialogShell>
   );
 }
-

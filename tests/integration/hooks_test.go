@@ -376,3 +376,59 @@ func TestHooksImport_TakesOverAndPlansShowEventDetail(t *testing.T) {
 	r.AssertOutputContains(t, "~/.claude/settings.json  − Stopp")
 	r.AssertOutputNotContains(t, "remove")
 }
+
+func TestHooksAccountTargets_Codex(t *testing.T) {
+	sb := newHooksSandbox(t)
+	defer sb.Cleanup()
+	sb.SetEnv("CODEX_HOME", "")
+	sb.SetEnv("PI_CODING_AGENT_DIR", "")
+	sb.WriteConfig("targets:\n  codex-2: {agent: codex, config_dir: ~/.codex-2, skills: {enabled: false}}\n  codex-3: {agent: codex, config_dir: ~/.codex-3, skills: {enabled: false}}\n")
+	if err := os.MkdirAll(filepath.Join(sb.Home, ".codex-2"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	file := filepath.Join(sb.Root, "entry.yaml")
+	sb.WriteFile(file, "bindings:\n  codex: &codex\n    events: {SessionStart: [{hooks: [{type: command, command: echo account}]}]}\n  codex-2: *codex\n  codex-3: *codex\n")
+	sb.RunCLI("hooks", "add", "k", "--file", file, "-g", "--sync").AssertSuccess(t)
+	path := filepath.Join(sb.Home, ".codex-2", "hooks.json")
+	if !strings.Contains(sb.ReadFile(path), "echo account") {
+		t.Fatal("account hook missing")
+	}
+	if _, err := os.Stat(filepath.Join(sb.Home, ".codex-3")); !os.IsNotExist(err) {
+		t.Fatal("missing home created")
+	}
+	sb.SetEnv("CODEX_HOME", filepath.Join(sb.Home, ".codex-2"))
+	r := sb.RunCLI("hooks", "sync", "-g", "--dry-run", "--json")
+	r.AssertSuccess(t)
+	var p struct {
+		Changes  []struct{ Action string }
+		Warnings []string
+	}
+	if err := json.Unmarshal([]byte(r.Stdout), &p); err != nil {
+		t.Fatal(err)
+	}
+	for _, c := range p.Changes {
+		if c.Action != "unchanged" {
+			t.Fatal(r.Stdout)
+		}
+	}
+	if !strings.Contains(strings.Join(p.Warnings, "\n"), "CODEX_HOME") {
+		t.Fatal(r.Stdout)
+	}
+	// sync --all still resolves every hooks home identically (MCP is empty here).
+	sb.RunCLI("sync", "--all", "-g", "--dry-run", "--json").AssertSuccess(t)
+	sb.RunCLI("hooks", "import", "--from", "codex-2", "-g", "--json").AssertSuccess(t)
+	sb.RunCLI("target", "remove", "codex-2", "-g").AssertOutputContains(t, "hooks.entries.k still names codex-2")
+}
+
+func TestHooksAccountBindingInProjectRefused(t *testing.T) {
+	sb := newHooksSandbox(t)
+	defer sb.Cleanup()
+	sb.SetEnv("CODEX_HOME", "")
+	root := filepath.Join(sb.Root, "project")
+	sb.WriteFile(filepath.Join(root, ".skillshare", "config.yaml"), "targets: []\n")
+	file := filepath.Join(sb.Root, "entry.yaml")
+	sb.WriteFile(file, "bindings:\n  codex-2:\n    events: {Stop: [{hooks: [{type: command, command: x}]}]}\n")
+	r := sb.RunCLIInDir(root, "hooks", "add", "k", "--file", file, "-p")
+	r.AssertFailure(t)
+	r.AssertOutputContains(t, `unsupported Agent "codex-2"`)
+}

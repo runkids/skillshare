@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"skillshare/internal/config"
+	"skillshare/internal/hooks"
 	"skillshare/internal/mcp"
 	ssync "skillshare/internal/sync"
 	"skillshare/internal/targetsummary"
@@ -359,6 +360,9 @@ func (s *Server) handleRemoveTarget(w http.ResponseWriter, r *http.Request) {
 	var warnings []string
 	if target.Agent != "" {
 		if warning := mcp.ReferenceWarning(s.configPath(), name); warning != "" {
+			warnings = append(warnings, warning)
+		}
+		if warning := hooks.ReferenceWarning(s.configPath(), name); warning != "" {
 			warnings = append(warnings, warning)
 		}
 	}

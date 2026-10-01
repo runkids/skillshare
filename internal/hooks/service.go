@@ -19,7 +19,9 @@ type Service struct {
 	StateDir    string
 	Platform    string
 	// ConfigDirs contains explicitly resolved native Agent directory overrides.
-	ConfigDirs map[string]string
+	ConfigDirs    map[string]string
+	Accounts      map[string]Account // global scope only
+	scopedAccount string
 }
 
 // Mutation is shared by CLI and dashboard preview/save/sync flows. An empty
@@ -217,12 +219,19 @@ func (s *Service) configDir(target string) (string, error) {
 		}
 		return filepath.Join(s.ProjectRoot, dir), nil
 	}
-	if dir := s.ConfigDirs[target]; dir != "" {
+	if s.scopedAccount != "" {
+		return s.Accounts[s.scopedAccount].Dir, nil
+	}
+	if dir := s.ConfigDirs[target]; dir != "" && s.envShadow(target) == "" {
 		if !filepath.IsAbs(dir) {
 			return "", fmt.Errorf("%s config directory must be absolute", target)
 		}
 		return filepath.Clean(dir), nil
 	}
+	return s.defaultConfigDir(target)
+}
+
+func (s *Service) defaultConfigDir(target string) (string, error) {
 	home, err := s.home()
 	if err != nil {
 		return "", err
@@ -297,6 +306,12 @@ func (s *Service) Paths() map[string]string {
 	for _, t := range Targets {
 		if path, err := s.nativePath(t.Name); err == nil {
 			out[t.Name] = path
+		}
+	}
+	for key := range s.accountAgents() {
+		sc, agent := s.forTarget(key)
+		if path, err := sc.nativePath(agent); err == nil {
+			out[key] = path
 		}
 	}
 	return out

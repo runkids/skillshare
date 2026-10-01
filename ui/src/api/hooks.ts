@@ -47,7 +47,7 @@ export interface HookFileDiff { target: string; path: string; root?: string; bef
 /** Only POST /hooks/preview carries `files`. */
 export type HookPreview = HookPlan & { files?: HookFileDiff[] };
 export interface HookResult { plan?: HookPlan; applied: string[]; backupIds: string[] }
-export interface HookTargetDef { name: string; kind: string; note?: string }
+export interface HookTargetDef { name: string; agent?: string; kind: string; note?: string }
 /** Hooks in an Agent's native configuration that Skillshare does not manage. */
 export interface HookUnmanaged { target: string; path: string; names: string[]; project?: string }
 export interface HookBackup { id: string; target: string; path: string; time?: string }

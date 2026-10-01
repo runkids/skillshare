@@ -6,6 +6,8 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"skillshare/internal/config"
+	"skillshare/internal/hooks"
 	"strings"
 	"testing"
 )
@@ -345,5 +347,35 @@ func TestHooksUIContract_TakeOverSaveOnlyKeepsTheConflict(t *testing.T) {
 	}
 	if readOrEmpty(sc.settings) != edited {
 		t.Fatal("save-only takeover wrote the target file")
+	}
+}
+
+func TestHooksUIContract_AccountTargets(t *testing.T) {
+	s, _ := newTestServer(t)
+	home := hooksTestHome(t)
+	dir := filepath.Join(home, ".codex-2")
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	s.cfg.Targets["codex-2"] = config.TargetConfig{Agent: "codex", ConfigDir: dir}
+	w := httptest.NewRecorder()
+	s.handleHooksList(w, httptest.NewRequest(http.MethodGet, "/api/hooks", nil))
+	var inv hooks.Inventory
+	if w.Code != http.StatusOK || json.Unmarshal(w.Body.Bytes(), &inv) != nil {
+		t.Fatalf("%d %s", w.Code, w.Body)
+	}
+	found := false
+	for _, target := range inv.Targets {
+		if target.Name == "codex-2" && target.Agent == "codex" && target.Kind == "command" {
+			found = true
+		}
+	}
+	if !found || inv.Paths["codex-2"] != filepath.Join(dir, "hooks.json") {
+		t.Fatalf("%+v", inv)
+	}
+	mutation := `{"name":"k","entry":{"bindings":{"codex-2":{"events":{"Stop":[{"hooks":[{"type":"command","command":"x"}]}]}}}}}`
+	w = hooksPost(s, s.handleHooksPreview, "/api/hooks/preview", `{"mutation":`+mutation+`}`)
+	if w.Code != http.StatusOK || !strings.Contains(w.Body.String(), `"target":"codex-2"`) {
+		t.Fatalf("%d %s", w.Code, w.Body)
 	}
 }

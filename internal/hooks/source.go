@@ -95,7 +95,17 @@ func blockStyle(node *yaml.Node) {
 func digest(data []byte) string { return fmt.Sprintf("%x", sha256.Sum256(data)) }
 
 // LoadSource reads hooks.entries. A config without a hooks section has no entries.
-func LoadSource(configPath string) (*Source, error) {
+func LoadSource(configPath string) (*Source, error) { return loadSource(configPath, nil) }
+
+func (s *Service) loadSource() (*Source, error) {
+	source, err := loadSource(s.ConfigPath, s.accountAgents())
+	if err == nil && s.ProjectRoot != "" && len(source.Projects) > 0 {
+		return nil, fmt.Errorf("hooks.projects belongs in the global config")
+	}
+	return source, err
+}
+
+func loadSource(configPath string, accounts map[string]string) (*Source, error) {
 	path, err := filepath.Abs(configPath)
 	if err != nil {
 		return nil, err
@@ -104,10 +114,10 @@ func LoadSource(configPath string) (*Source, error) {
 	if err != nil {
 		return nil, fmt.Errorf("read hooks config: %w", err)
 	}
-	return parseSource(path, data)
+	return parseSource(path, data, accounts, false)
 }
 
-func parseSource(path string, data []byte) (*Source, error) {
+func parseSource(path string, data []byte, accounts map[string]string, project bool) (*Source, error) {
 	s := &Source{ConfigPath: path, Entries: map[string]Entry{}, Projects: map[string]Project{}, touched: map[string]bool{}, touchedProjects: map[string]bool{}, projectKeys: map[string]string{}, unmanaged: map[string]bool{}, bytes: data}
 	d := yaml.NewDecoder(bytes.NewReader(s.bytes))
 	if err := d.Decode(&s.doc); err != nil {
@@ -140,7 +150,7 @@ func parseSource(path string, data []byte) (*Source, error) {
 		}
 	}
 	var err error
-	if s.Entries, err = decodeEntries(field(section, "entries"), "hooks.entries"); err != nil {
+	if s.Entries, err = decodeEntries(field(section, "entries"), "hooks.entries", accounts, project); err != nil {
 		return nil, err
 	}
 	projects := field(section, "projects")
@@ -167,7 +177,7 @@ func parseSource(path string, data []byte) (*Source, error) {
 				return nil, fmt.Errorf("hooks.projects: %s takes only entries", key)
 			}
 		}
-		entries, err := decodeEntries(field(block, "entries"), "hooks.projects."+key)
+		entries, err := decodeEntries(field(block, "entries"), "hooks.projects."+key, accounts, true)
 		if err != nil {
 			return nil, err
 		}
@@ -177,7 +187,7 @@ func parseSource(path string, data []byte) (*Source, error) {
 	return s, nil
 }
 
-func decodeEntries(node *yaml.Node, where string) (map[string]Entry, error) {
+func decodeEntries(node *yaml.Node, where string, accounts map[string]string, project bool) (map[string]Entry, error) {
 	entries := map[string]Entry{}
 	if node == nil || node.Kind == yaml.ScalarNode && node.Tag == "!!null" {
 		return entries, nil
@@ -201,7 +211,11 @@ func decodeEntries(node *yaml.Node, where string) (map[string]Entry, error) {
 		if err := entry.normalize(); err != nil {
 			return nil, fmt.Errorf("hook %s: %w", name, err)
 		}
-		if err := entry.Validate(name); err != nil {
+		scope := validateGlobal
+		if project {
+			scope = validateProject
+		}
+		if err := entry.validate(name, accounts, scope); err != nil {
 			return nil, err
 		}
 		entries[name] = entry
@@ -227,7 +241,7 @@ func projectRoot(key string) (string, error) {
 
 // ValidateSection checks a config's hooks node the way LoadSource and a project's
 // sync do, so the config editor never accepts a section sync would refuse.
-func ValidateSection(node *yaml.Node, project bool) error {
+func ValidateSection(node *yaml.Node, project bool, accounts map[string]string) error {
 	if node == nil || node.Kind == 0 {
 		return nil
 	}
@@ -236,7 +250,7 @@ func ValidateSection(node *yaml.Node, project bool) error {
 	if err != nil {
 		return err
 	}
-	source, err := parseSource("config.yaml", data)
+	source, err := parseSource("config.yaml", data, accounts, project)
 	if err != nil {
 		return err
 	}
@@ -335,4 +349,37 @@ func (s *Source) save() error {
 	}
 	s.bytes = data
 	return nil
+}
+
+// ReferenceWarning reads binding keys without validating them, so target removal
+// can explain dangling references before the source stops resolving.
+func ReferenceWarning(configPath, target string) string {
+	data, err := os.ReadFile(configPath)
+	if err != nil {
+		return ""
+	}
+	var doc struct {
+		Hooks struct {
+			Entries map[string]struct {
+				Bindings map[string]any `yaml:"bindings"`
+			} `yaml:"entries"`
+		} `yaml:"hooks"`
+	}
+	if yaml.Unmarshal(data, &doc) != nil {
+		return ""
+	}
+	var places []string
+	for _, name := range sortedKeys(doc.Hooks.Entries) {
+		if _, ok := doc.Hooks.Entries[name].Bindings[target]; ok {
+			places = append(places, "hooks.entries."+name)
+		}
+	}
+	if len(places) == 0 {
+		return ""
+	}
+	verb := "still names"
+	if len(places) > 1 {
+		verb = "still name"
+	}
+	return fmt.Sprintf("%s %s %s; remove it there too or the next hooks sync fails", strings.Join(places, ", "), verb, target)
 }

@@ -14,7 +14,7 @@ import DialogShell from '../DialogShell';
 import { Select } from '../Input';
 import Spinner from '../Spinner';
 import { bindingLines, suggestName } from './hookCatalog';
-import { HOOK_NAME, hookLabel, hookMessage, isCodeAgent, scopeEntries, scopePaths, scopeUnmanaged } from './hooksView';
+import { HOOK_NAME, hookAccounts, agentOfKey, keyLabel, hookMessage, isCodeAgent, scopeEntries, scopePaths, scopeUnmanaged } from './hooksView';
 
 interface Props {
   data: HookInventory;
@@ -40,7 +40,11 @@ export default function HooksImportDialog({ data, project, onClose, onImported }
   const existing = scopeEntries(data, project);
   const paths = scopePaths(data, project);
   const unmanaged = scopeUnmanaged(data, project);
-  const targets = hookAgents.filter((a) => unmanaged.some((u) => u.target === a));
+  const accounts = project ? {} : hookAccounts(data.targets);
+  const agentOf = (key: string) => agentOfKey(accounts, key);
+  const labelOf = (key: string) => keyLabel(accounts, key);
+  const available = [...hookAgents, ...Object.keys(accounts).sort()];
+  const targets = available.filter((a) => unmanaged.some((u) => u.target === a));
   const reads = useQueries({
     queries: targets.map((from) => ({
       queryKey: [...queryKeys.hooks, 'import', project ?? '', from],
@@ -69,7 +73,7 @@ export default function HooksImportDialog({ data, project, onClose, onImported }
   for (const row of rows) {
     const line = bindingLines(row.candidate.entry.bindings[row.target])[0];
     const taken = (n: string) => n in existing || Object.values(defaults).includes(n);
-    defaults[row.id] = suggestName(row.candidate.name, isCodeAgent(row.target) ? '' : line?.command ?? '', taken);
+    defaults[row.id] = suggestName(row.candidate.name, isCodeAgent(agentOf(row.target)) ? '' : line?.command ?? '', taken);
   }
   // An Antigravity hook is the block of that name, so taking one over keeps the block's name.
   const fixedName = (row: Row) => row.adopt && row.target === 'antigravity';
@@ -113,10 +117,10 @@ export default function HooksImportDialog({ data, project, onClose, onImported }
   };
 
   const group = (key: string, target: string, path: string | undefined, list: Row[]) => (
-    <section key={key} aria-label={hookLabel(target)} className="overflow-hidden rounded-[12px] border border-line">
+    <section key={key} aria-label={labelOf(target)} className="overflow-hidden rounded-[12px] border border-line">
       <div className="flex min-h-10 items-center gap-2 bg-sunken px-3.5">
-        <AgentIcon target={target} size={16} />
-        <span className="font-semibold">{hookLabel(target)}</span>
+        <AgentIcon target={agentOf(target)} size={16} />
+        <span className="font-semibold">{labelOf(target)}</span>
         {path && <span className="min-w-0 truncate font-mono text-xs text-ink-3" title={path}>{shortenHome(path)}</span>}
       </div>
       {list.map((row) => {
@@ -152,7 +156,7 @@ export default function HooksImportDialog({ data, project, onClose, onImported }
   );
 
   const loading = reads.some((r) => r.isPending);
-  const failed = reads.map((r, i) => r.error && `${hookLabel(targets[i])}: ${(r.error as Error).message}`).filter(Boolean);
+  const failed = reads.map((r, i) => r.error && `${labelOf(targets[i])}: ${(r.error as Error).message}`).filter(Boolean);
   const found = rows.filter((r) => r.adopt);
   const title = t('hooks.importTitle');
   return (
@@ -182,9 +186,9 @@ export default function HooksImportDialog({ data, project, onClose, onImported }
               value={pasteFrom}
               onChange={(v) => { setPasteFrom(v); setPasted(null); }}
               disabled={busy}
-              options={hookAgents.map((a) => ({ value: a, label: hookLabel(a), icon: <AgentIcon target={a} size={16} /> }))}
+              options={available.map((a) => ({ value: a, label: labelOf(a), icon: <AgentIcon target={agentOf(a)} size={16} /> }))}
             />
-            <CodeEditor value={content} onChange={(v) => { setContent(v); setPasted(null); }} lang={isCodeAgent(pasteFrom) ? 'typescript' : 'json'} ariaLabel={t('hooks.importPaste')} placeholder={t('hooks.importPastePlaceholder')} disabled={busy} minHeight="96px" />
+            <CodeEditor value={content} onChange={(v) => { setContent(v); setPasted(null); }} lang={isCodeAgent(agentOf(pasteFrom)) ? 'typescript' : 'json'} ariaLabel={t('hooks.importPaste')} placeholder={t('hooks.importPastePlaceholder')} disabled={busy} minHeight="96px" />
             <span className="flex items-center gap-2">
               <span className="hp flex-1">{t('hooks.importPasteHint')}</span>
               <Button size="sm" variant="secondary" loading={reading} disabled={!content.trim()} onClick={() => void read()}>{t('hooks.importRead')}</Button>

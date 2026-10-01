@@ -35,7 +35,7 @@ skillshare hooks restore BACKUP_ID
 | Option | Meaning |
 |---|---|
 | `--file PATH` | Entry JSON/YAML；匯入時為原生設定或程式碼 |
-| `--from AGENT` | 原生 Agent 格式或要讀取的 Agent |
+| `--from AGENT` | `codex-2` 等帳號 target 也可使用。  原生 Agent 格式或要讀取的 Agent |
 | `--sync` | 儲存並同步 |
 | `--keep-files` | 搭配 `remove`：停止管理該 hook，並讓它的原生項目維持原樣。不可與 `--sync` 併用。參見[下方說明](#stop-managing-a-hook) |
 | `--replace` | 明確取代既有來源 entry 或該 entry 衝突的原生輸出 |
@@ -90,7 +90,7 @@ Skillshare 以縮排的 block 格式寫入 `hooks` 區段；每次儲存也會�
 | `bindings.AGENT.code` | Pi、Amp、OpenCode 的原生 extension/plugin 程式碼 |
 | `bindings.AGENT.files` | 可選 UTF-8 腳本檔，以相對檔名為 key |
 
-Agent ID 為 `claude`、`codex`、`gemini`、`copilot`、`cursor`、`droid`、`qwen`、`antigravity`、`pi`、`amp`、`opencode`；`factory` 是 `droid` 的別名，`antigravity-cli` 與 `agy` 是 `antigravity` 的別名。event、matcher、handler type、command、timeout 單位與 payload 均保留原生格式，不自動跨 Agent 轉換。event 名稱會對照各 command Agent 文件列出的事件檢查：未知名稱（例如拼錯的 `Stopp`）在預覽與 plan 的 `warnings` 中顯示警告，但不阻擋同步，因為 Agent 會陸續新增事件。Pi、Amp、OpenCode 的程式碼不檢查。Pi、Amp、OpenCode 的程式碼與 imports 須符合已安裝版本；發布至獨立的 `skillshare-NAME.ts`，不產生共用執行引擎。command binding 的腳本位於 Agent 設定目錄的 `hooks/skillshare/NAME/`，command 保留你提供的原生 macro 或明確路徑。請在預覽確認完整路徑。
+Agent ID 為 `claude`、`codex`、`gemini`、`copilot`、`cursor`、`droid`、`qwen`、`antigravity`、`pi`、`amp`、`opencode`；`factory` 是 `droid` 的別名，`antigravity-cli` 與 `agy` 是 `antigravity` 的別名。event、matcher、handler type、command、timeout 單位與 payload 均保留原生格式，不自動跨 Agent 轉換。event 名稱會對照各 command Agent 文件列出的事件檢查：未知名稱（例如拼錯的 `Stopp`）在預覽與 plan 的 `warnings` 中顯示警告，但不阻擋同步，因為 Agent 會陸續新增事件。Pi、Amp、OpenCode 的程式碼不檢查。Pi、Amp、OpenCode 的程式碼與 imports 須符合已安裝版本；發布至獨立的 `skillshare-NAME.ts`，不產生共用執行引擎。command binding 的腳本位於 Agent 設定目錄的 `hooks/skillshare/NAME/`，command 保留你提供的原生 macro 或明確路徑。請在預覽確認完整路徑。 global binding 也可以使用在 `targets` 下宣告的帳號 target 名稱。
 
 ## 原生目的地
 
@@ -108,10 +108,46 @@ Agent ID 為 `claude`、`codex`、`gemini`、`copilot`、`cursor`、`droid`、`q
 | [Amp](https://ampcode.com/docs/plugin-api) | `~/.config/amp/plugins/skillshare-NAME.ts` | `.amp/plugins/skillshare-NAME.ts` | Native plugin code |
 | [OpenCode](https://opencode.ai/docs/plugins/) | `~/.config/opencode/plugins/skillshare-NAME.ts` | `.opencode/plugins/skillshare-NAME.ts` | Supplied v1/v2 plugin code |
 
-global scope 使用原生設定目錄的環境變數 override；project scope 只寫入專案，不退回 global 路徑。Codex inline TOML 等其他來源仍獨立存在。Antigravity 與其 CLI（`agy`）讀取同一份 `hooks.json`；每個 hook 是一個以其名稱命名的 block，匯入時保留原名。CLI 的 `~/.gemini/antigravity-cli/settings.json` 中的 hooks 保持獨立。Droid 發布獨立 hooks 檔會影響原生載入來源，請先檢查既有 inline hooks。Copilot 只在受信任的資料夾中載入 `.github/hooks` 的專案 hooks。
+global scope 使用原生設定目錄的環境變數 override，但指向帳號 `config_dir` 時除外；project scope 只寫入專案，不退回 global 路徑。Codex inline TOML 等其他來源仍獨立存在。Antigravity 與其 CLI（`agy`）讀取同一份 `hooks.json`；每個 hook 是一個以其名稱命名的 block，匯入時保留原名。CLI 的 `~/.gemini/antigravity-cli/settings.json` 中的 hooks 保持獨立。Droid 發布獨立 hooks 檔會影響原生載入來源，請先檢查既有 inline hooks。Copilot 只在受信任的資料夾中載入 `.github/hooks` 的專案 hooks。
 
 
 Droid 有有效 inline hooks 時，同步會拒絕建立獨立檔案。先匯入並檢查，移除原 inline hooks 後再同步。
+
+## 某個 Agent 的另一個帳號 {#accounts}
+
+宣告了 `agent` 與 `config_dir` 的 target 可以用自己的名稱接收 hooks。Claude、Codex 與 Pi 帳號使用其 Agent 的原生 binding 格式。
+
+```yaml
+targets:
+  codex-2:
+    agent: codex
+    config_dir: ~/.codex-2
+    skills: {enabled: false}
+hooks:
+  entries:
+    check:
+      bindings:
+        codex-2:
+          events:
+            Stop:
+              - hooks:
+                  - type: command
+                    command: "echo checked"
+```
+
+| 帳號的 Agent | 原生目的地 |
+|---|---|
+| `claude` | `<config_dir>/settings.json` |
+| `codex` | `<config_dir>/hooks.json` |
+| `pi` | `<config_dir>/extensions/skillshare-NAME.ts` |
+
+command 腳本寫入 `<config_dir>/hooks/skillshare/NAME/`。帳號僅用於 global 設定；project 設定與 `hooks.projects` 應綁定 Agent 本身，因為所有帳號都會讀取相同的專案檔案。`config_dir` 不存在時會警告並跳過，不會建立帳號目錄。
+
+當 `CODEX_HOME`、`CLAUDE_CONFIG_DIR` 或 `PI_CODING_AGENT_DIR` 指向已宣告帳號的目錄時，一般 Agent binding 使用內建預設目錄，plan 會顯示警告。各帳號仍使用自己的 `config_dir`，其他 override 保留現有行為。包括 symlink 在內，解析為同一目錄的兩個 binding key 不能在一次同步中寫入。
+
+如果 target 已移除、目錄移動或帳號目錄不存在，已管理的輸出及其所有權記錄會保留，並顯示警告。恢復 target 或目錄即可繼續管理。若要釋放某個項目暫存的所有權而不修改檔案，請先預覽再執行 `skillshare hooks sync NAME --replace -g`。移除 target 時若 binding 仍使用該名稱會顯示警告；下次 hooks 同步前也要移除這些 binding。
+
+用 `skillshare hooks import --from codex-2 -g --json` 從帳號匯入。Dashboard 顯示 **codex-2 (Codex)**，並使用 Codex 的事件與編輯器。每個 Codex 目錄都需要在 `/hooks` 中個別審核並信任變更的 hooks；同步不會修改信任或執行 hooks。
 
 ## 專案、衝突與復原
 

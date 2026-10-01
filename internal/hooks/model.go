@@ -22,7 +22,7 @@ type Entry struct {
 	Description string `yaml:"description,omitempty" json:"description,omitempty"`
 	// Enabled defaults to true. A disabled entry keeps its definition and publishes nothing.
 	Enabled *bool `yaml:"enabled,omitempty" json:"enabled,omitempty"`
-	// Bindings are keyed by canonical Agent name. An empty map publishes nothing.
+	// Bindings are keyed by canonical Agent name or a global account target. An empty map publishes nothing.
 	Bindings map[string]Binding `yaml:"bindings" json:"bindings"`
 }
 
@@ -53,8 +53,9 @@ const (
 
 // TargetDef describes one supported Agent.
 type TargetDef struct {
-	Name string `json:"name"`
-	Kind string `json:"kind"`
+	Name  string `json:"name"`
+	Agent string `json:"agent,omitempty"`
+	Kind  string `json:"kind"`
 	// Note is static loading and trust guidance; Skillshare never infers loaded state.
 	Note string `json:"note"`
 }
@@ -132,7 +133,7 @@ func ParseEntry(data []byte) (Entry, error) {
 	if err := entry.normalize(); err != nil {
 		return Entry{}, err
 	}
-	return entry, entry.Validate("entry")
+	return entry, entry.validate("entry", nil, validateParse)
 }
 
 // normalize resolves aliases and gives events their JSON shape, so YAML integers and
@@ -164,14 +165,39 @@ func (e *Entry) normalize() error {
 }
 
 // Validate checks an entry against each Agent's native schema without executing it.
-func (e Entry) Validate(name string) error {
+type validationScope int
+
+const (
+	validateGlobal validationScope = iota
+	validateProject
+	validateParse
+)
+
+var accountName = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]*$`)
+
+func (e Entry) Validate(name string) error { return e.validate(name, nil, validateGlobal) }
+
+func (e Entry) validate(name string, accounts map[string]string, scope validationScope) error {
 	if !entryName.MatchString(name) {
 		return fmt.Errorf("invalid hook name %q: use letters, digits, dots, underscores or hyphens", name)
 	}
 	for _, target := range sortedKeys(e.Bindings) {
-		def, ok := targetDef(target)
+		agent := target
+		def, ok := targetDef(agent)
 		if !ok {
-			return fmt.Errorf("hook %s: unsupported Agent %q", name, target)
+			if a := accounts[target]; a != "" && slices.Contains(accountAgents, a) {
+				if scope == validateProject {
+					return fmt.Errorf("hook %s: %s is an account of %s, and every account reads the same project files; bind %s", name, target, a, a)
+				}
+				agent = a
+				def, ok = targetDef(agent)
+			}
+			if !ok {
+				if scope == validateParse && accountName.MatchString(target) {
+					continue
+				}
+				return fmt.Errorf("hook %s: unsupported Agent %q: it is neither an Agent nor a target with agent and config_dir", name, target)
+			}
 		}
 		b := e.Bindings[target]
 		if def.Kind == KindCode {
@@ -189,7 +215,7 @@ func (e Entry) Validate(name string) error {
 		if len(b.Events) == 0 {
 			return fmt.Errorf("hook %s: %s requires at least one event", name, target)
 		}
-		if err := validateEvents(target, b.Events); err != nil {
+		if err := validateEvents(agent, b.Events); err != nil {
 			return fmt.Errorf("hook %s: %s: %w", name, target, err)
 		}
 		for file := range b.Files {

@@ -368,3 +368,36 @@ func TestSchema_TargetsAllowFiles(t *testing.T) {
 		}
 	}
 }
+
+func TestSchema_HooksAllowAccountBindings(t *testing.T) {
+	data, err := os.ReadFile("../../schemas/hooks.schema.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var schema map[string]any
+	if err := json.Unmarshal(data, &schema); err != nil {
+		t.Fatal(err)
+	}
+	defs := schema["$defs"].(map[string]any)
+	gb, ok := defs["globalBindings"].(map[string]any)
+	if !ok {
+		t.Fatal("globalBindings missing")
+	}
+	pattern := `^(?!(claude|codex|gemini|qwen|copilot|cursor|droid|factory|antigravity|antigravity-cli|agy|pi|amp|opencode)$)[A-Za-z0-9][A-Za-z0-9._-]*$`
+	patterns := gb["patternProperties"].(map[string]any)
+	if len(patterns) != 1 || patterns[pattern] == nil {
+		t.Fatalf("%v", patterns)
+	}
+	refs := patterns[pattern].(map[string]any)["anyOf"].([]any)
+	if len(refs) != 2 || refs[0].(map[string]any)["$ref"] != "#/$defs/commandBinding" || refs[1].(map[string]any)["$ref"] != "#/$defs/codeBinding" {
+		t.Fatalf("%v", refs)
+	}
+	global := defs["globalConfiguration"].(map[string]any)["properties"].(map[string]any)
+	if global["entries"].(map[string]any)["$ref"] != "#/$defs/globalEntries" {
+		t.Fatal("global entries strict")
+	}
+	project := global["projects"].(map[string]any)["additionalProperties"].(map[string]any)["properties"].(map[string]any)
+	if project["entries"].(map[string]any)["$ref"] != "#/$defs/entries" || schema["$ref"] != "#/$defs/globalEntry" {
+		t.Fatal("incorrect project or root scope")
+	}
+}

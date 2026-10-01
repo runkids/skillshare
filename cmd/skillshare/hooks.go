@@ -72,6 +72,8 @@ func hooksContext(args []string) (*hooks.Service, []string, error) {
 	if mode == modeProject {
 		service.ConfigPath = config.ProjectConfigPath(cwd)
 		service.ProjectRoot = cwd
+	} else if cfg, err := config.Load(); err == nil {
+		service.Accounts = hooksAccounts(cfg)
 	}
 	applyModeLabel(mode)
 	return service, rest, nil
@@ -185,8 +187,9 @@ Commands:
   restore <id>      Preview and restore an Agent file from a hooks backup
 
 Options:
+  Account targets (agent + config_dir under targets) are hook targets in global mode.
   --file <path>     Entry document for add/edit, or native file for import
-  --from <agent>    Agent to import from, such as claude or codex
+  --from <agent>    Agent or account target to import from, such as claude, codex or codex-2
   --sync            Save and synchronize (default: save the source only)
   --replace         Replace an existing entry, or take over its conflicting
                     Agent entries (unmanaged duplicates or outside edits)
@@ -199,4 +202,15 @@ Options:
 
 Sync alias: skillshare sync hooks [--dry-run] [--json] [-g|-p]; sync --all includes hooks.
 Import reads configuration and code only; it never runs hook commands.`)
+}
+
+// hooksAccounts are the global targets with their own native config homes.
+func hooksAccounts(cfg *config.Config) map[string]hooks.Account {
+	accounts := map[string]hooks.Account{}
+	for name, target := range cfg.Targets {
+		if target.Agent != "" && target.ConfigDir != "" {
+			accounts[name] = hooks.Account{Agent: target.Agent, Dir: target.ConfigDir}
+		}
+	}
+	return accounts
 }

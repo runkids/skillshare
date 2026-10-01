@@ -229,7 +229,7 @@ Codex 也會讀取共用的 `~/.agents/skills`，但一個帳號只擁有自己�
 | `agent` | 內建的 Agent：`claude`（`CLAUDE_CONFIG_DIR`）、`codex`（`CODEX_HOME`）或 `pi`（`PI_CODING_AGENT_DIR`） |
 | `config_dir` | 該帳號的 config 目錄。必須是絕對路徑或以 `~` 開頭，不能是該 Agent 的預設目錄，且只能由一個 Target 使用 |
 
-`mode`、`include`、`exclude` 與其他 Target 設定的運作方式與任何 Target 相同。你自己寫的 `skills.path` 或 `agents.path` 會優先於推導出來的路徑。Target 名稱也可以當作 [MCP target](/docs/reference/commands/mcp#accounts) 與 [plugin target](/docs/reference/commands/plugin#accounts) 使用。
+`mode`、`include`、`exclude` 與其他 Target 設定的運作方式與任何 Target 相同。你自己寫的 `skills.path` 或 `agents.path` 會優先於推導出來的路徑。Target 名稱也可以當作 [MCP target](/docs/reference/commands/mcp#accounts) 與 [plugin target](/docs/reference/commands/plugin#accounts) 使用。 也可以當作 [hooks target](/docs/reference/commands/hooks#accounts) 使用。
 
 #### 指示檔案 {#target-instructions}
 

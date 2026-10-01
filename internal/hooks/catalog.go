@@ -194,10 +194,14 @@ func knownEvent(target, event string) bool {
 
 // EventWarnings names the events of an entry its Agents do not document.
 func EventWarnings(name string, e Entry) []string {
+	return eventWarnings(name, e, func(key string) string { return key })
+}
+
+func eventWarnings(name string, e Entry, agentOf func(string) string) []string {
 	var out []string
 	for _, target := range sortedKeys(e.Bindings) {
 		for _, event := range sortedKeys(e.Bindings[target].Events) {
-			if !knownEvent(target, event) {
+			if !knownEvent(agentOf(target), event) {
 				out = append(out, fmt.Sprintf("hook %s: %s does not document the event %q; check its spelling", name, target, event))
 			}
 		}

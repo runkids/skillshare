@@ -121,7 +121,7 @@ func (s *Service) recoverPending() error {
 // draft applies a mutation to a fresh source and returns the entries it may replace
 // and the entries that adopt their identical unmanaged registrations.
 func (s *Service) draft(m Mutation) (*Source, map[string]bool, map[string]bool, error) {
-	source, err := LoadSource(s.ConfigPath)
+	source, err := s.loadSource()
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -193,7 +193,7 @@ func (s *Service) draft(m Mutation) (*Source, map[string]bool, map[string]bool, 
 		if err := entry.normalize(); err != nil {
 			return nil, nil, nil, err
 		}
-		if err := entry.Validate(m.Name); err != nil {
+		if err := s.validateEntry(m.Name, entry, root); err != nil {
 			return nil, nil, nil, err
 		}
 		entries[m.Name] = entry
@@ -393,6 +393,13 @@ func (s *Service) applyScoped(p *Plan, root *string) (*Result, error) {
 	// Check every file before the first write, and each again at its write.
 	for _, f := range p.files {
 		if inScope(f.root) {
+			scope := s
+			if f.root != "" {
+				scope = s.scoped(f.root)
+			}
+			if scope.accountMissing(f.target) {
+				return result, fmt.Errorf("%s: config_dir %s does not exist on this machine", f.target, scope.Accounts[f.target].Dir)
+			}
 			if _, _, _, _, err := f.refresh(); err != nil {
 				return result, err
 			}
@@ -413,7 +420,7 @@ func (s *Service) applyScoped(p *Plan, root *string) (*Result, error) {
 				return result, fmt.Errorf("%s: %w", f.path, err)
 			}
 			// Settings added since the preview keep a file the plan deletes.
-			remove = f.remove && skeleton(f.target, after)
+			remove = f.remove && skeleton(f.agent, after)
 		}
 		id := fmt.Sprintf("%d-%s", time.Now().UnixNano(), digest([]byte(f.path))[:8])
 		backup := backupRecord{ID: id, Owner: p.source.ConfigPath, Target: f.target, Path: f.path, Root: f.root, Kind: f.kind, Ops: f.ops, OwnedBefore: map[string]*record{}, OwnedAfter: map[string]*record{}}
@@ -644,7 +651,7 @@ func (s *Service) PreviewRestore(id string) (*Plan, error) {
 	if json.Unmarshal(data, &b) != nil || b.ID != id {
 		return nil, fmt.Errorf("invalid hooks backup")
 	}
-	source, err := LoadSource(s.ConfigPath)
+	source, err := s.loadSource()
 	if err != nil {
 		return nil, err
 	}
@@ -659,6 +666,45 @@ func (s *Service) PreviewRestore(id string) (*Plan, error) {
 	for k, r := range state.Records {
 		p.state.Records[k] = r
 	}
+	scope := s
+	if b.Root != "" {
+		scope = s.scoped(b.Root)
+	}
+	if _, ok := targetDef(scope.agentOf(b.Target)); !ok {
+		return nil, fmt.Errorf("backup %s belongs to %s, which is not declared in targets; add it back to restore", id, b.Target)
+	}
+	if scope.accountMissing(b.Target) {
+		return nil, fmt.Errorf("backup %s belongs to %s, whose config_dir %s does not exist on this machine; add it back to restore", id, b.Target, scope.Accounts[b.Target].Dir)
+	}
+	targetScope, agent := scope.forTarget(b.Target)
+	dir, err := targetScope.configDir(agent)
+	if err != nil {
+		return nil, err
+	}
+	oldDir := filepath.Dir(b.Path)
+	if b.Kind == kindFile {
+		oldDir = recordDir(record{Path: b.Path})
+	}
+	if !samePath(oldDir, dir) {
+		return nil, fmt.Errorf("backup %s belongs to %s in %s, but %s now resolves to %s; use its former config_dir to restore", id, b.Target, oldDir, b.Target, dir)
+	}
+	d, err := s.render(source)
+	if err != nil {
+		return nil, err
+	}
+	for _, r := range state.Records {
+		if r.Owner == source.ConfigPath && s.parkReason(r) == "" {
+			d.addOwned(r)
+		}
+	}
+	if b.Kind == kindJSON {
+		d.targets[b.Path], d.roots[b.Path] = b.Target, b.Root
+	} else {
+		d.files[b.Path] = wantFile{target: b.Target, path: b.Path, root: b.Root}
+	}
+	if err := s.checkDesiredHomes(d); err != nil {
+		return nil, err
+	}
 	base, err := s.base(b.Target, b.Root)
 	if err != nil {
 		return nil, err
@@ -670,7 +716,7 @@ func (s *Service) PreviewRestore(id string) (*Plan, error) {
 	if err != nil {
 		return nil, err
 	}
-	f := &filePlan{path: b.Path, target: b.Target, root: b.Root, base: base, kind: b.Kind, before: current, exists: exists, mode: mode}
+	f := &filePlan{path: b.Path, target: b.Target, agent: scope.agentOf(b.Target), root: b.Root, base: base, kind: b.Kind, before: current, exists: exists, mode: mode}
 	change := Change{Target: b.Target, Path: b.Path, Root: b.Root, Action: "restore"}
 	conflict := func(message string) {
 		change.Action, change.Message = "conflict", message
@@ -723,7 +769,7 @@ func (s *Service) PreviewRestore(id string) (*Plan, error) {
 			}
 		}
 	} else {
-		doc, err := parseNative(b.Target, current)
+		doc, err := parseNative(f.agent, current)
 		if err != nil {
 			return nil, fmt.Errorf("%s: %w", b.Path, err)
 		}

@@ -52,7 +52,7 @@ not one transaction.
 | Option | Meaning |
 |---|---|
 | `--file PATH` | Entry JSON/YAML for add/edit; native configuration or code for import |
-| `--from AGENT` | Native Agent format or existing Agent configuration to import |
+| `--from AGENT` | Native Agent format or existing Agent/account configuration to import |
 | `--sync` | Save and synchronize the mutation |
 | `--keep-files` | With `remove`: stop managing the hook and leave its native entries as they are. Not with `--sync`. See [below](#stop-managing-a-hook) |
 | `--replace` | Explicitly replace an existing source entry or conflicting native output for that entry |
@@ -126,7 +126,8 @@ stay on one line.
 
 Agent IDs are `claude`, `codex`, `gemini`, `copilot`, `cursor`, `droid`, `qwen`,
 `antigravity`, `pi`, `amp` and `opencode`. `factory` is accepted as an alias for
-`droid`, and `antigravity-cli` and `agy` for `antigravity`.
+`droid`, and `antigravity-cli` and `agy` for `antigravity`. A binding may also
+name an account target declared under `targets` in global mode.
 Keep event names, matchers, handler types, commands, timeout units and payloads
 in each Agent's native format. Skillshare does not translate one Agent's
 runtime behavior into another's. Event names are checked against each command
@@ -157,7 +158,8 @@ you provide. Inspect the exact paths in the preview.
 | [Amp](https://ampcode.com/docs/plugin-api) | `~/.config/amp/plugins/skillshare-NAME.ts` | `.amp/plugins/skillshare-NAME.ts` | Native plugin code |
 | [OpenCode](https://opencode.ai/docs/plugins/) | `~/.config/opencode/plugins/skillshare-NAME.ts` | `.opencode/plugins/skillshare-NAME.ts` | Supplied v1/v2 plugin code |
 
-Native config-directory environment overrides apply in global scope. Project
+Native config-directory environment overrides apply in global scope, unless
+they point at an account's `config_dir`. Project
 operations write inside that project and never fall back to a global path.
 Other native sources, such as Codex inline TOML declarations, remain separate.
 Antigravity and its CLI (`agy`) read the same `hooks.json`; each hook is one
@@ -167,6 +169,58 @@ Copilot loads project hooks from `.github/hooks` only in a trusted folder.
 Sync refuses to create a Droid standalone file while active inline hooks exist.
 Import them first, review and remove the original inline hooks, then sync; this
 avoids silently changing which native source Droid loads.
+
+## Another account of an Agent {#accounts}
+
+A target declared with `agent` and `config_dir` can receive hooks under its
+own name. Claude, Codex and Pi accounts use their Agent's native binding format:
+
+```yaml
+targets:
+  codex-2:
+    agent: codex
+    config_dir: ~/.codex-2
+    skills: {enabled: false}
+hooks:
+  entries:
+    check:
+      bindings:
+        codex-2:
+          events:
+            Stop:
+              - hooks:
+                  - type: command
+                    command: "echo checked"
+```
+
+| Account's Agent | Native destination |
+|---|---|
+| `claude` | `<config_dir>/settings.json` |
+| `codex` | `<config_dir>/hooks.json` |
+| `pi` | `<config_dir>/extensions/skillshare-NAME.ts` |
+
+Command scripts go to `<config_dir>/hooks/skillshare/NAME/`. Accounts are
+global only: project configs and `hooks.projects` bind the Agent itself, because
+every account reads the same project files. A missing `config_dir` is skipped
+with a warning; sync never creates an account home.
+
+If `CODEX_HOME`, `CLAUDE_CONFIG_DIR` or `PI_CODING_AGENT_DIR` points at a declared
+account's directory, the plain Agent binding uses its built-in default home.
+The plan warns and each account still uses its own `config_dir`. Other native
+directory overrides keep their existing behavior. Directories that resolve to
+the same location, including symlinks, cannot receive two binding keys in one sync.
+
+Owned outputs whose target was removed, whose home moved, or whose account home
+is missing are left in place with their ownership records and a warning. Restore
+the target or directory to resume managing them. To release one entry's parked
+records without changing those files, preview and run
+`skillshare hooks sync NAME --replace -g`. Removing a target warns if hook
+bindings still name it; remove those bindings too before the next hooks sync.
+
+Import from an account with `skillshare hooks import --from codex-2 -g --json`.
+The dashboard labels it **codex-2 (Codex)** and uses Codex's events and editor.
+Each Codex home needs its own review and trust of changed hooks in `/hooks`;
+sync never changes trust or executes a hook.
 
 ## Projects, conflicts and recovery
 

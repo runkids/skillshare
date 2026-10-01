@@ -20,7 +20,7 @@ import HooksRemoveDialog from './HooksRemoveDialog';
 import HooksRestoreDialog from './HooksRestoreDialog';
 import HooksSyncBox, { HooksSyncDialog } from './HooksSyncBox';
 import HooksUnmanagedNote from './HooksUnmanagedNote';
-import { blockedHint, hookLabel, hookNote, scopeBackups, scopeChanges, scopeEntries, scopePaths, scopePlan, scopeUnmanaged, writes } from './hooksView';
+import { blockedHint, hookAccounts, keyLabel, hookNote, scopeBackups, scopeChanges, scopeEntries, scopePaths, scopePlan, scopeUnmanaged, writes } from './hooksView';
 
 const copy = (text: string) => void navigator.clipboard?.writeText(text);
 
@@ -63,6 +63,7 @@ export default function HooksScope({ data, project, header }: Props) {
   const railPlan = project ? plan : data.plan;
   const paths = scopePaths(data, project);
   const targets = data.targets;
+  const accounts = project ? {} : hookAccounts(targets);
   const unmanaged = scopeUnmanaged(data, project);
   const backups = scopeBackups(data, project);
   // A conflict of one of this scope's own hooks opens the same take-over preview as the row menu.
@@ -123,11 +124,11 @@ export default function HooksScope({ data, project, header }: Props) {
               {targets.map((tg) => (
                 <RailRow
                   key={tg.name}
-                  target={tg.name}
-                  label={hookLabel(tg.name)}
+                  target={tg.agent ?? tg.name}
+                  label={keyLabel(accounts, tg.name)}
                   path={paths[tg.name] && shortenHome(paths[tg.name])}
                   detail={<>
-                    <span>{hookNote(t, tg.name, tg.note)}</span>
+                    <span>{hookNote(t, tg.agent ?? tg.name, tg.note)}</span>
                     {paths[tg.name] && <button type="button" className="flex items-center gap-1.5 text-xs font-semibold text-ink-2 hover:text-ink" onClick={() => { copy(paths[tg.name]); toast(t('mcp.copied'), 'success'); }}><Copy size={13} />{t('mcp.copyPath')}</button>}
                   </>}
                 />
@@ -138,7 +139,7 @@ export default function HooksScope({ data, project, header }: Props) {
       </>}>
         {plan?.blocked && <div className="ss-note warn"><AlertCircle size={16} /><span className="flex-1">{blockedHint(t, railPlan ?? plan)}</span></div>}
         {names.length > 0 ? (
-          <HooksList entries={entries} plan={plan} disabled={busy} onToggle={(n, on) => void toggle(n, on)} onMenu={openMenu} />
+          <HooksList accounts={accounts} entries={entries} plan={plan} disabled={busy} onToggle={(n, on) => void toggle(n, on)} onMenu={openMenu} />
         ) : (
           <EmptyState
             icon={Webhook}
@@ -153,7 +154,7 @@ export default function HooksScope({ data, project, header }: Props) {
       </RailLayout>
 
       {editing !== null && (
-        <HookDialog initial={editing ? { name: editing, entry: entries[editing] } : undefined} existingNames={names} project={project} unmanaged={unmanaged} onClose={() => setEditing(null)} onSaved={(synced) => done(t(synced ? 'hooks.toast.savedSynced' : 'hooks.toast.saved'))} />
+        <HookDialog accounts={accounts} initial={editing ? { name: editing, entry: entries[editing] } : undefined} existingNames={names} project={project} unmanaged={unmanaged} onClose={() => setEditing(null)} onSaved={(synced) => done(t(synced ? 'hooks.toast.savedSynced' : 'hooks.toast.saved'))} />
       )}
       {importing && <HooksImportDialog data={data} project={project} onClose={() => setImporting(false)} onImported={(count) => done(t('hooks.toast.imported', { count }))} />}
       {removing && <HooksRemoveDialog name={removing} project={project} onClose={() => setRemoving('')} onSaved={(unmanaged) => done(t(unmanaged ? 'hooks.toast.unmanaged' : 'hooks.toast.removed', { name: removing }))} />}

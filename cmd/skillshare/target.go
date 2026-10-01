@@ -9,6 +9,7 @@ import (
 
 	"skillshare/internal/backup"
 	"skillshare/internal/config"
+	"skillshare/internal/hooks"
 	"skillshare/internal/mcp"
 	"skillshare/internal/oplog"
 	"skillshare/internal/sync"
@@ -421,6 +422,9 @@ func targetRemove(args []string) error {
 		// own name no longer resolves, so the config no longer loads.
 		if target.Agent != "" {
 			if warning := mcp.ReferenceWarning(config.ConfigPath(), targetName); warning != "" {
+				stillNamed = append(stillNamed, warning)
+			}
+			if warning := hooks.ReferenceWarning(config.ConfigPath(), targetName); warning != "" {
 				stillNamed = append(stillNamed, warning)
 			}
 		}
