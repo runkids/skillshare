@@ -262,6 +262,9 @@ func discoverRoot(root, source string, explicit ...string) (*Discovery, error) {
 				if path == ".claude-plugin/marketplace.json" {
 					c.catalogEntry = claudeEntryFields(fields)
 				}
+				if path == ".agents/plugins/marketplace.json" {
+					c.codexCatalogEntry = fields
+				}
 			}
 			if i, ok := seenAt[c.Name]; ok {
 				// An external entry has no path; a catalog that points inside the source wins over it.
@@ -308,6 +311,9 @@ func mergeCatalogPath(kept *Candidate, c Candidate, owner string) {
 	}
 	if kept.catalogEntry == nil {
 		kept.catalogEntry = c.catalogEntry
+	}
+	if kept.codexCatalogEntry == nil {
+		kept.codexCatalogEntry = c.codexCatalogEntry
 	}
 	kept.collectTargets()
 }

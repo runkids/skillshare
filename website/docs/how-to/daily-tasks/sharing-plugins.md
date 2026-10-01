@@ -96,9 +96,11 @@ components are not also copied into standalone Skillshare sources.
 ## Updates and recovery
 
 Use **Check updates**, then review an update for a supported target. Claude can
-update through its native CLI. Codex adds the plugin again from the reviewed
-snapshot, unless it is disabled in Codex, which adding would turn back on; an
-imported Codex plugin is updated by upgrading its marketplace.
+update through its native CLI. Global Codex updates reinstall from a reviewed
+source while preserving the plugin's enabled or disabled state. Imported local
+marketplaces use their reviewed source; imported Git marketplaces first upgrade
+that marketplace, then restore unrelated caches. Codex updates verify the
+installed version and recover the working installation on failure.
 Cursor and Antigravity replace managed local copies after checking for local edits.
 Pi and OpenCode update the reviewed snapshot. Copilot can refresh a reviewed
 source while preserving known enabled state. Antigravity CLI and Grok updates

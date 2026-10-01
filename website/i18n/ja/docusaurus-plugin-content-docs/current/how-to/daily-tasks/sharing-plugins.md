@@ -95,8 +95,7 @@ skillshare の Source にコピーされることはありません。
 ## 更新と復旧
 
 **Check updates** を使い、対応する Target について更新をレビューします。Claude はネイティブな CLI
-経由で更新できます。Codex はレビュー済みのスナップショットからプラグインを再度 add します。
-ただし Codex で無効化されている場合は、add で再び有効になってしまうため更新しません。Import した Codex プラグインは marketplace のアップグレードで更新されます。Cursor と Antigravity は、ローカルの編集が
+経由で更新できます。Codex の global 更新はレビュー済みの source から再インストールし、有効・無効の状態を保持します。Import したローカル marketplace はレビュー済みの source を使用し、Git marketplace は先にアップグレードしてから無関係なキャッシュを復元します。インストール後のバージョンを検証し、失敗時は元のインストールを復元します。Cursor と Antigravity は、ローカルの編集が
 ないか確認した後、管理対象のローカルコピーを置き換えます。Pi と OpenCode はレビュー済みのスナップ
 ショットを更新します。Copilot は既知の有効状態を保持しながらレビュー済みの Source を更新できます。
 Antigravity CLI と Grok の更新はネイティブツール側にとどまります。インポートされたパッケージの制限

@@ -95,3 +95,22 @@ Sync is the main example: the CLI and the server both run per-target sync throug
 - Handler split, dual-mode behavior, structured output, oplog, Web API, and all five shell completions were reviewed.
 - Public behavior changes were synchronized after loading `documentation`.
 - Commands were verified inside the devcontainer using `testing` guidance.
+
+## Codex Plugin Updates
+
+`internal/plugin/codex_update.go` binds global managed/imported local/Git updates
+to source content and native config/cache evidence. Native Codex uses `plugin add`
+for reinstall and scoped `plugin marketplace upgrade NAME --json` for imported
+Git marketplaces; upgrade may reinstall all configured siblings, even uncached
+ones. `codex_transaction.go` backs up the complete marketplace cache namespace
+and Git root, restores unselected cache bytes/modes/absence, preserves the enabled
+token and original config bytes, and verifies native installed version before
+success. The refreshed native marketplace remains durable on success.
+
+Ordinary/dotted plugin tables are supported; selected inline tables are blocked
+because native Codex rewrites them. Recovery uses a bounded context independent
+of request cancellation, guarded captured fingerprints, and private retained
+backups on conflicts. The home lock only coordinates Skillshare clients. Native
+policies/trust/authentication remain authoritative; later independent Codex
+refreshes are outside the transaction boundary. Native E2E is opt-in through
+`SKILLSHARE_CODEX_UPDATE_E2E=1`; see the Codex update runbook.

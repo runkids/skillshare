@@ -30,3 +30,4 @@ Completed milestones are recorded here and read only when relevant.
 |---|---|
 | [Native hooks management](history/hooks-management.md) | Native formats, CLI/dashboard scope, ownership and verification evidence |
 | [MCP: Pi built-in only and tool policy](history/mcp-pi-builtin-tool-policy.md) | 0.23.0 Pi migration, per-Agent tool policy translation, evidence and limits |
+| [Codex plugin update transactions](history/codex-plugin-updates.md) | Supported reinstall workflow, native recovery, enablement and verification limits |

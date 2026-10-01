@@ -44,6 +44,15 @@ func (s *Service) Apply(ctx context.Context, r Request, revision string) (*Resul
 	for _, c := range p.Changes {
 		if c.Action == "skip" {
 			// Unlike noop, a skipped update stays pending for a later sync.
+			if c.Target != "" && c.Binding.Pending != "" {
+				pack := d.packages[c.Name]
+				if binding, ok := pack.Bindings[c.Target]; ok && binding.Pending != c.Binding.Pending {
+					binding.Pending = c.Binding.Pending
+					pack.Bindings[c.Target] = binding
+					d.packages[c.Name] = pack
+					changed = true
+				}
+			}
 			result.Results = append(result.Results, Outcome{Name: c.Name, Target: c.Target, Status: "skipped", Message: c.Message, MessageKey: c.MessageKey, MessageArgs: c.MessageArgs})
 			continue
 		}

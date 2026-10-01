@@ -75,7 +75,7 @@ JSON 輸出包含 source 路徑與原生識別碼。請勿在 source URL 中放�
 | Target | Format | Global | Project | Update |
 |---|---|:---:|:---:|---|
 | Claude Code | `.claude-plugin/plugin.json` | Yes | Yes | 原生更新 |
-| Codex | `.codex-plugin/plugin.json` 或 Agent Plugins 根目錄 manifest | Yes | No | 重新整理已審閱的來源後再次 add，僅限在 Codex 中為啟用狀態 |
+| Codex | `.codex-plugin/plugin.json` 或 Agent Plugins 根目錄 manifest | Yes | No | 已驗證的原生重新安裝 |
 | Cursor | `.cursor-plugin/plugin.json` 或 Agent Plugins 根目錄 manifest | Yes | No | 取代已檢視的本機複本 |
 | Antigravity Desktop | 帶有明確名稱的根目錄 `plugin.json` | Yes | Yes | 取代已檢視的本機複本 |
 | Pi | 含 `pi` resources 的 `package.json`，或帶有 `pi-package` 關鍵字與慣用 resource 資料夾 | Yes | Yes，需原生專案信任 | 重新整理受管理的 source 快照 |
@@ -195,11 +195,9 @@ Copilot 與 Antigravity CLI 的安裝使用已檢視過的本機快照。匯入�
   都會被拒絕；source 上限為 20,000 個檔案與 100 MiB。
 - 原生安裝不代表已在執行期啟用。請重新啟動/重新載入該 Agent，並在該 Agent 中完成驗證或
   hook 信任。
-- 此 adapter 不提供 Codex 原生的專案安裝。全域 Codex 安裝的 sync 選擇仍然可用。
-- Codex 沒有 update 指令，因此更新會以重新整理後的快照再次 add 該 plugin。add 一定會啟用它，所以在 Codex 中被停用的 plugin 會被略過。匯入的 Codex plugin 會以 `codex plugin marketplace upgrade NAME` 更新，這會重新安裝 Codex 從該 marketplace 安裝的所有 plugin，Codex 啟動時也會這麼做。
+- Codex 不支援原生 project 安裝；全域更新使用已驗證的原生重新安裝流程。
+- 匯入的 plugin 會保留其原始 marketplace 身分。Codex `check` 可檢視已註冊的本機/Git 來源；其他沒有可檢視來源的匯入 plugin 無法推斷新版本。
 - 更新遇到無法處理的 target 時會略過並說明原因；該 plugin 的其他 Agent 仍會照常更新，被略過的更新會保留為待處理，留待之後的 sync。
-- 匯入的 plugin 會保留其原始的 marketplace 身分。對於沒有 source 的匯入 plugin，`check` 無法
-  推斷是否有新版本可用。
 - 移除操作會保留共享的 marketplace 註冊與受管理的快照；不會直接刪除無關的 plugin 或原生
   快取。
 
@@ -208,6 +206,14 @@ Copilot 與 Antigravity CLI 的安裝使用已檢視過的本機快照。匯入�
 `1.18.31` 用於驗證版本感知的註冊；v2 schema 則由 fixture 測試涵蓋。Cursor 與 Antigravity 的
 檔案系統生命週期已在獨立目錄中測試，但不宣稱涵蓋 GUI 執行期的啟用。已安裝的指令 capability
 與清單 schema 會在執行期檢查；不支援的操作會附上說明並被封鎖。
+
+## Codex 更新
+
+全域 Codex 更新支援受管理來源，以及具有可審閱本機或 Git marketplace 來源的匯入 plugin。先使用 `skillshare plugin update review --target codex --dry-run --json -g`，再以 `--no-tui` 套用。預覽包含新舊版本、原生操作、啟用狀態和受影響的 plugin。原生 `plugin add` 使用已審閱目錄的私有副本；匯入 Git 來源先執行指定 marketplace 的 `plugin marketplace upgrade NAME --json`。這可能暫時重新安裝其他 plugin，但完成前會還原其快取內容、權限和原本不存在的狀態。後續原生更新仍由 Codex 控制。
+
+更新保留啟用狀態及原生設定的完整位元組，並驗證安裝版本後才記錄成功。失敗時會還原原有快取和 Git marketplace；遇到並行修改衝突時保留私有復原目錄並回報路徑。鎖只協調 Skillshare，請避免同時寫入相同原生目錄。帳號 `config_dir` 優先於 `CODEX_HOME`，再使用 `~/.codex`。匯入 Git ref 由原生設定決定，不能用 `--source-ref` 覆寫。未知狀態、缺失的安裝快取、無版本或不支援的來源，以及不安全的復原檔案結構會阻擋更新。信任、驗證及安裝政策仍由 Codex 執行。此流程已在 Codex CLI `0.159.3` 驗證。
+
+原生 Codex 會改寫 inline TOML plugin 表格，因此預覽會阻擋此格式；請先使用一般或 dotted 表格。
 
 ## Official format references
 

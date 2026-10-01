@@ -69,7 +69,7 @@ JSON 출력에는 source 경로와 네이티브 식별자가 포함됩니다. so
 | Target | Format | Global | Project | Update |
 |---|---|:---:|:---:|---|
 | Claude Code | `.claude-plugin/plugin.json` | 예 | 예 | 네이티브 업데이트 |
-| Codex | `.codex-plugin/plugin.json` 또는 Agent Plugins 루트 매니페스트 | 예 | 아니요 | 검토된 Source를 갱신한 뒤 다시 add, Codex에서 활성화된 경우에만 |
+| Codex | `.codex-plugin/plugin.json` 또는 Agent Plugins 루트 매니페스트 | 예 | 아니요 | 검증된 네이티브 재설치 |
 | Cursor | `.cursor-plugin/plugin.json` 또는 Agent Plugins 루트 매니페스트 | 예 | 아니요 | 검토된 로컬 사본 교체 |
 | Antigravity Desktop | 명시적 이름이 있는 루트 `plugin.json` | 예 | 예 | 검토된 로컬 사본 교체 |
 | Pi | `pi` 리소스가 있는 `package.json`, 또는 `pi-package` 키워드와 관례적인 리소스 폴더 | 예 | 예, 네이티브 project trust 사용 시 | 관리되는 source 스냅샷 새로고침 |
@@ -154,13 +154,20 @@ Copilot과 Antigravity CLI 설치는 검토된 로컬 스냅샷을 사용합니�
 - Source에는 local plugin entry가 있는 marketplace가 포함될 수 있습니다. 외부 카탈로그는 plugin 이름/경로로 병합됩니다. 충돌하는 경로는 거부됩니다. 외부 entry는 저장소를 직접 추가하거나 네이티브로 설치한 후 import하라는 안내와 함께 보고됩니다. command 기반 source는 자동으로 승인되지 않습니다.
 - 완전한 source 스냅샷은 plugin 스크립트, asset, 그리고 안전한 상대 symlink(`AGENTS.md → CLAUDE.md` 포함)를 유지합니다. 절대 경로, 범위를 벗어나는(escaping), 끊어진(dangling), 순환(cyclic), `.git`을 참조하는 링크와 특수 파일은 거부됩니다. source는 20,000개 파일과 100MiB로 제한됩니다.
 - 네이티브 설치가 런타임 활성화의 증거는 아닙니다. Agent를 재시작/다시 로드하고 해당 Agent에서 인증 또는 hook trust를 완료하세요.
-- Codex의 네이티브 project 설치는 이 adapter에서 제공되지 않습니다. global Codex 설치에 대해서는 sync 선택이 여전히 동작합니다.
-- Codex에는 update 명령이 없으므로, 업데이트는 갱신된 스냅샷에서 플러그인을 다시 add합니다. add는 항상 플러그인을 활성화하므로 Codex에서 비활성화된 플러그인은 건너뜁니다. Import한 Codex 플러그인은 `codex plugin marketplace upgrade NAME`으로 업데이트되며, 이는 Codex가 해당 마켓플레이스에서 설치한 모든 플러그인을 다시 설치합니다. Codex도 시작할 때 같은 작업을 합니다.
+- Codex project 설치는 지원되지 않습니다. global 업데이트는 검증된 네이티브 재설치를 사용합니다.
+- import는 원래 marketplace identity를 유지합니다. Codex `check`는 등록된 local/Git source를 검토할 수 있습니다. 다른 검토 가능한 source가 없는 import는 release 가용성을 추론할 수 없습니다.
 - 업데이트는 처리할 수 없는 Target을 이유와 함께 건너뛰며, 해당 플러그인의 다른 Agent는 그대로 업데이트됩니다. 건너뛴 업데이트는 대기 상태로 남아 이후 sync에서 처리됩니다.
-- import된 plugin은 원래의 marketplace identity를 유지합니다. `check`는 source가 없는 import된 plugin에 대해 release 가능 여부를 추론할 수 없습니다.
 - 제거는 공유된 marketplace 등록과 관리되는 스냅샷을 유지합니다. 관련 없는 plugin이나 네이티브 캐시를 직접 삭제하지 않습니다.
 
 네이티브 lifecycle은 Claude Code `2.1.276`, Codex CLI `0.154.0`, Pi `0.85.1`, Copilot CLI `1.0.86`으로 검증되었습니다. Antigravity CLI `1.2.6`은 격리된 네이티브 install/list/remove 작업으로 확인되었습니다. OpenCode `1.18.31`은 버전을 인식하는 등록을 검증하는 데 사용되며, v2 스키마는 fixture 테스트로 커버됩니다. Cursor와 Antigravity의 파일시스템 lifecycle은 격리된 디렉터리에서 테스트되며, GUI 런타임 활성화까지 보장하지는 않습니다. 설치된 command capability와 inventory 스키마는 런타임에 확인되며, 지원되지 않는 작업은 설명과 함께 차단됩니다.
+
+## Codex 업데이트
+
+global Codex 업데이트는 관리되는 source와 검토 가능한 local/Git marketplace source가 있는 import를 지원합니다. `skillshare plugin update review --target codex --dry-run --json -g`로 검토한 후 `--no-tui`로 적용합니다. 이전/새 버전, 네이티브 작업, 활성화 상태, 영향을 받는 plugin을 표시합니다. `plugin add`는 검토한 catalog의 비공개 복사본을 사용합니다. Git import는 지정된 marketplace의 `plugin marketplace upgrade NAME --json`을 먼저 실행합니다. 다른 plugin이 일시적으로 재설치될 수 있지만 성공 전에 cache 내용, 권한, 원래의 부재 상태를 복원합니다. 이후 네이티브 refresh는 Codex가 관리합니다.
+
+활성화 상태와 설정의 모든 바이트를 보존하고 설치 버전을 검증한 후 성공을 기록합니다. 실패 시 이전 cache와 Git marketplace를 복원합니다. 동시 편집 충돌 시 비공개 recovery directory를 보존하고 경로를 보고합니다. lock은 Skillshare 작업만 조정하므로 같은 네이티브 디렉터리에 동시에 쓰지 마세요. 계정 `config_dir`, `CODEX_HOME`, `~/.codex` 순서로 선택합니다. import의 Git ref는 네이티브 설정을 따르며 `--source-ref` 재정의는 거부됩니다. 알 수 없는 상태, 누락된 설치 cache, 버전 없는/지원되지 않는 source, 안전하지 않은 recovery 파일은 업데이트를 차단합니다. 신뢰, 인증, 설치 정책은 Codex가 적용합니다. Codex CLI `0.159.3`에서 검증했습니다.
+
+Codex가 inline TOML plugin table을 다시 작성하므로 preview에서 이 형식을 차단합니다. ordinary/dotted table을 사용하세요。
 
 ## 공식 형식 참고 자료
 

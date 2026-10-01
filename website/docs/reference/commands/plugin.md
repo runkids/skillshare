@@ -82,7 +82,7 @@ the CLI exits nonzero when any target fails. Inspect the result before retrying.
 | Target | Format | Global | Project | Update |
 |---|---|:---:|:---:|---|
 | Claude Code | `.claude-plugin/plugin.json` | Yes | Yes | Native update |
-| Codex | `.codex-plugin/plugin.json` or Agent Plugins root manifest | Yes | No | Refresh reviewed source and add it again, only if enabled in Codex |
+| Codex | `.codex-plugin/plugin.json` or Agent Plugins root manifest | Yes | No | Verified native reinstall |
 | Cursor | `.cursor-plugin/plugin.json` or Agent Plugins root manifest | Yes | No | Replace reviewed local copy |
 | Antigravity Desktop | Root `plugin.json` with an explicit name | Yes | Yes | Replace reviewed local copy |
 | Pi | `package.json` with `pi` resources, or `pi-package` keyword and conventional resource folders | Yes | Yes, with native project trust | Refresh managed source snapshot |
@@ -202,6 +202,40 @@ no reviewed source for reinstall: after removal, install in the native client an
 sync again. Grok also requires native trust before install/reinstall. Skillshare
 never supplies native trust approval flags.
 
+## Codex updates
+
+Global Codex bindings support updates for reviewed managed sources and imported
+plugins whose registered marketplace has a reviewable local or Git source.
+
+```bash
+skillshare plugin update review --target codex --dry-run --json -g
+skillshare plugin update review --target codex --no-tui -g
+```
+
+The preview includes old/new versions, native operations, enablement and affected
+marketplace plugins. Skillshare uses `codex plugin add` with a private copy of the
+reviewed catalog. Imported Git marketplaces first use the scoped
+`codex plugin marketplace upgrade NAME --json`; this can temporarily reinstall
+other configured plugins. Their cache bytes, modes and original absence are
+restored before success. The refreshed marketplace stays registered at its
+original source. Later native refreshes remain under Codex's control.
+
+The selected account's `config_dir` takes precedence over `CODEX_HOME`, then
+`~/.codex`. Updates preserve the previous enabled state and native config bytes,
+and verify the installed version before clearing pending state. Failed updates
+restore the prior cache and Git marketplace. If a concurrent edit prevents safe
+recovery, Skillshare retains a private recovery directory and reports its path;
+inspect it with the native configuration before retrying. The home lock coordinates
+Skillshare operations; avoid simultaneous native writes to the same home.
+
+Imported Git refs come from native `config.toml`; `--source-ref` cannot override
+them. Selected plugin entries in inline TOML tables are blocked because native Codex
+rewrites their layout; use ordinary or dotted plugin tables before updating.
+Unknown enablement, missing installed caches, unversioned or unsupported sources, filesystem links in
+native recovery state, and unsupported native command schemas block the update.
+Native installation/authentication policies still apply. Complete any requested
+trust or login in Codex; Skillshare does not approve it automatically.
+
 ## Compatibility and boundaries
 
 - Claude requires its native `.claude-plugin/plugin.json` package.
@@ -216,17 +250,13 @@ never supplies native trust approval flags.
   cyclic, and `.git`-referencing links and special files are rejected; sources are limited to 20,000 files and 100 MiB.
 - Native installation is not proof of runtime activation. Restart/reload the
   Agent and complete authentication or hook trust in that Agent.
-- Codex native project installation is not provided by this adapter. Sync
-  selection still works for global Codex installations.
-- Codex has no update command, so an update adds the plugin again from the
-  refreshed snapshot. Adding always enables it, so a plugin disabled in Codex is
-  skipped. An imported Codex plugin is updated with
-  `codex plugin marketplace upgrade NAME`, which reinstalls every plugin Codex
-  installed from that marketplace, as Codex also does when it starts.
+- Codex native project installation is not provided by this adapter. Global
+  updates use the verified reinstall workflow described above.
+- Imported plugins retain their original marketplace identity. Codex `check` can
+  review its registered local/Git marketplace source; other imports without a
+  reviewable source do not expose release availability.
 - An update skips a target it cannot reach and says why; the plugin's other
   Agents still update, and a skipped update stays pending for a later sync.
-- Imported plugins retain their original marketplace identity. `check` cannot
-  infer release availability for an imported plugin without a source.
 - Removal retains shared marketplace registrations and managed snapshots; it
   does not delete unrelated plugins or native caches directly.
 
@@ -237,6 +267,9 @@ registration; the v2 schema is covered by fixture tests. Cursor and Antigravity
 filesystem lifecycles are tested in isolated directories, without claiming GUI
 runtime activation. Installed command capabilities and inventory schemas are checked at
 runtime; unsupported operations are blocked with an explanation.
+
+Codex update transactions are additionally exercised with native CLI `0.159.3`,
+including disabled plugins, shared Git marketplaces and recovery after refresh.
 
 ## Official format references
 

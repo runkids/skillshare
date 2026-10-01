@@ -164,6 +164,9 @@ func (s *Service) applyChange(ctx context.Context, c Change, b Binding) (resultE
 		return nil
 	}
 	agent := s.agentOf(c.Target)
+	if agent == "codex" && c.Action == "update" {
+		return s.applyCodexUpdate(ctx, c, b)
+	}
 	if agent != "claude" && agent != "codex" {
 		return s.applyAdditional(ctx, c, b)
 	}
@@ -204,11 +207,6 @@ func (s *Service) applyChange(ctx context.Context, c Change, b Binding) (resultE
 		}
 	}
 	args, err := s.nativeArgs(c.Target, c.Action, b.ID)
-	upgrade := agent == "codex" && c.Action == "update" && b.Source == ""
-	if upgrade {
-		_, market, _ := strings.Cut(b.ID, "@")
-		args, err = []string{"plugin", "marketplace", "upgrade", market}, nil
-	}
 	if err != nil {
 		return err
 	}
@@ -230,8 +228,7 @@ func (s *Service) applyChange(ctx context.Context, c Change, b Binding) (resultE
 			if c.Action == "disable" && item.Enabled {
 				return fmt.Errorf("plugin is still enabled")
 			}
-			// An upgraded marketplace sets its own version, which Skillshare never reviewed.
-			if c.Action == "update" && !upgrade && b.Version != "" && item.Version != b.Version {
+			if c.Action == "update" && b.Version != "" && item.Version != b.Version {
 				return fmt.Errorf("native update returned version %s; expected %s", item.Version, b.Version)
 			}
 			return nil
@@ -290,6 +287,12 @@ func (s *Service) registered(ctx context.Context, target, id, path string) (bool
 // an entry that defines its own components (strict: false, skills, lspServers, ...) keeps them.
 func pluginEntry(c Candidate, source, target string) map[string]any {
 	entry := map[string]any{"name": c.Name, "source": source, "policy": map[string]string{"installation": "AVAILABLE", "authentication": "ON_INSTALL"}, "category": "Productivity"}
+	if target == "codex" && c.codexCatalogEntry != nil {
+		delete(entry, "policy")
+		if policy, ok := c.codexCatalogEntry["policy"]; ok {
+			entry["policy"] = policy
+		}
+	}
 	if target != "claude" {
 		return entry
 	}

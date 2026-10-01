@@ -98,9 +98,7 @@ skillshare sync plugins --no-tui
 ## 업데이트와 복구
 
 **Check updates**를 사용한 다음 지원되는 Target의 업데이트를 검토하세요. Claude는
-네이티브 CLI를 통해 업데이트할 수 있습니다. Codex는 검토된 스냅샷에서 플러그인을 다시
-add합니다. 단, Codex에서 비활성화된 플러그인은 add하면 다시 활성화되므로 업데이트하지
-않습니다. Import한 Codex 플러그인은 마켓플레이스를 업그레이드하여 업데이트합니다. Cursor와 Antigravity는 로컬 편집을 확인한 후 관리되는 로컬
+네이티브 CLI를 통해 업데이트할 수 있습니다. Codex의 전역 업데이트는 검토된 Source에서 다시 설치하면서 활성화 또는 비활성화 상태를 보존합니다. Import한 로컬 마켓플레이스는 검토된 Source를 사용하며, Git 마켓플레이스는 먼저 업그레이드한 뒤 관련 없는 캐시를 복원합니다. 설치된 버전을 검증하고 실패하면 기존 설치를 복원합니다. Cursor와 Antigravity는 로컬 편집을 확인한 후 관리되는 로컬
 복사본을 교체합니다. Pi와 OpenCode는 검토된 스냅샷을 업데이트합니다. Copilot은 알려진
 활성화 상태를 보존하면서 검토된 Source를 새로고침할 수 있습니다. Antigravity CLI와
 Grok의 업데이트는 네이티브 도구 안에 머무릅니다. Import된 패키지의 제한 사항은

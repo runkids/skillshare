@@ -70,8 +70,8 @@ skillshare plugin remove demo --dry-run --json -g
 `remove NAME --target` uninstalls that binding. `remove NAME` without `--target`, once
 no Agent holds it, drops the package from Skillshare entirely.
 
-Claude supports native updates; Codex re-adds the reviewed snapshot unless the plugin is disabled in Codex. Cursor/Antigravity replace managed
-local copies; Pi/OpenCode refresh reviewed source snapshots. Imported Codex plugins update by upgrading their marketplace; imported Pi packages through `pi update`, global only. Imported OpenCode v1 packages must be updated natively. OpenCode v2 global
+Claude supports native updates; global Codex updates use a verified native reinstall. Cursor/Antigravity replace managed
+local copies; Pi/OpenCode refresh reviewed source snapshots. Imported Pi packages update through `pi update` in global scope; imported OpenCode v1 packages must be updated natively. OpenCode v2 global
 imports may use native update; project imports may not. Copilot source updates
 require known native enabled state; Antigravity CLI and Grok update natively. Project mode supports Claude, Antigravity, Pi,
 and OpenCode, never falling back to global scope. An update skips a target it
@@ -130,3 +130,24 @@ automation must provide explicit arguments and use `--json` or `--no-tui`.
 - Registration is not proof of resource loading. Verify inside the target Agent.
 - Failed snapshot updates restore the previous managed snapshot; this is not a
   claim that every native cache side effect can be rolled back.
+
+## Codex update workflow
+
+Use `plugin update NAME --target codex --dry-run --json -g` to review managed or
+imported local/Git marketplace sources, versions, native argv and affected plugins.
+Apply with `--no-tui` after reviewing. Skillshare reinstalls the selected plugin
+with native `plugin add` from a private reviewed catalog; imported Git sources
+first use scoped `plugin marketplace upgrade NAME --json`. That native refresh
+can reinstall siblings temporarily; Skillshare restores unselected cache bytes,
+modes and absence before success. Later Codex refreshes remain native behavior.
+
+Preserve enabled state and exact native config bytes; verify installed version
+before recording success. Failed transactions restore prior native cache and
+marketplace files. On concurrent recovery conflicts, retain the reported private
+recovery directory for inspection instead of overwriting external edits. Do not
+run concurrent native writes; the home lock coordinates Skillshare clients only.
+The account config directory wins over CODEX_HOME, then ~/.codex. Imported refs
+belong to native config.toml and reject --source-ref overrides. Unknown state,
+unversioned/unsupported sources, selected inline TOML plugin tables, and unsafe recovery filesystem shapes block
+updates. Native policies/trust/authentication remain enforced; never add bypass
+flags. Project Codex installation remains unsupported.

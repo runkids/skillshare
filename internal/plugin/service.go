@@ -95,6 +95,23 @@ func (s *Service) Preview(ctx context.Context, r Request) (*Plan, error) {
 			c.Action = "blocked"
 			c.Message = h.Error
 		}
+		if agent == "codex" && c.Action != "blocked" && (c.Action == "update" || c.Action == "native-check") {
+			var installed Installed
+			for _, item := range h.Installed {
+				if item.ID == c.ID {
+					installed = item
+				}
+			}
+			if err := s.previewCodexUpdate(ctx, &c, installed, r.SourceRef); err != nil {
+				c.Message = err.Error()
+				if c.Action == "update" {
+					// Keep unverified Codex updates pending for a later sync.
+					c.Action, c.Binding.Pending = "skip", "update"
+				} else {
+					c.Action = "blocked"
+				}
+			}
+		}
 		if c.Action != "blocked" && c.Action != "noop" && c.Action != "skip" && c.Action != "import" && c.Action != "update-available" && c.Action != "native-check" {
 			if err := s.verifyCommand(ctx, c.Target, c.Action, c.ID); err != nil {
 				c.Action = "blocked"
@@ -130,26 +147,6 @@ func (s *Service) Preview(ctx context.Context, r Request) (*Plan, error) {
 			for _, item := range h.Installed {
 				if item.ID == c.ID && (!item.EnabledKnown || !item.Enabled) {
 					skip("plugins.skip.keepEnablement", "Update in Copilot to preserve native enablement.", map[string]string{"agent": "GitHub Copilot CLI"})
-				}
-			}
-		}
-		if c.Action == "update" && agent == "codex" && c.Binding.Source == "" {
-			// An imported plugin comes from a Codex marketplace, which Codex upgrades together
-			// with every plugin installed from it, as it also does when it starts.
-			_, market, _ := strings.Cut(c.ID, "@")
-			help, err := s.run(ctx, c.Target, "plugin", "marketplace", "--help")
-			if err != nil || !strings.Contains(string(help), "upgrade") {
-				skip("plugins.skip.codexNoUpgrade", "Installed Codex cannot upgrade marketplaces; update the plugin in Codex.", nil)
-			} else {
-				c.Message = fmt.Sprintf("Upgrades the Codex marketplace %s, which reinstalls every plugin installed from it.", market)
-				c.MessageKey, c.MessageArgs = "plugins.note.codexUpgrade", map[string]string{"market": market}
-			}
-		}
-		if c.Action == "update" && agent == "codex" && c.Binding.Source != "" {
-			for _, item := range h.Installed {
-				// Codex's add, which updates the plugin, always enables it.
-				if item.ID == c.ID && !item.Enabled {
-					skip("plugins.skip.codexDisabled", "Enable the plugin in Codex before updating it; updating would turn it back on.", nil)
 				}
 			}
 		}

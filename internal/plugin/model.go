@@ -89,6 +89,9 @@ type Candidate struct {
 	// catalogEntry keeps the component fields a Claude catalog entry defines itself, for the
 	// catalog Skillshare writes at install time (strict: false plugins have nothing else).
 	catalogEntry map[string]json.RawMessage
+	// Codex catalog policy must survive managed snapshot generation so native
+	// installation and authentication requirements remain authoritative.
+	codexCatalogEntry map[string]json.RawMessage
 }
 
 // pathFor is the folder, relative to the source, that target installs from.
@@ -216,7 +219,28 @@ type Change struct {
 	Binding     Binding           `json:"binding"`
 	Components  []string          `json:"components,omitempty"`
 	// Logo is the package logo for a change with no Agent, as a data: URI.
-	Logo string `json:"logo,omitempty"`
+	Logo        string       `json:"logo,omitempty"`
+	CodexUpdate *CodexUpdate `json:"codexUpdate,omitempty"`
+}
+
+// CodexUpdate binds native reinstall operations to the state reviewed in a preview.
+// Native marketplace upgrade can reinstall siblings, which the transaction restores.
+type CodexUpdate struct {
+	OldVersion        string     `json:"oldVersion"`
+	Enabled           bool       `json:"enabled"`
+	MarketplaceRoot   string     `json:"marketplaceRoot"`
+	Source            string     `json:"source"`
+	SourceRef         string     `json:"sourceRef,omitempty"`
+	Commit            string     `json:"commit,omitempty"`
+	PluginPath        string     `json:"pluginPath"`
+	ContentDigest     string     `json:"contentDigest"`
+	CatalogDigest     string     `json:"catalogDigest"`
+	ConfigDigest      string     `json:"configDigest"`
+	CacheDigest       string     `json:"cacheDigest"`
+	MarketplaceDigest string     `json:"marketplaceDigest,omitempty"`
+	Refresh           bool       `json:"refresh"`
+	Affected          []string   `json:"affected"`
+	Operations        [][]string `json:"operations"`
 }
 
 type Plan struct {

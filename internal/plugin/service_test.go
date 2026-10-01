@@ -352,6 +352,9 @@ func (f *fakeAgents) service(t *testing.T) *Service {
 	t.Helper()
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	native := filepath.Join(home, "native-codex")
+	t.Setenv("CODEX_HOME", native)
+	markets := map[string]string{}
 	if f.installed == nil {
 		f.installed = map[string][]Installed{}
 	}
@@ -362,17 +365,82 @@ func (f *fakeAgents) service(t *testing.T) *Service {
 		case command == "--version":
 			return []byte("test"), nil
 		case strings.Contains(command, "--help"):
-			return []byte("--json --scope upgrade"), nil
+			return []byte("--json --scope upgrade --config"), nil
 		case command == "plugin list --json" && bin == "codex":
+			if _, cfg, err := readCodexConfig(native); err == nil {
+				for i := range f.installed[bin] {
+					item := &f.installed[bin][i]
+					if setting, ok := cfg.Plugins[item.PluginID]; ok && setting.Enabled != nil {
+						item.Enabled = *setting.Enabled
+					}
+				}
+			}
 			return json.Marshal(map[string]any{"installed": f.installed[bin], "available": []any{}})
 		case command == "plugin list --json":
 			return json.Marshal(append([]Installed{}, f.installed[bin]...))
 		case command == "plugin marketplace list --json" && bin == "codex":
-			return []byte(`{"marketplaces":[]}`), nil
+			rows := []map[string]string{}
+			for name, root := range markets {
+				rows = append(rows, map[string]string{"name": name, "root": root})
+			}
+			return json.Marshal(map[string]any{"marketplaces": rows})
 		case command == "plugin marketplace list --json":
 			return []byte(`[]`), nil
 		}
 		f.commands = append(f.commands, bin+" "+command)
+		if bin == "codex" && len(args) > 3 && args[1] == "marketplace" && args[2] == "add" {
+			markets[filepath.Base(args[3])] = args[3]
+		}
+		if bin == "codex" && len(args) > 2 && args[1] == "add" {
+			name, market, _ := strings.Cut(args[2], "@")
+			root := markets[market]
+			for _, arg := range args {
+				if key, value, ok := strings.Cut(arg, "="); ok && strings.HasSuffix(key, ".source") {
+					if err := json.Unmarshal([]byte(value), &root); err != nil {
+						return nil, err
+					}
+				}
+			}
+			var catalog struct {
+				Plugins []struct{ Name, Source string }
+			}
+			data, err := os.ReadFile(filepath.Join(root, ".agents/plugins/marketplace.json"))
+			if err != nil {
+				return nil, err
+			}
+			if err := json.Unmarshal(data, &catalog); err != nil {
+				return nil, err
+			}
+			payload := ""
+			for _, entry := range catalog.Plugins {
+				if entry.Name == name {
+					payload = filepath.Join(root, entry.Source)
+				}
+			}
+			if payload == "" {
+				return nil, fmt.Errorf("plugin missing from catalog")
+			}
+			cache := filepath.Join(native, "plugins/cache", market, name)
+			if err := os.RemoveAll(cache); err != nil {
+				return nil, err
+			}
+			if err := copyTree(payload, filepath.Join(cache, f.version)); err != nil {
+				return nil, err
+			}
+			config, _, err := readCodexConfig(native)
+			if err != nil && !os.IsNotExist(err) {
+				return nil, err
+			}
+			if len(f.installed[bin]) == 0 {
+				config = append(config, []byte(fmt.Sprintf("\n[plugins.%q]\nenabled = true\n", args[2]))...)
+			} else {
+				config, err = codexEnabledConfig(config, args[2])
+				if err != nil {
+					return nil, err
+				}
+			}
+			writeFile(t, native, "config.toml", string(config))
+		}
 		if args[1] == "add" || args[1] == "install" || args[1] == "update" {
 			f.installed[bin] = []Installed{{ID: args[2], PluginID: args[2], Installed: true, Enabled: true, Version: f.version, Scope: "user"}}
 		}
@@ -402,54 +470,152 @@ func TestCodexUpdateAddsThePluginAgain(t *testing.T) {
 	}
 }
 
-// Adding would turn a plugin disabled in Codex back on, so the update skips it, and the
-// other Agents of the plugin are still updated.
-func TestCodexUpdateSkipsADisabledPlugin(t *testing.T) {
+// Native add enables the selected plugin; the transaction restores its disabled state
+// while still updating the package's other Agents.
+func TestCodexUpdatePreservesADisabledPlugin(t *testing.T) {
 	agents := &fakeAgents{version: "1.0.0"}
 	s := agents.service(t)
 	source := fixture(t)
 	applyPluginRequest(t, s, Request{Action: "add", Source: source, Targets: []string{"claude", "codex"}})
-	agents.installed["codex"][0].Enabled = false
+	native := os.Getenv("CODEX_HOME")
+	before, _, err := readCodexConfig(native)
+	if err != nil {
+		t.Fatal(err)
+	}
+	before = []byte(strings.Replace(string(before), "enabled = true", "enabled = false", 1))
+	writeFile(t, native, "config.toml", string(before))
 	bumpDemo(t, source, agents)
 	applyPluginRequest(t, s, Request{Action: "update", Name: "demo", Targets: []string{"claude", "codex"}})
-	if slices.ContainsFunc(agents.commands, func(c string) bool { return strings.HasPrefix(c, "codex ") }) || !slices.Contains(agents.commands, "claude plugin update "+agents.installed["claude"][0].ID+" --scope user --json") {
+	if !slices.ContainsFunc(agents.commands, func(c string) bool { return strings.HasPrefix(c, "codex plugin add ") }) || !slices.Contains(agents.commands, "claude plugin update "+agents.installed["claude"][0].ID+" --scope user --json") {
 		t.Fatalf("commands: %q", agents.commands)
+	}
+	after, _, err := readCodexConfig(native)
+	if err != nil || string(before) != string(after) {
+		t.Fatalf("disabled config changed: %s %v", after, err)
+	}
+	if item := agents.installed["codex"][0]; item.Enabled || item.Version != "2.0.0" {
+		t.Fatalf("disabled plugin not updated safely: %+v", item)
 	}
 }
 
-// An imported plugin has no reviewed source; Codex upgrades it with its marketplace.
-func TestCodexUpdateOfAnImportUpgradesItsMarketplace(t *testing.T) {
+// Imported updates require reviewable native registration; an inventory alone is insufficient.
+func TestCodexUpdateOfAnImportRequiresReviewableRegistration(t *testing.T) {
 	agents := &fakeAgents{installed: map[string][]Installed{"codex": {{PluginID: "demo@team", Installed: true, Enabled: true, Version: "1.0.0"}}}}
 	s := agents.service(t)
 	applyPluginRequest(t, s, Request{Action: "import", From: "codex", Plugin: "demo@team"})
 	agents.commands = nil
-	applyPluginRequest(t, s, Request{Action: "update", Name: "demo", Targets: []string{"codex"}})
-	if !slices.Equal(agents.commands, []string{"codex plugin marketplace upgrade team"}) {
-		t.Fatalf("commands: %q", agents.commands)
+	p, err := s.Preview(context.Background(), Request{Action: "update", Name: "demo", Targets: []string{"codex"}})
+	if err != nil || p.Blocked || len(p.Changes) != 1 || p.Changes[0].Action != "skip" || len(agents.commands) != 0 {
+		t.Fatalf("unreviewable update was not skipped: %+v %v %q", p, err, agents.commands)
+	}
+	p, err = s.Preview(context.Background(), Request{Action: "check", Name: "demo", Targets: []string{"codex"}})
+	if err != nil || !p.Blocked || len(p.Changes) != 1 || p.Changes[0].Action != "blocked" {
+		t.Fatalf("unreviewable check did not remain blocked: %+v %v", p, err)
+	}
+}
+
+func TestCodexUpdatePreviewFailureSkipsAndUpdatesOtherAgents(t *testing.T) {
+	agents := &fakeAgents{
+		version: "1.0.0",
+		installed: map[string][]Installed{
+			"codex": {{ID: "demo@team", PluginID: "demo@team", Installed: true, EnabledKnown: true, Enabled: true, Version: "1.0.0", Scope: "user"}},
+		},
+	}
+	s := agents.service(t)
+	source := fixture(t)
+	applyPluginRequest(t, s, Request{Action: "add", Source: source, Targets: []string{"claude"}})
+
+	config, err := s.load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	pack := config.packages["demo"]
+	pack.Bindings["codex"] = Binding{ID: "demo@team", Version: "1.0.0"}
+	config.packages["demo"] = pack
+	if err := s.save(config); err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, os.Getenv("CODEX_HOME"), "config.toml", "[plugins.\"demo@team\"]\nenabled = true\n")
+	bumpDemo(t, source, agents)
+	request := Request{Action: "update", Name: "demo", Targets: []string{"claude", "codex"}}
+
+	plan, err := s.Preview(context.Background(), request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if plan.Blocked {
+		t.Fatalf("unreviewable Codex update blocked the independent Claude update: %+v", plan.Changes)
+	}
+	if len(plan.Changes) != 2 {
+		t.Fatalf("unexpected update preview: %+v", plan.Changes)
+	}
+	for _, change := range plan.Changes {
+		switch change.Target {
+		case "claude":
+			if change.Action != "update" {
+				t.Fatalf("Claude update missing from preview: %+v", change)
+			}
+		case "codex":
+			if change.Action != "skip" || !strings.Contains(change.Message, "marketplace is not registered") {
+				t.Fatalf("Codex preview failure was not reported as a skip: %+v", change)
+			}
+		default:
+			t.Fatalf("unexpected update target: %+v", change)
+		}
+	}
+
+	result, err := s.Apply(context.Background(), request, plan.Revision)
+	if err != nil {
+		t.Fatalf("apply aborted after the Codex preview failure: %+v %v", result, err)
+	}
+	statuses := map[string]Outcome{}
+	for _, outcome := range result.Results {
+		statuses[outcome.Target] = outcome
+	}
+	if statuses["claude"].Status != "installed" {
+		t.Fatalf("Claude was not updated: %+v", result.Results)
+	}
+	if statuses["codex"].Status != "skipped" || !strings.Contains(statuses["codex"].Message, "marketplace is not registered") {
+		t.Fatalf("Codex failure was not retained in the result: %+v", result.Results)
+	}
+	if !slices.ContainsFunc(agents.commands, func(command string) bool { return strings.HasPrefix(command, "claude plugin update ") }) {
+		t.Fatalf("Claude native update did not run: %q", agents.commands)
+	}
+	if slices.ContainsFunc(agents.commands, func(command string) bool { return strings.HasPrefix(command, "codex plugin ") }) {
+		t.Fatalf("Codex mutated native state despite missing marketplace registration: %q", agents.commands)
+	}
+	config, err = s.load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if pending := config.packages["demo"].Bindings["codex"].Pending; pending != "update" {
+		t.Fatalf("Codex update was not left pending: %q", pending)
 	}
 }
 
 // A skipped update stays pending, so a later sync still knows the plugin is behind.
 func TestSkippedUpdateStaysPending(t *testing.T) {
-	agents := &fakeAgents{version: "1.0.0"}
-	s := agents.service(t)
-	source := fixture(t)
-	applyPluginRequest(t, s, Request{Action: "add", Source: source, Targets: []string{"codex"}})
+	home := t.TempDir()
+	s := &Service{ConfigPath: filepath.Join(home, "config.yaml"), StateDir: filepath.Join(home, "state")}
+	writeFile(t, home, "config.yaml", "plugins:\n  packages:\n    demo:\n      bindings:\n        antigravity-cli:\n          id: demo\n          pending: update\n")
+	s.Run = func(_ context.Context, _ string, _ []string, bin string, args ...string) ([]byte, error) {
+		command := strings.Join(args, " ")
+		switch command {
+		case "--version":
+			return []byte("test"), nil
+		case "plugin list":
+			return []byte(`{"imports":[{"name":"demo","version":"1.0.0","enabled":true}]}`), nil
+		case "plugin --help":
+			return []byte("install"), nil
+		}
+		return nil, fmt.Errorf("unexpected native mutation: %s %s", bin, command)
+	}
+	applyPluginRequest(t, s, Request{Action: "sync", Targets: []string{"antigravity-cli"}})
 	cfg, err := s.load()
 	if err != nil {
 		t.Fatal(err)
 	}
-	pack := cfg.packages["demo"]
-	b := pack.Bindings["codex"]
-	b.Pending = "update"
-	pack.Bindings["codex"] = b
-	cfg.packages["demo"] = pack
-	if err := s.save(cfg); err != nil {
-		t.Fatal(err)
-	}
-	agents.installed["codex"][0].Enabled = false
-	applyPluginRequest(t, s, Request{Action: "sync"})
-	if cfg, _ = s.load(); cfg.packages["demo"].Bindings["codex"].Pending != "update" {
-		t.Fatalf("pending cleared: %+v", cfg.packages["demo"].Bindings["codex"])
+	if cfg.packages["demo"].Bindings["antigravity-cli"].Pending != "update" {
+		t.Fatalf("pending cleared: %+v", cfg.packages["demo"].Bindings["antigravity-cli"])
 	}
 }

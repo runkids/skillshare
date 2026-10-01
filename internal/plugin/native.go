@@ -153,8 +153,15 @@ func parseInventory(target string, data []byte, project string) ([]Installed, er
 		if err := json.Unmarshal(envelope.Installed, &result); err != nil {
 			return nil, fmt.Errorf("invalid Codex installed list")
 		}
+		var states []struct {
+			Enabled *bool `json:"enabled"`
+		}
+		if err := json.Unmarshal(envelope.Installed, &states); err != nil {
+			return nil, fmt.Errorf("invalid Codex enabled state")
+		}
 		for i := range result {
 			r := &result[i]
+			r.EnabledKnown = states[i].Enabled != nil
 			r.ID = r.PluginID
 			if r.ID == "" && r.Name != "" && r.Marketplace != "" {
 				r.ID = r.Name + "@" + r.Marketplace
@@ -168,7 +175,9 @@ func parseInventory(target string, data []byte, project string) ([]Installed, er
 	}
 	filtered := []Installed{}
 	for _, item := range result {
-		item.EnabledKnown = true
+		if target != "codex" {
+			item.EnabledKnown = true
+		}
 		// Filter by scope before validating: Claude also lists other scopes' plugins
 		// (e.g. "(suppressed)@skills-dir" for the folder it runs in), and an entry this
 		// scope never uses must not block the whole target.
@@ -292,6 +301,10 @@ func (s *Service) nativeArgs(target, action, id string) ([]string, error) {
 }
 
 func (s *Service) verifyCommand(ctx context.Context, target, action, id string) error {
+	if s.agentOf(target) == "codex" && action == "update" {
+		// Source-specific upgrade probing is performed by the revision-bound preview.
+		return s.verifyCodexUpdateCommands(ctx, target, false)
+	}
 	if agent := s.agentOf(target); agent != "claude" && agent != "codex" {
 		return s.verifyAdditional(ctx, target, action, id)
 	}
