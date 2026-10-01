@@ -466,8 +466,9 @@ When you add or change filters, then run `skillshare sync`:
 
 | Existing item in target | What happens |
 |-------------------------|--------------|
-| Source-linked symlink/junction that is now filtered out | Removed (unlinked) |
+| Link skillshare created for a source skill that is now filtered out | Removed (unlinked) |
 | Managed copy (copy mode) that is now filtered out | Removed |
+| Live symlink/junction into the source that skillshare never tracked | Preserved (counted as local) |
 | Local non-symlink directory created in target | Preserved |
 | Unrelated local content | Preserved |
 
