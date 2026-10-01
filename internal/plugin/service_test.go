@@ -503,6 +503,28 @@ func TestHostReportsOnlyItsOwnManagedMarketplaces(t *testing.T) {
 	}
 }
 
+func TestMarketplaceAlsoDeclaredAtAnotherPathIsNotRemoved(t *testing.T) {
+	agents := &fakeAgents{}
+	s := agents.service(t)
+	b := legacyBinding(t, s, agents, "          sync: false\n")
+	run := s.Run
+	s.Run = func(ctx context.Context, dir string, env []string, bin string, args ...string) ([]byte, error) {
+		if strings.Join(args, " ") == "plugin marketplace list --json" {
+			return json.Marshal([]map[string]string{{"name": "skillshare-0123456789abcdef", "installLocation": s.snapshotPath(b, "claude")}, {"name": "skillshare-0123456789abcdef", "installLocation": "/elsewhere"}})
+		}
+		return run(ctx, dir, env, bin, args...)
+	}
+	r := Request{Action: "sync"}
+	p, err := s.Preview(context.Background(), r)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, _ := s.Apply(context.Background(), r, p.Revision)
+	if slices.ContainsFunc(agents.commands, func(c string) bool { return strings.Contains(c, "marketplace remove") }) || result == nil || len(result.Results) != 1 || result.Results[0].MessageKey != "plugins.error.marketplaceCleanup" {
+		t.Fatalf("removed a marketplace also declared elsewhere: %q %+v", agents.commands, result)
+	}
+}
+
 func TestSyncSkipsAnImportWhoseNativeMarketplaceIsGone(t *testing.T) {
 	agents := &fakeAgents{}
 	s := agents.service(t)

@@ -224,7 +224,9 @@ func (s *Service) host(ctx context.Context, target string) Host {
 	if markets, err := s.marketplaces(ctx, target); err == nil {
 		h.Marketplaces = markets
 		for name, root := range markets {
-			if strings.HasPrefix(name, "skillshare-") && filepath.Clean(root) == filepath.Join(s.managedRoot(), name) {
+			// A name also declared elsewhere ("") stays claimed, so removal reports the clash
+			// instead of forgetting the binding.
+			if strings.HasPrefix(name, "skillshare-") && (root == "" || filepath.Clean(root) == filepath.Join(s.managedRoot(), name)) {
 				h.ManagedMarketplaces = append(h.ManagedMarketplaces, name)
 			}
 		}
