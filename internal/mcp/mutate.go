@@ -442,7 +442,8 @@ func (s *Service) MutateBatch(mutations []Mutation, revision string, sync bool) 
 						if !ok || approved.Owner != source.ConfigPath {
 							continue
 						}
-						state.Entries[ownershipKey(f.target, f.path, r.Name)] = ownership{Owner: source.ConfigPath, Target: f.target, Path: f.path, Name: r.Name, Hash: entryHash(managedEntry(f.target, native.Entries[r.Name]))}
+						approved.Hash = entryHash(managedEntry(f.target, native.Entries[r.Name]))
+						state.Entries[ownershipKey(f.target, f.path, r.Name)] = approved
 					}
 				}
 			}

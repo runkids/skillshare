@@ -414,6 +414,9 @@ func importNative(target string, data []byte, singleName string, adapter bool) (
 // file is its Agent's own format. A project has no accounts: every account reads its files.
 func (s *Service) importClient(target string) (*Service, string, error) {
 	if validTarget(target) {
+		if source, err := LoadSource(s.ConfigPath); err == nil {
+			return s.withAccounts(source.Accounts), target, nil
+		}
 		return s, target, nil
 	}
 	source, err := LoadSource(s.ConfigPath)
@@ -423,8 +426,7 @@ func (s *Service) importClient(target string) (*Service, string, error) {
 	if _, ok := source.Accounts[target]; !ok || s.ProjectRoot != "" {
 		return nil, "", fmt.Errorf("unsupported MCP target %q", target)
 	}
-	scoped := *s
-	scoped.accounts = source.Accounts
+	scoped := s.withAccounts(source.Accounts)
 	account, agent := scoped.forTarget(target)
 	return account, agent, nil
 }
@@ -536,6 +538,7 @@ type ImportSource struct {
 // ImportSources exposes actual read paths in this scope (the empty key) and
 // configured projects. Accounts exist only in the global scope.
 func (s *Service) ImportSources(source *Source) map[string][]ImportSource {
+	s = s.withAccounts(source.Accounts)
 	scopes := map[string]*Service{"": s}
 	for root := range source.Projects {
 		scoped := *s
@@ -573,6 +576,7 @@ type Unmanaged struct {
 // FindUnmanaged reads the Agent files of this scope, its accounts and every mcp.projects
 // root. A file that cannot be read or parsed is skipped; sync reports it when it is used.
 func (s *Service) FindUnmanaged(source *Source) []Unmanaged {
+	s = s.withAccounts(source.Accounts)
 	state, _, err := s.loadLedger()
 	if err != nil {
 		return nil

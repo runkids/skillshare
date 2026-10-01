@@ -27,7 +27,7 @@ type Service struct {
 	// settings 0.23.0 retired, and returns where. The CLI and the server keep it in the
 	// file history.
 	BackupSource func(path string) (string, error)
-	// accounts are the source's, set while rendering it.
+	// accounts are the source's, set while resolving its targets.
 	accounts map[string]Account
 	// account is the one this Service was scoped to, empty when it is the Agent's own.
 	account string
@@ -64,7 +64,7 @@ func (s *Service) nativePath(target string) (string, error) {
 			return "", err
 		}
 	}
-	if dir := s.ConfigDirs[target]; dir != "" {
+	if dir, _ := s.configDir(target); dir != "" {
 		if !filepath.IsAbs(dir) {
 			return "", fmt.Errorf("%s config directory must be absolute", target)
 		}
@@ -196,8 +196,7 @@ func (s *Service) AccountPaths(accounts map[string]Account) map[string]string {
 	if s.ProjectRoot != "" {
 		return out
 	}
-	scoped := *s
-	scoped.accounts = accounts
+	scoped := s.withAccounts(accounts)
 	for name := range accounts {
 		account, agent := scoped.forTarget(name)
 		if path, err := account.nativePath(agent); err == nil {
@@ -209,9 +208,49 @@ func (s *Service) AccountPaths(accounts map[string]Account) map[string]string {
 
 // ConfiguredClientPaths names each target's destination, accounts included, for dashboard labels.
 func (s *Service) ConfiguredClientPaths(source *Source) map[string]string {
-	paths := s.ClientPaths()
+	paths := s.withAccounts(source.Accounts).ClientPaths()
 	maps.Copy(paths, s.AccountPaths(source.Accounts))
 	return paths
+}
+
+// withAccounts keeps account-aware resolution consistent without changing the caller's scope.
+func (s *Service) withAccounts(accounts map[string]Account) *Service {
+	scoped := *s
+	scoped.accounts = accounts
+	return &scoped
+}
+
+var accountEnv = map[string]string{"codex": "CODEX_HOME", "claude": "CLAUDE_CONFIG_DIR", "pi": "PI_CODING_AGENT_DIR"}
+
+// configDir keeps an account shell from redirecting the plain Agent to that account.
+// Account-scoped services still use their explicit directory; unrelated overrides stand.
+func (s *Service) configDir(agent string) (string, string) {
+	dir := s.ConfigDirs[agent]
+	if dir != "" && s.account == "" {
+		for _, name := range sortedKeys(s.accounts) {
+			account := s.accounts[name]
+			if account.Agent == agent && sameDir(dir, account.Dir) {
+				return "", name
+			}
+		}
+	}
+	return dir, ""
+}
+
+func sameDir(a, b string) bool {
+	// Filesystem identity also recognizes case aliases on case-insensitive volumes.
+	aInfo, aErr := os.Stat(a)
+	bInfo, bErr := os.Stat(b)
+	if aErr == nil && bErr == nil && os.SameFile(aInfo, bInfo) {
+		return true
+	}
+	resolve := func(path string) string {
+		if real, err := filepath.EvalSymlinks(path); err == nil {
+			return real
+		}
+		return filepath.Clean(path)
+	}
+	return resolve(a) == resolve(b)
 }
 
 // DetectedAccounts lists the accounts whose config directory exists.

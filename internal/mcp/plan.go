@@ -71,11 +71,13 @@ type Plan struct {
 }
 
 type ownership struct {
-	Owner    string            `json:"owner"`
-	Target   string            `json:"target"`
-	Path     string            `json:"path"`
-	Name     string            `json:"name"`
-	Hash     string            `json:"hash"`
+	Owner  string `json:"owner"`
+	Target string `json:"target"`
+	Path   string `json:"path"`
+	Name   string `json:"name"`
+	Hash   string `json:"hash"`
+	// A nil Root is legacy ownership; an empty root records global scope.
+	Root     *string           `json:"root,omitempty"`
 	PiFields map[string]string `json:"piFields,omitempty"`
 }
 
@@ -207,23 +209,29 @@ func (s *Service) previewSource(source *Source) (*Plan, error) {
 // global source's projects land in the same map, so one plan, one revision and one ledger
 // owner cover every root: separate plans would each read the others' entries as leftovers.
 func (s *Service) render(source *Source) (map[fileKey]map[string]map[string]any, error) {
+	desired, _, err := s.renderWithRoots(source)
+	return desired, err
+}
+
+// renderWithRoots records each entry's actual scope, even when global and project
+// outputs share a file. An empty root is global; older ledger records have no root.
+func (s *Service) renderWithRoots(source *Source) (map[fileKey]map[string]map[string]any, map[string]string, error) {
 	desired := map[fileKey]map[string]map[string]any{}
+	roots := map[string]string{}
 	if err := source.checkTargets(); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	withAccounts := *s
-	withAccounts.accounts = source.Accounts
-	s = &withAccounts
+	s = s.withAccounts(source.Accounts)
 	if s.ProjectRoot != "" && len(source.Projects) > 0 {
-		return nil, fmt.Errorf("mcp.projects belongs in the global config; this project already syncs its own mcp.servers")
+		return nil, nil, fmt.Errorf("mcp.projects belongs in the global config; this project already syncs its own mcp.servers")
 	}
 	servers := source.Servers
 	if s.ProjectRoot != "" {
 		// A project's own config cannot see the global one, so only the Agents' limits apply.
 		servers = followingSwitches(servers, source.Targets, nil)
 	}
-	if err := s.renderScope(desired, servers, source.Targets); err != nil {
-		return nil, err
+	if err := s.renderScope(desired, roots, servers, source.Targets); err != nil {
+		return nil, nil, err
 	}
 	for _, root := range sortedKeys(source.Projects) {
 		project := source.Projects[root]
@@ -233,11 +241,11 @@ func (s *Service) render(source *Source) (map[fileKey]map[string]map[string]any,
 		if defaults == nil {
 			defaults = source.Targets
 		}
-		if err := scoped.renderScope(desired, followingSwitches(project.Servers, defaults, source), defaults); err != nil {
-			return nil, fmt.Errorf("%s: %w", root, err)
+		if err := scoped.renderScope(desired, roots, followingSwitches(project.Servers, defaults, source), defaults); err != nil {
+			return nil, nil, fmt.Errorf("%s: %w", root, err)
 		}
 	}
-	return desired, nil
+	return desired, roots, nil
 }
 
 // SwitchTargets is where a switch-only entry that names no targets goes: the Agents among
@@ -288,7 +296,7 @@ func followingSwitches(servers map[string]Server, defaults []string, global *Sou
 }
 
 // renderScope adds one scope's servers: the global one, or a single project root.
-func (s *Service) renderScope(desired map[fileKey]map[string]map[string]any, servers map[string]Server, defaults []string) error {
+func (s *Service) renderScope(desired map[fileKey]map[string]map[string]any, roots map[string]string, servers map[string]Server, defaults []string) error {
 	for _, name := range sortedKeys(servers) {
 		server := servers[name]
 		// An explicit empty list is deliberate: the server stays in Skillshare and nothing is
@@ -321,6 +329,7 @@ func (s *Service) renderScope(desired map[fileKey]map[string]map[string]any, ser
 				desired[key] = map[string]map[string]any{}
 			}
 			desired[key][name] = entry
+			roots[ownershipKey(native, path, name)] = s.ProjectRoot
 		}
 	}
 	if s.ProjectRoot != "" {
@@ -375,6 +384,39 @@ func (s *Service) destination(target string, server Server) (string, string, err
 	}
 	path, err := s.nativePath(target)
 	return path, target, err
+}
+
+// ownedHomeResolves parks old homes, including removed accounts. Remembered
+// project scopes still support cleanup after a project is removed from the source.
+func (s *Service) ownedHomeResolves(owned ownership, source *Source) bool {
+	agent := shownTarget(owned.Target)
+	matches := func(scoped *Service) bool {
+		path, target, err := scoped.destination(agent, Server{Disabled: strings.HasPrefix(owned.Target, claudeOffPrefix)})
+		return err == nil && target == owned.Target && (path == owned.Path || agent == "pi" && piAdapterPath(path) == owned.Path)
+	}
+	roots := []string{s.ProjectRoot}
+	if owned.Root != nil {
+		roots = append(roots, *owned.Root)
+	} else {
+		roots = append(roots, sortedKeys(source.Projects)...)
+		if root, ok := strings.CutPrefix(owned.Target, claudeOffPrefix); ok {
+			roots = append(roots, root)
+		}
+	}
+	for _, root := range roots {
+		project := *s
+		project.ProjectRoot = root
+		if matches(&project) {
+			return true
+		}
+		for _, name := range sortedKeys(source.Accounts) {
+			account, target := project.forTarget(name)
+			if target == agent && matches(account) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // claudeLocalServers names the servers of Claude Code's local scope for this project. They
@@ -440,6 +482,7 @@ func (s *Service) checkScope(name, target string, server Server) error {
 }
 
 func (s *Service) previewResolved(source *Source, resolutions []Resolution) (*Plan, error) {
+	s = s.withAccounts(source.Accounts)
 	matched := map[string]bool{}
 	for _, r := range resolutions {
 		key := r.Target + "\x00" + r.Name
@@ -455,18 +498,43 @@ func (s *Service) previewResolved(source *Source, resolutions []Resolution) (*Pl
 		return nil, err
 	}
 	p := &Plan{SourcePath: source.Path, Notices: slices.Concat(source.Notices, source.toolPolicyNotices()), Migrates: source.NeedsMigration(), Changes: []Change{}, source: source, state: state, stateBytes: stateBytes}
-	desired, err := s.render(source)
+	for _, agent := range sortedKeys(accountEnv) {
+		if _, account := s.configDir(agent); account != "" {
+			global := *s
+			global.ProjectRoot = ""
+			path, err := global.nativePath(agent)
+			if err != nil {
+				return nil, err
+			}
+			p.Notices = append(p.Notices, fmt.Sprintf("%s points at the config_dir of target %s; %s syncs %s instead", accountEnv[agent], account, agent, path))
+		}
+	}
+	desired, renderedRoots, err := s.renderWithRoots(source)
 	if err != nil {
 		return nil, err
 	}
 	// A file the source no longer writes still needs a plan, to remove what it left there.
-	for _, owned := range state.Entries {
-		if key := (fileKey{owned.Path, owned.Target}); owned.Owner == source.ConfigPath && desired[key] == nil {
-			desired[key] = map[string]map[string]any{}
+	parked := map[string]ownership{}
+	for _, key := range sortedKeys(state.Entries) {
+		owned := state.Entries[key]
+		if fk := (fileKey{owned.Path, owned.Target}); owned.Owner == source.ConfigPath && desired[fk][owned.Name] == nil {
+			if !s.ownedHomeResolves(owned, source) {
+				parked[key] = owned
+				notice := fmt.Sprintf("%s: managed MCP entry %s in %s is left unchanged because the path no longer resolves to this target; sync where its home resolves to manage it", shownTarget(owned.Target), owned.Name, owned.Path)
+				if owned.Root == nil && !strings.HasPrefix(owned.Target, claudeOffPrefix) {
+					notice += "; this older ownership record has no saved scope; see the MCP reference for recovery"
+				}
+				p.Notices = append(p.Notices, notice)
+				continue
+			}
+			if desired[fk] == nil {
+				desired[fk] = map[string]map[string]any{}
+			}
 		}
 	}
 	// After the files are known, so stopping to manage a server keeps the revision of removing it.
 	source.forget(state)
+	maps.Copy(state.Entries, parked)
 	proposal, _ := json.Marshal(struct {
 		Servers     map[string]Server
 		Targets     []string
@@ -487,6 +555,9 @@ func (s *Service) previewResolved(source *Source, resolutions []Resolution) (*Pl
 		}
 	}
 	projectRoots := sortedKeys(source.Projects)
+	if s.ProjectRoot != "" {
+		projectRoots = append(projectRoots, s.ProjectRoot)
+	}
 	piMoves := source.piExtensionSettings
 	keys := make([]fileKey, 0, len(desired))
 	for key := range desired {
@@ -517,13 +588,14 @@ func (s *Service) previewResolved(source *Source, resolutions []Resolution) (*Pl
 		for name := range desired[fk] {
 			names[name] = true
 		}
-		for _, owned := range state.Entries {
-			if owned.Owner == source.ConfigPath && owned.Path == path && owned.Target == target {
+		for key, owned := range state.Entries {
+			if _, parked := parked[key]; !parked && owned.Owner == source.ConfigPath && owned.Path == path && owned.Target == target {
 				names[owned.Name] = true
 			}
 		}
 		for _, name := range sortedKeys(names) {
 			key := ownershipKey(target, path, name)
+			root := renderedRoots[key]
 			owned, managed := state.Entries[key]
 			current := native.Entries[name]
 			currentHash := entryHash(managedEntry(target, current))
@@ -629,9 +701,12 @@ func (s *Service) previewResolved(source *Source, resolutions []Resolution) (*Pl
 					delete(updated, field)
 				}
 			}
-			if target == "pi" && want != nil && change.Action != "conflict" {
+			if want != nil && change.Action != "conflict" {
 				if own, ok := p.state.Entries[key]; ok && own.Owner == source.ConfigPath {
-					own.PiFields = piOwnedFields(want)
+					own.Root = &root
+					if target == "pi" {
+						own.PiFields = piOwnedFields(want)
+					}
 					p.state.Entries[key] = own
 				}
 			}

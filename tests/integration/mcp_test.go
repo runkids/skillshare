@@ -12,6 +12,37 @@ import (
 	"skillshare/internal/testutil"
 )
 
+func TestMCPAccountCodexHomeDoesNotPruneDefault(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	sb.WriteConfig("targets:\n  codex-2:\n    agent: codex\n    config_dir: ~/.codex-2\nmcp:\n  targets: [codex, codex-2]\n  servers:\n    demo:\n      url: https://example.com/mcp\n")
+	sb.RunCLI("sync", "mcp", "-g").AssertSuccess(t)
+	paths := []string{filepath.Join(sb.Home, ".codex", "config.toml"), filepath.Join(sb.Home, ".codex-2", "config.toml")}
+	before := []string{sb.ReadFile(paths[0]), sb.ReadFile(paths[1])}
+	env := map[string]string{"CODEX_HOME": filepath.Join(sb.Home, ".codex-2")}
+	dry := sb.RunCLIEnv(env, "sync", "mcp", "-g", "--dry-run", "--json")
+	dry.AssertSuccess(t)
+	var plan struct {
+		Changes []struct{ Action, Target, Path string }
+		Notices []string
+	}
+	if err := json.Unmarshal([]byte(dry.Stdout), &plan); err != nil {
+		t.Fatal(err)
+	}
+	if len(plan.Changes) != 2 || plan.Changes[0].Action != "unchanged" || plan.Changes[1].Action != "unchanged" {
+		t.Fatalf("account shell planned a prune: %s", dry.Stdout)
+	}
+	if !strings.Contains(strings.Join(plan.Notices, "\n"), "CODEX_HOME") {
+		t.Fatalf("missing shadowing warning: %s", dry.Stdout)
+	}
+	sb.RunCLIEnv(env, "sync", "mcp", "-g").AssertSuccess(t)
+	for i, path := range paths {
+		if sb.ReadFile(path) != before[i] || !strings.Contains(before[i], "https://example.com/mcp") {
+			t.Fatalf("sync changed %s", path)
+		}
+	}
+}
+
 func TestMCPInlineLifecycle(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()

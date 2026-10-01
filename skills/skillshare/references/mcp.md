@@ -125,6 +125,13 @@ setups usually go wrong.
   (`PI_CODING_AGENT_DIR`) writes `<dir>/mcp.json`. Global scope only; a project
   uses the Agent's own name, and a project's off switch goes to every account that has the
   server.
+- Account shell overrides: when `CLAUDE_CONFIG_DIR`, `CODEX_HOME` or
+  `PI_CODING_AGENT_DIR` matches a declared account's `config_dir`, the plain Agent
+  uses its default home and sync warns. Unrelated overrides are still honored.
+  Existing directory aliases, including symlinks and filesystem case aliases, match.
+  Files outside resolved destinations are parked with ownership intact; sync
+  where that home resolves again to resume managing them.
+  For an older removed project, re-add it, sync, then remove it and sync again.
 - Reserved names: a server called `workspace`, `claude-in-chrome` or `computer-use` is
   skipped by Claude Code. Skillshare refuses them for `claude`.
 - Claude Code never sends its own credentials to a remote server.

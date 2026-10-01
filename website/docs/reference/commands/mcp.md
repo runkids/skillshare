@@ -358,6 +358,12 @@ mcp:
 
 Here `docs` goes to `~/.claude.json` and `~/.claude-work/.claude.json`, and `jira` to the second file only. `--target claude-work` works with `mcp add` and `mcp edit`, and the dashboard lists the account next to the Agents.
 
+When `CLAUDE_CONFIG_DIR`, `CODEX_HOME` or `PI_CODING_AGENT_DIR` points at a declared account's `config_dir` for that Agent, the plain Agent target uses its default home and sync warns about the shadowed variable. Existing directory aliases, including symlinks and case variants on case-insensitive filesystems, count as the same home. With no matching account, the override is honored as usual.
+
+If a managed MCP entry's file no longer matches its scope's resolved destination, sync leaves that entry and its ownership unchanged and warns about the parked path. This also applies after an account is removed or its `config_dir` changes. Sync from a configuration and shell where that home resolves again to resume managing it. Removed project scopes recorded in ownership and Pi's legacy adapter files remain eligible for cleanup.
+
+Older ownership records lack this scope information. If a removed project's scope cannot be resolved, its entries stay parked. To clean them up, add the project back, sync once to record its scope, then remove it again and sync.
+
 Every account reads the same project files, so inside `mcp.projects` and in project mode use the Agent's own name. Claude Code keeps a project's off list in each account's file: [turning a server off in a project](#turn-off-a-global-server-in-one-project) writes the switch to every account that has the server. `mcp import --from claude-work`, and the dashboard's Import from target, read the account's own file. `mcp import --file <path> --from claude-work` reads a file you exported yourself, in that account's Agent format.
 
 ## Turn off a global server in one project {#turn-off-a-global-server-in-one-project}

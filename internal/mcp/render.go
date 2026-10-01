@@ -176,9 +176,7 @@ type Rendered struct {
 func (s *Service) RenderNative(name string, server Server) []Rendered {
 	// An unreadable config has no accounts.
 	if source, err := LoadSource(s.ConfigPath); err == nil {
-		scoped := *s
-		scoped.accounts = source.Accounts
-		s = &scoped
+		s = s.withAccounts(source.Accounts)
 	}
 	out := make([]Rendered, 0, len(server.Targets))
 	for _, target := range server.Targets {

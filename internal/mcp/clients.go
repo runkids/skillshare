@@ -113,7 +113,7 @@ func (s *Service) additionalClientPath(target string, format clientFormat) (stri
 		}
 		return filepath.Join(data, "settings", file), nil
 	case "pi":
-		if dir := s.ConfigDirs["pi"]; dir != "" {
+		if dir, _ := s.configDir("pi"); dir != "" {
 			if !filepath.IsAbs(dir) {
 				return "", fmt.Errorf("PI_CODING_AGENT_DIR must be absolute")
 			}

@@ -1,11 +1,324 @@
 package mcp
 
 import (
+	"bytes"
+	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 )
+
+func TestAccountEnvOverrideDoesNotPruneDefaultHome(t *testing.T) {
+	for agent, env := range map[string]string{"codex": "CODEX_HOME", "claude": "CLAUDE_CONFIG_DIR", "pi": "PI_CODING_AGENT_DIR"} {
+		t.Run(agent, func(t *testing.T) {
+			s, work := agentAccountService(t, agent, fmt.Sprintf("mcp:\n  targets: [%s, %s-work]\n  servers:\n    demo:\n      url: https://example.com/mcp\n", agent, agent))
+			plan, err := s.Apply("")
+			if err != nil {
+				t.Fatal(err)
+			}
+			before := map[string][]byte{}
+			for _, c := range plan.Plan.Changes {
+				before[c.Path], err = os.ReadFile(c.Path)
+				if err != nil {
+					t.Fatal(err)
+				}
+			}
+			t.Setenv(env, work)
+			s.ConfigDirs = ConfigDirsFromEnv()
+			p, err := s.Preview()
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(p.Changes) != 2 {
+				t.Fatalf("changes: %+v", p.Changes)
+			}
+			for _, c := range p.Changes {
+				if c.Action != "unchanged" || before[c.Path] == nil {
+					t.Fatalf("account override changed the plan: %+v", c)
+				}
+			}
+			if !strings.Contains(strings.Join(p.Notices, "\n"), env) {
+				t.Fatalf("missing shadowing warning: %v", p.Notices)
+			}
+			if _, err := s.Apply(p.Revision); err != nil {
+				t.Fatal(err)
+			}
+			for path, want := range before {
+				got, err := os.ReadFile(path)
+				if err != nil || !bytes.Equal(got, want) {
+					t.Fatalf("sync changed %s: %s (%v)", path, got, err)
+				}
+			}
+		})
+	}
+}
+
+func TestChangedAgentHomeParksOwnedEntries(t *testing.T) {
+	for _, agent := range []string{"codex", "claude", "pi", "copilot"} {
+		for _, project := range []bool{false, true} {
+			t.Run(fmt.Sprintf("%s/project=%t", agent, project), func(t *testing.T) {
+				s := testService(t)
+				config := fmt.Sprintf("mcp:\n  targets: [%s]\n  servers:\n    demo:\n      url: https://example.com/mcp\n", agent)
+				if project {
+					config += fmt.Sprintf("  projects:\n    %s:\n      servers:\n        local:\n          command: local-tool\n          targets: [%s]\n", s.Home, agent)
+				}
+				if err := os.WriteFile(s.ConfigPath, []byte(config), 0600); err != nil {
+					t.Fatal(err)
+				}
+				first, err := s.Apply("")
+				if err != nil {
+					t.Fatal(err)
+				}
+				old := first.Plan.Changes[0].Path
+				before, _ := os.ReadFile(old)
+				s.ConfigDirs = map[string]string{agent: filepath.Join(s.Home, "override")}
+				p, err := s.Preview()
+				if err != nil {
+					t.Fatal(err)
+				}
+				count, entries := 1, 2
+				if project {
+					count, entries = 2, 3
+				}
+				if len(p.Changes) != count || changeFor(p, old, "demo") != nil {
+					t.Fatalf("old home must be parked: %+v", p.Changes)
+				}
+				for _, c := range p.Changes {
+					if c.Name == "demo" && c.Action != "add" {
+						t.Fatalf("override must receive the server: %+v", c)
+					}
+				}
+				if !strings.Contains(strings.Join(p.Notices, "\n"), old) {
+					t.Fatalf("missing parked-path warning: %v", p.Notices)
+				}
+				if _, err := s.Apply(p.Revision); err != nil {
+					t.Fatal(err)
+				}
+				got, _ := os.ReadFile(old)
+				state, _, err := s.loadLedger()
+				if !bytes.Equal(got, before) || err != nil || len(state.Entries) != entries {
+					t.Fatalf("parked file or ownership lost: %s, %+v, %v", got, state, err)
+				}
+				s.ConfigDirs = nil
+				p, err = s.Preview()
+				if err != nil || changeFor(p, old, "demo").Action != "unchanged" {
+					t.Fatalf("restored home did not resume ownership: %+v %v", p, err)
+				}
+			})
+		}
+	}
+}
+
+func TestAccountEnvResolution(t *testing.T) {
+	for _, agent := range []string{"codex", "claude", "pi"} {
+		t.Run(agent, func(t *testing.T) {
+			s, work := agentAccountService(t, agent, "mcp:\n  servers: {}\n")
+			source, err := LoadSource(s.ConfigPath)
+			if err != nil {
+				t.Fatal(err)
+			}
+			plain := s.ClientPaths()[agent]
+			s.ConfigDirs = map[string]string{agent: work}
+			// With no declared accounts, the plain Agent honors the override.
+			override := s.ClientPaths()[agent]
+			if filepath.Dir(override) != work {
+				t.Fatalf("override ignored: %s", override)
+			}
+			alias := filepath.Join(s.Home, "account-alias")
+			if err := os.MkdirAll(work, 0700); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.Symlink(work, alias); err != nil {
+				t.Skipf("symlinks unavailable: %v", err)
+			}
+			s.ConfigDirs[agent] = alias
+			paths := s.ConfiguredClientPaths(source)
+			if paths[agent] != plain || paths[agent+"-work"] != override {
+				t.Fatalf("account alias redirected plain Agent: %v", paths)
+			}
+			client, target, err := s.importClient(agent)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if path, err := client.nativePath(target); err != nil || path != plain {
+				t.Fatalf("import disagrees with sync: %s, %v", path, err)
+			}
+			s.ConfigDirs[agent] = filepath.Join(s.Home, "unrelated")
+			paths = s.ConfiguredClientPaths(source)
+			if filepath.Dir(paths[agent]) != s.ConfigDirs[agent] {
+				t.Fatalf("unrelated override ignored: %v", paths)
+			}
+		})
+	}
+}
+
+func TestRemovedAccountParksOwnedEntries(t *testing.T) {
+	s, work := agentAccountService(t, "codex", "mcp:\n  targets: [codex-work]\n  servers:\n    demo:\n      url: https://example.com/mcp\n")
+	if _, err := s.Apply(""); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(work, "config.toml")
+	before, _ := os.ReadFile(path)
+	if err := os.WriteFile(s.ConfigPath, []byte("mcp:\n  servers: {}\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	result, err := s.Apply("")
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, _ := os.ReadFile(path)
+	state, _, stateErr := s.loadLedger()
+	if len(result.Plan.Changes) != 0 || len(result.Plan.Notices) == 0 || !bytes.Equal(got, before) || stateErr != nil || len(state.Entries) != 1 {
+		t.Fatalf("removed account was not parked: %+v, %s, %+v, %v", result.Plan, got, state, stateErr)
+	}
+}
+
+func TestAccountEnvDashboardReadsDefaultHome(t *testing.T) {
+	for _, agent := range []string{"codex", "claude", "pi"} {
+		t.Run(agent, func(t *testing.T) {
+			s, work := agentAccountService(t, agent, "mcp:\n  servers: {}\n")
+			source, err := LoadSource(s.ConfigPath)
+			if err != nil {
+				t.Fatal(err)
+			}
+			plain := s.ClientPaths()[agent]
+			s.ConfigDirs = map[string]string{agent: work}
+			account := s.AccountPaths(source.Accounts)[agent+"-work"]
+			for path, name := range map[string]string{plain: "default-only", account: "account-only"} {
+				native, err := ParseNative(agent, nil)
+				if err != nil {
+					t.Fatal(err)
+				}
+				data, err := native.Edit(map[string]map[string]any{name: {"command": "test-tool"}})
+				if err != nil {
+					t.Fatal(err)
+				}
+				if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.WriteFile(path, data, 0600); err != nil {
+					t.Fatal(err)
+				}
+			}
+			paths := map[string]string{}
+			for _, item := range s.ImportSources(source)[""] {
+				if item.PiExtension != "pi-mcp-adapter" {
+					paths[item.Target] = item.Path
+				}
+			}
+			if paths[agent] != plain || paths[agent+"-work"] != account {
+				t.Errorf("dashboard import sources disagree with sync: %v", paths)
+			}
+			found := map[string]Unmanaged{}
+			for _, item := range s.FindUnmanaged(source) {
+				found[item.Target] = item
+			}
+			for target, path := range map[string]string{agent: plain, agent + "-work": account} {
+				name := "default-only"
+				if target != agent {
+					name = "account-only"
+				}
+				if item := found[target]; item.Path != path || len(item.Names) != 1 || item.Names[0] != name {
+					t.Errorf("dashboard unmanaged scan for %s: %+v", target, item)
+				}
+			}
+			if s.accounts != nil {
+				t.Fatal("dashboard reads mutated the service scope")
+			}
+		})
+	}
+}
+
+func TestAccountEnvCaseResolution(t *testing.T) {
+	for _, agent := range []string{"codex", "claude", "pi"} {
+		t.Run(agent, func(t *testing.T) {
+			s, work := agentAccountService(t, agent, "mcp:\n  servers: {}\n")
+			source, err := LoadSource(s.ConfigPath)
+			if err != nil {
+				t.Fatal(err)
+			}
+			plain := s.ClientPaths()[agent]
+			otherCase := filepath.Join(s.Home, strings.ToUpper(filepath.Base(work)))
+			for _, dir := range []string{work, otherCase} {
+				if err := os.MkdirAll(dir, 0700); err != nil {
+					t.Fatal(err)
+				}
+			}
+			workInfo, err := os.Stat(work)
+			if err != nil {
+				t.Fatal(err)
+			}
+			caseInfo, err := os.Stat(otherCase)
+			if err != nil {
+				t.Fatal(err)
+			}
+			alias := os.SameFile(workInfo, caseInfo)
+			t.Logf("case variants name the same directory: %t", alias)
+			s.ConfigDirs = map[string]string{agent: otherCase}
+			want := filepath.Join(otherCase, filepath.Base(s.AccountPaths(source.Accounts)[agent+"-work"]))
+			if alias {
+				want = plain
+			}
+			if got := s.ConfiguredClientPaths(source)[agent]; got != want {
+				t.Fatalf("case variant resolved to %s, want %s (alias=%t)", got, want, alias)
+			}
+		})
+	}
+}
+
+func TestLegacyChangedHomeDoesNotSuggestReaddingProject(t *testing.T) {
+	for _, agent := range []string{"codex", "claude", "pi"} {
+		t.Run(agent, func(t *testing.T) {
+			s := testService(t)
+			config := fmt.Sprintf("mcp:\n  targets: [%s]\n  servers:\n    demo:\n      command: demo-tool\n", agent)
+			if agent == "claude" {
+				config += "  projects:\n    " + filepath.Join(s.Home, "project") + ":\n      servers:\n        demo:\n          disabled: true\n"
+			}
+			if err := os.WriteFile(s.ConfigPath, []byte(config), 0600); err != nil {
+				t.Fatal(err)
+			}
+			applyProjects(t, s)
+			state, _, err := s.loadLedger()
+			if err != nil {
+				t.Fatal(err)
+			}
+			for key, owned := range state.Entries {
+				owned.Root = nil
+				state.Entries[key] = owned
+			}
+			if err := writeJSONFile(s.statePath(), state); err != nil {
+				t.Fatal(err)
+			}
+			s.ConfigDirs = map[string]string{agent: filepath.Join(s.Home, "override")}
+			p, err := s.Preview()
+			if err != nil {
+				t.Fatal(err)
+			}
+			notices := strings.Join(p.Notices, "\n")
+			if !strings.Contains(notices, "sync where its home resolves") || strings.Contains(notices, "add the project back") {
+				t.Fatalf("moved home must get home recovery guidance: %v", p.Notices)
+			}
+		})
+	}
+}
+
+func FuzzAccountHomeResolution(f *testing.F) {
+	f.Add(uint8(0))
+	f.Add(uint8(1))
+	f.Fuzz(func(t *testing.T, depth uint8) {
+		home := t.TempDir()
+		account := filepath.Join(home, ".codex-2")
+		// Different lexical paths still name the declared account home.
+		dir := account + strings.Repeat(string(filepath.Separator)+"child"+string(filepath.Separator)+"..", int(depth)%16)
+		s := &Service{Home: home, ConfigDirs: map[string]string{"codex": dir}}
+		paths := s.ConfiguredClientPaths(&Source{Accounts: map[string]Account{"codex-2": {Agent: "codex", Dir: account}}})
+		if paths["codex"] != filepath.Join(home, ".codex", "config.toml") || paths["codex-2"] != filepath.Join(account, "config.toml") {
+			t.Fatalf("lexical alias changed homes: %v", paths)
+		}
+	})
+}
 
 // accountService has a second Claude account: the target claude-work is Claude with
 // another config directory, so its servers go to that directory's .claude.json.
@@ -82,6 +395,28 @@ func TestAccountTargetProjectSwitchReachesEveryAccount(t *testing.T) {
 	for _, path := range []string{filepath.Join(s.Home, ".claude.json"), workFile} {
 		if data, _ := os.ReadFile(path); !strings.Contains(string(data), "disabledMcpServers") {
 			t.Errorf("%s has no off list: %s", path, data)
+		}
+	}
+	config, err := os.ReadFile(s.ConfigPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(s.ConfigPath, config[:strings.Index(string(config), "  projects:\n")], 0600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.Apply(""); err != nil {
+		t.Fatal(err)
+	}
+	for _, path := range []string{filepath.Join(s.Home, ".claude.json"), workFile} {
+		data, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var document struct {
+			Projects map[string]struct{ DisabledMcpServers []string }
+		}
+		if err := json.Unmarshal(data, &document); err != nil || len(document.Projects[root].DisabledMcpServers) != 0 {
+			t.Errorf("%s kept the removed project's switch: %s (%v)", path, data, err)
 		}
 	}
 }

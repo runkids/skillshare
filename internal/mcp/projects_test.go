@@ -97,6 +97,119 @@ func TestProjectsRemovedRootIsCleaned(t *testing.T) {
 	}
 }
 
+func TestLegacyRemovedProjectIsParkedWithRecovery(t *testing.T) {
+	s, tmp := projectsService(t, projectsConfig)
+	applyProjects(t, s)
+	state, _, err := s.loadLedger()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for key, owned := range state.Entries {
+		owned.Root = nil
+		state.Entries[key] = owned
+	}
+	if err := writeJSONFile(s.statePath(), state); err != nil {
+		t.Fatal(err)
+	}
+	config, err := os.ReadFile(s.ConfigPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	trimmed := config[:strings.Index(string(config), "    "+tmp+"/projB")]
+	write := func(data []byte) {
+		t.Helper()
+		if err := os.WriteFile(s.ConfigPath, data, 0600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	write(trimmed)
+	p, err := s.Preview()
+	if err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(tmp, "projB", "opencode.json")
+	if changeFor(p, path, "shared") != nil || !strings.Contains(strings.Join(p.Notices, "\n"), "no saved scope") {
+		t.Fatalf("legacy project needs safe recovery: changes=%+v notices=%v", p.Changes, p.Notices)
+	}
+	applyProjects(t, s)
+	if data, err := os.ReadFile(path); err != nil || !strings.Contains(string(data), "shared") {
+		t.Fatalf("legacy project was pruned: %s (%v)", data, err)
+	}
+	write(config)
+	applyProjects(t, s)
+	write(trimmed)
+	applyProjects(t, s)
+	if data, err := os.ReadFile(path); err != nil || strings.Contains(string(data), "shared") {
+		t.Fatalf("project cleanup did not resume: %s (%v)", data, err)
+	}
+}
+
+func TestLegacyProjectScopeBackfilledOnPiSettingsUpdate(t *testing.T) {
+	s := testService(t)
+	root := filepath.Join(s.Home, "project")
+	config := "mcp:\n  projects:\n    " + root + ":\n      targets: [pi]\n      servers:\n        docs:\n          command: docs-tool\n          piOptions: {timeout: 10}\n"
+	write := func(config string) {
+		t.Helper()
+		if err := os.WriteFile(s.ConfigPath, []byte(config), 0600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	write(config)
+	applyProjects(t, s)
+	state, _, err := s.loadLedger()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for key, owned := range state.Entries {
+		owned.Root = nil
+		state.Entries[key] = owned
+	}
+	if err := writeJSONFile(s.statePath(), state); err != nil {
+		t.Fatal(err)
+	}
+	write(strings.ReplaceAll(config, "timeout: 10", "timeout: 20"))
+	applyProjects(t, s)
+	write("mcp:\n  servers: {}\n")
+	p, err := s.Preview()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c := changeFor(p, filepath.Join(root, ".pi", "mcp.json"), "docs"); c == nil || c.Action != "remove" {
+		t.Fatalf("settings update did not record project scope: changes=%+v notices=%v", p.Changes, p.Notices)
+	}
+}
+
+func TestProjectImportSavePreservesOwnershipScope(t *testing.T) {
+	s, tmp := projectsService(t, projectsConfig)
+	applyProjects(t, s)
+	root := filepath.Join(tmp, "projA")
+	path := filepath.Join(root, ".cursor", "mcp.json")
+	server := Server{Command: "docs-server", Targets: []string{"cursor"}}
+	if _, err := s.Mutate(Mutation{
+		Project: root, Name: "docs", Server: &server, Replace: true,
+		Resolutions: []Resolution{{Target: "cursor", Name: "docs", Action: "adopt"}},
+	}, "", false); err != nil {
+		t.Fatal(err)
+	}
+	state, _, err := s.loadLedger()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if owned := state.Entries[ownershipKey("cursor", path, "docs")]; owned.Root == nil || *owned.Root != root {
+		t.Errorf("save lost the adopted entry's project scope: %+v", owned)
+	}
+	if _, err := s.Mutate(Mutation{Project: root, Remove: true}, "", false); err != nil {
+		t.Fatal(err)
+	}
+	p, err := s.Preview()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c := changeFor(p, path, "docs"); c == nil || c.Action != "remove" {
+		t.Fatalf("adopted project cleanup was parked: changes=%+v notices=%v", p.Changes, p.Notices)
+	}
+}
+
 func TestProjectsRejected(t *testing.T) {
 	for name, tc := range map[string]struct{ config, want string }{
 		"relative root":  {"mcp:\n  projects:\n    work/p1:\n      servers: {}\n", "absolute"},
