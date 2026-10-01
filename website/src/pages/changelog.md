@@ -9,25 +9,67 @@ All notable changes to skillshare are documented here. For the full commit histo
 
 ---
 
-## [0.23.2] - 2026-10-01
-
-
-* **release:** release 0.23.2 ([99f45ce](https://github.com/runkids/skillshare/commit/99f45ce924bcad29f895dea3597fab16c9d5523d))
-
+## [0.23.2] - 2026-10-02
 
 ### New Features
 
-* **doctor:** check MCP servers, hooks, plugins and extras drift ([5dd0260](https://github.com/runkids/skillshare/commit/5dd0260ad34c277496058e03d7b712efc3bc88ba))
-* **hooks:** manage Git config hooks ([#310](https://github.com/runkids/skillshare/issues/310)) ([1a2389d](https://github.com/runkids/skillshare/commit/1a2389dea21daffb1a6186f6aa1244eea6a161d3))
-* **mcp:** validate Pi 1.0 oauth.authServerMetadataUrl ([#318](https://github.com/runkids/skillshare/issues/318)) ([8af5405](https://github.com/runkids/skillshare/commit/8af54053ccbe49a566bb107c057020d31254737b))
-* **ui:** set backup retention limits and delete all backups ([ffabe1a](https://github.com/runkids/skillshare/commit/ffabe1a86a250b545e09436f59801837f529d1a2))
-* **ui:** share several plugins as one install command ([b86b52a](https://github.com/runkids/skillshare/commit/b86b52a49151e7c397d75590ea109f80d5df5436))
+#### Hooks
 
+- **Git config hooks** — a hook entry can bind `git` to register named Git config hooks (Git 2.54+) globally or in a project. Skillshare writes the commands to its own include file, adds the `include.path` line, and writes the helper scripts listed under `files`; `{files}` expands to their directory on each machine. Preview, sync, backups and restore work as they do for Agent hooks, and managing hooks never runs them. Linked worktrees share their project's hooks.
+  ```yaml
+  bindings:
+    git:
+      commands:
+        project.check:
+          events: [pre-commit]
+          command: "{files}/check.sh"
+      files:
+        check.sh: |
+          #!/bin/sh
+          exec make check
+  ```
+  ```bash
+  skillshare hooks add git-check --file git-check.yaml -g --dry-run
+  skillshare hooks sync -g
+  ```
+  With Git older than 2.54 the files are still written, and the plan says why the hooks cannot run. `parallel` needs Git 2.55+. When the include target is a symlink or not writable, the plan prints the lines to add by hand. The `git` key always means Git, so an account target named `git` receives no hooks; the plan warns once an entry uses the `git` binding.
 
-### Bug Fixes
+#### Doctor
 
-* **hooks:** Git hook follow-ups from [#310](https://github.com/runkids/skillshare/issues/310) ([#317](https://github.com/runkids/skillshare/issues/317)) ([9bdc1b3](https://github.com/runkids/skillshare/commit/9bdc1b3a22780acf2535bbd196fc7d68b80236c5))
-* **ui:** add shared plugins globally ([b2f7ee3](https://github.com/runkids/skillshare/commit/b2f7ee395ceaa56f942982346742c7218b01dd82))
+- **Check MCP servers, hooks, plugins and extras** — `skillshare doctor` and the dashboard's Doctor page now check these too, in global and project mode:
+  - MCP: environment variables, commands, client rules and sync state, without DNS lookups or starting servers
+  - Hooks: what `hooks sync` would still change or refuse. Git hooks that cannot run, for example because Git is missing, are reported with the reason instead of as unsynced
+  - Plugins: what `plugin sync` would change, without fetching sources, when a plugin is configured
+  - Extras: config errors, broken links in targets, and drift as `diff` reports it
+  ```bash
+  skillshare doctor --json
+  ```
+
+#### MCP
+
+- **Pi 1.0 OAuth metadata URL** — `piOptions.oauth.authServerMetadataUrl`, which Pi 1.0 uses instead of discovering a server's authorization server, is checked when you save: it must use https, or http on localhost. Pi 1.0 keeps OAuth sign-ins per server name and URL, so after renaming a server or changing its `url`, sign in again in Pi.
+  ```yaml
+  mcp:
+    servers:
+      example:
+        url: https://mcp.example.com/mcp
+        piOptions:
+          oauth:
+            authServerMetadataUrl: https://example.okta.com/.well-known/openid-configuration
+  ```
+
+#### Backups
+
+- **Backup limits and Delete all** — `backup.max_count` and `backup.max_size_mb` in the global config set how many target folder snapshots to keep and their total size (defaults 10 and 500 MB, `0` = no limit). `sync`, the dashboard's sync and `backup --cleanup` apply them; backups older than 30 days are still removed. The dashboard's **Target folders** tab shows the limits, edits them, and adds **Delete all** behind a confirmation. Project snapshots keep the defaults, and file, MCP and hooks backups are not affected.
+  ```yaml
+  backup:
+    max_count: 20
+    max_size_mb: 1000
+  ```
+
+#### Dashboard
+
+- **Share several plugins as one command** — **Share** on the Plugins page, in the header or a plugin's menu, lists the plugins added from an HTTPS source and copies one line that adds the ticked ones in order. Each add uses `--no-tui -g`, so the plugins land in the recipient's global config without a picker per plugin; they choose Agents on the Plugins page afterwards. An option keeps the per-plugin Agent picker. Plugins added from a local directory are left out, since the path only exists on your machine.
 
 ## [0.23.1] - 2026-10-01
 
