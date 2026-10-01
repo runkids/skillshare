@@ -48,7 +48,7 @@ _skillshare() {
     local push_flags="--dry-run -n --message -m --help -h"
     local commit_flags="--dry-run -n --message -m --help -h"
     local doctor_flags="--json --help -h"
-    local target_flags="--json --no-tui --help -h --mode -m --agent-mode --target-naming --add-include --add-exclude --remove-include --remove-exclude --add-agent-include --add-agent-exclude --remove-agent-include --remove-agent-exclude --agent --config-dir --skills --no-skills --dry-run"
+    local target_flags="--json --no-tui --help -h --mode -m --agent-mode --target-naming --add-include --add-exclude --remove-include --remove-exclude --add-agent-include --add-agent-exclude --remove-agent-include --remove-agent-exclude --agent --config-dir --cli --skills --no-skills --dry-run"
     local target_remove_flags="--all -a --dry-run -n"
     local upgrade_flags="--dry-run -n --force -f --skill --cli --help -h"
     local update_flags="--all -a --dry-run -n --force -f --skip-audit --audit-threshold --threshold -T --diff --audit-verbose --prune --json --group -G --help -h"

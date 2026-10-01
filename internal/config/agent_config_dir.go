@@ -99,6 +99,22 @@ func AgentConfigDirPaths(agent, dir string) (skills, agents string, err error) {
 	return skills, move(spec.Agents.Global), nil
 }
 
+// agentCLI checks the executable an account runs instead of its Agent's. A name is looked
+// up on PATH when a plugin command runs; a path must be absolute, since a relative one would
+// depend on where Skillshare runs. Nothing goes through a shell, so it is one executable.
+func agentCLI(cli string) (string, error) {
+	if !strings.ContainsAny(cli, `/\`) {
+		if strings.ContainsAny(cli, " \t") {
+			return "", fmt.Errorf("cli %q must be one executable, without arguments", cli)
+		}
+		return cli, nil
+	}
+	if path := expandPath(cli); filepath.IsAbs(path) {
+		return path, nil
+	}
+	return "", fmt.Errorf("cli %q must be a name found on PATH or an absolute path, which may start with ~", cli)
+}
+
 // expandAgentConfigDirs fills in the paths of targets that are another config directory
 // of a built-in Agent, such as a second account. A path written in the config wins.
 func (c *Config) expandAgentConfigDirs() error {
@@ -110,11 +126,18 @@ func (c *Config) expandAgentConfigDirs() error {
 	dirs := map[string]string{}
 	for _, name := range names {
 		target := c.Targets[name]
-		if target.Agent == "" && target.ConfigDir == "" {
+		if target.Agent == "" && target.ConfigDir == "" && target.CLI == "" {
 			continue
 		}
 		if target.Agent == "" || target.ConfigDir == "" {
-			return fmt.Errorf("targets: %s: agent and config_dir go together", name)
+			return fmt.Errorf("targets: %s: agent and config_dir go together, and cli needs both", name)
+		}
+		if target.CLI != "" {
+			cli, err := agentCLI(target.CLI)
+			if err != nil {
+				return fmt.Errorf("targets: %s: %w", name, err)
+			}
+			target.CLI = cli
 		}
 		if _, builtin := globalSpec(name); builtin || name == "none" {
 			return fmt.Errorf("targets: %s: that name is taken by a built-in target; choose another, such as %s-work", name, target.Agent)
@@ -141,15 +164,15 @@ func (c *Config) expandAgentConfigDirs() error {
 }
 
 // AddAgentConfigDirTarget adds a target that is another config directory of a built-in
-// Agent and returns the skills path it syncs to.
-func (c *Config) AddAgentConfigDirTarget(name, agent, dir string) (string, error) {
+// Agent and returns the skills path it syncs to. cli is optional; see TargetConfig.CLI.
+func (c *Config) AddAgentConfigDirTarget(name, agent, dir, cli string) (string, error) {
 	if _, exists := c.Targets[name]; exists {
 		return "", fmt.Errorf("target '%s' already exists", name)
 	}
 	if c.Targets == nil {
 		c.Targets = map[string]TargetConfig{}
 	}
-	c.Targets[name] = TargetConfig{Agent: agent, ConfigDir: dir, defaultTargetNaming: c.TargetNaming}
+	c.Targets[name] = TargetConfig{Agent: agent, ConfigDir: dir, CLI: cli, defaultTargetNaming: c.TargetNaming}
 	if err := c.expandAgentConfigDirs(); err != nil {
 		delete(c.Targets, name)
 		return "", err

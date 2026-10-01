@@ -15,6 +15,7 @@ import { RailLayout, RailLine, SyncBox } from '../components/StatusRail';
 import PluginAddDialog from '../components/plugins/PluginAddDialog';
 import PluginFilesDialog from '../components/plugins/PluginFilesDialog';
 import PluginAgents from '../components/plugins/PluginAgents';
+import { outcomeMessage, outcomeStatus } from '../components/plugins/outcomeText';
 import PluginList, { VersionChange } from '../components/plugins/PluginList';
 import { useT } from '../i18n';
 import { useSlow } from '../hooks/useSlow';
@@ -137,8 +138,8 @@ export default function PluginsPage() {
               <div className="flex items-center text-xs font-semibold text-ink-3">{t('plugins.lastRun')}<IconButton className="ml-auto" size="sm" icon={<X size={14} />} label={t('common.close')} onClick={() => setResult(null)} /></div>
               {outcomes.map((r) => (
                 <Fragment key={`${r.name}:${r.target}`}>
-                  <RailLine name={r.name} agent={agentLabel(r.target)} word={r.status} bad={r.status === 'failed'} />
-                  {r.message && <span className="text-xs text-ink-3">{r.message}</span>}
+                  <RailLine name={r.name} agent={agentLabel(r.target)} word={outcomeStatus(t, r.status)} bad={r.status === 'failed'} />
+                  {r.message && <span className="text-xs text-ink-3">{outcomeMessage(t, r.message)}</span>}
                 </Fragment>
               ))}
             </div>

@@ -35,6 +35,10 @@ func switchOnly(target string, entry map[string]any) bool {
 	if strings.HasPrefix(target, claudeOffPrefix) {
 		return true
 	}
+	if target == "pi" {
+		// Pi's switch carries the global server's command or url; see renderDisabled.
+		return len(entry) == 2 && entry["enabled"] == false && (entry["command"] != nil || entry["url"] != nil)
+	}
 	return len(entry) == 1 && (entry["enabled"] == false || entry["disabled"] == true)
 }
 
@@ -261,23 +265,29 @@ func SwitchTargets(server Server, defaults, reached []string) TargetList {
 func followingSwitches(servers map[string]Server, defaults []string, global *Source) map[string]Server {
 	out := maps.Clone(servers)
 	for name, server := range servers {
-		if !server.Disabled || server.Targets != nil {
+		if !server.Disabled {
 			continue
 		}
 		var reached []string
 		if global != nil {
 			if shared, ok := global.Servers[name]; ok {
+				server.global = &shared
 				if reached = shared.Targets; reached == nil {
 					reached = global.Targets
 				}
 			}
 		}
+		if server.Targets != nil {
+			out[name] = server
+			continue
+		}
 		server.Targets = SwitchTargets(server, defaults, reached)
-		// The off list is per account, so an account that has the server gets the switch too.
+		// Claude Code's off list is per account, so an account that has the server gets the
+		// switch too. Pi accounts all read the project's one .pi/mcp.json, which pi writes.
 		if global != nil {
 			for _, account := range sortedKeys(global.Accounts) {
 				agent := global.Accounts[account].Agent
-				if _, err := renderDisabled(agent, server); err == nil && slices.Contains(defaults, agent) && (reached == nil || slices.Contains(reached, account)) {
+				if _, err := renderDisabled(agent, server); err == nil && agent == "claude" && slices.Contains(defaults, agent) && (reached == nil || slices.Contains(reached, account)) {
 					server.Targets = append(server.Targets, account)
 				}
 			}

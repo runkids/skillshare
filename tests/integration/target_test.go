@@ -514,3 +514,19 @@ targets: {}
 
 	sb.RunCLI("target", "add", "claude-other", "--agent", "cursor", "--config-dir", filepath.Join(sb.Home, ".x")).AssertFailure(t)
 }
+
+// --cli names a compatible executable for the account's plugin commands, such as omo for Pi.
+func TestTargetAdd_AgentConfigDir_CLI(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets: {}
+`)
+	sb.RunCLI("target", "add", "omo", "--agent", "pi", "--config-dir", filepath.Join(sb.Home, ".omo", "agent"), "--cli", "omo").AssertSuccess(t)
+	if content := sb.ReadFile(sb.ConfigPath); !strings.Contains(content, "cli: omo") {
+		t.Fatalf("config:\n%s", content)
+	}
+
+	sb.RunCLI("target", "add", "omo-rel", "--agent", "pi", "--config-dir", filepath.Join(sb.Home, ".omo-rel"), "--cli", "bin/omo").AssertFailure(t)
+}

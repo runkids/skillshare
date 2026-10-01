@@ -68,7 +68,22 @@ describe('Add target dialog', () => {
     expect(screen.getByText('~/.claude-work/agents')).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Add claude-work' }));
     await waitFor(() => expect(added).toHaveBeenCalledWith('claude-work'));
-    expect(api.addAgentConfigDir).toHaveBeenCalledWith('claude-work', 'claude', '~/.claude-work');
+    expect(api.addAgentConfigDir).toHaveBeenCalledWith('claude-work', 'claude', '~/.claude-work', undefined);
+  });
+
+  // A compatible CLI such as omo can run an account's plugin commands.
+  it('adds an account with another executable', async () => {
+    const user = userEvent.setup();
+    render(<QueryClientProvider client={new QueryClient()}><I18nProvider><AddTargetDialog available={available} existing={['claude']} onClose={vi.fn()} onAdded={vi.fn()} /></I18nProvider></QueryClientProvider>);
+    await user.click(screen.getByRole('button', { name: /Another account/ }));
+    await user.type(screen.getByLabelText('Config folder'), '~/.claude-work');
+    await user.type(screen.getByLabelText('Executable'), 'bin/claude');
+    expect(screen.getByRole('button', { name: 'Add claude-work' })).toBeDisabled();
+    await user.clear(screen.getByLabelText('Executable'));
+    await user.type(screen.getByLabelText('Executable'), 'claude-beta');
+    expect(screen.getByText('claude-beta')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Add claude-work' }));
+    await waitFor(() => expect(api.addAgentConfigDir).toHaveBeenCalledWith('claude-work', 'claude', '~/.claude-work', 'claude-beta'));
   });
 
   // Codex reads the shared ~/.agents/skills, but an account's skills stay in its own folder.

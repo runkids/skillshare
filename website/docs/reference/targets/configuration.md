@@ -228,6 +228,19 @@ Codex reads the shared `~/.agents/skills` as well, but an account owns only its 
 |-------|-------------|
 | `agent` | The built-in Agent: `claude` (`CLAUDE_CONFIG_DIR`), `codex` (`CODEX_HOME`) or `pi` (`PI_CODING_AGENT_DIR`) |
 | `config_dir` | That account's config directory. Absolute or starting with `~`, not the Agent's default one, and used by one target only |
+| `cli` | Optional. Runs the account's [plugin commands](/docs/reference/commands/plugin#accounts) with a compatible CLI instead of the Agent's own, such as `omo` for Pi. A name found on `PATH`, or an absolute path that may start with `~`. One executable without arguments; shell aliases are not seen |
+
+A compatible CLI that keeps the Agent's commands can run the account's plugins. For example, omo is built on Pi:
+
+```yaml
+targets:
+  omo:
+    agent: pi
+    config_dir: ~/.omo/agent
+    cli: omo
+```
+
+`cli` changes only which program installs and removes plugins. Skills, agents and MCP servers are written to `config_dir` as before.
 
 `mode`, `include`, `exclude` and the other target settings work as on any target. A `skills.path` or `agents.path` you write yourself wins over the derived one. The target name can also be used as an [MCP target](/docs/reference/commands/mcp#accounts), as a [plugin target](/docs/reference/commands/plugin#accounts) and as a [hooks target](/docs/reference/commands/hooks#accounts).
 

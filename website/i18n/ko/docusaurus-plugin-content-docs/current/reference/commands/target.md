@@ -61,6 +61,12 @@ skillshare target add claude-work --agent claude --config-dir ~/.claude-work
 
 가지고 있는 계정 수만큼, 각각 고유한 이름으로 추가하세요. 이 이름은 [MCP target](./mcp.md#accounts)으로도 사용할 수 있으므로, 한 번의 sync로 모든 계정의 skill, agent, MCP 서버에 반영됩니다.
 
+계정이 호환 CLI(예: Pi의 omo)를 사용한다면, `--cli`를 지정해 그 계정의 [plugin 명령](./plugin.md#accounts)이 해당 CLI를 사용하게 하세요.
+
+```bash
+skillshare target add omo --agent pi --config-dir ~/.omo/agent --cli omo
+```
+
 `--agent`는 `claude`(`CLAUDE_CONFIG_DIR`), `codex`(`CODEX_HOME`), `pi`(`PI_CODING_AGENT_DIR`)를 받습니다. Codex나 Pi 계정은 skill을 `<config_dir>/skills`로 동기화하며, agents 디렉터리를 함께 가지는 것은 Claude뿐입니다. 디렉터리는 절대 경로이거나 `~`로 시작해야 하고, Agent의 기본 디렉터리여서는 안 되며, 두 target이 함께 사용할 수 없습니다.
 
 이런 target을 제거할 때 MCP 때문에 실패하는 일은 없습니다. `mcp.targets`나 어떤 서버의 `targets`가 여전히 그 이름을 가리키고 있어도, `skillshare target remove`는 target을 제거하고 그쪽에서도 이름을 빼라고 경고합니다.
@@ -283,6 +289,7 @@ skills를 끄면 config에 `skills.enabled: false`가 저장되고, 이어서 �
 |------|-------------|
 | `--agent <agent>` | 경로 대신 이 Agent의 [다른 계정](#another-account)을 추가합니다. `--config-dir`과 함께 사용 |
 | `--config-dir <dir>` | 해당 계정이 사용하는 config 디렉터리 |
+| `--cli <executable>` | 해당 계정의 plugin 명령을 Agent 자체 대신 이 호환 CLI로 실행. `PATH`에 있는 이름이나 절대 경로 |
 | `--no-skills` | [skills를 끈](#skills-off) 상태로 target 추가 |
 
 ### target remove

@@ -51,9 +51,11 @@ describe('MCP project view', () => {
     await waitFor(() => expect(mcpApi.save).toHaveBeenLastCalledWith({ name: 'context7', replace: true, server: { disabled: true }, project: '/work/app' }));
   });
 
-  it('says Pi keeps loading a server turned off here, since Pi has no per-project switch', () => {
+  // Pi's switch carries the global server's command, so Pi turns it off here like the others.
+  it('turns a server off here for Pi too', () => {
     view({ docs: { command: 'npx', targets: ['opencode', 'pi'] } }, { targets: ['opencode', 'pi'], servers: { docs: { disabled: true } } });
-    expect(screen.getByText('Still loads in Pi, which has no per-project switch.')).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: 'Off in OpenCode, Pi' })).toBeInTheDocument();
+    expect(screen.queryByText(/Still loads in/)).not.toBeInTheDocument();
   });
 
   it("offers to import servers found in this project's Agent files, reading that project's file", async () => {

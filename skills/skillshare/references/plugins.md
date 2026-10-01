@@ -98,7 +98,9 @@ and OpenCode, never falling back to global scope.
   config) is a plugin target under its own name: `--target claude-work`, `--from
   claude-work`. Supported for `claude`, `codex` and `pi`. Skillshare runs that Agent's CLI
   against the account's config directory, through `CLAUDE_CONFIG_DIR`, `CODEX_HOME` or
-  `PI_CODING_AGENT_DIR`, and the account keeps its own bindings. Global scope only.
+  `PI_CODING_AGENT_DIR`, and the account keeps its own bindings. Global scope only. With
+  `cli:` it runs that compatible CLI instead (such as `omo` for Pi); a Pi account also sets
+  `SENPI_CODING_AGENT_DIR` and `OMO_CODING_AGENT_DIR`. A missing CLI fails, with no fallback.
 - Local directory plugins cannot import unowned folders or marketplace installs.
   Importing Pi/OpenCode entries with filters/options is blocked to avoid losing them.
   Supply `--name` when a native package source is not a valid logical name.

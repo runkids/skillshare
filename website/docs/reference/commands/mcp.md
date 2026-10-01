@@ -367,14 +367,14 @@ defined in the global file therefore loads in every project. To stop it loading 
 one project, add an entry **with the same name the Agent's global file uses** and
 mark it `disabled`.
 
-This works with three clients only:
+This works with four clients only:
 
 | Client | Supported | What Skillshare writes |
 |---|---|---|
 | Claude Code | Yes | `~/.claude.json`: the name, in this project's `disabledMcpServers` list |
 | OpenCode | Yes | `opencode.json`: `"NAME": {"enabled": false}` |
 | Kilo Code | Yes | `kilo.jsonc`: `"NAME": {"enabled": false}` |
-| Pi | No | Requires a complete entry: use `piOptions: {enabled: false}` on a server with command/url |
+| Pi | Yes, from `mcp.projects` | `.pi/mcp.json`: `"NAME": {"command": "...", "enabled": false}`, see below |
 | Codex | No | See below |
 | Every other client | No | Selecting one is an error; nothing is written |
 
@@ -390,6 +390,14 @@ no `command` or `url`, and Codex then fails to load its whole configuration with
 `invalid transport`. `.codex/config.toml` is usually committed, so one teammate's switch
 could stop Codex from starting for another. Turn the server off per machine instead,
 with `enabled = false` in `~/.codex/config.toml`.
+
+Pi replaces a global entry with the project entry of the same name, and skips an entry
+without a `command` or `url`. So for Pi, Skillshare writes the global server's `command`,
+or its `url` without the query, next to `enabled: false`. A disabled server is never
+started, so args, env and headers stay out of the project file, and other projects keep
+the server. Every sync rewrites the entry from the global server. This needs the global
+server, so it works for a project under `mcp.projects` in the global config; a project's
+own config cannot see the global one, and `pi` in a `disabled` entry there is an error.
 
 ### OpenCode and Kilo Code
 
@@ -958,9 +966,9 @@ connections and authorize OAuth. For simple Pi-only setup, `pi mcp add` edits th
 file; add `-l` for a project. `pi mcp list` checks connections by starting every enabled
 server; `pi mcp login NAME` requires user approval.
 
-Pi server names allow only letters, digits, `_` and `-`. Pi cannot turn off a global
-server in one project, so a `disabled` entry cannot target Pi; use
-`piOptions: {enabled: false}` on a complete entry instead.
+Pi server names allow only letters, digits, `_` and `-`. A Pi project entry replaces the
+global entry of the same name; to turn off a global server in one project, see
+[Turn off a global server in one project](#turn-off-a-global-server-in-one-project).
 
 ### Other Pi settings {#pi-options}
 
@@ -1051,7 +1059,6 @@ What the next sync does:
 | `mcp.directTools`, or a project's `directTools` under `mcp.projects` | The default is written into each server that reaches Pi and has no value of its own, as above. A project's `false` overrides the global value |
 | `piOptions.includeTools` / `excludeTools` | `tools.allow` / `tools.deny`; a `directTools` next to them still becomes `piOptions.exposure` |
 | Other `pi-mcp-adapter` fields in `piOptions`: `approveTools`, `auth`, `bearerToken`, `bearerTokenEnv`, `bearerTokenStore`, `caFile`, `debug`, `exposeResources`, `idleTimeout`, `inheritEnv`, `lifecycle`, `protocolVersion`, `requestHeadersCommand`, `requestTimeoutMs`, `searchKeywords`, `socket`, `tasks`, `toolPrefix`, `trace` | Removed, because Pi's built-in MCP does not read them |
-| `pi` in the `targets` of a `disabled` entry | `pi` is removed from that list. Pi has no switch to turn off one global server in one project, so that server is on again there |
 
 A `directTools`, `includeTools` or `excludeTools` that would overwrite an exposure the
 server already sets, or that is not a list of tool names, is dropped with its own

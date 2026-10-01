@@ -228,6 +228,19 @@ Codex 也会读取共享的 `~/.agents/skills`，但一个账号只拥有它自�
 |-------|-------------|
 | `agent` | 内置 Agent：`claude`（`CLAUDE_CONFIG_DIR`）、`codex`（`CODEX_HOME`）或 `pi`（`PI_CODING_AGENT_DIR`） |
 | `config_dir` | 该账号的配置目录。绝对路径或以 `~` 开头，不能是该 Agent 的默认目录，且只能被一个 Target 使用 |
+| `cli` | 可选。用兼容的 CLI 代替 Agent 本身来运行这个账号的 [plugin 命令](/docs/reference/commands/plugin#accounts)，例如 Pi 用 `omo`。填写 `PATH` 中的名称，或绝对路径（可以以 `~` 开头）。只能是一个可执行文件、不带参数；shell alias 不会生效 |
+
+沿用 Agent 命令的兼容 CLI 可以运行这个账号的 plugin。例如 omo 基于 Pi：
+
+```yaml
+targets:
+  omo:
+    agent: pi
+    config_dir: ~/.omo/agent
+    cli: omo
+```
+
+`cli` 只改变由哪个程序安装和移除 plugin。Skills、agents 和 MCP server 仍照常写入 `config_dir`。
 
 `mode`、`include`、`exclude` 以及其他 Target 设置的用法与任何 Target 相同。你自己写的 `skills.path` 或 `agents.path` 优先于推导出的路径。Target 名称也可以用作 [MCP target](/docs/reference/commands/mcp#accounts) 和 [plugin target](/docs/reference/commands/plugin#accounts)。 也可以作为 [hooks target](/docs/reference/commands/hooks#accounts) 使用。
 

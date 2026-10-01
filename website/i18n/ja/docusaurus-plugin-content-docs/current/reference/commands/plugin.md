@@ -101,6 +101,8 @@ skillshare plugin add owner/repo --target claude-work
 skillshare plugin import demo@market --from claude-work
 ```
 
+[`cli`](/docs/reference/targets/configuration#agent-config-dir) を設定したアカウントは、代わりにその互換 CLI（Pi アカウントなら `omo` など）を同じ Config ディレクトリに対して実行します。Pi のアカウントでは `SENPI_CODING_AGENT_DIR` と `OMO_CODING_AGENT_DIR` も設定します。Pi の fork は `PI_CODING_AGENT_DIR` より先にこの 2 つを読むためです。CLI が見つからない場合、操作は失敗します。Skillshare が Agent 本体の CLI に切り替えることはありません。
+
 アカウントは、所属する Agent の操作をそのまま引き継ぎ、自分の名前で独自のバインディングを保持します。そのため、一方のアカウントにだけ plugin をインストールすることもできます。アカウントは global スコープにのみ存在します。project の plugin は、1 つのアカウントではなく project に属します。`--target` と `--from` はアカウント名を受け付け、ターミナルのピッカーとダッシュボードの Plugins ページでは Agent と並んで一覧表示されます。
 
 ### Cursor と Antigravity

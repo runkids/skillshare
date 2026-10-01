@@ -61,6 +61,12 @@ skillshare target add claude-work --agent claude --config-dir ~/.claude-work
 
 Add as many accounts as you have, each under its own name. The name also works as an [MCP target](./mcp.md#accounts), so one sync reaches the skills, the agents and the MCP servers of every account.
 
+If the account runs a compatible CLI, such as omo for Pi, `--cli` makes its [plugin commands](./plugin.md#accounts) use that CLI:
+
+```bash
+skillshare target add omo --agent pi --config-dir ~/.omo/agent --cli omo
+```
+
 `--agent` accepts `claude` (`CLAUDE_CONFIG_DIR`), `codex` (`CODEX_HOME`) and `pi` (`PI_CODING_AGENT_DIR`). A Codex or Pi account syncs its skills to `<config_dir>/skills`; only Claude also has an agents directory. The directory must be absolute or start with `~`, must not be the Agent's default one, and cannot be shared by two targets.
 
 Removing such a target never fails because of MCP: if `mcp.targets` or a server's `targets` still names it, `skillshare target remove` removes the target and warns you to take the name out there too.
@@ -283,6 +289,7 @@ In the web dashboard, use **Stop syncing skills** on the target's Skills tab. Be
 |------|-------------|
 | `--agent <agent>` | Add [another account](#another-account) of this Agent instead of a path. Goes with `--config-dir` |
 | `--config-dir <dir>` | The config directory that account uses |
+| `--cli <executable>` | Runs that account's plugin commands with this compatible CLI instead of the Agent's. A name on `PATH` or an absolute path |
 | `--no-skills` | Add the target with [skills off](#skills-off) |
 
 ### target remove

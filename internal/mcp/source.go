@@ -343,7 +343,6 @@ func legacyNotices(legacy map[string][]legacyName) []string {
 	if len(adapter) > 0 {
 		add("Pi's built-in MCP does not read "+strings.Join(adapter, ", ")+"; the next sync removes them", keys...)
 	}
-	add("Pi cannot turn off a server per project; the next sync removes pi from these entries", "piSwitch")
 	add("directTools, includeTools and excludeTools become tool settings; the next sync converts them", "piTools")
 	add("directTools, includeTools or excludeTools the server already covers, or that are not tool lists, are dropped; the next sync removes them", "piTools.directTools", "piTools.excludeTools", "piTools.includeTools")
 	return notices

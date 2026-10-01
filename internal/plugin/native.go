@@ -68,6 +68,16 @@ func gitFailure(stderr string) (agentError, bool) {
 	return agentError{}, false
 }
 
+// missingPath reports whether bin is a path that does not exist, which is as missing as a
+// name not on PATH. A missing working directory fails with the same error, so check bin.
+func missingPath(bin string, err error) bool {
+	if !filepath.IsAbs(bin) || !errors.Is(err, os.ErrNotExist) {
+		return false
+	}
+	_, statErr := os.Stat(bin)
+	return errors.Is(statErr, os.ErrNotExist)
+}
+
 func runCommand(ctx context.Context, dir string, env []string, bin string, args ...string) ([]byte, error) {
 	ctx, cancel := context.WithTimeout(ctx, 90*time.Second)
 	defer cancel()
@@ -82,7 +92,7 @@ func runCommand(ctx context.Context, dir string, env []string, bin string, args 
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
 	if err := cmd.Run(); err != nil {
-		if errors.Is(err, exec.ErrNotFound) {
+		if errors.Is(err, exec.ErrNotFound) || missingPath(bin, err) {
 			return nil, agentError{cause: ErrCLIMissing, key: "plugins.error.cliMissing", message: fmt.Sprintf("%s CLI is not installed or not on PATH on the machine running Skillshare; install it there before syncing plugins", bin)}
 		}
 		if ctx.Err() != nil {
@@ -118,12 +128,15 @@ func (s *Service) run(ctx context.Context, target string, args ...string) ([]byt
 	}
 	// An account runs its Agent's CLI against the account's own config directory.
 	var env []string
-	if account, ok := s.account(target); ok {
-		env = append(env, accountEnv[account.Agent]+"="+account.Dir)
-	}
 	bin := s.agentOf(target)
 	if bin == "antigravity-cli" {
 		bin = "agy"
+	}
+	if account, ok := s.account(target); ok {
+		env = account.env()
+		if account.CLI != "" {
+			bin = account.CLI
+		}
 	}
 	return run(ctx, dir, env, bin, args...)
 }
@@ -156,9 +169,9 @@ func parseInventory(target string, data []byte, project string) ([]Installed, er
 	filtered := []Installed{}
 	for _, item := range result {
 		item.EnabledKnown = true
-		if !validID(item.ID) {
-			return nil, fmt.Errorf("native plugin list contains an unsupported plugin identifier")
-		}
+		// Filter by scope before validating: Claude also lists other scopes' plugins
+		// (e.g. "(suppressed)@skills-dir" for the folder it runs in), and an entry this
+		// scope never uses must not block the whole target.
 		if target == "claude" {
 			if project == "" && item.Scope != "user" {
 				continue
@@ -166,6 +179,9 @@ func parseInventory(target string, data []byte, project string) ([]Installed, er
 			if project != "" && (item.Scope != "project" || filepath.Clean(item.ProjectPath) != filepath.Clean(project)) {
 				continue
 			}
+		}
+		if !validID(item.ID) {
+			return nil, fmt.Errorf("native plugin list contains an unsupported plugin identifier")
 		}
 		filtered = append(filtered, item)
 	}

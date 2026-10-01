@@ -233,8 +233,10 @@ skillshare mcp edit docs --pi-options '{}' --no-tui
   values are refused; command values in `piOptions` are rejected even under
   non-secret keys such as `oauth.clientId`.
 - Pi server names allow only letters, digits, `_` and `-`.
-- Pi cannot take a switch-only `disabled` entry. Use `piOptions: {enabled: false}` on
-  a complete server instead.
+- A `disabled` entry under `mcp.projects` turns a global server off for Pi too: Skillshare
+  writes the global server's `command` (or `url` without the query) with `enabled: false`
+  to `.pi/mcp.json`. A project's own config cannot see the global server, so `pi` there
+  is an error.
 
 ## Tool policy
 
@@ -290,7 +292,7 @@ printing `Updated config.yaml for 0.23.0 (backup: <path>)`. `--dry-run` writes n
   apply to servers that reach Pi without their own value.
 - `piOptions.includeTools`/`excludeTools` → `tools.allow`/`tools.deny` (a
   `directTools` next to them still becomes `piOptions.exposure`).
-- Other adapter-only `piOptions` are dropped; `pi` is removed from `disabled` entries.
+- Other adapter-only `piOptions` are dropped.
 - `--pi-extension` and `--pi-options-prune`: drop them. `--direct-tools`: use
   `--pi-options '{"exposure":"direct"}'`, or `--pi-options '{"toolExposure":{"TOOL":"direct"}}'`.
 - `mcp import --from pi` still reads `mcp-adapter.json` (read-only; `mcp.json` wins on

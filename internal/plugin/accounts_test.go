@@ -2,7 +2,9 @@ package plugin
 
 import (
 	"context"
+	"errors"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -90,6 +92,57 @@ func TestAccountBindingNeedsTheAccountToBeDeclared(t *testing.T) {
 	}
 }
 
+// An account can run a compatible CLI instead of its Agent's, such as omo for Pi.
+func TestAccountRunsItsCLI(t *testing.T) {
+	var calls []string
+	s := agentAccountPluginService(t, "pi", &calls)
+	a := s.Accounts["pi-work"]
+	a.CLI = "omo"
+	s.Accounts["pi-work"] = a
+	s.host(context.Background(), "pi-work")
+	if !slices.ContainsFunc(calls, func(c string) bool { return strings.HasPrefix(c, "omo ") }) {
+		t.Fatalf("omo was not run: %v", calls)
+	}
+	calls = nil
+	s.host(context.Background(), "pi")
+	if slices.ContainsFunc(calls, func(c string) bool { return strings.HasPrefix(c, "omo ") }) {
+		t.Fatalf("the Agent itself ran the account's CLI: %v", calls)
+	}
+}
+
+// Pi forks read their own variable before PI_CODING_AGENT_DIR (omo: OMO_, then SENPI_), so
+// one exported in the user's shell would send the account's plugins to another directory.
+func TestPiAccountPointsEveryPiVariableAtItsDirectory(t *testing.T) {
+	var calls []string
+	s := agentAccountPluginService(t, "pi", &calls)
+	dir := s.Accounts["pi-work"].Dir
+	s.host(context.Background(), "pi-work")
+	want := "pi PI_CODING_AGENT_DIR=" + dir + " SENPI_CODING_AGENT_DIR=" + dir + " OMO_CODING_AGENT_DIR=" + dir
+	if !slices.Contains(calls, want) {
+		t.Fatalf("no call was %q: %v", want, calls)
+	}
+}
+
+// A path that does not exist is a missing CLI, the same as a name not on PATH.
+func TestMissingCLIPathIsReportedAsMissing(t *testing.T) {
+	_, err := runCommand(context.Background(), t.TempDir(), nil, filepath.Join(t.TempDir(), "omo"), "--version")
+	if !errors.Is(err, ErrCLIMissing) {
+		t.Fatalf("err = %v", err)
+	}
+}
+
+// A working directory that is gone fails with the same error as a missing executable.
+func TestMissingDirectoryIsNotReportedAsMissingCLI(t *testing.T) {
+	sh, err := exec.LookPath("sh")
+	if err != nil {
+		t.Skip("no sh")
+	}
+	_, err = runCommand(context.Background(), filepath.Join(t.TempDir(), "gone"), nil, sh, "-c", "true")
+	if err == nil || errors.Is(err, ErrCLIMissing) {
+		t.Fatalf("err = %v", err)
+	}
+}
+
 // agentAccountPluginService has one account of agent, named <agent>-work.
 func agentAccountPluginService(t *testing.T, agent string, calls *[]string) *Service {
 	t.Helper()
@@ -104,16 +157,6 @@ func TestCodexAccountRunsItsCLIWithCodexHome(t *testing.T) {
 	s := agentAccountPluginService(t, "codex", &calls)
 	s.host(context.Background(), "codex-work")
 	want := "codex CODEX_HOME=" + s.Accounts["codex-work"].Dir
-	if !slices.Contains(calls, want) {
-		t.Fatalf("no call was %q: %v", want, calls)
-	}
-}
-
-func TestPiAccountRunsItsCLIWithPiCodingAgentDir(t *testing.T) {
-	var calls []string
-	s := agentAccountPluginService(t, "pi", &calls)
-	s.host(context.Background(), "pi-work")
-	want := "pi PI_CODING_AGENT_DIR=" + s.Accounts["pi-work"].Dir
 	if !slices.Contains(calls, want) {
 		t.Fatalf("no call was %q: %v", want, calls)
 	}

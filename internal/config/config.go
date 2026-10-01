@@ -104,6 +104,9 @@ type TargetConfig struct {
 	// such as a second account. Its paths are then the Agent's own, moved into ConfigDir.
 	Agent     string `yaml:"agent,omitempty"`
 	ConfigDir string `yaml:"config_dir,omitempty"`
+	// CLI replaces the Agent's executable for plugin commands, for a compatible CLI such
+	// as omo for Pi: a name found on PATH or an absolute path.
+	CLI string `yaml:"cli,omitempty"`
 
 	Skills *ResourceTargetConfig `yaml:"skills,omitempty"`
 	Agents *ResourceTargetConfig `yaml:"agents,omitempty"`
@@ -769,6 +772,7 @@ func (c *Config) cloneForSave() *Config {
 		for name, tc := range c.Targets {
 			tc.Path = fold(tc.Path)
 			tc.ConfigDir = fold(tc.ConfigDir)
+			tc.CLI = fold(tc.CLI)
 			if tc.Skills != nil {
 				skills := *tc.Skills
 				skills.Path = fold(skills.Path)

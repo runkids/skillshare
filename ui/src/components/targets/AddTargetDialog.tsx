@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { ReactNode } from 'react';
-import { ArrowLeft, Bot, Check, ChevronDown, FileText, Folder, FolderPlus, Layers, Pencil, Plug, Plus, Search, Users, X } from 'lucide-react';
+import { ArrowLeft, Bot, Check, ChevronDown, FileText, Folder, FolderPlus, Layers, Pencil, Plug, Plus, Search, SquareTerminal, Users, X } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { api, type AvailableTarget, type Target } from '../../api/client';
 import { mcpTargets } from '../../api/mcp';
@@ -18,6 +18,10 @@ import { useMcpQuery } from '../../hooks/useSharedQueries';
 
 const PREVIEW_COUNT = 5;
 const SHARED_ICONS = 5;
+
+// An account's executable is a name looked up on PATH or a full path; a relative path would
+// depend on where skillshare runs, and nothing goes through a shell to split arguments.
+const cliProblem = (cli: string) => (/[\\/]/.test(cli) ? !/^(\/|~[\\/]|[A-Za-z]:[\\/])/.test(cli) : /\s/.test(cli));
 
 function FolderField({ id, label, value, onChange, hint, placeholder, disabled }: {
   id: string; label: string; value: string; onChange: (v: string) => void; hint: string; placeholder?: string; disabled: boolean;
@@ -53,7 +57,7 @@ export default function AddTargetDialog({ available, initial, existing, targets 
   const custom = mode !== 'known';
   // Another account is another config folder of an Agent; its paths follow the folder.
   const accountAgents = available.filter((a) => a.configDir).sort((a, b) => a.name.localeCompare(b.name));
-  const [account, setAccount] = useState({ agent: accountAgents[0]?.name ?? '', dir: '', named: false });
+  const [account, setAccount] = useState({ agent: accountAgents[0]?.name ?? '', dir: '', named: false, cli: '' });
   const [draft, setDraft] = useState(() => {
     const first = pool.find((a) => a.name === initial) ?? pool.find((a) => a.name === 'universal') ?? pool.find((a) => a.detected);
     return { name: first?.name ?? '', path: first?.path ?? '', agentPath: first?.agentPath ?? '' };
@@ -87,13 +91,15 @@ export default function AddTargetDialog({ available, initial, existing, targets 
   // Codex reads the shared ~/.agents/skills, outside its config folder; an account's skills
   // are always in its own folder.
   const accountSkills = dir && accountAgent ? moved(accountAgent.path) || `${dir}/skills` : '';
-  const canAdd = Boolean(draft.name.trim()) && !taken && !instructionsProblem && (mode === 'account' ? Boolean(dir && accountAgent) : Boolean(draft.path.trim()) && (custom || Boolean(known)));
+  const cli = account.cli.trim();
+  const cliInvalid = mode === 'account' && cliProblem(cli);
+  const canAdd = Boolean(draft.name.trim()) && !taken && !instructionsProblem && (mode === 'account' ? Boolean(dir && accountAgent) && !cliInvalid : Boolean(draft.path.trim()) && (custom || Boolean(known)));
   const add = async () => {
     const name = draft.name.trim();
     setBusy(true);
     setError('');
     try {
-      if (mode === 'account') await api.addAgentConfigDir(name, account.agent, dir);
+      if (mode === 'account') await api.addAgentConfigDir(name, account.agent, dir, cli || undefined);
       else await api.addTarget(name, draft.path.trim(), draft.agentPath.trim() || undefined, mode === 'custom' && instructions.path.trim() ? { path: instructions.path.trim(), import: instructions.import } : undefined, skills);
       onAdded(name);
     } catch (err) {
@@ -107,7 +113,7 @@ export default function AddTargetDialog({ available, initial, existing, targets 
     setDraft({ name: '', path: '', agentPath: '' });
     setSkills(true);
     setInstructions({ path: '', import: false });
-    setAccount({ agent: accountAgents[0]?.name ?? '', dir: '', named: false });
+    setAccount({ agent: accountAgents[0]?.name ?? '', dir: '', named: false, cli: '' });
   };
   // The name follows the folder (~/.claude-work gives claude-work) until it is typed.
   const setDir = (value: string) => {
@@ -212,12 +218,26 @@ export default function AddTargetDialog({ available, initial, existing, targets 
               ))}
             </div>
             <FolderField id="target-config-dir" label={t('targets.add.accountFolder')} value={account.dir} onChange={setDir} placeholder={accountAgent ? `${shortenHome(accountAgent.configDir!)}-work` : ''} hint={t('targets.add.accountFolderHint', { name: account.agent })} disabled={busy} />
+            <div className="ss-fld">
+              <label htmlFor="target-cli">{t('targets.add.accountCli')}</label>
+              <span className={`ss-inp ${cliInvalid ? 'err' : ''}`}>
+                <SquareTerminal size={15} className="shrink-0 text-ink-3" />
+                <input id="target-cli" className="font-mono" value={account.cli} onChange={(e) => setAccount({ ...account, cli: e.target.value })} placeholder={account.agent} spellCheck={false} autoComplete="off" disabled={busy} />
+              </span>
+              <span className={`hp ${cliInvalid ? '!text-bad' : ''}`}>{cliInvalid ? t('targets.add.accountCliInvalid') : t('targets.add.accountCliHint', { name: account.agent })}</span>
+            </div>
             {nameField}
             {dir && (
               <div className="ss-note inf">
                 <span className="flex flex-1 flex-col gap-1">
                   <span>{t('targets.add.accountWrites')}</span>
                   {[accountSkills, moved(accountAgent?.agentPath)].filter(Boolean).map((path) => <span key={path} className="break-all font-mono text-[12px]">{path}</span>)}
+                  {cli && !cliInvalid && (
+                    <>
+                      <span className="mt-1">{t('targets.add.accountCliRuns')}</span>
+                      <span className="break-all font-mono text-[12px]">{cli}</span>
+                    </>
+                  )}
                 </span>
               </div>
             )}

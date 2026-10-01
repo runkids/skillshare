@@ -36,7 +36,7 @@ mcp:
           targets: [pi, opencode]
 `
 
-var retiredFields = []string{"piExtension", "piOptionsPrune", "idleTimeout", "includeTools", "directTools", "[pi, opencode]"}
+var retiredFields = []string{"piExtension", "piOptionsPrune", "idleTimeout", "includeTools", "directTools"}
 
 // legacyService is a service over legacyConfig that records the files it backs up.
 func legacyService(t *testing.T) (*Service, *[]string) {
@@ -78,9 +78,9 @@ func TestSyncSavesTheConfigWithoutRetiredSettings(t *testing.T) {
 	if err != nil || plan.Blocked {
 		t.Fatalf("%+v %v", plan, err)
 	}
-	// Five retired kinds, the tool policy lists converted from includeTools, and what Pi's
+	// Four retired kinds, the tool policy lists converted from includeTools, and what Pi's
 	// built-in MCP needs, which the sync keeps saying after the config is saved.
-	if len(plan.Notices) != 7 || plan.Notices[6] != PiBuiltinNotice || !plan.Migrates {
+	if len(plan.Notices) != 6 || plan.Notices[5] != PiBuiltinNotice || !plan.Migrates {
 		t.Fatalf("notices: %q", plan.Notices)
 	}
 	result, err := s.Apply(plan.Revision)

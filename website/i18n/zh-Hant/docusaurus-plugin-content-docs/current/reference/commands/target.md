@@ -61,6 +61,12 @@ skillshare target add claude-work --agent claude --config-dir ~/.claude-work
 
 你有幾個帳號就新增幾個，每個各用自己的名稱。這個名稱也可以當作 [MCP target](./mcp.md#accounts) 使用，因此一次 sync 就能涵蓋每個帳號的 skills、agents 與 MCP servers。
 
+如果這個帳號使用相容的 CLI，例如 Pi 的 omo，`--cli` 會讓它的 [plugin 指令](./plugin.md#accounts)改用那個 CLI：
+
+```bash
+skillshare target add omo --agent pi --config-dir ~/.omo/agent --cli omo
+```
+
 `--agent` 接受 `claude`（`CLAUDE_CONFIG_DIR`）、`codex`（`CODEX_HOME`）與 `pi`（`PI_CODING_AGENT_DIR`）。Codex 或 Pi 帳號會把 skills 同步到 `<config_dir>/skills`；只有 Claude 另外有 agents 目錄。該目錄必須是絕對路徑或以 `~` 開頭，不能是該 Agent 的預設目錄，也不能由兩個 targets 共用。
 
 移除這類 target 不會因為 MCP 而失敗：即使 `mcp.targets` 或某個 server 的 `targets` 仍然指名它，`skillshare target remove` 還是會移除該 target，並提醒你把那邊的名稱也一併移除。
@@ -283,6 +289,7 @@ skillshare target pi --skills=false
 |------|-------------|
 | `--agent <agent>` | 新增這個 Agent 的[另一個帳號](#another-account)，而不是指定路徑。需搭配 `--config-dir` |
 | `--config-dir <dir>` | 該帳號使用的 config 目錄 |
+| `--cli <executable>` | 用這個相容的 CLI 取代 Agent 本身來執行該帳號的 plugin 指令。填 `PATH` 上的名稱或絕對路徑 |
 | `--no-skills` | 以[關閉 skills](#skills-off) 的狀態新增 target |
 
 ### target remove

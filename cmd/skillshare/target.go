@@ -97,8 +97,9 @@ Manage target skill directories.
 
 Subcommands:
   add <name> [path]      Add a target (path optional for known project targets)
-  add <name> --agent <agent> --config-dir <dir>
-                         Add another account of an Agent: its second config directory
+  add <name> --agent <agent> --config-dir <dir> [--cli <executable>]
+                         Add another account of an Agent: its second config directory.
+                         --cli runs its plugin commands with a compatible CLI instead
   add <name> ... --no-skills
                          Add a target without syncing skills to it
   remove <name>          Remove a target
@@ -131,6 +132,7 @@ Examples:
   skillshare target add cursor
   skillshare target add my-ide .my-ide/skills
   skillshare target add claude-work --agent claude --config-dir ~/.claude-work
+  skillshare target add omo --agent pi --config-dir ~/.omo/agent --cli omo
   skillshare target remove cursor
   skillshare target list
   skillshare target cursor
@@ -238,15 +240,18 @@ func reportTargetAdded(name, path string, noSkills bool) {
 // targetAddAgentConfigDir adds another config directory of a built-in Agent, such as a
 // second account. Its skills and agents paths follow the directory.
 func targetAddAgentConfigDir(name string, args []string, noSkills bool) error {
-	var agent, dir string
+	var agent, dir, cli string
 	for i := 0; i < len(args); i++ {
-		if i+1 == len(args) || (args[i] != "--agent" && args[i] != "--config-dir") {
-			return fmt.Errorf("usage: skillshare target add <name> --agent <agent> --config-dir <dir>")
+		if i+1 == len(args) || (args[i] != "--agent" && args[i] != "--config-dir" && args[i] != "--cli") {
+			return fmt.Errorf("usage: skillshare target add <name> --agent <agent> --config-dir <dir> [--cli <executable>]")
 		}
-		if args[i] == "--agent" {
+		switch args[i] {
+		case "--agent":
 			agent = args[i+1]
-		} else {
+		case "--config-dir":
 			dir = args[i+1]
+		default:
+			cli = args[i+1]
 		}
 		i++
 	}
@@ -254,7 +259,7 @@ func targetAddAgentConfigDir(name string, args []string, noSkills bool) error {
 	if err != nil {
 		return err
 	}
-	path, err := cfg.AddAgentConfigDirTarget(name, agent, dir)
+	path, err := cfg.AddAgentConfigDirTarget(name, agent, dir, cli)
 	if err != nil {
 		return err
 	}

@@ -88,6 +88,9 @@ type Server struct {
 	// Agent's global config defines. Unselecting an Agent already covers a server
 	// Skillshare defines, so a disabled server carries no command or url.
 	Disabled bool `yaml:"disabled,omitempty" json:"disabled,omitempty"`
+	// global is the global server a project's switch-only entry turns off, when the plan
+	// knows it. Pi needs its command or url to take the switch.
+	global *Server
 }
 
 // legacyServerFields chose Pi's MCP extension and opted in to pruning Pi fields, before
@@ -161,9 +164,7 @@ func (m migration) reachesPi(server *yaml.Node) bool {
 //     pi-mcp-extension is also keyed "piExtension.<extension>";
 //   - pi-mcp-adapter piOptions are dropped, keyed "piOptions.<field>";
 //   - directTools and piOptions includeTools/excludeTools become Pi exposure settings or
-//     tools (adoptAdapterTools), keyed "piTools", or are dropped, keyed "piTools.<field>";
-//   - pi and piAccounts leave the targets of a switch-only entry, keyed "piSwitch": Pi has
-//     no per-project switch, and an entry left with no targets stays, turning nothing off.
+//     tools (adoptAdapterTools), keyed "piTools", or are dropped, keyed "piTools.<field>".
 func migrateServers(servers *yaml.Node, m migration) map[string][]string {
 	found := map[string][]string{}
 	servers = deref(servers)
@@ -200,21 +201,6 @@ func migrateServers(servers *yaml.Node, m migration) map[string][]string {
 		}
 		if options := deref(field(server, "piOptions")); options != nil && options.Kind == yaml.MappingNode && len(options.Content) == 0 {
 			drop(server, "piOptions")
-		}
-		disabled := deref(field(server, "disabled"))
-		targets := deref(field(server, "targets"))
-		if disabled == nil || disabled.Tag != "!!bool" || disabled.Value != "true" || targets == nil || targets.Kind != yaml.SequenceNode {
-			continue
-		}
-		kept := []*yaml.Node{}
-		for _, target := range targets.Content {
-			if value := deref(target).Value; value != "pi" && !slices.Contains(m.piAccounts, value) {
-				kept = append(kept, target)
-			}
-		}
-		if len(kept) < len(targets.Content) {
-			targets.Content = kept
-			found["piSwitch"] = append(found["piSwitch"], name)
 		}
 	}
 	return found

@@ -51,7 +51,7 @@ import jazzColor from '../assets/agents/jazz-color.svg?url';
 // mcpjam: Apache-2.0 (LICENSE excludes only /server/services), https://github.com/MCPJam/inspector/blob/main/mcpjam-inspector/client/public/mcp_jam.svg
 import mcpjamColor from '../assets/agents/mcpjam-color.svg?url';
 // pi: https://pi.dev/logo-auto.svg, cropped to the mark; its colors are the brand's in the MIT repo,
-// https://github.com/badlogic/pi-mono/blob/main/packages/coding-agent/src/modes/interactive/components/pi-logo.ts
+// https://github.com/earendil-works/pi/blob/main/packages/coding-agent/src/modes/interactive/components/pi-logo.ts
 import piColor from '../assets/agents/pi-color.svg?url';
 // pochi: Apache-2.0, https://github.com/TabbyML/pochi/blob/main/packages/vscode/assets/icons/pochi-logo.svg
 import pochiMono from '../assets/agents/pochi.svg?url';

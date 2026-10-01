@@ -567,6 +567,25 @@ func TestHandleAddTarget_AgentConfigDir(t *testing.T) {
 	}
 }
 
+// cli names the compatible executable for the account's plugin commands, such as omo for Pi.
+func TestHandleAddTarget_AgentConfigDirCLI(t *testing.T) {
+	s, _ := newTestServer(t)
+	dir := filepath.Join(t.TempDir(), ".omo", "agent")
+	rr := httptest.NewRecorder()
+	s.handler.ServeHTTP(rr, httptest.NewRequest(http.MethodPost, "/api/targets", strings.NewReader(`{"name":"omo","agent":"pi","configDir":"`+dir+`","cli":"omo"}`)))
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rr.Code, rr.Body.String())
+	}
+	if saved, _ := os.ReadFile(config.ConfigPath()); !strings.Contains(string(saved), "cli: omo") {
+		t.Errorf("cli was not saved:\n%s", saved)
+	}
+	rr = httptest.NewRecorder()
+	s.handler.ServeHTTP(rr, httptest.NewRequest(http.MethodGet, "/api/targets", nil))
+	if !strings.Contains(rr.Body.String(), `"cli":"omo"`) {
+		t.Errorf("cli was not listed: %s", rr.Body.String())
+	}
+}
+
 func TestHandleAvailableTargets_NamesTheConfigDir(t *testing.T) {
 	s, _ := newTestServer(t)
 	rr := httptest.NewRecorder()

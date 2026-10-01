@@ -120,6 +120,8 @@ skillshare plugin add owner/repo --target claude-work
 skillshare plugin import demo@market --from claude-work
 ```
 
+An account with [`cli`](/docs/reference/targets/configuration#agent-config-dir) runs that compatible CLI instead, such as `omo` for a Pi account, against the same config directory. A Pi account also sets `SENPI_CODING_AGENT_DIR` and `OMO_CODING_AGENT_DIR`, which Pi forks read before `PI_CODING_AGENT_DIR`. If the CLI cannot be found, the operation fails; Skillshare does not fall back to the Agent's own.
+
 The account takes the operations of the Agent it belongs to and keeps its own bindings under its own name, so a plugin can be installed in one account and not in the other. Accounts exist in global scope only: a project's plugins belong to the project, not to one account. `--target` and `--from` accept the account name, and the terminal picker and the dashboard's Plugins page list it next to the Agents.
 
 ### Cursor and Antigravity

@@ -197,7 +197,7 @@
       "type": "object",
       "description": "Configuration for a single sync target. Supports both legacy flat format (path/mode/include/exclude) and new resource sub-keys (skills/agents). Legacy flat fields are auto-migrated to skills: on load.",
       "additionalProperties": false,
-      "dependentRequired": { "agent": ["config_dir"], "config_dir": ["agent"] },
+      "dependentRequired": { "agent": ["config_dir"], "config_dir": ["agent"], "cli": ["agent", "config_dir"] },
       "properties": {
         "agent": {
           "type": "string",
@@ -208,6 +208,11 @@
           "type": "string",
           "description": "The config directory this account of the Agent uses, the one CLAUDE_CONFIG_DIR, CODEX_HOME or PI_CODING_AGENT_DIR points at. Absolute or starting with ~, and not the Agent's default one.",
           "examples": ["~/.claude-work", "~/.codex-work", "~/.pi/work"]
+        },
+        "cli": {
+          "type": "string",
+          "description": "Runs this account's plugin commands with a compatible CLI instead of the Agent's own, such as omo for Pi. A name found on PATH, or an absolute path that may start with ~. One executable, without arguments; shell aliases are not seen. Goes with agent and config_dir.",
+          "examples": ["omo", "~/bin/omo"]
         },
         "path": {
           "type": "string",

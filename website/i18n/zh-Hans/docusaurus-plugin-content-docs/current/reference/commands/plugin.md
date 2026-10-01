@@ -112,6 +112,8 @@ skillshare plugin add owner/repo --target claude-work
 skillshare plugin import demo@market --from claude-work
 ```
 
+设置了 [`cli`](/docs/reference/targets/configuration#agent-config-dir) 的账号会改用那个兼容的 CLI，例如 Pi 账号用 `omo`，并针对同一个配置目录运行。Pi 账号还会设置 `SENPI_CODING_AGENT_DIR` 和 `OMO_CODING_AGENT_DIR`，因为 Pi 的 fork 会先读这两个变量，再读 `PI_CODING_AGENT_DIR`。找不到 CLI 时操作会失败；Skillshare 不会改用 Agent 本身的 CLI。
+
 这个账号会沿用它所属 Agent 的各项操作，并以自己的名称保存自己的绑定，因此一个 plugin 可以只安装在其中一个账号而不装在另一个账号。账号只存在于 global 作用域：项目的 plugins 属于该项目，而不属于某一个账号。`--target` 和 `--from` 都接受账号名称，终端选择器和仪表盘的 Plugins 页面也会把它列在各个 Agent 旁边。
 
 ### Cursor 与 Antigravity
