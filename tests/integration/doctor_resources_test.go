@@ -63,6 +63,23 @@ func TestDoctor_JSON_HooksPendingSyncIsWarning(t *testing.T) {
 	}
 }
 
+func TestDoctor_JSON_GitHooksWithoutGitAreInactive(t *testing.T) {
+	sb := newHooksSandbox(t)
+	defer sb.Cleanup()
+	sb.WriteConfig("source: " + sb.SourcePath + "\ntargets: {}\n")
+	entry := filepath.Join(sb.Root, "git-entry.yaml")
+	sb.WriteFile(entry, "bindings:\n  git:\n    commands:\n      check:\n        events: [pre-commit]\n        command: \"true\"\n")
+	sb.RunCLI("hooks", "add", "git-check", "--file", entry, "-g").AssertSuccess(t)
+
+	// An empty PATH makes Git unavailable to the doctor run only.
+	out := parseDoctorJSON(t, sb.RunCLIEnv(map[string]string{"PATH": ""}, "doctor", "--json").Stdout)
+
+	details := strings.Join(doctorCheckNamed(t, out, "hooks").Details, "\n")
+	if !strings.Contains(details, "inactive: git not found") || strings.Contains(details, "not synced") {
+		t.Fatalf("want Git reported as missing, not as an unsynced change, got %q", details)
+	}
+}
+
 func TestDoctor_JSON_PluginMissingCLIIsWarning(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()

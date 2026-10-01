@@ -125,6 +125,7 @@ func checkHooksEntries(service *hooks.Service, result *doctorResult) {
 		return
 	}
 	var errors, warnings []string
+	syncable := false
 	if inv.PreviewError != "" {
 		errors = append(errors, "sync preview failed: "+inv.PreviewError)
 	} else if inv.Plan != nil {
@@ -132,9 +133,14 @@ func checkHooksEntries(service *hooks.Service, result *doctorResult) {
 			line := c.Name + " → " + c.Target
 			switch c.Action {
 			case "unchanged":
+			case "inactive":
+				// Sync cannot fix these: the message names what is missing, such as Git.
+				warnings = append(warnings, line+": inactive: "+c.Message)
 			case "conflict":
+				syncable = true
 				warnings = append(warnings, line+": conflict: "+c.Message)
 			default:
+				syncable = true
 				warnings = append(warnings, line+": not synced ("+c.Action+")")
 			}
 		}
@@ -145,7 +151,7 @@ func checkHooksEntries(service *hooks.Service, result *doctorResult) {
 		ui.Success("%s", ok)
 	}
 	printResourceFindings(errors, warnings)
-	if len(warnings) > 0 {
+	if syncable {
 		ui.Info("  Run: skillshare sync hooks")
 	}
 	addResourceCheck(result, "hooks", "Hooks", ok, errors, warnings)
