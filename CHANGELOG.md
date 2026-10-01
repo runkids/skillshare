@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.23.2](https://github.com/runkids/skillshare/compare/v0.23.1...v0.23.2) (2026-10-01)
+
+
+* **release:** release 0.23.2 ([99f45ce](https://github.com/runkids/skillshare/commit/99f45ce924bcad29f895dea3597fab16c9d5523d))
+
+
+### New Features
+
+* **doctor:** check MCP servers, hooks, plugins and extras drift ([5dd0260](https://github.com/runkids/skillshare/commit/5dd0260ad34c277496058e03d7b712efc3bc88ba))
+* **hooks:** manage Git config hooks ([#310](https://github.com/runkids/skillshare/issues/310)) ([1a2389d](https://github.com/runkids/skillshare/commit/1a2389dea21daffb1a6186f6aa1244eea6a161d3))
+* **mcp:** validate Pi 1.0 oauth.authServerMetadataUrl ([#318](https://github.com/runkids/skillshare/issues/318)) ([8af5405](https://github.com/runkids/skillshare/commit/8af54053ccbe49a566bb107c057020d31254737b))
+* **ui:** set backup retention limits and delete all backups ([ffabe1a](https://github.com/runkids/skillshare/commit/ffabe1a86a250b545e09436f59801837f529d1a2))
+* **ui:** share several plugins as one install command ([b86b52a](https://github.com/runkids/skillshare/commit/b86b52a49151e7c397d75590ea109f80d5df5436))
+
+
+### Bug Fixes
+
+* **hooks:** Git hook follow-ups from [#310](https://github.com/runkids/skillshare/issues/310) ([#317](https://github.com/runkids/skillshare/issues/317)) ([9bdc1b3](https://github.com/runkids/skillshare/commit/9bdc1b3a22780acf2535bbd196fc7d68b80236c5))
+* **ui:** add shared plugins globally ([b2f7ee3](https://github.com/runkids/skillshare/commit/b2f7ee395ceaa56f942982346742c7218b01dd82))
+
 ## [0.23.1] - 2026-10-01
 
 ### New Features
