@@ -55,6 +55,9 @@ internal/server/dist/
 # Host verification environment (scripts/verify.sh)
 .verify-home/
 
+# Python bytecode from scripts run in the devcontainer
+__pycache__/
+
 # Air hot-reload
 tmp/
 MEMORY.md
