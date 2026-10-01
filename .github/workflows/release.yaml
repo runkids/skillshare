@@ -93,6 +93,9 @@ jobs:
           TAG: ${{ inputs.tag }}
         run: |
           tar czf skillshare-ui-dist.tar.gz -C ui/dist .
+          # GoReleaser refuses a dirty tree. Exclude the archive locally, since a rebuild checks out
+          # an existing tag whose .gitignore cannot change.
+          echo /skillshare-ui-dist.tar.gz >> .git/info/exclude
           python3 scripts/release/release.py notes --tag "$TAG" > "$RUNNER_TEMP/release-notes.md"
 
       - name: Build and upload draft assets
