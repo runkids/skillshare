@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.23.3](https://github.com/runkids/skillshare/compare/v0.23.2...v0.23.3) (2026-10-01)
+
+
+### Bug Fixes
+
+* **plugin:** clean up and explain Skillshare marketplaces ([#321](https://github.com/runkids/skillshare/issues/321)) ([7f3b5e7](https://github.com/runkids/skillshare/commit/7f3b5e7b1ef9f7c9f56d68b8adaf02db3ff3c6d4))
+
 ## [0.23.2] - 2026-10-02
 
 ### New Features
