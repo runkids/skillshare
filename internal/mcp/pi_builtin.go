@@ -55,7 +55,7 @@ func validPiExposure(value any) bool {
 	return false
 }
 
-// Known fields follow Pi 0.99.2; unknown per-server fields stay available to custom builds.
+// Known fields follow Pi 1.0.0; unknown per-server fields stay available to custom builds.
 func validatePiBuiltinOptions(name string, options map[string]any) error {
 	if value, ok := options["enabled"]; ok {
 		if _, ok := value.(bool); !ok {
@@ -117,6 +117,14 @@ func validatePiBuiltinOptions(name string, options map[string]any) error {
 			}
 			if port, exists := oauth["callbackPort"]; exists && u.Port() != "" && fmt.Sprint(port) != u.Port() {
 				return bad("oauth.callbackPort")
+			}
+		}
+		// Pi 1.0 trusts this document instead of discovery, so it requires https except on loopback.
+		if value, exists := oauth["authServerMetadataUrl"]; exists {
+			text, _ := value.(string)
+			u, err := url.Parse(text)
+			if err != nil || u.Host == "" || u.User != nil || u.Scheme != "https" && !(u.Scheme == "http" && loopbackHost(u.Hostname())) {
+				return bad("oauth.authServerMetadataUrl (https, or http on localhost)")
 			}
 		}
 	}

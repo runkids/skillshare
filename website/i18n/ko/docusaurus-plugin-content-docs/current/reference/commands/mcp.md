@@ -962,6 +962,9 @@ global 항목을 통째로 대체합니다. 한 프로젝트에서 global 서버
 - `auth: {provider: NAME}`은 해당 provider의 `/login` 토큰을 bearer 토큰으로 보냅니다.
   https `url`(localhost는 http도 가능)이 필요하며, Pi가 global 파일에서만 읽으므로 global
   모드에서만 쓸 수 있습니다.
+- `oauth.authServerMetadataUrl`(Pi 1.0 이상)은 https(localhost는 http도 가능)여야 합니다. Pi가
+  자동 탐색 대신 이 문서를 그대로 신뢰하기 때문입니다. Pi 1.0은 OAuth 로그인을 server 이름과
+  URL별로 저장하므로, server 이름이나 `url`을 바꾼 뒤에는 Pi에서 다시 로그인해야 합니다.
 - 연결 필드는 메인 폼에 둡니다. `directTools`, `includeTools`, `excludeTools`와 그 밖의
   `pi-mcp-adapter` 설정은 Pi 내장 MCP가 읽지 않으므로 거부됩니다. 대신 `tools`를
   사용하세요.

@@ -125,6 +125,18 @@ const adapterFields = new Set(['approveTools', 'auth', 'bearerToken', 'bearerTok
 
 export const piExposures = ['codemode', 'codemode-deferred', 'deferred', 'direct', 'hidden'];
 
+/** Mirrors validatePiBuiltinOptions: Pi 1.0 trusts oauth.authServerMetadataUrl, so it must be https except on loopback. */
+const metadataURL = (value: unknown) => {
+  if (typeof value !== 'string') return false;
+  try {
+    const u = new URL(value);
+    const loopback = ['localhost', '127.0.0.1', '[::1]'].includes(u.hostname);
+    return Boolean(u.host) && !u.username && !u.password && (u.protocol === 'https:' || (u.protocol === 'http:' && loopback));
+  } catch {
+    return false;
+  }
+};
+
 /**
  * piOptions as typed. An empty box sets nothing; `invalid` is text that is not a JSON object, `taken` a field Skillshare writes,
  * `adapter`/`adapterTools` a pi-mcp-adapter field, and `overlap` Pi's toolExposure while the server has a tool policy (`tools`), which writes it.
@@ -157,6 +169,7 @@ export const parsePiOptions = (text: string, tools = false): { value?: Record<st
       }
       const port = options.oauth.callbackPort;
       if (port !== undefined && (!Number.isInteger(port) || Number(port) < 1 || Number(port) > 65535)) return { bad: 'oauth.callbackPort' };
+      if ('authServerMetadataUrl' in options.oauth && !metadataURL(options.oauth.authServerMetadataUrl)) return { bad: 'oauth.authServerMetadataUrl' };
     }
     if ('auth' in options && (!object(options.auth) || typeof options.auth.provider !== 'string' || !options.auth.provider)) return { bad: 'auth.provider' };
     return { value: options };

@@ -122,6 +122,22 @@ func TestPiOptionsRejectNonSecretCommands(t *testing.T) {
 	}
 }
 
+func TestPiOAuthMetadataURLNeedsHTTPS(t *testing.T) {
+	for metadata, ok := range map[string]bool{
+		"https://example.okta.com/.well-known/openid-configuration":    true,
+		"http://localhost:8080/.well-known/oauth-authorization-server": true,
+		"http://[::1]/metadata":                               true,
+		"http://example.com/.well-known/openid-configuration": false,
+		"https://user:pass@example.com/metadata":              false,
+		"/.well-known/openid-configuration":                   false,
+	} {
+		_, err := Render("pi", Server{URL: "https://example.com/mcp", PiOptions: PiOptions{"oauth": map[string]any{"authServerMetadataUrl": metadata}}})
+		if (err == nil) != ok {
+			t.Errorf("%s: want accepted=%v, got %v", metadata, ok, err)
+		}
+	}
+}
+
 func TestPiImportSourcesAndPaths(t *testing.T) {
 	s := testService(t)
 	dir := filepath.Join(s.Home, "custom-pi")

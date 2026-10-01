@@ -994,6 +994,9 @@ them.
 - `auth: {provider: NAME}` sends that provider's `/login` token as the bearer token. It
   needs an https `url`, or http on localhost, and only works in global mode, because Pi
   reads it only from its global file.
+- `oauth.authServerMetadataUrl` (Pi 1.0+) must use https, or http on localhost, because
+  Pi trusts that document instead of discovery. Pi 1.0 keeps OAuth sign-ins per server
+  name and URL, so renaming a server or changing its `url` needs a new sign-in in Pi.
 - Connection fields belong in the main form. `directTools`, `includeTools`,
   `excludeTools` and the other `pi-mcp-adapter` settings are refused, because Pi's
   built-in MCP does not read them; use `tools` instead.

@@ -936,6 +936,9 @@ Pi 的 server 名称只允许字母、数字、`_` 和 `-`；只差在 `-` 和 `
 - `auth: {provider: NAME}` 会把该 provider 的 `/login` token 作为 bearer token 发送。
   它需要 https 的 `url`（localhost 可用 http），且只能在 global 模式使用，因为 Pi 只从
   global 文件读取它。
+- `oauth.authServerMetadataUrl`（Pi 1.0 及以上）必须使用 https（localhost 可用 http），因为 Pi
+  会直接信任这份文档，不再自动发现。Pi 1.0 按 server 名称和 URL 保存 OAuth 登录，所以
+  重命名 server 或修改它的 `url` 后，需要在 Pi 重新登录。
 - 连接字段请使用主表单。`directTools`、`includeTools`、`excludeTools` 以及
   `pi-mcp-adapter` 的其他设置会被拒绝，因为 Pi 的内置 MCP 不会读取它们；请改用 `tools`。
 - 顶层 `settings` 和 `autoEnableCodemode` 不是 server 选项：请直接在 Pi 中编辑，

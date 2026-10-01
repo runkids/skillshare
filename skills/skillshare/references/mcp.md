@@ -211,6 +211,9 @@ Personal servers and servers with credentials belong in the global file. Project
 files are for project-required servers in trusted projects; a project entry replaces
 the whole global entry. Skillshare edits files with preview/backup; it does not grant
 trust, launch servers, install extensions, or authorize OAuth.
+`oauth.authServerMetadataUrl` (Pi 1.0+) needs https, or http on localhost. Pi 1.0 keeps
+OAuth sign-ins per server name and URL, so renaming a server or changing its `url`
+needs a new sign-in in Pi.
 
 Use `pi mcp add` for simple Pi-only setup (`-l` for project). After sync use `/reload`
 or a new session, and `/mcp` to inspect connections. `pi mcp list` launches every

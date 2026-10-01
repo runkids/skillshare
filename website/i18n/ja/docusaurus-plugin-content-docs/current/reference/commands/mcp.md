@@ -843,6 +843,9 @@ Pi のサーバー名には英数字、`_`、`-` のみを使えます。`-` と
   フィールドはそのまま渡されます。
 - `auth: {provider: NAME}` は、そのプロバイダーの `/login` トークンを bearer トークンとして送ります。https の
   `url`（localhost なら http も可）が必要で、Pi は global ファイルからしか読まないため global モードでのみ使えます。
+- `oauth.authServerMetadataUrl`（Pi 1.0 以降）は https（localhost なら http も可）が必要です。Pi は検出の代わりに
+  このドキュメントを信頼するためです。Pi 1.0 は OAuth のサインインを server 名と URL ごとに保存するので、
+  server の名前や `url` を変えた後は Pi で再度サインインしてください。
 - 接続フィールドはメインフォームに入力します。`directTools`、`includeTools`、`excludeTools` など
   `pi-mcp-adapter` の設定は、Pi の内蔵 MCP が読まないため拒否されます。代わりに `tools` を使ってください。
 - トップレベルの `settings` と `autoEnableCodemode` はサーバーのオプションではありません。Pi で直接

@@ -176,6 +176,12 @@ describe('parsePiOptions', () => {
       .toEqual([{ value: { auth: { provider: 'github' }, oauth: { clientName: 'Claude Code' } } }, { adapter: 'auth' }, { bad: 'auth.provider' }, { bad: 'oauth.clientName' }]);
   });
 
+  it('accepts an https or loopback oauth.authServerMetadataUrl, as Pi 1.0 requires', () => {
+    const parse = (url: string) => parsePiOptions(JSON.stringify({ oauth: { authServerMetadataUrl: url } })).bad;
+    expect(['https://example.okta.com/.well-known/openid-configuration', 'http://localhost:8080/meta', 'http://[::1]/meta', 'http://example.com/meta', 'https://u:p@example.com/meta', '/meta'].map(parse))
+      .toEqual([undefined, undefined, undefined, 'oauth.authServerMetadataUrl', 'oauth.authServerMetadataUrl', 'oauth.authServerMetadataUrl']);
+  });
+
   it("refuses only Pi's toolExposure while the server has a tool policy", () => {
     expect([parsePiOptions('{"toolExposure": {"a": "hidden"}}', true), parsePiOptions('{"exposure": "direct"}', true)])
       .toEqual([{ overlap: 'toolExposure' }, { value: { exposure: 'direct' } }]);
