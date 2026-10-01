@@ -99,6 +99,8 @@ skillshare ui start --clear-cache
 | **Audit** | Skill と Agent のセキュリティスキャン。重大度別の検出結果を表示。**Rules** タブでは、カテゴリごとにすべてのルールを閲覧できる: ルールをオフにする、重大度を変更する、カテゴリ全体に重大度を適用する、スキャンプロファイル（`default`、`strict`、`permissive`）を選ぶ、カスタム `audit-rules.yaml` のエディタを開く、のいずれかができる |
 | **Settings** | タブ分け: **General**（Source パス、sync モード、外観）、**Backup**（Target フォルダのスナップショット、`AGENTS.md` などのファイルの以前のバージョン、MCP 設定のバックアップ。[`backup`](./backup.md#dashboard) を参照）、**Log**（操作履歴）、**Health**（[`doctor`](/docs/reference/commands/doctor) と同じチェック）、**Extensions**（sync 時のファイル変換）、**Files**（`config.yaml`、`.skillignore`、`.agentignore` の直接編集） |
 
+変更一覧の横の **変更を破棄** は、確認後に選択した Git スコープ内の追跡中のファイルとステージング領域を最後のコミットに戻し、未追跡のファイルとフォルダーを削除します。Git に無視されたファイル、入れ子になった Git リポジトリ、`root` スコープの `config.yaml` は保持されます。コミット履歴の変更やリモートへのプッシュは行わず、この操作は元に戻せません。**ドライラン** はファイルを変更せずプレビューします。変更を破棄するには、リポジトリに最初のコミットが必要です。
+
 **Updates** タブでは、プログレスバーに更新の進行状況が表示され、更新中の行が示されます。ブロックされた更新や失敗した更新は別のセクションに表示されます。
 
 `/collect`、`/install`、`/search`、`/trash`、`/analyze`、`/backup`、`/log`、`/doctor` などの古いリンクは、新しい場所にリダイレクトされます。
@@ -134,12 +136,12 @@ Project mode（`-p`）で実行すると、ダッシュボードは以下のよ�
 ## UI プレビュー
 
 <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1rem'}}>
-  <img src="/img/web-install-demo.png" alt="Install flow" />
-  <img src="/img/web-dashboard-demo.png" alt="Dashboard overview" />
-  <img src="/img/web-skills-demo.png" alt="Skills browser" />
-  <img src="/img/web-skill-detail-demo.png" alt="Skill detail view" />
-  <img src="/img/web-sync-demo.png" alt="Sync controls" />
-  <img src="/img/web-search-skills-demo.png" alt="GitHub search view" />
+  <img src="/img/web-install-demo.png" alt="インストールの流れ" />
+  <img src="/img/web-dashboard-demo.png" alt="ダッシュボードの概要" />
+  <img src="/img/web-skills-demo.png" alt="スキル一覧" />
+  <img src="/img/web-skill-detail-demo.png" alt="スキルの詳細画面" />
+  <img src="/img/web-sync-demo.png" alt="同期操作" />
+  <img src="/img/web-search-skills-demo.png" alt="GitHub の検索画面" />
   <img src="/img/web-projects-demo.png" alt="プロジェクトフォルダーを一覧表示する Projects ページ" />
 </div>
 
@@ -160,6 +162,7 @@ Web ダッシュボードは `/api/` に REST API を公開しています。す
 | DELETE | `/api/targets/{name}` | Target を削除 |
 | POST | `/api/sync` | sync を実行（`dryRun`、`force`、`kind`、`project` に対応。`project` は宣言済みの project ルートで、sync をその project の Target に限定する）。`dryRun` が指定されていない限り、まず Target をバックアップする |
 | POST | `/api/git/commit` | Source リポジトリからプッシュせずにローカル git commit を作成 |
+| POST | `/api/git/discard` | 設定された Git スコープ内の未コミットの変更を破棄（グローバルモードのみ。リポジトリに最初のコミットが必要）。`dryRun` に対応。Git に無視されたファイル、入れ子になった Git リポジトリ、`root` スコープの `config.yaml` を保持 |
 | GET | `/api/git/status` | まだプッシュされていないコミット（`ahead`）と、最後の fetch 時点でまだプルしていない upstream のコミット（`behind`）を含む、Source リポジトリの状態。fetch は行わない |
 | POST | `/api/push` | 変更をコミットしてからプッシュ。初回プッシュ時は upstream を設定する。remote にこのリポジトリにないコミットがある場合、`409` とエラーコード `push_rejected` で失敗する。プルしてから再度プッシュする |
 | POST | `/api/pull` | プルしてから、リポジトリのスコープが保持するものを sync する。分岐した履歴はマージされる。`.metadata.json` の競合は自動で解決され、それ以外の競合ではマージを取り消して失敗する。最初のプルがマージできない場合、エラーコード `merge_failed` で失敗する。`force: true` で再試行すると、remote ブランチでローカルファイルを置き換える |

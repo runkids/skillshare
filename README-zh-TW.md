@@ -26,12 +26,8 @@
 </p>
 
 <p align="center">
-  <strong>AI CLI 的 skills、agents、rules、commands 等資源，只需要一份來源。一個指令同步到所有工具，個人到整個組織都適用。</strong><br>
+  <strong>AI CLI 的 skills、agents、rules、commands 等資源共用單一來源。用桌面 App 管理，或用一個指令同步到所有工具，從個人使用到整個組織。</strong><br>
   支援 Codex、Claude Code、OpenClaw、OpenCode 等 60 多種工具。
-</p>
-
-<p align="center">
-  <img src=".github/assets/demo.gif" alt="skillshare demo" width="960">
 </p>
 
 <p align="center">
@@ -40,7 +36,7 @@
   <a href="#快速開始">快速開始</a> •
   <a href="#功能重點">功能重點</a> •
   <a href="#cli-與介面預覽">畫面截圖</a> •
-  <a href="https://github.com/runkids/skillshare-app">桌面 App</a> •
+  <a href="#desktop-app">桌面 App</a> •
   <a href="https://skillshare.runkids.cc/docs">文件</a>
 </p>
 
@@ -105,6 +101,10 @@ skillshare 解決這個問題：
 
 ## CLI 與介面預覽
 
+<p align="center">
+  <img src=".github/assets/demo.gif" alt="skillshare demo" width="960">
+</p>
+
 | Skill 詳細資訊 | 安全稽核 |
 |---|---|
 | <img src=".github/assets/skill-detail-tui.png" alt="Skill 詳細資訊" width="480" height="300"> | <img src=".github/assets/audit-tui.png" alt="安全稽核" width="480" height="300"> |
@@ -115,7 +115,25 @@ skillshare 解決這個問題：
 
 ## 安裝
 
-### macOS / Linux
+> [!TIP]
+> **用桌面 App 管理 skillshare。** [下載 Skillshare App](https://github.com/runkids/skillshare-app/releases/latest)，支援 macOS（Apple Silicon）、Windows 與 Linux。首次啟動會引導你安裝或選取 CLI、選擇 AI 工具，並完成第一次同步。[安裝指南](https://skillshare.runkids.cc/zh-Hant/docs/getting-started/desktop-app)。
+
+<a id="desktop-app"></a>
+
+### 桌面 App — 圖形化設定與日常管理
+
+[Skillshare App](https://github.com/runkids/skillshare-app) 把技能、代理、MCP 與 hooks 整合在桌面視窗中。安裝並開啟 App，再依首次啟動的引導完成設定。
+
+macOS（Apple Silicon），使用 Homebrew：
+
+```bash
+brew tap runkids/tap
+brew install --cask skillshare-app
+```
+
+**Windows／Linux，或手動安裝 macOS 版本：**[下載最新 App 安裝包](https://github.com/runkids/skillshare-app/releases/latest)。各平台的詳細說明請見[桌面 App 安裝指南](https://skillshare.runkids.cc/zh-Hant/docs/getting-started/desktop-app)。
+
+### CLI：macOS / Linux
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/runkids/skillshare/main/install.sh | sh
@@ -129,7 +147,7 @@ curl -fsSL https://raw.githubusercontent.com/runkids/skillshare/main/install.sh 
 irm https://raw.githubusercontent.com/runkids/skillshare/main/install.ps1 | iex
 ```
 
-### Homebrew
+### CLI：Homebrew
 
 ```bash
 brew install skillshare

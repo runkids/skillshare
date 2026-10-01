@@ -958,9 +958,9 @@ connections and authorize OAuth. For simple Pi-only setup, `pi mcp add` edits th
 file; add `-l` for a project. `pi mcp list` checks connections by starting every enabled
 server; `pi mcp login NAME` requires user approval.
 
-Pi server names allow only letters, digits, `_` and `-`. Pi cannot turn off a global
-server in one project, so a `disabled` entry cannot target Pi; use
-`piOptions: {enabled: false}` on a complete entry instead.
+Pi server names allow only letters, digits, `_` and `-`. A Pi project entry replaces the
+global entry of the same name, so Pi cannot take a switch-only `disabled` entry. To turn
+off a global server in one project, use `piOptions: {enabled: false}` on a complete entry.
 
 ### Other Pi settings {#pi-options}
 
@@ -1051,7 +1051,7 @@ What the next sync does:
 | `mcp.directTools`, or a project's `directTools` under `mcp.projects` | The default is written into each server that reaches Pi and has no value of its own, as above. A project's `false` overrides the global value |
 | `piOptions.includeTools` / `excludeTools` | `tools.allow` / `tools.deny`; a `directTools` next to them still becomes `piOptions.exposure` |
 | Other `pi-mcp-adapter` fields in `piOptions`: `approveTools`, `auth`, `bearerToken`, `bearerTokenEnv`, `bearerTokenStore`, `caFile`, `debug`, `exposeResources`, `idleTimeout`, `inheritEnv`, `lifecycle`, `protocolVersion`, `requestHeadersCommand`, `requestTimeoutMs`, `searchKeywords`, `socket`, `tasks`, `toolPrefix`, `trace` | Removed, because Pi's built-in MCP does not read them |
-| `pi` in the `targets` of a `disabled` entry | `pi` is removed from that list. Pi has no switch to turn off one global server in one project, so that server is on again there |
+| `pi` in the `targets` of a `disabled` entry | `pi` is removed from that list. Pi cannot take a switch-only entry, so that server is on again there; to keep it off, add a complete entry with `piOptions: {enabled: false}` |
 
 A `directTools`, `includeTools` or `excludeTools` that would overwrite an exposure the
 server already sets, or that is not a list of tool names, is dropped with its own

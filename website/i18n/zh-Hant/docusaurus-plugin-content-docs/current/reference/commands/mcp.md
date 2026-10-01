@@ -872,9 +872,9 @@ mcp:
 可用 `pi mcp add` 編輯全域檔案；加 `-l` 寫入 project 檔案。`pi mcp list` 會啟動所有啟用的
 server 檢查連線；`pi mcp login NAME` 需要使用者授權。
 
-Pi 的 server 名稱只接受字母、數字、`_` 和 `-`。Pi 無法在單一 project 中關閉 global
-server，因此 `disabled` 項目不能以 Pi 為目標；請改在完整的項目上使用
-`piOptions: {enabled: false}`。
+Pi 的 server 名稱只接受字母、數字、`_` 和 `-`。Pi 的 project 項目會整筆取代 global
+中的同名項目，因此 Pi 無法接受只有開關的 `disabled` 項目。要在單一 project 中關閉
+global server，請改在完整的項目上使用 `piOptions: {enabled: false}`。
 
 ### 其他 Pi 設定 {#pi-options}
 
@@ -958,7 +958,7 @@ servers，例如：
 | `mcp.directTools`，或 `mcp.projects` 下某個 project 的 `directTools` | 預設值會依上述方式，寫入每個送往 Pi 且沒有自己值的 server。project 的 `false` 會覆寫 global 的值 |
 | `piOptions.includeTools` / `excludeTools` | `tools.allow` / `tools.deny`；同時設定的 `directTools` 仍會轉為 `piOptions.exposure` |
 | `piOptions` 中其他 `pi-mcp-adapter` 欄位：`approveTools`、`auth`、`bearerToken`、`bearerTokenEnv`、`bearerTokenStore`、`caFile`、`debug`、`exposeResources`、`idleTimeout`、`inheritEnv`、`lifecycle`、`protocolVersion`、`requestHeadersCommand`、`requestTimeoutMs`、`searchKeywords`、`socket`、`tasks`、`toolPrefix`、`trace` | 移除，因為 Pi 內建 MCP 不會讀取它們 |
-| `disabled` 項目 `targets` 中的 `pi` | 從該清單中移除 `pi`。Pi 沒有在單一 project 關閉某個 global server 的開關，所以該 server 在那個 project 會重新啟用 |
+| `disabled` 項目 `targets` 中的 `pi` | 從該清單中移除 `pi`。Pi 無法接受只有開關的項目，所以該 server 在那個 project 會重新啟用；要繼續關閉，請加上帶有 `piOptions: {enabled: false}` 的完整項目 |
 
 若 `directTools`、`includeTools` 或 `excludeTools` 會覆寫 server 已設定的曝光模式，或不是
 工具名稱清單，就會被捨棄，並顯示各自的 warning。

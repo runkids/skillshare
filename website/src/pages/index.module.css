@@ -60,6 +60,37 @@
   flex-wrap: wrap;
 }
 
+.heroActions {
+  margin-top: 1.25rem;
+}
+
+.heroActions a {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.desktopPlatforms {
+  margin: 0.75rem 0;
+  color: var(--color-pencil-light);
+  font-size: 0.875rem;
+}
+
+.desktopCommand {
+  margin-bottom: 1.5rem;
+}
+
+.installCommand.desktopCommand code {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  line-height: 1.8;
+}
+
+.cliAlternative {
+  margin: 1rem 0 0;
+  font-size: 0.875rem;
+}
+
 .onlyWide {
   display: block;
 }
@@ -645,50 +676,6 @@
   padding-top: 6px;
 }
 
-.installSection {
-  margin-bottom: 1.5rem;
-}
-
-.installTabs {
-  display: flex;
-  gap: 0.5rem;
-  margin-bottom: 0.75rem;
-  flex-wrap: wrap;
-}
-
-.installTab {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  padding: 0.5rem 1rem;
-  background: transparent;
-  border: 2px dashed var(--color-muted-dark);
-  border-radius: var(--radius-wobbly-sm);
-  color: var(--muted-text);
-  font-size: 0.8rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.installTab:hover {
-  background: var(--color-paper-warm);
-  border-color: var(--color-pencil);
-  color: var(--color-pencil);
-}
-
-.installTabActive {
-  background: var(--color-postit);
-  border: 2px solid var(--color-pencil);
-  color: var(--color-pencil);
-  font-weight: 600;
-}
-
-:global([data-theme='dark']) .installTabActive {
-  background: rgba(232, 168, 76, 0.18);
-  border-color: var(--color-blue);
-}
-
 .installCommand {
   display: flex;
   align-items: center;
@@ -719,12 +706,6 @@
   box-shadow: none;
   flex-grow: 1;
   min-width: 0;
-}
-
-.prompt {
-  color: #2e8b57;
-  margin-right: 0.5rem;
-  font-weight: 600;
 }
 
 .copyButton {

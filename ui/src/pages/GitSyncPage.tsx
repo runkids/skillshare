@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { AlertCircle, AlertTriangle, ArrowDownToLine, ArrowUpFromLine, CircleCheck, CloudUpload, ExternalLink, FolderGit2, GitBranch, GitCommitHorizontal, Info, RefreshCw, X } from 'lucide-react';
+import { AlertCircle, AlertTriangle, ArrowDownToLine, ArrowUpFromLine, CircleCheck, CloudUpload, ExternalLink, FolderGit2, GitBranch, GitCommitHorizontal, Info, RefreshCw, Undo2, X } from 'lucide-react';
 import { api, ApiError, type GitStatus, type PullResponse } from '../api/client';
 import Button from '../components/Button';
 import ConfirmDialog from '../components/ConfirmDialog';
@@ -46,7 +46,7 @@ export default function GitSyncPage() {
 
   const [message, setMessage] = useState('');
   const [dryRun, setDryRun] = useState(false);
-  const [busy, setBusy] = useState<'commit' | 'push' | 'upload' | 'pull' | 'branch' | 'fetch' | 'nested' | 'scope' | null>(null);
+  const [busy, setBusy] = useState<'commit' | 'push' | 'upload' | 'pull' | 'branch' | 'fetch' | 'nested' | 'scope' | 'discard' | null>(null);
   const [runError, setRunError] = useState('');
   // A first pull whose history cannot merge; the error note then offers a force pull.
   const [mergeFailed, setMergeFailed] = useState(false);
@@ -55,6 +55,7 @@ export default function GitSyncPage() {
   // The source folder a pull could not write into; set with a permission error.
   const [lockedPath, setLockedPath] = useState('');
   const [confirmForce, setConfirmForce] = useState(false);
+  const [confirmDiscard, setConfirmDiscard] = useState(false);
   const [note, setNote] = useState('');
   const [pulled, setPulled] = useState<PullResponse | null>(null);
   const [setup, setSetup] = useState<Setup | null>(null);
@@ -90,6 +91,14 @@ export default function GitSyncPage() {
     if (dryRun || res.message.startsWith('nothing')) return setNote(res.message);
     setMessage('');
     toast(t(push ? 'gitSync.toast.pushed' : 'gitSync.toast.committed'), 'success');
+  });
+  const discard = () => run('discard', async () => {
+    await api.gitDiscard({ dryRun });
+    if (dryRun) return setNote(t('gitSync.discard.preview'));
+    setPulled(null);
+    // Root scope can change any of the source resources shown elsewhere.
+    void queryClient.invalidateQueries();
+    toast(t('gitSync.toast.discarded'), 'success');
   });
   // A clean tree with commits the remote lacks: push them as they are.
   const upload = (count: number) => run('upload', async () => {
@@ -235,6 +244,12 @@ export default function GitSyncPage() {
             <div className="ss-sec !mb-0">
               <h2 className="ss-h2">{t('gitSync.changes.title')}</h2>
               <span className="ss-cnt">{files.length}</span>
+              {status.isDirty && (
+                <Button variant="ghost" size="sm" className="ml-auto" onClick={() => dryRun ? void discard() : setConfirmDiscard(true)} loading={busy === 'discard'} disabled={writing || !status.headHash} title={!status.headHash ? t('gitSync.discard.noCommit') : undefined}>
+                  {busy !== 'discard' && <Undo2 size={16} />}
+                  {t('gitSync.actions.discard')}
+                </Button>
+              )}
             </div>
             <div className="ss-list">
               {files.length === 0 ? (
@@ -340,6 +355,17 @@ export default function GitSyncPage() {
           </aside>
         </div>
       )}
+
+      <ConfirmDialog
+        open={confirmDiscard}
+        variant="danger"
+        title={t('gitSync.discard.title')}
+        message={t('gitSync.discard.message', { scope })}
+        confirmText={t('gitSync.actions.discard')}
+        loading={busy === 'discard'}
+        onCancel={() => setConfirmDiscard(false)}
+        onConfirm={() => { setConfirmDiscard(false); void discard(); }}
+      />
 
       <ConfirmDialog
         open={confirmForce}

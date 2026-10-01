@@ -27,12 +27,8 @@
 </p>
 
 <p align="center">
-  <strong>One source of truth for AI CLI skills, agents, rules, commands & more. Sync everywhere with one command — from personal to organization-wide.</strong><br>
+  <strong>One source of truth for AI CLI skills, agents, rules, commands & more. Manage them in the desktop app, or sync everywhere with one command — from personal to organization-wide.</strong><br>
   Codex, Claude Code, OpenClaw, OpenCode & 60+ more.
-</p>
-
-<p align="center">
-  <img src=".github/assets/demo.gif" alt="skillshare demo" width="960">
 </p>
 
 <p align="center">
@@ -41,7 +37,7 @@
   <a href="#quick-start">Quick Start</a> •
   <a href="#highlights">Highlights</a> •
   <a href="#cli-and-ui-preview">Screenshots</a> •
-  <a href="https://github.com/runkids/skillshare-app">Desktop App</a> •
+  <a href="#desktop-app">Desktop App</a> •
   <a href="https://skillshare.runkids.cc/docs">Docs</a>
 </p>
 
@@ -106,6 +102,10 @@ skillshare fixes this:
 
 ## CLI and UI Preview
 
+<p align="center">
+  <img src=".github/assets/demo.gif" alt="skillshare demo" width="960">
+</p>
+
 | Skill Detail | Security Audit |
 |---|---|
 | <img src=".github/assets/skill-detail-tui.png" alt="CLI sync output" width="480" height="300"> | <img src=".github/assets/audit-tui.png" alt="CLI install with security audit" width="480" height="300"> |
@@ -116,7 +116,25 @@ skillshare fixes this:
 
 ## Installation
 
-### macOS / Linux
+> [!TIP]
+> **Use skillshare from your desktop.** [Get Skillshare App](https://github.com/runkids/skillshare-app/releases/latest) for macOS (Apple Silicon), Windows and Linux. First launch helps you install or locate the CLI, choose your AI tools and run your first sync. [Installation guide](https://skillshare.runkids.cc/docs/getting-started/desktop-app).
+
+<a id="desktop-app"></a>
+
+### Desktop App — visual setup and daily management
+
+[Skillshare App](https://github.com/runkids/skillshare-app) puts skills, agents, MCP and hooks in a desktop window. Install the app, open it, and follow first-launch setup.
+
+macOS (Apple Silicon), with Homebrew:
+
+```bash
+brew tap runkids/tap
+brew install --cask skillshare-app
+```
+
+**Windows / Linux, or a manual macOS install:** [Download the latest app installers](https://github.com/runkids/skillshare-app/releases/latest). See the [Desktop App guide](https://skillshare.runkids.cc/docs/getting-started/desktop-app) for platform details.
+
+### CLI: macOS / Linux
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/runkids/skillshare/main/install.sh | sh
@@ -130,7 +148,7 @@ The script installs to `~/.local/bin` by default, so normal installs and updates
 irm https://raw.githubusercontent.com/runkids/skillshare/main/install.ps1 | iex
 ```
 
-### Homebrew
+### CLI: Homebrew
 
 ```bash
 brew install skillshare

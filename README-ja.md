@@ -26,12 +26,8 @@
 </p>
 
 <p align="center">
-  <strong>AI CLI の skills、agents、rules、commands などを、ひとつのソースで管理。コマンドひとつですべてのツールに同期でき、個人から組織全体まで使えます。</strong><br>
+  <strong>AI CLI の skills、agents、rules、commands などを、ひとつのソースで管理。デスクトップアプリで操作するか、コマンドひとつですべてのツールに同期でき、個人から組織全体まで使えます。</strong><br>
   Codex、Claude Code、OpenClaw、OpenCode など 60 以上のツールに対応。
-</p>
-
-<p align="center">
-  <img src=".github/assets/demo.gif" alt="skillshare demo" width="960">
 </p>
 
 <p align="center">
@@ -40,7 +36,7 @@
   <a href="#クイックスタート">クイックスタート</a> •
   <a href="#主な機能">主な機能</a> •
   <a href="#cli-と-ui-のプレビュー">スクリーンショット</a> •
-  <a href="https://github.com/runkids/skillshare-app">デスクトップアプリ</a> •
+  <a href="#desktop-app">デスクトップアプリ</a> •
   <a href="https://skillshare.runkids.cc/docs">ドキュメント</a>
 </p>
 
@@ -105,6 +101,10 @@ skillshare はこの問題を解決します。
 
 ## CLI と UI のプレビュー
 
+<p align="center">
+  <img src=".github/assets/demo.gif" alt="skillshare demo" width="960">
+</p>
+
 | Skill の詳細 | セキュリティ監査 |
 |---|---|
 | <img src=".github/assets/skill-detail-tui.png" alt="Skill の詳細" width="480" height="300"> | <img src=".github/assets/audit-tui.png" alt="セキュリティ監査" width="480" height="300"> |
@@ -115,7 +115,25 @@ skillshare はこの問題を解決します。
 
 ## インストール
 
-### macOS / Linux
+> [!TIP]
+> **デスクトップで skillshare を管理。** macOS（Apple Silicon）、Windows、Linux 向けの [Skillshare App をダウンロード](https://github.com/runkids/skillshare-app/releases/latest)。初回起動では CLI のインストールまたは既存の CLI の選択、AI ツールの選択、初回の同期を案内します。[インストールガイド](https://skillshare.runkids.cc/ja/docs/getting-started/desktop-app)。
+
+<a id="desktop-app"></a>
+
+### デスクトップアプリ — 画面で設定・管理
+
+[Skillshare App](https://github.com/runkids/skillshare-app) はスキル、エージェント、MCP、hooks をデスクトップのウィンドウで管理できます。アプリをインストールして開き、初回起動の案内に沿って設定してください。
+
+macOS（Apple Silicon）では Homebrew を使用：
+
+```bash
+brew tap runkids/tap
+brew install --cask skillshare-app
+```
+
+**Windows／Linux、または macOS に手動でインストールする場合：**[最新版のアプリインストーラーをダウンロード](https://github.com/runkids/skillshare-app/releases/latest)。各プラットフォームの詳細は[デスクトップアプリのガイド](https://skillshare.runkids.cc/ja/docs/getting-started/desktop-app)をご覧ください。
+
+### CLI：macOS / Linux
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/runkids/skillshare/main/install.sh | sh
@@ -129,7 +147,7 @@ curl -fsSL https://raw.githubusercontent.com/runkids/skillshare/main/install.sh 
 irm https://raw.githubusercontent.com/runkids/skillshare/main/install.ps1 | iex
 ```
 
-### Homebrew
+### CLI：Homebrew
 
 ```bash
 brew install skillshare

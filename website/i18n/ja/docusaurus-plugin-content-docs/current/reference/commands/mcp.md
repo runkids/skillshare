@@ -818,9 +818,10 @@ Pi だけの簡単な設定なら、`pi mcp add` でグローバルファイル�
 書き込みます。`pi mcp list` はすべての有効なサーバーを起動して接続を確認し、`pi mcp login NAME` は
 ユーザーの承認が必要です。
 
-Pi のサーバー名には英数字、`_`、`-` のみを使えます。Pi は 1 つの project だけで global サーバーを
-オフにできないため、`disabled` エントリは Pi を対象にできません。代わりに、完全なエントリに
-`piOptions: {enabled: false}` を設定してください。
+Pi のサーバー名には英数字、`_`、`-` のみを使えます。Pi では project のエントリが同名の global
+エントリを丸ごと置き換えるため、スイッチだけの `disabled` エントリは Pi を対象にできません。
+1 つの project で global サーバーをオフにするには、完全なエントリに `piOptions: {enabled: false}`
+を設定してください。
 
 ### その他の Pi 設定 {#pi-options}
 
@@ -905,7 +906,7 @@ sync がサーバーをこれらの extension から移すとき、`sync mcp --d
 | `mcp.directTools`、または `mcp.projects` 配下の project の `directTools` | 既定値が、Pi に届き自身の値を持たない各サーバーに上記のとおり書き込まれる。project の `false` はグローバルの値より優先される |
 | `piOptions.includeTools` / `excludeTools` | `tools.allow` / `tools.deny`。一緒に設定した `directTools` は引き続き `piOptions.exposure` になる |
 | `piOptions` 内のその他の `pi-mcp-adapter` フィールド: `approveTools`、`auth`、`bearerToken`、`bearerTokenEnv`、`bearerTokenStore`、`caFile`、`debug`、`exposeResources`、`idleTimeout`、`inheritEnv`、`lifecycle`、`protocolVersion`、`requestHeadersCommand`、`requestTimeoutMs`、`searchKeywords`、`socket`、`tasks`、`toolPrefix`、`trace` | Pi の内蔵 MCP が読まないため削除される |
-| `disabled` エントリの `targets` 内の `pi` | そのリストから `pi` が削除される。Pi には 1 つの project で global サーバーを 1 つだけオフにするスイッチがないため、そのサーバーはその project で再びオンになる |
+| `disabled` エントリの `targets` 内の `pi` | そのリストから `pi` が削除される。Pi はスイッチだけのエントリを受け付けないため、そのサーバーはその project で再びオンになる。オフのままにするには、`piOptions: {enabled: false}` を持つ完全なエントリを追加する |
 
 サーバーがすでに設定している exposure を上書きしてしまう `directTools`、`includeTools`、`excludeTools`、
 またはツール名のリストではないものは、それぞれ独自の warning とともに破棄されます。

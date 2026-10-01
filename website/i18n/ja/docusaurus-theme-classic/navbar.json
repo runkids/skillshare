@@ -34,5 +34,9 @@
   "item.label.GitHub": {
     "message": "GitHub",
     "description": "Navbar item with label GitHub"
+  },
+  "item.label.Desktop App": {
+    "message": "デスクトップアプリ",
+    "description": "Navbar item with label Desktop App"
   }
 }

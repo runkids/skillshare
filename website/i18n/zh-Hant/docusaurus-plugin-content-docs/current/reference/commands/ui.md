@@ -99,6 +99,8 @@ skillshare ui start --clear-cache
 | **Audit** | 對 skills 與 agents 進行安全掃描，依嚴重程度列出發現項目。**Rules** 分頁可依分類瀏覽每一項規則：關閉某項、變更其嚴重程度、對整個分類套用嚴重程度、選擇掃描設定檔（`default`、`strict`、`permissive`），或開啟編輯器自訂 `audit-rules.yaml` |
 | **Settings** | 分頁式：**General**（source 路徑、同步模式、外觀）、**Backup**（target 資料夾快照、`AGENTS.md` 這類檔案的較早版本，以及 MCP 設定備份；參見 [`backup`](./backup.md#dashboard)）、**Log**（操作歷史）、**Health**（與 [`doctor`](/docs/reference/commands/doctor) 相同的檢查）、**Extensions**（同步時的檔案轉換）、**Files**（直接編輯 `config.yaml`、`.skillignore` 與 `.agentignore`） |
 
+變更清單旁的 **捨棄變更** 會在確認後，將所選 Git 範圍內所有已追蹤的檔案與暫存區還原至最後一次提交，並刪除未追蹤的檔案與資料夾。被 Git 忽略的檔案、巢狀 Git 儲存庫，以及 `root` 範圍的 `config.yaml` 都會保留。此操作不會更動提交紀錄，也不會推送至遠端，且無法復原。**試跑** 只會預覽，不會變更檔案。儲存庫必須已有第一次提交，才能捨棄變更。
+
 在 **Updates** 分頁中，進度列會顯示更新進度，正在更新的列也會標示出來。被阻擋或失敗的更新會顯示在獨立區塊。
 
 舊連結如 `/collect`、`/install`、`/search`、`/trash`、`/analyze`、`/backup`、`/log` 與 `/doctor` 會重新導向至新的位置。
@@ -134,12 +136,12 @@ Dashboard 支援兩種視覺風格與三種色彩模式，可透過側邊欄的 
 ## UI 預覽
 
 <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1rem'}}>
-  <img src="/img/web-install-demo.png" alt="Install flow" />
-  <img src="/img/web-dashboard-demo.png" alt="Dashboard overview" />
-  <img src="/img/web-skills-demo.png" alt="Skills browser" />
-  <img src="/img/web-skill-detail-demo.png" alt="Skill detail view" />
-  <img src="/img/web-sync-demo.png" alt="Sync controls" />
-  <img src="/img/web-search-skills-demo.png" alt="GitHub search view" />
+  <img src="/img/web-install-demo.png" alt="安裝流程" />
+  <img src="/img/web-dashboard-demo.png" alt="儀表板總覽" />
+  <img src="/img/web-skills-demo.png" alt="技能瀏覽頁面" />
+  <img src="/img/web-skill-detail-demo.png" alt="技能詳細資訊頁面" />
+  <img src="/img/web-sync-demo.png" alt="同步控制項" />
+  <img src="/img/web-search-skills-demo.png" alt="GitHub 搜尋畫面" />
   <img src="/img/web-projects-demo.png" alt="列出專案資料夾的 Projects 頁面" />
 </div>
 
@@ -160,6 +162,7 @@ Web dashboard 在 `/api/` 上提供 REST API。所有端點皆回傳 JSON。
 | DELETE | `/api/targets/{name}` | 移除一個 target |
 | POST | `/api/sync` | 執行同步（支援 `dryRun`、`force`、`kind`，以及 `project`：一個已宣告的 project 根目錄，會把同步範圍限定在該 project 的 targets）。除非設定 `dryRun`，否則會先備份 targets |
 | POST | `/api/git/commit` | 從 source repo 建立本機 git commit，但不 push |
+| POST | `/api/git/discard` | 捨棄設定的 Git 範圍內尚未提交的變更（僅限全域模式，儲存庫必須已有第一次提交）。支援 `dryRun`；保留被 Git 忽略的檔案、巢狀 Git 儲存庫，以及 `root` 範圍的 `config.yaml` |
 | GET | `/api/git/status` | Source repo 狀態，包含尚未 push 的 commits（`ahead`），以及截至上次 fetch 尚未 pull 的 upstream commits（`behind`）。不會執行 fetch |
 | POST | `/api/push` | Commit 所有變更後再 push。首次 push 時會設定 upstream。當 remote 有這個 repo 沒有的 commits 時，會以 `409` 與錯誤代碼 `push_rejected` 失敗；先 pull 再 push 即可 |
 | POST | `/api/pull` | Pull 之後同步 repo scope 所涵蓋的內容。已分歧的歷史會被合併；`.metadata.json` 的衝突會自動解決，其他衝突則會失敗並復原 merge。當第一次 pull 無法合併時，會以錯誤代碼 `merge_failed` 失敗；帶 `force: true` 重試可以本機檔案取代 remote 分支 |

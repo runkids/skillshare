@@ -4,7 +4,8 @@ import Link from '@docusaurus/Link';
 import useDocusaurusContext from '@docusaurus/useDocusaurusContext';
 import Layout from '@theme/Layout';
 import Heading from '@theme/Heading';
-import {Copy, Check, Apple, Terminal, ShieldCheck} from 'lucide-react';
+import Translate from '@docusaurus/Translate';
+import {Copy, Check, Monitor, ShieldCheck} from 'lucide-react';
 
 import {COMMAND_COUNT, FEATURE_GROUPS, TARGET_COUNT} from '../data/featureMap';
 import styles from './index.module.css';
@@ -209,25 +210,7 @@ function SyncTerminal({pinned}: {pinned: Tool[]}) {
 // Install
 // ---------------------------------------------------------------------------
 
-type InstallMethod = 'curl' | 'powershell' | 'homebrew';
-
-const INSTALL_COMMANDS: Record<InstallMethod, {command: string; label: string; icon: ReactNode}> = {
-  curl: {
-    command: 'curl -fsSL https://raw.githubusercontent.com/runkids/skillshare/main/install.sh | sh',
-    label: 'macOS / Linux',
-    icon: <Terminal size={14} />,
-  },
-  powershell: {
-    command: 'irm https://raw.githubusercontent.com/runkids/skillshare/main/install.ps1 | iex',
-    label: 'Windows',
-    icon: <span style={{fontSize: '12px'}}>PS</span>,
-  },
-  homebrew: {
-    command: 'brew install skillshare',
-    label: 'Homebrew',
-    icon: <Apple size={14} />,
-  },
-};
+const DESKTOP_INSTALL = 'brew tap runkids/tap\nbrew install --cask skillshare-app';
 
 function CopyButton({text}: {text: string}) {
   const [copied, setCopied] = useState(false);
@@ -240,33 +223,6 @@ function CopyButton({text}: {text: string}) {
     <button className={styles.copyButton} onClick={handleCopy} aria-label="Copy to clipboard">
       {copied ? <Check size={16} /> : <Copy size={16} />}
     </button>
-  );
-}
-
-function InstallTabs() {
-  const [method, setMethod] = useState<InstallMethod>('curl');
-  const current = INSTALL_COMMANDS[method];
-  return (
-    <div className={styles.installSection}>
-      <div className={styles.installTabs}>
-        {(Object.keys(INSTALL_COMMANDS) as InstallMethod[]).map((key) => (
-          <button
-            key={key}
-            className={`${styles.installTab} ${method === key ? styles.installTabActive : ''}`}
-            onClick={() => setMethod(key)}
-          >
-            {INSTALL_COMMANDS[key].icon}
-            <span>{INSTALL_COMMANDS[key].label}</span>
-          </button>
-        ))}
-      </div>
-      <div className={styles.installCommand}>
-        <code>
-          <span className={styles.prompt}>$</span> {current.command}
-        </code>
-        <CopyButton text={current.command} />
-      </div>
-    </div>
   );
 }
 
@@ -288,6 +244,18 @@ function HeroSection() {
               skillshare keeps your skills in one place and symlinks them into Claude Code, Cursor, Codex and{' '}
               {TARGET_COUNT - 3} more. Pin the tools you use. Watch the strings.
             </p>
+            <div className={`${styles.buttons} ${styles.heroActions}`}>
+              <Link className="button button--primary button--lg" to="/docs/getting-started/desktop-app">
+                <Monitor size={18} aria-hidden="true" />{' '}
+                <Translate id="home.desktop.get">Get Desktop App</Translate>
+              </Link>
+              <Link className="button button--secondary button--lg" to="/docs/getting-started/first-sync">
+                <Translate id="home.desktop.cliGuide">CLI quick start</Translate>
+              </Link>
+            </div>
+            <p className={styles.desktopPlatforms}>
+              <Translate id="home.desktop.platforms">macOS (Apple Silicon) · Windows · Linux</Translate>
+            </p>
           </div>
           <span className={`${styles.hand} ${styles.heroHint}`}>click a tool to pin<br />or unpin it ↓</span>
         </div>
@@ -302,19 +270,32 @@ function HeroSection() {
         <div className={styles.heroBottom}>
           <SyncTerminal pinned={board.pinned} />
           <div className={styles.installCol}>
-            <Heading as="h2" className={styles.h2}>Install once. Run one command.</Heading>
+            <Heading as="h2" className={styles.h2}>
+              <Translate id="home.desktop.title">Start with the desktop app.</Translate>
+            </Heading>
             <p className={styles.lead}>
-              Single Go binary, no runtime. <code className={styles.cmd}>init</code> finds the tools on this machine and pins them for you.
+              <Translate id="home.desktop.summary">Manage skills, agents, MCP and hooks in one desktop window. First launch helps you set up the CLI, choose your AI tools and run your first sync.</Translate>
             </p>
-            <InstallTabs />
+            <p className={styles.desktopPlatforms}>
+              <Translate id="home.desktop.homebrew">Install on macOS with Homebrew:</Translate>
+            </p>
+            <div className={`${styles.installCommand} ${styles.desktopCommand}`}>
+              <code>{DESKTOP_INSTALL}</code>
+              <CopyButton text={DESKTOP_INSTALL} />
+            </div>
             <div className={styles.buttons}>
-              <Link className="button button--primary button--lg" to="/docs/getting-started/first-sync">
-                Get Started
+              <Link className="button button--primary button--lg" href="https://github.com/runkids/skillshare-app/releases/latest">
+                <Translate id="home.desktop.download">Download installers</Translate>
               </Link>
-              <Link className="button button--secondary button--lg" to="/features">
-                Find a feature
+              <Link className="button button--secondary button--lg" to="/docs/getting-started/desktop-app">
+                <Translate id="home.desktop.installGuide">Installation guide</Translate>
               </Link>
             </div>
+            <p className={styles.cliAlternative}>
+              <Link to="/docs/getting-started/first-sync">
+                <Translate id="home.desktop.cliAlternative">Prefer the terminal? Install the CLI.</Translate>
+              </Link>
+            </p>
           </div>
         </div>
       </div>
@@ -485,8 +466,8 @@ function CtaSection() {
             <p className={styles.lead}>Free, MIT licensed. Uninstall leaves every tool exactly as it was.</p>
           </div>
           <div className={styles.buttons}>
-            <Link className="button button--primary button--lg" to="/docs/getting-started/first-sync">
-              Read the 5-minute guide
+            <Link className="button button--primary button--lg" to="/docs/getting-started/desktop-app">
+              <Translate id="home.desktop.get">Get Desktop App</Translate>
             </Link>
             <Link className="button button--secondary button--lg" href="https://github.com/runkids/skillshare">
               Star on GitHub
@@ -501,7 +482,7 @@ function CtaSection() {
 export default function Home(): ReactNode {
   const {siteConfig} = useDocusaurusContext();
   return (
-    <Layout title="AI CLI Skills Sync Tool" description={siteConfig.tagline}>
+    <Layout title="AI Skills Manager — Desktop App & CLI" description={siteConfig.tagline}>
       <div className={styles.homePage}>
         <HeroSection />
         <main>

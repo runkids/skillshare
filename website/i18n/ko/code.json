@@ -1,42 +1,38 @@
 {
-  "theme.common.skipToMainContent": {
-    "message": "跳至主要內容",
-    "description": "The skip to content label used for accessibility"
-  },
   "home.desktop.get": {
-    "message": "下載桌面 App",
+    "message": "데스크톱 앱 받기",
     "description": "Desktop app promotion on the homepage"
   },
   "home.desktop.cliGuide": {
-    "message": "CLI 快速入門",
+    "message": "CLI 빠른 시작",
     "description": "Desktop app promotion on the homepage"
   },
   "home.desktop.platforms": {
-    "message": "macOS（Apple Silicon）· Windows · Linux",
+    "message": "macOS(Apple Silicon) · Windows · Linux",
     "description": "Desktop app promotion on the homepage"
   },
   "home.desktop.title": {
-    "message": "從桌面 App 開始。",
+    "message": "데스크톱 앱으로 시작하세요.",
     "description": "Desktop app promotion on the homepage"
   },
   "home.desktop.summary": {
-    "message": "在桌面視窗中管理技能、代理、MCP 與 hooks。首次啟動會協助你設定 CLI、選擇 AI 工具，並完成第一次同步。",
+    "message": "데스크톱 창에서 스킬, 에이전트, MCP, hooks를 관리하세요. 첫 실행에서 CLI 설정, AI 도구 선택, 첫 동기화를 안내합니다.",
     "description": "Desktop app promotion on the homepage"
   },
   "home.desktop.homebrew": {
-    "message": "在 macOS 透過 Homebrew 安裝：",
+    "message": "macOS에서 Homebrew로 설치:",
     "description": "Desktop app promotion on the homepage"
   },
   "home.desktop.download": {
-    "message": "下載安裝包",
+    "message": "설치 파일 다운로드",
     "description": "Desktop app promotion on the homepage"
   },
   "home.desktop.installGuide": {
-    "message": "安裝指南",
+    "message": "설치 가이드",
     "description": "Desktop app promotion on the homepage"
   },
   "home.desktop.cliAlternative": {
-    "message": "偏好終端機？安裝 CLI。",
+    "message": "터미널이 더 편하다면 CLI를 설치하세요.",
     "description": "Desktop app promotion on the homepage"
   }
 }

@@ -1,14 +1,10 @@
 {
-  "theme.common.skipToMainContent": {
-    "message": "跳至主要內容",
-    "description": "The skip to content label used for accessibility"
-  },
   "home.desktop.get": {
-    "message": "下載桌面 App",
+    "message": "下载桌面 App",
     "description": "Desktop app promotion on the homepage"
   },
   "home.desktop.cliGuide": {
-    "message": "CLI 快速入門",
+    "message": "CLI 快速入门",
     "description": "Desktop app promotion on the homepage"
   },
   "home.desktop.platforms": {
@@ -16,27 +12,27 @@
     "description": "Desktop app promotion on the homepage"
   },
   "home.desktop.title": {
-    "message": "從桌面 App 開始。",
+    "message": "从桌面 App 开始。",
     "description": "Desktop app promotion on the homepage"
   },
   "home.desktop.summary": {
-    "message": "在桌面視窗中管理技能、代理、MCP 與 hooks。首次啟動會協助你設定 CLI、選擇 AI 工具，並完成第一次同步。",
+    "message": "在桌面窗口中管理技能、代理、MCP 和 hooks。首次启动会帮助你设置 CLI、选择 AI 工具，并完成第一次同步。",
     "description": "Desktop app promotion on the homepage"
   },
   "home.desktop.homebrew": {
-    "message": "在 macOS 透過 Homebrew 安裝：",
+    "message": "在 macOS 通过 Homebrew 安装：",
     "description": "Desktop app promotion on the homepage"
   },
   "home.desktop.download": {
-    "message": "下載安裝包",
+    "message": "下载安装包",
     "description": "Desktop app promotion on the homepage"
   },
   "home.desktop.installGuide": {
-    "message": "安裝指南",
+    "message": "安装指南",
     "description": "Desktop app promotion on the homepage"
   },
   "home.desktop.cliAlternative": {
-    "message": "偏好終端機？安裝 CLI。",
+    "message": "偏好终端？安装 CLI。",
     "description": "Desktop app promotion on the homepage"
   }
 }

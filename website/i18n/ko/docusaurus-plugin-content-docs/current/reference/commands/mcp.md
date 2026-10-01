@@ -933,9 +933,10 @@ OAuth를 승인하세요. 간단한 Pi 전용 설정에는 `pi mcp add`가 globa
 project에는 `-l`을 추가하세요. `pi mcp list`는 활성 서버를 모두 시작해 연결을 확인하며,
 `pi mcp login NAME`은 사용자 승인이 필요합니다.
 
-Pi 서버 이름에는 영문자, 숫자, `_`, `-`만 쓸 수 있습니다. Pi는 한 프로젝트에서 global
-서버를 끌 수 없으므로 `disabled` 항목은 Pi를 target으로 삼을 수 없습니다. 대신 완전한
-항목에 `piOptions: {enabled: false}`를 사용하세요.
+Pi 서버 이름에는 영문자, 숫자, `_`, `-`만 쓸 수 있습니다. Pi에서는 프로젝트 항목이 같은 이름의
+global 항목을 통째로 대체하므로 스위치만 있는 `disabled` 항목은 Pi를 target으로 삼을 수
+없습니다. 한 프로젝트에서 global 서버를 끄려면 완전한 항목에 `piOptions: {enabled: false}`를
+사용하세요.
 
 ### 기타 Pi 설정 {#pi-options}
 
@@ -1024,7 +1025,7 @@ config도 그대로 로드됩니다. `sync mcp --dry-run`과 `sync mcp`는 발�
 | `mcp.directTools`, 또는 `mcp.projects` 아래 프로젝트의 `directTools` | Pi에 전달되고 자체 값이 없는 각 서버에 기본값이 위와 같이 작성됩니다. 프로젝트의 `false`는 global 값을 재정의합니다 |
 | `piOptions.includeTools` / `excludeTools` | `tools.allow` / `tools.deny`가 되며, 함께 설정한 `directTools`는 여전히 `piOptions.exposure`가 됩니다 |
 | `piOptions`의 그 밖의 `pi-mcp-adapter` 필드: `approveTools`, `auth`, `bearerToken`, `bearerTokenEnv`, `bearerTokenStore`, `caFile`, `debug`, `exposeResources`, `idleTimeout`, `inheritEnv`, `lifecycle`, `protocolVersion`, `requestHeadersCommand`, `requestTimeoutMs`, `searchKeywords`, `socket`, `tasks`, `toolPrefix`, `trace` | Pi 내장 MCP가 읽지 않으므로 제거됩니다 |
-| `disabled` 항목의 `targets`에 있는 `pi` | 그 목록에서 `pi`가 제거됩니다. Pi에는 한 프로젝트에서 global 서버 하나만 끄는 스위치가 없으므로, 그 서버는 해당 프로젝트에서 다시 켜집니다 |
+| `disabled` 항목의 `targets`에 있는 `pi` | 그 목록에서 `pi`가 제거됩니다. Pi는 스위치만 있는 항목을 받지 않으므로, 그 서버는 해당 프로젝트에서 다시 켜집니다. 계속 끄려면 `piOptions: {enabled: false}`가 있는 완전한 항목을 추가하세요 |
 
 서버가 이미 설정한 exposure를 덮어쓰게 되거나 도구 이름 목록이 아닌 `directTools`,
 `includeTools`, `excludeTools`는 별도의 warning과 함께 버려집니다.

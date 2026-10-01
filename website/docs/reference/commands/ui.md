@@ -99,6 +99,8 @@ Some pages show a count in the sidebar when they need attention. The counts refr
 | **Audit** | Security scan of skills and agents, with findings by severity. The **Rules** tab browses every rule by category: switch one off, change its severity, apply a severity to a whole category, pick the scan profile (`default`, `strict`, `permissive`), or open the editor for custom `audit-rules.yaml` |
 | **Settings** | Tabbed: **General** (source paths, sync mode, appearance), **Backup** (target folder snapshots, earlier versions of files such as `AGENTS.md`, and MCP config backups; see [`backup`](./backup.md#dashboard)), **Log** (operation history), **Health** (the same checks as [`doctor`](/docs/reference/commands/doctor)), **Extensions** (sync-time file transforms), **Files** (direct editors for `config.yaml`, `.skillignore`, and `.agentignore`) |
 
+**Discard changes** beside the change list restores all tracked files and the index in the selected Git scope to the last commit and deletes untracked files and folders, after confirmation. Ignored files, nested Git repositories, and root-scope `config.yaml` are kept. It does not change commits or push; the action cannot be undone. **Dry run** previews without changing files. A first commit is required.
+
 On the **Updates** tab, a progress bar tracks the update run and the active row is marked while it updates. Blocked or failed updates appear in a separate section.
 
 Old links such as `/collect`, `/install`, `/search`, `/trash`, `/analyze`, `/backup`, `/log`, and `/doctor` redirect to their new place.
@@ -160,6 +162,7 @@ The web dashboard exposes a REST API at `/api/`. All endpoints return JSON.
 | DELETE | `/api/targets/{name}` | Remove a target |
 | POST | `/api/sync` | Run sync (supports `dryRun`, `force`, `kind`, and `project`, a declared project root that limits the sync to that project's targets). Backs up targets first unless `dryRun` is set |
 | POST | `/api/git/commit` | Create a local git commit from the source repo without pushing |
+| POST | `/api/git/discard` | Discard uncommitted changes in the configured Git scope (global mode only; requires a first commit). Supports `dryRun`. Keeps ignored files, nested Git repositories, and root-scope `config.yaml` |
 | GET | `/api/git/status` | Source repo status, including commits not pushed yet (`ahead`) and upstream commits not pulled yet as of the last fetch (`behind`). Never fetches |
 | POST | `/api/push` | Commit any changes, then push. Sets the upstream on the first push. When the remote has commits this repo lacks, it fails with `409` and error code `push_rejected`; pull, then push again |
 | POST | `/api/pull` | Pull, then sync what the repo scope holds. Diverged history is merged; `.metadata.json` conflicts resolve automatically, and any other conflict fails with the merge undone. When a first pull can't merge, it fails with error code `merge_failed`; retry with `force: true` to replace local files with the remote branch |

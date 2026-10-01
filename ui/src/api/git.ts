@@ -25,6 +25,11 @@ export const gitApi = {
       method: 'POST',
       body: JSON.stringify(opts),
     }),
+  gitDiscard: (opts: { dryRun?: boolean }) =>
+    apiFetch<PushResponse>('/git/discard', {
+      method: 'POST',
+      body: JSON.stringify(opts),
+    }),
   push: (opts: { message?: string; dryRun?: boolean }) =>
     apiFetch<PushResponse>('/push', {
       method: 'POST',

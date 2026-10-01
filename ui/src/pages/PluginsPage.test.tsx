@@ -68,6 +68,17 @@ describe('PluginsPage', () => {
     fireEvent.click(checkbox);
     await waitFor(() => expect(pluginsApi.apply).toHaveBeenCalledWith({ action: 'disable', name: 'demo', targets: ['codex'] }, 'reviewed'));
   });
+  it('localizes the last action status and installation instructions', async () => {
+    const message = 'Native installation recorded. Reload the Agent and complete any required login or hook trust.';
+    vi.mocked(pluginsApi.apply).mockResolvedValue({ result: { results: [{ name: 'demo', target: 'codex', status: 'installed', message }] }, failure: '' });
+    mount();
+    fireEvent.click(await screen.findByRole('button', { name: 'plugins.syncAgain' }));
+    await screen.findByRole('dialog');
+    fireEvent.click(screen.getByRole('button', { name: 'plugins.apply' }));
+    expect(await screen.findByText('plugins.outcome.installed')).toBeInTheDocument();
+    expect(screen.getByText('plugins.outcome.installHelp')).toBeInTheDocument();
+    expect(screen.queryByText(message)).not.toBeInTheDocument();
+  });
   it('requires a preview before sync and preserves partial failures', async () => {
     vi.mocked(pluginsApi.apply).mockResolvedValue({ result: { results: [{ name: 'demo', target: 'codex', status: 'failed', message: 'Native authentication required' }] }, failure: 'One target failed' });
     mount();

@@ -21,6 +21,10 @@ func renderDisabled(target string, s Server) (map[string]any, error) {
 		// Codex fails its whole config load with "invalid transport". The project file is
 		// usually committed, so one person's switch would break Codex for a teammate.
 		return nil, fmt.Errorf("codex cannot turn off a global server from a project file: on a machine whose global config lacks the server, Codex stops loading its whole config; set enabled = false in ~/.codex/config.toml instead")
+	case target == "pi":
+		// Pi replaces a global entry with the project entry of the same name, and skips one
+		// without a command or url, so a switch-only entry leaves the global server on.
+		return nil, fmt.Errorf("pi cannot turn off a global server with a switch-only entry: a Pi project entry replaces the global one, so it needs the server's command or url; add the complete server with piOptions: {\"enabled\": false} instead")
 	}
 	return nil, fmt.Errorf("%s cannot turn off a global server from a project file; disabled supports claude, opencode and kilocode", target)
 }

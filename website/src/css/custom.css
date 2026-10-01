@@ -192,6 +192,21 @@ h1, h2, h3, h4, h5, h6 {
   padding: 0.5rem 0.75rem;
 }
 
+@media (min-width: 997px) and (max-width: 1399px) {
+  .navbar .navbar-secondary {
+    display: none;
+  }
+
+  .navbar__brand {
+    flex-shrink: 0;
+  }
+
+  .navbar__items .navbar__link {
+    padding: 0.5rem;
+    white-space: nowrap;
+  }
+}
+
 /* ========================================
    MOBILE SIDEBAR — full screen
    ======================================== */

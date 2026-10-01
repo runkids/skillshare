@@ -9,6 +9,7 @@ const sidebars: SidebarsConfig = {
       collapsed: false,
       items: [
         'getting-started/index',
+        'getting-started/desktop-app',
         'getting-started/first-sync',
         'getting-started/from-existing-skills',
         'getting-started/quick-reference',

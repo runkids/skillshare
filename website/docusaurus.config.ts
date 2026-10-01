@@ -5,7 +5,7 @@ import llmsTxtPlugin from './plugins/llms-txt';
 
 const config: Config = {
   title: 'skillshare',
-  tagline: 'One source of truth for AI CLI skills. Sync everywhere with one command.',
+  tagline: 'Manage AI skills in the desktop app or CLI. One source, synced to every tool.',
   favicon: 'img/favicon.png',
 
   future: {
@@ -175,6 +175,11 @@ const config: Config = {
       },
       items: [
         {
+          to: '/docs/getting-started/desktop-app',
+          label: 'Desktop App',
+          position: 'left',
+        },
+        {
           type: 'docSidebar',
           sidebarId: 'docsSidebar',
           position: 'left',
@@ -193,16 +198,19 @@ const config: Config = {
         {
           to: '/features',
           label: 'Feature map',
+          className: 'navbar-secondary',
           position: 'left',
         },
         {
           to: '/blog',
           label: 'Blog',
+          className: 'navbar-secondary',
           position: 'left',
         },
         {
           to: '/changelog',
           label: 'Changelog',
+          className: 'navbar-secondary',
           position: 'left',
         },
         {
@@ -212,6 +220,7 @@ const config: Config = {
         {
           href: 'https://github.com/runkids/skillshare',
           label: 'GitHub',
+          className: 'navbar-secondary',
           position: 'right',
         },
       ],
