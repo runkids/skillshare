@@ -36,7 +36,7 @@ export interface HookMutation {
 /** `root`: the hooks.projects root a native file belongs to; left out for the global files. */
 /** Events a change adds to, updates in, or removes from a shared hooks file. */
 export interface HookEventChanges { added?: string[]; updated?: string[]; removed?: string[] }
-export interface HookChange { target: string; path: string; name: string; root?: string; action: string; message?: string; events?: HookEventChanges }
+export interface HookChange { target: string; path: string; name: string; root?: string; action: string; message?: string; inactiveReason?: string; events?: HookEventChanges }
 /** `fingerprint` covers the hook content the plan proposes, which `changes` (no contents) cannot show: equal shape, different command, different fingerprint. */
 /** `warnings`: advisory only, such as event names an Agent does not document; they never block. */
 export interface HookPlan { revision: string; fingerprint: string; sourcePath: string; blocked: boolean; changes: HookChange[]; warnings?: string[] }

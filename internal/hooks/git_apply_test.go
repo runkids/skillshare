@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -187,6 +188,7 @@ func TestGitManualIncludeAndOwnedDirectories(t *testing.T) {
 }
 
 func TestGitProjectsLinkedIdentityAndRegistration(t *testing.T) {
+	requireGitVersion(t, 54)
 	e := gitEnv(t)
 	root := t.TempDir()
 	gitSetup(t, root, "init", "--quiet")
@@ -274,6 +276,7 @@ func TestGitKeepFilesRefusedInDomain(t *testing.T) {
 }
 
 func TestGitMainCheckoutOriginOutsideWorkingDirectory(t *testing.T) {
+	requireGitVersion(t, 54)
 	for _, declared := range []bool{false, true} {
 		for _, replace := range []bool{false, true} {
 			t.Run(fmt.Sprintf("declared=%v/replace=%v", declared, replace), func(t *testing.T) {
@@ -713,4 +716,172 @@ func TestGitStandaloneProjectRestoreKeepsOtherProjectIsolated(t *testing.T) {
 	}
 	_, err = local.Restore(id, p.Revision)
 	must(t, err)
+}
+
+func TestGitConfigCommitDoesNotReleaseAnotherWritersLock(t *testing.T) {
+	e := gitEnv(t)
+	p := gitDraft(t, e, Mutation{Name: "guard", Entry: entry(t, gitEntry)})
+	for _, f := range p.files {
+		if f.include == nil {
+			continue
+		}
+		commit, release, err := f.prepareGitWrite(false)
+		must(t, err)
+		defer release()
+		must(t, commit())
+		write(t, f.path+".lock", "another writer")
+		release()
+		if got := read(t, f.path+".lock"); got != "another writer" {
+			t.Fatalf("replacement lock changed: %q", got)
+		}
+		return
+	}
+	t.Fatal("include operation missing")
+}
+
+func TestGitHelperPermissionsSettleOnWindows(t *testing.T) {
+	e := gitEnv(t)
+	e.service.Platform = "windows"
+	save(t, e.service, Mutation{Name: "guard", Entry: entry(t, gitEntry)})
+	d, err := e.service.gitDestination("")
+	must(t, err)
+	helper := filepath.Join(d.base, "skillshare", "files", "guard", "check.sh")
+	// Model the permission bits reported by Windows on every read.
+	must(t, os.Chmod(helper, 0644))
+	result := sync(t, e.service)
+	if len(result.Applied) != 0 || len(result.BackupIDs) != 0 {
+		t.Fatalf("unchanged Windows helper rewritten: %+v", result)
+	}
+	if runtime.GOOS == "windows" {
+		return
+	}
+	e.service.Platform = "linux"
+	result = sync(t, e.service)
+	if len(result.Applied) != 1 || result.Applied[0] != helper {
+		t.Fatalf("POSIX executable permission not restored: %+v", result)
+	}
+}
+
+func TestGitInactiveOutputsRetainTheirActions(t *testing.T) {
+	for _, version := range []string{"2.39.5", "2.53.0"} {
+		t.Run(version, func(t *testing.T) {
+			e := gitEnv(t)
+			e.service.Git = versionGit{GitRunner: e.service.gitRunner(), version: version}
+			p := gitDraft(t, e, Mutation{Name: "guard", Entry: entry(t, gitEntry)})
+			for _, c := range p.Changes {
+				if c.Target == "git" && (c.Action != "add" || !strings.Contains(c.InactiveReason, version)) {
+					t.Fatalf("inactive status hid an add: %+v", c)
+				}
+			}
+			result := sync(t, e.service)
+			if len(result.Applied) != 3 {
+				t.Fatalf("inactive Git outputs not generated: %+v", result)
+			}
+			p, err := e.service.Preview()
+			must(t, err)
+			if len(p.Changes) != 2 {
+				t.Fatalf("inactive output status missing after sync: %+v", p.Changes)
+			}
+			if len(p.Warnings) == 0 {
+				t.Fatal("inactive Git warning missing")
+			}
+			for _, c := range p.Changes {
+				if c.Target == "git" && (c.Action != "unchanged" || !strings.Contains(c.InactiveReason, version)) {
+					t.Fatalf("inactive Git stays pending after sync: %+v", c)
+				}
+			}
+			if len(sync(t, e.service).Applied) != 0 {
+				t.Fatal("inactive sync is not idempotent")
+			}
+		})
+	}
+}
+
+func TestGitConfigFailedCommitReleasesItsLock(t *testing.T) {
+	e := gitEnv(t)
+	p := gitDraft(t, e, Mutation{Name: "guard", Entry: entry(t, gitEntry)})
+	for _, f := range p.files {
+		if f.include == nil {
+			continue
+		}
+		commit, release, err := f.prepareGitWrite(false)
+		must(t, err)
+		defer release()
+		// A directory at the destination makes the rename fail on every platform.
+		must(t, os.Mkdir(f.path, 0755))
+		if err := commit(); err == nil {
+			t.Fatal("commit unexpectedly succeeded")
+		}
+		release()
+		if pathExists(f.path + ".lock") {
+			t.Fatal("failed commit left its lock behind")
+		}
+		return
+	}
+	t.Fatal("include operation missing")
+}
+
+func TestGitUnwritableIncludePreservesActionsAfterSync(t *testing.T) {
+	e := gitEnv(t)
+	target := filepath.Join(e.home, ".gitconfig")
+	referent := filepath.Join(e.home, "dotfiles.gitconfig")
+	write(t, referent, "[user]\n name = unchanged\n")
+	must(t, os.Symlink(referent, target))
+	e.service.Git = versionGit{GitRunner: e.service.gitRunner(), version: "2.55.0"}
+	p := gitDraft(t, e, Mutation{Name: "guard", Entry: entry(t, gitEntry)})
+	for _, c := range p.Changes {
+		if c.Action != "add" {
+			t.Fatalf("inactive include hid addition: %+v", c)
+		}
+	}
+	result := sync(t, e.service)
+	if len(result.Applied) != 2 {
+		t.Fatalf("manual include should write only outputs: %+v", result)
+	}
+	p, err := e.service.Preview()
+	must(t, err)
+	for _, c := range p.Changes {
+		if c.Action != "unchanged" || c.InactiveReason == "" || !strings.Contains(c.InactiveReason, "add manually") {
+			t.Fatalf("manual include status: %+v", c)
+		}
+	}
+	if read(t, referent) != "[user]\n name = unchanged\n" {
+		t.Fatal("user-owned include target changed")
+	}
+}
+
+func TestGitBindingIgnoresSameNamedAgentAccount(t *testing.T) {
+	for _, present := range []bool{false, true} {
+		t.Run(fmt.Sprintf("account-present=%v", present), func(t *testing.T) {
+			e := gitEnv(t)
+			dir := filepath.Join(e.home, "account")
+			if present {
+				must(t, os.MkdirAll(dir, 0755))
+			}
+			e.service.Accounts = map[string]Account{"git": {Agent: "codex", Dir: dir}}
+			result := save(t, e.service, Mutation{Name: "guard", Entry: entry(t, gitEntry)})
+			if len(result.Applied) != 3 {
+				t.Fatalf("Git publication redirected to account: %+v", result)
+			}
+			inv, err := e.service.List()
+			must(t, err)
+			count := 0
+			for _, def := range inv.Targets {
+				if def.Name == "git" {
+					count++
+					if def.Kind != KindGit {
+						t.Fatalf("Git target reinterpreted: %+v", def)
+					}
+				}
+			}
+			if count != 1 {
+				t.Fatalf("duplicate Git targets: %+v", inv.Targets)
+			}
+			d, err := e.service.gitDestination("")
+			must(t, err)
+			if inv.Paths["git"] != d.hooksFile {
+				t.Fatalf("Git path redirected: %v", inv.Paths)
+			}
+		})
+	}
 }

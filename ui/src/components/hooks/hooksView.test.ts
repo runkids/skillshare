@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { hookAccounts, keyLabel, agentOfKey, boundAgents, bindingToDraft, checkBinding, draftToBinding, eventsToRows, hookAgentOf, hookCount, hookMessage, newRow, ownerRoot, rootPlan, rowsToEvents, scopeBackups, scopeChanges, scopeEntries, scopePaths, scopePlan, scopeUnmanaged, switchMode, syncState } from './hooksView';
+import { hookAccounts, keyLabel, agentOfKey, boundAgents, bindingToDraft, checkBinding, draftToBinding, eventsToRows, hookAgentOf, hookCount, hookMessage, newRow, ownerRoot, rootPlan, rowsToEvents, scopeBackups, scopeChanges, scopeEntries, scopePaths, scopePlan, scopeUnmanaged, switchMode, syncState, writes } from './hooksView';
 
 const claudeEvents = {
   PreToolUse: [{ matcher: 'Bash', hooks: [{ type: 'command', command: './check.sh', timeout: 30, statusMessage: 'checking' }] }],
@@ -207,5 +207,21 @@ describe('account target keys', () => {
     expect(agentOfKey(accounts, 'claude')).toBe('claude');
     expect(hookAccounts([{ name: 'codex-2', agent: 'codex', kind: 'command' }, { name: 'codex', kind: 'command' }])).toEqual(accounts);
     expect(boundAgents({ bindings: { pi: { code: 'x' }, 'codex-2': { events: {} }, codex: { events: {} } } }, accounts)).toEqual(['codex', 'codex-2', 'pi']);
+  });
+});
+
+
+describe('inactive Git sync decisions', () => {
+  it('never counts a skipped inactive output as a pending write', () => {
+    expect(writes({ action: 'inactive' })).toBe(false);
+  });
+  it('keeps additions pending and synced outputs inactive without pending writes', () => {
+    const change = { target: 'git', path: '/file', name: 'check', action: 'add', inactiveReason: 'Git 2.39 cannot run config hooks' };
+    const plan = { revision: '', fingerprint: '', sourcePath: '', blocked: false, changes: [change] };
+    expect(writes(change)).toBe(true);
+    expect(syncState(plan, 'check', 'git')).toBe('pending');
+    change.action = 'unchanged';
+    expect(writes(change)).toBe(false);
+    expect(syncState(plan, 'check', 'git')).toBe('inactive');
   });
 });

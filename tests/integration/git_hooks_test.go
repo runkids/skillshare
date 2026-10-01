@@ -34,7 +34,12 @@ func TestGitHooksCLILifecycle(t *testing.T) {
 	if err := json.Unmarshal([]byte(list.Stdout), &inv); err != nil {
 		t.Fatal(err)
 	}
-	if inv.Git == nil || !inv.Git.Include.Owned || inv.Git.Include.Target != filepath.Join(sb.Home, "custom.gitconfig") {
+	// Destinations resolve existing parent aliases, including macOS /var -> /private/var.
+	resolvedHome, err := filepath.EvalSymlinks(sb.Home)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if inv.Git == nil || !inv.Git.Include.Owned || inv.Git.Include.Target != filepath.Join(resolvedHome, "custom.gitconfig") {
 		t.Fatalf("CLI inventory: %+v", inv.Git)
 	}
 	sb.RunCLI("hooks", "disable", "guard", "--sync", "-g").AssertSuccess(t)

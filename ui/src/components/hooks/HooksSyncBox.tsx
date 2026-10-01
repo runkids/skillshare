@@ -88,10 +88,12 @@ export default function HooksSyncBox({ plan, project, canTakeOver, onTakeover }:
   const [reviewing, setReviewing] = useState(false);
   const pending = plan.changes.filter(writes);
   const conflicts = plan.changes.filter((c) => c.action === 'conflict');
-  const state = pending.length > 0 ? t(pending.length === 1 ? 'mcp.pending.one' : 'mcp.pending.other', { count: pending.length }) : conflicts.length > 0 ? t(conflicts.every(needsTakeover) ? 'hooks.status.unmanaged' : 'mcp.status.conflict') : t('targets.state.synced');
+  const inactive = plan.changes.filter((c) => c.action === 'inactive' || c.inactiveReason);
+  const inactiveReasons = [...new Set(inactive.map((c) => c.inactiveReason || c.message).filter(Boolean))];
+  const state = pending.length > 0 ? t(pending.length === 1 ? 'mcp.pending.one' : 'mcp.pending.other', { count: pending.length }) : conflicts.length > 0 ? t(conflicts.every(needsTakeover) ? 'hooks.status.unmanaged' : 'mcp.status.conflict') : inactive.length > 0 ? t('hooks.status.inactive') : t('targets.state.synced');
   return (
     // The clean theme is black and white only; playful keeps its tint.
-    <SyncBox tone={pending.length > 0 || conflicts.length > 0 ? (style === 'clean' ? 'plain' : 'warn') : style === 'clean' ? 'plain' : 'ok'} state={state}>
+    <SyncBox tone={pending.length > 0 || conflicts.length > 0 || inactive.length > 0 ? (style === 'clean' ? 'plain' : 'warn') : style === 'clean' ? 'plain' : 'ok'} state={state}>
       {pending.length > 0 && (
         <div className="flex flex-col gap-1.5">
           {/* The target file gets its own line, so it wraps instead of being cut short at rail width. */}
@@ -125,6 +127,7 @@ export default function HooksSyncBox({ plan, project, canTakeOver, onTakeover }:
           {plan.blocked && <p className="text-xs leading-normal text-warn">{blockedHint(t, plan)}</p>}
         </>
       )}
+      {inactiveReasons.map((reason) => <p key={reason} className="text-xs leading-normal text-ink-2">{reason}</p>)}
       <p className="text-xs leading-normal text-ink-2">{t('hooks.syncHint')}</p>
       {reviewing && <HooksSyncDialog project={project} canTakeOver={canTakeOver} onTakeover={onTakeover && ((name) => { setReviewing(false); onTakeover(name); })} onClose={() => setReviewing(false)} />}
     </SyncBox>

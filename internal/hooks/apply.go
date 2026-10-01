@@ -768,23 +768,25 @@ func (s *Service) PreviewRestore(id string) (*Plan, error) {
 	if b.Root != "" {
 		scope = s.scoped(b.Root)
 	}
-	if _, ok := targetDef(scope.agentOf(b.Target)); !ok {
-		return nil, fmt.Errorf("backup %s belongs to %s, which is not declared in targets; add it back to restore", id, b.Target)
-	}
-	if scope.accountMissing(b.Target) {
-		return nil, fmt.Errorf("backup %s belongs to %s, whose config_dir %s does not exist on this machine; add it back to restore", id, b.Target, scope.Accounts[b.Target].Dir)
-	}
-	targetScope, agent := scope.forTarget(b.Target)
-	dir, err := targetScope.configDir(agent)
-	if err != nil {
-		return nil, err
-	}
-	oldDir := filepath.Dir(b.Path)
-	if b.Kind == kindFile {
-		oldDir = recordDir(record{Path: b.Path})
-	}
-	if !samePath(oldDir, dir) {
-		return nil, fmt.Errorf("backup %s belongs to %s in %s, but %s now resolves to %s; use its former config_dir to restore", id, b.Target, oldDir, b.Target, dir)
+	if b.Target != "git" {
+		if _, ok := targetDef(scope.agentOf(b.Target)); !ok {
+			return nil, fmt.Errorf("backup %s belongs to %s, which is not declared in targets; add it back to restore", id, b.Target)
+		}
+		if scope.accountMissing(b.Target) {
+			return nil, fmt.Errorf("backup %s belongs to %s, whose config_dir %s does not exist on this machine; add it back to restore", id, b.Target, scope.Accounts[b.Target].Dir)
+		}
+		targetScope, agent := scope.forTarget(b.Target)
+		dir, err := targetScope.configDir(agent)
+		if err != nil {
+			return nil, err
+		}
+		oldDir := filepath.Dir(b.Path)
+		if b.Kind == kindFile {
+			oldDir = recordDir(record{Path: b.Path})
+		}
+		if !samePath(oldDir, dir) {
+			return nil, fmt.Errorf("backup %s belongs to %s in %s, but %s now resolves to %s; use its former config_dir to restore", id, b.Target, oldDir, b.Target, dir)
+		}
 	}
 	d, err := s.render(source)
 	if err != nil {

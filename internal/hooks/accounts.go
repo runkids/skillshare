@@ -16,6 +16,9 @@ type Account struct {
 var accountAgents = []string{"claude", "codex", "pi"}
 
 func (s *Service) lookupAccount(target string) (Account, bool) {
+	if target == "git" {
+		return Account{}, false // The Git hooks binding always names the native destination.
+	}
 	a, ok := s.Accounts[target]
 	return a, s.ProjectRoot == "" && ok && a.Dir != "" && slices.Contains(accountAgents, a.Agent)
 }
@@ -88,6 +91,9 @@ func (s *Service) validateEntry(name string, e Entry, root string) error {
 // parkReason classifies outputs this scope cannot safely plan. Path security
 // failures inside the current base still reach the planner and remain errors.
 func (s *Service) parkReason(r record) string {
+	if r.Target == "git" {
+		return "" // Git destinations and unavailable roots use their own ownership checks.
+	}
 	sc := s
 	if r.Root != "" {
 		sc = s.scoped(r.Root)
@@ -149,6 +155,9 @@ func (s *Service) checkDesiredHomes(d *desired) error {
 	type claim struct{ target, root string }
 	owners := map[string]claim{}
 	check := func(target, root string) error {
+		if target == "git" {
+			return nil
+		}
 		sc := s
 		if root != "" {
 			sc = s.scoped(root)

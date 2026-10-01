@@ -90,7 +90,8 @@ repository top-level root per common directory.
 
 Preview before sync. Regular writable configs receive an owned include;
 symlinks/unwritable targets receive exact manual lines with `inactive` status.
-Old Git is also inactive, with no dispatcher. Missing Git or roots skip outputs
+Old Git is also inactive, with no dispatcher. Plans preserve file actions and
+carry `inactiveReason` separately; synced inactive output is not a pending write. Missing Git or roots skip outputs
 and preserve ownership. Manual and conditional includes stay user-owned,
 including nested includes beneath inactive parent conditions. Unreadable or
 excessively nested declarations block sync. Conditional presence does not prove

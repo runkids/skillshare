@@ -48,7 +48,7 @@ func TestGitCollisionSourcesAndSymlinkInclude(t *testing.T) {
 		must(t, os.Symlink(referent, filepath.Join(e.home, ".gitconfig")))
 		p, err := e.service.PreviewMutation(Mutation{Name: "guard", Entry: entry(t, gitEntry)})
 		must(t, err)
-		if p.Blocked || !strings.Contains(actions(p), "inactive") {
+		if p.Blocked || len(p.gitInactive) == 0 {
 			t.Fatalf("symlink: %+v", p.Changes)
 		}
 		for _, f := range p.files {
@@ -212,7 +212,9 @@ func TestGitNamedHomeIncludeKeepsConditionalScope(t *testing.T) {
 	d, err := e.service.gitDestination("")
 	must(t, err)
 	current, err := user.Current()
-	must(t, err)
+	if err != nil {
+		t.Skipf("named-user includes require a passwd entry: %v", err)
+	}
 	relative, err := filepath.Rel(current.HomeDir, d.hooksFile)
 	must(t, err)
 	value := "~" + current.Username + "/" + filepath.ToSlash(relative)

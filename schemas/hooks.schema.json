@@ -146,6 +146,7 @@
       "type": "object", "additionalProperties": false,
       "description": "Account keys are declared under targets with agent and config_dir and are valid in global config only.",
       "properties": {
+        "git": {"$ref": "#/$defs/gitBinding"},
         "claude": {"$ref": "#/$defs/commandBinding"},
         "codex": {"$ref": "#/$defs/commandBinding"},
         "gemini": {"$ref": "#/$defs/commandBinding"},

@@ -22,7 +22,7 @@ type Service struct {
 	ConfigDirs    map[string]string
 	Accounts      map[string]Account // global scope only
 	scopedAccount string
-	Git        GitRunner
+	Git           GitRunner
 	// GitGlobalConfig is the file override Git honors in GIT_CONFIG_GLOBAL.
 	GitGlobalConfig string
 }
@@ -59,6 +59,8 @@ type Change struct {
 	Root    string `json:"root,omitempty"`
 	Action  string `json:"action"` // add, update, remove, unchanged, adopt, release, conflict, inactive
 	Message string `json:"message,omitempty"`
+	// InactiveReason reports why generated Git output cannot run, independently of its file action.
+	InactiveReason string `json:"inactiveReason,omitempty"`
 	// Events names the native events this change writes into a shared hooks file.
 	Events *EventChanges `json:"events,omitempty"`
 }

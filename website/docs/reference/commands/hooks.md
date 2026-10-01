@@ -286,7 +286,10 @@ unwritable target yields **inactive** with the exact lines to add manually:
 ```
 
 Generated files can still be written while inactive. Git below 2.54 also reports
-inactive: there is no fallback dispatcher. Manual includes stay user-owned,
+inactive: there is no fallback dispatcher. Plans keep the actual `add`, `update`,
+`remove` or `unchanged` action and report the activation warning separately in
+`inactiveReason`. After sync, inactive outputs do not remain pending writes.
+Manual includes stay user-owned,
 including conditional `includeIf` lines; Skillshare never adds an unconditional
 include to widen their scope, including nested includes beneath inactive
 conditions. Unreadable or excessively nested include declarations fail closed.

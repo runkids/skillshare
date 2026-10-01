@@ -113,7 +113,12 @@ func (f *filePlan) prepareGitWrite(newFile bool) (func() error, func(), error) {
 		if err := lock.Close(); err != nil {
 			return err
 		}
-		return os.Rename(f.path+".lock", f.path)
+		if err := os.Rename(f.path+".lock", f.path); err != nil {
+			return err
+		}
+		// Rename consumed our lock; a later writer owns any replacement.
+		released = true
+		return nil
 	}
 	return commit, release, nil
 }

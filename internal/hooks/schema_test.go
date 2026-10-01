@@ -39,3 +39,21 @@ func TestHookSchemaEntryDoesNotAdvertiseUnknownFields(t *testing.T) {
 		t.Fatal("schema must explicitly reject unknown entry fields with additionalProperties: false")
 	}
 }
+
+func TestGitSchemaAvailableInBothScopes(t *testing.T) {
+	data, err := os.ReadFile("../../schemas/hooks.schema.json")
+	must(t, err)
+	var schema struct {
+		Defs map[string]struct {
+			Properties map[string]struct {
+				Ref string `json:"$ref"`
+			} `json:"properties"`
+		} `json:"$defs"`
+	}
+	must(t, json.Unmarshal(data, &schema))
+	for _, scope := range []string{"bindings", "globalBindings"} {
+		if ref := schema.Defs[scope].Properties["git"].Ref; ref != "#/$defs/gitBinding" {
+			t.Errorf("%s cannot validate Git commands: %q", scope, ref)
+		}
+	}
+}

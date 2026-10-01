@@ -47,32 +47,47 @@ on unchanged owned Git helpers without altering their contents.
 Management invokes only allowlisted Git version, rev-parse, config and read-only
 hook-list commands. It never executes hooks or installs a dispatcher.
 
+## Maintainer review follow-up — 2026-10-01
+
+Rebased onto main `bcea0b0f`, preserving account-target hooks. Git is resolved
+before account lookup, including a configured account named `git`; account-home
+parking and restore checks do not reinterpret Git destinations. Global and
+project schema bindings both accept Git commands, and Git is excluded from the
+account-key pattern. Account and Git canonical-path helpers have distinct names.
+
+Inactive Git output keeps its actual file action. `inactiveReason` and warnings
+explain activation separately, so a successful sync settles to `unchanged` while
+the dashboard still shows why Git cannot execute it. Skipped outputs never
+count as pending writes. Windows ignores unavailable POSIX execute bits when
+comparing unchanged helpers; POSIX sync still repairs permission drift.
+Successful config rename consumes the native lock, and cleanup does not remove
+a later writer's lock. Failed commits still release their own lock.
+
 ## Verification and limits
 
-Regression coverage includes validation, Git-parser quoting, destinations and
-linked identity, ownership decision tables, scopes/conditional includes,
-collisions/overrides, stale previews, locks, partial failure/recovery, ordered
-apply/remove, private backups, modes, CLI lifecycle and API JSON contracts.
-UI tests cover YAML round trips, new/edit saves, inactive status, localization
-and linked backup grouping; Chromium checks cover Clean/Playful light/dark and
-mobile layout. Native Go builds/tests and non-Docker checks are used for this
-contribution under the explicit execution-environment override.
+Verification for the review fixes ran inside the devcontainer on an owned
+Crabbox runner, with normal test timeouts and assertions:
 
-Final native evidence: the complete hooks suite passed (139.219s), and the hooks
-race suite passed (191.183s). The complete UI suite passed 704 tests across 91
-files with a local-only ten-second async-render wait budget and thirty-second
-test budget; cases and assertions were unchanged. Default native UI waits
-previously failed two existing tests, with the MCP wait also reproduced at the
-base revision. The affected Git/editor/localization suite passed with normal
-async waits. Go integration uses a local thirty-minute process budget after the
-default ten-minute budget expired; no cases or assertions are removed. UI production build and lint passed (existing warnings remain),
-and website production builds passed in all five locales.
+- `make check` passed with Git 2.39.5, including the full Go unit and integration
+  suites. Native assertions requiring config hooks or orphan worktrees are
+  version-gated; separate inactive-output tests run on older Git. The named-user
+  include test explicitly skips for UID 1001 without a passwd entry.
+- Git 2.55.0 hooks race tests passed. The guarded `ssenv` real-hook proof passed
+  for commit/amend/push, ordering, arguments/stdin, no-verify and linked worktrees.
+- The dashboard passed 749 tests across 93 files with default budgets, lint and
+  production build. Chromium confirmed inactive status without a pending sync
+  button in Clean/Playful light/dark at desktop width. Website typecheck and production builds passed in all five
+  locales. Context-router and diff checks passed.
+- JSON Schema draft 2020 validation accepted Git command bindings in global and
+  project scope and rejected Agent event maps in a Git binding.
+- Canonical parent-alias behavior has a Linux regression. Native macOS
+  confirmation requires PR CI. Windows hooks tests cross-compiled successfully;
+  permission settling is exercised with the Windows service platform on Linux.
+  Native Windows hook execution and a second-machine runtime proof were not run.
 
-The guarded real-hook proof is `scripts/hooks/git-e2e.sh`; its runbook is
-`ai_docs/tests/git_hooks_runbook.md`. It is authored and syntax-checked, but its
-execution is skipped because it requires a devcontainer. Mac/Windows and a
-second-machine runtime proof are not claimed. Windows-style paths are rendered;
-native Windows execution remains unverified.
+The execution runbook is `ai_docs/tests/git_hooks_runbook.md`; management itself
+never executes hooks. The native submission's earlier timeout overrides are
+superseded by the devcontainer verification above.
 
 Import/adoption, hooks-directory discovery/recognizers and double-run warnings
 are Phase 2; script-mode bindings are Phase 3; structured Git cards and doctor

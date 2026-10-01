@@ -11,8 +11,8 @@ type gitDestination struct {
 	root, identity, base, hooksFile, includeTarget, includeValue string
 }
 
-// canonicalPath also canonicalizes existing ancestors of not-yet-created files.
-func canonicalPath(path string) (string, error) {
+// canonicalGitPath also canonicalizes existing ancestors of not-yet-created files.
+func canonicalGitPath(path string) (string, error) {
 	abs, err := filepath.Abs(path)
 	if err != nil {
 		return "", err
@@ -49,18 +49,18 @@ func (s *Service) gitDestination(root string) (gitDestination, error) {
 		if len(lines) != 2 {
 			return d, fmt.Errorf("Git did not resolve a repository top level and common directory")
 		}
-		top, err := canonicalPath(lines[0])
+		top, err := canonicalGitPath(lines[0])
 		if err != nil {
 			return d, err
 		}
-		actual, err := canonicalPath(s.ProjectRoot)
+		actual, err := canonicalGitPath(s.ProjectRoot)
 		if err != nil {
 			return d, err
 		}
 		if top != actual {
 			return d, fmt.Errorf("project root must be the Git repository top level")
 		}
-		d.base, err = canonicalPath(lines[1])
+		d.base, err = canonicalGitPath(lines[1])
 		if err != nil {
 			return d, err
 		}
@@ -77,7 +77,7 @@ func (s *Service) gitDestination(root string) (gitDestination, error) {
 	if xdg == "" {
 		xdg = filepath.Join(home, ".config")
 	}
-	d.base, err = canonicalPath(filepath.Join(xdg, "git"))
+	d.base, err = canonicalGitPath(filepath.Join(xdg, "git"))
 	if err != nil {
 		return d, err
 	}
@@ -96,13 +96,13 @@ func (s *Service) gitDestination(root string) (gitDestination, error) {
 		return d, fmt.Errorf("GIT_CONFIG_GLOBAL must be an absolute file path")
 	}
 	// Resolve the parent, never the final symlink into permission to write it.
-	parent, err := canonicalPath(filepath.Dir(d.includeTarget))
+	parent, err := canonicalGitPath(filepath.Dir(d.includeTarget))
 	if err != nil {
 		return d, err
 	}
 	d.includeTarget = filepath.Join(parent, filepath.Base(d.includeTarget))
 	d.includeValue = filepath.ToSlash(d.hooksFile)
-	canonicalHome, err := canonicalPath(home)
+	canonicalHome, err := canonicalGitPath(home)
 	if err != nil {
 		return d, err
 	}

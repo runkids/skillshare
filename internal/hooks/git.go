@@ -249,20 +249,20 @@ func (pl *planner) planGit(w gitWant, state ledger) ([]*filePlan, string, error)
 		}
 		pl.note("git", d.includeTarget, d.root, "", action, "update Skillshare include.path")
 	}
+	var inactive []string
 	if add && !present && !gitWritable(d.includeTarget) {
 		resolved, _ := filepath.EvalSymlinks(d.includeTarget)
-		for _, name := range sortedKeys(entries) {
-			pl.note("git", d.hooksFile, d.root, name, "inactive", fmt.Sprintf("include target %s is not writable (resolved: %s); add manually:\n%s", d.includeTarget, resolved, includeLines(d.includeValue)))
-		}
+		inactive = append(inactive, fmt.Sprintf("include target %s is not writable (resolved: %s); add manually:\n%s", d.includeTarget, resolved, includeLines(d.includeValue)))
 	}
 	if !gitAtLeast(snapshot.version, 54) {
+		inactive = append(inactive, "Git "+snapshot.version+" cannot run config hooks; Git 2.54 or later is required")
+	}
+	if len(inactive) > 0 && len(w.commands) > 0 {
 		if pl.p.gitInactive == nil {
 			pl.p.gitInactive = map[string]string{}
 		}
-		pl.p.gitInactive[d.root] = "Git " + snapshot.version + " cannot run config hooks; Git 2.54 or later is required"
-		for _, name := range sortedKeys(entries) {
-			pl.note("git", d.hooksFile, d.root, name, "inactive", "Git "+snapshot.version+" cannot run config hooks; Git 2.54 or later is required")
-		}
+		pl.p.gitInactive[d.root] = strings.Join(inactive, "; ")
+		pl.p.Warnings = append(pl.p.Warnings, inactive...)
 	}
 	for _, f := range plans {
 		f.gitGuard = guard

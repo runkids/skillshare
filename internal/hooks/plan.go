@@ -122,14 +122,14 @@ type wantFile struct {
 }
 
 type desired struct {
-	git map[string]gitWant
+	git        map[string]gitWant
 	gitSkipped map[string]bool
-	elements map[string][]wantElement // by path
-	targets  map[string]string        // path -> target
-	roots    map[string]string        // path -> root
-	files    map[string]wantFile
-	warnings []string
-	notes    []Change
+	elements   map[string][]wantElement // by path
+	targets    map[string]string        // path -> target
+	roots      map[string]string        // path -> root
+	files      map[string]wantFile
+	warnings   []string
+	notes      []Change
 }
 
 func (d *desired) addOwned(r record) {
@@ -620,7 +620,12 @@ func (s *Service) previewSource(source *Source, replace, adopt map[string]bool) 
 		c := pl.changes[key]
 		c.Events = pl.eventChanges(key)
 		if c.Target == "git" && c.Action != "conflict" && p.gitInactive[c.Root] != "" {
-			c.Action, c.Message = "inactive", p.gitInactive[c.Root]
+			c.InactiveReason = p.gitInactive[c.Root]
+			if c.Message == "" {
+				c.Message = c.InactiveReason
+			} else {
+				c.Message += "; " + c.InactiveReason
+			}
 		}
 		if c.Action == "conflict" {
 			p.Blocked = true
@@ -977,7 +982,7 @@ func (pl *planner) planFile(w wantFile, state ledger) (*filePlan, error) {
 	case w.content == nil:
 		pl.note(w.target, w.path, w.root, w.entry, "conflict", "file changed outside Skillshare, so it is not removed; explicitly replace to stop managing it")
 	case has && exists && current == r.Hash && current == next.Hash:
-		if w.target == "git" && mode != f.mode {
+		if w.target == "git" && s.platform() != "windows" && mode.Perm() != f.mode.Perm() {
 			f.write = w.content
 			set("update", "restore Git helper permissions")
 		} else {

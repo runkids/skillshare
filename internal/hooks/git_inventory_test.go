@@ -7,6 +7,7 @@ import (
 )
 
 func TestGitInventory(t *testing.T) {
+	requireGitVersion(t, 55)
 	e := gitEnv(t)
 	e.service.GitGlobalConfig = filepath.Join(e.home, "explicit.gitconfig")
 	write(t, e.service.GitGlobalConfig, "[core]\n hooksPath = /custom/hooks\n")

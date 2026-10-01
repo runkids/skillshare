@@ -225,8 +225,8 @@ func gitAtLeast(version string, minor int) bool {
 }
 
 func sameGitPath(a, b string) bool {
-	x, e1 := canonicalPath(a)
-	y, e2 := canonicalPath(b)
+	x, e1 := canonicalGitPath(a)
+	y, e2 := canonicalGitPath(b)
 	return e1 == nil && e2 == nil && x == y
 }
 
@@ -247,7 +247,7 @@ func (s *Service) gitIncludePath(row gitConfigValue) string {
 
 func (s *Service) resolveGitInclude(row gitConfigValue) string {
 	value := s.gitIncludePath(row)
-	resolved, err := canonicalPath(value)
+	resolved, err := canonicalGitPath(value)
 	if err != nil {
 		return filepath.Clean(value)
 	}

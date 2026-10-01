@@ -90,7 +90,7 @@ Skillshare は `hooks` セクションをインデントした block 形式で�
 | `bindings.AGENT.code` | Pi、Amp、OpenCode のネイティブ extension/plugin ソース |
 | `bindings.AGENT.files` | 相対ファイル名を key とした任意の UTF-8 スクリプト |
 
-Agent ID は `claude`、`codex`、`gemini`、`copilot`、`cursor`、`droid`、`qwen`、`antigravity`、`pi`、`amp`、`opencode` and `git`。`factory` は `droid` の、`antigravity-cli` と `agy` は `antigravity` の別名です。event、matcher、handler type、command、timeout 単位、payload はネイティブ形式のまま保持し、自動変換しません。event 名は各 command Agent のドキュメントにある event と照合します。未知の名前（例：綴り違いの `Stopp`）はプレビューと plan の `warnings` に警告として表示されますが、Agent は event を追加していくため同期は止めません。Pi、Amp、OpenCode のコードは確認しません。Pi、Amp、OpenCode のコードと imports はインストール済みバージョンに合わせ、専用の `skillshare-NAME.ts` に出力します。共通実行エンジンは生成しません。command binding のスクリプトは Agent 設定ディレクトリの `hooks/skillshare/NAME/` に保存され、command 内の指定 macro／パスは変更しません。プレビューで完全なパスを確認してください。 global の binding は `targets` で宣言したアカウント target の名前も指定できます。
+Agent ID は `claude`、`codex`、`gemini`、`copilot`、`cursor`、`droid`、`qwen`、`antigravity`、`pi`、`amp`、`opencode`、`git`。`factory` は `droid` の、`antigravity-cli` と `agy` は `antigravity` の別名です。event、matcher、handler type、command、timeout 単位、payload はネイティブ形式のまま保持し、自動変換しません。event 名は各 command Agent のドキュメントにある event と照合します。未知の名前（例：綴り違いの `Stopp`）はプレビューと plan の `warnings` に警告として表示されますが、Agent は event を追加していくため同期は止めません。Pi、Amp、OpenCode のコードは確認しません。Pi、Amp、OpenCode のコードと imports はインストール済みバージョンに合わせ、専用の `skillshare-NAME.ts` に出力します。共通実行エンジンは生成しません。command binding のスクリプトは Agent 設定ディレクトリの `hooks/skillshare/NAME/` に保存され、command 内の指定 macro／パスは変更しません。プレビューで完全なパスを確認してください。 global の binding は `targets` で宣言したアカウント target の名前も指定できます。
 
 ## ネイティブの保存先
 
@@ -191,6 +191,8 @@ Git import、hookdir 認識、script mode、構造化 editor、doctor は後続 
 Windows 形式のパスは描画しますが、Windows での実行は未検証です。
 
 グローバルとプロジェクトでも別々のフレンドリ名を使ってください。Git は両方のスコープをマージします。無効な親条件の下にある入れ子の include も条件を保持します。読み取れない、または深すぎる include 宣言は安全のため同期を停止します。
+
+plan は実際の `add`、`update`、`remove`、`unchanged` を維持し、実行できない理由を `inactiveReason` に分けて表示します。同期済みの inactive 出力は保留中の書き込みに数えません。
 
 ## プロジェクト、競合と復元
 

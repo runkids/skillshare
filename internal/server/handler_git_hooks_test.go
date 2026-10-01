@@ -73,7 +73,10 @@ func TestGitHooksAPIContract(t *testing.T) {
 	}
 	inactive := false
 	for _, c := range preview.Changes {
-		inactive = inactive || c.Action == "inactive"
+		inactive = inactive || c.InactiveReason != ""
+		if c.Action != "unchanged" {
+			t.Fatalf("inactive output counted as a write after sync: %+v", c)
+		}
 	}
 	if !inactive || strings.Contains(w.Body.String(), "SECRET") {
 		t.Fatalf("inactive/private contract: %s", w.Body)

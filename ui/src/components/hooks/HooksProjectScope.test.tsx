@@ -37,6 +37,17 @@ const pickEvent = async (user: ReturnType<typeof userEvent.setup>, row: number, 
 
 const wrap = (ui: React.ReactNode) => render(<MemoryRouter><QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><I18nProvider><ToastProvider>{ui}</ToastProvider></I18nProvider></QueryClientProvider></MemoryRouter>);
 
+describe('inactive Git rail', () => {
+  it('shows inactive without a pending sync button after outputs settle', () => {
+    const changes = [change({ target: 'git', name: 'check', action: 'unchanged', inactiveReason: 'Git 2.39.5 cannot run config hooks' })];
+    wrap(<HooksSyncBox plan={{ ...plan([]), blocked: false, changes }} />);
+    expect(screen.getByText('inactive')).toBeInTheDocument();
+    expect(screen.getByText('Git 2.39.5 cannot run config hooks')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Sync' })).not.toBeInTheDocument();
+    expect(screen.queryByText(/pending change/)).not.toBeInTheDocument();
+  });
+});
+
 describe('project scope in hooks dialogs', () => {
   beforeEach(() => {
     vi.resetAllMocks();

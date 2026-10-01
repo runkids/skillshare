@@ -21,6 +21,7 @@ func gitDraft(t *testing.T, e *env, m Mutation) *Plan {
 }
 
 func TestGitHooksFileDecisions(t *testing.T) {
+	requireGitVersion(t, 54)
 	for _, tc := range []struct {
 		name, current, record, action string
 		remove, replace, other        bool
@@ -200,7 +201,7 @@ func TestGitInactiveAndRevision(t *testing.T) {
 	e := gitEnv(t)
 	e.service.Git = versionGit{GitRunner: e.service.gitRunner(), version: "2.53.0"}
 	p := gitDraft(t, e, Mutation{Name: "guard", Entry: entry(t, gitEntry)})
-	if p.Blocked || !strings.Contains(actions(p), "inactive") || len(p.Files()) == 0 {
+	if p.Blocked || len(p.gitInactive) == 0 || len(p.Files()) == 0 {
 		t.Fatalf("old Git still writes: %+v", p)
 	}
 	e.service.Git = versionGit{missing: true}
@@ -349,14 +350,17 @@ func TestGitDestinations(t *testing.T) {
 	if _, err := s.scoped(bare).gitDestination(bare); err == nil {
 		t.Fatal("bare repository must be inactive")
 	}
-	// --orphan creates a linked worktree without creating a commit or running hooks.
-	linked := filepath.Join(t.TempDir(), "linked")
-	gitSetup(t, root, "worktree", "add", "--orphan", "-b", "test-linked", linked)
-	ld, err := s.scoped(linked).gitDestination(linked)
-	must(t, err)
-	if ld.identity != d.identity || ld.hooksFile != d.hooksFile {
-		t.Fatalf("linked destinations differ: %+v / %+v", d, ld)
-	}
+	t.Run("linked worktree", func(t *testing.T) {
+		requireGitVersion(t, 42)
+		// --orphan creates a linked worktree without creating a commit or running hooks.
+		linked := filepath.Join(t.TempDir(), "linked")
+		gitSetup(t, root, "worktree", "add", "--orphan", "-b", "test-linked", linked)
+		ld, err := s.scoped(linked).gitDestination(linked)
+		must(t, err)
+		if ld.identity != d.identity || ld.hooksFile != d.hooksFile {
+			t.Fatalf("linked destinations differ: %+v / %+v", d, ld)
+		}
+	})
 }
 
 const gitEntry = `{"bindings":{"git":{"commands":{"check":{"events":["pre-commit"],"command":"{files}/check.sh"}},"files":{"check.sh":"#!/bin/sh\nexit 0\n"}}}}`
@@ -427,5 +431,31 @@ func TestGitEnvSanitizesCaseVariants(t *testing.T) {
 	got := sanitizedGitEnv([]string{"git_dir=unsafe", "Git_Config_Count=1", "Git_Config_Key_0=hook.test.command", "git_config_value_0=echo unsafe", "Git_Config_Global=/safe"})
 	if !slices.Equal(got, []string{"Git_Config_Global=/safe", "LC_ALL=C"}) {
 		t.Fatalf("case-insensitive environment leaked: %v", got)
+	}
+}
+
+// Version-specific assertions skip only the native feature they require.
+func requireGitVersion(t *testing.T, minor int) {
+	t.Helper()
+	out, err := execGitRunner{}.Run("", nil, "version")
+	if err != nil {
+		t.Skipf("Git unavailable: %v", err)
+	}
+	version := strings.TrimSpace(strings.TrimPrefix(string(out), "git version "))
+	if !gitAtLeast(version, minor) {
+		t.Skipf("requires Git 2.%d+, found %s", minor, version)
+	}
+}
+
+func TestGitGlobalDestinationResolvesParentAlias(t *testing.T) {
+	e := gitEnv(t)
+	alias := filepath.Join(t.TempDir(), "home-alias")
+	must(t, os.Symlink(e.home, alias))
+	e.service.Home = alias
+	e.service.GitGlobalConfig = filepath.Join(alias, "custom.gitconfig")
+	d, err := e.service.gitDestination("")
+	must(t, err)
+	if d.includeTarget != filepath.Join(e.home, "custom.gitconfig") || d.hooksFile != filepath.Join(e.home, ".config", "git", "skillshare", "hooks.gitconfig") {
+		t.Fatalf("parent alias retained in destination: %+v", d)
 	}
 }

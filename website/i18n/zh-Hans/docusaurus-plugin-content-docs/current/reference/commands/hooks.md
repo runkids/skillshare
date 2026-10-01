@@ -90,7 +90,7 @@ Skillshare 以缩进的 block 格式写入 `hooks` 区段；每次保存也会�
 | `bindings.AGENT.code` | Pi、Amp、OpenCode 的原生 extension/plugin 代码 |
 | `bindings.AGENT.files` | 可选 UTF-8 脚本文件，以相对文件名为 key |
 
-Agent ID 为 `claude`、`codex`、`gemini`、`copilot`、`cursor`、`droid`、`qwen`、`antigravity`、`pi`、`amp`、`opencode` and `git`；`factory` 是 `droid` 的别名，`antigravity-cli` 和 `agy` 是 `antigravity` 的别名。event、matcher、handler type、command、timeout 单位和 payload 均保留原生格式，不自动跨 Agent 转换。event 名称会对照各 command Agent 文档列出的事件检查：未知名称（例如拼错的 `Stopp`）在预览和 plan 的 `warnings` 中显示警告，但不阻止同步，因为 Agent 会陆续新增事件。Pi、Amp、OpenCode 的代码不检查。Pi、Amp、OpenCode 的代码及 imports 须匹配已安装版本，发布为独立的 `skillshare-NAME.ts`，不生成共享执行引擎。command binding 的脚本位于 Agent 配置目录的 `hooks/skillshare/NAME/`；command 保留你提供的原生 macro 或明确路径。请在预览中确认完整路径。 global binding 也可以使用在 `targets` 下声明的账号 target 名称。
+Agent ID 为 `claude`、`codex`、`gemini`、`copilot`、`cursor`、`droid`、`qwen`、`antigravity`、`pi`、`amp`、`opencode`、`git`；`factory` 是 `droid` 的别名，`antigravity-cli` 和 `agy` 是 `antigravity` 的别名。event、matcher、handler type、command、timeout 单位和 payload 均保留原生格式，不自动跨 Agent 转换。event 名称会对照各 command Agent 文档列出的事件检查：未知名称（例如拼错的 `Stopp`）在预览和 plan 的 `warnings` 中显示警告，但不阻止同步，因为 Agent 会陆续新增事件。Pi、Amp、OpenCode 的代码不检查。Pi、Amp、OpenCode 的代码及 imports 须匹配已安装版本，发布为独立的 `skillshare-NAME.ts`，不生成共享执行引擎。command binding 的脚本位于 Agent 配置目录的 `hooks/skillshare/NAME/`；command 保留你提供的原生 macro 或明确路径。请在预览中确认完整路径。 global binding 也可以使用在 `targets` 下声明的账号 target 名称。
 
 ## 原生目标路径
 
@@ -185,6 +185,8 @@ config hook 与 hookdir script 可能都执行；迁移前手动检查重复。G
 script mode、结构化 editor 和 doctor 留待后续 phase。生成 Windows 格式路径，但 Windows 执行未验证。
 
 全局与项目命令也应使用不同的名称，Git 会合并两个作用域。位于未激活父条件下的嵌套 include 同样保留条件。无法读取或嵌套过深的 include 声明会阻止同步。
+
+plan 保留实际的 `add`、`update`、`remove` 或 `unchanged` 操作，并通过 `inactiveReason` 单独报告无法执行的原因。已同步的 inactive 输出不计为待写入的更改。
 
 ## 项目、冲突与恢复
 

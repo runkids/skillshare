@@ -41,7 +41,7 @@ func (s *Service) gitInventory(root string, state ledger) *GitInfo {
 		return info
 	}
 	info.HooksFile = d.hooksFile
-	resolved, err := canonicalPath(d.includeTarget)
+	resolved, err := canonicalGitPath(d.includeTarget)
 	if err != nil {
 		resolved = d.includeTarget
 	}

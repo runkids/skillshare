@@ -29,15 +29,15 @@ const order = (agent: string) => {
 };
 
 /** A change Sync applies; `adopt` only records a registration the Agent already has. */
-export const writes = (change: { action: string }) => ['add', 'adopt', 'update', 'remove', 'restore', 'inactive'].includes(change.action);
+export const writes = (change: { action: string }) => ['add', 'adopt', 'update', 'remove', 'restore'].includes(change.action);
 
 /** The synchronized state of one entry in one Agent, from the plan. `none` when the plan says nothing (not published). */
 export type SyncState = 'synced' | 'pending' | 'conflict' | 'inactive' | 'none';
 export function syncState(plan: HookPlan | null | undefined, name: string, agent: string): SyncState {
   const changes = (plan?.changes ?? []).filter((c) => c.name === name && c.target === agent);
   if (changes.some((c) => c.action === 'conflict')) return 'conflict';
-  if (changes.some((c) => c.action === 'inactive')) return 'inactive';
   if (changes.some(writes)) return 'pending';
+  if (changes.some((c) => c.action === 'inactive' || c.inactiveReason)) return 'inactive';
   return changes.length > 0 ? 'synced' : 'none';
 }
 
