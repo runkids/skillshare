@@ -23,8 +23,16 @@ on:
         type: string
         default: ""
 
+# A newer push to a pull request supersedes its running tests; other events keep their own run.
+concurrency:
+  group: ${{ github.event_name == 'pull_request' && format('test-pr-{0}', github.event.pull_request.number) || format('test-{0}', github.run_id) }}
+  cancel-in-progress: true
+
 jobs:
   unit-test:
+    # Release Please tests a merged Release PR at its exact SHA (inputs.ref) before tagging,
+    # so the push run for that same commit is skipped. Release PR runs stay: they are required checks.
+    if: &not-release-duplicate "${{ !(github.event_name == 'push' && !inputs.ref && startsWith(github.event.head_commit.message, 'chore(main): release ')) }}"
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -52,6 +60,7 @@ jobs:
         run: go test -v -race ./cmd/skillshare/... ./internal/...
 
   integration-test:
+    if: *not-release-duplicate
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -76,6 +85,7 @@ jobs:
           SKILLSHARE_TEST_BINARY: ${{ github.workspace }}/bin/skillshare
 
   docker-sandbox-offline:
+    if: *not-release-duplicate
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -88,7 +98,7 @@ jobs:
 
   docker-sandbox-online:
     runs-on: ubuntu-latest
-    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    if: "${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && !(github.event_name == 'push' && !inputs.ref && startsWith(github.event.head_commit.message, 'chore(main): release ')) }}"
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -99,6 +109,7 @@ jobs:
         run: ./scripts/test_docker_online.sh
 
   redteam:
+    if: *not-release-duplicate
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -116,7 +127,7 @@ jobs:
 
   redteam-signal:
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    if: "${{ (github.event_name == 'push' && (inputs.ref || !startsWith(github.event.head_commit.message, 'chore(main): release '))) || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}"
     steps:
       - name: Checkout
         uses: actions/checkout@v4
