@@ -68,7 +68,9 @@ skillshare update surge    # Re-copies from the path and runs the security audit
 skillshare sync
 ```
 
-Skills installed before file hashes were recorded keep the "local source" status until they are updated or reinstalled. In project mode, skills installed from a relative path (such as `./vendor/my-skill`) are not compared.
+Skills installed before file hashes were recorded keep the "local source" status until they are updated or reinstalled. In project mode, a relative path (such as `./vendor/my-skill`) is resolved against the project root.
+
+When the dashboard installs the root of a directory that also contains child skills, it copies only that root's `SKILL.md`. `check` then compares only `SKILL.md`, and `update` re-copies only `SKILL.md`.
 
 ## Example Output
 

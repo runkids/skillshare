@@ -745,3 +745,43 @@ func run(t *testing.T, dir string, name string, args ...string) {
 		t.Fatalf("%s %v failed: %s\n%s", name, args, err, out)
 	}
 }
+
+func TestCheckProject_RelativeLocalSource_DetectsChangeUntilUpdated(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	projectRoot := sb.SetupProjectDir("claude")
+	skillFile := filepath.Join(projectRoot, "vendor", "team-skill", "SKILL.md")
+	sb.WriteFile(skillFile, "---\nname: team-skill\n---\n# v1")
+	sb.RunCLIInDir(projectRoot, "install", "./vendor/team-skill", "-p").AssertSuccess(t)
+
+	checkStatus := func() string {
+		t.Helper()
+		result := sb.RunCLIInDir(projectRoot, "check", "-p", "--json")
+		result.AssertSuccess(t)
+		var output checkOutput
+		if err := json.Unmarshal([]byte(result.Stdout), &output); err != nil {
+			t.Fatalf("failed to parse JSON output: %v\noutput: %s", err, result.Stdout)
+		}
+		for _, s := range output.Skills {
+			if s.Name == "team-skill" {
+				return s.Status
+			}
+		}
+		t.Fatalf("team-skill missing from check output: %s", result.Stdout)
+		return ""
+	}
+
+	if got := checkStatus(); got != "up_to_date" {
+		t.Fatalf("after install: status = %q, want up_to_date", got)
+	}
+
+	sb.WriteFile(skillFile, "---\nname: team-skill\n---\n# v2")
+	if got := checkStatus(); got != "update_available" {
+		t.Fatalf("after source change: status = %q, want update_available", got)
+	}
+
+	sb.RunCLIInDir(projectRoot, "update", "team-skill", "-p").AssertSuccess(t)
+	if got := checkStatus(); got != "up_to_date" {
+		t.Fatalf("after update: status = %q, want up_to_date", got)
+	}
+}

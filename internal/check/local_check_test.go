@@ -26,7 +26,7 @@ func localEntry(t *testing.T) (*install.MetadataEntry, string) {
 func TestLocalSourceStatus_Unchanged(t *testing.T) {
 	entry, _ := localEntry(t)
 
-	if status, _ := LocalSourceStatus(entry); status != "up_to_date" {
+	if status, _ := LocalSourceStatus(entry, ""); status != "up_to_date" {
 		t.Errorf("status = %q, want up_to_date", status)
 	}
 }
@@ -35,7 +35,7 @@ func TestLocalSourceStatus_FileChanged(t *testing.T) {
 	entry, src := localEntry(t)
 	os.WriteFile(filepath.Join(src, "SKILL.md"), []byte("# v2"), 0644)
 
-	if status, _ := LocalSourceStatus(entry); status != "update_available" {
+	if status, _ := LocalSourceStatus(entry, ""); status != "update_available" {
 		t.Errorf("status = %q, want update_available", status)
 	}
 }
@@ -44,7 +44,7 @@ func TestLocalSourceStatus_FileAdded(t *testing.T) {
 	entry, src := localEntry(t)
 	os.WriteFile(filepath.Join(src, "reference.md"), []byte("new"), 0644)
 
-	if status, _ := LocalSourceStatus(entry); status != "update_available" {
+	if status, _ := LocalSourceStatus(entry, ""); status != "update_available" {
 		t.Errorf("status = %q, want update_available", status)
 	}
 }
@@ -53,7 +53,7 @@ func TestLocalSourceStatus_SourceMissing(t *testing.T) {
 	entry, src := localEntry(t)
 	os.RemoveAll(src)
 
-	status, msg := LocalSourceStatus(entry)
+	status, msg := LocalSourceStatus(entry, "")
 	if status != "error" || msg == "" {
 		t.Errorf("got (%q, %q), want error with a message", status, msg)
 	}
@@ -63,7 +63,7 @@ func TestLocalSourceStatus_NoRecordedHashes(t *testing.T) {
 	entry, _ := localEntry(t)
 	entry.FileHashes = nil
 
-	if status, _ := LocalSourceStatus(entry); status != "local" {
+	if status, _ := LocalSourceStatus(entry, ""); status != "local" {
 		t.Errorf("status = %q, want local", status)
 	}
 }
@@ -72,7 +72,7 @@ func TestLocalSourceStatus_NotLocalType(t *testing.T) {
 	entry, _ := localEntry(t)
 	entry.Type = "github"
 
-	if status, _ := LocalSourceStatus(entry); status != "local" {
+	if status, _ := LocalSourceStatus(entry, ""); status != "local" {
 		t.Errorf("status = %q, want local", status)
 	}
 }
@@ -81,7 +81,7 @@ func TestLocalSourceStatus_RelativeSourceIsNotCompared(t *testing.T) {
 	entry, _ := localEntry(t)
 	entry.Source = "./my-skill"
 
-	if status, _ := LocalSourceStatus(entry); status != "local" {
+	if status, _ := LocalSourceStatus(entry, ""); status != "local" {
 		t.Errorf("status = %q, want local", status)
 	}
 }
@@ -128,7 +128,7 @@ func discoveryInstall(t *testing.T) (repo string, entry *install.MetadataEntry) 
 func TestLocalSourceStatus_RootOfSkillCollection_UnchangedIsUpToDate(t *testing.T) {
 	_, entry := discoveryInstall(t)
 
-	if status, msg := LocalSourceStatus(entry); status != "up_to_date" {
+	if status, msg := LocalSourceStatus(entry, ""); status != "up_to_date" {
 		t.Errorf("status = %q (%s), want up_to_date", status, msg)
 	}
 }
@@ -138,7 +138,7 @@ func TestLocalSourceStatus_RootOfSkillCollection_IgnoresFilesNotInstalled(t *tes
 	os.WriteFile(filepath.Join(repo, "README.md"), []byte("changed"), 0644)
 	os.WriteFile(filepath.Join(repo, "skills/child/SKILL.md"), []byte("changed"), 0644)
 
-	if status, _ := LocalSourceStatus(entry); status != "up_to_date" {
+	if status, _ := LocalSourceStatus(entry, ""); status != "up_to_date" {
 		t.Errorf("status = %q, want up_to_date", status)
 	}
 }
@@ -147,7 +147,7 @@ func TestLocalSourceStatus_RootOfSkillCollection_DetectsSkillFileChange(t *testi
 	repo, entry := discoveryInstall(t)
 	os.WriteFile(filepath.Join(repo, "SKILL.md"), []byte("changed"), 0644)
 
-	if status, _ := LocalSourceStatus(entry); status != "update_available" {
+	if status, _ := LocalSourceStatus(entry, ""); status != "update_available" {
 		t.Errorf("status = %q, want update_available", status)
 	}
 }
@@ -162,7 +162,7 @@ func TestLocalSourceStatus_WholeDirectoryInstall_DetectsChildSkillChange(t *test
 
 	os.WriteFile(filepath.Join(src, "child", "SKILL.md"), []byte("# v2"), 0644)
 
-	if status, _ := LocalSourceStatus(entry); status != "update_available" {
+	if status, _ := LocalSourceStatus(entry, ""); status != "update_available" {
 		t.Errorf("status = %q, want update_available", status)
 	}
 }
@@ -175,7 +175,48 @@ func TestLocalSourceStatus_WholeDirectoryInstall_ChildAddedLater(t *testing.T) {
 	os.MkdirAll(filepath.Join(src, "child"), 0755)
 	os.WriteFile(filepath.Join(src, "child", "SKILL.md"), []byte("# Child"), 0644)
 
-	if status, _ := LocalSourceStatus(entry); status != "update_available" {
+	if status, _ := LocalSourceStatus(entry, ""); status != "update_available" {
+		t.Errorf("status = %q, want update_available", status)
+	}
+}
+
+func TestLocalSourceStatus_RelativeSourceResolvesAgainstBaseDir(t *testing.T) {
+	entry, src := localEntry(t)
+	entry.Source = "./my-skill"
+	os.WriteFile(filepath.Join(src, "SKILL.md"), []byte("# v2"), 0644)
+
+	if status, msg := LocalSourceStatus(entry, filepath.Dir(src)); status != "update_available" {
+		t.Errorf("status = %q (%s), want update_available", status, msg)
+	}
+}
+
+func TestLocalSourceStatus_LegacyRootOfSkillCollection_UnchangedIsUpToDate(t *testing.T) {
+	_, entry := discoveryInstall(t)
+	entry.Layout = "" // entries written before the layout was recorded
+
+	if status, msg := LocalSourceStatus(entry, ""); status != "up_to_date" {
+		t.Errorf("status = %q (%s), want up_to_date", status, msg)
+	}
+}
+
+func TestLocalSourceStatus_SkillFileOnlySource_ChildAddedLater(t *testing.T) {
+	tmp := t.TempDir()
+	src := filepath.Join(tmp, "pack")
+	os.MkdirAll(src, 0755)
+	os.WriteFile(filepath.Join(src, "SKILL.md"), []byte("# Pack"), 0644)
+	dest := filepath.Join(tmp, "dest")
+	source := &install.Source{Type: install.SourceTypeLocalPath, Raw: src, Path: src, Name: "pack"}
+	if _, err := install.Install(source, filepath.Join(dest, "pack"), install.InstallOptions{SourceDir: dest, SkipAudit: true}); err != nil {
+		t.Fatal(err)
+	}
+
+	// `install <path>` copies the whole directory, so a child skill added
+	// later is part of what an update would copy.
+	os.MkdirAll(filepath.Join(src, "child"), 0755)
+	os.WriteFile(filepath.Join(src, "child", "SKILL.md"), []byte("# Child"), 0644)
+
+	entry := install.LoadMetadataOrNew(dest).GetByPath("pack")
+	if status, _ := LocalSourceStatus(entry, ""); status != "update_available" {
 		t.Errorf("status = %q, want update_available", status)
 	}
 }

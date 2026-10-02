@@ -68,7 +68,9 @@ skillshare update surge    # 경로에서 다시 복사하고 보안 감사를 �
 skillshare sync
 ```
 
-파일 해시가 기록되기 전에 설치된 skill은 update하거나 다시 설치할 때까지 "local source" 상태로 남습니다. Project mode에서 상대 경로(`./vendor/my-skill` 등)로 설치한 skill은 비교하지 않습니다.
+파일 해시가 기록되기 전에 설치된 skill은 update하거나 다시 설치할 때까지 "local source" 상태로 남습니다. Project mode에서는 상대 경로(`./vendor/my-skill` 등)를 project root 기준으로 해석합니다.
+
+대시보드에서 하위 skill이 있는 디렉터리의 루트를 설치하면 그 루트의 `SKILL.md`만 복사합니다. 이 경우 `check`는 `SKILL.md`만 비교하고, `update`도 `SKILL.md`만 다시 복사합니다.
 
 ## 출력 예시
 

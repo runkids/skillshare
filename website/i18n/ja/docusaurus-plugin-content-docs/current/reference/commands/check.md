@@ -68,7 +68,9 @@ skillshare update surge    # パスから再コピーし、セキュリティ監
 skillshare sync
 ```
 
-ファイルハッシュが記録される前にインストールされた Skill は、update または再インストールするまで「local source」のままです。 Project mode で相対パス（`./vendor/my-skill` など）からインストールした Skill は比較されません。
+ファイルハッシュが記録される前にインストールされた Skill は、update または再インストールするまで「local source」のままです。 Project mode では、相対パス（`./vendor/my-skill` など）は project root を基準に解決されます。
+
+ダッシュボードで、子 Skill を含むディレクトリのルートをインストールすると、そのルートの `SKILL.md` だけがコピーされます。その場合 `check` は `SKILL.md` だけを比較し、`update` も `SKILL.md` だけを再コピーします。
 
 ## 出力例
 

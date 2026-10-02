@@ -92,6 +92,18 @@ func TestUpdate_LegacyRepoRootOrchestratorMigratesToSkillOnly(t *testing.T) {
 }
 
 func TestUpdate_LocalCollectionRoot_KeepsSkillFileOnly(t *testing.T) {
+	testUpdateLocalCollectionRoot(t, false)
+}
+
+func TestUpdate_LegacyLocalCollectionRoot_KeepsSkillFileOnly(t *testing.T) {
+	testUpdateLocalCollectionRoot(t, true)
+}
+
+// testUpdateLocalCollectionRoot updates the root of a local collection that
+// was installed as its SKILL.md alone. legacy drops the recorded layout, as in
+// metadata written before the layout was recorded.
+func testUpdateLocalCollectionRoot(t *testing.T, legacy bool) {
+	t.Helper()
 	tmp := t.TempDir()
 	repo := filepath.Join(tmp, "repo")
 	write := func(rel, body string) {
@@ -115,6 +127,14 @@ func TestUpdate_LocalCollectionRoot_KeepsSkillFileOnly(t *testing.T) {
 			if _, err := InstallFromDiscovery(discovery, skill, destPath, InstallOptions{SourceDir: sourceDir, SkipAudit: true}); err != nil {
 				t.Fatal(err)
 			}
+		}
+	}
+
+	if legacy {
+		store := LoadMetadataOrNew(sourceDir)
+		store.GetByPath("root").Layout = ""
+		if err := store.Save(sourceDir); err != nil {
+			t.Fatal(err)
 		}
 	}
 
@@ -169,5 +189,31 @@ func TestUpdate_LocalWholeDirectory_ChildAddedLater_KeepsOtherFiles(t *testing.T
 
 	if _, err := os.Stat(filepath.Join(destPath, "README.md")); err != nil {
 		t.Errorf("README.md was removed by the update: %v", err)
+	}
+}
+
+func TestUpdate_LocalSkillFileOnlySource_ChildAddedLater_CopiesChild(t *testing.T) {
+	tmp := t.TempDir()
+	src := filepath.Join(tmp, "pack")
+	os.MkdirAll(src, 0755)
+	os.WriteFile(filepath.Join(src, "SKILL.md"), []byte("---\nname: pack\n---\n# v1"), 0644)
+
+	sourceDir := filepath.Join(tmp, "dest")
+	destPath := filepath.Join(sourceDir, "pack")
+	source := &Source{Type: SourceTypeLocalPath, Raw: src, Path: src, Name: "pack"}
+	if _, err := Install(source, destPath, InstallOptions{SourceDir: sourceDir, SkipAudit: true}); err != nil {
+		t.Fatal(err)
+	}
+
+	// The source held only SKILL.md at install time; the install still
+	// copied the whole directory, so the update must copy the new child.
+	os.MkdirAll(filepath.Join(src, "child"), 0755)
+	os.WriteFile(filepath.Join(src, "child", "SKILL.md"), []byte("---\nname: child\n---\n# Child"), 0644)
+	if _, err := Install(source, destPath, InstallOptions{SourceDir: sourceDir, Update: true, SkipAudit: true}); err != nil {
+		t.Fatalf("update: %v", err)
+	}
+
+	if _, err := os.Stat(filepath.Join(destPath, "child", "SKILL.md")); err != nil {
+		t.Errorf("child skill was not copied by the update: %v", err)
 	}
 }

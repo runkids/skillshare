@@ -8,6 +8,9 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"skillshare/internal/config"
+	"skillshare/internal/install"
 )
 
 func TestHandleCheck_EmptySource(t *testing.T) {
@@ -96,5 +99,34 @@ func TestURLBranchGroupRemoteHash_DefaultBranchUsesAuth(t *testing.T) {
 	}
 	if !strings.HasPrefix("0123456789abcdef0123456789abcdef01234567", hash) || hash == "" {
 		t.Fatalf("unexpected hash %q", hash)
+	}
+}
+
+func TestHandleCheck_ProjectRelativeLocalSourceIsCompared(t *testing.T) {
+	s, _ := newTestServer(t)
+	projectRoot := t.TempDir()
+	skillsDir := filepath.Join(projectRoot, ".skillshare", "skills")
+	os.MkdirAll(skillsDir, 0755)
+	s.projectRoot = projectRoot
+	s.projectCfg = &config.ProjectConfig{}
+	if err := s.projectCfg.Save(projectRoot); err != nil {
+		t.Fatal(err)
+	}
+
+	vendor := filepath.Join(projectRoot, "vendor", "team-skill")
+	os.MkdirAll(vendor, 0755)
+	os.WriteFile(filepath.Join(vendor, "SKILL.md"), []byte("---\nname: team-skill\n---\n# v1"), 0644)
+	// Project installs record the source as typed, relative to the project root.
+	source := &install.Source{Type: install.SourceTypeLocalPath, Raw: "./vendor/team-skill", Path: vendor, Name: "team-skill"}
+	if _, err := install.Install(source, filepath.Join(skillsDir, "team-skill"), install.InstallOptions{SourceDir: skillsDir, SkipAudit: true}); err != nil {
+		t.Fatal(err)
+	}
+	os.WriteFile(filepath.Join(vendor, "SKILL.md"), []byte("---\nname: team-skill\n---\n# v2"), 0644)
+
+	rr := httptest.NewRecorder()
+	s.handler.ServeHTTP(rr, httptest.NewRequest(http.MethodGet, "/api/check", nil))
+
+	if !strings.Contains(rr.Body.String(), `"status":"update_available"`) {
+		t.Errorf("expected update_available for the relative source, got %s", rr.Body.String())
 	}
 }

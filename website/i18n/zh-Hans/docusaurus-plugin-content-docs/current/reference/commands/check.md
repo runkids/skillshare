@@ -68,7 +68,9 @@ skillshare update surge    # 从该路径重新复制，并执行安全审计
 skillshare sync
 ```
 
-在记录文件哈希值之前安装的 skill，会保持 "local source" 状态，直到执行 update 或重新安装。在 project mode 中，通过相对路径（如 `./vendor/my-skill`）安装的 skill 不会比较。
+在记录文件哈希值之前安装的 skill，会保持 "local source" 状态，直到执行 update 或重新安装。在 project mode 中，相对路径（如 `./vendor/my-skill`）以 project root 为基准解析。
+
+在仪表板中安装一个还包含子 skill 的目录的根时，只会复制该根目录的 `SKILL.md`。此时 `check` 只比较 `SKILL.md`，`update` 也只重新复制 `SKILL.md`。
 
 ## 示例输出
 

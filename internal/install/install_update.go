@@ -183,6 +183,7 @@ func readTempUpdateMeta(tempDir string) *SkillMeta {
 		Version:     entry.Version,
 		TreeHash:    entry.TreeHash,
 		FileHashes:  entry.FileHashes,
+		Layout:      entry.Layout,
 		Branch:      entry.Branch,
 		Commit:      entry.Commit,
 	}

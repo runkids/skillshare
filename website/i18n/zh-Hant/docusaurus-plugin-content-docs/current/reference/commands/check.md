@@ -68,7 +68,9 @@ skillshare update surge    # 從該路徑重新複製，並執行安全稽核
 skillshare sync
 ```
 
-在記錄檔案 hash 之前安裝的 skill，會維持「local source」狀態，直到執行 update 或重新安裝。在 project mode 中，透過相對路徑（如 `./vendor/my-skill`）安裝的 skill 不會比對。
+在記錄檔案 hash 之前安裝的 skill，會維持「local source」狀態，直到執行 update 或重新安裝。在 project mode 中，相對路徑（如 `./vendor/my-skill`）以 project root 為基準解析。
+
+在 dashboard 中安裝一個還包含子 skill 的目錄的根時，只會複製該根目錄的 `SKILL.md`。此時 `check` 只比對 `SKILL.md`，`update` 也只重新複製 `SKILL.md`。
 
 ## 輸出範例
 
