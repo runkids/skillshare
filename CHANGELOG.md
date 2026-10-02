@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.23.5](https://github.com/runkids/skillshare/compare/v0.23.4...v0.23.5) (2026-10-02)
+
+
+### Bug Fixes
+
+* **sync:** report include patterns that match no skill ([#326](https://github.com/runkids/skillshare/issues/326)) ([4e3b2b2](https://github.com/runkids/skillshare/commit/4e3b2b269ae34ada258a12cb97b6c6df0b6678b7)), closes [#325](https://github.com/runkids/skillshare/issues/325)
+* **sync:** show unmatched include warnings in every sync view ([#328](https://github.com/runkids/skillshare/issues/328)) ([80ac109](https://github.com/runkids/skillshare/commit/80ac109f722ef23ce7af59db41534078e0a87211)), closes [#325](https://github.com/runkids/skillshare/issues/325)
+
 ## [0.23.4] - 2026-10-01
 
 ### Bug Fixes
