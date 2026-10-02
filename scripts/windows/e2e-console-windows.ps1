@@ -2,10 +2,13 @@
 # runs `pull` and `sync plugins --no-tui`, and records every descendant process plus every new
 # visible top-level window. Run as the desktop user through `utm.sh task`; see
 # ai_docs/tests/windows_console_windows_runbook.md.
-# With -UiZip/-VersionFile (utm.sh build output) it also checks cancellation across the
-# hidden-console relaunch and that a background `ui start` server outlives its launcher.
-# Usage: e2e-console-windows.ps1 -Exe <ss.exe> -Root <empty dir> -Out <report.txt> [-UiZip <zip> -VersionFile <txt>]
-param([string]$Exe, [string]$Root, [string]$Out, [string]$UiZip, [string]$VersionFile)
+# -Cancel (needs -UiZip/-VersionFile from utm.sh build) checks that terminating the PID a caller
+# started stops skillshare and its foreground children, while `ui start`, the UI restart helper
+# and the background server outlive it. Run it both through `utm.sh task` (Task Scheduler's job
+# forbids breakaway) and `utm.sh ps` (SYSTEM, no job); -SkipWindows drops the window matrix.
+# Usage: e2e-console-windows.ps1 -Exe <ss.exe> -Root <empty dir> -Out <report.txt>
+#        [-Cancel -UiZip <zip> -VersionFile <txt>] [-SkipWindows]
+param([string]$Exe, [string]$Root, [string]$Out, [switch]$Cancel, [string]$UiZip, [string]$VersionFile, [switch]$SkipWindows)
 $ErrorActionPreference = 'Continue'
 $log = New-Object System.Collections.Generic.List[string]
 function L($s) { $log.Add([string]$s) }
@@ -71,6 +74,10 @@ public static class ConsoleProbe {
       return true;
     }, IntPtr.Zero);
   }
+
+  [DllImport("kernel32")] static extern bool IsProcessInJob(IntPtr p, IntPtr job, out bool r);
+  [DllImport("kernel32")] static extern IntPtr GetCurrentProcess();
+  public static bool InJob() { bool r; IsProcessInJob(GetCurrentProcess(), IntPtr.Zero, out r); return r; }
 
   // Starts without waiting; returns the PID (0 on failure).
   public static int Start(string exe, string args, string cwd, uint flags, string outFile) {
@@ -145,7 +152,7 @@ $modes = [ordered]@{
 # 'unknown' exits 1: the exit code must survive the hidden-console relaunch.
 $cmds = [ordered]@{ 'pull' = 'pull'; 'sync-plugins' = 'sync plugins --no-tui'; 'unknown' = 'no-such-command' }
 
-foreach ($m in $modes.Keys) {
+foreach ($m in $(if ($SkipWindows) { @() } else { $modes.Keys })) {
   foreach ($c in $cmds.Keys) {
     $of = Join-Path $Root "out\$m-$c.txt"
     $r = [ConsoleProbe]::Run($Exe, $cmds[$c], $src, [uint32]$modes[$m], $of)
@@ -174,29 +181,62 @@ foreach ($m in $modes.Keys) {
   }
 }
 
-if ($UiZip) {
+if ($Cancel) {
   $ver = (Get-Content $VersionFile -Raw).Trim()
   Expand-Archive $UiZip "$env:XDG_CACHE_HOME\skillshare\ui\$ver" -Force
-  # A caller that kills the PID it started (DETACHED launcher) must stop the relaunched work.
+  function Listening($port) { [bool](Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue) }
+  function Descendants($root) {
+    $all = @(Get-CimInstance Win32_Process | Select-Object ProcessId, ParentProcessId, Name)
+    $set = @($root)
+    do { $grew = $false; foreach ($p in $all) { if ($set -notcontains $p.ProcessId -and $set -contains $p.ParentProcessId) { $set += $p.ProcessId; $grew = $true } } } while ($grew)
+    @($all | Where-Object { $_.ProcessId -ne $root -and $set -contains $_.ProcessId -and $_.Name -ne 'conhost.exe' })
+  }
+  $job = if ([ConsoleProbe]::InJob()) { 'job' } else { 'none' }
+  L ""
+  L "=== cancel context: whoami=$(whoami) callerJob=$job"
+
+  # A long-running foreground child: git waits on an ssh command that sleeps.
+  git -C $src remote set-url origin 'ssh://git@slow.invalid/x.git'
+  $env:GIT_SSH_COMMAND = 'powershell -NoProfile -Command Start-Sleep 90 #'
+  foreach ($m in 'INHERIT_HIDDEN', 'DETACHED') {
+    $started = [ConsoleProbe]::Start($Exe, 'pull', $src, [uint32]$modes[$m], (Join-Path $Root "out\cancel-pull-$m.txt"))
+    Start-Sleep 6
+    $kids = Descendants $started
+    Stop-Process -Id $started -Force
+    Start-Sleep 2
+    $left = @($kids | Where-Object { Get-Process -Id $_.ProcessId -ErrorAction SilentlyContinue })
+    L "=== cancel pull ($m): descendants=$(($kids | ForEach-Object { $_.Name }) -join ',') aliveAfterKill=$(($left | ForEach-Object { $_.Name }) -join ',')"
+    foreach ($k in $left) { Stop-Process -Id $k.ProcessId -Force -ErrorAction SilentlyContinue }
+  }
+  Remove-Item Env:GIT_SSH_COMMAND
+  git -C $src remote set-url origin (Join-Path $Root 'remote.git')
+
+  # A foreground server runs inside ss.exe: killing the caller's PID must stop it.
   $launcher = [ConsoleProbe]::Start($Exe, 'ui --no-open --port 19451', $src, 0x8, (Join-Path $Root 'out\cancel-fg.txt'))
   Start-Sleep 5
-  $inner = (Get-CimInstance Win32_Process -Filter "ParentProcessId=$launcher AND Name='ss.exe'").ProcessId
-  $before = [bool](Get-NetTCPConnection -LocalPort 19451 -State Listen -ErrorAction SilentlyContinue)
+  $before = Listening 19451
   Stop-Process -Id $launcher -Force
   Start-Sleep 2
-  $innerAlive = [bool]($inner -and (Get-Process -Id $inner -ErrorAction SilentlyContinue))
-  $after = [bool](Get-NetTCPConnection -LocalPort 19451 -State Listen -ErrorAction SilentlyContinue)
-  L ""
-  L "=== cancel foreground ui (DETACHED): launcher=$launcher inner=$inner listeningBefore=$before innerAliveAfterKill=$innerAlive listeningAfterKill=$after"
-  if ($innerAlive) { Stop-Process -Id $inner -Force }
-  # A background server started by `ui start` must outlive the launcher that started it.
-  $r = [ConsoleProbe]::Run($Exe, 'ui start --no-open --port 19452', $src, 0x8, (Join-Path $Root 'out\ui-start.txt'))
-  Start-Sleep 3
-  $bg = [bool](Get-NetTCPConnection -LocalPort 19452 -State Listen -ErrorAction SilentlyContinue)
-  L "=== background ui start (DETACHED): $r serverListeningAfterLauncherExit=$bg"
-  & $Exe ui stop 2>&1 | Out-Null
+  L "=== cancel foreground ui (DETACHED): listeningBefore=$before listeningAfterKill=$(Listening 19451)"
+
+  # Processes meant to outlive skillshare: the `ui start` server and the restart helper.
+  foreach ($m in 'INHERIT_HIDDEN', 'DETACHED') {
+    $r = [ConsoleProbe]::Run($Exe, 'ui start --no-open --port 19452', $src, [uint32]$modes[$m], (Join-Path $Root "out\ui-start-$m.txt"))
+    Start-Sleep 3
+    L "=== ui start ($m): $r serverListeningAfterLauncherExit=$(Listening 19452)"
+    & $Exe ui stop --port 19452 2>&1 | Out-Null
+    Start-Sleep 2
+    L "  ui stop exit=$LASTEXITCODE stillListening=$(Listening 19452)"
+  }
+  $fg = [ConsoleProbe]::Start($Exe, 'ui --no-open --port 19453', $src, 0, (Join-Path $Root 'out\restart.txt'))
+  Start-Sleep 5
+  try { $resp = (Invoke-RestMethod -Method Post -Uri http://127.0.0.1:19453/api/restart -ContentType 'application/json' -Body '{"clearCache":false}' -TimeoutSec 10 | ConvertTo-Json -Compress) } catch { $resp = "error: $($_.Exception.Message)" }
+  Start-Sleep 12
+  L "=== ui restart (INHERIT_HIDDEN foreground): response=$resp oldServerExited=$(-not (Get-Process -Id $fg -ErrorAction SilentlyContinue)) listeningAfterRestart=$(Listening 19453)"
+  & $Exe ui stop --port 19453 2>&1 | Out-Null
   Start-Sleep 2
-  L "  ui stop exit=$LASTEXITCODE stillListening=$([bool](Get-NetTCPConnection -LocalPort 19452 -State Listen -ErrorAction SilentlyContinue))"
+  if (Get-Process -Id $fg -ErrorAction SilentlyContinue) { Stop-Process -Id $fg -Force }
+  L "  ui stop exit=$LASTEXITCODE stillListening=$(Listening 19453)"
 }
 
 $realAfter = if (Test-Path $realCfg) { (Get-ChildItem $realCfg -Recurse -Force | Measure-Object -Property LastWriteTime -Maximum).Maximum } else { 'absent' }

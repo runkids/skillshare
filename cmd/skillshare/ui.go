@@ -17,6 +17,7 @@ import (
 	"strings"
 	"time"
 
+	"skillshare/internal/childproc"
 	"skillshare/internal/config"
 	"skillshare/internal/server"
 	"skillshare/internal/ui"
@@ -275,7 +276,7 @@ func startUIInBackground(opts uiBackgroundOptions) error {
 	cmd.Stderr = logFile
 	cmd.Stdin = nil
 	detachUICommand(cmd)
-	if err := cmd.Start(); err != nil {
+	if err := childproc.StartDetached(cmd); err != nil {
 		return err
 	}
 	pid := cmd.Process.Pid
@@ -739,7 +740,7 @@ func openBrowser(url string) {
 	default:
 		return
 	}
-	_ = cmd.Start()
+	_ = childproc.StartDetached(cmd)
 }
 
 func openUIWindow(url string, appWindow bool) {
@@ -762,7 +763,8 @@ func openBrowserAppWindow(url string) error {
 			if _, err := exec.LookPath(name); err != nil {
 				continue
 			}
-			return exec.Command("cmd", "/c", "start", "", name, "--app="+url).Start()
+			cmd := exec.Command("cmd", "/c", "start", "", name, "--app="+url)
+			return childproc.StartDetached(cmd)
 		}
 	default:
 		for _, name := range []string{"google-chrome", "google-chrome-stable", "chromium", "chromium-browser", "microsoft-edge", "brave-browser"} {
