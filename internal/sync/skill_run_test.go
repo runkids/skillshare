@@ -37,6 +37,20 @@ func TestSyncSkillTarget_MergeLinksAndPrunesOrphans(t *testing.T) {
 	}
 }
 
+func TestSyncSkillTarget_ReportsUnmatchedIncludeWithTargetName(t *testing.T) {
+	sourceDir, skills := skillRunSource(t)
+	for _, mode := range []string{"merge", "copy"} {
+		target := config.TargetConfig{Skills: &config.ResourceTargetConfig{Path: t.TempDir(), Include: []string{"missing"}}}
+
+		r := SyncSkillTarget(SkillTarget{Name: "claude", Target: target, Mode: mode}, skills, SkillRunOptions{Source: sourceDir})
+
+		want := `claude: include pattern "missing" matches no skill in the source`
+		if r.Err != nil || !slices.Contains(r.Warnings, want) {
+			t.Fatalf("%s: warnings = %q, want %q", mode, r.Warnings, want)
+		}
+	}
+}
+
 func TestSyncSkillTarget_SymlinkConflictNeedsForce(t *testing.T) {
 	sourceDir, skills := skillRunSource(t)
 	elsewhere := t.TempDir()

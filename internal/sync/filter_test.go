@@ -227,6 +227,20 @@ func TestFindUnmatchedIncludes_NoSuggestionForGlobOrUnknownName(t *testing.T) {
 	}
 }
 
+func TestFindUnmatchedIncludes_NoSuggestionForTypoOfTopLevelSkill(t *testing.T) {
+	skills := testSkills("alpha", "frontend__dev")
+
+	unmatched := FindUnmatchedIncludes([]string{"lpha", "ev"}, skills)
+	if len(unmatched) != 2 {
+		t.Fatalf("FindUnmatchedIncludes() = %+v, want both patterns", unmatched)
+	}
+	for _, entry := range unmatched {
+		if len(entry.Suggestions) != 0 {
+			t.Fatalf("pattern %q suggestions = %v, want none", entry.Pattern, entry.Suggestions)
+		}
+	}
+}
+
 func TestFindUnmatchedIncludes_CapsSuggestions(t *testing.T) {
 	skills := testSkills("d__dev", "a__dev", "c__dev", "b__dev")
 

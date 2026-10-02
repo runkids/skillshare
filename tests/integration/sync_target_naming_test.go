@@ -48,7 +48,7 @@ targets:
 	writeInclude("standard", "dev")
 	second := sb.RunCLI("sync")
 	second.AssertSuccess(t)
-	second.AssertOutputContains(t, `include pattern "dev" matches no skill`)
+	second.AssertOutputContains(t, `claude: include pattern "dev" matches no skill`)
 	second.AssertOutputContains(t, "frontend__dev")
 
 	// The heuristic also runs in the default flat naming mode.

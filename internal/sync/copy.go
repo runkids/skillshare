@@ -20,6 +20,7 @@ type CopyResult struct {
 	Skipped    []string // checksum unchanged, skipped
 	Updated    []string // checksum changed, overwritten
 	DirCreated string   // Non-empty if target directory was auto-created (or would be in dry-run)
+	Warnings   []string // include patterns that select no skill
 }
 
 // CopyOptions controls copy-mode sync behavior.
@@ -87,9 +88,7 @@ func SyncTargetCopyWithSkillsOptions(name string, target config.TargetConfig, al
 	if n := len(resolution.Collisions); n > 0 {
 		fmt.Fprintf(DiagOutput, "  %d name collision(s) excluded\n", n)
 	}
-	for _, warning := range resolution.UnmatchedIncludeWarnings() {
-		fmt.Fprintf(DiagOutput, "  ! %s\n", warning)
-	}
+	result.Warnings = resolution.UnmatchedIncludeWarnings()
 
 	// Read existing manifest
 	manifest, err := ReadManifest(sc.Path)

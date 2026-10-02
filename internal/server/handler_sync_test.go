@@ -694,6 +694,35 @@ func TestHandleSync_SkillPruneWarningsAreReported(t *testing.T) {
 	}
 }
 
+func TestHandleSync_UnmatchedIncludeIsReported(t *testing.T) {
+	s, src := newTestServer(t)
+	addSkill(t, src, "alpha")
+	s.cfg.Targets["claude"] = config.TargetConfig{
+		Skills: &config.ResourceTargetConfig{Path: filepath.Join(t.TempDir(), "claude-skills"), Include: []string{"missing"}},
+	}
+	if err := s.cfg.Save(); err != nil {
+		t.Fatal(err)
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/api/sync", strings.NewReader(`{}`))
+	rr := httptest.NewRecorder()
+	s.handler.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rr.Code, rr.Body.String())
+	}
+	var resp struct {
+		Warnings []string `json:"warnings"`
+	}
+	if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
+		t.Fatal(err)
+	}
+	want := `claude: include pattern "missing" matches no skill in the source`
+	if !slices.Contains(resp.Warnings, want) {
+		t.Fatalf("warnings = %q, want %q", resp.Warnings, want)
+	}
+}
+
 // newSymlinkConflictServer sets up a symlink-mode target whose path links to
 // another folder, next to a merge target that syncs fine.
 func newSymlinkConflictServer(t *testing.T) (s *Server, src, linkPath, elsewhere string) {

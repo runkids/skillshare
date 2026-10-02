@@ -177,7 +177,10 @@ func suggestFlatNames(pattern string, skills []DiscoveredSkill) []string {
 			continue
 		}
 		flat := skill.FlatName
-		last := flat[strings.LastIndex(flat, utils.NestedSeparator)+len(utils.NestedSeparator):]
+		last := flat
+		if i := strings.LastIndex(flat, utils.NestedSeparator); i >= 0 {
+			last = flat[i+len(utils.NestedSeparator):]
+		}
 		if last != pattern {
 			continue
 		}
