@@ -138,10 +138,12 @@ func downloadToTemp(url string, onProgress utils.ProgressFunc) (string, error) {
 	limited := io.LimitReader(utils.NewProgressReader(resp.Body, resp.ContentLength, onProgress), maxDownloadSize+1)
 	n, err := io.Copy(tmp, limited)
 	if err != nil {
+		tmp.Close()
 		os.Remove(tmp.Name())
 		return "", err
 	}
 	if n > maxDownloadSize {
+		tmp.Close()
 		os.Remove(tmp.Name())
 		return "", fmt.Errorf("download exceeds maximum size (%d MB)", maxDownloadSize/(1024*1024))
 	}

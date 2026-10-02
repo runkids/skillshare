@@ -162,3 +162,30 @@ func TestDownloadAndReplace_UnreachableChecksumsLeavesBinaryAlone(t *testing.T) 
 		t.Errorf("dest = %q, want the running binary untouched", got)
 	}
 }
+
+func TestDownloadArchive_InterruptedDownloadLeavesNoTempFile(t *testing.T) {
+	tmpDir := t.TempDir()
+	t.Setenv("TMPDIR", tmpDir)
+	t.Setenv("TMP", tmpDir)
+	t.Setenv("TEMP", tmpDir)
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Length", "1024")
+		w.Write([]byte("partial"))
+		w.(http.Flusher).Flush()
+		panic(http.ErrAbortHandler)
+	}))
+	defer srv.Close()
+
+	if _, err := downloadArchive(srv.URL+"/"+releaseAsset, nil); err == nil {
+		t.Fatal("expected an error for an interrupted download")
+	}
+
+	entries, err := os.ReadDir(tmpDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 0 {
+		t.Fatalf("interrupted download left %d file(s) in the temp dir", len(entries))
+	}
+}

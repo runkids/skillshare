@@ -462,10 +462,12 @@ func downloadArchive(url string, onProgress utils.ProgressFunc) (string, error) 
 	limited := io.LimitReader(utils.NewProgressReader(resp.Body, resp.ContentLength, onProgress), maxArchiveSize+1)
 	n, err := io.Copy(tmp, limited)
 	if err != nil {
+		tmp.Close()
 		os.Remove(tmp.Name())
 		return "", err
 	}
 	if n > maxArchiveSize {
+		tmp.Close()
 		os.Remove(tmp.Name())
 		return "", fmt.Errorf("archive exceeds the maximum size (%d MB)", maxArchiveSize/(1024*1024))
 	}
