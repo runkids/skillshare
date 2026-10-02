@@ -100,13 +100,13 @@ public static class ConsoleProbe {
 '@
 
 # Isolated profile: nothing below touches the real user's config.
+$realCfg = Join-Path $env:APPDATA 'skillshare'
 $homeDir = Join-Path $Root 'home'
 foreach ($d in 'home', 'home\AppData\Roaming', 'home\AppData\Local', 'remote.git', 'out') { New-Item -ItemType Directory -Force (Join-Path $Root $d) | Out-Null }
 $env:USERPROFILE = $homeDir; $env:HOME = $homeDir
 $env:APPDATA = "$homeDir\AppData\Roaming"; $env:LOCALAPPDATA = "$homeDir\AppData\Local"
 $env:XDG_CONFIG_HOME = "$homeDir\.config"; $env:XDG_DATA_HOME = "$homeDir\.local\share"; $env:XDG_STATE_HOME = "$homeDir\.local\state"; $env:XDG_CACHE_HOME = "$homeDir\.cache"
 $env:GIT_CONFIG_NOSYSTEM = '1'
-$realCfg = 'C:\Users\Willie\AppData\Roaming\skillshare'
 $realBefore = if (Test-Path $realCfg) { (Get-ChildItem $realCfg -Recurse -Force | Measure-Object -Property LastWriteTime -Maximum).Maximum } else { 'absent' }
 
 # Setup (inside this hidden console, before any measurement): source repo tracking a local bare remote.

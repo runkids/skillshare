@@ -81,8 +81,9 @@ EOF
       rm -rf /tmp/utm-build && mkdir -p /tmp/utm-build/src /tmp/utm-build/out
       git -C /workspace archive $sha | tar -x -C /tmp/utm-build/src
       cd /tmp/utm-build/src && GOOS=windows GOARCH=$arch go build -ldflags '-X main.version=head-$sha' -o /tmp/utm-build/out/ss.exe ./cmd/skillshare
-      # pnpm rejects a symlinked node_modules; install from the shared store instead.
-      cd ui && pnpm install --frozen-lockfile --offline --store-dir /workspace/.pnpm-store >/dev/null && pnpm run build >/dev/null
+      # pnpm rejects a symlinked node_modules; install offline from the store the workspace UI uses.
+      store=\$(dirname \$(cd /workspace/ui && pnpm store path))
+      cd ui && pnpm install --frozen-lockfile --offline --store-dir \$store >/dev/null && pnpm run build >/dev/null
       cd dist && python3 -c 'import shutil; shutil.make_archive(\"/tmp/utm-build/out/ss-ui-dist\", \"zip\", \".\")'
       printf head-$sha > /tmp/utm-build/out/ss-version.txt"
     for f in ss.exe ss-ui-dist.zip ss-version.txt; do docker cp "$c:/tmp/utm-build/out/$f" "$OUT/$f"; done
