@@ -59,6 +59,9 @@ skillshare plugin import review@team --from claude --no-tui
 发行版使用相同的 `--name` 与对应的 Target，分别执行 add/import。
 Skillshare 不会依据显示名称来推断等价关系。
 
+导入绑定的是这台机器上的原生安装。要在另一台机器上使用同一个 plugin，请改为从它的
+source 添加；请参阅 [Cross-Machine Sync — Plugins](/docs/how-to/sharing/cross-machine-sync#plugins)。
+
 ## 选择同步到哪里
 
 每个受管理的绑定都有一个复选框。该复选框的含义是**在同步中包含此
@@ -92,7 +95,7 @@ skillshare sync plugins --no-tui
 Plugin 与一般的 Skill 及 MCP 同步是彼此独立的。它们所打包的
 组件不会同时被复制进独立的 Skillshare Source 中。
 
-## 更新与恢复
+## 更新与恢复 {#updates-and-recovery}
 
 使用 **Check updates**，然后针对受支持的 Target 检视一次更新。Claude 可以透过其
 原生 CLI 进行更新。Codex 会用经审核的快照再次 add 该 plugin；但若它在

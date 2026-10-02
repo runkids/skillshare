@@ -127,7 +127,72 @@ skillshare push -m "Update my-skill"
 skillshare pull
 ```
 
-That's it. `pull` automatically runs `sync` after pulling.
+That's it. `pull` automatically runs `sync` after pulling. It syncs what the [git root scope](/docs/reference/targets/configuration#git-root) holds: skills, plus agents with `git_root: root`. Plugins, MCP servers and hooks need the extra steps below.
+
+---
+
+## Plugins, MCP and Hooks {#plugins-mcp-hooks}
+
+`push` and `pull` version the files in the git root directory. Plugins, hooks and MCP servers are settings in `config.yaml`, and `config.yaml` is never part of that repository: the default `skills` scope keeps it outside the repo, and the `root` scope ignores it. Each machine keeps its own `config.yaml`, with its own targets and paths.
+
+| Resource | Stored in | Moves with `push` / `pull` |
+|---|---|---|
+| Skills | Skills source | Yes |
+| Agents | Agents source | With `git_root: agents` or `root` |
+| Extras | Extras source | With `git_root: extras` or `root` |
+| MCP servers | `config.yaml`, or the file named by `sources.mcp` | Only when that file is inside the repository |
+| Plugins | `plugins:` in `config.yaml` | No |
+| Hooks | `hooks:` in `config.yaml` | No |
+
+After pulling on another machine, apply the rest yourself:
+
+```bash
+skillshare pull
+skillshare sync --all              # adds agents, extras, MCP and hooks
+skillshare sync plugins --no-tui   # plugins are never part of --all
+```
+
+### MCP servers {#mcp-servers}
+
+Keep the server definitions in a separate file inside the repository. With `git_root: root`, the repository is the directory that holds `config.yaml` (`~/.config/skillshare`, or `%AppData%\skillshare` on Windows), so a relative `sources.mcp` path is committed while `config.yaml` stays local:
+
+```yaml title="config.yaml (on each machine)"
+sources:
+  mcp: ./mcp.yaml
+
+mcp:
+  targets: [claude, codex]
+```
+
+`mcp.targets` stays in `config.yaml`, so each machine chooses its own receiving clients. Set `sources.mcp` on every machine. To move existing servers out of `config.yaml`, see [Split MCP into its own file](/docs/how-to/daily-tasks/sharing-mcp#split-mcp-into-its-own-file). To switch an existing setup to the `root` scope, see [`git_root`](/docs/reference/targets/configuration#git-root).
+
+Skillshare stores credentials as `fromEnv` references, never as values. Set those environment variables on each machine where the Agent can read them.
+
+### Plugins {#plugins}
+
+Plugin definitions do not travel through git. Add them again on each machine from the same source:
+
+1. On the first machine, open **Plugins → Share** in the dashboard and copy the command. It lists plugins added from an HTTPS Git source, for example:
+
+   ```bash
+   skillshare plugin add https://github.com/acme/plugins --plugin review -g --no-tui
+   ```
+
+2. Run it on the other machine, tick the Agents on the Plugins page, then run `skillshare sync plugins`.
+
+Add a plugin from its source (**Add plugin**) rather than **Import installed** when you want it on several machines. An import records only the native installation. On another machine, Claude and Codex reinstall it from the native marketplace of the same name, and the plugin is skipped when that marketplace is not registered there. Cursor and Antigravity cannot reinstall an imported plugin at all. Plugins added from a local directory are not listed under **Share**, because the path exists only on the first machine.
+
+`sync plugins` installs missing plugins and leaves installed ones as they are. To update them, run `skillshare plugin check`, then `skillshare plugin update`. See [Manage plugins across tools](/docs/how-to/daily-tasks/sharing-plugins#updates-and-recovery).
+
+### Hooks {#hooks}
+
+Hooks have no separate file. Copy the `hooks:` section of `config.yaml` to the other machine, then run `skillshare sync hooks`.
+
+### What stays on each machine {#per-machine}
+
+- The native CLIs that install plugins (`claude`, `codex`, and so on) must be installed and on `PATH` where Skillshare runs. A scheduled job often has a shorter `PATH` than your terminal.
+- Sign-ins, OAuth tokens, native trust prompts and enabled/disabled state stay in each Agent.
+- The values of environment variables that MCP servers reference.
 
 ---
 

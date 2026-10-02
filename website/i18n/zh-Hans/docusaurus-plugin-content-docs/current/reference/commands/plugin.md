@@ -206,7 +206,8 @@ Skillshare 从不提供原生信任的批准 flags。
   被跳过的更新会保留为待处理，留给之后的 sync。
 - 已导入的 plugins 保留其原始的 marketplace 身份。`check` 无法为没有 source 的
   已导入 plugin 推断发布可用性。若已导入的 Claude 或 Codex plugin 的原生
-  marketplace 已经不在，sync 和 update 会跳过该 target 并说明原因。请在 Agent
+  marketplace 已经不在，sync 和 update 会跳过该 target 并说明原因。在从未添加该 marketplace 的另一台
+  机器上也会出现同样的情况。请在 Agent
   中恢复该 marketplace，或移除该 target 后从 source 重新添加 plugin；Skillshare
   不会自行把已导入的 plugin 改到其他 source。
 - Skillshare 为每个受管理的 Claude/Codex plugin 注册一个 marketplace，命名为

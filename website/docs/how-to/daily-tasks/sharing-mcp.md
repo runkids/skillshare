@@ -143,7 +143,7 @@ Replace the example URL with your provider's endpoint. `mcp.targets` selects
 receiving clients independently of your skill targets. A server's optional
 `targets` list overrides that default.
 
-## Split MCP into its own file
+## Split MCP into its own file {#split-mcp-into-its-own-file}
 
 Use an external source when you want to share or version it separately:
 
@@ -166,6 +166,9 @@ servers:
 Relative paths are resolved from the directory containing `config.yaml`.
 For `.skillshare/config.yaml`, `./mcp.yaml` means `.skillshare/mcp.yaml`.
 Absolute paths and `~/` are also supported.
+To share the file between machines with `push` / `pull`, keep it inside a
+`root`-scope repository; see
+[Cross-Machine Sync — MCP servers](/docs/how-to/sharing/cross-machine-sync#mcp-servers).
 
 Use **one source at a time**: `sources.mcp` and `mcp.servers` cannot coexist,
 including `mcp.servers: {}`. To switch, move the `servers` mapping into the external

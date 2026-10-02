@@ -79,6 +79,7 @@ skillshare push
 - **로그인 시 자동 동기화**: 셸 프로필(`.bashrc` / `.zshrc`)에 `skillshare pull && skillshare sync` 추가
 - **충돌 해결**: `pull`은 두 기기의 커밋을 병합하고 `.metadata.json` 충돌은 스스로 해결합니다. 두 기기가 같은 Skill 파일을 수정한 경우 `pull`은 중단되고, 병합을 되돌리며, 해당 파일을 표시합니다 — Source 디렉터리에서 git으로 해결하세요
 - **선택적 동기화**: 각 Target에 동기화될 Skill을 제어하려면 `config.yaml`에서 Target별 `include` / `exclude` 필터 사용
+- **Plugins, MCP, hooks**: 이들은 `config.yaml`에 있으며 `push` / `pull`로 이동하지 않습니다. [Plugins, MCP, Hooks](/docs/how-to/sharing/cross-machine-sync#plugins-mcp-hooks) 참고
 
 ## 관련 문서
 

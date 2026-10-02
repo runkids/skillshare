@@ -5,23 +5,19 @@ slug: /
 
 # 介紹
 
-**skillshare** 是一套 CLI 工具，能把 AI CLI skills 從單一 source 同步到你所有的 AI 編碼助理。
+**你的 AI coding 環境，隨處可用。**
+
+skillshare 在同一處管理 skills、agents、rules、MCP 連線與 hooks。透過[桌面應用程式](/docs/getting-started/desktop-app)或 CLI，在切換 AI 工具、機器或專案時帶著你的設定一起走。
 
 ## 為什麼選擇 skillshare？
 
-安裝類工具只負責把 skills 放進 agent，**skillshare 則負責讓它們持續保持同步。**
+- **換工具，保留你的設定** — 維護你掌控的 source，選擇每個支援的工具要接收哪些資源。
+- **把設定帶到其他機器** — 用 Git 管理 source 的版本，再帶到另一台機器。
+- **共享專案情境** — 把團隊 skills 與設定放在程式碼旁，並用 lockfile 記錄遠端 skill 的 commit。
 
-| | 一次性安裝工具 | skillshare |
-|---|-------------------|------------|
-| 安裝之後 | 需手動執行更新指令 | **Merge sync** — 逐一 skill 建立 symlink，保留本機既有 skills |
-| 更新某個 skill | 執行更新指令／重跑安裝 | **直接改 source**，變更立即生效 |
-| 把修改收回來 | — | **雙向同步** — 可從任一 agent collect 回來 |
-| 跨機器 | 每台機器都要重跑安裝 | **git push/pull** — 一道指令完成同步 |
-| 本機 + 已安裝 | 分開各自管理 | **統一** 收進單一 source 目錄 |
-| 組織內共享 | commit skills.json 或重新安裝 | **Tracked repos** — git pull 即可更新 |
-| 專案 skills | 每個 repo 各自複製，久了就各走各的 | **Project mode** — 自動偵測，透過 git 共享 |
-| 安全稽核 | 無 | **內建** — 安裝時自動掃描，另有 `audit` 指令 |
-| AI 整合 | 只能手動下 CLI | **內建 skill** — AI 可直接操作 |
+例如，一位同事用 Claude Code，另一位用 Codex，兩人都需要同一份針對舊版 API 的程式碼審查清單。把清單放在 `.skillshare/skills/`，並提交專案設定。新成員安裝設定中宣告的遠端 skills，再同步到設定的 targets，省下從聊天紀錄找指令、複製貼上的工作。
+
+完整流程請見[團隊導入 recipe](/docs/how-to/recipes/team-onboarding-recipe)。共享指令能減少設定分歧；每個 AI 工具仍有各自的能力、權限與行為。
 
 ## 快速開始
 
@@ -44,7 +40,7 @@ skillshare install anthropics/skills/skills/pdf
 skillshare sync
 ```
 
-完成。你的 skills 現在已經同步到所有 AI CLI 工具了。
+你的 skill 現在已可供設定的 targets 使用。
 
 :::tip[不安裝也能試]
 想先四處看看？可以用 [Docker Playground](/docs/how-to/advanced/docker-sandbox#playground)，一道指令，不必在本機安裝：
@@ -59,7 +55,7 @@ make playground
 
 ```mermaid
 flowchart LR
-    subgraph ORG["ORGANIZATION"]
+    subgraph ORG["GLOBAL"]
         ORG_SRC["~/.config/skillshare/skills/"] -- sync --> ORG_TGT["~/.claude/skills/ etc."]
     end
 
@@ -68,16 +64,18 @@ flowchart LR
     end
 ```
 
-改 source → 所有 targets 一起更新。改 target → 變更會回寫到 source（透過 symlink）。
+編輯 source 中既有的 skill，使用連結的 targets 就會立即看到變更。copy mode 需要執行 `sync` 才會更新副本。預設的 merge mode 在新增、移除或重新命名 skills 後，也需要執行 `sync`。
+
+Global mode 管理你的個人設定與已安裝的團隊 repositories；project mode 管理單一程式碼專案的資源與設定。Git pull 會帶回專案檔案；接著執行 `skillshare install -p` 與 `skillshare sync -p`，才能在本機套用專案宣告的 skills。
 
 ## 主要特色
 
 - **自動偵測** — `cd` 進入含有 `.skillshare/` 的專案，skillshare 會自動切換到 project mode
-- **雙層架構** — 用組織層級 skills 統一公司規範，再用專案層級 skills 補上 repo 情境
-- **即時更新** — 基於 symlink 的 sync，編輯後立刻反映到所有 AI 工具
+- **Global 與 Project 範圍** — Global mode 管理個人與組織共享資源；project mode 管理特定程式碼專案的資源
+- **連結更新** — 編輯既有 skill，使用 symlink 的 targets 就會立即反映變更
 - **團隊就緒** — 組織 skills 走 tracked repos，專案 skills 走 git commit
 - **支援任何 Git 服務** — 可從 GitHub、GitLab、Bitbucket、Azure DevOps、AtomGit、Gitee 或任何自架 Git 安裝、更新與檢查
-- **安全稽核** — 掃描 skills 是否含 prompt injection、資料外洩等威脅，安裝時自動掃描
+- **安全稽核** — 使用前掃描 skills 中已知的注入與資料外洩模式。Audit 是靜態分析；執行權限仍由 AI 工具管理
 
 ## 支援平台
 

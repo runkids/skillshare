@@ -134,7 +134,7 @@ mcp:
 예시 URL을 여러분 제공자의 엔드포인트로 바꾸세요. `mcp.targets`는 Skill Target과 무관하게
 수신할 클라이언트를 선택합니다. 서버별 선택적 `targets` 목록은 이 기본값을 덮어씁니다.
 
-## MCP를 별도 파일로 분리하기
+## MCP를 별도 파일로 분리하기 {#split-mcp-into-its-own-file}
 
 별도로 공유하거나 버전 관리하고 싶다면 외부 Source를 사용하세요:
 
@@ -157,6 +157,8 @@ servers:
 상대 경로는 `config.yaml`이 있는 디렉터리를 기준으로 해석됩니다.
 `.skillshare/config.yaml`의 경우 `./mcp.yaml`은 `.skillshare/mcp.yaml`을 의미합니다.
 절대 경로와 `~/`도 지원됩니다.
+`push` / `pull`로 이 파일을 머신 간에 공유하려면 `root` scope repository 안에 두세요.
+[Cross-Machine Sync — MCP 서버](/docs/how-to/sharing/cross-machine-sync#mcp-servers)를 참고하세요.
 
 **한 번에 하나의 Source만** 사용하세요: `sources.mcp`와 `mcp.servers`는 공존할 수 없으며,
 `mcp.servers: {}`도 마찬가지입니다. 전환하려면 `servers` 매핑을 외부 파일로 옮기고,

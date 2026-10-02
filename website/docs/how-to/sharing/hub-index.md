@@ -291,30 +291,77 @@ Tips for hand-written indexes:
 
 ## Organization Deployment
 
-A typical end-to-end workflow for rolling out a hub across your organization:
+A private hub gives teammates a searchable catalog of reviewed skills. Keep the catalog and skill sources on infrastructure your organization controls; the Git host or HTTP server supplies authentication and access control.
 
-```bash
-# 1. A skill admin curates skills from internal repos
-skillshare install ghe.internal.company.com/platform/ai-skills/coding-standards
-skillshare install ghe.internal.company.com/platform/ai-skills/review-checklist
-skillshare install ghe.internal.company.com/security/ai-skills/threat-model
+### 1. Curate skills and their sources
 
-# 2. Generate the hub index (with optional audit scores)
-skillshare hub index --audit -o ./skillshare-hub.json
+Keep skill changes and catalog changes in reviewed PRs. For an SSH-only Git host, use explicit SSH sources in the [index entries](#hand-written-indexes), for example:
 
-# 3. Host it (pick one)
-#    - Internal Git repo: commit and push
-#    - S3/CDN: aws s3 cp ./skillshare-hub.json s3://skills-bucket/
-#    - Intranet server: scp to your hosting
-
-# 4. Team members add the hub once
-skillshare hub add https://skills.internal.company.com/skillshare-hub.json --label company
-
-# 5. Search and install — only accessible behind VPN
-skillshare search coding --hub company
+```json
+{
+  "schemaVersion": 1,
+  "skills": [
+    {
+      "name": "code-review",
+      "description": "Team code-review checklist",
+      "source": "git@ghe.example.com:platform/ai-skills.git//skills/code-review"
+    }
+  ]
+}
 ```
 
-To keep the index fresh, add `skillshare hub index` to a CI pipeline that runs after skill changes.
+You can also generate the catalog from installed remote skills with `skillshare hub index --audit`. Before publishing, check that each source is reachable by teammates. An index built from local files can contain machine-local paths; replace those with shared sources. Audit badges describe a scan at a point in time, not permanent approval.
+
+### 2. Audit changes with a reviewed CLI version
+
+In the skill repository, gate PRs with a pinned CLI version and a severity threshold:
+
+```yaml
+name: Validate shared skills
+on:
+  pull_request:
+    paths: ['skills/**', 'skillshare-hub.json']
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      # Tags shown for readability; pin each action to a reviewed commit SHA
+      - uses: actions/checkout@v4
+      - uses: runkids/setup-skillshare@v1
+        with:
+          version: '0.23.5' # Example: choose a CLI version your team has reviewed
+          source: ./skills
+          audit: true
+          audit-threshold: high
+```
+
+This example assumes the skills are under `skills/` in the checked-out repository. For an internal Git server, use your CI runner's checkout and access configuration; the scan commands are the same. See [CI/CD Skill Validation](/docs/how-to/recipes/ci-cd-skill-validation) for other CI systems.
+
+The action's `version` input fixes the CLI release, not the Action itself or the skill contents. The example uses tags for readability; pin each action to a reviewed full commit SHA under your organization's policy. Use the [project lockfile](/docs/understand/project-skills#lockfile) to record remote skill commits. Review each kind of update separately. `hub index --audit` adds scan results to a catalog; use `skillshare audit --threshold high` or the pipeline gate above to reject findings at that severity.
+
+### 3. Publish the catalog privately
+
+Commit `skillshare-hub.json` to the root of the internal skill repository after review. Grant teammates read access through the Git host. Internal HTTP hosting is another option if the index can be fetched from your team's environment. You do not need to fork the public hub or expose a public raw URL.
+
+### 4. Register, search and sync
+
+After [initializing skillshare](/docs/getting-started/first-sync), teammates register the private catalog once:
+
+```bash
+skillshare hub add git@ghe.example.com:platform/ai-skills.git --label company -g
+skillshare search code-review --hub company -g
+# Select a skill to install, then distribute it to global targets
+skillshare sync -g
+```
+
+An SSH hub URL reads `skillshare-hub.json` from the repository root. If the catalog lives elsewhere, append its path, for example `git@ghe.example.com:platform/ai-skills.git//catalog/skillshare-hub.json`. SSH access uses the teammate's existing SSH setup. The Git host must authorize access to both the catalog and each skill source. The hub is a discovery mechanism; it does not prevent installation from other sources.
+
+### 5. Record project dependencies
+
+For skills required by one project, install them in project mode and commit the resulting config and lockfile. Teammates then run `skillshare install -p`, audit and sync after cloning or pulling updates. Follow [Team Onboarding](/docs/how-to/recipes/team-onboarding-recipe) for the sequence. Keep catalog curation, skill updates and CLI upgrades as explicit reviewed changes.
 
 ## Public Hub
 

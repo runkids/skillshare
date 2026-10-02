@@ -60,6 +60,10 @@ If a logical package uses different native distributions for different tools,
 add/import each distribution using the same `--name` and the appropriate target.
 Skillshare does not infer equivalence from display names.
 
+An import is tied to this machine's native installation. To use the same plugin on
+another machine, add it from its source instead; see
+[Cross-Machine Sync — Plugins](/docs/how-to/sharing/cross-machine-sync#plugins).
+
 ## Choose where to sync
 
 Each managed binding has a checkbox. The checkbox means **include this target in
@@ -102,7 +106,7 @@ only exists on your machine.
 Plugins are separate from ordinary skills and MCP synchronization. Their bundled
 components are not also copied into standalone Skillshare sources.
 
-## Updates and recovery
+## Updates and recovery {#updates-and-recovery}
 
 Use **Check updates**, then review an update for a supported target. Claude can
 update through its native CLI. Codex adds the plugin again from the reviewed

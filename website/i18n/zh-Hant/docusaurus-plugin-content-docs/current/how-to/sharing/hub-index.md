@@ -291,30 +291,77 @@ source:     _team/frontend-skill
 
 ## Organization Deployment
 
-在組織中推行 hub 的典型端對端工作流程：
+私有 hub 提供可搜尋的已審查 skill 目錄。將目錄與 skill 來源放在組織掌控的基礎設施；驗證與存取控制由 Git 主機或 HTTP 伺服器提供。
 
-```bash
-# 1. Skill 管理員從內部 repo 中篩選 skills
-skillshare install ghe.internal.company.com/platform/ai-skills/coding-standards
-skillshare install ghe.internal.company.com/platform/ai-skills/review-checklist
-skillshare install ghe.internal.company.com/security/ai-skills/threat-model
+### 1. 策展 skills 與來源
 
-# 2. 產生 hub index（可選擇附上 audit 分數）
-skillshare hub index --audit -o ./skillshare-hub.json
+透過 PR 審查 skill 與目錄的變更。若 Git 主機只支援 SSH，請在[索引項目](#手寫索引)使用明確的 SSH 來源，例如：
 
-# 3. 架設它（擇一）
-#    - 內部 Git repo：commit 並 push
-#    - S3/CDN：aws s3 cp ./skillshare-hub.json s3://skills-bucket/
-#    - Intranet 伺服器：scp 到你的主機
-
-# 4. 團隊成員新增此 hub 一次
-skillshare hub add https://skills.internal.company.com/skillshare-hub.json --label company
-
-# 5. 搜尋並安裝 — 僅能在 VPN 後方存取
-skillshare search coding --hub company
+```json
+{
+  "schemaVersion": 1,
+  "skills": [
+    {
+      "name": "code-review",
+      "description": "Team code-review checklist",
+      "source": "git@ghe.example.com:platform/ai-skills.git//skills/code-review"
+    }
+  ]
+}
 ```
 
-若要讓索引保持最新，可以將 `skillshare hub index` 加入在 skill 變更後執行的 CI pipeline。
+也可以使用 `skillshare hub index --audit`，從已安裝的遠端 skills 產生目錄。發布前，確認每個來源都能讓團隊成員存取。從本機檔案建立的索引可能含有該機器的本機路徑，請替換成共享來源。Audit 標記描述的是某個時間點的掃描結果，不是永久核准。
+
+### 2. 使用經審查的 CLI 版本稽核變更
+
+在 skill repository 中，使用固定的 CLI 版本與嚴重程度門檻，作為 PR 的檢查關卡：
+
+```yaml
+name: Validate shared skills
+on:
+  pull_request:
+    paths: ['skills/**', 'skillshare-hub.json']
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      # Tags 僅為便於閱讀；請將每個 Action 釘選至經過審查的 commit SHA
+      - uses: actions/checkout@v4
+      - uses: runkids/setup-skillshare@v1
+        with:
+          version: '0.23.5' # 範例：選擇團隊已審查的 CLI 版本
+          source: ./skills
+          audit: true
+          audit-threshold: high
+```
+
+此範例假設 skills 位於 checkout 後的 repository 的 `skills/` 目錄。若使用內部 Git 伺服器，請套用 CI runner 的 checkout 與存取設定；掃描指令相同。其他 CI 系統請見[CI/CD Skill 驗證](/docs/how-to/recipes/ci-cd-skill-validation)。
+
+Action 的 `version` input 固定的是 CLI release，不是 Action 本身或 skill 內容。範例為了易讀而使用 tags；請依組織政策，將每個 Action 釘選至經過審查的完整 commit SHA。使用[專案 lockfile](/docs/understand/project-skills#lockfile)記錄遠端 skill commit，並分別審查這幾類更新。`hub index --audit` 將掃描結果加到目錄；要拒絕達到該嚴重程度的發現，請使用 `skillshare audit --threshold high` 或上述 pipeline 關卡。
+
+### 3. 私下發布目錄
+
+審查後，將 `skillshare-hub.json` 提交到內部 skill repository 的根目錄，透過 Git 主機授予團隊成員讀取權限。若團隊環境能取得索引，也可以使用內部 HTTP 主機。不需要 fork 公開 hub，也不必提供公開 raw URL。
+
+### 4. 註冊、搜尋與同步
+
+[初始化 skillshare](/docs/getting-started/first-sync) 後，團隊成員只需註冊私有目錄一次：
+
+```bash
+skillshare hub add git@ghe.example.com:platform/ai-skills.git --label company -g
+skillshare search code-review --hub company -g
+# Select a skill to install, then distribute it to global targets
+skillshare sync -g
+```
+
+SSH hub URL 預設從 repository 根目錄讀取 `skillshare-hub.json`。若目錄放在其他位置，請在 URL 後附上路徑，例如 `git@ghe.example.com:platform/ai-skills.git//catalog/skillshare-hub.json`。SSH 存取沿用團隊成員既有的 SSH 設定。Git 主機必須授權存取目錄與各 skill 來源。Hub 是探索機制，不會阻止從其他來源安裝。
+
+### 5. 記錄專案依賴
+
+單一專案需要的 skills，請用 project mode 安裝，並提交產生的 config 與 lockfile。團隊成員在 clone 或 pull 更新後，執行 `skillshare install -p`、audit 與 sync。順序請見[團隊導入](/docs/how-to/recipes/team-onboarding-recipe)。目錄策展、skill 更新與 CLI 升級都應作為明確且經過審查的變更。
 
 ## Public Hub
 

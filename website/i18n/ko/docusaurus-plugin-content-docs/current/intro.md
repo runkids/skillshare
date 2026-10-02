@@ -5,23 +5,19 @@ slug: /
 
 # 소개
 
-**skillshare**는 하나의 Source에서 모든 AI 코딩 어시스턴트로 AI CLI Skill을 동기화하는 CLI 도구입니다.
+**어디서든 나만의 AI 코딩 환경을.**
+
+skillshare는 Skill, Agent, Rule, MCP 연결, Hook을 한곳에서 관리합니다. [데스크톱 앱](/docs/getting-started/desktop-app)이나 CLI로 AI 도구, 머신, 프로젝트를 바꾸어도 자신의 설정을 가져갈 수 있습니다.
 
 ## 왜 skillshare인가요?
 
-설치 도구는 Skill을 에이전트에 넣어줍니다. **skillshare는 그 Skill들을 계속 동기화된 상태로 유지합니다.**
+- **도구를 바꿔도 설정은 그대로** — 직접 관리하는 Source를 유지하고, 지원되는 각 도구에 전달할 리소스를 선택합니다.
+- **다른 머신에서도 같은 설정** — Source를 Git으로 버전 관리하고 다른 머신으로 가져갑니다.
+- **프로젝트 맥락 공유** — 팀 Skill과 설정을 코드와 함께 관리하고, 원격 Skill의 커밋을 lockfile에 기록합니다.
 
-| | 한 번 설치하는 도구 | skillshare |
-|---|-------------------|------------|
-| 설치 후 | 업데이트 명령을 직접 실행 | **Merge sync** — Skill 단위 symlink, 로컬 Skill 유지 |
-| Skill 업데이트 | 업데이트 명령 실행 / 설치 재실행 | **Source 편집**, 변경 사항이 즉시 반영 |
-| 수정 사항 회수 | — | **양방향** — 어느 에이전트에서든 collect |
-| 여러 머신 사용 | 머신마다 설치를 다시 실행 | **git push/pull** — 명령 하나로 동기화 |
-| 로컬 + 설치된 Skill | 따로 관리 | **통합** — 하나의 Source 디렉터리에서 관리 |
-| 조직 내 공유 | skills.json 커밋 또는 재설치 | **Tracked repo** — git pull로 업데이트 |
-| 프로젝트 Skill | 리포지터리마다 복사, 시간이 지나며 갈라짐 | **Project mode** — 자동 감지, git으로 공유 |
-| 보안 감사 | 없음 | **내장** — 설치 시 자동 스캔, `audit` 명령 |
-| AI 연동 | 수동 CLI 전용 | **내장 Skill** — AI가 직접 조작 |
+예를 들어 한 팀원은 Claude Code를, 다른 팀원은 Codex를 사용하며 둘 다 레거시 API에 관한 같은 코드 리뷰 체크리스트가 필요합니다. 체크리스트를 `.skillshare/skills/`에 두고 프로젝트 설정을 커밋하세요. 새 팀원은 채팅에서 지시문을 찾아 복사하는 대신, 선언된 원격 Skill을 설치하고 설정된 Target에 동기화합니다.
+
+전체 절차는 [팀 온보딩 레시피](/docs/how-to/recipes/team-onboarding-recipe)를 참고하세요. 공유 지시문은 설정 차이를 줄이지만, 각 AI 도구의 기능, 권한, 동작은 여전히 다릅니다.
 
 ## 빠른 시작
 
@@ -44,7 +40,7 @@ skillshare install anthropics/skills/skills/pdf
 skillshare sync
 ```
 
-끝났습니다. 이제 Skill이 모든 AI CLI 도구에 걸쳐 동기화되었습니다.
+이제 설정된 Target에서 Skill을 사용할 수 있습니다.
 
 :::tip[설치 없이 사용해 보기]
 먼저 살펴보고 싶으신가요? [Docker Playground](/docs/how-to/advanced/docker-sandbox#playground)를 사용하면 명령 하나로 로컬 설치 없이 체험할 수 있습니다.
@@ -59,7 +55,7 @@ make playground
 
 ```mermaid
 flowchart LR
-    subgraph ORG["조직"]
+    subgraph ORG["GLOBAL"]
         ORG_SRC["~/.config/skillshare/skills/"] -- sync --> ORG_TGT["~/.claude/skills/ etc."]
     end
 
@@ -68,16 +64,18 @@ flowchart LR
     end
 ```
 
-Source에서 편집하면 모든 Target이 갱신됩니다. Target에서 편집하면 (symlink를 통해) 변경 사항이 Source로 전달됩니다.
+Source의 기존 Skill을 편집하면 링크된 Target에 변경 사항이 즉시 반영됩니다. copy mode에서는 `sync`로 복사본을 갱신하세요. 기본 merge mode에서도 Skill을 추가, 삭제하거나 이름을 바꾸면 `sync`가 필요합니다.
+
+Global mode는 개인 설정과 설치된 팀 저장소를 관리합니다. Project mode는 특정 코드베이스의 리소스와 설정을 관리합니다. Git pull로 프로젝트 파일을 가져온 뒤, `skillshare install -p`와 `skillshare sync -p`를 실행하여 선언된 Skill을 로컬에 적용합니다.
 
 ## 주요 기능
 
 - **자동 감지** — `.skillshare/`가 있는 프로젝트로 `cd`하면 skillshare가 자동으로 Project mode로 전환됩니다
-- **2단계 아키텍처** — 회사 표준을 위한 조직 Skill + 리포지터리 맥락을 위한 프로젝트 Skill
-- **즉시 반영** — symlink 기반 Sync이므로 편집 내용이 모든 AI 도구에 곧바로 반영됩니다
+- **Global 및 Project 범위** — Global mode는 개인 및 조직 공유 리소스를, Project mode는 코드베이스별 리소스를 관리
+- **링크를 통한 업데이트** — 기존 Skill을 편집하면 symlink를 사용하는 Target에 즉시 반영
 - **팀 사용 준비 완료** — 조직 Skill은 Tracked repo로, 프로젝트 Skill은 git 커밋으로 공유
 - **모든 Git 호스트 지원** — GitHub, GitLab, Bitbucket, Azure DevOps, AtomGit, Gitee 또는 자체 호스팅 Git에서 설치, 업데이트, 확인 가능
-- **보안 감사** — Skill의 prompt injection, 데이터 유출, 각종 위협을 스캔합니다. 설치 시 자동 스캔됩니다
+- **보안 감사** — 사용 전에 알려진 인젝션 및 데이터 유출 패턴을 스캔합니다. Audit은 정적 분석이며 실행 권한은 AI 도구가 관리합니다
 
 ## 지원 플랫폼
 

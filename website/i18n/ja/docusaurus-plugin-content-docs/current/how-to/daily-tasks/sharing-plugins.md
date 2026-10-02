@@ -59,6 +59,9 @@ skillshare plugin import review@team --from claude --no-tui
 と適切な Target を使ってそれぞれの配布形式を add/import してください。skillshare は表示名から
 同等性を推測することはありません。
 
+インポートはこのマシンのネイティブインストールに結び付いています。同じ plugin を別のマシンで使うには、
+代わりに source から追加してください。[クロスマシン Sync — Plugins](/docs/how-to/sharing/cross-machine-sync#plugins) を参照してください。
+
 ## Sync する場所を選ぶ
 
 管理対象の各バインディングにはチェックボックスがあります。このチェックボックスは**この Target を
@@ -92,7 +95,7 @@ Markdown をレンダリングした状態で読み取り専用表示するも�
 プラグインは通常の skills や MCP の Sync とは別物です。バンドルされたコンポーネントが、独立した
 skillshare の Source にコピーされることはありません。
 
-## 更新と復旧
+## 更新と復旧 {#updates-and-recovery}
 
 **Check updates** を使い、対応する Target について更新をレビューします。Claude はネイティブな CLI
 経由で更新できます。Codex はレビュー済みのスナップショットからプラグインを再度 add します。

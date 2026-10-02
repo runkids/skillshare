@@ -42,6 +42,8 @@ flowchart TD
 
 pull 이후, `pull`은 해당 scope가 담고 있는 대상을 동기화합니다. `skills`는 `sync`를, `agents`는 `sync agents`를, `root`는 둘 다를, `extras`는 `sync extras`를 실행합니다.
 
+Plugins, MCP 서버, hooks는 `config.yaml`의 설정이며 어떤 scope도 이를 추적하지 않으므로, `pull`은 이들을 가져오지도 적용하지도 않습니다. [Cross-Machine Sync — Plugins, MCP, Hooks](/docs/how-to/sharing/cross-machine-sync#plugins-mcp-hooks)를 참고하세요.
+
 ## 사전 준비 사항
 
 source 디렉터리는 remote가 설정된 git repository여야 합니다.

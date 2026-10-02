@@ -679,6 +679,29 @@ Agent はベース名（`.md` を除く）でマッチするため、`draft-*` �
 
 ---
 
+## Plugin エラー {#plugin-errors}
+
+### `<agent> CLI is not installed or not on PATH` {#plugin-cli-not-on-path}
+
+**原因:** Plugin コマンドは Skillshare を実行するマシン上で Agent のネイティブ CLI（`claude`、`codex` など）を実行しますが、その CLI が見つかりませんでした。スケジュールされたジョブやサービスから起動した dashboard は、ターミナルより `PATH` が短いことがよくあります。
+
+**解決策:**
+
+1. そのマシンに Agent の CLI をインストールします。
+2. インストール済みなら、Skillshare を起動するもの（スケジュールされたジョブの環境など）の `PATH` にそのディレクトリを追加します。
+3. [account target](/docs/reference/commands/plugin#accounts) の場合は、代わりに `cli` に実行ファイルの絶対パスを設定できます。
+
+### `The native marketplace X is gone` {#plugin-marketplace-gone}
+
+**原因:** この plugin はインポートされたものなので、Skillshare は元のネイティブ marketplace から再インストールしますが、その marketplace が Agent に登録されていません。2 台目のマシンでよく起こります。インポートは最初のマシンでしか記録されていないためです。
+
+**解決策:**
+
+1. Agent で marketplace を追加し直してから、`skillshare sync plugins` を実行します。
+2. または、その plugin からその Agent を外し、source から plugin を追加し直します。[クロスマシン Sync — Plugins](/docs/how-to/sharing/cross-machine-sync#plugins) を参照してください。
+
+---
+
 ## Binary エラー
 
 ### `integration tests cannot find the binary`

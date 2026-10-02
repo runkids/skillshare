@@ -36,6 +36,23 @@ AI Skills 的能力很強大 — 它們會指示 AI 助理讀取檔案、執行�
 | **自訂規則** | `audit-rules.yaml` | 組織專屬的模式（內部機密、白名單） |
 | **CI/CD** | Pipeline 關卡 | 封鎖引入高風險 Skill 的 PR |
 
+### 共用來源與執行邊界 {#shared-source-and-execution-boundaries}
+
+在 merge mode 中，每個受管理的 target skill 都連結到它的 source。symlink mode 則連結整個 source 目錄。編輯共用檔案時，所有連結到它的 targets 都會看到變更。這能讓指令保持一致，也代表不希望發生的修改可能影響多個工具。copy mode 會建立獨立檔案；用 `sync` 更新副本時，也可能分發同樣不希望出現的內容。
+
+將共享 skill 的變更放在經過審查的 Git commit，限制 repository 的寫入權限，並在更新或發現意外的本機修改後重新 audit。檢查 diff，必要時透過備份或 Git 歷史復原。先前通過掃描，不代表後續修改已獲認可，也不能保證每條指令都安全。
+
+| 邊界 | 控制的範圍 | 不控制的範圍 |
+|----------|------------------|--------------------------|
+| `audit` | 偵測已知模式，依設定的發現嚴重程度封鎖 install/update | AI 指令執行，或所有語意層面的 prompt injection 攻擊 |
+| `.skillignore` 與 target filters | 選擇 merge/copy mode 中要探索或同步的 skills | 檔案權限、對 `~/.ssh` 或 `~/.aws` 的存取，或 AI 工具的 shell 存取 |
+| Git 審查與專案 lockfile | 審查共享變更，重現記錄的遠端 skill commit | 記錄的指令是否安全，或模型如何遵循它們 |
+| AI 工具的權限與沙盒 | 在工具支援的範圍內，限制檔案、shell 與網路存取 | Skill 目錄策展或來源版本管理 |
+
+在各 AI 工具中設定執行核准與沙盒限制，由該工具落實執行時的指令權限。私有 hub 透過主機的存取控制管理目錄分發；只選用內部目錄，不會阻止使用者安裝其他來源。
+
+Audit 依發現的嚴重程度（`HIGH`、`CRITICAL` 等）封鎖操作。0–100 的整體風險分數另行呈現，用來安排審查優先順序，並不是封鎖門檻。
+
 ### 供應鏈安全生命週期
 
 安全檢查點取決於 Skill 的安裝方式（`--track` 或一般安裝）：

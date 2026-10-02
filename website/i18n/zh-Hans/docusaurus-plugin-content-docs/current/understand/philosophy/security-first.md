@@ -60,10 +60,12 @@ CRITICAL: Prompt injection detected in "malicious-skill"
 
 1. **安装时审计**——在威胁到达你的 AI 工具之前就将其拦截
 2. **按需审计**——随着新检测模式的加入，重新扫描现有 Skills
-3. **符号链接隔离**——Skills 是被符号链接引用而非复制的，因此 source 始终是唯一权威
+3. **共享来源**——链接的 targets 读取同一份 skill 文件；来源修改会传到所有链接的 targets，因此需要审查变更并限制来源的写入权限
 4. **变更前备份**——`skillshare backup` 会为你整个 Skill 库拍摄快照
 5. **带 TTL 的回收站**——被删除的 Skills 先进入回收站，而非直接永久删除
 6. **操作日志**——每一次修改性操作都会记录到 `operations.log`（JSONL 格式）
+
+Symlink 提供共同来源，不是安全沙盒。同样地，`.skillignore` 筛选 skill 发现结果，不会禁止 AI 工具访问文件或命令。运行时权限与批准属于 AI 工具的责任。完整职责区分请见[共享来源与执行边界](/docs/how-to/advanced/security#shared-source-and-execution-boundaries)。
 
 ## 供应链方面的考量
 

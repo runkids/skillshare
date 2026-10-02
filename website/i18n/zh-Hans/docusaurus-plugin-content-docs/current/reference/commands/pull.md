@@ -42,6 +42,8 @@ flowchart TD
 
 拉取完成后，`pull` 会根据该作用域所包含的内容进行同步：`skills` 运行 `sync`，`agents` 运行 `sync agents`，`root` 两者都运行，`extras` 运行 `sync extras`。
 
+Plugins、MCP server 和 hooks 是 `config.yaml` 中的设置，任何作用域都不会跟踪它，因此 `pull` 既不会带来也不会应用它们。请参阅 [Cross-Machine Sync — Plugins, MCP and Hooks](/docs/how-to/sharing/cross-machine-sync#plugins-mcp-hooks)。
+
 ## 前提条件
 
 你的 source 目录必须是一个带有 remote 的 git 仓库：

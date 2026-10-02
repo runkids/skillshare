@@ -228,7 +228,8 @@ never supplies native trust approval flags.
 - Imported plugins retain their original marketplace identity. `check` cannot
   infer release availability for an imported plugin without a source. If an
   imported Claude or Codex plugin's native marketplace is gone, sync and update
-  skip that target and say so. Restore the marketplace in the Agent, or remove
+  skip that target and say so. This also happens on another machine where that
+  marketplace was never added. Restore the marketplace in the Agent, or remove
   the target and add the plugin again from its source; Skillshare never moves an
   imported plugin to another source on its own.
 - Skillshare registers one marketplace per managed Claude/Codex plugin, named

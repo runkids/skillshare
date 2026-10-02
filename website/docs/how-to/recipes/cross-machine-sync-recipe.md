@@ -76,6 +76,7 @@ skillshare push
 - **Auto-sync on login**: Add `skillshare pull && skillshare sync` to your shell profile (`.bashrc` / `.zshrc`)
 - **Conflict resolution**: `pull` merges commits from both machines and resolves `.metadata.json` conflicts on its own. If both machines edited the same skill file, `pull` stops, undoes the merge, and names the file — resolve it with git in the source directory
 - **Selective sync**: Use per-target `include` / `exclude` filters in `config.yaml` to control which skills sync to each machine
+- **Plugins, MCP and hooks**: These live in `config.yaml`, which `push` / `pull` never carry. See [Plugins, MCP and hooks](/docs/how-to/sharing/cross-machine-sync#plugins-mcp-hooks)
 
 ## Related
 

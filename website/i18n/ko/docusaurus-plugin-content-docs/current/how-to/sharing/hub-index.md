@@ -291,30 +291,77 @@ Hub에서 설치하는 모든 사람이 해당 리비전을 받으며, `skillsha
 
 ## 조직 배포
 
-조직 전체에 Hub를 배포하는 일반적인 end-to-end 워크플로:
+비공개 Hub는 검토된 Skill을 검색할 수 있는 카탈로그를 제공합니다. 카탈로그와 Skill Source는 조직이 관리하는 인프라에 두세요. 인증과 접근 제어는 Git 호스트나 HTTP 서버가 제공합니다.
 
-```bash
-# 1. Skill 관리자가 내부 저장소에서 Skill을 큐레이션합니다
-skillshare install ghe.internal.company.com/platform/ai-skills/coding-standards
-skillshare install ghe.internal.company.com/platform/ai-skills/review-checklist
-skillshare install ghe.internal.company.com/security/ai-skills/threat-model
+### 1. Skill과 Source 큐레이션
 
-# 2. Hub index를 생성합니다 (선택적으로 audit 점수 포함)
-skillshare hub index --audit -o ./skillshare-hub.json
+Skill과 카탈로그 변경 사항을 PR에서 검토하세요. SSH 전용 Git 호스트에서는 [Index 항목](#수동-작성-index)에 명시적인 SSH Source를 사용하세요. 예:
 
-# 3. 호스팅합니다 (하나를 선택하세요)
-#    - 내부 Git 저장소: 커밋 후 push
-#    - S3/CDN: aws s3 cp ./skillshare-hub.json s3://skills-bucket/
-#    - 인트라넷 서버: 호스팅에 scp
-
-# 4. 팀원이 Hub를 한 번 추가합니다
-skillshare hub add https://skills.internal.company.com/skillshare-hub.json --label company
-
-# 5. 검색하고 설치합니다 — VPN 뒤에서만 접근 가능
-skillshare search coding --hub company
+```json
+{
+  "schemaVersion": 1,
+  "skills": [
+    {
+      "name": "code-review",
+      "description": "Team code-review checklist",
+      "source": "git@ghe.example.com:platform/ai-skills.git//skills/code-review"
+    }
+  ]
+}
 ```
 
-Index를 최신 상태로 유지하려면 Skill이 변경된 후 실행되는 CI 파이프라인에 `skillshare hub index`를 추가하세요.
+설치된 원격 Skill에서 `skillshare hub index --audit`로 카탈로그를 생성할 수도 있습니다. 게시 전에 각 Source에 팀원이 접근할 수 있는지 확인하세요. 로컬 파일에서 만든 Index에는 머신의 로컬 경로가 포함될 수 있으므로 공유 Source로 바꾸세요. Audit 배지는 특정 시점의 스캔 결과이며 영구적인 승인이 아닙니다.
+
+### 2. 검토된 CLI 버전으로 변경 사항 Audit
+
+Skill 저장소에서 고정된 CLI 버전과 심각도 Threshold로 PR을 검사하세요:
+
+```yaml
+name: Validate shared skills
+on:
+  pull_request:
+    paths: ['skills/**', 'skillshare-hub.json']
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      # 가독성을 위해 태그 사용. 각 Action은 검토된 커밋 SHA로 고정하세요
+      - uses: actions/checkout@v4
+      - uses: runkids/setup-skillshare@v1
+        with:
+          version: '0.23.5' # 예제: 팀에서 검토한 CLI 버전을 선택하세요
+          source: ./skills
+          audit: true
+          audit-threshold: high
+```
+
+이 예제는 체크아웃한 저장소의 `skills/`에 Skill이 있다고 가정합니다. 내부 Git 서버에서는 CI runner의 checkout 및 접근 설정을 사용하세요. 스캔 명령은 같습니다. 다른 CI 시스템은 [CI/CD Skill 검증](/docs/how-to/recipes/ci-cd-skill-validation)을 참고하세요.
+
+Action의 `version` input은 CLI release를 고정하며, Action 자체나 Skill 내용은 고정하지 않습니다. 예제는 가독성을 위해 태그를 사용합니다. 조직 정책에 따라 각 Action을 검토된 전체 커밋 SHA로 고정하세요. [프로젝트 lockfile](/docs/understand/project-skills#lockfile)로 원격 Skill 커밋을 기록하고, 각 종류의 업데이트를 별도로 검토하세요. `hub index --audit`는 카탈로그에 스캔 결과를 추가합니다. 해당 심각도의 탐지 결과를 거부하려면 `skillshare audit --threshold high` 또는 위 파이프라인 게이트를 사용하세요.
+
+### 3. 카탈로그를 비공개로 배포
+
+검토 후 `skillshare-hub.json`을 내부 Skill 저장소의 루트에 커밋하세요. Git 호스트를 통해 팀원에게 읽기 권한을 부여하세요. 팀 환경에서 Index를 가져올 수 있다면 내부 HTTP 호스팅도 가능합니다. 공개 Hub를 fork하거나 공개 raw URL을 제공할 필요는 없습니다.
+
+### 4. 등록, 검색 및 동기화
+
+[skillshare 초기화](/docs/getting-started/first-sync) 후 팀원은 비공개 카탈로그를 한 번만 등록합니다:
+
+```bash
+skillshare hub add git@ghe.example.com:platform/ai-skills.git --label company -g
+skillshare search code-review --hub company -g
+# Select a skill to install, then distribute it to global targets
+skillshare sync -g
+```
+
+SSH Hub URL은 저장소 루트에서 `skillshare-hub.json`을 읽습니다. 카탈로그가 다른 위치에 있다면 `git@ghe.example.com:platform/ai-skills.git//catalog/skillshare-hub.json`처럼 경로를 붙이세요. SSH 접근은 팀원의 기존 SSH 설정을 사용합니다. Git 호스트는 카탈로그와 각 Skill Source 모두에 대한 접근을 허용해야 합니다. Hub는 Skill을 찾는 수단이며 다른 Source에서의 설치를 막지 않습니다.
+
+### 5. 프로젝트 의존성 기록
+
+특정 프로젝트에 필요한 Skill은 Project mode로 설치하고 생성된 config와 lockfile을 커밋하세요. 팀원은 clone하거나 업데이트를 pull한 후 `skillshare install -p`, Audit, Sync를 실행합니다. 순서는 [팀 온보딩](/docs/how-to/recipes/team-onboarding-recipe)을 참고하세요. 카탈로그 큐레이션, Skill 업데이트, CLI 업그레이드는 각각 명시적으로 검토된 변경 사항으로 관리하세요.
 
 ## Public Hub
 

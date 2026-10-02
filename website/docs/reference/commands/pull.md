@@ -42,6 +42,8 @@ flowchart TD
 
 After pulling, `pull` syncs what the scope holds: `skills` runs `sync`, `agents` runs `sync agents`, `root` runs both, and `extras` runs `sync extras`.
 
+Plugins, MCP servers and hooks are settings in `config.yaml`, which no scope tracks, so `pull` neither brings nor applies them. See [Cross-Machine Sync — Plugins, MCP and Hooks](/docs/how-to/sharing/cross-machine-sync#plugins-mcp-hooks).
+
 ## Prerequisites
 
 Your source directory must be a git repository with a remote:

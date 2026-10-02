@@ -82,6 +82,7 @@ skillshare push
   Source ディレクトリ内で git を使って解決してください
 - **選択的な Sync**: `config.yaml` の Target ごとの `include` / `exclude` フィルターを使い、
   各マシンに Sync される Skill を制御する
+- **Plugins、MCP、hooks**: これらは `config.yaml` にあり、`push` / `pull` では移動しません。[Plugins、MCP、Hooks](/docs/how-to/sharing/cross-machine-sync#plugins-mcp-hooks) を参照してください
 
 ## 関連項目
 

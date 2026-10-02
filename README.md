@@ -58,6 +58,8 @@ skillshare gives your skills and other AI resources a home you control.
 - **Take your setup with you** — version your source in Git and pull it onto another machine.
 - **Share with your team** — keep project resources with your code and distribute shared skills through tracked repositories.
 
+One teammate uses Claude Code, another uses Codex. Keep their shared code-review checklist in `.skillshare/` alongside the project. New teammates install the declared skills and sync to the configured tools instead of copying instructions from chat. [Team onboarding →](https://skillshare.runkids.cc/docs/how-to/recipes/team-onboarding-recipe)
+
 Use the desktop app or CLI to manage everything locally, [audit skills before use](https://skillshare.runkids.cc/docs/reference/commands/audit), and [choose what each tool receives](https://skillshare.runkids.cc/docs/how-to/daily-tasks/filtering-skills).
 
 > Coming from another tool? [Migration Guide](https://skillshare.runkids.cc/docs/how-to/advanced/migration) · [Comparison](https://skillshare.runkids.cc/docs/understand/philosophy/comparison)

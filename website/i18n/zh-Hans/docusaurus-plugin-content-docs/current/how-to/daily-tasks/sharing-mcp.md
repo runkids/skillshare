@@ -138,7 +138,7 @@ mcp:
 请将示例中的 URL 替换成你的提供者端点。`mcp.targets` 会独立于你的 Skill
 Target 来选择接收方客户端。某个服务器自身可选的 `targets` 列表会覆盖该默认值。
 
-## 将 MCP 拆分到独立文件中
+## 将 MCP 拆分到独立文件中 {#split-mcp-into-its-own-file}
 
 当你想要单独共享或进行版本控制时，可以使用外部 Source：
 
@@ -161,6 +161,8 @@ servers:
 相对路径会以包含 `config.yaml` 的目录为基准解析。
 对于 `.skillshare/config.yaml` 而言，`./mcp.yaml` 指的就是 `.skillshare/mcp.yaml`。
 同样也支持绝对路径与 `~/`。
+要通过 `push` / `pull` 在机器之间共享这个文件，请把它放在 `root` 作用域的
+repository 中；请参阅 [Cross-Machine Sync — MCP servers](/docs/how-to/sharing/cross-machine-sync#mcp-servers)。
 
 请**同一时间只使用一种 Source**：`sources.mcp` 与 `mcp.servers` 不能共存，
 包括 `mcp.servers: {}` 的情况。若要切换，请将 `servers` 映射移入外部

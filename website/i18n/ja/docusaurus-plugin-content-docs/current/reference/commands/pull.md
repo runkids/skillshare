@@ -42,6 +42,8 @@ flowchart TD
 
 pull 後、`pull` はそのスコープが保持するものを同期します。`skills` は `sync` を実行し、`agents` は `sync agents` を実行し、`root` は両方を実行し、`extras` は `sync extras` を実行します。
 
+Plugins、MCP サーバー、hooks は `config.yaml` 内の設定で、どのスコープでも追跡されないため、`pull` はそれらを持ってくることも適用することもありません。[クロスマシン Sync — Plugins、MCP、Hooks](/docs/how-to/sharing/cross-machine-sync#plugins-mcp-hooks) を参照してください。
+
 ## 前提条件
 
 Source ディレクトリは remote を持つ git リポジトリである必要があります。

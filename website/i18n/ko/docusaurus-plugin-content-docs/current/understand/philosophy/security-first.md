@@ -60,10 +60,12 @@ Audit engine은 하나의 계층일 뿐입니다. skillshare의 보안 모델은
 
 1. **설치 시점 audit** — AI 도구에 도달하기 전에 위협을 잡아냄
 2. **요청 시 audit** — 새로운 패턴이 추가될 때 기존 skill을 다시 스캔
-3. **Symlink 격리** — skill은 복사되지 않고 symlink되므로 source가 권위를 유지함
+3. **공유 Source** — 링크된 Target은 같은 Skill 파일을 읽고 Source 변경 사항이 모두에게 전달되므로, 변경 사항을 검토하고 Source 쓰기 권한을 제한해야 함
 4. **변경 전 백업** — `skillshare backup`이 전체 skill 라이브러리를 스냅샷함
 5. **TTL이 있는 Trash** — 삭제된 skill은 영구 삭제 전에 먼저 trash로 이동함
 6. **작업 로깅** — 모든 변경 작업이 `operations.log`(JSONL)에 기록됨
+
+Symlink는 공통 Source를 제공하지만 보안 샌드박스는 아닙니다. 마찬가지로 `.skillignore`는 Skill 검색 대상을 필터링하며 AI 도구의 파일이나 명령 접근을 차단하지 않습니다. 런타임 권한과 승인은 AI 도구의 책임입니다. 자세한 역할 구분은 [공유 Source와 실행 경계](/docs/how-to/advanced/security#shared-source-and-execution-boundaries)를 참고하세요.
 
 ## 공급망 고려사항
 

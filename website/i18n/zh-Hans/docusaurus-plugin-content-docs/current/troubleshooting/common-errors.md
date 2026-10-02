@@ -614,6 +614,29 @@ skillshare backup -p --all           # 效果相同（在 Project mode 下会收
 
 ---
 
+## Plugin Errors {#plugin-errors}
+
+### `<agent> CLI is not installed or not on PATH` {#plugin-cli-not-on-path}
+
+**原因：** Plugin 命令会在运行 Skillshare 的机器上调用 Agent 的原生 CLI（`claude`、`codex` 等），但找不到该 CLI。计划任务或由服务启动的 dashboard，`PATH` 通常比你的终端短。
+
+**解决方式：**
+
+1. 在那台机器上安装 Agent 的 CLI。
+2. 如果已经安装，把它所在的目录加入启动 Skillshare 的程序的 `PATH`，例如计划任务的环境变量。
+3. 对于 [account target](/docs/reference/commands/plugin#accounts)，也可以把 `cli` 设为可执行文件的绝对路径。
+
+### `The native marketplace X is gone` {#plugin-marketplace-gone}
+
+**原因：** 该 plugin 是导入的，因此 Skillshare 会从它原来的原生 marketplace 重新安装，但 Agent 中没有注册该 marketplace。这在第二台机器上很常见：导入只记录在第一台机器上。
+
+**解决方式：**
+
+1. 在 Agent 中重新添加该 marketplace，然后运行 `skillshare sync plugins`。
+2. 或从该 plugin 移除这个 Agent，再从 source 重新添加 plugin。请参阅 [Cross-Machine Sync — Plugins](/docs/how-to/sharing/cross-machine-sync#plugins)。
+
+---
+
 ## Binary Errors
 
 ### `integration tests cannot find the binary`

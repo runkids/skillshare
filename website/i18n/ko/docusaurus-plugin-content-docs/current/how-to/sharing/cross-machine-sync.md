@@ -127,7 +127,72 @@ skillshare push -m "Update my-skill"
 skillshare pull
 ```
 
-이게 전부입니다. `pull`은 pull 이후 자동으로 `sync`를 실행합니다.
+이게 전부입니다. `pull`은 pull 이후 자동으로 `sync`를 실행합니다. [git root scope](/docs/reference/targets/configuration#git-root)에 포함된 것만 sync합니다. skills, 그리고 `git_root: root`일 때는 agents도 포함됩니다. Plugins, MCP 서버, hooks는 아래의 추가 단계가 필요합니다.
+
+---
+
+## Plugins, MCP, Hooks {#plugins-mcp-hooks}
+
+`push`와 `pull`은 git root 디렉터리 안의 파일만 버전 관리합니다. Plugins, hooks, MCP 서버는 `config.yaml`의 설정이며, `config.yaml`은 이 repository에 절대 포함되지 않습니다. 기본 `skills` scope에서는 repo 밖에 있고, `root` scope에서는 ignore됩니다. 각 머신은 자신만의 `config.yaml`과 targets, 경로를 유지합니다.
+
+| 리소스 | 저장 위치 | `push` / `pull`로 이동 여부 |
+|---|---|---|
+| Skills | Skills source | 예 |
+| Agents | Agents source | `git_root: agents` 또는 `root`일 때 |
+| Extras | Extras source | `git_root: extras` 또는 `root`일 때 |
+| MCP 서버 | `config.yaml`, 또는 `sources.mcp`가 지정한 파일 | 그 파일이 repository 안에 있을 때만 |
+| Plugins | `config.yaml`의 `plugins:` | 아니요 |
+| Hooks | `config.yaml`의 `hooks:` | 아니요 |
+
+다른 머신에서 pull한 뒤 나머지는 직접 적용합니다:
+
+```bash
+skillshare pull
+skillshare sync --all              # agents, extras, MCP, hooks 추가
+skillshare sync plugins --no-tui   # plugins는 --all에 포함되지 않음
+```
+
+### MCP 서버 {#mcp-servers}
+
+서버 정의를 repository 안의 별도 파일에 둡니다. `git_root: root`에서는 repository가 `config.yaml`이 있는 디렉터리(`~/.config/skillshare`, Windows에서는 `%AppData%\skillshare`)이므로, 상대 경로의 `sources.mcp`는 commit되고 `config.yaml`은 로컬에 남습니다:
+
+```yaml title="config.yaml (각 머신에서 설정)"
+sources:
+  mcp: ./mcp.yaml
+
+mcp:
+  targets: [claude, codex]
+```
+
+`mcp.targets`는 `config.yaml`에 남으므로 머신마다 받을 클라이언트를 따로 고를 수 있습니다. 모든 머신에서 `sources.mcp`를 설정하세요. 기존 서버를 `config.yaml` 밖으로 옮기려면 [MCP를 별도 파일로 분리하기](/docs/how-to/daily-tasks/sharing-mcp#split-mcp-into-its-own-file)를, 기존 설정을 `root` scope로 전환하려면 [`git_root`](/docs/reference/targets/configuration#git-root)를 참고하세요.
+
+Skillshare는 자격 증명을 값이 아닌 `fromEnv` 참조로 저장합니다. 각 머신에서 Agent가 읽을 수 있는 곳에 해당 환경 변수를 설정하세요.
+
+### Plugins {#plugins}
+
+Plugin 정의는 git으로 이동하지 않습니다. 각 머신에서 같은 소스로부터 다시 추가합니다:
+
+1. 첫 번째 머신의 dashboard에서 **Plugins → Share**를 열고 명령을 복사합니다. HTTPS Git 소스로 추가한 plugins가 나열되며, 예를 들면 다음과 같습니다:
+
+   ```bash
+   skillshare plugin add https://github.com/acme/plugins --plugin review -g --no-tui
+   ```
+
+2. 다른 머신에서 이 명령을 실행하고, Plugins 페이지에서 Agents를 체크한 뒤 `skillshare sync plugins`를 실행합니다.
+
+여러 머신에서 쓸 plugin은 **Import installed**가 아니라 **Add plugin**으로 소스에서 추가하세요. Import는 native 설치만 기록합니다. 다른 머신에서 Claude와 Codex는 같은 이름의 native marketplace에서 다시 설치하며, 그 marketplace가 등록되어 있지 않으면 plugin을 건너뜁니다. Cursor와 Antigravity는 imported plugin을 다시 설치할 수 없습니다. 로컬 디렉터리에서 추가한 plugin은 경로가 첫 번째 머신에만 있으므로 **Share**에 표시되지 않습니다.
+
+`sync plugins`는 없는 plugins를 설치하고, 이미 설치된 것은 그대로 둡니다. 업데이트하려면 `skillshare plugin check`를 실행한 다음 `skillshare plugin update`를 실행하세요. [도구 간 plugins 관리](/docs/how-to/daily-tasks/sharing-plugins#updates-and-recovery)를 참고하세요.
+
+### Hooks {#hooks}
+
+Hooks에는 별도 파일이 없습니다. `config.yaml`의 `hooks:` 섹션을 다른 머신에 복사한 뒤 `skillshare sync hooks`를 실행하세요.
+
+### 각 머신에 남는 것 {#per-machine}
+
+- plugin을 설치하는 native CLI(`claude`, `codex` 등)는 Skillshare가 실행되는 곳에 설치되어 있고 `PATH`에 있어야 합니다. 예약 작업의 `PATH`는 터미널보다 짧은 경우가 많습니다.
+- 로그인, OAuth 토큰, native 신뢰 확인, 활성화/비활성화 상태는 각 Agent에 남습니다.
+- MCP 서버가 참조하는 환경 변수의 값.
 
 ---
 

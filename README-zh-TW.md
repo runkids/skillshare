@@ -57,6 +57,8 @@ skillshare 把 skills 與其他 AI 資源集中到由你掌控的地方。
 - **換電腦，帶著環境走** — 用 Git 管理資源來源，在另一台電腦上 pull。
 - **和團隊共用** — 專案資源與程式碼一起管理，共用 skills 透過 tracked repo 發布。
 
+一位同事用 Claude Code，另一位用 Codex。把共用的程式碼審查清單放在專案的 `.skillshare/` 中一起管理。新成員安裝專案宣告的 skills，再同步到設定好的工具，就不用從聊天紀錄複製指令。[團隊 onboarding →](https://skillshare.runkids.cc/docs/how-to/recipes/team-onboarding-recipe)
+
 透過桌面 App 或 CLI 在本機管理，[使用前稽核 skills](https://skillshare.runkids.cc/docs/reference/commands/audit)，並[選擇各工具接收哪些內容](https://skillshare.runkids.cc/docs/how-to/daily-tasks/filtering-skills)。
 
 > 從其他工具換過來？ [遷移指南](https://skillshare.runkids.cc/docs/how-to/advanced/migration) · [比較](https://skillshare.runkids.cc/docs/understand/philosophy/comparison)

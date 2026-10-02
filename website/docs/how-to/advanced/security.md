@@ -36,6 +36,23 @@ No single layer catches everything. Combine manual review, automated scanning, c
 | **Custom Rules** | `audit-rules.yaml` | Organization-specific patterns (internal secrets, allowlists) |
 | **CI/CD** | Pipeline gate | Block PRs that introduce risky skills |
 
+### Shared Source and Execution Boundaries
+
+In merge mode, each managed target skill links to its source. In symlink mode, the whole source directory is linked. An edit to the shared file is visible to every target linked to it. This keeps instructions consistent, but also means an unwanted edit can affect several tools. Copy mode creates separate files; refreshing them with `sync` can distribute the same unwanted content.
+
+Keep shared skill changes in reviewed Git commits, limit write access to their repositories, and re-audit after updates or unexpected local edits. Review the diff and use backups or Git history to recover when needed. A previous clean scan does not certify later edits or guarantee that every instruction is safe.
+
+| Boundary | What it controls | What it does not control |
+|----------|------------------|--------------------------|
+| `audit` | Detects known patterns and blocks install/update at the configured finding severity | AI command execution or every semantic prompt-injection attack |
+| `.skillignore` and target filters | Select which skills are discovered or synced in merge/copy mode | File permissions, access to `~/.ssh` or `~/.aws`, or an AI tool's shell access |
+| Git review and project lockfile | Review shared changes and reproduce recorded remote skill commits | Whether the recorded instructions are safe or how a model follows them |
+| AI tool permissions and sandbox | Restrict file, shell and network access where the tool supports it | Skill catalog curation or source version management |
+
+Set execution approvals and sandbox restrictions in each AI tool, which enforces runtime command permissions. A private hub controls catalog distribution through its host's access controls; selecting an internal catalog alone does not prevent users from installing other sources.
+
+Audit blocking uses finding severity (`HIGH`, `CRITICAL`, etc.). The aggregate 0–100 risk score helps prioritize review and is reported separately; it is not the block threshold.
+
 ### Supply-Chain Security Lifecycle
 
 Security checkpoints depend on how a skill is installed (`--track` vs regular install):

@@ -614,6 +614,29 @@ skillshare backup -p --all           # 위와 동일 (agent로 좁혀짐)
 
 ---
 
+## Plugin Errors {#plugin-errors}
+
+### `<agent> CLI is not installed or not on PATH` {#plugin-cli-not-on-path}
+
+**Cause:** Plugin 명령은 Skillshare가 실행되는 머신에서 Agent의 네이티브 CLI(`claude`, `codex` 등)를 실행하는데, 그 CLI를 찾지 못했습니다. 예약 작업이나 서비스에서 시작한 dashboard는 터미널보다 `PATH`가 짧은 경우가 많습니다.
+
+**Solutions:**
+
+1. 해당 머신에 Agent의 CLI를 설치하세요.
+2. 이미 설치되어 있다면, Skillshare를 시작하는 쪽(예: 예약 작업의 환경)의 `PATH`에 그 디렉터리를 추가하세요.
+3. [account target](/docs/reference/commands/plugin#accounts)이라면 대신 `cli`에 실행 파일의 절대 경로를 설정할 수 있습니다.
+
+### `The native marketplace X is gone` {#plugin-marketplace-gone}
+
+**Cause:** 이 plugin은 import된 것이므로 Skillshare는 원래의 네이티브 marketplace에서 다시 설치하는데, 그 marketplace가 Agent에 등록되어 있지 않습니다. 두 번째 머신에서 흔히 발생합니다. import는 첫 번째 머신에만 기록되기 때문입니다.
+
+**Solutions:**
+
+1. Agent에서 marketplace를 다시 추가한 뒤 `skillshare sync plugins`를 실행하세요.
+2. 또는 해당 plugin에서 그 Agent를 제거하고 source에서 plugin을 다시 추가하세요. [Cross-Machine Sync — Plugins](/docs/how-to/sharing/cross-machine-sync#plugins)를 참고하세요.
+
+---
+
 ## Binary Errors
 
 ### `integration tests cannot find the binary`

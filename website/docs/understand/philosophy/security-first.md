@@ -60,10 +60,12 @@ The audit engine is one layer. skillshare's security model includes:
 
 1. **Audit at install time** — catch threats before they reach your AI tools
 2. **Audit on demand** — re-scan existing skills as new patterns are added
-3. **Symlink isolation** — skills are symlinked, not copied, so the source remains the authority
+3. **Shared source** — linked targets read the same skill files; source changes reach all of them, so review changes and limit who can write to the source
 4. **Backup before changes** — `skillshare backup` snapshots your entire skill library
 5. **Trash with TTL** — deleted skills go to trash first, not permanent deletion
 6. **Operation logging** — every mutating operation is logged to `operations.log` (JSONL)
+
+Symlinks provide a common source, not a security sandbox. Likewise, `.skillignore` filters skill discovery; it does not deny an AI tool access to files or commands. Runtime permissions and approvals belong to the AI tool. See [Shared Source and Execution Boundaries](/docs/how-to/advanced/security#shared-source-and-execution-boundaries) for the full separation of responsibilities.
 
 ## Supply Chain Considerations
 

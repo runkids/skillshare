@@ -200,7 +200,8 @@ Copilot 與 Antigravity CLI 的安裝使用已檢視過的本機快照。匯入�
 - 更新遇到無法處理的 target 時會略過並說明原因；該 plugin 的其他 Agent 仍會照常更新，被略過的更新會保留為待處理，留待之後的 sync。
 - 匯入的 plugin 會保留其原始的 marketplace 身分。對於沒有 source 的匯入 plugin，`check` 無法
   推斷是否有新版本可用。若匯入的 Claude 或 Codex plugin 的原生 marketplace 已經不在，
-  sync 和 update 會略過該 target 並說明原因。請在 Agent 中恢復該 marketplace，或移除該
+  sync 和 update 會略過該 target 並說明原因。在從未加入該 marketplace 的另一台機器上，
+  也會發生同樣的情況。請在 Agent 中恢復該 marketplace，或移除該
   target 後從 source 重新加入 plugin；Skillshare 不會自行把匯入的 plugin 改到其他 source。
 - Skillshare 會替每個受管理的 Claude/Codex plugin 註冊一個 marketplace，命名為
   `skillshare-<plugin>-<hash>`（較早的安裝維持 `skillshare-<hash>`）。移除或排除該 plugin 時，

@@ -614,6 +614,29 @@ The same rule applies to `restore`: `restore is not supported in project mode (e
 
 ---
 
+## Plugin Errors {#plugin-errors}
+
+### `<agent> CLI is not installed or not on PATH` {#plugin-cli-not-on-path}
+
+**Cause:** Plugin commands run the Agent's native CLI (`claude`, `codex`, and so on) on the machine running Skillshare, and that CLI was not found. A scheduled job or a dashboard started from a service often has a shorter `PATH` than your terminal.
+
+**Solutions:**
+
+1. Install the Agent's CLI on that machine.
+2. If it is installed, add its directory to the `PATH` of whatever starts Skillshare, such as the scheduled job's environment.
+3. For an [account target](/docs/reference/commands/plugin#accounts), you can set `cli` to the executable's absolute path instead.
+
+### `The native marketplace X is gone` {#plugin-marketplace-gone}
+
+**Cause:** The plugin was imported, so Skillshare reinstalls it from the native marketplace it came from, and that marketplace is not registered in the Agent. This is common on a second machine: the import was recorded on the first machine only.
+
+**Solutions:**
+
+1. Add the marketplace again in the Agent, then run `skillshare sync plugins`.
+2. Or remove that Agent from the plugin and add the plugin again from its source. See [Cross-Machine Sync — Plugins](/docs/how-to/sharing/cross-machine-sync#plugins).
+
+---
+
 ## Binary Errors
 
 ### `integration tests cannot find the binary`

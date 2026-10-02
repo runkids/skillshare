@@ -57,6 +57,8 @@ skillshare는 skills와 다른 AI 리소스를 직접 관리할 수 있는 한�
 - **다른 컴퓨터에서도 내 환경 그대로** — 소스를 Git으로 관리하고 다른 컴퓨터에서 pull하세요.
 - **팀과 공유** — 프로젝트 리소스를 코드와 함께 관리하고 공용 skills를 tracked repo로 배포하세요.
 
+한 팀원은 Claude Code를, 다른 팀원은 Codex를 사용합니다. 공통 코드 리뷰 체크리스트를 프로젝트의 `.skillshare/`에서 관리하세요. 새 팀원은 채팅에서 지침을 복사하는 대신 선언된 skills를 설치하고 설정된 도구에 동기화할 수 있습니다. [팀 온보딩 →](https://skillshare.runkids.cc/docs/how-to/recipes/team-onboarding-recipe)
+
 데스크톱 앱이나 CLI로 로컬에서 관리하고, [사용 전에 skills를 감사](https://skillshare.runkids.cc/docs/reference/commands/audit)하며, [각 도구에 전달할 내용을 선택](https://skillshare.runkids.cc/docs/how-to/daily-tasks/filtering-skills)할 수 있습니다.
 
 > 다른 도구에서 옮겨 오시나요? [마이그레이션 가이드](https://skillshare.runkids.cc/docs/how-to/advanced/migration) · [비교](https://skillshare.runkids.cc/docs/understand/philosophy/comparison)

@@ -42,8 +42,7 @@ jobs:
 
 ### SARIF アップロード付きの GitHub Actions
 
-[GitHub Code Scanning](https://docs.github.com/en/code-security/code-scanning) 経由でインライン
-PR アノテーションを得るには、SARIF 出力を使います。
+[GitHub Code Scanning](https://docs.github.com/en/code-security/code-scanning) でインラインの PR アノテーションを表示するには、SARIF 出力を使います。`audit-output` を指定すると、Action は失敗する代わりに結果を保存して終了コードを記録するため、SARIF ファイルをアップロードできます。最後に、検出結果があれば job を失敗させるステップを追加してください:
 
 ```yaml
 name: Skill Security Scan
@@ -61,6 +60,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: runkids/setup-skillshare@v1
+        id: skillshare
         with:
           source: ./skills
           audit: true
@@ -76,6 +76,10 @@ jobs:
           category: skillshare-audit
 
       - run: skillshare sync --dry-run
+
+      - name: Fail on audit findings
+        if: steps.skillshare.outputs.audit-exit-code != '0'
+        run: exit 1
 ```
 
 ### アクションを使わない場合（手動セットアップ）

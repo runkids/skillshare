@@ -41,7 +41,7 @@ jobs:
 
 ### 搭配 SARIF 上傳的 GitHub Actions
 
-若要透過 [GitHub Code Scanning](https://docs.github.com/en/code-security/code-scanning) 取得內嵌的 PR 註解，可使用 SARIF 輸出：
+若要透過 [GitHub Code Scanning](https://docs.github.com/en/code-security/code-scanning) 取得內嵌的 PR 註解，可使用 SARIF 輸出。設定 `audit-output` 後，Action 會儲存結果並記錄 exit code，而不會直接失敗，以便繼續上傳 SARIF 檔案。請在最後加上一步，在有稽核發現時讓 job 失敗：
 
 ```yaml
 name: Skill Security Scan
@@ -59,6 +59,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: runkids/setup-skillshare@v1
+        id: skillshare
         with:
           source: ./skills
           audit: true
@@ -74,6 +75,10 @@ jobs:
           category: skillshare-audit
 
       - run: skillshare sync --dry-run
+
+      - name: Fail on audit findings
+        if: steps.skillshare.outputs.audit-exit-code != '0'
+        run: exit 1
 ```
 
 ### 不使用 action（手動設定）

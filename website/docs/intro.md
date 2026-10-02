@@ -5,23 +5,19 @@ slug: /
 
 # Introduction
 
-**skillshare** is a CLI tool that syncs AI CLI skills from a single source to all your AI coding assistants.
+**Your AI coding setup, everywhere.**
+
+skillshare manages skills, agents, rules, MCP connections and hooks in one place. Use the [desktop app](/docs/getting-started/desktop-app) or CLI to keep your setup with you as you switch AI tools, machines or projects.
 
 ## Why skillshare?
 
-Install tools get skills onto agents. **skillshare keeps them in sync.**
+- **Switch tools, keep your setup** — maintain a source you control and choose what each supported tool receives.
+- **Take your setup with you** — version your source in Git and bring it to another machine.
+- **Share project context** — keep team skills and configuration alongside your code, with remote skill commits recorded in a lockfile.
 
-| | Install-once tools | skillshare |
-|---|-------------------|------------|
-| After install | Run update commands manually | **Merge sync** — per-skill symlinks, local skills preserved |
-| Update a skill | Run update command / re-run install | **Edit source**, changes reflect instantly |
-| Pull back edits | — | **Bidirectional** — collect from any agent |
-| Cross-machine | Re-run install on each machine | **git push/pull** — one command sync |
-| Local + installed | Managed separately | **Unified** in single source directory |
-| Organization sharing | Commit skills.json or re-install | **Tracked repos** — git pull to update |
-| Project skills | Copy skills per repo, diverge over time | **Project mode** — auto-detected, shared via git |
-| Security audit | None | **Built-in** — auto-scan on install, `audit` command |
-| AI integration | Manual CLI only | **Built-in skill** — AI operates directly |
+For example, one teammate uses Claude Code and another uses Codex. Both need the same code-review checklist for a legacy API. Keep that checklist in `.skillshare/skills/` and commit the project configuration. New teammates install the declared remote skills and sync to the configured targets, instead of finding and copying instructions from chat.
+
+Follow the [team onboarding recipe](/docs/how-to/recipes/team-onboarding-recipe) for the full workflow. Shared instructions reduce configuration drift; each AI tool still has its own capabilities, permissions and behavior.
 
 ## Quick Start
 
@@ -44,7 +40,7 @@ skillshare install anthropics/skills/skills/pdf
 skillshare sync
 ```
 
-Done. Your skills are now synced across all AI CLI tools.
+Your skill is now available to the configured targets.
 
 :::tip[Try without installing]
 Want to explore first? Use the [Docker Playground](/docs/how-to/advanced/docker-sandbox#playground) — one command, no local install needed:
@@ -59,7 +55,7 @@ make playground
 
 ```mermaid
 flowchart LR
-    subgraph ORG["ORGANIZATION"]
+    subgraph ORG["GLOBAL"]
         ORG_SRC["~/.config/skillshare/skills/"] -- sync --> ORG_TGT["~/.claude/skills/ etc."]
     end
 
@@ -68,16 +64,18 @@ flowchart LR
     end
 ```
 
-Edit in source → all targets update. Edit in target → changes go to source (via symlinks).
+Edit an existing skill in source and linked targets see the change immediately. In copy mode, run `sync` to refresh their copies. In the default merge mode, adding, removing or renaming skills also requires `sync`.
+
+Global mode holds your personal setup and installed team repositories. Project mode holds resources and configuration for one codebase. A Git pull brings in the project's files; run `skillshare install -p` and `skillshare sync -p` to apply its declared skills locally.
 
 ## Key Features
 
 - **Auto-Detection** — `cd` into a project with `.skillshare/` and skillshare switches to project mode automatically
-- **Dual-Level Architecture** — Organization skills for company standards + project skills for repo context
-- **Instant Updates** — Symlink-based sync means edits reflect immediately across all AI tools
+- **Global and Project Scope** — Personal and shared organization resources in global mode; codebase-specific resources in project mode
+- **Linked Updates** — Edits to existing skills reflect immediately in targets that use symlinks
 - **Team Ready** — Organization skills via tracked repos, project skills via git commit
 - **Any Git Host** — Install, update, and check from GitHub, GitLab, Bitbucket, Azure DevOps, AtomGit, Gitee, or any self-hosted Git
-- **Security Audit** — Scan skills for prompt injection, data exfiltration, and threats. Auto-scans on install
+- **Security Audit** — Scan skills for known injection and exfiltration patterns before use. Audit is static analysis; execution permissions remain with your AI tools
 
 ## Supported Platforms
 

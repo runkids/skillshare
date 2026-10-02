@@ -127,7 +127,72 @@ skillshare push -m "Update my-skill"
 skillshare pull
 ```
 
-就这样。`pull` 会在拉取后自动执行 `sync`。
+就这样。`pull` 会在拉取后自动执行 `sync`。它会按照 [git root scope](/docs/reference/targets/configuration#git-root) 包含的内容执行 sync：skills，以及 `git_root: root` 时的 agents。Plugins、MCP server 和 hooks 需要下面的额外步骤。
+
+---
+
+## Plugins, MCP and Hooks {#plugins-mcp-hooks}
+
+`push` 和 `pull` 只对 git root 目录中的文件做版本控制。Plugins、hooks 和 MCP server 是 `config.yaml` 中的设置，而 `config.yaml` 永远不在这个 repository 中：默认的 `skills` scope 把它放在 repo 之外，`root` scope 则会 ignore 它。每台机器都保留自己的 `config.yaml`，以及自己的 targets 和路径。
+
+| 资源 | 存储位置 | 是否随 `push` / `pull` 移动 |
+|---|---|---|
+| Skills | Skills source | 是 |
+| Agents | Agents source | `git_root: agents` 或 `root` 时 |
+| Extras | Extras source | `git_root: extras` 或 `root` 时 |
+| MCP servers | `config.yaml`，或 `sources.mcp` 指定的文件 | 仅当该文件位于 repository 内时 |
+| Plugins | `config.yaml` 中的 `plugins:` | 否 |
+| Hooks | `config.yaml` 中的 `hooks:` | 否 |
+
+在另一台机器 pull 之后，其余部分需要自己应用：
+
+```bash
+skillshare pull
+skillshare sync --all              # 加上 agents、extras、MCP 和 hooks
+skillshare sync plugins --no-tui   # plugins 永远不包含在 --all 中
+```
+
+### MCP servers {#mcp-servers}
+
+把 server 定义放在 repository 内的独立文件中。使用 `git_root: root` 时，repository 就是存放 `config.yaml` 的目录（`~/.config/skillshare`，Windows 上是 `%AppData%\skillshare`），因此相对路径的 `sources.mcp` 会被 commit，而 `config.yaml` 留在本地：
+
+```yaml title="config.yaml（每台机器各自设置）"
+sources:
+  mcp: ./mcp.yaml
+
+mcp:
+  targets: [claude, codex]
+```
+
+`mcp.targets` 保留在 `config.yaml` 中，因此每台机器可以各自选择接收的 client。每台机器都要设置 `sources.mcp`。要把现有 server 移出 `config.yaml`，请参阅 [将 MCP 拆分到独立文件中](/docs/how-to/daily-tasks/sharing-mcp#split-mcp-into-its-own-file)。要把现有设置切换到 `root` scope，请参阅 [`git_root`](/docs/reference/targets/configuration#git-root)。
+
+Skillshare 把凭据保存为 `fromEnv` 引用，从不保存实际的值。请在每台机器上设置这些环境变量，并确保 Agent 能读取到。
+
+### Plugins {#plugins}
+
+Plugin 定义不会通过 git 传递。请在每台机器上从相同的来源重新添加：
+
+1. 在第一台机器的 dashboard 打开 **Plugins → Share**，复制命令。它会列出从 HTTPS Git 来源添加的 plugins，例如：
+
+   ```bash
+   skillshare plugin add https://github.com/acme/plugins --plugin review -g --no-tui
+   ```
+
+2. 在另一台机器运行该命令，在 Plugins 页面勾选 Agents，然后运行 `skillshare sync plugins`。
+
+需要在多台机器上使用的 plugin，请用 **Add plugin** 从来源添加，而不是 **Import installed**。Import 只记录 native 安装。在另一台机器上，Claude 和 Codex 会从同名的 native marketplace 重新安装；如果那台机器没有注册该 marketplace，这个 plugin 就会被跳过。Cursor 和 Antigravity 则完全无法重新安装 imported plugin。从本地目录添加的 plugin 不会出现在 **Share** 中，因为该路径只存在于第一台机器上。
+
+`sync plugins` 会安装缺少的 plugins，已安装的保持不变。要更新它们，先运行 `skillshare plugin check`，再运行 `skillshare plugin update`。请参阅 [跨工具管理 plugins](/docs/how-to/daily-tasks/sharing-plugins#updates-and-recovery)。
+
+### Hooks {#hooks}
+
+Hooks 没有独立的文件。把 `config.yaml` 的 `hooks:` 部分复制到另一台机器，然后运行 `skillshare sync hooks`。
+
+### What Stays on Each Machine {#per-machine}
+
+- 安装 plugin 用的 native CLI（`claude`、`codex` 等）必须安装在 Skillshare 运行的环境中，并且位于 `PATH` 上。计划任务的 `PATH` 通常比你的终端短。
+- 登录状态、OAuth token、native 信任确认以及启用/禁用状态，都保留在各个 Agent 中。
+- MCP server 引用的环境变量的值。
 
 ---
 

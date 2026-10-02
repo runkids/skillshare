@@ -60,10 +60,12 @@ Audit エンジンはその一層にすぎません。skillshare のセキュリ
 
 1. **インストール時の Audit** — 脅威が AI ツールに到達する前に検出する
 2. **オンデマンドの Audit** — 新しいパターンが追加されるたびに既存の Skill を再スキャンする
-3. **シンボリックリンクによる隔離** — Skill はコピーではなくシンボリックリンクされるため、Source が引き続き権威を持つ
+3. **共有 Source** — リンクされた Target は同じ Skill ファイルを読み、Source の変更がすべてに届くため、変更をレビューし、Source に書き込める人を制限する
 4. **変更前のバックアップ** — `skillshare backup` が Skill ライブラリ全体をスナップショットする
 5. **TTL 付きの Trash** — 削除された Skill はまず Trash に入り、即座には完全削除されない
 6. **操作ログ** — すべての変更操作は `operations.log`（JSONL）に記録される
+
+Symlink は共通の Source を提供しますが、セキュリティサンドボックスではありません。同様に、`.skillignore` は Skill の検出を絞り込むもので、AI ツールによるファイルやコマンドへのアクセスを禁止しません。実行時の権限と承認は AI ツールが担当します。責任の分担については[共有 Source と実行の境界](/docs/how-to/advanced/security#shared-source-and-execution-boundaries)を参照してください。
 
 ## サプライチェーンに関する考慮事項
 

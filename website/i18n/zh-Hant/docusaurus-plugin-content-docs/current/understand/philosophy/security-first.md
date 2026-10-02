@@ -60,10 +60,12 @@ Audit engine 只是其中一層。skillshare 的安全模型還包含：
 
 1. **安裝時稽核** — 在威脅抵達你的 AI 工具之前先攔截
 2. **隨需稽核** — 隨著新增偵測模式，重新掃描既有 skills
-3. **Symlink 隔離** — skills 是被 symlink 而非複製，source 始終保有權威性
+3. **共用來源** — 連結的 targets 讀取同一份 skill 檔案；來源修改會傳到所有連結的 targets，因此需要審查變更並限制來源的寫入權限
 4. **變更前備份** — `skillshare backup` 會為整個 skill 資料庫拍快照
 5. **有 TTL 的垃圾桶機制** — 被刪除的 skills 會先進垃圾桶，而非直接永久刪除
 6. **操作日誌** — 每個變更性操作都會被記錄到 `operations.log`（JSONL）
+
+Symlink 提供共同來源，不是安全沙盒。同樣地，`.skillignore` 篩選 skill 探索結果，不會禁止 AI 工具存取檔案或指令。執行時權限與核准屬於 AI 工具的責任。完整職責區分請見[共用來源與執行邊界](/docs/how-to/advanced/security#shared-source-and-execution-boundaries)。
 
 ## 供應鏈考量
 

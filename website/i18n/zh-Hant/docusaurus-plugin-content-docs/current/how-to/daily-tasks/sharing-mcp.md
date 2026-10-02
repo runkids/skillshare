@@ -129,7 +129,7 @@ mcp:
 請將範例中的 URL 換成你的提供者的 endpoint。`mcp.targets` 用來選擇接收端的 client，
 與你的 skill targets 是各自獨立的。伺服器自身可選填的 `targets` 清單會覆寫這個預設值。
 
-## 將 MCP 拆分成獨立檔案
+## 將 MCP 拆分成獨立檔案 {#split-mcp-into-its-own-file}
 
 當你想要單獨分享或做版本控制時，可以使用外部來源：
 
@@ -152,6 +152,8 @@ servers:
 相對路徑會以 `config.yaml` 所在的目錄為基準解析。
 對 `.skillshare/config.yaml` 而言，`./mcp.yaml` 代表 `.skillshare/mcp.yaml`。
 也支援絕對路徑與 `~/`。
+要透過 `push` / `pull` 在機器之間共用這個檔案，請把它放在 `root` scope 的
+repository 裡；請參考 [跨機器 Sync — MCP servers](/docs/how-to/sharing/cross-machine-sync#mcp-servers)。
 
 **同一時間只能使用一種來源**：`sources.mcp` 與 `mcp.servers` 不能同時存在，
 即使是 `mcp.servers: {}` 也不行。要切換時，將 `servers` 對照表搬到外部檔案中、

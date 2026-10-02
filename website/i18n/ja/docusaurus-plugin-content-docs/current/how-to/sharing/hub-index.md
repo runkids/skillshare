@@ -345,31 +345,77 @@ VPN の背後にいる自社の従業員だけがアクセスできるもので�
 
 ## 組織へのデプロイ
 
-組織全体に Hub を展開する典型的なエンドツーエンドのワークフローです。
+プライベート Hub は、レビュー済みの Skill を検索できるカタログを提供します。カタログと Skill の Source は組織が管理するインフラに置いてください。認証とアクセス制御は Git ホストまたは HTTP サーバーが提供します。
 
-```bash
-# 1. Skill 管理者が社内リポジトリから Skill を厳選する
-skillshare install ghe.internal.company.com/platform/ai-skills/coding-standards
-skillshare install ghe.internal.company.com/platform/ai-skills/review-checklist
-skillshare install ghe.internal.company.com/security/ai-skills/threat-model
+### 1. Skill と Source を選定する
 
-# 2. Hub インデックスを生成する（任意で監査スコア付き）
-skillshare hub index --audit -o ./skillshare-hub.json
+Skill とカタログの変更は PR でレビューします。SSH 専用の Git ホストでは、[インデックスのエントリー](#手書きのインデックス)に明示的な SSH Source を指定してください。例:
 
-# 3. ホストする（いずれか1つを選ぶ）
-#    - 社内 Git リポジトリ: commit して push
-#    - S3/CDN: aws s3 cp ./skillshare-hub.json s3://skills-bucket/
-#    - イントラネットサーバー: 自分のホスティングに scp する
-
-# 4. チームメンバーは一度だけ Hub を追加する
-skillshare hub add https://skills.internal.company.com/skillshare-hub.json --label company
-
-# 5. 検索してインストールする — VPN の背後でのみアクセス可能
-skillshare search coding --hub company
+```json
+{
+  "schemaVersion": 1,
+  "skills": [
+    {
+      "name": "code-review",
+      "description": "Team code-review checklist",
+      "source": "git@ghe.example.com:platform/ai-skills.git//skills/code-review"
+    }
+  ]
+}
 ```
 
-インデックスを最新に保つには、Skill の変更後に実行される CI パイプラインに `skillshare hub index`
-を追加してください。
+インストール済みのリモート Skill から `skillshare hub index --audit` でカタログを生成することもできます。公開前に、各 Source にチームメンバーがアクセスできることを確認してください。ローカルファイルから生成したインデックスには、そのマシン固有のパスが含まれる場合があるので、共有 Source に置き換えます。Audit バッジはある時点のスキャン結果であり、恒久的な承認ではありません。
+
+### 2. レビュー済みの CLI バージョンで変更を Audit する
+
+Skill リポジトリでは、固定した CLI バージョンと重大度のしきい値で PR を検査します:
+
+```yaml
+name: Validate shared skills
+on:
+  pull_request:
+    paths: ['skills/**', 'skillshare-hub.json']
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      # 読みやすさのためにタグを使用。各 Action はレビュー済みのコミット SHA に固定してください
+      - uses: actions/checkout@v4
+      - uses: runkids/setup-skillshare@v1
+        with:
+          version: '0.23.5' # 例: チームがレビューした CLI バージョンを選んでください
+          source: ./skills
+          audit: true
+          audit-threshold: high
+```
+
+この例は、チェックアウトしたリポジトリの `skills/` に Skill があることを前提とします。社内 Git サーバーの場合は、CI runner の checkout とアクセス設定を使ってください。スキャンコマンドは同じです。他の CI システムについては [CI/CD Skill 検証](/docs/how-to/recipes/ci-cd-skill-validation)を参照してください。
+
+Action の `version` input が固定するのは CLI release であり、Action 自体や Skill の内容ではありません。例では読みやすさのためにタグを使っています。組織のポリシーに従い、各 Action をレビュー済みの完全なコミット SHA に固定してください。[プロジェクトの lockfile](/docs/understand/project-skills#lockfile)でリモート Skill のコミットを記録し、それぞれの更新を別々にレビューします。`hub index --audit` はカタログにスキャン結果を追加するだけです。その重大度の検出結果を拒否するには、`skillshare audit --threshold high` または上のパイプラインゲートを使います。
+
+### 3. カタログを非公開で配布する
+
+レビュー後、`skillshare-hub.json` を社内 Skill リポジトリのルートにコミットします。Git ホストでメンバーに読み取り権限を与えてください。チームの環境からインデックスを取得できるなら、社内 HTTP ホスティングも使えます。公開 Hub を fork したり、公開 raw URL を用意したりする必要はありません。
+
+### 4. 登録、検索、同期する
+
+[skillshare の初期化](/docs/getting-started/first-sync)後、チームメンバーはプライベートカタログを一度だけ登録します:
+
+```bash
+skillshare hub add git@ghe.example.com:platform/ai-skills.git --label company -g
+skillshare search code-review --hub company -g
+# Select a skill to install, then distribute it to global targets
+skillshare sync -g
+```
+
+SSH の Hub URL は、リポジトリのルートから `skillshare-hub.json` を読みます。カタログが別の場所にある場合は、`git@ghe.example.com:platform/ai-skills.git//catalog/skillshare-hub.json` のようにパスを付けてください。SSH アクセスにはメンバーの既存の SSH 設定を使います。Git ホストはカタログと各 Skill の Source の両方へのアクセスを許可する必要があります。Hub は Skill を見つける仕組みであり、他の Source からのインストールを禁止しません。
+
+### 5. プロジェクトの依存を記録する
+
+特定のプロジェクトに必要な Skill は Project mode でインストールし、生成された config と lockfile をコミットします。メンバーは clone または更新の pull 後に `skillshare install -p`、Audit、Sync を実行します。順序は[チームオンボーディング](/docs/how-to/recipes/team-onboarding-recipe)を参照してください。カタログの選定、Skill の更新、CLI のアップグレードは、それぞれ明示的にレビューする変更として扱います。
 
 ## Public Hub
 

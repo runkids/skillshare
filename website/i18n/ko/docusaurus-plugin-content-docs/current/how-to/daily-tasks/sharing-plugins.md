@@ -61,6 +61,9 @@ skillshare plugin import review@team --from claude --no-tui
 배포판을 동일한 `--name`과 해당 Target으로 추가/import하세요. Skillshare는 표시
 이름으로부터 동등성을 추론하지 않습니다.
 
+Import는 이 머신의 네이티브 설치에 묶여 있습니다. 같은 plugin을 다른 머신에서 쓰려면
+대신 source에서 추가하세요. [Cross-Machine Sync — Plugins](/docs/how-to/sharing/cross-machine-sync#plugins)를 참고하세요.
+
 ## 동기화 대상 선택하기
 
 관리되는 각 바인딩에는 체크박스가 있습니다. 체크박스는 **이 Target을 sync에 포함**
@@ -95,7 +98,7 @@ skillshare sync plugins --no-tui
 플러그인은 일반 Skill 및 MCP 동기화와는 별개입니다. 이들의 번들 구성 요소는
 독립적인 Skillshare Source에도 복사되지 않습니다.
 
-## 업데이트와 복구
+## 업데이트와 복구 {#updates-and-recovery}
 
 **Check updates**를 사용한 다음 지원되는 Target의 업데이트를 검토하세요. Claude는
 네이티브 CLI를 통해 업데이트할 수 있습니다. Codex는 검토된 스냅샷에서 플러그인을 다시

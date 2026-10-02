@@ -76,6 +76,7 @@ skillshare push
 - **登入時自動同步**：在你的 shell profile（`.bashrc` / `.zshrc`）加入 `skillshare pull && skillshare sync`
 - **衝突解決**：`pull` 會合併兩台機器的 commits，並自動解決 `.metadata.json` 的衝突。若兩台機器都編輯了同一個 skill 檔案，`pull` 會停止、復原 merge 並列出該檔案 — 請在 source 目錄中用 git 解決
 - **選擇性同步**：在 `config.yaml` 中使用各 target 的 `include` / `exclude` 篩選器，控制哪些 skills 同步到哪台機器
+- **Plugins、MCP 與 hooks**：這些都存在 `config.yaml` 裡，`push` / `pull` 永遠不會帶走。請參考 [Plugins、MCP 與 Hooks](/docs/how-to/sharing/cross-machine-sync#plugins-mcp-hooks)
 
 ## 相關
 

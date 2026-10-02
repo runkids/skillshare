@@ -41,7 +41,7 @@ jobs:
 
 ### GitHub Actions with SARIF Upload
 
-To get inline PR annotations via [GitHub Code Scanning](https://docs.github.com/en/code-security/code-scanning), use SARIF output:
+To get inline PR annotations via [GitHub Code Scanning](https://docs.github.com/en/code-security/code-scanning), use SARIF output. When `audit-output` is set, the action saves the results and records the exit code instead of failing, so the SARIF file can still be uploaded. Add a final step that fails the job on findings:
 
 ```yaml
 name: Skill Security Scan
@@ -59,6 +59,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: runkids/setup-skillshare@v1
+        id: skillshare
         with:
           source: ./skills
           audit: true
@@ -74,6 +75,10 @@ jobs:
           category: skillshare-audit
 
       - run: skillshare sync --dry-run
+
+      - name: Fail on audit findings
+        if: steps.skillshare.outputs.audit-exit-code != '0'
+        run: exit 1
 ```
 
 ### Without the action (manual setup)

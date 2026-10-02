@@ -139,7 +139,7 @@ mcp:
 独立して受け取り側クライアントを選択します。サーバーごとの任意の `targets` リストは、そのデフォルトを
 上書きします。
 
-## MCP を独立したファイルに分割する
+## MCP を独立したファイルに分割する {#split-mcp-into-its-own-file}
 
 別々に共有したりバージョン管理したりしたい場合は、外部の Source を使います。
 
@@ -161,6 +161,8 @@ servers:
 
 相対パスは `config.yaml` を含むディレクトリを基準に解決されます。`.skillshare/config.yaml` の場合、
 `./mcp.yaml` は `.skillshare/mcp.yaml` を意味します。絶対パスと `~/` にも対応しています。
+`push` / `pull` でこのファイルをマシン間で共有するには、`root` スコープの repository 内に置いてください。
+[クロスマシン Sync — MCP サーバー](/docs/how-to/sharing/cross-machine-sync#mcp-servers) を参照してください。
 
 **一度に使う Source は1つだけ**にしてください。`sources.mcp` と `mcp.servers` は共存できません
 （`mcp.servers: {}` を含む）。切り替えるには、`servers` マッピングを外部ファイルに移し、`sources.mcp` を

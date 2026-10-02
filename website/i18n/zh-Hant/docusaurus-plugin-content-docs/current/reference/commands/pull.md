@@ -42,6 +42,8 @@ flowchart TD
 
 拉取完成後，`pull` 會同步該 scope 所涵蓋的內容：`skills` 執行 `sync`，`agents` 執行 `sync agents`，`root` 兩者都執行，`extras` 執行 `sync extras`。
 
+Plugins、MCP server 和 hooks 是 `config.yaml` 裡的設定，任何 scope 都不會追蹤它，所以 `pull` 不會帶來也不會套用它們。請參考 [跨機器 Sync — Plugins、MCP 與 Hooks](/docs/how-to/sharing/cross-machine-sync#plugins-mcp-hooks)。
+
 ## 先決條件
 
 你的 source 目錄必須是一個帶有 remote 的 git repository：

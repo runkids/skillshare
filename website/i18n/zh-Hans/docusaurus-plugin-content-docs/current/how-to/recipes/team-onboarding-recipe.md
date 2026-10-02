@@ -4,7 +4,7 @@ sidebar_position: 6
 
 # Recipe: Team Onboarding
 
-> 在 5 分钟内为新团队成员搭建好 AI Skill 环境。
+> 让新成员取得团队共享的 skills 与项目上下文。
 
 ## Scenario
 
@@ -12,6 +12,10 @@ sidebar_position: 6
 - 组织范围的 Skill（编码规范、审查指南）
 - Project 专属的 Skill（领域知识、架构规则）
 - 一切在他们的 AI 工具（Claude Code、Pi 等）上正常工作
+
+一位同事用 Claude Code，另一位用 Codex，新成员则用 Pi。三人都需要一份说明哪些旧版 API 应避免使用的审查清单。把清单复制到各个工具，会产生多个版本，随着项目变动逐渐分歧。
+
+将项目的本地 skills、`.skillshare/config.yaml` 与 `.skillshare/skills.lock.json` 放在项目仓库。Config 声明远端 skills 与 targets；lockfile 记录远端 skill 的 commit。每位成员在本地应用这些文件。共享指令提供共同上下文，各工具仍保有自己的权限与行为。
 
 ## Solution
 
@@ -28,18 +32,18 @@ curl -fsSL https://raw.githubusercontent.com/runkids/skillshare/main/install.sh 
 export PATH="$HOME/.local/bin:$PATH"
 
 echo "Initializing..."
-skillshare init
+skillshare init -g
 
 echo "Installing organization skills..."
-skillshare install your-org/org-skills
+skillshare install github.com/your-org/org-skills --track -g
 
 echo "Running security audit..."
-skillshare audit
+skillshare audit -g --threshold high
 
 echo "Syncing to all AI tools..."
-skillshare sync
+skillshare sync -g
 
-echo "Done! Run 'skillshare list' to see installed skills."
+echo "Done! Run 'skillshare list -g' to see installed skills."
 ```
 
 ### Step 2: 新员工运行该脚本
@@ -57,33 +61,38 @@ git clone your-org/team-tools
 
 ### Step 3: Project 专属设置
 
-当新员工克隆一个 Project 时：
+维护者先依[项目设置](/docs/how-to/sharing/project-setup)完成配置，并提交项目 config、本地 skills 与 lockfile。新成员克隆该项目后：
 
 ```bash
 cd your-project
+skillshare install -p
+skillshare audit -p --threshold high
 skillshare sync -p
 ```
 
-这会自动获取 Project 范围的 Skill。
+`install -p` 安装 `.skillshare/config.yaml` 声明的远端 skills；若有锁定的 commit，就使用该版本。`audit -p` 检查项目 skills，包括已提交的本地 skills。`sync -p` 将它们分发到配置的 targets。请按顺序运行；任何一步失败就停止。被 audit 拦截的内容需要先审查，再同步。
+
+Pull 项目更新后，重复这个流程。Git 传输 config 与 lockfile，不会自行安装缺少的远端 skills 或更新 target 副本。有意更新 skill 时，通过 PR 审查，并提交产生的 lockfile 变更。
 
 ### Step 4: 验证一切正常
 
 ```bash
 # 检查 Global Skill
-skillshare list
+skillshare list -g
 
 # 检查 Project Skill
 skillshare list -p
 
 # 检查 Sync 状态
-skillshare status
+skillshare status -p
 ```
 
 ## Verification
 
-- `skillshare list` 显示组织 Skill
-- `skillshare status` 显示所有 Targets 均已 Sync
-- 打开 Claude Code / Pi 显示 Skill 已加载
+- `skillshare list -g` 显示组织 skills
+- `skillshare list -p` 显示项目的本地与已安装的远端 skills
+- `skillshare status -p` 显示配置的 Project targets 已同步
+- 打开配置的 AI 工具，确认预期的 skills 已加载；用已知的旧版 API 示例试跑审查清单
 
 ## Variations
 
