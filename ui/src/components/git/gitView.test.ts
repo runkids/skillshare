@@ -17,4 +17,8 @@ describe('conflictMarks', () => {
   it('marks the lines only one version has', () => {
     expect(conflictMarks('a\nversion: 1\nb\nc\n', 'a\nversion: 2\nb\nhooks\nc\n')).toEqual({ local: [2], remote: [2, 4] });
   });
+
+  it('skips marking when the differing lines are too many to compare', () => {
+    expect(conflictMarks('a\n'.repeat(1001), 'b\n'.repeat(1001))).toBeUndefined();
+  });
 });
