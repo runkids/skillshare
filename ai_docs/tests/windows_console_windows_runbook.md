@@ -10,7 +10,9 @@ unchanged.
 
 `scripts/windows/e2e-console-windows.ps1` starts `ss.exe` four ways and runs `pull`,
 `sync plugins --no-tui` and `no-such-command` in each. A monitor polls every 5 ms
-for descendants of `ss.exe` and new visible top-level windows.
+for descendants of `ss.exe` and new visible top-level windows. With `-UiZip` and
+`-VersionFile` it also kills the launcher of a `DETACHED` foreground `ui` and checks
+that a `DETACHED` `ui start` server outlives its launcher.
 
 | Mode | How `ss.exe` starts |
 |---|---|
@@ -44,6 +46,8 @@ for descendants of `ss.exe` and new visible top-level windows.
 
    ```bash
    scripts/windows/utm.sh push "$OUT/ss.exe" 'C:\Users\Public\sstest\ss.exe'
+   scripts/windows/utm.sh push "$OUT/ss-ui-dist.zip" 'C:\Users\Public\sstest\ss-ui-dist.zip'
+   scripts/windows/utm.sh push "$OUT/ss-version.txt" 'C:\Users\Public\sstest\ss-version.txt'
    scripts/windows/utm.sh push scripts/windows/e2e-console-windows.ps1 'C:\Users\Public\sstest\e2e-console-windows.ps1'
    ```
 
@@ -51,7 +55,8 @@ for descendants of `ss.exe` and new visible top-level windows.
 
    ```bash
    scripts/windows/utm.sh task sstest-console 'C:\Users\Public\sstest\e2e-console-windows.ps1' -- \
-     -Exe C:\\Users\\Public\\sstest\\ss.exe -Root C:\\Users\\Public\\sstest\\run -Out C:\\Users\\Public\\sstest\\out-console.txt
+     -Exe C:\\Users\\Public\\sstest\\ss.exe -Root C:\\Users\\Public\\sstest\\run -Out C:\\Users\\Public\\sstest\\out-console.txt \
+     -UiZip C:\\Users\\Public\\sstest\\ss-ui-dist.zip -VersionFile C:\\Users\\Public\\sstest\\ss-version.txt
    ```
 
 4. Poll `utm.sh pull 'C:\Users\Public\sstest\out-console.txt'` until the last line is
@@ -69,4 +74,9 @@ for descendants of `ss.exe` and new visible top-level windows.
   `CREATE_NO_WINDOW` show `windows: none`; `NEW_CONSOLE` shows only the window of
   `ss.exe` itself (child-process changes cannot remove it).
 - Every mode: `pull` and `sync plugins --no-tui` exit 0, `no-such-command` exits 1.
+- Baseline, cancel foreground `ui`: `innerAliveAfterKill=True` (the relaunched work
+  survives its killed launcher). Fixed: `innerAliveAfterKill=False` and
+  `listeningAfterKill=False`.
+- Background `ui start`: `serverListeningAfterLauncherExit=True`, then `ui stop`
+  leaves `stillListening=False`.
 - `realProfileUnchanged=True`.

@@ -2,8 +2,10 @@
 # runs `pull` and `sync plugins --no-tui`, and records every descendant process plus every new
 # visible top-level window. Run as the desktop user through `utm.sh task`; see
 # ai_docs/tests/windows_console_windows_runbook.md.
-# Usage: e2e-console-windows.ps1 -Exe <ss.exe> -Root <empty dir> -Out <report.txt>
-param([string]$Exe, [string]$Root, [string]$Out)
+# With -UiZip/-VersionFile (utm.sh build output) it also checks cancellation across the
+# hidden-console relaunch and that a background `ui start` server outlives its launcher.
+# Usage: e2e-console-windows.ps1 -Exe <ss.exe> -Root <empty dir> -Out <report.txt> [-UiZip <zip> -VersionFile <txt>]
+param([string]$Exe, [string]$Root, [string]$Out, [string]$UiZip, [string]$VersionFile)
 $ErrorActionPreference = 'Continue'
 $log = New-Object System.Collections.Generic.List[string]
 function L($s) { $log.Add([string]$s) }
@@ -68,6 +70,20 @@ public static class ConsoleProbe {
       Wins[k] = pid + "|" + c + "|" + t + "|" + sw.ElapsedMilliseconds;
       return true;
     }, IntPtr.Zero);
+  }
+
+  // Starts without waiting; returns the PID (0 on failure).
+  public static int Start(string exe, string args, string cwd, uint flags, string outFile) {
+    SA sa = new SA(); sa.n = Marshal.SizeOf(typeof(SA)); sa.inherit = true;
+    IntPtr fh = CreateFileW(outFile, 0x40000000, 3, ref sa, 2, 0x80, IntPtr.Zero);
+    STARTUPINFO si = new STARTUPINFO(); si.cb = Marshal.SizeOf(typeof(STARTUPINFO));
+    si.flags = 0x100; si.hout = fh; si.herr = fh;
+    PI pi;
+    bool ok = CreateProcessW(exe, new StringBuilder("\"" + exe + "\" " + args), IntPtr.Zero, IntPtr.Zero, true, flags, IntPtr.Zero, cwd, ref si, out pi);
+    CloseHandle(fh);
+    if (!ok) return 0;
+    CloseHandle(pi.hp); CloseHandle(pi.ht);
+    return pi.pid;
   }
 
   public static string Run(string exe, string args, string cwd, uint flags, string outFile) {
@@ -156,6 +172,31 @@ foreach ($m in $modes.Keys) {
     foreach ($k in [ConsoleProbe]::Wins.Keys) { $w = [ConsoleProbe]::Wins[$k] -split '\|'; if (-not $tree.ContainsKey([int]$w[0])) { continue }; $pn = (Get-Process -Id ([int]$w[0]) -ErrorAction SilentlyContinue).ProcessName; if ($pn -match 'WindowsTerminal|conhost|OpenConsole') { Stop-Process -Id ([int]$w[0]) -Force -ErrorAction SilentlyContinue } }
     Start-Sleep -Milliseconds 800
   }
+}
+
+if ($UiZip) {
+  $ver = (Get-Content $VersionFile -Raw).Trim()
+  Expand-Archive $UiZip "$env:XDG_CACHE_HOME\skillshare\ui\$ver" -Force
+  # A caller that kills the PID it started (DETACHED launcher) must stop the relaunched work.
+  $launcher = [ConsoleProbe]::Start($Exe, 'ui --no-open --port 19451', $src, 0x8, (Join-Path $Root 'out\cancel-fg.txt'))
+  Start-Sleep 5
+  $inner = (Get-CimInstance Win32_Process -Filter "ParentProcessId=$launcher AND Name='ss.exe'").ProcessId
+  $before = [bool](Get-NetTCPConnection -LocalPort 19451 -State Listen -ErrorAction SilentlyContinue)
+  Stop-Process -Id $launcher -Force
+  Start-Sleep 2
+  $innerAlive = [bool]($inner -and (Get-Process -Id $inner -ErrorAction SilentlyContinue))
+  $after = [bool](Get-NetTCPConnection -LocalPort 19451 -State Listen -ErrorAction SilentlyContinue)
+  L ""
+  L "=== cancel foreground ui (DETACHED): launcher=$launcher inner=$inner listeningBefore=$before innerAliveAfterKill=$innerAlive listeningAfterKill=$after"
+  if ($innerAlive) { Stop-Process -Id $inner -Force }
+  # A background server started by `ui start` must outlive the launcher that started it.
+  $r = [ConsoleProbe]::Run($Exe, 'ui start --no-open --port 19452', $src, 0x8, (Join-Path $Root 'out\ui-start.txt'))
+  Start-Sleep 3
+  $bg = [bool](Get-NetTCPConnection -LocalPort 19452 -State Listen -ErrorAction SilentlyContinue)
+  L "=== background ui start (DETACHED): $r serverListeningAfterLauncherExit=$bg"
+  & $Exe ui stop 2>&1 | Out-Null
+  Start-Sleep 2
+  L "  ui stop exit=$LASTEXITCODE stillListening=$([bool](Get-NetTCPConnection -LocalPort 19452 -State Listen -ErrorAction SilentlyContinue))"
 }
 
 $realAfter = if (Test-Path $realCfg) { (Get-ChildItem $realCfg -Recurse -Force | Measure-Object -Property LastWriteTime -Maximum).Maximum } else { 'absent' }
