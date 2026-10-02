@@ -68,7 +68,7 @@ skillshare update surge    # 從該路徑重新複製，並執行安全稽核
 skillshare sync
 ```
 
-在記錄檔案 hash 之前安裝的 skill，會維持「local source」狀態，直到執行 update 或重新安裝。
+在記錄檔案 hash 之前安裝的 skill，會維持「local source」狀態，直到執行 update 或重新安裝。透過相對路徑（如 `./my-skill`）安裝的 skill 也不會比對，因為不會記錄該相對路徑的基準目錄；如需啟用檢查，請使用絕對路徑安裝。
 
 ## 輸出範例
 
