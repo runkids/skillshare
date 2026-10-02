@@ -43,10 +43,32 @@ result=$(skillshare check --json)
 1. **トラッキング対象のリポジトリ** — origin から fetch し、何コミット遅れているかを表示
 2. **メタデータ付きのインストール済み Skill** — インストール済みのバージョンをリモートの HEAD と比較
 3. **Stale な Skill** — アップストリームリポジトリからサブディレクトリが削除された Skill を検出
-4. **ローカルの Skill** — 「local source」としてマーク（比較対象のリモートがない）
-5. **Skill レベルの `targets` 検証** — SKILL.md の `targets` フロントマターフィールドにある未知の Target 名について警告
+4. **ローカルパスからのインストール** — インストール元のパスにあるファイルを、インストール時に記録したファイルと比較（[ローカルパスからのインストール](#local-path-installs)を参照）
+5. **ローカルの Skill** — インストールメタデータのない Skill を「local source」としてマーク（比較対象がない）
+6. **Skill レベルの `targets` 検証** — SKILL.md の `targets` フロントマターフィールドにある未知の Target 名について警告
 
 `update` とは異なり、`check` はファイルを一切変更しません。
+
+## ローカルパスからのインストール {#local-path-installs}
+
+ディスク上のディレクトリからインストールした Skill（`skillshare install /path/to/skill`）は、そのパスとコピーした各ファイルのハッシュを記録します。`check` はそのパスのファイルを再度ハッシュ化し、次のように報告します。
+
+- **up to date** — ファイルがインストール時と一致している
+- **update available** — インストール元のパスでファイルが変更、追加、または削除された
+- **error** — インストール元のパスが存在しない（`local source not found: <path>`）
+
+これは、App バンドル内の Skill のように、別のアプリケーションが配布・更新する Skill に便利です。
+
+```bash
+skillshare install /Applications/Surge.app/Contents/Resources/Skills/surge
+
+# App の更新後:
+skillshare check surge     # → Update available
+skillshare update surge    # パスから再コピーし、セキュリティ監査を実行
+skillshare sync
+```
+
+ファイルハッシュが記録される前にインストールされた Skill は、update または再インストールするまで「local source」のままです。
 
 ## 出力例
 
@@ -135,6 +157,8 @@ skillshare check --json
 }
 ```
 
+`"status": "error"` の Skill には、原因がわかる場合に `message` フィールドが含まれます（例: `"message": "local source not found: /path/to/skill"`）。
+
 ## ステータス表示
 
 | アイコン | 意味 |
@@ -143,7 +167,7 @@ skillshare check --json
 | `⬇` | 更新あり（トラッキング対象のリポジトリ: 遅れているコミット数、Skill: 新しいバージョン） |
 | `⚠` | Stale — アップストリームでサブディレクトリが削除またはリネームされた |
 | `!` | 未コミットの変更がある |
-| `•` | ローカルソース（比較対象のリモートがない） |
+| `•` | ローカルソース（比較対象のインストールメタデータがない） |
 
 :::info Stale な Skill
 Skill のサブディレクトリがアップストリームでリネームまたは削除された場合、`check` はそれを **stale** として報告します。stale な Skill を掃除するには `update --prune` を使用してください。

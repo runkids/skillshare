@@ -63,6 +63,8 @@ flowchart TD
 
 ### 對於一般 Skills
 
+從遠端來源安裝的 skill 會從該來源重新安裝。從本機路徑安裝的 skill（`skillshare install /path/to/skill`）會從該路徑重新複製，因此 `update` 會取得那裡的變更；[`check`](./check.md#local-path-installs) 會在該路徑有變更時提示。
+
 ```mermaid
 flowchart TD
     TITLE["skillshare update my-skill"]
@@ -427,6 +429,7 @@ skillshare update --all -p --skip-audit  # 跳過安全性 audit 關卡
 |------|--------|-------------|
 | **Tracked 儲存庫**（`_repo`） | `git pull` | 有 `.git/` 目錄 |
 | **遠端 skill**（有 metadata） | 從來源重新安裝 | 列於 `.metadata.json` |
+| **從本機路徑安裝** | 從記錄的路徑重新複製 | 列於 `.metadata.json`，且 `type: local` |
 | **本機 skill** | 跳過 | 未列於 `.metadata.json` |
 
 `_` 前綴是選填的 — `skillshare update team-skills -p` 會自動偵測為 `_team-skills`。

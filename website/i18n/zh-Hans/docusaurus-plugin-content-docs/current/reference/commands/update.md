@@ -63,6 +63,8 @@ flowchart TD
 
 ### 对于普通 Skills
 
+从远程来源安装的 skill 会从该来源重新安装。从本地路径安装的 skill（`skillshare install /path/to/skill`）会从该路径重新复制，因此 `update` 会取得那里的变更；[`check`](./check.md#local-path-installs) 会在该路径有变更时提示。
+
 ```mermaid
 flowchart TD
     TITLE["skillshare update my-skill"]
@@ -427,6 +429,7 @@ skillshare update --all -p --skip-audit  # Skip security audit gate
 |------|--------|-------------|
 | **Tracked repo** (`_repo`) | `git pull` | Has `.git/` directory |
 | **Remote skill** (with metadata) | Reinstall from source | Listed in `.metadata.json` |
+| **Local-path install** | Re-copy from the recorded path | Listed in `.metadata.json` with `type: local` |
 | **Local skill** | Skipped | Not listed in `.metadata.json` |
 
 `_` 前缀是可选的——`skillshare update team-skills -p` 会自动检测为 `_team-skills`。

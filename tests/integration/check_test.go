@@ -216,6 +216,62 @@ targets: {}
 	}
 }
 
+func TestCheck_LocalSource_DetectsChangeUntilUpdated(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	setupGlobalConfig(sb)
+
+	external := filepath.Join(sb.Root, "app-bundle", "app-skill")
+	sb.WriteFile(filepath.Join(external, "SKILL.md"), "---\nname: app-skill\n---\n# v1")
+	sb.RunCLI("install", external).AssertSuccess(t)
+
+	checkStatus := func() string {
+		t.Helper()
+		result := sb.RunCLI("check", "--json")
+		result.AssertSuccess(t)
+		var output checkOutput
+		if err := json.Unmarshal([]byte(result.Stdout), &output); err != nil {
+			t.Fatalf("failed to parse JSON output: %v\noutput: %s", err, result.Stdout)
+		}
+		for _, s := range output.Skills {
+			if s.Name == "app-skill" {
+				return s.Status
+			}
+		}
+		t.Fatalf("app-skill missing from check output: %s", result.Stdout)
+		return ""
+	}
+
+	if got := checkStatus(); got != "up_to_date" {
+		t.Fatalf("after install: status = %q, want up_to_date", got)
+	}
+
+	sb.WriteFile(filepath.Join(external, "SKILL.md"), "---\nname: app-skill\n---\n# v2")
+	if got := checkStatus(); got != "update_available" {
+		t.Fatalf("after source change: status = %q, want update_available", got)
+	}
+
+	sb.RunCLI("update", "app-skill").AssertSuccess(t)
+	if got := checkStatus(); got != "up_to_date" {
+		t.Fatalf("after update: status = %q, want up_to_date", got)
+	}
+}
+
+func TestCheck_LocalSource_Missing(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	setupGlobalConfig(sb)
+
+	external := filepath.Join(sb.Root, "app-bundle", "gone-skill")
+	sb.WriteFile(filepath.Join(external, "SKILL.md"), "---\nname: gone-skill\n---\n# v1")
+	sb.RunCLI("install", external).AssertSuccess(t)
+	os.RemoveAll(external)
+
+	result := sb.RunCLI("check", "gone-skill")
+	result.AssertSuccess(t)
+	result.AssertAnyOutputContains(t, "local source not found")
+}
+
 // ── Filtered check tests (multi-name + --group) ──────────
 
 func TestCheck_SingleName(t *testing.T) {

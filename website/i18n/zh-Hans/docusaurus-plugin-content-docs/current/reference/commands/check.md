@@ -43,10 +43,32 @@ result=$(skillshare check --json)
 1. **已跟踪仓库**——从 origin 拉取，显示落后多少个 commit
 2. **已安装 skills（带 metadata）**——将已安装版本与 remote HEAD 进行比较
 3. **过时的 skills**——检测哪些 skill 的子目录已在 upstream 仓库中被删除
-4. **本地 skills**——标记为 "local source"（没有 remote 可比较）
-5. **Skill 级别的 `targets` 校验**——对 SKILL.md `targets` frontmatter 字段中的未知 target 名称发出警告
+4. **从本地路径安装的 skills**——将安装来源路径中的文件与安装时记录的文件进行比较（参见[从本地路径安装](#local-path-installs)）
+5. **本地 skills**——将没有安装 metadata 的 skill 标记为 "local source"（没有可比较的对象）
+6. **Skill 级别的 `targets` 校验**——对 SKILL.md `targets` frontmatter 字段中的未知 target 名称发出警告
 
 与 `update` 不同，`check` 绝不会修改任何文件。
+
+## 从本地路径安装 {#local-path-installs}
+
+从磁盘目录安装的 skill（`skillshare install /path/to/skill`）会记录该路径以及所复制每个文件的哈希值。`check` 会重新计算该路径下文件的哈希值，并报告：
+
+- **up to date**——文件与安装时一致
+- **update available**——来源路径中有文件被修改、新增或删除
+- **error**——来源路径已不存在（`local source not found: <path>`）
+
+这适用于由其他应用程序分发和更新的 skill，例如 App bundle 中的 skill：
+
+```bash
+skillshare install /Applications/Surge.app/Contents/Resources/Skills/surge
+
+# App 更新后：
+skillshare check surge     # → Update available
+skillshare update surge    # 从该路径重新复制，并执行安全审计
+skillshare sync
+```
+
+在记录文件哈希值之前安装的 skill，会保持 "local source" 状态，直到执行 update 或重新安装。
 
 ## 示例输出
 
@@ -135,6 +157,8 @@ skillshare check --json
 }
 ```
 
+`"status": "error"` 的 skill 在已知原因时会包含 `message` 字段，例如 `"message": "local source not found: /path/to/skill"`。
+
 ## 状态图标
 
 | 图标 | 含义 |
@@ -143,7 +167,7 @@ skillshare check --json
 | `⬇` | 有可用更新（已跟踪仓库：落后的 commit 数；skill：有更新版本） |
 | `⚠` | 过时——子目录已在 upstream 被删除或重命名 |
 | `!` | 有未提交的更改 |
-| `•` | 本地 source（没有 remote 可比较） |
+| `•` | 本地 source（没有安装 metadata 可比较） |
 
 :::info 过时的 skills
 当某个 skill 的子目录在 upstream 被重命名或删除时，`check` 会将其报告为**过时（stale）**。使用 `update --prune` 清理过时的 skills。

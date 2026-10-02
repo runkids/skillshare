@@ -47,10 +47,7 @@ func (s *Server) handleCheckStream(w http.ResponseWriter, r *http.Request) {
 	for _, skill := range skills {
 		entry := s.skillEntry(skill)
 		if entry == nil || entry.RepoURL == "" {
-			localResults = append(localResults, skillCheckResult{
-				Name:   skill,
-				Status: "local",
-			})
+			localResults = append(localResults, localCheckResult(skill, entry))
 			continue
 		}
 		key := urlBranchGroup{url: entry.RepoURL, branch: entry.Branch}

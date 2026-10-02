@@ -63,6 +63,8 @@ flowchart TD
 
 ### 일반 Skill의 경우
 
+원격 source에서 설치한 skill은 해당 source에서 재설치됩니다. 로컬 경로에서 설치한 skill(`skillshare install /path/to/skill`)은 그 경로에서 다시 복사되므로 `update`가 그곳의 변경 사항을 반영합니다. 경로가 변경되었는지는 [`check`](./check.md#local-path-installs)가 알려 줍니다.
+
 ```mermaid
 flowchart TD
     TITLE["skillshare update my-skill"]
@@ -427,6 +429,7 @@ skillshare update --all -p --skip-audit  # 보안 audit gate 건너뛰기
 |------|--------|-------------|
 | **Tracked repo**(`_repo`) | `git pull` | `.git/` 디렉터리가 있음 |
 | **Remote skill**(metadata 포함) | source에서 재설치 | `.metadata.json`에 등록됨 |
+| **로컬 경로 설치** | 기록된 경로에서 다시 복사 | `.metadata.json`에 `type: local`로 등록됨 |
 | **Local skill** | 건너뜀 | `.metadata.json`에 등록되지 않음 |
 
 `_` 접두사는 선택 사항입니다 — `skillshare update team-skills -p`는 `_team-skills`를 자동으로 감지합니다.

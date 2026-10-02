@@ -43,10 +43,32 @@ result=$(skillshare check --json)
 1. **Tracked repositories** — Fetches from origin, shows how many commits you're behind
 2. **Installed skills (with metadata)** — Compares installed version against the remote HEAD
 3. **Stale skills** — Detects skills whose subdirectory was deleted from the upstream repository
-4. **Local skills** — Marks as "local source" (no remote to compare)
-5. **Skill-level `targets` validation** — Warns about unknown target names in SKILL.md `targets` frontmatter fields
+4. **Local-path installs** — Compares the files at the path you installed from with the files recorded at install time (see [Local-Path Installs](#local-path-installs))
+5. **Local skills** — Marks skills without install metadata as "local source" (nothing to compare)
+6. **Skill-level `targets` validation** — Warns about unknown target names in SKILL.md `targets` frontmatter fields
 
 Unlike `update`, `check` never modifies any files.
+
+## Local-Path Installs {#local-path-installs}
+
+A skill installed from a directory on disk (`skillshare install /path/to/skill`) records that path and the hash of every file it copied. `check` re-hashes the files at that path and reports:
+
+- **up to date** — the files match what was installed
+- **update available** — a file was changed, added, or removed at the source path
+- **error** — the source path no longer exists (`local source not found: <path>`)
+
+This is useful for skills that another application ships and updates, such as a skill inside an app bundle:
+
+```bash
+skillshare install /Applications/Surge.app/Contents/Resources/Skills/surge
+
+# After the app updates:
+skillshare check surge     # → Update available
+skillshare update surge    # Re-copies from the path and runs the security audit
+skillshare sync
+```
+
+Skills installed before file hashes were recorded keep the "local source" status until they are updated or reinstalled.
 
 ## Example Output
 
@@ -135,6 +157,8 @@ skillshare check --json
 }
 ```
 
+Skills with `"status": "error"` include a `message` field when the reason is known, for example `"message": "local source not found: /path/to/skill"`.
+
 ## Status Indicators
 
 | Icon | Meaning |
@@ -143,7 +167,7 @@ skillshare check --json
 | `⬇` | Update available (tracked repo: commits behind; skill: newer version) |
 | `⚠` | Stale — subdirectory deleted or renamed upstream |
 | `!` | Has uncommitted changes |
-| `•` | Local source (no remote to compare) |
+| `•` | Local source (no install metadata to compare) |
 
 :::info Stale skills
 When a skill's subdirectory was renamed or deleted upstream, `check` reports it as **stale**. Use `update --prune` to clean up stale skills.

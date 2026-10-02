@@ -30,6 +30,14 @@ type skillCheckResult struct {
 	Status      string `json:"status"`
 	InstalledAt string `json:"installed_at,omitempty"`
 	Kind        string `json:"kind,omitempty"`
+	Message     string `json:"message,omitempty"`
+}
+
+// localCheckResult checks a skill without a remote: local installs are
+// compared against their recorded source path, the rest stay "local".
+func localCheckResult(name string, entry *install.MetadataEntry) skillCheckResult {
+	status, message := check.LocalSourceStatus(entry)
+	return skillCheckResult{Name: name, Status: status, Message: message}
 }
 
 // checkTrackedRepo checks one tracked repo with the same logic as the CLI:
@@ -60,10 +68,7 @@ func (s *Server) handleCheck(w http.ResponseWriter, r *http.Request) {
 	for _, skill := range skills {
 		entry := s.skillEntry(skill)
 		if entry == nil || entry.RepoURL == "" {
-			localResults = append(localResults, skillCheckResult{
-				Name:   skill,
-				Status: "local",
-			})
+			localResults = append(localResults, localCheckResult(skill, entry))
 			continue
 		}
 		key := urlBranchGroup{url: entry.RepoURL, branch: entry.Branch}

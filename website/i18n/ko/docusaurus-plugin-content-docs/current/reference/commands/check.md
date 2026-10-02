@@ -43,10 +43,32 @@ result=$(skillshare check --json)
 1. **추적 중인 저장소** — origin에서 fetch하고, 몇 커밋 뒤처져 있는지 표시
 2. **메타데이터가 있는 설치된 skill** — 설치된 버전을 remote HEAD와 비교
 3. **오래된(stale) skill** — 업스트림 저장소에서 하위 디렉터리가 삭제된 skill 감지
-4. **로컬 skill** — "local source"로 표시(비교할 remote 없음)
-5. **skill 수준 `targets` 검증** — SKILL.md의 `targets` frontmatter 필드에 있는 알 수 없는 target 이름에 대해 경고
+4. **로컬 경로 설치** — 설치한 경로의 파일을 설치 시 기록된 파일과 비교([로컬 경로 설치](#local-path-installs) 참고)
+5. **로컬 skill** — 설치 메타데이터가 없는 skill을 "local source"로 표시(비교할 대상 없음)
+6. **skill 수준 `targets` 검증** — SKILL.md의 `targets` frontmatter 필드에 있는 알 수 없는 target 이름에 대해 경고
 
 `update`와 달리 `check`는 어떤 파일도 수정하지 않습니다.
+
+## 로컬 경로 설치 {#local-path-installs}
+
+디스크의 디렉터리에서 설치한 skill(`skillshare install /path/to/skill`)은 해당 경로와 복사한 모든 파일의 해시를 기록합니다. `check`는 그 경로의 파일을 다시 해시하여 다음과 같이 보고합니다.
+
+- **up to date** — 파일이 설치 시점과 일치함
+- **update available** — 원본 경로에서 파일이 변경, 추가 또는 삭제됨
+- **error** — 원본 경로가 더 이상 존재하지 않음(`local source not found: <path>`)
+
+앱 번들 안의 skill처럼 다른 애플리케이션이 배포하고 업데이트하는 skill에 유용합니다.
+
+```bash
+skillshare install /Applications/Surge.app/Contents/Resources/Skills/surge
+
+# 앱 업데이트 후:
+skillshare check surge     # → Update available
+skillshare update surge    # 경로에서 다시 복사하고 보안 감사를 실행
+skillshare sync
+```
+
+파일 해시가 기록되기 전에 설치된 skill은 update하거나 다시 설치할 때까지 "local source" 상태로 남습니다.
 
 ## 출력 예시
 
@@ -135,6 +157,8 @@ skillshare check --json
 }
 ```
 
+`"status": "error"`인 skill에는 원인을 알 수 있을 때 `message` 필드가 포함됩니다. 예: `"message": "local source not found: /path/to/skill"`.
+
 ## 상태 표시자
 
 | Icon | Meaning |
@@ -143,7 +167,7 @@ skillshare check --json
 | `⬇` | 업데이트 사용 가능(추적 저장소: 뒤처진 커밋 수; skill: 새 버전) |
 | `⚠` | Stale — 업스트림에서 하위 디렉터리가 삭제되거나 이름이 변경됨 |
 | `!` | 커밋되지 않은 변경 사항 있음 |
-| `•` | 로컬 source(비교할 remote 없음) |
+| `•` | 로컬 source(비교할 설치 메타데이터 없음) |
 
 :::info Stale skills
 skill의 하위 디렉터리가 업스트림에서 이름이 바뀌거나 삭제된 경우, `check`는 이를 **stale**로 보고합니다. stale skill을 정리하려면 `update --prune`을 사용하세요.
