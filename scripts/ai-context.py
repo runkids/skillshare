@@ -82,13 +82,13 @@ def orphans(cfg):
     for d, dirs, files in os.walk(ROOT):
         dirs[:] = [x for x in dirs if x not in skip and not x.startswith('.')]
         for f in files:
-            rel = os.path.relpath(os.path.join(d, f), ROOT)
+            rel = os.path.relpath(os.path.join(d, f), ROOT).replace(os.sep, '/')
             if rel in allowed or not f.endswith('.md'):
                 continue
-            if rel.startswith(history + os.sep):
-                if os.path.relpath(rel, wiki) not in router_text and rel not in router_text:
+            if rel.startswith(history + '/'):
+                if os.path.relpath(rel, wiki).replace(os.sep, '/') not in router_text and rel not in router_text:
                     bad.append(f'{rel}: history file not indexed in {router}')
-            elif rel.startswith(wiki + os.sep):
+            elif rel.startswith(wiki + '/'):
                 if rel != router and rel not in routed:
                     bad.append(f'{rel}: wiki page no topic loads (map it, or list it under "unrouted" with a reason)')
             elif f == 'AGENTS.md' and rel != root_file and rel not in routed:
