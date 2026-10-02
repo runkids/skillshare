@@ -144,7 +144,7 @@ metadata:
 ...
 ```
 
-這個 skill 只會出現在 Claude Code 的 skill 目錄中，即使你同時設定了 Cursor、Codex 等其他 targets 也一樣。
+這個 skill 只會出現在 Claude Code 的 skill 目錄中，即使你同時設定了 Pi、Codex 等其他 targets 也一樣。
 
 ### `pattern`
 

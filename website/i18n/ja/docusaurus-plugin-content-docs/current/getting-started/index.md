@@ -4,7 +4,7 @@ sidebar_position: 1
 
 # はじめかた
 
-skillshare は、1 つの Source ディレクトリをマシン上のすべての AI CLI の Skill ディレクトリと同期し続けます。Skill を一度書くかインストールすれば、symlink（シンボリックリンク）によって Claude、Cursor、Codex、その他設定済みのすべての Target にそれが現れます。
+skillshare は、1 つの Source ディレクトリをマシン上のすべての AI CLI の Skill ディレクトリと同期し続けます。Skill を一度書くかインストールすれば、symlink（シンボリックリンク）によって Claude、Pi、Codex、その他設定済みのすべての Target にそれが現れます。
 
 ```mermaid
 flowchart LR
@@ -43,7 +43,7 @@ Source ディレクトリには 3 種類の Skill が共存します。違いは
 | あなたの状況 | ここから始める |
 |---|---|
 | skillshare を初めてセットアップする | [First Sync](./first-sync.md) |
-| すでに Claude / Cursor / Codex に Skill がある | [From Existing Skills](./from-existing-skills.md) |
+| すでに Claude / Pi / Codex に Skill がある | [From Existing Skills](./from-existing-skills.md) |
 | コマンドの書式をすぐ知りたい | [Quick Reference](./quick-reference.md) |
 | インストールせずに試してみたい | [Docker Playground](/docs/how-to/advanced/docker-sandbox#playground) |
 

@@ -144,7 +144,7 @@ metadata:
 ...
 ```
 
-This skill will only appear in Claude Code's skills directory, even if you have Cursor, Codex, and other targets configured.
+This skill will only appear in Claude Code's skills directory, even if you have Pi, Codex, and other targets configured.
 
 ### `pattern`
 

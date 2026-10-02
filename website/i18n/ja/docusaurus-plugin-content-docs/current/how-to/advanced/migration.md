@@ -21,7 +21,7 @@ skillshare init
 ```bash
 # 各 AI CLI から収集
 skillshare collect claude
-skillshare collect cursor
+skillshare collect pi
 skillshare collect codex
 
 # または一度にすべてから収集
@@ -215,7 +215,7 @@ rm -rf .claude/skills/my-skill .claude/skills/api-guide
 skillshare sync
 ```
 
-これで `.claude/skills/my-skill` は `.skillshare/skills/my-skill` へのシンボリックリンクになり、他のすべての Target（Cursor、Windsurf など）にも同じ Skill が自動的に反映されます。
+これで `.claude/skills/my-skill` は `.skillshare/skills/my-skill` へのシンボリックリンクになり、他のすべての Target（Pi、Windsurf など）にも同じ Skill が自動的に反映されます。
 
 ### ステップ 4: 移行をコミットする
 

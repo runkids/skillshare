@@ -11,7 +11,7 @@ sidebar_position: 6
 一位新开发者加入你的团队。他们需要：
 - 组织范围的 Skill（编码规范、审查指南）
 - Project 专属的 Skill（领域知识、架构规则）
-- 一切在他们的 AI 工具（Claude Code、Cursor 等）上正常工作
+- 一切在他们的 AI 工具（Claude Code、Pi 等）上正常工作
 
 ## Solution
 
@@ -83,7 +83,7 @@ skillshare status
 
 - `skillshare list` 显示组织 Skill
 - `skillshare status` 显示所有 Targets 均已 Sync
-- 打开 Claude Code / Cursor 显示 Skill 已加载
+- 打开 Claude Code / Pi 显示 Skill 已加载
 
 ## Variations
 

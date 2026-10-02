@@ -34,5 +34,65 @@
   "home.desktop.cliAlternative": {
     "message": "ターミナルを使いたい場合は CLI をインストール。",
     "description": "Desktop app promotion on the homepage"
+  },
+  "home.hero.title": {
+    "message": "あなたの AI コーディング環境を、",
+    "description": "Homepage product positioning"
+  },
+  "home.hero.everywhere": {
+    "message": "どこでも。",
+    "description": "Homepage product positioning"
+  },
+  "home.hero.summary": {
+    "message": "skills、agents、rules、MCP 接続、hooks をひとつの場所で管理。",
+    "description": "Homepage product positioning"
+  },
+  "home.hero.tools": {
+    "message": "Claude Code、Codex、Pi、OpenCode などで使えます。",
+    "description": "Homepage product positioning"
+  },
+  "home.board.preview": {
+    "message": "skills 同期のプレビュー",
+    "description": "Homepage product positioning"
+  },
+  "home.features.title": {
+    "message": "skills だけではありません。",
+    "description": "Homepage product positioning"
+  },
+  "home.features.subtitle": {
+    "message": "AI コーディング環境のほかのリソースも。",
+    "description": "Homepage product positioning"
+  },
+  "home.features.summary": {
+    "message": "skills と一緒に agents、rules、MCP 接続、hooks、plugins も管理。目的に合うコマンドを探せます。",
+    "description": "Homepage product positioning"
+  },
+  "home.features.open": {
+    "message": "機能を見る",
+    "description": "Homepage product positioning"
+  },
+  "home.cta.title": {
+    "message": "ツールを変えても、環境はそのまま。",
+    "description": "Homepage product positioning"
+  },
+  "home.cta.summary": {
+    "message": "無料のオープンソース。デスクトップアプリまたは CLI で環境をローカルに管理。",
+    "description": "Homepage product positioning"
+  },
+  "home.meta.title": {
+    "message": "AI コーディング環境マネージャー — Skills、Agents、MCP、Hooks",
+    "description": "Homepage product positioning"
+  },
+  "home.meta.description": {
+    "message": "あなたの AI コーディング環境を、どこでも。デスクトップアプリまたは CLI で skills、agents、rules、MCP 接続、hooks をひとつの場所で管理。",
+    "description": "Homepage product positioning"
+  },
+  "home.demo.label": {
+    "message": "Skillshare デモ：一度編集して、AI コーディングツール間で同期",
+    "description": "Homepage product demo"
+  },
+  "home.demo.download": {
+    "message": "デモ動画をダウンロード",
+    "description": "Homepage product demo"
   }
 }

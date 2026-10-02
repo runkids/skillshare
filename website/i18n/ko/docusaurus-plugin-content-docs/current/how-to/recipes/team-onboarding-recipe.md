@@ -11,7 +11,7 @@ sidebar_position: 6
 새로운 개발자가 팀에 합류합니다. 다음이 필요합니다:
 - 조직 전체 Skill (코딩 표준, 리뷰 가이드라인)
 - 프로젝트별 Skill (도메인 지식, 아키텍처 규칙)
-- 사용 중인 모든 AI 도구(Claude Code, Cursor 등)에서 동작하는 환경
+- 사용 중인 모든 AI 도구(Claude Code, Pi 등)에서 동작하는 환경
 
 ## 해결 방법
 
@@ -83,7 +83,7 @@ skillshare status
 
 - `skillshare list`가 조직 Skill을 표시합니다
 - `skillshare status`가 모든 Target이 동기화되었음을 보여줍니다
-- Claude Code / Cursor를 열면 Skill이 로드되어 있는 것이 보입니다
+- Claude Code / Pi를 열면 Skill이 로드되어 있는 것이 보입니다
 
 ## 변형
 

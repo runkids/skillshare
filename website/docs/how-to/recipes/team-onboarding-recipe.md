@@ -11,7 +11,7 @@ sidebar_position: 6
 A new developer joins your team. They need:
 - Organization-wide skills (coding standards, review guidelines)
 - Project-specific skills (domain knowledge, architecture rules)
-- Everything working across their AI tools (Claude Code, Cursor, etc.)
+- Everything working across their AI tools (Claude Code, Pi, etc.)
 
 ## Solution
 
@@ -83,7 +83,7 @@ skillshare status
 
 - `skillshare list` shows organization skills
 - `skillshare status` shows all targets are synced
-- Opening Claude Code / Cursor shows skills are loaded
+- Opening Claude Code / Pi shows skills are loaded
 
 ## Variations
 

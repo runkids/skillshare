@@ -195,7 +195,7 @@ targets:
 **What works:**
 - merge 모드(기본값)에서, skillshare는 `~/.agents/skills/`에 **symlink**를 만들고, npx skills는 **실제 디렉터리**를 만듭니다. skill 이름이 충돌하지 않는 한 두 도구는 공존합니다.
 - skillshare의 정리(prune) 로직은 자신이 관리하는 항목만 제거합니다 — npx skills가 설치한 파일을 삭제하지 않습니다.
-- Agent CLI(Claude Code, Cursor 등)는 디렉터리를 직접 읽으므로, 두 도구 모두의 skill을 볼 수 있습니다.
+- Agent CLI(Claude Code, Pi 등)는 디렉터리를 직접 읽으므로, 두 도구 모두의 skill을 볼 수 있습니다.
 
 **What to watch out for:**
 - **이름 충돌** — 두 도구가 같은 이름의 skill을 설치하면, 마지막 sync/install이 우선합니다. 두 도구로 동일한 skill을 설치하지 마세요.

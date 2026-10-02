@@ -1,5 +1,5 @@
 <p align="center" style="margin-bottom: 0;">
-  <img src=".github/assets/logo.png" alt="skillshare" width="280">
+  <img src=".github/assets/skillshare-logo-card.png" alt="skillshare" width="280">
 </p>
 
 <h1 align="center" style="margin-top: 0.5rem; margin-bottom: 0.5rem;">skillshare</h1>
@@ -26,8 +26,9 @@
 </p>
 
 <p align="center">
-  <strong>AI CLI의 skills, agents, rules, commands 등을 하나의 소스로 관리하세요. 데스크톱 앱으로 관리하거나 명령 하나로 모든 도구에 동기화할 수 있으며, 개인부터 조직 전체까지 사용할 수 있습니다.</strong><br>
-  Codex, Claude Code, OpenClaw, OpenCode 등 60개 이상의 도구를 지원합니다.
+  <strong>나의 AI 코딩 환경을, 어디서나.</strong><br>
+  skills, agents, rules, MCP 연결과 hooks를 한곳에서 관리하세요.<br>
+  Claude Code, Codex, Pi, OpenCode 등에서 사용할 수 있습니다.
 </p>
 
 <p align="center">
@@ -40,70 +41,27 @@
   <a href="https://skillshare.runkids.cc/docs">문서</a>
 </p>
 
+<p align="center">
+  <img src=".github/assets/demo.gif" alt="skillshare demo" width="960">
+</p>
+
 > [!NOTE]
 > **최신 버전**: v0.23.0 — global과 project 범위의 **네이티브 hooks**를 관리·동기화하고, `tools.allow`와 `tools.deny`로 모델이 사용할 **MCP tools**를 선택할 수 있습니다. dashboard에 추가된 **Hooks 페이지**와 **MCP 도구 선택 화면**에서도 설정할 수 있습니다. 전체 새 기능과 수정 사항은 [Releases](https://github.com/runkids/skillshare/releases)와 [변경 내역](https://skillshare.runkids.cc/changelog)에서 확인하세요.
 
 ## skillshare를 쓰는 이유
 
-AI CLI는 저마다 자체 skills 디렉터리를 가지고 있습니다.
-하나를 수정하고 다른 곳에 복사하는 것을 잊어버려, 결국 어느 것이 최신인지 알 수 없게 됩니다.
+AI 도구를 바꿀 때마다 환경을 다시 구성할 필요는 없습니다.
+skillshare는 skills와 다른 AI 리소스를 직접 관리할 수 있는 한곳에 모아 줍니다.
 
-skillshare가 이 문제를 해결합니다.
+- **도구를 바꿔도 skills는 그대로** — 한 번 수정하고 Claude Code, Codex, Pi 등 사용하는 도구에 동기화하세요.
+- **다른 컴퓨터에서도 내 환경 그대로** — 소스를 Git으로 관리하고 다른 컴퓨터에서 pull하세요.
+- **팀과 공유** — 프로젝트 리소스를 코드와 함께 관리하고 공용 skills를 tracked repo로 배포하세요.
 
-- **하나의 소스, 모든 agent** — `skillshare sync`로 Claude, Cursor, Codex 등 60개 이상의 도구에 동기화
-- **Agent 관리** — 커스텀 agent를 skills와 함께 agent를 지원하는 target에 동기화
-- **skills 그 이상** — [extras](https://skillshare.runkids.cc/docs/reference/targets/configuration#extras)로 rules, commands, prompts 등 파일 기반 리소스를 관리
-- **MCP 연결** — 서버는 한 번만 정의하고, [`sync mcp`](https://skillshare.runkids.cc/docs/how-to/daily-tasks/sharing-mcp)로 각 Agent 고유의 설정 형식에 기록
-- **완전한 plugin** — plugin의 skills, hooks, MCP 설정을 한 묶음으로 유지하고, [`plugin`](https://skillshare.runkids.cc/docs/how-to/daily-tasks/sharing-plugins)으로 설치할 도구를 선택
-- **네이티브 hooks** — Agent별 event 설정과 extension 코드를 관리하고 미리보기, 활성화／비활성화, 복원을 지원합니다. [hooks](https://skillshare.runkids.cc/docs/reference/commands/hooks)
-- **어디서든 설치** — GitHub, GitLab, Bitbucket, Azure DevOps, Gitea, CNB 또는 자체 호스팅 Git
-- **내장 보안 기능** — 사용하기 전에 skills에 prompt injection이나 데이터 유출 위험이 있는지 감사
-- **팀에 적합** — 프로젝트 skills는 `.skillshare/`에, 조직 공용 skills는 tracked repo로 배포
-- **로컬, 경량** — 단일 바이너리. registry도 텔레메트리도 없으며 완전히 오프라인으로 동작
-- **세밀한 필터링** — [`.skillignore`](https://skillshare.runkids.cc/docs/how-to/daily-tasks/filtering-skills), SKILL.md의 `targets`, target별 include/exclude로 어떤 skills가 어떤 target에 전달될지 제어
+데스크톱 앱이나 CLI로 로컬에서 관리하고, [사용 전에 skills를 감사](https://skillshare.runkids.cc/docs/reference/commands/audit)하며, [각 도구에 전달할 내용을 선택](https://skillshare.runkids.cc/docs/how-to/daily-tasks/filtering-skills)할 수 있습니다.
 
 > 다른 도구에서 옮겨 오시나요? [마이그레이션 가이드](https://skillshare.runkids.cc/docs/how-to/advanced/migration) · [비교](https://skillshare.runkids.cc/docs/understand/philosophy/comparison)
 
-## 동작 방식
-
-- macOS / Linux: `~/.config/skillshare/`
-- Windows: `%AppData%\skillshare\`
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                    Source Directory                         │
-│   ~/.config/skillshare/skills/    ← skills (SKILL.md)       │
-│   ~/.config/skillshare/agents/    ← agents                  │
-│   ~/.config/skillshare/extras/    ← rules, commands, etc.   │
-└─────────────────────────────────────────────────────────────┘
-                              │ sync
-              ┌───────────────┼───────────────┐
-              ▼               ▼               ▼
-       ┌───────────┐   ┌───────────┐   ┌───────────┐
-       │  Claude   │   │  OpenCode │   │ OpenClaw  │   ...
-       └───────────┘   └───────────┘   └───────────┘
-```
-
-| 플랫폼 | Skills 소스 | Agents 소스 | Extras 소스 | 링크 방식 |
-|----------|---------------|---------------|---------------|-----------|
-| macOS/Linux | `~/.config/skillshare/skills/` | `~/.config/skillshare/agents/` | `~/.config/skillshare/extras/` | Symlinks |
-| Windows | `%AppData%\skillshare\skills\` | `%AppData%\skillshare\agents\` | `%AppData%\skillshare\extras\` | 폴더는 NTFS Junction (관리자 권한 불필요), 파일 symlink는 Developer Mode 필요 (없으면 복사) |
-
-| | 명령형 (명령마다 설치) | 선언형 (skillshare) |
-|---|---|---|
-| **단일 소스** | skills를 각각 따로 복사 | 하나의 소스에서 symlink(또는 복사)로 배포 |
-| **새 컴퓨터 설정** | 모든 설치를 수동으로 다시 실행 | 설정을 `git clone`한 뒤 `sync` |
-| **보안 감사** | 없음 | `audit` 내장, install과 update 시 자동 스캔 |
-| **웹 대시보드** | 없음 | `skillshare ui` |
-| **런타임 의존성** | Node.js + npm | 없음 (단일 Go 바이너리) |
-
-> [전체 비교 →](https://skillshare.runkids.cc/docs/understand/philosophy/comparison)
-
 ## CLI와 UI 미리보기
-
-<p align="center">
-  <img src=".github/assets/demo.gif" alt="skillshare demo" width="960">
-</p>
 
 | Skill 상세 정보 | 보안 감사 |
 |---|---|
@@ -181,6 +139,41 @@ skillshare init            # 설정, 소스, 감지된 target 생성
 skillshare sync            # skills를 모든 target에 동기화
 ```
 
+## 동작 방식
+
+- macOS / Linux: `~/.config/skillshare/`
+- Windows: `%AppData%\skillshare\`
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    Source Directory                         │
+│   ~/.config/skillshare/skills/    ← skills (SKILL.md)       │
+│   ~/.config/skillshare/agents/    ← agents                  │
+│   ~/.config/skillshare/extras/    ← rules, commands, etc.   │
+└─────────────────────────────────────────────────────────────┘
+                              │ sync
+              ┌───────────────┼───────────────┐
+              ▼               ▼               ▼
+       ┌───────────┐   ┌───────────┐   ┌───────────┐
+       │  Claude   │   │  OpenCode │   │ OpenClaw  │   ...
+       └───────────┘   └───────────┘   └───────────┘
+```
+
+| 플랫폼 | Skills 소스 | Agents 소스 | Extras 소스 | 링크 방식 |
+|----------|---------------|---------------|---------------|-----------|
+| macOS/Linux | `~/.config/skillshare/skills/` | `~/.config/skillshare/agents/` | `~/.config/skillshare/extras/` | Symlinks |
+| Windows | `%AppData%\skillshare\skills\` | `%AppData%\skillshare\agents\` | `%AppData%\skillshare\extras\` | 폴더는 NTFS Junction (관리자 권한 불필요), 파일 symlink는 Developer Mode 필요 (없으면 복사) |
+
+| | 명령형 (명령마다 설치) | 선언형 (skillshare) |
+|---|---|---|
+| **단일 소스** | skills를 각각 따로 복사 | 하나의 소스에서 symlink(또는 복사)로 배포 |
+| **새 컴퓨터 설정** | 모든 설치를 수동으로 다시 실행 | 설정을 `git clone`한 뒤 `sync` |
+| **보안 감사** | 없음 | `audit` 내장, install과 update 시 자동 스캔 |
+| **웹 대시보드** | 없음 | `skillshare ui` |
+| **런타임 의존성** | Node.js + npm | 없음 (단일 Go 바이너리) |
+
+> [전체 비교 →](https://skillshare.runkids.cc/docs/understand/philosophy/comparison)
+
 ## 주요 기능
 
 **skills 설치와 업데이트** — GitHub, GitLab 또는 모든 Git 호스트에서
@@ -225,7 +218,7 @@ skillshare sync --all                 # skills, agents, extras, MCP, hooks를 �
 skillshare extras collect rules       # 로컬 파일을 소스로 다시 수집
 ```
 
-**MCP 연결** — 한 번 설정하면 Claude Code, Codex, Cursor, VS Code, OpenCode 등에 적용
+**MCP 연결** — 한 번 설정하면 Claude Code, Codex, Pi, VS Code, OpenCode 등에 적용
 
 ```bash
 skillshare mcp add                    # 안내형 설정. URL을 입력하거나 JSON을 붙여넣기

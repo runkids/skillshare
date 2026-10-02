@@ -195,7 +195,7 @@ The `universal` target points to `~/.agents/skills`, the same directory used by 
 **What works:**
 - In merge mode (default), skillshare creates **symlinks** in `~/.agents/skills/`; npx skills creates **real directories**. They coexist as long as skill names don't collide.
 - skillshare's prune logic only removes entries it manages — it won't delete files installed by npx skills.
-- Agent CLIs (Claude Code, Cursor, etc.) read directories directly, so they see skills from both tools.
+- Agent CLIs (Claude Code, Pi, etc.) read directories directly, so they see skills from both tools.
 
 **What to watch out for:**
 - **Name collision** — If both tools install a skill with the same name, the last sync/install wins. Avoid installing the same skill through both tools.

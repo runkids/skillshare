@@ -21,7 +21,7 @@ skillshare init
 ```bash
 # 从各个 AI CLI 收集
 skillshare collect claude
-skillshare collect cursor
+skillshare collect pi
 skillshare collect codex
 
 # 或一次性收集全部
@@ -215,7 +215,7 @@ rm -rf .claude/skills/my-skill .claude/skills/api-guide
 skillshare sync
 ```
 
-现在 `.claude/skills/my-skill` 是指向 `.skillshare/skills/my-skill` 的符号链接 — 其他所有 Target（Cursor、Windsurf 等）也会自动获得相同的 Skill。
+现在 `.claude/skills/my-skill` 是指向 `.skillshare/skills/my-skill` 的符号链接 — 其他所有 Target（Pi、Windsurf 等）也会自动获得相同的 Skill。
 
 ### 第 4 步：提交迁移结果
 

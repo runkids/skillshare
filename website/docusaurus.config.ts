@@ -5,8 +5,8 @@ import llmsTxtPlugin from './plugins/llms-txt';
 
 const config: Config = {
   title: 'skillshare',
-  tagline: 'Manage AI skills in the desktop app or CLI. One source, synced to every tool.',
-  favicon: 'img/favicon.png',
+  tagline: 'Your AI coding setup, everywhere. Manage skills, agents, rules, MCP connections and hooks in one place, with the desktop app or CLI.',
+  favicon: 'img/skillshare-favicon.png',
 
   future: {
     v4: true,
@@ -171,7 +171,7 @@ const config: Config = {
       title: 'skillshare',
       logo: {
         alt: 'skillshare',
-        src: 'img/logo.png',
+        src: 'img/skillshare-logo.png',
       },
       items: [
         {

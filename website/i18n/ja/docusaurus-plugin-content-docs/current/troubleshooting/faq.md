@@ -223,7 +223,7 @@ Skill 単位の `targets` フィールドが適用されます。
   共存します。
 - skillshare の prune ロジックは、自分が管理しているエントリのみを削除します — npx skills が
   インストールしたファイルを削除することはありません。
-- Agent CLI（Claude Code、Cursor など）はディレクトリを直接読み取るため、両方のツールからの
+- Agent CLI（Claude Code、Pi など）はディレクトリを直接読み取るため、両方のツールからの
   Skill が見えます。
 
 **注意すべきこと:**

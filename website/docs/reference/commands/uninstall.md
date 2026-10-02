@@ -275,7 +275,7 @@ Run `skillshare sync` to remove the skill from all targets:
 
 ```bash
 skillshare uninstall old-skill
-skillshare sync  # Remove from Claude, Cursor, etc.
+skillshare sync  # Remove from Claude, Pi, etc.
 ```
 
 ## Project Mode

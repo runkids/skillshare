@@ -144,7 +144,7 @@ metadata:
 ...
 ```
 
-Cursor や Codex など他の Target を設定していても、この Skill は Claude Code の skills ディレクトリにのみ表示されます。
+Pi や Codex など他の Target を設定していても、この Skill は Claude Code の skills ディレクトリにのみ表示されます。
 
 ### `pattern`
 

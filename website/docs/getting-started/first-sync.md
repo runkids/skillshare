@@ -9,7 +9,7 @@ A complete first-time setup, in order. Roughly five minutes from install to a wo
 ## Prerequisites
 
 - macOS, Linux, or Windows
-- At least one AI CLI installed (Claude Code, Cursor, Codex, etc.)
+- At least one AI CLI installed (Claude Code, Pi, Codex, etc.)
 
 ## 1. Install the CLI
 

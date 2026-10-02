@@ -11,7 +11,7 @@ sidebar_position: 6
 一位新開發者加入你的團隊。他們需要：
 - 組織範圍的 skills（程式碼規範、審查準則）
 - Project 專屬的 skills（領域知識、架構規則）
-- 在他們所有的 AI 工具（Claude Code、Cursor 等）中都能正常運作
+- 在他們所有的 AI 工具（Claude Code、Pi 等）中都能正常運作
 
 ## 解決方案
 
@@ -83,7 +83,7 @@ skillshare status
 
 - `skillshare list` 顯示組織 skills
 - `skillshare status` 顯示所有 targets 皆已同步
-- 開啟 Claude Code / Cursor 可看到 skills 已載入
+- 開啟 Claude Code / Pi 可看到 skills 已載入
 
 ## 變化
 

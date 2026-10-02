@@ -4,7 +4,7 @@ sidebar_position: 1
 
 # Getting Started
 
-skillshare keeps one source directory in sync with every AI CLI's skill directory on your machine. You write or install a skill once; symlinks make it appear in Claude, Cursor, Codex, and any other configured target.
+skillshare keeps one source directory in sync with every AI CLI's skill directory on your machine. You write or install a skill once; symlinks make it appear in Claude, Pi, Codex, and any other configured target.
 
 ```mermaid
 flowchart LR
@@ -43,7 +43,7 @@ A typical source after a few months looks like:
 | You are… | Start here |
 |---|---|
 | Setting up skillshare for the first time | [First Sync](./first-sync.md) |
-| Have skills in Claude / Cursor / Codex already | [From Existing Skills](./from-existing-skills.md) |
+| Have skills in Claude / Pi / Codex already | [From Existing Skills](./from-existing-skills.md) |
 | Need command syntax fast | [Quick Reference](./quick-reference.md) |
 | Want to poke around without installing | [Docker Playground](/docs/how-to/advanced/docker-sandbox#playground) |
 

@@ -1,5 +1,5 @@
 <p align="center" style="margin-bottom: 0;">
-  <img src=".github/assets/logo.png" alt="skillshare" width="280">
+  <img src=".github/assets/skillshare-logo-card.png" alt="skillshare" width="280">
 </p>
 
 <h1 align="center" style="margin-top: 0.5rem; margin-bottom: 0.5rem;">skillshare</h1>
@@ -26,8 +26,9 @@
 </p>
 
 <p align="center">
-  <strong>AI CLI 的 skills、agents、rules、commands 等資源共用單一來源。用桌面 App 管理，或用一個指令同步到所有工具，從個人使用到整個組織。</strong><br>
-  支援 Codex、Claude Code、OpenClaw、OpenCode 等 60 多種工具。
+  <strong>你的 AI coding 環境，隨處可用。</strong><br>
+  在同一個地方管理 skills、agents、rules、MCP 連線與 hooks。<br>
+  適用於 Claude Code、Codex、Pi、OpenCode 等工具。
 </p>
 
 <p align="center">
@@ -40,70 +41,27 @@
   <a href="https://skillshare.runkids.cc/docs">文件</a>
 </p>
 
+<p align="center">
+  <img src=".github/assets/demo.gif" alt="skillshare demo" width="960">
+</p>
+
 > [!NOTE]
 > **最新版本**：v0.23.0 — 管理與同步 global 和 project 範圍的**原生 hooks**；用 `tools.allow` 與 `tools.deny` 選擇模型可使用的 **MCP tools**；並透過 dashboard 新增的 **Hooks 頁面**與 **MCP 工具選擇介面**完成設定。完整的新功能與修正見 [Releases](https://github.com/runkids/skillshare/releases) 和[更新紀錄](https://skillshare.runkids.cc/changelog)。
 
 ## 為什麼用 skillshare
 
-每個 AI CLI 都有自己的 skills 目錄。
-你在其中一個改了內容，忘了複製到另一個，最後搞不清楚哪份才是最新的。
+切換 AI 工具，不該每次都重新設定環境。
+skillshare 把 skills 與其他 AI 資源集中到由你掌控的地方。
 
-skillshare 解決這個問題：
+- **換工具，繼續用你的 skills** — 修改一次，再同步到 Claude Code、Codex、Pi 和你使用的其他工具。
+- **換電腦，帶著環境走** — 用 Git 管理資源來源，在另一台電腦上 pull。
+- **和團隊共用** — 專案資源與程式碼一起管理，共用 skills 透過 tracked repo 發布。
 
-- **一份來源，所有 agent** — 用 `skillshare sync` 同步到 Claude、Cursor、Codex 等 60 多種工具
-- **Agent 管理** — 自訂 agent 和 skills 一起同步到支援 agent 的 target
-- **不只是 skills** — 用 [extras](https://skillshare.runkids.cc/docs/reference/targets/configuration#extras) 管理 rules、commands、prompts 和任何以檔案為主的資源
-- **MCP 連線** — 伺服器只定義一次，用 [`sync mcp`](https://skillshare.runkids.cc/docs/how-to/daily-tasks/sharing-mcp) 寫進每個 Agent 自己的設定格式
-- **完整 plugin** — plugin 的 skills、hooks 和 MCP 設定保持完整，用 [`plugin`](https://skillshare.runkids.cc/docs/how-to/daily-tasks/sharing-plugins) 選擇哪些工具要安裝
-- **原生 hooks** — 管理各 Agent 的 event 設定或 extension 程式碼，支援預覽、啟用／停用與復原。 [hooks](https://skillshare.runkids.cc/docs/reference/commands/hooks)
-- **從任何地方安裝** — GitHub、GitLab、Bitbucket、Azure DevOps、Gitea、CNB，或任何自架的 Git
-- **內建安全檢查** — 使用前先稽核 skills 是否含有 prompt injection 或資料外洩的內容
-- **適合團隊** — 專案的 skills 放在 `.skillshare/`，組織共用的 skills 透過 tracked repo 發布
-- **本機、輕量** — 單一執行檔，沒有 registry，沒有遙測，可完全離線使用
-- **細緻的篩選** — 用 [`.skillignore`](https://skillshare.runkids.cc/docs/how-to/daily-tasks/filtering-skills)、SKILL.md 的 `targets`，以及各 target 的 include/exclude，控制哪些 skills 到哪些 target
+透過桌面 App 或 CLI 在本機管理，[使用前稽核 skills](https://skillshare.runkids.cc/docs/reference/commands/audit)，並[選擇各工具接收哪些內容](https://skillshare.runkids.cc/docs/how-to/daily-tasks/filtering-skills)。
 
 > 從其他工具換過來？ [遷移指南](https://skillshare.runkids.cc/docs/how-to/advanced/migration) · [比較](https://skillshare.runkids.cc/docs/understand/philosophy/comparison)
 
-## 運作方式
-
-- macOS / Linux: `~/.config/skillshare/`
-- Windows: `%AppData%\skillshare\`
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                    Source Directory                         │
-│   ~/.config/skillshare/skills/    ← skills (SKILL.md)       │
-│   ~/.config/skillshare/agents/    ← agents                  │
-│   ~/.config/skillshare/extras/    ← rules, commands, etc.   │
-└─────────────────────────────────────────────────────────────┘
-                              │ sync
-              ┌───────────────┼───────────────┐
-              ▼               ▼               ▼
-       ┌───────────┐   ┌───────────┐   ┌───────────┐
-       │  Claude   │   │  OpenCode │   │ OpenClaw  │   ...
-       └───────────┘   └───────────┘   └───────────┘
-```
-
-| 平台 | Skills 來源 | Agents 來源 | Extras 來源 | 連結方式 |
-|----------|---------------|---------------|---------------|-----------|
-| macOS/Linux | `~/.config/skillshare/skills/` | `~/.config/skillshare/agents/` | `~/.config/skillshare/extras/` | Symlinks |
-| Windows | `%AppData%\skillshare\skills\` | `%AppData%\skillshare\agents\` | `%AppData%\skillshare\extras\` | 資料夾用 NTFS Junction（不需要管理員權限）；檔案 symlink 需要開發人員模式，否則改為複製 |
-
-| | 命令式（每次個別安裝） | 宣告式（skillshare） |
-|---|---|---|
-| **單一來源** | skills 各自複製，互不相關 | 一份來源，以 symlink（或複製）發布 |
-| **新電腦的設定** | 手動重跑每一次安裝 | `git clone` 設定檔，再 `sync` |
-| **安全稽核** | 無 | 內建 `audit`，install 和 update 時自動掃描 |
-| **網頁儀表板** | 無 | `skillshare ui` |
-| **執行環境相依** | Node.js + npm | 無（單一 Go 執行檔） |
-
-> [完整比較 →](https://skillshare.runkids.cc/docs/understand/philosophy/comparison)
-
 ## CLI 與介面預覽
-
-<p align="center">
-  <img src=".github/assets/demo.gif" alt="skillshare demo" width="960">
-</p>
 
 | Skill 詳細資訊 | 安全稽核 |
 |---|---|
@@ -181,6 +139,41 @@ skillshare init            # 建立設定檔、來源目錄，並偵測已安裝
 skillshare sync            # 把 skills 同步到所有 target
 ```
 
+## 運作方式
+
+- macOS / Linux: `~/.config/skillshare/`
+- Windows: `%AppData%\skillshare\`
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    Source Directory                         │
+│   ~/.config/skillshare/skills/    ← skills (SKILL.md)       │
+│   ~/.config/skillshare/agents/    ← agents                  │
+│   ~/.config/skillshare/extras/    ← rules, commands, etc.   │
+└─────────────────────────────────────────────────────────────┘
+                              │ sync
+              ┌───────────────┼───────────────┐
+              ▼               ▼               ▼
+       ┌───────────┐   ┌───────────┐   ┌───────────┐
+       │  Claude   │   │  OpenCode │   │ OpenClaw  │   ...
+       └───────────┘   └───────────┘   └───────────┘
+```
+
+| 平台 | Skills 來源 | Agents 來源 | Extras 來源 | 連結方式 |
+|----------|---------------|---------------|---------------|-----------|
+| macOS/Linux | `~/.config/skillshare/skills/` | `~/.config/skillshare/agents/` | `~/.config/skillshare/extras/` | Symlinks |
+| Windows | `%AppData%\skillshare\skills\` | `%AppData%\skillshare\agents\` | `%AppData%\skillshare\extras\` | 資料夾用 NTFS Junction（不需要管理員權限）；檔案 symlink 需要開發人員模式，否則改為複製 |
+
+| | 命令式（每次個別安裝） | 宣告式（skillshare） |
+|---|---|---|
+| **單一來源** | skills 各自複製，互不相關 | 一份來源，以 symlink（或複製）發布 |
+| **新電腦的設定** | 手動重跑每一次安裝 | `git clone` 設定檔，再 `sync` |
+| **安全稽核** | 無 | 內建 `audit`，install 和 update 時自動掃描 |
+| **網頁儀表板** | 無 | `skillshare ui` |
+| **執行環境相依** | Node.js + npm | 無（單一 Go 執行檔） |
+
+> [完整比較 →](https://skillshare.runkids.cc/docs/understand/philosophy/comparison)
+
 ## 功能重點
 
 **安裝與更新 skills** — 來源可以是 GitHub、GitLab 或任何 Git 主機
@@ -225,7 +218,7 @@ skillshare sync --all                 # skills、agents、extras、MCP、hooks �
 skillshare extras collect rules       # 把本機檔案收回來源
 ```
 
-**MCP 連線** — 設定一次，Claude Code、Codex、Cursor、VS Code、OpenCode 等工具都能用
+**MCP 連線** — 設定一次，Claude Code、Codex、Pi、VS Code、OpenCode 等工具都能用
 
 ```bash
 skillshare mcp add                    # 引導式設定，輸入 URL 或貼上 JSON

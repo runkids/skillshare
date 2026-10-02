@@ -21,7 +21,7 @@ skillshare init
 ```bash
 # Collect from each AI CLI
 skillshare collect claude
-skillshare collect cursor
+skillshare collect pi
 skillshare collect codex
 
 # Or collect from all at once
@@ -215,7 +215,7 @@ rm -rf .claude/skills/my-skill .claude/skills/api-guide
 skillshare sync
 ```
 
-Now `.claude/skills/my-skill` is a symlink to `.skillshare/skills/my-skill` — and all other targets (Cursor, Windsurf, etc.) get the same skills automatically.
+Now `.claude/skills/my-skill` is a symlink to `.skillshare/skills/my-skill` — and all other targets (Pi, Windsurf, etc.) get the same skills automatically.
 
 ### Step 4: Commit the migration
 

@@ -4,7 +4,7 @@ sidebar_position: 1
 
 # 開始使用
 
-skillshare 會讓單一 source 目錄和你機器上每個 AI CLI 的 skill 目錄保持同步。你只需要撰寫或安裝 skill 一次，symlink 就會讓它同時出現在 Claude、Cursor、Codex 以及其他任何已設定的 target 中。
+skillshare 會讓單一 source 目錄和你機器上每個 AI CLI 的 skill 目錄保持同步。你只需要撰寫或安裝 skill 一次，symlink 就會讓它同時出現在 Claude、Pi、Codex 以及其他任何已設定的 target 中。
 
 ```mermaid
 flowchart LR
@@ -43,7 +43,7 @@ Source 就是一個由你自己掌控的一般 Git repo。在一台機器 push�
 | 你的情況是… | 從這裡開始 |
 |---|---|
 | 第一次設定 skillshare | [First Sync](./first-sync.md) |
-| Claude / Cursor / Codex 裡已經有 skills | [從既有 Skills 遷移](./from-existing-skills.md) |
+| Claude / Pi / Codex 裡已經有 skills | [從既有 Skills 遷移](./from-existing-skills.md) |
 | 想快速查指令語法 | [快速參考](./quick-reference.md) |
 | 想先試玩而不安裝 | [Docker Playground](/docs/how-to/advanced/docker-sandbox#playground) |
 

@@ -1,5 +1,5 @@
 <p align="center" style="margin-bottom: 0;">
-  <img src=".github/assets/logo.png" alt="skillshare" width="280">
+  <img src=".github/assets/skillshare-logo-card.png" alt="skillshare" width="280">
 </p>
 
 <h1 align="center" style="margin-top: 0.5rem; margin-bottom: 0.5rem;">skillshare</h1>
@@ -27,8 +27,9 @@
 </p>
 
 <p align="center">
-  <strong>One source of truth for AI CLI skills, agents, rules, commands & more. Manage them in the desktop app, or sync everywhere with one command — from personal to organization-wide.</strong><br>
-  Codex, Claude Code, OpenClaw, OpenCode & 60+ more.
+  <strong>Your AI coding setup, everywhere.</strong><br>
+  Manage skills, agents, rules, MCP connections and hooks in one place.<br>
+  For Claude Code, Codex, Pi, OpenCode and more.
 </p>
 
 <p align="center">
@@ -41,70 +42,27 @@
   <a href="https://skillshare.runkids.cc/docs">Docs</a>
 </p>
 
+<p align="center">
+  <img src=".github/assets/demo.gif" alt="skillshare demo" width="960">
+</p>
+
 > [!NOTE]
 > **Latest**: v0.23.0 — manage and sync **native hooks** in global and project scope; choose which **MCP tools** reach the model with `tools.allow` and `tools.deny`; and use the dashboard's new **Hooks page** and **MCP tool picker** to configure them. [All releases →](https://github.com/runkids/skillshare/releases)
 
 ## Why skillshare
 
-Every AI CLI has its own skills directory.
-You edit in one, forget to copy to another, and lose track of what's where.
+Switching AI tools should not mean rebuilding your setup.
+skillshare gives your skills and other AI resources a home you control.
 
-skillshare fixes this:
+- **Switch tools, keep your skills** — edit once, then sync to Claude Code, Codex, Pi and the other tools you use.
+- **Take your setup with you** — version your source in Git and pull it onto another machine.
+- **Share with your team** — keep project resources with your code and distribute shared skills through tracked repositories.
 
-- **One source, every agent** — sync to Claude, Cursor, Codex & 60+ more with `skillshare sync`
-- **Agent management** — sync custom agents alongside skills to agent-capable targets
-- **More than skills** — manage rules, commands, prompts & any file-based resource with [extras](https://skillshare.runkids.cc/docs/reference/targets/configuration#extras)
-- **MCP connections** — define a server once, sync it into each Agent's own config format with [`sync mcp`](https://skillshare.runkids.cc/docs/how-to/daily-tasks/sharing-mcp)
-- **Complete plugins** — keep a plugin's skills, hooks and MCP settings together and choose which tools receive it with [`plugin`](https://skillshare.runkids.cc/docs/how-to/daily-tasks/sharing-plugins)
-- **Native hooks** — manage each Agent’s event configuration or extension code, with preview, enable/disable and recovery. [hooks](https://skillshare.runkids.cc/docs/reference/commands/hooks)
-- **Install from anywhere** — GitHub, GitLab, Bitbucket, Azure DevOps, or any self-hosted Git
-- **Built-in security** — audit skills for prompt injection and data exfiltration before use
-- **Team-ready** — project skills in `.skillshare/`, org-wide skills via tracked repos
-- **Local & lightweight** — single binary, no registry, no telemetry, fully offline-capable
-- **Fine-grained filtering** — control which skills reach which targets with [`.skillignore`](https://skillshare.runkids.cc/docs/how-to/daily-tasks/filtering-skills), SKILL.md `targets`, and per-target include/exclude
+Use the desktop app or CLI to manage everything locally, [audit skills before use](https://skillshare.runkids.cc/docs/reference/commands/audit), and [choose what each tool receives](https://skillshare.runkids.cc/docs/how-to/daily-tasks/filtering-skills).
 
 > Coming from another tool? [Migration Guide](https://skillshare.runkids.cc/docs/how-to/advanced/migration) · [Comparison](https://skillshare.runkids.cc/docs/understand/philosophy/comparison)
 
-## How It Works
-
-- macOS / Linux: `~/.config/skillshare/`
-- Windows: `%AppData%\skillshare\`
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                    Source Directory                         │
-│   ~/.config/skillshare/skills/    ← skills (SKILL.md)       │
-│   ~/.config/skillshare/agents/    ← agents                  │
-│   ~/.config/skillshare/extras/    ← rules, commands, etc.   │
-└─────────────────────────────────────────────────────────────┘
-                              │ sync
-              ┌───────────────┼───────────────┐
-              ▼               ▼               ▼
-       ┌───────────┐   ┌───────────┐   ┌───────────┐
-       │  Claude   │   │  OpenCode │   │ OpenClaw  │   ...
-       └───────────┘   └───────────┘   └───────────┘
-```
-
-| Platform | Skills Source | Agents Source | Extras Source | Link Type |
-|----------|---------------|---------------|---------------|-----------|
-| macOS/Linux | `~/.config/skillshare/skills/` | `~/.config/skillshare/agents/` | `~/.config/skillshare/extras/` | Symlinks |
-| Windows | `%AppData%\skillshare\skills\` | `%AppData%\skillshare\agents\` | `%AppData%\skillshare\extras\` | NTFS Junctions for folders (no admin required); file symlinks need Developer Mode, otherwise copied |
-
-| | Imperative (install-per-command) | Declarative (skillshare) |
-|---|---|---|
-| **Source of truth** | Skills copied independently | Single source → symlinks (or copies) |
-| **New machine setup** | Re-run every install manually | `git clone` config + `sync` |
-| **Security audit** | None | Built-in `audit` + auto-scan on install/update |
-| **Web dashboard** | None | `skillshare ui` |
-| **Runtime dependency** | Node.js + npm | None (single Go binary) |
-
-> [Full comparison →](https://skillshare.runkids.cc/docs/understand/philosophy/comparison)
-
 ## CLI and UI Preview
-
-<p align="center">
-  <img src=".github/assets/demo.gif" alt="skillshare demo" width="960">
-</p>
 
 | Skill Detail | Security Audit |
 |---|---|
@@ -182,6 +140,41 @@ skillshare init            # Create config, source, and detected targets
 skillshare sync            # Sync skills to all targets
 ```
 
+## How It Works
+
+- macOS / Linux: `~/.config/skillshare/`
+- Windows: `%AppData%\skillshare\`
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    Source Directory                         │
+│   ~/.config/skillshare/skills/    ← skills (SKILL.md)       │
+│   ~/.config/skillshare/agents/    ← agents                  │
+│   ~/.config/skillshare/extras/    ← rules, commands, etc.   │
+└─────────────────────────────────────────────────────────────┘
+                              │ sync
+              ┌───────────────┼───────────────┐
+              ▼               ▼               ▼
+       ┌───────────┐   ┌───────────┐   ┌───────────┐
+       │  Claude   │   │  OpenCode │   │ OpenClaw  │   ...
+       └───────────┘   └───────────┘   └───────────┘
+```
+
+| Platform | Skills Source | Agents Source | Extras Source | Link Type |
+|----------|---------------|---------------|---------------|-----------|
+| macOS/Linux | `~/.config/skillshare/skills/` | `~/.config/skillshare/agents/` | `~/.config/skillshare/extras/` | Symlinks |
+| Windows | `%AppData%\skillshare\skills\` | `%AppData%\skillshare\agents\` | `%AppData%\skillshare\extras\` | NTFS Junctions for folders (no admin required); file symlinks need Developer Mode, otherwise copied |
+
+| | Imperative (install-per-command) | Declarative (skillshare) |
+|---|---|---|
+| **Source of truth** | Skills copied independently | Single source → symlinks (or copies) |
+| **New machine setup** | Re-run every install manually | `git clone` config + `sync` |
+| **Security audit** | None | Built-in `audit` + auto-scan on install/update |
+| **Web dashboard** | None | `skillshare ui` |
+| **Runtime dependency** | Node.js + npm | None (single Go binary) |
+
+> [Full comparison →](https://skillshare.runkids.cc/docs/understand/philosophy/comparison)
+
 ## Highlights
 
 **Install & update skills** —from GitHub, GitLab, or any Git host
@@ -226,7 +219,7 @@ skillshare sync --all                 # sync skills + agents + extras + MCP + ho
 skillshare extras collect rules       # collect local files back to source
 ```
 
-**MCP connections** —configure once for Claude Code, Codex, Cursor, VS Code, OpenCode and more
+**MCP connections** —configure once for Claude Code, Codex, Pi, VS Code, OpenCode and more
 
 ```bash
 skillshare mcp add                    # guided URL or JSON setup

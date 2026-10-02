@@ -144,7 +144,7 @@ metadata:
 ...
 ```
 
-即使你同时配置了 Cursor、Codex 等其他 Target，该 Skill 也只会出现在 Claude Code 的 Skill 目录中。
+即使你同时配置了 Pi、Codex 等其他 Target，该 Skill 也只会出现在 Claude Code 的 Skill 目录中。
 
 ### `pattern`
 

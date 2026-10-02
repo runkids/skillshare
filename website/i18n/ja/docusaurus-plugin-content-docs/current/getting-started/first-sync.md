@@ -9,7 +9,7 @@ sidebar_position: 2
 ## 前提条件
 
 - macOS、Linux、または Windows
-- AI CLI が 1 つ以上インストールされていること（Claude Code、Cursor、Codex など）
+- AI CLI が 1 つ以上インストールされていること（Claude Code、Pi、Codex など）
 
 ## 1. CLI をインストールする
 

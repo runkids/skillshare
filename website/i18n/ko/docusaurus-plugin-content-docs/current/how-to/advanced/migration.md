@@ -21,7 +21,7 @@ skillshare init
 ```bash
 # 각 AI CLI에서 수집
 skillshare collect claude
-skillshare collect cursor
+skillshare collect pi
 skillshare collect codex
 
 # 또는 한 번에 모두 수집
@@ -215,7 +215,7 @@ rm -rf .claude/skills/my-skill .claude/skills/api-guide
 skillshare sync
 ```
 
-이제 `.claude/skills/my-skill`은 `.skillshare/skills/my-skill`에 대한 symlink이며 — 다른 모든 target(Cursor, Windsurf 등)도 자동으로 동일한 skill을 받습니다.
+이제 `.claude/skills/my-skill`은 `.skillshare/skills/my-skill`에 대한 symlink이며 — 다른 모든 target(Pi, Windsurf 등)도 자동으로 동일한 skill을 받습니다.
 
 ### 4단계: 마이그레이션 커밋
 

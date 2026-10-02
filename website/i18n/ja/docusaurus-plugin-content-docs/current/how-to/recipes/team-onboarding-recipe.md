@@ -11,7 +11,7 @@ sidebar_position: 6
 新しい開発者がチームに参加します。彼らに必要なものは:
 - 組織全体の Skill（コーディング標準、レビューガイドライン）
 - プロジェクト固有の Skill（ドメイン知識、アーキテクチャルール）
-- 自分の AI ツール（Claude Code、Cursor など）すべてで動作すること
+- 自分の AI ツール（Claude Code、Pi など）すべてで動作すること
 
 ## 解決策
 
@@ -83,7 +83,7 @@ skillshare status
 
 - `skillshare list` が組織の Skill を表示する
 - `skillshare status` がすべての Target が Sync されていることを示す
-- Claude Code / Cursor を開くと Skill が読み込まれていることが分かる
+- Claude Code / Pi を開くと Skill が読み込まれていることが分かる
 
 ## バリエーション
 

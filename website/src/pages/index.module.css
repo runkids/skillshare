@@ -1,4 +1,4 @@
-/* Homepage: the string board. Hand-drawn tokens come from custom.css. */
+/* Homepage: video hero and hand-drawn boards. Tokens come from custom.css. */
 
 .homePage {
   --board-bg: #f6eedb;
@@ -121,11 +121,39 @@
 }
 
 .heroHead {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
+  align-items: start;
   gap: 2.5rem;
   margin-bottom: 1.75rem;
+}
+
+.heroLogo {
+  width: clamp(240px, 28vw, 360px);
+  height: auto;
+  justify-self: center;
+  margin-top: 1.5rem;
+  border-radius: var(--radius-wobbly);
+  animation: logoFloat 4s ease-in-out infinite;
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.heroLogo:hover {
+  animation: none;
+  transform: rotate(-3deg) scale(1.06);
+}
+
+@keyframes logoFloat {
+  0%,
+  100% {
+    transform: translateY(0) rotate(0deg);
+  }
+  25% {
+    transform: translateY(-4px) rotate(0.5deg);
+  }
+  75% {
+    transform: translateY(3px) rotate(-0.5deg);
+  }
 }
 
 .heroTitle {
@@ -145,13 +173,14 @@
   margin: 0;
 }
 
-.heroHint {
-  font-size: 1.35rem;
-  color: var(--color-pencil-light);
-  text-align: right;
-  line-height: 1.1;
-  flex-shrink: 0;
-  padding-bottom: 6px;
+.heroVideo {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  background: var(--board-bg);
+  border: 2px solid var(--card-border);
+  border-radius: var(--radius-wobbly);
+  box-shadow: var(--shadow-lg);
 }
 
 @keyframes titleSlideIn {
@@ -203,12 +232,6 @@
   stroke-dasharray: 760;
   stroke-dashoffset: 760;
   animation: draw 0.9s ease-out forwards;
-}
-
-.strOff {
-  stroke: var(--color-muted-dark);
-  stroke-dasharray: 5 7;
-  opacity: 0.35;
 }
 
 @keyframes draw {
@@ -287,311 +310,6 @@
   background: rgba(255, 243, 160, 0.85);
   border: 1px dashed rgba(45, 45, 45, 0.35);
   z-index: 3;
-}
-
-/* Tool stickers */
-.tool {
-  position: absolute;
-  width: 156px;
-  height: 66px;
-  box-sizing: border-box;
-  padding: 12px 12px 8px 14px;
-  background: var(--sticker-bg);
-  border: 2px solid var(--card-border);
-  box-shadow: var(--shadow-md);
-  text-align: left;
-  cursor: pointer;
-  font-family: var(--ifm-font-family-base);
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-  color: var(--color-pencil);
-  transition: box-shadow 0.12s, opacity 0.2s, filter 0.12s;
-}
-
-.tool:hover {
-  box-shadow: var(--shadow-hover);
-  filter: brightness(0.98);
-}
-
-.tool:focus-visible {
-  outline: 3px solid var(--color-blue);
-  outline-offset: 2px;
-}
-
-.toolOff {
-  background: transparent;
-  border-style: dashed;
-  box-shadow: none;
-  opacity: 0.6;
-}
-
-.toolOff .pin {
-  opacity: 0.4;
-}
-
-.tool .pin {
-  top: -8px;
-  left: 70px;
-}
-
-.toolName {
-  font-weight: 600;
-  font-size: 14.5px;
-  line-height: 1.2;
-}
-
-.toolPath {
-  font-family: var(--ifm-font-family-monospace);
-  font-size: 10.5px;
-  color: var(--color-pencil-light);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.sourceCaption {
-  position: absolute;
-  left: 424px;
-  top: 470px;
-  width: 320px;
-  text-align: center;
-  font-family: var(--ifm-font-family-monospace);
-  font-size: 11.5px;
-  color: var(--color-pencil-light);
-  white-space: nowrap;
-}
-
-.boardLink {
-  position: absolute;
-  right: 22px;
-  bottom: 16px;
-  font-family: 'Kalam', cursive;
-  font-size: 20px;
-  color: var(--color-blue);
-}
-
-.counter {
-  position: absolute;
-  left: 24px;
-  top: 300px;
-  width: 118px;
-  padding: 10px 12px;
-  background: var(--sticker-bg);
-  border: 2px solid var(--card-border);
-  box-shadow: 3px 3px 0 0 var(--card-border);
-  transform: rotate(-2deg);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-
-.counterNum {
-  font-family: 'Kalam', cursive;
-  font-size: 44px;
-  line-height: 1;
-  font-weight: 700;
-}
-
-.counterLabel {
-  font-family: var(--ifm-font-family-monospace);
-  font-size: 10.5px;
-  color: var(--color-pencil-light);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-}
-
-/* Source logo (same animation as before) */
-.logoWrap {
-  position: absolute;
-  left: 474px;
-  top: 218px;
-  width: 220px;
-  height: 220px;
-  animation: logoEntrance 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) both;
-}
-
-.logoRing {
-  position: absolute;
-  inset: -18px;
-  border: 3px dashed var(--color-muted-dark);
-  border-radius: var(--radius-wobbly);
-  opacity: 0.6;
-  background: rgba(253, 251, 247, 0.7);
-  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-  pointer-events: none;
-}
-
-:global([data-theme='dark']) .logoRing {
-  background: rgba(26, 24, 22, 0.7);
-}
-
-.logoShadow {
-  position: absolute;
-  inset: -18px;
-  border-radius: var(--radius-wobbly);
-  background: rgba(45, 45, 45, 0.06);
-  transform: translate(4px, 4px);
-  pointer-events: none;
-  transition: transform 0.3s ease;
-}
-
-.logoWrap:hover .logoRing {
-  inset: -24px;
-  opacity: 0.9;
-  border-color: var(--color-blue);
-  transform: rotate(3deg);
-}
-
-.logoWrap:hover .logoShadow {
-  inset: -24px;
-  transform: translate(3px, 3px);
-}
-
-.sparkle {
-  position: absolute;
-  font-size: 22px;
-  line-height: 1;
-  color: var(--color-muted-dark);
-  pointer-events: none;
-  opacity: 0;
-  animation: sparkleFadeIn 0.8s ease forwards;
-}
-
-.sparkle:nth-of-type(1) {
-  top: -10px;
-  right: -8px;
-  animation-delay: 0.4s;
-}
-
-.sparkle:nth-of-type(2) {
-  bottom: 8px;
-  left: -14px;
-  animation-delay: 0.6s;
-  font-size: 17px;
-}
-
-.sparkle:nth-of-type(3) {
-  top: 12px;
-  left: -10px;
-  animation-delay: 0.8s;
-  font-size: 15px;
-}
-
-.logoWrap:hover .sparkle {
-  animation: sparkleWiggle 0.4s ease-in-out;
-  opacity: 1;
-}
-
-.logoImg {
-  position: relative;
-  width: 220px;
-  height: 220px;
-  object-fit: contain;
-  display: block;
-  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-  animation: logoFloat 4s ease-in-out infinite;
-}
-
-.logoWrap:hover .logoImg {
-  animation: none;
-  transform: rotate(-3deg) scale(1.06);
-}
-
-@keyframes logoEntrance {
-  0% {
-    opacity: 0;
-    transform: scale(0.3) rotate(-8deg);
-  }
-  100% {
-    opacity: 1;
-    transform: scale(1) rotate(0deg);
-  }
-}
-
-@keyframes sparkleFadeIn {
-  0% {
-    opacity: 0;
-    transform: scale(0) rotate(-20deg);
-  }
-  100% {
-    opacity: 1;
-    transform: scale(1) rotate(0deg);
-  }
-}
-
-@keyframes sparkleWiggle {
-  0% {
-    transform: rotate(0deg);
-  }
-  25% {
-    transform: rotate(12deg);
-  }
-  50% {
-    transform: rotate(-10deg);
-  }
-  75% {
-    transform: rotate(6deg);
-  }
-  100% {
-    transform: rotate(0deg);
-  }
-}
-
-@keyframes logoFloat {
-  0%,
-  100% {
-    transform: translateY(0) rotate(0deg);
-  }
-  25% {
-    transform: translateY(-4px) rotate(0.5deg);
-  }
-  75% {
-    transform: translateY(3px) rotate(-0.5deg);
-  }
-}
-
-/* Small screens: pin list instead of the board */
-.pinList {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.6rem;
-}
-
-.pinChip {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.55rem 0.9rem 0.55rem 1.6rem;
-  background: transparent;
-  border: 2px dashed var(--color-muted-dark);
-  border-radius: var(--radius-wobbly-sm);
-  color: var(--color-pencil-light);
-  font-size: 0.9rem;
-  font-weight: 500;
-  cursor: pointer;
-}
-
-.pinChip .pin {
-  left: 6px;
-  top: 50%;
-  margin-top: -8px;
-  width: 14px;
-  height: 14px;
-  opacity: 0.35;
-}
-
-.pinChipOn {
-  background: var(--sticker-bg);
-  border: 2px solid var(--card-border);
-  box-shadow: var(--shadow-hover);
-  color: var(--color-pencil);
-  font-weight: 600;
-}
-
-.pinChipOn .pin {
-  opacity: 1;
 }
 
 /* Terminal + install */
@@ -1013,13 +731,16 @@
   }
 
   .heroHead {
+    display: flex;
     flex-direction: column;
     align-items: flex-start;
     gap: 0.75rem;
   }
 
-  .heroHint {
-    text-align: left;
+  .heroLogo {
+    width: min(100%, 280px);
+    align-self: center;
+    margin-top: 0;
   }
 
   .heroBottom {
@@ -1050,16 +771,15 @@
     stroke-dashoffset: 0;
   }
 
-  .logoWrap,
-  .logoImg,
-  .sparkle,
   .heroTitle {
     animation: none;
     opacity: 1;
   }
 
-  .logoWrap:hover .logoImg,
-  .logoWrap:hover .logoRing {
+  .heroLogo,
+  .heroLogo:hover {
+    animation: none;
     transform: none;
+    transition: none;
   }
 }

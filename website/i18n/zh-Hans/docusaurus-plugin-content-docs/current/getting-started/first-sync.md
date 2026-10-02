@@ -9,7 +9,7 @@ sidebar_position: 2
 ## 前置条件
 
 - macOS、Linux 或 Windows
-- 至少安装了一个 AI CLI（Claude Code、Cursor、Codex 等）
+- 至少安装了一个 AI CLI（Claude Code、Pi、Codex 等）
 
 ## 1. 安装 CLI
 

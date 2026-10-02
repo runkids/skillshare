@@ -38,5 +38,65 @@
   "home.desktop.cliAlternative": {
     "message": "偏好終端機？安裝 CLI。",
     "description": "Desktop app promotion on the homepage"
+  },
+  "home.hero.title": {
+    "message": "你的 AI coding 環境，",
+    "description": "Homepage product positioning"
+  },
+  "home.hero.everywhere": {
+    "message": "隨處可用。",
+    "description": "Homepage product positioning"
+  },
+  "home.hero.summary": {
+    "message": "在同一個地方管理 skills、agents、rules、MCP 連線與 hooks。",
+    "description": "Homepage product positioning"
+  },
+  "home.hero.tools": {
+    "message": "適用於 Claude Code、Codex、Pi、OpenCode 等工具。",
+    "description": "Homepage product positioning"
+  },
+  "home.board.preview": {
+    "message": "skills 同步預覽",
+    "description": "Homepage product positioning"
+  },
+  "home.features.title": {
+    "message": "不只是 skills。",
+    "description": "Homepage product positioning"
+  },
+  "home.features.subtitle": {
+    "message": "還有 AI coding 環境中的其他資源。",
+    "description": "Homepage product positioning"
+  },
+  "home.features.summary": {
+    "message": "和 skills 一起管理 agents、rules、MCP 連線、hooks 與 plugins，找到適合目前工作的指令。",
+    "description": "Homepage product positioning"
+  },
+  "home.features.open": {
+    "message": "探索功能",
+    "description": "Homepage product positioning"
+  },
+  "home.cta.title": {
+    "message": "換工具，繼續用你的環境。",
+    "description": "Homepage product positioning"
+  },
+  "home.cta.summary": {
+    "message": "免費、開源。透過桌面 App 或 CLI 在本機管理你的環境。",
+    "description": "Homepage product positioning"
+  },
+  "home.meta.title": {
+    "message": "AI Coding 環境管理器 — Skills、Agents、MCP 與 Hooks",
+    "description": "Homepage product positioning"
+  },
+  "home.meta.description": {
+    "message": "你的 AI coding 環境，隨處可用。透過桌面 App 或 CLI，在同一個地方管理 skills、agents、rules、MCP 連線與 hooks。",
+    "description": "Homepage product positioning"
+  },
+  "home.demo.label": {
+    "message": "Skillshare 示範：修改一次，在 AI coding 工具之間同步",
+    "description": "Homepage product demo"
+  },
+  "home.demo.download": {
+    "message": "下載示範影片",
+    "description": "Homepage product demo"
   }
 }

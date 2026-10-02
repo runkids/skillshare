@@ -37,7 +37,7 @@ docs/                        ~100 Markdown pages, English only
   troubleshooting/           Errors, FAQ, Windows
 blog/                        Blog posts (enabled, /blog)
 src/
-  pages/index.tsx            Homepage: interactive "string board" hero, install tabs,
+  pages/index.tsx            Homepage: product demo video, desktop installation,
                              four-moves diagram, feature-map teaser, CTA
   pages/index.module.css     Homepage styles (hand-drawn tokens from custom.css)
   pages/features.tsx         /features — Feature Map: all commands grouped by job, live filter
@@ -45,7 +45,8 @@ src/
   data/featureMap.ts         Command groups shared by the homepage teaser and /features
   components/                AsciinemaPlayer
   css/custom.css             Design system (tokens, typography, dark/light)
-static/img/                  Screenshots, logo, social card
+static/img/                  Screenshots, logo, video poster, social card
+static/video/                Homepage demo MP4 and captions
 plugins/llms-txt.ts          Local plugin: writes build/llms.txt and llms-full.txt
 ```
 
@@ -69,7 +70,8 @@ plugins/llms-txt.ts          Local plugin: writes build/llms.txt and llms-full.t
 
 ## Homepage / Feature Map Notes
 
-- Boards are laid out at a fixed design width (1168px) and scaled with a `ResizeObserver`; below 640px the hero board becomes a pin-chip list with the same state
+- The hero places a floating framed logo beside the copy and a responsive MP4 below it; the logo stacks below the copy on mobile. The video has native controls and a poster; both floating motion and autoplay respect `prefers-reduced-motion`
+- The four-moves board is laid out at a fixed design width (1168px) and scaled with a `ResizeObserver`; below 640px it becomes a list
 - Interactive state is local React state only (no persistence)
 - Counts (`COMMAND_COUNT`, `TARGET_COUNT`) live in `src/data/featureMap.ts`; update them when commands or targets change
 - Every `href` in `featureMap.ts` must map to an existing page under `docs/` (the build's broken-link check covers them)

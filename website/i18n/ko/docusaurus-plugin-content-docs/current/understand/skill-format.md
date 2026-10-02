@@ -144,7 +144,7 @@ metadata:
 ...
 ```
 
-이 skill은 Cursor, Codex, 그 외 target이 구성되어 있어도 Claude Code의 skill 디렉터리에만 나타납니다.
+이 skill은 Pi, Codex, 그 외 target이 구성되어 있어도 Claude Code의 skill 디렉터리에만 나타납니다.
 
 ### `pattern`
 

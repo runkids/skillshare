@@ -174,7 +174,7 @@ h1, h2, h3, h4, h5, h6 {
   box-shadow: none;
   border-bottom: 1px solid var(--color-muted);
   backdrop-filter: blur(12px);
-  padding: 0.25rem 0;
+  padding: 0.25rem var(--ifm-navbar-padding-horizontal);
 }
 
 .navbar__title {

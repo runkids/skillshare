@@ -275,7 +275,7 @@ skillshare sync                        # 同步回 targets
 
 ```bash
 skillshare uninstall old-skill
-skillshare sync  # 從 Claude、Cursor 等移除
+skillshare sync  # 從 Claude、Pi 等移除
 ```
 
 ## Project Mode

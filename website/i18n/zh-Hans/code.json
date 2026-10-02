@@ -34,5 +34,65 @@
   "home.desktop.cliAlternative": {
     "message": "偏好终端？安装 CLI。",
     "description": "Desktop app promotion on the homepage"
+  },
+  "home.hero.title": {
+    "message": "你的 AI 编程环境，",
+    "description": "Homepage product positioning"
+  },
+  "home.hero.everywhere": {
+    "message": "随处可用。",
+    "description": "Homepage product positioning"
+  },
+  "home.hero.summary": {
+    "message": "在同一个地方管理 skills、agents、rules、MCP 连接与 hooks。",
+    "description": "Homepage product positioning"
+  },
+  "home.hero.tools": {
+    "message": "适用于 Claude Code、Codex、Pi、OpenCode 等工具。",
+    "description": "Homepage product positioning"
+  },
+  "home.board.preview": {
+    "message": "skills 同步预览",
+    "description": "Homepage product positioning"
+  },
+  "home.features.title": {
+    "message": "不只是 skills。",
+    "description": "Homepage product positioning"
+  },
+  "home.features.subtitle": {
+    "message": "还有 AI 编程环境中的其他资源。",
+    "description": "Homepage product positioning"
+  },
+  "home.features.summary": {
+    "message": "和 skills 一起管理 agents、rules、MCP 连接、hooks 与 plugins，找到适合当前任务的命令。",
+    "description": "Homepage product positioning"
+  },
+  "home.features.open": {
+    "message": "探索功能",
+    "description": "Homepage product positioning"
+  },
+  "home.cta.title": {
+    "message": "换工具，继续用你的环境。",
+    "description": "Homepage product positioning"
+  },
+  "home.cta.summary": {
+    "message": "免费、开源。通过桌面 App 或 CLI 在本地管理你的环境。",
+    "description": "Homepage product positioning"
+  },
+  "home.meta.title": {
+    "message": "AI 编程环境管理器 — Skills、Agents、MCP 与 Hooks",
+    "description": "Homepage product positioning"
+  },
+  "home.meta.description": {
+    "message": "你的 AI 编程环境，随处可用。通过桌面 App 或 CLI，在同一个地方管理 skills、agents、rules、MCP 连接与 hooks。",
+    "description": "Homepage product positioning"
+  },
+  "home.demo.label": {
+    "message": "Skillshare 演示：修改一次，在 AI coding 工具之间同步",
+    "description": "Homepage product demo"
+  },
+  "home.demo.download": {
+    "message": "下载演示影片",
+    "description": "Homepage product demo"
   }
 }

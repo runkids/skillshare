@@ -195,7 +195,7 @@ targets:
 **可行的部分：**
 - 在 merge 模式（預設）下，skillshare 會在 `~/.agents/skills/` 中建立 **symlink**；npx skills 則建立**真實目錄**。只要 Skill 名稱不衝突，兩者可以共存。
 - skillshare 的 prune 邏輯只會移除自己管理的項目 — 不會刪除由 npx skills 安裝的檔案。
-- Agent CLI（Claude Code、Cursor 等）會直接讀取目錄，所以它們能看到來自兩個工具的 Skill。
+- Agent CLI（Claude Code、Pi 等）會直接讀取目錄，所以它們能看到來自兩個工具的 Skill。
 
 **需要注意的地方：**
 - **名稱衝突** — 如果兩個工具安裝了同名的 Skill，最後一次 sync/install 會勝出。避免用兩個工具安裝同一個 Skill。

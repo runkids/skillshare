@@ -9,7 +9,7 @@ sidebar_position: 2
 ## 사전 준비
 
 - macOS, Linux 또는 Windows
-- AI CLI가 최소 하나 설치되어 있어야 합니다 (Claude Code, Cursor, Codex 등)
+- AI CLI가 최소 하나 설치되어 있어야 합니다 (Claude Code, Pi, Codex 등)
 
 ## 1. CLI 설치
 
