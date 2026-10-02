@@ -105,7 +105,7 @@ Do not abort the whole runbook after the first failed step. Preserve every step 
 
 ## Windows Verification
 
-Linux tests cannot show Windows link behavior (junctions, file symlinks, Developer Mode). For changes to links, sync modes, or paths on Windows, run `ai_docs/tests/windows_file_links_runbook.md` on a real Windows machine; its script is `scripts/windows/e2e-file-links.ps1`. With a local UTM guest, `scripts/windows/utm.sh` handles probe, pinned builds, push, and running scripts as the desktop user (full or basic token); the `skillshare-windows-utm` skill walks through automated and hands-on runs.
+Linux tests cannot show Windows link behavior (junctions, file symlinks, Developer Mode). For changes to links, sync modes, or paths on Windows, run `ai_docs/tests/windows_file_links_runbook.md` on a real Windows machine; its script is `scripts/windows/e2e-file-links.ps1`. With a local UTM guest, `scripts/windows/utm.sh` handles probe, pinned builds, push, and running scripts as the desktop user (full or basic token); the `skillshare-windows-utm` skill walks through automated and hands-on runs. For child processes, console windows, or runs without a console (scheduled tasks), run `ai_docs/tests/windows_console_windows_runbook.md` (`scripts/windows/e2e-console-windows.ps1`).
 
 - Cross-compile in the devcontainer (`GOOS=windows`, `GOARCH` matching the guest). The host drives a UTM guest with `utmctl` (`file push`, `exec`, `file pull`); this is the one allowed host-side execution path, and it never runs the product on macOS.
 - `utmctl exec` is asynchronous and runs as SYSTEM. Scripts write a report ending in `DONE`, and the host polls it with `file pull`, which exits 0 even when the file is missing.
