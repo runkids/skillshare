@@ -10,17 +10,20 @@ import (
 // holds child skills. The dashboard installs the root of such a collection
 // this way; `install <path>` copies the whole directory, child skills
 // included. source holds the current hashes of the source directory.
+//
+// The recorded files decide: an install that recorded anything besides
+// SKILL.md copied the whole directory, even if child skills were added to
+// the source later, and updating it as SKILL.md alone would delete files.
 func IsSkillFileOnlyInstall(source, recorded map[string]string) bool {
-	hasChildSkill := false
+	if _, ok := recorded["SKILL.md"]; !ok || len(recorded) != 1 {
+		return false
+	}
 	for rel := range source {
 		if strings.HasSuffix(rel, "/SKILL.md") {
-			if _, ok := recorded[rel]; ok {
-				return false
-			}
-			hasChildSkill = true
+			return true
 		}
 	}
-	return hasChildSkill
+	return false
 }
 
 // isSkillFileOnlyLocalInstall reports whether the local skill at destPath

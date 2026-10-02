@@ -166,3 +166,16 @@ func TestLocalSourceStatus_WholeDirectoryInstall_DetectsChildSkillChange(t *test
 		t.Errorf("status = %q, want update_available", status)
 	}
 }
+
+func TestLocalSourceStatus_WholeDirectoryInstall_ChildAddedLater(t *testing.T) {
+	entry, src := localEntry(t)
+	os.WriteFile(filepath.Join(src, "README.md"), []byte("readme"), 0644)
+	entry.FileHashes, _ = install.ComputeFileHashes(src)
+
+	os.MkdirAll(filepath.Join(src, "child"), 0755)
+	os.WriteFile(filepath.Join(src, "child", "SKILL.md"), []byte("# Child"), 0644)
+
+	if status, _ := LocalSourceStatus(entry); status != "update_available" {
+		t.Errorf("status = %q, want update_available", status)
+	}
+}

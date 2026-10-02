@@ -142,3 +142,32 @@ func TestUpdate_LocalCollectionRoot_KeepsSkillFileOnly(t *testing.T) {
 		t.Errorf("SKILL.md was not updated: %s", got)
 	}
 }
+
+func TestUpdate_LocalWholeDirectory_ChildAddedLater_KeepsOtherFiles(t *testing.T) {
+	tmp := t.TempDir()
+	src := filepath.Join(tmp, "pack")
+	write := func(rel, body string) {
+		p := filepath.Join(src, rel)
+		os.MkdirAll(filepath.Dir(p), 0755)
+		os.WriteFile(p, []byte(body), 0644)
+	}
+	write("SKILL.md", "---\nname: pack\n---\n# v1")
+	write("README.md", "readme")
+
+	sourceDir := filepath.Join(tmp, "dest")
+	destPath := filepath.Join(sourceDir, "pack")
+	source := &Source{Type: SourceTypeLocalPath, Raw: src, Path: src, Name: "pack"}
+	if _, err := Install(source, destPath, InstallOptions{SourceDir: sourceDir, SkipAudit: true}); err != nil {
+		t.Fatal(err)
+	}
+
+	// A child skill appears at the source after a whole-directory install.
+	write("child/SKILL.md", "---\nname: child\n---\n# Child")
+	if _, err := Install(source, destPath, InstallOptions{SourceDir: sourceDir, Update: true, SkipAudit: true}); err != nil {
+		t.Fatalf("update: %v", err)
+	}
+
+	if _, err := os.Stat(filepath.Join(destPath, "README.md")); err != nil {
+		t.Errorf("README.md was removed by the update: %v", err)
+	}
+}
