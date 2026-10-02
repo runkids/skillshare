@@ -102,6 +102,10 @@ skillshare sync  # Distribute to all targets
 
 The `skillshare` executable itself. Downloads from GitHub releases.
 
+The archive is verified against the release's `checksums.txt` before your running binary is
+replaced, so a damaged or mismatched download stops the upgrade instead of installing itself.
+The current binary stays untouched, and the error names the mismatch.
+
 In a terminal, the download shows how much has arrived, so a slow connection does not
 look like a hang. The Web UI assets below show the same.
 

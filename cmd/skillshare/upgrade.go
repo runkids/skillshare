@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"path"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -253,7 +254,9 @@ func downloadBinary(execPath, targetVersion string) error {
 
 	downloadLabel := fmt.Sprintf("Downloading v%s...", targetVersion)
 	downloadSpinner := ui.StartTreeSpinner(downloadLabel, false)
-	if err := downloadAndReplace(downloadURL, execPath, downloadProgress(downloadLabel, downloadSpinner.Update)); err != nil {
+	err = downloadAndReplace(downloadURL, versionpkg.BuildChecksumsURL(targetVersion), execPath,
+		downloadProgress(downloadLabel, downloadSpinner.Update))
+	if err != nil {
 		downloadSpinner.Fail("Failed to download")
 		return fmt.Errorf("failed to upgrade: %w", err)
 	}
@@ -398,25 +401,75 @@ func downloadProgress(label string, update func(string)) utils.ProgressFunc {
 	}
 }
 
-func downloadAndReplace(url, destPath string, onProgress utils.ProgressFunc) error {
-	// Bounds the whole download; the release archive is ~10MB.
+// maxArchiveSize bounds the staged release archive; the archives are ~10MB.
+const maxArchiveSize = 100 * 1024 * 1024
+
+// downloadAndReplace verifies the release archive against the release
+// checksums file before replacing the binary. The archive is staged to a temp
+// file first because checksums.txt covers the compressed asset, not the binary
+// extracted from it.
+func downloadAndReplace(downloadURL, checksumsURL, destPath string, onProgress utils.ProgressFunc) error {
+	expectedHash, err := versionpkg.FetchChecksum(checksumsURL, path.Base(downloadURL))
+	if err != nil {
+		return fmt.Errorf("failed to fetch checksum: %w", err)
+	}
+
+	archivePath, err := downloadArchive(downloadURL, onProgress)
+	if err != nil {
+		return err
+	}
+	defer os.Remove(archivePath)
+
+	actualHash, err := utils.FileHash(archivePath)
+	if err != nil {
+		return fmt.Errorf("failed to compute checksum: %w", err)
+	}
+	if actualHash != expectedHash {
+		return fmt.Errorf("checksum mismatch: expected %s, got %s", expectedHash, actualHash)
+	}
+
+	archive, err := os.Open(archivePath)
+	if err != nil {
+		return err
+	}
+	defer archive.Close()
+
+	// Windows uses zip, others use tar.gz
+	if runtime.GOOS == "windows" {
+		return extractFromZip(archive, destPath)
+	}
+	return extractFromTarGz(archive, destPath)
+}
+
+func downloadArchive(url string, onProgress utils.ProgressFunc) (string, error) {
 	client := &http.Client{Timeout: 5 * time.Minute}
 	resp, err := client.Get(url)
 	if err != nil {
-		return err
+		return "", err
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != 200 {
-		return fmt.Errorf("download failed with status %d", resp.StatusCode)
+		return "", fmt.Errorf("download failed with status %d", resp.StatusCode)
 	}
-	body := utils.NewProgressReader(resp.Body, resp.ContentLength, onProgress)
 
-	// Windows uses zip, others use tar.gz
-	if runtime.GOOS == "windows" {
-		return extractFromZip(body, destPath)
+	tmp, err := os.CreateTemp("", "skillshare-upgrade-archive-*")
+	if err != nil {
+		return "", err
 	}
-	return extractFromTarGz(body, destPath)
+	defer tmp.Close()
+
+	limited := io.LimitReader(utils.NewProgressReader(resp.Body, resp.ContentLength, onProgress), maxArchiveSize+1)
+	n, err := io.Copy(tmp, limited)
+	if err != nil {
+		os.Remove(tmp.Name())
+		return "", err
+	}
+	if n > maxArchiveSize {
+		os.Remove(tmp.Name())
+		return "", fmt.Errorf("archive exceeds the maximum size (%d MB)", maxArchiveSize/(1024*1024))
+	}
+	return tmp.Name(), nil
 }
 
 func extractFromTarGz(r io.Reader, destPath string) error {
