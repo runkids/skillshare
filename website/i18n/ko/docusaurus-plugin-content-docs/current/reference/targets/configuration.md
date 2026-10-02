@@ -181,6 +181,8 @@ target_naming: flat
 | `flat` | 중첩된 skill이 `__` 구분자로 평탄화됨 (예: `frontend__dev`). **(기본값)** |
 | `standard` | SKILL.md의 `name` 필드를 그대로 사용 (예: `dev`). [Agent Skills spec](https://agentskills.io/specification)을 따름. |
 
+두 mode 모두에서 `include` / `exclude`는 계속 flat 이름(`frontend__dev`)을 기준으로 매칭하므로, `standard`에서는 filter 이름과 `sync`가 만드는 폴더 이름이 다릅니다. [include / exclude](#include--exclude-target-filters) 참고.
+
 ### `targets`
 
 동기화 대상이 되는 AI CLI skill 디렉터리.
@@ -322,6 +324,7 @@ targets:
 
 Rules:
 - 매칭 대상은 Target의 flat 이름입니다 (예: `team__frontend__ui`)
+- 어떤 skill에도 일치하지 않는 `include` 패턴은 보고됩니다. 그런 target은 아무것도 동기화하지 못하고 이전 패턴이 링크한 항목을 제거하기 때문입니다. `target_naming: standard`로 Target 폴더에 SKILL.md 이름만 표시되어도 filter는 flat 이름을 기준으로 합니다
 - `include`가 먼저 적용됨
 - `include` 이후에 `exclude`가 적용됨
 - 패턴 문법은 Go의 `filepath.Match` (`*`, `?`, `[...]`)를 사용

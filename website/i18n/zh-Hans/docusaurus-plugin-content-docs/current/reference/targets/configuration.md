@@ -181,6 +181,8 @@ target_naming: flat
 | `flat` | 嵌套 Skill 用 `__` 分隔符扁平化（例如 `frontend__dev`）。**（默认）** |
 | `standard` | 直接使用 SKILL.md 的 `name` 字段（例如 `dev`）。遵循 [Agent Skills 规范](https://agentskills.io/specification)。 |
 
+两种模式下，`include` / `exclude` 都始终匹配扁平化名称（`frontend__dev`），所以在 `standard` 下 filter 用的名称和 `sync` 创建的目录名不同——见 [include / exclude](#include--exclude-target-filters)。
+
 ### `targets`
 
 需要 sync 到的 AI CLI Skill 目录。
@@ -317,6 +319,7 @@ targets:
 
 规则：
 - 匹配对象是 Target 的扁平化名称（例如 `team__frontend__ui`）
+- 匹配不到任何 skill 的 `include` 模式会被报告出来，因为这样的 target 什么都不会同步，还会删掉之前由正确模式链接的条目。即使 `target_naming: standard` 让 target 目录显示 SKILL.md 的裸名称，filters 用的仍是扁平化名称
 - `include` 先被应用
 - `exclude` 在 include 之后应用
 - Pattern 语法使用 Go `filepath.Match`（`*`、`?`、`[...]`）

@@ -22,10 +22,33 @@ type ResolvedTargetSkill struct {
 // target after include/exclude filters, target filters, standard validation,
 // and collision handling are applied.
 type TargetSkillResolution struct {
-	Naming     string
-	Skills     []ResolvedTargetSkill
-	Warnings   []string
-	Collisions []NameCollision
+	Naming            string
+	Skills            []ResolvedTargetSkill
+	Warnings          []string
+	Collisions        []NameCollision
+	UnmatchedIncludes []UnmatchedInclude
+}
+
+// UnmatchedIncludeWarnings renders one diagnostic per include pattern that
+// selects no skill, pointing at the source-path filter that would have.
+func (r *TargetSkillResolution) UnmatchedIncludeWarnings() []string {
+	if len(r.UnmatchedIncludes) == 0 {
+		return nil
+	}
+
+	warnings := make([]string, 0, len(r.UnmatchedIncludes))
+	for _, unmatched := range r.UnmatchedIncludes {
+		message := fmt.Sprintf("include pattern %q matches no skill in the source", unmatched.Pattern)
+		if len(unmatched.Suggestions) > 0 {
+			quoted := make([]string, 0, len(unmatched.Suggestions))
+			for _, name := range unmatched.Suggestions {
+				quoted = append(quoted, fmt.Sprintf("%q", name))
+			}
+			message += fmt.Sprintf(" (filters use the source path name; did you mean %s?)", strings.Join(quoted, ", "))
+		}
+		warnings = append(warnings, message)
+	}
+	return warnings
 }
 
 // ResolveTargetSkillsForTarget applies a target's filters and target_naming
@@ -38,7 +61,10 @@ func ResolveTargetSkillsForTarget(targetName string, sc config.ResourceTargetCon
 	filtered = FilterSkillsByTarget(filtered, targetName)
 
 	naming := config.EffectiveTargetNaming(sc.TargetNaming)
-	result := &TargetSkillResolution{Naming: naming}
+	result := &TargetSkillResolution{
+		Naming:            naming,
+		UnmatchedIncludes: FindUnmatchedIncludes(sc.Include, allSkills),
+	}
 
 	if naming == "flat" {
 		result.Skills = make([]ResolvedTargetSkill, 0, len(filtered))

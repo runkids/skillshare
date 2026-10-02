@@ -570,6 +570,9 @@ func SyncTargetMergeWithSkills(name string, target config.TargetConfig, allSkill
 	if n := len(resolution.Collisions); n > 0 {
 		fmt.Fprintf(DiagOutput, "  %d name collision(s) excluded\n", n)
 	}
+	for _, warning := range resolution.UnmatchedIncludeWarnings() {
+		fmt.Fprintf(DiagOutput, "  ! %s\n", warning)
+	}
 
 	manifest, err := ReadManifest(sc.Path)
 	if err != nil {

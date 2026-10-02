@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"skillshare/internal/config"
+	"skillshare/internal/utils"
 )
 
 // createTempSkill creates a skill directory with a SKILL.md containing the given name.
@@ -71,6 +72,47 @@ func TestResolveTargetSkillsForTarget_StandardNamingUsesSkillName(t *testing.T) 
 	}
 	if resolution.Skills[0].TargetName != "dev" {
 		t.Fatalf("TargetName = %q, want dev", resolution.Skills[0].TargetName)
+	}
+}
+
+func TestResolveTargetSkillsForTarget_ReportsUnmatchedInclude(t *testing.T) {
+	dir := t.TempDir()
+	skill := createTempSkill(t, dir, "frontend/dev", "dev")
+	skill.FlatName = utils.PathToFlatName(skill.RelPath)
+	skills := []DiscoveredSkill{skill}
+
+	const want = `include pattern "dev" matches no skill in the source ` +
+		`(filters use the source path name; did you mean "frontend__dev"?)`
+
+	for _, naming := range []string{"flat", "standard"} {
+		resolution, err := ResolveTargetSkillsForTarget("claude", config.ResourceTargetConfig{
+			TargetNaming: naming,
+			Include:      []string{"dev"},
+		}, skills)
+		if err != nil {
+			t.Fatalf("ResolveTargetSkillsForTarget(%s) error = %v", naming, err)
+		}
+		if len(resolution.Skills) != 0 {
+			t.Fatalf("%s: len(Skills) = %d, want 0", naming, len(resolution.Skills))
+		}
+		warnings := resolution.UnmatchedIncludeWarnings()
+		if len(warnings) != 1 || warnings[0] != want {
+			t.Fatalf("%s: warnings = %v, want [%q]", naming, warnings, want)
+		}
+	}
+
+	resolution, err := ResolveTargetSkillsForTarget("claude", config.ResourceTargetConfig{
+		TargetNaming: "standard",
+		Include:      []string{"frontend__dev"},
+	}, skills)
+	if err != nil {
+		t.Fatalf("ResolveTargetSkillsForTarget() error = %v", err)
+	}
+	if len(resolution.Skills) != 1 || resolution.Skills[0].TargetName != "dev" {
+		t.Fatalf("Skills = %+v, want one entry named dev", resolution.Skills)
+	}
+	if got := resolution.UnmatchedIncludeWarnings(); len(got) != 0 {
+		t.Fatalf("warnings = %v, want none for a pattern that selects the skill", got)
 	}
 }
 

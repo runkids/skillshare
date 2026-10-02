@@ -367,6 +367,7 @@ targets:
 ```
 
 - 匹配的是扁平化的 target 名称（例如 `team__frontend__ui`）
+- 匹配不到任何 skill 的 `include` 模式会被报告出来，因为这样的 target 什么都不会同步，还会删掉之前由正确模式链接的条目。即使 `target_naming: standard` 让 target 目录显示 SKILL.md 的裸名称，filters 用的仍是扁平化名称
 - `include` 先应用，然后是 `exclude`
 - `diff`、`status`、`doctor` 以及 UI drift 检测都使用过滤后的预期集合
 - 在 symlink 模式下，filters 会被忽略

@@ -345,6 +345,7 @@ targets:
 ```
 
 - マッチングは flat target 名（例: `team__frontend__ui`）に対して行われます
+- どの Skill にも一致しない `include` パターンは報告されます。そういう Target は何も同期せず、以前のパターンがリンクしていたものを削除してしまうためです。`target_naming: standard` で Target ディレクトリに SKILL.md の名前だけが表示される場合でも、フィルターは flat 名を使います
 - `include` が最初に適用され、その後 `exclude` が適用されます
 - `diff`、`status`、`doctor`、および UI の drift 検出はすべてフィルター済みの期待セットを使用します
 - symlink mode では、フィルターは無視されます

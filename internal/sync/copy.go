@@ -87,6 +87,9 @@ func SyncTargetCopyWithSkillsOptions(name string, target config.TargetConfig, al
 	if n := len(resolution.Collisions); n > 0 {
 		fmt.Fprintf(DiagOutput, "  %d name collision(s) excluded\n", n)
 	}
+	for _, warning := range resolution.UnmatchedIncludeWarnings() {
+		fmt.Fprintf(DiagOutput, "  ! %s\n", warning)
+	}
 
 	// Read existing manifest
 	manifest, err := ReadManifest(sc.Path)

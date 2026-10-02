@@ -353,6 +353,7 @@ targets:
 ```
 
 - Matching is against flat target names (for example `team__frontend__ui`)
+- An `include` pattern that matches no skill is reported, because such a target syncs nothing and drops what a previous pattern linked. Filters keep using flat names even when `target_naming: standard` shows the bare `SKILL.md` name in the target
 - `include` is applied first, then `exclude`
 - `diff`, `status`, `doctor`, and UI drift all use the filtered expected set
 - In symlink mode, filters are ignored
