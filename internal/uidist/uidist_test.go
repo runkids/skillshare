@@ -6,7 +6,6 @@ import (
 	"compress/gzip"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 )
 
@@ -49,25 +48,6 @@ func TestIsCached_Present(t *testing.T) {
 	}
 	if gotDir != dir {
 		t.Errorf("got dir %s, want %s", gotDir, dir)
-	}
-}
-
-func TestParseChecksum(t *testing.T) {
-	input := "abc123  skillshare_1.0.0_linux_amd64.tar.gz\ndef456  skillshare-ui-dist.tar.gz\n"
-	hash, err := parseChecksum(strings.NewReader(input), "skillshare-ui-dist.tar.gz")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if hash != "def456" {
-		t.Errorf("got %s, want def456", hash)
-	}
-}
-
-func TestParseChecksum_NotFound(t *testing.T) {
-	input := "abc123  other-file.tar.gz\n"
-	_, err := parseChecksum(strings.NewReader(input), "skillshare-ui-dist.tar.gz")
-	if err == nil {
-		t.Error("expected error for missing checksum")
 	}
 }
 

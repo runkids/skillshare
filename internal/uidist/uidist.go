@@ -2,10 +2,7 @@ package uidist
 
 import (
 	"archive/tar"
-	"bufio"
 	"compress/gzip"
-	"crypto/sha256"
-	"encoding/hex"
 	"fmt"
 	"io"
 	"net/http"
@@ -45,7 +42,7 @@ func Download(ver string, onProgress utils.ProgressFunc) error {
 	dir := CacheDir(ver)
 
 	// Fetch expected checksum
-	expectedHash, err := fetchChecksum(ver)
+	expectedHash, err := version.FetchChecksum(version.BuildChecksumsURL(ver), AssetName)
 	if err != nil {
 		return fmt.Errorf("failed to fetch checksum: %w", err)
 	}
@@ -59,7 +56,7 @@ func Download(ver string, onProgress utils.ProgressFunc) error {
 	defer os.Remove(tmpFile)
 
 	// Verify checksum
-	actualHash, err := fileSHA256(tmpFile)
+	actualHash, err := utils.FileHash(tmpFile)
 	if err != nil {
 		return fmt.Errorf("failed to compute checksum: %w", err)
 	}
@@ -116,41 +113,6 @@ func cleanOldVersions(currentVer string) error {
 	return nil
 }
 
-// fetchChecksum downloads checksums.txt and parses the SHA256 for AssetName.
-func fetchChecksum(ver string) (string, error) {
-	url := version.BuildChecksumsURL(ver)
-	client := &http.Client{Timeout: 30 * time.Second}
-	resp, err := client.Get(url)
-	if err != nil {
-		return "", err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("checksums.txt returned HTTP %d", resp.StatusCode)
-	}
-
-	return parseChecksum(resp.Body, AssetName)
-}
-
-// parseChecksum reads a checksums.txt (format: "hash  filename\n") and returns
-// the hash for the given target filename.
-func parseChecksum(r io.Reader, target string) (string, error) {
-	scanner := bufio.NewScanner(r)
-	for scanner.Scan() {
-		line := scanner.Text()
-		// GoReleaser format: "<sha256>  <filename>"
-		parts := strings.Fields(line)
-		if len(parts) == 2 && parts[1] == target {
-			return parts[0], nil
-		}
-	}
-	if err := scanner.Err(); err != nil {
-		return "", err
-	}
-	return "", fmt.Errorf("checksum for %s not found in checksums.txt", target)
-}
-
 // maxDownloadSize limits the UI dist download to prevent unexpected disk usage.
 const maxDownloadSize = 100 * 1024 * 1024 // 100 MB
 
@@ -185,21 +147,6 @@ func downloadToTemp(url string, onProgress utils.ProgressFunc) (string, error) {
 	}
 
 	return tmp.Name(), nil
-}
-
-// fileSHA256 computes the SHA-256 hex digest of a file.
-func fileSHA256(path string) (string, error) {
-	f, err := os.Open(path)
-	if err != nil {
-		return "", err
-	}
-	defer f.Close()
-
-	h := sha256.New()
-	if _, err := io.Copy(h, f); err != nil {
-		return "", err
-	}
-	return hex.EncodeToString(h.Sum(nil)), nil
 }
 
 // maxFileSize limits individual file extraction to prevent decompression bombs.
