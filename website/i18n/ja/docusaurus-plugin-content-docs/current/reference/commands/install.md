@@ -198,6 +198,8 @@ skillshare install ~/Downloads/my-skill
 skillshare install /absolute/path/to/skill
 ```
 
+ローカルパスはソースディレクトリにコピーされます。Global mode では `./my-skill` のような相対パスは絶対パスとして記録されるため、`update` と [`check`](./check.md#local-path-installs) はどのディレクトリからでもそのパスを見つけられます。Project mode では `.skillshare/config.yaml` が複数のマシンで共有されるため、入力どおりに記録されます。
+
 :::tip ファジーなサブディレクトリ解決
 `owner/repo/skill-name` のようなサブディレクトリパスを指定した際、そのパスがリポジトリ内に完全一致で存在しない場合、skillshare はすべての `SKILL.md` ファイルをスキャンし、ディレクトリのベース名でマッチさせます。同名の Skill が複数存在する場合は、フルパス付きの曖昧性エラーが表示されるので、正確なパスを指定できます。
 :::

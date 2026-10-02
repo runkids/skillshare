@@ -46,21 +46,8 @@ func LocalSourceStatus(entry *install.MetadataEntry) (status, message string) {
 }
 
 // installedFiles narrows the source hashes to the files an install copies.
-// `install <path>` copies the whole directory, nested skills included. The
-// dashboard installs the root of a directory that also holds child skills
-// as its SKILL.md alone; that shape is recognized by recorded hashes that
-// contain none of the child skills present in the source.
 func installedFiles(source, recorded map[string]string) map[string]string {
-	hasChildSkill := false
-	for rel := range source {
-		if strings.HasSuffix(rel, "/SKILL.md") {
-			if _, ok := recorded[rel]; ok {
-				return source
-			}
-			hasChildSkill = true
-		}
-	}
-	if !hasChildSkill {
+	if !install.IsSkillFileOnlyInstall(source, recorded) {
 		return source
 	}
 	if hash, ok := source["SKILL.md"]; ok {

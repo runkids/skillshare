@@ -121,6 +121,7 @@ func handleUpdate(source *Source, destPath string, result *InstallResult, opts I
 		AuditProjectRoot: opts.AuditProjectRoot,
 		AuditAcceptRoot:  opts.SourceDir,
 		AuditAcceptPath:  destPath,
+		skillFileOnly:    isSkillFileOnlyLocalInstall(source, destPath, opts.SourceDir),
 	})
 	if err != nil {
 		// Installation failed - original skill is preserved

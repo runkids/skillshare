@@ -150,6 +150,9 @@ func (s *Server) handleInstallBatch(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusBadRequest, err.Error())
 			return
 		}
+	} else if source.Type == install.SourceTypeLocalPath {
+		// Global metadata has no fixed base for a relative path.
+		source.Raw = source.Path
 	}
 
 	discovery, err := discoverInstallSource(source)
@@ -364,6 +367,9 @@ func (s *Server) handleInstall(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusBadRequest, err.Error())
 			return
 		}
+	} else if source.Type == install.SourceTypeLocalPath {
+		// Global metadata has no fixed base for a relative path.
+		source.Raw = source.Path
 	}
 
 	if body.Name != "" {

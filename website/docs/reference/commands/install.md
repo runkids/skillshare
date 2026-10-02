@@ -198,6 +198,8 @@ skillshare install ~/Downloads/my-skill
 skillshare install /absolute/path/to/skill
 ```
 
+A local path is copied into the source directory. In global mode, a relative path such as `./my-skill` is recorded as an absolute path, so `update` and [`check`](./check.md#local-path-installs) find it from any directory. In project mode it is recorded as written, because `.skillshare/config.yaml` is shared across machines.
+
 :::tip Fuzzy subdirectory resolution
 When specifying a subdirectory path like `owner/repo/skill-name`, if the exact path doesn't exist in the repo, skillshare scans all `SKILL.md` files and matches by directory basename. If multiple skills share the same name, an ambiguity error is shown with full paths so you can specify the exact one.
 :::

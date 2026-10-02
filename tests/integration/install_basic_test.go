@@ -374,6 +374,23 @@ targets: {}
 	result.AssertAnyOutputContains(t, "No remote skills defined")
 }
 
+func TestInstall_RelativeLocalPath_RecordsAbsoluteSource(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	sb.WriteConfig(`source: ` + sb.SourcePath + "\ntargets: {}\n")
+
+	parent := filepath.Join(sb.Root, "apps")
+	sb.WriteFile(filepath.Join(parent, "rel-skill", "SKILL.md"), "---\nname: rel-skill\n---\n# v1")
+	sb.RunCLIInDir(parent, "install", "./rel-skill").AssertSuccess(t)
+
+	sb.WriteFile(filepath.Join(parent, "rel-skill", "SKILL.md"), "---\nname: rel-skill\n---\n# v2")
+	sb.RunCLIInDir(sb.Root, "update", "rel-skill").AssertSuccess(t)
+
+	if got := sb.ReadFile(filepath.Join(sb.SourcePath, "rel-skill", "SKILL.md")); !strings.Contains(got, "# v2") {
+		t.Errorf("update from another directory did not re-copy the source, got:\n%s", got)
+	}
+}
+
 func TestInstall_LocalGitRepo_ClonesSuccessfully(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()

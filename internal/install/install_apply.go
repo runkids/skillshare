@@ -238,8 +238,14 @@ func installFromLocal(source *Source, destPath string, result *InstallResult, op
 		return result, nil
 	}
 
-	// Copy directory
-	if err := copyDir(source.Path, destPath); err != nil {
+	if opts.skillFileOnly {
+		if err := os.MkdirAll(destPath, 0755); err != nil {
+			return nil, fmt.Errorf("failed to create destination: %w", err)
+		}
+		if err := copyFile(filepath.Join(source.Path, "SKILL.md"), filepath.Join(destPath, "SKILL.md")); err != nil {
+			return nil, fmt.Errorf("failed to copy SKILL.md: %w", err)
+		}
+	} else if err := copyDir(source.Path, destPath); err != nil {
 		return nil, fmt.Errorf("failed to copy skill: %w", err)
 	}
 

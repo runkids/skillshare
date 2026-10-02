@@ -3,6 +3,7 @@ package install
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -87,5 +88,57 @@ func TestUpdate_LegacyRepoRootOrchestratorMigratesToSkillOnly(t *testing.T) {
 	}
 	if _, ok := entry.FileHashes["SKILL.md"]; !ok {
 		t.Fatalf("expected SKILL.md hash, got %#v", entry.FileHashes)
+	}
+}
+
+func TestUpdate_LocalCollectionRoot_KeepsSkillFileOnly(t *testing.T) {
+	tmp := t.TempDir()
+	repo := filepath.Join(tmp, "repo")
+	write := func(rel, body string) {
+		p := filepath.Join(repo, rel)
+		os.MkdirAll(filepath.Dir(p), 0755)
+		os.WriteFile(p, []byte(body), 0644)
+	}
+	write("SKILL.md", "---\nname: root\n---\n# v1")
+	write("README.md", "readme")
+	write("skills/child/SKILL.md", "---\nname: child\n---\n# Child")
+
+	// The dashboard installs the root of a collection as its SKILL.md alone.
+	discovery, err := DiscoverLocal(&Source{Type: SourceTypeLocalPath, Raw: repo, Path: repo, Name: "repo"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	sourceDir := filepath.Join(tmp, "dest")
+	destPath := filepath.Join(sourceDir, "root")
+	for _, skill := range discovery.Skills {
+		if skill.Path == "." {
+			if _, err := InstallFromDiscovery(discovery, skill, destPath, InstallOptions{SourceDir: sourceDir, SkipAudit: true}); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+
+	write("SKILL.md", "---\nname: root\n---\n# v2")
+	source, err := ParseSource(LoadMetadataOrNew(sourceDir).GetByPath("root").Source)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Install(source, destPath, InstallOptions{SourceDir: sourceDir, Update: true, SkipAudit: true}); err != nil {
+		t.Fatalf("update: %v", err)
+	}
+
+	var files []string
+	filepath.Walk(destPath, func(path string, info os.FileInfo, err error) error {
+		if err == nil && !info.IsDir() {
+			rel, _ := filepath.Rel(destPath, path)
+			files = append(files, filepath.ToSlash(rel))
+		}
+		return nil
+	})
+	if len(files) != 1 || files[0] != "SKILL.md" {
+		t.Errorf("updated files = %v, want only SKILL.md", files)
+	}
+	if got, _ := os.ReadFile(filepath.Join(destPath, "SKILL.md")); !strings.Contains(string(got), "# v2") {
+		t.Errorf("SKILL.md was not updated: %s", got)
 	}
 }

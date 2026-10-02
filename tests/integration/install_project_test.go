@@ -31,6 +31,22 @@ func TestInstallProject_LocalPath(t *testing.T) {
 	}
 }
 
+func TestInstallProject_RelativeLocalPath_StaysRelative(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	projectRoot := sb.SetupProjectDir("claude")
+	sb.WriteFile(filepath.Join(projectRoot, "vendor", "team-skill", "SKILL.md"), "---\nname: team-skill\n---\n# Team")
+
+	sb.RunCLIInDir(projectRoot, "install", "./vendor/team-skill", "-p").AssertSuccess(t)
+
+	// The project config is committed and replayed on other machines, so a
+	// relative source must not be rewritten to this machine's absolute path.
+	cfg := sb.ReadFile(filepath.Join(projectRoot, ".skillshare", "config.yaml"))
+	if !strings.Contains(cfg, "source: ./vendor/team-skill") {
+		t.Errorf("project config should keep the relative source, got:\n%s", cfg)
+	}
+}
+
 func TestInstallProject_CurrentDirectoryRejected(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()

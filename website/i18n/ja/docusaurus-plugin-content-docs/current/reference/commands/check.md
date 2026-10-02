@@ -68,7 +68,7 @@ skillshare update surge    # パスから再コピーし、セキュリティ監
 skillshare sync
 ```
 
-ファイルハッシュが記録される前にインストールされた Skill は、update または再インストールするまで「local source」のままです。 相対パス（`./my-skill` など）からインストールした Skill も、基準となるディレクトリが記録されないため比較されません。チェックを有効にするには絶対パスでインストールしてください。
+ファイルハッシュが記録される前にインストールされた Skill は、update または再インストールするまで「local source」のままです。 Project mode で相対パス（`./vendor/my-skill` など）からインストールした Skill は比較されません。
 
 ## 出力例
 

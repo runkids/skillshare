@@ -198,6 +198,8 @@ skillshare install ~/Downloads/my-skill
 skillshare install /absolute/path/to/skill
 ```
 
+로컬 경로는 source 디렉터리로 복사됩니다. Global mode에서는 `./my-skill` 같은 상대 경로가 절대 경로로 기록되므로 `update`와 [`check`](./check.md#local-path-installs)가 어느 디렉터리에서든 해당 경로를 찾을 수 있습니다. Project mode에서는 `.skillshare/config.yaml`을 여러 머신에서 공유하므로 입력한 그대로 기록됩니다.
+
 :::tip Fuzzy 하위 디렉터리 해석
 `owner/repo/skill-name`과 같은 하위 디렉터리 경로를 지정할 때, repo에 정확한 경로가 없으면 skillshare는 모든 `SKILL.md` 파일을 스캔하여 디렉터리 basename으로 매칭합니다. 같은 이름을 가진 skill이 여러 개면, 전체 경로와 함께 모호성 오류가 표시되어 정확한 것을 지정할 수 있습니다.
 :::
