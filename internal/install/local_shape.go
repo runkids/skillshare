@@ -68,7 +68,13 @@ func isSkillFileOnlyLocalInstall(source *Source, destPath, sourceDir string) boo
 		return false
 	}
 	entry := LoadMetadataOrNew(sourceDir).GetByPath(filepath.ToSlash(rel))
-	if entry == nil || len(entry.FileHashes) == 0 {
+	if entry == nil {
+		return false
+	}
+	if entry.Layout != "" {
+		return entry.Layout == LayoutSkillFile
+	}
+	if len(entry.FileHashes) == 0 {
 		return false
 	}
 	hashes, err := ComputeFileHashes(source.Path)
