@@ -444,6 +444,8 @@
   "gitSync.conflict.choose.remote": "Pertahankan versi remote {path}",
   "gitSync.conflict.choose": "Pertahankan versi ini",
   "gitSync.conflict.selected": "Dipilih",
+  "gitSync.conflict.diffLine": "{count} baris berbeda",
+  "gitSync.conflict.diffLines": "{count} baris berbeda",
   "gitSync.conflict.deleted": "Dihapus dalam versi ini",
   "gitSync.conflict.noPreview": "Pratinjau teks tidak tersedia (biner atau lebih dari 16 KiB).",
   "gitSync.conflict.progress": "{chosen} dari {total} file dipilih",

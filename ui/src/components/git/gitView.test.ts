@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseStatusLine } from './gitView';
+import { conflictMarks, parseStatusLine } from './gitView';
 
 describe('parseStatusLine', () => {
   it('reads untracked, modified, deleted and renamed lines', () => {
@@ -10,5 +10,11 @@ describe('parseStatusLine', () => {
       { path: 'old/SKILL.md', change: 'Deleted' },
       { path: 'b.md', change: 'Renamed' },
     ]);
+  });
+});
+
+describe('conflictMarks', () => {
+  it('marks the lines only one version has', () => {
+    expect(conflictMarks('a\nversion: 1\nb\nc\n', 'a\nversion: 2\nb\nhooks\nc\n')).toEqual({ local: [2], remote: [2, 4] });
   });
 });

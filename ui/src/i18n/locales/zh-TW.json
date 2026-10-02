@@ -444,6 +444,8 @@
   "gitSync.conflict.choose.remote": "保留 {path} 的遠端版本",
   "gitSync.conflict.choose": "保留此版本",
   "gitSync.conflict.selected": "已選擇",
+  "gitSync.conflict.diffLine": "{count} 行不同",
+  "gitSync.conflict.diffLines": "{count} 行不同",
   "gitSync.conflict.deleted": "此版本已刪除檔案",
   "gitSync.conflict.noPreview": "無法預覽文字（二進位檔案或超過 16 KiB）。",
   "gitSync.conflict.progress": "已選擇 {chosen}／{total} 個檔案",

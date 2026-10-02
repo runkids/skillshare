@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import type { GitConflictVersion, GitPullConflict, GitPullResolution } from '../../api/types/git';
 import { useT } from '../../i18n';
 import Button from '../Button';
 import CodeView from '../CodeView';
 import DialogShell from '../DialogShell';
+import { conflictMarks } from './gitView';
 
 interface Props {
   conflict: GitPullConflict;
@@ -16,30 +17,38 @@ export default function PullConflictDialog({ conflict, onCancel, onConfirm }: Pr
   const [choices, setChoices] = useState<GitPullResolution['choices']>({});
   const title = t('gitSync.conflict.title');
   const complete = conflict.files.every((file) => choices[file.path]);
-  const preview = (version: GitConflictVersion, path: string) => version.deleted
+  // Only two text previews can be compared; a deleted or unpreviewable side has nothing to mark
+  const marks = useMemo(() => conflict.files.map((file) => {
+    const comparable = [file.local, file.remote].every((version) => !version.deleted && !version.noPreview);
+    return comparable ? conflictMarks(file.local.content, file.remote.content) : undefined;
+  }), [conflict.files]);
+  const preview = (version: GitConflictVersion, path: string, lines?: number[]) => version.deleted
     ? <div className="ss-note warn">{t('gitSync.conflict.deleted')}</div>
     : version.noPreview
       ? <div className="ss-note inf">{t('gitSync.conflict.noPreview')}</div>
-      : <CodeView content={version.content} lang={path} className="max-h-52" />;
+      : <CodeView content={version.content} lang={path} marks={lines} className="max-h-[55vh]" />;
 
   return (
     <DialogShell open onClose={onCancel} maxWidth="5xl" padding="none" ariaLabel={title}>
       <div className="dh"><h2 className="ss-h2">{title}</h2></div>
       <div className="db flex flex-col gap-5">
         <div className="ss-note warn">{t('gitSync.conflict.hint')}</div>
-        {conflict.files.map((file) => (
+        {conflict.files.map((file, index) => (
           <section key={file.path} className="flex min-w-0 flex-col gap-3">
             <h3 className="break-all font-mono text-[13px] font-semibold">{file.path}</h3>
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               {(['local', 'remote'] as const).map((side) => (
                 <div key={side} className="flex min-w-0 flex-col gap-2">
                   <div className="flex items-center justify-between gap-2">
-                    <span className="text-[13px] font-semibold">{t(`gitSync.conflict.${side}`)}</span>
+                    <span className="flex items-baseline gap-2">
+                      <span className="text-[13px] font-semibold">{t(`gitSync.conflict.${side}`)}</span>
+                      {!!marks[index]?.[side].length && <span className="text-[12px] text-warn">{t(marks[index][side].length === 1 ? 'gitSync.conflict.diffLine' : 'gitSync.conflict.diffLines', { count: marks[index][side].length })}</span>}
+                    </span>
                     <Button size="sm" variant={choices[file.path] === side ? 'primary' : 'secondary'} aria-pressed={choices[file.path] === side} aria-label={t(`gitSync.conflict.choose.${side}`, { path: file.path })} onClick={() => setChoices((previous) => ({ ...previous, [file.path]: side }))}>
                       {t(choices[file.path] === side ? 'gitSync.conflict.selected' : 'gitSync.conflict.choose')}
                     </Button>
                   </div>
-                  {preview(file[side], file.path)}
+                  {preview(file[side], file.path, marks[index]?.[side])}
                 </div>
               ))}
             </div>

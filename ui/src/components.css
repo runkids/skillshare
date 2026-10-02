@@ -572,6 +572,8 @@ span.bad, b.bad, svg.bad { color: var(--bad); }
 :root[data-theme="playful"] .ss-tile>.hd { align-items: flex-start; }
 :root[data-theme="playful"] .ss-tile>.hd>:is(.ss-chk, label) { margin-top: 5px; }
 .ss-code .cur { margin: 0 -16px; padding: 0 16px; background: var(--accent-bg); color: var(--ink); }
+.ss-code .mark { margin: 0 -16px; padding: 0 16px; background: var(--warn-bg); color: var(--ink); }
+.ss-code .mark .ln { color: var(--warn); opacity: 1; }
 :root[data-theme="playful"] .ss-code .cur { background: var(--pe); }
 
 /* Interaction states and app-only pieces the static mockups do not show */

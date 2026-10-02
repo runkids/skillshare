@@ -444,6 +444,8 @@
   "gitSync.conflict.choose.remote": "{path} のリモート版を保持",
   "gitSync.conflict.choose": "この版を保持",
   "gitSync.conflict.selected": "選択済み",
+  "gitSync.conflict.diffLine": "{count} 行が異なります",
+  "gitSync.conflict.diffLines": "{count} 行が異なります",
   "gitSync.conflict.deleted": "この版では削除済み",
   "gitSync.conflict.noPreview": "テキストを表示できません（バイナリまたは 16 KiB 超）。",
   "gitSync.conflict.progress": "{total} ファイル中 {chosen} 個を選択",
