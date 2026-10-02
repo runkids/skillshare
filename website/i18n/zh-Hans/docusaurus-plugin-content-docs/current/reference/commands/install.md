@@ -198,6 +198,8 @@ skillshare install ~/Downloads/my-skill
 skillshare install /absolute/path/to/skill
 ```
 
+本地路径会复制到 source 目录。在 global mode 中，`./my-skill` 这类相对路径会记录为绝对路径，因此 `update` 和 [`check`](./check.md#local-path-installs) 在任何目录下都能找到它。在 project mode 中，由于 `.skillshare/config.yaml` 会在多台机器之间共享，路径会按输入原样记录。
+
 :::tip 模糊子目录解析
 当指定像 `owner/repo/skill-name` 这样的子目录路径时，如果该精确路径在仓库中不存在，skillshare 会扫描所有 `SKILL.md` 文件并按目录 basename 进行匹配。如果多个 Skill 共享同一个名称，会显示带完整路径的歧义错误，方便你指定具体的那一个。
 :::

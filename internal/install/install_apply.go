@@ -238,8 +238,14 @@ func installFromLocal(source *Source, destPath string, result *InstallResult, op
 		return result, nil
 	}
 
-	// Copy directory
-	if err := copyDir(source.Path, destPath); err != nil {
+	if opts.skillFileOnly {
+		if err := os.MkdirAll(destPath, 0755); err != nil {
+			return nil, fmt.Errorf("failed to create destination: %w", err)
+		}
+		if err := copyFile(filepath.Join(source.Path, "SKILL.md"), filepath.Join(destPath, "SKILL.md")); err != nil {
+			return nil, fmt.Errorf("failed to copy SKILL.md: %w", err)
+		}
+	} else if err := copyDir(source.Path, destPath); err != nil {
 		return nil, fmt.Errorf("failed to copy skill: %w", err)
 	}
 
@@ -250,6 +256,10 @@ func installFromLocal(source *Source, destPath string, result *InstallResult, op
 
 	// Write metadata with file hashes
 	meta := NewMetaFromSource(source)
+	meta.Layout = LayoutDirectory
+	if opts.skillFileOnly {
+		meta.Layout = LayoutSkillFile
+	}
 	if hashes, hashErr := ComputeFileHashes(destPath); hashErr == nil {
 		meta.FileHashes = hashes
 	}
@@ -468,6 +478,7 @@ func writeDiscoveredSkillMetadata(discovery *DiscoveryResult, skill SkillInfo, d
 		Commit:   discovery.Source.Commit,
 	}
 	meta := NewMetaFromSource(source)
+	meta.Layout = discoveredLocalLayout(discovery, skill)
 	sourceRoot := discoverySourceRoot(discovery)
 	if discovery.CommitHash != "" {
 		meta.Version = discovery.CommitHash

@@ -181,6 +181,8 @@ target_naming: flat
 | `flat` | 巢狀 Skill 用 `__` 分隔攤平（例如 `frontend__dev`）。**（預設）** |
 | `standard` | 直接使用 SKILL.md 的 `name` 欄位（例如 `dev`）。遵循 [Agent Skills 規範](https://agentskills.io/specification)。 |
 
+兩種模式下，`include` / `exclude` 都一律比對扁平化的名稱（`frontend__dev`），所以在 `standard` 下 filter 用的名稱與 `sync` 建立的資料夾名稱不同——見 [include / exclude](#include--exclude-target-filters)。
+
 ### `targets`
 
 要同步的 AI CLI Skill 目錄。
@@ -317,6 +319,7 @@ targets:
 
 規則：
 - 比對的對象是 Target 的 flat 名稱（例如 `team__frontend__ui`）
+- 比對不到任何 skill 的 `include` 模式會被回報，因為這樣的 target 不會同步任何東西，還會移除先前由正確模式連結的條目。即使 `target_naming: standard` 讓 target 目錄顯示 SKILL.md 的裸名稱，filters 用的仍是 flat 名稱
 - `include` 會先套用
 - `exclude` 會在 include 之後套用
 - 樣式語法使用 Go 的 `filepath.Match`（`*`、`?`、`[...]`）

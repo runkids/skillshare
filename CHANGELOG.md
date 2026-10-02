@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.23.5] - 2026-10-02
+
+### Bug Fixes
+
+#### Sync
+
+- **An `include` pattern that matches no skill is reported** — target filters match the source path name, such as `frontend__dev`, even when `target_naming: standard` shows the folder as `dev`. A pattern written with the name the target shows selected nothing, and sync removed what a working pattern had linked without saying why. Sync now warns about each `include` pattern that matches no skill, names the target, and suggests the source path name when one fits. The warning appears in `skillshare sync` and in the dashboard's sync results. `--json` output is unchanged.
+  ```text
+  ! claude: include pattern "dev" matches no skill in the source (filters use the source path name; did you mean "frontend__dev"?)
+  ```
+
 ## [0.23.4] - 2026-10-01
 
 ### Bug Fixes

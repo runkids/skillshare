@@ -43,10 +43,34 @@ result=$(skillshare check --json)
 1. **Tracked 儲存庫** — 從 origin fetch，顯示落後多少個 commits
 2. **已安裝的 skills（含 metadata）** — 比較已安裝版本與遠端 HEAD
 3. **過期的 skills** — 偵測上游儲存庫中已刪除的子目錄
-4. **本機 skills** — 標記為「local source」（沒有遠端可比較）
-5. **Skill 層級的 `targets` 驗證** — 對 SKILL.md `targets` frontmatter 欄位中未知的 target 名稱發出警告
+4. **從本機路徑安裝的 skills** — 將安裝來源路徑中的檔案與安裝時記錄的檔案比對（參見[從本機路徑安裝](#local-path-installs)）
+5. **本機 skills** — 將沒有安裝 metadata 的 skill 標記為「local source」（沒有可比對的對象）
+6. **Skill 層級的 `targets` 驗證** — 對 SKILL.md `targets` frontmatter 欄位中未知的 target 名稱發出警告
 
 與 `update` 不同，`check` 絕不會修改任何檔案。
+
+## 從本機路徑安裝 {#local-path-installs}
+
+從磁碟目錄安裝的 skill（`skillshare install /path/to/skill`）會記錄該路徑，以及所複製每個檔案的 hash。`check` 會重新計算該路徑下檔案的 hash，並回報：
+
+- **up to date** — 檔案與安裝時一致
+- **update available** — 來源路徑中有檔案被修改、新增或刪除
+- **error** — 來源路徑已不存在（`local source not found: <path>`）
+
+這適用於由其他應用程式發布和更新的 skill，例如 App bundle 裡的 skill：
+
+```bash
+skillshare install /Applications/Surge.app/Contents/Resources/Skills/surge
+
+# App 更新後：
+skillshare check surge     # → Update available
+skillshare update surge    # 從該路徑重新複製，並執行安全稽核
+skillshare sync
+```
+
+在記錄檔案 hash 之前安裝的 skill，會維持「local source」狀態，直到執行 update 或重新安裝。在 project mode 中，相對路徑（如 `./vendor/my-skill`）以 project root 為基準解析。
+
+在 dashboard 中安裝一個還包含子 skill 的目錄的根時，只會複製該根目錄的 `SKILL.md`。此時 `check` 只比對 `SKILL.md`，`update` 也只重新複製 `SKILL.md`。
 
 ## 輸出範例
 
@@ -135,6 +159,8 @@ skillshare check --json
 }
 ```
 
+`"status": "error"` 的 skill 在已知原因時會包含 `message` 欄位，例如 `"message": "local source not found: /path/to/skill"`。
+
 ## 狀態圖示
 
 | 圖示 | 意義 |
@@ -143,7 +169,7 @@ skillshare check --json
 | `⬇` | 有可用更新（tracked 儲存庫：落後的 commits 數；skill：有新版本） |
 | `⚠` | 過期 — 上游子目錄已刪除或重新命名 |
 | `!` | 有未提交的變更 |
-| `•` | 本機來源（沒有遠端可比較） |
+| `•` | 本機來源（沒有安裝 metadata 可比對） |
 
 :::info 過期的 skills
 當某個 skill 的子目錄在上游被重新命名或刪除，`check` 會回報為 **stale（過期）**。使用 `update --prune` 清除過期的 skills。

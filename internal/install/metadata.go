@@ -55,6 +55,7 @@ type MetadataEntry struct {
 	TreeHash    string            `json:"tree_hash,omitempty"`
 	Commit      string            `json:"commit,omitempty"` // full SHA; the lockfile records it
 	FileHashes  map[string]string `json:"file_hashes,omitempty"`
+	Layout      string            `json:"layout,omitempty"` // local installs: LayoutSkillFile or LayoutDirectory
 }
 
 // NewMetadataStore returns an empty store with version 1.
@@ -241,6 +242,7 @@ func WriteMetaToStore(sourceDir, destPath string, meta *SkillMeta) error {
 		Version:     meta.Version,
 		TreeHash:    meta.TreeHash,
 		FileHashes:  meta.FileHashes,
+		Layout:      meta.Layout,
 		Branch:      meta.Branch,
 		Commit:      meta.Commit,
 	})

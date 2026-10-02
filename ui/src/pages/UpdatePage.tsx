@@ -187,6 +187,7 @@ export default function UpdatePage({ kind }: { kind: Kind }) {
         if (!item) continue;
         next.set(item.name, {
           status: skill.status === 'update_available' ? 'update-available' : skill.status === 'error' ? 'error' : 'up-to-date',
+          message: skill.message,
           checkedAt,
         });
         pending.delete(item.name);

@@ -32,6 +32,7 @@ func (s *Server) handleCheckStream(w http.ResponseWriter, r *http.Request) {
 	// Snapshot config under RLock, then release before slow I/O.
 	s.mu.RLock()
 	sourceDir := s.skillsSource()
+	projectRoot := s.projectRoot
 	s.mu.RUnlock()
 
 	// Immediate feedback before the potentially slow discovery walk.
@@ -47,10 +48,7 @@ func (s *Server) handleCheckStream(w http.ResponseWriter, r *http.Request) {
 	for _, skill := range skills {
 		entry := s.skillEntry(skill)
 		if entry == nil || entry.RepoURL == "" {
-			localResults = append(localResults, skillCheckResult{
-				Name:   skill,
-				Status: "local",
-			})
+			localResults = append(localResults, localCheckResult(skill, entry, projectRoot))
 			continue
 		}
 		key := urlBranchGroup{url: entry.RepoURL, branch: entry.Branch}

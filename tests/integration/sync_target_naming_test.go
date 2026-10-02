@@ -13,6 +13,51 @@ import (
 	"skillshare/internal/testutil"
 )
 
+func TestSync_IncludePatternMatchingNothing_IsReported(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sb.CreateNestedSkill("frontend/dev", map[string]string{
+		"SKILL.md": "---\nname: dev\n---\n# Dev",
+	})
+	targetPath := sb.CreateTarget("claude")
+
+	writeInclude := func(naming, include string) {
+		sb.WriteConfig(`source: ` + sb.SourcePath + `
+target_naming: ` + naming + `
+targets:
+  claude:
+    path: ` + targetPath + `
+    mode: merge
+    include: [` + include + `]
+`)
+	}
+
+	// Filters match the source-path name, so this is the pattern that works.
+	writeInclude("standard", "frontend__dev")
+	first := sb.RunCLI("sync")
+	first.AssertSuccess(t)
+	if !sb.IsSymlink(filepath.Join(targetPath, "dev")) {
+		t.Fatal("expected frontend__dev to link under the bare name dev")
+	}
+	first.AssertOutputNotContains(t, "matches no skill")
+
+	// The same skill addressed by the name the target shows matches nothing, and
+	// the entry the previous filter created is pruned. The mismatch has to be
+	// visible instead of silent.
+	writeInclude("standard", "dev")
+	second := sb.RunCLI("sync")
+	second.AssertSuccess(t)
+	second.AssertOutputContains(t, `claude: include pattern "dev" matches no skill`)
+	second.AssertOutputContains(t, "frontend__dev")
+
+	// The heuristic also runs in the default flat naming mode.
+	writeInclude("flat", "dev")
+	third := sb.RunCLI("sync")
+	third.AssertSuccess(t)
+	third.AssertOutputContains(t, `include pattern "dev" matches no skill`)
+}
+
 func TestSync_TargetNamingStandard_MergeUsesBareName(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()

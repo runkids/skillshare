@@ -32,6 +32,7 @@ type checkSkillResult struct {
 	Version     string `json:"version"`
 	Status      string `json:"status"` // "up_to_date", "update_available", "local", "error"
 	InstalledAt string `json:"installed_at,omitempty"`
+	Message     string `json:"message,omitempty"`
 }
 
 // checkOutput is the JSON output structure
@@ -56,7 +57,8 @@ type skillWithMeta struct {
 
 // collectCheckItems reads metadata and partitions items for parallel checking.
 // Returns: tracked repo inputs, URL-grouped skills, local skill results (no network needed).
-func collectCheckItems(sourceDir string, repos []string, skills []string) (
+// projectRoot is the base of relative local sources; "" in global mode.
+func collectCheckItems(sourceDir, projectRoot string, repos []string, skills []string) (
 	[]check.RepoCheckInput,
 	map[string][]skillWithMeta,
 	[]checkSkillResult,
@@ -80,7 +82,8 @@ func collectCheckItems(sourceDir string, repos []string, skills []string) (
 		entry := store.GetByPath(skill)
 
 		if entry == nil || entry.RepoURL == "" {
-			result := checkSkillResult{Name: skill, Status: "local"}
+			result := checkSkillResult{Name: skill}
+			result.Status, result.Message = check.LocalSourceStatus(entry, projectRoot)
 			if entry != nil {
 				result.Source = entry.Source
 				result.Version = entry.Version
@@ -219,13 +222,13 @@ func cmdCheck(args []string) error {
 
 	// No names and no groups → check all (existing behavior)
 	if len(opts.names) == 0 && len(opts.groups) == 0 {
-		cmdErr := runCheck(cfg.EffectiveSkillsSource(), opts.json, targetNamesFromConfig(cfg.Targets))
+		cmdErr := runCheck(cfg.EffectiveSkillsSource(), "", opts.json, targetNamesFromConfig(cfg.Targets))
 		logCheckOp(cfgPath, 0, 0, 0, 0, scope, start, cmdErr)
 		return cmdErr
 	}
 
 	// Filtered check: resolve targets then check only those
-	cmdErr := runCheckFiltered(cfg.EffectiveSkillsSource(), opts)
+	cmdErr := runCheckFiltered(cfg.EffectiveSkillsSource(), "", opts)
 	logCheckOp(cfgPath, 0, 0, 0, 0, scope, start, cmdErr)
 	return cmdErr
 }
@@ -245,7 +248,7 @@ func logCheckOp(cfgPath string, repos, skills, updatesAvailable, errors int, sco
 	oplog.WriteWithLimit(cfgPath, oplog.OpsFile, e, logMaxEntries()) //nolint:errcheck
 }
 
-func runCheck(sourceDir string, jsonOutput bool, extraTargetNames []string) error {
+func runCheck(sourceDir, projectRoot string, jsonOutput bool, extraTargetNames []string) error {
 	if !jsonOutput {
 		ui.Header(ui.WithModeLabel("Checking for updates"))
 		ui.StepStart("Source", sourceDir)
@@ -289,7 +292,7 @@ func runCheck(sourceDir string, jsonOutput bool, extraTargetNames []string) erro
 	}
 
 	// Collect & group
-	repoInputs, urlGroups, localResults := collectCheckItems(sourceDir, repos, skills)
+	repoInputs, urlGroups, localResults := collectCheckItems(sourceDir, projectRoot, repos, skills)
 
 	if scanSpinner != nil {
 		scanSpinner.Stop()
@@ -466,7 +469,7 @@ func renderCheckResults(repoResults []checkRepoResult, skillResults []checkSkill
 				fmt.Println()
 				hasSkillOutput = true
 			}
-			ui.ListItem("warning", s.Name, "cannot reach remote")
+			ui.ListItem("warning", s.Name, skillErrorMessage(s))
 		}
 	}
 
@@ -656,7 +659,7 @@ func resolveSkillStatuses(
 // runCheckFiltered checks only the specified targets (resolved from names/groups).
 // Note: unlike runCheck, this intentionally skips warnUnknownSkillTargets because
 // filtered checks only verify update status for explicitly named skills/groups.
-func runCheckFiltered(sourceDir string, opts *checkOptions) error {
+func runCheckFiltered(sourceDir, projectRoot string, opts *checkOptions) error {
 	if !opts.json {
 		ui.Header(ui.WithModeLabel("Checking for updates"))
 		ui.StepStart("Source", sourceDir)
@@ -775,7 +778,7 @@ func runCheckFiltered(sourceDir string, opts *checkOptions) error {
 		}
 	}
 
-	repoInputs, urlGroups, localResults := collectCheckItems(sourceDir, repoNames, skillNames)
+	repoInputs, urlGroups, localResults := collectCheckItems(sourceDir, projectRoot, repoNames, skillNames)
 
 	var urlInputs []check.URLCheckInput
 	var urlOrder []string
@@ -863,6 +866,15 @@ func runCheckFiltered(sourceDir string, opts *checkOptions) error {
 	return nil
 }
 
+// skillErrorMessage returns the reason for an "error" skill result, falling
+// back to the remote-probe failure that most errors come from.
+func skillErrorMessage(s checkSkillResult) string {
+	if s.Message != "" {
+		return s.Message
+	}
+	return "cannot reach remote"
+}
+
 // singleCheckResult holds the display status for a single-target check.
 type singleCheckResult struct {
 	status  string // "success" or "error"
@@ -896,6 +908,9 @@ func singleCheckStatus(repos []checkRepoResult, skills []checkSkillResult) singl
 		case "local":
 			return singleCheckResult{"success", "Local skill (no remote source)"}
 		case "error":
+			if s.Message != "" {
+				return singleCheckResult{"error", s.Message}
+			}
 			return singleCheckResult{"error", "Cannot reach remote"}
 		default:
 			return singleCheckResult{"info", s.Status}

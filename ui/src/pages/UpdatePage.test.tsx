@@ -108,6 +108,39 @@ describe('UpdatePage', () => {
     expect(row.queryByText('Checking')).not.toBeInTheDocument();
   });
 
+  it('shows why a skill check failed', async () => {
+    vi.mocked(api.listSkills).mockResolvedValue({
+      resources: [{ ...nestedSkill, source: '/apps/tool/skills/agent-browser', type: 'local' }],
+    });
+    vi.mocked(api.checkStream).mockImplementation((_onDiscovering, _onStart, _onProgress, onDone) => {
+      queueMicrotask(() => {
+        onDone({
+          tracked_repos: [],
+          skills: [
+            {
+              name: 'tools/agent-browser',
+              source: '',
+              version: '',
+              status: 'error',
+              message: 'local source not found: /apps/tool/skills/agent-browser',
+            },
+          ],
+        });
+      });
+      return { close: vi.fn() } as unknown as EventSource;
+    });
+
+    const user = userEvent.setup();
+    renderUpdatePage();
+
+    await user.click(await screen.findByRole('button', { name: /check for updates/i }));
+
+    const row = await findRow('agent-browser');
+    await waitFor(() => {
+      expect(row.getByTitle('local source not found: /apps/tool/skills/agent-browser')).toBeInTheDocument();
+    });
+  });
+
   it('restores cached check status and last check time on entry', async () => {
     vi.mocked(api.listSkills).mockResolvedValue({
       resources: [nestedSkill],

@@ -1,6 +1,6 @@
 # skillshare Wiki Router
 
-The wiki stores development background, procedures, references, and history, but no task needs all of it at once. Rules that apply to every task live in the root `AGENTS.md`. `docs/ai-context.json` is the only source of truth for topic-to-source mappings.
+The wiki stores development background, procedures, references, and history, but no task needs all of it at once. Rules that apply to every task live in the root `AGENTS.md`. `wiki/ai-context.json` is the only source of truth for topic-to-source mappings.
 
 ```sh
 python3 scripts/ai-context.py list

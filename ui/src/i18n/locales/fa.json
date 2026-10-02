@@ -444,6 +444,8 @@
   "gitSync.conflict.choose.remote": "نگه داشتن نسخه راه دور {path}",
   "gitSync.conflict.choose": "این نسخه را نگه دار",
   "gitSync.conflict.selected": "انتخاب‌شده",
+  "gitSync.conflict.diffLine": "{count} خط متفاوت",
+  "gitSync.conflict.diffLines": "{count} خط متفاوت",
   "gitSync.conflict.deleted": "در این نسخه حذف شده",
   "gitSync.conflict.noPreview": "پیش‌نمایش متن موجود نیست (دودویی یا بیش از 16 KiB).",
   "gitSync.conflict.progress": "{chosen} از {total} فایل انتخاب شده",

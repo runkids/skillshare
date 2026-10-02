@@ -3,10 +3,12 @@ package sync
 import (
 	"fmt"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"skillshare/internal/config"
 	"skillshare/internal/resource"
+	"skillshare/internal/utils"
 )
 
 // FilterSkills filters discovered skills by include/exclude patterns.
@@ -117,6 +119,79 @@ func shouldSyncFlatName(name string, includePatterns, excludePatterns []string) 
 		return false
 	}
 	return true
+}
+
+// UnmatchedInclude is an include pattern that selects no discovered skill,
+// together with the source-path names a bare pattern most likely meant.
+type UnmatchedInclude struct {
+	Pattern     string
+	Suggestions []string
+}
+
+// FindUnmatchedIncludes returns the include patterns that select no skill.
+// Patterns are matched against the source-path flat name (see FilterSkills), so
+// a pattern written with the name the target directory shows selects nothing,
+// and the entries a previous pattern created get pruned. exclude is not checked:
+// a filter that blocks nothing is the normal state of a spare exclusion.
+// Callers must have validated the patterns through FilterSkills first, which is
+// also why an invalid pattern yields no report here.
+func FindUnmatchedIncludes(include []string, skills []DiscoveredSkill) []UnmatchedInclude {
+	patterns, err := normalizePatterns(include)
+	if err != nil || len(patterns) == 0 {
+		return nil
+	}
+
+	var unmatched []UnmatchedInclude
+	for _, pattern := range patterns {
+		selected := false
+		for _, skill := range skills {
+			if matched, _ := filepath.Match(pattern, skill.FlatName); matched {
+				selected = true
+				break
+			}
+		}
+		if selected {
+			continue
+		}
+		unmatched = append(unmatched, UnmatchedInclude{
+			Pattern:     pattern,
+			Suggestions: suggestFlatNames(pattern, skills),
+		})
+	}
+	return unmatched
+}
+
+// suggestFlatNames returns the flat names whose last path segment is the
+// pattern, which is the name the target shows under standard naming. Glob
+// patterns get no suggestion, and the result is capped because this is printed
+// per target on every sync.
+func suggestFlatNames(pattern string, skills []DiscoveredSkill) []string {
+	if strings.ContainsAny(pattern, "*?[") {
+		return nil
+	}
+
+	seen := make(map[string]bool)
+	var names []string
+	for _, skill := range skills {
+		if skill.FlatName == pattern || seen[skill.FlatName] {
+			continue
+		}
+		flat := skill.FlatName
+		last := flat
+		if i := strings.LastIndex(flat, utils.NestedSeparator); i >= 0 {
+			last = flat[i+len(utils.NestedSeparator):]
+		}
+		if last != pattern {
+			continue
+		}
+		seen[flat] = true
+		names = append(names, flat)
+	}
+	slices.Sort(names)
+	if len(names) > 3 {
+		names = names[:3]
+	}
+	return names
 }
 
 // FilterSkillsByTarget removes skills whose Targets field does not include

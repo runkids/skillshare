@@ -36,6 +36,8 @@ python3 scripts/ai-context.py <topic>   # print only that topic's sources
 python3 scripts/ai-context.py check     # validate paths, headings, orphans, and byte budgets
 ```
 
+The router runs on the host and needs only Python 3.8+. On Windows, use `py` or `python` when `python3` is not available.
+
 | Topic | Use when |
 |---|---|
 | `architecture` | Tracing repository structure, data flow, or CLI/Web API boundaries |
@@ -52,7 +54,7 @@ Pick the single closest topic by default. Load a second only when a task genuine
 To add a topic:
 
 1. Put its content in `wiki/`.
-2. Map it in `docs/ai-context.json`.
+2. Map it in `wiki/ai-context.json`.
 3. Add it to this table and `wiki/README.md`.
 4. Run `check`.
 

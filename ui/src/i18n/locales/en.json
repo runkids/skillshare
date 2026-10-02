@@ -309,6 +309,8 @@
   "gitSync.conflict.choose.remote": "Keep remote version of {path}",
   "gitSync.conflict.choose": "Keep this version",
   "gitSync.conflict.selected": "Selected",
+  "gitSync.conflict.diffLine": "{count} line differs",
+  "gitSync.conflict.diffLines": "{count} lines differ",
   "gitSync.conflict.deleted": "Deleted in this version",
   "gitSync.conflict.noPreview": "Text preview unavailable (binary or larger than 16 KiB).",
   "gitSync.conflict.progress": "{chosen} of {total} files selected",

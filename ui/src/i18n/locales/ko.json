@@ -444,6 +444,8 @@
   "gitSync.conflict.choose.remote": "{path}의 원격 버전 유지",
   "gitSync.conflict.choose": "이 버전 유지",
   "gitSync.conflict.selected": "선택됨",
+  "gitSync.conflict.diffLine": "{count}줄 다름",
+  "gitSync.conflict.diffLines": "{count}줄 다름",
   "gitSync.conflict.deleted": "이 버전에서 삭제됨",
   "gitSync.conflict.noPreview": "텍스트 미리보기 불가 (바이너리 또는 16 KiB 초과).",
   "gitSync.conflict.progress": "{total}개 파일 중 {chosen}개 선택",

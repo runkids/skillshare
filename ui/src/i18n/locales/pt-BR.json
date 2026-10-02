@@ -444,6 +444,8 @@
   "gitSync.conflict.choose.remote": "Manter versão remota de {path}",
   "gitSync.conflict.choose": "Manter esta versão",
   "gitSync.conflict.selected": "Selecionada",
+  "gitSync.conflict.diffLine": "{count} linha diferente",
+  "gitSync.conflict.diffLines": "{count} linhas diferentes",
   "gitSync.conflict.deleted": "Excluído nesta versão",
   "gitSync.conflict.noPreview": "Prévia indisponível (binário ou maior que 16 KiB).",
   "gitSync.conflict.progress": "{chosen} de {total} arquivos selecionados",

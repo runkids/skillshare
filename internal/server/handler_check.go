@@ -30,6 +30,15 @@ type skillCheckResult struct {
 	Status      string `json:"status"`
 	InstalledAt string `json:"installed_at,omitempty"`
 	Kind        string `json:"kind,omitempty"`
+	Message     string `json:"message,omitempty"`
+}
+
+// localCheckResult checks a skill without a remote: local installs are
+// compared against their recorded source path, the rest stay "local".
+// projectRoot is the base of relative sources; "" in global mode.
+func localCheckResult(name string, entry *install.MetadataEntry, projectRoot string) skillCheckResult {
+	status, message := check.LocalSourceStatus(entry, projectRoot)
+	return skillCheckResult{Name: name, Status: status, Message: message}
 }
 
 // checkTrackedRepo checks one tracked repo with the same logic as the CLI:
@@ -43,6 +52,7 @@ func (s *Server) handleCheck(w http.ResponseWriter, r *http.Request) {
 	// Snapshot config under RLock, then release before I/O.
 	s.mu.RLock()
 	sourceDir := s.skillsSource()
+	projectRoot := s.projectRoot
 	s.mu.RUnlock()
 
 	repos, _ := install.GetTrackedRepos(sourceDir)
@@ -60,10 +70,7 @@ func (s *Server) handleCheck(w http.ResponseWriter, r *http.Request) {
 	for _, skill := range skills {
 		entry := s.skillEntry(skill)
 		if entry == nil || entry.RepoURL == "" {
-			localResults = append(localResults, skillCheckResult{
-				Name:   skill,
-				Status: "local",
-			})
+			localResults = append(localResults, localCheckResult(skill, entry, projectRoot))
 			continue
 		}
 		key := urlBranchGroup{url: entry.RepoURL, branch: entry.Branch}

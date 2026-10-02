@@ -44,7 +44,7 @@ type SkillTargetResult struct {
 	DirCreated string
 	// SymlinkStatus is the target path's status before a symlink-mode sync.
 	SymlinkStatus TargetStatus
-	Warnings      []string // prune failure, then the prune's own warnings
+	Warnings      []string // unmatched includes, prune failure, then the prune's own warnings
 	Err           error    // the target failed to sync; nothing else is set
 }
 
@@ -62,6 +62,7 @@ func SyncSkillTarget(t SkillTarget, skills []DiscoveredSkill, opts SkillRunOptio
 			return res
 		}
 		res.Linked, res.Updated, res.Skipped, res.DirCreated = result.Linked, result.Updated, result.Skipped, result.DirCreated
+		res.addTargetWarnings(result.Warnings)
 		prune, err := PruneOrphanLinksWithSkills(PruneOptions{
 			TargetPath: sc.Path, SourcePath: opts.Source, Skills: skills,
 			Include: sc.Include, Exclude: sc.Exclude, TargetNaming: sc.TargetNaming, TargetName: t.Name,
@@ -79,6 +80,7 @@ func SyncSkillTarget(t SkillTarget, skills []DiscoveredSkill, opts SkillRunOptio
 			return res
 		}
 		res.Linked, res.Updated, res.Skipped, res.DirCreated = result.Copied, result.Updated, result.Skipped, result.DirCreated
+		res.addTargetWarnings(result.Warnings)
 		prune, err := PruneOrphanCopiesWithSkills(sc.Path, skills, sc.Include, sc.Exclude, t.Name, sc.TargetNaming, opts.DryRun)
 		res.addPrune(prune, err)
 
@@ -101,6 +103,13 @@ func SyncSkillTarget(t SkillTarget, skills []DiscoveredSkill, opts SkillRunOptio
 		res.Err = SyncTarget(t.Name, t.Target, opts.Source, opts.DryRun, opts.ProjectRoot)
 	}
 	return res
+}
+
+// addTargetWarnings records warnings about the target's own config.
+func (res *SkillTargetResult) addTargetWarnings(warnings []string) {
+	for _, w := range warnings {
+		res.Warnings = append(res.Warnings, fmt.Sprintf("%s: %s", res.Name, w))
+	}
 }
 
 // addPrune records a prune's removals and reports its failure and warnings.

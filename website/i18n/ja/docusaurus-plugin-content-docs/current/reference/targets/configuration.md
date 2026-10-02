@@ -183,6 +183,8 @@ target_naming: flat
 | `flat` | ネストされた Skill が `__` セパレータでフラット化される（例: `frontend__dev`）。**（デフォルト）** |
 | `standard` | SKILL.md の `name` フィールドをそのまま使う（例: `dev`）。[Agent Skills spec](https://agentskills.io/specification) に準拠。 |
 
+`include` / `exclude` はどちらの mode でも flat 名（`frontend__dev`）にマッチし続けるため、`standard` ではフィルターの名前と `sync` が作るフォルダー名が異なります。[include / exclude](#include--exclude-target-filters) を参照してください。
+
 ### `targets`
 
 Sync 先の AI CLI Skill ディレクトリ。
@@ -325,6 +327,7 @@ targets:
 
 ルール:
 - マッチングは Target のフラット名に対して行われる（例: `team__frontend__ui`）
+- どの Skill にも一致しない `include` パターンは報告される。そういう Target は何も同期せず、以前のパターンがリンクしていたものを削除してしまうため。`target_naming: standard` で Target ディレクトリに SKILL.md の名前だけが表示されても、フィルターは flat 名を使う
 - `include` が先に適用される
 - `exclude` は include の後に適用される
 - パターン構文は Go の `filepath.Match`（`*`、`?`、`[...]`）を使用

@@ -6,10 +6,10 @@ This page is the complete in-repository manual for maintaining agent documentati
 
 1. **Kernel:** root `AGENTS.md`, loaded for every task. It contains only universal rules and topic triggers.
 2. **Scoped instructions:** package- or app-specific nested `AGENTS.md` files. Every scoped file must be loaded by at least one topic.
-3. **Topics:** `docs/ai-context.json` maps topics to complete files or exact headings. `scripts/ai-context.py <topic>` prints only those sections.
+3. **Topics:** `wiki/ai-context.json` maps topics to complete files or exact headings. `scripts/ai-context.py <topic>` prints only those sections.
 4. **History:** `wiki/history/` stores milestone logs in their original language. History is not loaded by default and is indexed in `wiki/README.md`.
 
-`docs/ai-context.json` is the single source of truth. The tables in `AGENTS.md` and `wiki/README.md` are discovery mirrors.
+`wiki/ai-context.json` is the single source of truth. The tables in `AGENTS.md` and `wiki/README.md` are discovery mirrors.
 
 ## When Documentation Must Change
 
@@ -29,7 +29,7 @@ Do not put volatile state in the wiki, including progress counts, current owners
 ## Adding or Changing a Topic
 
 1. Put the content in `wiki/<page>.md`. A topic should represent a recognizable kind of work, not one ticket or file.
-2. Map it in `docs/ai-context.json` using a complete file or exact heading.
+2. Map it in `wiki/ai-context.json` using a complete file or exact heading.
 3. Add it to the tables in `AGENTS.md` and `wiki/README.md`.
 4. Run `python3 scripts/ai-context.py check`.
 5. Render the topic and read it as an agent would; it must be sufficient on its own for the task.

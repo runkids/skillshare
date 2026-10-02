@@ -63,6 +63,8 @@ flowchart TD
 
 ### For Regular Skills
 
+Skills installed from a remote source are reinstalled from it. Skills installed from a local path (`skillshare install /path/to/skill`) are re-copied from that path, so `update` picks up changes made there; [`check`](./check.md#local-path-installs) reports when that path has changed.
+
 ```mermaid
 flowchart TD
     TITLE["skillshare update my-skill"]
@@ -427,6 +429,7 @@ skillshare update --all -p --skip-audit  # Skip security audit gate
 |------|--------|-------------|
 | **Tracked repo** (`_repo`) | `git pull` | Has `.git/` directory |
 | **Remote skill** (with metadata) | Reinstall from source | Listed in `.metadata.json` |
+| **Local-path install** | Re-copy from the recorded path | Listed in `.metadata.json` with `type: local` |
 | **Local skill** | Skipped | Not listed in `.metadata.json` |
 
 The `_` prefix is optional — `skillshare update team-skills -p` auto-detects `_team-skills`.

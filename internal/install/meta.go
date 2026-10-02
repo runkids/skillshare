@@ -27,6 +27,7 @@ type SkillMeta struct {
 	FileHashes  map[string]string `json:"file_hashes,omitempty"` // sha256:<hex> per file
 	Branch      string            `json:"branch,omitempty"`      // Git branch (when non-default)
 	Commit      string            `json:"commit,omitempty"`      // Full commit SHA, what the lockfile records
+	Layout      string            `json:"layout,omitempty"`      // Files a local install copied
 }
 
 // EffectiveKind returns "skill" if Kind is empty, otherwise the Kind value.

@@ -181,6 +181,8 @@ target_naming: flat
 | `flat` | Nested skills flattened with `__` separators (e.g. `frontend__dev`). **(default)** |
 | `standard` | Uses the SKILL.md `name` field directly (e.g. `dev`). Follows the [Agent Skills spec](https://agentskills.io/specification). |
 
+`include` / `exclude` keep matching the flat name (`frontend__dev`) in both modes, so under `standard` the filter differs from the folder `sync` creates — see [include / exclude](#include--exclude-target-filters).
+
 ### `targets`
 
 AI CLI skill directories to sync to.
@@ -326,6 +328,7 @@ targets:
 
 Rules:
 - Matching is against target flat names (for example `team__frontend__ui`)
+- An `include` pattern that matches no skill is reported, because such a target syncs nothing and drops what a previous pattern linked. Filters keep using flat names even when `target_naming: standard` shows the bare `SKILL.md` name in the target
 - `include` is applied first
 - `exclude` is applied after include
 - Pattern syntax uses Go `filepath.Match` (`*`, `?`, `[...]`)

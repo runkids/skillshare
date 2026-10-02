@@ -177,6 +177,35 @@ func TestHandleInstallBatch_LocalAgentInstallPreservesNestedPath(t *testing.T) {
 	}
 }
 
+func TestHandleInstall_GlobalRelativeLocalPathRecordsAbsoluteSource(t *testing.T) {
+	s, _ := newTestServer(t)
+
+	parent := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(parent, "rel-skill"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(parent, "rel-skill", "SKILL.md"), []byte("---\nname: rel-skill\n---\n# Rel"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	t.Chdir(parent)
+
+	payload, _ := json.Marshal(map[string]any{"source": "./rel-skill", "skipAudit": true})
+	req := httptest.NewRequest(http.MethodPost, "/api/install", bytes.NewReader(payload))
+	rr := httptest.NewRecorder()
+	s.mux.ServeHTTP(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("unexpected status: got %d, body=%s", rr.Code, rr.Body.String())
+	}
+
+	entry := s.skillsStore.GetByPath("rel-skill")
+	if entry == nil {
+		t.Fatal("expected metadata for rel-skill")
+	}
+	if want := filepath.Join(parent, "rel-skill"); entry.Source != want {
+		t.Errorf("Source = %q, want %q", entry.Source, want)
+	}
+}
+
 func TestHandleInstall_ProjectRootRejected(t *testing.T) {
 	s, projectRoot := newProjectTargetServer(t, nil)
 

@@ -86,6 +86,11 @@
             "type": "string",
             "pattern": "^sha256:[0-9a-f]{64}$"
           }
+        },
+        "layout": {
+          "type": "string",
+          "enum": ["skill-file", "directory"],
+          "description": "Files a local-path install copied: only SKILL.md (the root of a directory that also holds child skills, installed from the dashboard), or the whole directory. Updates keep this shape."
         }
       }
     }

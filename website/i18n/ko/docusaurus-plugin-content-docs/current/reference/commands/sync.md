@@ -346,6 +346,7 @@ targets:
 ```
 
 - 매칭은 flat target 이름(예: `team__frontend__ui`)을 기준으로 합니다
+- 어떤 skill에도 일치하지 않는 `include` 패턴은 보고됩니다. 그런 target은 아무것도 동기화하지 못하고 이전 패턴이 링크한 항목을 제거하기 때문입니다. `target_naming: standard`로 target 폴더에 SKILL.md 이름만 표시되어도 filter는 flat 이름을 기준으로 합니다
 - `include`가 먼저 적용되고, 그다음 `exclude`가 적용됩니다
 - `diff`, `status`, `doctor`, 그리고 UI drift는 모두 필터링된 expected set을 사용합니다
 - symlink mode에서는 filter가 무시됩니다

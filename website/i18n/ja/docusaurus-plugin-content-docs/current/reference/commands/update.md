@@ -63,6 +63,8 @@ flowchart TD
 
 ### 通常の Skill の場合
 
+リモートソースからインストールした Skill は、そのソースから再インストールされます。ローカルパスからインストールした Skill（`skillshare install /path/to/skill`）はそのパスから再コピーされるため、`update` でそこでの変更を取り込めます。パスが変更されたことは [`check`](./check.md#local-path-installs) で確認できます。
+
 ```mermaid
 flowchart TD
     TITLE["skillshare update my-skill"]
@@ -427,6 +429,7 @@ skillshare update --all -p --skip-audit  # security audit gate をスキップ
 |------|--------|-------------|
 | **Tracked repo**（`_repo`） | `git pull` | `.git/` ディレクトリを持つ |
 | **Remote skill**（metadata 付き） | source から再インストール | `.metadata.json` に記載されている |
+| **ローカルパスからのインストール** | 記録されたパスから再コピー | `.metadata.json` に `type: local` で記載されている |
 | **Local skill** | スキップ | `.metadata.json` に記載されていない |
 
 `_` prefix は省略可能です — `skillshare update team-skills -p` は自動的に `_team-skills` を検出します。

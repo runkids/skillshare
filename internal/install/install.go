@@ -41,6 +41,9 @@ type InstallOptions struct {
 	// they point these at the final destination to keep metadata keys stable.
 	AuditAcceptRoot string
 	AuditAcceptPath string
+	// skillFileOnly makes a local install copy only SKILL.md. Updates set it
+	// to keep the shape of a collection root installed that way.
+	skillFileOnly bool
 }
 
 // auditAcceptTarget returns the (sourceDir, path) pair used to key accepted

@@ -183,3 +183,82 @@ func assertFlatNames(t *testing.T, skills []DiscoveredSkill, want []string) {
 		t.Fatalf("flat names = %v, want %v", got, want)
 	}
 }
+
+func TestFindUnmatchedIncludes_BareNameOfNestedSkill(t *testing.T) {
+	skills := testSkills("frontend__dev", "_repos__demo__lark-sheets", "alpha")
+
+	unmatched := FindUnmatchedIncludes([]string{"dev", "alpha", "lark-sheets"}, skills)
+
+	if len(unmatched) != 2 {
+		t.Fatalf("FindUnmatchedIncludes() = %+v, want dev and lark-sheets", unmatched)
+	}
+	if unmatched[0].Pattern != "dev" ||
+		!reflect.DeepEqual(unmatched[0].Suggestions, []string{"frontend__dev"}) {
+		t.Fatalf("first unmatched = %+v, want dev suggesting frontend__dev", unmatched[0])
+	}
+	if unmatched[1].Pattern != "lark-sheets" ||
+		!reflect.DeepEqual(unmatched[1].Suggestions, []string{"_repos__demo__lark-sheets"}) {
+		t.Fatalf("second unmatched = %+v, want lark-sheets suggesting _repos__demo__lark-sheets", unmatched[1])
+	}
+}
+
+func TestFindUnmatchedIncludes_SilentWhenPatternsSelect(t *testing.T) {
+	skills := testSkills("frontend__dev", "alpha")
+
+	if got := FindUnmatchedIncludes([]string{"frontend__dev", "alpha", "front*", ""}, skills); len(got) != 0 {
+		t.Fatalf("FindUnmatchedIncludes() = %+v, want none", got)
+	}
+	if got := FindUnmatchedIncludes(nil, skills); len(got) != 0 {
+		t.Fatalf("FindUnmatchedIncludes(nil) = %+v, want none", got)
+	}
+}
+
+func TestFindUnmatchedIncludes_NoSuggestionForGlobOrUnknownName(t *testing.T) {
+	skills := testSkills("frontend__dev", "alpha")
+
+	unmatched := FindUnmatchedIncludes([]string{"missing-*", "zzz"}, skills)
+	if len(unmatched) != 2 {
+		t.Fatalf("FindUnmatchedIncludes() = %+v, want both patterns", unmatched)
+	}
+	for _, entry := range unmatched {
+		if len(entry.Suggestions) != 0 {
+			t.Fatalf("pattern %q suggestions = %v, want none", entry.Pattern, entry.Suggestions)
+		}
+	}
+}
+
+func TestFindUnmatchedIncludes_NoSuggestionForTypoOfTopLevelSkill(t *testing.T) {
+	skills := testSkills("alpha", "frontend__dev")
+
+	unmatched := FindUnmatchedIncludes([]string{"lpha", "ev"}, skills)
+	if len(unmatched) != 2 {
+		t.Fatalf("FindUnmatchedIncludes() = %+v, want both patterns", unmatched)
+	}
+	for _, entry := range unmatched {
+		if len(entry.Suggestions) != 0 {
+			t.Fatalf("pattern %q suggestions = %v, want none", entry.Pattern, entry.Suggestions)
+		}
+	}
+}
+
+func TestFindUnmatchedIncludes_CapsSuggestions(t *testing.T) {
+	skills := testSkills("d__dev", "a__dev", "c__dev", "b__dev")
+
+	unmatched := FindUnmatchedIncludes([]string{"dev"}, skills)
+	if len(unmatched) != 1 {
+		t.Fatalf("FindUnmatchedIncludes() = %+v, want one entry", unmatched)
+	}
+	if want := []string{"a__dev", "b__dev", "c__dev"}; !reflect.DeepEqual(unmatched[0].Suggestions, want) {
+		t.Fatalf("suggestions = %v, want %v", unmatched[0].Suggestions, want)
+	}
+}
+
+func TestFindUnmatchedIncludes_SilentOnInvalidPattern(t *testing.T) {
+	skills := testSkills("frontend__dev")
+
+	// FilterSkills rejects the pattern and reports it first; repeating it here
+	// would read as two separate complaints about one typo.
+	if got := FindUnmatchedIncludes([]string{"[unclosed"}, skills); len(got) != 0 {
+		t.Fatalf("FindUnmatchedIncludes() = %+v, want none", got)
+	}
+}

@@ -198,6 +198,8 @@ skillshare install ~/Downloads/my-skill
 skillshare install /absolute/path/to/skill
 ```
 
+本機路徑會複製到 source 目錄。在 global mode 中，`./my-skill` 這類相對路徑會記錄為絕對路徑，因此 `update` 和 [`check`](./check.md#local-path-installs) 在任何目錄下都能找到它。在 project mode 中，由於 `.skillshare/config.yaml` 會在多台機器之間共用，路徑會照輸入原樣記錄。
+
 :::tip 模糊子目錄解析
 指定像 `owner/repo/skill-name` 這樣的子目錄路徑時，如果該 repo 中沒有完全相符的路徑，skillshare 會掃描所有 `SKILL.md` 檔案，並依目錄基礎名稱比對。如果有多個 skills 共用同一個名稱，會顯示含完整路徑的模糊錯誤，讓你指定確切的那一個。
 :::

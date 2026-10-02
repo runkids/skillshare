@@ -431,6 +431,13 @@ func cmdInstall(args []string) error {
 	if err == nil && parsed.opts.Branch != "" {
 		source.Branch = parsed.opts.Branch
 	}
+	// Global metadata has no fixed base for a relative path, so `update` and
+	// `check` would resolve it against whatever directory they run in.
+	// Project mode keeps relative sources: they are relative to the project
+	// root and the project config is shared across machines.
+	if err == nil && source.Type == install.SourceTypeLocalPath {
+		source.Raw = source.Path
+	}
 	if err != nil {
 		logInstallOp(config.ConfigPath(), rest, start, err, installLogSummary{
 			Source: parsed.sourceArg,

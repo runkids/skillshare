@@ -86,6 +86,7 @@ export interface SkillCheckResult {
   version: string;
   status: string;
   installed_at?: string;
+  message?: string;
 }
 
 export interface CheckResult {
