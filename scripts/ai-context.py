@@ -3,7 +3,7 @@
 
 usage: ai-context.py list | <topic> [<topic>...] | check
 
-Topics live in docs/ai-context.json. A source is a whole file or one exact
+Topics live in wiki/ai-context.json. A source is a whole file or one exact
 heading (the section runs to the next heading of the same or higher level).
 check also fails on orphans, so docs cannot silently drift out of the router:
 wiki pages no topic loads, history files missing from the router index, and
@@ -15,14 +15,14 @@ No dependencies beyond the Python 3.8+ standard library.
 import json, os, re, sys
 
 ROOT = os.path.realpath(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-CFG_PATH = os.path.join(ROOT, 'docs', 'ai-context.json')
+CFG_PATH = os.path.join(ROOT, 'wiki', 'ai-context.json')
 HEAD = re.compile(r'^(#{1,6})\s+(.+?)\s*#*\s*$')
 FENCE = re.compile(r'^\s{0,3}(`{3,}|~{3,})')
 
 
 def load_cfg():
     if not os.path.exists(CFG_PATH):
-        sys.exit(f'missing {CFG_PATH}; copy this script to <repo>/scripts/ and create docs/ai-context.json')
+        sys.exit(f'missing {CFG_PATH}; copy this script to <repo>/scripts/ and create wiki/ai-context.json')
     with open(CFG_PATH, encoding='utf-8') as f:
         return json.load(f)
 
@@ -44,7 +44,7 @@ def headings(lines):
 
 
 def section(src):
-    path = os.path.realpath(os.path.join(ROOT, src['path']))
+    path = os.path.realpath(os.path.join(ROOT, src['path'].replace('\\', '/')))
     if not path.startswith(ROOT + os.sep):
         raise ValueError(f'{src["path"]}: outside repo')
     with open(path, encoding='utf-8') as f:
@@ -74,8 +74,8 @@ def orphans(cfg):
     history = cfg.get('historyDir', f'{wiki}/history')
     router = cfg.get('routerFile', f'{wiki}/README.md')
     root_file = cfg.get('rootInstructions', 'AGENTS.md')
-    routed = {s['path'] for t in cfg['topics'].values() for s in t['sources']}
-    allowed = set(cfg.get('unrouted', {}))
+    routed = {s['path'].replace('\\', '/') for t in cfg['topics'].values() for s in t['sources']}
+    allowed = {p.replace('\\', '/') for p in cfg.get('unrouted', {})}
     router_text = open(os.path.join(ROOT, router), encoding='utf-8').read() if os.path.exists(os.path.join(ROOT, router)) else ''
     bad = []
     skip = {'.git', 'node_modules', 'dist', 'build', 'vendor', '.venv', 'target'}
@@ -125,6 +125,7 @@ def check(cfg):
 
 
 def main(argv):
+    sys.stdout.reconfigure(encoding='utf-8')  # section markers and CJK pages break cp1252/cp950 consoles on Windows
     cfg = load_cfg()
     args = argv[1:] or ['list']
     if args == ['list']:
