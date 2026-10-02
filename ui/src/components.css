@@ -359,6 +359,8 @@ svg.lucide { flex: none; stroke-width: var(--isw); }
 .ss-dlg { width: 440px; display: flex; flex-direction: column; background: var(--surface); border: var(--frame); border-radius: 16px; box-shadow: var(--sh-dialog); overflow: hidden; }
 :root[data-theme="playful"] .ss-dlg { border-radius: 16px; }
 .ss-dlg .dh { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; padding: 20px 22px 0; }
+/* A long scrolling body slides under the title, so mark the edge the way the footer does */
+.ss-dlg .dh.sep { padding-bottom: 14px; border-bottom: var(--sep); }
 /* The body is what scrolls, so the header and the footer's actions stay in reach on a short window */
 .ss-dlg .db { padding: 14px 22px 20px; display: flex; flex-direction: column; gap: 16px; min-height: 0; overflow-y: auto; }
 /* Children keep their height so a long body scrolls instead of squashing (and clipping) its lists */

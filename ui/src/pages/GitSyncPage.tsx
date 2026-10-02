@@ -213,7 +213,7 @@ export default function GitSyncPage() {
         {diverged && <div className="ss-note warn"><GitBranch size={16} /><span className="flex-1">{t('gitSync.diverged', { ahead: status.ahead, behind: status.behind })}</span></div>}
         {status.isRepo && status.isDirty && status.hasRemote && <div className="ss-note warn"><AlertCircle size={16} /><span className="flex-1">{t('gitSync.pull.blocked')}</span></div>}
         {runError && (
-          <div className="ss-note bad">
+          <div className={`ss-note bad${conflict ? ' !items-center' : ''}`}>
             <AlertCircle size={16} />
             <div className="flex min-w-0 flex-1 flex-col gap-1.5">
               <span className="whitespace-pre-wrap break-words">{conflict ? t('gitSync.conflict.stopped') : runError}</span>

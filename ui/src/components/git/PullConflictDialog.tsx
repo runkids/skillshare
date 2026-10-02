@@ -26,11 +26,11 @@ export default function PullConflictDialog({ conflict, onCancel, onConfirm }: Pr
     ? <div className="ss-note warn">{t('gitSync.conflict.deleted')}</div>
     : version.noPreview
       ? <div className="ss-note inf">{t('gitSync.conflict.noPreview')}</div>
-      : <CodeView content={version.content} lang={path} marks={lines} className="max-h-[55vh]" />;
+      : <CodeView content={version.content} lang={path} marks={lines} className="min-h-[40vh] max-h-[55vh]" />;
 
   return (
     <DialogShell open onClose={onCancel} maxWidth="5xl" padding="none" ariaLabel={title}>
-      <div className="dh"><h2 className="ss-h2">{title}</h2></div>
+      <div className="dh sep"><h2 className="ss-h2">{title}</h2></div>
       <div className="db flex flex-col gap-5">
         <div className="ss-note warn">{t('gitSync.conflict.hint')}</div>
         {conflict.files.map((file, index) => (
