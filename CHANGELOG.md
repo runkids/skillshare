@@ -2,11 +2,14 @@
 
 ## [0.23.5] - 2026-10-02
 
-
 ### Bug Fixes
 
-* **sync:** report include patterns that match no skill ([#326](https://github.com/runkids/skillshare/issues/326)) ([4e3b2b2](https://github.com/runkids/skillshare/commit/4e3b2b269ae34ada258a12cb97b6c6df0b6678b7)), closes [#325](https://github.com/runkids/skillshare/issues/325)
-* **sync:** show unmatched include warnings in every sync view ([#328](https://github.com/runkids/skillshare/issues/328)) ([80ac109](https://github.com/runkids/skillshare/commit/80ac109f722ef23ce7af59db41534078e0a87211)), closes [#325](https://github.com/runkids/skillshare/issues/325)
+#### Sync
+
+- **An `include` pattern that matches no skill is reported** — target filters match the source path name, such as `frontend__dev`, even when `target_naming: standard` shows the folder as `dev`. A pattern written with the name the target shows selected nothing, and sync removed what a working pattern had linked without saying why. Sync now warns about each `include` pattern that matches no skill, names the target, and suggests the source path name when one fits. The warning appears in `skillshare sync` and in the dashboard's sync results. `--json` output is unchanged.
+  ```text
+  ! claude: include pattern "dev" matches no skill in the source (filters use the source path name; did you mean "frontend__dev"?)
+  ```
 
 ## [0.23.4] - 2026-10-01
 
