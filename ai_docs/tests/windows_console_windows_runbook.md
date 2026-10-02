@@ -31,11 +31,13 @@ for descendants of `ss.exe` and new visible top-level windows.
 
 ## Steps
 
-1. Probe and build a pinned commit (`amd64` for x64 guests):
+1. Probe, then build a pinned commit for the guest's `arch=` (`ARM64` → `arm64`,
+   `AMD64` → `amd64`). Export `OUT` so later steps find the build:
 
    ```bash
    scripts/windows/utm.sh probe
-   scripts/windows/utm.sh build <ref> arm64
+   export OUT=${TMPDIR:-/tmp}/skillshare-utm
+   scripts/windows/utm.sh build <ref> <arm64|amd64>
    ```
 
 2. Create `C:\Users\Public\sstest` (grant the desktop user full access), then push:
