@@ -17,6 +17,7 @@ import (
 	"skillshare/internal/config"
 	"skillshare/internal/instructions"
 	"skillshare/internal/memory"
+	syncpkg "skillshare/internal/sync"
 )
 
 // Memory guidance is a marked block (see memory.Instructions) added to the
@@ -407,24 +408,29 @@ func (s *Server) handleMemoryGuidanceApply(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	if body.Token == "" || body.Token != plan.Token {
-		writeCodedError(w, http.StatusConflict, "memory_guidance_stale", "instruction files changed since the preview; review the changes again", map[string]string{})
+		writeCodedError(w, http.StatusConflict, "memory_guidance_stale", errGuidanceStale.Error(), map[string]string{})
 		return
 	}
 	type failure struct {
 		Path  string `json:"path"`
 		Error string `json:"error"`
+		Code  string `json:"code,omitempty"`
 	}
 	applied, failures := []string{}, []failure{}
 	for _, c := range plan.Changes {
-		if err := writeInstructionsFile(c.Path, c.After); err != nil {
-			failures = append(failures, failure{c.Path, err.Error()})
+		if err := writeGuidanceChange(c); err != nil {
+			code := ""
+			if errors.Is(err, errGuidanceStale) {
+				code = "memory_guidance_stale"
+			}
+			failures = append(failures, failure{Path: c.Path, Error: err.Error(), Code: code})
 			continue
 		}
 		applied = append(applied, c.Path)
 		if extra, ok := s.sharedExtra(c.shared); ok && c.shared != "" {
 			for _, result := range s.syncSharedCopies(extra) {
 				if result.Error != "" {
-					failures = append(failures, failure{result.Target, result.Error})
+					failures = append(failures, failure{Path: result.Target, Error: result.Error})
 				}
 			}
 		}
@@ -436,4 +442,33 @@ func (s *Server) handleMemoryGuidanceApply(w http.ResponseWriter, r *http.Reques
 	s.writeOpsLog("memory-guidance", status, start, map[string]any{"targets": body.Targets, "files": applied, "scope": "ui"}, msg)
 	root, _ := s.memoryRoot()
 	writeJSON(w, map[string]any{"success": len(failures) == 0, "applied": applied, "errors": failures, "targets": guidanceTargets(s.guidanceSites(s.memoryInstructions(root)))})
+}
+
+var errGuidanceStale = errors.New("instruction files changed since the preview; review the changes again")
+
+// writeGuidanceChange rechecks each file as earlier writes and syncs may take time.
+func writeGuidanceChange(c guidanceChange) error {
+	if err := checkGuidanceChange(c); err != nil {
+		return err
+	}
+	if !c.Created {
+		if err := syncpkg.BackupFile(c.Path, syncpkg.BackupReasonEdit); err != nil {
+			return err
+		}
+	}
+	if err := checkGuidanceChange(c); err != nil {
+		return err
+	}
+	return instructions.WriteFile(c.Path, c.After)
+}
+
+func checkGuidanceChange(c guidanceChange) error {
+	data, err := os.ReadFile(c.Path)
+	if err != nil && !os.IsNotExist(err) {
+		return err
+	}
+	if c.Created != os.IsNotExist(err) || string(data) != c.Before {
+		return errGuidanceStale
+	}
+	return nil
 }

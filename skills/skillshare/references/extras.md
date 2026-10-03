@@ -318,5 +318,12 @@ A stale editor save keeps the draft and displays the latest saved content for
 comparison. Confirm **Save my draft** to replace it using the refreshed version
 and a backup. **History** and the post-delete restore link open **Backup Files**
 filtered to the absolute note path. Unsupported notes remain listed without
-blocking valid notes. Rename/move, automatic learning, native automatic memory,
-and Obsidian integration are not implemented.
+blocking valid notes.
+
+**Move or rename** accepts a new relative Markdown path, creates missing folders,
+and preserves content and permissions. It requires the last-read version, rejects
+existing destinations, and backs up the source before removal. Markdown links and
+path-keyed backup history are not rewritten; keep the root `INDEX.md` in place
+because reading guidance references it. CLI commands and flags are unchanged.
+Automatic learning, native automatic memory, and Obsidian integration are not
+implemented.

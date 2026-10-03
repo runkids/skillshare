@@ -1,6 +1,7 @@
 package server
 
 import (
+	"errors"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -385,6 +386,54 @@ func TestMemoryGuidance_SkipsNonUTF8Files(t *testing.T) {
 			}
 			if got, _ := os.ReadFile(file); string(got) != string(latin1) {
 				t.Errorf("bytes changed: %q", got)
+			}
+		})
+	}
+}
+
+func TestMemoryGuidance_RechecksEachReviewedFile(t *testing.T) {
+	for _, change := range []string{"edited", "deleted", "created"} {
+		t.Run(change, func(t *testing.T) {
+			s, home := newInstructionsServer(t, "claude", "codex")
+			writeHome(t, home, ".claude/CLAUDE.md", "claude own\n")
+			codex := filepath.Join(home, ".codex/AGENTS.md")
+			if change != "created" {
+				writeHome(t, home, ".codex/AGENTS.md", "codex own\n")
+			}
+			plan := planGuidanceFor(t, s, `["claude","codex"]`)
+			if len(plan.Changes) != 2 {
+				t.Fatalf("plan = %+v", plan)
+			}
+			if err := writeGuidanceChange(plan.Changes[0]); err != nil {
+				t.Fatal(err)
+			}
+			// An external editor changes the later file while the earlier file is applied.
+			if change == "deleted" {
+				if err := os.Remove(codex); err != nil {
+					t.Fatal(err)
+				}
+			} else {
+				content := "external edit\n"
+				if change == "created" {
+					content = ""
+				}
+				writeHome(t, home, ".codex/AGENTS.md", content)
+			}
+			if err := writeGuidanceChange(plan.Changes[1]); !errors.Is(err, errGuidanceStale) {
+				t.Fatalf("expected stale conflict, got %v", err)
+			}
+			if change == "deleted" {
+				if _, err := os.Stat(codex); !os.IsNotExist(err) {
+					t.Fatal("deleted instructions recreated")
+				}
+			} else {
+				want := "external edit\n"
+				if change == "created" {
+					want = ""
+				}
+				if got := readFile(t, codex); got != want {
+					t.Fatalf("external edit lost: %q", got)
+				}
 			}
 		})
 	}

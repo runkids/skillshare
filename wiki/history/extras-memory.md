@@ -112,3 +112,21 @@ interpolations match across 11 dashboard locales. React Doctor against HEAD
 reports 86/100 and no errors, with four component-complexity warnings; the prior
 HEAD comparison also scored 86/100. Build warnings about existing bundle size,
 Browserslist data and Rspack configuration remain outside this increment.
+
+
+## PR review: final conflict checks
+
+Prepared note writes and deletions now re-read the saved version after backup,
+immediately before replacement or removal. Missing notes conflict with an
+existing-note version. New drafts use exclusive creation so competing creates
+cannot overwrite the first saved note. Guidance apply checks each reviewed
+file's content and existence, including after backup, and reports
+`memory_guidance_stale` for conflicts in its partial results while retaining
+already-applied paths. The built-in skill reference now documents dashboard
+move/rename instead of claiming it is unavailable.
+
+Regression tests first reproduced stale prepared writes, post-backup deletion,
+and edits to later guidance files during a multi-file apply. They now pass,
+along with a concurrent-create test, both affected package suites, the scoped
+race suite, and devcontainer `make check`. Context-router and diff whitespace
+checks passed. UI code and screenshots were not changed by these review fixes.

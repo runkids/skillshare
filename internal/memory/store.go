@@ -246,7 +246,7 @@ func Write(root, rel, content, version string) (Note, error) {
 	if err := tmp.Close(); err != nil {
 		return Note{}, err
 	}
-	if err := os.Rename(tmp.Name(), abs); err != nil {
+	if err := commitNote(root, rel, tmp.Name(), version); err != nil {
 		return Note{}, err
 	}
 	return Read(root, rel)
@@ -270,7 +270,7 @@ func Delete(root, rel, version string) error {
 	if err := syncpkg.BackupFile(abs, syncpkg.BackupReasonDelete); err != nil {
 		return err
 	}
-	return os.Remove(abs)
+	return removeNote(root, rel, version)
 }
 
 func Init(root string) error {
