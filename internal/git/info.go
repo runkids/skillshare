@@ -859,10 +859,11 @@ func ResetKeepingIgnores(dir, ref string) error {
 	}
 
 	after, _ := os.ReadFile(filepath.Join(dir, ".gitignore"))
+	// Compare raw lines: leading whitespace is part of a gitignore pattern.
 	var dropped []string
 	for _, line := range strings.Split(string(before), "\n") {
-		line = strings.TrimSpace(line)
-		if line != "" && !strings.HasPrefix(line, "#") && !gitignoreHasEntry(string(after), line) {
+		line = strings.TrimSuffix(line, "\r")
+		if strings.TrimSpace(line) != "" && !strings.HasPrefix(line, "#") && !hasRawLine(string(after), line) {
 			dropped = append(dropped, line)
 		}
 	}
@@ -889,7 +890,7 @@ func ResetKeepingIgnores(dir, ref string) error {
 		content += "\n"
 	}
 	for _, rule := range dropped {
-		if !gitignoreHasEntry(content, rule) {
+		if !hasRawLine(content, rule) {
 			content += rule + "\n"
 		}
 	}
@@ -897,6 +898,16 @@ func ResetKeepingIgnores(dir, ref string) error {
 		return fmt.Errorf("keep ignore rules: %w", err)
 	}
 	return nil
+}
+
+// hasRawLine reports whether content has a line exactly equal to line.
+func hasRawLine(content, line string) bool {
+	for _, l := range strings.Split(content, "\n") {
+		if strings.TrimSuffix(l, "\r") == line {
+			return true
+		}
+	}
+	return false
 }
 
 // HasLocalContent reports whether the repo holds any tracked or non-ignored

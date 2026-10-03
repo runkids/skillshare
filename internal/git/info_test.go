@@ -1038,6 +1038,31 @@ func TestFirstPull_ResetKeepsLocalIgnoreRules(t *testing.T) {
 	}
 }
 
+func TestResetKeepingIgnores_KeepsLeadingWhitespace(t *testing.T) {
+	remote := createBareRemoteWithBranch(t, "main", map[string]string{"remote-skill/SKILL.md": "# remote\n"})
+	repo := t.TempDir()
+	runGit(t, repo, "init")
+	runGit(t, repo, "config", "user.email", "test@test.com")
+	runGit(t, repo, "config", "user.name", "test")
+	if err := os.WriteFile(filepath.Join(repo, ".gitignore"), []byte(" foo\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	runGit(t, repo, "add", ".gitignore")
+	runGit(t, repo, "commit", "-m", "scaffold")
+	runGit(t, repo, "remote", "add", "origin", remote)
+	runGit(t, repo, "fetch", "origin")
+
+	if err := ResetKeepingIgnores(repo, "origin/main"); err != nil {
+		t.Fatalf("ResetKeepingIgnores() error: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(repo, "foo"), []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if dirty, _ := IsDirty(repo); !dirty {
+		t.Fatal(`" foo" rule was migrated as "foo" and now ignores a plain foo file`)
+	}
+}
+
 func TestFirstPull_EmptyRemoteReportsNoBranches(t *testing.T) {
 	remote := filepath.Join(t.TempDir(), "remote.git")
 	runGit(t, "", "init", "--bare", remote)
