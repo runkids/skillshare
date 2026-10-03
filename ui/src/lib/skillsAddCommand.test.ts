@@ -60,6 +60,14 @@ describe('parseSkillsAddCommand', () => {
       .toEqual({ source: 'git@github.com:owner/repo.git', skills: [] });
   });
 
+  it('keeps backslash-escaped spaces in a source', () => {
+    expect(parseSkillsAddCommand('npx skills add /tmp/my\\ skill')).toEqual({ source: '/tmp/my skill', skills: [] });
+  });
+
+  it('keeps backslashes in a Windows path', () => {
+    expect(parseSkillsAddCommand('npx skills add C:\\Users\\me\\skills')).toEqual({ source: 'C:\\Users\\me\\skills', skills: [] });
+  });
+
   it('ignores values that are not a skills add command', () => {
     expect(parseSkillsAddCommand('owner/repo')).toBeNull();
   });

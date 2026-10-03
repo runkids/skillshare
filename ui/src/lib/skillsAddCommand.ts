@@ -7,8 +7,30 @@ export type SkillsAddCommand = {
 
 const RUNNERS = [['npx'], ['pnpx'], ['bunx'], ['pnpm', 'dlx'], ['yarn', 'dlx'], ['bun', 'x']];
 
+// Shell-style words: quotes group, and a backslash escapes only whitespace, a quote or a backslash,
+// so `my\ skill` stays one word while Windows paths such as C:\Users keep their backslashes.
 function tokens(value: string): string[] {
-  return [...value.matchAll(/"([^"]*)"|'([^']*)'|(\S+)/g)].map((m) => m[1] ?? m[2] ?? m[3]);
+  const words: string[] = [];
+  let word: string | null = null;
+  let quote: string | null = null;
+  for (let i = 0; i < value.length; i++) {
+    const c = value[i];
+    if (c === '\\' && quote !== "'" && /[\s"'\\]/.test(value[i + 1] ?? '')) {
+      word = (word ?? '') + value[++i];
+    } else if (quote) {
+      if (c === quote) quote = null;
+      else word += c;
+    } else if (/\s/.test(c)) {
+      if (word !== null) words.push(word);
+      word = null;
+    } else {
+      word ??= '';
+      if (c === '"' || c === "'") quote = c;
+      else word += c;
+    }
+  }
+  if (word !== null) words.push(word);
+  return words;
 }
 
 /**
