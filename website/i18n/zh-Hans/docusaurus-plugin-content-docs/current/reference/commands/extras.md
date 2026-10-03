@@ -33,7 +33,7 @@ Extras 是 skillshare 管理的额外资源类型 —— 可以把它们理解�
 | `show <note.md>` | 读取笔记；`--json` 包含 `version` hash |
 | `write <note.md> --from <file\|->` | 从文件或 stdin 读取内容；创建时不指定 `--version`，更新须使用最近读取的 version |
 | `delete <note.md> --version <hash>` | 备份后删除指定版本，拒绝过期或缺少的 version |
-| `instructions` | 输出指向实际 source 目录的读取指引 |
+| `instructions` | 输出指向实际 source 目录的读取指引；`--update-mode passive`（默认）要求 Agent 只在用户要求时更新笔记，`--update-mode active` 让 Agent 自行保存长期有用的事实、拿不准时先提议 |
 
 各子命令支持 `--json`、`-g` / `--global`、`-p` / `--project` 和 `--help`。
 未指定时自动判断 scope。默认 global 路径为 `~/.config/skillshare/extras/memory/`，
@@ -45,11 +45,11 @@ project 为 `.skillshare/extras/memory/`；沿用现有 extras source 覆盖设�
 
 **New note** 的 **Link from INDEX.md** 在索引可读取时显示并默认勾选，于文件末尾附加链接，检查 version 并备份。失败仍保留新笔记。**Add to INDEX** 可添加未索引的笔记。失效链接会显示警告，不会自动移除。CLI 写入不会新增索引链接。
 
-使用 **Connect to agents** 选择工具，再 **Review changes** → **Apply changes**。此流程将 scope/hash 标记块添加或更新至现有 instructions 或共享来源，保留其他内容与分配。可检查更改、其他读取工具与已知字符上限。现有文件会备份，过期预览会被拒绝。完整但过期的块可经检查后更新；手动修改或格式错误的块会保留。未同步或无法读取的 instructions 文件会跳过。
+使用 **Connect to agents** 选择工具并为每个工具选择更新模式（`passive` 或 `active`），再 **Review changes** → **Apply changes**。读取同一个文件的工具共用一个块，会一起切换模式；已配置工具的模式也能通过同一个预览更改。此流程将 scope/hash 标记块添加或更新至现有 instructions 或共享来源，保留其他内容与分配。可检查更改、其他读取工具与已知字符上限。现有文件会备份，过期预览会被拒绝。完整但过期的块可经检查后更新；手动修改或格式错误的块会保留。未同步或无法读取的 instructions 文件会跳过。
 
 **Configured** 仅表示读取链已有当前指引，不代表已读取。**Copy verification prompt** 用于新会话，要求 Agent 读取 `INDEX.md` 与相关笔记、报告完整路径及用户加入的临时验证值。请手动检查实际 read tool event；没有保证可用的读取 telemetry。
 
-**Copy guidance** 是手动粘贴的替代方式，**Open AGENTS.md** 可编辑 instructions。Project 内的来源路径相对于 **project root**，不依 instructions 文件位置；外部或 global 来源用绝对路径，移动后须重新生成。CLI `instructions` 也输出相同的 scope/hash 块，未新增 CLI flags。不启用 native automatic memory、自动学习或 Obsidian 集成。
+**Copy guidance** 是手动粘贴的替代方式，选择模式后粘贴即可；**Open AGENTS.md** 可编辑 instructions。Project 内的来源路径相对于 **project root**，不依 instructions 文件位置；外部或 global 来源用绝对路径，移动后须重新生成。CLI `instructions` 也输出相同的 scope/hash 块。不启用 native automatic memory、自动学习或 Obsidian 集成。
 
 ### `extras init`
 

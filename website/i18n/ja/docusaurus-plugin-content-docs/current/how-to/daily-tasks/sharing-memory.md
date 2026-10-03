@@ -28,15 +28,20 @@ Target のない `memory` extra を登録し、不足する初期ノートを作
 
 ## 2. ツールを接続する
 
-**Use with agents** で **Connect to agents** をクリックします。ツールを選び、**Review changes** をクリックします。
+**Use with agents** で **Connect to agents** をクリックします。ツールを選び、それぞれの更新モードを選んでから **Review changes** をクリックします。
+
+- `passive`（既定）：エージェントはノートを読み、依頼されたときだけ更新します。
+- `active`：明示された好み、理由付きの決定、確認済みの落とし穴など、後のセッションでも役立つ事実を自分で保存します。一度きりの詳細や推測は残さず、迷うときはノートを提案して了承を待ち、重複を作らず既存のノートを更新し、保存した内容を伝えます。
+
+同じファイルを読むツールは 1 つのブロックを共有するため、1 つを切り替えると全部切り替わります。設定済みツールのモードを変えるには、もう一度 **Connect to agents** を開いて切り替えます。変更は同じレビューを通ります。
 
 ![英語の接続ダイアログで指示ファイルの変更を確認](/img/memory-connect-demo.png)
 
-パスと **Before** / **After** の内容を確認し、**Apply changes** をクリックします。Skillshare は、ツールの既存の指示ファイル、またはツールがすでに読む共有 source に管理対象の読み取りガイダンスを追加します。ファイルがなければ作成できます。ブロックは scope と内容 hash のマーカーを持ち、それ以外の内容、既存の割り当て、接続モードは保持されます。既存ファイルは変更前にバックアップします。他のツールも同じファイルを読む場合や既知の文字数制限がある場合、レビューに警告が表示されます。
+各ファイルの差分（削除行は `−`、追加行は `+`）を確認し、**Apply changes** をクリックします。Skillshare は、ツールの既存の指示ファイル、またはツールがすでに読む共有 source に管理対象の読み取りガイダンスを追加します。ファイルがなければ作成できます。ブロックは scope と内容 hash のマーカーを持ち、それ以外の内容、既存の割り当て、接続モードは保持されます。既存ファイルは変更前にバックアップします。他のツールも同じファイルを読む場合や既知の文字数制限がある場合、レビューに警告が表示されます。
 
 ![設定済みのツールを表示する英語の Memory タブ](/img/memory-connected-demo.png)
 
-**Configured** はツールの読み取り経路に現在のガイダンスがある状態です。エージェントが読んだことは示しません。**Not configured**、**Outdated**、**Needs attention** は指示ファイルの状態です。変更されていない古いブロックは再レビュー後に更新できます。手動変更済みやマーカーが不正なブロックは保持され、手動修正が必要です。未同期の共有指示は先に sync してください。読めない指示ファイルはスキップします。レビュー後にファイルが変わった場合は再レビューが必要です。
+**Configured** はツールの読み取り経路に現在のガイダンスがある状態です。エージェントが読んだことは示しません。**Not configured**、**Outdated**、**Needs attention** は指示ファイルの状態です。変更されていない古いブロックは再レビュー後に更新できます。手動変更済みやマーカーが不正なブロックは保持され、手動修正が必要です。別々のファイルから両方のモードのブロックを読むツールも要対応になります。それらのファイルを読むツールを同じモードにしてください。複数のファイルからブロックを読むツールは、余分なブロックを削除するまでモードを切り替えられません。未同期の共有指示は先に sync してください。読めない指示ファイルはスキップします。レビュー後にファイルが変わった場合は再レビューが必要です。
 
 **Open AGENTS.md** で指示を確認・修正できます。接続レビューは dashboard の機能で、新しい CLI 接続コマンドはありません。
 
@@ -98,7 +103,7 @@ Update notes when the user asks you to remember a decision.
 
 実際の読み取りツールのイベントで完全なパスと一時的な値を確認します。他の接続ツールでも繰り返し、最後に値を削除します。これは手動検証で、Skillshare は読み取り telemetry を保証しません。読み取ったという回答や **Configured** だけでは証拠になりません。
 
-教訓を残すときは、背景、結論、証拠を `LEARNED.md` に記録するよう依頼します。ノートはユーザー所有で、ガイダンスはユーザーの依頼時だけ更新するよう指示します。Native automatic memory、自動学習、Obsidian 連携は有効になりません。
+教訓を残すときは、背景、結論、証拠を `LEARNED.md` に記録するよう依頼します。ノートはユーザー所有です。`passive` のガイダンスはユーザーの依頼時だけ更新するよう指示し、`active` のガイダンスは上記のとおり長く役立つ事実を自分で保存させます。Native automatic memory、自動学習、Obsidian 連携は有効になりません。
 
 ## Project mode
 
@@ -113,7 +118,7 @@ skillshare ui -p
 
 ## 高度な代替手段：ガイダンスを手動でコピーする
 
-**Copy guidance** に hover またはキーボードで focus してブロックを確認し、エージェントが読む指示ファイルにコピーします。**Open AGENTS.md** で既存のエディターを開けます。
+**Copy guidance** を開いて `passive` か `active` を選び、コピーしたブロックをエージェントが読む指示ファイルに貼り付けます。**Open AGENTS.md** で既存のエディターを開けます。
 
 ![英語の Copy guidance プレビュー](/img/memory-guidance-demo.png)
 
@@ -132,9 +137,10 @@ printf '# Architecture decisions\n\nRead relevant notes on demand.\n' |
 skillshare extras memory list --search architecture -g
 skillshare extras memory show wiki/architecture.md -g
 skillshare extras memory instructions -g
+skillshare extras memory instructions --update-mode active -g
 ```
 
-CLI は読み取りガイダンスを出力するだけなので手動で貼り付けます。ツールの接続やインデックスリンクの追加は行いません。ノート更新には現在の `--version` が必要です。[`extras memory` リファレンス](../../reference/commands/extras.md#extras-memory)を参照してください。
+CLI は読み取りガイダンス（`--update-mode active` を指定しなければ `passive`）を出力するだけなので手動で貼り付けます。ツールの接続やインデックスリンクの追加は行いません。ノート更新には現在の `--version` が必要です。[`extras memory` リファレンス](../../reference/commands/extras.md#extras-memory)を参照してください。
 
 ## ノートの名前変更・移動
 

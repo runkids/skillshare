@@ -13,8 +13,8 @@ import (
 )
 
 type guidanceStatus struct {
-	Instructions string           `json:"instructions"`
-	Targets      []guidanceTarget `json:"targets"`
+	Instructions map[string]string `json:"instructions"`
+	Targets      []guidanceTarget  `json:"targets"`
 }
 
 func guidanceState(t *testing.T, s *Server) map[string]guidanceTarget {
@@ -112,7 +112,7 @@ func TestMemoryGuidance_WritesSharedSourceAndKeepsRouting(t *testing.T) {
 func TestMemoryGuidance_PreservesUserChangedAndManualGuidance(t *testing.T) {
 	s, home := newInstructionsServer(t, "codex")
 	root, _ := memory.GlobalRoot(s.cfg)
-	block := memory.Instructions(root, "")
+	block := memory.Instructions(root, "", memory.ModePassive)
 	edited := "own\n" + strings.Replace(block, "Read only", "Always read", 1)
 	codex := writeHome(t, home, ".codex/AGENTS.md", edited)
 	if got := guidanceState(t, s)["codex"]; got.State != "broken" || got.Detail != "modified" {
@@ -461,5 +461,79 @@ func TestMemoryGuidance_CreateIsExclusive(t *testing.T) {
 	}
 	if got := readFile(t, path); got != "external instructions" {
 		t.Fatalf("external instructions lost: %q", got)
+	}
+}
+
+func TestMemoryGuidance_SwitchesModeForEveryReaderOfTheFile(t *testing.T) {
+	s, home := newInstructionsServer(t, "claude", "codex")
+	writeHome(t, home, ".claude/CLAUDE.md", "# Me\n")
+	instructionsRequest(t, s, http.MethodPost, "/api/instructions", `{"name":"personal","content":"personal\n"}`)
+	instructionsRequest(t, s, http.MethodPost, "/api/instructions/assign", `{"targets":["claude","codex"],"extras":["personal"]}`)
+	plan := planGuidanceFor(t, s, `["codex"]`)
+	applyGuidance(t, s, `["codex"]`, plan.Token)
+	if got := guidanceState(t, s)["claude"]; got.State != "configured" || got.Mode != memory.ModePassive {
+		t.Fatalf("before = %+v", got)
+	}
+
+	body := `{"targets":["codex"],"modes":{"codex":"active"}`
+	rr := instructionsRequest(t, s, http.MethodPost, "/api/extras/memory/guidance/plan", body+`}`)
+	plan = decodeBody[guidancePlan](t, rr)
+	if rr.Code != http.StatusOK || len(plan.Changes) != 1 || !strings.Contains(plan.Changes[0].After, "mode=active") {
+		t.Fatalf("plan: %d %+v", rr.Code, plan)
+	}
+	if rr := instructionsRequest(t, s, http.MethodPost, "/api/extras/memory/guidance/apply", body+`,"token":"`+plan.Token+`"}`); rr.Code != http.StatusOK {
+		t.Fatalf("apply: %d %s", rr.Code, rr.Body)
+	}
+	for name, target := range guidanceState(t, s) {
+		if target.State != "configured" || target.Mode != memory.ModeActive {
+			t.Errorf("%s = %+v", name, target)
+		}
+	}
+}
+
+func TestMemoryGuidance_RejectsDifferentModesForOneFile(t *testing.T) {
+	s, _ := newInstructionsServer(t, "claude", "codex")
+	instructionsRequest(t, s, http.MethodPost, "/api/instructions", `{"name":"personal","content":"personal\n"}`)
+	instructionsRequest(t, s, http.MethodPost, "/api/instructions/assign", `{"targets":["claude","codex"],"extras":["personal"]}`)
+	rr := instructionsRequest(t, s, http.MethodPost, "/api/extras/memory/guidance/plan", `{"targets":["claude","codex"],"modes":{"claude":"passive","codex":"active"}}`)
+	if rr.Code != http.StatusBadRequest || !strings.Contains(rr.Body.String(), "same mode") {
+		t.Errorf("plan: %d %s", rr.Code, rr.Body)
+	}
+}
+
+func TestMemoryGuidance_FlagsTargetReadingBlocksOfDifferentModes(t *testing.T) {
+	s, home := newInstructionsServer(t, "claude", "codex")
+	writeHome(t, home, ".claude/CLAUDE.md", "# Me\n")
+	instructionsRequest(t, s, http.MethodPost, "/api/instructions", `{"name":"a","content":"a\n"}`)
+	instructionsRequest(t, s, http.MethodPost, "/api/instructions", `{"name":"b","content":"b\n"}`)
+	instructionsRequest(t, s, http.MethodPost, "/api/instructions/assign", `{"targets":["claude"],"extras":["a","b"]}`)
+	instructionsRequest(t, s, http.MethodPost, "/api/instructions/assign", `{"targets":["codex"],"extras":["b"]}`)
+	plan := planGuidanceFor(t, s, `["claude"]`)
+	applyGuidance(t, s, `["claude"]`, plan.Token)
+	body := `{"targets":["codex"],"modes":{"codex":"active"}`
+	plan = decodeBody[guidancePlan](t, instructionsRequest(t, s, http.MethodPost, "/api/extras/memory/guidance/plan", body+`}`))
+	if rr := instructionsRequest(t, s, http.MethodPost, "/api/extras/memory/guidance/apply", body+`,"token":"`+plan.Token+`"}`); rr.Code != http.StatusOK {
+		t.Fatalf("apply: %d %s", rr.Code, rr.Body)
+	}
+
+	if got := guidanceState(t, s)["claude"]; got.State != "broken" || got.Detail != "mixed_modes" {
+		t.Errorf("claude = %+v", got)
+	}
+}
+
+func TestMemoryGuidance_RefusesModeSwitchForTargetReadingSeveralBlocks(t *testing.T) {
+	s, home := newInstructionsServer(t, "claude", "codex")
+	writeHome(t, home, ".claude/CLAUDE.md", "# Me\n")
+	plan := planGuidanceFor(t, s, `["claude"]`)
+	applyGuidance(t, s, `["claude"]`, plan.Token)
+	instructionsRequest(t, s, http.MethodPost, "/api/instructions", `{"name":"personal","content":"personal\n"}`)
+	instructionsRequest(t, s, http.MethodPost, "/api/instructions/assign", `{"targets":["claude","codex"],"extras":["personal"]}`)
+	plan = planGuidanceFor(t, s, `["codex"]`)
+	applyGuidance(t, s, `["codex"]`, plan.Token)
+
+	rr := instructionsRequest(t, s, http.MethodPost, "/api/extras/memory/guidance/plan", `{"targets":["claude"],"modes":{"claude":"active"}}`)
+	plan = decodeBody[guidancePlan](t, rr)
+	if rr.Code != http.StatusOK || len(plan.Changes) != 0 || len(plan.Skipped) != 1 || plan.Skipped[0].Reason != "multiple_blocks" {
+		t.Errorf("plan: %d %+v", rr.Code, plan)
 	}
 }

@@ -28,15 +28,20 @@ Targets가 없는 `memory` extra를 등록하고 없는 시작 노트를 생성�
 
 ## 2. 도구 연결
 
-**Use with agents**에서 **Connect to agents**를 클릭하세요. 도구를 직접 선택하고 **Review changes**를 클릭하세요.
+**Use with agents**에서 **Connect to agents**를 클릭하세요. 도구를 직접 선택하고 각각의 업데이트 모드를 고른 뒤 **Review changes**를 클릭하세요.
+
+- `passive`(기본값): 에이전트가 노트를 읽고, 요청할 때만 업데이트합니다.
+- `active`: 명시한 선호, 이유가 있는 결정, 확인된 함정처럼 이후 세션에서도 쓸 사실을 스스로 저장합니다. 일회성 세부 사항과 추측은 건너뛰고, 확실하지 않으면 노트를 제안해 동의를 기다리며, 중복 대신 기존 노트를 업데이트하고 저장한 내용을 알려 줍니다.
+
+같은 파일을 읽는 도구는 블록 하나를 공유하므로 하나를 바꾸면 함께 바뀝니다. 설정된 도구의 모드를 바꾸려면 **Connect to agents**를 다시 열어 전환하세요. 변경은 같은 검토를 거칩니다.
 
 ![영어 연결 대화 상자의 지침 파일 변경 미리 보기](/img/memory-connect-demo.png)
 
-경로와 **Before** / **After** 내용을 검토하고 **Apply changes**를 클릭하세요. Skillshare는 도구의 기존 지침 파일 또는 도구가 이미 읽는 공유 소스에 관리되는 읽기 안내 블록을 추가합니다. 파일이 없으면 생성할 수 있습니다. 블록에는 scope와 내용 hash 마커가 있으며 다른 내용, 기존 할당, 연결 모드는 보존합니다. 기존 파일은 변경 전에 백업합니다. 다른 도구도 같은 파일을 읽거나 알려진 글자 수 제한이 있으면 검토 화면에 경고가 표시됩니다.
+각 파일의 diff(삭제된 줄은 `−`, 추가된 줄은 `+`)를 검토하고 **Apply changes**를 클릭하세요. Skillshare는 도구의 기존 지침 파일 또는 도구가 이미 읽는 공유 소스에 관리되는 읽기 안내 블록을 추가합니다. 파일이 없으면 생성할 수 있습니다. 블록에는 scope와 내용 hash 마커가 있으며 다른 내용, 기존 할당, 연결 모드는 보존합니다. 기존 파일은 변경 전에 백업합니다. 다른 도구도 같은 파일을 읽거나 알려진 글자 수 제한이 있으면 검토 화면에 경고가 표시됩니다.
 
 ![설정된 도구를 표시하는 영어 Memory 탭](/img/memory-connected-demo.png)
 
-**Configured**는 도구의 읽기 경로에 현재 안내가 있다는 뜻이며 에이전트가 읽었다는 뜻은 아닙니다. **Not configured**, **Outdated**, **Needs attention**은 지침 파일의 상태입니다. 수정되지 않은 오래된 블록은 다시 검토하여 업데이트할 수 있습니다. 수동으로 수정되었거나 마커가 잘못된 블록은 보존하며 직접 수정해야 합니다. 동기화되지 않은 공유 지침은 먼저 sync하세요. 읽을 수 없는 지침 파일은 건너뜁니다. 검토 후 파일이 변경되면 적용 전에 다시 검토해야 합니다.
+**Configured**는 도구의 읽기 경로에 현재 안내가 있다는 뜻이며 에이전트가 읽었다는 뜻은 아닙니다. **Not configured**, **Outdated**, **Needs attention**은 지침 파일의 상태입니다. 수정되지 않은 오래된 블록은 다시 검토하여 업데이트할 수 있습니다. 수동으로 수정되었거나 마커가 잘못된 블록은 보존하며 직접 수정해야 합니다. 서로 다른 파일에서 두 모드의 블록을 모두 읽는 도구도 조치가 필요합니다. 해당 파일을 읽는 도구를 같은 모드로 설정하세요. 여러 파일에서 블록을 읽는 도구는 남는 블록을 삭제해야 모드를 바꿀 수 있습니다. 동기화되지 않은 공유 지침은 먼저 sync하세요. 읽을 수 없는 지침 파일은 건너뜁니다. 검토 후 파일이 변경되면 적용 전에 다시 검토해야 합니다.
 
 **Open AGENTS.md**에서 지침을 확인하거나 수정하세요. 연결 검토는 dashboard 기능이며 새 CLI 연결 명령은 없습니다.
 
@@ -98,7 +103,7 @@ Update notes when the user asks you to remember a decision.
 
 실제 읽기 도구 이벤트에서 전체 경로와 임시 값을 확인하세요. 다른 연결 도구에서도 반복하고 임시 값을 제거하세요. 수동 검증이며 Skillshare는 읽기 telemetry를 보장하지 않습니다. 읽었다는 답변이나 **Configured** 표시만으로는 읽기의 증거가 되지 않습니다.
 
-교훈을 저장하려면 배경, 결론, 증거를 `LEARNED.md`에 기록하도록 요청하세요. 노트는 사용자 소유이며 안내는 사용자 요청이 있을 때만 업데이트하도록 지시합니다. Native automatic memory, 자동 학습, Obsidian 통합은 활성화하지 않습니다.
+교훈을 저장하려면 배경, 결론, 증거를 `LEARNED.md`에 기록하도록 요청하세요. 노트는 사용자 소유입니다. `passive` 안내는 사용자 요청이 있을 때만 업데이트하도록 지시하고, `active` 안내는 위 규칙에 따라 오래 쓸 사실을 스스로 저장하게 합니다. Native automatic memory, 자동 학습, Obsidian 통합은 활성화하지 않습니다.
 
 ## Project mode
 
@@ -113,7 +118,7 @@ skillshare ui -p
 
 ## 고급 대안: 안내를 직접 복사
 
-**Copy guidance**에 마우스를 올리거나 키보드로 포커스하여 생성된 블록을 확인하고 에이전트가 읽는 지침 파일에 복사하세요. **Open AGENTS.md**에서 기존 편집기를 열 수 있습니다.
+**Copy guidance**를 열어 `passive` 또는 `active`를 고르고, 복사한 블록을 에이전트가 읽는 지침 파일에 붙여 넣으세요. **Open AGENTS.md**에서 기존 편집기를 열 수 있습니다.
 
 ![영어 Copy guidance 미리 보기](/img/memory-guidance-demo.png)
 
@@ -132,9 +137,10 @@ printf '# Architecture decisions\n\nRead relevant notes on demand.\n' |
 skillshare extras memory list --search architecture -g
 skillshare extras memory show wiki/architecture.md -g
 skillshare extras memory instructions -g
+skillshare extras memory instructions --update-mode active -g
 ```
 
-CLI는 읽기 안내만 출력하므로 직접 붙여 넣어야 합니다. 도구 연결이나 인덱스 링크 추가는 하지 않습니다. 노트 업데이트에는 현재 `--version`이 필요합니다. [`extras memory` 참조](../../reference/commands/extras.md#extras-memory)를 확인하세요.
+CLI는 읽기 안내(`--update-mode active`를 지정하지 않으면 `passive`)만 출력하므로 직접 붙여 넣어야 합니다. 도구 연결이나 인덱스 링크 추가는 하지 않습니다. 노트 업데이트에는 현재 `--version`이 필요합니다. [`extras memory` 참조](../../reference/commands/extras.md#extras-memory)를 확인하세요.
 
 ## 노트 이름 변경 및 이동
 

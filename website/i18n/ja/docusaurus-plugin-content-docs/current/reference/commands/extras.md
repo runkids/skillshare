@@ -33,7 +33,7 @@ Extras は skillshare が管理する追加のリソースタイプです — �
 | `show <note.md>` | ノートを読む。`--json` は `version` hash を含む |
 | `write <note.md> --from <file\|->` | ファイルまたは stdin から書き込む。新規作成では `--version` を省略し、更新には最後に読んだ version が必要 |
 | `delete <note.md> --version <hash>` | バックアップ後に指定 version を削除。古い version や未指定の version は拒否 |
-| `instructions` | 実際の source フォルダーを指す読み込み指示を出力 |
+| `instructions` | 実際の source フォルダーを指す読み込み指示を出力。`--update-mode passive`（既定）は依頼時だけノートを更新させ、`--update-mode active` は長く役立つ事実を自分で保存させ、迷うときは提案させます |
 
 各サブコマンドは `--json`、`-g` / `--global`、`-p` / `--project`、`--help` に対応します。
 Scope は未指定なら自動検出。既定の global パスは `~/.config/skillshare/extras/memory/`、
@@ -45,11 +45,11 @@ Project は `.skillshare/extras/memory/` です。既存の extras source 設定
 
 **New note** の **Link from INDEX.md** はインデックスが読み取り可能な場合に表示され、既定でオンです。末尾にリンクを追加し、version を確認してバックアップします。失敗しても新しいノートは残ります。**Add to INDEX** で未登録のノートを追加できます。リンク切れは警告を表示しますが、自動削除はしません。CLI の書き込みはリンクを追加しません。
 
-**Connect to agents** でツールを選び、**Review changes** → **Apply changes** を実行します。既存の指示ファイルまたは共有 source に scope/hash マーカー付きブロックを追加・更新し、他の内容と割り当ては保持します。変更、他の読み取りツール、既知の文字数制限を確認できます。既存ファイルをバックアップし、古いプランを拒否します。変更されていない古いブロックはレビュー後に更新でき、手動変更済みや不正なブロックは保持します。未同期または読めない指示ファイルはスキップします。
+**Connect to agents** でツールとそれぞれの更新モード（`passive` または `active`）を選び、**Review changes** → **Apply changes** を実行します。同じファイルを読むツールは 1 つのブロックを共有し、モードも一緒に切り替わります。設定済みツールのモードも同じレビューで変更できます。既存の指示ファイルまたは共有 source に scope/hash マーカー付きブロックを追加・更新し、他の内容と割り当ては保持します。変更、他の読み取りツール、既知の文字数制限を確認できます。既存ファイルをバックアップし、古いプランを拒否します。変更されていない古いブロックはレビュー後に更新でき、手動変更済みや不正なブロックは保持します。未同期または読めない指示ファイルはスキップします。
 
 **Configured** は現在の指示が読み取り経路にある状態で、読み取り済みを意味しません。**Copy verification prompt** を新しいセッションで使い、`INDEX.md` と関連ノートを読み、完全なパスとユーザーが加えた一時的な検証値を報告させます。実際の読み取りイベントを手動で確認してください。読み取り telemetry は保証しません。
 
-**Copy guidance** は手動貼り付けの代替手段で、**Open AGENTS.md** から編集できます。Project 内の source は指示ファイルの場所に関係なく **project root** からの相対パス、Project 外や global の source は絶対パスです。移動後は再生成してください。CLI の `instructions` も同じ scope/hash ブロックを出力します。CLI フラグは変わりません。Native automatic memory、自動学習、Obsidian 連携は有効になりません。
+**Copy guidance** は手動貼り付けの代替手段で、モードを選んでコピーします。**Open AGENTS.md** から編集できます。Project 内の source は指示ファイルの場所に関係なく **project root** からの相対パス、Project 外や global の source は絶対パスです。移動後は再生成してください。CLI の `instructions` も同じ scope/hash ブロックを出力します。Native automatic memory、自動学習、Obsidian 連携は有効になりません。
 
 ### `extras init`
 

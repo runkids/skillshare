@@ -1,10 +1,14 @@
 package main
 
-import "fmt"
+import (
+	"fmt"
+
+	"skillshare/internal/memory"
+)
 
 type memoryOptions struct {
-	command, path, from, version, search string
-	json                                 bool
+	command, path, from, version, search, mode string
+	json                                       bool
 }
 
 func cmdExtrasMemory(args []string) error {
@@ -21,7 +25,7 @@ func cmdExtrasMemory(args []string) error {
 		switch rest[i] {
 		case "--json":
 			opts.json = true
-		case "--from", "--version", "--search":
+		case "--from", "--version", "--search", "--update-mode":
 			flag := rest[i]
 			if i+1 == len(rest) {
 				return fmt.Errorf("%s requires a value", flag)
@@ -34,6 +38,8 @@ func cmdExtrasMemory(args []string) error {
 				opts.version = rest[i]
 			case "--search":
 				opts.search = rest[i]
+			case "--update-mode":
+				opts.mode = rest[i]
 			}
 		default:
 			if opts.path != "" || len(rest[i]) > 0 && rest[i][0] == '-' {
@@ -65,6 +71,12 @@ func cmdExtrasMemory(args []string) error {
 	if opts.search != "" && opts.command != "list" {
 		return fmt.Errorf("--search is only supported by list")
 	}
+	if opts.mode != "" && opts.command != "instructions" {
+		return fmt.Errorf("--update-mode is only supported by instructions")
+	}
+	if opts.mode, err = memory.ParseMode(opts.mode); err != nil {
+		return err
+	}
 	return runMemory(mode, opts)
 }
 
@@ -76,7 +88,8 @@ func printMemoryHelp() {
 			{"show <note.md>", "Read a note; --json includes its version"},
 			{"write <note.md> --from <file|-> [--version <hash>]", ""},
 			{"", "Create a note or update the last read version"},
-			{"instructions", "Print guidance to add to your agent instructions"},
+			{"instructions [--update-mode passive|active]", ""},
+			{"", "Print guidance to add to your agent instructions"},
 			{"delete <note.md> --version <hash>", ""},
 			{"", "Back up and delete the last read version"},
 		}},
@@ -88,6 +101,7 @@ func printMemoryHelp() {
 		helpNotes("Notes",
 			"An empty --version creates a new note. To update, use the version from show --json.",
 			"Changes are backed up; a stale version is rejected. Native automatic memory is separate.",
+			"--update-mode passive (default) lets agents update notes only when asked; active lets them save lasting facts and propose ones they are unsure of.",
 		),
 	)
 }
