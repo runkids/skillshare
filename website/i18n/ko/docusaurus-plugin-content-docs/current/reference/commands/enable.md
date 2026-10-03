@@ -118,9 +118,7 @@ Next
 
 ## TUI 토글
 
-대화형 `skillshare list` TUI에서 **t**를 누르면 선택한 skill의 활성화/비활성화 상태가 토글됩니다. 변경 사항은 즉시 `.skillignore`에 기록되며, TUI를 먼저 종료할 필요가 없습니다.
-
-비활성화된 skill은 상세 패널에 빨간색 **disabled** 배지로 표시됩니다.
+`skillshare list` TUI에서도 skill을 켜고 끌 수 있습니다. 변경 사항은 즉시 `.skillignore`에 기록됩니다.
 
 ## .skillignore는 어디에 있나요?
 

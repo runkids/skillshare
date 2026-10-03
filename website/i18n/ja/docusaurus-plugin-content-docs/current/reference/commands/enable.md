@@ -118,9 +118,7 @@ Next
 
 ## TUI での切り替え
 
-インタラクティブな `skillshare list` の TUI では、**t** キーを押すと選択中の Skill の有効/無効状態を切り替えられます。変更は即座に `.skillignore` に書き込まれ、TUI を終了する必要はありません。
-
-無効化された Skill は、詳細パネルに赤い **disabled** バッジで表示されます。
+`skillshare list` の TUI でも Skill の有効/無効を切り替えられます。変更は即座に `.skillignore` に書き込まれます。
 
 ## .skillignore はどこにある?
 

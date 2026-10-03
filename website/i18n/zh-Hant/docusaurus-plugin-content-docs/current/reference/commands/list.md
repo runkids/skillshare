@@ -50,7 +50,7 @@ Tracked repos
 
 ## 互動式 TUI
 
-在 TTY 中，`skillshare list` 會開啟互動式終端機 UI。最上面一行顯示範圍與數量，右側是 **Skills** 與 **Agents** 分頁（按 `Tab` 切換）。左側是清單，右側是選取項目的詳細資訊，最下面一行列出常用按鍵。按 `?` 可看全部按鍵。
+在 TTY 中，`skillshare list` 會開啟互動式畫面，skills 與 agents 各在一個分頁：左側是清單，右側是選取項目的詳細資訊。在這裡可以更新、解除安裝或檢查（audit）skill，開關 skill（立即寫入 `.skillignore`），以及閱讀它的檔案。常用按鍵列在畫面底部，按 `?` 可看全部按鍵。
 
 - **智慧篩選** — 按 `/` 依名稱、路徑或來源篩選。支援 tag 語法做精準篩選：
 
@@ -66,13 +66,9 @@ Tracked repos
   ```
   t:tracked g:security audit
   ```
-  這會只顯示「security」群組中、名稱包含「audit」的 tracked skills。`Esc` 會清除篩選；沒有篩選時，`Esc` 會離開。
+  這會只顯示「security」群組中、名稱包含「audit」的 tracked skills。
 
-- **詳細面板** — 顯示選取 skill 的描述、來源、安裝日期、授權、磁碟路徑、檔案與已同步的 targets。用 `Ctrl+d`/`Ctrl+u` 捲動。
-- **動作** — `u` 更新、`d` 解除安裝、`!` 檢查（audit）選取的 skill。每個動作都會先在最下面一行詢問，並顯示將執行的指令，確認後離開 TUI 執行。
-- **啟用/停用切換** — 按 `t` 切換選取 skill 的啟用/停用狀態。會立即寫入 `.skillignore`，不需離開 TUI。已停用的 skills 會在清單與詳細面板顯示 **disabled**。
 - **僅手動切換** — 按 `m` 切換選取 skill `SKILL.md` 中的 `disable-model-invocation`。該 skill 仍保持已安裝，你仍可用名稱呼叫它，但模型不會再自動載入它；詳細面板會顯示 **manual only** 徽章。與 `t` 不同，這會編輯 skill 檔案本身：對於 tracked 或已安裝的 skill，TUI 會先詢問，因為 `skillshare update` 會跳過有本地變更的 tracked repos，而重新安裝 skill 會丟失這項編輯。再按一次 `m` 會移除該行並完整還原檔案。Agents 不受影響。[dashboard](/docs/reference/commands/ui) 顯示相同的 **manual only** 標籤，並在其 skill 編輯器中提供切換開關。
-- **內容檢視器** — 按 `Enter` 開啟雙欄檢視器，左側是檔案樹、右側是以 Markdown 渲染的內容。`j`/`k` 瀏覽檔案（自動預覽），`l`/`Enter` 展開目錄，`h` 收合。`Ctrl+d`/`u` 內容半頁捲動，`g`/`G` 跳到頂部/底部，`Esc` 回到清單。也支援滑鼠滾輪與點擊。
 
 使用 `--no-tui` 跳過 TUI，改印出純文字：
 

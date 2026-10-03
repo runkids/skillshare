@@ -118,9 +118,7 @@ Next
 
 ## TUI Toggle
 
-在互動式的 `skillshare list` TUI 中，按下 **t** 可以切換所選 skill 的啟用/停用狀態。變更會立即寫入 `.skillignore`——不需要先離開 TUI。
-
-被停用的 skill 會在詳細資訊面板中顯示紅色的 **disabled** 標籤。
+你也可以在 `skillshare list` TUI 中開關 skills。變更會立即寫入 `.skillignore`。
 
 ## Where is the .skillignore?
 

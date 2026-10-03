@@ -105,17 +105,9 @@ skillshare target list --json          # JSON output for CI/scripts
 
 #### Interactive TUI
 
-On a TTY, `target list` launches an interactive terminal UI with:
+On a TTY, `target list` opens an interactive view: targets on the left, and the selected target's paths, mode and filters on the right. From there you can change a target's sync mode, naming, and include/exclude filters, or remove it (backed up and unlinked, same as `target remove`). The keys are listed at the bottom of the screen.
 
-- **Split layout** — target list on the left, detail panel on the right (falls back to vertical layout on narrow terminals)
-- **Fuzzy filter** — press `/` to filter targets by name
-- **Mode picker** — press `M` to change the sync mode (merge, copy, symlink) for the selected target
-- **Naming picker** — press `N` to change the target naming (flat, standard) for the selected target
-- **Include/Exclude editor** — press `I` or `E` to open the filter pattern editor for the selected target. Use `a` to add patterns, `d` to delete
-- **Remove target** — press `R` to remove the selected target. Shows a confirmation prompt before proceeding (backs up and unlinks, same as `target remove`)
-- **Keyboard navigation** — `↑`/`↓` to browse, `Ctrl+d`/`Ctrl+u` to scroll the detail panel, `q` to quit
-
-Changes made through the TUI (mode, include/exclude) are saved to config immediately. Run `skillshare sync` to apply.
+Changes are saved to config immediately. Run `skillshare sync` to apply them.
 
 Use `--no-tui` to skip the TUI and print plain text instead:
 

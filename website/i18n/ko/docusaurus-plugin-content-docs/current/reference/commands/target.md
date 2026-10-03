@@ -105,17 +105,9 @@ skillshare target list --json          # JSON output for CI/scripts
 
 #### Interactive TUI
 
-TTY에서 `target list`를 실행하면 다음 기능을 갖춘 대화형 터미널 UI가 실행됩니다.
+TTY에서 `target list`는 대화형 화면을 엽니다. 왼쪽에는 target, 오른쪽에는 선택한 target의 경로, 모드, 필터가 표시됩니다. 여기서 target의 sync 모드, 이름 지정 방식, include/exclude 필터를 바꾸거나 target을 제거할 수 있습니다(`target remove`와 같이 백업 후 연결 해제). 키는 화면 아래쪽에 표시됩니다.
 
-- **분할 레이아웃** — 왼쪽에 target 목록, 오른쪽에 detail panel(좁은 터미널에서는 세로 레이아웃으로 대체)
-- **퍼지 필터** — `/`를 눌러 이름으로 target을 필터링
-- **Mode picker** — `M`을 눌러 선택한 target의 sync mode(merge, copy, symlink)를 변경
-- **Naming picker** — `N`을 눌러 선택한 target의 naming(flat, standard)을 변경
-- **Include/Exclude 편집기** — `I` 또는 `E`를 눌러 선택한 target의 필터 패턴 편집기를 엽니다. `a`로 패턴 추가, `d`로 삭제
-- **Remove target** — `R`을 눌러 선택한 target을 제거합니다. 진행 전에 확인 프롬프트를 표시합니다(백업 후 연결 해제, `target remove`와 동일)
-- **키보드 탐색** — `↑`/`↓`로 탐색, `Ctrl+d`/`Ctrl+u`로 detail panel 스크롤, `q`로 종료
-
-TUI를 통한 변경 사항(mode, include/exclude)은 즉시 config에 저장됩니다. 적용하려면 `skillshare sync`를 실행하세요.
+변경 사항은 즉시 config에 저장됩니다. 적용하려면 `skillshare sync`를 실행하세요.
 
 TUI를 건너뛰고 일반 텍스트를 출력하려면 `--no-tui`를 사용하세요.
 

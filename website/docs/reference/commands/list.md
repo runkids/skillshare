@@ -50,7 +50,7 @@ Tracked repos
 
 ## Interactive TUI
 
-On a TTY, `skillshare list` opens an interactive terminal UI. The top line shows the scope and counts, with **Skills** and **Agents** tabs on the right (`Tab` switches between them). The list is on the left, details for the selected item on the right, and the bottom line shows the common keys. Press `?` to see every key.
+On a TTY, `skillshare list` opens an interactive view with skills and agents in two tabs: the list on the left, and details for the selected item on the right. From there you can update, uninstall or audit a skill, turn it on or off (written to `.skillignore` right away), and read its files. The common keys are at the bottom of the screen; press `?` for all of them.
 
 - **Smart filtering** — press `/` to filter by name, path, or source. Supports tag syntax for precise filtering:
 
@@ -66,13 +66,9 @@ On a TTY, `skillshare list` opens an interactive terminal UI. The top line shows
   ```
   t:tracked g:security audit
   ```
-  This shows only tracked skills in the "security" group whose name contains "audit". `Esc` clears the filter; with no filter, `Esc` quits.
+  This shows only tracked skills in the "security" group whose name contains "audit".
 
-- **Detail panel** — shows the description, source, install date, license, disk path, files, and synced targets for the selected skill. `Ctrl+d`/`Ctrl+u` scroll it.
-- **Actions** — `u` updates, `d` uninstalls, and `!` audits the selected skill. Each asks on the bottom line, which also shows the command it will run, then leaves the TUI to run it.
-- **Enable/disable toggle** — press `t` to toggle the selected skill's enabled/disabled state. Writes to `.skillignore` immediately without leaving the TUI. Disabled skills show **disabled** in the list and the detail panel.
 - **Manual only toggle** — press `m` to toggle `disable-model-invocation` in the selected skill's `SKILL.md`. The skill stays installed and you can still invoke it by name, but the model stops loading it on its own; the detail panel shows **manual only**. Unlike `t`, this edits the skill file itself: for a tracked or installed skill the TUI asks first, because `skillshare update` skips tracked repos with local changes and reinstalling a skill drops the edit. Pressing `m` again removes the line and restores the file exactly. Agents are not affected. The [dashboard](/docs/reference/commands/ui) shows the same **manual only** tag and has the switch in its skill editor.
-- **Content viewer** — press `Enter` to open a dual-pane viewer with a file tree on the left and Markdown-rendered content on the right. `j`/`k` browse files (auto-preview), `l`/`Enter` expand directories, `h` collapse. `Ctrl+d`/`u` scroll content half-page, `g`/`G` jump to top/bottom, `Esc` goes back to the list. Mouse wheel and click are also supported.
 
 Use `--no-tui` to skip the TUI and print plain text instead:
 

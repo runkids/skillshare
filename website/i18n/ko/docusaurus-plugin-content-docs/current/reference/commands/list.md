@@ -50,7 +50,7 @@ Tracked repos
 
 ## Interactive TUI
 
-TTY에서 `skillshare list`는 대화형 터미널 UI를 엽니다. 맨 윗줄에는 범위와 개수가 표시되고, 오른쪽에 **Skills**와 **Agents** 탭이 있습니다(`Tab`으로 전환). 왼쪽은 목록, 오른쪽은 선택한 항목의 상세 정보이며, 맨 아랫줄에는 자주 쓰는 키가 표시됩니다. `?`를 누르면 모든 키를 볼 수 있습니다.
+TTY에서 `skillshare list`는 skill과 agent를 두 탭으로 나눈 대화형 화면을 엽니다. 왼쪽은 목록, 오른쪽은 선택한 항목의 상세 정보입니다. 여기서 skill을 업데이트, 제거, audit하고, 켜고 끄며(즉시 `.skillignore`에 기록), 파일을 읽을 수 있습니다. 자주 쓰는 키는 화면 아래쪽에 표시되며, `?`를 누르면 모든 키를 볼 수 있습니다.
 
 - **스마트 필터링** — `/`를 눌러 이름, 경로, source로 필터링합니다. 정밀한 필터링을 위한 태그 문법을 지원합니다.
 
@@ -66,13 +66,9 @@ TTY에서 `skillshare list`는 대화형 터미널 UI를 엽니다. 맨 윗줄�
   ```
   t:tracked g:security audit
   ```
-  이는 "security" 그룹에 속한 tracked skill 중 이름에 "audit"이 포함된 것만 표시합니다. `Esc`는 필터를 지우고, 필터가 없으면 `Esc`로 종료합니다.
+  이는 "security" 그룹에 속한 tracked skill 중 이름에 "audit"이 포함된 것만 표시합니다.
 
-- **Detail panel** — 선택한 skill의 설명, 소스, 설치 날짜, 라이선스, 디스크 경로, 파일, 동기화된 target을 표시합니다. `Ctrl+d`/`Ctrl+u`로 스크롤합니다.
-- **Actions** — `u`는 업데이트, `d`는 제거, `!`는 선택한 skill을 audit합니다. 각 동작은 맨 아랫줄에서 먼저 확인을 묻고 실행할 명령도 함께 보여 주며, 확인하면 TUI를 나가서 실행합니다.
-- **Enable/disable toggle** — `t`를 눌러 선택한 skill의 enabled/disabled 상태를 전환합니다. TUI를 나가지 않고 즉시 `.skillignore`에 기록됩니다. 비활성화된 skill은 목록과 detail panel에 **disabled**로 표시됩니다.
 - **Manual only toggle** — `m`을 눌러 선택한 skill의 `SKILL.md`에서 `disable-model-invocation`을 전환합니다. skill은 설치된 상태로 남고 이름으로 여전히 호출할 수 있지만, 모델이 자동으로 로드하지는 않습니다. detail panel에는 **manual only** 배지가 표시됩니다. `t`와 달리 이는 skill 파일 자체를 수정합니다: tracked 또는 설치된 skill의 경우 TUI가 먼저 확인을 묻는데, `skillshare update`가 로컬 변경 사항이 있는 tracked repo를 건너뛰고 skill을 재설치하면 편집 내용이 사라지기 때문입니다. `m`을 다시 누르면 해당 줄이 제거되어 파일이 정확히 원래대로 복원됩니다. Agent는 영향을 받지 않습니다. [대시보드](/docs/reference/commands/ui)에도 동일한 **manual only** 태그가 표시되며 skill 편집기에 해당 스위치가 있습니다.
-- **Content viewer** — `Enter`를 눌러 왼쪽에 파일 트리, 오른쪽에 Markdown 렌더링 콘텐츠가 있는 dual-pane 뷰어를 엽니다. `j`/`k`로 파일을 탐색(자동 미리보기), `l`/`Enter`로 디렉터리 확장, `h`로 축소합니다. `Ctrl+d`/`u`로 콘텐츠를 반 페이지씩 스크롤, `g`/`G`로 맨 위/맨 아래로 이동하며, `Esc`로 목록에 돌아갑니다. 마우스 휠과 클릭도 지원됩니다.
 
 TUI를 건너뛰고 일반 텍스트를 출력하려면 `--no-tui`를 사용하세요.
 

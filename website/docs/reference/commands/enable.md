@@ -118,9 +118,7 @@ Always wrap folder patterns in quotes (`"frontend/**"`) so your shell doesn't ex
 
 ## TUI Toggle
 
-In the interactive `skillshare list` TUI, press **t** to toggle the selected skill's enabled/disabled state. The change is written to `.skillignore` immediately — no need to exit the TUI first.
-
-Disabled skills show a red **disabled** badge in the detail panel.
+You can also turn skills on and off in the `skillshare list` TUI. The change is written to `.skillignore` immediately.
 
 ## Where is the .skillignore?
 

@@ -29,14 +29,7 @@ skillshare log -p                 # Project operations + audit logs
 
 ## Interactive TUI
 
-On a TTY, `skillshare log` launches an interactive terminal UI with:
-
-- **Fuzzy filtering** — type to filter by timestamp, command, status, source, or detail content
-- **Keyboard navigation** — arrow keys to browse, `q` to quit
-- **Detail panel** — shows full timestamp, command, status, duration, source, and structured args for the selected entry
-- **Stats footer** — always-visible compact summary: ops count, success rate, last operation
-- **Stats panel** — press `s` to toggle a full breakdown by command with success/failure counts
-- **Merged view** — operations and audit entries are merged and sorted by time when viewing both
+On a TTY, `skillshare log` opens an interactive list of operations with the details of the selected entry beside it, a filter, and a stats view broken down by command. Operations and audit entries are merged and sorted by time. The keys are listed at the bottom of the screen.
 
 Use `--no-tui` to skip the TUI and print plain text instead:
 
@@ -206,21 +199,6 @@ skillshare log --stats                # Summary of all operations
 skillshare log --stats --cmd sync     # Stats for sync only
 skillshare log --stats --since 7d     # Stats for last 7 days
 ```
-
-### TUI
-
-Press `s` in the TUI to toggle the stats panel, showing:
-
-- Total operations and per-command breakdown with horizontal bar chart
-- Success/failure counts per command (color-coded)
-- Overall success rate with visual progress bar
-- Last operation timestamp
-
-The footer bar always shows a compact summary: `20 ops | ✓ 92.3% | last: sync 2h ago`
-
-### Detail Panel Scrolling
-
-When a log entry has long detail content (e.g. audit results with many skills), use `j`/`k` to scroll the detail panel up and down.
 
 ## Log Retention
 

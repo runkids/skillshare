@@ -118,9 +118,7 @@ Next
 
 ## TUI 切换
 
-在交互式的 `skillshare list` TUI 中，按 **t** 切换所选 skill 的启用/禁用状态。更改会立即写入 `.skillignore`——无需先退出 TUI。
-
-被禁用的 skills 会在详情面板中显示红色的 **disabled** 徽章。
+你也可以在 `skillshare list` TUI 中启用或禁用 skills。更改会立即写入 `.skillignore`。
 
 ## .skillignore 在哪里？
 
