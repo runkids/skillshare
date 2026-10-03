@@ -3,8 +3,6 @@ package main
 import (
 	"strings"
 	"testing"
-
-	tea "github.com/charmbracelet/bubbletea"
 )
 
 func TestValidateExtrasInit(t *testing.T) {
@@ -37,42 +35,5 @@ func TestValidateExtrasInit(t *testing.T) {
 				t.Fatalf("error = %v, want %q", err, tc.want)
 			}
 		})
-	}
-}
-
-func TestExtrasInitTUI_SingleFileFlow(t *testing.T) {
-	var m tea.Model = newExtrasInitTUIModel()
-	typeText := func(s string) {
-		for _, r := range s {
-			m, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{r}})
-		}
-	}
-	key := func(k string) {
-		switch k {
-		case "enter":
-			m, _ = m.Update(tea.KeyMsg{Type: tea.KeyEnter})
-		case "down":
-			m, _ = m.Update(tea.KeyMsg{Type: tea.KeyDown})
-		}
-	}
-
-	typeText("pi-prompt")
-	key("enter")
-	key("down") // Single file
-	key("enter")
-	typeText("system.md")
-	key("enter")
-	key("enter") // default source
-	typeText("/tmp/pi")
-	key("enter")
-	key("enter") // keep the source file name
-	key("enter") // merge
-
-	got := m.(extrasInitTUIModel)
-	if got.phase != extrasPhaseAddMore {
-		t.Fatalf("phase = %v, want add-more (no flatten step for a single file)", got.phase)
-	}
-	if !got.singleFile || got.file != "system.md" || len(got.targets) != 1 || got.targets[0].as != "" || got.targets[0].mode != "merge" {
-		t.Errorf("model = singleFile %v file %q targets %+v", got.singleFile, got.file, got.targets)
 	}
 }

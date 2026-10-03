@@ -1402,7 +1402,7 @@ func runExtrasListTUI(
 		if projCfg != nil {
 			mode = modeProject
 		}
-		if err := cmdExtrasInitTUI(mode, cwd); err != nil {
+		if err := cmdExtrasInitPrompt(mode, cwd); err != nil {
 			return err
 		}
 	}

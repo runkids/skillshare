@@ -103,6 +103,40 @@ func TestRunForm_TextTakesNewLinesAndSubmitsOnEnter(t *testing.T) {
 	}
 }
 
+func TestRunForm_InputValidKeepsAskingUntilTheCheckPasses(t *testing.T) {
+	const title = "Extra name"
+	in, keys := io.Pipe()
+	out := &syncBuffer{}
+	go func() {
+		deadline := time.Now().Add(5 * time.Second)
+		for !strings.Contains(out.String(), title) && time.Now().Before(deadline) {
+			time.Sleep(10 * time.Millisecond)
+		}
+		keys.Write([]byte("a/b\r"))
+		for !strings.Contains(out.String(), "no slashes") && time.Now().Before(deadline) {
+			time.Sleep(10 * time.Millisecond)
+		}
+		keys.Write([]byte("\x7f\x7f\r")) // backspace twice leaves "a"
+	}()
+
+	value := ""
+	check := func(v string) error {
+		if strings.Contains(v, "/") {
+			return errors.New("no slashes")
+		}
+		return nil
+	}
+	if err := runForm(inputField(title, "", &value, check), false, in, out); err != nil {
+		t.Fatalf("err = %v", err)
+	}
+	if !strings.Contains(out.String(), "no slashes") {
+		t.Errorf("the check's error was never shown")
+	}
+	if value != "a" {
+		t.Fatalf("value = %q, want the corrected answer", value)
+	}
+}
+
 func TestLineConfirm_ReadsOneAnswerPerLine(t *testing.T) {
 	in := strings.NewReader("y\nno\n\n")
 	var out bytes.Buffer

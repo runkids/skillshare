@@ -18,15 +18,15 @@ Manage non-skill resources (rules, commands, prompts) that sync to arbitrary dir
 
 ## extras init
 
-Create a new extra resource type. Without arguments, launches an interactive TUI wizard.
+Create a new extra resource type. Without arguments, asks for each setting interactively.
 
 ```bash
 skillshare extras init rules --target ~/.claude/rules --target ~/.cursor/rules
 skillshare extras init commands --target ~/.claude/commands --mode copy
 skillshare extras init prompts --target .claude/prompts -p
 skillshare extras init pi-prompt --file system.md --as APPEND_SYSTEM.md --source ~/dotfiles/prompts --target ~/.pi/agent
-skillshare extras init                    # TUI wizard
-skillshare extras init rules --no-tui ... # Skip wizard
+skillshare extras init                    # Interactive prompts
+skillshare extras init rules --no-tui ... # Skip prompts
 ```
 
 | Flag | Description |
@@ -37,10 +37,10 @@ skillshare extras init rules --no-tui ... # Skip wizard
 | `--as <filename>` | File name at every target (default: `--file` name); requires `--file` |
 | `--mode <mode>` | Sync mode: `merge` (default), `copy`, `symlink`; `import` only with `--file` |
 | `--flatten` | Sync subdirectory files into the target root; not with `symlink` or `--file` |
-| `--no-tui` | Skip interactive wizard |
+| `--no-tui` | Skip interactive prompts |
 | `-p` / `-g` | Force project / global mode |
 
-`extras init` writes config only: it does not create the source file or sync. The TUI wizard asks Folder or Single file after the name.
+`extras init` writes config only: it does not create the source file or sync. The interactive prompts ask Folder or Single file after the name.
 
 ## Existing extras
 

@@ -141,12 +141,22 @@ func readLine(in io.Reader) string {
 
 // Input asks for one line of text. placeholder is shown while it is empty.
 func Input(title, placeholder, value string) (string, error) {
-	field := huh.NewInput().
+	return InputValid(title, placeholder, value, func(string) error { return nil })
+}
+
+// InputValid is Input that only accepts an answer check passes; otherwise
+// the error shows under the question and it stays open.
+func InputValid(title, placeholder, value string, check func(string) error) (string, error) {
+	return value, runPrompt(inputField(title, placeholder, &value, check), false)
+}
+
+func inputField(title, placeholder string, value *string, check func(string) error) *huh.Input {
+	return huh.NewInput().
 		Title(promptTitle(title)).
 		Prompt("› ").
 		Placeholder(placeholder).
-		Value(&value)
-	return value, runPrompt(field, false)
+		Validate(check).
+		Value(value)
 }
 
 // Text asks for text that may span lines, such as pasted JSON: enter
