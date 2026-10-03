@@ -107,7 +107,7 @@ func runLog(args []string, configPath string) error {
 		if err := oplog.Clear(configPath, filename); err != nil {
 			return fmt.Errorf("failed to clear log: %w", err)
 		}
-		ui.Success("%s log cleared", label)
+		ui.Done(ui.MarkOK, label+" log cleared", 0)
 		return nil
 	}
 
@@ -162,14 +162,20 @@ func printLogSection(configPath, filename, label string, limit int, f oplog.Filt
 		mode = "project"
 	}
 
-	subtitle := fmt.Sprintf("%s (last %d)\nmode: %s\nfile: %s", label, len(entries), mode, logPath)
-	ui.HeaderBox("skillshare log", subtitle)
-	if len(entries) == 0 {
-		ui.Info("No %s log entries", strings.ToLower(label))
-		return nil
+	title := ui.Bold + label + ui.Reset
+	if len(entries) > 0 {
+		title += ui.DimText(fmt.Sprintf(" · last %d", len(entries)))
 	}
-
-	printLogEntries(entries)
+	if mode == "project" {
+		title += ui.DimText(" · project")
+	}
+	fmt.Println(title)
+	if len(entries) == 0 {
+		ui.Note(fmt.Sprintf("No %s log entries", strings.ToLower(label)))
+	} else {
+		printLogEntries(entries)
+	}
+	ui.Note(shortenPath(logPath))
 	return nil
 }
 

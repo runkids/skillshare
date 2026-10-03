@@ -101,37 +101,27 @@ skillshare log --json --cmd sync          # 篩選後的 JSONL
 使用 `--no-tui` 或在非 TTY 環境中：
 
 ```
-┌─ skillshare log ────────────────────────────────────┐
-│ Operations (last 2)                                 │
-│ mode: global                                        │
-│ file: ~/.local/state/skillshare/logs/operations.log │
-└─────────────────────────────────────────────────────┘
-  TIME             | CMD       | STATUS  | DUR
-  -----------------+-----------+---------+--------
-  2026-02-10 14:31 | SYNC      | error   | 0.8s
-  targets: 3
-  failed: 1
-  scope: global
+Operations · last 2
+✓ sync      2026-02-10 14:35 · 0.3s
+            targets: 3
+            scope: global
 
-  2026-02-10 14:35 | SYNC      | ok      | 0.3s
-  targets: 3
-  scope: global
+✗ sync      2026-02-10 14:31 · 0.8s · error
+            targets: 3
+            failed: 1
+            scope: global
+  ~/.local/state/skillshare/logs/operations.log
 
-┌─ skillshare log ────────────────────────────────────┐
-│ Audit (last 1)                                      │
-│ mode: global                                        │
-│ file: ~/.local/state/skillshare/logs/audit.log      │
-└─────────────────────────────────────────────────────┘
-  TIME             | CMD       | STATUS  | DUR
-  -----------------+-----------+---------+--------
-  2026-02-10 14:36 | AUDIT     | blocked | 1.1s
-  scope: all-skills
-  scanned: 12
-  passed: 11
-  failed: 1
-  failed skills:
-    - prompt-injection-skill
-    - data-exfil-skill
+Audit · last 1
+✗ audit     2026-02-10 14:36 · 1.1s · blocked
+            scope: all-skills
+            scanned: 12
+            passed: 11
+            failed: 1
+            failed skills:
+              - prompt-injection-skill
+              - data-exfil-skill
+  ~/.local/state/skillshare/logs/audit.log
 ```
 
 ## 日誌格式

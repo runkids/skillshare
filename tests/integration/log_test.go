@@ -51,8 +51,7 @@ targets:
 	// Check log
 	logResult := sb.RunCLI("log")
 	logResult.AssertSuccess(t)
-	logResult.AssertOutputContains(t, "sync")
-	logResult.AssertOutputContains(t, "ok")
+	logResult.AssertOutputContains(t, "✓ sync")
 	logResult.AssertOutputContains(t, "Audit")
 	logResult.AssertOutputNotContains(t, "TIME | CMD | STATUS | DUR")
 }
@@ -546,9 +545,9 @@ targets:
 
 	result := sb.RunCLI("log", "--stats")
 	result.AssertSuccess(t)
-	result.AssertOutputContains(t, "Operation Log Summary")
+	result.AssertOutputContains(t, "Log summary")
 	result.AssertOutputContains(t, "sync")
-	result.AssertOutputContains(t, "OK:")
+	result.AssertOutputContains(t, "ok (")
 }
 
 func TestLog_StatsCmdAuditReadsAuditLog(t *testing.T) {
@@ -568,7 +567,7 @@ targets:
 	result := sb.RunCLI("log", "--stats", "--cmd", "audit")
 	result.AssertSuccess(t)
 	result.AssertOutputContains(t, "audit")
-	result.AssertOutputContains(t, "OK:")
+	result.AssertOutputContains(t, "ok (")
 }
 
 func TestLog_CheckCreatesEntry(t *testing.T) {
