@@ -184,7 +184,7 @@ While writing, Skillshare holds that lock the way Pi does and writes nothing if 
 loses it. Before each apply, Skillshare saves a persistent record of the changed
 extension lists and the before/after file hashes. Successful records are kept
 without automatic pruning; if Apply fails, only the new record for that attempt
-is removed. This is not a copy of `settings.json` and cannot restore the whole file. Installing and removing packages stays in `plugin`.
+is removed. This is not a copy of `settings.json` and cannot restore the whole file. The tab lists every package in the settings, including ones installed with Pi itself, such as `npm:` packages from [pi.dev](https://pi.dev/packages). Skillshare installs and removes packages only through `plugin`: `plugin add` takes a local directory or a Git source, and `plugin import --from pi` adopts a package installed with Pi.
 
 Skillshare reads packages without running them, so the tab shows what the
 settings select (the **Configured** column), not whether Pi loaded them; reload Pi
