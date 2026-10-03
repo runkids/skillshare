@@ -1,9 +1,12 @@
 package main
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/charmbracelet/bubbles/list"
+	tea "github.com/charmbracelet/bubbletea"
+	xansi "github.com/charmbracelet/x/ansi"
 )
 
 func TestComputeThresholds(t *testing.T) {
@@ -149,5 +152,34 @@ func TestSwitchTarget(t *testing.T) {
 	}
 	if m.matchCount != 1 {
 		t.Errorf("matchCount after switch: got %d, want 1", m.matchCount)
+	}
+}
+
+func TestAnalyzeTitleLine_ShowsTokensAndTargetTabs(t *testing.T) {
+	m := analyzeTUIModel{
+		list:      list.New(nil, analyzeSkillDelegate{}, 80, 20),
+		sortBy:    "tokens",
+		modeLabel: "global",
+		termWidth: 140,
+		groups: []analyzeTargetGroup{
+			{entry: analyzeTargetEntry{Skills: []analyzeSkillEntry{{Name: "a", DescriptionTokens: 100, BodyTokens: 900}}}, names: []string{"claude", "codex"}},
+			{entry: analyzeTargetEntry{Skills: nil}, names: []string{"cursor"}},
+		},
+	}
+	m.switchTarget()
+
+	got := xansi.Strip(m.renderTitleLine())
+	for _, want := range []string{"skillshare analyze", "global", "1 skill", "always", "on demand", "claude +1", "cursor"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("title line %q is missing %q", got, want)
+		}
+	}
+}
+
+func TestAnalyzeO_CyclesTheSort(t *testing.T) {
+	m := analyzeTUIModel{list: list.New(nil, analyzeSkillDelegate{}, 80, 20), sortBy: "tokens"}
+	next, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("o")})
+	if got := next.(analyzeTUIModel); !got.sortAsc {
+		t.Fatalf("o should switch to tokens ↑, got %s", got.sortLabel())
 	}
 }

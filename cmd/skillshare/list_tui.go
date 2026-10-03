@@ -902,14 +902,6 @@ func (m listTUIModel) getDetailData(e skillEntry) *detailData {
 	return d
 }
 
-func renderDetailSection(title string, body string, width int) string {
-	style := lipgloss.NewStyle().
-		Width(width).
-		Align(lipgloss.Left).
-		Padding(0, 0)
-	return style.Render(theme.Title().Render(title) + "\n" + body)
-}
-
 // renderDetailBody renders the scrollable part of the detail panel: the
 // description, the facts and the targets the skill is synced to.
 func (m listTUIModel) renderDetailBody(e skillEntry, d *detailData, width int) string {
@@ -975,11 +967,6 @@ func renderDetailHeader(e skillEntry, d *detailData, width int) string {
 		header += "\n" + theme.Warning().Render(strings.Join(off, " · "))
 	}
 	return lipgloss.NewStyle().MaxWidth(width).Render(header)
-}
-
-func renderFactRow(label, value string) string {
-	labelStyle := lipgloss.NewStyle().Faint(true).Width(12)
-	return labelStyle.Render(label+":") + " " + lipgloss.NewStyle().Render(value)
 }
 
 // listSkillFiles returns visible file names in the skill directory.
