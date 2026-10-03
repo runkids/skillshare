@@ -435,7 +435,12 @@ Run in container `ss-pi-ext` unless marked host.
   Native 0.99.2/1.0.0 core+bundle: 31 scenarios/127 assertions each, native-lock/project-native
   passed. The native persistence probe uses real local install and remote registration methods,
   not real npm/Git installation; offline update does not establish network update breadth.
-- Verification: valid-Git make check; UI 95 files/800 tests; lint zero errors/47 existing warnings;
-  UI and five-locale website builds; changed-scope Doctor unchanged at 90/100, five warnings.
+- Verification before incorporating the already-published main merges: valid-Git make check;
+  UI 95 files/800 tests; lint zero errors/47 existing warnings; UI and five-locale website
+  builds; changed-scope Doctor unchanged at 90/100, five warnings. After preserving those
+  remote commits in a branch merge: valid-Git make check, Windows amd64 cross-compilation,
+  UI 98 files/823 tests, lint/build, and five-locale website build passed again. Task API/Vite
+  were restarted after an external container restart; the retained global view reports
+  Pi 0.99.2/editable, without changing fixture settings.
   Windows cross-compilation is not Windows runtime evidence. New visual screenshots were not
   run: browser automation is available only on the host, outside this task's tooling boundary.
