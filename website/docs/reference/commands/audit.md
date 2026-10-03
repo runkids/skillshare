@@ -47,30 +47,26 @@ For the full detection catalog, threat categories deep dive, risk scoring algori
 
 ```
 skillshare audit
-──────────────────────────────────────────────────
-Scanning 12 skills for threats
-mode: global
-path: /Users/alice/.config/skillshare/skills
-block rule: finding severity >= CRITICAL
-policy: DEFAULT / dedupe:GLOBAL / analyzers:ALL
+Audit  ~/.config/skillshare/skills
+  global · blocks at CRITICAL · policy DEFAULT / dedupe:GLOBAL / analyzers:ALL
 
-[3/12] ! ci-release-helper  (AGG MEDIUM 25/100, max HIGH)
-[4/12] ✗ suspicious-skill   (AGG HIGH 35/100, max CRITICAL)
+! ci-release-helper  HIGH · risk 25/100
+✗ suspicious-skill   CRITICAL · risk 35/100
 
 Summary
-──────────────────────────────────────────────────
-  Block:     severity >= CRITICAL
-  Policy:    DEFAULT / dedupe:GLOBAL / analyzers:ALL
-  Max sev:   CRITICAL
-  Scanned:   12 skill(s)
-  Passed:    9
-  Warning:   2
-  Failed:    1
-  Severity:  c/h/m/l/i = 1/2/1/0/0
-  Threats:   inj:1 exfil:1 cred:1 priv:1
-  Aggregate: HIGH (35/100)
-  Auditable: 100% avg
-  Note:      Failed uses severity gate; aggregate is informational
+  Scanned      12 skills
+✓ Passed       9
+! Warning      2
+✗ Failed       1
+  Severity     1 critical, 2 high, 1 medium
+  Threats      credential:1 exfiltration:1 injection:1 privilege:1
+  Risk         HIGH 35/100 · 100% auditable
+
+✗ Blocked 1 of 12 skills: findings at CRITICAL or above · 2.1s
+  The risk score is informational; only the severity blocks
+
+Next
+  skillshare audit suspicious-skill  see its findings
 ```
 
 `Failed` counts skills with findings at or above the active threshold (`--threshold` or config `audit.block_threshold`; default `CRITICAL`).

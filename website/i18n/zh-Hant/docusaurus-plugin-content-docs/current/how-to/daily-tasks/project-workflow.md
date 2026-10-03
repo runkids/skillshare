@@ -169,9 +169,13 @@ skillshare target list -p
 ```
 
 ```
-Project Targets
-  claude    .claude/skills (merge)
-  cursor         .cursor/skills (merge)
+claude
+  Skills    .claude/skills  merge · flat · merged (3 shared, 0 local)
+
+cursor
+  Skills    .cursor/skills  merge · flat · merged (3 shared, 0 local)
+
+2 targets
 ```
 
 ---

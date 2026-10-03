@@ -16,52 +16,45 @@ skillshare doctor --json    # 供 CI 使用的結構化 JSON 輸出
 ```text
 skillshare doctor
 
-Checking environment
-─────────────────────────────────────────
-✓ Config: ~/.config/skillshare/config.yaml
-→ Config directory: ~/.config/skillshare
-→ Data directory:   ~/.local/share/skillshare
-→ State directory:  ~/.local/state/skillshare
+Environment
+✓ Config       ~/.config/skillshare/config.yaml
+  Config dir   ~/.config/skillshare
+  Data         ~/.local/share/skillshare
+  State        ~/.local/state/skillshare
+✓ Source       ~/.config/skillshare/skills · 43 skills
+✓ Agents       ~/.config/skillshare/agents · 2 agents
+  Skillignore  not configured
+✓ Links        supported
+! Git          not initialized (recommended for backup)
+✓ Integrity    27/27 skills verified
 
-✓ Source: ~/.config/skillshare/skills (43 skills)
-✓ Agents source: ~/.config/skillshare/agents (2 agents)
-→ Skillignore: not configured
-✓ Link support: OK
-! Git: not initialized (recommended for backup)
-
-✓ Skill integrity: 27/27 verified
-
-Checking targets
-─────────────────────────────────────────
-claude
-  skills   [merge] merged (43 shared, 0 local)
-  agents   [merge] synced (2/2 linked)
-cursor
-  skills   [merge] merged (43 shared, 1 local)
-  agents   [merge] synced (2/2 linked)
-gemini
-  skills   [merge] merged (43 shared, 0 local)
+Targets
+✓ claude    skills  merged · merge · 43 shared
+✓           agents  synced · merge · 2/2 linked
+✓ cursor    skills  merged · merge · 43 shared, 1 local
+✓           agents  synced · merge · 2/2 linked
+✓ gemini    skills  merged · merge · 43 shared
 …
 ! gemini will see content from: universal
-    ~/.agents/skills ← universal
+  ~/.agents/skills ← universal
+  suggestion: …
 …
-✗ claude: 1 broken symlink(s): frontend__css-review
+✗ claude: 1 broken symlink: frontend__css-review
 …
 
 Extras
-─────────────────────────────────────────
-✓ rules: 2 files, 2/2 targets OK
-✓ commands: 1 files, 1/1 targets OK
-✓ team: 1 files, 4/4 targets OK
+✓ rules     2 files · 2/2 targets OK
+✓ commands  1 file · 1/1 targets OK
+✓ team      1 file · 4/4 targets OK
 
 Storage
-─────────────────────────────────────────
-→ Backups: last backup 2026-09-28_12-41-50 (10 minutes ago)
-→ Trash: 1 item(s) (247 B), oldest <1 day
+  Backups      last 2026-09-28_12-41-50 · 10 minutes ago
+  Trash        1 item, 247 B · oldest under a day
 
-Summary
-─────────────────────────────────────────
-✗ 6 error(s), 4 warning(s)
+✗ 6 errors, 4 warnings · 1.2s
+
+Next
+  skillshare sync  bring the Targets up to date
 ```
 
 ## 何時使用
@@ -76,49 +69,43 @@ Summary
 ```text
 skillshare doctor
 
-Checking environment
-✓ Config: ~/.config/skillshare/config.yaml
-→ Config directory: ~/.config/skillshare
-→ Data directory:   ~/.local/share/skillshare
-→ State directory:  ~/.local/state/skillshare
+Environment
+✓ Config       ~/.config/skillshare/config.yaml
+  Config dir   ~/.config/skillshare
+  Data         ~/.local/share/skillshare
+  State        ~/.local/state/skillshare
+✓ Source       ~/.config/skillshare/skills · 12 skills
+✓ Agents       ~/.config/skillshare/agents · 8 agents
+✓ Skillignore  2 patterns, 1 skill ignored
+✓ Links        supported
+✓ Git          initialized with remote
+✓ Integrity    12/12 skills verified
 
-✓ Source: ~/.config/skillshare/skills (12 skills)
-✓ Agents source: ~/.config/skillshare/agents (8 agents)
-✓ Skillignore: 2 patterns, 1 skills ignored
-✓ Link support: OK
-✓ Git: initialized with remote
-
-✓ Skill integrity: 12/12 verified
-
-Checking targets
-claude
-  skills   [merge] merged (8 shared, 2 local)
-  agents   [merge] synced (8/8 linked)
-cursor
-  skills   [copy] copied (8 managed, 0 local)
-  agents   [merge] synced (8/8 linked)
-codex
-  skills   [merge] needs sync
+Targets
+✓ claude    skills  merged · merge · 8 shared, 2 local
+✓           agents  synced · merge · 8/8 linked
+✓ codex     skills  merged · merge · 8 shared
+✓ cursor    skills  copied · copy · 8 managed
+✓           agents  synced · merge · 8/8 linked
 
 Extras
-✓ rules: 4 files, 1/1 targets OK
-✓ commands: 3 files, 1/1 targets OK
+✓ commands  3 files · 1/1 targets OK
+✓ rules     4 files · 1/1 targets OK
 
-MCP
-✓ All 2 MCP server(s) OK
+MCP, hooks and plugins
+✓ MCP          all 2 servers OK
+✓ Hooks        all 1 hook in sync
+  Plugins      none configured
 
-Hooks
-✓ All 1 hook(s) in sync
-
-Plugins
-→ Plugins: none configured
+Storage
+  Backups      last 2026-01-18_09-00-00 · 3 days ago
+  Trash        empty
 
 Version
-✓ CLI: 0.17.0
-✓ Skill: 0.17.0
+✓ CLI          0.23.5
+✓ Skill        0.23.5
 
-Summary
-✓ All checks passed!
+✓ All checks passed · 0.4s
 ```
 
 ## 執行的檢查
@@ -129,16 +116,16 @@ Summary
 |-------|-----------------|
 | Config | Config 檔案存在且有效 |
 | Source | Source 目錄存在且可讀取 |
-| Agents source | Agents source 目錄存在（若有設定） |
+| Agents | Agents source 目錄存在（若有設定） |
 | Skillignore | `.skillignore`（及 `.skillignore.local`）目前生效的 patterns 與被忽略的 skill 數量 |
-| Link support | 系統可以建立 symlinks |
+| Links | 系統可以建立 symlinks |
 | Git | Repository 狀態與 remote 設定 |
 
 ### Targets
 
 每個 target 會顯示 **skills** 與 **agents**（若有設定 agents）的子項目：
 - Skills：路徑、同步模式、同步狀態、共用/本機數量
-- Agents：同步模式、已連結數量、飄移偵測。在沒有開啟 Developer Mode 的 Windows 上，`merge` 會顯示為 `[copy]`；最新的受管理副本會算作已連結。skillshare 不擁有、但內容相同的本機檔案會被保留。在 copy fallback 中，agent 計數會以 `local preserved` 分開顯示，例如 `0/1 linked, 1 local preserved`。
+- Agents：同步模式、已連結數量、飄移偵測。在沒有開啟 Developer Mode 的 Windows 上，`merge` 會顯示為 `copy`；最新的受管理副本會算作已連結。skillshare 不擁有、但內容相同的本機檔案會被保留。在 copy fallback 中，agent 計數會以 `local preserved` 分開顯示，例如 `0/1 linked, 1 local preserved`。
 - 沒有損壞的 symlinks
 - 針對非預期本機衝突的重複 skill 檢查：
   - `merge` 模式：跳過（本機 skills 屬於預期情況）
@@ -162,7 +149,7 @@ Doctor 會在兩類重複 skill 風險到達 runtime picker 之前先標示出�
 
 ```text
 ! Shared path ~/.agents/skills ← codex, universal (different filters, so they undo each other on every sync)
-    suggestion: Keep universal syncing skills to ~/.agents/skills and stop the rest with `skillshare target codex --skills=false`.
+  suggestion: Keep universal syncing skills to ~/.agents/skills and stop the rest with `skillshare target codex --skills=false`.
 ```
 
 `sync` 也會列出相同的 targets 與要執行的指令，dashboard 的同步頁面則提供按鈕，可直接停止同步該 target 的 skills。設定完全相同的共用路徑 targets 仍適用上方的解決方式。
@@ -171,7 +158,7 @@ Doctor 會在兩類重複 skill 風險到達 runtime picker 之前先標示出�
 
 ```text
 ! codex will see content from: universal
-    ~/.agents/skills ← universal
+  ~/.agents/skills ← universal
 ```
 
 解決方式：先移除負責掃描的 target（上例中的 `codex`）。它的 runtime 本來就會讀取共用目錄，而且不會影響其他工具。可用 `skillshare target remove codex --dry-run` 預覽。若改為移除寫入者（`universal`），其他讀取 `~/.agents/skills` 的工具也會看不到這些 skill。只有在掃描端 target 帶有被寫入者過濾掉的 skill 時才同時保留兩者，並接受 runtime picker 出現重複列表。
@@ -194,9 +181,9 @@ Doctor 會在兩類重複 skill 風險到達 runtime picker 之前先標示出�
 - 有 metadata 但缺少 `file_hashes` 的已安裝 skills 會標示其名稱
 
 ```text
-⚠ _team-repo__api-helper: 1 modified, 1 missing
-✓ Skill integrity: 5/6 verified
-⚠ Skill integrity: 1 skill(s) missing file hashes: _old-repo__legacy-skill
+! Integrity    5/6 skills verified
+!              _team-repo__api-helper: 1 modified, 1 missing
+!              1 skill missing file hashes: _old-repo__legacy-skill
 ```
 
 ### Extras
@@ -209,8 +196,8 @@ Doctor 會在兩類重複 skill 風險到達 runtime picker 之前先標示出�
 - 與 source 不一致的檔案，判斷方式同 `skillshare diff`（warning）。設定了 `flatten` 或 `extension` 的 target 不做比對。
 
 ```text
-! rules → ~/.claude/rules: 1 file(s) out of sync (a.md missing in target)
-✗ rules → ~/.claude/rules: broken symlink gone.md
+✗ rules     → ~/.claude/rules: broken symlink gone.md
+!           → ~/.claude/rules: 1 file out of sync (a.md missing in target)
 ```
 
 ### MCP
@@ -218,8 +205,8 @@ Doctor 會在兩類重複 skill 風險到達 runtime picker 之前先標示出�
 執行 [`mcp check`](./mcp.md) 的靜態檢查：引用的環境變數有設定、`command` 能在 `PATH` 找到、client 規則接受這個 server，以及每個項目都已同步。Doctor 不解析 host，也不啟動 server；需要時請執行 `skillshare mcp check` 或 `skillshare mcp check --live`。沒有設定任何 server 時顯示 `info`。
 
 ```text
-✗ docs: command no-such-mcp-binary was not found on PATH
-! docs → claude: not synced yet; run skillshare sync mcp
+✗ MCP          docs: command no-such-mcp-binary was not found on PATH
+!              docs → claude: not synced yet; run skillshare sync mcp
 ```
 
 ### Hooks
@@ -227,7 +214,7 @@ Doctor 會在兩類重複 skill 風險到達 runtime picker 之前先標示出�
 預覽 `skillshare sync hooks`，不寫入任何檔案。預覽失敗是 error。Sync 還會新增、更新或移除的項目、與原生 hooks 的衝突，以及提示性警告（例如 Agent 未記載的事件名稱）是 warning。沒有設定 hook 時顯示 `info`。
 
 ```text
-! bash-log → claude: not synced (add)
+! Hooks        bash-log → claude: not synced (add)
 ```
 
 ### Plugins
@@ -308,40 +295,38 @@ skillshare new my-skill  # Creates proper structure
 ## 有問題時的範例輸出
 
 ```
-Checking environment
-✓ Config: ~/.config/skillshare/config.yaml
-✓ Source: ~/.config/skillshare/skills (12 skills)
-✓ Agents source: ~/.config/skillshare/agents (8 agents)
-✓ Link support: OK
-⚠ Git: 3 uncommitted change(s)
+Environment
+✓ Config       ~/.config/skillshare/config.yaml
+✓ Source       ~/.config/skillshare/skills · 12 skills
+✓ Agents       ~/.config/skillshare/agents · 8 agents
+✓ Links        supported
+! Git          3 uncommitted changes
+! Integrity    5/6 skills verified
+!              _team-repo__api-helper: 1 modified
+! Skills without SKILL.md: test-dir, temp
 
-⚠ Skills without SKILL.md: test-dir, temp
-⚠ _team-repo__api-helper: 1 modified
-✓ Skill integrity: 5/6 verified
+Targets
+✓ claude    skills  merged · merge · 8 shared, 2 local
+✓           agents  synced · merge · 8/8 linked
+! codex     skills  linked · merge · needs sync
+✓ cursor    skills  merged · merge · 6 shared
+! claude    1 skill not synced · 2/3 linked
+✗ cursor: 2 broken symlinks: old-skill, removed-skill
 
-Checking targets
-claude
-  skills   [merge] merged (8 shared, 2 local)
-  agents   [merge] synced (8/8 linked)
-cursor
-  skills   [merge] 2 broken symlink(s): old-skill, removed-skill
-codex
-  skills   [merge] needs sync
-⚠ claude: 1 skill(s) not synced (2/3 linked)
+Storage
+  Backups      last 2026-01-18_09-00-00 · 3 days ago
+  Trash        2 items, 45.2 KB · oldest 3 days
 
 Version
-✓ CLI: 0.17.0
-⚠ Skill: 0.16.0 (update available: 0.17.0)
-  Run: skillshare upgrade --skill && skillshare sync
+✓ CLI          1.2.0
+✓ Skill        0.16.0
+  Update       1.2.0 -> 1.3.0 available
 
-Backups: last backup 2026-01-18_09-00-00 (3 days ago)
-ℹ Trash: 2 item(s) (45.2 KB), oldest 3 day(s)
+✗ 1 error, 5 warnings · 0.6s
 
-ℹ Update available: 1.2.0 -> 1.3.0
-  brew upgrade skillshare  OR  curl -fsSL .../install.sh | sh
-
-Summary
-  ✗ 1 error(s), 4 warning(s)
+Next
+  skillshare sync          bring the Targets up to date
+  brew upgrade skillshare  update to 1.3.0
 ```
 
 ## JSON 輸出

@@ -120,10 +120,18 @@ TUI を通じて行った変更（モード、include/exclude）は即座に con
 `--no-tui` を使うと TUI をスキップし、代わりにプレーンテキストを出力します。
 
 ```
-Configured Targets
-  claude       ~/.claude/skills (merge)
-  cursor       ~/.cursor/skills (merge)
-  codex        ~/.openai-codex/skills (symlink)
+claude
+  Skills    ~/.claude/skills  merge · flat · merged (43 shared, 0 local)
+  Agents    ~/.claude/agents  merge · 2/2 linked
+
+cursor
+  Skills    ~/.cursor/skills  merge · flat · merged (43 shared, 1 local)
+  Agents    ~/.cursor/agents  merge · 2/2 linked
+
+codex
+  Skills    ~/.openai-codex/skills  symlink · flat · linked
+
+3 targets
 ```
 
 #### JSON 出力
@@ -256,9 +264,10 @@ skillshare target pi --skills=false
 ```
 
 ```
-✓ pi: skills off
-  removed 2 link(s): alpha, beta
-  kept 1: my-notes
+✓ Removed   2 links  alpha, beta
+  Kept      1 local skill  my-notes
+
+✓ Skills off for pi
   Agents, MCP servers and instructions are still managed
 ```
 
@@ -269,8 +278,11 @@ Skill をオフにすると、config に `skills.enabled: false` が保存され
 - **Copy モード:** コピーは編集済みかもしれない実フォルダーなので保持し、別枠で一覧表示する。ツールはこれらを引き続き読み込むため、同じ Skill を別のフォルダーからも読む場合は、コピーを自分で削除する:
 
   ```
-    kept 2 copied skill(s): alpha, beta
+  ! Kept      2 copied skills  alpha, beta
+
+  ✓ Skills off for pi
     The tool still loads these copies; delete them if it reads the same skills elsewhere
+    Agents, MCP servers and instructions are still managed
   ```
 
 - **共有フォルダー:** 有効な Target が同じフォルダーに書き込んでいる場合は、何も削除しない。
@@ -403,10 +415,16 @@ skillshare target claude --add-agent-include "team-*" -p    # agent フィルタ
 ### Project の Target 一覧の例
 
 ```
-Project Targets
-  claude    .claude/skills (merge)
-  cursor         .cursor/skills (merge)
-  custom-tool    ./tools/ai/skills (merge)
+claude
+  Skills    .claude/skills  merge · flat · merged (3 shared, 0 local)
+
+cursor
+  Skills    .cursor/skills  merge · flat · merged (3 shared, 0 local)
+
+custom-tool
+  Skills    ./tools/ai/skills  merge · flat · merged (3 shared, 0 local)
+
+3 targets
 ```
 
 project モードでの Target は以下をサポートします。

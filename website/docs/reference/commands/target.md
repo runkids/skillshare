@@ -120,10 +120,18 @@ Changes made through the TUI (mode, include/exclude) are saved to config immedia
 Use `--no-tui` to skip the TUI and print plain text instead:
 
 ```
-Configured Targets
-  claude       ~/.claude/skills (merge)
-  cursor       ~/.cursor/skills (merge)
-  codex        ~/.openai-codex/skills (symlink)
+claude
+  Skills    ~/.claude/skills  merge · flat · merged (43 shared, 0 local)
+  Agents    ~/.claude/agents  merge · 2/2 linked
+
+cursor
+  Skills    ~/.cursor/skills  merge · flat · merged (43 shared, 1 local)
+  Agents    ~/.cursor/agents  merge · 2/2 linked
+
+codex
+  Skills    ~/.openai-codex/skills  symlink · flat · linked
+
+3 targets
 ```
 
 #### JSON Output
@@ -256,9 +264,10 @@ skillshare target pi --skills=false
 ```
 
 ```
-✓ pi: skills off
-  removed 2 link(s): alpha, beta
-  kept 1: my-notes
+✓ Removed   2 links  alpha, beta
+  Kept      1 local skill  my-notes
+
+✓ Skills off for pi
   Agents, MCP servers and instructions are still managed
 ```
 
@@ -269,8 +278,11 @@ Turning skills off saves `skills.enabled: false` in the config, then cleans the 
 - **Copy mode:** keeps the copies, since they are real folders you may have edited, and lists them apart. The tool still loads them, so if it reads the same skills from another folder, delete the copies yourself:
 
   ```
-    kept 2 copied skill(s): alpha, beta
+  ! Kept      2 copied skills  alpha, beta
+
+  ✓ Skills off for pi
     The tool still loads these copies; delete them if it reads the same skills elsewhere
+    Agents, MCP servers and instructions are still managed
   ```
 
 - **Shared folder:** if an enabled target writes to the same folder, nothing is removed.
@@ -403,10 +415,16 @@ skillshare target claude --add-agent-include "team-*" -p    # Add agent filter
 ### Project Target List Example
 
 ```
-Project Targets
-  claude    .claude/skills (merge)
-  cursor         .cursor/skills (merge)
-  custom-tool    ./tools/ai/skills (merge)
+claude
+  Skills    .claude/skills  merge · flat · merged (3 shared, 0 local)
+
+cursor
+  Skills    .cursor/skills  merge · flat · merged (3 shared, 0 local)
+
+custom-tool
+  Skills    ./tools/ai/skills  merge · flat · merged (3 shared, 0 local)
+
+3 targets
 ```
 
 Targets in project mode support:

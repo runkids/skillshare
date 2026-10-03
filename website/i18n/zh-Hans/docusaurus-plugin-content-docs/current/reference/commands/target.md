@@ -120,10 +120,18 @@ skillshare target list --json          # JSON output for CI/scripts
 使用 `--no-tui` 跳过 TUI，改为打印纯文本：
 
 ```
-Configured Targets
-  claude       ~/.claude/skills (merge)
-  cursor       ~/.cursor/skills (merge)
-  codex        ~/.openai-codex/skills (symlink)
+claude
+  Skills    ~/.claude/skills  merge · flat · merged (43 shared, 0 local)
+  Agents    ~/.claude/agents  merge · 2/2 linked
+
+cursor
+  Skills    ~/.cursor/skills  merge · flat · merged (43 shared, 1 local)
+  Agents    ~/.cursor/agents  merge · 2/2 linked
+
+codex
+  Skills    ~/.openai-codex/skills  symlink · flat · linked
+
+3 targets
 ```
 
 #### JSON 输出
@@ -259,9 +267,10 @@ skillshare target pi --skills=false
 ```
 
 ```
-✓ pi: skills off
-  removed 2 link(s): alpha, beta
-  kept 1: my-notes
+✓ Removed   2 links  alpha, beta
+  Kept      1 local skill  my-notes
+
+✓ Skills off for pi
   Agents, MCP servers and instructions are still managed
 ```
 
@@ -272,8 +281,11 @@ skillshare target pi --skills=false
 - **Copy 模式：**保留副本（它们是你可能编辑过的真实文件夹），并单独列出。工具仍会加载这些副本，因此如果它还会从另一个文件夹读取相同的 skills，请自行删除这些副本：
 
   ```
-    kept 2 copied skill(s): alpha, beta
+  ! Kept      2 copied skills  alpha, beta
+
+  ✓ Skills off for pi
     The tool still loads these copies; delete them if it reads the same skills elsewhere
+    Agents, MCP servers and instructions are still managed
   ```
 
 - **共享文件夹：**如果有已启用的 target 写入同一个文件夹，则不会移除任何内容。
@@ -406,10 +418,16 @@ skillshare target claude --add-agent-include "team-*" -p    # Add agent filter
 ### Project Target List 示例
 
 ```
-Project Targets
-  claude    .claude/skills (merge)
-  cursor         .cursor/skills (merge)
-  custom-tool    ./tools/ai/skills (merge)
+claude
+  Skills    .claude/skills  merge · flat · merged (3 shared, 0 local)
+
+cursor
+  Skills    .cursor/skills  merge · flat · merged (3 shared, 0 local)
+
+custom-tool
+  Skills    ./tools/ai/skills  merge · flat · merged (3 shared, 0 local)
+
+3 targets
 ```
 
 Project mode 下的 targets 支持：

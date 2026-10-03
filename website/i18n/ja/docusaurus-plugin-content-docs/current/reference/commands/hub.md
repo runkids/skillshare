@@ -54,8 +54,10 @@ skillshare hub list [options]
 
 ```
 $ skillshare hub list
-  * team   https://internal.corp/hub.json
-    local  ./local-hub.json
+  team      https://internal.corp/hub.json · default
+  local     ./local-hub.json
+
+2 hubs
 ```
 
 エイリアス: `hub ls`

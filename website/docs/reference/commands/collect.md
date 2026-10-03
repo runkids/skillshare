@@ -82,16 +82,19 @@ skillshare collect -p agents --json
 
 ```bash
 $ skillshare collect claude
+Local skills in targets
+  another-skill  claude · ~/.claude/skills/another-skill
+  new-skill      claude · ~/.claude/skills/new-skill
+? Collect these skills to source? [y/N] y
 
-Local skills found
-  ℹ new-skill       [claude] ~/.claude/skills/new-skill
-  ℹ another-skill   [claude] ~/.claude/skills/another-skill
+✓ another-skill  copied to source
+✓ new-skill      copied to source
 
-Collecting skills
-  ✓ new-skill: copied to source
-  ✓ another-skill: copied to source
+✓ Collected 2 skills · 0.1s
 
-Run 'skillshare sync' to distribute to all targets
+Next
+  skillshare sync    link them into every target
+  skillshare commit  save them in git
 ```
 
 ## Handling Conflicts
@@ -100,17 +103,25 @@ If an item already exists in source, collection skips it by default:
 
 ```bash
 $ skillshare collect claude
+Local skills in targets
+  my-skill  claude · ~/.claude/skills/my-skill
+? Collect these skills to source? [y/N] y
 
-Collecting skills
-  ⚠ my-skill: skipped (already exists in source, use --force to overwrite)
+! my-skill  already exists in source · use --force to overwrite
+
+! Collected 0 skills, 1 skipped · 0.0s
 
 # To overwrite:
 $ skillshare collect claude --force
 
 $ skillshare collect agents claude
+Local agents in targets
+  tutor.md  claude · ~/.claude/agents/tutor.md
+? Collect these agents to source? [y/N] y
 
-Collecting agents
-  ⚠ tutor.md: skipped (already exists in source, use --force to overwrite)
+! tutor.md  already exists in source · use --force to overwrite
+
+! Collected 0 agents, 1 skipped · 0.0s
 ```
 
 ## Workflow
