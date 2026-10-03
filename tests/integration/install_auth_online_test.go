@@ -27,7 +27,7 @@ targets: {}
 	result := sb.RunCLI("install", "runkids/skillshare/skills/skillshare", "--dry-run")
 
 	result.AssertSuccess(t)
-	result.AssertAnyOutputContains(t, "dry-run")
+	result.AssertAnyOutputContains(t, "Dry run — nothing was written")
 }
 
 // TestInstall_Auth_PrivateRepoWithoutToken verifies the error message when
@@ -80,7 +80,7 @@ targets: {}
 	if result.ExitCode != 0 {
 		t.Skip("private test repo not accessible, skipping")
 	}
-	result.AssertAnyOutputContains(t, "dry-run")
+	result.AssertAnyOutputContains(t, "Dry run — nothing was written")
 
 	// Verify no token leaks in output
 	output := result.Output()
