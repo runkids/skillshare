@@ -1070,6 +1070,6 @@ func initAuditRules(path string) error {
 	if err := audit.InitRulesFile(path); err != nil {
 		return err
 	}
-	ui.Success("Created %s", path)
+	ui.Row(ui.MarkOK, "Created", utils.FoldHomePath(path), ui.RowWidth("Created"))
 	return nil
 }

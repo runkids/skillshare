@@ -94,31 +94,31 @@ func filterCompiledRules(rules []audit.CompiledRule, opts auditRulesOptions) []a
 
 func printAuditRulesTable(rules []audit.CompiledRule) error {
 	if len(rules) == 0 {
-		ui.Info("No rules match the filter.")
+		ui.Done(ui.MarkNone, "No rules match the filter", 0)
 		return nil
 	}
 
-	fmt.Printf("%-24s %-40s %-10s %s\n", "Pattern", "ID", "Severity", "Status")
-	fmt.Println(strings.Repeat("\u2500", 90))
-
-	enabledCount := 0
+	ids := make([]string, len(rules))
+	for i, r := range rules {
+		ids[i] = r.ID
+	}
+	width := ui.RowWidth(ids...)
 	disabledCount := 0
 	for _, r := range rules {
-		status := "enabled"
+		pad := strings.Repeat(" ", max(0, len("CRITICAL")-len(r.Severity)))
+		value := formatSeverity(r.Severity) + pad + "  " + ui.DimText(r.Pattern)
 		if !r.Enabled {
-			status = "disabled"
 			disabledCount++
-		} else {
-			enabledCount++
+			value = ui.DimText(r.Severity + pad + "  " + r.Pattern + " · disabled")
 		}
-		sevLabel := r.Severity
-		if ui.IsTTY() {
-			sevLabel = ui.Colorize(ui.SeverityColor(r.Severity), r.Severity)
-		}
-		fmt.Printf("%-24s %-40s %-10s %s\n", r.Pattern, r.ID, sevLabel, status)
+		ui.Row(ui.MarkNone, r.ID, value, width)
 	}
-	fmt.Println(strings.Repeat("\u2500", 90))
-	fmt.Printf("(%d rules: %d enabled, %d disabled)\n", len(rules), enabledCount, disabledCount)
+	text := plural(len(rules), "rule")
+	if disabledCount > 0 {
+		text += fmt.Sprintf(", %d disabled", disabledCount)
+	}
+	fmt.Println()
+	ui.Done(ui.MarkNone, text, 0)
 	return nil
 }
 
@@ -194,7 +194,7 @@ func cmdAuditRulesToggle(mode runMode, args []string, enabled bool) error {
 		if err := audit.TogglePattern(rulesPath, pattern, enabled); err != nil {
 			return err
 		}
-		ui.Success("%s all rules in pattern: %s", verb, pattern)
+		ui.Row(ui.MarkOK, verb, "all rules in "+pattern, ui.RowWidth(verb))
 		return nil
 	}
 
@@ -205,7 +205,7 @@ func cmdAuditRulesToggle(mode runMode, args []string, enabled bool) error {
 		return err
 	}
 	for _, id := range ids {
-		ui.Success("%s rule: %s", verb, id)
+		ui.Row(ui.MarkOK, verb, id, ui.RowWidth(verb))
 	}
 	return nil
 }
@@ -242,7 +242,7 @@ func cmdAuditRulesSeverity(mode runMode, args []string) error {
 		if err := audit.SetPatternSeverity(rulesPath, pattern, severity); err != nil {
 			return err
 		}
-		ui.Success("Set severity for pattern %s → %s", pattern, strings.ToUpper(severity))
+		ui.Row(ui.MarkOK, "Severity", "all rules in "+pattern+" → "+formatSeverity(severity), ui.RowWidth("Severity"))
 		return nil
 	}
 
@@ -255,7 +255,7 @@ func cmdAuditRulesSeverity(mode runMode, args []string) error {
 		return err
 	}
 	for _, id := range ruleIDs {
-		ui.Success("Set severity for %s → %s", id, strings.ToUpper(severity))
+		ui.Row(ui.MarkOK, "Severity", id+" → "+formatSeverity(severity), ui.RowWidth("Severity"))
 	}
 	return nil
 }
@@ -268,7 +268,7 @@ func cmdAuditRulesReset(mode runMode) error {
 		return err
 	}
 	audit.ResetGlobalCache()
-	ui.Success("All custom audit rules have been reset to defaults.")
+	ui.Done(ui.MarkOK, "Reset audit rules to the defaults", 0)
 	return nil
 }
 
