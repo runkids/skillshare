@@ -1041,7 +1041,7 @@
   "install.url.selectAll": "Tout sélectionner",
   "install.url.deselectAll": "Tout désélectionner",
   "install.url.sourceLabel": "URL git, raccourci GitHub ou chemin local",
-  "install.url.sourceHint": "Un sous-dossier fonctionne aussi : owner/repo/path/to/skill. Tout comme les URL SSH et les dossiers tels que ~/Downloads/my-skill.",
+  "install.url.sourceHint": "Un sous-dossier fonctionne aussi : owner/repo/path/to/skill. Tout comme les URL SSH et les dossiers tels que ~/Downloads/my-skill. Vous pouvez aussi coller une commande npx skills add.",
   "install.url.selected": "{count} sélectionné(s)",
   "install.url.filterSkills": "Filtrer les skills",
   "install.url.filterAgents": "Filtrer les agents",

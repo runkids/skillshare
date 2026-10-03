@@ -1041,7 +1041,7 @@
   "install.url.selectAll": "全选",
   "install.url.deselectAll": "取消全选",
   "install.url.sourceLabel": "Git URL、GitHub 简写或本地路径",
-  "install.url.sourceHint": "也可以指定子文件夹：owner/repo/path/to/skill。SSH URL 和 ~/Downloads/my-skill 这类文件夹也可以。",
+  "install.url.sourceHint": "也可以指定子文件夹：owner/repo/path/to/skill。SSH URL 和 ~/Downloads/my-skill 这类文件夹也可以。直接粘贴 npx skills add 命令也行。",
   "install.url.selected": "已选 {count} 个",
   "install.url.filterSkills": "筛选 skill",
   "install.url.filterAgents": "筛选 agent",
