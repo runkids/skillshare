@@ -56,7 +56,7 @@ The rules below are @hhdebb's design, plus the overlap rules:
 - **Classification, in order.** Each declared name ends up in exactly one state. The first rule that applies wins:
   1. `missing`: no entry exists, the link dangles, or the resolved root cannot be read. This is temporary. §3 defines how sync behaves while an entry is missing.
   2. `not-link`: the entry is a real directory. This is a no-op; the directory is discovered anyway.
-  3. `invalid-target`: the link resolves to a file.
+  3. `invalid-target`: the entry is a link that resolves to anything other than a directory, or the entry itself is neither a link nor a directory (a regular file, FIFO, socket, or device).
   4. `cycle`: the resolved target is the source root, an ancestor of it, or inside it.
   5. `target-overlap`: the resolved target equals an active skills target path (global or project, from the current config), or is an ancestor or descendant of one. The check runs in both directions. Without it, a followed `/ext` with a target at `/ext/out` would make sync write links inside the tree that discovery reads (`SyncTargetMergeWithSkills`, `internal/sync/sync.go:587`, `:625`, `:639`).
   6. `inside-git-root`: the resolved target lies physically inside skillshare's effective git staging tree (see §5). Ignoring the link cannot stop the target's content from being staged through its real path. Also, `NestedRepos`/`DisableNestedRepo` (`internal/git/scope.go:396`, `:424`) could then offer to disable the user's own `.git`.
@@ -277,6 +277,7 @@ A `not-link` entry is a real directory, so it keeps today's ownership rules: nam
 | Pull, audit rollback, and `--force` on a followed repo | §5's followed-update policy |
 | Dashboard source change on a followed repo | `handlePatchSkillSource` (`internal/server/handler_skill_content.go:98`), which calls `git.SetRemoteURL` at `:162` |
 | Staging | §5's staging guard |
+| Source-repo pull and reset: `ss pull` (`pullFromRemote`, `cmd/skillshare/pull.go:54`), the dashboard pull (`handlePull`, `internal/server/handler_git.go:677`, via `PullWithResolution` at `:745`), and the `init` resets to a remote branch (`resetToRemoteBranch`, `cmd/skillshare/init_remote.go:126`; `cmd/skillshare/init.go:775`) | Fetch first. Then refuse while any declared entry in the staging tree is indexed, or while the incoming revision touches a declared entry path (`git diff --name-only HEAD <incoming> -- <entries>`). Ignoring the link is not enough: Git treats ignored files as expendable, so a remote commit that adds that path would replace the link. The message names the path and the commit, and says to run `git rm --cached` or to fix the remote. |
 
 `enable`/`disable` (`cmd/skillshare/enable.go`) and `PUT /api/skillignore` (`internal/server/handler_skillignore.go:80-89`) write only the root ignore files, which the handle allows.
 
@@ -464,6 +465,7 @@ Any line estimate is rough, not a commitment.
   - Unfollow and uninstall of a followed entry remove only the link and the declarations. Partial-write failure is reported as failure.
   - Audit on a followed repo: a pulled commit adding a malicious child skill blocks and rolls back to `beforeHash`, through the CLI, the server, and `install --update`. A zero-file scan of a non-empty root is a scan error.
   - Update: a mixed `update --all` of ordinary and followed repos, covering dirty trees, `--force`, divergence, and an `IsDirty` error. The ordinary repo still updates, and each followed refusal is reported per item in batch, project, server, and SSE output. Rollback-failure and concurrency messages are checked too.
+  - Source-repo `pull`, dashboard pull, and `init` reset: refused with an indexed declared link, and refused when the remote adds or changes a declared entry path while the link is only ignored. The link is unchanged after each refusal.
   - The staging guard at `commit`, `push`, and `init --remote`: indexed versus unignored links; a source linked out of the git root (not guarded); an alias source pointing into the root (guarded); agents, extras, and custom-root scopes; under both `git_root: skills` and `git_root: root`.
   - A missing entry with `--force`: the prune pause holds, and copy replacement is refused in standard naming.
 - **Windows:** the `skillshare-windows-utm` runbook for §3 cases 11–13, §6, and the §4 boundary through a junction with the basic token.
