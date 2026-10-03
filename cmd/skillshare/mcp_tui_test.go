@@ -7,7 +7,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 
 	"skillshare/internal/mcp"
@@ -16,22 +15,6 @@ import (
 type scriptedMCPPrompts struct {
 	choices [][]int
 	texts   []string
-}
-
-func (*scriptedMCPPrompts) review(string, *mcp.Plan) error { return nil }
-
-func TestMCPReviewRequiresExplicitContinue(t *testing.T) {
-	for _, key := range []tea.KeyType{tea.KeyEsc, tea.KeyCtrlC, tea.KeyEnter} {
-		m := mcpReviewModel{viewport: viewport.New(76, 20), content: "Remove source server: docs"}
-		resized, _ := m.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
-		if !strings.Contains(resized.View(), "Remove source server: docs") {
-			t.Fatal("preview missing from terminal")
-		}
-		result, cmd := resized.Update(tea.KeyMsg{Type: key})
-		if cmd == nil || result.(mcpReviewModel).accepted != (key == tea.KeyEnter) {
-			t.Fatalf("unexpected preview decision for %v", key)
-		}
-	}
 }
 
 func (p *scriptedMCPPrompts) choose(checklistConfig) ([]int, error) {
