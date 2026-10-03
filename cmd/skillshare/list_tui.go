@@ -674,7 +674,7 @@ func (m listTUIModel) renderBottom() string {
 		note = theme.Dim().Render("  " + m.confirmNote)
 		line = m.renderConfirm()
 	case m.filtering:
-		line = joinEnds("  "+m.filterInput.View(), theme.Dim().Render(fmt.Sprintf("%s matches", formatNumber(m.matchCount)))+" ", m.termWidth)
+		line = renderFilterLine(m.termWidth, m.filterInput.View(), m.matchCount)
 	default:
 		other := "agents"
 		if m.activeTab == listTabAgents {

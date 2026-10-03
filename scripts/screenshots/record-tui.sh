@@ -26,6 +26,7 @@ list-filter|skillshare list|Type `/`;Type `re`
 target|skillshare target list|
 extras|skillshare extras list|
 trash|skillshare trash list|
+trash-confirm|skillshare trash list|Space;Down;Space;Type `d`
 restore-pick|skillshare restore|
 restore|skillshare restore|Enter
 log|skillshare log|

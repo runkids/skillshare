@@ -4,43 +4,38 @@ import (
 	"strings"
 	"testing"
 
+	tea "github.com/charmbracelet/bubbletea"
+
 	"skillshare/internal/trash"
 )
 
-func TestTrashTUIRenderRestoreConfirmHeader_UsesAgentDestination(t *testing.T) {
-	model := newTrashTUIModel([]trash.TrashEntry{
-		{Name: "tutor", Kind: "agent"},
-	}, "", "", "/tmp/skills", "/tmp/agents", "", "global")
-	model.selected[0] = true
-	model.selCount = 1
-	model.confirmAction = "restore"
-	model.confirmNames = []string{"tutor"}
+func TestTrashTUIRestoreDestination_UsesAgentDestination(t *testing.T) {
+	model := newTrashTUIModel(nil, "", "", "/tmp/skills", "/tmp/agents", "", "global")
+	model.confirmEntries = []trash.TrashEntry{{Name: "tutor", Kind: "agent"}}
 
-	got := model.renderRestoreConfirmHeader()
-	if !strings.Contains(got, "/tmp/agents") {
-		t.Fatalf("expected agent restore header to use agent destination, got %q", got)
-	}
-	if strings.Contains(got, "/tmp/skills") {
-		t.Fatalf("expected agent restore header to avoid skill destination, got %q", got)
+	got := model.restoreDestination()
+	if !strings.Contains(got, "/tmp/agents") || strings.Contains(got, "/tmp/skills") {
+		t.Fatalf("agent restore should go to the agent destination only, got %q", got)
 	}
 }
 
-func TestTrashTUIRenderRestoreConfirmHeader_ShowsMixedDestinations(t *testing.T) {
-	model := newTrashTUIModel([]trash.TrashEntry{
-		{Name: "demo-skill", Kind: "skill"},
-		{Name: "tutor", Kind: "agent"},
-	}, "", "", "/tmp/skills", "/tmp/agents", "", "global")
-	model.selected[0] = true
-	model.selected[1] = true
-	model.selCount = 2
-	model.confirmAction = "restore"
-	model.confirmNames = []string{"demo-skill", "tutor"}
+func TestTrashTUIRestoreDestination_ShowsMixedDestinations(t *testing.T) {
+	model := newTrashTUIModel(nil, "", "", "/tmp/skills", "/tmp/agents", "", "global")
+	model.confirmEntries = []trash.TrashEntry{{Name: "demo-skill", Kind: "skill"}, {Name: "tutor", Kind: "agent"}}
 
-	got := model.renderRestoreConfirmHeader()
-	if !strings.Contains(got, "skills -> /tmp/skills") {
-		t.Fatalf("expected mixed restore header to mention skills destination, got %q", got)
+	got := model.restoreDestination()
+	if !strings.Contains(got, "skills to /tmp/skills") || !strings.Contains(got, "agents to /tmp/agents") {
+		t.Fatalf("mixed restore should name both destinations, got %q", got)
 	}
-	if !strings.Contains(got, "agents -> /tmp/agents") {
-		t.Fatalf("expected mixed restore header to mention agent destination, got %q", got)
+}
+
+func TestTrashTUIDeleteWithoutSelectionAsksAboutTheCursorRow(t *testing.T) {
+	model := newTrashTUIModel([]trash.TrashEntry{{Name: "old-tool"}, {Name: "another"}}, "", "", "/tmp/skills", "/tmp/agents", "", "global")
+
+	next, _ := model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("d")})
+	got := next.(trashTUIModel)
+
+	if !got.confirming || len(got.confirmEntries) != 1 || got.confirmEntries[0].Name != "old-tool" {
+		t.Fatalf("d with nothing selected should ask about the row under the cursor; confirming=%v entries=%v", got.confirming, got.confirmEntries)
 	}
 }

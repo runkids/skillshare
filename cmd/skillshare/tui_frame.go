@@ -129,3 +129,29 @@ func joinEnds(left, right string, width int) string {
 	}
 	return left + strings.Repeat(" ", gap) + right
 }
+
+// renderFilterLine shows the filter input in place of the key line.
+func renderFilterLine(width int, inputView string, matches int) string {
+	return joinEnds("  "+inputView, theme.Dim().Render(formatNumber(matches)+" matches")+" ", width)
+}
+
+// renderBusyLine shows a running operation in place of the key line.
+func renderBusyLine(width int, spinnerView, label string) string {
+	return joinEnds("  "+spinnerView+" "+label, "", width)
+}
+
+// alignRow renders a row's text with right aligned at the end of width,
+// truncating left to make room.
+func alignRow(left, right string, width int) string {
+	room := max(width-lipgloss.Width(right)-2, 8)
+	left = truncateANSI(left, room)
+	return left + strings.Repeat(" ", max(room-lipgloss.Width(left), 0)+2) + right
+}
+
+// countNoun renders "1 item" or "3 items".
+func countNoun(n int, noun string) string {
+	if n != 1 {
+		noun += "s"
+	}
+	return formatNumber(n) + " " + noun
+}

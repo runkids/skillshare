@@ -159,9 +159,7 @@ func skillRowLine(e skillEntry, width int) string {
 		tag = "disabled"
 		name = theme.Dim().Render(compactSkillPath(e))
 	}
-	room := max(width-len(tag)-2, 8)
-	name = truncateANSI(name, room)
-	return name + strings.Repeat(" ", room-lipgloss.Width(name)+2) + theme.Dim().Render(tag)
+	return alignRow(name, theme.Dim().Render(tag), width)
 }
 
 // compactSkillPath returns a short display path for list rows.
