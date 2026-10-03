@@ -128,7 +128,7 @@ The OS resolves the link component in the middle of the path, so these walks wor
 
 **Proposed mechanism:**
 
-1. **One package owns source traversal.** `internal/sourcewalk` takes plain inputs and imports neither `config` nor `sync`. Today `config` imports `install` (`reconcile_core.go:9`) and `sync` imports `config` (`target_naming.go:8`), so the shared walker cannot live in `sync` without an import cycle. The package exposes:
+1. **One package owns source traversal.** `internal/sourcewalk` takes plain inputs and imports neither `config` nor `sync`. Today `config` imports `install` (`reconcile_core.go:9`) and `sync` imports `config` (`target_naming.go:9`), so the shared walker cannot live in `sync` without an import cycle. The package exposes:
    - `Follow(root, Options{TargetPaths []string; GitRoot string}) FollowSet`: parses the two files, classifies each entry (§1), and returns the states.
    - `(FollowSet) Walk(fn)`, `WalkDir(fn)`, and `ReadDir()`. These walk `ResolveSymlink(root)`. At depth 1, a `followed` entry is reported to `fn` as a directory at its logical path. The wrapper then reads the resolved directory itself and maps every path back to the logical form. As @star-nebula noted, `filepath.Walk` will not descend through either link kind, so the one-hop rule has to live in the wrapper. `SkipDir` and error semantics match `filepath.Walk`/`WalkDir`. The root and every returned path share one logical base, including when the source root is a link.
    - `(FollowSet) Owns(resolved) bool` and `(FollowSet) InFollowed(logicalRel) (entry, state)`. These serve ownership (§3) and the mutation boundary (§4).
