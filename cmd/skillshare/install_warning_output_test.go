@@ -56,7 +56,7 @@ func TestRenderInstallWarnings_CompactSuppressesExtraDetails(t *testing.T) {
 	})
 	output = stripANSIWarnings(output)
 
-	if !strings.Contains(output, "demo-skill: 6 finding(s): HIGH=2, LOW=4") {
+	if !strings.Contains(output, "demo-skill: 6 findings: HIGH=2, LOW=4") {
 		t.Fatalf("expected compact summary in output, got:\n%s", output)
 	}
 	if !strings.Contains(output, "+1 more finding type(s); use --audit-verbose for full details") {

@@ -98,9 +98,9 @@ func TestStatusProject_ShowsAgents(t *testing.T) {
 
 	result := sb.RunCLIInDir(projectDir, "status", "-p")
 	result.AssertSuccess(t)
-	result.AssertAnyOutputContains(t, "Source")   // source section
+	result.AssertAnyOutputContains(t, "Source")  // source section
 	result.AssertAnyOutputContains(t, "1 agent") // agents in source
-	result.AssertAnyOutputContains(t, "agents")   // agents sub-item in targets
+	result.AssertAnyOutputContains(t, "agents")  // agents sub-item in targets
 }
 
 func TestStatusProject_JSON_IncludesAgents(t *testing.T) {
@@ -472,5 +472,5 @@ func TestStatusProject_Default_ShowsBoth(t *testing.T) {
 	result.AssertSuccess(t)
 	result.AssertAnyOutputContains(t, "Source")
 	result.AssertAnyOutputContains(t, "1 agent") // agents in source section
-	result.AssertAnyOutputContains(t, "agents")   // agents sub-item in targets
+	result.AssertAnyOutputContains(t, "agents")  // agents sub-item in targets
 }

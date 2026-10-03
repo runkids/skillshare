@@ -70,7 +70,7 @@ func TestStatus_Default_ShowsBothSkillsAndAgents(t *testing.T) {
 
 	result := sb.RunCLI("status")
 	result.AssertSuccess(t)
-	result.AssertAnyOutputContains(t, "Source")   // source section with skills + agents
+	result.AssertAnyOutputContains(t, "Source") // source section with skills + agents
 	result.AssertRowContains(t, "skills", "~/.config/skillshare/skills  1 skill")
 	result.AssertRowContains(t, "agents", "~/.config/skillshare/agents  1 agent")
 }
