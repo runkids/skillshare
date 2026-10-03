@@ -52,9 +52,9 @@ export interface PiExtensionsView {
   settingsPath: string;
   globalSettingsPath?: string;
   version: string;
-  verifiedVersions: string[];
+  minVersion: string;
   editable: boolean;
-  /** fork, noCli, unverifiedVersion or settings. */
+  /** fork, noCli, unsupportedVersion or settings. */
   readOnly?: string;
   problem?: string;
   revision: string;

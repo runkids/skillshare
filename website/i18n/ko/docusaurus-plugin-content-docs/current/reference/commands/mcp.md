@@ -384,8 +384,9 @@ Codex는 다른 이유로 거부됩니다. Codex는 `.codex/config.toml`을 필�
 Codex 시작을 막을 수 있습니다. 대신 `~/.codex/config.toml`에서 `enabled = false`로
 머신별로 서버를 끄세요.
 
-Pi는 같은 이름의 프로젝트 항목으로 global 항목을 통째로 대체하고, `command`나 `url`이 없는 항목은
-건너뜁니다. 그래서 Pi에는 global 서버의 `command`, 또는 query를 뺀 `url`을 `enabled: false`와 함께
+Pi는 같은 이름의 프로젝트 항목으로 global 항목을 통째로 대체합니다. `command`나 `url`이 없는 항목은
+Pi 1.0.1 이전에는 건너뛰고, 1.0.1부터는 global 서버를 끄지만 global 구성에 그 서버가 없는 머신에서는
+Pi가 시작할 때마다 경고합니다. 그래서 Pi에는 global 서버의 `command`, 또는 query를 뺀 `url`을 `enabled: false`와 함께
 씁니다. 꺼진 서버는 시작되지 않으므로 args, env, headers는 프로젝트 파일에 쓰지 않으며, 다른
 프로젝트는 그 서버를 그대로 사용합니다. sync할 때마다 이 항목은 global 서버를 기준으로 다시
 작성됩니다. global 서버가 필요하므로 global 구성의 `mcp.projects` 아래 프로젝트에서만 동작합니다.

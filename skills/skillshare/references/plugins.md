@@ -106,7 +106,7 @@ cannot reach, says why, and still updates the other targets.
   and a string entry of a package with convention skills/prompts/themes folders its manifest leaves
   out (conversion to an object can't be shown to keep them unchanged), are read-only; so is an entry
   with an empty source or an unpaired UTF-16 surrogate escape / invalid UTF-8 in its source or rules); there is no CLI
-  command for it. It is editable only on a verified Pi version (0.99.2, 1.0.0; a fork account
+  command for it. It is editable only on Pi 0.99.2 or later (a fork account
   is read-only and never run). On a project page it saves only `.pi/settings.json`, as
   `pi config` does: a global package gets a project entry `{source, autoload: false,
   extensions}` (local source relative to `.pi`). With its last rule removed, the entry
@@ -128,7 +128,7 @@ cannot reach, says why, and still updates the other targets.
   `cli:` it runs that compatible CLI instead (such as `omo` for Pi); a Pi account also sets
   `SENPI_CODING_AGENT_DIR` and `OMO_CODING_AGENT_DIR`. A missing CLI fails, with no fallback.
 - Local directory plugins cannot import unowned folders or marketplace installs.
-  Verified Pi 0.99.2/1.0.0 can import supported filtered entries without changing
+  Pi 0.99.2 or later can import supported filtered entries without changing
   native settings. Preview shows retained keys; raw entries stay in private state
   and shared config stores a digest. Uninstall captures current options; reinstall
   restores the object before native install. Missing/changed/cross-target records,

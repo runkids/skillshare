@@ -2771,7 +2771,7 @@
   "targetDetail.piExtensions.settingsProblem.unsupportedEntry": "Pengaturan Pi berisi entri yang tidak bisa dibaca Skillshare, dan Pi mungkin memakainya sebagai pengganti entri lain dari paket yang sama. Semua di sini hanya baca; ubah dengan pi config.",
   "targetDetail.piExtensions.readOnly.fork": "Hanya baca: {name} menjalankan executable yang berbeda dari Pi, yang belum diverifikasi Skillshare. Ubah ekstensi melalui pengaturan alat itu sendiri.",
   "targetDetail.piExtensions.readOnly.noCli": "Hanya baca: Skillshare tidak bisa menjalankan Pi milik target ini untuk memeriksa versinya. Pastikan pi terpasang dan ada di PATH, lalu muat ulang halaman ini.",
-  "targetDetail.piExtensions.readOnly.unverifiedVersion": "Hanya baca: {name} menjalankan Pi {version}, dan Skillshare hanya memverifikasi {verified}. Gunakan pi config, atau beralih ke versi yang terverifikasi.",
+  "targetDetail.piExtensions.readOnly.unsupportedVersion": "Hanya baca: {name} menjalankan Pi {version}, dan Skillshare memerlukan Pi {min} atau yang lebih baru. Gunakan pi config, atau perbarui Pi.",
   "targetDetail.piExtensions.readOnly.settings": "Hanya baca sampai file pengaturan bisa dibaca. Perbaiki file seperti dijelaskan di sini, atau gunakan pi config.",
   "targetDetail.piExtensions.trust.saved": "Pilihan tersimpan di Pi: {value}",
   "targetDetail.piExtensions.trust.default": "Bawaan Pi untuk folder baru: {value}",

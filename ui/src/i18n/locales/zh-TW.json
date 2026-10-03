@@ -2771,7 +2771,7 @@
   "targetDetail.piExtensions.settingsProblem.unsupportedEntry": "Pi 的設定中有 Skillshare 無法讀取的項目，Pi 可能會用它取代同一個套件的其他項目。這裡全部唯讀；請用 pi config 修改。",
   "targetDetail.piExtensions.readOnly.fork": "唯讀：{name} 執行的是與 Pi 不同的執行檔，Skillshare 尚未驗證。請用該工具自己的設定修改擴充功能。",
   "targetDetail.piExtensions.readOnly.noCli": "唯讀：Skillshare 無法執行這個目標的 Pi 來檢查版本。請確認已安裝 pi 且在 PATH 中，再重新載入這個頁面。",
-  "targetDetail.piExtensions.readOnly.unverifiedVersion": "唯讀：{name} 執行的是 Pi {version}，Skillshare 只驗證過 {verified}。請使用 pi config，或改用已驗證的版本。",
+  "targetDetail.piExtensions.readOnly.unsupportedVersion": "唯讀：{name} 執行的是 Pi {version}，Skillshare 需要 Pi {min} 以上。請使用 pi config，或更新 Pi。",
   "targetDetail.piExtensions.readOnly.settings": "在能讀取設定檔之前為唯讀。請依這裡的說明修正檔案，或使用 pi config。",
   "targetDetail.piExtensions.trust.saved": "Pi 中已儲存的選擇：{value}",
   "targetDetail.piExtensions.trust.default": "Pi 對新資料夾的預設：{value}",

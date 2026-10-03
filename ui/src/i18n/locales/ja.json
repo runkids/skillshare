@@ -2771,7 +2771,7 @@
   "targetDetail.piExtensions.settingsProblem.unsupportedEntry": "Pi の設定に Skillshare が読み取れないエントリがあり、Pi はそれを同じパッケージの他のエントリの代わりに使う可能性があります。ここではすべて読み取り専用です。pi config で変更してください。",
   "targetDetail.piExtensions.readOnly.fork": "読み取り専用：{name} は Pi とは別の実行ファイルを実行しており、Skillshare では検証されていません。そのツール自身の設定で拡張機能を変更してください。",
   "targetDetail.piExtensions.readOnly.noCli": "読み取り専用：Skillshare はこのターゲットの Pi を実行してバージョンを確認できませんでした。pi がインストールされ PATH にあることを確認してから、このページを再読み込みしてください。",
-  "targetDetail.piExtensions.readOnly.unverifiedVersion": "読み取り専用：{name} は Pi {version} を実行していますが、Skillshare が検証済みなのは {verified} のみです。pi config を使うか、検証済みのバージョンに切り替えてください。",
+  "targetDetail.piExtensions.readOnly.unsupportedVersion": "読み取り専用：{name} は Pi {version} を実行していますが、Skillshare には Pi {min} 以降が必要です。pi config を使うか、Pi を更新してください。",
   "targetDetail.piExtensions.readOnly.settings": "設定ファイルを読み取れるようになるまで読み取り専用です。ここの説明に従ってファイルを修正するか、pi config を使ってください。",
   "targetDetail.piExtensions.trust.saved": "Pi に保存された選択：{value}",
   "targetDetail.piExtensions.trust.default": "新しいフォルダーに対する Pi の既定：{value}",

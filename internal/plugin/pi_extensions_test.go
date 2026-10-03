@@ -161,7 +161,7 @@ func TestPiExtensionsGlobalSelectionMatchesContract(t *testing.T) {
 }
 
 func TestPiExtensionsVersionGate(t *testing.T) {
-	for _, c := range []struct{ version, readOnly string }{{"0.99.2", ""}, {"1.0.0", ""}, {"1.0.1", piReadOnlyUnverified}, {"0.85.0", piReadOnlyUnverified}, {"", piReadOnlyNoCLI}} {
+	for _, c := range []struct{ version, readOnly string }{{"0.99.2", ""}, {"1.0.0", ""}, {"1.0.1", ""}, {"1.10.0", ""}, {"0.99.1", piReadOnlyUnsupported}, {"0.85.0", piReadOnlyUnsupported}, {"1.0.1-beta.1", piReadOnlyUnsupported}, {"pi 1.0.1", piReadOnlyUnsupported}, {"", piReadOnlyNoCLI}} {
 		f := newPiFixture(t)
 		f.version = c.version
 		f.global(map[string]any{"packages": []any{f.pkg}})
@@ -170,7 +170,7 @@ func TestPiExtensionsVersionGate(t *testing.T) {
 			t.Fatalf("%q: readOnly=%q editable=%v", c.version, v.ReadOnly, v.Editable)
 		}
 		if c.readOnly != "" && v.Packages[0].Rows[0].Editable {
-			t.Fatalf("%q: a row is editable on an unverified Pi", c.version)
+			t.Fatalf("%q: a row is editable on an unsupported Pi", c.version)
 		}
 	}
 }
@@ -218,7 +218,7 @@ func TestPiExtensionsAccountLauncherGate(t *testing.T) {
 		launchers = append(launchers, "/usr/local/bin/pi", "pi.cmd", "pi.exe")
 	}
 	for _, cli := range launchers {
-		for _, version := range []string{"0.99.2", "1.0.0", "1.0.1", ""} {
+		for _, version := range []string{"0.99.2", "1.0.0", "0.99.1", ""} {
 			t.Run(cli+"/"+version, func(t *testing.T) {
 				f := newPiFixture(t)
 				f.version = version
@@ -242,8 +242,8 @@ func TestPiExtensionsAccountLauncherGate(t *testing.T) {
 				want := ""
 				if version == "" {
 					want = piReadOnlyNoCLI
-				} else if version == "1.0.1" {
-					want = piReadOnlyUnverified
+				} else if version == "0.99.1" {
+					want = piReadOnlyUnsupported
 				}
 				if calls != 1 || gotVersion != version || readOnly != want {
 					t.Fatalf("native gate: calls=%d version=%q readOnly=%q, want %q/%q", calls, gotVersion, readOnly, version, want)
@@ -569,10 +569,10 @@ func TestPiExtensionsRedactsSourceCredentials(t *testing.T) {
 	}
 }
 
-// PiVerifiedVersions must be exactly the versions scripts/pi/version-matrix.sh ran
-// and passed: the contract against dist/core and against the CLI's bundle, and the
-// lock test against that version's own proper-lockfile.
-func TestPiVerifiedVersionsMatchExecutedEvidence(t *testing.T) {
+// PiMinVersion must be a version scripts/pi/version-matrix.sh ran and passed, and every
+// recorded version must have passed: the contract against dist/core and against the
+// CLI's bundle, and the lock test against that version's own proper-lockfile.
+func TestPiMinVersionHasExecutedEvidence(t *testing.T) {
 	data, err := os.ReadFile(filepath.Join("..", "..", "scripts", "pi", "version-evidence.json"))
 	if err != nil {
 		t.Fatal(err)
@@ -604,7 +604,7 @@ func TestPiVerifiedVersionsMatchExecutedEvidence(t *testing.T) {
 			passed = append(passed, v.Version)
 		}
 	}
-	if !slices.Equal(passed, PiVerifiedVersions) {
-		t.Fatalf("PiVerifiedVersions = %v, executed and passed: %v", PiVerifiedVersions, passed)
+	if len(passed) != len(doc.Versions) || !slices.Contains(passed, PiMinVersion) {
+		t.Fatalf("PiMinVersion = %s, recorded %d versions, executed and passed: %v", PiMinVersion, len(doc.Versions), passed)
 	}
 }

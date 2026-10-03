@@ -352,7 +352,8 @@ global 檔案之上，所以在 global config 有定義該 server 的機器上�
 可能導致另一個隊友的 Codex 無法啟動。請改為逐機器關閉該 server，
 在 `~/.codex/config.toml` 中設定 `enabled = false`。
 
-Pi 會用 project 中的同名項目整筆取代 global 項目，並略過沒有 `command` 或 `url` 的項目。
+Pi 會用 project 中的同名項目整筆取代 global 項目。沒有 `command` 或 `url` 的項目，Pi 1.0.1
+以前會略過；1.0.1 起會關閉 global server，但在 global config 沒有該 server 的機器上，Pi 每次啟動都會警告。
 因此對 Pi，Skillshare 會寫入 global server 的 `command`，或去掉 query 的 `url`，再加上
 `enabled: false`。被關閉的 server 不會啟動，所以 args、env 和 headers 都不會寫進 project
 檔案，其他 project 也照常使用該 server。每次同步都會依 global server 重寫這個項目。這需要

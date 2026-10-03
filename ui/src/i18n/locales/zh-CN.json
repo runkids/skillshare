@@ -2771,7 +2771,7 @@
   "targetDetail.piExtensions.settingsProblem.unsupportedEntry": "Pi 的设置中有 Skillshare 无法读取的条目，Pi 可能会用它取代同一个包的其他条目。这里全部只读；请用 pi config 修改。",
   "targetDetail.piExtensions.readOnly.fork": "只读：{name} 运行的是与 Pi 不同的可执行文件，Skillshare 尚未验证。请用该工具自己的设置修改扩展。",
   "targetDetail.piExtensions.readOnly.noCli": "只读：Skillshare 无法运行这个目标的 Pi 来检查版本。请确认已安装 pi 且在 PATH 中，然后重新加载此页面。",
-  "targetDetail.piExtensions.readOnly.unverifiedVersion": "只读：{name} 运行的是 Pi {version}，Skillshare 只验证过 {verified}。请使用 pi config，或改用已验证的版本。",
+  "targetDetail.piExtensions.readOnly.unsupportedVersion": "只读：{name} 运行的是 Pi {version}，Skillshare 需要 Pi {min} 及以上。请使用 pi config，或更新 Pi。",
   "targetDetail.piExtensions.readOnly.settings": "在能读取设置文件之前为只读。请按这里的说明修复文件，或使用 pi config。",
   "targetDetail.piExtensions.trust.saved": "Pi 中已保存的选择：{value}",
   "targetDetail.piExtensions.trust.default": "Pi 对新文件夹的默认值：{value}",

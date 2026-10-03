@@ -2771,7 +2771,7 @@
   "targetDetail.piExtensions.settingsProblem.unsupportedEntry": "Pi's settings have an entry Skillshare can't read, and Pi may use it in place of other entries of the same package. Everything here is read-only; change it with pi config.",
   "targetDetail.piExtensions.readOnly.fork": "Read-only: {name} runs a different executable than Pi, which Skillshare hasn't verified. Change extensions with that tool's own settings.",
   "targetDetail.piExtensions.readOnly.noCli": "Read-only: Skillshare couldn't run this target's Pi to check its version. Make sure pi is installed and on PATH, then reload this page.",
-  "targetDetail.piExtensions.readOnly.unverifiedVersion": "Read-only: {name} runs Pi {version}, and Skillshare has verified only {verified}. Use pi config, or switch to a verified version.",
+  "targetDetail.piExtensions.readOnly.unsupportedVersion": "Read-only: {name} runs Pi {version}, and Skillshare needs Pi {min} or later. Use pi config, or update Pi.",
   "targetDetail.piExtensions.readOnly.settings": "Read-only until the settings file can be read. Fix the file as described here, or use pi config.",
   "targetDetail.piExtensions.trust.saved": "Saved choice in Pi: {value}",
   "targetDetail.piExtensions.trust.default": "Pi default for new folders: {value}",

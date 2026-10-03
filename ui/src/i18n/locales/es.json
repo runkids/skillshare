@@ -2771,7 +2771,7 @@
   "targetDetail.piExtensions.settingsProblem.unsupportedEntry": "La configuración de Pi tiene una entrada que Skillshare no puede leer, y Pi puede usarla en lugar de otras entradas del mismo paquete. Aquí todo es de solo lectura; cámbialo con pi config.",
   "targetDetail.piExtensions.readOnly.fork": "Solo lectura: {name} ejecuta un ejecutable distinto de Pi que Skillshare no ha verificado. Cambia las extensiones con la configuración de esa herramienta.",
   "targetDetail.piExtensions.readOnly.noCli": "Solo lectura: Skillshare no pudo ejecutar el Pi de este destino para comprobar su versión. Asegúrate de que pi esté instalado y en el PATH, y recarga esta página.",
-  "targetDetail.piExtensions.readOnly.unverifiedVersion": "Solo lectura: {name} ejecuta Pi {version} y Skillshare solo ha verificado {verified}. Usa pi config o cambia a una versión verificada.",
+  "targetDetail.piExtensions.readOnly.unsupportedVersion": "Solo lectura: {name} ejecuta Pi {version}, y Skillshare necesita Pi {min} o posterior. Usa pi config o actualiza Pi.",
   "targetDetail.piExtensions.readOnly.settings": "Solo lectura hasta que se pueda leer el archivo de configuración. Corrige el archivo como se indica aquí o usa pi config.",
   "targetDetail.piExtensions.trust.saved": "Elección guardada en Pi: {value}",
   "targetDetail.piExtensions.trust.default": "Valor predeterminado de Pi para carpetas nuevas: {value}",
