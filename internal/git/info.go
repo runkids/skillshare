@@ -849,16 +849,19 @@ func HasRemoteSkillDirs(repoPath, remoteBranch string) (bool, error) {
 	return strings.TrimSpace(string(lsOut)) != "", nil
 }
 
-// HasLocalContent reports whether the repo root holds anything besides the
-// .git directory and the scaffold .gitignore. Files count too: agents and
-// extras repos keep their content as root-level files.
+// HasLocalContent reports whether the repo holds any tracked or non-ignored
+// file besides the scaffold .gitignore. Files count, not only directories:
+// agents and extras repos keep their content as root-level files. Ignored
+// entries (.DS_Store, root-scope config.yaml) do not.
 func HasLocalContent(repoPath string) (bool, error) {
-	entries, err := os.ReadDir(repoPath)
+	cmd := exec.Command("git", "ls-files", "-z", "--cached", "--others", "--exclude-standard")
+	cmd.Dir = repoPath
+	out, err := cmd.Output()
 	if err != nil {
-		return false, err
+		return false, fmt.Errorf("list local files: %w", err)
 	}
-	for _, e := range entries {
-		if e.Name() != ".git" && e.Name() != ".gitignore" {
+	for _, path := range strings.Split(string(out), "\x00") {
+		if path != "" && path != ".gitignore" {
 			return true, nil
 		}
 	}

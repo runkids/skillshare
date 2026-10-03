@@ -1335,7 +1335,8 @@ func tryPullAfterRemoteSetup(sourcePath, remoteURL string) bool {
 	if hasLocalSkills {
 		spinner.Warn("Remote has existing skills, but local skills also exist")
 		ui.Info("  Push local:  skillshare push")
-		ui.Info("  Pull remote: skillshare pull  (replaces local with remote)")
+		ui.Info("  Merge both:  skillshare pull  (keeps local and remote)")
+		ui.Info("  Use remote:  skillshare pull --force  (replaces local with remote)")
 		return true
 	}
 

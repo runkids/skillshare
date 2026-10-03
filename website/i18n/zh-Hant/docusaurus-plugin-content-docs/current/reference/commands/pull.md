@@ -109,7 +109,7 @@ skillshare sync
 
 ## 首次 Pull 且已有現存 Skills
 
-在第一次 pull（尚未設定 upstream）時，如果本機 repository 已經有內容（`.git` 與 `.gitignore` 以外的任何檔案或目錄），
+在第一次 pull（尚未設定 upstream）時，如果本機 repository 已經有內容（`.gitignore` 以外任何已追蹤或未被忽略的檔案），
 `pull` 會嘗試進行 **merge** 以合併雙方內容。如果 merge 成功，本機與 remote 的內容都會被保留。只有除此之外沒有任何內容的 repository 才會直接 reset 成 remote branch。
 
 如果發生 **merge 衝突**，`pull` 會失敗並回傳非零的 exit code：

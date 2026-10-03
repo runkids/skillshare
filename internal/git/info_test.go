@@ -407,13 +407,16 @@ func TestHasLocalContent(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(repo, ".gitignore"), []byte(".DS_Store\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
+	if err := os.WriteFile(filepath.Join(repo, ".DS_Store"), []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
 
 	hasLocal, err := HasLocalContent(repo)
 	if err != nil {
 		t.Fatalf("HasLocalContent failed: %v", err)
 	}
 	if hasLocal {
-		t.Fatal("expected .git and .gitignore alone to count as no local content")
+		t.Fatal("expected .gitignore and ignored files alone to count as no local content")
 	}
 
 	if err := os.WriteFile(filepath.Join(repo, "reviewer.md"), []byte("# agent\n"), 0o644); err != nil {
