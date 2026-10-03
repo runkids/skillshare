@@ -78,7 +78,7 @@ func TestList_Agents_ShowsAgents(t *testing.T) {
 	result.AssertSuccess(t)
 	result.AssertAnyOutputContains(t, "tutor")
 	result.AssertAnyOutputContains(t, "reviewer")
-	result.AssertAnyOutputContains(t, "Installed agents")
+	result.AssertAnyOutputContains(t, "2 agents")
 }
 
 func TestList_Agents_JSON_IncludesKind(t *testing.T) {

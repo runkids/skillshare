@@ -49,7 +49,7 @@ func TestMode_AutoDetect_ProjectWhenConfigExists(t *testing.T) {
 	// No flag → auto-detect project mode
 	result := sb.RunCLIInDir(projectRoot, "list")
 	result.AssertSuccess(t)
-	result.AssertOutputContains(t, "Installed skills (project)")
+	result.AssertOutputContains(t, "Skills · project")
 }
 
 func TestMode_AutoDetect_GlobalWhenNoConfig(t *testing.T) {

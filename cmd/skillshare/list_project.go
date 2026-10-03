@@ -62,10 +62,7 @@ func cmdListProject(root string, opts listOptions, kind resourceKindFilter) erro
 		}
 		switch action {
 		case "empty":
-			ui.Info("No %s installed", resourceLabel)
-			if kind.IncludesSkills() {
-				ui.Info("Use 'skillshare install -p <source>' to install a skill")
-			}
+			printListEmpty(resourceLabel, kind, true)
 			return nil
 		case "audit":
 			if skillKind == "agent" {
@@ -119,11 +116,9 @@ func cmdListProject(root string, opts listOptions, kind resourceKindFilter) erro
 	}
 
 	if sp != nil {
-		sp.Success(fmt.Sprintf("Loaded %d %s", len(allEntries), resourceLabel))
+		sp.Stop()
 	}
 	totalCount := len(allEntries)
-	hasFilter := opts.Pattern != "" || opts.TypeFilter != "" || opts.Status != statusFilterAll
-
 	// Apply filter and sort
 	allEntries = filterSkillEntries(allEntries, opts.Pattern, opts.TypeFilter, opts.Status)
 	sortBy := opts.SortBy
@@ -137,63 +132,10 @@ func cmdListProject(root string, opts listOptions, kind resourceKindFilter) erro
 		return displaySkillsJSON(allEntries)
 	}
 
-	// Handle empty results
-	if len(allEntries) == 0 && len(trackedRepos) == 0 && !hasFilter {
-		ui.Info("No %s installed", resourceLabel)
-		if kind.IncludesSkills() {
-			ui.Info("Use 'skillshare install -p <source>' to install a skill")
-		}
-		return nil
-	}
-
-	if hasFilter && len(allEntries) == 0 {
-		ui.Info("%s", noMatchMessage(resourceLabel, opts))
-		return nil
-	}
-
-	// Plain text output (--no-tui or non-TTY)
-	if len(allEntries) > 0 {
-		headerLabel := "Installed skills (project)"
-		if kind == kindAgents {
-			headerLabel = "Installed agents (project)"
-		} else if kind == kindAll {
-			headerLabel = "Installed skills & agents (project)"
-		}
-		ui.Header(headerLabel)
-		if opts.Verbose {
-			displaySkillsVerbose(allEntries)
-		} else {
-			displaySkillsCompact(allEntries)
-		}
-	}
-
-	// Hide tracked repos section when filter/pattern is active
-	if len(trackedRepos) > 0 && !hasFilter {
-		displayTrackedRepos(trackedRepos, discoveredSkills, skillsSource)
-	}
-
-	// Show match stats when filter is active
-	if hasFilter && len(allEntries) > 0 {
-		fmt.Println()
-		if opts.Pattern != "" {
-			ui.Info("%d of %d %s matching %q%s", len(allEntries), totalCount, resourceLabel, opts.Pattern, statusNote(opts.Status))
-		} else {
-			ui.Info("%d of %d %s%s", len(allEntries), totalCount, resourceLabel, statusNote(opts.Status))
-		}
-	} else {
-		fmt.Println()
-		trackedCount := 0
-		remoteCount := 0
-		for _, entry := range allEntries {
-			if entry.RepoName != "" {
-				trackedCount++
-			} else if entry.Source != "" {
-				remoteCount++
-			}
-		}
-		localCount := len(allEntries) - trackedCount - remoteCount
-		ui.Info("%d %s: %d tracked, %d remote, %d local", len(allEntries), resourceLabel, trackedCount, remoteCount, localCount)
-	}
-
+	printSkillList(skillList{
+		entries: allEntries, total: totalCount, trackedRepos: trackedRepos,
+		discovered: discoveredSkills, skillsSource: skillsSource,
+		label: resourceLabel, kind: kind, opts: opts, project: true,
+	})
 	return nil
 }

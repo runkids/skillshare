@@ -78,7 +78,7 @@ func TestListProject_AutoDetectsMode(t *testing.T) {
 
 	result := sb.RunCLIInDir(projectRoot, "list")
 	result.AssertSuccess(t)
-	result.AssertOutputContains(t, "Installed skills (project)")
+	result.AssertOutputContains(t, "Skills · project")
 }
 
 func TestListProject_PartialInit_RepairsMissingConfig(t *testing.T) {
