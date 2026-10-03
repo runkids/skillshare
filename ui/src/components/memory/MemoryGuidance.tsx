@@ -46,6 +46,8 @@ export default function MemoryGuidance({ initialized, instructions }: { initiali
   };
   const prompt = t('memory.checkPrompt');
   const targets = guidance.data?.targets ?? [];
+  // The specific reason beats the generic state; it must be readable without hovering.
+  const statusText = (target: (typeof targets)[number]) => target.detail ? t(`memory.connectionDetail.${target.detail}`, undefined, target.detail) : t(`memory.connection.${target.state}`);
   return (
     <aside className="ss-box flex min-w-0 flex-[1_1_280px] flex-col gap-3.5 !shadow-none md:max-w-[340px]" aria-label={t('memory.useWithAgents')}>
       <div className="flex items-center justify-between gap-2">
@@ -63,7 +65,7 @@ export default function MemoryGuidance({ initialized, instructions }: { initiali
       {targets.filter((target) => target.state === 'outdated' || target.state === 'broken').map((target) => <div key={target.name} className="flex items-center gap-2.5 text-[12.5px]">
         <AgentIcon target={target.name} size={16} />
         <span className="min-w-0 flex-1 truncate font-mono font-semibold" title={target.file ? shortenHome(target.file) : undefined}>{target.name}</span>
-        <span className="ss-st warn text-[12px]" title={target.detail ? t(`memory.connectionDetail.${target.detail}`, undefined, target.detail) : undefined}>{t(`memory.connection.${target.state}`)}</span>
+        <span className="ss-st warn text-right text-[12px]">{statusText(target)}</span>
       </div>)}
       {initialized && guidance.data?.targets.length === 0 && <p className="text-[13px] text-ink-3">{t('memory.noTargets')}</p>}
       <Button variant="secondary" size="sm" disabled={!initialized || !guidance.data?.targets.length} onClick={() => { void guidance.refetch(); setSelected([]); setPlan(null); setOpen(true); }}>{t('memory.connect')}</Button>
@@ -93,7 +95,7 @@ export default function MemoryGuidance({ initialized, instructions }: { initiali
                   <span className={`ss-chk ${on ? 'on' : ''} ${disabled ? 'opacity-40' : ''}`}>{on && <Check size={12} strokeWidth={3} />}</span>
                   <span className="ss-at !h-6 !w-6"><AgentIcon target={target.name} size={14} /></span>
                   <span className="min-w-0 flex-1 truncate font-mono text-[13px] font-semibold text-ink">{target.name}</span>
-                  <span className={`text-right text-[12.5px] ${target.state === 'outdated' || target.state === 'broken' ? 'text-warn' : 'text-ink-3'}`}>{t(`memory.connection.${target.state}`)}</span>
+                  <span className={`text-right text-[12.5px] ${target.state === 'outdated' || target.state === 'broken' ? 'text-warn' : 'text-ink-3'}`}>{statusText(target)}</span>
                 </label>;
               })}
             </div>

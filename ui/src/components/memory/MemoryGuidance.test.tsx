@@ -54,3 +54,10 @@ it('rechecks target states when the dialog opens', async () => {
   await user.click(await screen.findByRole('button', { name: 'Connect to agents' }));
   expect(await screen.findByRole('checkbox', { name: /codex/ })).toBeEnabled();
 });
+
+it('shows why a broken target cannot be connected without hovering', async () => {
+  vi.mocked(api.getMemoryGuidance).mockResolvedValue({ scope: 'global', instructions: 'Read the notes', targets: [{ name: 'codex', state: 'broken', detail: 'modified' }] });
+  const user = userEvent.setup(); renderGuidance();
+  await user.click(await screen.findByRole('button', { name: 'Connect to agents' }));
+  expect(within(screen.getByRole('dialog')).getByRole('checkbox', { name: /codex.*modified by hand/i })).toBeDisabled();
+});
