@@ -111,6 +111,8 @@ type trashTUIModel struct {
 	detailScroll int
 
 	showKeys bool // ? swaps the detail panel for the full key list
+
+	browser *fileBrowser // enter opens the selected item's files
 }
 
 func newTrashTUIModel(items []trash.TrashEntry, skillTrashBase, agentTrashBase, destDir, agentDestDir, cfgPath, modeLabel string) trashTUIModel {
@@ -197,9 +199,21 @@ func (m trashTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.termWidth = msg.Width
 		m.termHeight = msg.Height
 		m.syncTrashListSize()
+		if m.browser != nil {
+			m.browser.resize(msg.Width, msg.Height)
+		}
 		return m, nil
 
 	case tea.MouseMsg:
+		if m.browser != nil {
+			switch msg.Button {
+			case tea.MouseButtonWheelUp:
+				m.browser.wheel(-1)
+			case tea.MouseButtonWheelDown:
+				m.browser.wheel(1)
+			}
+			return m, nil
+		}
 		if trashSplitActive(m.termWidth) && !m.operating && !m.confirming {
 			leftWidth := trashListWidth(m.termWidth)
 			if msg.X > leftWidth {
@@ -268,11 +282,29 @@ func (m trashTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, cmd
 		}
 
+		if m.browser != nil {
+			switch msg.String() {
+			case "q", "ctrl+c":
+				m.quitting = true
+				return m, tea.Quit
+			case "esc":
+				m.browser = nil
+			default:
+				m.browser.key(msg.String())
+			}
+			return m, nil
+		}
+
 		// --- Normal mode ---
 		switch msg.String() {
 		case "q", "ctrl+c":
 			m.quitting = true
 			return m, tea.Quit
+		case "enter":
+			if item, ok := m.list.SelectedItem().(trashItem); ok {
+				m.browser = newFileBrowser("trash", item.entry.Name, item.entry.Path, false, m.termWidth, m.termHeight)
+			}
+			return m, nil
 		case "esc":
 			switch {
 			case m.showKeys:
@@ -579,6 +611,9 @@ func (m trashTUIModel) View() string {
 	if m.quitting {
 		return ""
 	}
+	if m.browser != nil {
+		return m.browser.view("", nil)
+	}
 	bodyHeight := max(m.termHeight-frameChrome, 6)
 	title := m.renderTitleLine()
 	if !trashSplitActive(m.termWidth) {
@@ -639,7 +674,7 @@ func (m trashTUIModel) renderBottom() string {
 		if m.filterText != "" {
 			filter = keyHint{"esc", "clear filter"}
 		}
-		hints := []keyHint{{"↑↓", "move"}, {"space", "select"}, filter, {"r", "restore"}, {"d", "delete"}, {"?", "keys"}}
+		hints := []keyHint{{"↑↓", "move"}, {"space", "select"}, filter, {"enter", "open files"}, {"r", "restore"}, {"d", "delete"}, {"?", "keys"}}
 		if m.showKeys {
 			hints = []keyHint{{"?/esc", "close"}}
 		}
@@ -710,6 +745,7 @@ var trashKeyGroups = []keyGroup{
 		{"←→", "page"},
 		{"/", "filter by name"},
 		{"ctrl+d/u", "scroll the details"},
+		{"enter", "open the files"},
 		{"esc", "clear the filter, then quit"},
 		{"q", "quit"},
 	}},

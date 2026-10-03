@@ -26,7 +26,7 @@ skillshare trash --all list              # List trashed skills + agents
 
 ## Interactive TUI
 
-In a TTY, `trash list` opens an interactive list of trashed items, newest first. Select one or more to restore them or delete them permanently, or empty the whole trash; each asks first. The keys are listed at the bottom of the screen. When using `--all` or without a kind filter, skills and agents are listed together.
+In a TTY, `trash list` opens an interactive list of trashed items, newest first. Select one or more to restore them or delete them permanently, or empty the whole trash; each asks first. Opening an item shows its files, so you can check it before restoring. The keys are listed at the bottom of the screen. When using `--all` or without a kind filter, skills and agents are listed together.
 
 If some items fail, for example restoring a skill whose name already exists in source, the rest are still processed and the result lists what failed.
 

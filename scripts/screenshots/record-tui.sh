@@ -36,6 +36,7 @@ extras-files|skillshare extras list|Enter
 extras-init|skillshare extras init|Type `prompts`;Enter;Down;Enter;Type `system.md`;Enter;Enter;Type `~/.pi/agent`;Enter;Type `APPEND_SYSTEM.md`;Enter;Down;Down;Enter
 extras-init-error|skillshare extras init|Type `a/b`;Enter
 trash|skillshare trash list|
+trash-files|skillshare trash list|Enter
 trash-confirm|skillshare trash list|Space;Down;Space;Type `d`
 restore-pick|skillshare restore|
 restore|skillshare restore|Enter
