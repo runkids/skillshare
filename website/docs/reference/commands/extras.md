@@ -309,7 +309,7 @@ skillshare extras rules --remove-target ~/.cursor/rules
 skillshare extras rules --remove-target ~/.cursor/rules --prune
 ```
 
-Also available via the TUI (`M` key) and Web UI (mode dropdown and flatten checkbox on each target).
+Also available via the TUI (`e` key) and Web UI (mode dropdown and flatten checkbox on each target).
 
 ### `extras remove`
 

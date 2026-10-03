@@ -244,7 +244,7 @@ skillshare extras rules --remove-target ~/.cursor/rules
 skillshare extras rules --remove-target ~/.cursor/rules --prune
 ```
 
-也可以通过 TUI（`M` 键）和 Web UI（每个 target 上的 mode 下拉菜单和 flatten 复选框）进行操作。
+也可以通过 TUI（`e` 键）和 Web UI（每个 target 上的 mode 下拉菜单和 flatten 复选框）进行操作。
 
 ### `extras remove`
 

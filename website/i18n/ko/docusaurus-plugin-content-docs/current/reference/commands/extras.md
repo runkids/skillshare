@@ -244,7 +244,7 @@ skillshare extras rules --remove-target ~/.cursor/rules
 skillshare extras rules --remove-target ~/.cursor/rules --prune
 ```
 
-Web UI(각 target의 mode 드롭다운과 flatten 체크박스)와 TUI(`M` 키)에서도 사용할 수 있습니다.
+Web UI(각 target의 mode 드롭다운과 flatten 체크박스)와 TUI(`e` 키)에서도 사용할 수 있습니다.
 
 ### `extras remove`
 

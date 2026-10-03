@@ -1039,14 +1039,6 @@ func (m targetListTUIModel) renderModePicker() string {
 	return b.String()
 }
 
-// renderPickerRow renders one choice of a picker with its description.
-func renderPickerRow(label, desc string, selected bool) string {
-	if selected {
-		return theme.Accent().Render("› "+label) + theme.Dim().Render("  "+desc) + "\n"
-	}
-	return "  " + label + theme.Dim().Render("  "+desc) + "\n"
-}
-
 // renderEditMenu renders the e menu: every setting the target has.
 func (m targetListTUIModel) renderEditMenu(item targetTUIItem) string {
 	var b strings.Builder

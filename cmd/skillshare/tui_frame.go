@@ -167,3 +167,11 @@ func countNoun(n int, noun string) string {
 	}
 	return formatNumber(n) + " " + noun
 }
+
+// renderPickerRow renders one choice of a picker with its description.
+func renderPickerRow(label, desc string, selected bool) string {
+	if selected {
+		return theme.Accent().Render("› "+label) + theme.Dim().Render("  "+desc) + "\n"
+	}
+	return "  " + label + theme.Dim().Render("  "+desc) + "\n"
+}

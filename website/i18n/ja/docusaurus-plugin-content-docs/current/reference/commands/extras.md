@@ -244,7 +244,7 @@ skillshare extras rules --remove-target ~/.cursor/rules
 skillshare extras rules --remove-target ~/.cursor/rules --prune
 ```
 
-TUI（`M` キー）と Web UI（各 Target のモードのドロップダウンと flatten チェックボックス）からも操作できます。
+TUI（`e` キー）と Web UI（各 Target のモードのドロップダウンと flatten チェックボックス）からも操作できます。
 
 ### `extras remove`
 

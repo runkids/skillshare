@@ -27,6 +27,8 @@ target|skillshare target list|
 target-edit|skillshare target list|Type `e`
 target-confirm|skillshare target list|Type `d`
 extras|skillshare extras list|
+extras-edit|skillshare extras list|Type `e`
+extras-confirm|skillshare extras list|Type `d`
 trash|skillshare trash list|
 trash-confirm|skillshare trash list|Space;Down;Space;Type `d`
 restore-pick|skillshare restore|

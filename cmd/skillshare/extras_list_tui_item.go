@@ -31,13 +31,7 @@ func (extrasListDelegate) Render(w io.Writer, m list.Model, index int, item list
 	if !ok {
 		return
 	}
-	width := m.Width()
-	if width <= 0 {
-		width = 40
-	}
-	selected := index == m.Index()
-	line := extra.entry.Name + "  " + extrasStatusBadge(extra.entry)
-	renderPrefixRow(w, line, width, selected)
+	renderPrefixRow(w, alignRow(extra.entry.Name, extrasStatusBadge(extra.entry), m.Width()-rowIndent), m.Width(), index == m.Index())
 }
 
 // extrasStatusBadge returns a short colored status indicator based on aggregate target status.

@@ -7,7 +7,6 @@ import (
 
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
 	"skillshare/internal/config"
 	"skillshare/internal/theme"
 	"skillshare/internal/ui"
@@ -39,14 +38,6 @@ func shouldLaunchTUI(noTUI bool, cfg *config.Config) bool {
 func wrapAndScroll(content string, width, detailScroll, viewHeight int) (string, string) {
 	content = hardWrapContent(content, width)
 	return applyDetailScrollSplit(content, detailScroll, viewHeight)
-}
-
-// appendScrollInfo appends scroll position info to help text when present.
-func appendScrollInfo(help, scrollInfo string) string {
-	if scrollInfo != "" {
-		return help + "  " + scrollInfo
-	}
-	return help
 }
 
 // formatHelpBar colorizes a help string like "Tab skills/agents  ↑↓ navigate  q quit".
@@ -125,27 +116,6 @@ const tuiMinSplitWidth = 80
 // Minimum terminal width for the audit and log split panels, which need less
 // room than tuiMinSplitWidth; below this they use a vertical layout.
 const tuiNarrowSplitWidth = 70
-
-// renderHorizontalSplit renders a left-right split with a vertical border column.
-// leftContent and rightContent are pre-rendered strings.
-func renderHorizontalSplit(leftContent, rightContent string, leftWidth, rightWidth, panelHeight int) string {
-	leftPanel := lipgloss.NewStyle().
-		Width(leftWidth).MaxWidth(leftWidth).
-		Height(panelHeight).MaxHeight(panelHeight).
-		Render(leftContent)
-
-	borderStyle := theme.Dim().
-		Height(panelHeight).MaxHeight(panelHeight)
-	borderCol := strings.Repeat("│\n", panelHeight)
-	borderPanel := borderStyle.Render(strings.TrimRight(borderCol, "\n"))
-
-	rightPanel := lipgloss.NewStyle().
-		Width(rightWidth).MaxWidth(rightWidth).
-		PaddingLeft(1).
-		Render(rightContent)
-
-	return lipgloss.JoinHorizontal(lipgloss.Top, leftPanel, borderPanel, rightPanel)
-}
 
 // truncateStr truncates a string to maxLen, appending "..." if needed.
 func truncateStr(s string, maxLen int) string {
