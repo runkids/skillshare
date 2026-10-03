@@ -1187,7 +1187,7 @@ func (m *extrasListTUIModel) loadExtrasContentFile() {
 		return
 	}
 
-	rawText := strings.TrimSpace(string(data))
+	rawText := printableText(strings.TrimSpace(string(data)))
 	if rawText == "" {
 		m.contentText = "(empty)"
 		return

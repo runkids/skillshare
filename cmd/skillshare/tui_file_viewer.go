@@ -99,3 +99,23 @@ func scrollLines(text string, offset, height int) (string, string) {
 	offset = min(offset, maxScroll)
 	return strings.Join(lines[offset:offset+height], "\n"), framePosition(offset+1, maxScroll+1)
 }
+
+// printableText swaps control characters in a file's text for visible
+// symbols of the same width (ESC shows as ␛), so a skill under review
+// cannot move the cursor or send escape sequences to the terminal.
+// Newlines and tabs are kept.
+func printableText(s string) string {
+	return strings.Map(func(r rune) rune {
+		switch {
+		case r == '\n' || r == '\t':
+			return r
+		case r < 0x20:
+			return 0x2400 + r
+		case r == 0x7f:
+			return '␡'
+		case r >= 0x80 && r < 0xa0:
+			return '\ufffd'
+		}
+		return r
+	}, strings.ReplaceAll(s, "\r\n", "\n"))
+}

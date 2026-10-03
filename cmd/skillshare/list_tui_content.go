@@ -155,7 +155,7 @@ func loadContentForSkill(m *listTUIModel, e skillEntry) {
 			return
 		}
 		// Front matter is in the details; rendering it turns "---" into rules.
-		raw := utils.ReadSkillBody(agentFile)
+		raw := printableText(utils.ReadSkillBody(agentFile))
 		if raw == "" {
 			m.contentText = "(empty)"
 		} else {
@@ -216,6 +216,7 @@ func loadContentFile(m *listTUIModel) {
 		}
 		rawText = strings.TrimSpace(string(data))
 	}
+	rawText = printableText(rawText)
 
 	if rawText == "" {
 		m.contentText = "(empty)"

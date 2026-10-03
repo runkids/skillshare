@@ -122,7 +122,7 @@ func (b *fileBrowser) load() {
 		if n.relPath == b.markFile {
 			mark = b.markLine
 		}
-		b.content, b.lineRows = numberLines(string(data), mark, w)
+		b.content, b.lineRows = numberLines(printableText(string(data)), mark, w)
 		return
 	}
 	// Front matter is shown elsewhere; the viewer shows the instructions.
@@ -135,6 +135,7 @@ func (b *fileBrowser) load() {
 		b.content = theme.Danger().Render(err.Error())
 		return
 	}
+	text = printableText(text)
 	switch {
 	case text == "":
 		b.content = theme.Dim().Render("Empty")
