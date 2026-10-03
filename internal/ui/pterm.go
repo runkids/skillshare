@@ -720,7 +720,6 @@ const (
 	StepSkipCh = "⊘"
 	StepBullet = "●"
 	StepLine   = "│"
-	StepBranch = "├"
 	StepCorner = "└"
 )
 
