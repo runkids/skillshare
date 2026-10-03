@@ -60,7 +60,16 @@ func cmdTrash(args []string) error {
 	case "delete", "rm":
 		return trashDelete(mode, cwd, filteredArgs, kind)
 	case "empty":
-		return trashEmpty(mode, cwd, kind)
+		force := false
+		for _, arg := range filteredArgs {
+			switch arg {
+			case "--force", "-f":
+				force = true
+			default:
+				return fmt.Errorf("unknown option for trash empty: %s", arg)
+			}
+		}
+		return trashEmpty(mode, cwd, kind, force)
 	case "--help", "-h", "help":
 		printTrashHelp()
 		return nil
@@ -244,7 +253,7 @@ func trashDelete(mode runMode, cwd string, args []string, kind resourceKindFilte
 	return nil
 }
 
-func trashEmpty(mode runMode, cwd string, kind resourceKindFilter) error {
+func trashEmpty(mode runMode, cwd string, kind resourceKindFilter, force bool) error {
 	start := time.Now()
 	cfgPath := resolveTrashCfgPath(mode, cwd)
 
@@ -256,14 +265,16 @@ func trashEmpty(mode runMode, cwd string, kind resourceKindFilter) error {
 		return nil
 	}
 
-	ui.Warning("This will permanently delete %s from trash", plural(len(items), "item"))
-	ok, err := ui.ConfirmAction("Continue?", false)
-	if err != nil {
-		return err
-	}
-	if !ok {
-		ui.Cancelled("deleted")
-		return nil
+	if !force {
+		ui.Warning("This will permanently delete %s from trash", plural(len(items), "item"))
+		ok, err := ui.ConfirmAction("Continue?", false)
+		if err != nil {
+			return err
+		}
+		if !ok {
+			ui.Cancelled("deleted")
+			return nil
+		}
 	}
 
 	removed := 0
@@ -359,6 +370,7 @@ Commands:
   empty                 Permanently delete all items from trash
 
 Options:
+  --force, -f           empty: skip the confirmation
   --all                 Include both skills and agents
   --no-tui              Disable interactive TUI, use plain text output
   --project, -p         Use project-level trash
@@ -372,6 +384,7 @@ Examples:
   skillshare trash restore my-skill -p     # Restore in project mode
   skillshare trash delete my-skill         # Permanently delete from trash
   skillshare trash empty                   # Empty the trash
+  skillshare trash empty --force           # Empty without asking (scripts)
   skillshare trash agents list             # List trashed agents
   skillshare trash agents restore tutor    # Restore an agent from trash
   skillshare trash --all list              # List trashed skills + agents`)
