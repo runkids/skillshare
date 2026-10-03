@@ -88,8 +88,7 @@ only** 之前显示预览。Remove 还提供 **Stop managing**，效果与 `--ke
 会取消待处理的草稿。Restore 会预览并确认
 对 Agent 条目所做的更改；它不会重写 source 定义。
 
-不带 server 名称的 import 支持多选（`Space` 切换选中，
-`a` 全选）。无效的候选项会被跳过；已存在的 source 名称会被跳过，
+不带 server 名称的 import 支持多选。无效的候选项会被跳过；已存在的 source 名称会被跳过，
 除非指定了 `--replace`。为整批操作选择一组兼容的接收方 client。
 整批数据会先经过验证，然后 source 只被保存一次；
 之后的原生文件 I/O 失败仍保留现有的恢复行为。

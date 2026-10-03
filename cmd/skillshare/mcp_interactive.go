@@ -254,7 +254,7 @@ func runMCPRestore(service *mcp.Service, o mcpOptions, prompts mcpPrompts) error
 	}
 	if interactive {
 		fmt.Println() // apart from the plan printed above
-		_, err := chooseMCP(prompts, checklistConfig{title: "Restore the previewed Agent entries?", header: "The source definition stays unchanged. Esc cancels.", items: []checklistItemData{{label: "Restore backup", desc: o.name}}, singleSelect: true})
+		_, err := chooseMCP(prompts, checklistConfig{title: "Restore the previewed Agent entries?", header: "The source definition stays unchanged.", items: []checklistItemData{{label: "Restore backup", desc: o.name}}, singleSelect: true})
 		if err != nil {
 			return err
 		}

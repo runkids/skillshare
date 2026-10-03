@@ -86,8 +86,7 @@ Add, edit, remove, import는 **Save and sync** 또는 **Save only** 전에 미�
 표시합니다. Remove는 `--keep-files`와 같은 **Stop managing**도 제공합니다. Escape를 누르면 대기 중인 초안이 취소됩니다. Restore는 Agent 항목에 대한
 변경 사항을 미리보고 확인하지만, source 정의는 다시 작성하지 않습니다.
 
-서버 이름 없이 import하면 여러 항목을 선택할 수 있습니다(`Space`로 토글, `a`로 전체
-선택). 유효하지 않은 후보는 건너뛰며, `--replace`를 지정하지 않는 한 기존 source 이름은
+서버 이름 없이 import하면 여러 항목을 선택할 수 있습니다. 유효하지 않은 후보는 건너뛰며, `--replace`를 지정하지 않는 한 기존 source 이름은
 건너뜁니다. 배치 전체에 대해 호환되는 하나의 수신 client 집합을 선택하세요. 전체 배치는
 source가 한 번 저장되기 전에 검증되며, 이후의 네이티브 파일 I/O 실패는 기존 복구 동작을
 유지합니다.

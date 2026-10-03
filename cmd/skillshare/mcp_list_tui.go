@@ -378,7 +378,7 @@ func mcpSyncWizard(service *mcp.Service, prompts mcpPrompts) error {
 		return nil
 	}
 	fmt.Println() // apart from the plan printed above
-	_, err = chooseMCP(prompts, checklistConfig{title: "Apply these MCP changes?", items: []checklistItemData{{label: "Sync now", desc: "Only managed Agent entries will be changed; Esc cancels"}}, singleSelect: true})
+	_, err = chooseMCP(prompts, checklistConfig{title: "Apply these MCP changes?", items: []checklistItemData{{label: "Sync now", desc: "Only managed Agent entries will be changed"}}, singleSelect: true})
 	if err != nil {
 		return err
 	}

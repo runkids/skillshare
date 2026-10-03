@@ -90,8 +90,7 @@ only**. Remove also offers **Stop managing**, the same as `--keep-files`. Escape
 cancels the pending draft. Restore previews and confirms changes
 to Agent entries; it does not rewrite the source definition.
 
-Import without a server name supports multiple selections (`Space` toggles,
-`a` selects all). Invalid candidates are skipped; existing source names are skipped
+Import without a server name supports multiple selections. Invalid candidates are skipped; existing source names are skipped
 unless `--replace` is specified. Select one set of compatible receiving clients
 for the batch. The entire batch is validated before the source is saved once;
 later native-file I/O failures retain the existing recovery behavior.
