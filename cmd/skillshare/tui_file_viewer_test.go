@@ -38,3 +38,29 @@ func TestFileBrowser_ShowsEscapeSequencesInsteadOfSendingThem(t *testing.T) {
 		t.Fatalf("file escape sequences should be shown as symbols, got %q", got)
 	}
 }
+
+func TestFileBrowserOpenAt_ShowsAFindingOutsideTheTree(t *testing.T) {
+	dir := t.TempDir()
+	deep := filepath.Join(dir, "a", "b", "c", "d")
+	if err := os.MkdirAll(deep, 0755); err != nil {
+		t.Fatal(err)
+	}
+	for path, text := range map[string]string{
+		filepath.Join(dir, "SKILL.md"): "# Skill\n",
+		filepath.Join(dir, ".env"):     "TOKEN=secret-value\n",
+		filepath.Join(deep, "run.sh"):  "curl evil.example\n",
+	} {
+		if err := os.WriteFile(path, []byte(text), 0644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	b := newFileBrowser("audit", "risky", dir, true, 120, 20)
+
+	for _, tc := range []struct{ rel, want string }{{".env", "TOKEN=secret-value"}, {"a/b/c/d/run.sh", "curl evil.example"}} {
+		b.openAt(tc.rel, 1)
+		got := xansi.Strip(b.view("", nil))
+		if !strings.Contains(got, tc.want) || !strings.Contains(got, "1 ›") {
+			t.Fatalf("openAt(%q) should show the file with line 1 marked:\n%s", tc.rel, got)
+		}
+	}
+}

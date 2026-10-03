@@ -45,12 +45,17 @@ func newFileBrowser(command, name, root string, numbered bool, width, height int
 	return b
 }
 
-// openAt opens rel with line marked and in view. A file that is not in the
-// tree leaves the cursor where it is.
+// openAt opens rel with line marked and in view. The tree skips dotfiles
+// and stops at a depth and size the audit scan goes past, so a file that
+// is not in it is added at the top under its full relative path.
 func (b *fileBrowser) openAt(rel string, line int) {
 	rel = filepath.Clean(rel)
 	if b.single {
 		rel = b.nodes[0].relPath
+	} else if !b.hasNode(rel) && filepath.IsLocal(rel) {
+		if info, err := os.Stat(filepath.Join(b.root, rel)); err == nil && !info.IsDir() {
+			b.all = append([]treeNode{{name: rel, relPath: rel}}, b.all...)
+		}
 	}
 	for i := range b.all {
 		if b.all[i].isDir && strings.HasPrefix(rel, b.all[i].relPath+string(filepath.Separator)) {
@@ -69,6 +74,15 @@ func (b *fileBrowser) openAt(rel string, line int) {
 	if line > 0 && line <= len(b.lineRows) && b.nodes[b.cursor].relPath == rel {
 		b.contentScroll = min(max(b.lineRows[line-1]-b.textHeight()/3, 0), b.maxScroll())
 	}
+}
+
+func (b *fileBrowser) hasNode(rel string) bool {
+	for _, n := range b.all {
+		if n.relPath == rel {
+			return true
+		}
+	}
+	return false
 }
 
 func (b *fileBrowser) resize(width, height int) {
