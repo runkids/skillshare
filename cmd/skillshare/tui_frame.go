@@ -130,12 +130,15 @@ func framePosition(current, total int) string {
 	return formatNumber(current) + "/" + formatNumber(total)
 }
 
-// joinEnds pads between left and right so the line spans width.
+// joinEnds pads between left and right so the line spans width. Text too
+// long for one line is cut from the left side, which keeps the status on
+// the right; a wrapped line would push the body off the screen.
 func joinEnds(left, right string, width int) string {
-	gap := width - lipgloss.Width(left) - lipgloss.Width(right)
-	if gap < 2 {
-		gap = 2
+	if width > 0 { // 0 until the terminal reports its size
+		right = truncateANSI(right, max(width-2, 0))
+		left = truncateANSI(left, max(width-lipgloss.Width(right)-2, 0))
 	}
+	gap := max(width-lipgloss.Width(left)-lipgloss.Width(right), 2)
 	return left + strings.Repeat(" ", gap) + right
 }
 
