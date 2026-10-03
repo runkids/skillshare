@@ -196,7 +196,8 @@ func cmdPush(args []string) (err error) {
 		return err
 	}
 
-	if sweep := rootScopeSafetySweep(cfg, source, opts.dryRun); sweep.hasNotice() {
+	sweep := rootScopeSafetySweep(cfg, source, opts.dryRun)
+	if sweep.hasNotice() {
 		spinner.Stop()
 		sweep.printNotices(source)
 		if len(sweep.nested) > 0 {
@@ -210,6 +211,7 @@ func cmdPush(args []string) (err error) {
 		spinner.Fail("Failed to check git status")
 		return err
 	}
+	changes = sweep.previewChanges(changes)
 	hasChanges := changes != ""
 
 	width := ui.RowWidth("Commit", "Pull", "Push", "Sync")

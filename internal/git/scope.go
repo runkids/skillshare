@@ -151,6 +151,12 @@ func ensureGitignoreEntry(dir, entry string) error {
 	return os.WriteFile(gitignore, []byte(content), 0o644)
 }
 
+// IsConfigIgnored reports whether .gitignore rules ignore config.yaml at dir,
+// so a dry run can tell whether EnsureConfigUntracked would repair them.
+func IsConfigIgnored(dir string) bool {
+	return isIgnored(dir, "config.yaml")
+}
+
 // isIgnored reports whether .gitignore rules ignore path, even if it is tracked.
 func isIgnored(dir, path string) bool {
 	cmd := exec.Command("git", "check-ignore", "-q", "--no-index", "--", path)
@@ -255,13 +261,35 @@ func KeepLocalConfig(dir string) (restore func() (remoteTracks bool, err error),
 	}
 	return func() (bool, error) {
 		remoteTracks := RemoteTracksConfig(dir, "@{u}")
+		entryAfter := configIndexEntry(dir)
 		_, statErr := os.Lstat(path)
-		if configIndexEntry(dir) == entryBefore && !errors.Is(statErr, fs.ErrNotExist) {
+		if entryAfter == entryBefore && !errors.Is(statErr, fs.ErrNotExist) {
+			return remoteTracks, nil
+		}
+		if editedAfterCheckout(dir, entryAfter) {
 			return remoteTracks, nil
 		}
 		_, err := put()
 		return remoteTracks, err
 	}, nil
+}
+
+// editedAfterCheckout reports whether config.yaml on disk differs from the
+// regular file the pull checked out (entry is its merged index entry), i.e.
+// someone wrote a newer copy after Git did. Conflicts, removals and symlinks
+// report false so the snapshot is restored.
+func editedAfterCheckout(dir, entry string) bool {
+	fields := strings.Fields(entry)
+	if len(fields) != 4 || fields[2] != "0" || (fields[0] != "100644" && fields[0] != "100755") {
+		return false
+	}
+	if info, err := os.Lstat(filepath.Join(dir, "config.yaml")); err != nil || !info.Mode().IsRegular() {
+		return false
+	}
+	cmd := exec.Command("git", "hash-object", "--", "config.yaml")
+	cmd.Dir = dir
+	out, err := cmd.Output()
+	return err == nil && strings.TrimSpace(string(out)) != fields[1]
 }
 
 // configIndexEntry returns config.yaml's index entries (mode, blob, stage), or

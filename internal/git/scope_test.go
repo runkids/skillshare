@@ -526,6 +526,28 @@ func TestKeepLocalConfig_RestoresOverTrackedDirectory(t *testing.T) {
 	}
 }
 
+func TestKeepLocalConfig_KeepsEditMadeAfterCheckout(t *testing.T) {
+	repo, remote := rootScopeRepoTrackingRemote(t)
+	pushFromOtherClone(t, remote, map[string]string{"config.yaml": "remote-config\n"})
+	restore, err := KeepLocalConfig(repo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := PullWithEnv(repo, nil); err != nil {
+		t.Fatalf("PullWithEnv() error: %v", err)
+	}
+	cfg := filepath.Join(repo, "config.yaml")
+	if err := os.WriteFile(cfg, []byte("NEWER-local\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := restore(); err != nil {
+		t.Fatal(err)
+	}
+	if got, _ := os.ReadFile(cfg); string(got) != "NEWER-local\n" {
+		t.Fatalf("config.yaml = %q; want the copy written after checkout kept", got)
+	}
+}
+
 func TestKeepLocalConfig_ReportsTrackedCopyWithSameContent(t *testing.T) {
 	repo, remote := rootScopeRepoTrackingRemote(t)
 	pushFromOtherClone(t, remote, map[string]string{"config.yaml": "LOCAL-config\n"})

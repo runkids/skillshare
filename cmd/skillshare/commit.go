@@ -50,7 +50,8 @@ func cmdCommit(args []string) error {
 		return err
 	}
 
-	if sweep := rootScopeSafetySweep(cfg, source, opts.dryRun); sweep.hasNotice() {
+	sweep := rootScopeSafetySweep(cfg, source, opts.dryRun)
+	if sweep.hasNotice() {
 		spinner.Stop()
 		sweep.printNotices(source)
 		if len(sweep.nested) > 0 {
@@ -64,6 +65,7 @@ func cmdCommit(args []string) error {
 		spinner.Fail("Failed to check git status")
 		return err
 	}
+	changes = sweep.previewChanges(changes)
 	if changes == "" {
 		spinner.Stop()
 		ui.Done(ui.MarkNone, "Nothing to commit", 0)

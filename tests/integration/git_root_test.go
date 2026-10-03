@@ -410,6 +410,40 @@ func TestGitRoot_PushPullCommitsGitignoreRepair(t *testing.T) {
 	}
 }
 
+// push --dry-run previews the .gitignore repair a real push makes when a later
+// rule un-ignores config.yaml, instead of listing config.yaml to commit.
+func TestGitRoot_PushDryRunPreviewsGitignoreRepair(t *testing.T) {
+	requireWorkingGit(t)
+
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	base := filepath.Dir(sb.ConfigPath)
+	skills := filepath.Join(base, "skills")
+	grMkdir(t, skills)
+	sb.WriteConfig("git_root: root\nsource: " + skills + "\ntargets:\n  claude:\n    skills:\n      path: " + sb.CreateTarget("claude") + "\n")
+
+	bareRepo := testutil.SetupBareRemoteRepo(t, t.TempDir())
+	testutil.RunGit(t, base, "init")
+	testutil.ConfigureGitUser(t, base)
+	gitignore := "config.yaml\n!config.yaml\n"
+	grWrite(t, filepath.Join(base, ".gitignore"), gitignore)
+	testutil.RunGit(t, base, "add", ".gitignore")
+	testutil.RunGit(t, base, "commit", "-m", "initial")
+	testutil.RunGit(t, base, "branch", "-M", "main")
+	testutil.RunGit(t, base, "remote", "add", "origin", bareRepo)
+	testutil.RunGit(t, base, "push", "-u", "origin", "main")
+
+	result := sb.RunCLI("push", "--dry-run")
+	result.AssertSuccess(t)
+	result.AssertAnyOutputContains(t, "Would add config.yaml to .gitignore")
+	result.AssertAnyOutputContains(t, "~ .gitignore")
+	result.AssertOutputNotContains(t, "+ config.yaml")
+	if got, _ := os.ReadFile(filepath.Join(base, ".gitignore")); string(got) != gitignore {
+		t.Fatalf(".gitignore = %q; dry run must not change it", got)
+	}
+}
+
 // init --git-root <scope> on an already-initialized setup switches the scope
 // headlessly: it inits a repo at the new scope dir and persists git_root,
 // without prompting or erroring with "already initialized".
