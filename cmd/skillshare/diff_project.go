@@ -35,7 +35,7 @@ func cmdDiffProject(root, targetName string, kind resourceKindFilter, opts diffR
 		return fmt.Errorf("failed to discover skills: %w", err)
 	}
 	if spinner != nil {
-		spinner.Success(fmt.Sprintf("Discovered %d skills", len(discovered)))
+		spinner.Stop()
 	}
 
 	targets := make([]config.ProjectTargetEntry, len(runtime.config.Targets))
@@ -137,9 +137,6 @@ func cmdDiffProject(root, targetName string, kind resourceKindFilter, opts diffR
 	if shouldLaunchTUI(opts.noTUI, nil) && len(results) > 0 {
 		return runDiffTUI(results, extrasResults)
 	}
-	renderGroupedDiffs(results, opts)
-	if len(extrasResults) > 0 {
-		renderExtrasDiffPlain(extrasResults)
-	}
+	renderGroupedDiffs(results, extrasResults, opts)
 	return nil
 }

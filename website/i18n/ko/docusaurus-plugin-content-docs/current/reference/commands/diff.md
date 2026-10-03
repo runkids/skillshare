@@ -17,34 +17,27 @@ skillshare diff --patch      # 전체 unified diff
 ```text
 skillshare diff --no-tui
 
-Summary: 6 targets — 6 need sync
-
 claude, claude-work, gemini, opencode, universal
-─────────────────────────────────────────
-  1 new
-  + New 1 skill:
-      remotion-captions
+  New       remotion-captions
 
 cursor
-─────────────────────────────────────────
-  1 local only, 1 new
-  ← Local Only 1 skill:
-      cursor-shortcuts
-  + New 1 skill:
-      remotion-captions
-
-→ Run 'skillshare sync' to apply changes
-→ Run 'skillshare collect' to import local skills to source
+  Local only  cursor-shortcuts
+  New         remotion-captions
 
 Extras
-─────────────────────────────────────────
-✓   rules → ~/.claude/rules: synced (merge)
-✓   rules → ~/.cursor/rules: synced (merge)
-✓   commands → ~/.claude/commands: synced (merge)
-✓   team → ~/.codex: synced (symlink)
-✓   team → ~/.claude: synced (import)
-✓   team → ~/.gemini: synced (copy)
-✓   team → ~/notes: synced (symlink)
+✓ commands  ~/.claude/commands · in sync
+✓ rules     ~/.claude/rules · in sync
+✓ rules     ~/.cursor/rules · in sync
+✓ team      ~/.codex · in sync
+✓ team      ~/.claude · in sync
+✓ team      ~/.gemini · in sync
+✓ team      ~/notes · in sync
+
+! 6 targets: 6 to sync
+
+Next
+  skillshare sync     apply the changes
+  skillshare collect  copy local-only skills into source
 ```
 
 ## 인터랙티브 TUI
@@ -69,17 +62,18 @@ TTY에서 `diff`는 좌우 패널 레이아웃의 interactive TUI를 실행합�
 
 ```
 claude
-  + New 2 skills:
-      missing-skill
-      another-skill
-  ! Local Override 1 skill:
-      local-copy
-  ← Local Only 1 skill:
-      my-local-skill
+  Local override  local-copy
+  Local only      my-local-skill
+  New             another-skill, missing-skill
 
-  2 new, 1 local override, 1 local only
+✓ cursor    in sync
 
-cursor: fully synced
+! 2 targets: 1 to sync, 1 in sync
+
+Next
+  skillshare sync          apply the changes
+  skillshare sync --force  also replace local copies
+  skillshare collect       copy local-only skills into source
 ```
 
 ### 그룹화된 다중 Target 출력
@@ -87,30 +81,27 @@ cursor: fully synced
 여러 target의 diff 결과가 동일할 경우, noise를 줄이기 위해 하나의 블록으로 그룹화됩니다.
 
 ```
-claude, agents
-  + New 2 skills:
-      skill-1
-      skill-2
+agents, claude
+  New       skill-1, skill-2
 
 cursor
-  + New 1 skill:
-      skill-1
+  New       skill-1
 
-codex, copilot: fully synced
+✓ codex, copilot  in sync
 ```
 
 결과가 다른 target(예: `include`/`exclude` filter로 인해)은 여전히 별도로 표시됩니다.
 
-## 기호
+## 라벨
 
-| 기호 | 라벨 | 의미 | 조치 |
-|--------|-------|---------|--------|
-| `+` | New | source에 있지만 target에 없음 | `sync`가 추가함 |
-| `+` | Restore | target에 있었으나 삭제됨 | `sync`가 복원함 |
-| `~` | Modified | 콘텐츠가 변경됨(copy mode) | `sync`가 업데이트함 |
-| `!` | Local Override | symlink 대신 local 사본 | `sync --force`로 교체 |
-| `-` | Orphan | manifest에는 있지만 source에는 없음 | `sync`가 제거함 |
-| `←` | Local Only | target에만 존재, source에는 없음 | `collect`로 가져오기 |
+| 라벨 | 의미 | 조치 |
+|-------|---------|--------|
+| New | source에 있지만 target에 없음 | `sync`가 추가함 |
+| Restore | target에 있었으나 삭제됨 | `sync`가 복원함 |
+| Modified | 콘텐츠가 변경됨(copy mode) | `sync`가 업데이트함 |
+| Local override | symlink 대신 local 사본 | `sync --force`로 교체 |
+| Orphan | manifest에는 있지만 source에는 없음 | `sync`가 제거함 |
+| Local only | target에만 존재, source에는 없음 | `collect`로 가져오기 |
 
 ## File 단위 세부 정보
 
@@ -124,11 +115,10 @@ skillshare diff --stat
 
 ```
 claude
-  ~ Modified 1 skill:
-      my-skill
-        + new-file.md
-        ~ SKILL.md
-        - old-file.md
+  Modified  my-skill
+            + new-file.md (120 bytes)
+            ~ SKILL.md (840 → 912 bytes)
+            - old-file.md (64 bytes)
 ```
 
 ### `--patch`
@@ -141,11 +131,11 @@ skillshare diff --patch
 
 ```
 claude
-  ~ Modified 1 skill:
-      my-skill
-        --- SKILL.md
-        - old line
-        + new line
+  Modified  my-skill
+            ~ SKILL.md (840 → 912 bytes)
+            --- SKILL.md
+            - old line
+            + new line
 ```
 
 `--stat`과 `--patch` 모두 `--no-tui`(plain text 출력)를 암시합니다.
@@ -171,7 +161,7 @@ copy mode를 사용하는 target의 경우:
 
 symlink mode를 사용하는 target의 경우:
 - symlink가 올바른 source를 가리키는지 단순히 확인
-- "Fully synced"를 표시하거나 잘못된 symlink에 대해 경고
+- "in sync"를 표시하거나 잘못된 symlink에 대해 경고
 
 ## 사용 사례
 
@@ -191,7 +181,7 @@ target에서 직접 만든 skill을 찾아냅니다.
 
 ```bash
 skillshare diff claude
-# 표시: ← Local Only 1 skill: my-local-skill
+# 표시: Local only  my-local-skill
 
 skillshare collect claude  # source로 가져오기
 ```

@@ -47,11 +47,11 @@ func diffProjectAgents(root, targetName string, opts diffRenderOpts, start time.
 	}
 
 	if len(results) == 0 {
-		ui.Info("No agent-capable targets found")
+		ui.Done(ui.MarkNone, "No targets take agents", 0)
 		return nil
 	}
 
-	renderGroupedDiffs(results, opts)
+	renderGroupedDiffs(results, nil, opts)
 	return nil
 }
 
@@ -81,11 +81,11 @@ func diffGlobalAgents(cfg *config.Config, targetName string, opts diffRenderOpts
 	}
 
 	if len(results) == 0 {
-		ui.Info("No agent-capable targets found")
+		ui.Done(ui.MarkNone, "No targets take agents", 0)
 		return nil
 	}
 
-	renderGroupedDiffs(results, opts)
+	renderGroupedDiffs(results, nil, opts)
 	return nil
 }
 

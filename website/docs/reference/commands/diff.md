@@ -17,34 +17,27 @@ skillshare diff --patch      # Full unified diff
 ```text
 skillshare diff --no-tui
 
-Summary: 6 targets — 6 need sync
-
 claude, claude-work, gemini, opencode, universal
-─────────────────────────────────────────
-  1 new
-  + New 1 skill:
-      remotion-captions
+  New       remotion-captions
 
 cursor
-─────────────────────────────────────────
-  1 local only, 1 new
-  ← Local Only 1 skill:
-      cursor-shortcuts
-  + New 1 skill:
-      remotion-captions
-
-→ Run 'skillshare sync' to apply changes
-→ Run 'skillshare collect' to import local skills to source
+  Local only  cursor-shortcuts
+  New         remotion-captions
 
 Extras
-─────────────────────────────────────────
-✓   rules → ~/.claude/rules: synced (merge)
-✓   rules → ~/.cursor/rules: synced (merge)
-✓   commands → ~/.claude/commands: synced (merge)
-✓   team → ~/.codex: synced (symlink)
-✓   team → ~/.claude: synced (import)
-✓   team → ~/.gemini: synced (copy)
-✓   team → ~/notes: synced (symlink)
+✓ commands  ~/.claude/commands · in sync
+✓ rules     ~/.claude/rules · in sync
+✓ rules     ~/.cursor/rules · in sync
+✓ team      ~/.codex · in sync
+✓ team      ~/.claude · in sync
+✓ team      ~/.gemini · in sync
+✓ team      ~/notes · in sync
+
+! 6 targets: 6 to sync
+
+Next
+  skillshare sync     apply the changes
+  skillshare collect  copy local-only skills into source
 ```
 
 ## Interactive TUI
@@ -69,17 +62,18 @@ Use `--no-tui` for plain text output, or pipe to disable TUI automatically.
 
 ```
 claude
-  + New 2 skills:
-      missing-skill
-      another-skill
-  ! Local Override 1 skill:
-      local-copy
-  ← Local Only 1 skill:
-      my-local-skill
+  Local override  local-copy
+  Local only      my-local-skill
+  New             another-skill, missing-skill
 
-  2 new, 1 local override, 1 local only
+✓ cursor    in sync
 
-cursor: fully synced
+! 2 targets: 1 to sync, 1 in sync
+
+Next
+  skillshare sync          apply the changes
+  skillshare sync --force  also replace local copies
+  skillshare collect       copy local-only skills into source
 ```
 
 ### Grouped Multi-Target Output
@@ -87,30 +81,27 @@ cursor: fully synced
 When multiple targets have identical diff results, they are grouped into a single block to reduce noise:
 
 ```
-claude, agents
-  + New 2 skills:
-      skill-1
-      skill-2
+agents, claude
+  New       skill-1, skill-2
 
 cursor
-  + New 1 skill:
-      skill-1
+  New       skill-1
 
-codex, copilot: fully synced
+✓ codex, copilot  in sync
 ```
 
 Targets with different results (e.g. due to `include`/`exclude` filters) are still shown separately.
 
-## Symbols
+## Labels
 
-| Symbol | Label | Meaning | Action |
-|--------|-------|---------|--------|
-| `+` | New | In source, missing in target | `sync` will add it |
-| `+` | Restore | Was in target, deleted | `sync` will restore it |
-| `~` | Modified | Content changed (copy mode) | `sync` will update it |
-| `!` | Local Override | Local copy instead of symlink | `sync --force` to replace |
-| `-` | Orphan | In manifest but not in source | `sync` will prune it |
-| `←` | Local Only | Only in target, not in source | `collect` to import |
+| Label | Meaning | Action |
+|-------|---------|--------|
+| New | In source, missing in target | `sync` will add it |
+| Restore | Was in target, deleted | `sync` will restore it |
+| Modified | Content changed (copy mode) | `sync` will update it |
+| Local override | Local copy instead of symlink | `sync --force` to replace |
+| Orphan | In manifest but not in source | `sync` will prune it |
+| Local only | Only in target, not in source | `collect` to import |
 
 ## File-Level Details
 
@@ -124,11 +115,10 @@ skillshare diff --stat
 
 ```
 claude
-  ~ Modified 1 skill:
-      my-skill
-        + new-file.md
-        ~ SKILL.md
-        - old-file.md
+  Modified  my-skill
+            + new-file.md (120 bytes)
+            ~ SKILL.md (840 → 912 bytes)
+            - old-file.md (64 bytes)
 ```
 
 ### `--patch`
@@ -141,11 +131,11 @@ skillshare diff --patch
 
 ```
 claude
-  ~ Modified 1 skill:
-      my-skill
-        --- SKILL.md
-        - old line
-        + new line
+  Modified  my-skill
+            ~ SKILL.md (840 → 912 bytes)
+            --- SKILL.md
+            - old line
+            + new line
 ```
 
 Both `--stat` and `--patch` imply `--no-tui` (plain text output).
@@ -171,7 +161,7 @@ For targets using copy mode:
 
 For targets using symlink mode:
 - Simply checks if symlink points to correct source
-- Shows "Fully synced" or warns about wrong symlink
+- Shows "in sync" or warns about wrong symlink
 
 ## Use Cases
 
@@ -191,7 +181,7 @@ Discover skills you created directly in a target:
 
 ```bash
 skillshare diff claude
-# Shows: ← Local Only 1 skill: my-local-skill
+# Shows: Local only  my-local-skill
 
 skillshare collect claude  # Import to source
 ```

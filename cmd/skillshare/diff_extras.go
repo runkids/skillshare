@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"skillshare/internal/config"
 	"skillshare/internal/sync"
@@ -167,34 +168,33 @@ func collectExtraFileDiff(extra config.ExtraConfig, sourceDir string) []extraDif
 	return results
 }
 
-// renderExtrasDiffPlain renders extras diff in plain text.
-func renderExtrasDiffPlain(results []extraDiffResult) {
-	fmt.Println()
-	ui.Header("Extras")
-
+// renderExtrasDiffPlain prints one row per extra and target, with the
+// differing files below it, and returns how many are out of sync.
+func renderExtrasDiffPlain(results []extraDiffResult) int {
+	labels := make([]string, len(results))
+	for i, r := range results {
+		labels[i] = r.extraName
+	}
+	width := ui.RowWidth(labels...)
+	need := 0
 	for _, r := range results {
-		if r.errMsg != "" {
-			ui.Warning("  %s → %s: %s", r.extraName, shortenPath(r.targetPath), r.errMsg)
-			continue
-		}
-
-		if r.synced {
-			ui.Success("  %s → %s: synced (%s)", r.extraName, shortenPath(r.targetPath), r.mode)
-			continue
-		}
-
-		ui.Warning("  %s → %s: %d difference(s) (%s)", r.extraName, shortenPath(r.targetPath), len(r.items), r.mode)
-		for _, item := range r.items {
-			switch item.action {
-			case "add":
-				fmt.Printf("    + %s  %s\n", item.file, item.reason)
-			case "remove":
-				fmt.Printf("    - %s  %s\n", item.file, item.reason)
-			case "modify":
-				fmt.Printf("    ~ %s  %s\n", item.file, item.reason)
+		dest := shortenPath(r.targetPath)
+		switch {
+		case r.errMsg != "":
+			need++
+			ui.Row(ui.MarkFail, r.extraName, dest+ui.DimText(" · "+r.errMsg), width)
+		case r.synced:
+			ui.Row(ui.MarkOK, r.extraName, dest+ui.DimText(" · in sync"), width)
+		default:
+			need++
+			ui.Row(ui.MarkWarn, r.extraName, dest+ui.DimText(" · "+plural(len(r.items), "difference")+" · "+r.mode), width)
+			for _, item := range r.items {
+				sign := map[string]string{"add": "+", "remove": "-", "modify": "~"}[item.action]
+				ui.Note(strings.Repeat(" ", width+2) + sign + " " + item.file + "  " + item.reason)
 			}
 		}
 	}
+	return need
 }
 
 // extrasDiffToJSON converts internal results to JSON-friendly structs.

@@ -67,7 +67,11 @@ func cmdDiff(args []string) error {
 
 	applyModeLabel(mode)
 
-	// Extract kind filter (e.g. "skillshare diff agents").
+	// Extract kind filter (e.g. "skillshare diff agents"). "all" is the
+	// default: skills and agents together, plus extras.
+	if len(rest) > 0 && rest[0] == "all" {
+		rest = rest[1:]
+	}
 	kind, rest := parseKindArg(rest)
 
 	scope := "global"
@@ -283,9 +287,6 @@ func (dp *diffProgress) startTarget(name string) {
 			break
 		}
 	}
-	if !dp.isTTY {
-		fmt.Printf("  %s: scanning...\n", name)
-	}
 }
 
 func (dp *diffProgress) update(targetName, skillName string) {
@@ -334,14 +335,6 @@ func (dp *diffProgress) doneTarget(name string, r targetDiffResult) {
 		}
 		break
 	}
-	if !dp.isTTY {
-		for i, n := range dp.names {
-			if n == name {
-				fmt.Printf("  %s: %s\n", name, dp.details[i])
-				break
-			}
-		}
-	}
 }
 
 func (dp *diffProgress) stop() {
@@ -379,7 +372,7 @@ func cmdDiffGlobal(targetName string, kind resourceKindFilter, opts diffRenderOp
 		return fmt.Errorf("failed to discover skills: %w", discoverErr)
 	}
 	if spinner != nil {
-		spinner.Success(fmt.Sprintf("Discovered %d skills", len(discovered)))
+		spinner.Stop()
 	}
 
 	targets := cfg.Targets
@@ -486,10 +479,7 @@ func cmdDiffGlobal(targetName string, kind resourceKindFilter, opts diffRenderOp
 	if shouldLaunchTUI(opts.noTUI, cfg) && len(results) > 0 {
 		return runDiffTUI(results, extrasResults)
 	}
-	renderGroupedDiffs(results, opts)
-	if len(extrasResults) > 0 {
-		renderExtrasDiffPlain(extrasResults)
-	}
+	renderGroupedDiffs(results, extrasResults, opts)
 	return nil
 }
 
@@ -851,9 +841,11 @@ func categorizeItems(items []copyDiffEntry) []actionCategory {
 	return cats
 }
 
-// renderGroupedDiffs groups targets with identical diff results and renders
-// merged output. Targets with errors are always shown individually.
-func renderGroupedDiffs(results []targetDiffResult, opts diffRenderOpts) {
+// renderGroupedDiffs prints each group of targets with identical
+// differences, the targets that are in sync or unreadable, the extras, and
+// a closing line with what to run next. Targets with errors are always
+// shown individually.
+func renderGroupedDiffs(results []targetDiffResult, extras []extraDiffResult, opts diffRenderOpts) {
 	sort.Slice(results, func(i, j int) bool {
 		return results[i].name < results[j].name
 	})
@@ -885,124 +877,247 @@ func renderGroupedDiffs(results []targetDiffResult, opts diffRenderOpts) {
 		}
 	}
 
-	// Overall summary (skip when all targets are fully synced — the ✓ line is enough)
+	out := &diffOutput{}
+	var next diffNext
 	needCount := 0
-	for _, g := range groups {
-		needCount += len(g.names)
-	}
-	if needCount > 0 || len(errorResults) > 0 {
-		renderOverallSummary(len(errorResults), needCount, len(syncedNames))
-	}
-
-	// Error targets
-	for _, r := range errorResults {
-		ui.Header(r.name)
-		ui.Warning("%s", r.errMsg)
-	}
-
-	// Grouped diffs
-	var anySyncNeeded, anyForceNeeded, anyCollectNeeded bool
 	for _, fp := range groupOrder {
 		g := groups[fp]
 		sort.Strings(g.names)
-		ui.Header(strings.Join(g.names, ", "))
+		needCount += len(g.names)
+		out.section(strings.Join(g.names, ", "))
+		renderDiffGroup(g.result, opts, &next)
+	}
 
-		items := make([]copyDiffEntry, len(g.result.items))
-		copy(items, g.result.items)
-		sort.Slice(items, func(i, j int) bool {
-			return items[i].name < items[j].name
-		})
-
-		cats := categorizeItems(items)
-
-		// Per-group stat line
-		var statParts []string
-		for _, cat := range cats {
-			n := len(cat.names)
-			statParts = append(statParts, fmt.Sprintf("%d %s", n, strings.ToLower(cat.label)))
+	// Unreadable targets, then the ones in sync on a single row
+	syncedLabel := strings.Join(syncedNames, ", ")
+	var statusNames []string
+	for _, r := range errorResults {
+		statusNames = append(statusNames, r.name)
+	}
+	if syncedLabel != "" {
+		statusNames = append(statusNames, syncedLabel)
+	}
+	if len(statusNames) > 0 {
+		out.gap()
+		width := ui.RowWidth(statusNames...)
+		for _, r := range errorResults {
+			ui.Row(ui.MarkFail, r.name, r.errMsg, width)
 		}
-		if len(statParts) > 0 {
-			fmt.Printf("  %s%s%s\n", ui.Dim, strings.Join(statParts, ", "), ui.Reset)
-		}
-
-		for _, cat := range cats {
-			n := len(cat.names)
-			switch cat.kind {
-			case "new", "modified", "restore", "orphan":
-				anySyncNeeded = true
-			case "override":
-				anyForceNeeded = true
-			case "local":
-				anyCollectNeeded = true
-			}
-
-			skillWord := "skills"
-			if n == 1 {
-				skillWord = "skill"
-			}
-			if cat.expand && n > 0 {
-				ui.ActionLine(cat.kind, fmt.Sprintf("%s %d %s:", cat.label, n, skillWord))
-				for _, name := range cat.names {
-					fmt.Printf("      %s\n", name)
-					if opts.showStat || opts.showPatch || cat.kind == "modified" {
-						item := findDiffItem(items, name)
-						if item != nil {
-							item.ensureFiles()
-							if len(item.files) > 0 {
-								fmt.Print(renderFileStat(item.files))
-							}
-							if opts.showPatch {
-								for _, f := range item.files {
-									if f.Action == "modify" && item.srcDir != "" {
-										srcFile := filepath.Join(item.srcDir, f.RelPath)
-										dstFile := filepath.Join(item.dstDir, f.RelPath)
-										diffText := generateUnifiedDiff(srcFile, dstFile)
-										if diffText != "" {
-											fmt.Printf("      --- %s\n", f.RelPath)
-											fmt.Print(colorizePlainDiff(diffText))
-										}
-									}
-								}
-							}
-						}
-					}
-				}
-			} else {
-				ui.ActionLine(cat.kind, fmt.Sprintf("%s %d %s", cat.label, n, skillWord))
-			}
-		}
-
-		// Time info
-		if !g.result.srcMtime.IsZero() || !g.result.dstMtime.IsZero() {
-			if !g.result.srcMtime.IsZero() {
-				fmt.Printf("  %sSource modified: %s%s\n", ui.Dim, g.result.srcMtime.Format("2006-01-02 15:04"), ui.Reset)
-			}
-			if !g.result.dstMtime.IsZero() {
-				fmt.Printf("  %sTarget modified: %s%s\n", ui.Dim, g.result.dstMtime.Format("2006-01-02 15:04"), ui.Reset)
-			}
+		if syncedLabel != "" {
+			ui.Row(ui.MarkOK, syncedLabel, "in sync", width)
 		}
 	}
 
-	// Conditional hints
-	if anySyncNeeded || anyForceNeeded || anyCollectNeeded {
+	extrasNeed := 0
+	if len(extras) > 0 {
+		out.section("Extras")
+		extrasNeed = renderExtrasDiffPlain(extras)
+		if extrasNeed > 0 {
+			next.extras = true
+		}
+	}
+
+	if out.printed {
 		fmt.Println()
 	}
-	if anySyncNeeded || anyForceNeeded {
-		if anyForceNeeded {
-			ui.Info("Run 'skillshare sync' to apply changes, 'skillshare sync --force' to also replace local copies")
+	total := len(results)
+	if needCount == 0 && len(errorResults) == 0 {
+		text := "No differences"
+		switch {
+		case total == 1:
+			text = results[0].name + " is in sync"
+		case total > 1:
+			text = fmt.Sprintf("All %d targets in sync", total)
+		}
+		if extrasNeed == 0 {
+			ui.Done(ui.MarkOK, text, 0)
+			return
+		}
+		if total == 0 {
+			text = ""
 		} else {
-			ui.Info("Run 'skillshare sync' to apply changes")
+			text += " · "
+		}
+		ui.Done(ui.MarkWarn, text+plural(extrasNeed, "extra")+" to sync", 0)
+		ui.Next(next.pairs()...)
+		return
+	}
+	var parts []string
+	if needCount > 0 {
+		parts = append(parts, fmt.Sprintf("%d to sync", needCount))
+	}
+	if len(errorResults) > 0 {
+		parts = append(parts, fmt.Sprintf("%d unreadable", len(errorResults)))
+	}
+	if len(syncedNames) > 0 {
+		parts = append(parts, fmt.Sprintf("%d in sync", len(syncedNames)))
+	}
+	text := plural(total, "target")
+	if len(parts) > 0 {
+		text += ": " + strings.Join(parts, ", ")
+	}
+	if extrasNeed > 0 {
+		text += " · " + plural(extrasNeed, "extra") + " to sync"
+	}
+	mark := ui.MarkWarn
+	if len(errorResults) > 0 {
+		mark = ui.MarkFail
+	}
+	ui.Done(mark, text, 0)
+	ui.Next(next.pairs()...)
+}
+
+// diffOutput tracks whether anything was printed, so the first section
+// starts at the top and later ones are set off by a blank line.
+type diffOutput struct{ printed bool }
+
+func (o *diffOutput) gap() {
+	if o.printed {
+		fmt.Println()
+	}
+	o.printed = true
+}
+
+func (o *diffOutput) section(name string) {
+	o.gap()
+	fmt.Println(ui.Bold + name + ui.Reset)
+}
+
+// diffNext collects which commands would resolve the differences shown.
+type diffNext struct {
+	skills, agents, extras bool // something to sync
+	force                  bool // local copies sync would only replace with --force
+	collectSkills          bool // local-only skills
+	collectAgents          bool // local-only agents
+}
+
+func (n diffNext) pairs() []string {
+	var pairs []string
+	switch {
+	case n.skills && n.agents:
+		pairs = append(pairs, "skillshare sync --all", "apply the changes")
+	case n.skills:
+		pairs = append(pairs, "skillshare sync", "apply the changes")
+	case n.agents:
+		pairs = append(pairs, "skillshare sync agents", "apply the changes")
+	}
+	if n.extras && !(n.skills && n.agents) {
+		pairs = append(pairs, "skillshare sync extras", "update the extras")
+	}
+	if n.force {
+		pairs = append(pairs, "skillshare sync --force", "also replace local copies")
+	}
+	if n.collectSkills {
+		pairs = append(pairs, "skillshare collect", "copy local-only skills into source")
+	}
+	if n.collectAgents {
+		pairs = append(pairs, "skillshare collect agents", "copy local-only agents into source")
+	}
+	if len(pairs) > 6 {
+		pairs = pairs[:6]
+	}
+	return pairs
+}
+
+// renderDiffGroup prints one row per kind of change, such as "New  a, b".
+// With --stat or --patch, and for modified items, each item gets its own
+// row followed by its file changes.
+func renderDiffGroup(r targetDiffResult, opts diffRenderOpts, next *diffNext) {
+	items := make([]copyDiffEntry, len(r.items))
+	copy(items, r.items)
+	sort.Slice(items, func(i, j int) bool {
+		return items[i].name < items[j].name
+	})
+
+	cats := categorizeItems(items)
+	labels := make([]string, len(cats))
+	for i, cat := range cats {
+		labels[i] = sentenceCase(cat.label)
+	}
+	width := ui.RowWidth(labels...)
+	fileIndent := strings.Repeat(" ", width+4)
+
+	for i, cat := range cats {
+		for _, name := range cat.names {
+			agent := false
+			if item := findDiffItem(items, name); item != nil && item.kind == "agent" {
+				agent = true
+			}
+			switch {
+			case cat.kind == "override":
+				next.force = true
+			case cat.kind == "local" && agent:
+				next.collectAgents = true
+			case cat.kind == "local":
+				next.collectSkills = true
+			case agent:
+				next.agents = true
+			default:
+				next.skills = true
+			}
+		}
+
+		if !cat.expand {
+			ui.Row(ui.MarkNone, labels[i], plural(len(cat.names), "item"), width)
+			continue
+		}
+		if !opts.showStat && !opts.showPatch && cat.kind != "modified" {
+			ui.Row(ui.MarkNone, labels[i], strings.Join(cat.names, ", "), width)
+			continue
+		}
+		for j, name := range cat.names {
+			label := ""
+			if j == 0 {
+				label = labels[i]
+			}
+			ui.Row(ui.MarkNone, label, name, width)
+			item := findDiffItem(items, name)
+			if item == nil {
+				continue
+			}
+			item.ensureFiles()
+			for _, line := range strings.Split(strings.TrimRight(renderFileStat(item.files), "\n"), "\n") {
+				if line = strings.TrimSpace(line); line != "" {
+					fmt.Println(fileIndent + ui.DimText(line))
+				}
+			}
+			if !opts.showPatch {
+				continue
+			}
+			for _, f := range item.files {
+				if f.Action != "modify" || item.srcDir == "" {
+					continue
+				}
+				diffText := generateUnifiedDiff(filepath.Join(item.srcDir, f.RelPath), filepath.Join(item.dstDir, f.RelPath))
+				if diffText == "" {
+					continue
+				}
+				fmt.Println(fileIndent + "--- " + f.RelPath)
+				for _, line := range strings.Split(strings.TrimRight(colorizePlainDiff(diffText), "\n"), "\n") {
+					fmt.Println(fileIndent + line)
+				}
+			}
 		}
 	}
-	if anyCollectNeeded {
-		ui.Info("Run 'skillshare collect' to import local skills to source")
-	}
 
-	// Fully synced
-	if len(syncedNames) > 0 {
-		sort.Strings(syncedNames)
-		ui.Success("%s: fully synced", strings.Join(syncedNames, ", "))
+	var times []string
+	if !r.srcMtime.IsZero() {
+		times = append(times, "source changed "+r.srcMtime.Format("2006-01-02 15:04"))
 	}
+	if !r.dstMtime.IsZero() {
+		times = append(times, "target changed "+r.dstMtime.Format("2006-01-02 15:04"))
+	}
+	if len(times) > 0 {
+		ui.Note(strings.Join(times, " · "))
+	}
+}
+
+// sentenceCase turns "Local Only" into "Local only".
+func sentenceCase(s string) string {
+	if s == "" {
+		return s
+	}
+	return s[:1] + strings.ToLower(s[1:])
 }
 
 func findDiffItem(items []copyDiffEntry, name string) *copyDiffEntry {
@@ -1030,23 +1145,6 @@ func colorizePlainDiff(diff string) string {
 		}
 	}
 	return b.String()
-}
-
-func renderOverallSummary(errCount, needCount, syncCount int) {
-	var parts []string
-	total := errCount + needCount + syncCount
-	if errCount > 0 {
-		parts = append(parts, fmt.Sprintf("%s%d error%s%s", ui.Red, errCount, pluralS(errCount), ui.Reset))
-	}
-	if needCount > 0 {
-		parts = append(parts, fmt.Sprintf("%s%d need sync%s", ui.Yellow, needCount, ui.Reset))
-	}
-	if syncCount > 0 {
-		parts = append(parts, fmt.Sprintf("%s%d synced%s", ui.Green, syncCount, ui.Reset))
-	}
-	if len(parts) > 0 {
-		fmt.Printf("\n%sSummary:%s %d target%s — %s\n", ui.Bold, ui.Reset, total, pluralS(total), strings.Join(parts, ", "))
-	}
 }
 
 func pluralS(n int) string {

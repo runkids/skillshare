@@ -151,7 +151,7 @@ targets:
 	// Diff should show fully synced
 	result := sb.RunCLI("diff")
 	result.AssertSuccess(t)
-	result.AssertOutputContains(t, "synced")
+	result.AssertOutputContains(t, "in sync")
 
 	// Modify source content
 	os.WriteFile(filepath.Join(skillDir, "SKILL.md"), []byte("# Modified"), 0644)
@@ -210,7 +210,7 @@ targets:
 	result := sb.RunCLI("diff")
 	result.AssertSuccess(t)
 	result.AssertOutputContains(t, "Restore")
-	result.AssertOutputNotContains(t, "Fully synced")
+	result.AssertOutputNotContains(t, "in sync")
 }
 
 func TestDiff_MultiTarget_SameResult_Grouped(t *testing.T) {
@@ -306,7 +306,7 @@ targets:
 	result.AssertSuccess(t)
 
 	// Both fully synced targets should be merged into one line
-	result.AssertOutputContains(t, "agents, claude: fully synced")
+	result.AssertRowContains(t, "agents, claude", "in sync")
 }
 
 func TestDiff_CopyMode_DetectsNonDirectoryTargetEntry(t *testing.T) {
@@ -431,7 +431,7 @@ targets:
 
 	result := sb.RunCLI("diff")
 	result.AssertSuccess(t)
-	result.AssertOutputContains(t, "Summary")
+	result.AssertOutputContains(t, "2 targets: 1 to sync, 1 in sync")
 }
 
 func TestDiff_MergeMode_HiddenSourceSkill_ShowsSynced(t *testing.T) {
@@ -454,6 +454,23 @@ targets:
 
 	result := sb.RunCLI("diff")
 	result.AssertSuccess(t)
-	result.AssertOutputContains(t, "fully synced")
+	result.AssertOutputContains(t, "in sync")
 	result.AssertOutputNotContains(t, ".system__example")
+}
+
+func TestDiff_AllArgument_DiffsEverything(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sb.CreateSkill("skill-a", map[string]string{"SKILL.md": "# A"})
+	claudePath := sb.CreateTarget("claude")
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets:
+  claude:
+    path: ` + claudePath + `
+`)
+
+	result := sb.RunCLI("diff", "all", "--no-tui")
+	result.AssertSuccess(t)
+	result.AssertRowContains(t, "New", "skill-a")
 }
