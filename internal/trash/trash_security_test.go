@@ -53,6 +53,8 @@ func assertNothingWrittenOutside(t *testing.T, root, base string) {
 		}
 		// Allow the root itself and the outside/ directory structure
 		rel, _ := filepath.Rel(root, clean)
+		// filepath.Rel returns OS-native separators; the allow-list is slash-form.
+		rel = filepath.ToSlash(rel)
 		if rel == "." || rel == "outside" || rel == "outside/canary.txt" {
 			return nil
 		}
