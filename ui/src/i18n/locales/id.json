@@ -1041,7 +1041,7 @@
   "install.url.selectAll": "Pilih Semua",
   "install.url.deselectAll": "Batalkan Semua Pilihan",
   "install.url.sourceLabel": "URL git, singkatan GitHub, atau path lokal",
-  "install.url.sourceHint": "Subfolder juga bisa: owner/repo/path/to/skill. Begitu juga URL SSH dan folder seperti ~/Downloads/my-skill.",
+  "install.url.sourceHint": "Subfolder juga bisa: owner/repo/path/to/skill. Begitu juga URL SSH dan folder seperti ~/Downloads/my-skill. Bisa juga menempelkan perintah npx skills add.",
   "install.url.selected": "{count} dipilih",
   "install.url.filterSkills": "Filter skill",
   "install.url.filterAgents": "Filter agent",

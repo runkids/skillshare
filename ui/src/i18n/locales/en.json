@@ -1041,7 +1041,7 @@
   "install.url.selectAll": "Select all",
   "install.url.deselectAll": "Deselect all",
   "install.url.sourceLabel": "Git URL, GitHub shorthand or local path",
-  "install.url.sourceHint": "A subfolder works too: owner/repo/path/to/skill. So do SSH URLs and folders such as ~/Downloads/my-skill.",
+  "install.url.sourceHint": "A subfolder works too: owner/repo/path/to/skill. So do SSH URLs and folders such as ~/Downloads/my-skill. You can also paste an npx skills add command.",
   "install.url.selected": "{count} selected",
   "install.url.filterSkills": "Filter skills",
   "install.url.filterAgents": "Filter agents",
