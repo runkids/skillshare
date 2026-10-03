@@ -37,7 +37,7 @@ skillshare ui -g
 
 ![英文連接對話框中的 instructions 檔案變更預覽](/img/memory-connect-demo.png)
 
-檢查路徑及 **Before** / **After** 內容，再點擊 **Apply changes**。Skillshare 將受管理的閱讀指引區塊加入工具既有的 instructions 檔案，或工具已讀取的共用來源；若檔案尚不存在，也可建立。區塊帶有 scope 與內容 hash 標記，其餘內容、既有指派與連接模式皆保留。修改既有檔案前會備份。若其他工具也讀取同一檔案，預覽會提示，也會警告已知的字元上限。
+檢查每個檔案的差異（刪除行標 `−`，新增行標 `+`），再點擊 **Apply changes**。Skillshare 將受管理的閱讀指引區塊加入工具既有的 instructions 檔案，或工具已讀取的共用來源；若檔案尚不存在，也可建立。區塊帶有 scope 與內容 hash 標記，其餘內容、既有指派與連接模式皆保留。修改既有檔案前會備份。若其他工具也讀取同一檔案，預覽會提示，也會警告已知的字元上限。
 
 ![英文 Memory 分頁顯示已設定的工具](/img/memory-connected-demo.png)
 

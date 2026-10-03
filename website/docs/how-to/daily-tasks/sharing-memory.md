@@ -53,7 +53,7 @@ switch it; the change goes through the same review.
 
 ![English connection dialog showing the instruction-file changes for review](/img/memory-connect-demo.png)
 
-Review the file paths and **Before** / **After** content, then click **Apply
+Review each file's diff (removed lines marked `−`, added lines `+`), then click **Apply
 changes**. Skillshare adds a managed reading-guidance block to an existing
 instruction file or the shared source that the tool already reads. If there is no
 file yet, it can create one. The block has scope and content-hash markers; all

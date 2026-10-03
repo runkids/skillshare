@@ -3027,8 +3027,6 @@
   "memory.skipped.unsupported": "Instruction file must be UTF-8",
   "memory.noTargets": "No tools with instruction files are configured.",
   "memory.noChanges": "No changes to apply.",
-  "memory.before": "Before",
-  "memory.after": "After",
   "memory.alsoReadBy": "Also read by: {targets}",
   "memory.overLimit": "{target}: {chars} characters exceeds the {limit} character limit.",
   "memory.check": "Copy verification prompt",

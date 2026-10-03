@@ -3027,8 +3027,6 @@
   "memory.skipped.unsupported": "Berkas instruksi harus UTF-8",
   "memory.noTargets": "Belum ada alat dengan berkas instruksi yang dikonfigurasi.",
   "memory.noChanges": "Tidak ada perubahan untuk diterapkan.",
-  "memory.before": "Sebelum",
-  "memory.after": "Sesudah",
   "memory.alsoReadBy": "Juga dibaca oleh: {targets}",
   "memory.overLimit": "{target}: {chars} karakter melebihi batas {limit} karakter.",
   "memory.check": "Salin prompt verifikasi",

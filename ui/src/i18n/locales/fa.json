@@ -3027,8 +3027,6 @@
   "memory.skipped.unsupported": "فایل دستورالعمل باید UTF-8 باشد",
   "memory.noTargets": "هیچ ابزاری با فایل دستورالعمل پیکربندی نشده است.",
   "memory.noChanges": "تغییری برای اعمال وجود ندارد.",
-  "memory.before": "قبل",
-  "memory.after": "بعد",
   "memory.alsoReadBy": "این ابزارها نیز می‌خوانند: {targets}",
   "memory.overLimit": "{target}: تعداد {chars} نویسه از حد {limit} نویسه بیشتر است.",
   "memory.check": "کپی درخواست تأیید",

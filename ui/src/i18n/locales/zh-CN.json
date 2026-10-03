@@ -3027,8 +3027,6 @@
   "memory.skipped.unsupported": "instructions 文件必须是 UTF-8",
   "memory.noTargets": "尚未配置具有 instructions 文件的工具。",
   "memory.noChanges": "没有可应用的更改。",
-  "memory.before": "更改前",
-  "memory.after": "更改后",
   "memory.alsoReadBy": "也由这些工具读取：{targets}",
   "memory.overLimit": "{target}：{chars} 个字符超过 {limit} 个字符的上限。",
   "memory.check": "复制验证提示",

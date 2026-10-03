@@ -3027,8 +3027,6 @@
   "memory.skipped.unsupported": "O arquivo de instruções deve ser UTF-8",
   "memory.noTargets": "Nenhuma ferramenta com arquivo de instruções está configurada.",
   "memory.noChanges": "Nenhuma alteração para aplicar.",
-  "memory.before": "Antes",
-  "memory.after": "Depois",
   "memory.alsoReadBy": "Também lido por: {targets}",
   "memory.overLimit": "{target}: {chars} caracteres excedem o limite de {limit} caracteres.",
   "memory.check": "Copiar solicitação de verificação",

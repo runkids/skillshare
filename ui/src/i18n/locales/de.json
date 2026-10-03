@@ -3027,8 +3027,6 @@
   "memory.skipped.unsupported": "Anweisungsdatei muss UTF-8 verwenden",
   "memory.noTargets": "Keine Tools mit Anweisungsdateien konfiguriert.",
   "memory.noChanges": "Keine Änderungen zum Anwenden.",
-  "memory.before": "Vorher",
-  "memory.after": "Nachher",
   "memory.alsoReadBy": "Auch gelesen von: {targets}",
   "memory.overLimit": "{target}: {chars} Zeichen überschreiten das Limit von {limit} Zeichen.",
   "memory.check": "Prüfprompt kopieren",

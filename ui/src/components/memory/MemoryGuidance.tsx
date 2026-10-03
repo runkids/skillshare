@@ -9,9 +9,10 @@ import { queryKeys } from '../../lib/queryKeys';
 import { shortenHome } from '../../lib/paths';
 import AgentIcon from '../AgentIcon';
 import Button from '../Button';
-import CodeView from '../CodeView';
 import CopyButton from '../CopyButton';
 import DialogShell from '../DialogShell';
+import { lineDiff } from '../instructions/instructionsView';
+import type { DiffLine } from '../instructions/instructionsView';
 import { useToast } from '../Toast';
 import Tooltip from '../Tooltip';
 
@@ -47,6 +48,36 @@ function CopyGuidanceMenu({ instructions }: { instructions: MemoryInstructions }
           <span className="text-[12.5px] leading-snug text-ink-2">{t(`memory.mode.${mode}`)}</span>
         </button>)}
       </div>}
+    </div>
+  );
+}
+
+/** One file's change as a unified diff, like a Git diff. */
+function ChangeDiff({ path, before, after }: { path: string; before: string; after: string }) {
+  // Within each run of changed lines, removals come before additions, as in Git.
+  const lines: DiffLine[] = [];
+  let run: DiffLine[] = [];
+  for (const l of [...lineDiff(before, after), null]) {
+    if (l && l.kind !== 'same') { run.push(l); continue; }
+    lines.push(...run.filter((r) => r.kind === 'del'), ...run.filter((r) => r.kind === 'add'));
+    run = [];
+    if (l) lines.push(l);
+  }
+  const added = lines.filter((l) => l.kind === 'add').length;
+  const removed = lines.filter((l) => l.kind === 'del').length;
+  return (
+    <div className="ss-list !shadow-none">
+      <div className="ss-lh !normal-case">
+        <span className="min-w-0 flex-1 truncate font-mono text-[12.5px] font-semibold text-ink" title={path}>{shortenHome(path)}</span>
+        <span className="font-mono text-[12px]">
+          {added > 0 && <span className="text-ok">+{added}</span>} {removed > 0 && <span className="text-bad">−{removed}</span>}
+        </span>
+      </div>
+      <pre className="ss-code !max-h-[50vh] !rounded-none !border-0 !overflow-auto !whitespace-pre-wrap" style={{ overflowWrap: 'anywhere' }}>
+        {lines.map((l, i) => (
+          <span key={i} className={l.kind === 'same' ? 'block' : l.kind}>{l.kind === 'add' ? '+ ' : l.kind === 'del' ? '− ' : '  '}{l.text || ' '}</span>
+        ))}
+      </pre>
     </div>
   );
 }
@@ -122,7 +153,7 @@ export default function MemoryGuidance({ initialized, instructions }: { initiali
       <p className="pl-1 text-[12.5px] leading-relaxed text-ink-3">
         {t('memory.connectionHint')} <Link to="?tab=instructions" className="ss-more">{t('memory.openInstructions')}</Link>
       </p>
-      <DialogShell open={open} onClose={close} preventClose={busy} padding="none" maxWidth={plan ? "full" : "lg"} ariaLabel={t('memory.connect')}>
+      <DialogShell open={open} onClose={close} preventClose={busy} padding="none" maxWidth={plan ? "4xl" : "lg"} ariaLabel={t('memory.connect')}>
         <div className="dh"><h2 className="ss-h2">{t(plan ? 'memory.reviewConnections' : 'memory.connect')}</h2></div>
         <div className="db flex flex-col gap-4">
           {error && <div role="alert" className="ss-note bad whitespace-pre-wrap">{error}</div>}
@@ -158,13 +189,7 @@ export default function MemoryGuidance({ initialized, instructions }: { initiali
             {(plan.warnings ?? []).map((warning) => <div key={`${warning.code}:${warning.path}:${warning.target ?? ""}`} className="ss-note warn">{warning.path}: {warning.code === 'also_read_by' ? t('memory.alsoReadBy', { targets: (warning.targets ?? []).join(', ') }) : t('memory.overLimit', { target: warning.target ?? '', limit: warning.limit ?? 0, chars: warning.chars ?? 0 })}</div>)}
             {(plan.skipped ?? []).map((item) => <div key={item.target} className="ss-note warn">{item.target}: {t(`memory.skipped.${item.reason}`, undefined, item.reason)}</div>)}
             {plan.changes.length === 0 && <p>{t('memory.noChanges')}</p>}
-            {plan.changes.map((change) => <div key={change.path} className="flex min-w-0 flex-col gap-2">
-              <h3 className="break-all font-mono text-[13px] font-semibold">{change.path}</h3>
-              <div className="grid min-w-0 grid-cols-1 gap-4 md:grid-cols-2">
-                <div className="min-w-0"><p className="mb-2 text-[13px]">{t('memory.before')}</p><CodeView content={change.before} lang="md" className="h-[40vh]" /></div>
-                <div className="min-w-0"><p className="mb-2 text-[13px]">{t('memory.after')}</p><CodeView content={change.after} lang="md" className="h-[40vh]" /></div>
-              </div>
-            </div>)}
+            {plan.changes.map((change) => <ChangeDiff key={change.path} path={change.path} before={change.before} after={change.after} />)}
           </>}
         </div>
         <div className="df">

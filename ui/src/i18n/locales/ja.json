@@ -3027,8 +3027,6 @@
   "memory.skipped.unsupported": "指示ファイルは UTF-8 にしてください",
   "memory.noTargets": "指示ファイルを持つツールが設定されていません。",
   "memory.noChanges": "適用する変更はありません。",
-  "memory.before": "変更前",
-  "memory.after": "変更後",
   "memory.alsoReadBy": "次のツールも読み取ります：{targets}",
   "memory.overLimit": "{target}：{chars} 文字は上限の {limit} 文字を超えています。",
   "memory.check": "検証用プロンプトをコピー",

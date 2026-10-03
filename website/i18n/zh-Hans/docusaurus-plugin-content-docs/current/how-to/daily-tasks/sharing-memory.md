@@ -37,7 +37,7 @@ skillshare ui -g
 
 ![英文连接对话框中的 instructions 文件更改预览](/img/memory-connect-demo.png)
 
-检查路径及 **Before** / **After** 内容，再点击 **Apply changes**。Skillshare 将受管理的阅读指引块加入工具现有的 instructions 文件，或工具已读取的共享来源；若文件尚不存在，也可创建。块带有 scope 与内容 hash 标记，其余内容、现有分配与连接模式均保留。修改现有文件前会备份。若其他工具也读取同一文件，预览会提示，也会警告已知的字符上限。
+检查每个文件的差异（删除行标 `−`，新增行标 `+`），再点击 **Apply changes**。Skillshare 将受管理的阅读指引块加入工具现有的 instructions 文件，或工具已读取的共享来源；若文件尚不存在，也可创建。块带有 scope 与内容 hash 标记，其余内容、现有分配与连接模式均保留。修改现有文件前会备份。若其他工具也读取同一文件，预览会提示，也会警告已知的字符上限。
 
 ![英文 Memory 页签显示已配置的工具](/img/memory-connected-demo.png)
 
