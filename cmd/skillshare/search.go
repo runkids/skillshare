@@ -298,8 +298,8 @@ func printSearchResults(results []search.SearchResult, isHub bool) {
 		names[i] = truncate(r.Name, 24)
 		// Truncate source if too long
 		sources[i] = shortenPath(r.Source)
-		if len(sources[i]) > 40 {
-			sources[i] = "..." + sources[i][len(sources[i])-37:]
+		if len(sources[i]) > 50 {
+			sources[i] = "..." + sources[i][len(sources[i])-47:]
 		}
 	}
 	width := ui.RowWidth(names...)
