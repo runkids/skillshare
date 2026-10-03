@@ -40,7 +40,7 @@ flowchart TD
 
 `pull`은 `git_root` 설정 필드로 선택된 디렉터리(기본값: `skills` source)에서 동작합니다. scope 표는 [commit — Git Root Scope](./commit.md#git-root-scope)를 참고하세요. `git_root`가 변경되었지만 git repo가 여전히 다른 scope의 디렉터리에 있는 경우, `pull`은 이를 해결하기 위한 정확한 `git init` / `mv` 명령과 함께 "Git root mismatch" 오류를 출력합니다. [Changing the scope after init](/docs/reference/targets/configuration#git-root)를 참고하세요.
 
-pull 이후, `pull`은 해당 scope가 담고 있는 대상을 동기화합니다. `skills`는 `sync`를, `agents`는 `sync agents`를, `root`는 둘 다를, `extras`는 `sync extras`를 실행합니다.
+pull 이후, `pull`은 해당 scope가 담고 있는 대상을 동기화합니다. `skills`는 `sync`를, `agents`는 `sync agents`를, `extras`는 `sync extras`를, `root`는 세 가지 모두를 실행합니다.
 
 Plugins, MCP 서버, hooks는 `config.yaml`의 설정이며 어떤 scope도 이를 추적하지 않으므로, `pull`은 이들을 가져오지도 적용하지도 않습니다. [Cross-Machine Sync — Plugins, MCP, Hooks](/docs/how-to/sharing/cross-machine-sync#plugins-mcp-hooks)를 참고하세요.
 

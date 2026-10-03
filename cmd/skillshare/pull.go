@@ -163,7 +163,7 @@ func pulledScopeSyncArgs(gitRoot string) [][]string {
 	case "extras":
 		return [][]string{{"extras", "--global"}}
 	case "root":
-		return [][]string{{"--global"}, {"agents", "--global"}}
+		return [][]string{{"--global"}, {"agents", "--global"}, {"extras", "--global"}}
 	}
 	return [][]string{{"--global"}}
 }

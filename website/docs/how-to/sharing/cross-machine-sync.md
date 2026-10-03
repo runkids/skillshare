@@ -127,7 +127,7 @@ skillshare push -m "Update my-skill"
 skillshare pull
 ```
 
-That's it. `pull` automatically runs `sync` after pulling. It syncs what the [git root scope](/docs/reference/targets/configuration#git-root) holds: skills, plus agents with `git_root: root`. Plugins, MCP servers and hooks need the extra steps below.
+That's it. `pull` automatically runs `sync` after pulling. It syncs what the [git root scope](/docs/reference/targets/configuration#git-root) holds: skills by default, agents or extras with those scopes, and all three with `git_root: root`. Plugins, MCP servers and hooks need the extra steps below.
 
 ### Both ways in one command
 

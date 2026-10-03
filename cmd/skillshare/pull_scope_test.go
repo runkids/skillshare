@@ -11,7 +11,7 @@ func TestPulledScopeSyncArgs(t *testing.T) {
 		"skills": {{"--global"}},
 		"agents": {{"agents", "--global"}},
 		"extras": {{"extras", "--global"}},
-		"root":   {{"--global"}, {"agents", "--global"}},
+		"root":   {{"--global"}, {"agents", "--global"}, {"extras", "--global"}},
 	} {
 		if got := pulledScopeSyncArgs(gitRoot); !reflect.DeepEqual(got, want) {
 			t.Errorf("pulledScopeSyncArgs(%q) = %v, want %v", gitRoot, got, want)

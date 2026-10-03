@@ -127,7 +127,7 @@ skillshare push -m "Update my-skill"
 skillshare pull
 ```
 
-就這樣。`pull` 在拉取後會自動執行 `sync`。它會依照 [git root scope](/docs/reference/targets/configuration#git-root) 涵蓋的內容執行 sync：skills，以及 `git_root: root` 時的 agents。Plugins、MCP server 和 hooks 需要下面的額外步驟。
+就這樣。`pull` 在拉取後會自動執行 `sync`。它會依照 [git root scope](/docs/reference/targets/configuration#git-root) 涵蓋的內容執行 sync：預設是 skills，agents / extras scope 同步對應資源，`git_root: root` 則三者都同步。Plugins、MCP server 和 hooks 需要下面的額外步驟。
 
 ### 一個指令雙向同步
 
