@@ -171,6 +171,18 @@ targets:
 	result.AssertOutputContains(t, "No skills to analyze")
 }
 
+func TestAnalyze_NoTargets_SaysSo(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sb.CreateSkill("s1", map[string]string{"SKILL.md": "---\nname: s1\ndescription: d\n---\n"})
+	sb.WriteConfig("source: " + sb.SourcePath + "\ntargets: {}\n")
+
+	result := sb.RunCLI("analyze", "--no-tui")
+	result.AssertSuccess(t)
+	result.AssertOutputContains(t, "No targets configured")
+}
+
 func TestAnalyze_UnknownTarget(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()

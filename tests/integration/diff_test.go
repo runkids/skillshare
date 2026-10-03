@@ -34,6 +34,19 @@ targets:
 	result.AssertOutputContains(t, "claude")
 }
 
+func TestDiff_NoTargets_SaysSo(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sb.CreateSkill("skill1", map[string]string{"SKILL.md": "# Skill 1"})
+	sb.WriteConfig("source: " + sb.SourcePath + "\ntargets: {}\n")
+
+	result := sb.RunCLI("diff", "--no-tui")
+	result.AssertSuccess(t)
+	result.AssertOutputContains(t, "No targets configured")
+	result.AssertOutputNotContains(t, "No differences")
+}
+
 func TestDiff_SkillOnlyInSource_ShowsDifference(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()

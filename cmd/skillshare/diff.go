@@ -846,6 +846,11 @@ func categorizeItems(items []copyDiffEntry) []actionCategory {
 // a closing line with what to run next. Targets with errors are always
 // shown individually.
 func renderGroupedDiffs(results []targetDiffResult, extras []extraDiffResult, opts diffRenderOpts) {
+	if len(results) == 0 && len(extras) == 0 {
+		ui.Done(ui.MarkNone, "No targets configured", 0)
+		ui.Next("skillshare target add <name> <path>", "add one")
+		return
+	}
 	sort.Slice(results, func(i, j int) bool {
 		return results[i].name < results[j].name
 	})

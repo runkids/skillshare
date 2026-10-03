@@ -280,6 +280,11 @@ func runAnalyzeCore(sourcePath string, targets map[string]config.TargetConfig, d
 		}
 	}
 
+	if len(entries) == 0 {
+		ui.Done(ui.MarkNone, "No targets configured", 0)
+		ui.Next("skillshare target add <name> <path>", "add one")
+		return nil
+	}
 	printAnalyze(entries, opts.verbose)
 
 	if violations := checkBudget(entries, budget); len(violations) > 0 {
