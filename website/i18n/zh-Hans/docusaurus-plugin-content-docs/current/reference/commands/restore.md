@@ -23,12 +23,12 @@ skillshare restore claude --dry-run                    # 预览
 
 在 TTY 中，`skillshare restore`（不带参数）会启动一个统一的恢复 TUI：
 
-1. **Source 选择器**——在 "Backup Restore" 和 "Trash Restore" 之间选择
-2. **Backup Restore**——选择一个 target，然后浏览备份版本，详情面板中会显示：
+1. **Restore from**——在 inline 提示中选择 "Backup" 或 "Trash"
+2. **Backup**——选择一个 target，然后浏览备份版本，详情面板中会显示：
    - 备份日期、大小和 skill 数量
    - 与当前 target 的差异（新增/移除的 skills）
    - 单个文件列表
-3. **Trash Restore**——打开 trash TUI 以恢复已删除的 skills
+3. **Trash**——打开 trash TUI 以恢复已删除的 skills
 
 ### 键位绑定
 

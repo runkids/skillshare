@@ -100,7 +100,7 @@ func cmdNew(args []string) error {
 		return fmt.Errorf("skill '%s' already exists at %s", skillName, skillDir)
 	}
 
-	// Determine pattern via wizard (Esc = back to previous step)
+	// Determine pattern via wizard (esc cancels)
 	selectedPattern := patternFlag
 	var selectedCategory string
 	createDirs := patternFlag != "" && patternFlag != "none"
@@ -110,7 +110,8 @@ func cmdNew(args []string) error {
 	if selectedPattern == "" && isTTY {
 		selectedPattern, selectedCategory, createDirs = runNewWizard()
 		if selectedPattern == "" {
-			return nil // cancelled at pattern step
+			ui.Cancelled("created")
+			return nil
 		}
 	} else if selectedPattern != "" && selectedPattern != "none" && isTTY {
 		// -P given but still ask category interactively

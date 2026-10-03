@@ -42,7 +42,7 @@ func TestRunForm_EscClearsThePrompt(t *testing.T) {
 		keys.Write([]byte("\x1b"))
 	}()
 
-	err := runForm(huh.NewInput().Title(title), in, out)
+	err := runForm(huh.NewInput().Title(title), false, in, out)
 
 	if !errors.Is(err, ErrCancelled) {
 		t.Fatalf("err = %v, want ErrCancelled", err)
@@ -54,6 +54,31 @@ func TestRunForm_EscClearsThePrompt(t *testing.T) {
 	}
 	if !strings.Contains(rendered[last:], "\x1b[J") {
 		t.Errorf("prompt was not erased after cancel; output tail = %q", rendered[last:])
+	}
+}
+
+func TestRunForm_EscLeavesTheFilterFirst(t *testing.T) {
+	const title = "Pick some"
+	in, keys := io.Pipe()
+	out := &syncBuffer{}
+	go func() {
+		deadline := time.Now().Add(5 * time.Second)
+		for !strings.Contains(out.String(), title) && time.Now().Before(deadline) {
+			time.Sleep(10 * time.Millisecond)
+		}
+		for _, k := range []string{"/", "x", "\x1b", "\r"} {
+			keys.Write([]byte(k))
+			time.Sleep(50 * time.Millisecond)
+		}
+	}()
+
+	var values []string
+	field := huh.NewMultiSelect[string]().Title(title).
+		Options(huh.NewOptions("a", "b", "c")...).Filterable(true).Value(&values)
+	err := runForm(field, true, in, out)
+
+	if err != nil {
+		t.Fatalf("esc in the filter cancelled the prompt: err = %v", err)
 	}
 }
 

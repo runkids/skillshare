@@ -111,23 +111,21 @@ $ skillshare install anthropics/skills
 ✓ Source    github.com/anthropics/skills
   Found     20 skills
 
-  Select skills to install (0/20 selected)
-
-▌ [ ] academy-guide (Complete terms in LICENSE.txt)
-▌ [ ] algorithmic-art (Complete terms in LICENSE.txt)
-▌ [ ] brand-guidelines (Complete terms in LICENSE.txt)
-▌ [ ] canvas-design (Complete terms in LICENSE.txt)
-▌ [ ] claude-api (Complete terms in LICENSE.txt)
-▌ [ ] discernment-nudge (Complete terms in LICENSE.txt)
-▌ [ ] doc-coauthoring
-▌ [ ] docx (Proprietary. LICENSE.txt has complete terms)
+? Install which skills?
+› ○ academy-guide        Complete terms in LICENSE.txt
+  ○ algorithmic-art      Complete terms in LICENSE.txt
+  ○ brand-guidelines     Complete terms in LICENSE.txt
+  ○ canvas-design        Complete terms in LICENSE.txt
+  ○ claude-api           Complete terms in LICENSE.txt
+  ○ discernment-nudge
+  ○ doc-coauthoring
+  ○ docx                 Proprietary. LICENSE.txt has complete terms
   …
 
-  20 skills
-  ↑↓ navigate  space toggle  a all  enter confirm  / filter  esc cancel
+  ↑↓ move · space toggle · ctrl+a all · enter confirm · / filter · esc cancel
 ```
 
-Discovery는 `.git`만 건너뛰고 모든 디렉터리에서 `SKILL.md` 파일을 스캔합니다. 즉 `.curated/`나 `.system/`과 같은 숨김 디렉터리 안의 skill도 자동으로 발견됩니다. 여러 skill이 발견되면, 선택 화면은 더 쉽게 둘러볼 수 있도록 디렉터리별로 그룹화합니다.
+Discovery는 `.git`만 건너뛰고 모든 디렉터리에서 `SKILL.md` 파일을 스캔합니다. 즉 `.curated/`나 `.system/`과 같은 숨김 디렉터리 안의 skill도 자동으로 발견됩니다. 여러 skill이 발견되면, 선택 화면은 같은 폴더의 skill을 함께 나열하고 각 skill의 설명과 폴더를 보여 줍니다. 목록이 길면 `/`로 필터링할 수 있습니다.
 
 repository 루트에 `.skillignore` 파일이 있으면, 일치하는 skill은 discovery에서 자동으로 제외됩니다. 아래 [.skillignore](#skillignore)를 참고하세요.
 

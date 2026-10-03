@@ -111,23 +111,21 @@ $ skillshare install anthropics/skills
 ✓ Source    github.com/anthropics/skills
   Found     20 skills
 
-  Select skills to install (0/20 selected)
-
-▌ [ ] academy-guide (Complete terms in LICENSE.txt)
-▌ [ ] algorithmic-art (Complete terms in LICENSE.txt)
-▌ [ ] brand-guidelines (Complete terms in LICENSE.txt)
-▌ [ ] canvas-design (Complete terms in LICENSE.txt)
-▌ [ ] claude-api (Complete terms in LICENSE.txt)
-▌ [ ] discernment-nudge (Complete terms in LICENSE.txt)
-▌ [ ] doc-coauthoring
-▌ [ ] docx (Proprietary. LICENSE.txt has complete terms)
+? Install which skills?
+› ○ academy-guide        Complete terms in LICENSE.txt
+  ○ algorithmic-art      Complete terms in LICENSE.txt
+  ○ brand-guidelines     Complete terms in LICENSE.txt
+  ○ canvas-design        Complete terms in LICENSE.txt
+  ○ claude-api           Complete terms in LICENSE.txt
+  ○ discernment-nudge
+  ○ doc-coauthoring
+  ○ docx                 Proprietary. LICENSE.txt has complete terms
   …
 
-  20 skills
-  ↑↓ navigate  space toggle  a all  enter confirm  / filter  esc cancel
+  ↑↓ move · space toggle · ctrl+a all · enter confirm · / filter · esc cancel
 ```
 
-Discovery 会扫描所有目录以查找 `SKILL.md` 文件，仅跳过 `.git`。这意味着位于隐藏目录（如 `.curated/` 或 `.system/`）中的 Skill 也会被自动发现。当发现多个 Skill 时，选择提示会按目录对它们分组，方便浏览。
+Discovery 会扫描所有目录以查找 `SKILL.md` 文件，仅跳过 `.git`。这意味着位于隐藏目录（如 `.curated/` 或 `.system/`）中的 Skill 也会被自动发现。当发现多个 Skill 时，选择提示会把同一文件夹中的 Skill 排在一起，并显示每个 Skill 的描述和所在文件夹；列表较长时按 `/` 筛选。
 
 如果仓库根目录下存在 `.skillignore` 文件，匹配的 Skill 会被自动从 discovery 中排除。参见下方的 [.skillignore](#skillignore)。
 

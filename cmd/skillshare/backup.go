@@ -513,12 +513,12 @@ func restoreTUIDispatch(noTUI bool) error {
 
 	// Step 1: Source picker — Backup or Trash
 	selected, err := runChecklistTUI(checklistConfig{
-		title:        "Restore — choose source",
+		title:        "Restore from",
 		singleSelect: true,
 		itemName:     "source",
 		items: []checklistItemData{
-			{label: "Backup Restore", desc: "Restore a target from backup snapshot"},
-			{label: "Trash Restore", desc: "Restore deleted skills from trash"},
+			{label: "Backup", desc: "restore a target from a snapshot"},
+			{label: "Trash", desc: "restore deleted skills"},
 		},
 	})
 	if err != nil {

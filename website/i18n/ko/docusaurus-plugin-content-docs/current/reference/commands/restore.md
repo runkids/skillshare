@@ -23,12 +23,12 @@ skillshare restore claude --dry-run                    # Preview
 
 TTY에서 인자 없이 `skillshare restore`를 실행하면 통합 restore TUI가 실행됩니다.
 
-1. **Source picker** — "Backup Restore"와 "Trash Restore" 중 선택
-2. **Backup Restore** — target을 선택한 후, 다음 정보를 보여주는 상세 패널과 함께 백업 버전을 탐색:
+1. **Restore from** — 인라인 프롬프트에서 "Backup" 또는 "Trash" 선택
+2. **Backup** — target을 선택한 후, 다음 정보를 보여주는 상세 패널과 함께 백업 버전을 탐색:
    - 백업 날짜, 크기, skill 개수
    - 현재 target과의 diff (추가/제거된 skill)
    - 개별 파일 목록
-3. **Trash Restore** — 삭제된 skill을 복원하기 위해 trash TUI를 엽니다
+3. **Trash** — 삭제된 skill을 복원하기 위해 trash TUI를 엽니다
 
 ### 키 바인딩
 

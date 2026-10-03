@@ -23,12 +23,12 @@ skillshare restore claude --dry-run                    # Preview
 
 On a TTY, `skillshare restore` (with no arguments) launches a unified restore TUI:
 
-1. **Source picker** — Choose between "Backup Restore" and "Trash Restore"
-2. **Backup Restore** — Select a target, then browse backup versions with a detail panel showing:
+1. **Restore from** — Choose "Backup" or "Trash" in an inline prompt
+2. **Backup** — Select a target, then browse backup versions with a detail panel showing:
    - Backup date, size, and skill count
    - Diff vs current target (added/removed skills)
    - Individual file listings
-3. **Trash Restore** — Opens the trash TUI to restore deleted skills
+3. **Trash** — Opens the trash TUI to restore deleted skills
 
 ### Key Bindings
 
