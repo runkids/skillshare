@@ -11,6 +11,8 @@ rules:
     pattern: prompt-injection
     message: "SYSTEM: prompt override detected"
     regex: '(?im)^\s*(SYSTEM|OVERRIDE|IGNORE|ADMIN|ROOT):'
+    # Config keys (root: ./src, ignore: { ... }) carry one value, not a prose directive
+    exclude: '(?i)^\s*(system|override|ignore|admin|root):\s*(\S+|\{.*\w\s*:.*\},?)?(\s+(#|//).*)?\s*$'
 
   - id: prompt-injection-2
     severity: HIGH

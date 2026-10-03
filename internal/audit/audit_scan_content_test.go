@@ -89,6 +89,28 @@ func TestScanContent_PromptInjection(t *testing.T) {
 			}
 		})
 	}
+
+	// Config keys that share a name with a role label carry data, not prose.
+	safe := []struct {
+		name    string
+		content string
+	}{
+		{"yaml path value", "root: ./src"},
+		{"yaml bool value", "admin: false"},
+		{"yaml nested mapping", "ignore:"},
+		{"yaml value with comment", "root: ./src # project root"},
+		{"js inline object", `  ignore: { tags: ["design"] },`},
+	}
+	for _, tt := range safe {
+		t.Run("safe/"+tt.name, func(t *testing.T) {
+			findings := ScanContent([]byte(tt.content), "SKILL.md")
+			for _, f := range findings {
+				if f.Pattern == "prompt-injection" {
+					t.Errorf("should NOT trigger prompt-injection for %q, got %s", tt.content, f.RuleID)
+				}
+			}
+		})
+	}
 }
 
 func TestScanContent_DataExfiltration(t *testing.T) {
