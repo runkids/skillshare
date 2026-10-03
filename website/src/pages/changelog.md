@@ -11,52 +11,93 @@ All notable changes to skillshare are documented here. For the full commit histo
 
 ## [0.24.0] - 2026-10-03
 
+### Breaking Changes
 
-### ⚠ BREAKING CHANGES
-
-* **cli:** non-interactive `init` now enables git, installs the built-in skill and selects every detected tool; pass --no-git, --no-skill, --no-targets or --no-copy for the previous minimal setup. Piped or redirected output no longer contains ANSI colors; use --json where offered for machine-readable output.
+- **`init` without a terminal now sets up what pressing Enter would** — in CI, scripts and AI agents, `init` used to do less than the interactive defaults. It now enables git, installs the built-in skill and selects every detected tool, and prints each decision with the flag that changes it. To keep the previous minimal setup, pass the flags explicitly:
+  ```bash
+  skillshare init --no-git --no-skill --no-targets --no-copy
+  ```
+- **Output that is not a terminal is plain text** — piped or redirected output no longer contains ANSI colors. Parse `--json` where a command offers it rather than the human-readable text, which changed throughout this release.
 
 ### New Features
 
-* **check:** detect changes at local install sources ([#334](https://github.com/runkids/skillshare/issues/334)) ([9847f59](https://github.com/runkids/skillshare/commit/9847f59a3e52f27b7a4c24e106749433931c757e))
-* **cli:** one frame and keymap for every TUI, inline prompts, file viewer ([#370](https://github.com/runkids/skillshare/issues/370)) ([355b42e](https://github.com/runkids/skillshare/commit/355b42ee57d65a33e8270e3c1dc274f195a04570)), closes [#200](https://github.com/runkids/skillshare/issues/200)
-* **cli:** redesign init and give every command one output style ([#360](https://github.com/runkids/skillshare/issues/360)) ([d78e7ce](https://github.com/runkids/skillshare/commit/d78e7ce09a8c37dc0067522066233e77f89e4a59)), closes [#200](https://github.com/runkids/skillshare/issues/200)
-* **extras:** share Markdown memory across agents ([#349](https://github.com/runkids/skillshare/issues/349)) ([6e176dd](https://github.com/runkids/skillshare/commit/6e176ddb0cf036a9feedfadc7f21bfb2300aca5c))
-* **pi:** edit extensions on any Pi at or above the verified minimum ([#367](https://github.com/runkids/skillshare/issues/367)) ([9788d48](https://github.com/runkids/skillshare/commit/9788d486f7b775066b03065af2511618375d8a62))
-* **pi:** manage individual extensions per target ([#350](https://github.com/runkids/skillshare/issues/350)) ([ccc0fbd](https://github.com/runkids/skillshare/commit/ccc0fbdf74bc3fe871a92c667494fb2b42a81df6))
-* **plugin:** add npm packages from pi.dev through Pi ([#363](https://github.com/runkids/skillshare/issues/363)) ([3ba95ef](https://github.com/runkids/skillshare/commit/3ba95ef49e69e9d63727461452121c8142a1886f))
-* **push:** add --pull for two-way sync in one command ([#354](https://github.com/runkids/skillshare/issues/354)) ([5d269e8](https://github.com/runkids/skillshare/commit/5d269e8e4c6b7cc1d41d540b1e174dae1634dc16))
-* **ui:** accept a pasted npx skills add command in the install dialog ([#373](https://github.com/runkids/skillshare/issues/373)) ([77a503f](https://github.com/runkids/skillshare/commit/77a503fa3182f05b8ba69f50c032e020885ff2b4))
-* **video:** feature Pi and Antigravity in the demo ([96f1859](https://github.com/runkids/skillshare/commit/96f1859a4510a84d86344aa1b221d3ae4e3752cd))
-* **video:** rebuild the README demo as an illustrated explainer ([d27ae41](https://github.com/runkids/skillshare/commit/d27ae41f6bd1839b0f036f79cbbc62da74bd4979))
-* **website:** show the demo video on the homepage ([6c8acd0](https://github.com/runkids/skillshare/commit/6c8acd010230e2d30591247512007fb0cb1ee0ac))
+#### Init
 
+- **Init asks first, then writes** — `init` collects every answer, shows a summary with Yes / Change settings / Cancel, and writes nothing until you confirm. Esc cancels cleanly, and `--dry-run` no longer creates tool folders. The built-in skill is installed by default, and the first sync runs at the end so the tools work right away.
+- **Connect an existing skillshare repo** — on a second machine, choose "Connect my existing skillshare repo". Init checks the repo before writing, detects its layout, prefers the repo's version of a skill with the same name, and keeps local-only skills for the next push. Init no longer writes a git identity into a repo that already exists.
+
+#### Command output
+
+- **One output style for every command** — `sync`, `status`, `install`, `update`, `check`, `push`, `pull`, `doctor`, `audit`, `mcp`, `plugin`, `extras`, `target` and the other commands report results as aligned rows and end with one closing line or the next step to take, without boxes, logos or trees.
+- **Help that fits on one screen** — `skillshare help` lists one line per command, and `--help` after a subcommand shows that subcommand's help instead of running it.
+  ```bash
+  skillshare extras memory --help
+  ```
+- **`doctor` warns about an outdated built-in skill** — when a newer built-in skill is published, `doctor` says so and counts it in the summary.
+- **`trash empty --force`** — empties the trash without asking.
+
+#### Terminal UI
+
+- **One frame and keymap for every full-screen TUI** — `list`, `trash`, `log`, `audit`, `analyze`, `diff`, `restore`, `search`, `target`, `extras` and the MCP manager share one title line, one key line with the common keys and the position, and lowercase letters for actions. Less common keys are under `?`, and confirmations ask on the key line so the list stays visible. In `list`, `tab` switches between skills and agents; the All tab and the `s` status cycle are gone, and `status:` in the filter or `--status` covers enabled and disabled.
+- **Small choices are asked inline** — the install skill picker, a large repo's folder picker, the restore source, the `new` wizard, `extras init` and MCP and plugin values no longer take over the screen. The question appears in place and collapses into a `✓` line that stays in the scrollback. Long lists can be narrowed with `/`, and long descriptions are cut to one row.
+- **A file viewer in the TUIs** — browse a skill's files from `list`, `extras`, `audit` (opened at the finding), `analyze` and `trash` (before restoring). Control characters and hidden Unicode are shown as symbols, and very large files are skipped.
+
+#### Git sync
+
+- **`push --pull` syncs both ways in one command** — commits local changes, merges the remote the same way `pull` does, pushes, and syncs the scope's targets. A conflict stops before anything is pushed and keeps the local commit. It never rebases or force-pushes.
+  ```bash
+  skillshare push --pull
+  ```
+  The dashboard's Git Sync page has the same action as **Sync both ways**, which lists what it will do before changing anything.
+
+#### Memory
+
+- **Shared Markdown memory across agents** — keep notes in `extras/memory`, globally or per project, and connect the agents that should read them. The dashboard has a two-pane Memory browser with search, moves and renames, version history and recovery from backups. From the CLI:
+  ```bash
+  skillshare extras memory init
+  skillshare extras memory list --search deploy
+  skillshare extras memory instructions   # guidance to add to your agent instructions
+  ```
+  This is a shared file overlay; each agent's own automatic memory stays separate.
+
+#### Pi
+
+- **Turn individual Pi extensions on and off** — a Pi target's **Extensions** tab in the dashboard lists every package in Pi's settings, including ones installed with Pi itself, and switches each extension for the global, account or project target. Each change shows the exact edit to Pi's settings before it is written, changes only that package's extension list, and is refused if Pi would apply it differently. Turning a file back to what the package loads by default removes its rule instead of adding the opposite one. Editing needs Pi 0.99.2 or later; older versions are read-only and say which version is needed.
+- **Add npm packages from pi.dev** — `plugin add npm:<package>` installs a Pi package through `pi install` and records it like an import. The preview says that Pi runs the package's install scripts, and only targets that run Pi take npm sources. The dashboard also accepts a pasted `pi install` command or a pi.dev address.
+  ```bash
+  skillshare plugin add npm:@scope/package --target pi -g
+  ```
+
+#### Install and check
+
+- **`check` detects changes at local install sources** — skills installed from a local path, such as one shipped inside an app, used to show only "local source". `check` now compares the files at that path with the ones installed and reports an available update, or an error naming the path when the source is gone. Project installs with a relative path are compared against the project root.
+- **Paste an `npx skills add` command in the install dialog** — the dashboard reduces `npx skills@latest add owner/repo --skill=name` or `owner/repo@skill` to its source and preselects the named skills.
 
 ### Bug Fixes
 
-* **audit:** skip absolute metadata keys on Windows too ([#345](https://github.com/runkids/skillshare/issues/345)) ([b931c2a](https://github.com/runkids/skillshare/commit/b931c2aeca7fa341818da10282fb837c539dd929))
-* **check:** compare project-relative local sources and record install layout ([#337](https://github.com/runkids/skillshare/issues/337)) ([1a1eeee](https://github.com/runkids/skillshare/commit/1a1eeee844036020ba6c48dd100ac87c235a7932))
-* **cli:** keep inline picker rows and summaries on one line ([65998a4](https://github.com/runkids/skillshare/commit/65998a4d47b291d4d0007d0e900246369900a168))
-* close temp downloads before removing them on error ([#340](https://github.com/runkids/skillshare/issues/340)) ([dadbbc7](https://github.com/runkids/skillshare/commit/dadbbc7649cfcbcdedf2ca79b98ba630adc1a834))
-* **install:** keep file:// URLs slash-form on Windows ([#346](https://github.com/runkids/skillshare/issues/346)) ([95f54f2](https://github.com/runkids/skillshare/commit/95f54f233c87e2132fd9c88863eb90f974c36b60))
-* **install:** keep local installs updatable from any directory and in shape ([#336](https://github.com/runkids/skillshare/issues/336)) ([f28e5e2](https://github.com/runkids/skillshare/commit/f28e5e23f448e476116bee2dbb89aa396dfa774b))
-* **mcp:** explain Pi project overrides in import and sync conflicts ([#371](https://github.com/runkids/skillshare/issues/371)) ([7a9b37e](https://github.com/runkids/skillshare/commit/7a9b37e852ee2f67e724ba719e468c7fe335b27a))
-* **pi:** recover Windows stale locks and protect private registrations ([#361](https://github.com/runkids/skillshare/issues/361)) ([539f1d0](https://github.com/runkids/skillshare/commit/539f1d0f03ff0107af0b071eb450df600bc53302))
-* **plugin:** trust symlinked ancestors of the Agent config root ([#368](https://github.com/runkids/skillshare/issues/368)) ([ca11f63](https://github.com/runkids/skillshare/commit/ca11f63a09806d6ef3deba28baf34f1f3167a6d7))
-* **pull:** keep files-only local commits on first pull ([#352](https://github.com/runkids/skillshare/issues/352)) ([6f3d6a3](https://github.com/runkids/skillshare/commit/6f3d6a310ef7857e60fff60bb8f948c7dfa8e763))
-* **pull:** keep the local config.yaml when a later pull brings a tracked copy ([#362](https://github.com/runkids/skillshare/issues/362)) ([475b176](https://github.com/runkids/skillshare/commit/475b176914be8c821dd028acee3f131685ce491d))
-* **pull:** refuse root-scope first pull when remote tracks config.yaml ([#357](https://github.com/runkids/skillshare/issues/357)) ([7fccd6f](https://github.com/runkids/skillshare/commit/7fccd6ffa532993188f6ab708407a7106d902e82))
-* **push:** refuse unpushed config.yaml history at root scope ([#366](https://github.com/runkids/skillshare/issues/366)) ([#372](https://github.com/runkids/skillshare/issues/372)) ([dd6991c](https://github.com/runkids/skillshare/commit/dd6991ca3ce8d6ae1fb580afc52e44690f397d25))
-* **trash:** reject POSIX-absolute names on Windows too ([#347](https://github.com/runkids/skillshare/issues/347)) ([968e321](https://github.com/runkids/skillshare/commit/968e3215217f6e57dc0946e1e5616470b582beda))
-* **ui:** keep memory connection states current and compact ([#359](https://github.com/runkids/skillshare/issues/359)) ([fedadbe](https://github.com/runkids/skillshare/commit/fedadbe74babde083261ec82f2272ea730f53d4a))
-* **ui:** let a Pi extension switch remove a rule instead of adding its opposite ([3c7e48e](https://github.com/runkids/skillshare/commit/3c7e48e239b8e4b7aee959fa8023c0927b9529e6))
-* **ui:** refresh Pi Extensions tabs after a plugin sync ([d55ca99](https://github.com/runkids/skillshare/commit/d55ca998c18dc1de6659e7d6d7200aab85ad4b54))
-* **ui:** show where pull conflict versions differ ([#331](https://github.com/runkids/skillshare/issues/331)) ([9c048ac](https://github.com/runkids/skillshare/commit/9c048ac7ac176a734b7a3d81a1cd6bdbfce9478a))
-* **ui:** stop sending empty Pi Extensions tab only to Plugins ([bc86476](https://github.com/runkids/skillshare/commit/bc86476f037d022c744018383c637c8894440d3e))
-* **ui:** widen Pi extension cells so translated rows fit ([b2c5017](https://github.com/runkids/skillshare/commit/b2c5017ab675f2aa1458aa4c4ab9fa964043e0b8))
-* **upgrade:** verify the release archive before replacing the binary ([#335](https://github.com/runkids/skillshare/issues/335)) ([2bf7e66](https://github.com/runkids/skillshare/commit/2bf7e66790912536dedad2d37bec320e500ff44b))
-* **windows:** run in a hidden console when started without one ([#341](https://github.com/runkids/skillshare/issues/341)) ([84bbd40](https://github.com/runkids/skillshare/commit/84bbd40785e4ed5da53a91bd741b6438337c336a))
-* **windows:** stop foreground children when skillshare is terminated ([#343](https://github.com/runkids/skillshare/issues/343)) ([7043ca3](https://github.com/runkids/skillshare/commit/7043ca3ad2c02526bfa1b14e267fcadb565aa665))
+#### Git sync
+
+- **Pull no longer discards local commits that hold only files** — a first pull treated an agents or extras repo whose content was root-level files as empty and reset it onto the remote without `--force`.
+- **This machine's `config.yaml` is protected at the root git scope** — a first pull is refused when the remote tracks `config.yaml`, a later pull that brings in a tracked copy keeps the local file and warns, and a push is refused when unpushed commits add or change `config.yaml`. The refusal says how to repair the history.
+- **Pull syncs extras at the root git scope** — in the CLI and the dashboard, merged extras changes now reach their targets.
+- **The pull conflict dialog shows what differs** — both versions get taller panes, lines only one side has are tinted, each side scrolls to its first difference, and the header counts the differing lines.
+
+#### Install and upgrade
+
+- **`upgrade` verifies the download before replacing the binary** — the release archive is checked against the release's `checksums.txt`; a mismatch or an unreachable checksums file stops the upgrade and leaves the running binary untouched.
+- **Local installs update from any directory** — global installs record the absolute path of a local source, so `update` and `check` no longer fail with "source path does not exist" when run elsewhere. A skill installed as its `SKILL.md` alone is updated in that shape instead of copying the whole folder.
+
+#### Windows
+
+- **No more flashing console windows** — started without a console, such as from a scheduled task or `pythonw`, a single `pull` opened about ten terminal windows. Skillshare now runs its child processes in a hidden console.
+- **Stopping skillshare stops its child processes** — killing it mid-pull no longer leaves git, ssh or hooks running. The `ui start` server, browser and editor still keep running.
+- **`install file:///C:/...` works** — the URL is no longer rewritten with backslashes before it is handed to git.
+- Interrupted or oversized downloads no longer leave temp files in `%TEMP%`, `audit` no longer reports `content-missing` for absolute paths in skill metadata, and Pi's locks left by a crashed process are recovered.
+
+#### Plugins and MCP
+
+- **Symlinked config folders are accepted** — a linked `/var` on macOS, a home on a linked volume, a dotfiles-linked `~/.pi`, or a `PI_CODING_AGENT_DIR`, `CLAUDE_CONFIG_DIR` or `CODEX_HOME` behind a link no longer fails with "refusing to modify symlinked native path". A linked file or folder inside the config folder is still refused.
+- **Pi project MCP overrides are explained** — a `.pi/mcp.json` entry that only enables or disables a global server, as `/mcp` in Pi 1.0.1 writes, is reported as a project override with nothing to import, and a sync conflict with it says to replace it or change it with `/mcp` in Pi.
 
 ## [0.23.5] - 2026-10-02
 
