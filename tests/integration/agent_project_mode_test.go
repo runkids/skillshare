@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"skillshare/internal/testutil"
@@ -443,12 +444,16 @@ func TestSyncProject_All_NestedAgentsSameBasename_FlattensAndStaysStable(t *test
 	first := sb.RunCLIInDir(projectDir, "sync", "-p", "--all")
 	first.AssertSuccess(t)
 	first.AssertOutputContains(t, "\nAgents\n")
-	first.AssertOutputNotContains(t, "updated")
+	if _, agents, _ := strings.Cut(first.Stdout, "\nAgents\n"); strings.Contains(agents, "updated") {
+		t.Errorf("first sync updated agents:\n%s", agents)
+	}
 
 	second := sb.RunCLIInDir(projectDir, "sync", "-p", "--all")
 	second.AssertSuccess(t)
 	second.AssertOutputContains(t, "\nAgents\n")
-	second.AssertOutputNotContains(t, "updated")
+	if _, agents, _ := strings.Cut(second.Stdout, "\nAgents\n"); strings.Contains(agents, "updated") {
+		t.Errorf("second sync updated agents:\n%s", agents)
+	}
 
 	for _, base := range []string{claudeAgents, cursorAgents} {
 		for _, name := range []string{"team-a__helper.md", "team-b__helper.md"} {
