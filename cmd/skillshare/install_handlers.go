@@ -639,14 +639,14 @@ func displayInstallResults(results []skillInstallResult, spinner *ui.Spinner, au
 			skillsWithWarnings := countSkillsWithWarnings(results)
 			if skillsWithWarnings <= 20 {
 				// Small batch: show full verbose detail per skill
-				ui.Warning("%d warning(s) detected during install", totalWarnings)
+				ui.Warning("%s during install", plural(totalWarnings, "warning"))
 				for _, r := range results {
 					renderInstallWarnings(r.skill.Name, r.warnings, true)
 				}
 			} else {
 				// Large batch: compact summary + only HIGH/CRITICAL findings from top skills
 				renderBatchInstallWarningsCompact(results, totalWarnings,
-					"%d audit finding line(s) across all skills; HIGH/CRITICAL detail expanded below")
+					"%s across all skills; HIGH/CRITICAL detail expanded below")
 				fmt.Println()
 				ui.Warning("HIGH/CRITICAL detail (top skills):")
 				shown := 0

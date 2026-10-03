@@ -142,7 +142,7 @@ func displayUpdateAuditResults(entries []batchAuditEntry, auditVerbose bool) {
 			} else {
 				// Large batch verbose: compact summary + top HIGH/CRITICAL detail
 				renderBatchInstallWarningsCompact(results, totalWarnings,
-					"%d audit finding line(s) across all skills; HIGH/CRITICAL detail expanded below")
+					"%s across all skills; HIGH/CRITICAL detail expanded below")
 				fmt.Println()
 				ui.Warning("HIGH/CRITICAL detail (top skills):")
 				shown := 0
@@ -165,7 +165,7 @@ func displayUpdateAuditResults(entries []batchAuditEntry, auditVerbose bool) {
 				renderUltraCompactAuditSummary(results, totalWarnings)
 			} else {
 				renderBatchInstallWarningsCompact(results, totalWarnings,
-					"suppressed %d audit finding line(s); re-run with --audit-verbose for full details")
+					"suppressed %s; re-run with --audit-verbose for full details")
 			}
 		}
 	}

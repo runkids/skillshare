@@ -146,7 +146,7 @@ func TestRenderBatchInstallWarningsCompact_PrintsAggregateNotPerFinding(t *testi
 	})
 	output = stripANSIWarnings(output)
 
-	if !strings.Contains(output, "audit findings across 2 skill(s): HIGH=3, LOW=1") {
+	if !strings.Contains(output, "audit findings across 2 skills: HIGH=3, LOW=1") {
 		t.Fatalf("expected aggregate finding summary, got:\n%s", output)
 	}
 	if !strings.Contains(output, "skills with HIGH/CRITICAL findings: 2") {

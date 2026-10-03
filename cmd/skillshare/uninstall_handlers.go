@@ -204,7 +204,7 @@ func runUninstallSkills(opts *uninstallOptions, mode *uninstallMode, rawArgs []s
 			return discoverErr
 		}
 		if sp != nil {
-			sp.Success(fmt.Sprintf("Found %d skills", len(discovered)))
+			sp.Stop()
 		}
 		if len(discovered) == 0 {
 			noSkillsErr := fmt.Errorf("%s", mode.emptySourceErr)

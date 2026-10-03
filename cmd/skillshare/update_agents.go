@@ -103,8 +103,8 @@ func cmdUpdateAgents(args []string, cfg *config.Config, start time.Time) error {
 
 	// Enrich with remote status
 	if !opts.jsonOutput {
-		sp := ui.StartSpinner(fmt.Sprintf("Checking %d agent(s) for updates...", len(tracked)))
-		check.EnrichAgentResultsWithRemote(tracked, func() { sp.Success("Check complete") })
+		sp := ui.StartSpinner("Checking " + plural(len(tracked), "agent") + " for updates...")
+		check.EnrichAgentResultsWithRemote(tracked, func() { sp.Stop() })
 	} else {
 		check.EnrichAgentResultsWithRemote(tracked, nil)
 	}
@@ -786,8 +786,8 @@ func cmdUpdateAgentsProject(args []string, projectRoot string, start time.Time) 
 		return nil
 	}
 
-	sp := ui.StartSpinner(fmt.Sprintf("Checking %d agent(s) for updates...", len(tracked)))
-	check.EnrichAgentResultsWithRemote(tracked, func() { sp.Success("Check complete") })
+	sp := ui.StartSpinner("Checking " + plural(len(tracked), "agent") + " for updates...")
+	check.EnrichAgentResultsWithRemote(tracked, func() { sp.Stop() })
 	mergeTrackedAgentResults(results, tracked)
 
 	var updatable []check.AgentCheckResult
