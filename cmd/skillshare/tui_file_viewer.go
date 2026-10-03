@@ -39,9 +39,9 @@ func fileViewerTextWidth(termWidth int, noTree bool) int {
 }
 
 func renderFileViewer(width, height int, v fileViewer) string {
-	facts := []string{v.name}
+	facts := []string{printableName(v.name)}
 	if !v.noTree && v.cursor < len(v.nodes) {
-		facts = append(facts, v.nodes[v.cursor].relPath)
+		facts = append(facts, printableName(v.nodes[v.cursor].relPath))
 	}
 	title := renderFrameTitle(width, v.command, facts, nil)
 	bodyHeight := fileViewerHeight(height)
@@ -79,7 +79,7 @@ func renderFileTree(nodes []treeNode, cursor, scroll, width, height int) string 
 				mark = "▾ "
 			}
 		}
-		label := truncateANSI(" "+strings.Repeat("  ", n.depth)+mark+name, width)
+		label := truncateANSI(" "+strings.Repeat("  ", n.depth)+mark+printableName(name), width)
 		switch {
 		case i == cursor:
 			label = theme.Accent().Bold(true).Render(label)
@@ -129,4 +129,10 @@ func printableText(s string) string {
 		}
 	}
 	return b.String()
+}
+
+// printableName is printableText for a name that must stay on one line,
+// such as a file name from a skill under review.
+func printableName(s string) string {
+	return strings.NewReplacer("\n", "␤", "\t", "␉").Replace(printableText(s))
 }

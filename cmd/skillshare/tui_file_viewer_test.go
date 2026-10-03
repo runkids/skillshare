@@ -120,3 +120,16 @@ func TestFileBrowser_DoesNotReadAFileOverTheAuditLimit(t *testing.T) {
 		t.Fatalf("a file over 1 MB should not be shown, got %d bytes of content", len(got))
 	}
 }
+
+func TestRenderFileViewer_ShowsControlCharactersInFileNamesAsSymbols(t *testing.T) {
+	name := "notes\x1b]0;pwned\x07\nx\u202E.md"
+	v := fileViewer{command: "audit", name: "risky", nodes: []treeNode{{name: name, relPath: name}}}
+	got := renderFileViewer(100, 12, v)
+
+	if strings.Contains(got, "\x1b]") || strings.Contains(got, "\u202E") {
+		t.Fatalf("file names should not reach the terminal raw, got %q", got)
+	}
+	if lines := strings.Split(got, "\n"); len(lines) != 12 {
+		t.Fatalf("a newline in a file name should not add a line: %d lines, want 12", len(lines))
+	}
+}
