@@ -231,7 +231,7 @@ Everything under `<src>/<followed>/` belongs to the user, not to skillshare. Tod
 - `handleBatchUninstallSkills` (`internal/server/handler_uninstall.go:239-251`) refuses only tracked-repo members, so it would move a group child into trash.
 - `resolveGroupSkills` (`uninstall.go:221-255`) feeds children to `MoveToTrash` (`uninstall_handlers.go:113`, `:129`).
 
-The boundary below therefore lives in shared domain code that the CLI and the server both call, not in each handler. A name that is in any non-`followed` state (missing, rejected, and so on) is treated as followed for these checks, so they fail closed before any write.
+The boundary below therefore lives in shared domain code that the CLI and the server both call, not in each handler. Every refused seam runs the check before its first write, including directory creation. A declared name in any state except `not-link` (missing, rejected, and so on) is treated as followed for these checks, so they fail closed before any write. A `not-link` entry is a real directory inside the source, so it keeps today's source ownership rules: naming it in a shared `.skillfollow` never blocks ordinary uninstall, install, or update below it on a machine where it is not a link.
 
 **Allowed:**
 
@@ -248,6 +248,10 @@ The boundary below therefore lives in shared domain code that the CLI and the se
 | Install overwrite or `--into` a followed tree | `installImpl` (`internal/install/install_apply.go:177`, `RemoveAll` at `:202`); `installFromDiscoveryInternal` (`:348`, replace at `:449-452`) |
 | Tracked install over a followed repo | `installTrackedRepoImpl` (`internal/install/install_tracked.go:10`, overwrite at `:72`). `install --update` on a followed repo goes through §5's followed-update policy instead. |
 | Standalone or local update inside a followed tree | `handleUpdate` (`internal/install/install_update.go:11`, replace at `:146-150`, `:260-263`) |
+| Config install into a followed group | both config-install paths create the group directory before the install guard runs (`internal/install/install_config.go:273`, `:406`), so the check runs before each `os.MkdirAll` |
+| Dashboard edit of a followed skill's files | `handlePutSkillContent` (`internal/server/handler_skill_content.go:34`, write at `:70`) |
+| Dashboard source change on a followed repo | `handlePatchSkillSource` (`handler_skill_content.go:98`), which calls `git.SetRemoteURL` on the repo at `:162` |
+| Dashboard create with `into` a followed tree | `handleCreateSkill` (`internal/server/handler_create_skill.go:70`, `MkdirAll` at `:121`) |
 | Legacy sidecar migration inside a followed tree | `migrateSkillSidecars`, `walkSkillDir` (`internal/install/metadata_migrate.go:135`, `:153`, delete at `:158`). This one is skipped rather than refused, and `doctor` reports the unmigrated sidecars. |
 
 `enable`/`disable` (`cmd/skillshare/enable.go`) and `PUT /api/skillignore` (`internal/server/handler_skillignore.go:80-89`) already write only the root ignore files, so they need no change.
@@ -430,7 +434,7 @@ Any line estimate is rough, not a commitment.
 - **Integration** (`tests/integration/`, run in the devcontainer):
   - The behavior matrix from §2.3.
   - Default unchanged: with no `.skillfollow`, output is identical.
-  - Every refusal in §4, through both the CLI and the server, including for missing and rejected entries.
+  - Every refusal in §4, through both the CLI and the server, including for missing and rejected entries. Each refused write leaves the external tree byte-for-byte unchanged, with no new directory. A `not-link` entry keeps ordinary uninstall, install, and update.
   - Unfollow and uninstall of a followed entry remove only the link and the declarations. Partial-write failure is reported as failure.
   - Audit on a followed repo: a pulled commit adding a malicious child skill blocks and rolls back to `beforeHash`, through the CLI, the server, and `install --update`. A zero-file scan of a non-empty root is a scan error.
   - Update: a mixed `update --all` of ordinary and followed repos, covering dirty trees, `--force`, divergence, and an `IsDirty` error. The ordinary repo still updates, and each followed refusal is reported per item in batch, project, server, and SSE output. Rollback-failure and concurrency messages are checked too.
