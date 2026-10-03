@@ -45,7 +45,9 @@ func checkPiRegistrationPrivate(path string) error {
 		return err
 	}
 	owner, _, err := sd.Owner()
-	if err != nil || owner == nil || !owner.Equals(user.User.Sid) {
+	// Elevated Windows tokens can default new files' owner to Administrators.
+	// These privileged owners still require an explicit current-user DACL below.
+	if err != nil || owner == nil || (!owner.Equals(user.User.Sid) && !owner.IsWellKnown(windows.WinLocalSystemSid) && !owner.IsWellKnown(windows.WinBuiltinAdministratorsSid)) {
 		return errors.New("Pi private state belongs to another Windows owner")
 	}
 	acl, _, err := sd.DACL()

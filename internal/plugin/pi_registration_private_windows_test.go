@@ -53,6 +53,53 @@ func assertPiRecordPrivate(t *testing.T, file string) {
 	}
 }
 
+func setPiTestPublicACL(t *testing.T, path string) {
+	t.Helper()
+	sd, err := windows.SecurityDescriptorFromString("D:P(A;OICI;FA;;;WD)")
+	if err != nil {
+		t.Fatal(err)
+	}
+	acl, _, err := sd.DACL()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := windows.SetNamedSecurityInfo(path, windows.SE_FILE_OBJECT, windows.DACL_SECURITY_INFORMATION|windows.PROTECTED_DACL_SECURITY_INFORMATION, nil, nil, acl, nil); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestPiRegistrationWindowsRefusesUnsafeDirectoryWithoutChangingACL(t *testing.T) {
+	f := newPiFixture(t)
+	f.global(map[string]any{"packages": []any{map[string]any{"source": "npm:demo", "extensions": []string{"-a.ts"}}}})
+	dir := filepath.Join(f.svc.StateDir, "pi-registrations")
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	setPiTestPublicACL(t, dir)
+	before, err := windows.GetNamedSecurityInfo(dir, windows.SE_FILE_OBJECT, windows.DACL_SECURITY_INFORMATION)
+	if err != nil {
+		t.Fatal(err)
+	}
+	same := unchanged(t, f.svc.ConfigPath, f.settingsPath())
+	req := Request{Action: "import", From: "pi", Plugin: "npm:demo"}
+	plan, err := f.svc.Preview(context.Background(), req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.svc.Apply(context.Background(), req, plan.Revision); err == nil || !strings.Contains(err.Error(), "private") {
+		t.Fatalf("unsafe private directory accepted: %v", err)
+	}
+	same()
+	after, err := windows.GetNamedSecurityInfo(dir, windows.SE_FILE_OBJECT, windows.DACL_SECURITY_INFORMATION)
+	if err != nil || before.String() != after.String() {
+		t.Fatalf("existing ACL changed: %v", err)
+	}
+	entries, err := os.ReadDir(dir)
+	if err != nil || len(entries) != 0 {
+		t.Fatalf("raw record written in unsafe directory: %v", err)
+	}
+}
+
 func TestPiRegistrationWindowsRejectsBroadExistingACL(t *testing.T) {
 	f := newPiFixture(t)
 	f.global(map[string]any{"packages": []any{map[string]any{"source": "npm:demo", "extensions": []string{"-a.ts"}}}})
@@ -66,17 +113,7 @@ func TestPiRegistrationWindowsRejectsBroadExistingACL(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	sd, err := windows.SecurityDescriptorFromString("D:P(A;;FA;;;WD)")
-	if err != nil {
-		t.Fatal(err)
-	}
-	acl, _, err := sd.DACL()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := windows.SetNamedSecurityInfo(file, windows.SE_FILE_OBJECT, windows.DACL_SECURITY_INFORMATION|windows.PROTECTED_DACL_SECURITY_INFORMATION, nil, nil, acl, nil); err != nil {
-		t.Fatal(err)
-	}
+	setPiTestPublicACL(t, file)
 	same := unchanged(t, file, f.svc.ConfigPath, f.settingsPath())
 	if _, err := f.svc.readPiRegistration(b.PiRegistration, "pi", b.ID); err == nil || !strings.Contains(err.Error(), "private") {
 		t.Fatalf("broadly accessible record accepted: %v", err)

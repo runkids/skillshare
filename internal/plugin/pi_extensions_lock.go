@@ -57,9 +57,22 @@ func acquirePiNativeLock(path string) (*piNativeLock, error) {
 			return nil, err
 		}
 	}
-	ours, err := os.Lstat(path)
+	// Snapshot the file ID through a handle now. Windows Lstat would defer
+	// fetching that ID by pathname until SameFile, possibly after replacement.
+	anchor, err := openPiLockAnchor(path)
 	if err != nil {
 		return nil, err
+	}
+	ours, err := anchor.Stat()
+	closeErr := anchor.Close()
+	if err != nil {
+		return nil, err
+	}
+	if closeErr != nil {
+		return nil, closeErr
+	}
+	if !ours.IsDir() {
+		return nil, ErrPiExtensionsBusy
 	}
 	l := &piNativeLock{path: path, ours: ours, mtime: ours.ModTime(), stop: make(chan struct{}), done: make(chan struct{})}
 	go l.renew()
