@@ -95,7 +95,7 @@ func (s *Service) PreviewPiExtensions(ctx context.Context, target string, change
 // ApplyPiExtensions writes a previewed change. Under Skillshare's plugin lock and
 // Pi's own settings lock it rereads the file, refuses it if its bytes are not the
 // previewed ones, and replaces it atomically.
-func (s *Service) ApplyPiExtensions(ctx context.Context, target string, changes []PiExtensionChange, revision string) (*PiExtensionsPlan, error) {
+func (s *Service) ApplyPiExtensions(ctx context.Context, target string, changes []PiExtensionChange, revision string) (_ *PiExtensionsPlan, err error) {
 	if revision == "" {
 		return nil, errors.New("preview the extension changes before applying")
 	}
@@ -126,10 +126,18 @@ func (s *Service) ApplyPiExtensions(ctx context.Context, target string, changes 
 	if err != nil {
 		return nil, err
 	}
-	id, err := s.piBackup(file, st.settings.raw, after, plan)
+	if err := native.verify(); err != nil {
+		return nil, err
+	}
+	id, discard, err := s.piBackup(file, st.settings.raw, after, plan)
 	if err != nil {
 		return nil, fmt.Errorf("backup failed; nothing was written: %w", err)
 	}
+	defer func() {
+		if err != nil {
+			err = errors.Join(err, discard())
+		}
+	}()
 	piBeforeWrite(native.path)
 	// The settings file is locked, the package is not: check it again right before the write.
 	if final, _, _, err := s.piPlan(ctx, target, changes); err != nil || final.Revision != revision {
@@ -143,7 +151,7 @@ func (s *Service) ApplyPiExtensions(ctx context.Context, target string, changes 
 	if err := native.verify(); err != nil {
 		return nil, err
 	}
-	if err := atomicNativeWrite(file, after, info.Mode().Perm()); err != nil {
+	if err := piWriteGlobal(file, after, info.Mode().Perm()); err != nil {
 		return nil, err
 	}
 	plan.BackupID = id
@@ -153,6 +161,10 @@ func (s *Service) ApplyPiExtensions(ctx context.Context, target string, changes 
 // piBeforeWrite runs just before the final checks; tests use it to take the lock
 // away, or change a file, mid-apply.
 var piBeforeWrite = func(lockDir string) {}
+
+// Write seams let tests inject a failed commit after all pre-write checks.
+var piWriteGlobal = atomicNativeWrite
+var piWriteProject = rootAtomicWrite
 
 // lockPiSettings takes, in order, Skillshare's plugin lock, a cross-process flock
 // on the settings file, and Pi's own lock: the settings.json.lock directory that
@@ -463,22 +475,30 @@ func decodeNumbers(data []byte, v any) error {
 
 // piBackup records the touched extension lists, not the rest of the file, so a
 // selection can be restored by hand without copying unrelated settings.
-func (s *Service) piBackup(file string, before, after []byte, plan *PiExtensionsPlan) (string, error) {
+func (s *Service) piBackup(file string, before, after []byte, plan *PiExtensionsPlan) (string, func() error, error) {
 	dir := filepath.Join(s.StateDir, "pi-extensions", "backups")
 	if err := os.MkdirAll(dir, 0o700); err != nil {
-		return "", err
+		return "", nil, err
 	}
 	suffix := hash([]byte(file))[:8]
 	id := fmt.Sprintf("%d-%s", time.Now().UnixNano(), suffix)
 	data, err := json.MarshalIndent(map[string]any{"path": file, "before": hash(before), "after": hash(after), "entries": plan.Entries}, "", "  ")
 	if err != nil {
-		return "", err
+		return "", nil, err
 	}
-	// Records are never pruned here: they are the user's history of changes.
-	if err := atomicNativeWrite(filepath.Join(dir, id+".json"), append(data, '\n'), 0o600); err != nil {
-		return "", err
+	// Successful records are never pruned. The caller discards only this new
+	// record if the settings write fails, including a late stale/lock refusal.
+	record := filepath.Join(dir, id+".json")
+	if err := atomicNativeWrite(record, append(data, '\n'), 0o600); err != nil {
+		return "", nil, err
 	}
-	return id, nil
+	discard := func() error {
+		if err := os.Remove(record); err != nil && !errors.Is(err, os.ErrNotExist) {
+			return fmt.Errorf("could not remove the unapplied extension record: %w", err)
+		}
+		return nil
+	}
+	return id, discard, nil
 }
 
 // piPlanRevision binds a preview to its target, settings file and bytes, the

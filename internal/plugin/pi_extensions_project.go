@@ -516,10 +516,18 @@ func (s *Service) applyPiProject(ctx context.Context, target string, changes []P
 		}
 		mode = info.Mode().Perm()
 	}
-	id, err := s.piBackup(file, st.project.raw, after, plan)
+	if err := native.verify(); err != nil {
+		return nil, err
+	}
+	id, discard, err := s.piBackup(file, st.project.raw, after, plan)
 	if err != nil {
 		return nil, fmt.Errorf("backup failed; nothing was written: %w", err)
 	}
+	defer func() {
+		if err != nil {
+			err = errors.Join(err, discard())
+		}
+	}()
 	piBeforeWrite(native.path)
 	// Only the project file is locked; the global settings and the packages are
 	// checked again right before the write.
@@ -535,7 +543,7 @@ func (s *Service) applyPiProject(ctx context.Context, target string, changes []P
 	if err := native.verify(); err != nil {
 		return nil, err
 	}
-	if err := rootAtomicWrite(root, ".pi/settings.json", after, mode, !st.project.exists); err != nil {
+	if err := piWriteProject(root, ".pi/settings.json", after, mode, !st.project.exists); err != nil {
 		if errors.Is(err, os.ErrExist) {
 			return nil, ErrPiExtensionsStale
 		}

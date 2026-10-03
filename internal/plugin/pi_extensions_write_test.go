@@ -453,6 +453,78 @@ func TestPiExtensionsApplyRefusesARevisionOfAnotherPreview(t *testing.T) {
 	}
 }
 
+func TestPiExtensionsAbortedApplyKeepsBackupHistory(t *testing.T) {
+	for _, scope := range []string{"global", "project-new", "project-existing"} {
+		for _, failure := range []string{"package", "lock", "write"} {
+			t.Run(scope+"/"+failure, func(t *testing.T) {
+				f, root := projectFixture(t)
+				f.global(map[string]any{"packages": []any{f.pkg}})
+				file := f.projectFile(root)
+				if scope == "global" {
+					f.svc.ProjectRoot = ""
+					file = f.settingsPath()
+				} else if scope == "project-existing" {
+					f.writeJSON(file, map[string]any{"theme": "dark"})
+				}
+				same := unchanged(t, f.settingsPath(), file)
+				dir := filepath.Join(f.svc.StateDir, "pi-extensions", "backups")
+				old := filepath.Join(dir, "previous.json")
+				writeTree(t, dir, map[string]string{"previous.json": "previous successful record"})
+				oldSame := unchanged(t, old)
+				checkCount := func(want int) {
+					t.Helper()
+					entries, err := os.ReadDir(dir)
+					if err != nil || len(entries) != want {
+						t.Fatalf("backup records: %v, err=%v; want %d", entries, err, want)
+					}
+				}
+				injected := errors.New("injected settings write failure")
+				writes := 0
+				piBeforeWrite = func(lock string) {
+					checkCount(2) // The abort happens after this operation records its change.
+					switch failure {
+					case "package":
+						if err := os.Remove(filepath.Join(f.pkg, "extensions", "a.ts")); err != nil {
+							t.Fatal(err)
+						}
+					case "lock":
+						old := time.Now().Add(-time.Minute)
+						if err := os.Chtimes(lock, old, old); err != nil {
+							t.Fatal(err)
+						}
+					}
+				}
+				if failure == "write" {
+					fail := func() error { writes++; checkCount(2); return injected }
+					piWriteGlobal = func(string, []byte, os.FileMode) error { return fail() }
+					piWriteProject = func(*os.Root, string, []byte, os.FileMode, bool) error { return fail() }
+				}
+				t.Cleanup(func() {
+					piBeforeWrite = func(string) {}
+					piWriteGlobal, piWriteProject = atomicNativeWrite, rootAtomicWrite
+				})
+				c := PiExtensionChange{Scope: "global", Index: 0, Source: f.pkg, Path: "extensions/a.ts", Action: "exclude"}
+				_, err := f.projectApply(c)
+				want := ErrPiExtensionsStale
+				if failure == "lock" {
+					want = ErrPiExtensionsBusy
+				} else if failure == "write" {
+					want = injected
+					if writes != 1 {
+						t.Fatalf("settings writes: %d, want 1", writes)
+					}
+				}
+				if !errors.Is(err, want) {
+					t.Fatalf("err=%v, want %v", err, want)
+				}
+				same()
+				oldSame()
+				checkCount(1)
+			})
+		}
+	}
+}
+
 func TestPiExtensionsApplyNeverPrunesBackups(t *testing.T) {
 	f := newPiFixture(t)
 	f.rawGlobal(`{"packages": [{"source": "` + f.pkg + `", "extensions": ["-extensions/b.ts"]}]}`)
