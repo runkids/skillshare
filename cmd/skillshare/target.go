@@ -352,9 +352,9 @@ func backupTargets(cfg *config.Config, toRemove []string, width int) {
 		entryName := at.name + "-agents"
 		bp, bErr := backup.CreateInDir(backupDir, entryName, at.agentPath)
 		if bErr != nil {
-			ui.Row(ui.MarkWarn, entryName, "backup failed: "+bErr.Error(), width)
+			ui.Row(ui.MarkWarn, at.name, "agents backup failed: "+bErr.Error(), width)
 		} else if bp != "" {
-			ui.Row(ui.MarkOK, entryName, "backed up to "+shortenPath(bp), width)
+			ui.Row(ui.MarkOK, at.name, "agents backed up to "+shortenPath(bp), width)
 		}
 	}
 }
@@ -385,16 +385,6 @@ func unlinkTarget(target config.TargetConfig, sourcePath string) (string, error)
 	return "", nil
 }
 
-// targetRemoveWidth is the label width for target remove rows, which also
-// name each target's agents backup.
-func targetRemoveWidth(toRemove []string) int {
-	labels := make([]string, 0, len(toRemove))
-	for _, name := range toRemove {
-		labels = append(labels, name+"-agents")
-	}
-	return ui.RowWidth(labels...)
-}
-
 func targetRemove(args []string) error {
 	opts, err := parseTargetRemoveArgs(args)
 	if err != nil {
@@ -415,7 +405,7 @@ func targetRemove(args []string) error {
 		return targetRemoveDryRun(cfg, toRemove)
 	}
 
-	width := targetRemoveWidth(toRemove)
+	width := ui.RowWidth(toRemove...)
 	backupTargets(cfg, toRemove, width)
 
 	leaving := make(map[string]bool, len(toRemove))
