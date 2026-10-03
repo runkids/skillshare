@@ -6,6 +6,7 @@ import (
 
 	"skillshare/internal/theme"
 
+	"github.com/charmbracelet/lipgloss"
 	"github.com/mattn/go-runewidth"
 )
 
@@ -20,7 +21,7 @@ const (
 // Row prints one result line, "✓ label  value", padding the label to width
 // so the values of neighboring rows line up two spaces after the longest.
 func Row(mark, label, value string, width int) {
-	pad := width - runewidth.StringWidth(label)
+	pad := width - lipgloss.Width(label)
 	if pad < 0 {
 		pad = 0
 	}
@@ -31,7 +32,7 @@ func Row(mark, label, value string, width int) {
 func RowWidth(labels ...string) int {
 	width := answerLabelWidth
 	for _, l := range labels {
-		width = max(width, runewidth.StringWidth(l))
+		width = max(width, lipgloss.Width(l))
 	}
 	return width
 }
@@ -55,11 +56,17 @@ func Section(name string) {
 	fmt.Println(theme.Primary().Bold(true).Render(name))
 }
 
-// Done prints a command's closing line: a mark, the result in bold and how
-// long it took.
+// Done prints a command's closing line: a mark (none for MarkNone), the
+// result in bold and how long it took, when that is known.
 func Done(mark, text string, took time.Duration) {
-	fmt.Printf("%s %s %s\n", StyledMark(mark), theme.Primary().Bold(true).Render(text),
-		theme.Dim().Render(fmt.Sprintf("· %.1fs", took.Seconds())))
+	line := theme.Primary().Bold(true).Render(text)
+	if mark != MarkNone {
+		line = StyledMark(mark) + " " + line
+	}
+	if took > 0 {
+		line += " " + theme.Dim().Render(fmt.Sprintf("· %.1fs", took.Seconds()))
+	}
+	fmt.Println(line)
 }
 
 // DryRun closes a dry run.

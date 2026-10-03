@@ -753,12 +753,12 @@ func TestUpdate_RegularSkill_ShowsAuditResult(t *testing.T) {
 	// Update WITHOUT --skip-audit — should show audit result
 	result2 := sb.RunCLI("update", "audit-skill")
 	result2.AssertSuccess(t)
-	result2.AssertAnyOutputContains(t, "risk:")
+	result2.AssertRowContains(t, "Audit", "no findings")
 
-	// Update WITH --skip-audit — should NOT show aggregate risk line
+	// Update WITH --skip-audit — should NOT show the audit result
 	result3 := sb.RunCLI("update", "audit-skill", "--skip-audit")
 	result3.AssertSuccess(t)
-	result3.AssertOutputNotContains(t, "risk:")
+	result3.AssertOutputNotContains(t, "no findings")
 }
 
 func TestUpdate_Diff_RegularSkill_NoChanges_ShowsMessage(t *testing.T) {

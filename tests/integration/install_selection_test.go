@@ -153,8 +153,8 @@ func TestInstall_SkillFlag_DryRun(t *testing.T) {
 	result := sb.RunCLI("install", "file://"+gitRepoPath, "-s", "skill-one", "--dry-run")
 	result.AssertSuccess(t)
 	result.AssertOutputContains(t, "skill-one")
-	result.AssertOutputContains(t, "dry-run")
-	result.AssertOutputContains(t, "1 skill(s)")
+	result.AssertOutputContains(t, "Would install 1 skill")
+	result.AssertOutputContains(t, "Dry run — nothing was written")
 
 	// skill-two and skill-three should NOT appear in output
 	result.AssertOutputNotContains(t, "skill-two")

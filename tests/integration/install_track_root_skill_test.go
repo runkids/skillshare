@@ -224,8 +224,8 @@ func TestInstall_Track_RootSkillMd_ReportsOneSkill(t *testing.T) {
 
 	result := sb.RunCLI("install", repoURL, "--track", "--name", "count-tracked")
 	result.AssertSuccess(t)
-	result.AssertAnyOutputContains(t, "1 skill(s)")
-	result.AssertOutputNotContains(t, "0 skill(s)")
+	result.AssertAnyOutputContains(t, "1 skill")
+	result.AssertOutputNotContains(t, "0 skills")
 }
 
 // TestSync_TrackedRootSkillMd_LinksTarget verifies that `skillshare sync`

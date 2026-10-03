@@ -104,7 +104,7 @@ func TestInstall_BatchAuditOutput(t *testing.T) {
 	result.AssertAnyOutputContains(t, "Installed")
 
 	// Next steps
-	result.AssertAnyOutputContains(t, "Next Steps")
+	result.AssertAnyOutputContains(t, "\nNext\n")
 }
 
 // TestUpdateAll_AuditOutputParity verifies that update --all produces

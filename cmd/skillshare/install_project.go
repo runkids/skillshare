@@ -2,11 +2,11 @@ package main
 
 import (
 	"fmt"
+	"time"
 
 	"skillshare/internal/install"
 	"skillshare/internal/projectdir"
 	"skillshare/internal/ui"
-	appversion "skillshare/internal/version"
 )
 
 func cmdInstallProject(args []string, root string) (installLogSummary, error) {
@@ -120,7 +120,6 @@ func installFromProjectConfig(runtime *projectRuntime, opts install.InstallOptio
 		return summary, nil
 	}
 
-	ui.Logo(appversion.Version)
 	total := len(ctx.ConfigSkills())
 	spinner := ui.StartSpinner(fmt.Sprintf("Installing %d skill(s) from config...", total))
 
@@ -142,9 +141,10 @@ func installFromProjectConfig(runtime *projectRuntime, opts install.InstallOptio
 		return summary, nil
 	}
 
-	spinner.Success(fmt.Sprintf("Installed %d skill(s)", result.Installed))
-	ui.SectionLabel("Next Steps")
-	ui.Info("Run 'skillshare sync' to create symlinks")
+	spinner.Stop()
+	fmt.Println()
+	ui.Done(ui.MarkOK, "Installed "+plural(result.Installed, "skill"), time.Since(spinner.Started()))
+	ui.Next("skillshare sync", "link them into your targets")
 
 	return summary, nil
 }

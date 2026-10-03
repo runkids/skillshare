@@ -381,7 +381,7 @@ func TestDisplayInstallResults_VerboseLargeBatch_ShowsCompactThenHighCritical(t 
 		t.Fatalf("expected verbose detail header, got:\n%s", output)
 	}
 	// Should mention remaining skills
-	if !strings.Contains(output, "more skill(s) with findings") {
+	if !strings.Contains(output, "more with findings") {
 		t.Fatalf("expected remaining count, got:\n%s", output)
 	}
 }

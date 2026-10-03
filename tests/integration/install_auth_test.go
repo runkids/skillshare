@@ -35,7 +35,7 @@ targets: {}
 	result := sb.RunCLI("install", "file://"+gitRepoPath, "--all")
 
 	result.AssertSuccess(t)
-	result.AssertAnyOutputContains(t, "Installed")
+	result.AssertAnyOutputContains(t, "✓ Install ")
 
 	installedPath := filepath.Join(sb.SourcePath, "auth-test-repo", "SKILL.md")
 	if !sb.FileExists(installedPath) {

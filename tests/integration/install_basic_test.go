@@ -29,7 +29,7 @@ targets: {}
 	result := sb.RunCLI("install", localSkillPath)
 
 	result.AssertSuccess(t)
-	result.AssertOutputContains(t, "Installed")
+	result.AssertOutputContains(t, "✓ Install ")
 	result.AssertOutputContains(t, "external-skill")
 
 	// Verify skill was copied to source
@@ -118,7 +118,7 @@ targets: {}
 	result := sb.RunCLI("install", localSkillPath, "--force")
 
 	result.AssertSuccess(t)
-	result.AssertOutputContains(t, "Installed")
+	result.AssertOutputContains(t, "✓ Install ")
 
 	content := sb.ReadFile(filepath.Join(sb.SourcePath, "existing-skill", "SKILL.md"))
 	if !strings.Contains(content, "New Version") {
@@ -237,7 +237,7 @@ targets: {}
 
 	updateResult := sb.RunCLI("install", "git-skill", "--update")
 	updateResult.AssertSuccess(t)
-	updateResult.AssertAnyOutputContains(t, "Installed")
+	updateResult.AssertAnyOutputContains(t, "✓ Install ")
 
 	store, err = install.LoadMetadata(sb.SourcePath)
 	if err != nil {
@@ -284,8 +284,8 @@ targets: {}
 	result := sb.RunCLI("install", localSkillPath, "--dry-run")
 
 	result.AssertSuccess(t)
-	result.AssertOutputContains(t, "dry-run")
-	result.AssertOutputContains(t, "would copy")
+	result.AssertRowContains(t, "Install", "dry-run-skill")
+	result.AssertOutputContains(t, "Dry run — nothing was written")
 
 	// Verify skill was NOT installed
 	installedPath := filepath.Join(sb.SourcePath, "dry-run-skill")
@@ -427,7 +427,7 @@ targets: {}
 	result := sb.RunCLI("install", gitRepoPath)
 
 	result.AssertSuccess(t)
-	result.AssertOutputContains(t, "Installed")
+	result.AssertOutputContains(t, "✓ Install ")
 
 	// Verify skill was installed (should have copied, not cloned since it's a local path)
 	installedPath := filepath.Join(sb.SourcePath, "git-skill-repo", "SKILL.md")
@@ -497,7 +497,7 @@ targets: {}
 	result := sb.RunCLI("install", filepath.Join(gitRepoPath, "skills", "skill-one"))
 
 	result.AssertSuccess(t)
-	result.AssertOutputContains(t, "Installed")
+	result.AssertOutputContains(t, "✓ Install ")
 
 	// Verify only skill-one was installed
 	if !sb.FileExists(filepath.Join(sb.SourcePath, "skill-one", "SKILL.md")) {

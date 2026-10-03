@@ -251,22 +251,12 @@ func renderInstallWarnings(skillName string, warnings []string, auditVerbose boo
 // renderInstallWarningsWithResult is like renderInstallWarnings but also displays
 // the aggregate risk score from the install result when available.
 func renderInstallWarningsWithResult(skillName string, warnings []string, auditVerbose bool, result *install.InstallResult) {
-	// Nothing to show: no warnings and no audit ran (e.g. --dry-run).
-	if skillName == "" && len(warnings) == 0 && (result == nil || result.AuditSkipped) {
+	if skillName == "" {
+		renderSingleInstallAudit(warnings, auditVerbose, result)
 		return
 	}
-	// Visual separator for single-skill output
-	if skillName == "" {
-		ui.SectionLabel("Audit Findings")
-	}
-
 	if len(warnings) == 0 {
-		if skillName == "" {
-			renderAuditRiskOnly(skillName, result)
-		} else {
-			// Batch mode: prefix with skill name
-			ui.Info("%s: risk CLEAN", skillName)
-		}
+		ui.Info("%s: risk CLEAN", skillName)
 		return
 	}
 
@@ -336,6 +326,63 @@ func renderInstallWarningsWithResult(skillName string, warnings []string, auditV
 	if remaining := len(groups) - shown; remaining > 0 {
 		ui.Info("%s", formatWarningWithSkill(skillName,
 			fmt.Sprintf("+%d more finding type(s); use --audit-verbose for full details", remaining)))
+	}
+}
+
+// renderSingleInstallAudit prints the audit of a single installed skill as an
+// "Audit" row, followed by the findings when there are any.
+func renderSingleInstallAudit(warnings []string, auditVerbose bool, result *install.InstallResult) {
+	// Nothing to show: no warnings and no audit ran (e.g. --dry-run).
+	if len(warnings) == 0 && (result == nil || result.AuditSkipped) {
+		return
+	}
+	digest := digestInstallWarnings(warnings)
+	for _, warning := range digest.nonAuditLines {
+		ui.Warning("%s", warning)
+	}
+
+	totalFindings := 0
+	for _, severity := range installAuditSeverityOrder {
+		totalFindings += digest.findingCounts[severity]
+	}
+	risk := ""
+	if result != nil && !result.AuditSkipped && result.AuditRiskScore > 0 {
+		risk = " " + ui.Colorize(ui.Dim, fmt.Sprintf("· risk %s (%d/100)", formatSeverity(strings.ToUpper(result.AuditRiskLabel)), result.AuditRiskScore))
+	}
+	width := ui.RowWidth("Install", "Audit")
+	switch {
+	case totalFindings > 0:
+		summary := fmt.Sprintf("%s: %s", plural(totalFindings, "finding"), formatInstallSeverityCounts(digest.findingCounts))
+		if len(digest.statusLines) > 0 {
+			summary += " — " + stripAuditPrefix(digest.statusLines[0])
+		}
+		ui.Row(ui.MarkWarn, "Audit", summary+risk, width)
+	case len(digest.statusLines) > 0:
+		lines := make([]string, len(digest.statusLines))
+		for i, line := range digest.statusLines {
+			lines[i] = stripAuditPrefix(line)
+		}
+		ui.Row(ui.MarkNone, "Audit", strings.Join(lines, " · ")+risk, width)
+	case result != nil && !result.AuditSkipped:
+		ui.Row(ui.MarkOK, "Audit", "no findings"+risk, width)
+	}
+	for _, line := range digest.otherAuditLines {
+		ui.Warning("%s", stripAuditPrefix(line))
+	}
+	if totalFindings == 0 {
+		return
+	}
+
+	groups := groupAuditFindings(digest)
+	shown := groups
+	if !auditVerbose && len(groups) > 5 {
+		shown = groups[:5]
+	}
+	for _, g := range shown {
+		printFindingGroup("", g)
+	}
+	if remaining := len(groups) - len(shown); remaining > 0 {
+		ui.Note(fmt.Sprintf("+%d more finding types — use --audit-verbose for full details", remaining))
 	}
 }
 
