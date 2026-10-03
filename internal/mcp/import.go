@@ -157,6 +157,11 @@ func importNative(target string, data []byte, singleName string, adapter bool) (
 	for _, name := range sortedKeys(native.Entries) {
 		entry := native.Entries[name]
 		c := Candidate{Name: name, Problems: []string{}, Warnings: []string{}}
+		if target == "pi" && piOverride(entry) {
+			c.Problems = append(c.Problems, "a Pi project override of the global server with this name, not a server; there is nothing to import")
+			out = append(out, c)
+			continue
+		}
 		normalizeClientImport(target, entry, &c)
 		if target == "antigravity" {
 			if value, exists := entry["serverUrl"]; exists {

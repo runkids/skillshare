@@ -978,6 +978,11 @@ only in `-` and `_` as one server, so sync refuses the second. A Pi project entr
 global entry of the same name; to turn off a global server in one project, see
 [Turn off a global server in one project](#turn-off-a-global-server-in-one-project).
 
+Since Pi 1.0.1, `/mcp` in Pi can add a project entry with only `enabled`, `exposure` or
+`toolExposure`, which overrides the global server of that name. It is not a server, so
+import skips it. If the project defines a server with the same name, sync reports a
+conflict until you replace the entry or remove the override in Pi.
+
 ### Other Pi settings {#pi-options}
 
 `piOptions` holds the other per-server fields of Pi's built-in MCP. Only Pi receives

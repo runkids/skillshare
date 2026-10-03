@@ -22,6 +22,7 @@
   "mcp.conflictOrphaned": "Left over from a skillshare config that was removed; import it or replace it with the source",
   "mcp.conflictOtherConfig": "Managed by another skillshare config",
   "mcp.conflictUnmanaged": "The Agent already has this entry, not yet managed by skillshare",
+  "mcp.conflictPiOverride": "Pi's project override of a global server, made with /mcp in Pi. Replace it, or remove the override in Pi",
   "mcp.copied": "Copied",
   "mcp.copySource": "Copy source path",
   "mcp.emptyHint": "Add a server by hand, or import the ones a tool already has.",

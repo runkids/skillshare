@@ -22,6 +22,7 @@
   "mcp.conflictOrphaned": "削除された skillshare 設定の残りです。インポートするか、ソースで上書きしてください",
   "mcp.conflictOtherConfig": "別の skillshare 設定で管理されています",
   "mcp.conflictUnmanaged": "Agent に同名の項目があり、まだ skillshare で管理されていません",
+  "mcp.conflictPiOverride": "Pi の /mcp で作成された、global サーバーに対する project の上書きです。置き換えるか、Pi で上書きを削除してください",
   "mcp.copied": "コピーしました",
   "mcp.copySource": "ソースのパスをコピー",
   "mcp.emptyHint": "サーバーを手動で追加するか、ツールにあるものをインポートします。",

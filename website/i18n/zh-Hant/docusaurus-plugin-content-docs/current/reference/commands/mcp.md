@@ -885,6 +885,10 @@ Pi 的 server 名稱只接受字母、數字、`_` 和 `-`；只差在 `-` 和 `
 中的同名項目；要在單一 project 中關閉 global server，請見
 [Turn off a global server in one project](#turn-off-a-global-server-in-one-project)。
 
+Pi 1.0.1 起，Pi 的 `/mcp` 可以在專案中新增只有 `enabled`、`exposure` 或 `toolExposure` 的項目，
+用來覆寫同名的 global server。它不是 server，所以匯入會略過它。如果專案定義了同名的 server，
+同步會回報衝突，直到你取代該項目，或在 Pi 中移除這個覆寫。
+
 ### 其他 Pi 設定 {#pi-options}
 
 `piOptions` 存放 Pi 內建 MCP 的其他單一 server 欄位，只有 Pi 會收到。

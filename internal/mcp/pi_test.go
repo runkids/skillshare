@@ -390,3 +390,45 @@ func TestPiImportReadsBothFiles(t *testing.T) {
 		t.Fatalf("unmanaged: %v", names)
 	}
 }
+
+// Pi's /mcp writes a project entry with only enabled, exposure or toolExposure to override the
+// global server of that name. It has no server to import, and import says what it is.
+func TestPiProjectOverrideIsNotImported(t *testing.T) {
+	s, tmp := projectsService(t, "mcp:\n  servers: {}\n  projects:\n    $TMP/p1:\n      targets: [pi]\n")
+	writePiProjectFile(t, filepath.Join(tmp, "p1"), `{"mcpServers":{"full":{"command":"tool"},"off":{"enabled":false},"direct":{"exposure":"direct"}}}`)
+	candidates, err := s.ImportProjectClient(filepath.Join(tmp, "p1"), "pi")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, c := range candidates {
+		override := c.Name != "full"
+		if got := slices.ContainsFunc(c.Problems, func(p string) bool { return strings.HasPrefix(p, "a Pi project override") }); got != override {
+			t.Fatalf("%s: problems %q", c.Name, c.Problems)
+		}
+	}
+}
+
+// A server the project defines meets Pi's override of the same name: the conflict says to
+// replace it or remove the override in Pi, since import cannot take it.
+func TestPiProjectOverrideConflictSaysReplace(t *testing.T) {
+	s, tmp := projectsService(t, "mcp:\n  servers: {}\n  projects:\n    $TMP/p1:\n      targets: [pi]\n      servers:\n        direct:\n          command: tool\n")
+	writePiProjectFile(t, filepath.Join(tmp, "p1"), `{"mcpServers":{"direct":{"exposure":"direct"}}}`)
+	plan, err := s.Preview()
+	if err != nil {
+		t.Fatal(err)
+	}
+	c := changeFor(plan, filepath.Join(tmp, "p1", ".pi", "mcp.json"), "direct")
+	if c == nil || c.Action != "conflict" || !strings.HasPrefix(c.Message, "existing entry is a Pi project override") {
+		t.Fatalf("%+v", c)
+	}
+}
+
+func writePiProjectFile(t *testing.T, root, content string) {
+	t.Helper()
+	if err := os.MkdirAll(filepath.Join(root, ".pi"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, ".pi", "mcp.json"), []byte(content), 0600); err != nil {
+		t.Fatal(err)
+	}
+}

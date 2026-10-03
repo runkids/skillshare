@@ -64,6 +64,12 @@ describe('MCP view helpers', () => {
     ].map(isResolvable)).toEqual([true, true, true, false]);
   });
 
+  // Pi's project override has no server to import, so only replace is offered.
+  it("offers only replace for Pi's project override", () => {
+    const override = change('direct', 'pi', 'conflict', 'existing entry is a Pi project override of a global server; replace it, or remove the override with /mcp in Pi');
+    expect([isResolvable(override), canImportConflict(override)]).toEqual([true, false]);
+  });
+
   it('round-trips quoted command arguments', () => {
     const words = splitCommand(`npx -y @scope/server "~/My Notes" --label='a b' ''`);
     expect(words).toEqual(['npx', '-y', '@scope/server', '~/My Notes', '--label=a b', '']);

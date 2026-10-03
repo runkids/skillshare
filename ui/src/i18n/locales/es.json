@@ -22,6 +22,7 @@
   "mcp.conflictOrphaned": "Sobra de una configuración de skillshare eliminada; impórtala o reemplázala con el origen",
   "mcp.conflictOtherConfig": "Gestionado por otra configuración de skillshare",
   "mcp.conflictUnmanaged": "El Agent ya tiene esta entrada, aún no gestionada por skillshare",
+  "mcp.conflictPiOverride": "Es una anulación de proyecto de un servidor global, creada con /mcp en Pi. Reemplázala o quita la anulación en Pi",
   "mcp.copied": "Copiado",
   "mcp.copySource": "Copiar ruta de origen",
   "mcp.emptyHint": "Añade un servidor a mano o importa los que ya tiene una herramienta.",

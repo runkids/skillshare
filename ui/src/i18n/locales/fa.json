@@ -22,6 +22,7 @@
   "mcp.conflictOrphaned": "باقی‌مانده از یک پیکربندی skillshare حذف‌شده؛ آن را وارد کنید یا با مبدأ جایگزین کنید",
   "mcp.conflictOtherConfig": "توسط پیکربندی دیگری از skillshare مدیریت می‌شود",
   "mcp.conflictUnmanaged": "Agent از قبل این مورد را دارد که هنوز توسط skillshare مدیریت نمی‌شود",
+  "mcp.conflictPiOverride": "این یک بازنویسی پروژه برای یک server سراسری است که با /mcp در Pi ساخته شده. آن را جایگزین کنید یا بازنویسی را در Pi حذف کنید",
   "mcp.copied": "کپی شد",
   "mcp.copySource": "کپی مسیر منبع",
   "mcp.emptyHint": "یک سرور را دستی اضافه کنید یا سرورهای موجود در یک ابزار را درون‌ریزی کنید.",

@@ -829,6 +829,8 @@ Pi のサーバー名には英数字、`_`、`-` のみを使えます。`-` と
 エントリを丸ごと置き換えます。1 つの project で global サーバーをオフにするには、
 [1 つの project だけで global サーバーをオフにする](#turn-off-a-global-server-in-one-project)を参照してください。
 
+Pi 1.0.1 以降、Pi の `/mcp` は `enabled`、`exposure`、`toolExposure` だけを持つ project エントリを追加でき、同名の global サーバーを上書きします。これはサーバーではないため、インポートでは読み飛ばされます。project が同名のサーバーを定義している場合、そのエントリを置き換えるか Pi で上書きを削除するまで、sync は競合を報告します。
+
 ### その他の Pi 設定 {#pi-options}
 
 `piOptions` は、Pi の内蔵 MCP のその他のサーバー別フィールドを保持します。受け取るのは Pi だけです。

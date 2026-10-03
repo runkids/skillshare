@@ -947,6 +947,11 @@ Pi 서버 이름에는 영문자, 숫자, `_`, `-`만 쓸 수 있습니다. `-`�
 global 항목을 통째로 대체합니다. 한 프로젝트에서 global 서버를 끄려면
 [Turn off a global server in one project](#turn-off-a-global-server-in-one-project)를 참고하세요.
 
+Pi 1.0.1부터 Pi의 `/mcp`는 `enabled`, `exposure`, `toolExposure`만 있는 프로젝트 항목을 추가해
+같은 이름의 global 서버를 덮어쓸 수 있습니다. 이 항목은 서버가 아니므로 가져오기에서 건너뜁니다.
+프로젝트가 같은 이름의 서버를 정의하면, 그 항목을 대체하거나 Pi에서 덮어쓰기를 제거할 때까지
+sync가 충돌을 보고합니다.
+
 ### 기타 Pi 설정 {#pi-options}
 
 `piOptions`는 Pi 내장 MCP의 그 밖의 서버별 필드를 담습니다. Pi만 이를 받습니다.

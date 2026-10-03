@@ -707,6 +707,9 @@ func (s *Service) previewResolved(source *Source, resolutions []Resolution) (*Pl
 				}
 			case managed && currentHash != owned.Hash:
 				change.Action, change.Message = "conflict", "Agent configuration changed; import it or explicitly replace this entry"
+			case !managed && target == "pi" && current != nil && piOverride(current) && (change.Root != "" || s.ProjectRoot != ""):
+				// Pi's /mcp wrote it; it has no server for import to take.
+				change.Action, change.Message = "conflict", "existing entry is a Pi project override of a global server; replace it, or remove the override with /mcp in Pi"
 			case !managed && current != nil:
 				change.Action, change.Message = "conflict", "existing entry is not managed; import it to explicitly adopt it"
 			case want == nil:
