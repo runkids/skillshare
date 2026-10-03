@@ -37,7 +37,7 @@ target 會儲存這個選擇。下一次 `sync plugins` 會移除其受管理的
 |---|---|
 | `list` | 已設定的綁定與原生安裝狀態；在終端機中提供互動式管理介面 |
 | `discover SOURCE` | 檢查本機目錄、`owner/repo`，或 HTTPS Git repository |
-| `add [SOURCE]` | 選擇並安裝整個 plugin 及其 target adapter |
+| `add [SOURCE]` | 選擇並安裝整個 plugin 及其 target adapter，或透過 Pi 安裝 `npm:` 套件 |
 | `import [NATIVE-ID]` | 採用既有安裝，不重新安裝也不啟用 |
 | `inspect NAME` | 檢查單一受管理的套件 |
 | `sync [NAME]` | 協調已選的 target 並重試未完成的原生操作 |
@@ -141,9 +141,24 @@ Pi 使用 `pi install` / `pi remove`；清單讀取的是文件記載的套件�
 會遵循 `PI_CODING_AGENT_DIR`。Pi 的專案信任必須在 Pi 中自行建立；Skillshare 不會替你傳遞
 `--approve`。
 
+#### pi.dev 的 npm 套件
+
+`plugin add npm:<套件>` 會透過 Pi 本身安裝發布在 npm 上的套件，例如 [pi.dev](https://pi.dev/packages) 列出的套件：
+
+```bash
+skillshare plugin add npm:@scope/package --target pi --dry-run --json -g
+skillshare plugin add npm:@scope/package@1.2.0 --target pi --no-tui -g
+```
+
+Pi 會下載套件並執行它的 install script，Skillshare 無法事先檢查內容；加入前請先在 pi.dev 或 npm 確認套件。`discover` 不接受 npm 來源，npm 來源也不接受 `--source-ref`、`--entry` 或 `--plugin`。只有 Pi target 能接受 npm 來源，包括執行 `pi` 的 Pi 帳號；執行其他執行檔的帳號，請用那個執行檔安裝後再匯入。搭配 `--project` 時，Pi 會把套件裝進專案的設定；專案一旦有 `.pi` 資料夾，要先在 Pi 信任這個專案，Pi 才會修改它的套件。
+
+Pi 每個套件名稱只保留一筆。Pi 已經有相同來源時，`add` 會匯入它；同一套件的其他版本則會安裝，由 Pi 替換那一筆的來源。`update` 會執行 `pi update`，但釘在精確版本的套件 Pi 會維持原版本，請改用新版本重新加入。如果你關掉了套件裡的某些 extension，Pi 會把這些規則保留到新版本，Skillshare 也會重新記錄，之後重裝時會還原。已經由另一個 Skillshare 套件管理的 Pi 套件會被拒絕，請改為更新或移除那一個。
+
+在 dashboard 的新增對話框，可以直接貼上 `pi install npm:<套件>` 指令或套件的 pi.dev 網址，兩者都會轉成對應的 `npm:` 來源。
+
 #### 選擇套件的 extension
 
-在 dashboard 中，`pi` 與 Pi 帳號的 target 頁面有一個 **Extensions** 分頁。它列出該 target 的 `settings.json` 中每個套件項目，以及其篩選規則選取的 extension。開關會在該項目的 `extensions` 清單寫入一條精確的 `+path` 或 `-path` 規則。**Remove rule** 會刪除該檔案的精確規則（無論寫成相對或絕對路徑），之後該檔案依其餘規則決定；結果會顯示在預覽中。套用前一定會先顯示預覽，而且只修改這些清單：項目的其他鍵、`skills`、`prompts` 與 `themes` 篩選規則、glob 與 `!` 規則，以及檔案的其餘部分都維持原樣。字串項目會變成 `{"source": ...}`，以便放入規則。對字串項目，Pi 只從套件的 `pi` manifest 讀取 skills、prompts 與 themes；物件項目則會在 manifest 沒列出時，從套件的 `skills`、`prompts`、`themes` 資料夾載入它們。有這類資料夾的套件，其字串項目是唯讀的，因為 Skillshare 無法確認轉換後這些資源維持原狀。指向單一檔案的來源也是唯讀的，因為 Pi 會直接載入它並忽略篩選規則。如果預覽後檔案已被修改，或 Pi 正持有設定鎖，就不會寫入任何內容。寫入期間 Skillshare 會以和 Pi 相同的方式持有這個鎖，一旦失去就不寫入。每次套用前都會保存一份變更的 extension 清單及檔案變更前後雜湊的紀錄。成功套用的紀錄會保留，不會自動清理；套用失敗時只移除該次新建的紀錄。這不是 `settings.json` 的副本，無法用來還原整份設定檔。這個分頁會列出設定裡的所有套件，包括直接用 Pi 安裝的，例如 [pi.dev](https://pi.dev/packages) 上的 `npm:` 套件。Skillshare 只透過 `plugin` 安裝與移除套件：`plugin add` 接受本機目錄或 Git 來源，`plugin import --from pi` 則可接管用 Pi 安裝的套件。
+在 dashboard 中，`pi` 與 Pi 帳號的 target 頁面有一個 **Extensions** 分頁。它列出該 target 的 `settings.json` 中每個套件項目，以及其篩選規則選取的 extension。開關會在該項目的 `extensions` 清單寫入一條精確的 `+path` 或 `-path` 規則。**Remove rule** 會刪除該檔案的精確規則（無論寫成相對或絕對路徑），之後該檔案依其餘規則決定；結果會顯示在預覽中。套用前一定會先顯示預覽，而且只修改這些清單：項目的其他鍵、`skills`、`prompts` 與 `themes` 篩選規則、glob 與 `!` 規則，以及檔案的其餘部分都維持原樣。字串項目會變成 `{"source": ...}`，以便放入規則。對字串項目，Pi 只從套件的 `pi` manifest 讀取 skills、prompts 與 themes；物件項目則會在 manifest 沒列出時，從套件的 `skills`、`prompts`、`themes` 資料夾載入它們。有這類資料夾的套件，其字串項目是唯讀的，因為 Skillshare 無法確認轉換後這些資源維持原狀。指向單一檔案的來源也是唯讀的，因為 Pi 會直接載入它並忽略篩選規則。如果預覽後檔案已被修改，或 Pi 正持有設定鎖，就不會寫入任何內容。寫入期間 Skillshare 會以和 Pi 相同的方式持有這個鎖，一旦失去就不寫入。每次套用前都會保存一份變更的 extension 清單及檔案變更前後雜湊的紀錄。成功套用的紀錄會保留，不會自動清理；套用失敗時只移除該次新建的紀錄。這不是 `settings.json` 的副本，無法用來還原整份設定檔。這個分頁會列出設定裡的所有套件，包括直接用 Pi 安裝的，例如 [pi.dev](https://pi.dev/packages) 上的 `npm:` 套件。Skillshare 只透過 `plugin` 安裝與移除套件：`plugin add` 接受本機目錄、Git 來源或 [npm 套件](#pidev-的-npm-套件)，`plugin import --from pi` 則可接管用 Pi 安裝的套件。
 
 Skillshare 讀取套件時不會執行它們，因此這個分頁顯示的是設定選取了哪些檔案（**設定**欄），而不是 Pi 是否已載入它們；套用後請重新載入 Pi。設定指名但套件中不存在的檔案會標示為不存在。Skillshare 無法判斷的選擇會顯示**無法判斷**，並附上原因與修改方式，絕不猜測開或關。編輯需要該 target 自己的 Pi 是 Skillshare 驗證過的版本（目前為 0.99.2 與 1.0.0，各自以 Pi 本身驗證過），且設定是嚴格的 JSON；其他版本為唯讀，分頁會顯示偵測到的版本。執行其他程式的 Pi 帳號為唯讀，Skillshare 也不會執行它。清單為 `[]`（不載入任何檔案）的項目是唯讀，由 Skillshare 無法評估的模式（例如 `?` 對上 emoji）決定的 extension 也是唯讀。來源為空的項目，或來源、規則中含有未配對的 UTF-16 surrogate 跳脫或無效 UTF-8 的項目，因為 Skillshare 無法和 Pi 一樣準確讀取，會維持原樣並設為唯讀。Pi 只採用套件的第一個全域項目，所以當 Skillshare 無法讀取那個項目時，同一套件後面的項目也是唯讀。
 

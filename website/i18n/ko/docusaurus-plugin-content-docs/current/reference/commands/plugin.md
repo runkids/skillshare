@@ -34,7 +34,7 @@ skillshare plugin remove review --no-tui
 |---|---|
 | `list` | 구성된 바인딩과 네이티브 설치 상태. 터미널에서는 대화형 관리자 |
 | `discover SOURCE` | 로컬 디렉터리, `owner/repo`, 또는 HTTPS Git 저장소를 검사 |
-| `add [SOURCE]` | target adapter와 함께 전체 plugin을 선택하여 설치 |
+| `add [SOURCE]` | target adapter와 함께 전체 plugin을 선택하여 설치하거나, Pi를 통해 `npm:` 패키지를 설치 |
 | `import [NATIVE-ID]` | 재설치하거나 활성화하지 않고 기존 설치를 채택 |
 | `inspect NAME` | 관리되는 패키지 하나를 검사 |
 | `sync [NAME]` | 선택된 target을 재조정하고 미완료된 네이티브 작업을 재시도 |
@@ -120,9 +120,24 @@ Pi는 같은 패키지의 첫 번째 전역 등록과 마지막 프로젝트 등
 
 Pi는 `pi install` / `pi remove`를 사용합니다. inventory는 extension 코드를 로드하지 않고 문서화된 패키지 설정을 읽습니다. `PI_CODING_AGENT_DIR`을 준수합니다. Pi project trust는 Pi에서 직접 설정해야 합니다. Skillshare는 대신 `--approve`를 전달하지 않습니다.
 
+#### pi.dev의 npm 패키지
+
+`plugin add npm:<package>`는 [pi.dev](https://pi.dev/packages)에 나열된 것처럼 npm에 게시된 패키지를 Pi를 통해 설치합니다.
+
+```bash
+skillshare plugin add npm:@scope/package --target pi --dry-run --json -g
+skillshare plugin add npm:@scope/package@1.2.0 --target pi --no-tui -g
+```
+
+Pi가 패키지를 내려받고 install script를 실행하므로 Skillshare는 내용을 미리 검토할 수 없습니다. 추가하기 전에 pi.dev나 npm에서 패키지를 확인하세요. `discover`는 npm 소스를 받지 않으며, npm 소스에는 `--source-ref`, `--entry`, `--plugin`을 쓸 수 없습니다. npm 소스는 Pi target만 받으며, `pi`를 실행하는 Pi 계정도 포함됩니다. 다른 실행 파일을 쓰는 계정은 그 실행 파일로 설치한 뒤 가져오세요. `--project`를 쓰면 Pi가 패키지를 프로젝트 설정에 설치합니다. 프로젝트에 `.pi` 폴더가 있으면 Pi에서 프로젝트를 신뢰해야 Pi가 패키지를 변경합니다.
+
+Pi는 패키지 이름마다 항목을 하나만 유지합니다. Pi에 같은 소스가 이미 있으면 `add`는 그것을 가져옵니다. 같은 패키지의 다른 버전은 설치되며, Pi가 그 항목의 소스를 바꿉니다. `update`는 `pi update`를 실행하지만, 정확한 버전에 고정된 패키지는 Pi가 그대로 유지하므로 새 버전으로 다시 추가하세요. 패키지의 일부 extension을 꺼 두었다면 Pi가 그 규칙을 새 버전에도 유지하고, Skillshare도 다시 기록하므로 나중에 다시 설치해도 복원됩니다. 다른 Skillshare 패키지가 이미 관리하는 Pi 패키지는 거부됩니다. 그 패키지를 업데이트하거나 제거하세요.
+
+대시보드의 추가 대화 상자에는 `pi install npm:<package>` 명령이나 패키지의 pi.dev 주소를 그대로 붙여 넣을 수 있습니다. 둘 다 해당하는 `npm:` 소스로 바뀝니다.
+
 #### 패키지의 extension 선택
 
-대시보드에서 `pi`와 Pi 계정의 target 페이지에는 **Extensions** 탭이 있습니다. 해당 target의 `settings.json`에 있는 각 패키지 항목과 그 필터가 선택하는 extension을 보여 줍니다. 스위치는 해당 항목의 `extensions` 목록에 정확한 `+path` 또는 `-path` 규칙 하나를 씁니다. **Remove rule**은 해당 파일의 정확한 규칙(상대 경로든 절대 경로든)을 삭제하며, 이후 그 파일은 남은 규칙에 따라 결정됩니다. 결과는 미리보기에 표시됩니다. 적용 시에는 항상 먼저 미리보기를 보여 주고 이 목록만 수정합니다. 항목의 다른 키, `skills`, `prompts`, `themes` 필터, glob과 `!` 규칙, 파일의 나머지 부분은 그대로 유지됩니다. 문자열 항목은 규칙을 담을 수 있도록 `{"source": ...}`로 바뀝니다. 문자열 항목에서 Pi는 패키지의 skills, prompts, themes를 `pi` manifest에서만 불러오지만, 객체 항목은 manifest에 없는 것을 패키지의 `skills`, `prompts`, `themes` 폴더에서도 불러옵니다. 그런 폴더가 있는 패키지의 문자열 항목은 변환 후에도 해당 리소스가 그대로인지 Skillshare가 확인할 수 없으므로 읽기 전용입니다. 파일 하나를 가리키는 소스도 Pi가 그대로 불러오고 필터를 무시하므로 읽기 전용입니다. 미리보기 이후 파일이 변경되었거나 Pi가 설정 잠금을 보유하고 있으면 아무것도 쓰지 않습니다. 쓰는 동안 Skillshare는 Pi와 같은 방식으로 그 잠금을 보유하며, 잠금을 잃으면 쓰지 않습니다. 적용 전에 변경되는 extension 목록과 변경 전후 파일 해시의 기록을 저장합니다. 성공적으로 적용된 기록은 자동으로 삭제하지 않고 보존하며, 적용에 실패하면 해당 시도에서 새로 만든 기록만 삭제합니다. 이 기록은 `settings.json`의 사본이 아니며 설정 파일 전체를 복원할 수 없습니다. 이 탭에는 Pi로 직접 설치한 패키지([pi.dev](https://pi.dev/packages)의 `npm:` 패키지 등)를 포함해 설정에 있는 모든 패키지가 표시됩니다. Skillshare는 `plugin`을 통해서만 패키지를 설치하고 제거합니다. `plugin add`는 로컬 디렉터리나 Git 소스를 받고, `plugin import --from pi`는 Pi로 설치한 패키지를 관리 대상으로 가져옵니다.
+대시보드에서 `pi`와 Pi 계정의 target 페이지에는 **Extensions** 탭이 있습니다. 해당 target의 `settings.json`에 있는 각 패키지 항목과 그 필터가 선택하는 extension을 보여 줍니다. 스위치는 해당 항목의 `extensions` 목록에 정확한 `+path` 또는 `-path` 규칙 하나를 씁니다. **Remove rule**은 해당 파일의 정확한 규칙(상대 경로든 절대 경로든)을 삭제하며, 이후 그 파일은 남은 규칙에 따라 결정됩니다. 결과는 미리보기에 표시됩니다. 적용 시에는 항상 먼저 미리보기를 보여 주고 이 목록만 수정합니다. 항목의 다른 키, `skills`, `prompts`, `themes` 필터, glob과 `!` 규칙, 파일의 나머지 부분은 그대로 유지됩니다. 문자열 항목은 규칙을 담을 수 있도록 `{"source": ...}`로 바뀝니다. 문자열 항목에서 Pi는 패키지의 skills, prompts, themes를 `pi` manifest에서만 불러오지만, 객체 항목은 manifest에 없는 것을 패키지의 `skills`, `prompts`, `themes` 폴더에서도 불러옵니다. 그런 폴더가 있는 패키지의 문자열 항목은 변환 후에도 해당 리소스가 그대로인지 Skillshare가 확인할 수 없으므로 읽기 전용입니다. 파일 하나를 가리키는 소스도 Pi가 그대로 불러오고 필터를 무시하므로 읽기 전용입니다. 미리보기 이후 파일이 변경되었거나 Pi가 설정 잠금을 보유하고 있으면 아무것도 쓰지 않습니다. 쓰는 동안 Skillshare는 Pi와 같은 방식으로 그 잠금을 보유하며, 잠금을 잃으면 쓰지 않습니다. 적용 전에 변경되는 extension 목록과 변경 전후 파일 해시의 기록을 저장합니다. 성공적으로 적용된 기록은 자동으로 삭제하지 않고 보존하며, 적용에 실패하면 해당 시도에서 새로 만든 기록만 삭제합니다. 이 기록은 `settings.json`의 사본이 아니며 설정 파일 전체를 복원할 수 없습니다. 이 탭에는 Pi로 직접 설치한 패키지([pi.dev](https://pi.dev/packages)의 `npm:` 패키지 등)를 포함해 설정에 있는 모든 패키지가 표시됩니다. Skillshare는 `plugin`을 통해서만 패키지를 설치하고 제거합니다. `plugin add`는 로컬 디렉터리, Git 소스 또는 [npm 패키지](#pidev의-npm-패키지)를 받고, `plugin import --from pi`는 Pi로 설치한 패키지를 관리 대상으로 가져옵니다.
 
 Skillshare는 패키지를 실행하지 않고 읽기 때문에, 이 탭은 설정이 어떤 파일을 선택하는지(**설정** 열)를 보여 줄 뿐 Pi가 실제로 로드했는지는 보여 주지 않습니다. 적용 후에는 Pi를 다시 로드하세요. 설정에서 지정했지만 패키지에 없는 파일은 없음으로 표시됩니다. Skillshare가 판단할 수 없는 선택은 **판단할 수 없음**으로 표시되고 이유와 변경 방법이 함께 나오며, 켜짐이나 꺼짐을 추측하지 않습니다. 편집하려면 해당 target의 Pi가 Skillshare에서 검증한 버전(현재 0.99.2와 1.0.0, 각각 Pi 자체로 확인)이어야 하고 설정이 엄격한 JSON이어야 합니다. 다른 버전은 읽기 전용이며 탭에 감지한 버전이 표시됩니다. 다른 실행 파일을 쓰는 Pi 계정은 읽기 전용이며 Skillshare는 그것을 실행하지 않습니다. 목록이 `[]`(아무것도 로드하지 않음)인 항목은 읽기 전용이며, Skillshare가 평가할 수 없는 패턴(예: emoji에 대한 `?`)으로 결정되는 extension도 읽기 전용입니다. 소스가 비어 있거나, 소스 또는 규칙에 짝이 없는 UTF-16 서로게이트 이스케이프나 잘못된 UTF-8이 있는 항목은 Skillshare가 Pi와 똑같이 읽을 수 없으므로 작성된 그대로 읽기 전용입니다. Pi는 패키지의 첫 번째 전역 항목만 사용하므로, Skillshare가 그 항목을 읽을 수 없으면 같은 패키지의 이후 항목도 읽기 전용입니다.
 

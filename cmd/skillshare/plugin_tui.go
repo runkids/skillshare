@@ -45,17 +45,53 @@ func runPluginManager(s *plugin.Service) error {
 	}
 }
 
+// pluginNpmTargets asks which Pi targets install an npm package. Pi downloads the package, so
+// there is nothing to choose from a source first.
+func pluginNpmTargets(s *plugin.Service, r *plugin.Request) error {
+	if len(r.Targets) > 0 {
+		return nil
+	}
+	targets := []string{}
+	items := []checklistItemData{}
+	for _, definition := range s.TargetDefinitions() {
+		if definition.Npm && slices.Contains(definition.Operations, "add") && (s.ProjectRoot == "" || definition.Project) {
+			targets = append(targets, definition.Target)
+			items = append(items, checklistItemData{label: definition.Label})
+		}
+	}
+	if len(items) == 0 {
+		return fmt.Errorf("no Pi target in this scope can install npm packages")
+	}
+	idx, err := runChecklistTUI(checklistConfig{title: "2/3 · Which Pi targets should install this package?", items: items, itemName: "target"})
+	if err != nil {
+		return err
+	}
+	if len(idx) == 0 {
+		return errMCPCancelled
+	}
+	for _, i := range idx {
+		r.Targets = append(r.Targets, targets[i])
+	}
+	return nil
+}
+
 func pluginWizard(s *plugin.Service, o pluginOptions) error {
 	ctx := context.Background()
 	r := o.request
 	switch r.Action {
 	case "add":
 		if r.Source == "" {
-			v, err := promptMCPText("1/3 · Paste a GitHub repository or local plugin directory", "")
+			v, err := promptMCPText("1/3 · Paste a GitHub repository, local plugin directory, or npm:<package> for Pi", "")
 			if err != nil {
 				return err
 			}
 			r.Source = v
+		}
+		if strings.HasPrefix(r.Source, "npm:") {
+			if err := pluginNpmTargets(s, &r); err != nil {
+				return err
+			}
+			break
 		}
 		d, err := s.Discover(ctx, r.Source, r.SourceRef, r.Entry)
 		if err != nil {

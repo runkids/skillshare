@@ -1,9 +1,12 @@
 import { useState } from 'react';
+import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { AlertCircle, ArrowRight, ChevronDown, CircleCheck, Info, Puzzle, RotateCcw, X } from 'lucide-react';
+import { AlertCircle, ArrowRight, ChevronDown, CircleCheck, Folder, Info, Lock, Puzzle, RotateCcw, X } from 'lucide-react';
 import { ApiError } from '../../api/client';
-import { piExtensionsApi, type PiExtensionAction, type PiExtensionChange, type PiExtensionPackage, type PiExtensionRow, type PiExtensionsPlan, type PiExtensionsView, type PiSelection } from '../../api/piExtensions';
+import { piExtensionsApi } from '../../api/piExtensions';
+import PiPackageIcon from '../PiPackageIcon';
+import type { PiExtensionAction, PiExtensionChange, PiExtensionFolder, PiExtensionPackage, PiExtensionRow, PiExtensionsPlan, PiExtensionsView, PiSelection } from '../../api/piExtensions';
 import { queryKeys } from '../../lib/queryKeys';
 import { shortenHome } from '../../lib/paths';
 import { useT } from '../../i18n';
@@ -37,6 +40,8 @@ function ExtensionsView({ name, view, applied, setApplied, t }: { name: string; 
   const [pending, setPending] = useState<Record<string, PiExtensionAction>>({});
   const [reviewing, setReviewing] = useState(false);
   const project = view.scope === 'project';
+  // Opens the add dialog with this target ticked; a project's target is not a Plugins page Agent.
+  const addPackage = `/plugins?add=${project ? '' : encodeURIComponent(name)}`;
   const changes: PiExtensionChange[] = Object.entries(pending).map(([key, action]) => {
     const [scope, index, path] = key.split('\u0000') as [Scope, string, string];
     const source = view.packages.find((p) => p.scope === scope && p.index === Number(index))?.source ?? '';
@@ -52,6 +57,7 @@ function ExtensionsView({ name, view, applied, setApplied, t }: { name: string; 
     });
   };
   const rows = view.packages.reduce((n, p) => n + p.rows.length, 0) + view.folders.reduce((n, f) => n + f.rows.length, 0);
+  const empty = rows === 0 && view.packages.length === 0;
 
   return (
     <div className="flex flex-col gap-5">
@@ -65,46 +71,18 @@ function ExtensionsView({ name, view, applied, setApplied, t }: { name: string; 
         <PageInfo view={view} t={t} />
       </p>
 
-      {rows === 0 && view.packages.length === 0 ? (
-        <EmptyState icon={Puzzle} title={t('targetDetail.piExtensions.emptyTitle')} description={t('targetDetail.piExtensions.emptyDescription', { name })} action={<Link to="/plugins" className="ss-btn">{t('targetDetail.piExtensions.openPlugins')}<ArrowRight size={14} /></Link>} />
+      {empty ? (
+        <EmptyState icon={Puzzle} title={t('targetDetail.piExtensions.emptyTitle')} description={t('targetDetail.piExtensions.emptyDescription', { name })} action={<Link to={addPackage} className="ss-btn">{t('targetDetail.piExtensions.addPackage')}<ArrowRight size={14} /></Link>} />
       ) : (
-        <div className="ss-list !shadow-none">
-          <div className="ss-lh">
-            <span className="flex-1">{t('targetDetail.piExtensions.col.extension')}</span>
-            <span className="w-[170px]">{t('targetDetail.piExtensions.col.configured')}</span>
-          </div>
+        <div className="flex flex-col gap-4">
           {view.packages.map((p) => (
-            <PackageRows key={`${p.scope}:${p.index}`} pkg={p} name={name} ownsRules={!project || p.scope === 'project'} pending={pending} set={set} t={t} />
+            <PackageCard key={`${p.scope}:${p.index}`} pkg={p} name={name} ownsRules={!project || p.scope === 'project'} pending={pending} set={set} t={t} />
           ))}
-          {view.folders.map((f) => (
-            <div key={`${f.scope ?? ''}:${f.path}`} className="contents">
-              <div className="ss-gh">
-                <span className="font-semibold">{t(f.kind === 'settings' ? 'targetDetail.piExtensions.folder.settings' : 'targetDetail.piExtensions.folder.title')}</span>
-                {f.scope && <span className="ss-tag inf">{t(f.scope === 'global' ? 'targetDetail.piExtensions.shape.global' : 'targetDetail.piExtensions.shape.projectOnly')}</span>}
-                <span className="min-w-0 flex-1 truncate font-mono text-[12px] text-ink-3" title={f.path}>{shortenHome(f.path)}</span>
-                <span className="ss-tag">{t('targetDetail.piExtensions.readOnlyTag')}</span>
-              </div>
-              <div className="ss-r !min-h-0 text-[13px] text-ink-2"><Info size={14} className="shrink-0 text-ink-3" />{t(f.kind === 'settings' ? 'targetDetail.piExtensions.folder.settingsHint' : 'targetDetail.piExtensions.folder.hint')}</div>
-              {f.problem && <div className="ss-r !min-h-0 text-[13px] text-ink-2">{t(`targetDetail.piExtensions.problem.${f.problem}`)}</div>}
-              {f.rows.length === 0 && !f.problem && <div className="ss-r !min-h-[42px] text-[13px] text-ink-3">{t('targetDetail.piExtensions.folder.empty')}</div>}
-              {f.rows.map((r) => (
-                <div key={r.path} className="ss-r !min-h-[42px]">
-                  <span className="flex min-w-0 flex-1 flex-col">
-                    <span className="flex min-w-0 items-center gap-2">
-                      <span className="truncate font-mono text-[13px] font-semibold" title={r.path}>{r.path}</span>
-                      {r.file === 'missing' && <MissingBadge t={t} />}
-                    </span>
-                    <span className="text-[12px] text-ink-3">{r.provenance === 'extras' ? t('targetDetail.piExtensions.folder.extra', { name: r.extra ?? '' }) : t('targetDetail.piExtensions.folder.native')}</span>
-                  </span>
-                  <Selection value={r.selection} t={t} />
-                </div>
-              ))}
-            </div>
-          ))}
+          {view.folders.map((f) => <FolderCard key={`${f.scope ?? ''}:${f.path}`} folder={f} t={t} />)}
         </div>
       )}
       <p className="text-[13px] text-ink-3">
-        {t('targetDetail.piExtensions.pluginsHint')} <Link to="/plugins" className="font-semibold text-ink-2 hover:text-ink">{t('targetDetail.piExtensions.openPlugins')}</Link>
+        {t('targetDetail.piExtensions.pluginsHint')} {!empty && <><Link to={addPackage} className="font-semibold text-ink-2 hover:text-ink">{t('targetDetail.piExtensions.addPackage')}</Link> · </>}<Link to="/plugins" className="font-semibold text-ink-2 hover:text-ink">{t('targetDetail.piExtensions.openPlugins')}</Link>
       </p>
 
       {changes.length > 0 && (
@@ -157,25 +135,49 @@ function PageInfo({ view, t }: { view: PiExtensionsView; t: T }) {
   );
 }
 
-/** ownsRules: the rules shown are in the file this view writes, so one can be removed. */
-function PackageRows({ pkg, name, ownsRules, pending, set, t }: { pkg: PiExtensionPackage; name: string; ownsRules: boolean; pending: Record<string, PiExtensionAction>; set: SetAction; t: T }) {
-  const [open, setOpen] = useState(false);
+/** The folder all paths share ("extensions/"), shown once above them instead of on every row. */
+function sharedDir(paths: string[]) {
+  const dir = paths[0]?.slice(0, paths[0].lastIndexOf('/') + 1) ?? '';
+  return dir && paths.every((p) => p.startsWith(dir)) ? dir : '';
+}
+
+/** Whether a row ends up on: a pending switch decides, a pending rule removal keeps what the settings say. */
+const isOn = (row: PiExtensionRow, action?: PiExtensionAction) => action === 'select' || (action !== 'exclude' && row.selection === 'loads');
+
+/** One package: a summary header, then its extensions as a grid. ownsRules: the rules shown are in the file this view writes, so one can be removed. */
+function PackageCard({ pkg, name, ownsRules, pending, set, t }: { pkg: PiExtensionPackage; name: string; ownsRules: boolean; pending: Record<string, PiExtensionAction>; set: SetAction; t: T }) {
+  const [open, setOpen] = useState(true);
+  const [details, setDetails] = useState(false);
   const title = pkg.identity || pkg.source;
+  const actionOf = (r: PiExtensionRow) => pending[keyOf(pkg.scope, pkg.index, r.path)];
+  const on = pkg.rows.filter((r) => isOn(r, actionOf(r))).length;
+  const locked = Boolean(pkg.readOnly) || (pkg.rows.length > 0 && pkg.rows.every((r) => !r.editable));
+  const dir = sharedDir(pkg.rows.map((r) => r.path));
   const list = (rules: string[] | null | undefined) => (rules ? rules.join(', ') || '[]' : t('targetDetail.piExtensions.details.none'));
   return (
-    <>
-      <div className="ss-gh">
-        <span className="ss-cat plugin !h-[26px] !w-[26px]" aria-hidden><Puzzle size={14} /></span>
-        <span className="min-w-0 truncate font-mono text-[13px] font-semibold" title={pkg.source}>{title}</span>
-        {pkg.kind && <span className="ss-tag">{pkg.kind}</span>}
-        {pkg.shape && <span className="ss-tag inf">{t(`targetDetail.piExtensions.shape.${pkg.shape}`)}</span>}
-        {pkg.managedBy && <Link to="/plugins" className="ss-tag hover:text-ink">{t('targetDetail.piExtensions.managedBy', { name: pkg.managedBy })}</Link>}
-        <span className="flex-1" />
-        <button type="button" className="inline-flex items-center gap-1 text-[12px] font-semibold text-ink-2 hover:text-ink" aria-expanded={open} onClick={() => setOpen(!open)}>
-          {t('targetDetail.piExtensions.details.show')}<ChevronDown size={12} className={open ? 'rotate-180' : ''} />
+    <section className="ss-list !shadow-none" aria-label={title}>
+      <div className="ss-r !min-h-[60px]">
+        <span className="ss-cat bg-sunken text-ink" aria-hidden><PiPackageIcon size={26} /></span>
+        <span className="flex min-w-0 flex-1 flex-col gap-1">
+          <span className="nm m truncate" title={pkg.source}>{title}</span>
+          {(pkg.kind || pkg.shape || pkg.managedBy) && (
+            <span className="flex flex-wrap items-center gap-1.5">
+              {pkg.kind && <span className="ss-tag">{pkg.kind}</span>}
+              {pkg.shape && <span className="ss-tag inf">{t(`targetDetail.piExtensions.shape.${pkg.shape}`)}</span>}
+              {pkg.managedBy && <Link to="/plugins" className="ss-tag hover:text-ink">{t('targetDetail.piExtensions.managedBy')}</Link>}
+            </span>
+          )}
+        </span>
+        {pkg.rows.length > 0 && <span className="shrink-0 text-[13px] text-ink-2">{t('targetDetail.piExtensions.summary', { on, total: pkg.rows.length })}</span>}
+        {locked && <span className="ss-tag shrink-0"><Lock size={11} />{t('targetDetail.piExtensions.readOnlyTag')}</span>}
+        <button type="button" className="inline-flex shrink-0 items-center gap-1 text-[12px] font-semibold text-ink-2 hover:text-ink" aria-expanded={details} onClick={() => setDetails(!details)}>
+          {t('targetDetail.piExtensions.details.show')}<ChevronDown size={12} className={details ? 'rotate-180' : ''} />
+        </button>
+        <button type="button" className="ss-ib shrink-0" aria-expanded={open} aria-label={t(open ? 'targetDetail.piExtensions.collapse' : 'targetDetail.piExtensions.expand', { pkg: title })} onClick={() => setOpen(!open)}>
+          <ChevronDown size={16} className={open ? 'rotate-180' : ''} />
         </button>
       </div>
-      {open && (
+      {details && (
         <div role="region" aria-label={t('targetDetail.piExtensions.details.label', { pkg: title })} className="ss-r !min-h-0 grid grid-cols-[max-content_1fr] gap-x-4 gap-y-1 text-[12.5px]">
           <span className="text-ink-3">{t('targetDetail.piExtensions.details.source')}</span><span className="break-all font-mono">{pkg.source}</span>
           <span className="text-ink-3">{t('targetDetail.piExtensions.details.rules')}</span><span className="break-all font-mono">{list(pkg.rules)}</span>
@@ -183,49 +185,117 @@ function PackageRows({ pkg, name, ownsRules, pending, set, t }: { pkg: PiExtensi
           <span className="text-ink-3">{t('targetDetail.piExtensions.details.otherKeys')}</span><span className="font-mono">{pkg.otherKeys.join(', ') || t('targetDetail.piExtensions.details.none')}</span>
         </div>
       )}
-      {pkg.problem && <div className="ss-r !min-h-0 text-[13px] text-ink-2"><AlertCircle size={14} className="shrink-0 text-warn" />{t(`targetDetail.piExtensions.problem.${pkg.problem}`)}</div>}
-      {pkg.readOnly && <div className="ss-r !min-h-0 text-[13px] text-ink-2"><Info size={14} className="shrink-0 text-ink-3" />{t(`targetDetail.piExtensions.packageReadOnly.${pkg.readOnly}`)}</div>}
-      {pkg.rows.length === 0 && !pkg.problem && <div className="ss-r !min-h-[42px] text-[13px] text-ink-3">{t('targetDetail.piExtensions.noExtensions')}</div>}
-      {pkg.rows.map((r) => (
-        <ExtensionRow key={r.path} pkg={pkg} row={r} name={name} ownsRules={ownsRules} action={pending[keyOf(pkg.scope, pkg.index, r.path)]} set={set} t={t} />
-      ))}
-    </>
+      {open && (
+        <>
+          {pkg.problem && <div className="ss-r !min-h-0 bg-sunken text-[13px] text-ink-2"><AlertCircle size={14} className="shrink-0 text-warn" />{t(`targetDetail.piExtensions.problem.${pkg.problem}`)}</div>}
+          {pkg.readOnly && <div className="ss-r !min-h-0 bg-sunken text-[13px] text-ink-2"><Lock size={14} className="shrink-0 text-ink-3" />{t(`targetDetail.piExtensions.packageReadOnly.${pkg.readOnly}`)}</div>}
+          {pkg.rows.length === 0 && !pkg.problem && <div className="ss-r !min-h-[42px] text-[13px] text-ink-3">{t('targetDetail.piExtensions.noExtensions')}</div>}
+          {pkg.rows.length > 0 && (
+            <RowGrid dir={dir}>
+              {pkg.rows.map((r) => (
+                <ExtensionCell key={r.path} pkg={pkg} row={r} dir={dir} name={name} ownsRules={ownsRules} action={actionOf(r)} set={set} t={t} />
+              ))}
+            </RowGrid>
+          )}
+        </>
+      )}
+    </section>
   );
 }
 
-function ExtensionRow({ pkg, row, name, ownsRules, action, set, t }: { pkg: PiExtensionPackage; row: PiExtensionRow; name: string; ownsRules: boolean; action?: PiExtensionAction; set: SetAction; t: T }) {
-  const on = action === 'select' || (!action && row.selection === 'loads');
-  const label = t('targetDetail.piExtensions.switchLabel', { path: row.path, pkg: pkg.identity || pkg.source, name });
-  const change = (next?: PiExtensionAction) => set(pkg.scope, pkg.index, row.path, next);
+/** A folder Pi loads on its own; Skillshare only shows it. */
+function FolderCard({ folder: f, t }: { folder: PiExtensionFolder; t: T }) {
+  const empty = f.rows.length === 0 && !f.problem;
+  const dir = sharedDir(f.rows.map((r) => r.path));
   return (
-    <div className={`ss-r !min-h-[46px] ${action ? 'sel' : ''}`}>
-      <RowSwitch shown={row.editable && row.file === 'present' && action !== 'default'} on={on} label={label} onToggle={() => change(action ? undefined : row.selection === 'loads' ? 'exclude' : 'select')} />
-      <span className="flex min-w-0 flex-1 flex-col">
-        <RowPath row={row} t={t} />
-        <span className="flex flex-wrap items-center gap-x-2 text-[12px] text-ink-3">
-          <RowOrigin row={row} action={action} canRemove={ownsRules && row.editable && /^[+-]/.test(row.rule ?? '') && (row.origin === 'rule' || row.origin === 'project')} onDefault={() => change('default')} onKeep={() => change()} t={t} />
+    <section className="ss-list !shadow-none" aria-label={shortenHome(f.path)}>
+      <div className="ss-r !min-h-[60px]">
+        <span className="ss-cat bg-sunken text-ink-2" aria-hidden><Folder size={16} /></span>
+        <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+          <span className="flex flex-wrap items-center gap-2">
+            <span className="font-semibold">{t(f.kind === 'settings' ? 'targetDetail.piExtensions.folder.settings' : 'targetDetail.piExtensions.folder.title')}</span>
+            {f.scope && <span className="ss-tag inf">{t(f.scope === 'global' ? 'targetDetail.piExtensions.shape.global' : 'targetDetail.piExtensions.shape.projectOnly')}</span>}
+          </span>
+          <span className="truncate font-mono text-[12px] text-ink-3" title={f.path}>{shortenHome(f.path)}</span>
         </span>
-      </span>
-      {action ? <PendingSelection from={row.selection} action={action} t={t} /> : <Selection value={row.selection} t={t} />}
+        {empty
+          ? <span className="shrink-0 text-[13px] text-ink-3">{t('targetDetail.piExtensions.folder.empty')}</span>
+          : <span className="ss-tag shrink-0"><Lock size={11} />{t('targetDetail.piExtensions.readOnlyTag')}</span>}
+      </div>
+      {!empty && <div className="ss-r !min-h-0 bg-sunken text-[13px] text-ink-2"><Info size={14} className="shrink-0 text-ink-3" />{t(f.kind === 'settings' ? 'targetDetail.piExtensions.folder.settingsHint' : 'targetDetail.piExtensions.folder.hint')}</div>}
+      {f.problem && <div className="ss-r !min-h-0 text-[13px] text-ink-2">{t(`targetDetail.piExtensions.problem.${f.problem}`)}</div>}
+      {f.rows.length > 0 && (
+        <RowGrid dir={dir}>
+          {f.rows.map((r) => (
+            <li key={r.path} className="flex min-h-[46px] min-w-0 items-center gap-2.5 px-2 py-1.5">
+              <StatusDot value={r.selection} t={t} />
+              <span className="flex min-w-0 flex-1 flex-col">
+                <RowPath path={r.path} dir={dir} missing={r.file === 'missing'} t={t} />
+                <span className="text-[12px] text-ink-3">{r.provenance === 'extras' ? t('targetDetail.piExtensions.folder.extra', { name: r.extra ?? '' }) : t('targetDetail.piExtensions.folder.native')}</span>
+              </span>
+              <OddSelection value={r.selection} t={t} />
+            </li>
+          ))}
+        </RowGrid>
+      )}
+    </section>
+  );
+}
+
+/** Extensions as a grid of cells, their shared folder named once above them. */
+function RowGrid({ dir, children }: { dir: string; children: ReactNode }) {
+  return (
+    <div className="ss-r !block !min-h-0 !p-0">
+      {dir && <div className="px-4 pt-3 font-mono text-[12px] text-ink-3">{dir}</div>}
+      <ul className="grid grid-cols-[repeat(auto-fill,minmax(300px,1fr))] gap-x-4 px-2 pb-2 pt-1">{children}</ul>
     </div>
   );
 }
 
-function RowSwitch({ shown, on, label, onToggle }: { shown: boolean; on: boolean; label: string; onToggle: () => void }) {
-  if (!shown) return <span className="w-[38px] shrink-0" aria-hidden />;
+function ExtensionCell({ pkg, row, dir, name, ownsRules, action, set, t }: { pkg: PiExtensionPackage; row: PiExtensionRow; dir: string; name: string; ownsRules: boolean; action?: PiExtensionAction; set: SetAction; t: T }) {
+  const label = t('targetDetail.piExtensions.switchLabel', { path: row.path, pkg: pkg.identity || pkg.source, name });
+  const change = (next?: PiExtensionAction) => set(pkg.scope, pkg.index, row.path, next);
+  const canRemove = ownsRules && row.editable && /^[+-]/.test(row.rule ?? '') && (row.origin === 'rule' || row.origin === 'project');
+  const switchable = row.editable && row.file === 'present' && action !== 'default';
+  // The package default needs no note on every row; anything else says where the selection comes from.
+  const showOrigin = Boolean(action) || row.origin !== 'default' || row.selection === 'unknown' || canRemove;
   return (
-    <button type="button" role="switch" aria-checked={on} aria-label={label} className="grid h-7 shrink-0 place-items-center" onClick={onToggle}>
+    <li className={`flex min-h-[46px] min-w-0 items-center gap-2.5 rounded-[var(--r-ctl)] px-2 py-1.5 ${action ? 'bg-link-bg' : ''}`}>
+      {switchable
+        ? <RowSwitch on={isOn(row, action)} label={label} onToggle={() => change(action ? undefined : row.selection === 'loads' ? 'exclude' : 'select')} />
+        : <StatusDot value={row.selection} t={t} />}
+      <span className="flex min-w-0 flex-1 flex-col">
+        <RowPath path={row.path} dir={dir} missing={row.file === 'missing'} t={t} />
+        {showOrigin && (
+          <span className="flex flex-wrap items-center gap-x-2 text-[12px] text-ink-3">
+            <RowOrigin row={row} action={action} canRemove={canRemove} onDefault={() => change('default')} onKeep={() => change()} t={t} />
+          </span>
+        )}
+      </span>
+      {action ? <PendingSelection from={row.selection} action={action} t={t} /> : !switchable && <OddSelection value={row.selection} t={t} />}
+    </li>
+  );
+}
+
+function RowSwitch({ on, label, onToggle }: { on: boolean; label: string; onToggle: () => void }) {
+  return (
+    <button type="button" role="switch" aria-checked={on} aria-label={label} className="grid h-8 w-[38px] shrink-0 place-items-center" onClick={onToggle}>
       <span className={`ss-sw ${on ? 'on' : ''}`}><i /></span>
     </button>
   );
 }
 
-/** The file's path; a file the settings name but the package lacks is marked. */
-function RowPath({ row, t }: { row: PiExtensionRow; t: T }) {
-  const missing = row.file === 'missing';
+/** A row without a switch shows on or off as a dot; its name is for screen readers. */
+function StatusDot({ value, t }: { value: PiSelection; t: T }) {
+  if (value !== 'loads' && value !== 'skipped') return <span className="w-[38px] shrink-0" aria-hidden />;
+  return <span className={`ss-st ${selTone[value]} w-[38px] shrink-0 justify-center`}><span className="sr-only">{t(`targetDetail.piExtensions.sel.${value}`)}</span></span>;
+}
+
+/** The file's name under its shared folder; a file the settings name but the package lacks is marked. */
+function RowPath({ path, dir, missing, t }: { path: string; dir: string; missing: boolean; t: T }) {
   return (
     <span className="flex min-w-0 items-center gap-2">
-      <span className={`truncate font-mono text-[13px] font-semibold ${missing ? 'text-ink-3 line-through' : ''}`} title={row.path}>{row.path}</span>
+      <span className={`truncate font-mono text-[13px] font-semibold ${missing ? 'text-ink-3 line-through' : ''}`} title={path}>{path.slice(dir.length)}</span>
       {missing && <MissingBadge t={t} />}
     </span>
   );
@@ -239,7 +309,7 @@ function MissingBadge({ t }: { t: T }) {
 function PendingSelection({ from, action, t }: { from: PiSelection; action: PiExtensionAction; t: T }) {
   // Without its rule the file follows the rules that remain; the preview computes that.
   const to = action === 'default' ? 'afterReview' : action === 'select' ? 'loads' : 'skipped';
-  return <span className="w-[170px] shrink-0 text-[13px] font-semibold text-link">{t(`targetDetail.piExtensions.sel.${from}`)} → {t(`targetDetail.piExtensions.sel.${to}`)}</span>;
+  return <span className="shrink-0 text-[13px] font-semibold text-link">{t(`targetDetail.piExtensions.sel.${from}`)} → {t(`targetDetail.piExtensions.sel.${to}`)}</span>;
 }
 
 /** Where the row's selection comes from, and the button that removes or keeps its exact rule. */
@@ -270,8 +340,10 @@ function RowOrigin({ row, action, canRemove, onDefault, onKeep, t }: { row: PiEx
   );
 }
 
-function Selection({ value, t }: { value: PiSelection; t: T }) {
-  return <span className="w-[170px] shrink-0"><span className={`ss-st ${selTone[value]}`}>{t(`targetDetail.piExtensions.sel.${value}`)}</span></span>;
+/** Only a selection a dot can't show (can't tell, nothing to load) is written out. */
+function OddSelection({ value, t }: { value: PiSelection; t: T }) {
+  if (value === 'loads' || value === 'skipped') return null;
+  return <span className={`ss-st ${selTone[value]} shrink-0`}>{t(`targetDetail.piExtensions.sel.${value}`)}</span>;
 }
 
 /** Previews the pending changes, then applies exactly that preview's revision. */

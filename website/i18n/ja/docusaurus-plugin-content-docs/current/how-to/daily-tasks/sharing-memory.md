@@ -68,7 +68,7 @@ Update notes when the user asks you to remember a decision.
 
 ![英語の保存済みノートの Markdown プレビュー](/img/memory-note-demo.png)
 
-左のツリーはネストしたフォルダー、上部に検索ボックスがあります。右のペインは **Preview** / **Source** を切り替え、隣のアイコンは **Edit**、**Move or rename**、**Copy path**、**History**、**Delete note** です。既存ノートへの相対リンクは同じビューアーで開きます。
+左のツリーはネストしたフォルダー、上部に検索ボックスがあります。右のペインは **Preview** / **Source** を切り替えます。長いノートは折りたたまれて開き、**Show all** で全体を表示します。ノート名の横に **Edit** と **More actions** メニューがあり、**Copy file path**、**History**、**Move or rename**、**Delete note** を含みます。**Use with agents** はノートの下にあります。既存ノートへの相対リンクは同じビューアーで開きます。
 
 ![wiki を展開した英語の Memory ビューアー](/img/memory-tree-demo.png)
 
@@ -138,7 +138,7 @@ CLI は読み取りガイダンスを出力するだけなので手動で貼り�
 
 ## ノートの名前変更・移動
 
-ノートを選び **Move or rename** をクリックして、新しい相対 `.md` パスを入力します。`wiki/architecture.md` → `wiki/design.md` は名前変更、`projects/design.md` への変更は別フォルダーへの移動です。存在しないフォルダーは自動作成されます。**Move** で適用します。
+ノートを選び、**More actions** を開いて **Move or rename** をクリックし、新しい相対 `.md` パスを入力します。`wiki/architecture.md` → `wiki/design.md` は名前変更、`projects/design.md` への変更は別フォルダーへの移動です。存在しないフォルダーは自動作成されます。**Move** で適用します。
 
 ![英語の Move or rename ダイアログで新しいフォルダーパスを指定](/img/memory-move-demo.png)
 
@@ -148,7 +148,7 @@ Markdown リンクはノート内の相対リンクも含めて自動更新さ�
 
 ## ノートを削除する
 
-ビューアーまたはエディターで **Delete note** を選び、ファイル名を確認します。未保存の編集は破棄されます。保存済み version を確認し、バックアップしてから選択ノートだけを削除します。フォルダーと他のノートは保持します。`INDEX.md` の古いリンクは手動で更新してください。削除後の **Restore in Backup Files** で絞り込み済み履歴を開けます。
+**More actions** またはエディターで **Delete note** を選び、ファイル名を確認します。未保存の編集は破棄されます。保存済み version を確認し、バックアップしてから選択ノートだけを削除します。フォルダーと他のノートは保持します。`INDEX.md` の古いリンクは手動で更新してください。削除後の **Restore in Backup Files** で絞り込み済み履歴を開けます。
 
 ![英語のノート削除確認](/img/memory-delete-demo.png)
 

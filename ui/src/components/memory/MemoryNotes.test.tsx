@@ -102,7 +102,8 @@ it('moves a note with its read version, clears search and selects the new path',
   const user = userEvent.setup();
   renderNotes();
   await user.type(await screen.findByRole('searchbox', { name: 'Search names and content' }), 'build');
-  await user.click(await screen.findByRole('button', { name: 'Move or rename' }));
+  await user.click(await screen.findByRole('button', { name: 'More actions' }));
+  await user.click(await screen.findByRole('menuitem', { name: 'Move or rename' }));
   const field = within(screen.getByRole('dialog')).getByLabelText('New path');
   await user.clear(field);
   await user.type(field, 'wiki/build.md');
@@ -117,7 +118,8 @@ it('explains a destination that already exists', async () => {
   vi.mocked(api.moveMemoryNote).mockRejectedValue(new ApiError(409, 'exists', { code: 'memory_destination_exists' }));
   const user = userEvent.setup();
   renderNotes();
-  await user.click(await screen.findByRole('button', { name: 'Move or rename' }));
+  await user.click(await screen.findByRole('button', { name: 'More actions' }));
+  await user.click(await screen.findByRole('menuitem', { name: 'Move or rename' }));
   const field = within(screen.getByRole('dialog')).getByLabelText('New path');
   await user.clear(field);
   await user.type(field, 'taken.md');
@@ -169,11 +171,13 @@ it('requires confirmation and deletes the version shown in the preview', async (
   vi.mocked(api.deleteMemoryNote).mockResolvedValue({ success: true, path: 'build.md' });
   const user = userEvent.setup();
   renderNotes();
-  await user.click(await screen.findByRole('button', { name: 'Delete note' }));
+  await user.click(await screen.findByRole('button', { name: 'More actions' }));
+  await user.click(await screen.findByRole('menuitem', { name: 'Delete note' }));
   expect(api.deleteMemoryNote).not.toHaveBeenCalled();
   await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Cancel' }));
   expect(api.deleteMemoryNote).not.toHaveBeenCalled();
-  await user.click(screen.getByRole('button', { name: 'Delete note' }));
+  await user.click(screen.getByRole('button', { name: 'More actions' }));
+  await user.click(await screen.findByRole('menuitem', { name: 'Delete note' }));
   await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Delete note' }));
   expect(api.deleteMemoryNote).toHaveBeenCalledWith('build.md', 'old');
 });
@@ -200,7 +204,8 @@ it('keeps the destination draft open when the source version is stale', async ()
  vi.mocked(api.moveMemoryNote).mockRejectedValue(new ApiError(409, 'changed', { code: 'memory_conflict' }));
  const user = userEvent.setup();
  renderNotes();
- await user.click(await screen.findByRole('button', { name: 'Move or rename' }));
+ await user.click(await screen.findByRole('button', { name: 'More actions' }));
+ await user.click(await screen.findByRole('menuitem', { name: 'Move or rename' }));
  const field = within(screen.getByRole('dialog')).getByLabelText('New path');
  await user.clear(field);
  await user.type(field, 'wiki/renamed.md');
@@ -226,4 +231,13 @@ it('initializes missing starters before creating and linking the first note', as
   expect(api.initMemory).toHaveBeenCalledOnce();
   expect(vi.mocked(api.initMemory).mock.invocationCallOrder[0]).toBeLessThan(vi.mocked(api.writeMemoryNote).mock.invocationCallOrder[0]);
   expect(api.linkMemoryIndex).toHaveBeenCalledWith('decision.md', 'starter-index');
+});
+
+it('opens a long note collapsed and expands it on request', async () => {
+  vi.mocked(api.readMemoryNote).mockResolvedValue({ path: 'build.md', title: 'Build notes', content: Array.from({ length: 12 }, (_, i) => `line ${i}`).join('\n'), version: 'old' });
+  const user = userEvent.setup();
+  renderNotes();
+  const toggle = await screen.findByRole('button', { name: /Show all/ });
+  await user.click(toggle);
+  expect(screen.getByRole('button', { name: /Collapse/ })).toHaveAttribute('aria-expanded', 'true');
 });
