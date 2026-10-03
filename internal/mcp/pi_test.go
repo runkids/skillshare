@@ -94,7 +94,7 @@ func TestImportTimeoutDoesNotIdentifyPi(t *testing.T) {
 // pi-mcp-adapter escaped a literal beginning with ! as !!. Only its own file says so.
 func TestPiAdapterFileImportUnescapesLiterals(t *testing.T) {
 	input := []byte(`{"mcpServers":{"local":{"command":"c","excludeTools":[],"env":{"MODE":"!!x"}},"remote":{"url":"https://example.com/mcp","headers":{"X-Mode":"!!x"}}}}`)
-	candidates, err := importNative("pi", input, "", true)
+	candidates, err := importNative("pi", input, "", true, false)
 	if err != nil || len(candidates) != 2 {
 		t.Fatalf("%+v %v", candidates, err)
 	}
@@ -112,7 +112,7 @@ func TestPiAdapterFileImportUnescapesLiterals(t *testing.T) {
 func TestPiOptionsRejectNonSecretCommands(t *testing.T) {
 	for _, adapter := range []bool{false, true} {
 		input := []byte(`{"mcpServers":{"docs":{"url":"https://example.com/mcp","oauth":{"clientId":"!echo client"}}}}`)
-		candidates, err := importNative("pi", input, "", adapter)
+		candidates, err := importNative("pi", input, "", adapter, false)
 		if err != nil || len(candidates) != 1 || len(candidates[0].Problems) == 0 {
 			t.Fatalf("unsafe import: %+v %v", candidates, err)
 		}
@@ -403,6 +403,32 @@ func TestPiProjectOverrideIsNotImported(t *testing.T) {
 	for _, c := range candidates {
 		override := c.Name != "full"
 		if got := slices.ContainsFunc(c.Problems, func(p string) bool { return strings.HasPrefix(p, "a Pi project override") }); got != override {
+			t.Fatalf("%s: problems %q", c.Name, c.Problems)
+		}
+	}
+}
+
+// Pi gives a connection-less entry override meaning only in a project's .pi/mcp.json. In the
+// global file or a pasted snippet it is an invalid server and keeps the usual problem.
+func TestPiOverrideOnlyInProjectImport(t *testing.T) {
+	const file = `{"mcpServers":{"off":{"enabled":false}}}`
+	s, tmp := projectsService(t, "mcp:\n  servers: {}\n")
+	if err := os.MkdirAll(filepath.Join(tmp, ".pi", "agent"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(tmp, ".pi", "agent", "mcp.json"), []byte(file), 0600); err != nil {
+		t.Fatal(err)
+	}
+	global, err := s.ImportClient("pi")
+	if err != nil {
+		t.Fatal(err)
+	}
+	pasted, err := Import("pi", []byte(file), "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, c := range append(global, pasted...) {
+		if !slices.Equal(c.Problems, []string{"MCP off requires exactly one of command or url"}) {
 			t.Fatalf("%s: problems %q", c.Name, c.Problems)
 		}
 	}
