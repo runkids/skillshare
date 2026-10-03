@@ -299,6 +299,26 @@ func TestPiExtensionsSymlinkedSettingsAreRefused(t *testing.T) {
 	}
 }
 
+// A linked home volume or dotfiles folder above the agent directory is the
+// user's own layout; only links inside the agent directory are refused.
+func TestPiExtensionsAgentDirUnderSymlinkedAncestorIsEditable(t *testing.T) {
+	f := newPiFixture(t)
+	volume := filepath.Join(f.home, "volume")
+	if err := os.MkdirAll(volume, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	linked := filepath.Join(f.home, "linked")
+	if err := os.Symlink(volume, linked); err != nil {
+		t.Fatal(err)
+	}
+	f.agentDir = filepath.Join(linked, "agent")
+	t.Setenv("PI_CODING_AGENT_DIR", f.agentDir)
+	f.global(map[string]any{"packages": []any{f.pkg}})
+	if v := f.view("pi"); v.Problem != "" || !v.Editable {
+		t.Fatalf("view: %+v", v)
+	}
+}
+
 func TestPiExtensionsUnsupportedGlobIsUnknownAndReadOnly(t *testing.T) {
 	f := newPiFixture(t)
 	f.global(map[string]any{"packages": []any{map[string]any{"source": f.pkg, "extensions": []string{"!extensions/**", "+extensions/a.ts"}}}})

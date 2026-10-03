@@ -46,7 +46,7 @@ func (s *Service) piRegistrationEntry(target, id string) (*piSettings, piEntry, 
 	if err != nil {
 		return nil, piEntry{}, nil, err
 	}
-	st := readPiSettings(file)
+	st := readPiSettings(s.piSettingsRoot(file), file)
 	if st.problem != "" {
 		return nil, piEntry{}, nil, fmt.Errorf("Pi settings cannot be preserved safely: %s", st.problem)
 	}
@@ -146,7 +146,7 @@ func (s *Service) preparePiRegistration(ctx context.Context, c *Change) error {
 			return err
 		}
 		c.PreservedKeys = piPreservedKeys(record.Entry)
-		st := readPiSettings(file)
+		st := readPiSettings(s.piSettingsRoot(file), file)
 		if st.problem != "" {
 			return errors.New("Pi settings cannot be restored safely")
 		}
@@ -178,7 +178,7 @@ func (s *Service) piRegistrationPath(digest string) (string, error) {
 		return "", errors.New("invalid preserved Pi registration reference")
 	}
 	file := filepath.Join(s.StateDir, "pi-registrations", digest+".json")
-	if err := noSymlink(file); err != nil {
+	if err := noSymlink(s.StateDir, file); err != nil {
 		return "", err
 	}
 	return file, nil
@@ -215,7 +215,7 @@ func (s *Service) savePiRegistration(c Change) error {
 	if err != nil {
 		return err
 	}
-	st := readPiSettings(path)
+	st := readPiSettings(s.piSettingsRoot(path), path)
 	if st.problem != "" || hash(st.raw) != c.piSettingsHash {
 		return errors.New("Pi settings changed since preview; preview again")
 	}
@@ -300,7 +300,7 @@ func (s *Service) restorePiRegistration(c Change, b Binding) error {
 		return err
 	}
 	file := record.Path
-	if err := noSymlink(file); err != nil {
+	if err := noSymlink(s.piSettingsRoot(file), file); err != nil {
 		return err
 	}
 	// A preserved import necessarily had settings here. Never recreate a removed
@@ -317,7 +317,7 @@ func (s *Service) restorePiRegistration(c Change, b Binding) error {
 		}
 		expected = receipt.written
 	}
-	st := readPiSettings(file)
+	st := readPiSettings(s.piSettingsRoot(file), file)
 	if st.problem != "" || hash(st.raw) != expected {
 		return errors.New("Pi settings changed since preview; preview again")
 	}
@@ -354,7 +354,7 @@ func (s *Service) restorePiRegistration(c Change, b Binding) error {
 		return err
 	}
 	piBeforeRegistrationWrite(file)
-	latest := readPiSettings(file)
+	latest := readPiSettings(s.piSettingsRoot(file), file)
 	if latest.problem != "" || hash(latest.raw) != expected {
 		return errors.New("Pi settings changed at the write boundary; preview again")
 	}
@@ -370,7 +370,7 @@ func (s *Service) restorePiRegistration(c Change, b Binding) error {
 		defer root.Close()
 		err = rootAtomicWrite(root, ".pi/settings.json", out, info.Mode().Perm(), false)
 	} else {
-		err = atomicNativeWrite(file, out, info.Mode().Perm())
+		err = atomicNativeWrite(s.piSettingsRoot(file), file, out, info.Mode().Perm())
 	}
 	if err == nil && c.piRestores != nil {
 		c.piRestores[file] = piRestoreReceipt{reviewed: c.piSettingsHash, written: hash(out)}

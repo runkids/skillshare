@@ -107,7 +107,7 @@ func (s *Service) ApplyPiExtensions(ctx context.Context, target string, changes 
 		return nil, err
 	}
 	file := filepath.Join(agentDir, "settings.json")
-	if err := noSymlink(file); err != nil {
+	if err := noSymlink(agentDir, file); err != nil {
 		return nil, fmt.Errorf("%w: %v", ErrPiExtensionsReadOnly, err)
 	}
 	release, native, err := s.lockPiSettings(file, true)
@@ -151,7 +151,7 @@ func (s *Service) ApplyPiExtensions(ctx context.Context, target string, changes 
 	if err := native.verify(); err != nil {
 		return nil, err
 	}
-	if err := piWriteGlobal(file, after, info.Mode().Perm()); err != nil {
+	if err := piWriteGlobal(agentDir, file, after, info.Mode().Perm()); err != nil {
 		return nil, err
 	}
 	plan.BackupID = id
@@ -489,7 +489,7 @@ func (s *Service) piBackup(file string, before, after []byte, plan *PiExtensions
 	// Successful records are never pruned. The caller discards only this new
 	// record if the settings write fails, including a late stale/lock refusal.
 	record := filepath.Join(dir, id+".json")
-	if err := atomicNativeWrite(record, append(data, '\n'), 0o600); err != nil {
+	if err := atomicNativeWrite(s.StateDir, record, append(data, '\n'), 0o600); err != nil {
 		return "", nil, err
 	}
 	discard := func() error {
