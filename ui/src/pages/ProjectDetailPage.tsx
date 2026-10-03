@@ -60,10 +60,11 @@ function ProjectEditor({ project, tools, mcp, hooks, hooksError }: { project: Pr
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const [params] = useSearchParams();
-  // Project-scoped Pi extension settings are available only for a project that syncs to Pi.
-  const shownTabs = TABS.filter((x) => x !== 'extensions' || project.targets.includes('pi'));
-  const tab = shownTabs.find((x) => x === params.get('tab')) ?? 'skills';
   const targets = useQuery({ queryKey: queryKeys.targets.projects, queryFn: () => api.listTargets('projects'), staleTime: staleTimes.targets });
+  // Declared tools do not always generate a target (for example, an agents-only Pi project).
+  const hasPiTarget = project.targets.includes('pi') && targets.data?.targets.some((target) => target.name === `${project.name}@pi`);
+  const shownTabs = TABS.filter((x) => x !== 'extensions' || hasPiTarget);
+  const tab = shownTabs.find((x) => x === params.get('tab')) ?? 'skills';
   const available = useAvailableTargetsQuery();
   const common = (available.data?.targets ?? []).filter((a) => a.installed || a.detected).map((a) => a.name);
 

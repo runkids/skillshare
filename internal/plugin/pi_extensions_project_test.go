@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -383,6 +384,68 @@ func TestPiProjectWriteProtections(t *testing.T) {
 // An override with no global entry to inherit from loads only the paths it names
 // (contract scenarios "project-only delta"): the others are listed as not loaded
 // and can be selected; one left with no rule is dropped.
+func TestPiProjectDeltaMissingExactRules(t *testing.T) {
+	for _, hasBase := range []bool{false, true} {
+		for _, rulePath := range []string{"extensions/gone.ts", "./extensions/gone.ts", "absolute"} {
+			for _, sign := range []string{"+", "-"} {
+				t.Run(fmt.Sprintf("base=%v/%s/%s", hasBase, rulePath, sign), func(t *testing.T) {
+					f, root := projectFixture(t)
+					if hasBase {
+						f.global(map[string]any{"packages": []any{f.pkg}})
+					}
+					exactPath := rulePath
+					if exactPath == "absolute" {
+						exactPath = filepath.ToSlash(filepath.Join(f.pkg, "extensions/gone.ts"))
+					}
+					f.writeJSON(filepath.Join(f.agentDir, "trust.json"), map[string]any{root: false})
+					f.writeJSON(f.projectFile(root), map[string]any{"packages": []any{map[string]any{
+						"source": f.pkg, "autoload": false, "extensions": []string{"-extensions/a.ts", sign + exactPath},
+						"skills": []string{"skills/review"}, "x-note": "keep",
+					}}})
+					same := unchanged(t, f.settingsPath(), filepath.Join(f.agentDir, "trust.json"))
+					previewSame := unchanged(t, f.projectFile(root))
+					p := findPackage(t, f.view("pi"), "project", f.pkg)
+					missingPath := strings.TrimPrefix(exactPath, "./")
+					row, ok := findRow(p.Rows, missingPath)
+					if !ok || row.File != "missing" || row.Selection != "none" || row.Origin != "project" || row.Rule != sign+exactPath || !row.Editable {
+						t.Fatalf("missing project rule: %+v; rows: %+v", row, p.Rows)
+					}
+					change := PiExtensionChange{Scope: "project", Index: 0, Source: f.pkg, Path: missingPath, Action: "default"}
+					for _, action := range []string{"select", "exclude"} {
+						invalid := change
+						invalid.Action = action
+						if _, err := f.svc.PreviewPiExtensions(context.Background(), "pi", []PiExtensionChange{invalid}); err == nil {
+							t.Fatalf("missing file accepted %s", action)
+						}
+					}
+					plan, err := f.svc.PreviewPiExtensions(context.Background(), "pi", []PiExtensionChange{change})
+					if err != nil {
+						t.Fatal(err)
+					}
+					previewSame()
+					if len(plan.Rows) != 1 || plan.Rows[0].Before != "none" || plan.Rows[0].After != "none" || !reflect.DeepEqual(plan.Rows[0].Removed, []string{sign + exactPath}) {
+						t.Fatalf("plan: %+v", plan)
+					}
+					if _, err := f.svc.ApplyPiExtensions(context.Background(), "pi", []PiExtensionChange{change}, plan.Revision); err != nil {
+						t.Fatal(err)
+					}
+					same()
+					want := map[string]any{"packages": []any{map[string]any{
+						"source": f.pkg, "autoload": false, "extensions": []any{"-extensions/a.ts"},
+						"skills": []any{"skills/review"}, "x-note": "keep",
+					}}}
+					if got := readJSON(t, f.projectFile(root)); !reflect.DeepEqual(got, want) {
+						t.Fatalf("settings: got %v, want %v", got, want)
+					}
+					if _, ok := findRow(f.view("pi").Packages[0].Rows, missingPath); ok {
+						t.Fatal("removed project rule still has a row")
+					}
+				})
+			}
+		}
+	}
+}
+
 func TestPiProjectDeltaWithoutGlobalBase(t *testing.T) {
 	f, root := projectFixture(t)
 	f.writeJSON(f.projectFile(root), map[string]any{"packages": []any{map[string]any{"source": f.pkg, "autoload": false, "extensions": []string{"+extensions/a.ts"}}}})

@@ -663,6 +663,18 @@ func piDeltaStates(rules []string, p *piPackage, inherited []piRowState, hasBase
 		named[f] = true
 		rows = append(rows, piRowState{rel: f, present: true, eval: piEvaluation{state: state, exact: rule}, origin: "project"})
 	}
+	// Missing exact paths still belong to the project and can lose their rules.
+	for _, rule := range rules {
+		if !strings.HasPrefix(rule, "+") && !strings.HasPrefix(rule, "-") {
+			continue
+		}
+		target := strings.TrimPrefix(rule[1:], "./")
+		if slices.ContainsFunc(rows, func(r piRowState) bool { return r.rel == target || path.Join(p.abs, r.rel) == target }) {
+			continue
+		}
+		named[target] = true
+		rows = append(rows, piRowState{rel: target, eval: piEvaluation{state: piUnknown, exact: rule}, origin: "project"})
+	}
 	if hasBase {
 		for _, r := range inherited {
 			if !named[r.rel] {
