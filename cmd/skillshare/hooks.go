@@ -174,40 +174,38 @@ func checkHooksFlags(sub string, o hooksOptions) error {
 }
 
 func printHooksHelp() {
-	fmt.Println(`Usage: skillshare hooks [command] [options]
-
-Commands:
-  list              Show hook entries, their Agents and sync status (default)
-  add <name>        Add an entry from --file (Entry JSON or YAML)
-  edit <name>       Replace an existing entry's definition from --file
-  import            Read native hooks with --from <agent> (or --file <native file>);
-                    list candidates, or save one with a name
-  enable <name>     Publish a disabled entry again on the next sync
-  disable <name>    Keep the definition; the next sync removes its owned outputs
-  remove <name>     Delete the entry; the next sync prunes its owned outputs,
-                    or stop managing it and keep its Agent entries (--keep-files)
-  sync [name]       Write hooks to each Agent's native configuration; with a name
-                    and --replace, take over that hook's conflicting Agent entries
-  restore <id>      Preview and restore an Agent file from a hooks backup
-
-Options:
-  Account targets (agent + config_dir under targets) are hook targets in global mode.
-  --file <path>     Entry document for add/edit, or native file for import
-  --from <agent>    Agent or account target to import from, such as claude, codex or codex-2
-  --sync            Save and synchronize (default: save the source only)
-  --replace         Replace an existing entry, or take over its conflicting
-                    Agent entries (unmanaged duplicates or outside edits)
-  --keep-files      remove only: stop managing the hook; its Agent entries stay
-  --dry-run, -n     Preview without writing
-  --json            Machine-readable output
-  --revision <id>   Require the matching preview revision
-  --global, -g      Global configuration
-  --project, -p     Project configuration
-
-Git bindings use commands and optional files (Git 2.54+); Git import is not supported yet.
-Git commands cannot use --keep-files; copy them to your own include first.
-Sync alias: skillshare sync hooks [--dry-run] [--json] [-g|-p]; sync --all includes hooks.
-Import reads configuration and code only; it never runs hook commands.`)
+	printHelp("skillshare hooks [command] [options]", "",
+		helpGroup{title: "Commands", rows: []helpRow{
+			{"list", "Show hook entries, their Agents and sync status (default)"},
+			{"add <name>", "Add an entry from --file (Entry JSON or YAML)"},
+			{"edit <name>", "Replace an existing entry's definition from --file"},
+			{"import", "Read native hooks with --from <agent> (or --file <native file>);\nlist candidates, or save one with a name"},
+			{"enable <name>", "Publish a disabled entry again on the next sync"},
+			{"disable <name>", "Keep the definition; the next sync removes its owned outputs"},
+			{"remove <name>", "Delete the entry; the next sync prunes its owned outputs,\nor stop managing it and keep its Agent entries (--keep-files)"},
+			{"sync [name]", "Write hooks to each Agent's native configuration; with a name\nand --replace, take over that hook's conflicting Agent entries"},
+			{"restore <id>", "Preview and restore an Agent file from a hooks backup"},
+		}},
+		helpGroup{title: "Options", rows: []helpRow{
+			{"--file <path>", "Entry document for add/edit, or native file for import"},
+			{"--from <agent>", "Agent or account target to import from, such as claude, codex or codex-2"},
+			{"--sync", "Save and synchronize (default: save the source only)"},
+			{"--replace", "Replace an existing entry, or take over its conflicting\nAgent entries (unmanaged duplicates or outside edits)"},
+			{"--keep-files", "remove only: stop managing the hook; its Agent entries stay"},
+			{"-n, --dry-run", "Preview without writing"},
+			{"--json", "Machine-readable output"},
+			{"--revision <id>", "Require the matching preview revision"},
+			{"-g, --global", "Global configuration"},
+			{"-p, --project", "Project configuration"},
+		}},
+		helpNotes("Notes",
+			"Account targets (agent + config_dir under targets) are hook targets in global mode.",
+			"Git bindings use commands and optional files (Git 2.54+); Git import is not supported yet.",
+			"Git commands cannot use --keep-files; copy them to your own include first.",
+			"Sync alias: skillshare sync hooks [--dry-run] [--json] [-g|-p]; sync --all includes hooks.",
+			"Import reads configuration and code only; it never runs hook commands.",
+		),
+	)
 }
 
 // hooksAccounts are the global targets with their own native config homes.

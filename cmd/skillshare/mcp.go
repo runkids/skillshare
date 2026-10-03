@@ -375,49 +375,42 @@ func logMCPOp(path, command string, start time.Time, err error) {
 }
 
 func printMCPHelp() {
-	fmt.Println(`Usage: skillshare mcp [command] [options]
-
-Commands:
-  add [name]        Guided setup, or --url URL / -- command args...
-  check [name...]   Verify variables, commands, hosts and sync state (--no-dns);
-                    --live also starts or calls each server [--timeout 10s]
-  edit [name]       Interactive editor, or update --url / --target / -- command
-  import [name]     Import --from <client> or --file <JSON/TOML/YAML file>
-  list             Browse connections and per-client sync status (default)
-  remove [name]     Select and remove a source entry; optionally sync removal,
-                    or stop managing it and keep its Agent entries (--keep-files)
-  restore [id]      Browse backups, preview and restore Agent entries
-
-Options:
-  --tools-allow <tools>     Only these tools, separated by commas; * matches any
-                            characters ("" clears)
-  --tools-deny <tools>      Never these tools, separated by commas; beats allow
-                            ("" clears). The plan names each Agent that cannot hold
-                            a part of the tool policy
-  --pi-options <json>       Other Pi built-in per-server fields as a JSON object
-  --target <client>  Receiving client; repeat for multiple clients, or none to keep
-                    the server in Skillshare without writing it to any Agent
-  --from <client>    Native client ID or account target (see mcp documentation)
-  --file <path>      Native configuration file to import
-  --url <url>        Streamable HTTP endpoint
-  --disabled        Project mode: turn off a server from the Agent's global config
-                    (add NAME --disabled --target opencode; claude, opencode, kilocode)
-  --sync            Save and synchronize (non-interactive default: save only)
-  --keep-files      remove only: stop managing the server; its Agent entries stay
-                    and sync no longer removes or updates them
-  --replace         Replace an existing source entry; on import, also rewrite
-                    the imported client's entry when it differs
-  --dry-run, -n     Preview without writing
-  --json            Machine-readable, credential-free sync results
-  --no-tui          Disable interactive menus (also honors tui: false)
-  --revision <id>   Require the matching preview revision
-  --global, -g      Global configuration
-  --project, -p     Project configuration
-
-With no command, opens the MCP manager in a terminal; otherwise prints status.
-Manager keys: / search, Enter details, a add, i import, e edit, x remove,
-              s sync, b backups, r refresh, q quit.
-JSON and non-TTY output never open a TUI. Scripted edits require a name.
-Sync: skillshare sync mcp [--dry-run] [--json] [--no-tui] [-g|-p]
-Import does not start MCP servers or copy OAuth credentials.`)
+	printHelp("skillshare mcp [command] [options]",
+		"With no command, opens the MCP manager in a terminal; otherwise prints status.",
+		helpGroup{title: "Commands", rows: []helpRow{
+			{"list", "Browse connections and per-client sync status (default)"},
+			{"add [name]", "Guided setup, or --url URL / -- command args..."},
+			{"edit [name]", "Interactive editor, or update --url / --target / -- command"},
+			{"import [name]", "Import --from <client> or --file <JSON/TOML/YAML file>"},
+			{"check [name...]", "Verify variables, commands, hosts and sync state (--no-dns);\n--live also starts or calls each server [--timeout 10s]"},
+			{"remove [name]", "Select and remove a source entry; optionally sync removal,\nor stop managing it and keep its Agent entries (--keep-files)"},
+			{"restore [id]", "Browse backups, preview and restore Agent entries"},
+		}},
+		helpGroup{title: "Options", rows: []helpRow{
+			{"--target <client>", "Receiving client; repeat for several, or none to keep the\nserver in Skillshare without writing it to any Agent"},
+			{"--from <client>", "Native client ID or account target (see mcp documentation)"},
+			{"--file <path>", "Native configuration file to import"},
+			{"--url <url>", "Streamable HTTP endpoint"},
+			{"--tools-allow <tools>", "Only these tools, separated by commas; * matches any\ncharacters (\"\" clears)"},
+			{"--tools-deny <tools>", "Never these tools, separated by commas; beats allow (\"\" clears).\nThe plan names each Agent that cannot hold a part of the policy"},
+			{"--pi-options <json>", "Other Pi built-in per-server fields as a JSON object"},
+			{"--disabled", "Project mode: turn off a server from the Agent's global config\n(add NAME --disabled --target opencode; claude, opencode, kilocode)"},
+			{"--sync", "Save and synchronize (non-interactive default: save only)"},
+			{"--keep-files", "remove only: stop managing the server; its Agent entries stay\nand sync no longer removes or updates them"},
+			{"--replace", "Replace an existing source entry; on import, also rewrite\nthe imported client's entry when it differs"},
+			{"-n, --dry-run", "Preview without writing"},
+			{"--json", "Machine-readable, credential-free sync results"},
+			{"--no-tui", "Disable interactive menus (also honors tui: false)"},
+			{"--revision <id>", "Require the matching preview revision"},
+			{"-g, --global", "Global configuration"},
+			{"-p, --project", "Project configuration"},
+		}},
+		helpNotes("Notes",
+			"Manager keys: / search, Enter details, a add, i import, e edit, x remove,",
+			"              s sync, b backups, r refresh, q quit.",
+			"JSON and non-TTY output never open a TUI. Scripted edits require a name.",
+			"Sync: skillshare sync mcp [--dry-run] [--json] [--no-tui] [-g|-p]",
+			"Import does not start MCP servers or copy OAuth credentials.",
+		),
+	)
 }

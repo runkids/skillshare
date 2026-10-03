@@ -47,33 +47,33 @@ func cmdExtras(args []string) error {
 }
 
 func printExtrasHelp() {
-	fmt.Println(`Usage: skillshare extras <command> [options]
-
-Manage non-skill resources (rules, commands, prompts, etc.).
-
-Commands:
-  init <name>        Create a new extra (a folder, or one file with --file [--as])
-  list               List all configured extras and sync status (interactive TUI)
-  remove <name>      Remove an extra resource type
-  collect <name>     Collect local files from a target into extras source
-  source [path]      Show or set the global extras_source directory
-
-Operating on an existing extra (flags on 'extras <name>'):
-  skillshare extras <name> --mode <mode>           Change sync mode
-  skillshare extras <name> --flatten               Enable flatten
-  skillshare extras <name> --no-flatten            Disable flatten
-  skillshare extras <name> --add-target <path>     Add a target
-  skillshare extras <name> --remove-target <path>  Remove a target
-
-Options:
-  --project, -p      Use project-mode extras (.skillshare/)
-  --global, -g       Use global extras (~/.config/skillshare/)
-  --help, -h         Show this help
-
-Source directory resolution (per extra):
-  1. Per-extra "source" field in config.yaml
-  2. Global "extras_source" in config.yaml
-  3. Default: <skills_source>/extras/<name>/`)
+	printHelp("skillshare extras <command> [options]",
+		"Manage non-skill resources (rules, commands, prompts, etc.).",
+		helpGroup{title: "Commands", rows: []helpRow{
+			{"init <name>", "Create a new extra (a folder, or one file with --file [--as])"},
+			{"list", "List all configured extras and sync status (interactive TUI)"},
+			{"remove <name>", "Remove an extra resource type"},
+			{"collect <name>", "Collect local files from a target into extras source"},
+			{"source [path]", "Show or set the global extras_source directory"},
+		}},
+		helpGroup{title: "Change an existing extra", rows: []helpRow{
+			{"<name> --mode <mode>", "Change sync mode"},
+			{"<name> --flatten", "Enable flatten"},
+			{"<name> --no-flatten", "Disable flatten"},
+			{"<name> --add-target <path>", "Add a target"},
+			{"<name> --remove-target <path>", "Remove a target"},
+		}},
+		helpGroup{title: "Options", rows: []helpRow{
+			{"-p, --project", "Use project-mode extras (.skillshare/)"},
+			{"-g, --global", "Use global extras (~/.config/skillshare/)"},
+			{"-h, --help", "Show this help"},
+		}},
+		helpNotes("Source directory, per extra",
+			"1. Per-extra \"source\" field in config.yaml",
+			"2. Global \"extras_source\" in config.yaml",
+			"3. Default: <skills_source>/extras/<name>/",
+		),
+	)
 }
 
 func printExtraHelp(name string) {
