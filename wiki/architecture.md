@@ -77,7 +77,8 @@ backed-up replacement. History/restore links filter Backup Files by absolute
 note path, and a requested path without backups shows an empty state.
 Windows history links compare normalized separators while backup API calls retain
 the native path; POSIX names retain literal backslashes. Project
-backup scope includes its configured memory source even outside the repository.
+backup scope includes its configured memory source even outside the repository;
+without a configured memory extra, external backup access remains denied.
 Initialization failures, including partial file creation, are logged.
 Dashboard move/rename preserves note content and permissions, creates
 missing parent folders, rejects stale versions and existing destinations, and

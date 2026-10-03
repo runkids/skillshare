@@ -173,3 +173,17 @@ the UI production build passed. React Doctor on FileBackups scores 90/100
 versus 89/100 at the reviewed HEAD, with the same two existing accessibility
 warnings. No visual layout or screenshot changed. Windows path matching was
 tested in the UI suite inside the Linux devcontainer, not a Windows browser.
+
+## PR review: configured project backup scope
+
+Project backup access only extends outside the project when a valid folder
+memory extra is configured. An external `sources.extras` path alone no longer
+exposes backups from its default `memory` subdirectory. The shared scope check
+guards listing, versions, preview and restore; in-project access is unchanged.
+
+A regression first reproduced the unconfigured external directory appearing
+in the backup list. After the fix, it also verifies both preview routes and
+restore return `file_backup_outside_project`, preserve external content, and
+continue listing in-project backups. The existing configured-source restore
+test and all FileBackups API tests pass. Devcontainer `make check`, context-router
+and whitespace checks passed. This increment changes no UI code or screenshots.

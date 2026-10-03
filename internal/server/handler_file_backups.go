@@ -8,6 +8,7 @@ import (
 
 	"skillshare/internal/config"
 	"skillshare/internal/instructions"
+	"skillshare/internal/memory"
 	syncpkg "skillshare/internal/sync"
 )
 
@@ -38,7 +39,7 @@ type fileBackupVersionJSON struct {
 }
 
 // fileBackupInScope reports whether path may be shown in the current mode:
-// every file in global mode; project files and its memory source in project mode.
+// every file in global mode; project files and its configured memory source in project mode.
 func (s *Server) fileBackupInScope(path string) bool {
 	if !s.IsProjectMode() {
 		return true
@@ -47,8 +48,11 @@ func (s *Server) fileBackupInScope(path string) bool {
 		return true
 	}
 	s.mu.RLock()
+	defer s.mu.RUnlock()
+	if _, found, err := memory.Extra(s.extrasConfig()); !found || err != nil {
+		return false
+	}
 	root, err := s.memoryRoot()
-	s.mu.RUnlock()
 	return err == nil && syncpkg.PathInside(root, path)
 }
 

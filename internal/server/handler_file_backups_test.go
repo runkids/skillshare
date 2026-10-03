@@ -164,3 +164,38 @@ func TestFileBackupsAPI_ProjectExternalMemorySource(t *testing.T) {
 		t.Fatalf("outside: %d %s", rr.Code, rr.Body)
 	}
 }
+
+func TestFileBackupsAPI_ProjectUnconfiguredExternalMemorySource(t *testing.T) {
+	s, projectRoot := newTestProjectServerWithExtras(t, nil)
+	s.projectCfg.Sources.Extras = t.TempDir()
+	if err := s.saveConfig(); err != nil {
+		t.Fatal(err)
+	}
+	inside := filepath.Join(projectRoot, "AGENTS.md")
+	path := filepath.Join(s.projectCfg.Sources.Extras, "memory", "wiki", "note.md")
+	seedFileHistory(t, inside, "old rules", syncpkg.BackupReasonEdit, "current rules")
+	seedFileHistory(t, path, "old external", syncpkg.BackupReasonEdit, "current external")
+	versions, err := syncpkg.FileBackupVersions(path)
+	if err != nil || len(versions) != 1 {
+		t.Fatalf("versions: %+v, %v", versions, err)
+	}
+	rr := serveJSON(t, s, http.MethodGet, "/api/file-backups", "")
+	if rr.Code != http.StatusOK || !strings.Contains(rr.Body.String(), inside) || strings.Contains(rr.Body.String(), path) {
+		t.Fatalf("list: %d %s", rr.Code, rr.Body)
+	}
+	q := "?path=" + url.QueryEscape(path)
+	for _, route := range []string{"/api/file-backups/versions" + q, "/api/file-backups/version" + q + "&id=" + url.QueryEscape(versions[0].ID)} {
+		rr = serveJSON(t, s, http.MethodGet, route, "")
+		if rr.Code != http.StatusForbidden || !strings.Contains(rr.Body.String(), `"file_backup_outside_project"`) {
+			t.Errorf("%s: %d %s", route, rr.Code, rr.Body)
+		}
+	}
+	body, _ := json.Marshal(map[string]string{"path": path, "id": versions[0].ID})
+	rr = serveJSON(t, s, http.MethodPost, "/api/file-backups/restore", string(body))
+	if rr.Code != http.StatusForbidden || !strings.Contains(rr.Body.String(), `"file_backup_outside_project"`) {
+		t.Errorf("restore: %d %s", rr.Code, rr.Body)
+	}
+	if data, err := os.ReadFile(path); err != nil || string(data) != "current external" {
+		t.Fatalf("external content: %q, %v", data, err)
+	}
+}
