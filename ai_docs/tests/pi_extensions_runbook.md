@@ -218,6 +218,13 @@ explanation and saved/default hints. Details opens the source and rules of a pac
 the project, rows are tagged as from `pi (global)` or as project overrides, and the review
 dialog is "Save project settings" with the new or removed project entry.
 
+### 14. Windows native lock and private-state acceptance
+
+Use [the Windows Pi runbook](windows_pi_extensions_runbook.md) for a pinned kit
+with Interactive full/basic tokens. Linux checks and Windows cross-compilation
+cannot establish NTFS locking or private ACL behavior. Preserve failed-run evidence;
+do not repair existing ACLs or change user settings/trust as part of the test.
+
 ## Pass Criteria
 
 - All steps marked PASS

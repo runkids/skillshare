@@ -246,7 +246,11 @@ that object before native installation, avoiding a default-enabled window.
 Multiple restores in one Apply recognize only that Apply's own exact writes;
 unrelated settings changes still stop later restores.
 Keep private state with these bindings: a missing, modified, or cross-target record
-blocks restoration. Unresolved sources, ambiguous precedence, unsupported encoding,
+blocks restoration. On Windows, new registration directories use protected owner/SYSTEM
+ACLs. Existing directories and records must grant access only to the current user and
+privileged SYSTEM/Administrators principals; unsafe or unverifiable ACLs refuse import
+or restoration. Skillshare does not rewrite existing ACLs: retain the records and repair
+their access protection as the owner before retrying. Unresolved sources, ambiguous precedence, unsupported encoding,
 and local references Pi would normalize remain read-only. Plain OpenCode entries
 can be imported; filtered OpenCode entries are still rejected.
 Imported Pi packages are updated with `pi update SOURCE` in global mode, which
