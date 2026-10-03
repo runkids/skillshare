@@ -1261,6 +1261,8 @@
   "instructions.files.exists": "Datei vorhanden",
   "instructions.target.readBy": "{names} lesen diese Datei auch",
   "instructions.shared.files": "Gemeinsame AGENTS.md",
+  "instructions.shared.search": "Dateien suchen",
+  "instructions.shared.noMatches": "Keine passenden Dateien",
   "instructions.shared.new": "Neue gemeinsame AGENTS.md",
   "instructions.shared.newTitle": "Neue gemeinsame AGENTS.md",
   "instructions.shared.newSubtitle": "Eine AGENTS.md, die mehrere Ziele verwenden. Starte leer oder verschiebe die aktuelle Datei eines Ziels hierher.",

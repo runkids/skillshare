@@ -100,9 +100,11 @@ Update notes when the user asks you to remember a decision.
 ![English saved note in Markdown preview](/img/memory-note-demo.png)
 
 The tree supports nested folders and has the search box on top. The note pane
-switches between **Preview** and **Source**; the icons next to them are **Edit**,
-**Move or rename**, **Copy path**, **History**, and **Delete note**. Relative links to
-existing notes open them in this viewer.
+switches between **Preview** and **Source**, and a long note opens collapsed until
+you click **Show all**. Next to the note's name are **Edit** and the **More actions**
+menu with **Copy file path**, **History**, **Move or rename**, and **Delete note**.
+**Use with agents** sits under the note. Relative links to existing notes open them
+in this viewer.
 
 ![English two-pane Memory browser with wiki expanded](/img/memory-tree-demo.png)
 
@@ -203,7 +205,7 @@ add index links. Updating a note requires its current `--version`; see the
 
 ## Move or rename a note
 
-Select a note and click **Move or rename**. Enter a new relative `.md` path:
+Select a note, open **More actions**, and click **Move or rename**. Enter a new relative `.md` path:
 `wiki/architecture.md` → `wiki/design.md` renames it, while
 `wiki/architecture.md` → `projects/design.md` moves it to another folder.
 Missing folders are created automatically. Click **Move** to apply.
@@ -222,7 +224,7 @@ agent reading guidance points to it.
 
 ## Delete a note
 
-Select **Delete note** in the viewer or editor and confirm the filename. Unsaved
+Choose **Delete note** from **More actions** or in the editor and confirm the filename. Unsaved
 edits are discarded. Skillshare checks the saved version and backs it up before
 deleting only that note; its folder and other notes remain. Update stale
 `INDEX.md` links yourself. After deletion, **Restore in Backup Files** opens the filtered history.

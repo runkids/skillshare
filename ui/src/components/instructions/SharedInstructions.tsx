@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ChevronDown, ChevronUp, Copy, Ellipsis, FilePlus, Info, Plus, Trash2, TriangleAlert, X } from 'lucide-react';
+import { ChevronDown, ChevronUp, Copy, Ellipsis, FilePlus, Info, Plus, Search, Trash2, TriangleAlert, X } from 'lucide-react';
 import { api, ApiError } from '../../api/client';
 import type { InstructionsWarning, SharedInstructionsFile, SharedInstructionsTarget } from '../../api/client';
 import AgentIcon from '../AgentIcon';
@@ -38,6 +38,7 @@ export default function SharedInstructions({ creating, setCreating }: { creating
   const t = useT();
   const queryClient = useQueryClient();
   const [params, setParams] = useSearchParams();
+  const [query, setQuery] = useState('');
   const { data, error, isPending } = useQuery({ queryKey: queryKeys.instructions.shared, queryFn: () => api.listSharedInstructions() });
 
   // A file just created: the dialog stays until the page shows it, since the list
@@ -69,6 +70,7 @@ export default function SharedInstructions({ creating, setCreating }: { creating
   // An older server does not say; file links then work as before.
   const fileLinks = data.file_links ?? true;
   const current = files.find((f) => f.name === params.get('file')) ?? files[0];
+  const shown = files.filter((f) => f.name.toLowerCase().includes(query.trim().toLowerCase()));
 
   return (
     <>
@@ -81,26 +83,33 @@ export default function SharedInstructions({ creating, setCreating }: { creating
         />
       ) : (
         <div className="grid grid-cols-[220px_minmax(0,1fr)] items-start gap-6">
-          <nav className="ss-list" aria-label={t('instructions.shared.files')}>
-            {files.map((f) => {
-              const using = connectedTo(targets, f.name);
-              const on = f.name === current.name;
-              return (
-                <button key={f.name} type="button" aria-pressed={on} onClick={() => pick(f.name)}
-                  className={`ss-r link w-full !flex-col !items-start !gap-2 !py-3 text-left ${on ? 'sel' : ''}`}>
-                  <span className="max-w-full truncate font-mono text-[13.5px] font-semibold">{f.name}</span>
-                  <span className="flex items-center gap-2">
-                    {using.length > 0 && (
-                      <span className="ss-stack" aria-hidden="true">
-                        {using.slice(0, 5).map((tg) => <span key={tg.name} className="ss-at !h-5 !w-5"><AgentIcon target={tg.name} size={11} /></span>)}
-                      </span>
-                    )}
-                    <span className="text-[12px] text-ink-3">{t(using.length === 1 ? 'instructions.shared.count.one' : 'instructions.shared.count.other', { count: using.length })}</span>
-                  </span>
-                </button>
-              );
-            })}
-          </nav>
+          <div className="sticky top-6 flex max-h-[calc(100dvh-48px)] min-w-0 flex-col gap-2.5">
+            <label className="ss-inp h-[34px] w-full">
+              <Search size={15} className="shrink-0 text-ink-3" />
+              <input type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder={t('instructions.shared.search')} aria-label={t('instructions.shared.search')} />
+            </label>
+            <nav className="ss-list min-h-0 !overflow-y-auto" aria-label={t('instructions.shared.files')}>
+              {shown.length === 0 && <p className="px-4 py-3 text-[13px] text-ink-3">{t('instructions.shared.noMatches')}</p>}
+              {shown.map((f) => {
+                const using = connectedTo(targets, f.name);
+                const on = f.name === current.name;
+                return (
+                  <button key={f.name} type="button" aria-pressed={on} onClick={() => pick(f.name)}
+                    className={`ss-r link w-full !flex-col !items-start !gap-2 !py-3 text-left ${on ? 'sel' : ''}`}>
+                    <span className="max-w-full truncate font-mono text-[13.5px] font-semibold">{f.name}</span>
+                    <span className="flex items-center gap-2">
+                      {using.length > 0 && (
+                        <span className="ss-stack" aria-hidden="true">
+                          {using.slice(0, 5).map((tg) => <span key={tg.name} className="ss-at !h-5 !w-5"><AgentIcon target={tg.name} size={11} /></span>)}
+                        </span>
+                      )}
+                      <span className="text-[12px] text-ink-3">{t(using.length === 1 ? 'instructions.shared.count.one' : 'instructions.shared.count.other', { count: using.length })}</span>
+                    </span>
+                  </button>
+                );
+              })}
+            </nav>
+          </div>
           <FilePanel key={current.name} file={current} targets={targets} fileLinks={fileLinks}
             onDeleted={() => pick(files.find((f) => f.name !== current.name)?.name ?? null)} />
         </div>

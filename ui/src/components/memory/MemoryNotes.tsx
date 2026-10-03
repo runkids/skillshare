@@ -92,34 +92,32 @@ export default function MemoryNotes({ creating, setCreating }: { creating: boole
   if (isPending) return <PageSkeleton />;
   if (error) return <div className="ss-note bad"><span className="flex-1">{errorMessage(error)}</span></div>;
   if (!data) return null;
+  const guidance = <MemoryGuidance initialized={data.initialized} instructions={data.instructions} />;
 
   return (
     <section className="flex flex-col gap-6" aria-label={t('memory.title')}>
       {notice && <div role="status" className="ss-note warn">{notice}</div>}
       {backupPath && <Link className="ss-more" to={`/backup?tab=files&path=${encodeURIComponent(backupPath)}`}>{t('memory.restoreNote')}</Link>}
       {(data.index?.broken_links.length ?? 0) > 0 && <div className="ss-note warn"><span>{t('memory.brokenLinks', { paths: data.index!.broken_links.join(', ') })}</span></div>}
-      <div className="flex flex-wrap items-start gap-6">
-        <div className="min-w-0 flex-[999_1_600px]">
-          {data.notes.length === 0 && !search ? (
-            <EmptyState icon={BookOpen} title={t('memory.empty')} description={t('memory.emptyHint')} action={!data.initialized &&
-              <Button variant="primary" disabled={busy} onClick={() => void initialize()}><Plus size={15} />{t('memory.init')}</Button>} />
-          ) : (
-            <MemoryBrowser notes={data.notes} root={data.root} busy={busy} onEdit={setEditing} onDelete={setDeleting}
-              onMove={(note) => { setMoving(note); setNewPath(note.path); }}
-              search={<label className="ss-inp h-[34px] w-full">
-                <Search size={15} className="shrink-0 text-ink-3" />
-                <input type="search" value={search} onChange={(e) => setSearch(e.target.value)} placeholder={t('memory.searchShort')} aria-label={t('memory.search')} />
-              </label>}
-              empty={<EmptyState icon={Search} title={t('memory.noMatches')} description={t('memory.emptyHint')} />}
-              index={data.index} onLinkIndex={async (path) => {
-                if (!data.index?.version) return;
-                try { await api.linkMemoryIndex(path, data.index.version); setNotice(''); refresh(); }
-                catch (err) { setNotice(errorMessage(err)); }
-              }} />
-          )}
-        </div>
-        <MemoryGuidance initialized={data.initialized} instructions={data.instructions} />
-      </div>
+      {data.notes.length === 0 && !search ? <>
+        <EmptyState icon={BookOpen} title={t('memory.empty')} description={t('memory.emptyHint')} action={!data.initialized &&
+          <Button variant="primary" disabled={busy} onClick={() => void initialize()}><Plus size={15} />{t('memory.init')}</Button>} />
+        {guidance}
+      </> : (
+        <MemoryBrowser notes={data.notes} root={data.root} busy={busy} onEdit={setEditing} onDelete={setDeleting}
+          onMove={(note) => { setMoving(note); setNewPath(note.path); }}
+          search={<label className="ss-inp h-[34px] w-full">
+            <Search size={15} className="shrink-0 text-ink-3" />
+            <input type="search" value={search} onChange={(e) => setSearch(e.target.value)} placeholder={t('memory.searchShort')} aria-label={t('memory.search')} />
+          </label>}
+          empty={<EmptyState icon={Search} title={t('memory.noMatches')} description={t('memory.emptyHint')} />}
+          footer={guidance}
+          index={data.index} onLinkIndex={async (path) => {
+            if (!data.index?.version) return;
+            try { await api.linkMemoryIndex(path, data.index.version); setNotice(''); refresh(); }
+            catch (err) { setNotice(errorMessage(err)); }
+          }} />
+      )}
       {editing && <InstructionsEditorDialog
         key={editing.path} title={editing.path} path={`${data.root}/${editing.path}`} content={editing.content ?? ''}
         note={t('memory.editorHint')}
