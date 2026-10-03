@@ -50,6 +50,9 @@ func acquireRef(ctx context.Context, source, ref string) (string, string, func()
 		p, err := filepath.Abs(source)
 		return p, p, cleanup, err
 	}
+	if isNpmSource(source) {
+		return "", "", cleanup, fmt.Errorf("npm packages can't be previewed: Pi downloads them when it installs them. Add one to a Pi target with: skillshare plugin add %s --target pi", source)
+	}
 	if githubPattern.MatchString(source) {
 		source = "https://github.com/" + source + ".git"
 	}

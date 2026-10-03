@@ -217,11 +217,13 @@ type Change struct {
 	piRecord       []byte
 	piSettingsHash string
 	piRestores     map[string]piRestoreReceipt
-	Name           string `json:"name"`
-	Target         string `json:"target"`
-	ID             string `json:"id"`
-	Action         string `json:"action"`
-	Message        string `json:"message,omitempty"`
+	// piRecordAfter records the entry Pi writes on install, which keeps another version's filters.
+	piRecordAfter bool
+	Name          string `json:"name"`
+	Target        string `json:"target"`
+	ID            string `json:"id"`
+	Action        string `json:"action"`
+	Message       string `json:"message,omitempty"`
 	// MessageKey names Message for the dashboard to translate, with MessageArgs.
 	MessageKey  string            `json:"messageKey,omitempty"`
 	MessageArgs map[string]string `json:"messageArgs,omitempty"`

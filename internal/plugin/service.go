@@ -56,6 +56,17 @@ func (s *Service) validate(r Request) error {
 	if r.Action == "add" && r.Source == "" {
 		return fmt.Errorf("add requires a source")
 	}
+	if r.Action == "add" && isNpmSource(r.Source) {
+		if !validNpmSource(r.Source) {
+			return fmt.Errorf("invalid npm source; use npm:<package> or npm:<package>@<version>")
+		}
+		if r.SourceRef != "" || r.Entry != "" || r.Plugin != "" {
+			return fmt.Errorf("an npm source takes no source ref, entry or plugin selector")
+		}
+		if len(r.Targets) == 0 {
+			return fmt.Errorf("npm packages are installed by Pi; choose a Pi target")
+		}
+	}
 	if r.Action == "import" && (!slices.Contains(targets, r.From) || !validTargetID(s.agentOf(r.From), r.Plugin)) {
 		return fmt.Errorf("import requires --from <target> and a native plugin identifier")
 	}
@@ -105,12 +116,13 @@ func (s *Service) Preview(ctx context.Context, r Request) (*Plan, error) {
 		agent := s.agentOf(c.Target)
 		if agent == "pi" && c.Binding.PiRegistration != "" && len(c.piRecord) == 0 && (c.Action == "install" || c.Action == "uninstall" || c.Action == "remove" || c.Action == "update") {
 			if err := s.preparePiRegistration(ctx, &c); err != nil {
-				c.Action, c.Message = "blocked", err.Error()
+				c.Action, c.Message, c.MessageKey, c.MessageArgs = "blocked", err.Error(), "", nil
 			}
 		}
-		if h.Error != "" {
+		// A change already blocked keeps its own reason; the key always matches the message.
+		if h.Error != "" && c.Action != "blocked" {
 			c.Action = "blocked"
-			c.Message = h.Error
+			c.Message, c.MessageKey, c.MessageArgs = h.Error, h.ErrorKey, nil
 		}
 		if c.Action != "blocked" && c.Action != "noop" && c.Action != "skip" && c.Action != "import" && c.Action != "update-available" && c.Action != "native-check" {
 			if err := s.verifyCommand(ctx, c.Target, c.Action, c.ID); err != nil {
@@ -144,6 +156,10 @@ func (s *Service) Preview(ctx context.Context, r Request) (*Plan, error) {
 		}
 		if c.Action == "update" && agent == "antigravity-cli" {
 			skip("plugins.skip.keepEnablement", "Update in Antigravity CLI to preserve native enablement; automatic reinstall updates are not supported.", map[string]string{"agent": "Antigravity CLI"})
+		}
+		// pi update keeps an npm package pinned to an exact version.
+		if version := pinnedNpm(c.ID); c.Action == "update" && agent == "pi" && version != "" {
+			skip("plugins.skip.npmPinned", fmt.Sprintf("Pinned to %s; to use another version, add the package again with that version.", version), map[string]string{"version": version})
 		}
 		// pi update has no project scope, and OpenCode v1 has no update command.
 		if c.Action == "update" && c.Binding.Source == "" && s.ProjectRoot != "" && agent == "pi" || c.Action == "update" && c.Binding.Source == "" && agent == "opencode" && (s.ProjectRoot != "" || !strings.HasPrefix(strings.TrimPrefix(h.Version, "v"), "2.")) {
@@ -202,7 +218,44 @@ func (s *Service) Preview(ctx context.Context, r Request) (*Plan, error) {
 		}
 		return Installed{}, false
 	}
-	if r.Action == "add" {
+	if r.Action == "add" && isNpmSource(r.Source) {
+		name := r.Name
+		if name == "" {
+			if name = logicalName(r.Source); name == "" {
+				return nil, fmt.Errorf("use --name to choose a package name for this npm source")
+			}
+		}
+		others := []string{}
+		for other := range d.packages {
+			if other != name {
+				others = append(others, other)
+			}
+		}
+		slices.Sort(others)
+		for _, target := range slices.Compact(slices.Sorted(slices.Values(r.Targets))) {
+			owner := ""
+			for _, other := range others {
+				if b, ok := d.packages[other].Bindings[target]; ok && sameNpmPackage(b.ID, r.Source) {
+					owner = other
+					break
+				}
+			}
+			old, bound := d.packages[name].Bindings[target]
+			c := s.npmChange(name, target, r.Source, owner, old, bound, host(target).Installed)
+			// An adopted entry with resource filters keeps them, as an import does. Installing
+			// another version over one keeps them too, so its new entry is recorded after the install.
+			filtered := func(id string) bool {
+				return slices.ContainsFunc(host(target).Installed, func(i Installed) bool { return i.Filtered && (i.ID == id || sameNpmPackage(i.ID, id)) })
+			}
+			if c.Action == "import" && filtered(c.ID) {
+				if err := s.preparePiRegistration(ctx, &c); err != nil {
+					c.Action, c.Message = "blocked", err.Error()
+				}
+			}
+			c.piRecordAfter = c.Action == "install" && filtered(c.ID)
+			appendChange(c)
+		}
+	} else if r.Action == "add" {
 		discovered, err := DiscoverOptions(ctx, r.Source, r.SourceRef, r.Entry)
 		if err != nil {
 			return nil, err

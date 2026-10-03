@@ -37,7 +37,7 @@ target 会保存该选择。下一次 `sync plugins` 会移除其受管理的安
 |---|---|
 | `list` | Configured bindings and native installation state; interactive manager in a terminal |
 | `discover SOURCE` | Inspect a local directory, `owner/repo`, or HTTPS Git repository |
-| `add [SOURCE]` | Choose and install a whole plugin with its target adapter |
+| `add [SOURCE]` | Choose and install a whole plugin with its target adapter, or an `npm:` package through Pi |
 | `import [NATIVE-ID]` | Adopt an existing installation without reinstalling or enabling it |
 | `inspect NAME` | Inspect one managed package |
 | `sync [NAME]` | Reconcile selected targets and retry incomplete native operations |
@@ -141,9 +141,24 @@ Pi 使用 `pi install` / `pi remove`；清单读取有文档记录的 package �
 而不加载 extension 代码。`PI_CODING_AGENT_DIR` 会被遵循。Pi 的 project trust 必须在 Pi 中建立；
 Skillshare 不会替你传递 `--approve`。
 
+#### pi.dev 的 npm 包
+
+`plugin add npm:<包>` 会通过 Pi 本身安装发布在 npm 上的包，例如 [pi.dev](https://pi.dev/packages) 列出的包：
+
+```bash
+skillshare plugin add npm:@scope/package --target pi --dry-run --json -g
+skillshare plugin add npm:@scope/package@1.2.0 --target pi --no-tui -g
+```
+
+Pi 会下载包并运行它的 install script，Skillshare 无法事先检查内容；添加前请先在 pi.dev 或 npm 确认包。`discover` 不接受 npm 来源，npm 来源也不接受 `--source-ref`、`--entry` 或 `--plugin`。只有 Pi target 能接受 npm 来源，包括运行 `pi` 的 Pi 账号；运行其他可执行文件的账号，请用那个可执行文件安装后再导入。搭配 `--project` 时，Pi 会把包装进项目的设置；项目一旦有 `.pi` 文件夹，要先在 Pi 信任这个项目，Pi 才会修改它的包。
+
+Pi 每个包名只保留一条。Pi 已经有相同来源时，`add` 会导入它；同一包的其他版本则会安装，由 Pi 替换那一条的来源。`update` 会运行 `pi update`，但固定在精确版本的包 Pi 会保持原版本，请改用新版本重新添加。如果你关闭了包里的某些 extension，Pi 会把这些规则保留到新版本，Skillshare 也会重新记录，之后重装时会还原。已经由另一个 Skillshare 包管理的 Pi 包会被拒绝，请改为更新或移除那一个。
+
+在 dashboard 的添加对话框，可以直接粘贴 `pi install npm:<包>` 命令或包的 pi.dev 网址，两者都会转成对应的 `npm:` 来源。
+
 #### 选择 package 的 extension
 
-在 dashboard 中，`pi` 和 Pi 账号的 target 页面有一个 **Extensions** 标签页。它列出该 target 的 `settings.json` 中每个包条目，以及其过滤规则选中的 extension。开关会在该条目的 `extensions` 列表中写入一条精确的 `+path` 或 `-path` 规则。**Remove rule** 会删除该文件的精确规则（无论写成相对路径还是绝对路径），之后该文件由其余规则决定；结果会显示在预览中。应用前一定会先显示预览，并且只修改这些列表：条目的其他键、`skills`、`prompts` 和 `themes` 过滤规则、glob 和 `!` 规则，以及文件的其余部分都保持原样。字符串条目会变成 `{"source": ...}`，以便放入规则。对于字符串条目，Pi 只从包的 `pi` manifest 读取 skills、prompts 和 themes；对象条目则会在 manifest 没有列出时，从包的 `skills`、`prompts`、`themes` 文件夹加载它们。有这类文件夹的包，其字符串条目是只读的，因为 Skillshare 无法确认转换后这些资源保持原样。指向单个文件的来源也是只读的，因为 Pi 会直接加载它并忽略过滤规则。如果预览后文件已被修改，或 Pi 正持有设置锁，就不会写入任何内容。写入期间 Skillshare 会以与 Pi 相同的方式持有这个锁，一旦失去就不写入。每次应用前都会保存一份变更的 extension 列表及文件变更前后哈希的记录。成功应用的记录会保留，不会自动清理；应用失败时只移除该次新建的记录。这不是 `settings.json` 的副本，无法用来恢复整份设置文件。这个标签页会列出设置中的所有包，包括直接用 Pi 安装的，例如 [pi.dev](https://pi.dev/packages) 上的 `npm:` 包。Skillshare 只通过 `plugin` 安装和移除包：`plugin add` 接受本地目录或 Git 来源，`plugin import --from pi` 则可接管用 Pi 安装的包。
+在 dashboard 中，`pi` 和 Pi 账号的 target 页面有一个 **Extensions** 标签页。它列出该 target 的 `settings.json` 中每个包条目，以及其过滤规则选中的 extension。开关会在该条目的 `extensions` 列表中写入一条精确的 `+path` 或 `-path` 规则。**Remove rule** 会删除该文件的精确规则（无论写成相对路径还是绝对路径），之后该文件由其余规则决定；结果会显示在预览中。应用前一定会先显示预览，并且只修改这些列表：条目的其他键、`skills`、`prompts` 和 `themes` 过滤规则、glob 和 `!` 规则，以及文件的其余部分都保持原样。字符串条目会变成 `{"source": ...}`，以便放入规则。对于字符串条目，Pi 只从包的 `pi` manifest 读取 skills、prompts 和 themes；对象条目则会在 manifest 没有列出时，从包的 `skills`、`prompts`、`themes` 文件夹加载它们。有这类文件夹的包，其字符串条目是只读的，因为 Skillshare 无法确认转换后这些资源保持原样。指向单个文件的来源也是只读的，因为 Pi 会直接加载它并忽略过滤规则。如果预览后文件已被修改，或 Pi 正持有设置锁，就不会写入任何内容。写入期间 Skillshare 会以与 Pi 相同的方式持有这个锁，一旦失去就不写入。每次应用前都会保存一份变更的 extension 列表及文件变更前后哈希的记录。成功应用的记录会保留，不会自动清理；应用失败时只移除该次新建的记录。这不是 `settings.json` 的副本，无法用来恢复整份设置文件。这个标签页会列出设置中的所有包，包括直接用 Pi 安装的，例如 [pi.dev](https://pi.dev/packages) 上的 `npm:` 包。Skillshare 只通过 `plugin` 安装和移除包：`plugin add` 接受本地目录、Git 来源或 [npm 包](#pidev-的-npm-包)，`plugin import --from pi` 则可接管用 Pi 安装的包。
 
 Skillshare 读取包时不会运行它们，因此这个标签页显示的是设置选中了哪些文件（**设置**列），而不是 Pi 是否已加载它们；应用后请重新加载 Pi。设置指明但包中不存在的文件会标记为不存在。Skillshare 无法判断的选择会显示**无法判断**，并附上原因与修改方式，绝不猜测开或关。编辑需要该 target 自己的 Pi 是 Skillshare 验证过的版本（目前为 0.99.2 和 1.0.0，各自用 Pi 本身验证过），且设置是严格的 JSON；其他版本为只读，标签页会显示检测到的版本。运行其他程序的 Pi 账号为只读，Skillshare 也不会运行它。列表为 `[]`（不加载任何文件）的条目是只读的，由 Skillshare 无法评估的模式（例如 `?` 对上 emoji）决定的 extension 也是只读的。来源为空的条目，或来源、规则中含有未配对的 UTF-16 代理项转义或无效 UTF-8 的条目，因为 Skillshare 无法像 Pi 一样准确读取，会保持原样并设为只读。Pi 只采用包的第一个全局条目，所以当 Skillshare 无法读取那个条目时，同一个包后面的条目也是只读的。
 

@@ -10,11 +10,16 @@ import { pluginErrorMessage } from './pluginError';
 import { useT } from '../../i18n';
 import { useAppContext } from '../../context/AppContext';
 import { shortenPath } from '../../lib/paths';
+import PiPackageIcon from '../PiPackageIcon';
 
 const STACK = 6;
 
 interface Props {
   inventory: PluginInventory;
+  /** The packages this list shows, in order. */
+  names: string[];
+  /** Pi packages, which all show Pi's mark. */
+  pi?: boolean;
   /** The version each plugin's source has, from the last update check. */
   updates?: Record<string, string>;
   busy: boolean;
@@ -32,12 +37,12 @@ interface Props {
 export default function PluginList(props: Props) {
   return (
     <div className="ss-list">
-      {Object.keys(props.inventory.packages).map((name) => <Row key={name} name={name} {...props} />)}
+      {props.names.map((name) => <Row key={name} name={name} {...props} />)}
     </div>
   );
 }
 
-function Row({ name, inventory, updates, busy, working, onToggle, onMenu, onAdd, onBlocked }: Props & { name: string }) {
+function Row({ name, pi, inventory, updates, busy, working, onToggle, onMenu, onAdd, onBlocked }: Props & { name: string }) {
   const t = useT();
   const { isProjectMode } = useAppContext();
   const pluginTargets = targetMap(inventory.targetDefinitions);
@@ -76,14 +81,22 @@ function Row({ name, inventory, updates, busy, working, onToggle, onMenu, onAdd,
   const codex = candidate?.targets.includes('codex') ? candidate.targetInfo?.codex : undefined;
   const logo = codex && !codex.problem ? codex.logo : undefined;
   const others = candidate ? agentReasons(candidate, pluginTargets, isProjectMode, t).filter((r) => !pack.bindings[r.target]) : [];
+  // An npm package, imported or added, records no source: Pi installs it from its identifier,
+  // so the other Pi targets need no discovery, as in the add dialog.
+  const npm = source ? undefined : bindings.find(([, b]) => b.id.startsWith('npm:'))?.[1].id;
+  const npmOthers = npm ? (inventory.targetDefinitions ?? []).filter((d) => d.npm && d.operations.includes('add') && (!isProjectMode || d.project) && !pack.bindings[d.target]) : [];
   const blocked = others.filter((r) => r.reason).length;
-  const total = bindings.length + others.length - blocked;
+  const total = bindings.length + others.length - blocked + npmOthers.length;
   return (
     <>
       <div className="ss-r">
-        <span className="ss-cat plugin sm">
-          {logo ? <img src={logo} alt="" className="size-full rounded-[inherit] object-cover" /> : <Package size={14} />}
-        </span>
+        {pi ? (
+          <span className="ss-cat sm bg-sunken text-ink"><PiPackageIcon size={22} /></span>
+        ) : (
+          <span className="ss-cat plugin sm">
+            {logo ? <img src={logo} alt="" className="size-full rounded-[inherit] object-cover" /> : <Package size={14} />}
+          </span>
+        )}
         <span className="flex min-w-0 flex-1 flex-col gap-0.5">
           <span className="flex items-center gap-2">
             <span title={name} className="truncate font-mono font-semibold">{name}</span>
@@ -140,6 +153,12 @@ function Row({ name, inventory, updates, busy, working, onToggle, onMenu, onAdd,
             <Toggle
               key={target} target={target} label={definition.label} on={false} applying={working === `${name}:${target}`} disabled={busy}
               onClick={() => onAdd({ action: 'add', source: found.data!.source, sourceRef: found.data!.sourceRef || undefined, entry: entry || undefined, plugin: candidate!.name, name, targets: [target] }, `${name}:${target}`)}
+            />
+          ))}
+          {npmOthers.map((definition) => (
+            <Toggle
+              key={definition.target} target={definition.target} label={definition.label} on={false} applying={working === `${name}:${definition.target}`} disabled={busy}
+              onClick={() => onAdd({ action: 'add', source: npm, name, targets: [definition.target] }, `${name}:${definition.target}`)}
             />
           ))}
           {found.isFetching && <span className="flex items-center gap-2 text-[13px] text-ink-3"><Spinner size="sm" />{t('plugins.discovering')}</span>}

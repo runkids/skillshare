@@ -1,4 +1,5 @@
-import { Fragment, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { ChevronRight, Download, FolderOpen, Package, Plus, RefreshCw, Share2, Trash2, X } from 'lucide-react';
 import { pluginShareCommand, pluginsApi, syncAction, targetMap, type PluginPlan, type PluginRequest, type PluginResult, type PluginTarget, type PluginInventory } from '../api/plugins';
@@ -34,7 +35,15 @@ export default function PluginsPage() {
   const base = quick.data ?? full.data;
   const data = base && { ...base, hosts: full.data?.hosts ?? [] };
   const error = quick.error ?? full.error;
-  const [adding, setAdding] = useState<{ source?: string; name?: string; bound?: PluginInventory['packages'][string]['bindings']; recorded?: PluginInventory['packages'][string] } | null>(null);
+  const [adding, setAdding] = useState<{ source?: string; name?: string; targets?: PluginTarget[]; bound?: PluginInventory['packages'][string]['bindings']; recorded?: PluginInventory['packages'][string] } | null>(null);
+  // A target page links here with ?add=<target> to add a plugin for that target.
+  const [params, setParams] = useSearchParams();
+  useEffect(() => {
+    const target = params.get('add');
+    if (target === null) return;
+    setAdding({ targets: target ? [target] : [] });
+    setParams({}, { replace: true });
+  }, [params, setParams]);
   const [importing, setImporting] = useState(false);
   const [sharing, setSharing] = useState<string[] | null>(null);
   const [browsing, setBrowsing] = useState<{ name: string; source?: string } | null>(null);
@@ -122,6 +131,18 @@ export default function PluginsPage() {
       ],
     });
   };
+  // A package bound only to Pi targets is a Pi package: it gets its own list, in the same rows.
+  const piTargets = new Set((data?.targetDefinitions ?? []).filter((d) => d.npm).map((d) => d.target));
+  const names = Object.keys(data?.packages ?? {});
+  const isPi = (name: string) => {
+    const bound = Object.keys(data!.packages[name].bindings);
+    return bound.length > 0 && bound.every((target) => piTargets.has(target));
+  };
+  const piPackages = names.filter(isPi);
+  const plugins = names.filter((name) => !isPi(name));
+  const list = (shown: string[], pi?: boolean) => data && (
+    <PluginList inventory={data} names={shown} pi={pi} updates={updates} busy={busy} working={working} onToggle={(name, target, on) => void selectTarget(name, target, on)} onMenu={openMenu} onAdd={begin} onBlocked={(name, source) => setAdding({ name, source, bound: data.packages[name]?.bindings, recorded: data.packages[name] })} />
+  );
   const addActions = <>
     <Button variant="secondary" disabled={busy} onClick={() => setImporting(true)}><Download size={15} />{t('plugins.import')}</Button>
     <Button disabled={busy} onClick={() => setAdding({})}><Plus size={15} />{t('plugins.add')}</Button>
@@ -177,19 +198,25 @@ export default function PluginsPage() {
       {(failure || error) && <div role="alert" className="ss-note bad"><span className="flex-1">{failure || (error as Error).message}</span></div>}
 
       {data && <RailLayout rail={rail}>
-        <section aria-labelledby="plugins-managed-title" className="flex flex-col gap-3">
-          <div className="ss-sec"><h2 id="plugins-managed-title">{t('plugins.managedTitle')}</h2><span className="ss-cnt">{packages.length}</span></div>
-          {packages.length === 0 ? (
-            <EmptyState icon={Package} title={t('plugins.empty')} description={t('plugins.emptyHelp')} action={addActions} />
-          ) : (
-            <PluginList inventory={data} updates={updates} busy={busy} working={working} onToggle={(name, target, on) => void selectTarget(name, target, on)} onMenu={openMenu} onAdd={begin} onBlocked={(name, source) => setAdding({ name, source, bound: data.packages[name]?.bindings, recorded: data.packages[name] })} />
-          )}
-        </section>
+        <div className="flex flex-col gap-7">
+        {(packages.length === 0 || plugins.length > 0) && (
+          <section aria-labelledby="plugins-managed-title" className="flex flex-col gap-3">
+            <div className="ss-sec"><h2 id="plugins-managed-title">{t('plugins.managedTitle')}</h2><span className="ss-cnt">{plugins.length}</span></div>
+            {packages.length === 0 ? <EmptyState icon={Package} title={t('plugins.empty')} description={t('plugins.emptyHelp')} action={addActions} /> : list(plugins)}
+          </section>
+        )}
+        {piPackages.length > 0 && (
+          <section aria-labelledby="plugins-pi-title" className="flex flex-col gap-3">
+            <div className="ss-sec"><h2 id="plugins-pi-title">{t('plugins.piTitle')}</h2><span className="ss-cnt">{piPackages.length}</span></div>
+            {list(piPackages, true)}
+          </section>
+        )}
+        </div>
       </RailLayout>}
 
       {sharing && <PluginShareDialog plugins={shareable} initial={sharing} onClose={() => setSharing(null)} />}
       {browsing && <PluginFilesDialog name={browsing.name} source={browsing.source} onClose={() => setBrowsing(null)} />}
-      {adding && <PluginAddDialog initialName={adding.name} initialSource={adding.source} bound={adding.bound} recorded={adding.recorded} onClose={() => setAdding(null)} onPreview={preview} />}
+      {adding && <PluginAddDialog initialName={adding.name} initialSource={adding.source} initialTargets={adding.targets} definitions={data?.targetDefinitions} bound={adding.bound} recorded={adding.recorded} onClose={() => setAdding(null)} onPreview={preview} />}
 
       <DialogShell open={importing} onClose={() => setImporting(false)} preventClose={busy} ariaLabel={t('plugins.import')} maxWidth="2xl" padding="none">
         <div className="dh">

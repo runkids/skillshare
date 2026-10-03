@@ -55,3 +55,43 @@ func TestPluginCLIDiscoveryAndSelection(t *testing.T) {
 	}
 	sb.RunCLI("sync", "plugins", "--help").AssertSuccess(t)
 }
+
+// Pi itself installs an npm package from pi.dev; the preview says it runs install scripts.
+func TestPluginAddNpmPackageThroughPi(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	sb.WriteConfig("targets: {}\n")
+	bin := filepath.Join(sb.Home, "bin")
+	agentDir := filepath.Join(sb.Home, ".pi/agent")
+	fake := "#!/bin/sh\ncase \"$1\" in\n--version) echo 0.99.2 ;;\ninstall) [ \"$2\" = --help ] || printf '{\"packages\":[\"%s\"]}' \"$2\" > \"$PI_CODING_AGENT_DIR/settings.json\" ;;\nesac\n"
+	if err := os.MkdirAll(bin, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(agentDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(bin, "pi"), []byte(fake), 0755); err != nil {
+		t.Fatal(err)
+	}
+	env := map[string]string{"PATH": bin + ":" + os.Getenv("PATH"), "PI_CODING_AGENT_DIR": agentDir}
+
+	r := sb.RunCLIEnv(env, "plugin", "add", "npm:demo", "--target", "pi", "--no-tui", "-g")
+	r.AssertSuccess(t)
+	settings, _ := os.ReadFile(filepath.Join(agentDir, "settings.json"))
+	if string(settings) != `{"packages":["npm:demo"]}` {
+		t.Fatalf("Pi did not install the package: %s\n%s", settings, r.Stdout+r.Stderr)
+	}
+	config, _ := os.ReadFile(filepath.Join(sb.Home, ".config/skillshare/config.yaml"))
+	if !strings.Contains(string(config), "id: npm:demo") {
+		t.Fatalf("binding not recorded: %s", config)
+	}
+}
+
+func TestPluginDiscoverNpmPointsToAdd(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	sb.WriteConfig("targets: {}\n")
+	r := sb.RunCLI("plugin", "discover", "npm:demo", "--json", "-g")
+	r.AssertFailure(t)
+	r.AssertAnyOutputContains(t, "skillshare plugin add npm:demo --target pi")
+}
