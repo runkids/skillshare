@@ -454,6 +454,20 @@ try {
     }
   });
 
+  await scenario("a user npm managed-root miss may resolve through a legacy global root", async () => {
+    const r = await run({ global: { packages: [] } });
+    const native = new DefaultPackageManager({ cwd: r.cwd, agentDir: r.agentDir, settingsManager: r.settingsManager });
+    // Substitute only root lookup; never inspect the real global package tree.
+    native.getGlobalNpmRoot = () => join(root, "legacy-global");
+    native.getPnpmGlobalPackagePath = () => undefined;
+    const legacy = join(root, "legacy-global", "@fixture", "legacy");
+    mkdirSync(legacy, { recursive: true });
+    const parsed = native.parseSource("npm:@fixture/legacy@1.2.3");
+    eq(existsSync(native.getManagedNpmInstallPath(parsed, "user")), false);
+    eq(native.getNpmInstallPath(parsed, "user"), legacy);
+    eq(native.getNpmInstallPath(parsed, "project"), join(r.cwd, ".pi", "npm", "node_modules", "@fixture", "legacy"));
+  });
+
   await scenario("native proper-lockfile reclaims an empty stale settings lock", async () => {
     const r = await run({ global: { packages: [] } });
     const file = join(r.agentDir, "settings.json");

@@ -331,6 +331,12 @@ func openPiPackage(source, agentDir, projectDir, scope string) *piPackage {
 	}
 	info, err := os.Stat(p.src.install)
 	if err != nil {
+		if p.src.kind == "npm" && scope == "user" {
+			// Native Pi may fall back to a legacy global npm/pnpm root. Without
+			// resolving that root, absence here does not establish non-installation.
+			p.problem = "sourceUnknown"
+			return p
+		}
 		p.install, p.problem = "missing", "notInstalled"
 		return p
 	}

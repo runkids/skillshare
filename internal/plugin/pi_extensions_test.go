@@ -89,6 +89,28 @@ func selections(p PiExtensionPackage) []string {
 	return out
 }
 
+func TestPiMissingManagedNpmRootDoesNotClaimLegacyIsMissing(t *testing.T) {
+	for _, scope := range []string{"user", "project"} {
+		t.Run(scope, func(t *testing.T) {
+			f := newPiFixture(t)
+			p := openPiPackage("npm:@fixture/legacy@1.2.3", f.agentDir, filepath.Join(f.home, "project", ".pi"), scope)
+			if scope == "user" {
+				if p.install != "unknown" || p.problem != "sourceUnknown" {
+					t.Fatalf("legacy fallback was called missing: %+v", p)
+				}
+				f.global(map[string]any{"packages": []any{map[string]any{"source": "npm:@fixture/legacy@1.2.3", "extensions": []string{"-absent.ts"}}}})
+				v := f.view("pi")
+				pkg := v.Packages[0]
+				if pkg.Install != "unknown" || pkg.Problem != "sourceUnknown" || len(pkg.Rows) != 0 {
+					t.Fatalf("uncertain npm installation offered exact missing rows: %+v", pkg)
+				}
+			} else if p.install != "missing" || p.problem != "notInstalled" {
+				t.Fatalf("project has no legacy fallback: %+v", p)
+			}
+		})
+	}
+}
+
 func assertRows(t *testing.T, got []string, want ...string) {
 	t.Helper()
 	if len(got) != len(want) {

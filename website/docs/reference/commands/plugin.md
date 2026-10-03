@@ -173,7 +173,9 @@ manifest, while an object entry also loads them from the package's `skills`,
 `prompts` and `themes` folders when the manifest leaves them out. A string entry
 of a package with such a folder is read-only, because Skillshare can't show that
 converting it leaves those resources as they are. A source that is one file is
-read-only too, because Pi loads it as it is and ignores filters. If the file changed after the preview, or Pi holds its settings lock, nothing is written.
+read-only too, because Pi loads it as it is and ignores filters. A user-scoped npm registration without a managed cache is Unknown/read-only, not
+necessarily uninstalled: Pi may use a legacy global npm/pnpm root that Skillshare
+does not probe. If the file changed after the preview, or Pi holds its settings lock, nothing is written.
 An empty lock directory older than Pi's 10-second stale threshold can be reclaimed
 only if its inode and mtime are unchanged. Fresh, renewed, replaced, nonempty,
 file, and symlink locks are refused. Reclamation follows Pi's stale-lock protocol;

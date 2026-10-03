@@ -158,6 +158,8 @@ OpenCode 會在 `opencode.json` 或既有的 `opencode.jsonc` 中，把受管理
 `index.js`）以及所需的執行期依賴。Skillshare 不會執行建置腳本，也不會將依賴安裝進 source。
 註冊成功不代表模組已成功載入；請在重新載入後檢查 OpenCode。
 
+全域 npm 登錄沒有 managed cache 時顯示 Unknown／唯讀，不代表尚未安裝；Pi 可能使用 Skillshare 不探查的 legacy global npm/pnpm 路徑。
+
 匯入接受一般 Pi source，以及已驗證 Pi 0.99.2/1.0.0 中來源與選項格式受支援的 filtered object。預覽只顯示保留的欄位名稱，不顯示 opaque 值。匯入不修改原生設定或已安裝檔案；原始項目保存在 Skillshare 私有狀態，共用設定僅存 digest。sync/update 保留現有項目；解除安裝前保存最新選項，重新安裝時先恢復 object，避免暫時以預設規則啟用其他資源。這些 bindings 必須保留私有狀態：紀錄遺失、被修改或屬於其他 target 時拒絕恢復。不確定的來源或優先序、不支援的編碼，以及 Pi 會正規化的本機參照仍為唯讀。一般 OpenCode 項目可匯入，filtered OpenCode 項目仍拒絕。超過 Pi 10 秒過期門檻的空鎖目錄，只有 inode 與 mtime 未變動時才能回收；新鎖、更新或被替換的鎖、非空目錄、檔案與 symlink 一律保留。過期不代表擁有者已終止，最後檢查與移除不是原子 CAS。已匯入的 Pi 套件在全域模式下以 `pi update SOURCE` 更新，並保留其設定項目；專案中的則要在 Pi 裡更新，因為 `pi update` 也會動到全域套件。已匯入的 OpenCode v1 套件會在其原生工具中更新。OpenCode
 v2 的全域匯入可以使用其原生更新指令；專案匯入則必須以原生方式更新，因為 v2 的更新指令是
 全域性的。

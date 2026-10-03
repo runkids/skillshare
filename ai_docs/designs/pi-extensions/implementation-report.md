@@ -28,7 +28,7 @@ configuration read-only; it does not touch trust, run extensions, or publish any
 | Native check | Pi's own `DefaultPackageManager` resolves the files Skillshare wrote, trusted and untrusted, through `scripts/pi/resolve-probe.mjs` (trust passed in; trust store never read or written). | `TestPiProjectOverridesResolveInPi` (version matrix check `project-native`). |
 | Write safety | Only `.pi/settings.json`, through an `os.Root` at the project. Revision binds both files' bytes (and the project file's absence), the scoped changes and the plan. An already refused or stale preview creates no folder, lock or backup. If Apply aborts after recording, only that attempt's new record is discarded; successful history is kept. Lock order: plugin lock, then Pi's `settings.json.lock`. A new file is linked into place (an existing one makes it stale); an existing one is renamed over. Backup and oplog as for global. After the backup, the plan is rebuilt from both files and the packages and must reproduce the revision before the write. | `TestPiProjectApplyIsBoundToBothFiles`, `…StaleApplyHasNoSideEffects`, `…WriteProtections`, `…ApplyIsBoundToDiscovery`, `…LockLostMidApply`, `…ApplyRevalidatesAtTheWrite`; server `TestPiExtensionsAPIProjectSavesOnlyProjectSettings` (global target refuses the project revision with 409). |
 | Unsafe forms | Credentials or a query in a global source: read-only, never copied; the note says to change that global entry to a source without them (adding a second entry would not help, since Pi keeps the first). A project entry Skillshare can't read, or a global entry whose source it can't read: whole project view read-only. A first global entry that Skillshare can't read (bad rules, `autoload: false`) still owns its package: no rows, no override, and later entries of the package are not offered. The global view marks those later entries `duplicate`. An unresolved earlier global identity or later project identity leaves potentially shadowed entries `sourceUnknown`, with no rows/edit targets; inherited deltas likewise stay read-only. | `TestPiProjectSettingsForms`, `TestPiProjectFirstGlobalEntryGoverns`, `TestPiExtensionsUnreadFirstEntryStillDedupes`, `TestPiUnresolvedRegistrationMakesOwnershipUnknown`, `TestPiBadSourceMakesPackageOwnershipUnknown`. Unreadable source values likewise create precedence uncertainty; Native scenario 29 confirms replacement-decoded invalid UTF-8 can own the same identity as a later valid local source. Native probe on 0.99.2: global `[{pkg, ["*", "!…\ud800…"]}, {pkg, ["-a"]}]` keeps `a.ts` on (the second entry is ignored); with a project delta `[+a, -b]` trusted, `b.ts` stays on, so the result is not predictable and read-only is correct. |
-| Version support | `PiVerifiedVersions` = 0.99.2, 1.0.0, backed by `scripts/pi/version-matrix.sh` (see `phase-0.md`, Version support update). Exact versions only. | `scripts/pi/version-evidence.json`: both versions pass `contract/core` and `contract/bundle` (31 scenarios, 127 assertions), `native-lock`, `project-native`. |
+| Version support | `PiVerifiedVersions` = 0.99.2, 1.0.0, backed by `scripts/pi/version-matrix.sh` (see `phase-0.md`, Version support update). Exact versions only. | `scripts/pi/version-evidence.json`: both versions pass `contract/core` and `contract/bundle` (32 scenarios, 130 assertions), `native-lock`, `project-native`. |
 
 Revalidation boundary: the project file is locked; the global settings are not (taking
 Pi's global lock would write a lock directory into the global agent folder). The global
@@ -444,3 +444,14 @@ Run in container `ss-pi-ext` unless marked host.
   Pi 0.99.2/editable, without changing fixture settings.
   Windows cross-compilation is not Windows runtime evidence. New visual screenshots were not
   run: browser automation is available only on the host, outside this task's tooling boundary.
+
+## Review: legacy global npm fallback
+
+A missing user-scoped managed npm directory now yields Unknown/sourceUnknown with
+no extension rows or write candidates. It does not establish notInstalled: native
+Pi can use legacy global npm/pnpm paths. No host-global root is probed. Project
+npm misses remain notInstalled, because native Pi has no legacy fallback there.
+`TestPiMissingManagedNpmRootDoesNotClaimLegacyIsMissing` reproduced RED and now
+passes; all plugin race tests passed. The isolated native fallback probe uses a
+substituted root lookup, actual native getNpmInstallPath and an empty fixture root;
+0.99.2/1.0.0 core/bundle each pass 32 scenarios/130 assertions, plus lock/project-native.
