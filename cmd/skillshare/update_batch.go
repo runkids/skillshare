@@ -314,6 +314,9 @@ func executeBatchUpdate(uc *updateContext, targets []updateTarget) (updateResult
 		for _, t := range targets {
 			if t.isRepo {
 				repos++
+				printUpdateRow(ui.MarkNone, t.name, "would run git pull", 0)
+			} else {
+				printUpdateRow(ui.MarkNone, t.name, "would reinstall", 0)
 			}
 		}
 		var parts []string
