@@ -87,12 +87,12 @@ export function parseSkillsAddCommand(value: string): SkillsAddCommand | null {
 
 /**
  * The discovered items a pasted command asks to preselect, or null to keep the default selection:
- * no command, a different source, no --skill (or '*'), or no name that matches.
- * Names match case-insensitively, as upstream does.
+ * no command, a different source, or no --skill (or '*'). Names match case-insensitively, as
+ * upstream does; when none is found the result is empty, so a one-skill command never turns into
+ * a batch of everything.
  */
 export function requestedSkills<T extends { name: string }>(command: SkillsAddCommand | null, source: string, items: T[]): T[] | null {
-  if (command?.source !== source) return null;
+  if (command?.source !== source || command.skills.length === 0) return null;
   const wanted = new Set(command.skills.map((s) => s.toLowerCase()));
-  const picked = items.filter((i) => wanted.has(i.name.toLowerCase()));
-  return picked.length > 0 ? picked : null;
+  return items.filter((i) => wanted.has(i.name.toLowerCase()));
 }

@@ -16,8 +16,8 @@ describe('requestedSkills', () => {
     expect(requestedSkills(parseSkillsAddCommand(`npx skills add o/r --skill '*'`), 'o/r', items)).toBeNull();
   });
 
-  it('keeps the default when no name matches', () => {
-    expect(requestedSkills({ source: 'o/r', skills: ['renamed'] }, 'o/r', items)).toBeNull();
+  it('preselects nothing when no named skill is found', () => {
+    expect(requestedSkills({ source: 'o/r', skills: ['renamed'] }, 'o/r', items)).toEqual([]);
   });
 });
 
