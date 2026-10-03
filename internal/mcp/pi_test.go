@@ -449,6 +449,22 @@ func TestPiProjectOverrideConflictSaysReplace(t *testing.T) {
 	}
 }
 
+// An entry this config synced and that was later changed into Pi's override is no server to
+// import either, so it gets the same conflict instead of the generic drift one.
+func TestPiProjectOverrideOfAManagedEntrySaysReplace(t *testing.T) {
+	s, tmp := projectsService(t, "mcp:\n  servers: {}\n  projects:\n    $TMP/p1:\n      targets: [pi]\n      servers:\n        direct:\n          command: tool\n")
+	applyProjects(t, s)
+	writePiProjectFile(t, filepath.Join(tmp, "p1"), `{"mcpServers":{"direct":{"enabled":false}}}`)
+	plan, err := s.Preview()
+	if err != nil {
+		t.Fatal(err)
+	}
+	c := changeFor(plan, filepath.Join(tmp, "p1", ".pi", "mcp.json"), "direct")
+	if c == nil || c.Action != "conflict" || !strings.HasPrefix(c.Message, "existing entry is a Pi project override") {
+		t.Fatalf("%+v", c)
+	}
+}
+
 func writePiProjectFile(t *testing.T, root, content string) {
 	t.Helper()
 	if err := os.MkdirAll(filepath.Join(root, ".pi"), 0755); err != nil {
