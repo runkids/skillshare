@@ -1389,10 +1389,12 @@ func checkVersionDoctor(cfg *config.Config, result *doctorResult, isProject bool
 				ui.Row(ui.MarkWarn, "Skill", "not found", doctorWidth)
 				result.suggest("skillshare upgrade --skill", "install the built-in skill")
 				result.addCheck("skill_version", checkWarning, "Skill: not found", nil)
+				result.addWarning()
 			}
 		} else {
 			ui.Row(ui.MarkWarn, "Skill", "missing version", doctorWidth)
 			result.addCheck("skill_version", checkWarning, "Skill: missing version", nil)
+			result.addWarning()
 		}
 		return
 	}
@@ -1401,6 +1403,7 @@ func checkVersionDoctor(cfg *config.Config, result *doctorResult, isProject bool
 		ui.Row(ui.MarkWarn, "Skill", localVersion+" → "+remote+" available", doctorWidth)
 		result.suggest("skillshare upgrade --skill", "update the built-in skill")
 		result.addCheck("skill_version", checkWarning, fmt.Sprintf("Skill: %s (%s available)", localVersion, remote), nil)
+		result.addWarning()
 		return
 	}
 	ui.Row(ui.MarkOK, "Skill", localVersion, doctorWidth)

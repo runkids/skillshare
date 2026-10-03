@@ -3,7 +3,9 @@
 package integration
 
 import (
+	"crypto/sha256"
 	"encoding/json"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -21,9 +23,16 @@ func TestDoctor_AllGood_PassesAll(t *testing.T) {
 	sb.CreateSkill("skill1", map[string]string{
 		"SKILL.md": "# Skill 1",
 	})
+	// The built-in skill, at a version no release will pass, so the check
+	// stays clean online and offline.
+	builtin := "---\nname: skillshare\nmetadata:\n  version: 999.0.0\n---\n"
+	sb.CreateSkill("skillshare", map[string]string{"SKILL.md": builtin})
 
-	// Write metadata to centralized store with correct file hash so integrity check passes
-	metaStore := `{"version":1,"entries":{"skill1":{"source":"test","type":"local","installed_at":"2026-01-01T00:00:00Z","file_hashes":{"SKILL.md":"sha256:c90671f17f3b99f87d8fe1a542ee2d6829d2b2cfb7684d298e44c7591d8b0712"}}}}`
+	// Write metadata to centralized store with correct file hashes so integrity check passes
+	metaStore := fmt.Sprintf(`{"version":1,"entries":{`+
+		`"skill1":{"source":"test","type":"local","installed_at":"2026-01-01T00:00:00Z","file_hashes":{"SKILL.md":"sha256:c90671f17f3b99f87d8fe1a542ee2d6829d2b2cfb7684d298e44c7591d8b0712"}},`+
+		`"skillshare":{"source":"test","type":"local","installed_at":"2026-01-01T00:00:00Z","file_hashes":{"SKILL.md":"sha256:%x"}}}}`,
+		sha256.Sum256([]byte(builtin)))
 	os.WriteFile(filepath.Join(sb.SourcePath, install.MetadataFileName), []byte(metaStore), 0644)
 
 	targetPath := sb.CreateTarget("claude")
@@ -53,6 +62,7 @@ func TestDoctor_AllGood_PassesAll(t *testing.T) {
 
 	// Create synced state
 	os.Symlink(filepath.Join(sb.SourcePath, "skill1"), filepath.Join(targetPath, "skill1"))
+	os.Symlink(filepath.Join(sb.SourcePath, "skillshare"), filepath.Join(targetPath, "skillshare"))
 
 	sb.WriteConfig(`source: ` + sb.SourcePath + `
 targets:
