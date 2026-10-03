@@ -3,6 +3,7 @@ module skillshare
 go 1.25.5
 
 require (
+	github.com/yuin/goldmark v1.7.8
 	github.com/charmbracelet/bubbles v1.0.0
 	github.com/charmbracelet/bubbletea v1.3.10
 	github.com/charmbracelet/glamour v0.10.0
@@ -57,7 +58,6 @@ require (
 	github.com/rogpeppe/go-internal v1.16.0 // indirect
 	github.com/sahilm/fuzzy v0.1.1 // indirect
 	github.com/xo/terminfo v0.0.0-20220910002029-abceb7e1c41e // indirect
-	github.com/yuin/goldmark v1.7.8 // indirect
 	github.com/yuin/goldmark-emoji v1.0.5 // indirect
 	golang.org/x/net v0.33.0 // indirect
 	golang.org/x/text v0.26.0 // indirect

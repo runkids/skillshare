@@ -11,6 +11,7 @@ skillshare의 일반적인 사용 패턴.
 | 하고 싶은 것... | 워크플로 |
 |-------------|----------|
 | 매일 skill 사용하기 | [일상 워크플로](./daily-workflow.md) |
+| AI 도구 간 메모리 공유 | [메모리 공유 가이드](./sharing-memory) |
 | 새 skill 찾고 설치하기 | [Skill 발견](./skill-discovery.md) |
 | skill 보호하기 | [백업 및 복원](./backup-restore.md) |
 | project 범위 skill 관리하기 | [Project 워크플로](./project-workflow.md) |

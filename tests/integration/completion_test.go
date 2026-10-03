@@ -107,6 +107,23 @@ func TestCompletion_TargetCLIFlag_AllShells(t *testing.T) {
 	}
 }
 
+func TestCompletion_PushPullFlag_AllShells(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	for shell, flag := range map[string]string{
+		"bash":       `push_flags="--dry-run -n --pull`,
+		"zsh":        "'--pull[",
+		"fish":       "using_command push' -l pull",
+		"powershell": "'push' = '--dry-run', '-n', '--pull'",
+		"nushell":    "--pull                   # Merge remote",
+	} {
+		result := sb.RunCLI("completion", shell)
+		result.AssertSuccess(t)
+		result.AssertOutputContains(t, flag)
+	}
+}
+
 func TestCompletion_Subcommands_AllShells(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
@@ -115,7 +132,7 @@ func TestCompletion_Subcommands_AllShells(t *testing.T) {
 		"bash": {
 			`backup_subcmds="files agents"`,
 			`backup_files_subcmds="list show restore"`,
-			`extras_subcmds="init list remove collect source"`,
+			`extras_subcmds="init list remove collect source memory"`,
 			`audit_rules_subcmds="disable enable severity reset init"`,
 			`ui_subcmds="start stop"`,
 		},
@@ -298,7 +315,9 @@ func TestCompletion_Fish_CompletesMCPCheck(t *testing.T) {
 	assertCandidates(t, completeIn(t, "fish", "--no-config", "-c", "source "+script+"; complete -C 'skillshare mcp add --'"), "--url", "--target", "--sync", "--replace", "--dry-run", "--json", "--no-tui")
 	assertCandidates(t, completeIn(t, "fish", "--no-config", "-c", "source "+script+"; complete -C 'skillshare backup '"), "files", "agents")
 	assertCandidates(t, completeIn(t, "fish", "--no-config", "-c", "source "+script+"; complete -C 'skillshare hub index --'"), "--audit", "--full")
-	assertCandidates(t, completeIn(t, "fish", "--no-config", "-c", "source "+script+"; complete -C 'skillshare extras '"), "init", "list", "remove", "collect", "source")
+	assertCandidates(t, completeIn(t, "fish", "--no-config", "-c", "source "+script+"; complete -C 'skillshare extras '"), "init", "list", "remove", "collect", "source", "memory")
+	assertCandidates(t, completeIn(t, "fish", "--no-config", "-c", "source "+script+"; complete -C 'skillshare extras memory '"), "init", "list", "show", "write", "delete", "instructions")
+	assertCandidates(t, completeIn(t, "fish", "--no-config", "-c", "source "+script+"; complete -C 'skillshare extras memory write --'"), "--from", "--version")
 	assertCandidates(t, completeIn(t, "fish", "--no-config", "-c", "source "+script+"; complete -C 'skillshare trash '"), "agents", "list", "restore", "delete", "empty")
 }
 
@@ -325,6 +344,29 @@ func TestCompletion_Zsh_CompletesMCPCheck(t *testing.T) {
 	assertCandidates(t, completeIn(t, "zsh", "-f", capture, dir, "skillshare backup "), "files", "agents")
 	assertCandidates(t, completeIn(t, "zsh", "-f", capture, dir, "skillshare backup files "), "list", "show", "restore")
 	assertCandidates(t, completeIn(t, "zsh", "-f", capture, dir, "skillshare hub index --"), "--audit", "--full")
-	assertCandidates(t, completeIn(t, "zsh", "-f", capture, dir, "skillshare extras "), "init", "list", "remove", "collect", "source")
+	assertCandidates(t, completeIn(t, "zsh", "-f", capture, dir, "skillshare extras "), "init", "list", "remove", "collect", "source", "memory")
+	assertCandidates(t, completeIn(t, "zsh", "-f", capture, dir, "skillshare extras memory "), "init", "list", "show", "write", "delete", "instructions")
+	assertCandidates(t, completeIn(t, "zsh", "-f", capture, dir, "skillshare extras memory write --"), "--from", "--version")
 	assertCandidates(t, completeIn(t, "zsh", "-f", capture, dir, "skillshare trash "), "agents", "list", "restore", "delete", "empty")
+}
+
+func TestCompletion_Memory_AllShells(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	for shell, commands := range map[string]string{
+		"bash":       "init list show write delete instructions",
+		"zsh":        "(init list show write delete instructions)",
+		"fish":       "-a 'init list show write delete instructions'",
+		"powershell": "'extras memory' = @(",
+		"nushell":    "[init list show write delete instructions]",
+	} {
+		t.Run(shell, func(t *testing.T) {
+			result := sb.RunCLI("completion", shell)
+			result.AssertSuccess(t)
+			result.AssertOutputContains(t, commands)
+			for _, flag := range []string{"version", "search", "from"} {
+				result.AssertOutputContains(t, flag)
+			}
+		})
+	}
 }

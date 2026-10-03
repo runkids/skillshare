@@ -41,6 +41,7 @@ const sidebars: SidebarsConfig = {
             'how-to/daily-tasks/sharing-mcp',
             'how-to/daily-tasks/sharing-plugins',
             'how-to/daily-tasks/sharing-instructions',
+            'how-to/daily-tasks/sharing-memory',
             'how-to/daily-tasks/skill-discovery',
             'how-to/daily-tasks/backup-restore',
             'how-to/daily-tasks/project-workflow',

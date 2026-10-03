@@ -40,7 +40,7 @@ flowchart TD
 
 `pull` operates on the directory selected by the `git_root` config field (default: `skills` source). See [commit — Git Root Scope](./commit.md#git-root-scope) for the scope table. If `git_root` was changed but the git repo still lives in another scope's directory, `pull` prints a "Git root mismatch" error with the exact `git init` / `mv` commands to fix it. See [Changing the scope after init](/docs/reference/targets/configuration#git-root).
 
-After pulling, `pull` syncs what the scope holds: `skills` runs `sync`, `agents` runs `sync agents`, `root` runs both, and `extras` runs `sync extras`.
+After pulling, `pull` syncs what the scope holds: `skills` runs `sync`, `agents` runs `sync agents`, `extras` runs `sync extras`, and `root` runs all three.
 
 Plugins, MCP servers and hooks are settings in `config.yaml`, which no scope tracks, so `pull` neither brings nor applies them. See [Cross-Machine Sync — Plugins, MCP and Hooks](/docs/how-to/sharing/cross-machine-sync#plugins-mcp-hooks).
 
@@ -109,8 +109,8 @@ skillshare sync
 
 ## First Pull with Existing Skills
 
-On first pull (no upstream yet), if both local and remote already contain skill directories,
-`pull` attempts a **merge** to combine both sides. If the merge succeeds, both local and remote skills are preserved.
+On first pull (no upstream yet), if the local repository already holds content (any directory, or any tracked or non-ignored file other than `.gitignore`),
+`pull` attempts a **merge** to combine both sides. If the merge succeeds, both local and remote content is preserved. Only a repository with nothing else is reset to the remote branch.
 
 If there are **merge conflicts**, `pull` fails with a non-zero exit code:
 

@@ -107,7 +107,7 @@ enable/disable은 선택 상태만 저장합니다. 다음 플러그인 Sync에�
 | `backup --list` | 백업 목록 표시 |
 | `restore <target>` | 백업에서 복원 |
 | `commit [-m "msg"]` | push 없이 로컬 git 커밋 생성 |
-| `push [-m "msg"]` | 커밋 후 git 원격 저장소로 push |
+| `push [-m "msg"] [--pull]` | 커밋 후 git 원격 저장소로 push. `--pull`은 먼저 remote 변경 사항을 병합한 뒤 Sync |
 | `pull` | git에서 pull한 뒤 Sync |
 | `trash list` | 소프트 삭제된 Skill 목록 표시 |
 | `trash restore <name>` | 소프트 삭제된 Skill 복원 |
@@ -167,6 +167,9 @@ skillshare push -m "Add new skill"
 
 # 머신 B: pull 후 Sync
 skillshare pull
+
+# 여러 머신에서 편집하는 경우: 한 번의 명령으로 양방향 동기화
+skillshare push --pull -m "Update skills"
 ```
 
 나중에 선택적으로 실행 (설정 이후 AI CLI를 추가로 설치한 경우에만):

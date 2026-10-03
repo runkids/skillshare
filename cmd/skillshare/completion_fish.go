@@ -229,6 +229,7 @@ complete -c skillshare -n '__fish_skillshare_using_command pull' -l help -s h -d
 
 # push
 complete -c skillshare -n '__fish_skillshare_using_command push' -l dry-run -s n -d 'Preview changes'
+complete -c skillshare -n '__fish_skillshare_using_command push' -l pull -d 'Merge remote changes before pushing, then sync'
 complete -c skillshare -n '__fish_skillshare_using_command push' -l message -s m -r -d 'Commit message'
 complete -c skillshare -n '__fish_skillshare_using_command push' -l help -s h -d 'Show help'
 
@@ -396,6 +397,13 @@ complete -c skillshare -n '__fish_skillshare_using_command extras' -a collect -d
 complete -c skillshare -n '__fish_skillshare_using_command extras' -a source -d 'Show/set extras source'
 complete -c skillshare -n '__fish_skillshare_using_command extras' -l help -s h -d 'Show help'
 
+complete -c skillshare -n '__fish_skillshare_using_command extras' -a memory -d 'Manage shared Markdown notes'
+complete -c skillshare -n '__fish_skillshare_using_subcommand extras memory' -a 'init list show write delete instructions'
+complete -c skillshare -n '__fish_skillshare_using_subcommand extras memory' -l json -d 'JSON output'
+complete -c skillshare -n '__fish_skillshare_using_subcommand extras memory; and __fish_seen_subcommand_from list' -l search -r -d 'Search names and content'
+complete -c skillshare -n '__fish_skillshare_using_subcommand extras memory; and __fish_seen_subcommand_from write' -l from -r -F -d 'Input file or stdin'
+complete -c skillshare -n '__fish_skillshare_using_subcommand extras memory; and __fish_seen_subcommand_from write delete' -l version -r -d 'Last read hash'
+
 # extras subcommands and extras <name>
 complete -c skillshare -n '__fish_skillshare_using_subcommand extras init' -l target -r -F -d 'Target directory'
 complete -c skillshare -n '__fish_skillshare_using_subcommand extras init' -l mode -r -a 'merge copy symlink import' -d 'Sync mode'
@@ -411,14 +419,14 @@ complete -c skillshare -n '__fish_skillshare_using_subcommand extras remove' -l 
 complete -c skillshare -n '__fish_skillshare_using_subcommand extras collect' -l from -r -F -d 'Target directory to collect from'
 complete -c skillshare -n '__fish_skillshare_using_subcommand extras collect' -l dry-run -d 'Preview changes'
 complete -c skillshare -n '__fish_skillshare_using_subcommand extras collect' -l force -s f -d 'Overwrite existing files'
-complete -c skillshare -n '__fish_skillshare_using_command extras; and not __fish_seen_subcommand_from init list remove collect source' -l mode -r -a 'merge copy symlink import' -d 'Change sync mode'
-complete -c skillshare -n '__fish_skillshare_using_command extras; and not __fish_seen_subcommand_from init list remove collect source' -l target -r -F -d 'Target for --mode'
-complete -c skillshare -n '__fish_skillshare_using_command extras; and not __fish_seen_subcommand_from init list remove collect source' -l flatten -d 'Enable flatten'
-complete -c skillshare -n '__fish_skillshare_using_command extras; and not __fish_seen_subcommand_from init list remove collect source' -l no-flatten -d 'Disable flatten'
-complete -c skillshare -n '__fish_skillshare_using_command extras; and not __fish_seen_subcommand_from init list remove collect source' -l add-target -r -F -d 'Add a target'
-complete -c skillshare -n '__fish_skillshare_using_command extras; and not __fish_seen_subcommand_from init list remove collect source' -l as -r -d 'Target filename'
-complete -c skillshare -n '__fish_skillshare_using_command extras; and not __fish_seen_subcommand_from init list remove collect source' -l remove-target -r -F -d 'Detach a target'
-complete -c skillshare -n '__fish_skillshare_using_command extras; and not __fish_seen_subcommand_from init list remove collect source' -l prune -d 'Also delete managed files'
+complete -c skillshare -n '__fish_skillshare_using_command extras; and not __fish_seen_subcommand_from init list remove collect source memory' -l mode -r -a 'merge copy symlink import' -d 'Change sync mode'
+complete -c skillshare -n '__fish_skillshare_using_command extras; and not __fish_seen_subcommand_from init list remove collect source memory' -l target -r -F -d 'Target for --mode'
+complete -c skillshare -n '__fish_skillshare_using_command extras; and not __fish_seen_subcommand_from init list remove collect source memory' -l flatten -d 'Enable flatten'
+complete -c skillshare -n '__fish_skillshare_using_command extras; and not __fish_seen_subcommand_from init list remove collect source memory' -l no-flatten -d 'Disable flatten'
+complete -c skillshare -n '__fish_skillshare_using_command extras; and not __fish_seen_subcommand_from init list remove collect source memory' -l add-target -r -F -d 'Add a target'
+complete -c skillshare -n '__fish_skillshare_using_command extras; and not __fish_seen_subcommand_from init list remove collect source memory' -l as -r -d 'Target filename'
+complete -c skillshare -n '__fish_skillshare_using_command extras; and not __fish_seen_subcommand_from init list remove collect source memory' -l remove-target -r -F -d 'Detach a target'
+complete -c skillshare -n '__fish_skillshare_using_command extras; and not __fish_seen_subcommand_from init list remove collect source memory' -l prune -d 'Also delete managed files'
 
 # enable
 complete -c skillshare -n '__fish_skillshare_using_command enable' -l kind -r -a 'skill agent' -d 'Resource kind'

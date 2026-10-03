@@ -11,6 +11,7 @@ skillshare 的常見使用模式。
 | 我想要... | Workflow |
 |-------------|----------|
 | 每天使用 Skills | [日常工作流程](./daily-workflow.md) |
+| 跨 AI 工具共用記憶 | [記憶共用教學](./sharing-memory) |
 | 尋找並安裝新 Skills | [Skill 探索](./skill-discovery.md) |
 | 保護我的 Skills | [備份與還原](./backup-restore.md) |
 | 管理專案範圍的 Skills | [Project Workflow](./project-workflow.md) |

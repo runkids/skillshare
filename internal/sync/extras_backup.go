@@ -35,6 +35,7 @@ const (
 	BackupReasonShim    = "shim"    // before @AGENTS.md is added to a project file
 	BackupReasonImport  = "import"  // before an @import line is added
 	BackupReasonEdit    = "edit"    // before a dashboard edit
+	BackupReasonDelete  = "delete"  // before a memory note is deleted
 	BackupReasonCollect = "collect" // before a target's edit is collected into the shared file
 	BackupReasonAttach  = "attach"  // the file replaced when a target was first attached
 	BackupReasonRestore = "restore" // before an older version is restored

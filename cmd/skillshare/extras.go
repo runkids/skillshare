@@ -34,6 +34,8 @@ func cmdExtras(args []string) error {
 		return cmdExtrasCollect(rest)
 	case "source":
 		return cmdExtrasSource(rest)
+	case "memory":
+		return cmdExtrasMemory(rest)
 	case "--help", "-h":
 		printExtrasHelp()
 		return nil
@@ -55,6 +57,7 @@ func printExtrasHelp() {
 			{"remove <name>", "Remove an extra resource type"},
 			{"collect <name>", "Collect local files from a target into extras source"},
 			{"source [path]", "Show or set the global extras_source directory"},
+			{"memory <command>", "Manage shared Markdown memory notes"},
 		}},
 		helpGroup{title: "Change an existing extra", rows: []helpRow{
 			{"<name> --mode <mode>", "Change sync mode"},
@@ -66,7 +69,6 @@ func printExtrasHelp() {
 		helpGroup{title: "Options", rows: []helpRow{
 			{"-p, --project", "Use project-mode extras (.skillshare/)"},
 			{"-g, --global", "Use global extras (~/.config/skillshare/)"},
-			{"-h, --help", "Show this help"},
 		}},
 		helpNotes("Source directory, per extra",
 			"1. Per-extra \"source\" field in config.yaml",

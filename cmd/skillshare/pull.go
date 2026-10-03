@@ -91,18 +91,32 @@ func pullFromRemote(cfg *config.Config, dryRun, force bool) error {
 		return nil
 	}
 
-	// First pull (no upstream): fetch, then merge or reset onto the remote
-	// default branch and set upstream (see gitops.FirstPull). Subsequent pulls:
-	// normal git pull.
-	authEnv := gitops.AuthEnvForRepo(source)
-	var info *gitops.UpdateInfo
+	info, remoteEmpty, err := integrateRemote(source, force, spinner)
+	if err != nil {
+		return err
+	}
+	spinner.Stop()
+	if remoteEmpty {
+		ui.Row(ui.MarkWarn, "Pull", "remote has no branches yet", width)
+		ui.Note("Push your skills first: skillshare push")
+	} else if info != nil {
+		ui.Row(ui.MarkOK, "Pull", pullSummary(info)+ui.Took(time.Since(pullStart)), width)
+		printCommitNotes(info.Commits)
+	}
+
+	return syncPulledScope(cfg)
+}
+
+// integrateRemote brings the remote's history into source. First pull (no
+// upstream): fetch, then merge or reset onto the remote default branch and
+// set upstream (see gitops.FirstPull). Subsequent pulls: normal git pull,
+// which merges. remoteEmpty reports a remote with no branches yet.
+func integrateRemote(source string, force bool, spinner *ui.Spinner) (info *gitops.UpdateInfo, remoteEmpty bool, err error) {
 	if !gitops.HasUpstream(source) {
 		spinner.Update("Fetching from remote...")
 		info, err = gitops.FirstPull(source, force)
 		if errors.Is(err, gitops.ErrNoRemoteBranches) {
-			spinner.Stop()
-			ui.Row(ui.MarkWarn, "Pull", "remote has no branches yet", width)
-			ui.Note("Push your skills first: skillshare push")
+			return nil, true, nil
 		} else if err != nil {
 			spinner.Fail("Pull failed")
 			if errors.Is(err, gitops.ErrMergeFailed) {
@@ -111,40 +125,52 @@ func pullFromRemote(cfg *config.Config, dryRun, force bool) error {
 			} else if !isAuthError(err.Error()) {
 				hintGitRemoteError(err.Error()) // auth guidance is already part of err
 			}
+			return nil, false, err
+		}
+		return info, false, nil
+	}
+
+	spinner.Update("Running git pull...")
+	if info, err = gitops.PullWithEnv(source, gitops.AuthEnvForRepo(source)); err != nil {
+		spinner.Fail("git pull failed")
+		fmt.Println(err.Error())
+		hintGitRemoteError(err.Error())
+		return nil, false, fmt.Errorf("git pull failed: %w", err)
+	}
+	return info, false, nil
+}
+
+// syncPulledScope syncs what the git root scope holds (always global — pull
+// operates on the global source). Sync opens with its own blank line, and
+// extras are skipped when none are configured so sync does not print its
+// setup guide. The config is read again because the pull may have changed it.
+func syncPulledScope(cfg *config.Config) error {
+	if pulled, err := config.Load(); err == nil {
+		cfg.Extras = pulled.Extras
+	}
+	for _, args := range pulledScopeSyncArgs(cfg.GitRoot) {
+		if args[0] == "extras" && len(cfg.Extras) == 0 {
+			continue
+		}
+		if err := cmdSync(args); err != nil {
 			return err
 		}
-	} else {
-		spinner.Update("Running git pull...")
-		if info, err = gitops.PullWithEnv(source, authEnv); err != nil {
-			spinner.Fail("git pull failed")
-			fmt.Println(err.Error())
-			hintGitRemoteError(err.Error())
-			return fmt.Errorf("git pull failed: %w", err)
-		}
 	}
+	return nil
+}
 
-	if info != nil {
-		spinner.Stop()
-		ui.Row(ui.MarkOK, "Pull", pullSummary(info)+ui.Took(time.Since(pullStart)), width)
-		printCommitNotes(info.Commits)
-	}
-
-	// Sync what the pulled scope holds (always global — pull operates on the
-	// global source).
-	fmt.Println()
-	switch cfg.GitRoot {
+// pulledScopeSyncArgs returns the `sync` invocations that cover a git root
+// scope, in order. Retry hints print the same commands.
+func pulledScopeSyncArgs(gitRoot string) [][]string {
+	switch gitRoot {
 	case "agents":
-		return cmdSync([]string{"agents", "--global"})
+		return [][]string{{"agents", "--global"}}
 	case "extras":
-		return cmdSync([]string{"extras", "--global"})
+		return [][]string{{"extras", "--global"}}
 	case "root":
-		if err := cmdSync([]string{"--global"}); err != nil {
-			return err
-		}
-		fmt.Println()
-		return cmdSync([]string{"agents", "--global"})
+		return [][]string{{"--global"}, {"agents", "--global"}, {"extras", "--global"}}
 	}
-	return cmdSync([]string{"--global"})
+	return [][]string{{"--global"}}
 }
 
 // pullSummary says what a pull brought in, like update does for a tracked

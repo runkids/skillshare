@@ -58,6 +58,9 @@ skillshare sync
 
 # ローカルで変更を加えた後
 skillshare push
+
+# または 1 ステップで双方向に: マージ、push、そして sync
+skillshare push --pull
 ```
 
 ## 確認

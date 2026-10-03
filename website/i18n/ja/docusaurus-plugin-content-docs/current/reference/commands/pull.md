@@ -40,7 +40,7 @@ flowchart TD
 
 `pull` は `git_root` 設定フィールド（デフォルト: `skills` source）で選択されたディレクトリに対して動作します。スコープの一覧は [commit — Git Root スコープ](./commit.md#git-root-scope) を参照してください。`git_root` が変更されたものの、git リポジトリが別のスコープのディレクトリにまだ存在している場合、`pull` は修正に必要な正確な `git init` / `mv` コマンドとともに「Git root mismatch」エラーを表示します。[init 後にスコープを変更する](/docs/reference/targets/configuration#git-root) も参照してください。
 
-pull 後、`pull` はそのスコープが保持するものを同期します。`skills` は `sync` を実行し、`agents` は `sync agents` を実行し、`root` は両方を実行し、`extras` は `sync extras` を実行します。
+pull 後、`pull` はそのスコープが保持するものを同期します。`skills` は `sync` を実行し、`agents` は `sync agents` を実行し、`extras` は `sync extras` を実行し、`root` は 3 つすべてを実行します。
 
 Plugins、MCP サーバー、hooks は `config.yaml` 内の設定で、どのスコープでも追跡されないため、`pull` はそれらを持ってくることも適用することもありません。[クロスマシン Sync — Plugins、MCP、Hooks](/docs/how-to/sharing/cross-machine-sync#plugins-mcp-hooks) を参照してください。
 
@@ -109,8 +109,8 @@ skillshare sync
 
 ## 既存の Skill がある状態での初回 pull
 
-初回の pull 時（まだアップストリームがない場合）、ローカルと remote の両方に既に Skill ディレクトリが含まれている場合、
-`pull` は両方を統合するために **merge** を試みます。merge が成功すると、ローカルと remote 両方の Skill が保持されます。
+初回の pull 時（まだアップストリームがない場合）、ローカルの repository に既に内容（任意のディレクトリ、または `.gitignore` 以外の追跡済み・無視されていないファイル）がある場合、
+`pull` は両方を統合するために **merge** を試みます。merge が成功すると、ローカルと remote 両方の内容が保持されます。それ以外に何もない repository のみ、remote branch に reset されます。
 
 **merge コンフリクト** がある場合、`pull` はゼロ以外の終了コードで失敗します。
 

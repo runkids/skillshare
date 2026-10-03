@@ -11,6 +11,7 @@ Source を git remote にコミットしてプッシュします。
 ```bash
 skillshare push                  # 自動生成メッセージ
 skillshare push -m "Add pdf"     # カスタムメッセージ
+skillshare push --pull           # remote の変更をマージしてプッシュし、その後 sync
 skillshare push --dry-run        # プレビュー
 ```
 
@@ -39,6 +40,7 @@ flowchart TD
 | フラグ | 説明 |
 |------|-------------|
 | `-m, --message <msg>` | コミットメッセージ（デフォルト: "Update skills"） |
+| `--pull` | プッシュ前に remote の変更をマージし、その後 target を sync（[Push と Pull を同時に行う](#push-and-pull-together) を参照） |
 | `--dry-run, -n` | 変更を加えずにプレビュー |
 
 ## Git Root スコープ
@@ -102,6 +104,19 @@ skillshare push    # 自分の変更をプッシュ
 ```
 
 `pull` は remote のコミットを、まだプッシュしていない自分のコミットとマージするため、2回目の `push` は成功します。両方で同じファイルを変更していた場合の動作は [両方のマシンでコミットした場合](/docs/reference/commands/pull#when-both-machines-committed) を参照してください。
+
+## Push と Pull を同時に行う {#push-and-pull-together}
+
+`skillshare push --pull` は往復の流れ全体を1つのコマンドで行います:
+
+1. ローカルの変更をコミット（変更がある場合）
+2. [`pull`](/docs/reference/commands/pull) と同じ方法で remote の新しいコミットをマージ
+3. 結果をプッシュ
+4. `pull` と同様に、git root スコープに含まれるものについて target を sync
+
+マージでコンフリクトが発生した場合、何もプッシュされず、target も sync されません。変更はローカルにコミットされたまま残ります。コンフリクトを解決してから、もう一度 `skillshare push --pull` を実行してください。プッシュは成功したものの target の sync に失敗した場合は、remote はすでに更新されているので、表示された `skillshare sync ... --global` コマンド（`git_root` に対応するリソースごとに 1 行）を実行して再試行してください。
+
+`--pull` はリベースも force-push も行いません。
 
 ## ワークフロー
 

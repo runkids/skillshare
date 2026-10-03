@@ -11,6 +11,7 @@ sidebar_position: 1
 ```bash
 skillshare push                  # 自动生成消息
 skillshare push -m "Add pdf"     # 自定义消息
+skillshare push --pull           # 合并 remote 的更改并推送，然后 sync
 skillshare push --dry-run        # 预览
 ```
 
@@ -39,6 +40,7 @@ flowchart TD
 | 标志 | 描述 |
 |------|-------------|
 | `-m, --message <msg>` | Commit 消息（默认："Update skills"） |
+| `--pull` | 推送前先合并 remote 的更改，然后 sync targets（参见 [同时 Push 与 Pull](#push-and-pull-together)） |
 | `--dry-run, -n` | 预览而不做任何更改 |
 
 ## Git Root 作用域
@@ -102,6 +104,19 @@ skillshare push    # 推送你的更改
 ```
 
 `pull` 会把 remote 的 commit 与你尚未推送的 commit 合并，所以第二次 `push` 就能成功。如果两边改了同一个文件，请参阅 [两台机器都有新 commit 时](/docs/reference/commands/pull#when-both-machines-committed)。
+
+## 同时 Push 与 Pull {#push-and-pull-together}
+
+`skillshare push --pull` 用一条命令完成整个往返：
+
+1. Commit 你的本地更改（如果有）
+2. 合并 remote 的新 commit，方式与 [`pull`](/docs/reference/commands/pull) 相同
+3. 推送结果
+4. 像 `pull` 一样，按 git root 作用域包含的内容 sync targets
+
+如果合并遇到冲突，不会推送任何内容，也不会 sync targets。你的更改仍以 commit 形式保留在本地；解决冲突后，再次运行 `skillshare push --pull`。如果推送成功但 sync targets 失败，remote 已经更新，请运行输出中给出的 `skillshare sync ... --global` 命令重试（按 `git_root` 对应的资源，每项一行）。
+
+`--pull` 从不 rebase，也从不 force-push。
 
 ## 工作流
 

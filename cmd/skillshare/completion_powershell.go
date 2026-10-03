@@ -102,6 +102,15 @@ $_skillshareCompleter = {
             @{ Name = 'remove'; Desc = 'Remove extra resource type' }
             @{ Name = 'collect'; Desc = 'Collect local files into extras' }
             @{ Name = 'source'; Desc = 'Show/set extras source' }
+            @{ Name = 'memory'; Desc = 'Manage shared Markdown notes' }
+        )
+        'extras memory' = @(
+            @{ Name = 'init'; Desc = 'Memory init' }
+            @{ Name = 'list'; Desc = 'Memory list' }
+            @{ Name = 'show'; Desc = 'Memory show' }
+            @{ Name = 'write'; Desc = 'Memory write' }
+            @{ Name = 'delete'; Desc = 'Memory delete' }
+            @{ Name = 'instructions'; Desc = 'Memory instructions' }
         )
         'backup' = @(
             @{ Name = 'files'; Desc = 'Versions of single files skillshare rewrote' }
@@ -179,7 +188,7 @@ $_skillshareCompleter = {
         'restore' = '--from', '-f', '--force', '--all', '--dry-run', '-n', '--no-tui', '--help', '-h', '--project', '-p', '--global', '-g'
         'collect' = '--all', '-a', '--dry-run', '-n', '--force', '-f', '--json', '--help', '-h', '--project', '-p', '--global', '-g'
         'pull' = '--dry-run', '-n', '--force', '-f', '--help', '-h'
-        'push' = '--dry-run', '-n', '--message', '-m', '--help', '-h'
+        'push' = '--dry-run', '-n', '--pull', '--message', '-m', '--help', '-h'
         'commit' = '--dry-run', '-n', '--message', '-m', '--help', '-h'
         'doctor' = '--json', '--help', '-h', '--project', '-p', '--global', '-g'
         'target' = '--json', '--no-tui', '--help', '-h', '--mode', '-m', '--agent-mode', '--target-naming', '--add-include', '--add-exclude', '--remove-include', '--remove-exclude', '--add-agent-include', '--add-agent-exclude', '--remove-agent-include', '--remove-agent-exclude', '--agent', '--config-dir', '--cli', '--skills', '--no-skills', '--all', '-a', '--dry-run', '-n', '--project', '-p', '--global', '-g'
@@ -196,6 +205,7 @@ $_skillshareCompleter = {
         'analyze' = '--verbose', '-v', '--filter', '--no-tui', '--json', '--help', '-h', '--project', '-p', '--global', '-g'
         'mcp' = '--tools-allow', '--tools-deny', '--pi-options', '--target', '--from', '--url', '--file', '--sync', '--replace', '--disabled', '--keep-files', '--revision', '--dry-run', '-n', '--json', '--no-dns', '--live', '--timeout', '--no-tui', '--help', '-h', '--project', '-p', '--global', '-g'
         'plugin' = '--target', '--from', '--plugin', '--name', '--source-ref', '--entry', '--revision', '--dry-run', '-n', '--json', '--no-tui', '--help', '-h', '--project', '-p', '--global', '-g'
+        'extras memory' = '--from', '--version', '--search', '--json', '--help', '-h', '--project', '-p', '--global', '-g'
         'extras' = '--mode', '--target', '--source', '--file', '--as', '--flatten', '--no-flatten', '--add-target', '--remove-target', '--prune', '--from', '--dry-run', '--force', '-f', '--json', '--no-tui', '--help', '-h', '--project', '-p', '--global', '-g'
         'status' = '--json', '--help', '-h', '--project', '-p', '--global', '-g'
         'new' = '--pattern', '-P', '--dry-run', '-n', '--help', '-h', '--project', '-p', '--global', '-g'
@@ -248,7 +258,7 @@ $_skillshareCompleter = {
 
     # Complete flags
     if ($wordToComplete.StartsWith('-')) {
-        $flagKey = if ($flags.ContainsKey($cmd)) { $cmd } else { '' }
+        $flagKey = if ($flags.ContainsKey($nested)) { $nested } elseif ($flags.ContainsKey($cmd)) { $cmd } else { '' }
         if ($flags.ContainsKey($flagKey)) {
             $flags[$flagKey] | Where-Object { $_ -like "$wordToComplete*" } | ForEach-Object {
                 [System.Management.Automation.CompletionResult]::new($_, $_, 'ParameterName', $_)

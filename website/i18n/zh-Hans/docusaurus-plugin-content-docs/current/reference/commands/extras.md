@@ -21,6 +21,36 @@ Extras 是 skillshare 管理的额外资源类型 —— 可以把它们理解�
 
 ## 命令
 
+### `extras memory` {#extras-memory}
+
+管理 `memory` extra 中的共享 Markdown 笔记，可用任意文本编辑器编辑。
+[记忆共享教程（英文截图）](../../how-to/daily-tasks/sharing-memory)演示创建、目录浏览与跨 Agent 使用。
+
+| 子命令 | 行为 |
+|---|---|
+| `init` | 创建没有 targets 的 memory extra，补上缺少的 `INDEX.md`、`LEARNED.md`，保留现有文件和设置 |
+| `list` | 列出笔记；`--search <text>` 忽略大小写搜索路径和内容，包含子目录 |
+| `show <note.md>` | 读取笔记；`--json` 包含 `version` hash |
+| `write <note.md> --from <file\|->` | 从文件或 stdin 读取内容；创建时不指定 `--version`，更新须使用最近读取的 version |
+| `delete <note.md> --version <hash>` | 备份后删除指定版本，拒绝过期或缺少的 version |
+| `instructions` | 输出指向实际 source 目录的读取指引 |
+
+各子命令支持 `--json`、`-g` / `--global`、`-p` / `--project` 和 `--help`。
+未指定时自动判断 scope。默认 global 路径为 `~/.config/skillshare/extras/memory/`，
+project 为 `.skillshare/extras/memory/`；沿用现有 extras source 覆盖设置。
+
+笔记须为相对 `.md` 路径、UTF-8，最多 1 MiB；排除隐藏文件、隐藏目录和内部符号链接。过大或非 UTF-8 文件仍列出并标为不支持，其他正常笔记仍可使用。`wiki/architecture.md` 会自动创建目录。Dashboard 提供目录树、**Preview** / **Source**、**Copy path**、**Edit**、**Delete note** 和 **History**。**Move or rename** 可输入新的相对 `.md` 路径，创建缺少的文件夹，保留内容和权限，并拒绝同名目标或过期版本。移动前会在旧路径备份；Markdown 链接需自行修复。请保留来源根目录的 `INDEX.md`，供 agent 指引读取。
+
+保存检查最近读取的 version。冲突会保留草稿，显示最新保存内容供比较。**Save my draft** 须确认，使用更新后的 version，备份已保存内容后再替换。删除也须确认、检查版本并备份。**History** 和删除后的恢复链接会打开 **Backup Files**，以笔记的绝对路径筛选。CLI 可用 `backup files show <absolute-path>` 和 `backup files restore <absolute-path> <id>`。
+
+**New note** 的 **Link from INDEX.md** 在索引可读取时显示并默认勾选，于文件末尾附加链接，检查 version 并备份。失败仍保留新笔记。**Add to INDEX** 可添加未索引的笔记。失效链接会显示警告，不会自动移除。CLI 写入不会新增索引链接。
+
+使用 **Connect to agents** 选择工具，再 **Review changes** → **Apply changes**。此流程将 scope/hash 标记块添加或更新至现有 instructions 或共享来源，保留其他内容与分配。可检查更改、其他读取工具与已知字符上限。现有文件会备份，过期预览会被拒绝。完整但过期的块可经检查后更新；手动修改或格式错误的块会保留。未同步或无法读取的 instructions 文件会跳过。
+
+**Configured** 仅表示读取链已有当前指引，不代表已读取。**Copy verification prompt** 用于新会话，要求 Agent 读取 `INDEX.md` 与相关笔记、报告完整路径及用户加入的临时验证值。请手动检查实际 read tool event；没有保证可用的读取 telemetry。
+
+**Copy guidance** 是手动粘贴的替代方式，**Open AGENTS.md** 可编辑 instructions。Project 内的来源路径相对于 **project root**，不依 instructions 文件位置；外部或 global 来源用绝对路径，移动后须重新生成。CLI `instructions` 也输出相同的 scope/hash 块，未新增 CLI flags。不启用 native automatic memory、自动学习或 Obsidian 集成。
+
 ### `extras init`
 
 创建一个新的 extra 资源类型。

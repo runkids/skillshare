@@ -18,6 +18,7 @@ import (
 // pushOptions holds parsed push command options
 type pushOptions struct {
 	dryRun  bool
+	pull    bool
 	message string
 }
 
@@ -30,6 +31,8 @@ func parsePushArgs(args []string) *pushOptions {
 		switch arg {
 		case "--dry-run", "-n":
 			opts.dryRun = true
+		case "--pull":
+			opts.pull = true
 		case "-m", "--message":
 			if i+1 < len(args) {
 				i++
@@ -174,7 +177,7 @@ func cmdPush(args []string) (err error) {
 	if !opts.dryRun {
 		defer func() {
 			e := oplog.NewEntry("push", statusFromErr(err), time.Since(start))
-			e.Args = map[string]any{"message": opts.message}
+			e.Args = map[string]any{"message": opts.message, "pull": opts.pull}
 			if err != nil {
 				e.Message = err.Error()
 			}
@@ -209,7 +212,7 @@ func cmdPush(args []string) (err error) {
 	}
 	hasChanges := changes != ""
 
-	width := ui.RowWidth("Commit", "Push")
+	width := ui.RowWidth("Commit", "Pull", "Push", "Sync")
 	var files []string
 	if hasChanges {
 		files = strings.Split(changes, "\n")
@@ -225,7 +228,13 @@ func cmdPush(args []string) (err error) {
 		} else {
 			ui.Row(ui.MarkNone, "Commit", "nothing to commit", width)
 		}
+		if opts.pull {
+			ui.Row(ui.MarkNone, "Pull", "would merge remote changes", width)
+		}
 		ui.Row(ui.MarkNone, "Push", "would push to "+pushDestination(source), width)
+		if opts.pull {
+			ui.Row(ui.MarkNone, "Sync", "would sync targets", width)
+		}
 		fmt.Println()
 		ui.DryRun()
 		return nil
@@ -242,6 +251,23 @@ func cmdPush(args []string) (err error) {
 		ui.Row(ui.MarkNone, "Commit", "nothing to commit", width)
 	}
 
+	if opts.pull {
+		pullStart := time.Now()
+		spinner = ui.StartSpinner("Pulling from remote...")
+		info, _, err := integrateRemote(source, false, spinner)
+		if err != nil {
+			if hasChanges {
+				ui.Note("Your changes are committed locally; resolve, then run: skillshare push --pull")
+			}
+			return err
+		}
+		spinner.Stop()
+		if info != nil {
+			ui.Row(ui.MarkOK, "Pull", pullSummary(info)+ui.Took(time.Since(pullStart)), width)
+			printCommitNotes(info.Commits)
+		}
+	}
+
 	spinner = ui.StartSpinner("Pushing to remote...")
 	if err := gitPush(source, spinner); err != nil {
 		return err
@@ -249,7 +275,21 @@ func cmdPush(args []string) (err error) {
 
 	spinner.Stop()
 	ui.Row(ui.MarkOK, "Push", "to "+pushDestination(source)+ui.Took(time.Since(start)), width)
-	ui.Next("skillshare pull", "get these changes on another machine")
+
+	if !opts.pull {
+		ui.Next("skillshare pull", "get these changes on another machine")
+		return nil
+	}
+	if err := syncPulledScope(cfg); err != nil {
+		fmt.Println()
+		ui.Row(ui.MarkWarn, "Sync", "remote updated, but syncing targets failed", width)
+		var retry []string
+		for _, args := range pulledScopeSyncArgs(cfg.GitRoot) {
+			retry = append(retry, "skillshare sync "+strings.Join(args, " "), "retry")
+		}
+		ui.Next(retry...)
+		return fmt.Errorf("pushed, but target sync failed: %w", err)
+	}
 	return nil
 }
 
@@ -288,11 +328,13 @@ func printPushHelp() {
 	printHelp("skillshare push [options]", "Commit and push source skills to git remote.",
 		helpGroup{title: "Options", rows: []helpRow{
 			{"-m, --message <msg>", "Commit message (default: \"Update skills\")"},
+			{"--pull", "Merge remote changes before pushing, then sync targets"},
 			{"-n, --dry-run", "Preview changes without applying"},
 		}},
 		helpExamples(
 			helpRow{"skillshare push", "Push with default message"},
 			helpRow{"skillshare push -m \"Add new skill\"", "Push with custom message"},
+			helpRow{"skillshare push --pull", "Sync both ways with the remote"},
 			helpRow{"skillshare push --dry-run", "Preview what would happen"},
 		),
 	)

@@ -10,6 +10,7 @@ import (
 	"slices"
 	"strings"
 
+	"skillshare/internal/childproc"
 	"skillshare/internal/config"
 	"skillshare/internal/install"
 	"skillshare/internal/theme"
@@ -59,9 +60,9 @@ var commands = map[string]func([]string) error{
 }
 
 func main() {
-	// Windows without a console: rerun inside a hidden one so child processes
-	// do not each open a window.
-	relaunchInHiddenConsole()
+	// Windows: children stop when this process is terminated, and without a
+	// console it reruns inside a hidden one so they do not each open a window.
+	relaunchInHiddenConsole(childproc.BindToProcess())
 
 	// Clean up any leftover .old files from Windows self-upgrade
 	cleanupOldBinary()

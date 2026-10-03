@@ -56,6 +56,9 @@ skillshare sync
 
 # After making changes locally
 skillshare push
+
+# Or do both directions in one step: merge, push, then sync
+skillshare push --pull
 ```
 
 ## Verification

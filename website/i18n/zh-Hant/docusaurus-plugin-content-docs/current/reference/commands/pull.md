@@ -40,7 +40,7 @@ flowchart TD
 
 `pull` 會操作 `git_root` 設定欄位所選定的目錄（預設為 `skills` source）。範圍對照表參見 [commit — Git Root Scope](./commit.md#git-root-scope)。如果 `git_root` 已變更，但 git repo 仍存在於另一個 scope 的目錄下，`pull` 會印出「Git root mismatch」錯誤，並附上確切的 `git init` / `mv` 修正指令。參見 [init 之後變更 scope](/docs/reference/targets/configuration#git-root)。
 
-拉取完成後，`pull` 會同步該 scope 所涵蓋的內容：`skills` 執行 `sync`，`agents` 執行 `sync agents`，`root` 兩者都執行，`extras` 執行 `sync extras`。
+拉取完成後，`pull` 會同步該 scope 所涵蓋的內容：`skills` 執行 `sync`，`agents` 執行 `sync agents`，`extras` 執行 `sync extras`，`root` 三者都執行。
 
 Plugins、MCP server 和 hooks 是 `config.yaml` 裡的設定，任何 scope 都不會追蹤它，所以 `pull` 不會帶來也不會套用它們。請參考 [跨機器 Sync — Plugins、MCP 與 Hooks](/docs/how-to/sharing/cross-machine-sync#plugins-mcp-hooks)。
 
@@ -109,8 +109,8 @@ skillshare sync
 
 ## 首次 Pull 且已有現存 Skills
 
-在第一次 pull（尚未設定 upstream）時，如果本機與 remote 都已經有 skill 目錄，
-`pull` 會嘗試進行 **merge** 以合併雙方內容。如果 merge 成功，本機與 remote 的 skills 都會被保留。
+在第一次 pull（尚未設定 upstream）時，如果本機 repository 已經有內容（任何目錄，或 `.gitignore` 以外任何已追蹤或未被忽略的檔案），
+`pull` 會嘗試進行 **merge** 以合併雙方內容。如果 merge 成功，本機與 remote 的內容都會被保留。只有除此之外沒有任何內容的 repository 才會直接 reset 成 remote branch。
 
 如果發生 **merge 衝突**，`pull` 會失敗並回傳非零的 exit code：
 

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { FileText } from 'lucide-react';
 import { api } from '../../api/client';
@@ -16,14 +16,21 @@ import { queryKeys } from '../../lib/queryKeys';
 import { fileBackupErrorMessage, kindTone, reasonKey } from './backupView';
 import FileRestoreDialog from './FileRestoreDialog';
 
+function comparablePath(path: string) {
+  // Preserve literal backslashes in POSIX names while accepting Windows history links.
+  return /^[A-Za-z]:[\\/]|^\\\\/.test(path) ? path.replace(/\\/g, '/') : path;
+}
+
 /** Earlier versions of single files skillshare rewrote: files on the left, one file's versions on the right. */
 export default function FileBackups() {
   const { t } = useI18n();
   const { data, isPending, error } = useQuery({ queryKey: queryKeys.fileBackups.all, queryFn: () => api.listFileBackups() });
   const [picked, setPicked] = useState<string | null>(null);
+  const [params] = useSearchParams();
 
   const files = data?.files ?? [];
-  const selected = files.find((f) => f.path === picked) ?? files[0];
+  const requested = picked ?? params.get('path');
+  const selected = requested === null ? files[0] : files.find((f) => comparablePath(f.path) === comparablePath(requested));
 
   return (
     <>
@@ -122,6 +129,7 @@ function Versions({ file }: { file: FileBackup }) {
             toast(t('backup.files.toast.restored', { path: shortenHome(file.path) }), 'success');
             void queryClient.invalidateQueries({ queryKey: queryKeys.fileBackups.all });
             void queryClient.invalidateQueries({ queryKey: queryKeys.instructions.all });
+            void queryClient.invalidateQueries({ queryKey: queryKeys.memory.all });
           }}
         />
       )}

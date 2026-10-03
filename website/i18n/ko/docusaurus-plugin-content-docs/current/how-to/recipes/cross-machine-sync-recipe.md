@@ -59,6 +59,9 @@ skillshare sync
 
 # 로컬에서 변경한 후
 skillshare push
+
+# 또는 한 번에 양방향으로: 병합, push, 그리고 sync
+skillshare push --pull
 ```
 
 ## 검증
