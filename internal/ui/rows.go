@@ -24,7 +24,7 @@ func Row(mark, label, value string, width int) {
 	if pad < 0 {
 		pad = 0
 	}
-	fmt.Printf("%s %s%*s  %s\n", markStyle(mark), label, pad, "", value)
+	fmt.Printf("%s %s%*s  %s\n", StyledMark(mark), label, pad, "", value)
 }
 
 // RowWidth is the label width that lines up rows with these labels.
@@ -36,7 +36,8 @@ func RowWidth(labels ...string) int {
 	return width
 }
 
-func markStyle(mark string) string {
+// StyledMark colors a row mark: green ✓, yellow !, red ✗.
+func StyledMark(mark string) string {
 	switch mark {
 	case MarkOK:
 		return theme.Success().Render(mark)
@@ -57,7 +58,7 @@ func Section(name string) {
 // Done prints a command's closing line: a mark, the result in bold and how
 // long it took.
 func Done(mark, text string, took time.Duration) {
-	fmt.Printf("%s %s %s\n", markStyle(mark), theme.Primary().Bold(true).Render(text),
+	fmt.Printf("%s %s %s\n", StyledMark(mark), theme.Primary().Bold(true).Render(text),
 		theme.Dim().Render(fmt.Sprintf("· %.1fs", took.Seconds())))
 }
 

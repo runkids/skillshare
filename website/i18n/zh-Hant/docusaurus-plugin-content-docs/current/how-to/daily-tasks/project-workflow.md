@@ -183,18 +183,15 @@ skillshare status
 ```
 
 ```
-Project Skills (.skillshare/)
-
 Source
-  ✓ .skillshare/skills (3 skills)
+  skills    .skillshare/skills  3 skills
+  agents    .skillshare/agents  4 agents
+  .skillignore: 3 patterns, 0 skills ignored
 
-Targets
-  ✓ claude       [merge] .claude/skills (3 synced)
-  ✓ cursor       [merge] .cursor/skills (3 synced)
-
-Remote Skills
-  ✓ pdf          anthropic/skills/pdf
-  ✓ review       github.com/team/tools
+Targets                   skills      agents
+  claude  .claude/skills  ✓ 3 linked  ✓ 4
+  cursor  .cursor/skills  ✓ 3 linked  ✓ 4
+  all use merge
 ```
 
 ---

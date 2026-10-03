@@ -102,24 +102,17 @@ skillshare status
 $ skillshare status
 
 Source
-─────────────────────────────────────────
-✓ ~/.config/skillshare/skills (43 skills, 2026-09-28 12:39)
-✓ ~/.config/skillshare/agents (2 agents, 2026-09-28 12:39)
+  skills    ~/.config/skillshare/skills  43 skills
+  agents    ~/.config/skillshare/agents  2 agents
 
-Targets
-─────────────────────────────────────────
-claude
-  skills   merged       [merge] ~/.claude/skills (43 shared, 0 local)
-  agents   merged       [merge] 2/2 linked
-cursor
-  skills   merged       [merge] ~/.cursor/skills (43 shared, 0 local)
-  agents   merged       [merge] 2/2 linked
-gemini
-  skills   merged       [merge] ~/.gemini/skills (43 shared, 0 local)
-…
+Targets                     skills       agents
+  claude  ~/.claude/skills  ✓ 43 linked  ✓ 2
+  cursor  ~/.cursor/skills  ✓ 43 linked  ✓ 2
+  gemini  ~/.gemini/skills  ✓ 43 linked  —
+  all use merge
 ```
 
-출력에 Source 경로와 모든 Target이 나타납니다. `merge` 모드에서 동기화된 Target은 `merged`로 표시되며, shared 개수에 방금 설치한 Skill도 포함됩니다.
+출력에 Source 경로와 모든 Target이 나타납니다. 동기화된 Target에는 `✓`와 연결한 Skill 수가 표시되며, 그 수에는 방금 설치한 Skill도 포함됩니다.
 
 대시보드(`skillshare ui`)에서도 같은 상태를 한눈에 볼 수 있습니다.
 

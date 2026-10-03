@@ -2,8 +2,10 @@ package main
 
 import (
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	gosync "sync"
@@ -15,7 +17,9 @@ import (
 	"skillshare/internal/resource"
 	"skillshare/internal/skillignore"
 	"skillshare/internal/sync"
+	"skillshare/internal/theme"
 	"skillshare/internal/ui"
+	"skillshare/internal/utils"
 	versioncheck "skillshare/internal/version"
 )
 
@@ -120,15 +124,13 @@ func cmdStatus(args []string) error {
 		trackedRepos := extractTrackedRepos(cfg.EffectiveSkillsSource())
 		sp.Stop()
 
-		printSourceStatus(cfg, len(discovered), stats)
-		printTrackedReposStatus(cfg, discovered, trackedRepos)
+		printSourceStatus(cfg.EffectiveSkillsSource(), cfg.EffectiveAgentsSource(), utils.FoldHomePath, len(discovered), countSourceAgents(cfg.EffectiveAgentsSource()), stats)
+		printTrackedReposStatus(cfg.EffectiveSkillsSource(), discovered, trackedRepos)
 		if err := printTargetsStatus(cfg, discovered); err != nil {
 			return err
 		}
 
-		// Extras
 		if len(cfg.Extras) > 0 {
-			ui.Header("Extras")
 			printExtrasStatus(cfg.Extras, func(extra config.ExtraConfig) string {
 				return config.ResolveExtrasSourceDir(extra, cfg.EffectiveExtrasSource(), cfg.EffectiveSkillsSource())
 			})
@@ -195,64 +197,20 @@ func dirExists(path string) bool {
 	return err == nil && info.IsDir()
 }
 
-func printExtrasStatus(extras []config.ExtraConfig, sourceDirFn func(config.ExtraConfig) string) {
-	for _, extra := range extras {
-		sourceDir := sourceDirFn(extra)
-		files, err := sync.DiscoverExtraSource(sourceDir, extra.File)
-		if err != nil {
-			ui.Warning("  %s: source not found", extra.Name)
-			continue
-		}
-		if len(extra.Targets) == 0 {
-			ui.Warning("  %s: no targets configured", extra.Name)
-			continue
-		}
-		for _, t := range extra.Targets {
-			if err := config.ValidateExtraMode(t.Mode); err != nil {
-				ui.Warning("  %s: %s (%s)", extra.Name, err, t.Path)
-				continue
-			}
-			detail := fmt.Sprintf("[%s] %s (%d files)", sync.ExtraTargetMode(t.Mode, extra.File != ""), t.Path, len(files))
-			ui.Status(extra.Name, "has files", detail)
-		}
-	}
-}
-
-func printSourceStatus(cfg *config.Config, skillCount int, stats *skillignore.IgnoreStats) {
-	ui.Header("Source")
-	info, err := os.Stat(cfg.EffectiveSkillsSource())
+// countSourceAgents counts the agent files at the top of agentsSource, or
+// returns -1 when the folder does not exist.
+func countSourceAgents(agentsSource string) int {
+	entries, err := os.ReadDir(agentsSource)
 	if err != nil {
-		ui.Error("%s (not found)", cfg.EffectiveSkillsSource())
-		return
+		return -1
 	}
-
-	ui.Success("%s (%d skills, %s)", cfg.EffectiveSkillsSource(), skillCount, info.ModTime().Format("2006-01-02 15:04"))
-	printSkillignoreLine(stats)
-
-	// Agents source
-	agentsSource := cfg.EffectiveAgentsSource()
-	if agentsInfo, agentsErr := os.Stat(agentsSource); agentsErr == nil {
-		agentCount := 0
-		if entries, readErr := os.ReadDir(agentsSource); readErr == nil {
-			for _, e := range entries {
-				if !e.IsDir() && strings.HasSuffix(strings.ToLower(e.Name()), ".md") {
-					agentCount++
-				}
-			}
+	count := 0
+	for _, e := range entries {
+		if !e.IsDir() && strings.HasSuffix(strings.ToLower(e.Name()), ".md") {
+			count++
 		}
-		ui.Success("%s (%d agents, %s)", agentsSource, agentCount, agentsInfo.ModTime().Format("2006-01-02 15:04"))
 	}
-}
-
-func printSkillignoreLine(stats *skillignore.IgnoreStats) {
-	if stats == nil || !stats.Active() {
-		return
-	}
-	hint := ".skillignore"
-	if stats.HasLocal() {
-		hint += " (.local active)"
-	}
-	ui.Info("%s: %d patterns, %d skills ignored", hint, stats.PatternCount(), stats.IgnoredCount())
+	return count
 }
 
 func buildSkillignoreJSON(stats *skillignore.IgnoreStats) *statusJSONSourceIgnore {
@@ -276,37 +234,6 @@ func buildSkillignoreJSON(stats *skillignore.IgnoreStats) *statusJSONSourceIgnor
 		Patterns:      stats.Patterns,
 		IgnoredCount:  stats.IgnoredCount(),
 		IgnoredSkills: stats.IgnoredSkills,
-	}
-}
-
-func printTrackedReposStatus(cfg *config.Config, discovered []sync.DiscoveredSkill, trackedRepos []string) {
-	if len(trackedRepos) == 0 {
-		return
-	}
-
-	ui.Header("Tracked Repositories")
-	for _, repoName := range trackedRepos {
-		repoPath := filepath.Join(cfg.EffectiveSkillsSource(), repoName)
-
-		skillCount := 0
-		for _, d := range discovered {
-			if d.IsInRepo && strings.HasPrefix(d.RelPath, repoName+"/") {
-				skillCount++
-			}
-		}
-
-		statusStr := "up-to-date"
-		statusIcon := "✓"
-		if isDirty, err := git.IsDirty(repoPath); err != nil {
-			statusStr = "git status unknown"
-			statusIcon = "?"
-			ui.Warning("%s: %v", repoName, &gitStatusError{err: err})
-		} else if isDirty {
-			statusStr = "has uncommitted changes"
-			statusIcon = "!"
-		}
-
-		ui.Status(repoName, statusIcon, fmt.Sprintf("%d skills, %s", skillCount, statusStr))
 	}
 }
 
@@ -379,87 +306,56 @@ func buildTrackedRepoJSON(sourcePath string, trackedRepos []string, discovered [
 // duplicate CheckStatusMerge/Copy calls.
 type targetStatusResult struct {
 	statusStr   string
-	detail      string
 	syncedCount int // -1 for symlink mode (no drift check)
+	localCount  int
 }
 
 func printTargetsStatus(cfg *config.Config, discovered []sync.DiscoveredSkill) error {
-	ui.Header("Targets")
-
 	builtinAgents := config.DefaultAgentTargets()
 	agentsSource := cfg.EffectiveAgentsSource()
 	agentsExist := dirExists(agentsSource)
-	var agentCount int
 	var agents []resource.DiscoveredResource
 	if agentsExist {
 		agents, _ = resource.AgentKind{}.Discover(agentsSource)
-		agentCount = len(agents)
 	}
 
-	driftTotal := 0
-	for name, target := range cfg.Targets {
-		// Target name header
-		fmt.Printf("%s%s%s\n", ui.Bold, name, ui.Reset)
-
-		// Skills sub-item
+	var rows []statusTarget
+	var warnings []string
+	notSynced := 0
+	for _, name := range slices.Sorted(maps.Keys(cfg.Targets)) {
+		target := cfg.Targets[name]
 		sc := target.SkillsConfig()
 		mode := getTargetMode(sc.Mode, cfg.Mode)
 		res := getTargetStatusDetail(target, cfg.EffectiveSkillsSource(), mode)
-		printTargetSubItem("skills", res.statusStr, res.detail)
 
 		// A target with skills off expects nothing, so it has no drift.
+		expected := 0
 		if sc.IsEnabled() && (mode == "merge" || mode == "copy") {
 			filtered, err := sync.FilterSkills(discovered, sc.Include, sc.Exclude)
 			if err != nil {
 				return fmt.Errorf("target %s has invalid include/exclude config: %w", name, err)
 			}
-			filtered = sync.FilterSkillsByTarget(filtered, name)
-			expectedCount := len(filtered)
-
-			if res.syncedCount < expectedCount {
-				drift := expectedCount - res.syncedCount
-				if drift > driftTotal {
-					driftTotal = drift
-				}
-			}
+			expected = len(sync.FilterSkillsByTarget(filtered, name))
+			notSynced = max(notSynced, expected-res.syncedCount)
 		} else if sc.IsEnabled() && (len(sc.Include) > 0 || len(sc.Exclude) > 0) {
-			ui.Warning("%s: include/exclude ignored in symlink mode", name)
+			warnings = append(warnings, name+": include/exclude ignored in symlink mode")
 		}
 
-		// Agents sub-item
+		row := statusTarget{name: name, path: utils.FoldHomePath(sc.Path), skills: skillsCell(res, sc.Path, mode, expected)}
+		if sc.IsEnabled() {
+			row.mode = mode
+		}
 		if agentsExist {
-			agentPath := resolveAgentTargetPath(target, builtinAgents, name)
-			if agentPath != "" {
+			if agentPath := resolveAgentTargetPath(target, builtinAgents, name); agentPath != "" {
 				preserved := 0
 				linked := countLinkedAgents(agentPath, agents, &preserved)
-				agentMode, agentStatus := agentStatusLabel(target.AgentsConfig())
-				driftLabel := ""
-				if linked != agentCount && agentCount > 0 {
-					agentStatus = "drift"
-					driftLabel = ui.Yellow + " (drift)" + ui.Reset
-				}
-				printTargetSubItem("agents", agentStatus, fmt.Sprintf("[%s] %s%s", agentMode, agentCountLabel(linked, agentCount, preserved), driftLabel))
+				row.agents = agentsCell(linked, len(agents), preserved)
 			}
 		}
+		rows = append(rows, row)
 	}
-	if driftTotal > 0 {
-		ui.Warning("%d skill(s) not synced — run 'skillshare sync'", driftTotal)
-	}
+	printStatusTargets(rows, agentsExist, warnings, notSynced)
 	return nil
-}
-
-// printTargetSubItem prints an indented sub-item line under a target.
-func printTargetSubItem(kind, status, detail string) {
-	statusColor := ui.Gray
-	switch status {
-	case "merged", "synced", "copied", "linked":
-		statusColor = ui.Green
-	case "drift", "not exist":
-		statusColor = ui.Yellow
-	case "conflict", "broken":
-		statusColor = ui.Red
-	}
-	fmt.Printf("  %-8s %s%-12s%s %s\n", kind, statusColor, status, ui.Reset, ui.Dim+detail+ui.Reset)
 }
 
 func getTargetMode(targetMode, globalMode string) string {
@@ -474,7 +370,7 @@ func getTargetMode(targetMode, globalMode string) string {
 
 func getTargetStatusDetail(target config.TargetConfig, source, mode string) targetStatusResult {
 	if !target.SkillsConfig().IsEnabled() {
-		return targetStatusResult{"skills off", "not synced", 0}
+		return targetStatusResult{statusStr: "skills off"}
 	}
 	switch mode {
 	case "merge":
@@ -487,95 +383,53 @@ func getTargetStatusDetail(target config.TargetConfig, source, mode string) targ
 }
 
 func getMergeStatusDetail(target config.TargetConfig, source, mode string) targetStatusResult {
-	sc := target.SkillsConfig()
-	status, linkedCount, localCount := sync.CheckStatusMerge(sc.Path, source)
+	status, linkedCount, localCount := sync.CheckStatusMerge(target.SkillsConfig().Path, source)
 
 	switch status {
-	case sync.StatusMerged:
-		return targetStatusResult{"merged", fmt.Sprintf("[%s] %s (%d shared, %d local)", mode, sc.Path, linkedCount, localCount), linkedCount}
-	case sync.StatusLinked:
-		return targetStatusResult{"linked", fmt.Sprintf("[%s->needs sync] %s", mode, sc.Path), linkedCount}
+	case sync.StatusMerged, sync.StatusLinked:
+		return targetStatusResult{status.String(), linkedCount, localCount}
 	default:
-		return targetStatusResult{status.String(), fmt.Sprintf("[%s] %s (%d local)", mode, sc.Path, localCount), 0}
+		return targetStatusResult{status.String(), 0, localCount}
 	}
 }
 
 func getCopyStatusDetail(target config.TargetConfig, mode string) targetStatusResult {
-	sc := target.SkillsConfig()
-	status, managedCount, localCount := sync.CheckStatusCopy(sc.Path)
+	status, managedCount, localCount := sync.CheckStatusCopy(target.SkillsConfig().Path)
 
 	switch status {
-	case sync.StatusCopied:
-		return targetStatusResult{"copied", fmt.Sprintf("[%s] %s (%d managed, %d local)", mode, sc.Path, managedCount, localCount), managedCount}
-	case sync.StatusLinked:
-		return targetStatusResult{"linked", fmt.Sprintf("[%s->needs sync] %s", mode, sc.Path), managedCount}
+	case sync.StatusCopied, sync.StatusLinked:
+		return targetStatusResult{status.String(), managedCount, localCount}
 	default:
-		return targetStatusResult{status.String(), fmt.Sprintf("[%s] %s (%d local)", mode, sc.Path, localCount), 0}
+		return targetStatusResult{status.String(), 0, localCount}
 	}
 }
 
 func getSymlinkStatusDetail(target config.TargetConfig, source, mode string) targetStatusResult {
-	sc := target.SkillsConfig()
-	status := sync.CheckStatus(sc.Path, source)
-	detail := fmt.Sprintf("[%s] %s", mode, sc.Path)
-
-	switch status {
-	case sync.StatusConflict:
-		link, _ := os.Readlink(sc.Path)
-		detail = fmt.Sprintf("[%s] %s -> %s", mode, sc.Path, link)
-	case sync.StatusMerged:
-		// Configured as symlink but actually using merge - needs resync
-		detail = fmt.Sprintf("[%s->needs sync] %s", mode, sc.Path)
-	}
-
-	return targetStatusResult{status.String(), detail, -1}
+	return targetStatusResult{sync.CheckStatus(target.SkillsConfig().Path, source).String(), -1, 0}
 }
 
-func printAuditStatus(ac config.AuditConfig) {
-	ui.Header("Audit")
-
-	policy := audit.ResolvePolicy(audit.PolicyInputs{
-		ConfigProfile:   ac.Profile,
-		ConfigThreshold: ac.BlockThreshold,
-		ConfigDedupe:    ac.DedupeMode,
-		ConfigAnalyzers: ac.EnabledAnalyzers,
-	})
-
-	ui.Info("Profile:    %s", colorizeProfile(string(policy.Profile)))
-	ui.Info("Block:      severity >= %s", ui.Colorize(ui.SeverityColor(policy.Threshold), strings.ToUpper(policy.Threshold)))
-	ui.Info("Dedupe:     %s", colorizeDedupe(string(policy.DedupeMode)))
-	ui.Info("Analyzers:  %s", colorizeAnalyzers(policy.EnabledAnalyzers))
-}
-
+// checkSkillVersion prints the CLI and built-in skill versions, and how to
+// update the skill when it is missing or behind.
 func checkSkillVersion(cfg *config.Config) {
-	ui.Header("Version")
-
-	// CLI version
-	ui.Success("CLI: %s", version)
-
-	// Skill version
 	localVersion := versioncheck.ReadLocalSkillVersion(cfg.EffectiveSkillsSource())
+	cli := "CLI " + version
 
 	if localVersion == "" {
-		ui.Warning("Skill: not found or missing version")
-		ui.Info("  Run: skillshare upgrade --skill")
+		fmt.Println(statusLine("Version", cli+theme.Dim().Render(" · ")+"skill not installed"))
+		ui.Warning("Install the skillshare skill %s %s", theme.Dim().Render("— run"), theme.Accent().Render("skillshare upgrade --skill"))
 		return
 	}
 
-	// Fetch remote version (with short timeout)
-	remoteVersion := versioncheck.FetchRemoteSkillVersion()
-	if remoteVersion == "" {
-		// Network error - just show local version
-		ui.Info("Skill: %s", localVersion)
-		return
-	}
-
-	// Compare local vs remote
-	if localVersion != remoteVersion {
-		ui.Warning("Skill: %s (update available: %s)", localVersion, remoteVersion)
-		ui.Info("  Run: skillshare upgrade --skill && skillshare sync")
-	} else {
-		ui.Success("Skill: %s (up to date)", localVersion)
+	skill := cli + theme.Dim().Render(" · ") + "skill " + localVersion
+	switch remoteVersion := versioncheck.FetchRemoteSkillVersion(); {
+	case remoteVersion == "":
+		// Offline: show the local version only.
+		fmt.Println(statusLine("Version", skill))
+	case remoteVersion != localVersion:
+		fmt.Println(statusLine("Version", skill))
+		ui.Warning("Skill %s is available %s %s", remoteVersion, theme.Dim().Render("— run"), theme.Accent().Render("skillshare upgrade --skill && skillshare sync"))
+	default:
+		fmt.Println(statusLine("Version", skill+" "+theme.Dim().Render("(up to date)")))
 	}
 }
 

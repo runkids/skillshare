@@ -102,24 +102,17 @@ skillshare status
 $ skillshare status
 
 Source
-─────────────────────────────────────────
-✓ ~/.config/skillshare/skills (43 skills, 2026-09-28 12:39)
-✓ ~/.config/skillshare/agents (2 agents, 2026-09-28 12:39)
+  skills    ~/.config/skillshare/skills  43 skills
+  agents    ~/.config/skillshare/agents  2 agents
 
-Targets
-─────────────────────────────────────────
-claude
-  skills   merged       [merge] ~/.claude/skills (43 shared, 0 local)
-  agents   merged       [merge] 2/2 linked
-cursor
-  skills   merged       [merge] ~/.cursor/skills (43 shared, 0 local)
-  agents   merged       [merge] 2/2 linked
-gemini
-  skills   merged       [merge] ~/.gemini/skills (43 shared, 0 local)
-…
+Targets                     skills       agents
+  claude  ~/.claude/skills  ✓ 43 linked  ✓ 2
+  cursor  ~/.cursor/skills  ✓ 43 linked  ✓ 2
+  gemini  ~/.gemini/skills  ✓ 43 linked  —
+  all use merge
 ```
 
-输出会显示 Source 路径和每个 Target。`merge` 模式下已同步的 Target 会标记为 `merged`，shared 数量也包含你刚刚安装的 skill。
+输出会显示 Source 路径和每个 Target。已同步的 Target 会显示 `✓` 和链接的 skill 数量，其中也包含你刚刚安装的 skill。
 
 仪表板（`skillshare ui`）也能一眼看到同样的状态：
 

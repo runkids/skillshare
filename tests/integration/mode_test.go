@@ -37,7 +37,7 @@ targets:
 	result := sb.RunCLIInDir(projectRoot, "status", "-g")
 	result.AssertSuccess(t)
 	// Should show global source, not project source
-	result.AssertOutputContains(t, sb.SourcePath)
+	result.AssertRowContains(t, "skills", "~/.config/skillshare/skills")
 }
 
 func TestMode_AutoDetect_ProjectWhenConfigExists(t *testing.T) {
