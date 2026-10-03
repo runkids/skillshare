@@ -3027,6 +3027,7 @@
   "memory.skipped.unreadable": "無法讀取 instructions 檔案",
   "memory.skipped.unsupported": "instructions 檔案必須是 UTF-8",
   "memory.skipped.mixed_modes": "它讀的檔案使用不同的更新模式；請把這些檔案的 Agent 設成同一種模式",
+  "memory.skipped.multiple_blocks": "它從多個檔案讀到指引；請先移除多餘的區塊再切換模式",
   "memory.noTargets": "尚未設定具有 instructions 檔案的工具。",
   "memory.noChanges": "沒有可套用的變更。",
   "memory.alsoReadBy": "也由這些工具讀取：{targets}",

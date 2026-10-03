@@ -3027,6 +3027,7 @@
   "memory.skipped.unreadable": "Anweisungsdatei kann nicht gelesen werden",
   "memory.skipped.unsupported": "Anweisungsdatei muss UTF-8 verwenden",
   "memory.skipped.mixed_modes": "Die gelesenen Dateien nutzen verschiedene Aktualisierungsmodi; stelle ihre Agents auf einen Modus",
+  "memory.skipped.multiple_blocks": "Es liest Hinweise aus mehreren Dateien; entferne den zusätzlichen Block, bevor du den Modus wechselst",
   "memory.noTargets": "Keine Tools mit Anweisungsdateien konfiguriert.",
   "memory.noChanges": "Keine Änderungen zum Anwenden.",
   "memory.alsoReadBy": "Auch gelesen von: {targets}",

@@ -41,7 +41,7 @@ skillshare ui -g
 
 ![英文 Memory 分頁顯示已設定的工具](/img/memory-connected-demo.png)
 
-**Configured** 表示工具的讀取鏈已有目前的指引，不代表 Agent 已讀取。**Not configured**、**Outdated** 與 **Needs attention** 描述的是 instructions 檔案。完整但過期的區塊可經再次檢查後更新；手動修改或標記格式有誤的區塊會保留，需手動修復。若工具從不同檔案讀到兩種模式的區塊，也會顯示需要處理：請把讀這些檔案的工具設成同一種模式。未同步的共用 instructions 要先 sync；無法讀取的 instructions 檔案會略過。若預覽後檔案改變，必須重新檢查再套用。
+**Configured** 表示工具的讀取鏈已有目前的指引，不代表 Agent 已讀取。**Not configured**、**Outdated** 與 **Needs attention** 描述的是 instructions 檔案。完整但過期的區塊可經再次檢查後更新；手動修改或標記格式有誤的區塊會保留，需手動修復。若工具從不同檔案讀到兩種模式的區塊，也會顯示需要處理：請把讀這些檔案的工具設成同一種模式。從多個檔案讀到區塊的工具，要先移除多餘的區塊才能切換模式。未同步的共用 instructions 要先 sync；無法讀取的 instructions 檔案會略過。若預覽後檔案改變，必須重新檢查再套用。
 
 使用 **Open AGENTS.md** 檢查或修復 instructions。連接預覽是 dashboard 流程，沒有新增 CLI 連接命令。
 

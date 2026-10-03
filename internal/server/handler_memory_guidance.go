@@ -77,6 +77,7 @@ type guidanceSite struct {
 	guidanceTarget
 	sources  []guidanceSource
 	dest     int    // the source that receives a new block
+	blocks   int    // live sources holding an intact block
 	shared   string // shared file of File, for syncing copies
 	maxChars int
 }
@@ -207,6 +208,7 @@ func (s *Server) resolveSite(site guidanceSite, root string) guidanceSite {
 		}
 		if state != memory.StateUnconfigured && state != memory.StateMalformed {
 			modes[mode] = true
+			site.blocks++
 		}
 		if rank[state] > bestRank {
 			best, bestRank = i, rank[state]
@@ -283,6 +285,10 @@ func (s *Server) planGuidance(names []string, modes map[string]string) (guidance
 			continue
 		case site.State == "broken":
 			plan.Skipped = append(plan.Skipped, guidanceSkip{name, site.Detail})
+			continue
+		case site.Mode != mode && site.blocks > 1:
+			// Rewriting only site.File would leave the other blocks in the old mode.
+			plan.Skipped = append(plan.Skipped, guidanceSkip{name, "multiple_blocks"})
 			continue
 		}
 		if i, ok := index[site.File]; ok {

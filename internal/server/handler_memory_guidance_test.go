@@ -520,3 +520,20 @@ func TestMemoryGuidance_FlagsTargetReadingBlocksOfDifferentModes(t *testing.T) {
 		t.Errorf("claude = %+v", got)
 	}
 }
+
+func TestMemoryGuidance_RefusesModeSwitchForTargetReadingSeveralBlocks(t *testing.T) {
+	s, home := newInstructionsServer(t, "claude", "codex")
+	writeHome(t, home, ".claude/CLAUDE.md", "# Me\n")
+	plan := planGuidanceFor(t, s, `["claude"]`)
+	applyGuidance(t, s, `["claude"]`, plan.Token)
+	instructionsRequest(t, s, http.MethodPost, "/api/instructions", `{"name":"personal","content":"personal\n"}`)
+	instructionsRequest(t, s, http.MethodPost, "/api/instructions/assign", `{"targets":["claude","codex"],"extras":["personal"]}`)
+	plan = planGuidanceFor(t, s, `["codex"]`)
+	applyGuidance(t, s, `["codex"]`, plan.Token)
+
+	rr := instructionsRequest(t, s, http.MethodPost, "/api/extras/memory/guidance/plan", `{"targets":["claude"],"modes":{"claude":"active"}}`)
+	plan = decodeBody[guidancePlan](t, rr)
+	if rr.Code != http.StatusOK || len(plan.Changes) != 0 || len(plan.Skipped) != 1 || plan.Skipped[0].Reason != "multiple_blocks" {
+		t.Errorf("plan: %d %+v", rr.Code, plan)
+	}
+}

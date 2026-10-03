@@ -3027,6 +3027,7 @@
   "memory.skipped.unreadable": "Berkas instruksi tidak dapat dibaca",
   "memory.skipped.unsupported": "Berkas instruksi harus UTF-8",
   "memory.skipped.mixed_modes": "File yang dibaca memakai mode pembaruan berbeda; atur agennya ke satu mode",
+  "memory.skipped.multiple_blocks": "Membaca panduan dari lebih dari satu file; hapus blok tambahan sebelum mengganti mode",
   "memory.noTargets": "Belum ada alat dengan berkas instruksi yang dikonfigurasi.",
   "memory.noChanges": "Tidak ada perubahan untuk diterapkan.",
   "memory.alsoReadBy": "Juga dibaca oleh: {targets}",

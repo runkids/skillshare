@@ -3027,6 +3027,7 @@
   "memory.skipped.unreadable": "Não é possível ler o arquivo de instruções",
   "memory.skipped.unsupported": "O arquivo de instruções deve ser UTF-8",
   "memory.skipped.mixed_modes": "Os arquivos lidos usam modos de atualização diferentes; coloque os agentes deles em um só modo",
+  "memory.skipped.multiple_blocks": "Ele lê orientações de mais de um arquivo; remova o bloco extra antes de trocar de modo",
   "memory.noTargets": "Nenhuma ferramenta com arquivo de instruções está configurada.",
   "memory.noChanges": "Nenhuma alteração para aplicar.",
   "memory.alsoReadBy": "Também lido por: {targets}",

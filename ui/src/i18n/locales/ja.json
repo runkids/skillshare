@@ -3027,6 +3027,7 @@
   "memory.skipped.unreadable": "指示ファイルを読み取れません",
   "memory.skipped.unsupported": "指示ファイルは UTF-8 にしてください",
   "memory.skipped.mixed_modes": "読み込むファイルの更新モードが異なります。それらのエージェントを同じモードにしてください",
+  "memory.skipped.multiple_blocks": "複数のファイルからガイダンスを読み込んでいます。モードを切り替える前に余分なブロックを削除してください",
   "memory.noTargets": "指示ファイルを持つツールが設定されていません。",
   "memory.noChanges": "適用する変更はありません。",
   "memory.alsoReadBy": "次のツールも読み取ります：{targets}",

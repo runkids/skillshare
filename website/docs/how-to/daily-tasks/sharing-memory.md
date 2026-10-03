@@ -69,7 +69,8 @@ It does not mean the agent has read it. **Not configured**, **Outdated**, and
 outdated block can be updated through another review; modified or malformed
 blocks are preserved for manual repair. A tool that reads blocks of both modes
 from different files also needs attention: set the tools on those files to one
-mode. Unsynced shared instructions must be
+mode. A tool that reads blocks from several files cannot switch modes until you
+remove the extra block. Unsynced shared instructions must be
 synced first. Unreadable instruction files are skipped. If files
 change after review, review again before applying.
 

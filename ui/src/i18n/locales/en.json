@@ -3027,6 +3027,7 @@
   "memory.skipped.unreadable": "Instruction file cannot be read",
   "memory.skipped.unsupported": "Instruction file must be UTF-8",
   "memory.skipped.mixed_modes": "Files it reads use different update modes; set their agents to one mode",
+  "memory.skipped.multiple_blocks": "It reads guidance from more than one file; remove the extra block before switching modes",
   "memory.noTargets": "No tools with instruction files are configured.",
   "memory.noChanges": "No changes to apply.",
   "memory.alsoReadBy": "Also read by: {targets}",
