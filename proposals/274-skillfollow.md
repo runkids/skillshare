@@ -57,11 +57,11 @@ The rules below are @hhdebb's design, plus the overlap rules:
   1. `missing`: no entry exists, the link dangles, or the resolved root cannot be read. This is temporary. §3 defines how sync behaves while an entry is missing.
   2. `not-link`: the entry is a real directory. This is a no-op; the directory is discovered anyway.
   3. `invalid-target`: the link resolves to a file.
-  4. `single-skill`: the resolved root contains `SKILL.md`. This check runs before tracked-repo detection, regardless of a `_` prefix. Rollout step 3 skips these entries; step 4 enables them.
-  5. `cycle`: the resolved target is the source root, an ancestor of it, or inside it.
-  6. `target-overlap`: the resolved target equals an active skills target path (global or project, from the current config), or is an ancestor or descendant of one. The check runs in both directions. Without it, a followed `/ext` with a target at `/ext/out` would make sync write links inside the tree that discovery reads (`SyncTargetMergeWithSkills`, `internal/sync/sync.go:587`, `:625`, `:639`).
-  7. `inside-git-root`: the resolved target lies physically inside skillshare's effective git staging tree (see §5). Ignoring the link cannot stop the target's content from being staged through its real path. Also, `NestedRepos`/`DisableNestedRepo` (`internal/git/scope.go:396`, `:424`) could then offer to disable the user's own `.git`.
-  8. `entry-overlap`: two entries resolve to the same target, or one target is inside the other. *Both* entries are rejected, and the warning names the pair, so the merge order of `.local` never decides which one wins.
+  4. `cycle`: the resolved target is the source root, an ancestor of it, or inside it.
+  5. `target-overlap`: the resolved target equals an active skills target path (global or project, from the current config), or is an ancestor or descendant of one. The check runs in both directions. Without it, a followed `/ext` with a target at `/ext/out` would make sync write links inside the tree that discovery reads (`SyncTargetMergeWithSkills`, `internal/sync/sync.go:587`, `:625`, `:639`).
+  6. `inside-git-root`: the resolved target lies physically inside skillshare's effective git staging tree (see §5). Ignoring the link cannot stop the target's content from being staged through its real path. Also, `NestedRepos`/`DisableNestedRepo` (`internal/git/scope.go:396`, `:424`) could then offer to disable the user's own `.git`.
+  7. `entry-overlap`: two entries resolve to the same target, or one target is inside the other. *Both* entries are rejected, and the warning names the pair, so the merge order of `.local` never decides which one wins.
+  8. `single-skill`: the resolved root contains `SKILL.md`. It comes after every safety check, so a link such as `a -> <active-target>/a` is rejected as `target-overlap` instead of becoming a skill that `sync --force` would delete through `os.RemoveAll` (`internal/sync/sync.go:639`). It still runs before tracked-repo detection, regardless of a `_` prefix. Rollout step 3 skips these entries; step 4 enables them.
   9. `followed`.
 
   A first-level link that no file declares is reported as `undeclared-link`. Commands act on these states, not on warning text. All comparisons run after canonicalization. A missing path is resolved through its nearest existing ancestor, the way `evalOrClean` does it (`internal/sync/relative.go:41-59`). On Windows, canonicalization cannot rely on `filepath.EvalSymlinks`, because it does not resolve junctions (§6). The entry is resolved with `utils.ResolveLinkTarget`, and every other path goes through a junction-aware canonicalizer. Comparisons use `utils.PathsEqual` and `PathHasPrefix`, which are case-insensitive on Windows.
@@ -423,7 +423,7 @@ Any line estimate is rough, not a commitment.
 
 - **Unit tests:**
   - The parser: comments, whitespace, duplicates, `.local` merge, every rejected name form on every platform, and escaping in ignore lines.
-  - Classification: every state, including precedence when more than one condition holds. That covers `invalid-target`, `single-skill` before tracked-repo detection, `inside-git-root`, overlaps in both directions against targets and between entries, and canonicalization through a missing ancestor.
+  - Classification: every state, including precedence when more than one condition holds. That covers `invalid-target`, every safety check before `single-skill` (including `a -> <active-target>/a`), `single-skill` before tracked-repo detection, `inside-git-root`, overlaps in both directions against targets and between entries, and canonicalization through a missing ancestor.
   - The walker: one hop only, logical paths with a symlinked source root, `SkipDir`, a mid-walk unreadable directory marking its entry `missing`, and the junction seam.
   - The ratchet, including a new call inside an allowed function and stale allowances.
   - The §3 table, with flat and standard naming.
