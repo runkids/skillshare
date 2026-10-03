@@ -77,7 +77,7 @@ Next
 
 ### Interactive TUI Mode
 
-When scanning several skills in an interactive terminal, `audit` opens a full-screen view instead of printing results line by line: skills on the left with findings first, and the risk summary and findings of the selected skill on the right. The keys are listed at the bottom of the screen.
+When scanning several skills in an interactive terminal, `audit` opens a full-screen view instead of printing results line by line: skills on the left with findings first, and the risk summary and findings of the selected skill on the right. Opening a skill shows its files at each finding, with the flagged line marked and its line number. The keys are listed at the bottom of the screen.
 
 It opens only when the terminal is interactive, the output is not JSON, and there is more than one result. Use `--no-tui` to force plain text.
 

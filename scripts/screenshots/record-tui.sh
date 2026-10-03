@@ -24,6 +24,8 @@ list-keys|skillshare list|Type `?`
 list-confirm|skillshare list|Down;Type `d`
 list-filter|skillshare list|Type `/`;Type `re`
 list-files|skillshare list|Enter
+list-open-tracked|skillshare list|Type `/`;Type `review`;Enter;Enter
+list-open-agent|skillshare list|Tab;Enter
 target|skillshare target list|
 target-edit|skillshare target list|Type `e`
 target-confirm|skillshare target list|Type `d`
@@ -42,6 +44,8 @@ log|skillshare log|
 log-stats|skillshare log|Tab
 log-confirm|skillshare log|Down;Space;Down;Space;Type `d`
 audit|skillshare audit|
+audit-files|skillshare audit|Type `/`;Type `risky`;Enter;Enter
+audit-files-next|skillshare audit|Type `/`;Type `risky`;Enter;Enter;Type `n`
 audit-rules|skillshare audit rules|
 audit-rules-severity|skillshare audit rules|Enter;Down;Type `e`
 diff|skillshare diff|

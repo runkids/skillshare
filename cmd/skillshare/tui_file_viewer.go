@@ -18,6 +18,8 @@ type fileViewer struct {
 	content        string
 	contentScroll  int
 	noTree         bool
+	note           string    // the line above the keys, e.g. what a finding says
+	extraHints     []keyHint // keys of the screen that opened the viewer
 }
 
 // fileViewerHeight is how many lines the tree and the file get.
@@ -42,7 +44,7 @@ func renderFileViewer(width, height int, v fileViewer) string {
 	bodyHeight := fileViewerHeight(height)
 	text, pos := scrollLines(v.content, v.contentScroll, bodyHeight)
 
-	hints := []keyHint{{"ctrl+d/u", "scroll"}, {"g/G", "top/bottom"}, {"esc", "back"}}
+	hints := append(append([]keyHint{}, v.extraHints...), keyHint{"ctrl+d/u", "scroll"}, keyHint{"g/G", "top/bottom"}, keyHint{"esc", "back"})
 	var body string
 	if v.noTree {
 		body = lipgloss.NewStyle().PaddingLeft(1).Height(bodyHeight).MaxHeight(bodyHeight).Render(text)
@@ -52,7 +54,8 @@ func renderFileViewer(width, height int, v fileViewer) string {
 		body = renderFrameSplit(tree, text, sw, width-sw, bodyHeight)
 		hints = append([]keyHint{{"↑↓", "files"}, {"→", "expand"}, {"←", "collapse"}}, hints...)
 	}
-	return title + "\n\n" + body + "\n\n" + renderKeyLine(width, hints, pos)
+	note := truncateANSI("  "+v.note, width)
+	return title + "\n\n" + body + "\n" + note + "\n" + renderKeyLine(width, hints, pos)
 }
 
 // renderFileTree draws the visible rows of the tree; the open file or

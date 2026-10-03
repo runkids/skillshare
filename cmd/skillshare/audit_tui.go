@@ -245,6 +245,11 @@ type auditTUIModel struct {
 	tabCounts    [2]int // [skills, agents]
 
 	showKeys bool // ? swaps the detail panel for the full key list
+
+	// enter opens the selected result's files at its findings
+	browser  *fileBrowser
+	findings []audit.Finding
+	finding  int
 }
 
 func sortAuditItems(items []auditItem) {
@@ -393,6 +398,9 @@ func (m auditTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.termWidth = msg.Width
 		m.termHeight = msg.Height
+		if m.browser != nil {
+			m.browser.resize(msg.Width, msg.Height)
+		}
 		bodyHeight := max(msg.Height-frameChrome, 6)
 		if m.termWidth >= tuiNarrowSplitWidth {
 			m.list.SetSize(auditListWidth(m.termWidth), bodyHeight)
@@ -403,6 +411,15 @@ func (m auditTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case tea.MouseMsg:
+		if m.browser != nil {
+			switch msg.Button {
+			case tea.MouseButtonWheelUp:
+				m.browser.wheel(-1)
+			case tea.MouseButtonWheelDown:
+				m.browser.wheel(1)
+			}
+			return m, nil
+		}
 		if m.termWidth >= tuiNarrowSplitWidth {
 			leftWidth := auditListWidth(m.termWidth)
 			if msg.X > leftWidth {
@@ -424,8 +441,16 @@ func (m auditTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			cmd := handleTUIFilterKey(msg, &m.filtering, &m.filterText, &m.filterInput, m.applyFilter)
 			return m, cmd
 		}
+		if m.browser != nil {
+			return m.browserKey(msg.String())
+		}
 
 		switch msg.String() {
+		case "enter":
+			if item, ok := m.list.SelectedItem().(auditItem); ok {
+				m.openFiles(item)
+			}
+			return m, nil
 		case "q", "ctrl+c":
 			m.quitting = true
 			return m, tea.Quit
@@ -488,9 +513,62 @@ func (m auditTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, cmd
 }
 
+// openFiles opens the result's files at its first finding, in the order
+// the details list them.
+func (m *auditTUIModel) openFiles(item auditItem) {
+	r := item.result
+	m.browser = newFileBrowser("audit", r.SkillName, r.ScanTarget, true, m.termWidth, m.termHeight)
+	m.findings = sortedFindings(r.Findings)
+	m.finding = 0
+	if len(m.findings) > 0 {
+		m.browser.openAt(m.findings[0].File, m.findings[0].Line)
+	}
+}
+
+func (m auditTUIModel) browserKey(k string) (tea.Model, tea.Cmd) {
+	switch k {
+	case "q", "ctrl+c":
+		m.quitting = true
+		return m, tea.Quit
+	case "esc":
+		m.browser = nil
+	case "n", "N":
+		if len(m.findings) > 0 {
+			step := 1
+			if k == "N" {
+				step = len(m.findings) - 1
+			}
+			m.finding = (m.finding + step) % len(m.findings)
+			f := m.findings[m.finding]
+			m.browser.openAt(f.File, f.Line)
+		}
+	default:
+		m.browser.key(k)
+	}
+	return m, nil
+}
+
+// findingNote says which finding is marked and what it is.
+func (m auditTUIModel) findingNote() string {
+	if len(m.findings) == 0 {
+		return theme.Dim().Render("No findings")
+	}
+	f := m.findings[m.finding]
+	return theme.Dim().Render(fmt.Sprintf("%d/%d ", m.finding+1, len(m.findings))) +
+		theme.SeverityStyle(f.Severity).Render(strings.ToUpper(f.Severity)) + " " +
+		theme.Primary().Bold(true).Render(f.Pattern) + theme.Dim().Render(" · "+f.Message)
+}
+
 func (m auditTUIModel) View() string {
 	if m.quitting {
 		return ""
+	}
+	if m.browser != nil {
+		var hints []keyHint
+		if len(m.findings) > 1 {
+			hints = []keyHint{{"n/N", "next/previous finding"}}
+		}
+		return m.browser.view(m.findingNote(), hints)
 	}
 	bodyHeight := max(m.termHeight-frameChrome, 6)
 	title := m.renderTitleLine()
@@ -565,7 +643,7 @@ func (m auditTUIModel) renderBottom() string {
 		if m.activeTab == auditTabAgents {
 			other = "skills"
 		}
-		hints := []keyHint{{"↑↓", "move"}, filter, {"tab", other}, {"ctrl+d/u", "scroll"}, {"?", "keys"}}
+		hints := []keyHint{{"↑↓", "move"}, filter, {"tab", other}, {"enter", "open files"}, {"ctrl+d/u", "scroll"}, {"?", "keys"}}
 		line = renderKeyLine(m.termWidth, hints, framePosition(m.list.Index()+1-m.groupsAbove(), m.matchCount))
 	}
 	return note + "\n" + line
@@ -594,6 +672,7 @@ var auditKeyGroups = []keyGroup{
 		{"/", "filter by name, severity, rule, file or category"},
 		{"tab", "switch between Skills and Agents"},
 		{"ctrl+d/u", "scroll the details"},
+		{"enter", "open the files at the findings; n/N moves between findings"},
 		{"esc", "clear the filter, then quit"},
 		{"q", "quit"},
 	}},
@@ -724,13 +803,7 @@ func (m auditTUIModel) renderDetailContent(item auditItem) string {
 		b.WriteString(theme.Primary().Bold(true).Render("Findings"))
 		b.WriteString("\n\n")
 
-		sorted := make([]audit.Finding, len(r.Findings))
-		copy(sorted, r.Findings)
-		sort.Slice(sorted, func(i, j int) bool {
-			return audit.SeverityRank(sorted[i].Severity) < audit.SeverityRank(sorted[j].Severity)
-		})
-
-		for idx, f := range sorted {
+		for idx, f := range sortedFindings(r.Findings) {
 			// [N] SEVERITY  pattern
 			sevBadge := theme.SeverityStyle(f.Severity).Render(strings.ToUpper(f.Severity))
 			header := theme.Dim().Render(fmt.Sprintf("[%d] ", idx+1))
@@ -768,6 +841,16 @@ func (m auditTUIModel) renderDetailContent(item auditItem) string {
 	}
 
 	return b.String()
+}
+
+// sortedFindings orders findings most severe first, as the details number them.
+func sortedFindings(findings []audit.Finding) []audit.Finding {
+	sorted := make([]audit.Finding, len(findings))
+	copy(sorted, findings)
+	sort.SliceStable(sorted, func(i, j int) bool {
+		return audit.SeverityRank(sorted[i].Severity) < audit.SeverityRank(sorted[j].Severity)
+	})
+	return sorted
 }
 
 // auditListWidth returns the left panel width for horizontal layout.
