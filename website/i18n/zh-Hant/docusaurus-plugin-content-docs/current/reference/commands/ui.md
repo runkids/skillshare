@@ -165,7 +165,7 @@ Web dashboard 在 `/api/` 上提供 REST API。所有端點皆回傳 JSON。
 | POST | `/api/git/discard` | 捨棄設定的 Git 範圍內尚未提交的變更（僅限全域模式，儲存庫必須已有第一次提交）。支援 `dryRun`；保留被 Git 忽略的檔案、巢狀 Git 儲存庫，以及 `root` 範圍的 `config.yaml` |
 | GET | `/api/git/status` | Source repo 狀態，包含尚未 push 的 commits（`ahead`），以及截至上次 fetch 尚未 pull 的 upstream commits（`behind`）。不會執行 fetch |
 | POST | `/api/push` | Commit 所有變更後再 push。首次 push 時會設定 upstream。當 remote 有這個 repo 沒有的 commits 時，會以 `409` 與錯誤代碼 `push_rejected` 失敗；先 pull 再 push 即可 |
-| POST | `/api/pull` | Pull 之後同步 repo scope 所涵蓋的內容。已分歧的歷史會被合併；`.metadata.json` 的衝突會自動解決，其他衝突則會失敗並復原 merge。當第一次 pull 無法合併時，會以錯誤代碼 `merge_failed` 失敗；帶 `force: true` 重試可以本機檔案取代 remote 分支 |
+| POST | `/api/pull` | Pull 之後同步 repo scope 所涵蓋的內容。已分歧的歷史會被合併；`.metadata.json` 的衝突會自動解決，其他衝突則會失敗並復原 merge。當第一次 pull 無法合併時，會以錯誤代碼 `merge_failed` 失敗；帶 `force: true` 重試可以本機檔案取代 remote 分支。帶 `alwaysSync: true` 時，即使沒有拉到新內容也會同步 targets。remote 沒有任何分支時回傳 `400 remote_empty` |
 | GET | `/api/diff` | Source 與 targets 之間的差異 |
 | GET | `/api/search?q=` | 在 GitHub 上搜尋 skills |
 | POST | `/api/install` | 從來源安裝一個 skill |

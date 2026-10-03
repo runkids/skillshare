@@ -130,8 +130,10 @@ export default function GitSyncPage() {
     setPulled(null);
     setPulled(await api.pull({ force: false, dryRun: false }));
   });
-  // Commit local changes, merge the remote and sync targets, then push. A
-  // pull conflict stops here and opens the review; push again after applying.
+  // Commit local changes, merge the remote and sync targets, then push, like
+  // push --pull. Targets sync even when nothing new arrives. An empty remote
+  // is pushed first and synced after. A pull conflict stops here and opens the
+  // review; sync again after applying.
   const syncBoth = () => run('syncBoth', async () => {
     if (dryRun) return setNote(t('gitSync.syncBoth.preview'));
     if (status?.isDirty) {
@@ -139,8 +141,15 @@ export default function GitSyncPage() {
       setMessage('');
     }
     setPulled(null);
-    setPulled(await api.pull({ force: false, dryRun: false }));
-    await api.push({});
+    const pullAndSync = () => api.pull({ force: false, dryRun: false, alwaysSync: true });
+    try {
+      setPulled(await pullAndSync());
+      await api.push({});
+    } catch (err) {
+      if (!(err instanceof ApiError && err.code === 'remote_empty')) throw err;
+      await api.push({});
+      setPulled(await pullAndSync());
+    }
     toast(t('gitSync.toast.syncedBoth'), 'success');
   });
   const checkout = (branch: string) => run('branch', async () => {

@@ -165,7 +165,7 @@ project mode(`-p`)로 실행할 때 대시보드는 다음과 같이 달라집�
 | POST | `/api/git/discard` | 설정된 Git 범위 내의 커밋되지 않은 변경 사항을 버립니다(전역 모드 전용, 저장소에 첫 번째 커밋 필요). `dryRun`을 지원합니다. Git에서 무시한 파일, 중첩된 Git 저장소 및 `root` 범위의 `config.yaml`을 유지합니다 |
 | GET | `/api/git/status` | 아직 push되지 않은 커밋(`ahead`)과 마지막 fetch 기준으로 아직 pull하지 않은 upstream 커밋(`behind`)을 포함한 source repo 상태. fetch는 하지 않습니다 |
 | POST | `/api/push` | 변경 사항을 commit한 후 push합니다. 첫 push 시 upstream을 설정합니다. remote에 이 repo에 없는 커밋이 있으면 `409`와 오류 코드 `push_rejected`로 실패합니다. pull한 후 다시 push하세요 |
-| POST | `/api/pull` | pull한 후 repo scope가 담고 있는 것을 sync합니다. 갈라진 히스토리는 병합되며, `.metadata.json` 충돌은 자동으로 해결되고, 그 외의 충돌은 병합을 되돌린 채 실패합니다. 첫 pull이 병합에 실패하면 오류 코드 `merge_failed`로 실패합니다. 로컬 파일을 remote 브랜치로 교체하려면 `force: true`로 재시도하세요 |
+| POST | `/api/pull` | pull한 후 repo scope가 담고 있는 것을 sync합니다. 갈라진 히스토리는 병합되며, `.metadata.json` 충돌은 자동으로 해결되고, 그 외의 충돌은 병합을 되돌린 채 실패합니다. 첫 pull이 병합에 실패하면 오류 코드 `merge_failed`로 실패합니다. 로컬 파일을 remote 브랜치로 교체하려면 `force: true`로 재시도하세요. `alwaysSync: true`를 지정하면 새로 가져온 것이 없어도 target을 sync합니다. 브랜치가 없는 remote에서는 `400 remote_empty`를 반환합니다 |
 | GET | `/api/diff` | source와 target 간의 diff |
 | GET | `/api/search?q=` | GitHub에서 skill 검색 |
 | POST | `/api/install` | source에서 skill 설치 |

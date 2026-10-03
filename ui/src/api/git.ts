@@ -36,7 +36,7 @@ export const gitApi = {
       body: JSON.stringify(opts),
     }),
   /** force replaces local files with the remote when a first pull cannot merge (error code merge_failed). */
-  pull: (opts?: { dryRun?: boolean; force?: boolean; resolution?: GitPullResolution }) =>
+  pull: (opts?: { dryRun?: boolean; force?: boolean; resolution?: GitPullResolution; alwaysSync?: boolean }) =>
     apiFetch<PullResponse>('/pull', {
       method: 'POST',
       body: JSON.stringify(opts ?? {}),

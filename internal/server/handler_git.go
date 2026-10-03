@@ -660,6 +660,9 @@ func (s *Server) handlePull(w http.ResponseWriter, r *http.Request) {
 		// Force replaces local files with the remote on a first pull instead of merging.
 		Force      bool                `json:"force"`
 		Resolution *git.PullResolution `json:"resolution"`
+		// AlwaysSync syncs targets even when nothing new was pulled, as the
+		// CLI's push --pull does (the dashboard's Sync both ways).
+		AlwaysSync bool `json:"alwaysSync"`
 	}
 	if err := decodeJSON(w, r, &body, defaultJSONBodyLimit); errors.Is(err, errBodyTooLarge) {
 		return
@@ -713,7 +716,8 @@ func (s *Server) handlePull(w http.ResponseWriter, r *http.Request) {
 		info, err = git.FirstPull(src, body.Force)
 	}
 	if errors.Is(err, git.ErrNoRemoteBranches) {
-		writeError(w, http.StatusBadRequest, "the remote has no branches yet; push first")
+		// Sync both ways pushes on this code, like push --pull.
+		writeCodedError(w, http.StatusBadRequest, "remote_empty", "the remote has no branches yet; push first", nil)
 		return
 	}
 	if err != nil {
@@ -754,17 +758,23 @@ func (s *Server) handlePull(w http.ResponseWriter, r *http.Request) {
 	// from the skills source, whatever directory git_root points at.
 	syncPulledExtras := func() {
 		for _, extra := range s.syncExtras("", false, false) {
+			for _, msg := range extra.Warnings {
+				resp.Warnings = append(resp.Warnings, fmt.Sprintf("extras %s: %s", extra.Name, msg))
+			}
 			for _, t := range extra.Targets {
 				for _, msg := range append([]string{t.Error}, t.Errors...) {
 					if msg != "" {
 						resp.Warnings = append(resp.Warnings, fmt.Sprintf("extras sync failed for %s (%s): %s", extra.Name, t.Target, msg))
 					}
 				}
+				for _, msg := range t.Warnings {
+					resp.Warnings = append(resp.Warnings, fmt.Sprintf("extras %s (%s): %s", extra.Name, t.Target, msg))
+				}
 			}
 		}
 	}
 	switch scope := s.cfg.GitRoot; {
-	case info.UpToDate:
+	case info.UpToDate && !body.AlwaysSync:
 	case scope == "extras":
 		syncPulledExtras()
 	default:

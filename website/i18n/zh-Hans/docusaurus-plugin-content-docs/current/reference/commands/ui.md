@@ -165,7 +165,7 @@ web dashboard 在 `/api/` 下暴露一个 REST API。所有端点都返回 JSON�
 | POST | `/api/git/discard` | 放弃配置的 Git 范围内尚未提交的更改（仅限全局模式，仓库必须已有第一次提交）。支持 `dryRun`；保留被 Git 忽略的文件、嵌套 Git 仓库，以及 `root` 范围的 `config.yaml` |
 | GET | `/api/git/status` | source 仓库状态，包括尚未推送的提交（`ahead`），以及截至上次 fetch 尚未拉取的 upstream 提交（`behind`）。不会执行 fetch |
 | POST | `/api/push` | 提交任何变更，然后推送。首次推送时会设置 upstream。当 remote 有本仓库没有的提交时，会以 `409` 和错误码 `push_rejected` 失败；先 pull，再重新 push |
-| POST | `/api/pull` | 拉取，然后同步该仓库 scope 所涵盖的内容。分歧的历史会被合并；`.metadata.json` 的冲突会自动解决，其他冲突会失败并撤销合并。当首次 pull 无法合并时，会以错误码 `merge_failed` 失败；用 `force: true` 重试可用 remote 分支替换本地文件 |
+| POST | `/api/pull` | 拉取，然后同步该仓库 scope 所涵盖的内容。分歧的历史会被合并；`.metadata.json` 的冲突会自动解决，其他冲突会失败并撤销合并。当首次 pull 无法合并时，会以错误码 `merge_failed` 失败；用 `force: true` 重试可用 remote 分支替换本地文件。`alwaysSync: true` 时即使没有拉取到新内容也会同步 targets。remote 没有任何分支时返回 `400 remote_empty` |
 | GET | `/api/diff` | source 与 targets 之间的差异 |
 | GET | `/api/search?q=` | 在 GitHub 上搜索 skills |
 | POST | `/api/install` | 从来源安装一个 skill |

@@ -165,7 +165,7 @@ Web ダッシュボードは `/api/` に REST API を公開しています。す
 | POST | `/api/git/discard` | 設定された Git スコープ内の未コミットの変更を破棄（グローバルモードのみ。リポジトリに最初のコミットが必要）。`dryRun` に対応。Git に無視されたファイル、入れ子になった Git リポジトリ、`root` スコープの `config.yaml` を保持 |
 | GET | `/api/git/status` | まだプッシュされていないコミット（`ahead`）と、最後の fetch 時点でまだプルしていない upstream のコミット（`behind`）を含む、Source リポジトリの状態。fetch は行わない |
 | POST | `/api/push` | 変更をコミットしてからプッシュ。初回プッシュ時は upstream を設定する。remote にこのリポジトリにないコミットがある場合、`409` とエラーコード `push_rejected` で失敗する。プルしてから再度プッシュする |
-| POST | `/api/pull` | プルしてから、リポジトリのスコープが保持するものを sync する。分岐した履歴はマージされる。`.metadata.json` の競合は自動で解決され、それ以外の競合ではマージを取り消して失敗する。最初のプルがマージできない場合、エラーコード `merge_failed` で失敗する。`force: true` で再試行すると、remote ブランチでローカルファイルを置き換える |
+| POST | `/api/pull` | プルしてから、リポジトリのスコープが保持するものを sync する。分岐した履歴はマージされる。`.metadata.json` の競合は自動で解決され、それ以外の競合ではマージを取り消して失敗する。最初のプルがマージできない場合、エラーコード `merge_failed` で失敗する。`force: true` で再試行すると、remote ブランチでローカルファイルを置き換える。`alwaysSync: true` を指定すると、新しく取得したものがなくても target を sync する。ブランチのない remote では `400 remote_empty` を返す |
 | GET | `/api/diff` | Source と Target 間の差分 |
 | GET | `/api/search?q=` | GitHub で Skill を検索 |
 | POST | `/api/install` | ソースから Skill をインストール |

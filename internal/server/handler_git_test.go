@@ -559,6 +559,70 @@ func TestHandlePull_ExtrasScopeSyncsExtras(t *testing.T) {
 	}
 }
 
+// setupExtrasScopePull makes an extras-scope repo tracking a bare remote, with
+// one extra named "rules" synced to the returned target directory.
+func setupExtrasScopePull(t *testing.T) (s *Server, extrasDir, remote, targetDir string) {
+	t.Helper()
+	s, src := newTestServer(t)
+	extrasDir = filepath.Join(filepath.Dir(src), "extras")
+	targetDir = t.TempDir()
+	cfg := "git_root: extras\nsource: " + src + "\nmode: merge\ntargets: {}\nextras:\n  - name: rules\n    targets:\n      - path: " + targetDir + "\n"
+	if err := os.WriteFile(config.ConfigPath(), []byte(cfg), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(extrasDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	initServerGitRepo(t, extrasDir)
+	remote = filepath.Join(t.TempDir(), "remote.git")
+	testutil.RunGit(t, "", "init", "--bare", remote)
+	testutil.RunGit(t, extrasDir, "remote", "add", "origin", remote)
+	testutil.RunGit(t, extrasDir, "push", "-u", "origin", "HEAD")
+	return s, extrasDir, remote, targetDir
+}
+
+func TestHandlePull_AlwaysSyncSyncsWhenUpToDate(t *testing.T) {
+	s, extrasDir, _, targetDir := setupExtrasScopePull(t)
+	if err := os.MkdirAll(filepath.Join(extrasDir, "rules"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(extrasDir, "rules", "local.md"), []byte("# local rule\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	testutil.RunGit(t, extrasDir, "add", "-A")
+	testutil.RunGit(t, extrasDir, "commit", "-m", "local rule")
+
+	if rr := postPull(s, `{"alwaysSync":true}`); rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rr.Code, rr.Body.String())
+	}
+	if _, err := os.Lstat(filepath.Join(targetDir, "local.md")); err != nil {
+		t.Fatalf("expected an up-to-date pull with alwaysSync to sync targets: %v", err)
+	}
+}
+
+func TestHandlePull_EmptyRemoteReturnsCode(t *testing.T) {
+	s, src := newTestServer(t)
+	initServerGitRepo(t, src)
+	remote := filepath.Join(t.TempDir(), "remote.git")
+	testutil.RunGit(t, "", "init", "--bare", remote)
+	testutil.RunGit(t, src, "remote", "add", "origin", remote)
+
+	rr := postPull(s, `{}`)
+	if rr.Code != http.StatusBadRequest || !strings.Contains(rr.Body.String(), `"error_code":"remote_empty"`) {
+		t.Fatalf("expected 400 with remote_empty, got %d: %s", rr.Code, rr.Body.String())
+	}
+}
+
+func TestHandlePull_ReportsExtrasSyncWarnings(t *testing.T) {
+	s, _, remote, _ := setupExtrasScopePull(t)
+	pushRemoteFile(t, remote, "other/readme.md", "# other\n")
+
+	rr := postPull(s, `{}`)
+	if rr.Code != http.StatusOK || !strings.Contains(rr.Body.String(), "Source directory does not exist") {
+		t.Fatalf("expected the missing extra source reported as a warning, got %d: %s", rr.Code, rr.Body.String())
+	}
+}
+
 func TestHandlePull_RootScopeSyncsExtras(t *testing.T) {
 	s, _ := newTestServer(t)
 	root := config.BaseDir()

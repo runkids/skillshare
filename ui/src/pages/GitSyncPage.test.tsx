@@ -115,8 +115,21 @@ describe('updates from another computer', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Sync both ways' }));
     fireEvent.click(within(await screen.findByRole('dialog', { name: 'Sync both ways?' })).getByRole('button', { name: 'Sync both ways' }));
     await waitFor(() => expect(api.push).toHaveBeenCalledWith({}));
+    expect(api.pull).toHaveBeenCalledWith({ force: false, dryRun: false, alwaysSync: true });
     const order = [api.gitCommit, api.pull, api.push].map((fn) => vi.mocked(fn).mock.invocationCallOrder[0]);
     expect(order).toEqual([...order].sort((a, b) => a - b));
+  });
+
+  it('pushes to an empty remote, then syncs targets', async () => {
+    vi.mocked(api.gitStatus).mockResolvedValue({ ...status, hasRemote: true, isDirty: false, files: [] });
+    vi.mocked(api.pull).mockRejectedValueOnce(new ApiError(400, 'the remote has no branches yet; push first', { code: 'remote_empty' }));
+    vi.mocked(api.push).mockResolvedValue({ success: true, message: 'pushed successfully' });
+    mount();
+    fireEvent.click(await screen.findByRole('button', { name: 'Sync both ways' }));
+    fireEvent.click(within(await screen.findByRole('dialog', { name: 'Sync both ways?' })).getByRole('button', { name: 'Sync both ways' }));
+    await waitFor(() => expect(api.pull).toHaveBeenCalledTimes(2));
+    expect(vi.mocked(api.push).mock.invocationCallOrder[0]).toBeLessThan(vi.mocked(api.pull).mock.invocationCallOrder[1]);
+    expect(await screen.findByText('Synced with the remote')).toBeTruthy();
   });
 
   it('stops before pushing when syncing both ways hits a conflict', async () => {
