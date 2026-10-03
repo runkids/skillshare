@@ -138,6 +138,29 @@ func TestEnsureConfigUntracked_RemovesTrackedConfig(t *testing.T) {
 	}
 }
 
+func TestEnsureConfigUntracked_OverridesNegatedIgnore(t *testing.T) {
+	dir := t.TempDir()
+	gitExec(t, dir, "init")
+	gitExec(t, dir, "config", "user.email", "t@t.com")
+	gitExec(t, dir, "config", "user.name", "t")
+	if err := os.WriteFile(filepath.Join(dir, ".gitignore"), []byte("config.yaml\n!config.yaml\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "config.yaml"), []byte("k: v\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	gitExec(t, dir, "add", "-A")
+	gitExec(t, dir, "commit", "-m", "leak config")
+
+	if _, err := EnsureConfigUntracked(dir); err != nil {
+		t.Fatal(err)
+	}
+	gitExec(t, dir, "add", "-A")
+	if isTracked(dir, "config.yaml") {
+		t.Fatalf("git add -A tracked config.yaml again; .gitignore:\n%s", readGitignore(t, dir))
+	}
+}
+
 func TestDisableNestedRepo_RenamesAndRefusesClobber(t *testing.T) {
 	dir := t.TempDir()
 	subGit := filepath.Join(dir, "skills", ".git")

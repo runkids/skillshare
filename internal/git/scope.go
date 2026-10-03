@@ -151,6 +151,28 @@ func ensureGitignoreEntry(dir, entry string) error {
 	return os.WriteFile(gitignore, []byte(content), 0o644)
 }
 
+// isIgnored reports whether .gitignore rules ignore path, even if it is tracked.
+func isIgnored(dir, path string) bool {
+	cmd := exec.Command("git", "check-ignore", "-q", "--no-index", "--", path)
+	cmd.Dir = dir
+	return cmd.Run() == nil
+}
+
+// appendGitignoreLine appends entry to dir/.gitignore even when an earlier line
+// matches it, so it overrides any negation before it.
+func appendGitignoreLine(dir, entry string) error {
+	gitignore := filepath.Join(dir, ".gitignore")
+	existing, err := os.ReadFile(gitignore)
+	if err != nil {
+		return err
+	}
+	content := string(existing)
+	if content != "" && !strings.HasSuffix(content, "\n") {
+		content += "\n"
+	}
+	return os.WriteFile(gitignore, []byte(content+entry+"\n"), 0o644)
+}
+
 // IsConfigTracked reports whether config.yaml is tracked in the repo at dir.
 // Used by the web UI to warn that a root-scope repo is versioning the
 // machine-specific config.yaml.
@@ -196,6 +218,13 @@ func HasLocalRootConfig(dir string) bool {
 func EnsureConfigUntracked(dir string) (removed bool, err error) {
 	if err := ensureGitignoreEntry(dir, "config.yaml"); err != nil {
 		return false, err
+	}
+	// A later "!config.yaml" (e.g. pulled from another machine) overrides the
+	// entry, and `git add -A` would track the file again; the last match wins.
+	if !isIgnored(dir, "config.yaml") {
+		if err := appendGitignoreLine(dir, "config.yaml"); err != nil {
+			return false, err
+		}
 	}
 	if !isTracked(dir, "config.yaml") {
 		return false, nil
