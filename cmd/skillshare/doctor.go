@@ -286,7 +286,11 @@ func checkSkillignore(result *doctorResult, stats *skillignore.IgnoreStats) {
 	if stats.HasLocal() {
 		msg += " (.local active)"
 	}
-	ui.Row(ui.MarkOK, "Skillignore", msg, doctorWidth)
+	shown := plural(stats.PatternCount(), "pattern") + ", " + plural(stats.IgnoredCount(), "skill") + " ignored"
+	if stats.HasLocal() {
+		shown += " (.local active)"
+	}
+	ui.Row(ui.MarkOK, "Skillignore", shown, doctorWidth)
 	var details []string
 	details = append(details, stats.Patterns...)
 	if len(stats.IgnoredSkills) > 0 {
@@ -1319,7 +1323,11 @@ func checkTrashStatus(result *doctorResult, trashBase string) {
 	} else {
 		msg = fmt.Sprintf("Trash: %d item(s) (%s), oldest <1 day", len(items), sizeStr)
 	}
-	ui.Row(ui.MarkNone, "Trash", strings.TrimPrefix(msg, "Trash: "), doctorWidth)
+	oldestStr := "under a day"
+	if days > 0 {
+		oldestStr = plural(days, "day")
+	}
+	ui.Row(ui.MarkNone, "Trash", fmt.Sprintf("%s, %s", plural(len(items), "item"), sizeStr)+ui.DimText(" · oldest "+oldestStr), doctorWidth)
 	result.addCheck("trash", checkPass, msg, nil)
 }
 
