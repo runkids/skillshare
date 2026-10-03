@@ -238,7 +238,7 @@ func TestPrintSkillListCompact_SmallList(t *testing.T) {
 			t.Fatalf("expected skill %q in output, got:\n%s", s.Name, output)
 		}
 	}
-	if strings.Contains(output, "more skill(s)") {
+	if strings.Contains(output, "more skills") {
 		t.Fatalf("should not contain truncation message for small list, got:\n%s", output)
 	}
 }
@@ -265,8 +265,8 @@ func TestPrintSkillListCompact_LargeList(t *testing.T) {
 	if strings.Contains(output, "skill-10") && !strings.Contains(output, "20 more") {
 		t.Fatalf("expected truncation for large list, got:\n%s", output)
 	}
-	if !strings.Contains(output, "... and 20 more skill(s)") {
-		t.Fatalf("expected '... and 20 more skill(s)' in output, got:\n%s", output)
+	if !strings.Contains(output, "... and 20 more skills") {
+		t.Fatalf("expected '... and 20 more skills' in output, got:\n%s", output)
 	}
 }
 
@@ -282,7 +282,7 @@ func TestPrintSkillListCompact_ExactThreshold(t *testing.T) {
 	output = stripANSIWarnings(output)
 
 	// All 20 should appear (≤20 threshold)
-	if strings.Contains(output, "more skill(s)") {
+	if strings.Contains(output, "more skills") {
 		t.Fatalf("should not truncate at exactly 20 skills, got:\n%s", output)
 	}
 }

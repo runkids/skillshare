@@ -303,7 +303,7 @@ func resolveInstallSource(sourceArg string, opts install.InstallOptions, cfg *co
 		if resolveErr != nil {
 			return nil, false, fmt.Errorf("invalid source: %w", err)
 		}
-		ui.Info("Resolved '%s' from installed skill metadata", sourceArg)
+		ui.Note(fmt.Sprintf("Resolved '%s' from installed skill metadata", sourceArg))
 		return resolvedSource, true, nil // resolvedFromMeta = true
 	}
 

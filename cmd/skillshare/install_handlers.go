@@ -263,7 +263,7 @@ func handleGitInstall(source *install.Source, cfg *config.Config, opts install.I
 	if len(opts.Exclude) > 0 {
 		discovery.Skills = applyExclude(discovery.Skills, opts.Exclude)
 		if len(discovery.Skills) == 0 {
-			ui.Info("All skills were excluded")
+			ui.Done(ui.MarkNone, "All skills were excluded", 0)
 			return logSummary, nil
 		}
 	}
@@ -354,7 +354,7 @@ func handleGitInstall(source *install.Source, cfg *config.Config, opts install.I
 
 	// Non-TTY with large repo: require explicit flags
 	if !ui.IsTTY() && len(discovery.Skills) >= largeRepoThreshold {
-		ui.Info("Found %d skills. Non-interactive mode requires --all, --yes, or --skill <names>", len(discovery.Skills))
+		ui.Note(fmt.Sprintf("Found %d skills. Non-interactive mode requires --all, --yes, or --skill <names>", len(discovery.Skills)))
 		return logSummary, fmt.Errorf("interactive selection not available in non-TTY mode")
 	}
 
@@ -366,7 +366,7 @@ func handleGitInstall(source *install.Source, cfg *config.Config, opts install.I
 	}
 
 	if len(selected) == 0 {
-		ui.Info("No skills selected")
+		ui.Done(ui.MarkNone, "No skills selected", 0)
 		return logSummary, nil
 	}
 
@@ -547,7 +547,7 @@ func displayInstallResults(results []skillInstallResult, spinner *ui.Spinner, au
 		if len(blockedFailures) > 0 && !auditVerbose {
 			threshold := summarizeBlockedThreshold(blockedFailures)
 			ui.Warning("%s blocked by security audit (%s threshold)", plural(len(blockedFailures), "skill"), formatBlockedThresholdLabel(threshold))
-			ui.Info("Use --force to continue blocked installs, or --skip-audit to bypass scanning for this run")
+			ui.Note("Use --force to continue blocked installs, or --skip-audit to bypass scanning for this run")
 		}
 
 		const blockedVerboseLimit = 20
@@ -555,7 +555,7 @@ func displayInstallResults(results []skillInstallResult, spinner *ui.Spinner, au
 			// Large batch: summary line + first N verbose + rest compact
 			threshold := summarizeBlockedThreshold(blockedFailures)
 			ui.Warning("%s blocked by security audit (%s threshold)", plural(len(blockedFailures), "skill"), formatBlockedThresholdLabel(threshold))
-			ui.Info("Use --force to continue blocked installs, or --skip-audit to bypass scanning for this run")
+			ui.Note("Use --force to continue blocked installs, or --skip-audit to bypass scanning for this run")
 			for i, r := range blockedFailures {
 				digest := parseAuditBlockedFailure(r.message)
 				if i < blockedVerboseLimit {
@@ -566,7 +566,7 @@ func displayInstallResults(results []skillInstallResult, spinner *ui.Spinner, au
 			}
 			remaining := len(blockedFailures) - blockedVerboseLimit
 			if remaining > 0 {
-				ui.Info("%d more blocked skill%s shown in compact form above", remaining, pluralS(remaining))
+				ui.Note(fmt.Sprintf("%d more blocked skill%s shown in compact form above", remaining, pluralS(remaining)))
 			}
 		} else {
 			for _, r := range blockedFailures {
@@ -595,7 +595,7 @@ func displayInstallResults(results []skillInstallResult, spinner *ui.Spinner, au
 		}
 		ui.SectionLabel(label)
 		renderSkippedByGroup(skipped)
-		ui.Info("Use 'skillshare update' to refresh, or --force to overwrite")
+		ui.Note("Use 'skillshare update' to refresh, or --force to overwrite")
 	}
 
 	// Show successes — condensed when many
@@ -659,7 +659,7 @@ func displayInstallResults(results []skillInstallResult, spinner *ui.Spinner, au
 				}
 				remaining := skillsWithWarnings - shown
 				if remaining > 0 {
-					ui.Info("%s more with findings — run skillshare check <name> for details", plural(remaining, "skill"))
+					ui.Note(fmt.Sprintf("%s more with findings — run skillshare check <name> for details", plural(remaining, "skill")))
 				}
 			}
 		} else if len(results) > 100 {
@@ -853,8 +853,8 @@ func installFromGlobalConfig(cfg *config.Config, opts install.InstallOptions) (i
 	ctx := &globalInstallContext{cfg: cfg, store: store}
 
 	if len(ctx.ConfigSkills()) == 0 {
-		ui.Info("No remote skills defined in metadata")
-		ui.Info("Install a skill first: skillshare install <source>")
+		ui.Done(ui.MarkNone, "No remote skills defined in metadata", 0)
+		ui.Next("skillshare install <source>", "install a skill first")
 		return summary, nil
 	}
 
@@ -1041,7 +1041,7 @@ func handleAgentInstall(discovery *install.DiscoveryResult, agentsDir string, op
 
 	// Non-TTY fallback
 	if !ui.IsTTY() {
-		ui.Info("Found %d agents. Non-interactive mode requires --all, --yes, or -a <names>", len(agents))
+		ui.Note(fmt.Sprintf("Found %d agents. Non-interactive mode requires --all, --yes, or -a <names>", len(agents)))
 		return logSummary, fmt.Errorf("interactive selection not available in non-TTY mode")
 	}
 
@@ -1052,7 +1052,7 @@ func handleAgentInstall(discovery *install.DiscoveryResult, agentsDir string, op
 		return logSummary, err
 	}
 	if len(selected) == 0 {
-		ui.Info("No agents selected")
+		ui.Done(ui.MarkNone, "No agents selected", 0)
 		return logSummary, nil
 	}
 

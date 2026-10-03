@@ -672,7 +672,7 @@ skillshare install org/skills -y --exclude internal-tool
 skillshare install org/skills -s pdf,commit,docs --exclude docs
 ```
 
-排除 skills 時，會顯示訊息說明跳過了哪些：`Excluded 2 skill(s): cli-sentry, delayed-command`。
+排除 skills 時，會顯示訊息說明跳過了哪些：`Excluded 2 skills: cli-sentry, delayed-command`。
 
 :::note 需要多 skill discovery
 `--exclude` 只在從包含多個 skills 的 **git repo** 安裝時才有效。它可以搭配 `--all`、`--yes`、`--skill` 以及互動式選擇模式使用。對於直接安裝（本地路徑或單一 skill 的 git URL），`--exclude` 不適用 — 若指定了會顯示警告。

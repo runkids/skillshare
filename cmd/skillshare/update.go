@@ -280,7 +280,7 @@ func cmdUpdate(args []string) error {
 					resolveWarnings = append(resolveWarnings, fmt.Sprintf("%s: no skills match pattern", name))
 					continue
 				}
-				ui.Info("Pattern '%s' matched %d item(s)", name, len(globMatches))
+				ui.Note(fmt.Sprintf("Pattern '%s' matched %s", name, plural(len(globMatches), "item")))
 				for _, m := range globMatches {
 					if !seen[m.name] {
 						seen[m.name] = true
@@ -300,7 +300,7 @@ func cmdUpdate(args []string) error {
 					resolveWarnings = append(resolveWarnings, fmt.Sprintf("%s: no updatable skills in group", name))
 					continue
 				}
-				ui.Info("'%s' is a group — expanding to %d updatable skill(s)", name, len(groupMatches))
+				ui.Note(fmt.Sprintf("'%s' is a group — expanding to %s", name, plural(len(groupMatches), "updatable skill")))
 				for _, m := range groupMatches {
 					if !seen[m.name] {
 						seen[m.name] = true

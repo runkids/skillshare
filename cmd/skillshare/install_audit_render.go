@@ -256,7 +256,7 @@ func renderInstallWarningsWithResult(skillName string, warnings []string, auditV
 		return
 	}
 	if len(warnings) == 0 {
-		ui.Info("%s: risk CLEAN", skillName)
+		ui.Note(fmt.Sprintf("%s: risk CLEAN", skillName))
 		return
 	}
 
@@ -281,10 +281,10 @@ func renderInstallWarningsWithResult(skillName string, warnings []string, auditV
 			status := stripAuditPrefix(digest.statusLines[0])
 			summary += " — " + status
 		}
-		ui.Info("%s", formatWarningWithSkill(skillName, fmt.Sprintf("%d finding(s): %s", totalFindings, summary)))
+		ui.Note(formatWarningWithSkill(skillName, fmt.Sprintf("%s: %s", plural(totalFindings, "finding"), summary)))
 	} else {
 		for _, line := range digest.statusLines {
-			ui.Info("%s", formatWarningWithSkill(skillName, stripAuditPrefix(line)))
+			ui.Note(formatWarningWithSkill(skillName, stripAuditPrefix(line)))
 		}
 	}
 	renderAuditRiskOnly(skillName, result)
@@ -324,7 +324,7 @@ func renderInstallWarningsWithResult(skillName string, warnings []string, auditV
 	}
 
 	if remaining := len(groups) - shown; remaining > 0 {
-		ui.Info("%s", formatWarningWithSkill(skillName,
+		ui.Note(formatWarningWithSkill(skillName,
 			fmt.Sprintf("+%d more finding type(s); use --audit-verbose for full details", remaining)))
 	}
 }
@@ -397,10 +397,10 @@ func renderAuditRiskOnly(skillName string, result *install.InstallResult) {
 	}
 	coloredLabel := formatSeverity(label)
 	if result.AuditRiskScore > 0 {
-		ui.Info("%s", formatWarningWithSkill(skillName,
+		ui.Note(formatWarningWithSkill(skillName,
 			fmt.Sprintf("risk: %s (%d/100)", coloredLabel, result.AuditRiskScore)))
 	} else {
-		ui.Info("%s", formatWarningWithSkill(skillName,
+		ui.Note(formatWarningWithSkill(skillName,
 			fmt.Sprintf("risk: %s", coloredLabel)))
 	}
 }
@@ -622,7 +622,7 @@ func renderBatchInstallWarningsCompact(results []skillInstallResult, totalWarnin
 			if skillsWithHighCritical > len(top) {
 				extra = fmt.Sprintf(" +%d more", skillsWithHighCritical-len(top))
 			}
-			ui.Info("top HIGH/CRITICAL: %s%s", strings.Join(top, ", "), extra)
+			ui.Note(fmt.Sprintf("top HIGH/CRITICAL: %s%s", strings.Join(top, ", "), extra))
 		}
 	}
 
@@ -635,7 +635,7 @@ func renderBatchInstallWarningsCompact(results []skillInstallResult, totalWarnin
 		if len(hints) > 0 {
 			hint = hints[0]
 		}
-		ui.Info(hint, summary.totalFindings)
+		ui.Note(fmt.Sprintf(hint, summary.totalFindings))
 	}
 }
 
@@ -675,12 +675,12 @@ func renderUltraCompactAuditSummary(results []skillInstallResult, _ int) {
 		if len(summary.highCriticalBySkill) > len(top) {
 			extra = fmt.Sprintf(" +%d more", len(summary.highCriticalBySkill)-len(top))
 		}
-		ui.Info("top HIGH/CRITICAL: %s%s", strings.Join(top, ", "), extra)
+		ui.Note(fmt.Sprintf("top HIGH/CRITICAL: %s%s", strings.Join(top, ", "), extra))
 	}
 
 	// Line 4: suppressed hint
 	if summary.totalFindings > 0 {
-		ui.Info("suppressed %d audit finding line(s); re-run with --audit-verbose for full details", summary.totalFindings)
+		ui.Note(fmt.Sprintf("suppressed %s; re-run with --audit-verbose for full details", plural(summary.totalFindings, "audit finding line")))
 	}
 }
 
@@ -822,7 +822,7 @@ func renderInstallWarningsHighCriticalOnly(skillName string, warnings []string) 
 		}
 	}
 	if len(otherParts) > 0 {
-		ui.Info("%s", formatWarningWithSkill(skillName,
+		ui.Note(formatWarningWithSkill(skillName,
 			fmt.Sprintf("also: %s (use 'skillshare check %s' for details)", strings.Join(otherParts, ", "), skillName)))
 	}
 

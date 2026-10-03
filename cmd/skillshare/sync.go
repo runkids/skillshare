@@ -212,7 +212,7 @@ func cmdSync(args []string) error {
 		if !jsonOutput && !quiet && mcpResult != nil {
 			_ = printMCPPlan(mcpResult.Plan, false)
 			for _, id := range mcpResult.BackupIDs {
-				ui.Info("MCP backup: %s", id)
+				ui.Note(fmt.Sprintf("MCP backup: %s", id))
 			}
 			printMCPMigrated(mcpResult)
 		}
@@ -237,7 +237,7 @@ func cmdSync(args []string) error {
 		if !jsonOutput && !quiet && hooksResult != nil {
 			printHooksPlan(hooksResult.Plan)
 			for _, id := range hooksResult.BackupIDs {
-				ui.Info("Hooks backup: %s", id)
+				ui.Note(fmt.Sprintf("Hooks backup: %s", id))
 			}
 		}
 		return applyErr

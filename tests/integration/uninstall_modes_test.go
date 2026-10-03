@@ -209,7 +209,7 @@ func TestUninstallModes_GlobPattern(t *testing.T) {
 
 	global := sb.RunCLI("uninstall", "core-*", "--force", "-g")
 	global.AssertSuccess(t)
-	global.AssertAnyOutputContains(t, "Pattern 'core-*' matched 2 item(s)")
+	global.AssertAnyOutputContains(t, "Pattern 'core-*' matched 2 items")
 
 	project := sb.RunCLIInDir(projectRoot, "uninstall", "core-*", "--force", "-p")
 	project.AssertFailure(t)

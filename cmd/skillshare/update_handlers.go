@@ -23,7 +23,7 @@ func recordAcceptedFindings(sourceDir, repoPath string, result *audit.Result, th
 		return
 	}
 	if n > 0 {
-		ui.Info("Recorded %d accepted finding(s); future updates won't block on them", n)
+		ui.Note(fmt.Sprintf("Recorded %s; future updates won't block on them", plural(n, "accepted finding")))
 	}
 }
 
@@ -60,7 +60,7 @@ func auditGateAfterPull(sourceDir, repoPath, beforeHash string, skipAudit, force
 	}
 
 	if n := install.ApplyAcceptedFindings(sourceDir, repoPath, result); n > 0 {
-		ui.Info("%d previously accepted finding(s) skipped", n)
+		ui.Note(plural(n, "previously accepted finding") + " skipped")
 	}
 	if !result.HasSeverityAtOrAbove(normalizedThreshold) {
 		return result, nil
@@ -96,7 +96,7 @@ func auditGateAfterPull(sourceDir, repoPath, beforeHash string, skipAudit, force
 		if err := git.ResetHard(repoPath, beforeHash); err != nil {
 			return result, fmt.Errorf("security audit failed — findings at/above %s detected; WARNING: rollback also failed: %v — malicious content may remain: %w", normalizedThreshold, err, audit.ErrBlocked)
 		}
-		ui.Info("Rolled back to %s", beforeHash[:12])
+		ui.Note(fmt.Sprintf("Rolled back to %s", beforeHash[:12]))
 		return result, fmt.Errorf("security audit failed — findings at/above %s detected — rolled back (use --skip-audit to bypass): %w", normalizedThreshold, audit.ErrBlocked)
 	}
 

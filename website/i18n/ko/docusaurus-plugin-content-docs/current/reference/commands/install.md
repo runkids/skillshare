@@ -672,7 +672,7 @@ skillshare install org/skills -y --exclude internal-tool
 skillshare install org/skills -s pdf,commit,docs --exclude docs
 ```
 
-skill이 제외되면, 무엇이 건너뛰어졌는지 메시지로 표시됩니다: `Excluded 2 skill(s): cli-sentry, delayed-command`.
+skill이 제외되면, 무엇이 건너뛰어졌는지 메시지로 표시됩니다: `Excluded 2 skills: cli-sentry, delayed-command`.
 
 :::note Multi-skill discovery 필요
 `--exclude`는 여러 skill을 포함하는 **git repo**에서 설치할 때만 동작합니다. `--all`, `--yes`, `--skill`, 그리고 인터랙티브 선택 모드와 함께 동작합니다. 직접 설치(로컬 경로 또는 단일 skill git URL)에는 `--exclude`가 적용되지 않으며, 지정하면 경고가 표시됩니다.

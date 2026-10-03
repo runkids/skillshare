@@ -34,7 +34,7 @@ func cmdUninstallAgents(agentsDir string, opts *uninstallOptions, cfgPath string
 	if opts.all {
 		targets = discovered
 		if len(targets) == 0 {
-			ui.Info("No agents found")
+			ui.Done(ui.MarkNone, "No agents found", 0)
 			return nil
 		}
 	} else {

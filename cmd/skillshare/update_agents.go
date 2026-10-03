@@ -54,7 +54,7 @@ func cmdUpdateAgents(args []string, cfg *config.Config, start time.Time) error {
 			if opts.jsonOutput {
 				return jsonWriteResult(nil, nil)
 			}
-			ui.Info("No agents source directory (%s)", agentsDir)
+			ui.Done(ui.MarkNone, "No agents source directory "+ui.DimText(shortenPath(agentsDir)), 0)
 			return nil
 		}
 		return failJSON(fmt.Errorf("cannot access agents source: %w", err))
@@ -66,7 +66,7 @@ func cmdUpdateAgents(args []string, cfg *config.Config, start time.Time) error {
 		if opts.jsonOutput {
 			return jsonWriteResult(nil, nil)
 		}
-		ui.Info("No agents found")
+		ui.Done(ui.MarkNone, "No agents found", 0)
 		return nil
 	}
 
@@ -97,7 +97,7 @@ func cmdUpdateAgents(args []string, cfg *config.Config, start time.Time) error {
 		if opts.jsonOutput {
 			return jsonWriteResult(agentUpdateItemsFromCheckResults(results), nil)
 		}
-		ui.Info("No tracked agents to update (all are local)")
+		ui.Done(ui.MarkNone, "No tracked agents to update (all are local)", 0)
 		return nil
 	}
 
@@ -743,7 +743,7 @@ func cmdUpdateAgentsProject(args []string, projectRoot string, start time.Time) 
 			if opts.jsonOutput {
 				return jsonWriteResult(nil, nil)
 			}
-			ui.Info("No project agents directory (%s)", agentsDir)
+			ui.Done(ui.MarkNone, "No project agents directory "+ui.DimText(shortenPath(agentsDir)), 0)
 			return nil
 		}
 		return failJSON(fmt.Errorf("cannot access project agents: %w", err))
@@ -754,7 +754,7 @@ func cmdUpdateAgentsProject(args []string, projectRoot string, start time.Time) 
 		if opts.jsonOutput {
 			return jsonWriteResult(nil, nil)
 		}
-		ui.Info("No project agents found")
+		ui.Done(ui.MarkNone, "No project agents found", 0)
 		return nil
 	}
 
@@ -782,7 +782,7 @@ func cmdUpdateAgentsProject(args []string, projectRoot string, start time.Time) 
 		if opts.jsonOutput {
 			return jsonWriteResult(agentUpdateItemsFromCheckResults(results), nil)
 		}
-		ui.Info("No tracked project agents to update (all are local)")
+		ui.Done(ui.MarkNone, "No tracked project agents to update (all are local)", 0)
 		return nil
 	}
 

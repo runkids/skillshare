@@ -203,7 +203,7 @@ skillshare update x -G backend            # 名前とグループを混在
 
 ```bash
 skillshare update frontend   # --group frontend と同じ
-# ℹ 'frontend' is a group — expanding to 3 updatable skill(s)
+#   'frontend' is a group — expanding to 3 updatable skills
 ```
 
 :::note
@@ -267,7 +267,7 @@ skillshare update --all --prune
 
 ```bash
 skillshare check --all
-# ⚠ 1 skill(s) stale (deleted upstream) — run 'skillshare update --all --prune' to remove
+# ! old-skill  stale — no longer in the upstream repository
 ```
 
 :::note
@@ -318,7 +318,7 @@ skillshare update --all --skip-audit
 `--force`（またはプロンプトで `y` と回答）で gate を上書きすると、受け入れた検出結果は `.metadata.json` の `audit_accepted` に記録されます。同じ skill の以降の更新では、それらの正確な検出結果ではブロックされなくなるため、`update --all` のたびに `--force` を繰り返す必要はありません。
 
 ```
-ℹ 1 previously accepted finding(s) skipped
+  1 previously accepted finding skipped
 ```
 
 検出結果は行番号ではなく、rule・ファイル・一致したテキストによって照合されます。そのため、無関係な内容が変わっても受け入れ状態が維持されます。新しい検出結果、または同じ rule が異なるテキストに一致した場合は、再びブロックされます。これは、攻撃文字列を例として正当に引用する skill（security scanner や red-team のドキュメントなど）に適しており、それでいて後のバージョンで新しいペイロードを検知できます。

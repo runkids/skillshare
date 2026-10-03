@@ -203,7 +203,7 @@ group 内没有 metadata 或 `.git` 的本地 skills 会被静默跳过。
 
 ```bash
 skillshare update frontend   # Same as --group frontend
-# ℹ 'frontend' is a group — expanding to 3 updatable skill(s)
+#   'frontend' is a group — expanding to 3 updatable skills
 ```
 
 :::note
@@ -267,7 +267,7 @@ skillshare update --all --prune
 
 ```bash
 skillshare check --all
-# ⚠ 1 skill(s) stale (deleted upstream) — run 'skillshare update --all --prune' to remove
+# ! old-skill  stale — no longer in the upstream repository
 ```
 
 :::note
@@ -318,7 +318,7 @@ skillshare update --all --skip-audit
 当你用 `--force`（或在提示时回答 `y`）覆盖 gate 时，你所接受的 findings 会被记录在 `.metadata.json` 的 `audit_accepted` 下。同一个 skill 之后的更新不会再因这些完全相同的 findings 而被阻止，因此你不必在每次 `update --all` 时都重复使用 `--force`。
 
 ```
-ℹ 1 previously accepted finding(s) skipped
+  1 previously accepted finding skipped
 ```
 
 一个 finding 是通过 rule、file 和匹配到的文本来判定的——而不是按行号——因此当无关内容发生偏移时，它仍会保持已接受状态。任何新的 finding，或同一 rule 匹配到不同文本，都会重新阻止。这适合那些合理地引用攻击字符串作为示例的 skills（安全扫描器、red-team 文档），同时仍能捕获后续版本中的新 payload。

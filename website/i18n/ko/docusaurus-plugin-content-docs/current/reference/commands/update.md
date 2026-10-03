@@ -318,7 +318,7 @@ skillshare update --all --skip-audit
 `--force`로 gate를 재정의하거나(또는 프롬프트에서 `y`로 응답하면), 수락한 findings는 `.metadata.json`의 `audit_accepted` 아래에 기록됩니다. 이후 동일한 skill의 업데이트는 정확히 동일한 findings에서 더 이상 차단되지 않으므로, `update --all`을 실행할 때마다 `--force`를 반복할 필요가 없습니다.
 
 ```
-ℹ 1 previously accepted finding(s) skipped
+  1 previously accepted finding skipped
 ```
 
 finding은 줄 번호가 아니라 rule, 파일, 일치한 텍스트로 매칭되므로 관련 없는 내용이 바뀌어도 수락된 상태로 유지됩니다. 새로운 finding이나 동일한 rule이 다른 텍스트와 일치하는 경우에는 다시 차단됩니다. 이는 공격 문자열을 예시로 정당하게 인용하는 skill(보안 스캐너, red-team 문서)에 적합하면서도, 이후 버전에서 새로운 payload는 계속 탐지합니다.

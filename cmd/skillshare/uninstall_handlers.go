@@ -77,7 +77,7 @@ var projectUninstallPreflight = uninstallPreflightMessages{
 	},
 	batchDirty: func(name string, err error) {
 		ui.Error("Repository has uncommitted changes!")
-		ui.Info("Use --force to uninstall anyway, or commit/stash your changes first")
+		ui.Note("Use --force to uninstall anyway, or commit/stash your changes first")
 		ui.Warning("Skipping %s: %v", name, err)
 	},
 	noneLeft: func(int) error {
@@ -242,7 +242,7 @@ func runUninstallSkills(opts *uninstallOptions, mode *uninstallMode, rawArgs []s
 				continue
 			}
 			if !opts.jsonOutput {
-				ui.Info("Pattern '%s' matched %d item(s)", name, len(globMatches))
+				ui.Note(fmt.Sprintf("Pattern '%s' matched %s", name, plural(len(globMatches), "item")))
 			}
 			for _, t := range globMatches {
 				if !seen[t.path] {
@@ -292,7 +292,7 @@ func runUninstallSkills(opts *uninstallOptions, mode *uninstallMode, rawArgs []s
 			return writeJSONError(globErr)
 		}
 		ui.Warning("It looks like '*' was expanded by your shell into file names.")
-		ui.Info("To uninstall all skills, use: skillshare uninstall --all")
+		ui.Note("To uninstall all skills, use: skillshare uninstall --all")
 		return globErr
 	}
 
@@ -371,7 +371,7 @@ func runUninstallSkills(opts *uninstallOptions, mode *uninstallMode, rawArgs []s
 						return writeJSONError(dirtyErr)
 					}
 					ui.Error("Repository has uncommitted changes!")
-					ui.Info("Use --force to uninstall anyway, or commit/stash your changes first")
+					ui.Note("Use --force to uninstall anyway, or commit/stash your changes first")
 					return dirtyErr
 				}
 				if !opts.jsonOutput {
@@ -389,7 +389,7 @@ func runUninstallSkills(opts *uninstallOptions, mode *uninstallMode, rawArgs []s
 		summary = summarizeUninstallTargets(targets)
 
 		if preflightSkipped > 0 && !opts.jsonOutput {
-			ui.Info("%d tracked repo%s skipped, %d remaining", preflightSkipped, pluralS(preflightSkipped), len(targets))
+			ui.Note(fmt.Sprintf("%d tracked repo%s skipped, %d remaining", preflightSkipped, pluralS(preflightSkipped), len(targets)))
 			fmt.Println()
 		}
 

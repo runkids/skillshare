@@ -203,7 +203,7 @@ A positional argument that matches a group directory (not a repo or skill) is au
 
 ```bash
 skillshare update frontend   # Same as --group frontend
-# ℹ 'frontend' is a group — expanding to 3 updatable skill(s)
+#   'frontend' is a group — expanding to 3 updatable skills
 ```
 
 :::note
@@ -267,7 +267,7 @@ skillshare update --all --prune
 
 ```bash
 skillshare check --all
-# ⚠ 1 skill(s) stale (deleted upstream) — run 'skillshare update --all --prune' to remove
+# ! old-skill  stale — no longer in the upstream repository
 ```
 
 :::note
@@ -318,7 +318,7 @@ skillshare update --all --skip-audit
 When you override the gate with `--force` (or answer `y` at the prompt), the findings you accepted are recorded in `.metadata.json` under `audit_accepted`. Later updates of the same skill no longer block on those exact findings, so you do not have to repeat `--force` on every `update --all`.
 
 ```
-ℹ 1 previously accepted finding(s) skipped
+  1 previously accepted finding skipped
 ```
 
 A finding is matched by rule, file, and matched text — not by line number — so it stays accepted when unrelated content shifts. Any new finding, or the same rule matching different text, blocks again. This suits skills that legitimately quote attack strings as examples (security scanners, red-team docs) while still catching new payloads in later versions.

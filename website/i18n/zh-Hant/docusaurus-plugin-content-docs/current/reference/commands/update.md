@@ -203,7 +203,7 @@ skillshare update x -G backend            # 混用名稱與群組
 
 ```bash
 skillshare update frontend   # 等同於 --group frontend
-# ℹ 'frontend' is a group — expanding to 3 updatable skill(s)
+#   'frontend' is a group — expanding to 3 updatable skills
 ```
 
 :::note
@@ -267,7 +267,7 @@ skillshare update --all --prune
 
 ```bash
 skillshare check --all
-# ⚠ 1 skill(s) stale (deleted upstream) — run 'skillshare update --all --prune' to remove
+# ! old-skill  stale — no longer in the upstream repository
 ```
 
 :::note
@@ -318,7 +318,7 @@ skillshare update --all --skip-audit
 當你以 `--force`（或在提示中回答 `y`）覆寫關卡時，你所接受的發現會記錄在 `.metadata.json` 的 `audit_accepted` 下。同一個 skill 之後的更新不會再對這些完全相同的發現封鎖，因此你不需要在每次 `update --all` 都重複 `--force`。
 
 ```
-ℹ 1 previously accepted finding(s) skipped
+  1 previously accepted finding skipped
 ```
 
 一項發現是以規則、檔案與比對到的文字來比對 — 而非行號 — 因此即使無關內容有位移，它仍會維持已接受狀態。任何新的發現，或同一規則比對到不同文字，都會再次封鎖。這適合會合理引用攻擊字串作為範例的 skills（例如安全掃描工具、紅隊文件），同時仍能在後續版本中攔截新的 payload。

@@ -201,7 +201,7 @@ func applyExclude(skills []install.SkillInfo, exclude []string) []install.SkillI
 		}
 	}
 	if len(excluded) > 0 {
-		ui.Info("Excluded %d skill(s): %s", len(excluded), strings.Join(excluded, ", "))
+		ui.Note("Excluded " + plural(len(excluded), "skill") + ": " + strings.Join(excluded, ", "))
 	}
 	return filtered
 }
@@ -287,7 +287,7 @@ func printSkillListCompact(skills []install.SkillInfo) {
 	for i := 0; i < showCount; i++ {
 		ui.SkillBoxCompact(skills[i].Name, skills[i].Path)
 	}
-	ui.Info("... and %d more skill(s)", len(skills)-showCount)
+	ui.Note("... and " + plural(len(skills)-showCount, "more skill"))
 }
 
 // selectAgents routes agent selection through filter, all, or interactive TUI.

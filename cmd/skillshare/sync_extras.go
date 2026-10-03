@@ -85,9 +85,9 @@ func cmdSyncExtrasGlobal(dryRun, force, jsonOutput, partOfAll bool, start time.T
 		if partOfAll {
 			return nil
 		}
-		ui.Info("No extras configured.")
+		ui.Done(ui.MarkNone, "No extras configured", 0)
 		fmt.Println()
-		ui.Info("Add extras to your config.yaml:")
+		ui.Note("Add extras to your config.yaml:")
 		fmt.Println()
 		fmt.Println("  extras:")
 		fmt.Println("    - name: rules")
@@ -212,8 +212,8 @@ func cmdSyncExtrasProject(cwd string, dryRun, force, jsonOutput, partOfAll bool,
 		if partOfAll {
 			return nil
 		}
-		ui.Info("No extras configured in project.")
-		ui.Info("Run 'skillshare extras init <name> --target <path> -p' to add one.")
+		ui.Done(ui.MarkNone, "No extras configured in project", 0)
+		ui.Next("skillshare extras init <name> --target <path> -p", "add one")
 		return nil
 	}
 

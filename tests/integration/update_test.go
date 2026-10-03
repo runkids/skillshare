@@ -878,7 +878,7 @@ func TestUpdate_Force_RecordsAcceptedFindings(t *testing.T) {
 	pushMaliciousVariant(t, workDir, "my-skill", trackedInjection, false)
 	same := sb.RunCLI("update", name)
 	same.AssertSuccess(t)
-	same.AssertAnyOutputContains(t, "previously accepted finding(s) skipped")
+	same.AssertAnyOutputContains(t, "1 previously accepted finding skipped")
 
 	pushMaliciousVariant(t, workDir, "my-skill", trackedInjection, true)
 	sb.RunCLI("update", name).AssertFailure(t)

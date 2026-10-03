@@ -116,7 +116,7 @@ func installFromProjectConfig(runtime *projectRuntime, opts install.InstallOptio
 	opts.Lock = lock
 
 	if len(ctx.ConfigSkills()) == 0 {
-		ui.Info("No remote skills defined in .skillshare/config.yaml")
+		ui.Done(ui.MarkNone, "No remote skills defined in .skillshare/config.yaml", 0)
 		return summary, nil
 	}
 
