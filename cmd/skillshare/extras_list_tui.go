@@ -1202,12 +1202,11 @@ func (m *extrasListTUIModel) loadExtrasContentFile() {
 }
 
 func (m *extrasListTUIModel) extrasContentPanelWidth() int {
-	sw := sidebarWidth(m.termWidth)
-	return max(m.termWidth-sw-5-1, 40)
+	return fileViewerTextWidth(m.termWidth, false)
 }
 
 func (m *extrasListTUIModel) extrasContentViewHeight() int {
-	return max(m.termHeight-7, 5)
+	return fileViewerHeight(m.termHeight)
 }
 
 func (m *extrasListTUIModel) extrasContentMaxScroll() int {
@@ -1275,8 +1274,7 @@ func (m extrasListTUIModel) handleExtrasContentKey(msg tea.KeyMsg) (tea.Model, t
 }
 
 func (m extrasListTUIModel) handleExtrasContentMouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
-	sw := sidebarWidth(m.termWidth)
-	inSidebar := msg.X < sw+3
+	inSidebar := msg.X < sidebarWidth(m.termWidth)
 
 	switch {
 	case msg.Button == tea.MouseButtonWheelUp:
@@ -1357,132 +1355,11 @@ func (m *extrasListTUIModel) collapseOrParentExtras() {
 }
 
 func (m extrasListTUIModel) renderExtrasContentOverlay() string {
-	var b strings.Builder
-
-	extraName := m.contentExtraKey
-	fileName := ""
-	if len(m.treeNodes) > 0 && m.treeCursor < len(m.treeNodes) {
-		fileName = m.treeNodes[m.treeCursor].relPath
-	}
-
-	b.WriteString("\n")
-	b.WriteString(theme.Title().Render(fmt.Sprintf("  %s", extraName)))
-	if fileName != "" {
-		b.WriteString(theme.Dim().Render(fmt.Sprintf("  ─  %s", fileName)))
-	}
-	b.WriteString("\n\n")
-
-	sw := sidebarWidth(m.termWidth)
-	panelW := max(m.termWidth-sw-5, 20)
-	contentHeight := m.extrasContentViewHeight()
-
-	sidebarStr := m.renderExtrasSidebarStr(sw, contentHeight)
-	contentStr, scrollInfo := m.renderExtrasContentPanelStr(contentHeight)
-
-	leftPanel := lipgloss.NewStyle().
-		Width(sw).MaxWidth(sw).
-		Height(contentHeight).MaxHeight(contentHeight).
-		PaddingLeft(1).
-		Render(sidebarStr)
-
-	borderStyle := theme.Dim().Height(contentHeight).MaxHeight(contentHeight)
-	borderCol := strings.Repeat("│\n", contentHeight)
-	borderPanel := borderStyle.Render(strings.TrimRight(borderCol, "\n"))
-
-	rightPanel := lipgloss.NewStyle().
-		Width(panelW).MaxWidth(panelW).
-		Height(contentHeight).MaxHeight(contentHeight).
-		PaddingLeft(1).
-		Render(contentStr)
-
-	body := lipgloss.JoinHorizontal(lipgloss.Top, leftPanel, borderPanel, rightPanel)
-	b.WriteString(body)
-	b.WriteString("\n\n")
-
-	help := "j/k browse  l/Enter expand  h collapse  Ctrl+d/u scroll  g/G top/bottom  Esc back  q quit"
-	if scrollInfo != "" {
-		help += "  " + scrollInfo
-	}
-	b.WriteString(theme.Dim().MarginLeft(2).Render(help))
-	b.WriteString("\n")
-
-	return b.String()
-}
-
-func (m extrasListTUIModel) renderExtrasSidebarStr(width, height int) string {
-	if len(m.treeNodes) == 0 {
-		return "(no files)"
-	}
-
-	selectedStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#D4D93C"))
-	dirStyle := theme.Accent()
-	fileStyle := lipgloss.NewStyle()
-
-	total := len(m.treeNodes)
-	start := min(m.treeScroll, total-height)
-	start = max(start, 0)
-	end := min(start+height, total)
-
-	var lines []string
-	for i := start; i < end; i++ {
-		n := m.treeNodes[i]
-		indent := strings.Repeat("  ", n.depth)
-
-		var prefix string
-		if n.isDir {
-			if n.expanded {
-				prefix = "▾ "
-			} else {
-				prefix = "▸ "
-			}
-		} else {
-			prefix = "  "
-		}
-
-		name := n.name
-		if n.isDir {
-			name += "/"
-		}
-
-		label := indent + prefix + name
-		maxLabel := max(width-2, 5)
-		if len(label) > maxLabel {
-			label = label[:maxLabel-3] + "..."
-		}
-
-		if i == m.treeCursor {
-			lines = append(lines, selectedStyle.Render(label))
-		} else if n.isDir {
-			lines = append(lines, dirStyle.Render(label))
-		} else {
-			lines = append(lines, fileStyle.Render(label))
-		}
-	}
-
-	if total > height {
-		lines = append(lines, theme.Dim().Render(fmt.Sprintf(" (%d/%d)", m.treeCursor+1, total)))
-	}
-
-	return strings.Join(lines, "\n")
-}
-
-func (m extrasListTUIModel) renderExtrasContentPanelStr(height int) (string, string) {
-	lines := strings.Split(m.contentText, "\n")
-	totalLines := len(lines)
-
-	if totalLines <= height {
-		return strings.Join(lines, "\n"), ""
-	}
-
-	maxScroll := totalLines - height
-	offset := min(m.contentScroll, maxScroll)
-
-	visible := lines[offset : offset+height]
-	result := make([]string, height)
-	copy(result, visible)
-
-	scrollInfo := fmt.Sprintf("(%d/%d)", offset+1, maxScroll+1)
-	return strings.Join(result, "\n"), scrollInfo
+	return renderFileViewer(m.termWidth, m.termHeight, fileViewer{
+		command: "extras", name: m.contentExtraKey,
+		nodes: m.treeNodes, cursor: m.treeCursor, scroll: m.treeScroll,
+		content: m.contentText, contentScroll: m.contentScroll,
+	})
 }
 
 // ─── Runner ──────────────────────────────────────────────────────────

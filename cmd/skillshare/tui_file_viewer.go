@@ -1,0 +1,98 @@
+package main
+
+import (
+	"strings"
+
+	"github.com/charmbracelet/lipgloss"
+
+	"skillshare/internal/theme"
+)
+
+// fileViewer is what the file viewers of list and extras show: the files
+// of a skill or extra on the left and the open file on the right, in the
+// shared frame. An agent is one file, so it has no tree.
+type fileViewer struct {
+	command, name  string
+	nodes          []treeNode
+	cursor, scroll int // tree cursor and first visible tree row
+	content        string
+	contentScroll  int
+	noTree         bool
+}
+
+// fileViewerHeight is how many lines the tree and the file get.
+func fileViewerHeight(termHeight int) int {
+	return max(termHeight-frameChrome, 5)
+}
+
+// fileViewerTextWidth is how wide the open file is drawn.
+func fileViewerTextWidth(termWidth int, noTree bool) int {
+	if noTree {
+		return max(termWidth-3, 40)
+	}
+	return max(termWidth-sidebarWidth(termWidth)-3, 40)
+}
+
+func renderFileViewer(width, height int, v fileViewer) string {
+	facts := []string{v.name}
+	if !v.noTree && v.cursor < len(v.nodes) {
+		facts = append(facts, v.nodes[v.cursor].relPath)
+	}
+	title := renderFrameTitle(width, v.command, facts, nil)
+	bodyHeight := fileViewerHeight(height)
+	text, pos := scrollLines(v.content, v.contentScroll, bodyHeight)
+
+	hints := []keyHint{{"ctrl+d/u", "scroll"}, {"g/G", "top/bottom"}, {"esc", "back"}}
+	var body string
+	if v.noTree {
+		body = lipgloss.NewStyle().PaddingLeft(1).Height(bodyHeight).MaxHeight(bodyHeight).Render(text)
+	} else {
+		sw := sidebarWidth(width)
+		tree := renderFileTree(v.nodes, v.cursor, v.scroll, sw-1, bodyHeight)
+		body = renderFrameSplit(tree, text, sw, width-sw, bodyHeight)
+		hints = append([]keyHint{{"↑↓", "files"}, {"→", "expand"}, {"←", "collapse"}}, hints...)
+	}
+	return title + "\n\n" + body + "\n\n" + renderKeyLine(width, hints, pos)
+}
+
+// renderFileTree draws the visible rows of the tree; the open file or
+// folder is accent-colored.
+func renderFileTree(nodes []treeNode, cursor, scroll, width, height int) string {
+	if len(nodes) == 0 {
+		return " " + theme.Dim().Render("No files")
+	}
+	start := max(min(scroll, len(nodes)-height), 0)
+	end := min(start+height, len(nodes))
+	lines := make([]string, 0, end-start)
+	for i := start; i < end; i++ {
+		n := nodes[i]
+		mark, name := "  ", n.name
+		if n.isDir {
+			mark, name = "▸ ", name+"/"
+			if n.expanded {
+				mark = "▾ "
+			}
+		}
+		label := truncateANSI(" "+strings.Repeat("  ", n.depth)+mark+name, width)
+		switch {
+		case i == cursor:
+			label = theme.Accent().Bold(true).Render(label)
+		case n.isDir:
+			label = theme.Dim().Render(label)
+		}
+		lines = append(lines, label)
+	}
+	return strings.Join(lines, "\n")
+}
+
+// scrollLines returns height lines of text from offset, and the position
+// ("3/12") when the text is longer than height.
+func scrollLines(text string, offset, height int) (string, string) {
+	lines := strings.Split(text, "\n")
+	if len(lines) <= height {
+		return text, ""
+	}
+	maxScroll := len(lines) - height
+	offset = min(offset, maxScroll)
+	return strings.Join(lines[offset:offset+height], "\n"), framePosition(offset+1, maxScroll+1)
+}

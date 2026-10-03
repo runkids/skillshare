@@ -23,12 +23,14 @@ list-agents|skillshare list|Tab
 list-keys|skillshare list|Type `?`
 list-confirm|skillshare list|Down;Type `d`
 list-filter|skillshare list|Type `/`;Type `re`
+list-files|skillshare list|Enter
 target|skillshare target list|
 target-edit|skillshare target list|Type `e`
 target-confirm|skillshare target list|Type `d`
 extras|skillshare extras list|
 extras-edit|skillshare extras list|Type `e`
 extras-confirm|skillshare extras list|Type `d`
+extras-files|skillshare extras list|Enter
 trash|skillshare trash list|
 trash-confirm|skillshare trash list|Space;Down;Space;Type `d`
 restore-pick|skillshare restore|
