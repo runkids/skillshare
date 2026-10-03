@@ -393,9 +393,9 @@ const (
 
 // StartProgress starts a progress bar with the given title and total count.
 func StartProgress(title string, total int) *ProgressBar {
-	tty := isProgressTTY()
-	if !tty {
-		fmt.Fprintf(ProgressWriter, "%s (0/%d)\n", title, total)
+	// Off a terminal the bar prints nothing, like a spinner: it would only
+	// leave a stale line where a terminal shows a frame that clears itself.
+	if !isProgressTTY() {
 		return &ProgressBar{total: total, title: title}
 	}
 
@@ -454,8 +454,6 @@ func (p *ProgressBar) UpdateTitle(title string) {
 
 	if p.tty {
 		p.renderThrottled()
-	} else {
-		fmt.Fprintf(ProgressWriter, "  %s\n", p.title)
 	}
 }
 
@@ -478,8 +476,6 @@ func (p *ProgressBar) SetHeader(header string) {
 	p.header = header
 	if p.tty {
 		p.renderNow()
-	} else {
-		fmt.Fprintf(ProgressWriter, "%s\n", header)
 	}
 }
 
