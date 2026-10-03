@@ -11,9 +11,10 @@ rules:
     pattern: prompt-injection
     message: "SYSTEM: prompt override detected"
     regex: '(?im)^\s*(SYSTEM|OVERRIDE|IGNORE|ADMIN|ROOT):'
-    # Lowercase config keys whose value is data (root: ./src, admin: false,
-    # ignore: { ... }) are not directives; uppercase labels always match
-    exclude: '^\s*(system|override|ignore|admin|root):\s*((true|false|yes|no|on|off|null|~|-?\d+(\.\d+)?|[.~/]\S*|\w[\w.-]*/\S*|\{.*\w\s*:.*\}),?)?(\s+(#|//).*)?\s*$'
+    # Lowercase config keys whose value is data (root: ./src, root: "C:\repo",
+    # admin: false, ignore: { ... }) are not directives; uppercase labels always
+    # match. RE2 has no backreferences, so each path quoting is listed.
+    exclude: '^\s*(system|override|ignore|admin|root):\s*((true|false|yes|no|on|off|null|~|-?\d+(\.\d+)?|"(?:[.~/]|\w[\w.-]*/|[A-Za-z]:\\)[^\s"'']*"|''(?:[.~/]|\w[\w.-]*/|[A-Za-z]:\\)[^\s"'']*''|(?:[.~/]|\w[\w.-]*/|[A-Za-z]:\\)[^\s"'']*|\{.*\w\s*:.*\}),?)?(\s+(#|//).*)?\s*$'
 
   - id: prompt-injection-2
     severity: HIGH

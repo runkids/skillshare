@@ -157,7 +157,7 @@ Audit engine 也會對 `.md` 檔案執行**結構檢查**：擷取所有內嵌�
 
 **Audit 偵測的內容：**
 - 直接注入語句：「ignore previous instructions」、「disregard all rules」、「you are now」
-- Prompt 覆寫前綴：`SYSTEM:`、`OVERRIDE:`、`IGNORE:`、`ADMIN:`、`ROOT:`（不分大小寫、容許空白）
+- Prompt 覆寫前綴：`SYSTEM:`、`OVERRIDE:`、`IGNORE:`、`ADMIN:`、`ROOT:`（不分大小寫、容許空白）。小寫鍵只帶資料值（布林值、數字、路徑、行內物件或空值）的行會視為設定，不會被偵測，例如 `root: ./src`、`admin: false`、`ignore: { tags: ["design"] }`
 - Agent 指令標籤：`<system>`、`</instructions>`、`</override>`、`</prompt>`、`</rules>`（可帶選用 HTML 屬性）
 - Jailbreak 指令：`DEVELOPER MODE`、`DEV MODE`、`JAILBREAK`、`DAN MODE`（不分大小寫、容許空白）
 - 藏在 HTML 註解中的注入（`<!-- ... -->`）
