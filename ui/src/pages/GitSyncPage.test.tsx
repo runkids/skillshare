@@ -108,6 +108,35 @@ describe('updates from another computer', () => {
     expect(api.push).not.toHaveBeenCalled();
   });
 
+  it('syncs both ways: commits, pulls, then pushes', async () => {
+    vi.mocked(api.gitStatus).mockResolvedValue({ ...status, hasRemote: true });
+    vi.mocked(api.push).mockResolvedValue({ success: true, message: 'pushed successfully' });
+    mount();
+    fireEvent.click(await screen.findByRole('button', { name: 'Sync both ways' }));
+    await waitFor(() => expect(api.push).toHaveBeenCalledWith({}));
+    const order = [api.gitCommit, api.pull, api.push].map((fn) => vi.mocked(fn).mock.invocationCallOrder[0]);
+    expect(order).toEqual([...order].sort((a, b) => a - b));
+  });
+
+  it('stops before pushing when syncing both ways hits a conflict', async () => {
+    vi.mocked(api.gitStatus).mockResolvedValue({ ...status, hasRemote: true, isDirty: false, files: [] });
+    vi.mocked(api.pull).mockRejectedValueOnce(new ApiError(409, 'conflict', { code: 'pull_conflict', params: conflicts }));
+    mount();
+    fireEvent.click(await screen.findByRole('button', { name: 'Sync both ways' }));
+    expect(await screen.findByRole('dialog', { name: 'Resolve pull conflicts' })).toBeTruthy();
+    expect(api.gitCommit).not.toHaveBeenCalled();
+    expect(api.push).not.toHaveBeenCalled();
+  });
+
+  it('previews syncing both ways without changing anything', async () => {
+    vi.mocked(api.gitStatus).mockResolvedValue({ ...status, hasRemote: true });
+    mount();
+    fireEvent.click(await screen.findByRole('switch', { name: 'Dry run' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Sync both ways' }));
+    expect(await screen.findByText(/then push/)).toBeTruthy();
+    for (const fn of [api.gitCommit, api.pull, api.push]) expect(fn).not.toHaveBeenCalled();
+  });
+
   it('does not pull if the local commit fails or is only a preview', async () => {
     vi.mocked(api.gitStatus).mockResolvedValue({ ...status, hasRemote: true, behind: 1 });
     vi.mocked(api.gitCommit).mockRejectedValueOnce(new Error('commit failed'));

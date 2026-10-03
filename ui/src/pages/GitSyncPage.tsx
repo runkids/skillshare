@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { AlertCircle, AlertTriangle, ArrowDownToLine, ArrowUpFromLine, CircleCheck, CloudUpload, ExternalLink, FolderGit2, GitBranch, GitCommitHorizontal, Info, RefreshCw, Undo2, X } from 'lucide-react';
+import { AlertCircle, AlertTriangle, ArrowDownToLine, ArrowDownUp, ArrowUpFromLine, CircleCheck, CloudUpload, ExternalLink, FolderGit2, GitBranch, GitCommitHorizontal, Info, RefreshCw, Undo2, X } from 'lucide-react';
 import { api, ApiError, type GitStatus, type PullResponse } from '../api/client';
 import Button from '../components/Button';
 import ConfirmDialog from '../components/ConfirmDialog';
@@ -48,7 +48,7 @@ export default function GitSyncPage() {
 
   const [message, setMessage] = useState('');
   const [dryRun, setDryRun] = useState(false);
-  const [busy, setBusy] = useState<'commit' | 'commitPull' | 'push' | 'upload' | 'pull' | 'branch' | 'fetch' | 'nested' | 'scope' | 'discard' | null>(null);
+  const [busy, setBusy] = useState<'commit' | 'commitPull' | 'syncBoth' | 'push' | 'upload' | 'pull' | 'branch' | 'fetch' | 'nested' | 'scope' | 'discard' | null>(null);
   const [runError, setRunError] = useState('');
   // A first pull whose history cannot merge; the error note then offers a force pull.
   const [mergeFailed, setMergeFailed] = useState(false);
@@ -129,6 +129,19 @@ export default function GitSyncPage() {
     setPulled(null);
     setPulled(await api.pull({ force: false, dryRun: false }));
   });
+  // Commit local changes, merge the remote and sync targets, then push. A
+  // pull conflict stops here and opens the review; push again after applying.
+  const syncBoth = () => run('syncBoth', async () => {
+    if (dryRun) return setNote(t('gitSync.syncBoth.preview'));
+    if (status?.isDirty) {
+      await api.gitCommit({ message: message.trim() || undefined, dryRun: false });
+      setMessage('');
+    }
+    setPulled(null);
+    setPulled(await api.pull({ force: false, dryRun: false }));
+    await api.push({});
+    toast(t('gitSync.toast.syncedBoth'), 'success');
+  });
   const checkout = (branch: string) => run('branch', async () => {
     const res = await api.gitCheckout(branch);
     toast(t('gitSync.toast.switchedTo', { branch: res.branch }), 'success');
@@ -191,6 +204,12 @@ export default function GitSyncPage() {
             {busy !== 'pull' && <ArrowDownToLine size={16} />}
             {pullLabel}
           </Button>
+          {status.hasRemote && (
+            <Button variant="secondary" onClick={syncBoth} loading={busy === 'syncBoth'} disabled={writing || nested.length > 0}>
+              {busy !== 'syncBoth' && <ArrowDownUp size={16} />}
+              {t('gitSync.actions.syncBoth')}
+            </Button>
+          )}
         </span>
       ))}
 
