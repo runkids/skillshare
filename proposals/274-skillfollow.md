@@ -4,7 +4,7 @@ Issue: [#274](https://github.com/runkids/skillshare/issues/274). Related: [#314]
 
 Credits: the `.skillfollow` design, the call-site list, and the reference implementation come from @hhdebb in #274. The Windows junction analysis and the provenance suggestion come from @star-nebula's comment on #274 and from #314/#315.
 
-Source baseline: every file and line reference was checked against `main` at `475b1769`. Line numbers will drift; function names are the stable reference. Nothing here was run. The analysis comes from reading the source, and the Windows claims still need a real Windows host (see Test Plan). This revision includes two rounds of adversarial review.
+Source baseline: every file and line reference was checked against `main` at `475b1769`. Line numbers will drift; function names are the stable reference. The analysis comes from reading the source, plus one Windows probe (§6, "Windows evidence"). The rest of the Windows behavior still needs the runbook in the Test Plan. This revision includes two rounds of adversarial review.
 
 ## Problem
 
@@ -64,7 +64,7 @@ The rules below are @hhdebb's design, plus the overlap rules:
   8. `entry-overlap`: two entries resolve to the same target, or one target is inside the other. *Both* entries are rejected, and the warning names the pair, so the merge order of `.local` never decides which one wins.
   9. `followed`.
 
-  A first-level link that no file declares is reported as `undeclared-link`. Commands act on these states, not on warning text. All comparisons run after canonicalization. A missing path is resolved through its nearest existing ancestor, the way `evalOrClean` does it (`internal/sync/relative.go:41-59`). Comparisons use `utils.PathsEqual` and `PathHasPrefix`, which are case-insensitive on Windows.
+  A first-level link that no file declares is reported as `undeclared-link`. Commands act on these states, not on warning text. All comparisons run after canonicalization. A missing path is resolved through its nearest existing ancestor, the way `evalOrClean` does it (`internal/sync/relative.go:41-59`). On Windows, canonicalization cannot rely on `filepath.EvalSymlinks`, because it does not resolve junctions (§6). The entry is resolved with `utils.ResolveLinkTarget`, and every other path goes through a junction-aware canonicalizer. Comparisons use `utils.PathsEqual` and `PathHasPrefix`, which are case-insensitive on Windows.
 - **Same name rules as a real directory.** A followed `_dev-skills` that contains `.git` is a tracked repo, through `utils.IsTrackedRepoDir` plus the `.git` check. A followed entry without `_` is a group. A repo-level `.skillignore` inside a followed repo applies as it does today.
 - **Logical paths everywhere.** Skills are reported as `<source>/_dev-skills/<skill>`, with `RelPath` `_dev-skills/<skill>` and `FlatName` `_dev-skills__<skill>`. This matches the existing `SourcePath: filepath.Join(sourcePath, relPath)` convention at `discover_walk.go:305`, so target link names and the manifest stay stable.
 - **Default unchanged.** With no `.skillfollow`, an undeclared link stays invisible exactly as today, and every command behaves as today. The existing `TestUninstallGroup_ExternalSymlinkRejected` and `TestUpdateGroup_ExternalSymlinkRejected` (`tests/integration/sync_symlinked_dir_test.go:207`, `:239`) must keep passing unchanged.
@@ -160,7 +160,7 @@ Relative links are different. `createLink` computes them from `evalOrClean(sourc
 - `PruneOrphanLinksWithSkills` (`sync.go:736-880`) sends it to the external branch. A live link there is kept with a warning, so it is never pruned when filters change.
 - `unlinkMergeMode` (`cmd/skillshare/target.go:544`), `unlinkMergeSymlinks` (`internal/server/handler_targets.go:700`), and `computeTargetDiff` (`internal/server/handler_diff_stream.go:222`) all skip it.
 
-Windows junctions are created by `createJunction(absTarget, absSource)` with the logical `absSource`, and `mklink /J` stores the path it is given. `utils.ResolveLinkTarget` reads it back with `os.Readlink`. Only when Readlink fails does it fall back to `filepath.EvalSymlinks`, which resolves fully and returns an external path. Whether Go 1.23+ `os.Readlink` returns the stored logical path for a junction whose target crosses another junction is unverified (see Open Questions).
+Windows junctions are created by `createJunction(absTarget, absSource)` with the logical `absSource`, and `mklink /J` stores the path it is given. Measured on Windows 11 ARM64 with Go 1.25.5 (§6): `os.Readlink` on such a junction returns the stored logical path `<src>\_f\a`, even when `_f` is itself a junction. `utils.ResolveLinkTarget` therefore never reaches its `EvalSymlinks` fallback, and `PathHasPrefix`/`PathsEqual` against the logical source both hold. Target junctions created through the logical path need no special handling in identity or ownership. The fully resolved form that `sameSkillLink` accepts covers only hand-made links.
 
 The fix is three separate contracts. They answer different questions and must not be mixed.
 
@@ -279,8 +279,8 @@ Any of these would commit `_dev-skills` as a link holding a machine-specific abs
   - `doctor` reports `not-ignored`, with the exact file and line, before the user reaches a commit.
   - Step 4's `follow`/`unfollow` write or remove the lines together with the declaration.
 - **The staging guard follows Git reachability, not path containment.** A source that is a link out of the git root is not staged. An alias source that points *into* the root is staged. The guard, `FollowedLinksStaged(stagingDir, followSet)`:
-  - takes the real staging directory, `EvalSymlinks(EffectiveGitRoot)` (`internal/config/config.go:425`);
-  - for each declared link, computes its physical location as `EvalSymlinks(link parent)/name`, never resolving the final component;
+  - takes the real staging directory, the canonical form of `EffectiveGitRoot` (`internal/config/config.go:425`);
+  - for each declared link, computes its physical location as the canonical link parent plus `/name`, never resolving the final component. "Canonical" means the junction-aware canonicalizer from §1, since `EvalSymlinks` leaves junctions unresolved on Windows (§6);
   - treats the link as staged only if that location is under the staging directory **and** no path component between the two is itself a link, because Git does not descend through one;
   - runs at every staging seam: `stageAndCommit`, both server staging paths (next to `rootScopeGuard`, `handler_git.go:563`), and `commitSourceFiles`.
 
@@ -324,6 +324,16 @@ The tree was clean before the pull, so in the normal case this undoes only what 
 - Detect declared entries with `utils.IsLinkMode(path, info.Mode())`. Never use `ModeSymlink` alone, and never `info.IsDir()`. A junction reports `ModeIrregular`, not a directory (`internal/utils/link.go`).
 - The wrapper reads the resolved directory itself and maps every path back to the logical `<source>/<entry>/...` form before calling `fn`. This is where the one-hop rule is enforced. It is also why `discover_walk.go`'s `filepath.Rel(walkRoot, path)` must use the logical path for followed subtrees, not the resolved one.
 - Canonical comparisons use `utils.PathsEqual` and `PathHasPrefix`, which are case-insensitive on Windows (`internal/utils/path.go`). The name parser rejects volume and UNC forms on every platform.
+- **Windows evidence (resolves the former open question on junction read-back).** A Go probe was built in the devcontainer from `475b1769` plus a probe `main` package that imports `internal/utils`, then cross-compiled for `windows/arm64` with Go 1.25.5. It ran on Windows 11 Home ARM64 with Developer Mode off, as the desktop user with the full token and again with the basic-user token (`runas /trustlevel:0x20000`). The probe created a followed junction `src\_f -> ext` and a target junction `tgt\a -> src\_f\a`. Both tokens gave the same results:
+  - `src\_f`: `Lstat` reports `ModeIrregular` (not `ModeSymlink`, not a directory), and `utils.IsLinkMode` is true. `os.Readlink` returns `ext`, and `os.ReadDir` through it lists the content.
+  - `tgt\a`: `os.Readlink` and `utils.ResolveLinkTarget` both return the **logical** `src\_f\a`. `PathHasPrefix(src+sep)` and `PathsEqual(src\_f\a)` are true, and `os.ReadDir` lists `SKILL.md`.
+  - `filepath.EvalSymlinks` does **not** resolve junctions: on both `src\_f` and `tgt\a` it returns the input path unchanged, with no error. With the full token, which can create directory symlinks, `EvalSymlinks` on a symlink whose target crosses the `_f` junction failed with "The system cannot find the path specified".
+  - `filepath.Walk(src\_f)` makes one callback and does not descend. `filepath.Walk(src)` makes two callbacks and never finds `_f\a\SKILL.md`. This confirms star-nebula's report at the Go level.
+  - With the basic token, `os.Symlink` fails with "A required privilege is not held by the client", and `mklink /J` succeeds. Junctions are the only link a basic user can create here.
+
+  Consequences for this design:
+  - `utils.ResolveSymlink` and `evalOrClean` are no-ops on junctions, so they cannot be used to resolve followed entries, run cycle and overlap checks, or find the staging tree on Windows. The walker reads the entry's target with `utils.ResolveLinkTarget`. Canonical comparisons use a junction-aware canonicalizer that resolves link components one at a time.
+  - The relative-link branch of `createLink` (Developer Mode only) canonicalizes with `evalOrClean`, so it has the same exposure on Windows. It needs a test under Developer Mode, which this probe did not cover.
 - Real-Windows coverage goes in an `ai_docs/tests/` runbook, run with `skillshare-windows-utm`. It runs two configurations: a basic-user token (junctions only) and Developer Mode (relative symlinks). It covers:
   - discovery
   - the read-back fallback
@@ -448,9 +458,9 @@ Any line estimate is rough, not a commitment.
 
 ## Open Questions
 
-1. **Windows junction read-back.** Does `os.Readlink` in Go 1.23+ return the stored logical path for a junction created with `mklink /J <target> <source>\_f\skill`, where `_f` is itself a junction? If it does not, sync relies on `sameSkillLink`'s fully resolved form, and cleanup after unfollow relies on the warning path in §3. This must stay open until it is checked on real Windows.
-2. **Auto-ignoring `.skillfollow.local`.** The current proposal does not auto-ignore it. Docs show the line, `doctor` warns, and step 4's `follow --local` writes it. Should step 3 already write it, or should `.skillignore.local` get the same treatment? Both are left alone for now.
-3. **Agents and extras.** The recommendation is to keep them out of scope. A `.agentfollow` would need its own proposal, because agent and extras pruning (`prunableLink`) has different semantics. Is there demand?
-4. **A `followed` metadata kind.** The recommendation is no schema change. The one use case so far, branch display, already falls back to live git (`cmd/skillshare/list.go:320-331`). Revisit if a concrete need appears.
-5. **Broken external links outside a missing-entry pause.** The branch at `sync.go:828` removes these without a provenance check. Should it get the #314 rule as a separate follow-up? While an entry is missing it is already paused (§3), so the two are not fully independent.
-6. **Package placement.** The recommendation is `internal/sourcewalk` with plain inputs, with the concrete API decided during implementation. Where should the followed-update policy live, given that `git` already imports `install`?
+1. **Auto-ignoring `.skillfollow.local`.** The current proposal does not auto-ignore it. Docs show the line, `doctor` warns, and step 4's `follow --local` writes it. Should step 3 already write it, or should `.skillignore.local` get the same treatment? Both are left alone for now.
+2. **Agents and extras.** The recommendation is to keep them out of scope. A `.agentfollow` would need its own proposal, because agent and extras pruning (`prunableLink`) has different semantics. Is there demand?
+3. **A `followed` metadata kind.** The recommendation is no schema change. The one use case so far, branch display, already falls back to live git (`cmd/skillshare/list.go:320-331`). Revisit if a concrete need appears.
+4. **Broken external links outside a missing-entry pause.** The branch at `sync.go:828` removes these without a provenance check. Should it get the #314 rule as a separate follow-up? While an entry is missing it is already paused (§3), so the two are not fully independent.
+5. **Package placement.** The recommendation is `internal/sourcewalk` with plain inputs, with the concrete API decided during implementation. Where should the followed-update policy live, given that `git` already imports `install`?
+6. **Junction source roots (pre-existing, outside this proposal).** The probe shows that `filepath.EvalSymlinks` returns a junction unchanged and that `filepath.Walk` does not descend into one. `discoverSourceSkillsInternal` walks `utils.ResolveSymlink(sourcePath)`, so a skills source root that is itself a junction is probably discovered as empty on Windows. The dotfiles-manager docs promise that a symlinked source works. This was shown at the Go level only, not reproduced with `ss.exe`. Should it be filed as a separate bug?
