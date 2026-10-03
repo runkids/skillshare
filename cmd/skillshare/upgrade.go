@@ -151,7 +151,7 @@ func logUpgradeOp(cfgPath string, cliUpgraded bool, skillUpgraded bool, fromVers
 
 func upgradeCLIBinary(dryRun, force bool) (string, error) {
 	start := time.Now()
-	current := "v" + version
+	current := ui.VersionLabel(version)
 
 	execPath, err := resolveExecPath()
 	if err != nil {
@@ -603,9 +603,9 @@ func runBrewUpgrade(start time.Time) (string, error) {
 	newVersion := getBrewVersion()
 	switch {
 	case newVersion != "" && newVersion != version:
-		printUpgradeRow(ui.MarkOK, "CLI", fmt.Sprintf("v%s → v%s", version, newVersion), start)
+		printUpgradeRow(ui.MarkOK, "CLI", ui.VersionLabel(version)+" → "+ui.VersionLabel(newVersion), start)
 	case newVersion != "" && newVersion == version:
-		printUpgradeRow(ui.MarkOK, "CLI", "v"+version+", already up to date", time.Time{})
+		printUpgradeRow(ui.MarkOK, "CLI", ui.VersionLabel(version)+", already up to date", time.Time{})
 	default:
 		printUpgradeRow(ui.MarkOK, "CLI", "upgraded with Homebrew", start)
 	}

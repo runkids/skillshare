@@ -96,10 +96,10 @@ func main() {
 	// Handle special commands (no error return)
 	switch cmd {
 	case "version":
-		fmt.Printf("skillshare v%s\n", version)
+		fmt.Printf("skillshare %s\n", ui.VersionLabel(version))
 		return
 	case "-v", "--version":
-		fmt.Printf("skillshare v%s\n", version)
+		fmt.Printf("skillshare %s\n", ui.VersionLabel(version))
 		return
 	case "help", "-h", "--help":
 		printUsage()
@@ -180,7 +180,7 @@ func reportMigrationResults(results []config.MigrationResult) {
 }
 
 func printUsage() {
-	fmt.Println(theme.Primary().Bold(true).Render("skillshare") + " " + ui.DimText("v"+version+"  Your AI coding setup, everywhere."))
+	fmt.Println(theme.Primary().Bold(true).Render("skillshare") + " " + ui.DimText(ui.VersionLabel(version)+"  Your AI coding setup, everywhere."))
 	fmt.Println()
 	printHelp("skillshare <command> [options]", "",
 		helpGroup{title: "Start", rows: []helpRow{

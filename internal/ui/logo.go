@@ -47,7 +47,7 @@ type rgb struct{ r, g, b float64 }
 // narrow terminal it prints a plain "skillshare vX" line instead.
 func LogoBanner(version string, lines []string, animate bool) {
 	if !logoFits() {
-		fmt.Println(theme.Primary().Bold(true).Render("skillshare") + " " + theme.Dim().Render("v"+version))
+		fmt.Println(theme.Primary().Bold(true).Render("skillshare") + " " + theme.Dim().Render(VersionLabel(version)))
 		fmt.Println(theme.Muted().Render(logoTagline))
 		printLines(lines)
 		return
@@ -58,7 +58,7 @@ func LogoBanner(version string, lines []string, animate bool) {
 		fmt.Print(strings.Join(wordmarkFrame(1), "\n") + "\n")
 	}
 	fmt.Println()
-	fmt.Println(theme.Dim().Render("v" + version + " · " + logoTagline))
+	fmt.Println(theme.Dim().Render(VersionLabel(version) + " · " + logoTagline))
 	printLines(lines)
 }
 

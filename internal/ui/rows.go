@@ -100,3 +100,12 @@ func Took(d time.Duration) string {
 	}
 	return " " + DimText(fmt.Sprintf("· %.1fs", d.Seconds()))
 }
+
+// VersionLabel is "v1.2.3" for a release and the bare name for a build
+// such as "dev", which would otherwise read "vdev".
+func VersionLabel(version string) string {
+	if version != "" && version[0] >= '0' && version[0] <= '9' {
+		return "v" + version
+	}
+	return version
+}
