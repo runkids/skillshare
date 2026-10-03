@@ -87,10 +87,12 @@ If the remote has newer commits:
 
 ```bash
 $ skillshare push
-Push failed
+✗ Push failed
   Remote may have newer changes
-  Run: skillshare pull
-  Then: skillshare push
+
+Next
+  skillshare pull  get them first
+  skillshare push  then push again
 ```
 
 Solution:

@@ -195,15 +195,7 @@ func updateTrackedRepo(uc *updateContext, repoName string) (updateResult, error)
 		plural(len(info.Commits), "commit"), plural(info.Stats.FilesChanged, "file"),
 		info.Stats.Insertions, info.Stats.Deletions), time.Since(startUpdate))
 
-	// Show up to 5 commits
-	const maxCommits = 5
-	for i, c := range info.Commits {
-		if i >= maxCommits {
-			ui.Note(fmt.Sprintf("… and %d more", len(info.Commits)-maxCommits))
-			break
-		}
-		ui.Note(c.Hash + "  " + truncateString(c.Message, 60))
-	}
+	printCommitNotes(info.Commits)
 
 	if uc.opts.diff {
 		renderDiffSummary(repoPath, info.BeforeHash, info.AfterHash)
@@ -488,6 +480,18 @@ func renderHashDiffSummary(beforeHashes, afterHashes map[string]string) {
 			break
 		}
 		fmt.Printf("  %s %s\n", c.marker, c.path)
+	}
+}
+
+// printCommitNotes lists up to five pulled commits in dim text.
+func printCommitNotes(commits []git.CommitInfo) {
+	const maxCommits = 5
+	for i, c := range commits {
+		if i >= maxCommits {
+			ui.Note(fmt.Sprintf("… and %d more", len(commits)-maxCommits))
+			break
+		}
+		ui.Note(c.Hash + "  " + truncateString(c.Message, 60))
 	}
 }
 

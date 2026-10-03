@@ -87,10 +87,12 @@ remote에 더 새로운 커밋이 있는 경우:
 
 ```bash
 $ skillshare push
-Push failed
+✗ Push failed
   Remote may have newer changes
-  Run: skillshare pull
-  Then: skillshare push
+
+Next
+  skillshare pull  get them first
+  skillshare push  then push again
 ```
 
 해결 방법:

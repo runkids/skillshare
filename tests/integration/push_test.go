@@ -76,8 +76,8 @@ targets: {}
 	result := sb.RunCLI("push", "--dry-run")
 
 	result.AssertSuccess(t)
-	result.AssertOutputContains(t, "dry-run")
-	result.AssertOutputContains(t, "Would stage")
+	result.AssertOutputContains(t, "Dry run — nothing was written")
+	result.AssertOutputContains(t, "would commit 1 file")
 }
 
 func TestPush_NoChanges_ShowsNoChanges(t *testing.T) {
@@ -95,7 +95,7 @@ targets: {}
 	result := sb.RunCLI("push", "--dry-run")
 
 	result.AssertSuccess(t)
-	result.AssertOutputContains(t, "No changes")
+	result.AssertOutputContains(t, "nothing to commit")
 }
 
 func TestPush_CustomMessage(t *testing.T) {
@@ -161,7 +161,7 @@ targets: {}
 	result := sb.RunCLI("push", "-m", "Test push")
 
 	result.AssertSuccess(t)
-	result.AssertOutputContains(t, "Push complete")
+	result.AssertOutputContains(t, "✓ Push")
 }
 
 func TestPush_NoUpstream_AutoSetsUpstream(t *testing.T) {
@@ -202,7 +202,7 @@ targets: {}
 	result := sb.RunCLI("push", "-m", "first push")
 
 	result.AssertSuccess(t)
-	result.AssertOutputContains(t, "Push complete")
+	result.AssertOutputContains(t, "✓ Push")
 }
 
 func TestPush_NoUpstream_RemoteMain_LocalMaster_PushesToMain_NoMasterCreated(t *testing.T) {
@@ -229,7 +229,7 @@ targets: {}
 
 	result := sb.RunCLI("push", "-m", "sync to main")
 	result.AssertSuccess(t)
-	result.AssertOutputContains(t, "Push complete")
+	result.AssertOutputContains(t, "✓ Push")
 
 	refs := testutil.RunGit(t, bareRepo, "for-each-ref", "--format=%(refname:short)", "refs/heads")
 	if !strings.Contains(refs, "main") {
@@ -264,7 +264,7 @@ targets: {}
 
 	result := sb.RunCLI("push", "-m", "sync to trunk")
 	result.AssertSuccess(t)
-	result.AssertOutputContains(t, "Push complete")
+	result.AssertOutputContains(t, "✓ Push")
 
 	upstream := testutil.RunGit(t, sb.SourcePath, "rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}")
 	if upstream != "origin/trunk" {
@@ -300,7 +300,7 @@ targets: {}
 
 	result := sb.RunCLI("push", "-m", "first push")
 	result.AssertSuccess(t)
-	result.AssertOutputContains(t, "Push complete")
+	result.AssertOutputContains(t, "✓ Push")
 
 	refs := testutil.RunGit(t, bareRepo, "for-each-ref", "--format=%(refname:short)", "refs/heads")
 	if !strings.Contains(refs, localBranch) {

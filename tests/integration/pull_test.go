@@ -139,7 +139,7 @@ targets: {}
 	result := sb.RunCLI("pull", "--dry-run")
 
 	result.AssertSuccess(t)
-	result.AssertOutputContains(t, "dry-run")
+	result.AssertOutputContains(t, "Dry run — nothing was written")
 }
 
 func TestPull_ActualPull_AndSyncs(t *testing.T) {
@@ -277,7 +277,7 @@ targets:
 	result := sb.RunCLI("pull")
 
 	result.AssertSuccess(t)
-	result.AssertOutputContains(t, "Pull complete")
+	result.AssertOutputContains(t, "✓ Pull")
 }
 
 func TestPull_FirstPull_BothHaveSkills_NoForce_MergesAndSyncs(t *testing.T) {
@@ -303,7 +303,7 @@ targets:
 
 	result := sb.RunCLI("pull")
 	result.AssertSuccess(t)
-	result.AssertOutputContains(t, "Pull complete")
+	result.AssertOutputContains(t, "✓ Pull")
 
 	// Both local and remote skills should be synced to target.
 	if !sb.FileExists(filepath.Join(targetPath, "local-skill", "SKILL.md")) {
@@ -334,7 +334,7 @@ targets: {}
 
 	result := sb.RunCLI("pull")
 	result.AssertSuccess(t)
-	result.AssertOutputContains(t, "Pull complete")
+	result.AssertOutputContains(t, "✓ Pull")
 
 	// Both skills should exist after merge.
 	if !sb.FileExists(filepath.Join(sb.SourcePath, "local-skill", "SKILL.md")) {
@@ -365,7 +365,7 @@ targets: {}
 
 	result := sb.RunCLI("pull")
 	result.AssertSuccess(t)
-	result.AssertOutputContains(t, "Pull complete")
+	result.AssertOutputContains(t, "✓ Pull")
 
 	if !sb.FileExists(filepath.Join(sb.SourcePath, "README.md")) {
 		t.Error("README from remote should exist after auto-merge")
@@ -376,7 +376,7 @@ targets: {}
 
 	pushResult := sb.RunCLI("push", "-m", "after auto-merge")
 	pushResult.AssertSuccess(t)
-	pushResult.AssertOutputContains(t, "Push complete")
+	pushResult.AssertOutputContains(t, "✓ Push")
 }
 
 func TestPull_FirstPull_RemoteNoSkills_LocalNoSkills_ResetAndTrack(t *testing.T) {
@@ -397,7 +397,7 @@ targets: {}
 
 	result := sb.RunCLI("pull")
 	result.AssertSuccess(t)
-	result.AssertOutputContains(t, "Pull complete")
+	result.AssertOutputContains(t, "✓ Pull")
 
 	if !sb.FileExists(filepath.Join(sb.SourcePath, "README.md")) {
 		t.Error("README from remote should exist after reset")
@@ -429,7 +429,7 @@ targets: {}
 
 	result := sb.RunCLI("pull", "--force")
 	result.AssertSuccess(t)
-	result.AssertOutputContains(t, "Pull complete")
+	result.AssertOutputContains(t, "✓ Pull")
 
 	if !sb.FileExists(filepath.Join(sb.SourcePath, "remote-skill", "SKILL.md")) {
 		t.Error("remote skill should exist after force pull")
@@ -457,7 +457,7 @@ targets: {}
 
 	result := sb.RunCLI("pull")
 	result.AssertSuccess(t)
-	result.AssertOutputContains(t, "Pull complete")
+	result.AssertOutputContains(t, "✓ Pull")
 
 	if !sb.FileExists(filepath.Join(sb.SourcePath, "remote-skill", "SKILL.md")) {
 		t.Error("remote skill should be pulled from custom default branch")

@@ -32,8 +32,8 @@ func resolveGitRoot(cfg *config.Config, spinner *ui.Spinner) (string, error) {
 	// commit/push/pull operate on the wrong repository without warning.
 	if !config.ValidGitRoot(cfg.GitRoot) {
 		spinner.Fail("Invalid git_root")
-		ui.Info("  git_root %q is not a valid scope", cfg.GitRoot)
-		ui.Info("  valid values: %s (or leave empty for skills)", strings.Join(config.ValidGitRoots, ", "))
+		ui.Note(fmt.Sprintf("git_root %q is not a valid scope", cfg.GitRoot))
+		ui.Note(fmt.Sprintf("valid values: %s (or leave empty for skills)", strings.Join(config.ValidGitRoots, ", ")))
 		return "", fmt.Errorf("invalid git_root %q", cfg.GitRoot)
 	}
 
@@ -44,12 +44,12 @@ func resolveGitRoot(cfg *config.Config, spinner *ui.Spinner) (string, error) {
 			configured = "skills"
 		}
 		spinner.Fail("Git root mismatch")
-		ui.Info("  git_root operates on: %s", root)
-		ui.Info("  but the git repo lives at: %s (%s)", dir, scope)
-		ui.Info("  Fix it with one of:")
-		ui.Info("    - skillshare init --git-root %s   (start a fresh repo at the configured scope)", configured)
-		ui.Info("    - mv \"%s/.git\" \"%s/.git\"   (move the existing repo over, keeps history)", dir, root)
-		ui.Info("    - set 'git_root: %s' in %s   (keep using the existing repo)", scope, config.ConfigPath())
+		ui.Note(fmt.Sprintf("git_root operates on: %s", root))
+		ui.Note(fmt.Sprintf("but the git repo lives at: %s (%s)", dir, scope))
+		ui.Note("Fix it with one of:")
+		ui.Note(fmt.Sprintf("  - skillshare init --git-root %s   (start a fresh repo at the configured scope)", configured))
+		ui.Note(fmt.Sprintf("  - mv \"%s/.git\" \"%s/.git\"   (move the existing repo over, keeps history)", dir, root))
+		ui.Note(fmt.Sprintf("  - set 'git_root: %s' in %s   (keep using the existing repo)", scope, config.ConfigPath()))
 		return "", fmt.Errorf("git root mismatch (see guidance above)")
 	}
 	return root, nil

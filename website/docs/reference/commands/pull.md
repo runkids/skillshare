@@ -60,9 +60,9 @@ If you have uncommitted changes, `pull` will fail:
 
 ```bash
 $ skillshare pull
-Local changes detected
+✗ Local changes detected
   Run: skillshare push
-  Or:  cd ~/.config/skillshare/skills && git stash
+  Or:  cd ~/.config/skillshare/skills && git stash -u
 ```
 
 Solutions:
@@ -92,7 +92,7 @@ A conflict in any other file stops the pull, undoes the merge, and names the fil
 
 ```bash
 $ skillshare pull
-git pull failed
+✗ git pull failed
 pull stopped: this machine and the remote both changed my-skill/SKILL.md; the merge was undone, resolve it with git in ~/.config/skillshare/skills
 ```
 
@@ -116,7 +116,7 @@ If there are **merge conflicts**, `pull` fails with a non-zero exit code:
 
 ```bash
 $ skillshare pull
-Pull failed
+✗ Pull failed
   Resolve manually: cd ~/.config/skillshare/skills && git merge --allow-unrelated-histories <remote branch>
   Or force-pull: skillshare pull --force  (replaces local with remote)
 ```

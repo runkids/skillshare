@@ -53,7 +53,7 @@ func checkGitRepo(sourcePath string, spinner *ui.Spinner) error {
 	cmd.Dir = sourcePath
 	if err := cmd.Run(); err != nil {
 		spinner.Fail("Source is not a git repository")
-		ui.Info("  Run: skillshare init --remote <url>")
+		ui.Note("Run: skillshare init --remote <url>")
 		return fmt.Errorf("not a git repository")
 	}
 
@@ -62,8 +62,8 @@ func checkGitRepo(sourcePath string, spinner *ui.Spinner) error {
 	output, err := cmd.Output()
 	if err != nil || strings.TrimSpace(string(output)) == "" {
 		spinner.Fail("No git remote configured")
-		ui.Info("  Run: cd %s && git remote add origin <url>", sourcePath)
-		ui.Info("  Or:  skillshare init --remote <url>")
+		ui.Note(fmt.Sprintf("Run: cd %s && git remote add origin <url>", sourcePath))
+		ui.Note("Or:  skillshare init --remote <url>")
 		return fmt.Errorf("no remote configured")
 	}
 
@@ -111,23 +111,23 @@ func isAuthError(output string) bool {
 func hintGitRemoteError(output string) {
 	switch {
 	case isAuthError(output):
-		ui.Info("  Authentication failed — options:")
-		ui.Info("    1. SSH URL: git remote set-url origin git@<host>:<owner>/<repo>.git")
-		ui.Info("    2. Token env var: GITHUB_TOKEN, GITLAB_TOKEN, BITBUCKET_TOKEN, AZURE_DEVOPS_TOKEN, or SKILLSHARE_GIT_TOKEN")
+		ui.Note("Authentication failed — options:")
+		ui.Note("  1. SSH URL: git remote set-url origin git@<host>:<owner>/<repo>.git")
+		ui.Note("  2. Token env var: GITHUB_TOKEN, GITLAB_TOKEN, BITBUCKET_TOKEN, AZURE_DEVOPS_TOKEN, or SKILLSHARE_GIT_TOKEN")
 		if runtime.GOOS == "windows" {
-			ui.Info("       PowerShell: $env:GITLAB_TOKEN = \"glpat-xxxx\"")
+			ui.Note("     PowerShell: $env:GITLAB_TOKEN = \"glpat-xxxx\"")
 		} else {
-			ui.Info("       export GITLAB_TOKEN=glpat-xxxx")
+			ui.Note("     export GITLAB_TOKEN=glpat-xxxx")
 		}
-		ui.Info("    3. Git credential helper: gh auth login")
-		ui.Info("  Docs: https://skillshare.runkids.cc/docs/reference/environment-variables#git-authentication")
+		ui.Note("  3. Git credential helper: gh auth login")
+		ui.Note("Docs: https://skillshare.runkids.cc/docs/reference/environment-variables#git-authentication")
 	case strings.Contains(output, "Could not read from remote"):
-		ui.Info("  Check SSH keys: ssh -T git@github.com")
-		ui.Info("  Or use HTTPS:   git remote set-url origin https://github.com/you/repo.git")
+		ui.Note("Check SSH keys: ssh -T git@github.com")
+		ui.Note("Or use HTTPS:   git remote set-url origin https://github.com/you/repo.git")
 	case strings.Contains(output, "not found") || strings.Contains(output, "does not exist"):
-		ui.Info("  Check remote URL: git remote get-url origin")
+		ui.Note("Check remote URL: git remote get-url origin")
 	case strings.Contains(output, "could not resolve host"):
-		ui.Info("  Check network connection")
+		ui.Note("Check network connection")
 	}
 }
 
@@ -149,9 +149,8 @@ func gitPush(sourcePath string, spinner *ui.Spinner) error {
 		fmt.Print(outStr)
 		hintGitRemoteError(outStr)
 		if !strings.Contains(outStr, "Could not read from remote") && !isAuthError(outStr) {
-			ui.Info("  Remote may have newer changes")
-			ui.Info("  Run: skillshare pull")
-			ui.Info("  Then: skillshare push")
+			ui.Note("Remote may have newer changes")
+			ui.Next("skillshare pull", "get them first", "skillshare push", "then push again")
 		}
 		return fmt.Errorf("push failed")
 	}
@@ -183,8 +182,6 @@ func cmdPush(args []string) (err error) {
 		}()
 	}
 
-	ui.Header("Pushing to remote")
-
 	spinner := ui.StartSpinner("Checking repository...")
 
 	source, err := resolveGitRoot(cfg, spinner)
@@ -212,21 +209,25 @@ func cmdPush(args []string) (err error) {
 	}
 	hasChanges := changes != ""
 
+	width := ui.RowWidth("Commit", "Push")
+	var files []string
+	if hasChanges {
+		files = strings.Split(changes, "\n")
+	}
+
 	if opts.dryRun {
 		spinner.Stop()
-		ui.Warning("[dry-run] No changes will be made")
-		fmt.Println()
 		if hasChanges {
-			lines := strings.Split(changes, "\n")
-			ui.Info("Would stage %d file(s):", len(lines))
-			for _, line := range lines {
-				ui.Info("  %s", line)
+			ui.Row(ui.MarkNone, "Commit", "would commit "+plural(len(files), "file")+ui.DimText(" · "+opts.message), width)
+			for _, line := range files {
+				ui.Note(porcelainChange(line))
 			}
-			ui.Info("Would commit with message: %s", opts.message)
 		} else {
-			ui.Info("No changes to commit")
+			ui.Row(ui.MarkNone, "Commit", "nothing to commit", width)
 		}
-		ui.Info("Would push to remote")
+		ui.Row(ui.MarkNone, "Push", "would push to "+pushDestination(source), width)
+		fmt.Println()
+		ui.DryRun()
 		return nil
 	}
 
@@ -234,15 +235,53 @@ func cmdPush(args []string) (err error) {
 		if err := stageAndCommit(source, opts.message, spinner); err != nil {
 			return err
 		}
+		spinner.Stop()
+		ui.Row(ui.MarkOK, "Commit", plural(len(files), "file")+ui.DimText(" · "+opts.message), width)
+	} else {
+		spinner.Stop()
+		ui.Row(ui.MarkNone, "Commit", "nothing to commit", width)
 	}
 
+	spinner = ui.StartSpinner("Pushing to remote...")
 	if err := gitPush(source, spinner); err != nil {
 		return err
 	}
 
 	spinner.Stop()
-	ui.SuccessMsg("Push complete (%.1fs)", time.Since(start).Seconds())
+	ui.Row(ui.MarkOK, "Push", "to "+pushDestination(source)+ui.DimText(fmt.Sprintf(" · %.1fs", time.Since(start).Seconds())), width)
+	ui.Next("skillshare pull", "get these changes on another machine")
 	return nil
+}
+
+// porcelainChange turns a `git status --porcelain` line into the "~ path",
+// "+ path", "- path" form update uses for changed files.
+func porcelainChange(line string) string {
+	fields := strings.Fields(line)
+	if len(fields) < 2 {
+		return line
+	}
+	path := strings.Join(fields[1:], " ")
+	switch {
+	case fields[0] == "??" || strings.Contains(fields[0], "A"):
+		return "+ " + path
+	case strings.Contains(fields[0], "D"):
+		return "- " + path
+	}
+	return "~ " + path
+}
+
+// pushDestination names the upstream branch, such as "origin/main", or
+// "origin" before the first push sets one. It never prints the remote URL,
+// which can carry credentials.
+func pushDestination(sourcePath string) string {
+	cmd := exec.Command("git", "rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}")
+	cmd.Dir = sourcePath
+	if out, err := cmd.Output(); err == nil {
+		if upstream := strings.TrimSpace(string(out)); upstream != "" {
+			return upstream
+		}
+	}
+	return "origin"
 }
 
 func printPushHelp() {
