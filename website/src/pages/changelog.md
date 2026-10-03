@@ -9,6 +9,55 @@ All notable changes to skillshare are documented here. For the full commit histo
 
 ---
 
+## [0.24.0] - 2026-10-03
+
+
+### ⚠ BREAKING CHANGES
+
+* **cli:** non-interactive `init` now enables git, installs the built-in skill and selects every detected tool; pass --no-git, --no-skill, --no-targets or --no-copy for the previous minimal setup. Piped or redirected output no longer contains ANSI colors; use --json where offered for machine-readable output.
+
+### New Features
+
+* **check:** detect changes at local install sources ([#334](https://github.com/runkids/skillshare/issues/334)) ([9847f59](https://github.com/runkids/skillshare/commit/9847f59a3e52f27b7a4c24e106749433931c757e))
+* **cli:** one frame and keymap for every TUI, inline prompts, file viewer ([#370](https://github.com/runkids/skillshare/issues/370)) ([355b42e](https://github.com/runkids/skillshare/commit/355b42ee57d65a33e8270e3c1dc274f195a04570)), closes [#200](https://github.com/runkids/skillshare/issues/200)
+* **cli:** redesign init and give every command one output style ([#360](https://github.com/runkids/skillshare/issues/360)) ([d78e7ce](https://github.com/runkids/skillshare/commit/d78e7ce09a8c37dc0067522066233e77f89e4a59)), closes [#200](https://github.com/runkids/skillshare/issues/200)
+* **extras:** share Markdown memory across agents ([#349](https://github.com/runkids/skillshare/issues/349)) ([6e176dd](https://github.com/runkids/skillshare/commit/6e176ddb0cf036a9feedfadc7f21bfb2300aca5c))
+* **pi:** edit extensions on any Pi at or above the verified minimum ([#367](https://github.com/runkids/skillshare/issues/367)) ([9788d48](https://github.com/runkids/skillshare/commit/9788d486f7b775066b03065af2511618375d8a62))
+* **pi:** manage individual extensions per target ([#350](https://github.com/runkids/skillshare/issues/350)) ([ccc0fbd](https://github.com/runkids/skillshare/commit/ccc0fbdf74bc3fe871a92c667494fb2b42a81df6))
+* **plugin:** add npm packages from pi.dev through Pi ([#363](https://github.com/runkids/skillshare/issues/363)) ([3ba95ef](https://github.com/runkids/skillshare/commit/3ba95ef49e69e9d63727461452121c8142a1886f))
+* **push:** add --pull for two-way sync in one command ([#354](https://github.com/runkids/skillshare/issues/354)) ([5d269e8](https://github.com/runkids/skillshare/commit/5d269e8e4c6b7cc1d41d540b1e174dae1634dc16))
+* **ui:** accept a pasted npx skills add command in the install dialog ([#373](https://github.com/runkids/skillshare/issues/373)) ([77a503f](https://github.com/runkids/skillshare/commit/77a503fa3182f05b8ba69f50c032e020885ff2b4))
+* **video:** feature Pi and Antigravity in the demo ([96f1859](https://github.com/runkids/skillshare/commit/96f1859a4510a84d86344aa1b221d3ae4e3752cd))
+* **video:** rebuild the README demo as an illustrated explainer ([d27ae41](https://github.com/runkids/skillshare/commit/d27ae41f6bd1839b0f036f79cbbc62da74bd4979))
+* **website:** show the demo video on the homepage ([6c8acd0](https://github.com/runkids/skillshare/commit/6c8acd010230e2d30591247512007fb0cb1ee0ac))
+
+
+### Bug Fixes
+
+* **audit:** skip absolute metadata keys on Windows too ([#345](https://github.com/runkids/skillshare/issues/345)) ([b931c2a](https://github.com/runkids/skillshare/commit/b931c2aeca7fa341818da10282fb837c539dd929))
+* **check:** compare project-relative local sources and record install layout ([#337](https://github.com/runkids/skillshare/issues/337)) ([1a1eeee](https://github.com/runkids/skillshare/commit/1a1eeee844036020ba6c48dd100ac87c235a7932))
+* **cli:** keep inline picker rows and summaries on one line ([65998a4](https://github.com/runkids/skillshare/commit/65998a4d47b291d4d0007d0e900246369900a168))
+* close temp downloads before removing them on error ([#340](https://github.com/runkids/skillshare/issues/340)) ([dadbbc7](https://github.com/runkids/skillshare/commit/dadbbc7649cfcbcdedf2ca79b98ba630adc1a834))
+* **install:** keep file:// URLs slash-form on Windows ([#346](https://github.com/runkids/skillshare/issues/346)) ([95f54f2](https://github.com/runkids/skillshare/commit/95f54f233c87e2132fd9c88863eb90f974c36b60))
+* **install:** keep local installs updatable from any directory and in shape ([#336](https://github.com/runkids/skillshare/issues/336)) ([f28e5e2](https://github.com/runkids/skillshare/commit/f28e5e23f448e476116bee2dbb89aa396dfa774b))
+* **mcp:** explain Pi project overrides in import and sync conflicts ([#371](https://github.com/runkids/skillshare/issues/371)) ([7a9b37e](https://github.com/runkids/skillshare/commit/7a9b37e852ee2f67e724ba719e468c7fe335b27a))
+* **pi:** recover Windows stale locks and protect private registrations ([#361](https://github.com/runkids/skillshare/issues/361)) ([539f1d0](https://github.com/runkids/skillshare/commit/539f1d0f03ff0107af0b071eb450df600bc53302))
+* **plugin:** trust symlinked ancestors of the Agent config root ([#368](https://github.com/runkids/skillshare/issues/368)) ([ca11f63](https://github.com/runkids/skillshare/commit/ca11f63a09806d6ef3deba28baf34f1f3167a6d7))
+* **pull:** keep files-only local commits on first pull ([#352](https://github.com/runkids/skillshare/issues/352)) ([6f3d6a3](https://github.com/runkids/skillshare/commit/6f3d6a310ef7857e60fff60bb8f948c7dfa8e763))
+* **pull:** keep the local config.yaml when a later pull brings a tracked copy ([#362](https://github.com/runkids/skillshare/issues/362)) ([475b176](https://github.com/runkids/skillshare/commit/475b176914be8c821dd028acee3f131685ce491d))
+* **pull:** refuse root-scope first pull when remote tracks config.yaml ([#357](https://github.com/runkids/skillshare/issues/357)) ([7fccd6f](https://github.com/runkids/skillshare/commit/7fccd6ffa532993188f6ab708407a7106d902e82))
+* **push:** refuse unpushed config.yaml history at root scope ([#366](https://github.com/runkids/skillshare/issues/366)) ([#372](https://github.com/runkids/skillshare/issues/372)) ([dd6991c](https://github.com/runkids/skillshare/commit/dd6991ca3ce8d6ae1fb580afc52e44690f397d25))
+* **trash:** reject POSIX-absolute names on Windows too ([#347](https://github.com/runkids/skillshare/issues/347)) ([968e321](https://github.com/runkids/skillshare/commit/968e3215217f6e57dc0946e1e5616470b582beda))
+* **ui:** keep memory connection states current and compact ([#359](https://github.com/runkids/skillshare/issues/359)) ([fedadbe](https://github.com/runkids/skillshare/commit/fedadbe74babde083261ec82f2272ea730f53d4a))
+* **ui:** let a Pi extension switch remove a rule instead of adding its opposite ([3c7e48e](https://github.com/runkids/skillshare/commit/3c7e48e239b8e4b7aee959fa8023c0927b9529e6))
+* **ui:** refresh Pi Extensions tabs after a plugin sync ([d55ca99](https://github.com/runkids/skillshare/commit/d55ca998c18dc1de6659e7d6d7200aab85ad4b54))
+* **ui:** show where pull conflict versions differ ([#331](https://github.com/runkids/skillshare/issues/331)) ([9c048ac](https://github.com/runkids/skillshare/commit/9c048ac7ac176a734b7a3d81a1cd6bdbfce9478a))
+* **ui:** stop sending empty Pi Extensions tab only to Plugins ([bc86476](https://github.com/runkids/skillshare/commit/bc86476f037d022c744018383c637c8894440d3e))
+* **ui:** widen Pi extension cells so translated rows fit ([b2c5017](https://github.com/runkids/skillshare/commit/b2c5017ab675f2aa1458aa4c4ab9fa964043e0b8))
+* **upgrade:** verify the release archive before replacing the binary ([#335](https://github.com/runkids/skillshare/issues/335)) ([2bf7e66](https://github.com/runkids/skillshare/commit/2bf7e66790912536dedad2d37bec320e500ff44b))
+* **windows:** run in a hidden console when started without one ([#341](https://github.com/runkids/skillshare/issues/341)) ([84bbd40](https://github.com/runkids/skillshare/commit/84bbd40785e4ed5da53a91bd741b6438337c336a))
+* **windows:** stop foreground children when skillshare is terminated ([#343](https://github.com/runkids/skillshare/issues/343)) ([7043ca3](https://github.com/runkids/skillshare/commit/7043ca3ad2c02526bfa1b14e267fcadb565aa665))
+
 ## [0.23.5] - 2026-10-02
 
 ### Bug Fixes
