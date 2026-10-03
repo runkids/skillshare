@@ -350,7 +350,9 @@ func printMCPResult(result *mcp.Result, asJSON bool) error {
 	}
 	printMCPMigrated(result)
 	if result.Plan == nil {
-		fmt.Println()
+		if len(result.BackupIDs) > 0 || len(result.Migrated) > 0 {
+			fmt.Println()
+		}
 		ui.Done(ui.MarkOK, "Saved the MCP source", 0)
 		ui.Next("skillshare sync mcp", "write it into Agent files")
 	} else if !result.Plan.Blocked {
