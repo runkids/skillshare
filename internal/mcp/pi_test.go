@@ -465,6 +465,26 @@ func TestPiProjectOverrideOfAManagedEntrySaysReplace(t *testing.T) {
 	}
 }
 
+// A cleared Pi field that Pi changed since sync is a prune conflict, but when Pi replaced the
+// entry with its override, that override still has nothing to import.
+func TestPiProjectOverrideBeatsPruneConflict(t *testing.T) {
+	s, tmp := projectsService(t, "mcp:\n  servers: {}\n  projects:\n    $TMP/p1:\n      targets: [pi]\n      servers:\n        direct:\n          command: tool\n          piOptions: {exposure: direct}\n")
+	applyProjects(t, s)
+	config, _ := os.ReadFile(s.ConfigPath)
+	if err := os.WriteFile(s.ConfigPath, []byte(strings.Replace(string(config), "          piOptions: {exposure: direct}\n", "", 1)), 0600); err != nil {
+		t.Fatal(err)
+	}
+	writePiProjectFile(t, filepath.Join(tmp, "p1"), `{"mcpServers":{"direct":{"exposure":"deferred"}}}`)
+	plan, err := s.Preview()
+	if err != nil {
+		t.Fatal(err)
+	}
+	c := changeFor(plan, filepath.Join(tmp, "p1", ".pi", "mcp.json"), "direct")
+	if c == nil || c.Action != "conflict" || !strings.HasPrefix(c.Message, "existing entry is a Pi project override") {
+		t.Fatalf("%+v", c)
+	}
+}
+
 func writePiProjectFile(t *testing.T, root, content string) {
 	t.Helper()
 	if err := os.MkdirAll(filepath.Join(root, ".pi"), 0755); err != nil {
