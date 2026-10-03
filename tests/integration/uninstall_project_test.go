@@ -21,7 +21,7 @@ func TestUninstallProject_RemovesSkill(t *testing.T) {
 
 	result := sb.RunCLIInDirWithInput(projectRoot, "y\n", "uninstall", "to-remove", "-p")
 	result.AssertSuccess(t)
-	result.AssertAnyOutputContains(t, "Uninstalled")
+	result.AssertAnyOutputContains(t, "✓ Uninstall to-remove")
 
 	if sb.FileExists(filepath.Join(projectRoot, ".skillshare", "skills", "to-remove")) {
 		t.Error("skill directory should be removed")
@@ -38,7 +38,7 @@ func TestUninstallProject_Force_SkipsConfirmation(t *testing.T) {
 
 	result := sb.RunCLIInDir(projectRoot, "uninstall", "bye", "--force", "-p")
 	result.AssertSuccess(t)
-	result.AssertAnyOutputContains(t, "Uninstalled")
+	result.AssertAnyOutputContains(t, "✓ Uninstall bye")
 }
 
 func TestUninstallProject_UpdatesConfig(t *testing.T) {
@@ -96,7 +96,7 @@ func TestUninstallProject_DryRun(t *testing.T) {
 
 	result := sb.RunCLIInDir(projectRoot, "uninstall", "keep", "--dry-run", "-p")
 	result.AssertSuccess(t)
-	result.AssertAnyOutputContains(t, "dry-run")
+	result.AssertAnyOutputContains(t, "Dry run — nothing was written")
 
 	if !sb.FileExists(filepath.Join(projectRoot, ".skillshare", "skills", "keep")) {
 		t.Error("dry-run should not remove skill")
@@ -254,7 +254,7 @@ func TestUninstallProject_GroupDirWithTrailingSlash_RemovesConfigEntries(t *test
 
 	result := sb.RunCLIInDir(projectRoot, "uninstall", "security/", "--force", "-p")
 	result.AssertSuccess(t)
-	result.AssertAnyOutputContains(t, "Uninstalled group: security")
+	result.AssertAnyOutputContains(t, "✓ Uninstall security")
 
 	store, err := install.LoadMetadata(filepath.Join(projectRoot, ".skillshare", "skills"))
 	if err != nil {

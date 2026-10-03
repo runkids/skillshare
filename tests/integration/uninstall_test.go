@@ -26,7 +26,7 @@ targets: {}
 	result := sb.RunCLI("uninstall", "my-skill", "--force")
 
 	result.AssertSuccess(t)
-	result.AssertOutputContains(t, "Uninstalled")
+	result.AssertOutputContains(t, "✓ Uninstall ")
 	result.AssertOutputContains(t, "my-skill")
 
 	// Verify skill was removed
@@ -90,7 +90,7 @@ targets: {}
 	result := sb.RunCLI("uninstall", "force-skill", "--force")
 
 	result.AssertSuccess(t)
-	result.AssertOutputContains(t, "Uninstalled")
+	result.AssertOutputContains(t, "✓ Uninstall force-skill")
 
 	// Verify skill was removed
 	skillPath := filepath.Join(sb.SourcePath, "force-skill")
@@ -141,7 +141,7 @@ targets: {}
 	// Uninstall by short name (basename only)
 	result := sb.RunCLI("uninstall", "react-best-practices", "--force")
 	result.AssertSuccess(t)
-	result.AssertOutputContains(t, "Uninstalled")
+	result.AssertOutputContains(t, "✓ Uninstall ")
 
 	// Verify nested skill was removed
 	skillPath := filepath.Join(sb.SourcePath, "frontend", "react", "react-best-practices")
@@ -165,7 +165,7 @@ targets: {}
 	// Uninstall by full nested path
 	result := sb.RunCLI("uninstall", "backend/go-patterns", "--force")
 	result.AssertSuccess(t)
-	result.AssertOutputContains(t, "Uninstalled")
+	result.AssertOutputContains(t, "✓ Uninstall ")
 }
 
 func TestUninstall_ShowsMetadata(t *testing.T) {
@@ -461,7 +461,7 @@ targets: {}
 
 	result := sb.RunCLI("uninstall", "fix-review", "security/", "--force")
 	result.AssertSuccess(t)
-	result.AssertOutputContains(t, "Uninstalling 2 groups")
+	result.AssertOutputContains(t, "group, 1 skill")
 	result.AssertAnyOutputContains(t, "Uninstalled 2 groups")
 	result.AssertAnyOutputContains(t, "fix-review")
 	result.AssertAnyOutputContains(t, "security")

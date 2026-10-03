@@ -130,7 +130,7 @@ func TestUninstall_Agents_RemovesToTrash(t *testing.T) {
 
 	result := sb.RunCLI("uninstall", "-g", "agents", "tutor", "--force")
 	result.AssertSuccess(t)
-	result.AssertAnyOutputContains(t, "Removed agent")
+	result.AssertAnyOutputContains(t, "Uninstalled 1 agent")
 	result.AssertAnyOutputContains(t, "tutor")
 
 	// Verify agent file was removed from source
@@ -163,7 +163,7 @@ func TestUninstall_Agents_All(t *testing.T) {
 
 	result := sb.RunCLI("uninstall", "-g", "agents", "--all", "--force")
 	result.AssertSuccess(t)
-	result.AssertAnyOutputContains(t, "2 agent(s) removed")
+	result.AssertAnyOutputContains(t, "Uninstalled 2 agents")
 
 	// Verify both files removed
 	if _, err := os.Stat(filepath.Join(agentsDir, "tutor.md")); !os.IsNotExist(err) {

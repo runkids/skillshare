@@ -7,7 +7,7 @@ import (
 	gosync "sync"
 	"time"
 
-	"github.com/pterm/pterm"
+	"github.com/mattn/go-runewidth"
 
 	"skillshare/internal/git"
 	"skillshare/internal/install"
@@ -25,14 +25,13 @@ type uninstallMode struct {
 	configPath  string // oplog location
 	store       *install.MetadataStore
 
-	emptySourceErr string // --all found no skills
-	globs          bool   // expand glob patterns in skill names
-	confirmSuffix  string // appended to confirmation questions
-	reinstallFlags string // appended to reinstall hints
-	syncHint       string
-	batchSummary   bool // print the removed/skipped/failed line after a batch
-	// reportAfterFinalize reports a single-target trash failure and prints
-	// Next Steps after metadata and lock updates instead of right after the move.
+	emptySourceErr string   // --all found no skills
+	globs          bool     // expand glob patterns in skill names
+	confirmSuffix  string   // appended to confirmation questions
+	reinstallFlags string   // appended to reinstall and trash commands
+	targetNames    []string // the targets sync will update, sorted
+	// reportAfterFinalize reports a single-target trash failure after
+	// metadata and lock updates.
 	reportAfterFinalize bool
 
 	dryRunGitignore  func(t *uninstallTarget) string // "" prints no line
@@ -127,45 +126,42 @@ func performUninstallQuiet(target *uninstallTarget, trashDir string) (typeLabel 
 // performUninstall moves the skill to trash (verbose single-target output).
 // Note: .gitignore cleanup is handled in batch by the caller.
 func performUninstall(target *uninstallTarget, mode *uninstallMode) error {
-	// Read metadata before moving (for reinstall hint)
-	entry := mode.store.Get(target.name)
-	groupSkillCount := 0
-	if !target.isTrackedRepo {
-		groupSkillCount = len(countGroupSkills(target.path))
-	}
-
-	trashPath, err := trash.MoveToTrash(target.path, target.name, mode.trashDir)
-	if err != nil {
+	if _, err := trash.MoveToTrash(target.path, target.name, mode.trashDir); err != nil {
 		return err
 	}
-
-	if target.isTrackedRepo {
-		ui.Success("Uninstalled tracked repository: %s", target.name)
-	} else if groupSkillCount > 0 {
-		ui.Success("Uninstalled group: %s", target.name)
-	} else {
-		ui.Success("Uninstalled skill: %s", target.name)
-	}
-	ui.Info("Moved to trash (7 days): %s", trashPath)
-	if entry != nil && entry.Source != "" {
-		ui.Info("Reinstall: skillshare install %s%s", entry.Source, mode.reinstallFlags)
-	}
-	if !mode.reportAfterFinalize {
-		printUninstallNextSteps(mode)
-	}
+	fmt.Printf("%s Uninstall %s %s\n", ui.StyledMark(ui.MarkOK), target.name, ui.DimText("→ trash, kept 7 days"))
 	return nil
 }
 
-func printUninstallNextSteps(mode *uninstallMode) {
-	ui.SectionLabel("Next Steps")
-	ui.Info("%s", mode.syncHint)
+// printUninstallNextSteps suggests syncing, undoing the uninstall and, when
+// the skill came from a remote source, reinstalling it later.
+func printUninstallNextSteps(mode *uninstallMode, name, source string) {
 	cleanupUninstallTrash(mode)
+	next := []string{
+		"skillshare sync", mode.syncNote("it"),
+		"skillshare trash restore " + name + mode.reinstallFlags, "undo",
+	}
+	if source != "" {
+		next = append(next, "skillshare install "+source+mode.reinstallFlags, "reinstall it later")
+	}
+	ui.Next(next...)
+}
+
+// syncNote says what sync does after an uninstall; pronoun is "it" or "them".
+func (m *uninstallMode) syncNote(pronoun string) string {
+	switch {
+	case len(m.targetNames) == 0:
+		return "update your targets"
+	case len(m.targetNames) > 3:
+		return "remove " + pronoun + " from " + plural(len(m.targetNames), "target")
+	}
+	return "remove " + pronoun + " from " + strings.Join(m.targetNames, ", ")
 }
 
 // cleanupUninstallTrash opportunistically removes expired trash items.
 func cleanupUninstallTrash(mode *uninstallMode) {
 	if n, _ := trash.Cleanup(mode.trashDir, 0); n > 0 {
-		ui.Info("Cleaned up %d expired trash item%s", n, pluralS(n))
+		ui.Note(fmt.Sprintf("Cleaned up %d expired trash item%s", n, pluralS(n)))
 	}
 }
 
@@ -320,8 +316,9 @@ func runUninstallSkills(opts *uninstallOptions, mode *uninstallMode, rawArgs []s
 	if opts.jsonOutput {
 		// Skip display in JSON mode
 	} else if single {
-		displayUninstallInfo(targets[0], mode.store)
-	} else {
+		displayUninstallInfo(targets[0])
+	} else if !opts.force && !opts.dryRun {
+		// The list is for the confirmation; the result rows name each target.
 		displayUninstallBatch(targets, summary)
 	}
 
@@ -418,15 +415,26 @@ func runUninstallSkills(opts *uninstallOptions, mode *uninstallMode, rawArgs []s
 			logUninstallOp(mode.configPath, uninstallOpNames(rawArgs), 0, start, nil)
 			return uninstallOutputJSON(dryRunNames, nil, preflightSkipped, true, start, nil)
 		}
+		names := make([]string, len(targets))
+		for i, t := range targets {
+			names[i] = t.name
+		}
+		width := ui.RowWidth(names...)
 		for _, t := range targets {
-			ui.Warning("[dry-run] would move to trash: %s", t.path)
+			value := "would move to trash"
+			if !single {
+				value += " " + ui.DimText("· "+batchTargetKind(t, summary))
+			}
+			ui.Row(ui.MarkNone, t.name, value, width)
 			if line := mode.dryRunGitignore(t); line != "" {
-				ui.Warning("[dry-run] %s", line)
+				ui.Note(line)
 			}
 			if entry := mode.store.Get(t.name); entry != nil && entry.Source != "" {
-				ui.Info("[dry-run] Reinstall: skillshare install %s%s", entry.Source, mode.reinstallFlags)
+				ui.Note("reinstall with skillshare install " + entry.Source + mode.reinstallFlags)
 			}
 		}
+		fmt.Println()
+		ui.DryRun()
 		return nil
 	}
 
@@ -450,6 +458,7 @@ func runUninstallSkills(opts *uninstallOptions, mode *uninstallMode, rawArgs []s
 	// --- Phase 6: EXECUTE ---
 	batch := len(targets) > 1
 	var succeeded []*uninstallTarget
+	var singleSource string // reinstall source of a single target
 	failed := preflightFailed
 
 	if opts.jsonOutput {
@@ -466,6 +475,9 @@ func runUninstallSkills(opts *uninstallOptions, mode *uninstallMode, rawArgs []s
 		succeeded, failed = executeUninstallBatch(targets, summary, failed, preflightSkipped, mode, start)
 	} else {
 		for _, t := range targets {
+			if entry := mode.store.Get(t.name); entry != nil {
+				singleSource = entry.Source
+			}
 			if err := performUninstall(t, mode); err != nil {
 				failed = append(failed, fmt.Sprintf("%s: %v", t.name, err))
 				if mode.reportAfterFinalize {
@@ -498,8 +510,8 @@ func runUninstallSkills(opts *uninstallOptions, mode *uninstallMode, rawArgs []s
 		}
 	}
 
-	if !batch && !opts.jsonOutput && mode.reportAfterFinalize {
-		printUninstallNextSteps(mode)
+	if !batch && !opts.jsonOutput && len(succeeded) == 1 {
+		printUninstallNextSteps(mode, succeeded[0].name, singleSource)
 	}
 
 	var finalErr error
@@ -520,38 +532,36 @@ func runUninstallSkills(opts *uninstallOptions, mode *uninstallMode, rawArgs []s
 	return finalErr
 }
 
+// displayUninstallBatch lists the targets with what each holds. A long list
+// names only groups and tracked repos and counts the plain skills.
 func displayUninstallBatch(targets []*uninstallTarget, summary uninstallTypeSummary) {
-	ui.Header(fmt.Sprintf("Uninstalling %d %s", len(targets), summary.noun()))
-	if len(targets) > 20 {
-		// Compressed: only list non-skill items (groups, tracked repos) individually
-		ui.Info("Includes: %s", summary.details())
-		for _, t := range targets {
-			if t.isTrackedRepo {
-				fmt.Printf("  - %s (tracked repository)\n", t.name)
-			} else if c := summary.groupSkillCount[t.path]; c > 0 {
-				fmt.Printf("  - %s (group, %d skill%s)\n", t.name, c, pluralS(c))
-			}
-		}
-		if summary.skills > 0 {
-			fmt.Printf("  ... and %d skill%s\n", summary.skills, pluralS(summary.skills))
-		}
-	} else {
-		if summary.isMixed() {
-			ui.Info("Includes: %s", summary.details())
-		}
-		for _, t := range targets {
-			label := t.name
-			if t.isTrackedRepo {
-				label += " (tracked repository)"
-			} else if c := summary.groupSkillCount[t.path]; c > 0 {
-				label += fmt.Sprintf(" (group, %d skill%s)", c, pluralS(c))
-			} else {
-				label += " (skill)"
-			}
-			fmt.Printf("  - %s\n", label)
+	long := len(targets) > 20
+	var shown []*uninstallTarget
+	for _, t := range targets {
+		if !long || t.isTrackedRepo || summary.groupSkillCount[t.path] > 0 {
+			shown = append(shown, t)
 		}
 	}
-	fmt.Println()
+	nameW := 0
+	for _, t := range shown {
+		nameW = max(nameW, runewidth.StringWidth(t.name))
+	}
+	for _, t := range shown {
+		fmt.Printf("  %s  %s\n", pad(t.name, nameW), ui.DimText(batchTargetKind(t, summary)))
+	}
+	if long && summary.skills > 0 {
+		ui.Note(fmt.Sprintf("… and %s", plural(summary.skills, "skill")))
+	}
+}
+
+func batchTargetKind(t *uninstallTarget, summary uninstallTypeSummary) string {
+	if t.isTrackedRepo {
+		return "tracked repository"
+	}
+	if c := summary.groupSkillCount[t.path]; c > 0 {
+		return "group, " + plural(c, "skill")
+	}
+	return "skill"
 }
 
 type uninstallDirtyResult struct {
@@ -622,15 +632,7 @@ func executeUninstallBatch(targets []*uninstallTarget, summary uninstallTypeSumm
 	}
 
 	removeUninstalledFromGitignore(mode, succeeded) //nolint:errcheck
-
-	// Spinner end state
-	if len(failed) > 0 && len(succeeded) == 0 {
-		sp.Fail(fmt.Sprintf("Failed to uninstall %d %s", len(failed), summary.noun()))
-	} else if len(failed) > 0 {
-		sp.Warn(fmt.Sprintf("Uninstalled %d, failed %d", len(succeeded), len(failed)))
-	} else {
-		sp.Success(fmt.Sprintf("Uninstalled %d %s", len(succeeded), summary.noun()))
-	}
+	sp.Stop()
 
 	// Failures always shown individually
 	var successes []batchResult
@@ -669,23 +671,32 @@ func executeUninstallBatch(targets []*uninstallTarget, summary uninstallTypeSumm
 			ui.StepDone(fmt.Sprintf("%d uninstalled", len(successes)), detail)
 		default:
 			for _, r := range successes {
-				ui.StepDone(r.target.name, r.typeLabel)
+				ui.StepDone(r.target.name, ui.DimText(r.typeLabel))
 			}
 		}
 	}
 
-	if mode.batchSummary {
-		ui.OperationSummary("Uninstall", time.Since(start),
-			ui.Metric{Label: "removed", Count: len(succeeded), HighlightColor: pterm.Green},
-			ui.Metric{Label: "skipped", Count: skipped, HighlightColor: pterm.Yellow},
-			ui.Metric{Label: "failed", Count: len(failed), HighlightColor: pterm.Red},
+	mark, parts := ui.MarkOK, []string{}
+	switch {
+	case len(succeeded) == 0:
+		mark, parts = ui.MarkFail, append(parts, fmt.Sprintf("Failed to uninstall %d %s", len(failed), summary.noun()))
+	case len(failed) > 0:
+		mark, parts = ui.MarkWarn, append(parts, fmt.Sprintf("Uninstalled %d", len(succeeded)), fmt.Sprintf("%d failed", len(failed)))
+	default:
+		parts = append(parts, fmt.Sprintf("Uninstalled %d %s", len(succeeded), summary.noun()))
+	}
+	if skipped > 0 {
+		parts = append(parts, fmt.Sprintf("%d skipped", skipped))
+	}
+	fmt.Println()
+	ui.Done(mark, strings.Join(parts, ", "), time.Since(start))
+
+	if len(succeeded) > 0 {
+		cleanupUninstallTrash(mode)
+		ui.Next(
+			"skillshare sync", mode.syncNote("them"),
+			"skillshare trash list"+mode.reinstallFlags, "restore any of them within 7 days",
 		)
 	}
-
-	ui.SectionLabel("Next Steps")
-	ui.Info("Moved to trash (7 days).")
-	ui.Info("%s", mode.syncHint)
-	cleanupUninstallTrash(mode)
-
 	return succeeded, failed
 }

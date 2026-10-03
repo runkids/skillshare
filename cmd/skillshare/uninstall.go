@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -374,64 +375,32 @@ func (s uninstallTypeSummary) noun() string {
 	case s.trackedRepos == total:
 		return fmt.Sprintf("tracked repo%s", pluralS(total))
 	default:
-		return fmt.Sprintf("target%s", pluralS(total))
+		return fmt.Sprintf("item%s", pluralS(total))
 	}
 }
 
-func (s uninstallTypeSummary) isMixed() bool {
-	types := 0
-	if s.skills > 0 {
-		types++
-	}
-	if s.groups > 0 {
-		types++
-	}
-	if s.trackedRepos > 0 {
-		types++
-	}
-	return types > 1
+// displayUninstallInfo names the target, where it lives and what it holds.
+func displayUninstallInfo(target *uninstallTarget) {
+	fmt.Printf("  %s  %s\n", target.name, ui.DimText(utils.FoldHomePath(target.path)+" · "+uninstallTargetKind(target)))
 }
 
-func (s uninstallTypeSummary) details() string {
-	var parts []string
-	if s.skills > 0 {
-		parts = append(parts, fmt.Sprintf("%d skill%s", s.skills, pluralS(s.skills)))
-	}
-	if s.groups > 0 {
-		parts = append(parts, fmt.Sprintf("%d group%s", s.groups, pluralS(s.groups)))
-	}
-	if s.trackedRepos > 0 {
-		parts = append(parts, fmt.Sprintf("%d tracked repo%s", s.trackedRepos, pluralS(s.trackedRepos)))
-	}
-	return strings.Join(parts, ", ")
-}
-
-// displayUninstallInfo shows information about the skill to be uninstalled
-func displayUninstallInfo(target *uninstallTarget, store *install.MetadataStore) {
+// uninstallTargetKind describes what a target holds: a tracked repository,
+// a group of skills or a skill's files.
+func uninstallTargetKind(target *uninstallTarget) string {
 	if target.isTrackedRepo {
-		ui.Header("Uninstalling tracked repository")
-		ui.Info("Type: tracked repository")
-	} else {
-		// Check if this is a group directory containing sub-skills
-		subSkills := countGroupSkills(target.path)
-		if len(subSkills) > 0 {
-			ui.Header(fmt.Sprintf("Uninstalling group (%d skills)", len(subSkills)))
-			for _, s := range subSkills {
-				fmt.Printf("  - %s\n", s)
-			}
-		} else {
-			ui.Header("Uninstalling skill")
-		}
-		if entry := store.Get(target.name); entry != nil {
-			ui.Info("Source: %s", entry.Source)
-			if !entry.InstalledAt.IsZero() {
-				ui.Info("Installed: %s", entry.InstalledAt.Format("2006-01-02 15:04"))
-			}
-		}
+		return "tracked repository"
 	}
-	ui.Info("Name: %s", target.name)
-	ui.Info("Path: %s", target.path)
-	fmt.Println()
+	if n := len(countGroupSkills(target.path)); n > 0 {
+		return "group, " + plural(n, "skill")
+	}
+	files := 0
+	filepath.WalkDir(target.path, func(_ string, d os.DirEntry, err error) error { //nolint:errcheck
+		if err == nil && !d.IsDir() {
+			files++
+		}
+		return nil
+	})
+	return plural(files, "file")
 }
 
 // gitStatusError marks a tracked repo whose git status could not be read.
@@ -510,6 +479,8 @@ func cmdUninstall(args []string) error {
 		skillsStore = install.NewMetadataStore()
 	}
 
+	targetNames := targetNamesFromConfig(cfg.Targets)
+	sort.Strings(targetNames)
 	skillsMode := &uninstallMode{
 		sourceDir:      sourceDir,
 		sourceLabel:    "source",
@@ -518,8 +489,7 @@ func cmdUninstall(args []string) error {
 		store:          skillsStore,
 		emptySourceErr: "no skills found in source",
 		globs:          true,
-		syncHint:       "Run 'skillshare sync' to update all targets",
-		batchSummary:   true,
+		targetNames:    targetNames,
 		dryRunGitignore: func(t *uninstallTarget) string {
 			if t.isTrackedRepo {
 				return fmt.Sprintf("would remove %s from .gitignore", t.name)
