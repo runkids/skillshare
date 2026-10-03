@@ -39,6 +39,9 @@ fi
 if [ -x /workspace/.devcontainer/ensure-agent-clis.sh ]; then
   /workspace/.devcontainer/ensure-agent-clis.sh || true
 fi
+if [ -x /workspace/.devcontainer/ensure-recording-tools.sh ]; then
+  /workspace/.devcontainer/ensure-recording-tools.sh || echo "⚠ Recording tools not installed; vhs screenshots will not work." >&2
+fi
 
 # Auto-detect GITHUB_TOKEN from gh CLI if not already set
 # (via .env, remoteEnv, or manual export).
