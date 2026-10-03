@@ -29,6 +29,7 @@ trash|skillshare trash list|
 trash-confirm|skillshare trash list|Space;Down;Space;Type `d`
 restore-pick|skillshare restore|
 restore|skillshare restore|Enter
+restore-confirm|skillshare restore|Enter;Enter;Type `d`
 log|skillshare log|
 log-stats|skillshare log|Tab
 log-confirm|skillshare log|Down;Space;Down;Space;Type `d`
