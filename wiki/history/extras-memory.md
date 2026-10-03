@@ -154,3 +154,22 @@ warnings. English empty-source and missing-history views were inspected in
 Clean/Playful light/dark at 1440 by 900. An isolated browser workflow initialized
 an already-configured empty source and opened a new note's History while a
 separate note had a backup; no unrelated restore action appeared.
+
+## PR review: exclusive guidance creation and Windows history
+
+New guidance files now use exclusive creation after the final review check.
+If another process creates the destination in that interval, apply reports
+`memory_guidance_stale` and preserves the competing file. Existing instruction
+file writes retain their reviewed-content checks and backups.
+
+History selection normalizes separators for Windows drive and UNC paths,
+including mixed-separator links from the Memory browser and recovery actions.
+Backup API calls retain the selected native path; POSIX names with literal
+backslashes remain distinct.
+
+Regression tests reproduced both findings before the fixes. Guidance tests,
+20 scoped UI tests, devcontainer `make check`, scoped ESLint, TypeScript and
+the UI production build passed. React Doctor on FileBackups scores 90/100
+versus 89/100 at the reviewed HEAD, with the same two existing accessibility
+warnings. No visual layout or screenshot changed. Windows path matching was
+tested in the UI suite inside the Linux devcontainer, not a Windows browser.

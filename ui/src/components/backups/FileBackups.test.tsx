@@ -37,3 +37,21 @@ it('selects the first file when no path was requested', async () => {
   expect(await screen.findByRole('listitem')).toHaveAttribute('aria-current', 'true');
   expect(api.getFileBackupVersions).toHaveBeenCalledWith('/other/AGENTS.md');
 });
+
+it.each([
+  [String.raw`C:\Users\test\memory\wiki\note.md`, String.raw`C:\Users\test\memory/wiki/note.md`],
+  [String.raw`\\server\share\memory\wiki\note.md`, String.raw`\\server\share\memory/wiki/note.md`],
+])('selects the native backup path %s for a mixed-separator Windows history link', async (native, requested) => {
+  vi.mocked(api.listFileBackups).mockResolvedValue({ files: [{ path: native, versions: 1, latest: '2026-10-03T00:00:00Z' }] });
+  renderBackups(`/backup?tab=files&path=${encodeURIComponent(requested)}`);
+  expect(await screen.findByRole('listitem')).toHaveAttribute('aria-current', 'true');
+  expect(api.getFileBackupVersions).toHaveBeenCalledWith(native);
+  expect(screen.queryByText('No file backups yet')).not.toBeInTheDocument();
+});
+
+it('does not treat a literal POSIX backslash as a directory separator', async () => {
+  vi.mocked(api.listFileBackups).mockResolvedValue({ files: [{ path: String.raw`/memory/wiki\note.md`, versions: 1, latest: '2026-10-03T00:00:00Z' }] });
+  renderBackups('/backup?tab=files&path=%2Fmemory%2Fwiki%2Fnote.md');
+  expect(await screen.findByText('No file backups yet')).toBeInTheDocument();
+  expect(api.getFileBackupVersions).not.toHaveBeenCalled();
+});

@@ -61,6 +61,8 @@ warnings, and a token; apply recomputes it before backed-up writes and syncing
 shared copies. Each file is checked against its reviewed content and existence
 before writing, including after backup. A later conflict preserves that file and
 reports `memory_guidance_stale` in the partial result alongside applied paths.
+New guidance files use exclusive creation; a competing creator also produces
+`memory_guidance_stale` without overwriting its file.
 It preserves other content, assignments, and connection modes.
 Intact outdated blocks can be updated after review; modified/malformed blocks
 are protected. Non-UTF-8 instruction files are reported as broken/unsupported
@@ -72,7 +74,9 @@ never agent reads. Fresh-session read events provide manual verification only.
 The Memory tab uses the shared tree/Markdown editor. Conflicts retain drafts,
 display latest saved content, and require confirmation before a version-checked,
 backed-up replacement. History/restore links filter Backup Files by absolute
-note path, and a requested path without backups shows an empty state. Project
+note path, and a requested path without backups shows an empty state.
+Windows history links compare normalized separators while backup API calls retain
+the native path; POSIX names retain literal backslashes. Project
 backup scope includes its configured memory source even outside the repository.
 Initialization failures, including partial file creation, are logged.
 Dashboard move/rename preserves note content and permissions, creates

@@ -339,8 +339,15 @@ func TestMemoryGuidance_WarnsLimitOfUnselectedReader(t *testing.T) {
 
 func TestMemoryGuidance_CreatedFlagForNewFile(t *testing.T) {
 	s, _ := newInstructionsServer(t, "codex")
-	if plan := planGuidanceFor(t, s, `["codex"]`); len(plan.Changes) != 1 || !plan.Changes[0].Created || plan.Changes[0].Before != "" {
+	plan := planGuidanceFor(t, s, `["codex"]`)
+	if len(plan.Changes) != 1 || !plan.Changes[0].Created || plan.Changes[0].Before != "" {
 		t.Fatalf("plan = %+v", plan)
+	}
+	if res := applyGuidance(t, s, `["codex"]`, plan.Token); res["success"] != true {
+		t.Fatalf("apply = %v", res)
+	}
+	if got := readFile(t, plan.Changes[0].Path); got != plan.Changes[0].After {
+		t.Fatalf("created guidance = %q", got)
 	}
 }
 
@@ -436,5 +443,23 @@ func TestMemoryGuidance_RechecksEachReviewedFile(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestMemoryGuidance_CreateIsExclusive(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "AGENTS.md")
+	change := guidanceChange{Path: path, Created: true, After: "reviewed guidance"}
+	if err := checkGuidanceChange(change); err != nil {
+		t.Fatal(err)
+	}
+	// A different process creates the file after the final review check.
+	if err := os.WriteFile(path, []byte("external instructions"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := commitGuidanceChange(change); !errors.Is(err, errGuidanceStale) {
+		t.Fatalf("expected stale plan, got %v", err)
+	}
+	if got := readFile(t, path); got != "external instructions" {
+		t.Fatalf("external instructions lost: %q", got)
 	}
 }

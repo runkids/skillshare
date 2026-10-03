@@ -16,6 +16,11 @@ import { queryKeys } from '../../lib/queryKeys';
 import { fileBackupErrorMessage, kindTone, reasonKey } from './backupView';
 import FileRestoreDialog from './FileRestoreDialog';
 
+function comparablePath(path: string) {
+  // Preserve literal backslashes in POSIX names while accepting Windows history links.
+  return /^[A-Za-z]:[\\/]|^\\\\/.test(path) ? path.replace(/\\/g, '/') : path;
+}
+
 /** Earlier versions of single files skillshare rewrote: files on the left, one file's versions on the right. */
 export default function FileBackups() {
   const { t } = useI18n();
@@ -25,7 +30,7 @@ export default function FileBackups() {
 
   const files = data?.files ?? [];
   const requested = picked ?? params.get('path');
-  const selected = requested === null ? files[0] : files.find((f) => f.path === requested);
+  const selected = requested === null ? files[0] : files.find((f) => comparablePath(f.path) === comparablePath(requested));
 
   return (
     <>

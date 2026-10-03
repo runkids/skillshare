@@ -459,7 +459,7 @@ func writeGuidanceChange(c guidanceChange) error {
 	if err := checkGuidanceChange(c); err != nil {
 		return err
 	}
-	return instructions.WriteFile(c.Path, c.After)
+	return commitGuidanceChange(c)
 }
 
 func checkGuidanceChange(c guidanceChange) error {
@@ -470,5 +470,38 @@ func checkGuidanceChange(c guidanceChange) error {
 	if c.Created != os.IsNotExist(err) || string(data) != c.Before {
 		return errGuidanceStale
 	}
+	return nil
+}
+
+// commitGuidanceChange writes a file after its final review check.
+func commitGuidanceChange(c guidanceChange) error {
+	if !c.Created {
+		return instructions.WriteFile(c.Path, c.After)
+	}
+	if err := os.MkdirAll(filepath.Dir(c.Path), 0755); err != nil {
+		return err
+	}
+	f, err := os.OpenFile(c.Path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0644)
+	if os.IsExist(err) {
+		return errGuidanceStale
+	}
+	if err != nil {
+		return err
+	}
+	committed := false
+	defer func() {
+		if !committed {
+			os.Remove(c.Path)
+		}
+	}()
+	_, writeErr := f.WriteString(c.After)
+	closeErr := f.Close()
+	if writeErr != nil {
+		return writeErr
+	}
+	if closeErr != nil {
+		return closeErr
+	}
+	committed = true
 	return nil
 }
