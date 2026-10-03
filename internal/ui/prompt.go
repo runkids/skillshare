@@ -149,6 +149,23 @@ func Input(title, placeholder, value string) (string, error) {
 	return value, runPrompt(field, false)
 }
 
+// Text asks for text that may span lines, such as pasted JSON: enter
+// submits and alt+enter starts a new line. The box grows with value, from 3
+// to 10 lines.
+func Text(title, value string) (string, error) {
+	return value, runPrompt(textField(title, &value), false)
+}
+
+func textField(title string, value *string) *huh.Text {
+	lines := min(max(strings.Count(*value, "\n")+1, 3), 10)
+	return huh.NewText().
+		Title(promptTitle(title)).
+		Lines(lines).
+		CharLimit(1 << 20).
+		ExternalEditor(false).
+		Value(value)
+}
+
 // Answered prints the one-line record an answered prompt collapses into.
 func Answered(label, value string) {
 	fmt.Printf("%s %-*s %s\n", theme.Success().Render("✓"), answerLabelWidth, label, value)
@@ -236,6 +253,8 @@ func promptHint(field huh.Field, filterable bool) string {
 		pairs = [][2]string{{"↑↓", "move"}, {"space", "toggle"}, {"ctrl+a", "all"}, {"enter", "confirm"}}
 	case *huh.Confirm:
 		pairs = [][2]string{{"y", "yes"}, {"n", "no"}}
+	case *huh.Text:
+		pairs = [][2]string{{"enter", "confirm"}, {"alt+enter", "new line"}}
 	default:
 		pairs = [][2]string{{"enter", "confirm"}}
 	}

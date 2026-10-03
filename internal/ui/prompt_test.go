@@ -82,6 +82,27 @@ func TestRunForm_EscLeavesTheFilterFirst(t *testing.T) {
 	}
 }
 
+func TestRunForm_TextTakesNewLinesAndSubmitsOnEnter(t *testing.T) {
+	const title = "Paste server JSON"
+	in, keys := io.Pipe()
+	out := &syncBuffer{}
+	go func() {
+		deadline := time.Now().Add(5 * time.Second)
+		for !strings.Contains(out.String(), title) && time.Now().Before(deadline) {
+			time.Sleep(10 * time.Millisecond)
+		}
+		keys.Write([]byte("one\x1b\rtwo\r")) // alt+enter, then enter
+	}()
+
+	value := ""
+	if err := runForm(textField(title, &value), false, in, out); err != nil {
+		t.Fatalf("err = %v", err)
+	}
+	if value != "one\ntwo" {
+		t.Fatalf("value = %q, want two lines", value)
+	}
+}
+
 func TestLineConfirm_ReadsOneAnswerPerLine(t *testing.T) {
 	in := strings.NewReader("y\nno\n\n")
 	var out bytes.Buffer

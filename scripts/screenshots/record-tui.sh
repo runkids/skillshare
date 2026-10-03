@@ -47,6 +47,7 @@ analyze|skillshare analyze|
 search|skillshare search --hub ~/hub.json|Enter
 mcp|skillshare mcp|
 mcp-keys|skillshare mcp|Type `?`
+mcp-paste|skillshare mcp|Type `n`;Type `{"command": "npx",`;Alt+Enter;Type `"args": ["-y", "docs-mcp"]}`
 install-pick|skillshare install file://$HOME/work/team-skills|
 install-folders|skillshare install file://$HOME/work/big-repo|
 install-folder-skills|skillshare install file://$HOME/work/big-repo|Down;Enter
