@@ -740,8 +740,12 @@ func FirstPull(dir string, force bool) (*UpdateInfo, error) {
 			abort.Run() // best-effort cleanup
 			return nil, fmt.Errorf("%w with %s: %s", ErrMergeFailed, remote, strings.TrimSpace(string(out)))
 		}
-	} else if err := ResetKeepingIgnores(dir, remote); err != nil {
-		return nil, err
+	} else {
+		reset := exec.Command("git", "reset", "--hard", remote)
+		reset.Dir = dir
+		if out, err := reset.CombinedOutput(); err != nil {
+			return nil, fmt.Errorf("reset to %s failed: %s", remote, strings.TrimSpace(string(out)))
+		}
 	}
 
 	local, _ := GetCurrentBranch(dir)
@@ -845,76 +849,22 @@ func HasRemoteSkillDirs(repoPath, remoteBranch string) (bool, error) {
 	return strings.TrimSpace(string(lsOut)) != "", nil
 }
 
-// ResetKeepingIgnores runs `git reset --hard ref`. Rules from the local
-// .gitignore that the reset drops (such as root scope's config.yaml) stay in
-// effect through .git/info/exclude, so machine-local files do not turn into
-// untracked changes that block the next pull.
-func ResetKeepingIgnores(dir, ref string) error {
-	before, _ := os.ReadFile(filepath.Join(dir, ".gitignore"))
-
-	reset := exec.Command("git", "reset", "--hard", ref)
-	reset.Dir = dir
-	if out, err := reset.CombinedOutput(); err != nil {
-		return fmt.Errorf("reset to %s failed: %s", ref, strings.TrimSpace(string(out)))
-	}
-
-	after, _ := os.ReadFile(filepath.Join(dir, ".gitignore"))
-	// Compare raw lines: leading whitespace is part of a gitignore pattern.
-	var dropped []string
-	for _, line := range strings.Split(string(before), "\n") {
-		line = strings.TrimSuffix(line, "\r")
-		if strings.TrimSpace(line) != "" && !strings.HasPrefix(line, "#") && !hasRawLine(string(after), line) {
-			dropped = append(dropped, line)
-		}
-	}
-	if len(dropped) == 0 {
-		return nil
-	}
-
-	cmd := exec.Command("git", "rev-parse", "--git-path", "info/exclude")
-	cmd.Dir = dir
-	out, err := cmd.Output()
-	if err != nil {
-		return fmt.Errorf("locate info/exclude: %w", err)
-	}
-	exclude := strings.TrimSpace(string(out))
-	if !filepath.IsAbs(exclude) {
-		exclude = filepath.Join(dir, exclude)
-	}
-	if err := os.MkdirAll(filepath.Dir(exclude), 0o755); err != nil {
-		return fmt.Errorf("keep ignore rules: %w", err)
-	}
-	existing, _ := os.ReadFile(exclude)
-	content := string(existing)
-	if content != "" && !strings.HasSuffix(content, "\n") {
-		content += "\n"
-	}
-	for _, rule := range dropped {
-		if !hasRawLine(content, rule) {
-			content += rule + "\n"
-		}
-	}
-	if err := os.WriteFile(exclude, []byte(content), 0o644); err != nil {
-		return fmt.Errorf("keep ignore rules: %w", err)
-	}
-	return nil
-}
-
-// hasRawLine reports whether content has a line exactly equal to line.
-func hasRawLine(content, line string) bool {
-	for _, l := range strings.Split(content, "\n") {
-		if strings.TrimSuffix(l, "\r") == line {
-			return true
-		}
-	}
-	return false
-}
-
-// HasLocalContent reports whether the repo holds any tracked or non-ignored
-// file besides the scaffold .gitignore. Files count, not only directories:
-// agents and extras repos keep their content as root-level files. Ignored
-// entries (.DS_Store, root-scope config.yaml) do not.
+// HasLocalContent reports whether the repo root has a directory besides .git,
+// or any tracked or non-ignored file besides the scaffold .gitignore. Files
+// count because agents and extras repos keep their content as root-level
+// files; ignored files (.DS_Store) do not. Directories always count, so a
+// root-scope repo (skills/, agents/) keeps merging rather than resetting.
 func HasLocalContent(repoPath string) (bool, error) {
+	entries, err := os.ReadDir(repoPath)
+	if err != nil {
+		return false, err
+	}
+	for _, e := range entries {
+		if e.IsDir() && e.Name() != ".git" {
+			return true, nil
+		}
+	}
+
 	cmd := exec.Command("git", "ls-files", "-z", "--cached", "--others", "--exclude-standard")
 	cmd.Dir = repoPath
 	out, err := cmd.Output()

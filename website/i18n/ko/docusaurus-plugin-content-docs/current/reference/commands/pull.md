@@ -109,7 +109,7 @@ skillshare sync
 
 ## 기존 Skill이 있는 상태에서의 첫 Pull
 
-첫 pull 시(아직 upstream이 없는 경우), local repository에 이미 내용(`.gitignore` 외에 추적 중이거나 무시되지 않은 파일)이 있다면
+첫 pull 시(아직 upstream이 없는 경우), local repository에 이미 내용(모든 디렉터리, 또는 `.gitignore` 외에 추적 중이거나 무시되지 않은 파일)이 있다면
 `pull`은 양쪽을 결합하기 위해 **merge**를 시도합니다. merge가 성공하면 local과 remote의 내용이 모두 보존됩니다. 그 외에 아무것도 없는 repository만 remote branch로 reset됩니다.
 
 **merge 충돌**이 발생하면, `pull`은 0이 아닌 종료 코드와 함께 실패합니다.

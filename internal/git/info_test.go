@@ -1014,7 +1014,7 @@ func TestFirstPull_KeepsFilesOnlyLocalCommits(t *testing.T) {
 	}
 }
 
-func TestFirstPull_ResetKeepsLocalIgnoreRules(t *testing.T) {
+func TestFirstPull_RootScopeScaffoldMergesAndStaysClean(t *testing.T) {
 	remote := createBareRemoteWithBranch(t, "main", map[string]string{"skills/remote-skill/SKILL.md": "# remote\n"})
 	repo := t.TempDir()
 	runGit(t, repo, "init")
@@ -1025,6 +1025,9 @@ func TestFirstPull_ResetKeepsLocalIgnoreRules(t *testing.T) {
 	}
 	runGit(t, repo, "add", ".gitignore")
 	runGit(t, repo, "commit", "-m", "scaffold")
+	if err := os.MkdirAll(filepath.Join(repo, "skills"), 0o755); err != nil {
+		t.Fatal(err)
+	}
 	if err := os.WriteFile(filepath.Join(repo, "config.yaml"), []byte("source: x\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -1034,32 +1037,7 @@ func TestFirstPull_ResetKeepsLocalIgnoreRules(t *testing.T) {
 		t.Fatalf("FirstPull() error: %v", err)
 	}
 	if dirty, err := IsDirty(repo); err != nil || dirty {
-		t.Fatalf("expected clean tree after reset (dirty=%v, err=%v): %s", dirty, err, runGit(t, repo, "status", "--porcelain"))
-	}
-}
-
-func TestResetKeepingIgnores_KeepsLeadingWhitespace(t *testing.T) {
-	remote := createBareRemoteWithBranch(t, "main", map[string]string{"remote-skill/SKILL.md": "# remote\n"})
-	repo := t.TempDir()
-	runGit(t, repo, "init")
-	runGit(t, repo, "config", "user.email", "test@test.com")
-	runGit(t, repo, "config", "user.name", "test")
-	if err := os.WriteFile(filepath.Join(repo, ".gitignore"), []byte(" foo\n"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	runGit(t, repo, "add", ".gitignore")
-	runGit(t, repo, "commit", "-m", "scaffold")
-	runGit(t, repo, "remote", "add", "origin", remote)
-	runGit(t, repo, "fetch", "origin")
-
-	if err := ResetKeepingIgnores(repo, "origin/main"); err != nil {
-		t.Fatalf("ResetKeepingIgnores() error: %v", err)
-	}
-	if err := os.WriteFile(filepath.Join(repo, "foo"), []byte("x"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	if dirty, _ := IsDirty(repo); !dirty {
-		t.Fatal(`" foo" rule was migrated as "foo" and now ignores a plain foo file`)
+		t.Fatalf("expected the root-scope ignore rule to survive (dirty=%v, err=%v): %s", dirty, err, runGit(t, repo, "status", "--porcelain"))
 	}
 }
 
