@@ -68,18 +68,10 @@ func cmdUpgrade(args []string) error {
 		return downloadBinary(execPath, replaceVersion)
 	}
 
-	// Show logo
-	ui.Logo(version)
-
 	// Default: upgrade both
 	upgradeCLI := !skillOnly
 	upgradeSkill := !cliOnly
 	skillForce := force
-
-	if dryRun {
-		ui.Warning("Dry run mode - no changes will be made")
-		fmt.Println()
-	}
 
 	var cliErr, skillErr error
 	var newCLIVersion string
@@ -90,11 +82,9 @@ func cmdUpgrade(args []string) error {
 	}
 
 	// Upgrade skill
+	skillChanged := false
 	if upgradeSkill {
-		if upgradeCLI {
-			fmt.Println()
-		}
-		skillErr = upgradeSkillshareSkill(dryRun, skillForce)
+		skillChanged, skillErr = upgradeSkillshareSkill(dryRun, skillForce)
 	}
 
 	// Determine first error for return and logging
@@ -111,12 +101,30 @@ func cmdUpgrade(args []string) error {
 		return cmdErr
 	}
 
-	if !dryRun && (upgradeCLI || upgradeSkill) {
+	if dryRun {
 		fmt.Println()
-		ui.Info("If skillshare saved you time, please give us a star on GitHub: https://github.com/runkids/skillshare")
+		ui.DryRun()
+		return nil
 	}
+	if skillChanged {
+		ui.Next("skillshare sync", "link the new skill into your targets")
+	}
+	fmt.Println()
+	fmt.Println(ui.DimText("If skillshare saved you time, please give us a star on GitHub: https://github.com/runkids/skillshare"))
 
 	return nil
+}
+
+// upgradeRowWidth lines up the CLI and Skill rows.
+var upgradeRowWidth = ui.RowWidth("CLI", "Skill")
+
+// printUpgradeRow prints the CLI or Skill row, with the time it took when
+// start is set.
+func printUpgradeRow(mark, label, value string, start time.Time) {
+	if !start.IsZero() {
+		value += ui.DimText(fmt.Sprintf(" · %.1fs", time.Since(start).Seconds()))
+	}
+	ui.Row(mark, label, value, upgradeRowWidth)
 }
 
 func logUpgradeOp(cfgPath string, cliUpgraded bool, skillUpgraded bool, fromVersion, toVersion string, start time.Time, cmdErr error) {
@@ -142,8 +150,8 @@ func logUpgradeOp(cfgPath string, cliUpgraded bool, skillUpgraded bool, fromVers
 }
 
 func upgradeCLIBinary(dryRun, force bool) (string, error) {
-	// Step 1: Show current version
-	ui.StepStart("CLI", fmt.Sprintf("v%s", version))
+	start := time.Now()
+	current := "v" + version
 
 	execPath, err := resolveExecPath()
 	if err != nil {
@@ -152,42 +160,38 @@ func upgradeCLIBinary(dryRun, force bool) (string, error) {
 
 	// Check if installed via Homebrew
 	if versionpkg.DetectInstallMethod(execPath) == versionpkg.InstallBrew {
-		ui.StepContinue("Install", "Homebrew")
 		if dryRun {
-			ui.StepEnd("Action", "Would run: brew upgrade skillshare")
+			printUpgradeRow(ui.MarkNone, "CLI", current+" · would run brew upgrade skillshare", time.Time{})
 			return "", nil
 		}
-		return runBrewUpgrade()
+		return runBrewUpgrade(start)
 	}
 
 	// Get latest version from GitHub
-	treeSpinner := ui.StartTreeSpinner("Checking latest version...", false)
+	spinner := ui.StartSpinner("Checking latest version...")
 	release, err := versionpkg.FetchLatestRelease()
+	spinner.Stop()
 
 	var latestVersion string
 	if err != nil {
 		// API failed - try to use cached version
 		cachedVersion := versionpkg.GetCachedVersion()
-		if cachedVersion != "" && cachedVersion != version {
-			latestVersion = cachedVersion
-			treeSpinner.Success(fmt.Sprintf("Latest: v%s (cached)", latestVersion))
-		} else {
-			// No useful cache - skip silently
-			treeSpinner.Success("Skipped (rate limited)")
+		if cachedVersion == "" || cachedVersion == version {
+			printUpgradeRow(ui.MarkNone, "CLI", current+ui.DimText(" · couldn't check for a newer version (rate limited)"), time.Time{})
 			return "", nil
 		}
+		latestVersion = cachedVersion
 	} else {
 		latestVersion = release.Version
-		treeSpinner.Success(fmt.Sprintf("Latest: v%s", latestVersion))
 	}
 
 	if version == latestVersion && !force {
-		ui.StepEnd("Status", "Already up to date ✓")
+		printUpgradeRow(ui.MarkOK, "CLI", current+", already up to date", time.Time{})
 		return "", nil
 	}
 
 	if dryRun {
-		ui.StepEnd("Action", fmt.Sprintf("Would download v%s", latestVersion))
+		printUpgradeRow(ui.MarkNone, "CLI", fmt.Sprintf("%s → v%s · would download", current, latestVersion), time.Time{})
 		return "", nil
 	}
 
@@ -198,7 +202,7 @@ func upgradeCLIBinary(dryRun, force bool) (string, error) {
 			return "", err
 		}
 		if !ok {
-			ui.StepEnd("Status", "Cancelled")
+			printUpgradeRow(ui.MarkNone, "CLI", "cancelled, kept "+current, time.Time{})
 			return "", nil
 		}
 	}
@@ -206,27 +210,26 @@ func upgradeCLIBinary(dryRun, force bool) (string, error) {
 	// Only the binary replacement runs as root; everything after it writes
 	// into the user's home and must stay owned by the user.
 	if runtime.GOOS != "windows" && needsSudo(execPath) {
-		ui.Info("Need elevated permissions to write to %s", filepath.Dir(execPath))
+		ui.Note(fmt.Sprintf("Need elevated permissions to write to %s", filepath.Dir(execPath)))
 		err = upgradeBinaryWithSudo(execPath, latestVersion)
 	} else {
 		err = downloadBinary(execPath, latestVersion)
 	}
 	if err != nil {
+		printUpgradeRow(ui.MarkFail, "CLI", "upgrade to v"+latestVersion+" failed", time.Time{})
 		return "", err
 	}
-	hasUIDownload := latestVersion != ""
+	printUpgradeRow(ui.MarkOK, "CLI", fmt.Sprintf("%s → v%s", current, latestVersion), start)
 
 	// Clear version cache so next check fetches fresh data
 	versionpkg.ClearCache()
 
 	// Pre-download UI assets for the new version (best-effort)
-	if hasUIDownload {
-		uiSpinner := ui.StartTreeSpinner("Downloading UI assets...", true)
-		if err := uidist.Download(latestVersion, downloadProgress("Downloading UI assets...", uiSpinner.Update)); err != nil {
-			uiSpinner.Warn("UI download skipped (run 'skillshare ui' to retry)")
-		} else {
-			uiSpinner.Success("UI assets cached")
-		}
+	uiSpinner := ui.StartSpinner("Downloading UI assets...")
+	uiErr := uidist.Download(latestVersion, downloadProgress("Downloading UI assets...", uiSpinner.Update))
+	uiSpinner.Stop()
+	if uiErr != nil {
+		ui.Note("UI download skipped — run 'skillshare ui' to retry")
 	}
 
 	return latestVersion, nil
@@ -251,96 +254,94 @@ func downloadBinary(execPath, targetVersion string) error {
 	}
 
 	downloadLabel := fmt.Sprintf("Downloading v%s...", targetVersion)
-	downloadSpinner := ui.StartTreeSpinner(downloadLabel, false)
+	downloadSpinner := ui.StartSpinner(downloadLabel)
 	err = downloadAndReplace(downloadURL, versionpkg.BuildChecksumsURL(targetVersion), execPath,
 		downloadProgress(downloadLabel, downloadSpinner.Update))
+	downloadSpinner.Stop()
 	if err != nil {
-		downloadSpinner.Fail("Failed to download")
 		return fmt.Errorf("failed to upgrade: %w", err)
 	}
-	downloadSpinner.Success(fmt.Sprintf("Upgraded  v%s → v%s", version, targetVersion))
 	return nil
 }
 
-func upgradeSkillshareSkill(dryRun, force bool) error {
-	// Step 1: Show skill info
-	ui.StepStart("Skill", "skillshare")
-
+// upgradeSkillshareSkill installs or upgrades the built-in skill and
+// reports whether it changed the skill.
+func upgradeSkillshareSkill(dryRun, force bool) (bool, error) {
 	cfg, err := config.Load()
 	if err != nil {
-		return fmt.Errorf("config not found: run 'skillshare init' first")
+		return false, fmt.Errorf("config not found: run 'skillshare init' first")
 	}
 
-	skillshareSkillDir := filepath.Join(cfg.EffectiveSkillsSource(), "skillshare")
-	localVersion := versionpkg.ReadLocalSkillVersion(cfg.EffectiveSkillsSource())
+	sourceDir := cfg.EffectiveSkillsSource()
+	skillshareSkillDir := filepath.Join(sourceDir, "skillshare")
+	localVersion := versionpkg.ReadLocalSkillVersion(sourceDir)
 
 	// Skill not installed
 	if localVersion == "" {
-		ui.StepContinue("Status", "Not installed")
-
 		if force {
 			if dryRun {
-				ui.StepEnd("Action", "Would download")
-				return nil
+				printUpgradeRow(ui.MarkNone, "Skill", "not installed · would download", time.Time{})
+				return false, nil
 			}
-			return doSkillDownload(skillshareSkillDir, cfg.EffectiveSkillsSource(), "")
+			return true, doSkillDownload(skillshareSkillDir, sourceDir, "")
 		}
 
 		if dryRun {
-			ui.StepEnd("Action", "Would prompt to install")
-			return nil
+			printUpgradeRow(ui.MarkNone, "Skill", "not installed · would ask to install", time.Time{})
+			return false, nil
 		}
 
 		ok, err := ui.ConfirmAction("Install built-in skillshare skill?", false)
 		if err != nil {
-			return err
+			return false, err
 		}
 		if !ok {
-			ui.StepEnd("Status", "Not installed (skipped)")
-			return nil
+			printUpgradeRow(ui.MarkNone, "Skill", "not installed", time.Time{})
+			return false, nil
 		}
 
-		return doSkillDownload(skillshareSkillDir, cfg.EffectiveSkillsSource(), "")
+		return true, doSkillDownload(skillshareSkillDir, sourceDir, "")
 	}
 
 	// Skill installed — compare versions
-	ui.StepContinue("Current", fmt.Sprintf("v%s", localVersion))
-
+	current := "v" + localVersion
 	if force {
 		if dryRun {
-			ui.StepEnd("Action", "Would re-download (forced)")
-			return nil
+			printUpgradeRow(ui.MarkNone, "Skill", current+" · would download again", time.Time{})
+			return false, nil
 		}
-		return doSkillDownload(skillshareSkillDir, cfg.EffectiveSkillsSource(), localVersion)
+		return true, doSkillDownload(skillshareSkillDir, sourceDir, localVersion)
 	}
 
-	treeSpinner := ui.StartTreeSpinner("Checking latest version...", false)
+	spinner := ui.StartSpinner("Checking latest skill version...")
 	remoteVersion := versionpkg.FetchRemoteSkillVersion()
+	spinner.Stop()
 	if remoteVersion == "" {
-		treeSpinner.Success("Skipped (network unavailable)")
-		return nil
+		printUpgradeRow(ui.MarkNone, "Skill", current+ui.DimText(" · couldn't check for a newer version (network unavailable)"), time.Time{})
+		return false, nil
 	}
-	treeSpinner.Success(fmt.Sprintf("Latest: v%s", remoteVersion))
 
 	if localVersion == remoteVersion {
-		ui.StepEnd("Status", "Already up to date ✓")
-		return nil
+		printUpgradeRow(ui.MarkOK, "Skill", current+", already up to date", time.Time{})
+		return false, nil
 	}
 
 	if dryRun {
-		ui.StepEnd("Action", fmt.Sprintf("Would upgrade to v%s", remoteVersion))
-		return nil
+		printUpgradeRow(ui.MarkNone, "Skill", fmt.Sprintf("%s → v%s · would download", current, remoteVersion), time.Time{})
+		return false, nil
 	}
 
-	return doSkillDownload(skillshareSkillDir, cfg.EffectiveSkillsSource(), localVersion)
+	return true, doSkillDownload(skillshareSkillDir, sourceDir, localVersion)
 }
 
 func doSkillDownload(skillshareSkillDir, sourceDir, fromVersion string) error {
-	treeSpinner := ui.StartTreeSpinner("Downloading from GitHub...", true)
+	start := time.Now()
+	spinner := ui.StartSpinner("Downloading the skillshare skill...")
 
 	source, err := install.ParseSource(skillshareSkillSource)
 	if err != nil {
-		treeSpinner.Fail("Failed to parse source")
+		spinner.Stop()
+		printUpgradeRow(ui.MarkFail, "Skill", "failed to parse source", time.Time{})
 		return err
 	}
 	source.Name = "skillshare"
@@ -349,24 +350,23 @@ func doSkillDownload(skillshareSkillDir, sourceDir, fromVersion string) error {
 		Force:  true,
 		DryRun: false,
 	})
+	spinner.Stop()
 	if err != nil {
-		treeSpinner.Fail("Failed to download")
+		printUpgradeRow(ui.MarkFail, "Skill", "download failed", time.Time{})
 		return skillPermissionHint(err, sourceDir)
 	}
 
 	newVersion := versionpkg.ReadLocalSkillVersion(sourceDir)
 	switch {
 	case newVersion != "" && fromVersion != "" && fromVersion != newVersion:
-		treeSpinner.Success(fmt.Sprintf("Upgraded  v%s → v%s", fromVersion, newVersion))
+		printUpgradeRow(ui.MarkOK, "Skill", fmt.Sprintf("v%s → v%s", fromVersion, newVersion), start)
 	case newVersion != "" && fromVersion == "":
-		treeSpinner.Success(fmt.Sprintf("Installed v%s", newVersion))
+		printUpgradeRow(ui.MarkOK, "Skill", "installed v"+newVersion, start)
+	case newVersion != "":
+		printUpgradeRow(ui.MarkOK, "Skill", "v"+newVersion+", downloaded again", start)
 	default:
-		treeSpinner.Success("Upgraded")
+		printUpgradeRow(ui.MarkOK, "Skill", "upgraded", start)
 	}
-
-	fmt.Println()
-	ui.Info("Run 'skillshare sync' to distribute to all targets")
-
 	return nil
 }
 
@@ -571,30 +571,30 @@ func writeBinary(r io.Reader, destPath string) error {
 	return nil
 }
 
-func runBrewUpgrade() (string, error) {
-	// Phase 1: brew update (tap refresh)
-	tapSpinner := ui.StartTreeSpinner("Updating tap...", false)
+func runBrewUpgrade(start time.Time) (string, error) {
+	// Phase 1: brew update (tap refresh); a failure here is not fatal
+	spinner := ui.StartSpinner("Updating tap...")
 	updateCmd := exec.Command("brew", "update", "--quiet")
 	var updateBuf bytes.Buffer
 	updateCmd.Stdout = &updateBuf
 	updateCmd.Stderr = &updateBuf
-	if err := updateCmd.Run(); err != nil {
-		tapSpinner.Fail("Tap update failed (continuing)")
-	} else {
-		tapSpinner.Success("Tap updated")
-	}
+	tapErr := updateCmd.Run()
 
 	// Phase 2: brew upgrade
-	upgradeSpinner := ui.StartTreeSpinner("Upgrading via Homebrew...", true)
+	spinner.Update("Upgrading via Homebrew...")
 	cmd := exec.Command("brew", "upgrade", "skillshare")
 	var buf bytes.Buffer
 	cmd.Stdout = &buf
 	cmd.Stderr = &buf
-	if err := cmd.Run(); err != nil {
-		upgradeSpinner.Fail("Upgrade failed")
+	err := cmd.Run()
+	spinner.Stop()
+	if tapErr != nil {
+		ui.Note("brew update failed, upgraded from the tap as it was")
+	}
+	if err != nil {
+		printUpgradeRow(ui.MarkFail, "CLI", "brew upgrade skillshare failed", time.Time{})
 		// Show captured output for debugging
 		if out := strings.TrimSpace(buf.String()); out != "" {
-			fmt.Println()
 			fmt.Println(out)
 		}
 		return "", err
@@ -603,11 +603,11 @@ func runBrewUpgrade() (string, error) {
 	newVersion := getBrewVersion()
 	switch {
 	case newVersion != "" && newVersion != version:
-		upgradeSpinner.Success(fmt.Sprintf("Upgraded  v%s → v%s", version, newVersion))
+		printUpgradeRow(ui.MarkOK, "CLI", fmt.Sprintf("v%s → v%s", version, newVersion), start)
 	case newVersion != "" && newVersion == version:
-		upgradeSpinner.Success("Already up to date ✓")
+		printUpgradeRow(ui.MarkOK, "CLI", "v"+version+", already up to date", time.Time{})
 	default:
-		upgradeSpinner.Success("Upgraded")
+		printUpgradeRow(ui.MarkOK, "CLI", "upgraded with Homebrew", start)
 	}
 
 	versionpkg.ClearCache()
