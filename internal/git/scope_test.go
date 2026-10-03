@@ -418,6 +418,22 @@ func TestKeepLocalConfig_LeavesEditsToTrackedConfigGitLeftAlone(t *testing.T) {
 	}
 }
 
+func TestKeepLocalConfig_IgnoresConfigTrackedOnlyLocally(t *testing.T) {
+	repo, _ := rootScopeRepoTrackingRemote(t)
+	runGit(t, repo, "add", "-f", "config.yaml")
+	runGit(t, repo, "commit", "-m", "track config locally")
+	restore, err := KeepLocalConfig(repo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := PullWithEnv(repo, nil); err != nil {
+		t.Fatalf("PullWithEnv() error: %v", err)
+	}
+	if tracked, err := restore(); err != nil || tracked {
+		t.Fatalf("restore() = %v, %v; want false, nil when only a local commit tracks config.yaml", tracked, err)
+	}
+}
+
 func TestKeepLocalConfig_ReportsTrackedCopyWithSameContent(t *testing.T) {
 	repo, remote := rootScopeRepoTrackingRemote(t)
 	pushFromOtherClone(t, remote, map[string]string{"config.yaml": "LOCAL-config\n"})
