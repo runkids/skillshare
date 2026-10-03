@@ -264,3 +264,108 @@ func TestHasLocalRootConfig(t *testing.T) {
 		t.Error("dir with config.yaml on disk must report local root config")
 	}
 }
+
+// rootScopeRepoTrackingRemote makes a root-scope repo (config.yaml ignored,
+// a local config.yaml on disk) whose main branch tracks a bare remote.
+func rootScopeRepoTrackingRemote(t *testing.T) (repo, remote string) {
+	t.Helper()
+	remote = filepath.Join(t.TempDir(), "remote.git")
+	runGit(t, "", "init", "--bare", "-b", "main", remote)
+	repo = t.TempDir()
+	runGit(t, repo, "init", "-b", "main")
+	runGit(t, repo, "config", "user.email", "test@test.com")
+	runGit(t, repo, "config", "user.name", "test")
+	if err := os.WriteFile(filepath.Join(repo, ".gitignore"), []byte("config.yaml\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	runGit(t, repo, "add", ".gitignore")
+	runGit(t, repo, "commit", "-m", "scaffold")
+	runGit(t, repo, "remote", "add", "origin", remote)
+	runGit(t, repo, "push", "-u", "origin", "main")
+	if err := os.WriteFile(filepath.Join(repo, "config.yaml"), []byte("LOCAL-config\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	return repo, remote
+}
+
+// pushFromOtherClone commits files from a separate clone of remote, force-adding
+// them so an ignored config.yaml gets tracked, as another machine might.
+func pushFromOtherClone(t *testing.T, remote string, files map[string]string) {
+	t.Helper()
+	other := filepath.Join(t.TempDir(), "other")
+	runGit(t, "", "clone", remote, other)
+	runGit(t, other, "config", "user.email", "other@test.com")
+	runGit(t, other, "config", "user.name", "other")
+	for rel, content := range files {
+		if err := os.MkdirAll(filepath.Dir(filepath.Join(other, rel)), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(other, rel), []byte(content), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		runGit(t, other, "add", "-f", rel)
+	}
+	runGit(t, other, "commit", "-m", "other machine")
+	runGit(t, other, "push", "origin", "main")
+}
+
+func TestKeepLocalConfig_SurvivesPullThatTracksConfig(t *testing.T) {
+	repo, remote := rootScopeRepoTrackingRemote(t)
+	pushFromOtherClone(t, remote, map[string]string{"config.yaml": "remote-config\n"})
+	restore, err := KeepLocalConfig(repo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := PullWithEnv(repo, nil); err != nil {
+		t.Fatalf("PullWithEnv() error: %v", err)
+	}
+	replaced, err := restore()
+	got, _ := os.ReadFile(filepath.Join(repo, "config.yaml"))
+	if err != nil || !replaced || string(got) != "LOCAL-config\n" {
+		t.Fatalf("restore() = %v, %v; config.yaml = %q, want the local copy reported as replaced", replaced, err, got)
+	}
+}
+
+func TestKeepLocalConfig_RestoresSymlinkedConfig(t *testing.T) {
+	repo, remote := rootScopeRepoTrackingRemote(t)
+	pushFromOtherClone(t, remote, map[string]string{"config.yaml": "remote-config\n"})
+	real := filepath.Join(t.TempDir(), "dotfiles-config.yaml")
+	if err := os.WriteFile(real, []byte("LOCAL-config\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	link := filepath.Join(repo, "config.yaml")
+	if err := os.Remove(link); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(real, link); err != nil {
+		t.Fatal(err)
+	}
+	restore, err := KeepLocalConfig(repo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := PullWithEnv(repo, nil); err != nil {
+		t.Fatalf("PullWithEnv() error: %v", err)
+	}
+	if _, err := restore(); err != nil {
+		t.Fatal(err)
+	}
+	if target, err := os.Readlink(link); err != nil || target != real {
+		t.Fatalf("config.yaml symlink = %q, %v; want it pointing at %q", target, err, real)
+	}
+}
+
+func TestKeepLocalConfig_ReportsNothingWhenRemoteLeavesConfigAlone(t *testing.T) {
+	repo, remote := rootScopeRepoTrackingRemote(t)
+	pushFromOtherClone(t, remote, map[string]string{"skills/a/SKILL.md": "# a\n"})
+	restore, err := KeepLocalConfig(repo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := PullWithEnv(repo, nil); err != nil {
+		t.Fatalf("PullWithEnv() error: %v", err)
+	}
+	if replaced, err := restore(); err != nil || replaced {
+		t.Fatalf("restore() = %v, %v; want false, nil", replaced, err)
+	}
+}

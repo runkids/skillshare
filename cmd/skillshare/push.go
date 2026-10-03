@@ -254,7 +254,7 @@ func cmdPush(args []string) (err error) {
 	if opts.pull {
 		pullStart := time.Now()
 		spinner = ui.StartSpinner("Pulling from remote...")
-		info, _, err := integrateRemote(source, false, spinner)
+		info, _, err := integrateRemote(source, false, cfg.GitRoot == "root", spinner)
 		if err != nil {
 			if hasChanges {
 				ui.Note("Your changes are committed locally; resolve, then run: skillshare push --pull")

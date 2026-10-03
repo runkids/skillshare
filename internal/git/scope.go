@@ -1,6 +1,8 @@
 package git
 
 import (
+	"bytes"
+	"errors"
 	"fmt"
 	"io/fs"
 	"os"
@@ -204,6 +206,52 @@ func EnsureConfigUntracked(dir string) (removed bool, err error) {
 		return false, fmt.Errorf("untrack config.yaml: %w", err)
 	}
 	return true, nil
+}
+
+// KeepLocalConfig snapshots a root-scope repo's config.yaml (a file or a
+// symlink) before a pull. Git treats the ignored file as expendable, so a merge
+// or reset that brings in a remote-tracked config.yaml replaces this machine's
+// copy. The returned restore puts the snapshot back and reports whether the
+// pull had changed it. Without a local config.yaml, restore does nothing.
+func KeepLocalConfig(dir string) (restore func() (replaced bool, err error), err error) {
+	path := filepath.Join(dir, "config.yaml")
+	info, err := os.Lstat(path)
+	if errors.Is(err, fs.ErrNotExist) {
+		return func() (bool, error) { return false, nil }, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("snapshot config.yaml: %w", err)
+	}
+	if info.Mode()&fs.ModeSymlink != 0 {
+		target, err := os.Readlink(path)
+		if err != nil {
+			return nil, fmt.Errorf("snapshot config.yaml: %w", err)
+		}
+		return func() (bool, error) {
+			if cur, err := os.Readlink(path); err == nil && cur == target {
+				return false, nil
+			}
+			if err := os.Remove(path); err != nil && !errors.Is(err, fs.ErrNotExist) {
+				return true, fmt.Errorf("restore config.yaml: %w", err)
+			}
+			return true, os.Symlink(target, path)
+		}, nil
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("snapshot config.yaml: %w", err)
+	}
+	return func() (bool, error) {
+		if cur, err := os.Lstat(path); err == nil && cur.Mode().IsRegular() {
+			if got, err := os.ReadFile(path); err == nil && bytes.Equal(got, data) {
+				return false, nil
+			}
+		}
+		if err := os.Remove(path); err != nil && !errors.Is(err, fs.ErrNotExist) {
+			return true, fmt.Errorf("restore config.yaml: %w", err)
+		}
+		return true, os.WriteFile(path, data, info.Mode().Perm())
+	}, nil
 }
 
 // NestedRepos returns subdirectories of dir (relative paths, excluding dir
