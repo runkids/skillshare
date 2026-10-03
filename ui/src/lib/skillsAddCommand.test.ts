@@ -55,6 +55,10 @@ describe('parseSkillsAddCommand', () => {
       .toEqual({ source: 'vercel-labs/agent-skills', skills: ['react-best-practices'] });
   });
 
+  it('keeps @ in local paths', () => {
+    expect(parseSkillsAddCommand('npx skills add ./repo@draft')).toEqual({ source: './repo@draft', skills: [] });
+  });
+
   it('keeps @ in SSH sources', () => {
     expect(parseSkillsAddCommand('npx skills add git@github.com:owner/repo.git'))
       .toEqual({ source: 'git@github.com:owner/repo.git', skills: [] });

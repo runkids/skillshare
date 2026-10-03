@@ -76,7 +76,8 @@ export function parseSkillsAddCommand(value: string): SkillsAddCommand | null {
   }
   if (!source) return null;
   // GitHub shorthand owner/repo@skill names one skill, as upstream's source parser reads it.
-  const shorthand = source.match(/^([^/:]+\/[^/@]+)@(.+)$/);
+  // Local paths (./, ../, ~, /, C:) come first upstream and keep their @.
+  const shorthand = source.match(/^((?![.~])[^/:]+\/[^/@]+)@(.+)$/);
   if (shorthand) {
     source = shorthand[1];
     skills.push(shorthand[2]);
