@@ -4,7 +4,7 @@ Issue: [#274](https://github.com/runkids/skillshare/issues/274). Related: [#314]
 
 Credits: the `.skillfollow` design, the call-site list, and the reference implementation come from @hhdebb in #274. The Windows junction analysis and the provenance suggestion come from @star-nebula's comment on #274 and from #314/#315.
 
-Source baseline: every file and line reference was checked against `main` at `475b1769`. Line numbers will drift; function names are the stable reference. The analysis comes from reading the source, plus one Windows probe (§6, "Windows evidence"). The rest of the Windows behavior still needs the runbook in the Test Plan. This revision includes two rounds of adversarial review.
+Source baseline: every file and line reference was checked against `main` at `475b1769`. Line numbers will drift; function names are the stable reference. The analysis comes from reading the source, plus two Windows probes (§6, "Windows evidence"; §4, the `os.Root` table). The rest of the Windows behavior still needs the runbook in the Test Plan. This revision includes two rounds of adversarial review.
 
 ## Problem
 
@@ -131,7 +131,7 @@ The OS resolves the link component in the middle of the path, so these walks wor
 1. **One package owns source traversal.** `internal/sourcewalk` takes plain inputs and imports neither `config` nor `sync`. Today `config` imports `install` (`reconcile_core.go:9`) and `sync` imports `config` (`target_naming.go:9`), so the shared walker cannot live in `sync` without an import cycle. The package exposes:
    - `Follow(root, Options{TargetPaths []string; GitRoot string}) FollowSet`: parses the two files, classifies each entry (§1), and returns the states.
    - `(FollowSet) Walk(fn)`, `WalkDir(fn)`, and `ReadDir()`. These walk `ResolveSymlink(root)`. At depth 1, a `followed` entry is reported to `fn` as a directory at its logical path. The wrapper then reads the resolved directory itself and maps every path back to the logical form. As @star-nebula noted, `filepath.Walk` will not descend through either link kind, so the one-hop rule has to live in the wrapper. `SkipDir` and error semantics match `filepath.Walk`/`WalkDir`. The root and every returned path share one logical base, including when the source root is a link.
-   - `(FollowSet) Owns(resolved) bool` and `(FollowSet) InFollowed(logicalRel) (entry, state)`. These serve ownership (§3) and the mutation boundary (§4).
+   - `(FollowSet) Owns(resolved) bool` and `(FollowSet) InFollowed(logicalRel) (entry, state)`. These serve ownership (§3), the git seams in §4, and error messages for the §4 handle.
 
    One `FollowSet` is built per operation and passed to nested consumers. It is never rebuilt from a child directory. `discoverSourceSkillsInternal` and `getTrackedReposImpl` move first, because more than 40 callers already go through those two. Most rows in the table become small swaps. Reconcile, update `--all`, uninstall, the group walks, and the repo-root consumers have their own semantics, defined here and in §3–§5.
 2. **A ratchet test against raw walks.** The repository has no golangci-lint, and `make lint` is `go vet ./...` (`Makefile:134-135`). So the guard is an ordinary Go test (`internal/sourcewalk/guard_test.go`) that runs in `make test`. It works like this:
@@ -166,8 +166,8 @@ The fix is three separate contracts. They answer different questions and must no
 
 **1. Identity: does this link already point at this skill?** This is used only by sync to decide whether to keep a link or recreate it.
 
-- *Creation.* Relative skill links are computed from `evalOrClean(linkDir)` to `evalOrClean(sourceRoot) + "/" + relPath`. Only the source root and the link's parent are canonicalized. The followed entry stays in the link text, and the OS resolves it when the link is opened. `createLink` gets an explicit skills-only root/tail input. Its agents and extras callers keep their current behavior (`agent_sync.go:153-184`, `:317-349`, `extras.go`, `extras_file.go`). `reformatLink` (`relative.go:90`) and `CreateSymlink` (`sync.go:236`) take the skills path.
-- *Comparison.* `sameSkillLink(linkPath, skill, followSet)` replaces the lexical compare in `SyncTargetMergeWithSkills`. It reads relative link text against the link's real parent, as `prunableLink` already does (`agent_sync.go:111-114`). It accepts exactly three forms: the logical path of this skill, the canonical source root plus the logical tail, or the fully resolved path of *this* skill. A link that merely sits somewhere under an owned root never counts as equal.
+- *Creation.* Relative skill links are computed from `canon(linkDir)` to `canon(sourceRoot) + "/" + relPath`, where `canon` is the junction-aware canonicalizer from §1. Only the source root and the link's parent are canonicalized. `evalOrClean` cannot be used here: it does not resolve junctions (§6), so for a target whose parent is a junction it would compute the path from the logical parent while Windows resolves it from the real one. The followed entry stays in the link text, and the OS resolves it when the link is opened. `createLink` gets an explicit skills-only root/tail input. Its agents and extras callers keep their current behavior (`agent_sync.go:153-184`, `:317-349`, `extras.go`, `extras_file.go`). `reformatLink` (`relative.go:90`) and `CreateSymlink` (`sync.go:236`) take the skills path.
+- *Comparison.* `sameSkillLink(linkPath, skill, followSet)` replaces the lexical compare in `SyncTargetMergeWithSkills`. It reads relative link text against the link's real parent, resolved with `canon`, as `prunableLink` already does on Unix (`agent_sync.go:111-114`). It accepts exactly three forms: the logical path of this skill, the canonical source root plus the logical tail, or the fully resolved path of *this* skill. A link that merely sits somewhere under an owned root never counts as equal.
 
 **2. Ownership: may prune remove this link?** Since #315 (`5f3e79f1`), the in-source live-link branch already requires `manifest.Managed[name]` or `force` (`sync.go:819`). So @star-nebula's suggestion has partly landed, and the #314 case of hand-made links is fixed. This proposal keeps the manifest schema, which stores names and modes only (`internal/sync/manifest.go:16-20`). It does not switch to provenance alone. A live link is pruned only when both of these hold:
 
@@ -231,30 +231,50 @@ Everything under `<src>/<followed>/` belongs to the user, not to skillshare. Tod
 - `handleBatchUninstallSkills` (`internal/server/handler_uninstall.go:239-251`) refuses only tracked-repo members, so it would move a group child into trash.
 - `resolveGroupSkills` (`uninstall.go:221-255`) feeds children to `MoveToTrash` (`uninstall_handlers.go:113`, `:129`).
 
-The boundary below therefore lives in shared domain code that the CLI and the server both call, not in each handler. Every refused seam runs the check before its first write, including directory creation. A declared name in any state except `not-link` (missing, rejected, and so on) is treated as followed for these checks, so they fail closed before any write. A `not-link` entry is a real directory inside the source, so it keeps today's source ownership rules: naming it in a shared `.skillfollow` never blocks ordinary uninstall, install, or update below it on a machine where it is not a link.
+**The boundary is the filesystem handle, not a list of call sites.** Earlier revisions put a followed-entry check in front of each write. Four review rounds kept finding writes that the list missed: dashboard content edits, remote changes, `into` creation, frontmatter edits, `--into` and config-install `MkdirAll`, and the `init` built-in fallback. Each one wrote into the external tree before any check ran. The source has hundreds of raw `os.*` write calls, and any new one would repeat the bug.
+
+So every write to the skills source goes through an `*os.Root` opened at the source root. `os.Root` (Go 1.24; `MkdirAll`, `RemoveAll`, `WriteFile`, and `Rename` since Go 1.25; `go.mod` is `go 1.25.5`) refuses any operation whose path resolves outside the root through a link. A write below a followed entry therefore fails at the handle, whichever command, route, or fallback issues it. `internal/plugin` already uses `os.OpenRoot` this way (`files.go:106`, `rootAtomicWrite` in `pi_extensions_project.go:593`).
+
+*Evidence.* A standalone Go 1.25.5 probe ran in the devcontainer (Linux arm64) and on Windows 11 Home ARM64 (Developer Mode off), with the full token and the basic-user token. The basic token cannot create symlinks, so only its junction rows apply. Results were the same on every platform and token:
+
+| Operation on `src/_f/...`, where `_f` links outside `src` | Symlink | Junction |
+|---|---|---|
+| `WriteFile`, `MkdirAll`, `Remove`, `RemoveAll`, `Rename`, `Stat` | refused ("path escapes from parent"), external tree unchanged | refused, external tree unchanged |
+| `Lstat("_f")`, `Remove("_f")` | allowed; removes only the link | allowed; removes only the link |
+| Write through a **relative** link that stays inside `src` | allowed | n/a (junctions store absolute paths) |
+| Write through an **absolute** link that stays inside `src` | refused | refused |
+| `OpenRoot` on a source root that is itself a link, then write | allowed | allowed |
+
+*What callers do:*
+
+- Domain functions that write the source take the root handle instead of building paths from the source string. That covers install, update, uninstall, collect, `new`, `init`, reconcile, sidecar migration, frontmatter edits, and the server handlers that call them.
+- A move across the root's edge cannot use `Root.Rename`, so the in-source side is checked through the root first. For example, trash moves out of the source, and staged installs and updates rename a temp directory in (`install_apply.go:452`, `install_update.go:150`, `:263`). `Root.Stat` of the in-source parent fails on any crossing link, as the table shows.
+- Fallbacks write through the same handle, so a refused install cannot fall through to a raw write (for example `installBuiltinSkill`, `cmd/skillshare/init_apply.go:185-198`).
+- An escape error under a declared entry is reported as "inside followed entry `<name>`; hide it with the root `.skillignore`". Any other escape is reported as "path crosses a link in the skills source". Sidecar migration (`metadata_migrate.go:135`) skips instead of failing, and `doctor` reports the unmigrated sidecars.
+- The step 2 ratchet also counts raw `os` write calls (`Create`, `OpenFile`, `WriteFile`, `Mkdir`, `MkdirAll`, `Remove`, `RemoveAll`, `Rename`, `Symlink`) in `cmd/skillshare`, `internal/install`, `internal/sync`, and `internal/server`. Each remaining call carries a reason that says it does not write the skills source, such as `target`, `backup`, `trash`, `config`, `agents`, or `extras`. A new unclassified call fails the test. This has the same syntactic limitation as the walk ratchet.
+
+*Behavior change.* Discovered paths never cross a link below the source root today, because links are not followed. So ordinary writes are unaffected. Two things change:
+
+- An explicit path through an **undeclared** link (`install --into <link>/x`, a dashboard `into`) is refused instead of writing into the link's target.
+- An absolute link that points inside the source, and every junction, can no longer be written through.
+- A write through a link *inside* a skill, such as a `SKILL.md` that links to a shared file, is expected to be refused too. Removing that link still works, because removal does not follow it. The probe did not cover a link as the last path component, so the Test Plan checks it before step 2 lands.
+
+A `not-link` entry is a real directory, so it keeps today's ownership rules: naming it in a shared `.skillfollow` never blocks ordinary work below it on a machine where it is not a link.
 
 **Allowed:**
 
-- **Unlink and unfollow of the root entry.** The link is removed, never moved to trash; a link in trash would also be invisible, because `trash.List` shows only directories (`internal/trash/trash.go:215`, `:237`). The target is never touched. The name is removed from every declaration file that contains it, because declarations are a union, and the command lists each file it edited. Comments and other entries are preserved. If any write fails, the command reports failure, never a partial success. A `not-link` real directory is never removed by unfollow.
+- **Unlink and unfollow of the root entry**, through `Root.Remove`, which removes the link itself. The link is never moved to trash; a link in trash would also be invisible, because `trash.List` shows only directories (`internal/trash/trash.go:215`, `:237`). The target is never touched. The name is removed from every declaration file that contains it, because declarations are a union, and the command lists each file it edited. Comments and other entries are preserved. If any write fails, the command reports failure, never a partial success. A `not-link` real directory is never removed by unfollow.
 - **Pull of a followed tracked repo**, under the git rules in §5.
 
-**Refused**, with the message "inside followed entry `<name>`; hide it with the root `.skillignore`":
+**Outside the handle.** Git runs as a subprocess, so the root cannot see its writes. These seams keep an explicit followed-entry check:
 
 | Operation | Seam |
 |---|---|
-| CLI uninstall of a descendant | `performUninstallQuiet`, `performUninstall` (`cmd/skillshare/uninstall_handlers.go:107`, `:128`) |
-| Server uninstall of a descendant | `handleBatchUninstallSkills` (`internal/server/handler_uninstall.go:147`, trash at `:204`, `:251`) |
-| Collect into or over a followed entry | `PullSkill` (`internal/sync/pull.go:127`, `RemoveAll` at `:136`) |
-| Install overwrite or `--into` a followed tree | `installImpl` (`internal/install/install_apply.go:177`, `RemoveAll` at `:202`); `installFromDiscoveryInternal` (`:348`, replace at `:449-452`) |
-| Tracked install over a followed repo | `installTrackedRepoImpl` (`internal/install/install_tracked.go:10`, overwrite at `:72`). `install --update` on a followed repo goes through §5's followed-update policy instead. |
-| Standalone or local update inside a followed tree | `handleUpdate` (`internal/install/install_update.go:11`, replace at `:146-150`, `:260-263`) |
-| Config install into a followed group | both config-install paths create the group directory before the install guard runs (`internal/install/install_config.go:273`, `:406`), so the check runs before each `os.MkdirAll` |
-| Dashboard edit of a followed skill's files | `handlePutSkillContent` (`internal/server/handler_skill_content.go:34`, write at `:70`) |
-| Dashboard source change on a followed repo | `handlePatchSkillSource` (`handler_skill_content.go:98`), which calls `git.SetRemoteURL` on the repo at `:162` |
-| Dashboard create with `into` a followed tree | `handleCreateSkill` (`internal/server/handler_create_skill.go:70`, `MkdirAll` at `:121`) |
-| Legacy sidecar migration inside a followed tree | `migrateSkillSidecars`, `walkSkillDir` (`internal/install/metadata_migrate.go:135`, `:153`, delete at `:158`). This one is skipped rather than refused, and `doctor` reports the unmigrated sidecars. |
+| Pull, audit rollback, and `--force` on a followed repo | §5's followed-update policy |
+| Dashboard source change on a followed repo | `handlePatchSkillSource` (`internal/server/handler_skill_content.go:98`), which calls `git.SetRemoteURL` at `:162` |
+| Staging | §5's staging guard |
 
-`enable`/`disable` (`cmd/skillshare/enable.go`) and `PUT /api/skillignore` (`internal/server/handler_skillignore.go:80-89`) already write only the root ignore files, so they need no change.
+`enable`/`disable` (`cmd/skillshare/enable.go`) and `PUT /api/skillignore` (`internal/server/handler_skillignore.go:80-89`) write only the root ignore files, which the handle allows.
 
 Reconcile marks names under a followed entry as live. It never creates or updates their metadata: no `store.Set` (`reconcile_core.go:97-105`) and no `RefreshTrackedRootSkillHashes`. Following never creates a `tracked: true` entry.
 
@@ -337,7 +357,8 @@ The tree was clean before the pull, so in the normal case this undoes only what 
 
   Consequences for this design:
   - `utils.ResolveSymlink` and `evalOrClean` are no-ops on junctions, so they cannot be used to resolve followed entries, run cycle and overlap checks, or find the staging tree on Windows. The walker reads the entry's target with `utils.ResolveLinkTarget`. Canonical comparisons use a junction-aware canonicalizer that resolves link components one at a time.
-  - The relative-link branch of `createLink` (Developer Mode only) canonicalizes with `evalOrClean`, so it has the same exposure on Windows. It needs a test under Developer Mode, which this probe did not cover.
+  - The relative-link branch of `createLink` (Developer Mode only) canonicalizes with `evalOrClean` today, so it has the same exposure on Windows. §3 switches it to `canon`. It needs a test under Developer Mode, which this probe did not cover.
+- **`os.Root` evidence.** A second probe verified that `os.Root` refuses writes through junctions and symlinks that leave the root, on Windows and Linux, with both tokens. §4 has the table.
 - Real-Windows coverage goes in an `ai_docs/tests/` runbook, run with `skillshare-windows-utm`. It runs two configurations: a basic-user token (junctions only) and Developer Mode (relative symlinks). It covers:
   - discovery
   - the read-back fallback
@@ -399,6 +420,7 @@ The tree was clean before the pull, so in the normal case this undoes only what 
 - **Store each managed link's target, or each copy's origin, in the manifest.** This would allow precise cleanup after unfollow and precise replacement while an entry is missing. It is extra schema for edge cases that the warning path and the conservative pause already cover. Rejected for now.
 - **A target-name-to-skill mapping in status.** This would make status exact per name, but `CheckStatusMerge` and its callers would need new plumbing. Status stays an aggregate count, and the limitation is documented.
 - **Let `--force` override the missing-entry pause.** In copy mode that can destroy the only remaining copy. Restoring the path, or removing the declaration, is a one-step recovery.
+- **A followed-entry check at each write seam.** This was the earlier design of §4. It is shallow: the check is one predicate, and the real work, remembering to call it before the first write, is spread across every caller. Four review rounds found eleven seams that the list missed, and nothing stops a new write from missing it. The `os.Root` handle makes the boundary a property of the filesystem access itself.
 - **Allow mutations of descendants because the entry is declared.** Declaring an entry grants discovery read access. It does not give skillshare ownership of the user's tree.
 - **Block commits in every git scope, or decide by path containment.** A skills declaration would then block unrelated repos, and symlinked or alias roots would be misjudged. Git reachability is the correct test.
 - **Follow external repos in `NestedRepos`.** It would report what git does not stage, and advise disabling the external `.git`.
@@ -416,7 +438,7 @@ The reference implementation was about 26 insertions and 17 deletions across 11 
 - exact link identity
 - the repo-root audit fix
 - the missing-entry pause and the copy-preservation rule
-- the external mutation boundary across CLI and server
+- the external mutation boundary: moving source writes onto an `os.Root` handle across CLI and server
 - the shared followed-update policy
 - the Git-reachability staging guard
 - doctor and status output
@@ -434,24 +456,24 @@ Any line estimate is rough, not a commitment.
 - **Integration** (`tests/integration/`, run in the devcontainer):
   - The behavior matrix from §2.3.
   - Default unchanged: with no `.skillfollow`, output is identical.
-  - Every refusal in §4, through both the CLI and the server, including for missing and rejected entries. Each refused write leaves the external tree byte-for-byte unchanged, with no new directory. A `not-link` entry keeps ordinary uninstall, install, and update.
+  - The §4 boundary, through both the CLI and the server, including for missing and rejected entries. The fixture exercises every seam that review found as a regression case: uninstall (CLI and server), collect, install overwrite, `--into` (CLI and both server endpoints), config install, tracked install, update, dashboard content edit, frontmatter edits (server and list TUI), dashboard create with `into`, and the `init` built-in fallback. Each refused write leaves the external tree byte-for-byte unchanged, with no new directory. An undeclared link given as an explicit `--into` path is refused too. A dashboard edit of a skill whose `SKILL.md` is a link is refused with a clear message, and uninstall of that skill still removes it. A `not-link` entry keeps ordinary uninstall, install, and update.
   - Unfollow and uninstall of a followed entry remove only the link and the declarations. Partial-write failure is reported as failure.
   - Audit on a followed repo: a pulled commit adding a malicious child skill blocks and rolls back to `beforeHash`, through the CLI, the server, and `install --update`. A zero-file scan of a non-empty root is a scan error.
   - Update: a mixed `update --all` of ordinary and followed repos, covering dirty trees, `--force`, divergence, and an `IsDirty` error. The ordinary repo still updates, and each followed refusal is reported per item in batch, project, server, and SSE output. Rollback-failure and concurrency messages are checked too.
   - The staging guard at `commit`, `push`, and `init --remote`: indexed versus unignored links; a source linked out of the git root (not guarded); an alias source pointing into the root (guarded); agents, extras, and custom-root scopes; under both `git_root: skills` and `git_root: root`.
   - A missing entry with `--force`: the prune pause holds, and copy replacement is refused in standard naming.
-- **Windows:** the `skillshare-windows-utm` runbook for §3 cases 11–13 and §6.
+- **Windows:** the `skillshare-windows-utm` runbook for §3 cases 11–13, §6, and the §4 boundary through a junction with the basic token.
 - `make check` in the devcontainer.
 
 ## Phased Rollout
 
 1. **Visibility first, no behavior change:** the `doctor` info line for undeclared first-level links in the source. It can ship on its own.
-2. **Walker, ratchet, and behavior matrix.** Move the existing walks onto `sourcewalk` with following disabled. This is a pure refactor, and existing tests must pass unchanged.
+2. **Walker, write handle, ratchet, and behavior matrix.** Move the existing walks onto `sourcewalk` with following disabled, and move source writes onto the `os.Root` handle. Existing tests must pass unchanged. The one intended behavior change is §4's refusal of explicit paths through links; any existing test that relies on writing through a link is changed in the same commit, with that reason.
 3. **Enable `.skillfollow` for groups and tracked repos.** This step includes:
    - parsing and classification
    - exact link identity and the ownership and status rules
    - the missing-entry pause and copy preservation
-   - the mutation boundary
+   - the error messages for the mutation boundary, and the git seams outside the handle
    - the repo-root audit fix
    - the shared followed-update policy
    - the staging guard
