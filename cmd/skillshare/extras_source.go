@@ -53,11 +53,11 @@ func cmdExtrasSource(args []string) error {
 	// No argument → show current value
 	if newPath == "" {
 		effective := cfg.EffectiveExtrasSource()
+		value := shortenPath(effective)
 		if cfg.Sources.Extras == "" && cfg.ExtrasSource == "" {
-			ui.Info("extras_source: %s (default)", shortenPath(effective))
-		} else {
-			ui.Info("extras_source: %s", shortenPath(effective))
+			value += ui.DimText(" (default)")
 		}
+		ui.Row(ui.MarkNone, "extras_source", value, ui.RowWidth("extras_source"))
 		return nil
 	}
 
@@ -79,7 +79,7 @@ func cmdExtrasSource(args []string) error {
 		return fmt.Errorf("failed to save config: %w", err)
 	}
 
-	ui.Success("Set extras_source to %s", shortenPath(absPath))
+	ui.Done(ui.MarkOK, "Set extras_source to "+shortenPath(absPath), 0)
 
 	e := oplog.NewEntry("extras-source", "ok", time.Since(start))
 	e.Args = map[string]any{"path": absPath}

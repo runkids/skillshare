@@ -172,14 +172,15 @@ func cmdExtrasRemoveTarget(args []string) error {
 		sync.ForgetExtraTarget(sync.NewExtraFile(sourceDirForExtra(extras[idx]), extras[idx].File, resolved, target.As, targetMode))
 	}
 
-	ui.Success("Removed target %s from %s", shortenPath(rmPath), name)
+	ui.Done(ui.MarkOK, fmt.Sprintf("Removed target %s from %s", shortenPath(rmPath), name), 0)
 
 	if prune {
-		ui.Info("Pruned %d file(s) from %s", pruned, shortenPath(rmPath))
+		ui.Note(fmt.Sprintf("Pruned %s from %s", plural(pruned, "file"), shortenPath(rmPath)))
 	} else if extras[idx].File != "" {
-		ui.Info("Target file left in place and no longer managed. Sync will not remove it.")
+		ui.Note("Target file left in place and no longer managed. Sync will not remove it.")
 	} else {
-		ui.Info("Synced files left in place. Run 'skillshare sync extras%s' to clean up orphaned links, or re-run with --prune.", projectSuffix(mode))
+		ui.Note("Synced files left in place")
+		ui.Next("skillshare sync extras"+projectSuffix(mode), "clean up orphaned links", "--prune", "or remove them with this command")
 	}
 
 	e := oplog.NewEntry("extras-target", "ok", time.Since(start))

@@ -131,8 +131,8 @@ extras:
 	result := sb.RunCLI("extras", "list", "-g")
 
 	result.AssertSuccess(t)
-	// Header and extra name should be present.
-	result.AssertAnyOutputContains(t, "Extras")
+	// The count and extra name should be present.
+	result.AssertAnyOutputContains(t, "1 extra")
 	result.AssertAnyOutputContains(t, "rules")
 	// File count should be shown in the source line.
 	result.AssertAnyOutputContains(t, "2 files")
@@ -362,7 +362,7 @@ targets:
 	result := sb.RunCLI("extras", "source", "-g")
 
 	result.AssertSuccess(t)
-	result.AssertAnyOutputContains(t, "extras_source:")
+	result.AssertAnyOutputContains(t, "extras_source")
 	result.AssertAnyOutputContains(t, "custom-extras")
 }
 
@@ -455,7 +455,7 @@ extras:
 	result := sb.RunCLI("extras", "collect", "rules", "-g")
 
 	result.AssertSuccess(t)
-	result.AssertAnyOutputContains(t, "collected")
+	result.AssertAnyOutputContains(t, "Collected")
 
 	// File should now exist in source.
 	sourceFile := filepath.Join(rulesSource, "local-rule.md")
@@ -504,7 +504,7 @@ extras:
 	result := sb.RunCLI("extras", "collect", "rules", "--dry-run", "-g")
 
 	result.AssertSuccess(t)
-	result.AssertAnyOutputContains(t, "would collect")
+	result.AssertAnyOutputContains(t, "Would collect")
 
 	// File should NOT have been moved to source.
 	sourceFile := filepath.Join(rulesSource, "dry-rule.md")
@@ -1301,7 +1301,7 @@ func TestExtrasCollect_WithPerExtraSource(t *testing.T) {
 	result := sb.RunCLI("extras", "collect", "rules", "-g")
 
 	result.AssertSuccess(t)
-	result.AssertAnyOutputContains(t, "collected")
+	result.AssertAnyOutputContains(t, "Collected")
 
 	// File should now exist in the custom source, not the default.
 	collectedFile := filepath.Join(customSource, "local-rule.md")

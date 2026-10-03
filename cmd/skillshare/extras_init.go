@@ -210,8 +210,8 @@ func extrasInitGlobal(o extrasInitOptions, start time.Time) error {
 	if o.file != "" {
 		printSingleFileExtraCreated(extra, sourceDir, "")
 	} else {
-		ui.Success("Created extras/%s/ with %d target(s)", o.name, len(o.targets))
-		ui.Info("Add files to extras/%s/ then run 'skillshare sync extras'", o.name)
+		ui.Done(ui.MarkOK, fmt.Sprintf("Created extras/%s/ with %s", o.name, plural(len(o.targets), "target")), 0)
+		ui.Next("skillshare sync extras", fmt.Sprintf("after adding files to extras/%s/", o.name))
 	}
 
 	// Oplog
@@ -261,8 +261,8 @@ func extrasInitProject(cwd string, o extrasInitOptions, start time.Time) error {
 	if o.file != "" {
 		printSingleFileExtraCreated(extra, sourceDir, " -p")
 	} else {
-		ui.Success("Created .skillshare/extras/%s/ with %d target(s)", o.name, len(o.targets))
-		ui.Info("Add files to .skillshare/extras/%s/ then run 'skillshare sync extras -p'", o.name)
+		ui.Done(ui.MarkOK, fmt.Sprintf("Created .skillshare/extras/%s/ with %s", o.name, plural(len(o.targets), "target")), 0)
+		ui.Next("skillshare sync extras -p", fmt.Sprintf("after adding files to .skillshare/extras/%s/", o.name))
 	}
 
 	// Oplog
@@ -282,21 +282,23 @@ func extrasInitProject(cwd string, o extrasInitOptions, start time.Time) error {
 // sync hint.
 func printSingleFileExtraCreated(extra config.ExtraConfig, sourceDir, suffix string) {
 	src := filepath.Join(sourceDir, extra.File)
-	ui.Success("Created extra %s (single file)", extra.Name)
 	_, err := os.Stat(src)
-	missing := ""
+	width := ui.RowWidth("Source", "Target")
 	if err != nil {
-		missing = " (not found)"
+		ui.Row(ui.MarkWarn, "Source", shortenPath(src)+ui.DimText(" · not found"), width)
+	} else {
+		ui.Row(ui.MarkNone, "Source", shortenPath(src), width)
 	}
-	fmt.Printf("Source: %s%s\n", shortenPath(src), missing)
 	for _, t := range extra.Targets {
-		fmt.Printf("Target: %s [%s]\n", shortenPath(singleFileTargetPath(extra, t)), sync.EffectiveMode(t.Mode))
+		ui.Row(ui.MarkNone, "Target", shortenPath(singleFileTargetPath(extra, t))+ui.DimText(" · "+sync.EffectiveMode(t.Mode)), width)
 	}
-	if missing != "" {
-		fmt.Printf("Create the source file, then run 'skillshare sync extras%s'.\n", suffix)
+	fmt.Println()
+	ui.Done(ui.MarkOK, fmt.Sprintf("Created extra %s (single file)", extra.Name), 0)
+	if err != nil {
+		ui.Next("skillshare sync extras"+suffix, "after creating the source file")
 		return
 	}
-	fmt.Printf("Run 'skillshare sync extras%s' to sync.\n", suffix)
+	ui.Next("skillshare sync extras"+suffix, "sync it")
 }
 
 // singleFileTargetPath returns the file a single-file extra's target writes,

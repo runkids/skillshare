@@ -135,8 +135,8 @@ func cmdExtrasAddTarget(args []string) error {
 	if extras[idx].File != "" {
 		shown = singleFileTargetPath(extras[idx], et)
 	}
-	ui.Success("Added target %s to %s", shortenPath(shown), name)
-	ui.Info("Run 'skillshare sync extras%s' to sync the new target", projectSuffix(mode))
+	ui.Done(ui.MarkOK, fmt.Sprintf("Added target %s to %s", shortenPath(shown), name), 0)
+	ui.Next("skillshare sync extras"+projectSuffix(mode), "sync the new target")
 
 	e := oplog.NewEntry("extras-target", "ok", time.Since(start))
 	e.Args = map[string]any{"name": name, "target": addPath, "action": "add", "mode": syncMode}

@@ -8,6 +8,7 @@ import (
 
 	"skillshare/internal/config"
 	"skillshare/internal/sync"
+	"skillshare/internal/theme"
 	"skillshare/internal/ui"
 )
 
@@ -215,46 +216,44 @@ func cmdExtrasList(args []string) error {
 	}
 
 	if len(extras) == 0 {
-		ui.Info("No extras configured.")
-		ui.Info("Run 'skillshare extras init <name> --target <path>' to add one.")
+		ui.Done(ui.MarkNone, "No extras configured", 0)
+		ui.Next("skillshare extras init <name> --target <path>", "add one")
 		return nil
 	}
 
 	// Plain text output
 	entries := buildExtrasListEntries(extras, extrasSource, extensionsDir, sourceFunc, root)
-	ui.Header(ui.WithModeLabel("Extras"))
-
+	pending := false
 	for i, entry := range entries {
 		if i > 0 {
 			fmt.Println()
 		}
+		name := theme.Primary().Bold(true).Render(entry.Name)
 		if entry.File != "" {
 			// Single-file extra: the source is one file, shown in full.
 			src := shortenPath(filepath.Join(entry.SourceDir, entry.File))
 			if !entry.SourceExists {
 				src += " · source not found"
 			}
-			fmt.Printf("%s→%s %s  %s%s%s\n", ui.Cyan, ui.Reset, entry.Name, ui.Dim, src, ui.Reset)
+			fmt.Println(name + "  " + ui.DimText(src))
 		} else if !entry.SourceExists {
-			fmt.Printf("%s→%s %s  %s\n", ui.Cyan, ui.Reset, entry.Name, ui.Dim+"source not found"+ui.Reset)
+			fmt.Println(name + "  " + ui.DimText("source not found"))
 		} else {
-			fileLabel := fmt.Sprintf("%d files", entry.FileCount)
-			if entry.FileCount == 1 {
-				fileLabel = "1 file"
-			}
-			fmt.Printf("%s→%s %s  %s%s · %s%s\n", ui.Cyan, ui.Reset, entry.Name, ui.Dim, shortenPath(entry.SourceDir), fileLabel, ui.Reset)
+			fmt.Println(name + "  " + ui.DimText(shortenPath(entry.SourceDir)+" · "+plural(entry.FileCount, "file")))
 		}
-		for _, t := range entry.Targets {
-			var icon, color string
+		paths := make([]string, len(entry.Targets))
+		for j, t := range entry.Targets {
+			paths[j] = shortenPath(extrasTargetDisplayPath(entry.File, t))
+		}
+		width := ui.RowWidth(paths...)
+		for j, t := range entry.Targets {
+			mark := ui.MarkNone
 			switch t.Status {
 			case "synced":
-				icon, color = "✓", ui.Green
-			case "drift", "invalid mode":
-				icon, color = "!", ui.Yellow
-			case "not synced":
-				icon, color = "✗", ui.Yellow
-			case "no source":
-				icon, color = "-", ui.Cyan
+				mark = ui.MarkOK
+			case "drift", "invalid mode", "not synced":
+				mark = ui.MarkWarn
+				pending = true
 			}
 			var modeLabel string
 			if t.Extension != "" {
@@ -265,15 +264,19 @@ func cmdExtrasList(args []string) error {
 					modeLabel += ", flatten"
 				}
 			}
-			// Status text after mode, dimmed
-			statusSuffix := ""
+			value := ui.DimText(modeLabel)
 			if t.Status != "synced" {
-				statusSuffix = fmt.Sprintf("  %s%s%s", color, t.Status, ui.Reset)
+				value = t.Status + "  " + value
 			}
-			fmt.Printf("  %s%s%s %s  %s%s%s%s\n", color, icon, ui.Reset, shortenPath(extrasTargetDisplayPath(entry.File, t)), ui.Dim, modeLabel, ui.Reset, statusSuffix)
+			ui.Row(mark, paths[j], value, width)
 		}
 	}
 
+	fmt.Println()
+	ui.Done(ui.MarkNone, plural(len(entries), "extra"), 0)
+	if pending {
+		ui.Next("skillshare sync extras"+projectSuffix(mode), "bring the Targets up to date")
+	}
 	return nil
 }
 

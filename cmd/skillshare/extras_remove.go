@@ -144,9 +144,9 @@ func extrasRemoveGlobal(name string, force bool, start time.Time) error {
 	sourceDir := config.ResolveExtrasSourceDir(found, cfg.EffectiveExtrasSource(), cfg.EffectiveSkillsSource())
 
 	if !force {
-		ui.Warning("This will remove %q from config.", name)
-		ui.Info("Source files in %s will NOT be deleted.", shortenPath(sourceDir))
-		ui.Info("%s", extraRemoveTargetNote(found))
+		ui.Warning("This removes %q from the config", name)
+		ui.Note(fmt.Sprintf("Source files in %s stay", shortenPath(sourceDir)))
+		ui.Note(extraRemoveTargetNote(found))
 		fmt.Println()
 		ok, err := ui.ConfirmAction("Remove?", false)
 		if err != nil {
@@ -163,10 +163,10 @@ func extrasRemoveGlobal(name string, force bool, start time.Time) error {
 		return err
 	}
 
-	ui.Success("Removed %q from extras config", name)
+	ui.Done(ui.MarkOK, fmt.Sprintf("Removed %q from the extras config", name), 0)
 	cleanEmptyExtrasDir(sourceDir)
 	if found.File == "" {
-		ui.Info("Run 'skillshare sync extras' to clean up orphaned links.")
+		ui.Next("skillshare sync extras", "clean up orphaned links")
 	}
 	_ = start
 	return nil
@@ -181,9 +181,9 @@ func extrasRemoveProject(cwd, name string, force bool, start time.Time) error {
 	_, found := findExtraByName(projCfg.Extras, name)
 	if !force {
 		sourceDir := config.ResolveExtrasSourceDirProject(found, projCfg.EffectiveExtrasSource(cwd), cwd)
-		ui.Warning("This will remove %q from project config.", name)
-		ui.Info("Source files in %s will NOT be deleted.", shortenPath(sourceDir))
-		ui.Info("%s", extraRemoveTargetNote(found))
+		ui.Warning("This removes %q from the project config", name)
+		ui.Note(fmt.Sprintf("Source files in %s stay", shortenPath(sourceDir)))
+		ui.Note(extraRemoveTargetNote(found))
 		fmt.Println()
 		ok, err := ui.ConfirmAction("Remove?", false)
 		if err != nil {
@@ -200,10 +200,10 @@ func extrasRemoveProject(cwd, name string, force bool, start time.Time) error {
 		return err
 	}
 
-	ui.Success("Removed %q from project extras config", name)
+	ui.Done(ui.MarkOK, fmt.Sprintf("Removed %q from the project extras config", name), 0)
 	cleanEmptyExtrasDir(sourceDir)
 	if found.File == "" {
-		ui.Info("Run 'skillshare sync extras -p' to clean up orphaned links.")
+		ui.Next("skillshare sync extras -p", "clean up orphaned links")
 	}
 	_ = start
 	return nil
@@ -218,9 +218,9 @@ func cleanEmptyExtrasDir(dir string) {
 	}
 	if len(entries) == 0 {
 		os.Remove(dir)
-		ui.Info("Removed empty source directory %s", shortenPath(dir))
+		ui.Note("Removed the empty source directory " + shortenPath(dir))
 	} else {
-		ui.Info("Source files preserved in %s (%d files)", shortenPath(dir), len(entries))
+		ui.Note(fmt.Sprintf("Kept %s in %s", plural(len(entries), "file"), shortenPath(dir)))
 	}
 
 	// Clean parent extras/ directory if empty

@@ -182,7 +182,7 @@ func cmdExtrasMode(args []string) error {
 	if flattenSet {
 		parts = append(parts, fmt.Sprintf("flatten=%v", flattenVal))
 	}
-	ui.Success("Updated %s target %s: %s", name, shortenPath(targetPath), strings.Join(parts, ", "))
+	ui.Done(ui.MarkOK, fmt.Sprintf("Updated %s target %s: %s", name, shortenPath(targetPath), strings.Join(parts, ", ")), 0)
 
 	e := oplog.NewEntry("extras-mode", "ok", time.Since(start))
 	e.Args = map[string]any{"name": name, "target": targetPath, "mode": syncMode, "flatten": flattenVal}
@@ -219,7 +219,7 @@ func applyFlattenAll(extras []config.ExtraConfig, name string, flatten bool, sav
 		if !flatten {
 			label = "disabled"
 		}
-		ui.Success("Flatten %s for all %d targets of %s", label, len(extra.Targets), name)
+		ui.Done(ui.MarkOK, fmt.Sprintf("Flatten %s for all %d targets of %s", label, len(extra.Targets), name), 0)
 
 		e := oplog.NewEntry("extras-mode", "ok", time.Since(start))
 		e.Args = map[string]any{"name": name, "flatten": flatten, "all_targets": true}
