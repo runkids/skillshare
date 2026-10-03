@@ -212,9 +212,22 @@ func EnsureConfigUntracked(dir string) (removed bool, err error) {
 // symlink) before a pull. Git treats the ignored file as expendable, so a merge
 // or reset that brings in a remote-tracked config.yaml replaces this machine's
 // copy. The returned restore puts the snapshot back and reports whether the
-// pull had changed it. Without a local config.yaml, restore does nothing.
-func KeepLocalConfig(dir string) (restore func() (replaced bool, err error), err error) {
-	path := filepath.Join(dir, "config.yaml")
+// repo now tracks config.yaml (or the pull changed it), even when the tracked
+// copy matches this machine's, so callers can warn that the remote tracks it.
+func KeepLocalConfig(dir string) (restore func() (remoteTracks bool, err error), err error) {
+	put, err := snapshotConfig(filepath.Join(dir, "config.yaml"))
+	if err != nil {
+		return nil, err
+	}
+	return func() (bool, error) {
+		replaced, err := put()
+		return replaced || isTracked(dir, "config.yaml"), err
+	}, nil
+}
+
+// snapshotConfig records the config.yaml at path and returns a put that writes
+// it back, reporting whether it had changed. A missing file is a no-op.
+func snapshotConfig(path string) (put func() (replaced bool, err error), err error) {
 	info, err := os.Lstat(path)
 	if errors.Is(err, fs.ErrNotExist) {
 		return func() (bool, error) { return false, nil }, nil

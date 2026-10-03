@@ -706,7 +706,7 @@ func (s *Server) handlePull(w http.ResponseWriter, r *http.Request) {
 	// A branch without upstream (e.g. a repo created here with a remote added
 	// later) is attached to the remote default branch first, like the CLI.
 	var info *git.UpdateInfo
-	configReplaced := false
+	remoteTracksConfig := false
 	if git.HasUpstream(src) {
 		// Root scope keeps this machine's config.yaml when the remote tracks
 		// one: Git would otherwise replace the ignored file (#353). A first
@@ -720,7 +720,7 @@ func (s *Server) handlePull(w http.ResponseWriter, r *http.Request) {
 		}
 		info, err = git.PullWithResolution(src, body.Resolution)
 		var restoreErr error
-		if configReplaced, restoreErr = restoreConfig(); restoreErr != nil {
+		if remoteTracksConfig, restoreErr = restoreConfig(); restoreErr != nil {
 			writeError(w, http.StatusInternalServerError, restoreErr.Error())
 			return
 		}
@@ -774,7 +774,7 @@ func (s *Server) handlePull(w http.ResponseWriter, r *http.Request) {
 	if resp.Commits == nil {
 		resp.Commits = make([]git.CommitInfo, 0)
 	}
-	if configReplaced {
+	if remoteTracksConfig {
 		resp.Warnings = append(resp.Warnings, "The remote tracks config.yaml; kept this machine's copy. Push to remove it from the remote.")
 	}
 

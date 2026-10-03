@@ -319,10 +319,10 @@ func TestKeepLocalConfig_SurvivesPullThatTracksConfig(t *testing.T) {
 	if _, err := PullWithEnv(repo, nil); err != nil {
 		t.Fatalf("PullWithEnv() error: %v", err)
 	}
-	replaced, err := restore()
+	tracked, err := restore()
 	got, _ := os.ReadFile(filepath.Join(repo, "config.yaml"))
-	if err != nil || !replaced || string(got) != "LOCAL-config\n" {
-		t.Fatalf("restore() = %v, %v; config.yaml = %q, want the local copy reported as replaced", replaced, err, got)
+	if err != nil || !tracked || string(got) != "LOCAL-config\n" {
+		t.Fatalf("restore() = %v, %v; config.yaml = %q, want the local copy kept and tracking reported", tracked, err, got)
 	}
 }
 
@@ -365,7 +365,22 @@ func TestKeepLocalConfig_ReportsNothingWhenRemoteLeavesConfigAlone(t *testing.T)
 	if _, err := PullWithEnv(repo, nil); err != nil {
 		t.Fatalf("PullWithEnv() error: %v", err)
 	}
-	if replaced, err := restore(); err != nil || replaced {
-		t.Fatalf("restore() = %v, %v; want false, nil", replaced, err)
+	if tracked, err := restore(); err != nil || tracked {
+		t.Fatalf("restore() = %v, %v; want false, nil", tracked, err)
+	}
+}
+
+func TestKeepLocalConfig_ReportsTrackedCopyWithSameContent(t *testing.T) {
+	repo, remote := rootScopeRepoTrackingRemote(t)
+	pushFromOtherClone(t, remote, map[string]string{"config.yaml": "LOCAL-config\n"})
+	restore, err := KeepLocalConfig(repo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := PullWithEnv(repo, nil); err != nil {
+		t.Fatalf("PullWithEnv() error: %v", err)
+	}
+	if tracked, err := restore(); err != nil || !tracked {
+		t.Fatalf("restore() = %v, %v; want true, nil for a tracked copy with identical bytes", tracked, err)
 	}
 }

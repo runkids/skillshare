@@ -145,10 +145,10 @@ func integrateRemote(source string, force, keepConfig bool, spinner *ui.Spinner)
 			return nil, false, err
 		}
 		defer func() {
-			replaced, restoreErr := restore()
+			remoteTracks, restoreErr := restore()
 			if restoreErr != nil {
 				err = errors.Join(err, restoreErr)
-			} else if replaced {
+			} else if remoteTracks {
 				spinner.Warn("The remote tracks config.yaml; kept this machine's copy")
 				ui.Note("Remove it from the remote: skillshare push")
 			}

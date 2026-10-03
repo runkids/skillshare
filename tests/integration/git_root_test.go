@@ -320,6 +320,55 @@ func TestGitRoot_PullKeepsLocalConfigWhenRemoteTracksIt(t *testing.T) {
 	}
 }
 
+// push --pull at root scope: a pull that brings in a remote-tracked config.yaml
+// keeps this machine's copy, and the same push removes it from the remote.
+func TestGitRoot_PushPullUntracksConfigBroughtInByPull(t *testing.T) {
+	requireWorkingGit(t)
+
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	base := filepath.Dir(sb.ConfigPath)
+	skills := filepath.Join(base, "skills")
+	grMkdir(t, skills)
+	sb.WriteConfig("git_root: root\nsource: " + skills + "\ntargets:\n  claude:\n    skills:\n      path: " + sb.CreateTarget("claude") + "\n")
+	localConfig, err := os.ReadFile(sb.ConfigPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	bareRepo := testutil.SetupBareRemoteRepo(t, t.TempDir())
+	testutil.RunGit(t, base, "init")
+	testutil.ConfigureGitUser(t, base)
+	grWrite(t, filepath.Join(base, ".gitignore"), "config.yaml\n")
+	testutil.RunGit(t, base, "add", "-A")
+	testutil.RunGit(t, base, "commit", "-m", "initial")
+	testutil.RunGit(t, base, "branch", "-M", "main")
+	testutil.RunGit(t, base, "remote", "add", "origin", bareRepo)
+	testutil.RunGit(t, base, "push", "-u", "origin", "main")
+	testutil.RunGit(t, bareRepo, "symbolic-ref", "HEAD", "refs/heads/main")
+
+	other := filepath.Join(t.TempDir(), "other")
+	testutil.RunGit(t, "", "clone", "-b", "main", bareRepo, other)
+	testutil.ConfigureGitUser(t, other)
+	grWrite(t, filepath.Join(other, "config.yaml"), "source: /other/machine/skills\n")
+	testutil.RunGit(t, other, "add", "-f", "config.yaml")
+	testutil.RunGit(t, other, "commit", "-m", "track config by mistake")
+	testutil.RunGit(t, other, "push", "origin", "main")
+
+	sb.RunCLI("push", "--pull").AssertSuccess(t)
+
+	if out := testutil.RunGit(t, bareRepo, "ls-tree", "--name-only", "main"); strings.Contains(out, "config.yaml") {
+		t.Fatalf("remote still tracks config.yaml after push --pull: %q", out)
+	}
+	if got, err := os.ReadFile(sb.ConfigPath); err != nil || string(got) != string(localConfig) {
+		t.Fatalf("config.yaml = %q, %v; want this machine's copy kept", got, err)
+	}
+	if out := testutil.RunGit(t, base, "status", "--porcelain"); strings.TrimSpace(out) != "" {
+		t.Fatalf("working tree not clean after push --pull: %q", out)
+	}
+}
+
 // init --git-root <scope> on an already-initialized setup switches the scope
 // headlessly: it inits a repo at the new scope dir and persists git_root,
 // without prompting or erroring with "already initialized".

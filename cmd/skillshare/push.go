@@ -266,6 +266,23 @@ func cmdPush(args []string) (err error) {
 			ui.Row(ui.MarkOK, "Pull", pullSummary(info)+ui.Took(time.Since(pullStart)), width)
 			printCommitNotes(info.Commits)
 		}
+		// The pull may have brought in a remote-tracked config.yaml after the
+		// safety sweep ran; untrack it again so this push removes it remotely.
+		if cfg.GitRoot == "root" {
+			removed, err := gitops.EnsureConfigUntracked(source)
+			if err != nil {
+				return err
+			}
+			if removed {
+				spinner = ui.StartSpinner("Committing...")
+				if err := stageAndCommit(source, "Stop tracking config.yaml", spinner); err != nil {
+					return err
+				}
+				spinner.Stop()
+				ui.Success("Removed config.yaml from version control")
+				ui.Note("Kept on disk; it holds machine-specific paths")
+			}
+		}
 	}
 
 	spinner = ui.StartSpinner("Pushing to remote...")
