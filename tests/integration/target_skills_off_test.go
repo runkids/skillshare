@@ -41,9 +41,9 @@ func TestTargetSkillsOff_RemovesLinksKeepsLocal(t *testing.T) {
 
 	result := sb.RunCLI("target", "gemini", "--skills=false")
 	result.AssertSuccess(t)
-	result.AssertOutputContains(t, "gemini: skills off")
-	result.AssertOutputContains(t, "removed 2 link(s): alpha, beta")
-	result.AssertOutputContains(t, "kept 1: mine")
+	result.AssertOutputContains(t, "Skills off for gemini")
+	result.AssertOutputContains(t, "Removed   2 links  alpha, beta")
+	result.AssertOutputContains(t, "Kept      1 local skill  mine")
 
 	if sb.FileExists(filepath.Join(gemini, "alpha")) {
 		t.Error("alpha link should be removed")
@@ -80,7 +80,7 @@ targets:
 
 	result := sb.RunCLI("target", "gemini", "--skills=false")
 	result.AssertSuccess(t)
-	result.AssertAnyOutputContains(t, "kept 1 copied skill(s): alpha")
+	result.AssertAnyOutputContains(t, "Kept      1 copied skill  alpha")
 	result.AssertAnyOutputContains(t, "The tool still loads these copies")
 	if !sb.FileExists(filepath.Join(gemini, "alpha", "SKILL.md")) {
 		t.Error("the copy must be kept")
@@ -107,7 +107,7 @@ func TestTargetSkillsOff_DryRunChangesNothing(t *testing.T) {
 
 	result := sb.RunCLI("target", "gemini", "--skills=false", "--dry-run")
 	result.AssertSuccess(t)
-	result.AssertOutputContains(t, "would remove 2 link(s)")
+	result.AssertOutputContains(t, "Would remove  2 links")
 	if !sb.IsSymlink(filepath.Join(gemini, "alpha")) {
 		t.Error("dry run must keep links")
 	}
@@ -124,7 +124,7 @@ func TestTargetSkillsOn_ResumesOnNextSync(t *testing.T) {
 
 	result := sb.RunCLI("target", "gemini", "--skills=true")
 	result.AssertSuccess(t)
-	result.AssertOutputContains(t, "gemini: skills on")
+	result.AssertOutputContains(t, "Skills on for gemini")
 	if sb.FileExists(filepath.Join(gemini, "alpha")) {
 		t.Error("turning on only changes config")
 	}
@@ -205,7 +205,7 @@ func TestTargetSkillsOff_Project(t *testing.T) {
 
 	result := sb.RunCLIInDir(projectRoot, "target", "claude", "--skills=false", "-p")
 	result.AssertSuccess(t)
-	result.AssertOutputContains(t, "claude: skills off")
+	result.AssertOutputContains(t, "Skills off for claude")
 	if _, err := os.Lstat(link); err == nil {
 		t.Error("project link should be removed")
 	}

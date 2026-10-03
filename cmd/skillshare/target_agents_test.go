@@ -35,10 +35,10 @@ func TestShowTargetInfo_ShowsAgentsSectionForBuiltinTarget(t *testing.T) {
 		}
 	}))
 
-	if !strings.Contains(output, "Agents:") {
+	if !strings.Contains(output, "\nAgents\n") {
 		t.Fatalf("expected agents section in output:\n%s", output)
 	}
-	if !strings.Contains(output, agentTarget) {
+	if !strings.Contains(output, shortenPath(agentTarget)) {
 		t.Fatalf("expected agent path %q in output:\n%s", agentTarget, output)
 	}
 	if !strings.Contains(output, "1/1 linked") {
@@ -203,14 +203,12 @@ func TestTargetList_TextOutputShowsSkillsAndAgentsSections(t *testing.T) {
 
 	for _, want := range []string{
 		"claude",
-		"Skills:",
-		targetPath,
-		"Sync:",
-		"Agents:",
-		agentTarget,
+		"Skills",
+		shortenPath(targetPath),
+		"Agents",
+		shortenPath(agentTarget),
 		"1/1 linked",
-		"No include/exclude filters",
-		"No agent include/exclude filters",
+		"1 target",
 	} {
 		if !strings.Contains(output, want) {
 			t.Fatalf("expected %q in target list output:\n%s", want, output)

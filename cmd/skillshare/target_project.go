@@ -11,6 +11,7 @@ import (
 	"skillshare/internal/oplog"
 	"skillshare/internal/sync"
 	"skillshare/internal/targetsummary"
+	"skillshare/internal/theme"
 	"skillshare/internal/ui"
 	"skillshare/internal/utils"
 	"skillshare/internal/validate"
@@ -182,45 +183,44 @@ func targetRemoveProject(args []string, root string) error {
 		return err
 	}
 
-	for _, name := range toRemove {
-		ui.Success("Removed target: %s", name)
-	}
-	ui.Info("Run 'skillshare sync' to update target links")
+	ui.Done(ui.MarkOK, "Removed "+plural(len(toRemove), "target"), 0)
+	ui.Next("skillshare sync", "update target links")
 	return nil
 }
 
 func targetRemoveProjectDryRun(toRemove []string, targets map[string]config.TargetConfig, sourcePath string) error {
-	ui.Warning("Dry run mode - no changes will be made")
-	ui.Header("Unlinking targets (project)")
+	width := ui.RowWidth(toRemove...)
 	for _, name := range toRemove {
 		target, ok := targets[name]
 		if !ok {
-			ui.Info("%s: would remove from config (target missing)", name)
+			ui.Row(ui.MarkNone, name, "would remove from config · target missing", width)
 			continue
 		}
 
 		sc := target.SkillsConfig()
 		if !sc.IsEnabled() {
-			ui.Info("%s: skills off, would leave folder as is", name)
-			ui.Info("%s: would remove from config", name)
+			ui.Row(ui.MarkNone, name, "would remove from config · skills off, folder left as is", width)
 			continue
 		}
 		info, err := os.Lstat(sc.Path)
 		if err != nil {
 			if os.IsNotExist(err) {
-				ui.Info("%s: would remove from config (path missing)", name)
+				ui.Row(ui.MarkNone, name, "would remove from config · folder not found", width)
 				continue
 			}
-			ui.Warning("%s: %v", name, err)
+			ui.Row(ui.MarkWarn, name, err.Error(), width)
 			continue
 		}
 
 		if info.IsDir() {
-			ui.Info("%s: would remove skill symlinks", name)
+			ui.Row(ui.MarkNone, name, "would remove skill symlinks and remove from config", width)
+		} else {
+			ui.Row(ui.MarkNone, name, "would remove from config", width)
 		}
-		ui.Info("%s: would remove from config", name)
 	}
 
+	fmt.Println()
+	ui.DryRun()
 	return nil
 }
 
@@ -290,7 +290,6 @@ func targetListProjectWithJSON(root string, jsonOutput bool) error {
 		return err
 	}
 
-	ui.Header("Configured Targets (project)")
 	printTargetListPlain(items)
 
 	return nil
@@ -386,12 +385,7 @@ func targetInfoProject(name string, args []string, root string) error {
 				return err
 			}
 		}
-		for _, change := range changes {
-			ui.Success("%s: %s", name, change)
-		}
-		if len(changes) > 0 {
-			ui.Info("Run 'skillshare sync' to apply filter changes")
-		}
+		printTargetFilterChanges(name, changes)
 
 		e := oplog.NewEntry("target", statusFromErr(nil), time.Since(start))
 		e.Args = map[string]any{
@@ -444,37 +438,32 @@ func targetInfoProject(name string, args []string, root string) error {
 	mode := sc.Mode
 	displayMode := mode
 	if mode == "" {
-		displayMode = "merge (default)"
+		displayMode = "merge" + ui.DimText(" (default)")
 		mode = "merge"
 	}
 
 	namingDisplay := config.EffectiveTargetNaming(sc.TargetNaming)
 	if sc.TargetNaming == "" {
-		namingDisplay += " (default)"
+		namingDisplay += ui.DimText(" (default)")
 	}
 
-	ui.Header(fmt.Sprintf("Target: %s", name))
-	fmt.Printf("  Path:    %s\n", projectTargetDisplayPath(targetEntry))
-	fmt.Printf("  Mode:    %s\n", displayMode)
-	fmt.Printf("  Naming:  %s\n", namingDisplay)
-
+	var statusLine string
 	resolvedSC := target.SkillsConfig()
 	switch {
 	case !resolvedSC.IsEnabled():
-		fmt.Printf("  Status:  %s\n", skillsOffSummary)
+		statusLine = skillsOffSummary
 	case mode == "symlink":
-		status := sync.CheckStatus(resolvedSC.Path, sourcePath)
-		fmt.Printf("  Status:  %s\n", status)
+		statusLine = sync.CheckStatus(resolvedSC.Path, sourcePath).String()
 	case mode == "copy":
 		status, managed, local := sync.CheckStatusCopy(resolvedSC.Path)
-		fmt.Printf("  Status:  %s (%d managed, %d local)\n", status, managed, local)
+		statusLine = statusWithCounts(status, managed, "managed", local)
 	default:
 		status, linked, local := sync.CheckStatusMerge(resolvedSC.Path, sourcePath)
-		fmt.Printf("  Status:  %s (%d shared, %d local)\n", status, linked, local)
+		statusLine = statusWithCounts(status, linked, "linked", local)
 	}
 
-	fmt.Printf("  Include: %s\n", formatFilterList(sc.Include))
-	fmt.Printf("  Exclude: %s\n", formatFilterList(sc.Exclude))
+	fmt.Println(theme.Primary().Bold(true).Render(name))
+	printTargetSkillsSection(projectTargetDisplayPath(targetEntry), displayMode, namingDisplay, statusLine, sc.Include, sc.Exclude)
 	printTargetAgentSection(agentSummary)
 
 	return nil
@@ -496,8 +485,8 @@ func updateTargetModeProject(cfg *config.ProjectConfig, idx int, newMode string,
 		return err
 	}
 
-	ui.Success("Changed %s mode: %s -> %s", entry.Name, oldMode, newMode)
-	ui.Info("Run 'skillshare sync' to apply the new mode")
+	ui.Done(ui.MarkOK, fmt.Sprintf("Changed %s mode: %s -> %s", entry.Name, oldMode, newMode), 0)
+	ui.Next("skillshare sync", "apply the new mode")
 	return nil
 }
 
@@ -525,11 +514,11 @@ func updateTargetAgentModeProject(cfg *config.ProjectConfig, idx int, newMode st
 		return err
 	}
 
-	ui.Success("Changed %s agent mode: %s -> %s", entry.Name, oldMode, newMode)
 	if newMode == "symlink" && (len(agentSummary.Include) > 0 || len(agentSummary.Exclude) > 0) {
 		ui.Warning("Agent include/exclude filters are ignored in symlink mode")
 	}
-	ui.Info("Run 'skillshare sync' to apply the new mode")
+	ui.Done(ui.MarkOK, fmt.Sprintf("Changed %s agent mode: %s -> %s", entry.Name, oldMode, newMode), 0)
+	ui.Next("skillshare sync", "apply the new mode")
 	return nil
 }
 
@@ -546,8 +535,8 @@ func updateTargetNamingProject(cfg *config.ProjectConfig, idx int, newNaming str
 		return err
 	}
 
-	ui.Success("Changed %s target naming: %s -> %s", entry.Name, oldNaming, newNaming)
-	ui.Info("Run 'skillshare sync' to apply the new naming")
+	ui.Done(ui.MarkOK, fmt.Sprintf("Changed %s target naming: %s -> %s", entry.Name, oldNaming, newNaming), 0)
+	ui.Next("skillshare sync", "apply the new naming")
 	return nil
 }
 

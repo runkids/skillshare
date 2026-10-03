@@ -54,7 +54,7 @@ func TestTargetProject_RemoveTarget(t *testing.T) {
 
 	result := sb.RunCLIInDir(projectRoot, "target", "remove", "cursor", "-p")
 	result.AssertSuccess(t)
-	result.AssertAnyOutputContains(t, "Removed target")
+	result.AssertAnyOutputContains(t, "Removed 1 target")
 
 	cfg := sb.ReadFile(filepath.Join(projectRoot, ".skillshare", "config.yaml"))
 	if strings.Contains(cfg, "cursor") {

@@ -14,6 +14,7 @@ import (
 	"skillshare/internal/oplog"
 	"skillshare/internal/sync"
 	"skillshare/internal/targetsummary"
+	"skillshare/internal/theme"
 	"skillshare/internal/ui"
 	"skillshare/internal/utils"
 	"skillshare/internal/validate"
@@ -229,12 +230,12 @@ func targetAdd(args []string) error {
 
 func reportTargetAdded(name, path string, noSkills bool) {
 	if noSkills {
-		ui.Success("Added target: %s -> %s (skills off)", name, path)
-		ui.Info("Skills are not synced to this target; turn them on with 'skillshare target %s --skills=true'", name)
+		ui.Done(ui.MarkOK, fmt.Sprintf("Added target %s -> %s (skills off)", name, shortenPath(path)), 0)
+		ui.Next(fmt.Sprintf("skillshare target %s --skills=true", name), "sync skills to this target too")
 		return
 	}
-	ui.Success("Added target: %s -> %s", name, path)
-	ui.Info("Run 'skillshare sync' to sync skills to this target")
+	ui.Done(ui.MarkOK, fmt.Sprintf("Added target %s -> %s", name, shortenPath(path)), 0)
+	ui.Next("skillshare sync", "sync skills to this target")
 }
 
 // targetAddAgentConfigDir adds another config directory of a built-in Agent, such as a
@@ -321,8 +322,7 @@ func resolveTargetsToRemove(cfg *config.Config, opts *targetRemoveOptions) ([]st
 }
 
 // backupTargets creates backups for targets before removal
-func backupTargets(cfg *config.Config, toRemove []string) {
-	ui.Header("Backing up before unlink")
+func backupTargets(cfg *config.Config, toRemove []string, width int) {
 	for _, targetName := range toRemove {
 		target := cfg.Targets[targetName]
 		if !target.SkillsConfig().IsEnabled() {
@@ -330,9 +330,9 @@ func backupTargets(cfg *config.Config, toRemove []string) {
 		}
 		backupPath, err := backup.Create(targetName, target.SkillsConfig().Path)
 		if err != nil {
-			ui.Warning("Failed to backup %s: %v", targetName, err)
+			ui.Row(ui.MarkWarn, targetName, "backup failed: "+err.Error(), width)
 		} else if backupPath != "" {
-			ui.Success("%s -> %s", targetName, backupPath)
+			ui.Row(ui.MarkOK, targetName, "backed up to "+shortenPath(backupPath), width)
 		}
 	}
 
@@ -352,36 +352,47 @@ func backupTargets(cfg *config.Config, toRemove []string) {
 		entryName := at.name + "-agents"
 		bp, bErr := backup.CreateInDir(backupDir, entryName, at.agentPath)
 		if bErr != nil {
-			ui.Warning("Failed to backup %s: %v", entryName, bErr)
+			ui.Row(ui.MarkWarn, entryName, "backup failed: "+bErr.Error(), width)
 		} else if bp != "" {
-			ui.Success("%s -> %s", entryName, bp)
+			ui.Row(ui.MarkOK, entryName, "backed up to "+shortenPath(bp), width)
 		}
 	}
 }
 
-// unlinkTarget unlinks a single target
-func unlinkTarget(targetName string, target config.TargetConfig, sourcePath string) error {
+// unlinkTarget unlinks a single target and says what it did, or "" when
+// there was nothing to unlink.
+func unlinkTarget(target config.TargetConfig, sourcePath string) (string, error) {
 	sc := target.SkillsConfig()
 	info, err := os.Lstat(sc.Path)
 	if err != nil {
-		return nil // Target doesn't exist, OK to remove from config
+		return "", nil // Target doesn't exist, OK to remove from config
 	}
 
 	if utils.IsLinkMode(sc.Path, info.Mode()) {
 		if err := unlinkSymlinkMode(sc.Path, sourcePath); err != nil {
-			return err
+			return "", err
 		}
-		ui.Success("%s: unlinked and restored", targetName)
+		return "unlinked and restored", nil
 	} else if info.IsDir() {
 		// Remove manifest if present (merge/copy mode)
 		sync.RemoveManifest(sc.Path) //nolint:errcheck
 		if err := unlinkMergeMode(sc.Path, sourcePath); err != nil {
-			return err
+			return "", err
 		}
-		ui.Success("%s: skill symlinks removed", targetName)
+		return "skill symlinks removed", nil
 	}
 
-	return nil
+	return "", nil
+}
+
+// targetRemoveWidth is the label width for target remove rows, which also
+// name each target's agents backup.
+func targetRemoveWidth(toRemove []string) int {
+	labels := make([]string, 0, len(toRemove))
+	for _, name := range toRemove {
+		labels = append(labels, name+"-agents")
+	}
+	return ui.RowWidth(labels...)
 }
 
 func targetRemove(args []string) error {
@@ -404,24 +415,29 @@ func targetRemove(args []string) error {
 		return targetRemoveDryRun(cfg, toRemove)
 	}
 
-	backupTargets(cfg, toRemove)
+	width := targetRemoveWidth(toRemove)
+	backupTargets(cfg, toRemove, width)
 
-	ui.Header("Unlinking targets")
 	leaving := make(map[string]bool, len(toRemove))
 	for _, targetName := range toRemove {
 		leaving[targetName] = true
 	}
 	var stillNamed []string
+	removed := 0
 	for _, targetName := range toRemove {
 		target := cfg.Targets[targetName]
 		// Another target writing the same folder (codex and universal) still owns its links.
 		if !target.SkillsConfig().IsEnabled() {
-			ui.Info("%s: skills off, folder left as is", targetName)
+			ui.Row(ui.MarkNone, targetName, "skills off, folder left as is", width)
 		} else if keeper := config.SkillsPathKeptBy(cfg.Targets, targetName, leaving); keeper != "" {
-			ui.Info("%s: skills kept, %s uses the same folder", targetName, keeper)
-		} else if err := unlinkTarget(targetName, target, cfg.EffectiveSkillsSource()); err != nil {
-			ui.Error("%s: %v", targetName, err)
+			ui.Row(ui.MarkNone, targetName, fmt.Sprintf("skills kept, %s uses the same folder", keeper), width)
+		} else if done, err := unlinkTarget(target, cfg.EffectiveSkillsSource()); err != nil {
+			ui.Row(ui.MarkFail, targetName, err.Error(), width)
 			continue
+		} else if done != "" {
+			ui.Row(ui.MarkOK, targetName, done, width)
+		} else {
+			ui.Row(ui.MarkNone, targetName, "nothing to unlink", width)
 		}
 		// Read the MCP config before it is saved without the target: afterwards its
 		// own name no longer resolves, so the config no longer loads.
@@ -434,6 +450,7 @@ func targetRemove(args []string) error {
 			}
 		}
 		delete(cfg.Targets, targetName)
+		removed++
 	}
 
 	if err := cfg.Save(); err != nil {
@@ -442,18 +459,15 @@ func targetRemove(args []string) error {
 	for _, warning := range stillNamed {
 		ui.Warning("%s", warning)
 	}
+	if removed > 0 {
+		fmt.Println()
+		ui.Done(ui.MarkOK, "Removed "+plural(removed, "target"), 0)
+	}
 	return nil
 }
 
 func targetRemoveDryRun(cfg *config.Config, toRemove []string) error {
-	ui.Warning("Dry run mode - no changes will be made")
-
-	ui.Header("Backing up before unlink")
-	for _, targetName := range toRemove {
-		ui.Info("%s: would attempt backup", targetName)
-	}
-
-	ui.Header("Unlinking targets")
+	width := ui.RowWidth(toRemove...)
 	leaving := make(map[string]bool, len(toRemove))
 	for _, targetName := range toRemove {
 		leaving[targetName] = true
@@ -461,34 +475,35 @@ func targetRemoveDryRun(cfg *config.Config, toRemove []string) error {
 	for _, targetName := range toRemove {
 		target := cfg.Targets[targetName]
 		if !target.SkillsConfig().IsEnabled() {
-			ui.Info("%s: skills off, would leave folder as is", targetName)
-			ui.Info("%s: would remove from config", targetName)
+			ui.Row(ui.MarkNone, targetName, "would remove from config · skills off, folder left as is", width)
 			continue
 		}
 		if keeper := config.SkillsPathKeptBy(cfg.Targets, targetName, leaving); keeper != "" {
-			ui.Info("%s: would keep skills, %s uses the same folder", targetName, keeper)
-			ui.Info("%s: would remove from config", targetName)
+			ui.Row(ui.MarkNone, targetName, fmt.Sprintf("would remove from config · skills kept, %s uses the same folder", keeper), width)
 			continue
 		}
 		info, err := os.Lstat(target.SkillsConfig().Path)
 		if err != nil {
 			if os.IsNotExist(err) {
-				ui.Info("%s: would remove from config (path missing)", targetName)
+				ui.Row(ui.MarkNone, targetName, "would remove from config · folder not found", width)
 				continue
 			}
-			ui.Warning("%s: %v", targetName, err)
+			ui.Row(ui.MarkWarn, targetName, err.Error(), width)
 			continue
 		}
 
-		if utils.IsLinkMode(target.SkillsConfig().Path, info.Mode()) {
-			ui.Info("%s: would unlink symlink and restore contents", targetName)
-		} else if info.IsDir() {
-			ui.Info("%s: would remove skill symlinks", targetName)
+		switch {
+		case utils.IsLinkMode(target.SkillsConfig().Path, info.Mode()):
+			ui.Row(ui.MarkNone, targetName, "would back up, unlink and restore contents, and remove from config", width)
+		case info.IsDir():
+			ui.Row(ui.MarkNone, targetName, "would back up, remove skill symlinks, and remove from config", width)
+		default:
+			ui.Row(ui.MarkNone, targetName, "would remove from config", width)
 		}
-
-		ui.Info("%s: would remove from config", targetName)
 	}
 
+	fmt.Println()
+	ui.DryRun()
 	return nil
 }
 
@@ -585,7 +600,6 @@ func targetList(jsonOutput bool) error {
 		return err
 	}
 
-	ui.Header("Configured Targets")
 	printTargetListPlain(items)
 
 	return nil
@@ -686,12 +700,7 @@ func targetInfo(name string, args []string) error {
 				return err
 			}
 		}
-		for _, change := range changes {
-			ui.Success("%s: %s", name, change)
-		}
-		if len(changes) > 0 {
-			ui.Info("Run 'skillshare sync' to apply filter changes")
-		}
+		printTargetFilterChanges(name, changes)
 
 		e := oplog.NewEntry("target", statusFromErr(nil), time.Since(start))
 		e.Args = map[string]any{
@@ -745,8 +754,8 @@ func updateTargetMode(cfg *config.Config, name string, target config.TargetConfi
 		return err
 	}
 
-	ui.Success("Changed %s mode: %s -> %s", name, oldMode, newMode)
-	ui.Info("Run 'skillshare sync' to apply the new mode")
+	ui.Done(ui.MarkOK, fmt.Sprintf("Changed %s mode: %s -> %s", name, oldMode, newMode), 0)
+	ui.Next("skillshare sync", "apply the new mode")
 	return nil
 }
 
@@ -774,11 +783,11 @@ func updateTargetAgentMode(cfg *config.Config, name string, target config.Target
 		return err
 	}
 
-	ui.Success("Changed %s agent mode: %s -> %s", name, oldMode, newMode)
 	if newMode == "symlink" && (len(agentSummary.Include) > 0 || len(agentSummary.Exclude) > 0) {
 		ui.Warning("Agent include/exclude filters are ignored in symlink mode")
 	}
-	ui.Info("Run 'skillshare sync' to apply the new mode")
+	ui.Done(ui.MarkOK, fmt.Sprintf("Changed %s agent mode: %s -> %s", name, oldMode, newMode), 0)
+	ui.Next("skillshare sync", "apply the new mode")
 	return nil
 }
 
@@ -795,8 +804,8 @@ func updateTargetNaming(cfg *config.Config, name string, target config.TargetCon
 		return err
 	}
 
-	ui.Success("Changed %s target naming: %s -> %s", name, oldNaming, newNaming)
-	ui.Info("Run 'skillshare sync' to apply the new naming")
+	ui.Done(ui.MarkOK, fmt.Sprintf("Changed %s target naming: %s -> %s", name, oldNaming, newNaming), 0)
+	ui.Next("skillshare sync", "apply the new naming")
 	return nil
 }
 
@@ -812,7 +821,7 @@ func showTargetInfo(cfg *config.Config, name string, target config.TargetConfig)
 
 	modeDisplay := effectiveMode
 	if sc.Mode == "" {
-		modeDisplay = effectiveMode + " (default)"
+		modeDisplay = effectiveMode + ui.DimText(" (default)")
 	}
 
 	var statusLine string
@@ -821,17 +830,17 @@ func showTargetInfo(cfg *config.Config, name string, target config.TargetConfig)
 		statusLine = skillsOffSummary
 	case effectiveMode == "copy":
 		status, managed, local := sync.CheckStatusCopy(sc.Path)
-		statusLine = fmt.Sprintf("%s (managed: %d, local: %d)", status, managed, local)
+		statusLine = statusWithCounts(status, managed, "managed", local)
 	case effectiveMode == "merge":
 		status, linked, local := sync.CheckStatusMerge(sc.Path, cfg.EffectiveSkillsSource())
-		statusLine = fmt.Sprintf("%s (linked: %d, local: %d)", status, linked, local)
+		statusLine = statusWithCounts(status, linked, "linked", local)
 	default:
 		statusLine = sync.CheckStatus(sc.Path, cfg.EffectiveSkillsSource()).String()
 	}
 
 	namingDisplay := config.EffectiveTargetNaming(sc.TargetNaming)
 	if sc.TargetNaming == "" {
-		namingDisplay += " (default)"
+		namingDisplay += ui.DimText(" (default)")
 	}
 
 	agentBuilder, err := targetsummary.NewGlobalBuilder(cfg)
@@ -843,13 +852,8 @@ func showTargetInfo(cfg *config.Config, name string, target config.TargetConfig)
 		return err
 	}
 
-	ui.Header(fmt.Sprintf("Target: %s", name))
-	fmt.Printf("  Path:    %s\n", sc.Path)
-	fmt.Printf("  Mode:    %s\n", modeDisplay)
-	fmt.Printf("  Naming:  %s\n", namingDisplay)
-	fmt.Printf("  Status:  %s\n", statusLine)
-	fmt.Printf("  Include: %s\n", formatFilterList(sc.Include))
-	fmt.Printf("  Exclude: %s\n", formatFilterList(sc.Exclude))
+	fmt.Println(theme.Primary().Bold(true).Render(name))
+	printTargetSkillsSection(shortenPath(sc.Path), modeDisplay, namingDisplay, statusLine, sc.Include, sc.Exclude)
 	printTargetAgentSection(agentSummary)
 
 	return nil

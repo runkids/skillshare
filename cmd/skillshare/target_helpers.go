@@ -259,14 +259,6 @@ func removePattern(patterns *[]string, p string) bool {
 	return false
 }
 
-// formatFilterList formats a filter list for display, or "(none)" if empty.
-func formatFilterList(patterns []string) string {
-	if len(patterns) == 0 {
-		return "(none)"
-	}
-	return strings.Join(patterns, ", ")
-}
-
 // findUnknownSkillTargets returns warnings for skills whose targets field
 // references unknown target names.  Shared by check and doctor commands.
 // extraTargetNames contains user-configured target names (from global or
