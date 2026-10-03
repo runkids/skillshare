@@ -16,8 +16,9 @@ func TestTrashTUIRestoreDestination_UsesAgentDestination(t *testing.T) {
 	model := newTrashTUIModel(nil, "", "", "/tmp/skills", "/tmp/agents", "", "global")
 	model.confirmEntries = []trash.TrashEntry{{Name: "tutor", Kind: "agent"}}
 
+	// The destination is shown home-relative, and CI sandboxes use /tmp as HOME.
 	got := model.restoreDestination()
-	if !strings.Contains(got, "/tmp/agents") || strings.Contains(got, "/tmp/skills") {
+	if got != shortenPath("/tmp/agents") {
 		t.Fatalf("agent restore should go to the agent destination only, got %q", got)
 	}
 }
@@ -27,7 +28,7 @@ func TestTrashTUIRestoreDestination_ShowsMixedDestinations(t *testing.T) {
 	model.confirmEntries = []trash.TrashEntry{{Name: "demo-skill", Kind: "skill"}, {Name: "tutor", Kind: "agent"}}
 
 	got := model.restoreDestination()
-	if !strings.Contains(got, "skills to /tmp/skills") || !strings.Contains(got, "agents to /tmp/agents") {
+	if !strings.Contains(got, "skills to "+shortenPath("/tmp/skills")) || !strings.Contains(got, "agents to "+shortenPath("/tmp/agents")) {
 		t.Fatalf("mixed restore should name both destinations, got %q", got)
 	}
 }
