@@ -72,6 +72,9 @@ func presentAuditResults(results []*audit.Result, elapsed []time.Duration, scanO
 			for i, r := range shown {
 				printSkillResultLine(r, shownElapsed[i], width)
 			}
+			if len(shown) > 0 {
+				fmt.Println()
+			}
 		}
 		printAuditSummary(summary, kind)
 		fmt.Println()
@@ -232,7 +235,8 @@ func printSkillResult(result *audit.Result, kind resourceKindFilter, elapsed tim
 // printAuditSummary prints the counts, severities, threats and aggregate
 // risk of a batch scan. Zero counts are left out.
 func printAuditSummary(summary auditRunSummary, kind resourceKindFilter) {
-	ui.Section("Summary")
+	// The audit header already leaves a blank line above.
+	fmt.Println(theme.Primary().Bold(true).Render("Summary"))
 	width := ui.RowWidth("Scanned", "Severity", "Scan errors")
 	ui.Row(ui.MarkNone, "Scanned", fmt.Sprintf("%d %s", summary.Scanned, kind.Noun(summary.Scanned)), width)
 	for _, c := range []struct {
