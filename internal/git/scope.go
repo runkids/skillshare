@@ -213,18 +213,21 @@ func EnsureConfigUntracked(dir string) (removed bool, err error) {
 // or reset that brings in a remote-tracked config.yaml replaces this machine's
 // copy. The returned restore reports whether the upstream tracks config.yaml
 // after the pull, even when the tracked copy matches this machine's, so callers
-// can warn and suggest push to remove it. It puts the snapshot back only when the pull
-// changed config.yaml's index entry, so edits made while the pull ran to a file
-// Git left alone are kept.
+// can warn and suggest push to remove it. It puts the snapshot back only when
+// the pull changed config.yaml's index entry or removed the file (an aborted
+// merge that had brought it in deletes it again), so edits made while the
+// pull ran to a file Git left alone are kept.
 func KeepLocalConfig(dir string) (restore func() (remoteTracks bool, err error), err error) {
+	path := filepath.Join(dir, "config.yaml")
 	entryBefore := configIndexEntry(dir)
-	put, err := snapshotConfig(filepath.Join(dir, "config.yaml"))
+	put, err := snapshotConfig(path)
 	if err != nil {
 		return nil, err
 	}
 	return func() (bool, error) {
 		remoteTracks := RemoteTracksConfig(dir, "@{u}")
-		if configIndexEntry(dir) == entryBefore {
+		_, statErr := os.Lstat(path)
+		if configIndexEntry(dir) == entryBefore && !errors.Is(statErr, fs.ErrNotExist) {
 			return remoteTracks, nil
 		}
 		_, err := put()

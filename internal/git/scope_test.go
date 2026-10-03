@@ -434,6 +434,32 @@ func TestKeepLocalConfig_IgnoresConfigTrackedOnlyLocally(t *testing.T) {
 	}
 }
 
+func TestKeepLocalConfig_RestoresAfterAbortedPull(t *testing.T) {
+	repo, remote := rootScopeRepoTrackingRemote(t)
+	pushFromOtherClone(t, remote, map[string]string{"config.yaml": "remote-config\n", "skills/a/SKILL.md": "# remote\n"})
+	if err := os.MkdirAll(filepath.Join(repo, "skills", "a"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(repo, "skills", "a", "SKILL.md"), []byte("# local\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	runGit(t, repo, "add", "skills")
+	runGit(t, repo, "commit", "-m", "local edit")
+	restore, err := KeepLocalConfig(repo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := PullWithEnv(repo, nil); err == nil {
+		t.Fatal("PullWithEnv() succeeded; want a conflict that aborts the merge")
+	}
+	if _, err := restore(); err != nil {
+		t.Fatal(err)
+	}
+	if got, err := os.ReadFile(filepath.Join(repo, "config.yaml")); err != nil || string(got) != "LOCAL-config\n" {
+		t.Fatalf("config.yaml = %q, %v; want the local copy restored after the aborted pull", got, err)
+	}
+}
+
 func TestKeepLocalConfig_ReportsTrackedCopyWithSameContent(t *testing.T) {
 	repo, remote := rootScopeRepoTrackingRemote(t)
 	pushFromOtherClone(t, remote, map[string]string{"config.yaml": "LOCAL-config\n"})
