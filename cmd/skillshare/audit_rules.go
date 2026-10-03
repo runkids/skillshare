@@ -286,30 +286,29 @@ func auditRulesPathForMode(mode runMode, cwd string) string {
 }
 
 func printAuditRulesHelp() {
-	fmt.Println(`Usage: skillshare audit rules [action] [options]
-
-Browse, enable, disable, and configure audit rules.
-
-Actions:
-  (none)               List all rules (default, opens TUI if available)
-  disable <id>         Disable a single rule by ID
-  disable --pattern <p> Disable all rules in a pattern group
-  enable <id>          Re-enable a single rule
-  enable --pattern <p> Re-enable all rules in a pattern group
-  severity <id> <level>           Override severity for a rule
-  severity --pattern <p> <level>  Override severity for a pattern group
-  reset                Remove all custom rules (restore built-in defaults)
-  init                 Create a starter audit-rules.yaml
-
-Options:
-  --pattern <name>     Filter by pattern name
-  --severity <level>   Filter by minimum severity (critical/high/medium/low/info)
-  --disabled           Only show disabled rules
-  --format json        Output as JSON
-  --no-tui             Plain text table (no interactive TUI)
-  -p, --project        Use project-level rules
-  -g, --global         Use global rules
-  -h, --help           Show this help
-
-Severity levels: critical (c), high (h), medium (m), low (l), info (i)`)
+	printHelp("skillshare audit rules [action] [options]", "Browse, enable, disable, and configure audit rules.",
+		helpGroup{title: "Actions", rows: []helpRow{
+			{"(none)", "List all rules (default, opens TUI if available)"},
+			{"disable <id>", "Disable a single rule by ID"},
+			{"disable --pattern <p>", "Disable all rules in a pattern group"},
+			{"enable <id>", "Re-enable a single rule"},
+			{"enable --pattern <p>", "Re-enable all rules in a pattern group"},
+			{"severity <id> <level>", "Override severity for a rule"},
+			{"severity --pattern <p> <level>", "Override severity for a pattern group"},
+			{"reset", "Remove all custom rules (restore built-in defaults)"},
+			{"init", "Create a starter audit-rules.yaml"},
+		}},
+		helpGroup{title: "Options", rows: []helpRow{
+			{"--pattern <name>", "Filter by pattern name"},
+			{"--severity <level>", "Filter by minimum severity (critical/high/medium/low/info)"},
+			{"--disabled", "Only show disabled rules"},
+			{"--format json", "Output as JSON"},
+			{"--no-tui", "Plain text table (no interactive TUI)"},
+			{"-p, --project", "Use project-level rules"},
+			{"-g, --global", "Use global rules"},
+		}},
+		helpNotes("Notes",
+			"Severity levels: critical (c), high (h), medium (m), low (l), info (i)",
+		),
+	)
 }

@@ -77,18 +77,17 @@ func printExtrasHelp() {
 }
 
 func printExtraHelp(name string) {
-	fmt.Printf(`Usage: skillshare extras %s [options]
-
-Options:
-  --mode <mode>             Change sync mode: merge, copy, symlink, or import (single-file extras)
-  --target <path>           Select a target for --mode
-  --add-target <path>       Add a target directory
-  --as <filename>           Target filename for a single-file --add-target
-  --remove-target <path>    Detach a target
-  --prune                  Restore/remove managed files when detaching
-  --flatten / --no-flatten  Change directory-extra flattening
-  --project, -p            Use project mode
-  --global, -g             Use global mode
-  --help, -h               Show this help
-`, name)
+	printHelp("skillshare extras "+name+" [options]", "",
+		helpGroup{title: "Options", rows: []helpRow{
+			{"--mode <mode>", "Change sync mode: merge, copy, symlink, or import (single-file extras)"},
+			{"--target <path>", "Select a target for --mode"},
+			{"--add-target <path>", "Add a target directory"},
+			{"--as <filename>", "Target filename for a single-file --add-target"},
+			{"--remove-target <path>", "Detach a target"},
+			{"--prune", "Restore/remove managed files when detaching"},
+			{"--flatten / --no-flatten", "Change directory-extra flattening"},
+			{"-p, --project", "Use project mode"},
+			{"-g, --global", "Use global mode"},
+		}},
+	)
 }

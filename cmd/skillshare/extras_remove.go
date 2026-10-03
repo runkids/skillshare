@@ -251,20 +251,14 @@ func findExtraByName(extras []config.ExtraConfig, name string) (int, config.Extr
 }
 
 func printExtrasRemoveHelp() {
-	fmt.Println(`Usage: skillshare extras remove <name> [options]
-
-Remove an extra resource type from config.
-
-Source files are NOT deleted. Single-file targets are restored to their
-pre-attach state. Directory extras leave target files in place; run
-'skillshare sync extras' to clean up their orphaned links.
-
-Arguments:
-  name                Name of the extra to remove
-
-Options:
-  --force, -f         Skip confirmation prompt
-  --project, -p       Remove from project config (.skillshare/)
-  --global, -g        Remove from global config (~/.config/skillshare/)
-  --help, -h          Show this help`)
+	printHelp("skillshare extras remove <name> [options]", "Remove an extra resource type from config.\n\nSource files are NOT deleted. Single-file targets are restored to their\npre-attach state. Directory extras leave target files in place; run\n'skillshare sync extras' to clean up their orphaned links.",
+		helpGroup{title: "Arguments", rows: []helpRow{
+			{"name", "Name of the extra to remove"},
+		}},
+		helpGroup{title: "Options", rows: []helpRow{
+			{"-f, --force", "Skip confirmation prompt"},
+			{"-p, --project", "Remove from project config (.skillshare/)"},
+			{"-g, --global", "Remove from global config (~/.config/skillshare/)"},
+		}},
+	)
 }

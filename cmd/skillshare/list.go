@@ -873,33 +873,29 @@ func abbreviateSource(source string) string {
 }
 
 func printListHelp() {
-	fmt.Println(`Usage: skillshare list [agents] [pattern] [options]
-
-List all installed skills in the source directory.
-An optional pattern filters skills by name, path, or source (case-insensitive).
-The default view (--status all) includes entries marked disabled.
-
-Options:
-  --all                  List both skills and agents
-  --verbose, -v          Show detailed information (source, type, install date)
-  --json, -j             Output as JSON (useful for CI/scripts)
-  --no-tui               Disable interactive TUI, use plain text output
-  --type, -t <type>      Filter by type: tracked, local, github
-  --status <status>      Filter by status: all (default), enabled, disabled
-  --sort, -s <order>     Sort order: name (default), newest, oldest
-  --project, -p          Use project-level config in current directory
-  --global, -g           Use global config (~/.config/skillshare)
-  --help, -h             Show this help
-
-Examples:
-  skillshare list
-  skillshare list react
-  skillshare list --type local
-  skillshare list --status disabled
-  skillshare list --status enabled --json
-  skillshare list react --type github --sort newest
-  skillshare list --json | jq '.[].name'
-  skillshare list --verbose
-  skillshare list agents                       # List agents only
-  skillshare list --all                        # List skills + agents`)
+	printHelp("skillshare list [agents] [pattern] [options]", "List all installed skills in the source directory.\nAn optional pattern filters skills by name, path, or source (case-insensitive).\nThe default view (--status all) includes entries marked disabled.",
+		helpGroup{title: "Options", rows: []helpRow{
+			{"--all", "List both skills and agents"},
+			{"-v, --verbose", "Show detailed information (source, type, install date)"},
+			{"-j, --json", "Output as JSON (useful for CI/scripts)"},
+			{"--no-tui", "Disable interactive TUI, use plain text output"},
+			{"-t, --type <type>", "Filter by type: tracked, local, github"},
+			{"--status <status>", "Filter by status: all (default), enabled, disabled"},
+			{"-s, --sort <order>", "Sort order: name (default), newest, oldest"},
+			{"-p, --project", "Use project-level config in current directory"},
+			{"-g, --global", "Use global config (~/.config/skillshare)"},
+		}},
+		helpExamples(
+			helpRow{"skillshare list", ""},
+			helpRow{"skillshare list react", ""},
+			helpRow{"skillshare list --type local", ""},
+			helpRow{"skillshare list --status disabled", ""},
+			helpRow{"skillshare list --status enabled --json", ""},
+			helpRow{"skillshare list react --type github --sort newest", ""},
+			helpRow{"skillshare list --json | jq '.[].name'", ""},
+			helpRow{"skillshare list --verbose", ""},
+			helpRow{"skillshare list agents", "List agents only"},
+			helpRow{"skillshare list --all", "List skills + agents"},
+		),
+	)
 }

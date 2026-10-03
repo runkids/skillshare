@@ -434,18 +434,16 @@ func checkSkillVersion(cfg *config.Config) {
 }
 
 func printStatusHelp() {
-	fmt.Println(`Usage: skillshare status [options]
-
-Show status of source, skills, agents, and all targets.
-
-Options:
-  --json            Output results as JSON
-  --project, -p     Use project-level config
-  --global, -g      Use global config
-  --help, -h        Show this help
-
-Examples:
-  skillshare status              Show current state (skills + agents)
-  skillshare status --json       Output as JSON
-  skillshare status -p           Show project status`)
+	printHelp("skillshare status [options]", "Show status of source, skills, agents, and all targets.",
+		helpGroup{title: "Options", rows: []helpRow{
+			{"--json", "Output results as JSON"},
+			{"-p, --project", "Use project-level config"},
+			{"-g, --global", "Use global config"},
+		}},
+		helpExamples(
+			helpRow{"skillshare status", "Show current state (skills + agents)"},
+			helpRow{"skillshare status --json", "Output as JSON"},
+			helpRow{"skillshare status -p", "Show project status"},
+		),
+	)
 }

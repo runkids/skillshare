@@ -285,17 +285,15 @@ func pushDestination(sourcePath string) string {
 }
 
 func printPushHelp() {
-	fmt.Println(`Usage: skillshare push [options]
-
-Commit and push source skills to git remote.
-
-Options:
-  -m, --message <msg>   Commit message (default: "Update skills")
-  --dry-run, -n         Preview changes without applying
-  --help, -h            Show this help
-
-Examples:
-  skillshare push                      Push with default message
-  skillshare push -m "Add new skill"   Push with custom message
-  skillshare push --dry-run            Preview what would happen`)
+	printHelp("skillshare push [options]", "Commit and push source skills to git remote.",
+		helpGroup{title: "Options", rows: []helpRow{
+			{"-m, --message <msg>", "Commit message (default: \"Update skills\")"},
+			{"-n, --dry-run", "Preview changes without applying"},
+		}},
+		helpExamples(
+			helpRow{"skillshare push", "Push with default message"},
+			helpRow{"skillshare push -m \"Add new skill\"", "Push with custom message"},
+			helpRow{"skillshare push --dry-run", "Preview what would happen"},
+		),
+	)
 }

@@ -156,19 +156,16 @@ func printToggleHelp(action string) {
 	if action == "enable" {
 		opposite = "disable"
 	}
-	fmt.Printf(`Usage: skillshare %s <name|pattern> [flags]
-
-%s skills by adding/removing patterns from .skillignore.
-
-Arguments:
-  <name|pattern>  Skill name or glob pattern (e.g. "my-skill", "draft-*")
-
-Flags:
-  -p, --project   Use project-mode .skillignore
-  -g, --global    Use global-mode .skillignore
-  -n, --dry-run   Preview changes without writing
-  -h, --help      Show this help
-
-See also: skillshare %s
-`, action, strings.ToUpper(action[:1])+action[1:], opposite)
+	printHelp("skillshare "+action+" <name|pattern> [options]",
+		strings.ToUpper(action[:1])+action[1:]+" skills by adding/removing patterns from .skillignore.",
+		helpGroup{title: "Arguments", rows: []helpRow{
+			{"<name|pattern>", "Skill name or glob pattern (e.g. \"my-skill\", \"draft-*\")"},
+		}},
+		helpGroup{title: "Options", rows: []helpRow{
+			{"-p, --project", "Use project-mode .skillignore"},
+			{"-g, --global", "Use global-mode .skillignore"},
+			{"-n, --dry-run", "Preview changes without writing"},
+		}},
+		helpNotes("See also", "skillshare "+opposite),
+	)
 }

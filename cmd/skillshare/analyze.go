@@ -167,33 +167,27 @@ func cmdAnalyze(args []string) error {
 }
 
 func printAnalyzeHelp() {
-	fmt.Println(`Usage: skillshare analyze [target] [options]
-
-Analyze context window usage for each target's skills.
-
-Shows two layers of context cost:
-  - Always loaded: frontmatter name + description (loaded every request)
-  - On-demand: skill body (loaded only when triggered)
-
-Arguments:
-  target              Show details for a single target (optional)
-
-Options:
-  --verbose, -v       Show top 10 largest descriptions per target
-  --project, -p       Analyze project-level skills (.skillshare/)
-  --global, -g        Analyze global skills (~/.config/skillshare)
-  --json              Output results as JSON
-  --filter <text>     Filter skills by name/path (case-insensitive substring)
-  --no-tui            Disable interactive TUI
-  --help, -h          Show this help
-
-Examples:
-  skillshare analyze               # Summary table for all targets
-  skillshare analyze --verbose     # Top 10 descriptions per target
-  skillshare analyze claude        # Details for claude target
-  skillshare analyze --json        # JSON output
-  skillshare analyze --filter api  # Show only skills matching "api"
-  skillshare analyze -p            # Project mode`)
+	printHelp("skillshare analyze [target] [options]", "Analyze context window usage for each target's skills.\n\nShows two layers of context cost:\n  - Always loaded: frontmatter name + description (loaded every request)\n  - On-demand: skill body (loaded only when triggered)",
+		helpGroup{title: "Arguments", rows: []helpRow{
+			{"target", "Show details for a single target (optional)"},
+		}},
+		helpGroup{title: "Options", rows: []helpRow{
+			{"-v, --verbose", "Show top 10 largest descriptions per target"},
+			{"-p, --project", "Analyze project-level skills (.skillshare/)"},
+			{"-g, --global", "Analyze global skills (~/.config/skillshare)"},
+			{"--json", "Output results as JSON"},
+			{"--filter <text>", "Filter skills by name/path (case-insensitive substring)"},
+			{"--no-tui", "Disable interactive TUI"},
+		}},
+		helpExamples(
+			helpRow{"skillshare analyze", "Summary table for all targets"},
+			helpRow{"skillshare analyze --verbose", "Top 10 descriptions per target"},
+			helpRow{"skillshare analyze claude", "Details for claude target"},
+			helpRow{"skillshare analyze --json", "JSON output"},
+			helpRow{"skillshare analyze --filter api", "Show only skills matching \"api\""},
+			helpRow{"skillshare analyze -p", "Project mode"},
+		),
+	)
 }
 
 // runAnalyze runs the analyze command in global mode.

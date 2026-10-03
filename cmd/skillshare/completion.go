@@ -124,20 +124,19 @@ func cmdCompletion(args []string) error {
 }
 
 func printCompletionUsage() {
-	fmt.Println("Generate shell completion scripts")
-	fmt.Println()
-	fmt.Println("USAGE")
-	fmt.Println("  skillshare completion <shell>             Output completion script to stdout")
-	fmt.Println("  skillshare completion <shell> --install   Install completion script")
-	fmt.Println()
-	fmt.Println("SHELLS")
-	fmt.Println("  bash, zsh, fish, powershell, nushell")
-	fmt.Println()
-	fmt.Println("EXAMPLES")
-	fmt.Println("  skillshare completion bash --install        Install bash completions")
-	fmt.Println("  skillshare completion zsh --install         Install zsh completions")
-	fmt.Println("  skillshare completion fish --install        Install fish completions")
-	fmt.Println("  skillshare completion powershell --install  Install PowerShell completions")
-	fmt.Println("  skillshare completion nushell --install     Install Nushell completions")
-	fmt.Println("  skillshare completion bash                  Print script to stdout")
+	printHelp("skillshare completion <shell> [--install]", "Generate shell completion scripts.",
+		helpGroup{title: "Commands", rows: []helpRow{
+			{"completion <shell>", "Output completion script to stdout"},
+			{"completion <shell> --install", "Install completion script"},
+		}},
+		helpNotes("Shells", "bash, zsh, fish, powershell, nushell"),
+		helpExamples(
+			helpRow{"skillshare completion bash --install", "Install bash completions"},
+			helpRow{"skillshare completion zsh --install", "Install zsh completions"},
+			helpRow{"skillshare completion fish --install", "Install fish completions"},
+			helpRow{"skillshare completion powershell --install", "Install PowerShell completions"},
+			helpRow{"skillshare completion nushell --install", "Install Nushell completions"},
+			helpRow{"skillshare completion bash", "Print script to stdout"},
+		),
+	)
 }

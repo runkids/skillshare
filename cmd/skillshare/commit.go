@@ -97,17 +97,15 @@ func cmdCommit(args []string) error {
 }
 
 func printCommitHelp() {
-	fmt.Println(`Usage: skillshare commit [options]
-
-Create a local git commit for source skills without pushing.
-
-Options:
-  -m, --message <msg>   Commit message (default: "Update skills")
-  --dry-run, -n         Preview changes without applying
-  --help, -h            Show this help
-
-Examples:
-  skillshare commit                         Commit with default message
-  skillshare commit -m "Update skill"       Commit with custom message
-  skillshare commit --dry-run               Preview what would happen`)
+	printHelp("skillshare commit [options]", "Create a local git commit for source skills without pushing.",
+		helpGroup{title: "Options", rows: []helpRow{
+			{"-m, --message <msg>", "Commit message (default: \"Update skills\")"},
+			{"-n, --dry-run", "Preview changes without applying"},
+		}},
+		helpExamples(
+			helpRow{"skillshare commit", "Commit with default message"},
+			helpRow{"skillshare commit -m \"Update skill\"", "Commit with custom message"},
+			helpRow{"skillshare commit --dry-run", "Preview what would happen"},
+		),
+	)
 }

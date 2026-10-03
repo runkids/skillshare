@@ -220,20 +220,16 @@ func managedExtraTargetFiles(target config.ExtraTargetConfig, sourceDir, extensi
 }
 
 func printExtrasRemoveTargetHelp() {
-	fmt.Println(`Usage: skillshare extras <name> --remove-target <path> [--prune]
-
-Remove one target from an existing extra. By default only the config entry is
-removed; synced files are left on disk. Use --prune to also delete the
-skillshare-managed files under that target.
-
-Options:
-  --remove-target <path>  Target directory to remove (required)
-  --prune                 Also delete skillshare-managed files under that target
-  --project, -p           Use project mode (.skillshare/)
-  --global, -g            Use global mode (~/.config/skillshare/)
-  --help, -h              Show this help
-
-Examples:
-  skillshare extras rules --remove-target ~/.cursor/rules
-  skillshare extras rules --remove-target ~/.cursor/rules --prune`)
+	printHelp("skillshare extras <name> --remove-target <path> [--prune]", "Remove one target from an existing extra. By default only the config entry is\nremoved; synced files are left on disk. Use --prune to also delete the\nskillshare-managed files under that target.",
+		helpGroup{title: "Options", rows: []helpRow{
+			{"--remove-target <path>", "Target directory to remove (required)"},
+			{"--prune", "Also delete skillshare-managed files under that target"},
+			{"-p, --project", "Use project mode (.skillshare/)"},
+			{"-g, --global", "Use global mode (~/.config/skillshare/)"},
+		}},
+		helpExamples(
+			helpRow{"skillshare extras rules --remove-target ~/.cursor/rules", ""},
+			helpRow{"skillshare extras rules --remove-target ~/.cursor/rules --prune", ""},
+		),
+	)
 }

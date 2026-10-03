@@ -554,40 +554,37 @@ func formatRiskBadgePlain(label string) string {
 }
 
 func printSearchHelp() {
-	fmt.Println(`Usage: skillshare search [query] [options]
-
-Search GitHub for skills containing SKILL.md files.
-When no query is provided, browses popular skills.
-
-Options:
-  --project, -p      Install to project-level config (.skillshare/)
-  --global, -g       Install to global config (~/.config/skillshare)
-  --hub [URL]        Search from a hub index (default: skillshare-hub; or custom URL/path)
-  --json             Output results as JSON
-  --list, -l         List results only (no install prompt)
-  --limit N, -n      Maximum results (default: 20, max: 100)
-  --help, -h         Show this help
-
-Examples:
-  skillshare search                   Browse popular skills
-  skillshare search pdf
-  skillshare search "code review"
-  skillshare search commit --limit 10
-  skillshare search frontend --json
-  skillshare search react --list
-  skillshare search pdf -p
-
-  # Hub search (default: skillshare-hub)
-  skillshare search --hub                      Browse skillshare-hub
-  skillshare search react --hub                Search "react" in skillshare-hub
-  skillshare search --hub ./skillshare-hub.json          Custom local index
-  skillshare search react --hub https://internal.corp/skills/index.json
-
-  # Hub search with saved hubs
-  skillshare hub add https://internal.corp/hub.json --label team
-  skillshare search --hub team                       Search using saved hub label
-  skillshare hub default team
-  skillshare search --hub                            Uses default hub`)
+	printHelp("skillshare search [query] [options]", "Search GitHub for skills containing SKILL.md files.\nWhen no query is provided, browses popular skills.",
+		helpGroup{title: "Options", rows: []helpRow{
+			{"-p, --project", "Install to project-level config (.skillshare/)"},
+			{"-g, --global", "Install to global config (~/.config/skillshare)"},
+			{"--hub [URL]", "Search from a hub index (default: skillshare-hub; or custom URL/path)"},
+			{"--json", "Output results as JSON"},
+			{"-l, --list", "List results only (no install prompt)"},
+			{"-n, --limit N", "Maximum results (default: 20, max: 100)"},
+		}},
+		helpExamples(
+			helpRow{"skillshare search", "Browse popular skills"},
+			helpRow{"skillshare search pdf", ""},
+			helpRow{"skillshare search \"code review\"", ""},
+			helpRow{"skillshare search commit --limit 10", ""},
+			helpRow{"skillshare search frontend --json", ""},
+			helpRow{"skillshare search react --list", ""},
+			helpRow{"skillshare search pdf -p", ""},
+		),
+		helpGroup{title: "Hub search (default: skillshare-hub)", examples: true, rows: []helpRow{
+			{"skillshare search --hub", "Browse skillshare-hub"},
+			{"skillshare search react --hub", "Search \"react\" in skillshare-hub"},
+			{"skillshare search --hub ./skillshare-hub.json", "Custom local index"},
+			{"skillshare search react --hub https://internal.corp/skills/index.json", ""},
+		}},
+		helpGroup{title: "Hub search with saved hubs", examples: true, rows: []helpRow{
+			{"skillshare hub add https://internal.corp/hub.json --label team", ""},
+			{"skillshare search --hub team", "Search using saved hub label"},
+			{"skillshare hub default team", ""},
+			{"skillshare search --hub", "Uses default hub"},
+		}},
+	)
 }
 
 // resolveHubURL resolves the --hub flag value to a URL.

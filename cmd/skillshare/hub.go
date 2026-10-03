@@ -201,42 +201,38 @@ func resolveSourcePath(mode runMode, cwd string) (string, error) {
 }
 
 func printHubHelp() {
-	fmt.Println(`Usage: skillshare hub <subcommand> [options]
-
-Manage skill hubs — saved hub sources for search.
-
-Subcommands:
-  add <url>       Save a hub source (--label to set name)
-  list            List saved hubs (* marks default)
-  remove <label>  Remove a saved hub
-  default [label] Show or set the default hub (--reset to clear)
-  index           Build an index.json from source skills
-  help            Show this help
-
-Run 'skillshare hub <subcommand> --help' for details.`)
+	printHelp("skillshare hub <subcommand> [options]", "Manage skill hubs — saved hub sources for search.",
+		helpGroup{title: "Commands", rows: []helpRow{
+			{"add <url>", "Save a hub source (--label to set name)"},
+			{"list", "List saved hubs (* marks default)"},
+			{"remove <label>", "Remove a saved hub"},
+			{"default [label]", "Show or set the default hub (--reset to clear)"},
+			{"index", "Build an index.json from source skills"},
+		}},
+		helpNotes("Notes",
+			"Run 'skillshare hub <subcommand> --help' for details.",
+		),
+	)
 }
 
 func printHubIndexHelp() {
-	fmt.Println(`Usage: skillshare hub index [options]
-
-Build an index.json file from installed skills. The generated index
-can be used with 'skillshare search --hub' for private search.
-
-Options:
-  --source, -s <path>   Source directory to scan (default: auto-detect)
-  --output, -o <path>   Output file path (default: <source>/skillshare-hub.json)
-  --full                Include full metadata (flatName, type, version, etc.)
-  --audit               Run security audit on each skill and include risk scores
-  --project, -p         Use project mode (.skillshare/)
-  --global, -g          Use global mode (~/.config/skillshare/)
-  --help, -h            Show this help
-
-Examples:
-  skillshare hub index                           Build minimal index
-  skillshare hub index --full                    Build with full metadata
-  skillshare hub index --audit                   Build with risk scores
-  skillshare hub index --full --audit            Full metadata + risk scores
-  skillshare hub index -o /tmp/index.json        Custom output path
-  skillshare hub index -s ~/my-skills            Custom source directory
-  skillshare hub index -p                        Project mode`)
+	printHelp("skillshare hub index [options]", "Build an index.json file from installed skills. The generated index\ncan be used with 'skillshare search --hub' for private search.",
+		helpGroup{title: "Options", rows: []helpRow{
+			{"-s, --source <path>", "Source directory to scan (default: auto-detect)"},
+			{"-o, --output <path>", "Output file path (default: <source>/skillshare-hub.json)"},
+			{"--full", "Include full metadata (flatName, type, version, etc.)"},
+			{"--audit", "Run security audit on each skill and include risk scores"},
+			{"-p, --project", "Use project mode (.skillshare/)"},
+			{"-g, --global", "Use global mode (~/.config/skillshare/)"},
+		}},
+		helpExamples(
+			helpRow{"skillshare hub index", "Build minimal index"},
+			helpRow{"skillshare hub index --full", "Build with full metadata"},
+			helpRow{"skillshare hub index --audit", "Build with risk scores"},
+			helpRow{"skillshare hub index --full --audit", "Full metadata + risk scores"},
+			helpRow{"skillshare hub index -o /tmp/index.json", "Custom output path"},
+			helpRow{"skillshare hub index -s ~/my-skills", "Custom source directory"},
+			helpRow{"skillshare hub index -p", "Project mode"},
+		),
+	)
 }

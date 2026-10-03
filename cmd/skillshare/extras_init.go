@@ -325,36 +325,33 @@ func removeExtraByName(extras []config.ExtraConfig, name string) []config.ExtraC
 }
 
 func printExtrasInitHelp() {
-	fmt.Println(`Usage: skillshare extras init <name> [options]
-
-Create a new extra resource type: a folder of files, or one file (--file).
-
-Arguments:
-  name                Name for the extra (e.g., rules, commands, prompts)
-
-Options:
-  --target <path>     Target directory (repeatable)
-  --source <path>     Custom source directory (overrides extras_source and default;
-                      relative to the project root in project mode)
-  --file <filename>   Sync only this file from the source directory (single-file extra)
-  --as <filename>     Target filename for every --target (requires --file; default: the --file name)
-  --mode <mode>       Sync mode: merge (default), copy, symlink; import for single-file extras
-  --flatten           Flatten files from subdirectories into target root (folder extras only)
-  --force             Overwrite if extra already exists
-  --project, -p       Create in project mode (.skillshare/)
-  --global, -g        Create in global mode (~/.config/skillshare/)
-  --no-tui            Skip interactive wizard
-  --help, -h          Show this help
-
-Examples:
-  skillshare extras init rules --target ~/.claude/rules --target ~/.cursor/rules
-  skillshare extras init commands --target ~/.claude/commands --mode copy
-  skillshare extras init rules --source ~/company-shared/rules --target ~/.claude/rules
-  skillshare extras init rules --target ~/.claude/rules --force
-  skillshare extras init agents --target ~/.claude/agents --flatten
-  skillshare extras init prompts --target .claude/prompts -p
-  skillshare extras init review -p --source .skillshare/extras/prompts \
-    --file review.md --target .claude/commands
-  skillshare extras init pi-prompt --source ~/dotfiles/prompts --file system.md \
-    --target ~/.pi/agent --as APPEND_SYSTEM.md`)
+	printHelp("skillshare extras init <name> [options]", "Create a new extra resource type: a folder of files, or one file (--file).",
+		helpGroup{title: "Arguments", rows: []helpRow{
+			{"name", "Name for the extra (e.g., rules, commands, prompts)"},
+		}},
+		helpGroup{title: "Options", rows: []helpRow{
+			{"--target <path>", "Target directory (repeatable)"},
+			{"--source <path>", "Custom source directory (overrides extras_source and default;\nrelative to the project root in project mode)"},
+			{"--file <filename>", "Sync only this file from the source directory (single-file extra)"},
+			{"--as <filename>", "Target filename for every --target (requires --file; default: the --file name)"},
+			{"--mode <mode>", "Sync mode: merge (default), copy, symlink; import for single-file extras"},
+			{"--flatten", "Flatten files from subdirectories into target root (folder extras only)"},
+			{"--force", "Overwrite if extra already exists"},
+			{"-p, --project", "Create in project mode (.skillshare/)"},
+			{"-g, --global", "Create in global mode (~/.config/skillshare/)"},
+			{"--no-tui", "Skip interactive wizard"},
+		}},
+		helpExamples(
+			helpRow{"skillshare extras init rules --target ~/.claude/rules --target ~/.cursor/rules", ""},
+			helpRow{"skillshare extras init commands --target ~/.claude/commands --mode copy", ""},
+			helpRow{"skillshare extras init rules --source ~/company-shared/rules --target ~/.claude/rules", ""},
+			helpRow{"skillshare extras init rules --target ~/.claude/rules --force", ""},
+			helpRow{"skillshare extras init agents --target ~/.claude/agents --flatten", ""},
+			helpRow{"skillshare extras init prompts --target .claude/prompts -p", ""},
+			helpRow{"skillshare extras init review -p --source .skillshare/extras/prompts \\", ""},
+			helpRow{"  --file review.md --target .claude/commands", ""},
+			helpRow{"skillshare extras init pi-prompt --source ~/dotfiles/prompts --file system.md \\", ""},
+			helpRow{"  --target ~/.pi/agent --as APPEND_SYSTEM.md", ""},
+		),
+	)
 }

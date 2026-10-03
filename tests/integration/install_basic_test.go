@@ -371,7 +371,7 @@ func TestInstall_Help_ShowsUsage(t *testing.T) {
 	result := sb.RunCLI("install", "--help")
 
 	result.AssertSuccess(t)
-	result.AssertOutputContains(t, "Usage:")
+	result.AssertOutputContains(t, "Usage  skillshare")
 	result.AssertOutputContains(t, "--force")
 	result.AssertOutputContains(t, "--dry-run")
 	result.AssertOutputContains(t, "--name")

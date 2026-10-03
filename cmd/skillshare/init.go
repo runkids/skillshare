@@ -54,37 +54,35 @@ type initOptions struct {
 var errHelp = fmt.Errorf("help requested")
 
 func printInitUsage() {
-	fmt.Println("Usage: skillshare init [flags]")
-	fmt.Println()
-	fmt.Println("Initialize skillshare — detect AI CLI tools, create config, and set up skill syncing.")
-	fmt.Println()
-	fmt.Println("FLAGS")
-	fmt.Println("  --source, -s <path>       Set source directory (default: ~/.config/skillshare/skills)")
-	fmt.Println("  --remote <url>            Set git remote for cross-machine sync (implies --git)")
-	fmt.Println("  -p, --project             Initialize project-level config in current directory")
-	fmt.Println("  --copy-from, -c <name>    Copy existing skills from a detected CLI directory")
-	fmt.Println("  --no-copy                 Start with empty source (skip copy prompt)")
-	fmt.Println("  --targets, -t <list>      Comma-separated target names to add")
-	fmt.Println("  --all-targets             Add all detected targets")
-	fmt.Println("  --no-targets              Skip target setup")
-	fmt.Println("  --mode, -m <mode>         Set sync mode (merge, copy, symlink; default: merge).")
-	fmt.Println("                            With --discover, applies only to newly added targets")
-	fmt.Println("  --git                     Initialize git in source (default: prompt)")
-	fmt.Println("  --no-git                  Skip git initialization")
-	fmt.Println("  --git-root <scope>        Git scope: skills (default), agents, extras, or root")
-	fmt.Println("  --skill                   Install built-in skillshare skill")
-	fmt.Println("  --no-skill                Skip built-in skill installation")
-	fmt.Println("  --discover, -d            Detect and add new AI CLI agents to existing config")
-	fmt.Println("  --select <list>           Select specific agents to add (requires --discover)")
-	fmt.Println("  --subdir <name>           Use a subdirectory as the source (e.g. skills/)")
-	fmt.Println("  --dry-run, -n             Preview without making changes")
-	fmt.Println()
-	fmt.Println("EXAMPLES")
-	fmt.Println("  skillshare init                                    # Interactive setup")
-	fmt.Println("  skillshare init --remote git@github.com:u/skills   # With cross-machine sync")
-	fmt.Println("  skillshare init --no-copy --git --no-skill         # Non-interactive, minimal")
-	fmt.Println("  skillshare init --discover                         # Add newly installed AI tools")
-	fmt.Println("  skillshare init -p                                 # Project-level init")
+	printHelp("skillshare init [options]", "Initialize skillshare — detect AI CLI tools, create config, and set up skill syncing.",
+		helpGroup{title: "Options", rows: []helpRow{
+			{"-s, --source <path>", "Set source directory (default: ~/.config/skillshare/skills)"},
+			{"--remote <url>", "Set git remote for cross-machine sync (implies --git)"},
+			{"-p, --project", "Initialize project-level config in current directory"},
+			{"-c, --copy-from <name>", "Copy existing skills from a detected CLI directory"},
+			{"--no-copy", "Start with empty source (skip copy prompt)"},
+			{"-t, --targets <list>", "Comma-separated target names to add"},
+			{"--all-targets", "Add all detected targets"},
+			{"--no-targets", "Skip target setup"},
+			{"-m, --mode <mode>", "Set sync mode (merge, copy, symlink; default: merge).\nWith --discover, applies only to newly added targets"},
+			{"--git", "Initialize git in source (default: prompt)"},
+			{"--no-git", "Skip git initialization"},
+			{"--git-root <scope>", "Git scope: skills (default), agents, extras, or root"},
+			{"--skill", "Install built-in skillshare skill"},
+			{"--no-skill", "Skip built-in skill installation"},
+			{"-d, --discover", "Detect and add new AI CLI agents to existing config"},
+			{"--select <list>", "Select specific agents to add (requires --discover)"},
+			{"--subdir <name>", "Use a subdirectory as the source (e.g. skills/)"},
+			{"-n, --dry-run", "Preview without making changes"},
+		}},
+		helpExamples(
+			helpRow{"skillshare init", "Interactive setup"},
+			helpRow{"skillshare init --remote git@github.com:u/skills", "With cross-machine sync"},
+			helpRow{"skillshare init --no-copy --git --no-skill", "Non-interactive, minimal"},
+			helpRow{"skillshare init --discover", "Add newly installed AI tools"},
+			helpRow{"skillshare init -p", "Project-level init"},
+		),
+	)
 }
 
 func parseInitArgs(args []string) (*initOptions, error) {

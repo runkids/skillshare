@@ -162,17 +162,15 @@ func pullSummary(info *gitops.UpdateInfo) string {
 }
 
 func printPullHelp() {
-	fmt.Println(`Usage: skillshare pull [options]
-
-Pull from git remote and sync to all targets.
-
-Options:
-  --dry-run, -n     Preview changes without applying
-  --force, -f       Force-pull (reset local to remote on first pull)
-  --help, -h        Show this help
-
-Examples:
-  skillshare pull                Pull and sync
-  skillshare pull --dry-run      Preview what would happen
-  skillshare pull --force        Discard local, use remote`)
+	printHelp("skillshare pull [options]", "Pull from git remote and sync to all targets.",
+		helpGroup{title: "Options", rows: []helpRow{
+			{"-n, --dry-run", "Preview changes without applying"},
+			{"-f, --force", "Force-pull (reset local to remote on first pull)"},
+		}},
+		helpExamples(
+			helpRow{"skillshare pull", "Pull and sync"},
+			helpRow{"skillshare pull --dry-run", "Preview what would happen"},
+			helpRow{"skillshare pull --force", "Discard local, use remote"},
+		),
+	)
 }

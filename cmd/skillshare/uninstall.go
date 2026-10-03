@@ -562,46 +562,31 @@ func logUninstallOp(cfgPath string, names []string, succeeded int, start time.Ti
 }
 
 func printUninstallHelp() {
-	fmt.Println(`Usage: skillshare uninstall <name>... [options]
-       skillshare uninstall [agents] <name|--all> [options]
-       skillshare uninstall --group <group> [options]
-       skillshare uninstall --all [options]
-
-Remove one or more skills or tracked repositories from the source directory.
-Skills are moved to trash and kept for 7 days before automatic cleanup.
-If the skill was installed from a remote source, a reinstall command is shown.
-
-For tracked repositories (_repo-name):
-  - Checks for uncommitted changes (requires --force to override)
-  - Fails if git status cannot be read (requires --force to override)
-  - Automatically removes the entry from .gitignore
-  - The _ prefix is optional (automatically detected)
-
-Skill names support glob patterns (e.g. "core-*", "test-?").
-
-Options:
-  --all               Remove ALL skills from source (requires confirmation)
-  --group, -G <name>  Remove all skills in a group (prefix match, repeatable)
-  --force, -f         Skip confirmation and ignore uncommitted changes
-  --dry-run, -n       Preview without making changes
-  --json              Global mode: output JSON and skip confirmation
-  --project, -p       Use project-level config in current directory
-  --global, -g        Use global config (~/.config/skillshare)
-  --help, -h          Show this help
-
-Examples:
-  skillshare uninstall my-skill              # Remove a single skill
-  skillshare uninstall a b c --force         # Remove multiple skills at once
-  skillshare uninstall "core-*"             # Remove all matching a glob pattern
-  skillshare uninstall --all                 # Remove all skills
-  skillshare uninstall --all --force         # Remove all without confirmation
-  skillshare uninstall --all -n              # Preview what would be removed
-  skillshare uninstall --group frontend      # Remove all skills in frontend/
-  skillshare uninstall --group frontend -n   # Preview group removal
-  skillshare uninstall x -G backend --force  # Mix names and groups
-  skillshare uninstall _team-repo            # Remove tracked repository
-  skillshare uninstall team-repo             # _ prefix is optional
-  skillshare uninstall agents tutor          # Uninstall an agent
-  skillshare uninstall agents --all          # Uninstall all agents
-  skillshare uninstall agents -G demo        # Uninstall all agents in demo/`)
+	printHelp("skillshare uninstall <name>... [options]\n       skillshare uninstall [agents] <name|--all> [options]\n       skillshare uninstall --group <group> [options]\n       skillshare uninstall --all [options]", "Remove one or more skills or tracked repositories from the source directory.\nSkills are moved to trash and kept for 7 days before automatic cleanup.\nIf the skill was installed from a remote source, a reinstall command is shown.\n\nFor tracked repositories (_repo-name):\n  - Checks for uncommitted changes (requires --force to override)\n  - Fails if git status cannot be read (requires --force to override)\n  - Automatically removes the entry from .gitignore\n  - The _ prefix is optional (automatically detected)\n\nSkill names support glob patterns (e.g. \"core-*\", \"test-?\").",
+		helpGroup{title: "Options", rows: []helpRow{
+			{"--all", "Remove ALL skills from source (requires confirmation)"},
+			{"-G, --group <name>", "Remove all skills in a group (prefix match, repeatable)"},
+			{"-f, --force", "Skip confirmation and ignore uncommitted changes"},
+			{"-n, --dry-run", "Preview without making changes"},
+			{"--json", "Global mode: output JSON and skip confirmation"},
+			{"-p, --project", "Use project-level config in current directory"},
+			{"-g, --global", "Use global config (~/.config/skillshare)"},
+		}},
+		helpExamples(
+			helpRow{"skillshare uninstall my-skill", "Remove a single skill"},
+			helpRow{"skillshare uninstall a b c --force", "Remove multiple skills at once"},
+			helpRow{"skillshare uninstall \"core-*\"", "Remove all matching a glob pattern"},
+			helpRow{"skillshare uninstall --all", "Remove all skills"},
+			helpRow{"skillshare uninstall --all --force", "Remove all without confirmation"},
+			helpRow{"skillshare uninstall --all -n", "Preview what would be removed"},
+			helpRow{"skillshare uninstall --group frontend", "Remove all skills in frontend/"},
+			helpRow{"skillshare uninstall --group frontend -n", "Preview group removal"},
+			helpRow{"skillshare uninstall x -G backend --force", "Mix names and groups"},
+			helpRow{"skillshare uninstall _team-repo", "Remove tracked repository"},
+			helpRow{"skillshare uninstall team-repo", "_ prefix is optional"},
+			helpRow{"skillshare uninstall agents tutor", "Uninstall an agent"},
+			helpRow{"skillshare uninstall agents --all", "Uninstall all agents"},
+			helpRow{"skillshare uninstall agents -G demo", "Uninstall all agents in demo/"},
+		),
+	)
 }

@@ -809,37 +809,36 @@ func reportCollisions(skills []sync.DiscoveredSkill, targets map[string]config.T
 }
 
 func printSyncHelp() {
-	fmt.Println(`Usage: skillshare sync [agents|extras|mcp|hooks|plugins] [options]
-
-Sync skills from source to all configured targets.
-
-Options:
-  --all             Sync skills, agents, extras, MCP and hooks
-  --dry-run, -n     Preview changes without applying
-  --force, -f       Force sync (overwrite local changes)
-  --json            Output results as JSON
-  --quiet, -q       Suppress token summary and budget warnings
-  --project, -p     Use project-level config
-  --global, -g      Use global config
-  --help, -h        Show this help
-
-Subcommands:
-  agents            Sync only agents
-  plugins [name]    Apply plugin sync selection (see: skillshare plugin --help)
-  mcp               Sync only MCP settings (no --force; conflicts require review)
-  hooks             Sync only hooks (same as skillshare hooks sync)
-  extras            Sync only extras (see: skillshare sync extras --help)
-
-Examples:
-  skillshare sync                Sync skills to all targets
-  skillshare sync --dry-run      Preview sync changes
-  skillshare sync --all          Sync skills, agents, extras, MCP and hooks
-  skillshare sync -p             Sync project-level skills
-  skillshare sync agents         Sync agents only
-  skillshare sync plugins        Apply selected plugin installations/removals
-  skillshare sync plugins --dry-run --json   Preview plugin changes
-
-Plugins are not included in --all. Plugin sync uses its own options;
---force and --quiet do not apply. Enable/disable saves selection only;
-run sync plugins to install selected targets or uninstall deselected targets.`)
+	printHelp("skillshare sync [agents|extras|mcp|hooks|plugins] [options]", "Sync skills from source to all configured targets.",
+		helpGroup{title: "Options", rows: []helpRow{
+			{"--all", "Sync skills, agents, extras, MCP and hooks"},
+			{"-n, --dry-run", "Preview changes without applying"},
+			{"-f, --force", "Force sync (overwrite local changes)"},
+			{"--json", "Output results as JSON"},
+			{"-q, --quiet", "Suppress token summary and budget warnings"},
+			{"-p, --project", "Use project-level config"},
+			{"-g, --global", "Use global config"},
+		}},
+		helpGroup{title: "Commands", rows: []helpRow{
+			{"agents", "Sync only agents"},
+			{"plugins [name]", "Apply plugin sync selection (see: skillshare plugin --help)"},
+			{"mcp", "Sync only MCP settings (no --force; conflicts require review)"},
+			{"hooks", "Sync only hooks (same as skillshare hooks sync)"},
+			{"extras", "Sync only extras (see: skillshare sync extras --help)"},
+		}},
+		helpExamples(
+			helpRow{"skillshare sync", "Sync skills to all targets"},
+			helpRow{"skillshare sync --dry-run", "Preview sync changes"},
+			helpRow{"skillshare sync --all", "Sync skills, agents, extras, MCP and hooks"},
+			helpRow{"skillshare sync -p", "Sync project-level skills"},
+			helpRow{"skillshare sync agents", "Sync agents only"},
+			helpRow{"skillshare sync plugins", "Apply selected plugin installations/removals"},
+			helpRow{"skillshare sync plugins --dry-run --json", "Preview plugin changes"},
+		),
+		helpNotes("Notes",
+			"Plugins are not included in --all. Plugin sync uses its own options;",
+			"--force and --quiet do not apply. Enable/disable saves selection only;",
+			"run sync plugins to install selected targets or uninstall deselected targets.",
+		),
+	)
 }

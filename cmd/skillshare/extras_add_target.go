@@ -146,23 +146,20 @@ func cmdExtrasAddTarget(args []string) error {
 }
 
 func printExtrasAddTargetHelp() {
-	fmt.Println(`Usage: skillshare extras <name> --add-target <path> [options]
-
-Add a new target directory to an existing extra. Config-only — run
-'skillshare sync extras' afterwards to sync files into the new target.
-
-Options:
-  --add-target <path>   Target directory to add (required)
-  --mode <mode>         Sync mode: merge (default), copy, symlink; import for single-file extras
-  --as <filename>        Target filename (single-file extras only)
-  --flatten             Flatten subdirectory files into the target root
-  --project, -p         Use project mode (.skillshare/)
-  --global, -g          Use global mode (~/.config/skillshare/)
-  --help, -h            Show this help
-
-Examples:
-  skillshare extras rules --add-target ~/.cursor/rules
-  skillshare extras commands --add-target ~/.config/opencode/commands --mode copy`)
+	printHelp("skillshare extras <name> --add-target <path> [options]", "Add a new target directory to an existing extra. Config-only — run\n'skillshare sync extras' afterwards to sync files into the new target.",
+		helpGroup{title: "Options", rows: []helpRow{
+			{"--add-target <path>", "Target directory to add (required)"},
+			{"--mode <mode>", "Sync mode: merge (default), copy, symlink; import for single-file extras"},
+			{"--as <filename>", "Target filename (single-file extras only)"},
+			{"--flatten", "Flatten subdirectory files into the target root"},
+			{"-p, --project", "Use project mode (.skillshare/)"},
+			{"-g, --global", "Use global mode (~/.config/skillshare/)"},
+		}},
+		helpExamples(
+			helpRow{"skillshare extras rules --add-target ~/.cursor/rules", ""},
+			helpRow{"skillshare extras commands --add-target ~/.config/opencode/commands --mode copy", ""},
+		),
+	)
 }
 
 // projectSuffix returns " -p" in project mode for use in user-facing hints.

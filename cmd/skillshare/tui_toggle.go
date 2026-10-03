@@ -62,13 +62,12 @@ func cmdTUIToggle(args []string) error {
 }
 
 func printTUIToggleUsage() {
-	fmt.Println("Usage: skillshare tui [on|off]")
-	fmt.Println()
-	fmt.Println("Toggle interactive TUI mode globally.")
-	fmt.Println()
-	fmt.Println("  tui        Show current TUI status")
-	fmt.Println("  tui on     Enable TUI for all commands")
-	fmt.Println("  tui off    Disable TUI for all commands (plain text output)")
-	fmt.Println()
-	fmt.Println("The --no-tui flag on individual commands always takes priority.")
+	printHelp("skillshare tui [on|off]", "Toggle interactive TUI mode globally.",
+		helpGroup{title: "Commands", rows: []helpRow{
+			{"tui", "Show current TUI status"},
+			{"tui on", "Enable TUI for all commands"},
+			{"tui off", "Disable TUI for all commands (plain text output)"},
+		}},
+		helpNotes("Notes", "The --no-tui flag on individual commands always takes priority."),
+	)
 }

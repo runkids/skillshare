@@ -259,36 +259,31 @@ func deriveLabelFromURL(rawURL string) string {
 }
 
 func printHubAddHelp() {
-	fmt.Println(`Usage: skillshare hub add <url> [options]
-
-Add a hub source to your saved hubs list.
-
-Options:
-  --label, -l <name>   Label for the hub (default: derived from URL)
-  --project, -p        Use project mode
-  --global, -g         Use global mode
-  --help, -h           Show this help
-
-Examples:
-  skillshare hub add https://internal.corp/skills/hub.json
-  skillshare hub add https://internal.corp/hub.json --label team
-  skillshare hub add ./skillshare-hub.json --label local`)
+	printHelp("skillshare hub add <url> [options]", "Add a hub source to your saved hubs list.",
+		helpGroup{title: "Options", rows: []helpRow{
+			{"-l, --label <name>", "Label for the hub (default: derived from URL)"},
+			{"-p, --project", "Use project mode"},
+			{"-g, --global", "Use global mode"},
+		}},
+		helpExamples(
+			helpRow{"skillshare hub add https://internal.corp/skills/hub.json", ""},
+			helpRow{"skillshare hub add https://internal.corp/hub.json --label team", ""},
+			helpRow{"skillshare hub add ./skillshare-hub.json --label local", ""},
+		),
+	)
 }
 
 func printHubDefaultHelp() {
-	fmt.Println(`Usage: skillshare hub default [label] [options]
-
-Show or set the default hub. When set, 'search --hub' uses this hub
-instead of the community hub.
-
-Options:
-  --reset              Clear default (revert to community hub)
-  --project, -p        Use project mode
-  --global, -g         Use global mode
-  --help, -h           Show this help
-
-Examples:
-  skillshare hub default                Show current default
-  skillshare hub default team           Set default to "team"
-  skillshare hub default --reset        Clear default`)
+	printHelp("skillshare hub default [label] [options]", "Show or set the default hub. When set, 'search --hub' uses this hub\ninstead of the community hub.",
+		helpGroup{title: "Options", rows: []helpRow{
+			{"--reset", "Clear default (revert to community hub)"},
+			{"-p, --project", "Use project mode"},
+			{"-g, --global", "Use global mode"},
+		}},
+		helpExamples(
+			helpRow{"skillshare hub default", "Show current default"},
+			helpRow{"skillshare hub default team", "Set default to \"team\""},
+			helpRow{"skillshare hub default --reset", "Clear default"},
+		),
+	)
 }

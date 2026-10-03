@@ -669,67 +669,59 @@ func previewRestoreFromLatest(targetName, targetPath string, opts backup.Restore
 }
 
 func printBackupHelp() {
-	fmt.Println(`Usage: skillshare backup [agents] [target] [options]
-       skillshare backup files [list|show|restore] ...
-
-Create a snapshot of target skill directories.
-Without arguments, backs up all targets.
-
-Arguments:
-  target               Target name to backup (optional; backs up all if omitted)
-
-Options:
-  --all                Backup both skills and agents
-  --project, -p        Use project mode (.skillshare/backups/); agents only
-  --global, -g         Use global mode (default for skills)
-  --list, -l           List all existing backups
-  --cleanup, -c        Remove old backups based on retention policy
-  --delete <ts>        Delete one backup (timestamp from --list); with -p,
-                       from the project's .skillshare/backups/
-  --dry-run, -n        Preview what would be backed up, cleaned up, or deleted
-  --target, -t <name>  Specify target name (alternative to positional arg)
-  --help, -h           Show this help
-
-Examples:
-  skillshare backup                         # Backup all targets
-  skillshare backup claude                  # Backup only claude
-  skillshare backup --list                  # List all backups
-  skillshare backup --cleanup               # Remove old backups
-  skillshare backup --cleanup --dry-run     # Preview cleanup
-  skillshare backup --list -p               # List this project's (agents) backups
-  skillshare backup --delete 2024-01-15_14-30-45
-  skillshare backup files                   # Files skillshare saved before rewriting them
-  skillshare backup agents                  # Backup all agent targets
-  skillshare backup agents -p               # Backup project agent targets
-  skillshare backup --all                   # Backup skills + agents`)
+	printHelp("skillshare backup [agents] [target] [options]\n       skillshare backup files [list|show|restore] ...", "Create a snapshot of target skill directories.\nWithout arguments, backs up all targets.",
+		helpGroup{title: "Arguments", rows: []helpRow{
+			{"target", "Target name to backup (optional; backs up all if omitted)"},
+		}},
+		helpGroup{title: "Options", rows: []helpRow{
+			{"--all", "Backup both skills and agents"},
+			{"-p, --project", "Use project mode (.skillshare/backups/); agents only"},
+			{"-g, --global", "Use global mode (default for skills)"},
+			{"-l, --list", "List all existing backups"},
+			{"-c, --cleanup", "Remove old backups based on retention policy"},
+			{"--delete <ts>", "Delete one backup (timestamp from --list); with -p,\nfrom the project's .skillshare/backups/"},
+			{"-n, --dry-run", "Preview what would be backed up, cleaned up, or deleted"},
+			{"-t, --target <name>", "Specify target name (alternative to positional arg)"},
+		}},
+		helpExamples(
+			helpRow{"skillshare backup", "Backup all targets"},
+			helpRow{"skillshare backup claude", "Backup only claude"},
+			helpRow{"skillshare backup --list", "List all backups"},
+			helpRow{"skillshare backup --cleanup", "Remove old backups"},
+			helpRow{"skillshare backup --cleanup --dry-run", "Preview cleanup"},
+			helpRow{"skillshare backup --list -p", "List this project's (agents) backups"},
+			helpRow{"skillshare backup --delete 2024-01-15_14-30-45", ""},
+			helpRow{"skillshare backup files", "Files skillshare saved before rewriting them"},
+			helpRow{"skillshare backup agents", "Backup all agent targets"},
+			helpRow{"skillshare backup agents -p", "Backup project agent targets"},
+			helpRow{"skillshare backup --all", "Backup skills + agents"},
+		),
+	)
 }
 
 func printRestoreHelp() {
-	fmt.Println(`Usage: skillshare restore [agents] [target] [options]
-
-Restore target skills from a backup snapshot.
-Without arguments, launches an interactive TUI.
-
-Arguments:
-  target               Target name to restore (optional)
-
-Options:
-  --all                Restore both skills and agents
-  --project, -p        Use project mode (.skillshare/backups/); agents only
-  --global, -g         Use global mode (default for skills)
-  --from, -f <ts>      Restore from specific timestamp (e.g. 2024-01-15_14-30-45)
-  --force              Overwrite non-empty target directory
-  --dry-run, -n        Preview what would be restored without making changes
-  --no-tui             Skip interactive TUI, show backup list instead
-  --help, -h           Show this help
-
-Examples:
-  skillshare restore                        # Interactive TUI
-  skillshare restore claude                 # Restore claude from latest backup
-  skillshare restore claude --from 2024-01-15_14-30-45
-  skillshare restore claude --dry-run       # Preview restore
-  skillshare restore --no-tui               # List backups (no TUI)
-  skillshare restore agents claude          # Restore agents claude target
-  skillshare restore agents claude -p       # Restore project agents
-  skillshare restore --all claude           # Restore skills + agents`)
+	printHelp("skillshare restore [agents] [target] [options]", "Restore target skills from a backup snapshot.\nWithout arguments, launches an interactive TUI.",
+		helpGroup{title: "Arguments", rows: []helpRow{
+			{"target", "Target name to restore (optional)"},
+		}},
+		helpGroup{title: "Options", rows: []helpRow{
+			{"--all", "Restore both skills and agents"},
+			{"-p, --project", "Use project mode (.skillshare/backups/); agents only"},
+			{"-g, --global", "Use global mode (default for skills)"},
+			{"-f, --from <ts>", "Restore from specific timestamp (e.g. 2024-01-15_14-30-45)"},
+			{"--force", "Overwrite non-empty target directory"},
+			{"-n, --dry-run", "Preview what would be restored without making changes"},
+			{"--no-tui", "Skip interactive TUI, show backup list instead"},
+		}},
+		helpExamples(
+			helpRow{"skillshare restore", "Interactive TUI"},
+			helpRow{"skillshare restore claude", "Restore claude from latest backup"},
+			helpRow{"skillshare restore claude --from 2024-01-15_14-30-45", ""},
+			helpRow{"skillshare restore claude --dry-run", "Preview restore"},
+			helpRow{"skillshare restore --no-tui", "List backups (no TUI)"},
+			helpRow{"skillshare restore agents claude", "Restore agents claude target"},
+			helpRow{"skillshare restore agents claude -p", "Restore project agents"},
+			helpRow{"skillshare restore --all claude", "Restore skills + agents"},
+		),
+	)
 }

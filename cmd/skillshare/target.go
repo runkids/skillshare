@@ -92,63 +92,61 @@ func cmdTarget(args []string) error {
 }
 
 func printTargetHelp() {
-	fmt.Println(`Usage: skillshare target <add|remove|list|name> [options]
-
-Manage target skill directories.
-
-Subcommands:
-  add <name> [path]      Add a target (path optional for known project targets)
-  add <name> --agent <agent> --config-dir <dir> [--cli <executable>]
-                         Add another account of an Agent: its second config directory.
-                         --cli runs its plugin commands with a compatible CLI instead
-  add <name> ... --no-skills
-                         Add a target without syncing skills to it
-  remove <name>          Remove a target
-  remove --all           Remove all targets
-  list                   List configured targets
-  <name>                 Show target info or modify settings
-
-Options:
-  --json                 Output list as JSON
-  --no-tui               Skip interactive TUI, show plain text list
-  --project, -p          Use project-level config in current directory
-  --global, -g           Use global config (~/.config/skillshare)
-
-Target Settings:
-  <name> --mode <mode>              Set sync mode (merge, symlink, or copy)
-  <name> --agent-mode <mode>        Set agents sync mode (merge, symlink, or copy)
-  <name> --target-naming <naming>   Set target naming (flat or standard)
-  <name> --skills=false [--dry-run] Stop syncing skills; removes only links into the source
-  <name> --skills=true              Sync skills again (on the next 'skillshare sync')
-  <name> --add-include <pattern>    Add an include filter pattern
-  <name> --add-exclude <pattern>    Add an exclude filter pattern
-  <name> --remove-include <pattern> Remove an include filter pattern
-  <name> --remove-exclude <pattern> Remove an exclude filter pattern
-  <name> --add-agent-include <pattern>    Add an agent include filter pattern
-  <name> --add-agent-exclude <pattern>    Add an agent exclude filter pattern
-  <name> --remove-agent-include <pattern> Remove an agent include filter pattern
-  <name> --remove-agent-exclude <pattern> Remove an agent exclude filter pattern
-
-Examples:
-  skillshare target add cursor
-  skillshare target add my-ide .my-ide/skills
-  skillshare target add claude-work --agent claude --config-dir ~/.claude-work
-  skillshare target add omo --agent pi --config-dir ~/.omo/agent --cli omo
-  skillshare target remove cursor
-  skillshare target list
-  skillshare target cursor
-  skillshare target claude --agent-mode copy
-  skillshare target claude --add-include "team-*"
-  skillshare target claude --add-agent-include "team-*"
-  skillshare target claude --remove-include "team-*"
-  skillshare target claude --add-exclude "_legacy*"
-  skillshare target gemini --skills=false
-
-Project mode:
-  skillshare target add claude -p
-  skillshare target add gemini --no-skills -p
-  skillshare target claude --add-include "team-*" -p
-  skillshare target list -p`)
+	printHelp("skillshare target <add|remove|list|name> [options]", "Manage target skill directories.",
+		helpGroup{title: "Commands", rows: []helpRow{
+			{"add <name> [path]", "Add a target (path optional for known project targets)"},
+			{"add <name> --agent <agent> --config-dir <dir> [--cli <executable>]", ""},
+			{"", "Add another account of an Agent: its second config directory.\n--cli runs its plugin commands with a compatible CLI instead"},
+			{"add <name> ... --no-skills", ""},
+			{"", "Add a target without syncing skills to it"},
+			{"remove <name>", "Remove a target"},
+			{"remove --all", "Remove all targets"},
+			{"list", "List configured targets"},
+			{"<name>", "Show target info or modify settings"},
+		}},
+		helpGroup{title: "Options", rows: []helpRow{
+			{"--json", "Output list as JSON"},
+			{"--no-tui", "Skip interactive TUI, show plain text list"},
+			{"-p, --project", "Use project-level config in current directory"},
+			{"-g, --global", "Use global config (~/.config/skillshare)"},
+		}},
+		helpGroup{title: "Target settings", rows: []helpRow{
+			{"<name> --mode <mode>", "Set sync mode (merge, symlink, or copy)"},
+			{"<name> --agent-mode <mode>", "Set agents sync mode (merge, symlink, or copy)"},
+			{"<name> --target-naming <naming>", "Set target naming (flat or standard)"},
+			{"<name> --skills=false [--dry-run]", "Stop syncing skills; removes only links into the source"},
+			{"<name> --skills=true", "Sync skills again (on the next 'skillshare sync')"},
+			{"<name> --add-include <pattern>", "Add an include filter pattern"},
+			{"<name> --add-exclude <pattern>", "Add an exclude filter pattern"},
+			{"<name> --remove-include <pattern>", "Remove an include filter pattern"},
+			{"<name> --remove-exclude <pattern>", "Remove an exclude filter pattern"},
+			{"<name> --add-agent-include <pattern>", "Add an agent include filter pattern"},
+			{"<name> --add-agent-exclude <pattern>", "Add an agent exclude filter pattern"},
+			{"<name> --remove-agent-include <pattern>", "Remove an agent include filter pattern"},
+			{"<name> --remove-agent-exclude <pattern>", "Remove an agent exclude filter pattern"},
+		}},
+		helpExamples(
+			helpRow{"skillshare target add cursor", ""},
+			helpRow{"skillshare target add my-ide .my-ide/skills", ""},
+			helpRow{"skillshare target add claude-work --agent claude --config-dir ~/.claude-work", ""},
+			helpRow{"skillshare target add omo --agent pi --config-dir ~/.omo/agent --cli omo", ""},
+			helpRow{"skillshare target remove cursor", ""},
+			helpRow{"skillshare target list", ""},
+			helpRow{"skillshare target cursor", ""},
+			helpRow{"skillshare target claude --agent-mode copy", ""},
+			helpRow{"skillshare target claude --add-include \"team-*\"", ""},
+			helpRow{"skillshare target claude --add-agent-include \"team-*\"", ""},
+			helpRow{"skillshare target claude --remove-include \"team-*\"", ""},
+			helpRow{"skillshare target claude --add-exclude \"_legacy*\"", ""},
+			helpRow{"skillshare target gemini --skills=false", ""},
+		),
+		helpGroup{title: "Project mode", examples: true, rows: []helpRow{
+			{"skillshare target add claude -p", ""},
+			{"skillshare target add gemini --no-skills -p", ""},
+			{"skillshare target claude --add-include \"team-*\" -p", ""},
+			{"skillshare target list -p", ""},
+		}},
+	)
 }
 
 func targetAdd(args []string) error {

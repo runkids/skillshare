@@ -192,32 +192,27 @@ func backupFilesRestore(root, path, id string, unlink, dryRun bool) error {
 }
 
 func printBackupFilesHelp() {
-	fmt.Println(`Usage: skillshare backup files [list] [-p|-g]
-       skillshare backup files show <path>
-       skillshare backup files restore <path> <id> [--unlink] [--dry-run]
-
-Versions skillshare saved of single files (instruction files and targets of
-shared files) before it rewrote or replaced them.
-
-Commands:
-  list                 List files with saved versions (default)
-  show <path>          List the versions of one file, newest first
-  restore <path> <id>  Put a version back; the current content is saved first
-
-Options:
-  --project, -p        Only files inside the current project
-  --global, -g         All files (default outside a project)
-  --unlink             Replace a symlink at <path> with a regular file
-  --dry-run, -n        Preview the restore without changing anything
-  --help, -h           Show this help
-
-Version IDs:
-  <time>[.<reason>]    Saved before skillshare rewrote the file
-  drift:<time>...      An edit of yours that skillshare replaced
-  origin               The file as it was when first attached
-
-Examples:
-  skillshare backup files
-  skillshare backup files show ~/.claude/CLAUDE.md
-  skillshare backup files restore ~/.claude/CLAUDE.md origin`)
+	printHelp("skillshare backup files [list] [-p|-g]\n       skillshare backup files show <path>\n       skillshare backup files restore <path> <id> [--unlink] [--dry-run]", "Versions skillshare saved of single files (instruction files and targets of\nshared files) before it rewrote or replaced them.",
+		helpGroup{title: "Commands", rows: []helpRow{
+			{"list", "List files with saved versions (default)"},
+			{"show <path>", "List the versions of one file, newest first"},
+			{"restore <path> <id>", "Put a version back; the current content is saved first"},
+		}},
+		helpGroup{title: "Options", rows: []helpRow{
+			{"-p, --project", "Only files inside the current project"},
+			{"-g, --global", "All files (default outside a project)"},
+			{"--unlink", "Replace a symlink at <path> with a regular file"},
+			{"-n, --dry-run", "Preview the restore without changing anything"},
+		}},
+		helpGroup{title: "Version IDs", rows: []helpRow{
+			{"<time>[.<reason>]", "Saved before skillshare rewrote the file"},
+			{"drift:<time>...", "An edit of yours that skillshare replaced"},
+			{"origin", "The file as it was when first attached"},
+		}},
+		helpExamples(
+			helpRow{"skillshare backup files", ""},
+			helpRow{"skillshare backup files show ~/.claude/CLAUDE.md", ""},
+			helpRow{"skillshare backup files restore ~/.claude/CLAUDE.md origin", ""},
+		),
+	)
 }

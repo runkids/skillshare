@@ -499,58 +499,41 @@ func logUpdateOp(cfgPath string, names []string, opts *updateOptions, mode strin
 }
 
 func printUpdateHelp() {
-	fmt.Println(`Usage: skillshare update <name>... [options]
-       skillshare update [agents] <name|--all> [options]
-       skillshare update --group <group> [options]
-       skillshare update --all [options]
-
-Update one or more skills or tracked repositories.
-
-For tracked repos (_repo-name): runs git pull
-For regular skills: reinstalls from stored source metadata
-
-If a positional name matches a group directory (not a repo or skill), it is
-automatically expanded to all updatable skills in that group.
-
-Safety: Tracked repos with uncommitted changes are skipped by default, and
-updates with audit findings at/above the block threshold are rolled back.
-Use --force to override both; --skip-audit skips scanning entirely.
-
-Arguments:
-  name...             Skill name(s) or tracked repo name(s)
-                      Supports glob patterns (e.g. "core-*", "_team-?")
-
-Options:
-  --all, -a           Update all tracked repos + skills with metadata
-  --group, -G <name>  Update all updatable skills in a group (repeatable)
-  --force, -f         Discard local changes and proceed despite audit findings
-  --dry-run, -n       Preview without making changes
-  --skip-audit        Skip post-update security audit
-  --audit-threshold, --threshold, -T <t>
-                      Override update audit block threshold (critical|high|medium|low|info;
-                      shorthand: c|h|m|l|i, plus crit, med)
-  --diff              Show file-level change summary after update
-  --audit-verbose     Show detailed per-skill audit findings in batch mode
-  --prune             Remove stale skills (deleted upstream) instead of warning
-  --json              Output results as JSON
-  --project, -p       Use project-level config in current directory
-  --global, -g        Use global config (~/.config/skillshare)
-  --help, -h          Show this help
-
-Examples:
-  skillshare update my-skill              # Update single skill from source
-  skillshare update a b c                 # Update multiple skills at once
-  skillshare update "core-*"             # Update all matching a glob pattern
-  skillshare update --group frontend      # Update all skills in frontend/
-  skillshare update x -G backend          # Mix names and groups
-  skillshare update _team-skills          # Update tracked repo (git pull)
-  skillshare update team-skills           # _ prefix is optional for repos
-  skillshare update --all                 # Update all tracked repos + skills
-  skillshare update --all -T high         # Use HIGH threshold for this run
-  skillshare update --all --dry-run       # Preview updates
-  skillshare update _team --force         # Discard changes and update
-  skillshare update --all --prune        # Update all + remove stale skills
-  skillshare update agents --all         # Update all agents
-  skillshare update agents tutor         # Update a single agent
-  skillshare update agents -G demo       # Update all agents in demo/`)
+	printHelp("skillshare update <name>... [options]\n       skillshare update [agents] <name|--all> [options]\n       skillshare update --group <group> [options]\n       skillshare update --all [options]", "Update one or more skills or tracked repositories.\n\nFor tracked repos (_repo-name): runs git pull\nFor regular skills: reinstalls from stored source metadata\n\nIf a positional name matches a group directory (not a repo or skill), it is\nautomatically expanded to all updatable skills in that group.\n\nSafety: Tracked repos with uncommitted changes are skipped by default, and\nupdates with audit findings at/above the block threshold are rolled back.\nUse --force to override both; --skip-audit skips scanning entirely.",
+		helpGroup{title: "Arguments", rows: []helpRow{
+			{"name...", "Skill name(s) or tracked repo name(s)\nSupports glob patterns (e.g. \"core-*\", \"_team-?\")"},
+		}},
+		helpGroup{title: "Options", rows: []helpRow{
+			{"-a, --all", "Update all tracked repos + skills with metadata"},
+			{"-G, --group <name>", "Update all updatable skills in a group (repeatable)"},
+			{"-f, --force", "Discard local changes and proceed despite audit findings"},
+			{"-n, --dry-run", "Preview without making changes"},
+			{"--skip-audit", "Skip post-update security audit"},
+			{"-T, --audit-threshold, --threshold <t>", ""},
+			{"", "Override update audit block threshold (critical|high|medium|low|info;\nshorthand: c|h|m|l|i, plus crit, med)"},
+			{"--diff", "Show file-level change summary after update"},
+			{"--audit-verbose", "Show detailed per-skill audit findings in batch mode"},
+			{"--prune", "Remove stale skills (deleted upstream) instead of warning"},
+			{"--json", "Output results as JSON"},
+			{"-p, --project", "Use project-level config in current directory"},
+			{"-g, --global", "Use global config (~/.config/skillshare)"},
+		}},
+		helpExamples(
+			helpRow{"skillshare update my-skill", "Update single skill from source"},
+			helpRow{"skillshare update a b c", "Update multiple skills at once"},
+			helpRow{"skillshare update \"core-*\"", "Update all matching a glob pattern"},
+			helpRow{"skillshare update --group frontend", "Update all skills in frontend/"},
+			helpRow{"skillshare update x -G backend", "Mix names and groups"},
+			helpRow{"skillshare update _team-skills", "Update tracked repo (git pull)"},
+			helpRow{"skillshare update team-skills", "_ prefix is optional for repos"},
+			helpRow{"skillshare update --all", "Update all tracked repos + skills"},
+			helpRow{"skillshare update --all -T high", "Use HIGH threshold for this run"},
+			helpRow{"skillshare update --all --dry-run", "Preview updates"},
+			helpRow{"skillshare update _team --force", "Discard changes and update"},
+			helpRow{"skillshare update --all --prune", "Update all + remove stale skills"},
+			helpRow{"skillshare update agents --all", "Update all agents"},
+			helpRow{"skillshare update agents tutor", "Update a single agent"},
+			helpRow{"skillshare update agents -G demo", "Update all agents in demo/"},
+		),
+	)
 }

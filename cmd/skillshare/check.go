@@ -980,37 +980,28 @@ func renderAgentCheck(agentsDir string, groups []string, jsonMode bool) {
 }
 
 func printCheckHelp() {
-	fmt.Println(`Usage: skillshare check [agents] [name...] [options]
-       skillshare check --group <group> [options]
-
-Check for available updates to tracked repositories and installed skills.
-
-For tracked repos: fetches from origin and checks if behind
-For regular skills: compares installed version with remote HEAD
-
-If no names or groups are specified, all items are checked.
-If a positional name matches a group directory, it is automatically expanded.
-
-Arguments:
-  name...                Skill name(s) or tracked repo name(s) (optional)
-
-Options:
-  --all              Check both skills and agents
-  --group, -G <name> Check all updatable skills in a group (repeatable)
-  --project, -p      Check project-level skills (.skillshare/)
-  --global, -g       Check global skills (~/.config/skillshare)
-  --json             Output results as JSON
-  --help, -h         Show this help
-
-Examples:
-  skillshare check                     # Check all items
-  skillshare check my-skill            # Check a single skill
-  skillshare check a b c               # Check multiple skills
-  skillshare check --group frontend    # Check all skills in frontend/
-  skillshare check x -G backend        # Mix names and groups
-  skillshare check --json              # Output as JSON (for CI)
-  skillshare check -p                  # Check project skills
-  skillshare check agents              # Check all agents
-  skillshare check agents -G demo      # Check agents in demo/
-  skillshare check --all               # Check skills + agents`)
+	printHelp("skillshare check [agents] [name...] [options]\n       skillshare check --group <group> [options]", "Check for available updates to tracked repositories and installed skills.\n\nFor tracked repos: fetches from origin and checks if behind\nFor regular skills: compares installed version with remote HEAD\n\nIf no names or groups are specified, all items are checked.\nIf a positional name matches a group directory, it is automatically expanded.",
+		helpGroup{title: "Arguments", rows: []helpRow{
+			{"name...", "Skill name(s) or tracked repo name(s) (optional)"},
+		}},
+		helpGroup{title: "Options", rows: []helpRow{
+			{"--all", "Check both skills and agents"},
+			{"-G, --group <name>", "Check all updatable skills in a group (repeatable)"},
+			{"-p, --project", "Check project-level skills (.skillshare/)"},
+			{"-g, --global", "Check global skills (~/.config/skillshare)"},
+			{"--json", "Output results as JSON"},
+		}},
+		helpExamples(
+			helpRow{"skillshare check", "Check all items"},
+			helpRow{"skillshare check my-skill", "Check a single skill"},
+			helpRow{"skillshare check a b c", "Check multiple skills"},
+			helpRow{"skillshare check --group frontend", "Check all skills in frontend/"},
+			helpRow{"skillshare check x -G backend", "Mix names and groups"},
+			helpRow{"skillshare check --json", "Output as JSON (for CI)"},
+			helpRow{"skillshare check -p", "Check project skills"},
+			helpRow{"skillshare check agents", "Check all agents"},
+			helpRow{"skillshare check agents -G demo", "Check agents in demo/"},
+			helpRow{"skillshare check --all", "Check skills + agents"},
+		),
+	)
 }

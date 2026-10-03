@@ -32,26 +32,23 @@ type detectedProjectTarget struct {
 }
 
 func printProjectInitUsage() {
-	fmt.Println("Usage: skillshare init -p [flags]")
-	fmt.Println()
-	fmt.Println("Initialize project-level skillshare config in the current repository.")
-	fmt.Println()
-	fmt.Println("FLAGS")
-	fmt.Println("  --targets <list>          Comma-separated target names to add")
-	fmt.Println("  --discover, -d            Detect and add new project targets to existing config")
-	fmt.Println("  --select <list>           Select specific targets to add (requires --discover)")
-	fmt.Println("  --mode, -m <mode>         Set sync mode (merge, copy, symlink; default: merge).")
-	fmt.Println("                            With --discover, applies only to newly added targets")
-	fmt.Println("  --config local            Gitignore config.yaml (each developer manages own targets)")
-	fmt.Println("  --visible                 Create a visible skillshare/ directory instead of .skillshare/")
-	fmt.Println("  --dry-run, -n             Preview without making changes")
-	fmt.Println("  --help, -h                Show this help")
-	fmt.Println()
-	fmt.Println("EXAMPLES")
-	fmt.Println("  skillshare init -p")
-	fmt.Println("  skillshare init -p --targets claude,cursor --mode copy")
-	fmt.Println("  skillshare init -p --discover --select cursor --mode copy")
-	fmt.Println("  skillshare init -p --visible")
+	printHelp("skillshare init -p [options]", "Initialize project-level skillshare config in the current repository.",
+		helpGroup{title: "Options", rows: []helpRow{
+			{"--targets <list>", "Comma-separated target names to add"},
+			{"-d, --discover", "Detect and add new project targets to existing config"},
+			{"--select <list>", "Select specific targets to add (requires --discover)"},
+			{"-m, --mode <mode>", "Set sync mode (merge, copy, symlink; default: merge).\nWith --discover, applies only to newly added targets"},
+			{"--config local", "Gitignore config.yaml (each developer manages own targets)"},
+			{"--visible", "Create a visible skillshare/ directory instead of .skillshare/"},
+			{"-n, --dry-run", "Preview without making changes"},
+		}},
+		helpExamples(
+			helpRow{"skillshare init -p", ""},
+			helpRow{"skillshare init -p --targets claude,cursor --mode copy", ""},
+			helpRow{"skillshare init -p --discover --select cursor --mode copy", ""},
+			helpRow{"skillshare init -p --visible", ""},
+		),
+	)
 }
 
 func parseProjectInitArgs(args []string) (projectInitOptions, bool, error) {

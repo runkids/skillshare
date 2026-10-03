@@ -121,7 +121,7 @@ func TestNew_Help_ShowsUsage(t *testing.T) {
 	result := sb.RunCLI("new", "--help")
 
 	result.AssertSuccess(t)
-	result.AssertOutputContains(t, "Usage:")
+	result.AssertOutputContains(t, "Usage  skillshare")
 	result.AssertOutputContains(t, "--dry-run")
 }
 

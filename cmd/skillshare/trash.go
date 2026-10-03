@@ -355,33 +355,31 @@ func logTrashOp(cfgPath string, action string, count int, name string, start tim
 }
 
 func printTrashHelp() {
-	fmt.Println(`Usage: skillshare trash [agents] <command> [options]
-
-Manage uninstalled skills in the trash.
-
-Commands:
-  list, ls              List trashed skills (interactive TUI in TTY)
-  restore <name>        Restore most recent trashed version to source
-  delete, rm <name>     Permanently delete a single item from trash
-  empty                 Permanently delete all items from trash
-
-Options:
-  --force, -f           empty: skip the confirmation
-  --all                 Include both skills and agents
-  --no-tui              Disable interactive TUI, use plain text output
-  --project, -p         Use project-level trash
-  --global, -g          Use global trash
-  --help, -h            Show this help
-
-Examples:
-  skillshare trash list                    # Interactive TUI (in TTY)
-  skillshare trash list --no-tui           # Plain text output
-  skillshare trash restore my-skill        # Restore from trash
-  skillshare trash restore my-skill -p     # Restore in project mode
-  skillshare trash delete my-skill         # Permanently delete from trash
-  skillshare trash empty                   # Empty the trash
-  skillshare trash empty --force           # Empty without asking (scripts)
-  skillshare trash agents list             # List trashed agents
-  skillshare trash agents restore tutor    # Restore an agent from trash
-  skillshare trash --all list              # List trashed skills + agents`)
+	printHelp("skillshare trash [agents] <command> [options]", "Manage uninstalled skills in the trash.",
+		helpGroup{title: "Commands", rows: []helpRow{
+			{"list, ls", "List trashed skills (interactive TUI in TTY)"},
+			{"restore <name>", "Restore most recent trashed version to source"},
+			{"delete, rm <name>", "Permanently delete a single item from trash"},
+			{"empty", "Permanently delete all items from trash"},
+		}},
+		helpGroup{title: "Options", rows: []helpRow{
+			{"-f, --force", "empty: skip the confirmation"},
+			{"--all", "Include both skills and agents"},
+			{"--no-tui", "Disable interactive TUI, use plain text output"},
+			{"-p, --project", "Use project-level trash"},
+			{"-g, --global", "Use global trash"},
+		}},
+		helpExamples(
+			helpRow{"skillshare trash list", "Interactive TUI (in TTY)"},
+			helpRow{"skillshare trash list --no-tui", "Plain text output"},
+			helpRow{"skillshare trash restore my-skill", "Restore from trash"},
+			helpRow{"skillshare trash restore my-skill -p", "Restore in project mode"},
+			helpRow{"skillshare trash delete my-skill", "Permanently delete from trash"},
+			helpRow{"skillshare trash empty", "Empty the trash"},
+			helpRow{"skillshare trash empty --force", "Empty without asking (scripts)"},
+			helpRow{"skillshare trash agents list", "List trashed agents"},
+			helpRow{"skillshare trash agents restore tutor", "Restore an agent from trash"},
+			helpRow{"skillshare trash --all list", "List trashed skills + agents"},
+		),
+	)
 }

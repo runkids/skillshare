@@ -629,20 +629,18 @@ func getBrewVersion() string {
 }
 
 func printUpgradeHelp() {
-	fmt.Println(`Usage: skillshare upgrade [options]
-
-Upgrade the CLI binary and/or built-in skillshare skill.
-
-Options:
-  --skill       Upgrade skill only
-  --cli         Upgrade CLI only
-  --force, -f   Skip confirmation prompts
-  --dry-run, -n Preview without making changes
-  --help, -h    Show this help
-
-Examples:
-  skillshare upgrade              # Upgrade both CLI and skill
-  skillshare upgrade --cli        # Upgrade CLI only
-  skillshare upgrade --skill      # Upgrade skill only
-  skillshare upgrade --dry-run    # Preview upgrades`)
+	printHelp("skillshare upgrade [options]", "Upgrade the CLI binary and/or built-in skillshare skill.",
+		helpGroup{title: "Options", rows: []helpRow{
+			{"--skill", "Upgrade skill only"},
+			{"--cli", "Upgrade CLI only"},
+			{"-f, --force", "Skip confirmation prompts"},
+			{"-n, --dry-run", "Preview without making changes"},
+		}},
+		helpExamples(
+			helpRow{"skillshare upgrade", "Upgrade both CLI and skill"},
+			helpRow{"skillshare upgrade --cli", "Upgrade CLI only"},
+			helpRow{"skillshare upgrade --skill", "Upgrade skill only"},
+			helpRow{"skillshare upgrade --dry-run", "Preview upgrades"},
+		),
+	)
 }

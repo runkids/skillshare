@@ -12,11 +12,13 @@ import (
 
 // helpGroup is one titled block of a help page: commands, options or notes.
 // A row with no description prints the name alone; a note group (rows with
-// only a name and dim set) prints its lines dimmed.
+// only a name and dim set) prints its lines dimmed. An examples group aligns
+// on its own and dims its descriptions.
 type helpGroup struct {
-	title string
-	rows  []helpRow
-	dim   bool
+	title    string
+	rows     []helpRow
+	dim      bool
+	examples bool
 }
 
 type helpRow struct {
@@ -34,15 +36,24 @@ func printHelp(usage, intro string, groups ...helpGroup) {
 	}
 	width := 0
 	for _, g := range groups {
-		for _, r := range g.rows {
-			if r.desc != "" {
-				width = max(width, runewidth.StringWidth(r.name))
-			}
+		if !g.examples {
+			width = max(width, helpNameWidth(g.rows))
 		}
 	}
 	for _, g := range groups {
 		fmt.Println()
 		fmt.Println(theme.Primary().Bold(true).Render(g.title))
+		if g.examples {
+			exWidth := helpNameWidth(g.rows)
+			for _, r := range g.rows {
+				line := "  " + theme.Accent().Render(r.name)
+				if r.desc != "" {
+					line += strings.Repeat(" ", exWidth-runewidth.StringWidth(r.name)) + "  " + ui.DimText(r.desc)
+				}
+				fmt.Println(line)
+			}
+			continue
+		}
 		for _, r := range g.rows {
 			if g.dim {
 				fmt.Println("  " + ui.DimText(r.name))
@@ -63,6 +74,23 @@ func printHelp(usage, intro string, groups ...helpGroup) {
 			}
 		}
 	}
+}
+
+// helpNameWidth is the widest name among rows that have a description.
+func helpNameWidth(rows []helpRow) int {
+	width := 0
+	for _, r := range rows {
+		if r.desc != "" {
+			width = max(width, runewidth.StringWidth(r.name))
+		}
+	}
+	return width
+}
+
+// helpExamples builds the Examples group: commands with an optional
+// dimmed description.
+func helpExamples(rows ...helpRow) helpGroup {
+	return helpGroup{title: "Examples", rows: rows, examples: true}
 }
 
 // helpNotes builds a dimmed group of plain lines.

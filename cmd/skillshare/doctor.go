@@ -1420,20 +1420,18 @@ func printUpdateAvailable(update *versioncheck.CheckResult, result *doctorResult
 }
 
 func printDoctorHelp() {
-	fmt.Println(`Usage: skillshare doctor [options]
-
-Check environment and diagnose issues.
-
-Options:
-  --json            Output results as JSON
-  --project, -p     Use project-level config
-  --global, -g      Use global config
-  --help, -h        Show this help
-
-Examples:
-  skillshare doctor              Run diagnostics
-  skillshare doctor --json       Output as JSON
-  skillshare doctor -p           Check project config`)
+	printHelp("skillshare doctor [options]", "Check environment and diagnose issues.",
+		helpGroup{title: "Options", rows: []helpRow{
+			{"--json", "Output results as JSON"},
+			{"-p, --project", "Use project-level config"},
+			{"-g, --global", "Use global config"},
+		}},
+		helpExamples(
+			helpRow{"skillshare doctor", "Run diagnostics"},
+			helpRow{"skillshare doctor --json", "Output as JSON"},
+			helpRow{"skillshare doctor -p", "Check project config"},
+		),
+	)
 }
 
 // trimFindingsPrefix drops prefix from each finding for display.

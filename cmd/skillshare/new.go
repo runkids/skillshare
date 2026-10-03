@@ -194,24 +194,22 @@ func isValidSkillName(name string) bool {
 }
 
 func printNewHelp() {
-	fmt.Println(`Usage: skillshare new <name> [options]
-
-Create a new skill with a SKILL.md template.
-
-Options:
-  --pattern, -P <name>  Use a design pattern (tool-wrapper, generator, reviewer, inversion, pipeline, none)
-  --project, -p         Create in project (.skillshare/skills/)
-  --global, -g          Create in global (~/.config/skillshare/skills/)
-  --dry-run, -n         Preview without creating files
-  --help, -h            Show this help
-
-Arguments:
-  <name>          Skill name (lowercase, hyphens allowed)
-
-Examples:
-  skillshare new my-skill                  # Create with interactive pattern selection
-  skillshare new my-skill -P reviewer      # Use reviewer pattern directly
-  skillshare new my-skill -P none          # Plain template, no pattern
-  skillshare new my-skill -p               # Create in project
-  skillshare new my-skill --dry-run        # Preview first`)
+	printHelp("skillshare new <name> [options]", "Create a new skill with a SKILL.md template.",
+		helpGroup{title: "Options", rows: []helpRow{
+			{"-P, --pattern <name>", "Use a design pattern (tool-wrapper, generator, reviewer, inversion, pipeline, none)"},
+			{"-p, --project", "Create in project (.skillshare/skills/)"},
+			{"-g, --global", "Create in global (~/.config/skillshare/skills/)"},
+			{"-n, --dry-run", "Preview without creating files"},
+		}},
+		helpGroup{title: "Arguments", rows: []helpRow{
+			{"<name>", "Skill name (lowercase, hyphens allowed)"},
+		}},
+		helpExamples(
+			helpRow{"skillshare new my-skill", "Create with interactive pattern selection"},
+			helpRow{"skillshare new my-skill -P reviewer", "Use reviewer pattern directly"},
+			helpRow{"skillshare new my-skill -P none", "Plain template, no pattern"},
+			helpRow{"skillshare new my-skill -p", "Create in project"},
+			helpRow{"skillshare new my-skill --dry-run", "Preview first"},
+		),
+	)
 }

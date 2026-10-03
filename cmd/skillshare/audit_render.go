@@ -410,54 +410,45 @@ func formatCategoryBreakdownTUI(cats map[string]int) string {
 }
 
 func printAuditHelp() {
-	fmt.Println(`Usage: skillshare audit [agents] [name...] [options]
-       skillshare audit --group <group> [options]
-       skillshare audit <path> [options]
-
-Scan installed skills (or a specific skill/path) for security threats.
-
-If no names or groups are specified, all installed skills are scanned.
-Block decisions use severity threshold; aggregate risk score is reported separately.
-
-Arguments:
-  name...              Skill name(s) to scan (optional)
-  path                 Existing file/directory path to scan (optional)
-
-Options:
-  --group, -G <name>   Scan all skills in a group (repeatable)
-  -p, --project        Use project-level skills
-  -g, --global         Use global skills
-  --threshold, -T <t>  Block by severity at/above: critical|high|medium|low|info
-                       (also supports c|h|m|l|i)
-  --profile <p>        Audit profile preset: default, strict, permissive
-  --dedupe <mode>      Dedup mode: legacy, global (default)
-  --analyzer <id>      Only run specified analyzer (repeatable)
-                       IDs: static, dataflow, tier, integrity, structure, cross-skill
-  --format <f>         Output format: text (default), json, sarif, markdown
-  --json               Output JSON (deprecated: use --format json)
-  --quiet, -q          Only show skills with findings + summary (skip clean ✓ lines)
-  --yes, -y            Skip large-audit confirmation prompt
-  --no-tui             Disable interactive TUI, use plain text output
-  --init-rules         Create a starter audit-rules.yaml
-  -h, --help           Show this help
-
-Subcommands:
-  rules                Browse, enable/disable rules (see: audit rules --help)
-
-Examples:
-  skillshare audit                           # Scan all installed skills
-  skillshare audit react-patterns            # Scan a specific skill
-  skillshare audit a b c                     # Scan multiple skills
-  skillshare audit --group frontend          # Scan all skills in frontend/
-  skillshare audit x -G backend              # Mix names and groups
-  skillshare audit ./skills/my-skill         # Scan a directory path
-  skillshare audit ./skills/foo/SKILL.md     # Scan a single file
-  skillshare audit --threshold high          # Block on HIGH+ findings
-  skillshare audit -T h                      # Same, with shorthand alias
-  skillshare audit --format json              # Output machine-readable JSON
-  skillshare audit --format sarif            # Output SARIF 2.1.0 for GitHub Code Scanning
-  skillshare audit --format markdown         # Output Markdown report (for GitHub Issues/PRs)
-  skillshare audit --json                    # Same as --format json (deprecated)
-  skillshare audit -p --init-rules           # Create project custom rules file
-  skillshare audit agents                    # Scan agents only`)
+	printHelp("skillshare audit [agents] [name...] [options]\n       skillshare audit --group <group> [options]\n       skillshare audit <path> [options]", "Scan installed skills (or a specific skill/path) for security threats.\n\nIf no names or groups are specified, all installed skills are scanned.\nBlock decisions use severity threshold; aggregate risk score is reported separately.",
+		helpGroup{title: "Arguments", rows: []helpRow{
+			{"name...", "Skill name(s) to scan (optional)"},
+			{"path", "Existing file/directory path to scan (optional)"},
+		}},
+		helpGroup{title: "Options", rows: []helpRow{
+			{"-G, --group <name>", "Scan all skills in a group (repeatable)"},
+			{"-p, --project", "Use project-level skills"},
+			{"-g, --global", "Use global skills"},
+			{"-T, --threshold <t>", "Block by severity at/above: critical|high|medium|low|info\n(also supports c|h|m|l|i)"},
+			{"--profile <p>", "Audit profile preset: default, strict, permissive"},
+			{"--dedupe <mode>", "Dedup mode: legacy, global (default)"},
+			{"--analyzer <id>", "Only run specified analyzer (repeatable)\nIDs: static, dataflow, tier, integrity, structure, cross-skill"},
+			{"--format <f>", "Output format: text (default), json, sarif, markdown"},
+			{"--json", "Output JSON (deprecated: use --format json)"},
+			{"-q, --quiet", "Only show skills with findings + summary (skip clean ✓ lines)"},
+			{"-y, --yes", "Skip large-audit confirmation prompt"},
+			{"--no-tui", "Disable interactive TUI, use plain text output"},
+			{"--init-rules", "Create a starter audit-rules.yaml"},
+		}},
+		helpGroup{title: "Commands", rows: []helpRow{
+			{"rules", "Browse, enable/disable rules (see: audit rules --help)"},
+		}},
+		helpExamples(
+			helpRow{"skillshare audit", "Scan all installed skills"},
+			helpRow{"skillshare audit react-patterns", "Scan a specific skill"},
+			helpRow{"skillshare audit a b c", "Scan multiple skills"},
+			helpRow{"skillshare audit --group frontend", "Scan all skills in frontend/"},
+			helpRow{"skillshare audit x -G backend", "Mix names and groups"},
+			helpRow{"skillshare audit ./skills/my-skill", "Scan a directory path"},
+			helpRow{"skillshare audit ./skills/foo/SKILL.md", "Scan a single file"},
+			helpRow{"skillshare audit --threshold high", "Block on HIGH+ findings"},
+			helpRow{"skillshare audit -T h", "Same, with shorthand alias"},
+			helpRow{"skillshare audit --format json", "Output machine-readable JSON"},
+			helpRow{"skillshare audit --format sarif", "Output SARIF 2.1.0 for GitHub Code Scanning"},
+			helpRow{"skillshare audit --format markdown", "Output Markdown report (for GitHub Issues/PRs)"},
+			helpRow{"skillshare audit --json", "Same as --format json (deprecated)"},
+			helpRow{"skillshare audit -p --init-rules", "Create project custom rules file"},
+			helpRow{"skillshare audit agents", "Scan agents only"},
+		),
+	)
 }

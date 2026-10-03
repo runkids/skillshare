@@ -281,14 +281,12 @@ func cmdExtrasList(args []string) error {
 }
 
 func printExtrasListHelp() {
-	fmt.Println(`Usage: skillshare extras list [options]
-
-List all configured extras and their sync status.
-
-Options:
-  --json               JSON output
-  --no-tui             Disable interactive TUI, use plain text output
-  --project, -p        Use project-mode extras (.skillshare/)
-  --global, -g         Use global extras (~/.config/skillshare/)
-  --help, -h           Show this help`)
+	printHelp("skillshare extras list [options]", "List all configured extras and their sync status.",
+		helpGroup{title: "Options", rows: []helpRow{
+			{"--json", "JSON output"},
+			{"--no-tui", "Disable interactive TUI, use plain text output"},
+			{"-p, --project", "Use project-mode extras (.skillshare/)"},
+			{"-g, --global", "Use global extras (~/.config/skillshare/)"},
+		}},
+	)
 }

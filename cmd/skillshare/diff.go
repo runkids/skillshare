@@ -1057,28 +1057,25 @@ func pluralS(n int) string {
 }
 
 func printDiffHelp() {
-	fmt.Println(`Usage: skillshare diff [agents|all] [target] [options]
-
-Show differences between source skills and target directories.
-Previews what 'sync' would change without modifying anything.
-
-Arguments:
-  target               Target name to diff (optional; diffs all if omitted)
-
-Options:
-  --project, -p        Diff project-level skills (.skillshare/)
-  --global, -g         Diff global skills (~/.config/skillshare)
-  --stat               Show file-level changes (implies --no-tui)
-  --patch              Show full unified diff (implies --no-tui)
-  --json               Output results as JSON
-  --no-tui             Plain text output (skip interactive TUI)
-  --help, -h           Show this help
-
-Examples:
-  skillshare diff                      # Diff all targets
-  skillshare diff claude               # Diff a single target
-  skillshare diff -p                   # Diff project-mode targets
-  skillshare diff --stat               # Show file-level stat
-  skillshare diff --patch              # Show full text diff
-  skillshare diff agents               # Diff agents targets only`)
+	printHelp("skillshare diff [agents|all] [target] [options]", "Show differences between source skills and target directories.\nPreviews what 'sync' would change without modifying anything.",
+		helpGroup{title: "Arguments", rows: []helpRow{
+			{"target", "Target name to diff (optional; diffs all if omitted)"},
+		}},
+		helpGroup{title: "Options", rows: []helpRow{
+			{"-p, --project", "Diff project-level skills (.skillshare/)"},
+			{"-g, --global", "Diff global skills (~/.config/skillshare)"},
+			{"--stat", "Show file-level changes (implies --no-tui)"},
+			{"--patch", "Show full unified diff (implies --no-tui)"},
+			{"--json", "Output results as JSON"},
+			{"--no-tui", "Plain text output (skip interactive TUI)"},
+		}},
+		helpExamples(
+			helpRow{"skillshare diff", "Diff all targets"},
+			helpRow{"skillshare diff claude", "Diff a single target"},
+			helpRow{"skillshare diff -p", "Diff project-mode targets"},
+			helpRow{"skillshare diff --stat", "Show file-level stat"},
+			helpRow{"skillshare diff --patch", "Show full text diff"},
+			helpRow{"skillshare diff agents", "Diff agents targets only"},
+		),
+	)
 }

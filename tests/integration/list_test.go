@@ -103,7 +103,7 @@ func TestList_Help_ShowsUsage(t *testing.T) {
 	result := sb.RunCLI("list", "--help")
 
 	result.AssertSuccess(t)
-	result.AssertOutputContains(t, "Usage:")
+	result.AssertOutputContains(t, "Usage  skillshare")
 	result.AssertOutputContains(t, "--verbose")
 	result.AssertOutputContains(t, "--type")
 	result.AssertOutputContains(t, "--sort")

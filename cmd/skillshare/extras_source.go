@@ -89,19 +89,10 @@ func cmdExtrasSource(args []string) error {
 }
 
 func printExtrasSourceHelp() {
-	fmt.Println(`Usage: skillshare extras source [path]
-
-Show or set the global extras_source directory.
-
-Without arguments, shows the current extras_source path.
-With a path argument, sets extras_source in the global config.
-
-This setting is global-only. Project mode always uses .skillshare/extras/.
-
-Options:
-  --help, -h          Show this help
-
-Examples:
-  skillshare extras source                          Show current extras_source
-  skillshare extras source ~/company-shared/extras  Set extras_source`)
+	printHelp("skillshare extras source [path]", "Show or set the global extras_source directory.\n\nWithout arguments, shows the current extras_source path.\nWith a path argument, sets extras_source in the global config.\n\nThis setting is global-only. Project mode always uses .skillshare/extras/.",
+		helpExamples(
+			helpRow{"skillshare extras source", "Show current extras_source"},
+			helpRow{"skillshare extras source ~/company-shared/extras", "Set extras_source"},
+		),
+	)
 }
