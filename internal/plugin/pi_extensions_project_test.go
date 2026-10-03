@@ -135,6 +135,91 @@ func TestPiProjectOverrideOfAGlobalPackage(t *testing.T) {
 	assertRows(t, selections(delta), "extensions/a.ts:skipped", "extensions/b.ts:loads", "extensions/c.ts:loads")
 }
 
+// An unsupported source has no proven identity, but stays visible and read-only
+// without exposing credentials or becoming an inheritance/editing baseline.
+func TestPiProjectKeepsAnonymousGlobalPackages(t *testing.T) {
+	for sourceIndex, source := range []string{
+		"git:example.com/acme/tools?token=dummy-token",
+		"https://example.com/acme/tools.git?access_token=dummy-token",
+		"git:https://dummy-user:dummy-pass@example.com/acme/tools?access_token=dummy-token",
+	} {
+		for _, object := range []bool{false, true} {
+			for _, projectEntry := range []bool{false, true} {
+				t.Run(fmt.Sprintf("source=%d/object=%t/project=%t", sourceIndex, object, projectEntry), func(t *testing.T) {
+					f, root := projectFixture(t)
+					var entry any = source
+					if object {
+						entry = map[string]any{"source": source, "extensions": []string{"-extensions/a.ts"}, "opaque": "dummy-private"}
+					}
+					f.global(map[string]any{"packages": []any{entry}})
+					if projectEntry {
+						f.writeJSON(f.projectFile(root), map[string]any{"packages": []any{source}})
+					}
+					same := unchanged(t, f.settingsPath(), f.projectFile(root), filepath.Join(f.agentDir, "trust.json"))
+					st, err := f.svc.piProjectState(context.Background(), "pi")
+					if err != nil {
+						t.Fatal(err)
+					}
+					want := 1
+					if projectEntry {
+						want++
+					}
+					if len(st.view.Packages) != want || len(st.targets) != 0 {
+						t.Fatalf("packages=%+v, editable targets=%v", st.view.Packages, st.targets)
+					}
+					p := findPackage(t, st.view, "global", redactSource(source))
+					if p.Index != 0 || p.Identity != "" || p.Kind != "unknown" || p.Install != "unknown" || p.Problem != "sourceUnknown" || p.ReadOnly != "credentials" || len(p.Rows) != 0 {
+						t.Fatalf("anonymous global: %+v", p)
+					}
+					if object && (p.Form != "object" || !reflect.DeepEqual(p.Rules, []string{"-extensions/a.ts"}) || !reflect.DeepEqual(p.OtherKeys, []string{"opaque"})) {
+						t.Fatalf("object metadata: %+v", p)
+					}
+					shown, err := json.Marshal(st.view)
+					if err != nil || strings.Contains(string(shown), "dummy-") {
+						t.Fatalf("credential/opaque value reached the view: %s, %v", shown, err)
+					}
+					changes := []PiExtensionChange{{Scope: "global", Index: 0, Source: p.Source, Path: "extensions/a.ts", Action: "exclude"}}
+					if _, err := f.svc.PreviewPiExtensions(context.Background(), "pi", changes); err == nil {
+						t.Fatal("anonymous global became previewable")
+					}
+					if _, err := f.svc.ApplyPiExtensions(context.Background(), "pi", changes, st.view.Revision); err == nil {
+						t.Fatal("anonymous global became writable")
+					}
+					same()
+					if entries, _ := filepath.Glob(filepath.Join(f.svc.StateDir, "pi-extensions", "backups", "*.json")); len(entries) != 0 {
+						t.Fatalf("refused apply made backup records: %v", entries)
+					}
+				})
+			}
+		}
+	}
+}
+
+func TestPiProjectAnonymousGlobalsKeepOrderWithoutSharingIdentity(t *testing.T) {
+	f, _ := projectFixture(t)
+	f.global(map[string]any{"packages": []any{
+		f.pkg,
+		"git:example.com/acme/tools?token=dummy-one",
+		"git:example.com/acme/tools?token=dummy-two",
+		map[string]any{"source": f.pkg, "extensions": []string{"-extensions/a.ts"}},
+	}})
+	st, err := f.svc.piProjectState(context.Background(), "pi")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(st.view.Packages) != 3 || len(st.targets) != 1 {
+		t.Fatalf("packages=%+v, targets=%v", st.view.Packages, st.targets)
+	}
+	for i, p := range st.view.Packages {
+		if p.Index != i || p.Scope != "global" || (i > 0 && (p.Identity != "" || p.Problem != "sourceUnknown" || p.ReadOnly != "credentials")) {
+			t.Fatalf("package %d: %+v", i, p)
+		}
+	}
+	if _, err := f.svc.PreviewPiExtensions(context.Background(), "pi", []PiExtensionChange{{Scope: "global", Index: 0, Source: f.pkg, Path: "extensions/a.ts", Action: "exclude"}}); err != nil {
+		t.Fatalf("known first global no longer editable: %v", err)
+	}
+}
+
 // A non-local source is written as the global settings have it, version and ref
 // included, so pi config recognises the override; one carrying credentials or a
 // query is never copied into the project.

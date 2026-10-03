@@ -90,13 +90,13 @@ func (s *Service) piProjectState(ctx context.Context, target string) (*piProject
 		problem string
 	}
 	globals := map[string]*globalPkg{}
-	globalOrder := []string{}
+	globalOrder := []*globalPkg{}
 	for _, e := range global.entries {
 		if e.badSource {
 			continue // the view is read-only
 		}
 		p := openPiPackage(e.source, agentDir, projectDir, "user")
-		if p.src.identity == "" || globals[p.src.identity] != nil {
+		if p.src.identity != "" && globals[p.src.identity] != nil {
 			continue
 		}
 		g := &globalPkg{entry: e, pkg: p, problem: p.problem}
@@ -108,8 +108,11 @@ func (s *Service) piProjectState(ctx context.Context, target string) (*piProject
 		case p.problem == "":
 			g.rows = p.evaluate(e.object, e.hasRules, e.rules)
 		}
-		globals[p.src.identity] = g
-		globalOrder = append(globalOrder, p.src.identity)
+		// Anonymous sources stay visible, but cannot own or shadow a known identity.
+		if p.src.identity != "" {
+			globals[p.src.identity] = g
+		}
+		globalOrder = append(globalOrder, g)
 	}
 	lastProject := map[string]int{}
 	for _, e := range project.entries {
@@ -181,11 +184,11 @@ func (s *Service) piProjectState(ctx context.Context, target string) (*piProject
 		}
 		v.Packages = append(v.Packages, pkg)
 	}
-	for _, id := range globalOrder {
-		if shadowed[id] {
+	for _, g := range globalOrder {
+		id := g.pkg.src.identity
+		if id != "" && shadowed[id] {
 			continue
 		}
-		g := globals[id]
 		pkg := PiExtensionPackage{Index: g.entry.index, Source: redactSource(g.entry.source), Identity: redactSource(id), Kind: g.pkg.src.kind, Form: "string", Scope: "global", Shape: "global", Install: g.pkg.install, Problem: g.problem, OtherKeys: g.entry.otherKeys(), Rows: []PiExtensionRow{}}
 		if g.entry.object {
 			pkg.Form = "object"
