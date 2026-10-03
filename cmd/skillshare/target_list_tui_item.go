@@ -1,12 +1,12 @@
 package main
 
 import (
-	"fmt"
 	"io"
 
 	"skillshare/internal/config"
 	"skillshare/internal/sync"
 	"skillshare/internal/targetsummary"
+	"skillshare/internal/theme"
 
 	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
@@ -40,15 +40,9 @@ func (targetListDelegate) Render(w io.Writer, m list.Model, index int, item list
 	if !ok {
 		return
 	}
-	width := m.Width()
-	if width <= 0 {
-		width = 40
-	}
 	mode := sync.EffectiveMode(ti.target.SkillsConfig().Mode)
 	if !ti.target.SkillsConfig().IsEnabled() {
 		mode = "skills off"
 	}
-	line := fmt.Sprintf("%s  (%s)", ti.name, mode)
-	selected := index == m.Index()
-	renderPrefixRow(w, line, width, selected)
+	renderPrefixRow(w, alignRow(ti.name, theme.Dim().Render(mode), m.Width()-rowIndent), m.Width(), index == m.Index())
 }

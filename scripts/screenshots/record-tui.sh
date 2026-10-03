@@ -24,6 +24,8 @@ list-keys|skillshare list|Type `?`
 list-confirm|skillshare list|Down;Type `d`
 list-filter|skillshare list|Type `/`;Type `re`
 target|skillshare target list|
+target-edit|skillshare target list|Type `e`
+target-confirm|skillshare target list|Type `d`
 extras|skillshare extras list|
 trash|skillshare trash list|
 trash-confirm|skillshare trash list|Space;Down;Space;Type `d`

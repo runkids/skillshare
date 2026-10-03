@@ -54,13 +54,6 @@ func (s listStatusFilter) String() string {
 	}
 }
 
-// applyTUIFilterStyle sets filter prompt, cursor, and input cursor to the shared style.
-func applyTUIFilterStyle(l *list.Model) {
-	l.Styles.FilterPrompt = theme.Accent()
-	l.Styles.FilterCursor = theme.Accent()
-	l.FilterInput.Cursor.Style = theme.Accent()
-}
-
 // listLoadResult holds the result of async skill loading inside the TUI.
 type listLoadResult struct {
 	skills     []skillItem
