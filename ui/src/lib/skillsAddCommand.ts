@@ -42,5 +42,16 @@ export function parseSkillsAddCommand(value: string): SkillsAddCommand | null {
     }
   }
   if (!source) return null;
+  // GitHub shorthand owner/repo@skill names one skill, as upstream's source parser reads it.
+  const shorthand = source.match(/^([^/:]+\/[^/@]+)@(.+)$/);
+  if (shorthand) {
+    source = shorthand[1];
+    skills.push(shorthand[2]);
+  }
   return { source, skills: skills.includes('*') ? [] : skills };
+}
+
+/** Upstream matches requested skill names case-insensitively. */
+export function isRequestedSkill(name: string, skills: string[]): boolean {
+  return skills.some((s) => s.toLowerCase() === name.toLowerCase());
 }

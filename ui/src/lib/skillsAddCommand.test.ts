@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { parseSkillsAddCommand } from './skillsAddCommand';
+import { isRequestedSkill, parseSkillsAddCommand } from './skillsAddCommand';
+
+describe('isRequestedSkill', () => {
+  it('matches names regardless of letter case', () => {
+    expect(isRequestedSkill('Codebase-Design', ['codebase-design'])).toBe(true);
+  });
+});
 
 describe('parseSkillsAddCommand', () => {
   it('reads the source from a plain command', () => {
@@ -28,6 +34,16 @@ describe('parseSkillsAddCommand', () => {
   it('accepts other runners and a shell prompt', () => {
     expect(parseSkillsAddCommand('$ pnpm dlx skills add https://github.com/owner/repo'))
       .toEqual({ source: 'https://github.com/owner/repo', skills: [] });
+  });
+
+  it('splits the owner/repo@skill shorthand', () => {
+    expect(parseSkillsAddCommand('npx skills add vercel-labs/agent-skills@react-best-practices -g -y'))
+      .toEqual({ source: 'vercel-labs/agent-skills', skills: ['react-best-practices'] });
+  });
+
+  it('keeps @ in SSH sources', () => {
+    expect(parseSkillsAddCommand('npx skills add git@github.com:owner/repo.git'))
+      .toEqual({ source: 'git@github.com:owner/repo.git', skills: [] });
   });
 
   it('ignores values that are not a skills add command', () => {
