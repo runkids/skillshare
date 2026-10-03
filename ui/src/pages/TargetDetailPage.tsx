@@ -16,6 +16,8 @@ import RemoveTargetDialog from '../components/targets/RemoveTargetDialog';
 import SkillsOffDialog from '../components/targets/SkillsOffDialog';
 import TargetMCP from '../components/targets/TargetMCP';
 import TargetHooks from '../components/targets/TargetHooks';
+import TargetPiExtensions from '../components/targets/TargetPiExtensions';
+import { isPiTarget, piExtensionsApi } from '../api/piExtensions';
 import { hookAgentOf, hookCount, scopePaths } from '../components/hooks/hooksView';
 import TargetInstructions from '../components/instructions/TargetInstructions';
 import AddFileDialog from '../components/targetFiles/AddFileDialog';
@@ -75,12 +77,16 @@ function TargetEditor({ target, targets }: { target: Target; targets: Target[] }
   const mcpPath = mcp.data?.paths[client];
   // Until the list arrives, loading or failing, the tab stays so it can say which.
   const filePath = params.get('tab') === 'file' ? params.get('path') ?? '' : '';
-  const tab: Kind | 'mcp' | 'hooks' | 'instructions' | 'file' = filePath ? 'file' : params.get('tab') === 'instructions' ? 'instructions'
+  const pi = isPiTarget(target);
+  const tab: Kind | 'mcp' | 'hooks' | 'extensions' | 'instructions' | 'file' = filePath ? 'file' : params.get('tab') === 'instructions' ? 'instructions'
+    : pi && params.get('tab') === 'extensions' ? 'extensions'
     : target.agentPath && params.get('tab') === 'agents' ? 'agent' : params.get('tab') === 'mcp' && (mcpPath || !mcp.data) ? 'mcp' : params.get('tab') === 'hooks' && hookAgent && (hooksPath || !hooks.data) ? 'hooks' : 'skill';
   const kind: Kind = tab === 'agent' ? 'agent' : 'skill';
-  const tabs = (['skill', 'agent', 'mcp', 'hooks', 'instructions'] as const).filter((k) => k === 'skill' || k === 'instructions' || (k === 'agent' ? target.agentPath : k === 'hooks' ? hookAgent && (hooksPath || tab === 'hooks') : mcpPath || tab === 'mcp'));
+  const tabs = (['skill', 'agent', 'mcp', 'hooks', 'extensions', 'instructions'] as const).filter((k) => k === 'skill' || k === 'instructions' || (k === 'extensions' ? pi : k === 'agent' ? target.agentPath : k === 'hooks' ? hookAgent && (hooksPath || tab === 'hooks') : mcpPath || tab === 'mcp'));
   const instructions = useQuery({ queryKey: queryKeys.instructions.target(target.name), queryFn: () => api.getTargetInstructions(target.name) });
   const files = useQuery({ queryKey: queryKeys.targetFiles.list(target.name), queryFn: () => api.listTargetFiles(target.name) });
+  // Asks Pi for its version, so it runs only once the tab is opened; the count stays after that.
+  const piExtensions = useQuery({ queryKey: queryKeys.piExtensions(target.name), queryFn: () => piExtensionsApi.get(target.name), enabled: pi && tab === 'extensions' });
   const syncTab = tab === 'skill' || tab === 'agent';
   const saved = draftOf(target);
   const [draft, setDraft] = useState<Draft>(saved);
@@ -157,11 +163,12 @@ function TargetEditor({ target, targets }: { target: Target; targets: Target[] }
     k === 'skill' && !skillsOn ? null : (k === 'mcp' ? mcp.data && serverCount(mcp.data, client)
       : k === 'hooks' ? hooks.data && hookAgent && hookCount(hooks.data, hookAgent, target.project)
       : k === 'instructions' ? instructions.data?.read_order.filter((e) => e.read).length
+        : k === 'extensions' ? piExtensions.data && [...piExtensions.data.packages, ...piExtensions.data.folders].reduce((n, p) => n + p.rows.length, 0)
         : entriesOf(k).length) || null;
   // Name the tab after the file this target actually reads (CLAUDE.md, GEMINI.md, …).
   const instructionsTab = instructions.data?.supported && instructions.data.path ? fileName(instructions.data.path) : 'AGENTS.md';
-  const tabLabel = (k: (typeof tabs)[number]) => (k === 'agent' ? 'Agents' : k === 'mcp' ? 'MCP' : k === 'hooks' ? 'Hooks' : k === 'instructions' ? instructionsTab : 'Skills');
-  const tabLink = (k: (typeof tabs)[number]) => (k === 'agent' ? '?tab=agents' : k === 'mcp' ? '?tab=mcp' : k === 'hooks' ? '?tab=hooks' : k === 'instructions' ? '?tab=instructions' : '?');
+  const tabLabel = (k: (typeof tabs)[number]) => (k === 'agent' ? 'Agents' : k === 'mcp' ? 'MCP' : k === 'hooks' ? 'Hooks' : k === 'extensions' ? 'Extensions' : k === 'instructions' ? instructionsTab : 'Skills');
+  const tabLink = (k: (typeof tabs)[number]) => (k === 'agent' ? '?tab=agents' : k === 'mcp' ? '?tab=mcp' : k === 'hooks' ? '?tab=hooks' : k === 'extensions' ? '?tab=extensions' : k === 'instructions' ? '?tab=instructions' : '?');
   // The instruction file and the other files the tool reads; the open one always shows, taking the last slot if it has to.
   const fileTabs = [
     ...(tabs.includes('instructions') ? [{ id: 'instructions', label: instructionsTab, to: tabLink('instructions') }] : []),
@@ -238,6 +245,8 @@ function TargetEditor({ target, targets }: { target: Target; targets: Target[] }
         <TargetInstructions name={target.name} />
       ) : tab === 'mcp' ? (
         mcp.data ? <TargetMCP name={client} data={mcp.data} /> : mcp.error ? <div className="ss-note bad"><span className="flex-1">{mcp.error.message}</span></div> : <PageSkeleton />
+      ) : tab === 'extensions' ? (
+        <TargetPiExtensions name={target.name} />
       ) : tab === 'hooks' && hookAgent ? (
         hooks.data ? <TargetHooks agent={hookAgent} data={hooks.data} project={target.project} /> : hooks.error ? <div className="ss-note bad"><span className="flex-1">{hooks.error.message}</span></div> : <PageSkeleton />
       ) : !agent && !skillsOn ? (

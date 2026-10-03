@@ -90,6 +90,19 @@ cannot reach, says why, and still updates the other targets.
 - Pi: `package.json` with a `pi` resource manifest or `pi-package` conventions. Native install/remove; read-only
   settings inventory honors `PI_CODING_AGENT_DIR`. Project trust must be completed
   in Pi; do not bypass it with automatic approval flags.
+  Which of a package's extensions load is chosen per Pi target in the dashboard's
+  Extensions tab (exact `+`/`-` rules, previewed, refused if the file changed or Pi's lock
+  is held or lost; "Remove rule" leaves the file to the remaining rules; a single-file source,
+  and a string entry of a package with convention skills/prompts/themes folders its manifest leaves
+  out (conversion to an object can't be shown to keep them unchanged), are read-only; so is an entry
+  with an empty source or an unpaired UTF-16 surrogate escape / invalid UTF-8 in its source or rules); there is no CLI
+  command for it. It is editable only on a verified Pi version (0.99.2, 1.0.0; a fork account
+  is read-only and never run). On a project page it saves only `.pi/settings.json`, as
+  `pi config` does: a global package gets a project entry `{source, autoload: false,
+  extensions}` (local source relative to `.pi`), removed with its last rule; the global
+  settings and `trust.json` are never written and Skillshare never trusts the project. A
+  global source with credentials or a query, or a project/global entry it can't read
+  exactly, keeps the affected packages read-only.
 - OpenCode: SDK dependency, `.opencode/plugins/` convention, or explicit `--entry`,
   with an existing JS/TS entry.
   Preserve the whole tree and register its file URL in the native JSON/JSONC config.

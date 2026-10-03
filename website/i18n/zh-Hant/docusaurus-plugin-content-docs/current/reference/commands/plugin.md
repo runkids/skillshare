@@ -139,6 +139,14 @@ Pi 使用 `pi install` / `pi remove`；清單讀取的是文件記載的套件�
 會遵循 `PI_CODING_AGENT_DIR`。Pi 的專案信任必須在 Pi 中自行建立；Skillshare 不會替你傳遞
 `--approve`。
 
+#### 選擇套件的 extension
+
+在 dashboard 中，`pi` 與 Pi 帳號的 target 頁面有一個 **Extensions** 分頁。它列出該 target 的 `settings.json` 中每個套件項目，以及其篩選規則選取的 extension。開關會在該項目的 `extensions` 清單寫入一條精確的 `+path` 或 `-path` 規則。**Remove rule** 會刪除該檔案的精確規則（無論寫成相對或絕對路徑），之後該檔案依其餘規則決定；結果會顯示在預覽中。套用前一定會先顯示預覽，而且只修改這些清單：項目的其他鍵、`skills`、`prompts` 與 `themes` 篩選規則、glob 與 `!` 規則，以及檔案的其餘部分都維持原樣。字串項目會變成 `{"source": ...}`，以便放入規則。對字串項目，Pi 只從套件的 `pi` manifest 讀取 skills、prompts 與 themes；物件項目則會在 manifest 沒列出時，從套件的 `skills`、`prompts`、`themes` 資料夾載入它們。有這類資料夾的套件，其字串項目是唯讀的，因為 Skillshare 無法確認轉換後這些資源維持原狀。指向單一檔案的來源也是唯讀的，因為 Pi 會直接載入它並忽略篩選規則。如果預覽後檔案已被修改，或 Pi 正持有設定鎖，就不會寫入任何內容。寫入期間 Skillshare 會以和 Pi 相同的方式持有這個鎖，一旦失去就不寫入。每次套用前都會保存一份檔案副本，且不會自動刪除。安裝與移除套件仍然透過 `plugin` 進行。
+
+Skillshare 讀取套件時不會執行它們，因此這個分頁顯示的是設定選取了哪些檔案（**設定**欄），而不是 Pi 是否已載入它們；套用後請重新載入 Pi。設定指名但套件中不存在的檔案會標示為不存在。Skillshare 無法判斷的選擇會顯示**無法判斷**，並附上原因與修改方式，絕不猜測開或關。編輯需要該 target 自己的 Pi 是 Skillshare 驗證過的版本（目前為 0.99.2 與 1.0.0，各自以 Pi 本身驗證過），且設定是嚴格的 JSON；其他版本為唯讀，分頁會顯示偵測到的版本。執行其他程式的 Pi 帳號為唯讀，Skillshare 也不會執行它。清單為 `[]`（不載入任何檔案）的項目是唯讀，由 Skillshare 無法評估的模式（例如 `?` 對上 emoji）決定的 extension 也是唯讀。來源為空的項目，或來源、規則中含有未配對的 UTF-16 surrogate 跳脫或無效 UTF-8 的項目，因為 Skillshare 無法和 Pi 一樣準確讀取，會維持原樣並設為唯讀。Pi 只採用套件的第一個全域項目，所以當 Skillshare 無法讀取那個項目時，同一套件後面的項目也是唯讀。
+
+同步到 Pi 的專案在專案頁面上也有這個分頁。它顯示專案設定疊加在全域設定之上後，每個套件選取的內容，並標示是繼承自 `pi (global)` 還是專案覆寫。開關只會把規則存到專案的 `.pi/settings.json`，做法和 `pi config` 相同：全域套件會得到一個專案項目 `{"source": ..., "autoload": false, "extensions": [...]}`，只改變它指名的檔案，全域項目維持原樣。本機來源會寫成相對於 `.pi` 的路徑，npm 或 git 來源則照全域設定的寫法。移除這類項目的最後一條專案規則時，該項目也會被移除。沒有對應全域項目、且 `autoload: false` 的專案項目只會載入它用 `+` 指名的檔案。檔案與其 `.pi` 資料夾只會在套用時建立。全域設定與 Pi 的 `trust.json` 永遠不會被寫入，Skillshare 也不會替你信任專案：Pi 只有在信任專案時才會使用專案設定。含有憑證或查詢字串的全域來源不會被複製到專案，所以該套件在專案中是唯讀；專案設定中有 Skillshare 無法讀取的項目時，所有套件都是唯讀。套用時會持有 Pi 對專案檔案的鎖，並在寫入前再次檢查兩個設定檔與套件。Pi 自己的 `extensions` 資料夾中的 extension（包括 [extras](./extras.md) 連結到那裡的檔案）以唯讀方式列出，並說明在哪裡修改；專案會列出自己的資料夾（Pi 只有在信任專案時才會讀取）和全域資料夾。
+
 OpenCode 會在 `opencode.json` 或既有的 `opencode.jsonc` 中，把受管理的進入點註冊為 file URL，
 並保留註解與無關的項目。Version 1 使用 `plugin`；version 2 使用 `plugins`。會遵循
 `XDG_CONFIG_HOME` 與絕對路徑的全域 `OPENCODE_CONFIG`；模糊或不支援的覆寫會被拒絕。OpenCode

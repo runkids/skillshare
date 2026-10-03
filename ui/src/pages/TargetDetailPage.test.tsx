@@ -20,6 +20,7 @@ vi.mock('../api/client', async (load) => ({
 vi.mock('../components/instructions/TargetInstructions', () => ({ default: () => null }));
 vi.mock('../components/targetFiles/TargetFileTab', () => ({ default: () => null }));
 vi.mock('../api/mcp', async (load) => ({ ...await load<typeof import('../api/mcp')>(), mcpApi: { list: vi.fn() } }));
+vi.mock('../components/targets/TargetPiExtensions', () => ({ default: ({ name }: { name: string }) => <p>pi extensions of {name}</p> }));
 
 const target = (over: Partial<Target>) => ({
   path: '/home/me/.gemini/skills', mode: 'merge', targetNaming: 'flat', status: 'merged', linkedCount: 0, localCount: 0,
@@ -130,5 +131,28 @@ describe('Target detail file tabs', () => {
     const nav = await tabs();
     expect(await within(nav).findByRole('link', { name: 'SYSTEM.md' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Add file' })).not.toBeInTheDocument();
+  });
+  // Pi's extensions belong to each Pi target: pi and a Pi account; never other Agents.
+  it.each(['pi', 'pi-work'])('gives %s an Extensions tab', async (name) => {
+    view(name, [target({ name, agent: name === 'pi-work' ? 'pi' : undefined, path: '/home/me/.pi/agent/skills' })]);
+    expect(await screen.findByRole('link', { name: 'Extensions' })).toHaveAttribute('href', '/targets/' + name + '?tab=extensions');
+  });
+
+  it('gives other targets no Extensions tab', async () => {
+    view('gemini', [target({ name: 'gemini' })]);
+    await screen.findByRole('link', { name: 'Skills' });
+    expect(screen.queryByRole('link', { name: 'Extensions' })).not.toBeInTheDocument();
+  });
+
+  it('opens the Extensions tab of a Pi target', async () => {
+    vi.mocked(api.listTargets).mockResolvedValue({ targets: [target({ name: 'pi' })], sourceSkillCount: 0 });
+    render(
+      <MemoryRouter initialEntries={['/targets/pi?tab=extensions']}>
+        <QueryClientProvider client={new QueryClient()}><I18nProvider><ToastProvider>
+          <Routes><Route path="/targets/:name" element={<TargetDetailPage />} /></Routes>
+        </ToastProvider></I18nProvider></QueryClientProvider>
+      </MemoryRouter>,
+    );
+    expect(await screen.findByText('pi extensions of pi')).toBeInTheDocument();
   });
 });

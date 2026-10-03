@@ -254,7 +254,10 @@ type Service struct {
 	// Accounts are the targets that are another config directory of a built-in Agent,
 	// keyed by the name the config gives them.
 	Accounts map[string]Account
-	Run      Runner
+	// ExtrasSources maps each extra to its source folder, so a Pi extension that an
+	// extra links into Pi's folder is shown as that extra's file.
+	ExtrasSources map[string]string
+	Run           Runner
 }
 
 func (b Binding) Selected() bool { return b.Sync == nil || *b.Sync }

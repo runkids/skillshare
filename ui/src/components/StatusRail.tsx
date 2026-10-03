@@ -6,8 +6,8 @@ import { useT } from '../i18n';
 
 /**
  * The right-hand column of the Plugins and MCP pages. The list on the left is what you
- * have; everything here is state: what Sync would do, then which Agents can take part.
- * Position tells the two apart, so neither needs a heading to say which it is.
+ * manage; the rail shows what Sync would do and each tool's native inventory.
+ * Pages label the two separately when their inventory counts can differ.
  */
 
 // Below the page header, above the page's bottom padding: what is left of the viewport.

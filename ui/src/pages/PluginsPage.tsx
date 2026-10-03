@@ -177,11 +177,14 @@ export default function PluginsPage() {
       {(failure || error) && <div role="alert" className="ss-note bad"><span className="flex-1">{failure || (error as Error).message}</span></div>}
 
       {data && <RailLayout rail={rail}>
-        {packages.length === 0 ? (
-          <EmptyState icon={Package} title={t('plugins.empty')} description={t('plugins.emptyHelp')} action={addActions} />
-        ) : (
-          <PluginList inventory={data} updates={updates} busy={busy} working={working} onToggle={(name, target, on) => void selectTarget(name, target, on)} onMenu={openMenu} onAdd={begin} onBlocked={(name, source) => setAdding({ name, source, bound: data.packages[name]?.bindings, recorded: data.packages[name] })} />
-        )}
+        <section aria-labelledby="plugins-managed-title" className="flex flex-col gap-3">
+          <div className="ss-sec"><h2 id="plugins-managed-title">{t('plugins.managedTitle')}</h2><span className="ss-cnt">{packages.length}</span></div>
+          {packages.length === 0 ? (
+            <EmptyState icon={Package} title={t('plugins.empty')} description={t('plugins.emptyHelp')} action={addActions} />
+          ) : (
+            <PluginList inventory={data} updates={updates} busy={busy} working={working} onToggle={(name, target, on) => void selectTarget(name, target, on)} onMenu={openMenu} onAdd={begin} onBlocked={(name, source) => setAdding({ name, source, bound: data.packages[name]?.bindings, recorded: data.packages[name] })} />
+          )}
+        </section>
       </RailLayout>}
 
       {sharing && <PluginShareDialog plugins={shareable} initial={sharing} onClose={() => setSharing(null)} />}

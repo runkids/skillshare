@@ -139,6 +139,14 @@ Pi 使用 `pi install` / `pi remove`；清单读取有文档记录的 package �
 而不加载 extension 代码。`PI_CODING_AGENT_DIR` 会被遵循。Pi 的 project trust 必须在 Pi 中建立；
 Skillshare 不会替你传递 `--approve`。
 
+#### 选择 package 的 extension
+
+在 dashboard 中，`pi` 和 Pi 账号的 target 页面有一个 **Extensions** 标签页。它列出该 target 的 `settings.json` 中每个包条目，以及其过滤规则选中的 extension。开关会在该条目的 `extensions` 列表中写入一条精确的 `+path` 或 `-path` 规则。**Remove rule** 会删除该文件的精确规则（无论写成相对路径还是绝对路径），之后该文件由其余规则决定；结果会显示在预览中。应用前一定会先显示预览，并且只修改这些列表：条目的其他键、`skills`、`prompts` 和 `themes` 过滤规则、glob 和 `!` 规则，以及文件的其余部分都保持原样。字符串条目会变成 `{"source": ...}`，以便放入规则。对于字符串条目，Pi 只从包的 `pi` manifest 读取 skills、prompts 和 themes；对象条目则会在 manifest 没有列出时，从包的 `skills`、`prompts`、`themes` 文件夹加载它们。有这类文件夹的包，其字符串条目是只读的，因为 Skillshare 无法确认转换后这些资源保持原样。指向单个文件的来源也是只读的，因为 Pi 会直接加载它并忽略过滤规则。如果预览后文件已被修改，或 Pi 正持有设置锁，就不会写入任何内容。写入期间 Skillshare 会以与 Pi 相同的方式持有这个锁，一旦失去就不写入。每次应用前都会保存一份文件副本，且不会自动删除。安装和移除包仍然通过 `plugin` 进行。
+
+Skillshare 读取包时不会运行它们，因此这个标签页显示的是设置选中了哪些文件（**设置**列），而不是 Pi 是否已加载它们；应用后请重新加载 Pi。设置指明但包中不存在的文件会标记为不存在。Skillshare 无法判断的选择会显示**无法判断**，并附上原因与修改方式，绝不猜测开或关。编辑需要该 target 自己的 Pi 是 Skillshare 验证过的版本（目前为 0.99.2 和 1.0.0，各自用 Pi 本身验证过），且设置是严格的 JSON；其他版本为只读，标签页会显示检测到的版本。运行其他程序的 Pi 账号为只读，Skillshare 也不会运行它。列表为 `[]`（不加载任何文件）的条目是只读的，由 Skillshare 无法评估的模式（例如 `?` 对上 emoji）决定的 extension 也是只读的。来源为空的条目，或来源、规则中含有未配对的 UTF-16 代理项转义或无效 UTF-8 的条目，因为 Skillshare 无法像 Pi 一样准确读取，会保持原样并设为只读。Pi 只采用包的第一个全局条目，所以当 Skillshare 无法读取那个条目时，同一个包后面的条目也是只读的。
+
+同步到 Pi 的项目在项目页面上也有这个标签页。它显示项目设置叠加在全局设置之上后，每个包选中的内容，并标明是继承自 `pi (global)` 还是项目覆盖。开关只会把规则保存到项目的 `.pi/settings.json`，做法与 `pi config` 相同：全局包会得到一个项目条目 `{"source": ..., "autoload": false, "extensions": [...]}`，只改变它指明的文件，全局条目保持不变。本地来源会写成相对于 `.pi` 的路径，npm 或 git 来源则按全局设置的写法。移除这类条目的最后一条项目规则时，该条目也会被移除。没有对应全局条目、且 `autoload: false` 的项目条目只会加载它用 `+` 指明的文件。文件及其 `.pi` 文件夹只会在应用时创建。全局设置和 Pi 的 `trust.json` 永远不会被写入，Skillshare 也不会替你信任项目：Pi 只有在信任项目时才会使用项目设置。含有凭据或查询字符串的全局来源不会被复制到项目中，所以该包在项目中是只读的；项目设置中有 Skillshare 无法读取的条目时，所有包都是只读的。应用时会持有 Pi 对项目文件的锁，并在写入前再次检查两个设置文件和包。Pi 自己的 `extensions` 文件夹中的 extension（包括 [extras](./extras.md) 链接到那里的文件）以只读方式列出，并说明在哪里修改；项目会列出自己的文件夹（Pi 只有在信任项目时才会读取）和全局文件夹。
+
 OpenCode 会在 `opencode.json` 或已存在的 `opencode.jsonc` 中将受管理的 entry 注册为文件 URL，
 并保留注释和无关的条目。Version 1 使用 `plugin`；version 2 使用 `plugins`。`XDG_CONFIG_HOME`
 和绝对路径的全局 `OPENCODE_CONFIG` 会被遵循；含糊或不受支持的覆盖会被拒绝。

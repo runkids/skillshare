@@ -1,10 +1,13 @@
+import { Link } from 'react-router-dom';
 import { RefreshCw } from 'lucide-react';
 import { targetMap, type PluginInventory } from '../../api/plugins';
+import { isPiTarget } from '../../api/piExtensions';
 import IconButton from '../IconButton';
 import { RailGroup, RailRow, RailSection } from '../StatusRail';
 import PluginDocsLink from './PluginDocsLink';
 import { useT } from '../../i18n';
 import { useSlow } from '../../hooks/useSlow';
+import { useSyncedTargetsQuery } from '../../hooks/useSharedQueries';
 
 interface Props {
   inventory: PluginInventory;
@@ -26,6 +29,8 @@ export default function PluginAgents({ inventory, ready, refreshing, disabled, o
   // The backend keys its fixed sentences; a message it assembled at runtime has no key
   // and is shown as it came, which is also what the CLI prints.
   const message = (key: string | undefined, text: string | undefined) => (key ? t(key, undefined, text) : text ?? '');
+  // Native registrations need not be managed by Skillshare; extension selection stays on each Pi target.
+  const piTargets = new Set((useSyncedTargetsQuery().data?.targets ?? []).filter(isPiTarget).map((x) => x.name));
   const manual = inventory.hosts.filter((h) => labels[h.target]?.operations.length === 0);
   const byStatus = (status: string) => inventory.hosts.filter((h) => h.status === status && !manual.includes(h));
   const reasoned = (hosts: PluginInventory['hosts']) => hosts.map((h) => (
@@ -34,7 +39,8 @@ export default function PluginAgents({ inventory, ready, refreshing, disabled, o
   ));
 
   return (
-    <RailSection title={t('layout.nav.agents')} count={definitions.length} action={<IconButton icon={<RefreshCw size={15} className={refreshing ? 'animate-spin' : ''} />} label={t('plugins.refresh')} disabled={disabled || refreshing} onClick={onRefresh} />}>
+    <RailSection title={t('plugins.hostsTitle')} count={definitions.length} action={<IconButton icon={<RefreshCw size={15} className={refreshing ? 'animate-spin' : ''} />} label={t('plugins.refresh')} disabled={disabled || refreshing} onClick={onRefresh} />}>
+      <p className="text-xs leading-normal text-ink-3">{t('plugins.hostsHelp')}</p>
       {!ready ? (
         <RailGroup label={t('plugins.hostsAsking')} foot={slow ? t('plugins.hostsSlow') : undefined}>
           {definitions.map((d) => <RailRow key={d.target} target={d.target} label={d.label} dim right={<span className="ss-skel w-11 shrink-0" />} />)}
@@ -45,10 +51,11 @@ export default function PluginAgents({ inventory, ready, refreshing, disabled, o
             <RailGroup label={t('plugins.hostReady')} count={byStatus('ready').length}>
               {byStatus('ready').map((h) => (
                 <RailRow key={h.target} target={h.target} label={label(h.target)}
-                  right={h.installed.length > 0 && <span className="shrink-0 text-xs text-ink-3">{t(h.installed.length === 1 ? 'plugins.hostInstalled.one' : 'plugins.hostInstalled.other', { count: h.installed.length })}</span>}
+                  right={h.installed.length > 0 && <span className="shrink-0 text-xs text-ink-3">{t(h.installed.length === 1 ? 'plugins.hostRegistered.one' : 'plugins.hostRegistered.other', { count: h.installed.length })}</span>}
                   detail={<>
                     <span>{h.target === 'grok' ? t('plugins.reason.grok') : message(h.noteKey || 'plugins.note.native', h.note)}</span>
                     {h.version && <span className="break-all font-mono text-xs text-ink-3">{h.version}</span>}
+                    {piTargets.has(h.target) && <Link to={`/targets/${encodeURIComponent(h.target)}?tab=extensions`} className="text-xs font-semibold text-ink-2 hover:text-ink">{t('plugins.piExtensions', { name: label(h.target) })}</Link>}
                     <PluginDocsLink target={h.target} label={label(h.target)} />
                   </>} />
               ))}
