@@ -213,23 +213,36 @@ func EnsureConfigUntracked(dir string) (removed bool, err error) {
 // or reset that brings in a remote-tracked config.yaml replaces this machine's
 // copy. The returned restore reports whether the repo tracks config.yaml after
 // the pull, even when the tracked copy matches this machine's, so callers can
-// warn that the remote tracks it. It puts the snapshot back only when Git could
-// have touched the file (tracked before or after the pull), so edits made to an
-// untracked config.yaml while the pull ran are left alone.
+// warn that the remote tracks it. It puts the snapshot back only when the pull
+// changed config.yaml's index entry, so edits made while the pull ran to a file
+// Git left alone are kept.
 func KeepLocalConfig(dir string) (restore func() (remoteTracks bool, err error), err error) {
-	trackedBefore := isTracked(dir, "config.yaml")
+	entryBefore := configIndexEntry(dir)
 	put, err := snapshotConfig(filepath.Join(dir, "config.yaml"))
 	if err != nil {
 		return nil, err
 	}
 	return func() (bool, error) {
-		tracked := isTracked(dir, "config.yaml")
-		if !trackedBefore && !tracked {
-			return false, nil
+		entryAfter := configIndexEntry(dir)
+		if entryAfter == entryBefore {
+			return entryAfter != "", nil
 		}
 		_, err := put()
-		return tracked, err
+		return entryAfter != "", err
 	}, nil
+}
+
+// configIndexEntry returns config.yaml's index entries (mode, blob, stage), or
+// "" when it is untracked. A merge, reset or conflict that touches the file
+// changes this value.
+func configIndexEntry(dir string) string {
+	cmd := exec.Command("git", "ls-files", "-s", "--", "config.yaml")
+	cmd.Dir = dir
+	out, err := cmd.Output()
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(out))
 }
 
 // snapshotConfig records the config.yaml at path and returns a put that writes
