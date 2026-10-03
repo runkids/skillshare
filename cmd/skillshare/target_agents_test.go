@@ -578,3 +578,27 @@ func writeProjectTargetConfig(t *testing.T, targets []config.ProjectTargetEntry)
 	}
 	return root
 }
+
+func TestBuildTargetSkillSyncSummary_PlainTextOmitsZeroCounts(t *testing.T) {
+	root := t.TempDir()
+	source := filepath.Join(root, "source")
+	target := filepath.Join(root, "target")
+	for _, dir := range []string{filepath.Join(source, "shared"), filepath.Join(target, "mine")} {
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.Symlink(filepath.Join(source, "shared"), filepath.Join(target, "shared")); err != nil {
+		t.Fatal(err)
+	}
+
+	summary, text := buildTargetSkillSyncSummary(target, source, "merge")
+	if summary != "merged (1 shared, 1 local)" || text != "merged · 1 shared, 1 local" {
+		t.Fatalf("got summary %q, text %q", summary, text)
+	}
+
+	summary, text = buildTargetSkillSyncSummary(filepath.Join(root, "missing"), source, "merge")
+	if summary != "not exist (0 shared, 0 local)" || text != "not exist" {
+		t.Fatalf("got summary %q, text %q", summary, text)
+	}
+}

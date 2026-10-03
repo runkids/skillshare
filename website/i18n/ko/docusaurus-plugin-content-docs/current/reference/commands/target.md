@@ -121,11 +121,11 @@ TUI를 건너뛰고 일반 텍스트를 출력하려면 `--no-tui`를 사용하�
 
 ```
 claude
-  Skills    ~/.claude/skills  merge · flat · merged (43 shared, 0 local)
+  Skills    ~/.claude/skills  merge · flat · merged · 43 shared
   Agents    ~/.claude/agents  merge · 2/2 linked
 
 cursor
-  Skills    ~/.cursor/skills  merge · flat · merged (43 shared, 1 local)
+  Skills    ~/.cursor/skills  merge · flat · merged · 43 shared, 1 local
   Agents    ~/.cursor/agents  merge · 2/2 linked
 
 codex
@@ -416,13 +416,13 @@ skillshare target claude --add-agent-include "team-*" -p    # Add agent filter
 
 ```
 claude
-  Skills    .claude/skills  merge · flat · merged (3 shared, 0 local)
+  Skills    .claude/skills  merge · flat · merged · 3 shared
 
 cursor
-  Skills    .cursor/skills  merge · flat · merged (3 shared, 0 local)
+  Skills    .cursor/skills  merge · flat · merged · 3 shared
 
 custom-tool
-  Skills    ./tools/ai/skills  merge · flat · merged (3 shared, 0 local)
+  Skills    ./tools/ai/skills  merge · flat · merged · 3 shared
 
 3 targets
 ```

@@ -141,9 +141,9 @@ func printTargetListPlain(items []targetTUIItem) {
 		}
 
 		fmt.Println(theme.Primary().Bold(true).Render(item.name))
-		detail := item.skillSync
+		detail := item.skillSyncText
 		if sc.IsEnabled() {
-			detail = sync.EffectiveMode(sc.Mode) + " · " + config.EffectiveTargetNaming(sc.TargetNaming) + " · " + item.skillSync
+			detail = sync.EffectiveMode(sc.Mode) + " · " + config.EffectiveTargetNaming(sc.TargetNaming) + " · " + item.skillSyncText
 		}
 		ui.Row(ui.MarkNone, "Skills", shortenPath(displayPath)+"  "+ui.DimText(detail), width)
 		if f := filterSummary(sc.Include, sc.Exclude); sc.IsEnabled() && f != "" {

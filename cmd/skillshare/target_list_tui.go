@@ -181,13 +181,15 @@ func buildTargetTUIItems(isProject bool, cwd string) ([]targetTUIItem, error) {
 			if err != nil {
 				return nil, err
 			}
+			skillSync, skillSyncText := targetSkillSyncSummary(resolved, projCfg.EffectiveSkillsSource(cwd))
 			items = append(items, targetTUIItem{
-				name:         entry.Name,
-				target:       resolved,
-				displayPath:  projectTargetDisplayPath(entry),
-				skillSync:    targetSkillSyncSummary(resolved, projCfg.EffectiveSkillsSource(cwd)),
-				agentConfig:  config.ResourceTargetConfig{Mode: agentSummaryMode(agentSummary), Include: agentSummaryInclude(agentSummary), Exclude: agentSummaryExclude(agentSummary)},
-				agentSummary: agentSummary,
+				name:          entry.Name,
+				target:        resolved,
+				displayPath:   projectTargetDisplayPath(entry),
+				skillSync:     skillSync,
+				skillSyncText: skillSyncText,
+				agentConfig:   config.ResourceTargetConfig{Mode: agentSummaryMode(agentSummary), Include: agentSummaryInclude(agentSummary), Exclude: agentSummaryExclude(agentSummary)},
+				agentSummary:  agentSummary,
 			})
 		}
 	} else {
@@ -204,13 +206,15 @@ func buildTargetTUIItems(isProject bool, cwd string) ([]targetTUIItem, error) {
 			if err != nil {
 				return nil, err
 			}
+			skillSync, skillSyncText := targetSkillSyncSummary(t, cfg.EffectiveSkillsSource())
 			items = append(items, targetTUIItem{
-				name:         name,
-				target:       t,
-				displayPath:  t.SkillsConfig().Path,
-				skillSync:    targetSkillSyncSummary(t, cfg.EffectiveSkillsSource()),
-				agentConfig:  config.ResourceTargetConfig{Mode: agentSummaryMode(agentSummary), Include: agentSummaryInclude(agentSummary), Exclude: agentSummaryExclude(agentSummary)},
-				agentSummary: agentSummary,
+				name:          name,
+				target:        t,
+				displayPath:   t.SkillsConfig().Path,
+				skillSync:     skillSync,
+				skillSyncText: skillSyncText,
+				agentConfig:   config.ResourceTargetConfig{Mode: agentSummaryMode(agentSummary), Include: agentSummaryInclude(agentSummary), Exclude: agentSummaryExclude(agentSummary)},
+				agentSummary:  agentSummary,
 			})
 		}
 	}
@@ -1022,25 +1026,36 @@ func (m targetListTUIModel) renderTargetDetail(item targetTUIItem) string {
 // skillsOffSummary is the skills sync summary of a target with skills off.
 const skillsOffSummary = "skills off (not synced)"
 
-func targetSkillSyncSummary(target config.TargetConfig, sourcePath string) string {
+// targetSkillSyncSummary returns the skills sync summary twice: as the TUI
+// and JSON show it, and as the plain list shows it, with zero counts left out.
+func targetSkillSyncSummary(target config.TargetConfig, sourcePath string) (summary, text string) {
 	sc := target.SkillsConfig()
 	if !sc.IsEnabled() {
-		return skillsOffSummary
+		return skillsOffSummary, skillsOffSummary
 	}
 	return buildTargetSkillSyncSummary(sc.Path, sourcePath, sc.Mode)
 }
 
-func buildTargetSkillSyncSummary(targetPath, sourcePath, mode string) string {
+func buildTargetSkillSyncSummary(targetPath, sourcePath, mode string) (summary, text string) {
+	var status fmt.Stringer
+	var synced, local int
+	label := "managed"
 	switch sync.EffectiveMode(mode) {
 	case "copy":
-		status, managed, local := sync.CheckStatusCopy(targetPath)
-		return fmt.Sprintf("%s (%d managed, %d local)", status, managed, local)
+		status, synced, local = sync.CheckStatusCopy(targetPath)
 	case "merge":
-		status, linked, local := sync.CheckStatusMerge(targetPath, sourcePath)
-		return fmt.Sprintf("%s (%d shared, %d local)", status, linked, local)
+		status, synced, local = sync.CheckStatusMerge(targetPath, sourcePath)
+		label = "shared"
 	default:
-		return sync.CheckStatus(targetPath, sourcePath).String()
+		s := sync.CheckStatus(targetPath, sourcePath).String()
+		return s, s
 	}
+	summary = fmt.Sprintf("%s (%d %s, %d local)", status, synced, label, local)
+	text = status.String()
+	if counts := joinAgentCounts(synced, label, local); counts != "" {
+		text += " · " + counts
+	}
+	return summary, text
 }
 
 // ---- Overlay renders --------------------------------------------------------

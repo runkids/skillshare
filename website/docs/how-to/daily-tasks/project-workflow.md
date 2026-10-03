@@ -170,10 +170,10 @@ skillshare target list -p
 
 ```
 claude
-  Skills    .claude/skills  merge · flat · merged (3 shared, 0 local)
+  Skills    .claude/skills  merge · flat · merged · 3 shared
 
 cursor
-  Skills    .cursor/skills  merge · flat · merged (3 shared, 0 local)
+  Skills    .cursor/skills  merge · flat · merged · 3 shared
 
 2 targets
 ```

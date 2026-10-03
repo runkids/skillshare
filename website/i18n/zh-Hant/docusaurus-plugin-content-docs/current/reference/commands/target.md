@@ -121,11 +121,11 @@ skillshare target list --json          # 供 CI/scripts 使用的 JSON 輸出
 
 ```
 claude
-  Skills    ~/.claude/skills  merge · flat · merged (43 shared, 0 local)
+  Skills    ~/.claude/skills  merge · flat · merged · 43 shared
   Agents    ~/.claude/agents  merge · 2/2 linked
 
 cursor
-  Skills    ~/.cursor/skills  merge · flat · merged (43 shared, 1 local)
+  Skills    ~/.cursor/skills  merge · flat · merged · 43 shared, 1 local
   Agents    ~/.cursor/agents  merge · 2/2 linked
 
 codex
@@ -416,13 +416,13 @@ skillshare target claude --add-agent-include "team-*" -p    # 新增 agent filte
 
 ```
 claude
-  Skills    .claude/skills  merge · flat · merged (3 shared, 0 local)
+  Skills    .claude/skills  merge · flat · merged · 3 shared
 
 cursor
-  Skills    .cursor/skills  merge · flat · merged (3 shared, 0 local)
+  Skills    .cursor/skills  merge · flat · merged · 3 shared
 
 custom-tool
-  Skills    ./tools/ai/skills  merge · flat · merged (3 shared, 0 local)
+  Skills    ./tools/ai/skills  merge · flat · merged · 3 shared
 
 3 targets
 ```
