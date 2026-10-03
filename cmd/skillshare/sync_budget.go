@@ -152,11 +152,12 @@ func topOffenders(skills []analyzeSkillEntry, n int, byDescription bool) []token
 func printTokenSummary(entries []analyzeTargetEntry) {
 	groups := groupByTokenCost(entries)
 	for _, g := range groups {
-		targets := strings.Join(g.Targets, ", ")
-		fmt.Printf("  Context: ~%s always-loaded · ~%s on-demand (%s)\n",
-			formatTokenK(g.AlwaysLoaded),
-			formatTokenK(g.OnDemand),
-			targets)
+		line := fmt.Sprintf("Context  ~%s tokens always loaded · ~%s on demand",
+			formatTokenK(g.AlwaysLoaded), formatTokenK(g.OnDemand))
+		if len(groups) > 1 {
+			line += " (" + strings.Join(g.Targets, ", ") + ")"
+		}
+		ui.Note(line)
 	}
 }
 

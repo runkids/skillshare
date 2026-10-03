@@ -566,68 +566,7 @@ func UpdateNotification(currentVersion, latestVersion, upgradeCmd string) {
 	fmt.Fprintln(os.Stderr, runLine)
 }
 
-// SyncSummary prints a sync summary line.
-func SyncSummary(stats SyncStats) {
-	OperationSummary("Sync", stats.Duration,
-		Metric{Label: "targets", Count: stats.Targets, HighlightColor: pterm.Cyan},
-		Metric{Label: "linked", Count: stats.Linked, HighlightColor: pterm.Green},
-		Metric{Label: "local", Count: stats.Local, HighlightColor: pterm.Blue},
-		Metric{Label: "updated", Count: stats.Updated, HighlightColor: pterm.Yellow},
-		Metric{Label: "pruned", Count: stats.Pruned, HighlightColor: pterm.Yellow},
-	)
-}
-
-// SyncStats holds statistics for sync summary
-type SyncStats struct {
-	Targets  int
-	Linked   int
-	Local    int
-	Updated  int
-	Pruned   int
-	Duration time.Duration
-}
-
-// AgentSyncStats holds statistics for agent sync summary.
-type AgentSyncStats struct {
-	Targets  int
-	Linked   int
-	Local    int
-	Updated  int
-	Pruned   int
-	Duration time.Duration
-}
-
-// AgentSyncSummary prints an agent sync summary line.
-func AgentSyncSummary(stats AgentSyncStats) {
-	OperationSummary("Agent sync", stats.Duration,
-		Metric{Label: "targets", Count: stats.Targets, HighlightColor: pterm.Cyan},
-		Metric{Label: "linked", Count: stats.Linked, HighlightColor: pterm.Green},
-		Metric{Label: "local", Count: stats.Local, HighlightColor: pterm.Blue},
-		Metric{Label: "updated", Count: stats.Updated, HighlightColor: pterm.Yellow},
-		Metric{Label: "pruned", Count: stats.Pruned, HighlightColor: pterm.Yellow},
-	)
-}
-
-// ExtrasSyncStats holds statistics for extras sync summary.
-type ExtrasSyncStats struct {
-	Targets  int
-	Synced   int
-	Skipped  int
-	Pruned   int
-	Duration time.Duration
-}
-
-// ExtrasSyncSummary prints an extras sync summary line.
-func ExtrasSyncSummary(stats ExtrasSyncStats) {
-	OperationSummary("Extras sync", stats.Duration,
-		Metric{Label: "targets", Count: stats.Targets, HighlightColor: pterm.Cyan},
-		Metric{Label: "synced", Count: stats.Synced, HighlightColor: pterm.Green},
-		Metric{Label: "skipped", Count: stats.Skipped, HighlightColor: pterm.Yellow},
-		Metric{Label: "pruned", Count: stats.Pruned, HighlightColor: pterm.Yellow},
-	)
-}
-
-// UpdateSummary prints an update summary line matching SyncSummary style.
+// UpdateSummary prints an update summary line.
 func UpdateSummary(stats UpdateStats) {
 	OperationSummary("Update", stats.Duration,
 		Metric{Label: "updated", Count: stats.Updated, HighlightColor: pterm.Green},

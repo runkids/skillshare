@@ -85,7 +85,7 @@ skillshare sync mcp
 
 ## 驗證
 
-- `skillshare sync` 會回報該 project 的 targets，例如 `project01@claude: copied (1 new, ...)`
+- `skillshare sync` 會回報該 project 的 targets，例如 `project01@claude  1 copied`
 - `~/work/project01/.claude/skills/` 只包含符合 `include` 的 skills
 - `skillshare sync mcp --dry-run` 會為每個 project 檔案列出一行
 - 再執行一次 `skillshare sync mcp` 會把每個項目回報為 `unchanged`

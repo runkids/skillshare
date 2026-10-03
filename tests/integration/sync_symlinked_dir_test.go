@@ -49,7 +49,7 @@ targets:
 	result := sb.RunCLI("sync")
 	result.AssertSuccess(t)
 
-	result.AssertOutputContains(t, "merged")
+	result.AssertRowContains(t, "cursor", "1 linked")
 	if !sb.IsSymlink(filepath.Join(cursorSkillsDir, "beta")) {
 		t.Fatal("skill should be a symlink through the symlinked target")
 	}

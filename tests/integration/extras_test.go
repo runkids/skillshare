@@ -208,8 +208,7 @@ extras:
 	result := sb.RunCLI("sync", "extras", "-g")
 
 	result.AssertSuccess(t)
-	// Header should show "Syncing extras"
-	result.AssertAnyOutputContains(t, "Syncing extras")
+	result.AssertOutputContains(t, "\nExtras\n")
 	// Sync verb or file count should appear
 	result.AssertAnyOutputContains(t, "synced")
 
@@ -1416,7 +1415,7 @@ func TestExtrasSync_SkipsMissingSourceDir(t *testing.T) {
 	}
 
 	// Verify output explains the skip
-	result.AssertAnyOutputContains(t, "Source directory does not exist")
+	result.AssertAnyOutputContains(t, "source folder not found")
 	result.AssertAnyOutputContains(t, "Create it to start syncing rules")
 }
 

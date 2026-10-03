@@ -58,7 +58,7 @@ func TestTargetSkillsOff_RemovesLinksKeepsLocal(t *testing.T) {
 	// Sync leaves the folder alone while skills are off.
 	sync := sb.RunCLI("sync")
 	sync.AssertSuccess(t)
-	sync.AssertOutputContains(t, "gemini: skills off")
+	sync.AssertRowContains(t, "gemini", "skills off")
 	if sb.FileExists(filepath.Join(gemini, "alpha")) {
 		t.Error("sync must not relink skills while off")
 	}

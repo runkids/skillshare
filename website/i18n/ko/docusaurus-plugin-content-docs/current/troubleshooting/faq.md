@@ -382,7 +382,7 @@ Skill은 `SKILL.md` 파일(그리고 선택적으로 헬퍼, 예시, 템플릿)�
 
 ### Which targets support agents?
 
-기본 제공: `claude`, `cursor`, `augment`, `opencode` (그리고 `universal` alias). 다른 Target은 agent sync 중 `target(s) skipped for agents (no agents path)` 경고와 함께 조용히 건너뛰어집니다. `config.yaml`을 편집해 agent 경로를 수동으로 추가할 수 있습니다.
+기본 제공: `claude`, `cursor`, `augment`, `opencode` (그리고 `universal` alias). 다른 Target은 agent sync 중 `No agents folder: <targets>` 경고와 함께 조용히 건너뛰어집니다. `config.yaml`을 편집해 agent 경로를 수동으로 추가할 수 있습니다.
 
 ```yaml
 targets:

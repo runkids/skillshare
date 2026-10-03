@@ -27,9 +27,9 @@ targets:
 
 	result := sb.RunCLI("sync")
 	result.AssertSuccess(t)
-	result.AssertAnyOutputContains(t, "Context:")
-	result.AssertAnyOutputContains(t, "always-loaded")
-	result.AssertAnyOutputContains(t, "on-demand")
+	result.AssertAnyOutputContains(t, "Context  ~")
+	result.AssertAnyOutputContains(t, "always loaded")
+	result.AssertAnyOutputContains(t, "on demand")
 }
 
 func TestSync_TokenSummary_Quiet(t *testing.T) {
@@ -50,7 +50,7 @@ targets:
 
 	result := sb.RunCLI("sync", "--quiet")
 	result.AssertSuccess(t)
-	result.AssertOutputNotContains(t, "Context:")
+	result.AssertOutputNotContains(t, "Context  ~")
 }
 
 func TestSync_BudgetWarning(t *testing.T) {

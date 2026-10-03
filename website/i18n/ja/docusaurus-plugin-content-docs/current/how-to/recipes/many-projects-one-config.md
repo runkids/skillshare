@@ -85,7 +85,7 @@ skillshare sync mcp
 
 ## 確認
 
-- `skillshare sync` が project の Target を報告する（例: `project01@claude: copied (1 new, ...)`）
+- `skillshare sync` が project の Target を報告する（例: `project01@claude  1 copied`）
 - `~/work/project01/.claude/skills/` に `include` に一致した Skill だけが含まれている
 - `skillshare sync mcp --dry-run` が project のファイルごとに 1 行ずつ表示する
 - 2 回目の `skillshare sync mcp` がすべてのエントリを `unchanged` と報告する

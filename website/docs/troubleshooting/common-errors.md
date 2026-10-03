@@ -564,7 +564,7 @@ See [Target Filters](/docs/reference/targets/configuration#include--exclude-targ
 
 ## Agent Errors
 
-### Warning: `target(s) skipped for agents (no agents path)`
+### Warning: `No agents folder: <targets>`
 
 **Cause:** You ran `skillshare sync` (or `skillshare sync agents`) and one or more configured targets don't define an agents directory. Only Claude, Cursor, Augment, and OpenCode have built-in agent paths; other targets are silently skipped.
 

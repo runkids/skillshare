@@ -46,7 +46,7 @@ extras:
 	result := sb.RunCLI("sync", "extras")
 
 	result.AssertSuccess(t)
-	result.AssertAnyOutputContains(t, "Syncing extras")
+	result.AssertAnyOutputContains(t, "\nExtras\n")
 	result.AssertAnyOutputContains(t, "2 files")
 
 	// Verify files are symlinks
@@ -100,7 +100,7 @@ extras:
 	result := sb.RunCLI("sync", "extras")
 
 	result.AssertSuccess(t)
-	result.AssertAnyOutputContains(t, "Syncing extras")
+	result.AssertAnyOutputContains(t, "\nExtras\n")
 
 	// Verify file exists and is a real copy (not a symlink)
 	copiedFile := filepath.Join(rulesTarget, "coding.md")
@@ -157,7 +157,7 @@ targets:
 
 	result.AssertSuccess(t)
 	result.AssertAnyOutputContains(t, "No extras configured")
-	result.AssertOutputNotContains(t, "Syncing skills")
+	result.AssertOutputNotContains(t, "Synced")
 }
 
 func TestSyncExtras_PrunesOrphans(t *testing.T) {
@@ -244,10 +244,10 @@ extras:
 	result.AssertSuccess(t)
 
 	// Verify skill sync happened
-	result.AssertAnyOutputContains(t, "merged")
+	result.AssertOutputContains(t, "Synced 1 skill")
 
 	// Verify extras sync happened
-	result.AssertAnyOutputContains(t, "Syncing extras")
+	result.AssertAnyOutputContains(t, "\nExtras\n")
 
 	// Verify skill symlink
 	if !sb.IsSymlink(filepath.Join(targetPath, "my-skill")) {
@@ -427,7 +427,7 @@ extras:
 
 	result.AssertSuccess(t)
 	// A missing source skips the extra with a hint instead of creating it
-	result.AssertAnyOutputContains(t, "Source directory does not exist")
+	result.AssertAnyOutputContains(t, "source folder not found")
 	result.AssertAnyOutputContains(t, "Create it to start syncing nonexistent")
 }
 
@@ -583,7 +583,7 @@ extras:
 
 	result := sb.RunCLI("sync", "extras")
 	result.AssertSuccess(t)
-	result.AssertAnyOutputContains(t, "Skipping extras")
+	result.AssertAnyOutputContains(t, "already managed by agents sync")
 	result.AssertAnyOutputContains(t, "already managed by agents sync")
 }
 
@@ -620,7 +620,7 @@ extras:
 
 	result := sb.RunCLI("sync", "extras")
 	result.AssertSuccess(t)
-	result.AssertOutputNotContains(t, "Skipping extras")
+	result.AssertOutputNotContains(t, "already managed by agents sync")
 
 	// Extras agent file should be synced normally
 	if !sb.FileExists(filepath.Join(claudeAgents, "extra-agent.md")) {
@@ -672,7 +672,7 @@ extras:
 	result.AssertSuccess(t)
 
 	// Overlapping target should be skipped
-	result.AssertAnyOutputContains(t, "Skipping extras")
+	result.AssertAnyOutputContains(t, "already managed by agents sync")
 
 	// Non-overlapping target should be synced
 	if !sb.FileExists(filepath.Join(customTarget, "extra-agent.md")) {
@@ -719,7 +719,7 @@ extras:
 
 	result := sb.RunCLI("sync", "extras")
 	result.AssertSuccess(t)
-	result.AssertOutputNotContains(t, "Skipping extras")
+	result.AssertOutputNotContains(t, "already managed by agents sync")
 
 	if !sb.FileExists(filepath.Join(claudeAgents, "rule.md")) {
 		t.Error("rule.md should be synced — extras named 'rules' should not be affected by agents overlap")
@@ -765,7 +765,7 @@ extras:
 
 	result := sb.RunCLI("sync", "extras")
 	result.AssertSuccess(t)
-	result.AssertOutputNotContains(t, "Skipping extras")
+	result.AssertOutputNotContains(t, "already managed by agents sync")
 
 	if !sb.FileExists(filepath.Join(customTarget, "extra-agent.md")) {
 		t.Error("extra-agent.md should be synced to non-overlapping target")
@@ -805,7 +805,7 @@ extras:
 
 	result := sb.RunCLI("sync", "--all")
 	result.AssertSuccess(t)
-	result.AssertAnyOutputContains(t, "Skipping extras")
+	result.AssertAnyOutputContains(t, "already managed by agents sync")
 	result.AssertAnyOutputContains(t, "already managed by agents sync")
 
 	if !sb.IsSymlink(filepath.Join(claudeAgents, "demo.md")) {
@@ -880,7 +880,7 @@ extras:
 
 	result := sb.RunCLIInDir(projectRoot, "sync", "--all", "-p")
 	result.AssertSuccess(t)
-	result.AssertAnyOutputContains(t, "Skipping extras")
+	result.AssertAnyOutputContains(t, "already managed by agents sync")
 	result.AssertAnyOutputContains(t, "already managed by agents sync")
 
 	if !sb.IsSymlink(filepath.Join(claudeAgents, "demo.md")) {
@@ -1120,4 +1120,21 @@ extras:
 	result := sb.RunCLIInDir(projectRoot, "sync", "--all", "-p")
 	result.AssertFailure(t)
 	result.AssertAnyOutputContains(t, "Extras sync:")
+}
+
+func TestSyncAll_NoExtrasSaysNothingAboutExtras(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sb.CreateSkill("placeholder", map[string]string{"SKILL.md": "# Placeholder"})
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets:
+  claude:
+    path: ` + sb.CreateTarget("claude") + `
+`)
+
+	result := sb.RunCLI("sync", "--all")
+
+	result.AssertSuccess(t)
+	result.AssertOutputNotContains(t, "extras")
 }

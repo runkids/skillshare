@@ -156,7 +156,7 @@ targets:
 
 	result := sb.RunCLI("sync", "agents")
 	result.AssertSuccess(t)
-	result.AssertAnyOutputContains(t, "Syncing agents")
+	result.AssertOutputContains(t, "Synced 1 agent to 1 target")
 
 	// Verify symlink was created
 	linkPath := filepath.Join(claudeAgents, "tutor.md")
@@ -214,8 +214,8 @@ targets:
 
 	result := sb.RunCLI("sync", "--dry-run", "agents")
 	result.AssertSuccess(t)
-	result.AssertAnyOutputContains(t, "Syncing agents")
-	result.AssertOutputNotContains(t, "Syncing skills")
+	result.AssertOutputContains(t, "Would sync 1 agent to 1 target")
+	result.AssertOutputNotContains(t, "skill")
 }
 
 func TestSync_Default_SkillsOnly_NoAgentSync(t *testing.T) {
@@ -281,8 +281,8 @@ targets:
 
 	result := sb.RunCLI("sync", "--all")
 	result.AssertSuccess(t)
-	result.AssertAnyOutputContains(t, "Syncing skills")
-	result.AssertAnyOutputContains(t, "Syncing agents")
+	result.AssertOutputContains(t, "\nSkills\n")
+	result.AssertOutputContains(t, "\nAgents\n")
 
 	// Both should be synced
 	if _, err := os.Lstat(filepath.Join(claudeSkills, "my-skill")); err != nil {
@@ -314,5 +314,5 @@ targets:
 	// "sync --all" should still sync skills even without agents configured
 	result := sb.RunCLI("sync", "--all")
 	result.AssertSuccess(t)
-	result.AssertAnyOutputContains(t, "Syncing skills")
+	result.AssertOutputContains(t, "\nSkills\n")
 }

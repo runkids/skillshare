@@ -1132,7 +1132,7 @@ func TestInit_Subdir_SyncWorksWithSubdir(t *testing.T) {
 	// Sync should work
 	syncResult := sb.RunCLI("sync", "--no-tui")
 	syncResult.AssertSuccess(t)
-	syncResult.AssertOutputContains(t, "Sync complete")
+	syncResult.AssertOutputContains(t, "Synced 1 skill")
 
 	// Verify symlink was created in target
 	symlinkPath := filepath.Join(claudeSkillsPath, "sync-test")

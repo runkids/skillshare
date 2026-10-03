@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"skillshare/internal/config"
+	"skillshare/internal/theme"
 	"skillshare/internal/ui"
 )
 
@@ -35,7 +36,7 @@ func printSyncOverlapHint(targets map[string]config.TargetConfig, isProject, jso
 		}
 	}
 	if rest > 0 {
-		ui.Warning("Skill path overlap across %d target(s) — run `skillshare doctor` for details", rest)
+		ui.Warning("%s share skill folders %s %s", plural(rest, "target"), theme.Dim().Render("— see"), theme.Accent().Render("skillshare doctor"))
 	}
 }
 

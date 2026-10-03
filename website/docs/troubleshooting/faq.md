@@ -382,7 +382,7 @@ See [Agents](/docs/understand/agents) for the full comparison and the agent file
 
 ### Which targets support agents?
 
-Out of the box: `claude`, `cursor`, `augment`, `opencode` (plus the `universal` alias). Other targets are silently skipped during agent sync with a `target(s) skipped for agents (no agents path)` warning. You can add an agent path manually by editing `config.yaml`:
+Out of the box: `claude`, `cursor`, `augment`, `opencode` (plus the `universal` alias). Other targets are silently skipped during agent sync with a `No agents folder: <targets>` warning. You can add an agent path manually by editing `config.yaml`:
 
 ```yaml
 targets:

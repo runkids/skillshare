@@ -1,6 +1,7 @@
 package testutil
 
 import (
+	"regexp"
 	"strings"
 	"testing"
 )
@@ -58,5 +59,15 @@ func (r *Result) AssertAnyOutputContains(t *testing.T, substr string) {
 	if !strings.Contains(r.Stdout, substr) && !strings.Contains(r.Stderr, substr) {
 		t.Errorf("expected output or error to contain %q, got:\nstdout: %s\nstderr: %s",
 			substr, r.Stdout, r.Stderr)
+	}
+}
+
+// AssertRowContains checks that stdout has a result row for label whose value
+// starts with value: "✓ claude   4 linked" matches ("claude", "4 linked").
+func (r *Result) AssertRowContains(t *testing.T, label, value string) {
+	t.Helper()
+	row := regexp.MustCompile(`(?m)^(?:. )?` + regexp.QuoteMeta(label) + ` +` + regexp.QuoteMeta(value))
+	if !row.MatchString(r.Stdout) {
+		t.Errorf("expected a row %q with %q, got:\n%s", label, value, r.Stdout)
 	}
 }

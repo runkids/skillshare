@@ -564,7 +564,7 @@ targets:
 
 ## Agent Errors
 
-### Warning: `target(s) skipped for agents (no agents path)`
+### Warning: `No agents folder: <targets>`
 
 **Cause:** `skillshare sync` (또는 `skillshare sync agents`)를 실행했는데, 설정된 Target 중 하나 이상이 agents 디렉터리를 정의하지 않았습니다. 내장 agent 경로를 가진 것은 Claude, Cursor, Augment, OpenCode뿐이며, 다른 Target은 조용히 건너뜁니다.
 

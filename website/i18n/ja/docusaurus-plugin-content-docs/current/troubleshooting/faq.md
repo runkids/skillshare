@@ -437,7 +437,7 @@ install、sync、audit、check、backup、trash に対応しています。
 ### どの Target が Agent に対応していますか？
 
 標準で対応しているのは `claude`、`cursor`、`augment`、`opencode`（および `universal` エイリアス）
-です。他の Target は Agent の Sync 中に `target(s) skipped for agents (no agents path)` 警告
+です。他の Target は Agent の Sync 中に `No agents folder: <targets>` 警告
 とともに黙ってスキップされます。`config.yaml` を編集して手動で Agent パスを追加できます。
 
 ```yaml

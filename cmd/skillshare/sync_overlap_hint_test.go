@@ -22,7 +22,7 @@ func TestPrintSyncOverlapHint_NamesConflictAndFix(t *testing.T) {
 			t.Errorf("output missing %q:\n%s", want, out)
 		}
 	}
-	if strings.Contains(out, "Skill path overlap") {
+	if strings.Contains(out, "share skill folders") {
 		t.Errorf("conflict fully explains the overlap, generic line should be gone:\n%s", out)
 	}
 }
@@ -34,7 +34,7 @@ func TestPrintSyncOverlapHint_SameSettingsKeepsGenericLine(t *testing.T) {
 	}
 	out := captureStdout(t, func() { printSyncOverlapHint(targets, false, false) })
 
-	if !strings.Contains(out, "Skill path overlap across 2 target(s)") {
+	if !strings.Contains(out, "2 targets share skill folders") {
 		t.Errorf("expected generic overlap line:\n%s", out)
 	}
 	if strings.Contains(out, "undoes") {

@@ -615,7 +615,7 @@ targets:
 
 ## Agent エラー
 
-### 警告: `target(s) skipped for agents (no agents path)`
+### 警告: `No agents folder: <targets>`
 
 **原因:** `skillshare sync`（または `skillshare sync agents`）を実行したが、設定済みの
 Target のうち1つ以上に Agent ディレクトリが定義されていない。組み込みの Agent パスを持つのは

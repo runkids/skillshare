@@ -145,7 +145,7 @@ The same `skillshare init` run creates both directories. Agents are single `.md`
 - `~/.config/opencode/agents/` — OpenCode
 - `~/.factory/droids/` — Droid
 
-Other targets are silently skipped during agent sync (with a `target(s) skipped for agents (no agents path)` warning). The same merge / copy / symlink modes that apply to skills also apply to agents.
+Other targets are silently skipped during agent sync (with a `No agents folder: <targets>` warning). The same merge / copy / symlink modes that apply to skills also apply to agents.
 
 See [Agents](/docs/understand/agents) for the full agent file format, `.agentignore` rules, and discovery semantics.
 

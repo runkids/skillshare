@@ -85,7 +85,7 @@ See [`mcp`: manage several projects](/docs/reference/commands/mcp#manage-several
 
 ## Verification
 
-- `skillshare sync` reports the project's targets, for example `project01@claude: copied (1 new, ...)`
+- `skillshare sync` reports the project's targets, for example `project01@claude  1 copied`
 - `~/work/project01/.claude/skills/` contains only the skills matched by `include`
 - `skillshare sync mcp --dry-run` lists one line per project file
 - A second `skillshare sync mcp` reports every entry as `unchanged`

@@ -85,7 +85,7 @@ skillshare sync mcp
 
 ## 검증
 
-- `skillshare sync`가 프로젝트의 target들을 보고함. 예: `project01@claude: copied (1 new, ...)`
+- `skillshare sync`가 프로젝트의 target들을 보고함. 예: `project01@claude  1 copied`
 - `~/work/project01/.claude/skills/`에 `include`와 일치하는 Skill만 들어 있음
 - `skillshare sync mcp --dry-run`이 프로젝트 파일마다 한 줄씩 나열함
 - `skillshare sync mcp`를 다시 실행하면 모든 항목이 `unchanged`로 보고됨

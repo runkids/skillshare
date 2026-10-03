@@ -442,13 +442,13 @@ func TestSyncProject_All_NestedAgentsSameBasename_FlattensAndStaysStable(t *test
 
 	first := sb.RunCLIInDir(projectDir, "sync", "-p", "--all")
 	first.AssertSuccess(t)
-	first.AssertAnyOutputContains(t, "Agent sync complete")
-	first.AssertAnyOutputContains(t, "0 updated")
+	first.AssertOutputContains(t, "\nAgents\n")
+	first.AssertOutputNotContains(t, "updated")
 
 	second := sb.RunCLIInDir(projectDir, "sync", "-p", "--all")
 	second.AssertSuccess(t)
-	second.AssertAnyOutputContains(t, "Agent sync complete")
-	second.AssertAnyOutputContains(t, "0 updated")
+	second.AssertOutputContains(t, "\nAgents\n")
+	second.AssertOutputNotContains(t, "updated")
 
 	for _, base := range []string{claudeAgents, cursorAgents} {
 		for _, name := range []string{"team-a__helper.md", "team-b__helper.md"} {

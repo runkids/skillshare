@@ -290,8 +290,8 @@ merge와 copy mode 모두, `sync`는 자동으로 orphan을 정리합니다:
 
 ```
 $ skillshare sync
-✓ claude: merged (5 linked, 2 local, 0 updated, 1 pruned)
-✓ cursor: copied (3 new, 2 skipped, 0 updated, 1 pruned)
+✓ claude    5 linked · 2 local · 1 pruned
+✓ cursor    3 copied · 2 up to date · 1 pruned
 ```
 
 :::info Agent도 동일한 mode를 따릅니다
