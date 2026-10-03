@@ -143,19 +143,29 @@ func integrateRemote(source string, force bool, spinner *ui.Spinner) (remoteEmpt
 // syncPulledScope syncs what the git root scope holds (always global — pull
 // operates on the global source).
 func syncPulledScope(cfg *config.Config) error {
-	switch cfg.GitRoot {
-	case "agents":
-		return cmdSync([]string{"agents", "--global"})
-	case "extras":
-		return cmdSync([]string{"extras", "--global"})
-	case "root":
-		if err := cmdSync([]string{"--global"}); err != nil {
+	for i, args := range pulledScopeSyncArgs(cfg.GitRoot) {
+		if i > 0 {
+			fmt.Println()
+		}
+		if err := cmdSync(args); err != nil {
 			return err
 		}
-		fmt.Println()
-		return cmdSync([]string{"agents", "--global"})
 	}
-	return cmdSync([]string{"--global"})
+	return nil
+}
+
+// pulledScopeSyncArgs returns the `sync` invocations that cover a git root
+// scope, in order. Retry hints print the same commands.
+func pulledScopeSyncArgs(gitRoot string) [][]string {
+	switch gitRoot {
+	case "agents":
+		return [][]string{{"agents", "--global"}}
+	case "extras":
+		return [][]string{{"extras", "--global"}}
+	case "root":
+		return [][]string{{"--global"}, {"agents", "--global"}}
+	}
+	return [][]string{{"--global"}}
 }
 
 func printPullHelp() {

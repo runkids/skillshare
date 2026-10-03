@@ -112,7 +112,7 @@ skillshare push    # Push your changes
 3. Pushes the result
 4. Syncs targets for what the git root scope holds, like `pull`
 
-If the merge hits a conflict, nothing is pushed and targets are not synced. Your changes stay committed locally; resolve the conflict, then run `skillshare push --pull` again. If the push succeeds but syncing targets fails, the remote is already updated, so run `skillshare sync` to retry.
+If the merge hits a conflict, nothing is pushed and targets are not synced. Your changes stay committed locally; resolve the conflict, then run `skillshare push --pull` again. If the push succeeds but syncing targets fails, the remote is already updated, so run the `skillshare sync ... --global` command it prints to retry (one per synced resource, matching your `git_root`).
 
 `--pull` never rebases and never force-pushes.
 

@@ -265,7 +265,9 @@ func cmdPush(args []string) (err error) {
 		fmt.Println()
 		if err := syncPulledScope(cfg); err != nil {
 			ui.Warning("Remote updated, but syncing targets failed")
-			ui.Info("  Retry: skillshare sync")
+			for _, args := range pulledScopeSyncArgs(cfg.GitRoot) {
+				ui.Info("  Retry: skillshare sync %s", strings.Join(args, " "))
+			}
 			return fmt.Errorf("pushed, but target sync failed: %w", err)
 		}
 	}

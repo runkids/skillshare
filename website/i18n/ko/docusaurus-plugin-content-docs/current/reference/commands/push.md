@@ -112,7 +112,7 @@ skillshare push    # 내 변경 사항 push
 3. 결과를 push합니다
 4. `pull`처럼 git root scope에 포함된 항목에 대해 target을 sync합니다
 
-병합 중 충돌이 발생하면 아무것도 push되지 않고 target도 sync되지 않습니다. 변경 사항은 로컬에 커밋된 상태로 남아 있으니, 충돌을 해결한 뒤 `skillshare push --pull`을 다시 실행하세요. push는 성공했지만 target sync가 실패한 경우에는 remote가 이미 업데이트되었으므로 `skillshare sync`를 실행해 다시 시도하세요.
+병합 중 충돌이 발생하면 아무것도 push되지 않고 target도 sync되지 않습니다. 변경 사항은 로컬에 커밋된 상태로 남아 있으니, 충돌을 해결한 뒤 `skillshare push --pull`을 다시 실행하세요. push는 성공했지만 target sync가 실패한 경우에는 remote가 이미 업데이트되었으므로 출력된 `skillshare sync ... --global` 명령(`git_root`에 맞는 리소스별 명령)을 실행해 다시 시도하세요.
 
 `--pull`은 rebase도, force-push도 하지 않습니다.
 

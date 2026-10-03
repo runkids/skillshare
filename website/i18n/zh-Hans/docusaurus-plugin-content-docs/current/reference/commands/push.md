@@ -112,7 +112,7 @@ skillshare push    # 推送你的更改
 3. 推送结果
 4. 像 `pull` 一样，按 git root 作用域包含的内容 sync targets
 
-如果合并遇到冲突，不会推送任何内容，也不会 sync targets。你的更改仍以 commit 形式保留在本地；解决冲突后，再次运行 `skillshare push --pull`。如果推送成功但 sync targets 失败，remote 已经更新，请运行 `skillshare sync` 重试。
+如果合并遇到冲突，不会推送任何内容，也不会 sync targets。你的更改仍以 commit 形式保留在本地；解决冲突后，再次运行 `skillshare push --pull`。如果推送成功但 sync targets 失败，remote 已经更新，请运行输出中给出的 `skillshare sync ... --global` 命令重试（按 `git_root` 对应的资源，每项一行）。
 
 `--pull` 从不 rebase，也从不 force-push。
 

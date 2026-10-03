@@ -112,7 +112,7 @@ skillshare push    # Push your changes
 3. Push 合併結果
 4. 和 `pull` 一樣，依照 git root 範圍涵蓋的內容 sync targets
 
-如果合併時發生衝突，就不會 push 任何東西，也不會 sync targets。你的變更仍以 commit 的形式保留在本機；解決衝突後，再執行一次 `skillshare push --pull`。如果 push 成功但 sync targets 失敗，remote 已經更新了，請執行 `skillshare sync` 重試。
+如果合併時發生衝突，就不會 push 任何東西，也不會 sync targets。你的變更仍以 commit 的形式保留在本機；解決衝突後，再執行一次 `skillshare push --pull`。如果 push 成功但 sync targets 失敗，remote 已經更新了，請執行畫面上印出的 `skillshare sync ... --global` 指令重試（依 `git_root` 對應的資源，每項一行）。
 
 `--pull` 絕不會 rebase，也絕不會 force-push。
 

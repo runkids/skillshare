@@ -112,7 +112,7 @@ skillshare push    # 自分の変更をプッシュ
 3. 結果をプッシュ
 4. `pull` と同様に、git root スコープに含まれるものについて target を sync
 
-マージでコンフリクトが発生した場合、何もプッシュされず、target も sync されません。変更はローカルにコミットされたまま残ります。コンフリクトを解決してから、もう一度 `skillshare push --pull` を実行してください。プッシュは成功したものの target の sync に失敗した場合は、remote はすでに更新されているので、`skillshare sync` を実行して再試行してください。
+マージでコンフリクトが発生した場合、何もプッシュされず、target も sync されません。変更はローカルにコミットされたまま残ります。コンフリクトを解決してから、もう一度 `skillshare push --pull` を実行してください。プッシュは成功したものの target の sync に失敗した場合は、remote はすでに更新されているので、表示された `skillshare sync ... --global` コマンド（`git_root` に対応するリソースごとに 1 行）を実行して再試行してください。
 
 `--pull` はリベースも force-push も行いません。
 
