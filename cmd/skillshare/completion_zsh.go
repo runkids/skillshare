@@ -331,6 +331,7 @@ _skillshare() {
                     _arguments \
                         '--dry-run[Preview changes]' \
                         '-n[Preview changes]' \
+                        '--pull[Merge remote changes before pushing, then sync]' \
                         '--message[Commit message]:message:' \
                         '-m[Commit message]:message:' \
                         '--help[Show help]' \

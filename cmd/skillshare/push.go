@@ -18,6 +18,7 @@ import (
 // pushOptions holds parsed push command options
 type pushOptions struct {
 	dryRun  bool
+	pull    bool
 	message string
 }
 
@@ -30,6 +31,8 @@ func parsePushArgs(args []string) *pushOptions {
 		switch arg {
 		case "--dry-run", "-n":
 			opts.dryRun = true
+		case "--pull":
+			opts.pull = true
 		case "-m", "--message":
 			if i+1 < len(args) {
 				i++
@@ -175,7 +178,7 @@ func cmdPush(args []string) (err error) {
 	if !opts.dryRun {
 		defer func() {
 			e := oplog.NewEntry("push", statusFromErr(err), time.Since(start))
-			e.Args = map[string]any{"message": opts.message}
+			e.Args = map[string]any{"message": opts.message, "pull": opts.pull}
 			if err != nil {
 				e.Message = err.Error()
 			}
@@ -226,12 +229,27 @@ func cmdPush(args []string) (err error) {
 		} else {
 			ui.Info("No changes to commit")
 		}
+		if opts.pull {
+			ui.Info("Would pull from remote (merge)")
+		}
 		ui.Info("Would push to remote")
+		if opts.pull {
+			ui.Info("Would sync targets")
+		}
 		return nil
 	}
 
 	if hasChanges {
 		if err := stageAndCommit(source, opts.message, spinner); err != nil {
+			return err
+		}
+	}
+
+	if opts.pull {
+		if _, err := integrateRemote(source, false, spinner); err != nil {
+			if hasChanges {
+				ui.Info("  Your changes are committed locally; resolve, then run: skillshare push --pull")
+			}
 			return err
 		}
 	}
@@ -242,6 +260,17 @@ func cmdPush(args []string) (err error) {
 
 	spinner.Stop()
 	ui.SuccessMsg("Push complete (%.1fs)", time.Since(start).Seconds())
+
+	if opts.pull {
+		fmt.Println()
+		if err := syncPulledScope(cfg); err != nil {
+			ui.Warning("Remote updated, but syncing targets failed")
+			for _, args := range pulledScopeSyncArgs(cfg.GitRoot) {
+				ui.Info("  Retry: skillshare sync %s", strings.Join(args, " "))
+			}
+			return fmt.Errorf("pushed, but target sync failed: %w", err)
+		}
+	}
 	return nil
 }
 
@@ -252,11 +281,13 @@ Commit and push source skills to git remote.
 
 Options:
   -m, --message <msg>   Commit message (default: "Update skills")
+  --pull                Merge remote changes before pushing, then sync targets
   --dry-run, -n         Preview changes without applying
   --help, -h            Show this help
 
 Examples:
   skillshare push                      Push with default message
   skillshare push -m "Add new skill"   Push with custom message
+  skillshare push --pull               Sync both ways with the remote
   skillshare push --dry-run            Preview what would happen`)
 }

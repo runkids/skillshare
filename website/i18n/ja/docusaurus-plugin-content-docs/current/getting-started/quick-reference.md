@@ -107,7 +107,7 @@ plugin は `sync --all` の対象外です。変更内容を事前確認する�
 | `backup --list` | バックアップを一覧表示 |
 | `restore <target>` | バックアップから復元 |
 | `commit [-m "msg"]` | push せずにローカルの git コミットを作成 |
-| `push [-m "msg"]` | コミットして git リモートへ push |
+| `push [-m "msg"] [--pull]` | コミットして git リモートへ push。`--pull` を付けると先に remote の変更をマージし、その後 sync |
 | `pull` | git から pull して同期 |
 | `trash list` | ソフト削除された Skill を一覧表示 |
 | `trash restore <name>` | ソフト削除された Skill を復元 |
@@ -167,6 +167,9 @@ skillshare push -m "Add new skill"
 
 # マシン B: pull して同期
 skillshare pull
+
+# 複数のマシンで編集する場合: 1 つのコマンドで双方向に同期
+skillshare push --pull -m "Update skills"
 ```
 
 任意（セットアップ後に AI CLI を追加でインストールした場合のみ）:

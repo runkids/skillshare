@@ -108,6 +108,64 @@ describe('updates from another computer', () => {
     expect(api.push).not.toHaveBeenCalled();
   });
 
+  it('syncs both ways: commits, pulls, then pushes', async () => {
+    vi.mocked(api.gitStatus).mockResolvedValue({ ...status, hasRemote: true });
+    vi.mocked(api.push).mockResolvedValue({ success: true, message: 'pushed successfully' });
+    mount();
+    fireEvent.click(await screen.findByRole('button', { name: 'Sync both ways' }));
+    fireEvent.click(within(await screen.findByRole('dialog', { name: 'Sync both ways?' })).getByRole('button', { name: 'Sync both ways' }));
+    await waitFor(() => expect(api.push).toHaveBeenCalledWith({}));
+    expect(api.pull).toHaveBeenCalledWith({ force: false, dryRun: false, alwaysSync: true });
+    const order = [api.gitCommit, api.pull, api.push].map((fn) => vi.mocked(fn).mock.invocationCallOrder[0]);
+    expect(order).toEqual([...order].sort((a, b) => a - b));
+  });
+
+  it('pushes to an empty remote, then syncs targets', async () => {
+    vi.mocked(api.gitStatus).mockResolvedValue({ ...status, hasRemote: true, isDirty: false, files: [] });
+    vi.mocked(api.pull).mockRejectedValueOnce(new ApiError(400, 'the remote has no branches yet; push first', { code: 'remote_empty' }));
+    vi.mocked(api.push).mockResolvedValue({ success: true, message: 'pushed successfully' });
+    mount();
+    fireEvent.click(await screen.findByRole('button', { name: 'Sync both ways' }));
+    fireEvent.click(within(await screen.findByRole('dialog', { name: 'Sync both ways?' })).getByRole('button', { name: 'Sync both ways' }));
+    await waitFor(() => expect(api.pull).toHaveBeenCalledTimes(2));
+    expect(vi.mocked(api.push).mock.invocationCallOrder[0]).toBeLessThan(vi.mocked(api.pull).mock.invocationCallOrder[1]);
+    expect(await screen.findByText('Synced with the remote')).toBeTruthy();
+  });
+
+  it('stops before pushing when syncing both ways hits a conflict', async () => {
+    vi.mocked(api.gitStatus).mockResolvedValue({ ...status, hasRemote: true, isDirty: false, files: [] });
+    vi.mocked(api.pull).mockRejectedValueOnce(new ApiError(409, 'conflict', { code: 'pull_conflict', params: conflicts }));
+    mount();
+    fireEvent.click(await screen.findByRole('button', { name: 'Sync both ways' }));
+    fireEvent.click(within(await screen.findByRole('dialog', { name: 'Sync both ways?' })).getByRole('button', { name: 'Sync both ways' }));
+    expect(await screen.findByRole('dialog', { name: 'Resolve pull conflicts' })).toBeTruthy();
+    expect(api.gitCommit).not.toHaveBeenCalled();
+    expect(api.push).not.toHaveBeenCalled();
+  });
+
+  it('asks before syncing both ways, explaining each step, and does nothing when cancelled', async () => {
+    vi.mocked(api.gitStatus).mockResolvedValue({ ...status, hasRemote: true, remoteURL: 'git@github.com:me/skills.git', behind: 3 });
+    mount();
+    fireEvent.click(await screen.findByRole('button', { name: 'Sync both ways' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Sync both ways?' });
+    for (const step of ['Commit 2 changed files', 'Pull and merge 3 remote commits', 'Sync targets for the skills scope', 'Push the merged result to me/skills']) {
+      expect(within(dialog).getByText(step)).toBeTruthy();
+    }
+    expect(within(dialog).getByText(/nothing is pushed/)).toBeTruthy();
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    for (const fn of [api.gitCommit, api.pull, api.push]) expect(fn).not.toHaveBeenCalled();
+  });
+
+  it('previews syncing both ways without changing anything', async () => {
+    vi.mocked(api.gitStatus).mockResolvedValue({ ...status, hasRemote: true });
+    mount();
+    fireEvent.click(await screen.findByRole('switch', { name: 'Dry run' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Sync both ways' }));
+    expect(await screen.findByText(/then push/)).toBeTruthy();
+    for (const fn of [api.gitCommit, api.pull, api.push]) expect(fn).not.toHaveBeenCalled();
+  });
+
   it('does not pull if the local commit fails or is only a preview', async () => {
     vi.mocked(api.gitStatus).mockResolvedValue({ ...status, hasRemote: true, behind: 1 });
     vi.mocked(api.gitCommit).mockRejectedValueOnce(new Error('commit failed'));
