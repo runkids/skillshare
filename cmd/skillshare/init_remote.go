@@ -71,7 +71,7 @@ func inspectRemote(url string) *remoteRepo {
 		skillsDir = filepath.Join(repo, "skills")
 		r.agents = countEntries(filepath.Join(repo, "agents"))
 		r.extras = countEntries(filepath.Join(repo, "extras"))
-	case countSkillDirs(repo) == 0 && isDir(filepath.Join(repo, "skills")):
+	case isDir(filepath.Join(repo, "skills")) && !hasSkillDirsBesides(repo, "skills"):
 		r.subdir = "skills"
 		skillsDir = filepath.Join(repo, "skills")
 	}
@@ -150,6 +150,18 @@ func gitignoreHasLine(path, line string) bool {
 	}
 	for _, l := range strings.Split(string(data), "\n") {
 		if strings.TrimSpace(l) == line {
+			return true
+		}
+	}
+	return false
+}
+
+// hasSkillDirsBesides reports whether dir holds a skill folder other than
+// the one named skip.
+func hasSkillDirsBesides(dir, skip string) bool {
+	entries, _ := os.ReadDir(dir)
+	for _, e := range entries {
+		if e.Name() != skip && isSkillEntry(dir, e) {
 			return true
 		}
 	}
