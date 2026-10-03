@@ -64,10 +64,7 @@ func TestPiFilteredImportBindsPreviewAndPrivateRecord(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	info, err := os.Stat(blob)
-	if err != nil || info.Mode().Perm() != 0o600 {
-		t.Fatalf("private record mode: %v", err)
-	}
+	assertPiRecordPrivate(t, blob)
 	f.svc.Accounts = map[string]Account{"pi-work": {Agent: "pi", Dir: filepath.Join(f.home, "account")}}
 	if _, err := f.svc.readPiRegistration(b.PiRegistration, "pi-work", b.ID); err == nil {
 		t.Fatal("account borrowed another target's record")
