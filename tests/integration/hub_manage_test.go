@@ -68,8 +68,8 @@ func TestHubList_ShowsHubs(t *testing.T) {
 	result := sb.RunCLI("hub", "list")
 	result.AssertSuccess(t)
 	combined := result.Stdout + result.Stderr
-	if !strings.Contains(combined, "* ") {
-		t.Errorf("expected default marker '*' in output, got:\n%s", combined)
+	if !strings.Contains(combined, "https://a.com/hub.json · default") {
+		t.Errorf("expected alpha marked as default in output, got:\n%s", combined)
 	}
 	result.AssertAnyOutputContains(t, "alpha")
 	result.AssertAnyOutputContains(t, "beta")

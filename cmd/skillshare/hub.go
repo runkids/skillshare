@@ -4,11 +4,11 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	"skillshare/internal/config"
 	"skillshare/internal/hub"
 	"skillshare/internal/ui"
-	appversion "skillshare/internal/version"
 )
 
 func cmdHub(args []string) error {
@@ -155,48 +155,30 @@ func cmdHubIndex(args []string) error {
 		outputPath = sourcePath + "/skillshare-hub.json"
 	}
 
-	// Show logo
-	ui.Logo(appversion.Version)
-	ui.StepStart("Building", "hub index")
-
-	spinner := ui.StartTreeSpinner("Scanning source directory...", false)
-
+	start := time.Now()
+	sp := ui.StartSpinner("Scanning source directory...")
 	idx, err := hub.BuildIndex(sourcePath, full, auditSkills)
+	sp.Stop()
 	if err != nil {
-		spinner.Fail("Failed to build index")
-		return err
+		return fmt.Errorf("failed to build index: %w", err)
 	}
-
-	if auditSkills {
-		spinner.Success(fmt.Sprintf("Found %d skill(s), audit complete", len(idx.Skills)))
-	} else {
-		spinner.Success(fmt.Sprintf("Found %d skill(s)", len(idx.Skills)))
-	}
-
-	// Write to file
-	writeSpinner := ui.StartTreeSpinner("Writing index...", true)
-
 	if err := hub.WriteIndex(outputPath, idx); err != nil {
-		writeSpinner.Fail("Failed to write index")
-		return err
+		return fmt.Errorf("failed to write index: %w", err)
 	}
 
-	writeSpinner.Success(fmt.Sprintf("Wrote %s", outputPath))
-
-	// Summary
-	fmt.Println()
+	var contents string
 	switch {
 	case full && auditSkills:
-		ui.Info("Mode: full + audit (metadata and risk scores included)")
+		contents = "full + audit (metadata and risk scores included)"
 	case full:
-		ui.Info("Mode: full (metadata included)")
+		contents = "full (metadata included)"
 	case auditSkills:
-		ui.Info("Mode: audit (risk scores included)")
+		contents = "audit (risk scores included)"
 	default:
-		ui.Info("Mode: minimal (name, description, source only)")
+		contents = "minimal (name, description, source only)"
 	}
-	ui.Info("Skills: %d", len(idx.Skills))
-	ui.Info("Output: %s", outputPath)
+	ui.Done(ui.MarkOK, fmt.Sprintf("Wrote %s with %s", shortenPath(outputPath), plural(len(idx.Skills), "skill")), time.Since(start))
+	ui.Note(contents)
 
 	return nil
 }
