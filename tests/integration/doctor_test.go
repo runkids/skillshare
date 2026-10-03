@@ -93,7 +93,7 @@ targets: {}
 	result := sb.RunCLI("doctor")
 
 	result.AssertSuccess(t)
-	result.AssertOutputContains(t, "Source not found")
+	result.AssertRowContains(t, "Source", "not found")
 }
 
 func TestDoctor_ChecksSymlinkSupport(t *testing.T) {
@@ -343,7 +343,7 @@ targets: {}
 	result := sb.RunCLI("doctor")
 
 	result.AssertSuccess(t)
-	result.AssertOutputNotContains(t, "Skills without SKILL.md")
+	result.AssertOutputNotContains(t, "without SKILL.md")
 }
 
 func TestDoctor_BrokenSymlink_ShowsError(t *testing.T) {

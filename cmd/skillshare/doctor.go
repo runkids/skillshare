@@ -303,14 +303,15 @@ func checkSkillignore(result *doctorResult, stats *skillignore.IgnoreStats) {
 func checkSource(cfg *config.Config, result *doctorResult, discovered []sync.DiscoveredSkill, discoverErr error) {
 	info, err := os.Stat(cfg.EffectiveSkillsSource())
 	if err != nil {
-		ui.Error("Source not found: %s", shortenPath(cfg.EffectiveSkillsSource()))
+		ui.Row(ui.MarkFail, "Source", "not found: "+shortenPath(cfg.EffectiveSkillsSource()), doctorWidth)
+		result.suggest("skillshare init", "create the source")
 		result.addError()
 		result.addCheck("source", checkError, fmt.Sprintf("Source not found: %s", cfg.EffectiveSkillsSource()), nil)
 		return
 	}
 
 	if !info.IsDir() {
-		ui.Error("Source is not a directory: %s", shortenPath(cfg.EffectiveSkillsSource()))
+		ui.Row(ui.MarkFail, "Source", "not a directory: "+shortenPath(cfg.EffectiveSkillsSource()), doctorWidth)
 		result.addError()
 		result.addCheck("source", checkError, fmt.Sprintf("Source is not a directory: %s", cfg.EffectiveSkillsSource()), nil)
 		return
@@ -340,14 +341,14 @@ func checkAgentsSource(cfg *config.Config, result *doctorResult) {
 			result.addCheck("agents_source", checkPass, fmt.Sprintf("Agents source: %s (not created yet)", agentsSource), nil)
 			return
 		}
-		ui.Error("Agents source error: %s", err)
+		ui.Row(ui.MarkFail, "Agents", err.Error(), doctorWidth)
 		result.addError()
 		result.addCheck("agents_source", checkError, fmt.Sprintf("Agents source error: %v", err), nil)
 		return
 	}
 
 	if !info.IsDir() {
-		ui.Error("Agents source is not a directory: %s", shortenPath(agentsSource))
+		ui.Row(ui.MarkFail, "Agents", "not a directory: "+shortenPath(agentsSource), doctorWidth)
 		result.addError()
 		result.addCheck("agents_source", checkError, fmt.Sprintf("Agents source is not a directory: %s", agentsSource), nil)
 		return
@@ -375,7 +376,7 @@ func checkSymlinkSupport(result *doctorResult) {
 
 	// Use sync.CreateSymlink which handles Windows junctions
 	if err := sync.CreateSymlink(testLink, testTarget, ""); err != nil {
-		ui.Error("Link not supported: %v", err)
+		ui.Row(ui.MarkFail, "Links", fmt.Sprintf("not supported: %v", err), doctorWidth)
 		result.addError()
 		result.addCheck("symlink_support", checkError, fmt.Sprintf("Link not supported: %v", err), nil)
 		return
@@ -681,7 +682,7 @@ func checkSyncDrift(cfg *config.Config, result *doctorResult, discovered []sync.
 		sc := target.SkillsConfig()
 		filtered, err := sync.FilterSkills(discovered, sc.Include, sc.Exclude)
 		if err != nil {
-			ui.Error("%s: invalid include/exclude config: %v", name, err)
+			ui.Row(ui.MarkFail, name, fmt.Sprintf("invalid include/exclude config: %v", err), width)
 			result.addError()
 			continue
 		}
@@ -837,7 +838,7 @@ func checkSkillsValidity(source string, result *doctorResult, discovered []sync.
 	}
 
 	if len(invalid) > 0 {
-		ui.Warning("Skills without SKILL.md: %s", strings.Join(invalid, ", "))
+		ui.Row(ui.MarkWarn, "Skills", fmt.Sprintf("%d without SKILL.md: %s", len(invalid), strings.Join(invalid, ", ")), doctorWidth)
 		result.addWarning()
 		result.addCheck("skills_validity", checkWarning, fmt.Sprintf("Skills without SKILL.md: %s", strings.Join(invalid, ", ")), invalid)
 	} else {
@@ -978,8 +979,10 @@ func checkSkillTargetsField(result *doctorResult, discovered []sync.DiscoveredSk
 
 	warnings := findUnknownSkillTargets(discovered, extraTargetNames)
 	if len(warnings) > 0 {
+		label := "Skills"
 		for _, w := range warnings {
-			ui.Warning("Skill targets: %s", w)
+			ui.Row(ui.MarkWarn, label, w, doctorWidth)
+			label = ""
 		}
 		result.addWarning()
 		result.addCheck("skill_targets_field", checkWarning, "Skills reference unknown targets", warnings)
@@ -991,13 +994,18 @@ func checkSkillTargetsField(result *doctorResult, discovered []sync.DiscoveredSk
 // checkBrokenSymlinks finds broken symlinks in targets
 func checkBrokenSymlinks(cfg *config.Config, result *doctorResult) {
 	var allBroken []string
-	for name, target := range cfg.Targets {
+	names := targetNamesFromConfig(cfg.Targets)
+	sort.Strings(names)
+	width := ui.RowWidth(names...)
+	for _, name := range names {
+		target := cfg.Targets[name]
 		if !target.SkillsConfig().IsEnabled() {
 			continue
 		}
 		broken := findBrokenSymlinks(target.SkillsConfig().Path)
 		if len(broken) > 0 {
-			ui.Error("%s: %s: %s", name, plural(len(broken), "broken symlink"), strings.Join(broken, ", "))
+			ui.Row(ui.MarkFail, name, plural(len(broken), "broken symlink")+": "+strings.Join(broken, ", "), width)
+			result.suggest("skillshare sync", "prune the broken links")
 			result.addError()
 			for _, b := range broken {
 				allBroken = append(allBroken, fmt.Sprintf("%s/%s", name, b))
