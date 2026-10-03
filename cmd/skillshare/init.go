@@ -307,7 +307,7 @@ func handleExistingInit(opts *initOptions) (bool, error) {
 				}
 			}
 		}
-		setupGitRemote(gitRoot, opts.remoteURL, opts.dryRun)
+		setupGitRemote(gitRoot, opts.remoteURL, opts.dryRun, opts.noGit)
 		if opts.dryRun {
 			fmt.Println()
 			ui.DryRun()
@@ -530,16 +530,9 @@ func doGitInitIfAbsent(gitRoot, scope string, dryRun bool) {
 	if hasGitDir(gitRoot) {
 		ui.Row(ui.MarkNone, "Git", "already set up in "+shortenPath(gitRoot), gitRowWidth)
 		// Still ensure the scope-aware .gitignore (e.g. config.yaml at root scope).
-		if err := gitops.WriteScopeGitignore(gitRoot, scope); err != nil {
-			ui.Warning("Failed to update .gitignore: %v", err)
-		}
-		// A repo the user created may have no identity either, and init
-		// commits the source files next.
 		if !dryRun {
-			if identitySet, err := gitops.EnsureLocalIdentity(gitRoot); err != nil {
-				ui.Warning("Failed to set a git identity: %v", err)
-			} else if identitySet {
-				printGitIdentityNote()
+			if err := gitops.WriteScopeGitignore(gitRoot, scope); err != nil {
+				ui.Warning("Failed to update .gitignore: %v", err)
 			}
 		}
 		return
@@ -556,16 +549,17 @@ func doGitInitIfAbsent(gitRoot, scope string, dryRun bool) {
 	}
 	ui.Row(ui.MarkOK, "Git", "initialized in "+shortenPath(gitRoot), gitRowWidth)
 	if identitySet {
-		printGitIdentityNote()
+		printGitIdentityNote(gitRoot)
 	}
 }
 
-// printGitIdentityNote explains the local commit identity init sets when
-// git has none configured.
-func printGitIdentityNote() {
-	ui.Note("Git has no identity set, so commits use a local default. Set yours:")
-	ui.Note(`git config --global user.name "Your Name"`)
-	ui.Note(`git config --global user.email "you@example.com"`)
+// printGitIdentityNote explains the identity init wrote into the new repo
+// at dir when git had none. It lives in that repo's config, which outranks
+// --global, so the commands to replace it target the repo.
+func printGitIdentityNote(dir string) {
+	ui.Note("Git had no identity, so this repo commits as skillshare@local. Set yours:")
+	ui.Note(fmt.Sprintf(`git -C %s config user.name "Your Name"`, shortenPath(dir)))
+	ui.Note(fmt.Sprintf(`git -C %s config user.email "you@example.com"`, shortenPath(dir)))
 }
 
 // commitSourceFiles creates a single commit with all source files
@@ -605,7 +599,9 @@ func commitSourceFiles(sourcePath string) error {
 	}
 	commitCmd := exec.Command("git", "commit", "-m", msg)
 	commitCmd.Dir = sourcePath
-	commitCmd.Env = append(os.Environ(), "LC_ALL=C")
+	// A repo the user created may have no identity; commit with a fallback
+	// for this one commit instead of writing one into their repo config.
+	commitCmd.Env = append(append(os.Environ(), "LC_ALL=C"), gitops.FallbackIdentityEnv(sourcePath)...)
 	if out, err := commitCmd.CombinedOutput(); err != nil {
 		trimmed := strings.TrimSpace(string(out))
 		if strings.Contains(trimmed, "nothing to commit") || strings.Contains(trimmed, "no changes added to commit") {
@@ -619,12 +615,20 @@ func commitSourceFiles(sourcePath string) error {
 	return nil
 }
 
-func setupGitRemote(sourcePath, remoteURL string, dryRun bool) bool {
+func setupGitRemote(sourcePath, remoteURL string, dryRun, noGit bool) bool {
 	// Check if git is initialized
 	gitDir := filepath.Join(sourcePath, ".git")
 	if _, err := os.Stat(gitDir); os.IsNotExist(err) {
-		if remoteURL != "" {
-			ui.Row(ui.MarkWarn, "Remote", "not added: "+shortenPath(sourcePath)+" has no git repo", gitRowWidth)
+		if remoteURL == "" {
+			return false
+		}
+		if dryRun && !noGit {
+			// The dry run reported the git init that would come first.
+			ui.Row(ui.MarkNone, "Remote", "would add origin → "+remoteURL, gitRowWidth)
+			return false
+		}
+		ui.Row(ui.MarkWarn, "Remote", "not added: "+shortenPath(sourcePath)+" has no git repo", gitRowWidth)
+		if noGit {
 			ui.Note("Run: skillshare init --remote " + remoteURL + " (without --no-git)")
 		}
 		return false

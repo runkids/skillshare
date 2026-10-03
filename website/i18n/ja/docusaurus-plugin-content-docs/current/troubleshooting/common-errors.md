@@ -254,17 +254,19 @@ skillshare push
 skillshare sync
 ```
 
-### `Git has no identity set`
+### `Git had no identity`
 
-**原因:** git config に `user.name` / `user.email` が設定されていない。skillshare は init を
-完了させるためにローカルのフォールバック（`skillshare@local`）を使いますが、自分自身の情報を
-設定するべきです。
+**原因:** `skillshare init` が source repo を作成したとき、git に `user.name` / `user.email` が設定されていなかった。skillshare は commit できるよう、その repo 自身の設定にフォールバック（`skillshare@local`）を書き込みます。repo の設定は `git config --global` より優先されるため、後から global の identity を設定しても置き換わりません。
 
-**解決策:**
+自分で作成した repo は変更されません。skillshare がフォールバックを使うのは最初の 1 回の commit だけです。
+
+**解決策:** その repo で identity を設定します（パスはメッセージに表示されたものを使ってください。以下はデフォルト）:
 ```bash
-git config --global user.name "Your Name"
-git config --global user.email "you@example.com"
+git -C ~/.config/skillshare/skills config user.name "Your Name"
+git -C ~/.config/skillshare/skills config user.email "you@example.com"
 ```
+
+または repo の設定を削除して global の identity を使います: `git -C ~/.config/skillshare/skills config --unset user.name`（`user.email` も同様）。
 
 ### `Git root mismatch`
 

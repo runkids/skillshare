@@ -243,7 +243,7 @@ func printInitDone(p *initPlan, res *initResult) {
 		ui.Warning("%s", w)
 	}
 	if res.identitySet {
-		printGitIdentityNote()
+		printGitIdentityNote(res.gitRoot)
 	}
 	fmt.Println()
 }

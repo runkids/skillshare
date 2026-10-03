@@ -238,15 +238,19 @@ skillshare push
 skillshare sync
 ```
 
-### `Git has no identity set`
+### `Git had no identity`
 
-**Cause:** No `user.name` / `user.email` in git config. skillshare uses a local fallback (`skillshare@local`) so init can complete, but you should set your own.
+**Cause:** Git had no `user.name` / `user.email` when `skillshare init` created the source repo. skillshare wrote a fallback (`skillshare@local`) into that repo's own config so its commits work. The repo setting outranks `git config --global`, so setting a global identity later does not replace it.
 
-**Solution:**
+A repo you created yourself is left alone: skillshare uses the fallback only for its one initial commit.
+
+**Solution:** set your identity in the repo (the path the message prints; this is the default):
 ```bash
-git config --global user.name "Your Name"
-git config --global user.email "you@example.com"
+git -C ~/.config/skillshare/skills config user.name "Your Name"
+git -C ~/.config/skillshare/skills config user.email "you@example.com"
 ```
+
+Or remove the repo setting so your global identity applies: `git -C ~/.config/skillshare/skills config --unset user.name` (and `user.email`).
 
 ### `Git root mismatch`
 

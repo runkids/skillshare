@@ -220,6 +220,9 @@ targets: {}
 	result.AssertSuccess(t)
 	result.AssertRowContains(t, "Remote", "would add origin → git@github.com:test/skills.git")
 	result.AssertOutputContains(t, "Dry run")
+	if _, err := os.Stat(filepath.Join(sb.SourcePath, ".gitignore")); err == nil {
+		t.Error("dry run must not write .gitignore into the existing repo")
+	}
 
 	// Verify remote was NOT added
 	cmd = exec.Command("git", "remote", "-v")
@@ -283,6 +286,29 @@ targets: {}
 	result.AssertRowContains(t, "Remote", "already origin → git@github.com:test/skills.git")
 	// The repo was created without an identity; init must still commit.
 	result.AssertOutputNotContains(t, "Author identity unknown")
+	// ...without writing an identity into the user's repo, which would
+	// outrank one they set globally later.
+	cmd = exec.Command("git", "config", "--local", "user.name")
+	cmd.Dir = sb.SourcePath
+	if out, err := cmd.Output(); err == nil {
+		t.Errorf("expected no repo-local user.name, got %q", strings.TrimSpace(string(out)))
+	}
+}
+
+func TestInit_AlreadyInitialized_RemoteFlag_NoRepo_DryRun(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets: {}
+`)
+
+	result := sb.RunCLI("init", "--remote", "git@github.com:test/skills.git", "--dry-run")
+
+	result.AssertSuccess(t)
+	result.AssertRowContains(t, "Git", "would initialize in")
+	result.AssertRowContains(t, "Remote", "would add origin → git@github.com:test/skills.git")
+	result.AssertOutputNotContains(t, "--no-git")
 }
 
 func TestInit_AlreadyInitialized_RemoteFlag_NoGit_AutoInitsGit(t *testing.T) {

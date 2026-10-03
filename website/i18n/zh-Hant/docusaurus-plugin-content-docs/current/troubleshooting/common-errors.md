@@ -238,15 +238,19 @@ skillshare push
 skillshare sync
 ```
 
-### `Git has no identity set`
+### `Git had no identity`
 
-**原因：** git 設定中沒有 `user.name` / `user.email`。skillshare 會使用本地的備援值（`skillshare@local`）讓 init 能夠完成，但你應該設定自己的身分。
+**原因：** `skillshare init` 建立 source repo 時，git 沒有 `user.name` / `user.email`。skillshare 把備援值（`skillshare@local`）寫進該 repo 自己的設定，讓 commit 能正常進行。repo 的設定優先於 `git config --global`，所以之後設定 global 身分並不會取代它。
 
-**解決方法：**
+你自己建立的 repo 不會被改動：skillshare 只在那一次初始 commit 使用備援值。
+
+**解決方法：** 在該 repo 設定你的身分（路徑以訊息印出的為準，以下是預設值）：
 ```bash
-git config --global user.name "Your Name"
-git config --global user.email "you@example.com"
+git -C ~/.config/skillshare/skills config user.name "Your Name"
+git -C ~/.config/skillshare/skills config user.email "you@example.com"
 ```
+
+或移除 repo 內的設定，改用 global 身分：`git -C ~/.config/skillshare/skills config --unset user.name`（`user.email` 同理）。
 
 ### `Git root mismatch`
 
