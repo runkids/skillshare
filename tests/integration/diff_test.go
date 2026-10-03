@@ -92,6 +92,40 @@ targets:
 	result.AssertOutputContains(t, "claude")
 }
 
+func TestDiff_Sections_ShareOneLabelWidth(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sb.CreateSkill("skill1", map[string]string{"SKILL.md": "# Skill 1"})
+	claude := sb.CreateTarget("claude")
+	cursor := sb.CreateTarget("cursor")
+	// Only claude has a local-only skill, so its section has the longer label.
+	os.MkdirAll(filepath.Join(claude, "local-skill"), 0755)
+	os.WriteFile(filepath.Join(claude, "local-skill", "SKILL.md"), []byte("# Local"), 0644)
+
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+mode: merge
+targets:
+  claude:
+    path: ` + claude + `
+  cursor:
+    path: ` + cursor + `
+`)
+
+	result := sb.RunCLI("diff", "--no-tui")
+	result.AssertSuccess(t)
+
+	var columns []int
+	for _, line := range strings.Split(result.Stdout, "\n") {
+		if strings.HasPrefix(line, "  New ") {
+			columns = append(columns, strings.Index(line, "skill1"))
+		}
+	}
+	if len(columns) != 2 || columns[0] != columns[1] {
+		t.Fatalf("expected both New rows to align, got columns %v in:\n%s", columns, result.Stdout)
+	}
+}
+
 func TestDiff_SpecificTarget_ShowsOnlyThat(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()

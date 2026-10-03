@@ -882,6 +882,15 @@ func renderGroupedDiffs(results []targetDiffResult, extras []extraDiffResult, op
 		}
 	}
 
+	// One label width for every group, so values line up across sections.
+	var groupLabels []string
+	for _, fp := range groupOrder {
+		for _, cat := range categorizeItems(groups[fp].result.items) {
+			groupLabels = append(groupLabels, sentenceCase(cat.label))
+		}
+	}
+	groupWidth := ui.RowWidth(groupLabels...)
+
 	out := &diffOutput{}
 	var next diffNext
 	needCount := 0
@@ -890,7 +899,7 @@ func renderGroupedDiffs(results []targetDiffResult, extras []extraDiffResult, op
 		sort.Strings(g.names)
 		needCount += len(g.names)
 		out.section(strings.Join(g.names, ", "))
-		renderDiffGroup(g.result, opts, &next)
+		renderDiffGroup(g.result, opts, &next, groupWidth)
 	}
 
 	// Unreadable targets, then the ones in sync on a single row
@@ -1027,7 +1036,7 @@ func (n diffNext) pairs() []string {
 // renderDiffGroup prints one row per kind of change, such as "New  a, b".
 // With --stat or --patch, and for modified items, each item gets its own
 // row followed by its file changes.
-func renderDiffGroup(r targetDiffResult, opts diffRenderOpts, next *diffNext) {
+func renderDiffGroup(r targetDiffResult, opts diffRenderOpts, next *diffNext, width int) {
 	items := make([]copyDiffEntry, len(r.items))
 	copy(items, r.items)
 	sort.Slice(items, func(i, j int) bool {
@@ -1039,7 +1048,6 @@ func renderDiffGroup(r targetDiffResult, opts diffRenderOpts, next *diffNext) {
 	for i, cat := range cats {
 		labels[i] = sentenceCase(cat.label)
 	}
-	width := ui.RowWidth(labels...)
 	fileIndent := strings.Repeat(" ", width+4)
 
 	for i, cat := range cats {
