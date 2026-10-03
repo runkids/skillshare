@@ -24,6 +24,15 @@ func (s *Service) piSettingsPath(target string) (string, error) {
 	return filepath.Join(dir, "settings.json"), nil
 }
 
+// piSettingsRoot is the folder above a piSettingsPath file that may be reached
+// through links: the project, or the agent directory.
+func (s *Service) piSettingsRoot(file string) string {
+	if s.ProjectRoot != "" {
+		return s.ProjectRoot
+	}
+	return filepath.Dir(file)
+}
+
 // piAgentDir is the agent directory of a global Pi target or account, whatever
 // the project: a project's settings are read on top of the global ones.
 func (s *Service) piAgentDir(target string) (string, error) {
@@ -55,7 +64,7 @@ func (s *Service) piInventory(target string) ([]Installed, string, error) {
 	if err != nil {
 		return nil, "", err
 	}
-	raw, _, entries, err := readPackageConfig(path, "packages")
+	raw, _, entries, err := readPackageConfig(s.piSettingsRoot(path), path, "packages")
 	if err != nil {
 		return nil, "", err
 	}
@@ -168,8 +177,8 @@ func openCodeKey(version string) (string, error) {
 	return "", fmt.Errorf("unrecognized OpenCode version; plugin config adapter supports versions 1.x and 2.x")
 }
 
-func readPackageConfig(path, key string) ([]byte, *hujson.Value, []json.RawMessage, error) {
-	if err := noSymlink(path); err != nil {
+func readPackageConfig(root, path, key string) ([]byte, *hujson.Value, []json.RawMessage, error) {
+	if err := noSymlink(root, path); err != nil {
 		return nil, nil, nil, err
 	}
 	raw, err := os.ReadFile(path)
@@ -221,7 +230,7 @@ func (s *Service) openCodeInventory(version string) ([]Installed, string, error)
 	if err != nil {
 		return nil, "", err
 	}
-	raw, _, entries, err := readPackageConfig(path, key)
+	raw, _, entries, err := readPackageConfig(filepath.Dir(path), path, key)
 	if err != nil {
 		return nil, "", err
 	}
@@ -270,7 +279,7 @@ func (s *Service) applyOpenCode(ctx context.Context, c Change, b Binding) error 
 	if err != nil {
 		return err
 	}
-	if err = noSymlink(path); err != nil {
+	if err = noSymlink(filepath.Dir(path), path); err != nil {
 		return err
 	}
 	if err = os.MkdirAll(filepath.Dir(path), 0755); err != nil {
@@ -281,7 +290,7 @@ func (s *Service) applyOpenCode(ctx context.Context, c Change, b Binding) error 
 		return err
 	}
 	defer lock.Unlock()
-	raw, value, entries, err := readPackageConfig(path, key)
+	raw, value, entries, err := readPackageConfig(filepath.Dir(path), path, key)
 	if err != nil {
 		return err
 	}
@@ -321,5 +330,5 @@ func (s *Service) applyOpenCode(ctx context.Context, c Change, b Binding) error 
 	if info, err := os.Stat(path); err == nil {
 		mode = info.Mode().Perm()
 	}
-	return atomicNativeWrite(path, value.Pack(), mode)
+	return atomicNativeWrite(filepath.Dir(path), path, value.Pack(), mode)
 }

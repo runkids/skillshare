@@ -158,9 +158,9 @@ type piSettings struct {
 
 // readPiSettings reads settings.json as Pi does, strictly: Pi refuses JSON with
 // comments, so Skillshare never treats such a file as usable.
-func readPiSettings(file string) *piSettings {
+func readPiSettings(root, file string) *piSettings {
 	st := &piSettings{path: file, body: map[string]json.RawMessage{}}
-	if err := noSymlink(file); err != nil {
+	if err := noSymlink(root, file); err != nil {
 		st.problem = "symlink"
 		return st
 	}
@@ -517,7 +517,7 @@ func (s *Service) piGlobalState(ctx context.Context, target string) (*piTargetSt
 	if err != nil {
 		return nil, err
 	}
-	settings := readPiSettings(filepath.Join(agentDir, "settings.json"))
+	settings := readPiSettings(agentDir, filepath.Join(agentDir, "settings.json"))
 	version, readOnly := s.piGate(ctx, target)
 	if readOnly == "" && settings.problem != "" {
 		readOnly = piReadOnlySettings

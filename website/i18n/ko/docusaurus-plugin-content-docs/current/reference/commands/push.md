@@ -47,6 +47,10 @@ flowchart TD
 
 `push`는 `git_root` 설정 필드로 선택된 디렉터리(기본값: `skills` source)에서 동작합니다. scope 표는 [commit — Git Root Scope](./commit.md#git-root-scope)를 참고하세요. `git_root`가 변경되었지만 git repo가 여전히 다른 scope의 디렉터리에 있는 경우, `push`는 이를 해결하기 위한 정확한 `git init` / `mv` 명령과 함께 "Git root mismatch" 오류를 출력합니다. [Changing the scope after init](/docs/reference/targets/configuration#git-root)를 참고하세요.
 
+`git_root: root`에서 아직 push하지 않은 commit이 `config.yaml` 또는 `config.yaml/` 아래 파일을 추가하거나 수정했다면, 이후 commit에서 삭제했더라도 `push`는 거부됩니다. `--pull`과 `--dry-run`에도 적용되며 staging이나 pull 전에 검사합니다. dry-run은 아무것도 변경하지 않습니다. 오류에는 해당 commit hash가 표시됩니다. `push`가 보내는 remote(upstream remote, 첫 push 전에는 `origin`)의 어떤 ref에도 포함되지 않은 commit을 아직 push하지 않은 것으로 보므로, 그 remote에 이미 있는 history는 거부되지 않습니다. `push`는 `push.default`나 `remote.pushDefault`와 관계없이 항상 현재 branch만 그 remote로 보냅니다.
+
+다시 시도하기 전에 해당 commit에서 파일을 제거하세요. 오류에 표시된 `git rebase -i <commit>`(가장 오래된 해당 commit 바로 앞에서 시작합니다)로 해당 commit을 편집 대상으로 지정하고, 각 편집에서 `git rm -r --cached -- config.yaml`, `git commit --amend`, `git rebase --continue`를 실행하세요. Skillshare는 history를 자동으로 다시 쓰지 않습니다. 이미 공개된 `config.yaml`의 추적만 중단하는 commit은 push할 수 있습니다. 아직 push하지 않은 추가 commit 뒤에 삭제 commit을 만들어도 이전 내용은 history에 남습니다.
+
 ## 사전 준비 사항
 
 source 디렉터리는 remote가 설정된 git repository여야 합니다.

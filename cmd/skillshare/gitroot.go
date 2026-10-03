@@ -103,6 +103,8 @@ func (r rootSweepResult) previewChanges(changes string) string {
 // .gitignore or running `git rm --cached`. On a real run the config mutation is
 // best-effort — its failure is swallowed so the worst case is the prior
 // behavior, never a blocked push. Nested-repo detection is always read-only.
+// Push checks unpushed config history separately before this sweep: removing
+// config.yaml from the index cannot remove it from earlier commits.
 func rootScopeSafetySweep(cfg *config.Config, dir string, dryRun bool) rootSweepResult {
 	res := rootSweepResult{dryRun: dryRun}
 	if cfg.GitRoot != "root" {

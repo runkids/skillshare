@@ -1,12 +1,303 @@
 package git
 
 import (
+	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
 )
+
+func TestCheckUnpushedConfigHistory(t *testing.T) {
+	for _, tc := range []struct {
+		name       string
+		path       string
+		published  bool
+		remove     bool
+		wantUnsafe bool
+	}{
+		{"add file", "config.yaml", false, false, true},
+		{"add tree", "config.yaml/nested/local.yaml", false, false, true},
+		{"modify published file", "config.yaml", true, false, true},
+		{"modify published tree", "config.yaml/nested/local.yaml", true, false, true},
+		{"remove published file", "config.yaml", true, true, false},
+		{"remove published tree", "config.yaml/nested/local.yaml", true, true, false},
+		{"remove unpushed file", "config.yaml", false, true, true},
+		{"nested resource config", "skills/config.yaml", false, false, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			dir := t.TempDir()
+			gitExec(t, dir, "init")
+			gitExec(t, dir, "commit", "--allow-empty", "-m", "initial")
+			gitExec(t, dir, "remote", "add", "origin", filepath.Join(t.TempDir(), "remote.git"))
+			path := filepath.Join(dir, tc.path)
+			if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(path, []byte("first\n"), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			gitExec(t, dir, "add", "--", tc.path)
+			gitExec(t, dir, "commit", "-m", "add config")
+			if tc.published {
+				gitExec(t, dir, "update-ref", "refs/remotes/origin/main", "HEAD")
+			} else {
+				gitExec(t, dir, "update-ref", "refs/remotes/origin/main", "HEAD^")
+			}
+			gitExec(t, dir, "branch", "--set-upstream-to=origin/main")
+			if tc.remove {
+				gitExec(t, dir, "rm", "-r", "--cached", "--", "config.yaml")
+				gitExec(t, dir, "commit", "-m", "stop tracking")
+			} else if tc.published {
+				if err := os.WriteFile(path, []byte("second\n"), 0o644); err != nil {
+					t.Fatal(err)
+				}
+				gitExec(t, dir, "add", "--", tc.path)
+				gitExec(t, dir, "commit", "-m", "modify config")
+			}
+			err := CheckUnpushedConfigHistory(dir)
+			var historyErr *UnpushedConfigHistoryError
+			if errors.As(err, &historyErr) != tc.wantUnsafe {
+				t.Fatalf("CheckUnpushedConfigHistory() = %v; wantUnsafe=%t", err, tc.wantUnsafe)
+			}
+			if !tc.wantUnsafe && err != nil {
+				t.Fatal(err)
+			}
+			if historyErr != nil && (len(historyErr.Commits) != 1 || !historyErr.HasUpstream) {
+				t.Fatalf("unexpected offending commits/upstream: %+v", historyErr)
+			}
+		})
+	}
+}
+
+func TestCheckUnpushedConfigHistory_FirstPush(t *testing.T) {
+	dir := t.TempDir()
+	gitExec(t, dir, "init")
+	if err := CheckUnpushedConfigHistory(dir); err != nil {
+		t.Fatalf("unborn branch: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "config.yaml"), []byte("local\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	gitExec(t, dir, "add", "config.yaml")
+	gitExec(t, dir, "commit", "-m", "initial config")
+	var historyErr *UnpushedConfigHistoryError
+	if err := CheckUnpushedConfigHistory(dir); !errors.As(err, &historyErr) || historyErr.HasUpstream || len(historyErr.Commits) != 1 {
+		t.Fatalf("first push = %v; want initial commit refused without upstream", err)
+	}
+}
+
+func TestCheckUnpushedConfigHistory_Renames(t *testing.T) {
+	dir := t.TempDir()
+	gitExec(t, dir, "init")
+	if err := os.WriteFile(filepath.Join(dir, "note.yaml"), []byte("local\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	gitExec(t, dir, "add", "note.yaml")
+	gitExec(t, dir, "commit", "-m", "initial")
+	gitExec(t, dir, "mv", "note.yaml", "config.yaml")
+	gitExec(t, dir, "commit", "-m", "rename to config")
+	gitExec(t, dir, "mv", "config.yaml", "note.yaml")
+	gitExec(t, dir, "commit", "-m", "rename away from config")
+	var historyErr *UnpushedConfigHistoryError
+	if err := CheckUnpushedConfigHistory(dir); !errors.As(err, &historyErr) || len(historyErr.Commits) != 1 {
+		t.Fatalf("renames = %v; want only rename into config refused", err)
+	}
+}
+
+func TestCheckUnpushedConfigHistory_MergeAddsConfig(t *testing.T) {
+	dir := initTestRepo(t)
+	gitExec(t, dir, "branch", "-M", "main")
+	gitExec(t, dir, "checkout", "-b", "side")
+	gitExec(t, dir, "commit", "--allow-empty", "-m", "side")
+	gitExec(t, dir, "checkout", "main")
+	gitExec(t, dir, "commit", "--allow-empty", "-m", "main")
+	gitExec(t, dir, "merge", "--no-ff", "--no-commit", "side")
+	if err := os.WriteFile(filepath.Join(dir, "config.yaml"), []byte("merge-local\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	gitExec(t, dir, "add", "config.yaml")
+	gitExec(t, dir, "commit", "-m", "merge with config")
+	var historyErr *UnpushedConfigHistoryError
+	if err := CheckUnpushedConfigHistory(dir); !errors.As(err, &historyErr) || len(historyErr.Commits) != 1 {
+		t.Fatalf("merge = %v; want config introduced by merge refused", err)
+	}
+}
+
+func TestCheckUnpushedConfigHistory_NoUpstreamIgnoresPublishedConfig(t *testing.T) {
+	dir := t.TempDir()
+	remote := filepath.Join(t.TempDir(), "origin.git")
+	gitExec(t, dir, "init", "--bare", remote)
+	gitExec(t, dir, "init", "-b", "main")
+	gitExec(t, dir, "remote", "add", "origin", remote)
+	if err := os.WriteFile(filepath.Join(dir, "config.yaml"), []byte("published\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	gitExec(t, dir, "add", "config.yaml")
+	gitExec(t, dir, "commit", "-m", "published config")
+	gitExec(t, dir, "push", "origin", "main")
+	gitExec(t, dir, "rm", "--cached", "config.yaml")
+	gitExec(t, dir, "commit", "-m", "Keep config.yaml out of version control")
+	if err := CheckUnpushedConfigHistory(dir); err != nil {
+		t.Fatalf("published config with only a local deletion = %v; want allowed", err)
+	}
+}
+
+func TestCheckUnpushedConfigHistory_StaleRemoteRefAfterRewrite(t *testing.T) {
+	dir := t.TempDir()
+	remote := filepath.Join(t.TempDir(), "origin.git")
+	gitExec(t, dir, "init", "--bare", remote)
+	gitExec(t, dir, "init", "-b", "main")
+	gitExec(t, dir, "remote", "add", "origin", remote)
+	gitExec(t, dir, "commit", "--allow-empty", "-m", "initial")
+	if err := os.WriteFile(filepath.Join(dir, "config.yaml"), []byte("leaked\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	gitExec(t, dir, "add", "config.yaml")
+	gitExec(t, dir, "commit", "-m", "leak config")
+	gitExec(t, dir, "push", "-u", "origin", "main")
+	// Another machine rewrites the remote to drop the leak; this clone has not fetched.
+	gitExec(t, remote, "update-ref", "refs/heads/main", "main^")
+	gitExec(t, dir, "commit", "--allow-empty", "-m", "later work")
+
+	var historyErr *UnpushedConfigHistoryError
+	if err := CheckUnpushedConfigHistory(dir); !errors.As(err, &historyErr) || len(historyErr.Commits) != 1 {
+		t.Fatalf("stale remote-tracking ref = %v; want the leaked commit refused", err)
+	}
+}
+
+func TestCheckUnpushedConfigHistory_ChecksEveryPushURL(t *testing.T) {
+	dir := t.TempDir()
+	fetch := filepath.Join(t.TempDir(), "fetch.git")
+	mirror := filepath.Join(t.TempDir(), "mirror.git")
+	gitExec(t, dir, "init", "--bare", fetch)
+	gitExec(t, dir, "init", "--bare", mirror)
+	gitExec(t, dir, "init", "-b", "main")
+	gitExec(t, dir, "remote", "add", "origin", fetch)
+	if err := os.WriteFile(filepath.Join(dir, "config.yaml"), []byte("leaked\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	gitExec(t, dir, "add", "config.yaml")
+	gitExec(t, dir, "commit", "-m", "leak config")
+	gitExec(t, dir, "push", "-u", "origin", "main")
+	// The fetch URL already has the leak, but push also goes to an empty mirror.
+	gitExec(t, dir, "remote", "set-url", "--add", "--push", "origin", fetch)
+	gitExec(t, dir, "remote", "set-url", "--add", "--push", "origin", mirror)
+
+	var historyErr *UnpushedConfigHistoryError
+	if err := CheckUnpushedConfigHistory(dir); !errors.As(err, &historyErr) || len(historyErr.Commits) != 1 {
+		t.Fatalf("push URL without the commit = %v; want the leaked commit refused", err)
+	}
+}
+
+func TestCheckUnpushedConfigHistory_IgnoresReplaceRefs(t *testing.T) {
+	dir := t.TempDir()
+	gitExec(t, dir, "init", "-b", "main")
+	gitExec(t, dir, "commit", "--allow-empty", "-m", "initial")
+	if err := os.WriteFile(filepath.Join(dir, "config.yaml"), []byte("leaked\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	gitExec(t, dir, "add", "config.yaml")
+	gitExec(t, dir, "commit", "-m", "leak config")
+	gitExec(t, dir, "branch", "clean", "HEAD^")
+	gitExec(t, dir, "checkout", "clean")
+	gitExec(t, dir, "commit", "--allow-empty", "-m", "sanitized")
+	gitExec(t, dir, "checkout", "main")
+	// git log would read the sanitized replacement; push still sends the original.
+	gitExec(t, dir, "replace", "main", "clean")
+
+	var historyErr *UnpushedConfigHistoryError
+	if err := CheckUnpushedConfigHistory(dir); !errors.As(err, &historyErr) || len(historyErr.Commits) != 1 {
+		t.Fatalf("replaced commit = %v; want the original leaked commit refused", err)
+	}
+}
+
+func TestCheckUnpushedConfigHistory_BehindRemoteAllowsPublishedConfig(t *testing.T) {
+	dir := t.TempDir()
+	remote := filepath.Join(t.TempDir(), "origin.git")
+	gitExec(t, dir, "init", "--bare", remote)
+	gitExec(t, dir, "init", "-b", "main")
+	gitExec(t, dir, "remote", "add", "origin", remote)
+	if err := os.WriteFile(filepath.Join(dir, "config.yaml"), []byte("published\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	gitExec(t, dir, "add", "config.yaml")
+	gitExec(t, dir, "commit", "-m", "published config")
+	gitExec(t, dir, "rm", "--cached", "config.yaml")
+	gitExec(t, dir, "commit", "-m", "Keep config.yaml out of version control")
+	gitExec(t, dir, "push", "-u", "origin", "main")
+	other := t.TempDir()
+	gitExec(t, other, "clone", "-b", "main", remote, ".")
+	gitExec(t, other, "commit", "--allow-empty", "-m", "other machine")
+	gitExec(t, other, "push", "origin", "HEAD:main")
+	gitExec(t, dir, "commit", "--allow-empty", "-m", "local work")
+
+	// The remote tip is unknown here, so the push is rejected as non-fast-forward
+	// and `push --pull` must be allowed to pull first.
+	if err := CheckUnpushedConfigHistory(dir); err != nil {
+		t.Fatalf("behind remote with published config = %v; want allowed", err)
+	}
+}
+
+func TestCheckUnpushedConfigHistory_GoneUpstreamChecksOrigin(t *testing.T) {
+	dir := t.TempDir()
+	origin := filepath.Join(t.TempDir(), "origin.git")
+	fork := filepath.Join(t.TempDir(), "fork.git")
+	gitExec(t, dir, "init", "--bare", origin)
+	gitExec(t, dir, "init", "--bare", fork)
+	gitExec(t, dir, "init", "-b", "main")
+	gitExec(t, dir, "remote", "add", "origin", origin)
+	gitExec(t, dir, "remote", "add", "fork", fork)
+	if err := os.WriteFile(filepath.Join(dir, "config.yaml"), []byte("leaked\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	gitExec(t, dir, "add", "config.yaml")
+	gitExec(t, dir, "commit", "-m", "leak config")
+	gitExec(t, dir, "push", "-u", "fork", "main")
+	// Upstream config remains but @{u} no longer resolves, so PushArgs pushes to origin.
+	gitExec(t, dir, "update-ref", "-d", "refs/remotes/fork/main")
+
+	var historyErr *UnpushedConfigHistoryError
+	if err := CheckUnpushedConfigHistory(dir); !errors.As(err, &historyErr) || len(historyErr.Commits) != 1 {
+		t.Fatalf("gone upstream = %v; want the commit refused because origin lacks it", err)
+	}
+}
+
+func TestPushArgs_IgnoresPushDefaults(t *testing.T) {
+	for _, mode := range []string{"current", "matching"} {
+		t.Run(mode, func(t *testing.T) {
+			dir := t.TempDir()
+			origin := filepath.Join(t.TempDir(), "origin.git")
+			backup := filepath.Join(t.TempDir(), "backup.git")
+			gitExec(t, dir, "init", "--bare", origin)
+			gitExec(t, dir, "init", "--bare", backup)
+			gitExec(t, dir, "init", "-b", "main")
+			gitExec(t, dir, "remote", "add", "origin", origin)
+			gitExec(t, dir, "remote", "add", "backup", backup)
+			gitExec(t, dir, "commit", "--allow-empty", "-m", "initial")
+			gitExec(t, dir, "push", "-u", "origin", "main")
+			gitExec(t, dir, "branch", "private")
+			gitExec(t, dir, "push", "origin", "private")
+			gitExec(t, dir, "checkout", "private")
+			gitExec(t, dir, "commit", "--allow-empty", "-m", "unchecked private commit")
+			gitExec(t, dir, "checkout", "main")
+			gitExec(t, dir, "commit", "--allow-empty", "-m", "checked commit")
+			gitExec(t, dir, "config", "remote.pushDefault", "backup")
+			gitExec(t, dir, "config", "push.default", mode)
+
+			gitExec(t, dir, append([]string{}, PushArgs(dir, nil)...)...)
+
+			if out, _ := exec.Command("git", "-C", backup, "rev-parse", "--verify", "-q", "main").Output(); len(out) > 0 {
+				t.Errorf("push went to backup; want the upstream remote only")
+			}
+			got, _ := exec.Command("git", "-C", origin, "log", "-1", "--format=%s", "private").Output()
+			if strings.TrimSpace(string(got)) != "initial" {
+				t.Errorf("origin private = %q; want only the current branch pushed", got)
+			}
+		})
+	}
+}
 
 func readGitignore(t *testing.T, dir string) string {
 	t.Helper()

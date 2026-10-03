@@ -2,6 +2,7 @@ package server
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -375,6 +376,70 @@ func TestHandlePush_CleanTreePushesUnpushedCommits(t *testing.T) {
 	branch := testutil.RunGit(t, src, "rev-parse", "--abbrev-ref", "HEAD")
 	if got, want := testutil.RunGit(t, remote, "rev-parse", branch), testutil.RunGit(t, src, "rev-parse", "HEAD"); got != want {
 		t.Fatalf("remote %s = %s, want local HEAD %s", branch, got, want)
+	}
+}
+
+func TestHandlePush_RefusesUnpushedConfigHistory(t *testing.T) {
+	for _, upstream := range []bool{true, false} {
+		for _, body := range []string{`{}`, `{"dryRun":true}`} {
+			t.Run(fmt.Sprintf("upstream=%t/%s", upstream, body), func(t *testing.T) {
+				s, src := newTestServer(t)
+				setServerGitRoot(t, "root", src)
+				base := config.BaseDir()
+				if err := os.MkdirAll(base, 0o755); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.WriteFile(filepath.Join(base, "config.yaml"), []byte("local: config\n"), 0o644); err != nil {
+					t.Fatal(err)
+				}
+				initServerGitRepo(t, base)
+				if err := os.WriteFile(filepath.Join(base, ".gitignore"), []byte("config.yaml\n"), 0o644); err != nil {
+					t.Fatal(err)
+				}
+				testutil.RunGit(t, base, "add", ".gitignore")
+				testutil.RunGit(t, base, "commit", "-m", "ignore config")
+				remote := testutil.SetupBareRemoteRepo(t, t.TempDir())
+				testutil.RunGit(t, base, "remote", "add", "origin", remote)
+				if upstream {
+					testutil.RunGit(t, base, "push", "-u", "origin", "HEAD")
+				}
+				testutil.RunGit(t, base, "add", "-f", "config.yaml")
+				testutil.RunGit(t, base, "commit", "-m", "oops")
+				head := testutil.RunGit(t, base, "rev-parse", "HEAD")
+				badCommit := testutil.RunGit(t, base, "rev-parse", "--short", "HEAD")
+				status := testutil.RunGit(t, base, "status", "--porcelain")
+				refs := testutil.RunGit(t, remote, "for-each-ref", "--format=%(refname) %(objectname)")
+
+				req := httptest.NewRequest(http.MethodPost, "/api/push", strings.NewReader(body))
+				rr := httptest.NewRecorder()
+				s.handler.ServeHTTP(rr, req)
+				if rr.Code != http.StatusConflict {
+					t.Fatalf("expected 409, got %d: %s", rr.Code, rr.Body.String())
+				}
+				var resp struct {
+					Code  string `json:"error_code"`
+					Error string `json:"error"`
+				}
+				if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
+					t.Fatal(err)
+				}
+				if resp.Code != "unpushed_config_history" || !strings.Contains(resp.Error, badCommit) || !strings.Contains(resp.Error, "git rebase -i") {
+					t.Errorf("missing stable code, commit, or remediation: %s", rr.Body.String())
+				}
+				if got := testutil.RunGit(t, base, "rev-parse", "HEAD"); got != head {
+					t.Errorf("refused push changed HEAD: %s -> %s", head, got)
+				}
+				if got := testutil.RunGit(t, base, "status", "--porcelain"); got != status {
+					t.Errorf("refused push changed status: %q -> %q", status, got)
+				}
+				if got := testutil.RunGit(t, remote, "for-each-ref", "--format=%(refname) %(objectname)"); got != refs {
+					t.Errorf("refused push changed remote refs: %q -> %q", refs, got)
+				}
+				if got := testutil.RunGit(t, remote, "log", "--all", "--format=%h", "--", "config.yaml"); got != "" {
+					t.Errorf("remote received config.yaml history: %s", got)
+				}
+			})
+		}
 	}
 }
 

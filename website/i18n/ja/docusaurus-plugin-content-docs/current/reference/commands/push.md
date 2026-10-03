@@ -47,6 +47,10 @@ flowchart TD
 
 `push` は `git_root` 設定フィールド（デフォルト: `skills` source）で選択されたディレクトリに対して動作します。スコープの一覧は [commit — Git Root スコープ](./commit.md#git-root-scope) を参照してください。`git_root` が変更されたものの、git リポジトリが別のスコープのディレクトリにまだ存在している場合、`push` は修正に必要な正確な `git init` / `mv` コマンドとともに「Git root mismatch」エラーを表示します。[init 後にスコープを変更する](/docs/reference/targets/configuration#git-root) も参照してください。
 
+`git_root: root` では、未プッシュのコミットが `config.yaml` または `config.yaml/` 内のファイルを追加・変更している場合、後のコミットで削除していても `push` は拒否します。`--pull` と `--dry-run` にも適用され、ステージングや pull の前に確認します。dry-run は何も変更しません。エラーには対象コミットのハッシュが表示されます。`push` の送信先リモート（upstream のリモート、初回 push 前は `origin`）のどの ref にも含まれないコミットを未プッシュとみなすため、そのリモートにすでにある履歴は拒否されません。`push` は `push.default` や `remote.pushDefault` に関係なく、常に現在のブランチだけをそのリモートへ送信します。
+
+再試行する前に、対象コミットからファイルを取り除いてください。エラーに表示される `git rebase -i <commit>`（最も古い対象コミットの直前から開始します）で対象コミットを編集対象にし、各編集で `git rm -r --cached -- config.yaml`、`git commit --amend`、`git rebase --continue` を実行します。Skillshare が履歴を自動で書き換えることはありません。公開済みの `config.yaml` の追跡を解除するだけのコミットは push できます。未プッシュの追加コミットの後に削除コミットを作っても、過去の内容は履歴から消えません。
+
 ## 前提条件
 
 Source ディレクトリは remote を持つ git リポジトリである必要があります。

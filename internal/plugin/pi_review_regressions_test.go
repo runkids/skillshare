@@ -126,7 +126,7 @@ func TestPiFilteredBatchRestoreAcceptsOnlyItsOwnWrites(t *testing.T) {
 						return nil, fmt.Errorf("unexpected command %v", args)
 					}
 					installs = append(installs, args[1])
-					raw, _, entries, err := readPackageConfig(file, "packages")
+					raw, _, entries, err := readPackageConfig(filepath.Dir(file), file, "packages")
 					if err != nil {
 						return nil, err
 					}
