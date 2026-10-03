@@ -57,7 +57,7 @@ func TestBuildDiffDetail_ShowsExpandedFilesFromModelState(t *testing.T) {
 	}
 
 	out := m.buildDiffDetail()
-	if !strings.Contains(out, "── demo-skill files ──") {
+	if !strings.Contains(out, "demo-skill files") {
 		t.Fatalf("detail view missing files header:\n%s", out)
 	}
 	if !strings.Contains(out, "local.txt") {

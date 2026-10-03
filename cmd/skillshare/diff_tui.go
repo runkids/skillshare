@@ -43,23 +43,17 @@ type diffExtraItem struct {
 	result extraDiffResult
 }
 
-func (i diffExtraItem) Title() string {
+// row returns the row's text and its right column.
+func (i diffExtraItem) row() (string, string) {
 	r := i.result
-	var icon, desc string
-	if r.errMsg != "" {
-		icon = "✗"
-		desc = r.errMsg
-	} else if r.synced {
-		icon = "✓"
-		desc = "synced"
-	} else {
-		icon = "~"
-		desc = fmt.Sprintf("%d diff", len(r.items))
+	switch {
+	case r.errMsg != "":
+		return theme.Danger().Render("✗") + " " + r.extraName, theme.Danger().Render("error")
+	case r.synced:
+		return theme.Success().Render("✓") + " " + r.extraName, theme.Dim().Render("in sync")
 	}
-	return fmt.Sprintf("%s %s → %s  %s", icon, r.extraName, shortenPath(r.targetPath), theme.Dim().Render(desc))
+	return theme.Warning().Render("!") + " " + r.extraName, theme.Dim().Render(countNoun(len(r.items), "difference"))
 }
-
-func (i diffExtraItem) Description() string { return "" }
 
 func (i diffExtraItem) FilterValue() string { return i.result.extraName }
 
@@ -70,49 +64,32 @@ type diffSeparatorItem struct {
 	space bool // true = empty spacer row
 }
 
-func (s diffSeparatorItem) Title() string       { return s.label }
-func (s diffSeparatorItem) Description() string { return "" }
 func (s diffSeparatorItem) FilterValue() string { return "" }
 
-// diffItemDelegate wraps prefixItemDelegate to render separators as group headers.
-type diffItemDelegate struct {
-	inner prefixItemDelegate
-}
+// diffItemDelegate renders targets and extras as one-line rows and
+// separators as group rows.
+type diffItemDelegate struct{}
 
-func (d diffItemDelegate) Height() int  { return d.inner.Height() }
-func (d diffItemDelegate) Spacing() int { return d.inner.Spacing() }
-func (d diffItemDelegate) Update(msg tea.Msg, m *list.Model) tea.Cmd {
-	return d.inner.Update(msg, m)
-}
+func (diffItemDelegate) Height() int                             { return 1 }
+func (diffItemDelegate) Spacing() int                            { return 0 }
+func (diffItemDelegate) Update(_ tea.Msg, _ *list.Model) tea.Cmd { return nil }
 
 func (d diffItemDelegate) Render(w io.Writer, m list.Model, index int, item list.Item) {
-	if sep, ok := item.(diffSeparatorItem); ok {
-		width := m.Width()
-		if width <= 0 {
-			width = 40
+	var left, right string
+	switch v := item.(type) {
+	case diffSeparatorItem:
+		if !v.space {
+			renderGroupRow(w, groupItem{label: v.label}, m.Width())
 		}
-		renderDiffSeparatorRow(w, sep, width)
+		return
+	case diffTargetItem:
+		left, right = v.row()
+	case diffExtraItem:
+		left, right = v.row()
+	default:
 		return
 	}
-	d.inner.Render(w, m, index, item)
-}
-
-func renderDiffSeparatorRow(w io.Writer, sep diffSeparatorItem, width int) {
-	if sep.space {
-		fmt.Fprint(w, "")
-		return
-	}
-	label := sep.label
-	if sep.count > 0 {
-		label += fmt.Sprintf(" (%d)", sep.count)
-	}
-	label = theme.Dim().Render(label)
-	lineWidth := width - lipgloss.Width(label) - 3
-	if lineWidth < 2 {
-		lineWidth = 2
-	}
-	line := strings.Repeat("─", lineWidth)
-	fmt.Fprint(w, theme.Dim().Render("─ ")+label+" "+theme.Dim().Render(line))
+	renderPrefixRow(w, alignRow(left, right, m.Width()-rowIndent), m.Width(), index == m.Index())
 }
 
 // skipDiffSeparator advances the list selection past diffSeparatorItem entries.
@@ -131,29 +108,28 @@ func skipDiffSeparator(l *list.Model, direction int) {
 	}
 }
 
-func (i diffTargetItem) Title() string {
+// row returns the row's text and its right column: what differs.
+func (i diffTargetItem) row() (string, string) {
 	r := i.result
-	if r.errMsg != "" {
-		return fmt.Sprintf("%s %s", theme.Danger().Render("✗"), r.name)
-	}
-	if r.synced {
-		return fmt.Sprintf("%s %s", theme.Success().Render("✓"), r.name)
+	switch {
+	case r.errMsg != "":
+		return theme.Danger().Render("✗") + " " + r.name, theme.Danger().Render("error")
+	case r.synced:
+		return theme.Success().Render("✓") + " " + r.name, theme.Dim().Render("in sync")
 	}
 	var parts []string
 	if r.syncCount > 0 {
-		parts = append(parts, fmt.Sprintf("%d sync", r.syncCount))
+		parts = append(parts, fmt.Sprintf("%d to sync", r.syncCount))
 	}
 	if r.localCount > 0 {
 		parts = append(parts, fmt.Sprintf("%d local", r.localCount))
 	}
-	desc := "0 diff(s)"
+	desc := "differs"
 	if len(parts) > 0 {
-		desc = strings.Join(parts, ", ")
+		desc = strings.Join(parts, " · ")
 	}
-	return fmt.Sprintf("%s %s  %s", theme.Warning().Render("!"), r.name, theme.Dim().Render(desc))
+	return theme.Warning().Render("!") + " " + r.name, theme.Dim().Render(desc)
 }
-
-func (i diffTargetItem) Description() string { return "" }
 
 func (i diffTargetItem) FilterValue() string { return i.result.name }
 
@@ -193,6 +169,8 @@ type diffTUIModel struct {
 	cachedIdx   int
 	cachedItems []copyDiffEntry
 	cachedCats  []actionCategory
+
+	showKeys bool // ? swaps the detail panel for the full key list
 }
 
 func newDiffTUIModel(results []targetDiffResult, extrasSlice ...[]extraDiffResult) diffTUIModel {
@@ -228,39 +206,15 @@ func newDiffTUIModel(results []targetDiffResult, extrasSlice ...[]extraDiffResul
 		}
 	}
 
-	delegate := diffItemDelegate{inner: newPrefixDelegate(false)}
-
-	tl := list.New(listItems, delegate, 0, 0)
-	var errN, diffN, syncN int
-	for _, r := range sorted {
-		switch {
-		case r.errMsg != "":
-			errN++
-		case !r.synced:
-			diffN++
-		default:
-			syncN++
-		}
-	}
-	var titleParts []string
-	if errN > 0 {
-		titleParts = append(titleParts, fmt.Sprintf("%d err", errN))
-	}
-	if diffN > 0 {
-		titleParts = append(titleParts, fmt.Sprintf("%d diff", diffN))
-	}
-	if syncN > 0 {
-		titleParts = append(titleParts, fmt.Sprintf("%d ok", syncN))
-	}
-	tl.Title = fmt.Sprintf("Diff — %s", strings.Join(titleParts, ", "))
-	tl.Styles.Title = theme.Title()
+	tl := list.New(listItems, diffItemDelegate{}, 0, 0)
+	tl.SetShowTitle(false)
 	tl.SetShowStatusBar(false)
 	tl.SetFilteringEnabled(false)
 	tl.SetShowHelp(false)
 	tl.SetShowPagination(false)
 	skipDiffSeparator(&tl, 1)
 
-	fi := newTUIFilterInput("")
+	fi := newTUIFilterInput("type to match a target or extra")
 
 	sp := spinner.New()
 	sp.Spinner = spinner.Dot
@@ -317,8 +271,10 @@ func (m diffTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.termWidth = msg.Width
 		m.termHeight = msg.Height
 		lw := diffListWidth(m.termWidth)
-		h := m.diffPanelHeight()
-		m.targetList.SetSize(lw, h)
+		if m.termWidth < diffMinSplitWidth {
+			lw = m.termWidth
+		}
+		m.targetList.SetSize(lw, m.diffPanelHeight())
 		m.refreshDetailCache()
 		return m, nil
 
@@ -361,9 +317,27 @@ func (m diffTUIModel) handleDiffKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	// Normal keys
 	switch key {
-	case "q", "esc", "ctrl+c":
+	case "q", "ctrl+c":
 		m.quitting = true
 		return m, tea.Quit
+
+	case "esc":
+		switch {
+		case m.showKeys:
+			m.showKeys = false
+		case m.filterText != "":
+			m.filterText = ""
+			m.filterInput.SetValue("")
+			m.applyDiffFilter()
+		default:
+			m.quitting = true
+			return m, tea.Quit
+		}
+		return m, nil
+
+	case "?":
+		m.showKeys = !m.showKeys
+		return m, nil
 
 	case "/":
 		m.filtering = true
@@ -487,11 +461,15 @@ func (m *diffTUIModel) applyDiffFilter() {
 func diffListWidth(_ int) int { return 40 }
 
 func diffDetailWidth(termWidth int) int {
-	return max(termWidth-diffListWidth(termWidth)-3, 30)
+	return max(termWidth-diffListWidth(termWidth), 30)
 }
 
 func (m diffTUIModel) diffPanelHeight() int {
-	return max(m.termHeight-4, 10)
+	bodyHeight := max(m.termHeight-frameChrome, 6)
+	if m.termWidth >= diffMinSplitWidth {
+		return bodyHeight
+	}
+	return max(bodyHeight/2, 4) // narrow: the details sit below the list
 }
 
 // --- Views ---
@@ -500,63 +478,95 @@ func (m diffTUIModel) View() string {
 	if m.quitting {
 		return ""
 	}
-
-	if m.termWidth >= diffMinSplitWidth {
-		return m.viewDiffHorizontal()
+	bodyHeight := max(m.termHeight-frameChrome, 6)
+	title := m.renderTitleLine()
+	if m.termWidth < diffMinSplitWidth {
+		detailHeight := max(bodyHeight-m.diffPanelHeight()-1, 4)
+		detail := lipgloss.NewStyle().Height(detailHeight).MaxHeight(detailHeight).PaddingLeft(1).
+			Render(m.renderRight(m.termWidth-2, detailHeight))
+		return title + "\n\n" + m.targetList.View() + "\n\n" + detail + "\n" + m.renderBottom()
 	}
-	return m.viewDiffVertical()
-}
-
-func (m diffTUIModel) viewDiffHorizontal() string {
-	var b strings.Builder
-
-	panelHeight := m.diffPanelHeight()
 	leftWidth := diffListWidth(m.termWidth)
 	rightWidth := diffDetailWidth(m.termWidth)
-
-	// Detail
-	detailStr, scrollInfo := wrapAndScroll(m.buildDiffDetail(), rightWidth-1, m.detailScroll, panelHeight)
-
-	body := renderHorizontalSplit(m.targetList.View(), detailStr, leftWidth, rightWidth, panelHeight)
-	b.WriteString(body)
-	b.WriteString("\n")
-
-	// Filter bar
-	b.WriteString(m.renderDiffFilterBar())
-
-	// Help
-	b.WriteString(theme.Dim().MarginLeft(2).Render(appendScrollInfo("↑↓ navigate  / filter  Enter expand  Ctrl+d/u scroll  q quit", scrollInfo)))
-	b.WriteString("\n")
-
-	return b.String()
+	return title + "\n\n" +
+		renderFrameSplit(m.targetList.View(), m.renderRight(rightWidth-2, bodyHeight), leftWidth, rightWidth, bodyHeight) + "\n" +
+		m.renderBottom()
 }
 
-func (m diffTUIModel) viewDiffVertical() string {
-	var b strings.Builder
-
-	b.WriteString(m.targetList.View())
-	b.WriteString("\n")
-
-	b.WriteString(m.renderDiffFilterBar())
-
-	// Detail below list
-	detailHeight := max(m.termHeight/3, 6)
-	detailStr, scrollInfo := wrapAndScroll(m.buildDiffDetail(), m.termWidth, m.detailScroll, detailHeight)
-	b.WriteString(detailStr)
-	b.WriteString("\n")
-
-	b.WriteString(theme.Dim().MarginLeft(2).Render(appendScrollInfo("↑↓ navigate  / filter  Enter expand  Ctrl+d/u scroll  q quit", scrollInfo)))
-	b.WriteString("\n")
-
-	return b.String()
+// renderTitleLine renders the target and extra counts and how many differ.
+func (m diffTUIModel) renderTitleLine() string {
+	var errN, diffN, syncN int
+	for _, r := range m.allItems {
+		switch {
+		case r.errMsg != "":
+			errN++
+		case !r.synced:
+			diffN++
+		default:
+			syncN++
+		}
+	}
+	facts := []string{countNoun(len(m.allItems), "target")}
+	if len(m.allExtras) > 0 {
+		facts = append(facts, countNoun(len(m.allExtras), "extra"))
+	}
+	if syncN > 0 {
+		facts = append(facts, formatNumber(syncN)+" in sync")
+	}
+	// Colored facts go last; a colored fact ends the dim run of facts.
+	if diffN > 0 {
+		facts = append(facts, theme.Warning().Render(formatNumber(diffN)+" differ"))
+	}
+	if errN > 0 {
+		facts = append(facts, theme.Danger().Render(countNoun(errN, "error")))
+	}
+	return renderFrameTitle(m.termWidth, "diff", facts, nil)
 }
 
-func (m diffTUIModel) renderDiffFilterBar() string {
-	pag := renderPageInfoFromPaginator(m.targetList.Paginator)
-	return renderTUIFilterBar(
-		m.filterInput.View(), m.filtering, m.filterText,
-		m.matchCount, len(m.allItems), 0, "targets", pag,
-	)
+// renderRight renders the detail panel, or the key list while ? is on.
+func (m diffTUIModel) renderRight(width, height int) string {
+	if m.showKeys {
+		return renderKeysPanel(diffKeyGroups)
+	}
+	detail, _ := wrapAndScroll(m.buildDiffDetail(), width, m.detailScroll, height)
+	return detail
+}
+
+// renderBottom renders the note line and the key line; the filter input
+// takes over the key line in place.
+func (m diffTUIModel) renderBottom() string {
+	var line string
+	switch {
+	case m.filtering:
+		line = renderFilterLine(m.termWidth, m.filterInput.View(), m.matchCount)
+	case m.showKeys:
+		line = renderKeyLine(m.termWidth, []keyHint{{"?/esc", "close"}}, "")
+	default:
+		filter := keyHint{"/", "filter"}
+		if m.filterText != "" {
+			filter = keyHint{"esc", "clear filter"}
+		}
+		enter := keyHint{"enter", "show files"}
+		if m.expandedSkill != "" {
+			enter = keyHint{"enter", "hide files"}
+		}
+		hints := []keyHint{{"↑↓", "move"}, filter, enter, {"ctrl+d/u", "scroll"}, {"?", "keys"}}
+		line = renderKeyLine(m.termWidth, hints, "")
+	}
+	return "\n" + line
+}
+
+// diffKeyGroups lists every key for the ? panel.
+var diffKeyGroups = []keyGroup{
+	{"Move", []keyHint{
+		{"↑↓", "move"},
+		{"←→", "page"},
+		{"/", "filter"},
+		{"enter", "show or hide the file-level diff"},
+		{"ctrl+d/u", "scroll the details"},
+		{"esc", "clear the filter, then quit"},
+		{"q", "quit"},
+	}},
 }
 
 // --- Detail renderer ---
@@ -566,28 +576,29 @@ func (m diffTUIModel) buildExtraDetail(selected diffExtraItem) string {
 	var b strings.Builder
 
 	row := func(label, value string) {
-		b.WriteString(theme.Dim().Width(14).Render(label))
-		b.WriteString(lipgloss.NewStyle().Render(value))
+		b.WriteString(theme.Dim().Width(10).Render(label))
+		b.WriteString(value)
 		b.WriteString("\n")
 	}
 
-	row("Extra:  ", r.extraName)
-	row("Target: ", shortenPath(r.targetPath))
-	row("Mode:   ", r.mode)
+	b.WriteString(theme.Primary().Bold(true).Render(r.extraName))
+	b.WriteString("\n\n")
+	row("Target", shortenPath(r.targetPath))
+	row("Mode", r.mode)
 	b.WriteString("\n")
 
 	if r.errMsg != "" {
-		b.WriteString(theme.Danger().Render("  " + r.errMsg))
+		b.WriteString(theme.Danger().Render("✗") + " " + r.errMsg)
 		b.WriteString("\n")
 		return b.String()
 	}
 	if r.synced {
-		b.WriteString(theme.Success().Render("  ✓ Fully synced"))
+		b.WriteString(theme.Success().Render("✓") + " In sync")
 		b.WriteString("\n")
 		return b.String()
 	}
 
-	b.WriteString(theme.Warning().Render(fmt.Sprintf("  %d difference(s):", len(r.items))))
+	b.WriteString(theme.Primary().Bold(true).Render(countNoun(len(r.items), "difference")))
 	b.WriteString("\n")
 	hasLocal := false
 	for _, item := range r.items {
@@ -606,18 +617,18 @@ func (m diffTUIModel) buildExtraDetail(selected diffExtraItem) string {
 		default:
 			prefix, style = "  ", theme.Dim()
 		}
-		b.WriteString(style.Render(fmt.Sprintf("  %s%s  %s", prefix, item.file, item.reason)))
+		b.WriteString(style.Render(prefix+item.file) + "  " + theme.Dim().Render(item.reason))
 		b.WriteString("\n")
 	}
 
 	// Next Steps
 	b.WriteString("\n")
-	b.WriteString(theme.Title().Render("── Next Steps ──"))
+	b.WriteString(theme.Primary().Bold(true).Render("Next"))
 	b.WriteString("\n")
-	b.WriteString(theme.Accent().Render("  → skillshare sync extras"))
+	b.WriteString("skillshare sync extras")
 	b.WriteString("\n")
 	if hasLocal {
-		b.WriteString(theme.Accent().Render("  → skillshare extras collect " + r.extraName))
+		b.WriteString("skillshare extras collect " + r.extraName)
 		b.WriteString("\n")
 	}
 
@@ -642,45 +653,46 @@ func (m diffTUIModel) buildDiffDetail() string {
 	var b strings.Builder
 
 	row := func(label, value string) {
-		b.WriteString(theme.Dim().Width(14).Render(label))
-		b.WriteString(lipgloss.NewStyle().Render(value))
+		b.WriteString(theme.Dim().Width(10).Render(label))
+		b.WriteString(value)
 		b.WriteString("\n")
 	}
 
-	row("Target:  ", r.name)
-	row("Mode:    ", r.mode)
+	b.WriteString(theme.Primary().Bold(true).Render(r.name))
+	b.WriteString("\n\n")
+	row("Mode", r.mode)
 	if len(r.include) > 0 {
-		row("Include: ", strings.Join(r.include, ", "))
+		row("Include", strings.Join(r.include, ", "))
 	}
 	if len(r.exclude) > 0 {
-		row("Exclude: ", strings.Join(r.exclude, ", "))
+		row("Exclude", strings.Join(r.exclude, ", "))
 	}
 	if !r.srcMtime.IsZero() {
-		row("Source:   ", r.srcMtime.Format("2006-01-02 15:04"))
+		row("Source", "changed "+r.srcMtime.Format("2006-01-02 15:04"))
 	}
 	if !r.dstMtime.IsZero() {
-		row("Target:  ", r.dstMtime.Format("2006-01-02 15:04"))
+		row("Target", "changed "+r.dstMtime.Format("2006-01-02 15:04"))
 	}
 
 	b.WriteString("\n")
 
 	// Error
 	if r.errMsg != "" {
-		b.WriteString(theme.Danger().Render("  " + r.errMsg))
+		b.WriteString(theme.Danger().Render("✗") + " " + r.errMsg)
 		b.WriteString("\n")
 		return b.String()
 	}
 
 	// Fully synced
 	if r.synced {
-		b.WriteString(theme.Success().Render("  ✓ Fully synced"))
+		b.WriteString(theme.Success().Render("✓") + " In sync")
 		b.WriteString("\n")
 		return b.String()
 	}
 
 	// Loading spinner
 	if m.loading {
-		b.WriteString(fmt.Sprintf("  %s Loading diff...\n", m.loadSpinner.View()))
+		b.WriteString(m.loadSpinner.View() + " Loading the diff…\n")
 		return b.String()
 	}
 
@@ -719,16 +731,16 @@ func (m diffTUIModel) buildDiffDetail() string {
 			kindStyle = theme.Dim()
 		}
 
-		header := fmt.Sprintf("  %s %d %s:", cat.label, n, skillWord)
+		header := fmt.Sprintf("%s %d %s", cat.label, n, skillWord)
 		b.WriteString(kindStyle.Render(header))
 		b.WriteString("\n")
 
 		if cat.expand {
 			for _, name := range cat.names {
 				if agentNames[name] {
-					b.WriteString("    " + theme.Accent().Render("[A]") + " " + theme.Dim().Render(name))
+					b.WriteString("  " + name + theme.Dim().Render("  agent"))
 				} else {
-					b.WriteString(theme.Dim().Render("    " + name))
+					b.WriteString("  " + name)
 				}
 				b.WriteString("\n")
 			}
@@ -739,7 +751,7 @@ func (m diffTUIModel) buildDiffDetail() string {
 	if m.expandedSkill != "" {
 		if len(m.expandedFiles) > 0 {
 			b.WriteString("\n")
-			b.WriteString(theme.Dim().Render(fmt.Sprintf("── %s files ──", m.expandedSkill)))
+			b.WriteString(theme.Primary().Bold(true).Render(m.expandedSkill + " files"))
 			b.WriteString("\n")
 			for _, f := range m.expandedFiles {
 				var icon string
@@ -754,7 +766,7 @@ func (m diffTUIModel) buildDiffDetail() string {
 				default:
 					icon, style = "?", theme.Dim()
 				}
-				b.WriteString(style.Render(fmt.Sprintf("  %s %s", icon, f.RelPath)))
+				b.WriteString(style.Render(icon) + " " + f.RelPath)
 				b.WriteString("\n")
 			}
 		}
@@ -762,7 +774,7 @@ func (m diffTUIModel) buildDiffDetail() string {
 		// Unified diff content
 		if m.expandedDiff != "" {
 			b.WriteString("\n")
-			b.WriteString(theme.Dim().Render(fmt.Sprintf("── %s diff ──", m.expandedSkill)))
+			b.WriteString(theme.Primary().Bold(true).Render(m.expandedSkill + " diff"))
 			b.WriteString("\n")
 			for _, line := range strings.Split(strings.TrimRight(m.expandedDiff, "\n"), "\n") {
 				switch {
@@ -780,7 +792,7 @@ func (m diffTUIModel) buildDiffDetail() string {
 		}
 		if len(m.expandedFiles) == 0 && m.expandedDiff == "" {
 			b.WriteString("\n")
-			b.WriteString(theme.Dim().Render("  (No file-level diff available)"))
+			b.WriteString(theme.Dim().Render("(No file-level diff available)"))
 			b.WriteString("\n")
 		}
 	}
@@ -799,7 +811,7 @@ func (m diffTUIModel) buildDiffDetail() string {
 	}
 	if len(hints) > 0 {
 		b.WriteString("\n")
-		b.WriteString(theme.Title().Render("── Next Steps ──"))
+		b.WriteString(theme.Primary().Bold(true).Render("Next"))
 		b.WriteString("\n")
 		seen := map[string]bool{}
 		for _, h := range hints {
@@ -807,7 +819,7 @@ func (m diffTUIModel) buildDiffDetail() string {
 				continue
 			}
 			seen[h] = true
-			b.WriteString(theme.Accent().Render(fmt.Sprintf("  → skillshare %s", h)))
+			b.WriteString("skillshare " + h)
 			b.WriteString("\n")
 		}
 	}
