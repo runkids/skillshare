@@ -30,7 +30,7 @@ type guidanceTarget struct {
 	Name   string `json:"name"`
 	State  string `json:"state"`            // unconfigured, configured, outdated or broken
 	File   string `json:"file,omitempty"`   // where the block is, or would be written
-	Detail string `json:"detail,omitempty"` // why broken: modified, malformed, not_synced, unreadable or unsupported
+	Detail string `json:"detail,omitempty"` // why broken: modified, malformed, mixed_modes, not_synced, unreadable or unsupported
 	Mode   string `json:"mode,omitempty"`   // passive or active, when a block is found
 }
 
@@ -175,13 +175,15 @@ func (s *Server) guidanceSites(root string) []guidanceSite {
 // resolveSite sets the state from the chain: a current block anywhere the
 // target reads wins; then a block it cannot be trusted with; then an
 // outdated one. Without a block, site.dest receives it. Each block is checked
-// against the text of the mode it records.
+// against the text of the mode it records; blocks of different modes in one
+// chain contradict each other, and rewriting one file would not fix that.
 func (s *Server) resolveSite(site guidanceSite, root string) guidanceSite {
 	if site.State != "" {
 		return site
 	}
 	rank := map[string]int{memory.StateConfigured: 4, memory.StateModified: 3, memory.StateMalformed: 3, memory.StateOutdated: 2}
 	best, bestRank := -1, 0
+	modes := map[string]bool{}
 	for i, src := range site.sources {
 		data, err := os.ReadFile(src.read)
 		if err != nil && !os.IsNotExist(err) {
@@ -203,6 +205,9 @@ func (s *Server) resolveSite(site guidanceSite, root string) guidanceSite {
 			}
 			continue
 		}
+		if state != memory.StateUnconfigured && state != memory.StateMalformed {
+			modes[mode] = true
+		}
 		if rank[state] > bestRank {
 			best, bestRank = i, rank[state]
 			site.Detail, site.Mode = state, mode
@@ -211,6 +216,10 @@ func (s *Server) resolveSite(site guidanceSite, root string) guidanceSite {
 	if best >= 0 {
 		src := site.sources[best]
 		site.File, site.shared = src.write, src.shared
+		if len(modes) > 1 {
+			site.State, site.Detail, site.Mode = "broken", "mixed_modes", ""
+			return site
+		}
 		switch site.Detail {
 		case memory.StateConfigured:
 			site.State, site.Detail = "configured", ""

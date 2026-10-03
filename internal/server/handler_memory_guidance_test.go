@@ -500,3 +500,23 @@ func TestMemoryGuidance_RejectsDifferentModesForOneFile(t *testing.T) {
 		t.Errorf("plan: %d %s", rr.Code, rr.Body)
 	}
 }
+
+func TestMemoryGuidance_FlagsTargetReadingBlocksOfDifferentModes(t *testing.T) {
+	s, home := newInstructionsServer(t, "claude", "codex")
+	writeHome(t, home, ".claude/CLAUDE.md", "# Me\n")
+	instructionsRequest(t, s, http.MethodPost, "/api/instructions", `{"name":"a","content":"a\n"}`)
+	instructionsRequest(t, s, http.MethodPost, "/api/instructions", `{"name":"b","content":"b\n"}`)
+	instructionsRequest(t, s, http.MethodPost, "/api/instructions/assign", `{"targets":["claude"],"extras":["a","b"]}`)
+	instructionsRequest(t, s, http.MethodPost, "/api/instructions/assign", `{"targets":["codex"],"extras":["b"]}`)
+	plan := planGuidanceFor(t, s, `["claude"]`)
+	applyGuidance(t, s, `["claude"]`, plan.Token)
+	body := `{"targets":["codex"],"modes":{"codex":"active"}`
+	plan = decodeBody[guidancePlan](t, instructionsRequest(t, s, http.MethodPost, "/api/extras/memory/guidance/plan", body+`}`))
+	if rr := instructionsRequest(t, s, http.MethodPost, "/api/extras/memory/guidance/apply", body+`,"token":"`+plan.Token+`"}`); rr.Code != http.StatusOK {
+		t.Fatalf("apply: %d %s", rr.Code, rr.Body)
+	}
+
+	if got := guidanceState(t, s)["claude"]; got.State != "broken" || got.Detail != "mixed_modes" {
+		t.Errorf("claude = %+v", got)
+	}
+}
