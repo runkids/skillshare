@@ -9,6 +9,13 @@ All notable changes to skillshare are documented here. For the full commit histo
 
 ---
 
+## [0.24.1] - 2026-10-03
+
+
+### Bug Fixes
+
+* **ui:** count hooks on the dashboard ([77727bd](https://github.com/runkids/skillshare/commit/77727bd578f10422eae1d2e51b5f22fc7562c6f8))
+
 ## [0.24.0] - 2026-10-03
 
 ### Breaking Changes
