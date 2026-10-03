@@ -119,12 +119,13 @@ func newInitPlan(opts *initOptions, detected []detectedDir, home string) *initPl
 
 // defaultGitScope picks what git versions when no flag chose it: the whole
 // skillshare folder when a remote is linked (so agents and extras reach
-// other machines too), otherwise only the skills.
+// other machines too), otherwise only the skills. A source outside that
+// folder keeps the skills scope, since the folder would hold none of them.
 func (p *initPlan) defaultGitScope() string {
 	if p.remote != nil && p.remote.reachable && !p.remote.rootScope && p.remote.skills > 0 {
 		return "skills"
 	}
-	if p.remoteURL != "" {
+	if p.remoteURL != "" && filepath.Dir(p.base) == config.BaseDir() {
 		return "root"
 	}
 	return "skills"

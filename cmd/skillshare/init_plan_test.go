@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"slices"
 	"testing"
+
+	"skillshare/internal/config"
 )
 
 func TestDetectCLIDirectories_SkillsFirstThenByName(t *testing.T) {
@@ -58,10 +60,39 @@ func TestNewInitPlan_FlagsOverrideDefaults(t *testing.T) {
 }
 
 func TestDefaultGitScope_RemoteVersionsEverything(t *testing.T) {
-	p := &initPlan{remoteURL: "git@example.com:me/skills.git"}
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	p := &initPlan{base: filepath.Join(config.BaseDir(), "skills"), remoteURL: "git@example.com:me/skills.git"}
 
 	if got := p.defaultGitScope(); got != "root" {
 		t.Errorf("scope = %q, want root", got)
+	}
+}
+
+func TestDefaultGitScope_CustomSourceKeepsSkillsScope(t *testing.T) {
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	p := &initPlan{base: filepath.Join(t.TempDir(), "my-skills"), remoteURL: "git@example.com:me/skills.git"}
+
+	if got := p.defaultGitScope(); got != "skills" {
+		t.Errorf("scope = %q, want skills: the skillshare folder holds none of a custom source", got)
+	}
+}
+
+func TestInspectRemote_FindsSkillsFolder(t *testing.T) {
+	repo := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(repo, "skills", "pdf"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(repo, "skills", "pdf", "SKILL.md"), []byte("# pdf"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	runGit(t, repo, "init")
+	runGit(t, repo, "add", ".")
+	runGit(t, repo, "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-m", "skills")
+
+	r := inspectRemote(repo)
+
+	if r.subdir != "skills" || !slices.Equal(r.names, []string{"pdf"}) {
+		t.Errorf("subdir = %q, names = %v; want the skills/ folder and pdf", r.subdir, r.names)
 	}
 }
 
