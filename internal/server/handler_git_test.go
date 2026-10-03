@@ -558,3 +558,35 @@ func TestHandlePull_ExtrasScopeSyncsExtras(t *testing.T) {
 		t.Fatalf("expected the pulled extra synced to its target: %v", err)
 	}
 }
+
+func TestHandlePull_RootScopeSyncsExtras(t *testing.T) {
+	s, _ := newTestServer(t)
+	root := config.BaseDir()
+	if err := os.MkdirAll(filepath.Join(root, "skills"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("SKILLSHARE_CONFIG", filepath.Join(root, "config.yaml"))
+	targetDir := t.TempDir()
+	cfg := "git_root: root\nsource: " + filepath.Join(root, "skills") + "\nmode: merge\ntargets: {}\nextras:\n  - name: rules\n    targets:\n      - path: " + targetDir + "\n"
+	if err := os.WriteFile(config.ConfigPath(), []byte(cfg), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	initServerGitRepo(t, root)
+	if err := os.WriteFile(filepath.Join(root, ".gitignore"), []byte("config.yaml\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	testutil.RunGit(t, root, "add", ".gitignore")
+	testutil.RunGit(t, root, "commit", "-m", "ignore config")
+	remote := filepath.Join(t.TempDir(), "remote.git")
+	testutil.RunGit(t, "", "init", "--bare", remote)
+	testutil.RunGit(t, root, "remote", "add", "origin", remote)
+	testutil.RunGit(t, root, "push", "-u", "origin", "HEAD")
+	pushRemoteFile(t, remote, "extras/rules/team.md", "# team rule\n")
+
+	if rr := postPull(s, `{}`); rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rr.Code, rr.Body.String())
+	}
+	if _, err := os.Lstat(filepath.Join(targetDir, "team.md")); err != nil {
+		t.Fatalf("expected the pulled extra synced to its target: %v", err)
+	}
+}

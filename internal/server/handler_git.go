@@ -752,9 +752,7 @@ func (s *Server) handlePull(w http.ResponseWriter, r *http.Request) {
 
 	// Sync what the pulled scope holds, as the CLI does. Skills always sync
 	// from the skills source, whatever directory git_root points at.
-	switch scope := s.cfg.GitRoot; {
-	case info.UpToDate:
-	case scope == "extras":
+	syncPulledExtras := func() {
 		for _, extra := range s.syncExtras("", false, false) {
 			for _, t := range extra.Targets {
 				for _, msg := range append([]string{t.Error}, t.Errors...) {
@@ -764,8 +762,13 @@ func (s *Server) handlePull(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 		}
+	}
+	switch scope := s.cfg.GitRoot; {
+	case info.UpToDate:
+	case scope == "extras":
+		syncPulledExtras()
 	default:
-		kind := "" // root holds both
+		kind := "" // root holds both, plus extras below
 		if scope == "" || scope == "skills" {
 			kind = kindSkill
 		} else if scope == "agents" {
@@ -779,6 +782,9 @@ func (s *Server) handlePull(w http.ResponseWriter, r *http.Request) {
 			if out.pathOverlap > 0 {
 				resp.Warnings = append(resp.Warnings, fmt.Sprintf("Skill path overlap across %d target(s) — see Health Check for details", out.pathOverlap))
 			}
+		}
+		if scope == "root" {
+			syncPulledExtras()
 		}
 	}
 
