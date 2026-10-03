@@ -18,33 +18,49 @@ type cursorOwner struct {
 	Digest string `json:"digest"`
 }
 
-func (s *Service) localRoot(target string) (string, error) {
+// localRoot returns the plugin folder and the Agent folder (or project) it lives in.
+func (s *Service) localRoot(target string) (string, string, error) {
 	if target == "antigravity" && s.ProjectRoot != "" {
 		hidden := filepath.Join(s.ProjectRoot, ".agents", "plugins")
 		visible := filepath.Join(s.ProjectRoot, "_agents", "plugins")
 		_, hErr := os.Lstat(hidden)
 		_, vErr := os.Lstat(visible)
 		if hErr == nil && vErr == nil {
-			return "", fmt.Errorf("both .agents/plugins and _agents/plugins exist; consolidate before syncing")
+			return "", "", fmt.Errorf("both .agents/plugins and _agents/plugins exist; consolidate before syncing")
 		}
 		if vErr == nil {
-			return visible, nil
+			return visible, s.ProjectRoot, nil
 		}
-		return hidden, nil
+		return hidden, s.ProjectRoot, nil
 	}
 	home, err := os.UserHomeDir()
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 	if target == "antigravity" {
-		return filepath.Join(home, ".gemini", "config", "plugins"), nil
+		return filepath.Join(home, ".gemini", "config", "plugins"), filepath.Join(home, ".gemini"), nil
 	}
-	return filepath.Join(home, ".cursor", "plugins", "local"), nil
+	return filepath.Join(home, ".cursor", "plugins", "local"), filepath.Join(home, ".cursor"), nil
 }
 
 // Native configuration and installation paths must not redirect writes elsewhere.
-func noSymlink(path string) error {
-	for p := filepath.Clean(path); ; p = filepath.Dir(p) {
+// root is the Agent folder or project the user chose, which may itself be reached
+// through links (macOS /var, a linked home, CLAUDE_CONFIG_DIR); only path and the
+// folders between it and root are checked.
+func noSymlink(root, path string) error {
+	root, path = filepath.Clean(root), filepath.Clean(path)
+	rel, err := filepath.Rel(root, path)
+	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return fmt.Errorf("native path %s is outside %s", path, root)
+	}
+	if rel == "." {
+		return nil
+	}
+	// Walk up exactly as many levels as rel has, rather than until p equals root:
+	// Dir can spell root differently (a Windows UNC share root gains a trailing
+	// separator), and an equality test would then never end.
+	p := path
+	for range strings.Split(rel, string(filepath.Separator)) {
 		info, err := os.Lstat(p)
 		if err != nil && !os.IsNotExist(err) {
 			return err
@@ -52,21 +68,18 @@ func noSymlink(path string) error {
 		if err == nil && utils.IsLinkMode(p, info.Mode()) {
 			return fmt.Errorf("refusing to modify symlinked native path: %s", p)
 		}
-		parent := filepath.Dir(p)
-		if parent == p {
-			break
-		}
+		p = filepath.Dir(p)
 	}
 	return nil
 }
 
 func (s *Service) localInventory(target string) ([]Installed, string, error) {
 	result := []Installed{}
-	root, err := s.localRoot(target)
+	root, base, err := s.localRoot(target)
 	if err != nil {
 		return nil, "", err
 	}
-	if err = noSymlink(root); err != nil {
+	if err = noSymlink(base, root); err != nil {
 		return nil, "", err
 	}
 	entries, err := os.ReadDir(root)
@@ -105,12 +118,12 @@ func (s *Service) localInventory(target string) ([]Installed, string, error) {
 
 func (s *Service) applyLocal(c Change, b Binding, source string) error {
 	target := c.Target
-	root, err := s.localRoot(target)
+	root, base, err := s.localRoot(target)
 	if err != nil {
 		return err
 	}
 	dest := filepath.Join(root, b.ID)
-	if err = noSymlink(dest); err != nil {
+	if err = noSymlink(base, dest); err != nil {
 		return err
 	}
 	if err = os.MkdirAll(root, 0755); err != nil {
@@ -122,7 +135,7 @@ func (s *Service) applyLocal(c Change, b Binding, source string) error {
 	}
 	defer lock.Unlock()
 	marker := filepath.Join(root, ".skillshare-"+b.ID+".json")
-	if err = noSymlink(marker); err != nil {
+	if err = noSymlink(base, marker); err != nil {
 		return err
 	}
 	config, err := filepath.Abs(s.ConfigPath)
@@ -190,7 +203,7 @@ func (s *Service) applyLocal(c Change, b Binding, source string) error {
 		return err
 	}
 	data, _ := json.Marshal(cursorOwner{Config: config, Digest: digest})
-	if err = atomicNativeWrite(marker, data, 0600); err != nil {
+	if err = atomicNativeWrite(base, marker, data, 0600); err != nil {
 		return fmt.Errorf("Plugin files copied but ownership recording failed; inspect %s before retrying: %w", dest, err)
 	}
 	if existed {
@@ -199,8 +212,8 @@ func (s *Service) applyLocal(c Change, b Binding, source string) error {
 	return nil
 }
 
-func atomicNativeWrite(path string, data []byte, mode os.FileMode) error {
-	if err := noSymlink(path); err != nil {
+func atomicNativeWrite(root, path string, data []byte, mode os.FileMode) error {
+	if err := noSymlink(root, path); err != nil {
 		return err
 	}
 	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {

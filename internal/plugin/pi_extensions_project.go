@@ -57,8 +57,8 @@ func (s *Service) piProjectState(ctx context.Context, target string) (*piProject
 		return nil, err
 	}
 	projectDir := filepath.Join(s.ProjectRoot, ".pi")
-	project := readPiSettings(filepath.Join(projectDir, "settings.json"))
-	global := readPiSettings(filepath.Join(agentDir, "settings.json"))
+	project := readPiSettings(s.ProjectRoot, filepath.Join(projectDir, "settings.json"))
+	global := readPiSettings(agentDir, filepath.Join(agentDir, "settings.json"))
 	version, readOnly := s.piGate(ctx, target)
 	problem := project.problem
 	if problem == "" {
@@ -511,7 +511,7 @@ func (s *Service) applyPiProject(ctx context.Context, target string, changes []P
 	}
 	defer root.Close()
 	file := filepath.Join(s.ProjectRoot, ".pi", "settings.json")
-	if err := noSymlink(file); err != nil {
+	if err := noSymlink(s.ProjectRoot, file); err != nil {
 		return nil, fmt.Errorf("%w: %v", ErrPiExtensionsReadOnly, err)
 	}
 	info, err := root.Lstat(".pi")

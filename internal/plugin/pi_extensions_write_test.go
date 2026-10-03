@@ -496,7 +496,7 @@ func TestPiExtensionsAbortedApplyKeepsBackupHistory(t *testing.T) {
 				}
 				if failure == "write" {
 					fail := func() error { writes++; checkCount(2); return injected }
-					piWriteGlobal = func(string, []byte, os.FileMode) error { return fail() }
+					piWriteGlobal = func(string, string, []byte, os.FileMode) error { return fail() }
 					piWriteProject = func(*os.Root, string, []byte, os.FileMode, bool) error { return fail() }
 				}
 				t.Cleanup(func() {

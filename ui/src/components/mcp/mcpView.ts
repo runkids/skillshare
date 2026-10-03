@@ -82,6 +82,7 @@ const conflictKeys: Record<string, string> = {
   'Pi setting changed since sync; import it before removing the cleared setting': 'mcp.conflictChanged',
   'Agent configuration changed; import it or explicitly replace this entry': 'mcp.conflictChanged',
   'existing entry is not managed; import it to explicitly adopt it': 'mcp.conflictUnmanaged',
+  'existing entry is a Pi project override of a global server; replace it, or remove the override with /mcp in Pi': 'mcp.conflictPiOverride',
   'entry changed after the backup; restore would overwrite newer changes': 'mcp.conflictAfterBackup',
 };
 
@@ -291,10 +292,12 @@ export const isShadowed = (change: MCPChange) => change.action !== 'conflict' &&
  */
 export const isResolvable = (change: MCPChange) =>
   change.action === 'conflict' &&
-  ['mcp.conflictChanged', 'mcp.conflictUnmanaged', 'mcp.conflictOrphaned'].includes(conflictKeys[conflictPrefix(change.message ?? '')]);
+  ['mcp.conflictChanged', 'mcp.conflictUnmanaged', 'mcp.conflictOrphaned', 'mcp.conflictPiOverride'].includes(conflictKeys[conflictPrefix(change.message ?? '')]);
 
-/** Whether importing can settle a conflict. It reads the Agent's global file, which never holds a project's switch. */
-export const canImportConflict = (change: MCPChange) => isResolvable(change) && !change.switch;
+/** Whether importing can settle a conflict. It reads the Agent's global file, which never holds a project's switch,
+ * and Pi's project override has no server to import. */
+export const canImportConflict = (change: MCPChange) =>
+  isResolvable(change) && !change.switch && conflictKeys[conflictPrefix(change.message ?? '')] !== 'mcp.conflictPiOverride';
 
 /** Agents a project can turn a global server off for: those it uses, that the server reaches and that have a switch.
  * Pi takes one when given the global server itself, whose command or url its switch carries. */

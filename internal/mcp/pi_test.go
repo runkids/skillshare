@@ -94,7 +94,7 @@ func TestImportTimeoutDoesNotIdentifyPi(t *testing.T) {
 // pi-mcp-adapter escaped a literal beginning with ! as !!. Only its own file says so.
 func TestPiAdapterFileImportUnescapesLiterals(t *testing.T) {
 	input := []byte(`{"mcpServers":{"local":{"command":"c","excludeTools":[],"env":{"MODE":"!!x"}},"remote":{"url":"https://example.com/mcp","headers":{"X-Mode":"!!x"}}}}`)
-	candidates, err := importNative("pi", input, "", true)
+	candidates, err := importNative("pi", input, "", true, false)
 	if err != nil || len(candidates) != 2 {
 		t.Fatalf("%+v %v", candidates, err)
 	}
@@ -112,7 +112,7 @@ func TestPiAdapterFileImportUnescapesLiterals(t *testing.T) {
 func TestPiOptionsRejectNonSecretCommands(t *testing.T) {
 	for _, adapter := range []bool{false, true} {
 		input := []byte(`{"mcpServers":{"docs":{"url":"https://example.com/mcp","oauth":{"clientId":"!echo client"}}}}`)
-		candidates, err := importNative("pi", input, "", adapter)
+		candidates, err := importNative("pi", input, "", adapter, false)
 		if err != nil || len(candidates) != 1 || len(candidates[0].Problems) == 0 {
 			t.Fatalf("unsafe import: %+v %v", candidates, err)
 		}
@@ -388,5 +388,148 @@ func TestPiImportReadsBothFiles(t *testing.T) {
 	}
 	if strings.Join(names, ",") != "both,builtin,adapted,both" {
 		t.Fatalf("unmanaged: %v", names)
+	}
+}
+
+// Pi's /mcp writes a project entry with only enabled, exposure or toolExposure to override the
+// global server of that name. It has no server to import, and import says what it is.
+func TestPiProjectOverrideIsNotImported(t *testing.T) {
+	s, tmp := projectsService(t, "mcp:\n  servers: {}\n  projects:\n    $TMP/p1:\n      targets: [pi]\n")
+	writePiProjectFile(t, filepath.Join(tmp, "p1"), `{"mcpServers":{"full":{"command":"tool"},"off":{"enabled":false},"direct":{"exposure":"direct"}}}`)
+	candidates, err := s.ImportProjectClient(filepath.Join(tmp, "p1"), "pi")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, c := range candidates {
+		override := c.Name != "full"
+		if got := slices.ContainsFunc(c.Problems, func(p string) bool { return strings.HasPrefix(p, "a Pi project override") }); got != override {
+			t.Fatalf("%s: problems %q", c.Name, c.Problems)
+		}
+	}
+}
+
+// Pi gives a connection-less entry override meaning only in a project's .pi/mcp.json. In the
+// global file or a pasted snippet it is an invalid server and keeps the usual problem.
+func TestPiOverrideOnlyInProjectImport(t *testing.T) {
+	const file = `{"mcpServers":{"off":{"enabled":false}}}`
+	s, tmp := projectsService(t, "mcp:\n  servers: {}\n")
+	if err := os.MkdirAll(filepath.Join(tmp, ".pi", "agent"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(tmp, ".pi", "agent", "mcp.json"), []byte(file), 0600); err != nil {
+		t.Fatal(err)
+	}
+	global, err := s.ImportClient("pi")
+	if err != nil {
+		t.Fatal(err)
+	}
+	pasted, err := Import("pi", []byte(file), "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, c := range append(global, pasted...) {
+		if !slices.Equal(c.Problems, []string{"MCP off requires exactly one of command or url"}) {
+			t.Fatalf("%s: problems %q", c.Name, c.Problems)
+		}
+	}
+}
+
+// A server the project defines meets Pi's override of the same name: the conflict says to
+// replace it or remove the override in Pi, since import cannot take it.
+func TestPiProjectOverrideConflictSaysReplace(t *testing.T) {
+	s, tmp := projectsService(t, "mcp:\n  servers: {}\n  projects:\n    $TMP/p1:\n      targets: [pi]\n      servers:\n        direct:\n          command: tool\n")
+	writePiProjectFile(t, filepath.Join(tmp, "p1"), `{"mcpServers":{"direct":{"exposure":"direct"}}}`)
+	plan, err := s.Preview()
+	if err != nil {
+		t.Fatal(err)
+	}
+	c := changeFor(plan, filepath.Join(tmp, "p1", ".pi", "mcp.json"), "direct")
+	if c == nil || c.Action != "conflict" || !strings.HasPrefix(c.Message, "existing entry is a Pi project override") {
+		t.Fatalf("%+v", c)
+	}
+}
+
+// An entry this config synced and that was later changed into Pi's override is no server to
+// import either, so it gets the same conflict instead of the generic drift one.
+func TestPiProjectOverrideOfAManagedEntrySaysReplace(t *testing.T) {
+	s, tmp := projectsService(t, "mcp:\n  servers: {}\n  projects:\n    $TMP/p1:\n      targets: [pi]\n      servers:\n        direct:\n          command: tool\n")
+	applyProjects(t, s)
+	writePiProjectFile(t, filepath.Join(tmp, "p1"), `{"mcpServers":{"direct":{"enabled":false}}}`)
+	plan, err := s.Preview()
+	if err != nil {
+		t.Fatal(err)
+	}
+	c := changeFor(plan, filepath.Join(tmp, "p1", ".pi", "mcp.json"), "direct")
+	if c == nil || c.Action != "conflict" || !strings.HasPrefix(c.Message, "existing entry is a Pi project override") {
+		t.Fatalf("%+v", c)
+	}
+}
+
+// A cleared Pi field that Pi changed since sync is a prune conflict, but when Pi replaced the
+// entry with its override, that override still has nothing to import.
+func TestPiProjectOverrideBeatsPruneConflict(t *testing.T) {
+	s, tmp := projectsService(t, "mcp:\n  servers: {}\n  projects:\n    $TMP/p1:\n      targets: [pi]\n      servers:\n        direct:\n          command: tool\n          piOptions: {exposure: direct}\n")
+	applyProjects(t, s)
+	config, _ := os.ReadFile(s.ConfigPath)
+	if err := os.WriteFile(s.ConfigPath, []byte(strings.Replace(string(config), "          piOptions: {exposure: direct}\n", "", 1)), 0600); err != nil {
+		t.Fatal(err)
+	}
+	writePiProjectFile(t, filepath.Join(tmp, "p1"), `{"mcpServers":{"direct":{"exposure":"deferred"}}}`)
+	plan, err := s.Preview()
+	if err != nil {
+		t.Fatal(err)
+	}
+	c := changeFor(plan, filepath.Join(tmp, "p1", ".pi", "mcp.json"), "direct")
+	if c == nil || c.Action != "conflict" || !strings.HasPrefix(c.Message, "existing entry is a Pi project override") {
+		t.Fatalf("%+v", c)
+	}
+}
+
+// A live owner keeps its message, since only it can release the entry. A removed owner never
+// can, so its entry turned into Pi's override gets the replace-only conflict too.
+func TestPiProjectOverrideOfARemovedOwnersEntry(t *testing.T) {
+	s := ownedProject(t)
+	writePiProjectFile(t, s.ProjectRoot, `{"mcpServers":{"mcp-test1":{"enabled":false}}}`)
+	p, err := s.Preview()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.HasPrefix(p.Changes[0].Message, "managed by another Skillshare config: ") {
+		t.Fatalf("live owner: %s", p.Changes[0].Message)
+	}
+	if err := os.RemoveAll(filepath.Join(s.ProjectRoot, ".skillshare")); err != nil {
+		t.Fatal(err)
+	}
+	if p, err = s.Preview(); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.HasPrefix(p.Changes[0].Message, "existing entry is a Pi project override") {
+		t.Fatalf("removed owner: %s", p.Changes[0].Message)
+	}
+}
+
+// The conflict offers only Replace, so Replace has to settle it.
+func TestPiProjectOverrideIsSettledByReplace(t *testing.T) {
+	s := ownedProject(t)
+	if err := os.RemoveAll(filepath.Join(s.ProjectRoot, ".skillshare")); err != nil {
+		t.Fatal(err)
+	}
+	writePiProjectFile(t, s.ProjectRoot, `{"mcpServers":{"mcp-test1":{"enabled":false}}}`)
+	p, err := s.PreviewMutation(Mutation{Resolutions: []Resolution{{Target: "pi", Name: "mcp-test1", Action: "replace"}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if p.Blocked {
+		t.Fatalf("replace cannot settle it: %+v", p.Changes)
+	}
+}
+
+func writePiProjectFile(t *testing.T, root, content string) {
+	t.Helper()
+	if err := os.MkdirAll(filepath.Join(root, ".pi"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, ".pi", "mcp.json"), []byte(content), 0600); err != nil {
+		t.Fatal(err)
 	}
 }

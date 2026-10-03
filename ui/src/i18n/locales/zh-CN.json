@@ -22,6 +22,7 @@
   "mcp.conflictOrphaned": "残留自一份已被移除的 skillshare 配置；请导入或使用来源覆盖",
   "mcp.conflictOtherConfig": "由另一份 skillshare 配置管理",
   "mcp.conflictUnmanaged": "Agent 已有同名条目，尚未交由 skillshare 管理",
+  "mcp.conflictPiOverride": "这是在 Pi 用 /mcp 创建的项目覆盖，覆盖的是 global server。请替换它，或在 Pi 中移除这个覆盖",
   "mcp.copied": "已复制",
   "mcp.copySource": "复制来源路径",
   "mcp.emptyHint": "手动添加服务器，或导入工具中已有的服务器。",

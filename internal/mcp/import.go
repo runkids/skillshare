@@ -120,7 +120,7 @@ func detectJSONFormat(data []byte) string {
 
 // Import parses a native file or a single JSON entry without persisting it.
 func Import(target string, data []byte, singleName string) ([]Candidate, error) {
-	return importNative(target, data, singleName, false)
+	return importNative(target, data, singleName, false, false)
 }
 
 // DetectImportFormat identifies a native JSON shape; ambiguous connections use Claude's shape.
@@ -129,8 +129,9 @@ func DetectImportFormat(data []byte) string {
 }
 
 // importNative converts native entries to portable drafts. adapter marks pi-mcp-adapter's
-// mcp-adapter.json, whose !! escapes a literal beginning with !.
-func importNative(target string, data []byte, singleName string, adapter bool) ([]Candidate, error) {
+// mcp-adapter.json, whose !! escapes a literal beginning with !. piProject marks a project's
+// .pi/mcp.json, the only file where Pi reads a connection-less entry as an override.
+func importNative(target string, data []byte, singleName string, adapter, piProject bool) ([]Candidate, error) {
 	if target == "" {
 		target = detectJSONFormat(data)
 	}
@@ -157,6 +158,11 @@ func importNative(target string, data []byte, singleName string, adapter bool) (
 	for _, name := range sortedKeys(native.Entries) {
 		entry := native.Entries[name]
 		c := Candidate{Name: name, Problems: []string{}, Warnings: []string{}}
+		if piProject && piOverride(entry) {
+			c.Problems = append(c.Problems, "a Pi project override of the global server with this name, not a server; there is nothing to import")
+			out = append(out, c)
+			continue
+		}
 		normalizeClientImport(target, entry, &c)
 		if target == "antigravity" {
 			if value, exists := entry["serverUrl"]; exists {
@@ -484,7 +490,7 @@ func (s *Service) ImportClientMode(target, piFile string) ([]Candidate, error) {
 		}
 		found = true
 		adapter := format == "pi" && path == piAdapterPath(path)
-		read, err := importNative(format, data, "", adapter)
+		read, err := importNative(format, data, "", adapter, format == "pi" && !adapter && client.ProjectRoot != "")
 		if err != nil {
 			return nil, err
 		}

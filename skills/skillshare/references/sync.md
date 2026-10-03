@@ -119,6 +119,14 @@ skillshare push --pull         # Merge remote changes, push, then sync targets
 skillshare push --dry-run      # Preview
 ```
 
+At `git_root: root`, unpushed commits that add or modify `config.yaml` (including
+its directory tree) block push, `--pull`, and `--dry-run`. Unpushed means on no
+ref of the push remote (upstream remote, or `origin` before the first push);
+push always sends only the current branch there. Remove the file from the listed
+commits with the `git rebase -i <commit>` shown in the error and amend them
+before retrying; skillshare never rewrites history automatically. A later
+removal does not erase earlier contents. Removal-only commits remain pushable.
+
 **Project mode:** Use `git push` directly on the project repo.
 
 ## pull

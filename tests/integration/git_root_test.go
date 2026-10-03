@@ -356,6 +356,8 @@ func TestGitRoot_PushPullUntracksConfigBroughtInByPull(t *testing.T) {
 	testutil.RunGit(t, other, "commit", "-m", "track config by mistake")
 	testutil.RunGit(t, other, "push", "origin", "main")
 
+	// Commit a local change during push so the pull merges rather than fast-forwards.
+	grWrite(t, filepath.Join(skills, "local.md"), "# local\n")
 	sb.RunCLI("push", "--pull").AssertSuccess(t)
 
 	if out := testutil.RunGit(t, bareRepo, "ls-tree", "--name-only", "main"); strings.Contains(out, "config.yaml") {
@@ -576,6 +578,98 @@ func TestGitRoot_DryRunDoesNotUntrackConfig(t *testing.T) {
 	tracked := testutil.RunGit(t, base, "ls-files", "--", "config.yaml")
 	if !strings.Contains(tracked, "config.yaml") {
 		t.Errorf("dry-run must not untrack config.yaml, but it is no longer tracked")
+	}
+}
+
+func TestGitRoot_PushRefusesUnpushedConfigHistory(t *testing.T) {
+	requireWorkingGit(t)
+	for _, upstream := range []bool{true, false} {
+		for _, stoppedTracking := range []bool{false, true} {
+			for _, args := range [][]string{{"push"}, {"push", "--pull"}, {"push", "--dry-run"}, {"push", "--pull", "--dry-run"}} {
+				t.Run(fmt.Sprintf("upstream=%t/stoppedTracking=%t/%s", upstream, stoppedTracking, strings.Join(args, "_")), func(t *testing.T) {
+					sb := testutil.NewSandbox(t)
+					defer sb.Cleanup()
+					base := filepath.Dir(sb.ConfigPath)
+					skills := filepath.Join(base, "skills")
+					grMkdir(t, skills)
+					sb.WriteConfig("git_root: root\nsources:\n  skills: " + skills + "\ntargets: {}\n")
+					remote := testutil.SetupBareRemoteRepo(t, t.TempDir())
+					testutil.RunGit(t, base, "init")
+					testutil.ConfigureGitUser(t, base)
+					grWrite(t, filepath.Join(base, ".gitignore"), "config.yaml\n")
+					testutil.RunGit(t, base, "add", ".gitignore")
+					testutil.RunGit(t, base, "commit", "-m", "initial")
+					testutil.RunGit(t, base, "branch", "-M", "main")
+					testutil.RunGit(t, base, "remote", "add", "origin", remote)
+					if upstream {
+						testutil.RunGit(t, base, "push", "-u", "origin", "main")
+					}
+					rebaseBase := testutil.RunGit(t, base, "rev-parse", "--short", "HEAD")
+					testutil.RunGit(t, base, "add", "-f", "config.yaml")
+					testutil.RunGit(t, base, "commit", "-m", "oops")
+					badCommit := testutil.RunGit(t, base, "rev-parse", "--short", "HEAD")
+					// Removing it in a later commit does not remove the earlier blob.
+					if stoppedTracking {
+						testutil.RunGit(t, base, "rm", "--cached", "config.yaml")
+						testutil.RunGit(t, base, "commit", "-m", "stop tracking config")
+					}
+					grWrite(t, filepath.Join(skills, "pending.md"), "# pending\n")
+					head := testutil.RunGit(t, base, "rev-parse", "HEAD")
+					status := testutil.RunGit(t, base, "status", "--porcelain")
+					remoteRefs := testutil.RunGit(t, remote, "for-each-ref", "--format=%(refname) %(objectname)")
+
+					result := sb.RunCLI(args...)
+					result.AssertFailure(t)
+					result.AssertAnyOutputContains(t, "unpushed commits")
+					result.AssertAnyOutputContains(t, badCommit)
+					result.AssertAnyOutputContains(t, "config.yaml")
+					result.AssertAnyOutputContains(t, "git rebase -i "+rebaseBase)
+					if got := testutil.RunGit(t, base, "rev-parse", "HEAD"); got != head {
+						t.Errorf("refused push changed HEAD: %s -> %s", head, got)
+					}
+					if got := testutil.RunGit(t, base, "status", "--porcelain"); got != status {
+						t.Errorf("refused push changed status: %q -> %q", status, got)
+					}
+					if got := testutil.RunGit(t, remote, "for-each-ref", "--format=%(refname) %(objectname)"); got != remoteRefs {
+						t.Errorf("refused push changed remote refs: %q -> %q", remoteRefs, got)
+					}
+					if got := testutil.RunGit(t, remote, "log", "--all", "--format=%h", "--", "config.yaml"); got != "" {
+						t.Errorf("remote received config.yaml history: %s", got)
+					}
+				})
+			}
+		}
+	}
+}
+
+func TestGitRoot_PushAllowsStopTrackingConfig(t *testing.T) {
+	requireWorkingGit(t)
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	base := filepath.Dir(sb.ConfigPath)
+	skills := filepath.Join(base, "skills")
+	grMkdir(t, skills)
+	sb.WriteConfig("git_root: root\nsources:\n  skills: " + skills + "\ntargets: {}\n")
+	remote := testutil.SetupBareRemoteRepo(t, t.TempDir())
+	testutil.RunGit(t, base, "init")
+	testutil.ConfigureGitUser(t, base)
+	grWrite(t, filepath.Join(base, ".gitignore"), "config.yaml\n")
+	testutil.RunGit(t, base, "add", ".gitignore")
+	testutil.RunGit(t, base, "add", "-f", "config.yaml")
+	testutil.RunGit(t, base, "commit", "-m", "already published config")
+	testutil.RunGit(t, base, "branch", "-M", "main")
+	testutil.RunGit(t, base, "remote", "add", "origin", remote)
+	testutil.RunGit(t, base, "push", "-u", "origin", "main")
+	testutil.RunGit(t, base, "rm", "--cached", "config.yaml")
+	testutil.RunGit(t, base, "commit", "-m", "stop tracking config")
+	head := testutil.RunGit(t, base, "rev-parse", "HEAD")
+
+	sb.RunCLI("push").AssertSuccess(t)
+	if got := testutil.RunGit(t, remote, "rev-parse", "main"); got != head {
+		t.Fatalf("remote HEAD = %s, want stop-tracking commit %s", got, head)
+	}
+	if got := testutil.RunGit(t, remote, "ls-tree", "-r", "--name-only", "main", "--", "config.yaml"); got != "" {
+		t.Fatalf("remote still tracks config.yaml: %s", got)
 	}
 }
 

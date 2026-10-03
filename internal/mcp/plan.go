@@ -667,6 +667,14 @@ func (s *Service) previewResolved(source *Source, resolutions []Resolution) (*Pl
 				change.Switch = switchOnly(target, current)
 			}
 			switch {
+			case target == "pi" && current != nil && piOverride(current) && (change.Root != "" || s.ProjectRoot != "") &&
+				(!managed || currentHash != owned.Hash) && !(managed && owned.Owner != source.ConfigPath && !ownerGone(owned.Owner)):
+				// Skillshare never writes a connection-less Pi entry, so Pi's /mcp wrote this one,
+				// possibly over an entry a config synced. It has no server for import to take, so
+				// this comes before every conflict that offers import. A live owner keeps its own
+				// message: only that config can release the entry. Replace records the entry as
+				// owned at its current hash, which lets the cases below write over it.
+				change.Action, change.Message = "conflict", "existing entry is a Pi project override of a global server; replace it, or remove the override with /mcp in Pi"
 			case pruneConflict:
 				change.Action, change.Message = "conflict", "Pi setting changed since sync; import it before removing the cleared setting"
 			case managed && owned.Owner != source.ConfigPath:
