@@ -195,12 +195,12 @@ cd /workspace && PI_ROOT=$PI_ROOT go test ./internal/plugin -run TestPiNativeLoc
 than its 10s stale age, and acquires it once Skillshare releases it.
 
 ```bash
-cd /workspace && scripts/pi/version-matrix.sh 0.99.2 1.0.0 && git diff --exit-code scripts/pi/version-evidence.json
+cd /workspace && scripts/pi/version-matrix.sh 0.99.2 1.0.0 1.0.1 && git diff --exit-code scripts/pi/version-evidence.json
 ```
 
 **Expected**: for each version, `contract/core`, `contract/bundle`, `native-lock` and
-`project-native` pass; the recorded evidence is unchanged and lists exactly
-`PiVerifiedVersions`. Versions install only under `/tmp/pi-versions`, never globally.
+`project-native` pass; the recorded evidence is unchanged and includes
+`PiMinVersion`. Versions install only under `/tmp/pi-versions`, never globally.
 
 ### 13. Dashboard (manual, desktop width)
 
@@ -217,6 +217,13 @@ focusing it (Tab) shows that the page changes settings only and, on the project,
 explanation and saved/default hints. Details opens the source and rules of a package. On
 the project, rows are tagged as from `pi (global)` or as project overrides, and the review
 dialog is "Save project settings" with the new or removed project entry.
+
+### 14. Windows native lock and private-state acceptance
+
+Use [the Windows Pi runbook](windows_pi_extensions_runbook.md) for a pinned kit
+with Interactive full/basic tokens. Linux checks and Windows cross-compilation
+cannot establish NTFS locking or private ACL behavior. Preserve failed-run evidence;
+do not repair existing ACLs or change user settings/trust as part of the test.
 
 ## Pass Criteria
 

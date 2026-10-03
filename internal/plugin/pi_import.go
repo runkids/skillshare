@@ -131,7 +131,7 @@ func piPreservedKeys(raw string) []string {
 
 func (s *Service) preparePiRegistration(ctx context.Context, c *Change) error {
 	if _, why := s.piGate(ctx, c.Target); why != "" {
-		return fmt.Errorf("Pi filtered registrations require a verified native version: %s", why)
+		return fmt.Errorf("Pi filtered registrations require a supported native Pi version: %s", why)
 	}
 	if !filepath.IsAbs(s.StateDir) {
 		return errors.New("Pi preservation requires an absolute private state directory")
@@ -189,6 +189,12 @@ func (s *Service) readPiRegistration(digest, target, id string) (*piRegistration
 	if err != nil {
 		return nil, err
 	}
+	if err := checkPiRegistrationPrivate(filepath.Dir(file)); err != nil {
+		return nil, err
+	}
+	if err := checkPiRegistrationPrivate(file); err != nil {
+		return nil, err
+	}
 	data, err := os.ReadFile(file)
 	if err != nil {
 		return nil, fmt.Errorf("preserved Pi registration unavailable; restore private state or re-import: %w", err)
@@ -220,7 +226,7 @@ func (s *Service) savePiRegistration(c Change) error {
 	if hash(c.piRecord) != c.Binding.PiRegistration {
 		return errors.New("invalid preserved Pi registration")
 	}
-	if err := os.MkdirAll(filepath.Dir(file), 0o700); err != nil {
+	if err := makePiRegistrationDir(filepath.Dir(file)); err != nil {
 		return err
 	}
 	root, err := os.OpenRoot(filepath.Dir(file))
@@ -228,8 +234,15 @@ func (s *Service) savePiRegistration(c Change) error {
 		return err
 	}
 	defer root.Close()
+	// On Windows the opened directory blocks replacement while its ACL is checked.
+	if err := checkPiRegistrationPrivate(filepath.Dir(file)); err != nil {
+		return err
+	}
 	if err := rootAtomicWrite(root, filepath.Base(file), c.piRecord, 0o600, true); err != nil {
 		if !errors.Is(err, os.ErrExist) {
+			return err
+		}
+		if err := checkPiRegistrationPrivate(file); err != nil {
 			return err
 		}
 		existing, readErr := root.ReadFile(filepath.Base(file))
@@ -237,7 +250,7 @@ func (s *Service) savePiRegistration(c Change) error {
 			return errors.New("preserved Pi registration was modified; restore it before retrying")
 		}
 	}
-	return nil
+	return checkPiRegistrationPrivate(file)
 }
 
 func (s *Service) checkPiRestoreOwnership(st *piSettings, record *piRegistration, retry bool) error {

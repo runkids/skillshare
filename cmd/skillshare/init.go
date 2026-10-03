@@ -762,6 +762,12 @@ func tryPullAfterRemoteSetup(sourcePath, remoteURL string) bool {
 		return true
 	}
 
+	if gitops.RemoteTracksConfig(sourcePath, "origin/"+remoteBranch) && gitops.HasLocalRootConfig(sourcePath) {
+		spinner.Warn("Remote tracks machine-specific config.yaml")
+		ui.Info("  Untrack it on the remote first via 'skillshare push' from the machine that committed it, then pull.")
+		return true
+	}
+
 	// Local is empty — reset to remote branch for clean linear history.
 	// This is safe because we verified hasLocalSkills is false above.
 	spinner.Update("Pulling skills from remote...")

@@ -68,7 +68,7 @@ Update notes when the user asks you to remember a decision.
 
 ![저장된 영어 노트의 Markdown 미리 보기](/img/memory-note-demo.png)
 
-왼쪽 트리는 중첩 폴더를, 위쪽에 검색 상자가 있습니다. 오른쪽 패널은 **Preview** / **Source**를 전환하며, 옆의 아이콘은 **Edit**, **Move or rename**, **Copy path**, **History**, **Delete note**입니다. 기존 노트의 상대 링크는 같은 뷰어에서 열립니다.
+왼쪽 트리는 중첩 폴더를, 위쪽에 검색 상자가 있습니다. 오른쪽 패널은 **Preview** / **Source**를 전환하며, 긴 노트는 접힌 상태로 열리고 **Show all**로 펼칩니다. 노트 이름 옆에는 **Edit**와 **More actions** 메뉴가 있으며 **Copy file path**, **History**, **Move or rename**, **Delete note**가 들어 있습니다. **Use with agents**는 노트 아래에 있습니다. 기존 노트의 상대 링크는 같은 뷰어에서 열립니다.
 
 ![wiki 폴더를 펼친 영어 Memory 뷰어](/img/memory-tree-demo.png)
 
@@ -138,7 +138,7 @@ CLI는 읽기 안내만 출력하므로 직접 붙여 넣어야 합니다. 도�
 
 ## 노트 이름 변경 및 이동
 
-노트를 선택하고 **Move or rename**을 누른 뒤 새 상대 `.md` 경로를 입력하세요. `wiki/architecture.md` → `wiki/design.md`는 이름 변경이고, `projects/design.md`로 변경하면 다른 폴더로 이동합니다. 없는 폴더는 자동으로 생성합니다. **Move**로 적용하세요.
+노트를 선택하고 **More actions**를 연 다음 **Move or rename**을 누른 뒤 새 상대 `.md` 경로를 입력하세요. `wiki/architecture.md` → `wiki/design.md`는 이름 변경이고, `projects/design.md`로 변경하면 다른 폴더로 이동합니다. 없는 폴더는 자동으로 생성합니다. **Move**로 적용하세요.
 
 ![영어 Move or rename 대화 상자에서 새 폴더 경로 지정](/img/memory-move-demo.png)
 
@@ -148,7 +148,7 @@ Markdown 링크는 노트 안의 상대 링크까지 자동으로 변경하지 �
 
 ## 노트 삭제
 
-뷰어나 편집기에서 **Delete note**를 선택하고 파일 이름을 확인하세요. 저장되지 않은 편집은 버립니다. 저장된 version을 확인하고 백업한 다음 선택한 노트만 삭제합니다. 폴더와 다른 노트는 보존합니다. `INDEX.md`의 오래된 링크는 직접 업데이트하세요. 삭제 후 **Restore in Backup Files**에서 필터링된 기록을 열 수 있습니다.
+**More actions**나 편집기에서 **Delete note**를 선택하고 파일 이름을 확인하세요. 저장되지 않은 편집은 버립니다. 저장된 version을 확인하고 백업한 다음 선택한 노트만 삭제합니다. 폴더와 다른 노트는 보존합니다. `INDEX.md`의 오래된 링크는 직접 업데이트하세요. 삭제 후 **Restore in Backup Files**에서 필터링된 기록을 열 수 있습니다.
 
 ![영어 노트 삭제 확인](/img/memory-delete-demo.png)
 

@@ -13,9 +13,19 @@ all operations. `targetInfo` reports per-target components, version, and problem
 skillshare plugin list --json -g
 skillshare plugin discover ./plugin-directory --json
 skillshare plugin add ./plugin-directory --plugin demo --target claude --dry-run --json -g
+skillshare plugin add npm:@scope/package --target pi --dry-run --json -g
 ```
 
-`add` accepts a local folder, owner/repo, or HTTPS Git URL. For a multi-plugin
+`add` accepts a local folder, owner/repo, or HTTPS Git URL. For Pi it also accepts
+`npm:<package>[@version]` (packages listed on pi.dev): Pi downloads it and runs its install
+scripts, so nothing is reviewed first. Given a pi.dev page (`https://pi.dev/packages/<package>`)
+or a `pi install npm:<package>` command, pass `npm:<package>`; the CLI does not convert them.
+It needs a Pi `--target` (not an account running
+another executable), takes no `--source-ref`, `--entry` or `--plugin`, and `discover` rejects
+it. Pi keeps one entry per package name; another version replaces it and keeps its extension
+filters, and `update` skips a package pinned to an exact version. A Pi package another
+Skillshare package already manages is refused. In a project with a `.pi` folder, Pi changes
+packages only after the user trusts the project in Pi. For a multi-plugin
 marketplace, select a named candidate with `--plugin`. Use `--name` to bind
 different native distributions under one logical package, never infer equivalence
 from display names. External catalog sources are not auto-converted. Multiple local catalogs are merged.
@@ -96,7 +106,7 @@ cannot reach, says why, and still updates the other targets.
   and a string entry of a package with convention skills/prompts/themes folders its manifest leaves
   out (conversion to an object can't be shown to keep them unchanged), are read-only; so is an entry
   with an empty source or an unpaired UTF-16 surrogate escape / invalid UTF-8 in its source or rules); there is no CLI
-  command for it. It is editable only on a verified Pi version (0.99.2, 1.0.0; a fork account
+  command for it. It is editable only on Pi 0.99.2 or later (a fork account
   is read-only and never run). On a project page it saves only `.pi/settings.json`, as
   `pi config` does: a global package gets a project entry `{source, autoload: false,
   extensions}` (local source relative to `.pi`). With its last rule removed, the entry
@@ -118,11 +128,14 @@ cannot reach, says why, and still updates the other targets.
   `cli:` it runs that compatible CLI instead (such as `omo` for Pi); a Pi account also sets
   `SENPI_CODING_AGENT_DIR` and `OMO_CODING_AGENT_DIR`. A missing CLI fails, with no fallback.
 - Local directory plugins cannot import unowned folders or marketplace installs.
-  Verified Pi 0.99.2/1.0.0 can import supported filtered entries without changing
+  Pi 0.99.2 or later can import supported filtered entries without changing
   native settings. Preview shows retained keys; raw entries stay in private state
   and shared config stores a digest. Uninstall captures current options; reinstall
   restores the object before native install. Missing/changed/cross-target records,
   uncertain sources or precedence, and non-normalized local references are refused.
+  Windows registrations use private ACLs, not POSIX mode bits. Unsafe existing
+  directory/file ACLs block import/restoration without changing those ACLs; preserve
+  the records and have their owner repair access protection before retrying.
   Filtered OpenCode imports remain blocked.
   Supply `--name` when a native package source is not a valid logical name.
 

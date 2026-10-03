@@ -23,12 +23,12 @@ configuration read-only; it does not touch trust, run extensions, or publish any
 |---|---|---|
 | Table | Two columns: Extension and **Configured** (On / Off / Can't tell). Runtime and Effective are gone; file presence is a "File missing" badge, not a column. Can't tell names the pattern or rule and says to use `pi config`. Source, rules, global rules and kept keys moved into a per-package Details region (`aria-expanded`). | `TargetPiExtensions.test.tsx` 17/17; RED 12 failing before the rewrite. |
 | Info note | One Info button (hover and focus) says the page changes settings only, Pi decides loading and trust, and a reload is needed; on a project it adds the trust explanation and the saved/default hints. | Vitest tooltip test; screenshot below. |
-| Read-only reasons | `fork`, `noCli`, `unverifiedVersion` (names the found and the verified versions), `settings`, `credentials`, `reference`, folders (owner-specific: Extras or the folder) each end in a next step. | Vitest; 11 locales with the same key set, 0 missing or unused keys in the component. |
+| Read-only reasons | `fork`, `noCli`, `unsupportedVersion` (names the found and the minimum version), `settings`, `credentials`, `reference`, folders (owner-specific: Extras or the folder) each end in a next step. | Vitest; 11 locales with the same key set, 0 missing or unused keys in the component. |
 | Project write | `piProjectPlan` / `applyPiProject` (`pi_extensions_project.go`). A global package gets `{"source", "autoload": false, "extensions"}` with the source written as `pi config` writes it (npm/git verbatim, local relative to `.pi`, which may contain `../`), and it must resolve back to the same identity. Default removes only the exact project rule; an entry left with only `source` and `autoload: false` is removed. Replacement and project-only entries edit their own list. | `TestPiProjectOverrideOfAGlobalPackage`, `…OverrideReferences`, `…DeltaDefaults`, `…ReplacementEntries`, `…Batch`, `…DeltaWithoutGlobalBase`, `…KeepsAnEntrysCredentialsAndFields`, `…OverrideOfAPartialManifestPackage`. |
 | Native check | Pi's own `DefaultPackageManager` resolves the files Skillshare wrote, trusted and untrusted, through `scripts/pi/resolve-probe.mjs` (trust passed in; trust store never read or written). | `TestPiProjectOverridesResolveInPi` (version matrix check `project-native`). |
 | Write safety | Only `.pi/settings.json`, through an `os.Root` at the project. Revision binds both files' bytes (and the project file's absence), the scoped changes and the plan. An already refused or stale preview creates no folder, lock or backup. If Apply aborts after recording, only that attempt's new record is discarded; successful history is kept. Lock order: plugin lock, then Pi's `settings.json.lock`. A new file is linked into place (an existing one makes it stale); an existing one is renamed over. Backup and oplog as for global. After the backup, the plan is rebuilt from both files and the packages and must reproduce the revision before the write. | `TestPiProjectApplyIsBoundToBothFiles`, `…StaleApplyHasNoSideEffects`, `…WriteProtections`, `…ApplyIsBoundToDiscovery`, `…LockLostMidApply`, `…ApplyRevalidatesAtTheWrite`; server `TestPiExtensionsAPIProjectSavesOnlyProjectSettings` (global target refuses the project revision with 409). |
 | Unsafe forms | Credentials or a query in a global source: read-only, never copied; the note says to change that global entry to a source without them (adding a second entry would not help, since Pi keeps the first). A project entry Skillshare can't read, or a global entry whose source it can't read: whole project view read-only. A first global entry that Skillshare can't read (bad rules, `autoload: false`) still owns its package: no rows, no override, and later entries of the package are not offered. The global view marks those later entries `duplicate`. An unresolved earlier global identity or later project identity leaves potentially shadowed entries `sourceUnknown`, with no rows/edit targets; inherited deltas likewise stay read-only. | `TestPiProjectSettingsForms`, `TestPiProjectFirstGlobalEntryGoverns`, `TestPiExtensionsUnreadFirstEntryStillDedupes`, `TestPiUnresolvedRegistrationMakesOwnershipUnknown`, `TestPiBadSourceMakesPackageOwnershipUnknown`. Unreadable source values likewise create precedence uncertainty; Native scenario 29 confirms replacement-decoded invalid UTF-8 can own the same identity as a later valid local source. Native probe on 0.99.2: global `[{pkg, ["*", "!…\ud800…"]}, {pkg, ["-a"]}]` keeps `a.ts` on (the second entry is ignored); with a project delta `[+a, -b]` trusted, `b.ts` stays on, so the result is not predictable and read-only is correct. |
-| Version support | `PiVerifiedVersions` = 0.99.2, 1.0.0, backed by `scripts/pi/version-matrix.sh` (see `phase-0.md`, Version support update). Exact versions only. | `scripts/pi/version-evidence.json`: both versions pass `contract/core` and `contract/bundle` (32 scenarios, 130 assertions), `native-lock`, `project-native`. |
+| Version support | `PiMinVersion` = 0.99.2: any plain `X.Y.Z` at or above it is editable, backed by `scripts/pi/version-matrix.sh` (see `phase-0.md`, minimum-version update). Older, prerelease or unparsable versions are read-only. | `scripts/pi/version-evidence.json`: 0.99.2, 1.0.0 and 1.0.1 pass `contract/core` and `contract/bundle` (34 scenarios, 141 assertions), `native-lock`, `project-native`. |
 
 Revalidation boundary: the project file is locked; the global settings are not (taking
 Pi's global lock would write a lock directory into the global agent folder). The global
@@ -412,13 +412,15 @@ Run in container `ss-pi-ext` unless marked host.
 
 - Approved scope: reclaim an unchanged empty native lock older than 10 seconds; retain
   refreshed/replaced/nonempty directories, files and symlinks. A directory-only rmdir is
-  nonrecursive; the inode stays anchored with os.Root while inspected. A competing acquisition
+  nonrecursive; the inode stays anchored while inspected (the Windows follow-up below
+  replaces the original os.Root anchor). A competing acquisition
   after removal is refused, never removed. Existing owned renewal/release checks are unchanged.
   As in proper-lockfile, mtime expiry is a lease policy, not process-death evidence; the final
   stat/rmdir is not an atomic compare-and-swap.
 - Verified Pi object registrations can be adopted without native settings writes or lifecycle
   commands. Preview exposes only sorted field names. Exact entry bytes (including opaque
-  numbers/escapes) are stored privately, mode 0600 under a 0700 directory; YAML/API bindings
+  numbers/escapes) are stored privately, mode 0600 under a 0700 directory on Unix;
+  Windows uses the ACL protection described below. YAML/API bindings
   carry only a content digest. Records are scoped to the target/settings path/native ID, are
   never automatically pruned, and changed records are refused rather than overwritten.
 - Normal sync/update preserve live entries. Uninstall captures current native rules/options,
@@ -483,8 +485,48 @@ substituted root lookup, actual native getNpmInstallPath and an empty fixture ro
   five-locale website build, context-router and diff checks also passed. A container
   stop interrupted the first broad run; the same container was restarted without
   removing data and the interrupted checks were rerun to completion.
-- Windows work remains separate: ARM64 UTM evidence at pinned 39294b56 confirms both
+- At this correctness checkpoint, Windows work remained separate: ARM64 UTM evidence
+  at pinned 39294b56 confirmed both
   native launchers, lock interoperability and project resolution under full/basic
   tokens, but stale reclamation fails because OpenRoot's initial Windows handle does
   not share deletion; a POSIX-mode-only record assertion also fails. Those issues
-  are not claimed fixed by this correctness follow-up. No user settings were used.
+  were not fixed by that correctness follow-up. No user settings were used.
+
+## Windows follow-up: #358
+
+Pinned `2dc6564ba5a12a2c147e5836f969a5fcc636e274` passed actual Windows 11 Home
+ARM64 UTM acceptance with both Interactive desktop full and basic-user tokens.
+Developer Mode was off. The original checkout, #350's worktree/preview, existing
+kits and reports were retained. No user settings, trust or global Pi installs were used.
+
+- Stale-lock anchoring uses an explicit share-delete handle. Windows removes the
+  anchored empty directory with POSIX disposition; Unix retains directory-only
+  rmdir. Unsupported filesystems fail closed. Fresh/future/nonempty/file locks,
+  renewed/replaced owners and concurrent contents remain untouched. Final mtime
+  check/removal still does not claim an atomic CAS.
+- Go's Windows Lstat defers file-ID lookup by pathname. Acquired lock identity is
+  now captured through a handle before verification/release, so a replacement
+  with matching mtime cannot be adopted. That new regression reproduced RED in
+  both tokens at `ebf4e062` before the fix. The stale fixture likewise captures
+  its old ID through the retained anchor rather than resolving the reused path.
+- The original records inherited interactive/service/logon-class grants in the
+  isolated public fixture: POSIX 0600 did not establish Windows privacy. New
+  directories are created with protected current-user/SYSTEM inheritable DACLs
+  before writing raw bytes. Existing directory/file ownership and DACLs are
+  validated without rewriting ACLs. Only the current user and privileged
+  SYSTEM/Administrators may be granted access; privileged default owners on full
+  Windows tokens still require a current-user grant. Unsafe/unknown ACLs refuse
+  import/restoration and retain settings, records and existing ACLs.
+- RED at `073fc025`: stale/replaced locks, actual private ACL assertions, and
+  broadly accessible existing-record reuse failed in both tokens. GREEN at the
+  pinned fix above: 14 top-level regressions per token; native launcher and two
+  native tests per version (0.99.2/1.0.0) all exited zero. The initial regression
+  pass intentionally omits PI_ROOT and skips its native-lock test; both separate
+  native passes executed it. Basic token symlink creation was unavailable and
+  that subcase skipped; full token executed the symlink case. No extension
+  factories or real npm/Git package install/update breadth is claimed.
+- Reproduction: `scripts/windows/build-pi-kit.sh`,
+  `scripts/windows/e2e-pi-extensions.ps1`, and
+  `ai_docs/tests/windows_pi_extensions_runbook.md`. The kit is built from a pinned
+  archive in the devcontainer. Runner HOME/config/temp/npm roots are isolated;
+  child streams and UTF-8 copies are retained, and nonzero/missing checks fail.

@@ -116,6 +116,8 @@ skillshare push    # 自分の変更をプッシュ
 
 マージでコンフリクトが発生した場合、何もプッシュされず、target も sync されません。変更はローカルにコミットされたまま残ります。コンフリクトを解決してから、もう一度 `skillshare push --pull` を実行してください。プッシュは成功したものの target の sync に失敗した場合は、remote はすでに更新されているので、表示された `skillshare sync ... --global` コマンド（`git_root` に対応するリソースごとに 1 行）を実行して再試行してください。
 
+`git_root: root` では、マージによって remote が追跡している `config.yaml` が取り込まれた場合、`push --pull` はこのマシンのコピーを保持し、同じプッシュで remote から `config.yaml` を取り除きます。
+
 `--pull` はリベースも force-push も行いません。
 
 ## ワークフロー

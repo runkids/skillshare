@@ -6,7 +6,6 @@ import (
 	"io"
 	"os"
 	"sync"
-	"syscall"
 	"time"
 )
 
@@ -58,9 +57,22 @@ func acquirePiNativeLock(path string) (*piNativeLock, error) {
 			return nil, err
 		}
 	}
-	ours, err := os.Lstat(path)
+	// Snapshot the file ID through a handle now. Windows Lstat would defer
+	// fetching that ID by pathname until SameFile, possibly after replacement.
+	anchor, err := openPiLockAnchor(path)
 	if err != nil {
 		return nil, err
+	}
+	ours, err := anchor.Stat()
+	closeErr := anchor.Close()
+	if err != nil {
+		return nil, err
+	}
+	if closeErr != nil {
+		return nil, closeErr
+	}
+	if !ours.IsDir() {
+		return nil, ErrPiExtensionsBusy
 	}
 	l := &piNativeLock{path: path, ours: ours, mtime: ours.ModTime(), stop: make(chan struct{}), done: make(chan struct{})}
 	go l.renew()
@@ -75,24 +87,18 @@ func reclaimPiNativeLock(path string) error {
 	if err != nil || !before.IsDir() || time.Since(before.ModTime()) <= piLockStale {
 		return ErrPiExtensionsBusy
 	}
-	// Anchor the inode until reclamation finishes. Root's Windows handle permits
-	// deletion; an ordinary os.Open directory handle does not.
-	root, err := os.OpenRoot(path)
+	// Keep the observed inode alive through the final ownership check. On
+	// Windows this handle must share deletion, unlike os.OpenRoot's first handle.
+	anchor, err := openPiLockAnchor(path)
 	if err != nil {
 		return err
 	}
-	defer root.Close()
-	anchored, err := root.Stat(".")
+	defer anchor.Close()
+	anchored, err := anchor.Stat()
 	if err != nil || !os.SameFile(before, anchored) {
 		return ErrPiExtensionsBusy
 	}
-	dir, err := root.Open(".")
-	if err != nil {
-		return err
-	}
-	_, readErr := dir.ReadDir(1)
-	closeErr := dir.Close()
-	if readErr != io.EOF || closeErr != nil {
+	if _, err := anchor.ReadDir(1); err != io.EOF {
 		return ErrPiExtensionsBusy
 	}
 	piBeforeLockReclaim(path)
@@ -102,7 +108,7 @@ func reclaimPiNativeLock(path string) error {
 	}
 	// Directory-only, nonrecursive removal: even a racing file/symlink is not
 	// unlinked. As in proper-lockfile, the final stat/remove is not an atomic CAS.
-	return syscall.Rmdir(path)
+	return removePiLockDirectory(path, anchor)
 }
 
 func (l *piNativeLock) renew() {

@@ -58,12 +58,38 @@ func resolveGitRoot(cfg *config.Config, spinner *ui.Spinner) (string, error) {
 // rootSweepResult reports what the root-scope safety sweep changed or found.
 type rootSweepResult struct {
 	configUntracked bool     // config.yaml was (or, on dry-run, would be) untracked
+	ignoreRepair    bool     // dry-run: .gitignore would gain a config.yaml rule
 	nested          []string // subdirs (relative) that have their own .git
 	dryRun          bool     // when true, the sweep made no changes (notice wording differs)
 }
 
 func (r rootSweepResult) hasNotice() bool {
-	return r.configUntracked || len(r.nested) > 0
+	return r.configUntracked || r.ignoreRepair || len(r.nested) > 0
+}
+
+// previewChanges adjusts a dry run's `git status --porcelain` output for the
+// .gitignore repair a real run makes first: config.yaml drops out and
+// .gitignore is listed as modified.
+func (r rootSweepResult) previewChanges(changes string) string {
+	if !r.ignoreRepair {
+		return changes
+	}
+	kept := []string{}
+	hasGitignore := false
+	for _, line := range strings.Split(changes, "\n") {
+		path := strings.TrimSpace(strings.TrimLeft(line, "?MADRCU "))
+		switch {
+		case line == "", path == "config.yaml", strings.HasPrefix(path, "config.yaml/"):
+			continue
+		case path == ".gitignore":
+			hasGitignore = true
+		}
+		kept = append(kept, line)
+	}
+	if !hasGitignore {
+		kept = append(kept, " M .gitignore")
+	}
+	return strings.Join(kept, "\n")
 }
 
 // rootScopeSafetySweep guards a root-scope repo before staging. It detects
@@ -87,6 +113,7 @@ func rootScopeSafetySweep(cfg *config.Config, dir string, dryRun bool) rootSweep
 	}
 	if dryRun {
 		res.configUntracked = gitops.IsConfigTracked(dir)
+		res.ignoreRepair = gitops.ConfigGitignoreNeedsRepair(dir)
 	} else if removed, err := gitops.EnsureConfigUntracked(dir); err == nil {
 		res.configUntracked = removed
 	}
@@ -104,6 +131,10 @@ func (r rootSweepResult) printNotices(dir string) {
 			ui.Success("Removed config.yaml from version control")
 			ui.Note("Kept on disk; it holds machine-specific paths")
 		}
+	}
+	if r.ignoreRepair && !r.configUntracked {
+		fmt.Println("  Would add config.yaml to .gitignore")
+		ui.Note("It holds machine-specific paths")
 	}
 	if len(r.nested) > 0 {
 		lines := []string{"These directories have their own .git and upload as EMPTY submodules:"}

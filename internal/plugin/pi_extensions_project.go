@@ -76,7 +76,7 @@ func (s *Service) piProjectState(ctx context.Context, target string) (*piProject
 	}
 	v := &PiExtensionsView{
 		Target: target, Scope: "project", SettingsPath: project.path, GlobalSettingsPath: global.path, Version: version,
-		VerifiedVersions: PiVerifiedVersions, Editable: readOnly == "", ReadOnly: readOnly, Problem: problem,
+		MinVersion: PiMinVersion, Editable: readOnly == "", ReadOnly: readOnly, Problem: problem,
 		Revision: piProjectRevision(project, global),
 		Packages: []PiExtensionPackage{}, Folders: []PiExtensionFolder{}, Trust: piTrust(agentDir, s.ProjectRoot, global),
 	}

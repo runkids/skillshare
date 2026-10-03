@@ -55,6 +55,7 @@ jobs:
         run: |
           make fmt-check lint
           python3 -B -m unittest discover -s scripts/release -p '*_test.py'
+          python3 -B -m unittest discover -s scripts/design -p '*_test.py'
 
       - name: Unit Tests
         run: go test -v -race ./cmd/skillshare/... ./internal/...

@@ -37,7 +37,7 @@ target 會儲存這個選擇。下一次 `sync plugins` 會移除其受管理的
 |---|---|
 | `list` | 已設定的綁定與原生安裝狀態；在終端機中提供互動式管理介面 |
 | `discover SOURCE` | 檢查本機目錄、`owner/repo`，或 HTTPS Git repository |
-| `add [SOURCE]` | 選擇並安裝整個 plugin 及其 target adapter |
+| `add [SOURCE]` | 選擇並安裝整個 plugin 及其 target adapter，或透過 Pi 安裝 `npm:` 套件 |
 | `import [NATIVE-ID]` | 採用既有安裝，不重新安裝也不啟用 |
 | `inspect NAME` | 檢查單一受管理的套件 |
 | `sync [NAME]` | 協調已選的 target 並重試未完成的原生操作 |
@@ -141,11 +141,26 @@ Pi 使用 `pi install` / `pi remove`；清單讀取的是文件記載的套件�
 會遵循 `PI_CODING_AGENT_DIR`。Pi 的專案信任必須在 Pi 中自行建立；Skillshare 不會替你傳遞
 `--approve`。
 
+#### pi.dev 的 npm 套件
+
+`plugin add npm:<套件>` 會透過 Pi 本身安裝發布在 npm 上的套件，例如 [pi.dev](https://pi.dev/packages) 列出的套件：
+
+```bash
+skillshare plugin add npm:@scope/package --target pi --dry-run --json -g
+skillshare plugin add npm:@scope/package@1.2.0 --target pi --no-tui -g
+```
+
+Pi 會下載套件並執行它的 install script，Skillshare 無法事先檢查內容；加入前請先在 pi.dev 或 npm 確認套件。`discover` 不接受 npm 來源，npm 來源也不接受 `--source-ref`、`--entry` 或 `--plugin`。只有 Pi target 能接受 npm 來源，包括執行 `pi` 的 Pi 帳號；執行其他執行檔的帳號，請用那個執行檔安裝後再匯入。搭配 `--project` 時，Pi 會把套件裝進專案的設定；專案一旦有 `.pi` 資料夾，要先在 Pi 信任這個專案，Pi 才會修改它的套件。
+
+Pi 每個套件名稱只保留一筆。Pi 已經有相同來源時，`add` 會匯入它；同一套件的其他版本則會安裝，由 Pi 替換那一筆的來源。`update` 會執行 `pi update`，但釘在精確版本的套件 Pi 會維持原版本，請改用新版本重新加入。如果你關掉了套件裡的某些 extension，Pi 會把這些規則保留到新版本，Skillshare 也會重新記錄，之後重裝時會還原。已經由另一個 Skillshare 套件管理的 Pi 套件會被拒絕，請改為更新或移除那一個。
+
+在 dashboard 的新增對話框，可以直接貼上 `pi install npm:<套件>` 指令或套件的 pi.dev 網址，兩者都會轉成對應的 `npm:` 來源。
+
 #### 選擇套件的 extension
 
-在 dashboard 中，`pi` 與 Pi 帳號的 target 頁面有一個 **Extensions** 分頁。它列出該 target 的 `settings.json` 中每個套件項目，以及其篩選規則選取的 extension。開關會在該項目的 `extensions` 清單寫入一條精確的 `+path` 或 `-path` 規則。**Remove rule** 會刪除該檔案的精確規則（無論寫成相對或絕對路徑），之後該檔案依其餘規則決定；結果會顯示在預覽中。套用前一定會先顯示預覽，而且只修改這些清單：項目的其他鍵、`skills`、`prompts` 與 `themes` 篩選規則、glob 與 `!` 規則，以及檔案的其餘部分都維持原樣。字串項目會變成 `{"source": ...}`，以便放入規則。對字串項目，Pi 只從套件的 `pi` manifest 讀取 skills、prompts 與 themes；物件項目則會在 manifest 沒列出時，從套件的 `skills`、`prompts`、`themes` 資料夾載入它們。有這類資料夾的套件，其字串項目是唯讀的，因為 Skillshare 無法確認轉換後這些資源維持原狀。指向單一檔案的來源也是唯讀的，因為 Pi 會直接載入它並忽略篩選規則。如果預覽後檔案已被修改，或 Pi 正持有設定鎖，就不會寫入任何內容。寫入期間 Skillshare 會以和 Pi 相同的方式持有這個鎖，一旦失去就不寫入。每次套用前都會保存一份變更的 extension 清單及檔案變更前後雜湊的紀錄。成功套用的紀錄會保留，不會自動清理；套用失敗時只移除該次新建的紀錄。這不是 `settings.json` 的副本，無法用來還原整份設定檔。安裝與移除套件仍然透過 `plugin` 進行。
+在 dashboard 中，`pi` 與 Pi 帳號的 target 頁面有一個 **Extensions** 分頁。它列出該 target 的 `settings.json` 中每個套件項目，以及其篩選規則選取的 extension。開關會在該項目的 `extensions` 清單寫入一條精確的 `+path` 或 `-path` 規則。**Remove rule** 會刪除該檔案的精確規則（無論寫成相對或絕對路徑），之後該檔案依其餘規則決定；結果會顯示在預覽中。套用前一定會先顯示預覽，而且只修改這些清單：項目的其他鍵、`skills`、`prompts` 與 `themes` 篩選規則、glob 與 `!` 規則，以及檔案的其餘部分都維持原樣。字串項目會變成 `{"source": ...}`，以便放入規則。對字串項目，Pi 只從套件的 `pi` manifest 讀取 skills、prompts 與 themes；物件項目則會在 manifest 沒列出時，從套件的 `skills`、`prompts`、`themes` 資料夾載入它們。有這類資料夾的套件，其字串項目是唯讀的，因為 Skillshare 無法確認轉換後這些資源維持原狀。指向單一檔案的來源也是唯讀的，因為 Pi 會直接載入它並忽略篩選規則。如果預覽後檔案已被修改，或 Pi 正持有設定鎖，就不會寫入任何內容。寫入期間 Skillshare 會以和 Pi 相同的方式持有這個鎖，一旦失去就不寫入。每次套用前都會保存一份變更的 extension 清單及檔案變更前後雜湊的紀錄。成功套用的紀錄會保留，不會自動清理；套用失敗時只移除該次新建的紀錄。這不是 `settings.json` 的副本，無法用來還原整份設定檔。這個分頁會列出設定裡的所有套件，包括直接用 Pi 安裝的，例如 [pi.dev](https://pi.dev/packages) 上的 `npm:` 套件。Skillshare 只透過 `plugin` 安裝與移除套件：`plugin add` 接受本機目錄、Git 來源或 [npm 套件](#pidev-的-npm-套件)，`plugin import --from pi` 則可接管用 Pi 安裝的套件。
 
-Skillshare 讀取套件時不會執行它們，因此這個分頁顯示的是設定選取了哪些檔案（**設定**欄），而不是 Pi 是否已載入它們；套用後請重新載入 Pi。設定指名但套件中不存在的檔案會標示為不存在。Skillshare 無法判斷的選擇會顯示**無法判斷**，並附上原因與修改方式，絕不猜測開或關。編輯需要該 target 自己的 Pi 是 Skillshare 驗證過的版本（目前為 0.99.2 與 1.0.0，各自以 Pi 本身驗證過），且設定是嚴格的 JSON；其他版本為唯讀，分頁會顯示偵測到的版本。執行其他程式的 Pi 帳號為唯讀，Skillshare 也不會執行它。清單為 `[]`（不載入任何檔案）的項目是唯讀，由 Skillshare 無法評估的模式（例如 `?` 對上 emoji）決定的 extension 也是唯讀。來源為空的項目，或來源、規則中含有未配對的 UTF-16 surrogate 跳脫或無效 UTF-8 的項目，因為 Skillshare 無法和 Pi 一樣準確讀取，會維持原樣並設為唯讀。Pi 只採用套件的第一個全域項目，所以當 Skillshare 無法讀取那個項目時，同一套件後面的項目也是唯讀。
+Skillshare 讀取套件時不會執行它們，因此這個分頁顯示的是設定選取了哪些檔案（**設定**欄），而不是 Pi 是否已載入它們；套用後請重新載入 Pi。設定指名但套件中不存在的檔案會標示為不存在。Skillshare 無法判斷的選擇會顯示**無法判斷**，並附上原因與修改方式，絕不猜測開或關。編輯需要該 target 自己的 Pi 是 0.99.2 以上（以 Pi 本身驗證過的最舊版本），且設定是嚴格的 JSON；較舊的版本為唯讀，分頁會顯示偵測到的版本。執行其他程式的 Pi 帳號為唯讀，Skillshare 也不會執行它。清單為 `[]`（不載入任何檔案）的項目是唯讀，由 Skillshare 無法評估的模式（例如 `?` 對上 emoji）決定的 extension 也是唯讀。來源為空的項目，或來源、規則中含有未配對的 UTF-16 surrogate 跳脫或無效 UTF-8 的項目，因為 Skillshare 無法和 Pi 一樣準確讀取，會維持原樣並設為唯讀。Pi 只採用套件的第一個全域項目，所以當 Skillshare 無法讀取那個項目時，同一套件後面的項目也是唯讀。
 
 同步到 Pi 的專案在專案頁面上也有這個分頁。它顯示專案設定疊加在全域設定之上後，每個套件選取的內容，並標示是繼承自 `pi (global)` 還是專案覆寫。開關只會把規則存到專案的 `.pi/settings.json`，做法和 `pi config` 相同：全域套件會得到一個專案項目 `{"source": ..., "autoload": false, "extensions": [...]}`，只改變它指名的檔案，全域項目維持原樣。本機來源會寫成相對於 `.pi` 的路徑，npm 或 git 來源則照全域設定的寫法。移除這類項目的最後一條專案規則時，只有不會讓較早登錄的 filters 生效才移除該項目；否則保留空的 winning override。只有明確的 JSON `false` 才表示 delta，`autoload: null` 不是 `false`。沒有對應全域項目、且 `autoload: false` 的專案項目只會載入它用 `+` 指名的檔案。檔案與其 `.pi` 資料夾只會在套用時建立。全域設定與 Pi 的 `trust.json` 永遠不會被寫入，Skillshare 也不會替你信任專案：Pi 只有在信任專案時才會使用專案設定。含有憑證或查詢字串的全域來源不會被複製到專案，所以該套件在專案中是唯讀；專案設定中有 Skillshare 無法讀取的項目時，所有套件都是唯讀。套用時會持有 Pi 對專案檔案的鎖，並在寫入前再次檢查兩個設定檔與套件。Pi 自己的 `extensions` 資料夾中的 extension（包括 [extras](./extras.md) 連結到那裡的檔案）以唯讀方式列出，並說明在哪裡修改；專案會列出自己的資料夾（Pi 只有在信任專案時才會讀取）和全域資料夾。
 
@@ -160,7 +175,7 @@ OpenCode 會在 `opencode.json` 或既有的 `opencode.jsonc` 中，把受管理
 
 全域 npm 登錄沒有 managed cache 時顯示 Unknown／唯讀，不代表尚未安裝；Pi 可能使用 Skillshare 不探查的 legacy global npm/pnpm 路徑。
 
-匯入接受一般 Pi source，以及已驗證 Pi 0.99.2/1.0.0 中來源與選項格式受支援的 filtered object。預覽只顯示保留的欄位名稱，不顯示 opaque 值。匯入不修改原生設定或已安裝檔案；原始項目保存在 Skillshare 私有狀態，共用設定僅存 digest。sync/update 保留現有項目；解除安裝前保存最新選項，重新安裝時先恢復 object，避免暫時以預設規則啟用其他資源。同一次 Apply 批次恢復時，只接受此次操作自己寫出的精確內容；其他設定變動仍會阻止後續恢復。這些 bindings 必須保留私有狀態：紀錄遺失、被修改或屬於其他 target 時拒絕恢復。不確定的來源或優先序、不支援的編碼，以及 Pi 會正規化的本機參照仍為唯讀。一般 OpenCode 項目可匯入，filtered OpenCode 項目仍拒絕。超過 Pi 10 秒過期門檻的空鎖目錄，只有 inode 與 mtime 未變動時才能回收；新鎖、更新或被替換的鎖、非空目錄、檔案與 symlink 一律保留。過期不代表擁有者已終止，最後檢查與移除不是原子 CAS。已匯入的 Pi 套件在全域模式下以 `pi update SOURCE` 更新，並保留其設定項目；專案中的則要在 Pi 裡更新，因為 `pi update` 也會動到全域套件。已匯入的 OpenCode v1 套件會在其原生工具中更新。OpenCode
+匯入接受一般 Pi source，以及Pi 0.99.2 以上來源與選項格式受支援的 filtered object。預覽只顯示保留的欄位名稱，不顯示 opaque 值。匯入不修改原生設定或已安裝檔案；原始項目保存在 Skillshare 私有狀態，共用設定僅存 digest。sync/update 保留現有項目；解除安裝前保存最新選項，重新安裝時先恢復 object，避免暫時以預設規則啟用其他資源。同一次 Apply 批次恢復時，只接受此次操作自己寫出的精確內容；其他設定變動仍會阻止後續恢復。這些 bindings 必須保留私有狀態：紀錄遺失、被修改或屬於其他 target 時拒絕恢復。Windows 的新登錄目錄以受保護的 owner/SYSTEM ACL 建立。現有目錄與紀錄若允許目前使用者及特權 SYSTEM/Administrators 以外的主體存取，或無法驗證 ACL，便拒絕匯入或恢復。不會修改現有 ACL；請保留紀錄，由擁有者修復存取保護後再重試。不確定的來源或優先序、不支援的編碼，以及 Pi 會正規化的本機參照仍為唯讀。一般 OpenCode 項目可匯入，filtered OpenCode 項目仍拒絕。超過 Pi 10 秒過期門檻的空鎖目錄，只有 inode 與 mtime 未變動時才能回收；新鎖、更新或被替換的鎖、非空目錄、檔案與 symlink 一律保留。過期不代表擁有者已終止，最後檢查與移除不是原子 CAS。已匯入的 Pi 套件在全域模式下以 `pi update SOURCE` 更新，並保留其設定項目；專案中的則要在 Pi 裡更新，因為 `pi update` 也會動到全域套件。已匯入的 OpenCode v1 套件會在其原生工具中更新。OpenCode
 v2 的全域匯入可以使用其原生更新指令；專案匯入則必須以原生方式更新，因為 v2 的更新指令是
 全域性的。
 

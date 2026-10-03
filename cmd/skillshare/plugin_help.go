@@ -4,7 +4,7 @@ func printPluginHelp() {
 	printHelp("skillshare plugin [command] [options]", "",
 		helpGroup{title: "Commands", rows: []helpRow{
 			{"list", "Browse managed plugins (default; TUI in a terminal)"},
-			{"add [source]", "Choose a plugin from a directory or HTTPS Git repository"},
+			{"add [source]", "Choose a plugin from a directory or HTTPS Git repository,\nor add npm:<package> to Pi"},
 			{"discover <source>", "Inspect source candidates without installing"},
 			{"import [native-id]", "Adopt an existing native install with --from"},
 			{"inspect <name>", "Show bindings and native installation state"},
@@ -40,6 +40,7 @@ func printPluginHelp() {
 			"Grok requires native trust: install there first, then import.",
 			"Cursor/Antigravity sync whole local folders; OpenCode syncs registrations.",
 			"Pi project operations require native project trust.",
+			"npm:<package> (as on pi.dev) is installed by Pi, which runs its install scripts.",
 			"Codex has no project installation; update re-adds a plugin enabled in Codex.",
 			"Enable/disable saves sync selection only; run sync to install/remove the target.",
 			"Authentication, hook trust and command-source approval remain in the native client.",

@@ -23,8 +23,10 @@ func renderDisabled(target string, s Server) (map[string]any, error) {
 		// usually committed, so one person's switch would break Codex for a teammate.
 		return nil, fmt.Errorf("codex cannot turn off a global server from a project file: on a machine whose global config lacks the server, Codex stops loading its whole config; set enabled = false in ~/.codex/config.toml instead")
 	case target == "pi" && s.global != nil:
-		// Pi replaces a global entry with the project entry of the same name and skips one
-		// without a command or url. A disabled server is never started, so its command or
+		// Pi replaces a global entry with the project entry of the same name. One without a
+		// command or url is skipped before 1.0.1; from 1.0.1 it overrides only the switch, but
+		// Pi warns at every start on a machine whose global config lacks the server, and the
+		// project file may be committed. A disabled server is never started, so its command or
 		// url alone is enough; args, env, headers and the url's query, which may hold a key,
 		// stay out of the project file, which may be committed. Validate already refuses a
 		// url with credentials or a fragment.
@@ -38,8 +40,8 @@ func renderDisabled(target string, s Server) (map[string]any, error) {
 		u.RawQuery = ""
 		return map[string]any{"url": u.String(), "enabled": false}, nil
 	case target == "pi":
-		// Pi replaces a global entry with the project entry of the same name, and skips one
-		// without a command or url, so a switch-only entry leaves the global server on.
+		// Pi replaces a global entry with the project entry of the same name, so the switch
+		// needs the global server's command or url; see the case above.
 		return nil, fmt.Errorf("pi cannot turn off a server the global config does not define for it: a Pi project entry replaces the global one, so it needs the server's command or url; add the complete server with piOptions: {\"enabled\": false} instead")
 	}
 	return nil, fmt.Errorf("%s cannot turn off a global server from a project file; disabled supports claude, opencode and kilocode", target)

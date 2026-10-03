@@ -706,6 +706,10 @@ func BehindCount(dir string) int {
 // failed, usually on a conflict. The merge has been aborted.
 var ErrMergeFailed = errors.New("merging remote history failed")
 
+// ErrRemoteTracksConfig reports that the remote repository tracks config.yaml,
+// which would overwrite or corrupt machine-local configuration at root scope.
+var ErrRemoteTracksConfig = errors.New("remote tracks config.yaml")
+
 // FirstPull attaches a branch without upstream tracking to origin's default
 // branch. Local content is kept by merging the remote history (it may be
 // unrelated); with force, or with nothing local, the branch is reset to the
@@ -731,6 +735,9 @@ func FirstPull(dir string, force bool) (*UpdateInfo, error) {
 	info := &UpdateInfo{}
 	info.BeforeHash, _ = GetCurrentFullHash(dir) // empty before the first commit
 	remote := "origin/" + branch
+	if RemoteTracksConfig(dir, remote) && HasLocalRootConfig(dir) {
+		return nil, fmt.Errorf("%w at %s: remote tracks machine-specific config.yaml", ErrRemoteTracksConfig, remote)
+	}
 	if hasLocal && !force {
 		merge := exec.Command("git", "-c", "merge.ff=false", "merge", "--allow-unrelated-histories", "--no-edit", remote)
 		merge.Dir = dir

@@ -49,36 +49,32 @@ export default function MemoryGuidance({ initialized, instructions }: { initiali
   // The specific reason beats the generic state; it must be readable without hovering.
   const statusText = (target: (typeof targets)[number]) => target.detail ? t(`memory.connectionDetail.${target.detail}`, undefined, target.detail) : t(`memory.connection.${target.state}`);
   return (
-    <aside className="ss-box flex min-w-0 flex-[1_1_280px] flex-col gap-3.5 !shadow-none md:max-w-[340px]" aria-label={t('memory.useWithAgents')}>
-      <div className="flex items-center justify-between gap-2">
-        <h2 className="text-[15px] font-semibold">{t('memory.useWithAgents')}</h2>
-        {!!guidance.data?.targets.length && <span className="text-[12px] text-ink-3">{t('memory.connectedCount', { count: guidance.data.targets.filter((target) => target.state === 'configured').length, total: guidance.data.targets.length })}</span>}
-      </div>
-      {guidance.error && <div className="ss-note bad">{guidance.error.message}</div>}
-      {!!targets.length && <span className="ss-stack flex-wrap gap-y-1">
-        {targets.map((target) => <span key={target.name} title={`${target.name} · ${t(`memory.connection.${target.state}`)}`} className={`ss-at ${target.state === 'configured' ? '' : 'opacity-45 grayscale'}`}>
-          <AgentIcon target={target.name} size={14} />
-          <span className="sr-only">{target.name} · {t(`memory.connection.${target.state}`)}</span>
-        </span>)}
-      </span>}
-      {/* Only targets that need a fix get a row; the stack already shows the rest. */}
-      {targets.filter((target) => target.state === 'outdated' || target.state === 'broken').map((target) => <div key={target.name} className="flex items-center gap-2.5 text-[12.5px]">
-        <AgentIcon target={target.name} size={16} />
-        <span className="min-w-0 flex-1 truncate font-mono font-semibold" title={target.file ? shortenHome(target.file) : undefined}>{target.name}</span>
-        <span className="ss-st warn text-right text-[12px]">{statusText(target)}</span>
-      </div>)}
-      {initialized && guidance.data?.targets.length === 0 && <p className="text-[13px] text-ink-3">{t('memory.noTargets')}</p>}
-      <Button variant="secondary" size="sm" disabled={!initialized || !guidance.data?.targets.length} onClick={() => { void guidance.refetch(); setSelected([]); setPlan(null); setOpen(true); }}>{t('memory.connect')}</Button>
-      <div className="flex flex-col items-start gap-1 border-t border-line-soft pt-3 text-[13px]">
+    <section className="flex min-w-0 flex-col gap-3" aria-label={t('memory.useWithAgents')}>
+      <div className="flex flex-wrap items-center gap-2 pt-1.5 pl-1">
+        <h3 className="text-[15px] font-bold">{t('memory.useWithAgents')}</h3>
+        {!!targets.length && <span className="text-[12.5px] text-ink-3">{t('memory.connectedCount', { count: targets.filter((target) => target.state === 'configured').length, total: targets.length })}</span>}
+        <span className="flex-1" />
         <Tooltip content={<span className="block whitespace-pre-wrap break-words font-mono">{instructions}</span>}>
-          <CopyButton value={instructions} title={t('memory.copyInstructions')} label={t('memory.copyInstructions')} copiedLabel={t('memory.copied')} errorMessage={t('memory.copyFailed')} unstyled className="ss-btn ghost sm !px-1.5" />
+          <CopyButton value={instructions} title={t('memory.copyInstructions')} label={t('memory.copyInstructions')} copiedLabel={t('memory.copied')} errorMessage={t('memory.copyFailed')} unstyled className="ss-btn ghost sm" />
         </Tooltip>
         <Tooltip content={<span className="block whitespace-pre-wrap break-words font-mono">{prompt}</span>}>
-          <CopyButton value={prompt} title={t('memory.check')} label={t('memory.check')} copiedLabel={t('memory.copied')} errorMessage={t('memory.copyFailed')} unstyled className="ss-btn ghost sm !px-1.5" />
+          <CopyButton value={prompt} title={t('memory.check')} label={t('memory.check')} copiedLabel={t('memory.copied')} errorMessage={t('memory.copyFailed')} unstyled className="ss-btn ghost sm" />
         </Tooltip>
-        <Link to="?tab=instructions" className="ss-more px-1.5 py-1">{t('memory.openInstructions')}</Link>
+        <Button variant="secondary" size="sm" disabled={!initialized || !targets.length} onClick={() => { void guidance.refetch(); setSelected([]); setPlan(null); setOpen(true); }}>{t('memory.connect')}</Button>
       </div>
-      <p className="text-[12px] leading-relaxed text-ink-3">{t('memory.connectionHint')}</p>
+      {guidance.error && <div className="ss-note bad">{guidance.error.message}</div>}
+      {!!targets.length && <div className="ss-list">
+        {targets.map((target) => <div key={target.name} className="ss-r !min-h-[56px]">
+          <span className="ss-at"><AgentIcon target={target.name} size={17} /></span>
+          <span className="w-[110px] shrink-0 truncate font-mono text-[13px] font-semibold">{target.name}</span>
+          <span className="min-w-0 flex-1 truncate font-mono text-[12.5px] text-ink-2" title={target.file}>{target.file ? shortenHome(target.file) : ''}</span>
+          <span className={`ss-st ${target.state === 'configured' ? 'ok' : target.state === 'unconfigured' ? 'off' : 'warn'}`}>{statusText(target)}</span>
+        </div>)}
+      </div>}
+      {initialized && guidance.data?.targets.length === 0 && <p className="text-[13px] text-ink-3">{t('memory.noTargets')}</p>}
+      <p className="pl-1 text-[12.5px] leading-relaxed text-ink-3">
+        {t('memory.connectionHint')} <Link to="?tab=instructions" className="ss-more">{t('memory.openInstructions')}</Link>
+      </p>
       <DialogShell open={open} onClose={close} preventClose={busy} padding="none" maxWidth={plan ? "full" : "lg"} ariaLabel={t('memory.connect')}>
         <div className="dh"><h2 className="ss-h2">{t(plan ? 'memory.reviewConnections' : 'memory.connect')}</h2></div>
         <div className="db flex flex-col gap-4">
@@ -118,6 +114,6 @@ export default function MemoryGuidance({ initialized, instructions }: { initiali
           <Button variant="primary" loading={busy} disabled={plan ? plan.changes.length === 0 : selected.length === 0} onClick={() => plan ? void apply() : void review()}>{t(plan ? 'memory.applyConnections' : 'memory.reviewConnections')}</Button>
         </div>
       </DialogShell>
-    </aside>
+    </section>
   );
 }

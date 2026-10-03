@@ -533,6 +533,31 @@ func TestHandlePull_FirstPullConflictCanBeForced(t *testing.T) {
 	}
 }
 
+func TestHandlePull_RootScopeRemoteTracksConfig_Refused(t *testing.T) {
+	s, src := newTestServer(t)
+	setServerGitRoot(t, "root", src)
+	base := config.BaseDir()
+	if err := os.MkdirAll(base, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	initServerGitRepo(t, base)
+	if err := os.WriteFile(filepath.Join(base, ".gitignore"), []byte("config.yaml\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	testutil.RunGit(t, base, "add", ".gitignore")
+	testutil.RunGit(t, base, "commit", "-m", "scaffold")
+	remote := filepath.Join(t.TempDir(), "remote.git")
+	testutil.RunGit(t, "", "init", "--bare", remote)
+	pushRemoteFile(t, remote, "config.yaml", "sources: {}\n")
+	pushRemoteFile(t, remote, "skills/test/SKILL.md", "# test\n")
+	testutil.RunGit(t, base, "remote", "add", "origin", remote)
+
+	rr := postPull(s, `{}`)
+	if rr.Code != http.StatusBadRequest || !strings.Contains(rr.Body.String(), `"remote_tracks_config"`) {
+		t.Fatalf("expected 400 remote_tracks_config, got %d: %s", rr.Code, rr.Body.String())
+	}
+}
+
 func TestHandlePull_ExtrasScopeSyncsExtras(t *testing.T) {
 	s, src := newTestServer(t)
 	extrasDir := filepath.Join(filepath.Dir(src), "extras")
@@ -652,5 +677,47 @@ func TestHandlePull_RootScopeSyncsExtras(t *testing.T) {
 	}
 	if _, err := os.Lstat(filepath.Join(targetDir, "team.md")); err != nil {
 		t.Fatalf("expected the pulled extra synced to its target: %v", err)
+	}
+}
+
+func TestHandlePull_RootScopeKeepsLocalConfig(t *testing.T) {
+	s, _ := newTestServer(t)
+	root := config.BaseDir()
+	if err := os.MkdirAll(filepath.Join(root, "skills"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("SKILLSHARE_CONFIG", filepath.Join(root, "config.yaml"))
+	setServerGitRoot(t, "root", filepath.Join(root, "skills"))
+	localConfig, err := os.ReadFile(config.ConfigPath())
+	if err != nil {
+		t.Fatal(err)
+	}
+	initServerGitRepo(t, root)
+	if err := os.WriteFile(filepath.Join(root, ".gitignore"), []byte("config.yaml\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	testutil.RunGit(t, root, "add", ".gitignore")
+	testutil.RunGit(t, root, "commit", "-m", "ignore config")
+	remote := filepath.Join(t.TempDir(), "remote.git")
+	testutil.RunGit(t, "", "init", "--bare", remote)
+	testutil.RunGit(t, root, "remote", "add", "origin", remote)
+	testutil.RunGit(t, root, "push", "-u", "origin", "HEAD")
+
+	other := filepath.Join(t.TempDir(), "other")
+	testutil.RunGit(t, "", "clone", remote, other)
+	testutil.ConfigureGitUser(t, other)
+	if err := os.WriteFile(filepath.Join(other, "config.yaml"), []byte("source: /other/machine\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	testutil.RunGit(t, other, "add", "-f", "config.yaml")
+	testutil.RunGit(t, other, "commit", "-m", "track config by mistake")
+	testutil.RunGit(t, other, "push", "origin", "HEAD")
+
+	rr := postPull(s, `{}`)
+	if rr.Code != http.StatusOK || !strings.Contains(rr.Body.String(), "remote tracks config.yaml") {
+		t.Fatalf("expected 200 with a config.yaml warning, got %d: %s", rr.Code, rr.Body.String())
+	}
+	if got, err := os.ReadFile(config.ConfigPath()); err != nil || string(got) != string(localConfig) {
+		t.Fatalf("config.yaml = %q, %v; want this machine's copy kept", got, err)
 	}
 }

@@ -43,7 +43,7 @@ removed. `remove NAME` without `--target` removes it from Skillshare.
 |---|---|
 | `list` | Configured bindings and native installation state; interactive manager in a terminal |
 | `discover SOURCE` | Inspect a local directory, `owner/repo`, or HTTPS Git repository |
-| `add [SOURCE]` | Choose and install a whole plugin with its target adapter |
+| `add [SOURCE]` | Choose and install a whole plugin with its target adapter, or an `npm:` package through Pi |
 | `import [NATIVE-ID]` | Adopt an existing installation without reinstalling or enabling it |
 | `inspect NAME` | Inspect one managed package |
 | `sync [NAME]` | Reconcile selected targets and retry incomplete native operations |
@@ -157,6 +157,35 @@ Pi uses `pi install` / `pi remove`; inventory reads documented package settings
 without loading extension code. `PI_CODING_AGENT_DIR` is respected. Pi project
 trust must be established in Pi; Skillshare does not pass `--approve` for you.
 
+#### npm packages from pi.dev
+
+`plugin add npm:<package>` installs a package published to npm, such as one listed on
+[pi.dev](https://pi.dev/packages), through Pi itself:
+
+```bash
+skillshare plugin add npm:@scope/package --target pi --dry-run --json -g
+skillshare plugin add npm:@scope/package@1.2.0 --target pi --no-tui -g
+```
+
+Pi downloads the package and runs its install scripts, so Skillshare can't review its
+content first; check the package on pi.dev or npm before adding it. `discover` does not
+accept npm sources, and an npm source takes no `--source-ref`, `--entry` or `--plugin`.
+Only Pi targets take npm sources, including a Pi account that runs `pi`. For an account
+that runs another executable, install the package with that executable, then import it.
+With `--project`, Pi installs the package into the project's settings; once the project
+has a `.pi` folder, Pi changes its packages only after you trust the project in Pi.
+
+Pi keeps one entry per package name. If Pi already has the same source, `add` imports
+it; another version of the package is installed, and Pi replaces that entry's source.
+`update` runs `pi update`, except for a package pinned to an exact version, which Pi
+keeps: add the package again with the new version instead. When you turned off some of the
+package's extensions, Pi keeps those rules on the new version, and Skillshare records them
+again so a later reinstall restores them. A Pi package that another Skillshare package
+already manages is refused; update or remove that one instead.
+
+In the dashboard's add dialog, you can paste the `pi install npm:<package>` command or the
+package's pi.dev address; either becomes its `npm:` source.
+
 #### Choosing a package's extensions
 
 In the dashboard, the target page of `pi` and of a Pi account has an **Extensions**
@@ -184,16 +213,15 @@ While writing, Skillshare holds that lock the way Pi does and writes nothing if 
 loses it. Before each apply, Skillshare saves a persistent record of the changed
 extension lists and the before/after file hashes. Successful records are kept
 without automatic pruning; if Apply fails, only the new record for that attempt
-is removed. This is not a copy of `settings.json` and cannot restore the whole file. Installing and removing packages stays in `plugin`.
+is removed. This is not a copy of `settings.json` and cannot restore the whole file. The tab lists every package in the settings, including ones installed with Pi itself, such as `npm:` packages from [pi.dev](https://pi.dev/packages). Skillshare installs and removes packages only through `plugin`: `plugin add` takes a local directory, a Git source or an [npm package](#npm-packages-from-pidev), and `plugin import --from pi` adopts a package installed with Pi.
 
 Skillshare reads packages without running them, so the tab shows what the
 settings select (the **Configured** column), not whether Pi loaded them; reload Pi
 after applying. A file the settings name but the package lacks is marked as
 missing. A choice Skillshare can't work out shows **Can't tell** with the reason
 and where to change it, never a guessed on or off. Editing needs the target's own
-Pi to be a version Skillshare has verified (currently 0.99.2 and 1.0.0, each
-checked against Pi itself) and strict JSON settings; any other version is
-read-only and the tab says which version it found. A Pi account that runs a
+Pi to be 0.99.2 or later (the oldest version checked against Pi itself) and
+strict JSON settings; an older version is read-only and the tab says which version it found. A Pi account that runs a
 different executable is read-only, and Skillshare does not run it. An entry whose
 list is `[]` (nothing loads) is read-only, as is any extension decided by a
 pattern Skillshare cannot evaluate, such as `?` against an emoji. An entry with an
@@ -236,7 +264,7 @@ root export, or `index.js`) and required runtime dependencies. Skillshare does n
 run build scripts or install dependencies into the source. Registration is not
 proof the module loaded successfully; check OpenCode after reload.
 
-Import accepts plain Pi package sources and, on verified Pi 0.99.2/1.0.0,
+Import accepts plain Pi package sources and, on Pi 0.99.2 or later,
 filtered object entries with supported sources and option shapes. Preview lists
 retained field names, never opaque values. Import changes neither native settings
 nor installed files. The original entry is kept in private Skillshare state;
@@ -246,7 +274,11 @@ that object before native installation, avoiding a default-enabled window.
 Multiple restores in one Apply recognize only that Apply's own exact writes;
 unrelated settings changes still stop later restores.
 Keep private state with these bindings: a missing, modified, or cross-target record
-blocks restoration. Unresolved sources, ambiguous precedence, unsupported encoding,
+blocks restoration. On Windows, new registration directories use protected owner/SYSTEM
+ACLs. Existing directories and records must grant access only to the current user and
+privileged SYSTEM/Administrators principals; unsafe or unverifiable ACLs refuse import
+or restoration. Skillshare does not rewrite existing ACLs: retain the records and repair
+their access protection as the owner before retrying. Unresolved sources, ambiguous precedence, unsupported encoding,
 and local references Pi would normalize remain read-only. Plain OpenCode entries
 can be imported; filtered OpenCode entries are still rejected.
 Imported Pi packages are updated with `pi update SOURCE` in global mode, which
