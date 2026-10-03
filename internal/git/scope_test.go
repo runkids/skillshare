@@ -548,6 +548,35 @@ func TestKeepLocalConfig_KeepsEditMadeAfterCheckout(t *testing.T) {
 	}
 }
 
+func TestKeepLocalConfig_KeepsSymlinkMadeAfterCheckout(t *testing.T) {
+	repo, remote := rootScopeRepoTrackingRemote(t)
+	pushFromOtherClone(t, remote, map[string]string{"config.yaml": "remote-config\n"})
+	restore, err := KeepLocalConfig(repo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := PullWithEnv(repo, nil); err != nil {
+		t.Fatalf("PullWithEnv() error: %v", err)
+	}
+	newer := filepath.Join(t.TempDir(), "dotfiles-config.yaml")
+	if err := os.WriteFile(newer, []byte("NEWER-local\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	link := filepath.Join(repo, "config.yaml")
+	if err := os.Remove(link); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(newer, link); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := restore(); err != nil {
+		t.Fatal(err)
+	}
+	if target, err := os.Readlink(link); err != nil || target != newer {
+		t.Fatalf("config.yaml symlink = %q, %v; want the link made after checkout kept", target, err)
+	}
+}
+
 func TestKeepLocalConfig_ReportsTrackedCopyWithSameContent(t *testing.T) {
 	repo, remote := rootScopeRepoTrackingRemote(t)
 	pushFromOtherClone(t, remote, map[string]string{"config.yaml": "LOCAL-config\n"})

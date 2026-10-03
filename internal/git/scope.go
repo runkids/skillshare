@@ -274,20 +274,37 @@ func KeepLocalConfig(dir string) (restore func() (remoteTracks bool, err error),
 	}, nil
 }
 
-// editedAfterCheckout reports whether config.yaml on disk differs from the
-// regular file the pull checked out (entry is its merged index entry), i.e.
-// someone wrote a newer copy after Git did. Conflicts, removals and symlinks
-// report false so the snapshot is restored.
+// editedAfterCheckout reports whether config.yaml on disk differs from what
+// the pull checked out (entry is its merged index entry), i.e. someone wrote a
+// newer copy or link after Git did. Conflicts and removals report false so the
+// snapshot is restored.
 func editedAfterCheckout(dir, entry string) bool {
 	fields := strings.Fields(entry)
-	if len(fields) != 4 || fields[2] != "0" || (fields[0] != "100644" && fields[0] != "100755") {
+	if len(fields) != 4 || fields[2] != "0" {
 		return false
 	}
-	if info, err := os.Lstat(filepath.Join(dir, "config.yaml")); err != nil || !info.Mode().IsRegular() {
+	path := filepath.Join(dir, "config.yaml")
+	info, err := os.Lstat(path)
+	if err != nil {
 		return false
 	}
-	cmd := exec.Command("git", "hash-object", "--", "config.yaml")
+	cmd := exec.Command("git", "hash-object", "--stdin")
 	cmd.Dir = dir
+	switch {
+	case info.Mode()&fs.ModeSymlink != 0 && fields[0] == "120000":
+		target, err := os.Readlink(path)
+		if err != nil {
+			return false
+		}
+		cmd.Stdin = strings.NewReader(target)
+	case info.Mode()&fs.ModeSymlink != 0:
+		return true // Git checks out a regular entry as a file, not a link
+	case info.Mode().IsRegular() && (fields[0] == "100644" || fields[0] == "100755"):
+		cmd = exec.Command("git", "hash-object", "--", "config.yaml")
+		cmd.Dir = dir
+	default:
+		return false
+	}
 	out, err := cmd.Output()
 	return err == nil && strings.TrimSpace(string(out)) != fields[1]
 }

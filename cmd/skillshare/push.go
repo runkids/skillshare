@@ -105,6 +105,28 @@ func stageAndCommit(sourcePath, message string, spinner *ui.Spinner) error {
 	return nil
 }
 
+// commitConfigSafety commits the config.yaml removal and .gitignore repair
+// EnsureConfigUntracked made, leaving any other worktree changes unstaged.
+func commitConfigSafety(source string) error {
+	add := exec.Command("git", "add", "--", ".gitignore")
+	add.Dir = source
+	if err := add.Run(); err != nil {
+		return fmt.Errorf("failed to stage .gitignore: %w", err)
+	}
+	staged := exec.Command("git", "diff", "--cached", "--quiet")
+	staged.Dir = source
+	if staged.Run() == nil {
+		return nil // nothing to commit
+	}
+	// Commit the index as staged: a pathspec would re-add config.yaml from disk.
+	commit := exec.Command("git", "commit", "-m", "Keep config.yaml out of version control")
+	commit.Dir = source
+	if out, err := commit.CombinedOutput(); err != nil {
+		return fmt.Errorf("failed to commit config.yaml safety changes: %w: %s", err, strings.TrimSpace(string(out)))
+	}
+	return nil
+}
+
 // isAuthError returns true when git output indicates an authentication failure.
 func isAuthError(output string) bool {
 	return install.IsAuthError(output)
@@ -276,15 +298,10 @@ func cmdPush(args []string) (err error) {
 				return err
 			}
 			// It may also have repaired a pulled .gitignore that stopped ignoring
-			// config.yaml; commit that too so the push carries it.
-			if repaired, err := getGitChanges(source); err != nil {
+			// config.yaml; commit only those safety changes, never other edits
+			// made while the pull ran.
+			if err := commitConfigSafety(source); err != nil {
 				return err
-			} else if repaired != "" {
-				spinner = ui.StartSpinner("Committing...")
-				if err := stageAndCommit(source, "Keep config.yaml out of version control", spinner); err != nil {
-					return err
-				}
-				spinner.Stop()
 			}
 			if removed {
 				ui.Success("Removed config.yaml from version control")
