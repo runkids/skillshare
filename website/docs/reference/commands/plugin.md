@@ -169,8 +169,10 @@ of a package with such a folder is read-only, because Skillshare can't show that
 converting it leaves those resources as they are. A source that is one file is
 read-only too, because Pi loads it as it is and ignores filters. If the file changed after the preview, or Pi holds its settings lock, nothing is written.
 While writing, Skillshare holds that lock the way Pi does and writes nothing if it
-loses it. A copy of the file is saved before each apply and never deleted
-automatically. Installing and removing packages stays in `plugin`.
+loses it. Before each apply, Skillshare saves a persistent record of the changed
+extension lists and the before/after file hashes; it never deletes these records
+automatically. This is not a copy of `settings.json` and cannot restore the whole
+file. Installing and removing packages stays in `plugin`.
 
 Skillshare reads packages without running them, so the tab shows what the
 settings select (the **Configured** column), not whether Pi loaded them; reload Pi

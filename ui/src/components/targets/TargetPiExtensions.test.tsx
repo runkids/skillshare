@@ -166,6 +166,29 @@ describe('Pi target Extensions tab', () => {
     await waitFor(() => expect(piExtensionsApi.preview).toHaveBeenCalledWith('pi', [{ scope: 'global', index: 0, source: pkg, path: 'extensions/b.ts', action: 'default' }]));
   });
 
+  it.each([
+    { shape: 'delta' as const, rule: 'extensions/*.ts', selection: 'loads' as const },
+    { shape: 'delta' as const, rule: '!extensions/*.ts', selection: 'skipped' as const },
+    { shape: 'deltaOnly' as const, rule: 'extensions/*.ts', selection: 'loads' as const },
+    { shape: 'deltaOnly' as const, rule: '!extensions/*.ts', selection: 'skipped' as const },
+  ])('keeps $shape glob $rule switchable without offering Remove rule', async ({ shape, rule, selection }) => {
+    const user = userEvent.setup();
+    const data = project();
+    data.packages = [{ ...data.packages[0], shape, rules: [rule], rows: [
+      { path: 'extensions/a.ts', file: 'present', selection, origin: 'project', rule, editable: true },
+    ] }];
+    vi.mocked(piExtensionsApi.preview).mockResolvedValue({ revision: 'glob-preview', settingsPath: data.settingsPath, entries: [], rows: [] });
+    show(data);
+    const toggle = await screen.findByRole('switch', { name: `Load extensions/a.ts from ${pkg} in acme@pi` });
+    expect(toggle).toHaveAttribute('aria-checked', String(selection === 'loads'));
+    expect(screen.queryByRole('button', { name: 'Remove rule' })).not.toBeInTheDocument();
+    expect(piExtensionsApi.preview).not.toHaveBeenCalled();
+    await user.click(toggle);
+    await user.click(screen.getByRole('button', { name: 'Review changes' }));
+    await waitFor(() => expect(piExtensionsApi.preview).toHaveBeenCalledWith('acme@pi', [{ scope: 'project', index: 0, source: pkg, path: 'extensions/a.ts', action: selection === 'loads' ? 'exclude' : 'select' }]));
+    expect(piExtensionsApi.apply).not.toHaveBeenCalled();
+  });
+
   it('says why a package has no switches and what to do instead', async () => {
     const row = { path: 'extensions/a.ts', file: 'present' as const, selection: 'loads' as const, origin: 'default', editable: false };
     const base = global().packages[0];

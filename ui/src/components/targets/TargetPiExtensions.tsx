@@ -203,7 +203,7 @@ function ExtensionRow({ pkg, row, name, ownsRules, action, set, t }: { pkg: PiEx
       <span className="flex min-w-0 flex-1 flex-col">
         <RowPath row={row} t={t} />
         <span className="flex flex-wrap items-center gap-x-2 text-[12px] text-ink-3">
-          <RowOrigin row={row} action={action} canRemove={ownsRules && row.editable && Boolean(row.rule) && (row.origin === 'rule' || row.origin === 'project')} onDefault={() => change('default')} onKeep={() => change()} t={t} />
+          <RowOrigin row={row} action={action} canRemove={ownsRules && row.editable && /^[+-]/.test(row.rule ?? '') && (row.origin === 'rule' || row.origin === 'project')} onDefault={() => change('default')} onKeep={() => change()} t={t} />
         </span>
       </span>
       {action ? <PendingSelection from={row.selection} action={action} t={t} /> : <Selection value={row.selection} t={t} />}
