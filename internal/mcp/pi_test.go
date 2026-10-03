@@ -485,6 +485,45 @@ func TestPiProjectOverrideBeatsPruneConflict(t *testing.T) {
 	}
 }
 
+// A live owner keeps its message, since only it can release the entry. A removed owner never
+// can, so its entry turned into Pi's override gets the replace-only conflict too.
+func TestPiProjectOverrideOfARemovedOwnersEntry(t *testing.T) {
+	s := ownedProject(t)
+	writePiProjectFile(t, s.ProjectRoot, `{"mcpServers":{"mcp-test1":{"enabled":false}}}`)
+	p, err := s.Preview()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.HasPrefix(p.Changes[0].Message, "managed by another Skillshare config: ") {
+		t.Fatalf("live owner: %s", p.Changes[0].Message)
+	}
+	if err := os.RemoveAll(filepath.Join(s.ProjectRoot, ".skillshare")); err != nil {
+		t.Fatal(err)
+	}
+	if p, err = s.Preview(); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.HasPrefix(p.Changes[0].Message, "existing entry is a Pi project override") {
+		t.Fatalf("removed owner: %s", p.Changes[0].Message)
+	}
+}
+
+// The conflict offers only Replace, so Replace has to settle it.
+func TestPiProjectOverrideIsSettledByReplace(t *testing.T) {
+	s := ownedProject(t)
+	if err := os.RemoveAll(filepath.Join(s.ProjectRoot, ".skillshare")); err != nil {
+		t.Fatal(err)
+	}
+	writePiProjectFile(t, s.ProjectRoot, `{"mcpServers":{"mcp-test1":{"enabled":false}}}`)
+	p, err := s.PreviewMutation(Mutation{Resolutions: []Resolution{{Target: "pi", Name: "mcp-test1", Action: "replace"}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if p.Blocked {
+		t.Fatalf("replace cannot settle it: %+v", p.Changes)
+	}
+}
+
 func writePiProjectFile(t *testing.T, root, content string) {
 	t.Helper()
 	if err := os.MkdirAll(filepath.Join(root, ".pi"), 0755); err != nil {
