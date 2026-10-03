@@ -195,6 +195,53 @@ func TestPiProjectKeepsAnonymousGlobalPackages(t *testing.T) {
 	}
 }
 
+func TestPiProjectAnonymousSourcesDoNotShareDuplicateIdentity(t *testing.T) {
+	f, root := projectFixture(t)
+	f.global(map[string]any{"packages": []any{f.pkg, "git:global.example.com/acme/tools?token=dummy-global"}})
+	f.writeJSON(f.projectFile(root), map[string]any{"packages": []any{
+		"git:one.example.com/acme/tools?token=dummy-one",
+		map[string]any{"source": f.pkg, "extensions": []string{"-extensions/a.ts"}},
+		map[string]any{"source": "git:https://dummy-user:dummy-pass@two.example.com/acme/tools?token=dummy-two", "extensions": []string{"-extensions/a.ts"}, "opaque": "dummy-private"},
+		map[string]any{"source": f.pkg, "extensions": []string{"-extensions/b.ts"}},
+		"https://three.example.com/acme/tools.git?token=dummy-three",
+	}})
+	same := unchanged(t, f.settingsPath(), f.projectFile(root), filepath.Join(f.agentDir, "trust.json"))
+	st, err := f.svc.piProjectState(context.Background(), "pi")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(st.view.Packages) != 6 || len(st.targets) != 1 || st.targets[piTargetKey("project", 3)] == nil {
+		t.Fatalf("packages=%+v, targets=%v", st.view.Packages, st.targets)
+	}
+	for _, index := range []int{0, 2, 4} {
+		p := st.view.Packages[index]
+		if p.Scope != "project" || p.Index != index || p.Identity != "" || p.Problem != "sourceUnknown" || p.Kind != "unknown" || len(p.Rows) != 0 {
+			t.Fatalf("anonymous project %d: %+v", index, p)
+		}
+		changes := []PiExtensionChange{{Scope: "project", Index: index, Source: p.Source, Path: "extensions/a.ts", Action: "exclude"}}
+		if _, err := f.svc.PreviewPiExtensions(context.Background(), "pi", changes); err == nil {
+			t.Fatal("anonymous project became previewable")
+		}
+		if _, err := f.svc.ApplyPiExtensions(context.Background(), "pi", changes, st.view.Revision); err == nil {
+			t.Fatal("anonymous project became writable")
+		}
+	}
+	if st.view.Packages[1].Problem != "duplicate" || st.view.Packages[3].Problem != "" || st.view.Packages[3].Shape != "replaces" {
+		t.Fatalf("known project precedence: %+v", st.view.Packages)
+	}
+	shown, err := json.Marshal(st.view)
+	if err != nil || strings.Contains(string(shown), "dummy-") {
+		t.Fatalf("credential/opaque value reached the view: %s, %v", shown, err)
+	}
+	if _, err := f.svc.PreviewPiExtensions(context.Background(), "pi", []PiExtensionChange{{Scope: "project", Index: 3, Source: f.pkg, Path: "extensions/b.ts", Action: "select"}}); err != nil {
+		t.Fatalf("last known project no longer editable: %v", err)
+	}
+	same()
+	if entries, _ := filepath.Glob(filepath.Join(f.svc.StateDir, "pi-extensions", "backups", "*.json")); len(entries) != 0 {
+		t.Fatalf("preview/refused apply made backup records: %v", entries)
+	}
+}
+
 func TestPiProjectAnonymousGlobalsKeepOrderWithoutSharingIdentity(t *testing.T) {
 	f, _ := projectFixture(t)
 	f.global(map[string]any{"packages": []any{

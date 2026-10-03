@@ -117,7 +117,9 @@ func (s *Service) piProjectState(ctx context.Context, target string) (*piProject
 	lastProject := map[string]int{}
 	for _, e := range project.entries {
 		if e.problem == "" {
-			lastProject[resolvePiSource(e.source, agentDir, projectDir, "project").identity] = e.index
+			if id := resolvePiSource(e.source, agentDir, projectDir, "project").identity; id != "" {
+				lastProject[id] = e.index
+			}
 		}
 	}
 	shadowed := map[string]bool{}
@@ -136,7 +138,7 @@ func (s *Service) piProjectState(ctx context.Context, target string) (*piProject
 		}
 		id := resolvePiSource(e.source, agentDir, projectDir, "project").identity
 		pkg.Identity = redactSource(id)
-		if lastProject[id] != e.index {
+		if id != "" && lastProject[id] != e.index {
 			pkg.Problem = "duplicate"
 			v.Packages = append(v.Packages, pkg)
 			continue
