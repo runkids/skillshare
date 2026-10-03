@@ -22,118 +22,87 @@ skillshare status
 
 ```
 Source
-─────────────────────────────────────────
-✓ ~/.config/skillshare/skills (43 skills, 2026-09-28 12:52)
-✓ ~/.config/skillshare/agents (2 agents, 2026-09-28 12:39)
+  skills    ~/.config/skillshare/skills  43 skills
+  agents    ~/.config/skillshare/agents  2 agents
 
-Tracked Repositories
-─────────────────────────────────────────
-_superpowers ✓            15 skills, up-to-date
+Tracked repositories
+✓ _superpowers  15 skills
 
-Targets
-─────────────────────────────────────────
-claude
-  skills   merged       [merge] ~/.claude/skills (43 shared, 0 local)
-  agents   merged       [merge] 2/2 linked
-cursor
-  skills   merged       [merge] ~/.cursor/skills (43 shared, 1 local)
-  agents   merged       [merge] 2/2 linked
-gemini
-  skills   merged       [merge] ~/.gemini/skills (43 shared, 0 local)
-…
-universal
-  skills   merged       [merge] ~/.agents/skills (43 shared, 0 local)
+Targets                        skills                 agents
+  claude     ~/.claude/skills  ✓ 43 linked            ✓ 2
+  cursor     ~/.cursor/skills  ✓ 43 linked · 1 local  ✓ 2
+  gemini     ~/.gemini/skills  ✓ 43 linked            —
+  universal  ~/.agents/skills  ✓ 43 linked            —
+  all use merge
 
 Extras
-─────────────────────────────────────────
-rules        has files    [merge] ~/.claude/rules (2 files)
-rules        has files    [merge] ~/.cursor/rules (2 files)
-commands     has files    [merge] ~/.claude/commands (1 files)
-team         has files    [symlink] ~/.codex (1 files)
-team         has files    [import] ~/.claude (1 files)
-…
+  rules     ~/.claude/rules     2 files · merge
+  rules     ~/.cursor/rules     2 files · merge
+  commands  ~/.claude/commands  1 file · merge
+  team      ~/.codex            1 file · symlink
+  team      ~/.claude           1 file · import
 
-Audit
-─────────────────────────────────────────
-→ Profile:    DEFAULT
-→ Block:      severity >= CRITICAL
-→ Dedupe:     GLOBAL
-→ Analyzers:  ALL
-
-Version
-─────────────────────────────────────────
-! Skill: 0.21.12 (update available: 0.21.13)
-→   Run: skillshare upgrade --skill && skillshare sync
+Audit    default · blocks critical
+Version  CLI 0.24.0 · skill 0.21.12
+! Skill 0.21.13 is available — run skillshare upgrade --skill && skillshare sync
 ```
 
 ## 各区块说明
 
 ### Source
 
-显示 source 目录位置、skill 数量，以及最后修改时间。当配置了 agents 时，agents source 会显示在单独的一行。
+显示 skills 文件夹及其中的 skill 数量。若存在 agents 文件夹，会在第二行显示它和 agent 数量。`.skillignore` 生效时，会多一行显示规则数和被忽略的 skill 数。
 
 ### Tracked Repositories
 
-列出通过 `--track` 安装的 git 仓库。显示：
-- 每个仓库的 skill 数量
-- Git 状态（up-to-date、has changes，或在无法读取 git status 时为 unknown；警告会指出该仓库和错误）
+列出通过 `--track` 安装的 git 仓库及各自的 skill 数量。`✓` 表示仓库没有未提交的更改；`!` 会附上 `uncommitted changes`，或在无法读取 git status 时附上错误信息。
 
 ### Targets
 
-每个 target 会显示为一个标题，下面带有 **skills** 和 **agents** 子项：
+每个 Target 一行：名称、skills 文件夹，以及 skills 和 agents 的状态。表格下方的一行列出正在使用的 sync 模式。
 
 ```
-claude
-  skills   merged       [merge] ~/.claude/skills (8 shared, 2 local)
-  agents   merged       [merge] 8/8 linked
+Targets                     skills                agents
+  claude  ~/.claude/skills  ✓ 8 linked · 2 local  ✓ 8
+  cursor  ~/.cursor/skills  ! 6/8 copied          ! 7/8
+  copy: cursor · merge: claude
+! 2 skills not synced — run skillshare sync
 ```
 
-**skills 子项** 显示：
-- **Sync mode**：`merge`、`copy` 或 `symlink`
-- **Path**：Target 目录位置
-- **Status**：`merged`、`copied`、`linked`、`has files` 或 `needs sync`
-- **Shared/local 计数**：在 merge 和 copy 模式下，计数使用的是该 target 的预期集合（应用 `include`/`exclude` filter 之后）。copy 模式下显示的是 "managed" 而非 "shared"。
+**skills 列：**
 
-**agents 子项** 显示：
-- **Sync mode**：agents 实际使用的同步模式。在未开启 Developer Mode 的 Windows 上，`merge` 会显示为 `[copy]`，因为 agent 文件是被复制而不是被链接
-- **Status**：`merged`、`copied`、`linked` 或 `drift`
-- **Linked 计数**：例如 `8/8 linked`（已是最新的副本也计为 linked）。在 copy fallback 中，skillshare 不拥有但内容相同的本地文件会被保留并单独显示，例如 `0/1 linked, 1 local preserved`
+| 显示 | 含义 |
+|------|------|
+| `✓ 8 linked` / `✓ 8 copied` | 预期的 skill 都已就位。merge 和 copy 模式按经过 `include`/`exclude` 过滤后的集合计算 |
+| `· 2 local` | 该文件夹中你自己的 skill，sync 不会改动它们 |
+| `! 6/8 linked` | 部分 skill 尚未同步；status 最后会列出数量和 `sync` 命令 |
+| `✓ symlinked` | symlink 模式：整个文件夹链接到 source |
+| `! needs sync` | 模式已变更，运行 `sync` 应用 |
+| `! has files` / `! not synced yet` | 这个 Target 还没有同步过 |
+| `✗ links to …` / `✗ broken link` | 文件夹链接到别处，或链接到不存在的位置 |
+| `skills off` | 这个 Target 的 skills 已关闭 |
 
-如果 agents source 不存在，或该 target 没有配置 agent path，则 agents 子项会被省略。
-
-| Status | 含义 |
-|--------|---------|
-| `merged` | skills/agents 被逐个 symlink |
-| `copied` | skills 被复制为真实文件（带 manifest） |
-| `linked` | 整个目录被 symlink |
-| `has files` | 尚未同步 |
-| `needs sync` | 模式已变更，运行 `sync` 以应用 |
-| `drift` | 部分 agents 缺失——运行 `sync agents` |
+**agents 列：** `✓ 8` 是已链接的 agent 数量（最新的副本也算作已链接）。`! 7/8` 表示部分缺失，请运行 `skillshare sync agents`。在 copy fallback 中，skillshare 不拥有但内容相同的本地文件会被保留，并计为 `· 1 local`。`—` 表示该 Target 没有 agents 文件夹。没有 agents source 时，此列会省略。
 
 ### Extras
 
-当配置了 extras 时，会显示每个 extra 的同步状态：
+配置了 extras 时，每个 extra target 各占一行：
 
 ```
 Extras
-rules        has files  [merge] .cursor/rules (4 files)
-commands     has files  [merge] .claude/commands (3 files)
+  rules     .cursor/rules     4 files · merge
+  commands  .claude/commands  3 files · merge
 ```
 
-每一项显示名称、状态、sync mode、target 路径和文件数量。sync mode 是文件实际同步时使用的模式：在未开启 Developer Mode 的 Windows 上，链接文件的 target 会显示 `[copy]`。
+每行显示 extra 名称、target 文件夹、文件数量，以及文件实际使用的同步模式：在未开启开发者模式的 Windows 上，链接文件的 target 会显示 `copy`。
 
 ### Audit
 
-显示当前生效的 audit 策略配置（由 CLI flag、project config 或 global config 解析得出）：
-
-- **Profile**：`DEFAULT`、`STRICT` 或 `PERMISSIVE`
-- **Block**：触发阻断的严重程度阈值（默认为 `CRITICAL`）
-- **Dedupe**：去重模式（`GLOBAL` 或 `LEGACY`）
-- **Analyzers**：已启用的 analyzer（`ALL` 或某个过滤后的列表）
+一行显示当前生效的 audit 策略（由 CLI flags、项目配置或全局配置解析而来）：profile（`default`、`strict` 或 `permissive`），以及会阻止安装的最低严重级别（默认为 `critical`）。dedupe 模式和分析器只有在不同于默认值（`global` 和全部分析器）时才会列出。
 
 ### Version
 
-比较你的 CLI 和 skill 版本与最新发布版本。（仅限 global mode。）
+显示 CLI 和 skill 的版本。有更新的 skill 发布时，会多一行说明如何更新。（仅限 global 模式）
 
 ## Options
 
@@ -199,13 +168,13 @@ skillshare status --json
 
 无法读取 git status 的 tracked repo 会显示 `"status": "unknown"`，`message` 中包含错误信息；此时 `dirty` 为 false，且没有意义。
 
-`source.skillignore` 字段仅在至少存在一个 `.skillignore` 或 `.skillignore.local` 文件时出现。不存在时：`"skillignore": { "active": false }`。`files` 数组在 `.skillignore.local` 存在时会包含其路径。在文本模式下，当任何 `.skillignore.local` 生效时，source 那一行会显示 `.local active`。
+`source.skillignore` 字段仅在至少存在一个 `.skillignore` 或 `.skillignore.local` 文件时出现。不存在时：`"skillignore": { "active": false }`。`files` 数组在 `.skillignore.local` 存在时会包含其路径。在文本模式下，当任何 `.skillignore.local` 生效时，`.skillignore` 那一行会显示 `(.local active)`。
 
 JSON 输出在 global mode 和 project mode 下都支持。
 
 ## Project Mode
 
-在项目目录中，status 会显示项目专属信息。第一个区块标题会显示 `Source (project)` 以表明处于 project mode：
+在项目目录中，status 会显示项目的 source、targets 和 extras，路径以项目根目录为基准：
 
 ```bash
 skillshare status        # 如果存在 .skillshare/ 则自动检测
@@ -215,28 +184,21 @@ skillshare status -p     # 显式指定 project mode
 ### 示例输出
 
 ```
-Source (project)
-✓ .skillshare/skills/ (3 skills, 2026-04-08 12:43)
-→ .skillignore: 3 patterns, 0 skills ignored
-✓ .skillshare/agents/ (4 agents, 2026-04-08 12:43)
+Source
+  skills    .skillshare/skills  3 skills
+  agents    .skillshare/agents  4 agents
+  .skillignore: 3 patterns, 0 skills ignored
 
-Targets
-claude
-  skills   merged       [merge] .claude/skills (3 shared, 0 local)
-  agents   merged       [merge] 4/4 linked
-cursor
-  skills   merged       [merge] .cursor/skills (3 shared, 0 local)
-  agents   merged       [merge] 4/4 linked
+Targets                   skills      agents
+  claude  .claude/skills  ✓ 3 linked  ✓ 4
+  cursor  .cursor/skills  ✓ 3 linked  ✓ 4
+  all use merge
 
 Extras
-rules        has files  [merge] .cursor/rules (4 files)
-commands     has files  [merge] .claude/commands (3 files)
+  rules     .cursor/rules     4 files · merge
+  commands  .claude/commands  3 files · merge
 
-Audit
-→ Profile:    DEFAULT
-→ Block:      severity >= CRITICAL
-→ Dedupe:     GLOBAL
-→ Analyzers:  ALL
+Audit    default · blocks critical
 ```
 
 Project status 不显示 Tracked Repositories 和 Version 区块（这些是仅限 global 的功能）。

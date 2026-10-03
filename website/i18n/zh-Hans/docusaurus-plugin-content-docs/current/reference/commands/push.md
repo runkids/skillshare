@@ -89,10 +89,12 @@ skillshare push --dry-run
 
 ```bash
 $ skillshare push
-Push failed
+✗ Push failed
   Remote may have newer changes
-  Run: skillshare pull
-  Then: skillshare push
+
+Next
+  skillshare pull  get them first
+  skillshare push  then push again
 ```
 
 解决方法：

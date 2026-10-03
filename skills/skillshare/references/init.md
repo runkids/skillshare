@@ -17,28 +17,30 @@ Initialize skillshare configuration (global or project).
 | `--no-targets` | Skip target setup |
 | `--git` | Initialize git repo |
 | `--no-git` | Skip git init |
-| `-d, --discover` | Discover new AI tools (interactive) |
+| `-d, --discover` | Discover new AI tools (no terminal: adds every new tool) |
 | `--discover --select "a,b"` | Non-interactive discovery |
 | `-s, --source <path>` | Custom source path |
-| `--remote <url>` | Set git remote (implies --git) |
+| `--remote <url>` | Set git remote (implies --git); pulls a repo that has skills, repo version wins for same-name skills |
 | `--git-root <scope>` | Git scope: `skills`, `agents`, `extras`, or `root` |
-| `--skill` | Install built-in skillshare skill (opt-in) |
+| `--skill` | Install built-in skillshare skill (default) |
 | `--no-skill` | Skip built-in skill installation |
 | `-n, --dry-run` | Preview changes |
 
 ### AI Usage (Non-Interactive)
 
+Without a terminal, `init` asks nothing and uses the defaults: every detected tool, every existing skill imported, git on, built-in skill installed, then a first sync. Each decision is printed with the flag that changes it.
+
 ```bash
-# Step 1: Check for existing skills
-ls ~/.claude/skills ~/.cursor/skills 2>/dev/null | head -10
+# Defaults: a working setup in one command
+skillshare init
 
-# Step 2a: Fresh start
-skillshare init --no-copy --all-targets --git --skill
+# New machine with an existing skillshare repo (pulls its skills)
+skillshare init --remote git@github.com:you/skills.git
 
-# Step 2b: Import existing skills
-skillshare init --copy-from claude --all-targets --git --skill
+# Start empty instead of importing
+skillshare init --no-copy
 
-# Step 3: Verify
+# Verify
 skillshare status
 ```
 
@@ -61,7 +63,7 @@ Examples below use the default hidden directory.
 |------|-------------|
 | `-p, --project` | Enable project mode |
 | `--visible` | Use `skillshare/` instead of `.skillshare/` |
-| `-t, --targets "claude,cursor"` | Specific targets (non-interactive) |
+| `-t, --targets "claude,cursor"` | Specific targets (default: every detected tool) |
 | `-d, --discover` | Discover new AI tools |
 | `--discover --select "a,b"` | Non-interactive discovery |
 | `-n, --dry-run` | Preview changes |
@@ -71,7 +73,10 @@ Examples below use the default hidden directory.
 ### AI Usage (Non-Interactive)
 
 ```bash
-# Initialize with specific targets
+# Every detected tool
+skillshare init -p
+
+# Or specific targets
 skillshare init -p --targets "claude,cursor"
 
 # Verify

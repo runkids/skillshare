@@ -113,10 +113,13 @@ skillshare extras init pi-prompt --file system.md --as APPEND_SYSTEM.md \
 `extras init`는 config만 작성합니다. source 파일을 만들지 않으며 동기화하지도 않습니다. single-file extra의 경우 source와 target 파일의 전체 경로를 출력합니다:
 
 ```
+  Source    ~/dotfiles/prompts/system.md
+  Target    ~/.pi/agent/APPEND_SYSTEM.md · merge
+
 ✓ Created extra pi-prompt (single file)
-Source: ~/dotfiles/prompts/system.md
-Target: ~/.pi/agent/APPEND_SYSTEM.md [merge]
-Run 'skillshare sync extras' to sync.
+
+Next
+  skillshare sync extras  sync it
 ```
 
 source 파일이 아직 없으면 source 줄 끝에 `(not found)`가 붙고, 마지막 줄은 `Create the source file, then run 'skillshare sync extras'.`가 됩니다.
@@ -168,15 +171,14 @@ TUI가 비활성화된 경우 (`--no-tui`, `skillshare tui off`, 또는 파이�
 
 ```
 $ skillshare extras list --no-tui
+rules  ~/.config/skillshare/extras/rules · 2 files
+✓ ~/.claude/rules  merge
+✓ ~/.cursor/rules  copy
 
-Extras
-─────────────────────────────────────────
-→ rules  ~/.config/skillshare/extras/rules/ · 2 files
-  ✓ ~/.claude/rules  merge
-  ✓ ~/.cursor/rules  copy
+codex-agents  ~/.config/skillshare/agents · 3 files
+✓ ~/.codex/agents  extension: codex-agents
 
-→ codex-agents  ~/.config/skillshare/agents · 3 files
-  ✓ ~/.codex/agents  extension: codex-agents
+2 extras
 ```
 
 [single-file extra](#single-file-extras)의 경우 source와 각 target은 디렉터리 대신 파일의 전체 경로를 표시합니다.

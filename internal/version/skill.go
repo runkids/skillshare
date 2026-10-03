@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"skillshare/internal/config"
 )
 
 // SkillSourceURL is the raw URL to the official skillshare skill's SKILL.md.
@@ -68,6 +70,42 @@ func parseMetadataVersion(filePath string) string {
 	}
 
 	return ""
+}
+
+// SkillOutdated reports whether remote is a newer skill version than local.
+// An unknown or unparsable version on either side is never outdated.
+func SkillOutdated(local, remote string) bool {
+	if local == "" || remote == "" {
+		return false
+	}
+	older, err := compareVersions(local, remote)
+	return err == nil && older
+}
+
+const skillCacheFileName = "skill-version-check.json"
+
+// CachedRemoteSkillVersion returns the latest published skill version,
+// asking GitHub at most once per checkInterval like Check does for the
+// CLI. Returns "" when offline with no fresh cache.
+func CachedRemoteSkillVersion() string {
+	if cache, _ := loadCacheAt(skillCachePath()); cache != nil && time.Since(cache.LastChecked) < checkInterval {
+		return cache.LatestVersion
+	}
+	latest := FetchRemoteSkillVersion()
+	if latest != "" {
+		SaveRemoteSkillVersion(latest)
+	}
+	return latest
+}
+
+// SaveRemoteSkillVersion records a freshly fetched skill version, so a
+// command that already asked GitHub spares the next one the request.
+func SaveRemoteSkillVersion(latest string) {
+	_ = saveCacheAt(skillCachePath(), &Cache{LastChecked: time.Now(), LatestVersion: latest})
+}
+
+func skillCachePath() string {
+	return filepath.Join(config.CacheDir(), skillCacheFileName)
 }
 
 // FetchRemoteSkillVersion fetches the latest skill version from GitHub (3s timeout).

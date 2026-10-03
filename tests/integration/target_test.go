@@ -26,7 +26,7 @@ targets: {}
 
 	result.AssertSuccess(t)
 	result.AssertOutputContains(t, "Added target")
-	result.AssertOutputContains(t, "Run 'skillshare sync'")
+	result.AssertOutputContains(t, "skillshare sync")
 
 	// Verify config was updated
 	configContent := sb.ReadFile(sb.ConfigPath)
@@ -330,8 +330,8 @@ targets:
 
 	result.AssertSuccess(t)
 	result.AssertOutputContains(t, "claude")
-	result.AssertOutputContains(t, "Path:")
-	result.AssertOutputContains(t, "Mode:")
+	result.AssertOutputContains(t, "Path      ")
+	result.AssertOutputContains(t, "Mode      ")
 }
 
 func TestTargetInfo_CopyMode_ShowsManagedCount(t *testing.T) {
@@ -354,7 +354,7 @@ targets:
 	result := sb.RunCLI("target", "claude")
 	result.AssertSuccess(t)
 	result.AssertOutputContains(t, "copy")
-	result.AssertOutputContains(t, "managed: 2")
+	result.AssertOutputContains(t, "2 managed")
 }
 
 func TestTargetInfo_CopyMode_ManagedCountMatchesDisk(t *testing.T) {
@@ -380,8 +380,8 @@ targets:
 	// managed count should reflect actual disk state (1, not 2)
 	result := sb.RunCLI("target", "claude")
 	result.AssertSuccess(t)
-	result.AssertOutputContains(t, "managed: 1")
-	result.AssertOutputNotContains(t, "managed: 2")
+	result.AssertOutputContains(t, "1 managed")
+	result.AssertOutputNotContains(t, "2 managed")
 }
 
 func TestTargetInfo_CopyMode_ManagedCountIgnoresNonDirectory(t *testing.T) {
@@ -407,8 +407,8 @@ targets:
 
 	result := sb.RunCLI("target", "claude")
 	result.AssertSuccess(t)
-	result.AssertOutputContains(t, "managed: 1")
-	result.AssertOutputNotContains(t, "managed: 2")
+	result.AssertOutputContains(t, "1 managed")
+	result.AssertOutputNotContains(t, "2 managed")
 }
 
 func TestTargetMode_SetsMode(t *testing.T) {
@@ -470,7 +470,7 @@ targets:
 
 	result.AssertSuccess(t)
 	result.AssertOutputContains(t, "claude")
-	result.AssertOutputContains(t, "Mode:")
+	result.AssertOutputContains(t, "merge · flat")
 	result.AssertOutputContains(t, "merge")
 }
 
@@ -502,7 +502,7 @@ targets: {}
 
 	result := sb.RunCLI("target", "add", "claude-work", "--agent", "claude", "--config-dir", dir)
 	result.AssertSuccess(t)
-	result.AssertOutputContains(t, filepath.Join(dir, "skills"))
+	result.AssertOutputContains(t, "~/.claude-work/skills")
 	if content := sb.ReadFile(sb.ConfigPath); !strings.Contains(content, "agent: claude") || strings.Contains(content, "path:") {
 		t.Fatalf("config:\n%s", content)
 	}

@@ -290,8 +290,8 @@ This means that after `uninstall` + `sync`, even non-symlink residue (e.g., dire
 
 ```
 $ skillshare sync
-✓ claude: merged (5 linked, 2 local, 0 updated, 1 pruned)
-✓ cursor: copied (3 new, 2 skipped, 0 updated, 1 pruned)
+✓ claude    5 linked · 2 local · 1 pruned
+✓ cursor    3 copied · 2 up to date · 1 pruned
 ```
 
 :::info Agents follow the same modes

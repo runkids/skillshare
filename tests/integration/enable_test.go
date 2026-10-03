@@ -22,7 +22,7 @@ func TestDisable_AddsToSkillignore(t *testing.T) {
 
 	result := sb.RunCLI("disable", "my-skill")
 	result.AssertSuccess(t)
-	result.AssertAnyOutputContains(t, "Disabled: my-skill")
+	result.AssertRowContains(t, "my-skill", "added to .skillignore")
 	result.AssertAnyOutputContains(t, "skillshare sync")
 
 	ignorePath := filepath.Join(sb.SourcePath, ".skillignore")
@@ -64,7 +64,7 @@ func TestEnable_RemovesFromSkillignore(t *testing.T) {
 
 	result := sb.RunCLI("enable", "my-skill")
 	result.AssertSuccess(t)
-	result.AssertAnyOutputContains(t, "Enabled: my-skill")
+	result.AssertRowContains(t, "my-skill", "removed from .skillignore")
 
 	ignorePath := filepath.Join(sb.SourcePath, ".skillignore")
 	data, err := os.ReadFile(ignorePath)
@@ -101,7 +101,7 @@ func TestDisable_GlobPattern(t *testing.T) {
 
 	result := sb.RunCLI("disable", "draft-*")
 	result.AssertSuccess(t)
-	result.AssertAnyOutputContains(t, "Disabled: draft-*")
+	result.AssertRowContains(t, "draft-*", "added to .skillignore")
 
 	ignorePath := filepath.Join(sb.SourcePath, ".skillignore")
 	data, _ := os.ReadFile(ignorePath)
@@ -119,7 +119,7 @@ func TestDisable_DryRun(t *testing.T) {
 
 	result := sb.RunCLI("disable", "my-skill", "--dry-run")
 	result.AssertSuccess(t)
-	result.AssertAnyOutputContains(t, "Would add")
+	result.AssertAnyOutputContains(t, "would be added to")
 
 	ignorePath := filepath.Join(sb.SourcePath, ".skillignore")
 	if _, err := os.Stat(ignorePath); err == nil {

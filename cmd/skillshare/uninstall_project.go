@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -46,6 +47,11 @@ func cmdUninstallProject(args []string, root string) error {
 	// --json is global-only; project mode prints text and still confirms.
 	opts.jsonOutput = false
 
+	targetNames := make([]string, len(projectCfg.Targets))
+	for i, t := range projectCfg.Targets {
+		targetNames[i] = t.Name
+	}
+	sort.Strings(targetNames)
 	mode := &uninstallMode{
 		sourceDir:           sourceDir,
 		sourceLabel:         ".skillshare/skills",
@@ -55,7 +61,7 @@ func cmdUninstallProject(args []string, root string) error {
 		emptySourceErr:      "no skills found in project source",
 		confirmSuffix:       " from the project",
 		reinstallFlags:      " --project",
-		syncHint:            "Run 'skillshare sync' to clean up symlinks",
+		targetNames:         targetNames,
 		reportAfterFinalize: true,
 		dryRunGitignore: func(*uninstallTarget) string {
 			return "would update .skillshare/.gitignore"

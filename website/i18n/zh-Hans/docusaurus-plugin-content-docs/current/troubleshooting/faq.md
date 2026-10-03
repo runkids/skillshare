@@ -382,7 +382,7 @@ Skill 是**目录**，其中包含一个 `SKILL.md` 文件（可以再加上辅�
 
 ### 哪些 Target 支持 agent？
 
-开箱即用支持的有：`claude`、`cursor`、`augment`、`opencode`（以及 `universal` 别名）。其他 Target 在 agent 同步时会被自动跳过，并显示 `target(s) skipped for agents (no agents path)` 警告。你可以通过编辑 `config.yaml` 手动为它添加 agent 路径：
+开箱即用支持的有：`claude`、`cursor`、`augment`、`opencode`（以及 `universal` 别名）。其他 Target 在 agent 同步时会被自动跳过，并显示 `No agents folder: <targets>` 警告。你可以通过编辑 `config.yaml` 手动为它添加 agent 路径：
 
 ```yaml
 targets:

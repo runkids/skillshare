@@ -53,15 +53,18 @@ skillshare init
 ```
 
 <p>
-  <img src="/img/init-with-mode.png" alt="Interactive init flow" width="720" />
+  <img src="/img/init-demo.png" alt="skillshare init: 답한 질문, 요약, 첫 sync" width="720" />
 </p>
 
-`init`은 네 가지 선택 과정을 안내합니다.
+`init`은 짧은 질문 몇 가지를 묻고 요약을 보여 줍니다. 확인하기 전에는 아무것도 쓰지 않습니다.
 
-1. **Source 디렉터리** — 기본값은 `~/.config/skillshare/skills/`입니다. Enter를 눌러 그대로 사용하세요.
-2. **Git 원격 저장소** — 개인 Skill 리포지터리의 URL을 붙여넣습니다 (예: `git@github.com:you/skills.git`). 아직 없다면 GitHub에 빈 리포지터리를 먼저 만드세요. 건너뛰고 나중에 원격 저장소를 추가해도 됩니다.
-3. **Target** — skillshare가 설치된 AI CLI를 감지해 목록으로 보여줍니다. 확인하거나 원하지 않는 항목은 선택 해제하세요.
-4. **내장 Skill** — 선택 사항입니다. `/skillshare` 명령을 추가해 AI CLI가 skillshare를 직접 호출할 수 있게 합니다.
+1. **시작 방법** — 이 머신에서 새로 설정하거나 [기존 skillshare 저장소에 연결](/docs/how-to/sharing/cross-machine-sync#second-machine-setup)합니다.
+2. **Targets** — 감지된 AI CLI가 모두 선택되어 있습니다. Space 키로 하나씩 뺄 수 있습니다.
+3. **가져오기** — 그 도구들에 이미 있는 Skill을 source로 복사합니다.
+4. **Git** — 기본으로 켜져 있어 나중에 Skill을 저장소로 push할 수 있습니다.
+5. **원격 저장소** — Skill 저장소 URL을 붙여넣습니다 (예: `git@github.com:you/skills.git`). Enter로 건너뛰고 나중에 추가해도 됩니다.
+
+요약에는 source 디렉터리(`~/.config/skillshare/skills/`), sync mode, 내장 Skill(AI CLI에 `/skillshare` 명령 추가)도 표시됩니다. **Change settings**로 바꿀 수 있고 <kbd>Esc</kbd>로 취소할 수 있습니다. 확인하면 `init`이 바로 sync할지 묻습니다.
 
 ### Sync 모드 선택하기
 
@@ -99,24 +102,17 @@ skillshare status
 $ skillshare status
 
 Source
-─────────────────────────────────────────
-✓ ~/.config/skillshare/skills (43 skills, 2026-09-28 12:39)
-✓ ~/.config/skillshare/agents (2 agents, 2026-09-28 12:39)
+  skills    ~/.config/skillshare/skills  43 skills
+  agents    ~/.config/skillshare/agents  2 agents
 
-Targets
-─────────────────────────────────────────
-claude
-  skills   merged       [merge] ~/.claude/skills (43 shared, 0 local)
-  agents   merged       [merge] 2/2 linked
-cursor
-  skills   merged       [merge] ~/.cursor/skills (43 shared, 0 local)
-  agents   merged       [merge] 2/2 linked
-gemini
-  skills   merged       [merge] ~/.gemini/skills (43 shared, 0 local)
-…
+Targets                     skills       agents
+  claude  ~/.claude/skills  ✓ 43 linked  ✓ 2
+  cursor  ~/.cursor/skills  ✓ 43 linked  ✓ 2
+  gemini  ~/.gemini/skills  ✓ 43 linked  —
+  all use merge
 ```
 
-출력에 Source 경로와 모든 Target이 나타납니다. `merge` 모드에서 동기화된 Target은 `merged`로 표시되며, shared 개수에 방금 설치한 Skill도 포함됩니다.
+출력에 Source 경로와 모든 Target이 나타납니다. 동기화된 Target에는 `✓`와 연결한 Skill 수가 표시되며, 그 수에는 방금 설치한 Skill도 포함됩니다.
 
 대시보드(`skillshare ui`)에서도 같은 상태를 한눈에 볼 수 있습니다.
 
@@ -168,7 +164,7 @@ skillshare install https://github.com/<your-company>/skills --track --force
 skillshare sync
 ```
 
-`--no-skill`은 내장 Skill 프롬프트를 건너뜁니다. 이 머신에서도 필요하다면 나중에 `skillshare upgrade --skill`로 추가하세요.
+`--no-skill`은 내장 Skill을 건너뜁니다. 이 머신에서도 필요하다면 나중에 `skillshare upgrade --skill`로 추가하세요.
 
 ---
 

@@ -35,10 +35,10 @@ func TestShowTargetInfo_ShowsAgentsSectionForBuiltinTarget(t *testing.T) {
 		}
 	}))
 
-	if !strings.Contains(output, "Agents:") {
+	if !strings.Contains(output, "\nAgents\n") {
 		t.Fatalf("expected agents section in output:\n%s", output)
 	}
-	if !strings.Contains(output, agentTarget) {
+	if !strings.Contains(output, shortenPath(agentTarget)) {
 		t.Fatalf("expected agent path %q in output:\n%s", agentTarget, output)
 	}
 	if !strings.Contains(output, "1/1 linked") {
@@ -203,14 +203,12 @@ func TestTargetList_TextOutputShowsSkillsAndAgentsSections(t *testing.T) {
 
 	for _, want := range []string{
 		"claude",
-		"Skills:",
-		targetPath,
-		"Sync:",
-		"Agents:",
-		agentTarget,
+		"Skills",
+		shortenPath(targetPath),
+		"Agents",
+		shortenPath(agentTarget),
 		"1/1 linked",
-		"No include/exclude filters",
-		"No agent include/exclude filters",
+		"1 target",
 	} {
 		if !strings.Contains(output, want) {
 			t.Fatalf("expected %q in target list output:\n%s", want, output)
@@ -219,6 +217,7 @@ func TestTargetList_TextOutputShowsSkillsAndAgentsSections(t *testing.T) {
 }
 
 func TestRenderTargetDetail_AgentSection(t *testing.T) {
+	keepPathsUnfolded(t)
 	cases := []struct {
 		name        string
 		item        targetTUIItem
@@ -579,4 +578,28 @@ func writeProjectTargetConfig(t *testing.T, targets []config.ProjectTargetEntry)
 		t.Fatalf("save project config: %v", err)
 	}
 	return root
+}
+
+func TestBuildTargetSkillSyncSummary_PlainTextOmitsZeroCounts(t *testing.T) {
+	root := t.TempDir()
+	source := filepath.Join(root, "source")
+	target := filepath.Join(root, "target")
+	for _, dir := range []string{filepath.Join(source, "shared"), filepath.Join(target, "mine")} {
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.Symlink(filepath.Join(source, "shared"), filepath.Join(target, "shared")); err != nil {
+		t.Fatal(err)
+	}
+
+	summary, text := buildTargetSkillSyncSummary(target, source, "merge")
+	if summary != "merged (1 shared, 1 local)" || text != "merged · 1 shared, 1 local" {
+		t.Fatalf("got summary %q, text %q", summary, text)
+	}
+
+	summary, text = buildTargetSkillSyncSummary(filepath.Join(root, "missing"), source, "merge")
+	if summary != "not exist (0 shared, 0 local)" || text != "not exist" {
+		t.Fatalf("got summary %q, text %q", summary, text)
+	}
 }

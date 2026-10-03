@@ -864,7 +864,7 @@ git_root: skills
 
 **Default:** `skills`
 
-Set during init with `skillshare init --git-root <scope>`, or interactively during the init wizard.
+Set during init with `skillshare init --git-root <scope>`, or with **Change settings** in the init summary.
 
 #### Changing the scope after init
 

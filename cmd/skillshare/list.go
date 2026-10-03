@@ -444,111 +444,71 @@ func hasGroups(skills []skillEntry) bool {
 	return false
 }
 
-// displaySkillsVerbose displays skills in verbose mode, grouped by directory
-func displaySkillsVerbose(skills []skillEntry) {
-	a := theme.ANSI()
+// listRows orders skills by group and returns each one's row label,
+// indented under its group, plus the group headings ("frontend/") keyed by
+// the index of their first skill.
+func listRows(skills []skillEntry) (ordered []skillEntry, labels []string, headings map[int]string) {
+	headings = map[int]string{}
 	if !hasGroups(skills) {
-		// Flat display — no grouping needed
 		for _, s := range skills {
-			fmt.Printf("  %s%s%s\n", a.Accent, s.Name, a.Reset)
-			printVerboseDetails(s, "    ")
+			labels = append(labels, s.Name)
 		}
-		return
+		return skills, labels, headings
 	}
-
 	dirs, groups := groupSkillEntries(skills)
-	for i, dir := range dirs {
+	for _, dir := range dirs {
 		if dir != "" {
-			if i > 0 {
-				fmt.Println()
-			}
-			fmt.Printf("  %s%s/%s\n", a.Dim, dir, a.Reset)
-		} else if i > 0 {
-			fmt.Println()
+			headings[len(labels)] = dir + "/"
 		}
-
 		for _, s := range groups[dir] {
-			name := displayName(s, dir)
-			indent := "    "
-			detailIndent := "      "
-			if dir == "" {
-				indent = "  "
-				detailIndent = "    "
-			}
-			fmt.Printf("%s%s%s%s\n", indent, a.Accent, name, a.Reset)
-			printVerboseDetails(s, detailIndent)
-		}
-	}
-}
-
-func printVerboseDetails(s skillEntry, indent string) {
-	a := theme.ANSI()
-	if s.Disabled {
-		fmt.Printf("%s%sStatus:%s      %sdisabled%s\n", indent, a.Dim, a.Reset, a.Dim, a.Reset)
-	}
-	if s.RepoName != "" {
-		fmt.Printf("%s%sTracked repo:%s %s\n", indent, a.Dim, a.Reset, s.RepoName)
-	}
-	if s.Source != "" {
-		fmt.Printf("%s%sSource:%s      %s\n", indent, a.Dim, a.Reset, s.Source)
-		fmt.Printf("%s%sType:%s        %s\n", indent, a.Dim, a.Reset, s.Type)
-		fmt.Printf("%s%sInstalled:%s   %s\n", indent, a.Dim, a.Reset, s.InstalledAt)
-	} else {
-		fmt.Printf("%s%sSource:%s      (local - no metadata)\n", indent, a.Dim, a.Reset)
-	}
-	fmt.Println()
-}
-
-// displaySkillsCompact displays skills in compact mode, grouped by directory
-func displaySkillsCompact(skills []skillEntry) {
-	a := theme.ANSI()
-	if !hasGroups(skills) {
-		// Flat display — identical to previous behavior
-		maxNameLen := 0
-		for _, s := range skills {
-			if len(s.Name) > maxNameLen {
-				maxNameLen = len(s.Name)
-			}
-		}
-		for _, s := range skills {
-			suffix := getSkillSuffix(s)
-			format := fmt.Sprintf("  %s→%s %%-%ds  %s%%s%s\n", a.Accent, a.Reset, maxNameLen, a.Dim, a.Reset)
-			fmt.Printf(format, s.Name, suffix)
-		}
-		return
-	}
-
-	dirs, groups := groupSkillEntries(skills)
-	for i, dir := range dirs {
-		if dir != "" {
-			if i > 0 {
-				fmt.Println()
-			}
-			fmt.Printf("  %s%s/%s\n", a.Dim, dir, a.Reset)
-		} else if i > 0 {
-			fmt.Println()
-		}
-
-		// Calculate max name length within this group
-		maxNameLen := 0
-		for _, s := range groups[dir] {
-			name := displayName(s, dir)
-			if len(name) > maxNameLen {
-				maxNameLen = len(name)
-			}
-		}
-
-		for _, s := range groups[dir] {
-			name := displayName(s, dir)
-			suffix := getSkillSuffix(s)
+			label := displayName(s, dir)
 			if dir != "" {
-				format := fmt.Sprintf("    %s→%s %%-%ds  %s%%s%s\n", a.Accent, a.Reset, maxNameLen, a.Dim, a.Reset)
-				fmt.Printf(format, name, suffix)
-			} else {
-				format := fmt.Sprintf("  %s→%s %%-%ds  %s%%s%s\n", a.Accent, a.Reset, maxNameLen, a.Dim, a.Reset)
-				fmt.Printf(format, name, suffix)
+				label = "  " + label
 			}
+			labels = append(labels, label)
+			ordered = append(ordered, s)
 		}
+	}
+	return ordered, labels, headings
+}
+
+// displaySkillsVerbose lists each skill with its source, type and install
+// date on the rows below it.
+func displaySkillsVerbose(skills []skillEntry) {
+	skills, labels, headings := listRows(skills)
+	for i, s := range skills {
+		if h, ok := headings[i]; ok {
+			fmt.Println("  " + ui.DimText(h))
+		}
+		fmt.Println("  " + theme.Primary().Bold(true).Render(labels[i]))
+		indent := strings.Repeat(" ", len(labels[i])-len(strings.TrimLeft(labels[i], " "))+2)
+		var rows [][2]string
+		if s.Disabled {
+			rows = append(rows, [2]string{"Status", "disabled"})
+		}
+		if s.RepoName != "" {
+			rows = append(rows, [2]string{"Repo", s.RepoName})
+		}
+		if s.Source != "" {
+			rows = append(rows, [2]string{"Source", s.Source}, [2]string{"Type", s.Type}, [2]string{"Installed", s.InstalledAt})
+		} else if s.RepoName == "" {
+			rows = append(rows, [2]string{"Source", "local"})
+		}
+		for _, r := range rows {
+			ui.Row(ui.MarkNone, indent+r[0], ui.DimText(r[1]), len(indent)+9)
+		}
+	}
+}
+
+// displaySkillsCompact lists one skill per row with where it came from.
+func displaySkillsCompact(skills []skillEntry) {
+	skills, labels, headings := listRows(skills)
+	width := ui.RowWidth(labels...)
+	for i, s := range skills {
+		if h, ok := headings[i]; ok {
+			fmt.Println("  " + ui.DimText(h))
+		}
+		ui.Row(ui.MarkNone, labels[i], ui.DimText(getSkillSuffix(s)), width)
 	}
 }
 
@@ -563,7 +523,7 @@ func getSkillSuffix(s skillEntry) string {
 		suffix = "local"
 	}
 	if s.Disabled {
-		suffix += "  [disabled]"
+		suffix += " · disabled"
 	}
 	return suffix
 }
@@ -571,8 +531,7 @@ func getSkillSuffix(s skillEntry) string {
 // displayTrackedRepos displays the tracked repositories section.
 // Git status checks run in parallel (bounded by maxDirtyWorkers).
 func displayTrackedRepos(trackedRepos []string, discovered []sync.DiscoveredSkill, sourcePath string) {
-	fmt.Println()
-	ui.Header("Tracked repositories")
+	ui.Section("Tracked repos")
 
 	// Parallel git status checks
 	const maxDirtyWorkers = 8
@@ -597,15 +556,16 @@ func displayTrackedRepos(trackedRepos []string, discovered []sync.DiscoveredSkil
 	}
 	wg.Wait()
 
+	width := ui.RowWidth(trackedRepos...)
 	for i, repoName := range trackedRepos {
-		skillCount := countRepoSkills(repoName, discovered)
+		skills := ui.DimText(" · " + plural(countRepoSkills(repoName, discovered), "skill"))
 		if err := results[i].err; err != nil {
-			ui.ListItem("warning", repoName, fmt.Sprintf("%d skills, git status unknown", skillCount))
-			ui.Warning("%s: %v", repoName, &gitStatusError{err: err})
+			ui.Row(ui.MarkWarn, repoName, "git status unknown"+skills, width)
+			ui.Note((&gitStatusError{err: err}).Error())
 		} else if results[i].dirty {
-			ui.ListItem("warning", repoName, fmt.Sprintf("%d skills, has changes", skillCount))
+			ui.Row(ui.MarkWarn, repoName, "has changes"+skills, width)
 		} else {
-			ui.ListItem("success", repoName, fmt.Sprintf("%d skills, up-to-date", skillCount))
+			ui.Row(ui.MarkOK, repoName, "up to date"+skills, width)
 		}
 	}
 }
@@ -688,7 +648,7 @@ func cmdList(args []string) error {
 			if kind == kindAgents {
 				resourceLabel = "agents"
 			}
-			ui.Info("No %s installed", resourceLabel)
+			printListEmpty(resourceLabel, kind, false)
 			return nil
 		case "audit":
 			if skillKind == "agent" {
@@ -748,11 +708,9 @@ func cmdList(args []string) error {
 	}
 
 	if sp != nil {
-		sp.Success(fmt.Sprintf("Loaded %d %s", len(allEntries), resourceLabel))
+		sp.Stop()
 	}
 	totalCount := len(allEntries)
-	hasFilter := opts.Pattern != "" || opts.TypeFilter != "" || opts.Status != statusFilterAll
-
 	// Apply filter and sort
 	allEntries = filterSkillEntries(allEntries, opts.Pattern, opts.TypeFilter, opts.Status)
 	// Always sort so the TUI and plain-text renderers see contiguous
@@ -764,55 +722,110 @@ func cmdList(args []string) error {
 		return displaySkillsJSON(allEntries)
 	}
 
-	// Handle empty results
-	if len(allEntries) == 0 && len(trackedRepos) == 0 && !hasFilter {
-		ui.Info("No %s installed", resourceLabel)
-		if kind.IncludesSkills() {
-			ui.Info("Use 'skillshare install <source>' to install a skill")
-		}
-		return nil
+	printSkillList(skillList{
+		entries: allEntries, total: totalCount, trackedRepos: trackedRepos,
+		discovered: discoveredSkills, skillsSource: cfg.EffectiveSkillsSource(),
+		label: resourceLabel, kind: kind, opts: opts,
+	})
+	return nil
+}
+
+// skillList is what the plain list output shows.
+type skillList struct {
+	entries      []skillEntry
+	total        int
+	trackedRepos []string
+	discovered   []sync.DiscoveredSkill
+	skillsSource string
+	label        string // "skills", "agents" or "resources"
+	kind         resourceKindFilter
+	opts         listOptions
+	project      bool
+}
+
+// printSkillList prints the plain (--no-tui or non-TTY) list for global and
+// project mode.
+func printSkillList(l skillList) {
+	hasFilter := l.opts.Pattern != "" || l.opts.TypeFilter != "" || l.opts.Status != statusFilterAll
+	if len(l.entries) == 0 && len(l.trackedRepos) == 0 && !hasFilter {
+		printListEmpty(l.label, l.kind, l.project)
+		return
+	}
+	if hasFilter && len(l.entries) == 0 {
+		ui.Done(ui.MarkNone, noMatchMessage(l.label, l.opts), 0)
+		return
 	}
 
-	if hasFilter && len(allEntries) == 0 {
-		ui.Info("%s", noMatchMessage(resourceLabel, opts))
-		return nil
-	}
-
-	// Plain text output (--no-tui or non-TTY)
-	if len(allEntries) > 0 {
-		headerLabel := "Installed skills"
-		if kind == kindAgents {
-			headerLabel = "Installed agents"
-		} else if kind == kindAll {
-			headerLabel = "Installed skills & agents"
+	if len(l.entries) > 0 {
+		title := "Skills"
+		if l.kind == kindAgents {
+			title = "Agents"
+		} else if l.kind == kindAll {
+			title = "Skills and agents"
 		}
-		ui.Header(headerLabel)
-		if opts.Verbose {
-			displaySkillsVerbose(allEntries)
+		title = theme.Primary().Bold(true).Render(title)
+		if l.project {
+			title += ui.DimText(" · project")
+		}
+		fmt.Println(title)
+		if l.opts.Verbose {
+			displaySkillsVerbose(l.entries)
 		} else {
-			displaySkillsCompact(allEntries)
+			displaySkillsCompact(l.entries)
 		}
 	}
 
 	// Hide tracked repos section when filter/pattern is active
-	if len(trackedRepos) > 0 && !hasFilter {
-		displayTrackedRepos(trackedRepos, discoveredSkills, cfg.EffectiveSkillsSource())
+	if len(l.trackedRepos) > 0 && !hasFilter {
+		displayTrackedRepos(l.trackedRepos, l.discovered, l.skillsSource)
 	}
 
-	// Show match stats when filter is active
-	if hasFilter && len(allEntries) > 0 {
-		fmt.Println()
-		if opts.Pattern != "" {
-			ui.Info("%d of %d %s matching %q%s", len(allEntries), totalCount, resourceLabel, opts.Pattern, statusNote(opts.Status))
-		} else {
-			ui.Info("%d of %d %s%s", len(allEntries), totalCount, resourceLabel, statusNote(opts.Status))
+	fmt.Println()
+	if hasFilter {
+		summary := fmt.Sprintf("%d of %d %s", len(l.entries), l.total, l.label)
+		if l.opts.Pattern != "" {
+			summary += fmt.Sprintf(" matching %q", l.opts.Pattern)
 		}
-	} else if !opts.Verbose && len(allEntries) > 0 {
-		fmt.Println()
-		ui.Info("Use --verbose for more details")
+		ui.Done(ui.MarkNone, summary+statusNote(l.opts.Status), 0)
+		return
 	}
+	tracked, remote := 0, 0
+	for _, e := range l.entries {
+		if e.RepoName != "" {
+			tracked++
+		} else if e.Source != "" {
+			remote++
+		}
+	}
+	var parts []string
+	for _, c := range []struct {
+		n    int
+		word string
+	}{{tracked, "tracked"}, {remote, "remote"}, {len(l.entries) - tracked - remote, "local"}} {
+		if c.n > 0 {
+			parts = append(parts, fmt.Sprintf("%d %s", c.n, c.word))
+		}
+	}
+	summary := plural(len(l.entries), strings.TrimSuffix(l.label, "s"))
+	if len(parts) > 1 {
+		summary += ui.DimText(" · " + strings.Join(parts, ", "))
+	}
+	ui.Done(ui.MarkNone, summary, 0)
+	if !l.opts.Verbose && len(l.entries) > 0 {
+		ui.Note("Add -v for sources and install dates")
+	}
+}
 
-	return nil
+// printListEmpty says nothing is installed and how to install a skill.
+func printListEmpty(label string, kind resourceKindFilter, project bool) {
+	ui.Done(ui.MarkNone, "No "+label+" installed", 0)
+	if kind.IncludesSkills() {
+		cmd := "skillshare install <source>"
+		if project {
+			cmd += " -p"
+		}
+		ui.Next(cmd, "install a skill")
+	}
 }
 
 type skillEntry struct {
@@ -873,33 +886,29 @@ func abbreviateSource(source string) string {
 }
 
 func printListHelp() {
-	fmt.Println(`Usage: skillshare list [agents] [pattern] [options]
-
-List all installed skills in the source directory.
-An optional pattern filters skills by name, path, or source (case-insensitive).
-The default view (--status all) includes entries marked disabled.
-
-Options:
-  --all                  List both skills and agents
-  --verbose, -v          Show detailed information (source, type, install date)
-  --json, -j             Output as JSON (useful for CI/scripts)
-  --no-tui               Disable interactive TUI, use plain text output
-  --type, -t <type>      Filter by type: tracked, local, github
-  --status <status>      Filter by status: all (default), enabled, disabled
-  --sort, -s <order>     Sort order: name (default), newest, oldest
-  --project, -p          Use project-level config in current directory
-  --global, -g           Use global config (~/.config/skillshare)
-  --help, -h             Show this help
-
-Examples:
-  skillshare list
-  skillshare list react
-  skillshare list --type local
-  skillshare list --status disabled
-  skillshare list --status enabled --json
-  skillshare list react --type github --sort newest
-  skillshare list --json | jq '.[].name'
-  skillshare list --verbose
-  skillshare list agents                       # List agents only
-  skillshare list --all                        # List skills + agents`)
+	printHelp("skillshare list [agents] [pattern] [options]", "List all installed skills in the source directory.\nAn optional pattern filters skills by name, path, or source (case-insensitive).\nThe default view (--status all) includes entries marked disabled.",
+		helpGroup{title: "Options", rows: []helpRow{
+			{"--all", "List both skills and agents"},
+			{"-v, --verbose", "Show detailed information (source, type, install date)"},
+			{"-j, --json", "Output as JSON (useful for CI/scripts)"},
+			{"--no-tui", "Disable interactive TUI, use plain text output"},
+			{"-t, --type <type>", "Filter by type: tracked, local, github"},
+			{"--status <status>", "Filter by status: all (default), enabled, disabled"},
+			{"-s, --sort <order>", "Sort order: name (default), newest, oldest"},
+			{"-p, --project", "Use project-level config in current directory"},
+			{"-g, --global", "Use global config (~/.config/skillshare)"},
+		}},
+		helpExamples(
+			helpRow{"skillshare list", ""},
+			helpRow{"skillshare list react", ""},
+			helpRow{"skillshare list --type local", ""},
+			helpRow{"skillshare list --status disabled", ""},
+			helpRow{"skillshare list --status enabled --json", ""},
+			helpRow{"skillshare list react --type github --sort newest", ""},
+			helpRow{"skillshare list --json | jq '.[].name'", ""},
+			helpRow{"skillshare list --verbose", ""},
+			helpRow{"skillshare list agents", "List agents only"},
+			helpRow{"skillshare list --all", "List skills + agents"},
+		),
+	)
 }

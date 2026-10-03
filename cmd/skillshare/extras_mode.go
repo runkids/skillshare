@@ -182,7 +182,7 @@ func cmdExtrasMode(args []string) error {
 	if flattenSet {
 		parts = append(parts, fmt.Sprintf("flatten=%v", flattenVal))
 	}
-	ui.Success("Updated %s target %s: %s", name, shortenPath(targetPath), strings.Join(parts, ", "))
+	ui.Done(ui.MarkOK, fmt.Sprintf("Updated %s target %s: %s", name, shortenPath(targetPath), strings.Join(parts, ", ")), 0)
 
 	e := oplog.NewEntry("extras-mode", "ok", time.Since(start))
 	e.Args = map[string]any{"name": name, "target": targetPath, "mode": syncMode, "flatten": flattenVal}
@@ -219,7 +219,7 @@ func applyFlattenAll(extras []config.ExtraConfig, name string, flatten bool, sav
 		if !flatten {
 			label = "disabled"
 		}
-		ui.Success("Flatten %s for all %d targets of %s", label, len(extra.Targets), name)
+		ui.Done(ui.MarkOK, fmt.Sprintf("Flatten %s for all %d targets of %s", label, len(extra.Targets), name), 0)
 
 		e := oplog.NewEntry("extras-mode", "ok", time.Since(start))
 		e.Args = map[string]any{"name": name, "flatten": flatten, "all_targets": true}
@@ -248,23 +248,21 @@ func applyExtraTarget(extras []config.ExtraConfig, name, targetPath string, appl
 }
 
 func printExtrasModeHelp() {
-	fmt.Println(`Usage: skillshare extras <name> --mode <mode> [--target <path>]
-
-Change the sync mode or flatten setting of an extra's target.
-
-Arguments:
-  name                Extra name (e.g., rules, commands)
-
-Options:
-  --mode <mode>       New sync mode: merge, copy, or symlink
-  --flatten           Enable flatten (sync subdirectory files into target root)
-  --no-flatten        Disable flatten
-  --target <path>     Target directory path (optional if extra has only one target)
-  --project, -p       Use project mode (.skillshare/)
-  --global, -g        Use global mode (~/.config/skillshare/)
-  --help, -h          Show this help
-
-Examples:
-  skillshare extras rules --mode copy
-  skillshare extras agents --flatten`)
+	printHelp("skillshare extras <name> --mode <mode> [--target <path>]", "Change the sync mode or flatten setting of an extra's target.",
+		helpGroup{title: "Arguments", rows: []helpRow{
+			{"name", "Extra name (e.g., rules, commands)"},
+		}},
+		helpGroup{title: "Options", rows: []helpRow{
+			{"--mode <mode>", "New sync mode: merge, copy, or symlink"},
+			{"--flatten", "Enable flatten (sync subdirectory files into target root)"},
+			{"--no-flatten", "Disable flatten"},
+			{"--target <path>", "Target directory path (optional if extra has only one target)"},
+			{"-p, --project", "Use project mode (.skillshare/)"},
+			{"-g, --global", "Use global mode (~/.config/skillshare/)"},
+		}},
+		helpExamples(
+			helpRow{"skillshare extras rules --mode copy", ""},
+			helpRow{"skillshare extras agents --flatten", ""},
+		),
+	)
 }

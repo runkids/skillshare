@@ -37,7 +37,7 @@ targets:
 	result.AssertSuccess(t)
 	result.AssertAnyOutputContains(t, "2 agents") // Source section
 	result.AssertAnyOutputContains(t, "agents")   // Targets sub-item
-	result.AssertAnyOutputContains(t, "linked")   // agent sync status
+	result.AssertAnyOutputContains(t, "! 0/2")    // agent sync status
 }
 
 func TestStatus_JSON_IncludesAgents(t *testing.T) {
@@ -70,9 +70,9 @@ func TestStatus_Default_ShowsBothSkillsAndAgents(t *testing.T) {
 
 	result := sb.RunCLI("status")
 	result.AssertSuccess(t)
-	result.AssertAnyOutputContains(t, "Source")   // source section with skills + agents
-	result.AssertAnyOutputContains(t, "1 skills") // skills in source
-	result.AssertAnyOutputContains(t, "1 agents") // agents in source
+	result.AssertAnyOutputContains(t, "Source") // source section with skills + agents
+	result.AssertRowContains(t, "skills", "~/.config/skillshare/skills  1 skill")
+	result.AssertRowContains(t, "agents", "~/.config/skillshare/agents  1 agent")
 }
 
 // --- diff agents ---
@@ -113,8 +113,8 @@ func TestDoctor_ChecksAgentSource(t *testing.T) {
 
 	result := sb.RunCLI("doctor")
 	result.AssertSuccess(t)
-	result.AssertAnyOutputContains(t, "Agents source")
-	result.AssertAnyOutputContains(t, "1 agents")
+	result.AssertAnyOutputContains(t, "Agents")
+	result.AssertAnyOutputContains(t, "1 agent")
 }
 
 func TestDoctor_AgentTargetDrift(t *testing.T) {
@@ -172,7 +172,7 @@ targets:
 
 	result := sb.RunCLI("doctor")
 	result.AssertSuccess(t)
-	result.AssertAnyOutputContains(t, "1 agents")
+	result.AssertAnyOutputContains(t, "1 agent")
 	result.AssertOutputNotContains(t, "drift")
 }
 

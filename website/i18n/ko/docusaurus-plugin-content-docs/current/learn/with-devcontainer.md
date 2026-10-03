@@ -22,7 +22,7 @@ skillshare는 이 워크플로우에 자연스럽게 맞아 들어갑니다. `po
 
 ```json
 {
-  "postCreateCommand": "curl -fsSL https://raw.githubusercontent.com/runkids/skillshare/main/install.sh | sh && export PATH=\"$HOME/.local/bin:$PATH\" && skillshare init --no-copy --all-targets --no-skill && skillshare sync"
+  "postCreateCommand": "curl -fsSL https://raw.githubusercontent.com/runkids/skillshare/main/install.sh | sh && export PATH=\"$HOME/.local/bin:$PATH\" && skillshare init --no-copy --all-targets --no-git --no-skill && skillshare sync"
 }
 ```
 
@@ -31,7 +31,7 @@ skillshare는 이 워크플로우에 자연스럽게 맞아 들어갑니다. `po
 이게 전부입니다. 팀원이 VS Code에서 프로젝트를 열고 "Reopen in Container"를 클릭하면:
 
 1. skillshare가 자동으로 설치됩니다
-2. `init`이 비대화형으로 실행됩니다 — 감지된 모든 AI CLI Target을 추가하고, 복사 여부를 묻는 프롬프트와 내장 Skill 설치를 건너뜁니다
+2. `init`이 질문 없이 실행됩니다 — 감지된 모든 AI CLI Target을 추가하고, 기존 Skill 가져오기, git, 내장 Skill을 건너뜁니다
 3. `sync`가 모든 Target에 Skill을 전달합니다
 
 ## 프로젝트 Skill 추가하기
@@ -48,7 +48,7 @@ skillshare install your-org/team-skills -p
 
 ```json
 {
-  "postCreateCommand": "curl -fsSL https://raw.githubusercontent.com/runkids/skillshare/main/install.sh | sh && export PATH=\"$HOME/.local/bin:$PATH\" && skillshare init --no-copy --all-targets --no-skill && skillshare sync && skillshare sync -p"
+  "postCreateCommand": "curl -fsSL https://raw.githubusercontent.com/runkids/skillshare/main/install.sh | sh && export PATH=\"$HOME/.local/bin:$PATH\" && skillshare init --no-copy --all-targets --no-git --no-skill && skillshare sync && skillshare sync -p"
 }
 ```
 

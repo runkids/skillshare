@@ -14,6 +14,9 @@ services:
       # virtiofs doesn't reliably deliver inotify events, so Vite/Docusaurus
       # miss file saves. Force polling-based file watching inside the container.
       CHOKIDAR_USEPOLLING: "true"
+      # `docker exec -it` sets TERM=xterm only, which reads as a 16-color
+      # terminal; the CLI's colors (and init's logo) need truecolor.
+      COLORTERM: truecolor
       GOCACHE: /go/build-cache
       SKILLSHARE_API_PORT: "49420"
       GITHUB_TOKEN: ${GITHUB_TOKEN:-}

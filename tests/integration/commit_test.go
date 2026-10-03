@@ -49,7 +49,7 @@ targets: {}
 	result := sb.RunCLI("commit", "-m", "local checkpoint")
 
 	result.AssertSuccess(t)
-	result.AssertOutputContains(t, "Commit complete")
+	result.AssertRowContains(t, "Commit", "1 file · local checkpoint")
 
 	message := testutil.RunGit(t, sb.SourcePath, "log", "-1", "--pretty=%s")
 	if message != "local checkpoint" {
@@ -76,8 +76,8 @@ targets: {}
 	result := sb.RunCLI("commit", "--dry-run", "-m", "dry run checkpoint")
 
 	result.AssertSuccess(t)
-	result.AssertOutputContains(t, "dry-run")
-	result.AssertOutputContains(t, "Would commit with message: dry run checkpoint")
+	result.AssertRowContains(t, "Commit", "would commit 1 file · dry run checkpoint")
+	result.AssertOutputContains(t, "Dry run")
 
 	count := testutil.RunGit(t, sb.SourcePath, "rev-list", "--count", "HEAD")
 	if count != "1" {
@@ -98,7 +98,7 @@ targets: {}
 	result := sb.RunCLI("commit")
 
 	result.AssertSuccess(t)
-	result.AssertOutputContains(t, "No changes to commit")
+	result.AssertOutputContains(t, "Nothing to commit")
 }
 
 func initGitOnly(t *testing.T, sb *testutil.Sandbox) {

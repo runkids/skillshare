@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"skillshare/internal/mcp"
-	"skillshare/internal/theme"
 	"skillshare/internal/ui"
 )
 
@@ -74,31 +73,47 @@ func runMCPCheck(service *mcp.Service, args []string) error {
 }
 
 func printMCPCheck(report *mcp.CheckReport) {
-	ui.Info("MCP source: %s", report.SourcePath)
-	a := theme.ANSI()
-	marks := map[string]string{"error": ui.Colorize(a.Danger, "✗"), "warning": ui.Colorize(a.Warning, "!"), "info": ui.Colorize(a.Muted, "·")}
+	printMCPSource(report.SourcePath)
+	marks := map[string]string{"error": ui.MarkFail, "warning": ui.MarkWarn}
 	for _, server := range report.Servers {
 		heading := server.Name
 		if server.Project != "" {
 			heading += "  (project " + shortenPath(server.Project) + ")"
 		}
+		mark := ui.MarkOK
 		switch {
 		case !server.OK:
-			ui.Error("%s", heading)
+			mark = ui.MarkFail
 		case mcpCheckHasWarning(server):
-			ui.Warning("%s", heading)
-		default:
-			ui.Success("%s", heading)
+			mark = ui.MarkWarn
 		}
+		fmt.Println(ui.StyledMark(mark) + " " + heading)
 		for _, f := range server.Findings {
 			message := f.Message
 			if f.Target != "" {
 				message = f.Target + ": " + message
 			}
-			fmt.Printf("  %s %s\n", marks[f.Level], message)
+			if m, ok := marks[f.Level]; ok {
+				fmt.Println("  " + ui.StyledMark(m) + " " + message)
+			} else {
+				ui.Note("  " + message)
+			}
 		}
 	}
-	fmt.Printf("%d server(s) checked: %d error(s), %d warning(s)\n", len(report.Servers), report.Summary.Errors, report.Summary.Warnings)
+
+	mark, text := ui.MarkOK, "Checked "+plural(len(report.Servers), "server")
+	if report.Summary.Errors > 0 {
+		mark, text = ui.MarkFail, fmt.Sprintf("%s: %s", text, plural(report.Summary.Errors, "error"))
+	}
+	if report.Summary.Warnings > 0 {
+		if mark == ui.MarkOK {
+			mark, text = ui.MarkWarn, text+": "+plural(report.Summary.Warnings, "warning")
+		} else {
+			text += ", " + plural(report.Summary.Warnings, "warning")
+		}
+	}
+	fmt.Println()
+	ui.Done(mark, text, 0)
 }
 
 func mcpCheckHasWarning(server mcp.CheckServer) bool {

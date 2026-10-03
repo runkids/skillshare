@@ -22,7 +22,7 @@ skillshare 能自然地融入這個工作流程。將它加入 `postCreateComman
 
 ```json
 {
-  "postCreateCommand": "curl -fsSL https://raw.githubusercontent.com/runkids/skillshare/main/install.sh | sh && export PATH=\"$HOME/.local/bin:$PATH\" && skillshare init --no-copy --all-targets --no-skill && skillshare sync"
+  "postCreateCommand": "curl -fsSL https://raw.githubusercontent.com/runkids/skillshare/main/install.sh | sh && export PATH=\"$HOME/.local/bin:$PATH\" && skillshare init --no-copy --all-targets --no-git --no-skill && skillshare sync"
 }
 ```
 
@@ -31,7 +31,7 @@ skillshare 能自然地融入這個工作流程。將它加入 `postCreateComman
 就這樣。當團隊成員在 VS Code 中開啟專案並點擊「Reopen in Container」時：
 
 1. skillshare 會自動安裝
-2. `init` 會以非互動模式執行 — 加入所有偵測到的 AI CLI targets，並略過複製提示與內建 skill 安裝
+2. `init` 不詢問任何問題 — 加入所有偵測到的 AI CLI targets，並略過匯入既有 skills、git 與內建 skill
 3. `sync` 會將 skills 分發到所有 targets
 
 ## 新增 Project Skills
@@ -48,7 +48,7 @@ skillshare install your-org/team-skills -p
 
 ```json
 {
-  "postCreateCommand": "curl -fsSL https://raw.githubusercontent.com/runkids/skillshare/main/install.sh | sh && export PATH=\"$HOME/.local/bin:$PATH\" && skillshare init --no-copy --all-targets --no-skill && skillshare sync && skillshare sync -p"
+  "postCreateCommand": "curl -fsSL https://raw.githubusercontent.com/runkids/skillshare/main/install.sh | sh && export PATH=\"$HOME/.local/bin:$PATH\" && skillshare init --no-copy --all-targets --no-git --no-skill && skillshare sync && skillshare sync -p"
 }
 ```
 

@@ -61,7 +61,7 @@ targets: {}
 	// Restore
 	result := sb.RunCLI("trash", "restore", "restore-me")
 	result.AssertSuccess(t)
-	result.AssertAnyOutputContains(t, "Restored")
+	result.AssertAnyOutputContains(t, "✓ Restore")
 
 	// Should be back in source
 	if !sb.FileExists(filepath.Join(sb.SourcePath, "restore-me", "SKILL.md")) {
@@ -171,6 +171,22 @@ targets: {}
 	// Trash should be empty
 	listResult := sb.RunCLI("trash", "list")
 	listResult.AssertAnyOutputContains(t, "empty")
+}
+
+func TestTrash_Empty_ForceSkipsConfirm(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sb.CreateSkill("force-a", map[string]string{"SKILL.md": "# A"})
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets: {}
+`)
+	sb.RunCLI("uninstall", "force-a", "--force")
+
+	// No input: without --force the confirmation would cancel.
+	result := sb.RunCLI("trash", "empty", "--force")
+	result.AssertSuccess(t)
+	result.AssertAnyOutputContains(t, "Emptied trash: 1 item")
 }
 
 func TestTrash_Empty_AlreadyEmpty(t *testing.T) {

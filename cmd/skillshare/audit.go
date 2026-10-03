@@ -387,23 +387,6 @@ func parseAuditArgs(args []string) (auditOptions, bool, error) {
 	return opts, false, nil
 }
 
-func auditHeaderTitle(mode string) string {
-	if mode == "project" {
-		return "skillshare audit (project)"
-	}
-	return "skillshare audit"
-}
-
-func auditHeaderSubtitle(scanLine, mode, sourcePath, threshold, policyLine string) string {
-	displayPath := sourcePath
-	if abs, err := filepath.Abs(sourcePath); err == nil {
-		displayPath = abs
-	}
-	coloredThreshold := ui.Colorize(ui.SeverityColor(threshold), threshold)
-	return fmt.Sprintf("%s\nmode: %s\npath: %s\nblock rule: finding severity >= %s\npolicy: %s",
-		scanLine, mode, displayPath, coloredThreshold, policyLine)
-}
-
 // auditSkillRef is a lightweight name+path pair used during audit discovery.
 type auditSkillRef struct {
 	name string
@@ -542,6 +525,7 @@ func auditInstalled(sourcePath, agentsSourcePath, mode, projectRoot, threshold s
 	}
 
 	// Phase 0: discover skills/agents.
+	scanStart := time.Now()
 	var spinner *ui.Spinner
 	if !jsonOutput {
 		spinner = ui.StartSpinner(fmt.Sprintf("Discovering %s...", kind.Noun(2)))
@@ -561,39 +545,34 @@ func auditInstalled(sourcePath, agentsSourcePath, mode, projectRoot, threshold s
 	}
 	if len(skillPaths) == 0 {
 		if spinner != nil {
-			spinner.Success(fmt.Sprintf("No %s found", kind.Noun(2)))
+			spinner.Stop()
+			ui.Done(ui.MarkNone, fmt.Sprintf("No %s found", kind.Noun(2)), 0)
 		}
 		return []*audit.Result{}, base, nil
 	}
 	if spinner != nil {
-		spinner.Success(fmt.Sprintf("Found %d %s", len(skillPaths), kind.Noun(len(skillPaths))))
+		spinner.Stop()
 	}
 
 	// Phase 0.5: large audit confirmation prompt.
 	if len(skillPaths) > largeAuditThreshold && !jsonOutput && !opts.Yes && ui.IsTTY() {
 		ui.Warning("Found %d %s. This may take a while.", len(skillPaths), kind.Noun(len(skillPaths)))
-		ui.Info("Tip: use 'audit --group <dir>' or 'audit <name>' to scan specific %s", kind.Noun(2))
-		fmt.Print("  Continue? [y/N]: ")
-		var answer string
-		fmt.Scanln(&answer)
-		if answer != "y" && answer != "Y" {
+		ui.Note(fmt.Sprintf("Use 'audit --group <dir>' or 'audit <name>' to scan specific %s", kind.Noun(2)))
+		ok, err := ui.ConfirmAction("Continue?", false)
+		if err != nil {
+			return nil, base, err
+		}
+		if !ok {
 			return nil, base, fmt.Errorf("aborted by user")
 		}
 	}
 
-	// Print header box before scan so user sees context while waiting.
-	var headerMinWidth int
+	// Print the header before scan so user sees context while waiting.
 	if !jsonOutput {
-		fmt.Println()
-		subtitle := auditHeaderSubtitle(fmt.Sprintf("Scanning %d %s for threats", len(skillPaths), kind.Noun(len(skillPaths))), mode, sourcePath, threshold, opts.PolicyLine)
-		headerMinWidth = auditHeaderMinWidth(subtitle)
-		ui.HeaderBoxWithMinWidth(auditHeaderTitle(mode), subtitle, headerMinWidth)
+		printAuditHeader(mode, sourcePath, threshold, opts.PolicyLine)
 	}
 
 	// Phase 1: parallel scan with progress bar.
-	if !jsonOutput {
-		fmt.Println()
-	}
 	var progressBar *ui.ProgressBar
 	if !jsonOutput {
 		progressBar = ui.StartProgress(fmt.Sprintf("Scanning %s", kind.Noun(2)), len(skillPaths))
@@ -608,9 +587,6 @@ func auditInstalled(sourcePath, agentsSourcePath, mode, projectRoot, threshold s
 	if progressBar != nil {
 		progressBar.Stop()
 	}
-	if !jsonOutput {
-		fmt.Println()
-	}
 
 	// Collect results and their elapsed times together.
 	results := make([]*audit.Result, 0, len(skillPaths))
@@ -621,7 +597,7 @@ func auditInstalled(sourcePath, agentsSourcePath, mode, projectRoot, threshold s
 		if sr.Err != nil {
 			scanErrors++
 			if !jsonOutput {
-				ui.ListItem("error", sp.name, fmt.Sprintf("scan error: %v", sr.Err))
+				ui.Row(ui.MarkFail, sp.name, fmt.Sprintf("scan error: %v", sr.Err), ui.RowWidth(sp.name))
 			}
 			continue
 		}
@@ -657,7 +633,7 @@ func auditInstalled(sourcePath, agentsSourcePath, mode, projectRoot, threshold s
 		registry:         reg,
 		mode:             mode,
 	}
-	if err := presentAuditResults(results, elapsed, scanResults, summary, jsonOutput, opts, headerMinWidth, tuiCtx); err != nil {
+	if err := presentAuditResults(results, elapsed, scanResults, summary, jsonOutput, opts, time.Since(scanStart), tuiCtx); err != nil {
 		return results, summary, err
 	}
 
@@ -735,19 +711,13 @@ func auditFiltered(sourcePath, agentsSourcePath string, names, groups []string, 
 		return nil, base, fmt.Errorf("no skills matched the given names/groups")
 	}
 
-	// Print header box before scan so user sees context while waiting.
-	var headerMinWidth int
+	// Print the header before scan so user sees context while waiting.
+	scanStart := time.Now()
 	if !jsonOutput {
-		fmt.Println()
-		subtitle := auditHeaderSubtitle(fmt.Sprintf("Scanning %d %s for threats", len(matched), kind.Noun(len(matched))), mode, sourcePath, threshold, opts.PolicyLine)
-		headerMinWidth = auditHeaderMinWidth(subtitle)
-		ui.HeaderBoxWithMinWidth(auditHeaderTitle(mode), subtitle, headerMinWidth)
+		printAuditHeader(mode, sourcePath, threshold, opts.PolicyLine)
 	}
 
 	// Phase 1: parallel scan with progress bar.
-	if !jsonOutput {
-		fmt.Println()
-	}
 	var progressBar *ui.ProgressBar
 	if !jsonOutput {
 		progressBar = ui.StartProgress(fmt.Sprintf("Scanning %s", kind.Noun(2)), len(matched))
@@ -762,9 +732,6 @@ func auditFiltered(sourcePath, agentsSourcePath string, names, groups []string, 
 	if progressBar != nil {
 		progressBar.Stop()
 	}
-	if !jsonOutput {
-		fmt.Println()
-	}
 
 	// Collect results and their elapsed times together.
 	results := make([]*audit.Result, 0, len(matched))
@@ -775,7 +742,7 @@ func auditFiltered(sourcePath, agentsSourcePath string, names, groups []string, 
 		if sr.Err != nil {
 			scanErrors++
 			if !jsonOutput {
-				ui.ListItem("error", sp.name, fmt.Sprintf("scan error: %v", sr.Err))
+				ui.Row(ui.MarkFail, sp.name, fmt.Sprintf("scan error: %v", sr.Err), ui.RowWidth(sp.name))
 			}
 			continue
 		}
@@ -810,7 +777,7 @@ func auditFiltered(sourcePath, agentsSourcePath string, names, groups []string, 
 		registry:         reg,
 		mode:             mode,
 	}
-	if err := presentAuditResults(results, elapsed, scanResults, summary, jsonOutput, opts, headerMinWidth, tuiCtx); err != nil {
+	if err := presentAuditResults(results, elapsed, scanResults, summary, jsonOutput, opts, time.Since(scanStart), tuiCtx); err != nil {
 		return results, summary, err
 	}
 
@@ -853,15 +820,8 @@ func auditSkillByName(sourcePath, name, mode, projectRoot, threshold, format, po
 	summary.Skill = name
 	summary.Mode = mode
 	if format == formatText {
-		label := kind.SingularNoun()
-		subtitle := auditHeaderSubtitle(fmt.Sprintf("Scanning %s: %s", label, name), mode, sourcePath, threshold, policyLine)
-		summaryLines := buildAuditSummaryLines(summary, kind)
-		minWidth := auditHeaderMinWidth(subtitle)
-		ui.HeaderBoxWithMinWidth(auditHeaderTitle(mode), subtitle, minWidth)
-		fmt.Println()
-		printSkillResult(result, elapsed)
-		fmt.Println()
-		printAuditSummary(summary, summaryLines, minWidth)
+		printAuditHeader(mode, sourcePath, threshold, policyLine)
+		printSkillResult(result, kind, elapsed)
 	}
 
 	return []*audit.Result{result}, summary, nil
@@ -895,14 +855,8 @@ func auditPath(rawPath, mode, projectRoot, threshold, format, policyLine string,
 	summary.Path = absPath
 	summary.Mode = mode
 	if format == formatText {
-		subtitle := fmt.Sprintf("Scanning path target\nmode: %s\npath: %s\nblock rule: finding severity >= %s\npolicy: %s", mode, absPath, ui.Colorize(ui.SeverityColor(threshold), threshold), policyLine)
-		summaryLines := buildAuditSummaryLines(summary)
-		minWidth := auditHeaderMinWidth(subtitle)
-		ui.HeaderBoxWithMinWidth(auditHeaderTitle(mode), subtitle, minWidth)
-		fmt.Println()
-		printSkillResult(result, elapsed)
-		fmt.Println()
-		printAuditSummary(summary, summaryLines, minWidth)
+		printAuditHeader(mode, absPath, threshold, policyLine)
+		printSkillResult(result, kindSkills, elapsed)
 	}
 	return []*audit.Result{result}, summary, nil
 }
@@ -1116,6 +1070,6 @@ func initAuditRules(path string) error {
 	if err := audit.InitRulesFile(path); err != nil {
 		return err
 	}
-	ui.Success("Created %s", path)
+	ui.Row(ui.MarkOK, "Created", utils.FoldHomePath(path), ui.RowWidth("Created"))
 	return nil
 }

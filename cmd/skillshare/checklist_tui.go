@@ -124,7 +124,7 @@ func newChecklistModel(cfg checklistConfig) checklistModel {
 	if itemName == "" {
 		itemName = "item"
 	}
-	l.SetStatusBarItemName(itemName, itemName+"s")
+	l.SetStatusBarItemName(itemName, pluralNoun(itemName))
 	applyTUIFilterStyle(&l)
 
 	headerLines := 0

@@ -108,12 +108,8 @@ skillshare install anthropics/skills
 
 ```text
 $ skillshare install anthropics/skills
-
-▸  Source  github.com/anthropics/skills
-│
-├─ Cloned  (1.8s)
-│
-└─ Found  20 skill(s)
+✓ Source    github.com/anthropics/skills
+  Found     20 skills
 
   Select skills to install (0/20 selected)
 
@@ -486,28 +482,15 @@ skillshare install addyosmani/web-quality-skills --track --name team-skills
 
 ```text
 $ skillshare install addyosmani/web-quality-skills --track --name team-skills
+✓ Source    github.com/addyosmani/web-quality-skills
+  Found     6 skills
+  Skills    accessibility, best-practices, core-web-vitals, performance, seo, web-quality-audit
+! Audit     63 findings: HIGH=1, MEDIUM=1, LOW=60, INFO=1 — findings detected, but none at/above block threshold (CRITICAL) · risk CRITICAL (100/100)
+✓ Install   _team-skills → ~/.config/skillshare/skills/_team-skills · 1.9s
 
-▸  Source  github.com/addyosmani/web-quality-skills
-│
-├─ Name  _team-skills
-│
-├─ Cloned (1.9s)
-│
-├─ Found  6 skill(s)
-│
-├─ Tracked  _team-skills
-│
-├─ Skills  accessibility, best-practices, core-web-vitals, performance, seo, web-quality-audit
-│
-└─ Location  ~/.config/skillshare/skills/_team-skills
-
-- Audit Findings
-→ 63 finding(s): HIGH=1, MEDIUM=1, LOW=60, INFO=1 — findings detected, but none at/above block threshold (CRITICAL)
-→ risk: CRITICAL (100/100)
-
-- Next Steps
-→ Run 'skillshare sync' to distribute skills to all targets
-→ Run 'skillshare update _team-skills' to update this repo later
+Next
+  skillshare sync                 link them into your targets
+  skillshare update _team-skills  update this repo later
 ```
 
 ## Private Repositories {#private-repositories}
@@ -691,7 +674,7 @@ skillshare install org/skills -y --exclude internal-tool
 skillshare install org/skills -s pdf,commit,docs --exclude docs
 ```
 
-When skills are excluded, a message shows what was skipped: `Excluded 2 skill(s): cli-sentry, delayed-command`.
+When skills are excluded, a message shows what was skipped: `Excluded 2 skills: cli-sentry, delayed-command`.
 
 :::note Requires multi-skill discovery
 `--exclude` only works when installing from a **git repo** that contains multiple skills. It works with `--all`, `--yes`, `--skill`, and interactive selection modes. For direct installs (local paths or single-skill git URLs), `--exclude` is not applicable — a warning is shown if specified.

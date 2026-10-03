@@ -89,7 +89,7 @@ Project config 儲存的是 target 名稱而不是路徑，因此每個 target �
 Project sync 會把它們清掉。對於每個沒有明確指定 `path:` 的 target，它會檢查該 target 的 runtime 同樣會掃描的目錄，並在其中沒有任何已設定 target 會寫入的目錄裡，移除由 skillshare 建立的條目。你自己建立的資料夾，以及指向專案外部的 symlinks，都不會被動到。
 
 ```
-→ Cleaned 1 leftover skill(s) from .goose/skills: the default path for 'goose' moved to .agents/skills
+  Cleaned 1 leftover skill from .goose/skills: the default path for 'goose' moved to .agents/skills
 ```
 
 為某個 target 明確設定 `path:` 就能讓它排除在這項清理之外；`--dry-run` 只會預覽將被移除的內容，不會實際變更任何東西。
@@ -186,7 +186,7 @@ flowchart TD
 
 ### target 失敗時 {#when-a-target-fails}
 
-sync 會執行每個 target，一個 target 失敗不會中斷其他 target。target 在同步出錯時失敗，或在自身設定無效時失敗，例如 skills path 是檔案而不是資料夾，或 `mode` 無法辨識。設定無效的 target 在該次執行中會略過 skills 與 agents。每個失敗的 target 都會被回報（文字輸出為 `✗ <target>: invalid config: …`，`--json` 中為對應 `details` 項目的 `error`），並在其他 target 同步完成後以非零狀態結束。
+sync 會執行每個 target，一個 target 失敗不會中斷其他 target。target 在同步出錯時失敗，或在自身設定無效時失敗，例如 skills path 是檔案而不是資料夾，或 `mode` 無法辨識。設定無效的 target 在該次執行中會略過 skills 與 agents。每個失敗的 target 都會被回報（文字輸出為 `✗ <target>  invalid config: …`，`--json` 中為對應 `details` 項目的 `error`），並在其他 target 同步完成後以非零狀態結束。
 
 影響整份設定的問題仍會在任何 target 執行前中止 sync：source 資料夾不存在或無效、全域 `mode` 或 `target_naming` 無效、`git_root` 無效，或 extras 無效。
 
@@ -194,25 +194,16 @@ sync 會執行每個 target，一個 target 失敗不會中斷其他 target。ta
 
 ```text
 $ skillshare sync
-✓ Discovered 43 skills
+✓ Backup       claude, claude-work, cursor, gemini, opencode, universal → ~/.local/share/skillshare/backups/2026-09-28_12-52-50
+✓ claude       43 linked · 1 pruned
+✓ claude-work  43 linked · 1 pruned
+✓ cursor       43 linked · 1 local · 1 pruned
+✓ gemini       43 linked · 1 pruned
+✓ opencode     43 linked · 1 pruned
+✓ universal    43 linked · 1 pruned
 
-Backing up
-─────────────────────────────────────────
-✓ claude -> ~/.local/share/skillshare/backups/2026-09-28_12-52-50/claude
-✓ cursor -> ~/.local/share/skillshare/backups/2026-09-28_12-52-50/cursor
-✓ gemini -> ~/.local/share/skillshare/backups/2026-09-28_12-52-50/gemini
-  …
-
-Syncing skills
-─────────────────────────────────────────
-✓ claude: merged (43 linked, 0 local, 0 updated, 1 pruned)
-✓ claude-work: merged (43 linked, 0 local, 0 updated, 1 pruned)
-✓ cursor: merged (43 linked, 1 local, 0 updated, 1 pruned)
-✓ gemini: merged (43 linked, 0 local, 0 updated, 1 pruned)
-✓ opencode: merged (43 linked, 0 local, 0 updated, 1 pruned)
-✓ universal: merged (43 linked, 0 local, 0 updated, 1 pruned)
-
-Sync complete: 6 targets, 258 linked, 1 local, 0 updated, 6 pruned (0.0s)
+✓ Synced 43 skills to 6 targets · 0.0s
+  Context  ~1.2K tokens always loaded · ~18.5K on demand
 ```
 
 ---
@@ -659,12 +650,12 @@ flowchart TD
 ```
 $ skillshare sync extras
 
-Rules
-  ✔ ~/.claude/rules  2 files linked (merge)
-  ✔ ~/.cursor/rules  2 files copied (copy)
+Extras
+✓ rules     ~/.claude/rules  2 files linked
+✓ rules     ~/.cursor/rules  2 files copied
+✓ commands  ~/.claude/commands  1 files linked
 
-Commands
-  ✔ ~/.claude/commands  1 files linked (merge)
+✓ Synced 2 extras to 3 folders · 0.0s
 ```
 
 ---
@@ -674,8 +665,8 @@ Commands
 同步後，skillshare 會顯示 token 成本摘要：
 
 ```
-✔ Synced 47 skill(s) to 4 target(s) in 312ms
-  Context: ~12.4K always-loaded · ~58.2K on-demand (claude, cursor, codex, opencode)
+✓ Synced 47 skills to 4 targets · 0.3s
+  Context  ~12.4K tokens always loaded · ~58.2K on demand
 ```
 
 - **Always-loaded**：frontmatter 的 name + description（每次請求都會載入）

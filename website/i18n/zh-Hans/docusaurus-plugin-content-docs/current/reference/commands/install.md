@@ -108,12 +108,8 @@ skillshare install anthropics/skills
 
 ```text
 $ skillshare install anthropics/skills
-
-▸  Source  github.com/anthropics/skills
-│
-├─ Cloned  (1.8s)
-│
-└─ Found  20 skill(s)
+✓ Source    github.com/anthropics/skills
+  Found     20 skills
 
   Select skills to install (0/20 selected)
 
@@ -486,28 +482,15 @@ skillshare install addyosmani/web-quality-skills --track --name team-skills
 
 ```text
 $ skillshare install addyosmani/web-quality-skills --track --name team-skills
+✓ Source    github.com/addyosmani/web-quality-skills
+  Found     6 skills
+  Skills    accessibility, best-practices, core-web-vitals, performance, seo, web-quality-audit
+! Audit     63 findings: HIGH=1, MEDIUM=1, LOW=60, INFO=1 — findings detected, but none at/above block threshold (CRITICAL) · risk CRITICAL (100/100)
+✓ Install   _team-skills → ~/.config/skillshare/skills/_team-skills · 1.9s
 
-▸  Source  github.com/addyosmani/web-quality-skills
-│
-├─ Name  _team-skills
-│
-├─ Cloned (1.9s)
-│
-├─ Found  6 skill(s)
-│
-├─ Tracked  _team-skills
-│
-├─ Skills  accessibility, best-practices, core-web-vitals, performance, seo, web-quality-audit
-│
-└─ Location  ~/.config/skillshare/skills/_team-skills
-
-- Audit Findings
-→ 63 finding(s): HIGH=1, MEDIUM=1, LOW=60, INFO=1 — findings detected, but none at/above block threshold (CRITICAL)
-→ risk: CRITICAL (100/100)
-
-- Next Steps
-→ Run 'skillshare sync' to distribute skills to all targets
-→ Run 'skillshare update _team-skills' to update this repo later
+Next
+  skillshare sync                 link them into your targets
+  skillshare update _team-skills  update this repo later
 ```
 
 ## 私有仓库 {#private-repositories}
@@ -689,7 +672,7 @@ skillshare install org/skills -y --exclude internal-tool
 skillshare install org/skills -s pdf,commit,docs --exclude docs
 ```
 
-当有 Skill 被排除时，会显示一条消息说明跳过了哪些内容：`Excluded 2 skill(s): cli-sentry, delayed-command`。
+当有 Skill 被排除时，会显示一条消息说明跳过了哪些内容：`Excluded 2 skills: cli-sentry, delayed-command`。
 
 :::note 需要多 Skill Discovery
 `--exclude` 仅在从包含多个 Skill 的**git 仓库**安装时生效。它可以与 `--all`、`--yes`、`--skill` 以及交互式选择模式配合使用。对于直接安装（本地路径或单 Skill 的 git URL），`--exclude` 不适用 —— 如果指定了它，会显示一条警告。

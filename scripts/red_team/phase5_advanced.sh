@@ -67,7 +67,7 @@ FILE_EOF
 
 ss_capture update _diff-weird --diff --skip-audit
 assert_exit "TC-33a: update with weird filename exits zero" 0 "$SS_EXIT"
-assert_contains "TC-33b: --diff box rendered" "$SS_OUTPUT" "Files Changed"
+assert_contains "TC-33b: --diff file list rendered" "$SS_OUTPUT" "Files changed"
 assert_contains "TC-33c: weird filename appears in summary" "$SS_OUTPUT" "weird"
 
 # Clean up phase 5

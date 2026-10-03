@@ -10,6 +10,7 @@ import (
 	"skillshare/internal/config"
 	"skillshare/internal/memory"
 	"skillshare/internal/oplog"
+	"skillshare/internal/ui"
 )
 
 func runMemory(mode runMode, opts memoryOptions) error {
@@ -126,6 +127,13 @@ func runMemory(mode runMode, opts memoryOptions) error {
 	if opts.json {
 		return json.NewEncoder(os.Stdout).Encode(result)
 	}
-	fmt.Printf("Memory %s: %s\n", opts.command, root)
+	switch opts.command {
+	case "init":
+		ui.Done(ui.MarkOK, "Memory ready at "+shortenPath(root), 0)
+	case "write":
+		ui.Done(ui.MarkOK, "Saved "+opts.path, 0)
+	case "delete":
+		ui.Done(ui.MarkOK, "Deleted "+opts.path, 0)
+	}
 	return nil
 }

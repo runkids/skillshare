@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 	"time"
 
 	"skillshare/internal/config"
@@ -145,15 +144,16 @@ func extrasRemoveGlobal(name string, force bool, start time.Time) error {
 	sourceDir := config.ResolveExtrasSourceDir(found, cfg.EffectiveExtrasSource(), cfg.EffectiveSkillsSource())
 
 	if !force {
-		ui.Warning("This will remove %q from config.", name)
-		ui.Info("Source files in %s will NOT be deleted.", shortenPath(sourceDir))
-		ui.Info("%s", extraRemoveTargetNote(found))
+		ui.Warning("This removes %q from the config", name)
+		ui.Note(fmt.Sprintf("Source files in %s stay", shortenPath(sourceDir)))
+		ui.Note(extraRemoveTargetNote(found))
 		fmt.Println()
-		fmt.Print("Remove? [y/N]: ")
-		var input string
-		fmt.Scanln(&input)
-		if input = strings.ToLower(strings.TrimSpace(input)); input != "y" && input != "yes" {
-			ui.Info("Cancelled.")
+		ok, err := ui.ConfirmAction("Remove?", false)
+		if err != nil {
+			return err
+		}
+		if !ok {
+			ui.Cancelled("removed")
 			return nil
 		}
 	}
@@ -163,10 +163,10 @@ func extrasRemoveGlobal(name string, force bool, start time.Time) error {
 		return err
 	}
 
-	ui.Success("Removed %q from extras config", name)
+	ui.Done(ui.MarkOK, fmt.Sprintf("Removed %q from the extras config", name), 0)
 	cleanEmptyExtrasDir(sourceDir)
 	if found.File == "" {
-		ui.Info("Run 'skillshare sync extras' to clean up orphaned links.")
+		ui.Next("skillshare sync extras", "clean up orphaned links")
 	}
 	_ = start
 	return nil
@@ -181,15 +181,16 @@ func extrasRemoveProject(cwd, name string, force bool, start time.Time) error {
 	_, found := findExtraByName(projCfg.Extras, name)
 	if !force {
 		sourceDir := config.ResolveExtrasSourceDirProject(found, projCfg.EffectiveExtrasSource(cwd), cwd)
-		ui.Warning("This will remove %q from project config.", name)
-		ui.Info("Source files in %s will NOT be deleted.", shortenPath(sourceDir))
-		ui.Info("%s", extraRemoveTargetNote(found))
+		ui.Warning("This removes %q from the project config", name)
+		ui.Note(fmt.Sprintf("Source files in %s stay", shortenPath(sourceDir)))
+		ui.Note(extraRemoveTargetNote(found))
 		fmt.Println()
-		fmt.Print("Remove? [y/N]: ")
-		var input string
-		fmt.Scanln(&input)
-		if input = strings.ToLower(strings.TrimSpace(input)); input != "y" && input != "yes" {
-			ui.Info("Cancelled.")
+		ok, err := ui.ConfirmAction("Remove?", false)
+		if err != nil {
+			return err
+		}
+		if !ok {
+			ui.Cancelled("removed")
 			return nil
 		}
 	}
@@ -199,10 +200,10 @@ func extrasRemoveProject(cwd, name string, force bool, start time.Time) error {
 		return err
 	}
 
-	ui.Success("Removed %q from project extras config", name)
+	ui.Done(ui.MarkOK, fmt.Sprintf("Removed %q from the project extras config", name), 0)
 	cleanEmptyExtrasDir(sourceDir)
 	if found.File == "" {
-		ui.Info("Run 'skillshare sync extras -p' to clean up orphaned links.")
+		ui.Next("skillshare sync extras -p", "clean up orphaned links")
 	}
 	_ = start
 	return nil
@@ -217,9 +218,9 @@ func cleanEmptyExtrasDir(dir string) {
 	}
 	if len(entries) == 0 {
 		os.Remove(dir)
-		ui.Info("Removed empty source directory %s", shortenPath(dir))
+		ui.Note("Removed the empty source directory " + shortenPath(dir))
 	} else {
-		ui.Info("Source files preserved in %s (%d files)", shortenPath(dir), len(entries))
+		ui.Note(fmt.Sprintf("Kept %s in %s", plural(len(entries), "file"), shortenPath(dir)))
 	}
 
 	// Clean parent extras/ directory if empty
@@ -250,20 +251,14 @@ func findExtraByName(extras []config.ExtraConfig, name string) (int, config.Extr
 }
 
 func printExtrasRemoveHelp() {
-	fmt.Println(`Usage: skillshare extras remove <name> [options]
-
-Remove an extra resource type from config.
-
-Source files are NOT deleted. Single-file targets are restored to their
-pre-attach state. Directory extras leave target files in place; run
-'skillshare sync extras' to clean up their orphaned links.
-
-Arguments:
-  name                Name of the extra to remove
-
-Options:
-  --force, -f         Skip confirmation prompt
-  --project, -p       Remove from project config (.skillshare/)
-  --global, -g        Remove from global config (~/.config/skillshare/)
-  --help, -h          Show this help`)
+	printHelp("skillshare extras remove <name> [options]", "Remove an extra resource type from config.\n\nSource files are NOT deleted. Single-file targets are restored to their\npre-attach state. Directory extras leave target files in place; run\n'skillshare sync extras' to clean up their orphaned links.",
+		helpGroup{title: "Arguments", rows: []helpRow{
+			{"name", "Name of the extra to remove"},
+		}},
+		helpGroup{title: "Options", rows: []helpRow{
+			{"-f, --force", "Skip confirmation prompt"},
+			{"-p, --project", "Remove from project config (.skillshare/)"},
+			{"-g, --global", "Remove from global config (~/.config/skillshare/)"},
+		}},
+	)
 }

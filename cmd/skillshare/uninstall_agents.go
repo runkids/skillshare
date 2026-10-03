@@ -34,7 +34,7 @@ func cmdUninstallAgents(agentsDir string, opts *uninstallOptions, cfgPath string
 	if opts.all {
 		targets = discovered
 		if len(targets) == 0 {
-			ui.Info("No agents found")
+			ui.Done(ui.MarkNone, "No agents found", 0)
 			return nil
 		}
 	} else {
@@ -80,25 +80,27 @@ func cmdUninstallAgents(agentsDir string, opts *uninstallOptions, cfgPath string
 
 	// Confirmation (unless --force or --json)
 	if !opts.force && !opts.jsonOutput {
-		ui.Warning("Uninstalling %d agent(s)", len(targets))
 		const maxDisplay = 20
 		display := targets
 		if len(display) > maxDisplay {
 			display = display[:maxDisplay]
 		}
 		for _, t := range display {
-			fmt.Printf("  - %s\n", strings.TrimSuffix(t.RelPath, ".md"))
+			fmt.Printf("  %s\n", strings.TrimSuffix(t.RelPath, ".md"))
 		}
 		if len(targets) > maxDisplay {
-			fmt.Printf("  ... and %d more\n", len(targets)-maxDisplay)
+			ui.Note(fmt.Sprintf("… and %d more", len(targets)-maxDisplay))
 		}
-		fmt.Println()
-		fmt.Print("Continue? [y/N] ")
-		var input string
-		fmt.Scanln(&input)
-		input = strings.TrimSpace(strings.ToLower(input))
-		if input != "y" && input != "yes" {
-			ui.Info("Cancelled")
+		question := "Uninstall " + plural(len(targets), "agent") + "?"
+		if len(targets) == 1 {
+			question = "Uninstall " + strings.TrimSuffix(targets[0].RelPath, ".md") + "?"
+		}
+		ok, err := ui.ConfirmAction(question+" "+uninstallTrashHint(), false)
+		if err != nil {
+			return err
+		}
+		if !ok {
+			ui.Cancelled("removed")
 			return nil
 		}
 	}
@@ -106,13 +108,17 @@ func cmdUninstallAgents(agentsDir string, opts *uninstallOptions, cfgPath string
 	store, _ := install.LoadMetadata(agentsDir)
 	var removed []string
 	var failed []string
+	width := 0
+	for _, t := range targets {
+		width = max(width, ui.RowWidth(strings.TrimSuffix(t.RelPath, ".md")))
+	}
 
 	for _, t := range targets {
 		agentFile := filepath.Join(agentsDir, t.RelPath)
 
 		displayName := strings.TrimSuffix(t.RelPath, ".md")
 		if opts.dryRun {
-			ui.Info("[dry-run] Would remove agent: %s", displayName)
+			ui.Row(ui.MarkNone, displayName, "would move to trash", width)
 			removed = append(removed, displayName)
 			continue
 		}
@@ -122,7 +128,7 @@ func cmdUninstallAgents(agentsDir string, opts *uninstallOptions, cfgPath string
 		legacySidecar := filepath.Join(filepath.Dir(agentFile), metaName+".skillshare-meta.json")
 		_, err := trash.MoveAgentToTrash(agentFile, legacySidecar, displayName, trashBase)
 		if err != nil {
-			ui.Error("Failed to remove %s: %v", displayName, err)
+			ui.Row(ui.MarkFail, displayName, err.Error(), width)
 			failed = append(failed, displayName)
 			continue
 		}
@@ -132,7 +138,7 @@ func cmdUninstallAgents(agentsDir string, opts *uninstallOptions, cfgPath string
 			store.Remove(displayName)
 		}
 
-		ui.Success("Removed agent: %s", displayName)
+		ui.Row(ui.MarkOK, displayName, ui.DimText("→ trash, kept 7 days"), width)
 		removed = append(removed, displayName)
 	}
 
@@ -162,12 +168,30 @@ func cmdUninstallAgents(agentsDir string, opts *uninstallOptions, cfgPath string
 	}
 
 	// Summary
-	if !opts.dryRun {
-		fmt.Println()
-		ui.Info("%d agent(s) removed, %d failed", len(removed), len(failed))
-		if len(removed) > 0 {
-			ui.Info("Run 'skillshare sync agents' to update targets")
+	fmt.Println()
+	switch {
+	case opts.dryRun:
+		ui.DryRun()
+	case len(failed) > 0:
+		mark := ui.MarkWarn
+		if len(removed) == 0 {
+			mark = ui.MarkFail
 		}
+		ui.Done(mark, fmt.Sprintf("Uninstalled %s, %d failed", plural(len(removed), "agent"), len(failed)), time.Since(start))
+	default:
+		ui.Done(ui.MarkOK, "Uninstalled "+plural(len(removed), "agent"), time.Since(start))
+	}
+	if !opts.dryRun && len(removed) > 0 {
+		// Project agents go to the project's trash.
+		flags := ""
+		if trashBase != trash.AgentTrashDir() {
+			flags = " -p"
+		}
+		restore := "skillshare trash agents list" + flags
+		if len(removed) == 1 {
+			restore = "skillshare trash agents restore " + removed[0] + flags
+		}
+		ui.Next("skillshare sync agents", "remove them from your targets", restore, "undo")
 	}
 
 	// Oplog

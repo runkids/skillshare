@@ -77,22 +77,27 @@ skillshare init --remote git@github.com:you/my-skills.git
 
 ---
 
-## 두 번째 머신 설정
+## 두 번째 머신 설정 {#second-machine-setup}
 
-새 머신에서는 **동일한 명령이 그대로 동작합니다**:
+`skillshare init`을 실행하고 **Connect my existing skillshare repo**를 선택한 뒤 저장소 URL을 붙여넣습니다:
+
+<p>
+  <img src="/img/init-connect-demo.png" alt="기존 저장소에 연결하는 skillshare init" width="720" />
+</p>
+
+URL을 직접 전달할 수도 있습니다:
 
 ```bash
 skillshare init --remote git@github.com:you/my-skills.git
 ```
 
-Init은 Remote에 기존 Skill이 있음을 자동으로 감지하고 이를 pull합니다. 수동으로 `git clone`할 필요가 없습니다.
+Init은 아무것도 쓰지 않고 먼저 저장소를 확인한 뒤 pull합니다. 수동으로 `git clone`할 필요가 없습니다.
 
 :::info 내부적으로 일어나는 일
-1. Source 디렉터리를 생성하고 git을 초기화합니다
-2. Remote를 추가하고 `git fetch`를 실행합니다
-3. Remote에 Skill이 있음을 감지 → 로컬을 Remote와 일치하도록 재설정합니다
-4. 추적 브랜치를 설정합니다
-5. 로컬 Target을 자동으로 감지하고 설정합니다
+1. 저장소를 임시 폴더에 clone해 Skill 수를 세고 구조를 판단합니다: `--git-root root`로 push한 폴더 전체인지, `skills/` 폴더 안의 Skill인지
+2. 이 머신에서 저장소와 이름이 같은 Skill은 저장소 버전을 사용합니다. 이 머신에만 있는 Skill은 유지되고 다음 `skillshare push` 때 저장소에 추가됩니다
+3. 확인 후: source를 만들고 git을 초기화하고 Remote를 추가한 뒤 원격 브랜치로 재설정하고 추적을 설정합니다
+4. 감지된 로컬 Target을 설정하고 첫 sync를 제안합니다
 :::
 
 수동 제어를 선호한다면:

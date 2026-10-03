@@ -26,10 +26,10 @@ type ANSISet struct {
 }
 
 // ANSI returns the raw escape sequence set for the active theme.
-// When NoColor is set, every field (including Reset) is empty.
+// When NoColor or Plain is set, every field (including Reset) is empty.
 func ANSI() ANSISet {
 	t := Get()
-	if t.NoColor {
+	if t.NoColor || t.Plain {
 		return ANSISet{}
 	}
 	return ANSISet{

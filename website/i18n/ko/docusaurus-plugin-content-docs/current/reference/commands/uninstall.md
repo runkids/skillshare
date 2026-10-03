@@ -23,18 +23,12 @@ skillshare uninstall team-repo             # Remove tracked repository (_ prefix
 
 ```text
 $ skillshare uninstall css-review
+  frontend/css-review  ~/.config/skillshare/skills/frontend/css-review · 1 file
+✓ Uninstall frontend/css-review → trash, kept 7 days
 
-Uninstalling skill
-─────────────────────────────────────────
-→ Name: frontend/css-review
-→ Path: ~/.config/skillshare/skills/frontend/css-review
-
-Are you sure you want to uninstall this skill? [y/N]: y
-✓ Uninstalled skill: frontend/css-review
-→ Moved to trash (7 days): ~/.local/share/skillshare/trash/frontend/css-review_2026-09-28_12-52-23
-
-  Next Steps
-→ Run 'skillshare sync' to update all targets
+Next
+  skillshare sync                               remove it from claude, cursor
+  skillshare trash restore frontend/css-review  undo
 ```
 
 ## 동작 방식
@@ -140,7 +134,7 @@ Uninstalling group (5 skills)
 → Name: feature-radar
 → Path: ~/.config/skillshare/skills/feature-radar
 
-Are you sure you want to uninstall this group? [y/N]:
+? Uninstall group feature-radar? moved to trash for 7 days   Yes   No
 ```
 
 `--group` 플래그는 **접두사 매칭**을 사용해 디렉터리 아래의 모든 skill을 제거합니다.
@@ -223,42 +217,48 @@ skillshare uninstall my-skill -G frontend --force
 단일 skill(verbose):
 
 ```
-✓ Uninstalled skill: my-skill
-ℹ Moved to trash (7 days): ~/.local/share/skillshare/trash/my-skill_2026-01-20_15-30-00
-ℹ Reinstall: skillshare install github.com/user/repo/my-skill
+  my-skill  ~/.config/skillshare/skills/my-skill · 2 files
+✓ Uninstall my-skill → trash, kept 7 days
+
+Next
+  skillshare sync                                   remove it from claude, cursor
+  skillshare trash restore my-skill                 undo
+  skillshare install github.com/user/repo/my-skill  reinstall it later
 ```
 
 여러 skill(batch):
 
 ```
-✓ Uninstalled 4 skill(s) (0.1s)
-
-── Removed ─────────────────────────────
-✓ pdf        skill
-✓ tdd        skill
-✓ security   group, 2 skills
+Failed
 ✗ bad-skill  failed to move to trash: ...
 
-── Next Steps ──────────────────────────
-ℹ Moved to trash (7 days).
-ℹ Run 'skillshare sync' to update all targets
+Removed
+✓ pdf       skill
+✓ tdd       skill
+✓ security  group, 2 skills
+
+! Uninstalled 3, 1 failed · 0.1s
+
+Next
+  skillshare sync        remove them from claude, cursor
+  skillshare trash list  restore any of them within 7 days
 ```
 
 대량 배치는 축약된 형식을 사용합니다.
 
 ```
-✓ Uninstalled 920, failed 2 (1.2s)
+Failed
+✗ bad-a     failed to move to trash: permission denied
+✗ bad-b     failed to move to trash: permission denied
 
-── Failed ──────────────────────────────
-✗ bad-a  failed to move to trash: permission denied
-✗ bad-b  failed to move to trash: permission denied
-
-── Removed ─────────────────────────────
+Removed
 ✓ 920 uninstalled
 
-── Next Steps ──────────────────────────
-ℹ Moved to trash (7 days).
-ℹ Run 'skillshare sync' to update all targets
+! Uninstalled 920, 2 failed · 1.2s
+
+Next
+  skillshare sync        remove them from claude, cursor
+  skillshare trash list  restore any of them within 7 days
 ```
 
 실수로 제거한 skill을 복원하려면:

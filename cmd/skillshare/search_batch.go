@@ -141,9 +141,6 @@ func (sp *searchInstallProgress) startSkill(name string) {
 			break
 		}
 	}
-	if !sp.isTTY {
-		fmt.Printf("  %s: installing...\n", name)
-	}
 }
 
 // updateStatus updates the status detail text for a skill (e.g. "cloning 45%").
@@ -226,14 +223,6 @@ func (sp *searchInstallProgress) doneSkill(name string, r searchInstallResult) {
 			sp.details[i] = r.detail
 		}
 		break
-	}
-	if !sp.isTTY {
-		for i, n := range sp.names {
-			if n == name {
-				fmt.Printf("  %s: %s\n", name, sp.details[i])
-				break
-			}
-		}
 	}
 }
 
@@ -452,18 +441,6 @@ func batchInstallFromSearchWithProgress(selected []search.SearchResult, mode run
 	names := make([]string, len(selected))
 	for i, r := range selected {
 		names[i] = r.Name
-	}
-
-	// Move cursor up one line to eat the blank line left by bubbletea TUI exit,
-	// then print │ + ├─ Installing as a connected tree branch.
-	msg := fmt.Sprintf("%d skill(s)", len(selected))
-	if ui.IsTTY() {
-		fmt.Print("\033[A") // cursor up — overwrite TUI's trailing blank line
-		fmt.Printf("%s\n", ui.DimText(ui.StepLine))
-		fmt.Printf("%s %s  %s\n",
-			ui.DimText(ui.StepBranch+"─"), ui.DimText("Installing"), pterm.White(msg))
-	} else {
-		fmt.Printf("%s─ %s  %s\n", ui.StepBranch, "Installing", msg)
 	}
 
 	batchStart := time.Now()
@@ -738,52 +715,53 @@ func renderBatchSearchInstallSummary(results []searchInstallResult, mode runMode
 		totalWarnings += len(r.warnings)
 	}
 
-	// Close tree with result: └─ ✓ SUCCESS / ✗ ERROR
-	parts := []string{fmt.Sprintf("Installed %d skill(s)", installed)}
-	if skipped > 0 {
-		parts = append(parts, fmt.Sprintf("%d skipped", skipped))
-	}
-	if failed > 0 {
-		parts = append(parts, fmt.Sprintf("%d failed", failed))
-	}
-	status := "success"
-	if failed > 0 {
-		status = "error"
-	}
-	ui.StepResult(status, strings.Join(parts, ", "), elapsed)
-
 	// Compact output: only list failed skills with details.
 	if failed > 0 {
-		fmt.Println()
+		var names []string
+		for _, r := range results {
+			if r.status == "failed" {
+				names = append(names, r.name)
+			}
+		}
+		width := ui.RowWidth(names...)
 		for _, r := range results {
 			if r.status != "failed" {
 				continue
 			}
-			icon, color, summary, subLines := classifyFailureDetail(r.detail)
-			fmt.Printf("  %s%s%s %s%s%s  %s%s%s\n",
-				color, icon, ui.Reset,
-				ui.White, r.name, ui.Reset,
-				ui.Dim, summary, ui.Reset)
-			for _, line := range subLines {
-				fmt.Printf("    %s%s%s\n", ui.Dim, line, ui.Reset)
+			icon, _, summary, subLines := classifyFailureDetail(r.detail)
+			mark := ui.MarkFail
+			if icon == "!" {
+				mark = ui.MarkWarn
 			}
-			if len(subLines) > 0 {
-				fmt.Println() // breathing room between multi-line entries
+			ui.Row(mark, r.name, ui.DimText(summary), width)
+			for _, line := range subLines {
+				ui.Note(line)
 			}
 		}
+		fmt.Println()
 	}
+
+	mark := ui.MarkOK
+	if failed > 0 {
+		mark = ui.MarkFail
+	}
+	ui.Done(mark, buildInstallSummary(installed, failed, skipped, "skill"), elapsed)
 
 	// Warnings summary (only show count, no per-skill details)
 	if totalWarnings > 0 {
-		fmt.Println()
-		ui.Warning("%d warning(s) during install — run 'skillshare audit' for details", totalWarnings)
+		ui.Note(fmt.Sprintf("%s during install", plural(totalWarnings, "audit warning")))
 	}
 
-	// Sync hint
-	fmt.Println()
-	if mode == modeProject {
-		ui.Info("Run 'skillshare sync' to distribute to project targets")
-	} else {
-		ui.Info("Run 'skillshare sync' to distribute to all targets")
+	var next []string
+	if installed > 0 {
+		sync := "skillshare sync"
+		if mode == modeProject {
+			sync += " -p"
+		}
+		next = append(next, sync, "link them into your targets")
 	}
+	if totalWarnings > 0 {
+		next = append(next, "skillshare audit", "see the warnings")
+	}
+	ui.Next(next...)
 }

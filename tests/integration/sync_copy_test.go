@@ -122,7 +122,7 @@ targets:
 	// Second sync — should skip
 	result := sb.RunCLI("sync")
 	result.AssertSuccess(t)
-	result.AssertOutputContains(t, "skipped")
+	result.AssertOutputContains(t, "up to date")
 }
 
 func TestSync_CopyMode_UpdatesChanged(t *testing.T) {
@@ -561,7 +561,7 @@ targets:
 	// Second sync without changes — should skip via mtime fast-path
 	result2 := sb.RunCLI("sync")
 	result2.AssertSuccess(t)
-	result2.AssertOutputContains(t, "skipped")
+	result2.AssertOutputContains(t, "up to date")
 }
 
 func TestSync_CopyMode_MtimeCache_ForceBypassesMtime(t *testing.T) {

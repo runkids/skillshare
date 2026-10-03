@@ -23,7 +23,7 @@ targets: {}
 
 	result := sb.RunCLI("uninstall", "trash-me", "--force")
 	result.AssertSuccess(t)
-	result.AssertOutputContains(t, "Moved to trash")
+	result.AssertOutputContains(t, "→ trash, kept 7 days")
 
 	// Source should be gone
 	if sb.FileExists(filepath.Join(sb.SourcePath, "trash-me")) {
@@ -58,7 +58,7 @@ targets: {}
 
 	result := sb.RunCLI("uninstall", "_skill", "--force")
 	result.AssertSuccess(t)
-	result.AssertOutputContains(t, "Moved to trash")
+	result.AssertOutputContains(t, "→ trash, kept 7 days")
 
 	if sb.FileExists(filepath.Join(sb.SourcePath, "coding", "_skill")) {
 		t.Error("nested skill should be removed from source")
@@ -96,7 +96,7 @@ targets: {}
 
 	result := sb.RunCLI("uninstall", "remote-skill", "--force")
 	result.AssertSuccess(t)
-	result.AssertOutputContains(t, "Reinstall: skillshare install github.com/user/skills/remote-skill")
+	result.AssertOutputContains(t, "skillshare install github.com/user/skills/remote-skill  reinstall it later")
 }
 
 func TestUninstall_LocalSkill_NoReinstallHint(t *testing.T) {
@@ -111,11 +111,11 @@ targets: {}
 
 	result := sb.RunCLI("uninstall", "local-skill", "--force")
 	result.AssertSuccess(t)
-	result.AssertOutputContains(t, "Moved to trash")
+	result.AssertOutputContains(t, "→ trash, kept 7 days")
 
 	// Should NOT contain reinstall hint
 	combined := result.Stdout + result.Stderr
-	if strings.Contains(combined, "Reinstall:") {
+	if strings.Contains(combined, "reinstall it later") {
 		t.Error("local skill without meta should not show reinstall hint")
 	}
 }
@@ -138,7 +138,7 @@ targets: {}
 	result := sb.RunCLI("uninstall", "preview-skill", "--dry-run")
 	result.AssertSuccess(t)
 	result.AssertOutputContains(t, "would move to trash")
-	result.AssertOutputContains(t, "Reinstall:")
+	result.AssertOutputContains(t, "reinstall with skillshare install github.com/org/repo/preview-skill")
 
 	// Skill should still exist
 	if !sb.FileExists(filepath.Join(sb.SourcePath, "preview-skill")) {

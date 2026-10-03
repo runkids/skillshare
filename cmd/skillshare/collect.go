@@ -137,34 +137,32 @@ func selectCollectTargets(cfg *config.Config, targetName string, collectAll, jso
 	}
 
 	ui.Warning("Multiple targets found. Specify a target name or use --all")
-	fmt.Println("  Available targets:")
+	ui.Note("Available targets:")
 	for name := range cfg.Targets {
-		fmt.Printf("    - %s\n", name)
+		ui.Note("  - " + name)
 	}
 	return nil, nil
 }
 
 func printCollectHelp() {
-	fmt.Println(`Usage: skillshare collect [agents] [target] [options]
-
-Collect local skills or agents from target(s) to the source directory.
-
-Arguments:
-  [target]          Target name to collect from (optional)
-
-Options:
-  --all, -a         Collect from all targets
-  --dry-run, -n     Preview changes without applying
-  --force, -f       Overwrite existing items in source and skip confirmation
-  --json            Output results as JSON (implies --force)
-  --project, -p     Use project-level config
-  --global, -g      Use global config
-  --help, -h        Show this help
-
-Examples:
-  skillshare collect claude             Collect skills from the Claude target
-  skillshare collect --all              Collect skills from all targets
-  skillshare collect --dry-run          Preview what would be collected
-  skillshare collect agents claude      Collect agents from the Claude target
-  skillshare collect agents --json      Collect agents as JSON output`)
+	printHelp("skillshare collect [agents] [target] [options]", "Collect local skills or agents from target(s) to the source directory.",
+		helpGroup{title: "Arguments", rows: []helpRow{
+			{"[target]", "Target name to collect from (optional)"},
+		}},
+		helpGroup{title: "Options", rows: []helpRow{
+			{"-a, --all", "Collect from all targets"},
+			{"-n, --dry-run", "Preview changes without applying"},
+			{"-f, --force", "Overwrite existing items in source and skip confirmation"},
+			{"--json", "Output results as JSON (implies --force)"},
+			{"-p, --project", "Use project-level config"},
+			{"-g, --global", "Use global config"},
+		}},
+		helpExamples(
+			helpRow{"skillshare collect claude", "Collect skills from the Claude target"},
+			helpRow{"skillshare collect --all", "Collect skills from all targets"},
+			helpRow{"skillshare collect --dry-run", "Preview what would be collected"},
+			helpRow{"skillshare collect agents claude", "Collect agents from the Claude target"},
+			helpRow{"skillshare collect agents --json", "Collect agents as JSON output"},
+		),
+	)
 }

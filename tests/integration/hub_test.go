@@ -37,7 +37,7 @@ func TestHub_IndexGeneratesJSON(t *testing.T) {
 
 	result := sb.RunCLI("hub", "index")
 	result.AssertSuccess(t)
-	result.AssertAnyOutputContains(t, "Found 2 skill(s)")
+	result.AssertAnyOutputContains(t, "with 2 skills")
 
 	// Verify generated file
 	data, err := os.ReadFile(filepath.Join(sb.SourcePath, "skillshare-hub.json"))
@@ -87,7 +87,7 @@ func TestHub_IndexEmptySource(t *testing.T) {
 
 	result := sb.RunCLI("hub", "index")
 	result.AssertSuccess(t)
-	result.AssertAnyOutputContains(t, "Found 0 skill(s)")
+	result.AssertAnyOutputContains(t, "with 0 skills")
 
 	data, err := os.ReadFile(filepath.Join(sb.SourcePath, "skillshare-hub.json"))
 	if err != nil {

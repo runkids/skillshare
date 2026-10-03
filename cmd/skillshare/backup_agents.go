@@ -2,10 +2,12 @@ package main
 
 import (
 	"fmt"
+	"time"
 
 	"skillshare/internal/backup"
 	"skillshare/internal/config"
 	"skillshare/internal/ui"
+	"skillshare/internal/utils"
 )
 
 // createAgentBackup backs up agent target directories.
@@ -17,17 +19,16 @@ func createAgentBackup(mode runMode, cwd, targetName string, dryRun bool) error 
 		return err
 	}
 
-	modeLabel := "global"
-	if mode == modeProject {
-		modeLabel = "project"
+	start := time.Now()
+	var names []string
+	for _, at := range targets {
+		if targetName == "" || at.name == targetName {
+			names = append(names, at.name+"-agents")
+		}
 	}
+	width := ui.RowWidth(names...)
 
-	ui.Header(fmt.Sprintf("Creating agent backup (%s)", modeLabel))
-	if dryRun {
-		ui.Warning("Dry run mode - no backups will be created")
-	}
-
-	created := 0
+	created, failed := 0, 0
 	for _, at := range targets {
 		if targetName != "" && at.name != targetName {
 			continue
@@ -36,27 +37,32 @@ func createAgentBackup(mode runMode, cwd, targetName string, dryRun bool) error 
 		entryName := at.name + "-agents"
 
 		if dryRun {
-			ui.Info("%s: would backup agents from %s", entryName, at.agentPath)
+			ui.Row(ui.MarkNone, entryName, "would back up "+utils.FoldHomePath(at.agentPath), width)
 			continue
 		}
 
 		backupPath, backupErr := backup.CreateInDir(backupDir, entryName, at.agentPath)
 		if backupErr != nil {
-			ui.Warning("Failed to backup %s: %v", entryName, backupErr)
+			ui.Row(ui.MarkFail, entryName, backupErr.Error(), width)
+			failed++
 			continue
 		}
 		if backupPath != "" {
-			ui.StepDone(entryName, backupPath)
+			ui.Row(ui.MarkOK, entryName, utils.FoldHomePath(backupPath), width)
 			created++
 		} else {
-			ui.StepSkip(entryName, "nothing to backup")
+			ui.Row(ui.MarkNone, entryName, ui.DimText("nothing to back up"), width)
 		}
 	}
 
-	if created == 0 && !dryRun {
-		ui.Info("No agent targets to backup")
+	if len(names) > 0 {
+		fmt.Println()
 	}
-
+	if dryRun {
+		ui.DryRun()
+		return nil
+	}
+	printBackupDone(created, failed, "agents of ", start)
 	return nil
 }
 
@@ -84,11 +90,10 @@ func restoreAgentBackup(mode runMode, cwd, targetName, fromTimestamp string, for
 	}
 
 	entryName := targetName + "-agents"
-	ui.Header(fmt.Sprintf("Restoring agents for %s", targetName))
-
 	if dryRun {
-		ui.Warning("Dry run mode - no changes will be made")
-		ui.Info("Would restore %s to %s", entryName, agentPath)
+		ui.Done(ui.MarkNone, fmt.Sprintf("Would restore %s to %s", entryName, utils.FoldHomePath(agentPath)), 0)
+		fmt.Println()
+		ui.DryRun()
 		return nil
 	}
 

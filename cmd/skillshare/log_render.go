@@ -16,52 +16,61 @@ import (
 
 const (
 	logDetailTruncateLen = 96
-	logTimeWidth         = 16
-	logCmdWidth          = 9
-	logStatusWidth       = 7
-	logDurationWidth     = 7
 	logMinWrapWidth      = 24
 )
 
 var logANSIRegex = regexp.MustCompile(`\x1b\[[0-9;]*m`)
 
+// printLogEntries prints one row per entry: a status mark, the command,
+// and when it ran with how long it took. Details follow on dim lines,
+// wrapped on a terminal and on one truncated line otherwise.
 func printLogEntries(entries []oplog.Entry) {
-	if ui.IsTTY() {
-		printLogEntriesTTYTwoLine(os.Stdout, entries, logTerminalWidth())
-		return
-	}
-
-	printLogEntriesNonTTY(os.Stdout, entries)
+	printLogEntriesTo(os.Stdout, entries, ui.IsTTY(), logTerminalWidth())
 }
 
-func printLogEntriesTTYTwoLine(w io.Writer, entries []oplog.Entry, termWidth int) {
-	printLogTableHeaderTTY(w)
-
+func printLogEntriesTo(w io.Writer, entries []oplog.Entry, tty bool, termWidth int) {
+	names := make([]string, len(entries))
 	for i, e := range entries {
-		if i > 0 {
+		names[i] = e.Command
+	}
+	width := ui.RowWidth(names...)
+	indent := strings.Repeat(" ", width+4)
+	for i, e := range entries {
+		if tty && i > 0 {
 			fmt.Fprintln(w)
 		}
-
-		ts := formatLogTimestamp(e.Timestamp)
-		cmd := padLogCell(strings.ToUpper(e.Command), logCmdWidth)
-		status := colorizeLogStatusCell(padLogCell(e.Status, logStatusWidth), e.Status)
-		dur := formatLogDuration(e.Duration)
-		durCell := padLogCell(dur, logDurationWidth)
-
-		fmt.Fprintf(w, "  %s%s%s | %s | %s | %s\n",
-			ui.Dim,
-			padLogCell(ts, logTimeWidth),
-			ui.Reset,
-			cmd,
-			status,
-			durCell,
-		)
-
-		printLogDetailMultiLine(w, e, termWidth)
+		value := formatLogTimestamp(e.Timestamp)
+		if d := formatLogDuration(e.Duration); d != "" {
+			value += ui.DimText(" · " + d)
+		}
+		if e.Status != "ok" {
+			value += ui.DimText(" · " + e.Status)
+		}
+		fmt.Fprintf(w, "%s %s  %s\n", ui.StyledMark(logStatusMark(e.Status)), padLogCell(e.Command, width), value)
+		if tty {
+			printLogDetailMultiLine(w, e, termWidth, indent)
+			continue
+		}
+		if detail := formatLogDetail(e, true); detail != "" {
+			fmt.Fprintln(w, indent+detail)
+		}
+		printLogAuditSkillLinesNonTTY(w, e, indent)
 	}
 }
 
-func printLogDetailMultiLine(w io.Writer, e oplog.Entry, termWidth int) {
+// logStatusMark maps an entry status to ✓, ! or ✗.
+func logStatusMark(status string) string {
+	switch status {
+	case "ok":
+		return ui.MarkOK
+	case "error", "blocked":
+		return ui.MarkFail
+	default:
+		return ui.MarkWarn
+	}
+}
+
+func printLogDetailMultiLine(w io.Writer, e oplog.Entry, termWidth int, indent string) {
 	pairs := formatLogDetailPairs(e)
 
 	if e.Message != "" {
@@ -72,8 +81,7 @@ func printLogDetailMultiLine(w io.Writer, e oplog.Entry, termWidth int) {
 		return
 	}
 
-	const indent = "  "
-	const listIndent = "    - "
+	const listIndent = "  - "
 	wrapWidth := termWidth - logDisplayWidth(indent) - 20 // leave room for key
 	if wrapWidth < logMinWrapWidth {
 		wrapWidth = logMinWrapWidth
@@ -101,39 +109,26 @@ func printLogDetailMultiLine(w io.Writer, e oplog.Entry, termWidth int) {
 	}
 }
 
-func printLogEntriesNonTTY(w io.Writer, entries []oplog.Entry) {
-	for _, e := range entries {
-		ts := formatLogTimestamp(e.Timestamp)
-		detail := formatLogDetail(e, true)
-		dur := formatLogDuration(e.Duration)
-
-		fmt.Fprintf(w, "  %s  %-9s  %-96s  %-7s  %s\n",
-			ts, e.Command, detail, e.Status, dur)
-
-		printLogAuditSkillLinesNonTTY(w, e)
-	}
-}
-
-func printLogAuditSkillLinesNonTTY(w io.Writer, e oplog.Entry) {
+func printLogAuditSkillLinesNonTTY(w io.Writer, e oplog.Entry, indent string) {
 	if e.Command != "audit" || e.Args == nil {
 		return
 	}
 
 	if failedSkills, ok := logArgStringSlice(e.Args, "failed_skills"); ok && len(failedSkills) > 0 {
-		printLogNamedSkillsNonTTY(w, "failed skills", failedSkills)
+		printLogNamedSkillsNonTTY(w, indent, "failed skills", failedSkills)
 	}
 	if warningSkills, ok := logArgStringSlice(e.Args, "warning_skills"); ok && len(warningSkills) > 0 {
-		printLogNamedSkillsNonTTY(w, "warning skills", warningSkills)
+		printLogNamedSkillsNonTTY(w, indent, "warning skills", warningSkills)
 	}
 	if lowSkills, ok := logArgStringSlice(e.Args, "low_skills"); ok && len(lowSkills) > 0 {
-		printLogNamedSkillsNonTTY(w, "low skills", lowSkills)
+		printLogNamedSkillsNonTTY(w, indent, "low skills", lowSkills)
 	}
 	if infoSkills, ok := logArgStringSlice(e.Args, "info_skills"); ok && len(infoSkills) > 0 {
-		printLogNamedSkillsNonTTY(w, "info skills", infoSkills)
+		printLogNamedSkillsNonTTY(w, indent, "info skills", infoSkills)
 	}
 }
 
-func printLogNamedSkillsNonTTY(w io.Writer, label string, skills []string) {
+func printLogNamedSkillsNonTTY(w io.Writer, indent, label string, skills []string) {
 	const namesPerLine = 4
 	for i := 0; i < len(skills); i += namesPerLine {
 		end := i + namesPerLine
@@ -145,36 +140,7 @@ func printLogNamedSkillsNonTTY(w io.Writer, label string, skills []string) {
 		if i > 0 {
 			currentLabel = label + " (cont)"
 		}
-		fmt.Fprintf(w, "                     -> %s: %s\n", currentLabel, strings.Join(skills[i:end], ", "))
-	}
-}
-
-func printLogTableHeaderTTY(w io.Writer) {
-	header := fmt.Sprintf("  %-16s | %-9s | %-7s | %-7s", "TIME", "CMD", "STATUS", "DUR")
-	separator := fmt.Sprintf(
-		"  %s-+-%s-+-%s-+-%s",
-		strings.Repeat("-", logTimeWidth),
-		strings.Repeat("-", logCmdWidth),
-		strings.Repeat("-", logStatusWidth),
-		strings.Repeat("-", logDurationWidth),
-	)
-
-	fmt.Fprintf(w, "%s%s%s\n", ui.Cyan, header, ui.Reset)
-	fmt.Fprintf(w, "%s%s%s\n", ui.Dim, separator, ui.Reset)
-}
-
-func colorizeLogStatusCell(cell, status string) string {
-	switch status {
-	case "ok":
-		return ui.Green + cell + ui.Reset
-	case "error":
-		return ui.Red + cell + ui.Reset
-	case "partial":
-		return ui.Yellow + cell + ui.Reset
-	case "blocked":
-		return ui.Red + cell + ui.Reset
-	default:
-		return cell
+		fmt.Fprintf(w, "%s%s: %s\n", indent, currentLabel, strings.Join(skills[i:end], ", "))
 	}
 }
 

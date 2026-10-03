@@ -10,7 +10,9 @@ import (
 
 	"skillshare/internal/hooks"
 	"skillshare/internal/oplog"
+	"skillshare/internal/theme"
 	"skillshare/internal/ui"
+	"skillshare/internal/utils"
 )
 
 func runHooks(service *hooks.Service, sub string, o hooksOptions) error {
@@ -49,32 +51,53 @@ func runHooksList(service *hooks.Service, o hooksOptions) error {
 	if o.json {
 		return writeJSON(inv)
 	}
-	ui.Info("Hooks source: %s", inv.Source.Path)
+	printHooksSource(inv.Source.Path)
+	var labels []string
+	labels = append(labels, slices.Collect(maps.Keys(inv.Source.Entries))...)
+	for _, u := range inv.Unmanaged {
+		labels = append(labels, u.Target)
+	}
+	width := ui.RowWidth(labels...)
 	for _, name := range slices.Sorted(maps.Keys(inv.Source.Entries)) {
 		entry := inv.Source.Entries[name]
-		state := "enabled"
-		if entry.Enabled != nil && !*entry.Enabled {
-			state = "disabled"
-		}
 		agents := strings.Join(slices.Sorted(maps.Keys(entry.Bindings)), ", ")
 		if agents == "" {
 			agents = "no Agents"
 		}
-		ui.Status(name, state, agents)
-	}
-	if len(inv.Source.Entries) == 0 {
-		ui.Info("No hooks configured. Run 'skillshare hooks add <name> --file <entry.yaml>' to get started.")
+		if entry.Enabled != nil && !*entry.Enabled {
+			ui.Row(ui.MarkNone, name, ui.DimText("disabled · "+agents), width)
+		} else {
+			ui.Row(ui.MarkOK, name, agents, width)
+		}
 	}
 	for _, u := range inv.Unmanaged {
-		ui.Status(u.Target, "not managed", u.Path+": "+strings.Join(u.Names, ", "))
+		ui.Row(ui.MarkWarn, u.Target, "not managed "+ui.DimText("· "+utils.FoldHomePath(u.Path)+": "+strings.Join(u.Names, ", ")), width)
+	}
+	if len(inv.Source.Entries) == 0 {
+		fmt.Println()
+		ui.Done(ui.MarkNone, "No hooks configured", 0)
+		ui.Next("skillshare hooks add <name> --file <entry.yaml>", "add one")
 	}
 	if inv.PreviewError != "" {
+		fmt.Println()
 		ui.Warning("Sync preview failed: %s", inv.PreviewError)
-	} else if inv.Plan != nil && len(inv.Plan.Changes) > 0 {
-		ui.Info("Pending sync changes:")
-		printHooksChanges(inv.Plan)
+	} else if inv.Plan != nil {
+		pending := *inv.Plan
+		pending.Changes = slices.DeleteFunc(slices.Clone(pending.Changes), func(c hooks.Change) bool {
+			return c.Action == "unchanged"
+		})
+		if len(pending.Changes) > 0 {
+			ui.Section("Pending sync")
+			printHooksChanges(&pending)
+			ui.Next("skillshare hooks sync", "write them into Agent files")
+		}
 	}
 	return nil
+}
+
+// printHooksSource names the hooks source file above what follows.
+func printHooksSource(path string) {
+	fmt.Println(theme.Primary().Bold(true).Render("Hooks source") + "  " + utils.FoldHomePath(path))
 }
 
 func runHooksSave(service *hooks.Service, sub string, o hooksOptions) error {
@@ -224,6 +247,10 @@ func checkHooksPreview(p *hooks.Plan, o hooksOptions) error {
 		return writeJSONResult(p, blocked)
 	}
 	printHooksPlan(p)
+	if o.dryRun {
+		fmt.Println()
+		ui.DryRun()
+	}
 	return blocked
 }
 
@@ -240,16 +267,23 @@ func hooksEntry(service *hooks.Service, name string) (hooks.Entry, error) {
 }
 
 func printHooksPlan(p *hooks.Plan) {
-	ui.Info("Hooks source: %s", p.SourcePath)
+	printHooksSource(p.SourcePath)
 	printHooksChanges(p)
 	if len(p.Changes) == 0 {
-		ui.Info("No hook changes.")
+		ui.Note("no hook changes")
 	}
 }
 
+// printHooksChanges prints one row per change to an Agent file; conflicts
+// are failures and inactive outputs are warnings.
 func printHooksChanges(p *hooks.Plan) {
 	home, _ := os.UserHomeDir()
 	conflicts := []string{}
+	labels := make([]string, len(p.Changes))
+	for i, c := range p.Changes {
+		labels[i] = hooksChangeLabel(c)
+	}
+	width := ui.RowWidth(labels...)
 	for _, c := range p.Changes {
 		detail := c.Target + "  " + hooksDisplayPath(c.Path, home)
 		if c.Events != nil {
@@ -258,7 +292,14 @@ func printHooksChanges(p *hooks.Plan) {
 		if c.Message != "" {
 			detail += " — " + c.Message
 		}
-		ui.Status(c.Name, c.Action, detail)
+		mark := ui.MarkNone
+		switch c.Action {
+		case "conflict":
+			mark = ui.MarkFail
+		case "inactive":
+			mark = ui.MarkWarn
+		}
+		ui.Row(mark, hooksChangeLabel(c), c.Action+"  "+ui.DimText(detail), width)
 		if c.Action == "conflict" && c.Name != "" && c.Root == "" && !slices.Contains(conflicts, c.Name) {
 			conflicts = append(conflicts, c.Name)
 		}
@@ -267,8 +308,17 @@ func printHooksChanges(p *hooks.Plan) {
 		ui.Warning("%s", w)
 	}
 	for _, name := range conflicts {
-		ui.Info("To take over %s's conflicting Agent entries: skillshare hooks sync %s --replace", name, name)
+		ui.Note(fmt.Sprintf("To take over %s's conflicting Agent entries: skillshare hooks sync %s --replace", name, name))
 	}
+}
+
+// hooksChangeLabel is the hook a change belongs to, or its Agent when the
+// change concerns a whole file.
+func hooksChangeLabel(c hooks.Change) string {
+	if c.Name != "" {
+		return c.Name
+	}
+	return c.Target
 }
 
 // hooksDisplayPath shortens a path under the home directory to ~/...
@@ -305,12 +355,16 @@ func printHooksResult(result *hooks.Result, err error, o hooksOptions) error {
 			printHooksPlan(result.Plan)
 		}
 		for _, id := range result.BackupIDs {
-			ui.Info("Backup: %s", id)
+			ui.Note("backup " + id)
 		}
 		if err == nil && !o.sync {
-			ui.Success("Hooks source saved. Run 'skillshare hooks sync' when ready.")
+			fmt.Println()
+			ui.Done(ui.MarkOK, "Saved the hooks source", 0)
+			ui.Next("skillshare hooks sync", "write it into Agent files")
 		} else if err == nil {
-			ui.Success("Hook files applied: %d. Restart or reload the Agent to load them.", len(result.Applied))
+			fmt.Println()
+			ui.Done(ui.MarkOK, "Applied "+plural(len(result.Applied), "hook file"), 0)
+			ui.Note("Restart or reload the Agent to load them")
 		}
 	}
 	return err
@@ -328,6 +382,11 @@ func printHooksCandidates(candidates []hooks.Candidate, asJSON bool) error {
 		}
 	}
 	var shared []string
+	names := make([]string, len(candidates))
+	for i, c := range candidates {
+		names[i] = c.Name
+	}
+	width := ui.RowWidth(names...)
 	for _, c := range candidates {
 		var own []string
 		for _, w := range c.Warnings {
@@ -340,18 +399,20 @@ func printHooksCandidates(candidates []hooks.Candidate, asJSON bool) error {
 			own = append(own, w)
 		}
 		if len(c.Problems) > 0 {
-			ui.Status(c.Name, "blocked", strings.Join(c.Problems, "; "))
+			ui.Row(ui.MarkFail, c.Name, "blocked "+ui.DimText("· "+strings.Join(c.Problems, "; ")), width)
+		} else if len(own) > 0 {
+			ui.Row(ui.MarkNone, c.Name, "importable "+ui.DimText("· "+strings.Join(own, "; ")), width)
 		} else {
-			ui.Status(c.Name, "importable", strings.Join(own, "; "))
+			ui.Row(ui.MarkNone, c.Name, "importable", width)
 		}
 	}
 	for _, w := range shared {
-		ui.Info("%s%s", strings.ToUpper(w[:1]), w[1:]+".")
+		ui.Note(strings.ToUpper(w[:1]) + w[1:] + ".")
 	}
 	if len(candidates) == 0 {
-		ui.Info("No hooks found to import.")
+		ui.Done(ui.MarkNone, "No hooks found to import", 0)
 	} else {
-		ui.Info("Import one with 'skillshare hooks import --from <agent> <name>' (add --dry-run to preview).")
+		ui.Next("skillshare hooks import --from <agent> <name>", "import one (add --dry-run to preview)")
 	}
 	return nil
 }

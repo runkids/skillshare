@@ -90,7 +90,7 @@ Project config는 경로가 아니라 target 이름을 저장하므로, 각 targ
 Project sync는 이를 제거합니다. 명시적인 `path:`가 없는 각 target에 대해 해당 target의 runtime이 함께 scan하는 디렉터리를 살펴보고, 그중 구성된 어떤 target도 쓰지 않는 디렉터리에서 skillshare가 만든 항목을 제거합니다. 사용자가 직접 만든 폴더와 project 바깥을 가리키는 symlink는 절대 건드리지 않습니다.
 
 ```
-→ Cleaned 1 leftover skill(s) from .goose/skills: the default path for 'goose' moved to .agents/skills
+  Cleaned 1 leftover skill from .goose/skills: the default path for 'goose' moved to .agents/skills
 ```
 
 target에 명시적인 `path:`를 설정하면 해당 target은 이 정리에서 제외되며, `--dry-run`은 아무것도 변경하지 않고 제거될 항목만 미리 보여줍니다.
@@ -187,7 +187,7 @@ flowchart TD
 
 ### target이 실패하는 경우 {#when-a-target-fails}
 
-sync는 모든 target을 실행하며, target 하나가 실패해도 나머지 target은 멈추지 않습니다. target은 sync 중 오류가 발생하거나, 해당 target 자체의 설정이 잘못된 경우(예: skills path가 폴더가 아닌 파일이거나 `mode`를 알 수 없는 경우) 실패합니다. 설정이 잘못된 target은 해당 실행에서 skills와 agents 모두 건너뜁니다. 실패한 target은 각각 보고되며(텍스트 출력에서는 `✗ <target>: invalid config: …`, `--json`에서는 해당 `details` 항목의 `error`), 나머지 target의 sync가 끝난 뒤 명령은 0이 아닌 코드로 종료됩니다.
+sync는 모든 target을 실행하며, target 하나가 실패해도 나머지 target은 멈추지 않습니다. target은 sync 중 오류가 발생하거나, 해당 target 자체의 설정이 잘못된 경우(예: skills path가 폴더가 아닌 파일이거나 `mode`를 알 수 없는 경우) 실패합니다. 설정이 잘못된 target은 해당 실행에서 skills와 agents 모두 건너뜁니다. 실패한 target은 각각 보고되며(텍스트 출력에서는 `✗ <target>  invalid config: …`, `--json`에서는 해당 `details` 항목의 `error`), 나머지 target의 sync가 끝난 뒤 명령은 0이 아닌 코드로 종료됩니다.
 
 config 전체에 관한 문제는 여전히 어떤 target도 실행하기 전에 sync를 중단합니다: source 폴더가 없거나 잘못됨, 전역 `mode` 또는 `target_naming`이 잘못됨, `git_root`가 잘못됨, extras가 잘못됨.
 
@@ -195,25 +195,16 @@ config 전체에 관한 문제는 여전히 어떤 target도 실행하기 전에
 
 ```text
 $ skillshare sync
-✓ Discovered 43 skills
+✓ Backup       claude, claude-work, cursor, gemini, opencode, universal → ~/.local/share/skillshare/backups/2026-09-28_12-52-50
+✓ claude       43 linked · 1 pruned
+✓ claude-work  43 linked · 1 pruned
+✓ cursor       43 linked · 1 local · 1 pruned
+✓ gemini       43 linked · 1 pruned
+✓ opencode     43 linked · 1 pruned
+✓ universal    43 linked · 1 pruned
 
-Backing up
-─────────────────────────────────────────
-✓ claude -> ~/.local/share/skillshare/backups/2026-09-28_12-52-50/claude
-✓ cursor -> ~/.local/share/skillshare/backups/2026-09-28_12-52-50/cursor
-✓ gemini -> ~/.local/share/skillshare/backups/2026-09-28_12-52-50/gemini
-  …
-
-Syncing skills
-─────────────────────────────────────────
-✓ claude: merged (43 linked, 0 local, 0 updated, 1 pruned)
-✓ claude-work: merged (43 linked, 0 local, 0 updated, 1 pruned)
-✓ cursor: merged (43 linked, 1 local, 0 updated, 1 pruned)
-✓ gemini: merged (43 linked, 0 local, 0 updated, 1 pruned)
-✓ opencode: merged (43 linked, 0 local, 0 updated, 1 pruned)
-✓ universal: merged (43 linked, 0 local, 0 updated, 1 pruned)
-
-Sync complete: 6 targets, 258 linked, 1 local, 0 updated, 6 pruned (0.0s)
+✓ Synced 43 skills to 6 targets · 0.0s
+  Context  ~1.2K tokens always loaded · ~18.5K on demand
 ```
 
 ---
@@ -662,12 +653,12 @@ flowchart TD
 ```
 $ skillshare sync extras
 
-Rules
-  ✔ ~/.claude/rules  2 files linked (merge)
-  ✔ ~/.cursor/rules  2 files copied (copy)
+Extras
+✓ rules     ~/.claude/rules  2 files linked
+✓ rules     ~/.cursor/rules  2 files copied
+✓ commands  ~/.claude/commands  1 files linked
 
-Commands
-  ✔ ~/.claude/commands  1 files linked (merge)
+✓ Synced 2 extras to 3 folders · 0.0s
 ```
 
 ---
@@ -677,8 +668,8 @@ Commands
 sync 후 skillshare는 token cost summary를 표시합니다.
 
 ```
-✔ Synced 47 skill(s) to 4 target(s) in 312ms
-  Context: ~12.4K always-loaded · ~58.2K on-demand (claude, cursor, codex, opencode)
+✓ Synced 47 skills to 4 targets · 0.3s
+  Context  ~12.4K tokens always loaded · ~58.2K on demand
 ```
 
 - **Always-loaded**: frontmatter의 name + description(모든 요청마다 로드됨)

@@ -109,10 +109,11 @@ TUI では、Lint 上の問題がある Skill は名前の横に ✗（error）�
 ### デフォルト（--no-tui）
 
 ```
-Context Analysis (global)
-ℹ claude (7 skills)
-  Always loaded:  ~362 tokens
-  On-demand max:  ~22 tokens
+claude · 7 skills
+  Always loaded  ~362 tokens
+  On-demand max  ~22 tokens
+
+  Add -v for the 10 largest descriptions
 ```
 
 ### 詳細
@@ -120,15 +121,14 @@ Context Analysis (global)
 ```
 skillshare analyze --verbose
 
-Context Analysis (global)
-ℹ claude (7 skills)
-  Always loaded:  ~362 tokens
-  On-demand max:  ~22 tokens
+claude · 7 skills
+  Always loaded  ~362 tokens
+  On-demand max  ~22 tokens
 
-  Largest descriptions:
-  my-big-skill                     ~180 tokens
-  another-skill                    ~120 tokens
-  ...
+  Largest descriptions
+    my-big-skill   ~180 tokens
+    another-skill  ~120 tokens
+    …
 ```
 
 ### 単一 Target

@@ -20,7 +20,7 @@ func TestInitProject_Fresh_CreatesStructure(t *testing.T) {
 
 	result := sb.RunCLIInDir(projectRoot, "init", "-p", "--targets", "claude,cursor")
 	result.AssertSuccess(t)
-	result.AssertAnyOutputContains(t, "Initialized successfully")
+	result.AssertAnyOutputContains(t, "✓ Config")
 
 	// Verify structure
 	if !sb.FileExists(filepath.Join(projectRoot, ".skillshare", "config.yaml")) {
@@ -140,7 +140,7 @@ func TestInitProject_Discover_WithMode_AddsTargetMode(t *testing.T) {
 
 	result := sb.RunCLIInDir(projectRoot, "init", "-p", "--discover", "--select", "windsurf", "--mode", "copy")
 	result.AssertSuccess(t)
-	result.AssertOutputContains(t, "Added 1 target")
+	result.AssertOutputContains(t, "Targets  windsurf")
 
 	cfg := sb.ReadFile(filepath.Join(projectRoot, ".skillshare", "config.yaml"))
 	if !strings.Contains(cfg, "mode: copy") {
@@ -177,7 +177,7 @@ func TestInitProject_ConfigLocal(t *testing.T) {
 
 	result := sb.RunCLIInDir(projectRoot, "init", "-p", "--config", "local", "--targets", "claude")
 	result.AssertSuccess(t)
-	result.AssertAnyOutputContains(t, "Initialized successfully")
+	result.AssertAnyOutputContains(t, "✓ Config")
 
 	// .gitignore should contain config.yaml (without trailing slash)
 	gitignore := sb.ReadFile(filepath.Join(projectRoot, ".skillshare", ".gitignore"))
@@ -195,7 +195,7 @@ func TestInitProject_ConfigLocal(t *testing.T) {
 	}
 
 	// Output should mention config gitignored
-	result.AssertAnyOutputContains(t, "Config gitignored")
+	result.AssertAnyOutputContains(t, "gitignored: each developer manages own targets")
 }
 
 func TestInitProject_SharedRepoClone(t *testing.T) {
@@ -286,5 +286,21 @@ func TestInitProject_GitignoreIncludesLogsDirectory(t *testing.T) {
 	gitignore := sb.ReadFile(filepath.Join(projectRoot, ".skillshare", ".gitignore"))
 	if !strings.Contains(gitignore, "logs/") {
 		t.Errorf("project .gitignore should include logs/, got:\n%s", gitignore)
+	}
+}
+
+func TestInitProject_Headless_AddsDetectedTools(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	projectRoot := filepath.Join(sb.Root, "project")
+	os.MkdirAll(filepath.Join(projectRoot, ".claude"), 0755)
+
+	result := sb.RunCLIInDir(projectRoot, "init", "-p")
+	result.AssertSuccess(t)
+
+	cfg := sb.ReadFile(filepath.Join(projectRoot, ".skillshare", "config.yaml"))
+	if !strings.Contains(cfg, "claude") {
+		t.Errorf("headless init -p should add detected tools, got:\n%s", cfg)
 	}
 }

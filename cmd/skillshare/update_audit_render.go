@@ -116,7 +116,12 @@ func displayUpdateAuditResults(entries []batchAuditEntry, auditVerbose bool) {
 		totalWarnings += len(r.warnings)
 	}
 
-	ui.SectionLabel("Audit Findings")
+	if len(notable) == 0 && totalWarnings == 0 {
+		fmt.Println()
+		ui.Row(ui.MarkOK, "Audit", plural(clean, "skill")+", no findings", ui.RowWidth("Audit"))
+		return
+	}
+	ui.Section("Audit")
 
 	if auditVerbose {
 		// Verbose: per-skill risk lines + detailed findings
@@ -124,7 +129,7 @@ func displayUpdateAuditResults(entries []batchAuditEntry, auditVerbose bool) {
 			ui.Warning("risk: %s — %s", e.risk, e.name)
 		}
 		if clean > 0 {
-			ui.Info("Audit: %d skill(s) CLEAN", clean)
+			ui.Note(plural(clean, "skill") + " with no findings")
 		}
 		if totalWarnings > 0 {
 			skillsWithWarnings := countSkillsWithWarnings(results)
@@ -137,7 +142,7 @@ func displayUpdateAuditResults(entries []batchAuditEntry, auditVerbose bool) {
 			} else {
 				// Large batch verbose: compact summary + top HIGH/CRITICAL detail
 				renderBatchInstallWarningsCompact(results, totalWarnings,
-					"%d audit finding line(s) across all skills; HIGH/CRITICAL detail expanded below")
+					"%s across all skills; HIGH/CRITICAL detail expanded below")
 				fmt.Println()
 				ui.Warning("HIGH/CRITICAL detail (top skills):")
 				shown := 0
@@ -153,33 +158,32 @@ func displayUpdateAuditResults(entries []batchAuditEntry, auditVerbose bool) {
 	} else {
 		// Non-verbose: compact summary only (matches install --all output)
 		if clean > 0 {
-			ui.Info("Audit: %d skill(s) CLEAN", clean)
+			ui.Note(plural(clean, "skill") + " with no findings")
 		}
 		if totalWarnings > 0 {
 			if len(entries) > 100 {
 				renderUltraCompactAuditSummary(results, totalWarnings)
 			} else {
 				renderBatchInstallWarningsCompact(results, totalWarnings,
-					"suppressed %d audit finding line(s); re-run with --audit-verbose for full details")
+					"suppressed %s; re-run with --audit-verbose for full details")
 			}
 		}
 	}
 }
 
-// displayUpdateBlockedSection renders the "Blocked / Rolled Back" section
-// for skills that were blocked by security audit during batch update.
+// displayUpdateBlockedSection lists the skills the security audit blocked
+// during a batch update; each was rolled back.
 func displayUpdateBlockedSection(blocked []batchBlockedEntry) {
 	if len(blocked) == 0 {
 		return
 	}
-	ui.SectionLabel("Blocked / Rolled Back")
-	ui.Warning("%d skill(s) blocked by security audit", len(blocked))
-	ui.Info("Use --force or --skip-audit to bypass")
+	ui.Section("Blocked and rolled back")
 	for _, b := range blocked {
 		digest := parseAuditBlockedFailure(b.errMsg)
 		label := blockedSkillLabel(b.name, digest.threshold)
 		ui.StepFail(label, compactBlockedUpdateMessage(b.errMsg))
 	}
+	ui.Note("Use --force or --skip-audit to bypass")
 }
 
 // compactBlockedUpdateMessage extracts a compact message from a blocked update error.
@@ -215,9 +219,10 @@ func displayPrunedSection(pruned []string) {
 	if len(pruned) == 0 {
 		return
 	}
-	ui.SectionLabel("Pruned (Stale)")
+	ui.Section("Pruned")
+	width := ui.RowWidth(pruned...)
 	for _, name := range pruned {
-		ui.ListItem("warning", name, "removed (deleted upstream)")
+		ui.Row(ui.MarkWarn, name, "removed — deleted upstream", width)
 	}
 }
 
@@ -226,12 +231,12 @@ func displayStaleWarning(stale []string) {
 	if len(stale) == 0 {
 		return
 	}
-	fmt.Println()
-	ui.Warning("%d skill(s) no longer found in upstream repository:", len(stale))
+	ui.Section("Deleted upstream")
+	width := ui.RowWidth(stale...)
 	for _, name := range stale {
-		ui.ListItem("warning", name, "stale (deleted upstream)")
+		ui.Row(ui.MarkWarn, name, "stale — no longer in the upstream repository", width)
 	}
-	ui.Info("Run with --prune to remove stale skills")
+	ui.Note("Run with --prune to remove them")
 }
 
 // displayMissingTrackedReposWarning warns about tracked repos declared in
@@ -241,9 +246,10 @@ func displayMissingTrackedReposWarning(missing []string) {
 		return
 	}
 	fmt.Println()
-	ui.Warning("%d tracked repo(s) declared in metadata but missing on disk:", len(missing))
+	ui.Warning("%s declared in metadata but missing on disk", plural(len(missing), "tracked repo"))
+	width := ui.RowWidth(missing...)
 	for _, name := range missing {
-		ui.ListItem("warning", name, missingTrackedRepoShortReason)
+		ui.Row(ui.MarkWarn, name, missingTrackedRepoShortReason, width)
 	}
-	ui.Info("%s", missingTrackedRepoHint())
+	ui.Note(missingTrackedRepoHint())
 }

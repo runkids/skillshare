@@ -145,7 +145,7 @@ Agent 是与 skill 并列的一种资源类型。它们拥有自己独立的 sou
 - `~/.config/opencode/agents/` — OpenCode
 - `~/.factory/droids/` — Droid
 
-其他 target 在 agent 同步时会被静默跳过（并给出 `target(s) skipped for agents (no agents path)` 警告）。适用于 skill 的 merge / copy / symlink 模式，同样适用于 agent。
+其他 target 在 agent 同步时会被静默跳过（并给出 `No agents folder: <targets>` 警告）。适用于 skill 的 merge / copy / symlink 模式，同样适用于 agent。
 
 完整的 agent 文件格式、`.agentignore` 规则以及发现机制，请参见 [Agents](/docs/understand/agents)。
 

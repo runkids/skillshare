@@ -303,7 +303,7 @@ func resolveInstallSource(sourceArg string, opts install.InstallOptions, cfg *co
 		if resolveErr != nil {
 			return nil, false, fmt.Errorf("invalid source: %w", err)
 		}
-		ui.Info("Resolved '%s' from installed skill metadata", sourceArg)
+		ui.Note(fmt.Sprintf("Resolved '%s' from installed skill metadata", sourceArg))
 		return resolvedSource, true, nil // resolvedFromMeta = true
 	}
 
@@ -577,83 +577,76 @@ func logInstallOp(cfgPath string, args []string, start time.Time, cmdErr error, 
 }
 
 func printInstallHelp() {
-	fmt.Println(`Usage: skillshare install [source|skill-name] [options]
-
-Install skills from a local path, git repository, or global config.
-When run with no arguments, installs all skills listed in config.yaml.
-When using --update or --force with a skill name, skillshare uses stored metadata to resolve the source.
-
-Sources:
-  user/repo                  GitHub shorthand (expands to github.com/user/repo)
-  user/repo/path/to/skill    GitHub shorthand with subdirectory
-  github.com/user/repo       Full GitHub URL (discovers skills)
-  github.com/user/repo/path  Subdirectory in GitHub repo (direct install)
-  https://github.com/...     HTTPS git URL
-  git@github.com:...         SSH git URL
-  ~/path/to/skill            Local directory
-
-Options:
-  --name <name>       Override installed name when exactly one skill is installed
-  --kind <kind>       Restrict discovery/install to skill or agent
-  --into <dir>        Install into subdirectory (e.g. "frontend" or "frontend/react")
-  --force, -f         Overwrite existing skill; also continue if audit would block
-  --update, -u        Update existing (git pull if possible, else reinstall)
-  --branch, -b <ref>  Git branch, tag, or commit SHA to install from (default: remote default)
-  --track, -t         Install as tracked repo (preserves .git for updates)
-  --agent, -a <names> Select specific agents from a multi-agent repo (comma-separated)
-  --skill, -s <names> Select specific skills from multi-skill repo (comma-separated;
-                      supports glob patterns like "core-*", "test-?")
-  --exclude <names>   Skip specific skills during install (comma-separated;
-                      supports glob patterns like "test-*")
-  --all               Install all discovered skills without prompting
-  --yes, -y           Auto-accept all prompts (equivalent to --all for multi-skill repos)
-  --dry-run, -n       Preview the installation without making changes
-  --skip-audit        Skip security audit entirely for this install
-  --audit-verbose     Show full audit finding lines (default: compact summary)
-  --audit-threshold, --threshold, -T <t>
-                      Block install by severity at/above: critical|high|medium|low|info
-                      (also supports c|h|m|l|i)
-  --json              Output results as JSON (implies --force --all)
-  --project, -p       Use project-level config in current directory
-  --global, -g        Use global config (~/.config/skillshare)
-  --help, -h          Show this help
-
-Examples:
-  skillshare install anthropics/skills
-  skillshare install anthropics/skills/skills/pdf
-  skillshare install ComposioHQ/awesome-claude-skills
-  skillshare install ~/my-skill
-  skillshare install github.com/user/repo --force
-  skillshare install ~/my-skill --skip-audit     # Bypass scan (no findings generated)
-  skillshare install user/repo --all --audit-verbose
-  skillshare install ~/my-skill -T high          # Override block threshold for this run
-
-Selective install (non-interactive):
-  skillshare install org/agents --kind agent             # Agents only
-  skillshare install org/agents -a reviewer,tutor        # Specific agents
-  skillshare install anthropics/skills -s pdf,commit     # Specific skills
-  skillshare install anthropics/skills -s "core-*"       # Glob pattern
-  skillshare install anthropics/skills --all             # All skills
-  skillshare install anthropics/skills -y                # Auto-accept
-  skillshare install anthropics/skills -s pdf --dry-run  # Preview selection
-  skillshare install repo --all --exclude cli-sentry     # All except specific
-  skillshare install repo --all --exclude "test-*"       # Exclude by pattern
-
-Organize into subdirectories:
-  skillshare install anthropics/skills -s pdf --into frontend
-  skillshare install user/repo --track --into devops
-  skillshare install ~/my-skill --into frontend/react
-
-Tracked repositories (Team Edition):
-  skillshare install team/shared-skills --track   # Clone as _shared-skills
-  skillshare install _shared-skills --update      # Update tracked repo
-
-Install from config (no arguments):
-  skillshare install                         # Install all skills from config.yaml
-  skillshare install --dry-run               # Preview config-based install
-
-Update existing skills:
-  skillshare install my-skill --update       # Update using stored source
-  skillshare install my-skill --force        # Reinstall using stored source
-  skillshare install my-skill --update -n    # Preview update`)
+	printHelp("skillshare install [source|skill-name] [options]", "Install skills from a local path, git repository, or global config.\nWhen run with no arguments, installs all skills listed in config.yaml.\nWhen using --update or --force with a skill name, skillshare uses stored metadata to resolve the source.",
+		helpGroup{title: "Sources", rows: []helpRow{
+			{"user/repo", "GitHub shorthand (expands to github.com/user/repo)"},
+			{"user/repo/path/to/skill", "GitHub shorthand with subdirectory"},
+			{"github.com/user/repo", "Full GitHub URL (discovers skills)"},
+			{"github.com/user/repo/path", "Subdirectory in GitHub repo (direct install)"},
+			{"https://github.com/...", "HTTPS git URL"},
+			{"git@github.com:...", "SSH git URL"},
+			{"~/path/to/skill", "Local directory"},
+		}},
+		helpGroup{title: "Options", rows: []helpRow{
+			{"--name <name>", "Override installed name when exactly one skill is installed"},
+			{"--kind <kind>", "Restrict discovery/install to skill or agent"},
+			{"--into <dir>", "Install into subdirectory (e.g. \"frontend\" or \"frontend/react\")"},
+			{"-f, --force", "Overwrite existing skill; also continue if audit would block"},
+			{"-u, --update", "Update existing (git pull if possible, else reinstall)"},
+			{"-b, --branch <ref>", "Git branch, tag, or commit SHA to install from (default: remote default)"},
+			{"-t, --track", "Install as tracked repo (preserves .git for updates)"},
+			{"-a, --agent <names>", "Select specific agents from a multi-agent repo (comma-separated)"},
+			{"-s, --skill <names>", "Select specific skills from multi-skill repo (comma-separated;\nsupports glob patterns like \"core-*\", \"test-?\")"},
+			{"--exclude <names>", "Skip specific skills during install (comma-separated;\nsupports glob patterns like \"test-*\")"},
+			{"--all", "Install all discovered skills without prompting"},
+			{"-y, --yes", "Auto-accept all prompts (equivalent to --all for multi-skill repos)"},
+			{"-n, --dry-run", "Preview the installation without making changes"},
+			{"--skip-audit", "Skip security audit entirely for this install"},
+			{"--audit-verbose", "Show full audit finding lines (default: compact summary)"},
+			{"-T, --audit-threshold, --threshold <t>", ""},
+			{"", "Block install by severity at/above: critical|high|medium|low|info\n(also supports c|h|m|l|i)"},
+			{"--json", "Output results as JSON (implies --force --all)"},
+			{"-p, --project", "Use project-level config in current directory"},
+			{"-g, --global", "Use global config (~/.config/skillshare)"},
+		}},
+		helpExamples(
+			helpRow{"skillshare install anthropics/skills", ""},
+			helpRow{"skillshare install anthropics/skills/skills/pdf", ""},
+			helpRow{"skillshare install ComposioHQ/awesome-claude-skills", ""},
+			helpRow{"skillshare install ~/my-skill", ""},
+			helpRow{"skillshare install github.com/user/repo --force", ""},
+			helpRow{"skillshare install ~/my-skill --skip-audit", "Bypass scan (no findings generated)"},
+			helpRow{"skillshare install user/repo --all --audit-verbose", ""},
+			helpRow{"skillshare install ~/my-skill -T high", "Override block threshold for this run"},
+		),
+		helpGroup{title: "Selective install (non-interactive)", examples: true, rows: []helpRow{
+			{"skillshare install org/agents --kind agent", "Agents only"},
+			{"skillshare install org/agents -a reviewer,tutor", "Specific agents"},
+			{"skillshare install anthropics/skills -s pdf,commit", "Specific skills"},
+			{"skillshare install anthropics/skills -s \"core-*\"", "Glob pattern"},
+			{"skillshare install anthropics/skills --all", "All skills"},
+			{"skillshare install anthropics/skills -y", "Auto-accept"},
+			{"skillshare install anthropics/skills -s pdf --dry-run", "Preview selection"},
+			{"skillshare install repo --all --exclude cli-sentry", "All except specific"},
+			{"skillshare install repo --all --exclude \"test-*\"", "Exclude by pattern"},
+		}},
+		helpGroup{title: "Organize into subdirectories", examples: true, rows: []helpRow{
+			{"skillshare install anthropics/skills -s pdf --into frontend", ""},
+			{"skillshare install user/repo --track --into devops", ""},
+			{"skillshare install ~/my-skill --into frontend/react", ""},
+		}},
+		helpGroup{title: "Tracked repositories (Team Edition)", examples: true, rows: []helpRow{
+			{"skillshare install team/shared-skills --track", "Clone as _shared-skills"},
+			{"skillshare install _shared-skills --update", "Update tracked repo"},
+		}},
+		helpGroup{title: "Install from config (no arguments)", examples: true, rows: []helpRow{
+			{"skillshare install", "Install all skills from config.yaml"},
+			{"skillshare install --dry-run", "Preview config-based install"},
+		}},
+		helpGroup{title: "Update existing skills", examples: true, rows: []helpRow{
+			{"skillshare install my-skill --update", "Update using stored source"},
+			{"skillshare install my-skill --force", "Reinstall using stored source"},
+			{"skillshare install my-skill --update -n", "Preview update"},
+		}},
+	)
 }

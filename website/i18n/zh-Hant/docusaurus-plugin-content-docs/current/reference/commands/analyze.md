@@ -109,10 +109,11 @@ token 消耗程度依每個 target 動態計算的百分位門檻分類：
 ### Default (--no-tui)
 
 ```
-Context Analysis (global)
-ℹ claude (7 skills)
-  Always loaded:  ~362 tokens
-  On-demand max:  ~22 tokens
+claude · 7 skills
+  Always loaded  ~362 tokens
+  On-demand max  ~22 tokens
+
+  Add -v for the 10 largest descriptions
 ```
 
 ### Verbose
@@ -120,15 +121,14 @@ Context Analysis (global)
 ```
 skillshare analyze --verbose
 
-Context Analysis (global)
-ℹ claude (7 skills)
-  Always loaded:  ~362 tokens
-  On-demand max:  ~22 tokens
+claude · 7 skills
+  Always loaded  ~362 tokens
+  On-demand max  ~22 tokens
 
-  Largest descriptions:
-  my-big-skill                     ~180 tokens
-  another-skill                    ~120 tokens
-  ...
+  Largest descriptions
+    my-big-skill   ~180 tokens
+    another-skill  ~120 tokens
+    …
 ```
 
 ### Single Target

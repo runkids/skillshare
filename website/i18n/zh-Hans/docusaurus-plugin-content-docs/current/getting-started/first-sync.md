@@ -53,15 +53,18 @@ skillshare init
 ```
 
 <p>
-  <img src="/img/init-with-mode.png" alt="Interactive init flow" width="720" />
+  <img src="/img/init-demo.png" alt="skillshare init：已回答的问题、摘要与首次同步" width="720" />
 </p>
 
-`init` 会引导你完成四个选择：
+`init` 会问几个简短的问题、显示摘要，在你确认之前不会写入任何东西：
 
-1. **Source 目录** —— 默认是 `~/.config/skillshare/skills/`。按 Enter 接受即可。
-2. **Git remote** —— 粘贴你个人 skills repo 的 URL（例如 `git@github.com:you/skills.git`）。如果还没有，先在 GitHub 上建一个空 repo；你也可以跳过，之后再添加 remote。
-3. **Targets** —— skillshare 会检测已安装的 AI CLI 并列出来。确认，或取消勾选你不需要的。
-4. **内置 skill** —— 可选。会添加一个 `/skillshare` 命令，让你的 AI CLI 能直接调用 skillshare。
+1. **如何开始** —— 在这台机器上新建设置，或[连接你已有的 skillshare repo](/docs/how-to/sharing/cross-machine-sync#second-machine-setup)。
+2. **Targets** —— 检测到的 AI CLI 全部勾选。按空格键可以取消其中一个。
+3. **导入** —— 这些工具里已有的 skills 会复制到 source。
+4. **Git** —— 默认开启，之后就能把 skills 推送到 repo。
+5. **Remote** —— 粘贴你的 skills repo URL（例如 `git@github.com:you/skills.git`），或按 Enter 跳过，之后再添加。
+
+摘要中还会列出 source 目录（`~/.config/skillshare/skills/`）、sync mode，以及内置 skill（会为 AI CLI 添加 `/skillshare` 命令）。选择 **Change settings** 可以修改，按 <kbd>Esc</kbd> 则取消。确认后，`init` 会询问是否立即同步。
 
 ### 选择 Sync 模式
 
@@ -99,24 +102,17 @@ skillshare status
 $ skillshare status
 
 Source
-─────────────────────────────────────────
-✓ ~/.config/skillshare/skills (43 skills, 2026-09-28 12:39)
-✓ ~/.config/skillshare/agents (2 agents, 2026-09-28 12:39)
+  skills    ~/.config/skillshare/skills  43 skills
+  agents    ~/.config/skillshare/agents  2 agents
 
-Targets
-─────────────────────────────────────────
-claude
-  skills   merged       [merge] ~/.claude/skills (43 shared, 0 local)
-  agents   merged       [merge] 2/2 linked
-cursor
-  skills   merged       [merge] ~/.cursor/skills (43 shared, 0 local)
-  agents   merged       [merge] 2/2 linked
-gemini
-  skills   merged       [merge] ~/.gemini/skills (43 shared, 0 local)
-…
+Targets                     skills       agents
+  claude  ~/.claude/skills  ✓ 43 linked  ✓ 2
+  cursor  ~/.cursor/skills  ✓ 43 linked  ✓ 2
+  gemini  ~/.gemini/skills  ✓ 43 linked  —
+  all use merge
 ```
 
-输出会显示 Source 路径和每个 Target。`merge` 模式下已同步的 Target 会标记为 `merged`，shared 数量也包含你刚刚安装的 skill。
+输出会显示 Source 路径和每个 Target。已同步的 Target 会显示 `✓` 和链接的 skill 数量，其中也包含你刚刚安装的 skill。
 
 仪表板（`skillshare ui`）也能一眼看到同样的状态：
 
@@ -168,7 +164,7 @@ skillshare install https://github.com/<your-company>/skills --track --force
 skillshare sync
 ```
 
-`--no-skill` 会跳过内置 skill 的提示；如果这台机器上也想要它，之后用 `skillshare upgrade --skill` 添加即可。
+`--no-skill` 会跳过内置 skill；如果这台机器上也想要它，之后用 `skillshare upgrade --skill` 添加即可。
 
 ---
 

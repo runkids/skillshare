@@ -255,7 +255,7 @@ targets:
 	}
 
 	// Warning should mention windsurf was skipped
-	result.AssertAnyOutputContains(t, "1 target(s) skipped for agents (no agents path): windsurf")
+	result.AssertAnyOutputContains(t, "No agents folder: windsurf")
 }
 
 func TestSync_Agents_TargetFailureExitsNonZero(t *testing.T) {
@@ -284,7 +284,7 @@ targets:
 
 	result := sb.RunCLI("sync", "agents")
 	result.AssertFailure(t)
-	result.AssertAnyOutputContains(t, "claude: invalid agent filter")
+	result.AssertRowContains(t, "claude", "invalid agent filter")
 	result.AssertAnyOutputContains(t, "some agent targets failed to sync")
 
 	if !sb.FileExists(filepath.Join(cursorAgents, "helper.md")) {

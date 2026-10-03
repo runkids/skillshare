@@ -205,7 +205,7 @@ func TestCompletion_NoArgs_ShowsUsage(t *testing.T) {
 
 	result := sb.RunCLI("completion")
 	result.AssertSuccess(t)
-	result.AssertOutputContains(t, "USAGE")
+	result.AssertOutputContains(t, "Usage  skillshare completion")
 }
 
 func TestCompletion_Install_WritesFile(t *testing.T) {

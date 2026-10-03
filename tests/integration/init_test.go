@@ -19,12 +19,10 @@ func TestInit_Fresh_CreatesConfigAndSource(t *testing.T) {
 	// Remove config file to simulate fresh state
 	os.Remove(sb.ConfigPath)
 
-	// Run init with input to skip interactive prompts
-	// Input: "2" to start fresh, "n" to skip adding other targets, "n" to skip git, "n" to skip skill
-	result := sb.RunCLIWithInput("2\nn\nn\nn\n", "init")
+	result := sb.RunCLI("init", "--no-skill")
 
 	result.AssertSuccess(t)
-	result.AssertOutputContains(t, "Initialized successfully")
+	result.AssertOutputContains(t, "✓ Config")
 
 	// Verify config was created
 	if !sb.FileExists(sb.ConfigPath) {
@@ -51,11 +49,10 @@ func TestInit_WithSourceFlag_UsesCustomPath(t *testing.T) {
 
 	customSource := filepath.Join(sb.Home, "my-skills")
 
-	// Input: "1" to start fresh (no skills detected), "n" to skip git, "n" to skip skill
-	result := sb.RunCLIWithInput("1\nn\nn\n", "init", "--source", customSource)
+	result := sb.RunCLI("init", "--source", customSource, "--no-skill")
 
 	result.AssertSuccess(t)
-	result.AssertOutputContains(t, customSource)
+	result.AssertOutputContains(t, "~/my-skills")
 
 	// Verify custom source was created
 	if !sb.FileExists(customSource) {
@@ -70,7 +67,7 @@ func TestInit_DryRun_DoesNotWrite(t *testing.T) {
 	os.Remove(sb.ConfigPath)
 	os.RemoveAll(sb.SourcePath)
 
-	result := sb.RunCLIWithInput("n\nn\n", "init", "--dry-run")
+	result := sb.RunCLI("init", "--dry-run")
 
 	result.AssertSuccess(t)
 	result.AssertOutputContains(t, "Dry run")
@@ -137,8 +134,7 @@ func TestInit_DetectsCLI_OffersImport(t *testing.T) {
 	os.MkdirAll(testSkillPath, 0755)
 	os.WriteFile(filepath.Join(testSkillPath, "SKILL.md"), []byte("# Test"), 0644)
 
-	// Input: "2" to start fresh (not copy), "y" to add claude as target, "n" to skip git, "n" to skip skill
-	result := sb.RunCLIWithInput("2\ny\nn\nn\n", "init")
+	result := sb.RunCLI("init", "--no-skill")
 
 	result.AssertSuccess(t)
 	result.AssertOutputContains(t, "claude")
@@ -158,11 +154,10 @@ func TestInit_WithSkills_CopiesOnConfirm(t *testing.T) {
 	os.MkdirAll(testSkillPath, 0755)
 	os.WriteFile(filepath.Join(testSkillPath, "SKILL.md"), []byte("# My Test Skill"), 0644)
 
-	// Input: "1" to copy from claude, "n" to skip git, "n" to skip skill
-	result := sb.RunCLIWithInput("1\nn\nn\n", "init")
+	result := sb.RunCLI("init", "--no-skill")
 
 	result.AssertSuccess(t)
-	result.AssertOutputContains(t, "Copy")
+	result.AssertOutputContains(t, "1 imported")
 
 	// Check if skill was copied to source
 	copiedSkillPath := filepath.Join(sb.SourcePath, "my-test-skill", "SKILL.md")
@@ -191,7 +186,7 @@ targets: {}
 	result := sb.RunCLI("init", "--remote", "git@github.com:test/skills.git")
 
 	result.AssertSuccess(t)
-	result.AssertOutputContains(t, "Git remote configured")
+	result.AssertRowContains(t, "Remote", "origin → git@github.com:test/skills.git")
 
 	// Verify remote was added
 	cmd = exec.Command("git", "remote", "-v")
@@ -223,7 +218,11 @@ targets: {}
 	result := sb.RunCLI("init", "--remote", "git@github.com:test/skills.git", "--dry-run")
 
 	result.AssertSuccess(t)
-	result.AssertOutputContains(t, "Would add git remote")
+	result.AssertRowContains(t, "Remote", "would add origin → git@github.com:test/skills.git")
+	result.AssertOutputContains(t, "Dry run")
+	if _, err := os.Stat(filepath.Join(sb.SourcePath, ".gitignore")); err == nil {
+		t.Error("dry run must not write .gitignore into the existing repo")
+	}
 
 	// Verify remote was NOT added
 	cmd = exec.Command("git", "remote", "-v")
@@ -257,8 +256,8 @@ targets: {}
 	result := sb.RunCLI("init", "--remote", "git@github.com:new/repo.git")
 
 	result.AssertSuccess(t)
-	result.AssertOutputContains(t, "already exists")
-	result.AssertOutputContains(t, "git remote set-url")
+	result.AssertRowContains(t, "Remote", "origin is already git@github.com:existing/repo.git")
+	result.AssertOutputContains(t, "remote set-url origin git@github.com:new/repo.git")
 }
 
 func TestInit_AlreadyInitialized_RemoteFlag_SameRemote(t *testing.T) {
@@ -284,7 +283,32 @@ targets: {}
 	result := sb.RunCLI("init", "--remote", "git@github.com:test/skills.git")
 
 	result.AssertSuccess(t)
-	result.AssertOutputContains(t, "already configured")
+	result.AssertRowContains(t, "Remote", "already origin → git@github.com:test/skills.git")
+	// The repo was created without an identity; init must still commit.
+	result.AssertOutputNotContains(t, "Author identity unknown")
+	// ...without writing an identity into the user's repo, which would
+	// outrank one they set globally later.
+	cmd = exec.Command("git", "config", "--local", "user.name")
+	cmd.Dir = sb.SourcePath
+	if out, err := cmd.Output(); err == nil {
+		t.Errorf("expected no repo-local user.name, got %q", strings.TrimSpace(string(out)))
+	}
+}
+
+func TestInit_AlreadyInitialized_RemoteFlag_NoRepo_DryRun(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets: {}
+`)
+
+	result := sb.RunCLI("init", "--remote", "git@github.com:test/skills.git", "--dry-run")
+
+	result.AssertSuccess(t)
+	result.AssertRowContains(t, "Git", "would initialize in")
+	result.AssertRowContains(t, "Remote", "would add origin → git@github.com:test/skills.git")
+	result.AssertOutputNotContains(t, "--no-git")
 }
 
 func TestInit_AlreadyInitialized_RemoteFlag_NoGit_AutoInitsGit(t *testing.T) {
@@ -299,7 +323,7 @@ targets: {}
 	result := sb.RunCLI("init", "--remote", "git@github.com:test/skills.git")
 
 	result.AssertSuccess(t)
-	result.AssertOutputContains(t, "Git remote configured")
+	result.AssertRowContains(t, "Remote", "origin → git@github.com:test/skills.git")
 
 	// Verify git was initialized
 	gitDir := filepath.Join(sb.SourcePath, ".git")
@@ -418,7 +442,7 @@ func TestInit_CopyFromByName(t *testing.T) {
 	result := sb.RunCLI("init", "--copy-from", "claude", "--no-targets", "--no-git", "--no-skill")
 
 	result.AssertSuccess(t)
-	result.AssertOutputContains(t, "matched by name")
+	result.AssertOutputContains(t, "1 from claude")
 
 	// Verify skill was copied
 	copiedSkillPath := filepath.Join(sb.SourcePath, "copy-test-skill", "SKILL.md")
@@ -468,7 +492,7 @@ func TestInit_TargetsCSV(t *testing.T) {
 	result := sb.RunCLI("init", "--no-copy", "--targets", "claude,cursor", "--no-git", "--no-skill")
 
 	result.AssertSuccess(t)
-	result.AssertOutputContains(t, "Added 2 targets")
+	result.AssertOutputContains(t, "Targets  claude, cursor")
 
 	// Verify config has both targets
 	configContent := sb.ReadFile(sb.ConfigPath)
@@ -496,7 +520,7 @@ func TestInit_AllTargets(t *testing.T) {
 	result := sb.RunCLI("init", "--no-copy", "--all-targets", "--no-git", "--no-skill")
 
 	result.AssertSuccess(t)
-	result.AssertOutputContains(t, "--all-targets")
+	result.AssertOutputContains(t, "universal")
 
 	// Verify config has targets (including auto-detected universal)
 	configContent := sb.ReadFile(sb.ConfigPath)
@@ -526,7 +550,6 @@ func TestInit_UniversalAutoDetected(t *testing.T) {
 	result := sb.RunCLI("init", "--no-copy", "--all-targets", "--no-git", "--no-skill")
 
 	result.AssertSuccess(t)
-	result.AssertAnyOutputContains(t, "Shared skills directory. Use this if your CLI supports ~/.agents/skills, such as Codex.")
 
 	// Verify config includes universal pointing to ~/.agents/skills
 	configContent := sb.ReadFile(sb.ConfigPath)
@@ -689,7 +712,7 @@ func TestInit_FullNonInteractive(t *testing.T) {
 	result := sb.RunCLI("init", "--copy-from", "claude", "--all-targets", "--git", "--no-skill")
 
 	result.AssertSuccess(t)
-	result.AssertOutputContains(t, "Initialized successfully")
+	result.AssertOutputContains(t, "✓ Config")
 
 	// Verify skill was copied
 	if !sb.FileExists(filepath.Join(sb.SourcePath, "full-test", "SKILL.md")) {
@@ -749,7 +772,7 @@ targets:
 	result := sb.RunCLI("init", "--discover")
 
 	result.AssertSuccess(t)
-	result.AssertOutputContains(t, "No new agents")
+	result.AssertOutputContains(t, "No new AI tools found")
 }
 
 func TestInit_Discover_DoesNotExpandSharedDirectoryTargets(t *testing.T) {
@@ -787,8 +810,8 @@ targets:
 	result := sb.RunCLI("init", "--discover", "--select", "zed")
 
 	result.AssertSuccess(t)
-	result.AssertOutputContains(t, "Agent not detected: zed")
-	result.AssertOutputNotContains(t, "Added 1 agent")
+	result.AssertOutputContains(t, "zed was not found on this machine")
+	result.AssertOutputNotContains(t, "✓ Targets")
 
 	configContent := sb.ReadFile(sb.ConfigPath)
 	if strings.Contains(configContent, "zed:") {
@@ -818,7 +841,7 @@ targets:
 	result := sb.RunCLI("init", "--discover", "--select", "cursor")
 
 	result.AssertSuccess(t)
-	result.AssertOutputContains(t, "Added 1 agent")
+	result.AssertOutputContains(t, "Targets  cursor")
 
 	// Verify config now has cursor
 	configContent := sb.ReadFile(sb.ConfigPath)
@@ -851,7 +874,7 @@ targets:
 	result := sb.RunCLI("init", "--discover", "--select", "cursor", "--mode", "copy")
 
 	result.AssertSuccess(t)
-	result.AssertOutputContains(t, "Added 1 agent")
+	result.AssertOutputContains(t, "Targets  cursor")
 
 	configContent := sb.ReadFile(sb.ConfigPath)
 	if !strings.Contains(configContent, "mode: symlink") {
@@ -880,7 +903,7 @@ targets: {}
 	result := sb.RunCLI("init", "--discover", "--select", "claude,cursor")
 
 	result.AssertSuccess(t)
-	result.AssertOutputContains(t, "Added 2 agent")
+	result.AssertOutputContains(t, "Targets  claude, cursor")
 
 	// Verify config has both
 	configContent := sb.ReadFile(sb.ConfigPath)
@@ -952,7 +975,7 @@ targets:
 	result := sb.RunCLI("init", "--discover", "--select", "claude")
 
 	result.AssertSuccess(t)
-	result.AssertOutputContains(t, "already in config")
+	result.AssertOutputContains(t, "claude is already set up")
 }
 
 func TestInit_Discover_UnknownAgent(t *testing.T) {
@@ -968,7 +991,7 @@ targets: {}
 	result := sb.RunCLI("init", "--discover", "--select", "unknownagent")
 
 	result.AssertSuccess(t)
-	result.AssertOutputContains(t, "Unknown agent")
+	result.AssertOutputContains(t, "Unknown AI tool: unknownagent")
 }
 
 func TestInit_ModeFlag_SetsDefaultMode(t *testing.T) {
@@ -1054,7 +1077,7 @@ func TestInit_Fresh_ConfigHasSchemaComment(t *testing.T) {
 	}
 }
 
-func TestInit_SuccessMessage_ContainsSourceHint(t *testing.T) {
+func TestInit_SuccessMessage_ShowsNextSteps(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
 
@@ -1063,8 +1086,7 @@ func TestInit_SuccessMessage_ContainsSourceHint(t *testing.T) {
 	result := sb.RunCLI("init", "--no-copy", "--no-targets", "--no-git", "--no-skill")
 
 	result.AssertSuccess(t)
-	result.AssertOutputContains(t, "Tip:")
-	result.AssertOutputContains(t, "--source")
+	result.AssertOutputContains(t, "skillshare install <repo>")
 }
 
 // ============================================
@@ -1080,7 +1102,7 @@ func TestInit_Subdir_SetsSourcePath(t *testing.T) {
 	result := sb.RunCLI("init", "--subdir", "skills", "--no-copy", "--no-targets", "--no-git", "--no-skill")
 
 	result.AssertSuccess(t)
-	result.AssertOutputContains(t, "Initialized successfully")
+	result.AssertOutputContains(t, "✓ Config")
 
 	// Verify config source ends with /skills (the subdir)
 	configContent := sb.ReadFile(sb.ConfigPath)
@@ -1139,7 +1161,7 @@ func TestInit_Subdir_SyncWorksWithSubdir(t *testing.T) {
 	// Sync should work
 	syncResult := sb.RunCLI("sync", "--no-tui")
 	syncResult.AssertSuccess(t)
-	syncResult.AssertOutputContains(t, "Sync complete")
+	syncResult.AssertOutputContains(t, "Synced 1 skill")
 
 	// Verify symlink was created in target
 	symlinkPath := filepath.Join(claudeSkillsPath, "sync-test")
@@ -1165,7 +1187,7 @@ func TestInit_Subdir_ForcesGlobalModeInProjectDir(t *testing.T) {
 	result := sb.RunCLIInDir(projectDir, "init", "--subdir", "skills", "--no-copy", "--no-targets", "--no-git", "--no-skill")
 
 	result.AssertSuccess(t)
-	result.AssertOutputContains(t, "Initialized successfully")
+	result.AssertOutputContains(t, "✓ Config")
 }
 
 func TestInit_Subdir_DryRunDoesNotCreate(t *testing.T) {
@@ -1308,4 +1330,101 @@ func TestInit_GooseOnly_AddsUniversalInsteadOfGoose(t *testing.T) {
 	if strings.Contains(configContent, "goose:") {
 		t.Errorf("config should not contain a separate goose target, got:\n%s", configContent)
 	}
+}
+
+// ============================================
+// Headless defaults (no terminal: every question takes its default)
+// ============================================
+
+func TestInit_Headless_NoFlags_AppliesDefaults(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	os.Remove(sb.ConfigPath)
+	claudeSkill := filepath.Join(sb.Home, ".claude", "skills", "my-skill")
+	os.MkdirAll(claudeSkill, 0755)
+	os.WriteFile(filepath.Join(claudeSkill, "SKILL.md"), []byte("---\nname: my-skill\n---\n# Mine\n"), 0644)
+
+	result := sb.RunCLI("init")
+	result.AssertSuccess(t)
+
+	cfg := sb.ReadFile(sb.ConfigPath)
+	if !strings.Contains(cfg, "claude:") {
+		t.Errorf("detected tools should become targets, got:\n%s", cfg)
+	}
+	if !sb.FileExists(filepath.Join(sb.SourcePath, "my-skill", "SKILL.md")) {
+		t.Error("existing skills should be imported")
+	}
+	if !sb.FileExists(filepath.Join(sb.SourcePath, ".git")) {
+		t.Error("git should be initialized")
+	}
+	if !sb.FileExists(filepath.Join(sb.SourcePath, "skillshare", "SKILL.md")) {
+		t.Error("built-in skill should be installed")
+	}
+	if !sb.IsSymlink(claudeSkill) {
+		t.Error("the tool's copy matches the source, so sync should replace it with a link")
+	}
+}
+
+func TestInit_Headless_RemoteWithSameNameSkill_UsesRepoVersion(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	os.Remove(sb.ConfigPath)
+	remote := createSkillsRemote(t, sb.Root, map[string]string{"pdf-tools": "repo version", "tdd": "repo tdd"})
+	local := filepath.Join(sb.Home, ".claude", "skills", "pdf-tools")
+	os.MkdirAll(local, 0755)
+	os.WriteFile(filepath.Join(local, "SKILL.md"), []byte("local version"), 0644)
+
+	result := sb.RunCLI("init", "--remote", remote, "--no-skill")
+	result.AssertSuccess(t)
+	result.AssertOutputContains(t, "repo version used for pdf-tools")
+
+	if got := sb.ReadFile(filepath.Join(sb.SourcePath, "pdf-tools", "SKILL.md")); got != "repo version" {
+		t.Errorf("same-name skill should keep the repo version, got %q", got)
+	}
+	if !sb.FileExists(filepath.Join(sb.SourcePath, "tdd", "SKILL.md")) {
+		t.Error("the repo's other skills should be pulled")
+	}
+}
+
+func TestInit_DryRun_DoesNotCreateToolFolders(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	os.Remove(sb.ConfigPath)
+	os.RemoveAll(filepath.Join(sb.Home, ".cursor"))
+	os.MkdirAll(filepath.Join(sb.Home, ".cursor"), 0755)
+
+	result := sb.RunCLI("init", "--dry-run")
+	result.AssertSuccess(t)
+
+	if sb.FileExists(filepath.Join(sb.Home, ".cursor", "skills")) {
+		t.Error("detection must not create a tool's skills folder")
+	}
+}
+
+// createSkillsRemote makes a bare repo whose top level holds the given
+// skills (name → SKILL.md content) and returns its file:// URL.
+func createSkillsRemote(t *testing.T, root string, skills map[string]string) string {
+	t.Helper()
+	work := filepath.Join(root, "remote-work")
+	bare := filepath.Join(root, "remote.git")
+	for name, content := range skills {
+		os.MkdirAll(filepath.Join(work, name), 0755)
+		os.WriteFile(filepath.Join(work, name, "SKILL.md"), []byte(content), 0644)
+	}
+	for _, args := range [][]string{
+		{"init", "-q", "-b", "main"},
+		{"add", "."},
+		{"-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "skills"},
+		{"clone", "-q", "--bare", ".", bare},
+	} {
+		cmd := exec.Command("git", args...)
+		cmd.Dir = work
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("git %v: %v (%s)", args, err, out)
+		}
+	}
+	return "file://" + bare
 }

@@ -5,13 +5,16 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"os"
+	"slices"
 	"strings"
 	"time"
 
 	"skillshare/internal/config"
 	"skillshare/internal/oplog"
 	"skillshare/internal/plugin"
+	"skillshare/internal/ui"
 )
 
 type pluginOptions struct {
@@ -167,12 +170,25 @@ func executePlugin(s *plugin.Service, o pluginOptions) error {
 			return json.NewEncoder(os.Stdout).Encode(d)
 		}
 		for _, warning := range d.Warnings {
-			fmt.Println("Warning:", warning)
+			ui.Warning("%s", warning)
 		}
+		names := make([]string, len(d.Candidates))
+		for i, c := range d.Candidates {
+			names[i] = c.Name
+		}
+		width := ui.RowWidth(names...)
 		for _, c := range d.Candidates {
-			fmt.Printf("%s · %s · %s\n", c.Name, strings.Join(c.Targets, ", "), strings.Join(c.Components, ", "))
+			mark := ui.MarkNone
 			if c.Problem != "" {
-				fmt.Println(c.Problem)
+				mark = ui.MarkFail
+			}
+			value := strings.Join(c.Targets, ", ")
+			if len(c.Components) > 0 {
+				value += ui.DimText(" · " + strings.Join(c.Components, ", "))
+			}
+			ui.Row(mark, c.Name, value, width)
+			if c.Problem != "" {
+				ui.Note(c.Problem)
 			}
 		}
 		return nil
@@ -191,44 +207,48 @@ func executePlugin(s *plugin.Service, o pluginOptions) error {
 		if o.json {
 			return json.NewEncoder(os.Stdout).Encode(inventory)
 		}
-		if len(inventory.Packages) == 0 {
-			fmt.Println("No plugins managed yet. Run 'skillshare plugin add' or 'skillshare plugin import'.")
-		}
-		for name, p := range inventory.Packages {
+		width := ui.RowWidth(slices.Collect(maps.Keys(inventory.Packages))...)
+		for _, name := range slices.Sorted(maps.Keys(inventory.Packages)) {
+			p := inventory.Packages[name]
 			if len(p.Bindings) == 0 {
-				fmt.Printf("%s · no targets · %s\n", name, p.Source)
+				ui.Row(ui.MarkNone, name, "no targets"+ui.DimText(" · "+p.Source), width)
 			}
 			for _, definition := range inventory.TargetDefinitions {
 				target := definition.Target
 				if b, ok := p.Bindings[target]; ok {
-					state := "not installed"
+					mark, state := ui.MarkWarn, "not installed"
 					for _, h := range inventory.Hosts {
 						if h.Target != target {
 							continue
 						}
 						if h.Error != "" {
-							state = h.Error
+							mark, state = ui.MarkFail, h.Error
 						}
 						for _, i := range h.Installed {
 							if i.ID == b.ID {
-								state = "registered (loading unverified)"
+								mark, state = ui.MarkOK, "registered (loading unverified)"
 								if i.EnabledKnown && !i.Enabled {
-									state = "disabled"
+									mark, state = ui.MarkNone, "disabled"
 								}
 							}
 						}
 					}
 					if b.Pending != "" {
-						state = "pending " + b.Pending
+						mark, state = ui.MarkWarn, "pending "+b.Pending
 					}
-					fmt.Printf("%s · %s · %s · %s\n", name, target, b.ID, state)
+					ui.Row(mark, name, target+" · "+state+ui.DimText(" · "+b.ID), width)
 				}
 			}
 		}
 		for _, h := range inventory.Hosts {
 			if h.Error != "" {
-				fmt.Printf("%s: %s\n", h.Target, h.Error)
+				ui.Warning("%s: %s", h.Target, h.Error)
 			}
+		}
+		if len(inventory.Packages) == 0 {
+			fmt.Println()
+			ui.Done(ui.MarkNone, "No plugins managed yet", 0)
+			ui.Next("skillshare plugin add", "add one", "skillshare plugin import", "take over one an Agent already has")
 		}
 		return nil
 	}
@@ -244,6 +264,10 @@ func executePlugin(s *plugin.Service, o pluginOptions) error {
 			err = json.NewEncoder(os.Stdout).Encode(p)
 		} else {
 			printPluginPlan(p)
+			if o.dryRun {
+				fmt.Println()
+				ui.DryRun()
+			}
 		}
 		if err != nil {
 			return err
@@ -265,25 +289,57 @@ func executePlugin(s *plugin.Service, o pluginOptions) error {
 				return outErr
 			}
 		} else {
+			names := make([]string, len(result.Results))
+			for i, r := range result.Results {
+				names[i] = r.Name
+			}
+			width := ui.RowWidth(names...)
 			for _, r := range result.Results {
-				fmt.Printf("%s · %s · %s\n%s\n", r.Name, pluginTargetLabel(r.Target), r.Status, r.Message)
+				mark := ui.MarkNone
+				switch r.Status {
+				case "installed", "saved":
+					mark = ui.MarkOK
+				case "skipped":
+					mark = ui.MarkWarn
+				case "failed":
+					mark = ui.MarkFail
+				}
+				ui.Row(mark, r.Name, pluginTargetLabel(r.Target)+" · "+r.Status, width)
+				if r.Message != "" {
+					ui.Note(r.Message)
+				}
 			}
 		}
 	}
 	return err
 }
 
+// printPluginPlan prints one row per change, marking blocked ones as
+// failures, with what each includes and why beneath.
 func printPluginPlan(p *plugin.Plan) {
+	names := make([]string, len(p.Changes))
+	for i, c := range p.Changes {
+		names[i] = c.Name
+	}
+	width := ui.RowWidth(names...)
 	for _, c := range p.Changes {
-		fmt.Printf("%s · %s · %s · %s\n", c.Name, pluginTargetLabel(c.Target), c.Action, c.ID)
+		mark := ui.MarkNone
+		if c.Action == "blocked" {
+			mark = ui.MarkFail
+		}
+		value := pluginTargetLabel(c.Target) + " · " + c.Action
+		if c.ID != "" {
+			value += ui.DimText(" · " + c.ID)
+		}
+		ui.Row(mark, c.Name, value, width)
 		if len(c.Components) > 0 {
-			fmt.Println("Includes:", strings.Join(c.Components, ", "))
+			ui.Note("includes " + strings.Join(c.Components, ", "))
 		}
 		if c.Message != "" {
-			fmt.Println(c.Message)
+			ui.Note(c.Message)
 		}
 	}
-	fmt.Println("Revision:", p.Revision)
+	ui.Note("revision " + p.Revision)
 }
 
 // pluginTargetLabel names package-level changes, which apply to Skillshare rather than an Agent.

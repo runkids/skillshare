@@ -34,6 +34,19 @@ targets:
 	result.AssertOutputContains(t, "claude")
 }
 
+func TestDiff_NoTargets_SaysSo(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sb.CreateSkill("skill1", map[string]string{"SKILL.md": "# Skill 1"})
+	sb.WriteConfig("source: " + sb.SourcePath + "\ntargets: {}\n")
+
+	result := sb.RunCLI("diff", "--no-tui")
+	result.AssertSuccess(t)
+	result.AssertOutputContains(t, "No targets configured")
+	result.AssertOutputNotContains(t, "No differences")
+}
+
 func TestDiff_SkillOnlyInSource_ShowsDifference(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
@@ -77,6 +90,54 @@ targets:
 
 	result.AssertSuccess(t)
 	result.AssertOutputContains(t, "claude")
+}
+
+func TestDiff_TargetWithoutSkills_DoesNotSuggestTargetAdd(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sb.CreateSkill("skill1", map[string]string{"SKILL.md": "# Skill 1"})
+	target := sb.CreateTarget("mytool")
+	sb.WriteConfig("source: " + sb.SourcePath + "\ntargets:\n  mytool:\n    path: " + target + "\n    skills: {enabled: false}\n")
+
+	result := sb.RunCLI("diff", "--no-tui")
+	result.AssertSuccess(t)
+	result.AssertOutputContains(t, "no target takes skills")
+	result.AssertOutputNotContains(t, "target add")
+}
+
+func TestDiff_Sections_ShareOneLabelWidth(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sb.CreateSkill("skill1", map[string]string{"SKILL.md": "# Skill 1"})
+	claude := sb.CreateTarget("claude")
+	cursor := sb.CreateTarget("cursor")
+	// Only claude has a local-only skill, so its section has the longer label.
+	os.MkdirAll(filepath.Join(claude, "local-skill"), 0755)
+	os.WriteFile(filepath.Join(claude, "local-skill", "SKILL.md"), []byte("# Local"), 0644)
+
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+mode: merge
+targets:
+  claude:
+    path: ` + claude + `
+  cursor:
+    path: ` + cursor + `
+`)
+
+	result := sb.RunCLI("diff", "--no-tui")
+	result.AssertSuccess(t)
+
+	var columns []int
+	for _, line := range strings.Split(result.Stdout, "\n") {
+		if strings.HasPrefix(line, "  New ") {
+			columns = append(columns, strings.Index(line, "skill1"))
+		}
+	}
+	if len(columns) != 2 || columns[0] != columns[1] {
+		t.Fatalf("expected both New rows to align, got columns %v in:\n%s", columns, result.Stdout)
+	}
 }
 
 func TestDiff_SpecificTarget_ShowsOnlyThat(t *testing.T) {
@@ -151,7 +212,7 @@ targets:
 	// Diff should show fully synced
 	result := sb.RunCLI("diff")
 	result.AssertSuccess(t)
-	result.AssertOutputContains(t, "synced")
+	result.AssertOutputContains(t, "in sync")
 
 	// Modify source content
 	os.WriteFile(filepath.Join(skillDir, "SKILL.md"), []byte("# Modified"), 0644)
@@ -210,7 +271,7 @@ targets:
 	result := sb.RunCLI("diff")
 	result.AssertSuccess(t)
 	result.AssertOutputContains(t, "Restore")
-	result.AssertOutputNotContains(t, "Fully synced")
+	result.AssertOutputNotContains(t, "in sync")
 }
 
 func TestDiff_MultiTarget_SameResult_Grouped(t *testing.T) {
@@ -306,7 +367,7 @@ targets:
 	result.AssertSuccess(t)
 
 	// Both fully synced targets should be merged into one line
-	result.AssertOutputContains(t, "agents, claude: fully synced")
+	result.AssertRowContains(t, "agents, claude", "in sync")
 }
 
 func TestDiff_CopyMode_DetectsNonDirectoryTargetEntry(t *testing.T) {
@@ -431,7 +492,7 @@ targets:
 
 	result := sb.RunCLI("diff")
 	result.AssertSuccess(t)
-	result.AssertOutputContains(t, "Summary")
+	result.AssertOutputContains(t, "2 targets: 1 to sync, 1 in sync")
 }
 
 func TestDiff_MergeMode_HiddenSourceSkill_ShowsSynced(t *testing.T) {
@@ -454,6 +515,23 @@ targets:
 
 	result := sb.RunCLI("diff")
 	result.AssertSuccess(t)
-	result.AssertOutputContains(t, "fully synced")
+	result.AssertOutputContains(t, "in sync")
 	result.AssertOutputNotContains(t, ".system__example")
+}
+
+func TestDiff_AllArgument_DiffsEverything(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sb.CreateSkill("skill-a", map[string]string{"SKILL.md": "# A"})
+	claudePath := sb.CreateTarget("claude")
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets:
+  claude:
+    path: ` + claudePath + `
+`)
+
+	result := sb.RunCLI("diff", "all", "--no-tui")
+	result.AssertSuccess(t)
+	result.AssertRowContains(t, "New", "skill-a")
 }

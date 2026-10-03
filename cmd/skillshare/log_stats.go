@@ -70,10 +70,7 @@ func renderStatsCLI(stats logStats) string {
 	}
 
 	var b strings.Builder
-	b.WriteString(ui.Cyan + ui.Bold + "Operation Log Summary" + ui.Reset + "\n")
-	b.WriteString(ui.Dim + strings.Repeat("─", 45) + ui.Reset + "\n")
-	b.WriteString(fmt.Sprintf("%s%-10s%s %s%3d%s operations\n",
-		ui.Dim, "Total:", ui.Reset, ui.Bold, stats.Total, ui.Reset))
+	b.WriteString(ui.Bold + "Log summary" + ui.Reset + ui.DimText(" · "+plural(stats.Total, "operation")) + "\n")
 
 	// Sort commands by count descending
 	type cmdEntry struct {
@@ -81,55 +78,45 @@ func renderStatsCLI(stats logStats) string {
 		stats commandStats
 	}
 	var cmds []cmdEntry
+	names := make([]string, 0, len(stats.ByCommand))
 	for name, cs := range stats.ByCommand {
 		cmds = append(cmds, cmdEntry{name, cs})
+		names = append(names, name)
 	}
 	sort.Slice(cmds, func(i, j int) bool {
-		return cmds[i].stats.Total > cmds[j].stats.Total
+		if cmds[i].stats.Total != cmds[j].stats.Total {
+			return cmds[i].stats.Total > cmds[j].stats.Total
+		}
+		return cmds[i].name < cmds[j].name
 	})
 
-	for _, cmd := range cmds {
-		pct := float64(cmd.stats.Total) / float64(stats.Total) * 100
-		okRatio := fmt.Sprintf("✓%d/%d", cmd.stats.OK, cmd.stats.Total)
-		ratioColor := ui.Green
-		if cmd.stats.OK < cmd.stats.Total {
-			ratioColor = ui.Red
-		}
-		b.WriteString(fmt.Sprintf("%s%-10s%s %s%3d%s (%4.1f%%)  %s%s%s\n",
-			ui.Dim, cmd.name, ui.Reset,
-			ui.Cyan, cmd.stats.Total, ui.Reset,
-			pct, ratioColor, okRatio, ui.Reset))
-	}
-
-	// OK count with color
+	width := ui.RowWidth(names...)
 	okTotal := 0
-	for _, cs := range stats.ByCommand {
-		okTotal += cs.OK
-	}
-	rateColor := ui.Green
-	if stats.SuccessRate < 0.7 {
-		rateColor = ui.Red
-	} else if stats.SuccessRate < 0.9 {
-		rateColor = ui.Yellow
-	}
-	b.WriteString(fmt.Sprintf("\n%sOK:%s %s%s%d/%d%s %s(%.1f%%)%s\n",
-		ui.Dim, ui.Reset, rateColor, ui.Bold, okTotal, stats.Total, ui.Reset,
-		ui.Dim, stats.SuccessRate*100, ui.Reset))
-
-	if stats.LastOperation != nil {
-		ts, err := time.Parse(time.RFC3339, stats.LastOperation.Timestamp)
-		ago := "unknown"
-		if err == nil {
-			ago = formatRelativeTime(time.Since(ts))
+	for _, cmd := range cmds {
+		okTotal += cmd.stats.OK
+		mark := ui.MarkOK
+		if cmd.stats.OK < cmd.stats.Total {
+			mark = ui.MarkWarn
 		}
-		b.WriteString(fmt.Sprintf("%sLast operation:%s %s%s%s (%s ago)\n",
-			ui.Dim, ui.Reset, ui.Cyan, stats.LastOperation.Command, ui.Reset, ago))
+		pct := float64(cmd.stats.Total) / float64(stats.Total) * 100
+		fmt.Fprintf(&b, "%s %-*s  %d%s\n", ui.StyledMark(mark), width, cmd.name, cmd.stats.Total,
+			ui.DimText(fmt.Sprintf(" · %.0f%% · %d/%d ok", pct, cmd.stats.OK, cmd.stats.Total)))
 	}
 
+	mark := ui.MarkOK
+	if stats.SuccessRate < 0.7 {
+		mark = ui.MarkFail
+	} else if stats.SuccessRate < 0.9 {
+		mark = ui.MarkWarn
+	}
+	summary := fmt.Sprintf("%d of %d ok (%.0f%%)", okTotal, stats.Total, stats.SuccessRate*100)
+	last := ""
+	if stats.LastOperation != nil {
+		last = " · last: " + stats.LastOperation.Command
+		if ts, err := time.Parse(time.RFC3339, stats.LastOperation.Timestamp); err == nil {
+			last += ", " + timeAgo(ts)
+		}
+	}
+	fmt.Fprintf(&b, "\n%s %s%s\n", ui.StyledMark(mark), ui.Bold+summary+ui.Reset, ui.DimText(last))
 	return b.String()
-}
-
-// formatRelativeTime is an alias for the shared formatDurationShort.
-func formatRelativeTime(d time.Duration) string {
-	return formatDurationShort(d)
 }

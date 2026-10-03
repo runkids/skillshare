@@ -55,9 +55,9 @@ func selectCollectProjectTargets(runtime *projectRuntime, targetName string, col
 	}
 
 	ui.Warning("Multiple targets found. Specify a target name or use --all")
-	fmt.Println("  Available targets:")
+	ui.Note("Available targets:")
 	for _, entry := range runtime.config.Targets {
-		fmt.Printf("    - %s\n", entry.Name)
+		ui.Note("  - " + entry.Name)
 	}
 	return nil, nil
 }

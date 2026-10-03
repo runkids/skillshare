@@ -1497,8 +1497,8 @@ func runExtrasListTUI(
 			return m.loadErr
 		}
 		if m.emptyResult {
-			ui.Info("No extras configured.")
-			ui.Info("Run 'skillshare extras init <name> --target <path>' to add one.")
+			ui.Done(ui.MarkNone, "No extras configured", 0)
+			ui.Next("skillshare extras init <name> --target <path>", "add one")
 			return nil
 		}
 

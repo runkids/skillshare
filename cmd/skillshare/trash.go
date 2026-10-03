@@ -9,8 +9,10 @@ import (
 
 	"skillshare/internal/config"
 	"skillshare/internal/oplog"
+	"skillshare/internal/theme"
 	"skillshare/internal/trash"
 	"skillshare/internal/ui"
+	"skillshare/internal/utils"
 )
 
 func cmdTrash(args []string) error {
@@ -31,7 +33,7 @@ func cmdTrash(args []string) error {
 	// Extract kind filter (e.g. "skillshare trash agents list" or "--all").
 	kind, rest := parseKindArgWithAll(rest)
 
-	if len(rest) == 0 {
+	if len(rest) == 0 || wantsHelp(rest) {
 		printTrashHelp()
 		return nil
 	}
@@ -58,7 +60,16 @@ func cmdTrash(args []string) error {
 	case "delete", "rm":
 		return trashDelete(mode, cwd, filteredArgs, kind)
 	case "empty":
-		return trashEmpty(mode, cwd, kind)
+		force := false
+		for _, arg := range filteredArgs {
+			switch arg {
+			case "--force", "-f":
+				force = true
+			default:
+				return fmt.Errorf("unknown option for trash empty: %s", arg)
+			}
+		}
+		return trashEmpty(mode, cwd, kind, force)
 	case "--help", "-h", "help":
 		printTrashHelp()
 		return nil
@@ -89,7 +100,7 @@ func trashList(mode runMode, cwd string, noTUI bool, kind resourceKindFilter) er
 		}
 
 		if len(items) == 0 {
-			ui.Info("Trash is empty")
+			ui.Done(ui.MarkNone, "Trash is empty", 0)
 			return nil
 		}
 
@@ -121,22 +132,24 @@ func trashList(mode runMode, cwd string, noTUI bool, kind resourceKindFilter) er
 	items := trash.List(trashBase)
 
 	if len(items) == 0 {
-		ui.Info("Trash is empty")
+		ui.Done(ui.MarkNone, "Trash is empty", 0)
 		return nil
 	}
 
-	ui.Header("Trash")
+	names := make([]string, len(items))
+	for i, item := range items {
+		names[i] = item.Name
+	}
+	width := ui.RowWidth(names...)
+	fmt.Println(theme.Primary().Bold(true).Render("Trash"))
 	for _, item := range items {
-		age := time.Since(item.Date)
-		ageStr := formatAge(age)
-		sizeStr := formatBytes(item.Size)
-		ui.Info("  %s  (%s, %s ago)", item.Name, sizeStr, ageStr)
+		ui.Row(ui.MarkNone, item.Name, formatBytes(item.Size)+ui.DimText(" · "+timeAgo(item.Date)), width)
 	}
 
 	totalSize := trash.TotalSize(trashBase)
 	fmt.Println()
-	ui.Info("%d item(s), %s total", len(items), formatBytes(totalSize))
-	ui.Info("Items are automatically cleaned up after 7 days")
+	ui.Done(ui.MarkNone, fmt.Sprintf("%s, %s", plural(len(items), "item"), formatBytes(totalSize)), 0)
+	ui.Note("Each item is removed for good 7 days after it was trashed")
 
 	return nil
 }
@@ -193,15 +206,12 @@ func trashRestore(mode runMode, cwd string, args []string, kind resourceKindFilt
 		}
 	}
 
-	ui.Success("Restored: %s", name)
-	age := time.Since(entry.Date)
-	ui.Info("Trashed %s ago, now back in %s", formatAge(age), destDir)
-	ui.SectionLabel("Next Steps")
+	ui.Row(ui.MarkOK, "Restore", name+ui.DimText(" → "+utils.FoldHomePath(destDir)+" · trashed "+timeAgo(entry.Date)), ui.RowWidth("Restore"))
 	syncHint := "skillshare sync"
 	if kind == kindAgents {
 		syncHint = "skillshare sync agents"
 	}
-	ui.Info("Run '%s' to update targets", syncHint)
+	ui.Next(syncHint, "link it into your targets again")
 
 	logTrashOp(cfgPath, "restore", 1, name, start, nil)
 	return nil
@@ -239,11 +249,11 @@ func trashDelete(mode runMode, cwd string, args []string, kind resourceKindFilte
 		return fmt.Errorf("failed to delete '%s': %w", name, err)
 	}
 
-	ui.Success("Permanently deleted: %s", name)
+	ui.Done(ui.MarkOK, "Permanently deleted "+name, 0)
 	return nil
 }
 
-func trashEmpty(mode runMode, cwd string, kind resourceKindFilter) error {
+func trashEmpty(mode runMode, cwd string, kind resourceKindFilter, force bool) error {
 	start := time.Now()
 	cfgPath := resolveTrashCfgPath(mode, cwd)
 
@@ -251,18 +261,20 @@ func trashEmpty(mode runMode, cwd string, kind resourceKindFilter) error {
 	items := trash.List(trashBase)
 
 	if len(items) == 0 {
-		ui.Info("Trash is already empty")
+		ui.Done(ui.MarkNone, "Trash is already empty", 0)
 		return nil
 	}
 
-	ui.Warning("This will permanently delete %d item(s) from trash", len(items))
-	fmt.Print("Continue? [y/N]: ")
-	var input string
-	fmt.Scanln(&input)
-	input = strings.ToLower(strings.TrimSpace(input))
-	if input != "y" && input != "yes" {
-		ui.Info("Cancelled")
-		return nil
+	if !force {
+		ui.Warning("This will permanently delete %s from trash", plural(len(items), "item"))
+		ok, err := ui.ConfirmAction("Continue?", false)
+		if err != nil {
+			return err
+		}
+		if !ok {
+			ui.Cancelled("deleted")
+			return nil
+		}
 	}
 
 	removed := 0
@@ -275,7 +287,7 @@ func trashEmpty(mode runMode, cwd string, kind resourceKindFilter) error {
 		removed++
 	}
 
-	ui.Success("Emptied trash: %d item(s) permanently deleted", removed)
+	ui.Done(ui.MarkOK, fmt.Sprintf("Emptied trash: %s permanently deleted", plural(removed, "item")), time.Since(start))
 	logTrashOp(cfgPath, "empty", removed, "", start, nil)
 	return nil
 }
@@ -319,10 +331,6 @@ func resolveSourceDir(mode runMode, cwd string, kind resourceKindFilter) (string
 }
 
 // formatAge is an alias for the shared formatDurationShort.
-func formatAge(d time.Duration) string {
-	return formatDurationShort(d)
-}
-
 func resolveTrashCfgPath(mode runMode, cwd string) string {
 	if mode == modeProject {
 		return config.ProjectConfigPath(cwd)
@@ -347,31 +355,31 @@ func logTrashOp(cfgPath string, action string, count int, name string, start tim
 }
 
 func printTrashHelp() {
-	fmt.Println(`Usage: skillshare trash [agents] <command> [options]
-
-Manage uninstalled skills in the trash.
-
-Commands:
-  list, ls              List trashed skills (interactive TUI in TTY)
-  restore <name>        Restore most recent trashed version to source
-  delete, rm <name>     Permanently delete a single item from trash
-  empty                 Permanently delete all items from trash
-
-Options:
-  --all                 Include both skills and agents
-  --no-tui              Disable interactive TUI, use plain text output
-  --project, -p         Use project-level trash
-  --global, -g          Use global trash
-  --help, -h            Show this help
-
-Examples:
-  skillshare trash list                    # Interactive TUI (in TTY)
-  skillshare trash list --no-tui           # Plain text output
-  skillshare trash restore my-skill        # Restore from trash
-  skillshare trash restore my-skill -p     # Restore in project mode
-  skillshare trash delete my-skill         # Permanently delete from trash
-  skillshare trash empty                   # Empty the trash
-  skillshare trash agents list             # List trashed agents
-  skillshare trash agents restore tutor    # Restore an agent from trash
-  skillshare trash --all list              # List trashed skills + agents`)
+	printHelp("skillshare trash [agents] <command> [options]", "Manage uninstalled skills in the trash.",
+		helpGroup{title: "Commands", rows: []helpRow{
+			{"list, ls", "List trashed skills (interactive TUI in TTY)"},
+			{"restore <name>", "Restore most recent trashed version to source"},
+			{"delete, rm <name>", "Permanently delete a single item from trash"},
+			{"empty", "Permanently delete all items from trash"},
+		}},
+		helpGroup{title: "Options", rows: []helpRow{
+			{"-f, --force", "empty: skip the confirmation"},
+			{"--all", "Include both skills and agents"},
+			{"--no-tui", "Disable interactive TUI, use plain text output"},
+			{"-p, --project", "Use project-level trash"},
+			{"-g, --global", "Use global trash"},
+		}},
+		helpExamples(
+			helpRow{"skillshare trash list", "Interactive TUI (in TTY)"},
+			helpRow{"skillshare trash list --no-tui", "Plain text output"},
+			helpRow{"skillshare trash restore my-skill", "Restore from trash"},
+			helpRow{"skillshare trash restore my-skill -p", "Restore in project mode"},
+			helpRow{"skillshare trash delete my-skill", "Permanently delete from trash"},
+			helpRow{"skillshare trash empty", "Empty the trash"},
+			helpRow{"skillshare trash empty --force", "Empty without asking (scripts)"},
+			helpRow{"skillshare trash agents list", "List trashed agents"},
+			helpRow{"skillshare trash agents restore tutor", "Restore an agent from trash"},
+			helpRow{"skillshare trash --all list", "List trashed skills + agents"},
+		),
+	)
 }

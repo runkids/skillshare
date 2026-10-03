@@ -56,7 +56,7 @@ func TestRenderInstallWarnings_CompactSuppressesExtraDetails(t *testing.T) {
 	})
 	output = stripANSIWarnings(output)
 
-	if !strings.Contains(output, "demo-skill: 6 finding(s): HIGH=2, LOW=4") {
+	if !strings.Contains(output, "demo-skill: 6 findings: HIGH=2, LOW=4") {
 		t.Fatalf("expected compact summary in output, got:\n%s", output)
 	}
 	if !strings.Contains(output, "+1 more finding type(s); use --audit-verbose for full details") {
@@ -146,7 +146,7 @@ func TestRenderBatchInstallWarningsCompact_PrintsAggregateNotPerFinding(t *testi
 	})
 	output = stripANSIWarnings(output)
 
-	if !strings.Contains(output, "audit findings across 2 skill(s): HIGH=3, LOW=1") {
+	if !strings.Contains(output, "audit findings across 2 skills: HIGH=3, LOW=1") {
 		t.Fatalf("expected aggregate finding summary, got:\n%s", output)
 	}
 	if !strings.Contains(output, "skills with HIGH/CRITICAL findings: 2") {
@@ -238,7 +238,7 @@ func TestPrintSkillListCompact_SmallList(t *testing.T) {
 			t.Fatalf("expected skill %q in output, got:\n%s", s.Name, output)
 		}
 	}
-	if strings.Contains(output, "more skill(s)") {
+	if strings.Contains(output, "more skills") {
 		t.Fatalf("should not contain truncation message for small list, got:\n%s", output)
 	}
 }
@@ -265,8 +265,8 @@ func TestPrintSkillListCompact_LargeList(t *testing.T) {
 	if strings.Contains(output, "skill-10") && !strings.Contains(output, "20 more") {
 		t.Fatalf("expected truncation for large list, got:\n%s", output)
 	}
-	if !strings.Contains(output, "... and 20 more skill(s)") {
-		t.Fatalf("expected '... and 20 more skill(s)' in output, got:\n%s", output)
+	if !strings.Contains(output, "... and 20 more skills") {
+		t.Fatalf("expected '... and 20 more skills' in output, got:\n%s", output)
 	}
 }
 
@@ -282,7 +282,7 @@ func TestPrintSkillListCompact_ExactThreshold(t *testing.T) {
 	output = stripANSIWarnings(output)
 
 	// All 20 should appear (≤20 threshold)
-	if strings.Contains(output, "more skill(s)") {
+	if strings.Contains(output, "more skills") {
 		t.Fatalf("should not truncate at exactly 20 skills, got:\n%s", output)
 	}
 }
@@ -381,7 +381,7 @@ func TestDisplayInstallResults_VerboseLargeBatch_ShowsCompactThenHighCritical(t 
 		t.Fatalf("expected verbose detail header, got:\n%s", output)
 	}
 	// Should mention remaining skills
-	if !strings.Contains(output, "more skill(s) with findings") {
+	if !strings.Contains(output, "more with findings") {
 		t.Fatalf("expected remaining count, got:\n%s", output)
 	}
 }

@@ -16,7 +16,7 @@ func stripANSI(s string) string {
 	return testANSIRegex.ReplaceAllString(s, "")
 }
 
-func TestPrintLogEntriesTTYTwoLine_Basic(t *testing.T) {
+func TestPrintLogEntries_TTYBasic(t *testing.T) {
 	entries := []oplog.Entry{
 		{
 			Timestamp: "2026-02-10T03:28:00Z",
@@ -31,17 +31,11 @@ func TestPrintLogEntriesTTYTwoLine_Basic(t *testing.T) {
 	}
 
 	var buf bytes.Buffer
-	printLogEntriesTTYTwoLine(&buf, entries, 120)
+	printLogEntriesTo(&buf, entries, true, 120)
 
 	out := stripANSI(buf.String())
-	if !strings.Contains(out, "TIME") || !strings.Contains(out, "CMD") {
-		t.Fatalf("expected table header, got:\n%s", out)
-	}
-	if !strings.Contains(out, "2026-02-10 03:28 | SYNC") {
-		t.Fatalf("expected core row with timestamp and command, got:\n%s", out)
-	}
-	if !strings.Contains(out, "ok") || !strings.Contains(out, "32ms") {
-		t.Fatalf("expected status and duration, got:\n%s", out)
+	if !strings.Contains(out, "✓ sync      2026-02-10 03:28 · 32ms") {
+		t.Fatalf("expected row with mark, command, timestamp and duration, got:\n%s", out)
 	}
 	if !strings.Contains(out, "targets: 1") {
 		t.Fatalf("expected targets detail line, got:\n%s", out)
@@ -51,7 +45,7 @@ func TestPrintLogEntriesTTYTwoLine_Basic(t *testing.T) {
 	}
 }
 
-func TestPrintLogEntriesTTYTwoLine_LongDetailWrapsWithoutTruncation(t *testing.T) {
+func TestPrintLogEntries_TTYLongDetailWrapsWithoutTruncation(t *testing.T) {
 	entry := oplog.Entry{
 		Timestamp: "2026-02-10T03:04:00Z",
 		Command:   "install",
@@ -73,10 +67,10 @@ func TestPrintLogEntriesTTYTwoLine_LongDetailWrapsWithoutTruncation(t *testing.T
 	}
 
 	var buf bytes.Buffer
-	printLogEntriesTTYTwoLine(&buf, []oplog.Entry{entry}, 62)
+	printLogEntriesTo(&buf, []oplog.Entry{entry}, true, 62)
 	out := stripANSI(buf.String())
 
-	if lines := strings.Count(out, "\n"); lines < 4 {
+	if lines := strings.Count(out, "\n"); lines < 3 {
 		t.Fatalf("expected wrapped multi-line output, got:\n%s", out)
 	}
 	if !strings.Contains(out, "overwrite") || !strings.Contains(out, "proceed") || !strings.Contains(out, "safely") {
@@ -84,7 +78,7 @@ func TestPrintLogEntriesTTYTwoLine_LongDetailWrapsWithoutTruncation(t *testing.T
 	}
 }
 
-func TestPrintLogEntriesTTYTwoLine_BlankLineBetweenEntries(t *testing.T) {
+func TestPrintLogEntries_TTYBlankLineBetweenEntries(t *testing.T) {
 	entries := []oplog.Entry{
 		{
 			Timestamp: "2026-02-10T03:28:00Z",
@@ -103,22 +97,22 @@ func TestPrintLogEntriesTTYTwoLine_BlankLineBetweenEntries(t *testing.T) {
 	}
 
 	var buf bytes.Buffer
-	printLogEntriesTTYTwoLine(&buf, entries, 120)
+	printLogEntriesTo(&buf, entries, true, 120)
 	out := stripANSI(buf.String())
 
 	// Find lines for both entries
 	lines := strings.Split(out, "\n")
 	syncIdx, auditIdx := -1, -1
 	for i, line := range lines {
-		if strings.Contains(line, "SYNC") {
+		if strings.HasPrefix(line, "✓ sync") {
 			syncIdx = i
 		}
-		if strings.Contains(line, "AUDIT") {
+		if strings.HasPrefix(line, "✓ audit") {
 			auditIdx = i
 		}
 	}
 	if syncIdx < 0 || auditIdx < 0 {
-		t.Fatalf("expected both SYNC and AUDIT entries, got:\n%s", out)
+		t.Fatalf("expected both sync and audit entries, got:\n%s", out)
 	}
 
 	// There should be a blank line between the last detail of SYNC and the AUDIT header
@@ -134,7 +128,7 @@ func TestPrintLogEntriesTTYTwoLine_BlankLineBetweenEntries(t *testing.T) {
 	}
 }
 
-func TestPrintLogEntriesTTYTwoLine_NoDetailOnlyCoreLine(t *testing.T) {
+func TestPrintLogEntries_TTYNoDetailOnlyCoreLine(t *testing.T) {
 	entry := oplog.Entry{
 		Timestamp: "2026-02-10T03:05:00Z",
 		Command:   "sync",
@@ -143,7 +137,7 @@ func TestPrintLogEntriesTTYTwoLine_NoDetailOnlyCoreLine(t *testing.T) {
 	}
 
 	var buf bytes.Buffer
-	printLogEntriesTTYTwoLine(&buf, []oplog.Entry{entry}, 100)
+	printLogEntriesTo(&buf, []oplog.Entry{entry}, true, 100)
 	out := stripANSI(buf.String())
 
 	if strings.Contains(out, "detail:") {
@@ -151,7 +145,7 @@ func TestPrintLogEntriesTTYTwoLine_NoDetailOnlyCoreLine(t *testing.T) {
 	}
 }
 
-func TestPrintLogEntriesTTYTwoLine_AuditSkillsWrappedAndIndented(t *testing.T) {
+func TestPrintLogEntries_TTYAuditSkillsWrappedAndIndented(t *testing.T) {
 	entry := oplog.Entry{
 		Timestamp: "2026-02-10T03:45:00Z",
 		Command:   "audit",
@@ -173,7 +167,7 @@ func TestPrintLogEntriesTTYTwoLine_AuditSkillsWrappedAndIndented(t *testing.T) {
 	}
 
 	var buf bytes.Buffer
-	printLogEntriesTTYTwoLine(&buf, []oplog.Entry{entry}, 64)
+	printLogEntriesTo(&buf, []oplog.Entry{entry}, true, 64)
 	out := stripANSI(buf.String())
 
 	if !strings.Contains(out, "failed skills:") {
@@ -187,7 +181,7 @@ func TestPrintLogEntriesTTYTwoLine_AuditSkillsWrappedAndIndented(t *testing.T) {
 	}
 }
 
-func TestPrintLogEntriesNonTTY_RemainsSingleLineAndTruncated(t *testing.T) {
+func TestPrintLogEntries_NonTTYRemainsSingleLineAndTruncated(t *testing.T) {
 	entry := oplog.Entry{
 		Timestamp: "2026-02-10T03:04:00Z",
 		Command:   "install",
@@ -200,14 +194,14 @@ func TestPrintLogEntriesNonTTY_RemainsSingleLineAndTruncated(t *testing.T) {
 	}
 
 	var buf bytes.Buffer
-	printLogEntriesNonTTY(&buf, []oplog.Entry{entry})
+	printLogEntriesTo(&buf, []oplog.Entry{entry}, false, 120)
 	out := buf.String()
 
 	if strings.Contains(out, "TIME | CMD | STATUS | DUR") {
 		t.Fatalf("did not expect table header in non-TTY output, got:\n%s", out)
 	}
 	if !strings.Contains(out, "install") || !strings.Contains(out, "error") {
-		t.Fatalf("expected classic non-TTY row format, got:\n%s", out)
+		t.Fatalf("expected command and status in non-TTY row, got:\n%s", out)
 	}
 	if !strings.Contains(out, "...") {
 		t.Fatalf("expected truncated detail in non-TTY output, got:\n%s", out)
@@ -347,7 +341,7 @@ func TestPrintLogAuditSkillLinesNonTTY_IncludesLowAndInfoSkills(t *testing.T) {
 	}
 
 	var buf bytes.Buffer
-	printLogAuditSkillLinesNonTTY(&buf, entry)
+	printLogAuditSkillLinesNonTTY(&buf, entry, "  ")
 	out := buf.String()
 
 	if !strings.Contains(out, "failed skills: critical-a") {
@@ -361,5 +355,17 @@ func TestPrintLogAuditSkillLinesNonTTY_IncludesLowAndInfoSkills(t *testing.T) {
 	}
 	if !strings.Contains(out, "info skills: info-a") {
 		t.Fatalf("expected info skills output, got:\n%s", out)
+	}
+}
+
+func TestPrintLogEntries_ZeroDurationHasNoTrailingSeparator(t *testing.T) {
+	entry := oplog.Entry{Timestamp: "2026-02-10T03:05:00Z", Command: "diff", Status: "ok"}
+
+	var buf bytes.Buffer
+	printLogEntriesTo(&buf, []oplog.Entry{entry}, false, 120)
+	line := strings.Split(stripANSI(buf.String()), "\n")[0]
+
+	if strings.HasSuffix(strings.TrimSpace(line), "·") {
+		t.Fatalf("expected no trailing separator, got %q", line)
 	}
 }

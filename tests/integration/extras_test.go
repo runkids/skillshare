@@ -131,8 +131,8 @@ extras:
 	result := sb.RunCLI("extras", "list", "-g")
 
 	result.AssertSuccess(t)
-	// Header and extra name should be present.
-	result.AssertAnyOutputContains(t, "Extras")
+	// The count and extra name should be present.
+	result.AssertAnyOutputContains(t, "1 extra")
 	result.AssertAnyOutputContains(t, "rules")
 	// File count should be shown in the source line.
 	result.AssertAnyOutputContains(t, "2 files")
@@ -208,8 +208,7 @@ extras:
 	result := sb.RunCLI("sync", "extras", "-g")
 
 	result.AssertSuccess(t)
-	// Header should show "Syncing extras"
-	result.AssertAnyOutputContains(t, "Syncing extras")
+	result.AssertOutputContains(t, "\nExtras\n")
 	// Sync verb or file count should appear
 	result.AssertAnyOutputContains(t, "synced")
 
@@ -363,7 +362,7 @@ targets:
 	result := sb.RunCLI("extras", "source", "-g")
 
 	result.AssertSuccess(t)
-	result.AssertAnyOutputContains(t, "extras_source:")
+	result.AssertAnyOutputContains(t, "extras_source")
 	result.AssertAnyOutputContains(t, "custom-extras")
 }
 
@@ -456,7 +455,7 @@ extras:
 	result := sb.RunCLI("extras", "collect", "rules", "-g")
 
 	result.AssertSuccess(t)
-	result.AssertAnyOutputContains(t, "collected")
+	result.AssertAnyOutputContains(t, "Collected")
 
 	// File should now exist in source.
 	sourceFile := filepath.Join(rulesSource, "local-rule.md")
@@ -505,7 +504,7 @@ extras:
 	result := sb.RunCLI("extras", "collect", "rules", "--dry-run", "-g")
 
 	result.AssertSuccess(t)
-	result.AssertAnyOutputContains(t, "would collect")
+	result.AssertAnyOutputContains(t, "Would collect")
 
 	// File should NOT have been moved to source.
 	sourceFile := filepath.Join(rulesSource, "dry-rule.md")
@@ -591,8 +590,7 @@ extras:
 	// Status should show an "Extras" section.
 	result.AssertAnyOutputContains(t, "Extras")
 	// Should report file count and target path.
-	result.AssertAnyOutputContains(t, "2 files")
-	result.AssertAnyOutputContains(t, rulesTarget)
+	result.AssertRowContains(t, "rules", "~/.claude/rules  2 files")
 }
 
 // TestExtras_DiffExtras verifies that "diff" automatically shows extras that need syncing.
@@ -1303,7 +1301,7 @@ func TestExtrasCollect_WithPerExtraSource(t *testing.T) {
 	result := sb.RunCLI("extras", "collect", "rules", "-g")
 
 	result.AssertSuccess(t)
-	result.AssertAnyOutputContains(t, "collected")
+	result.AssertAnyOutputContains(t, "Collected")
 
 	// File should now exist in the custom source, not the default.
 	collectedFile := filepath.Join(customSource, "local-rule.md")
@@ -1416,7 +1414,7 @@ func TestExtrasSync_SkipsMissingSourceDir(t *testing.T) {
 	}
 
 	// Verify output explains the skip
-	result.AssertAnyOutputContains(t, "Source directory does not exist")
+	result.AssertAnyOutputContains(t, "source folder not found")
 	result.AssertAnyOutputContains(t, "Create it to start syncing rules")
 }
 

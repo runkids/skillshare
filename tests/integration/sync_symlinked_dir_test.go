@@ -49,7 +49,7 @@ targets:
 	result := sb.RunCLI("sync")
 	result.AssertSuccess(t)
 
-	result.AssertOutputContains(t, "merged")
+	result.AssertRowContains(t, "cursor", "1 linked")
 	if !sb.IsSymlink(filepath.Join(cursorSkillsDir, "beta")) {
 		t.Fatal("skill should be a symlink through the symlinked target")
 	}
@@ -142,10 +142,10 @@ targets:
 	// Sync first
 	sb.RunCLI("sync").AssertSuccess(t)
 
-	// Status should show merged
+	// Status should show the skill linked
 	result := sb.RunCLI("status")
 	result.AssertSuccess(t)
-	result.AssertOutputContains(t, "merged")
+	result.AssertOutputContains(t, "✓ 1 linked")
 }
 
 // TestList_WithSymlinkedSource verifies `list` works with symlinked source.

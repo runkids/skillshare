@@ -119,9 +119,13 @@ func CleanMovedProjectDirs(root, sourcePath string, targets []MovedTarget, dryRu
 				if dryRun {
 					verb = "Would clean"
 				}
+				noun := "skills"
+				if len(removed) == 1 {
+					noun = "skill"
+				}
 				messages = append(messages, fmt.Sprintf(
-					"%s %d leftover skill(s) from %s: the default path for '%s' moved to %s",
-					verb, len(removed), rel, t.Name, defaultProjectSkillsPath(t.Name)))
+					"%s %d leftover %s from %s: the default path for '%s' moved to %s",
+					verb, len(removed), noun, rel, t.Name, defaultProjectSkillsPath(t.Name)))
 			}
 		}
 	}

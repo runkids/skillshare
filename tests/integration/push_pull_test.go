@@ -123,7 +123,7 @@ func TestPushPull_DryRunChangesNothing(t *testing.T) {
 	result := sb.RunCLI("push", "--pull", "--dry-run")
 
 	result.AssertSuccess(t)
-	result.AssertOutputContains(t, "Would pull")
+	result.AssertRowContains(t, "Pull", "would merge remote changes")
 	if testutil.RunGit(t, sb.SourcePath, "rev-parse", "HEAD") != headBefore || testutil.RunGit(t, bare, "rev-parse", "main") != remoteBefore {
 		t.Error("dry-run must not commit or push")
 	}

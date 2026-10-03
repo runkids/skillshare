@@ -55,10 +55,6 @@ Interactive selector → Install selected skill
 ```text
 $ skillshare search runkids
 
-▸  Searching  runkids
-│
-├─ Found 20 skill(s)  (12.0s)
-
   Select skills to install (0/20 selected)
 
 ▌ [ ] skillshare ★ 2.7k
@@ -128,12 +124,17 @@ skillshare search commit --list
 
 输出：
 ```
-  1.  fix                      facebook/react/.claude/skills/fix        ★ 242.7k
-      Use when you have lint errors, formatting issues...
-  2.  verify                   facebook/react/.claude/skills/verify     ★ 242.7k
-      Use when you want to validate changes before committing...
-  3.  commit-helper            cockroachdb/cockroach/.claude/skills/commit-helper ★ 31.8k
-      Help create git commits and PRs with properly formatted messages...
+  fix            facebook/react/.claude/skills/fix         ★ 242.7k
+                 Use when you have lint errors, formatting issues...
+  verify         facebook/react/.claude/skills/verify      ★ 242.7k
+                 Use when you want to validate changes before committing...
+  commit-helper  ...ockroach/.claude/skills/commit-helper  ★ 31.8k
+                 Help create git commits and PRs with properly formatted messages...
+
+Found 3 skills
+
+Next
+  skillshare install <source>  install one
 ```
 
 ### JSON 输出

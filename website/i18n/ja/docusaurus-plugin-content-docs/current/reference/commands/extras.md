@@ -113,10 +113,13 @@ skillshare extras init pi-prompt --file system.md --as APPEND_SYSTEM.md \
 `extras init` は設定を書き込むだけです。Source ファイルの作成や sync は行いません。単一ファイルの Extras では、Source と Target のファイルのフルパスを表示します。
 
 ```
+  Source    ~/dotfiles/prompts/system.md
+  Target    ~/.pi/agent/APPEND_SYSTEM.md · merge
+
 ✓ Created extra pi-prompt (single file)
-Source: ~/dotfiles/prompts/system.md
-Target: ~/.pi/agent/APPEND_SYSTEM.md [merge]
-Run 'skillshare sync extras' to sync.
+
+Next
+  skillshare sync extras  sync it
 ```
 
 Source ファイルがまだ存在しない場合、Source の行の末尾に `(not found)` が付き、最後の行は `Create the source file, then run 'skillshare sync extras'.` になります。
@@ -168,15 +171,14 @@ TUI が無効な場合（`--no-tui`、`skillshare tui off`、またはパイプ�
 
 ```
 $ skillshare extras list --no-tui
+rules  ~/.config/skillshare/extras/rules · 2 files
+✓ ~/.claude/rules  merge
+✓ ~/.cursor/rules  copy
 
-Extras
-─────────────────────────────────────────
-→ rules  ~/.config/skillshare/extras/rules/ · 2 files
-  ✓ ~/.claude/rules  merge
-  ✓ ~/.cursor/rules  copy
+codex-agents  ~/.config/skillshare/agents · 3 files
+✓ ~/.codex/agents  extension: codex-agents
 
-→ codex-agents  ~/.config/skillshare/agents · 3 files
-  ✓ ~/.codex/agents  extension: codex-agents
+2 extras
 ```
 
 [単一ファイルの Extras](#single-file-extras) では、Source と各 Target にディレクトリではなくファイルのフルパスが表示されます。

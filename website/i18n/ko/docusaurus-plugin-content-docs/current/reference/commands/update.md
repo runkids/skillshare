@@ -23,24 +23,11 @@ skillshare update agents --all       # 모든 tracked/updatable agent 업데이�
 
 ```text
 $ skillshare update pdf
+✓ Update    pdf · from github.com/anthropics/skills/skills/pdf · 1.9s
+✓ Audit     no findings
 
-Updating
-─────────────────────────────────────────
-▸  Source  ~/.config/skillshare/skills
-│
-└─ Items  0 tracked repo(s), 1 skill(s)
-│
-├─ Skill  pdf
-│
-├─ Source  github.com/anthropics/skills/skills/pdf
-│
-└─ ✓ SUCCESS  Updated successfully (1.9s)
-
-- Audit Findings
-→ risk: CLEAN
-
-- Next Steps
-→ Run 'skillshare sync' to distribute changes
+Next
+  skillshare sync  link the changes into your targets
 ```
 
 ## 동작 방식
@@ -238,19 +225,14 @@ skillshare update --all
 ### 출력 예시
 
 ```
-Updating 2 tracked repos + 3 skills
+$ skillshare update --all
 
-[1/5] ✓ _team-skills       Already up to date
-[2/5] ✓ _personal-repo     3 commits, 2 files
-[3/5] ✓ my-skill           Reinstalled from source
-→ risk: LOW (12/100)
-[4/5] ! other-skill        has uncommitted changes (use --force)
-[5/5] ✓ another-skill      Reinstalled from source
+✓ Audit     3 skills, no findings
 
-── Summary ─────────────────────────────
-  Total:    5
-  Updated:  4
-  Skipped:  1
+✓ Updated 4, 1 skipped · 6.2s
+
+Next
+  skillshare sync  link the changes into your targets
 ```
 
 ### 누락된 Tracked 저장소
@@ -258,9 +240,9 @@ Updating 2 tracked repos + 3 skills
 `.metadata.json`이 tracked 저장소(`tracked: true`)를 선언했지만 클론 디렉터리가 디스크에 없는 경우 — 클론 디렉터리가 관리되는 `.gitignore` 블록에 있기 때문에 새 머신에서 흔히 발생합니다 — `update --all`은 더 이상 이를 조용히 건너뛰지 않습니다. 누락된 각 저장소를 보고하고 재수화 방법을 안내합니다:
 
 ```
-! 1 tracked repo(s) declared in metadata but missing on disk:
-  ! _team-skills         clone directory absent
-→ Run 'skillshare install' to rehydrate tracked repositories
+! 1 tracked repo declared in metadata but missing on disk
+! _team-skills  clone directory absent
+  Run 'skillshare install' to rehydrate tracked repositories
 ```
 
 이는 global mode와 project(`-p`) mode 모두에 적용됩니다. metadata로부터 클론을 다시 생성하려면 인수 없이 [install](/docs/reference/commands/install)을 실행하세요([Rehydrating After a Fresh Clone](/docs/understand/tracked-repositories#rehydrating-after-a-fresh-clone) 참고).
@@ -270,9 +252,9 @@ Updating 2 tracked repos + 3 skills
 upstream 저장소가 skill의 이름을 바꾸거나 제거하면, `update`는 이를 **stale**로 감지하고 경고합니다:
 
 ```
-⚠ 1 skill(s) no longer found in upstream repository:
-  ⚠ frontend/old-skill — stale (deleted upstream)
-ℹ Run with --prune to remove stale skills
+Deleted upstream
+! frontend/old-skill  stale — no longer in the upstream repository
+  Run with --prune to remove them
 ```
 
 stale skill을 자동으로 제거하려면(영구 삭제가 아니라 trash로 이동) `--prune`을 추가하세요:
@@ -312,11 +294,11 @@ findings가 활성 threshold 이상에서 감지되면 결정하라는 프롬프
   [HIGH] Source repository link detected — may be used for supply-chain redirects (SKILL.md:5)
 
   Security findings at or above active threshold detected.
-  Apply anyway? [y/N]:
+? Apply anyway?   Yes   No
 ```
 
-- **`y`** — findings에도 불구하고 업데이트를 수락
-- **`N`**(기본값) — pull 이전 상태로 롤백
+- **Yes** — findings에도 불구하고 업데이트를 수락
+- **No**(기본값) — pull 이전 상태로 롤백
 
 ### 비대화형 Mode (CI/CD)
 
@@ -336,7 +318,7 @@ skillshare update --all --skip-audit
 `--force`로 gate를 재정의하거나(또는 프롬프트에서 `y`로 응답하면), 수락한 findings는 `.metadata.json`의 `audit_accepted` 아래에 기록됩니다. 이후 동일한 skill의 업데이트는 정확히 동일한 findings에서 더 이상 차단되지 않으므로, `update --all`을 실행할 때마다 `--force`를 반복할 필요가 없습니다.
 
 ```
-ℹ 1 previously accepted finding(s) skipped
+  1 previously accepted finding skipped
 ```
 
 finding은 줄 번호가 아니라 rule, 파일, 일치한 텍스트로 매칭되므로 관련 없는 내용이 바뀌어도 수락된 상태로 유지됩니다. 새로운 finding이나 동일한 rule이 다른 텍스트와 일치하는 경우에는 다시 차단됩니다. 이는 공격 문자열을 예시로 정당하게 인용하는 skill(보안 스캐너, red-team 문서)에 적합하면서도, 이후 버전에서 새로운 payload는 계속 탐지합니다.
@@ -360,25 +342,19 @@ skillshare update --all --diff
 **tracked 저장소**의 경우, diff는 `git diff`를 사용하며 줄 수준 통계를 포함합니다:
 
 ```
-┌─ Files Changed ─────────────────────────────┐
-│                                             │
-│  ~ SKILL.md (+12 -3)                        │
-│  + scripts/deploy.sh (+45 -0)               │
-│  - old-helper.sh (+0 -22)                   │
-│  ~ utils/format.md (+5 -2)                  │
-│                                             │
-└─────────────────────────────────────────────┘
+Files changed
+  ~ SKILL.md (+12 -3)
+  + scripts/deploy.sh (+45 -0)
+  - old-helper.sh (+0 -22)
+  ~ utils/format.md (+5 -2)
 ```
 
 **일반 skill**(원격 source에서 설치된 경우)의 경우, diff는 재설치 전후의 파일 해시를 비교합니다:
 
 ```
-┌─ Files Changed ─────────────────────────────┐
-│                                             │
-│  ~ SKILL.md                                 │
-│  + new-helper.sh                            │
-│                                             │
-└─────────────────────────────────────────────┘
+Files changed
+  ~ SKILL.md
+  + new-helper.sh
 ```
 
 마커: `+` 추가됨, `-` 삭제됨, `~` 수정됨. 최대 20개 파일까지 표시하며, 추가 파일은 "... and N more file(s)"로 요약됩니다.

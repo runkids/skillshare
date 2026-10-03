@@ -13,7 +13,7 @@ mkdir -p "$ENV_ROOT"
 usage() {
   cat <<'EOF'
 Usage:
-  ssenv create [name]
+  ssenv create [name] [--init] [--seed]
   ssenv use <name>
   ssenv enter <name> [-- <command> ...]
   ssenv reset
@@ -42,6 +42,36 @@ EOF
 die() {
   echo "$*" >&2
   exit 1
+}
+
+# seed_env fills an environment with tools that already hold skills, plus a
+# local skillshare repo, so `init` has something to detect, import and connect.
+seed_env() {
+  local path="$1"
+  mk_skill() {
+    mkdir -p "$1/$2"
+    printf -- '---\nname: %s\ndescription: %s\n---\n# %s\n' "$2" "$3" "$2" > "$1/$2/SKILL.md"
+  }
+  mk_skill "$path/.claude/skills" pdf-tools "local copy"
+  mk_skill "$path/.claude/skills" review "local copy"
+  mk_skill "$path/.codex/skills" go-lint "local copy"
+  mkdir -p "$path/.cursor"
+
+  # A whole-folder repo (git_root: root): pdf-tools clashes with the local one.
+  local work="$path/remote/work"
+  mkdir -p "$work/agents" "$work/extras/rules"
+  local s
+  for s in pdf-tools tdd deploy-check sql-helper changelog; do
+    mk_skill "$work/skills" "$s" "from the repo"
+  done
+  printf -- '---\nname: reviewer\n---\nReview code.\n' > "$work/agents/reviewer.md"
+  printf 'Be concise.\n' > "$work/extras/rules/style.md"
+  printf 'config.yaml\n.DS_Store\n' > "$work/.gitignore"
+  git -C "$work" init -q -b main
+  git -C "$work" add .
+  git -C "$work" -c user.name=ssenv -c user.email=ssenv@localhost commit -qm "skills"
+  git clone -q --bare "$work" "$path/remote/skills.git"
+  rm -rf "$work"
 }
 
 require_name() {
@@ -95,10 +125,12 @@ emit_use_commands() {
 cmd_create() {
   local name=""
   local do_init=false
-  
+  local do_seed=false
+
   while [[ $# -gt 0 ]]; do
     case "$1" in
       --init) do_init=true ;;
+      --seed) do_seed=true ;;
       -*) die "unknown option: $1" ;;
       *) if [ -z "$name" ]; then name="$1"; else die "too many arguments for create"; fi ;;
     esac
@@ -116,7 +148,13 @@ cmd_create() {
   fi
 
   ensure_layout "$path"
-  
+
+  if [ "$do_seed" = true ]; then
+    seed_env "$path"
+    echo "▸ Seeded $name: claude (2 skills), codex (1 skill), cursor"
+    echo "  Repo to connect: file://$path/remote/skills.git (5 skills, 1 agent, 1 extra)"
+  fi
+
   if [ "$do_init" = true ]; then
     echo "▸ Initializing $name ($path) ..."
     # Use the wrapper binary with the new HOME to perform global init
@@ -279,7 +317,7 @@ cmd_status() {
 cmd_shortcuts() {
   cat <<'EOF'
 Shortcuts:
-  ssnew <name>   create + enter an isolated shell
+  ssnew <name>   create + enter an isolated shell (--init, --seed)
   ssuse <name>   enter an existing isolated shell
   ssrm <name>    force-delete an environment
   ssback         leave isolated context helper
@@ -292,7 +330,7 @@ Notes:
   - For eval-based switching, use: eval "$(ssenv --eval use <name>)", then 'ssback'.
 
 Core commands:
-  ssenv create <name>
+  ssenv create <name> [--init] [--seed]
   ssenv enter <name> [-- <command> ...]
   ssenv delete <name> --force
   ssenv list

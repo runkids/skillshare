@@ -65,3 +65,32 @@ func TestReadLocalSkillVersion_NoSkillDir(t *testing.T) {
 		t.Errorf("expected empty string for missing skillshare dir, got %q", got)
 	}
 }
+
+func TestSkillOutdated(t *testing.T) {
+	tests := []struct {
+		local, remote string
+		want          bool
+	}{
+		{"0.23.4", "0.23.5", true},
+		{"0.23.5", "0.23.5", false},
+		{"0.24.0", "0.23.5", false}, // a local skill ahead of main is not outdated
+		{"0.23.5", "", false},       // offline
+		{"", "0.23.5", false},
+		{"custom", "0.23.5", false},
+	}
+	for _, tt := range tests {
+		if got := SkillOutdated(tt.local, tt.remote); got != tt.want {
+			t.Errorf("SkillOutdated(%q, %q) = %v, want %v", tt.local, tt.remote, got, tt.want)
+		}
+	}
+}
+
+func TestCachedRemoteSkillVersion_FreshCacheSkipsFetch(t *testing.T) {
+	t.Setenv("XDG_CACHE_HOME", t.TempDir())
+	// A version GitHub will never serve, so a fetch would be visible.
+	SaveRemoteSkillVersion("9.9.9")
+
+	if got := CachedRemoteSkillVersion(); got != "9.9.9" {
+		t.Fatalf("CachedRemoteSkillVersion() = %q, want the cached 9.9.9", got)
+	}
+}

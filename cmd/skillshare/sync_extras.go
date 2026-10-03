@@ -10,6 +10,7 @@ import (
 	"skillshare/internal/config"
 	"skillshare/internal/oplog"
 	"skillshare/internal/sync"
+	"skillshare/internal/theme"
 	"skillshare/internal/ui"
 )
 
@@ -38,6 +39,12 @@ type syncExtrasJSONTarget struct {
 }
 
 func cmdSyncExtras(args []string) error {
+	return syncExtras(args, false)
+}
+
+// syncExtras runs `sync extras`. As part of `sync --all` (partOfAll) it says
+// nothing when no extras are configured.
+func syncExtras(args []string, partOfAll bool) error {
 	start := time.Now()
 
 	mode, rest, err := parseModeArgs(args)
@@ -53,12 +60,12 @@ func cmdSyncExtras(args []string) error {
 	applyModeLabel(mode)
 
 	if mode == modeProject {
-		return cmdSyncExtrasProject(cwd, dryRun, force, jsonOutput, start)
+		return cmdSyncExtrasProject(cwd, dryRun, force, jsonOutput, partOfAll, start)
 	}
-	return cmdSyncExtrasGlobal(dryRun, force, jsonOutput, start)
+	return cmdSyncExtrasGlobal(dryRun, force, jsonOutput, partOfAll, start)
 }
 
-func cmdSyncExtrasGlobal(dryRun, force, jsonOutput bool, start time.Time) error {
+func cmdSyncExtrasGlobal(dryRun, force, jsonOutput, partOfAll bool, start time.Time) error {
 	cfg, err := config.Load()
 	if err != nil {
 		return err
@@ -75,9 +82,12 @@ func cmdSyncExtrasGlobal(dryRun, force, jsonOutput bool, start time.Time) error 
 		if jsonOutput {
 			return writeJSON(&syncExtrasJSONOutput{Extras: []syncExtrasJSONEntry{}, Duration: formatDuration(start)})
 		}
-		ui.Info("No extras configured.")
+		if partOfAll {
+			return nil
+		}
+		ui.Done(ui.MarkNone, "No extras configured", 0)
 		fmt.Println()
-		ui.Info("Add extras to your config.yaml:")
+		ui.Note("Add extras to your config.yaml:")
 		fmt.Println()
 		fmt.Println("  extras:")
 		fmt.Println("    - name: rules")
@@ -97,10 +107,6 @@ func cmdSyncExtrasGlobal(dryRun, force, jsonOutput bool, start time.Time) error 
 		}
 	}
 
-	if dryRun && !jsonOutput {
-		ui.Warning("Dry run mode - no changes will be made")
-	}
-
 	// Detect overlap between extras "agents" and the agents sync system
 	var agentTargetPaths map[string]bool
 	for _, extra := range cfg.Extras {
@@ -110,11 +116,11 @@ func cmdSyncExtrasGlobal(dryRun, force, jsonOutput bool, start time.Time) error 
 		}
 	}
 
-	var totals extrasSyncTotals
+	totals := extrasSyncTotals{width: extrasRowWidth(cfg.Extras)}
 	var jsonEntries []syncExtrasJSONEntry
 
 	if !jsonOutput {
-		ui.Header(ui.WithModeLabel("Syncing extras"))
+		ui.Section("Extras")
 	}
 
 	opts := sync.ExtraRunOptions{
@@ -178,13 +184,7 @@ func cmdSyncExtrasGlobal(dryRun, force, jsonOutput bool, start time.Time) error 
 		return nil
 	}
 
-	ui.ExtrasSyncSummary(ui.ExtrasSyncStats{
-		Targets:  totals.targets,
-		Synced:   totals.synced,
-		Skipped:  totals.skipped,
-		Pruned:   totals.pruned,
-		Duration: time.Since(start),
-	})
+	printExtrasDone(len(cfg.Extras), totals, dryRun, time.Since(start))
 
 	if totals.errors > 0 {
 		return fmt.Errorf("%d extras sync error(s)", totals.errors)
@@ -192,7 +192,7 @@ func cmdSyncExtrasGlobal(dryRun, force, jsonOutput bool, start time.Time) error 
 	return nil
 }
 
-func cmdSyncExtrasProject(cwd string, dryRun, force, jsonOutput bool, start time.Time) error {
+func cmdSyncExtrasProject(cwd string, dryRun, force, jsonOutput, partOfAll bool, start time.Time) error {
 	projCfg, err := config.LoadProject(cwd)
 	if err != nil {
 		return err
@@ -209,13 +209,12 @@ func cmdSyncExtrasProject(cwd string, dryRun, force, jsonOutput bool, start time
 		if jsonOutput {
 			return writeJSON(&syncExtrasJSONOutput{Extras: []syncExtrasJSONEntry{}, Duration: formatDuration(start)})
 		}
-		ui.Info("No extras configured in project.")
-		ui.Info("Run 'skillshare extras init <name> --target <path> -p' to add one.")
+		if partOfAll {
+			return nil
+		}
+		ui.Done(ui.MarkNone, "No extras configured in project", 0)
+		ui.Next("skillshare extras init <name> --target <path> -p", "add one")
 		return nil
-	}
-
-	if dryRun && !jsonOutput {
-		ui.Warning("Dry run mode - no changes will be made")
 	}
 
 	// Detect overlap between extras "agents" and the agents sync system
@@ -227,11 +226,11 @@ func cmdSyncExtrasProject(cwd string, dryRun, force, jsonOutput bool, start time
 		}
 	}
 
-	var totals extrasSyncTotals
+	totals := extrasSyncTotals{width: extrasRowWidth(projCfg.Extras)}
 	var jsonEntries []syncExtrasJSONEntry
 
 	if !jsonOutput {
-		ui.Header(ui.WithModeLabel("Syncing extras"))
+		ui.Section("Extras")
 	}
 
 	opts := sync.ExtraRunOptions{
@@ -302,18 +301,35 @@ func cmdSyncExtrasProject(cwd string, dryRun, force, jsonOutput bool, start time
 		return nil
 	}
 
-	ui.ExtrasSyncSummary(ui.ExtrasSyncStats{
-		Targets:  totals.targets,
-		Synced:   totals.synced,
-		Skipped:  totals.skipped,
-		Pruned:   totals.pruned,
-		Duration: time.Since(start),
-	})
+	printExtrasDone(len(projCfg.Extras), totals, dryRun, time.Since(start))
 
 	if totals.errors > 0 {
 		return fmt.Errorf("%d extras sync error(s)", totals.errors)
 	}
 	return nil
+}
+
+// extrasRowWidth lines up the rows of every extra.
+func extrasRowWidth(extras []config.ExtraConfig) int {
+	names := make([]string, len(extras))
+	for i, e := range extras {
+		names[i] = e.Name
+	}
+	return ui.RowWidth(names...)
+}
+
+// printExtrasDone closes an extras sync.
+func printExtrasDone(extras int, totals extrasSyncTotals, dryRun bool, took time.Duration) {
+	fmt.Println()
+	switch {
+	case totals.errors > 0:
+		ui.Done(ui.MarkFail, plural(totals.errors, "extras error"), took)
+	case dryRun:
+		ui.Done(ui.MarkOK, fmt.Sprintf("Would sync %s to %s", plural(extras, "extra"), plural(totals.targets, "folder")), took)
+		ui.DryRun()
+	default:
+		ui.Done(ui.MarkOK, fmt.Sprintf("Synced %s to %s", plural(extras, "extra"), plural(totals.targets, "folder")), took)
+	}
 }
 
 // syncVerb returns a user-facing verb for the given sync mode.
@@ -380,13 +396,14 @@ func printMissingExtraSource(name, sourceDir string, jsonOutput bool) {
 	if jsonOutput {
 		return
 	}
-	ui.Info("Source directory does not exist: %s", sourceDir)
-	ui.Info("Create it to start syncing %s", name)
+	ui.Row(ui.MarkWarn, name, "source folder not found: "+shortenPath(sourceDir), ui.RowWidth(name))
+	ui.Note("Create it to start syncing " + name)
 }
 
 // extrasSyncTotals accumulates target outcomes for the summary and oplog.
 type extrasSyncTotals struct {
 	synced, skipped, pruned, errors, targets int
+	width                                    int // label width of the printed rows
 }
 
 // reportExtraTarget adds one target's outcome to totals and, unless
@@ -397,13 +414,13 @@ func reportExtraTarget(extraName string, tr sync.ExtraTargetRun, jsonOutput bool
 
 	if tr.SkippedBy != "" {
 		if !jsonOutput {
-			ui.Warning("Skipping extras %q target %s — already managed by agents sync", extraName, shortTarget)
+			ui.Row(ui.MarkWarn, extraName, shortTarget+" "+theme.Dim().Render("skipped — already managed by agents sync"), totals.width)
 		}
 		return
 	}
 	if err := extraTargetFailure(tr); err != nil {
 		if !jsonOutput {
-			ui.Warning("%s: %v", shortTarget, err)
+			ui.Row(ui.MarkFail, extraName, shortTarget+" "+err.Error(), totals.width)
 		}
 		totals.errors++
 		return
@@ -418,28 +435,23 @@ func reportExtraTarget(extraName string, tr sync.ExtraTargetRun, jsonOutput bool
 		return
 	}
 
-	shownMode := tr.Mode
-	verb := syncVerb(shownMode)
-	if result.Synced > 0 {
-		parts := []string{fmt.Sprintf("%d files %s", result.Synced, verb)}
-		if result.Pruned > 0 {
-			parts = append(parts, fmt.Sprintf("%d pruned", result.Pruned))
-		}
-		ui.Success("%s  %s (%s)", shortTarget, strings.Join(parts, ", "), shownMode)
-	} else if result.Skipped > result.Preserved {
-		ui.Warning("%s  %d files skipped (use --force to override)", shortTarget, result.Skipped-result.Preserved)
-	} else if result.Preserved == 0 {
-		ui.Success("%s  up to date (%s)", shortTarget, shownMode)
-	}
-	if result.Preserved > 0 {
-		ui.Success("%s  %d local preserved", shortTarget, result.Preserved)
+	verb := syncVerb(tr.Mode)
+	preserved := countPart{result.Preserved, "local preserved"}
+	switch {
+	case result.Synced > 0:
+		ui.Row(ui.MarkOK, extraName, shortTarget+"  "+syncCounts("",
+			countPart{result.Synced, "files " + verb}, countPart{result.Pruned, "pruned"}, preserved), totals.width)
+	case result.Skipped > result.Preserved:
+		ui.Row(ui.MarkWarn, extraName, fmt.Sprintf("%s  %d files skipped (use --force to override)", shortTarget, result.Skipped-result.Preserved), totals.width)
+	default:
+		ui.Row(ui.MarkOK, extraName, shortTarget+"  "+syncCounts("up to date", preserved), totals.width)
 	}
 
 	for _, e := range result.Errors {
-		ui.Warning("    %s", e)
+		fmt.Printf("  %s %s\n", theme.Warning().Render(ui.MarkWarn), e)
 	}
 	for _, w := range result.Warnings {
-		ui.Info("    %s", w)
+		ui.Note(w)
 	}
 }
 

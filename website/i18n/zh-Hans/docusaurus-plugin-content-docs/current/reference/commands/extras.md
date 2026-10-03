@@ -113,10 +113,13 @@ skillshare extras init pi-prompt --file system.md --as APPEND_SYSTEM.md \
 `extras init` 只写入配置，不会创建 source 文件，也不会执行同步。对于单文件 extra，它会打印完整的 source 与 target 文件路径：
 
 ```
+  Source    ~/dotfiles/prompts/system.md
+  Target    ~/.pi/agent/APPEND_SYSTEM.md · merge
+
 ✓ Created extra pi-prompt (single file)
-Source: ~/dotfiles/prompts/system.md
-Target: ~/.pi/agent/APPEND_SYSTEM.md [merge]
-Run 'skillshare sync extras' to sync.
+
+Next
+  skillshare sync extras  sync it
 ```
 
 如果 source 文件尚不存在，source 行末尾会显示 `(not found)`，最后一行则为 `Create the source file, then run 'skillshare sync extras'.`
@@ -168,15 +171,14 @@ skillshare extras list [--json] [--no-tui] [-p|-g]
 
 ```
 $ skillshare extras list --no-tui
+rules  ~/.config/skillshare/extras/rules · 2 files
+✓ ~/.claude/rules  merge
+✓ ~/.cursor/rules  copy
 
-Extras
-─────────────────────────────────────────
-→ rules  ~/.config/skillshare/extras/rules/ · 2 files
-  ✓ ~/.claude/rules  merge
-  ✓ ~/.cursor/rules  copy
+codex-agents  ~/.config/skillshare/agents · 3 files
+✓ ~/.codex/agents  extension: codex-agents
 
-→ codex-agents  ~/.config/skillshare/agents · 3 files
-  ✓ ~/.codex/agents  extension: codex-agents
+2 extras
 ```
 
 对于[单文件 extra](#single-file-extras)，source 和每个 target 显示的是完整文件路径，而不是目录。

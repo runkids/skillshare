@@ -55,7 +55,7 @@ targets: {}
 	result := sb.RunCLI("new", "dry-run-skill", "--dry-run")
 
 	result.AssertSuccess(t)
-	result.AssertOutputContains(t, "dry-run")
+	result.AssertOutputContains(t, "Dry run — nothing was written")
 	result.AssertOutputContains(t, "Would create")
 
 	// Verify skill was NOT created
@@ -121,7 +121,7 @@ func TestNew_Help_ShowsUsage(t *testing.T) {
 	result := sb.RunCLI("new", "--help")
 
 	result.AssertSuccess(t)
-	result.AssertOutputContains(t, "Usage:")
+	result.AssertOutputContains(t, "Usage  skillshare")
 	result.AssertOutputContains(t, "--dry-run")
 }
 

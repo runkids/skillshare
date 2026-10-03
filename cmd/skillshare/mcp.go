@@ -13,7 +13,9 @@ import (
 
 	"skillshare/internal/mcp"
 	"skillshare/internal/oplog"
+	"skillshare/internal/theme"
 	"skillshare/internal/ui"
+	"skillshare/internal/utils"
 )
 
 type mcpOptions struct {
@@ -193,10 +195,15 @@ func cmdMCP(args []string) (resultErr error) {
 				return err
 			}
 		} else {
-			ui.Info("MCP source: %s", p.SourcePath)
+			printMCPSource(p.SourcePath)
 		}
+		names := make([]string, len(parked))
+		for i, server := range parked {
+			names[i] = server[0]
+		}
+		width := ui.RowWidth(names...)
 		for _, server := range parked {
-			ui.Status(server[0], "kept", server[1])
+			ui.Row(ui.MarkNone, server[0], "kept  "+ui.DimText(server[1]), width)
 		}
 		return nil
 	case "add":
@@ -290,15 +297,18 @@ func printMCPPlan(p *mcp.Plan, asJSON bool) error {
 	if asJSON {
 		return json.NewEncoder(os.Stdout).Encode(p)
 	}
-	ui.Info("MCP source: %s", p.SourcePath)
+	printMCPSource(p.SourcePath)
 	for _, notice := range p.Notices {
 		ui.Warning("%s", notice)
 	}
 	// mcp.projects puts one server into several roots; name the file only then.
 	seen := map[string]int{}
-	for _, c := range p.Changes {
+	names := make([]string, len(p.Changes))
+	for i, c := range p.Changes {
 		seen[c.Name+"\x00"+c.Target]++
+		names[i] = c.Name
 	}
+	width := ui.RowWidth(names...)
 	for _, c := range p.Changes {
 		detail := c.Target
 		if seen[c.Name+"\x00"+c.Target] > 1 {
@@ -307,12 +317,23 @@ func printMCPPlan(p *mcp.Plan, asJSON bool) error {
 		if c.Message != "" {
 			detail += " — " + c.Message
 		}
-		ui.Status(c.Name, c.Action, detail)
+		mark := ui.MarkNone
+		if c.Action == "conflict" {
+			mark = ui.MarkFail
+		}
+		ui.Row(mark, c.Name, c.Action+"  "+ui.DimText(detail), width)
 	}
 	if len(p.Changes) == 0 {
-		ui.Info("No MCP servers configured. Run 'skillshare mcp add' to get started.")
+		fmt.Println()
+		ui.Done(ui.MarkNone, "No MCP servers configured", 0)
+		ui.Next("skillshare mcp add", "add one")
 	}
 	return nil
+}
+
+// printMCPSource names the MCP source file above what follows.
+func printMCPSource(path string) {
+	fmt.Println(theme.Primary().Bold(true).Render("MCP source") + "  " + utils.FoldHomePath(path))
 }
 
 func printMCPResult(result *mcp.Result, asJSON bool) error {
@@ -325,13 +346,19 @@ func printMCPResult(result *mcp.Result, asJSON bool) error {
 		}
 	}
 	for _, id := range result.BackupIDs {
-		ui.Info("Backup: %s", id)
+		ui.Note("backup " + id)
 	}
 	printMCPMigrated(result)
 	if result.Plan == nil {
-		ui.Success("MCP source saved. Run 'skillshare sync mcp' when ready.")
+		if len(result.BackupIDs) > 0 || len(result.Migrated) > 0 {
+			fmt.Println()
+		}
+		ui.Done(ui.MarkOK, "Saved the MCP source", 0)
+		ui.Next("skillshare sync mcp", "write it into Agent files")
 	} else if !result.Plan.Blocked {
-		ui.Success("MCP files applied: %d. Reload your Agent after synchronization and complete any required login.", len(result.Applied))
+		fmt.Println()
+		ui.Done(ui.MarkOK, "Applied "+plural(len(result.Applied), "MCP file"), 0)
+		ui.Note("Reload your Agent and complete any required login")
 	}
 	return nil
 }
@@ -339,7 +366,7 @@ func printMCPResult(result *mcp.Result, asJSON bool) error {
 // printMCPMigrated says the sync also saved the config without the settings 0.23.0 retired.
 func printMCPMigrated(result *mcp.Result) {
 	for _, file := range result.Migrated {
-		ui.Info("Updated %s for 0.23.0 (backup: %s)", filepath.Base(file.Path), file.Backup)
+		ui.Note(fmt.Sprintf("Updated %s for 0.23.0 (backup: %s)", filepath.Base(file.Path), file.Backup))
 	}
 }
 
@@ -350,49 +377,42 @@ func logMCPOp(path, command string, start time.Time, err error) {
 }
 
 func printMCPHelp() {
-	fmt.Println(`Usage: skillshare mcp [command] [options]
-
-Commands:
-  add [name]        Guided setup, or --url URL / -- command args...
-  check [name...]   Verify variables, commands, hosts and sync state (--no-dns);
-                    --live also starts or calls each server [--timeout 10s]
-  edit [name]       Interactive editor, or update --url / --target / -- command
-  import [name]     Import --from <client> or --file <JSON/TOML/YAML file>
-  list             Browse connections and per-client sync status (default)
-  remove [name]     Select and remove a source entry; optionally sync removal,
-                    or stop managing it and keep its Agent entries (--keep-files)
-  restore [id]      Browse backups, preview and restore Agent entries
-
-Options:
-  --tools-allow <tools>     Only these tools, separated by commas; * matches any
-                            characters ("" clears)
-  --tools-deny <tools>      Never these tools, separated by commas; beats allow
-                            ("" clears). The plan names each Agent that cannot hold
-                            a part of the tool policy
-  --pi-options <json>       Other Pi built-in per-server fields as a JSON object
-  --target <client>  Receiving client; repeat for multiple clients, or none to keep
-                    the server in Skillshare without writing it to any Agent
-  --from <client>    Native client ID or account target (see mcp documentation)
-  --file <path>      Native configuration file to import
-  --url <url>        Streamable HTTP endpoint
-  --disabled        Project mode: turn off a server from the Agent's global config
-                    (add NAME --disabled --target opencode; claude, opencode, kilocode)
-  --sync            Save and synchronize (non-interactive default: save only)
-  --keep-files      remove only: stop managing the server; its Agent entries stay
-                    and sync no longer removes or updates them
-  --replace         Replace an existing source entry; on import, also rewrite
-                    the imported client's entry when it differs
-  --dry-run, -n     Preview without writing
-  --json            Machine-readable, credential-free sync results
-  --no-tui          Disable interactive menus (also honors tui: false)
-  --revision <id>   Require the matching preview revision
-  --global, -g      Global configuration
-  --project, -p     Project configuration
-
-With no command, opens the MCP manager in a terminal; otherwise prints status.
-Manager keys: / search, Enter details, a add, i import, e edit, x remove,
-              s sync, b backups, r refresh, q quit.
-JSON and non-TTY output never open a TUI. Scripted edits require a name.
-Sync: skillshare sync mcp [--dry-run] [--json] [--no-tui] [-g|-p]
-Import does not start MCP servers or copy OAuth credentials.`)
+	printHelp("skillshare mcp [command] [options]",
+		"With no command, opens the MCP manager in a terminal; otherwise prints status.",
+		helpGroup{title: "Commands", rows: []helpRow{
+			{"list", "Browse connections and per-client sync status (default)"},
+			{"add [name]", "Guided setup, or --url URL / -- command args..."},
+			{"edit [name]", "Interactive editor, or update --url / --target / -- command"},
+			{"import [name]", "Import --from <client> or --file <JSON/TOML/YAML file>"},
+			{"check [name...]", "Verify variables, commands, hosts and sync state (--no-dns);\n--live also starts or calls each server [--timeout 10s]"},
+			{"remove [name]", "Select and remove a source entry; optionally sync removal,\nor stop managing it and keep its Agent entries (--keep-files)"},
+			{"restore [id]", "Browse backups, preview and restore Agent entries"},
+		}},
+		helpGroup{title: "Options", rows: []helpRow{
+			{"--target <client>", "Receiving client; repeat for several, or none to keep the\nserver in Skillshare without writing it to any Agent"},
+			{"--from <client>", "Native client ID or account target (see mcp documentation)"},
+			{"--file <path>", "Native configuration file to import"},
+			{"--url <url>", "Streamable HTTP endpoint"},
+			{"--tools-allow <tools>", "Only these tools, separated by commas; * matches any\ncharacters (\"\" clears)"},
+			{"--tools-deny <tools>", "Never these tools, separated by commas; beats allow (\"\" clears).\nThe plan names each Agent that cannot hold a part of the policy"},
+			{"--pi-options <json>", "Other Pi built-in per-server fields as a JSON object"},
+			{"--disabled", "Project mode: turn off a server from the Agent's global config\n(add NAME --disabled --target opencode; claude, opencode, kilocode)"},
+			{"--sync", "Save and synchronize (non-interactive default: save only)"},
+			{"--keep-files", "remove only: stop managing the server; its Agent entries stay\nand sync no longer removes or updates them"},
+			{"--replace", "Replace an existing source entry; on import, also rewrite\nthe imported client's entry when it differs"},
+			{"-n, --dry-run", "Preview without writing"},
+			{"--json", "Machine-readable, credential-free sync results"},
+			{"--no-tui", "Disable interactive menus (also honors tui: false)"},
+			{"--revision <id>", "Require the matching preview revision"},
+			{"-g, --global", "Global configuration"},
+			{"-p, --project", "Project configuration"},
+		}},
+		helpNotes("Notes",
+			"Manager keys: / search, Enter details, a add, i import, e edit, x remove,",
+			"              s sync, b backups, r refresh, q quit.",
+			"JSON and non-TTY output never open a TUI. Scripted edits require a name.",
+			"Sync: skillshare sync mcp [--dry-run] [--json] [--no-tui] [-g|-p]",
+			"Import does not start MCP servers or copy OAuth credentials.",
+		),
+	)
 }

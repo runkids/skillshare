@@ -22,34 +22,30 @@ skillshare list --json       # JSON output for CI/scripts
 ```text
 skillshare list --no-tui
 
-Installed skills
-─────────────────────────────────────────
+Skills
   _superpowers/skills/
-    → brainstorming                   tracked: _superpowers
-    → dispatching-parallel-agents     tracked: _superpowers
-    → systematic-debugging            tracked: _superpowers
+    brainstorming                tracked: _superpowers
+    dispatching-parallel-agents  tracked: _superpowers
+    systematic-debugging         tracked: _superpowers
     …
-
   frontend/
-    → react-components  local
-
+    react-components             local
   web/
-    → accessibility      github.com/addyosmani/web-quality-skills/skills...
-    → core-web-vitals    github.com/addyosmani/web-quality-skills/skills...
+    accessibility                github.com/addyosmani/web-quality-skills/skills...
+    core-web-vitals              github.com/addyosmani/web-quality-skills/skills...
     …
-
-  → docx                   github.com/anthropics/skills/skills/docx
-  → frontend-design        github.com/anthropics/skills/skills/frontend-de...
-  → pdf                    github.com/anthropics/skills/skills/pdf
-  → skill-creator          github.com/anthropics/skills/skills/skill-creator
-  → skillshare             github.com/runkids/skillshare/skills/skillshare
+  docx                           github.com/anthropics/skills/skills/docx
+  frontend-design                github.com/anthropics/skills/skills/frontend-de...
+  pdf                            github.com/anthropics/skills/skills/pdf
+  skill-creator                  github.com/anthropics/skills/skills/skill-creator
+  skillshare                     github.com/runkids/skillshare/skills/skillshare
   …
 
-Tracked repositories
-─────────────────────────────────────────
-  ✓ _superpowers         15 skills, up-to-date
+Tracked repos
+✓ _superpowers  up to date · 15 skills
 
-→ Use --verbose for more details
+28 skills · 15 tracked, 9 remote, 4 local
+  Add -v for sources and install dates
 ```
 
 ## Interactive TUI
@@ -125,20 +121,19 @@ skillshare list --json | jq '.[] | {name, source, type}'
 Skills are automatically grouped by directory when you use folders to organize them:
 
 ```
-Installed skills
-─────────────────────────────────────────
-
+Skills
   frontend/
-    → react-helper        github.com/user/skills
-    → vue-helper          github.com/user/skills
+    react-helper   github.com/user/skills
+    vue-helper     github.com/user/skills
+  my-skill         local
+  commit-commands  github.com/user/skills
+  old-draft        local · disabled
 
-  → my-skill              local
-  → commit-commands       github.com/user/skills
-  → old-draft             local  [disabled]
+Tracked repos
+✓ _team-skills  up to date · 3 skills
 
-Tracked repositories
-─────────────────────────────────────────
-  ✓ _team-skills          3 skills, up-to-date
+8 skills · 3 tracked, 3 remote, 2 local
+  Add -v for sources and install dates
 ```
 
 If all skills are at the top level (no folders), the output is a flat list — identical to previous versions.
@@ -150,32 +145,28 @@ skillshare list --verbose
 ```
 
 ```
-Installed skills
-─────────────────────────────────────────
-
+Skills
   frontend/
     react-helper
-      Source:      github.com/user/skills
-      Type:        github
-      Installed:   2026-01-15
-
+      Source     github.com/user/skills
+      Type       github
+      Installed  2026-01-15
     vue-helper
-      Source:      github.com/user/skills
-      Type:        github
-      Installed:   2026-01-15
-
+      Source     github.com/user/skills
+      Type       github
+      Installed  2026-01-15
   my-skill
-    Source:      (local - no metadata)
-
+    Source     local
   commit-commands
-    Source:      github.com/user/skills
-    Type:        github
-    Installed:   2026-01-15
+    Source     github.com/user/skills
+    Type       github
+    Installed  2026-01-15
 
-Tracked repositories
-─────────────────────────────────────────
-  ✓ _team-skills          3 skills, up-to-date
-  ! _other-repo           5 skills, has changes
+Tracked repos
+✓ _team-skills  up to date · 3 skills
+! _other-repo   has changes · 5 skills
+
+12 skills · 8 tracked, 3 remote, 1 local
 ```
 
 ## Global vs Project
@@ -216,10 +207,10 @@ flowchart LR
 
 ```bash
 cd my-project/            # Has .skillshare/config.yaml
-skillshare list           # → Installed skills (project)
+skillshare list           # → Skills · project
 
 cd ~
-skillshare list           # → Installed skills (global)
+skillshare list           # → Skills
 ```
 
 Use `-p` or `-g` to override auto-detection:
@@ -239,19 +230,17 @@ skillshare list -p       # Explicit project mode
 ### Example Output
 
 ```
-Installed skills (project)
-─────────────────────────────────────────
-
+Skills · project
   tools/
-    → pdf               anthropic/skills/pdf
-    → review            github.com/team/tools
+    pdf     anthropic/skills/pdf
+    review  github.com/team/tools
+  my-skill  local
 
-  → my-skill            local
-
-→ 3 skill(s): 2 remote, 1 local
+3 skills · 2 remote, 1 local
+  Add -v for sources and install dates
 ```
 
-Project list uses the same visual format as global list, with `(project)` label in the header. Skills are grouped by directory and categorized as `local` (no metadata) or by source URL (remote).
+Project list uses the same visual format as global list, with `· project` label in the header. Skills are grouped by directory and categorized as `local` (no metadata) or by source URL (remote).
 
 ## Options
 
@@ -274,10 +263,9 @@ When skills are organized into folders (via [`--into`](/docs/reference/commands/
 
 ```
   frontend/
-    → react-helper        github.com/user/skills
-    → vue-helper          github.com/user/skills
-
-  → my-skill              local
+    react-helper  github.com/user/skills
+    vue-helper    github.com/user/skills
+  my-skill        local
 ```
 
 - Skills under the same folder share a group header (e.g., `frontend/`)

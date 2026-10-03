@@ -26,8 +26,7 @@ targets: {}
 
 	result.AssertSuccess(t)
 	result.AssertOutputContains(t, "Source")
-	result.AssertOutputContains(t, sb.SourcePath)
-	result.AssertOutputContains(t, "2 skills")
+	result.AssertRowContains(t, "skills", "~/.config/skillshare/skills  2 skills")
 }
 
 func TestStatus_ShowsTargetStatus(t *testing.T) {
@@ -94,7 +93,7 @@ targets:
 	result := sb.RunCLI("status")
 
 	result.AssertSuccess(t)
-	result.AssertOutputContains(t, "merged")
+	result.AssertOutputContains(t, "✓ 1 linked")
 }
 
 func TestStatus_NoConfig_ReturnsError(t *testing.T) {
@@ -228,7 +227,7 @@ func TestStatus_TrackedRepoGitStatusError_ShowsUnknown(t *testing.T) {
 
 	result := sb.RunCLI("status")
 	result.AssertSuccess(t)
-	result.AssertAnyOutputContains(t, "_broken-repo: failed to check git status")
+	result.AssertRowContains(t, "_broken-repo", "1 skill · failed to check git status")
 }
 
 func TestStatus_JSON_TrackedRepoGitStatusError_ShowsUnknown(t *testing.T) {

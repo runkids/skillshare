@@ -51,13 +51,13 @@ func TestUninstallModes_SingleConfirmPrompt(t *testing.T) {
 
 	global := sb.RunCLIWithInput("n\n", "uninstall", "keep", "-g")
 	global.AssertSuccess(t)
-	global.AssertAnyOutputContains(t, "Are you sure you want to uninstall this skill? [y/N]")
-	global.AssertAnyOutputContains(t, "Cancelled")
+	global.AssertAnyOutputContains(t, "Uninstall keep?")
+	global.AssertAnyOutputContains(t, "Cancelled. Nothing was removed.")
 
 	project := sb.RunCLIInDirWithInput(projectRoot, "n\n", "uninstall", "keep", "-p")
 	project.AssertSuccess(t)
-	project.AssertAnyOutputContains(t, "Are you sure you want to uninstall this skill from the project? [y/N]")
-	project.AssertAnyOutputContains(t, "Cancelled")
+	project.AssertAnyOutputContains(t, "Uninstall keep from the project?")
+	project.AssertAnyOutputContains(t, "Cancelled. Nothing was removed.")
 }
 
 func TestUninstallModes_BatchConfirmPrompt(t *testing.T) {
@@ -72,11 +72,11 @@ func TestUninstallModes_BatchConfirmPrompt(t *testing.T) {
 
 	global := sb.RunCLIWithInput("n\n", "uninstall", "a", "b", "-g")
 	global.AssertSuccess(t)
-	global.AssertAnyOutputContains(t, "Uninstall 2 skills? [y/N]")
+	global.AssertAnyOutputContains(t, "Uninstall 2 skills?")
 
 	project := sb.RunCLIInDirWithInput(projectRoot, "n\n", "uninstall", "a", "b", "-p")
 	project.AssertSuccess(t)
-	project.AssertAnyOutputContains(t, "Uninstall 2 skills from the project? [y/N]")
+	project.AssertAnyOutputContains(t, "Uninstall 2 skills from the project?")
 }
 
 func TestUninstallModes_ReinstallHint(t *testing.T) {
@@ -97,19 +97,19 @@ func TestUninstallModes_ReinstallHint(t *testing.T) {
 
 	globalDry := sb.RunCLI("uninstall", "remote", "--dry-run", "-g")
 	globalDry.AssertSuccess(t)
-	globalDry.AssertAnyOutputContains(t, "[dry-run] Reinstall: skillshare install github.com/org/repo/remote\n")
+	globalDry.AssertAnyOutputContains(t, "reinstall with skillshare install github.com/org/repo/remote\n")
 
 	projectDry := sb.RunCLIInDir(projectRoot, "uninstall", "remote", "--dry-run", "-p")
 	projectDry.AssertSuccess(t)
-	projectDry.AssertAnyOutputContains(t, "[dry-run] Reinstall: skillshare install github.com/org/repo/remote --project")
+	projectDry.AssertAnyOutputContains(t, "reinstall with skillshare install github.com/org/repo/remote --project\n")
 
 	global := sb.RunCLI("uninstall", "remote", "--force", "-g")
 	global.AssertSuccess(t)
-	global.AssertAnyOutputContains(t, "Reinstall: skillshare install github.com/org/repo/remote\n")
+	global.AssertAnyOutputContains(t, "skillshare install github.com/org/repo/remote  ")
 
 	project := sb.RunCLIInDir(projectRoot, "uninstall", "remote", "--force", "-p")
 	project.AssertSuccess(t)
-	project.AssertAnyOutputContains(t, "Reinstall: skillshare install github.com/org/repo/remote --project")
+	project.AssertAnyOutputContains(t, "skillshare install github.com/org/repo/remote --project  ")
 }
 
 func TestUninstallModes_DryRunGitignoreLines(t *testing.T) {
@@ -130,11 +130,11 @@ func TestUninstallModes_DryRunGitignoreLines(t *testing.T) {
 
 	globalRepo := sb.RunCLI("uninstall", "_repo", "--dry-run", "-g")
 	globalRepo.AssertSuccess(t)
-	globalRepo.AssertAnyOutputContains(t, "[dry-run] would remove _repo from .gitignore")
+	globalRepo.AssertAnyOutputContains(t, "would remove _repo from .gitignore")
 
 	project := sb.RunCLIInDir(projectRoot, "uninstall", "plain", "--dry-run", "-p")
 	project.AssertSuccess(t)
-	project.AssertAnyOutputContains(t, "[dry-run] would update .skillshare/.gitignore")
+	project.AssertAnyOutputContains(t, "would update .skillshare/.gitignore")
 }
 
 func TestUninstallModes_TrashLocation(t *testing.T) {
@@ -187,7 +187,7 @@ func TestUninstallModes_ProjectIgnoresJSONFlag(t *testing.T) {
 	// Project mode neither emits JSON nor treats --json as --force.
 	result := sb.RunCLIInDirWithInput(projectRoot, "n\n", "uninstall", "keep", "--json", "-p")
 	result.AssertSuccess(t)
-	result.AssertAnyOutputContains(t, "from the project? [y/N]")
+	result.AssertAnyOutputContains(t, "Uninstall keep from the project?")
 	var out map[string]any
 	if json.Unmarshal([]byte(result.Stdout), &out) == nil {
 		t.Errorf("project uninstall should not print JSON, got %s", result.Stdout)
@@ -209,7 +209,7 @@ func TestUninstallModes_GlobPattern(t *testing.T) {
 
 	global := sb.RunCLI("uninstall", "core-*", "--force", "-g")
 	global.AssertSuccess(t)
-	global.AssertAnyOutputContains(t, "Pattern 'core-*' matched 2 item(s)")
+	global.AssertAnyOutputContains(t, "Pattern 'core-*' matched 2 items")
 
 	project := sb.RunCLIInDir(projectRoot, "uninstall", "core-*", "--force", "-p")
 	project.AssertFailure(t)
@@ -293,15 +293,15 @@ func TestUninstallModes_BatchDirtyRepoMessages(t *testing.T) {
 	global.AssertSuccess(t)
 	global.AssertAnyOutputContains(t, "uncommitted changes, use --force")
 	global.AssertAnyOutputContains(t, "1 tracked repo skipped, 2 remaining")
-	global.AssertAnyOutputContains(t, "Uninstall complete: 2 removed, 1 skipped, 0 failed")
-	global.AssertAnyOutputContains(t, "Run 'skillshare sync' to update all targets")
+	global.AssertAnyOutputContains(t, "Uninstalled 2 skills, 1 skipped")
+	global.AssertAnyOutputContains(t, "skillshare trash list  ")
 
 	project := sb.RunCLIInDirWithInput(projectRoot, "y\n", "uninstall", "_dirty", "clean-a", "clean-b", "-p")
 	project.AssertSuccess(t)
 	project.AssertAnyOutputContains(t, "Skipping _dirty: uncommitted changes detected, use --force to override")
 	project.AssertAnyOutputContains(t, "1 tracked repo skipped, 2 remaining")
-	project.AssertOutputNotContains(t, "Uninstall complete:")
-	project.AssertAnyOutputContains(t, "Run 'skillshare sync' to clean up symlinks")
+	project.AssertAnyOutputContains(t, "Uninstalled 2 skills, 1 skipped")
+	project.AssertAnyOutputContains(t, "skillshare trash list --project")
 }
 
 func TestUninstallModes_BatchAllDirtyError(t *testing.T) {
@@ -388,11 +388,11 @@ func TestUninstallModes_SingleNextSteps(t *testing.T) {
 
 	global := sb.RunCLI("uninstall", "one", "--force", "-g")
 	global.AssertSuccess(t)
-	global.AssertAnyOutputContains(t, "Run 'skillshare sync' to update all targets")
+	global.AssertAnyOutputContains(t, "skillshare trash restore one  ")
 
 	project := sb.RunCLIInDir(projectRoot, "uninstall", "one", "--force", "-p")
 	project.AssertSuccess(t)
-	project.AssertAnyOutputContains(t, "Run 'skillshare sync' to clean up symlinks")
+	project.AssertAnyOutputContains(t, "skillshare trash restore one --project")
 }
 
 func TestUninstallModes_OplogSkipsUnexecutedRuns(t *testing.T) {

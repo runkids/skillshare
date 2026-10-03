@@ -66,16 +66,8 @@ func cmdSyncProject(root string, dryRun, force, jsonOutput, quiet bool) (syncLog
 		return stats, nil, nil, nil, nil, discoverErr
 	}
 	if spinner != nil {
-		spinner.Success(fmt.Sprintf("Discovered %d skills", len(discoveredSkills)))
+		spinner.Stop()
 		reportCollisions(discoveredSkills, runtime.targets)
-	}
-
-	// Phase 2: Per-target sync
-	if !jsonOutput {
-		ui.Header("Syncing skills (project)")
-		if dryRun {
-			ui.Warning("Dry run mode - no changes will be made")
-		}
 	}
 
 	var entries []syncTargetEntry
@@ -85,7 +77,7 @@ func cmdSyncProject(root string, dryRun, force, jsonOutput, quiet bool) (syncLog
 		target, ok := runtime.targets[name]
 		if !ok && invalid[name] == nil {
 			if !jsonOutput {
-				ui.Error("%s: target not found", name)
+				ui.Row(ui.MarkFail, name, "target not found", ui.RowWidth(name))
 			}
 			notFound = append(notFound, name)
 			continue
@@ -108,7 +100,7 @@ func cmdSyncProject(root string, dryRun, force, jsonOutput, quiet bool) (syncLog
 	movedTargets := sync.MovedProjectTargets(runtime.config, runtime.targets)
 	for _, msg := range sync.CleanMovedProjectDirs(root, runtime.sourcePath, movedTargets, dryRun) {
 		if !jsonOutput {
-			ui.Info("%s", msg)
+			ui.Note(msg)
 		}
 	}
 
@@ -123,14 +115,7 @@ func cmdSyncProject(root string, dryRun, force, jsonOutput, quiet bool) (syncLog
 
 	if !jsonOutput {
 		// Phase 3: Summary
-		ui.SyncSummary(ui.SyncStats{
-			Targets:  len(runtime.config.Targets),
-			Linked:   totals.linked,
-			Local:    totals.local,
-			Updated:  totals.updated,
-			Pruned:   totals.pruned,
-			Duration: time.Since(start),
-		})
+		printSyncDone(len(discoveredSkills), len(runtime.config.Targets), len(stats.FailedTargets), dryRun, time.Since(start))
 
 		// Show ignored skills from .skillignore
 		printIgnoredSkills(ignoreStats)
@@ -159,7 +144,7 @@ func cmdSyncProject(root string, dryRun, force, jsonOutput, quiet bool) (syncLog
 	if !dryRun {
 		if n, _ := trash.Cleanup(trash.ProjectTrashDir(root), 0); n > 0 {
 			if !jsonOutput {
-				ui.Info("Cleaned up %d expired trash item(s)", n)
+				ui.Note(fmt.Sprintf("Removed %s older than 7 days from trash", plural(n, "item")))
 			}
 		}
 	}

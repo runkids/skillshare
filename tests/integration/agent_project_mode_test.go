@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"skillshare/internal/testutil"
@@ -98,9 +99,9 @@ func TestStatusProject_ShowsAgents(t *testing.T) {
 
 	result := sb.RunCLIInDir(projectDir, "status", "-p")
 	result.AssertSuccess(t)
-	result.AssertAnyOutputContains(t, "Source")   // source section
-	result.AssertAnyOutputContains(t, "1 agents") // agents in source
-	result.AssertAnyOutputContains(t, "agents")   // agents sub-item in targets
+	result.AssertAnyOutputContains(t, "Source")  // source section
+	result.AssertAnyOutputContains(t, "1 agent") // agents in source
+	result.AssertAnyOutputContains(t, "agents")  // agents sub-item in targets
 }
 
 func TestStatusProject_JSON_IncludesAgents(t *testing.T) {
@@ -274,7 +275,7 @@ func TestCollectProject_Agents_CollectsLocal(t *testing.T) {
 
 	result := sb.RunCLIInDir(projectDir, "collect", "-p", "agents", "--force")
 	result.AssertSuccess(t)
-	result.AssertAnyOutputContains(t, "collected")
+	result.AssertAnyOutputContains(t, "Collected 1 agent")
 
 	// Verify copied to project agents source
 	agentsSource := filepath.Join(projectDir, ".skillshare", "agents")
@@ -442,13 +443,17 @@ func TestSyncProject_All_NestedAgentsSameBasename_FlattensAndStaysStable(t *test
 
 	first := sb.RunCLIInDir(projectDir, "sync", "-p", "--all")
 	first.AssertSuccess(t)
-	first.AssertAnyOutputContains(t, "Agent sync complete")
-	first.AssertAnyOutputContains(t, "0 updated")
+	first.AssertOutputContains(t, "\nAgents\n")
+	if _, agents, _ := strings.Cut(first.Stdout, "\nAgents\n"); strings.Contains(agents, "updated") {
+		t.Errorf("first sync updated agents:\n%s", agents)
+	}
 
 	second := sb.RunCLIInDir(projectDir, "sync", "-p", "--all")
 	second.AssertSuccess(t)
-	second.AssertAnyOutputContains(t, "Agent sync complete")
-	second.AssertAnyOutputContains(t, "0 updated")
+	second.AssertOutputContains(t, "\nAgents\n")
+	if _, agents, _ := strings.Cut(second.Stdout, "\nAgents\n"); strings.Contains(agents, "updated") {
+		t.Errorf("second sync updated agents:\n%s", agents)
+	}
 
 	for _, base := range []string{claudeAgents, cursorAgents} {
 		for _, name := range []string{"team-a__helper.md", "team-b__helper.md"} {
@@ -471,6 +476,6 @@ func TestStatusProject_Default_ShowsBoth(t *testing.T) {
 	result := sb.RunCLIInDir(projectDir, "status", "-p")
 	result.AssertSuccess(t)
 	result.AssertAnyOutputContains(t, "Source")
-	result.AssertAnyOutputContains(t, "1 agents") // agents in source section
-	result.AssertAnyOutputContains(t, "agents")   // agents sub-item in targets
+	result.AssertAnyOutputContains(t, "1 agent") // agents in source section
+	result.AssertAnyOutputContains(t, "agents")  // agents sub-item in targets
 }

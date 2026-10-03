@@ -238,15 +238,19 @@ skillshare push
 skillshare sync
 ```
 
-### `Git identity not configured`
+### `Git had no identity`
 
-**原因：** git 配置里没有 `user.name` / `user.email`。skillshare 会使用本地兜底值（`skillshare@local`）让 init 能顺利完成，但你应该设置自己的身份信息。
+**原因：** `skillshare init` 创建 source repo 时，git 没有 `user.name` / `user.email`。skillshare 把兜底值（`skillshare@local`）写进该 repo 自己的配置，让 commit 能正常进行。repo 的配置优先于 `git config --global`，所以之后设置 global 身份并不会取代它。
 
-**解决方式：**
+你自己创建的 repo 不会被改动：skillshare 只在那一次初始 commit 使用兜底值。
+
+**解决方式：** 在该 repo 设置你的身份（路径以消息打印的为准，以下是默认值）：
 ```bash
-git config --global user.name "Your Name"
-git config --global user.email "you@example.com"
+git -C ~/.config/skillshare/skills config user.name "Your Name"
+git -C ~/.config/skillshare/skills config user.email "you@example.com"
 ```
+
+或删除 repo 内的配置，改用 global 身份：`git -C ~/.config/skillshare/skills config --unset user.name`（`user.email` 同理）。
 
 ### `Git root mismatch`
 
@@ -564,7 +568,7 @@ targets:
 
 ## Agent Errors
 
-### Warning: `target(s) skipped for agents (no agents path)`
+### Warning: `No agents folder: <targets>`
 
 **原因：** 你执行了 `skillshare sync`（或 `skillshare sync agents`），而某些配置的 Target 没有定义 agents 目录。只有 Claude、Cursor、Augment 和 OpenCode 内置了 agents 路径；其他 Target 在 agent 同步时会被自动跳过。
 

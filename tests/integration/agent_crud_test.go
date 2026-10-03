@@ -130,7 +130,7 @@ func TestUninstall_Agents_RemovesToTrash(t *testing.T) {
 
 	result := sb.RunCLI("uninstall", "-g", "agents", "tutor", "--force")
 	result.AssertSuccess(t)
-	result.AssertAnyOutputContains(t, "Removed agent")
+	result.AssertAnyOutputContains(t, "Uninstalled 1 agent")
 	result.AssertAnyOutputContains(t, "tutor")
 
 	// Verify agent file was removed from source
@@ -163,7 +163,7 @@ func TestUninstall_Agents_All(t *testing.T) {
 
 	result := sb.RunCLI("uninstall", "-g", "agents", "--all", "--force")
 	result.AssertSuccess(t)
-	result.AssertAnyOutputContains(t, "2 agent(s) removed")
+	result.AssertAnyOutputContains(t, "Uninstalled 2 agents")
 
 	// Verify both files removed
 	if _, err := os.Stat(filepath.Join(agentsDir, "tutor.md")); !os.IsNotExist(err) {
@@ -226,7 +226,7 @@ targets:
 
 	result := sb.RunCLI("collect", "agents", "--force")
 	result.AssertSuccess(t)
-	result.AssertAnyOutputContains(t, "collected")
+	result.AssertAnyOutputContains(t, "Collected 1 agent")
 
 	// Verify the file was copied to agent source
 	if _, err := os.Stat(filepath.Join(agentsSource, "local-agent.md")); err != nil {
@@ -453,7 +453,7 @@ func TestTrash_Agents_Restore(t *testing.T) {
 	// Restore
 	result := sb.RunCLI("trash", "agents", "restore", "tutor")
 	result.AssertSuccess(t)
-	result.AssertAnyOutputContains(t, "Restored")
+	result.AssertAnyOutputContains(t, "✓ Restore")
 
 	// Verify restored to agent source
 	if _, err := os.Stat(filepath.Join(agentsDir, "tutor.md")); err != nil {
@@ -474,7 +474,7 @@ func TestTrash_Agents_Restore_Nested_DoesNotGoToSkills(t *testing.T) {
 
 	result := sb.RunCLI("trash", "agents", "restore", "demo/code-archaeologist")
 	result.AssertSuccess(t)
-	result.AssertAnyOutputContains(t, "Restored")
+	result.AssertAnyOutputContains(t, "✓ Restore")
 
 	if _, err := os.Stat(filepath.Join(agentsDir, "demo", "code-archaeologist.md")); err != nil {
 		t.Fatalf("nested agent should be restored to agents source: %v", err)

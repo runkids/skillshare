@@ -97,7 +97,7 @@ Project sync 会清理它们。对于每个没有显式设置 `path:` 的 Target
 一律不会改动。
 
 ```
-→ Cleaned 1 leftover skill(s) from .goose/skills: the default path for 'goose' moved to .agents/skills
+  Cleaned 1 leftover skill from .goose/skills: the default path for 'goose' moved to .agents/skills
 ```
 
 为某个 Target 设置显式的 `path:` 即可让它跳过这项清理；`--dry-run` 只预览会移除
@@ -198,7 +198,7 @@ flowchart TD
 
 ### target 失败时 {#when-a-target-fails}
 
-sync 会运行每个 target，一个 target 失败不会中断其他 target。target 在同步出错时失败，或在其自身配置无效时失败，例如 skills path 是文件而不是文件夹，或 `mode` 无法识别。配置无效的 target 在本次运行中会跳过 skills 和 agents。每个失败的 target 都会被报告（文本输出为 `✗ <target>: invalid config: …`，`--json` 中为对应 `details` 条目的 `error`），并在其他 target 同步完成后以非零状态退出。
+sync 会运行每个 target，一个 target 失败不会中断其他 target。target 在同步出错时失败，或在其自身配置无效时失败，例如 skills path 是文件而不是文件夹，或 `mode` 无法识别。配置无效的 target 在本次运行中会跳过 skills 和 agents。每个失败的 target 都会被报告（文本输出为 `✗ <target>  invalid config: …`，`--json` 中为对应 `details` 条目的 `error`），并在其他 target 同步完成后以非零状态退出。
 
 影响整个配置的问题仍会在任何 target 运行前中止 sync：source 文件夹不存在或无效、全局 `mode` 或 `target_naming` 无效、`git_root` 无效，或 extras 无效。
 
@@ -206,25 +206,16 @@ sync 会运行每个 target，一个 target 失败不会中断其他 target。ta
 
 ```text
 $ skillshare sync
-✓ Discovered 43 skills
+✓ Backup       claude, claude-work, cursor, gemini, opencode, universal → ~/.local/share/skillshare/backups/2026-09-28_12-52-50
+✓ claude       43 linked · 1 pruned
+✓ claude-work  43 linked · 1 pruned
+✓ cursor       43 linked · 1 local · 1 pruned
+✓ gemini       43 linked · 1 pruned
+✓ opencode     43 linked · 1 pruned
+✓ universal    43 linked · 1 pruned
 
-Backing up
-─────────────────────────────────────────
-✓ claude -> ~/.local/share/skillshare/backups/2026-09-28_12-52-50/claude
-✓ cursor -> ~/.local/share/skillshare/backups/2026-09-28_12-52-50/cursor
-✓ gemini -> ~/.local/share/skillshare/backups/2026-09-28_12-52-50/gemini
-  …
-
-Syncing skills
-─────────────────────────────────────────
-✓ claude: merged (43 linked, 0 local, 0 updated, 1 pruned)
-✓ claude-work: merged (43 linked, 0 local, 0 updated, 1 pruned)
-✓ cursor: merged (43 linked, 1 local, 0 updated, 1 pruned)
-✓ gemini: merged (43 linked, 0 local, 0 updated, 1 pruned)
-✓ opencode: merged (43 linked, 0 local, 0 updated, 1 pruned)
-✓ universal: merged (43 linked, 0 local, 0 updated, 1 pruned)
-
-Sync complete: 6 targets, 258 linked, 1 local, 0 updated, 6 pruned (0.0s)
+✓ Synced 43 skills to 6 targets · 0.0s
+  Context  ~1.2K tokens always loaded · ~18.5K on demand
 ```
 
 ---
@@ -698,12 +689,12 @@ flowchart TD
 ```
 $ skillshare sync extras
 
-Rules
-  ✔ ~/.claude/rules  2 files linked (merge)
-  ✔ ~/.cursor/rules  2 files copied (copy)
+Extras
+✓ rules     ~/.claude/rules  2 files linked
+✓ rules     ~/.cursor/rules  2 files copied
+✓ commands  ~/.claude/commands  1 files linked
 
-Commands
-  ✔ ~/.claude/commands  1 files linked (merge)
+✓ Synced 2 extras to 3 folders · 0.0s
 ```
 
 ---
@@ -713,8 +704,8 @@ Commands
 同步之后，skillshare 会显示一个 token 开销汇总：
 
 ```
-✔ Synced 47 skill(s) to 4 target(s) in 312ms
-  Context: ~12.4K always-loaded · ~58.2K on-demand (claude, cursor, codex, opencode)
+✓ Synced 47 skills to 4 targets · 0.3s
+  Context  ~12.4K tokens always loaded · ~58.2K on demand
 ```
 
 - **Always-loaded**：frontmatter 的 name + description（每次请求都会加载）

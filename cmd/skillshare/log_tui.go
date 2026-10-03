@@ -791,7 +791,7 @@ func (m logTUIModel) renderStatsFooter() string {
 		if err == nil {
 			lastPart := theme.Dim().Render("last: ") +
 				theme.Accent().Render(m.stats.LastOperation.Command) +
-				theme.Dim().Render(fmt.Sprintf(" %s ago", formatRelativeTime(time.Since(ts))))
+				theme.Dim().Render(" "+timeAgo(ts))
 			parts = append(parts, lastPart)
 		}
 	}
@@ -920,11 +920,11 @@ func (m logTUIModel) renderStatsPanel() string {
 	if m.stats.LastOperation != nil {
 		ts, err := time.Parse(time.RFC3339, m.stats.LastOperation.Timestamp)
 		if err == nil {
-			ago := formatRelativeTime(time.Since(ts))
+			ago := timeAgo(ts)
 			b.WriteString(fmt.Sprintf("  %s %s %s\n",
 				theme.Dim().Render("Last op:"),
 				theme.Accent().Render(m.stats.LastOperation.Command),
-				theme.Dim().Render(fmt.Sprintf("(%s ago)", ago))))
+				theme.Dim().Render("("+ago+")")))
 		}
 	}
 

@@ -23,24 +23,11 @@ skillshare update agents --all       # すべての tracked/updatable agent を�
 
 ```text
 $ skillshare update pdf
+✓ Update    pdf · from github.com/anthropics/skills/skills/pdf · 1.9s
+✓ Audit     no findings
 
-Updating
-─────────────────────────────────────────
-▸  Source  ~/.config/skillshare/skills
-│
-└─ Items  0 tracked repo(s), 1 skill(s)
-│
-├─ Skill  pdf
-│
-├─ Source  github.com/anthropics/skills/skills/pdf
-│
-└─ ✓ SUCCESS  Updated successfully (1.9s)
-
-- Audit Findings
-→ risk: CLEAN
-
-- Next Steps
-→ Run 'skillshare sync' to distribute changes
+Next
+  skillshare sync  link the changes into your targets
 ```
 
 ## 実行内容
@@ -216,7 +203,7 @@ skillshare update x -G backend            # 名前とグループを混在
 
 ```bash
 skillshare update frontend   # --group frontend と同じ
-# ℹ 'frontend' is a group — expanding to 3 updatable skill(s)
+#   'frontend' is a group — expanding to 3 updatable skills
 ```
 
 :::note
@@ -238,19 +225,14 @@ skillshare update --all
 ### 出力例
 
 ```
-Updating 2 tracked repos + 3 skills
+$ skillshare update --all
 
-[1/5] ✓ _team-skills       Already up to date
-[2/5] ✓ _personal-repo     3 commits, 2 files
-[3/5] ✓ my-skill           Reinstalled from source
-→ risk: LOW (12/100)
-[4/5] ! other-skill        has uncommitted changes (use --force)
-[5/5] ✓ another-skill      Reinstalled from source
+✓ Audit     3 skills, no findings
 
-── Summary ─────────────────────────────
-  Total:    5
-  Updated:  4
-  Skipped:  1
+✓ Updated 4, 1 skipped · 6.2s
+
+Next
+  skillshare sync  link the changes into your targets
 ```
 
 ### 欠落しているトラック対象リポジトリ
@@ -258,9 +240,9 @@ Updating 2 tracked repos + 3 skills
 `.metadata.json` が tracked repo（`tracked: true`）を宣言しているが、そのクローンディレクトリがディスク上に存在しない場合 — クローンディレクトリは管理された `.gitignore` ブロック内にあるため、新しいマシンでよく発生します — `update --all` はもはや黙ってスキップしません。欠落している各リポジトリを報告し、再水和（rehydrate）の方法を案内します。
 
 ```
-! 1 tracked repo(s) declared in metadata but missing on disk:
-  ! _team-skills         clone directory absent
-→ Run 'skillshare install' to rehydrate tracked repositories
+! 1 tracked repo declared in metadata but missing on disk
+! _team-skills  clone directory absent
+  Run 'skillshare install' to rehydrate tracked repositories
 ```
 
 これは global mode と project mode（`-p`）の両方に適用されます。metadata からクローンを再作成するには、引数なしの [install](/docs/reference/commands/install) を実行してください（[Rehydrating After a Fresh Clone](/docs/understand/tracked-repositories#rehydrating-after-a-fresh-clone) を参照）。
@@ -270,9 +252,9 @@ Updating 2 tracked repos + 3 skills
 upstream リポジトリが skill をリネームまたは削除すると、`update` はそれを**stale（古い）**として検知し、警告します。
 
 ```
-⚠ 1 skill(s) no longer found in upstream repository:
-  ⚠ frontend/old-skill — stale (deleted upstream)
-ℹ Run with --prune to remove stale skills
+Deleted upstream
+! frontend/old-skill  stale — no longer in the upstream repository
+  Run with --prune to remove them
 ```
 
 `--prune` を追加すると、stale な skill を自動的に削除します（完全に削除されるのではなく trash に移動されます）。
@@ -285,7 +267,7 @@ skillshare update --all --prune
 
 ```bash
 skillshare check --all
-# ⚠ 1 skill(s) stale (deleted upstream) — run 'skillshare update --all --prune' to remove
+# ! old-skill  stale — no longer in the upstream repository
 ```
 
 :::note
@@ -312,11 +294,11 @@ skill を更新した後、`update` は自動的に security audit を実行し�
   [HIGH] Source repository link detected — may be used for supply-chain redirects (SKILL.md:5)
 
   Security findings at or above active threshold detected.
-  Apply anyway? [y/N]:
+? Apply anyway?   Yes   No
 ```
 
-- **`y`** — 検出結果があっても更新を受け入れる
-- **`N`**（デフォルト） — pull 前の状態にロールバックする
+- **Yes** — 検出結果があっても更新を受け入れる
+- **No**（デフォルト） — pull 前の状態にロールバックする
 
 ### 非対話モード（CI/CD）
 
@@ -336,7 +318,7 @@ skillshare update --all --skip-audit
 `--force`（またはプロンプトで `y` と回答）で gate を上書きすると、受け入れた検出結果は `.metadata.json` の `audit_accepted` に記録されます。同じ skill の以降の更新では、それらの正確な検出結果ではブロックされなくなるため、`update --all` のたびに `--force` を繰り返す必要はありません。
 
 ```
-ℹ 1 previously accepted finding(s) skipped
+  1 previously accepted finding skipped
 ```
 
 検出結果は行番号ではなく、rule・ファイル・一致したテキストによって照合されます。そのため、無関係な内容が変わっても受け入れ状態が維持されます。新しい検出結果、または同じ rule が異なるテキストに一致した場合は、再びブロックされます。これは、攻撃文字列を例として正当に引用する skill（security scanner や red-team のドキュメントなど）に適しており、それでいて後のバージョンで新しいペイロードを検知できます。
@@ -360,25 +342,19 @@ skillshare update --all --diff
 **tracked repositories** の場合、diff は `git diff` を使用し、行レベルの統計情報を含みます。
 
 ```
-┌─ Files Changed ─────────────────────────────┐
-│                                             │
-│  ~ SKILL.md (+12 -3)                        │
-│  + scripts/deploy.sh (+45 -0)               │
-│  - old-helper.sh (+0 -22)                   │
-│  ~ utils/format.md (+5 -2)                  │
-│                                             │
-└─────────────────────────────────────────────┘
+Files changed
+  ~ SKILL.md (+12 -3)
+  + scripts/deploy.sh (+45 -0)
+  - old-helper.sh (+0 -22)
+  ~ utils/format.md (+5 -2)
 ```
 
 **通常の skill**（リモート source からインストールされたもの）の場合、diff は再インストールの前後でファイルハッシュを比較します。
 
 ```
-┌─ Files Changed ─────────────────────────────┐
-│                                             │
-│  ~ SKILL.md                                 │
-│  + new-helper.sh                            │
-│                                             │
-└─────────────────────────────────────────────┘
+Files changed
+  ~ SKILL.md
+  + new-helper.sh
 ```
 
 マーカー: `+` 追加、`-` 削除、`~` 変更。最大 20 ファイルまで表示され、それ以上は "... and N more file(s)" とまとめられます。

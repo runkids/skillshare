@@ -2,10 +2,10 @@
 set -euo pipefail
 
 name=""
-init_flag=""
+create_flags=()
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --init) init_flag="--init" ;;
+    --init|--seed) create_flags+=("$1") ;;
     --) shift; break ;;
     -*) echo "Unknown option: $1" >&2; exit 1 ;;
     *) if [ -z "$name" ]; then name="$1"; else break; fi ;;
@@ -17,7 +17,7 @@ if [ -z "$name" ]; then
   name="env-$(date +%Y%m%d-%H%M%S)"
 fi
 
-ssenv create "$name" $init_flag
+ssenv create "$name" ${create_flags[@]+"${create_flags[@]}"}
 if [ "$#" -gt 0 ]; then
   exec ssenv enter "$name" -- "$@"
 fi

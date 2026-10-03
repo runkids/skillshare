@@ -291,8 +291,8 @@ merge mode と copy mode の両方で、`sync` は自動的に孤立ファイル
 
 ```
 $ skillshare sync
-✓ claude: merged (5 linked, 2 local, 0 updated, 1 pruned)
-✓ cursor: copied (3 new, 2 skipped, 0 updated, 1 pruned)
+✓ claude    5 linked · 2 local · 1 pruned
+✓ cursor    3 copied · 2 up to date · 1 pruned
 ```
 
 :::info エージェントも同じモードに従う

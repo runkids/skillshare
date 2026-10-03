@@ -35,8 +35,8 @@ func TestMCPSyncKindAfterFlags(t *testing.T) {
 
 	r := sb.RunCLI("sync", "-g", "--dry-run", "mcp")
 	r.AssertSuccess(t)
-	r.AssertOutputContains(t, "MCP source:")
-	r.AssertOutputNotContains(t, "Syncing skills")
+	r.AssertOutputContains(t, "MCP source")
+	r.AssertOutputNotContains(t, "Would sync")
 }
 
 func TestMCPSyncAllJSONConflict(t *testing.T) {

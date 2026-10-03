@@ -14,12 +14,14 @@ import (
 
 // targetTUIItem wraps a target entry for the bubbles/list widget.
 type targetTUIItem struct {
-	name         string
-	target       config.TargetConfig
-	displayPath  string
-	skillSync    string
-	agentConfig  config.ResourceTargetConfig
-	agentSummary *targetsummary.AgentSummary
+	name        string
+	target      config.TargetConfig
+	displayPath string
+	skillSync   string
+	// skillSyncText is skillSync as the plain list prints it.
+	skillSyncText string
+	agentConfig   config.ResourceTargetConfig
+	agentSummary  *targetsummary.AgentSummary
 }
 
 func (i targetTUIItem) FilterValue() string { return i.name }

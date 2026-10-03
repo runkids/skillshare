@@ -69,26 +69,25 @@ func cmdExtrasMemory(args []string) error {
 }
 
 func printMemoryHelp() {
-	fmt.Println(`Usage: skillshare extras memory <command> [options]
-
-Manage user-owned Markdown notes under extras/memory.
-
-Commands:
-  init                         Create the memory extra with INDEX.md and LEARNED.md
-  list [--search <text>]        List notes, searching names and content
-  show <note.md>               Read a note; --json includes its version
-  write <note.md> --from <file|-> [--version <hash>]
-                               Create a note or update the last read version
-  instructions                 Print guidance to add to your agent instructions
-  delete <note.md> --version <hash>
-                               Back up and delete the last read version
-
-Options:
-  --json                       Emit JSON
-  --global, -g                 Use global extras
-  --project, -p                Use project extras
-  --help, -h                   Show this help
-
-An empty --version creates a new note. To update, use the version from show --json.
-Changes are backed up; a stale version is rejected. Native automatic memory is separate.`)
+	printHelp("skillshare extras memory <command> [options]", "Manage user-owned Markdown notes under extras/memory.",
+		helpGroup{title: "Commands", rows: []helpRow{
+			{"init", "Create the memory extra with INDEX.md and LEARNED.md"},
+			{"list [--search <text>]", "List notes, searching names and content"},
+			{"show <note.md>", "Read a note; --json includes its version"},
+			{"write <note.md> --from <file|-> [--version <hash>]", ""},
+			{"", "Create a note or update the last read version"},
+			{"instructions", "Print guidance to add to your agent instructions"},
+			{"delete <note.md> --version <hash>", ""},
+			{"", "Back up and delete the last read version"},
+		}},
+		helpGroup{title: "Options", rows: []helpRow{
+			{"--json", "Emit JSON"},
+			{"-g, --global", "Use global extras"},
+			{"-p, --project", "Use project extras"},
+		}},
+		helpNotes("Notes",
+			"An empty --version creates a new note. To update, use the version from show --json.",
+			"Changes are backed up; a stale version is rejected. Native automatic memory is separate.",
+		),
+	)
 }

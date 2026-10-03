@@ -10,7 +10,7 @@ import (
 )
 
 func cmdTUIToggle(args []string) error {
-	if len(args) > 0 && (args[0] == "-h" || args[0] == "--help") {
+	if wantsHelp(args) {
 		printTUIToggleUsage()
 		return nil
 	}
@@ -22,12 +22,13 @@ func cmdTUIToggle(args []string) error {
 
 	if len(args) == 0 {
 		// Show current status
+		width := ui.RowWidth("TUI")
 		if cfg.TUI == nil {
-			ui.Info("TUI: on (default)")
+			ui.Row(ui.MarkNone, "TUI", "on"+ui.DimText(" · default"), width)
 		} else if *cfg.TUI {
-			ui.Info("TUI: on")
+			ui.Row(ui.MarkNone, "TUI", "on", width)
 		} else {
-			ui.Info("TUI: off")
+			ui.Row(ui.MarkNone, "TUI", "off", width)
 		}
 		return nil
 	}
@@ -41,14 +42,14 @@ func cmdTUIToggle(args []string) error {
 		if err := cfg.Save(); err != nil {
 			setErr = fmt.Errorf("failed to save config: %w", err)
 		} else {
-			ui.Success("TUI enabled")
+			ui.Done(ui.MarkOK, "TUI enabled", 0)
 		}
 	case "off":
 		cfg.TUI = boolPtr(false)
 		if err := cfg.Save(); err != nil {
 			setErr = fmt.Errorf("failed to save config: %w", err)
 		} else {
-			ui.Success("TUI disabled")
+			ui.Done(ui.MarkOK, "TUI disabled", 0)
 		}
 	default:
 		return fmt.Errorf("unknown argument %q: use 'tui on' or 'tui off'", args[0])
@@ -62,13 +63,11 @@ func cmdTUIToggle(args []string) error {
 }
 
 func printTUIToggleUsage() {
-	fmt.Println("Usage: skillshare tui [on|off]")
-	fmt.Println()
-	fmt.Println("Toggle interactive TUI mode globally.")
-	fmt.Println()
-	fmt.Println("  tui        Show current TUI status")
-	fmt.Println("  tui on     Enable TUI for all commands")
-	fmt.Println("  tui off    Disable TUI for all commands (plain text output)")
-	fmt.Println()
-	fmt.Println("The --no-tui flag on individual commands always takes priority.")
+	printHelp("skillshare tui [on|off]", "Toggle interactive TUI mode globally. With no command, shows the current setting.",
+		helpGroup{title: "Commands", rows: []helpRow{
+			{"on", "Enable TUI for all commands"},
+			{"off", "Disable TUI for all commands (plain text output)"},
+		}},
+		helpNotes("Notes", "The --no-tui flag on individual commands always takes priority."),
+	)
 }

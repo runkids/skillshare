@@ -9,7 +9,6 @@ import { queryKeys } from '../../lib/queryKeys';
 import { shortenHome } from '../../lib/paths';
 import AgentIcon from '../AgentIcon';
 import Button from '../Button';
-import { Checkbox } from '../Checkbox';
 import CodeView from '../CodeView';
 import CopyButton from '../CopyButton';
 import DialogShell from '../DialogShell';
@@ -18,7 +17,8 @@ import Tooltip from '../Tooltip';
 export default function MemoryGuidance({ initialized, instructions }: { initialized: boolean; instructions: string }) {
   const t = useT();
   const client = useQueryClient();
-  const guidance = useQuery({ queryKey: [...queryKeys.memory.all, 'guidance'], queryFn: api.getMemoryGuidance, enabled: initialized });
+  // States follow assignments and files that other tabs and the CLI change, so never trust a cached copy.
+  const guidance = useQuery({ queryKey: [...queryKeys.memory.all, 'guidance'], queryFn: api.getMemoryGuidance, enabled: initialized, staleTime: 0 });
   const [open, setOpen] = useState(false);
   const [selected, setSelected] = useState<string[]>([]);
   const [plan, setPlan] = useState<MemoryGuidancePlan | null>(null);
@@ -45,6 +45,9 @@ export default function MemoryGuidance({ initialized, instructions }: { initiali
     finally { setBusy(false); }
   };
   const prompt = t('memory.checkPrompt');
+  const targets = guidance.data?.targets ?? [];
+  // The specific reason beats the generic state; it must be readable without hovering.
+  const statusText = (target: (typeof targets)[number]) => target.detail ? t(`memory.connectionDetail.${target.detail}`, undefined, target.detail) : t(`memory.connection.${target.state}`);
   return (
     <aside className="ss-box flex min-w-0 flex-[1_1_280px] flex-col gap-3.5 !shadow-none md:max-w-[340px]" aria-label={t('memory.useWithAgents')}>
       <div className="flex items-center justify-between gap-2">
@@ -52,21 +55,20 @@ export default function MemoryGuidance({ initialized, instructions }: { initiali
         {!!guidance.data?.targets.length && <span className="text-[12px] text-ink-3">{t('memory.connectedCount', { count: guidance.data.targets.filter((target) => target.state === 'configured').length, total: guidance.data.targets.length })}</span>}
       </div>
       {guidance.error && <div className="ss-note bad">{guidance.error.message}</div>}
-      {!!guidance.data?.targets.length && <ul className="flex flex-col">
-        {guidance.data.targets.map((target) => <li key={target.name} className="flex items-center gap-2.5 border-b border-line-soft py-2.5 last:border-b-0">
-          <AgentIcon target={target.name} size={20} />
-          <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-            <span className="font-mono text-[13px] font-semibold">{target.name}</span>
-            {target.detail && <span className="text-[12px] text-ink-3">{t(`memory.connectionDetail.${target.detail}`, undefined, target.detail)}</span>}
-            {target.file && <span className="truncate font-mono text-[11.5px] text-ink-3" title={shortenHome(target.file)}>{target.file.split('/').slice(-2).join('/')}</span>}
-          </div>
-          {target.state === 'configured'
-            ? <span role="img" aria-label={t('memory.connection.configured')} title={t('memory.connection.configured')}><Check size={16} className="text-ok" /></span>
-            : <span className={`ss-st text-[12px] ${target.state === 'unconfigured' ? 'off' : 'warn'}`}>{t(`memory.connection.${target.state}`)}</span>}
-        </li>)}
-      </ul>}
+      {!!targets.length && <span className="ss-stack flex-wrap gap-y-1">
+        {targets.map((target) => <span key={target.name} title={`${target.name} · ${t(`memory.connection.${target.state}`)}`} className={`ss-at ${target.state === 'configured' ? '' : 'opacity-45 grayscale'}`}>
+          <AgentIcon target={target.name} size={14} />
+          <span className="sr-only">{target.name} · {t(`memory.connection.${target.state}`)}</span>
+        </span>)}
+      </span>}
+      {/* Only targets that need a fix get a row; the stack already shows the rest. */}
+      {targets.filter((target) => target.state === 'outdated' || target.state === 'broken').map((target) => <div key={target.name} className="flex items-center gap-2.5 text-[12.5px]">
+        <AgentIcon target={target.name} size={16} />
+        <span className="min-w-0 flex-1 truncate font-mono font-semibold" title={target.file ? shortenHome(target.file) : undefined}>{target.name}</span>
+        <span className="ss-st warn text-right text-[12px]">{statusText(target)}</span>
+      </div>)}
       {initialized && guidance.data?.targets.length === 0 && <p className="text-[13px] text-ink-3">{t('memory.noTargets')}</p>}
-      <Button variant="secondary" size="sm" disabled={!initialized || !guidance.data?.targets.length} onClick={() => { setSelected([]); setPlan(null); setOpen(true); }}>{t('memory.connect')}</Button>
+      <Button variant="secondary" size="sm" disabled={!initialized || !guidance.data?.targets.length} onClick={() => { void guidance.refetch(); setSelected([]); setPlan(null); setOpen(true); }}>{t('memory.connect')}</Button>
       <div className="flex flex-col items-start gap-1 border-t border-line-soft pt-3 text-[13px]">
         <Tooltip content={<span className="block whitespace-pre-wrap break-words font-mono">{instructions}</span>}>
           <CopyButton value={instructions} title={t('memory.copyInstructions')} label={t('memory.copyInstructions')} copiedLabel={t('memory.copied')} errorMessage={t('memory.copyFailed')} unstyled className="ss-btn ghost sm !px-1.5" />
@@ -83,8 +85,20 @@ export default function MemoryGuidance({ initialized, instructions }: { initiali
           {error && <div role="alert" className="ss-note bad whitespace-pre-wrap">{error}</div>}
           {!plan ? <>
             <p className="text-[13px] text-ink-2">{t('memory.connectHint')}</p>
-            {(guidance.data?.targets ?? []).map((target) => <Checkbox key={target.name} label={`${target.name} · ${t(`memory.connection.${target.state}`)}`} checked={selected.includes(target.name)} disabled={busy || target.state === 'configured' || target.state === 'broken'}
-              onChange={(checked) => setSelected((prev) => checked ? [...prev, target.name] : prev.filter((name) => name !== target.name))} />)}
+            <div className="ss-list !shadow-none">
+              {targets.map((target) => {
+                const on = selected.includes(target.name) || target.state === 'configured';
+                const disabled = busy || target.state === 'configured' || target.state === 'broken';
+                return <label key={target.name} title={target.file ? shortenHome(target.file) : undefined} className={`ss-r !min-h-11 !gap-2.5 !py-1.5 ${disabled ? 'cursor-not-allowed' : 'cursor-pointer'}`}>
+                  <input type="checkbox" className="ss-chk-input sr-only" checked={on} disabled={disabled}
+                    onChange={(e) => setSelected((prev) => e.target.checked ? [...prev, target.name] : prev.filter((name) => name !== target.name))} />
+                  <span className={`ss-chk ${on ? 'on' : ''} ${disabled ? 'opacity-40' : ''}`}>{on && <Check size={12} strokeWidth={3} />}</span>
+                  <span className="ss-at !h-6 !w-6"><AgentIcon target={target.name} size={14} /></span>
+                  <span className="min-w-0 flex-1 truncate font-mono text-[13px] font-semibold text-ink">{target.name}</span>
+                  <span className={`text-right text-[12.5px] ${target.state === 'outdated' || target.state === 'broken' ? 'text-warn' : 'text-ink-3'}`}>{statusText(target)}</span>
+                </label>;
+              })}
+            </div>
           </> : <>
             {(plan.warnings ?? []).map((warning) => <div key={`${warning.code}:${warning.path}:${warning.target ?? ""}`} className="ss-note warn">{warning.path}: {warning.code === 'also_read_by' ? t('memory.alsoReadBy', { targets: (warning.targets ?? []).join(', ') }) : t('memory.overLimit', { target: warning.target ?? '', limit: warning.limit ?? 0, chars: warning.chars ?? 0 })}</div>)}
             {(plan.skipped ?? []).map((item) => <div key={item.target} className="ss-note warn">{item.target}: {t(`memory.skipped.${item.reason}`, undefined, item.reason)}</div>)}
@@ -92,8 +106,8 @@ export default function MemoryGuidance({ initialized, instructions }: { initiali
             {plan.changes.map((change) => <div key={change.path} className="flex min-w-0 flex-col gap-2">
               <h3 className="break-all font-mono text-[13px] font-semibold">{change.path}</h3>
               <div className="grid min-w-0 grid-cols-1 gap-4 md:grid-cols-2">
-                <div className="min-w-0"><p className="mb-2 text-[13px]">{t('memory.before')}</p><CodeView content={change.before} lang="md" className="max-h-[40vh]" /></div>
-                <div className="min-w-0"><p className="mb-2 text-[13px]">{t('memory.after')}</p><CodeView content={change.after} lang="md" className="max-h-[40vh]" /></div>
+                <div className="min-w-0"><p className="mb-2 text-[13px]">{t('memory.before')}</p><CodeView content={change.before} lang="md" className="h-[40vh]" /></div>
+                <div className="min-w-0"><p className="mb-2 text-[13px]">{t('memory.after')}</p><CodeView content={change.after} lang="md" className="h-[40vh]" /></div>
               </div>
             </div>)}
           </>}

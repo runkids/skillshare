@@ -75,24 +75,17 @@ When the dashboard installs the root of a directory that also contains child ski
 ## Example Output
 
 ```
-skillshare check
+$ skillshare check
+! _shared-rules   3 commits behind
+! _design-system  uncommitted changes
+! commit          update available · github.com/anthropics/skills
+! old-helper      stale — no longer in the upstream repository
 
-  Tracked Repos
-  ─────────────────────────────────────────
-  ✓ _team-skills       up to date
-  ⬇ _shared-rules      3 commits behind
-  ! _design-system     has uncommitted changes
+! Updates available for 1 repo, 1 skill, 2 up to date, 1 local skipped, 1 stale · 3.4s
 
-  Installed Skills (remote)
-  ─────────────────────────────────────────
-  ✓ pdf                up to date          anthropics/skills
-  ⬇ commit             update available    anthropics/skills
-  ⚠ old-helper         stale (deleted upstream)
-  • local-skill        local source
-
-  ⚠ 1 skill(s) stale (deleted upstream) — run 'skillshare update --all --prune' to remove
-  Summary: 1 repo + 1 skill have updates available
-  Run 'skillshare update <name>' or 'skillshare update --all'
+Next
+  skillshare update --all          pull the updates
+  skillshare update --all --prune  remove stale skills
 ```
 
 ## Check Specific Skills

@@ -35,7 +35,7 @@ targets:
 	result := sb.RunCLI("sync")
 
 	result.AssertSuccess(t)
-	result.AssertOutputContains(t, "merged")
+	result.AssertRowContains(t, "claude", "1 linked")
 
 	// Verify symlink was created
 	skillLink := filepath.Join(targetPath, "my-skill")

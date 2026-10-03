@@ -38,15 +38,9 @@ curl -fsSL https://raw.githubusercontent.com/runkids/skillshare/main/install.sh 
 If the installer prints PATH setup instructions, follow them before running the commands below. If it prints no PATH warning, no extra setup is needed.
 
 ```bash
-
-# Initialize
+# Choose "Connect my existing skillshare repo" and paste the repo URL.
+# init pulls your skills and offers a first sync.
 skillshare init
-
-# Pull from remote
-skillshare pull
-
-# Sync to local targets
-skillshare sync
 ```
 
 ### Daily Sync Workflow

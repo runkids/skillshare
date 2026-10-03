@@ -44,7 +44,7 @@ targets: {}
 	result := sb.RunCLI("upgrade", "--skill", "--force", "--dry-run")
 
 	result.AssertSuccess(t)
-	result.AssertOutputContains(t, "Would re-download")
+	result.AssertOutputContains(t, "would download again")
 
 	// Verify file was not changed
 	content, _ := os.ReadFile(skillPath)
@@ -74,7 +74,7 @@ targets: {}
 	// Should either succeed (if network available) or fail with download error
 	// But should NOT ask for confirmation
 	if result.ExitCode == 0 {
-		result.AssertOutputContains(t, "Upgraded")
+		result.AssertOutputContains(t, "✓ Skill")
 	} else {
 		result.AssertAnyOutputContains(t, "download")
 	}
@@ -106,22 +106,6 @@ targets: {}
 	}
 }
 
-func TestUpgrade_ShowsSourceURL(t *testing.T) {
-	sb := testutil.NewSandbox(t)
-	defer sb.Cleanup()
-
-	// Create config
-	sb.WriteConfig(`source: ` + sb.SourcePath + `
-targets: {}
-`)
-
-	result := sb.RunCLI("upgrade", "--skill", "--force", "--dry-run")
-
-	result.AssertSuccess(t)
-	// Source URL appears in the logo banner
-	result.AssertOutputContains(t, "github.com/runkids/skillshare")
-}
-
 func TestUpgrade_NoSkill_PromptDeclined(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
@@ -140,7 +124,7 @@ targets: {}
 	result := sb.RunCLI("upgrade", "--skill")
 
 	result.AssertSuccess(t)
-	result.AssertOutputContains(t, "skipped")
+	result.AssertOutputContains(t, "not installed")
 
 	// Verify skill was NOT created
 	if sb.FileExists(skillPath) {

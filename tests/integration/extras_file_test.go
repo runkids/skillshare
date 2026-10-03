@@ -281,9 +281,9 @@ func TestExtrasFile_InitFileAsThenSync(t *testing.T) {
 	result := sb.RunCLI("extras", "init", "pi-prompt", "--source", prompts, "--file", "system.md", "--target", piDir, "--as", "APPEND_SYSTEM.md")
 	result.AssertSuccess(t)
 	result.AssertOutputContains(t, "Created extra pi-prompt (single file)")
-	result.AssertOutputContains(t, "Source: ~/dotfiles/prompts/system.md (not found)")
-	result.AssertOutputContains(t, "Target: ~/.pi/agent/APPEND_SYSTEM.md [merge]")
-	result.AssertOutputContains(t, "Create the source file, then run 'skillshare sync extras'.")
+	result.AssertOutputContains(t, "Source    ~/dotfiles/prompts/system.md · not found")
+	result.AssertOutputContains(t, "Target    ~/.pi/agent/APPEND_SYSTEM.md · merge")
+	result.AssertOutputContains(t, "after creating the source file")
 	if sb.FileExists(filepath.Join(prompts, "system.md")) {
 		t.Error("init created the source file")
 	}
@@ -313,7 +313,7 @@ func TestExtrasFile_InitSharedSourceDirSyncsOwnFileOnly(t *testing.T) {
 	sb.RunCLI("extras", "init", "a", "--source", prompts, "--file", "a.md", "--target", aDir).AssertSuccess(t)
 	result := sb.RunCLI("extras", "init", "b", "--source", prompts, "--file", "b.md", "--target", bDir, "--mode", "copy")
 	result.AssertSuccess(t)
-	result.AssertOutputContains(t, "Run 'skillshare sync extras' to sync.")
+	result.AssertOutputContains(t, "skillshare sync extras")
 	sb.RunCLI("sync", "extras").AssertSuccess(t)
 
 	if got := sb.ListDir(aDir); len(got) != 1 || got[0] != "a.md" {

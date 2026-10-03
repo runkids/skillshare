@@ -17,34 +17,27 @@ skillshare diff --patch      # 完全な unified diff
 ```text
 skillshare diff --no-tui
 
-Summary: 6 targets — 6 need sync
-
 claude, claude-work, gemini, opencode, universal
-─────────────────────────────────────────
-  1 new
-  + New 1 skill:
-      remotion-captions
+  New       remotion-captions
 
 cursor
-─────────────────────────────────────────
-  1 local only, 1 new
-  ← Local Only 1 skill:
-      cursor-shortcuts
-  + New 1 skill:
-      remotion-captions
-
-→ Run 'skillshare sync' to apply changes
-→ Run 'skillshare collect' to import local skills to source
+  Local only  cursor-shortcuts
+  New         remotion-captions
 
 Extras
-─────────────────────────────────────────
-✓   rules → ~/.claude/rules: synced (merge)
-✓   rules → ~/.cursor/rules: synced (merge)
-✓   commands → ~/.claude/commands: synced (merge)
-✓   team → ~/.codex: synced (symlink)
-✓   team → ~/.claude: synced (import)
-✓   team → ~/.gemini: synced (copy)
-✓   team → ~/notes: synced (symlink)
+✓ commands  ~/.claude/commands · in sync
+✓ rules     ~/.claude/rules · in sync
+✓ rules     ~/.cursor/rules · in sync
+✓ team      ~/.codex · in sync
+✓ team      ~/.claude · in sync
+✓ team      ~/.gemini · in sync
+✓ team      ~/notes · in sync
+
+! 6 targets: 6 to sync
+
+Next
+  skillshare sync     apply the changes
+  skillshare collect  copy local-only skills into source
 ```
 
 ## インタラクティブ TUI
@@ -69,17 +62,18 @@ TTY 上では、`diff` は左右 2 パネルレイアウトのインタラクテ
 
 ```
 claude
-  + New 2 skills:
-      missing-skill
-      another-skill
-  ! Local Override 1 skill:
-      local-copy
-  ← Local Only 1 skill:
-      my-local-skill
+  Local override  local-copy
+  Local only      my-local-skill
+  New             another-skill, missing-skill
 
-  2 new, 1 local override, 1 local only
+✓ cursor    in sync
 
-cursor: fully synced
+! 2 targets: 1 to sync, 1 in sync
+
+Next
+  skillshare sync          apply the changes
+  skillshare sync --force  also replace local copies
+  skillshare collect       copy local-only skills into source
 ```
 
 ### グループ化された複数 Target の出力
@@ -87,30 +81,27 @@ cursor: fully synced
 複数の Target が同一の diff 結果を持つ場合、ノイズを減らすために 1 つのブロックにまとめられます。
 
 ```
-claude, agents
-  + New 2 skills:
-      skill-1
-      skill-2
+agents, claude
+  New       skill-1, skill-2
 
 cursor
-  + New 1 skill:
-      skill-1
+  New       skill-1
 
-codex, copilot: fully synced
+✓ codex, copilot  in sync
 ```
 
 （`include`/`exclude` フィルタなどの理由で）結果が異なる Target は個別に表示されます。
 
-## シンボル
+## ラベル
 
-| シンボル | ラベル | 意味 | 動作 |
-|--------|-------|---------|--------|
-| `+` | New | Source にあり、Target にない | `sync` が追加する |
-| `+` | Restore | Target にあったが削除された | `sync` が復元する |
-| `~` | Modified | 内容が変更された（copy mode） | `sync` が更新する |
-| `!` | Local Override | symlink ではなくローカルコピー | `sync --force` で置き換え |
-| `-` | Orphan | マニフェストにあるが Source にない | `sync` が刈り取る |
-| `←` | Local Only | Target のみに存在し、Source にない | `collect` でインポート |
+| ラベル | 意味 | 動作 |
+|-------|---------|--------|
+| New | Source にあり、Target にない | `sync` が追加する |
+| Restore | Target にあったが削除された | `sync` が復元する |
+| Modified | 内容が変更された（copy mode） | `sync` が更新する |
+| Local override | symlink ではなくローカルコピー | `sync --force` で置き換え |
+| Orphan | マニフェストにあるが Source にない | `sync` が刈り取る |
+| Local only | Target のみに存在し、Source にない | `collect` でインポート |
 
 ## ファイル単位の詳細
 
@@ -124,11 +115,10 @@ skillshare diff --stat
 
 ```
 claude
-  ~ Modified 1 skill:
-      my-skill
-        + new-file.md
-        ~ SKILL.md
-        - old-file.md
+  Modified  my-skill
+            + new-file.md (120 bytes)
+            ~ SKILL.md (840 → 912 bytes)
+            - old-file.md (64 bytes)
 ```
 
 ### `--patch`
@@ -141,11 +131,11 @@ skillshare diff --patch
 
 ```
 claude
-  ~ Modified 1 skill:
-      my-skill
-        --- SKILL.md
-        - old line
-        + new line
+  Modified  my-skill
+            ~ SKILL.md (840 → 912 bytes)
+            --- SKILL.md
+            - old line
+            + new line
 ```
 
 `--stat` と `--patch` はどちらも `--no-tui`（プレーンテキスト出力）を暗黙的に指定します。
@@ -171,7 +161,7 @@ copy mode を使う Target の場合:
 
 symlink mode を使う Target の場合:
 - symlink が正しい Source を指しているかを単純に確認する
-- 「Fully synced」を表示するか、誤った symlink について警告する
+- 「in sync」を表示するか、誤った symlink について警告する
 
 ## ユースケース
 
@@ -191,7 +181,7 @@ Target 内に直接作成した Skill を発見します。
 
 ```bash
 skillshare diff claude
-# 表示: ← Local Only 1 skill: my-local-skill
+# 表示: Local only  my-local-skill
 
 skillshare collect claude  # Source にインポート
 ```

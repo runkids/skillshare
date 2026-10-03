@@ -35,7 +35,7 @@ targets: {}
 	result := sb.RunCLI("install", skill1Path)
 
 	result.AssertSuccess(t)
-	result.AssertOutputContains(t, "Installed")
+	result.AssertOutputContains(t, "✓ Install ")
 }
 
 func TestInstall_Discovery_DryRun_ShowsSkills(t *testing.T) {

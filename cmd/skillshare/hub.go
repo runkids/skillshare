@@ -4,11 +4,11 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	"skillshare/internal/config"
 	"skillshare/internal/hub"
 	"skillshare/internal/ui"
-	appversion "skillshare/internal/version"
 )
 
 func cmdHub(args []string) error {
@@ -37,6 +37,10 @@ func cmdHub(args []string) error {
 		applyModeLabel(mode)
 		return cmdHubAdd(rest, mode, cwd)
 	case "list", "ls":
+		if wantsHelp(subargs) {
+			printHubHelp()
+			return nil
+		}
 		mode, _, err := parseModeArgs(subargs)
 		if err != nil {
 			return err
@@ -49,6 +53,10 @@ func cmdHub(args []string) error {
 		applyModeLabel(mode)
 		return cmdHubList(mode, cwd)
 	case "remove", "rm":
+		if wantsHelp(subargs) {
+			printHubHelp()
+			return nil
+		}
 		mode, rest, err := parseModeArgs(subargs)
 		if err != nil {
 			return err
@@ -155,48 +163,30 @@ func cmdHubIndex(args []string) error {
 		outputPath = sourcePath + "/skillshare-hub.json"
 	}
 
-	// Show logo
-	ui.Logo(appversion.Version)
-	ui.StepStart("Building", "hub index")
-
-	spinner := ui.StartTreeSpinner("Scanning source directory...", false)
-
+	start := time.Now()
+	sp := ui.StartSpinner("Scanning source directory...")
 	idx, err := hub.BuildIndex(sourcePath, full, auditSkills)
+	sp.Stop()
 	if err != nil {
-		spinner.Fail("Failed to build index")
-		return err
+		return fmt.Errorf("failed to build index: %w", err)
 	}
-
-	if auditSkills {
-		spinner.Success(fmt.Sprintf("Found %d skill(s), audit complete", len(idx.Skills)))
-	} else {
-		spinner.Success(fmt.Sprintf("Found %d skill(s)", len(idx.Skills)))
-	}
-
-	// Write to file
-	writeSpinner := ui.StartTreeSpinner("Writing index...", true)
-
 	if err := hub.WriteIndex(outputPath, idx); err != nil {
-		writeSpinner.Fail("Failed to write index")
-		return err
+		return fmt.Errorf("failed to write index: %w", err)
 	}
 
-	writeSpinner.Success(fmt.Sprintf("Wrote %s", outputPath))
-
-	// Summary
-	fmt.Println()
+	var contents string
 	switch {
 	case full && auditSkills:
-		ui.Info("Mode: full + audit (metadata and risk scores included)")
+		contents = "full + audit (metadata and risk scores included)"
 	case full:
-		ui.Info("Mode: full (metadata included)")
+		contents = "full (metadata included)"
 	case auditSkills:
-		ui.Info("Mode: audit (risk scores included)")
+		contents = "audit (risk scores included)"
 	default:
-		ui.Info("Mode: minimal (name, description, source only)")
+		contents = "minimal (name, description, source only)"
 	}
-	ui.Info("Skills: %d", len(idx.Skills))
-	ui.Info("Output: %s", outputPath)
+	ui.Done(ui.MarkOK, fmt.Sprintf("Wrote %s with %s", shortenPath(outputPath), plural(len(idx.Skills), "skill")), time.Since(start))
+	ui.Note(contents)
 
 	return nil
 }
@@ -219,42 +209,38 @@ func resolveSourcePath(mode runMode, cwd string) (string, error) {
 }
 
 func printHubHelp() {
-	fmt.Println(`Usage: skillshare hub <subcommand> [options]
-
-Manage skill hubs — saved hub sources for search.
-
-Subcommands:
-  add <url>       Save a hub source (--label to set name)
-  list            List saved hubs (* marks default)
-  remove <label>  Remove a saved hub
-  default [label] Show or set the default hub (--reset to clear)
-  index           Build an index.json from source skills
-  help            Show this help
-
-Run 'skillshare hub <subcommand> --help' for details.`)
+	printHelp("skillshare hub <subcommand> [options]", "Manage skill hubs — saved hub sources for search.",
+		helpGroup{title: "Commands", rows: []helpRow{
+			{"add <url>", "Save a hub source (--label to set name)"},
+			{"list", "List saved hubs (* marks default)"},
+			{"remove <label>", "Remove a saved hub"},
+			{"default [label]", "Show or set the default hub (--reset to clear)"},
+			{"index", "Build an index.json from source skills"},
+		}},
+		helpNotes("Notes",
+			"Run 'skillshare hub <subcommand> --help' for details.",
+		),
+	)
 }
 
 func printHubIndexHelp() {
-	fmt.Println(`Usage: skillshare hub index [options]
-
-Build an index.json file from installed skills. The generated index
-can be used with 'skillshare search --hub' for private search.
-
-Options:
-  --source, -s <path>   Source directory to scan (default: auto-detect)
-  --output, -o <path>   Output file path (default: <source>/skillshare-hub.json)
-  --full                Include full metadata (flatName, type, version, etc.)
-  --audit               Run security audit on each skill and include risk scores
-  --project, -p         Use project mode (.skillshare/)
-  --global, -g          Use global mode (~/.config/skillshare/)
-  --help, -h            Show this help
-
-Examples:
-  skillshare hub index                           Build minimal index
-  skillshare hub index --full                    Build with full metadata
-  skillshare hub index --audit                   Build with risk scores
-  skillshare hub index --full --audit            Full metadata + risk scores
-  skillshare hub index -o /tmp/index.json        Custom output path
-  skillshare hub index -s ~/my-skills            Custom source directory
-  skillshare hub index -p                        Project mode`)
+	printHelp("skillshare hub index [options]", "Build an index.json file from installed skills. The generated index\ncan be used with 'skillshare search --hub' for private search.",
+		helpGroup{title: "Options", rows: []helpRow{
+			{"-s, --source <path>", "Source directory to scan (default: auto-detect)"},
+			{"-o, --output <path>", "Output file path (default: <source>/skillshare-hub.json)"},
+			{"--full", "Include full metadata (flatName, type, version, etc.)"},
+			{"--audit", "Run security audit on each skill and include risk scores"},
+			{"-p, --project", "Use project mode (.skillshare/)"},
+			{"-g, --global", "Use global mode (~/.config/skillshare/)"},
+		}},
+		helpExamples(
+			helpRow{"skillshare hub index", "Build minimal index"},
+			helpRow{"skillshare hub index --full", "Build with full metadata"},
+			helpRow{"skillshare hub index --audit", "Build with risk scores"},
+			helpRow{"skillshare hub index --full --audit", "Full metadata + risk scores"},
+			helpRow{"skillshare hub index -o /tmp/index.json", "Custom output path"},
+			helpRow{"skillshare hub index -s ~/my-skills", "Custom source directory"},
+			helpRow{"skillshare hub index -p", "Project mode"},
+		),
+	)
 }

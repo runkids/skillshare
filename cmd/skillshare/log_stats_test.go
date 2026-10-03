@@ -56,7 +56,7 @@ func TestRenderStatsCLI_Empty(t *testing.T) {
 	}
 }
 
-func TestFormatRelativeTime(t *testing.T) {
+func TestFormatDurationShort(t *testing.T) {
 	tests := []struct {
 		d    time.Duration
 		want string
@@ -67,9 +67,9 @@ func TestFormatRelativeTime(t *testing.T) {
 		{48 * time.Hour, "2d"},
 	}
 	for _, tt := range tests {
-		got := formatRelativeTime(tt.d)
+		got := formatDurationShort(tt.d)
 		if got != tt.want {
-			t.Errorf("formatRelativeTime(%v) = %q, want %q", tt.d, got, tt.want)
+			t.Errorf("formatDurationShort(%v) = %q, want %q", tt.d, got, tt.want)
 		}
 	}
 }

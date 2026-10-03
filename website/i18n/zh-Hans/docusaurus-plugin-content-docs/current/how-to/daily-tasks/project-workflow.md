@@ -169,9 +169,13 @@ skillshare target list -p
 ```
 
 ```
-Project Targets
-  claude    .claude/skills (merge)
-  cursor         .cursor/skills (merge)
+claude
+  Skills    .claude/skills  merge · flat · merged · 3 shared
+
+cursor
+  Skills    .cursor/skills  merge · flat · merged · 3 shared
+
+2 targets
 ```
 
 ---
@@ -183,18 +187,15 @@ skillshare status
 ```
 
 ```
-Project Skills (.skillshare/)
-
 Source
-  ✓ .skillshare/skills (3 skills)
+  skills    .skillshare/skills  3 skills
+  agents    .skillshare/agents  4 agents
+  .skillignore: 3 patterns, 0 skills ignored
 
-Targets
-  ✓ claude       [merge] .claude/skills (3 synced)
-  ✓ cursor       [merge] .cursor/skills (3 synced)
-
-Remote Skills
-  ✓ pdf          anthropic/skills/pdf
-  ✓ review       github.com/team/tools
+Targets                   skills      agents
+  claude  .claude/skills  ✓ 3 linked  ✓ 4
+  cursor  .cursor/skills  ✓ 3 linked  ✓ 4
+  all use merge
 ```
 
 ---
@@ -206,13 +207,13 @@ skillshare list
 ```
 
 ```
-Installed skills (project)
-─────────────────────────────────────────
-  → my-skill            local
-  → pdf                 anthropic/skills/pdf
-  → review              github.com/team/tools
+Skills · project
+  my-skill  local
+  pdf       anthropic/skills/pdf
+  review    github.com/team/tools
 
-→ 3 skill(s): 2 remote, 1 local
+3 skills · 2 remote, 1 local
+  Add -v for sources and install dates
 ```
 
 ---

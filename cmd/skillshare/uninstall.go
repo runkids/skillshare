@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -374,64 +375,32 @@ func (s uninstallTypeSummary) noun() string {
 	case s.trackedRepos == total:
 		return fmt.Sprintf("tracked repo%s", pluralS(total))
 	default:
-		return fmt.Sprintf("target%s", pluralS(total))
+		return fmt.Sprintf("item%s", pluralS(total))
 	}
 }
 
-func (s uninstallTypeSummary) isMixed() bool {
-	types := 0
-	if s.skills > 0 {
-		types++
-	}
-	if s.groups > 0 {
-		types++
-	}
-	if s.trackedRepos > 0 {
-		types++
-	}
-	return types > 1
+// displayUninstallInfo names the target, where it lives and what it holds.
+func displayUninstallInfo(target *uninstallTarget) {
+	fmt.Printf("  %s  %s\n", target.name, ui.DimText(utils.FoldHomePath(target.path)+" · "+uninstallTargetKind(target)))
 }
 
-func (s uninstallTypeSummary) details() string {
-	var parts []string
-	if s.skills > 0 {
-		parts = append(parts, fmt.Sprintf("%d skill%s", s.skills, pluralS(s.skills)))
-	}
-	if s.groups > 0 {
-		parts = append(parts, fmt.Sprintf("%d group%s", s.groups, pluralS(s.groups)))
-	}
-	if s.trackedRepos > 0 {
-		parts = append(parts, fmt.Sprintf("%d tracked repo%s", s.trackedRepos, pluralS(s.trackedRepos)))
-	}
-	return strings.Join(parts, ", ")
-}
-
-// displayUninstallInfo shows information about the skill to be uninstalled
-func displayUninstallInfo(target *uninstallTarget, store *install.MetadataStore) {
+// uninstallTargetKind describes what a target holds: a tracked repository,
+// a group of skills or a skill's files.
+func uninstallTargetKind(target *uninstallTarget) string {
 	if target.isTrackedRepo {
-		ui.Header("Uninstalling tracked repository")
-		ui.Info("Type: tracked repository")
-	} else {
-		// Check if this is a group directory containing sub-skills
-		subSkills := countGroupSkills(target.path)
-		if len(subSkills) > 0 {
-			ui.Header(fmt.Sprintf("Uninstalling group (%d skills)", len(subSkills)))
-			for _, s := range subSkills {
-				fmt.Printf("  - %s\n", s)
-			}
-		} else {
-			ui.Header("Uninstalling skill")
-		}
-		if entry := store.Get(target.name); entry != nil {
-			ui.Info("Source: %s", entry.Source)
-			if !entry.InstalledAt.IsZero() {
-				ui.Info("Installed: %s", entry.InstalledAt.Format("2006-01-02 15:04"))
-			}
-		}
+		return "tracked repository"
 	}
-	ui.Info("Name: %s", target.name)
-	ui.Info("Path: %s", target.path)
-	fmt.Println()
+	if n := len(countGroupSkills(target.path)); n > 0 {
+		return "group, " + plural(n, "skill")
+	}
+	files := 0
+	filepath.WalkDir(target.path, func(_ string, d os.DirEntry, err error) error { //nolint:errcheck
+		if err == nil && !d.IsDir() {
+			files++
+		}
+		return nil
+	})
+	return plural(files, "file")
 }
 
 // gitStatusError marks a tracked repo whose git status could not be read.
@@ -510,6 +479,8 @@ func cmdUninstall(args []string) error {
 		skillsStore = install.NewMetadataStore()
 	}
 
+	targetNames := targetNamesFromConfig(cfg.Targets)
+	sort.Strings(targetNames)
 	skillsMode := &uninstallMode{
 		sourceDir:      sourceDir,
 		sourceLabel:    "source",
@@ -518,8 +489,7 @@ func cmdUninstall(args []string) error {
 		store:          skillsStore,
 		emptySourceErr: "no skills found in source",
 		globs:          true,
-		syncHint:       "Run 'skillshare sync' to update all targets",
-		batchSummary:   true,
+		targetNames:    targetNames,
 		dryRunGitignore: func(t *uninstallTarget) string {
 			if t.isTrackedRepo {
 				return fmt.Sprintf("would remove %s from .gitignore", t.name)
@@ -592,46 +562,31 @@ func logUninstallOp(cfgPath string, names []string, succeeded int, start time.Ti
 }
 
 func printUninstallHelp() {
-	fmt.Println(`Usage: skillshare uninstall <name>... [options]
-       skillshare uninstall [agents] <name|--all> [options]
-       skillshare uninstall --group <group> [options]
-       skillshare uninstall --all [options]
-
-Remove one or more skills or tracked repositories from the source directory.
-Skills are moved to trash and kept for 7 days before automatic cleanup.
-If the skill was installed from a remote source, a reinstall command is shown.
-
-For tracked repositories (_repo-name):
-  - Checks for uncommitted changes (requires --force to override)
-  - Fails if git status cannot be read (requires --force to override)
-  - Automatically removes the entry from .gitignore
-  - The _ prefix is optional (automatically detected)
-
-Skill names support glob patterns (e.g. "core-*", "test-?").
-
-Options:
-  --all               Remove ALL skills from source (requires confirmation)
-  --group, -G <name>  Remove all skills in a group (prefix match, repeatable)
-  --force, -f         Skip confirmation and ignore uncommitted changes
-  --dry-run, -n       Preview without making changes
-  --json              Global mode: output JSON and skip confirmation
-  --project, -p       Use project-level config in current directory
-  --global, -g        Use global config (~/.config/skillshare)
-  --help, -h          Show this help
-
-Examples:
-  skillshare uninstall my-skill              # Remove a single skill
-  skillshare uninstall a b c --force         # Remove multiple skills at once
-  skillshare uninstall "core-*"             # Remove all matching a glob pattern
-  skillshare uninstall --all                 # Remove all skills
-  skillshare uninstall --all --force         # Remove all without confirmation
-  skillshare uninstall --all -n              # Preview what would be removed
-  skillshare uninstall --group frontend      # Remove all skills in frontend/
-  skillshare uninstall --group frontend -n   # Preview group removal
-  skillshare uninstall x -G backend --force  # Mix names and groups
-  skillshare uninstall _team-repo            # Remove tracked repository
-  skillshare uninstall team-repo             # _ prefix is optional
-  skillshare uninstall agents tutor          # Uninstall an agent
-  skillshare uninstall agents --all          # Uninstall all agents
-  skillshare uninstall agents -G demo        # Uninstall all agents in demo/`)
+	printHelp("skillshare uninstall <name>... [options]\n       skillshare uninstall [agents] <name|--all> [options]\n       skillshare uninstall --group <group> [options]\n       skillshare uninstall --all [options]", "Remove one or more skills or tracked repositories from the source directory.\nSkills are moved to trash and kept for 7 days before automatic cleanup.\nIf the skill was installed from a remote source, a reinstall command is shown.\n\nFor tracked repositories (_repo-name):\n  - Checks for uncommitted changes (requires --force to override)\n  - Fails if git status cannot be read (requires --force to override)\n  - Automatically removes the entry from .gitignore\n  - The _ prefix is optional (automatically detected)\n\nSkill names support glob patterns (e.g. \"core-*\", \"test-?\").",
+		helpGroup{title: "Options", rows: []helpRow{
+			{"--all", "Remove ALL skills from source (requires confirmation)"},
+			{"-G, --group <name>", "Remove all skills in a group (prefix match, repeatable)"},
+			{"-f, --force", "Skip confirmation and ignore uncommitted changes"},
+			{"-n, --dry-run", "Preview without making changes"},
+			{"--json", "Global mode: output JSON and skip confirmation"},
+			{"-p, --project", "Use project-level config in current directory"},
+			{"-g, --global", "Use global config (~/.config/skillshare)"},
+		}},
+		helpExamples(
+			helpRow{"skillshare uninstall my-skill", "Remove a single skill"},
+			helpRow{"skillshare uninstall a b c --force", "Remove multiple skills at once"},
+			helpRow{"skillshare uninstall \"core-*\"", "Remove all matching a glob pattern"},
+			helpRow{"skillshare uninstall --all", "Remove all skills"},
+			helpRow{"skillshare uninstall --all --force", "Remove all without confirmation"},
+			helpRow{"skillshare uninstall --all -n", "Preview what would be removed"},
+			helpRow{"skillshare uninstall --group frontend", "Remove all skills in frontend/"},
+			helpRow{"skillshare uninstall --group frontend -n", "Preview group removal"},
+			helpRow{"skillshare uninstall x -G backend --force", "Mix names and groups"},
+			helpRow{"skillshare uninstall _team-repo", "Remove tracked repository"},
+			helpRow{"skillshare uninstall team-repo", "_ prefix is optional"},
+			helpRow{"skillshare uninstall agents tutor", "Uninstall an agent"},
+			helpRow{"skillshare uninstall agents --all", "Uninstall all agents"},
+			helpRow{"skillshare uninstall agents -G demo", "Uninstall all agents in demo/"},
+		),
+	)
 }

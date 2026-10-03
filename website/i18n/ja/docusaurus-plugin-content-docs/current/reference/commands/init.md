@@ -4,7 +4,7 @@ sidebar_position: 1
 
 # init
 
-初回セットアップ。インストール済みの AI CLI を自動検出し、Target を設定します。
+初回セットアップ。インストール済みの AI CLI を検出し、すでにある Skill を取り込んで同期します。
 
 ```bash
 skillshare init              # インタラクティブセットアップ
@@ -20,19 +20,54 @@ skillshare init --dry-run    # 変更を加えずにプレビュー
 
 ## 実行される処理
 
+`init` は先に質問し、書き込みは最後に行います。サマリーを確認するまで何も作成されません。どの質問でも <kbd>Esc</kbd> を押すと、何も書き込まずにキャンセルします。
+
 ```mermaid
 flowchart TD
     TITLE["skillshare init"]
-    S0["0. Source path prompt"]
-    S1["1. Create source + agents directories"]
-    S2["2. Auto-detect AI CLIs"]
-    S3["3. Initialize git"]
-    S4["4. Set up remote"]
-    S4b["5. Subdirectory prompt"]
-    S5["6. Create config.yaml"]
-    S6["7. Built-in skill"]
-    TITLE --> S0 --> S1 --> S2 --> S3 --> S4 --> S4b --> S5 --> S6
+    START{"How do you want to start?"}
+    NEW["New setup: tools → import → git → remote (optional)"]
+    CONNECT["Connect my existing repo: URL → keep local skills → tools"]
+    SUMMARY["Summary: Yes / Change settings / Cancel"]
+    APPLY["Write config, copy skills, install built-in skill, commit"]
+    SYNC["Sync now?"]
+    TITLE --> START
+    START --> NEW --> SUMMARY
+    START --> CONNECT --> SUMMARY
+    SUMMARY --> APPLY --> SYNC
 ```
+
+各質問にはデフォルトがあり、すべて <kbd>Enter</kbd> で進めるだけで使えるセットアップになります：
+
+| 質問 | デフォルト |
+|------|------------|
+| Targets | 検出されたすべての AI CLI |
+| Import | それらのツールにある既存の Skill すべて |
+| Git | オン。Skill のみをバージョン管理。remote を設定した場合は skills、agents、extras。Plugins、MCP servers、hooks は各マシンの `config.yaml` に残ります |
+| 組み込み Skill | インストール |
+| Sync | はい |
+
+サマリーの **Change settings** で、source パス、sync mode、git でバージョン管理する範囲を変更できます。
+
+**Connect my existing repo** は 2 台目のマシン向けです。何も書き込まずに先にリポジトリを確認し、構成を判断します。`--git-root root` で push したリポジトリは skillshare フォルダ全体になり、Skill が `skills/` フォルダにあるリポジトリはそのフォルダを source にします。このマシンとリポジトリの両方にある同名の Skill はリポジトリ版を使います。このマシンにしかない Skill は残すかどうかを尋ね、次の `skillshare push` でリポジトリに追加されます。
+
+初回の sync では、source とバイト単位で同一のツール側 Skill フォルダはリンクに置き換えられます。内容が異なるフォルダは残して一覧表示します。`skillshare sync --force` で置き換えられます。
+
+### ターミナルがない場合
+
+stdin または stdout がターミナルでない場合（CI、スクリプト、AI エージェント）、`init` は何も尋ねず上記のデフォルトを使います。決定ごとに 1 行ずつ、変更に使う flag と一緒に表示します：
+
+```text
+✓ Source   ~/.config/skillshare/skills (--source, --subdir)
+✓ Targets  claude, cursor, universal (--targets, --no-targets)
+✓ Import   all 2 (--copy-from, --no-copy)
+✓ Git      skills only (--no-git, --git-root)
+✓ Remote   none (--remote <url>)
+✓ Skill    install skillshare (--skill, --no-skill)
+✓ Sync     merge (--mode)
+```
+
+`--remote` を指定すると、Skill があるリポジトリは pull され、同名の Skill はリポジトリ版を使い、その名前を表示します。ターミナルがないときの出力には色やエスケープコードが含まれません。
 
 `init` は Skill の source ディレクトリと、それに並ぶ `agents/` ディレクトリを一度に作成するため、両方のリソース種別がすぐに使える状態になります。agents ディレクトリはサイレントに作成されます — 追加のプロンプトやフラグはありません。agent ファイルの形式については [Agents](/docs/understand/agents) を参照してください。
 
@@ -49,8 +84,8 @@ agents source のデフォルトは `<source parent>/agents`（デフォルト�
 `-p` を使って project レベルの Skill を初期化します。
 
 ```bash
-skillshare init -p                              # インタラクティブ
-skillshare init -p --targets claude,cursor  # 非インタラクティブ
+skillshare init -p                              # インタラクティブ（ターミナルがない場合: 検出されたすべてのツール）
+skillshare init -p --targets claude,cursor  # ツールを指定
 skillshare init -p --visible                    # 可視の skillshare/ ディレクトリを使用
 ```
 
@@ -79,7 +114,7 @@ skillshare init --discover              # インタラクティブ選択
 skillshare init --discover --select codex,opencode  # 非インタラクティブ
 ```
 
-まだ config にない、新しくインストールされた AI CLI をスキャンし、追加するようプロンプトを表示します。`universal` Target（`~/.agents/skills`）は、いずれかの CLI が検出されると自動的に推奨されます。
+config にまだない新しくインストールされた AI CLI をスキャンし、追加するものを尋ねます（すべて選択済み）。ターミナルがない場合は新しいツールをすべて追加します。CLI が検出されると、`universal` Target（`~/.agents/skills`）が自動的に推奨されます。
 
 ### プロジェクト
 
@@ -88,7 +123,7 @@ skillshare init -p --discover           # インタラクティブ選択
 skillshare init -p --discover --select antigravity  # 非インタラクティブ
 ```
 
-project ディレクトリをスキャンして新しい AI CLI ディレクトリ（例: `.agents/`）を検出し、Target として追加します。
+project ディレクトリをスキャンして新しい AI CLI ディレクトリ（例: `.agents/`）を検出し、Target として追加します。 ターミナルがない場合は、見つかった新しいツールをすべて追加します。
 
 ### Discover + Mode の動作
 
@@ -111,8 +146,8 @@ skillshare init -p --discover --select cursor --mode copy
 
 | フラグ | 説明 |
 |------|-------------|
-| `--source, -s <path>` | カスタム source ディレクトリ（インタラクティブモードでは未設定時にプロンプトを表示） |
-| `--remote <url>` | git remote を設定（`--git` を暗黙指定。remote に Skill があれば自動 pull し、組み込み Skill のプロンプトをスキップ） |
+| `--source, -s <path>` | カスタム source ディレクトリ（サマリーの **Change settings** でも変更可能） |
+| `--remote <url>` | git remote を設定（`--git` を暗黙指定）。Skill があるリポジトリは pull し、同名の Skill はリポジトリ版を使用 |
 | `--project, -p` | 現在のディレクトリに project レベルの Skill を初期化 |
 | `--copy-from, -c <name\|path>` | 特定の CLI またはパスから Skill をコピー |
 | `--no-copy` | 空の source から開始（コピーのプロンプトをスキップ） |
@@ -120,16 +155,16 @@ skillshare init -p --discover --select cursor --mode copy
 | `--all-targets` | 検出されたすべての Target を追加 |
 | `--no-targets` | Target 選択をスキップ |
 | `--mode, -m <mode>` | 新たに設定される Target のデフォルト mode を設定（`merge`、`copy`、`symlink`）。`--discover` を伴う場合、新たに追加された Target にのみ影響する。 |
-| `--git` | プロンプトなしで git を初期化 |
+| `--git` | プロンプトなしで git を初期化（デフォルト） |
 | `--no-git` | git の初期化をスキップ |
-| `--skill` | プロンプトなしで組み込みの skillshare skill をインストール（AI CLI に `/skillshare` を追加） |
+| `--skill` | 組み込みの skillshare skill をインストール（デフォルト。AI CLI に `/skillshare` を追加） |
 | `--no-skill` | 組み込み skill のインストールをスキップ |
 | `--discover, -d` | 新しい AI CLI Target を検出して既存の config に追加 |
 | `--select <list>` | 追加する Target のカンマ区切りリスト（`--discover` が必要） |
 | `--config local` | 各開発者が自分の Target を管理できるよう `config.yaml` を gitignore する（project mode のみ）。[Centralized Skills Repo](/docs/how-to/recipes/centralized-skills-repo) レシピを参照。 |
 | `--visible` | `.skillshare/` の代わりに可視の `skillshare/` project ディレクトリを作成（project mode のみ）。[Project Skills](/docs/understand/project-skills#visible-project-directory) を参照。 |
-| `--git-root <scope>` | `commit`/`push`/`pull` 操作用のディレクトリ（デフォルト `skills`、他に `agents`、`extras`、`root`）。`root` は skills + agents + extras をまとめて 1 つのリポジトリでバージョン管理し、`config.yaml` は自動的に無視される。セットアップ時にインタラクティブにも指定可能。後から `skillshare init --git-root <scope>` を再実行するとヘッドレスにスコープを切り替えられる — 新しいスコープでリポジトリを init し設定を保持するが、既存の履歴は移動しない。 |
-| `--subdir <name>` | source path としてサブディレクトリを使用（例: `skills`） |
+| `--git-root <scope>` | `commit`/`push`/`pull` 操作用のディレクトリ（デフォルト `skills`、他に `agents`、`extras`、`root`）。`root` は skills + agents + extras をまとめて 1 つのリポジトリでバージョン管理し、`config.yaml` は自動的に無視される。remote を設定した場合のデフォルトは `root`、それ以外は `skills`。サマリーの **Change settings** でも変更可能。後から `skillshare init --git-root <scope>` を再実行するとヘッドレスにスコープを切り替えられる — 新しいスコープでリポジトリを init し設定を保持するが、既存の履歴は移動しない。 |
+| `--subdir <name>` | source path としてサブディレクトリを使用（例: `skills`）。リポジトリ接続時は自動検出 |
 | `--dry-run, -n` | 変更を加えずにプレビュー |
 
 `init` は最初の mode ポリシーを設定します。後からいつでも Target ごとに細かく調整できます。
@@ -160,11 +195,9 @@ skillshare sync
 
 典型的なユースケース: 専用の Skill 専用リポジトリではなく、既存の dotfiles やモノレポの中に Skill を組み込む場合です。
 
-```bash
-# インタラクティブ: init 中にプロンプトを表示
-skillshare init --remote git@github.com:you/dotfiles.git
+接続したリポジトリの最上位に Skill がなく `skills/` フォルダにある場合、`init` はそのフォルダを自動的に使います。別の名前を使うには `--subdir` を指定します：
 
-# 非インタラクティブ: 直接指定
+```bash
 skillshare init --remote git@github.com:you/dotfiles.git --subdir skills
 ```
 
@@ -172,11 +205,7 @@ skillshare init --remote git@github.com:you/dotfiles.git --subdir skills
 
 ### リモートセットアップ（いずれかを選択）
 
-インタラクティブ（ガイド付きプロンプトが欲しい初回セットアップに推奨）:
-
-```bash
-skillshare init --remote git@github.com:you/my-skills.git
-```
+インタラクティブ: `skillshare init` を実行し **Connect my existing skillshare repo** を選択します。
 
 非インタラクティブ（プロンプトなし、インストール済み Target を自動検出）:
 
@@ -215,7 +244,7 @@ skillshare init --source ~/.config/skillshare/skills
 skillshare init -p
 skillshare init -p --targets claude,cursor
 
-# 完全非インタラクティブセットアップ
+# プロンプトなしでデフォルトを使用（ターミナルがない場合も同じ）
 skillshare init --no-copy --all-targets --git --skill
 
 # 新たに追加される Target 向けに copy mode をデフォルトとして開始

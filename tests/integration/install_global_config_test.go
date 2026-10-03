@@ -63,7 +63,7 @@ targets: {}
 	result := sb.RunCLI("install", "--global", "--dry-run")
 
 	result.AssertSuccess(t)
-	result.AssertAnyOutputContains(t, "Ready")
+	result.AssertAnyOutputContains(t, "Dry run — nothing was written")
 	result.AssertOutputNotContains(t, "would clone")
 }
 

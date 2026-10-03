@@ -60,9 +60,9 @@ skillshare status
 
 ```bash
 $ skillshare pull
-Local changes detected
+✗ Local changes detected
   Run: skillshare push
-  Or:  cd ~/.config/skillshare/skills && git stash
+  Or:  cd ~/.config/skillshare/skills && git stash -u
 ```
 
 해결 방법:
@@ -92,7 +92,7 @@ git stash pop
 
 ```bash
 $ skillshare pull
-git pull failed
+✗ git pull failed
 pull stopped: this machine and the remote both changed my-skill/SKILL.md; the merge was undone, resolve it with git in ~/.config/skillshare/skills
 ```
 
@@ -116,7 +116,7 @@ skillshare sync
 
 ```bash
 $ skillshare pull
-Pull failed
+✗ Pull failed
   Resolve manually: cd ~/.config/skillshare/skills && git merge --allow-unrelated-histories <remote branch>
   Or force-pull: skillshare pull --force  (replaces local with remote)
 ```

@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"regexp"
 	"strings"
@@ -157,9 +158,51 @@ func HeaderBoxWithMinWidth(command, subtitle string, minWidth int) {
 	fmt.Println(subtitle)
 }
 
+// liveSpinner is a pterm spinner that leaves nothing behind once stopped.
+// pterm's render goroutine checks IsActive and then writes, so a Stop that
+// lands in between has its line cleared and redrawn; writes go through a gate
+// that Stop closes before clearing the line.
+type liveSpinner struct {
+	printer *pterm.SpinnerPrinter
+	mu      sync.Mutex
+	stopped bool
+	out     io.Writer
+}
+
+func startLiveSpinner(text string) *liveSpinner {
+	ls := &liveSpinner{out: ProgressWriter}
+	ls.printer, _ = pterm.DefaultSpinner.
+		WithRemoveWhenDone(true).
+		WithWriter(ls).
+		Start(text)
+	return ls
+}
+
+func (ls *liveSpinner) Write(p []byte) (int, error) {
+	ls.mu.Lock()
+	defer ls.mu.Unlock()
+	if ls.stopped {
+		return len(p), nil
+	}
+	return ls.out.Write(p)
+}
+
+func (ls *liveSpinner) UpdateText(text string) { ls.printer.UpdateText(text) }
+
+// Stop clears the spinner's line; later writes from pterm are dropped.
+func (ls *liveSpinner) Stop() error {
+	ls.mu.Lock()
+	if !ls.stopped {
+		ls.stopped = true
+		fmt.Fprint(ls.out, "\r\x1b[2K")
+	}
+	ls.mu.Unlock()
+	return ls.printer.Stop()
+}
+
 // Spinner wraps pterm spinner with step tracking
 type Spinner struct {
-	spinner     *pterm.SpinnerPrinter
+	spinner     *liveSpinner
 	start       time.Time
 	currentStep int
 	totalSteps  int
@@ -168,34 +211,25 @@ type Spinner struct {
 	lastMessage string
 }
 
-// StartSpinner starts a spinner with message
+// StartSpinner starts a spinner with message. Without a terminal it shows
+// nothing; only the final Success, Fail or Warn line is printed.
 func StartSpinner(message string) *Spinner {
 	if !isProgressTTY() {
-		fmt.Fprintf(ProgressWriter, "... %s\n", message)
 		return &Spinner{start: time.Now()}
 	}
 
-	s, _ := pterm.DefaultSpinner.
-		WithRemoveWhenDone(true).
-		WithWriter(ProgressWriter).
-		Start(message)
-	return &Spinner{spinner: s, start: time.Now()}
+	return &Spinner{spinner: startLiveSpinner(message), start: time.Now()}
 }
 
 // StartSpinnerWithSteps starts a spinner that shows step progress
 func StartSpinnerWithSteps(message string, totalSteps int) *Spinner {
 	if !isProgressTTY() {
-		fmt.Fprintf(ProgressWriter, "... [1/%d] %s\n", totalSteps, message)
 		return &Spinner{start: time.Now(), currentStep: 1, totalSteps: totalSteps}
 	}
 
 	stepPrefix := fmt.Sprintf("[1/%d] ", totalSteps)
-	s, _ := pterm.DefaultSpinner.
-		WithRemoveWhenDone(true).
-		WithWriter(ProgressWriter).
-		Start(stepPrefix + message)
 	return &Spinner{
-		spinner:     s,
+		spinner:     startLiveSpinner(stepPrefix + message),
 		start:       time.Now(),
 		currentStep: 1,
 		totalSteps:  totalSteps,
@@ -214,12 +248,6 @@ func (s *Spinner) Update(message string) {
 
 	if s.spinner != nil {
 		s.spinner.UpdateText(s.stepPrefix + message)
-	} else {
-		if s.totalSteps > 0 {
-			fmt.Fprintf(ProgressWriter, "... [%d/%d] %s\n", s.currentStep, s.totalSteps, message)
-		} else {
-			fmt.Fprintf(ProgressWriter, "... %s\n", message)
-		}
 	}
 }
 
@@ -234,11 +262,7 @@ func (s *Spinner) NextStep(message string) {
 
 // Success stops spinner with success
 func (s *Spinner) Success(message string) {
-	elapsed := time.Since(s.start)
-	msg := message
-	if elapsed.Seconds() >= 0.05 {
-		msg = fmt.Sprintf("%s (%.1fs)", message, elapsed.Seconds())
-	}
+	msg := message + elapsedNote(s.start)
 	if s.spinner != nil {
 		s.spinner.Stop() //nolint:errcheck
 		fmt.Fprintf(ProgressWriter, "%s %s\n", pterm.Green("✓"), msg)
@@ -259,11 +283,7 @@ func (s *Spinner) Fail(message string) {
 
 // Warn stops spinner with warning (yellow)
 func (s *Spinner) Warn(message string) {
-	elapsed := time.Since(s.start)
-	msg := message
-	if elapsed.Seconds() >= 0.05 {
-		msg = fmt.Sprintf("%s (%.1fs)", message, elapsed.Seconds())
-	}
+	msg := message + elapsedNote(s.start)
 	if s.spinner != nil {
 		s.spinner.Stop() //nolint:errcheck
 		fmt.Fprintf(ProgressWriter, "%s %s\n", pterm.Yellow("!"), msg)
@@ -271,6 +291,14 @@ func (s *Spinner) Warn(message string) {
 		fmt.Fprintf(ProgressWriter, "! %s\n", msg)
 	}
 }
+
+// elapsedNote is Took for a step that started at start.
+func elapsedNote(start time.Time) string {
+	return Took(time.Since(start))
+}
+
+// Started is when the spinner started, for timing the step it covers.
+func (s *Spinner) Started() time.Time { return s.start }
 
 // Stop stops spinner without message
 func (s *Spinner) Stop() {
@@ -360,9 +388,9 @@ const (
 
 // StartProgress starts a progress bar with the given title and total count.
 func StartProgress(title string, total int) *ProgressBar {
-	tty := isProgressTTY()
-	if !tty {
-		fmt.Fprintf(ProgressWriter, "%s (0/%d)\n", title, total)
+	// Off a terminal the bar prints nothing, like a spinner: it would only
+	// leave a stale line where a terminal shows a frame that clears itself.
+	if !isProgressTTY() {
 		return &ProgressBar{total: total, title: title}
 	}
 
@@ -385,7 +413,9 @@ func (p *ProgressBar) Increment() {
 	}
 	if p.current >= p.total {
 		p.title = "Done"
-		p.renderNow() // always render the final frame
+		if p.tty {
+			p.renderNow() // always render the final frame
+		}
 		return
 	}
 	if p.tty {
@@ -419,8 +449,6 @@ func (p *ProgressBar) UpdateTitle(title string) {
 
 	if p.tty {
 		p.renderThrottled()
-	} else {
-		fmt.Fprintf(ProgressWriter, "  %s\n", p.title)
 	}
 }
 
@@ -443,13 +471,11 @@ func (p *ProgressBar) SetHeader(header string) {
 	p.header = header
 	if p.tty {
 		p.renderNow()
-	} else {
-		fmt.Fprintf(ProgressWriter, "%s\n", header)
 	}
 }
 
-// Stop finishes the progress bar, restores the cursor, and moves to the next line.
-// The final bar state remains visible on screen. Safe for concurrent use.
+// Stop clears the progress bar and its phase header and restores the cursor;
+// the result that follows says what happened. Safe for concurrent use.
 func (p *ProgressBar) Stop() {
 	p.mu.Lock()
 	defer p.mu.Unlock()
@@ -458,11 +484,11 @@ func (p *ProgressBar) Stop() {
 	}
 	p.stopped = true
 	if p.tty {
-		// Flush any pending dirty state so the final frame is accurate.
-		if p.dirty {
-			p.renderNow()
+		fmt.Fprint(ProgressWriter, clearLine)
+		if p.hasHeader {
+			fmt.Fprint(ProgressWriter, "\x1b[1A"+clearLine)
 		}
-		fmt.Fprintf(ProgressWriter, "\n%s", showCursor)
+		fmt.Fprint(ProgressWriter, showCursor)
 	}
 }
 
@@ -566,77 +592,28 @@ func UpdateNotification(currentVersion, latestVersion, upgradeCmd string) {
 	fmt.Fprintln(os.Stderr, runLine)
 }
 
-// SyncSummary prints a sync summary line.
-func SyncSummary(stats SyncStats) {
-	OperationSummary("Sync", stats.Duration,
-		Metric{Label: "targets", Count: stats.Targets, HighlightColor: pterm.Cyan},
-		Metric{Label: "linked", Count: stats.Linked, HighlightColor: pterm.Green},
-		Metric{Label: "local", Count: stats.Local, HighlightColor: pterm.Blue},
-		Metric{Label: "updated", Count: stats.Updated, HighlightColor: pterm.Yellow},
-		Metric{Label: "pruned", Count: stats.Pruned, HighlightColor: pterm.Yellow},
-	)
-}
-
-// SyncStats holds statistics for sync summary
-type SyncStats struct {
-	Targets  int
-	Linked   int
-	Local    int
-	Updated  int
-	Pruned   int
-	Duration time.Duration
-}
-
-// AgentSyncStats holds statistics for agent sync summary.
-type AgentSyncStats struct {
-	Targets  int
-	Linked   int
-	Local    int
-	Updated  int
-	Pruned   int
-	Duration time.Duration
-}
-
-// AgentSyncSummary prints an agent sync summary line.
-func AgentSyncSummary(stats AgentSyncStats) {
-	OperationSummary("Agent sync", stats.Duration,
-		Metric{Label: "targets", Count: stats.Targets, HighlightColor: pterm.Cyan},
-		Metric{Label: "linked", Count: stats.Linked, HighlightColor: pterm.Green},
-		Metric{Label: "local", Count: stats.Local, HighlightColor: pterm.Blue},
-		Metric{Label: "updated", Count: stats.Updated, HighlightColor: pterm.Yellow},
-		Metric{Label: "pruned", Count: stats.Pruned, HighlightColor: pterm.Yellow},
-	)
-}
-
-// ExtrasSyncStats holds statistics for extras sync summary.
-type ExtrasSyncStats struct {
-	Targets  int
-	Synced   int
-	Skipped  int
-	Pruned   int
-	Duration time.Duration
-}
-
-// ExtrasSyncSummary prints an extras sync summary line.
-func ExtrasSyncSummary(stats ExtrasSyncStats) {
-	OperationSummary("Extras sync", stats.Duration,
-		Metric{Label: "targets", Count: stats.Targets, HighlightColor: pterm.Cyan},
-		Metric{Label: "synced", Count: stats.Synced, HighlightColor: pterm.Green},
-		Metric{Label: "skipped", Count: stats.Skipped, HighlightColor: pterm.Yellow},
-		Metric{Label: "pruned", Count: stats.Pruned, HighlightColor: pterm.Yellow},
-	)
-}
-
-// UpdateSummary prints an update summary line matching SyncSummary style.
+// UpdateSummary prints the closing line of an update, leaving out zero counts.
 func UpdateSummary(stats UpdateStats) {
-	OperationSummary("Update", stats.Duration,
-		Metric{Label: "updated", Count: stats.Updated, HighlightColor: pterm.Green},
-		Metric{Label: "skipped", Count: stats.Skipped, HighlightColor: pterm.Yellow},
-		Metric{Label: "pruned", Count: stats.Pruned, HighlightColor: pterm.Yellow},
-	)
-	if stats.SecurityFailed > 0 {
-		Warning("Blocked: %d repo(s) by security audit", stats.SecurityFailed)
+	text := "Nothing to update"
+	if stats.Updated > 0 {
+		text = fmt.Sprintf("Updated %d", stats.Updated)
+	} else if stats.Skipped > 0 || stats.Pruned > 0 || stats.SecurityFailed > 0 {
+		text = "Nothing updated"
 	}
+	for _, m := range []struct {
+		n     int
+		label string
+	}{{stats.Skipped, "skipped"}, {stats.Pruned, "pruned"}, {stats.SecurityFailed, "blocked by security audit"}} {
+		if m.n > 0 {
+			text += fmt.Sprintf(", %d %s", m.n, m.label)
+		}
+	}
+	mark := MarkOK
+	if stats.SecurityFailed > 0 {
+		mark = MarkWarn
+	}
+	fmt.Println()
+	Done(mark, text, stats.Duration)
 }
 
 // UpdateStats holds statistics for update summary
@@ -734,7 +711,6 @@ const (
 	StepSkipCh = "⊘"
 	StepBullet = "●"
 	StepLine   = "│"
-	StepBranch = "├"
 	StepCorner = "└"
 )
 
@@ -757,70 +733,33 @@ func ClearLines(n int) {
 	}
 }
 
-// StepStart prints the first step (with arrow)
-func StepStart(label, value string) {
-	if IsTTY() {
-		fmt.Printf("%s  %-10s  %s\n", pterm.Yellow(StepArrow), pterm.LightCyan(label), pterm.Bold.Sprint(value))
-	} else {
-		fmt.Printf("%s  %s  %s\n", StepArrow, label, value)
-	}
-}
+// StepStart, StepContinue and StepEnd print one detail of a running step
+// as a plain row: "  Source    ~/work/sql-helper".
+func StepStart(label, value string) { Row(MarkNone, label, value, RowWidth(label)) }
 
-// StepContinue prints a middle step (with branch)
-func StepContinue(label, value string) {
-	if IsTTY() {
-		fmt.Printf("%s\n", DimText(StepLine))
-		fmt.Printf("%s %-10s  %s\n", DimText(StepBranch+"─"), DimText(label), pterm.White(value))
-	} else {
-		fmt.Printf("%s\n", StepLine)
-		fmt.Printf("%s─ %s  %s\n", StepBranch, label, value)
-	}
-}
+// StepContinue prints a detail row; see StepStart.
+func StepContinue(label, value string) { Row(MarkNone, label, value, RowWidth(label)) }
 
-// StepResult prints the result as the final node of the tree
+// StepResult prints a command's closing line after a blank line. status is
+// "success", "error" or anything else for a warning.
 func StepResult(status, message string, duration time.Duration) {
-	var icon string
-	var style pterm.Style
+	mark := MarkWarn
 	switch status {
 	case "success":
-		icon = StepCheck
-		style = *pterm.NewStyle(pterm.FgGreen, pterm.Bold)
+		mark = MarkOK
 	case "error":
-		icon = StepCross
-		style = *pterm.NewStyle(pterm.FgRed, pterm.Bold)
-	default:
-		icon = "→"
-		style = *pterm.NewStyle(pterm.FgYellow, pterm.Bold)
+		mark = MarkFail
 	}
-
-	timeStr := ""
-	if duration > 0 {
-		timeStr = DimText(fmt.Sprintf(" (%.1fs)", duration.Seconds()))
-	}
-
-	if IsTTY() {
-		fmt.Printf("%s\n", DimText(StepLine))
-		fmt.Printf("%s %s %s  %s%s\n", DimText(StepCorner+"─"), style.Sprint(icon), style.Sprint(strings.ToUpper(status)), message, timeStr)
-	} else {
-		fmt.Printf("%s\n", StepLine)
-		fmt.Printf("%s─ %s %s  %s%s\n", StepCorner, icon, strings.ToUpper(status), message, timeStr)
-	}
+	fmt.Println()
+	Done(mark, message, duration)
 }
 
-// StepEnd prints the last step (with corner)
-func StepEnd(label, value string) {
-	if IsTTY() {
-		fmt.Printf("%s\n", DimText(StepLine))
-		fmt.Printf("%s %s  %s\n", DimText(StepCorner+"─"), pterm.White(label), value)
-	} else {
-		fmt.Printf("%s\n", StepLine)
-		fmt.Printf("%s─ %s  %s\n", StepCorner, label, value)
-	}
-}
+// StepEnd prints a detail row; see StepStart.
+func StepEnd(label, value string) { Row(MarkNone, label, value, RowWidth(label)) }
 
 // TreeSpinner is a spinner that fits into tree structure
 type TreeSpinner struct {
-	spinner     *pterm.SpinnerPrinter
+	spinner     *liveSpinner
 	start       time.Time
 	isLast      bool
 	lastUpdate  time.Time
@@ -829,87 +768,42 @@ type TreeSpinner struct {
 
 // StartTreeSpinner starts a spinner in tree context
 func StartTreeSpinner(message string, isLast bool) *TreeSpinner {
-	prefix := StepBranch + "─"
-	if isLast {
-		prefix = StepCorner + "─"
-	}
-
 	if !IsTTY() {
-		fmt.Printf("%s\n", StepLine)
-		fmt.Printf("%s %s\n", prefix, message)
 		return &TreeSpinner{start: time.Now(), isLast: isLast}
 	}
 
-	fmt.Printf("%s\n", DimText(StepLine))
-
-	// Custom spinner with tree prefix
-	s, _ := pterm.DefaultSpinner.
-		WithRemoveWhenDone(true).
-		WithWriter(ProgressWriter).
-		Start(message)
-
-	return &TreeSpinner{spinner: s, start: time.Now(), isLast: isLast}
+	return &TreeSpinner{spinner: startLiveSpinner(message), start: time.Now(), isLast: isLast}
 }
 
-// Success completes the tree spinner with success
-func (ts *TreeSpinner) Success(message string) {
-	elapsed := time.Since(ts.start)
+// Success clears the spinner and prints "✓ message · 0.4s".
+func (ts *TreeSpinner) Success(message string) { ts.finish(MarkOK, message, true) }
 
-	prefix := StepBranch + "─"
-	if ts.isLast {
-		prefix = StepCorner + "─"
-	}
+// Fail clears the spinner and prints "✗ message".
+func (ts *TreeSpinner) Fail(message string) { ts.finish(MarkFail, message, false) }
 
+// Warn clears the spinner and prints "! message · 0.4s".
+func (ts *TreeSpinner) Warn(message string) { ts.finish(MarkWarn, message, true) }
+
+// Stop clears the spinner without printing anything.
+func (ts *TreeSpinner) Stop() {
 	if ts.spinner != nil {
 		ts.spinner.Stop()
 	}
-
-	if IsTTY() {
-		fmt.Printf("%s %s  %s\n", DimText(prefix), pterm.Green(message), DimText(fmt.Sprintf("(%.1fs)", elapsed.Seconds())))
-	} else {
-		fmt.Printf("%s %s (%.1fs)\n", prefix, message, elapsed.Seconds())
-	}
 }
 
-// Fail completes the tree spinner with failure
-func (ts *TreeSpinner) Fail(message string) {
-	prefix := StepBranch + "─"
-	if ts.isLast {
-		prefix = StepCorner + "─"
-	}
+// Started is when the spinner started, for timing the step it covers.
+func (ts *TreeSpinner) Started() time.Time { return ts.start }
 
+func (ts *TreeSpinner) finish(mark, message string, timed bool) {
 	if ts.spinner != nil {
 		ts.spinner.Stop()
 	}
-
-	if IsTTY() {
-		fmt.Printf("%s %s\n", DimText(prefix), pterm.Red(message))
-	} else {
-		fmt.Printf("%s %s\n", prefix, message)
+	if timed {
+		message += elapsedNote(ts.start)
 	}
+	fmt.Printf("%s %s\n", StyledMark(mark), message)
 }
 
-// Warn completes the tree spinner with a warning
-func (ts *TreeSpinner) Warn(message string) {
-	elapsed := time.Since(ts.start)
-
-	prefix := StepBranch + "─"
-	if ts.isLast {
-		prefix = StepCorner + "─"
-	}
-
-	if ts.spinner != nil {
-		ts.spinner.Stop()
-	}
-
-	if IsTTY() {
-		fmt.Printf("%s %s  %s\n", DimText(prefix), pterm.Yellow(message), DimText(fmt.Sprintf("(%.1fs)", elapsed.Seconds())))
-	} else {
-		fmt.Printf("%s %s (%.1fs)\n", prefix, message, elapsed.Seconds())
-	}
-}
-
-// Update updates the tree spinner text while running.
 func (ts *TreeSpinner) Update(message string) {
 	message, ok := normalizeSpinnerUpdate(message, ts.lastMessage, ts.lastUpdate)
 	if !ok {
@@ -920,9 +814,7 @@ func (ts *TreeSpinner) Update(message string) {
 
 	if ts.spinner != nil {
 		ts.spinner.UpdateText(message)
-		return
 	}
-	fmt.Printf("... %s\n", message)
 }
 
 func normalizeSpinnerUpdate(message, lastMessage string, lastUpdate time.Time) (string, bool) {
@@ -993,57 +885,25 @@ func StepItem(label, value string) {
 	}
 }
 
-// StepDone prints a completed step
-func StepDone(label, value string) {
-	if IsTTY() {
-		fmt.Printf("%s %-10s %s\n", pterm.Green(StepCheck), pterm.White(label), value)
-	} else {
-		fmt.Printf("%s %-10s %s\n", StepCheck, label, value)
-	}
-}
+// StepDone prints a finished item: "✓ label  value".
+func StepDone(label, value string) { Row(MarkOK, label, value, RowWidth(label)) }
 
-// StepFail prints a failed step
-func StepFail(label, value string) {
-	if IsTTY() {
-		styledLabel := pterm.White(label)
-		if ansiRegex.MatchString(label) {
-			styledLabel = label
-		}
-		fmt.Printf("%s %-10s %s\n", pterm.Red(StepCross), styledLabel, value)
-	} else {
-		fmt.Printf("%s %-10s %s\n", StepCross, label, value)
-	}
-}
+// StepFail prints a failed item: "✗ label  value".
+func StepFail(label, value string) { Row(MarkFail, label, value, RowWidth(label)) }
 
-// StepSkip prints a skipped step (yellow ⊘)
-func StepSkip(label, value string) {
-	if IsTTY() {
-		fmt.Printf("%s %-10s %s\n", pterm.Yellow(StepSkipCh), pterm.White(label), value)
-	} else {
-		fmt.Printf("%s %-10s %s\n", StepSkipCh, label, value)
-	}
-}
+// StepSkip prints a skipped item: "! label  value".
+func StepSkip(label, value string) { Row(MarkWarn, label, value, RowWidth(label)) }
 
-// SkillBoxCompact prints a compact skill box (for multiple skills)
+// SkillBoxCompact prints a skill found in a repository with its location.
 func SkillBoxCompact(name, location string) {
-	loc := location
-	if loc == "." {
-		loc = "root"
+	if location == "." {
+		location = "root"
 	}
-
-	if IsTTY() {
-		if loc == "" {
-			fmt.Printf("  %s %s\n", pterm.Cyan(StepBullet), pterm.White(name))
-			return
-		}
-		fmt.Printf("  %s %s %s\n", pterm.Cyan(StepBullet), pterm.White(name), DimText("("+loc+")"))
-	} else {
-		if loc == "" {
-			fmt.Printf("  %s %s\n", StepBullet, name)
-			return
-		}
-		fmt.Printf("  %s %s (%s)\n", StepBullet, name, loc)
+	if location == "" {
+		fmt.Printf("  %s\n", name)
+		return
 	}
+	fmt.Printf("  %s  %s\n", name, DimText(location))
 }
 
 // FormatPhaseHeader returns a formatted phase label string without printing.
@@ -1067,12 +927,7 @@ func PhaseHeader(current, total int, format string, args ...interface{}) {
 	}
 }
 
-// SectionLabel prints a dim section label for visual grouping in batch output.
-// Only used when the result set is large enough to benefit from sections (>10 items).
+// SectionLabel starts a block of results with a bold name.
 func SectionLabel(label string) {
-	if IsTTY() {
-		fmt.Printf("\n  %s\n", DimText(label))
-	} else {
-		fmt.Printf("\n- %s\n", label)
-	}
+	Section(label)
 }

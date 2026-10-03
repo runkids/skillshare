@@ -24,7 +24,9 @@ ${BLUE}Services${NC}
   ${BOLD}docs stop${NC}   Stop the documentation site.
 
 ${BLUE}Environment Management (Isolated HOME)${NC}
-  ${BOLD}ssnew${NC} <name> [--init]  Create and enter a new isolated shell.
+  ${BOLD}ssnew${NC} <name> [--init] [--seed]  Create and enter a new isolated shell.
+                     --seed adds claude/codex/cursor with skills and a repo
+                     to connect at ~/remote/skills.git (for trying 'ss init').
   ${BOLD}ssuse${NC} <name>         Enter an existing isolated shell.
   ${BOLD}ssrm${NC} <name>          Force-delete an environment.
   ${BOLD}ssls${NC}               List all isolated environments.
@@ -42,6 +44,7 @@ ${BLUE}Authentication & Security${NC}
 ${YELLOW}Tips:${NC}
   - Isolated environments are stored in ${BOLD}~/.ss-envs/${NC} and are persistent.
   - Use ${BOLD}ssnew --init${NC} to skip the manual 'ss init' step.
+  - Try init: ${BOLD}ssnew demo --seed${NC}, then ${BOLD}ss init${NC}; to connect, paste file://\$HOME/remote/skills.git
   - Your shell history is saved even after container rebuilds.
 
 ==========================================================

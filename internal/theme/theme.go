@@ -42,6 +42,10 @@ type Theme struct {
 	// NoColor is true when NO_COLOR env var was set; all style/ansi
 	// constructors must return plain text when this is true.
 	NoColor bool
+	// Plain is true when stdout is not a terminal (pipe, file, CI log).
+	// Raw escape sequences from ANSI() are suppressed so redirected output
+	// stays readable; lipgloss styles already degrade on their own.
+	Plain bool
 
 	palette palette
 }
@@ -54,7 +58,10 @@ var (
 // Get returns the process-wide theme singleton, resolving it on first call.
 // Safe for concurrent use.
 func Get() *Theme {
-	once.Do(func() { current = resolve() })
+	once.Do(func() {
+		current = resolve()
+		current.Plain = !stdoutIsTerminal()
+	})
 	return current
 }
 

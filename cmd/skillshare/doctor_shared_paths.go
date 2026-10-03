@@ -97,7 +97,7 @@ func checkSharedTargetPaths(cfg *config.Config, result *doctorResult, isProject 
 		}
 		ui.Warning("Shared path %s", detail)
 		details = append(details, detail)
-		fmt.Println(ui.DimText("    suggestion: " + suggestion))
+		ui.Note("suggestion: " + suggestion)
 		suggestions = append(suggestions, suggestion)
 		result.addWarning()
 	}
@@ -202,12 +202,12 @@ func checkCrossTargetDiscovery(cfg *config.Config, result *doctorResult, isProje
 
 		ui.Warning("%s will see content from: %s", so.scanner, strings.Join(writers, ", "))
 		for _, p := range so.paths {
-			fmt.Println(ui.DimText(fmt.Sprintf("    %s ← %s", p.sharedPath, strings.Join(p.writers, ", "))))
+			ui.Note(fmt.Sprintf("%s ← %s", shortenPath(p.sharedPath), strings.Join(p.writers, ", ")))
 			details = append(details, fmt.Sprintf("%s (%s) also scans %s ← %s",
 				so.scanner, so.scannerPath, p.sharedPath, strings.Join(p.writers, ", ")))
 		}
 		suggestion := crossTargetDiscoverySuggestion(so.scanner, writers, isProject)
-		fmt.Println(ui.DimText("    suggestion: " + suggestion))
+		ui.Note("suggestion: " + suggestion)
 		suggestions = append(suggestions, suggestion)
 		result.addWarning()
 	}

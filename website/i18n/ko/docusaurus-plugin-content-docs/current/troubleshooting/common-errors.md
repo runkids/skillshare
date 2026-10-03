@@ -238,15 +238,19 @@ skillshare push
 skillshare sync
 ```
 
-### `Git identity not configured`
+### `Git had no identity`
 
-**Cause:** git config에 `user.name` / `user.email`이 없습니다. skillshare는 init이 완료될 수 있도록 로컬 폴백(`skillshare@local`)을 사용하지만, 본인의 것을 설정해야 합니다.
+**Cause:** `skillshare init`이 source repo를 만들 때 git에 `user.name` / `user.email`이 없었습니다. skillshare는 commit이 가능하도록 해당 repo 자체 설정에 폴백(`skillshare@local`)을 기록합니다. repo 설정이 `git config --global`보다 우선하므로, 나중에 global identity를 설정해도 대체되지 않습니다.
 
-**Solution:**
+직접 만든 repo는 변경하지 않습니다. skillshare는 최초 commit 한 번에만 폴백을 사용합니다.
+
+**Solution:** 해당 repo에서 identity를 설정하세요(경로는 메시지에 표시된 것을 사용하세요. 아래는 기본값):
 ```bash
-git config --global user.name "Your Name"
-git config --global user.email "you@example.com"
+git -C ~/.config/skillshare/skills config user.name "Your Name"
+git -C ~/.config/skillshare/skills config user.email "you@example.com"
 ```
+
+또는 repo 설정을 제거하고 global identity를 사용하세요: `git -C ~/.config/skillshare/skills config --unset user.name`(`user.email`도 동일).
 
 ### `Git root mismatch`
 
@@ -564,7 +568,7 @@ targets:
 
 ## Agent Errors
 
-### Warning: `target(s) skipped for agents (no agents path)`
+### Warning: `No agents folder: <targets>`
 
 **Cause:** `skillshare sync` (또는 `skillshare sync agents`)를 실행했는데, 설정된 Target 중 하나 이상이 agents 디렉터리를 정의하지 않았습니다. 내장 agent 경로를 가진 것은 Claude, Cursor, Augment, OpenCode뿐이며, 다른 Target은 조용히 건너뜁니다.
 

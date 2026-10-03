@@ -55,18 +55,20 @@ func setTargetSkillsProject(cfg *config.ProjectConfig, idx int, enabled, dryRun 
 }
 
 func switchTargetSkills(name string, enabled, dryRun bool, save func() error, targets func() (map[string]config.TargetConfig, error), sourcePath string) (*sync.SkillsOffResult, error) {
-	if dryRun {
-		ui.Warning("Dry run mode - no changes will be made")
-	} else if err := save(); err != nil {
-		return nil, err
+	if !dryRun {
+		if err := save(); err != nil {
+			return nil, err
+		}
 	}
 	if enabled {
 		if dryRun {
-			ui.Info("%s: would turn skills on", name)
+			ui.Done(ui.MarkNone, "Would turn skills on for "+name, 0)
+			fmt.Println()
+			ui.DryRun()
 		} else {
-			ui.Success("%s: skills on", name)
+			ui.Done(ui.MarkOK, "Skills on for "+name, 0)
+			ui.Next("skillshare sync", "sync skills to this target")
 		}
-		ui.Info("Run 'skillshare sync' to sync skills to this target")
 		return nil, nil
 	}
 
@@ -83,28 +85,40 @@ func switchTargetSkills(name string, enabled, dryRun bool, save func() error, ta
 }
 
 func renderSkillsOff(name string, dryRun bool, res *sync.SkillsOffResult) {
-	removeVerb, keepVerb := "removed", "kept"
+	removeVerb, keepVerb, removeMark := "Removed", "Kept", ui.MarkOK
 	if dryRun {
-		ui.Info("%s: would turn skills off", name)
-		removeVerb, keepVerb = "would remove", "would keep"
-	} else {
-		ui.Success("%s: skills off", name)
+		removeVerb, keepVerb, removeMark = "Would remove", "Would keep", ui.MarkNone
 	}
-	if res.SharedWith != "" {
-		ui.Info("  skills folder is shared with %s, left as is", res.SharedWith)
-		return
-	}
+	width := ui.RowWidth(removeVerb, keepVerb)
 	if len(res.Removed) > 0 {
-		ui.Info("  %s %d link(s): %s", removeVerb, len(res.Removed), strings.Join(res.Removed, ", "))
+		ui.Row(removeMark, removeVerb, plural(len(res.Removed), "link")+"  "+ui.DimText(strings.Join(res.Removed, ", ")), width)
 	}
 	if len(res.Kept) > 0 {
-		ui.Info("  %s %d: %s", keepVerb, len(res.Kept), strings.Join(res.Kept, ", "))
+		ui.Row(ui.MarkNone, keepVerb, plural(len(res.Kept), "local skill")+"  "+ui.DimText(strings.Join(res.Kept, ", ")), width)
 	}
 	if len(res.Copies) > 0 {
-		ui.Warning("  %s %d copied skill(s): %s", keepVerb, len(res.Copies), strings.Join(res.Copies, ", "))
-		ui.Info("  The tool still loads these copies; delete them if it reads the same skills elsewhere")
+		ui.Row(ui.MarkWarn, keepVerb, plural(len(res.Copies), "copied skill")+"  "+ui.DimText(strings.Join(res.Copies, ", ")), width)
 	}
-	ui.Info("  Agents, MCP servers and instructions are still managed")
+	if len(res.Removed)+len(res.Kept)+len(res.Copies) > 0 {
+		fmt.Println()
+	}
+
+	if dryRun {
+		ui.Done(ui.MarkNone, "Would turn skills off for "+name, 0)
+	} else {
+		ui.Done(ui.MarkOK, "Skills off for "+name, 0)
+	}
+	if res.SharedWith != "" {
+		ui.Note(fmt.Sprintf("The skills folder is shared with %s, left as is", res.SharedWith))
+	}
+	if len(res.Copies) > 0 {
+		ui.Note("The tool still loads these copies; delete them if it reads the same skills elsewhere")
+	}
+	ui.Note("Agents, MCP servers and instructions are still managed")
+	if dryRun {
+		fmt.Println()
+		ui.DryRun()
+	}
 }
 
 func logTargetSkillsOp(cfgPath, name string, enabled, dryRun bool, res *sync.SkillsOffResult, start time.Time, err error) {

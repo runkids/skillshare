@@ -203,9 +203,17 @@ rules:
 
 ```bash
 $ skillshare audit ci-helper
-[1/1] ! ci-helper    0.2s
-      └─ HIGH: Destructive command pattern (SKILL.md:42)
-         "sudo apt-get install -y jq"
+Audit  ~/.config/skillshare/skills
+  global · blocks at CRITICAL · policy DEFAULT / dedupe:GLOBAL / analyzers:ALL
+
+HIGH      Sudo escalation  SKILL.md:42
+  destructive-commands-2 / static
+  "sudo apt-get install -y jq"
+
+  Risk       HIGH 15/100
+  Auditable  100%
+
+! ci-helper has findings below CRITICAL · 0.2s
 ```
 
 **2. [built-in ルールのテーブル](#built-in-rule-ids)からルール ID を特定する:**
@@ -243,7 +251,10 @@ rules:
 
 ```bash
 $ skillshare audit ci-helper
-[1/1] ✓ ci-helper    0.1s   # 合格になる（または HIGH の代わりに MEDIUM が表示される）
+Audit  ~/.config/skillshare/skills
+  global · blocks at CRITICAL · policy DEFAULT / dedupe:GLOBAL / analyzers:ALL
+
+✓ No issues found in ci-helper · 0.1s   # 合格になる（または HIGH の代わりに MEDIUM が表示される）
 ```
 
 ### 変更を検証する

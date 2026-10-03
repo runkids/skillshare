@@ -22,7 +22,7 @@ Add two things to your `.devcontainer/devcontainer.json`:
 
 ```json
 {
-  "postCreateCommand": "curl -fsSL https://raw.githubusercontent.com/runkids/skillshare/main/install.sh | sh && export PATH=\"$HOME/.local/bin:$PATH\" && skillshare init --no-copy --all-targets --no-skill && skillshare sync"
+  "postCreateCommand": "curl -fsSL https://raw.githubusercontent.com/runkids/skillshare/main/install.sh | sh && export PATH=\"$HOME/.local/bin:$PATH\" && skillshare init --no-copy --all-targets --no-git --no-skill && skillshare sync"
 }
 ```
 
@@ -31,7 +31,7 @@ The PATH export applies to this setup command. For later terminals, add `export 
 That's it. When a team member opens the project in VS Code and clicks "Reopen in Container":
 
 1. skillshare is installed automatically
-2. `init` runs non-interactively — adds all detected AI CLI targets, skips copy prompts and built-in skill installation
+2. `init` runs without prompts — adds all detected AI CLI targets and skips importing existing skills, git and the built-in skill
 3. `sync` delivers skills to all targets
 
 ## Adding Project Skills
@@ -48,7 +48,7 @@ Then commit and update `postCreateCommand` to also sync project skills:
 
 ```json
 {
-  "postCreateCommand": "curl -fsSL https://raw.githubusercontent.com/runkids/skillshare/main/install.sh | sh && export PATH=\"$HOME/.local/bin:$PATH\" && skillshare init --no-copy --all-targets --no-skill && skillshare sync && skillshare sync -p"
+  "postCreateCommand": "curl -fsSL https://raw.githubusercontent.com/runkids/skillshare/main/install.sh | sh && export PATH=\"$HOME/.local/bin:$PATH\" && skillshare init --no-copy --all-targets --no-git --no-skill && skillshare sync && skillshare sync -p"
 }
 ```
 

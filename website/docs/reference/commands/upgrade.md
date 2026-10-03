@@ -20,17 +20,9 @@ skillshare upgrade --skill      # Skill only
 
 ```text
 skillshare upgrade --skill --dry-run
+  Skill     v0.21.12 → v0.21.13 · would download
 
-! Dry run mode - no changes will be made
-
-▸  Skill  skillshare
-│
-├─ Current  v0.21.12
-│
-├─ Checking latest version...
-├─ Latest: v0.21.13 (1.0s)
-│
-└─ Action  Would upgrade to v0.21.13
+Dry run — nothing was written
 ```
 
 ## What Happens

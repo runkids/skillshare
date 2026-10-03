@@ -14,7 +14,6 @@ import (
 	"skillshare/internal/install"
 	"skillshare/internal/search"
 	"skillshare/internal/ui"
-	appversion "skillshare/internal/version"
 )
 
 func cmdSearch(args []string) error {
@@ -145,9 +144,6 @@ func searchJSON(query string, limit int, indexURL string) error {
 }
 
 func searchInteractive(query string, limit int, listOnly bool, indexURL string, mode runMode, cwd string) error {
-	// Show logo
-	ui.Logo(appversion.Version)
-
 	// No query provided: prompt for one
 	isHub := indexURL != ""
 	if query == "" {
@@ -193,19 +189,15 @@ func searchInteractive(query string, limit int, listOnly bool, indexURL string, 
 
 // doSearch performs a search and returns (searchAgain, error)
 func doSearch(query string, limit int, listOnly bool, indexURL string, mode runMode, cwd string) (bool, error) {
-	if query == "" {
-		ui.StepStart("Browsing", "popular skills")
-	} else {
-		ui.StepStart("Searching", query)
-	}
-
-	var spinnerMsg string
+	where := "GitHub"
 	if indexURL != "" {
-		spinnerMsg = "Querying index..."
-	} else {
-		spinnerMsg = "Querying GitHub..."
+		where = "the index"
 	}
-	spinner := ui.StartTreeSpinner(spinnerMsg, false)
+	spinnerMsg := fmt.Sprintf("Searching %s for %q...", where, query)
+	if query == "" {
+		spinnerMsg = fmt.Sprintf("Browsing popular skills in %s...", where)
+	}
+	spinner := ui.StartSpinner(spinnerMsg)
 
 	var results []search.SearchResult
 	var err error
@@ -214,34 +206,24 @@ func doSearch(query string, limit int, listOnly bool, indexURL string, mode runM
 	} else {
 		results, err = search.Search(query, limit)
 	}
+	spinner.Stop()
 	if err != nil {
-		spinner.Fail("Search failed")
-
 		// GitHub-specific errors only apply when not using index
 		if indexURL == "" {
 			// Handle authentication required error
 			if _, ok := err.(*search.AuthRequiredError); ok {
-				fmt.Println()
-				ui.Warning("GitHub Code Search API requires authentication")
-				fmt.Println()
-				ui.Info("Option 1: Login with GitHub CLI (recommended)")
-				fmt.Printf("  %sgh auth login%s\n", ui.Dim, ui.Reset)
-				fmt.Println()
-				ui.Info("Option 2: Set GITHUB_TOKEN environment variable")
-				fmt.Printf("  %sexport GITHUB_TOKEN=ghp_your_token_here%s\n", ui.Dim, ui.Reset)
+				ui.Warning("GitHub code search needs you to log in")
+				ui.Next("gh auth login", "log in with the GitHub CLI", "export GITHUB_TOKEN=<token>", "or set a token")
 				return false, nil
 			}
 
 			// Handle rate limit error with helpful message
 			if rateLimitErr, ok := err.(*search.RateLimitError); ok {
-				fmt.Println()
-				ui.Warning("GitHub API rate limit exceeded")
+				ui.Warning("GitHub API rate limit reached")
 				if rateLimitErr.Remaining == "0" {
-					ui.Info("Limit: %s requests/hour", rateLimitErr.Limit)
+					ui.Note(fmt.Sprintf("Limit: %s requests/hour", rateLimitErr.Limit))
 				}
-				fmt.Println()
-				ui.Info("To increase rate limit, set GITHUB_TOKEN:")
-				fmt.Printf("  %sexport GITHUB_TOKEN=ghp_your_token_here%s\n", ui.Dim, ui.Reset)
+				ui.Next("export GITHUB_TOKEN=<token>", "a token raises the limit")
 				return false, nil
 			}
 		}
@@ -250,29 +232,26 @@ func doSearch(query string, limit int, listOnly bool, indexURL string, mode runM
 
 	// No results
 	if len(results) == 0 {
-		spinner.Success("No results")
-		fmt.Println()
 		if query == "" {
-			ui.Info("No skills found")
+			ui.Done(ui.MarkNone, "No skills found", 0)
 		} else {
-			ui.Info("No skills found for '%s'", query)
+			ui.Done(ui.MarkNone, fmt.Sprintf("No skills found for %q", query), 0)
 		}
 		return true, nil // Allow search again
 	}
-
-	spinner.Success(fmt.Sprintf("Found %d skill(s)", len(results)))
 
 	isHub := indexURL != ""
 
 	// List-only mode: show results and exit
 	if listOnly {
-		fmt.Println()
 		printSearchResults(results, isHub)
+		fmt.Println()
+		ui.Done(ui.MarkNone, "Found "+plural(len(results), "skill"), 0)
+		ui.Next("skillshare install <source>", "install one")
 		return false, nil
 	}
 
 	// Interactive mode: show selector
-	fmt.Println()
 	return promptInstallFromSearch(results, isHub, mode, cwd)
 }
 
@@ -313,83 +292,45 @@ func promptNextSearch() (string, bool) {
 }
 
 func printSearchResults(results []search.SearchResult, isHub bool) {
-	// Header
-	if ui.IsTTY() {
-		if isHub {
-			fmt.Printf("  %s#   %-24s %-40s%s\n",
-				ui.Dim, "Name", "Source", ui.Reset)
-			fmt.Printf("  %s─── ──────────────────────── ────────────────────────────────────────%s\n",
-				ui.Dim, ui.Reset)
-		} else {
-			fmt.Printf("  %s#   %-24s %-40s %s%s\n",
-				ui.Dim, "Name", "Source", "Stars", ui.Reset)
-			fmt.Printf("  %s─── ──────────────────────── ──────────────────────────────────────── ─────%s\n",
-				ui.Dim, ui.Reset)
+	names := make([]string, len(results))
+	sources := make([]string, len(results))
+	for i, r := range results {
+		names[i] = truncate(r.Name, 24)
+		// Truncate source if too long
+		sources[i] = shortenPath(r.Source)
+		if len(sources[i]) > 50 {
+			sources[i] = "..." + sources[i][len(sources[i])-47:]
 		}
+	}
+	width := ui.RowWidth(names...)
+	sourceWidth := 0
+	for _, src := range sources {
+		sourceWidth = max(sourceWidth, len(src))
 	}
 
 	for i, r := range results {
-		num := fmt.Sprintf("%d.", i+1)
-
-		// Truncate source if too long
-		source := r.Source
-		if len(source) > 40 {
-			source = "..." + source[len(source)-37:]
-		}
-
-		if ui.IsTTY() {
-			if isHub {
-				riskBadge := formatRiskBadge(r.RiskLabel)
-				fmt.Printf("  %s%-3s%s %-24s %s%s%s%s\n",
-					ui.Cyan, num, ui.Reset,
-					truncate(r.Name, 24),
-					ui.Dim, source, ui.Reset, riskBadge)
+		value := ui.DimText(sources[i])
+		if isHub {
+			if ui.IsTTY() {
+				value += formatRiskBadge(r.RiskLabel)
 			} else {
-				stars := search.FormatStars(r.Stars)
-				fmt.Printf("  %s%-3s%s %-24s %s%-40s%s %s★ %s%s\n",
-					ui.Yellow, num, ui.Reset,
-					truncate(r.Name, 24),
-					ui.Dim, source, ui.Reset,
-					ui.Yellow, stars, ui.Reset)
-			}
-
-			// Show description if available
-			if r.Description != "" {
-				desc := truncate(r.Description, 70)
-				fmt.Printf("      %s%s%s\n", ui.Dim, desc, ui.Reset)
-			}
-			// Show tags if available
-			if len(r.Tags) > 0 {
-				fmt.Printf("      %s", ui.Dim)
-				for j, tag := range r.Tags {
-					if j > 0 {
-						fmt.Print(" ")
-					}
-					fmt.Printf("#%s", tag)
-				}
-				fmt.Printf("%s\n", ui.Reset)
+				value += formatRiskBadgePlain(r.RiskLabel)
 			}
 		} else {
-			// Non-TTY output
-			if isHub {
-				riskBadge := formatRiskBadgePlain(r.RiskLabel)
-				fmt.Printf("  %-3s %-24s %s%s\n",
-					num, truncate(r.Name, 24), source, riskBadge)
-			} else {
-				stars := search.FormatStars(r.Stars)
-				fmt.Printf("  %-3s %-24s %-40s ★ %s\n",
-					num, truncate(r.Name, 24), source, stars)
+			value += strings.Repeat(" ", sourceWidth-len(sources[i])) + "  " + ui.Colorize(ui.Yellow, "★ "+search.FormatStars(r.Stars))
+		}
+		ui.Row(ui.MarkNone, names[i], value, width)
+		// Show description if available
+		if r.Description != "" {
+			ui.Note(strings.Repeat(" ", width+2) + truncate(r.Description, 70))
+		}
+		// Show tags if available
+		if len(r.Tags) > 0 {
+			tags := make([]string, len(r.Tags))
+			for j, tag := range r.Tags {
+				tags[j] = "#" + tag
 			}
-			if r.Description != "" {
-				fmt.Printf("      %s\n", truncate(r.Description, 70))
-			}
-			if len(r.Tags) > 0 {
-				tags := make([]string, len(r.Tags))
-				for j, tag := range r.Tags {
-					tags[j] = "#" + tag
-				}
-				fmt.Printf("      %s\n", strings.Join(tags, " "))
-			}
+			ui.Note(strings.Repeat(" ", width+2) + strings.Join(tags, " "))
 		}
 	}
 }
@@ -412,8 +353,7 @@ func promptInstallFromSearch(results []search.SearchResult, isHub bool, mode run
 // Single selection uses verbose per-skill output; multi-selection uses progress display.
 func batchInstallFromSearch(selected []search.SearchResult, mode runMode, cwd string) error {
 	if len(selected) == 1 {
-		// Single skill: verbose output (StepStart + TreeSpinner + warnings)
-		fmt.Println()
+		// Single skill: spinner, warnings and one result row
 		if mode == modeProject {
 			return installFromSearchResultProject(selected[0], cwd)
 		}
@@ -455,15 +395,13 @@ func installFromSearchResultProject(result search.SearchResult, cwd string) (err
 
 	// Check if already exists
 	if _, err := os.Stat(destPath); err == nil {
-		ui.Warning("Skill '%s' already exists in project", result.Name)
-		ui.Info("Use 'skillshare install %s -p --force' to overwrite", result.Source)
+		ui.StepSkip("Install", result.Name+" "+ui.DimText("already installed"))
+		ui.Next("skillshare install "+result.Source+" -p --force", "replace it")
 		return nil
 	}
 
 	// Install
-	ui.StepStart("Installing", result.Source)
-
-	spinner := ui.StartTreeSpinner("Cloning repository...", true)
+	spinner := ui.StartSpinner(fmt.Sprintf("Installing %s...", result.Source))
 
 	opts := install.InstallOptions{}
 	if result.Skill != "" {
@@ -478,15 +416,13 @@ func installFromSearchResultProject(result search.SearchResult, cwd string) (err
 	}
 
 	installResult, err := install.Install(source, destPath, opts)
+	spinner.Stop()
 	if err != nil {
-		spinner.Fail("Failed to install")
 		logSummary.FailedSkills = []string{result.Name}
-		elapsed := time.Since(start)
-		ui.StepResult("error", fmt.Sprintf("Failed to install %s", result.Name), elapsed)
+		ui.StepFail("Install", result.Name)
 		return err
 	}
 
-	spinner.Success("Cloned")
 	logSummary.SkillCount = 1
 	logSummary.InstalledSkills = []string{result.Name}
 
@@ -507,12 +443,8 @@ func installFromSearchResultProject(result search.SearchResult, cwd string) (err
 		return err
 	}
 
-	elapsed := time.Since(start)
-	ui.StepResult("success", fmt.Sprintf("Installed %s", result.Name), elapsed)
-
-	// Sync hint
-	fmt.Println()
-	ui.Info("Run 'skillshare sync' to distribute to project targets")
+	printInstallRow(result.Name, destPath, false, start)
+	ui.Next("skillshare sync -p", "link it into your targets")
 
 	return nil
 }
@@ -538,15 +470,13 @@ func installFromSearchResult(result search.SearchResult, cfg *config.Config) (er
 
 	// Check if already exists
 	if _, err := os.Stat(destPath); err == nil {
-		ui.Warning("Skill '%s' already exists", result.Name)
-		ui.Info("Use 'skillshare install %s --force' to overwrite", result.Source)
+		ui.StepSkip("Install", result.Name+" "+ui.DimText("already installed"))
+		ui.Next("skillshare install "+result.Source+" --force", "replace it")
 		return nil
 	}
 
 	// Install
-	ui.StepStart("Installing", result.Source)
-
-	spinner := ui.StartTreeSpinner("Cloning repository...", true)
+	spinner := ui.StartSpinner(fmt.Sprintf("Installing %s...", result.Source))
 
 	opts := install.InstallOptions{}
 	if result.Skill != "" {
@@ -561,15 +491,13 @@ func installFromSearchResult(result search.SearchResult, cfg *config.Config) (er
 	}
 
 	installResult, err := install.Install(source, destPath, opts)
+	spinner.Stop()
 	if err != nil {
-		spinner.Fail("Failed to install")
 		logSummary.FailedSkills = []string{result.Name}
-		elapsed := time.Since(start)
-		ui.StepResult("error", fmt.Sprintf("Failed to install %s", result.Name), elapsed)
+		ui.StepFail("Install", result.Name)
 		return err
 	}
 
-	spinner.Success("Cloned")
 	logSummary.SkillCount = 1
 	logSummary.InstalledSkills = []string{result.Name}
 
@@ -587,12 +515,8 @@ func installFromSearchResult(result search.SearchResult, cfg *config.Config) (er
 		ui.Warning("%s", warning)
 	}
 
-	elapsed := time.Since(start)
-	ui.StepResult("success", fmt.Sprintf("Installed %s", result.Name), elapsed)
-
-	// Sync hint
-	fmt.Println()
-	ui.Info("Run 'skillshare sync' to distribute to all targets")
+	printInstallRow(result.Name, destPath, false, start)
+	ui.Next("skillshare sync", "link it into your targets")
 
 	return nil
 }
@@ -630,40 +554,37 @@ func formatRiskBadgePlain(label string) string {
 }
 
 func printSearchHelp() {
-	fmt.Println(`Usage: skillshare search [query] [options]
-
-Search GitHub for skills containing SKILL.md files.
-When no query is provided, browses popular skills.
-
-Options:
-  --project, -p      Install to project-level config (.skillshare/)
-  --global, -g       Install to global config (~/.config/skillshare)
-  --hub [URL]        Search from a hub index (default: skillshare-hub; or custom URL/path)
-  --json             Output results as JSON
-  --list, -l         List results only (no install prompt)
-  --limit N, -n      Maximum results (default: 20, max: 100)
-  --help, -h         Show this help
-
-Examples:
-  skillshare search                   Browse popular skills
-  skillshare search pdf
-  skillshare search "code review"
-  skillshare search commit --limit 10
-  skillshare search frontend --json
-  skillshare search react --list
-  skillshare search pdf -p
-
-  # Hub search (default: skillshare-hub)
-  skillshare search --hub                      Browse skillshare-hub
-  skillshare search react --hub                Search "react" in skillshare-hub
-  skillshare search --hub ./skillshare-hub.json          Custom local index
-  skillshare search react --hub https://internal.corp/skills/index.json
-
-  # Hub search with saved hubs
-  skillshare hub add https://internal.corp/hub.json --label team
-  skillshare search --hub team                       Search using saved hub label
-  skillshare hub default team
-  skillshare search --hub                            Uses default hub`)
+	printHelp("skillshare search [query] [options]", "Search GitHub for skills containing SKILL.md files.\nWhen no query is provided, browses popular skills.",
+		helpGroup{title: "Options", rows: []helpRow{
+			{"-p, --project", "Install to project-level config (.skillshare/)"},
+			{"-g, --global", "Install to global config (~/.config/skillshare)"},
+			{"--hub [URL]", "Search from a hub index (default: skillshare-hub; or custom URL/path)"},
+			{"--json", "Output results as JSON"},
+			{"-l, --list", "List results only (no install prompt)"},
+			{"-n, --limit N", "Maximum results (default: 20, max: 100)"},
+		}},
+		helpExamples(
+			helpRow{"skillshare search", "Browse popular skills"},
+			helpRow{"skillshare search pdf", ""},
+			helpRow{"skillshare search \"code review\"", ""},
+			helpRow{"skillshare search commit --limit 10", ""},
+			helpRow{"skillshare search frontend --json", ""},
+			helpRow{"skillshare search react --list", ""},
+			helpRow{"skillshare search pdf -p", ""},
+		),
+		helpGroup{title: "Hub search (default: skillshare-hub)", examples: true, rows: []helpRow{
+			{"skillshare search --hub", "Browse skillshare-hub"},
+			{"skillshare search react --hub", "Search \"react\" in skillshare-hub"},
+			{"skillshare search --hub ./skillshare-hub.json", "Custom local index"},
+			{"skillshare search react --hub https://internal.corp/skills/index.json", ""},
+		}},
+		helpGroup{title: "Hub search with saved hubs", examples: true, rows: []helpRow{
+			{"skillshare hub add https://internal.corp/hub.json --label team", ""},
+			{"skillshare search --hub team", "Search using saved hub label"},
+			{"skillshare hub default team", ""},
+			{"skillshare search --hub", "Uses default hub"},
+		}},
+	)
 }
 
 // resolveHubURL resolves the --hub flag value to a URL.

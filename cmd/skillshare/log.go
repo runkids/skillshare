@@ -107,7 +107,7 @@ func runLog(args []string, configPath string) error {
 		if err := oplog.Clear(configPath, filename); err != nil {
 			return fmt.Errorf("failed to clear log: %w", err)
 		}
-		ui.Success("%s log cleared", label)
+		ui.Done(ui.MarkOK, label+" log cleared", 0)
 		return nil
 	}
 
@@ -162,14 +162,20 @@ func printLogSection(configPath, filename, label string, limit int, f oplog.Filt
 		mode = "project"
 	}
 
-	subtitle := fmt.Sprintf("%s (last %d)\nmode: %s\nfile: %s", label, len(entries), mode, logPath)
-	ui.HeaderBox("skillshare log", subtitle)
-	if len(entries) == 0 {
-		ui.Info("No %s log entries", strings.ToLower(label))
-		return nil
+	title := ui.Bold + label + ui.Reset
+	if len(entries) > 0 {
+		title += ui.DimText(fmt.Sprintf(" · last %d", len(entries)))
 	}
-
-	printLogEntries(entries)
+	if mode == "project" {
+		title += ui.DimText(" · project")
+	}
+	fmt.Println(title)
+	if len(entries) == 0 {
+		ui.Note(fmt.Sprintf("No %s log entries", strings.ToLower(label)))
+	} else {
+		printLogEntries(entries)
+	}
+	ui.Note(shortenPath(logPath))
 	return nil
 }
 
@@ -206,37 +212,35 @@ func statusFromErr(err error) string {
 }
 
 func printLogHelp() {
-	fmt.Println(`Usage: skillshare log [options]
-
-View operations and audit logs for debugging and compliance.
-
-Options:
-  --audit, -a         Show only audit log
-  --tail, -t <N>      Show last N entries (default: 20)
-  --cmd <name>        Filter by command name (e.g. sync, install, audit)
-  --status <status>   Filter by status (ok, error, partial, blocked)
-  --since <dur|date>  Filter by time (e.g. 30m, 2h, 2d, 1w, 2006-01-02)
-  --json              Output raw JSONL (one JSON object per line)
-  --stats             Show aggregated statistics summary
-  --no-tui            Disable interactive TUI, print plain text
-  --clear, -c         Clear the selected log file
-  --project, -p       Use project-level log
-  --global, -g        Use global log
-  --help, -h          Show this help
-
-Examples:
-  skillshare log                    Show operations and audit logs
-  skillshare log --audit            Show only audit log
-  skillshare log --tail 50          Show last 50 entries per section
-  skillshare log --cmd sync         Show only sync entries
-  skillshare log --status error     Show only errors
-  skillshare log --since 2d         Show entries from last 2 days
-  skillshare log --json             Output as JSONL
-  skillshare log --json --cmd sync  JSONL filtered by command
-  skillshare log --clear            Clear operations log
-  skillshare log --clear --audit    Clear audit log
-  skillshare log --stats             Show aggregated statistics
-  skillshare log -p                 Show project operations and audit logs`)
+	printHelp("skillshare log [options]", "View operations and audit logs for debugging and compliance.",
+		helpGroup{title: "Options", rows: []helpRow{
+			{"-a, --audit", "Show only audit log"},
+			{"-t, --tail <N>", "Show last N entries (default: 20)"},
+			{"--cmd <name>", "Filter by command name (e.g. sync, install, audit)"},
+			{"--status <status>", "Filter by status (ok, error, partial, blocked)"},
+			{"--since <dur|date>", "Filter by time (e.g. 30m, 2h, 2d, 1w, 2006-01-02)"},
+			{"--json", "Output raw JSONL (one JSON object per line)"},
+			{"--stats", "Show aggregated statistics summary"},
+			{"--no-tui", "Disable interactive TUI, print plain text"},
+			{"-c, --clear", "Clear the selected log file"},
+			{"-p, --project", "Use project-level log"},
+			{"-g, --global", "Use global log"},
+		}},
+		helpExamples(
+			helpRow{"skillshare log", "Show operations and audit logs"},
+			helpRow{"skillshare log --audit", "Show only audit log"},
+			helpRow{"skillshare log --tail 50", "Show last 50 entries per section"},
+			helpRow{"skillshare log --cmd sync", "Show only sync entries"},
+			helpRow{"skillshare log --status error", "Show only errors"},
+			helpRow{"skillshare log --since 2d", "Show entries from last 2 days"},
+			helpRow{"skillshare log --json", "Output as JSONL"},
+			helpRow{"skillshare log --json --cmd sync", "JSONL filtered by command"},
+			helpRow{"skillshare log --clear", "Clear operations log"},
+			helpRow{"skillshare log --clear --audit", "Clear audit log"},
+			helpRow{"skillshare log --stats", "Show aggregated statistics"},
+			helpRow{"skillshare log -p", "Show project operations and audit logs"},
+		),
+	)
 }
 
 func runLogStats(configPath string, auditOnly bool, f oplog.Filter) error {

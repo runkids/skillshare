@@ -101,13 +101,14 @@ func cmdToggleSkill(args []string, enable bool) error {
 		ignoreLabel = ".agentignore"
 	}
 
+	width := ui.RowWidth(patterns...)
 	changed := false
 	for _, pattern := range patterns {
 		if dryRun {
 			if enable {
-				ui.Info("Would remove %q from %s", pattern, ignorePath)
+				ui.Row(ui.MarkNone, pattern, "would be removed from "+shortenPath(ignorePath), width)
 			} else {
-				ui.Info("Would add %q to %s", pattern, ignorePath)
+				ui.Row(ui.MarkNone, pattern, "would be added to "+shortenPath(ignorePath), width)
 			}
 			continue
 		}
@@ -118,27 +119,31 @@ func cmdToggleSkill(args []string, enable bool) error {
 				return fmt.Errorf("failed to update %s: %w", ignoreLabel, err)
 			}
 			if !removed {
-				ui.Warning("%s is not disabled", pattern)
+				ui.Row(ui.MarkWarn, pattern, "not disabled", width)
 				continue
 			}
 			changed = true
-			ui.Success("Enabled: %s (removed from %s)", pattern, ignoreLabel)
+			ui.Row(ui.MarkOK, pattern, "removed from "+ignoreLabel, width)
 		} else {
 			added, err := skillignore.AddPattern(ignorePath, pattern)
 			if err != nil {
 				return fmt.Errorf("failed to update %s: %w", ignoreLabel, err)
 			}
 			if !added {
-				ui.Warning("%s is already disabled", pattern)
+				ui.Row(ui.MarkWarn, pattern, "already disabled", width)
 				continue
 			}
 			changed = true
-			ui.Success("Disabled: %s (added to %s)", pattern, ignoreLabel)
+			ui.Row(ui.MarkOK, pattern, "added to "+ignoreLabel, width)
 		}
 	}
 
+	if dryRun {
+		fmt.Println()
+		ui.DryRun()
+	}
 	if !dryRun && changed {
-		ui.Info("Run \"skillshare sync\" to apply changes.")
+		ui.Next("skillshare sync", "apply the change")
 
 		e := oplog.NewEntry(action, "ok", time.Since(start))
 		e.Args = map[string]any{
@@ -156,19 +161,16 @@ func printToggleHelp(action string) {
 	if action == "enable" {
 		opposite = "disable"
 	}
-	fmt.Printf(`Usage: skillshare %s <name|pattern> [flags]
-
-%s skills by adding/removing patterns from .skillignore.
-
-Arguments:
-  <name|pattern>  Skill name or glob pattern (e.g. "my-skill", "draft-*")
-
-Flags:
-  -p, --project   Use project-mode .skillignore
-  -g, --global    Use global-mode .skillignore
-  -n, --dry-run   Preview changes without writing
-  -h, --help      Show this help
-
-See also: skillshare %s
-`, action, strings.ToUpper(action[:1])+action[1:], opposite)
+	printHelp("skillshare "+action+" <name|pattern> [options]",
+		strings.ToUpper(action[:1])+action[1:]+" skills by adding/removing patterns from .skillignore.",
+		helpGroup{title: "Arguments", rows: []helpRow{
+			{"<name|pattern>", "Skill name or glob pattern (e.g. \"my-skill\", \"draft-*\")"},
+		}},
+		helpGroup{title: "Options", rows: []helpRow{
+			{"-p, --project", "Use project-mode .skillignore"},
+			{"-g, --global", "Use global-mode .skillignore"},
+			{"-n, --dry-run", "Preview changes without writing"},
+		}},
+		helpNotes("See also", "skillshare "+opposite),
+	)
 }

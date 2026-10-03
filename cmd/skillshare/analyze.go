@@ -167,33 +167,27 @@ func cmdAnalyze(args []string) error {
 }
 
 func printAnalyzeHelp() {
-	fmt.Println(`Usage: skillshare analyze [target] [options]
-
-Analyze context window usage for each target's skills.
-
-Shows two layers of context cost:
-  - Always loaded: frontmatter name + description (loaded every request)
-  - On-demand: skill body (loaded only when triggered)
-
-Arguments:
-  target              Show details for a single target (optional)
-
-Options:
-  --verbose, -v       Show top 10 largest descriptions per target
-  --project, -p       Analyze project-level skills (.skillshare/)
-  --global, -g        Analyze global skills (~/.config/skillshare)
-  --json              Output results as JSON
-  --filter <text>     Filter skills by name/path (case-insensitive substring)
-  --no-tui            Disable interactive TUI
-  --help, -h          Show this help
-
-Examples:
-  skillshare analyze               # Summary table for all targets
-  skillshare analyze --verbose     # Top 10 descriptions per target
-  skillshare analyze claude        # Details for claude target
-  skillshare analyze --json        # JSON output
-  skillshare analyze --filter api  # Show only skills matching "api"
-  skillshare analyze -p            # Project mode`)
+	printHelp("skillshare analyze [target] [options]", "Analyze context window usage for each target's skills.\n\nShows two layers of context cost:\n  - Always loaded: frontmatter name + description (loaded every request)\n  - On-demand: skill body (loaded only when triggered)",
+		helpGroup{title: "Arguments", rows: []helpRow{
+			{"target", "Show details for a single target (optional)"},
+		}},
+		helpGroup{title: "Options", rows: []helpRow{
+			{"-v, --verbose", "Show top 10 largest descriptions per target"},
+			{"-p, --project", "Analyze project-level skills (.skillshare/)"},
+			{"-g, --global", "Analyze global skills (~/.config/skillshare)"},
+			{"--json", "Output results as JSON"},
+			{"--filter <text>", "Filter skills by name/path (case-insensitive substring)"},
+			{"--no-tui", "Disable interactive TUI"},
+		}},
+		helpExamples(
+			helpRow{"skillshare analyze", "Summary table for all targets"},
+			helpRow{"skillshare analyze --verbose", "Top 10 descriptions per target"},
+			helpRow{"skillshare analyze claude", "Details for claude target"},
+			helpRow{"skillshare analyze --json", "JSON output"},
+			helpRow{"skillshare analyze --filter api", "Show only skills matching \"api\""},
+			helpRow{"skillshare analyze -p", "Project mode"},
+		),
+	)
 }
 
 // runAnalyze runs the analyze command in global mode.
@@ -238,16 +232,17 @@ func runAnalyzeCore(sourcePath string, targets map[string]config.TargetConfig, d
 
 	if len(discovered) == 0 {
 		if sp != nil {
-			sp.Success("No skills found")
+			sp.Stop()
 		}
 		if opts.json {
 			return writeJSON(&analyzeOutput{})
 		}
+		ui.Done(ui.MarkNone, "No skills to analyze", 0)
 		return nil
 	}
 
 	if sp != nil {
-		sp.Success(fmt.Sprintf("Analyzed %d skill(s)", len(discovered)))
+		sp.Stop()
 	}
 
 	entries, err := buildAnalyzeEntries(discovered, targets, defaultMode, sourcePath, opts.targetName)
@@ -285,11 +280,16 @@ func runAnalyzeCore(sourcePath string, targets map[string]config.TargetConfig, d
 		}
 	}
 
-	if opts.verbose {
-		printAnalyzeVerbose(entries)
-	} else {
-		printAnalyzeTable(entries)
+	if len(entries) == 0 {
+		if len(targets) == 0 {
+			ui.Done(ui.MarkNone, "No targets configured", 0)
+			ui.Next("skillshare target add <name> <path>", "add one")
+		} else {
+			ui.Done(ui.MarkNone, "No skills reach any target", 0)
+		}
+		return nil
 	}
+	printAnalyze(entries, opts.verbose)
 
 	if violations := checkBudget(entries, budget); len(violations) > 0 {
 		fmt.Println()
@@ -403,69 +403,56 @@ func allTargetsIdentical(entries []analyzeTargetEntry) bool {
 	return true
 }
 
-func colorTargetNames(entries []analyzeTargetEntry) string {
-	names := make([]string, len(entries))
-	for i, e := range entries {
-		names[i] = ui.Yellow + e.Name + ui.Reset
-	}
-	return strings.Join(names, ", ")
-}
-
-func printAnalyzeHeader(entries []analyzeTargetEntry) {
-	if allTargetsIdentical(entries) {
-		e := entries[0]
-		ui.Info("%d skills across %d targets (%s)", e.SkillCount, len(entries), colorTargetNames(entries))
-	}
-}
-
-func printAnalyzeEntry(e analyzeTargetEntry, showTopN bool) {
-	fmt.Printf("  Always loaded:  %s tokens\n", formatTokensStr(e.AlwaysLoaded.EstimatedTokens))
-	fmt.Printf("  On-demand max:  %s tokens\n", formatTokensStr(e.OnDemandMax.EstimatedTokens))
-	if !showTopN {
+// printAnalyzeSection prints one target, or several with identical
+// numbers, as a section: token rows and, when showTopN is set, the
+// largest descriptions.
+func printAnalyzeSection(names []string, e analyzeTargetEntry, showTopN, first bool) {
+	if !first {
 		fmt.Println()
+	}
+	title := ui.Bold + strings.Join(names, ", ") + ui.Reset + ui.DimText(" · "+plural(e.SkillCount, "skill"))
+	if ui.ModeLabel == "project" {
+		title += ui.DimText(" · project")
+	}
+	fmt.Println(title)
+	width := ui.RowWidth("Always loaded", "On-demand max")
+	ui.Row(ui.MarkNone, "Always loaded", formatTokensStr(e.AlwaysLoaded.EstimatedTokens)+" tokens", width)
+	ui.Row(ui.MarkNone, "On-demand max", formatTokensStr(e.OnDemandMax.EstimatedTokens)+" tokens", width)
+	if !showTopN || len(e.Skills) == 0 {
 		return
 	}
-	fmt.Println()
-	fmt.Println("  Largest descriptions:")
 	limit := min(analyzeTopN, len(e.Skills))
-	for _, s := range e.Skills[:limit] {
-		fmt.Printf("  %-32s %s tokens\n",
-			truncateName(s.Name, analyzeNameMaxLen),
-			formatTokensStr(s.DescriptionTokens),
-		)
+	labels := make([]string, limit)
+	for i, s := range e.Skills[:limit] {
+		labels[i] = "  " + truncateName(s.Name, analyzeNameMaxLen)
+	}
+	fmt.Println()
+	fmt.Println("  " + ui.DimText("Largest descriptions"))
+	nameWidth := ui.RowWidth(labels...)
+	for i, s := range e.Skills[:limit] {
+		ui.Row(ui.MarkNone, labels[i], formatTokensStr(s.DescriptionTokens)+" tokens", nameWidth)
 	}
 	if remaining := len(e.Skills) - limit; remaining > 0 {
-		fmt.Printf("  ... %d more\n", remaining)
+		ui.Note("  … " + plural(remaining, "more skill"))
 	}
-	fmt.Println()
 }
 
-func printAnalyzeTable(entries []analyzeTargetEntry) {
-	ui.Header(ui.WithModeLabel("Context Analysis"))
-
+// printAnalyze prints every target, folding targets with identical numbers
+// into one section.
+func printAnalyze(entries []analyzeTargetEntry, verbose bool) {
 	if allTargetsIdentical(entries) {
-		printAnalyzeHeader(entries)
-		printAnalyzeEntry(entries[0], false)
+		names := make([]string, len(entries))
+		for i, e := range entries {
+			names[i] = e.Name
+		}
+		printAnalyzeSection(names, entries[0], verbose, true)
 	} else {
-		for _, e := range entries {
-			ui.Info("%s%s%s (%d skills)", ui.Yellow, e.Name, ui.Reset, e.SkillCount)
-			printAnalyzeEntry(e, false)
+		for i, e := range entries {
+			printAnalyzeSection([]string{e.Name}, e, verbose, i == 0)
 		}
 	}
-
-	fmt.Printf("%sUse --verbose to see top %d largest skill descriptions.%s\n", ui.Dim, analyzeTopN, ui.Reset)
-}
-
-func printAnalyzeVerbose(entries []analyzeTargetEntry) {
-	ui.Header(ui.WithModeLabel("Context Analysis"))
-
-	if allTargetsIdentical(entries) {
-		printAnalyzeHeader(entries)
-		printAnalyzeEntry(entries[0], true)
-	} else {
-		for _, e := range entries {
-			ui.Info("%s%s%s (%d skills)", ui.Yellow, e.Name, ui.Reset, e.SkillCount)
-			printAnalyzeEntry(e, true)
-		}
+	if !verbose {
+		fmt.Println()
+		ui.Note(fmt.Sprintf("Add -v for the %d largest descriptions", analyzeTopN))
 	}
 }

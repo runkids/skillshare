@@ -17,34 +17,27 @@ skillshare diff --patch      # 完整的统一 diff
 ```text
 skillshare diff --no-tui
 
-Summary: 6 targets — 6 need sync
-
 claude, claude-work, gemini, opencode, universal
-─────────────────────────────────────────
-  1 new
-  + New 1 skill:
-      remotion-captions
+  New       remotion-captions
 
 cursor
-─────────────────────────────────────────
-  1 local only, 1 new
-  ← Local Only 1 skill:
-      cursor-shortcuts
-  + New 1 skill:
-      remotion-captions
-
-→ Run 'skillshare sync' to apply changes
-→ Run 'skillshare collect' to import local skills to source
+  Local only  cursor-shortcuts
+  New         remotion-captions
 
 Extras
-─────────────────────────────────────────
-✓   rules → ~/.claude/rules: synced (merge)
-✓   rules → ~/.cursor/rules: synced (merge)
-✓   commands → ~/.claude/commands: synced (merge)
-✓   team → ~/.codex: synced (symlink)
-✓   team → ~/.claude: synced (import)
-✓   team → ~/.gemini: synced (copy)
-✓   team → ~/notes: synced (symlink)
+✓ commands  ~/.claude/commands · in sync
+✓ rules     ~/.claude/rules · in sync
+✓ rules     ~/.cursor/rules · in sync
+✓ team      ~/.codex · in sync
+✓ team      ~/.claude · in sync
+✓ team      ~/.gemini · in sync
+✓ team      ~/notes · in sync
+
+! 6 targets: 6 to sync
+
+Next
+  skillshare sync     apply the changes
+  skillshare collect  copy local-only skills into source
 ```
 
 ## 交互式 TUI
@@ -69,17 +62,18 @@ Extras
 
 ```
 claude
-  + New 2 skills:
-      missing-skill
-      another-skill
-  ! Local Override 1 skill:
-      local-copy
-  ← Local Only 1 skill:
-      my-local-skill
+  Local override  local-copy
+  Local only      my-local-skill
+  New             another-skill, missing-skill
 
-  2 new, 1 local override, 1 local only
+✓ cursor    in sync
 
-cursor: fully synced
+! 2 targets: 1 to sync, 1 in sync
+
+Next
+  skillshare sync          apply the changes
+  skillshare sync --force  also replace local copies
+  skillshare collect       copy local-only skills into source
 ```
 
 ### 分组显示多个 Target 的结果
@@ -87,30 +81,27 @@ cursor: fully synced
 当多个 Target 的 diff 结果完全相同时，会被归并到同一个区块中以减少噪音：
 
 ```
-claude, agents
-  + New 2 skills:
-      skill-1
-      skill-2
+agents, claude
+  New       skill-1, skill-2
 
 cursor
-  + New 1 skill:
-      skill-1
+  New       skill-1
 
-codex, copilot: fully synced
+✓ codex, copilot  in sync
 ```
 
 结果不同的 Target（例如由于 `include`/`exclude` filters）仍会分开显示。
 
-## 符号说明
+## 标签说明
 
-| Symbol | Label | Meaning | Action |
-|--------|-------|---------|--------|
-| `+` | New | 存在于 Source，但 Target 中缺失 | `sync` 会添加它 |
-| `+` | Restore | 曾存在于 Target 中，已被删除 | `sync` 会恢复它 |
-| `~` | Modified | 内容已更改（copy mode） | `sync` 会更新它 |
-| `!` | Local Override | 本地副本而非 symlink | 使用 `sync --force` 替换 |
-| `-` | Orphan | 存在于 manifest 中，但不在 Source 中 | `sync` 会清理它 |
-| `←` | Local Only | 仅存在于 Target 中，不在 Source 中 | 使用 `collect` 导入 |
+| Label | Meaning | Action |
+|-------|---------|--------|
+| New | 存在于 Source，但 Target 中缺失 | `sync` 会添加它 |
+| Restore | 曾存在于 Target 中，已被删除 | `sync` 会恢复它 |
+| Modified | 内容已更改（copy mode） | `sync` 会更新它 |
+| Local override | 本地副本而非 symlink | 使用 `sync --force` 替换 |
+| Orphan | 存在于 manifest 中，但不在 Source 中 | `sync` 会清理它 |
+| Local only | 仅存在于 Target 中，不在 Source 中 | 使用 `collect` 导入 |
 
 ## 文件级详情
 
@@ -124,11 +115,10 @@ skillshare diff --stat
 
 ```
 claude
-  ~ Modified 1 skill:
-      my-skill
-        + new-file.md
-        ~ SKILL.md
-        - old-file.md
+  Modified  my-skill
+            + new-file.md (120 bytes)
+            ~ SKILL.md (840 → 912 bytes)
+            - old-file.md (64 bytes)
 ```
 
 ### `--patch`
@@ -141,11 +131,11 @@ skillshare diff --patch
 
 ```
 claude
-  ~ Modified 1 skill:
-      my-skill
-        --- SKILL.md
-        - old line
-        + new line
+  Modified  my-skill
+            ~ SKILL.md (840 → 912 bytes)
+            --- SKILL.md
+            - old line
+            + new line
 ```
 
 `--stat` 和 `--patch` 都隐含 `--no-tui`（纯文本输出）。
@@ -171,7 +161,7 @@ claude
 
 对于使用 symlink mode 的 Target：
 - 仅检查 symlink 是否指向正确的 Source
-- 显示 "Fully synced"，或对错误的 symlink 发出警告
+- 显示 "in sync"，或对错误的 symlink 发出警告
 
 ## 使用案例
 
@@ -191,7 +181,7 @@ skillshare sync
 
 ```bash
 skillshare diff claude
-# 显示：← Local Only 1 skill: my-local-skill
+# 显示：Local only  my-local-skill
 
 skillshare collect claude  # 导入到 Source
 ```

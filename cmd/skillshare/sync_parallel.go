@@ -11,6 +11,7 @@ import (
 
 	"skillshare/internal/config"
 	"skillshare/internal/sync"
+	"skillshare/internal/theme"
 	"skillshare/internal/ui"
 )
 
@@ -51,7 +52,7 @@ func newSyncProgress(names []string) *syncProgress {
 		names:   names,
 		states:  make([]string, len(names)),
 		details: make([]string, len(names)),
-		frames:  []string{"⣾", "⣽", "⣻", "⢿", "⡿", "⣟", "⣯", "⣷"},
+		frames:  []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"},
 		isTTY:   ui.IsTTY(),
 	}
 	for i := range sp.states {
@@ -91,18 +92,13 @@ func (sp *syncProgress) render() {
 		var line string
 		switch sp.states[i] {
 		case "queued":
-			line = fmt.Sprintf("  %s  %s", ui.DimText(name), ui.DimText("queued"))
+			line = "  " + theme.Dim().Render(name)
 		case "syncing":
-			spin := pterm.Cyan(sp.frames[sp.frame])
-			detail := sp.details[i]
-			if detail == "" {
-				detail = "syncing..."
-			}
-			line = fmt.Sprintf("  %s %s  %s", spin, pterm.Cyan(name), ui.DimText(detail))
+			line = fmt.Sprintf("%s %s  %s", theme.Accent().Render(sp.frames[sp.frame]), name, theme.Dim().Render(sp.details[i]))
 		case "done":
-			line = fmt.Sprintf("  %s %s  %s", pterm.Green("✓"), name, ui.DimText(sp.details[i]))
+			line = fmt.Sprintf("%s %s  %s", theme.Success().Render(ui.MarkOK), name, theme.Dim().Render(sp.details[i]))
 		case "error":
-			line = fmt.Sprintf("  %s %s  %s", pterm.Red("✗"), name, ui.DimText(sp.details[i]))
+			line = fmt.Sprintf("%s %s  %s", theme.Danger().Render(ui.MarkFail), name, theme.Dim().Render(sp.details[i]))
 		}
 		lines = append(lines, line)
 	}
@@ -115,12 +111,9 @@ func (sp *syncProgress) startTarget(name string) {
 	for i, n := range sp.names {
 		if n == name {
 			sp.states[i] = "syncing"
-			sp.details[i] = "syncing..."
+			sp.details[i] = "syncing"
 			break
 		}
-	}
-	if !sp.isTTY {
-		fmt.Printf("  %s: syncing...\n", name)
 	}
 }
 
@@ -150,14 +143,6 @@ func (sp *syncProgress) doneTarget(name string, r syncTargetResult) {
 			sp.details[i] = r.message
 		}
 		break
-	}
-	if !sp.isTTY {
-		for i, n := range sp.names {
-			if n == name {
-				fmt.Printf("  %s: %s\n", name, sp.details[i])
-				break
-			}
-		}
 	}
 }
 
@@ -191,7 +176,7 @@ func collectSyncResult(name string, target config.TargetConfig, source, mode str
 	}
 	if !sc.IsEnabled() {
 		r.skillsOff = true
-		r.message = "skills off (not synced)"
+		r.message = "skills off"
 		r.include, r.exclude = nil, nil
 		return r
 	}
@@ -230,14 +215,9 @@ func collectMergeSyncResult(r *syncTargetResult, run sync.SkillTargetResult, dry
 	removedCount := len(run.Pruned)
 	r.stats = syncModeStats{linked: linkedCount, local: skippedCount, updated: updatedCount, pruned: removedCount}
 
-	if linkedCount > 0 || updatedCount > 0 || removedCount > 0 {
-		r.message = fmt.Sprintf("merged (%d linked, %d local, %d updated, %d pruned)",
-			linkedCount, skippedCount, updatedCount, removedCount)
-	} else if skippedCount > 0 {
-		r.message = fmt.Sprintf("merged (%d local skills preserved)", skippedCount)
-	} else {
-		r.message = "merged (no skills)"
-	}
+	r.message = syncCounts("no skills",
+		countPart{linkedCount, "linked"}, countPart{skippedCount, "local"},
+		countPart{updatedCount, "updated"}, countPart{removedCount, "pruned"})
 
 	r.infos = append(r.infos, dirCreatedInfos(run.DirCreated, dryRun)...)
 	r.warnings = append(r.warnings, run.Warnings...)
@@ -250,17 +230,35 @@ func collectCopySyncResult(r *syncTargetResult, run sync.SkillTargetResult, dryR
 	removedCount := len(run.Pruned)
 	r.stats = syncModeStats{linked: copiedCount, local: skippedCount, updated: updatedCount, pruned: removedCount}
 
-	if copiedCount > 0 || updatedCount > 0 || removedCount > 0 {
-		r.message = fmt.Sprintf("copied (%d new, %d skipped, %d updated, %d pruned)",
-			copiedCount, skippedCount, updatedCount, removedCount)
-	} else if skippedCount > 0 {
-		r.message = fmt.Sprintf("copied (%d skipped, up to date)", skippedCount)
-	} else {
-		r.message = "copied (no skills)"
-	}
+	r.message = syncCounts("no skills",
+		countPart{copiedCount, "copied"}, countPart{skippedCount, "up to date"},
+		countPart{updatedCount, "updated"}, countPart{removedCount, "pruned"})
 
 	r.infos = append(r.infos, dirCreatedInfos(run.DirCreated, dryRun)...)
 	r.warnings = append(r.warnings, run.Warnings...)
+}
+
+type countPart struct {
+	n     int
+	label string
+}
+
+// syncCounts describes a target's result by its non-zero counts, the first
+// in full and the rest dimmed: "4 linked · 1 pruned". With no counts it is empty.
+func syncCounts(empty string, parts ...countPart) string {
+	var out []string
+	for _, p := range parts {
+		if p.n > 0 {
+			out = append(out, fmt.Sprintf("%d %s", p.n, p.label))
+		}
+	}
+	if len(out) == 0 {
+		return empty
+	}
+	if len(out) == 1 {
+		return out[0]
+	}
+	return out[0] + " " + theme.Dim().Render("· "+strings.Join(out[1:], " · "))
 }
 
 // dirCreatedInfos notes a target directory the sync created or would create.
@@ -294,31 +292,35 @@ func collectSymlinkSyncResult(r *syncTargetResult, run sync.SkillTargetResult, p
 	}
 }
 
-// renderSyncResults renders all collected sync target results after parallel execution.
+// renderSyncResults prints one row per target, with its filters, warnings
+// and notes under it.
 func renderSyncResults(results []syncTargetResult) {
+	names := make([]string, len(results))
+	for i, r := range results {
+		names[i] = r.name
+	}
+	width := ui.RowWidth(names...)
 	for _, r := range results {
-		if r.errMsg != "" {
-			ui.Error("%s: %s", r.name, r.errMsg)
+		switch {
+		case r.errMsg != "":
+			ui.Row(ui.MarkFail, r.name, r.errMsg, width)
+			continue
+		case r.skillsOff:
+			ui.Row(ui.MarkNone, r.name, theme.Dim().Render(r.message), width)
 			continue
 		}
-
-		if r.skillsOff {
-			ui.Info("%s: %s", r.name, r.message)
-			continue
-		}
-		ui.Success("%s: %s", r.name, r.message)
-
+		ui.Row(ui.MarkOK, r.name, r.message, width)
 		if len(r.include) > 0 {
-			ui.Info("  include: %s", strings.Join(r.include, ", "))
+			ui.Note("include: " + strings.Join(r.include, ", "))
 		}
 		if len(r.exclude) > 0 {
-			ui.Info("  exclude: %s", strings.Join(r.exclude, ", "))
+			ui.Note("exclude: " + strings.Join(r.exclude, ", "))
 		}
 		for _, warn := range r.warnings {
-			ui.Warning("  %s", warn)
+			fmt.Printf("  %s %s\n", theme.Warning().Render(ui.MarkWarn), warn)
 		}
 		for _, info := range r.infos {
-			ui.Info("  %s", info)
+			ui.Note(info)
 		}
 	}
 }

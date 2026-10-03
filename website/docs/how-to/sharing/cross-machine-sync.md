@@ -79,20 +79,25 @@ This works even after initial setup — it just adds the remote.
 
 ## Second Machine Setup
 
-On a new machine, **the same command works**:
+Run `skillshare init`, choose **Connect my existing skillshare repo**, and paste the repo URL:
+
+<p>
+  <img src="/img/init-connect-demo.png" alt="skillshare init connecting to an existing repo" width="720" />
+</p>
+
+Or pass the URL directly:
 
 ```bash
 skillshare init --remote git@github.com:you/my-skills.git
 ```
 
-Init automatically detects that the remote has existing skills and pulls them down. No manual `git clone` needed.
+Init checks the repo before writing anything, then pulls it down. No manual `git clone` needed.
 
 :::info What happens behind the scenes
-1. Creates source directory and initializes git
-2. Adds remote and runs `git fetch`
-3. Detects remote has skills → resets local to match remote
-4. Sets up tracking branch
-5. Auto-detects and configures local targets
+1. Clones the repo into a temporary folder to count its skills and detect its layout: a whole-folder repo pushed with `--git-root root`, or skills in a `skills/` folder
+2. Skills on this machine with the same name as one in the repo use the repo version; skills only on this machine are kept and added on the next `skillshare push`
+3. After you confirm: creates the source, initializes git, adds the remote, resets to the remote branch, and sets up tracking
+4. Configures the detected local targets and offers a first sync
 :::
 
 If you prefer manual control:

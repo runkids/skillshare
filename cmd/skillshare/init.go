@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bufio"
 	"context"
 	"errors"
 	"fmt"
@@ -17,6 +16,7 @@ import (
 	"skillshare/internal/install"
 	"skillshare/internal/oplog"
 	ssync "skillshare/internal/sync"
+	"skillshare/internal/theme"
 	"skillshare/internal/ui"
 	"skillshare/internal/utils"
 
@@ -54,37 +54,35 @@ type initOptions struct {
 var errHelp = fmt.Errorf("help requested")
 
 func printInitUsage() {
-	fmt.Println("Usage: skillshare init [flags]")
-	fmt.Println()
-	fmt.Println("Initialize skillshare — detect AI CLI tools, create config, and set up skill syncing.")
-	fmt.Println()
-	fmt.Println("FLAGS")
-	fmt.Println("  --source, -s <path>       Set source directory (default: ~/.config/skillshare/skills)")
-	fmt.Println("  --remote <url>            Set git remote for cross-machine sync (implies --git)")
-	fmt.Println("  -p, --project             Initialize project-level config in current directory")
-	fmt.Println("  --copy-from, -c <name>    Copy existing skills from a detected CLI directory")
-	fmt.Println("  --no-copy                 Start with empty source (skip copy prompt)")
-	fmt.Println("  --targets, -t <list>      Comma-separated target names to add")
-	fmt.Println("  --all-targets             Add all detected targets")
-	fmt.Println("  --no-targets              Skip target setup")
-	fmt.Println("  --mode, -m <mode>         Set sync mode (merge, copy, symlink; default: merge).")
-	fmt.Println("                            With --discover, applies only to newly added targets")
-	fmt.Println("  --git                     Initialize git in source (default: prompt)")
-	fmt.Println("  --no-git                  Skip git initialization")
-	fmt.Println("  --git-root <scope>        Git scope: skills (default), agents, extras, or root")
-	fmt.Println("  --skill                   Install built-in skillshare skill")
-	fmt.Println("  --no-skill                Skip built-in skill installation")
-	fmt.Println("  --discover, -d            Detect and add new AI CLI agents to existing config")
-	fmt.Println("  --select <list>           Select specific agents to add (requires --discover)")
-	fmt.Println("  --subdir <name>           Use a subdirectory as the source (e.g. skills/)")
-	fmt.Println("  --dry-run, -n             Preview without making changes")
-	fmt.Println()
-	fmt.Println("EXAMPLES")
-	fmt.Println("  skillshare init                                    # Interactive setup")
-	fmt.Println("  skillshare init --remote git@github.com:u/skills   # With cross-machine sync")
-	fmt.Println("  skillshare init --no-copy --git --no-skill         # Non-interactive, minimal")
-	fmt.Println("  skillshare init --discover                         # Add newly installed AI tools")
-	fmt.Println("  skillshare init -p                                 # Project-level init")
+	printHelp("skillshare init [options]", "Initialize skillshare — detect AI CLI tools, create config, and set up skill syncing.",
+		helpGroup{title: "Options", rows: []helpRow{
+			{"-s, --source <path>", "Set source directory (default: ~/.config/skillshare/skills)"},
+			{"--remote <url>", "Set git remote for cross-machine sync (implies --git)"},
+			{"-p, --project", "Initialize project-level config in current directory"},
+			{"-c, --copy-from <name>", "Copy existing skills from a detected CLI directory"},
+			{"--no-copy", "Start with empty source (skip copy prompt)"},
+			{"-t, --targets <list>", "Comma-separated target names to add"},
+			{"--all-targets", "Add all detected targets"},
+			{"--no-targets", "Skip target setup"},
+			{"-m, --mode <mode>", "Set sync mode (merge, copy, symlink; default: merge).\nWith --discover, applies only to newly added targets"},
+			{"--git", "Initialize git in source (default: prompt)"},
+			{"--no-git", "Skip git initialization"},
+			{"--git-root <scope>", "Git scope: skills (default), agents, extras, or root"},
+			{"--skill", "Install built-in skillshare skill"},
+			{"--no-skill", "Skip built-in skill installation"},
+			{"-d, --discover", "Detect and add new AI CLI agents to existing config"},
+			{"--select <list>", "Select specific agents to add (requires --discover)"},
+			{"--subdir <name>", "Use a subdirectory as the source (e.g. skills/)"},
+			{"-n, --dry-run", "Preview without making changes"},
+		}},
+		helpExamples(
+			helpRow{"skillshare init", "Interactive setup"},
+			helpRow{"skillshare init --remote git@github.com:u/skills", "With cross-machine sync"},
+			helpRow{"skillshare init --no-copy --git --no-skill", "Non-interactive, minimal"},
+			helpRow{"skillshare init --discover", "Add newly installed AI tools"},
+			helpRow{"skillshare init -p", "Project-level init"},
+		),
+	)
 }
 
 func parseInitArgs(args []string) (*initOptions, error) {
@@ -246,73 +244,6 @@ func runningInInteractiveTTY() bool {
 	return term.IsTerminal(int(os.Stdin.Fd())) && term.IsTerminal(int(os.Stdout.Fd()))
 }
 
-func hasGitRepo(sourcePath string) bool {
-	_, err := os.Stat(filepath.Join(sourcePath, ".git"))
-	return err == nil
-}
-
-func hasBuiltinSkill(sourcePath string) bool {
-	_, err := os.Stat(filepath.Join(sourcePath, "skillshare", "SKILL.md"))
-	return err == nil
-}
-
-func shouldPromptInitMode(opts *initOptions, sourcePath string, withSkills, detected []detectedDir) bool {
-	if opts.mode != "" || !runningInInteractiveTTY() {
-		return false
-	}
-
-	willPromptCopy := !opts.noCopy && opts.copyFrom == "" && len(withSkills) > 0
-	willPromptTargets := !opts.noTargets && !opts.allTargets && opts.targetsArg == "" && len(detected) > 0
-	willPromptGit := !opts.noGit && !opts.initGit && !hasGitRepo(sourcePath)
-	willPromptSkill := !opts.noSkill && !opts.initSkill && !hasBuiltinSkill(sourcePath)
-
-	return willPromptCopy || willPromptTargets || willPromptGit || willPromptSkill
-}
-
-func promptSyncModeSelection() string {
-	ui.Header("Sync mode preference")
-
-	type modeOption struct {
-		name string
-		desc string
-	}
-	modes := []modeOption{
-		{"merge", "per-skill symlinks, preserves local skills"},
-		{"copy", "real files, recommended if unsure whether your AI CLI supports symlinks"},
-		{"symlink", "entire directory linked"},
-	}
-
-	for i, m := range modes {
-		fmt.Printf("  %d) %-8s — %s\n", i+1, m.name, m.desc)
-	}
-	fmt.Println()
-	fmt.Print("  Enter choice [1]: ")
-
-	input, err := bufio.NewReader(os.Stdin).ReadString('\n')
-	if err != nil {
-		ui.Success("Sync mode: merge")
-		return "merge"
-	}
-	input = strings.TrimSpace(input)
-
-	// Default or invalid → merge
-	idx := 0
-	if input != "" {
-		if n := input[0] - '1'; n < byte(len(modes)) {
-			idx = int(n)
-		}
-	}
-
-	selected := normalizeSyncMode(modes[idx].name)
-	ui.Success("Sync mode: %s", selected)
-	fmt.Println()
-	if selected != "copy" {
-		ui.Info("If a tool doesn't support symlinks, switch to copy mode:")
-		fmt.Printf("  %sskillshare config --mode copy && skillshare sync%s\n", ui.Yellow, ui.Reset)
-	}
-	return selected
-}
-
 func modeOverrideForTarget(requestedMode, inheritedDefault string) string {
 	requestedMode = normalizeSyncMode(requestedMode)
 	defaultMode := normalizeSyncMode(inheritedDefault)
@@ -366,7 +297,7 @@ func handleExistingInit(opts *initOptions) (bool, error) {
 		}
 		gitRoot := cfg.EffectiveGitRoot()
 		if opts.noGit {
-			ui.Info("Skipped git initialization (--no-git)")
+			ui.Row(ui.MarkNone, "Git", "skipped"+ui.DimText(" · --no-git"), gitRowWidth)
 		} else {
 			doGitInitIfAbsent(gitRoot, scope, opts.dryRun)
 			// Commit any uncommitted source files so push/pull work cleanly
@@ -376,7 +307,11 @@ func handleExistingInit(opts *initOptions) (bool, error) {
 				}
 			}
 		}
-		setupGitRemote(gitRoot, opts.remoteURL, opts.dryRun)
+		setupGitRemote(gitRoot, opts.remoteURL, opts.dryRun, opts.noGit)
+		if opts.dryRun {
+			fmt.Println()
+			ui.DryRun()
+		}
 		return true, nil
 	}
 
@@ -402,7 +337,9 @@ func switchGitRootScope(cfg *config.Config, scope string, dryRun bool) error {
 	dir := config.ScopeDir(cfg, scope)
 	doGitInitIfAbsent(dir, scope, dryRun)
 	if dryRun {
-		ui.Info("Dry run - would set git_root: %s", scope)
+		ui.Row(ui.MarkNone, "Git root", "would set to "+scope, gitRowWidth)
+		fmt.Println()
+		ui.DryRun()
 		return nil
 	}
 	// "skills" is the default — store it as empty to keep config.yaml clean.
@@ -414,172 +351,85 @@ func switchGitRootScope(cfg *config.Config, scope string, dryRun bool) error {
 	if err := cfg.Save(); err != nil {
 		return err
 	}
-	ui.Success("git_root set to %q (versioning %s)", scope, dir)
+	ui.Row(ui.MarkOK, "Git root", scope+ui.DimText(" · versioning "+shortenPath(dir)), gitRowWidth)
 	return nil
 }
 
-// performFreshInit performs a fresh initialization
-func performFreshInit(opts *initOptions, home string) error {
-	ui.Logo(version)
+// performFreshInit sets skillshare up on a machine with no config. It
+// gathers a plan first (flags, detection, then answers when interactive)
+// and writes nothing until the plan is confirmed.
+func performFreshInit(opts *initOptions, home string) (*initResult, error) {
+	interactive := runningInInteractiveTTY()
+	detected := detectCLIDirectories()
+	printInitBanner(detected, interactive)
 
-	// Detect existing CLI skills directories
-	detected := detectCLIDirectories(home)
-
-	// Default source path (same location as config)
-	sourcePath := opts.sourcePath
-	if sourcePath == "" {
-		defaultPath := filepath.Join(config.BaseDir(), "skills")
-		sourcePath = promptSourcePath(defaultPath, home)
+	p := newInitPlan(opts, detected, home)
+	if interactive {
+		if err := askInitPlan(p, opts, detected); err != nil {
+			return nil, initCancelled(err)
+		}
+		if !p.dryRun {
+			ok, err := confirmPlan(p, home)
+			if err != nil {
+				return nil, err
+			}
+			if !ok {
+				return nil, initCancelled(ui.ErrCancelled)
+			}
+		}
+	} else {
+		resolveHeadlessRemote(p, opts)
+		printHeadlessPlan(p)
 	}
 
-	// Find directories with skills to potentially copy from
-	var withSkills []detectedDir
-	for _, d := range detected {
-		if d.hasSkills {
-			withSkills = append(withSkills, d)
+	if p.dryRun {
+		fmt.Println(strings.Join(summaryLines(p, "Dry run — nothing was written", ""), "\n"))
+		ui.Note("Run without --dry-run to set it up")
+		return nil, nil
+	}
+
+	spinner := ui.StartSpinner("Setting up…")
+	res, err := applyInitPlan(p)
+	spinner.Stop()
+	if err != nil {
+		return res, err
+	}
+	printInitDone(p, res)
+
+	synced := false
+	if len(p.targets) > 0 {
+		doSync := true
+		if interactive {
+			doSync, err = ui.Confirm(fmt.Sprintf("Sync to %s now?", plural(len(p.targets), "tool")), true)
+			if err != nil {
+				doSync = false
+			}
+		}
+		if doSync {
+			_, kept, syncErr := firstSync(res.cfg)
+			synced = syncErr == nil
+			if syncErr != nil {
+				ui.Warning("%v", syncErr)
+			}
+			if len(kept) > 0 {
+				ui.Warning("Kept local copies that differ from the source: %s", strings.Join(kept, ", "))
+				ui.Note("Replace them with links: skillshare sync --force")
+			}
 		}
 	}
-
-	// Determine copy source (non-interactive or prompt)
-	copyFromPath, copyFromName := promptCopyFrom(withSkills, opts.copyFrom, opts.noCopy, home)
-
-	if opts.dryRun {
-		ui.Warning("Dry run mode - no changes will be made")
-	}
-
-	// Create source directories if needed
-	if err := createSourceDir(sourcePath, opts.dryRun); err != nil {
-		return err
-	}
-	agentsSourcePath := filepath.Join(filepath.Dir(sourcePath), "agents")
-	if err := createSourceDir(agentsSourcePath, opts.dryRun); err != nil {
-		return err
-	}
-
-	// Copy skills from selected directory
-	if copyFromPath != "" {
-		copySkillsToSource(copyFromPath, sourcePath, opts.dryRun)
-	}
-
-	// Build targets list
-	targets := buildTargetsList(detected, copyFromPath, copyFromName, opts.targetsArg, opts.allTargets, opts.noTargets)
-	mode := opts.mode
-	if shouldPromptInitMode(opts, sourcePath, withSkills, detected) {
-		mode = promptSyncModeSelection()
-	}
-	if mode == "" {
-		mode = "merge"
-	}
-
-	// Create config — new installs use the `sources:` map (v0.19.16+).
-	// Existing configs that still use legacy top-level source / agents_source /
-	// extras_source remain fully supported via Config.Effective*Source helpers;
-	// they just don't get auto-migrated here.
-	cfg := &config.Config{
-		Sources: config.GlobalSources{
-			Skills: sourcePath,
-			Agents: agentsSourcePath,
-		},
-		Mode:    mode,
-		Targets: targets,
-		Ignore: []string{
-			".DS_Store",
-			".git/",
-			"__pycache__/",
-		},
-		Audit: config.AuditConfig{
-			BlockThreshold: "CRITICAL",
-		},
-	}
-
-	// Initialize git at the chosen scope (skills by default).
-	gitRoot := setupInitGit(cfg, sourcePath, opts)
-
-	// Set up git remote for cross-machine sync (on the git root).
-	remoteHadSkills := setupGitRemote(gitRoot, opts.remoteURL, opts.dryRun)
-
-	// Subdirectory: use --subdir flag or prompt interactively
-	subDir := opts.subdir
-	if subDir == "" {
-		subDir = useSourceSubdir()
-	}
-	if subDir != "" {
-		sourcePath = filepath.Join(sourcePath, subDir)
-		if err := createSourceDir(sourcePath, opts.dryRun); err != nil {
-			return err
-		}
-		cfg.Sources.Skills = sourcePath
-	}
-
-	if opts.dryRun {
-		summarizeInitConfig(cfg)
-	} else if err := cfg.Save(); err != nil {
-		return err
-	}
-
-	// Install built-in skillshare skill (opt-in)
-	// Skip if remote already had skills — user will get them via 'skillshare pull'
-	if !remoteHadSkills {
-		installSkillIfNeeded(sourcePath, opts.dryRun, opts.initSkill, opts.noSkill)
-	}
-
-	// Single initial commit with all source files (.gitignore + skills)
-	if !opts.dryRun && !opts.noGit {
-		if err := commitSourceFiles(gitRoot); err != nil {
-			ui.Warning("Failed to create initial commit: %v", err)
-		}
-	}
-
-	// Print completion message
-	skillInstalled := false
-	if _, err := os.Stat(filepath.Join(sourcePath, "skillshare", "SKILL.md")); err == nil {
-		skillInstalled = true
-	}
-	printInitSuccess(sourcePath, opts.dryRun, skillInstalled)
-
-	return nil
+	printInitNext(p, synced, interactive)
+	return res, nil
 }
 
-// createSourceDir creates the source directory
-func createSourceDir(sourcePath string, dryRun bool) error {
-	if dryRun {
-		if _, err := os.Stat(sourcePath); err == nil {
-			ui.Info("Source directory exists: %s", sourcePath)
-		} else {
-			ui.Info("Would create source directory: %s", sourcePath)
-		}
-		return nil
-	}
-
-	if err := os.MkdirAll(sourcePath, 0755); err != nil {
-		return fmt.Errorf("failed to create source directory: %w", err)
-	}
-	return nil
-}
-
-// printInitSuccess prints the success message after initialization
-func printInitSuccess(sourcePath string, dryRun bool, skillInstalled bool) {
-	if dryRun {
-		ui.Header("Dry run complete")
-		ui.Info("Would write config: %s", config.ConfigPath())
-		ui.Info("Run 'skillshare init' to apply these changes")
-		return
-	}
-
-	ui.Header("Initialized successfully")
-	ui.Success("Source: %s", sourcePath)
-	ui.Success("Config: %s", config.ConfigPath())
-	fmt.Println()
-	ui.Info("Next steps:")
-	fmt.Printf("  %sskillshare sync%s              %s# Sync to all targets%s\n", ui.Yellow, ui.Reset, ui.Dim, ui.Reset)
-	if skillInstalled {
-		fmt.Println()
-		ui.Info("Pro tip: Let AI manage your skills!")
-		fmt.Println("  \"Pull my new skill from Claude and sync to all targets\"")
-		fmt.Println("  \"Show me skillshare status\"")
+// initCancelled reports a cancelled prompt; the message says nothing was
+// written and the command exits non-zero without another error line.
+func initCancelled(err error) error {
+	if !errors.Is(err, ui.ErrCancelled) {
+		return err
 	}
 	fmt.Println()
-	fmt.Printf("  %sTip: edit %s or re-run with --source to change source path%s\n", ui.Dim, config.ConfigPath(), ui.Reset)
+	ui.Cancelled("written")
+	return &jsonSilentError{cause: err}
 }
 
 // hasGlobalOnlyInitFlags returns true if args contain flags only valid for global init
@@ -640,10 +490,10 @@ func cmdInit(args []string) error {
 		return err
 	}
 
-	cmdErr := performFreshInit(opts, home)
-	// Config is created by performFreshInit, so cfgPath is valid now
-	cfgPath := config.ConfigPath()
-	logInitOp(cfgPath, 0, true, opts.initGit, hasBuiltinSkill(opts.sourcePath), start, cmdErr)
+	res, cmdErr := performFreshInit(opts, home)
+	if res != nil {
+		logInitOp(config.ConfigPath(), len(res.cfg.Targets), true, res.gitInit, res.skillInstalled, start, cmdErr)
+	}
 	return cmdErr
 }
 
@@ -669,445 +519,26 @@ func logInitOp(cfgPath string, targetsAdded int, sourceCreated bool, gitInit boo
 	oplog.WriteWithLimit(cfgPath, oplog.OpsFile, e, logMaxEntries()) //nolint:errcheck
 }
 
-type detectedDir struct {
-	name       string
-	path       string
-	skillCount int
-	hasSkills  bool
-	exists     bool // true if skills dir exists, false if only parent exists
-}
-
-const sharedSkillsDirectoryDescription = "Shared skills directory. Use this if your CLI supports ~/.agents/skills, such as Codex."
-
-// sliceHasName returns true if any element's name matches.
-func sliceHasName[T any](items []T, name string, getName func(T) string) bool {
-	for _, item := range items {
-		if getName(item) == name {
-			return true
-		}
-	}
-	return false
-}
-
-func isSharedUniversalSkillsAlias(name string, target config.TargetConfig, defaultTargets map[string]config.TargetConfig) bool {
-	if name == "universal" {
-		return false
-	}
-	universal, ok := defaultTargets["universal"]
-	if !ok {
-		return false
-	}
-	return filepath.Clean(target.SkillsConfig().Path) == filepath.Clean(universal.SkillsConfig().Path)
-}
-
-func detectCLIDirectories(home string) []detectedDir {
-	ui.Header("Detecting CLI skills directories")
-	defaultTargets := config.DefaultTargets()
-	var detected []detectedDir
-	universalAlias := false
-
-	for name, target := range defaultTargets {
-		if isSharedUniversalSkillsAlias(name, target, defaultTargets) {
-			// The skills path can't identify the tool (it belongs to universal),
-			// so fall back to its install dir and credit universal instead.
-			if dir := config.DetectDir(name); dir != "" {
-				if _, err := os.Stat(dir); err == nil {
-					universalAlias = true
-					ui.Info("Found: %-12s → universal (%s)", name, target.SkillsConfig().Path)
-				}
-			}
-			continue
-		}
-
-		sc := target.SkillsConfig()
-		if info, err := os.Stat(sc.Path); err == nil && info.IsDir() {
-			// Skills directory exists - count skills
-			entries, _ := os.ReadDir(sc.Path)
-			skillCount := 0
-			for _, e := range entries {
-				if e.IsDir() && !utils.IsHidden(e.Name()) {
-					skillCount++
-				}
-			}
-			detected = append(detected, detectedDir{
-				name:       name,
-				path:       sc.Path,
-				skillCount: skillCount,
-				hasSkills:  skillCount > 0,
-				exists:     true,
-			})
-			if skillCount > 0 {
-				ui.Success("Found: %-12s %s (%d skills)", name, sc.Path, skillCount)
-			} else if name == "universal" {
-				ui.Info("Found: %-12s %s - %s", name, sc.Path, sharedSkillsDirectoryDescription)
-			} else {
-				ui.Info("Found: %-12s %s (empty)", name, sc.Path)
-			}
-		} else {
-			// Skills directory doesn't exist - check if parent exists (CLI installed)
-			parent := filepath.Dir(sc.Path)
-			if _, err := os.Stat(parent); err == nil {
-				// Auto-create the skills directory since the CLI is installed
-				created := os.Mkdir(sc.Path, 0755) == nil
-				if created {
-					ui.Info("Created target directory: %s", sc.Path)
-				}
-				detected = append(detected, detectedDir{
-					name:   name,
-					path:   sc.Path,
-					exists: created,
-				})
-				label := "not initialized"
-				if created {
-					label = "initialized"
-				}
-				ui.Info("Found: %-12s %s (%s)", name, sc.Path, label)
-			}
-		}
-	}
-
-	// Auto-include universal target when any CLI is detected.
-	// The universal path (~/.agents/skills/) is the cross-tool shared directory
-	// used by vercel-labs/skills (npx skills list). It won't exist on disk until
-	// we create it, so normal directory detection won't find it.
-	if (len(detected) > 0 || universalAlias) && !sliceHasName(detected, "universal", func(d detectedDir) string { return d.name }) {
-		if target, ok := defaultTargets["universal"]; ok {
-			uniPath := target.SkillsConfig().Path
-			detected = append(detected, detectedDir{
-				name: "universal", path: uniPath,
-			})
-			ui.Info("Found: %-12s %s - %s", "universal", uniPath, sharedSkillsDirectoryDescription)
-		}
-	}
-
-	return detected
-}
-
-func promptCopyFrom(withSkills []detectedDir, copyFromArg string, noCopy bool, home string) (copyFrom, copyFromName string) {
-	// Non-interactive: --no-copy
-	if noCopy {
-		ui.Info("Starting with empty source (--no-copy)")
-		return "", ""
-	}
-
-	// Non-interactive: --copy-from
-	if copyFromArg != "" {
-		// First, try to match by name (e.g., "claude", "cursor")
-		for _, d := range withSkills {
-			if strings.EqualFold(d.name, copyFromArg) {
-				ui.Success("Will copy skills from %s (matched by name)", d.name)
-				return d.path, d.name
-			}
-		}
-
-		// Treat as path
-		path := copyFromArg
-		if utils.HasTildePrefix(path) {
-			path = filepath.Join(home, path[1:])
-		}
-
-		// Verify path exists
-		if info, err := os.Stat(path); err == nil && info.IsDir() {
-			ui.Success("Will copy skills from %s", path)
-			return path, ""
-		}
-
-		ui.Warning("Copy source not found: %s", copyFromArg)
-		return "", ""
-	}
-
-	// Interactive mode
-	if len(withSkills) == 0 {
-		return "", ""
-	}
-
-	ui.Header("Initialize from existing skills?")
-	fmt.Println("  Copy skills from an existing directory to the shared source?")
-	fmt.Println()
-
-	for i, d := range withSkills {
-		fmt.Printf("  [%d] Copy from %s (%d skills)\n", i+1, d.name, d.skillCount)
-	}
-	fmt.Printf("  [%d] Start fresh (empty source)\n", len(withSkills)+1)
-	fmt.Println()
-
-	fmt.Print("  Enter choice [1]: ")
-	var input string
-	fmt.Scanln(&input)
-
-	choice := 1
-	if input != "" {
-		fmt.Sscanf(input, "%d", &choice)
-	}
-
-	if choice >= 1 && choice <= len(withSkills) {
-		copyFrom = withSkills[choice-1].path
-		copyFromName = withSkills[choice-1].name
-		ui.Success("Will copy skills from %s", copyFromName)
-	} else {
-		ui.Info("Starting with empty source")
-	}
-
-	return copyFrom, copyFromName
-}
-
-func copySkillsToSource(copyFrom, sourcePath string, dryRun bool) {
-	entries, err := os.ReadDir(copyFrom)
-	if err != nil {
-		ui.Warning("Failed to read %s: %v", copyFrom, err)
-		return
-	}
-
-	if dryRun {
-		copyCount := 0
-		for _, entry := range entries {
-			if entry.IsDir() && !utils.IsHidden(entry.Name()) {
-				copyCount++
-			}
-		}
-		ui.Info("Would copy %d skills to %s", copyCount, sourcePath)
-		return
-	}
-
-	ui.Info("Copying skills to %s...", sourcePath)
-	copied := 0
-	for _, entry := range entries {
-		if !entry.IsDir() || utils.IsHidden(entry.Name()) {
-			continue
-		}
-		srcPath := filepath.Join(copyFrom, entry.Name())
-		dstPath := filepath.Join(sourcePath, entry.Name())
-
-		// Skip if already exists
-		if _, err := os.Stat(dstPath); err == nil {
-			continue
-		}
-
-		// Copy directory
-		if err := copyDir(srcPath, dstPath); err != nil {
-			ui.Warning("Failed to copy %s: %v", entry.Name(), err)
-			continue
-		}
-		copied++
-	}
-	ui.Success("Copied %d skills to source", copied)
-}
-
-func buildTargetsList(detected []detectedDir, copyFrom, copyFromName, targetsArg string, allTargets, noTargets bool) map[string]config.TargetConfig {
-	defaultTargets := config.DefaultTargets()
-	targets := make(map[string]config.TargetConfig)
-
-	// Non-interactive: --no-targets
-	if noTargets {
-		ui.Info("Skipping targets (--no-targets)")
-		return targets
-	}
-
-	// Non-interactive: --all-targets
-	if allTargets {
-		for _, d := range detected {
-			targets[d.name] = defaultTargets[d.name]
-		}
-		if len(targets) > 0 {
-			ui.Success("Added all %d detected targets (--all-targets)", len(targets))
-		} else {
-			ui.Warning("No CLI skills directories detected")
-		}
-		return targets
-	}
-
-	// Non-interactive: --targets (comma-separated list)
-	if targetsArg != "" {
-		names := strings.Split(targetsArg, ",")
-		added := 0
-		for _, name := range names {
-			name = strings.TrimSpace(name)
-			if name == "" {
-				continue
-			}
-
-			// Check if it's a known target name
-			if target, ok := defaultTargets[name]; ok {
-				targets[name] = target
-				added++
-			} else {
-				ui.Warning("Unknown target: %s (skipped)", name)
-			}
-		}
-		if added > 0 {
-			ui.Success("Added %d targets from --targets", added)
-		}
-		return targets
-	}
-
-	// Interactive mode: Build multi-select items from detected directories
-	if len(detected) == 0 {
-		ui.Warning("No CLI skills directories detected.")
-		return targets
-	}
-
-	// Build checklist items from detected directories.
-	items := make([]checklistItemData, len(detected))
-	for i, d := range detected {
-		status := ""
-		if d.name == "universal" {
-			status = sharedSkillsDirectoryDescription
-		} else if d.exists {
-			if d.skillCount > 0 {
-				status = fmt.Sprintf("(%d skills)", d.skillCount)
-			} else {
-				status = "(empty)"
-			}
-		} else {
-			status = "(not initialized)"
-		}
-		items[i] = checklistItemData{
-			label:       fmt.Sprintf("%-14s %s  %s", d.name, d.path, status),
-			preSelected: d.name == copyFromName,
-		}
-	}
-
-	selectedIndices, err := runChecklistTUI(checklistConfig{
-		title:    "Select targets to sync",
-		items:    items,
-		itemName: "target",
-	})
-	if err != nil || selectedIndices == nil {
-		return targets // User cancelled
-	}
-
-	// Add selected targets
-	for _, idx := range selectedIndices {
-		name := detected[idx].name
-		targets[name] = defaultTargets[name]
-	}
-
-	if len(targets) > 0 {
-		ui.Success("Added %d target(s): %s", len(targets), joinTargetNames(targets))
-	} else {
-		ui.Info("No targets selected")
-	}
-
-	return targets
-}
-
-func joinTargetNames(targets map[string]config.TargetConfig) string {
-	names := make([]string, 0, len(targets))
-	for name := range targets {
-		names = append(names, name)
-	}
-	sort.Strings(names)
-	return strings.Join(names, ", ")
-}
-
-func summarizeInitConfig(cfg *config.Config) {
-	ui.Header("Planned configuration")
-	ui.Info("Source: %s", cfg.EffectiveSkillsSource())
-
-	if len(cfg.Targets) == 0 {
-		ui.Info("Targets: none")
-		return
-	}
-
-	ui.Info("Targets: %d", len(cfg.Targets))
-	for name, target := range cfg.Targets {
-		sc := target.SkillsConfig()
-		mode := sc.Mode
-		if mode == "" {
-			mode = cfg.Mode
-		}
-		if mode == "" {
-			mode = "merge"
-		}
-		fmt.Printf("  %-12s %s (%s)\n", name, sc.Path, mode)
-	}
-}
-
-// scopeDir returns the resolved directory for a git_root scope keyword.
-// chooseGitRootScope returns the git_root scope keyword for a fresh init.
-// Priority: --git-root flag -> interactive radio (TTY) -> "skills" default.
-func chooseGitRootScope(opts *initOptions) string {
-	if opts.gitRootScope != "" {
-		return opts.gitRootScope
-	}
-	if !runningInInteractiveTTY() {
-		return "skills"
-	}
-	items := []checklistItemData{
-		{label: "skills", desc: "Version-control skills only (default)", preSelected: true},
-		{label: "root", desc: "Everything: skills, agents, and extras in one repo"},
-		{label: "agents", desc: "Agents only"},
-		{label: "extras", desc: "Extras only (hooks, rules, commands, prompts)"},
-	}
-	sel, err := runChecklistTUI(checklistConfig{
-		title:        "What should git version-control?",
-		items:        items,
-		singleSelect: true,
-		itemName:     "scope",
-	})
-	if err != nil || len(sel) == 0 {
-		return "skills"
-	}
-	return items[sel[0]].label
-}
-
-// setupInitGit runs the fresh-init git section: asks whether to use git,
-// chooses the scope, initializes a repo at the scope directory, and records the
-// scope on cfg (persisted by the caller's cfg.Save()). Returns the resolved git
-// root directory (used for remote setup and the initial commit).
-func setupInitGit(cfg *config.Config, skillsSource string, opts *initOptions) string {
-	if opts.noGit {
-		ui.Info("Skipped git initialization (--no-git)")
-		ui.Warning("Without git, deleted skills cannot be recovered!")
-		return skillsSource
-	}
-
-	if !opts.initGit {
-		if !runningInInteractiveTTY() {
-			ui.Info("Skipped git initialization")
-			return skillsSource
-		}
-		ui.Header("Git version control")
-		fmt.Println("  Git helps protect your skills from accidental deletion.")
-		fmt.Println()
-		fmt.Print("  Initialize git? [Y/n]: ")
-		var input string
-		fmt.Scanln(&input)
-		input = strings.ToLower(strings.TrimSpace(input))
-		if input != "" && input != "y" && input != "yes" {
-			if opts.dryRun {
-				ui.Info("Dry run - skipped git initialization")
-			} else {
-				ui.Info("Skipped git initialization")
-				ui.Warning("Without git, deleted skills cannot be recovered!")
-			}
-			return skillsSource
-		}
-	}
-
-	scope := chooseGitRootScope(opts)
-	gitRoot := config.ScopeDir(cfg, scope)
-	if scope != "skills" && !opts.dryRun {
-		cfg.GitRoot = scope
-	}
-	doGitInitIfAbsent(gitRoot, scope, opts.dryRun)
-	return gitRoot
-}
-
 // doGitInitIfAbsent initializes a repo at gitRoot (with a scope-aware .gitignore)
 // unless one already exists there. dryRun only prints intentions. The actual git
 // work is shared with the web server via gitops.InitScopeRepo.
+// gitRowWidth aligns the Git, Remote, Pull and Git root rows that init
+// prints when it changes git on an existing setup.
+var gitRowWidth = ui.RowWidth("Git root")
+
 func doGitInitIfAbsent(gitRoot, scope string, dryRun bool) {
 	if hasGitDir(gitRoot) {
-		ui.Info("Git already initialized in %s", gitRoot)
+		ui.Row(ui.MarkNone, "Git", "already set up in "+shortenPath(gitRoot), gitRowWidth)
 		// Still ensure the scope-aware .gitignore (e.g. config.yaml at root scope).
-		if err := gitops.WriteScopeGitignore(gitRoot, scope); err != nil {
-			ui.Warning("Failed to update .gitignore: %v", err)
+		if !dryRun {
+			if err := gitops.WriteScopeGitignore(gitRoot, scope); err != nil {
+				ui.Warning("Failed to update .gitignore: %v", err)
+			}
 		}
 		return
 	}
 	if dryRun {
-		ui.Info("Dry run - would initialize git in %s (scope: %s)", gitRoot, scope)
+		ui.Row(ui.MarkNone, "Git", "would initialize in "+shortenPath(gitRoot), gitRowWidth)
 		return
 	}
 
@@ -1116,12 +547,19 @@ func doGitInitIfAbsent(gitRoot, scope string, dryRun bool) {
 		ui.Warning("Failed to initialize git: %v", err)
 		return
 	}
+	ui.Row(ui.MarkOK, "Git", "initialized in "+shortenPath(gitRoot), gitRowWidth)
 	if identitySet {
-		ui.Info("Git identity not configured, using local default")
-		ui.Info("  Set yours: git config --global user.name \"Your Name\"")
-		ui.Info("             git config --global user.email \"you@example.com\"")
+		printGitIdentityNote(gitRoot)
 	}
-	ui.Success("Git initialized in %s", gitRoot)
+}
+
+// printGitIdentityNote explains the identity init wrote into the new repo
+// at dir when git had none. It lives in that repo's config, which outranks
+// --global, so the commands to replace it target the repo.
+func printGitIdentityNote(dir string) {
+	ui.Note("Git had no identity, so this repo commits as skillshare@local. Set yours:")
+	ui.Note(fmt.Sprintf(`git -C %s config user.name "Your Name"`, shortenPath(dir)))
+	ui.Note(fmt.Sprintf(`git -C %s config user.email "you@example.com"`, shortenPath(dir)))
 }
 
 // commitSourceFiles creates a single commit with all source files
@@ -1161,7 +599,9 @@ func commitSourceFiles(sourcePath string) error {
 	}
 	commitCmd := exec.Command("git", "commit", "-m", msg)
 	commitCmd.Dir = sourcePath
-	commitCmd.Env = append(os.Environ(), "LC_ALL=C")
+	// A repo the user created may have no identity; commit with a fallback
+	// for this one commit instead of writing one into their repo config.
+	commitCmd.Env = append(append(os.Environ(), "LC_ALL=C"), gitops.FallbackIdentityEnv(sourcePath)...)
 	if out, err := commitCmd.CombinedOutput(); err != nil {
 		trimmed := strings.TrimSpace(string(out))
 		if strings.Contains(trimmed, "nothing to commit") || strings.Contains(trimmed, "no changes added to commit") {
@@ -1175,13 +615,21 @@ func commitSourceFiles(sourcePath string) error {
 	return nil
 }
 
-func setupGitRemote(sourcePath, remoteURL string, dryRun bool) bool {
+func setupGitRemote(sourcePath, remoteURL string, dryRun, noGit bool) bool {
 	// Check if git is initialized
 	gitDir := filepath.Join(sourcePath, ".git")
 	if _, err := os.Stat(gitDir); os.IsNotExist(err) {
-		if remoteURL != "" {
-			ui.Warning("Git not initialized in source directory")
-			ui.Info("Run: cd %s && git init", sourcePath)
+		if remoteURL == "" {
+			return false
+		}
+		if dryRun && !noGit {
+			// The dry run reported the git init that would come first.
+			ui.Row(ui.MarkNone, "Remote", "would add origin → "+remoteURL, gitRowWidth)
+			return false
+		}
+		ui.Row(ui.MarkWarn, "Remote", "not added: "+shortenPath(sourcePath)+" has no git repo", gitRowWidth)
+		if noGit {
+			ui.Note("Run: skillshare init --remote " + remoteURL + " (without --no-git)")
 		}
 		return false
 	}
@@ -1193,52 +641,18 @@ func setupGitRemote(sourcePath, remoteURL string, dryRun bool) bool {
 	if err == nil && strings.TrimSpace(string(output)) != "" {
 		existingRemote := strings.TrimSpace(string(output))
 		if existingRemote == remoteURL {
-			ui.Info("Git remote already configured: %s", existingRemote)
+			ui.Row(ui.MarkNone, "Remote", "already origin → "+existingRemote, gitRowWidth)
 		} else {
-			ui.Warning("Git remote already exists: %s", existingRemote)
-			ui.Info("To change: git remote set-url origin %s", remoteURL)
+			ui.Row(ui.MarkWarn, "Remote", "origin is already "+existingRemote, gitRowWidth)
+			ui.Note(fmt.Sprintf("To change it: git -C %s remote set-url origin %s", shortenPath(sourcePath), remoteURL))
 		}
-		return false
-	}
-
-	// If --remote flag provided, use it directly
-	if remoteURL != "" {
-		if dryRun {
-			ui.Info("Would add git remote: %s", remoteURL)
-			return false
-		}
-		return addRemote(sourcePath, remoteURL)
-	}
-
-	// Prompt user
-	ui.Header("Cross-machine sync")
-	fmt.Println("  Set up a git remote to sync skills across machines.")
-	fmt.Println()
-	fmt.Print("  Set up git remote? [y/N]: ")
-	var input string
-	fmt.Scanln(&input)
-	input = strings.ToLower(strings.TrimSpace(input))
-
-	if input != "y" && input != "yes" {
-		ui.Info("Skipped remote setup")
-		ui.Info("Add later: git remote add origin <url>")
-		return false
-	}
-
-	fmt.Print("  Remote URL (e.g., git@github.com:user/skills.git): ")
-	fmt.Scanln(&remoteURL)
-	remoteURL = strings.TrimSpace(remoteURL)
-
-	if remoteURL == "" {
-		ui.Info("No URL provided, skipped remote setup")
 		return false
 	}
 
 	if dryRun {
-		ui.Info("Would add git remote: %s", remoteURL)
+		ui.Row(ui.MarkNone, "Remote", "would add origin → "+remoteURL, gitRowWidth)
 		return false
 	}
-
 	return addRemote(sourcePath, remoteURL)
 }
 
@@ -1251,12 +665,12 @@ func addRemote(sourcePath, remoteURL string) bool {
 		return false
 	}
 
-	ui.Success("Git remote configured: %s", remoteURL)
+	ui.Row(ui.MarkOK, "Remote", "origin → "+remoteURL, gitRowWidth)
 
 	// Try to fetch and auto-pull if remote has existing skills
 	hadSkills := tryPullAfterRemoteSetup(sourcePath, remoteURL)
 	if !hadSkills {
-		ui.Info("Push your skills: skillshare push")
+		ui.Next("skillshare push", "share your skills")
 	}
 	return hadSkills
 }
@@ -1292,51 +706,59 @@ func tryPullAfterRemoteSetup(sourcePath, remoteURL string) bool {
 	fetchCmd.Dir = sourcePath
 	fetchCmd.Env = remoteFetchEnv(remoteURL)
 	if output, err := fetchCmd.CombinedOutput(); err != nil {
+		spinner.Stop()
 		if errors.Is(fetchCtx.Err(), context.DeadlineExceeded) {
-			spinner.Warn("Remote check timed out (will retry on push/pull)")
+			ui.Row(ui.MarkWarn, "Pull", "remote check timed out"+ui.DimText(" · push and pull retry it"), gitRowWidth)
 			return false
 		}
-		spinner.Warn("Could not reach remote (will retry on push/pull)")
+		ui.Row(ui.MarkWarn, "Pull", "could not reach the remote"+ui.DimText(" · push and pull retry it"), gitRowWidth)
 		outStr := strings.TrimSpace(string(output))
-		if strings.Contains(outStr, "Could not read from remote") {
-			ui.Info("  Check SSH keys: ssh -T git@github.com")
-		} else if strings.Contains(outStr, "not found") || strings.Contains(outStr, "does not exist") {
-			ui.Info("  Check remote URL: git remote get-url origin")
+		if strings.Contains(outStr, "not found") || strings.Contains(outStr, "does not exist") {
+			ui.Note("Check the URL: git -C " + shortenPath(sourcePath) + " remote get-url origin")
+		} else if strings.Contains(outStr, "Could not read from remote") && !strings.HasPrefix(remoteURL, "file://") {
+			ui.Note("Check SSH keys: ssh -T git@github.com")
 		}
 		return false
 	}
 
 	remoteBranch, err := gitops.GetRemoteDefaultBranch(sourcePath)
 	if err != nil {
+		spinner.Stop()
 		if errors.Is(err, gitops.ErrNoRemoteBranches) {
-			spinner.Success("Remote is empty")
+			ui.Row(ui.MarkNone, "Pull", "remote is empty", gitRowWidth)
 			return false
 		}
-		spinner.Warn("Could not detect remote default branch (will retry on push/pull)")
+		ui.Row(ui.MarkWarn, "Pull", "could not find the remote's default branch"+ui.DimText(" · push and pull retry it"), gitRowWidth)
 		return false
 	}
 
 	hasRemoteSkills, err := gitops.HasRemoteSkillDirs(sourcePath, remoteBranch)
 	if err != nil {
-		spinner.Warn("Could not inspect remote skills (will retry on push/pull)")
+		spinner.Stop()
+		ui.Row(ui.MarkWarn, "Pull", "could not read the remote's skills"+ui.DimText(" · push and pull retry it"), gitRowWidth)
 		return false
 	}
 	if !hasRemoteSkills {
-		spinner.Success("Remote is empty (no skills found)")
+		spinner.Stop()
+		ui.Row(ui.MarkNone, "Pull", "remote has no skills", gitRowWidth)
 		return false
 	}
 
 	hasLocalSkills, err := gitops.HasLocalContent(sourcePath)
 	if err != nil {
-		spinner.Warn("Could not inspect local skills (will retry on pull)")
+		spinner.Stop()
+		ui.Row(ui.MarkWarn, "Pull", "could not read the local skills"+ui.DimText(" · pull retries it"), gitRowWidth)
 		return true
 	}
 
 	if hasLocalSkills {
-		spinner.Warn("Remote has existing skills, but local skills also exist")
-		ui.Info("  Push local:  skillshare push")
-		ui.Info("  Merge both:  skillshare pull  (keeps local and remote)")
-		ui.Info("  Use remote:  skillshare pull --force  (replaces local with remote)")
+		spinner.Stop()
+		ui.Row(ui.MarkWarn, "Pull", "skipped: both the remote and this machine have skills", gitRowWidth)
+		ui.Next(
+			"skillshare pull", "merge both",
+			"skillshare push", "keep this machine's skills",
+			"skillshare pull --force", "replace them with the remote's",
+		)
 		return true
 	}
 
@@ -1347,9 +769,10 @@ func tryPullAfterRemoteSetup(sourcePath, remoteURL string) bool {
 	resetCmd := exec.Command("git", "reset", "--hard", "origin/"+remoteBranch)
 	resetCmd.Dir = sourcePath
 	if output, err := resetCmd.CombinedOutput(); err != nil {
-		spinner.Fail("Failed to pull from remote")
-		fmt.Println(string(output))
-		ui.Info("  Try manually: cd %s && git reset --hard origin/%s", sourcePath, remoteBranch)
+		spinner.Stop()
+		ui.Row(ui.MarkFail, "Pull", "failed", gitRowWidth)
+		fmt.Println(strings.TrimSpace(string(output)))
+		ui.Note(fmt.Sprintf("Try it by hand: git -C %s reset --hard origin/%s", shortenPath(sourcePath), remoteBranch))
 		return true
 	}
 
@@ -1370,82 +793,10 @@ func tryPullAfterRemoteSetup(sourcePath, remoteURL string) bool {
 	discovered, _ := ssync.DiscoverSourceSkills(sourcePath)
 	skillCount := len(discovered)
 
-	spinner.Success(fmt.Sprintf("Pulled %d skill(s) from remote", skillCount))
+	spinner.Stop()
+	ui.Row(ui.MarkOK, "Pull", plural(skillCount, "skill")+" from origin/"+remoteBranch, gitRowWidth)
+	ui.Next("skillshare sync", "link them into your targets")
 	return true
-}
-
-// promptSourcePath asks the user whether they want to customize the source directory path.
-// Returns defaultPath if non-interactive, user declines, or input is empty.
-func promptSourcePath(defaultPath, home string) string {
-	if !runningInInteractiveTTY() {
-		return defaultPath
-	}
-
-	fmt.Println()
-	ui.Info("Source directory stores your skills (single source of truth)")
-	fmt.Printf("  Default: %s\n", defaultPath)
-	fmt.Print("  Customize source path? [y/N]: ")
-	reader := bufio.NewReader(os.Stdin)
-	input, _ := reader.ReadString('\n')
-	input = strings.ToLower(strings.TrimSpace(input))
-
-	if input != "y" && input != "yes" {
-		return defaultPath
-	}
-
-	fmt.Print("  Enter source path: ")
-	path, _ := reader.ReadString('\n')
-	path = strings.TrimSpace(path)
-
-	if path == "" {
-		return defaultPath
-	}
-
-	// Expand ~ prefix
-	if utils.HasTildePrefix(path) {
-		path = filepath.Join(home, path[1:])
-	}
-
-	absPath, err := filepath.Abs(path)
-	if err != nil {
-		ui.Warning("Invalid path, using default")
-		return defaultPath
-	}
-
-	ui.Success("Source path: %s", absPath)
-	return absPath
-}
-
-// useSourceSubdir specifies a subdirectory to be the source and store the skills.
-// This allows users to have skills stored in a subdirectory of their repo and not the root.
-// Returns the name of the subdirectory, or "" if skipped or non-interactive.
-func useSourceSubdir() string {
-	if !runningInInteractiveTTY() {
-		return ""
-	}
-
-	fmt.Println()
-	ui.Info("Specifying a subdirectory as the source will store skills in the subdirectory (e.g. skills/) instead of in the root")
-	fmt.Print("  Specify a subdirectory as the source (e.g. skills)? [y/N]: ")
-	reader := bufio.NewReader(os.Stdin)
-	input, _ := reader.ReadString('\n')
-	input = strings.ToLower(strings.TrimSpace(input))
-
-	if input != "y" && input != "yes" {
-		ui.Success("Using repo root as source")
-		return ""
-	}
-
-	fmt.Print("  Enter subdirectory name: ")
-	dirName, _ := reader.ReadString('\n')
-	dirName = strings.TrimSpace(dirName)
-
-	if dirName == "" {
-		return ""
-	}
-
-	ui.Success("Source subdirectory: %s/", dirName)
-	return dirName
 }
 
 const fallbackSkillContent = `---
@@ -1464,89 +815,6 @@ Run ` + "`skillshare update`" + ` to download the full skill with AI integration
 - ` + "`skillshare pull <target>`" + ` - Pull from target
 - ` + "`skillshare update`" + ` - Update this skill
 `
-
-func installSkillIfNeeded(sourcePath string, dryRun, initSkill, noSkill bool) {
-	// Non-interactive: --no-skill
-	if noSkill {
-		ui.Info("Skipped built-in skill (--no-skill)")
-		return
-	}
-
-	skillshareSkillFile := filepath.Join(sourcePath, "skillshare", "SKILL.md")
-	if _, err := os.Stat(skillshareSkillFile); err == nil {
-		ui.Info("Built-in skill already installed")
-		return
-	}
-
-	// Non-interactive: --skill flag was set, proceed without prompting
-	if initSkill {
-		createDefaultSkill(sourcePath, dryRun)
-		return
-	}
-
-	// Interactive mode
-	ui.Header("Built-in skill")
-	fmt.Println("  Install the skillshare skill for AI integration?")
-	fmt.Println()
-	fmt.Print("  Install built-in skillshare skill? [y/N]: ")
-	var input string
-	fmt.Scanln(&input)
-	input = strings.ToLower(strings.TrimSpace(input))
-
-	if input == "y" || input == "yes" {
-		createDefaultSkill(sourcePath, dryRun)
-		return
-	}
-
-	ui.Info("Skipped built-in skill")
-	ui.Info("Install later: skillshare upgrade --skill")
-}
-
-func createDefaultSkill(sourcePath string, dryRun bool) {
-	skillshareSkillDir := filepath.Join(sourcePath, "skillshare")
-	skillshareSkillFile := filepath.Join(skillshareSkillDir, "SKILL.md")
-
-	if _, err := os.Stat(skillshareSkillFile); err == nil {
-		return
-	}
-
-	if dryRun {
-		ui.Info("Would download default skill: skillshare")
-		return
-	}
-
-	ui.Header("Installing skillshare skill")
-
-	// Use spinner for download
-	spinner := ui.StartSpinner("Downloading from GitHub...")
-
-	// Try to install from GitHub using install package
-	source, err := install.ParseSource(skillshareSkillSource)
-	if err == nil {
-		source.Name = "skillshare"
-		_, err = install.Install(source, skillshareSkillDir, install.InstallOptions{
-			Force:  true,
-			DryRun: false,
-		})
-	}
-
-	if err != nil {
-		spinner.Warn("Download failed, using fallback version")
-		// Fallback to minimal version
-		if err := os.MkdirAll(skillshareSkillDir, 0755); err != nil {
-			ui.Warning("Failed to create skillshare skill directory: %v", err)
-			return
-		}
-		if err := os.WriteFile(skillshareSkillFile, []byte(fallbackSkillContent), 0644); err != nil {
-			ui.Warning("Failed to create skillshare skill: %v", err)
-			return
-		}
-		ui.Success("Created default skill: skillshare (minimal)")
-		ui.Info("Run 'skillshare upgrade --skill' to get the full version")
-		return
-	}
-	spinner.Success("Downloaded default skill: skillshare")
-}
 
 // agentInfo holds information about a detected agent for discover mode
 type agentInfo struct {
@@ -1590,6 +858,8 @@ func detectNewAgents(existingCfg *config.Config) []agentInfo {
 		})
 	}
 
+	sort.Slice(newAgents, func(i, j int) bool { return newAgents[i].name < newAgents[j].name })
+
 	// Auto-include universal if any new agent is found but universal isn't
 	// already configured and not yet in the candidate list.
 	if len(newAgents) > 0 || universalAlias {
@@ -1630,35 +900,24 @@ func getAgentStatus(path string) string {
 	return "(empty)"
 }
 
-// promptAgentSelection shows interactive selection and returns selected agent names
+// promptAgentSelection asks which new tools to add; all start checked.
 func promptAgentSelection(newAgents []agentInfo) ([]string, error) {
-	items := make([]checklistItemData, len(newAgents))
+	options := make([]ui.Option, len(newAgents))
+	values := make([]string, len(newAgents))
 	for i, agent := range newAgents {
-		items[i] = checklistItemData{
-			label: agent.name,
-			desc:  fmt.Sprintf("%s %s", agent.path, agent.description),
-		}
+		options[i] = ui.Option{Label: fmt.Sprintf("%-14s %s", agent.name, theme.Dim().Render(utils.FoldHomePath(agent.path)+" "+agent.description)), Value: agent.name}
+		values[i] = agent.name
 	}
-
-	selectedIndices, err := runChecklistTUI(checklistConfig{
-		title:    "Select agents to add",
-		items:    items,
-		itemName: "agent",
-	})
-	if err != nil || selectedIndices == nil {
-		return nil, nil
+	names, err := ui.MultiSelect("Add which tools?", options, values)
+	if err != nil {
+		return nil, err
 	}
-
-	var selectedNames []string
-	for _, idx := range selectedIndices {
-		selectedNames = append(selectedNames, newAgents[idx].name)
-	}
-
-	return selectedNames, nil
+	ui.Answered("Targets", describeTools(names))
+	return names, nil
 }
 
 // saveAddedAgents adds agents to config and saves
-func saveAddedAgents(cfg *config.Config, names []string, dryRun bool, mode string) error {
+func saveAddedAgents(cfg *config.Config, names []string, asked, dryRun bool, mode string) error {
 	defaultTargets := config.DefaultTargets()
 
 	for _, name := range names {
@@ -1668,56 +927,70 @@ func saveAddedAgents(cfg *config.Config, names []string, dryRun bool, mode strin
 		}
 	}
 
-	if dryRun {
-		ui.Warning("Dry run - would add %d agent(s) to config", len(names))
-		for _, name := range names {
-			fmt.Printf("  + %s\n", name)
+	if !dryRun {
+		if err := cfg.Save(); err != nil {
+			return fmt.Errorf("failed to save config: %w", err)
 		}
-		return nil
 	}
-
-	if err := cfg.Save(); err != nil {
-		return fmt.Errorf("failed to save config: %w", err)
-	}
-
-	ui.Success("Added %d agent(s) to config", len(names))
-	for _, name := range names {
-		fmt.Printf("  + %s\n", name)
-	}
-	ui.Info("Run 'skillshare sync' to sync skills to new targets")
-
+	printDiscoverResult(config.ConfigPath(), names, asked, dryRun, "skillshare sync")
 	return nil
+}
+
+// printDiscoverResult reports the tools --discover added in init's style:
+// answered rows, then the command to run next. asked is true when the tools
+// prompt already printed its own Targets row.
+func printDiscoverResult(configPath string, names []string, asked, dryRun bool, syncCmd string) {
+	if !asked {
+		ui.Answered("Targets", describeTools(names))
+	}
+	if dryRun {
+		fmt.Println(theme.Dim().Render("Dry run — nothing was written"))
+		return
+	}
+	ui.Answered("Config", utils.FoldHomePath(configPath))
+	fmt.Println()
+	fmt.Println(theme.Primary().Bold(true).Render("Next"))
+	fmt.Printf("  %s  %s\n", theme.Accent().Render(syncCmd), theme.Dim().Render("sync your skills to "+describeTools(names)))
+}
+
+func discoverFound(n int) {
+	fmt.Println("Found " + plural(n, "new AI tool"))
 }
 
 // reinitWithDiscover detects new agents and allows user to add them to existing config
 func reinitWithDiscover(existingCfg *config.Config, selectArg string, dryRun bool, mode string) error {
-	ui.Header("Discovering new agents")
-
 	newAgents := detectNewAgents(existingCfg)
 	if len(newAgents) == 0 {
-		ui.Info("No new agents detected")
+		fmt.Println("No new AI tools found")
 		return nil
 	}
 
-	ui.Success("Found %d new agent(s)", len(newAgents))
+	discoverFound(len(newAgents))
 
 	// Non-interactive mode with --select
 	if selectArg != "" {
 		return addSelectedAgentsByName(existingCfg, newAgents, selectArg, dryRun, mode)
 	}
 
-	// Interactive mode
-	selectedNames, err := promptAgentSelection(newAgents)
-	if err != nil {
-		return err
+	// No one to ask: add every new tool, as Enter would choose.
+	selectedNames := make([]string, 0, len(newAgents))
+	for _, agent := range newAgents {
+		selectedNames = append(selectedNames, agent.name)
+	}
+	asked := runningInInteractiveTTY()
+	if asked {
+		var err error
+		if selectedNames, err = promptAgentSelection(newAgents); err != nil {
+			return initCancelled(err)
+		}
 	}
 
 	if len(selectedNames) == 0 {
-		ui.Info("No agents selected")
+		fmt.Println("No AI tools added")
 		return nil
 	}
 
-	return saveAddedAgents(existingCfg, selectedNames, dryRun, mode)
+	return saveAddedAgents(existingCfg, selectedNames, asked, dryRun, mode)
 }
 
 // addSelectedAgentsByName adds agents specified by --select flag (non-interactive)
@@ -1744,11 +1017,11 @@ func addSelectedAgentsByName(existingCfg *config.Config, newAgents []agentInfo, 
 		if !availableAgents[name] {
 			// Check if it's already in config
 			if _, exists := existingCfg.Targets[name]; exists {
-				ui.Info("Agent already in config: %s (skipped)", name)
+				fmt.Printf("  %s is already set up (skipped)\n", name)
 			} else if _, ok := defaultTargets[name]; !ok {
-				ui.Warning("Unknown agent: %s (skipped)", name)
+				ui.Warning("Unknown AI tool: %s (skipped)", name)
 			} else {
-				ui.Warning("Agent not detected: %s (skipped)", name)
+				ui.Warning("%s was not found on this machine (skipped)", name)
 			}
 			continue
 		}
@@ -1762,27 +1035,15 @@ func addSelectedAgentsByName(existingCfg *config.Config, newAgents []agentInfo, 
 	}
 
 	if len(addedNames) == 0 {
-		ui.Info("No new agents added")
+		fmt.Println("No AI tools added")
 		return nil
 	}
 
-	if dryRun {
-		ui.Warning("Dry run - would add %d agent(s) to config", len(addedNames))
-		for _, name := range addedNames {
-			fmt.Printf("  + %s\n", name)
+	if !dryRun {
+		if err := existingCfg.Save(); err != nil {
+			return fmt.Errorf("failed to save config: %w", err)
 		}
-		return nil
 	}
-
-	if err := existingCfg.Save(); err != nil {
-		return fmt.Errorf("failed to save config: %w", err)
-	}
-
-	ui.Success("Added %d agent(s) to config", len(addedNames))
-	for _, name := range addedNames {
-		fmt.Printf("  + %s\n", name)
-	}
-	ui.Info("Run 'skillshare sync' to sync skills to new targets")
-
+	printDiscoverResult(config.ConfigPath(), addedNames, false, dryRun, "skillshare sync")
 	return nil
 }

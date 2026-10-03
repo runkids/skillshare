@@ -149,31 +149,30 @@ func resolveCollectExtra(extras []config.ExtraConfig, name, fromPath string, mod
 }
 
 func runCollect(sourceDir, targetPath, name, mode string, dryRun, force, flatten bool, scope, cfgPath string, start time.Time, projectRoot string) error {
-	if dryRun {
-		ui.Warning("Dry run mode - no changes will be made")
-	}
-
 	result, err := sync.CollectExtraFiles(sourceDir, targetPath, mode, dryRun, force, flatten, projectRoot)
 	if err != nil {
 		return err
 	}
 
-	if result.Collected > 0 {
-		verb := "collected"
-		if dryRun {
-			verb = "would collect"
-		}
-		ui.Success("%d files %s from %s to extras/%s/", result.Collected, verb, shortenPath(targetPath), name)
-	} else {
-		ui.Info("No local files to collect from %s", shortenPath(targetPath))
+	for _, e := range result.Errors {
+		ui.Warning("%s", e)
+	}
+
+	switch {
+	case result.Collected > 0 && dryRun:
+		ui.Done(ui.MarkNone, fmt.Sprintf("Would collect %s from %s into extras/%s/", plural(result.Collected, "file"), shortenPath(targetPath), name), 0)
+	case result.Collected > 0:
+		ui.Done(ui.MarkOK, fmt.Sprintf("Collected %s from %s into extras/%s/", plural(result.Collected, "file"), shortenPath(targetPath), name), time.Since(start))
+	default:
+		ui.Done(ui.MarkNone, "No local files to collect from "+shortenPath(targetPath), 0)
 	}
 
 	if result.Skipped > 0 {
-		ui.Info("%d files skipped (already synced or exist in source)", result.Skipped)
+		ui.Note(fmt.Sprintf("%s skipped (already synced or in the source)", plural(result.Skipped, "file")))
 	}
-
-	for _, e := range result.Errors {
-		ui.Warning("  %s", e)
+	if dryRun {
+		fmt.Println()
+		ui.DryRun()
 	}
 
 	// Oplog
@@ -197,26 +196,22 @@ func runCollect(sourceDir, targetPath, name, mode string, dryRun, force, flatten
 }
 
 func printExtrasCollectHelp() {
-	fmt.Println(`Usage: skillshare extras collect <name> [options]
-
-Collect local files from a target back into the extras source directory.
-Files are copied to source and replaced with symlinks in the target
-(copy-mode targets keep their files).
-
-Arguments:
-  name                Name of the extra to collect for
-
-Options:
-  --from <path>       Target directory to collect from (required if multiple targets)
-  --force, -f         Overwrite files that already exist in source
-  --dry-run           Show what would be collected without making changes
-  --project, -p       Use project mode (.skillshare/)
-  --global, -g        Use global mode (~/.config/skillshare/)
-  --help, -h          Show this help
-
-Examples:
-  skillshare extras collect rules
-  skillshare extras collect rules --from ~/.claude/rules --dry-run
-  skillshare extras collect rules --force
-  skillshare extras collect prompts -p`)
+	printHelp("skillshare extras collect <name> [options]", "Collect local files from a target back into the extras source directory.\nFiles are copied to source and replaced with symlinks in the target\n(copy-mode targets keep their files).",
+		helpGroup{title: "Arguments", rows: []helpRow{
+			{"name", "Name of the extra to collect for"},
+		}},
+		helpGroup{title: "Options", rows: []helpRow{
+			{"--from <path>", "Target directory to collect from (required if multiple targets)"},
+			{"-f, --force", "Overwrite files that already exist in source"},
+			{"--dry-run", "Show what would be collected without making changes"},
+			{"-p, --project", "Use project mode (.skillshare/)"},
+			{"-g, --global", "Use global mode (~/.config/skillshare/)"},
+		}},
+		helpExamples(
+			helpRow{"skillshare extras collect rules", ""},
+			helpRow{"skillshare extras collect rules --from ~/.claude/rules --dry-run", ""},
+			helpRow{"skillshare extras collect rules --force", ""},
+			helpRow{"skillshare extras collect prompts -p", ""},
+		),
+	)
 }

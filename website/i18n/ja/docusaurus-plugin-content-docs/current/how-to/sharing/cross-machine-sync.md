@@ -77,23 +77,27 @@ skillshare init --remote git@github.com:you/my-skills.git
 
 ---
 
-## 2台目のマシンのセットアップ
+## 2台目のマシンのセットアップ {#second-machine-setup}
 
-新しいマシンでも**同じコマンド**が使えます。
+`skillshare init` を実行し、**Connect my existing skillshare repo** を選んでリポジトリの URL を貼り付けます:
+
+<p>
+  <img src="/img/init-connect-demo.png" alt="既存のリポジトリに接続する skillshare init" width="720" />
+</p>
+
+URL を直接渡すこともできます:
 
 ```bash
 skillshare init --remote git@github.com:you/my-skills.git
 ```
 
-Init は remote にすでに Skill があることを自動検出し、それらを pull します。手動での `git clone`
-は不要です。
+Init は何も書き込まずに先にリポジトリを確認し、その後 pull します。手動での `git clone` は不要です。
 
 :::info 裏側で何が起きているか
-1. Source ディレクトリを作成し git を初期化する
-2. remote を追加して `git fetch` を実行する
-3. remote に Skill があることを検出 → ローカルを remote に合わせてリセットする
-4. トラッキングブランチをセットアップする
-5. ローカルの Target を自動検出して設定する
+1. リポジトリを一時フォルダに clone して Skill 数を数え、構成を判断する: `--git-root root` で push したフォルダ全体か、`skills/` フォルダ内の Skill か
+2. このマシンにあるリポジトリと同名の Skill はリポジトリ版を使う。このマシンにしかない Skill は残し、次の `skillshare push` でリポジトリに追加される
+3. 確認後: source を作成し、git を初期化し、remote を追加し、remote ブランチにリセットしてトラッキングを設定する
+4. 検出されたローカルの Target を設定し、初回 sync を提案する
 :::
 
 手動で制御したい場合:

@@ -5,6 +5,7 @@ import (
 	"io"
 	"maps"
 	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 	"time"
@@ -16,8 +17,10 @@ import (
 	"skillshare/internal/oplog"
 	"skillshare/internal/skillignore"
 	"skillshare/internal/sync"
+	"skillshare/internal/theme"
 	"skillshare/internal/trash"
 	"skillshare/internal/ui"
+	"skillshare/internal/utils"
 )
 
 type syncLogStats struct {
@@ -209,7 +212,7 @@ func cmdSync(args []string) error {
 		if !jsonOutput && !quiet && mcpResult != nil {
 			_ = printMCPPlan(mcpResult.Plan, false)
 			for _, id := range mcpResult.BackupIDs {
-				ui.Info("MCP backup: %s", id)
+				ui.Note(fmt.Sprintf("MCP backup: %s", id))
 			}
 			printMCPMigrated(mcpResult)
 		}
@@ -234,7 +237,7 @@ func cmdSync(args []string) error {
 		if !jsonOutput && !quiet && hooksResult != nil {
 			printHooksPlan(hooksResult.Plan)
 			for _, id := range hooksResult.BackupIDs {
-				ui.Info("Hooks backup: %s", id)
+				ui.Note(fmt.Sprintf("Hooks backup: %s", id))
 			}
 		}
 		return applyErr
@@ -261,6 +264,9 @@ func cmdSync(args []string) error {
 			return syncAgentsOnlyProject(cwd, dryRun, force, jsonOutput, start)
 		}
 
+		if hasAll && !jsonOutput {
+			ui.Section("Skills")
+		}
 		stats, results, projIgnoreStats, projCtxCost, invalid, err := cmdSyncProject(cwd, dryRun, force, jsonOutput, quiet)
 		stats.ProjectScope = true
 
@@ -294,7 +300,7 @@ func cmdSync(args []string) error {
 		err = finishNative(err)
 		if hasAll {
 			// Run project extras sync after project skills sync (text mode)
-			if extrasErr := cmdSyncExtras(append([]string{"-p"}, rest...)); extrasErr != nil {
+			if extrasErr := syncExtras(append([]string{"-p"}, rest...), true); extrasErr != nil {
 				ui.Warning("Extras sync: %v", extrasErr)
 				if err == nil {
 					err = extrasErr
@@ -366,8 +372,12 @@ func cmdSync(args []string) error {
 		return discoverErr
 	}
 	if spinner != nil {
-		spinner.Success(fmt.Sprintf("Discovered %d skills", len(discoveredSkills)))
+		spinner.Stop()
 		reportCollisions(discoveredSkills, cfg.Targets)
+	}
+
+	if !jsonOutput && hasAll {
+		ui.Section("Skills")
 	}
 
 	// Backup targets before sync (only if not dry-run and there are skills)
@@ -377,17 +387,14 @@ func cmdSync(args []string) error {
 
 	// Phase 2: Per-target sync (parallel)
 	if !jsonOutput {
-		ui.Header("Syncing skills")
-		if dryRun {
-			ui.Warning("Dry run mode - no changes will be made")
-		}
 		for _, root := range cfg.MissingProjects() {
 			ui.Warning("project %s: folder not found, skipped", root)
 		}
 	}
 
 	var entries []syncTargetEntry
-	for name, target := range cfg.Targets {
+	for _, name := range slices.Sorted(maps.Keys(cfg.Targets)) {
+		target := cfg.Targets[name]
 		entries = append(entries, syncTargetEntry{name: name, target: target, mode: getTargetMode(target.SkillsConfig().Mode, cfg.Mode), configErr: invalid[name]})
 	}
 
@@ -406,21 +413,7 @@ func cmdSync(args []string) error {
 
 	if !jsonOutput {
 		// Phase 3: Summary
-		var totals syncModeStats
-		for _, r := range results {
-			totals.linked += r.stats.linked
-			totals.local += r.stats.local
-			totals.updated += r.stats.updated
-			totals.pruned += r.stats.pruned
-		}
-		ui.SyncSummary(ui.SyncStats{
-			Targets:  len(cfg.Targets),
-			Linked:   totals.linked,
-			Local:    totals.local,
-			Updated:  totals.updated,
-			Pruned:   totals.pruned,
-			Duration: time.Since(start),
-		})
+		printSyncDone(len(discoveredSkills), len(cfg.Targets), failedTargets, dryRun, time.Since(start))
 
 		// Show ignored skills from .skillignore
 		printIgnoredSkills(ignoreStats)
@@ -431,7 +424,7 @@ func cmdSync(args []string) error {
 		// Opportunistic cleanup of expired trash items
 		if !dryRun {
 			if n, _ := trash.Cleanup(trash.TrashDir(), 0); n > 0 {
-				ui.Info("Cleaned up %d expired trash item(s)", n)
+				ui.Note(fmt.Sprintf("Removed %s older than 7 days from trash", plural(n, "item")))
 			}
 		}
 	}
@@ -488,7 +481,7 @@ func cmdSync(args []string) error {
 
 	var extrasErr error
 	if hasAll {
-		if extrasErr = cmdSyncExtras(append([]string{"-g"}, rest...)); extrasErr != nil {
+		if extrasErr = syncExtras(append([]string{"-g"}, rest...), true); extrasErr != nil {
 			ui.Warning("Extras sync: %v", extrasErr)
 		}
 	}
@@ -670,6 +663,29 @@ func syncOutputJSON(results []syncTargetResult, dryRun bool, start time.Time, iS
 	return writeJSONResult(&output, syncErr)
 }
 
+// printSyncDone closes a skills sync: how many skills reached how many
+// targets, or which part failed.
+func printSyncDone(skills, targets, failed int, dryRun bool, took time.Duration) {
+	fmt.Println()
+	switch {
+	case failed > 0:
+		ui.Done(ui.MarkFail, fmt.Sprintf("%d of %s failed", failed, plural(targets, "target")), took)
+	case dryRun:
+		ui.Done(ui.MarkOK, fmt.Sprintf("Would sync %s to %s", plural(skills, "skill"), plural(targets, "target")), took)
+		ui.DryRun()
+	default:
+		ui.Done(ui.MarkOK, fmt.Sprintf("Synced %s to %s", plural(skills, "skill"), plural(targets, "target")), took)
+	}
+}
+
+// printBackupRow reports the targets backed up before a sync and where.
+func printBackupRow(names []string, dir string, width int) {
+	if len(names) == 0 {
+		return
+	}
+	ui.Row(ui.MarkOK, "Backup", strings.Join(names, ", ")+" "+theme.Dim().Render("→ "+utils.FoldHomePath(dir)), width)
+}
+
 func backupTargetsBeforeSync(cfg *config.Config) {
 	// Pre-sync backups are automatic, so retention must be too — otherwise
 	// every sync adds a snapshot that nothing ever removes.
@@ -679,8 +695,14 @@ func backupTargetsBeforeSync(cfg *config.Config) {
 		}
 	}()
 
-	backedUp := false
-	for name, target := range cfg.Targets {
+	var names []string
+	var dir string
+	backedUp := func(name, path string) {
+		names = append(names, name)
+		dir = filepath.Dir(path)
+	}
+	for _, name := range slices.Sorted(maps.Keys(cfg.Targets)) {
+		target := cfg.Targets[name]
 		if !target.SkillsConfig().IsEnabled() {
 			continue
 		}
@@ -688,21 +710,15 @@ func backupTargetsBeforeSync(cfg *config.Config) {
 		if err != nil {
 			ui.Warning("Failed to backup %s: %v", name, err)
 		} else if backupPath != "" {
-			if !backedUp {
-				ui.Header("Backing up")
-				backedUp = true
-			}
-			ui.Success("%s -> %s", name, backupPath)
+			backedUp(name, backupPath)
 		}
 	}
+	defer func() { printBackupRow(names, dir, ui.RowWidth(slices.Collect(maps.Keys(cfg.Targets))...)) }()
 
 	// Also backup agent targets if any exist.
 	backupDir, agentTargets, err := resolveGlobalAgentBackupContextFromCfg(cfg)
 	if err != nil {
 		ui.Warning("Failed to resolve agent backup targets: %v", err)
-		return
-	}
-	if len(agentTargets) == 0 {
 		return
 	}
 	for _, at := range agentTargets {
@@ -711,11 +727,7 @@ func backupTargetsBeforeSync(cfg *config.Config) {
 		if bErr != nil {
 			ui.Warning("Failed to backup %s: %v", entryName, bErr)
 		} else if bp != "" {
-			if !backedUp {
-				ui.Header("Backing up")
-				backedUp = true
-			}
-			ui.Success("%s -> %s", entryName, bp)
+			backedUp(entryName, bp)
 		}
 	}
 }
@@ -755,8 +767,6 @@ func reportCollisions(skills []sync.DiscoveredSkill, targets map[string]config.T
 			}
 		}
 
-		ui.Header("Name conflicts detected")
-
 		// Summary line
 		if len(targetNames) == len(seenTargets) && len(seenTargets) > 1 {
 			ui.Warning("%d duplicate skill names affect %d targets (%s)",
@@ -776,11 +786,9 @@ func reportCollisions(skills []sync.DiscoveredSkill, targets map[string]config.T
 					dirs = append(dirs, parts[0]+"/")
 				}
 			}
-			ui.Info("  %-30s  %s", name, strings.Join(dirs, " vs "))
+			ui.Note(fmt.Sprintf("%-30s  %s", name, strings.Join(dirs, " vs ")))
 		}
-
-		fmt.Println()
-		ui.Info("Rename one in SKILL.md or adjust include/exclude filters")
+		ui.Note("Rename one in SKILL.md or adjust include/exclude filters")
 		fmt.Println()
 	} else {
 		// Global collision exists but filters isolate them — show first few names
@@ -792,47 +800,45 @@ func reportCollisions(skills []sync.DiscoveredSkill, targets map[string]config.T
 			}
 			names = append(names, c.Name)
 		}
-		fmt.Println()
-		if len(global) <= maxShow {
-			ui.Info("%d duplicate skill names (isolated by target filters): %s", len(global), strings.Join(names, ", "))
-		} else {
-			ui.Info("%d duplicate skill names (isolated by target filters): %s, ... and %d more", len(global), strings.Join(names, ", "), len(global)-maxShow)
+		line := fmt.Sprintf("%d duplicate skill names (isolated by target filters): %s", len(global), strings.Join(names, ", "))
+		if len(global) > maxShow {
+			line += fmt.Sprintf(", ... and %d more", len(global)-maxShow)
 		}
+		fmt.Println(theme.Dim().Render(line))
 	}
 }
 
 func printSyncHelp() {
-	fmt.Println(`Usage: skillshare sync [agents|extras|mcp|hooks|plugins] [options]
-
-Sync skills from source to all configured targets.
-
-Options:
-  --all             Sync skills, agents, extras, MCP and hooks
-  --dry-run, -n     Preview changes without applying
-  --force, -f       Force sync (overwrite local changes)
-  --json            Output results as JSON
-  --quiet, -q       Suppress token summary and budget warnings
-  --project, -p     Use project-level config
-  --global, -g      Use global config
-  --help, -h        Show this help
-
-Subcommands:
-  agents            Sync only agents
-  plugins [name]    Apply plugin sync selection (see: skillshare plugin --help)
-  mcp               Sync only MCP settings (no --force; conflicts require review)
-  hooks             Sync only hooks (same as skillshare hooks sync)
-  extras            Sync only extras (see: skillshare sync extras --help)
-
-Examples:
-  skillshare sync                Sync skills to all targets
-  skillshare sync --dry-run      Preview sync changes
-  skillshare sync --all          Sync skills, agents, extras, MCP and hooks
-  skillshare sync -p             Sync project-level skills
-  skillshare sync agents         Sync agents only
-  skillshare sync plugins        Apply selected plugin installations/removals
-  skillshare sync plugins --dry-run --json   Preview plugin changes
-
-Plugins are not included in --all. Plugin sync uses its own options;
---force and --quiet do not apply. Enable/disable saves selection only;
-run sync plugins to install selected targets or uninstall deselected targets.`)
+	printHelp("skillshare sync [agents|extras|mcp|hooks|plugins] [options]", "Sync skills from source to all configured targets.",
+		helpGroup{title: "Options", rows: []helpRow{
+			{"--all", "Sync skills, agents, extras, MCP and hooks"},
+			{"-n, --dry-run", "Preview changes without applying"},
+			{"-f, --force", "Force sync (overwrite local changes)"},
+			{"--json", "Output results as JSON"},
+			{"-q, --quiet", "Suppress token summary and budget warnings"},
+			{"-p, --project", "Use project-level config"},
+			{"-g, --global", "Use global config"},
+		}},
+		helpGroup{title: "Commands", rows: []helpRow{
+			{"agents", "Sync only agents"},
+			{"plugins [name]", "Apply plugin sync selection (see: skillshare plugin --help)"},
+			{"mcp", "Sync only MCP settings (no --force; conflicts require review)"},
+			{"hooks", "Sync only hooks (same as skillshare hooks sync)"},
+			{"extras", "Sync only extras (see: skillshare sync extras --help)"},
+		}},
+		helpExamples(
+			helpRow{"skillshare sync", "Sync skills to all targets"},
+			helpRow{"skillshare sync --dry-run", "Preview sync changes"},
+			helpRow{"skillshare sync --all", "Sync skills, agents, extras, MCP and hooks"},
+			helpRow{"skillshare sync -p", "Sync project-level skills"},
+			helpRow{"skillshare sync agents", "Sync agents only"},
+			helpRow{"skillshare sync plugins", "Apply selected plugin installations/removals"},
+			helpRow{"skillshare sync plugins --dry-run --json", "Preview plugin changes"},
+		),
+		helpNotes("Notes",
+			"Plugins are not included in --all. Plugin sync uses its own options;",
+			"--force and --quiet do not apply. Enable/disable saves selection only;",
+			"run sync plugins to install selected targets or uninstall deselected targets.",
+		),
+	)
 }

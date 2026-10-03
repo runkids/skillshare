@@ -115,7 +115,7 @@ func cmdUI(args []string) error {
 		if err := uidist.ClearCache(); err != nil {
 			return fmt.Errorf("failed to clear UI cache: %w", err)
 		}
-		ui.Success("UI cache cleared.")
+		ui.Done(ui.MarkOK, "UI cache cleared", 0)
 		return nil
 	}
 
@@ -243,7 +243,7 @@ func startUIInBackground(opts uiBackgroundOptions) error {
 	if uiServerReady(opts) {
 		_ = writeCurrentUIState(opts)
 		url := uiURL(opts)
-		ui.Info("Skillshare UI already running: %s", url)
+		ui.Done(ui.MarkNone, "UI already running at "+url, 0)
 		if !opts.noOpen {
 			openUIWindow(url, opts.appWindow)
 		}
@@ -295,11 +295,11 @@ func startUIInBackground(opts uiBackgroundOptions) error {
 		if !opts.noOpen {
 			openUIWindow(url, opts.appWindow)
 		}
-		ui.Success("Skillshare UI running in background: %s", url)
+		ui.Done(ui.MarkOK, "UI running in background at "+url, 0)
 		return nil
 	}
-	ui.Info("Skillshare UI starting in background: %s", url)
-	ui.Info("Log: %s", logFile.Name())
+	ui.Done(ui.MarkNone, "UI starting in background at "+url, 0)
+	ui.Note("Log: " + shortenPath(logFile.Name()))
 	return nil
 }
 
@@ -309,9 +309,9 @@ func cmdUIStop(opts uiBackgroundOptions) error {
 		return err
 	}
 	if stopped {
-		ui.Success("Skillshare UI stopped: %s", uiURL(opts))
+		ui.Done(ui.MarkOK, "UI stopped at "+uiURL(opts), 0)
 	} else {
-		ui.Info("Skillshare UI is not running: %s", uiURL(opts))
+		ui.Done(ui.MarkNone, "UI is not running at "+uiURL(opts), 0)
 	}
 	return nil
 }
@@ -786,34 +786,30 @@ func envOrDefaultUI(key, fallback string) string {
 }
 
 func printUIHelp() {
-	fmt.Println(`Usage: skillshare ui [options]
-       skillshare ui start [options]
-       skillshare ui stop [options]
-
-Launch the web dashboard.
-
-Modes:
-  (default)            Run the UI server in the foreground
-  start                Start or reuse a background UI server
-  stop                 Stop a background UI server
-
-Options:
-  --port <port>       Server port (default: 19420)
-  --host <host>       Server host (default: 127.0.0.1)
-  --base-path, -b     Base path prefix for reverse proxy
-  --no-open           Don't open browser automatically
-  --app               Open as desktop-style app window when supported (start only)
-  --clear-cache       Clear cached UI assets and exit (foreground) or before start
-  --project, -p       Use project-level config
-  --global, -g        Use global config
-  --help, -h          Show this help
-
-Examples:
-  skillshare ui                  Launch dashboard in foreground
-  skillshare ui start            Start dashboard in background
-  skillshare ui stop             Stop background dashboard
-  skillshare ui --port 8080      Launch on custom port
-  skillshare ui --no-open        Launch without opening browser
-  skillshare ui -p               Launch in project mode
-  skillshare ui --clear-cache    Clear cached UI files`)
+	printHelp("skillshare ui [options]\n       skillshare ui start [options]\n       skillshare ui stop [options]", "Launch the web dashboard.",
+		helpGroup{title: "Modes", rows: []helpRow{
+			{"(default)", "Run the UI server in the foreground"},
+			{"start", "Start or reuse a background UI server"},
+			{"stop", "Stop a background UI server"},
+		}},
+		helpGroup{title: "Options", rows: []helpRow{
+			{"--port <port>", "Server port (default: 19420)"},
+			{"--host <host>", "Server host (default: 127.0.0.1)"},
+			{"-b, --base-path", "Base path prefix for reverse proxy"},
+			{"--no-open", "Don't open browser automatically"},
+			{"--app", "Open as desktop-style app window when supported (start only)"},
+			{"--clear-cache", "Clear cached UI assets and exit (foreground) or before start"},
+			{"-p, --project", "Use project-level config"},
+			{"-g, --global", "Use global config"},
+		}},
+		helpExamples(
+			helpRow{"skillshare ui", "Launch dashboard in foreground"},
+			helpRow{"skillshare ui start", "Start dashboard in background"},
+			helpRow{"skillshare ui stop", "Stop background dashboard"},
+			helpRow{"skillshare ui --port 8080", "Launch on custom port"},
+			helpRow{"skillshare ui --no-open", "Launch without opening browser"},
+			helpRow{"skillshare ui -p", "Launch in project mode"},
+			helpRow{"skillshare ui --clear-cache", "Clear cached UI files"},
+		),
+	)
 }

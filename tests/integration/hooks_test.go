@@ -75,7 +75,7 @@ func TestHooksLifecycle_Claude(t *testing.T) {
 	}
 	restore := sb.RunCLI("hooks", "restore", synced.BackupIDs[0], "--dry-run", "-g")
 	restore.AssertSuccess(t)
-	restore.AssertOutputContains(t, "Hooks source:")
+	restore.AssertOutputContains(t, "Hooks source")
 	if sb.ReadFile(settings) != written {
 		t.Fatal("restore --dry-run changed settings.json")
 	}

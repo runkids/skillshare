@@ -113,10 +113,13 @@ skillshare extras init pi-prompt --file system.md --as APPEND_SYSTEM.md \
 `extras init` 只會寫入設定，不會建立 source 檔案，也不會執行 sync。若是單一檔案 extra，它會印出完整的 source 與 target 檔案路徑：
 
 ```
+  Source    ~/dotfiles/prompts/system.md
+  Target    ~/.pi/agent/APPEND_SYSTEM.md · merge
+
 ✓ Created extra pi-prompt (single file)
-Source: ~/dotfiles/prompts/system.md
-Target: ~/.pi/agent/APPEND_SYSTEM.md [merge]
-Run 'skillshare sync extras' to sync.
+
+Next
+  skillshare sync extras  sync it
 ```
 
 若 source 檔案還不存在，source 那一行結尾會是 `(not found)`，最後一行則是 `Create the source file, then run 'skillshare sync extras'.`
@@ -168,15 +171,14 @@ TUI 提供分割面板介面，左側為 extras 清單，右側為詳細資訊�
 
 ```
 $ skillshare extras list --no-tui
+rules  ~/.config/skillshare/extras/rules · 2 files
+✓ ~/.claude/rules  merge
+✓ ~/.cursor/rules  copy
 
-Extras
-─────────────────────────────────────────
-→ rules  ~/.config/skillshare/extras/rules/ · 2 files
-  ✓ ~/.claude/rules  merge
-  ✓ ~/.cursor/rules  copy
+codex-agents  ~/.config/skillshare/agents · 3 files
+✓ ~/.codex/agents  extension: codex-agents
 
-→ codex-agents  ~/.config/skillshare/agents · 3 files
-  ✓ ~/.codex/agents  extension: codex-agents
+2 extras
 ```
 
 若是[單一檔案 extra](#single-file-extras)，source 與每個 target 會顯示完整的檔案路徑，而不是目錄。

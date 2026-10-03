@@ -79,20 +79,25 @@ skillshare init --remote git@github.com:you/my-skills.git
 
 ## Second Machine Setup
 
-在新机器上，**同样的指令即可**：
+运行 `skillshare init`，选择 **Connect my existing skillshare repo**，再粘贴 repo URL：
+
+<p>
+  <img src="/img/init-connect-demo.png" alt="skillshare init 连接已有的 repo" width="720" />
+</p>
+
+也可以直接传入 URL：
 
 ```bash
 skillshare init --remote git@github.com:you/my-skills.git
 ```
 
-Init 会自动侦测 remote 已有既有 Skill 并将其拉取下来，不需要手动执行 `git clone`。
+Init 会先检查 repo（不写入任何东西），再把它拉取下来，不需要手动执行 `git clone`。
 
 :::info 背后发生了什么
-1. 建立 Source 目录并初始化 git
-2. 加入 remote 并执行 `git fetch`
-3. 侦测到 remote 已有 Skill → 将本地重置为与 remote 一致
-4. 设置 tracking branch
-5. 自动侦测并设置本地 Target
+1. 把 repo clone 到临时文件夹，统计 skills 数量并判断结构：用 `--git-root root` 推送的整个文件夹，或放在 `skills/` 文件夹中的 skills
+2. 这台机器上与 repo 同名的 skills 使用 repo 版本；只存在于这台机器的 skills 会保留，并在下次 `skillshare push` 时加入 repo
+3. 确认后：创建 source、初始化 git、添加 remote、重置为 remote 分支并设置 tracking
+4. 配置检测到的本地 targets，并询问是否进行首次同步
 :::
 
 若你偏好手动控制：

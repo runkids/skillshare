@@ -145,7 +145,7 @@ Agent는 skill과 병렬적인 리소스 종류입니다. `skills/` 옆에 자�
 - `~/.config/opencode/agents/` — OpenCode
 - `~/.factory/droids/` — Droid
 
-그 외의 target은 agent sync 시 자동으로 건너뜁니다 (`target(s) skipped for agents (no agents path)` 경고와 함께). skill에 적용되는 것과 동일한 merge / copy / symlink mode가 agent에도 적용됩니다.
+그 외의 target은 agent sync 시 자동으로 건너뜁니다 (`No agents folder: <targets>` 경고와 함께). skill에 적용되는 것과 동일한 merge / copy / symlink mode가 agent에도 적용됩니다.
 
 전체 agent 파일 형식, `.agentignore` 규칙, discovery 시맨틱스는 [Agents](/docs/understand/agents)를 참고하세요.
 

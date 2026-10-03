@@ -104,7 +104,7 @@ func TestInstall_BatchAuditOutput(t *testing.T) {
 	result.AssertAnyOutputContains(t, "Installed")
 
 	// Next steps
-	result.AssertAnyOutputContains(t, "Next Steps")
+	result.AssertAnyOutputContains(t, "\nNext\n")
 }
 
 // TestUpdateAll_AuditOutputParity verifies that update --all produces
@@ -136,13 +136,13 @@ func TestUpdateAll_AuditOutputParity(t *testing.T) {
 
 	// Has audit results (CLEAN or findings)
 	combined := updateResult.Stdout + updateResult.Stderr
-	if !(strings.Contains(combined, "CLEAN") || strings.Contains(combined, "finding(s)")) {
+	if !(strings.Contains(combined, "no findings") || strings.Contains(combined, "findings:")) {
 		t.Errorf("expected audit results (CLEAN or findings), got:\nstdout: %s\nstderr: %s",
 			updateResult.Stdout, updateResult.Stderr)
 	}
 
-	// Batch summary line (most skills are still skipped)
-	updateResult.AssertAnyOutputContains(t, "skipped")
+	// Batch closing line
+	updateResult.AssertAnyOutputContains(t, "Updated ")
 
 	// No blocked skills on re-install (--force was passed to this update too)
 	updateResult.AssertOutputNotContains(t, "Blocked / Failed")

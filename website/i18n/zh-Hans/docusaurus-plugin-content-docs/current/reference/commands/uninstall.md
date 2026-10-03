@@ -23,18 +23,12 @@ skillshare uninstall team-repo             # Remove tracked repository (_ prefix
 
 ```text
 $ skillshare uninstall css-review
+  frontend/css-review  ~/.config/skillshare/skills/frontend/css-review · 1 file
+✓ Uninstall frontend/css-review → trash, kept 7 days
 
-Uninstalling skill
-─────────────────────────────────────────
-→ Name: frontend/css-review
-→ Path: ~/.config/skillshare/skills/frontend/css-review
-
-Are you sure you want to uninstall this skill? [y/N]: y
-✓ Uninstalled skill: frontend/css-review
-→ Moved to trash (7 days): ~/.local/share/skillshare/trash/frontend/css-review_2026-09-28_12-52-23
-
-  Next Steps
-→ Run 'skillshare sync' to update all targets
+Next
+  skillshare sync                               remove it from claude, cursor
+  skillshare trash restore frontend/css-review  undo
 ```
 
 ## 会发生什么
@@ -144,7 +138,7 @@ Uninstalling group (5 skills)
 → Name: feature-radar
 → Path: ~/.config/skillshare/skills/feature-radar
 
-Are you sure you want to uninstall this group? [y/N]:
+? Uninstall group feature-radar? moved to trash for 7 days   Yes   No
 ```
 
 `--group` flag 使用**前缀匹配**移除某个目录下的所有 skills：
@@ -228,42 +222,48 @@ skillshare uninstall my-skill -G frontend --force
 单个 skill（详细模式）：
 
 ```
-✓ Uninstalled skill: my-skill
-ℹ Moved to trash (7 days): ~/.local/share/skillshare/trash/my-skill_2026-01-20_15-30-00
-ℹ Reinstall: skillshare install github.com/user/repo/my-skill
+  my-skill  ~/.config/skillshare/skills/my-skill · 2 files
+✓ Uninstall my-skill → trash, kept 7 days
+
+Next
+  skillshare sync                                   remove it from claude, cursor
+  skillshare trash restore my-skill                 undo
+  skillshare install github.com/user/repo/my-skill  reinstall it later
 ```
 
 多个 skills（批量）：
 
 ```
-✓ Uninstalled 4 skill(s) (0.1s)
-
-── Removed ─────────────────────────────
-✓ pdf        skill
-✓ tdd        skill
-✓ security   group, 2 skills
+Failed
 ✗ bad-skill  failed to move to trash: ...
 
-── Next Steps ──────────────────────────
-ℹ Moved to trash (7 days).
-ℹ Run 'skillshare sync' to update all targets
+Removed
+✓ pdf       skill
+✓ tdd       skill
+✓ security  group, 2 skills
+
+! Uninstalled 3, 1 failed · 0.1s
+
+Next
+  skillshare sync        remove them from claude, cursor
+  skillshare trash list  restore any of them within 7 days
 ```
 
 大批量操作会使用精简格式：
 
 ```
-✓ Uninstalled 920, failed 2 (1.2s)
+Failed
+✗ bad-a     failed to move to trash: permission denied
+✗ bad-b     failed to move to trash: permission denied
 
-── Failed ──────────────────────────────
-✗ bad-a  failed to move to trash: permission denied
-✗ bad-b  failed to move to trash: permission denied
-
-── Removed ─────────────────────────────
+Removed
 ✓ 920 uninstalled
 
-── Next Steps ──────────────────────────
-ℹ Moved to trash (7 days).
-ℹ Run 'skillshare sync' to update all targets
+! Uninstalled 920, 2 failed · 1.2s
+
+Next
+  skillshare sync        remove them from claude, cursor
+  skillshare trash list  restore any of them within 7 days
 ```
 
 要恢复一个不小心 uninstall 的 skill：

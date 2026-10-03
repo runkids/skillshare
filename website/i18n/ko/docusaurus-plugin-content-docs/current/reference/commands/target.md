@@ -120,10 +120,18 @@ TUI를 통한 변경 사항(mode, include/exclude)은 즉시 config에 저장됩
 TUI를 건너뛰고 일반 텍스트를 출력하려면 `--no-tui`를 사용하세요.
 
 ```
-Configured Targets
-  claude       ~/.claude/skills (merge)
-  cursor       ~/.cursor/skills (merge)
-  codex        ~/.openai-codex/skills (symlink)
+claude
+  Skills    ~/.claude/skills  merge · flat · merged · 43 shared
+  Agents    ~/.claude/agents  merge · 2/2 linked
+
+cursor
+  Skills    ~/.cursor/skills  merge · flat · merged · 43 shared, 1 local
+  Agents    ~/.cursor/agents  merge · 2/2 linked
+
+codex
+  Skills    ~/.openai-codex/skills  symlink · flat · linked
+
+3 targets
 ```
 
 #### JSON Output
@@ -256,9 +264,10 @@ skillshare target pi --skills=false
 ```
 
 ```
-✓ pi: skills off
-  removed 2 link(s): alpha, beta
-  kept 1: my-notes
+✓ Removed   2 links  alpha, beta
+  Kept      1 local skill  my-notes
+
+✓ Skills off for pi
   Agents, MCP servers and instructions are still managed
 ```
 
@@ -269,8 +278,11 @@ skills를 끄면 config에 `skills.enabled: false`가 저장되고, 이어서 �
 - **Copy mode:** 복사본은 직접 편집했을 수도 있는 실제 폴더이므로 유지하고, 따로 나열합니다. 도구는 여전히 이 복사본을 읽으므로, 같은 skill을 다른 폴더에서도 읽는다면 복사본을 직접 삭제하세요.
 
   ```
-    kept 2 copied skill(s): alpha, beta
+  ! Kept      2 copied skills  alpha, beta
+
+  ✓ Skills off for pi
     The tool still loads these copies; delete them if it reads the same skills elsewhere
+    Agents, MCP servers and instructions are still managed
   ```
 
 - **공유 폴더:** skills가 켜진 다른 target이 같은 폴더에 쓰고 있으면 아무것도 제거하지 않습니다.
@@ -403,10 +415,16 @@ skillshare target claude --add-agent-include "team-*" -p    # Add agent filter
 ### Project Target List 예시
 
 ```
-Project Targets
-  claude    .claude/skills (merge)
-  cursor         .cursor/skills (merge)
-  custom-tool    ./tools/ai/skills (merge)
+claude
+  Skills    .claude/skills  merge · flat · merged · 3 shared
+
+cursor
+  Skills    .cursor/skills  merge · flat · merged · 3 shared
+
+custom-tool
+  Skills    ./tools/ai/skills  merge · flat · merged · 3 shared
+
+3 targets
 ```
 
 Project mode의 target은 다음을 지원합니다.

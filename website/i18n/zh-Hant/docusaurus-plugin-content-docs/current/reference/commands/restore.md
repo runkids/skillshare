@@ -78,10 +78,15 @@ skillshare backup --list
 ```
 
 ```
-All backups (15.3 MB total)
-  2026-01-20_15-30-00  claude, cursor     4.2 MB
-  2026-01-19_10-00-00  claude             2.1 MB
-  2026-01-18_09-00-00  claude, cursor     4.0 MB
+Backups  ~/.local/share/skillshare/backups
+  2026-01-20_15-30-00  claude, cursor · 4.2 MB
+  2026-01-19_10-00-00  claude · 2.1 MB
+  2026-01-18_09-00-00  claude, cursor · 4.0 MB
+
+3 backups, 10.3 MB
+
+Next
+  skillshare restore <target> --from <timestamp>  roll a target back
 ```
 
 ## 範例

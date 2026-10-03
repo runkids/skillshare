@@ -40,9 +40,6 @@ func cmdUpdateProject(args []string, root string) (*updateResult, error) {
 		opts.threshold = runtime.config.Audit.BlockThreshold
 	}
 
-	ui.Header(ui.WithModeLabel("Updating"))
-	ui.StepStart("Source", sourcePath)
-
 	// An update is what moves the lockfile forward.
 	if !opts.dryRun {
 		defer trackProjectLock(runtime)()
@@ -78,7 +75,7 @@ func cmdUpdateProjectBatch(sourcePath string, opts *updateOptions, projectRoot s
 				resolveWarnings = append(resolveWarnings, fmt.Sprintf("%s: no updatable skills in group", name))
 				continue
 			}
-			ui.Info("'%s' is a group — expanding to %d updatable skill(s)", name, len(groupMatches))
+			ui.Note(fmt.Sprintf("'%s' is a group — expanding to %s", name, plural(len(groupMatches), "updatable skill")))
 			for _, m := range groupMatches {
 				if !seen[m.path] {
 					seen[m.path] = true
@@ -142,16 +139,6 @@ func cmdUpdateProjectBatch(sourcePath string, opts *updateOptions, projectRoot s
 		}
 	}
 
-	var repoCount, skillCount int
-	for _, t := range targets {
-		if t.isRepo {
-			repoCount++
-		} else {
-			skillCount++
-		}
-	}
-	ui.StepEnd("Items", fmt.Sprintf("%d tracked repo(s), %d skill(s)", repoCount, skillCount))
-
 	for _, w := range resolveWarnings {
 		ui.Warning("%s", w)
 	}
@@ -179,10 +166,6 @@ func cmdUpdateProjectBatch(sourcePath string, opts *updateOptions, projectRoot s
 	}
 
 	// Batch mode
-	if opts.dryRun {
-		ui.Warning("[dry-run] No changes will be made")
-	}
-
 	batchResult, batchErr := executeBatchUpdate(uc, targets)
 	return &batchResult, batchErr
 }
@@ -247,16 +230,6 @@ func updateAllProjectSkills(uc *updateContext) (*updateResult, error) {
 		}
 	}
 
-	var repoCount, skillCount int
-	for _, t := range targets {
-		if t.isRepo {
-			repoCount++
-		} else {
-			skillCount++
-		}
-	}
-	ui.StepEnd("Items", fmt.Sprintf("%d tracked repo(s), %d skill(s)", repoCount, skillCount))
-
 	total := len(targets)
 	if total == 0 {
 		ui.UpdateSummary(ui.UpdateStats{})
@@ -279,10 +252,6 @@ func updateAllProjectSkills(uc *updateContext) (*updateResult, error) {
 			r, updateErr = updateRegularSkill(uc, t.name)
 		}
 		return &r, updateErr
-	}
-
-	if uc.opts.dryRun {
-		ui.Warning("[dry-run] No changes will be made")
 	}
 
 	batchResult, batchErr := executeBatchUpdate(uc, targets)

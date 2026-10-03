@@ -14,7 +14,9 @@ import (
 	"skillshare/internal/config"
 	"skillshare/internal/resource"
 	"skillshare/internal/sync"
+	"skillshare/internal/theme"
 	"skillshare/internal/ui"
+	"skillshare/internal/utils"
 )
 
 // agentSyncStats aggregates per-target agent sync results.
@@ -32,7 +34,7 @@ func syncAgentsGlobal(cfg *config.Config, dryRun, force, jsonOutput bool, start 
 	if _, err := os.Stat(agentsSource); err != nil {
 		if os.IsNotExist(err) {
 			if !jsonOutput {
-				ui.Info("No agents source directory (%s)", agentsSource)
+				fmt.Println(theme.Dim().Render("No agents folder (" + utils.FoldHomePath(agentsSource) + ")"))
 			}
 			return agentSyncStats{}, nil
 		}
@@ -47,12 +49,9 @@ func syncAgentsGlobal(cfg *config.Config, dryRun, force, jsonOutput bool, start 
 	agents := resource.ActiveAgents(allAgents)
 
 	if !jsonOutput {
-		ui.Header("Syncing agents")
+		ui.Section("Agents")
 		if len(agents) == 0 {
-			ui.Info("No agents found in %s; pruning synced target entries only", agentsSource)
-		}
-		if dryRun {
-			ui.Warning("Dry run mode - no changes will be made")
+			ui.Note("No agents in " + utils.FoldHomePath(agentsSource) + "; only removing ones synced before")
 		}
 	}
 
@@ -69,26 +68,26 @@ func syncAgentsGlobal(cfg *config.Config, dryRun, force, jsonOutput bool, start 
 				}
 			}()
 		}
-		backedUp := false
+		var names []string
+		var dir string
 		for _, at := range agentTargets {
 			entryName := at.name + "-agents"
 			bp, bErr := backup.CreateInDir(backupDir, entryName, at.agentPath)
 			if bErr != nil {
 				ui.Warning("Failed to backup %s: %v", entryName, bErr)
 			} else if bp != "" {
-				if !backedUp {
-					ui.Header("Backing up")
-					backedUp = true
-				}
-				ui.Success("%s -> %s", entryName, bp)
+				names = append(names, at.name)
+				dir = filepath.Dir(bp)
 			}
 		}
+		printBackupRow(names, dir, ui.RowWidth(slices.Collect(maps.Keys(cfg.Targets))...))
 	}
 
 	// Resolve agent-capable targets: user config agents sub-key + built-in defaults
 	builtinAgents := config.DefaultAgentTargets()
 	var targets []sync.AgentTarget
-	for name, tc := range cfg.Targets {
+	for _, name := range slices.Sorted(maps.Keys(cfg.Targets)) {
+		tc := cfg.Targets[name]
 		targets = append(targets, sync.AgentTarget{
 			Name:   name,
 			Path:   resolveAgentTargetPath(tc, builtinAgents, name),
@@ -103,7 +102,7 @@ func syncAgentsGlobal(cfg *config.Config, dryRun, force, jsonOutput bool, start 
 			return resolveExtension(ext, globalExtensionsDir())
 		},
 	})
-	return renderAgentRun(results, dryRun, jsonOutput, start)
+	return renderAgentRun(results, len(agents), dryRun, jsonOutput, start)
 }
 
 // resolveAgentTargetPath returns the effective agent path for a target,
@@ -170,7 +169,7 @@ func syncAgentsProject(projectRoot string, skip map[string]error, dryRun, force,
 	if _, err := os.Stat(agentsSource); err != nil {
 		if os.IsNotExist(err) {
 			if !jsonOutput {
-				ui.Info("No project agents directory (%s)", agentsSource)
+				fmt.Println(theme.Dim().Render("No project agents folder (" + utils.FoldHomePath(agentsSource) + ")"))
 			}
 			return nil, nil
 		}
@@ -184,12 +183,9 @@ func syncAgentsProject(projectRoot string, skip map[string]error, dryRun, force,
 	agents := resource.ActiveAgents(allAgents)
 
 	if !jsonOutput {
-		ui.Header("Syncing agents (project)")
+		ui.Section("Agents")
 		if len(agents) == 0 {
-			ui.Info("No project agents found; pruning synced target entries only")
-		}
-		if dryRun {
-			ui.Warning("Dry run mode - no changes will be made")
+			ui.Note("No project agents; only removing ones synced before")
 		}
 	}
 
@@ -203,8 +199,10 @@ func syncAgentsProject(projectRoot string, skip map[string]error, dryRun, force,
 				ui.Warning("Failed to clean up old project agent backups: %v", err)
 			}
 		}()
-		backedUp := false
+		var names, all []string
+		var dir string
 		for _, entry := range projCfg.Targets {
+			all = append(all, entry.Name)
 			agentPath := resolveProjectAgentTargetPath(entry, builtinAgents, projectRoot)
 			if agentPath == "" || skip[entry.Name] != nil {
 				continue
@@ -214,13 +212,11 @@ func syncAgentsProject(projectRoot string, skip map[string]error, dryRun, force,
 			if bErr != nil {
 				ui.Warning("Failed to backup %s: %v", entryName, bErr)
 			} else if bp != "" {
-				if !backedUp {
-					ui.Header("Backing up")
-					backedUp = true
-				}
-				ui.Success("%s -> %s", entryName, bp)
+				names = append(names, entry.Name)
+				dir = filepath.Dir(bp)
 			}
 		}
+		printBackupRow(names, dir, ui.RowWidth(all...))
 	}
 
 	var targets []sync.AgentTarget
@@ -243,18 +239,24 @@ func syncAgentsProject(projectRoot string, skip map[string]error, dryRun, force,
 			return resolveExtension(ext, projectExtensionsDir(projectRoot))
 		},
 	})
-	stats, err := renderAgentRun(results, dryRun, jsonOutput, start)
+	stats, err := renderAgentRun(results, len(agents), dryRun, jsonOutput, start)
 	return stats.failed, err
 }
 
-// renderAgentRun prints per-target agent sync results and the summary.
-// Shared by both global and project sync paths. Returns the totals and an
-// error when any target failed.
-func renderAgentRun(results []sync.AgentTargetResult, dryRun, jsonOutput bool, start time.Time) (agentSyncStats, error) {
+// renderAgentRun prints one row per target and the closing line. Shared by
+// the global and project sync paths. Returns the totals and an error when
+// any target failed.
+func renderAgentRun(results []sync.AgentTargetResult, agentCount int, dryRun, jsonOutput bool, start time.Time) (agentSyncStats, error) {
 	var totals agentSyncStats
 	var syncErr error
 	var skippedTargets []string
 	var targetCount int
+
+	var names []string
+	for _, r := range results {
+		names = append(names, r.Name)
+	}
+	width := ui.RowWidth(names...)
 
 	for _, r := range results {
 		if r.Path == "" {
@@ -265,7 +267,7 @@ func renderAgentRun(results []sync.AgentTargetResult, dryRun, jsonOutput bool, s
 
 		if r.Err != nil {
 			if !jsonOutput {
-				ui.Error("%s: %v", r.Name, r.Err)
+				ui.Row(ui.MarkFail, r.Name, r.Err.Error(), width)
 			}
 			totals.failed = append(totals.failed, r.Name)
 			syncErr = fmt.Errorf("some agent targets failed to sync")
@@ -273,7 +275,7 @@ func renderAgentRun(results []sync.AgentTargetResult, dryRun, jsonOutput bool, s
 		}
 		if r.SyncErr != nil {
 			if !jsonOutput {
-				ui.Error("%s: agent sync failed: %v", r.Name, r.SyncErr)
+				ui.Row(ui.MarkFail, r.Name, "agent sync failed: "+r.SyncErr.Error(), width)
 			}
 			totals.failed = append(totals.failed, r.Name)
 			syncErr = fmt.Errorf("some agent targets failed to sync")
@@ -289,10 +291,16 @@ func renderAgentRun(results []sync.AgentTargetResult, dryRun, jsonOutput bool, s
 			pruned:  len(r.Pruned),
 		}
 		if !jsonOutput {
-			for _, w := range r.Warnings {
-				ui.Warning("%s", w)
+			linked := "linked"
+			if r.Mode == "copy" {
+				linked = "copied"
 			}
-			reportAgentSyncResult(r.Name, r.Mode, stats, dryRun)
+			ui.Row(ui.MarkOK, r.Name, syncCounts("up to date",
+				countPart{stats.linked, linked}, countPart{stats.local, "local"},
+				countPart{stats.updated, "updated"}, countPart{stats.pruned, "pruned"}), width)
+			for _, w := range r.Warnings {
+				fmt.Printf("  %s %s\n", theme.Warning().Render(ui.MarkWarn), w)
+			}
 		}
 		totals.linked += stats.linked
 		totals.local += stats.local
@@ -301,34 +309,23 @@ func renderAgentRun(results []sync.AgentTargetResult, dryRun, jsonOutput bool, s
 	}
 
 	if !jsonOutput {
-		ui.AgentSyncSummary(ui.AgentSyncStats{
-			Targets:  targetCount,
-			Linked:   totals.linked,
-			Local:    totals.local,
-			Updated:  totals.updated,
-			Pruned:   totals.pruned,
-			Duration: time.Since(start),
-		})
 		if len(skippedTargets) > 0 {
 			sort.Strings(skippedTargets)
-			ui.Warning("%d target(s) skipped for agents (no agents path): %s",
-				len(skippedTargets), strings.Join(skippedTargets, ", "))
+			ui.Note(fmt.Sprintf("No agents folder: %s", strings.Join(skippedTargets, ", ")))
+		}
+		fmt.Println()
+		switch {
+		case len(totals.failed) > 0:
+			ui.Done(ui.MarkFail, fmt.Sprintf("%d of %s failed", len(totals.failed), plural(targetCount, "target")), time.Since(start))
+		case dryRun:
+			ui.Done(ui.MarkOK, fmt.Sprintf("Would sync %s to %s", plural(agentCount, "agent"), plural(targetCount, "target")), time.Since(start))
+			ui.DryRun()
+		default:
+			ui.Done(ui.MarkOK, fmt.Sprintf("Synced %s to %s", plural(agentCount, "agent"), plural(targetCount, "target")), time.Since(start))
 		}
 	}
 
 	return totals, syncErr
-}
-
-// reportAgentSyncResult prints per-target agent sync status.
-func reportAgentSyncResult(name, mode string, stats agentSyncStats, dryRun bool) {
-	if stats.linked > 0 || stats.updated > 0 || stats.pruned > 0 {
-		ui.Success("%s: agents %s (%d linked, %d local, %d updated, %d pruned)",
-			name, mode, stats.linked, stats.local, stats.updated, stats.pruned)
-	} else if stats.local > 0 {
-		ui.Success("%s: agents %s (%d local preserved)", name, mode, stats.local)
-	} else {
-		ui.Success("%s: agents %s (up to date)", name, mode)
-	}
 }
 
 // collectAgentTargetPathsGlobal returns the set of resolved agent target paths

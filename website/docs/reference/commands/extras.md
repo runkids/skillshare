@@ -176,10 +176,13 @@ skillshare extras init pi-prompt --file system.md --as APPEND_SYSTEM.md \
 `extras init` only writes the config. It does not create the source file and does not sync. For a single-file extra it prints the full source and target file paths:
 
 ```
+  Source    ~/dotfiles/prompts/system.md
+  Target    ~/.pi/agent/APPEND_SYSTEM.md · merge
+
 ✓ Created extra pi-prompt (single file)
-Source: ~/dotfiles/prompts/system.md
-Target: ~/.pi/agent/APPEND_SYSTEM.md [merge]
-Run 'skillshare sync extras' to sync.
+
+Next
+  skillshare sync extras  sync it
 ```
 
 If the source file does not exist yet, the source line ends with `(not found)` and the last line reads `Create the source file, then run 'skillshare sync extras'.`
@@ -231,15 +234,14 @@ When TUI is disabled (via `--no-tui`, `skillshare tui off`, or piped output):
 
 ```
 $ skillshare extras list --no-tui
+rules  ~/.config/skillshare/extras/rules · 2 files
+✓ ~/.claude/rules  merge
+✓ ~/.cursor/rules  copy
 
-Extras
-─────────────────────────────────────────
-→ rules  ~/.config/skillshare/extras/rules/ · 2 files
-  ✓ ~/.claude/rules  merge
-  ✓ ~/.cursor/rules  copy
+codex-agents  ~/.config/skillshare/agents · 3 files
+✓ ~/.codex/agents  extension: codex-agents
 
-→ codex-agents  ~/.config/skillshare/agents · 3 files
-  ✓ ~/.codex/agents  extension: codex-agents
+2 extras
 ```
 
 For a [single-file extra](#single-file-extras), the source and each target show the full file path instead of the directory.

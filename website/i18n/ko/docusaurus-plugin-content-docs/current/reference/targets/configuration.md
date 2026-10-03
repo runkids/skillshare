@@ -859,7 +859,7 @@ git_root: skills
 
 **Default:** `skills`
 
-`skillshare init --git-root <scope>`로 init 중에 설정하거나, init 마법사에서 대화형으로 설정하세요.
+`skillshare init --git-root <scope>`로 init 중에 설정하거나, init 요약에서 **Change settings**를 선택해 변경하세요.
 
 #### Changing the scope after init
 

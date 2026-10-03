@@ -77,6 +77,10 @@ func resolve() *Theme {
 	return &Theme{Mode: ModeDark, Source: "detected", palette: darkPalette}
 }
 
+// stdoutIsTerminal reports whether stdout is attached to a terminal.
+// A variable so tests can pin the answer.
+var stdoutIsTerminal = func() bool { return term.IsTerminal(int(os.Stdout.Fd())) }
+
 // canDetect reports whether it is safe to send an OSC 11 query. Guards
 // against:
 //   - Non-TTY stdin/stdout (piped, redirected, CI)

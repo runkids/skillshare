@@ -40,15 +40,9 @@ curl -fsSL https://raw.githubusercontent.com/runkids/skillshare/main/install.sh 
 インストーラーが PATH 設定の案内を表示した場合のみ、その案内に従ってから以下のコマンドを実行してください。PATH の警告がなければ追加の設定は不要です。
 
 ```bash
-
-# 初期化する
+# 「Connect my existing skillshare repo」を選び、リポジトリの URL を貼り付けます。
+# init が Skill を pull し、初回 sync を提案します。
 skillshare init
-
-# remote から pull する
-skillshare pull
-
-# ローカルの Target に Sync する
-skillshare sync
 ```
 
 ### 日々の Sync ワークフロー

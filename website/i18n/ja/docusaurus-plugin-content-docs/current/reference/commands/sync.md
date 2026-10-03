@@ -89,7 +89,7 @@ Project の設定はパスではなく target 名を保存するため、target 
 Project sync はそれらを削除します。明示的な `path:` を持たない各 target について、その target のランタイムがあわせてスキャンするディレクトリを調べ、そのうち設定済みのどの target も書き込まないディレクトリから、skillshare が作成したエントリを削除します。自分で作成したフォルダや、project の外を指すシンボリックリンクが変更されることはありません。
 
 ```
-→ Cleaned 1 leftover skill(s) from .goose/skills: the default path for 'goose' moved to .agents/skills
+  Cleaned 1 leftover skill from .goose/skills: the default path for 'goose' moved to .agents/skills
 ```
 
 target に明示的な `path:` を設定すると、その target はクリーンアップの対象外になります。また `--dry-run` は、何も変更せずに削除される対象をプレビューします。
@@ -186,7 +186,7 @@ flowchart TD
 
 ### target が失敗した場合 {#when-a-target-fails}
 
-sync はすべての target を実行し、1 つの target が失敗しても他の target は止まりません。target が失敗するのは、sync 中にエラーが起きたとき、またはその target 自身の設定が不正なとき（例：skills path がフォルダではなくファイル、`mode` が不明）です。設定が不正な target は、その実行では skills と agents の両方がスキップされます。失敗した target はそれぞれ報告され（テキスト出力では `✗ <target>: invalid config: …`、`--json` では該当する `details` エントリの `error`）、他の target の sync が終わった後にコマンドは非ゼロで終了します。
+sync はすべての target を実行し、1 つの target が失敗しても他の target は止まりません。target が失敗するのは、sync 中にエラーが起きたとき、またはその target 自身の設定が不正なとき（例：skills path がフォルダではなくファイル、`mode` が不明）です。設定が不正な target は、その実行では skills と agents の両方がスキップされます。失敗した target はそれぞれ報告され（テキスト出力では `✗ <target>  invalid config: …`、`--json` では該当する `details` エントリの `error`）、他の target の sync が終わった後にコマンドは非ゼロで終了します。
 
 config 全体に関わる問題は、これまでどおりどの target も実行する前に sync を止めます：source フォルダが存在しない・不正、グローバルの `mode` や `target_naming` が不正、`git_root` が不正、extras が不正。
 
@@ -194,25 +194,16 @@ config 全体に関わる問題は、これまでどおりどの target も実�
 
 ```text
 $ skillshare sync
-✓ Discovered 43 skills
+✓ Backup       claude, claude-work, cursor, gemini, opencode, universal → ~/.local/share/skillshare/backups/2026-09-28_12-52-50
+✓ claude       43 linked · 1 pruned
+✓ claude-work  43 linked · 1 pruned
+✓ cursor       43 linked · 1 local · 1 pruned
+✓ gemini       43 linked · 1 pruned
+✓ opencode     43 linked · 1 pruned
+✓ universal    43 linked · 1 pruned
 
-Backing up
-─────────────────────────────────────────
-✓ claude -> ~/.local/share/skillshare/backups/2026-09-28_12-52-50/claude
-✓ cursor -> ~/.local/share/skillshare/backups/2026-09-28_12-52-50/cursor
-✓ gemini -> ~/.local/share/skillshare/backups/2026-09-28_12-52-50/gemini
-  …
-
-Syncing skills
-─────────────────────────────────────────
-✓ claude: merged (43 linked, 0 local, 0 updated, 1 pruned)
-✓ claude-work: merged (43 linked, 0 local, 0 updated, 1 pruned)
-✓ cursor: merged (43 linked, 1 local, 0 updated, 1 pruned)
-✓ gemini: merged (43 linked, 0 local, 0 updated, 1 pruned)
-✓ opencode: merged (43 linked, 0 local, 0 updated, 1 pruned)
-✓ universal: merged (43 linked, 0 local, 0 updated, 1 pruned)
-
-Sync complete: 6 targets, 258 linked, 1 local, 0 updated, 6 pruned (0.0s)
+✓ Synced 43 skills to 6 targets · 0.0s
+  Context  ~1.2K tokens always loaded · ~18.5K on demand
 ```
 
 ---
@@ -659,12 +650,12 @@ flowchart TD
 ```
 $ skillshare sync extras
 
-Rules
-  ✔ ~/.claude/rules  2 files linked (merge)
-  ✔ ~/.cursor/rules  2 files copied (copy)
+Extras
+✓ rules     ~/.claude/rules  2 files linked
+✓ rules     ~/.cursor/rules  2 files copied
+✓ commands  ~/.claude/commands  1 files linked
 
-Commands
-  ✔ ~/.claude/commands  1 files linked (merge)
+✓ Synced 2 extras to 3 folders · 0.0s
 ```
 
 ---
@@ -674,8 +665,8 @@ Commands
 sync 後、skillshare はトークンコストのサマリーを表示します。
 
 ```
-✔ Synced 47 skill(s) to 4 target(s) in 312ms
-  Context: ~12.4K always-loaded · ~58.2K on-demand (claude, cursor, codex, opencode)
+✓ Synced 47 skills to 4 targets · 0.3s
+  Context  ~12.4K tokens always loaded · ~58.2K on demand
 ```
 
 - **Always-loaded**: frontmatter の name + description（すべてのリクエストで読み込まれる）

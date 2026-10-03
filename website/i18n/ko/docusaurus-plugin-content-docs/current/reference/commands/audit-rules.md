@@ -203,9 +203,17 @@ rules:
 
 ```bash
 $ skillshare audit ci-helper
-[1/1] ! ci-helper    0.2s
-      └─ HIGH: Destructive command pattern (SKILL.md:42)
-         "sudo apt-get install -y jq"
+Audit  ~/.config/skillshare/skills
+  global · blocks at CRITICAL · policy DEFAULT / dedupe:GLOBAL / analyzers:ALL
+
+HIGH      Sudo escalation  SKILL.md:42
+  destructive-commands-2 / static
+  "sudo apt-get install -y jq"
+
+  Risk       HIGH 15/100
+  Auditable  100%
+
+! ci-helper has findings below CRITICAL · 0.2s
 ```
 
 **2. [내장 규칙 표](#built-in-rule-ids)에서 규칙 ID 확인:**
@@ -243,7 +251,10 @@ rules:
 
 ```bash
 $ skillshare audit ci-helper
-[1/1] ✓ ci-helper    0.1s   # 이제 통과함 (또는 HIGH 대신 MEDIUM 표시)
+Audit  ~/.config/skillshare/skills
+  global · blocks at CRITICAL · policy DEFAULT / dedupe:GLOBAL / analyzers:ALL
+
+✓ No issues found in ci-helper · 0.1s   # 이제 통과함 (또는 HIGH 대신 MEDIUM 표시)
 ```
 
 ### 변경 사항 검증

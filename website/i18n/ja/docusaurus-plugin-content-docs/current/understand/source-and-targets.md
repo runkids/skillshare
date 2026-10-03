@@ -146,7 +146,7 @@ Agent は Skill と並ぶリソースの種類です。`skills/` の隣にある
 - `~/.config/opencode/agents/` — OpenCode
 - `~/.factory/droids/` — Droid
 
-それ以外の target は、エージェント同期時に(`target(s) skipped for agents (no agents path)` という警告とともに)黙ってスキップされます。Skill に適用されるのと同じ merge / copy / symlink モードが、エージェントにも適用されます。
+それ以外の target は、エージェント同期時に(`No agents folder: <targets>` という警告とともに)黙ってスキップされます。Skill に適用されるのと同じ merge / copy / symlink モードが、エージェントにも適用されます。
 
 エージェントファイルの完全なフォーマット、`.agentignore` のルール、検出のセマンティクスについては [Agents](/docs/understand/agents) を参照してください。
 

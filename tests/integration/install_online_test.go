@@ -23,7 +23,7 @@ targets: {}
 	result := sb.RunCLI("install", "runkids/skillshare/skills/skillshare", "--dry-run")
 
 	result.AssertSuccess(t)
-	result.AssertAnyOutputContains(t, "dry-run")
+	result.AssertAnyOutputContains(t, "Dry run — nothing was written")
 }
 
 // TestInstall_RemoteGitHub_Clone installs a real skill from GitHub and verifies the files land.

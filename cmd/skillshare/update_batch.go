@@ -52,12 +52,10 @@ func (uc *updateContext) makeInstallOpts() install.InstallOptions {
 }
 
 // executeBatchUpdate runs the 3-phase batch update loop shared by global and
-// project modes. Caller is responsible for header/dry-run message before calling.
-// Returns combined updateResult and any security error.
+// project modes. Returns combined updateResult and any security error.
 func executeBatchUpdate(uc *updateContext, targets []updateTarget) (updateResult, error) {
 	total := len(targets)
 	start := time.Now()
-	fmt.Println()
 
 	var result updateResult
 	var auditEntries []batchAuditEntry
@@ -108,7 +106,7 @@ func executeBatchUpdate(uc *updateContext, targets []updateTarget) (updateResult
 	if len(trackedRepos) > 0 {
 		phaseCurrent++
 		if phaseTotal > 1 {
-			progressBar.SetHeader(ui.FormatPhaseHeader(phaseCurrent, phaseTotal, "Pulling %d tracked repo(s)...", len(trackedRepos)))
+			progressBar.SetHeader(ui.FormatPhaseHeader(phaseCurrent, phaseTotal, "Pulling %s...", plural(len(trackedRepos), "tracked repo")))
 		}
 	}
 	for _, t := range trackedRepos {
@@ -156,7 +154,7 @@ func executeBatchUpdate(uc *updateContext, targets []updateTarget) (updateResult
 			groupedCount += len(g)
 		}
 		if phaseTotal > 1 {
-			progressBar.SetHeader(ui.FormatPhaseHeader(phaseCurrent, phaseTotal, "Updating %d grouped skill(s) from %d repo(s)...", groupedCount, len(repoGroups)))
+			progressBar.SetHeader(ui.FormatPhaseHeader(phaseCurrent, phaseTotal, "Updating %s from %s...", plural(groupedCount, "grouped skill"), plural(len(repoGroups), "repo")))
 		}
 	}
 	for groupKey, groupTargets := range repoGroups {
@@ -251,7 +249,7 @@ func executeBatchUpdate(uc *updateContext, targets []updateTarget) (updateResult
 	if len(standaloneSkills) > 0 {
 		phaseCurrent++
 		if phaseTotal > 1 {
-			progressBar.SetHeader(ui.FormatPhaseHeader(phaseCurrent, phaseTotal, "Updating %d standalone skill(s)...", len(standaloneSkills)))
+			progressBar.SetHeader(ui.FormatPhaseHeader(phaseCurrent, phaseTotal, "Updating %s...", plural(len(standaloneSkills), "standalone skill")))
 		}
 	}
 	for _, t := range standaloneSkills {
@@ -311,11 +309,30 @@ func executeBatchUpdate(uc *updateContext, targets []updateTarget) (updateResult
 			SecurityFailed: result.securityFailed,
 			Duration:       time.Since(start),
 		})
+	} else {
+		repos := 0
+		for _, t := range targets {
+			if t.isRepo {
+				repos++
+				printUpdateRow(ui.MarkNone, t.name, "would run git pull", 0)
+			} else {
+				printUpdateRow(ui.MarkNone, t.name, "would reinstall", 0)
+			}
+		}
+		var parts []string
+		if repos > 0 {
+			parts = append(parts, plural(repos, "tracked repo"))
+		}
+		if skills := total - repos; skills > 0 {
+			parts = append(parts, plural(skills, "skill"))
+		}
+		fmt.Println()
+		ui.Done(ui.MarkNone, "Would update "+strings.Join(parts, ", "), 0)
+		ui.DryRun()
 	}
 
 	if (result.updated > 0 || result.pruned > 0) && !uc.opts.dryRun {
-		ui.SectionLabel("Next Steps")
-		ui.Info("Run 'skillshare sync' to distribute changes")
+		ui.Next("skillshare sync", "link the changes into your targets")
 	}
 
 	var errs []error

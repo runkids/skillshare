@@ -22,34 +22,30 @@ skillshare list --json       # JSON output for CI/scripts
 ```text
 skillshare list --no-tui
 
-Installed skills
-─────────────────────────────────────────
+Skills
   _superpowers/skills/
-    → brainstorming                   tracked: _superpowers
-    → dispatching-parallel-agents     tracked: _superpowers
-    → systematic-debugging            tracked: _superpowers
+    brainstorming                tracked: _superpowers
+    dispatching-parallel-agents  tracked: _superpowers
+    systematic-debugging         tracked: _superpowers
     …
-
   frontend/
-    → react-components  local
-
+    react-components             local
   web/
-    → accessibility      github.com/addyosmani/web-quality-skills/skills...
-    → core-web-vitals    github.com/addyosmani/web-quality-skills/skills...
+    accessibility                github.com/addyosmani/web-quality-skills/skills...
+    core-web-vitals              github.com/addyosmani/web-quality-skills/skills...
     …
-
-  → docx                   github.com/anthropics/skills/skills/docx
-  → frontend-design        github.com/anthropics/skills/skills/frontend-de...
-  → pdf                    github.com/anthropics/skills/skills/pdf
-  → skill-creator          github.com/anthropics/skills/skills/skill-creator
-  → skillshare             github.com/runkids/skillshare/skills/skillshare
+  docx                           github.com/anthropics/skills/skills/docx
+  frontend-design                github.com/anthropics/skills/skills/frontend-de...
+  pdf                            github.com/anthropics/skills/skills/pdf
+  skill-creator                  github.com/anthropics/skills/skills/skill-creator
+  skillshare                     github.com/runkids/skillshare/skills/skillshare
   …
 
-Tracked repositories
-─────────────────────────────────────────
-  ✓ _superpowers         15 skills, up-to-date
+Tracked repos
+✓ _superpowers  up to date · 15 skills
 
-→ Use --verbose for more details
+28 skills · 15 tracked, 9 remote, 4 local
+  Add -v for sources and install dates
 ```
 
 ## 交互式 TUI
@@ -135,20 +131,19 @@ skillshare list --json | jq '.[] | {name, source, type}'
 当你使用文件夹组织 skills 时，它们会自动按目录分组：
 
 ```
-Installed skills
-─────────────────────────────────────────
-
+Skills
   frontend/
-    → react-helper        github.com/user/skills
-    → vue-helper          github.com/user/skills
+    react-helper   github.com/user/skills
+    vue-helper     github.com/user/skills
+  my-skill         local
+  commit-commands  github.com/user/skills
+  old-draft        local · disabled
 
-  → my-skill              local
-  → commit-commands       github.com/user/skills
-  → old-draft             local  [disabled]
+Tracked repos
+✓ _team-skills  up to date · 3 skills
 
-Tracked repositories
-─────────────────────────────────────────
-  ✓ _team-skills          3 skills, up-to-date
+8 skills · 3 tracked, 3 remote, 2 local
+  Add -v for sources and install dates
 ```
 
 如果所有 skills 都在顶层（没有文件夹），输出就是一个扁平列表——与之前版本相同。
@@ -160,32 +155,28 @@ skillshare list --verbose
 ```
 
 ```
-Installed skills
-─────────────────────────────────────────
-
+Skills
   frontend/
     react-helper
-      Source:      github.com/user/skills
-      Type:        github
-      Installed:   2026-01-15
-
+      Source     github.com/user/skills
+      Type       github
+      Installed  2026-01-15
     vue-helper
-      Source:      github.com/user/skills
-      Type:        github
-      Installed:   2026-01-15
-
+      Source     github.com/user/skills
+      Type       github
+      Installed  2026-01-15
   my-skill
-    Source:      (local - no metadata)
-
+    Source     local
   commit-commands
-    Source:      github.com/user/skills
-    Type:        github
-    Installed:   2026-01-15
+    Source     github.com/user/skills
+    Type       github
+    Installed  2026-01-15
 
-Tracked repositories
-─────────────────────────────────────────
-  ✓ _team-skills          3 skills, up-to-date
-  ! _other-repo           5 skills, has changes
+Tracked repos
+✓ _team-skills  up to date · 3 skills
+! _other-repo   has changes · 5 skills
+
+12 skills · 8 tracked, 3 remote, 1 local
 ```
 
 ## Global vs Project
@@ -226,10 +217,10 @@ flowchart LR
 
 ```bash
 cd my-project/            # Has .skillshare/config.yaml
-skillshare list           # → Installed skills (project)
+skillshare list           # → Skills · project
 
 cd ~
-skillshare list           # → Installed skills (global)
+skillshare list           # → Skills
 ```
 
 使用 `-p` 或 `-g` 覆盖自动检测：
@@ -249,19 +240,17 @@ skillshare list -p       # Explicit project mode
 ### 示例输出
 
 ```
-Installed skills (project)
-─────────────────────────────────────────
-
+Skills · project
   tools/
-    → pdf               anthropic/skills/pdf
-    → review            github.com/team/tools
+    pdf     anthropic/skills/pdf
+    review  github.com/team/tools
+  my-skill  local
 
-  → my-skill            local
-
-→ 3 skill(s): 2 remote, 1 local
+3 skills · 2 remote, 1 local
+  Add -v for sources and install dates
 ```
 
-Project list 使用与 global list 相同的视觉格式，标题中带有 `(project)` 标签。Skills 按目录分组，
+Project list 使用与 global list 相同的视觉格式，标题中带有 `· project` 标签。Skills 按目录分组，
 并分类为 `local`（无 metadata）或按来源 URL（remote）分类。
 
 ## 选项
@@ -286,10 +275,9 @@ Project list 使用与 global list 相同的视觉格式，标题中带有 `(pro
 
 ```
   frontend/
-    → react-helper        github.com/user/skills
-    → vue-helper          github.com/user/skills
-
-  → my-skill              local
+    react-helper  github.com/user/skills
+    vue-helper    github.com/user/skills
+  my-skill        local
 ```
 
 - 同一文件夹下的 skills 共享一个分组标题（如 `frontend/`）

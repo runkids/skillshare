@@ -71,6 +71,38 @@ func EnsureLocalIdentity(dir string) (bool, error) {
 	return true, nil
 }
 
+// FallbackIdentityEnv returns GIT_AUTHOR_* and GIT_COMMITTER_* variables
+// with the same fallback EnsureLocalIdentity writes, for a single commit in
+// a repo the user owns, when git has no name or email for dir. Unlike
+// EnsureLocalIdentity it leaves the repo config alone, so an identity the
+// user sets later still applies. Variables already in the environment win.
+func FallbackIdentityEnv(dir string) []string {
+	if gitConfigValue(dir, "user.name") != "" && gitConfigValue(dir, "user.email") != "" {
+		return nil
+	}
+	fallback := []struct{ key, value string }{
+		{"GIT_AUTHOR_NAME", "skillshare"}, {"GIT_AUTHOR_EMAIL", "skillshare@local"},
+		{"GIT_COMMITTER_NAME", "skillshare"}, {"GIT_COMMITTER_EMAIL", "skillshare@local"},
+	}
+	var env []string
+	for _, f := range fallback {
+		if os.Getenv(f.key) == "" {
+			env = append(env, f.key+"="+f.value)
+		}
+	}
+	return env
+}
+
+func gitConfigValue(dir, key string) string {
+	cmd := exec.Command("git", "config", key)
+	cmd.Dir = dir
+	out, err := cmd.Output()
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(out))
+}
+
 // InitScopeRepo initializes a git repository at dir if one is not already
 // present: it creates dir, runs `git init`, writes a scope-aware .gitignore,
 // and ensures a local identity. If dir is already a repo it only ensures the

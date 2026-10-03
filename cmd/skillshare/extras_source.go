@@ -53,11 +53,11 @@ func cmdExtrasSource(args []string) error {
 	// No argument → show current value
 	if newPath == "" {
 		effective := cfg.EffectiveExtrasSource()
+		value := shortenPath(effective)
 		if cfg.Sources.Extras == "" && cfg.ExtrasSource == "" {
-			ui.Info("extras_source: %s (default)", shortenPath(effective))
-		} else {
-			ui.Info("extras_source: %s", shortenPath(effective))
+			value += ui.DimText(" (default)")
 		}
+		ui.Row(ui.MarkNone, "extras_source", value, ui.RowWidth("extras_source"))
 		return nil
 	}
 
@@ -79,7 +79,7 @@ func cmdExtrasSource(args []string) error {
 		return fmt.Errorf("failed to save config: %w", err)
 	}
 
-	ui.Success("Set extras_source to %s", shortenPath(absPath))
+	ui.Done(ui.MarkOK, "Set extras_source to "+shortenPath(absPath), 0)
 
 	e := oplog.NewEntry("extras-source", "ok", time.Since(start))
 	e.Args = map[string]any{"path": absPath}
@@ -89,19 +89,10 @@ func cmdExtrasSource(args []string) error {
 }
 
 func printExtrasSourceHelp() {
-	fmt.Println(`Usage: skillshare extras source [path]
-
-Show or set the global extras_source directory.
-
-Without arguments, shows the current extras_source path.
-With a path argument, sets extras_source in the global config.
-
-This setting is global-only. Project mode always uses .skillshare/extras/.
-
-Options:
-  --help, -h          Show this help
-
-Examples:
-  skillshare extras source                          Show current extras_source
-  skillshare extras source ~/company-shared/extras  Set extras_source`)
+	printHelp("skillshare extras source [path]", "Show or set the global extras_source directory.\n\nWithout arguments, shows the current extras_source path.\nWith a path argument, sets extras_source in the global config.\n\nThis setting is global-only. Project mode always uses .skillshare/extras/.",
+		helpExamples(
+			helpRow{"skillshare extras source", "Show current extras_source"},
+			helpRow{"skillshare extras source ~/company-shared/extras", "Set extras_source"},
+		),
+	)
 }

@@ -286,6 +286,7 @@ func TestGitRoot_SwitchScopeAfterInit(t *testing.T) {
 	// Headless switch to the agents scope on the already-initialized setup.
 	result := sb.RunCLI("init", "--git-root", "agents")
 	result.AssertSuccess(t)
+	result.AssertRowContains(t, "Git root", "agents")
 
 	if _, err := os.Stat(filepath.Join(base, "agents", ".git")); err != nil {
 		t.Errorf("expected agents repo after scope switch: %v", err)

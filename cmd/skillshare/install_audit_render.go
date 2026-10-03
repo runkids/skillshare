@@ -251,18 +251,12 @@ func renderInstallWarnings(skillName string, warnings []string, auditVerbose boo
 // renderInstallWarningsWithResult is like renderInstallWarnings but also displays
 // the aggregate risk score from the install result when available.
 func renderInstallWarningsWithResult(skillName string, warnings []string, auditVerbose bool, result *install.InstallResult) {
-	// Visual separator for single-skill output
 	if skillName == "" {
-		ui.SectionLabel("Audit Findings")
+		renderSingleInstallAudit(warnings, auditVerbose, result)
+		return
 	}
-
 	if len(warnings) == 0 {
-		if skillName == "" {
-			renderAuditRiskOnly(skillName, result)
-		} else {
-			// Batch mode: prefix with skill name
-			ui.Info("%s: risk CLEAN", skillName)
-		}
+		ui.Note(fmt.Sprintf("%s: risk CLEAN", skillName))
 		return
 	}
 
@@ -287,10 +281,10 @@ func renderInstallWarningsWithResult(skillName string, warnings []string, auditV
 			status := stripAuditPrefix(digest.statusLines[0])
 			summary += " — " + status
 		}
-		ui.Info("%s", formatWarningWithSkill(skillName, fmt.Sprintf("%d finding(s): %s", totalFindings, summary)))
+		ui.Note(formatWarningWithSkill(skillName, fmt.Sprintf("%s: %s", plural(totalFindings, "finding"), summary)))
 	} else {
 		for _, line := range digest.statusLines {
-			ui.Info("%s", formatWarningWithSkill(skillName, stripAuditPrefix(line)))
+			ui.Note(formatWarningWithSkill(skillName, stripAuditPrefix(line)))
 		}
 	}
 	renderAuditRiskOnly(skillName, result)
@@ -330,8 +324,65 @@ func renderInstallWarningsWithResult(skillName string, warnings []string, auditV
 	}
 
 	if remaining := len(groups) - shown; remaining > 0 {
-		ui.Info("%s", formatWarningWithSkill(skillName,
+		ui.Note(formatWarningWithSkill(skillName,
 			fmt.Sprintf("+%d more finding type(s); use --audit-verbose for full details", remaining)))
+	}
+}
+
+// renderSingleInstallAudit prints the audit of a single installed skill as an
+// "Audit" row, followed by the findings when there are any.
+func renderSingleInstallAudit(warnings []string, auditVerbose bool, result *install.InstallResult) {
+	// Nothing to show: no warnings and no audit ran (e.g. --dry-run).
+	if len(warnings) == 0 && (result == nil || result.AuditSkipped) {
+		return
+	}
+	digest := digestInstallWarnings(warnings)
+	for _, warning := range digest.nonAuditLines {
+		ui.Warning("%s", warning)
+	}
+
+	totalFindings := 0
+	for _, severity := range installAuditSeverityOrder {
+		totalFindings += digest.findingCounts[severity]
+	}
+	risk := ""
+	if result != nil && !result.AuditSkipped && result.AuditRiskScore > 0 {
+		risk = " " + ui.Colorize(ui.Dim, fmt.Sprintf("· risk %s (%d/100)", formatSeverity(strings.ToUpper(result.AuditRiskLabel)), result.AuditRiskScore))
+	}
+	width := ui.RowWidth("Install", "Audit")
+	switch {
+	case totalFindings > 0:
+		summary := fmt.Sprintf("%s: %s", plural(totalFindings, "finding"), formatInstallSeverityCounts(digest.findingCounts))
+		if len(digest.statusLines) > 0 {
+			summary += " — " + stripAuditPrefix(digest.statusLines[0])
+		}
+		ui.Row(ui.MarkWarn, "Audit", summary+risk, width)
+	case len(digest.statusLines) > 0:
+		lines := make([]string, len(digest.statusLines))
+		for i, line := range digest.statusLines {
+			lines[i] = stripAuditPrefix(line)
+		}
+		ui.Row(ui.MarkNone, "Audit", strings.Join(lines, " · ")+risk, width)
+	case result != nil && !result.AuditSkipped:
+		ui.Row(ui.MarkOK, "Audit", "no findings"+risk, width)
+	}
+	for _, line := range digest.otherAuditLines {
+		ui.Warning("%s", stripAuditPrefix(line))
+	}
+	if totalFindings == 0 {
+		return
+	}
+
+	groups := groupAuditFindings(digest)
+	shown := groups
+	if !auditVerbose && len(groups) > 5 {
+		shown = groups[:5]
+	}
+	for _, g := range shown {
+		printFindingGroup("", g)
+	}
+	if remaining := len(groups) - len(shown); remaining > 0 {
+		ui.Note(fmt.Sprintf("+%d more finding types — use --audit-verbose for full details", remaining))
 	}
 }
 
@@ -346,10 +397,10 @@ func renderAuditRiskOnly(skillName string, result *install.InstallResult) {
 	}
 	coloredLabel := formatSeverity(label)
 	if result.AuditRiskScore > 0 {
-		ui.Info("%s", formatWarningWithSkill(skillName,
+		ui.Note(formatWarningWithSkill(skillName,
 			fmt.Sprintf("risk: %s (%d/100)", coloredLabel, result.AuditRiskScore)))
 	} else {
-		ui.Info("%s", formatWarningWithSkill(skillName,
+		ui.Note(formatWarningWithSkill(skillName,
 			fmt.Sprintf("risk: %s", coloredLabel)))
 	}
 }
@@ -531,36 +582,36 @@ func topHighCriticalSkillsByCount(scoreBySkill map[string]int, limit int) []stri
 }
 
 func renderBatchInstallWarningsCompact(results []skillInstallResult, totalWarnings int, hints ...string) {
-	ui.Warning("%d warning(s) detected during install (compact batch view)", totalWarnings)
+	ui.Warning("%s during install (compact batch view)", plural(totalWarnings, "warning"))
 
 	summary := summarizeBatchInstallWarnings(results)
 
 	const maxNonAuditLines = 5
 	for i, line := range summary.nonAuditLines {
 		if i >= maxNonAuditLines {
-			ui.Warning("+%d more non-audit warning(s)", len(summary.nonAuditLines)-maxNonAuditLines)
+			ui.Warning("+%d more non-audit warning%s", len(summary.nonAuditLines)-maxNonAuditLines, pluralS(len(summary.nonAuditLines)-maxNonAuditLines))
 			break
 		}
 		ui.Warning("%s", line)
 	}
 
 	if summary.totalFindings > 0 {
-		ui.Warning("audit findings across %d skill(s): %s",
-			summary.skillsWithFindings,
+		ui.Warning("audit findings across %s: %s",
+			plural(summary.skillsWithFindings, "skill"),
 			formatInstallSeverityCounts(summary.findingCounts),
 		)
 	}
 	if summary.belowThresholdSkillCount > 0 {
-		ui.Warning("%d skill(s) had findings below the active block threshold", summary.belowThresholdSkillCount)
+		ui.Warning("%s had findings below the active block threshold", plural(summary.belowThresholdSkillCount, "skill"))
 	}
 	if summary.aboveThresholdSkillCount > 0 {
-		ui.Warning("%d skill(s) had findings at/above threshold and continued due to --force", summary.aboveThresholdSkillCount)
+		ui.Warning("%s had findings at/above threshold and continued due to --force", plural(summary.aboveThresholdSkillCount, "skill"))
 	}
 	if summary.scanErrorSkillCount > 0 {
-		ui.Warning("%d skill(s) had audit scan errors", summary.scanErrorSkillCount)
+		ui.Warning("%s had audit scan errors", plural(summary.scanErrorSkillCount, "skill"))
 	}
 	if summary.skippedAuditSkillCount > 0 {
-		ui.Warning("%d skill(s) skipped audit (--skip-audit)", summary.skippedAuditSkillCount)
+		ui.Warning("%s skipped audit (--skip-audit)", plural(summary.skippedAuditSkillCount, "skill"))
 	}
 
 	if skillsWithHighCritical := len(summary.highCriticalBySkill); skillsWithHighCritical > 0 {
@@ -571,7 +622,7 @@ func renderBatchInstallWarningsCompact(results []skillInstallResult, totalWarnin
 			if skillsWithHighCritical > len(top) {
 				extra = fmt.Sprintf(" +%d more", skillsWithHighCritical-len(top))
 			}
-			ui.Info("top HIGH/CRITICAL: %s%s", strings.Join(top, ", "), extra)
+			ui.Note(fmt.Sprintf("top HIGH/CRITICAL: %s%s", strings.Join(top, ", "), extra))
 		}
 	}
 
@@ -580,11 +631,11 @@ func renderBatchInstallWarningsCompact(results []skillInstallResult, totalWarnin
 	}
 
 	if summary.totalFindings > 0 {
-		hint := "suppressed %d audit finding line(s); re-run with --audit-verbose for full details"
+		hint := "suppressed %s; re-run with --audit-verbose for full details"
 		if len(hints) > 0 {
 			hint = hints[0]
 		}
-		ui.Info(hint, summary.totalFindings)
+		ui.Note(fmt.Sprintf(hint, plural(summary.totalFindings, "audit finding line")))
 	}
 }
 
@@ -595,9 +646,9 @@ func renderUltraCompactAuditSummary(results []skillInstallResult, _ int) {
 
 	// Line 1: total findings with severity breakdown
 	if summary.totalFindings > 0 {
-		ui.Warning("%d finding(s) across %d skill(s): %s",
-			summary.totalFindings,
-			summary.skillsWithFindings,
+		ui.Warning("%s across %s: %s",
+			plural(summary.totalFindings, "finding"),
+			plural(summary.skillsWithFindings, "skill"),
 			formatInstallSeverityCounts(summary.findingCounts),
 		)
 	}
@@ -624,12 +675,12 @@ func renderUltraCompactAuditSummary(results []skillInstallResult, _ int) {
 		if len(summary.highCriticalBySkill) > len(top) {
 			extra = fmt.Sprintf(" +%d more", len(summary.highCriticalBySkill)-len(top))
 		}
-		ui.Info("top HIGH/CRITICAL: %s%s", strings.Join(top, ", "), extra)
+		ui.Note(fmt.Sprintf("top HIGH/CRITICAL: %s%s", strings.Join(top, ", "), extra))
 	}
 
 	// Line 4: suppressed hint
 	if summary.totalFindings > 0 {
-		ui.Info("suppressed %d audit finding line(s); re-run with --audit-verbose for full details", summary.totalFindings)
+		ui.Note(fmt.Sprintf("suppressed %s; re-run with --audit-verbose for full details", plural(summary.totalFindings, "audit finding line")))
 	}
 }
 
@@ -771,7 +822,7 @@ func renderInstallWarningsHighCriticalOnly(skillName string, warnings []string) 
 		}
 	}
 	if len(otherParts) > 0 {
-		ui.Info("%s", formatWarningWithSkill(skillName,
+		ui.Note(formatWarningWithSkill(skillName,
 			fmt.Sprintf("also: %s (use 'skillshare check %s' for details)", strings.Join(otherParts, ", "), skillName)))
 	}
 

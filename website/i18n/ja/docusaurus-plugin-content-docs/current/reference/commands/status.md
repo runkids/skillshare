@@ -22,118 +22,87 @@ skillshare status
 
 ```
 Source
-─────────────────────────────────────────
-✓ ~/.config/skillshare/skills (43 skills, 2026-09-28 12:52)
-✓ ~/.config/skillshare/agents (2 agents, 2026-09-28 12:39)
+  skills    ~/.config/skillshare/skills  43 skills
+  agents    ~/.config/skillshare/agents  2 agents
 
-Tracked Repositories
-─────────────────────────────────────────
-_superpowers ✓            15 skills, up-to-date
+Tracked repositories
+✓ _superpowers  15 skills
 
-Targets
-─────────────────────────────────────────
-claude
-  skills   merged       [merge] ~/.claude/skills (43 shared, 0 local)
-  agents   merged       [merge] 2/2 linked
-cursor
-  skills   merged       [merge] ~/.cursor/skills (43 shared, 1 local)
-  agents   merged       [merge] 2/2 linked
-gemini
-  skills   merged       [merge] ~/.gemini/skills (43 shared, 0 local)
-…
-universal
-  skills   merged       [merge] ~/.agents/skills (43 shared, 0 local)
+Targets                        skills                 agents
+  claude     ~/.claude/skills  ✓ 43 linked            ✓ 2
+  cursor     ~/.cursor/skills  ✓ 43 linked · 1 local  ✓ 2
+  gemini     ~/.gemini/skills  ✓ 43 linked            —
+  universal  ~/.agents/skills  ✓ 43 linked            —
+  all use merge
 
 Extras
-─────────────────────────────────────────
-rules        has files    [merge] ~/.claude/rules (2 files)
-rules        has files    [merge] ~/.cursor/rules (2 files)
-commands     has files    [merge] ~/.claude/commands (1 files)
-team         has files    [symlink] ~/.codex (1 files)
-team         has files    [import] ~/.claude (1 files)
-…
+  rules     ~/.claude/rules     2 files · merge
+  rules     ~/.cursor/rules     2 files · merge
+  commands  ~/.claude/commands  1 file · merge
+  team      ~/.codex            1 file · symlink
+  team      ~/.claude           1 file · import
 
-Audit
-─────────────────────────────────────────
-→ Profile:    DEFAULT
-→ Block:      severity >= CRITICAL
-→ Dedupe:     GLOBAL
-→ Analyzers:  ALL
-
-Version
-─────────────────────────────────────────
-! Skill: 0.21.12 (update available: 0.21.13)
-→   Run: skillshare upgrade --skill && skillshare sync
+Audit    default · blocks critical
+Version  CLI 0.24.0 · skill 0.21.12
+! Skill 0.21.13 is available — run skillshare upgrade --skill && skillshare sync
 ```
 
 ## セクション
 
 ### Source
 
-source ディレクトリの場所、skill 数、最終更新時刻を表示します。agents が設定されている場合、agents source は別の行に表示されます。
+skills フォルダとその中の skill 数を表示します。agents フォルダがある場合は、2 行目にフォルダと agent 数を表示します。`.skillignore` が有効な場合は、パターン数と除外された skill 数の行が加わります。
 
 ### Tracked Repositories
 
-`--track` でインストールされた git リポジトリを一覧表示します。以下を表示します:
-- リポジトリごとの skill 数
-- Git の状態（up-to-date、変更あり、または git status を読み取れない場合は unknown。警告にリポジトリ名とエラーが表示されます）
+`--track` でインストールした git リポジトリと、それぞれの skill 数を一覧表示します。`✓` はリポジトリに未コミットの変更がないことを示します。`!` には `uncommitted changes`、または git status を読み取れない場合はそのエラーが付きます。
 
 ### Targets
 
-各 target は **skills** と **agents** のサブ項目を持つヘッダーとして表示されます。
+各 target を 1 行で表示します：名前、skills フォルダ、skills と agents の状態です。表の下の行には使用中の sync モードが表示されます。
 
 ```
-claude
-  skills   merged       [merge] ~/.claude/skills (8 shared, 2 local)
-  agents   merged       [merge] 8/8 linked
+Targets                     skills                agents
+  claude  ~/.claude/skills  ✓ 8 linked · 2 local  ✓ 8
+  cursor  ~/.cursor/skills  ! 6/8 copied          ! 7/8
+  copy: cursor · merge: claude
+! 2 skills not synced — run skillshare sync
 ```
 
-**Skills サブ項目**が表示するもの:
-- **Sync mode**: `merge`、`copy`、または `symlink`
-- **Path**: target ディレクトリの場所
-- **Status**: `merged`、`copied`、`linked`、`has files`、または `needs sync`
-- **Shared/local の件数**: merge および copy mode では、その target の期待セット（`include`/`exclude` フィルター適用後）でカウントされます。Copy mode では "shared" の代わりに "managed" と表示されます。
+**skills 列:**
 
-**Agents サブ項目**が表示するもの:
-- **Sync mode**: agents が実際に sync されるモード。Developer Mode がオフの Windows では、agent ファイルはリンクではなくコピーされるため、`merge` が `[copy]` と表示されます
-- **Status**: `merged`、`copied`、`linked`、または `drift`
-- **Linked count**: 例 `8/8 linked`（最新のコピーはリンク済みとして数えられます）。copy fallback では、skillshare が所有していない内容が同じローカルファイルは保持され、別に表示されます（例：`0/1 linked, 1 local preserved`）
+| 表示 | 意味 |
+|------|------|
+| `✓ 8 linked` / `✓ 8 copied` | 想定されるすべての skill が配置済みです。merge と copy では `include`/`exclude` で絞り込んだ後の skill を数えます |
+| `· 2 local` | そのフォルダにある自分の skill です。sync はこれらに触れません |
+| `! 6/8 linked` | 一部の skill がまだ sync されていません。status の最後に数と `sync` コマンドが表示されます |
+| `✓ symlinked` | symlink モード：フォルダ全体が source にリンクしています |
+| `! needs sync` | モードが変更されました。`sync` を実行して反映します |
+| `! has files` / `! not synced yet` | この target はまだ一度も sync されていません |
+| `✗ links to …` / `✗ broken link` | フォルダが別の場所、または存在しない場所へのリンクです |
+| `skills off` | この target の skills はオフです |
 
-agents source が存在しない、または target に agent path が設定されていない場合、agents サブ項目は省略されます。
-
-| Status | 意味 |
-|--------|---------|
-| `merged` | Skills/agents が個別にシンボリックリンクされている |
-| `copied` | Skills が実体ファイルとしてコピーされている（manifest 付き） |
-| `linked` | ディレクトリ全体がシンボリックリンクされている |
-| `has files` | まだ sync されていない |
-| `needs sync` | mode が変更された、適用するには `sync` を実行 |
-| `drift` | 一部の agents が欠落している — `sync agents` を実行 |
+**agents 列:** `✓ 8` はリンク済みの agent 数です（最新のコピーもリンク済みとして数えます）。`! 7/8` は一部が欠けていることを示します。`skillshare sync agents` を実行してください。copy fallback では、skillshare が所有していない同一内容のローカルファイルは保持され、`· 1 local` として数えられます。`—` はその target に agents フォルダがないことを示します。agents source がない場合、この列は省略されます。
 
 ### Extras
 
-extras が設定されている場合、各 extra の sync 状態を表示します。
+extras を設定している場合、extra の target ごとに 1 行表示します：
 
 ```
 Extras
-rules        has files  [merge] .cursor/rules (4 files)
-commands     has files  [merge] .claude/commands (3 files)
+  rules     .cursor/rules     4 files · merge
+  commands  .claude/commands  3 files · merge
 ```
 
-各エントリには名前、状態、sync mode、target のパス、ファイル数が表示されます。
+各行には extra 名、target フォルダ、ファイル数、そしてファイルが実際に sync されるモードが表示されます：開発者モードが無効な Windows では、ファイルをリンクする target は `copy` と表示されます。
 
 ### Audit
 
-有効な audit ポリシー設定（CLI フラグ、project config、または global config から解決されたもの）を表示します。
-
-- **Profile**: `DEFAULT`、`STRICT`、または `PERMISSIVE`
-- **Block**: ブロックする severity のしきい値（デフォルトは `CRITICAL`）
-- **Dedupe**: 重複排除モード（`GLOBAL` または `LEGACY`）
-- **Analyzers**: 有効な analyzers（`ALL` またはフィルターされたリスト）
+有効な audit ポリシー（CLI フラグ、project 設定、global 設定から解決）を 1 行で表示します：profile（`default`、`strict`、`permissive`）と、インストールをブロックする最低の重大度（デフォルトは `critical`）です。dedupe モードと analyzer は、デフォルト（`global` とすべての analyzer）と異なる場合のみ表示されます。
 
 ### Version
 
-CLI と skill のバージョンを最新リリースと比較します。（global mode のみ）
+CLI と skill のバージョンを表示します。新しい skill がリリースされている場合は、更新方法を示す行が加わります。（global mode のみ）
 
 ## オプション
 
@@ -199,13 +168,13 @@ skillshare status --json
 
 git status を読み取れない tracked repo は `"status": "unknown"` となり、`message` にエラーが入ります。この場合 `dirty` は false で、意味を持ちません。
 
-`source.skillignore` フィールドは、少なくとも 1 つの `.skillignore` または `.skillignore.local` ファイルが存在する場合にのみ存在します。存在しない場合: `"skillignore": { "active": false }`。`files` 配列には、存在する場合 `.skillignore.local` のパスも含まれます。テキストモードでは、`.skillignore.local` が有効な場合、source の行に `.local active` と表示されます。
+`source.skillignore` フィールドは、少なくとも 1 つの `.skillignore` または `.skillignore.local` ファイルが存在する場合にのみ存在します。存在しない場合: `"skillignore": { "active": false }`。`files` 配列には、存在する場合 `.skillignore.local` のパスも含まれます。テキストモードでは、`.skillignore.local` が有効な場合、`.skillignore` の行に `(.local active)` と表示されます。
 
 JSON 出力は global mode と project mode の両方でサポートされています。
 
 ## Project Mode
 
-project ディレクトリでは、status は project 固有の情報を表示します。最初のセクションヘッダーには `Source (project)` が表示され、project mode であることを示します。
+project ディレクトリでは、status は project の source、targets、extras を、project ルートからの相対パスで表示します。
 
 ```bash
 skillshare status        # .skillshare/ が存在する場合は自動検出
@@ -215,28 +184,21 @@ skillshare status -p     # 明示的な project mode
 ### 出力例
 
 ```
-Source (project)
-✓ .skillshare/skills/ (3 skills, 2026-04-08 12:43)
-→ .skillignore: 3 patterns, 0 skills ignored
-✓ .skillshare/agents/ (4 agents, 2026-04-08 12:43)
+Source
+  skills    .skillshare/skills  3 skills
+  agents    .skillshare/agents  4 agents
+  .skillignore: 3 patterns, 0 skills ignored
 
-Targets
-claude
-  skills   merged       [merge] .claude/skills (3 shared, 0 local)
-  agents   merged       [merge] 4/4 linked
-cursor
-  skills   merged       [merge] .cursor/skills (3 shared, 0 local)
-  agents   merged       [merge] 4/4 linked
+Targets                   skills      agents
+  claude  .claude/skills  ✓ 3 linked  ✓ 4
+  cursor  .cursor/skills  ✓ 3 linked  ✓ 4
+  all use merge
 
 Extras
-rules        has files  [merge] .cursor/rules (4 files)
-commands     has files  [merge] .claude/commands (3 files)
+  rules     .cursor/rules     4 files · merge
+  commands  .claude/commands  3 files · merge
 
-Audit
-→ Profile:    DEFAULT
-→ Block:      severity >= CRITICAL
-→ Dedupe:     GLOBAL
-→ Analyzers:  ALL
+Audit    default · blocks critical
 ```
 
 Project status では Tracked Repositories と Version のセクションは表示されません（これらは global 専用の機能です）。

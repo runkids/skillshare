@@ -126,13 +126,10 @@ skillshare new code-review
 
 출력:
 ```
-New Skill Created
-─────────────────────────────────────────────
-✓ Created: ~/.config/skillshare/skills/code-review/SKILL.md
+✓ Created   ~/.config/skillshare/skills/code-review/SKILL.md
 
-Next steps:
-  1. Edit ~/.config/skillshare/skills/code-review/SKILL.md
-  2. Run 'skillshare sync' to deploy
+Next
+  skillshare sync  link it into your targets once you've edited it
 ```
 
 ### project에 생성
@@ -143,13 +140,10 @@ skillshare new code-review -p
 
 출력:
 ```
-New Skill Created (project)
-─────────────────────────────────────────────
-✓ Created: .skillshare/skills/code-review/SKILL.md
+✓ Created   ~/my-project/.skillshare/skills/code-review/SKILL.md
 
-Next steps:
-  1. Edit .skillshare/skills/code-review/SKILL.md
-  2. Run 'skillshare sync' to deploy
+Next
+  skillshare sync  link it into your targets once you've edited it
 ```
 
 ### 생성 전 미리보기
@@ -160,19 +154,17 @@ skillshare new my-skill --dry-run
 
 출력:
 ```
-New Skill (dry-run)
-─────────────────────────────────────────────
-→ Would create: ~/.config/skillshare/skills/my-skill
-→ Would write: ~/.config/skillshare/skills/my-skill/SKILL.md
+  Would create  ~/.config/skillshare/skills/my-skill/SKILL.md
 
-Template preview:
-─────────────────────────────────────────────
+Preview
 ---
 name: my-skill
 description: >-
   Describe what this skill does. Use when user asks to ...
 ---
 ...
+
+Dry run — nothing was written
 ```
 
 ---

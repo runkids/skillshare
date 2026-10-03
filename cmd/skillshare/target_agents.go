@@ -7,6 +7,8 @@ import (
 	"skillshare/internal/config"
 	"skillshare/internal/sync"
 	"skillshare/internal/targetsummary"
+	"skillshare/internal/theme"
+	"skillshare/internal/ui"
 )
 
 func applyTargetListAgentSummary(item *targetListJSONItem, summary *targetsummary.AgentSummary) {
@@ -52,19 +54,81 @@ func printTargetAgentSection(summary *targetsummary.AgentSummary) {
 		displayPath = summary.Path
 	}
 
-	fmt.Println("  Agents:")
-	fmt.Printf("    Path:    %s\n", displayPath)
-	fmt.Printf("    Mode:    %s\n", summary.Mode)
-	fmt.Printf("    Status:  %s\n", formatTargetAgentSyncSummary(summary))
+	ui.Section("Agents")
+	width := ui.RowWidth()
+	ui.Row(ui.MarkNone, "Path", shortenPath(displayPath), width)
+	ui.Row(ui.MarkNone, "Mode", summary.Mode, width)
+	ui.Row(ui.MarkNone, "Status", formatTargetAgentSyncSummary(summary), width)
 	if summary.Mode == "symlink" {
-		fmt.Println("    Filters: ignored in symlink mode")
+		ui.Row(ui.MarkNone, "Filters", "ignored in symlink mode", width)
 		return
 	}
-	fmt.Printf("    Include: %s\n", formatFilterList(summary.Include))
-	fmt.Printf("    Exclude: %s\n", formatFilterList(summary.Exclude))
+	printFilterRows(summary.Include, summary.Exclude, width)
+}
+
+// printTargetSkillsSection prints the Skills block of target info.
+func printTargetSkillsSection(path, mode, naming, status string, include, exclude []string) {
+	ui.Section("Skills")
+	width := ui.RowWidth()
+	ui.Row(ui.MarkNone, "Path", path, width)
+	ui.Row(ui.MarkNone, "Mode", mode, width)
+	ui.Row(ui.MarkNone, "Naming", naming, width)
+	ui.Row(ui.MarkNone, "Status", status, width)
+	printFilterRows(include, exclude, width)
+}
+
+// printFilterRows prints the include and exclude rows that are set.
+func printFilterRows(include, exclude []string, width int) {
+	if len(include) > 0 {
+		ui.Row(ui.MarkNone, "Include", strings.Join(include, ", "), width)
+	}
+	if len(exclude) > 0 {
+		ui.Row(ui.MarkNone, "Exclude", strings.Join(exclude, ", "), width)
+	}
+}
+
+// filterSummary is the one-line form of a target's filters, or "" when
+// none are set.
+func filterSummary(include, exclude []string) string {
+	var parts []string
+	if len(include) > 0 {
+		parts = append(parts, "include "+strings.Join(include, ", "))
+	}
+	if len(exclude) > 0 {
+		parts = append(parts, "exclude "+strings.Join(exclude, ", "))
+	}
+	return strings.Join(parts, " · ")
+}
+
+// statusWithCounts follows a sync status with its non-zero counts, dimmed.
+func statusWithCounts(status fmt.Stringer, synced int, label string, local int) string {
+	counts := joinAgentCounts(synced, label, local)
+	if counts == "" {
+		return status.String()
+	}
+	return status.String() + ui.DimText(" · "+counts)
+}
+
+// printTargetFilterChanges reports applied filter changes; nothing when
+// there are none.
+func printTargetFilterChanges(name string, changes []string) {
+	if len(changes) == 0 {
+		return
+	}
+	width := ui.RowWidth(name)
+	for _, change := range changes {
+		ui.Row(ui.MarkOK, name, change, width)
+	}
+	ui.Next("skillshare sync", "apply the filter changes")
 }
 
 func printTargetListPlain(items []targetTUIItem) {
+	if len(items) == 0 {
+		ui.Done(ui.MarkNone, "No targets configured", 0)
+		ui.Next("skillshare target add <name> <path>", "add one")
+		return
+	}
+	width := ui.RowWidth("Skills", "Agents")
 	for idx, item := range items {
 		if idx > 0 {
 			fmt.Println()
@@ -76,21 +140,14 @@ func printTargetListPlain(items []targetTUIItem) {
 			displayPath = sc.Path
 		}
 
-		fmt.Printf("  %s\n", item.name)
-		fmt.Println("    Skills:")
-		fmt.Printf("      Path:    %s\n", displayPath)
-		if !sc.IsEnabled() {
-			fmt.Printf("      Sync:    %s\n", item.skillSync)
-		} else {
-			fmt.Printf("      Mode:    %s\n", sync.EffectiveMode(sc.Mode))
-			fmt.Printf("      Naming:  %s\n", config.EffectiveTargetNaming(sc.TargetNaming))
-			fmt.Printf("      Sync:    %s\n", item.skillSync)
-			if len(sc.Include) == 0 && len(sc.Exclude) == 0 {
-				fmt.Println("      No include/exclude filters")
-			} else {
-				fmt.Printf("      Include: %s\n", formatFilterList(sc.Include))
-				fmt.Printf("      Exclude: %s\n", formatFilterList(sc.Exclude))
-			}
+		fmt.Println(theme.Primary().Bold(true).Render(item.name))
+		detail := item.skillSyncText
+		if sc.IsEnabled() {
+			detail = sync.EffectiveMode(sc.Mode) + " · " + config.EffectiveTargetNaming(sc.TargetNaming) + " · " + item.skillSyncText
+		}
+		ui.Row(ui.MarkNone, "Skills", shortenPath(displayPath)+"  "+ui.DimText(detail), width)
+		if f := filterSummary(sc.Include, sc.Exclude); sc.IsEnabled() && f != "" {
+			ui.Row(ui.MarkNone, "", ui.DimText(f), width)
 		}
 
 		if item.agentSummary == nil {
@@ -101,19 +158,15 @@ func printTargetListPlain(items []targetTUIItem) {
 		if agentPath == "" {
 			agentPath = item.agentSummary.Path
 		}
-		fmt.Println("    Agents:")
-		fmt.Printf("      Path:    %s\n", agentPath)
-		fmt.Printf("      Mode:    %s\n", item.agentSummary.Mode)
-		fmt.Printf("      Sync:    %s\n", formatTargetAgentSyncSummary(item.agentSummary))
+		ui.Row(ui.MarkNone, "Agents", shortenPath(agentPath)+"  "+ui.DimText(item.agentSummary.Mode+" · "+formatTargetAgentSyncSummary(item.agentSummary)), width)
 		if item.agentSummary.Mode == "symlink" {
-			fmt.Println("      Filters: ignored in symlink mode")
-		} else if len(item.agentSummary.Include) == 0 && len(item.agentSummary.Exclude) == 0 {
-			fmt.Println("      No agent include/exclude filters")
-		} else {
-			fmt.Printf("      Include: %s\n", formatFilterList(item.agentSummary.Include))
-			fmt.Printf("      Exclude: %s\n", formatFilterList(item.agentSummary.Exclude))
+			ui.Row(ui.MarkNone, "", ui.DimText("filters ignored in symlink mode"), width)
+		} else if f := filterSummary(item.agentSummary.Include, item.agentSummary.Exclude); f != "" {
+			ui.Row(ui.MarkNone, "", ui.DimText(f), width)
 		}
 	}
+	fmt.Println()
+	ui.Done(ui.MarkNone, plural(len(items), "target"), 0)
 }
 
 func formatTargetAgentSyncSummary(summary *targetsummary.AgentSummary) string {

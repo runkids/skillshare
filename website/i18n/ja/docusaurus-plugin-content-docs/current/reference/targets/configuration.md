@@ -910,7 +910,7 @@ git_root: skills
 
 **デフォルト:** `skills`
 
-`skillshare init --git-root <scope>` で init 時に設定するか、init ウィザード内で対話的に設定します。
+`skillshare init --git-root <scope>` で init 時に設定するか、init のサマリーで **Change settings** を選んで変更します。
 
 #### init 後にスコープを変更する
 

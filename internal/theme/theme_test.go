@@ -83,6 +83,37 @@ func TestResolve_NonTTYFallback(t *testing.T) {
 	}
 }
 
+func TestANSI_EmptyWhenStdoutIsNotTerminal(t *testing.T) {
+	t.Setenv("NO_COLOR", "")
+	t.Setenv("SKILLSHARE_THEME", "dark")
+	pinStdoutTerminal(t, false)
+
+	if a := ANSI(); a.Success != "" || a.Reset != "" {
+		t.Errorf("ANSI() with stdout redirected must be empty, got %+v", a)
+	}
+}
+
+func TestANSI_ColoredWhenStdoutIsTerminal(t *testing.T) {
+	t.Setenv("NO_COLOR", "")
+	t.Setenv("SKILLSHARE_THEME", "dark")
+	pinStdoutTerminal(t, true)
+
+	if a := ANSI(); a.Success == "" {
+		t.Error("ANSI() on a terminal must return color sequences")
+	}
+}
+
+func pinStdoutTerminal(t *testing.T, isTerminal bool) {
+	t.Helper()
+	orig := stdoutIsTerminal
+	stdoutIsTerminal = func() bool { return isTerminal }
+	t.Cleanup(func() {
+		stdoutIsTerminal = orig
+		Reset()
+	})
+	Reset()
+}
+
 func TestResolve_CIEnvSkipsDetection(t *testing.T) {
 	t.Setenv("NO_COLOR", "")
 	t.Setenv("SKILLSHARE_THEME", "")

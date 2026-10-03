@@ -116,11 +116,11 @@ Plain text 출력:
 
 ```
 Trash
-  my-skill      (1.2 KB, 2d ago)
-  old-helper    (800 B, 5d ago)
+  my-skill      1.2 KB · 2d ago
+  old-helper    800 B · 5d ago
 
-2 item(s), 2.0 KB total
-Items are automatically cleaned up after 7 days
+2 items, 2.0 KB
+  Each item is removed for good 7 days after it was trashed
 ```
 
 ### restore
@@ -133,9 +133,10 @@ skillshare trash agents restore tutor
 ```
 
 ```
-✓ Restored: my-skill
-ℹ Trashed 2d ago, now back in ~/.config/skillshare/skills
-ℹ Run 'skillshare sync' to update targets
+✓ Restore   my-skill → ~/.config/skillshare/skills · trashed 2d ago
+
+Next
+  skillshare sync  link it into your targets again
 ```
 
 agent의 경우, restore 힌트는 대신 `skillshare sync agents`를 제안합니다.
@@ -152,7 +153,7 @@ skillshare trash agents delete tutor
 ```
 
 ```
-✓ Permanently deleted: my-skill
+✓ Permanently deleted my-skill
 ```
 
 ### empty
@@ -165,9 +166,9 @@ skillshare trash agents empty
 ```
 
 ```
-⚠ This will permanently delete 3 item(s) from trash
-Continue? [y/N]: y
-✓ Emptied trash: 3 item(s) permanently deleted
+! This will permanently delete 3 items from trash
+? Continue? [y/N] y
+✓ Emptied trash: 3 items permanently deleted · 0.1s
 ```
 
 ## Backup vs Trash

@@ -30,7 +30,7 @@ targets: {}
 	result.AssertSuccess(t)
 	result.AssertOutputContains(t, "skill-one")
 	result.AssertOutputContains(t, "skill-two")
-	result.AssertOutputContains(t, "Installed skills")
+	result.AssertOutputContains(t, "2 skills")
 }
 
 func TestList_Empty_ShowsMessage(t *testing.T) {
@@ -103,7 +103,7 @@ func TestList_Help_ShowsUsage(t *testing.T) {
 	result := sb.RunCLI("list", "--help")
 
 	result.AssertSuccess(t)
-	result.AssertOutputContains(t, "Usage:")
+	result.AssertOutputContains(t, "Usage  skillshare")
 	result.AssertOutputContains(t, "--verbose")
 	result.AssertOutputContains(t, "--type")
 	result.AssertOutputContains(t, "--sort")
@@ -682,7 +682,7 @@ func TestList_FilterByStatus_HidesTrackedReposSummary(t *testing.T) {
 	result := sb.RunCLI("list", "--no-tui", "--status", "enabled")
 
 	result.AssertSuccess(t)
-	result.AssertOutputNotContains(t, "Tracked repositories")
+	result.AssertOutputNotContains(t, "Tracked repos")
 }
 
 func TestList_Agents_FilterByStatus(t *testing.T) {
@@ -737,5 +737,6 @@ func TestList_TrackedRepoGitStatusError_ShowsUnknown(t *testing.T) {
 
 	result := sb.RunCLI("list", "--no-tui")
 	result.AssertSuccess(t)
-	result.AssertAnyOutputContains(t, "_broken-repo: failed to check git status")
+	result.AssertRowContains(t, "_broken-repo", "git status unknown")
+	result.AssertAnyOutputContains(t, "failed to check git status")
 }

@@ -96,7 +96,7 @@ configured target writes to, it removes the entries skillshare created. Folders
 you made yourself and symlinks pointing outside the project are never touched.
 
 ```
-→ Cleaned 1 leftover skill(s) from .goose/skills: the default path for 'goose' moved to .agents/skills
+  Cleaned 1 leftover skill from .goose/skills: the default path for 'goose' moved to .agents/skills
 ```
 
 Setting an explicit `path:` for a target opts it out of the cleanup, and
@@ -194,7 +194,7 @@ flowchart TD
 
 ### When a target fails {#when-a-target-fails}
 
-Sync runs every target; one failed target does not stop the others. A target fails when syncing it hits an error, or when its own settings in the config are invalid, for example its skills path is a file instead of a folder or its `mode` is unknown. A target with invalid settings is skipped for skills and agents in that run. Each failed target is reported (`✗ <target>: invalid config: …` in text output, `error` in its `--json` `details` entry), and the command exits non-zero after the other targets have synced.
+Sync runs every target; one failed target does not stop the others. A target fails when syncing it hits an error, or when its own settings in the config are invalid, for example its skills path is a file instead of a folder or its `mode` is unknown. A target with invalid settings is skipped for skills and agents in that run. Each failed target is reported (`✗ <target>  invalid config: …` in text output, `error` in its `--json` `details` entry), and the command exits non-zero after the other targets have synced.
 
 Problems with the config as a whole still stop sync before any target runs: a missing or invalid source folder, an invalid global `mode` or `target_naming`, an invalid `git_root`, or invalid extras.
 
@@ -202,25 +202,16 @@ Problems with the config as a whole still stop sync before any target runs: a mi
 
 ```text
 $ skillshare sync
-✓ Discovered 43 skills
+✓ Backup       claude, claude-work, cursor, gemini, opencode, universal → ~/.local/share/skillshare/backups/2026-09-28_12-52-50
+✓ claude       43 linked · 1 pruned
+✓ claude-work  43 linked · 1 pruned
+✓ cursor       43 linked · 1 local · 1 pruned
+✓ gemini       43 linked · 1 pruned
+✓ opencode     43 linked · 1 pruned
+✓ universal    43 linked · 1 pruned
 
-Backing up
-─────────────────────────────────────────
-✓ claude -> ~/.local/share/skillshare/backups/2026-09-28_12-52-50/claude
-✓ cursor -> ~/.local/share/skillshare/backups/2026-09-28_12-52-50/cursor
-✓ gemini -> ~/.local/share/skillshare/backups/2026-09-28_12-52-50/gemini
-  …
-
-Syncing skills
-─────────────────────────────────────────
-✓ claude: merged (43 linked, 0 local, 0 updated, 1 pruned)
-✓ claude-work: merged (43 linked, 0 local, 0 updated, 1 pruned)
-✓ cursor: merged (43 linked, 1 local, 0 updated, 1 pruned)
-✓ gemini: merged (43 linked, 0 local, 0 updated, 1 pruned)
-✓ opencode: merged (43 linked, 0 local, 0 updated, 1 pruned)
-✓ universal: merged (43 linked, 0 local, 0 updated, 1 pruned)
-
-Sync complete: 6 targets, 258 linked, 1 local, 0 updated, 6 pruned (0.0s)
+✓ Synced 43 skills to 6 targets · 0.0s
+  Context  ~1.2K tokens always loaded · ~18.5K on demand
 ```
 
 ---
@@ -672,12 +663,12 @@ flowchart TD
 ```
 $ skillshare sync extras
 
-Rules
-  ✔ ~/.claude/rules  2 files linked (merge)
-  ✔ ~/.cursor/rules  2 files copied (copy)
+Extras
+✓ rules     ~/.claude/rules  2 files linked
+✓ rules     ~/.cursor/rules  2 files copied
+✓ commands  ~/.claude/commands  1 files linked
 
-Commands
-  ✔ ~/.claude/commands  1 files linked (merge)
+✓ Synced 2 extras to 3 folders · 0.0s
 ```
 
 ---
@@ -687,8 +678,8 @@ Commands
 After syncing, skillshare displays a token cost summary:
 
 ```
-✔ Synced 47 skill(s) to 4 target(s) in 312ms
-  Context: ~12.4K always-loaded · ~58.2K on-demand (claude, cursor, codex, opencode)
+✓ Synced 47 skills to 4 targets · 0.3s
+  Context  ~12.4K tokens always loaded · ~58.2K on demand
 ```
 
 - **Always-loaded**: frontmatter name + description (loaded every request)

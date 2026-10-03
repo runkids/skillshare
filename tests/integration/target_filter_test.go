@@ -24,7 +24,7 @@ targets:
 	result := sb.RunCLI("target", "claude", "--add-include", "team-*")
 	result.AssertSuccess(t)
 	result.AssertOutputContains(t, "added include: team-*")
-	result.AssertOutputContains(t, "Run 'skillshare sync'")
+	result.AssertOutputContains(t, "skillshare sync")
 
 	// Verify config was updated
 	configContent := sb.ReadFile(sb.ConfigPath)
@@ -135,8 +135,8 @@ targets:
 
 	result := sb.RunCLI("target", "claude")
 	result.AssertSuccess(t)
-	result.AssertOutputContains(t, "Include: team-*")
-	result.AssertOutputContains(t, "Exclude: _legacy*")
+	result.AssertOutputContains(t, "Include   team-*")
+	result.AssertOutputContains(t, "Exclude   _legacy*")
 }
 
 func TestTargetFilter_SyncAfterFilter(t *testing.T) {
@@ -226,7 +226,7 @@ func TestTargetFilter_Project_AddAndShow(t *testing.T) {
 	// Verify the include shows in info
 	info := sb.RunCLIInDir(projectRoot, "target", "claude", "-p")
 	info.AssertSuccess(t)
-	info.AssertOutputContains(t, "Include: team-*")
+	info.AssertOutputContains(t, "Include   team-*")
 }
 
 func TestTargetFilter_AgentAddInclude(t *testing.T) {
@@ -254,8 +254,8 @@ targets:
 
 	info := sb.RunCLI("target", "claude")
 	info.AssertSuccess(t)
-	info.AssertOutputContains(t, "Agents:")
-	info.AssertOutputContains(t, "Include: team-*")
+	info.AssertOutputContains(t, "\nAgents\n")
+	info.AssertOutputContains(t, "Include   team-*")
 }
 
 func TestTargetFilter_AgentModeAndSymlinkGuard(t *testing.T) {
@@ -275,8 +275,8 @@ targets:
 
 	info := sb.RunCLI("target", "claude")
 	info.AssertSuccess(t)
-	info.AssertOutputContains(t, "Agents:")
-	info.AssertOutputContains(t, "Mode:    copy")
+	info.AssertOutputContains(t, "\nAgents\n")
+	info.AssertOutputContains(t, "Mode      copy")
 
 	sb.WriteConfig(`source: ` + sb.SourcePath + `
 targets:
@@ -288,7 +288,7 @@ targets:
 
 	symlinkInfo := sb.RunCLI("target", "claude")
 	symlinkInfo.AssertSuccess(t)
-	symlinkInfo.AssertOutputContains(t, "Filters: ignored in symlink mode")
+	symlinkInfo.AssertOutputContains(t, "Filters   ignored in symlink mode")
 
 	rejected := sb.RunCLI("target", "claude", "--add-agent-include", "team-*")
 	rejected.AssertFailure(t)
@@ -322,6 +322,6 @@ func TestTargetFilter_Project_AgentAddAndShow(t *testing.T) {
 
 	info := sb.RunCLIInDir(projectRoot, "target", "claude", "-p")
 	info.AssertSuccess(t)
-	info.AssertOutputContains(t, "Agents:")
-	info.AssertOutputContains(t, "Include: team-*")
+	info.AssertOutputContains(t, "\nAgents\n")
+	info.AssertOutputContains(t, "Include   team-*")
 }

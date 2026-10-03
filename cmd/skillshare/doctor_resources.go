@@ -32,6 +32,7 @@ func checkNativeResources(cfg *config.Config, projectRoot string, result *doctor
 		hooksService.Accounts = hooksAccounts(cfg)
 		pluginService.Accounts = pluginAccounts(cfg)
 	}
+	ui.Section("MCP, hooks and plugins")
 	checkMCPServers(mcpService, result)
 	checkHooksEntries(hooksService, result)
 	checkPluginPackages(pluginService, result)
@@ -56,27 +57,30 @@ func addResourceCheck(result *doctorResult, name, label, ok string, errors, warn
 	}
 }
 
-func printResourceFindings(errors, warnings []string) {
+// printResourceFindings prints errors then warnings as rows; label names the
+// first row only.
+func printResourceFindings(label string, width int, errors, warnings []string) {
 	for _, e := range errors {
-		ui.Error("%s", e)
+		ui.Row(ui.MarkFail, label, e, width)
+		label = ""
 	}
 	for _, w := range warnings {
-		ui.Warning("%s", w)
+		ui.Row(ui.MarkWarn, label, w, width)
+		label = ""
 	}
 }
 
 // checkMCPServers runs the static part of `mcp check`: no server is started and no
 // host is resolved, so doctor stays offline apart from its version check.
 func checkMCPServers(service *mcp.Service, result *doctorResult) {
-	ui.Header("MCP")
 	report, err := service.Check(mcp.CheckOptions{SkipDNS: true, ClientVersion: version})
 	if err != nil {
-		ui.Error("MCP: %v", err)
+		ui.Row(ui.MarkFail, "MCP", err.Error(), doctorWidth)
 		addResourceCheck(result, "mcp", "MCP", "", []string{err.Error()}, nil)
 		return
 	}
 	if len(report.Servers) == 0 {
-		ui.Info("MCP: no servers configured")
+		ui.Row(ui.MarkNone, "MCP", "no servers configured", doctorWidth)
 		result.addInfo("mcp", "No MCP servers configured")
 		return
 	}
@@ -101,26 +105,24 @@ func checkMCPServers(service *mcp.Service, result *doctorResult) {
 	}
 	ok := fmt.Sprintf("All %d MCP server(s) OK", len(report.Servers))
 	if len(errors)+len(warnings) == 0 {
-		ui.Success("%s", ok)
+		ui.Row(ui.MarkOK, "MCP", "all "+plural(len(report.Servers), "server")+" OK", doctorWidth)
+	} else {
+		result.suggest("skillshare mcp check", "see the MCP details")
 	}
-	printResourceFindings(errors, warnings)
-	if len(errors)+len(warnings) > 0 {
-		ui.Info("  Run: skillshare mcp check for details")
-	}
+	printResourceFindings("MCP", doctorWidth, errors, warnings)
 	addResourceCheck(result, "mcp", "MCP", ok, errors, warnings)
 }
 
 // checkHooksEntries reports what `hooks sync` would still change or refuse.
 func checkHooksEntries(service *hooks.Service, result *doctorResult) {
-	ui.Header("Hooks")
 	inv, err := service.List()
 	if err != nil {
-		ui.Error("Hooks: %v", err)
+		ui.Row(ui.MarkFail, "Hooks", err.Error(), doctorWidth)
 		addResourceCheck(result, "hooks", "Hooks", "", []string{err.Error()}, nil)
 		return
 	}
 	if len(inv.Source.Entries) == 0 && len(inv.Source.Projects) == 0 {
-		ui.Info("Hooks: none configured")
+		ui.Row(ui.MarkNone, "Hooks", "none configured", doctorWidth)
 		result.addInfo("hooks", "No hooks configured")
 		return
 	}
@@ -148,11 +150,11 @@ func checkHooksEntries(service *hooks.Service, result *doctorResult) {
 	}
 	ok := fmt.Sprintf("All %d hook(s) in sync", len(inv.Source.Entries))
 	if len(errors)+len(warnings) == 0 {
-		ui.Success("%s", ok)
+		ui.Row(ui.MarkOK, "Hooks", "all "+plural(len(inv.Source.Entries), "hook")+" in sync", doctorWidth)
 	}
-	printResourceFindings(errors, warnings)
+	printResourceFindings("Hooks", doctorWidth, errors, warnings)
 	if syncable {
-		ui.Info("  Run: skillshare sync hooks")
+		result.suggest("skillshare sync hooks", "sync the hooks")
 	}
 	addResourceCheck(result, "hooks", "Hooks", ok, errors, warnings)
 }
@@ -160,15 +162,14 @@ func checkHooksEntries(service *hooks.Service, result *doctorResult) {
 // checkPluginPackages previews `plugin sync` without fetching any source. It only asks
 // each bound Agent's native CLI what is installed, so nothing runs when no package exists.
 func checkPluginPackages(service *plugin.Service, result *doctorResult) {
-	ui.Header("Plugins")
 	inv, err := service.Packages()
 	if err != nil {
-		ui.Error("Plugins: %v", err)
+		ui.Row(ui.MarkFail, "Plugins", err.Error(), doctorWidth)
 		addResourceCheck(result, "plugins", "Plugins", "", []string{err.Error()}, nil)
 		return
 	}
 	if len(inv.Packages) == 0 {
-		ui.Info("Plugins: none configured")
+		ui.Row(ui.MarkNone, "Plugins", "none configured", doctorWidth)
 		result.addInfo("plugins", "No plugins configured")
 		return
 	}
@@ -178,7 +179,7 @@ func checkPluginPackages(service *plugin.Service, result *doctorResult) {
 	plan, err := service.Preview(ctx, plugin.Request{Action: "sync"})
 	sp.Stop()
 	if err != nil {
-		ui.Error("Plugins: %v", err)
+		ui.Row(ui.MarkFail, "Plugins", err.Error(), doctorWidth)
 		addResourceCheck(result, "plugins", "Plugins", "", []string{err.Error()}, nil)
 		return
 	}
@@ -195,19 +196,18 @@ func checkPluginPackages(service *plugin.Service, result *doctorResult) {
 	}
 	ok := fmt.Sprintf("All %d plugin package(s) in sync", len(inv.Packages))
 	if len(warnings) == 0 {
-		ui.Success("%s", ok)
+		ui.Row(ui.MarkOK, "Plugins", "all "+plural(len(inv.Packages), "package")+" in sync", doctorWidth)
+	} else {
+		result.suggest("skillshare sync plugins --dry-run", "see what plugin sync would change")
 	}
-	printResourceFindings(nil, warnings)
-	if len(warnings) > 0 {
-		ui.Info("  Run: skillshare sync plugins --dry-run")
-	}
+	printResourceFindings("Plugins", doctorWidth, nil, warnings)
 	addResourceCheck(result, "plugins", "Plugins", ok, nil, warnings)
 }
 
 // extraTargetFindings checks one resolved extra target beyond reachability: links
 // that no longer resolve, and files that differ from the source.
 func extraTargetFindings(extra config.ExtraConfig, target config.ExtraTargetConfig, sourceDir, targetPath string) (errors, warnings []string) {
-	label := extra.Name + " → " + target.Path
+	label := extra.Name + " → " + shortenPath(target.Path)
 	if extra.File == "" {
 		for _, name := range findBrokenSymlinks(targetPath) {
 			errors = append(errors, label+": broken symlink "+name)
@@ -224,7 +224,7 @@ func extraTargetFindings(extra config.ExtraConfig, target config.ExtraTargetConf
 	resolved.Path = targetPath
 	for _, d := range collectExtrasDiff([]config.ExtraConfig{{Name: extra.Name, File: extra.File, Targets: []config.ExtraTargetConfig{resolved}}}, func(config.ExtraConfig) string { return sourceDir }) {
 		if !d.synced && d.errMsg == "" && len(d.items) > 0 {
-			warnings = append(warnings, fmt.Sprintf("%s: %d file(s) out of sync (%s %s)", label, len(d.items), d.items[0].file, d.items[0].reason))
+			warnings = append(warnings, fmt.Sprintf("%s: %s out of sync (%s %s)", label, plural(len(d.items), "file"), d.items[0].file, d.items[0].reason))
 		}
 	}
 	return errors, warnings

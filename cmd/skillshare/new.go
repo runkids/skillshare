@@ -9,6 +9,7 @@ import (
 	"skillshare/internal/config"
 	"skillshare/internal/skill"
 	"skillshare/internal/ui"
+	"skillshare/internal/utils"
 )
 
 func cmdNew(args []string) error {
@@ -128,18 +129,18 @@ func cmdNew(args []string) error {
 
 	template := generatePatternTemplate(skillName, selectedPattern, selectedCategory)
 
+	var scaffold []string
+	if createDirs && pattern != nil {
+		scaffold = pattern.ScaffoldDirs
+	}
+
 	if dryRun {
-		ui.Header(ui.WithModeLabel("New Skill (dry-run)"))
-		ui.Info("Would create: %s", skillDir)
-		ui.Info("Would write: %s", skillFile)
-		if createDirs && pattern != nil && len(pattern.ScaffoldDirs) > 0 {
-			for _, dir := range pattern.ScaffoldDirs {
-				ui.Info("Would create: %s/", filepath.Join(skillDir, dir))
-			}
-		}
+		ui.Row(ui.MarkNone, "Would create", utils.FoldHomePath(skillFile), ui.RowWidth("Would create"))
+		printScaffoldDirs(scaffold)
+		ui.Section("Preview")
+		fmt.Println(strings.TrimRight(template, "\n"))
 		fmt.Println()
-		ui.Info("Template preview:")
-		fmt.Println(template)
+		ui.DryRun()
 		return nil
 	}
 
@@ -155,8 +156,8 @@ func cmdNew(args []string) error {
 		return fmt.Errorf("failed to write SKILL.md: %w", err)
 	}
 
-	if createDirs && pattern != nil {
-		for _, dir := range pattern.ScaffoldDirs {
+	if len(scaffold) > 0 {
+		for _, dir := range scaffold {
 			dirPath := filepath.Join(skillDir, dir)
 			if err := os.MkdirAll(dirPath, 0755); err != nil {
 				return fmt.Errorf("failed to create %s: %w", dir, err)
@@ -168,18 +169,23 @@ func cmdNew(args []string) error {
 		}
 	}
 
-	ui.Header(ui.WithModeLabel("New Skill Created"))
-	ui.Success("Created: %s", skillFile)
-	fmt.Println()
-	ui.Info("Next steps:")
-	fmt.Printf("  1. Edit %s\n", skillFile)
-	if mode == modeProject {
-		fmt.Println("  2. Run 'skillshare sync' to deploy")
-	} else {
-		fmt.Println("  2. Run 'skillshare sync' to deploy")
-	}
+	ui.Row(ui.MarkOK, "Created", utils.FoldHomePath(skillFile), ui.RowWidth("Created"))
+	printScaffoldDirs(scaffold)
+	ui.Next("skillshare sync", "link it into your targets once you've edited it")
 
 	return nil
+}
+
+// printScaffoldDirs lists the folders a pattern adds next to SKILL.md.
+func printScaffoldDirs(dirs []string) {
+	if len(dirs) == 0 {
+		return
+	}
+	names := make([]string, len(dirs))
+	for i, d := range dirs {
+		names[i] = d + "/"
+	}
+	ui.Note("with " + strings.Join(names, ", "))
 }
 
 // isValidSkillName validates skill name format
@@ -188,24 +194,22 @@ func isValidSkillName(name string) bool {
 }
 
 func printNewHelp() {
-	fmt.Println(`Usage: skillshare new <name> [options]
-
-Create a new skill with a SKILL.md template.
-
-Options:
-  --pattern, -P <name>  Use a design pattern (tool-wrapper, generator, reviewer, inversion, pipeline, none)
-  --project, -p         Create in project (.skillshare/skills/)
-  --global, -g          Create in global (~/.config/skillshare/skills/)
-  --dry-run, -n         Preview without creating files
-  --help, -h            Show this help
-
-Arguments:
-  <name>          Skill name (lowercase, hyphens allowed)
-
-Examples:
-  skillshare new my-skill                  # Create with interactive pattern selection
-  skillshare new my-skill -P reviewer      # Use reviewer pattern directly
-  skillshare new my-skill -P none          # Plain template, no pattern
-  skillshare new my-skill -p               # Create in project
-  skillshare new my-skill --dry-run        # Preview first`)
+	printHelp("skillshare new <name> [options]", "Create a new skill with a SKILL.md template.",
+		helpGroup{title: "Options", rows: []helpRow{
+			{"-P, --pattern <name>", "Use a design pattern (tool-wrapper, generator, reviewer, inversion, pipeline, none)"},
+			{"-p, --project", "Create in project (.skillshare/skills/)"},
+			{"-g, --global", "Create in global (~/.config/skillshare/skills/)"},
+			{"-n, --dry-run", "Preview without creating files"},
+		}},
+		helpGroup{title: "Arguments", rows: []helpRow{
+			{"<name>", "Skill name (lowercase, hyphens allowed)"},
+		}},
+		helpExamples(
+			helpRow{"skillshare new my-skill", "Create with interactive pattern selection"},
+			helpRow{"skillshare new my-skill -P reviewer", "Use reviewer pattern directly"},
+			helpRow{"skillshare new my-skill -P none", "Plain template, no pattern"},
+			helpRow{"skillshare new my-skill -p", "Create in project"},
+			helpRow{"skillshare new my-skill --dry-run", "Preview first"},
+		),
+	)
 }

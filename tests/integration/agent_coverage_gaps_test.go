@@ -83,7 +83,7 @@ func TestUninstall_Agents_ProjectMode(t *testing.T) {
 
 	result := sb.RunCLIInDir(projectDir, "uninstall", "-p", "agents", "tutor", "--force")
 	result.AssertSuccess(t)
-	result.AssertAnyOutputContains(t, "Removed agent")
+	result.AssertAnyOutputContains(t, "Uninstalled 1 agent")
 
 	// Verify removed
 	if _, err := os.Stat(filepath.Join(agentsDir, "tutor.md")); !os.IsNotExist(err) {

@@ -69,9 +69,9 @@ func cmdHubAdd(args []string, mode runMode, cwd string) error {
 		return err
 	}
 
-	ui.Success("Added hub %q → %s", label, hubURL)
+	ui.Done(ui.MarkOK, fmt.Sprintf("Added hub %q → %s", label, hubURL), 0)
 	if hubCfg.Default == label {
-		ui.Info("Set as default hub")
+		ui.Note("Set as the default hub")
 	}
 	return nil
 }
@@ -83,21 +83,32 @@ func cmdHubList(mode runMode, cwd string) error {
 	}
 
 	if len(hubCfg.Hubs) == 0 {
-		ui.Info("No saved hubs. Use 'skillshare hub add <url>' to add one.")
+		ui.Done(ui.MarkNone, "No saved hubs", 0)
+		ui.Next("skillshare hub add <url>", "add one")
 		return nil
 	}
 
-	for _, h := range hubCfg.Hubs {
-		marker := "  "
-		if strings.EqualFold(h.Label, hubCfg.Default) {
-			marker = "* "
-		}
-		annotation := ""
-		if h.BuiltIn {
-			annotation = " (built-in)"
-		}
-		fmt.Printf("%s%-20s %s%s\n", marker, h.Label, h.URL, annotation)
+	labels := make([]string, len(hubCfg.Hubs))
+	for i, h := range hubCfg.Hubs {
+		labels[i] = h.Label
 	}
+	width := ui.RowWidth(labels...)
+	for _, h := range hubCfg.Hubs {
+		var notes []string
+		if strings.EqualFold(h.Label, hubCfg.Default) {
+			notes = append(notes, "default")
+		}
+		if h.BuiltIn {
+			notes = append(notes, "built-in")
+		}
+		value := h.URL
+		if len(notes) > 0 {
+			value += ui.DimText(" · " + strings.Join(notes, ", "))
+		}
+		ui.Row(ui.MarkNone, h.Label, value, width)
+	}
+	fmt.Println()
+	ui.Done(ui.MarkNone, plural(len(hubCfg.Hubs), "hub"), 0)
 	return nil
 }
 
@@ -120,7 +131,7 @@ func cmdHubRemove(args []string, mode runMode, cwd string) error {
 		return err
 	}
 
-	ui.Success("Removed hub %q", label)
+	ui.Done(ui.MarkOK, fmt.Sprintf("Removed hub %q", label), 0)
 	return nil
 }
 
@@ -151,13 +162,13 @@ func cmdHubDefault(args []string, mode runMode, cwd string) error {
 	// Show current default
 	if label == "" && !reset {
 		if hubCfg.Default == "" {
-			ui.Info("No default hub set (using community hub)")
+			ui.Done(ui.MarkNone, "No default hub set (using the community hub)", 0)
 		} else {
 			url, ok := hubCfg.ResolveHub(hubCfg.Default)
 			if ok {
-				fmt.Printf("%s → %s\n", hubCfg.Default, url)
+				ui.Row(ui.MarkNone, hubCfg.Default, url, ui.RowWidth(hubCfg.Default))
 			} else {
-				fmt.Printf("%s (label not found in hubs)\n", hubCfg.Default)
+				ui.Row(ui.MarkWarn, hubCfg.Default, "label not found in hubs", ui.RowWidth(hubCfg.Default))
 			}
 		}
 		return nil
@@ -169,7 +180,7 @@ func cmdHubDefault(args []string, mode runMode, cwd string) error {
 		if err := saveFn(*hubCfg); err != nil {
 			return err
 		}
-		ui.Success("Default hub cleared (using community hub)")
+		ui.Done(ui.MarkOK, "Default hub cleared (using the community hub)", 0)
 		return nil
 	}
 
@@ -181,7 +192,7 @@ func cmdHubDefault(args []string, mode runMode, cwd string) error {
 	if err := saveFn(*hubCfg); err != nil {
 		return err
 	}
-	ui.Success("Default hub set to %q", label)
+	ui.Done(ui.MarkOK, fmt.Sprintf("Default hub set to %q", label), 0)
 	return nil
 }
 
@@ -248,36 +259,31 @@ func deriveLabelFromURL(rawURL string) string {
 }
 
 func printHubAddHelp() {
-	fmt.Println(`Usage: skillshare hub add <url> [options]
-
-Add a hub source to your saved hubs list.
-
-Options:
-  --label, -l <name>   Label for the hub (default: derived from URL)
-  --project, -p        Use project mode
-  --global, -g         Use global mode
-  --help, -h           Show this help
-
-Examples:
-  skillshare hub add https://internal.corp/skills/hub.json
-  skillshare hub add https://internal.corp/hub.json --label team
-  skillshare hub add ./skillshare-hub.json --label local`)
+	printHelp("skillshare hub add <url> [options]", "Add a hub source to your saved hubs list.",
+		helpGroup{title: "Options", rows: []helpRow{
+			{"-l, --label <name>", "Label for the hub (default: derived from URL)"},
+			{"-p, --project", "Use project mode"},
+			{"-g, --global", "Use global mode"},
+		}},
+		helpExamples(
+			helpRow{"skillshare hub add https://internal.corp/skills/hub.json", ""},
+			helpRow{"skillshare hub add https://internal.corp/hub.json --label team", ""},
+			helpRow{"skillshare hub add ./skillshare-hub.json --label local", ""},
+		),
+	)
 }
 
 func printHubDefaultHelp() {
-	fmt.Println(`Usage: skillshare hub default [label] [options]
-
-Show or set the default hub. When set, 'search --hub' uses this hub
-instead of the community hub.
-
-Options:
-  --reset              Clear default (revert to community hub)
-  --project, -p        Use project mode
-  --global, -g         Use global mode
-  --help, -h           Show this help
-
-Examples:
-  skillshare hub default                Show current default
-  skillshare hub default team           Set default to "team"
-  skillshare hub default --reset        Clear default`)
+	printHelp("skillshare hub default [label] [options]", "Show or set the default hub. When set, 'search --hub' uses this hub\ninstead of the community hub.",
+		helpGroup{title: "Options", rows: []helpRow{
+			{"--reset", "Clear default (revert to community hub)"},
+			{"-p, --project", "Use project mode"},
+			{"-g, --global", "Use global mode"},
+		}},
+		helpExamples(
+			helpRow{"skillshare hub default", "Show current default"},
+			helpRow{"skillshare hub default team", "Set default to \"team\""},
+			helpRow{"skillshare hub default --reset", "Clear default"},
+		),
+	)
 }

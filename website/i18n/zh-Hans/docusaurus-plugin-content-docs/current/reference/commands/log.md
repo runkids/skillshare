@@ -98,40 +98,30 @@ skillshare log --json --cmd sync          # 输出筛选后的 JSONL
 
 ## 示例输出（纯文本）
 
-在使用 `--no-tui` 或非 TTY 环境中：
+在 terminal 使用 `--no-tui` 时（输出被 pipe 时，每条的细节会合并成一行）：
 
 ```
-┌─ skillshare log ────────────────────────────────────┐
-│ Operations (last 2)                                 │
-│ mode: global                                        │
-│ file: ~/.local/state/skillshare/logs/operations.log │
-└─────────────────────────────────────────────────────┘
-  TIME             | CMD       | STATUS  | DUR
-  -----------------+-----------+---------+--------
-  2026-02-10 14:31 | SYNC      | error   | 0.8s
-  targets: 3
-  failed: 1
-  scope: global
+Operations · last 2
+✓ sync      2026-02-10 14:35 · 0.3s
+            targets: 3
+            scope: global
 
-  2026-02-10 14:35 | SYNC      | ok      | 0.3s
-  targets: 3
-  scope: global
+✗ sync      2026-02-10 14:31 · 0.8s · error
+            targets: 3
+            failed: 1
+            scope: global
+  ~/.local/state/skillshare/logs/operations.log
 
-┌─ skillshare log ────────────────────────────────────┐
-│ Audit (last 1)                                      │
-│ mode: global                                        │
-│ file: ~/.local/state/skillshare/logs/audit.log      │
-└─────────────────────────────────────────────────────┘
-  TIME             | CMD       | STATUS  | DUR
-  -----------------+-----------+---------+--------
-  2026-02-10 14:36 | AUDIT     | blocked | 1.1s
-  scope: all-skills
-  scanned: 12
-  passed: 11
-  failed: 1
-  failed skills:
-    - prompt-injection-skill
-    - data-exfil-skill
+Audit · last 1
+✗ audit     2026-02-10 14:36 · 1.1s · blocked
+            scope: all-skills
+            scanned: 12
+            passed: 11
+            failed: 1
+            failed skills:
+              - prompt-injection-skill
+              - data-exfil-skill
+  ~/.local/state/skillshare/logs/audit.log
 ```
 
 ## 日志格式

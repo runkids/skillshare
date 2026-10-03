@@ -4,7 +4,7 @@ sidebar_position: 1
 
 # init
 
-First-time setup. Auto-detects installed AI CLIs and configures targets.
+First-time setup. Detects installed AI CLIs, brings in the skills they already have, and syncs them.
 
 ```bash
 skillshare init              # Interactive setup
@@ -20,19 +20,54 @@ skillshare init --dry-run    # Preview without changes
 
 ## What Happens
 
+`init` asks first and writes last. Nothing is created until you confirm the summary, and pressing <kbd>Esc</kbd> at any question cancels without writing anything.
+
 ```mermaid
 flowchart TD
     TITLE["skillshare init"]
-    S0["0. Source path prompt"]
-    S1["1. Create source + agents directories"]
-    S2["2. Auto-detect AI CLIs"]
-    S3["3. Initialize git"]
-    S4["4. Set up remote"]
-    S4b["5. Subdirectory prompt"]
-    S5["6. Create config.yaml"]
-    S6["7. Built-in skill"]
-    TITLE --> S0 --> S1 --> S2 --> S3 --> S4 --> S4b --> S5 --> S6
+    START{"How do you want to start?"}
+    NEW["New setup: tools → import → git → remote (optional)"]
+    CONNECT["Connect my existing repo: URL → keep local skills → tools"]
+    SUMMARY["Summary: Yes / Change settings / Cancel"]
+    APPLY["Write config, copy skills, install built-in skill, commit"]
+    SYNC["Sync now?"]
+    TITLE --> START
+    START --> NEW --> SUMMARY
+    START --> CONNECT --> SUMMARY
+    SUMMARY --> APPLY --> SYNC
 ```
+
+Each answer has a default, so pressing <kbd>Enter</kbd> through every question gives a working setup:
+
+| Question | Default |
+|----------|---------|
+| Targets | Every detected AI CLI |
+| Import | Every skill those tools already have |
+| Git | On. Versions only the skills, or skills, agents and extras when a remote is linked. Plugins, MCP servers and hooks stay in each machine's `config.yaml` |
+| Built-in skill | Installed |
+| Sync | Yes |
+
+**Change settings** in the summary edits the source path, the sync mode, and what git versions.
+
+**Connect my existing repo** is for a second machine. It checks the repo first, without writing anything, and works out its layout: a repo pushed with `--git-root root` becomes the whole skillshare folder, and a repo whose skills sit in a `skills/` folder uses it as the source. Skills that exist both on this machine and in the repo use the repo version. Skills only on this machine are offered to keep, and are added to the repo on your next `skillshare push`.
+
+During the first sync, a skill folder in a tool that is byte-for-byte identical to the source copy is replaced with a link. Folders that differ are kept and listed; run `skillshare sync --force` to replace them.
+
+### Without a terminal
+
+When stdin or stdout is not a terminal (CI, scripts, an AI agent), `init` asks nothing and uses the defaults above. It prints one line per decision with the flag that changes it:
+
+```text
+✓ Source   ~/.config/skillshare/skills (--source, --subdir)
+✓ Targets  claude, cursor, universal (--targets, --no-targets)
+✓ Import   all 2 (--copy-from, --no-copy)
+✓ Git      skills only (--no-git, --git-root)
+✓ Remote   none (--remote <url>)
+✓ Skill    install skillshare (--skill, --no-skill)
+✓ Sync     merge (--mode)
+```
+
+With `--remote`, a repo that already has skills is pulled, and same-name skills use the repo version; their names are listed. Output without a terminal has no colors or escape codes.
 
 `init` creates the skills source directory **and** an `agents/` sibling directory in one step, so both resource kinds are ready to use immediately. The agents directory is silent — no extra prompts or flags. See [Agents](/docs/understand/agents) for the agent file format.
 
@@ -49,8 +84,8 @@ The agents source defaults to `<source parent>/agents` (so `~/.config/skillshare
 Initialize project-level skills with `-p`:
 
 ```bash
-skillshare init -p                              # Interactive
-skillshare init -p --targets claude,cursor  # Non-interactive
+skillshare init -p                              # Interactive (no terminal: every detected tool)
+skillshare init -p --targets claude,cursor  # Choose the tools
 skillshare init -p --visible                    # Use a visible skillshare/ directory
 ```
 
@@ -79,7 +114,7 @@ skillshare init --discover              # Interactive selection
 skillshare init --discover --select codex,opencode  # Non-interactive
 ```
 
-Scans for newly installed AI CLIs not yet in your config and prompts you to add them. The `universal` target (`~/.agents/skills`) is automatically recommended whenever any CLI is detected.
+Scans for newly installed AI CLIs not yet in your config and asks which to add; all start checked. Without a terminal, every new tool is added. The `universal` target (`~/.agents/skills`) is automatically recommended whenever any CLI is detected.
 
 ### Project
 
@@ -88,7 +123,7 @@ skillshare init -p --discover           # Interactive selection
 skillshare init -p --discover --select antigravity  # Non-interactive
 ```
 
-Scans the project directory for new AI CLI directories (e.g., `.agents/`) and adds them as targets.
+Scans the project directory for new AI CLI directories (e.g., `.agents/`) and adds them as targets. Without a terminal, every new tool found is added.
 
 ### Discover + Mode behavior
 
@@ -111,8 +146,8 @@ If you run `skillshare init` on an already-initialized setup without `--discover
 
 | Flag | Description |
 |------|-------------|
-| `--source, -s <path>` | Custom source directory (interactive mode prompts if not set) |
-| `--remote <url>` | Set git remote (implies `--git`; auto-pulls if remote has skills; skips built-in skill prompt when remote has skills) |
+| `--source, -s <path>` | Custom source directory (also under **Change settings** in the summary) |
+| `--remote <url>` | Set git remote (implies `--git`). A repo that already has skills is pulled; same-name skills use the repo version |
 | `--project, -p` | Initialize project-level skills in current directory |
 | `--copy-from, -c <name\|path>` | Copy skills from a specific CLI or path |
 | `--no-copy` | Start with empty source (skip copy prompt) |
@@ -120,16 +155,16 @@ If you run `skillshare init` on an already-initialized setup without `--discover
 | `--all-targets` | Add all detected targets |
 | `--no-targets` | Skip target selection |
 | `--mode, -m <mode>` | Set default mode for newly configured targets (`merge`, `copy`, `symlink`). With `--discover`, affects only newly added targets. |
-| `--git` | Initialize git without prompting |
+| `--git` | Initialize git without prompting (the default) |
 | `--no-git` | Skip git initialization |
-| `--skill` | Install built-in skillshare skill without prompting (adds `/skillshare` to AI CLIs) |
+| `--skill` | Install built-in skillshare skill (the default; adds `/skillshare` to AI CLIs) |
 | `--no-skill` | Skip built-in skill installation |
 | `--discover, -d` | Detect and add new AI CLI targets to existing config |
 | `--select <list>` | Comma-separated targets to add (requires `--discover`) |
 | `--config local` | Gitignore `config.yaml` so each developer manages own targets (project mode only). See [Centralized Skills Repo](/docs/how-to/recipes/centralized-skills-repo) recipe. |
 | `--visible` | Create a visible `skillshare/` project directory instead of `.skillshare/` (project mode only). See [Project Skills](/docs/understand/project-skills#visible-project-directory). |
-| `--git-root <scope>` | Directory for `commit`/`push`/`pull` operations (`skills` default, `agents`, `extras`, `root`). `root` versions skills + agents + extras together in one repo with `config.yaml` auto-ignored. Also offered interactively during setup. Re-run `skillshare init --git-root <scope>` later to switch scope headlessly — it inits a repo at the new scope and persists the setting, but does not move existing history. |
-| `--subdir <name>` | Use a subdirectory as the source path (e.g. `skills`) |
+| `--git-root <scope>` | Directory for `commit`/`push`/`pull` operations (`skills` default, `agents`, `extras`, `root`). `root` versions skills + agents + extras together in one repo with `config.yaml` auto-ignored. Defaults to `root` when a remote is linked, otherwise `skills`; also under **Change settings** in the summary. Re-run `skillshare init --git-root <scope>` later to switch scope headlessly — it inits a repo at the new scope and persists the setting, but does not move existing history. |
+| `--subdir <name>` | Use a subdirectory as the source path (e.g. `skills`); detected automatically when connecting a repo |
 | `--dry-run, -n` | Preview without changes |
 
 `init` sets your starting mode policy. You can always fine-tune per target later:
@@ -160,11 +195,9 @@ By default, `init --remote` treats the entire git repo root as the skills source
 
 Typical use case: embedding skills inside an existing dotfiles or monorepo instead of a dedicated skills-only repo.
 
-```bash
-# Interactive: prompts during init
-skillshare init --remote git@github.com:you/dotfiles.git
+When you connect a repo whose top level has no skills but a `skills/` folder does, `init` uses that folder automatically. Pass `--subdir` to choose another name:
 
-# Non-interactive: specify directly
+```bash
 skillshare init --remote git@github.com:you/dotfiles.git --subdir skills
 ```
 
@@ -172,11 +205,7 @@ skillshare init --remote git@github.com:you/dotfiles.git --subdir skills
 
 ### Remote setup (pick one)
 
-Interactive (recommended for first-time setup when you want guided prompts):
-
-```bash
-skillshare init --remote git@github.com:you/my-skills.git
-```
+Interactive: run `skillshare init` and choose **Connect my existing skillshare repo**.
 
 Non-interactive (no prompts, auto-detect installed targets):
 
@@ -215,7 +244,7 @@ skillshare init --source ~/.config/skillshare/skills
 skillshare init -p
 skillshare init -p --targets claude,cursor
 
-# Fully non-interactive setup
+# Defaults without prompts (also what runs without a terminal)
 skillshare init --no-copy --all-targets --git --skill
 
 # Start with copy mode defaults for newly added targets

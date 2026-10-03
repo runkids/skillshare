@@ -39,7 +39,7 @@ func TestSync_InvalidTargetConfigFailsOnlyThatTarget(t *testing.T) {
 
 	result := sb.RunCLI("sync")
 	result.AssertFailure(t)
-	result.AssertOutputContains(t, "broken: invalid config: path is not a directory")
+	result.AssertRowContains(t, "broken", "invalid config: path is not a directory")
 
 	if !sb.IsSymlink(filepath.Join(claudeSkills, "test-skill")) {
 		t.Fatal("valid target should still be synced")
@@ -99,7 +99,7 @@ func TestSyncProject_InvalidTargetConfigFailsOnlyThatTarget(t *testing.T) {
 
 	result := sb.RunCLIInDir(projectRoot, "sync", "-p")
 	result.AssertFailure(t)
-	result.AssertOutputContains(t, "broken: invalid config: path is not a directory")
+	result.AssertRowContains(t, "broken", "invalid config: path is not a directory")
 
 	if !sb.IsSymlink(filepath.Join(projectRoot, ".claude", "skills", "my-skill")) {
 		t.Fatal("valid project target should still be synced")
@@ -118,7 +118,7 @@ func TestSyncProject_TargetWithoutPathFailsOnlyThatTarget(t *testing.T) {
 
 	result := sb.RunCLIInDir(projectRoot, "sync", "-p")
 	result.AssertFailure(t)
-	result.AssertOutputContains(t, "custom: invalid config: missing path")
+	result.AssertRowContains(t, "custom", "invalid config: missing path")
 
 	if !sb.IsSymlink(filepath.Join(projectRoot, ".claude", "skills", "my-skill")) {
 		t.Fatal("valid project target should still be synced")

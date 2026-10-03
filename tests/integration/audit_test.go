@@ -62,8 +62,8 @@ func TestAudit_CleanSkill(t *testing.T) {
 	result.AssertSuccess(t)
 	result.AssertAnyOutputContains(t, "clean-skill")
 	result.AssertAnyOutputContains(t, "Passed")
-	result.AssertAnyOutputContains(t, "mode: global")
-	result.AssertAnyOutputContains(t, "path: ")
+	result.AssertAnyOutputContains(t, "global · blocks at CRITICAL")
+	result.AssertAnyOutputContains(t, "Audit  ")
 	result.AssertAnyOutputContains(t, ".config/skillshare/skills")
 }
 
@@ -94,11 +94,11 @@ func TestAudit_HighOnly_IsWarningNotFailed(t *testing.T) {
 	result := sb.RunCLI("audit")
 	result.AssertSuccess(t) // HIGH should be warning-only; CRITICAL is the only blocker.
 	result.AssertAnyOutputContains(t, "high-only-skill")
-	result.AssertAnyOutputContains(t, "Warning:   1")
-	result.AssertAnyOutputContains(t, "Failed:    0")
-	result.AssertAnyOutputContains(t, "Severity:  c/h/m/l/i = 0/1/0/0/0")
-	result.AssertAnyOutputContains(t, "severity >= CRITICAL")
-	result.AssertAnyOutputContains(t, "Aggregate:")
+	result.AssertAnyOutputContains(t, "Warning      1")
+	result.AssertOutputNotContains(t, "Failed")
+	result.AssertAnyOutputContains(t, "Severity     1 high")
+	result.AssertAnyOutputContains(t, "findings below CRITICAL")
+	result.AssertAnyOutputContains(t, "Risk         HIGH")
 }
 
 func TestAudit_SingleSkill(t *testing.T) {
@@ -480,8 +480,8 @@ func TestAudit_Project(t *testing.T) {
 	result := sb.RunCLIInDir(projectRoot, "audit", "-p")
 	result.AssertSuccess(t)
 	result.AssertAnyOutputContains(t, "project-skill")
-	result.AssertAnyOutputContains(t, "mode: project")
-	result.AssertAnyOutputContains(t, "path: ")
+	result.AssertAnyOutputContains(t, "project · blocks at")
+	result.AssertAnyOutputContains(t, "Audit  ")
 	result.AssertAnyOutputContains(t, ".skillshare/skills")
 }
 
@@ -605,7 +605,7 @@ func TestAudit_DanglingLink_Low(t *testing.T) {
 	result.AssertSuccess(t) // LOW does not exceed default CRITICAL threshold
 	result.AssertAnyOutputContains(t, "broken local link")
 	result.AssertAnyOutputContains(t, "docs/setup.md")
-	result.AssertAnyOutputContains(t, "Severity:  c/h/m/l/i = 0/0/0/1/0")
+	result.AssertAnyOutputContains(t, "LOW       broken local link")
 }
 
 func TestAudit_DanglingLink_ValidFileNoFinding(t *testing.T) {
@@ -683,8 +683,8 @@ func TestAudit_MultipleNames(t *testing.T) {
 	// Scan only a and b — should succeed (c is malicious but not included)
 	result := sb.RunCLI("audit", "skill-a", "skill-b")
 	result.AssertSuccess(t)
-	result.AssertAnyOutputContains(t, "Scanned:   2")
-	result.AssertAnyOutputContains(t, "Passed:    2")
+	result.AssertAnyOutputContains(t, "Scanned      2 skills")
+	result.AssertAnyOutputContains(t, "Passed       2")
 }
 
 func TestAudit_MultipleNames_WithFailure(t *testing.T) {
@@ -701,8 +701,8 @@ func TestAudit_MultipleNames_WithFailure(t *testing.T) {
 
 	result := sb.RunCLI("audit", "good", "evil")
 	result.AssertExitCode(t, 1)
-	result.AssertAnyOutputContains(t, "Scanned:   2")
-	result.AssertAnyOutputContains(t, "Failed:    1")
+	result.AssertAnyOutputContains(t, "Scanned      2 skills")
+	result.AssertAnyOutputContains(t, "Failed       1")
 }
 
 func TestAudit_Group(t *testing.T) {
@@ -727,8 +727,8 @@ func TestAudit_Group(t *testing.T) {
 	// Audit only --group frontend should scan 2, not the malicious unrelated
 	result := sb.RunCLI("audit", "--group", "frontend")
 	result.AssertSuccess(t)
-	result.AssertAnyOutputContains(t, "Scanned:   2")
-	result.AssertAnyOutputContains(t, "Passed:    2")
+	result.AssertAnyOutputContains(t, "Scanned      2 skills")
+	result.AssertAnyOutputContains(t, "Passed       2")
 }
 
 func TestAudit_GroupAndNames(t *testing.T) {
@@ -750,8 +750,8 @@ func TestAudit_GroupAndNames(t *testing.T) {
 	// Mix names and groups
 	result := sb.RunCLI("audit", "standalone", "-G", "frontend")
 	result.AssertSuccess(t)
-	result.AssertAnyOutputContains(t, "Scanned:   2")
-	result.AssertAnyOutputContains(t, "Passed:    2")
+	result.AssertAnyOutputContains(t, "Scanned      2 skills")
+	result.AssertAnyOutputContains(t, "Passed       2")
 }
 
 func TestAudit_UnresolvedName(t *testing.T) {
@@ -767,7 +767,7 @@ func TestAudit_UnresolvedName(t *testing.T) {
 	result := sb.RunCLI("audit", "exists", "nope")
 	result.AssertSuccess(t)
 	result.AssertAnyOutputContains(t, "nope")
-	result.AssertAnyOutputContains(t, "Scanned:   1")
+	result.AssertAnyOutputContains(t, "Scanned      1 skill")
 }
 
 func TestAudit_AllUnresolved(t *testing.T) {
@@ -794,7 +794,7 @@ func TestAudit_SourceRepoLink_FallsBackToExternalLinkLOW(t *testing.T) {
 	result := sb.RunCLI("audit", "repo-skill")
 	result.AssertSuccess(t)
 	result.AssertAnyOutputContains(t, "External URL in markdown link")
-	result.AssertAnyOutputContains(t, "Aggregate risk: LOW")
+	result.AssertAnyOutputContains(t, "Risk       LOW")
 }
 
 func TestAudit_SourceRepoLink_JSON_RiskLabel(t *testing.T) {
@@ -1598,8 +1598,8 @@ func TestAudit_AgentsTerminology(t *testing.T) {
 	result.AssertSuccess(t)
 	// Output should use "agent" terminology, not "skill"
 	result.AssertAnyOutputContains(t, "agent")
-	result.AssertOutputNotContains(t, "skill(s)")
-	result.AssertOutputNotContains(t, "Scanned:   1 skill")
+	result.AssertAnyOutputContains(t, "Scanned      1 agent")
+	result.AssertOutputNotContains(t, "Scanned      1 skill")
 }
 
 func TestAudit_SkillsTerminology(t *testing.T) {
@@ -1615,8 +1615,8 @@ func TestAudit_SkillsTerminology(t *testing.T) {
 	result.AssertSuccess(t)
 	// Default audit should use "skill" terminology
 	result.AssertAnyOutputContains(t, "skill")
-	result.AssertOutputNotContains(t, "agent(s)")
-	result.AssertOutputNotContains(t, "Scanned:   1 agent")
+	result.AssertAnyOutputContains(t, "Scanned      1 skill")
+	result.AssertOutputNotContains(t, "Scanned      1 agent")
 }
 
 // TestAudit_TrackedHubRepo_SkillIgnoreRespected is a regression test for the bug
