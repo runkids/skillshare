@@ -109,8 +109,8 @@ skillshare sync
 
 ## 既存の Skill がある状態での初回 pull
 
-初回の pull 時（まだアップストリームがない場合）、ローカルと remote の両方に既に Skill ディレクトリが含まれている場合、
-`pull` は両方を統合するために **merge** を試みます。merge が成功すると、ローカルと remote 両方の Skill が保持されます。
+初回の pull 時（まだアップストリームがない場合）、ローカルの repository に既に内容（`.git` と `.gitignore` 以外のファイルまたはディレクトリ）がある場合、
+`pull` は両方を統合するために **merge** を試みます。merge が成功すると、ローカルと remote 両方の内容が保持されます。それ以外に何もない repository のみ、remote branch に reset されます。
 
 **merge コンフリクト** がある場合、`pull` はゼロ以外の終了コードで失敗します。
 
