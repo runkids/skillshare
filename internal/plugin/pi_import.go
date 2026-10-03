@@ -131,7 +131,7 @@ func piPreservedKeys(raw string) []string {
 
 func (s *Service) preparePiRegistration(ctx context.Context, c *Change) error {
 	if _, why := s.piGate(ctx, c.Target); why != "" {
-		return fmt.Errorf("Pi filtered registrations require a verified native version: %s", why)
+		return fmt.Errorf("Pi filtered registrations require a supported native Pi version: %s", why)
 	}
 	if !filepath.IsAbs(s.StateDir) {
 		return errors.New("Pi preservation requires an absolute private state directory")

@@ -19,22 +19,42 @@ import (
 
 // The extensions of a Pi target (issue #342): which package extensions its settings
 // select, read statically. Global, account and project targets can change the
-// selection of one extension at a time when their own Pi is a verified version. A
+// selection of one extension at a time when their own Pi is PiMinVersion or later. A
 // project change is saved to the project's .pi/settings.json only; whether Pi
 // trusts the project, and so reads that file, stays Pi's decision.
 
-// PiVerifiedVersions are the exact Pi versions scripts/pi/version-matrix.sh
-// installed and passed (scripts/pi/version-evidence.json): the package contract
-// against dist/core and the CLI's bundle, and the native lock test. Every other
-// version is read-only; there are no ranges.
-var PiVerifiedVersions = []string{"0.99.2", "1.0.0"}
+// PiMinVersion is the oldest Pi that scripts/pi/version-matrix.sh installed and passed
+// (scripts/pi/version-evidence.json): the package contract against dist/core and the
+// CLI's bundle, and the native lock test. Older or unparsable versions are read-only.
+const PiMinVersion = "0.99.2"
+
+// piVersionSupported reports a plain X.Y.Z version at or above PiMinVersion.
+func piVersionSupported(version string) bool {
+	parts := func(v string) []int {
+		fields := strings.Split(v, ".")
+		if len(fields) != 3 {
+			return nil
+		}
+		out := make([]int, 3)
+		for i, field := range fields {
+			n, err := strconv.Atoi(field)
+			if err != nil || n < 0 {
+				return nil
+			}
+			out[i] = n
+		}
+		return out
+	}
+	got := parts(version)
+	return got != nil && slices.Compare(got, parts(PiMinVersion)) >= 0
+}
 
 // Read-only reasons, translated by the dashboard as piExtensions.readOnly.<key>.
 const (
-	piReadOnlyFork       = "fork"
-	piReadOnlyNoCLI      = "noCli"
-	piReadOnlyUnverified = "unverifiedVersion"
-	piReadOnlySettings   = "settings"
+	piReadOnlyFork        = "fork"
+	piReadOnlyNoCLI       = "noCli"
+	piReadOnlyUnsupported = "unsupportedVersion"
+	piReadOnlySettings    = "settings"
 )
 
 type PiExtensionsView struct {
@@ -43,7 +63,7 @@ type PiExtensionsView struct {
 	SettingsPath       string               `json:"settingsPath"`
 	GlobalSettingsPath string               `json:"globalSettingsPath,omitempty"`
 	Version            string               `json:"version"`
-	VerifiedVersions   []string             `json:"verifiedVersions"`
+	MinVersion         string               `json:"minVersion"`
 	Editable           bool                 `json:"editable"`
 	ReadOnly           string               `json:"readOnly,omitempty"`
 	Problem            string               `json:"problem,omitempty"` // the settings file cannot be used
@@ -466,8 +486,8 @@ func (s *Service) piGate(ctx context.Context, target string) (version, readOnly 
 	switch {
 	case err != nil:
 		return "", piReadOnlyNoCLI
-	case !slices.Contains(PiVerifiedVersions, version):
-		return version, piReadOnlyUnverified
+	case !piVersionSupported(version):
+		return version, piReadOnlyUnsupported
 	}
 	return version, ""
 }
@@ -507,7 +527,7 @@ func (s *Service) piGlobalState(ctx context.Context, target string) (*piTargetSt
 		scope = "account"
 	}
 	v := &PiExtensionsView{
-		Target: target, Scope: scope, SettingsPath: settings.path, Version: version, VerifiedVersions: PiVerifiedVersions,
+		Target: target, Scope: scope, SettingsPath: settings.path, Version: version, MinVersion: PiMinVersion,
 		Editable: readOnly == "", ReadOnly: readOnly, Problem: settings.problem, Revision: hash(settings.raw),
 		Packages: []PiExtensionPackage{}, Folders: []PiExtensionFolder{},
 	}

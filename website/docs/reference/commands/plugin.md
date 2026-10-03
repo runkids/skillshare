@@ -220,9 +220,8 @@ settings select (the **Configured** column), not whether Pi loaded them; reload 
 after applying. A file the settings name but the package lacks is marked as
 missing. A choice Skillshare can't work out shows **Can't tell** with the reason
 and where to change it, never a guessed on or off. Editing needs the target's own
-Pi to be a version Skillshare has verified (currently 0.99.2 and 1.0.0, each
-checked against Pi itself) and strict JSON settings; any other version is
-read-only and the tab says which version it found. A Pi account that runs a
+Pi to be 0.99.2 or later (the oldest version checked against Pi itself) and
+strict JSON settings; an older version is read-only and the tab says which version it found. A Pi account that runs a
 different executable is read-only, and Skillshare does not run it. An entry whose
 list is `[]` (nothing loads) is read-only, as is any extension decided by a
 pattern Skillshare cannot evaluate, such as `?` against an emoji. An entry with an
@@ -265,7 +264,7 @@ root export, or `index.js`) and required runtime dependencies. Skillshare does n
 run build scripts or install dependencies into the source. Registration is not
 proof the module loaded successfully; check OpenCode after reload.
 
-Import accepts plain Pi package sources and, on verified Pi 0.99.2/1.0.0,
+Import accepts plain Pi package sources and, on Pi 0.99.2 or later,
 filtered object entries with supported sources and option shapes. Preview lists
 retained field names, never opaque values. Import changes neither native settings
 nor installed files. The original entry is kept in private Skillshare state;

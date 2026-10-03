@@ -397,8 +397,9 @@ no `command` or `url`, and Codex then fails to load its whole configuration with
 could stop Codex from starting for another. Turn the server off per machine instead,
 with `enabled = false` in `~/.codex/config.toml`.
 
-Pi replaces a global entry with the project entry of the same name, and skips an entry
-without a `command` or `url`. So for Pi, Skillshare writes the global server's `command`,
+Pi replaces a global entry with the project entry of the same name. An entry without a
+`command` or `url` is skipped before Pi 1.0.1; from 1.0.1 it turns the global server off,
+but Pi warns at every start on a machine whose global config lacks the server. So for Pi, Skillshare writes the global server's `command`,
 or its `url` without the query, next to `enabled: false`. A disabled server is never
 started, so args, env and headers stay out of the project file, and other projects keep
 the server. Every sync rewrites the entry from the global server. This needs the global

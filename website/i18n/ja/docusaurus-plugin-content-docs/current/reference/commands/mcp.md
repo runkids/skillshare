@@ -293,7 +293,7 @@ global config がそのサーバーを定義しているマシンでは `enabled
 別のメンバーの Codex の起動を止めてしまう可能性があります。代わりに、マシンごとに `~/.codex/config.toml` で
 `enabled = false` を指定してサーバーをオフにしてください。
 
-Pi は project の同名エントリで global エントリを丸ごと置き換え、`command` も `url` もないエントリは読み飛ばします。
+Pi は project の同名エントリで global エントリを丸ごと置き換えます。`command` も `url` もないエントリは、Pi 1.0.1 より前では読み飛ばされ、1.0.1 以降は global サーバーをオフにしますが、global config にそのサーバーがないマシンでは Pi が起動のたびに警告します。
 そのため Pi には、global サーバーの `command`、またはクエリを除いた `url` を `enabled: false` と一緒に書き込みます。
 オフにしたサーバーは起動しないので、args、env、headers は project ファイルに書き込まれず、他の project では
 そのサーバーがそのまま使われます。sync のたびにエントリは global サーバーから書き直されます。global サーバーが

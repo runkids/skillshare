@@ -2771,7 +2771,7 @@
   "targetDetail.piExtensions.settingsProblem.unsupportedEntry": "تنظیمات Pi ورودی‌ای دارد که Skillshare نمی‌تواند بخواند و Pi ممکن است آن را به جای ورودی‌های دیگر همان بسته به کار ببرد. همه‌چیز این‌جا فقط‌خواندنی است؛ آن را با pi config تغییر دهید.",
   "targetDetail.piExtensions.readOnly.fork": "فقط‌خواندنی: {name} فایل اجرایی متفاوتی از Pi اجرا می‌کند که Skillshare آن را تأیید نکرده است. افزونه‌ها را با تنظیمات خود آن ابزار تغییر دهید.",
   "targetDetail.piExtensions.readOnly.noCli": "فقط‌خواندنی: Skillshare نتوانست Pi این مقصد را برای بررسی نسخه اجرا کند. مطمئن شوید pi نصب شده و در PATH است، سپس این صفحه را دوباره بارگذاری کنید.",
-  "targetDetail.piExtensions.readOnly.unverifiedVersion": "فقط‌خواندنی: {name} نسخهٔ Pi {version} را اجرا می‌کند و Skillshare فقط {verified} را تأیید کرده است. از pi config استفاده کنید یا به نسخهٔ تأییدشده بروید.",
+  "targetDetail.piExtensions.readOnly.unsupportedVersion": "فقط‌خواندنی: {name} نسخهٔ Pi {version} را اجرا می‌کند و Skillshare به Pi {min} یا جدیدتر نیاز دارد. از pi config استفاده کنید یا Pi را به‌روز کنید.",
   "targetDetail.piExtensions.readOnly.settings": "تا زمانی که فایل تنظیمات خوانده نشود فقط‌خواندنی است. فایل را طبق توضیح این‌جا اصلاح کنید یا از pi config استفاده کنید.",
   "targetDetail.piExtensions.trust.saved": "انتخاب ذخیره‌شده در Pi: {value}",
   "targetDetail.piExtensions.trust.default": "پیش‌فرض Pi برای پوشه‌های جدید: {value}",

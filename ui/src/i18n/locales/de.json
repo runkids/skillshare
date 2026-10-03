@@ -2771,7 +2771,7 @@
   "targetDetail.piExtensions.settingsProblem.unsupportedEntry": "Pis Einstellungen enthalten einen Eintrag, den Skillshare nicht lesen kann, und Pi verwendet ihn möglicherweise anstelle anderer Einträge desselben Pakets. Hier ist alles schreibgeschützt; ändere es mit pi config.",
   "targetDetail.piExtensions.readOnly.fork": "Schreibgeschützt: {name} führt eine andere ausführbare Datei als Pi aus, die Skillshare nicht geprüft hat. Ändere Erweiterungen in den Einstellungen dieses Werkzeugs.",
   "targetDetail.piExtensions.readOnly.noCli": "Schreibgeschützt: Skillshare konnte das Pi dieses Ziels nicht ausführen, um die Version zu prüfen. Stelle sicher, dass pi installiert und im PATH ist, und lade diese Seite neu.",
-  "targetDetail.piExtensions.readOnly.unverifiedVersion": "Schreibgeschützt: {name} führt Pi {version} aus, und Skillshare hat nur {verified} geprüft. Verwende pi config oder wechsle zu einer geprüften Version.",
+  "targetDetail.piExtensions.readOnly.unsupportedVersion": "Schreibgeschützt: {name} führt Pi {version} aus, und Skillshare benötigt Pi {min} oder neuer. Verwende pi config oder aktualisiere Pi.",
   "targetDetail.piExtensions.readOnly.settings": "Schreibgeschützt, bis die Einstellungsdatei gelesen werden kann. Korrigiere die Datei wie hier beschrieben oder verwende pi config.",
   "targetDetail.piExtensions.trust.saved": "Gespeicherte Wahl in Pi: {value}",
   "targetDetail.piExtensions.trust.default": "Pi-Standard für neue Ordner: {value}",
