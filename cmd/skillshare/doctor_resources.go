@@ -207,7 +207,7 @@ func checkPluginPackages(service *plugin.Service, result *doctorResult) {
 // extraTargetFindings checks one resolved extra target beyond reachability: links
 // that no longer resolve, and files that differ from the source.
 func extraTargetFindings(extra config.ExtraConfig, target config.ExtraTargetConfig, sourceDir, targetPath string) (errors, warnings []string) {
-	label := extra.Name + " → " + target.Path
+	label := extra.Name + " → " + shortenPath(target.Path)
 	if extra.File == "" {
 		for _, name := range findBrokenSymlinks(targetPath) {
 			errors = append(errors, label+": broken symlink "+name)
@@ -224,7 +224,7 @@ func extraTargetFindings(extra config.ExtraConfig, target config.ExtraTargetConf
 	resolved.Path = targetPath
 	for _, d := range collectExtrasDiff([]config.ExtraConfig{{Name: extra.Name, File: extra.File, Targets: []config.ExtraTargetConfig{resolved}}}, func(config.ExtraConfig) string { return sourceDir }) {
 		if !d.synced && d.errMsg == "" && len(d.items) > 0 {
-			warnings = append(warnings, fmt.Sprintf("%s: %d file(s) out of sync (%s %s)", label, len(d.items), d.items[0].file, d.items[0].reason))
+			warnings = append(warnings, fmt.Sprintf("%s: %s out of sync (%s %s)", label, plural(len(d.items), "file"), d.items[0].file, d.items[0].reason))
 		}
 	}
 	return errors, warnings

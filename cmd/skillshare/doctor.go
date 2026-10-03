@@ -1199,10 +1199,14 @@ func checkExtras(extras []config.ExtraConfig, result *doctorResult, isProject bo
 			details = append(details, fmt.Sprintf("%s: %d/%d targets unreachable", extra.Name, len(extra.Targets)-reachable, len(extra.Targets)))
 			hasIssue = true
 		}
+		shownErrors, shownWarnings := targetErrors, targetWarnings
 		if reachable == len(extra.Targets) {
+			// The row label names the extra, so the lines start at the arrow.
 			findingsLabel = extra.Name
+			shownErrors = trimFindingsPrefix(targetErrors, extra.Name+" ")
+			shownWarnings = trimFindingsPrefix(targetWarnings, extra.Name+" ")
 		}
-		printResourceFindings(findingsLabel, width, targetErrors, targetWarnings)
+		printResourceFindings(findingsLabel, width, shownErrors, shownWarnings)
 		for range targetErrors {
 			result.addError()
 		}
@@ -1409,4 +1413,13 @@ Examples:
   skillshare doctor              Run diagnostics
   skillshare doctor --json       Output as JSON
   skillshare doctor -p           Check project config`)
+}
+
+// trimFindingsPrefix drops prefix from each finding for display.
+func trimFindingsPrefix(findings []string, prefix string) []string {
+	out := make([]string, len(findings))
+	for i, f := range findings {
+		out[i] = strings.TrimPrefix(f, prefix)
+	}
+	return out
 }
