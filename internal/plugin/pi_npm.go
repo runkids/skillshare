@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"regexp"
+	"runtime"
 	"strings"
 )
 
@@ -49,7 +50,7 @@ func sameNpmPackage(id, source string) bool {
 // otherPiCLI is the executable a Pi account runs instead of pi, such as a fork; Skillshare
 // does not know how a fork installs npm packages.
 func (s *Service) otherPiCLI(target string) string {
-	if a, ok := s.account(target); ok && a.CLI != "" && a.CLI != "pi" {
+	if a, ok := s.account(target); ok && a.CLI != "" && !piCLIIsNative(a.CLI, runtime.GOOS) {
 		return a.CLI
 	}
 	return ""

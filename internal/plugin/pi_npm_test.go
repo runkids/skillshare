@@ -349,3 +349,26 @@ func TestFilteredNpmPackageIsRecordedAgainAfterAnotherVersion(t *testing.T) {
 		t.Fatalf("binding %+v, record %+v: %v", b, record, err)
 	}
 }
+
+// A dot is part of an npm package name, not an extension, so adding another version finds it.
+func TestNpmPackageNameKeepsItsDots(t *testing.T) {
+	var commands []string
+	s := fakePiNpm(t, &commands)
+	applyPluginRequest(t, s, Request{Action: "add", Source: "npm:foo.bar", Targets: []string{"pi"}})
+	p, err := s.Preview(context.Background(), Request{Action: "add", Source: "npm:foo.bar@1.2.3", Targets: []string{"pi"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c := p.Changes[0]; c.Name != "foo.bar" || c.Action != "install" {
+		t.Fatalf("changes: %+v", p.Changes)
+	}
+}
+
+func TestPiAccountRunningPiByPathTakesNpmPackages(t *testing.T) {
+	var commands []string
+	s := fakePiNpm(t, &commands)
+	s.Accounts = map[string]Account{"pi-work": {Agent: "pi", Dir: t.TempDir(), CLI: "/usr/local/bin/pi"}}
+	if !slices.ContainsFunc(s.TargetDefinitions(), func(d TargetDefinition) bool { return d.Target == "pi-work" && d.Npm }) {
+		t.Fatal("an account running pi by its path was refused npm packages")
+	}
+}
