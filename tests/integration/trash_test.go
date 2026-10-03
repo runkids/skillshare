@@ -61,7 +61,7 @@ targets: {}
 	// Restore
 	result := sb.RunCLI("trash", "restore", "restore-me")
 	result.AssertSuccess(t)
-	result.AssertAnyOutputContains(t, "Restored")
+	result.AssertAnyOutputContains(t, "✓ Restore")
 
 	// Should be back in source
 	if !sb.FileExists(filepath.Join(sb.SourcePath, "restore-me", "SKILL.md")) {

@@ -9,8 +9,10 @@ import (
 
 	"skillshare/internal/config"
 	"skillshare/internal/oplog"
+	"skillshare/internal/theme"
 	"skillshare/internal/trash"
 	"skillshare/internal/ui"
+	"skillshare/internal/utils"
 )
 
 func cmdTrash(args []string) error {
@@ -89,7 +91,7 @@ func trashList(mode runMode, cwd string, noTUI bool, kind resourceKindFilter) er
 		}
 
 		if len(items) == 0 {
-			ui.Info("Trash is empty")
+			ui.Done(ui.MarkNone, "Trash is empty", 0)
 			return nil
 		}
 
@@ -121,22 +123,24 @@ func trashList(mode runMode, cwd string, noTUI bool, kind resourceKindFilter) er
 	items := trash.List(trashBase)
 
 	if len(items) == 0 {
-		ui.Info("Trash is empty")
+		ui.Done(ui.MarkNone, "Trash is empty", 0)
 		return nil
 	}
 
-	ui.Header("Trash")
+	names := make([]string, len(items))
+	for i, item := range items {
+		names[i] = item.Name
+	}
+	width := ui.RowWidth(names...)
+	fmt.Println(theme.Primary().Bold(true).Render("Trash"))
 	for _, item := range items {
-		age := time.Since(item.Date)
-		ageStr := formatAge(age)
-		sizeStr := formatBytes(item.Size)
-		ui.Info("  %s  (%s, %s ago)", item.Name, sizeStr, ageStr)
+		ui.Row(ui.MarkNone, item.Name, formatBytes(item.Size)+ui.DimText(" · "+timeAgo(item.Date)), width)
 	}
 
 	totalSize := trash.TotalSize(trashBase)
 	fmt.Println()
-	ui.Info("%d item(s), %s total", len(items), formatBytes(totalSize))
-	ui.Info("Items are automatically cleaned up after 7 days")
+	ui.Done(ui.MarkNone, fmt.Sprintf("%s, %s", plural(len(items), "item"), formatBytes(totalSize)), 0)
+	ui.Note("Each item is removed for good 7 days after it was trashed")
 
 	return nil
 }
@@ -193,15 +197,12 @@ func trashRestore(mode runMode, cwd string, args []string, kind resourceKindFilt
 		}
 	}
 
-	ui.Success("Restored: %s", name)
-	age := time.Since(entry.Date)
-	ui.Info("Trashed %s ago, now back in %s", formatAge(age), destDir)
-	ui.SectionLabel("Next Steps")
+	ui.Row(ui.MarkOK, "Restore", name+ui.DimText(" → "+utils.FoldHomePath(destDir)+" · trashed "+timeAgo(entry.Date)), ui.RowWidth("Restore"))
 	syncHint := "skillshare sync"
 	if kind == kindAgents {
 		syncHint = "skillshare sync agents"
 	}
-	ui.Info("Run '%s' to update targets", syncHint)
+	ui.Next(syncHint, "link it into your targets again")
 
 	logTrashOp(cfgPath, "restore", 1, name, start, nil)
 	return nil
@@ -239,7 +240,7 @@ func trashDelete(mode runMode, cwd string, args []string, kind resourceKindFilte
 		return fmt.Errorf("failed to delete '%s': %w", name, err)
 	}
 
-	ui.Success("Permanently deleted: %s", name)
+	ui.Done(ui.MarkOK, "Permanently deleted "+name, 0)
 	return nil
 }
 
@@ -251,11 +252,11 @@ func trashEmpty(mode runMode, cwd string, kind resourceKindFilter) error {
 	items := trash.List(trashBase)
 
 	if len(items) == 0 {
-		ui.Info("Trash is already empty")
+		ui.Done(ui.MarkNone, "Trash is already empty", 0)
 		return nil
 	}
 
-	ui.Warning("This will permanently delete %d item(s) from trash", len(items))
+	ui.Warning("This will permanently delete %s from trash", plural(len(items), "item"))
 	ok, err := ui.ConfirmAction("Continue?", false)
 	if err != nil {
 		return err
@@ -275,7 +276,7 @@ func trashEmpty(mode runMode, cwd string, kind resourceKindFilter) error {
 		removed++
 	}
 
-	ui.Success("Emptied trash: %d item(s) permanently deleted", removed)
+	ui.Done(ui.MarkOK, fmt.Sprintf("Emptied trash: %s permanently deleted", plural(removed, "item")), time.Since(start))
 	logTrashOp(cfgPath, "empty", removed, "", start, nil)
 	return nil
 }

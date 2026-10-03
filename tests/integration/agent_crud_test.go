@@ -453,7 +453,7 @@ func TestTrash_Agents_Restore(t *testing.T) {
 	// Restore
 	result := sb.RunCLI("trash", "agents", "restore", "tutor")
 	result.AssertSuccess(t)
-	result.AssertAnyOutputContains(t, "Restored")
+	result.AssertAnyOutputContains(t, "✓ Restore")
 
 	// Verify restored to agent source
 	if _, err := os.Stat(filepath.Join(agentsDir, "tutor.md")); err != nil {
@@ -474,7 +474,7 @@ func TestTrash_Agents_Restore_Nested_DoesNotGoToSkills(t *testing.T) {
 
 	result := sb.RunCLI("trash", "agents", "restore", "demo/code-archaeologist")
 	result.AssertSuccess(t)
-	result.AssertAnyOutputContains(t, "Restored")
+	result.AssertAnyOutputContains(t, "✓ Restore")
 
 	if _, err := os.Stat(filepath.Join(agentsDir, "demo", "code-archaeologist.md")); err != nil {
 		t.Fatalf("nested agent should be restored to agents source: %v", err)
