@@ -370,6 +370,28 @@ func TestKeepLocalConfig_ReportsNothingWhenRemoteLeavesConfigAlone(t *testing.T)
 	}
 }
 
+func TestKeepLocalConfig_LeavesEditsToUntrackedConfigAlone(t *testing.T) {
+	repo, remote := rootScopeRepoTrackingRemote(t)
+	pushFromOtherClone(t, remote, map[string]string{"skills/a/SKILL.md": "# a\n"})
+	restore, err := KeepLocalConfig(repo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg := filepath.Join(repo, "config.yaml")
+	if err := os.WriteFile(cfg, []byte("EDITED-during-pull\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := PullWithEnv(repo, nil); err != nil {
+		t.Fatalf("PullWithEnv() error: %v", err)
+	}
+	if _, err := restore(); err != nil {
+		t.Fatal(err)
+	}
+	if got, _ := os.ReadFile(cfg); string(got) != "EDITED-during-pull\n" {
+		t.Fatalf("config.yaml = %q; want the edit made during the pull kept", got)
+	}
+}
+
 func TestKeepLocalConfig_ReportsTrackedCopyWithSameContent(t *testing.T) {
 	repo, remote := rootScopeRepoTrackingRemote(t)
 	pushFromOtherClone(t, remote, map[string]string{"config.yaml": "LOCAL-config\n"})
