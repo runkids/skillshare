@@ -15,7 +15,8 @@ import (
 
 // skillItem wraps skillEntry to implement bubbles/list.Item interface.
 type skillItem struct {
-	entry skillEntry
+	entry   skillEntry
+	grouped bool // shown under a group heading, which names the first path segment
 }
 
 // groupItem is a non-selectable visual separator in the skill list.
@@ -47,7 +48,7 @@ func (d listSkillDelegate) Render(w io.Writer, m list.Model, index int, item lis
 	case groupItem:
 		renderGroupRow(w, v, width)
 	case skillItem:
-		renderPrefixRow(w, skillRowLine(v.entry, width-rowIndent), width, index == m.Index())
+		renderPrefixRow(w, skillRowLine(v.entry, v.grouped, width-rowIndent), width, index == m.Index())
 	}
 }
 
@@ -152,24 +153,24 @@ func (i skillItem) Description() string {
 
 // skillRowLine renders a row's text: the short path, and how it was
 // installed (or that it is disabled) aligned at the right edge of width.
-func skillRowLine(e skillEntry, width int) string {
+func skillRowLine(e skillEntry, grouped bool, width int) string {
 	tag := skillTypeCategory(e)
-	name := colorSkillPath(compactSkillPath(e))
+	name := colorSkillPath(compactSkillPath(e, grouped))
 	if e.Disabled {
 		tag = "disabled"
-		name = theme.Dim().Render(compactSkillPath(e))
+		name = theme.Dim().Render(compactSkillPath(e, grouped))
 	}
 	return alignRow(name, theme.Dim().Render(tag), width)
 }
 
 // compactSkillPath returns a short display path for list rows.
-// Strips the first segment, which the group heading above the row shows
-// (the repo dir for tracked skills, the folder for nested local ones), then
-// shows at most 2 trailing segments. The full path is in the detail panel.
-func compactSkillPath(e skillEntry) string {
+// Strips a tracked skill's repo dir, and the first segment of any row
+// under a group heading, which shows it; then shows at most 2 trailing
+// segments. The full path is in the detail panel.
+func compactSkillPath(e skillEntry, grouped bool) string {
 	full := baseSkillPath(e)
 	segments := strings.Split(full, "/")
-	if len(segments) > 1 {
+	if (grouped || e.RepoName != "") && len(segments) > 1 {
 		segments = segments[1:]
 	}
 
@@ -329,6 +330,7 @@ func buildGroupedItems(skills []skillItem) []list.Item {
 			currentGroup = key
 			groupCount = 0
 		}
+		s.grouped = true
 		items = append(items, s)
 		groupCount++
 	}
