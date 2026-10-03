@@ -32,6 +32,9 @@ type fileBrowser struct {
 	width, height int
 }
 
+// maxViewFileSize matches the audit's scan limit.
+const maxViewFileSize = 1_000_000
+
 func newFileBrowser(command, name, root string, numbered bool, width, height int) *fileBrowser {
 	b := &fileBrowser{command: command, name: name, root: root, numbered: numbered, width: width, height: height}
 	if info, err := os.Stat(root); err == nil && !info.IsDir() {
@@ -126,6 +129,11 @@ func (b *fileBrowser) load() {
 		path = filepath.Join(b.root, n.relPath)
 	}
 	w := fileViewerTextWidth(b.width, b.single)
+	// The audit skips files this large too; reading one could stall the TUI.
+	if info, err := os.Stat(path); err == nil && info.Size() > maxViewFileSize {
+		b.content = theme.Dim().Render("This file is too large to show (" + formatBytes(info.Size()) + ").")
+		return
+	}
 	if b.numbered {
 		data, err := os.ReadFile(path)
 		if err != nil {

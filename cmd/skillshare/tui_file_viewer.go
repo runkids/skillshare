@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
@@ -105,19 +106,27 @@ func scrollLines(text string, offset, height int) (string, string) {
 // printableText swaps control characters in a file's text for visible
 // symbols of the same width (ESC shows as ␛), so a skill under review
 // cannot move the cursor or send escape sequences to the terminal.
-// Newlines and tabs are kept.
+// Newlines and tabs are kept. The zero-width and bidirectional characters
+// the audit flags are named, e.g. <U+202E>, so they cannot hide or reorder
+// the text around them.
 func printableText(s string) string {
-	return strings.Map(func(r rune) rune {
+	var b strings.Builder
+	for _, r := range strings.ReplaceAll(s, "\r\n", "\n") {
 		switch {
 		case r == '\n' || r == '\t':
-			return r
+			b.WriteRune(r)
 		case r < 0x20:
-			return 0x2400 + r
+			b.WriteRune(0x2400 + r)
 		case r == 0x7f:
-			return '␡'
+			b.WriteRune('␡')
 		case r >= 0x80 && r < 0xa0:
-			return '\ufffd'
+			b.WriteRune('\ufffd')
+		case r >= 0x200b && r <= 0x200d, r == 0x2060, r == 0xfeff, // zero-width
+			r >= 0x202a && r <= 0x202e, r >= 0x2066 && r <= 0x2069: // bidirectional
+			fmt.Fprintf(&b, "<U+%04X>", r)
+		default:
+			b.WriteRune(r)
 		}
-		return r
-	}, strings.ReplaceAll(s, "\r\n", "\n"))
+	}
+	return b.String()
 }

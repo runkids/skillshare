@@ -101,3 +101,22 @@ func TestFileBrowser_WrapsTextToANarrowPane(t *testing.T) {
 		}
 	}
 }
+
+func TestPrintableText_NamesHiddenUnicodeTheAuditFlags(t *testing.T) {
+	got := printableText("if admin \u202E{ }\u2066 zero\u200Bwidth\uFEFF")
+	if want := "if admin <U+202E>{ }<U+2066> zero<U+200B>width<U+FEFF>"; got != want {
+		t.Fatalf("printableText() = %q, want %q", got, want)
+	}
+}
+
+func TestFileBrowser_DoesNotReadAFileOverTheAuditLimit(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "SKILL.md"), []byte(strings.Repeat("x", 1_000_001)), 0644); err != nil {
+		t.Fatal(err)
+	}
+	b := newFileBrowser("audit", "big", dir, true, 120, 20)
+
+	if got := xansi.Strip(b.content); !strings.Contains(got, "too large to show") {
+		t.Fatalf("a file over 1 MB should not be shown, got %d bytes of content", len(got))
+	}
+}
