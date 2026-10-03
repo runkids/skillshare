@@ -152,7 +152,7 @@ targets: {}
 	result := sb.RunCLI("check")
 	result.AssertSuccess(t)
 	// Unfiltered check summarizes local skills instead of listing each one
-	result.AssertOutputContains(t, "1 local skill(s) skipped")
+	result.AssertOutputContains(t, "1 local skill skipped")
 }
 
 func TestCheck_JsonOutput(t *testing.T) {

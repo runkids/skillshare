@@ -110,16 +110,12 @@ $ skillshare list -g
 
 ```bash
 $ skillshare check -g
-Checking for updates
-─────────────────────────────────────────
-▸  Source  ~/.config/skillshare/skills
-│
-├─ Items  0 tracked repo(s), 15 skill(s)
+! utils/remotion  update available · github.com/remotion-dev/skills
 
-  ✓ frontend/frontend-design            up to date
-  ✓ frontend/react/react-best-practices up to date
-  ✓ utils/remotion                      up to date
-  ✓ web-dev/accessibility               up to date
+! Updates available for 1 skill, 14 up to date · 2.1s
+
+Next
+  skillshare update --all  pull the updates
 ```
 
 ### update
