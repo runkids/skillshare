@@ -144,6 +144,29 @@ func TestCheckUnpushedConfigHistory_NoUpstreamIgnoresPublishedConfig(t *testing.
 	}
 }
 
+func TestCheckUnpushedConfigHistory_StaleRemoteRefAfterRewrite(t *testing.T) {
+	dir := t.TempDir()
+	remote := filepath.Join(t.TempDir(), "origin.git")
+	gitExec(t, dir, "init", "--bare", remote)
+	gitExec(t, dir, "init", "-b", "main")
+	gitExec(t, dir, "remote", "add", "origin", remote)
+	gitExec(t, dir, "commit", "--allow-empty", "-m", "initial")
+	if err := os.WriteFile(filepath.Join(dir, "config.yaml"), []byte("leaked\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	gitExec(t, dir, "add", "config.yaml")
+	gitExec(t, dir, "commit", "-m", "leak config")
+	gitExec(t, dir, "push", "-u", "origin", "main")
+	// Another machine rewrites the remote to drop the leak; this clone has not fetched.
+	gitExec(t, remote, "update-ref", "refs/heads/main", "main^")
+	gitExec(t, dir, "commit", "--allow-empty", "-m", "later work")
+
+	var historyErr *UnpushedConfigHistoryError
+	if err := CheckUnpushedConfigHistory(dir); !errors.As(err, &historyErr) || len(historyErr.Commits) != 1 {
+		t.Fatalf("stale remote-tracking ref = %v; want the leaked commit refused", err)
+	}
+}
+
 func TestPushArgs_IgnoresPushDefaults(t *testing.T) {
 	for _, mode := range []string{"current", "matching"} {
 		t.Run(mode, func(t *testing.T) {

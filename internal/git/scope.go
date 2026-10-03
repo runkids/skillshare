@@ -234,8 +234,8 @@ func (e *UnpushedConfigHistoryError) Error() string {
 
 // CheckUnpushedConfigHistory refuses histories that would publish local config
 // contents, even if a later commit removed the file. Unpushed means reachable
-// from HEAD but from no ref of the remote PushArgs targets, so history that
-// remote already has never counts, with or without an upstream. Deletions alone are safe; combined merge diffs
+// from HEAD but from no ref the remote PushArgs targets has right now, so
+// history that remote already has never counts, with or without an upstream. Deletions alone are safe; combined merge diffs
 // check new resolutions without treating config inherited from upstream as a
 // new local change. The check never changes the index, worktree, or refs.
 func CheckUnpushedConfigHistory(dir string) error {
@@ -248,9 +248,23 @@ func CheckUnpushedConfigHistory(dir string) error {
 		}
 		return fmt.Errorf("check config.yaml history: %w", err)
 	}
-	cmd := exec.Command("git", "log", "--format=%x00%h", "--full-history", "--root",
-		"-c", "--diff-filter=AMT", "--no-renames", "--no-show-signature", "--raw",
-		"HEAD", "--not", "--remotes="+PushRemote(dir), "--", ":(top,literal)config.yaml")
+	remote := PushRemote(dir)
+	args := []string{"log", "--format=%x00%h", "--full-history", "--root",
+		"-c", "--diff-filter=AMT", "--no-renames", "--no-show-signature", "--raw"}
+	cmd := exec.Command("git")
+	if live, ok := liveRemoteCommits(dir, remote); ok {
+		args = append(args, "--stdin")
+		// "^<id>" lines, not "--not": git before 2.42 rejects options on stdin.
+		var revs strings.Builder
+		revs.WriteString("HEAD\n")
+		for _, id := range live {
+			revs.WriteString("^" + id + "\n")
+		}
+		cmd.Stdin = strings.NewReader(revs.String())
+	} else {
+		args = append(args, "HEAD", "--not", "--remotes="+remote)
+	}
+	cmd.Args = append(cmd.Args, append(args, "--", ":(top,literal)config.yaml")...)
 	cmd.Dir = dir
 	out, err := cmd.Output()
 	if err != nil {
@@ -276,6 +290,43 @@ func CheckUnpushedConfigHistory(dir string) error {
 		return histErr
 	}
 	return nil
+}
+
+// liveRemoteCommits returns the objects remote's refs point to now, limited to
+// those this clone has (anything else cannot be in HEAD's history). Local
+// remote-tracking refs can be stale after the remote was rewritten to drop a
+// leaked config.yaml, so they are only the fallback (ok=false) when the remote
+// cannot be reached, in which case the push itself fails too.
+func liveRemoteCommits(dir, remote string) (objects []string, ok bool) {
+	lsRemote := exec.Command("git", "ls-remote", remote)
+	lsRemote.Dir = dir
+	lsRemote.Env = append(os.Environ(), AuthEnvForRepo(dir)...)
+	out, err := lsRemote.Output()
+	if err != nil {
+		return nil, false
+	}
+	var ids []string
+	for _, line := range strings.Split(string(out), "\n") {
+		if id, _, found := strings.Cut(line, "\t"); found {
+			ids = append(ids, id)
+		}
+	}
+	if len(ids) == 0 {
+		return nil, true
+	}
+	check := exec.Command("git", "cat-file", "--batch-check=%(objectname) %(objecttype)")
+	check.Dir = dir
+	check.Stdin = strings.NewReader(strings.Join(ids, "\n") + "\n")
+	out, err = check.Output()
+	if err != nil {
+		return nil, false
+	}
+	for _, line := range strings.Split(string(out), "\n") {
+		if id, typ, found := strings.Cut(line, " "); found && (typ == "commit" || typ == "tag") {
+			objects = append(objects, id)
+		}
+	}
+	return objects, true
 }
 
 // EnsureConfigUntracked keeps skillshare's own config.yaml out of a root-scope
