@@ -172,7 +172,7 @@ Doctor 会在两类重复 skill 风险到达运行时选择器之前将其标记
 ### Version
 
 - CLI 版本
-- skillshare skill 版本
+- skillshare skill 版本；有较新的 skill 发布时会给出警告（`skillshare upgrade --skill`）
 - 检查是否有可用更新
 
 ### Skill Integrity

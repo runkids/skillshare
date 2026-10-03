@@ -116,6 +116,8 @@ func cmdDoctorGlobal(jsonMode bool) error {
 	// Start network check early so it overlaps with local I/O
 	updateCh := make(chan *versioncheck.CheckResult, 1)
 	go func() { updateCh <- fetchDoctorUpdateResult() }()
+	skillCh := make(chan string, 1)
+	go func() { skillCh <- versioncheck.FetchRemoteSkillVersion() }()
 
 	var restoreUI func()
 	if jsonMode {
@@ -155,7 +157,7 @@ func cmdDoctorGlobal(jsonMode bool) error {
 	ui.Section("Storage")
 	checkBackupStatus(result, false, backup.BackupDir())
 	checkTrashStatus(result, trash.TrashDir())
-	checkVersionDoctor(cfg, result, false)
+	checkVersionDoctor(cfg, result, false, skillCh)
 
 	if jsonMode {
 		return finalizeDoctorJSON(restoreUI, result, updateCh)
@@ -170,6 +172,8 @@ func cmdDoctorGlobal(jsonMode bool) error {
 func cmdDoctorProject(root string, jsonMode bool) error {
 	updateCh := make(chan *versioncheck.CheckResult, 1)
 	go func() { updateCh <- fetchDoctorUpdateResult() }()
+	skillCh := make(chan string, 1)
+	go func() { skillCh <- versioncheck.FetchRemoteSkillVersion() }()
 
 	var restoreUI func()
 	if jsonMode {
@@ -214,7 +218,7 @@ func cmdDoctorProject(root string, jsonMode bool) error {
 	ui.Section("Storage")
 	checkBackupStatus(result, true, "")
 	checkTrashStatus(result, trash.ProjectTrashDir(root))
-	checkVersionDoctor(cfg, result, true)
+	checkVersionDoctor(cfg, result, true, skillCh)
 
 	if jsonMode {
 		return finalizeDoctorJSON(restoreUI, result, updateCh)
@@ -1356,7 +1360,9 @@ func formatBytes(b int64) string {
 }
 
 // checkVersionDoctor checks CLI and skill versions
-func checkVersionDoctor(cfg *config.Config, result *doctorResult, isProject bool) {
+// remoteSkill delivers the latest published skill version, or "" offline;
+// it is read only once a local version is known.
+func checkVersionDoctor(cfg *config.Config, result *doctorResult, isProject bool, remoteSkill <-chan string) {
 	ui.Section("Version")
 
 	// CLI version
@@ -1391,6 +1397,12 @@ func checkVersionDoctor(cfg *config.Config, result *doctorResult, isProject bool
 		return
 	}
 
+	if remote := <-remoteSkill; versioncheck.SkillOutdated(localVersion, remote) {
+		ui.Row(ui.MarkWarn, "Skill", localVersion+" → "+remote+" available", doctorWidth)
+		result.suggest("skillshare upgrade --skill", "update the built-in skill")
+		result.addCheck("skill_version", checkWarning, fmt.Sprintf("Skill: %s (%s available)", localVersion, remote), nil)
+		return
+	}
 	ui.Row(ui.MarkOK, "Skill", localVersion, doctorWidth)
 	result.addCheck("skill_version", checkPass, fmt.Sprintf("Skill: %s", localVersion), nil)
 }

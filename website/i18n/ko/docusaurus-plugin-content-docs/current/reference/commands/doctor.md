@@ -168,7 +168,7 @@ Doctor는 런타임 피커에 도달하기 전에 두 가지 종류의 중복 sk
 ### Version
 
 - CLI 버전
-- skillshare skill 버전
+- skillshare skill 버전 (더 새로운 skill이 공개되면 경고, `skillshare upgrade --skill`)
 - 사용 가능한 업데이트 확인
 
 ### Skill Integrity

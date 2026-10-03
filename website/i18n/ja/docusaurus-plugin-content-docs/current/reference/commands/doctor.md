@@ -168,7 +168,7 @@ Doctor は、ランタイムのピッカーに到達する前に、Skill 重複�
 ### バージョン
 
 - CLI のバージョン
-- skillshare skill のバージョン
+- skillshare skill のバージョン（新しい skill が公開されていれば警告。`skillshare upgrade --skill`）
 - 利用可能な更新のチェック
 
 ### Skill の整合性

@@ -425,7 +425,7 @@ func checkSkillVersion(cfg *config.Config) {
 	case remoteVersion == "":
 		// Offline: show the local version only.
 		fmt.Println(statusLine("Version", skill))
-	case remoteVersion != localVersion:
+	case versioncheck.SkillOutdated(localVersion, remoteVersion):
 		fmt.Println(statusLine("Version", skill))
 		ui.Warning("Skill %s is available %s %s", remoteVersion, theme.Dim().Render("— run"), theme.Accent().Render("skillshare upgrade --skill && skillshare sync"))
 	default:

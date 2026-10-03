@@ -168,7 +168,7 @@ Doctor 會在兩類重複 skill 風險到達 runtime picker 之前先標示出�
 ### Version
 
 - CLI 版本
-- skillshare skill 版本
+- skillshare skill 版本；有較新的 skill 發布時會提出警告（`skillshare upgrade --skill`）
 - 檢查是否有可用更新
 
 ### Skill Integrity

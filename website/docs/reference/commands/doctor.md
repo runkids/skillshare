@@ -168,7 +168,7 @@ Both checks are pure metadata — they read configured paths and the built-in `a
 ### Version
 
 - CLI version
-- skillshare skill version
+- skillshare skill version, with a warning when a newer skill is published (`skillshare upgrade --skill`)
 - Checks for available updates
 
 ### Skill Integrity

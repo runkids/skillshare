@@ -70,6 +70,16 @@ func parseMetadataVersion(filePath string) string {
 	return ""
 }
 
+// SkillOutdated reports whether remote is a newer skill version than local.
+// An unknown or unparsable version on either side is never outdated.
+func SkillOutdated(local, remote string) bool {
+	if local == "" || remote == "" {
+		return false
+	}
+	older, err := compareVersions(local, remote)
+	return err == nil && older
+}
+
 // FetchRemoteSkillVersion fetches the latest skill version from GitHub (3s timeout).
 func FetchRemoteSkillVersion() string {
 	client := &http.Client{Timeout: 3 * time.Second}
