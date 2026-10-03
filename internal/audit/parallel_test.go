@@ -35,8 +35,10 @@ func TestParallelScan_SingleSkill(t *testing.T) {
 	if outputs[0].Result.SkillName != "clean-skill" {
 		t.Errorf("expected skill name clean-skill, got %s", outputs[0].Result.SkillName)
 	}
-	if outputs[0].Elapsed <= 0 {
-		t.Error("expected positive elapsed duration")
+	// A scan of one tiny skill can finish inside a single clock tick, so a strictly positive
+	// duration is not an invariant; on windows-latest it fails roughly once in 200 runs.
+	if outputs[0].Elapsed < 0 {
+		t.Errorf("expected non-negative elapsed duration, got %s", outputs[0].Elapsed)
 	}
 }
 
