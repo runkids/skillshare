@@ -562,6 +562,7 @@ func (s *Server) registerRoutes() {
 	s.mux.HandleFunc("GET /api/extras/memory/notes", s.handleMemoryNotes)
 	s.mux.HandleFunc("POST /api/extras/memory/init", s.handleMemoryInit)
 	s.mux.HandleFunc("PUT /api/extras/memory/index", s.handleMemoryIndex)
+	s.mux.HandleFunc("POST /api/extras/memory/move", s.handleMemoryMove)
 	s.mux.HandleFunc("GET /api/extras/memory/notes/content", s.handleMemoryContent)
 	s.mux.HandleFunc("PUT /api/extras/memory/notes/content", s.handleMemoryWrite)
 	s.mux.HandleFunc("DELETE /api/extras/memory/notes/content", s.handleMemoryDelete)

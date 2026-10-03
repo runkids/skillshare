@@ -24,6 +24,9 @@ func writeMemoryError(w http.ResponseWriter, err error) {
 	if errors.Is(err, memory.ErrConflict) {
 		status, code = http.StatusConflict, "memory_conflict"
 	}
+	if errors.Is(err, os.ErrExist) {
+		status, code = http.StatusConflict, "memory_destination_exists"
+	}
 	if os.IsNotExist(err) {
 		status, code = http.StatusNotFound, "memory_not_found"
 	}

@@ -68,7 +68,7 @@ Update notes when the user asks you to remember a decision.
 
 ![英文笔记的 Markdown 预览](/img/memory-note-demo.png)
 
-左侧树视图支持嵌套文件夹，右侧是 **Preview** / **Raw**，另有 **Copy path**、**Edit**、**Delete note** 与 **History**。相对链接可在查看器中打开现有笔记。Dashboard 尚不支持重命名或移动笔记。
+左侧树视图支持嵌套文件夹，上方有搜索框；右侧可切换 **Preview** / **Source**，旁边的图标依次是 **Edit**、**Move or rename**、**Copy path**、**History** 与 **Delete note**。相对链接可在查看器中打开现有笔记。
 
 ![展开 wiki 的英文双栏 Memory 查看器](/img/memory-tree-demo.png)
 
@@ -135,6 +135,16 @@ skillshare extras memory instructions -g
 ```
 
 CLI 只输出阅读指引，需要自行粘贴；不会连接工具或新增索引链接。更新笔记须提供当前的 `--version`，详见 [`extras memory` 参考](../../reference/commands/extras.md#extras-memory)。
+
+## 重命名或移动笔记
+
+选中笔记并点击 **Move or rename**，输入新的相对 `.md` 路径。将 `wiki/architecture.md` 改为 `wiki/design.md` 是重命名；改为 `projects/design.md` 则移到其他文件夹。缺少的文件夹会自动创建，点击 **Move** 应用。
+
+![英文 Move or rename 对话框，输入新的文件夹路径](/img/memory-move-demo.png)
+
+内容和权限会保留；目标已存在或版本过期时会拒绝操作。移动前会备份来源，可用 **Restore in Backup Files** 查看旧路径的历史；在那里恢复会重建旧笔记，移动后的笔记仍保留。
+
+Markdown 链接不会自动更新，包括笔记内的相对链接。请自行修复 `INDEX.md` 和其他笔记；失效的索引链接会显示在浏览器上方。Agent 指引指向来源根目录的 `INDEX.md`，请保留该位置。
 
 ## 删除笔记
 

@@ -60,6 +60,9 @@ export const memoryApi = {
   writeMemoryNote: (path: string, content: string, version: string) => apiFetch<MemoryNote>('/extras/memory/notes/content', {
     method: 'PUT', body: JSON.stringify({ path, content, version }),
   }),
+  moveMemoryNote: (path: string, newPath: string, version: string) => apiFetch<MemoryNote>('/extras/memory/move', {
+    method: 'POST', body: JSON.stringify({ path, new_path: newPath, version }),
+  }),
   deleteMemoryNote: (path: string, version: string) => apiFetch<{ success: boolean; path: string }>('/extras/memory/notes/content', {
     method: 'DELETE', body: JSON.stringify({ path, version }),
   }),

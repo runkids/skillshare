@@ -39,7 +39,7 @@ Extras は skillshare が管理する追加のリソースタイプです — �
 Scope は未指定なら自動検出。既定の global パスは `~/.config/skillshare/extras/memory/`、
 Project は `.skillshare/extras/memory/` です。既存の extras source 設定が適用されます。
 
-ノートは相対 `.md` パスの UTF-8 ファイルで、最大 1 MiB。隠しファイル、隠しフォルダー、内部のシンボリックリンクは除外します。大きすぎるファイルや非 UTF-8 ファイルは未対応として一覧に残り、他の有効なノートは使えます。`wiki/architecture.md` は不足するフォルダーを自動作成します。Dashboard はツリー、**Preview** / **Raw**、**Copy path**、**Edit**、**Delete note**、**History** を提供します。名前変更や移動は未実装です。
+ノートは相対 `.md` パスの UTF-8 ファイルで、最大 1 MiB。隠しファイル、隠しフォルダー、内部のシンボリックリンクは除外します。大きすぎるファイルや非 UTF-8 ファイルは未対応として一覧に残り、他の有効なノートは使えます。`wiki/architecture.md` は不足するフォルダーを自動作成します。Dashboard はツリー、**Preview** / **Source**、**Copy path**、**Edit**、**Delete note**、**History** を提供します。**Move or rename** は新しい相対 `.md` パスを指定し、不足するフォルダーを作成します。内容と権限を保持し、既存の移動先や古い version は拒否します。移動前に元のパスをバックアップします。Markdown リンクは手動で修正してください。Agent のガイダンスが参照する source 直下の `INDEX.md` はその場所に維持してください。
 
 保存は最後に読んだ version を確認します。競合時は下書きを保持し、最新の保存内容を比較用に表示します。**Save my draft** は確認後に更新された version を使い、保存済み内容をバックアップして置換します。削除も確認、version 検証、バックアップを行います。**History** と削除後の復元リンクは、ノートの絶対パスで絞り込んだ **Backup Files** を開きます。CLI では `backup files show <absolute-path>` と `backup files restore <absolute-path> <id>` を使います。
 

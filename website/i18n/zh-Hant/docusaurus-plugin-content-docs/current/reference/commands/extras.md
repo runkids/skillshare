@@ -39,7 +39,7 @@ Extras 是 skillshare 管理的額外資源類型——可以把它想成「給�
 未指定時自動判斷 scope。預設 global 路徑為 `~/.config/skillshare/extras/memory/`，
 project 為 `.skillshare/extras/memory/`；沿用既有 extras source 覆寫設定。
 
-筆記須為相對 `.md` 路徑、UTF-8，最多 1 MiB；排除隱藏檔案、隱藏資料夾及內部符號連結。過大或非 UTF-8 檔案仍列出並標為不支援，其他正常筆記仍可使用。`wiki/architecture.md` 會自動建立資料夾。Dashboard 提供目錄樹、**Preview** / **Raw**、**Copy path**、**Edit**、**Delete note** 與 **History**，尚不支援重新命名或移動。
+筆記須為相對 `.md` 路徑、UTF-8，最多 1 MiB；排除隱藏檔案、隱藏資料夾及內部符號連結。過大或非 UTF-8 檔案仍列出並標為不支援，其他正常筆記仍可使用。`wiki/architecture.md` 會自動建立資料夾。Dashboard 提供目錄樹、**Preview** / **Source**、**Copy path**、**Edit**、**Delete note** 與 **History**。**Move or rename** 可輸入新的相對 `.md` 路徑，建立缺少的資料夾，保留內容與權限，並拒絕同名目標或過期版本。移動前會在舊路徑備份；Markdown 連結須自行修正。請保留來源根目錄的 `INDEX.md`，供 agent 指引讀取。
 
 儲存檢查最近讀取的 version。衝突會保留草稿，顯示最新儲存內容供比較。**Save my draft** 須確認，使用更新後的 version，備份已儲存內容後再取代。刪除也須確認、檢查版本並備份。**History** 與刪除後的還原連結會開啟 **Backup Files**，以筆記的絕對路徑篩選。CLI 可用 `backup files show <absolute-path>` 與 `backup files restore <absolute-path> <id>`。
 

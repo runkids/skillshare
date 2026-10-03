@@ -3,14 +3,20 @@ import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, expect, it, vi } from 'vitest';
-import { api } from '../../api/client';
+import { ApiError, api } from '../../api/client';
 import { I18nProvider } from '../../i18n';
 import { ToastProvider } from '../Toast';
+import { useState } from 'react';
 import MemoryNotes from './MemoryNotes';
+
+function Notes() {
+  const [creating, setCreating] = useState(false);
+  return <><button type="button" onClick={() => setCreating(true)}>New note</button><MemoryNotes creating={creating} setCreating={setCreating} /></>;
+}
 
 vi.mock('../../api/client', async (load) => {
   const actual = await load<typeof import('../../api/client')>();
-  return { ...actual, api: { ...actual.api, listMemoryNotes: vi.fn(), initMemory: vi.fn(), readMemoryNote: vi.fn(), writeMemoryNote: vi.fn(), deleteMemoryNote: vi.fn(), getMemoryGuidance: vi.fn(), linkMemoryIndex: vi.fn() } };
+  return { ...actual, api: { ...actual.api, listMemoryNotes: vi.fn(), initMemory: vi.fn(), readMemoryNote: vi.fn(), writeMemoryNote: vi.fn(), deleteMemoryNote: vi.fn(), moveMemoryNote: vi.fn(), getMemoryGuidance: vi.fn(), linkMemoryIndex: vi.fn() } };
 });
 vi.mock('../instructions/InstructionsEditorDialog', () => ({ default: ({ content, onSave }: { content: string; onSave: (value: string) => Promise<void> }) => (
   <button onClick={() => void onSave(content + '\nupdated')}>Save note</button>
@@ -18,7 +24,7 @@ vi.mock('../instructions/InstructionsEditorDialog', () => ({ default: ({ content
 
 const renderNotes = () => render(
   <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
-    <I18nProvider><ToastProvider><MemoryRouter><MemoryNotes /></MemoryRouter></ToastProvider></I18nProvider>
+    <I18nProvider><ToastProvider><MemoryRouter><Notes /></MemoryRouter></ToastProvider></I18nProvider>
   </QueryClientProvider>,
 );
 
@@ -75,6 +81,49 @@ it('initializes a source-only memory extra from its empty state', async () => {
   renderNotes();
   await user.click(await screen.findByRole('button', { name: 'Create memory' }));
   expect(api.initMemory).toHaveBeenCalledOnce();
+});
+
+it('keeps the search box when no note matches', async () => {
+  vi.mocked(api.listMemoryNotes).mockImplementation(async (search) => ({ root: '/shared/extras/memory', initialized: true, instructions: '',
+    notes: search ? [] : [{ path: 'build.md', title: 'Build notes', version: 'old' }] }));
+  const user = userEvent.setup();
+  renderNotes();
+  await user.type(await screen.findByRole('searchbox', { name: 'Search names and content' }), 'zzz');
+  expect(await screen.findByText('No matching notes')).toBeInTheDocument();
+  expect(screen.getByRole('searchbox', { name: 'Search names and content' })).toHaveValue('zzz');
+});
+
+it('moves a note with its read version, clears search and selects the new path', async () => {
+  vi.mocked(api.moveMemoryNote).mockImplementation(async () => {
+    vi.mocked(api.listMemoryNotes).mockResolvedValue({ root: '/shared/extras/memory', initialized: true, instructions: '', notes: [{ path: 'wiki/build.md', title: 'Moved build', version: 'v2' }] });
+    vi.mocked(api.readMemoryNote).mockResolvedValue({ path: 'wiki/build.md', title: 'Moved build', content: '# Moved build', version: 'v2' });
+    return { path: 'wiki/build.md', title: 'Moved build', version: 'v2' };
+  });
+  const user = userEvent.setup();
+  renderNotes();
+  await user.type(await screen.findByRole('searchbox', { name: 'Search names and content' }), 'build');
+  await user.click(await screen.findByRole('button', { name: 'Move or rename' }));
+  const field = within(screen.getByRole('dialog')).getByLabelText('New path');
+  await user.clear(field);
+  await user.type(field, 'wiki/build.md');
+  await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Move' }));
+  expect(api.moveMemoryNote).toHaveBeenCalledWith('build.md', 'wiki/build.md', 'old');
+  expect(await screen.findByRole('heading', { name: 'Moved build' })).toBeInTheDocument();
+  expect(screen.getByRole('searchbox', { name: 'Search names and content' })).toHaveValue('');
+  expect(screen.getByRole('link', { name: 'Restore in Backup Files' })).toHaveAttribute('href', '/backup?tab=files&path=%2Fshared%2Fextras%2Fmemory%2Fbuild.md');
+});
+
+it('explains a destination that already exists', async () => {
+  vi.mocked(api.moveMemoryNote).mockRejectedValue(new ApiError(409, 'exists', { code: 'memory_destination_exists' }));
+  const user = userEvent.setup();
+  renderNotes();
+  await user.click(await screen.findByRole('button', { name: 'Move or rename' }));
+  const field = within(screen.getByRole('dialog')).getByLabelText('New path');
+  await user.clear(field);
+  await user.type(field, 'taken.md');
+  await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Move' }));
+  expect(await screen.findByText('A note already exists at that path.')).toBeInTheDocument();
+  expect(screen.getByRole('dialog')).toBeInTheDocument();
 });
 
 it('previews the copyable guidance on hover and hides it on leave', async () => {
@@ -145,4 +194,18 @@ it('browses nested notes with collapsible folders and a separate preview', async
   await user.click(await screen.findByRole('link', { name: 'Architecture' }));
   expect(await screen.findByRole('heading', { name: 'Architecture decisions' })).toBeInTheDocument();
   expect(screen.queryByRole('button', { name: 'Save note' })).not.toBeInTheDocument();
+});
+
+it('keeps the destination draft open when the source version is stale', async () => {
+ vi.mocked(api.moveMemoryNote).mockRejectedValue(new ApiError(409, 'changed', { code: 'memory_conflict' }));
+ const user = userEvent.setup();
+ renderNotes();
+ await user.click(await screen.findByRole('button', { name: 'Move or rename' }));
+ const field = within(screen.getByRole('dialog')).getByLabelText('New path');
+ await user.clear(field);
+ await user.type(field, 'wiki/renamed.md');
+ await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Move' }));
+ expect(await screen.findByText(/This note changed elsewhere/)).toBeInTheDocument();
+ expect(field).toHaveValue('wiki/renamed.md');
+ expect(screen.getByRole('dialog')).toBeInTheDocument();
 });

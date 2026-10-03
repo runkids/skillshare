@@ -68,7 +68,7 @@ Update notes when the user asks you to remember a decision.
 
 ![저장된 영어 노트의 Markdown 미리 보기](/img/memory-note-demo.png)
 
-왼쪽 트리는 중첩 폴더를, 오른쪽 패널은 **Preview** / **Raw**를 제공합니다. **Copy path**, **Edit**, **Delete note**, **History**도 사용할 수 있습니다. 기존 노트의 상대 링크는 같은 뷰어에서 열립니다. Dashboard에서 노트 이름 변경이나 이동은 구현되지 않았습니다.
+왼쪽 트리는 중첩 폴더를, 위쪽에 검색 상자가 있습니다. 오른쪽 패널은 **Preview** / **Source**를 전환하며, 옆의 아이콘은 **Edit**, **Move or rename**, **Copy path**, **History**, **Delete note**입니다. 기존 노트의 상대 링크는 같은 뷰어에서 열립니다.
 
 ![wiki 폴더를 펼친 영어 Memory 뷰어](/img/memory-tree-demo.png)
 
@@ -135,6 +135,16 @@ skillshare extras memory instructions -g
 ```
 
 CLI는 읽기 안내만 출력하므로 직접 붙여 넣어야 합니다. 도구 연결이나 인덱스 링크 추가는 하지 않습니다. 노트 업데이트에는 현재 `--version`이 필요합니다. [`extras memory` 참조](../../reference/commands/extras.md#extras-memory)를 확인하세요.
+
+## 노트 이름 변경 및 이동
+
+노트를 선택하고 **Move or rename**을 누른 뒤 새 상대 `.md` 경로를 입력하세요. `wiki/architecture.md` → `wiki/design.md`는 이름 변경이고, `projects/design.md`로 변경하면 다른 폴더로 이동합니다. 없는 폴더는 자동으로 생성합니다. **Move**로 적용하세요.
+
+![영어 Move or rename 대화 상자에서 새 폴더 경로 지정](/img/memory-move-demo.png)
+
+내용과 권한을 보존합니다. 대상이 이미 있거나 version이 오래되면 거부합니다. 이동 전 원래 경로를 백업하며 **Restore in Backup Files**에서 기록을 볼 수 있습니다. 거기서 복원하면 원래 노트를 다시 만들고 이동한 노트도 남습니다.
+
+Markdown 링크는 노트 안의 상대 링크까지 자동으로 변경하지 않습니다. `INDEX.md`와 다른 노트의 링크를 직접 수정하세요. 깨진 인덱스 링크는 뷰어 위에 표시됩니다. Agent 지침은 source 루트의 `INDEX.md`를 가리키므로 해당 위치를 유지하세요.
 
 ## 노트 삭제
 

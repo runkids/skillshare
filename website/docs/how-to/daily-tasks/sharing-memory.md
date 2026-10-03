@@ -15,7 +15,8 @@ skillshare ui -g
 ```
 
 All screenshots use English UI labels, notes, and dialogs in an isolated demo
-home under `/tmp/skillshare-memory-docs`. Your paths will differ.
+home under `/tmp/skillshare-memory-docs`; the fresh setup screenshots use
+`/tmp/skillshare-memory-redesign-onboarding`. Your paths will differ.
 
 ## 1. Create memory
 
@@ -98,10 +99,10 @@ Update notes when the user asks you to remember a decision.
 
 ![English saved note in Markdown preview](/img/memory-note-demo.png)
 
-The tree supports nested folders and a separate **Preview** / **Raw** pane, with
-**Copy path**, **Edit**, **Delete note**, and **History**. Relative links to
-existing notes open them in this viewer. Renaming and moving notes are not
-available in the dashboard.
+The tree supports nested folders and has the search box on top. The note pane
+switches between **Preview** and **Source**; the icons next to them are **Edit**,
+**Move or rename**, **Copy path**, **History**, and **Delete note**. Relative links to
+existing notes open them in this viewer.
 
 ![English two-pane Memory browser with wiki expanded](/img/memory-tree-demo.png)
 
@@ -199,6 +200,25 @@ skillshare extras memory instructions -g
 The CLI prints reading guidance; paste it yourself. It does not connect tools or
 add index links. Updating a note requires its current `--version`; see the
 [`extras memory` reference](../../reference/commands/extras.md#extras-memory).
+
+## Move or rename a note
+
+Select a note and click **Move or rename**. Enter a new relative `.md` path:
+`wiki/architecture.md` → `wiki/design.md` renames it, while
+`wiki/architecture.md` → `projects/design.md` moves it to another folder.
+Missing folders are created automatically. Click **Move** to apply.
+
+![English Move or rename dialog with a new folder path](/img/memory-move-demo.png)
+
+Content and permissions are preserved. An existing destination or a stale note
+version is rejected. The source is backed up before moving; use **Restore in
+Backup Files** to view history at the old path. Restoring there recreates the old
+note and leaves the moved note in place.
+
+Markdown links are not updated automatically, including links inside the moved
+note. Repair `INDEX.md` and other relative links yourself; broken index links
+are shown above the browser. Keep `INDEX.md` at the source root because the
+agent reading guidance points to it.
 
 ## Delete a note
 

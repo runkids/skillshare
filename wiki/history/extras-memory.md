@@ -11,7 +11,7 @@ hidden paths and traversal are excluded. Writes require the last-read content
 hash, back up changed notes and reject stale edits. Deletion also requires the
 last-read hash and backs up the saved file before removal.
 
-The Extras Memory tab uses a collapsible folder tree and a Preview/Raw pane,
+The Extras Memory tab uses a collapsible folder tree and a Preview/Source pane,
 following the Skill detail file browser. It supports nested note creation,
 search, editing, deletion with confirmation, relative note links, and copyable
 instructions pointing to the canonical source. Instruction files remain user-managed outside the marked reading-guidance block.
@@ -54,7 +54,7 @@ broken links produce warnings. Unsupported notes stay visible without blocking
 normal notes. A conflict retains the editor draft and shows latest saved content;
 confirmed replacement uses the refreshed version and a backup. History and
 post-deletion restore open Backup Files filtered to the absolute note path.
-Rename/move, native automatic memory, and Obsidian integration remain unimplemented.
+Native automatic memory and Obsidian integration remain unimplemented.
 
 The tutorial is now localized in all five website locales, with English-only UI,
 note, and dialog screenshots. Connection review and configured-state screenshots
@@ -80,3 +80,35 @@ That smoke test verifies explicit retrieval, not automatic native loading.
 Both copy buttons preview their full content on hover/focus. The English tutorial
 now includes `memory-verification-demo.png`, and the empty/starter screenshots
 were refreshed to match the new connection controls.
+
+
+## Dashboard redesign and move/rename
+
+The page header now owns **New note**. The viewport-height note card keeps search
+and the folder tree on the left, and a fixed **Preview** / **Source** header with
+icon actions above separately scrolling note content. Connection controls use a
+compact agent side rail; both copy actions retain hover/focus previews.
+
+**Move or rename** accepts a new relative Markdown path through
+`POST /api/extras/memory/move`. It creates missing folders, preserves content and
+permissions, requires the last-read version, and exclusively creates the
+new destination so existing notes cannot be replaced. The source is backed up
+before removal. Dashboard success selects the new path, clears the previous
+search, refreshes index warnings and exposes history for the old path. Markdown
+links and path-keyed history are not rewritten. Keep the root `INDEX.md` in place
+because reading guidance references it. CLI commands and flags are unchanged.
+
+Verification passed `make build`, `make check`, 39 scoped UI tests followed by
+14 updated MemoryNotes tests including stale moves, TypeScript, scoped ESLint,
+and the production UI build. Domain/API regressions cover renaming, nested moves,
+permissions, source backups, existing destinations, unsafe paths, stale versions,
+and both global/project scopes. Visible Chrome checks verified rename, cross-folder
+move, collision rejection, selected destination and cleared search. A fresh demo
+home completed Create memory → Connect → Review → Apply. All 14 previous
+screenshots were recaptured with English UI, notes and dialogs; the new move
+screenshot brings the total to 15. Tutorial and reference changes cover all five
+website locales, whose production builds passed. All 74 Memory keys and their
+interpolations match across 11 dashboard locales. React Doctor against HEAD
+reports 86/100 and no errors, with four component-complexity warnings; the prior
+HEAD comparison also scored 86/100. Build warnings about existing bundle size,
+Browserslist data and Rspack configuration remain outside this increment.

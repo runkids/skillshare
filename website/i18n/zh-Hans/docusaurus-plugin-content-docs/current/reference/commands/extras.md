@@ -39,7 +39,7 @@ Extras 是 skillshare 管理的额外资源类型 —— 可以把它们理解�
 未指定时自动判断 scope。默认 global 路径为 `~/.config/skillshare/extras/memory/`，
 project 为 `.skillshare/extras/memory/`；沿用现有 extras source 覆盖设置。
 
-笔记须为相对 `.md` 路径、UTF-8，最多 1 MiB；排除隐藏文件、隐藏目录和内部符号链接。过大或非 UTF-8 文件仍列出并标为不支持，其他正常笔记仍可使用。`wiki/architecture.md` 会自动创建目录。Dashboard 提供目录树、**Preview** / **Raw**、**Copy path**、**Edit**、**Delete note** 和 **History**，尚不支持重命名或移动。
+笔记须为相对 `.md` 路径、UTF-8，最多 1 MiB；排除隐藏文件、隐藏目录和内部符号链接。过大或非 UTF-8 文件仍列出并标为不支持，其他正常笔记仍可使用。`wiki/architecture.md` 会自动创建目录。Dashboard 提供目录树、**Preview** / **Source**、**Copy path**、**Edit**、**Delete note** 和 **History**。**Move or rename** 可输入新的相对 `.md` 路径，创建缺少的文件夹，保留内容和权限，并拒绝同名目标或过期版本。移动前会在旧路径备份；Markdown 链接需自行修复。请保留来源根目录的 `INDEX.md`，供 agent 指引读取。
 
 保存检查最近读取的 version。冲突会保留草稿，显示最新保存内容供比较。**Save my draft** 须确认，使用更新后的 version，备份已保存内容后再替换。删除也须确认、检查版本并备份。**History** 和删除后的恢复链接会打开 **Backup Files**，以笔记的绝对路径筛选。CLI 可用 `backup files show <absolute-path>` 和 `backup files restore <absolute-path> <id>`。
 

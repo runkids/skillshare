@@ -228,3 +228,90 @@ func TestListConfiguredLinkedRoot(t *testing.T) {
 		t.Fatalf("linked root: %+v, %v", notes, err)
 	}
 }
+
+func TestMoveNote(t *testing.T) {
+	t.Setenv("XDG_STATE_HOME", filepath.Join(t.TempDir(), "state"))
+	root := t.TempDir()
+	note, err := Write(root, "wiki/note.md", "# Evidence\nKeep this content.\n", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(filepath.Join(root, note.Path), 0600); err != nil {
+		t.Fatal(err)
+	}
+	originalInfo, _ := os.Stat(filepath.Join(root, note.Path))
+	renamed, err := Move(root, note.Path, "wiki/renamed.md", note.Version)
+	if err != nil {
+		t.Fatal(err)
+	}
+	moved, err := Move(root, renamed.Path, "projects/deep/evidence.md", renamed.Version)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if moved.Path != "projects/deep/evidence.md" || moved.Content != note.Content || moved.Version != note.Version {
+		t.Fatalf("moved note: %+v", moved)
+	}
+	info, err := os.Stat(filepath.Join(root, moved.Path))
+	if err != nil || info.Mode().Perm() != originalInfo.Mode().Perm() {
+		t.Fatalf("mode: %v, %v", info, err)
+	}
+	for _, path := range []string{note.Path, renamed.Path} {
+		if _, err := Read(root, path); !os.IsNotExist(err) {
+			t.Fatalf("old path exists: %s: %v", path, err)
+		}
+		versions, err := syncpkg.FileBackupVersions(filepath.Join(root, path))
+		if err != nil || len(versions) != 1 {
+			t.Fatalf("backup: %+v, %v", versions, err)
+		}
+		data, _, err := syncpkg.ReadFileBackupVersion(filepath.Join(root, path), versions[0].ID)
+		if err != nil || string(data) != note.Content {
+			t.Fatalf("backup content: %q, %v", data, err)
+		}
+	}
+}
+
+func TestMoveRejectsConflictAndUnsafeDestination(t *testing.T) {
+	t.Setenv("XDG_STATE_HOME", filepath.Join(t.TempDir(), "state"))
+	root := t.TempDir()
+	note, err := Write(root, "note.md", "# Original\n", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	existing, err := Write(root, "existing.md", "# Existing\n", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, version := range []string{"", "stale"} {
+		if _, err := Move(root, note.Path, "new.md", version); !errors.Is(err, ErrConflict) {
+			t.Fatalf("version: %v", err)
+		}
+	}
+	paths := []string{"existing.md", "../outside.md", ".hidden/note.md", "note.txt", "wiki/../note.md"}
+	outside := t.TempDir()
+	if err := os.Symlink(outside, filepath.Join(root, "linked")); err == nil {
+		paths = append(paths, "linked/note.md")
+	}
+	if err := os.Symlink(filepath.Join(outside, "absent.md"), filepath.Join(root, "dangling.md")); err == nil {
+		paths = append(paths, "dangling.md")
+	}
+	for _, path := range paths {
+		if _, err := Move(root, note.Path, path, note.Version); err == nil {
+			t.Fatalf("accepted %s", path)
+		}
+	}
+	current, err := Read(root, note.Path)
+	if err != nil || current.Version != note.Version {
+		t.Fatalf("source changed: %+v %v", current, err)
+	}
+	current, err = Read(root, existing.Path)
+	if err != nil || current.Version != existing.Version {
+		t.Fatalf("destination changed: %+v %v", current, err)
+	}
+	if _, err := Move(root, "absent.md", "new.md", note.Version); !os.IsNotExist(err) {
+		t.Fatalf("missing source: %v", err)
+	}
+	same, err := Move(root, note.Path, note.Path, note.Version)
+	if err != nil || same.Version != note.Version {
+		t.Fatalf("same path: %+v %v", same, err)
+	}
+}

@@ -70,9 +70,13 @@ re-running `init` only creates missing files and never regenerates existing ones
 automatic learning or native memory integration.
 
 In the dashboard, **Extras → Memory** offers nested creation, search, a collapsible
-folder tree, and **Preview** / **Raw**, **Copy path**, **Edit**, **Delete note**, and
+folder tree, and **Preview** / **Source**, **Copy path**, **Edit**, **Move or rename**, **Delete note**, and
 **History**. Files over 1 MiB or containing non-UTF-8 data remain listed as
-unsupported; valid notes still work. Renaming and moving notes are not implemented.
+unsupported; valid notes still work. **Move or rename** accepts a new relative
+`.md` path, creates missing folders, preserves content and permissions, and rejects
+existing destinations or stale versions. The source is backed up at its old path;
+Markdown links are not rewritten automatically. Keep the reading-guidance entry
+point `INDEX.md` at the source root.
 
 Saves check the last-read version. A conflict preserves your draft and displays
 the latest saved content for comparison. **Save my draft** requires confirmation,

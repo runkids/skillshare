@@ -39,7 +39,7 @@ Extras는 skillshare가 관리하는 추가 리소스 유형입니다 — "skill
 Scope는 생략하면 자동 감지합니다. 기본 global 경로는 `~/.config/skillshare/extras/memory/`,
 Project는 `.skillshare/extras/memory/`입니다. 기존 extras source 설정이 적용됩니다.
 
-노트는 상대 `.md` 경로의 UTF-8 파일이며 최대 1 MiB입니다. 숨김 파일, 숨김 폴더, 내부 심볼릭 링크는 제외합니다. 너무 크거나 UTF-8이 아닌 파일은 지원되지 않음으로 목록에 남고 다른 유효한 노트는 사용할 수 있습니다. `wiki/architecture.md`는 필요한 폴더를 생성합니다. Dashboard는 트리, **Preview** / **Raw**, **Copy path**, **Edit**, **Delete note**, **History**를 제공합니다. 이름 변경이나 이동은 구현되지 않았습니다.
+노트는 상대 `.md` 경로의 UTF-8 파일이며 최대 1 MiB입니다. 숨김 파일, 숨김 폴더, 내부 심볼릭 링크는 제외합니다. 너무 크거나 UTF-8이 아닌 파일은 지원되지 않음으로 목록에 남고 다른 유효한 노트는 사용할 수 있습니다. `wiki/architecture.md`는 필요한 폴더를 생성합니다. Dashboard는 트리, **Preview** / **Source**, **Copy path**, **Edit**, **Delete note**, **History**를 제공합니다. **Move or rename**에서 새 상대 `.md` 경로를 지정합니다. 없는 폴더를 만들고 내용과 권한을 보존하며 기존 대상이나 오래된 version은 거부합니다. 이동 전 원래 경로를 백업합니다. Markdown 링크는 직접 수정하세요. Agent 지침이 가리키는 source 루트의 `INDEX.md`는 그 위치에 유지하세요.
 
 저장은 마지막으로 읽은 version을 확인합니다. 충돌하면 초안을 보존하고 최신 저장 내용을 비교용으로 표시합니다. **Save my draft**는 확인 후 갱신된 version을 사용하며 저장 내용을 백업한 다음 대체합니다. 삭제도 확인, version 검사, 백업을 수행합니다. **History**와 삭제 후 복원 링크는 노트의 절대 경로로 필터링된 **Backup Files**를 엽니다. CLI에서는 `backup files show <absolute-path>`와 `backup files restore <absolute-path> <id>`를 사용합니다.
 

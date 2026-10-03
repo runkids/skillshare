@@ -68,7 +68,7 @@ Update notes when the user asks you to remember a decision.
 
 ![英語の保存済みノートの Markdown プレビュー](/img/memory-note-demo.png)
 
-左のツリーはネストしたフォルダー、右のペインは **Preview** / **Raw** を表示します。**Copy path**、**Edit**、**Delete note**、**History** も使えます。既存ノートへの相対リンクは同じビューアーで開きます。Dashboard での名前変更や移動は未実装です。
+左のツリーはネストしたフォルダー、上部に検索ボックスがあります。右のペインは **Preview** / **Source** を切り替え、隣のアイコンは **Edit**、**Move or rename**、**Copy path**、**History**、**Delete note** です。既存ノートへの相対リンクは同じビューアーで開きます。
 
 ![wiki を展開した英語の Memory ビューアー](/img/memory-tree-demo.png)
 
@@ -135,6 +135,16 @@ skillshare extras memory instructions -g
 ```
 
 CLI は読み取りガイダンスを出力するだけなので手動で貼り付けます。ツールの接続やインデックスリンクの追加は行いません。ノート更新には現在の `--version` が必要です。[`extras memory` リファレンス](../../reference/commands/extras.md#extras-memory)を参照してください。
+
+## ノートの名前変更・移動
+
+ノートを選び **Move or rename** をクリックして、新しい相対 `.md` パスを入力します。`wiki/architecture.md` → `wiki/design.md` は名前変更、`projects/design.md` への変更は別フォルダーへの移動です。存在しないフォルダーは自動作成されます。**Move** で適用します。
+
+![英語の Move or rename ダイアログで新しいフォルダーパスを指定](/img/memory-move-demo.png)
+
+内容と権限は保持されます。移動先が存在する場合や version が古い場合は拒否します。元のパスにバックアップを保存します。**Restore in Backup Files** でその履歴を確認できます。復元すると元のノートを再作成し、移動後のノートも残ります。
+
+Markdown リンクはノート内の相対リンクも含めて自動更新されません。`INDEX.md` と他のノートを手動で修正してください。壊れたインデックスリンクはビューアーの上に表示されます。Agent のガイダンスは source 直下の `INDEX.md` を参照するため、その場所を維持してください。
 
 ## ノートを削除する
 

@@ -68,7 +68,7 @@ Update notes when the user asks you to remember a decision.
 
 ![英文筆記的 Markdown 預覽](/img/memory-note-demo.png)
 
-左側樹狀檢視支援巢狀資料夾，右側是 **Preview** / **Raw**，另有 **Copy path**、**Edit**、**Delete note** 與 **History**。相對連結可在檢視器中開啟既有筆記。Dashboard 尚不支援重新命名或移動筆記。
+左側樹狀檢視支援巢狀資料夾，上方有搜尋框；右側可切換 **Preview** / **Source**，旁邊的圖示依序是 **Edit**、**Move or rename**、**Copy path**、**History** 與 **Delete note**。相對連結可在檢視器中開啟既有筆記。
 
 ![展開 wiki 的英文雙欄 Memory 檢視器](/img/memory-tree-demo.png)
 
@@ -135,6 +135,16 @@ skillshare extras memory instructions -g
 ```
 
 CLI 只輸出閱讀指引，需自行貼上；不會連接工具或新增索引連結。更新筆記須提供目前的 `--version`，詳見 [`extras memory` 參考](../../reference/commands/extras.md#extras-memory)。
+
+## 重新命名或移動筆記
+
+選取筆記並點擊 **Move or rename**，輸入新的相對 `.md` 路徑。將 `wiki/architecture.md` 改為 `wiki/design.md` 是重新命名；改為 `projects/design.md` 則會移到其他資料夾。缺少的資料夾會自動建立，點擊 **Move** 套用。
+
+![英文 Move or rename 對話框，輸入新的資料夾路徑](/img/memory-move-demo.png)
+
+內容與權限會保留；目標已存在或版本過期時會拒絕操作。移動前會備份來源，可使用 **Restore in Backup Files** 查看舊路徑的歷史；在該處還原會重建舊筆記，移動後的筆記仍保留。
+
+Markdown 連結不會自動更新，包含筆記內部的相對連結。請自行修正 `INDEX.md` 與其他筆記；失效的索引連結會顯示在瀏覽器上方。Agent 指引指向來源根目錄的 `INDEX.md`，請保留該位置。
 
 ## 刪除筆記
 

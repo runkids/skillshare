@@ -43,7 +43,7 @@ A typical dashboard request follows this path:
 ## Shared Memory Notes
 
 `internal/memory` owns note discovery, bounded UTF-8 reads, content-version
-writes/deletes, backups, index inspection/link append, and scope/hash-marked
+writes/deletes/moves, backups, index inspection/link append, and scope/hash-marked
 guidance. CLI `extras memory` and dashboard handlers share its store and existing
 extra source resolution. Initialization preserves notes and creates missing
 `INDEX.md`/`LEARNED.md`; the source-only extra requires no targets. Unsupported
@@ -65,8 +65,11 @@ never agent reads. Fresh-session read events provide manual verification only.
 The Memory tab uses the shared tree/Markdown editor. Conflicts retain drafts,
 display latest saved content, and require confirmation before a version-checked,
 backed-up replacement. History/restore links filter Backup Files by absolute
-note path. Rename/move, native automatic memory, telemetry, and Obsidian
-integration are outside this boundary.
+note path. Dashboard move/rename preserves note content and permissions, creates
+missing parent folders, rejects stale versions and existing destinations, and
+backs up the source path. Links and path-keyed history remain at their original
+paths; index inspection reports broken links after a move. Native automatic
+memory, telemetry, and Obsidian integration are outside this boundary.
 
 ## Sources of Truth
 
