@@ -115,7 +115,7 @@ func cmdUI(args []string) error {
 		if err := uidist.ClearCache(); err != nil {
 			return fmt.Errorf("failed to clear UI cache: %w", err)
 		}
-		ui.Success("UI cache cleared.")
+		ui.Done(ui.MarkOK, "UI cache cleared", 0)
 		return nil
 	}
 
@@ -243,7 +243,7 @@ func startUIInBackground(opts uiBackgroundOptions) error {
 	if uiServerReady(opts) {
 		_ = writeCurrentUIState(opts)
 		url := uiURL(opts)
-		ui.Info("Skillshare UI already running: %s", url)
+		ui.Done(ui.MarkNone, "UI already running at "+url, 0)
 		if !opts.noOpen {
 			openUIWindow(url, opts.appWindow)
 		}
@@ -295,11 +295,11 @@ func startUIInBackground(opts uiBackgroundOptions) error {
 		if !opts.noOpen {
 			openUIWindow(url, opts.appWindow)
 		}
-		ui.Success("Skillshare UI running in background: %s", url)
+		ui.Done(ui.MarkOK, "UI running in background at "+url, 0)
 		return nil
 	}
-	ui.Info("Skillshare UI starting in background: %s", url)
-	ui.Info("Log: %s", logFile.Name())
+	ui.Done(ui.MarkNone, "UI starting in background at "+url, 0)
+	ui.Note("Log: " + shortenPath(logFile.Name()))
 	return nil
 }
 
@@ -309,9 +309,9 @@ func cmdUIStop(opts uiBackgroundOptions) error {
 		return err
 	}
 	if stopped {
-		ui.Success("Skillshare UI stopped: %s", uiURL(opts))
+		ui.Done(ui.MarkOK, "UI stopped at "+uiURL(opts), 0)
 	} else {
-		ui.Info("Skillshare UI is not running: %s", uiURL(opts))
+		ui.Done(ui.MarkNone, "UI is not running at "+uiURL(opts), 0)
 	}
 	return nil
 }

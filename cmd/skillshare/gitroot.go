@@ -98,9 +98,11 @@ func rootScopeSafetySweep(cfg *config.Config, dir string, dryRun bool) rootSweep
 func (r rootSweepResult) printNotices(dir string) {
 	if r.configUntracked {
 		if r.dryRun {
-			ui.Info("Would remove config.yaml from version control (it holds machine-specific paths)")
+			fmt.Println("  Would remove config.yaml from version control")
+			ui.Note("It holds machine-specific paths")
 		} else {
-			ui.Info("Removed config.yaml from version control (kept on disk; it holds machine-specific paths)")
+			ui.Success("Removed config.yaml from version control")
+			ui.Note("Kept on disk; it holds machine-specific paths")
 		}
 	}
 	if len(r.nested) > 0 {

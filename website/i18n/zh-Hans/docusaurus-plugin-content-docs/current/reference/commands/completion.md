@@ -113,10 +113,10 @@ source ~/.config/nushell/completions/skillshare.nu
 
 ```
 $ skillshare completion bash --install
-✔ Completion script installed to /home/user/.local/share/bash-completion/completions/skillshare
+✓ Completion installed to ~/.local/share/bash-completion/completions/skillshare
 
-ℹ Restart your shell or run:
-  source /home/user/.local/share/bash-completion/completions/skillshare
+Next
+  source ~/.local/share/bash-completion/completions/skillshare  load it in this shell, or restart it
 ```
 
 ## 另请参阅

@@ -167,10 +167,10 @@ func reportMigrationResults(results []config.MigrationResult) {
 	for _, r := range results {
 		switch r.Status {
 		case config.MigrationMoved:
-			ui.Info("Migrated legacy data: %s -> %s", r.From, r.To)
+			ui.Success("Moved legacy data %s → %s", shortenPath(r.From), shortenPath(r.To))
 		case config.MigrationFailed:
 			if r.From != "" && r.To != "" {
-				ui.Warning("Legacy migration failed: %s -> %s (%v)", r.From, r.To, r.Err)
+				ui.Warning("Moving legacy data %s → %s failed: %v", shortenPath(r.From), shortenPath(r.To), r.Err)
 				continue
 			}
 			ui.Warning("Legacy migration failed: %v", r.Err)
