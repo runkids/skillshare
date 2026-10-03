@@ -82,6 +82,33 @@ func TestRunForm_EscLeavesTheFilterFirst(t *testing.T) {
 	}
 }
 
+func TestRunForm_EscLeavesTheFilterAfterEnterFindsNothing(t *testing.T) {
+	const title = "Pick a folder"
+	in, keys := io.Pipe()
+	out := &syncBuffer{}
+	go func() {
+		deadline := time.Now().Add(5 * time.Second)
+		for !strings.Contains(out.String(), title) && time.Now().Before(deadline) {
+			time.Sleep(10 * time.Millisecond)
+		}
+		// enter with no match keeps huh in the filter, so esc must leave it.
+		for _, k := range []string{"/", "z", "z", "\r", "\x1b", "\r"} {
+			keys.Write([]byte(k))
+			time.Sleep(50 * time.Millisecond)
+		}
+	}()
+
+	value := ""
+	field := huh.NewSelect[string]().Title(title).
+		Options(huh.NewOptions("a", "b", "c")...).Filtering(false).Value(&value)
+	if err := runForm(field, true, in, out); err != nil {
+		t.Fatalf("esc in the filter cancelled the prompt: err = %v", err)
+	}
+	if value != "a" {
+		t.Fatalf("value = %q, want the first option", value)
+	}
+}
+
 func TestRunForm_TextTakesNewLinesAndSubmitsOnEnter(t *testing.T) {
 	const title = "Paste server JSON"
 	in, keys := io.Pipe()

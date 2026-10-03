@@ -198,7 +198,7 @@ func runForm(field huh.Field, filterable bool, in io.Reader, out io.Writer) erro
 		WithShowHelp(false)
 	form.SubmitCmd = tea.Quit
 	form.CancelCmd = tea.Quit
-	m := &promptModel{form: form, filterable: filterable, hint: promptHint(field, filterable)}
+	m := &promptModel{form: form, field: field, hint: promptHint(field, filterable)}
 	if _, err := tea.NewProgram(m, tea.WithInput(in), tea.WithOutput(out)).Run(); err != nil {
 		if errors.Is(err, tea.ErrInterrupted) {
 			return ErrCancelled
@@ -215,29 +215,25 @@ func runForm(field huh.Field, filterable bool, in io.Reader, out io.Writer) erro
 // before the field sees it, so binding esc there would cancel the question
 // while the user only meant to leave the filter.
 type promptModel struct {
-	form       *huh.Form
-	filterable bool
-	filtering  bool
-	cancelled  bool
-	hint       string
+	form      *huh.Form
+	field     huh.Field
+	cancelled bool
+	hint      string
+}
+
+// filtering asks the field itself: enter with no match keeps huh's Select
+// in the filter, which key presses alone cannot tell.
+func (m *promptModel) filtering() bool {
+	f, ok := m.field.(interface{ GetFiltering() bool })
+	return ok && f.GetFiltering()
 }
 
 func (m *promptModel) Init() tea.Cmd { return m.form.Init() }
 
 func (m *promptModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	if k, ok := msg.(tea.KeyMsg); ok {
-		switch k.String() {
-		case "/":
-			m.filtering = m.filterable
-		case "enter":
-			m.filtering = false
-		case "esc":
-			if !m.filtering {
-				m.cancelled = true
-				return m, tea.Quit
-			}
-			m.filtering = false
-		}
+	if k, ok := msg.(tea.KeyMsg); ok && k.String() == "esc" && !m.filtering() {
+		m.cancelled = true
+		return m, tea.Quit
 	}
 	form, cmd := m.form.Update(msg)
 	m.form = form.(*huh.Form)
