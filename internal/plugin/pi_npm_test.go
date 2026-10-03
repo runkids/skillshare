@@ -323,10 +323,16 @@ func TestFilteredNpmPackageMovesToAnotherVersion(t *testing.T) {
 	}
 }
 
-func TestNpmScopeWithoutAPackageIsInvalid(t *testing.T) {
-	for _, source := range []string{"npm:@team", "npm:@team/", "npm:@/tools"} {
+// Sources Pi itself can't resolve are refused before a binding is recorded.
+func TestMalformedNpmSourcesAreInvalid(t *testing.T) {
+	for _, source := range []string{"npm:@team", "npm:@team/", "npm:@/tools", "npm:foo/bar", "npm:foo@", "npm:foo..bar", "npm:@team/../x"} {
 		if validNpmSource(source) {
 			t.Errorf("%s was accepted", source)
+		}
+	}
+	for _, source := range []string{"npm:demo", "npm:foo.bar@latest", "npm:@team/pi-tools@^1.2.0"} {
+		if !validNpmSource(source) {
+			t.Errorf("%s was refused", source)
 		}
 	}
 }

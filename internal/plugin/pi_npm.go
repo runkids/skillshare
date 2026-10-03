@@ -31,12 +31,11 @@ func npmSpec(source string) (name, version string) {
 // exactNpmVersion is what Pi pins: an exact semver version, not a range or tag.
 var exactNpmVersion = regexp.MustCompile(`^v?\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$`)
 
+// validNpmSource accepts what Pi itself resolves as an npm package (see resolvePiSource), so
+// a source Pi can't install is refused before a binding is recorded.
 func validNpmSource(source string) bool {
-	name, _ := npmSpec(source)
-	if scope, pkg, ok := strings.Cut(strings.TrimPrefix(name, "@"), "/"); strings.HasPrefix(name, "@") && (!ok || scope == "" || pkg == "") {
-		return false
-	}
-	return name != "" && validTargetID("pi", source) && !strings.ContainsAny(source, " \t")
+	m := piNpmSpec.FindStringSubmatch(strings.TrimPrefix(source, "npm:"))
+	return m != nil && piNpmName.MatchString(m[1]) && !strings.Contains(m[1], "..") && validTargetID("pi", source) && !strings.ContainsAny(source, " \t")
 }
 
 // sameNpmPackage reports whether a binding ID is an npm source of the same package, which Pi
