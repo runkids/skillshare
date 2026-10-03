@@ -452,3 +452,57 @@ func grWrite(t *testing.T, path, content string) {
 		t.Fatal(err)
 	}
 }
+
+func TestGitRoot_FirstPull_RemoteTracksConfig_Refused(t *testing.T) {
+	requireWorkingGit(t)
+
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	base := filepath.Dir(sb.ConfigPath)
+	skills := filepath.Join(base, "skills")
+	agents := filepath.Join(base, "agents")
+	grMkdir(t, skills)
+	grMkdir(t, agents)
+
+	localConfig := "git_root: root\nsources:\n  skills: " + skills + "\n  agents: " + agents + "\ntargets: {}\n"
+	sb.WriteConfig(localConfig)
+
+	bareRepo := testutil.SetupBareRemoteRepo(t, t.TempDir())
+
+	// Remote tracks config.yaml and a skill
+	seed := filepath.Join(t.TempDir(), "seed")
+	testutil.RunGit(t, "", "init", seed)
+	testutil.ConfigureGitUser(t, seed)
+	grWrite(t, filepath.Join(seed, "config.yaml"), "git_root: root\nsources:\n  skills: /other/skills\n")
+	grMkdir(t, filepath.Join(seed, "skills"))
+	grWrite(t, filepath.Join(seed, "skills", "remote.md"), "# remote\n")
+	testutil.RunGit(t, seed, "add", "-A")
+	testutil.RunGit(t, seed, "commit", "-m", "remote tracking config")
+	testutil.RunGit(t, seed, "branch", "-M", "main")
+	testutil.RunGit(t, seed, "remote", "add", "origin", bareRepo)
+	testutil.RunGit(t, seed, "push", "-u", "origin", "main")
+	testutil.RunGit(t, bareRepo, "symbolic-ref", "HEAD", "refs/heads/main")
+
+	// Local repo initialized at root, wire remote without upstream
+	testutil.RunGit(t, base, "init")
+	testutil.ConfigureGitUser(t, base)
+	grWrite(t, filepath.Join(base, ".gitignore"), "config.yaml\n")
+	testutil.RunGit(t, base, "add", ".gitignore")
+	testutil.RunGit(t, base, "commit", "-m", "initial scaffold")
+	testutil.RunGit(t, base, "branch", "-M", "main")
+	testutil.RunGit(t, base, "remote", "add", "origin", bareRepo)
+
+	// pull must fail and preserve local config.yaml
+	result := sb.RunCLI("pull")
+	result.AssertFailure(t)
+	result.AssertOutputContains(t, "Remote tracks config.yaml")
+
+	cfgBytes, err := os.ReadFile(sb.ConfigPath)
+	if err != nil {
+		t.Fatalf("read config: %v", err)
+	}
+	if string(cfgBytes) != localConfig {
+		t.Fatalf("local config.yaml was overwritten: got %q, want %q", string(cfgBytes), localConfig)
+	}
+}

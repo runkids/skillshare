@@ -412,13 +412,15 @@ Run in container `ss-pi-ext` unless marked host.
 
 - Approved scope: reclaim an unchanged empty native lock older than 10 seconds; retain
   refreshed/replaced/nonempty directories, files and symlinks. A directory-only rmdir is
-  nonrecursive; the inode stays anchored with os.Root while inspected. A competing acquisition
+  nonrecursive; the inode stays anchored while inspected (the Windows follow-up below
+  replaces the original os.Root anchor). A competing acquisition
   after removal is refused, never removed. Existing owned renewal/release checks are unchanged.
   As in proper-lockfile, mtime expiry is a lease policy, not process-death evidence; the final
   stat/rmdir is not an atomic compare-and-swap.
 - Verified Pi object registrations can be adopted without native settings writes or lifecycle
   commands. Preview exposes only sorted field names. Exact entry bytes (including opaque
-  numbers/escapes) are stored privately, mode 0600 under a 0700 directory; YAML/API bindings
+  numbers/escapes) are stored privately, mode 0600 under a 0700 directory on Unix;
+  Windows uses the ACL protection described below. YAML/API bindings
   carry only a content digest. Records are scoped to the target/settings path/native ID, are
   never automatically pruned, and changed records are refused rather than overwritten.
 - Normal sync/update preserve live entries. Uninstall captures current native rules/options,
@@ -483,8 +485,48 @@ substituted root lookup, actual native getNpmInstallPath and an empty fixture ro
   five-locale website build, context-router and diff checks also passed. A container
   stop interrupted the first broad run; the same container was restarted without
   removing data and the interrupted checks were rerun to completion.
-- Windows work remains separate: ARM64 UTM evidence at pinned 39294b56 confirms both
+- At this correctness checkpoint, Windows work remained separate: ARM64 UTM evidence
+  at pinned 39294b56 confirmed both
   native launchers, lock interoperability and project resolution under full/basic
   tokens, but stale reclamation fails because OpenRoot's initial Windows handle does
   not share deletion; a POSIX-mode-only record assertion also fails. Those issues
-  are not claimed fixed by this correctness follow-up. No user settings were used.
+  were not fixed by that correctness follow-up. No user settings were used.
+
+## Windows follow-up: #358
+
+Pinned `2dc6564ba5a12a2c147e5836f969a5fcc636e274` passed actual Windows 11 Home
+ARM64 UTM acceptance with both Interactive desktop full and basic-user tokens.
+Developer Mode was off. The original checkout, #350's worktree/preview, existing
+kits and reports were retained. No user settings, trust or global Pi installs were used.
+
+- Stale-lock anchoring uses an explicit share-delete handle. Windows removes the
+  anchored empty directory with POSIX disposition; Unix retains directory-only
+  rmdir. Unsupported filesystems fail closed. Fresh/future/nonempty/file locks,
+  renewed/replaced owners and concurrent contents remain untouched. Final mtime
+  check/removal still does not claim an atomic CAS.
+- Go's Windows Lstat defers file-ID lookup by pathname. Acquired lock identity is
+  now captured through a handle before verification/release, so a replacement
+  with matching mtime cannot be adopted. That new regression reproduced RED in
+  both tokens at `ebf4e062` before the fix. The stale fixture likewise captures
+  its old ID through the retained anchor rather than resolving the reused path.
+- The original records inherited interactive/service/logon-class grants in the
+  isolated public fixture: POSIX 0600 did not establish Windows privacy. New
+  directories are created with protected current-user/SYSTEM inheritable DACLs
+  before writing raw bytes. Existing directory/file ownership and DACLs are
+  validated without rewriting ACLs. Only the current user and privileged
+  SYSTEM/Administrators may be granted access; privileged default owners on full
+  Windows tokens still require a current-user grant. Unsafe/unknown ACLs refuse
+  import/restoration and retain settings, records and existing ACLs.
+- RED at `073fc025`: stale/replaced locks, actual private ACL assertions, and
+  broadly accessible existing-record reuse failed in both tokens. GREEN at the
+  pinned fix above: 14 top-level regressions per token; native launcher and two
+  native tests per version (0.99.2/1.0.0) all exited zero. The initial regression
+  pass intentionally omits PI_ROOT and skips its native-lock test; both separate
+  native passes executed it. Basic token symlink creation was unavailable and
+  that subcase skipped; full token executed the symlink case. No extension
+  factories or real npm/Git package install/update breadth is claimed.
+- Reproduction: `scripts/windows/build-pi-kit.sh`,
+  `scripts/windows/e2e-pi-extensions.ps1`, and
+  `ai_docs/tests/windows_pi_extensions_runbook.md`. The kit is built from a pinned
+  archive in the devcontainer. Runner HOME/config/temp/npm roots are isolated;
+  child streams and UTF-8 copies are retained, and nonzero/missing checks fail.

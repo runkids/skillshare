@@ -133,6 +133,9 @@ cannot reach, says why, and still updates the other targets.
   and shared config stores a digest. Uninstall captures current options; reinstall
   restores the object before native install. Missing/changed/cross-target records,
   uncertain sources or precedence, and non-normalized local references are refused.
+  Windows registrations use private ACLs, not POSIX mode bits. Unsafe existing
+  directory/file ACLs block import/restoration without changing those ACLs; preserve
+  the records and have their owner repair access protection before retrying.
   Filtered OpenCode imports remain blocked.
   Supply `--name` when a native package source is not a valid logical name.
 

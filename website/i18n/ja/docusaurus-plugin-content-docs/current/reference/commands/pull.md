@@ -112,6 +112,8 @@ skillshare sync
 初回の pull 時（まだアップストリームがない場合）、ローカルの repository に既に内容（任意のディレクトリ、または `.gitignore` 以外の追跡済み・無視されていないファイル）がある場合、
 `pull` は両方を統合するために **merge** を試みます。merge が成功すると、ローカルと remote 両方の内容が保持されます。それ以外に何もない repository のみ、remote branch に reset されます。
 
+`git_root: root` では、`config.yaml` はマシン固有の設定ファイルです。remote repository が `config.yaml` を追跡している場合、ローカルの設定が上書きされないよう `pull` はエラーを出して拒否します。pull する前に、該当ファイルを追跡しているマシンから `skillshare push` を実行して remote 上で追跡を解除してください。
+
 **merge コンフリクト** がある場合、`pull` はゼロ以外の終了コードで失敗します。
 
 ```bash

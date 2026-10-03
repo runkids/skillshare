@@ -164,6 +164,25 @@ func isTracked(dir, path string) bool {
 	return err == nil && strings.TrimSpace(string(out)) != ""
 }
 
+// RemoteTracksConfig reports whether the remote ref (e.g. "origin/main")
+// tracks config.yaml at its root.
+func RemoteTracksConfig(dir, remoteRef string) bool {
+	cmd := exec.Command("git", "ls-tree", remoteRef, "--", "config.yaml")
+	cmd.Dir = dir
+	out, err := cmd.Output()
+	return err == nil && strings.TrimSpace(string(out)) != ""
+}
+
+// HasLocalRootConfig reports whether dir contains a local config.yaml or
+// ignores it via .gitignore (the signature of root scope).
+func HasLocalRootConfig(dir string) bool {
+	if _, err := os.Stat(filepath.Join(dir, "config.yaml")); err == nil {
+		return true
+	}
+	data, err := os.ReadFile(filepath.Join(dir, ".gitignore"))
+	return err == nil && gitignoreHasEntry(string(data), "config.yaml")
+}
+
 // EnsureConfigUntracked keeps skillshare's own config.yaml out of a root-scope
 // repo: it ensures config.yaml is in .gitignore and, if the file is already
 // tracked, removes it from the index with `git rm --cached` (the file stays on

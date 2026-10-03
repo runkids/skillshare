@@ -98,11 +98,17 @@ func TestPiNativeLockReclaimsOnlyStaleEmptyDirectories(t *testing.T) {
 			}
 			// Hold the old inode so removal cannot immediately recycle its identity.
 			if kind == "stale" {
-				f, err := os.OpenRoot(path)
+				f, err := openPiLockAnchor(path)
 				if err != nil {
 					t.Fatal(err)
 				}
 				defer f.Close()
+				// Windows Lstat defers reading the file ID until SameFile. Capture
+				// it from this handle before replacement, not from the reused path.
+				before, err = f.Stat()
+				if err != nil {
+					t.Fatal(err)
+				}
 			}
 			lock, err := acquirePiNativeLock(path)
 			if kind == "stale" {

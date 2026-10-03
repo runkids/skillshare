@@ -28,9 +28,11 @@ targets:
       path: ` + claudeAgents + `
 `)
 
-	// Only target-local agents are backed up; synced ones are symlinks (issue #252).
+	sb.RunCLI("sync", "agents").AssertSuccess(t)
+	// Create the local agent after sync so its automatic backup cannot be
+	// mistaken for this explicit backup when the commands cross a second.
+	// Synced agents remain symlinks and are not backed up (issue #252).
 	sb.WriteFile(filepath.Join(claudeAgents, "local-helper.md"), "# Local helper")
-	sb.RunCLI("sync", "agents")
 
 	result := sb.RunCLI("backup", "agents")
 	result.AssertSuccess(t)

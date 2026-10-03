@@ -175,7 +175,7 @@ OpenCode 必须在 PATH 上，以便 Skillshare 能够选择对应版本的 sche
 
 全局 npm 注册没有 managed cache 时显示 Unknown／只读，不代表尚未安装；Pi 可能使用 Skillshare 不探查的 legacy global npm/pnpm 路径。
 
-Import 接受普通 Pi source，以及已验证 Pi 0.99.2/1.0.0 中来源与选项格式受支持的 filtered object。预览只显示保留的字段名称，不显示 opaque 值。导入不修改原生设置或已安装文件；原始条目保存在 Skillshare 私有状态，共享配置仅存 digest。sync/update 保留当前条目；卸载前保存最新选项，重新安装时先恢复 object，避免暂时按默认规则启用其他资源。同一次 Apply 批量恢复时，只接受此次操作自己写出的精确内容；其他设置变动仍会阻止后续恢复。这些 bindings 必须保留私有状态：记录丢失、被修改或属于其他 target 时拒绝恢复。不确定的来源或优先级、不支持的编码，以及 Pi 会规范化的本地引用仍为只读。普通 OpenCode 条目可导入，filtered OpenCode 条目仍拒绝。超过 Pi 10 秒过期阈值的空锁目录，只有 inode 与 mtime 未变动时才能回收；新锁、更新或被替换的锁、非空目录、文件与 symlink 一律保留。过期不代表持有者已终止，最后检查与移除不是原子 CAS。已导入的 Pi package 在全局模式下用 `pi update SOURCE` 更新，并保留其设置条目；project 中的则要在 Pi 里更新，因为 `pi update` 也会影响全局 package。已导入的 OpenCode v1 packages 会在其原生工具中更新。
+Import 接受普通 Pi source，以及已验证 Pi 0.99.2/1.0.0 中来源与选项格式受支持的 filtered object。预览只显示保留的字段名称，不显示 opaque 值。导入不修改原生设置或已安装文件；原始条目保存在 Skillshare 私有状态，共享配置仅存 digest。sync/update 保留当前条目；卸载前保存最新选项，重新安装时先恢复 object，避免暂时按默认规则启用其他资源。同一次 Apply 批量恢复时，只接受此次操作自己写出的精确内容；其他设置变动仍会阻止后续恢复。这些 bindings 必须保留私有状态：记录丢失、被修改或属于其他 target 时拒绝恢复。Windows 的新注册目录以受保护的 owner/SYSTEM ACL 创建。现有目录与记录若允许当前用户及特权 SYSTEM/Administrators 之外的主体访问，或无法验证 ACL，便拒绝导入或恢复。不会修改现有 ACL；请保留记录，由所有者修复访问保护后再重试。不确定的来源或优先级、不支持的编码，以及 Pi 会规范化的本地引用仍为只读。普通 OpenCode 条目可导入，filtered OpenCode 条目仍拒绝。超过 Pi 10 秒过期阈值的空锁目录，只有 inode 与 mtime 未变动时才能回收；新锁、更新或被替换的锁、非空目录、文件与 symlink 一律保留。过期不代表持有者已终止，最后检查与移除不是原子 CAS。已导入的 Pi package 在全局模式下用 `pi update SOURCE` 更新，并保留其设置条目；project 中的则要在 Pi 里更新，因为 `pi update` 也会影响全局 package。已导入的 OpenCode v1 packages 会在其原生工具中更新。
 OpenCode v2 的全局导入可以使用其原生的更新命令；project 导入则必须原生更新，
 因为 v2 的更新命令是全局的。
 
