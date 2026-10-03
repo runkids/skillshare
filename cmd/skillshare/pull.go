@@ -125,7 +125,7 @@ func pullFromRemote(cfg *config.Config, dryRun, force bool) error {
 
 	if info != nil {
 		spinner.Stop()
-		ui.Row(ui.MarkOK, "Pull", pullSummary(info)+ui.DimText(fmt.Sprintf(" · %.1fs", time.Since(pullStart).Seconds())), width)
+		ui.Row(ui.MarkOK, "Pull", pullSummary(info)+ui.Took(time.Since(pullStart)), width)
 		printCommitNotes(info.Commits)
 	}
 

@@ -248,7 +248,7 @@ func cmdPush(args []string) (err error) {
 	}
 
 	spinner.Stop()
-	ui.Row(ui.MarkOK, "Push", "to "+pushDestination(source)+ui.DimText(fmt.Sprintf(" · %.1fs", time.Since(start).Seconds())), width)
+	ui.Row(ui.MarkOK, "Push", "to "+pushDestination(source)+ui.Took(time.Since(start)), width)
 	ui.Next("skillshare pull", "get these changes on another machine")
 	return nil
 }

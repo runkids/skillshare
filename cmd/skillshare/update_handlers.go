@@ -502,9 +502,7 @@ func printUpdateRow(mark, name, detail string, took time.Duration) {
 	if detail != "" {
 		value += " " + ui.DimText("· "+detail)
 	}
-	if took > 0 {
-		value += " " + ui.DimText(fmt.Sprintf("· %.1fs", took.Seconds()))
-	}
+	value += ui.Took(took)
 	ui.Row(mark, "Update", value, ui.RowWidth("Update", "Audit"))
 }
 

@@ -63,10 +63,7 @@ func Done(mark, text string, took time.Duration) {
 	if mark != MarkNone {
 		line = StyledMark(mark) + " " + line
 	}
-	if took > 0 {
-		line += " " + theme.Dim().Render(fmt.Sprintf("· %.1fs", took.Seconds()))
-	}
-	fmt.Println(line)
+	fmt.Println(line + Took(took))
 }
 
 // DryRun closes a dry run.
@@ -93,4 +90,13 @@ func Next(pairs ...string) {
 	for i := 0; i+1 < len(pairs); i += 2 {
 		fmt.Printf("  %s  %s\n", theme.Accent().Render(fmt.Sprintf("%-*s", width, pairs[i])), theme.Dim().Render(pairs[i+1]))
 	}
+}
+
+// Took is a dim " · 0.4s" after a result, left out under 0.05s, where it
+// would read 0.0s.
+func Took(d time.Duration) string {
+	if d < 50*time.Millisecond {
+		return ""
+	}
+	return " " + DimText(fmt.Sprintf("· %.1fs", d.Seconds()))
 }

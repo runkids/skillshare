@@ -953,7 +953,7 @@ func printInstallRow(name, destPath string, dryRun bool, start time.Time) {
 		ui.DryRun()
 		return
 	}
-	ui.Row(ui.MarkOK, "Install", value+" "+ui.DimText(fmt.Sprintf("· %.1fs", time.Since(start).Seconds())), ui.RowWidth("Install"))
+	ui.Row(ui.MarkOK, "Install", value+ui.Took(time.Since(start)), ui.RowWidth("Install"))
 }
 
 // renderTrackedRepoMeta names what a tracked repo holds, when the list is
@@ -997,7 +997,7 @@ func handleAgentInstall(discovery *install.DiscoveryResult, agentsDir string, op
 		if result.Action == "skipped" {
 			ui.StepSkip(agent.Name, strings.Join(result.Warnings, "; "))
 		} else {
-			ui.Row(ui.MarkOK, "Install", agent.Name+" "+ui.DimText("→ "+utils.FoldHomePath(filepath.Join(agentsDir, agent.FileName))+fmt.Sprintf(" · %.1fs", time.Since(spinner.Started()).Seconds())), ui.RowWidth("Install"))
+			ui.Row(ui.MarkOK, "Install", agent.Name+" "+ui.DimText("→ "+utils.FoldHomePath(filepath.Join(agentsDir, agent.FileName)))+ui.Took(time.Since(spinner.Started())), ui.RowWidth("Install"))
 			logSummary.SkillCount = 1
 			logSummary.InstalledSkills = append(logSummary.InstalledSkills, agent.Name)
 			ui.Next("skillshare sync agents", "link it into your targets")

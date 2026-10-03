@@ -806,7 +806,7 @@ func runCheckFiltered(sourceDir, projectRoot string, opts *checkOptions) error {
 	// Single target: one row, like update
 	if isSingle {
 		r := singleCheckStatus(repoResults, skillResults)
-		ui.Row(r.mark, targets[0].name, r.text+ui.DimText(fmt.Sprintf(" · %.1fs", time.Since(start).Seconds())), ui.RowWidth(targets[0].name))
+		ui.Row(r.mark, targets[0].name, r.text+ui.Took(time.Since(start)), ui.RowWidth(targets[0].name))
 		if r.next != "" {
 			ui.Next(r.next, r.why)
 		}

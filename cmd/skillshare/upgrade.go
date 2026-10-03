@@ -122,7 +122,7 @@ var upgradeRowWidth = ui.RowWidth("CLI", "Skill")
 // start is set.
 func printUpgradeRow(mark, label, value string, start time.Time) {
 	if !start.IsZero() {
-		value += ui.DimText(fmt.Sprintf(" · %.1fs", time.Since(start).Seconds()))
+		value += ui.Took(time.Since(start))
 	}
 	ui.Row(mark, label, value, upgradeRowWidth)
 }

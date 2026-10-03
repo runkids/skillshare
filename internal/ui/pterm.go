@@ -292,14 +292,9 @@ func (s *Spinner) Warn(message string) {
 	}
 }
 
-// elapsedNote is a dim " · 0.4s" after a finished step, left out for steps
-// too quick to matter.
+// elapsedNote is Took for a step that started at start.
 func elapsedNote(start time.Time) string {
-	elapsed := time.Since(start)
-	if elapsed.Seconds() < 0.05 {
-		return ""
-	}
-	return " " + DimText(fmt.Sprintf("· %.1fs", elapsed.Seconds()))
+	return Took(time.Since(start))
 }
 
 // Started is when the spinner started, for timing the step it covers.
