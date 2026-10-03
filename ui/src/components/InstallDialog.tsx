@@ -25,7 +25,7 @@ import { api, ApiError, type DiscoverResult, type DiscoveredSkill, type HubSaved
 import { clearAuditCache } from '../lib/auditCache';
 import { isAuditBlock, parseFindings, thresholdOf, type Finding } from '../lib/auditMessage';
 import { parseSkillMarkdown } from '../lib/frontmatter';
-import { isRequestedSkill, parseSkillsAddCommand } from '../lib/skillsAddCommand';
+import { parseSkillsAddCommand, requestedSkills } from '../lib/skillsAddCommand';
 import type { SkillsAddCommand } from '../lib/skillsAddCommand';
 import CodeView from './CodeView';
 import MarkdownView, { ViewToggle } from './MarkdownView';
@@ -289,8 +289,7 @@ export default function InstallDialog({ kind, initialTab, initialSource, onClose
     const show = (items: DiscoveredSkill[]) => {
       setSource(from);
       setFound({ source: from, items });
-      const picked = wanted?.source === from ? items.filter((i) => isRequestedSkill(i.name, wanted.skills)) : [];
-      const preselected = picked.length > 0 ? picked : items.filter((i) => !isInstalled(i.kind ?? 'skill', discoveredSource(from, i.path)));
+      const preselected = requestedSkills(wanted, from, items) ?? items.filter((i) => !isInstalled(i.kind ?? 'skill', discoveredSource(from, i.path)));
       setSelected(new Set(preselected.map((i) => i.path)));
       setFilter('');
       setExpanded(false);

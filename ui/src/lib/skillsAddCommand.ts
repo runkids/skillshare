@@ -51,7 +51,14 @@ export function parseSkillsAddCommand(value: string): SkillsAddCommand | null {
   return { source, skills: skills.includes('*') ? [] : skills };
 }
 
-/** Upstream matches requested skill names case-insensitively. */
-export function isRequestedSkill(name: string, skills: string[]): boolean {
-  return skills.some((s) => s.toLowerCase() === name.toLowerCase());
+/**
+ * The discovered items a pasted command asks to preselect, or null to keep the default selection:
+ * no command, a different source, no --skill (or '*'), or no name that matches.
+ * Names match case-insensitively, as upstream does.
+ */
+export function requestedSkills<T extends { name: string }>(command: SkillsAddCommand | null, source: string, items: T[]): T[] | null {
+  if (command?.source !== source) return null;
+  const wanted = new Set(command.skills.map((s) => s.toLowerCase()));
+  const picked = items.filter((i) => wanted.has(i.name.toLowerCase()));
+  return picked.length > 0 ? picked : null;
 }

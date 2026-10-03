@@ -1,9 +1,23 @@
 import { describe, expect, it } from 'vitest';
-import { isRequestedSkill, parseSkillsAddCommand } from './skillsAddCommand';
+import { parseSkillsAddCommand, requestedSkills } from './skillsAddCommand';
 
-describe('isRequestedSkill', () => {
-  it('matches names regardless of letter case', () => {
-    expect(isRequestedSkill('Codebase-Design', ['codebase-design'])).toBe(true);
+describe('requestedSkills', () => {
+  const items = [{ name: 'Codebase-Design' }, { name: 'code-review' }];
+
+  it('picks named skills regardless of letter case', () => {
+    expect(requestedSkills({ source: 'o/r', skills: ['codebase-design'] }, 'o/r', items)).toEqual([{ name: 'Codebase-Design' }]);
+  });
+
+  it('keeps the default for another source', () => {
+    expect(requestedSkills({ source: 'o/r', skills: ['code-review'] }, 'o/other', items)).toBeNull();
+  });
+
+  it('keeps the default when no skill is named', () => {
+    expect(requestedSkills(parseSkillsAddCommand(`npx skills add o/r --skill '*'`), 'o/r', items)).toBeNull();
+  });
+
+  it('keeps the default when no name matches', () => {
+    expect(requestedSkills({ source: 'o/r', skills: ['renamed'] }, 'o/r', items)).toBeNull();
   });
 });
 
