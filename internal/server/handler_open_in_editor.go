@@ -10,6 +10,8 @@ import (
 	"runtime"
 	"strings"
 	"time"
+
+	"skillshare/internal/childproc"
 )
 
 // openInEditorRequest controls which editor to launch.
@@ -113,7 +115,7 @@ func (s *Server) handleOpenSkillInEditor(w http.ResponseWriter, r *http.Request)
 	cmd.Stdout = nil
 	cmd.Stderr = nil
 
-	if err := cmd.Start(); err != nil {
+	if err := childproc.StartDetached(cmd); err != nil {
 		writeError(w, http.StatusInternalServerError, fmt.Sprintf("failed to launch %s: %s", editor.bin, err))
 		return
 	}

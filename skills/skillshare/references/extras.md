@@ -5,6 +5,7 @@ Manage non-skill resources (rules, commands, prompts) that sync to arbitrary dir
 | Command | What it does | Project? | `--json`? |
 |---------|-------------|:--------:|:---------:|
 | `extras init <name>` | Create a new extra | ✓ (auto) | ✗ |
+| `extras memory <command>` | Manage shared Markdown notes | ✓ (auto) | ✓ |
 | `extras list` | List all extras + sync status | ✓ (auto) | ✓ |
 | `extras remove <name>` | Remove an extra from config | ✓ (auto) | ✗ |
 | `extras collect <name>` | Collect target files into source | ✓ (auto) | ✗ |
@@ -13,7 +14,7 @@ Manage non-skill resources (rules, commands, prompts) that sync to arbitrary dir
 
 **Source directories:**
 - Global: `~/.config/skillshare/extras/<name>/`; `extras_source` and per-extra `source` can override it.
-- Project: `.skillshare/extras/<name>/`; per-extra `source` is ignored. Use top-level `sources.extras` to move all project extras.
+- Project: `.skillshare/extras/<name>/`; per-extra `source` is relative to the project root. Top-level `sources.extras` moves the default project extras parent.
 
 ## extras init
 
@@ -264,3 +265,65 @@ The `codex-agents` extension requires `name` and `description` frontmatter — f
 - Native agents targets (`agents: { path: ... }`) do **not** support `extension:` — extras only
 - If a Node.js extension fails because inherited `NODE_OPTIONS` references an unavailable
   preload module, clear that variable for the extension process: `run: ["env", "-u", "NODE_OPTIONS", "node", "convert.js"]`
+
+## Shared memory notes
+
+`skillshare extras memory init -g` registers a source-only `memory` folder and
+creates missing `INDEX.md` and `LEARNED.md` templates, preserving existing files. Use `-p` for project
+notes. Native automatic memory is separate.
+
+```bash
+skillshare extras memory list --search decisions --json -g
+skillshare extras memory show decisions.md --json -g
+skillshare extras memory write decisions.md --from ./note.md -g
+skillshare extras memory instructions -g
+```
+
+A new write omits `--version`; updates require the hash from `show --json`.
+Stale versions are rejected and changed notes are backed up. `--from -` reads
+stdin. Delete with `extras memory delete <note.md> --version <hash>` using the
+version from `show --json`; deletion backs up the saved file and rejects stale
+versions. Recover with `backup files show <absolute-path>` and
+`backup files restore <absolute-path> <id>`. Update index links yourself.
+Writes accept relative `.md` paths only, UTF-8 up to 1 MiB; hidden files and nested
+links are excluded. Paths such as `wiki/architecture.md` create missing folders;
+listing and search include notes in subfolders. CLI users maintain `INDEX.md` links themselves.
+`LEARNED.md` provides date,
+context, conclusion, and evidence fields for durable lessons; updates require the
+user's request. Templates do not enable automatic learning.
+
+The dashboard's Extras → Memory tab edits the same source. Use **Connect to
+agents**, select tools, **Review changes**, then **Apply changes**. It appends or
+updates a scope/hash-marked block in the existing instruction file or shared
+source without changing other content, assignments, or connection modes.
+Existing files are backed up and a stale review must be repeated. Intact outdated
+blocks can be updated after review; modified or malformed blocks are preserved
+for manual repair. Unsynced or unreadable instructions are skipped.
+**Copy guidance** is the manual fallback; **Open AGENTS.md** edits instructions.
+CLI `instructions` only prints the same block. Project sources inside the repo
+are relative to the project root, regardless of the instruction file's location;
+external overrides and global sources use absolute paths.
+
+A configured tool has the current guidance; this does not prove a read. Use a
+fresh session and **Copy verification prompt** to request `INDEX.md` and a relevant
+note, its full path, and a temporary verification value you added. Inspect the
+actual file read event manually. There is no guaranteed read telemetry.
+
+**New note** offers **Link from INDEX.md**, default checked with a readable index.
+It appends a link at EOF with a version check and backup; a failed link leaves
+the note created. **Add to INDEX** links an unindexed note. Broken links warn but
+are not removed automatically. CLI writes do not add links.
+
+A stale editor save keeps the draft and displays the latest saved content for
+comparison. Confirm **Save my draft** to replace it using the refreshed version
+and a backup. **History** and the post-delete restore link open **Backup Files**
+filtered to the absolute note path. Unsupported notes remain listed without
+blocking valid notes.
+
+**Move or rename** accepts a new relative Markdown path, creates missing folders,
+and preserves content and permissions. It requires the last-read version, rejects
+existing destinations, and backs up the source before removal. Markdown links and
+path-keyed backup history are not rewritten; keep the root `INDEX.md` in place
+because reading guidance references it. CLI commands and flags are unchanged.
+Automatic learning, native automatic memory, and Obsidian integration are not
+implemented.

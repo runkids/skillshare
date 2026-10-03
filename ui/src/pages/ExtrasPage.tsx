@@ -9,6 +9,7 @@ import { useAppContext } from '../context/AppContext';
 import { useToast } from '../components/Toast';
 import AgentIcon from '../components/AgentIcon';
 import Button from '../components/Button';
+import MemoryNotes from '../components/memory/MemoryNotes';
 import DialogShell from '../components/DialogShell';
 import { Select } from '../components/Input';
 import EmptyState from '../components/EmptyState';
@@ -446,7 +447,8 @@ export default function ExtrasPage() {
   const t = useT();
   const queryClient = useQueryClient();
   const [params, setParams] = useSearchParams();
-  const tab = params.get('tab') === 'instructions' ? 'instructions' : 'folders';
+  const tab = params.get('tab') === 'memory' ? 'memory' : params.get('tab') === 'instructions' ? 'instructions' : 'folders';
+  const [creatingNote, setCreatingNote] = useState(false);
 
   const { data, isPending, error } = useQuery({ queryKey: queryKeys.extras, queryFn: () => api.listExtras(), staleTime: staleTimes.extras });
   const { data: extData } = useQuery({ queryKey: ['extras', 'extensions'], queryFn: () => api.listExtraExtensions(), staleTime: staleTimes.extras });
@@ -627,15 +629,17 @@ export default function ExtrasPage() {
         title={t('extras.title')}
         subtitle={t(isProjectMode ? 'extras.subtitle.project' : 'extras.subtitle.global')}
         actions={tab === 'folders' ? <span data-tour="extras-list"><Button variant="primary" onClick={() => setShowAdd(true)}><Plus size={15} />{t('extras.addExtra')}</Button></span>
-          : <Button variant="primary" onClick={() => setCreatingShared(true)}><Plus size={15} />{t(isProjectMode ? 'instructions.projectShared.new' : 'instructions.shared.new')}</Button>}
+          : tab === 'instructions' ? <Button variant="primary" onClick={() => setCreatingShared(true)}><Plus size={15} />{t(isProjectMode ? 'instructions.projectShared.new' : 'instructions.shared.new')}</Button>
+          : <Button variant="primary" onClick={() => setCreatingNote(true)}><Plus size={15} />{t('memory.new')}</Button>}
       />
 
       <nav className="ss-tabs mb-7" aria-label={t('extras.tabs')}>
         <Link to="?" replace className={tab === 'folders' ? 'on' : ''} aria-current={tab === 'folders'}>{t('extras.tab.folders')}</Link>
         <Link to="?tab=instructions" replace className={tab === 'instructions' ? 'on' : ''} aria-current={tab === 'instructions'}>{t('extras.tab.instructions')}</Link>
+        <Link to="?tab=memory" replace className={tab === 'memory' ? 'on' : ''} aria-current={tab === 'memory'}>{t('memory.title')}</Link>
       </nav>
 
-      {tab === 'instructions' ? (
+      {tab === 'memory' ? <MemoryNotes creating={creatingNote} setCreating={setCreatingNote} /> : tab === 'instructions' ? (
         isProjectMode ? <ProjectInstructions creating={creatingShared} setCreating={setCreatingShared} /> : <SharedInstructions creating={creatingShared} setCreating={setCreatingShared} />
       ) : isPending ? (
         <PageSkeleton />

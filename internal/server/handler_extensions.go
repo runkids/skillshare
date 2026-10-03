@@ -10,6 +10,7 @@ import (
 	"runtime"
 	"time"
 
+	"skillshare/internal/childproc"
 	"skillshare/internal/install"
 	syncpkg "skillshare/internal/sync"
 )
@@ -144,7 +145,7 @@ func (s *Server) handleExtensionsOpen(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	cmd.Stdin, cmd.Stdout, cmd.Stderr = nil, nil, nil
-	if err := cmd.Start(); err != nil {
+	if err := childproc.StartDetached(cmd); err != nil {
 		writeError(w, http.StatusInternalServerError, fmt.Sprintf("failed to open file manager: %s", err))
 		return
 	}

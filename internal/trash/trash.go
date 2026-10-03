@@ -31,7 +31,10 @@ func validateTrashName(name string) error {
 	if strings.ContainsRune(name, 0) {
 		return fmt.Errorf("trash name must not contain NUL")
 	}
-	if filepath.IsAbs(name) {
+	// filepath.IsAbs is platform-dependent: on Windows "/absolute/path" carries
+	// no volume, so it reads as relative there.  A leading separator is never a
+	// valid trash name on any platform, so reject it explicitly.
+	if filepath.IsAbs(name) || strings.HasPrefix(name, "/") {
 		return fmt.Errorf("trash name must not be absolute: %s", name)
 	}
 	for _, part := range strings.Split(name, "/") {

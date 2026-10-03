@@ -2,4 +2,4 @@
 
 package main
 
-func relaunchInHiddenConsole() {}
+func relaunchInHiddenConsole(bool) {}

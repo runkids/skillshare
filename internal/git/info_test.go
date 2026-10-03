@@ -401,26 +401,33 @@ func TestHasRemoteSkillDirs(t *testing.T) {
 	}
 }
 
-func TestHasLocalSkillDirs(t *testing.T) {
-	repo := initTestRepo(t)
+func TestHasLocalContent(t *testing.T) {
+	repo := t.TempDir()
+	runGit(t, repo, "init")
+	if err := os.WriteFile(filepath.Join(repo, ".gitignore"), []byte(".DS_Store\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(repo, ".DS_Store"), []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
 
-	hasSkills, err := HasLocalSkillDirs(repo)
+	hasLocal, err := HasLocalContent(repo)
 	if err != nil {
-		t.Fatalf("HasLocalSkillDirs failed: %v", err)
+		t.Fatalf("HasLocalContent failed: %v", err)
 	}
-	if hasSkills {
-		t.Fatal("expected no local skill directories in fresh repo")
+	if hasLocal {
+		t.Fatal("expected .gitignore and ignored files alone to count as no local content")
 	}
 
-	if err := os.MkdirAll(filepath.Join(repo, "my-skill"), 0o755); err != nil {
-		t.Fatalf("failed to create local skill dir: %v", err)
+	if err := os.WriteFile(filepath.Join(repo, "reviewer.md"), []byte("# agent\n"), 0o644); err != nil {
+		t.Fatal(err)
 	}
-	hasSkills, err = HasLocalSkillDirs(repo)
+	hasLocal, err = HasLocalContent(repo)
 	if err != nil {
-		t.Fatalf("HasLocalSkillDirs failed: %v", err)
+		t.Fatalf("HasLocalContent failed: %v", err)
 	}
-	if !hasSkills {
-		t.Fatal("expected local skill directory to be detected")
+	if !hasLocal {
+		t.Fatal("expected a root-level file to count as local content")
 	}
 }
 
@@ -991,6 +998,46 @@ func TestFirstPull_MergesUnrelatedRemoteHistory(t *testing.T) {
 	_, statErr := os.Stat(filepath.Join(repo, "remote-skill", "SKILL.md"))
 	if statErr != nil || !HasUpstream(repo) {
 		t.Fatalf("expected remote files merged and upstream set (stat err: %v, upstream: %v)", statErr, HasUpstream(repo))
+	}
+}
+
+func TestFirstPull_KeepsFilesOnlyLocalCommits(t *testing.T) {
+	remote := createBareRemoteWithBranch(t, "main", map[string]string{"remote-skill/SKILL.md": "# remote\n"})
+	repo := initTestRepo(t) // commits README.md at the root, no directories
+	runGit(t, repo, "remote", "add", "origin", remote)
+
+	if _, err := FirstPull(repo, false); err != nil {
+		t.Fatalf("FirstPull() error: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(repo, "README.md")); err != nil {
+		t.Fatalf("local committed file was discarded: %v", err)
+	}
+}
+
+func TestFirstPull_RootScopeScaffoldMergesAndStaysClean(t *testing.T) {
+	remote := createBareRemoteWithBranch(t, "main", map[string]string{"skills/remote-skill/SKILL.md": "# remote\n"})
+	repo := t.TempDir()
+	runGit(t, repo, "init")
+	runGit(t, repo, "config", "user.email", "test@test.com")
+	runGit(t, repo, "config", "user.name", "test")
+	if err := os.WriteFile(filepath.Join(repo, ".gitignore"), []byte("config.yaml\n.DS_Store\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	runGit(t, repo, "add", ".gitignore")
+	runGit(t, repo, "commit", "-m", "scaffold")
+	if err := os.MkdirAll(filepath.Join(repo, "skills"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(repo, "config.yaml"), []byte("source: x\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	runGit(t, repo, "remote", "add", "origin", remote)
+
+	if _, err := FirstPull(repo, false); err != nil {
+		t.Fatalf("FirstPull() error: %v", err)
+	}
+	if dirty, err := IsDirty(repo); err != nil || dirty {
+		t.Fatalf("expected the root-scope ignore rule to survive (dirty=%v, err=%v): %s", dirty, err, runGit(t, repo, "status", "--porcelain"))
 	}
 }
 

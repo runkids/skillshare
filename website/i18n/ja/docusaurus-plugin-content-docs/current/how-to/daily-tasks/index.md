@@ -11,6 +11,7 @@ skillshare の一般的な使用パターンです。
 | やりたいこと | ワークフロー |
 |-------------|----------|
 | 日常的に Skill を使う | [日々のワークフロー](./daily-workflow.md) |
+| AI ツール間でメモリを共有する | [メモリ共有ガイド](./sharing-memory) |
 | 新しい Skill を見つけてインストールする | [Skill の発見](./skill-discovery.md) |
 | Skill を保護する | [バックアップと復元](./backup-restore.md) |
 | プロジェクトスコープの Skill を管理する | [プロジェクトワークフロー](./project-workflow.md) |

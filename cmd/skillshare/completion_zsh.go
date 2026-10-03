@@ -619,6 +619,21 @@ _skillshare() {
                 extras)
                     if (( CURRENT > 2 )); then
                         local -a extras_sub_flags
+                        if [[ ${words[2]} == memory ]]; then
+                            shift words; (( CURRENT-- ))
+                            if (( CURRENT == 2 )); then
+                                _arguments '1:command:(init list show write delete instructions)' $global_flags '--help[Show help]' '-h[Show help]'
+                            else
+                                case ${words[2]} in
+                                    list) extras_sub_flags=('--search[Search names and content]:text:') ;;
+                                    delete) extras_sub_flags=('--version[Last read hash]:hash:') ;;
+                                    write) extras_sub_flags=('--from[Input file or stdin]:file:_files' '--version[Last read hash]:hash:') ;;
+                                esac
+                                shift words; (( CURRENT-- ))
+                                _arguments '1:note: ' $extras_sub_flags '--json[JSON output]' $global_flags '--help[Show help]' '-h[Show help]'
+                            fi
+                            return
+                        fi
                         case ${words[2]} in
                             init)
                                 extras_sub_flags=(
@@ -678,6 +693,7 @@ _skillshare() {
                         'remove:Remove extra resource type'
                         'collect:Collect local files into extras'
                         'source:Show/set extras source'
+                        'memory:Manage shared Markdown notes'
                     )
                     _arguments -C \
                         '1:subcommand:->subcmd' \

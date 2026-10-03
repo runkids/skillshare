@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"skillshare/internal/childproc"
 	versioncheck "skillshare/internal/version"
 )
 
@@ -153,7 +154,7 @@ func defaultStartUIRestartHelper(args []string, dir string) error {
 	if dir != "" {
 		cmd.Dir = dir
 	}
-	if err := cmd.Start(); err != nil {
+	if err := childproc.StartDetached(cmd); err != nil {
 		return err
 	}
 	return cmd.Process.Release()
