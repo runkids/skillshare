@@ -174,7 +174,7 @@ The fix is three separate contracts. They answer different questions and must no
 - it is in `manifest.Managed`
 - it resolves inside the logical source, the canonical source root, or the resolved target of an entry that is currently `followed`. `prunableLink` checks both sides the same way (`agent_sync.go:102-114`). Including the canonical source root covers relative links created while the source root itself is a link.
 
-`--force` keeps #315's escape hatch (`sync.go:819`, `:832`), except during a missing-entry pause (point 4). This rule does not prove who created a link. A user who repoints a managed name by hand to another path inside an owned root can still have that link pruned. In-source links have had the same exposure since #315.
+`--force` keeps #315's escape hatch (`sync.go:819`, `:832`), except during a unavailable-entry pause (point 4). This rule does not prove who created a link. A user who repoints a managed name by hand to another path inside an owned root can still have that link pruned. In-source links have had the same exposure since #315.
 
 *After unfollow.* Links created by this proposal point through `<src>/_f/...`. After `_f` leaves `.skillfollow`, they still resolve inside the logical or canonical source, so they are pruned like any other orphan. A managed link that resolves to a physical external path can only come from a hand-made link or the Windows read-back fallback. Once its root is no longer followed, prune keeps it and warns: "managed link resolves outside the source after unfollow; remove it or re-run with --force". Storing per-link targets in the manifest was rejected as extra schema for this edge case.
 
@@ -184,7 +184,7 @@ The fix is three separate contracts. They answer different questions and must no
 - A link that resolves only through a followed root counts as linked when it is in the manifest **and** inside a currently followed root's resolved target. Otherwise it counts as local. That includes the time before the first sync. Sync then adopts correctly selected links into the manifest (`sync.go:669-675`).
 - Limitation: status measures connectivity, not correct per-name wiring. Suppose a managed name is repointed by hand to a different path inside the same followed root. Status still counts it as linked. `doctor`'s `checkSyncDrift` (`cmd/skillshare/doctor.go:715`) only tests `syncedCount < expectedCount`, so it reports no drift. In-source links behave the same way today.
 
-**4. Missing entries: no data loss while discovery is incomplete.** A followed entry can be `missing` while a drive is unmounted or a repo is being re-cloned. Discovery is then incomplete, and absent names cannot be attributed. Standard naming assigns target names from the skill name (`ResolveTargetSkillsForTarget`, `internal/sync/target_naming.go:56`; basename validation at `:181`), and the manifest has no source mapping. While any entry is `missing`:
+**4. Unavailable entries: no data loss while discovery is incomplete.** A followed entry can be `missing` while a drive is unmounted or a repo is being re-cloned. It can also turn into a rejected state, for example when its link is accidentally replaced by a regular file (`invalid-target`). Either way discovery is incomplete, and absent names cannot be attributed. Standard naming assigns target names from the skill name (`ResolveTargetSkillsForTarget`, `internal/sync/target_naming.go:56`; basename validation at `:181`), and the manifest has no source mapping. An entry is *unavailable* when it is declared and in any state other than `followed` or `not-link`: `missing`, or any rejected state, including `single-skill` before step 4. While any entry is unavailable:
 
 - **Prune is paused on every skills target, including with `--force`.** Merge and copy prune remove nothing they cannot attribute. That covers:
   - managed names that are absent from discovery
@@ -193,14 +193,14 @@ The fix is three separate contracts. They answer different questions and must no
   - the flat-name/tracked-dir heuristic branch (`:843`)
   - copy-mode orphans (`PruneOrphanCopiesWithSkills`, `copy.go:273-291`)
 
-  `--force` does not override this. In copy mode, the managed copy may be the only remaining copy of the missing content. Recovery is one step either way.
+  `--force` does not override this. In copy mode, the managed copy may be the only remaining copy of the unavailable content. Recovery is one step either way.
 - **Copies are not replaced.** In standard naming, an existing managed copy whose origin cannot be proven is not replaced or overwritten, even with `--force`. Example: target `a` was copied from `_offline/a`, `_offline` is now missing, and `other/a` is available. `ResolveTargetSkillsForTarget` only sees `other/a`, so no collision shows up. Without this rule, `SyncTargetCopyWithSkillsOptions` (`copy.go:187-197`) would overwrite `a`. Flat naming can proceed, because the logical prefix (`_offline__a`) identifies the origin. Standard-name reformat and migration paths follow the same rule.
 - **Merge links may be replaced, with a warning.** Replacing a link loses no data, and pointing `a` at the only available `a` matches what the source currently contains. The warning says that the name may previously have been served by a missing followed entry and may collide when that entry returns. It must not claim to know the old origin. The existing collision handling then applies.
 - **New links and copies are still created** for names that are genuinely absent from the target.
-- **Reconcile keeps metadata only under the missing entry's logical prefix**, including the entry itself. Keys are already logical paths (`reconcile_core.go:46`). `pruneStaleEntries` (`:132-138`) still prunes everything else normally.
-- **Output.** `sync` prints `prune paused`, and reports copies kept from replacement. `status` and `doctor` name the blocking entry and say "restore `<path>` or remove `<name>` from `.skillfollow[.local]` to resume cleanup". An abandoned declaration keeps the pause in place indefinitely. This is by design: a visible, recoverable safety state is better than silent data loss. It needs no new override and no schema change.
+- **Reconcile keeps metadata only under the unavailable entry's logical prefix**, including the entry itself. Keys are already logical paths (`reconcile_core.go:46`). `pruneStaleEntries` (`:132-138`) still prunes everything else normally.
+- **Output.** `sync` prints `prune paused`, and reports copies kept from replacement. `status` and `doctor` name the blocking entry and say "restore or fix `<path>`, or remove `<name>` from `.skillfollow[.local]`, to resume cleanup". An abandoned declaration keeps the pause in place indefinitely. This is by design: a visible, recoverable safety state is better than silent data loss. It needs no new override and no schema change.
 
-These rules apply only when at least one entry is `missing`. Prune with no `.skillfollow`, or with every entry valid, is unchanged.
+These rules apply only when at least one entry is unavailable. Prune with no `.skillfollow`, or with every entry valid, is unchanged.
 
 `PruneOrphanAgentLinks` and `pruneExtraOrphans` are out of scope, because `.skillfollow` covers skills only. They use `prunableLink` (`agent_sync.go:94-117`). That function resolves both sides, but it is not a provenance check, and it also removes links it can prove are broken.
 
@@ -216,6 +216,7 @@ These rules apply only when at least one entry is `missing`. Prune with no `.ski
 | 6 | `_f` removed, managed link through `<src>/_f/a`, with and without a symlinked source root | pruned as orphan |
 | 7 | `_f` removed, managed physical link `/ext/_f/a` | kept with the after-unfollow warning; removed with `--force` |
 | 8 | `_f` missing, merge and copy, flat and standard naming, with and without `--force` | nothing unattributable removed; `prune paused` reported; metadata kept under `_f/` only |
+| 8b | `_f` previously followed, its link replaced by a regular file (`invalid-target`), copy mode | same as case 8: managed copies from `_f` are kept, `prune paused` names `_f` |
 | 9 | `_offline` missing, `other/a` available, managed `a` from `_offline/a` | copy + standard: `a` untouched and reported; copy + flat: proceeds; merge: relinked with warning |
 | 10 | Hand-made link to `/ext/a`, nothing declared | kept with external warning (default unchanged) |
 | 11 | Windows junction in the source (simulated) | discovered when declared, invisible when not |
@@ -277,7 +278,7 @@ A `not-link` entry is a real directory, so it keeps today's ownership rules: nam
 | Pull, audit rollback, and `--force` on a followed repo | §5's followed-update policy |
 | Dashboard source change on a followed repo | `handlePatchSkillSource` (`internal/server/handler_skill_content.go:98`), which calls `git.SetRemoteURL` at `:162` |
 | Staging | §5's staging guard |
-| Source-repo pull and reset: `ss pull` (`pullFromRemote`, `cmd/skillshare/pull.go:54`), the dashboard pull (`handlePull`, `internal/server/handler_git.go:677`, via `PullWithResolution` at `:745`), and the `init` resets to a remote branch (`resetToRemoteBranch`, `cmd/skillshare/init_remote.go:126`; `cmd/skillshare/init.go:775`) | Fetch first. Then refuse while any declared entry in the staging tree is indexed, or while the incoming revision touches a declared entry path (`git diff --name-only HEAD <incoming> -- <entries>`). Ignoring the link is not enough: Git treats ignored files as expendable, so a remote commit that adds that path would replace the link. The message names the path and the commit, and says to run `git rm --cached` or to fix the remote. |
+| Source-repo pull and reset: `ss pull` (`pullFromRemote`, `cmd/skillshare/pull.go:54`), the dashboard pull (`handlePull`, `internal/server/handler_git.go:677`, via `PullWithResolution` at `:745`), and the `init` resets to a remote branch (`resetToRemoteBranch`, `cmd/skillshare/init_remote.go:126`; `cmd/skillshare/init.go:775`) | Fetch first. Then refuse while any declared entry in the staging tree is indexed, or while the incoming revision touches a path that has a link component in the working tree, declared or not. Each path from `git diff --name-only HEAD <incoming>` is checked with `Lstat` on its existing ancestors. Ignoring the link is not enough: Git treats ignored files as expendable, so a remote commit that adds that path would replace the link. Checking undeclared links too keeps this seam consistent with the final-component rule above, and it closes the same exposure that undeclared links have today. The message names the path and the commit, and says to run `git rm --cached` or to fix the remote. |
 
 `enable`/`disable` (`cmd/skillshare/enable.go`) and `PUT /api/skillignore` (`internal/server/handler_skillignore.go:80-89`) write only the root ignore files, which the handle allows.
 
@@ -424,7 +425,7 @@ The tree was clean before the pull, so in the normal case this undoes only what 
 - **`manifest.Managed` as the only ownership test.** Names alone cannot tell skillshare's link from a user's link with the same name.
 - **Store each managed link's target, or each copy's origin, in the manifest.** This would allow precise cleanup after unfollow and precise replacement while an entry is missing. It is extra schema for edge cases that the warning path and the conservative pause already cover. Rejected for now.
 - **A target-name-to-skill mapping in status.** This would make status exact per name, but `CheckStatusMerge` and its callers would need new plumbing. Status stays an aggregate count, and the limitation is documented.
-- **Let `--force` override the missing-entry pause.** In copy mode that can destroy the only remaining copy. Restoring the path, or removing the declaration, is a one-step recovery.
+- **Let `--force` override the unavailable-entry pause.** In copy mode that can destroy the only remaining copy. Restoring the path, or removing the declaration, is a one-step recovery.
 - **A followed-entry check at each write seam.** This was the earlier design of §4. It is shallow: the check is one predicate, and the real work, remembering to call it before the first write, is spread across every caller. Four review rounds found eleven seams that the list missed, and nothing stops a new write from missing it. The `os.Root` handle makes the boundary a property of the filesystem access itself.
 - **Allow mutations of descendants because the entry is declared.** Declaring an entry grants discovery read access. It does not give skillshare ownership of the user's tree.
 - **Block commits in every git scope, or decide by path containment.** A skills declaration would then block unrelated repos, and symlinked or alias roots would be misjudged. Git reachability is the correct test.
@@ -442,7 +443,7 @@ The reference implementation was about 26 insertions and 17 deletions across 11 
 - the ratchet and the behavior matrix
 - exact link identity
 - the repo-root audit fix
-- the missing-entry pause and the copy-preservation rule
+- the unavailable-entry pause and the copy-preservation rule
 - the external mutation boundary: moving source writes onto an `os.Root` handle across CLI and server
 - the shared followed-update policy
 - the Git-reachability staging guard
@@ -465,9 +466,9 @@ Any line estimate is rough, not a commitment.
   - Unfollow and uninstall of a followed entry remove only the link and the declarations. Partial-write failure is reported as failure.
   - Audit on a followed repo: a pulled commit adding a malicious child skill blocks and rolls back to `beforeHash`, through the CLI, the server, and `install --update`. A zero-file scan of a non-empty root is a scan error.
   - Update: a mixed `update --all` of ordinary and followed repos, covering dirty trees, `--force`, divergence, and an `IsDirty` error. The ordinary repo still updates, and each followed refusal is reported per item in batch, project, server, and SSE output. Rollback-failure and concurrency messages are checked too.
-  - Source-repo `pull`, dashboard pull, and `init` reset: refused with an indexed declared link, and refused when the remote adds or changes a declared entry path while the link is only ignored. The link is unchanged after each refusal.
+  - Source-repo `pull`, dashboard pull, and `init` reset: refused with an indexed declared link, and refused when the remote adds or changes a path through a declared or undeclared link that is only ignored. The link is unchanged after each refusal.
   - The staging guard at `commit`, `push`, and `init --remote`: indexed versus unignored links; a source linked out of the git root (not guarded); an alias source pointing into the root (guarded); agents, extras, and custom-root scopes; under both `git_root: skills` and `git_root: root`.
-  - A missing entry with `--force`: the prune pause holds, and copy replacement is refused in standard naming.
+  - A missing or rejected entry with `--force`: the prune pause holds, and copy replacement is refused in standard naming.
 - **Windows:** the `skillshare-windows-utm` runbook for §3 cases 11–13, §6, and the §4 boundary through a junction with the basic token.
 - `make check` in the devcontainer.
 
@@ -478,7 +479,7 @@ Any line estimate is rough, not a commitment.
 3. **Enable `.skillfollow` for groups and tracked repos.** This step includes:
    - parsing and classification
    - exact link identity and the ownership and status rules
-   - the missing-entry pause and copy preservation
+   - the unavailable-entry pause and copy preservation
    - the error messages for the mutation boundary, and the git seams outside the handle
    - the repo-root audit fix
    - the shared followed-update policy
@@ -495,7 +496,7 @@ These were open questions in earlier revisions. The maintainer can still reopen 
 1. **`.skillfollow.local` is not auto-ignored.** Docs show the ignore line, `doctor` warns when the file is not ignored, and step 4's `follow --local` writes the line. Step 3 writes nothing. `.skillignore.local` keeps its current behavior.
 2. **Agents and extras are out of scope.** Their pruning (`prunableLink`) has different semantics, so an `.agentfollow` would need its own proposal and a concrete user request.
 3. **No `followed` metadata kind.** The one use case so far, branch display, already falls back to live git (`cmd/skillshare/list.go:320-331`). A schema change waits for a concrete need.
-4. **Broken external links outside a missing-entry pause are a separate follow-up.** The branch at `sync.go:828` removes these without a provenance check. Applying the #314 rule there is a separate issue. While an entry is missing, prune is already paused (§3), which covers the case this proposal creates.
+4. **Broken external links outside a unavailable-entry pause are a separate follow-up.** The branch at `sync.go:828` removes these without a provenance check. Applying the #314 rule there is a separate issue. While an entry is missing, prune is already paused (§3), which covers the case this proposal creates.
 5. **Package placement is settled during implementation.** The starting point is `internal/sourcewalk` with plain inputs. The home of the followed-update policy is chosen in step 3, because `git` already imports `install`.
 
 ## Open Questions
