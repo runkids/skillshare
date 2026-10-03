@@ -7,11 +7,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/pterm/pterm"
-
 	"skillshare/internal/oplog"
 	"skillshare/internal/sync"
+	"skillshare/internal/theme"
 	"skillshare/internal/ui"
+	"skillshare/internal/utils"
 )
 
 type collectOptions struct {
@@ -143,29 +143,24 @@ func runCollectPlan(plan collectPlan, opts collectOptions, start time.Time, scop
 
 	var sp *ui.Spinner
 	if !opts.jsonOutput {
-		header := "Collect"
-		if plan.kind == kindAgents {
-			header = "Collect agents"
-		}
-		ui.Header(ui.WithModeLabel(header))
 		sp = ui.StartSpinner(fmt.Sprintf("Scanning for local %s...", label))
 	}
 
 	res := plan.scan(!opts.jsonOutput)
+	if sp != nil {
+		sp.Stop()
+	}
 
 	if len(res.items) == 0 {
-		if sp != nil {
-			sp.Success(fmt.Sprintf("No local %s found", label))
-		}
 		if opts.jsonOutput {
 			return summary, collectOutputJSON(nil, opts.dryRun, start, nil)
 		}
+		ui.Done(ui.MarkNone, fmt.Sprintf("No local %s found", label), time.Since(start))
 		return summary, nil
 	}
 
-	if sp != nil {
-		sp.Success(fmt.Sprintf("Found %d local %s", len(res.items), label))
-		displayLocalCollectItems(fmt.Sprintf("Local %s found", label), res.items)
+	if !opts.jsonOutput {
+		displayLocalCollectItems(fmt.Sprintf("Local %s in targets", label), res.items)
 	}
 
 	if opts.dryRun {
@@ -174,7 +169,9 @@ func runCollectPlan(plan collectPlan, opts collectOptions, start time.Time, scop
 		if opts.jsonOutput {
 			return summary, collectOutputJSON(result, true, start, nil)
 		}
-		ui.Info("Dry run - no changes made")
+		fmt.Println()
+		ui.Done(ui.MarkNone, "Would collect "+plural(len(res.items), strings.TrimSuffix(label, "s")), 0)
+		ui.DryRun()
 		return summary, nil
 	}
 
@@ -200,39 +197,57 @@ func runCollectPlan(plan collectPlan, opts collectOptions, start time.Time, scop
 	if collectErr != nil {
 		return summary, collectErr
 	}
-	return summary, renderCollectResult(label, result, plan.source)
+	return summary, renderCollectResult(label, result, plan.source, start)
 }
 
 func displayLocalCollectItems(title string, items []collectDisplayItem) {
-	ui.Header(ui.WithModeLabel(title))
+	fmt.Println(theme.Primary().Bold(true).Render(title))
+	names := make([]string, len(items))
+	for i, item := range items {
+		names[i] = item.Name
+	}
+	width := ui.RowWidth(names...)
 	for _, item := range items {
-		ui.ListItem("info", item.Name, fmt.Sprintf("[%s] %s", item.TargetName, item.Path))
+		ui.Row(ui.MarkNone, item.Name, item.TargetName+ui.DimText(" · "+utils.FoldHomePath(item.Path)), width)
 	}
 }
 
 func confirmCollect(resourceLabel string) (bool, error) {
-	fmt.Println()
 	return ui.ConfirmAction(fmt.Sprintf("Collect these %s to source?", resourceLabel), false)
 }
 
-func renderCollectResult(resourceLabel string, result *sync.PullResult, source string) error {
-	ui.Header(ui.WithModeLabel("Collecting " + resourceLabel))
+func renderCollectResult(resourceLabel string, result *sync.PullResult, source string, start time.Time) error {
+	var names []string
+	names = append(names, result.Pulled...)
+	names = append(names, result.Skipped...)
+	for name := range result.Failed {
+		names = append(names, name)
+	}
+	width := ui.RowWidth(names...)
 
+	fmt.Println()
 	for _, name := range result.Pulled {
-		ui.StepDone(name, "copied to source")
+		ui.Row(ui.MarkOK, name, "copied to source", width)
 	}
 	for _, name := range result.Skipped {
-		ui.StepSkip(name, "already exists in source, use --force to overwrite")
+		ui.Row(ui.MarkWarn, name, "already exists in source "+ui.DimText("· use --force to overwrite"), width)
 	}
 	for name, err := range result.Failed {
-		ui.StepFail(name, err.Error())
+		ui.Row(ui.MarkFail, name, err.Error(), width)
 	}
 
-	ui.OperationSummary("Collect", 0,
-		ui.Metric{Label: "collected", Count: len(result.Pulled), HighlightColor: pterm.Green},
-		ui.Metric{Label: "skipped", Count: len(result.Skipped), HighlightColor: pterm.Yellow},
-		ui.Metric{Label: "failed", Count: len(result.Failed), HighlightColor: pterm.Red},
-	)
+	mark, text := ui.MarkOK, "Collected "+plural(len(result.Pulled), strings.TrimSuffix(resourceLabel, "s"))
+	if len(result.Skipped) > 0 {
+		mark, text = ui.MarkWarn, fmt.Sprintf("%s, %d skipped", text, len(result.Skipped))
+	}
+	if len(result.Failed) > 0 {
+		mark, text = ui.MarkWarn, fmt.Sprintf("%s, %d failed", text, len(result.Failed))
+		if len(result.Pulled) == 0 {
+			mark = ui.MarkFail
+		}
+	}
+	fmt.Println()
+	ui.Done(mark, text, time.Since(start))
 
 	if len(result.Pulled) > 0 {
 		showCollectNextSteps(resourceLabel, source)
@@ -259,23 +274,21 @@ func collectOutputJSON(result *sync.PullResult, dryRun bool, start time.Time, co
 }
 
 func showCollectNextSteps(resourceLabel, source string) {
-	fmt.Println()
+	syncCmd := "skillshare sync"
+	if ui.ModeLabel == "project" {
+		syncCmd += " -p"
+	}
 	if resourceLabel == "agents" {
-		if ui.ModeLabel == "project" {
-			ui.Info("Run 'skillshare sync -p agents' to distribute to all agent targets")
-		} else {
-			ui.Info("Run 'skillshare sync agents' to distribute to all agent targets")
-		}
-	} else if ui.ModeLabel == "project" {
-		ui.Info("Run 'skillshare sync -p' to distribute to all targets")
-	} else {
-		ui.Info("Run 'skillshare sync' to distribute to all targets")
+		syncCmd += " agents"
 	}
+	next := []string{syncCmd, "link them into every target"}
 
+	// commit works on the global source repository only
 	gitDir := filepath.Join(source, ".git")
-	if _, err := os.Stat(gitDir); err == nil {
-		ui.Info("Commit changes: cd %s && git add . && git commit", source)
+	if _, err := os.Stat(gitDir); err == nil && ui.ModeLabel != "project" {
+		next = append(next, "skillshare commit", "save them in git")
 	}
+	ui.Next(next...)
 }
 
 func logCollectOp(cfgPath string, start time.Time, cmdErr error, summary collectLogSummary) {

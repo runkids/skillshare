@@ -274,7 +274,7 @@ func TestCollectProject_Agents_CollectsLocal(t *testing.T) {
 
 	result := sb.RunCLIInDir(projectDir, "collect", "-p", "agents", "--force")
 	result.AssertSuccess(t)
-	result.AssertAnyOutputContains(t, "collected")
+	result.AssertAnyOutputContains(t, "Collected 1 agent")
 
 	// Verify copied to project agents source
 	agentsSource := filepath.Join(projectDir, ".skillshare", "agents")

@@ -137,9 +137,9 @@ func selectCollectTargets(cfg *config.Config, targetName string, collectAll, jso
 	}
 
 	ui.Warning("Multiple targets found. Specify a target name or use --all")
-	fmt.Println("  Available targets:")
+	ui.Note("Available targets:")
 	for name := range cfg.Targets {
-		fmt.Printf("    - %s\n", name)
+		ui.Note("  - " + name)
 	}
 	return nil, nil
 }

@@ -226,7 +226,7 @@ targets:
 
 	result := sb.RunCLI("collect", "agents", "--force")
 	result.AssertSuccess(t)
-	result.AssertAnyOutputContains(t, "collected")
+	result.AssertAnyOutputContains(t, "Collected 1 agent")
 
 	// Verify the file was copied to agent source
 	if _, err := os.Stat(filepath.Join(agentsSource, "local-agent.md")); err != nil {
