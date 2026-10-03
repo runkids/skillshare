@@ -109,7 +109,7 @@ for native client requirements and supported targets.
 | `backup --list` | List backups |
 | `restore <target>` | Restore from backup |
 | `commit [-m "msg"]` | Create a local git commit without pushing |
-| `push [-m "msg"]` | Commit and push to git remote |
+| `push [-m "msg"] [--pull]` | Commit and push to git remote; `--pull` merges remote changes first, then syncs |
 | `pull` | Pull from git and sync |
 | `trash list` | List soft-deleted skills |
 | `trash restore <name>` | Restore a soft-deleted skill |
@@ -169,6 +169,9 @@ skillshare push -m "Add new skill"
 
 # Machine B: pull and sync
 skillshare pull
+
+# Editing on several machines: both ways in one command
+skillshare push --pull -m "Update skills"
 ```
 
 Optional later (only if you install additional AI CLIs after setup):

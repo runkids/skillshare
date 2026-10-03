@@ -107,6 +107,8 @@ skillshare push -m "Add new skill"
 2. `git commit -m "Add new skill"`
 3. `git push`
 
+다른 머신에서도 push한다면 대신 `skillshare push --pull -m "Add new skill"`을 사용하세요. push 전에 그 변경 사항을 병합하고 이후 target을 sync합니다. [Push와 Pull 함께 하기](/docs/reference/commands/push#push-and-pull-together)를 참고하세요.
+
 ### 변경 사항 Pull (이 머신으로)
 
 ```bash

@@ -31,6 +31,9 @@ func cmdCommit(args []string) error {
 
 	start := time.Now()
 	opts := parsePushArgs(args)
+	if opts.pull {
+		return fmt.Errorf("--pull is only supported by push: skillshare push --pull")
+	}
 
 	cfg, err := config.Load()
 	if err != nil {

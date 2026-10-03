@@ -115,6 +115,7 @@ Git commit and push source to remote. **Global mode only.**
 ```bash
 skillshare push                # Default message
 skillshare push -m "message"   # Custom message
+skillshare push --pull         # Merge remote changes, push, then sync targets
 skillshare push --dry-run      # Preview
 ```
 

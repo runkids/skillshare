@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { AlertCircle, AlertTriangle, ArrowDownToLine, ArrowUpFromLine, CircleCheck, CloudUpload, ExternalLink, FolderGit2, GitBranch, GitCommitHorizontal, Info, RefreshCw, Undo2, X } from 'lucide-react';
+import { AlertCircle, AlertTriangle, ArrowDownToLine, ArrowDownUp, ArrowUpFromLine, CircleCheck, CloudUpload, ExternalLink, FolderGit2, GitBranch, GitCommitHorizontal, Info, RefreshCw, Undo2, X } from 'lucide-react';
 import { api, ApiError, type GitStatus, type PullResponse } from '../api/client';
 import Button from '../components/Button';
 import ConfirmDialog from '../components/ConfirmDialog';
@@ -48,7 +48,7 @@ export default function GitSyncPage() {
 
   const [message, setMessage] = useState('');
   const [dryRun, setDryRun] = useState(false);
-  const [busy, setBusy] = useState<'commit' | 'commitPull' | 'push' | 'upload' | 'pull' | 'branch' | 'fetch' | 'nested' | 'scope' | 'discard' | null>(null);
+  const [busy, setBusy] = useState<'commit' | 'commitPull' | 'syncBoth' | 'push' | 'upload' | 'pull' | 'branch' | 'fetch' | 'nested' | 'scope' | 'discard' | null>(null);
   const [runError, setRunError] = useState('');
   // A first pull whose history cannot merge; the error note then offers a force pull.
   const [mergeFailed, setMergeFailed] = useState(false);
@@ -60,6 +60,7 @@ export default function GitSyncPage() {
   const [conflict, setConflict] = useState<GitPullConflict | null>(null);
   const [reviewConflicts, setReviewConflicts] = useState(false);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
+  const [confirmSyncBoth, setConfirmSyncBoth] = useState(false);
   const [note, setNote] = useState('');
   const [pulled, setPulled] = useState<PullResponse | null>(null);
   const [setup, setSetup] = useState<Setup | null>(null);
@@ -129,6 +130,28 @@ export default function GitSyncPage() {
     setPulled(null);
     setPulled(await api.pull({ force: false, dryRun: false }));
   });
+  // Commit local changes, merge the remote and sync targets, then push, like
+  // push --pull. Targets sync even when nothing new arrives. An empty remote
+  // is pushed first and synced after. A pull conflict stops here and opens the
+  // review; sync again after applying.
+  const syncBoth = () => run('syncBoth', async () => {
+    if (dryRun) return setNote(t('gitSync.syncBoth.preview'));
+    if (status?.isDirty) {
+      await api.gitCommit({ message: message.trim() || undefined, dryRun: false });
+      setMessage('');
+    }
+    setPulled(null);
+    const pullAndSync = () => api.pull({ force: false, dryRun: false, alwaysSync: true });
+    try {
+      setPulled(await pullAndSync());
+      await api.push({});
+    } catch (err) {
+      if (!(err instanceof ApiError && err.code === 'remote_empty')) throw err;
+      await api.push({});
+      setPulled(await pullAndSync());
+    }
+    toast(t('gitSync.toast.syncedBoth'), 'success');
+  });
   const checkout = (branch: string) => run('branch', async () => {
     const res = await api.gitCheckout(branch);
     toast(t('gitSync.toast.switchedTo', { branch: res.branch }), 'success');
@@ -191,6 +214,12 @@ export default function GitSyncPage() {
             {busy !== 'pull' && <ArrowDownToLine size={16} />}
             {pullLabel}
           </Button>
+          {status.hasRemote && (
+            <Button variant="secondary" onClick={() => dryRun ? void syncBoth() : setConfirmSyncBoth(true)} loading={busy === 'syncBoth'} disabled={writing || nested.length > 0}>
+              {busy !== 'syncBoth' && <ArrowDownUp size={16} />}
+              {t('gitSync.actions.syncBoth')}
+            </Button>
+          )}
         </span>
       ))}
 
@@ -391,6 +420,26 @@ export default function GitSyncPage() {
         loading={busy === 'discard'}
         onCancel={() => setConfirmDiscard(false)}
         onConfirm={() => { setConfirmDiscard(false); void discard(); }}
+      />
+
+      <ConfirmDialog
+        open={confirmSyncBoth}
+        title={t('gitSync.syncBoth.title')}
+        message={
+          <div className="flex flex-col gap-3">
+            <span>{t('gitSync.syncBoth.intro')}</span>
+            <ol className="flex list-decimal flex-col gap-1 pl-5">
+              <li>{status.isDirty ? t(files.length === 1 ? 'gitSync.syncBoth.step.commit.one' : 'gitSync.syncBoth.step.commit.other', { count: files.length }) : t('gitSync.syncBoth.step.commitNone')}</li>
+              <li>{status.behind > 0 ? t(status.behind === 1 ? 'gitSync.syncBoth.step.pull.one' : 'gitSync.syncBoth.step.pull.other', { count: status.behind }) : t('gitSync.syncBoth.step.pullCheck')}</li>
+              <li>{t('gitSync.syncBoth.step.sync', { scope })}</li>
+              <li>{t('gitSync.syncBoth.step.push', { remote: platform ? remote!.ownerRepo : status.remoteURL })}</li>
+            </ol>
+            <span className="text-[13px] text-ink-3">{t('gitSync.syncBoth.conflict')}</span>
+          </div>
+        }
+        confirmText={t('gitSync.actions.syncBoth')}
+        onCancel={() => setConfirmSyncBoth(false)}
+        onConfirm={() => { setConfirmSyncBoth(false); void syncBoth(); }}
       />
 
       <ConfirmDialog
