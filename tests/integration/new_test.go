@@ -55,7 +55,7 @@ targets: {}
 	result := sb.RunCLI("new", "dry-run-skill", "--dry-run")
 
 	result.AssertSuccess(t)
-	result.AssertOutputContains(t, "dry-run")
+	result.AssertOutputContains(t, "Dry run — nothing was written")
 	result.AssertOutputContains(t, "Would create")
 
 	// Verify skill was NOT created
