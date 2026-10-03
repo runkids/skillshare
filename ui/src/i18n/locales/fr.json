@@ -2771,7 +2771,7 @@
   "targetDetail.piExtensions.settingsProblem.unsupportedEntry": "Les paramètres de Pi contiennent une entrée que Skillshare ne peut pas lire, et Pi peut l'utiliser à la place d'autres entrées du même paquet. Tout est en lecture seule ici ; modifiez-la avec pi config.",
   "targetDetail.piExtensions.readOnly.fork": "Lecture seule : {name} exécute un autre exécutable que Pi, que Skillshare n'a pas vérifié. Modifiez les extensions avec les paramètres propres à cet outil.",
   "targetDetail.piExtensions.readOnly.noCli": "Lecture seule : Skillshare n'a pas pu exécuter le Pi de cette cible pour vérifier sa version. Vérifiez que pi est installé et dans le PATH, puis rechargez cette page.",
-  "targetDetail.piExtensions.readOnly.unverifiedVersion": "Lecture seule : {name} exécute Pi {version}, et Skillshare n'a vérifié que {verified}. Utilisez pi config ou passez à une version vérifiée.",
+  "targetDetail.piExtensions.readOnly.unsupportedVersion": "Lecture seule : {name} exécute Pi {version}, et Skillshare nécessite Pi {min} ou une version ultérieure. Utilisez pi config ou mettez Pi à jour.",
   "targetDetail.piExtensions.readOnly.settings": "Lecture seule tant que le fichier de paramètres ne peut pas être lu. Corrigez le fichier comme indiqué ici, ou utilisez pi config.",
   "targetDetail.piExtensions.trust.saved": "Choix enregistré dans Pi : {value}",
   "targetDetail.piExtensions.trust.default": "Valeur par défaut de Pi pour les nouveaux dossiers : {value}",

@@ -52,6 +52,31 @@
           "exit": 0
         }
       ]
+    },
+    {
+      "version": "1.0.1",
+      "integrity": "sha512-B7FGYpHpBPvS+Ux16CbCuVnE9S4v6c2h6ykocPNarC4msD/4JM/eFrCrO2wbRkedJZ25myFozSWHvCOx4QnN+w==",
+      "passed": true,
+      "checks": [
+        {
+          "name": "contract/core",
+          "exit": 0,
+          "summary": "# 34 scenarios, 141 assertions passed"
+        },
+        {
+          "name": "contract/bundle",
+          "exit": 0,
+          "summary": "# 34 scenarios, 141 assertions passed"
+        },
+        {
+          "name": "native-lock",
+          "exit": 0
+        },
+        {
+          "name": "project-native",
+          "exit": 0
+        }
+      ]
     }
   ]
 }

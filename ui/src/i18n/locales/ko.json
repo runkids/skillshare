@@ -2771,7 +2771,7 @@
   "targetDetail.piExtensions.settingsProblem.unsupportedEntry": "Pi 설정에 Skillshare가 읽을 수 없는 항목이 있으며, Pi가 같은 패키지의 다른 항목 대신 그것을 사용할 수 있습니다. 여기서는 모두 읽기 전용이니 pi config로 변경하세요.",
   "targetDetail.piExtensions.readOnly.fork": "읽기 전용: {name}은(는) Pi와 다른 실행 파일을 실행하며, Skillshare가 검증하지 않았습니다. 해당 도구의 자체 설정으로 확장 기능을 변경하세요.",
   "targetDetail.piExtensions.readOnly.noCli": "읽기 전용: Skillshare가 이 대상의 Pi를 실행해 버전을 확인할 수 없었습니다. pi가 설치되어 PATH에 있는지 확인한 뒤 이 페이지를 다시 로드하세요.",
-  "targetDetail.piExtensions.readOnly.unverifiedVersion": "읽기 전용: {name}은(는) Pi {version}을(를) 실행하지만, Skillshare는 {verified}만 검증했습니다. pi config를 사용하거나 검증된 버전으로 바꾸세요.",
+  "targetDetail.piExtensions.readOnly.unsupportedVersion": "읽기 전용: {name}은(는) Pi {version}을(를) 실행하지만, Skillshare에는 Pi {min} 이상이 필요합니다. pi config를 사용하거나 Pi를 업데이트하세요.",
   "targetDetail.piExtensions.readOnly.settings": "설정 파일을 읽을 수 있을 때까지 읽기 전용입니다. 여기 설명대로 파일을 고치거나 pi config를 사용하세요.",
   "targetDetail.piExtensions.trust.saved": "Pi에 저장된 선택: {value}",
   "targetDetail.piExtensions.trust.default": "새 폴더에 대한 Pi 기본값: {value}",

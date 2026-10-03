@@ -111,7 +111,7 @@ function ExtensionsView({ name, view, applied, setApplied, t }: { name: string; 
 
 function ReadOnlyNote({ view, t }: { view: PiExtensionsView; t: T }) {
   if (!view.readOnly) return null;
-  const values = { name: view.target, version: view.version || '?', verified: view.verifiedVersions.join(', ') };
+  const values = { name: view.target, version: view.version || '?', min: view.minVersion };
   return <div className="ss-note warn"><AlertCircle size={16} /><span className="flex-1">{t(`targetDetail.piExtensions.readOnly.${view.readOnly}`, values)}</span></div>;
 }
 

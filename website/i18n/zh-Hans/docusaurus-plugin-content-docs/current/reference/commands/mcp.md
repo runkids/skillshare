@@ -386,7 +386,8 @@ Codex 因不同的原因被拒绝。它确实会将 `.codex/config.toml` 逐字�
 可能会导致另一位队友的 Codex 无法启动。请改为在每台机器上单独
 关闭该 server，在 `~/.codex/config.toml` 中设置 `enabled = false`。
 
-Pi 会用项目中的同名条目整条替换 global 条目，并跳过没有 `command` 或 `url` 的条目。
+Pi 会用项目中的同名条目整条替换 global 条目。没有 `command` 或 `url` 的条目，Pi 1.0.1
+之前会跳过；1.0.1 起会关闭 global server，但在 global 配置没有该 server 的机器上，Pi 每次启动都会警告。
 因此对 Pi，Skillshare 会写入 global server 的 `command`，或去掉 query 的 `url`，再加上
 `enabled: false`。被关闭的 server 不会启动，所以 args、env 和 headers 都不会写进项目文件，
 其他项目也照常使用该 server。每次同步都会根据 global server 重写这个条目。这需要 global

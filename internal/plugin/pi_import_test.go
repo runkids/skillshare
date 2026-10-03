@@ -173,7 +173,7 @@ func TestPiFilteredImportPreservesLifecycle(t *testing.T) {
 					return []byte("install remove update --local"), nil
 				}
 				commands = append(commands, strings.Join(args, " "))
-				raw, _, entries, err := readPackageConfig(file, "packages")
+				raw, _, entries, err := readPackageConfig(filepath.Dir(file), file, "packages")
 				if err != nil {
 					return nil, err
 				}
@@ -238,7 +238,7 @@ func TestPiFilteredImportPreservesLifecycle(t *testing.T) {
 			applyPluginRequest(t, f.svc, Request{Action: "sync"})
 			applyPluginRequest(t, f.svc, Request{Action: "enable", Name: "demo"})
 			applyPluginRequest(t, f.svc, Request{Action: "sync"})
-			raw, _, entries, err := readPackageConfig(file, "packages")
+			raw, _, entries, err := readPackageConfig(filepath.Dir(file), file, "packages")
 			if err != nil || len(entries) != 2 || string(entries[1]) != entry || !strings.Contains(string(raw), `"top":{"keep":9007199254740993}`) {
 				t.Fatalf("lossy restore: %s %v", raw, err)
 			}

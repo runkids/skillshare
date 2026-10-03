@@ -16,7 +16,7 @@ vi.mock('../../api/piExtensions', async (load) => ({
 
 const pkg = '/home/me/pkgs/tools';
 const global = (over: Partial<PiExtensionsView> = {}): PiExtensionsView => ({
-  target: 'pi', scope: 'global', settingsPath: '/home/me/.pi/agent/settings.json', version: '0.99.2', verifiedVersions: ['0.99.2', '1.0.0'],
+  target: 'pi', scope: 'global', settingsPath: '/home/me/.pi/agent/settings.json', version: '0.99.2', minVersion: '0.99.2',
   editable: true, revision: 'rev1', folders: [],
   packages: [{
     index: 0, source: pkg, identity: pkg, kind: 'local', form: 'object', scope: 'global', install: 'present', rules: ['-extensions/b.ts', '!extensions/slow-*.ts'], otherKeys: ['autoUpdate'],
@@ -223,8 +223,8 @@ describe('Pi target Extensions tab', () => {
   });
 
   it('is read-only on a Pi version Skillshare has not verified and says what to do', async () => {
-    show(global({ editable: false, readOnly: 'unverifiedVersion', version: '1.0.1', target: 'pi-work', scope: 'account', packages: global().packages.map((p) => ({ ...p, rows: p.rows.map((r) => ({ ...r, editable: false })) })) }));
-    expect(await screen.findByText('Read-only: pi-work runs Pi 1.0.1, and Skillshare has verified only 0.99.2, 1.0.0. Use pi config, or switch to a verified version.')).toBeInTheDocument();
+    show(global({ editable: false, readOnly: 'unsupportedVersion', version: '0.99.1', target: 'pi-work', scope: 'account', packages: global().packages.map((p) => ({ ...p, rows: p.rows.map((r) => ({ ...r, editable: false })) })) }));
+    expect(await screen.findByText('Read-only: pi-work runs Pi 0.99.1, and Skillshare needs Pi 0.99.2 or later. Use pi config, or update Pi.')).toBeInTheDocument();
     expect(screen.queryByRole('switch')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Remove rule' })).not.toBeInTheDocument();
   });
