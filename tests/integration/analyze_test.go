@@ -183,6 +183,20 @@ func TestAnalyze_NoTargets_SaysSo(t *testing.T) {
 	result.AssertOutputContains(t, "No targets configured")
 }
 
+func TestAnalyze_NoSkillReachesTarget_DoesNotSuggestTargetAdd(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sb.CreateSkill("cursor-only", map[string]string{"SKILL.md": "---\nname: cursor-only\ntargets: [cursor]\ndescription: d\n---\n"})
+	target := sb.CreateTarget("claude")
+	sb.WriteConfig("source: " + sb.SourcePath + "\ntargets:\n  claude:\n    path: " + target + "\n")
+
+	result := sb.RunCLI("analyze", "--no-tui")
+	result.AssertSuccess(t)
+	result.AssertOutputContains(t, "No skills reach any target")
+	result.AssertOutputNotContains(t, "target add")
+}
+
 func TestAnalyze_UnknownTarget(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()

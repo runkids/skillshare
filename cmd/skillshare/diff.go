@@ -24,6 +24,7 @@ type diffRenderOpts struct {
 	showPatch  bool
 	showStat   bool
 	jsonOutput bool
+	noTargets  bool // the config has no targets at all
 }
 
 // diffJSONOutput is the JSON representation for diff --json output.
@@ -479,6 +480,7 @@ func cmdDiffGlobal(targetName string, kind resourceKindFilter, opts diffRenderOp
 	if shouldLaunchTUI(opts.noTUI, cfg) && len(results) > 0 {
 		return runDiffTUI(results, extrasResults)
 	}
+	opts.noTargets = len(cfg.Targets) == 0
 	renderGroupedDiffs(results, extrasResults, opts)
 	return nil
 }
@@ -847,8 +849,12 @@ func categorizeItems(items []copyDiffEntry) []actionCategory {
 // shown individually.
 func renderGroupedDiffs(results []targetDiffResult, extras []extraDiffResult, opts diffRenderOpts) {
 	if len(results) == 0 && len(extras) == 0 {
-		ui.Done(ui.MarkNone, "No targets configured", 0)
-		ui.Next("skillshare target add <name> <path>", "add one")
+		if opts.noTargets {
+			ui.Done(ui.MarkNone, "No targets configured", 0)
+			ui.Next("skillshare target add <name> <path>", "add one")
+		} else {
+			ui.Done(ui.MarkNone, "Nothing to compare: no target takes skills", 0)
+		}
 		return
 	}
 	sort.Slice(results, func(i, j int) bool {

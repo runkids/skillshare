@@ -92,6 +92,20 @@ targets:
 	result.AssertOutputContains(t, "claude")
 }
 
+func TestDiff_TargetWithoutSkills_DoesNotSuggestTargetAdd(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sb.CreateSkill("skill1", map[string]string{"SKILL.md": "# Skill 1"})
+	target := sb.CreateTarget("mytool")
+	sb.WriteConfig("source: " + sb.SourcePath + "\ntargets:\n  mytool:\n    path: " + target + "\n    skills: {enabled: false}\n")
+
+	result := sb.RunCLI("diff", "--no-tui")
+	result.AssertSuccess(t)
+	result.AssertOutputContains(t, "no target takes skills")
+	result.AssertOutputNotContains(t, "target add")
+}
+
 func TestDiff_Sections_ShareOneLabelWidth(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()

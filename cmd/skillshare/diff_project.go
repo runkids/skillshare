@@ -137,6 +137,7 @@ func cmdDiffProject(root, targetName string, kind resourceKindFilter, opts diffR
 	if shouldLaunchTUI(opts.noTUI, nil) && len(results) > 0 {
 		return runDiffTUI(results, extrasResults)
 	}
+	opts.noTargets = len(runtime.config.Targets) == 0
 	renderGroupedDiffs(results, extrasResults, opts)
 	return nil
 }

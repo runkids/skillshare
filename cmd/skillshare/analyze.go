@@ -281,8 +281,12 @@ func runAnalyzeCore(sourcePath string, targets map[string]config.TargetConfig, d
 	}
 
 	if len(entries) == 0 {
-		ui.Done(ui.MarkNone, "No targets configured", 0)
-		ui.Next("skillshare target add <name> <path>", "add one")
+		if len(targets) == 0 {
+			ui.Done(ui.MarkNone, "No targets configured", 0)
+			ui.Next("skillshare target add <name> <path>", "add one")
+		} else {
+			ui.Done(ui.MarkNone, "No skills reach any target", 0)
+		}
 		return nil
 	}
 	printAnalyze(entries, opts.verbose)
