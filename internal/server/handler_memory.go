@@ -60,7 +60,7 @@ func (s *Server) handleMemoryNotes(w http.ResponseWriter, r *http.Request) {
 			return note.Path == path && note.Invalid == ""
 		})
 	}
-	writeJSON(w, map[string]any{"root": root, "initialized": initialized, "notes": notes, "instructions": s.memoryInstructions(root), "index": memory.InspectIndex(root, all)})
+	writeJSON(w, map[string]any{"root": root, "initialized": initialized, "notes": notes, "instructions": s.memoryInstructionsByMode(root), "index": memory.InspectIndex(root, all)})
 }
 
 func (s *Server) handleMemoryIndex(w http.ResponseWriter, r *http.Request) {

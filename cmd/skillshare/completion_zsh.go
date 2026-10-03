@@ -629,6 +629,7 @@ _skillshare() {
                                     list) extras_sub_flags=('--search[Search names and content]:text:') ;;
                                     delete) extras_sub_flags=('--version[Last read hash]:hash:') ;;
                                     write) extras_sub_flags=('--from[Input file or stdin]:file:_files' '--version[Last read hash]:hash:') ;;
+                                    instructions) extras_sub_flags=('--update-mode[How agents update notes]:mode:(passive active)') ;;
                                 esac
                                 shift words; (( CURRENT-- ))
                                 _arguments '1:note: ' $extras_sub_flags '--json[JSON output]' $global_flags '--help[Show help]' '-h[Show help]'

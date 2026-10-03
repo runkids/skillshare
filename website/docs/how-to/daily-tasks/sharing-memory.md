@@ -37,7 +37,19 @@ read this source directly; you do not need to sync copies of the notes to them.
 ## 2. Connect your tools
 
 In **Use with agents**, click **Connect to agents**. Select the tools you want,
-then click **Review changes**.
+choose an update mode for each, then click **Review changes**.
+
+- `passive` (the default): the agent reads the notes and updates them only when
+  you ask.
+- `active`: the agent also saves facts that will matter in later sessions, such
+  as a stated preference, a decision with its reason, or a confirmed pitfall. It
+  skips one-off details and guesses, proposes a note and waits for your OK when
+  unsure, updates an existing note instead of adding a duplicate, and tells you
+  what it saved.
+
+Tools that read the same file share one block, so switching one switches them all.
+To change the mode of a configured tool, open **Connect to agents** again and
+switch it; the change goes through the same review.
 
 ![English connection dialog showing the instruction-file changes for review](/img/memory-connect-demo.png)
 
@@ -150,8 +162,9 @@ verification: Skillshare has no guaranteed read telemetry. A claimed read or a
 **Configured** label alone is insufficient evidence.
 
 To save a lesson, ask the agent to update `LEARNED.md` with its context,
-conclusion, and evidence. Notes are user-owned; guidance asks agents to update
-them only at your request. This feature does not enable native automatic memory,
+conclusion, and evidence. Notes are user-owned: `passive` guidance asks agents to
+update them only at your request, and `active` guidance lets them save lasting
+facts on their own as described above. This feature does not enable native automatic memory,
 automatic learning, or an Obsidian integration.
 
 ## Project mode
@@ -173,7 +186,7 @@ review guidance after moving an absolute source or changing its location.
 
 ## Advanced fallback: copy guidance yourself
 
-Hover over or focus **Copy guidance** to preview the generated block, then copy it
+Open **Copy guidance**, choose `passive` or `active`, and paste the copied block
 into an instruction file your agent reads. **Open AGENTS.md** provides the existing
 instruction editor.
 
@@ -197,9 +210,11 @@ printf '# Architecture decisions\n\nRead relevant notes on demand.\n' |
 skillshare extras memory list --search architecture -g
 skillshare extras memory show wiki/architecture.md -g
 skillshare extras memory instructions -g
+skillshare extras memory instructions --update-mode active -g
 ```
 
-The CLI prints reading guidance; paste it yourself. It does not connect tools or
+The CLI prints reading guidance, `passive` unless `--update-mode active` is given;
+paste it yourself. It does not connect tools or
 add index links. Updating a note requires its current `--version`; see the
 [`extras memory` reference](../../reference/commands/extras.md#extras-memory).
 

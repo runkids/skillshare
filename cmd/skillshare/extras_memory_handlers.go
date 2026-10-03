@@ -114,12 +114,12 @@ func runMemory(mode runMode, opts memoryOptions) error {
 		err = memory.Delete(root, opts.path, opts.version)
 		result = map[string]any{"success": err == nil, "path": opts.path}
 	case "instructions":
-		text := memory.Instructions(root, projectRoot)
+		text := memory.Instructions(root, projectRoot, opts.mode)
 		if !opts.json {
 			fmt.Print(text)
 			return nil
 		}
-		result = map[string]any{"root": root, "instructions": text}
+		result = map[string]any{"root": root, "mode": opts.mode, "instructions": text}
 	}
 	if err != nil {
 		return err

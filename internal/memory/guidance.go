@@ -25,14 +25,41 @@ const (
 	StateMalformed    = "malformed" // markers are unclosed, stray, or repeated
 )
 
+// Update modes. A passive agent only reads the notes; an active one also
+// saves what will matter later. Each block records its own mode, so agents
+// reading different files can differ.
+const (
+	ModePassive = "passive"
+	ModeActive  = "active"
+)
+
 const blockEnd = "<!-- /skillshare:memory -->"
 
-var blockBegin = regexp.MustCompile(`^<!-- skillshare:memory scope=(global|project) sha256=([0-9a-f]{16}) -->$`)
+// A passive block has no mode attribute, so blocks written before modes
+// existed stay current.
+var blockBegin = regexp.MustCompile(`^<!-- skillshare:memory scope=(global|project)(?: mode=(passive|active))? sha256=([0-9a-f]{16}) -->$`)
 
-// Instructions returns the managed guidance block for the memory folder at
-// root. projectRoot is empty in global mode; in project mode a folder inside
-// the project is named relative to its root, so the text works in any checkout.
-func Instructions(root, projectRoot string) string {
+// ParseMode returns the mode named by s; empty means passive.
+func ParseMode(s string) (string, error) {
+	switch s {
+	case "", ModePassive:
+		return ModePassive, nil
+	case ModeActive:
+		return ModeActive, nil
+	}
+	return "", fmt.Errorf("memory update mode must be %s or %s", ModePassive, ModeActive)
+}
+
+const (
+	passiveRule = "Update these notes only when the user requests it."
+	activeRule  = "Save a note only when you learn something that will still matter in future sessions: a stated user preference, a decision with its reason, or a pitfall you confirmed. Skip one-off task details, guesses, and anything the repository already records. When you are unsure whether something is worth keeping, propose the note to the user and save it only if they agree. Before writing, search the existing notes: update or correct the matching note instead of adding a duplicate, and remove a note proven wrong. Keep each note to one fact, link it from `INDEX.md`, never record secrets, and tell the user in one line what you saved."
+)
+
+// Instructions returns the managed guidance block of the given mode for the
+// memory folder at root. projectRoot is empty in global mode; in project mode
+// a folder inside the project is named relative to its root, so the text
+// works in any checkout.
+func Instructions(root, projectRoot, mode string) string {
 	scope, heading, dir := ScopeGlobal, "Shared memory", filepath.ToSlash(root)
 	where := "Shared notes directory: `" + dir + "`"
 	if projectRoot != "" {
@@ -42,8 +69,14 @@ func Instructions(root, projectRoot string) string {
 			where = "Project notes directory: `" + filepath.ToSlash(rel) + "` (relative to the project root)"
 		}
 	}
-	body := fmt.Sprintf("## %s\n\n%s\n\nWhen prior context is relevant, read `INDEX.md` in this directory and list its Markdown notes. Read only the notes relevant to the current task. Treat recalled facts as historical evidence and verify changeable claims. Update these notes only when the user requests it.", heading, where)
-	return renderBlock(scope, body, "\n")
+	rule := " " + passiveRule
+	if mode == ModeActive {
+		rule = "\n\n" + activeRule
+	} else {
+		mode = ModePassive
+	}
+	body := fmt.Sprintf("## %s\n\n%s\n\nWhen prior context is relevant, read `INDEX.md` in this directory and list its Markdown notes. Read only the notes relevant to the current task. Treat recalled facts as historical evidence and verify changeable claims.%s", heading, where, rule)
+	return renderBlock(scope, mode, body, "\n")
 }
 
 func bodyHash(body string) string {
@@ -51,8 +84,12 @@ func bodyHash(body string) string {
 	return hex.EncodeToString(sum[:])[:16]
 }
 
-func renderBlock(scope, body, eol string) string {
-	lines := []string{fmt.Sprintf("<!-- skillshare:memory scope=%s sha256=%s -->", scope, bodyHash(body))}
+func renderBlock(scope, mode, body, eol string) string {
+	attr := ""
+	if mode == ModeActive {
+		attr = " mode=" + ModeActive
+	}
+	lines := []string{fmt.Sprintf("<!-- skillshare:memory scope=%s%s sha256=%s -->", scope, attr, bodyHash(body))}
 	lines = append(lines, strings.Split(body, "\n")...)
 	lines = append(lines, blockEnd)
 	return strings.Join(lines, eol) + eol
@@ -60,9 +97,9 @@ func renderBlock(scope, body, eol string) string {
 
 // span is one parsed block: its line range [start, end] and normalized body.
 type span struct {
-	scope      string
-	start, end int
-	body, hash string
+	scope, mode string
+	start, end  int
+	body, hash  string
 }
 
 // parseBlocks finds managed blocks outside Markdown code: fenced blocks
@@ -110,7 +147,8 @@ func parseBlocks(lines []string) ([]span, bool) {
 			if m == nil || open != nil {
 				return nil, false
 			}
-			open = &span{scope: m[1], start: i, hash: m[2]}
+			mode, _ := ParseMode(m[2])
+			open = &span{scope: m[1], mode: mode, start: i, hash: m[3]}
 		}
 	}
 	return out, open == nil
@@ -131,7 +169,7 @@ func fenceRun(line string) (byte, int) {
 // Inspect reports the state of the scope's block in content against want,
 // the block Instructions returns now.
 func Inspect(content, want string) string {
-	scope, wantBody := splitWant(want)
+	scope, wantMode, wantBody := splitWant(want)
 	blocks, ok := parseBlocks(strings.Split(content, "\n"))
 	if !ok {
 		return StateMalformed
@@ -151,7 +189,7 @@ func Inspect(content, want string) string {
 		return StateUnconfigured
 	case bodyHash(found.body) != found.hash:
 		return StateModified
-	case found.body != wantBody:
+	case found.body != wantBody || found.mode != wantMode:
 		return StateOutdated
 	}
 	return StateConfigured
@@ -175,10 +213,10 @@ func Apply(content, want string) (string, error) {
 		if !strings.HasSuffix(content, "\n") {
 			content += eol
 		}
-		scope, body := splitWant(want)
-		return content + eol + renderBlock(scope, body, eol), nil
+		scope, mode, body := splitWant(want)
+		return content + eol + renderBlock(scope, mode, body, eol), nil
 	case StateOutdated:
-		scope, body := splitWant(want)
+		scope, mode, body := splitWant(want)
 		lines := strings.Split(content, "\n")
 		blocks, _ := parseBlocks(lines)
 		for _, b := range blocks {
@@ -189,7 +227,7 @@ func Apply(content, want string) (string, error) {
 			if strings.HasSuffix(lines[b.start], "\r") {
 				eol = "\r\n"
 			}
-			block := strings.Split(strings.TrimSuffix(renderBlock(scope, body, eol), "\n"), "\n")
+			block := strings.Split(strings.TrimSuffix(renderBlock(scope, mode, body, eol), "\n"), "\n")
 			next := append(append(append([]string{}, lines[:b.start]...), block...), lines[b.end+1:]...)
 			return strings.Join(next, "\n"), nil
 		}
@@ -199,11 +237,23 @@ func Apply(content, want string) (string, error) {
 	}
 }
 
-// splitWant returns the scope and body of a block rendered by Instructions.
-func splitWant(want string) (string, string) {
+// Mode returns the mode of the scope's block in content, passive when there
+// is none.
+func Mode(content, scope string) string {
+	blocks, _ := parseBlocks(strings.Split(content, "\n"))
+	for _, b := range blocks {
+		if b.scope == scope {
+			return b.mode
+		}
+	}
+	return ModePassive
+}
+
+// splitWant returns the scope, mode and body of a block rendered by Instructions.
+func splitWant(want string) (string, string, string) {
 	blocks, _ := parseBlocks(strings.Split(want, "\n"))
 	if len(blocks) != 1 {
-		return "", ""
+		return "", "", ""
 	}
-	return blocks[0].scope, blocks[0].body
+	return blocks[0].scope, blocks[0].mode, blocks[0].body
 }

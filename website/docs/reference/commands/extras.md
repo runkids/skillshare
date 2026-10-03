@@ -34,6 +34,7 @@ skillshare extras memory write decisions.md --from ./decisions.md -g
 skillshare extras memory list --search architecture --json -g
 skillshare extras memory show decisions.md --json -g
 skillshare extras memory instructions -g
+skillshare extras memory instructions --update-mode active -g
 ```
 
 | Subcommand | Behavior |
@@ -42,7 +43,7 @@ skillshare extras memory instructions -g
 | `list` | List notes; `--search <text>` searches filenames and content, case-insensitively |
 | `show <note.md>` | Print a note; `--json` includes its `version` hash |
 | `write <note.md>` | Read UTF-8 content from `--from <file>` or `--from -` (stdin) |
-| `instructions` | Print a scope/hash-marked guidance block; project sources inside the repo use paths relative to the project root |
+| `instructions` | Print a scope/hash-marked guidance block; project sources inside the repo use paths relative to the project root. `--update-mode passive` (default) asks agents to update notes only on request; `--update-mode active` lets them save lasting facts and propose notes they are unsure of |
 | `delete <note.md> --version <hash>` | Back up and delete the last read version; reject stale or missing versions |
 
 All subcommands accept `--json`, `--global` / `-g`, `--project` / `-p`, and
@@ -91,7 +92,10 @@ update leaves the new note intact. **Add to INDEX** links an unindexed note.
 Broken links show a warning; deleted-note links must be removed manually. CLI
 writes do not add index links.
 
-Use **Connect to agents**, select tools, **Review changes**, then **Apply changes**.
+Use **Connect to agents**, select tools and an update mode (`passive` or `active`)
+for each, **Review changes**, then **Apply changes**. Tools reading the same file
+share one block and switch modes together; a configured tool's mode can be
+changed through the same review.
 The dashboard appends or updates a managed reading-guidance block in the existing
 instruction file or shared source, preserving all other content and assignments.
 The review shows file changes, shared readers, and known character-limit warnings.
@@ -105,14 +109,13 @@ session: read `INDEX.md` and a relevant note, report the full path and a tempora
 verification value added by the user. Inspect the actual read tool event manually;
 there is no guaranteed read telemetry.
 
-**Copy guidance** is the manual fallback. Paste its generated block into an
+**Copy guidance** is the manual fallback. Choose a mode and paste the block into an
 instruction file the agent reads; **Open AGENTS.md** provides the existing editor.
 In project mode, a source inside the repository is relative to the **project
 root**, regardless of the instruction file's location. An external override or
 global source uses an absolute path; regenerate guidance after relocating it.
 This does not enable native automatic memory, automatic learning, or Obsidian
-integration. The CLI flags remain unchanged; connection and index actions above
-are dashboard workflows.
+integration. Connection and index actions above are dashboard workflows.
 
 ### `extras init`
 

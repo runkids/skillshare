@@ -28,7 +28,12 @@ skillshare ui -g
 
 ## 2. 连接工具
 
-在 **Use with agents** 点击 **Connect to agents**。自行选择工具，再点击 **Review changes**。
+在 **Use with agents** 点击 **Connect to agents**。自行选择工具并为每个工具选择更新模式，再点击 **Review changes**。
+
+- `passive`（默认）：Agent 会读取笔记，只在你要求时更新。
+- `active`：Agent 也会保存之后的会话仍用得到的事实，例如你明确表示的偏好、附理由的决定或已确认的陷阱。它会略过一次性的细节与猜测；拿不准时先提议并等你同意；优先更新现有笔记而不是重复新增，并告诉你存了什么。
+
+读取同一个文件的工具共用一个块，所以切换其中一个会一起切换。要改已配置工具的模式，再打开一次 **Connect to agents** 切换即可，变更同样会经过预览。
 
 ![英文连接对话框中的 instructions 文件更改预览](/img/memory-connect-demo.png)
 
@@ -98,7 +103,7 @@ Update notes when the user asks you to remember a decision.
 
 检查实际 read tool event，核对完整路径与临时值。在另一个已连接工具重复验证，再移除临时值。这是手动验证，Skillshare 没有保证可用的读取 telemetry。Agent 自称读过或显示 **Configured** 都不足以证明读取。
 
-需要记录经验时，请要求 Agent 更新 `LEARNED.md` 的背景、结论与证据。笔记由用户管理，指引要求 Agent 只在用户要求时更新。本功能不启用 native automatic memory、自动学习或 Obsidian 集成。
+需要记录经验时，请要求 Agent 更新 `LEARNED.md` 的背景、结论与证据。笔记由用户管理：`passive` 指引要求 Agent 只在用户要求时更新；`active` 指引则让 Agent 按上述规则自行保存长期有用的事实。本功能不启用 native automatic memory、自动学习或 Obsidian 集成。
 
 ## Project mode
 
@@ -113,7 +118,7 @@ skillshare ui -p
 
 ## 高级替代方式：自行复制指引
 
-将鼠标移到 **Copy guidance** 或用键盘聚焦，预览生成的块，再复制到 Agent 会读取的 instructions 文件。**Open AGENTS.md** 可打开现有编辑器。
+打开 **Copy guidance**，选择 `passive` 或 `active`，再把复制的块粘贴到 Agent 会读取的 instructions 文件。**Open AGENTS.md** 可打开现有编辑器。
 
 ![英文 Copy guidance 预览](/img/memory-guidance-demo.png)
 
@@ -132,9 +137,10 @@ printf '# Architecture decisions\n\nRead relevant notes on demand.\n' |
 skillshare extras memory list --search architecture -g
 skillshare extras memory show wiki/architecture.md -g
 skillshare extras memory instructions -g
+skillshare extras memory instructions --update-mode active -g
 ```
 
-CLI 只输出阅读指引，需要自行粘贴；不会连接工具或新增索引链接。更新笔记须提供当前的 `--version`，详见 [`extras memory` 参考](../../reference/commands/extras.md#extras-memory)。
+CLI 只输出阅读指引（未指定 `--update-mode active` 时为 `passive`），需要自行粘贴；不会连接工具或新增索引链接。更新笔记须提供当前的 `--version`，详见 [`extras memory` 参考](../../reference/commands/extras.md#extras-memory)。
 
 ## 重命名或移动笔记
 
