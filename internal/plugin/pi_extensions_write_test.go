@@ -230,10 +230,10 @@ func TestPiExtensionsApplyReleasesItsLocksAndKeepsABackup(t *testing.T) {
 
 func TestPiExtensionsWritesAreRefusedWhereReadOnly(t *testing.T) {
 	cases := map[string]func(f *piFixture){
-		"unverified Pi": func(f *piFixture) { f.version = "1.0.1" },
-		"Pi missing":    func(f *piFixture) { f.version = "" },
-		"project with unverified Pi": func(f *piFixture) {
-			f.svc.ProjectRoot, f.version = filepath.Join(f.home, "code", "acme"), "1.0.1"
+		"unsupported Pi": func(f *piFixture) { f.version = "0.99.1" },
+		"Pi missing":     func(f *piFixture) { f.version = "" },
+		"project with unsupported Pi": func(f *piFixture) {
+			f.svc.ProjectRoot, f.version = filepath.Join(f.home, "code", "acme"), "0.99.1"
 		},
 		"settings not JSON": func(f *piFixture) { f.rawGlobal("{\n// comment\n\"packages\": [\"" + f.pkg + "\"]}") },
 	}
@@ -496,7 +496,7 @@ func TestPiExtensionsAbortedApplyKeepsBackupHistory(t *testing.T) {
 				}
 				if failure == "write" {
 					fail := func() error { writes++; checkCount(2); return injected }
-					piWriteGlobal = func(string, []byte, os.FileMode) error { return fail() }
+					piWriteGlobal = func(string, string, []byte, os.FileMode) error { return fail() }
 					piWriteProject = func(*os.Root, string, []byte, os.FileMode, bool) error { return fail() }
 				}
 				t.Cleanup(func() {

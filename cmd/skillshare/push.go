@@ -249,6 +249,12 @@ func cmdPush(args []string) (err error) {
 	if err := checkGitRepo(source, spinner); err != nil {
 		return err
 	}
+	if cfg.GitRoot == "root" {
+		if err := gitops.CheckUnpushedConfigHistory(source); err != nil {
+			spinner.Fail("Cannot safely push config.yaml history")
+			return err
+		}
+	}
 
 	sweep := rootScopeSafetySweep(cfg, source, opts.dryRun)
 	if sweep.hasNotice() {
@@ -342,6 +348,11 @@ func cmdPush(args []string) (err error) {
 		}
 	}
 
+	if cfg.GitRoot == "root" {
+		if err := gitops.CheckUnpushedConfigHistory(source); err != nil {
+			return err
+		}
+	}
 	spinner = ui.StartSpinner("Pushing to remote...")
 	if err := gitPush(source, spinner); err != nil {
 		return err

@@ -201,12 +201,12 @@ func TestPiExtensionsAPIRefusesBadRequests(t *testing.T) {
 	}
 }
 
-func TestPiExtensionsAPIAccountAndUnverifiedVersion(t *testing.T) {
-	s, _ := newPiExtensionsServer(t, "1.0.1")
+func TestPiExtensionsAPIAccountAndUnsupportedVersion(t *testing.T) {
+	s, _ := newPiExtensionsServer(t, "0.99.1")
 	for _, target := range []string{"pi", "pi-work"} {
 		w := piRequest(t, s, http.MethodGet, "/api/targets/"+target+"/pi-extensions", "")
 		view := decodePi[piView](t, w)
-		if w.Code != 200 || view.Editable || view.ReadOnly != "unverifiedVersion" || view.Packages[0].Rows[0].Editable {
+		if w.Code != 200 || view.Editable || view.ReadOnly != "unsupportedVersion" || view.Packages[0].Rows[0].Editable {
 			t.Fatalf("%s: %d %+v", target, w.Code, view)
 		}
 	}

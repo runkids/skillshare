@@ -192,11 +192,19 @@ global) and runs four checks per version:
 
 Both versions passed all four, with 29 scenarios and 90 assertions each; scenario 28 verifies query-bearing Git identity and first-global/last-project precedence, and scenario 29 verifies that an invalid UTF-8 source can decode to and own a valid later local source. Neither installs or loads the packages. The integrity hashes
 and results are in `scripts/pi/version-evidence.json`, and `PiVerifiedVersions` must equal the
-versions listed there (a Go test enforces it). Scenario 27 adds the project-only delta:
+versions listed there (a Go test enforces it; superseded by the minimum-version update below). Scenario 27 adds the project-only delta:
 with no global entry, `+path` loads, `-path` and unnamed paths stay unloaded, and no other
 resource of the package loads. The project trust decision below is superseded in one way:
 a project's settings are now edited, as `pi config` writes them, while trust is still never
 written or assumed.
+
+**Update (minimum version, 2026-10-04).** The exact list became a minimum. Any plain `X.Y.Z`
+at or above `PiMinVersion` (0.99.2, the oldest version with executed evidence) is editable;
+older, prerelease or unparsable versions are read-only with the reason `unsupportedVersion`.
+Pi 1.0.1 was added to the matrix (`version-matrix.sh 0.99.2 1.0.0 1.0.1`) and passed all four
+checks. The Go test now requires `PiMinVersion` to be in the evidence and every recorded
+version to pass. A later Pi that breaks the contract is no longer read-only by default; rerun
+the matrix against new releases to catch it.
 
 ## Decisions for the design and the first delivery
 
@@ -228,7 +236,7 @@ written or assumed.
    - The earlier "trusted project can apply" flow is **not verified** and is not part of the first delivery. Narrowing the product scope further, or adding a trust bridge with Pi, is a later decision for the user.
    - **Superseded (user decision, 2026-10-03, #342 revision):** project settings are editable. Apply writes only `.pi/settings.json`, as `pi config` does, and never depends on or changes trust: Pi uses the result only if it trusts the project, which the UI says. The no-trust-write rules above still hold.
 7. **Global and account targets are gated too.**
-   - Editing is not blanket-enabled. A target is editable only when its own Pi version and CLI pass the version gate above. Unknown or unverified versions are read-only.
+   - Editing is not blanket-enabled. A target is editable only when its own Pi version and CLI pass the version gate above. Versions below the minimum (see the minimum-version update) are read-only.
    - Accounts (`pi-work`): package install and remove stay as they are. Selection uses global-scope rules in the account's `settings.json`. Individual controls stay read-only until the account's own Pi version is verified and the account CLI is Pi itself. Fork CLIs (`omo`, `senpi`) are unverified, so read-only.
 8. **Inventory.**
    - Static, from managed install paths and local paths only.

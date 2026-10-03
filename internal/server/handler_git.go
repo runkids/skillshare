@@ -466,6 +466,9 @@ func (s *Server) handlePush(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "no git remote configured")
 		return
 	}
+	if s.rootConfigHistoryGuard(w, src) {
+		return
+	}
 
 	if s.rootScopeGuard(w, src, body.DryRun) {
 		return
@@ -524,6 +527,9 @@ func (s *Server) handlePush(w http.ResponseWriter, r *http.Request) {
 		args["message"] = "" // nothing new was committed
 	}
 
+	if s.rootConfigHistoryGuard(w, src) {
+		return
+	}
 	if err := git.PushRemoteWithAuth(src); err != nil {
 		if errors.Is(err, git.ErrPushRejected) {
 			// The UI offers a pull for this code.
@@ -537,6 +543,24 @@ func (s *Server) handlePush(w http.ResponseWriter, r *http.Request) {
 
 	s.writeOpsLog("push", "ok", start, args, "")
 	writeJSON(w, pushResponse{Success: true, Message: "pushed successfully"})
+}
+
+// rootConfigHistoryGuard checks before staging and again before uploading, so
+// neither existing local commits nor newly created ones can publish config.yaml.
+func (s *Server) rootConfigHistoryGuard(w http.ResponseWriter, src string) bool {
+	if s.cfg.GitRoot != "root" {
+		return false
+	}
+	if err := git.CheckUnpushedConfigHistory(src); err != nil {
+		var historyErr *git.UnpushedConfigHistoryError
+		if errors.As(err, &historyErr) {
+			writeCodedError(w, http.StatusConflict, "unpushed_config_history", err.Error(), nil)
+		} else {
+			writeError(w, http.StatusInternalServerError, err.Error())
+		}
+		return true
+	}
+	return false
 }
 
 // gitSource validates the configured git_root scope and returns the directory

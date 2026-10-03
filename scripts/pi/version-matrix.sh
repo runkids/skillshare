@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # Runs the Pi package contract against exact, pinned Pi versions and records what
-# ran in scripts/pi/version-evidence.json, which PiVerifiedVersions must match.
+# ran in scripts/pi/version-evidence.json, which must include PiMinVersion.
 #
 # Run inside the devcontainer only, from the repository root:
-#   scripts/pi/version-matrix.sh 0.99.2 1.0.0
+#   scripts/pi/version-matrix.sh 0.99.2 1.0.0 1.0.1
 #
 # Each version is installed with npm into $PI_VERSIONS_DIR/<version> (default
 # /tmp/pi-versions), with its own lockfile and npm cache and without install

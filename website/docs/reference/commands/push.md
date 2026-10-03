@@ -47,6 +47,10 @@ flowchart TD
 
 `push` operates on the directory selected by the `git_root` config field (default: `skills` source). See [commit — Git Root Scope](./commit.md#git-root-scope) for the scope table. If `git_root` was changed but the git repo still lives in another scope's directory, `push` prints a "Git root mismatch" error with the exact `git init` / `mv` commands to fix it. See [Changing the scope after init](/docs/reference/targets/configuration#git-root).
 
+At `git_root: root`, `push` refuses if any unpushed commit adds or modifies `config.yaml` or a file under `config.yaml/`, even if a later commit removes it. This also applies to `--pull` and `--dry-run`; the check runs before staging or pulling, and dry-run changes nothing. The error lists the affected commit hashes. A commit counts as unpushed when the remote that `push` targets (the upstream remote, or `origin` before the first push) has no ref containing it, so history that remote already has is never refused. `push` always sends only the current branch to that remote, regardless of `push.default` or `remote.pushDefault`.
+
+Remove the file from the listed commits before retrying: run the `git rebase -i <commit>` shown in the error (it starts just before the oldest affected commit), mark the affected commits for editing, then run `git rm -r --cached -- config.yaml`, `git commit --amend`, and `git rebase --continue` at each edit. Skillshare never rewrites history automatically. A commit that only stops tracking a previously published `config.yaml` can still be pushed; adding a removal commit after an unpushed addition does not remove that earlier content from history.
+
 ## Prerequisites
 
 Your source directory must be a git repository with a remote:

@@ -195,12 +195,12 @@ cd /workspace && PI_ROOT=$PI_ROOT go test ./internal/plugin -run TestPiNativeLoc
 than its 10s stale age, and acquires it once Skillshare releases it.
 
 ```bash
-cd /workspace && scripts/pi/version-matrix.sh 0.99.2 1.0.0 && git diff --exit-code scripts/pi/version-evidence.json
+cd /workspace && scripts/pi/version-matrix.sh 0.99.2 1.0.0 1.0.1 && git diff --exit-code scripts/pi/version-evidence.json
 ```
 
 **Expected**: for each version, `contract/core`, `contract/bundle`, `native-lock` and
-`project-native` pass; the recorded evidence is unchanged and lists exactly
-`PiVerifiedVersions`. Versions install only under `/tmp/pi-versions`, never globally.
+`project-native` pass; the recorded evidence is unchanged and includes
+`PiMinVersion`. Versions install only under `/tmp/pi-versions`, never globally.
 
 ### 13. Dashboard (manual, desktop width)
 

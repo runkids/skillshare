@@ -82,7 +82,7 @@ func TestLocalPluginLifecycleAndOwnership(t *testing.T) {
 			writePluginFile(t, source, "skills/demo/SKILL.md", "hello")
 			s := &Service{ConfigPath: filepath.Join(home, "config.yaml"), StateDir: filepath.Join(home, "state")}
 			applyPluginRequest(t, s, Request{Action: "add", Source: source, Targets: []string{target}})
-			root, err := s.localRoot(target)
+			root, _, err := s.localRoot(target)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -157,13 +157,13 @@ func TestOpenCodeConfigPreservesOtherEntries(t *testing.T) {
 				return []byte(version), nil
 			}}
 			applyPluginRequest(t, s, Request{Action: "add", Source: source, Targets: []string{"opencode"}})
-			raw, _, entries, err := readPackageConfig(path, key)
+			raw, _, entries, err := readPackageConfig(filepath.Dir(path), path, key)
 			if err != nil || len(entries) != 2 || !strings.Contains(string(raw), "// keep me") || !strings.Contains(string(raw), "unchanged") {
 				t.Fatalf("config not preserved: %s %v", raw, err)
 			}
 			applyPluginRequest(t, s, Request{Action: "disable", Name: "demo"})
 			applyPluginRequest(t, s, Request{Action: "sync"})
-			_, _, entries, err = readPackageConfig(path, key)
+			_, _, entries, err = readPackageConfig(filepath.Dir(path), path, key)
 			if err != nil || len(entries) != 1 || string(entries[0]) != `"other-package"` {
 				t.Fatal("unrelated plugin modified", err)
 			}

@@ -650,8 +650,9 @@ var ErrPushRejected = errors.New("remote has commits this machine does not have;
 // PushArgs returns the git push arguments for dir. The first push sets
 // upstream, targeting origin's default branch when it is named differently
 // from the local branch (origin is fetched to find it). Later pushes name a
-// differently named upstream branch explicitly, which push.default=simple
-// otherwise refuses.
+// upstream remote and branch explicitly, so push.default and remote.pushDefault
+// cannot send other branches or another remote than CheckUnpushedConfigHistory
+// checked.
 func PushArgs(dir string, extraEnv []string) []string {
 	local, err := GetCurrentBranch(dir)
 	if err != nil {
@@ -668,11 +669,37 @@ func PushArgs(dir string, extraEnv []string) []string {
 		}
 		return []string{"push", "-u", "origin", local}
 	}
-	upstream, _ := GetTrackingBranch(dir)
-	if remote, branch, ok := strings.Cut(upstream, "/"); ok && remote != "" && branch != "" && branch != local {
+	if remote, branch, ok := upstreamRef(dir, local); ok {
 		return []string{"push", remote, "HEAD:" + branch}
 	}
 	return []string{"push"}
+}
+
+// upstreamRef returns the remote and branch that local tracks. It reads the
+// branch config rather than splitting "remote/branch", so a remote or branch
+// name containing "/" stays intact.
+func upstreamRef(dir, local string) (remote, branch string, ok bool) {
+	get := func(key string) string {
+		cmd := exec.Command("git", "config", "--get", "branch."+local+"."+key)
+		cmd.Dir = dir
+		out, _ := cmd.Output()
+		return strings.TrimSpace(string(out))
+	}
+	remote = get("remote")
+	branch = strings.TrimPrefix(get("merge"), "refs/heads/")
+	return remote, branch, remote != "" && branch != ""
+}
+
+// pushTarget returns where PushArgs sends HEAD: the upstream remote and
+// branch, or origin with an empty branch when @{u} does not resolve (the first
+// push, where PushArgs picks the branch after fetching).
+func pushTarget(dir string) (remote, branch string) {
+	if local, err := GetCurrentBranch(dir); err == nil && HasUpstream(dir) {
+		if remote, branch, ok := upstreamRef(dir, local); ok {
+			return remote, branch
+		}
+	}
+	return "origin", ""
 }
 
 // AheadCount returns how many commits on HEAD are not on any remote-tracking

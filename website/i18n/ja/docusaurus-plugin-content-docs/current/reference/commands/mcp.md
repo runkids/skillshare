@@ -293,7 +293,7 @@ global config がそのサーバーを定義しているマシンでは `enabled
 別のメンバーの Codex の起動を止めてしまう可能性があります。代わりに、マシンごとに `~/.codex/config.toml` で
 `enabled = false` を指定してサーバーをオフにしてください。
 
-Pi は project の同名エントリで global エントリを丸ごと置き換え、`command` も `url` もないエントリは読み飛ばします。
+Pi は project の同名エントリで global エントリを丸ごと置き換えます。`command` も `url` もないエントリは、Pi 1.0.1 より前では読み飛ばされ、1.0.1 以降は global サーバーをオフにしますが、global config にそのサーバーがないマシンでは Pi が起動のたびに警告します。
 そのため Pi には、global サーバーの `command`、またはクエリを除いた `url` を `enabled: false` と一緒に書き込みます。
 オフにしたサーバーは起動しないので、args、env、headers は project ファイルに書き込まれず、他の project では
 そのサーバーがそのまま使われます。sync のたびにエントリは global サーバーから書き直されます。global サーバーが
@@ -828,6 +828,8 @@ Pi だけの簡単な設定なら、`pi mcp add` でグローバルファイル�
 Pi のサーバー名には英数字、`_`、`-` のみを使えます。`-` と `_` だけが異なる名前は Pi では同じサーバーとして扱われるため、sync は 2 つ目を拒否します。Pi では project のエントリが同名の global
 エントリを丸ごと置き換えます。1 つの project で global サーバーをオフにするには、
 [1 つの project だけで global サーバーをオフにする](#turn-off-a-global-server-in-one-project)を参照してください。
+
+Pi 1.0.1 以降、Pi の `/mcp` は `enabled`、`exposure`、`toolExposure` だけを持つ project エントリを追加でき、同名の global サーバーを上書きします。これはサーバーではないため、インポートでは読み飛ばされます。project が同名のサーバーを定義している場合、そのエントリを置き換えるか Pi で上書きを削除するまで、sync は競合を報告します。
 
 ### その他の Pi 設定 {#pi-options}
 

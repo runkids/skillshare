@@ -10,6 +10,13 @@ import (
 	"strings"
 )
 
+// piOverride reports a Pi project entry without command, url or type. Since Pi 1.0.1 it
+// overrides only enabled, exposure and toolExposure of the global server with that name;
+// Pi's /mcp writes one for "Enable/Disable in this project".
+func piOverride(entry map[string]any) bool {
+	return entry["command"] == nil && entry["url"] == nil && entry["type"] == nil
+}
+
 // ValidDirectTools accepts what pi-mcp-adapter documents: a switch, "search", or tool names.
 // Loading converts it to Pi's exposure settings (see adoptAdapterTools); the config editor
 // still checks the value a config may carry until then.
