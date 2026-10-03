@@ -418,7 +418,9 @@ func (p *ProgressBar) Increment() {
 	}
 	if p.current >= p.total {
 		p.title = "Done"
-		p.renderNow() // always render the final frame
+		if p.tty {
+			p.renderNow() // always render the final frame
+		}
 		return
 	}
 	if p.tty {

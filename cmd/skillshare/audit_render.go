@@ -10,6 +10,7 @@ import (
 	"skillshare/internal/audit"
 	"skillshare/internal/theme"
 	"skillshare/internal/ui"
+	"skillshare/internal/utils"
 )
 
 // riskColor maps a risk label to an ANSI color, aligned with formatSeverity.
@@ -32,30 +33,52 @@ type auditTUIContext struct {
 }
 
 // presentAuditResults handles the common output path for audit scans:
-// prints per-skill list only when TUI is unavailable, always prints summary,
-// and launches TUI when conditions are met.
-func presentAuditResults(results []*audit.Result, elapsed []time.Duration, scanOutputs []audit.ScanOutput, summary auditRunSummary, jsonOutput bool, opts auditOptions, headerMinWidth int, tuiCtx *auditTUIContext) error {
+// prints per-skill rows only when TUI is unavailable, always prints the
+// summary, and launches TUI when conditions are met.
+func presentAuditResults(results []*audit.Result, elapsed []time.Duration, scanOutputs []audit.ScanOutput, summary auditRunSummary, jsonOutput bool, opts auditOptions, took time.Duration, tuiCtx *auditTUIContext) error {
 	useTUI := !jsonOutput && shouldLaunchTUI(opts.NoTUI, nil) && len(results) > 1
 
 	if !jsonOutput {
+		kind := kindSkills
+		if tuiCtx != nil {
+			kind = tuiCtx.kind
+		}
+		flagged, blockedFlagged := "", false
 		if !useTUI {
 			// In batch mode (multiple results), only show skills with findings
 			// to avoid flooding the terminal. Use --quiet=false explicitly or
 			// single-skill mode to see clean results.
 			suppressClean := len(results) > 1
+			var shown []*audit.Result
+			var shownElapsed []time.Duration
 			for i, r := range results {
 				if len(r.Findings) > 0 || (!opts.Quiet && !suppressClean) {
-					printSkillResultLine(i+1, len(results), r, elapsed[i])
+					shown = append(shown, r)
+					shownElapsed = append(shownElapsed, elapsed[i])
 				}
 			}
-			fmt.Println()
+			names := make([]string, len(shown))
+			// Point Next at the first blocked skill, else the first with findings.
+			for i, r := range shown {
+				names[i] = r.SkillName
+				if r.SkillName == audit.CrossSkillResultName || len(r.Findings) == 0 {
+					continue
+				}
+				if flagged == "" || (r.IsBlocked && !blockedFlagged) {
+					flagged, blockedFlagged = r.SkillName, r.IsBlocked
+				}
+			}
+			width := ui.RowWidth(names...)
+			for i, r := range shown {
+				printSkillResultLine(r, shownElapsed[i], width)
+			}
 		}
-		var kindSlice []resourceKindFilter
-		if tuiCtx != nil {
-			kindSlice = []resourceKindFilter{tuiCtx.kind}
+		printAuditSummary(summary, kind)
+		fmt.Println()
+		printAuditDone(summary, kind, "", took)
+		if flagged != "" {
+			ui.Next("skillshare audit "+flagged, "see its findings")
 		}
-		summaryLines := buildAuditSummaryLines(summary, kindSlice...)
-		printAuditSummary(summary, summaryLines, headerMinWidth)
 	}
 
 	if useTUI {
@@ -65,6 +88,13 @@ func presentAuditResults(results []*audit.Result, elapsed []time.Duration, scanO
 		return runAuditTUI(results, scanOutputs, summary, nil, nil, auditRunSummary{}, auditTabSkills)
 	}
 	return nil
+}
+
+// printAuditHeader names what the audit scans and the rules it applies.
+func printAuditHeader(mode, path, threshold, policyLine string) {
+	fmt.Println(theme.Primary().Bold(true).Render("Audit") + "  " + utils.FoldHomePath(path))
+	ui.Note(fmt.Sprintf("%s · blocks at %s · policy %s", mode, threshold, policyLine))
+	fmt.Println()
 }
 
 func launchAuditTUIWithTabs(results []*audit.Result, scanOutputs []audit.ScanOutput, summary auditRunSummary, ctx *auditTUIContext) error {
@@ -138,206 +168,136 @@ func launchAuditTUIWithTabs(results []*audit.Result, scanOutputs []audit.ScanOut
 	return runAuditTUI(skillResults, skillOutputs, skillSummary, agentResults, agentOutputs, agentSummary, initialTab)
 }
 
-// printSkillResultLine prints a single-line result for a skill during batch scan.
-func printSkillResultLine(index, total int, result *audit.Result, elapsed time.Duration) {
-	prefix := fmt.Sprintf("[%d/%d]", index, total)
-	name := result.SkillName
-	showTime := elapsed >= time.Second
-	timeStr := fmt.Sprintf("%.1fs", elapsed.Seconds())
-
+// printSkillResultLine prints a one-row result for a skill during batch scan.
+func printSkillResultLine(result *audit.Result, elapsed time.Duration, width int) {
+	took := ""
+	if elapsed >= time.Second {
+		took = ui.DimText(fmt.Sprintf(" · %.1fs", elapsed.Seconds()))
+	}
 	if len(result.Findings) == 0 {
-		if ui.IsTTY() {
-			if showTime {
-				fmt.Printf("%s %s✓%s %s %s%s%s\n", prefix, ui.Green, ui.Reset, name, ui.Dim, timeStr, ui.Reset)
-			} else {
-				fmt.Printf("%s %s✓%s %s\n", prefix, ui.Green, ui.Reset, name)
-			}
-		} else {
-			if showTime {
-				fmt.Printf("%s ✓ %s %s\n", prefix, name, timeStr)
-			} else {
-				fmt.Printf("%s ✓ %s\n", prefix, name)
-			}
-		}
+		ui.Row(ui.MarkOK, result.SkillName, took, width)
 		return
 	}
-
-	color := riskColor(result.RiskLabel)
-	symbol := "!"
+	mark := ui.MarkWarn
 	if result.IsBlocked {
-		symbol = "✗"
+		mark = ui.MarkFail
 	}
 	maxSeverity := result.MaxSeverity()
 	if maxSeverity == "" {
 		maxSeverity = "NONE"
 	}
-	riskText := fmt.Sprintf("AGG %s %d/100, max %s", strings.ToUpper(result.RiskLabel), result.RiskScore, maxSeverity)
-
-	if ui.IsTTY() {
-		if showTime {
-			fmt.Printf("%s %s%s%s %s  %s(%s)%s  %s%s%s\n", prefix, color, symbol, ui.Reset, name, color, riskText, ui.Reset, ui.Dim, timeStr, ui.Reset)
-		} else {
-			fmt.Printf("%s %s%s%s %s  %s(%s)%s\n", prefix, color, symbol, ui.Reset, name, color, riskText, ui.Reset)
-		}
-	} else {
-		if showTime {
-			fmt.Printf("%s %s %s  (%s)  %s\n", prefix, symbol, name, riskText, timeStr)
-		} else {
-			fmt.Printf("%s %s %s  (%s)\n", prefix, symbol, name, riskText)
-		}
-	}
+	value := formatSeverity(maxSeverity) + ui.DimText(fmt.Sprintf(" · risk %d/100", result.RiskScore)) + took
+	ui.Row(mark, result.SkillName, value, width)
 }
 
-// printSkillResult prints detailed results for a single-skill audit.
-func printSkillResult(result *audit.Result, elapsed time.Duration) {
+// printSkillResult prints the findings of a single-skill audit, then its
+// risk, and closes with whether the skill is blocked.
+func printSkillResult(result *audit.Result, kind resourceKindFilter, elapsed time.Duration) {
 	if len(result.Findings) == 0 {
-		ui.Success("No issues found in %s (%.1fs)", result.SkillName, elapsed.Seconds())
+		printAuditDone(auditRunSummary{Passed: 1, Threshold: result.Threshold}, kind, result.SkillName, elapsed)
 		return
 	}
 
 	for _, f := range result.Findings {
-		sevLabel := formatSeverity(f.Severity)
-		loc := fmt.Sprintf("%s:%d", f.File, f.Line)
-		if ui.IsTTY() {
-			fmt.Printf("  %s: %s (%s)\n", sevLabel, f.Message, loc)
-			if meta := findingMetaCLI(f); meta != "" {
-				fmt.Printf("  %s[%s]%s\n", ui.Dim, meta, ui.Reset)
-			}
-			fmt.Printf("  %s\"%s\"%s\n\n", ui.Dim, f.Snippet, ui.Reset)
-		} else {
-			fmt.Printf("  %s: %s (%s)\n", f.Severity, f.Message, loc)
-			if meta := findingMetaCLI(f); meta != "" {
-				fmt.Printf("  [%s]\n", meta)
-			}
-			fmt.Printf("  \"%s\"\n\n", f.Snippet)
+		pad := strings.Repeat(" ", max(0, len("CRITICAL")-len(f.Severity)))
+		fmt.Printf("%s%s  %s  %s\n", formatSeverity(f.Severity), pad, f.Message, ui.DimText(fmt.Sprintf("%s:%d", f.File, f.Line)))
+		if meta := findingMetaCLI(f); meta != "" {
+			ui.Note(meta)
 		}
+		ui.Note(fmt.Sprintf("%q", f.Snippet))
+		fmt.Println()
 	}
 
-	color := riskColor(result.RiskLabel)
-	threshold := result.Threshold
-	if threshold == "" {
-		threshold = audit.DefaultThreshold()
+	labels := []string{"Risk", "Auditable"}
+	if !result.TierProfile.IsEmpty() {
+		labels = append(labels, "Commands")
 	}
-	maxSeverity := result.MaxSeverity()
-	if maxSeverity == "" {
-		maxSeverity = "NONE"
+	width := ui.RowWidth(labels...)
+	ui.Row(ui.MarkNone, "Risk", ui.Colorize(riskColor(result.RiskLabel), fmt.Sprintf("%s %d/100", strings.ToUpper(result.RiskLabel), result.RiskScore)), width)
+	ui.Row(ui.MarkNone, "Auditable", fmt.Sprintf("%.0f%%", result.Analyzability*100), width)
+	if !result.TierProfile.IsEmpty() {
+		ui.Row(ui.MarkNone, "Commands", result.TierProfile.String(), width)
 	}
-	decision := "ALLOW"
-	compare := "<"
+
+	summary := auditRunSummary{Threshold: result.Threshold}
 	if result.IsBlocked {
-		decision = "BLOCK"
-		compare = ">="
-	}
-	if ui.IsTTY() {
-		fmt.Printf("%s→%s Aggregate risk: %s%s (%d/100)%s\n", ui.Cyan, ui.Reset, color, strings.ToUpper(result.RiskLabel), result.RiskScore, ui.Reset)
-		fmt.Printf("%s→%s Auditable: %.0f%%\n", ui.Cyan, ui.Reset, result.Analyzability*100)
-		if !result.TierProfile.IsEmpty() {
-			fmt.Printf("%s→%s Commands: %s\n", ui.Cyan, ui.Reset, result.TierProfile.String())
-		}
-		fmt.Printf("%s→%s Block decision: %s (max severity %s %s threshold %s)\n", ui.Cyan, ui.Reset, decision, maxSeverity, compare, threshold)
+		summary.Failed = 1
 	} else {
-		fmt.Printf("→ Aggregate risk: %s (%d/100)\n", strings.ToUpper(result.RiskLabel), result.RiskScore)
-		fmt.Printf("→ Auditable: %.0f%%\n", result.Analyzability*100)
-		if !result.TierProfile.IsEmpty() {
-			fmt.Printf("→ Commands: %s\n", result.TierProfile.String())
-		}
-		fmt.Printf("→ Block decision: %s (max severity %s %s threshold %s)\n", decision, maxSeverity, compare, threshold)
+		summary.Warning = 1
 	}
-}
-
-// buildAuditSummaryLines builds the summary box lines (without printing).
-func buildAuditSummaryLines(summary auditRunSummary, kind ...resourceKindFilter) []string {
-	var lines []string
-	maxSeverity := summary.MaxSeverity
-	if maxSeverity == "" {
-		maxSeverity = "NONE"
-	}
-	// -- Policy settings --
-	lines = append(lines, fmt.Sprintf("  Block:     severity >= %s", ui.Colorize(ui.SeverityColor(summary.Threshold), summary.Threshold)))
-	lines = append(lines, fmt.Sprintf("  Policy:    %s", formatPolicyLine(summary.PolicyProfile, summary.PolicyDedupe, summary.PolicyAnalyzers)))
-	lines = append(lines, fmt.Sprintf("  Max sev:   %s", ui.Colorize(ui.SeverityColor(maxSeverity), maxSeverity)))
-
-	// -- Result counts --
-	noun := "skill(s)"
-	if len(kind) > 0 {
-		noun = kind[0].Noun(summary.Scanned)
-	}
-	lines = append(lines, "")
-	lines = append(lines, fmt.Sprintf("  Scanned:   %d %s", summary.Scanned, noun))
-	lines = append(lines, fmt.Sprintf("  Passed:    %d", summary.Passed))
-	if summary.Warning > 0 {
-		lines = append(lines, fmt.Sprintf("  Warning:   %s", ui.Colorize(ui.Yellow, fmt.Sprintf("%d", summary.Warning))))
-	} else {
-		lines = append(lines, fmt.Sprintf("  Warning:   %d", summary.Warning))
-	}
-	if summary.Failed > 0 {
-		lines = append(lines, fmt.Sprintf("  Failed:    %s", ui.Colorize(ui.Red, fmt.Sprintf("%d", summary.Failed))))
-	} else {
-		lines = append(lines, fmt.Sprintf("  Failed:    %d", summary.Failed))
-	}
-
-	// -- Severity & threat breakdown --
-	lines = append(lines, "")
-	lines = append(lines, fmt.Sprintf("  Severity:  c/h/m/l/i = %s/%s/%s/%s/%s",
-		colorizeNonZero(summary.Critical, ui.SeverityColor("CRITICAL")),
-		colorizeNonZero(summary.High, ui.SeverityColor("HIGH")),
-		colorizeNonZero(summary.Medium, ui.SeverityColor("MEDIUM")),
-		colorizeNonZero(summary.Low, ui.SeverityColor("LOW")),
-		colorizeNonZero(summary.Info, ui.SeverityColor("INFO"))))
-	if ui.IsTTY() {
-		if threatsLine := formatCategoryBreakdownCLI(summary.ByCategory); threatsLine != "" {
-			lines = append(lines, fmt.Sprintf("  Threats:   %s", threatsLine))
-		}
-	} else {
-		if threatsLine := formatCategoryBreakdown(summary.ByCategory, false); threatsLine != "" {
-			lines = append(lines, fmt.Sprintf("  Threats:   %s", threatsLine))
-		}
-	}
-
-	// -- Aggregate risk --
-	lines = append(lines, "")
-	riskLabel := strings.ToUpper(summary.RiskLabel)
-	riskText := fmt.Sprintf("%s (%d/100)", riskLabel, summary.RiskScore)
-	lines = append(lines, fmt.Sprintf("  Aggregate: %s", ui.Colorize(riskColor(summary.RiskLabel), riskText)))
-	lines = append(lines, fmt.Sprintf("  Auditable: %.0f%% avg", summary.AvgAnalyzability*100))
-
-	// -- Note --
-	lines = append(lines, "")
-	lines = append(lines, "  Note:      Failed uses severity gate; aggregate is informational")
-	if summary.ScanErrors > 0 {
-		lines = append(lines, fmt.Sprintf("  Scan errs: %d", summary.ScanErrors))
-	}
-	return lines
-}
-
-// auditSummaryNoteLine is the longest fixed-content line in the summary box.
-const auditSummaryNoteLine = "  Note:      Failed uses severity gate; aggregate is informational"
-
-// auditHeaderMinWidth computes a minimum content width for the header box,
-// ensuring it is at least as wide as the summary box's fixed-content lines.
-func auditHeaderMinWidth(subtitle string) int {
-	minW := len(auditSummaryNoteLine)
-	for _, line := range strings.Split(subtitle, "\n") {
-		if w := ui.DisplayWidth(line); w > minW {
-			minW = w
-		}
-	}
-	return minW
-}
-
-// printAuditSummary prints the summary box with a shared minimum width.
-func printAuditSummary(_ auditRunSummary, lines []string, minWidth int) {
-	ui.BoxWithMinWidth("Summary", minWidth, lines...)
 	fmt.Println()
+	printAuditDone(summary, kind, result.SkillName, elapsed)
 }
 
-// colorizeNonZero returns a colored number string when n > 0, gray otherwise.
-func colorizeNonZero(n int, color string) string {
-	s := fmt.Sprintf("%d", n)
-	if n == 0 {
-		return ui.Colorize(ui.Dim, s)
+// printAuditSummary prints the counts, severities, threats and aggregate
+// risk of a batch scan. Zero counts are left out.
+func printAuditSummary(summary auditRunSummary, kind resourceKindFilter) {
+	ui.Section("Summary")
+	width := ui.RowWidth("Scanned", "Severity", "Scan errors")
+	ui.Row(ui.MarkNone, "Scanned", fmt.Sprintf("%d %s", summary.Scanned, kind.Noun(summary.Scanned)), width)
+	for _, c := range []struct {
+		mark, label string
+		n           int
+	}{
+		{ui.MarkOK, "Passed", summary.Passed},
+		{ui.MarkWarn, "Warning", summary.Warning},
+		{ui.MarkFail, "Failed", summary.Failed},
+		{ui.MarkFail, "Scan errors", summary.ScanErrors},
+	} {
+		if c.n > 0 {
+			ui.Row(c.mark, c.label, fmt.Sprintf("%d", c.n), width)
+		}
 	}
-	return ui.Colorize(color, s)
+	var severities []string
+	for _, s := range []struct {
+		label string
+		n     int
+	}{
+		{"CRITICAL", summary.Critical},
+		{"HIGH", summary.High},
+		{"MEDIUM", summary.Medium},
+		{"LOW", summary.Low},
+		{"INFO", summary.Info},
+	} {
+		if s.n > 0 {
+			severities = append(severities, ui.Colorize(ui.SeverityColor(s.label), fmt.Sprintf("%d %s", s.n, strings.ToLower(s.label))))
+		}
+	}
+	if len(severities) > 0 {
+		ui.Row(ui.MarkNone, "Severity", strings.Join(severities, ", "), width)
+	}
+	if threats := formatCategoryBreakdown(summary.ByCategory, false); threats != "" {
+		ui.Row(ui.MarkNone, "Threats", threats, width)
+	}
+	risk := ui.Colorize(riskColor(summary.RiskLabel), fmt.Sprintf("%s %d/100", strings.ToUpper(summary.RiskLabel), summary.RiskScore))
+	ui.Row(ui.MarkNone, "Risk", risk+ui.DimText(fmt.Sprintf(" · %.0f%% auditable", summary.AvgAnalyzability*100)), width)
+}
+
+// printAuditDone closes an audit: blocked when a finding reaches the
+// threshold, a warning when findings stay below it, clean otherwise. name
+// is set for a single-skill audit.
+func printAuditDone(summary auditRunSummary, kind resourceKindFilter, name string, took time.Duration) {
+	scanned := plural(summary.Scanned, kind.SingularNoun())
+	if name != "" {
+		scanned = name
+	}
+	switch {
+	case summary.Failed > 0:
+		text := fmt.Sprintf("%s blocked: findings at %s or above", scanned, summary.Threshold)
+		if name == "" {
+			text = fmt.Sprintf("Blocked %d of %s: findings at %s or above", summary.Failed, scanned, summary.Threshold)
+		}
+		ui.Done(ui.MarkFail, text, took)
+		ui.Note("The risk score is informational; only the severity blocks")
+	case summary.Warning > 0:
+		text := fmt.Sprintf("%s has findings below %s", scanned, summary.Threshold)
+		if name == "" {
+			text = fmt.Sprintf("%d of %s with findings below %s", summary.Warning, scanned, summary.Threshold)
+		}
+		ui.Done(ui.MarkWarn, text, took)
+	default:
+		ui.Done(ui.MarkOK, "No issues found in "+scanned, took)
+	}
 }
 
 // formatSeverity returns an ANSI-colored uppercase severity label.
@@ -404,39 +364,6 @@ func formatCategoryBreakdown(cats map[string]int, compact bool) string {
 			}
 		}
 		parts[i] = fmt.Sprintf("%s:%d", label, cc.count)
-	}
-	return strings.Join(parts, " ")
-}
-
-// formatCategoryBreakdownCLI formats a category count map as
-// "cat:N cat:N ..." for CLI summary box output. High-count categories
-// (>50) are bold white; the rest are dim. Returns "" if empty.
-func formatCategoryBreakdownCLI(cats map[string]int) string {
-	if len(cats) == 0 {
-		return ""
-	}
-	type catCount struct {
-		name  string
-		count int
-	}
-	sorted := make([]catCount, 0, len(cats))
-	for name, count := range cats {
-		sorted = append(sorted, catCount{name, count})
-	}
-	sort.Slice(sorted, func(i, j int) bool {
-		if sorted[i].count != sorted[j].count {
-			return sorted[i].count > sorted[j].count
-		}
-		return sorted[i].name < sorted[j].name
-	})
-
-	parts := make([]string, len(sorted))
-	for i, cc := range sorted {
-		if cc.count > 50 {
-			parts[i] = fmt.Sprintf("%s%s%s:%d%s", ui.Bold, ui.White, cc.name, cc.count, ui.Reset)
-		} else {
-			parts[i] = fmt.Sprintf("%s%s:%d%s", ui.Dim, cc.name, cc.count, ui.Reset)
-		}
 	}
 	return strings.Join(parts, " ")
 }
