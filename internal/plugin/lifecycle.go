@@ -39,6 +39,14 @@ func (s *Service) Apply(ctx context.Context, r Request, revision string) (*Resul
 	if err != nil {
 		return nil, err
 	}
+	// Preserve private entries before writing references to them into config.
+	for _, c := range p.Changes {
+		if c.Action != "skip" && c.Action != "noop" {
+			if err := s.savePiRegistration(c); err != nil {
+				return nil, err
+			}
+		}
+	}
 	result := &Result{Results: []Outcome{}}
 	changed := false
 	for _, c := range p.Changes {

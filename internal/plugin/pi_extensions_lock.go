@@ -3,8 +3,10 @@ package plugin
 import (
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"sync"
+	"syscall"
 	"time"
 )
 
@@ -26,8 +28,8 @@ const piLockMargin = 3 * time.Second
 var errPiLockLost = errors.New("Pi took over its settings lock during the change; nothing was written")
 
 // piNativeLock is Pi's settings.json.lock held the way proper-lockfile holds it:
-// a directory whose mtime is renewed while held. It never renews, or removes, a
-// directory it did not create.
+// a directory whose mtime is renewed while held. Acquisition may reclaim an
+// unchanged, empty stale directory; renewal/release only touch the owned inode.
 type piNativeLock struct {
 	path string
 	ours os.FileInfo
@@ -42,10 +44,19 @@ type piNativeLock struct {
 
 func acquirePiNativeLock(path string) (*piNativeLock, error) {
 	if err := os.Mkdir(path, 0o755); err != nil {
-		if os.IsExist(err) {
+		if !os.IsExist(err) {
+			return nil, err
+		}
+		if err := reclaimPiNativeLock(path); err != nil {
 			return nil, fmt.Errorf("%w (Pi holds %s)", ErrPiExtensionsBusy, path)
 		}
-		return nil, err
+		// Another writer may acquire after removal. Never remove its new lock.
+		if err := os.Mkdir(path, 0o755); err != nil {
+			if os.IsExist(err) {
+				return nil, ErrPiExtensionsBusy
+			}
+			return nil, err
+		}
 	}
 	ours, err := os.Lstat(path)
 	if err != nil {
@@ -54,6 +65,44 @@ func acquirePiNativeLock(path string) (*piNativeLock, error) {
 	l := &piNativeLock{path: path, ours: ours, mtime: ours.ModTime(), stop: make(chan struct{}), done: make(chan struct{})}
 	go l.renew()
 	return l, nil
+}
+
+// piBeforeLockReclaim lets tests refresh/replace the observed directory.
+var piBeforeLockReclaim = func(string) {}
+
+func reclaimPiNativeLock(path string) error {
+	before, err := os.Lstat(path)
+	if err != nil || !before.IsDir() || time.Since(before.ModTime()) <= piLockStale {
+		return ErrPiExtensionsBusy
+	}
+	// Anchor the inode until reclamation finishes. Root's Windows handle permits
+	// deletion; an ordinary os.Open directory handle does not.
+	root, err := os.OpenRoot(path)
+	if err != nil {
+		return err
+	}
+	defer root.Close()
+	anchored, err := root.Stat(".")
+	if err != nil || !os.SameFile(before, anchored) {
+		return ErrPiExtensionsBusy
+	}
+	dir, err := root.Open(".")
+	if err != nil {
+		return err
+	}
+	_, readErr := dir.ReadDir(1)
+	closeErr := dir.Close()
+	if readErr != io.EOF || closeErr != nil {
+		return ErrPiExtensionsBusy
+	}
+	piBeforeLockReclaim(path)
+	current, err := os.Lstat(path)
+	if err != nil || !current.IsDir() || !os.SameFile(before, current) || !before.ModTime().Equal(current.ModTime()) || time.Since(current.ModTime()) <= piLockStale {
+		return ErrPiExtensionsBusy
+	}
+	// Directory-only, nonrecursive removal: even a racing file/symlink is not
+	// unlinked. As in proper-lockfile, the final stat/remove is not an atomic CAS.
+	return syscall.Rmdir(path)
 }
 
 func (l *piNativeLock) renew() {

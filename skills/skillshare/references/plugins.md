@@ -116,7 +116,12 @@ cannot reach, says why, and still updates the other targets.
   `cli:` it runs that compatible CLI instead (such as `omo` for Pi); a Pi account also sets
   `SENPI_CODING_AGENT_DIR` and `OMO_CODING_AGENT_DIR`. A missing CLI fails, with no fallback.
 - Local directory plugins cannot import unowned folders or marketplace installs.
-  Importing Pi/OpenCode entries with filters/options is blocked to avoid losing them.
+  Verified Pi 0.99.2/1.0.0 can import supported filtered entries without changing
+  native settings. Preview shows retained keys; raw entries stay in private state
+  and shared config stores a digest. Uninstall captures current options; reinstall
+  restores the object before native install. Missing/changed/cross-target records,
+  uncertain sources or precedence, and non-normalized local references are refused.
+  Filtered OpenCode imports remain blocked.
   Supply `--name` when a native package source is not a valid logical name.
 
 ```bash

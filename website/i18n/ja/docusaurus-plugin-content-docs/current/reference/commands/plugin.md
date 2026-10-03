@@ -133,7 +133,7 @@ OpenCode は、管理下エントリを `opencode.json` または既存の `open
 
 ローカルの OpenCode source は、ビルド済みのエントリ（`main`、文字列のルート export、または `index.js`）と必要なランタイム依存関係をすでに含んでいる必要があります。Skillshare はビルドスクリプトを実行したり、source に依存関係をインストールしたりしません。登録はモジュールが正常にロードされたことの証明ではありません。再読み込み後に OpenCode を確認してください。
 
-インポートは、通常の Pi package source と通常の OpenCode config エントリを受け付けます。resource フィルタ/オプション付きのエントリは、それらの設定を保持するために拒否されます。インポートされた Pi の package は、global モードでは `pi update SOURCE` で更新され、設定エントリは保持されます。project のものは Pi で更新してください。`pi update` は global の package にも及ぶためです。インポートされた OpenCode v1 の package は、そのネイティブツール上で更新されます。OpenCode v2 の global インポートはネイティブの update コマンドを使用できますが、v2 の update コマンドは global 向けであるため、project のインポートはネイティブに更新する必要があります。
+インポートは通常の Pi source に加え、検証済み Pi 0.99.2/1.0.0 の対応する source とオプション形式を持つ filtered object を受け付けます。プレビューは保持するキー名だけを表示し、opaque 値を表示しません。ネイティブ設定とファイルは変更せず、元のエントリを Skillshare の非公開 state に保存し、共有 config には digest だけを記録します。sync/update は現在のエントリを保持します。アンインストール前に最新のオプションを保存し、再インストール時はネイティブ install の前に object を復元して、他のリソースが一時的に既定で有効になるのを防ぎます。非公開 state を保持してください。記録の欠落・変更や別 target の記録は復元を拒否します。不明な source・優先順位、非対応のエンコーディング、Pi が正規化するローカル参照は読み取り専用です。通常の OpenCode エントリは取り込めますが、filtered OpenCode は引き続き拒否します。10 秒の stale 閾値を超えた空のロックディレクトリは inode と mtime が変わっていない場合だけ回収します。新しい・更新された・置換されたロック、空でないディレクトリ、ファイル、symlink は保持します。古さは所有者の終了を証明せず、最終確認と削除は atomic CAS ではありません。インポートされた Pi の package は、global モードでは `pi update SOURCE` で更新され、設定エントリは保持されます。project のものは Pi で更新してください。`pi update` は global の package にも及ぶためです。インポートされた OpenCode v1 の package は、そのネイティブツール上で更新されます。OpenCode v2 の global インポートはネイティブの update コマンドを使用できますが、v2 の update コマンドは global 向けであるため、project のインポートはネイティブに更新する必要があります。
 
 ```bash
 skillshare plugin add ./cursor-plugin --target cursor --no-tui

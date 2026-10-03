@@ -2147,6 +2147,7 @@
   "plugins.add": "添加 plugin",
   "plugins.import": "导入已安装项目",
   "plugins.importOne": "导入",
+  "plugins.preservedKeys": "保留原生字段：",
   "plugins.source": "仓库或文件夹",
   "plugins.sourceHelp": "粘贴 owner/repo、HTTPS Git 地址或本地目录。预览不会安装任何内容。",
   "plugins.discover": "查找 plugins",

@@ -174,6 +174,10 @@ manifest, while an object entry also loads them from the package's `skills`,
 of a package with such a folder is read-only, because Skillshare can't show that
 converting it leaves those resources as they are. A source that is one file is
 read-only too, because Pi loads it as it is and ignores filters. If the file changed after the preview, or Pi holds its settings lock, nothing is written.
+An empty lock directory older than Pi's 10-second stale threshold can be reclaimed
+only if its inode and mtime are unchanged. Fresh, renewed, replaced, nonempty,
+file, and symlink locks are refused. Reclamation follows Pi's stale-lock protocol;
+age does not prove an owner has died, and the final check/removal is not an atomic CAS.
 While writing, Skillshare holds that lock the way Pi does and writes nothing if it
 loses it. Before each apply, Skillshare saves a persistent record of the changed
 extension lists and the before/after file hashes. Successful records are kept
@@ -228,8 +232,17 @@ root export, or `index.js`) and required runtime dependencies. Skillshare does n
 run build scripts or install dependencies into the source. Registration is not
 proof the module loaded successfully; check OpenCode after reload.
 
-Import accepts plain Pi package sources and plain OpenCode config entries.
-Entries with resource filters/options are rejected to preserve those settings.
+Import accepts plain Pi package sources and, on verified Pi 0.99.2/1.0.0,
+filtered object entries with supported sources and option shapes. Preview lists
+retained field names, never opaque values. Import changes neither native settings
+nor installed files. The original entry is kept in private Skillshare state;
+shared config stores only its digest. Sync/update retain the live entry. When
+uninstalling, Skillshare captures its latest rules and options; reinstall restores
+that object before native installation, avoiding a default-enabled window.
+Keep private state with these bindings: a missing, modified, or cross-target record
+blocks restoration. Unresolved sources, ambiguous precedence, unsupported encoding,
+and local references Pi would normalize remain read-only. Plain OpenCode entries
+can be imported; filtered OpenCode entries are still rejected.
 Imported Pi packages are updated with `pi update SOURCE` in global mode, which
 keeps their settings entry; a project's are updated in Pi, because `pi update`
 also reaches global packages. Imported OpenCode v1 packages are updated in their

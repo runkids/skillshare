@@ -211,7 +211,7 @@ export default function PluginsPage() {
                       <span className="min-w-0 flex-1 truncate font-mono text-[13px] font-semibold" title={i.id}>{i.id}</span>
                       {i.enabledKnown !== false && !i.enabled && <span className="ss-tag">{t('plugins.nativeDisabled')}</span>}
                       <span className="font-mono text-xs text-ink-3">{i.version}</span>
-                      <Button size="sm" variant="secondary" loading={working === `${h.target}:${i.id}`} disabled={busy || i.filtered || locked} onClick={() => begin({ action: 'import', from: h.target, plugin: i.id }, `${h.target}:${i.id}`)}>{t('plugins.importOne')}</Button>
+                      <Button size="sm" variant="secondary" loading={working === `${h.target}:${i.id}`} disabled={busy || (i.filtered && !i.importable) || locked} onClick={() => begin({ action: 'import', from: h.target, plugin: i.id }, `${h.target}:${i.id}`)}>{t('plugins.importOne')}</Button>
                     </div>
                   ))}
                 </div>
@@ -235,6 +235,7 @@ export default function PluginsPage() {
                   <span className="ss-at">{c.target ? <AgentIcon target={c.target} size={17} /> : c.logo ? <img src={c.logo} alt="" className="size-full rounded-[inherit] object-cover" /> : <Package size={15} />}</span>
                   <span className="flex min-w-0 flex-1 flex-col gap-0.5">
                     <span className="flex items-center gap-2"><span className="font-mono font-semibold">{c.name}</span><span className="text-[13px] text-ink-2">{agentLabel(c.target)}</span><VersionChange from={data?.packages[c.name]?.bindings[c.target]?.version} to={c.action.startsWith('update') ? c.binding?.version : undefined} /></span>
+                    {!!c.preservedKeys?.length && <span className="text-xs text-ink-3"><span>{t('plugins.preservedKeys')}</span>{' '}{c.preservedKeys.join(' · ')}</span>}
                     {c.action === 'record' ? <span className="text-xs text-ink-3">{t('plugins.recordHelp')}</span> : (c.message || c.components?.length) && <span className="text-xs text-ink-3">{c.message ? keyedMessage(t, c) : c.components!.join(' · ')}</span>}
                   </span>
                   <span className={`ss-tag ${actionTone(c.action)}`}>{actionText(c.action)}</span>

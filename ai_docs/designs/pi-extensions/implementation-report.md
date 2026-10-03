@@ -28,7 +28,7 @@ configuration read-only; it does not touch trust, run extensions, or publish any
 | Native check | Pi's own `DefaultPackageManager` resolves the files Skillshare wrote, trusted and untrusted, through `scripts/pi/resolve-probe.mjs` (trust passed in; trust store never read or written). | `TestPiProjectOverridesResolveInPi` (version matrix check `project-native`). |
 | Write safety | Only `.pi/settings.json`, through an `os.Root` at the project. Revision binds both files' bytes (and the project file's absence), the scoped changes and the plan. An already refused or stale preview creates no folder, lock or backup. If Apply aborts after recording, only that attempt's new record is discarded; successful history is kept. Lock order: plugin lock, then Pi's `settings.json.lock`. A new file is linked into place (an existing one makes it stale); an existing one is renamed over. Backup and oplog as for global. After the backup, the plan is rebuilt from both files and the packages and must reproduce the revision before the write. | `TestPiProjectApplyIsBoundToBothFiles`, `…StaleApplyHasNoSideEffects`, `…WriteProtections`, `…ApplyIsBoundToDiscovery`, `…LockLostMidApply`, `…ApplyRevalidatesAtTheWrite`; server `TestPiExtensionsAPIProjectSavesOnlyProjectSettings` (global target refuses the project revision with 409). |
 | Unsafe forms | Credentials or a query in a global source: read-only, never copied; the note says to change that global entry to a source without them (adding a second entry would not help, since Pi keeps the first). A project entry Skillshare can't read, or a global entry whose source it can't read: whole project view read-only. A first global entry that Skillshare can't read (bad rules, `autoload: false`) still owns its package: no rows, no override, and later entries of the package are not offered. The global view marks those later entries `duplicate`. An unresolved earlier global identity or later project identity leaves potentially shadowed entries `sourceUnknown`, with no rows/edit targets; inherited deltas likewise stay read-only. | `TestPiProjectSettingsForms`, `TestPiProjectFirstGlobalEntryGoverns`, `TestPiExtensionsUnreadFirstEntryStillDedupes`, `TestPiUnresolvedRegistrationMakesOwnershipUnknown`, `TestPiBadSourceMakesPackageOwnershipUnknown`. Unreadable source values likewise create precedence uncertainty; Native scenario 29 confirms replacement-decoded invalid UTF-8 can own the same identity as a later valid local source. Native probe on 0.99.2: global `[{pkg, ["*", "!…\ud800…"]}, {pkg, ["-a"]}]` keeps `a.ts` on (the second entry is ignored); with a project delta `[+a, -b]` trusted, `b.ts` stays on, so the result is not predictable and read-only is correct. |
-| Version support | `PiVerifiedVersions` = 0.99.2, 1.0.0, backed by `scripts/pi/version-matrix.sh` (see `phase-0.md`, Version support update). Exact versions only. | `scripts/pi/version-evidence.json`: both versions pass `contract/core` and `contract/bundle` (29 scenarios, 90 assertions), `native-lock`, `project-native`. |
+| Version support | `PiVerifiedVersions` = 0.99.2, 1.0.0, backed by `scripts/pi/version-matrix.sh` (see `phase-0.md`, Version support update). Exact versions only. | `scripts/pi/version-evidence.json`: both versions pass `contract/core` and `contract/bundle` (31 scenarios, 127 assertions), `native-lock`, `project-native`. |
 
 Revalidation boundary: the project file is locked; the global settings are not (taking
 Pi's global lock would write a lock directory into the global agent folder). The global
@@ -402,9 +402,40 @@ Run in container `ss-pi-ext` unless marked host.
 - Supported input boundary: a source, entry rules, a manifest's `pi.extensions` or the top-level
   `extensions` with an unpaired UTF-16 surrogate escape or invalid UTF-8 is read-only, and so
   is an empty source. Skillshare does not model JavaScript strings beyond that.
-- Deferred, as agreed: the full Diagnostics UI, duplicate-load detection, runtime export, the
-  filtered-package import UX, mobile layout, converting a replacement into a delta, and a trust
-  bridge.
+- Deferred: the full Diagnostics UI, duplicate-load detection, runtime export, mobile layout,
+  converting a replacement into a delta, and a trust bridge.
 - Both writers rebuild the plan right before the write, but files outside the locked
   settings file (the global settings for a project, and package files and manifests) are not
   locked: a change in the short time between that last check and the rename is not seen.
+
+## Filtered import and stale-lock follow-up
+
+- Approved scope: reclaim an unchanged empty native lock older than 10 seconds; retain
+  refreshed/replaced/nonempty directories, files and symlinks. A directory-only rmdir is
+  nonrecursive; the inode stays anchored with os.Root while inspected. A competing acquisition
+  after removal is refused, never removed. Existing owned renewal/release checks are unchanged.
+  As in proper-lockfile, mtime expiry is a lease policy, not process-death evidence; the final
+  stat/rmdir is not an atomic compare-and-swap.
+- Verified Pi object registrations can be adopted without native settings writes or lifecycle
+  commands. Preview exposes only sorted field names. Exact entry bytes (including opaque
+  numbers/escapes) are stored privately, mode 0600 under a 0700 directory; YAML/API bindings
+  carry only a content digest. Records are scoped to the target/settings path/native ID, are
+  never automatically pruned, and changed records are refused rather than overwritten.
+- Normal sync/update preserve live entries. Uninstall captures current native rules/options,
+  not the old import snapshot. Reinstall restores the object before pi install, avoiding a
+  transient default-enabled string registration. Native trust remains Pi's decision. Failed
+  native install remains pending and retries only the identical restored entry; external edits
+  and ambiguous ownership are refused, including at the last write boundary.
+- Unsupported versions/sources/encoding/option shapes and local references that Pi would
+  normalize are not imported. Private state must accompany these bindings; missing or
+  cross-target records block restoration. Filtered OpenCode imports remain unsupported.
+- Evidence: stale-lock RED/GREEN, refresh/replacement/content races; filtered lifecycle in
+  global/project/account, latest-rule capture, zero-write preview/adoption, private-value
+  exclusion, stale approval, cross-account/tampered records, late writes and native retry.
+  Native 0.99.2/1.0.0 core+bundle: 31 scenarios/127 assertions each, native-lock/project-native
+  passed. The native persistence probe uses real local install and remote registration methods,
+  not real npm/Git installation; offline update does not establish network update breadth.
+- Verification: valid-Git make check; UI 95 files/800 tests; lint zero errors/47 existing warnings;
+  UI and five-locale website builds; changed-scope Doctor unchanged at 90/100, five warnings.
+  Windows cross-compilation is not Windows runtime evidence. New visual screenshots were not
+  run: browser automation is available only on the host, outside this task's tooling boundary.

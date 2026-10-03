@@ -132,7 +132,7 @@ OpenCode는 관리되는 entry를 `opencode.json` 또는 기존의 `opencode.jso
 
 로컬 OpenCode source는 빌드된 entry(`main`, 문자열 root export, 또는 `index.js`)와 필요한 런타임 의존성을 이미 포함하고 있어야 합니다. Skillshare는 빌드 스크립트를 실행하거나 source에 의존성을 설치하지 않습니다. 등록되었다고 해서 모듈이 성공적으로 로드되었다는 증거는 아닙니다. 다시 로드한 후 OpenCode를 확인하세요.
 
-Import는 일반적인 Pi 패키지 source와 일반적인 OpenCode config entry를 받아들입니다. 리소스 필터/옵션이 있는 entry는 해당 설정을 보존하기 위해 거부됩니다. import된 Pi 패키지는 global 모드에서 `pi update SOURCE`로 업데이트되며 설정 entry는 유지됩니다. project의 패키지는 Pi에서 업데이트하세요. `pi update`는 global 패키지에도 영향을 주기 때문입니다. import된 OpenCode v1 패키지는 해당 네이티브 도구에서 업데이트됩니다. OpenCode v2의 global import는 자체 네이티브 업데이트 명령을 사용할 수 있지만, v2 업데이트 명령이 global이기 때문에 project import는 네이티브로 업데이트해야 합니다.
+Import는 일반 Pi source와 검증된 Pi 0.99.2/1.0.0에서 지원되는 source 및 옵션 형식의 filtered object를 받아들입니다. 미리보기에는 보존할 키 이름만 표시하며 opaque 값은 표시하지 않습니다. 네이티브 설정과 설치 파일은 변경하지 않고, 원본 entry는 Skillshare의 비공개 state에 저장하며 공유 config에는 digest만 기록합니다. sync/update는 현재 entry를 유지합니다. 제거 전에 최신 옵션을 저장하고 재설치 시 네이티브 install 전에 object를 복원하여 다른 리소스가 일시적으로 기본 활성화되는 것을 방지합니다. 비공개 state를 보관하세요. 기록이 없거나 변경되었거나 다른 target 소유이면 복원을 거부합니다. 불확실한 source·우선순위, 미지원 인코딩, Pi가 정규화할 로컬 참조는 읽기 전용입니다. 일반 OpenCode entry는 가져올 수 있지만 filtered OpenCode는 계속 거부됩니다. 10초 stale 기준을 넘긴 빈 lock 디렉터리는 inode와 mtime이 바뀌지 않은 경우에만 회수합니다. 새 lock, 갱신·교체된 lock, 비어 있지 않은 디렉터리, 파일, symlink는 유지합니다. 오래되었다고 소유자가 종료된 것은 아니며 마지막 확인과 제거는 atomic CAS가 아닙니다. import된 Pi 패키지는 global 모드에서 `pi update SOURCE`로 업데이트되며 설정 entry는 유지됩니다. project의 패키지는 Pi에서 업데이트하세요. `pi update`는 global 패키지에도 영향을 주기 때문입니다. import된 OpenCode v1 패키지는 해당 네이티브 도구에서 업데이트됩니다. OpenCode v2의 global import는 자체 네이티브 업데이트 명령을 사용할 수 있지만, v2 업데이트 명령이 global이기 때문에 project import는 네이티브로 업데이트해야 합니다.
 
 ```bash
 skillshare plugin add ./cursor-plugin --target cursor --no-tui

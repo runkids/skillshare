@@ -2147,6 +2147,7 @@
   "plugins.add": "플러그인 추가",
   "plugins.import": "설치된 항목 가져오기",
   "plugins.importOne": "가져오기",
+  "plugins.preservedKeys": "유지할 네이티브 필드:",
   "plugins.source": "저장소 또는 폴더",
   "plugins.sourceHelp": "owner/repo, HTTPS Git URL 또는 로컬 디렉터리를 입력하세요. 미리보기는 설치하지 않습니다.",
   "plugins.discover": "플러그인 찾기",

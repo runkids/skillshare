@@ -2147,6 +2147,7 @@
   "plugins.add": "プラグインを追加",
   "plugins.import": "インストール済みを取り込む",
   "plugins.importOne": "取り込む",
+  "plugins.preservedKeys": "保持するネイティブ項目：",
   "plugins.source": "リポジトリまたはフォルダー",
   "plugins.sourceHelp": "owner/repo、HTTPS Git URL、ローカルディレクトリを入力します。プレビューではインストールしません。",
   "plugins.discover": "プラグインを探す",

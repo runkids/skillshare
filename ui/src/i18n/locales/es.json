@@ -2147,6 +2147,7 @@
   "plugins.add": "Añadir plugin",
   "plugins.import": "Importar instalados",
   "plugins.importOne": "Importar",
+  "plugins.preservedKeys": "Campos nativos conservados:",
   "plugins.source": "Repositorio o carpeta",
   "plugins.sourceHelp": "Pega owner/repo, una URL Git HTTPS o un directorio local. La vista previa no instala nada.",
   "plugins.discover": "Buscar plugins",

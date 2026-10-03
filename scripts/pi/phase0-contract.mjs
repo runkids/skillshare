@@ -12,7 +12,7 @@
 // Exit 0 means every assertion passed.
 
 import assert from "node:assert/strict";
-import { existsSync, mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, symlinkSync } from "node:fs";
+import { existsSync, mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, symlinkSync, utimesSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, relative } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -423,6 +423,48 @@ try {
     await held.flush();
     eq(held.drainErrors().map((e) => [e.scope, /lock/i.test(String(e.error?.message ?? e.error))]), [["project", true]]);
     eq(Buffer.compare(readFileSync(file), before), 0, "file unchanged while the lock is held");
+  });
+
+  await scenario("filtered registrations survive native persistence without rewriting opaque values", async () => {
+    for (const local of [false, true]) {
+      for (const source of ["npm:@acme/tools@1.2.3", "git:https://example.invalid/acme/tools.git#v1.2.3", src]) {
+        const r = await run({ global: { packages: [] }, project: { packages: [] } });
+        const pm = new DefaultPackageManager({ cwd: r.cwd, agentDir: r.agentDir, settingsManager: r.settingsManager });
+        const scope = local ? "project" : "user";
+        const normalized = pm.normalizePackageSourceForSettings(source, scope);
+        const rawEntry = `{"source":${JSON.stringify(normalized)},"extensions":["-extensions/a.ts"],"skills":[],"prompts":[],"themes":[],"opaque":{"integer":9007199254740993,"escaped":"\\u0061"}}`;
+        const file = local ? join(r.cwd, ".pi", "settings.json") : join(r.agentDir, "settings.json");
+        writeFileSync(file, `{"packages":[${rawEntry}]}`);
+        const sm = SettingsManager.create(r.cwd, r.agentDir, { projectTrusted: true });
+        const native = new DefaultPackageManager({ cwd: r.cwd, agentDir: r.agentDir, settingsManager: sm });
+        const before = readFileSync(file);
+        // Remote installers are not invoked; this verifies registration persistence,
+        // not network install breadth. Local install itself only checks existence.
+        if (source === src) await native.installAndPersist(source, { local });
+        else eq(native.addSourceToSettings(source, { local }), false);
+        await sm.flush();
+        eq(sm.drainErrors(), []);
+        eq(Buffer.compare(readFileSync(file), before), 0, "existing object is byte-identical after native persistence");
+        await native.update(source); // Offline: no fetch or module execution.
+        eq(Buffer.compare(readFileSync(file), before), 0, "update retains the configured object");
+        eq(native.removeSourceFromSettings(source, { local }), true);
+        await sm.flush();
+        eq(JSON.parse(readFileSync(file)).packages, []);
+      }
+    }
+  });
+
+  await scenario("native proper-lockfile reclaims an empty stale settings lock", async () => {
+    const r = await run({ global: { packages: [] } });
+    const file = join(r.agentDir, "settings.json");
+    mkdirSync(`${file}.lock`);
+    const old = new Date(Date.now() - 60000);
+    utimesSync(`${file}.lock`, old, old);
+    r.settingsManager.setPackages(["npm:@acme/tools"]);
+    await r.settingsManager.flush();
+    eq(r.settingsManager.drainErrors(), []);
+    eq(JSON.parse(readFileSync(file)).packages, ["npm:@acme/tools"]);
+    eq(existsSync(`${file}.lock`), false);
   });
 
   console.log(`# ${scenarios} scenarios, ${assertions} assertions passed`);

@@ -67,6 +67,22 @@ describe('PluginsPage', () => {
     expect(screen.getByText('plugins.hostRegistered.one')).toBeInTheDocument();
     expect(pluginsApi.apply).toHaveBeenCalledWith({ action: 'import', from: 'pi', plugin: 'npm:demo' }, 'import-reviewed');
   });
+  it.each([true, false])('only permits reviewed filtered imports when native preservation is supported: %s', async (importable) => {
+    vi.mocked(pluginsApi.list).mockResolvedValue({ packages: {}, targetDefinitions: [{ target: 'pi', label: 'Pi', project: true, operations: ['import'] }], hosts: [{ target: 'pi', version: '1.0.0', status: 'ready', installed: [{ id: 'npm:demo', enabled: true, filtered: true, importable }] }] });
+    vi.mocked(pluginsApi.preview).mockResolvedValue({ revision: 'filters-reviewed', blocked: false, changes: [{ name: 'demo', target: 'pi', id: 'npm:demo', action: 'import', preservedKeys: ['extensions', 'opaque', 'skills', 'source'] }] });
+    mount();
+    fireEvent.click((await screen.findAllByRole('button', { name: 'plugins.import' }))[0]);
+    const button = await screen.findByRole('button', { name: 'plugins.importOne' });
+    if (!importable) { expect(button).toBeDisabled(); return; }
+    expect(button).toBeEnabled();
+    fireEvent.click(button);
+    await screen.findByRole('dialog', { name: 'plugins.preview' });
+    expect(screen.getByText('plugins.preservedKeys')).toBeInTheDocument();
+    expect(screen.getByText('extensions · opaque · skills · source')).toBeInTheDocument();
+    expect(pluginsApi.apply).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'plugins.apply' }));
+    await waitFor(() => expect(pluginsApi.apply).toHaveBeenCalledWith({ action: 'import', from: 'pi', plugin: 'npm:demo' }, 'filters-reviewed'));
+  });
   it('draws the plugin list before the Agents have answered', async () => {
     vi.mocked(pluginsApi.list).mockImplementation((hosts = true) => (hosts ? new Promise(() => {}) : Promise.resolve({ targetDefinitions: [{ target: 'codex', label: 'Codex', project: false, operations: ['add'] }], packages: { demo: { bindings: { codex: { id: 'demo@market' } } } }, hosts: [] })));
     mount();

@@ -168,8 +168,8 @@ var piWriteProject = rootAtomicWrite
 
 // lockPiSettings takes, in order, Skillshare's plugin lock, a cross-process flock
 // on the settings file, and Pi's own lock: the settings.json.lock directory that
-// proper-lockfile creates. A lock held by anyone else refuses the write; one
-// Skillshare did not create is never removed. Without fileLock there is no flock:
+// proper-lockfile creates. Fresh foreign locks refuse the write; only unchanged
+// empty stale directories can be reclaimed. Without fileLock there is no flock:
 // a project's .pi is in its repository, where the lock file would stay behind,
 // and Pi's lock directory already shuts out every other writer.
 func (s *Service) lockPiSettings(file string, fileLock bool) (func(), *piNativeLock, error) {

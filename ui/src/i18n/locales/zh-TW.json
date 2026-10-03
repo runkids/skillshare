@@ -2147,6 +2147,7 @@
   "plugins.add": "新增 plugin",
   "plugins.import": "匯入已安裝項目",
   "plugins.importOne": "匯入",
+  "plugins.preservedKeys": "保留原生欄位：",
   "plugins.source": "儲存庫或資料夾",
   "plugins.sourceHelp": "貼上 owner/repo、HTTPS Git 網址或本機目錄。預覽不會安裝任何內容。",
   "plugins.discover": "尋找 plugins",

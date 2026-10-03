@@ -2147,6 +2147,7 @@
   "plugins.add": "Plugin hinzufügen",
   "plugins.import": "Installierte importieren",
   "plugins.importOne": "Importieren",
+  "plugins.preservedKeys": "Beibehaltene native Felder:",
   "plugins.source": "Repository oder Ordner",
   "plugins.sourceHelp": "owner/repo, HTTPS-Git-URL oder lokalen Ordner eingeben. Die Vorschau installiert nichts.",
   "plugins.discover": "Plugins suchen",
