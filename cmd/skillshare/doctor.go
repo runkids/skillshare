@@ -882,7 +882,7 @@ func checkSkillIntegrity(result *doctorResult, discovered []sync.DiscoveredSkill
 
 	if len(toVerify) == 0 {
 		if len(skippedNames) > 0 {
-			ui.Warning("Skill integrity: %d skill(s) missing file hashes: %s", len(skippedNames), strings.Join(skippedNames, ", "))
+			ui.Row(ui.MarkWarn, "Integrity", plural(len(skippedNames), "skill")+" missing file hashes: "+strings.Join(skippedNames, ", "), doctorWidth)
 			result.addWarning()
 			result.addCheck("skill_integrity", checkWarning, fmt.Sprintf("%d skill(s) missing file hashes", len(skippedNames)), skippedNames)
 		} else {
@@ -938,17 +938,22 @@ func checkSkillIntegrity(result *doctorResult, discovered []sync.DiscoveredSkill
 
 	sp.Stop()
 
+	mark := ui.MarkOK
+	if len(tampered)+len(skippedNames) > 0 {
+		mark = ui.MarkWarn
+	}
+	ui.Row(mark, "Integrity", fmt.Sprintf("%d/%d skills verified", verified, len(toVerify)), doctorWidth)
+	for _, t := range tampered {
+		ui.Row(ui.MarkWarn, "", t, doctorWidth)
+	}
+
 	if len(tampered) > 0 {
-		for _, t := range tampered {
-			ui.Warning(t)
-		}
 		result.addWarning()
 		result.addCheck("skill_integrity", checkWarning,
 			fmt.Sprintf("%d skill(s) with integrity issues", len(tampered)), tampered)
 	}
 
 	if verified > 0 {
-		ui.Row(ui.MarkOK, "Integrity", fmt.Sprintf("%d/%d skills verified", verified, len(toVerify)), doctorWidth)
 		if len(tampered) == 0 {
 			result.addCheck("skill_integrity", checkPass,
 				fmt.Sprintf("Skill integrity: %d/%d verified", verified, len(toVerify)), nil)
@@ -956,7 +961,7 @@ func checkSkillIntegrity(result *doctorResult, discovered []sync.DiscoveredSkill
 	}
 
 	if len(skippedNames) > 0 {
-		ui.Warning("Skill integrity: %d skill(s) missing file hashes: %s", len(skippedNames), strings.Join(skippedNames, ", "))
+		ui.Row(ui.MarkWarn, "", plural(len(skippedNames), "skill")+" missing file hashes: "+strings.Join(skippedNames, ", "), doctorWidth)
 		result.addWarning()
 	}
 }
