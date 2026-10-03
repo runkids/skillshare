@@ -49,6 +49,15 @@ git -C "$team" add .
 git -C "$team" -c user.name=team -c user.email=team@localhost commit -qm "team skills"
 ss install "file://$team" --track --force
 
+# A large repo, not installed: installing it starts with the folder picker.
+big=~/work/big-repo
+for d in frontend backend ops; do
+  for i in $(seq -w 1 20); do mk_skill "$big/$d" "$d-$i" "$d skill $i"; done
+done
+git -C "$big" init -q -b main
+git -C "$big" add .
+git -C "$big" -c user.name=team -c user.email=team@localhost commit -qm "big repo"
+
 # A skill only the target has (local-only in list and diff).
 mk_skill ~/.claude/skills scratch "Notes kept only in Claude"
 

@@ -117,9 +117,9 @@ func promptOrchestratorSelection(rootSkill install.SkillInfo, childSkills []inst
 	return promptMultiSelect(allSkills)
 }
 
-// promptLargeRepoSelection presents a TUI directory picker for large repos.
-// The TUI supports multi-level navigation with backspace to go back.
-// prefix is unused (kept for caller compatibility); the TUI manages its own prefix stack.
+// promptLargeRepoSelection asks which folder of a large repo to install
+// from, then which skills in it. prefix is unused (kept for caller
+// compatibility); the picker keeps its own folder stack.
 func promptLargeRepoSelection(skills []install.SkillInfo, _ string) ([]install.SkillInfo, error) {
 	for {
 		selected, installAll, err := runDirPickerTUI(skills)
@@ -127,7 +127,7 @@ func promptLargeRepoSelection(skills []install.SkillInfo, _ string) ([]install.S
 			return nil, err
 		}
 		if selected == nil {
-			return nil, nil // user cancelled from TUI
+			return nil, nil // user cancelled the folder picker
 		}
 		if installAll {
 			return selected, nil
@@ -140,7 +140,7 @@ func promptLargeRepoSelection(skills []install.SkillInfo, _ string) ([]install.S
 		if result != nil {
 			return result, nil
 		}
-		// User cancelled from MultiSelect — loop back to TUI
+		// User cancelled the skill list — ask for the folder again
 	}
 }
 

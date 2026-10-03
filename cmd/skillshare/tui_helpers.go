@@ -163,29 +163,3 @@ func handleTUIFilterKey(msg tea.KeyMsg, filtering *bool, text *string, input *te
 	}
 	return cmd
 }
-
-// renderTUIFilterBar renders a unified filter + status line shared by all TUIs.
-// inputView is filterInput.View(). maxShown is the item cap (0 = no cap).
-func renderTUIFilterBar(inputView string, filtering bool, filterText string, matchCount, totalCount, maxShown int, noun, pageInfo string) string {
-	if filtering {
-		if filterText == "" {
-			status := fmt.Sprintf("  %s %s%s", formatNumber(totalCount), noun, pageInfo)
-			return "  " + inputView + theme.Dim().MarginLeft(2).Render(status) + "\n"
-		}
-		status := fmt.Sprintf("  %s/%s %s", formatNumber(matchCount), formatNumber(totalCount), noun)
-		if maxShown > 0 && matchCount > maxShown {
-			status += fmt.Sprintf(" (first %s shown)", formatNumber(maxShown))
-		}
-		status += pageInfo
-		return "  " + inputView + theme.Dim().MarginLeft(2).Render(status) + "\n"
-	}
-	if filterText != "" {
-		status := fmt.Sprintf("filter: %s — %s/%s %s", filterText, formatNumber(matchCount), formatNumber(totalCount), noun)
-		if maxShown > 0 && matchCount > maxShown {
-			status += fmt.Sprintf(" (first %s shown)", formatNumber(maxShown))
-		}
-		status += pageInfo
-		return theme.Dim().MarginLeft(2).Render(status) + "\n"
-	}
-	return theme.Dim().MarginLeft(2).Render(fmt.Sprintf("%s %s%s", formatNumber(totalCount), noun, pageInfo)) + "\n"
-}

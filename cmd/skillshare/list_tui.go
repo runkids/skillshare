@@ -13,7 +13,6 @@ import (
 	"skillshare/internal/utils"
 
 	"github.com/charmbracelet/bubbles/list"
-	"github.com/charmbracelet/bubbles/paginator"
 	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
@@ -823,15 +822,6 @@ func (m listTUIModel) viewVertical() string {
 		Render(m.renderRight(m.termWidth-2, detailHeight))
 	return m.renderTitleLine() + "\n\n" + m.list.View() + "\n\n" +
 		lipgloss.NewStyle().PaddingLeft(1).Render(detail) + "\n" + m.renderBottom()
-}
-
-// renderPageInfoFromPaginator returns " · Page 2 of 4,729" or "" if single page.
-// Shared by list, log, and search TUIs.
-func renderPageInfoFromPaginator(p paginator.Model) string {
-	if p.TotalPages <= 1 {
-		return ""
-	}
-	return fmt.Sprintf(" · Page %s of %s", formatNumber(p.Page+1), formatNumber(p.TotalPages))
 }
 
 // formatNumber formats an integer with thousand separators (e.g., 108749 → "108,749").

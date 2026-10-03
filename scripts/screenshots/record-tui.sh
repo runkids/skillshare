@@ -48,6 +48,8 @@ search|skillshare search --hub ~/hub.json|Enter
 mcp|skillshare mcp|
 mcp-keys|skillshare mcp|Type `?`
 install-pick|skillshare install file://$HOME/work/team-skills|
+install-folders|skillshare install file://$HOME/work/big-repo|
+install-folder-skills|skillshare install file://$HOME/work/big-repo|Down;Enter
 new-pick|skillshare new my-skill|
 '
 
