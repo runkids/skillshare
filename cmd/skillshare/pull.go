@@ -139,10 +139,11 @@ func integrateRemote(source string, force, keepConfig bool, spinner *ui.Spinner)
 	}
 
 	if keepConfig {
-		restore, err := gitops.KeepLocalConfig(source)
-		if err != nil {
+		// Not :=, which would shadow the named err the deferred restore reports into.
+		restore, keepErr := gitops.KeepLocalConfig(source)
+		if keepErr != nil {
 			spinner.Fail("Pull failed")
-			return nil, false, err
+			return nil, false, keepErr
 		}
 		defer func() {
 			remoteTracks, restoreErr := restore()

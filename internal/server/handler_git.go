@@ -719,11 +719,11 @@ func (s *Server) handlePull(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		info, err = git.PullWithResolution(src, body.Resolution)
+		// A restore failure joins the pull's own error so a conflict is still
+		// reported as one and the failure is logged below.
 		var restoreErr error
-		if remoteTracksConfig, restoreErr = restoreConfig(); restoreErr != nil {
-			writeError(w, http.StatusInternalServerError, restoreErr.Error())
-			return
-		}
+		remoteTracksConfig, restoreErr = restoreConfig()
+		err = errors.Join(err, restoreErr)
 	} else {
 		if body.Resolution != nil {
 			writeError(w, http.StatusBadRequest, "conflict resolution requires an upstream branch")
