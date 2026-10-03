@@ -69,7 +69,7 @@ The rules below are @hhdebb's design, plus the overlap rules:
 - **Logical paths everywhere.** Skills are reported as `<source>/_dev-skills/<skill>`, with `RelPath` `_dev-skills/<skill>` and `FlatName` `_dev-skills__<skill>`. This matches the existing `SourcePath: filepath.Join(sourcePath, relPath)` convention at `discover_walk.go:305`, so target link names and the manifest stay stable.
 - **Default unchanged.** With no `.skillfollow`, an undeclared link stays invisible exactly as today, and every command behaves as today. The existing `TestUninstallGroup_ExternalSymlinkRejected` and `TestUpdateGroup_ExternalSymlinkRejected` (`tests/integration/sync_symlinked_dir_test.go:207`, `:239`) must keep passing unchanged.
 
-Project mode reads the same files from the project skills source (`.skillshare/skills/` or `sources.skills`). Agents and extras are out of scope (see Open Questions).
+Project mode reads the same files from the project skills source (`.skillshare/skills/` or `sources.skills`). Agents and extras are out of scope (see Decisions).
 
 ### 2. Future-proofing: one source walker, a ratchet, and a behavior contract
 
@@ -456,11 +456,16 @@ Any line estimate is rough, not a commitment.
    Docs ship in the same release, marked experimental.
 4. **`follow`/`unfollow`, the dashboard tab, and followed single skills** (with `WalkSkill` and the tracked-root hash refresh). Revisit `install --link` (#206) and `include_sources` (#253) on this base if they are still wanted.
 
+## Decisions
+
+These were open questions in earlier revisions. The maintainer can still reopen any of them in review.
+
+1. **`.skillfollow.local` is not auto-ignored.** Docs show the ignore line, `doctor` warns when the file is not ignored, and step 4's `follow --local` writes the line. Step 3 writes nothing. `.skillignore.local` keeps its current behavior.
+2. **Agents and extras are out of scope.** Their pruning (`prunableLink`) has different semantics, so an `.agentfollow` would need its own proposal and a concrete user request.
+3. **No `followed` metadata kind.** The one use case so far, branch display, already falls back to live git (`cmd/skillshare/list.go:320-331`). A schema change waits for a concrete need.
+4. **Broken external links outside a missing-entry pause are a separate follow-up.** The branch at `sync.go:828` removes these without a provenance check. Applying the #314 rule there is a separate issue. While an entry is missing, prune is already paused (§3), which covers the case this proposal creates.
+5. **Package placement is settled during implementation.** The starting point is `internal/sourcewalk` with plain inputs. The home of the followed-update policy is chosen in step 3, because `git` already imports `install`.
+
 ## Open Questions
 
-1. **Auto-ignoring `.skillfollow.local`.** The current proposal does not auto-ignore it. Docs show the line, `doctor` warns, and step 4's `follow --local` writes it. Should step 3 already write it, or should `.skillignore.local` get the same treatment? Both are left alone for now.
-2. **Agents and extras.** The recommendation is to keep them out of scope. A `.agentfollow` would need its own proposal, because agent and extras pruning (`prunableLink`) has different semantics. Is there demand?
-3. **A `followed` metadata kind.** The recommendation is no schema change. The one use case so far, branch display, already falls back to live git (`cmd/skillshare/list.go:320-331`). Revisit if a concrete need appears.
-4. **Broken external links outside a missing-entry pause.** The branch at `sync.go:828` removes these without a provenance check. Should it get the #314 rule as a separate follow-up? While an entry is missing it is already paused (§3), so the two are not fully independent.
-5. **Package placement.** The recommendation is `internal/sourcewalk` with plain inputs, with the concrete API decided during implementation. Where should the followed-update policy live, given that `git` already imports `install`?
-6. **Junction source roots (pre-existing, outside this proposal).** The probe shows that `filepath.EvalSymlinks` returns a junction unchanged and that `filepath.Walk` does not descend into one. `discoverSourceSkillsInternal` walks `utils.ResolveSymlink(sourcePath)`, so a skills source root that is itself a junction is probably discovered as empty on Windows. The dotfiles-manager docs promise that a symlinked source works. This was shown at the Go level only, not reproduced with `ss.exe`. Should it be filed as a separate bug?
+1. **Junction source roots (pre-existing, outside this proposal).** The probe shows that `filepath.EvalSymlinks` returns a junction unchanged and that `filepath.Walk` does not descend into one. `discoverSourceSkillsInternal` walks `utils.ResolveSymlink(sourcePath)`, so a skills source root that is itself a junction is probably discovered as empty on Windows. The dotfiles-manager docs promise that a symlinked source works. This was shown at the Go level only. It should be reproduced with `ss.exe` and then filed as a separate bug.
