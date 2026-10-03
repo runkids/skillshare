@@ -35,9 +35,8 @@ targets:
 
 	result := sb.RunCLI("analyze")
 	result.AssertSuccess(t)
-	result.AssertOutputContains(t, "Context Analysis")
-	result.AssertOutputContains(t, "Always loaded:")
-	result.AssertOutputContains(t, "On-demand max:")
+	result.AssertOutputContains(t, "Always loaded  ")
+	result.AssertOutputContains(t, "On-demand max  ")
 	result.AssertOutputContains(t, "claude")
 	result.AssertOutputContains(t, "cursor")
 }
@@ -64,9 +63,9 @@ targets:
 	result.AssertSuccess(t)
 	result.AssertOutputContains(t, "claude")
 	result.AssertOutputContains(t, "12 skills")
-	result.AssertOutputContains(t, "Always loaded:")
-	result.AssertOutputContains(t, "Largest descriptions:")
-	result.AssertOutputContains(t, "... 2 more")
+	result.AssertOutputContains(t, "Always loaded  ")
+	result.AssertOutputContains(t, "Largest descriptions")
+	result.AssertOutputContains(t, "… 2 more skills")
 }
 
 func TestAnalyze_SingleTarget(t *testing.T) {
@@ -169,7 +168,7 @@ targets:
 
 	result := sb.RunCLI("analyze")
 	result.AssertSuccess(t)
-	result.AssertOutputContains(t, "No skills found")
+	result.AssertOutputContains(t, "No skills to analyze")
 }
 
 func TestAnalyze_UnknownTarget(t *testing.T) {
@@ -303,8 +302,7 @@ func TestAnalyze_NoTUI(t *testing.T) {
 
 	result := sb.RunCLI("analyze", "--no-tui")
 	result.AssertSuccess(t)
-	result.AssertOutputContains(t, "Context Analysis")
-	result.AssertOutputContains(t, "Always loaded:")
+	result.AssertOutputContains(t, "Always loaded  ")
 }
 
 func TestAnalyze_HelpShowsNoTUI(t *testing.T) {

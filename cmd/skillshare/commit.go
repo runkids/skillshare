@@ -17,7 +17,7 @@ func checkGitWorktree(sourcePath string, spinner *ui.Spinner) error {
 	cmd.Dir = sourcePath
 	if err := cmd.Run(); err != nil {
 		spinner.Fail("Source is not a git repository")
-		ui.Info("  Run: skillshare init")
+		ui.Note("Run: skillshare init")
 		return fmt.Errorf("not a git repository")
 	}
 	return nil
@@ -39,8 +39,6 @@ func cmdCommit(args []string) error {
 	if err != nil {
 		return fmt.Errorf("config not found: run 'skillshare init' first")
 	}
-
-	ui.Header("Committing local changes")
 
 	spinner := ui.StartSpinner("Checking repository...")
 	source, err := resolveGitRoot(cfg, spinner)
@@ -68,20 +66,19 @@ func cmdCommit(args []string) error {
 	}
 	if changes == "" {
 		spinner.Stop()
-		ui.Info("No changes to commit")
+		ui.Done(ui.MarkNone, "Nothing to commit", 0)
 		return nil
 	}
 
 	if opts.dryRun {
 		spinner.Stop()
-		ui.Warning("[dry-run] No changes will be made")
-		fmt.Println()
-		lines := strings.Split(changes, "\n")
-		ui.Info("Would stage %d file(s):", len(lines))
-		for _, line := range lines {
-			ui.Info("  %s", line)
+		files := strings.Split(changes, "\n")
+		ui.Row(ui.MarkNone, "Commit", "would commit "+plural(len(files), "file")+ui.DimText(" · "+opts.message), ui.RowWidth("Commit"))
+		for _, line := range files {
+			ui.Note(porcelainChange(line))
 		}
-		ui.Info("Would commit with message: %s", opts.message)
+		fmt.Println()
+		ui.DryRun()
 		return nil
 	}
 
@@ -90,7 +87,9 @@ func cmdCommit(args []string) error {
 	}
 
 	spinner.Stop()
-	ui.SuccessMsg("Commit complete (%.1fs)", time.Since(start).Seconds())
+	files := strings.Split(changes, "\n")
+	ui.Row(ui.MarkOK, "Commit", plural(len(files), "file")+ui.DimText(" · "+opts.message)+ui.Took(time.Since(start)), ui.RowWidth("Commit"))
+	ui.Next("skillshare push", "share it with your other machines")
 
 	e := oplog.NewEntry("commit", "ok", time.Since(start))
 	e.Args = map[string]any{"message": opts.message}
