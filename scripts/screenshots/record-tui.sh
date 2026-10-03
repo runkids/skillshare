@@ -34,6 +34,7 @@ log-stats|skillshare log|Tab
 log-confirm|skillshare log|Down;Space;Down;Space;Type `d`
 audit|skillshare audit|
 audit-rules|skillshare audit rules|
+audit-rules-severity|skillshare audit rules|Enter;Down;Type `e`
 diff|skillshare diff|
 analyze|skillshare analyze|
 search|skillshare search --hub ~/hub.json|Enter

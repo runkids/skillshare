@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"strings"
 
@@ -22,13 +23,13 @@ type sevTab struct {
 }
 
 var sevTabs = []sevTab{
-	{"ALL", ""},
-	{"CRIT", "CRITICAL"},
-	{"HIGH", "HIGH"},
-	{"MED", "MEDIUM"},
-	{"LOW", "LOW"},
-	{"INFO", "INFO"},
-	{"OFF", "DISABLED"},
+	{"All", ""},
+	{"Crit", "CRITICAL"},
+	{"High", "HIGH"},
+	{"Med", "MEDIUM"},
+	{"Low", "LOW"},
+	{"Info", "INFO"},
+	{"Off", "DISABLED"},
 }
 
 // ── Item types for the flat accordion list ──
@@ -44,12 +45,16 @@ func (i arHeaderItem) Title() string {
 	if i.expanded {
 		arrow = "▾"
 	}
-	countStr := fmt.Sprintf("%d", i.group.Total)
-	extra := ""
+	return theme.Dim().Render(arrow) + " " + i.group.Pattern
+}
+
+// right is the row's right column: the rule count and how many are off.
+func (i arHeaderItem) right() string {
+	right := theme.Dim().Render(countNoun(i.group.Total, "rule"))
 	if i.group.Disabled > 0 {
-		extra = theme.Warning().Render(fmt.Sprintf(" %d off", i.group.Disabled))
+		right = theme.Warning().Render(fmt.Sprintf("%d off", i.group.Disabled)) + theme.Dim().Render(" · ") + right
 	}
-	return fmt.Sprintf("%s %s  %s%s", arrow, i.group.Pattern, theme.Dim().Render(countStr), extra)
+	return right
 }
 
 func (i arHeaderItem) Description() string { return "" }
@@ -65,11 +70,35 @@ type arRuleItem struct {
 }
 
 func (i arRuleItem) Title() string {
-	dot := theme.SeverityStyle(i.rule.Severity).Render("●")
+	return "  " + theme.SeverityStyle(i.rule.Severity).Render("●") + " " + i.display
+}
+
+// right is the row's right column: "off" for a disabled rule.
+func (i arRuleItem) right() string {
 	if !i.rule.Enabled {
-		return fmt.Sprintf("  %s %s  %s", dot, i.rule.ID, theme.Danger().Render("off"))
+		return theme.Warning().Render("off")
 	}
-	return fmt.Sprintf("  %s %s", dot, i.rule.ID)
+	return ""
+}
+
+// arDelegate renders a pattern or rule row with its right column aligned.
+type arDelegate struct{}
+
+func (arDelegate) Height() int                             { return 1 }
+func (arDelegate) Spacing() int                            { return 0 }
+func (arDelegate) Update(_ tea.Msg, _ *list.Model) tea.Cmd { return nil }
+
+func (arDelegate) Render(w io.Writer, m list.Model, index int, li list.Item) {
+	var left, right string
+	switch v := li.(type) {
+	case arHeaderItem:
+		left, right = v.Title(), v.right()
+	case arRuleItem:
+		left, right = v.Title(), v.right()
+	default:
+		return
+	}
+	renderPrefixRow(w, alignRow(left, right, m.Width()-rowIndent), m.Width(), index == m.Index())
 }
 
 func (i arRuleItem) Description() string { return "" }
@@ -95,8 +124,9 @@ type arModel struct {
 	sevTab       int // index into sevTabs
 	detailScroll int
 
-	pickingSeverity bool
-	pendingReset    bool
+	pickingSeverity bool // e: the severity choices are on the key line
+	pendingReset    bool // R: the reset confirmation is on the key line
+	showKeys        bool // ? swaps the detail panel for the full key list
 
 	width, height int
 	filterInput   textinput.Model
@@ -133,11 +163,7 @@ func arListWidth(termWidth int) int {
 
 // arDetailWidth returns the right detail panel width.
 func arDetailWidth(termWidth int) int {
-	w := termWidth - arListWidth(termWidth) - 3 // 3 = border column
-	if w < 30 {
-		w = 30
-	}
-	return w
+	return max(termWidth-arListWidth(termWidth), 30)
 }
 
 // useSplit returns true if horizontal split layout should be used.
@@ -157,12 +183,12 @@ func newARModel(rules []audit.CompiledRule, mode runMode) arModel {
 	}
 
 	// Filter text input
-	fi := newTUIFilterInput("")
+	fi := newTUIFilterInput("type to match a pattern, rule, message or severity")
 	m.filterInput = fi
 
 	// Create the list model once — rebuildItems will populate via SetItems.
-	m.list = list.New(nil, newPrefixDelegate(false), 0, 0)
-	m.list.Styles.Title = theme.Title()
+	m.list = list.New(nil, arDelegate{}, 0, 0)
+	m.list.SetShowTitle(false)
 	m.list.SetShowStatusBar(false)
 	m.list.SetFilteringEnabled(false)
 	m.list.SetShowHelp(false)
@@ -282,7 +308,6 @@ func (m *arModel) rebuildItems() {
 
 	// Update list items in-place (preserves delegate, styles, etc.)
 	m.list.SetItems(items)
-	m.list.Title = fmt.Sprintf("Audit Rules — %d patterns, %d rules", len(m.patterns), len(m.allRules))
 
 	if m.width > 0 {
 		if m.useSplit() {
@@ -311,12 +336,11 @@ func (m *arModel) ruleMatchesSevTab(r audit.CompiledRule, tab sevTab) bool {
 
 // listHeight returns the height for the list widget.
 func (m *arModel) listHeight() int {
-	// Reserve: 1 sev tab bar + 1 filter + 1 flash + 1 help + 2 gaps = ~6
-	h := m.height - 6
-	if h < 6 {
-		h = 6
+	bodyHeight := max(m.height-frameChrome, 6)
+	if m.useSplit() {
+		return bodyHeight
 	}
-	return h
+	return max(bodyHeight/2, 4) // narrow: the details sit below the list
 }
 
 func (m arModel) Init() tea.Cmd {
@@ -344,17 +368,16 @@ func (m arModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		}
 
-		// --- Reset confirmation mode ---
+		// --- Reset confirmation on the key line ---
 		if m.pendingReset {
-			if msg.String() == "R" {
+			switch msg.String() {
+			case "y", "Y", "enter":
 				m.pendingReset = false
 				m.resetAllRules()
-				return m, nil
+			case "n", "N", "esc", "q":
+				m.pendingReset = false
 			}
-			m.pendingReset = false
-			m.flashMsg = ""
-			m.flashTicks = 0
-			// Fall through to normal key handling
+			return m, nil
 		}
 
 		// --- Severity picker mode ---
@@ -374,8 +397,21 @@ func (m arModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.quitting = true
 			return m, tea.Quit
 		case "esc":
-			m.quitting = true
-			return m, tea.Quit
+			switch {
+			case m.showKeys:
+				m.showKeys = false
+			case m.filterText != "":
+				m.filterText = ""
+				m.filterInput.SetValue("")
+				m.rebuildItems()
+			default:
+				m.quitting = true
+				return m, tea.Quit
+			}
+			return m, nil
+		case "?":
+			m.showKeys = !m.showKeys
+			return m, nil
 		case "/":
 			m.filtering = true
 			m.filterInput.Focus()
@@ -391,16 +427,18 @@ func (m arModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "enter":
 			m.toggleExpand()
 			return m, nil
-		case " ":
+		case "t", " ":
 			m.toggleSelected()
 			return m, nil
-		case "s":
-			m.pickingSeverity = true
+		case "e":
+			if m.list.SelectedItem() != nil {
+				m.pickingSeverity = true
+				m.flashMsg = ""
+			}
 			return m, nil
 		case "R":
 			m.pendingReset = true
-			m.flashMsg = theme.Warning().Render("Press R again to reset all rules to defaults")
-			m.flashTicks = 5
+			m.flashMsg = ""
 			return m, nil
 		case "ctrl+d":
 			m.detailScroll += 5
@@ -495,7 +533,7 @@ func (m *arModel) toggleRule(item arRuleItem) {
 
 // updateSeverityPicker handles key input while the severity picker is active.
 func (m arModel) updateSeverityPicker(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	if msg.String() == "esc" {
+	if msg.String() == "esc" || msg.String() == "q" {
 		m.pickingSeverity = false
 		return m, nil
 	}
@@ -569,105 +607,92 @@ func (m arModel) View() string {
 	if m.quitting {
 		return ""
 	}
-
-	var b strings.Builder
-
-	// Severity tab bar
-	b.WriteString(m.renderSevTabBar())
-	b.WriteString("\n\n")
-
-	// Main content
-	if m.useSplit() {
-		b.WriteString(m.viewHorizontal())
-	} else {
-		b.WriteString(m.viewVertical())
+	bodyHeight := max(m.height-frameChrome, 6)
+	title := m.renderTitleLine()
+	if !m.useSplit() {
+		listHeight := m.listHeight()
+		detailHeight := max(bodyHeight-listHeight-1, 4)
+		detail := lipgloss.NewStyle().Height(detailHeight).MaxHeight(detailHeight).PaddingLeft(1).
+			Render(m.renderRight(m.width-2, detailHeight))
+		return title + "\n\n" + m.list.View() + "\n\n" + detail + "\n" + m.renderBottom()
 	}
-
-	return b.String()
-}
-
-// renderSevTabBar renders the severity tab bar at the top.
-func (m arModel) renderSevTabBar() string {
-	counts := m.sevCounts
-	var parts []string
-
-	activeStyle := lipgloss.NewStyle().Bold(true).Underline(true)
-	inactiveStyle := theme.Dim()
-
-	for i, tab := range sevTabs {
-		label := fmt.Sprintf("%s(%d)", tab.label, counts[i])
-		if i == m.sevTab {
-			// Color active tab by its severity
-			switch tab.sev {
-			case "CRITICAL":
-				parts = append(parts, activeStyle.Inherit(theme.Severity("critical")).Render(label))
-			case "HIGH":
-				parts = append(parts, activeStyle.Inherit(theme.Severity("high")).Render(label))
-			case "MEDIUM":
-				parts = append(parts, activeStyle.Inherit(theme.Severity("medium")).Render(label))
-			case "LOW":
-				parts = append(parts, activeStyle.Inherit(theme.Severity("low")).Render(label))
-			case "INFO":
-				parts = append(parts, activeStyle.Inherit(theme.Severity("info")).Render(label))
-			case "DISABLED":
-				parts = append(parts, activeStyle.Inherit(theme.Danger()).Render(label))
-			default:
-				parts = append(parts, activeStyle.Inherit(theme.Accent()).Render(label))
-			}
-		} else {
-			parts = append(parts, inactiveStyle.Render(label))
-		}
-	}
-
-	return "  " + strings.Join(parts, "  ")
-}
-
-// viewHorizontal renders the list + detail side by side.
-func (m arModel) viewHorizontal() string {
-	var b strings.Builder
-
-	panelHeight := m.height - 6
-	if panelHeight < 6 {
-		panelHeight = 6
-	}
-
 	leftWidth := arListWidth(m.width)
 	rightWidth := arDetailWidth(m.width)
-
-	// Right panel: detail for selected item
-	var scrollInfo string
-	detailStr := m.renderSelectedDetail()
-	if detailStr != "" {
-		detailStr, scrollInfo = wrapAndScroll(detailStr, rightWidth-1, m.detailScroll, panelHeight)
-	}
-
-	body := renderHorizontalSplit(m.list.View(), detailStr, leftWidth, rightWidth, panelHeight)
-	b.WriteString(body)
-	b.WriteString("\n\n")
-
-	b.WriteString(m.renderFilterBar())
-	b.WriteString(m.renderFlashAndHelp(scrollInfo))
-
-	return b.String()
+	return title + "\n\n" +
+		renderFrameSplit(m.list.View(), m.renderRight(rightWidth-2, bodyHeight), leftWidth, rightWidth, bodyHeight) + "\n" +
+		m.renderBottom()
 }
 
-// viewVertical renders the list with detail below (narrow terminal fallback).
-func (m arModel) viewVertical() string {
-	var b strings.Builder
-
-	b.WriteString(m.list.View())
-	b.WriteString("\n\n")
-	b.WriteString(m.renderFilterBar())
-
-	// Detail panel for selected item
-	detail := m.renderSelectedDetail()
-	if detail != "" {
-		b.WriteString(detail)
+// renderTitleLine renders the scope, the pattern and rule counts and the
+// severity tabs.
+func (m arModel) renderTitleLine() string {
+	scope := "global"
+	if m.mode == modeProject {
+		scope = "project"
 	}
+	facts := []string{scope, countNoun(len(m.patterns), "pattern"), countNoun(len(m.allRules), "rule")}
+	tabs := make([]frameTab, len(sevTabs))
+	for i, t := range sevTabs {
+		tabs[i] = frameTab{fmt.Sprintf("%s %d", t.label, m.sevCounts[i]), i == m.sevTab}
+	}
+	return renderFrameTitle(m.width, "audit rules", facts, tabs)
+}
 
-	b.WriteString(m.renderFlashAndHelp(""))
+// renderRight renders the detail panel, or the key list while ? is on.
+func (m arModel) renderRight(width, height int) string {
+	if m.showKeys {
+		return renderKeysPanel(arKeyGroups)
+	}
+	detail, _ := wrapAndScroll(m.renderSelectedDetail(), width, m.detailScroll, height)
+	return detail
+}
 
-	return b.String()
+// renderBottom renders the note line and the key line. The severity
+// choices, the reset confirmation and the filter input take over the key
+// line in place.
+func (m arModel) renderBottom() string {
+	note := ""
+	if m.flashMsg != "" {
+		note = "  " + m.flashMsg
+	}
+	var line string
+	switch {
+	case m.pickingSeverity:
+		line = m.renderSeverityPicker()
+	case m.pendingReset:
+		note = theme.Dim().Render("  Deletes " + shortenPath(m.rulesPath) + "; every rule goes back to its built-in default.")
+		line = renderConfirmLine(m.width, "Reset all rules?", true, "")
+	case m.filtering:
+		line = renderFilterLine(m.width, m.filterInput.View(), len(m.list.Items()))
+	case m.showKeys:
+		line = renderKeyLine(m.width, []keyHint{{"?/esc", "close"}}, "")
+	default:
+		filter := keyHint{"/", "filter"}
+		if m.filterText != "" {
+			filter = keyHint{"esc", "clear filter"}
+		}
+		hints := []keyHint{{"↑↓", "move"}, {"enter", "expand"}, {"t", "on/off"}, {"e", "severity"}, filter, {"tab", "severity tab"}, {"?", "keys"}}
+		line = renderKeyLine(m.width, hints, framePosition(m.list.Index()+1, len(m.list.Items())))
+	}
+	return note + "\n" + line
+}
+
+// arKeyGroups lists every key for the ? panel.
+var arKeyGroups = []keyGroup{
+	{"Move", []keyHint{
+		{"↑↓", "move"},
+		{"enter", "expand or collapse a pattern"},
+		{"tab", "next severity tab"},
+		{"/", "filter"},
+		{"ctrl+d/u", "scroll the details"},
+		{"esc", "clear the filter, then quit"},
+		{"q", "quit"},
+	}},
+	{"Change", []keyHint{
+		{"t", "turn the rule, or every rule in the pattern, on or off"},
+		{"e", "change the severity"},
+		{"R", "reset all rules to the built-in defaults"},
+	}},
 }
 
 // renderSelectedDetail renders detail for the currently selected item.
@@ -687,29 +712,26 @@ func (m arModel) renderPatternDetail(item arHeaderItem) string {
 	pg := item.group
 
 	row := func(label, value string) {
-		b.WriteString(theme.Dim().Width(14).Render(label))
+		b.WriteString(theme.Dim().Width(10).Render(label))
 		b.WriteString(value)
 		b.WriteString("\n")
 	}
 
-	// Header
-	b.WriteString(theme.Title().Render(pg.Pattern))
-	b.WriteString("\n")
-	b.WriteString(theme.Dim().Render(strings.Repeat("─", 36)))
+	b.WriteString(theme.Primary().Bold(true).Render(pg.Pattern))
 	b.WriteString("\n\n")
 
-	row("Rules:", fmt.Sprintf("%d total", pg.Total))
-	row("Max Sev:", theme.SeverityStyle(pg.MaxSeverity).Render(pg.MaxSeverity))
-	row("Enabled:", theme.Success().Render(fmt.Sprintf("%d", pg.Enabled)))
+	row("Rules", fmt.Sprintf("%d total", pg.Total))
+	row("Max sev", theme.SeverityStyle(pg.MaxSeverity).Render(pg.MaxSeverity))
+	row("Enabled", theme.Success().Render(fmt.Sprintf("%d", pg.Enabled)))
 	if pg.Disabled > 0 {
-		row("Disabled:", theme.Danger().Render(fmt.Sprintf("%d", pg.Disabled)))
+		row("Disabled", theme.Danger().Render(fmt.Sprintf("%d", pg.Disabled)))
 	} else {
-		row("Disabled:", theme.Dim().Render("0"))
+		row("Disabled", theme.Dim().Render("0"))
 	}
 
 	// Severity distribution
 	b.WriteString("\n")
-	b.WriteString(theme.Dim().Width(14).Render("Severity:"))
+	b.WriteString(theme.Primary().Bold(true).Render("Severity"))
 	b.WriteString("\n")
 	sevCounts := make(map[string]int)
 	for _, r := range m.allRules {
@@ -720,7 +742,7 @@ func (m arModel) renderPatternDetail(item arHeaderItem) string {
 	for _, sev := range []string{"CRITICAL", "HIGH", "MEDIUM", "LOW", "INFO"} {
 		if count, ok := sevCounts[sev]; ok && count > 0 {
 			b.WriteString("  ")
-			b.WriteString(theme.SeverityStyle(sev).Render(fmt.Sprintf("%-10s %d", sev, count)))
+			b.WriteString(theme.SeverityStyle(sev).Render(fmt.Sprintf("%-9s %d", strings.ToLower(sev), count)))
 			b.WriteString("\n")
 		}
 	}
@@ -733,27 +755,23 @@ func (m arModel) renderRuleDetail(item arRuleItem) string {
 	var b strings.Builder
 
 	row := func(label, value string) {
-		b.WriteString(theme.Dim().Width(14).Render(label))
+		b.WriteString(theme.Dim().Width(10).Render(label))
 		b.WriteString(value)
 		b.WriteString("\n")
 	}
 
 	r := item.rule
 
-	// Header
-	b.WriteString(theme.Title().Render(item.rule.ID))
-	b.WriteString("\n")
-	b.WriteString(theme.Dim().Render(strings.Repeat("─", 36)))
+	b.WriteString(theme.Primary().Bold(true).Render(item.rule.ID))
 	b.WriteString("\n\n")
 
-	row("ID:", r.ID)
-	row("Pattern:", theme.Primary().Render(r.Pattern))
-	row("Severity:", theme.SeverityStyle(r.Severity).Render(r.Severity))
-	row("Message:", r.Message)
-	row("Regex:", r.Regex)
+	row("Pattern", theme.Primary().Render(r.Pattern))
+	row("Severity", theme.SeverityStyle(r.Severity).Render(r.Severity))
+	row("Message", r.Message)
+	row("Regex", r.Regex)
 
 	if r.Exclude != "" {
-		row("Exclude:", r.Exclude)
+		row("Exclude", r.Exclude)
 	}
 
 	statusStr := theme.Success().Render("enabled")
@@ -769,53 +787,27 @@ func (m arModel) renderRuleDetail(item arRuleItem) string {
 	case "builtin":
 		sourceLabel = "built-in"
 	}
-	row("Status:", statusStr+" "+theme.Dim().Render("("+sourceLabel+")"))
+	row("Status", statusStr+" "+theme.Dim().Render("("+sourceLabel+")"))
 
 	return b.String()
 }
 
-// renderFilterBar renders filter input or status.
-func (m arModel) renderFilterBar() string {
-	totalCount := len(m.list.Items())
-	matchCount := totalCount
-
-	return renderTUIFilterBar(
-		m.filterInput.View(), m.filtering, m.filterText,
-		matchCount, totalCount, 0,
-		"items", "",
-	)
-}
-
-// renderFlashAndHelp renders the flash message and help bar.
-func (m arModel) renderFlashAndHelp(scrollInfo string) string {
-	var b strings.Builder
-
-	if m.flashMsg != "" {
-		b.WriteString("  " + m.flashMsg + "\n")
-	}
-
-	if m.pickingSeverity {
-		b.WriteString(m.renderSeverityPicker())
-	} else {
-		help := "↑↓ nav  Space toggle  Enter expand  Tab severity  s sev  R reset  / filter  q quit"
-		if m.useSplit() {
-			help += "  Ctrl+d/u scroll"
-		}
-		b.WriteString(theme.Dim().MarginLeft(2).Render(appendScrollInfo(help, scrollInfo)))
-	}
-	b.WriteString("\n")
-
-	return b.String()
-}
-
-// renderSeverityPicker renders the inline severity selection bar.
+// renderSeverityPicker asks for the new severity on the key line.
 func (m arModel) renderSeverityPicker() string {
-	var parts []string
-	for _, opt := range severityOptions {
-		badge := theme.SeverityStyle(opt.sev).Render(opt.key + " " + opt.sev)
-		parts = append(parts, badge)
+	name := ""
+	switch item := m.list.SelectedItem().(type) {
+	case arHeaderItem:
+		name = item.group.Pattern
+	case arRuleItem:
+		name = item.rule.ID
 	}
-	return theme.Dim().MarginLeft(2).Render("Set severity: ") + strings.Join(parts, theme.Dim().Render("  ")) + theme.Dim().MarginLeft(2).Render("  Esc cancel")
+	parts := make([]string, 0, len(severityOptions)+1)
+	for _, opt := range severityOptions {
+		parts = append(parts, theme.Primary().Render(opt.key)+" "+theme.SeverityStyle(opt.sev).Render(strings.ToLower(opt.sev)))
+	}
+	parts = append(parts, joinKeyHints([]keyHint{{"esc", "cancel"}}))
+	return "  " + theme.Warning().Render("?") + " " + theme.Primary().Bold(true).Render("Severity for "+name+"?") + "  " +
+		strings.Join(parts, theme.Dim().Render(" · "))
 }
 
 // runAuditRulesTUI starts the bubbletea TUI for browsing/toggling audit rules.

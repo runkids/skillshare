@@ -36,7 +36,8 @@ type frameTab struct {
 const frameChrome = 4
 
 // renderFrameTitle renders "skillshare <command> · fact · fact" with the
-// tabs right-aligned.
+// tabs right-aligned. When everything does not fit, only the active tab is
+// shown.
 func renderFrameTitle(width int, command string, facts []string, tabs []frameTab) string {
 	left := " " + theme.Primary().Bold(true).Render("skillshare "+command)
 	for _, f := range facts {
@@ -45,15 +46,20 @@ func renderFrameTitle(width int, command string, facts []string, tabs []frameTab
 		}
 		left += theme.Dim().Render(" · ") + f
 	}
-	labels := make([]string, len(tabs))
-	for i, t := range tabs {
+	var all, active []string
+	for _, t := range tabs {
 		if t.active {
-			labels[i] = theme.Accent().Bold(true).Render(t.label)
+			label := theme.Accent().Bold(true).Render(t.label)
+			all, active = append(all, label), append(active, label)
 		} else {
-			labels[i] = theme.Dim().Render(t.label)
+			all = append(all, theme.Dim().Render(t.label))
 		}
 	}
-	return joinEnds(left, strings.Join(labels, "   ")+" ", width)
+	right := strings.Join(all, "   ") + " "
+	if lipgloss.Width(left)+lipgloss.Width(right)+2 > width {
+		right = strings.Join(active, "") + " "
+	}
+	return joinEnds(left, right, width)
 }
 
 // renderKeyLine renders the common keys with right (e.g. "3/8") at the end.
