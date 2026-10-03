@@ -41,13 +41,13 @@ func (s *Server) handleVersionCheck(w http.ResponseWriter, r *http.Request) {
 	}
 	skillVersion := versioncheck.ReadLocalSkillVersion(skillSourceDir)
 
-	// Skill version (remote) — network call with 3s timeout
+	// Skill version (remote) — uses 24h cache, network call with 3s timeout
 	var skillLatest *string
 	skillUpdateAvailable := false
 	if skillVersion != "" {
-		if remote := versioncheck.FetchRemoteSkillVersion(); remote != "" {
+		if remote := versioncheck.CachedRemoteSkillVersion(); remote != "" {
 			skillLatest = &remote
-			skillUpdateAvailable = remote != skillVersion
+			skillUpdateAvailable = versioncheck.SkillOutdated(skillVersion, remote)
 		}
 	}
 
