@@ -39,7 +39,10 @@ func printLogEntriesTo(w io.Writer, entries []oplog.Entry, tty bool, termWidth i
 		if tty && i > 0 {
 			fmt.Fprintln(w)
 		}
-		value := formatLogTimestamp(e.Timestamp) + ui.DimText(" · "+formatLogDuration(e.Duration))
+		value := formatLogTimestamp(e.Timestamp)
+		if d := formatLogDuration(e.Duration); d != "" {
+			value += ui.DimText(" · " + d)
+		}
 		if e.Status != "ok" {
 			value += ui.DimText(" · " + e.Status)
 		}

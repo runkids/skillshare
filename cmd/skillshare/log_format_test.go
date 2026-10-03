@@ -357,3 +357,15 @@ func TestPrintLogAuditSkillLinesNonTTY_IncludesLowAndInfoSkills(t *testing.T) {
 		t.Fatalf("expected info skills output, got:\n%s", out)
 	}
 }
+
+func TestPrintLogEntries_ZeroDurationHasNoTrailingSeparator(t *testing.T) {
+	entry := oplog.Entry{Timestamp: "2026-02-10T03:05:00Z", Command: "diff", Status: "ok"}
+
+	var buf bytes.Buffer
+	printLogEntriesTo(&buf, []oplog.Entry{entry}, false, 120)
+	line := strings.Split(stripANSI(buf.String()), "\n")[0]
+
+	if strings.HasSuffix(strings.TrimSpace(line), "·") {
+		t.Fatalf("expected no trailing separator, got %q", line)
+	}
+}

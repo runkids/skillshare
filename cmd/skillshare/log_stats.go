@@ -120,8 +120,3 @@ func renderStatsCLI(stats logStats) string {
 	fmt.Fprintf(&b, "\n%s %s%s\n", ui.StyledMark(mark), ui.Bold+summary+ui.Reset, ui.DimText(last))
 	return b.String()
 }
-
-// formatRelativeTime is an alias for the shared formatDurationShort.
-func formatRelativeTime(d time.Duration) string {
-	return formatDurationShort(d)
-}
