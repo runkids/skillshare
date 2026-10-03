@@ -28,12 +28,18 @@ targets:
       path: ` + claudeAgents + `
 `)
 
-	// Sync agents first so there's something to backup
+	// Only target-local agents are backed up; synced ones are symlinks (issue #252).
+	sb.WriteFile(filepath.Join(claudeAgents, "local-helper.md"), "# Local helper")
 	sb.RunCLI("sync", "agents")
 
 	result := sb.RunCLI("backup", "agents")
 	result.AssertSuccess(t)
 	result.AssertAnyOutputContains(t, "claude-agents")
+
+	backups, _ := filepath.Glob(filepath.Join(sb.Home, ".local", "share", "skillshare", "backups", "*", "claude-agents", "local-helper.md"))
+	if len(backups) != 1 {
+		t.Fatalf("expected local-helper.md in one backup, found %v", backups)
+	}
 }
 
 func TestBackup_Agents_DryRun(t *testing.T) {
