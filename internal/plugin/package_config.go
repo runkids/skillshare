@@ -92,6 +92,14 @@ func (s *Service) piInventory(target string) ([]Installed, string, error) {
 }
 
 func logicalName(id string) string {
+	// An npm package name may contain dots; it names a package, not a file.
+	if isNpmSource(id) {
+		name, _ := npmSpec(id)
+		if name = name[strings.LastIndex(name, "/")+1:]; namePattern.MatchString(name) {
+			return name
+		}
+		return ""
+	}
 	name := strings.TrimPrefix(strings.TrimPrefix(id, "npm:"), "@")
 	name = strings.TrimSuffix(filepath.Base(name), filepath.Ext(name))
 	if i := strings.Index(name, "@"); i >= 0 {

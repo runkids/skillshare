@@ -13,9 +13,19 @@ all operations. `targetInfo` reports per-target components, version, and problem
 skillshare plugin list --json -g
 skillshare plugin discover ./plugin-directory --json
 skillshare plugin add ./plugin-directory --plugin demo --target claude --dry-run --json -g
+skillshare plugin add npm:@scope/package --target pi --dry-run --json -g
 ```
 
-`add` accepts a local folder, owner/repo, or HTTPS Git URL. For a multi-plugin
+`add` accepts a local folder, owner/repo, or HTTPS Git URL. For Pi it also accepts
+`npm:<package>[@version]` (packages listed on pi.dev): Pi downloads it and runs its install
+scripts, so nothing is reviewed first. Given a pi.dev page (`https://pi.dev/packages/<package>`)
+or a `pi install npm:<package>` command, pass `npm:<package>`; the CLI does not convert them.
+It needs a Pi `--target` (not an account running
+another executable), takes no `--source-ref`, `--entry` or `--plugin`, and `discover` rejects
+it. Pi keeps one entry per package name; another version replaces it and keeps its extension
+filters, and `update` skips a package pinned to an exact version. A Pi package another
+Skillshare package already manages is refused. In a project with a `.pi` folder, Pi changes
+packages only after the user trusts the project in Pi. For a multi-plugin
 marketplace, select a named candidate with `--plugin`. Use `--name` to bind
 different native distributions under one logical package, never infer equivalence
 from display names. External catalog sources are not auto-converted. Multiple local catalogs are merged.

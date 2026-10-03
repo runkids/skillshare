@@ -10,6 +10,8 @@ type TargetDefinition struct {
 	Reason     string   `json:"reason,omitempty"`
 	// ReasonKey names Reason for the dashboard to translate; Reason is the fallback.
 	ReasonKey string `json:"reasonKey,omitempty"`
+	// Npm marks a target that installs npm: packages (see pi_npm.go).
+	Npm bool `json:"npm,omitempty"`
 }
 
 func TargetDefinitions() []TargetDefinition {

@@ -10,10 +10,10 @@ import { MemoryRouter } from 'react-router-dom';
 vi.mock('../api/plugins', async (importOriginal) => ({ ...await importOriginal<typeof import('../api/plugins')>(), pluginsApi: { list: vi.fn(), files: vi.fn(), file: vi.fn(), discover: vi.fn(), preview: vi.fn(), apply: vi.fn() } }));
 vi.mock('../i18n', () => ({ useT: () => (key: string) => key }));
 vi.mock('../context/AppContext', () => ({ useAppContext: () => ({ isProjectMode: false }) }));
-vi.mock('../components/plugins/PluginAddDialog', () => ({ default: () => null }));
+vi.mock('../components/plugins/PluginAddDialog', () => ({ default: ({ initialTargets }: { initialTargets?: string[] }) => <div role="dialog" aria-label="add">{initialTargets?.join(',')}</div> }));
 vi.mock('../hooks/useSharedQueries', () => ({ useSyncedTargetsQuery: () => ({ data: { targets: [{ name: 'pi' }] } }) }));
 
-function mount() { return render(<MemoryRouter><QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><ToastProvider><PluginsPage /></ToastProvider></QueryClientProvider></MemoryRouter>); }
+function mount(path = '/plugins') { return render(<MemoryRouter initialEntries={[path]}><QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><ToastProvider><PluginsPage /></ToastProvider></QueryClientProvider></MemoryRouter>); }
 
 describe('PluginsPage', () => {
   beforeEach(() => {
@@ -39,6 +39,10 @@ describe('PluginsPage', () => {
     expect(screen.getByRole('link', { name: 'plugins.piExtensions' })).toHaveAttribute('href', '/targets/pi?tab=extensions');
     expect(pluginsApi.preview).not.toHaveBeenCalled();
     expect(pluginsApi.apply).not.toHaveBeenCalled();
+  });
+  it('opens the add dialog for the target a target page linked from', async () => {
+    mount('/plugins?add=pi-work');
+    expect(await screen.findByRole('dialog', { name: 'add' })).toHaveTextContent('pi-work');
   });
   it('adds an imported registration to the managed count only after the reviewed import', async () => {
     let imported = false;
@@ -180,6 +184,40 @@ describe('PluginsPage', () => {
     expect(screen.getByRole('button', { name: 'plugins.moreBlocked' })).toBeEnabled();
     fireEvent.click(claude);
     await waitFor(() => expect(pluginsApi.preview).toHaveBeenCalledWith({ action: 'add', source: 'https://github.com/owner/demo', sourceRef: undefined, entry: undefined, plugin: 'demo', name: 'demo', targets: ['claude'] }));
+  });
+  it('lists packages bound only to Pi targets in their own section', async () => {
+    vi.mocked(pluginsApi.list).mockResolvedValue({
+      targetDefinitions: [
+        { target: 'omo', label: 'omo', project: false, operations: ['add', 'sync'], npm: true },
+        { target: 'codex', label: 'Codex', project: false, operations: ['add', 'sync'] },
+      ],
+      packages: { demo: { bindings: { codex: { id: 'demo@market' } } }, driver: { bindings: { omo: { id: 'npm:@scope/driver' } } } },
+      hosts: [],
+    });
+    mount();
+    const pi = (await screen.findByRole('heading', { name: 'plugins.piTitle' })).closest('section')!;
+    const managed = screen.getByRole('heading', { name: 'plugins.managedTitle' }).closest('section')!;
+    expect(pi).toHaveTextContent('driver');
+    expect(managed).not.toHaveTextContent('driver');
+    expect(managed).toHaveTextContent('demo');
+  });
+  it('offers an imported npm package to the other Pi targets, installing it from its identifier', async () => {
+    vi.mocked(pluginsApi.list).mockResolvedValue({
+      targetDefinitions: [
+        { target: 'omo', label: 'omo', project: false, operations: ['add', 'sync'], npm: true },
+        { target: 'pi', label: 'Pi', project: true, operations: ['add', 'sync'], npm: true },
+        { target: 'codex', label: 'Codex', project: false, operations: ['add', 'sync'] },
+      ],
+      packages: { driver: { bindings: { omo: { id: 'npm:@scope/driver' } } } },
+      hosts: [],
+    });
+    mount();
+    fireEvent.click(await screen.findByRole('button', { name: 'mcp.chooseAgents' }));
+    const pi = await screen.findByRole('checkbox', { name: 'Pi' });
+    expect(screen.queryByRole('checkbox', { name: 'Codex' })).toBeNull();
+    expect(pluginsApi.discover).not.toHaveBeenCalled();
+    fireEvent.click(pi);
+    await waitFor(() => expect(pluginsApi.preview).toHaveBeenCalledWith({ action: 'add', source: 'npm:@scope/driver', name: 'driver', targets: ['pi'] }));
   });
   it('asks for a managed plugin by name, and says why its source could not be read', async () => {
     vi.mocked(pluginsApi.list).mockResolvedValue({ targetDefinitions: [{ target: 'codex', label: 'codex', project: false, operations: ['add', 'sync'] }], packages: { demo: { bindings: { codex: { id: 'demo@market', source: 'https://github.com/owner/demo.git', plugin: 'demo' } } } }, hosts: [] });

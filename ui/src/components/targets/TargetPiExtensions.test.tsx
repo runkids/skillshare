@@ -81,15 +81,36 @@ describe('Pi target Extensions tab', () => {
     expect(await screen.findByRole('status')).toHaveTextContent('keep the old set until Pi reloads');
   });
 
-  it('shows only the extension and its configured selection, with no always-unknown columns', async () => {
+  it('shows a switchable extension\'s selection on its switch, with no column of selections', async () => {
     show(global());
-    await screen.findByText('extensions/a.ts');
-    expect(screen.getByText('Configured')).toBeInTheDocument();
-    for (const gone of ['Runtime', 'Effective', 'File', 'Present', 'Configured if trusted']) {
+    expect(await screen.findByRole('switch', { name: `Load extensions/a.ts from ${pkg} in pi` })).toBeChecked();
+    expect(screen.getByRole('switch', { name: `Load extensions/b.ts from ${pkg} in pi` })).not.toBeChecked();
+    for (const gone of ['Configured', 'On', 'Off']) {
       expect(screen.queryByText(gone)).not.toBeInTheDocument();
     }
-    expect(screen.getAllByText('On')).toHaveLength(1);
-    expect(screen.getAllByText('Off')).toHaveLength(1);
+  });
+
+  it('counts the extensions a package loads, pending switches included', async () => {
+    const user = userEvent.setup();
+    show(global());
+    expect(await screen.findByText('1 / 3 on')).toBeInTheDocument();
+    await user.click(screen.getByRole('switch', { name: `Load extensions/b.ts from ${pkg} in pi` }));
+    expect(screen.getByText('2 / 3 on')).toBeInTheDocument();
+  });
+
+  it('names the shared folder once and leaves the package default unsaid', async () => {
+    show(global());
+    expect(await screen.findByText('extensions/')).toBeInTheDocument();
+    expect(screen.getByTitle('extensions/a.ts')).toHaveTextContent(/^a\.ts$/);
+    expect(screen.queryByText('Package default')).not.toBeInTheDocument();
+  });
+
+  it('collapses a package to its header', async () => {
+    const user = userEvent.setup();
+    show(global());
+    await user.click(await screen.findByRole('button', { name: `Collapse ${pkg}` }));
+    expect(screen.queryByRole('switch')).not.toBeInTheDocument();
+    expect(screen.getByText('1 / 3 on')).toBeInTheDocument();
   });
 
   it('explains what the page does in one note shown on hover and on focus', async () => {
@@ -109,7 +130,7 @@ describe('Pi target Extensions tab', () => {
 
   it('says why a pattern-decided extension has no switch and what to do', async () => {
     show(global());
-    await screen.findByText('extensions/slow-x.ts');
+    await screen.findByTitle('extensions/slow-x.ts');
     expect(screen.getAllByRole('switch')).toHaveLength(2);
     expect(screen.queryByRole('switch', { name: /slow-x/ })).not.toBeInTheDocument();
     expect(screen.getByText('Can\'t tell')).toBeInTheDocument();
@@ -196,7 +217,7 @@ describe('Pi target Extensions tab', () => {
       { ...base, form: 'string', rules: null, otherKeys: [], readOnly: 'otherResources', rows: [row] },
       { ...base, index: 1, source: '/home/me/one.ts', identity: '/home/me/one.ts', form: 'string', rules: null, otherKeys: [], readOnly: 'singleFile', rows: [{ ...row, path: 'one.ts', origin: 'file' }] },
     ] }));
-    expect(await screen.findByText(/can't show that they would stay as they are\. Change it with pi config\./)).toBeInTheDocument();
+    expect(await screen.findByText(/could change which of those Pi loads, so it is view only\. Change it with pi config\./)).toBeInTheDocument();
     expect(screen.getByText(/Pi loads this file as it is and ignores filters/)).toBeInTheDocument();
     expect(screen.queryByRole('switch')).not.toBeInTheDocument();
   });
@@ -280,9 +301,19 @@ describe('Pi target Extensions tab', () => {
       { path: '/home/me/.pi/agent/extensions', kind: 'folder', scope: 'global', rows: [{ ...row, path: 'extensions/scratch.ts' }] },
     ] }));
     const header = (path: string) => screen.getByTitle(path).parentElement!;
-    expect(await screen.findByText('extensions/local.ts')).toBeInTheDocument();
+    expect(await screen.findByTitle('extensions/local.ts')).toBeInTheDocument();
     expect(header('/code/acme/.pi/extensions')).toHaveTextContent('Project only');
     expect(header('/home/me/.pi/agent/extensions')).toHaveTextContent('From pi (global)');
+  });
+
+  it('opens Plugins to add a package with this target ticked', async () => {
+    show(global({ packages: [] }));
+    expect(await screen.findByRole('link', { name: /Add a package/ })).toHaveAttribute('href', '/plugins?add=pi');
+  });
+
+  it('opens Plugins to add a package with nothing ticked from a project', async () => {
+    show(project({ packages: [] }));
+    expect(await screen.findByRole('link', { name: /Add a package/ })).toHaveAttribute('href', '/plugins?add=');
   });
 
   it('shows the error when the tab cannot load', async () => {

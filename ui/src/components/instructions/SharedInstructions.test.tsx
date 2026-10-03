@@ -62,6 +62,15 @@ describe('Shared instructions', () => {
     await waitFor(() => expect(router.state.location.search).toBe('?tab=instructions&file=personal'));
   });
 
+  it('narrows the file list by name', async () => {
+    vi.mocked(api.listSharedInstructions).mockResolvedValue(list('personal', 'work'));
+    renderAt('/extras?tab=instructions');
+    const user = userEvent.setup();
+
+    await user.type(await screen.findByRole('searchbox', { name: 'Search files' }), 'wor');
+    expect(within(screen.getByRole('navigation', { name: 'Shared AGENTS.md' })).getAllByRole('button').map((b) => b.textContent)).toEqual([expect.stringContaining('work')]);
+  });
+
   it('replaces the unknown address instead of adding one', async () => {
     vi.mocked(api.listSharedInstructions).mockResolvedValue(list('personal'));
     const router = renderAt('/extras?tab=instructions&file=nope');

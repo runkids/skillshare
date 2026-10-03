@@ -26,6 +26,8 @@ Use when changing React components, pages, CSS, responsive layouts, interactions
 
 The dashboard supports Clean and Playful styles plus light, dark, and system modes. New UI must use CSS variables, token utilities, and existing `ss-*` classes. Never hardcode colors, radii, shadows, or fonts. Scope Playful-only pastels to the Playful theme.
 
+`python3 scripts/design/tokens.py` exports the Clean tokens from `components.css` in Design System `tokens.json` format, for mockup tools that read a design system instead of the CSS. A new Clean color variable needs a usage note in that script, or the export (and its test) fails.
+
 ## Dashboard Composition
 
 - Use `ss-wrap animate-fade-in` on the page root and place `PageHeader` first.

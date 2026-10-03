@@ -47,6 +47,7 @@ The router runs on the host and needs only Python 3.8+. On Windows, use `py` or 
 | `documentation` | Updating README files, website docs, command flags, translations, or the built-in skill |
 | `release` | Writing changelogs or release notes, bumping versions, tagging, or releasing |
 | `audit` | Read-only consistency checks for flags, docs, tests, targets, handler splits, oplog, or Web API |
+| `pull-requests` | Opening a pull request or handling its review comments, including Codex review |
 | `ai-context` | Adding, moving, or splitting wiki topics, or fixing router checks |
 
 Pick the single closest topic by default. Load a second only when a task genuinely crosses two seams. If no topic fits, read `wiki/README.md`.

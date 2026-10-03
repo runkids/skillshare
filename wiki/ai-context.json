@@ -72,6 +72,14 @@
         }
       ]
     },
+    "pull-requests": {
+      "description": "Open a pull request or handle its review comments, including Codex review.",
+      "sources": [
+        {
+          "path": "wiki/pull-requests.md"
+        }
+      ]
+    },
     "ai-context": {
       "description": "Maintain the documentation router and fix topic, path, budget, or orphan check failures.",
       "sources": [

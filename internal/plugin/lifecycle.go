@@ -130,6 +130,11 @@ func (s *Service) Apply(ctx context.Context, r Request, revision string) (*Resul
 				outcome.Message = "Native plugin removed; shared marketplaces are retained."
 			} else {
 				b.Pending = ""
+				if c.piRecordAfter {
+					if err := s.recordPiEntry(ctx, c.Target, &b); err != nil {
+						outcome.Message = "Installed, but its extension settings could not be recorded to restore on a later reinstall: " + err.Error()
+					}
+				}
 				pack.Bindings[c.Target] = b
 				if c.Action == "selection" {
 					outcome.Status = "saved"

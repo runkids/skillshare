@@ -18,6 +18,7 @@ python3 scripts/ai-context.py <topic>
 | `documentation` | Updating README files, website docs, flags, translations, or the built-in skill | `documentation.md`, `CONTRIBUTING.md` |
 | `release` | Writing changelogs or release notes, bumping versions, tagging, or releasing | `release.md` |
 | `audit` | Running read-only consistency audits | `audit.md` |
+| `pull-requests` | Opening a pull request or handling its review comments, including Codex review | `pull-requests.md` |
 | `ai-context` | Maintaining router topics, budgets, and orphan checks | `ai-context.md` |
 
 Run `python3 scripts/ai-context.py check` after changing topics. This table is the human entry point; the JSON configuration controls what the loader renders.

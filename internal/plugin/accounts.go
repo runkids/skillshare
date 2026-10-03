@@ -84,11 +84,15 @@ func (s *Service) targets() []string {
 // takes the operations of the Agent it is another config directory of.
 func (s *Service) TargetDefinitions() []TargetDefinition {
 	definitions := TargetDefinitions()
+	for i := range definitions {
+		definitions[i].Npm = s.npmTarget(definitions[i].Target)
+	}
 	accounts := []TargetDefinition{}
 	for _, name := range s.accountNames() {
 		for _, d := range definitions {
 			if d.Target == s.Accounts[name].Agent {
 				d.Target, d.Label, d.Project = name, name, false
+				d.Npm = s.npmTarget(name)
 				accounts = append(accounts, d)
 				break
 			}
