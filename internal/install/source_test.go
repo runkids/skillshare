@@ -596,6 +596,13 @@ func TestParseSource_FileURL(t *testing.T) {
 			wantName:     "repo",
 		},
 		{
+			// On Windows filepath.Clean would otherwise emit `file://\C:\...`.
+			name:         "file url with a drive path keeps URL separators",
+			input:        "file:///C:/path/to/repo",
+			wantCloneURL: "file:///C:/path/to/repo",
+			wantName:     "repo",
+		},
+		{
 			name:         "file url with dot suffix normalized to root",
 			input:        "file:///path/to/repo/.",
 			wantCloneURL: "file:///path/to/repo",
