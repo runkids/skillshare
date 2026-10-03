@@ -40,7 +40,7 @@ flowchart TD
 
 `pull` 作用于 `git_root` 配置字段所选定的目录（默认：`skills` source）。作用域表参见 [commit — Git Root Scope](./commit.md#git-root-scope)。如果 `git_root` 被更改了，但 git 仓库仍然位于另一个作用域的目录中，`pull` 会打印一条 "Git root mismatch" 错误，并给出精确的 `git init` / `mv` 命令来修复。参见 [Changing the scope after init](/docs/reference/targets/configuration#git-root)。
 
-拉取完成后，`pull` 会根据该作用域所包含的内容进行同步：`skills` 运行 `sync`，`agents` 运行 `sync agents`，`root` 两者都运行，`extras` 运行 `sync extras`。
+拉取完成后，`pull` 会根据该作用域所包含的内容进行同步：`skills` 运行 `sync`，`agents` 运行 `sync agents`，`extras` 运行 `sync extras`，`root` 三者都运行。
 
 Plugins、MCP server 和 hooks 是 `config.yaml` 中的设置，任何作用域都不会跟踪它，因此 `pull` 既不会带来也不会应用它们。请参阅 [Cross-Machine Sync — Plugins, MCP and Hooks](/docs/how-to/sharing/cross-machine-sync#plugins-mcp-hooks)。
 

@@ -229,6 +229,7 @@ complete -c skillshare -n '__fish_skillshare_using_command pull' -l help -s h -d
 
 # push
 complete -c skillshare -n '__fish_skillshare_using_command push' -l dry-run -s n -d 'Preview changes'
+complete -c skillshare -n '__fish_skillshare_using_command push' -l pull -d 'Merge remote changes before pushing, then sync'
 complete -c skillshare -n '__fish_skillshare_using_command push' -l message -s m -r -d 'Commit message'
 complete -c skillshare -n '__fish_skillshare_using_command push' -l help -s h -d 'Show help'
 

@@ -106,7 +106,7 @@ Plugins 不包含在 `sync --all` 之中。可用 `--dry-run --json` 預覽變�
 | `backup --list` | 列出備份 |
 | `restore <target>` | 從備份還原 |
 | `commit [-m "msg"]` | 建立本機 git commit 但不 push |
-| `push [-m "msg"]` | Commit 並 push 到 git remote |
+| `push [-m "msg"] [--pull]` | Commit 並 push 到 git remote；`--pull` 會先合併 remote 的變更，然後 sync |
 | `pull` | 從 git pull 並 sync |
 | `trash list` | 列出軟刪除的 skills |
 | `trash restore <name>` | 還原軟刪除的 skill |
@@ -166,6 +166,9 @@ skillshare push -m "Add new skill"
 
 # 機器 B：拉取並同步
 skillshare pull
+
+# 在多台機器上編輯：一個指令完成雙向同步
+skillshare push --pull -m "Update skills"
 ```
 
 之後才需要的選用步驟（僅在設定完成後又安裝了其他 AI CLI 時）：

@@ -40,7 +40,7 @@ flowchart TD
 
 `pull` は `git_root` 設定フィールド（デフォルト: `skills` source）で選択されたディレクトリに対して動作します。スコープの一覧は [commit — Git Root スコープ](./commit.md#git-root-scope) を参照してください。`git_root` が変更されたものの、git リポジトリが別のスコープのディレクトリにまだ存在している場合、`pull` は修正に必要な正確な `git init` / `mv` コマンドとともに「Git root mismatch」エラーを表示します。[init 後にスコープを変更する](/docs/reference/targets/configuration#git-root) も参照してください。
 
-pull 後、`pull` はそのスコープが保持するものを同期します。`skills` は `sync` を実行し、`agents` は `sync agents` を実行し、`root` は両方を実行し、`extras` は `sync extras` を実行します。
+pull 後、`pull` はそのスコープが保持するものを同期します。`skills` は `sync` を実行し、`agents` は `sync agents` を実行し、`extras` は `sync extras` を実行し、`root` は 3 つすべてを実行します。
 
 Plugins、MCP サーバー、hooks は `config.yaml` 内の設定で、どのスコープでも追跡されないため、`pull` はそれらを持ってくることも適用することもありません。[クロスマシン Sync — Plugins、MCP、Hooks](/docs/how-to/sharing/cross-machine-sync#plugins-mcp-hooks) を参照してください。
 

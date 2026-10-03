@@ -62,6 +62,9 @@ skillshare sync
 
 # 在本機做出變更之後
 skillshare push
+
+# 或一步完成雙向同步：合併、push，然後 sync
+skillshare push --pull
 ```
 
 ## 驗證

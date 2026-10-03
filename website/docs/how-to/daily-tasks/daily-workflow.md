@@ -107,6 +107,8 @@ This runs:
 2. `git commit -m "Add new skill"`
 3. `git push`
 
+If other machines push too, use `skillshare push --pull -m "Add new skill"` instead: it merges their changes before pushing and syncs targets afterwards. See [Push and Pull Together](/docs/reference/commands/push#push-and-pull-together).
+
 ### Pull changes (to this machine)
 
 ```bash
