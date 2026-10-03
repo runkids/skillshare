@@ -150,24 +150,6 @@ func Info(format string, args ...interface{}) {
 	fmt.Printf(a.Info+"→ "+a.Reset+format+"\n", args...)
 }
 
-// Status prints a status line
-func Status(name, status, detail string) {
-	a := theme.ANSI()
-	statusColor := a.Muted
-	switch status {
-	case "linked":
-		statusColor = a.Success
-	case "not exist":
-		statusColor = a.Warning
-	case "has files":
-		statusColor = a.Info
-	case "conflict", "broken":
-		statusColor = a.Danger
-	}
-
-	fmt.Printf("%-12s %s%-12s%s %s\n", name, statusColor, status, a.Reset, a.Dim+detail+a.Reset)
-}
-
 // Header prints a section header
 func Header(text string) {
 	a := theme.ANSI()

@@ -93,7 +93,7 @@ func TestMCPCheckProjects(t *testing.T) {
 	r = sb.RunCLI("mcp", "check", "--no-dns", "-g")
 	r.AssertExitCode(t, 1)
 	r.AssertOutputContains(t, "docs  (project ~/work/app)")
-	r.AssertOutputContains(t, "2 server(s) checked: 1 error(s)")
+	r.AssertOutputContains(t, "Checked 2 servers: 1 error")
 }
 
 func TestMCPCheckProjectModeReportsSyncState(t *testing.T) {

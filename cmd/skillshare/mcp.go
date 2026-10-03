@@ -13,7 +13,9 @@ import (
 
 	"skillshare/internal/mcp"
 	"skillshare/internal/oplog"
+	"skillshare/internal/theme"
 	"skillshare/internal/ui"
+	"skillshare/internal/utils"
 )
 
 type mcpOptions struct {
@@ -193,10 +195,15 @@ func cmdMCP(args []string) (resultErr error) {
 				return err
 			}
 		} else {
-			ui.Info("MCP source: %s", p.SourcePath)
+			printMCPSource(p.SourcePath)
 		}
+		names := make([]string, len(parked))
+		for i, server := range parked {
+			names[i] = server[0]
+		}
+		width := ui.RowWidth(names...)
 		for _, server := range parked {
-			ui.Status(server[0], "kept", server[1])
+			ui.Row(ui.MarkNone, server[0], "kept  "+ui.DimText(server[1]), width)
 		}
 		return nil
 	case "add":
@@ -290,15 +297,18 @@ func printMCPPlan(p *mcp.Plan, asJSON bool) error {
 	if asJSON {
 		return json.NewEncoder(os.Stdout).Encode(p)
 	}
-	ui.Info("MCP source: %s", p.SourcePath)
+	printMCPSource(p.SourcePath)
 	for _, notice := range p.Notices {
 		ui.Warning("%s", notice)
 	}
 	// mcp.projects puts one server into several roots; name the file only then.
 	seen := map[string]int{}
-	for _, c := range p.Changes {
+	names := make([]string, len(p.Changes))
+	for i, c := range p.Changes {
 		seen[c.Name+"\x00"+c.Target]++
+		names[i] = c.Name
 	}
+	width := ui.RowWidth(names...)
 	for _, c := range p.Changes {
 		detail := c.Target
 		if seen[c.Name+"\x00"+c.Target] > 1 {
@@ -307,12 +317,23 @@ func printMCPPlan(p *mcp.Plan, asJSON bool) error {
 		if c.Message != "" {
 			detail += " — " + c.Message
 		}
-		ui.Status(c.Name, c.Action, detail)
+		mark := ui.MarkNone
+		if c.Action == "conflict" {
+			mark = ui.MarkFail
+		}
+		ui.Row(mark, c.Name, c.Action+"  "+ui.DimText(detail), width)
 	}
 	if len(p.Changes) == 0 {
-		ui.Info("No MCP servers configured. Run 'skillshare mcp add' to get started.")
+		fmt.Println()
+		ui.Done(ui.MarkNone, "No MCP servers configured", 0)
+		ui.Next("skillshare mcp add", "add one")
 	}
 	return nil
+}
+
+// printMCPSource names the MCP source file above what follows.
+func printMCPSource(path string) {
+	fmt.Println(theme.Primary().Bold(true).Render("MCP source") + "  " + utils.FoldHomePath(path))
 }
 
 func printMCPResult(result *mcp.Result, asJSON bool) error {
@@ -325,13 +346,17 @@ func printMCPResult(result *mcp.Result, asJSON bool) error {
 		}
 	}
 	for _, id := range result.BackupIDs {
-		ui.Info("Backup: %s", id)
+		ui.Note("backup " + id)
 	}
 	printMCPMigrated(result)
 	if result.Plan == nil {
-		ui.Success("MCP source saved. Run 'skillshare sync mcp' when ready.")
+		fmt.Println()
+		ui.Done(ui.MarkOK, "Saved the MCP source", 0)
+		ui.Next("skillshare sync mcp", "write it into Agent files")
 	} else if !result.Plan.Blocked {
-		ui.Success("MCP files applied: %d. Reload your Agent after synchronization and complete any required login.", len(result.Applied))
+		fmt.Println()
+		ui.Done(ui.MarkOK, "Applied "+plural(len(result.Applied), "MCP file"), 0)
+		ui.Note("Reload your Agent and complete any required login")
 	}
 	return nil
 }
@@ -339,7 +364,7 @@ func printMCPResult(result *mcp.Result, asJSON bool) error {
 // printMCPMigrated says the sync also saved the config without the settings 0.23.0 retired.
 func printMCPMigrated(result *mcp.Result) {
 	for _, file := range result.Migrated {
-		ui.Info("Updated %s for 0.23.0 (backup: %s)", filepath.Base(file.Path), file.Backup)
+		ui.Note(fmt.Sprintf("Updated %s for 0.23.0 (backup: %s)", filepath.Base(file.Path), file.Backup))
 	}
 }
 
