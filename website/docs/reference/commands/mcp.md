@@ -74,20 +74,10 @@ single transaction.
 
 ## Interactive management
 
-Run `skillshare mcp` or `skillshare mcp list`. Like the skills list, the manager
-supports `/` to search and `Enter` for details. Connection lists hide argument,
-header and environment values, and omit URL queries.
-
-| Key | Action |
-|---|---|
-| `a` | Add a connection |
-| `i` | Import one or more connections |
-| `e` | Edit the selected connection |
-| `x` | Remove the selected connection |
-| `s` | Preview and confirm synchronization |
-| `b` | Browse backups by client, then newest first |
-| `r` | Refresh status |
-| `q` | Quit |
+Run `skillshare mcp` or `skillshare mcp list` to add, import, edit, remove, sync
+and restore connections; the details of the selected one show beside the list.
+Connection lists hide argument, header and environment values, and omit URL
+queries. The keys are listed at the bottom of the screen.
 
 `mcp edit`, `mcp remove`, and `mcp restore` offer selection menus when their name
 or backup ID is omitted. The editor covers command/URL, arguments, environment

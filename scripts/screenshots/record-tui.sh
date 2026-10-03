@@ -40,6 +40,7 @@ diff|skillshare diff|
 analyze|skillshare analyze|
 search|skillshare search --hub ~/hub.json|Enter
 mcp|skillshare mcp|
+mcp-keys|skillshare mcp|Type `?`
 install-pick|skillshare install file://$HOME/work/team-skills|
 new-pick|skillshare new my-skill|
 '

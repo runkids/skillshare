@@ -34,8 +34,7 @@ the command, so Node.js/npx must be available in that client's environment.
 ## Start with the guided setup
 
 Run `skillshare mcp` to browse and manage connections from the terminal. Use `/`
-to search, `Enter` for details, `e` to edit, `x` to remove, or `b` to browse
-backups. Every interactive change is previewed before saving. Use
+to filter, `e` to edit, `d` to remove, or `r` to restore from a backup. Every interactive change is previewed before saving. Use
 `skillshare mcp --no-tui` for plain status output.
 
 Initialize Skillshare first if this is a new installation, then run:

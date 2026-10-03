@@ -73,20 +73,9 @@ noninteractive mode에서는 상태를 출력합니다. 이름 없이 noninterac
 
 ## Interactive management
 
-`skillshare mcp` 또는 `skillshare mcp list`를 실행하세요. skill 목록과 마찬가지로, 관리자는
-검색을 위한 `/`와 상세 정보를 위한 `Enter`를 지원합니다. 연결 목록은 인자, 헤더, 환경 변수
-값을 숨기며 URL 쿼리를 생략합니다.
-
-| Key | Action |
-|---|---|
-| `a` | 연결 추가 |
-| `i` | 하나 이상의 연결 import |
-| `e` | 선택한 연결 편집 |
-| `x` | 선택한 연결 제거 |
-| `s` | 동기화 미리보기 및 확인 |
-| `b` | client별로 백업 탐색, 최신순 |
-| `r` | 상태 새로고침 |
-| `q` | 종료 |
+`skillshare mcp` 또는 `skillshare mcp list`를 실행하면 연결을 추가, import, 편집, 제거, 동기화,
+복원할 수 있으며, 선택한 연결의 상세 정보가 목록 옆에 표시됩니다. 연결 목록은 인자, 헤더, 환경 변수
+값을 숨기며 URL 쿼리를 생략합니다. 키는 화면 하단에 표시됩니다.
 
 `mcp edit`, `mcp remove`, `mcp restore`는 이름이나 백업 ID가 생략된 경우 선택 메뉴를
 제공합니다. 편집기는 command/URL, 인자, 환경 변수, HTTP 헤더, bearer-token 환경 참조,
