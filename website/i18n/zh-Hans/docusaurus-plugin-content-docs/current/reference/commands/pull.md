@@ -109,8 +109,8 @@ skillshare sync
 
 ## 首次拉取且已有 Skills
 
-在首次拉取时（尚未有 upstream），如果本地和 remote 都已经包含 skill 目录，
-`pull` 会尝试进行**合并（merge）**以整合双方内容。如果合并成功，本地和 remote 的 skills 都会被保留。
+在首次拉取时（尚未有 upstream），如果本地 repository 已经有内容（任何目录，或 `.gitignore` 以外任何已跟踪或未被忽略的文件），
+`pull` 会尝试进行**合并（merge）**以整合双方内容。如果合并成功，本地和 remote 的内容都会被保留。只有除此之外没有任何内容的 repository 才会直接 reset 到 remote branch。
 
 如果出现**合并冲突**，`pull` 会以非零退出码失败：
 
