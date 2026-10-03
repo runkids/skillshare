@@ -219,19 +219,23 @@ func HasLocalRootConfig(dir string) bool {
 type UnpushedConfigHistoryError struct {
 	Commits     []string
 	HasUpstream bool
+	// Base is the rebase start that keeps published commits intact: the
+	// parent of the oldest offending commit, or empty for a root commit.
+	Base string
 }
 
 func (e *UnpushedConfigHistoryError) Error() string {
-	base := "@{u}"
-	if !e.HasUpstream {
-		base = "--root"
+	base := "--root"
+	if e.Base != "" {
+		base = e.Base
 	}
 	return fmt.Sprintf("refusing to push: unpushed commits add or modify config.yaml: %s. Remove config.yaml from these commits using git rebase -i %s (mark them for edit, run git rm -r --cached -- config.yaml and git commit --amend, then git rebase --continue), or amend the latest commit if it is the only affected commit. A later stop-tracking commit does not remove the file from history; skillshare never rewrites history automatically", strings.Join(e.Commits, ", "), base)
 }
 
 // CheckUnpushedConfigHistory refuses histories that would publish local config
-// contents, even if a later commit removed the file. Without an upstream every
-// commit on HEAD is unpushed. Deletions alone are safe; combined merge diffs
+// contents, even if a later commit removed the file. Unpushed means reachable
+// from HEAD but from no ref of the remote PushArgs targets, so history that
+// remote already has never counts, with or without an upstream. Deletions alone are safe; combined merge diffs
 // check new resolutions without treating config inherited from upstream as a
 // new local change. The check never changes the index, worktree, or refs.
 func CheckUnpushedConfigHistory(dir string) error {
@@ -244,14 +248,9 @@ func CheckUnpushedConfigHistory(dir string) error {
 		}
 		return fmt.Errorf("check config.yaml history: %w", err)
 	}
-	hasUpstream := HasUpstream(dir)
-	revision := "HEAD"
-	if hasUpstream {
-		revision = "@{u}..HEAD"
-	}
 	cmd := exec.Command("git", "log", "--format=%x00%h", "--full-history", "--root",
-		"-c", "--diff-filter=AMT", "--no-renames", "--no-show-signature", "--raw", revision,
-		"--", ":(top,literal)config.yaml")
+		"-c", "--diff-filter=AMT", "--no-renames", "--no-show-signature", "--raw",
+		"HEAD", "--not", "--remotes="+PushRemote(dir), "--", ":(top,literal)config.yaml")
 	cmd.Dir = dir
 	out, err := cmd.Output()
 	if err != nil {
@@ -268,7 +267,13 @@ func CheckUnpushedConfigHistory(dir string) error {
 		}
 	}
 	if len(commits) > 0 {
-		return &UnpushedConfigHistoryError{Commits: commits, HasUpstream: hasUpstream}
+		histErr := &UnpushedConfigHistoryError{Commits: commits, HasUpstream: HasUpstream(dir)}
+		parent := exec.Command("git", "rev-parse", "--verify", "--quiet", "--short", commits[len(commits)-1]+"^")
+		parent.Dir = dir
+		if out, err := parent.Output(); err == nil {
+			histErr.Base = strings.TrimSpace(string(out))
+		}
+		return histErr
 	}
 	return nil
 }

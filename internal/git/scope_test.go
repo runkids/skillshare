@@ -125,6 +125,60 @@ func TestCheckUnpushedConfigHistory_MergeAddsConfig(t *testing.T) {
 	}
 }
 
+func TestCheckUnpushedConfigHistory_NoUpstreamIgnoresPublishedConfig(t *testing.T) {
+	dir := t.TempDir()
+	remote := filepath.Join(t.TempDir(), "origin.git")
+	gitExec(t, dir, "init", "--bare", remote)
+	gitExec(t, dir, "init", "-b", "main")
+	gitExec(t, dir, "remote", "add", "origin", remote)
+	if err := os.WriteFile(filepath.Join(dir, "config.yaml"), []byte("published\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	gitExec(t, dir, "add", "config.yaml")
+	gitExec(t, dir, "commit", "-m", "published config")
+	gitExec(t, dir, "push", "origin", "main")
+	gitExec(t, dir, "rm", "--cached", "config.yaml")
+	gitExec(t, dir, "commit", "-m", "Keep config.yaml out of version control")
+	if err := CheckUnpushedConfigHistory(dir); err != nil {
+		t.Fatalf("published config with only a local deletion = %v; want allowed", err)
+	}
+}
+
+func TestPushArgs_IgnoresPushDefaults(t *testing.T) {
+	for _, mode := range []string{"current", "matching"} {
+		t.Run(mode, func(t *testing.T) {
+			dir := t.TempDir()
+			origin := filepath.Join(t.TempDir(), "origin.git")
+			backup := filepath.Join(t.TempDir(), "backup.git")
+			gitExec(t, dir, "init", "--bare", origin)
+			gitExec(t, dir, "init", "--bare", backup)
+			gitExec(t, dir, "init", "-b", "main")
+			gitExec(t, dir, "remote", "add", "origin", origin)
+			gitExec(t, dir, "remote", "add", "backup", backup)
+			gitExec(t, dir, "commit", "--allow-empty", "-m", "initial")
+			gitExec(t, dir, "push", "-u", "origin", "main")
+			gitExec(t, dir, "branch", "private")
+			gitExec(t, dir, "push", "origin", "private")
+			gitExec(t, dir, "checkout", "private")
+			gitExec(t, dir, "commit", "--allow-empty", "-m", "unchecked private commit")
+			gitExec(t, dir, "checkout", "main")
+			gitExec(t, dir, "commit", "--allow-empty", "-m", "checked commit")
+			gitExec(t, dir, "config", "remote.pushDefault", "backup")
+			gitExec(t, dir, "config", "push.default", mode)
+
+			gitExec(t, dir, append([]string{}, PushArgs(dir, nil)...)...)
+
+			if out, _ := exec.Command("git", "-C", backup, "rev-parse", "--verify", "-q", "main").Output(); len(out) > 0 {
+				t.Errorf("push went to backup; want the upstream remote only")
+			}
+			got, _ := exec.Command("git", "-C", origin, "log", "-1", "--format=%s", "private").Output()
+			if strings.TrimSpace(string(got)) != "initial" {
+				t.Errorf("origin private = %q; want only the current branch pushed", got)
+			}
+		})
+	}
+}
+
 func readGitignore(t *testing.T, dir string) string {
 	t.Helper()
 	b, err := os.ReadFile(filepath.Join(dir, ".gitignore"))

@@ -604,6 +604,7 @@ func TestGitRoot_PushRefusesUnpushedConfigHistory(t *testing.T) {
 					if upstream {
 						testutil.RunGit(t, base, "push", "-u", "origin", "main")
 					}
+					rebaseBase := testutil.RunGit(t, base, "rev-parse", "--short", "HEAD")
 					testutil.RunGit(t, base, "add", "-f", "config.yaml")
 					testutil.RunGit(t, base, "commit", "-m", "oops")
 					badCommit := testutil.RunGit(t, base, "rev-parse", "--short", "HEAD")
@@ -622,11 +623,7 @@ func TestGitRoot_PushRefusesUnpushedConfigHistory(t *testing.T) {
 					result.AssertAnyOutputContains(t, "unpushed commits")
 					result.AssertAnyOutputContains(t, badCommit)
 					result.AssertAnyOutputContains(t, "config.yaml")
-					if upstream {
-						result.AssertAnyOutputContains(t, "git rebase -i @{u}")
-					} else {
-						result.AssertAnyOutputContains(t, "git rebase -i --root")
-					}
+					result.AssertAnyOutputContains(t, "git rebase -i "+rebaseBase)
 					if got := testutil.RunGit(t, base, "rev-parse", "HEAD"); got != head {
 						t.Errorf("refused push changed HEAD: %s -> %s", head, got)
 					}
