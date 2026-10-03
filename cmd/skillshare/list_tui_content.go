@@ -148,14 +148,14 @@ func loadContentForSkill(m *listTUIModel, e skillEntry) {
 	if e.Kind == "agent" {
 		// Agents are single .md files — render directly, minimal tree
 		agentFile := filepath.Join(m.agentsSourcePath, e.RelPath)
-		data, err := os.ReadFile(agentFile)
-		if err != nil {
+		if _, err := os.Stat(agentFile); err != nil {
 			m.contentText = fmt.Sprintf("(error reading agent: %v)", err)
 			m.treeAllNodes = nil
 			m.treeNodes = nil
 			return
 		}
-		raw := strings.TrimSpace(string(data))
+		// Front matter is in the details; rendering it turns "---" into rules.
+		raw := utils.ReadSkillBody(agentFile)
 		if raw == "" {
 			m.contentText = "(empty)"
 		} else {

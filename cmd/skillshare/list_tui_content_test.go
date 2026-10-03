@@ -1,7 +1,12 @@
 package main
 
 import (
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
+
+	xansi "github.com/charmbracelet/x/ansi"
 
 	"skillshare/internal/theme"
 )
@@ -45,5 +50,19 @@ func TestContentGlamourStyle_MatchesTheme(t *testing.T) {
 				t.Errorf("H1.Color = %v, want \"6\"", s.H1.StylePrimitive.Color)
 			}
 		})
+	}
+}
+
+func TestLoadContentForSkill_AgentLeavesOutFrontMatter(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "reviewer.md"), []byte("---\nname: reviewer\ndescription: Reviews code changes\n---\nReview the diff.\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	m := listTUIModel{agentsSourcePath: dir, termWidth: 100, termHeight: 30}
+	loadContentForSkill(&m, skillEntry{Name: "reviewer", Kind: "agent", RelPath: "reviewer.md"})
+
+	got := xansi.Strip(m.contentText)
+	if strings.Contains(got, "name: reviewer") || !strings.Contains(got, "Review the diff.") {
+		t.Fatalf("agent content should show the body without front matter, got %q", got)
 	}
 }
