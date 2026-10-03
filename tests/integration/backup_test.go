@@ -136,7 +136,7 @@ targets:
 	result := sb.RunCLI("backup")
 
 	result.AssertSuccess(t)
-	result.AssertOutputContains(t, "nothing to backup")
+	result.AssertOutputContains(t, "nothing to back up")
 }
 
 func TestBackup_SymlinkTarget_ShowsNothing(t *testing.T) {
@@ -160,7 +160,7 @@ targets:
 	result := sb.RunCLI("backup")
 
 	result.AssertSuccess(t)
-	result.AssertOutputContains(t, "nothing to backup")
+	result.AssertOutputContains(t, "nothing to back up")
 }
 
 func TestBackup_List_ShowsAllBackups(t *testing.T) {
@@ -216,7 +216,7 @@ targets: {}
 	result := sb.RunCLI("backup", "--cleanup")
 
 	result.AssertSuccess(t)
-	result.AssertOutputContains(t, "Cleaning")
+	result.AssertOutputContains(t, "No backups to clean up")
 }
 
 func TestBackup_DryRun_DoesNotCreateBackup(t *testing.T) {

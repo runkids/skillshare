@@ -33,7 +33,7 @@ targets:
 
 	result := sb.RunCLI("backup", "agents")
 	result.AssertSuccess(t)
-	result.AssertAnyOutputContains(t, "agent backup")
+	result.AssertAnyOutputContains(t, "claude-agents")
 }
 
 func TestBackup_Agents_DryRun(t *testing.T) {
@@ -152,7 +152,7 @@ func TestBackup_Agents_ProjectMode_CreatesBackup(t *testing.T) {
 	// Backup project agents
 	result = sb.RunCLIInDir(projectDir, "backup", "-p", "agents")
 	result.AssertSuccess(t)
-	result.AssertAnyOutputContains(t, "agent backup")
+	result.AssertAnyOutputContains(t, "Backed up agents of 1 target")
 
 	// Verify backup was created under .skillshare/backups/
 	backupDir := filepath.Join(projectDir, ".skillshare", "backups")

@@ -2,17 +2,18 @@ package main
 
 import (
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"time"
 
-	"github.com/pterm/pterm"
-
 	"skillshare/internal/backup"
 	"skillshare/internal/config"
 	"skillshare/internal/oplog"
+	"skillshare/internal/theme"
 	"skillshare/internal/trash"
 	"skillshare/internal/ui"
 	"skillshare/internal/utils"
@@ -139,14 +140,17 @@ func createBackup(targetName string, dryRun bool) error {
 		}
 	}
 
-	ui.Header("Creating backup")
+	names := slices.Sorted(maps.Keys(targets))
+	width := ui.RowWidth(names...)
 	if dryRun {
-		ui.Warning("Dry run mode - no backups will be created")
-		for name, target := range targets {
-			if err := previewBackup(name, target.SkillsConfig().Path); err != nil {
-				ui.Warning("Failed to inspect %s: %v", name, err)
+		for _, name := range names {
+			target := targets[name]
+			if err := previewBackup(name, target.SkillsConfig().Path, width); err != nil {
+				ui.Row(ui.MarkWarn, name, fmt.Sprintf("could not inspect: %v", err), width)
 			}
 		}
+		fmt.Println()
+		ui.DryRun()
 		return nil
 	}
 
@@ -159,12 +163,14 @@ func createBackup(targetName string, dryRun bool) error {
 	spinner := ui.StartSpinner("Backing up targets...")
 	var results []backupResult
 	created := 0
-	skipped := 0
-	for name, target := range targets {
+	failed := 0
+	for _, name := range names {
 		spinner.Update(fmt.Sprintf("Backing up %s...", name))
+		target := targets[name]
 		backupPath, err := backup.Create(name, target.SkillsConfig().Path)
 		if err != nil {
 			results = append(results, backupResult{name: name, errMsg: err.Error()})
+			failed++
 			continue
 		}
 		if backupPath != "" {
@@ -172,44 +178,40 @@ func createBackup(targetName string, dryRun bool) error {
 			created++
 		} else {
 			results = append(results, backupResult{name: name})
-			skipped++
 		}
 	}
 	spinner.Stop()
 
 	for _, r := range results {
 		if r.errMsg != "" {
-			ui.Warning("Failed to backup %s: %s", r.name, r.errMsg)
+			ui.Row(ui.MarkFail, r.name, r.errMsg, width)
 		} else if r.backupPath != "" {
-			ui.StepDone(r.name, r.backupPath)
+			ui.Row(ui.MarkOK, r.name, utils.FoldHomePath(r.backupPath), width)
 		} else {
-			ui.StepSkip(r.name, "nothing to backup (empty or symlink)")
+			ui.Row(ui.MarkNone, r.name, ui.DimText("nothing to back up (empty or symlink)"), width)
 		}
 	}
 
-	ui.OperationSummary("Backup", 0,
-		ui.Metric{Label: "created", Count: created, HighlightColor: pterm.Green},
-		ui.Metric{Label: "skipped", Count: skipped, HighlightColor: pterm.Yellow},
-	)
-
-	// List recent backups
-	backups, _ := backup.List()
-	if len(backups) > 0 {
-		fmt.Println()
-		ui.Header("Recent backups")
-		limit := min(5, len(backups))
-		for i := 0; i < limit; i++ {
-			b := backups[i]
-			detail := fmt.Sprintf("%s (%s)", strings.Join(b.Targets, ", "), b.Path)
-			arrow := pterm.NewStyle(pterm.FgCyan).Sprint("→")
-			fmt.Printf("%s %-20s %s\n", arrow, b.Timestamp, ui.DimText(detail))
-		}
-	}
-
+	fmt.Println()
+	printBackupDone(created, failed, "", spinner.Started())
 	return nil
 }
 
-func previewBackup(targetName, targetPath string) error {
+// printBackupDone closes a backup run; what names the backed-up folders
+// ("" for skills, "agents of " for agent backups).
+func printBackupDone(created, failed int, what string, start time.Time) {
+	switch {
+	case failed > 0:
+		ui.Done(ui.MarkFail, fmt.Sprintf("Backed up %s%s, %d failed", what, plural(created, "target"), failed), time.Since(start))
+	case created == 0:
+		ui.Done(ui.MarkNone, "Nothing to back up", 0)
+	default:
+		ui.Done(ui.MarkOK, fmt.Sprintf("Backed up %s%s", what, plural(created, "target")), time.Since(start))
+		ui.Next("skillshare restore <target>", "roll a target back")
+	}
+}
+
+func previewBackup(targetName, targetPath string, width int) error {
 	backupDir := backup.BackupDir()
 	if backupDir == "" {
 		return fmt.Errorf("cannot determine backup directory: home directory not found")
@@ -218,26 +220,26 @@ func previewBackup(targetName, targetPath string) error {
 	info, err := os.Lstat(targetPath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			ui.StepSkip(targetName, "nothing to backup (missing)")
+			ui.Row(ui.MarkNone, targetName, ui.DimText("nothing to back up (missing)"), width)
 			return nil
 		}
 		return err
 	}
 
 	if utils.IsLinkMode(targetPath, info.Mode()) {
-		ui.StepSkip(targetName, "nothing to backup (symlink)")
+		ui.Row(ui.MarkNone, targetName, ui.DimText("nothing to back up (symlink)"), width)
 		return nil
 	}
 
 	entries, err := os.ReadDir(targetPath)
 	if err != nil || len(entries) == 0 {
-		ui.StepSkip(targetName, "nothing to backup (empty)")
+		ui.Row(ui.MarkNone, targetName, ui.DimText("nothing to back up (empty)"), width)
 		return nil
 	}
 
 	timestamp := time.Now().Format("2006-01-02_15-04-05")
 	backupPath := filepath.Join(backupDir, timestamp, targetName)
-	ui.Info("%s: would backup to %s", targetName, backupPath)
+	ui.Row(ui.MarkNone, targetName, "would back up to "+utils.FoldHomePath(backupPath), width)
 
 	return nil
 }
@@ -249,22 +251,19 @@ func backupList(backupDir string) error {
 	}
 
 	if len(backups) == 0 {
-		ui.Info("No backups found")
+		ui.Done(ui.MarkNone, "No backups found", 0)
 		return nil
 	}
 
-	totalSize, _ := backup.TotalSizeInDir(backupDir)
-	ui.Header(fmt.Sprintf("All backups in %s (%s total)", backupDir, formatBytes(totalSize)))
-
+	fmt.Println(theme.Primary().Bold(true).Render("Backups") + "  " + utils.FoldHomePath(backupDir))
+	width := ui.RowWidth(backups[0].Timestamp)
 	for _, b := range backups {
-		size := backup.Size(b.Path)
-		fmt.Printf("  %s  %-20s  %8s  %s\n",
-			b.Timestamp,
-			strings.Join(b.Targets, ", "),
-			formatBytes(size),
-			b.Path)
+		ui.Row(ui.MarkNone, b.Timestamp, strings.Join(b.Targets, ", ")+ui.DimText(" · "+formatBytes(backup.Size(b.Path))), width)
 	}
-
+	totalSize, _ := backup.TotalSizeInDir(backupDir)
+	fmt.Println()
+	ui.Done(ui.MarkNone, fmt.Sprintf("%s, %s", plural(len(backups), "backup"), formatBytes(totalSize)), 0)
+	ui.Next("skillshare restore <target> --from <timestamp>", "roll a target back")
 	return nil
 }
 
@@ -285,7 +284,10 @@ func backupDelete(mode runMode, cwd, timestamp string, dryRun bool) error {
 	}
 	size := backup.Size(info.Path)
 	if dryRun {
-		ui.Warning("Dry run - would delete backup %s (%s, %s)", timestamp, strings.Join(info.Targets, ", "), formatBytes(size))
+		ui.Done(ui.MarkNone, "Would delete backup "+timestamp, 0)
+		ui.Note(fmt.Sprintf("%s · %s", strings.Join(info.Targets, ", "), formatBytes(size)))
+		fmt.Println()
+		ui.DryRun()
 		return nil
 	}
 
@@ -299,27 +301,23 @@ func backupDelete(mode runMode, cwd, timestamp string, dryRun bool) error {
 	if err != nil {
 		return err
 	}
-	ui.Success("Deleted backup %s (freed %s)", timestamp, formatBytes(size))
+	ui.Done(ui.MarkOK, fmt.Sprintf("Deleted backup %s, freed %s", timestamp, formatBytes(size)), time.Since(start))
 	return nil
 }
 
 func backupCleanup(backupDir string, cfg backup.CleanupConfig) error {
-	ui.Header("Cleaning up old backups")
-
-	// Show current state
+	start := time.Now()
 	backups, err := backup.ListInDir(backupDir)
 	if err != nil {
 		return err
 	}
 
 	if len(backups) == 0 {
-		ui.Info("No backups to clean up")
+		ui.Done(ui.MarkNone, "No backups to clean up", 0)
 		return nil
 	}
 
 	totalSize, _ := backup.TotalSizeInDir(backupDir)
-	ui.Info("Current: %d backups, %s total", len(backups), formatBytes(totalSize))
-
 	removed, err := backup.CleanupInDir(backupDir, cfg)
 	if err != nil {
 		return err
@@ -327,39 +325,37 @@ func backupCleanup(backupDir string, cfg backup.CleanupConfig) error {
 
 	if removed > 0 {
 		newSize, _ := backup.TotalSizeInDir(backupDir)
-		ui.Success("Removed %d old backups (freed %s)",
-			removed,
-			formatBytes(totalSize-newSize))
+		ui.Done(ui.MarkOK, fmt.Sprintf("Removed %s, freed %s", plural(removed, "old backup"), formatBytes(totalSize-newSize)), time.Since(start))
+		ui.Note(fmt.Sprintf("%s left, %s", plural(len(backups)-removed, "backup"), formatBytes(newSize)))
 	} else {
-		ui.Info("No backups needed to be removed")
+		ui.Done(ui.MarkNone, "No old backups to remove", 0)
+		ui.Note(fmt.Sprintf("%s, %s", plural(len(backups), "backup"), formatBytes(totalSize)))
 	}
 
 	return nil
 }
 
 func backupCleanupDryRun(backupDir string, cfg backup.CleanupConfig) error {
-	ui.Header("Cleaning up old backups")
-
 	backups, err := backup.ListInDir(backupDir)
 	if err != nil {
 		return err
 	}
 
 	if len(backups) == 0 {
-		ui.Info("No backups to clean up")
+		ui.Done(ui.MarkNone, "No backups to clean up", 0)
 		return nil
 	}
 
 	totalSize, _ := backup.TotalSizeInDir(backupDir)
-	ui.Info("Current: %d backups, %s total", len(backups), formatBytes(totalSize))
-
 	removed, freed := planBackupCleanup(backups, cfg, time.Now())
 	if removed > 0 {
-		ui.Warning("Dry run - would remove %d old backups (free %s)", removed, formatBytes(freed))
+		ui.Done(ui.MarkNone, fmt.Sprintf("Would remove %s, freeing %s", plural(removed, "old backup"), formatBytes(freed)), 0)
 	} else {
-		ui.Info("Dry run - no backups needed to be removed")
+		ui.Done(ui.MarkNone, "No old backups to remove", 0)
 	}
-
+	ui.Note(fmt.Sprintf("%s, %s", plural(len(backups), "backup"), formatBytes(totalSize)))
+	fmt.Println()
+	ui.DryRun()
 	return nil
 }
 
@@ -474,12 +470,6 @@ func cmdRestore(args []string) error {
 		return fmt.Errorf("target '%s' not found in config", targetName)
 	}
 
-	ui.Header(fmt.Sprintf("Restoring %s", targetName))
-
-	if dryRun {
-		ui.Warning("Dry run mode - no changes will be made")
-	}
-
 	opts := backup.RestoreOptions{Force: force}
 
 	sc := target.SkillsConfig()
@@ -546,7 +536,7 @@ func restoreTUIDispatch(noTUI bool) error {
 			return err
 		}
 		if len(summaries) == 0 {
-			ui.Info("No backups found")
+			ui.Done(ui.MarkNone, "No backups found", 0)
 			return nil
 		}
 		return runRestoreTUI(summaries, backupDir, cfg.Targets, config.ConfigPath())
@@ -571,7 +561,7 @@ func restoreTUIDispatch(noTUI bool) error {
 			items = append(items, e)
 		}
 		if len(items) == 0 {
-			ui.Info("Trash is empty")
+			ui.Done(ui.MarkNone, "Trash is empty", 0)
 			return nil
 		}
 		sort.Slice(items, func(i, j int) bool {
@@ -606,7 +596,7 @@ func restoreFromTimestamp(targetName, targetPath, timestamp string, opts backup.
 	if err := backup.RestoreToPath(backupInfo.Path, targetName, targetPath, opts); err != nil {
 		return err
 	}
-	ui.Success("Restored %s from backup %s", targetName, timestamp)
+	ui.Done(ui.MarkOK, fmt.Sprintf("Restored %s from backup %s", targetName, timestamp), 0)
 	return nil
 }
 
@@ -615,7 +605,7 @@ func restoreFromLatest(targetName, targetPath string, opts backup.RestoreOptions
 	if err != nil {
 		return err
 	}
-	ui.Success("Restored %s from latest backup (%s)", targetName, timestamp)
+	ui.Done(ui.MarkOK, fmt.Sprintf("Restored %s from the latest backup, %s", targetName, timestamp), 0)
 	return nil
 }
 
@@ -628,7 +618,7 @@ func restoreFromTimestampInDir(backupDir, targetName, targetPath, timestamp stri
 	if err := backup.RestoreToPath(backupInfo.Path, targetName, targetPath, opts); err != nil {
 		return err
 	}
-	ui.Success("Restored %s from backup %s", targetName, timestamp)
+	ui.Done(ui.MarkOK, fmt.Sprintf("Restored %s from backup %s", targetName, timestamp), 0)
 	return nil
 }
 
@@ -637,7 +627,7 @@ func restoreFromLatestInDir(backupDir, targetName, targetPath string, opts backu
 	if err != nil {
 		return err
 	}
-	ui.Success("Restored %s from latest backup (%s)", targetName, timestamp)
+	ui.Done(ui.MarkOK, fmt.Sprintf("Restored %s from the latest backup, %s", targetName, timestamp), 0)
 	return nil
 }
 
@@ -651,7 +641,9 @@ func previewRestoreFromTimestamp(targetName, targetPath, timestamp string, opts 
 		return err
 	}
 
-	ui.Info("Would restore %s from backup %s", targetName, timestamp)
+	ui.Done(ui.MarkNone, fmt.Sprintf("Would restore %s from backup %s", targetName, timestamp), 0)
+	fmt.Println()
+	ui.DryRun()
 	return nil
 }
 
@@ -670,7 +662,9 @@ func previewRestoreFromLatest(targetName, targetPath string, opts backup.Restore
 		return err
 	}
 
-	ui.Info("Would restore %s from latest backup (%s)", targetName, latest.Timestamp)
+	ui.Done(ui.MarkNone, fmt.Sprintf("Would restore %s from the latest backup, %s", targetName, latest.Timestamp), 0)
+	fmt.Println()
+	ui.DryRun()
 	return nil
 }
 

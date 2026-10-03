@@ -10,7 +10,9 @@ import (
 	"skillshare/internal/config"
 	"skillshare/internal/oplog"
 	"skillshare/internal/sync"
+	"skillshare/internal/theme"
 	"skillshare/internal/ui"
+	"skillshare/internal/utils"
 )
 
 // cmdBackupFiles handles `skillshare backup files`: the versions skillshare
@@ -84,20 +86,26 @@ func backupFilesList(root string) error {
 	if err != nil {
 		return err
 	}
-	shown := 0
+	var shown []sync.FileBackup
 	for _, f := range files {
-		if root != "" && !sync.PathInside(root, f.Path) {
-			continue
+		if root == "" || sync.PathInside(root, f.Path) {
+			shown = append(shown, f)
 		}
-		if shown == 0 {
-			ui.Header("File history")
-		}
-		shown++
-		fmt.Printf("  %s  %3d versions  %s\n", f.Latest.Format("2006-01-02 15:04:05"), f.Versions, f.Path)
 	}
-	if shown == 0 {
-		ui.Info("No file backups found")
+	if len(shown) == 0 {
+		ui.Done(ui.MarkNone, "No file backups found", 0)
+		return nil
 	}
+	fmt.Println(theme.Primary().Bold(true).Render("File history"))
+	paths := make([]string, len(shown))
+	for i, f := range shown {
+		paths[i] = utils.FoldHomePath(f.Path)
+	}
+	width := ui.RowWidth(paths...)
+	for i, f := range shown {
+		ui.Row(ui.MarkNone, paths[i], plural(f.Versions, "version")+ui.DimText(" · latest "+f.Latest.Format("2006-01-02 15:04:05")), width)
+	}
+	ui.Next("skillshare backup files show <path>", "see a file's versions")
 	return nil
 }
 
@@ -110,7 +118,12 @@ func backupFilesShow(root, path string) error {
 	if err != nil {
 		return err
 	}
-	ui.Header(fmt.Sprintf("Versions of %s", abs))
+	fmt.Println(theme.Primary().Bold(true).Render("Versions") + "  " + utils.FoldHomePath(abs))
+	ids := make([]string, len(versions))
+	for i, v := range versions {
+		ids[i] = v.ID
+	}
+	width := ui.RowWidth(ids...)
 	for _, v := range versions {
 		detail := v.Preview
 		switch {
@@ -119,8 +132,8 @@ func backupFilesShow(root, path string) error {
 		case v.LinkTo != "":
 			detail = "(link to " + v.LinkTo + ")"
 		}
-		fmt.Printf("  %-32s  %s  %-18s  %8s  %s\n",
-			v.ID, v.Time.Format("2006-01-02 15:04:05"), fileVersionLabel(v), formatBytes(v.Size), ui.DimText(detail))
+		value := fmt.Sprintf("%s  %-18s  %8s", v.Time.Format("2006-01-02 15:04:05"), fileVersionLabel(v), formatBytes(v.Size))
+		ui.Row(ui.MarkNone, v.ID, value+"  "+ui.DimText(detail), width)
 	}
 	return nil
 }
@@ -147,7 +160,10 @@ func backupFilesRestore(root, path, id string, unlink, dryRun bool) error {
 		if st := sync.CurrentFileState(abs); st.LinkTo != "" && !unlink {
 			return fmt.Errorf("%s is a link to %s; add --unlink to replace it with a regular file", abs, st.LinkTo)
 		}
-		ui.Warning("Dry run - would restore %s to version %s (%s, %s)", abs, v.ID, fileVersionLabel(v), v.Time.Format("2006-01-02 15:04:05"))
+		ui.Done(ui.MarkNone, fmt.Sprintf("Would restore %s to version %s", utils.FoldHomePath(abs), v.ID), 0)
+		ui.Note(fmt.Sprintf("%s · %s", fileVersionLabel(v), v.Time.Format("2006-01-02 15:04:05")))
+		fmt.Println()
+		ui.DryRun()
 		return nil
 	}
 
@@ -168,9 +184,9 @@ func backupFilesRestore(root, path, id string, unlink, dryRun bool) error {
 	if err != nil {
 		return err
 	}
-	ui.Success("Restored %s to version %s", abs, id)
+	ui.Done(ui.MarkOK, fmt.Sprintf("Restored %s to version %s", utils.FoldHomePath(abs), id), time.Since(start))
 	if saved != "" {
-		ui.Info("The previous content was saved as version %s", saved)
+		ui.Note("The previous content was saved as version " + saved)
 	}
 	return nil
 }

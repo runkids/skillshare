@@ -25,7 +25,7 @@ func TestBackup_Delete_RemovesOneSnapshot(t *testing.T) {
 
 	dry := sb.RunCLI("backup", "--delete", "2024-01-15_14-30-45", "--dry-run")
 	dry.AssertSuccess(t)
-	dry.AssertAnyOutputContains(t, "would delete")
+	dry.AssertAnyOutputContains(t, "Would delete backup")
 	if !sb.FileExists(filepath.Join(backupDir, "2024-01-15_14-30-45")) {
 		t.Fatal("dry run deleted the backup")
 	}
@@ -59,7 +59,7 @@ func TestBackupFiles_ListShowRestore(t *testing.T) {
 
 	list := sb.RunCLI("backup", "files", "-g")
 	list.AssertSuccess(t)
-	list.AssertOutputContains(t, path)
+	list.AssertOutputContains(t, "~/.claude/CLAUDE.md")
 
 	show := sb.RunCLI("backup", "files", "show", path, "-g")
 	show.AssertSuccess(t)
@@ -117,5 +117,5 @@ func TestBackup_ListAndCleanup_ProjectMode(t *testing.T) {
 
 	cleanup := sb.RunCLIInDir(projectDir, "backup", "--cleanup", "--dry-run", "-p")
 	cleanup.AssertSuccess(t)
-	cleanup.AssertAnyOutputContains(t, "1 backups")
+	cleanup.AssertAnyOutputContains(t, "1 backup, ")
 }
