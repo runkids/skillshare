@@ -102,13 +102,16 @@ record() {
     echo "ok $name"; rm -f "$OUT/$name.log"
   else
     echo "FAIL $name (see $OUT/$name.log)"; tail -5 "$OUT/$name.log"
+    failed=1
   fi
   rm -f "$OUT/$name.gif" "$tape"
   ssenv delete "$env" --force >/dev/null 2>&1 || true
 }
 
+failed=0
 while IFS='|' read -r name cmd keys; do
   [ -z "$name" ] && continue
   if [ $# -gt 0 ] && [[ " $* " != *" $name "* ]]; then continue; fi
   record "$name" "$cmd" "$keys"
 done <<<"$SCREENS"
+exit "$failed"
