@@ -47,3 +47,10 @@ it('returns to selection after a stale preview instead of reapplying silently', 
   expect(within(screen.getByRole('dialog')).getByRole('button', { name: 'Review changes' })).toBeInTheDocument();
   expect(api.applyMemoryGuidance).toHaveBeenCalledTimes(1);
 });
+
+it('rechecks target states when the dialog opens', async () => {
+  vi.mocked(api.getMemoryGuidance).mockResolvedValueOnce({ scope: 'global', instructions: 'Read the notes', targets: [{ name: 'codex', state: 'configured' }] });
+  const user = userEvent.setup(); renderGuidance();
+  await user.click(await screen.findByRole('button', { name: 'Connect to agents' }));
+  expect(await screen.findByRole('checkbox', { name: /codex/ })).toBeEnabled();
+});
