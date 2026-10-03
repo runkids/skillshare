@@ -44,7 +44,8 @@ func Select(title string, options []Option, selected string) (string, error) {
 	if long {
 		field = field.Height(promptVisibleRows + 1)
 	}
-	return value, runPrompt(field, long)
+	err := runPrompt(field, long)
+	return value, err
 }
 
 // MultiSelect asks for any number of options and returns the chosen values
@@ -65,7 +66,8 @@ func MultiSelect(title string, options []Option, selected []string) ([]string, e
 	if long {
 		field = field.Height(promptVisibleRows + 1)
 	}
-	return values, runPrompt(field, long)
+	err := runPrompt(field, long)
+	return values, err
 }
 
 // Confirm asks a yes/no question; def is the answer Enter gives. Without a
@@ -82,7 +84,8 @@ func Confirm(title string, def bool) (bool, error) {
 		Negative("No").
 		Inline(true).
 		Value(&value)
-	return value, runPrompt(field, false)
+	err := runPrompt(field, false)
+	return value, err
 }
 
 // ConfirmAction is Confirm for a question that guards one action: esc
@@ -147,7 +150,8 @@ func Input(title, placeholder, value string) (string, error) {
 // InputValid is Input that only accepts an answer check passes; otherwise
 // the error shows under the question and it stays open.
 func InputValid(title, placeholder, value string, check func(string) error) (string, error) {
-	return value, runPrompt(inputField(title, placeholder, &value, check), false)
+	err := runPrompt(inputField(title, placeholder, &value, check), false)
+	return value, err
 }
 
 func inputField(title, placeholder string, value *string, check func(string) error) *huh.Input {
@@ -163,7 +167,8 @@ func inputField(title, placeholder string, value *string, check func(string) err
 // submits and alt+enter starts a new line. The box grows with value, from 3
 // to 10 lines.
 func Text(title, value string) (string, error) {
-	return value, runPrompt(textField(title, &value), false)
+	err := runPrompt(textField(title, &value), false)
+	return value, err
 }
 
 func textField(title string, value *string) *huh.Text {
