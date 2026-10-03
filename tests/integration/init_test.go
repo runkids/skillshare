@@ -186,7 +186,7 @@ targets: {}
 	result := sb.RunCLI("init", "--remote", "git@github.com:test/skills.git")
 
 	result.AssertSuccess(t)
-	result.AssertOutputContains(t, "Git remote configured")
+	result.AssertRowContains(t, "Remote", "origin → git@github.com:test/skills.git")
 
 	// Verify remote was added
 	cmd = exec.Command("git", "remote", "-v")
@@ -218,7 +218,8 @@ targets: {}
 	result := sb.RunCLI("init", "--remote", "git@github.com:test/skills.git", "--dry-run")
 
 	result.AssertSuccess(t)
-	result.AssertOutputContains(t, "Would add git remote")
+	result.AssertRowContains(t, "Remote", "would add origin → git@github.com:test/skills.git")
+	result.AssertOutputContains(t, "Dry run")
 
 	// Verify remote was NOT added
 	cmd = exec.Command("git", "remote", "-v")
@@ -252,8 +253,8 @@ targets: {}
 	result := sb.RunCLI("init", "--remote", "git@github.com:new/repo.git")
 
 	result.AssertSuccess(t)
-	result.AssertOutputContains(t, "already exists")
-	result.AssertOutputContains(t, "git remote set-url")
+	result.AssertRowContains(t, "Remote", "origin is already git@github.com:existing/repo.git")
+	result.AssertOutputContains(t, "remote set-url origin git@github.com:new/repo.git")
 }
 
 func TestInit_AlreadyInitialized_RemoteFlag_SameRemote(t *testing.T) {
@@ -279,7 +280,9 @@ targets: {}
 	result := sb.RunCLI("init", "--remote", "git@github.com:test/skills.git")
 
 	result.AssertSuccess(t)
-	result.AssertOutputContains(t, "already configured")
+	result.AssertRowContains(t, "Remote", "already origin → git@github.com:test/skills.git")
+	// The repo was created without an identity; init must still commit.
+	result.AssertOutputNotContains(t, "Author identity unknown")
 }
 
 func TestInit_AlreadyInitialized_RemoteFlag_NoGit_AutoInitsGit(t *testing.T) {
@@ -294,7 +297,7 @@ targets: {}
 	result := sb.RunCLI("init", "--remote", "git@github.com:test/skills.git")
 
 	result.AssertSuccess(t)
-	result.AssertOutputContains(t, "Git remote configured")
+	result.AssertRowContains(t, "Remote", "origin → git@github.com:test/skills.git")
 
 	// Verify git was initialized
 	gitDir := filepath.Join(sb.SourcePath, ".git")

@@ -254,7 +254,7 @@ skillshare push
 skillshare sync
 ```
 
-### `Git identity not configured`
+### `Git has no identity set`
 
 **原因:** git config に `user.name` / `user.email` が設定されていない。skillshare は init を
 完了させるためにローカルのフォールバック（`skillshare@local`）を使いますが、自分自身の情報を

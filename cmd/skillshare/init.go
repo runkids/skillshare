@@ -297,7 +297,7 @@ func handleExistingInit(opts *initOptions) (bool, error) {
 		}
 		gitRoot := cfg.EffectiveGitRoot()
 		if opts.noGit {
-			ui.Info("Skipped git initialization (--no-git)")
+			ui.Row(ui.MarkNone, "Git", "skipped"+ui.DimText(" · --no-git"), gitRowWidth)
 		} else {
 			doGitInitIfAbsent(gitRoot, scope, opts.dryRun)
 			// Commit any uncommitted source files so push/pull work cleanly
@@ -308,6 +308,10 @@ func handleExistingInit(opts *initOptions) (bool, error) {
 			}
 		}
 		setupGitRemote(gitRoot, opts.remoteURL, opts.dryRun)
+		if opts.dryRun {
+			fmt.Println()
+			ui.DryRun()
+		}
 		return true, nil
 	}
 
@@ -333,7 +337,9 @@ func switchGitRootScope(cfg *config.Config, scope string, dryRun bool) error {
 	dir := config.ScopeDir(cfg, scope)
 	doGitInitIfAbsent(dir, scope, dryRun)
 	if dryRun {
-		ui.Info("Dry run - would set git_root: %s", scope)
+		ui.Row(ui.MarkNone, "Git root", "would set to "+scope, gitRowWidth)
+		fmt.Println()
+		ui.DryRun()
 		return nil
 	}
 	// "skills" is the default — store it as empty to keep config.yaml clean.
@@ -345,7 +351,7 @@ func switchGitRootScope(cfg *config.Config, scope string, dryRun bool) error {
 	if err := cfg.Save(); err != nil {
 		return err
 	}
-	ui.Success("git_root set to %q (versioning %s)", scope, dir)
+	ui.Row(ui.MarkOK, "Git root", scope+ui.DimText(" · versioning "+shortenPath(dir)), gitRowWidth)
 	return nil
 }
 
@@ -378,7 +384,7 @@ func performFreshInit(opts *initOptions, home string) (*initResult, error) {
 
 	if p.dryRun {
 		fmt.Println(strings.Join(summaryLines(p, "Dry run — nothing was written", ""), "\n"))
-		ui.Info("Run without --dry-run to set it up")
+		ui.Note("Run without --dry-run to set it up")
 		return nil, nil
 	}
 
@@ -407,7 +413,7 @@ func performFreshInit(opts *initOptions, home string) (*initResult, error) {
 			}
 			if len(kept) > 0 {
 				ui.Warning("Kept local copies that differ from the source: %s", strings.Join(kept, ", "))
-				ui.Info("  Replace them with links: skillshare sync --force")
+				ui.Note("Replace them with links: skillshare sync --force")
 			}
 		}
 	}
@@ -516,17 +522,30 @@ func logInitOp(cfgPath string, targetsAdded int, sourceCreated bool, gitInit boo
 // doGitInitIfAbsent initializes a repo at gitRoot (with a scope-aware .gitignore)
 // unless one already exists there. dryRun only prints intentions. The actual git
 // work is shared with the web server via gitops.InitScopeRepo.
+// gitRowWidth aligns the Git, Remote, Pull and Git root rows that init
+// prints when it changes git on an existing setup.
+var gitRowWidth = ui.RowWidth("Git root")
+
 func doGitInitIfAbsent(gitRoot, scope string, dryRun bool) {
 	if hasGitDir(gitRoot) {
-		ui.Info("Git already initialized in %s", gitRoot)
+		ui.Row(ui.MarkNone, "Git", "already set up in "+shortenPath(gitRoot), gitRowWidth)
 		// Still ensure the scope-aware .gitignore (e.g. config.yaml at root scope).
 		if err := gitops.WriteScopeGitignore(gitRoot, scope); err != nil {
 			ui.Warning("Failed to update .gitignore: %v", err)
 		}
+		// A repo the user created may have no identity either, and init
+		// commits the source files next.
+		if !dryRun {
+			if identitySet, err := gitops.EnsureLocalIdentity(gitRoot); err != nil {
+				ui.Warning("Failed to set a git identity: %v", err)
+			} else if identitySet {
+				printGitIdentityNote()
+			}
+		}
 		return
 	}
 	if dryRun {
-		ui.Info("Dry run - would initialize git in %s (scope: %s)", gitRoot, scope)
+		ui.Row(ui.MarkNone, "Git", "would initialize in "+shortenPath(gitRoot), gitRowWidth)
 		return
 	}
 
@@ -535,12 +554,18 @@ func doGitInitIfAbsent(gitRoot, scope string, dryRun bool) {
 		ui.Warning("Failed to initialize git: %v", err)
 		return
 	}
+	ui.Row(ui.MarkOK, "Git", "initialized in "+shortenPath(gitRoot), gitRowWidth)
 	if identitySet {
-		ui.Info("Git identity not configured, using local default")
-		ui.Info("  Set yours: git config --global user.name \"Your Name\"")
-		ui.Info("             git config --global user.email \"you@example.com\"")
+		printGitIdentityNote()
 	}
-	ui.Success("Git initialized in %s", gitRoot)
+}
+
+// printGitIdentityNote explains the local commit identity init sets when
+// git has none configured.
+func printGitIdentityNote() {
+	ui.Note("Git has no identity set, so commits use a local default. Set yours:")
+	ui.Note(`git config --global user.name "Your Name"`)
+	ui.Note(`git config --global user.email "you@example.com"`)
 }
 
 // commitSourceFiles creates a single commit with all source files
@@ -599,8 +624,8 @@ func setupGitRemote(sourcePath, remoteURL string, dryRun bool) bool {
 	gitDir := filepath.Join(sourcePath, ".git")
 	if _, err := os.Stat(gitDir); os.IsNotExist(err) {
 		if remoteURL != "" {
-			ui.Warning("Git not initialized in source directory")
-			ui.Info("Run: cd %s && git init", sourcePath)
+			ui.Row(ui.MarkWarn, "Remote", "not added: "+shortenPath(sourcePath)+" has no git repo", gitRowWidth)
+			ui.Note("Run: skillshare init --remote " + remoteURL + " (without --no-git)")
 		}
 		return false
 	}
@@ -612,16 +637,16 @@ func setupGitRemote(sourcePath, remoteURL string, dryRun bool) bool {
 	if err == nil && strings.TrimSpace(string(output)) != "" {
 		existingRemote := strings.TrimSpace(string(output))
 		if existingRemote == remoteURL {
-			ui.Info("Git remote already configured: %s", existingRemote)
+			ui.Row(ui.MarkNone, "Remote", "already origin → "+existingRemote, gitRowWidth)
 		} else {
-			ui.Warning("Git remote already exists: %s", existingRemote)
-			ui.Info("To change: git remote set-url origin %s", remoteURL)
+			ui.Row(ui.MarkWarn, "Remote", "origin is already "+existingRemote, gitRowWidth)
+			ui.Note(fmt.Sprintf("To change it: git -C %s remote set-url origin %s", shortenPath(sourcePath), remoteURL))
 		}
 		return false
 	}
 
 	if dryRun {
-		ui.Info("Would add git remote: %s", remoteURL)
+		ui.Row(ui.MarkNone, "Remote", "would add origin → "+remoteURL, gitRowWidth)
 		return false
 	}
 	return addRemote(sourcePath, remoteURL)
@@ -636,12 +661,12 @@ func addRemote(sourcePath, remoteURL string) bool {
 		return false
 	}
 
-	ui.Success("Git remote configured: %s", remoteURL)
+	ui.Row(ui.MarkOK, "Remote", "origin → "+remoteURL, gitRowWidth)
 
 	// Try to fetch and auto-pull if remote has existing skills
 	hadSkills := tryPullAfterRemoteSetup(sourcePath, remoteURL)
 	if !hadSkills {
-		ui.Info("Push your skills: skillshare push")
+		ui.Next("skillshare push", "share your skills")
 	}
 	return hadSkills
 }
@@ -677,51 +702,59 @@ func tryPullAfterRemoteSetup(sourcePath, remoteURL string) bool {
 	fetchCmd.Dir = sourcePath
 	fetchCmd.Env = remoteFetchEnv(remoteURL)
 	if output, err := fetchCmd.CombinedOutput(); err != nil {
+		spinner.Stop()
 		if errors.Is(fetchCtx.Err(), context.DeadlineExceeded) {
-			spinner.Warn("Remote check timed out (will retry on push/pull)")
+			ui.Row(ui.MarkWarn, "Pull", "remote check timed out"+ui.DimText(" · push and pull retry it"), gitRowWidth)
 			return false
 		}
-		spinner.Warn("Could not reach remote (will retry on push/pull)")
+		ui.Row(ui.MarkWarn, "Pull", "could not reach the remote"+ui.DimText(" · push and pull retry it"), gitRowWidth)
 		outStr := strings.TrimSpace(string(output))
-		if strings.Contains(outStr, "Could not read from remote") {
-			ui.Info("  Check SSH keys: ssh -T git@github.com")
-		} else if strings.Contains(outStr, "not found") || strings.Contains(outStr, "does not exist") {
-			ui.Info("  Check remote URL: git remote get-url origin")
+		if strings.Contains(outStr, "not found") || strings.Contains(outStr, "does not exist") {
+			ui.Note("Check the URL: git -C " + shortenPath(sourcePath) + " remote get-url origin")
+		} else if strings.Contains(outStr, "Could not read from remote") && !strings.HasPrefix(remoteURL, "file://") {
+			ui.Note("Check SSH keys: ssh -T git@github.com")
 		}
 		return false
 	}
 
 	remoteBranch, err := gitops.GetRemoteDefaultBranch(sourcePath)
 	if err != nil {
+		spinner.Stop()
 		if errors.Is(err, gitops.ErrNoRemoteBranches) {
-			spinner.Success("Remote is empty")
+			ui.Row(ui.MarkNone, "Pull", "remote is empty", gitRowWidth)
 			return false
 		}
-		spinner.Warn("Could not detect remote default branch (will retry on push/pull)")
+		ui.Row(ui.MarkWarn, "Pull", "could not find the remote's default branch"+ui.DimText(" · push and pull retry it"), gitRowWidth)
 		return false
 	}
 
 	hasRemoteSkills, err := gitops.HasRemoteSkillDirs(sourcePath, remoteBranch)
 	if err != nil {
-		spinner.Warn("Could not inspect remote skills (will retry on push/pull)")
+		spinner.Stop()
+		ui.Row(ui.MarkWarn, "Pull", "could not read the remote's skills"+ui.DimText(" · push and pull retry it"), gitRowWidth)
 		return false
 	}
 	if !hasRemoteSkills {
-		spinner.Success("Remote is empty (no skills found)")
+		spinner.Stop()
+		ui.Row(ui.MarkNone, "Pull", "remote has no skills", gitRowWidth)
 		return false
 	}
 
 	hasLocalSkills, err := gitops.HasLocalContent(sourcePath)
 	if err != nil {
-		spinner.Warn("Could not inspect local skills (will retry on pull)")
+		spinner.Stop()
+		ui.Row(ui.MarkWarn, "Pull", "could not read the local skills"+ui.DimText(" · pull retries it"), gitRowWidth)
 		return true
 	}
 
 	if hasLocalSkills {
-		spinner.Warn("Remote has existing skills, but local skills also exist")
-		ui.Info("  Push local:  skillshare push")
-		ui.Info("  Merge both:  skillshare pull  (keeps local and remote)")
-		ui.Info("  Use remote:  skillshare pull --force  (replaces local with remote)")
+		spinner.Stop()
+		ui.Row(ui.MarkWarn, "Pull", "skipped: both the remote and this machine have skills", gitRowWidth)
+		ui.Next(
+			"skillshare pull", "merge both",
+			"skillshare push", "keep this machine's skills",
+			"skillshare pull --force", "replace them with the remote's",
+		)
 		return true
 	}
 
@@ -732,9 +765,10 @@ func tryPullAfterRemoteSetup(sourcePath, remoteURL string) bool {
 	resetCmd := exec.Command("git", "reset", "--hard", "origin/"+remoteBranch)
 	resetCmd.Dir = sourcePath
 	if output, err := resetCmd.CombinedOutput(); err != nil {
-		spinner.Fail("Failed to pull from remote")
-		fmt.Println(string(output))
-		ui.Info("  Try manually: cd %s && git reset --hard origin/%s", sourcePath, remoteBranch)
+		spinner.Stop()
+		ui.Row(ui.MarkFail, "Pull", "failed", gitRowWidth)
+		fmt.Println(strings.TrimSpace(string(output)))
+		ui.Note(fmt.Sprintf("Try it by hand: git -C %s reset --hard origin/%s", shortenPath(sourcePath), remoteBranch))
 		return true
 	}
 
@@ -755,7 +789,9 @@ func tryPullAfterRemoteSetup(sourcePath, remoteURL string) bool {
 	discovered, _ := ssync.DiscoverSourceSkills(sourcePath)
 	skillCount := len(discovered)
 
-	spinner.Success(fmt.Sprintf("Pulled %d skill(s) from remote", skillCount))
+	spinner.Stop()
+	ui.Row(ui.MarkOK, "Pull", plural(skillCount, "skill")+" from origin/"+remoteBranch, gitRowWidth)
+	ui.Next("skillshare sync", "link them into your targets")
 	return true
 }
 
@@ -977,7 +1013,7 @@ func addSelectedAgentsByName(existingCfg *config.Config, newAgents []agentInfo, 
 		if !availableAgents[name] {
 			// Check if it's already in config
 			if _, exists := existingCfg.Targets[name]; exists {
-				ui.Info("%s is already set up (skipped)", name)
+				fmt.Printf("  %s is already set up (skipped)\n", name)
 			} else if _, ok := defaultTargets[name]; !ok {
 				ui.Warning("Unknown AI tool: %s (skipped)", name)
 			} else {

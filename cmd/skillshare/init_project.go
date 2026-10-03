@@ -224,9 +224,10 @@ func performProjectInit(root string, opts projectInitOptions) error {
 
 	if opts.dryRun {
 		fmt.Println()
-		fmt.Println(theme.Primary().Bold(true).Render("Dry run — nothing was written"))
-		ui.Info("Would create %s/skills/", dirName)
-		ui.Info("Would write config: %s", configPath)
+		ui.Row(ui.MarkNone, "Skills", "would create "+dirName+"/skills/", ui.RowWidth())
+		ui.Row(ui.MarkNone, "Config", "would write "+shortenPath(configPath), ui.RowWidth())
+		fmt.Println()
+		ui.DryRun()
 		return nil
 	}
 
@@ -504,7 +505,7 @@ func reinitProjectWithDiscover(root string, opts projectInitOptions) error {
 			target := findGroupedTarget(newTargets, name)
 			if target == nil {
 				if known, ok := config.LookupProjectTarget(name); ok && existingPaths[filepath.FromSlash(known.Path)] {
-					ui.Info("%s is already set up (skipped)", name)
+					fmt.Printf("  %s is already set up (skipped)\n", name)
 				} else {
 					ui.Warning("%s was not found in this project (skipped)", name)
 				}

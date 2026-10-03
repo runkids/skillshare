@@ -237,14 +237,13 @@ func printInitDone(p *initPlan, res *initResult) {
 	}
 	if res.pullErr != nil {
 		ui.Warning("Could not pull the repo: %v", res.pullErr)
-		ui.Info("  Try again: skillshare pull")
+		ui.Note("Try again: skillshare pull")
 	}
 	for _, w := range res.warnings {
 		ui.Warning("%s", w)
 	}
 	if res.identitySet {
-		ui.Info("Git identity not configured, using a local default")
-		ui.Info("  Set yours: git config --global user.name \"Your Name\"")
+		printGitIdentityNote()
 	}
 	fmt.Println()
 }

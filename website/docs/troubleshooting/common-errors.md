@@ -238,7 +238,7 @@ skillshare push
 skillshare sync
 ```
 
-### `Git identity not configured`
+### `Git has no identity set`
 
 **Cause:** No `user.name` / `user.email` in git config. skillshare uses a local fallback (`skillshare@local`) so init can complete, but you should set your own.
 

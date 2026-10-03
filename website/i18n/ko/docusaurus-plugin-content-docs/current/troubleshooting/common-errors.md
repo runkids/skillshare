@@ -238,7 +238,7 @@ skillshare push
 skillshare sync
 ```
 
-### `Git identity not configured`
+### `Git has no identity set`
 
 **Cause:** git config에 `user.name` / `user.email`이 없습니다. skillshare는 init이 완료될 수 있도록 로컬 폴백(`skillshare@local`)을 사용하지만, 본인의 것을 설정해야 합니다.
 

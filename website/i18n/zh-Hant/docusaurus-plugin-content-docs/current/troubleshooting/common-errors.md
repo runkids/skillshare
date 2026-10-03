@@ -238,7 +238,7 @@ skillshare push
 skillshare sync
 ```
 
-### `Git identity not configured`
+### `Git has no identity set`
 
 **原因：** git 設定中沒有 `user.name` / `user.email`。skillshare 會使用本地的備援值（`skillshare@local`）讓 init 能夠完成，但你應該設定自己的身分。
 
