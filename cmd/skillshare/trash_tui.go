@@ -799,7 +799,7 @@ func (m trashTUIModel) renderTrashDetailPanel(entry trash.TrashEntry, width int)
 	}
 	if previewFile != "" {
 		if data, err := os.ReadFile(previewFile); err == nil {
-			lines := strings.SplitN(string(data), "\n", 16)
+			lines := strings.SplitN(printableText(string(data)), "\n", 16)
 			if len(lines) > 15 {
 				lines = lines[:15]
 			}

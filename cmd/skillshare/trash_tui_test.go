@@ -58,3 +58,16 @@ func TestTrashEnter_OpensTheTrashedFiles(t *testing.T) {
 		t.Fatalf("enter should open the trashed skill's SKILL.md:\n%s", view)
 	}
 }
+
+func TestTrashDetail_ShowsEscapeSequencesInThePreviewAsSymbols(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "SKILL.md"), []byte("# Old\n\x1b]0;pwned\x07\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	model := newTrashTUIModel(nil, "", "", "/tmp/skills", "/tmp/agents", "", "global")
+	got := model.renderTrashDetailPanel(trash.TrashEntry{Name: "old", Path: dir}, 80)
+
+	if strings.Contains(got, "\x1b]") || !strings.Contains(xansi.Strip(got), "␛]0;pwned␇") {
+		t.Fatalf("the preview should show escape sequences as symbols, got %q", got)
+	}
+}
