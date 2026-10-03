@@ -10,6 +10,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"strconv"
 	"strings"
@@ -439,8 +440,18 @@ type piTargetState struct {
 	packages map[int]*piPackage
 }
 
+func piCLIIsNative(cli, goos string) bool {
+	if goos == "windows" {
+		// Windows paths and launcher names are case-insensitive. Only accept the
+		// official executable/shim names, not arbitrary or stacked suffixes.
+		name := strings.ToLower(path.Base(strings.ReplaceAll(cli, `\`, "/")))
+		return name == "pi" || name == "pi.cmd" || name == "pi.exe"
+	}
+	return filepath.Base(cli) == "pi"
+}
+
 func (s *Service) piGate(ctx context.Context, target string) (version, readOnly string) {
-	if a, ok := s.account(target); ok && a.CLI != "" && filepath.Base(a.CLI) != "pi" {
+	if a, ok := s.account(target); ok && a.CLI != "" && !piCLIIsNative(a.CLI, runtime.GOOS) {
 		// Known unsupported by name: never run it just to read its version.
 		return "", piReadOnlyFork
 	}

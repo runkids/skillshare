@@ -6,6 +6,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"strings"
 	"testing"
@@ -148,6 +149,84 @@ func TestPiExtensionsVersionGate(t *testing.T) {
 		}
 		if c.readOnly != "" && v.Packages[0].Rows[0].Editable {
 			t.Fatalf("%q: a row is editable on an unverified Pi", c.version)
+		}
+	}
+}
+
+func TestPiCLIIsNative(t *testing.T) {
+	for _, c := range []struct {
+		goos, cli string
+		want      bool
+	}{
+		{"linux", "pi", true},
+		{"linux", "/usr/local/bin/pi", true},
+		{"darwin", "/opt/homebrew/bin/pi", true},
+		{"linux", "pi.cmd", false},
+		{"darwin", "pi.exe", false},
+		{"linux", "PI", false},
+		{"windows", "pi", true},
+		{"windows", "pi.cmd", true},
+		{"windows", "pi.exe", true},
+		{"windows", `C:\Users\tester\AppData\Roaming\npm\pi.cmd`, true},
+		{"windows", `C:\Program Files\Pi\PI.EXE`, true},
+		{"windows", "C:/tools/Pi.CmD", true},
+		{"windows", `\\server\tools\pi.exe`, true},
+		{"windows", "omo.cmd", false},
+		{"windows", `C:\tools\senpi.exe`, false},
+		{"windows", "not-pi.exe", false},
+		{"windows", "pi.exe.cmd", false},
+		{"windows", "pi.ps1", false},
+		{"windows", "pi.bat", false},
+		{"windows", "pi.cmd.exe", false},
+		{"linux", `C:\tools\pi.cmd`, false},
+	} {
+		t.Run(c.goos+"/"+c.cli, func(t *testing.T) {
+			if got := piCLIIsNative(c.cli, c.goos); got != c.want {
+				t.Fatalf("piCLIIsNative(%q, %q) = %v, want %v", c.cli, c.goos, got, c.want)
+			}
+		})
+	}
+}
+
+func TestPiExtensionsAccountLauncherGate(t *testing.T) {
+	launchers := []string{"pi", "omo", "senpi", "pi.ps1", "pi.exe.cmd"}
+	if runtime.GOOS == "windows" {
+		launchers = append(launchers, "pi.cmd", "pi.exe", `C:\tools\PI.CMD`, `C:\tools\pi.exe`, "omo.cmd", "senpi.exe")
+	} else {
+		launchers = append(launchers, "/usr/local/bin/pi", "pi.cmd", "pi.exe")
+	}
+	for _, cli := range launchers {
+		for _, version := range []string{"0.99.2", "1.0.0", "1.0.1", ""} {
+			t.Run(cli+"/"+version, func(t *testing.T) {
+				f := newPiFixture(t)
+				f.version = version
+				f.svc.Accounts = map[string]Account{"pi-work": {Agent: "pi", Dir: f.agentDir, CLI: cli}}
+				run := f.svc.Run
+				calls := 0
+				f.svc.Run = func(ctx context.Context, dir string, env []string, bin string, args ...string) ([]byte, error) {
+					calls++
+					if bin != cli || !slices.Equal(args, []string{"--version"}) {
+						t.Fatalf("unexpected execution: %s %v", bin, args)
+					}
+					return run(ctx, dir, env, bin, args...)
+				}
+				gotVersion, readOnly := f.svc.piGate(context.Background(), "pi-work")
+				if !piCLIIsNative(cli, runtime.GOOS) {
+					if calls != 0 || gotVersion != "" || readOnly != piReadOnlyFork {
+						t.Fatalf("fork was probed: calls=%d version=%q readOnly=%q", calls, gotVersion, readOnly)
+					}
+					return
+				}
+				want := ""
+				if version == "" {
+					want = piReadOnlyNoCLI
+				} else if version == "1.0.1" {
+					want = piReadOnlyUnverified
+				}
+				if calls != 1 || gotVersion != version || readOnly != want {
+					t.Fatalf("native gate: calls=%d version=%q readOnly=%q, want %q/%q", calls, gotVersion, readOnly, version, want)
+				}
+			})
 		}
 	}
 }
