@@ -3,6 +3,7 @@ package server
 import (
 	"encoding/json"
 	"net/http"
+	"net/http/httptest"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -12,6 +13,21 @@ import (
 	"skillshare/internal/config"
 	syncpkg "skillshare/internal/sync"
 )
+
+type restoreScopeRecorder struct {
+	*httptest.ResponseRecorder
+	server   *Server
+	unlocked bool
+}
+
+func (w *restoreScopeRecorder) WriteHeader(code int) {
+	// Scope rejection must be decided while restore owns the configuration lock.
+	if w.server.mu.TryRLock() {
+		w.unlocked = true
+		w.server.mu.RUnlock()
+	}
+	w.ResponseRecorder.WriteHeader(code)
+}
 
 // seedFileHistory backs up path's current content with reason, then writes
 // next as the file's new content.
@@ -194,6 +210,38 @@ func TestFileBackupsAPI_ProjectUnconfiguredExternalMemorySource(t *testing.T) {
 	rr = serveJSON(t, s, http.MethodPost, "/api/file-backups/restore", string(body))
 	if rr.Code != http.StatusForbidden || !strings.Contains(rr.Body.String(), `"file_backup_outside_project"`) {
 		t.Errorf("restore: %d %s", rr.Code, rr.Body)
+	}
+	if data, err := os.ReadFile(path); err != nil || string(data) != "current external" {
+		t.Fatalf("external content: %q, %v", data, err)
+	}
+}
+
+func TestFileBackupsAPI_RestoreValidatesScopeUnderWriteLock(t *testing.T) {
+	s, _ := newTestProjectServerWithExtras(t, []config.ExtraConfig{{Name: "memory"}})
+	s.projectCfg.Sources.Extras = t.TempDir()
+	path := filepath.Join(s.projectCfg.Sources.Extras, "memory", "note.md")
+	seedFileHistory(t, path, "old external", syncpkg.BackupReasonEdit, "current external")
+	versions, err := syncpkg.FileBackupVersions(path)
+	if err != nil || len(versions) != 1 {
+		t.Fatalf("versions: %+v, %v", versions, err)
+	}
+	// A preflight check must not authorize a later restore after configuration changes.
+	preflight := httptest.NewRecorder()
+	s.mu.RLock()
+	_, allowed := s.fileBackupPath(preflight, path)
+	s.mu.RUnlock()
+	if !allowed {
+		t.Fatalf("preflight: %d %s", preflight.Code, preflight.Body)
+	}
+	rr := serveJSON(t, s, http.MethodDelete, "/api/extras/memory", "")
+	if rr.Code != http.StatusOK {
+		t.Fatalf("delete extra: %d %s", rr.Code, rr.Body)
+	}
+	body, _ := json.Marshal(map[string]string{"path": path, "id": versions[0].ID})
+	w := &restoreScopeRecorder{ResponseRecorder: httptest.NewRecorder(), server: s}
+	s.handleRestoreFileBackup(w, httptest.NewRequest(http.MethodPost, "/api/file-backups/restore", strings.NewReader(string(body))))
+	if w.Code != http.StatusForbidden || w.unlocked {
+		t.Fatalf("restore scope was not rejected under write lock: %d, unlocked=%v, %s", w.Code, w.unlocked, w.Body)
 	}
 	if data, err := os.ReadFile(path); err != nil || string(data) != "current external" {
 		t.Fatalf("external content: %q, %v", data, err)

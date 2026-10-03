@@ -187,3 +187,16 @@ restore return `file_backup_outside_project`, preserve external content, and
 continue listing in-project backups. The existing configured-source restore
 test and all FileBackups API tests pass. Devcontainer `make check`, context-router
 and whitespace checks passed. This increment changes no UI code or screenshots.
+
+## PR review: lock backup authorization through access
+
+Restore now acquires the configuration write lock before checking the requested
+path and holds it through the file write. Backup list and preview handlers hold
+a read lock through validation and reads. Scope helpers require callers to hold
+that lock, preventing memory-extra deletion between authorization and access.
+
+A regression verifies a previously permitted external path is rejected after
+the memory extra is deleted, with rejection decided under the restore write
+lock and external content preserved. It failed against the earlier unlocked
+validation. FileBackups API tests pass with the race detector; devcontainer
+`make check`, context-router and whitespace checks pass. No UI code changed.

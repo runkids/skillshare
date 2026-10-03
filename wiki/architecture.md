@@ -79,6 +79,8 @@ Windows history links compare normalized separators while backup API calls retai
 the native path; POSIX names retain literal backslashes. Project
 backup scope includes its configured memory source even outside the repository;
 without a configured memory extra, external backup access remains denied.
+Backup handlers hold the configuration lock from scope validation through reads
+or restore writes, so removing a memory extra cannot invalidate an active check.
 Initialization failures, including partial file creation, are logged.
 Dashboard move/rename preserves note content and permissions, creates
 missing parent folders, rejects stale versions and existing destinations, and

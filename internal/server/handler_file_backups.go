@@ -40,6 +40,7 @@ type fileBackupVersionJSON struct {
 
 // fileBackupInScope reports whether path may be shown in the current mode:
 // every file in global mode; project files and its configured memory source in project mode.
+// Callers must hold s.mu through the authorized read or write.
 func (s *Server) fileBackupInScope(path string) bool {
 	if !s.IsProjectMode() {
 		return true
@@ -47,8 +48,6 @@ func (s *Server) fileBackupInScope(path string) bool {
 	if syncpkg.PathInside(s.projectRoot, path) {
 		return true
 	}
-	s.mu.RLock()
-	defer s.mu.RUnlock()
 	if _, found, err := memory.Extra(s.extrasConfig()); !found || err != nil {
 		return false
 	}
@@ -92,14 +91,14 @@ func (s *Server) fileBackupOwners() (targets, extras map[string]string, sources 
 
 // handleListFileBackups — GET /api/file-backups
 func (s *Server) handleListFileBackups(w http.ResponseWriter, r *http.Request) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 	files, err := syncpkg.ListFileBackups()
 	if err != nil {
 		writeCodedError(w, http.StatusInternalServerError, "file_backup_failed", err.Error(), map[string]string{"detail": err.Error()})
 		return
 	}
-	s.mu.RLock()
 	targets, extras, sources := s.fileBackupOwners()
-	s.mu.RUnlock()
 
 	items := make([]fileBackupJSON, 0, len(files))
 	for _, f := range files {
@@ -120,6 +119,7 @@ func (s *Server) handleListFileBackups(w http.ResponseWriter, r *http.Request) {
 
 // fileBackupPath validates the path query or body value against the mode's
 // scope; it writes the error response and returns false when invalid.
+// Callers must hold s.mu through the authorized read or write.
 func (s *Server) fileBackupPath(w http.ResponseWriter, path string) (string, bool) {
 	if path == "" {
 		writeCodedError(w, http.StatusBadRequest, "file_backup_not_found", "path is required", map[string]string{"path": path})
@@ -157,6 +157,8 @@ func toFileBackupCurrent(path string) fileBackupCurrentJSON {
 
 // handleFileBackupVersions — GET /api/file-backups/versions?path=
 func (s *Server) handleFileBackupVersions(w http.ResponseWriter, r *http.Request) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 	path, ok := s.fileBackupPath(w, r.URL.Query().Get("path"))
 	if !ok {
 		return
@@ -185,6 +187,8 @@ func (s *Server) handleFileBackupVersions(w http.ResponseWriter, r *http.Request
 // handleFileBackupVersion — GET /api/file-backups/version?path=&id=
 // Returns the version's content and the current file text for a diff.
 func (s *Server) handleFileBackupVersion(w http.ResponseWriter, r *http.Request) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 	path, ok := s.fileBackupPath(w, r.URL.Query().Get("path"))
 	if !ok {
 		return
@@ -216,13 +220,13 @@ func (s *Server) handleRestoreFileBackup(w http.ResponseWriter, r *http.Request)
 		}
 		return
 	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	path, ok := s.fileBackupPath(w, body.Path)
 	if !ok {
 		return
 	}
 
-	s.mu.Lock()
-	defer s.mu.Unlock()
 	saved, err := syncpkg.RestoreFileBackup(path, body.ID, body.Unlink)
 	args := map[string]any{"action": "restore-file", "path": path, "id": body.ID, "scope": "ui"}
 	if err != nil {
