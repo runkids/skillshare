@@ -441,6 +441,7 @@ export extern "skillshare pull" [
 # Push
 export extern "skillshare push" [
     --dry-run(-n)            # Preview changes
+    --pull                   # Merge remote changes before pushing, then sync
     --message(-m): string    # Commit message
     --help(-h)               # Show help
 ]

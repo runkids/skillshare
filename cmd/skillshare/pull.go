@@ -92,15 +92,31 @@ func pullFromRemote(cfg *config.Config, dryRun, force bool) error {
 		return nil
 	}
 
-	// First pull (no upstream): fetch, then merge or reset onto the remote
-	// default branch and set upstream (see gitops.FirstPull). Subsequent pulls:
-	// normal git pull.
-	authEnv := gitops.AuthEnvForRepo(source)
+	remoteEmpty, err := integrateRemote(source, force, spinner)
+	if err != nil {
+		return err
+	}
+	if remoteEmpty {
+		spinner.Warn("Remote has no branches yet")
+		ui.Info("  Push your skills first: skillshare push")
+	}
+
+	spinner.Stop()
+	ui.SuccessMsg("Pull complete (%.1fs)", time.Since(pullStart).Seconds())
+
+	fmt.Println()
+	return syncPulledScope(cfg)
+}
+
+// integrateRemote brings the remote's history into source. First pull (no
+// upstream): fetch, then merge or reset onto the remote default branch and
+// set upstream (see gitops.FirstPull). Subsequent pulls: normal git pull,
+// which merges. remoteEmpty reports a remote with no branches yet.
+func integrateRemote(source string, force bool, spinner *ui.Spinner) (remoteEmpty bool, err error) {
 	if !gitops.HasUpstream(source) {
 		spinner.Update("Fetching from remote...")
 		if _, err := gitops.FirstPull(source, force); errors.Is(err, gitops.ErrNoRemoteBranches) {
-			spinner.Warn("Remote has no branches yet")
-			ui.Info("  Push your skills first: skillshare push")
+			return true, nil
 		} else if err != nil {
 			spinner.Fail("Pull failed")
 			if errors.Is(err, gitops.ErrMergeFailed) {
@@ -109,24 +125,24 @@ func pullFromRemote(cfg *config.Config, dryRun, force bool) error {
 			} else if !isAuthError(err.Error()) {
 				hintGitRemoteError(err.Error()) // auth guidance is already part of err
 			}
-			return err
+			return false, err
 		}
-	} else {
-		spinner.Update("Running git pull...")
-		if _, err := gitops.PullWithEnv(source, authEnv); err != nil {
-			spinner.Fail("git pull failed")
-			fmt.Println(err.Error())
-			hintGitRemoteError(err.Error())
-			return fmt.Errorf("git pull failed: %w", err)
-		}
+		return false, nil
 	}
 
-	spinner.Stop()
-	ui.SuccessMsg("Pull complete (%.1fs)", time.Since(pullStart).Seconds())
+	spinner.Update("Running git pull...")
+	if _, err := gitops.PullWithEnv(source, gitops.AuthEnvForRepo(source)); err != nil {
+		spinner.Fail("git pull failed")
+		fmt.Println(err.Error())
+		hintGitRemoteError(err.Error())
+		return false, fmt.Errorf("git pull failed: %w", err)
+	}
+	return false, nil
+}
 
-	// Sync what the pulled scope holds (always global — pull operates on the
-	// global source).
-	fmt.Println()
+// syncPulledScope syncs what the git root scope holds (always global — pull
+// operates on the global source).
+func syncPulledScope(cfg *config.Config) error {
 	switch cfg.GitRoot {
 	case "agents":
 		return cmdSync([]string{"agents", "--global"})
