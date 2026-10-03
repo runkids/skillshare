@@ -41,9 +41,8 @@ func (i trashItem) Title() string {
 	} else {
 		kindBadge = theme.Accent().Render("[S]") + " "
 	}
-	age := formatAge(time.Since(i.entry.Date))
 	size := formatBytes(i.entry.Size)
-	return fmt.Sprintf("%s %s%s  (%s, %s ago)", check, kindBadge, i.entry.Name, size, age)
+	return fmt.Sprintf("%s %s%s  (%s, %s)", check, kindBadge, i.entry.Name, size, timeAgo(i.entry.Date))
 }
 
 func (i trashItem) Description() string { return "" }
@@ -804,7 +803,7 @@ func (m trashTUIModel) renderTrashDetailPanel(entry trash.TrashEntry, width int)
 		row("Type", theme.Accent().Render("Skill"))
 	}
 	row("Trashed", entry.Date.Format("2006-01-02 15:04:05"))
-	row("Age", formatAge(time.Since(entry.Date))+" ago")
+	row("Age", timeAgo(entry.Date))
 	row("Size", formatBytes(entry.Size))
 
 	// Truncate path to panel width if needed

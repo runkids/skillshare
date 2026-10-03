@@ -583,7 +583,16 @@ func plural(n int, word string) string {
 	if n == 1 {
 		return "1 " + word
 	}
-	return fmt.Sprintf("%d %ss", n, word)
+	return fmt.Sprintf("%d %s", n, pluralNoun(word))
+}
+
+// pluralNoun is the plural of a simple English noun: "category" becomes
+// "categories", "day" stays regular.
+func pluralNoun(word string) string {
+	if n := len(word); n > 1 && word[n-1] == 'y' && !strings.ContainsRune("aeiou", rune(word[n-2])) {
+		return word[:n-1] + "ies"
+	}
+	return word + "s"
 }
 
 // desktopAppHint returns how to get the desktop app on this platform, or

@@ -331,10 +331,6 @@ func resolveSourceDir(mode runMode, cwd string, kind resourceKindFilter) (string
 }
 
 // formatAge is an alias for the shared formatDurationShort.
-func formatAge(d time.Duration) string {
-	return formatDurationShort(d)
-}
-
 func resolveTrashCfgPath(mode runMode, cwd string) string {
 	if mode == modeProject {
 		return config.ProjectConfigPath(cwd)
