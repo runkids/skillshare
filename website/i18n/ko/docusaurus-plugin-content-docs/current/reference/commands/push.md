@@ -11,6 +11,7 @@ push하지 않고 로컬 체크포인트만 원한다면 [`commit`](./commit.md)
 ```bash
 skillshare push                  # 자동 생성된 메시지
 skillshare push -m "Add pdf"     # 커스텀 메시지
+skillshare push --pull           # remote 변경 사항 병합 후 push, 그다음 sync
 skillshare push --dry-run        # 미리보기
 ```
 
@@ -39,6 +40,7 @@ flowchart TD
 | 플래그 | 설명 |
 |------|------|
 | `-m, --message <msg>` | 커밋 메시지 (기본값: "Update skills") |
+| `--pull` | push 전에 remote 변경 사항을 병합한 뒤 target을 sync ([Push와 Pull 함께 하기](#push-and-pull-together) 참고) |
 | `--dry-run, -n` | 변경 사항을 적용하지 않고 미리보기 |
 
 ## Git Root Scope
@@ -100,6 +102,19 @@ skillshare push    # 내 변경 사항 push
 ```
 
 `pull`은 remote 커밋을 아직 push하지 않은 내 커밋과 병합하므로, 두 번째 `push`는 성공합니다. 양쪽에서 같은 파일을 변경한 경우의 동작은 [두 머신 모두 커밋한 경우](/docs/reference/commands/pull#when-both-machines-committed)를 참고하세요.
+
+## Push와 Pull 함께 하기 {#push-and-pull-together}
+
+`skillshare push --pull`은 전체 왕복 과정을 명령 하나로 처리합니다:
+
+1. 로컬 변경 사항을 커밋합니다 (있는 경우)
+2. [`pull`](/docs/reference/commands/pull)과 같은 방식으로 remote의 새 커밋을 병합합니다
+3. 결과를 push합니다
+4. `pull`처럼 git root scope에 포함된 항목에 대해 target을 sync합니다
+
+병합 중 충돌이 발생하면 아무것도 push되지 않고 target도 sync되지 않습니다. 변경 사항은 로컬에 커밋된 상태로 남아 있으니, 충돌을 해결한 뒤 `skillshare push --pull`을 다시 실행하세요. push는 성공했지만 target sync가 실패한 경우에는 remote가 이미 업데이트되었으므로 `skillshare sync`를 실행해 다시 시도하세요.
+
+`--pull`은 rebase도, force-push도 하지 않습니다.
 
 ## 워크플로우
 

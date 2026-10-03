@@ -62,6 +62,9 @@ skillshare sync
 
 # 在本地进行修改后
 skillshare push
+
+# 或者一步完成双向同步：合并、push，然后 sync
+skillshare push --pull
 ```
 
 ## Verification

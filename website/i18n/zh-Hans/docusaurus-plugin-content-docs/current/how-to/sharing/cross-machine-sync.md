@@ -129,6 +129,16 @@ skillshare pull
 
 就这样。`pull` 会在拉取后自动执行 `sync`。它会按照 [git root scope](/docs/reference/targets/configuration#git-root) 包含的内容执行 sync：skills，以及 `git_root: root` 时的 agents。Plugins、MCP server 和 hooks 需要下面的额外步骤。
 
+### 一条命令双向同步
+
+如果你在多台机器上编辑 skills，请改为运行下面这条命令，而不是分别运行 `push` 和 `pull`：
+
+```bash
+skillshare push --pull -m "Update my-skill"
+```
+
+它会 commit 你的更改，合并其他机器推送的内容，然后 push 并 sync targets。如果遇到冲突，它会在推送任何内容之前停止。参见 [同时 Push 与 Pull](/docs/reference/commands/push#push-and-pull-together)。
+
 ---
 
 ## Plugins, MCP and Hooks {#plugins-mcp-hooks}

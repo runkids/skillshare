@@ -11,6 +11,7 @@ Use [`commit`](./commit.md) instead when you only want a local checkpoint withou
 ```bash
 skillshare push                  # Auto-generated message
 skillshare push -m "Add pdf"     # Custom message
+skillshare push --pull           # Merge remote changes, push, then sync
 skillshare push --dry-run        # Preview
 ```
 
@@ -39,6 +40,7 @@ flowchart TD
 | Flag | Description |
 |------|-------------|
 | `-m, --message <msg>` | Commit message (default: "Update skills") |
+| `--pull` | Merge remote changes before pushing, then sync targets (see [Push and Pull Together](#push-and-pull-together)) |
 | `--dry-run, -n` | Preview without making changes |
 
 ## Git Root Scope
@@ -100,6 +102,19 @@ skillshare push    # Push your changes
 ```
 
 `pull` merges the remote commits with the ones you have not pushed yet, so the second `push` goes through. See [When Both Machines Committed](/docs/reference/commands/pull#when-both-machines-committed) for what happens if both sides changed the same file.
+
+## Push and Pull Together
+
+`skillshare push --pull` does the whole round trip in one command:
+
+1. Commits your local changes (if any)
+2. Merges the remote's new commits, the same way [`pull`](/docs/reference/commands/pull) does
+3. Pushes the result
+4. Syncs targets for what the git root scope holds, like `pull`
+
+If the merge hits a conflict, nothing is pushed and targets are not synced. Your changes stay committed locally; resolve the conflict, then run `skillshare push --pull` again. If the push succeeds but syncing targets fails, the remote is already updated, so run `skillshare sync` to retry.
+
+`--pull` never rebases and never force-pushes.
 
 ## Workflow
 
