@@ -92,7 +92,7 @@ fi
 # Run unit tests
 if [[ "$RUN_UNIT" == true ]]; then
     echo -e "${YELLOW}Running unit tests...${NC}"
-    go test $VERBOSE $COVER_FLAG ./internal/...
+    go test $VERBOSE $COVER_FLAG ./cmd/... ./internal/...
     echo ""
 fi
 
