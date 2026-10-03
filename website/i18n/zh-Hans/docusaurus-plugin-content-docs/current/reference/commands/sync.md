@@ -97,7 +97,7 @@ Project sync 会清理它们。对于每个没有显式设置 `path:` 的 Target
 一律不会改动。
 
 ```
-→ Cleaned 1 leftover skill(s) from .goose/skills: the default path for 'goose' moved to .agents/skills
+  Cleaned 1 leftover skill from .goose/skills: the default path for 'goose' moved to .agents/skills
 ```
 
 为某个 Target 设置显式的 `path:` 即可让它跳过这项清理；`--dry-run` 只预览会移除

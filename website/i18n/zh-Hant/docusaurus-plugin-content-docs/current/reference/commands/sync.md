@@ -89,7 +89,7 @@ Project config 儲存的是 target 名稱而不是路徑，因此每個 target �
 Project sync 會把它們清掉。對於每個沒有明確指定 `path:` 的 target，它會檢查該 target 的 runtime 同樣會掃描的目錄，並在其中沒有任何已設定 target 會寫入的目錄裡，移除由 skillshare 建立的條目。你自己建立的資料夾，以及指向專案外部的 symlinks，都不會被動到。
 
 ```
-→ Cleaned 1 leftover skill(s) from .goose/skills: the default path for 'goose' moved to .agents/skills
+  Cleaned 1 leftover skill from .goose/skills: the default path for 'goose' moved to .agents/skills
 ```
 
 為某個 target 明確設定 `path:` 就能讓它排除在這項清理之外；`--dry-run` 只會預覽將被移除的內容，不會實際變更任何東西。

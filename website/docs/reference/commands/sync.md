@@ -96,7 +96,7 @@ configured target writes to, it removes the entries skillshare created. Folders
 you made yourself and symlinks pointing outside the project are never touched.
 
 ```
-→ Cleaned 1 leftover skill(s) from .goose/skills: the default path for 'goose' moved to .agents/skills
+  Cleaned 1 leftover skill from .goose/skills: the default path for 'goose' moved to .agents/skills
 ```
 
 Setting an explicit `path:` for a target opts it out of the cleanup, and

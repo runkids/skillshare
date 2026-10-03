@@ -90,7 +90,7 @@ Project config는 경로가 아니라 target 이름을 저장하므로, 각 targ
 Project sync는 이를 제거합니다. 명시적인 `path:`가 없는 각 target에 대해 해당 target의 runtime이 함께 scan하는 디렉터리를 살펴보고, 그중 구성된 어떤 target도 쓰지 않는 디렉터리에서 skillshare가 만든 항목을 제거합니다. 사용자가 직접 만든 폴더와 project 바깥을 가리키는 symlink는 절대 건드리지 않습니다.
 
 ```
-→ Cleaned 1 leftover skill(s) from .goose/skills: the default path for 'goose' moved to .agents/skills
+  Cleaned 1 leftover skill from .goose/skills: the default path for 'goose' moved to .agents/skills
 ```
 
 target에 명시적인 `path:`를 설정하면 해당 target은 이 정리에서 제외되며, `--dry-run`은 아무것도 변경하지 않고 제거될 항목만 미리 보여줍니다.
