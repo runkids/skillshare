@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	"skillshare/internal/config"
 	syncpkg "skillshare/internal/sync"
 )
 
@@ -124,5 +125,42 @@ func TestFileBackupsAPI_ProjectModeHidesOutsideFiles(t *testing.T) {
 	rr = serveJSON(t, s, http.MethodGet, "/api/file-backups/versions?path="+url.QueryEscape(outside), "")
 	if rr.Code != http.StatusForbidden || !strings.Contains(rr.Body.String(), `"file_backup_outside_project"`) {
 		t.Fatalf("outside: %d %s", rr.Code, rr.Body.String())
+	}
+}
+
+func TestFileBackupsAPI_ProjectExternalMemorySource(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "memory")
+	s, _ := newTestProjectServerWithExtras(t, []config.ExtraConfig{{Name: "memory"}})
+	s.projectCfg.Sources.Extras = filepath.Dir(root)
+	if err := s.saveConfig(); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(root, "wiki", "note.md")
+	outside := filepath.Join(filepath.Dir(root), "unrelated.md")
+	seedFileHistory(t, path, "old memory", syncpkg.BackupReasonEdit, "current memory")
+	seedFileHistory(t, outside, "old unrelated", syncpkg.BackupReasonEdit, "current unrelated")
+	rr := serveJSON(t, s, http.MethodGet, "/api/file-backups", "")
+	if rr.Code != http.StatusOK || !strings.Contains(rr.Body.String(), path) || strings.Contains(rr.Body.String(), outside) {
+		t.Fatalf("list: %d %s", rr.Code, rr.Body)
+	}
+	rr = serveJSON(t, s, http.MethodGet, "/api/file-backups/versions?path="+url.QueryEscape(path), "")
+	if rr.Code != http.StatusOK || !strings.Contains(rr.Body.String(), "old memory") {
+		t.Fatalf("versions: %d %s", rr.Code, rr.Body)
+	}
+	versions, err := syncpkg.FileBackupVersions(path)
+	if err != nil || len(versions) != 1 {
+		t.Fatalf("versions: %+v, %v", versions, err)
+	}
+	body, _ := json.Marshal(map[string]string{"path": path, "id": versions[0].ID})
+	rr = serveJSON(t, s, http.MethodPost, "/api/file-backups/restore", string(body))
+	if rr.Code != http.StatusOK {
+		t.Fatalf("restore: %d %s", rr.Code, rr.Body)
+	}
+	if data, err := os.ReadFile(path); err != nil || string(data) != "old memory" {
+		t.Fatalf("content: %q, %v", data, err)
+	}
+	rr = serveJSON(t, s, http.MethodGet, "/api/file-backups/versions?path="+url.QueryEscape(outside), "")
+	if rr.Code != http.StatusForbidden {
+		t.Fatalf("outside: %d %s", rr.Code, rr.Body)
 	}
 }

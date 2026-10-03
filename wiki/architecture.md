@@ -46,7 +46,9 @@ A typical dashboard request follows this path:
 writes/deletes/moves, backups, index inspection/link append, and scope/hash-marked
 guidance. CLI `extras memory` and dashboard handlers share its store and existing
 extra source resolution. Initialization preserves notes and creates missing
-`INDEX.md`/`LEARNED.md`; the source-only extra requires no targets. Unsupported
+`INDEX.md`/`LEARNED.md`; the source-only extra requires no targets. Dashboard
+initialization requires both readable starters and the configured extra; note
+creation repairs missing starters before using the refreshed index. Unsupported
 notes remain listed and do not block valid notes. Explicit dashboard index actions
 append at EOF with version checks/backups; failed linking preserves a created
 note. Broken links are reported without rewriting user-owned index sections.
@@ -70,7 +72,10 @@ never agent reads. Fresh-session read events provide manual verification only.
 The Memory tab uses the shared tree/Markdown editor. Conflicts retain drafts,
 display latest saved content, and require confirmation before a version-checked,
 backed-up replacement. History/restore links filter Backup Files by absolute
-note path. Dashboard move/rename preserves note content and permissions, creates
+note path, and a requested path without backups shows an empty state. Project
+backup scope includes its configured memory source even outside the repository.
+Initialization failures, including partial file creation, are logged.
+Dashboard move/rename preserves note content and permissions, creates
 missing parent folders, rejects stale versions and existing destinations, and
 backs up the source path. Links and path-keyed history remain at their original
 paths; index inspection reports broken links after a move. Native automatic

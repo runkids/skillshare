@@ -55,6 +55,11 @@ func (s *Server) handleMemoryNotes(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	for _, path := range []string{"INDEX.md", "LEARNED.md"} {
+		initialized = initialized && slices.ContainsFunc(all, func(note memory.Note) bool {
+			return note.Path == path && note.Invalid == ""
+		})
+	}
 	writeJSON(w, map[string]any{"root": root, "initialized": initialized, "notes": notes, "instructions": s.memoryInstructions(root), "index": memory.InspectIndex(root, all)})
 }
 
@@ -92,11 +97,18 @@ func (s *Server) handleMemoryInit(w http.ResponseWriter, r *http.Request) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	root, err := s.memoryRoot()
+	defer func() {
+		status, msg := "ok", ""
+		if err != nil {
+			status, msg = "error", err.Error()
+		}
+		s.writeOpsLog("memory-init", status, start, map[string]any{"scope": "ui"}, msg)
+	}()
 	if err != nil {
 		writeMemoryError(w, err)
 		return
 	}
-	if err := memory.Init(root); err != nil {
+	if err = memory.Init(root); err != nil {
 		writeMemoryError(w, err)
 		return
 	}
@@ -109,13 +121,12 @@ func (s *Server) handleMemoryInit(w http.ResponseWriter, r *http.Request) {
 		extras := s.sharedExtras()
 		prev := *extras
 		*extras = append(slices.Clone(prev), extra)
-		if err := s.saveConfig(); err != nil {
+		if err = s.saveConfig(); err != nil {
 			*extras = prev
 			writeError(w, http.StatusInternalServerError, err.Error())
 			return
 		}
 	}
-	s.writeOpsLog("memory-init", "ok", start, map[string]any{"scope": "ui"}, "")
 	writeJSON(w, map[string]any{"success": true, "root": root})
 }
 

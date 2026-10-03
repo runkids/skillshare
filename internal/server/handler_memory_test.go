@@ -2,6 +2,7 @@ package server
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -153,6 +154,97 @@ func TestMemoryAPI_MoveScopesAndConflict(t *testing.T) {
 			current, err := memory.Read(root, "existing.md")
 			if err != nil || current.Content != "# Keep\n" {
 				t.Fatalf("destination overwritten: %+v %v", current, err)
+			}
+		})
+	}
+}
+
+func TestMemoryAPI_InitializationRequiresStarters(t *testing.T) {
+	for _, project := range []bool{false, true} {
+		for _, state := range []string{"empty", "missing", "index-only", "learned-only", "ready"} {
+			t.Run(fmt.Sprintf("project=%t/%s", project, state), func(t *testing.T) {
+				root := filepath.Join(t.TempDir(), "memory")
+				extra := []config.ExtraConfig{{Name: "memory", Source: root}}
+				var s *Server
+				if project {
+					s, _ = newTestProjectServerWithExtras(t, []config.ExtraConfig{{Name: "memory"}})
+					s.projectCfg.Sources.Extras = filepath.Dir(root)
+					if err := s.saveConfig(); err != nil {
+						t.Fatal(err)
+					}
+					if err := os.MkdirAll(root, 0755); err != nil {
+						t.Fatal(err)
+					}
+				} else {
+					s, _ = newTestServerWithExtras(t, extra, "")
+				}
+				if state == "missing" {
+					if err := os.Remove(root); err != nil {
+						t.Fatal(err)
+					}
+				}
+				for _, path := range []string{"INDEX.md", "LEARNED.md"} {
+					if state == "ready" || state == "index-only" && path == "INDEX.md" || state == "learned-only" && path == "LEARNED.md" {
+						if err := os.WriteFile(filepath.Join(root, path), []byte("# My notes"), 0644); err != nil {
+							t.Fatal(err)
+						}
+					}
+				}
+				rr := serveJSON(t, s, http.MethodGet, "/api/extras/memory/notes", "")
+				var list struct {
+					Initialized bool `json:"initialized"`
+				}
+				if err := json.Unmarshal(rr.Body.Bytes(), &list); err != nil {
+					t.Fatal(err)
+				}
+				if rr.Code != http.StatusOK || list.Initialized != (state == "ready") {
+					t.Fatalf("state: %d %s", rr.Code, rr.Body)
+				}
+				rr = serveJSON(t, s, http.MethodPost, "/api/extras/memory/init", "")
+				if rr.Code != http.StatusOK {
+					t.Fatalf("init: %d %s", rr.Code, rr.Body)
+				}
+				for _, path := range []string{"INDEX.md", "LEARNED.md"} {
+					if _, err := memory.Read(root, path); err != nil {
+						t.Fatal(err)
+					}
+				}
+			})
+		}
+	}
+}
+
+func TestMemoryAPI_InitLogsPartialFailures(t *testing.T) {
+	for _, failure := range []string{"starter", "config"} {
+		t.Run(failure, func(t *testing.T) {
+			s, _ := newTestServerWithExtras(t, nil, "")
+			root, err := s.memoryRoot()
+			if err != nil {
+				t.Fatal(err)
+			}
+			if failure == "starter" {
+				if err := os.MkdirAll(filepath.Join(root, "LEARNED.md"), 0755); err != nil {
+					t.Fatal(err)
+				}
+			} else {
+				if err := os.Remove(s.configPath()); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.Mkdir(s.configPath(), 0755); err != nil {
+					t.Fatal(err)
+				}
+			}
+			rr := httptest.NewRecorder()
+			s.handleMemoryInit(rr, httptest.NewRequest(http.MethodPost, "/api/extras/memory/init", nil))
+			if rr.Code < 400 {
+				t.Fatalf("expected failure: %d %s", rr.Code, rr.Body)
+			}
+			if _, err := memory.Read(root, "INDEX.md"); err != nil {
+				t.Fatalf("no partial mutation: %v", err)
+			}
+			entry := latestOpsEntry(t, s)
+			if entry.Command != "memory-init" || entry.Status != "error" || entry.Message == "" {
+				t.Fatalf("oplog = %+v", entry)
 			}
 		})
 	}

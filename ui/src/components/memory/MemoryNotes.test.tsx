@@ -209,3 +209,21 @@ it('keeps the destination draft open when the source version is stale', async ()
  expect(field).toHaveValue('wiki/renamed.md');
  expect(screen.getByRole('dialog')).toBeInTheDocument();
 });
+
+it('initializes missing starters before creating and linking the first note', async () => {
+  const empty = { root: '/shared/extras/memory', initialized: false, notes: [], instructions: '' };
+  vi.mocked(api.listMemoryNotes).mockResolvedValueOnce(empty).mockResolvedValue({ ...empty, initialized: true,
+    index: { version: 'starter-index', unindexed: [], broken_links: [] } });
+  vi.mocked(api.initMemory).mockResolvedValue({ success: true, root: empty.root });
+  vi.mocked(api.linkMemoryIndex).mockResolvedValue({ path: 'INDEX.md', title: 'Shared memory', version: 'linked-index' });
+  const user = userEvent.setup();
+  renderNotes();
+  await screen.findByRole('button', { name: 'Create memory' });
+  await user.click(screen.getByRole('button', { name: 'New note' }));
+  await user.type(screen.getByLabelText('File name'), 'decision.md');
+  await user.click(screen.getByRole('button', { name: 'Create' }));
+  await screen.findByRole('button', { name: 'Save note' });
+  expect(api.initMemory).toHaveBeenCalledOnce();
+  expect(vi.mocked(api.initMemory).mock.invocationCallOrder[0]).toBeLessThan(vi.mocked(api.writeMemoryNote).mock.invocationCallOrder[0]);
+  expect(api.linkMemoryIndex).toHaveBeenCalledWith('decision.md', 'starter-index');
+});

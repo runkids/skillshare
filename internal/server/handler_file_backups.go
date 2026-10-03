@@ -38,12 +38,18 @@ type fileBackupVersionJSON struct {
 }
 
 // fileBackupInScope reports whether path may be shown in the current mode:
-// every file in global mode, only files inside the project in project mode.
+// every file in global mode; project files and its memory source in project mode.
 func (s *Server) fileBackupInScope(path string) bool {
 	if !s.IsProjectMode() {
 		return true
 	}
-	return syncpkg.PathInside(s.projectRoot, path)
+	if syncpkg.PathInside(s.projectRoot, path) {
+		return true
+	}
+	s.mu.RLock()
+	root, err := s.memoryRoot()
+	s.mu.RUnlock()
+	return err == nil && syncpkg.PathInside(root, path)
 }
 
 // fileBackupOwners maps file paths to the target whose instruction file it is

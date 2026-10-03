@@ -130,3 +130,27 @@ and edits to later guidance files during a multi-file apply. They now pass,
 along with a concurrent-create test, both affected package suites, the scoped
 race suite, and devcontainer `make check`. Context-router and diff whitespace
 checks passed. UI code and screenshots were not changed by these review fixes.
+
+
+## PR review: initialization and recovery
+
+Dashboard initialization now requires the configured extra and readable
+`INDEX.md`/`LEARNED.md` files, so an empty or removed source can be initialized
+again. Creating a note initializes missing starters and fetches the new index
+version before appending the optional link. Init logs both success and errors,
+including partial starter creation and configuration-save failures.
+
+History honors an explicitly requested path with no backups instead of
+selecting another file. Project backup list, preview and restore include the
+configured memory root resolved through `sources.extras` outside the repository;
+unrelated sibling paths remain excluded. Per-extra project `source` paths still
+follow their existing in-project validation.
+
+Regression tests reproduced all three review findings before the fixes and now
+pass. Devcontainer `make check`, 17 scoped UI tests, scoped ESLint, TypeScript and
+the UI production build passed. React Doctor on the same two production files
+scores 90/100 versus 89/100 on the prior HEAD, with the same three existing
+warnings. English empty-source and missing-history views were inspected in
+Clean/Playful light/dark at 1440 by 900. An isolated browser workflow initialized
+an already-configured empty source and opened a new note's History while a
+separate note had a backup; no unrelated restore action appeared.

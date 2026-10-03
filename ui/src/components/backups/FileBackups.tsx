@@ -24,7 +24,8 @@ export default function FileBackups() {
   const [params] = useSearchParams();
 
   const files = data?.files ?? [];
-  const selected = files.find((f) => f.path === (picked ?? params.get('path'))) ?? files[0];
+  const requested = picked ?? params.get('path');
+  const selected = requested === null ? files[0] : files.find((f) => f.path === requested);
 
   return (
     <>

@@ -73,12 +73,16 @@ export default function MemoryNotes({ creating, setCreating }: { creating: boole
   const create = async () => {
     setBusy(true); setNotice('');
     try {
-      if (!data?.initialized) await api.initMemory();
+      let index = data?.index;
+      if (!data?.initialized) {
+        await api.initMemory();
+        index = (await api.listMemoryNotes()).index;
+      }
       const path = name.trim();
       const title = path.split('/').at(-1)?.replace(/\.md$/i, '') ?? path;
       const note = await api.writeMemoryNote(path, `# ${title}\n`, '');
-      if (linkIndex && data?.index?.version && path !== 'INDEX.md') {
-        try { await api.linkMemoryIndex(path, data.index.version); setNotice(''); }
+      if (linkIndex && index?.version && path !== 'INDEX.md') {
+        try { await api.linkMemoryIndex(path, index.version); setNotice(''); }
         catch (err) { setNotice(`${t('memory.indexPartial')}: ${errorMessage(err)}`); }
       }
       setCreating(false); setName(''); setEditing(note); refresh();
