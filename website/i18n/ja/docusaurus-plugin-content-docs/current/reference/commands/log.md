@@ -98,7 +98,7 @@ skillshare log --json --cmd sync          # フィルタ済み JSONL
 
 ## 出力例（プレーンテキスト）
 
-`--no-tui` を使う場合、または非 TTY 環境の場合:
+ターミナルで `--no-tui` を使う場合（パイプ時は各エントリの詳細が 1 行にまとめられます）:
 
 ```
 Operations · last 2

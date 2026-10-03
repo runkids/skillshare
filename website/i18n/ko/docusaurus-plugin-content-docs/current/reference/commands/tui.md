@@ -40,13 +40,13 @@ TUI가 비활성화되면, 평소 인터랙티브 인터페이스를 실행하�
 
 ```
 $ skillshare tui
-  TUI  on · default
+  TUI       on · default
 
 $ skillshare tui off
 ✓ TUI disabled
 
 $ skillshare tui
-  TUI  off
+  TUI       off
 
 $ skillshare tui on
 ✓ TUI enabled

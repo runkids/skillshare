@@ -98,7 +98,7 @@ skillshare log --json --cmd sync          # 篩選後的 JSONL
 
 ## 範例輸出（純文字）
 
-使用 `--no-tui` 或在非 TTY 環境中：
+在 terminal 使用 `--no-tui` 時（輸出被 pipe 時，每筆的細節會合併成一行）：
 
 ```
 Operations · last 2

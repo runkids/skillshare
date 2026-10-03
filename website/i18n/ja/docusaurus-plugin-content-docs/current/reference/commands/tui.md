@@ -40,13 +40,13 @@ TUI が無効化されている場合、通常はインタラクティブなイ�
 
 ```
 $ skillshare tui
-  TUI  on · default
+  TUI       on · default
 
 $ skillshare tui off
 ✓ TUI disabled
 
 $ skillshare tui
-  TUI  off
+  TUI       off
 
 $ skillshare tui on
 ✓ TUI enabled

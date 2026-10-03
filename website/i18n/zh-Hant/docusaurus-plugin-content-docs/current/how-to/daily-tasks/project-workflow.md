@@ -208,9 +208,9 @@ skillshare list
 
 ```
 Skills · project
-  my-skill    local
-  pdf         anthropic/skills/pdf
-  review      github.com/team/tools
+  my-skill  local
+  pdf       anthropic/skills/pdf
+  review    github.com/team/tools
 
 3 skills · 2 remote, 1 local
   Add -v for sources and install dates

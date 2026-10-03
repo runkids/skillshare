@@ -40,13 +40,13 @@ The `--no-tui` flag on individual commands always takes priority over the global
 
 ```
 $ skillshare tui
-  TUI  on · default
+  TUI       on · default
 
 $ skillshare tui off
 ✓ TUI disabled
 
 $ skillshare tui
-  TUI  off
+  TUI       off
 
 $ skillshare tui on
 ✓ TUI enabled

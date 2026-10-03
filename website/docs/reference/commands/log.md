@@ -98,7 +98,7 @@ skillshare log --json --cmd sync          # Filtered JSONL
 
 ## Example Output (Plain Text)
 
-When using `--no-tui` or in a non-TTY environment:
+With `--no-tui` in a terminal (when piped, each entry's details are joined on one line):
 
 ```
 Operations · last 2

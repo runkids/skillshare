@@ -40,13 +40,13 @@ skillshare tui off      # 为所有命令禁用 TUI（纯文本输出）
 
 ```
 $ skillshare tui
-  TUI  on · default
+  TUI       on · default
 
 $ skillshare tui off
 ✓ TUI disabled
 
 $ skillshare tui
-  TUI  off
+  TUI       off
 
 $ skillshare tui on
 ✓ TUI enabled
