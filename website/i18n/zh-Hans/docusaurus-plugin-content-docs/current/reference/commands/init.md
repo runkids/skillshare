@@ -41,7 +41,7 @@ flowchart TD
 
 | 问题 | 默认值 |
 |------|--------|
-| Tools | 检测到的所有 AI CLI |
+| Targets | 检测到的所有 AI CLI |
 | Import | 这些工具里已有的所有 skills |
 | Git | 开启。只对 skills 做版本控制；绑定 remote 时对 skills、agents、extras 做版本控制。Plugins、MCP servers 和 hooks 留在各台机器的 `config.yaml` |
 | 内置 skill | 安装 |
@@ -59,7 +59,7 @@ stdin 或 stdout 不是终端时（CI、脚本、AI agent），`init` 不会提�
 
 ```text
 ✓ Source   ~/.config/skillshare/skills (--source, --subdir)
-✓ Tools    claude, cursor, universal (--targets, --no-targets)
+✓ Targets  claude, cursor, universal (--targets, --no-targets)
 ✓ Import   all 2 (--copy-from, --no-copy)
 ✓ Git      skills only (--no-git, --git-root)
 ✓ Remote   none (--remote <url>)

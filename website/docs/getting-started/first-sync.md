@@ -59,7 +59,7 @@ skillshare init
 `init` asks a few short questions, shows a summary, and writes nothing until you confirm:
 
 1. **How to start** — a new setup on this machine, or [connect your existing skillshare repo](/docs/how-to/sharing/cross-machine-sync#second-machine-setup).
-2. **Tools** — every detected AI CLI is checked. Press Space to leave one out.
+2. **Targets** — every detected AI CLI is checked. Press Space to leave one out.
 3. **Import** — skills already in those tools are copied into source.
 4. **Git** — on by default, so you can push your skills to a repo later.
 5. **Remote** — paste the URL of your skills repo (e.g. `git@github.com:you/skills.git`), or press Enter to skip and add one later.

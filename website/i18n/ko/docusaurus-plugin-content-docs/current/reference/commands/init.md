@@ -41,7 +41,7 @@ flowchart TD
 
 | 질문 | 기본값 |
 |------|--------|
-| Tools | 감지된 모든 AI CLI |
+| Targets | 감지된 모든 AI CLI |
 | Import | 그 도구들에 이미 있는 모든 skill |
 | Git | 켜짐. skill만 버전 관리하며, remote를 연결하면 skills, agents, extras를 버전 관리합니다. Plugins, MCP servers, hooks는 각 머신의 `config.yaml`에 남습니다 |
 | Built-in skill | 설치 |
@@ -59,7 +59,7 @@ stdin 또는 stdout이 터미널이 아니면(CI, 스크립트, AI agent) `init`
 
 ```text
 ✓ Source   ~/.config/skillshare/skills (--source, --subdir)
-✓ Tools    claude, cursor, universal (--targets, --no-targets)
+✓ Targets  claude, cursor, universal (--targets, --no-targets)
 ✓ Import   all 2 (--copy-from, --no-copy)
 ✓ Git      skills only (--no-git, --git-root)
 ✓ Remote   none (--remote <url>)

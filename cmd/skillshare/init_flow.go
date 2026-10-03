@@ -193,7 +193,7 @@ func askTools(p *initPlan, opts *initOptions, detected []detectedDir) error {
 		return err
 	}
 	p.targets = chosen
-	ui.Answered("Tools", describeTools(chosen))
+	ui.Answered("Targets", describeTools(chosen))
 	return nil
 }
 
@@ -340,7 +340,7 @@ func resolveHeadlessRemote(p *initPlan, opts *initOptions) {
 func printHeadlessPlan(p *initPlan) {
 	hint := func(s string) string { return theme.Dim().Render("(" + s + ")") }
 	ui.Answered("Source", utils.FoldHomePath(p.source())+" "+hint("--source, --subdir"))
-	ui.Answered("Tools", describeTools(p.targets)+" "+hint("--targets, --no-targets"))
+	ui.Answered("Targets", describeTools(p.targets)+" "+hint("--targets, --no-targets"))
 	ui.Answered("Import", describeImports(p)+" "+hint("--copy-from, --no-copy"))
 	ui.Answered("Git", describeGit(p)+" "+hint("--no-git, --git-root"))
 	remote := "none"
@@ -388,7 +388,7 @@ func summaryLines(p *initPlan, title, changed string) []string {
 	}
 	row("Source", utils.FoldHomePath(p.source()), "source")
 	row("Sync", p.mode+" "+dim.Render("("+syncModeNotes[p.mode]+")"), "sync")
-	row("Tools", describeTools(p.targets), "")
+	row("Targets", describeTools(p.targets), "")
 	if !p.connect {
 		row("Import", describeImports(p), "")
 	}
@@ -532,7 +532,7 @@ func describeTools(names []string) string {
 	case 1, 2, 3:
 		return strings.Join(names, ", ")
 	default:
-		return fmt.Sprintf("%d tools (%s, …)", len(names), strings.Join(names[:3], ", "))
+		return fmt.Sprintf("%d targets (%s, …)", len(names), strings.Join(names[:3], ", "))
 	}
 }
 

@@ -216,7 +216,7 @@ func performProjectInit(root string, opts projectInitOptions) error {
 		selectedMode = "merge"
 	}
 	if !interactive {
-		ui.Answered("Tools", describeTools(entryNames(selected))+" "+theme.Dim().Render("(--targets)"))
+		ui.Answered("Targets", describeTools(entryNames(selected))+" "+theme.Dim().Render("(--targets)"))
 		ui.Answered("Sync", selectedMode+" "+theme.Dim().Render("(--mode)"))
 	}
 	for i := range selected {
@@ -271,7 +271,7 @@ func performProjectInit(root string, opts projectInitOptions) error {
 	ui.Answered("Config", cfgLine)
 	ui.Answered("Skills", dirName+"/skills/")
 	if !sharedRepoFlow {
-		ui.Answered("Tools", describeTools(entryNames(selected)))
+		ui.Answered("Targets", describeTools(entryNames(selected)))
 	}
 
 	fmt.Println()
@@ -403,7 +403,7 @@ func promptProjectTargets(available []detectedProjectTarget) ([]config.ProjectTa
 	if err != nil {
 		return nil, err
 	}
-	ui.Answered("Tools", describeTools(names))
+	ui.Answered("Targets", describeTools(names))
 	selected := make([]config.ProjectTargetEntry, 0, len(names))
 	for _, name := range names {
 		selected = append(selected, config.ProjectTargetEntry{Name: name})

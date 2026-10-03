@@ -41,7 +41,7 @@ flowchart TD
 
 | 質問 | デフォルト |
 |------|------------|
-| Tools | 検出されたすべての AI CLI |
+| Targets | 検出されたすべての AI CLI |
 | Import | それらのツールにある既存の Skill すべて |
 | Git | オン。Skill のみをバージョン管理。remote を設定した場合は skills、agents、extras。Plugins、MCP servers、hooks は各マシンの `config.yaml` に残ります |
 | 組み込み Skill | インストール |
@@ -59,7 +59,7 @@ stdin または stdout がターミナルでない場合（CI、スクリプト�
 
 ```text
 ✓ Source   ~/.config/skillshare/skills (--source, --subdir)
-✓ Tools    claude, cursor, universal (--targets, --no-targets)
+✓ Targets  claude, cursor, universal (--targets, --no-targets)
 ✓ Import   all 2 (--copy-from, --no-copy)
 ✓ Git      skills only (--no-git, --git-root)
 ✓ Remote   none (--remote <url>)

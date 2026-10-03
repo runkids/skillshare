@@ -463,7 +463,7 @@ func TestInit_TargetsCSV(t *testing.T) {
 	result := sb.RunCLI("init", "--no-copy", "--targets", "claude,cursor", "--no-git", "--no-skill")
 
 	result.AssertSuccess(t)
-	result.AssertOutputContains(t, "Tools    claude, cursor")
+	result.AssertOutputContains(t, "Targets  claude, cursor")
 
 	// Verify config has both targets
 	configContent := sb.ReadFile(sb.ConfigPath)
@@ -782,7 +782,7 @@ targets:
 
 	result.AssertSuccess(t)
 	result.AssertOutputContains(t, "zed was not found on this machine")
-	result.AssertOutputNotContains(t, "✓ Tools")
+	result.AssertOutputNotContains(t, "✓ Targets")
 
 	configContent := sb.ReadFile(sb.ConfigPath)
 	if strings.Contains(configContent, "zed:") {
@@ -812,7 +812,7 @@ targets:
 	result := sb.RunCLI("init", "--discover", "--select", "cursor")
 
 	result.AssertSuccess(t)
-	result.AssertOutputContains(t, "Tools    cursor")
+	result.AssertOutputContains(t, "Targets  cursor")
 
 	// Verify config now has cursor
 	configContent := sb.ReadFile(sb.ConfigPath)
@@ -845,7 +845,7 @@ targets:
 	result := sb.RunCLI("init", "--discover", "--select", "cursor", "--mode", "copy")
 
 	result.AssertSuccess(t)
-	result.AssertOutputContains(t, "Tools    cursor")
+	result.AssertOutputContains(t, "Targets  cursor")
 
 	configContent := sb.ReadFile(sb.ConfigPath)
 	if !strings.Contains(configContent, "mode: symlink") {
@@ -874,7 +874,7 @@ targets: {}
 	result := sb.RunCLI("init", "--discover", "--select", "claude,cursor")
 
 	result.AssertSuccess(t)
-	result.AssertOutputContains(t, "Tools    claude, cursor")
+	result.AssertOutputContains(t, "Targets  claude, cursor")
 
 	// Verify config has both
 	configContent := sb.ReadFile(sb.ConfigPath)

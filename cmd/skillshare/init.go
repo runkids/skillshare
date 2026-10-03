@@ -873,7 +873,7 @@ func promptAgentSelection(newAgents []agentInfo) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	ui.Answered("Tools", describeTools(names))
+	ui.Answered("Targets", describeTools(names))
 	return names, nil
 }
 
@@ -899,10 +899,10 @@ func saveAddedAgents(cfg *config.Config, names []string, asked, dryRun bool, mod
 
 // printDiscoverResult reports the tools --discover added in init's style:
 // answered rows, then the command to run next. asked is true when the tools
-// prompt already printed its own Tools row.
+// prompt already printed its own Targets row.
 func printDiscoverResult(configPath string, names []string, asked, dryRun bool, syncCmd string) {
 	if !asked {
-		ui.Answered("Tools", describeTools(names))
+		ui.Answered("Targets", describeTools(names))
 	}
 	if dryRun {
 		fmt.Println(theme.Dim().Render("Dry run — nothing was written"))

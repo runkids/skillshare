@@ -59,7 +59,7 @@ skillshare init
 `init`은 짧은 질문 몇 가지를 묻고 요약을 보여 줍니다. 확인하기 전에는 아무것도 쓰지 않습니다.
 
 1. **시작 방법** — 이 머신에서 새로 설정하거나 [기존 skillshare 저장소에 연결](/docs/how-to/sharing/cross-machine-sync#second-machine-setup)합니다.
-2. **도구** — 감지된 AI CLI가 모두 선택되어 있습니다. Space 키로 하나씩 뺄 수 있습니다.
+2. **Targets** — 감지된 AI CLI가 모두 선택되어 있습니다. Space 키로 하나씩 뺄 수 있습니다.
 3. **가져오기** — 그 도구들에 이미 있는 Skill을 source로 복사합니다.
 4. **Git** — 기본으로 켜져 있어 나중에 Skill을 저장소로 push할 수 있습니다.
 5. **원격 저장소** — Skill 저장소 URL을 붙여넣습니다 (예: `git@github.com:you/skills.git`). Enter로 건너뛰고 나중에 추가해도 됩니다.

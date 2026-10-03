@@ -59,7 +59,7 @@ skillshare init
 `init` 会问几个简短的问题、显示摘要，在你确认之前不会写入任何东西：
 
 1. **如何开始** —— 在这台机器上新建设置，或[连接你已有的 skillshare repo](/docs/how-to/sharing/cross-machine-sync#second-machine-setup)。
-2. **工具** —— 检测到的 AI CLI 全部勾选。按空格键可以取消其中一个。
+2. **Targets** —— 检测到的 AI CLI 全部勾选。按空格键可以取消其中一个。
 3. **导入** —— 这些工具里已有的 skills 会复制到 source。
 4. **Git** —— 默认开启，之后就能把 skills 推送到 repo。
 5. **Remote** —— 粘贴你的 skills repo URL（例如 `git@github.com:you/skills.git`），或按 Enter 跳过，之后再添加。

@@ -41,7 +41,7 @@ Each answer has a default, so pressing <kbd>Enter</kbd> through every question g
 
 | Question | Default |
 |----------|---------|
-| Tools | Every detected AI CLI |
+| Targets | Every detected AI CLI |
 | Import | Every skill those tools already have |
 | Git | On. Versions only the skills, or skills, agents and extras when a remote is linked. Plugins, MCP servers and hooks stay in each machine's `config.yaml` |
 | Built-in skill | Installed |
@@ -59,7 +59,7 @@ When stdin or stdout is not a terminal (CI, scripts, an AI agent), `init` asks n
 
 ```text
 ✓ Source   ~/.config/skillshare/skills (--source, --subdir)
-✓ Tools    claude, cursor, universal (--targets, --no-targets)
+✓ Targets  claude, cursor, universal (--targets, --no-targets)
 ✓ Import   all 2 (--copy-from, --no-copy)
 ✓ Git      skills only (--no-git, --git-root)
 ✓ Remote   none (--remote <url>)

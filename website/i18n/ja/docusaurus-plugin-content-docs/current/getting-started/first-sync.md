@@ -59,7 +59,7 @@ skillshare init
 `init` はいくつかの短い質問をしてサマリーを表示します。確認するまで何も書き込みません:
 
 1. **始め方** — このマシンで新規セットアップするか、[既存の skillshare リポジトリに接続](/docs/how-to/sharing/cross-machine-sync#second-machine-setup)します。
-2. **ツール** — 検出された AI CLI はすべて選択済みです。Space キーで外せます。
+2. **Targets** — 検出された AI CLI はすべて選択済みです。Space キーで外せます。
 3. **取り込み** — それらのツールにある既存の Skill を source にコピーします。
 4. **Git** — デフォルトでオン。後で Skill をリポジトリに push できます。
 5. **リモート** — Skill リポジトリの URL を貼り付けます（例: `git@github.com:you/skills.git`）。Enter でスキップして後から追加することもできます。

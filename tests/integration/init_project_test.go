@@ -140,7 +140,7 @@ func TestInitProject_Discover_WithMode_AddsTargetMode(t *testing.T) {
 
 	result := sb.RunCLIInDir(projectRoot, "init", "-p", "--discover", "--select", "windsurf", "--mode", "copy")
 	result.AssertSuccess(t)
-	result.AssertOutputContains(t, "Tools    windsurf")
+	result.AssertOutputContains(t, "Targets  windsurf")
 
 	cfg := sb.ReadFile(filepath.Join(projectRoot, ".skillshare", "config.yaml"))
 	if !strings.Contains(cfg, "mode: copy") {
