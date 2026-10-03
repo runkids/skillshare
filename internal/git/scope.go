@@ -215,6 +215,64 @@ func HasLocalRootConfig(dir string) bool {
 	return err == nil && gitignoreHasEntry(string(data), "config.yaml")
 }
 
+// UnpushedConfigHistoryError names commits that would publish config.yaml.
+type UnpushedConfigHistoryError struct {
+	Commits     []string
+	HasUpstream bool
+}
+
+func (e *UnpushedConfigHistoryError) Error() string {
+	base := "@{u}"
+	if !e.HasUpstream {
+		base = "--root"
+	}
+	return fmt.Sprintf("refusing to push: unpushed commits add or modify config.yaml: %s. Remove config.yaml from these commits using git rebase -i %s (mark them for edit, run git rm -r --cached -- config.yaml and git commit --amend, then git rebase --continue), or amend the latest commit if it is the only affected commit. A later stop-tracking commit does not remove the file from history; skillshare never rewrites history automatically", strings.Join(e.Commits, ", "), base)
+}
+
+// CheckUnpushedConfigHistory refuses histories that would publish local config
+// contents, even if a later commit removed the file. Without an upstream every
+// commit on HEAD is unpushed. Deletions alone are safe; combined merge diffs
+// check new resolutions without treating config inherited from upstream as a
+// new local change. The check never changes the index, worktree, or refs.
+func CheckUnpushedConfigHistory(dir string) error {
+	head := exec.Command("git", "rev-parse", "--verify", "--quiet", "HEAD")
+	head.Dir = dir
+	if err := head.Run(); err != nil {
+		var exit *exec.ExitError
+		if errors.As(err, &exit) && exit.ExitCode() == 1 {
+			return nil // no commits yet
+		}
+		return fmt.Errorf("check config.yaml history: %w", err)
+	}
+	hasUpstream := HasUpstream(dir)
+	revision := "HEAD"
+	if hasUpstream {
+		revision = "@{u}..HEAD"
+	}
+	cmd := exec.Command("git", "log", "--format=%x00%h", "--full-history", "--root",
+		"-c", "--diff-filter=AMT", "--no-renames", "--no-show-signature", "--raw", revision,
+		"--", ":(top,literal)config.yaml")
+	cmd.Dir = dir
+	out, err := cmd.Output()
+	if err != nil {
+		return fmt.Errorf("check config.yaml history: %w", err)
+	}
+	var commits []string
+	for _, record := range strings.Split(string(out), "\x00") {
+		commit, diff, ok := strings.Cut(strings.TrimSpace(record), "\n")
+		// Path history can list a merge even when its combined diff is empty:
+		// config inherited unchanged from one parent is not a local addition.
+		// Raw diff records start with ':' and never include file contents.
+		if ok && strings.HasPrefix(strings.TrimSpace(diff), ":") {
+			commits = append(commits, commit)
+		}
+	}
+	if len(commits) > 0 {
+		return &UnpushedConfigHistoryError{Commits: commits, HasUpstream: hasUpstream}
+	}
+	return nil
+}
+
 // EnsureConfigUntracked keeps skillshare's own config.yaml out of a root-scope
 // repo: it ensures config.yaml is in .gitignore and, if the file is already
 // tracked, removes it from the index with `git rm --cached` (the file stays on
@@ -222,7 +280,8 @@ func HasLocalRootConfig(dir string) bool {
 // untracked. This is the push-time safety net for repos created outside
 // InitScopeRepo (manual `git_root: root` edits, externally-initialized repos, or
 // a config.yaml committed before switching to root scope), where the init-time
-// .gitignore guarantee does not apply.
+// .gitignore guarantee does not apply. This changes only the index, not past
+// commits; push callers must also use CheckUnpushedConfigHistory before staging.
 func EnsureConfigUntracked(dir string) (removed bool, err error) {
 	if err := ensureGitignoreEntry(dir, "config.yaml"); err != nil {
 		return false, err

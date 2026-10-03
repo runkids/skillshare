@@ -119,6 +119,13 @@ skillshare push --pull         # Merge remote changes, push, then sync targets
 skillshare push --dry-run      # Preview
 ```
 
+At `git_root: root`, unpushed commits that add or modify `config.yaml` (including
+its directory tree) block push, `--pull`, and `--dry-run`. Without upstream, all
+commits on HEAD are checked. Remove the file from the listed commits with
+`git rebase -i @{u}` (or `git rebase -i --root` before the first push) and amend
+them before retrying; skillshare never rewrites history automatically. A later
+removal does not erase earlier contents. Removal-only commits remain pushable.
+
 **Project mode:** Use `git push` directly on the project repo.
 
 ## pull

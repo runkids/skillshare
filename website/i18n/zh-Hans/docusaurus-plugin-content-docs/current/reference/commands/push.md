@@ -47,6 +47,10 @@ flowchart TD
 
 `push` 作用于 `git_root` 配置字段所选定的目录（默认：`skills` source）。作用域表参见 [commit — Git Root Scope](./commit.md#git-root-scope)。如果 `git_root` 被更改了，但 git 仓库仍然位于另一个作用域的目录中，`push` 会打印一条 "Git root mismatch" 错误，并给出精确的 `git init` / `mv` 命令来修复。参见 [Changing the scope after init](/docs/reference/targets/configuration#git-root)。
 
+在 `git_root: root` 下，如果任何尚未推送的 commit 添加或修改了 `config.yaml` 或 `config.yaml/` 下的文件，即使后续 commit 已将其删除，`push` 仍会拒绝推送。此检查也适用于 `--pull` 和 `--dry-run`，并在 staging 或 pull 之前执行；dry-run 不会修改任何内容。错误会列出相关 commit hash。没有 upstream 时，当前分支的所有 commit 都视为尚未推送。
+
+重试前，请从列出的 commit 中移除文件：使用 `git rebase -i @{u}`（首次推送前使用 `git rebase -i --root`），将相关 commit 标记为编辑，并在每次编辑时执行 `git rm -r --cached -- config.yaml`、`git commit --amend` 和 `git rebase --continue`。Skillshare 不会自动改写 history。仅停止跟踪已发布的 `config.yaml` 的 commit 仍可推送；在尚未推送的添加 commit 后新增删除 commit，不会清除 history 中的旧内容。
+
 ## 前提条件
 
 你的 source 目录必须是一个带有 remote 的 git 仓库：
