@@ -84,6 +84,48 @@ jobs:
         env:
           SKILLSHARE_TEST_BINARY: ${{ github.workspace }}/bin/skillshare
 
+  windows-test:
+    # Releases publish windows_amd64 and windows_arm64 archives, and `_windows.go` files are compiled
+    # only on Windows, yet every job above runs on Linux or macOS: a Windows-only regression reaches
+    # users at release time instead of at review.
+    # This job starts with the packages that already pass on windows-latest, so it is green on
+    # arrival. #344 lists the packages that do not pass there and the failures behind them; each fix
+    # adds its package back to this list.
+    # No -race: the race detector needs a C toolchain on Windows, and ubuntu and macOS cover it.
+    # -count=1 so that a cached result cannot report a pass for a package that never ran.
+    if: *not-release-duplicate
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.sha }}
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Unit Tests
+        shell: bash
+        run: |
+          go test -v -count=1 \
+            ./internal/backup \
+            ./internal/check \
+            ./internal/childproc \
+            ./internal/hub \
+            ./internal/instructions \
+            ./internal/projectdir \
+            ./internal/resource \
+            ./internal/search \
+            ./internal/skill \
+            ./internal/skillignore \
+            ./internal/ui \
+            ./internal/uidist \
+            ./internal/utils \
+            ./internal/validate \
+            ./internal/version
+
   docker-sandbox-offline:
     if: *not-release-duplicate
     runs-on: ubuntu-latest

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -43,8 +44,10 @@ func TestCheckSharedTargetPaths_Collision(t *testing.T) {
 	if len(r.checks) != 1 || r.checks[0].Status != checkWarning {
 		t.Fatalf("expected single warning check, got %+v", r.checks)
 	}
+	// The check prints filepath.Clean output, whose separators are OS-native.
+	wantPath := filepath.FromSlash("/tmp/.agents/skills")
 	detail := r.checks[0].Details[0]
-	for _, want := range []string{"universal", "warp", "witsy", "/tmp/.agents/skills"} {
+	for _, want := range []string{"universal", "warp", "witsy", wantPath} {
 		if !strings.Contains(detail, want) {
 			t.Errorf("detail %q missing %q", detail, want)
 		}
@@ -53,7 +56,7 @@ func TestCheckSharedTargetPaths_Collision(t *testing.T) {
 		t.Fatalf("expected one suggestion, got %v", r.checks[0].Suggestions)
 	}
 	suggestion := r.checks[0].Suggestions[0]
-	for _, want := range []string{"Choose one authoritative target", "skillshare target remove <name> --global --dry-run", "universal", "warp", "witsy", "/tmp/.agents/skills"} {
+	for _, want := range []string{"Choose one authoritative target", "skillshare target remove <name> --global --dry-run", "universal", "warp", "witsy", wantPath} {
 		if !strings.Contains(suggestion, want) {
 			t.Errorf("suggestion %q missing %q", suggestion, want)
 		}
@@ -116,7 +119,7 @@ func TestCheckCrossTargetDiscovery_CodexSeesUniversal(t *testing.T) {
 		t.Fatalf("expected 1 warning, got %d (checks=%+v)", r.warnings, r.checks)
 	}
 	detail := r.checks[0].Details[0]
-	for _, want := range []string{"codex", "universal", ".agents/skills"} {
+	for _, want := range []string{"codex", "universal", filepath.FromSlash(".agents/skills")} {
 		if !strings.Contains(detail, want) {
 			t.Errorf("detail %q missing %q", detail, want)
 		}
