@@ -19,11 +19,7 @@ const (
 
 // printInitBanner shows the logo with what init found on this machine.
 func printInitBanner(detected []detectedDir, animate bool) {
-	lines := []string{
-		theme.Primary().Bold(true).Render("skillshare") + " " + theme.Dim().Render("v"+version),
-		theme.Muted().Render("Your AI coding setup, everywhere."),
-		"",
-	}
+	var lines []string
 	switch n := toolCount(detected); n {
 	case 0:
 		lines = append(lines, "No AI tools found yet")
@@ -36,7 +32,7 @@ func printInitBanner(detected []detectedDir, animate bool) {
 		lines = append(lines, theme.Dim().Render(fmt.Sprintf("%s already in %s", plural(total, "skill"), strings.Join(names, ", "))))
 	}
 	fmt.Println()
-	ui.LogoBanner(lines, animate)
+	ui.LogoBanner(version, lines, animate)
 	fmt.Println()
 }
 

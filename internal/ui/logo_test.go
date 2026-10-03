@@ -10,29 +10,26 @@ import (
 	"github.com/muesli/termenv"
 )
 
-func TestLogoColors_FinalFrameUsesLogoColors(t *testing.T) {
-	x, y := firstDrawnPixel(t)
-	want, _ := parseHex(logoPixels[y][x*6 : x*6+6])
-
-	got := logoColors(1)[y][x]
-	if got == nil || *got != want {
-		t.Errorf("pixel (%d,%d) at progress 1 = %v, want %v", x, y, got, want)
+func TestWordmarkColors_FinalFrameIsTwoTone(t *testing.T) {
+	colors := wordmarkColors(1)
+	skill, share := firstPixel(t, colors, 0), firstPixel(t, colors, wordmarkSplit())
+	if *skill != wordmarkSkillColor() {
+		t.Errorf("SKILL at progress 1 = %v, want %v", *skill, wordmarkSkillColor())
+	}
+	if *share != wordmarkShareColor() {
+		t.Errorf("SHARE at progress 1 = %v, want %v", *share, wordmarkShareColor())
 	}
 }
 
-func TestLogoColors_FirstFrameIsNotYetColored(t *testing.T) {
-	x, y := firstDrawnPixel(t)
-	logo, _ := parseHex(logoPixels[y][x*6 : x*6+6])
-
-	got := logoColors(0)[y][x]
-	if got == nil || *got == logo {
-		t.Errorf("pixel (%d,%d) at progress 0 = %v, want the grey outline, not %v", x, y, got, logo)
+func TestWordmarkColors_FirstFrameIsNotYetColored(t *testing.T) {
+	if got := firstPixel(t, wordmarkColors(0), 0); *got == wordmarkSkillColor() {
+		t.Errorf("SKILL at progress 0 = %v, want the grey outline", *got)
 	}
 }
 
-func TestLogoFrame_HasOneLinePerTwoPixelRows(t *testing.T) {
-	if got, want := len(logoFrame(1, []string{"a"}, true)), len(logoPixels)/2; got != want {
-		t.Errorf("frame has %d lines, want %d", got, want)
+func TestWordmarkFrame_IsThreeLinesHigh(t *testing.T) {
+	if got := len(wordmarkFrame(1)); got != 3 {
+		t.Errorf("wordmark has %d lines, want 3", got)
 	}
 }
 
@@ -54,7 +51,7 @@ func TestLogoColorsSupported_NeedsAtLeast256Colors(t *testing.T) {
 
 func TestPlayLogo_HidesCursorWhileAnimating(t *testing.T) {
 	var out bytes.Buffer
-	playLogo(&out, []string{"a"}, func(time.Duration) {})
+	playLogo(&out, func(time.Duration) {})
 
 	got := out.String()
 	if !strings.HasPrefix(got, "\x1b[?25l") {
@@ -65,15 +62,16 @@ func TestPlayLogo_HidesCursorWhileAnimating(t *testing.T) {
 	}
 }
 
-func firstDrawnPixel(t *testing.T) (x, y int) {
+// firstPixel returns the top-most drawn pixel in the first column at or after x.
+func firstPixel(t *testing.T, colors [][]*rgb, from int) *rgb {
 	t.Helper()
-	for y, row := range logoPixels {
-		for x := 0; x*6 < len(row); x++ {
-			if _, ok := parseHex(row[x*6 : x*6+6]); ok {
-				return x, y
+	for x := from; x < len(colors[0]); x++ {
+		for y := range colors {
+			if colors[y][x] != nil {
+				return colors[y][x]
 			}
 		}
 	}
-	t.Fatal("logo has no drawn pixels")
-	return 0, 0
+	t.Fatalf("no drawn pixel at or after column %d", from)
+	return nil
 }

@@ -296,10 +296,7 @@ func printProjectBanner(root string, detected []detectedProjectTarget, animate b
 		found = "Found " + plural(n, "AI tool") + " here"
 	}
 	fmt.Println()
-	ui.LogoBanner([]string{
-		theme.Primary().Bold(true).Render("skillshare") + " " + theme.Dim().Render("v"+version),
-		theme.Muted().Render("Your AI coding setup, everywhere."),
-		"",
+	ui.LogoBanner(version, []string{
 		"Project " + filepath.Base(root),
 		theme.Dim().Render(found),
 	}, animate)

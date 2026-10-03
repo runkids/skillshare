@@ -6,7 +6,6 @@ import (
 	"math"
 	"os"
 	"os/signal"
-	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -19,33 +18,59 @@ import (
 )
 
 const (
-	// logoMinWidth is the narrowest terminal that shows the logo; below it
-	// only the text lines are printed.
-	logoMinWidth = 60
-	logoGap      = "    "
-	logoIndent   = "  "
 	logoSteps    = 16
 	logoFrameGap = 55 * time.Millisecond
+	logoTagline  = "Your AI coding setup, everywhere."
 )
+
+// wordmarkFont draws each letter of SKILLSHARE on a 5-pixel-high grid.
+var wordmarkFont = map[rune][]string{
+	'S': {".###", "#...", ".##.", "...#", "###."},
+	'K': {"#..#", "#.#.", "##..", "#.#.", "#..#"},
+	'I': {"###", ".#.", ".#.", ".#.", "###"},
+	'L': {"#...", "#...", "#...", "#...", "####"},
+	'H': {"#..#", "#..#", "####", "#..#", "#..#"},
+	'A': {".##.", "#..#", "####", "#..#", "#..#"},
+	'R': {"###.", "#..#", "###.", "#.#.", "#..#"},
+	'E': {"####", "#...", "###.", "#...", "####"},
+}
+
+// wordmark is SKILLSHARE as pixel rows: 0 is empty, 1 belongs to SKILL and
+// 2 to SHARE, which take different colors.
+var wordmark = buildWordmark("SKILL", "SHARE")
 
 type rgb struct{ r, g, b float64 }
 
-// LogoBanner prints the hand-drawn logo with text lines beside it, centered
-// vertically. On a terminal it first plays a short "light up" animation that
-// spreads color out from the bulb. Without a terminal, without color, with
-// only 16 colors, or on a narrow terminal it prints only the text lines.
-func LogoBanner(lines []string, animate bool) {
+// LogoBanner prints the SKILLSHARE wordmark, the version and tagline, then
+// the given lines. On a terminal the wordmark first lights up from left to
+// right. Without a terminal, without color, with only 16 colors, or on a
+// narrow terminal it prints a plain "skillshare vX" line instead.
+func LogoBanner(version string, lines []string, animate bool) {
 	if !logoFits() {
-		for _, line := range lines {
-			fmt.Println(line)
-		}
+		fmt.Println(theme.Primary().Bold(true).Render("skillshare") + " " + theme.Dim().Render("v"+version))
+		fmt.Println(theme.Muted().Render(logoTagline))
+		printLines(lines)
 		return
 	}
-	if !animate {
-		fmt.Print(strings.Join(logoFrame(1, lines, true), "\n") + "\n")
-		return
+	if animate {
+		playWordmark()
+	} else {
+		fmt.Print(strings.Join(wordmarkFrame(1), "\n") + "\n")
 	}
-	// Ctrl+C mid-animation must not leave the shell with a hidden cursor.
+	fmt.Println()
+	fmt.Println(theme.Dim().Render("v" + version + " · " + logoTagline))
+	printLines(lines)
+}
+
+func printLines(lines []string) {
+	for _, line := range lines {
+		fmt.Println(line)
+	}
+}
+
+// playWordmark plays the animation, making sure Ctrl+C mid-animation does
+// not leave the shell with a hidden cursor.
+func playWordmark() {
 	interrupted := make(chan os.Signal, 1)
 	done := make(chan struct{})
 	signal.Notify(interrupted, os.Interrupt, syscall.SIGTERM)
@@ -61,26 +86,18 @@ func LogoBanner(lines []string, animate bool) {
 		case <-done:
 		}
 	}()
-	playLogo(os.Stdout, lines, time.Sleep)
+	playLogo(os.Stdout, time.Sleep)
 }
 
 // playLogo writes the "light up" animation. The cursor is hidden while frames
-// redraw in place (it would otherwise jump up and down the logo's left edge),
-// and each frame goes out in a single write.
-func playLogo(w io.Writer, lines []string, pause func(time.Duration)) {
+// redraw in place, and each frame goes out in a single write.
+func playLogo(w io.Writer, pause func(time.Duration)) {
 	fmt.Fprint(w, hideCursor)
-	rows := len(logoPixels) / 2
 	for step := 0; step <= logoSteps; step++ {
 		var b strings.Builder
+		frame := wordmarkFrame(easeOut(float64(step) / logoSteps))
 		if step > 0 {
-			fmt.Fprintf(&b, "\x1b[%dA", rows)
-		}
-		progress := easeOut(float64(step) / logoSteps)
-		// Text fades in over the last few frames and settles on the final one.
-		showText := step >= logoSteps-4
-		frame := logoFrame(progress, lines, showText)
-		if showText && step < logoSteps {
-			frame = logoFrame(progress, dimLines(lines), true)
+			fmt.Fprintf(&b, "\x1b[%dA", len(frame))
 		}
 		for _, line := range frame {
 			b.WriteString(line + "\x1b[K\n")
@@ -99,60 +116,105 @@ func logoFits() bool {
 		return false
 	}
 	width, _, err := term.GetSize(int(os.Stdout.Fd()))
-	return err == nil && width >= logoMinWidth
+	return err == nil && width > len(wordmark[0])
 }
 
 // logoColorsSupported reports whether the terminal has at least 256 colors;
-// 16 colors map the logo onto the terminal's own palette and garble it.
+// 16 colors flatten the animation's in-between shades.
 func logoColorsSupported() bool {
 	return lipgloss.ColorProfile() <= termenv.ANSI256
 }
 
-// logoFrame renders the logo at the given animation progress (0..1) with
-// the text lines placed in a column to its right.
-func logoFrame(progress float64, lines []string, showText bool) []string {
-	colors := logoColors(progress)
-	rows := len(colors) / 2
-	top := (rows - len(lines)) / 2
-	out := make([]string, rows)
-	for row := 0; row < rows; row++ {
+func buildWordmark(words ...string) [][]int {
+	rows := make([][]int, 5)
+	for part, word := range words {
+		for _, letter := range word {
+			for y, line := range wordmarkFont[letter] {
+				for _, c := range line {
+					v := 0
+					if c == '#' {
+						v = part + 1
+					}
+					rows[y] = append(rows[y], v)
+				}
+				rows[y] = append(rows[y], 0)
+			}
+		}
+	}
+	for y := range rows {
+		rows[y] = rows[y][:len(rows[y])-1]
+	}
+	return rows
+}
+
+// wordmarkSplit is the first column of SHARE.
+func wordmarkSplit() int {
+	for x := range wordmark[0] {
+		for y := range wordmark {
+			if wordmark[y][x] == 2 {
+				return x
+			}
+		}
+	}
+	return 0
+}
+
+func wordmarkSkillColor() rgb {
+	if theme.Get().Mode == theme.ModeLight {
+		return rgb{0x1d, 0x6f, 0xd8}
+	}
+	return rgb{0x2e, 0x8b, 0xf0}
+}
+
+func wordmarkShareColor() rgb {
+	if theme.Get().Mode == theme.ModeLight {
+		return rgb{0xc8, 0x8a, 0x00}
+	}
+	return rgb{0xf5, 0xb8, 0x1c}
+}
+
+// wordmarkFrame renders the wordmark as half blocks at the given animation
+// progress (0..1): two pixel rows per line.
+func wordmarkFrame(progress float64) []string {
+	colors := wordmarkColors(progress)
+	var out []string
+	for y := 0; y < len(colors); y += 2 {
 		var b strings.Builder
-		b.WriteString(logoIndent)
-		upper, lower := colors[row*2], colors[row*2+1]
-		for x := range upper {
-			b.WriteString(halfBlock(upper[x], lower[x]))
+		for x := range colors[y] {
+			var lower *rgb
+			if y+1 < len(colors) {
+				lower = colors[y+1][x]
+			}
+			b.WriteString(halfBlock(colors[y][x], lower))
 		}
-		if i := row - top; showText && i >= 0 && i < len(lines) && lines[i] != "" {
-			b.WriteString(logoGap + lines[i])
-		}
-		out[row] = b.String()
+		out = append(out, strings.TrimRight(b.String(), " "))
 	}
 	return out
 }
 
-// logoColors returns each pixel's color at the given progress, nil for
-// transparent pixels. Pixels start as a faint grey outline and take on
-// their real color as a ring spreads out from the center.
-func logoColors(progress float64) [][]*rgb {
+// wordmarkColors returns each pixel's color at the given progress, nil for
+// empty pixels. Letters start as a faint grey and take on their color from
+// left to right.
+func wordmarkColors(progress float64) [][]*rgb {
 	bg := rgb{18, 19, 22}
 	if theme.Get().Mode == theme.ModeLight {
 		bg = rgb{250, 250, 250}
 	}
-	n := len(logoPixels)
-	center := float64(n-1) / 2
-	maxDist := math.Hypot(center, center)
-	out := make([][]*rgb, n)
-	for y, row := range logoPixels {
-		out[y] = make([]*rgb, len(row)/6)
-		for x := range out[y] {
-			c, ok := parseHex(row[x*6 : x*6+6])
-			if !ok {
+	width := float64(len(wordmark[0]) - 1)
+	out := make([][]*rgb, len(wordmark))
+	for y, row := range wordmark {
+		out[y] = make([]*rgb, len(row))
+		for x, part := range row {
+			if part == 0 {
 				continue
+			}
+			c := wordmarkSkillColor()
+			if part == 2 {
+				c = wordmarkShareColor()
 			}
 			lum := 0.3*c.r + 0.59*c.g + 0.11*c.b
 			grey := mix(bg, rgb{lum, lum, lum}, 0.4)
-			dist := math.Hypot(float64(x)-center, float64(y)-center) / maxDist
-			k := math.Max(0, math.Min(1, (progress*1.25-dist)/0.2))
+			k := math.Max(0, math.Min(1, (progress*1.3-float64(x)/width)/0.3))
 			mixed := mix(grey, c, k)
 			out[y][x] = &mixed
 		}
@@ -171,22 +233,6 @@ func halfBlock(upper, lower *rgb) string {
 	default:
 		return " "
 	}
-}
-
-func dimLines(lines []string) []string {
-	out := make([]string, len(lines))
-	for i, line := range lines {
-		out[i] = theme.Dim().Render(StripANSI(line))
-	}
-	return out
-}
-
-func parseHex(s string) (rgb, bool) {
-	v, err := strconv.ParseUint(s, 16, 32)
-	if err != nil {
-		return rgb{}, false
-	}
-	return rgb{float64(v >> 16 & 0xff), float64(v >> 8 & 0xff), float64(v & 0xff)}, true
 }
 
 func mix(a, b rgb, k float64) rgb {
