@@ -4,153 +4,62 @@ import (
 	"strings"
 	"testing"
 
+	tea "github.com/charmbracelet/bubbletea"
+	xansi "github.com/charmbracelet/x/ansi"
+
 	"skillshare/internal/search"
 )
 
-func TestSearchSelectItem_Title_Hub(t *testing.T) {
-	tests := []struct {
-		name      string
-		result    search.SearchResult
-		selected  bool
-		wantCheck string
-		wantBadge string
-	}{
-		{
-			name:      "unselected clean hub skill",
-			result:    search.SearchResult{Name: "my-skill", RiskLabel: "clean"},
-			wantCheck: "[ ]",
-			wantBadge: "[clean]",
-		},
-		{
-			name:      "selected high hub skill",
-			result:    search.SearchResult{Name: "risky", RiskLabel: "high"},
-			selected:  true,
-			wantCheck: "[x]",
-			wantBadge: "[high]",
-		},
-		{
-			name:      "no risk label",
-			result:    search.SearchResult{Name: "no-audit"},
-			wantCheck: "[ ]",
-			wantBadge: "",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			item := searchSelectItem{
-				idx:      0,
-				result:   tt.result,
-				isHub:    true,
-				selected: tt.selected,
-			}
-			title := item.Title()
-
-			if !strings.HasPrefix(title, tt.wantCheck) {
-				t.Errorf("Title() = %q, want prefix %q", title, tt.wantCheck)
-			}
-			if !strings.Contains(title, tt.result.Name) {
-				t.Errorf("Title() = %q, want to contain name %q", title, tt.result.Name)
-			}
-			if tt.wantBadge != "" {
-				if !strings.Contains(title, tt.wantBadge) {
-					t.Errorf("Title() = %q, want to contain badge %q", title, tt.wantBadge)
-				}
-			}
-			// Should NOT contain stars for hub
-			if strings.Contains(title, "★") {
-				t.Errorf("Title() = %q, hub items should not have stars", title)
-			}
-		})
+func TestSearchSelectItemMeta_ShowsRiskForAnIndex(t *testing.T) {
+	item := searchSelectItem{result: search.SearchResult{Name: "risky", RiskLabel: "high", Stars: 50}, isHub: true}
+	if got := xansi.Strip(item.meta()); got != "high" {
+		t.Fatalf("meta() = %q, want the risk label", got)
 	}
 }
 
-func TestSearchSelectItem_Title_GitHub(t *testing.T) {
-	item := searchSelectItem{
-		idx:    0,
-		result: search.SearchResult{Name: "cool-skill", Stars: 1234},
-		isHub:  false,
-	}
-	title := item.Title()
-
-	if !strings.HasPrefix(title, "[ ]") {
-		t.Errorf("Title() = %q, want prefix '[ ]'", title)
-	}
-	if !strings.Contains(title, "★") {
-		t.Errorf("Title() = %q, want to contain ★", title)
-	}
-	if !strings.Contains(title, "1.2k") {
-		t.Errorf("Title() = %q, want to contain formatted stars '1.2k'", title)
-	}
-}
-
-func TestSearchSelectItem_Checkbox(t *testing.T) {
-	unchecked := searchSelectItem{result: search.SearchResult{Name: "a"}}
-	checked := searchSelectItem{result: search.SearchResult{Name: "a"}, selected: true}
-
-	if !strings.HasPrefix(unchecked.Title(), "[ ]") {
-		t.Errorf("unchecked Title() = %q, want prefix '[ ]'", unchecked.Title())
-	}
-	if !strings.HasPrefix(checked.Title(), "[x]") {
-		t.Errorf("checked Title() = %q, want prefix '[x]'", checked.Title())
-	}
-}
-
-func TestSearchSelectItem_Description(t *testing.T) {
-	tests := []struct {
-		name       string
-		result     search.SearchResult
-		wantParts  []string
-		absentTags bool
-	}{
-		{
-			name: "hub with tags",
-			result: search.SearchResult{
-				Source: "owner/repo",
-				Tags:   []string{"ai", "coding"},
-			},
-			wantParts: []string{"owner/repo", "#ai", "#coding"},
-		},
-		{
-			name: "github no tags",
-			result: search.SearchResult{
-				Source: "user/repo/path",
-			},
-			wantParts:  []string{"user/repo/path"},
-			absentTags: true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			item := searchSelectItem{result: tt.result, isHub: true}
-			desc := item.Description()
-
-			for _, p := range tt.wantParts {
-				if !strings.Contains(desc, p) {
-					t.Errorf("Description() = %q, want to contain %q", desc, p)
-				}
-			}
-			if tt.absentTags && strings.Contains(desc, "#") {
-				t.Errorf("Description() = %q, should not contain tags", desc)
-			}
-		})
+func TestSearchSelectItemMeta_ShowsStarsForGitHub(t *testing.T) {
+	item := searchSelectItem{result: search.SearchResult{Name: "cool-skill", Stars: 1234}}
+	if got := xansi.Strip(item.meta()); got != "★ 1.2k" {
+		t.Fatalf("meta() = %q, want formatted stars", got)
 	}
 }
 
 func TestSearchSelectItem_FilterValue(t *testing.T) {
 	item := searchSelectItem{
-		result: search.SearchResult{
-			Name:        "my-skill",
-			Description: "A useful skill",
-			Tags:        []string{"ai", "dev"},
-		},
+		result: search.SearchResult{Name: "my-skill", Description: "Does things", Tags: []string{"ai"}, RiskLabel: "low"},
+		isHub:  true,
 	}
-	fv := item.FilterValue()
-
-	for _, want := range []string{"my-skill", "A useful skill", "ai", "dev"} {
-		if !strings.Contains(fv, want) {
-			t.Errorf("FilterValue() = %q, want to contain %q", fv, want)
+	got := item.FilterValue()
+	for _, want := range []string{"my-skill", "Does things", "ai", "low"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("FilterValue() = %q, want to contain %q", got, want)
 		}
+	}
+}
+
+func TestSearchSelectEnterWithoutSelectionInstallsTheCursorRow(t *testing.T) {
+	m := newSearchSelectModel([]search.SearchResult{{Name: "first"}, {Name: "second"}}, "demo", false)
+
+	next, _ := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	got := next.(searchSelectModel)
+
+	if got.outcome != searchSelectInstall || got.selCount != 1 || !got.selected[0] {
+		t.Fatalf("enter with nothing selected should install the row under the cursor; outcome=%v selected=%v", got.outcome, got.selected)
+	}
+}
+
+func TestSearchSelectEscClearsTheFilterBeforeSearchingAgain(t *testing.T) {
+	m := newSearchSelectModel([]search.SearchResult{{Name: "first"}, {Name: "second"}}, "demo", false)
+	m.filterText = "sec"
+	m.applySearchFilter()
+
+	next, _ := m.Update(tea.KeyMsg{Type: tea.KeyEsc})
+	got := next.(searchSelectModel)
+	if got.filterText != "" || got.quitting {
+		t.Fatal("first esc should clear the filter and stay open")
+	}
+	next, _ = got.Update(tea.KeyMsg{Type: tea.KeyEsc})
+	if next.(searchSelectModel).outcome != searchSelectSearchAgain {
+		t.Fatal("esc with no filter should go back to the keyword")
 	}
 }

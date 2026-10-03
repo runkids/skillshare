@@ -1,7 +1,7 @@
 package main
 
 import (
-	"fmt"
+	"io"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/list"
@@ -21,9 +21,9 @@ import (
 type searchSelectOutcome int
 
 const (
-	searchSelectNone        searchSelectOutcome = iota // esc / cancel
-	searchSelectInstall                                // enter with selection
-	searchSelectSearchAgain                            // s key
+	searchSelectNone        searchSelectOutcome = iota // q / cancel
+	searchSelectInstall                                // enter
+	searchSelectSearchAgain                            // esc: back to the keyword
 )
 
 // searchSelectResult holds the TUI result: selected items and whether to search again.
@@ -33,7 +33,6 @@ type searchSelectResult struct {
 }
 
 // searchSelectItem is a list item for the search multi-select TUI.
-// Title() returns plain text — no inline ANSI — so bubbles filter highlighting works correctly.
 type searchSelectItem struct {
 	idx      int
 	result   search.SearchResult
@@ -41,35 +40,16 @@ type searchSelectItem struct {
 	selected bool
 }
 
-func (i searchSelectItem) Title() string {
-	check := "[ ]"
-	if i.selected {
-		check = "[x]"
-	}
-	title := check + " " + i.result.Name
+// meta is what the row shows at the right: the audit risk for an index,
+// the stars for GitHub.
+func (i searchSelectItem) meta() string {
 	if i.isHub {
-		badge := theme.FormatRiskBadge(i.result.RiskLabel)
-		if badge != "" {
-			title += badge
+		if i.result.RiskLabel == "" {
+			return ""
 		}
-	} else {
-		stars := search.FormatStars(i.result.Stars)
-		title += " ★ " + stars
+		return theme.RiskLabelStyle(i.result.RiskLabel).Render(i.result.RiskLabel)
 	}
-	return title
-}
-
-func (i searchSelectItem) Description() string {
-	var parts []string
-	parts = append(parts, i.result.Source)
-	if len(i.result.Tags) > 0 {
-		tags := make([]string, len(i.result.Tags))
-		for j, tag := range i.result.Tags {
-			tags[j] = "#" + tag
-		}
-		parts = append(parts, strings.Join(tags, " "))
-	}
-	return strings.Join(parts, "  ")
+	return theme.Dim().Render("★ " + search.FormatStars(i.result.Stars))
 }
 
 func (i searchSelectItem) FilterValue() string {
@@ -86,17 +66,39 @@ func (i searchSelectItem) FilterValue() string {
 	return strings.Join(parts, " ")
 }
 
+// searchDelegate renders "○ name" with the stars or risk at the right.
+type searchDelegate struct{}
+
+func (searchDelegate) Height() int                             { return 1 }
+func (searchDelegate) Spacing() int                            { return 0 }
+func (searchDelegate) Update(_ tea.Msg, _ *list.Model) tea.Cmd { return nil }
+
+func (searchDelegate) Render(w io.Writer, m list.Model, index int, li list.Item) {
+	item, ok := li.(searchSelectItem)
+	if !ok {
+		return
+	}
+	mark := theme.Dim().Render("○")
+	if item.selected {
+		mark = theme.Accent().Render("◉")
+	}
+	renderPrefixRow(w, alignRow(mark+" "+item.result.Name, item.meta(), m.Width()-rowIndent), m.Width(), index == m.Index())
+}
+
 // searchSelectModel is the bubbletea model for search multi-select.
 type searchSelectModel struct {
-	list      list.Model
-	results   []search.SearchResult
-	isHub     bool
-	selected  map[int]bool
-	selCount  int
-	total     int
-	outcome   searchSelectOutcome
-	quitting  bool
-	termWidth int
+	list                  list.Model
+	results               []search.SearchResult
+	query                 string
+	isHub                 bool
+	selected              map[int]bool
+	selCount              int
+	total                 int
+	outcome               searchSelectOutcome
+	quitting              bool
+	termWidth, termHeight int
+	detailScroll          int
+	showKeys              bool
 
 	// Application-level filter (matches list_tui pattern)
 	allItems    []searchSelectItem
@@ -106,7 +108,7 @@ type searchSelectModel struct {
 	matchCount  int
 }
 
-func newSearchSelectModel(results []search.SearchResult, isHub bool) searchSelectModel {
+func newSearchSelectModel(results []search.SearchResult, query string, isHub bool) searchSelectModel {
 	sel := make(map[int]bool, len(results))
 	items := makeSearchSelectItems(results, isHub, sel)
 
@@ -116,31 +118,26 @@ func newSearchSelectModel(results []search.SearchResult, isHub bool) searchSelec
 		allItems[i] = item.(searchSelectItem)
 	}
 
-	l := list.New(items, newPrefixDelegate(true), 0, 0)
-	l.Title = searchSelectTitle(0, len(results))
-	l.Styles.Title = theme.Title()
-	l.SetShowStatusBar(false)    // custom status line
+	l := list.New(items, searchDelegate{}, 0, 0)
+	l.SetShowTitle(false)
+	l.SetShowStatusBar(false)    // the title line has the counts
 	l.SetFilteringEnabled(false) // application-level filter
 	l.SetShowHelp(false)
-	l.SetShowPagination(false) // page info in custom status line
+	l.SetShowPagination(false)
 
-	// Filter text input
-	fi := newTUIFilterInput("")
-
-	return searchSelectModel{
+	m := searchSelectModel{
 		list:        l,
 		results:     results,
+		query:       query,
 		isHub:       isHub,
 		selected:    sel,
 		total:       len(results),
 		allItems:    allItems,
 		matchCount:  len(allItems),
-		filterInput: fi,
+		filterInput: newTUIFilterInput("type to match a name, description or tag"),
 	}
-}
-
-func searchSelectTitle(n, total int) string {
-	return fmt.Sprintf("Select skills to install (%d/%d selected)", n, total)
+	m.resize(120, 30)
+	return m
 }
 
 func makeSearchSelectItems(results []search.SearchResult, isHub bool, selected map[int]bool) []list.Item {
@@ -156,13 +153,23 @@ func makeSearchSelectItems(results []search.SearchResult, isHub bool, selected m
 	return items
 }
 
+// resize sizes the list for the terminal.
+func (m *searchSelectModel) resize(width, height int) {
+	m.termWidth, m.termHeight = width, height
+	bodyHeight := max(height-frameChrome, 6)
+	if width < tuiMinSplitWidth {
+		m.list.SetSize(width, max(bodyHeight/2, 4))
+		return
+	}
+	m.list.SetSize(listPanelWidth(width), bodyHeight)
+}
+
 func (m searchSelectModel) Init() tea.Cmd { return nil }
 
 func (m searchSelectModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
-		m.termWidth = msg.Width
-		m.list.SetSize(msg.Width, msg.Height-13)
+		m.resize(msg.Width, msg.Height)
 		return m, nil
 
 	case tea.KeyMsg:
@@ -188,7 +195,7 @@ func (m searchSelectModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.refreshItems()
 			return m, nil
 
-		case "a": // toggle all visible
+		case "a": // toggle all
 			selectAll := m.selCount < m.total
 			for i := 0; i < m.total; i++ {
 				m.selected[i] = selectAll
@@ -201,34 +208,64 @@ func (m searchSelectModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.refreshItems()
 			return m, nil
 
-		case "enter": // confirm — install if any selected, else cancel
+		case "enter": // install the selection, or the row under the cursor
 			if m.selCount == 0 {
-				m.outcome = searchSelectNone
-			} else {
-				m.outcome = searchSelectInstall
+				item, ok := m.list.SelectedItem().(searchSelectItem)
+				if !ok {
+					return m, nil
+				}
+				m.selected[item.idx] = true
+				m.selCount = 1
 			}
+			m.outcome = searchSelectInstall
 			m.quitting = true
 			return m, tea.Quit
 
-		case "s": // search again
-			m.outcome = searchSelectSearchAgain
-			m.quitting = true
-			return m, tea.Quit
+		case "?":
+			m.showKeys = !m.showKeys
+			return m, nil
 
 		case "/":
 			m.filtering = true
 			m.filterInput.Focus()
 			return m, textinput.Blink
 
-		case "q", "ctrl+c", "esc":
+		case "ctrl+d":
+			m.detailScroll += 5
+			return m, nil
+
+		case "ctrl+u":
+			m.detailScroll = max(m.detailScroll-5, 0)
+			return m, nil
+
+		case "esc":
+			switch {
+			case m.showKeys:
+				m.showKeys = false
+			case m.filterText != "":
+				m.filterText = ""
+				m.filterInput.SetValue("")
+				m.applySearchFilter()
+			default:
+				m.outcome = searchSelectSearchAgain
+				m.quitting = true
+				return m, tea.Quit
+			}
+			return m, nil
+
+		case "q", "ctrl+c":
 			m.outcome = searchSelectNone
 			m.quitting = true
 			return m, tea.Quit
 		}
 	}
 
+	prev := m.list.Index()
 	var cmd tea.Cmd
 	m.list, cmd = m.list.Update(msg)
+	if m.list.Index() != prev {
+		m.detailScroll = 0
+	}
 	return m, cmd
 }
 
@@ -251,7 +288,6 @@ func (m *searchSelectModel) refreshItems() {
 	if cursor < len(m.list.Items()) {
 		m.list.Select(cursor)
 	}
-	m.list.Title = searchSelectTitle(m.selCount, m.total)
 }
 
 // applySearchFilter does a case-insensitive substring match over allItems,
@@ -259,21 +295,9 @@ func (m *searchSelectModel) refreshItems() {
 func (m *searchSelectModel) applySearchFilter() {
 	term := strings.ToLower(m.filterText)
 
-	if term == "" {
-		items := make([]list.Item, len(m.allItems))
-		for i := range m.allItems {
-			m.allItems[i].selected = m.selected[m.allItems[i].idx]
-			items[i] = m.allItems[i]
-		}
-		m.matchCount = len(m.allItems)
-		m.list.SetItems(items)
-		m.list.ResetSelected()
-		return
-	}
-
 	var matched []list.Item
 	for _, item := range m.allItems {
-		if strings.Contains(strings.ToLower(item.FilterValue()), term) {
+		if term == "" || strings.Contains(strings.ToLower(item.FilterValue()), term) {
 			item.selected = m.selected[item.idx]
 			matched = append(matched, item)
 		}
@@ -281,107 +305,139 @@ func (m *searchSelectModel) applySearchFilter() {
 	m.matchCount = len(matched)
 	m.list.SetItems(matched)
 	m.list.ResetSelected()
+	m.detailScroll = 0
 }
 
 func (m searchSelectModel) View() string {
 	if m.quitting {
 		return ""
 	}
-
-	var b strings.Builder
-	b.WriteString(m.list.View())
-	b.WriteString("\n\n")
-
-	// Filter bar (always visible)
-	b.WriteString(m.renderSearchFilterBar())
-
-	// Detail panel for selected item
-	if item, ok := m.list.SelectedItem().(searchSelectItem); ok {
-		b.WriteString(m.renderSearchDetailPanel(item.result))
+	bodyHeight := max(m.termHeight-frameChrome, 6)
+	title := m.renderTitleLine()
+	if m.termWidth < tuiMinSplitWidth {
+		detailHeight := max(bodyHeight-m.list.Height()-1, 4)
+		detail := lipgloss.NewStyle().Height(detailHeight).MaxHeight(detailHeight).PaddingLeft(1).
+			Render(m.renderRight(m.termWidth-2, detailHeight))
+		return title + "\n\n" + m.list.View() + "\n\n" + detail + "\n" + m.renderBottom()
 	}
-
-	help := "↑↓ navigate  ←→ page  space toggle  a all  enter install  s search again  / filter  esc cancel"
-	b.WriteString(theme.Dim().MarginLeft(2).Render(help))
-	b.WriteString("\n")
-
-	return b.String()
+	leftWidth := listPanelWidth(m.termWidth)
+	rightWidth := m.termWidth - leftWidth
+	return title + "\n\n" +
+		renderFrameSplit(m.list.View(), m.renderRight(rightWidth-2, bodyHeight), leftWidth, rightWidth, bodyHeight) + "\n" +
+		m.renderBottom()
 }
 
-// renderSearchFilterBar renders the status line for the search TUI.
-func (m searchSelectModel) renderSearchFilterBar() string {
-	return renderTUIFilterBar(
-		m.filterInput.View(), m.filtering, m.filterText,
-		m.matchCount, len(m.allItems), 0,
-		"skills", renderPageInfoFromPaginator(m.list.Paginator),
-	)
+// renderTitleLine renders the keyword, where it searched, and the counts.
+func (m searchSelectModel) renderTitleLine() string {
+	var facts []string
+	if m.query != "" {
+		facts = append(facts, `"`+m.query+`"`)
+	}
+	where := "GitHub"
+	if m.isHub {
+		where = "index"
+	}
+	count := countNoun(m.total, "result")
+	if m.filterText != "" {
+		count = formatNumber(m.matchCount) + " of " + count
+	}
+	facts = append(facts, where, count)
+	if m.selCount > 0 {
+		facts = append(facts, theme.Accent().Render(formatNumber(m.selCount)+" selected"))
+	}
+	return renderFrameTitle(m.termWidth, "search", facts, nil)
+}
+
+// renderRight renders the selected result, or the key list while ? is on.
+func (m searchSelectModel) renderRight(width, height int) string {
+	if m.showKeys {
+		return renderKeysPanel(searchKeyGroups)
+	}
+	item, ok := m.list.SelectedItem().(searchSelectItem)
+	if !ok {
+		return ""
+	}
+	detail, _ := wrapAndScroll(m.renderSearchDetailPanel(item.result), width, m.detailScroll, height)
+	return detail
+}
+
+// renderBottom renders the key line; the filter input takes it over in place.
+func (m searchSelectModel) renderBottom() string {
+	var line string
+	switch {
+	case m.filtering:
+		line = renderFilterLine(m.termWidth, m.filterInput.View(), m.matchCount)
+	case m.showKeys:
+		line = renderKeyLine(m.termWidth, []keyHint{{"?/esc", "close"}}, "")
+	default:
+		back := keyHint{"esc", "new search"}
+		if m.filterText != "" {
+			back = keyHint{"esc", "clear filter"}
+		}
+		install := keyHint{"enter", "install"}
+		if m.selCount > 0 {
+			install.desc = "install " + formatNumber(m.selCount)
+		}
+		hints := []keyHint{{"↑↓", "move"}, {"space", "select"}, install, {"/", "filter"}, back, {"?", "keys"}}
+		line = renderKeyLine(m.termWidth, hints, framePosition(m.list.Index()+1, m.matchCount))
+	}
+	return "\n" + line
+}
+
+// searchKeyGroups lists every key for the ? panel.
+var searchKeyGroups = []keyGroup{
+	{"Move", []keyHint{
+		{"↑↓", "move"},
+		{"←→", "page"},
+		{"/", "filter the results"},
+		{"ctrl+d/u", "scroll the details"},
+		{"esc", "clear the filter, then search again"},
+		{"q", "quit"},
+	}},
+	{"Install", []keyHint{
+		{"space", "select"},
+		{"a", "select all, or none"},
+		{"enter", "install the selection, or the row under the cursor"},
+	}},
 }
 
 // renderSearchDetailPanel renders the detail section for the selected search result.
 func (m searchSelectModel) renderSearchDetailPanel(r search.SearchResult) string {
 	var b strings.Builder
-	b.WriteString(theme.Dim().Render("  ─────────────────────────────────────────"))
-	b.WriteString("\n")
-
 	row := func(label, value string) {
-		b.WriteString("  ")
-		b.WriteString(theme.Dim().Width(14).Render(label))
-		b.WriteString(lipgloss.NewStyle().Render(value))
+		b.WriteString(theme.Dim().Width(8).Render(label))
+		b.WriteString(value)
 		b.WriteString("\n")
 	}
 
-	// Description — word-wrapped
+	b.WriteString(theme.Primary().Bold(true).Render(r.Name))
+	b.WriteString("\n\n")
 	if r.Description != "" {
-		const labelOffset = 16
-		maxWidth := m.termWidth - labelOffset
-		if maxWidth < 40 {
-			maxWidth = 40
-		}
-		lines := wordWrapLines(r.Description, maxWidth)
-		const maxDescLines = 3
-		truncated := len(lines) > maxDescLines
-		if truncated {
-			lines = lines[:maxDescLines]
-			lines[maxDescLines-1] += "..."
-		}
-		row("Description:", lines[0])
-		indent := strings.Repeat(" ", labelOffset)
-		for _, line := range lines[1:] {
-			b.WriteString(indent)
-			b.WriteString(lipgloss.NewStyle().Render(line))
-			b.WriteString("\n")
-		}
-		b.WriteString("\n")
+		b.WriteString(r.Description)
+		b.WriteString("\n\n")
 	}
 
-	// Source
-	row("Source:", r.Source)
-
-	// Stars (non-hub)
+	row("Source", shortenPath(r.Source))
 	if !m.isHub {
-		row("Stars:", search.FormatStars(r.Stars))
+		row("Stars", search.FormatStars(r.Stars))
 	}
-
-	// Risk (hub)
 	if m.isHub && r.RiskLabel != "" {
-		row("Risk:", theme.RiskLabelStyle(r.RiskLabel).Render(r.RiskLabel))
+		row("Risk", theme.RiskLabelStyle(r.RiskLabel).Render(r.RiskLabel))
 	}
-
-	// Tags
 	if len(r.Tags) > 0 {
 		tags := make([]string, len(r.Tags))
 		for i, tag := range r.Tags {
 			tags[i] = "#" + tag
 		}
-		row("Tags:", theme.Accent().Render(strings.Join(tags, "  ")))
+		row("Tags", theme.Accent().Render(strings.Join(tags, "  ")))
 	}
-
 	return b.String()
 }
 
 // runSearchSelectTUI starts the search multi-select TUI.
 // Returns (searchSelectResult, error).
-func runSearchSelectTUI(results []search.SearchResult, isHub bool) (searchSelectResult, error) {
-	model := newSearchSelectModel(results, isHub)
+func runSearchSelectTUI(results []search.SearchResult, query string, isHub bool) (searchSelectResult, error) {
+	model := newSearchSelectModel(results, query, isHub)
 	p := tea.NewProgram(model, tea.WithAltScreen())
 	finalModel, err := p.Run()
 	if err != nil {

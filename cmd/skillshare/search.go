@@ -252,7 +252,7 @@ func doSearch(query string, limit int, listOnly bool, indexURL string, mode runM
 	}
 
 	// Interactive mode: show selector
-	return promptInstallFromSearch(results, isHub, mode, cwd)
+	return promptInstallFromSearch(results, query, isHub, mode, cwd)
 }
 
 func promptSearchQuery(isHub bool) (string, bool) {
@@ -335,8 +335,8 @@ func printSearchResults(results []search.SearchResult, isHub bool) {
 	}
 }
 
-func promptInstallFromSearch(results []search.SearchResult, isHub bool, mode runMode, cwd string) (bool, error) {
-	res, err := runSearchSelectTUI(results, isHub)
+func promptInstallFromSearch(results []search.SearchResult, query string, isHub bool, mode runMode, cwd string) (bool, error) {
+	res, err := runSearchSelectTUI(results, query, isHub)
 	if err != nil {
 		return false, err
 	}

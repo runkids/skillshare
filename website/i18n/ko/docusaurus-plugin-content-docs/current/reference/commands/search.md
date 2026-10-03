@@ -50,40 +50,9 @@ Sort by stars (most popular first)
 Interactive selector → Install selected skill
 ```
 
-## 미리보기
+## 설치할 항목 고르기
 
-```text
-$ skillshare search runkids
-
-  Select skills to install (0/20 selected)
-
-▌ [ ] skillshare ★ 2.7k
-▌ runkids/skillshare/skills/skillshare
-▌ [ ] skill-sharing ★ 654
-▌ majiayu000/claude-skill-registry/skills/skills/skill-sharing
-▌ [ ] skillshare-changelog ★ 2.7k
-▌ runkids/skillshare/.skillshare/skills/skillshare-changelog
-  …
-
-  20 skills · Page 1 of 2
-  ─────────────────────────────────────────
-  Description:  Manage skills, agents, extras, plugins, and MCP connection settings with the Skillshare CLI.
-                Use when the user asks to configure or run Skillshare, install or sync resources across AI
-                tools, import MCP settings, manage targets, audit skills, recover backups, or troubleshoot...
-
-  Source:       runkids/skillshare/skills/skillshare
-  Stars:        2.7k
-  ↑↓ navigate  ←→ page  space toggle  a all  enter install  s search again  / filter  esc cancel
-```
-
-**Controls:**
-- `↑` `↓` — 결과 탐색, `←` `→` — 페이지 이동
-- `Space` — skill 선택 또는 해제, `a` — 표시된 항목 모두 선택
-- `Enter` — 선택한 skill 설치 (선택한 항목이 없으면 취소)
-- `/` — 결과 필터링, `s` — 다시 검색
-- `Esc` 또는 `Ctrl+C` — 취소 및 종료
-
-설치 후, 다시 검색하거나 `Enter`를 눌러 종료할 수 있습니다.
+터미널에서는 결과가 선택기로 열리고, 커서가 있는 skill의 상세 정보가 목록 옆에 표시됩니다. 여러 개를 선택해 함께 설치할 수 있으며, 아무것도 선택하지 않으면 `Enter`가 커서가 있는 skill을 설치합니다. 키는 화면 하단에 표시됩니다.
 
 ## 옵션
 
@@ -308,7 +277,7 @@ skillshare search database
 
 ### 연속 검색
 
-대화형 모드에서는 skill을 설치(또는 취소)한 후 다시 시작하지 않고도 재검색할 수 있습니다.
+결과가 없거나 선택기에서 `Esc`를 누르면 새 키워드를 묻습니다.
 
 ```
 ? Search again (or press Enter to quit): react
