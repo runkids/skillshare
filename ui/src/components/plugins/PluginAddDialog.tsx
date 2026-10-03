@@ -39,6 +39,15 @@ function npmFromPi(value: string) {
   try { return `npm:${decodeURIComponent(page[1])}`; } catch { return value; }
 }
 
+// The name recorded when none is typed, as the server derives it (npmSpec): the package name
+// without its version or @scope.
+function npmDefaultName(source: string) {
+  const spec = source.slice('npm:'.length).trim();
+  const at = spec.indexOf('@', 1);
+  const name = at > 0 ? spec.slice(0, at) : spec;
+  return name.slice(name.lastIndexOf('/') + 1);
+}
+
 export default function PluginAddDialog({ onClose, onPreview, initialSource = '', initialName = '', initialTargets = [], definitions = [], bound, recorded }: Props) {
   const t = useT();
   const { isProjectMode } = useAppContext();
@@ -117,7 +126,7 @@ export default function PluginAddDialog({ onClose, onPreview, initialSource = ''
         ) : npmSource ? (
           <>
             <p className="ss-note warn">{t('plugins.npmNotice')}</p>
-            <Input label={t('resources.col.name')} value={packageName} disabled={busy} onChange={(e) => setPackageName(e.target.value)} />
+            <Input label={t('resources.col.name')} value={packageName} placeholder={npmDefaultName(npmSource)} disabled={busy} onChange={(e) => setPackageName(e.target.value)} />
             <div className="ss-fld">
               <span className="text-[13px] font-semibold">{t('plugins.targets')}</span>
               {npmTargets.length === 0 ? <p className="text-[13px] text-ink-3">{t('plugins.npmNoTargets')}</p> : (

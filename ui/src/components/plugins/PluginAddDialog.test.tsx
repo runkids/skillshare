@@ -74,6 +74,7 @@ describe('PluginAddDialog targets', () => {
     render(<PluginAddDialog initialSource="npm:@team/tools" definitions={piDefinitions} onClose={() => {}} onPreview={preview} />);
     fireEvent.click(screen.getByRole('button', { name: 'plugins.npmContinue' }));
     expect(screen.getByText('plugins.npmNotice')).toBeInTheDocument();
+    expect(screen.getByLabelText('resources.col.name')).toHaveAttribute('placeholder', 'tools');
     expect(screen.queryByRole('checkbox', { name: 'OpenCode' })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('checkbox', { name: 'Pi' }));
     fireEvent.click(screen.getByRole('button', { name: 'plugins.preview' }));
