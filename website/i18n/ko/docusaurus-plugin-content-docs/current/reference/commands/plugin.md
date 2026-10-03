@@ -116,6 +116,8 @@ skillshare plugin import demo@market --from claude-work
 
 ### Pi와 OpenCode
 
+Pi는 같은 패키지의 첫 번째 전역 등록과 마지막 프로젝트 등록을 우선합니다. 앞선 전역 소스나 뒤의 프로젝트 소스의 identity를 확인할 수 없으면 Skillshare는 어느 등록이 우선하는지 증명할 수 없으므로, 덮어써질 수 있는 항목(상속하는 프로젝트 delta 포함)을 Unknown／읽기 전용으로 유지합니다. URL의 query를 제거해 identity를 추측하지 않습니다. 이 불확실성의 영향을 받지 않는, 확인된 항목은 계속 편집할 수 있습니다.
+
 Pi는 `pi install` / `pi remove`를 사용합니다. inventory는 extension 코드를 로드하지 않고 문서화된 패키지 설정을 읽습니다. `PI_CODING_AGENT_DIR`을 준수합니다. Pi project trust는 Pi에서 직접 설정해야 합니다. Skillshare는 대신 `--approve`를 전달하지 않습니다.
 
 #### 패키지의 extension 선택

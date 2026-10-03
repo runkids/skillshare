@@ -135,6 +135,8 @@ marketplace 安装。Skillshare 拒绝覆盖非自身拥有的文件夹、symlin
 
 ### Pi 与 OpenCode
 
+Pi 保留同一包的第一条全局注册与最后一条 project 注册。如果更早的全局来源或更晚的 project 来源无法确认 identity，Skillshare 无法证明哪条注册具有优先权，因此可能被覆盖的条目（包括继承的 project delta）会保持 Unknown／只读，不会通过删除 URL query 来猜测 identity。不受这项不确定性影响、已确认的条目仍可编辑。
+
 Pi 使用 `pi install` / `pi remove`；清单读取有文档记录的 package 设置，
 而不加载 extension 代码。`PI_CODING_AGENT_DIR` 会被遵循。Pi 的 project trust 必须在 Pi 中建立；
 Skillshare 不会替你传递 `--approve`。

@@ -147,6 +147,12 @@ manifest name keeps the identity stable across Git checkouts and snapshots.
 
 ### Pi and OpenCode
 
+Pi keeps the first global registration and the last project registration of a
+package. If an earlier global or later project source has an unresolved identity,
+Skillshare cannot prove which entry owns a package and keeps potentially shadowed
+entries Unknown/read-only, including inherited project deltas. It does not guess
+identity by stripping URL queries. Proven entries outside that ambiguity remain editable.
+
 Pi uses `pi install` / `pi remove`; inventory reads documented package settings
 without loading extension code. `PI_CODING_AGENT_DIR` is respected. Pi project
 trust must be established in Pi; Skillshare does not pass `--approve` for you.

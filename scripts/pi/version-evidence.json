@@ -11,12 +11,12 @@
         {
           "name": "contract/core",
           "exit": 0,
-          "summary": "# 27 scenarios, 72 assertions passed"
+          "summary": "# 28 scenarios, 87 assertions passed"
         },
         {
           "name": "contract/bundle",
           "exit": 0,
-          "summary": "# 27 scenarios, 72 assertions passed"
+          "summary": "# 28 scenarios, 87 assertions passed"
         },
         {
           "name": "native-lock",
@@ -36,12 +36,12 @@
         {
           "name": "contract/core",
           "exit": 0,
-          "summary": "# 27 scenarios, 72 assertions passed"
+          "summary": "# 28 scenarios, 87 assertions passed"
         },
         {
           "name": "contract/bundle",
           "exit": 0,
-          "summary": "# 27 scenarios, 72 assertions passed"
+          "summary": "# 28 scenarios, 87 assertions passed"
         },
         {
           "name": "native-lock",

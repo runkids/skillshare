@@ -117,6 +117,8 @@ skillshare plugin import demo@market --from claude-work
 
 ### Pi と OpenCode
 
+Pi は同じパッケージの最初のグローバル登録と最後のプロジェクト登録を優先します。先行するグローバルソースや後続のプロジェクトソースの identity を確認できない場合、Skillshare はどの登録が優先されるかを証明できないため、上書きされる可能性のあるエントリ（継承するプロジェクト delta を含む）を Unknown／読み取り専用に保ちます。URL の query を削除して identity を推測することはありません。この不確実性の影響を受けない、確認済みのエントリは引き続き編集できます。
+
 Pi は `pi install` / `pi remove` を使用し、インベントリは拡張機能のコードをロードせずにドキュメント化された package 設定を読み取ります。`PI_CODING_AGENT_DIR` が尊重されます。Pi の project trust は Pi 側で確立する必要があり、Skillshare はあなたの代わりに `--approve` を渡しません。
 
 #### package の拡張機能を選ぶ

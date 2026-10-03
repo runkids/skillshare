@@ -508,6 +508,7 @@ func (s *Service) piGlobalState(ctx context.Context, target string) (*piTargetSt
 	st := &piTargetState{view: v, settings: settings, agentDir: agentDir, packages: map[int]*piPackage{}}
 	managed := s.piManaged(target)
 	seen := map[string]bool{}
+	unresolved := false
 	for _, e := range settings.entries {
 		pkg := PiExtensionPackage{Index: e.index, Source: redactSource(e.source), Form: "string", Scope: "global", Install: "unknown", Rules: nil, OtherKeys: e.otherKeys(), Rows: []PiExtensionRow{}}
 		if e.object {
@@ -520,7 +521,9 @@ func (s *Service) piGlobalState(ctx context.Context, target string) (*piTargetSt
 			pkg.Problem = e.problem
 			// Pi still reads the entry, so it is the one that counts for its package.
 			if !e.badSource {
-				seen[resolvePiSource(e.source, agentDir, "", "user").identity] = true
+				id := resolvePiSource(e.source, agentDir, "", "user").identity
+				seen[id] = true
+				unresolved = unresolved || id == ""
 			}
 			v.Packages = append(v.Packages, pkg)
 			continue
@@ -536,9 +539,13 @@ func (s *Service) piGlobalState(ctx context.Context, target string) (*piTargetSt
 		case p.src.identity != "" && seen[p.src.identity]:
 			// Pi keeps the first entry of a package and ignores the rest.
 			pkg.Problem = "duplicate"
+		case unresolved:
+			// An earlier unknown identity may be the first entry of this package.
+			pkg.Problem = "sourceUnknown"
 		case e.autoloadFalse:
 			pkg.Problem = "autoloadGlobal"
 		}
+		unresolved = unresolved || p.src.identity == ""
 		seen[p.src.identity] = true
 		pkg.ReadOnly = p.readOnly(e.object)
 		if pkg.Problem == "" || pkg.Problem == "notInstalled" && len(e.rules) > 0 {

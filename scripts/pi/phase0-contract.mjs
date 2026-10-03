@@ -198,6 +198,26 @@ try {
     assertions++;
   });
 
+  await scenario("query-bearing Git sources share identity and obey first-global/last-project precedence", async () => {
+    const agentDir = join(root, "query-identity", "agent");
+    mkdirSync(agentDir, { recursive: true });
+    const pm = new DefaultPackageManager({ cwd: join(root, "query-identity"), agentDir, settingsManager: SettingsManager.create(join(root, "query-identity"), agentDir) });
+    const clean = "https://github.com/acme/tools";
+    for (const query of [
+      `${clean}?token=dummy-token`,
+      "git:https://dummy-user:dummy-pass@github.com/acme/tools?token=dummy-token",
+      "git:github.com/acme/tools?token=dummy-token",
+    ]) {
+      eq(pm.getPackageIdentity(query, "user"), pm.getPackageIdentity(clean, "user"));
+      const global = (pkg) => ({ pkg, scope: "user" });
+      const project = (pkg) => ({ pkg, scope: "project" });
+      eq(pm.dedupePackages([global(query), global(clean)]), [global(query)]);
+      eq(pm.dedupePackages([global(clean), global(query)]), [global(clean)]);
+      eq(pm.dedupePackages([project(clean), project(query)]), [project(query)]);
+      eq(pm.dedupePackages([project(query), project(clean)]), [project(clean)]);
+    }
+  });
+
   await scenario("native write keeps other filters, [] and unknown keys", async () => {
     const entry = { source: src, extensions: ["-extensions/b.ts"], skills: [], prompts: ["!prompts/commit.md"], themes: [], "x-acme": { keep: true, nested: [1] } };
     const r = await run({ global: { "x-top": 1, packages: [entry] } });

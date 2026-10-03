@@ -91,6 +91,7 @@ func (s *Service) piProjectState(ctx context.Context, target string) (*piProject
 	}
 	globals := map[string]*globalPkg{}
 	globalOrder := []*globalPkg{}
+	unresolvedGlobal := false
 	for _, e := range global.entries {
 		if e.badSource {
 			continue // the view is read-only
@@ -103,6 +104,8 @@ func (s *Service) piProjectState(ctx context.Context, target string) (*piProject
 		switch {
 		case e.problem != "":
 			g.problem = e.problem
+		case unresolvedGlobal:
+			g.problem = "sourceUnknown"
 		case e.autoloadFalse:
 			g.problem = "autoloadGlobal"
 		case p.problem == "":
@@ -113,12 +116,16 @@ func (s *Service) piProjectState(ctx context.Context, target string) (*piProject
 			globals[p.src.identity] = g
 		}
 		globalOrder = append(globalOrder, g)
+		unresolvedGlobal = unresolvedGlobal || p.src.identity == ""
 	}
 	lastProject := map[string]int{}
+	lastUnresolved := -1
 	for _, e := range project.entries {
 		if e.problem == "" {
 			if id := resolvePiSource(e.source, agentDir, projectDir, "project").identity; id != "" {
 				lastProject[id] = e.index
+			} else {
+				lastUnresolved = e.index
 			}
 		}
 	}
@@ -140,6 +147,12 @@ func (s *Service) piProjectState(ctx context.Context, target string) (*piProject
 		pkg.Identity = redactSource(id)
 		if id != "" && lastProject[id] != e.index {
 			pkg.Problem = "duplicate"
+			v.Packages = append(v.Packages, pkg)
+			continue
+		}
+		if id != "" && e.index < lastUnresolved {
+			// A later unknown identity may supersede this project entry.
+			pkg.Problem = "sourceUnknown"
 			v.Packages = append(v.Packages, pkg)
 			continue
 		}

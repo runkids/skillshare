@@ -137,6 +137,70 @@ func TestPiProjectOverrideOfAGlobalPackage(t *testing.T) {
 
 // An unsupported source has no proven identity, but stays visible and read-only
 // without exposing credentials or becoming an inheritance/editing baseline.
+func TestPiUnresolvedRegistrationMakesOwnershipUnknown(t *testing.T) {
+	for _, scope := range []string{"global", "inherited", "project", "delta"} {
+		for _, unresolvedFirst := range []bool{false, true} {
+			t.Run(fmt.Sprintf("scope=%s/unresolvedFirst=%t", scope, unresolvedFirst), func(t *testing.T) {
+				f, root := projectFixture(t)
+				if scope == "global" {
+					f.svc.ProjectRoot = ""
+				}
+				clean := "https://github.com/acme/tools"
+				query := clean + "?token=dummy-token"
+				writeTree(t, filepath.Join(f.agentDir, "git", "github.com", "acme", "tools"), map[string]string{"package.json": `{"name":"tools"}`, "extensions/a.ts": "throw new Error('never loaded')"})
+				entries := []any{clean, query}
+				index := 0
+				if unresolvedFirst {
+					entries, index = []any{query, clean}, 1
+				}
+				packageScope := "global"
+				if scope == "project" {
+					packageScope = "project"
+					f.global(map[string]any{"packages": []any{}})
+					f.writeJSON(f.projectFile(root), map[string]any{"packages": entries})
+					writeTree(t, filepath.Join(root, ".pi", "git", "github.com", "acme", "tools"), map[string]string{"package.json": `{"name":"tools"}`, "extensions/a.ts": "throw new Error('never loaded')"})
+				} else {
+					f.global(map[string]any{"packages": entries})
+					if scope == "delta" {
+						packageScope, index = "project", 0
+						f.writeJSON(f.projectFile(root), map[string]any{"packages": []any{map[string]any{"source": clean, "autoload": false, "extensions": []string{"-extensions/a.ts"}}}})
+					}
+				}
+				same := unchanged(t, f.settingsPath(), f.projectFile(root), filepath.Join(f.agentDir, "trust.json"))
+				v := f.view("pi")
+				p := findPackage(t, v, packageScope, clean)
+				changes := []PiExtensionChange{{Scope: packageScope, Index: index, Source: clean, Path: "extensions/a.ts", Action: "exclude"}}
+				if scope == "delta" {
+					changes[0].Action = "select"
+				}
+				blocked := unresolvedFirst != (scope == "project")
+				if blocked {
+					if p.Problem != "sourceUnknown" || len(p.Rows) != 0 {
+						t.Fatalf("later ownership was assumed: %+v", p)
+					}
+					if _, err := f.svc.PreviewPiExtensions(context.Background(), "pi", changes); err == nil {
+						t.Fatal("previewed a possibly ignored entry")
+					}
+					if _, err := f.svc.ApplyPiExtensions(context.Background(), "pi", changes, v.Revision); err == nil {
+						t.Fatal("wrote a possibly ignored entry")
+					}
+				} else {
+					if p.Problem != "" || len(p.Rows) != 1 || !p.Rows[0].Editable {
+						t.Fatalf("proven first entry became read-only: %+v", p)
+					}
+					if _, err := f.svc.PreviewPiExtensions(context.Background(), "pi", changes); err != nil {
+						t.Fatal(err)
+					}
+				}
+				same()
+				if records, _ := filepath.Glob(filepath.Join(f.svc.StateDir, "pi-extensions", "backups", "*.json")); len(records) != 0 {
+					t.Fatalf("refused apply/preview made records: %v", records)
+				}
+			})
+		}
+	}
+}
+
 func TestPiProjectKeepsAnonymousGlobalPackages(t *testing.T) {
 	for sourceIndex, source := range []string{
 		"git:example.com/acme/tools?token=dummy-token",
@@ -202,18 +266,18 @@ func TestPiProjectAnonymousSourcesDoNotShareDuplicateIdentity(t *testing.T) {
 		"git:one.example.com/acme/tools?token=dummy-one",
 		map[string]any{"source": f.pkg, "extensions": []string{"-extensions/a.ts"}},
 		map[string]any{"source": "git:https://dummy-user:dummy-pass@two.example.com/acme/tools?token=dummy-two", "extensions": []string{"-extensions/a.ts"}, "opaque": "dummy-private"},
-		map[string]any{"source": f.pkg, "extensions": []string{"-extensions/b.ts"}},
 		"https://three.example.com/acme/tools.git?token=dummy-three",
+		map[string]any{"source": f.pkg, "extensions": []string{"-extensions/b.ts"}},
 	}})
 	same := unchanged(t, f.settingsPath(), f.projectFile(root), filepath.Join(f.agentDir, "trust.json"))
 	st, err := f.svc.piProjectState(context.Background(), "pi")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(st.view.Packages) != 6 || len(st.targets) != 1 || st.targets[piTargetKey("project", 3)] == nil {
+	if len(st.view.Packages) != 6 || len(st.targets) != 1 || st.targets[piTargetKey("project", 4)] == nil {
 		t.Fatalf("packages=%+v, targets=%v", st.view.Packages, st.targets)
 	}
-	for _, index := range []int{0, 2, 4} {
+	for _, index := range []int{0, 2, 3} {
 		p := st.view.Packages[index]
 		if p.Scope != "project" || p.Index != index || p.Identity != "" || p.Problem != "sourceUnknown" || p.Kind != "unknown" || len(p.Rows) != 0 {
 			t.Fatalf("anonymous project %d: %+v", index, p)
@@ -226,14 +290,14 @@ func TestPiProjectAnonymousSourcesDoNotShareDuplicateIdentity(t *testing.T) {
 			t.Fatal("anonymous project became writable")
 		}
 	}
-	if st.view.Packages[1].Problem != "duplicate" || st.view.Packages[3].Problem != "" || st.view.Packages[3].Shape != "replaces" {
+	if st.view.Packages[1].Problem != "duplicate" || st.view.Packages[4].Problem != "" || st.view.Packages[4].Shape != "replaces" {
 		t.Fatalf("known project precedence: %+v", st.view.Packages)
 	}
 	shown, err := json.Marshal(st.view)
 	if err != nil || strings.Contains(string(shown), "dummy-") {
 		t.Fatalf("credential/opaque value reached the view: %s, %v", shown, err)
 	}
-	if _, err := f.svc.PreviewPiExtensions(context.Background(), "pi", []PiExtensionChange{{Scope: "project", Index: 3, Source: f.pkg, Path: "extensions/b.ts", Action: "select"}}); err != nil {
+	if _, err := f.svc.PreviewPiExtensions(context.Background(), "pi", []PiExtensionChange{{Scope: "project", Index: 4, Source: f.pkg, Path: "extensions/b.ts", Action: "select"}}); err != nil {
 		t.Fatalf("last known project no longer editable: %v", err)
 	}
 	same()

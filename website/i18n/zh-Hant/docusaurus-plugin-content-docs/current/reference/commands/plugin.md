@@ -135,6 +135,8 @@ marketplace registry：
 
 ### Pi and OpenCode
 
+Pi 保留同一套件的第一筆全域登錄與最後一筆 project 登錄。若較早的全域來源或較晚的 project 來源無法確認 identity，Skillshare 無法證明哪筆登錄有優先權，因此可能被覆蓋的項目（包括繼承的 project delta）會保持 Unknown／唯讀，不會藉由刪除 URL query 來猜測 identity。不受這項不確定性影響、已確認的項目仍可編輯。
+
 Pi 使用 `pi install` / `pi remove`；清單讀取的是文件記載的套件設定，不會載入 extension 程式碼。
 會遵循 `PI_CODING_AGENT_DIR`。Pi 的專案信任必須在 Pi 中自行建立；Skillshare 不會替你傳遞
 `--approve`。
