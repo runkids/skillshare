@@ -68,6 +68,15 @@ describe('parseSkillsAddCommand', () => {
     expect(parseSkillsAddCommand('npx skills add C:\\Users\\me\\skills')).toEqual({ source: 'C:\\Users\\me\\skills', skills: [] });
   });
 
+  it('keeps a trailing backslash in a quoted Windows path', () => {
+    expect(parseSkillsAddCommand('npx skills add "C:\\Users\\me\\my skill\\"')).toEqual({ source: 'C:\\Users\\me\\my skill\\', skills: [] });
+  });
+
+  it('skips values of other options before the source', () => {
+    expect(parseSkillsAddCommand(`npx skills add --metadata '{"origin":"docs"}' --subagent a b -g owner/repo`))
+      .toEqual({ source: 'owner/repo', skills: [] });
+  });
+
   it('ignores values that are not a skills add command', () => {
     expect(parseSkillsAddCommand('owner/repo')).toBeNull();
   });

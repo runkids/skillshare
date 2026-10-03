@@ -7,15 +7,16 @@ export type SkillsAddCommand = {
 
 const RUNNERS = [['npx'], ['pnpx'], ['bunx'], ['pnpm', 'dlx'], ['yarn', 'dlx'], ['bun', 'x']];
 
-// Shell-style words: quotes group, and a backslash escapes only whitespace, a quote or a backslash,
-// so `my\ skill` stays one word while Windows paths such as C:\Users keep their backslashes.
+// Shell-style words: quotes group, and outside quotes a backslash escapes only whitespace, a quote
+// or a backslash, so `my\ skill` stays one word while Windows paths such as C:\Users and
+// "C:\my skill\" keep their backslashes.
 function tokens(value: string): string[] {
   const words: string[] = [];
   let word: string | null = null;
   let quote: string | null = null;
   for (let i = 0; i < value.length; i++) {
     const c = value[i];
-    if (c === '\\' && quote !== "'" && /[\s"'\\]/.test(value[i + 1] ?? '')) {
+    if (c === '\\' && !quote && /[\s"'\\]/.test(value[i + 1] ?? '')) {
       word = (word ?? '') + value[++i];
     } else if (quote) {
       if (c === quote) quote = null;
@@ -34,8 +35,8 @@ function tokens(value: string): string[] {
 }
 
 /**
- * Parses `npx skills add <source> --skill a --skill=b -s c d`. Install-location flags
- * (-g, -a, -y, --copy, --all) are dropped: targets decide those in skillshare.
+ * Parses `npx skills add <source> --skill a --skill=b -s c d`. Other options
+ * (-g, -a, -y, --copy, --all, --metadata, ...) are dropped: targets decide those in skillshare.
  * Returns null when the value is not such a command.
  */
 export function parseSkillsAddCommand(value: string): SkillsAddCommand | null {
@@ -49,17 +50,27 @@ export function parseSkillsAddCommand(value: string): SkillsAddCommand | null {
 
   let source = '';
   const skills: string[] = [];
-  // Which variadic flag the following bare words belong to.
-  let list: 'skill' | 'agent' | null = null;
+  // Option values follow upstream's parseAddOptions: --skill, --agent and --subagent take every
+  // bare word up to the next flag, and --metadata takes exactly one value.
+  let list: 'skill' | 'skip' | null = null;
+  let skipNext = false;
   for (const arg of args.slice(2)) {
-    if (arg.startsWith('-')) {
+    if (skipNext) {
+      skipNext = false;
+    } else if (arg.startsWith('-')) {
       const [flag, inline] = arg.split(/=(.*)/s);
-      list = flag === '--skill' || flag === '-s' ? 'skill' : flag === '--agent' || flag === '-a' ? 'agent' : null;
-      if (inline !== undefined && list === 'skill') skills.push(inline);
-      if (inline !== undefined) list = null;
+      list = null;
+      if (flag === '--skill' || flag === '-s') {
+        if (inline === undefined) list = 'skill';
+        else skills.push(inline);
+      } else if (inline === undefined && ['-a', '--agent', '--subagent'].includes(flag)) {
+        list = 'skip';
+      } else if (inline === undefined && flag === '--metadata') {
+        skipNext = true;
+      }
     } else if (list === 'skill') {
       skills.push(arg);
-    } else if (list !== 'agent' && !source) {
+    } else if (list !== 'skip' && !source) {
       source = arg;
     }
   }
