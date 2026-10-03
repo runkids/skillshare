@@ -167,6 +167,52 @@ func TestCheckUnpushedConfigHistory_StaleRemoteRefAfterRewrite(t *testing.T) {
 	}
 }
 
+func TestCheckUnpushedConfigHistory_ChecksEveryPushURL(t *testing.T) {
+	dir := t.TempDir()
+	fetch := filepath.Join(t.TempDir(), "fetch.git")
+	mirror := filepath.Join(t.TempDir(), "mirror.git")
+	gitExec(t, dir, "init", "--bare", fetch)
+	gitExec(t, dir, "init", "--bare", mirror)
+	gitExec(t, dir, "init", "-b", "main")
+	gitExec(t, dir, "remote", "add", "origin", fetch)
+	if err := os.WriteFile(filepath.Join(dir, "config.yaml"), []byte("leaked\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	gitExec(t, dir, "add", "config.yaml")
+	gitExec(t, dir, "commit", "-m", "leak config")
+	gitExec(t, dir, "push", "-u", "origin", "main")
+	// The fetch URL already has the leak, but push also goes to an empty mirror.
+	gitExec(t, dir, "remote", "set-url", "--add", "--push", "origin", fetch)
+	gitExec(t, dir, "remote", "set-url", "--add", "--push", "origin", mirror)
+
+	var historyErr *UnpushedConfigHistoryError
+	if err := CheckUnpushedConfigHistory(dir); !errors.As(err, &historyErr) || len(historyErr.Commits) != 1 {
+		t.Fatalf("push URL without the commit = %v; want the leaked commit refused", err)
+	}
+}
+
+func TestCheckUnpushedConfigHistory_IgnoresReplaceRefs(t *testing.T) {
+	dir := t.TempDir()
+	gitExec(t, dir, "init", "-b", "main")
+	gitExec(t, dir, "commit", "--allow-empty", "-m", "initial")
+	if err := os.WriteFile(filepath.Join(dir, "config.yaml"), []byte("leaked\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	gitExec(t, dir, "add", "config.yaml")
+	gitExec(t, dir, "commit", "-m", "leak config")
+	gitExec(t, dir, "branch", "clean", "HEAD^")
+	gitExec(t, dir, "checkout", "clean")
+	gitExec(t, dir, "commit", "--allow-empty", "-m", "sanitized")
+	gitExec(t, dir, "checkout", "main")
+	// git log would read the sanitized replacement; push still sends the original.
+	gitExec(t, dir, "replace", "main", "clean")
+
+	var historyErr *UnpushedConfigHistoryError
+	if err := CheckUnpushedConfigHistory(dir); !errors.As(err, &historyErr) || len(historyErr.Commits) != 1 {
+		t.Fatalf("replaced commit = %v; want the original leaked commit refused", err)
+	}
+}
+
 func TestPushArgs_IgnoresPushDefaults(t *testing.T) {
 	for _, mode := range []string{"current", "matching"} {
 		t.Run(mode, func(t *testing.T) {

@@ -249,7 +249,8 @@ func CheckUnpushedConfigHistory(dir string) error {
 		return fmt.Errorf("check config.yaml history: %w", err)
 	}
 	remote := PushRemote(dir)
-	args := []string{"log", "--format=%x00%h", "--full-history", "--root",
+	// Replacement refs change what log reads but not what push uploads.
+	args := []string{"--no-replace-objects", "log", "--format=%x00%h", "--full-history", "--root",
 		"-c", "--diff-filter=AMT", "--no-renames", "--no-show-signature", "--raw"}
 	cmd := exec.Command("git")
 	if live, ok := liveRemoteCommits(dir, remote); ok {
@@ -282,7 +283,7 @@ func CheckUnpushedConfigHistory(dir string) error {
 	}
 	if len(commits) > 0 {
 		histErr := &UnpushedConfigHistoryError{Commits: commits, HasUpstream: HasUpstream(dir)}
-		parent := exec.Command("git", "rev-parse", "--verify", "--quiet", "--short", commits[len(commits)-1]+"^")
+		parent := exec.Command("git", "--no-replace-objects", "rev-parse", "--verify", "--quiet", "--short", commits[len(commits)-1]+"^")
 		parent.Dir = dir
 		if out, err := parent.Output(); err == nil {
 			histErr.Base = strings.TrimSpace(string(out))
@@ -292,24 +293,47 @@ func CheckUnpushedConfigHistory(dir string) error {
 	return nil
 }
 
-// liveRemoteCommits returns the objects remote's refs point to now, limited to
-// those this clone has (anything else cannot be in HEAD's history). Local
+// liveRemoteCommits returns the objects that the refs of every push URL of
+// remote point to now (git push sends to all of them, so an object counts only
+// if each has it), limited to those this clone has. Local
 // remote-tracking refs can be stale after the remote was rewritten to drop a
 // leaked config.yaml, so they are only the fallback (ok=false) when the remote
 // cannot be reached, in which case the push itself fails too.
 func liveRemoteCommits(dir, remote string) (objects []string, ok bool) {
-	lsRemote := exec.Command("git", "ls-remote", remote)
-	lsRemote.Dir = dir
-	lsRemote.Env = append(os.Environ(), AuthEnvForRepo(dir)...)
-	out, err := lsRemote.Output()
+	getURLs := exec.Command("git", "remote", "get-url", "--push", "--all", remote)
+	getURLs.Dir = dir
+	out, err := getURLs.Output()
 	if err != nil {
 		return nil, false
 	}
 	var ids []string
-	for _, line := range strings.Split(string(out), "\n") {
-		if id, _, found := strings.Cut(line, "\t"); found {
-			ids = append(ids, id)
+	for i, url := range strings.Split(strings.TrimSpace(string(out)), "\n") {
+		lsRemote := exec.Command("git", "ls-remote", url)
+		lsRemote.Dir = dir
+		lsRemote.Env = append(os.Environ(), AuthEnvForRepo(dir)...)
+		refs, err := lsRemote.Output()
+		if err != nil {
+			return nil, false
 		}
+		have := map[string]bool{}
+		for _, line := range strings.Split(string(refs), "\n") {
+			if id, _, found := strings.Cut(line, "\t"); found {
+				have[id] = true
+			}
+		}
+		if i == 0 {
+			for id := range have {
+				ids = append(ids, id)
+			}
+			continue
+		}
+		kept := ids[:0]
+		for _, id := range ids {
+			if have[id] {
+				kept = append(kept, id)
+			}
+		}
+		ids = kept
 	}
 	if len(ids) == 0 {
 		return nil, true
