@@ -33,7 +33,7 @@ func cmdTrash(args []string) error {
 	// Extract kind filter (e.g. "skillshare trash agents list" or "--all").
 	kind, rest := parseKindArgWithAll(rest)
 
-	if len(rest) == 0 {
+	if len(rest) == 0 || wantsHelp(rest) {
 		printTrashHelp()
 		return nil
 	}

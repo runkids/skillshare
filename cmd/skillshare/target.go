@@ -29,6 +29,10 @@ func cmdTarget(args []string) error {
 	if len(rest) < 1 {
 		return fmt.Errorf("usage: skillshare target <add|remove|list|name> [options]")
 	}
+	if wantsHelp(rest) {
+		printTargetHelp()
+		return nil
+	}
 
 	cwd, err := os.Getwd()
 	if err != nil {

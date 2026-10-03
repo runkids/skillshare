@@ -88,3 +88,35 @@ func TestHelp_PluginCommandsAndSyncBoundary(t *testing.T) {
 	result.AssertOutputContains(t, "Plugins are not included in --all")
 	result.AssertOutputContains(t, "skillshare sync plugins")
 }
+
+func TestSubcommandHelp_ShowsUsageInsteadOfRunning(t *testing.T) {
+	for _, args := range [][]string{
+		{"target", "add", "--help"},
+		{"target", "remove", "--help"},
+		{"target", "list", "--help"},
+		{"trash", "list", "--help"},
+		{"trash", "empty", "--help"},
+		{"hub", "list", "--help"},
+		{"hub", "remove", "-h"},
+	} {
+		t.Run(args[0]+" "+args[1], func(t *testing.T) {
+			sb := testutil.NewSandbox(t)
+			defer sb.Cleanup()
+			sb.WriteConfig("source: " + sb.SourcePath + "\ntargets: {}\n")
+
+			result := sb.RunCLI(args...)
+			result.AssertSuccess(t)
+			result.AssertOutputContains(t, "Usage  skillshare "+args[0])
+		})
+	}
+}
+
+func TestTUIToggleHelp_DoesNotChangeSetting(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	sb.WriteConfig("source: " + sb.SourcePath + "\ntargets: {}\ntui: false\n")
+
+	sb.RunCLI("tui", "on", "--help").AssertSuccess(t)
+
+	sb.RunCLI("tui").AssertRowContains(t, "TUI", "off")
+}

@@ -37,6 +37,10 @@ func cmdHub(args []string) error {
 		applyModeLabel(mode)
 		return cmdHubAdd(rest, mode, cwd)
 	case "list", "ls":
+		if wantsHelp(subargs) {
+			printHubHelp()
+			return nil
+		}
 		mode, _, err := parseModeArgs(subargs)
 		if err != nil {
 			return err
@@ -49,6 +53,10 @@ func cmdHub(args []string) error {
 		applyModeLabel(mode)
 		return cmdHubList(mode, cwd)
 	case "remove", "rm":
+		if wantsHelp(subargs) {
+			printHubHelp()
+			return nil
+		}
 		mode, rest, err := parseModeArgs(subargs)
 		if err != nil {
 			return err
