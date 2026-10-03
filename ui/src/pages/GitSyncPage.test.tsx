@@ -113,6 +113,7 @@ describe('updates from another computer', () => {
     vi.mocked(api.push).mockResolvedValue({ success: true, message: 'pushed successfully' });
     mount();
     fireEvent.click(await screen.findByRole('button', { name: 'Sync both ways' }));
+    fireEvent.click(within(await screen.findByRole('dialog', { name: 'Sync both ways?' })).getByRole('button', { name: 'Sync both ways' }));
     await waitFor(() => expect(api.push).toHaveBeenCalledWith({}));
     const order = [api.gitCommit, api.pull, api.push].map((fn) => vi.mocked(fn).mock.invocationCallOrder[0]);
     expect(order).toEqual([...order].sort((a, b) => a - b));
@@ -123,9 +124,24 @@ describe('updates from another computer', () => {
     vi.mocked(api.pull).mockRejectedValueOnce(new ApiError(409, 'conflict', { code: 'pull_conflict', params: conflicts }));
     mount();
     fireEvent.click(await screen.findByRole('button', { name: 'Sync both ways' }));
+    fireEvent.click(within(await screen.findByRole('dialog', { name: 'Sync both ways?' })).getByRole('button', { name: 'Sync both ways' }));
     expect(await screen.findByRole('dialog', { name: 'Resolve pull conflicts' })).toBeTruthy();
     expect(api.gitCommit).not.toHaveBeenCalled();
     expect(api.push).not.toHaveBeenCalled();
+  });
+
+  it('asks before syncing both ways, explaining each step, and does nothing when cancelled', async () => {
+    vi.mocked(api.gitStatus).mockResolvedValue({ ...status, hasRemote: true, remoteURL: 'git@github.com:me/skills.git', behind: 3 });
+    mount();
+    fireEvent.click(await screen.findByRole('button', { name: 'Sync both ways' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Sync both ways?' });
+    for (const step of ['Commit 2 changed files', 'Pull and merge 3 remote commits', 'Sync targets for the skills scope', 'Push the merged result to me/skills']) {
+      expect(within(dialog).getByText(step)).toBeTruthy();
+    }
+    expect(within(dialog).getByText(/nothing is pushed/)).toBeTruthy();
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    for (const fn of [api.gitCommit, api.pull, api.push]) expect(fn).not.toHaveBeenCalled();
   });
 
   it('previews syncing both ways without changing anything', async () => {

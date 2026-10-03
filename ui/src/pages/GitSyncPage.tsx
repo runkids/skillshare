@@ -60,6 +60,7 @@ export default function GitSyncPage() {
   const [conflict, setConflict] = useState<GitPullConflict | null>(null);
   const [reviewConflicts, setReviewConflicts] = useState(false);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
+  const [confirmSyncBoth, setConfirmSyncBoth] = useState(false);
   const [note, setNote] = useState('');
   const [pulled, setPulled] = useState<PullResponse | null>(null);
   const [setup, setSetup] = useState<Setup | null>(null);
@@ -205,7 +206,7 @@ export default function GitSyncPage() {
             {pullLabel}
           </Button>
           {status.hasRemote && (
-            <Button variant="secondary" onClick={syncBoth} loading={busy === 'syncBoth'} disabled={writing || nested.length > 0}>
+            <Button variant="secondary" onClick={() => dryRun ? void syncBoth() : setConfirmSyncBoth(true)} loading={busy === 'syncBoth'} disabled={writing || nested.length > 0}>
               {busy !== 'syncBoth' && <ArrowDownUp size={16} />}
               {t('gitSync.actions.syncBoth')}
             </Button>
@@ -410,6 +411,26 @@ export default function GitSyncPage() {
         loading={busy === 'discard'}
         onCancel={() => setConfirmDiscard(false)}
         onConfirm={() => { setConfirmDiscard(false); void discard(); }}
+      />
+
+      <ConfirmDialog
+        open={confirmSyncBoth}
+        title={t('gitSync.syncBoth.title')}
+        message={
+          <div className="flex flex-col gap-3">
+            <span>{t('gitSync.syncBoth.intro')}</span>
+            <ol className="flex list-decimal flex-col gap-1 pl-5">
+              <li>{status.isDirty ? t(files.length === 1 ? 'gitSync.syncBoth.step.commit.one' : 'gitSync.syncBoth.step.commit.other', { count: files.length }) : t('gitSync.syncBoth.step.commitNone')}</li>
+              <li>{status.behind > 0 ? t(status.behind === 1 ? 'gitSync.syncBoth.step.pull.one' : 'gitSync.syncBoth.step.pull.other', { count: status.behind }) : t('gitSync.syncBoth.step.pullCheck')}</li>
+              <li>{t('gitSync.syncBoth.step.sync', { scope })}</li>
+              <li>{t('gitSync.syncBoth.step.push', { remote: platform ? remote!.ownerRepo : status.remoteURL })}</li>
+            </ol>
+            <span className="text-[13px] text-ink-3">{t('gitSync.syncBoth.conflict')}</span>
+          </div>
+        }
+        confirmText={t('gitSync.actions.syncBoth')}
+        onCancel={() => setConfirmSyncBoth(false)}
+        onConfirm={() => { setConfirmSyncBoth(false); void syncBoth(); }}
       />
 
       <ConfirmDialog
