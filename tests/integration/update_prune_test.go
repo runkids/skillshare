@@ -215,7 +215,7 @@ func TestUpdate_Prune_StandaloneSkill(t *testing.T) {
 	// With --prune: should remove
 	result2 := sb.RunCLI("update", "--all", "--prune", "--skip-audit")
 	result2.AssertSuccess(t)
-	result2.AssertAnyOutputContains(t, "Pruned")
+	result2.AssertAnyOutputContains(t, "pruned")
 
 	if _, err := os.Stat(filepath.Join(sb.SourcePath, "my-skill")); !os.IsNotExist(err) {
 		t.Error("standalone stale skill should have been pruned")

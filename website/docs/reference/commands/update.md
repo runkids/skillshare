@@ -23,24 +23,11 @@ skillshare update agents --all       # Update all tracked/updatable agents
 
 ```text
 $ skillshare update pdf
+✓ Update    pdf · from github.com/anthropics/skills/skills/pdf · 1.9s
+✓ Audit     no findings
 
-Updating
-─────────────────────────────────────────
-▸  Source  ~/.config/skillshare/skills
-│
-└─ Items  0 tracked repo(s), 1 skill(s)
-│
-├─ Skill  pdf
-│
-├─ Source  github.com/anthropics/skills/skills/pdf
-│
-└─ ✓ SUCCESS  Updated successfully (1.9s)
-
-- Audit Findings
-→ risk: CLEAN
-
-- Next Steps
-→ Run 'skillshare sync' to distribute changes
+Next
+  skillshare sync  link the changes into your targets
 ```
 
 ## What Happens
@@ -238,19 +225,14 @@ This updates:
 ### Example Output
 
 ```
-Updating 2 tracked repos + 3 skills
+$ skillshare update --all
 
-[1/5] ✓ _team-skills       Already up to date
-[2/5] ✓ _personal-repo     3 commits, 2 files
-[3/5] ✓ my-skill           Reinstalled from source
-→ risk: LOW (12/100)
-[4/5] ! other-skill        has uncommitted changes (use --force)
-[5/5] ✓ another-skill      Reinstalled from source
+✓ Audit     3 skills, no findings
 
-── Summary ─────────────────────────────
-  Total:    5
-  Updated:  4
-  Skipped:  1
+✓ Updated 4, 1 skipped · 6.2s
+
+Next
+  skillshare sync  link the changes into your targets
 ```
 
 ### Missing Tracked Repositories
@@ -258,9 +240,9 @@ Updating 2 tracked repos + 3 skills
 If `.metadata.json` declares a tracked repo (`tracked: true`) but its clone directory is absent on disk — common on a fresh machine, since clone directories live in the managed `.gitignore` block — `update --all` no longer skips it silently. It reports each missing repo and points you to rehydrate:
 
 ```
-! 1 tracked repo(s) declared in metadata but missing on disk:
-  ! _team-skills         clone directory absent
-→ Run 'skillshare install' to rehydrate tracked repositories
+! 1 tracked repo declared in metadata but missing on disk
+! _team-skills  clone directory absent
+  Run 'skillshare install' to rehydrate tracked repositories
 ```
 
 This applies to both global and project (`-p`) mode. To recreate the clones from metadata, run no-argument [install](/docs/reference/commands/install) (see [Rehydrating After a Fresh Clone](/docs/understand/tracked-repositories#rehydrating-after-a-fresh-clone)).
@@ -270,9 +252,9 @@ This applies to both global and project (`-p`) mode. To recreate the clones from
 When an upstream repository renames or removes a skill, `update` detects it as **stale** and warns you:
 
 ```
-⚠ 1 skill(s) no longer found in upstream repository:
-  ⚠ frontend/old-skill — stale (deleted upstream)
-ℹ Run with --prune to remove stale skills
+Deleted upstream
+! frontend/old-skill  stale — no longer in the upstream repository
+  Run with --prune to remove them
 ```
 
 Add `--prune` to automatically remove stale skills (moved to trash, not permanently deleted):
@@ -360,25 +342,19 @@ skillshare update --all --diff
 For **tracked repositories**, the diff uses `git diff` and includes line-level statistics:
 
 ```
-┌─ Files Changed ─────────────────────────────┐
-│                                             │
-│  ~ SKILL.md (+12 -3)                        │
-│  + scripts/deploy.sh (+45 -0)               │
-│  - old-helper.sh (+0 -22)                   │
-│  ~ utils/format.md (+5 -2)                  │
-│                                             │
-└─────────────────────────────────────────────┘
+Files changed
+  ~ SKILL.md (+12 -3)
+  + scripts/deploy.sh (+45 -0)
+  - old-helper.sh (+0 -22)
+  ~ utils/format.md (+5 -2)
 ```
 
 For **regular skills** (installed from a remote source), the diff compares file hashes before and after the reinstall:
 
 ```
-┌─ Files Changed ─────────────────────────────┐
-│                                             │
-│  ~ SKILL.md                                 │
-│  + new-helper.sh                            │
-│                                             │
-└─────────────────────────────────────────────┘
+Files changed
+  ~ SKILL.md
+  + new-helper.sh
 ```
 
 Markers: `+` added, `-` deleted, `~` modified. Shows up to 20 files; additional files are summarized as "... and N more file(s)".

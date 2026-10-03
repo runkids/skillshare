@@ -123,15 +123,8 @@ func cmdUpdateAgents(args []string, cfg *config.Config, start time.Time) error {
 		if opts.jsonOutput {
 			return jsonWriteResult(finalItems, nil)
 		}
-		ui.Success("All agents are up to date")
+		ui.Done(ui.MarkOK, "All agents are up to date", time.Since(start))
 		return nil
-	}
-
-	if !opts.jsonOutput {
-		ui.Header("Updating agents")
-		if opts.dryRun {
-			ui.Warning("Dry run mode - no changes will be made")
-		}
 	}
 
 	// Update agents, batching by repo URL to share git clones.
@@ -141,10 +134,8 @@ func cmdUpdateAgents(args []string, cfg *config.Config, start time.Time) error {
 		updatedItems []agentUpdateItem
 	)
 	if opts.dryRun {
-		for _, r := range updatable {
-			if !opts.jsonOutput {
-				ui.Info("  %s: update available from %s", r.Name, r.Source)
-			}
+		if !opts.jsonOutput {
+			printAgentUpdatesAvailable(updatable)
 		}
 	} else {
 		updatedItems, updated, failed = batchUpdateAgents(agentsDir, updatable, opts, "", !opts.jsonOutput, parseOptsFromConfig(cfg))
@@ -152,8 +143,7 @@ func cmdUpdateAgents(args []string, cfg *config.Config, start time.Time) error {
 	}
 
 	if !opts.jsonOutput && !opts.dryRun {
-		fmt.Println()
-		ui.Info("Agent update: %d updated, %d failed", updated, failed)
+		printAgentUpdateDone(updated, failed, start)
 	}
 
 	logUpdateAgentOp(config.ConfigPath(), len(updatable), updated, failed, opts.dryRun, start)
@@ -250,7 +240,7 @@ func batchUpdateAgents(agentsDir string, agents []check.AgentCheckResult, opts *
 					Error:   err.Error(),
 				})
 				if verbose {
-					ui.Error("  %s: %v", m.Name, err)
+					ui.StepFail(m.Name, err.Error())
 				}
 				failed++
 			}
@@ -275,7 +265,7 @@ func batchUpdateAgents(agentsDir string, agents []check.AgentCheckResult, opts *
 				Message: "tracked repo updated",
 			})
 			if verbose {
-				ui.Success("  %s: updated", m.Name)
+				ui.StepDone(m.Name, "updated")
 			}
 			updated++
 		}
@@ -306,7 +296,7 @@ func batchUpdateAgents(agentsDir string, agents []check.AgentCheckResult, opts *
 					Error:   "discovery failed: " + discErr.Error(),
 				})
 				if verbose {
-					ui.Error("  %s: discovery failed: %v", m.Name, discErr)
+					ui.StepFail(m.Name, "discovery failed: "+discErr.Error())
 				}
 				failed++
 			}
@@ -324,7 +314,7 @@ func batchUpdateAgents(agentsDir string, agents []check.AgentCheckResult, opts *
 			target := agentIndex[agentName]
 			if target == nil {
 				if verbose {
-					ui.Error("  %s: not found in repository", m.Name)
+					ui.StepFail(m.Name, "not found in repository")
 				}
 				items = append(items, agentUpdateItem{
 					Name:    m.Name,
@@ -361,7 +351,7 @@ func batchUpdateAgents(agentsDir string, agents []check.AgentCheckResult, opts *
 					Error:   err.Error(),
 				})
 				if verbose {
-					ui.Error("  %s: %v", m.Name, err)
+					ui.StepFail(m.Name, err.Error())
 				}
 				failed++
 			} else {
@@ -372,7 +362,7 @@ func batchUpdateAgents(agentsDir string, agents []check.AgentCheckResult, opts *
 					Message: "updated",
 				})
 				if verbose {
-					ui.Success("  %s: updated", m.Name)
+					ui.StepDone(m.Name, "updated")
 				}
 				updated++
 			}
@@ -392,7 +382,7 @@ func batchUpdateAgents(agentsDir string, agents []check.AgentCheckResult, opts *
 				Error:   err.Error(),
 			})
 			if verbose {
-				ui.Error("  %s: %v", r.Name, err)
+				ui.StepFail(r.Name, err.Error())
 			}
 			failed++
 		} else {
@@ -403,7 +393,7 @@ func batchUpdateAgents(agentsDir string, agents []check.AgentCheckResult, opts *
 				Message: "updated",
 			})
 			if verbose {
-				ui.Success("  %s: updated", r.Name)
+				ui.StepDone(r.Name, "updated")
 			}
 			updated++
 		}
@@ -812,19 +802,15 @@ func cmdUpdateAgentsProject(args []string, projectRoot string, start time.Time) 
 		if opts.jsonOutput {
 			return jsonWriteResult(finalItems, nil)
 		}
-		ui.Success("All project agents are up to date")
+		ui.Done(ui.MarkOK, "All project agents are up to date", time.Since(start))
 		return nil
 	}
 
-	ui.Header("Updating project agents")
 	if opts.dryRun {
-		ui.Warning("Dry run mode")
-		for _, r := range updatable {
-			ui.Info("  %s: update available from %s", r.Name, r.Source)
-		}
 		if opts.jsonOutput {
 			return jsonWriteResult(finalItems, nil)
 		}
+		printAgentUpdatesAvailable(updatable)
 		return nil
 	}
 
@@ -841,8 +827,39 @@ func cmdUpdateAgentsProject(args []string, projectRoot string, start time.Time) 
 		return jsonWriteResult(finalItems, cmdErr)
 	}
 
+	printAgentUpdateDone(updated, failed, start)
 	if failed > 0 {
 		return fmt.Errorf("%d agent(s) failed to update", failed)
 	}
 	return nil
+}
+
+// printAgentUpdatesAvailable lists what a dry run would update.
+func printAgentUpdatesAvailable(updatable []check.AgentCheckResult) {
+	names := make([]string, len(updatable))
+	for i, r := range updatable {
+		names[i] = r.Name
+	}
+	width := ui.RowWidth(names...)
+	for _, r := range updatable {
+		ui.Row(ui.MarkNone, r.Name, "update available from "+sourceLabel(r.Source), width)
+	}
+	fmt.Println()
+	ui.DryRun()
+}
+
+// printAgentUpdateDone closes an agent update with what changed.
+func printAgentUpdateDone(updated, failed int, start time.Time) {
+	mark, text := ui.MarkOK, "Updated "+plural(updated, "agent")
+	if failed > 0 {
+		mark, text = ui.MarkWarn, fmt.Sprintf("%s, %d failed", text, failed)
+		if updated == 0 {
+			mark = ui.MarkFail
+		}
+	}
+	fmt.Println()
+	ui.Done(mark, text, time.Since(start))
+	if updated > 0 {
+		ui.Next("skillshare sync agents", "link the changes into your targets")
+	}
 }

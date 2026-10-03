@@ -201,9 +201,6 @@ func cmdUpdate(args []string) error {
 		return updateOutputJSON(result, opts.dryRun, start, cmdErr)
 	}
 
-	ui.Header(ui.WithModeLabel("Updating"))
-	ui.StepStart("Source", cfg.EffectiveSkillsSource())
-
 	// --- Resolve targets ---
 	var targets []updateTarget
 	seen := map[string]bool{}
@@ -343,17 +340,6 @@ func cmdUpdate(args []string) error {
 		}
 	}
 
-	// Count repos vs skills for summary
-	var repoCount, skillCount int
-	for _, t := range targets {
-		if t.isRepo {
-			repoCount++
-		} else {
-			skillCount++
-		}
-	}
-	ui.StepEnd("Items", fmt.Sprintf("%d tracked repo(s), %d skill(s)", repoCount, skillCount))
-
 	for _, w := range resolveWarnings {
 		ui.Warning("%s", w)
 	}
@@ -410,10 +396,6 @@ func cmdUpdate(args []string) error {
 	}
 
 	// Multiple targets: batch path
-	if opts.dryRun {
-		ui.Warning("[dry-run] No changes will be made")
-	}
-
 	batchResult, batchErr := executeBatchUpdate(uc, targets)
 
 	// Build oplog names

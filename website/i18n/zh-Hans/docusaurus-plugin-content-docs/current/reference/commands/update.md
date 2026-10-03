@@ -23,24 +23,11 @@ skillshare update agents --all       # Update all tracked/updatable agents
 
 ```text
 $ skillshare update pdf
+✓ Update    pdf · from github.com/anthropics/skills/skills/pdf · 1.9s
+✓ Audit     no findings
 
-Updating
-─────────────────────────────────────────
-▸  Source  ~/.config/skillshare/skills
-│
-└─ Items  0 tracked repo(s), 1 skill(s)
-│
-├─ Skill  pdf
-│
-├─ Source  github.com/anthropics/skills/skills/pdf
-│
-└─ ✓ SUCCESS  Updated successfully (1.9s)
-
-- Audit Findings
-→ risk: CLEAN
-
-- Next Steps
-→ Run 'skillshare sync' to distribute changes
+Next
+  skillshare sync  link the changes into your targets
 ```
 
 ## 会发生什么
@@ -238,19 +225,14 @@ skillshare update --all
 ### 示例输出
 
 ```
-Updating 2 tracked repos + 3 skills
+$ skillshare update --all
 
-[1/5] ✓ _team-skills       Already up to date
-[2/5] ✓ _personal-repo     3 commits, 2 files
-[3/5] ✓ my-skill           Reinstalled from source
-→ risk: LOW (12/100)
-[4/5] ! other-skill        has uncommitted changes (use --force)
-[5/5] ✓ another-skill      Reinstalled from source
+✓ Audit     3 skills, no findings
 
-── Summary ─────────────────────────────
-  Total:    5
-  Updated:  4
-  Skipped:  1
+✓ Updated 4, 1 skipped · 6.2s
+
+Next
+  skillshare sync  link the changes into your targets
 ```
 
 ### 缺失的 Tracked Repositories
@@ -258,9 +240,9 @@ Updating 2 tracked repos + 3 skills
 如果 `.metadata.json` 声明了某个 tracked repo（`tracked: true`），但其克隆目录在磁盘上不存在——这在全新机器上很常见，因为克隆目录位于受管理的 `.gitignore` 区块内——`update --all` 不再对此静默跳过。它会报告每个缺失的 repo，并提示你恢复它：
 
 ```
-! 1 tracked repo(s) declared in metadata but missing on disk:
-  ! _team-skills         clone directory absent
-→ Run 'skillshare install' to rehydrate tracked repositories
+! 1 tracked repo declared in metadata but missing on disk
+! _team-skills  clone directory absent
+  Run 'skillshare install' to rehydrate tracked repositories
 ```
 
 这适用于全局模式和项目（`-p`）模式。要从 metadata 重新创建克隆，运行不带参数的 [install](/docs/reference/commands/install)（参见 [全新克隆后的恢复](/docs/understand/tracked-repositories#rehydrating-after-a-fresh-clone)）。
@@ -270,9 +252,9 @@ Updating 2 tracked repos + 3 skills
 当上游 repository 重命名或删除某个 skill 时，`update` 会将其检测为**陈旧（stale）**并向你发出警告：
 
 ```
-⚠ 1 skill(s) no longer found in upstream repository:
-  ⚠ frontend/old-skill — stale (deleted upstream)
-ℹ Run with --prune to remove stale skills
+Deleted upstream
+! frontend/old-skill  stale — no longer in the upstream repository
+  Run with --prune to remove them
 ```
 
 加上 `--prune` 可自动移除陈旧的 skills（移动到 trash，而不是永久删除）：
@@ -360,25 +342,19 @@ skillshare update --all --diff
 对于 **tracked repositories**，diff 使用 `git diff` 并包含行级统计：
 
 ```
-┌─ Files Changed ─────────────────────────────┐
-│                                             │
-│  ~ SKILL.md (+12 -3)                        │
-│  + scripts/deploy.sh (+45 -0)               │
-│  - old-helper.sh (+0 -22)                   │
-│  ~ utils/format.md (+5 -2)                  │
-│                                             │
-└─────────────────────────────────────────────┘
+Files changed
+  ~ SKILL.md (+12 -3)
+  + scripts/deploy.sh (+45 -0)
+  - old-helper.sh (+0 -22)
+  ~ utils/format.md (+5 -2)
 ```
 
 对于**普通 skills**（从远程来源安装），diff 会比较重新安装前后的文件哈希：
 
 ```
-┌─ Files Changed ─────────────────────────────┐
-│                                             │
-│  ~ SKILL.md                                 │
-│  + new-helper.sh                            │
-│                                             │
-└─────────────────────────────────────────────┘
+Files changed
+  ~ SKILL.md
+  + new-helper.sh
 ```
 
 标记：`+` 新增，`-` 删除，`~` 修改。最多显示 20 个文件；其余文件会汇总为 "... and N more file(s)"。

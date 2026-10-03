@@ -481,8 +481,8 @@ func (p *ProgressBar) SetHeader(header string) {
 	}
 }
 
-// Stop finishes the progress bar, restores the cursor, and moves to the next line.
-// The final bar state remains visible on screen. Safe for concurrent use.
+// Stop clears the progress bar and its phase header and restores the cursor;
+// the result that follows says what happened. Safe for concurrent use.
 func (p *ProgressBar) Stop() {
 	p.mu.Lock()
 	defer p.mu.Unlock()
@@ -491,11 +491,11 @@ func (p *ProgressBar) Stop() {
 	}
 	p.stopped = true
 	if p.tty {
-		// Flush any pending dirty state so the final frame is accurate.
-		if p.dirty {
-			p.renderNow()
+		fmt.Fprint(ProgressWriter, clearLine)
+		if p.hasHeader {
+			fmt.Fprint(ProgressWriter, "\x1b[1A"+clearLine)
 		}
-		fmt.Fprintf(ProgressWriter, "\n%s", showCursor)
+		fmt.Fprint(ProgressWriter, showCursor)
 	}
 }
 
@@ -599,16 +599,28 @@ func UpdateNotification(currentVersion, latestVersion, upgradeCmd string) {
 	fmt.Fprintln(os.Stderr, runLine)
 }
 
-// UpdateSummary prints an update summary line.
+// UpdateSummary prints the closing line of an update, leaving out zero counts.
 func UpdateSummary(stats UpdateStats) {
-	OperationSummary("Update", stats.Duration,
-		Metric{Label: "updated", Count: stats.Updated, HighlightColor: pterm.Green},
-		Metric{Label: "skipped", Count: stats.Skipped, HighlightColor: pterm.Yellow},
-		Metric{Label: "pruned", Count: stats.Pruned, HighlightColor: pterm.Yellow},
-	)
-	if stats.SecurityFailed > 0 {
-		Warning("Blocked: %d repo(s) by security audit", stats.SecurityFailed)
+	text := "Nothing to update"
+	if stats.Updated > 0 {
+		text = fmt.Sprintf("Updated %d", stats.Updated)
+	} else if stats.Skipped > 0 || stats.Pruned > 0 || stats.SecurityFailed > 0 {
+		text = "Nothing updated"
 	}
+	for _, m := range []struct {
+		n     int
+		label string
+	}{{stats.Skipped, "skipped"}, {stats.Pruned, "pruned"}, {stats.SecurityFailed, "blocked by security audit"}} {
+		if m.n > 0 {
+			text += fmt.Sprintf(", %d %s", m.n, m.label)
+		}
+	}
+	mark := MarkOK
+	if stats.SecurityFailed > 0 {
+		mark = MarkWarn
+	}
+	fmt.Println()
+	Done(mark, text, stats.Duration)
 }
 
 // UpdateStats holds statistics for update summary

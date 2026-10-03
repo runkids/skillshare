@@ -112,19 +112,16 @@ func auditGateAfterPull(sourceDir, repoPath, beforeHash string, skipAudit, force
 
 func updateTrackedRepo(uc *updateContext, repoName string) (updateResult, error) {
 	repoPath := filepath.Join(uc.sourcePath, repoName)
-	start := time.Now()
-
-	ui.StepContinue("Repo", repoName+" (tracked)")
-
 	startUpdate := time.Now()
+
 	// Check for uncommitted changes
-	spinner := ui.StartSpinner("Checking status...")
+	spinner := ui.StartSpinner("Checking " + repoName + "...")
 
 	isDirty, dirtyErr := git.IsDirty(repoPath)
 	if dirtyErr != nil && !uc.opts.force {
 		spinner.Stop()
 		statusErr := &gitStatusError{err: dirtyErr}
-		ui.StepResult("error", statusErr.Error(), 0)
+		printUpdateRow(ui.MarkFail, repoName, statusErr.Error(), 0)
 		return updateResult{skipped: 1}, statusErr
 	}
 	if isDirty {
@@ -132,17 +129,12 @@ func updateTrackedRepo(uc *updateContext, repoName string) (updateResult, error)
 		files, _ := git.GetDirtyFiles(repoPath)
 
 		if !uc.opts.force {
-			lines := []string{
-				"",
-				"Repository has uncommitted changes:",
-				"",
+			printUpdateRow(ui.MarkFail, repoName, "uncommitted changes", 0)
+			for _, f := range files {
+				ui.Note(f)
 			}
-			lines = append(lines, files...)
-			lines = append(lines, "", "Use --force to discard changes and update", "")
-
-			ui.WarningBox("Warning", lines...)
 			fmt.Println()
-			ui.ErrorMsg("Update aborted")
+			ui.Next("skillshare update "+repoName+" --force", "discard them and update")
 			return updateResult{skipped: 1}, fmt.Errorf("uncommitted changes in repository")
 		}
 
@@ -152,20 +144,22 @@ func updateTrackedRepo(uc *updateContext, repoName string) (updateResult, error)
 				return updateResult{skipped: 1}, fmt.Errorf("failed to discard changes: %w", err)
 			}
 		}
-		spinner = ui.StartSpinner("Fetching from origin...")
+		spinner = ui.StartSpinner("Fetching " + repoName + "...")
 	}
 
 	if uc.opts.dryRun {
 		spinner.Stop()
-		ui.Warning("[dry-run] Would run: git pull")
+		printUpdateRow(ui.MarkNone, repoName, "would run git pull", 0)
+		fmt.Println()
+		ui.DryRun()
 		return updateResult{skipped: 1}, nil
 	}
 
-	spinner.Update("   Fetching from origin...")
+	spinner.Update("Fetching " + repoName + "...")
 	var onProgress func(string)
 	if ui.IsTTY() {
 		onProgress = func(line string) {
-			spinner.Update("   " + line)
+			spinner.Update(line)
 		}
 	}
 
@@ -179,11 +173,11 @@ func updateTrackedRepo(uc *updateContext, repoName string) (updateResult, error)
 	}
 	if err != nil {
 		spinner.Stop()
-		msg := fmt.Sprintf("Failed: %v", err)
+		msg := fmt.Sprintf("git pull failed: %v", err)
 		if !uc.opts.force {
 			msg += " (try --force)"
 		}
-		ui.StepResult("error", msg, 0)
+		printUpdateRow(ui.MarkFail, repoName, msg, 0)
 		return updateResult{skipped: 1}, fmt.Errorf("git pull failed: %w", err)
 	}
 
@@ -192,40 +186,28 @@ func updateTrackedRepo(uc *updateContext, repoName string) (updateResult, error)
 		if err := refreshTrackedRootSkillMetadata(uc, repoName, repoPath); err != nil {
 			ui.Warning("Failed to refresh metadata for %s: %v", repoName, err)
 		}
-		ui.StepResult("success", "Already up to date", time.Since(startUpdate))
+		printUpdateRow(ui.MarkOK, repoName, "already up to date", time.Since(startUpdate))
 		return updateResult{skipped: 1}, nil
 	}
 
 	spinner.Stop()
-	ui.StepResult("success", fmt.Sprintf("%d commits, %d files updated", len(info.Commits), info.Stats.FilesChanged), time.Since(startUpdate))
-	fmt.Println()
-
-	// Show changes box
-	lines := []string{
-		"",
-		fmt.Sprintf("  Commits:  %d new", len(info.Commits)),
-		fmt.Sprintf("  Files:    %d changed (+%d / -%d)",
-			info.Stats.FilesChanged, info.Stats.Insertions, info.Stats.Deletions),
-		"",
-	}
+	printUpdateRow(ui.MarkOK, repoName, fmt.Sprintf("%s, %s changed (+%d −%d)",
+		plural(len(info.Commits), "commit"), plural(info.Stats.FilesChanged, "file"),
+		info.Stats.Insertions, info.Stats.Deletions), time.Since(startUpdate))
 
 	// Show up to 5 commits
-	maxCommits := 5
+	const maxCommits = 5
 	for i, c := range info.Commits {
 		if i >= maxCommits {
-			lines = append(lines, fmt.Sprintf("  ... and %d more", len(info.Commits)-maxCommits))
+			ui.Note(fmt.Sprintf("… and %d more", len(info.Commits)-maxCommits))
 			break
 		}
-		lines = append(lines, fmt.Sprintf("  %s  %s", c.Hash, truncateString(c.Message, 40)))
+		ui.Note(c.Hash + "  " + truncateString(c.Message, 60))
 	}
-	lines = append(lines, "")
-
-	ui.Box("Changes", lines...)
 
 	if uc.opts.diff {
 		renderDiffSummary(repoPath, info.BeforeHash, info.AfterHash)
 	}
-	fmt.Println()
 
 	// Post-pull audit gate
 	scanFn := uc.auditScanFn()
@@ -237,12 +219,7 @@ func updateTrackedRepo(uc *updateContext, repoName string) (updateResult, error)
 		ui.Warning("Failed to refresh metadata for %s: %v", repoName, err)
 	}
 
-	ui.SuccessMsg("Updated %s", repoName)
-	ui.StepResult("success", "Updated successfully", time.Since(start))
-	fmt.Println()
-	ui.SectionLabel("Next Steps")
-	ui.Info("Run 'skillshare sync' to distribute changes")
-
+	ui.Next("skillshare sync", "link the changes into your targets")
 	return updateResult{updated: 1}, nil
 }
 
@@ -259,11 +236,11 @@ func updateRegularSkill(uc *updateContext, skillName string) (updateResult, erro
 		return updateResult{skipped: 1}, fmt.Errorf("skill '%s' has no source metadata, cannot update", skillName)
 	}
 
-	ui.StepContinue("Skill", skillName)
-	ui.StepContinue("Source", meta.Source)
-
+	from := "from " + sourceLabel(meta.Source)
 	if uc.opts.dryRun {
-		ui.Warning("[dry-run] Would reinstall from: %s", meta.Source)
+		printUpdateRow(ui.MarkNone, skillName, "would reinstall "+from, 0)
+		fmt.Println()
+		ui.DryRun()
 		return updateResult{skipped: 1}, nil
 	}
 
@@ -282,12 +259,12 @@ func updateRegularSkill(uc *updateContext, skillName string) (updateResult, erro
 		beforeHashes, _ = install.ComputeFileHashes(skillPath)
 	}
 
-	spinner := ui.StartSpinner("Updating...")
+	spinner := ui.StartSpinner("Updating " + skillName + "...")
 
 	installOpts := uc.makeInstallOpts()
 	if ui.IsTTY() {
 		installOpts.OnProgress = func(line string) {
-			spinner.Update("   " + line)
+			spinner.Update(line)
 		}
 	}
 
@@ -300,12 +277,11 @@ func updateRegularSkill(uc *updateContext, skillName string) (updateResult, erro
 			if uc.opts.prune {
 				if pruneErr := pruneSkill(skillPath, skillName, uc); pruneErr == nil {
 					pruneRegistry([]string{skillName}, uc)
-					ui.StepResult("warning", "Pruned — stale (deleted upstream)", 0)
+					printUpdateRow(ui.MarkWarn, skillName, "pruned — deleted upstream", 0)
 					return updateResult{pruned: 1}, nil
 				}
 			}
-			ui.StepResult("warning", "Stale (deleted upstream)", 0)
-			fmt.Println()
+			printUpdateRow(ui.MarkWarn, skillName, "stale — deleted upstream", 0)
 			displayStaleWarning([]string{skillName})
 			return updateResult{skipped: 1}, nil
 		}
@@ -314,14 +290,12 @@ func updateRegularSkill(uc *updateContext, skillName string) (updateResult, erro
 			return updateResult{securityFailed: 1}, err
 		}
 
-		ui.StepResult("error", fmt.Sprintf("Failed: %v", err), 0)
+		printUpdateRow(ui.MarkFail, skillName, err.Error(), 0)
 		return updateResult{skipped: 1}, fmt.Errorf("update failed: %w", err)
 	}
 
 	spinner.Stop()
-	ui.StepResult("success", "Updated successfully", time.Since(startUpdate))
-	fmt.Println()
-
+	printUpdateRow(ui.MarkOK, skillName, from, time.Since(startUpdate))
 	renderInstallWarningsWithResult("", result.Warnings, uc.opts.auditVerbose, result)
 
 	if uc.opts.diff {
@@ -329,8 +303,7 @@ func updateRegularSkill(uc *updateContext, skillName string) (updateResult, erro
 		renderHashDiffSummary(beforeHashes, afterHashes)
 	}
 
-	ui.SectionLabel("Next Steps")
-	ui.Info("Run 'skillshare sync' to distribute changes")
+	ui.Next("skillshare sync", "link the changes into your targets")
 
 	return updateResult{updated: 1}, nil
 }
@@ -443,11 +416,11 @@ func renderDiffSummary(repoPath, beforeHash, afterHash string) {
 		return
 	}
 
-	maxFiles := 20
-	lines := []string{""}
+	ui.Section("Files changed")
+	const maxFiles = 20
 	for i, c := range changes {
 		if i >= maxFiles {
-			lines = append(lines, fmt.Sprintf("  ... and %d more file(s)", len(changes)-maxFiles))
+			ui.Note(fmt.Sprintf("… and %d more", len(changes)-maxFiles))
 			break
 		}
 		var marker string
@@ -466,11 +439,8 @@ func renderDiffSummary(repoPath, beforeHash, afterHash string) {
 		if c.OldPath != "" {
 			detail += fmt.Sprintf(" (from %s)", c.OldPath)
 		}
-		lines = append(lines, detail)
+		fmt.Println(detail)
 	}
-	lines = append(lines, "")
-
-	ui.Box("Files Changed", lines...)
 }
 
 // renderHashDiffSummary prints a file-level change summary by comparing
@@ -501,7 +471,7 @@ func renderHashDiffSummary(beforeHashes, afterHashes map[string]string) {
 	}
 
 	if len(changes) == 0 {
-		ui.Info("No file changes detected")
+		ui.Note("No file changes")
 		return
 	}
 
@@ -510,18 +480,28 @@ func renderHashDiffSummary(beforeHashes, afterHashes map[string]string) {
 		return changes[i].path < changes[j].path
 	})
 
-	maxFiles := 20
-	lines := []string{""}
+	ui.Section("Files changed")
+	const maxFiles = 20
 	for i, c := range changes {
 		if i >= maxFiles {
-			lines = append(lines, fmt.Sprintf("  ... and %d more file(s)", len(changes)-maxFiles))
+			ui.Note(fmt.Sprintf("… and %d more", len(changes)-maxFiles))
 			break
 		}
-		lines = append(lines, fmt.Sprintf("  %s %s", c.marker, c.path))
+		fmt.Printf("  %s %s\n", c.marker, c.path)
 	}
-	lines = append(lines, "")
+}
 
-	ui.Box("Files Changed", lines...)
+// printUpdateRow reports one skill or tracked repo: its name, a dim detail
+// and, when known, how long it took.
+func printUpdateRow(mark, name, detail string, took time.Duration) {
+	value := name
+	if detail != "" {
+		value += " " + ui.DimText("· "+detail)
+	}
+	if took > 0 {
+		value += " " + ui.DimText(fmt.Sprintf("· %.1fs", took.Seconds()))
+	}
+	ui.Row(mark, "Update", value, ui.RowWidth("Update", "Audit"))
 }
 
 // isSecurityError returns true if the error originated from the audit gate.

@@ -46,7 +46,7 @@ func TestUpdateProject_DryRun(t *testing.T) {
 
 	result := sb.RunCLIInDir(projectRoot, "update", "remote", "--dry-run", "-p")
 	result.AssertSuccess(t)
-	result.AssertAnyOutputContains(t, "dry-run")
+	result.AssertAnyOutputContains(t, "Dry run — nothing was written")
 }
 
 func TestUpdateProject_AllDryRun_SkipsLocal(t *testing.T) {
@@ -97,7 +97,7 @@ func TestUpdateProject_MultiNames_DryRun(t *testing.T) {
 	result.AssertSuccess(t)
 	result.AssertAnyOutputContains(t, "skill-a")
 	result.AssertAnyOutputContains(t, "skill-b")
-	result.AssertAnyOutputContains(t, "dry-run")
+	result.AssertAnyOutputContains(t, "Dry run — nothing was written")
 }
 
 // TestUpdateProject_All_MissingTrackedRepos_Warns verifies project-mode
@@ -228,7 +228,7 @@ func TestUpdateProject_BatchAll_FailsOnMalicious(t *testing.T) {
 	result.AssertAnyOutputContains(t, "blocked by security audit")
 
 	// Blocked section shows details (not just a count)
-	result.AssertAnyOutputContains(t, "Blocked / Rolled Back")
+	result.AssertAnyOutputContains(t, "Blocked and rolled back")
 	result.AssertAnyOutputContains(t, maliciousName)
 
 	skillsDir := filepath.Join(projectRoot, ".skillshare", "skills")

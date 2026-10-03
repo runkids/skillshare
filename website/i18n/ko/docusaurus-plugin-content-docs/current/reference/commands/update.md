@@ -23,24 +23,11 @@ skillshare update agents --all       # 모든 tracked/updatable agent 업데이�
 
 ```text
 $ skillshare update pdf
+✓ Update    pdf · from github.com/anthropics/skills/skills/pdf · 1.9s
+✓ Audit     no findings
 
-Updating
-─────────────────────────────────────────
-▸  Source  ~/.config/skillshare/skills
-│
-└─ Items  0 tracked repo(s), 1 skill(s)
-│
-├─ Skill  pdf
-│
-├─ Source  github.com/anthropics/skills/skills/pdf
-│
-└─ ✓ SUCCESS  Updated successfully (1.9s)
-
-- Audit Findings
-→ risk: CLEAN
-
-- Next Steps
-→ Run 'skillshare sync' to distribute changes
+Next
+  skillshare sync  link the changes into your targets
 ```
 
 ## 동작 방식
@@ -238,19 +225,14 @@ skillshare update --all
 ### 출력 예시
 
 ```
-Updating 2 tracked repos + 3 skills
+$ skillshare update --all
 
-[1/5] ✓ _team-skills       Already up to date
-[2/5] ✓ _personal-repo     3 commits, 2 files
-[3/5] ✓ my-skill           Reinstalled from source
-→ risk: LOW (12/100)
-[4/5] ! other-skill        has uncommitted changes (use --force)
-[5/5] ✓ another-skill      Reinstalled from source
+✓ Audit     3 skills, no findings
 
-── Summary ─────────────────────────────
-  Total:    5
-  Updated:  4
-  Skipped:  1
+✓ Updated 4, 1 skipped · 6.2s
+
+Next
+  skillshare sync  link the changes into your targets
 ```
 
 ### 누락된 Tracked 저장소
@@ -258,9 +240,9 @@ Updating 2 tracked repos + 3 skills
 `.metadata.json`이 tracked 저장소(`tracked: true`)를 선언했지만 클론 디렉터리가 디스크에 없는 경우 — 클론 디렉터리가 관리되는 `.gitignore` 블록에 있기 때문에 새 머신에서 흔히 발생합니다 — `update --all`은 더 이상 이를 조용히 건너뛰지 않습니다. 누락된 각 저장소를 보고하고 재수화 방법을 안내합니다:
 
 ```
-! 1 tracked repo(s) declared in metadata but missing on disk:
-  ! _team-skills         clone directory absent
-→ Run 'skillshare install' to rehydrate tracked repositories
+! 1 tracked repo declared in metadata but missing on disk
+! _team-skills  clone directory absent
+  Run 'skillshare install' to rehydrate tracked repositories
 ```
 
 이는 global mode와 project(`-p`) mode 모두에 적용됩니다. metadata로부터 클론을 다시 생성하려면 인수 없이 [install](/docs/reference/commands/install)을 실행하세요([Rehydrating After a Fresh Clone](/docs/understand/tracked-repositories#rehydrating-after-a-fresh-clone) 참고).
@@ -270,9 +252,9 @@ Updating 2 tracked repos + 3 skills
 upstream 저장소가 skill의 이름을 바꾸거나 제거하면, `update`는 이를 **stale**로 감지하고 경고합니다:
 
 ```
-⚠ 1 skill(s) no longer found in upstream repository:
-  ⚠ frontend/old-skill — stale (deleted upstream)
-ℹ Run with --prune to remove stale skills
+Deleted upstream
+! frontend/old-skill  stale — no longer in the upstream repository
+  Run with --prune to remove them
 ```
 
 stale skill을 자동으로 제거하려면(영구 삭제가 아니라 trash로 이동) `--prune`을 추가하세요:
@@ -360,25 +342,19 @@ skillshare update --all --diff
 **tracked 저장소**의 경우, diff는 `git diff`를 사용하며 줄 수준 통계를 포함합니다:
 
 ```
-┌─ Files Changed ─────────────────────────────┐
-│                                             │
-│  ~ SKILL.md (+12 -3)                        │
-│  + scripts/deploy.sh (+45 -0)               │
-│  - old-helper.sh (+0 -22)                   │
-│  ~ utils/format.md (+5 -2)                  │
-│                                             │
-└─────────────────────────────────────────────┘
+Files changed
+  ~ SKILL.md (+12 -3)
+  + scripts/deploy.sh (+45 -0)
+  - old-helper.sh (+0 -22)
+  ~ utils/format.md (+5 -2)
 ```
 
 **일반 skill**(원격 source에서 설치된 경우)의 경우, diff는 재설치 전후의 파일 해시를 비교합니다:
 
 ```
-┌─ Files Changed ─────────────────────────────┐
-│                                             │
-│  ~ SKILL.md                                 │
-│  + new-helper.sh                            │
-│                                             │
-└─────────────────────────────────────────────┘
+Files changed
+  ~ SKILL.md
+  + new-helper.sh
 ```
 
 마커: `+` 추가됨, `-` 삭제됨, `~` 수정됨. 최대 20개 파일까지 표시하며, 추가 파일은 "... and N more file(s)"로 요약됩니다.

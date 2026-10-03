@@ -23,24 +23,11 @@ skillshare update agents --all       # すべての tracked/updatable agent を�
 
 ```text
 $ skillshare update pdf
+✓ Update    pdf · from github.com/anthropics/skills/skills/pdf · 1.9s
+✓ Audit     no findings
 
-Updating
-─────────────────────────────────────────
-▸  Source  ~/.config/skillshare/skills
-│
-└─ Items  0 tracked repo(s), 1 skill(s)
-│
-├─ Skill  pdf
-│
-├─ Source  github.com/anthropics/skills/skills/pdf
-│
-└─ ✓ SUCCESS  Updated successfully (1.9s)
-
-- Audit Findings
-→ risk: CLEAN
-
-- Next Steps
-→ Run 'skillshare sync' to distribute changes
+Next
+  skillshare sync  link the changes into your targets
 ```
 
 ## 実行内容
@@ -238,19 +225,14 @@ skillshare update --all
 ### 出力例
 
 ```
-Updating 2 tracked repos + 3 skills
+$ skillshare update --all
 
-[1/5] ✓ _team-skills       Already up to date
-[2/5] ✓ _personal-repo     3 commits, 2 files
-[3/5] ✓ my-skill           Reinstalled from source
-→ risk: LOW (12/100)
-[4/5] ! other-skill        has uncommitted changes (use --force)
-[5/5] ✓ another-skill      Reinstalled from source
+✓ Audit     3 skills, no findings
 
-── Summary ─────────────────────────────
-  Total:    5
-  Updated:  4
-  Skipped:  1
+✓ Updated 4, 1 skipped · 6.2s
+
+Next
+  skillshare sync  link the changes into your targets
 ```
 
 ### 欠落しているトラック対象リポジトリ
@@ -258,9 +240,9 @@ Updating 2 tracked repos + 3 skills
 `.metadata.json` が tracked repo（`tracked: true`）を宣言しているが、そのクローンディレクトリがディスク上に存在しない場合 — クローンディレクトリは管理された `.gitignore` ブロック内にあるため、新しいマシンでよく発生します — `update --all` はもはや黙ってスキップしません。欠落している各リポジトリを報告し、再水和（rehydrate）の方法を案内します。
 
 ```
-! 1 tracked repo(s) declared in metadata but missing on disk:
-  ! _team-skills         clone directory absent
-→ Run 'skillshare install' to rehydrate tracked repositories
+! 1 tracked repo declared in metadata but missing on disk
+! _team-skills  clone directory absent
+  Run 'skillshare install' to rehydrate tracked repositories
 ```
 
 これは global mode と project mode（`-p`）の両方に適用されます。metadata からクローンを再作成するには、引数なしの [install](/docs/reference/commands/install) を実行してください（[Rehydrating After a Fresh Clone](/docs/understand/tracked-repositories#rehydrating-after-a-fresh-clone) を参照）。
@@ -270,9 +252,9 @@ Updating 2 tracked repos + 3 skills
 upstream リポジトリが skill をリネームまたは削除すると、`update` はそれを**stale（古い）**として検知し、警告します。
 
 ```
-⚠ 1 skill(s) no longer found in upstream repository:
-  ⚠ frontend/old-skill — stale (deleted upstream)
-ℹ Run with --prune to remove stale skills
+Deleted upstream
+! frontend/old-skill  stale — no longer in the upstream repository
+  Run with --prune to remove them
 ```
 
 `--prune` を追加すると、stale な skill を自動的に削除します（完全に削除されるのではなく trash に移動されます）。
@@ -360,25 +342,19 @@ skillshare update --all --diff
 **tracked repositories** の場合、diff は `git diff` を使用し、行レベルの統計情報を含みます。
 
 ```
-┌─ Files Changed ─────────────────────────────┐
-│                                             │
-│  ~ SKILL.md (+12 -3)                        │
-│  + scripts/deploy.sh (+45 -0)               │
-│  - old-helper.sh (+0 -22)                   │
-│  ~ utils/format.md (+5 -2)                  │
-│                                             │
-└─────────────────────────────────────────────┘
+Files changed
+  ~ SKILL.md (+12 -3)
+  + scripts/deploy.sh (+45 -0)
+  - old-helper.sh (+0 -22)
+  ~ utils/format.md (+5 -2)
 ```
 
 **通常の skill**（リモート source からインストールされたもの）の場合、diff は再インストールの前後でファイルハッシュを比較します。
 
 ```
-┌─ Files Changed ─────────────────────────────┐
-│                                             │
-│  ~ SKILL.md                                 │
-│  + new-helper.sh                            │
-│                                             │
-└─────────────────────────────────────────────┘
+Files changed
+  ~ SKILL.md
+  + new-helper.sh
 ```
 
 マーカー: `+` 追加、`-` 削除、`~` 変更。最大 20 ファイルまで表示され、それ以上は "... and N more file(s)" とまとめられます。

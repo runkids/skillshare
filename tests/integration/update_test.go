@@ -68,7 +68,7 @@ func TestUpdate_MultipleNames_DryRun(t *testing.T) {
 	result.AssertSuccess(t)
 	result.AssertAnyOutputContains(t, "skill-a")
 	result.AssertAnyOutputContains(t, "skill-b")
-	result.AssertAnyOutputContains(t, "dry-run")
+	result.AssertAnyOutputContains(t, "Dry run — nothing was written")
 }
 
 func TestUpdate_MultipleNames_PartialNotFound(t *testing.T) {
@@ -165,7 +165,7 @@ func TestUpdate_Group_DryRun(t *testing.T) {
 	result.AssertSuccess(t)
 	result.AssertAnyOutputContains(t, "react")
 	result.AssertAnyOutputContains(t, "vue")
-	result.AssertAnyOutputContains(t, "dry-run")
+	result.AssertAnyOutputContains(t, "Dry run — nothing was written")
 }
 
 func TestUpdate_Group_SkipsLocal(t *testing.T) {
@@ -543,7 +543,7 @@ func TestUpdate_Diff_ShowsFileChanges(t *testing.T) {
 	result2 := sb.RunCLI("update", repoName, "--skip-audit")
 	result2.AssertSuccess(t)
 	// Without --diff, should not show the file-level box
-	result2.AssertOutputNotContains(t, "Files Changed")
+	result2.AssertOutputNotContains(t, "Files changed")
 }
 
 // setupCleanTrackedRepo creates a simple tracked repo with a pending clean update.
@@ -594,7 +594,7 @@ func TestUpdate_BatchAll_FailsOnMalicious(t *testing.T) {
 	result.AssertAnyOutputContains(t, "blocked by security audit")
 
 	// Blocked section shows details (not just a count)
-	result.AssertAnyOutputContains(t, "Blocked / Rolled Back")
+	result.AssertAnyOutputContains(t, "Blocked and rolled back")
 	result.AssertAnyOutputContains(t, maliciousName)
 
 	// Clean repo should be updated
@@ -723,7 +723,7 @@ func TestUpdate_Diff_RegularSkill_ShowsFileChanges(t *testing.T) {
 	// Update WITH --diff
 	result2 := sb.RunCLI("update", "my-local-skill", "--diff", "--skip-audit")
 	result2.AssertSuccess(t)
-	result2.AssertAnyOutputContains(t, "Files Changed")
+	result2.AssertAnyOutputContains(t, "Files changed")
 	result2.AssertAnyOutputContains(t, "SKILL.md")
 	result2.AssertAnyOutputContains(t, "extra.txt")
 
@@ -733,7 +733,7 @@ func TestUpdate_Diff_RegularSkill_ShowsFileChanges(t *testing.T) {
 
 	result3 := sb.RunCLI("update", "my-local-skill", "--skip-audit")
 	result3.AssertSuccess(t)
-	result3.AssertOutputNotContains(t, "Files Changed")
+	result3.AssertOutputNotContains(t, "Files changed")
 }
 
 func TestUpdate_RegularSkill_ShowsAuditResult(t *testing.T) {
@@ -778,8 +778,8 @@ func TestUpdate_Diff_RegularSkill_NoChanges_ShowsMessage(t *testing.T) {
 	// Update with --diff but NO source changes — should show "No file changes"
 	result2 := sb.RunCLI("update", "no-change-skill", "--diff", "--skip-audit")
 	result2.AssertSuccess(t)
-	result2.AssertAnyOutputContains(t, "No file changes detected")
-	result2.AssertOutputNotContains(t, "Files Changed")
+	result2.AssertAnyOutputContains(t, "No file changes")
+	result2.AssertOutputNotContains(t, "Files changed")
 }
 
 // Skills installed from a non-default branch must be updated from that branch

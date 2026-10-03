@@ -23,24 +23,11 @@ skillshare update agents --all       # 更新所有 tracked/可更新的 agents
 
 ```text
 $ skillshare update pdf
+✓ Update    pdf · from github.com/anthropics/skills/skills/pdf · 1.9s
+✓ Audit     no findings
 
-Updating
-─────────────────────────────────────────
-▸  Source  ~/.config/skillshare/skills
-│
-└─ Items  0 tracked repo(s), 1 skill(s)
-│
-├─ Skill  pdf
-│
-├─ Source  github.com/anthropics/skills/skills/pdf
-│
-└─ ✓ SUCCESS  Updated successfully (1.9s)
-
-- Audit Findings
-→ risk: CLEAN
-
-- Next Steps
-→ Run 'skillshare sync' to distribute changes
+Next
+  skillshare sync  link the changes into your targets
 ```
 
 ## 執行內容
@@ -238,19 +225,14 @@ skillshare update --all
 ### 輸出範例
 
 ```
-Updating 2 tracked repos + 3 skills
+$ skillshare update --all
 
-[1/5] ✓ _team-skills       Already up to date
-[2/5] ✓ _personal-repo     3 commits, 2 files
-[3/5] ✓ my-skill           Reinstalled from source
-→ risk: LOW (12/100)
-[4/5] ! other-skill        has uncommitted changes (use --force)
-[5/5] ✓ another-skill      Reinstalled from source
+✓ Audit     3 skills, no findings
 
-── Summary ─────────────────────────────
-  Total:    5
-  Updated:  4
-  Skipped:  1
+✓ Updated 4, 1 skipped · 6.2s
+
+Next
+  skillshare sync  link the changes into your targets
 ```
 
 ### 缺失的 Tracked 儲存庫
@@ -258,9 +240,9 @@ Updating 2 tracked repos + 3 skills
 若 `.metadata.json` 宣告了某個 tracked 儲存庫（`tracked: true`），但其 clone 目錄在磁碟上不存在 — 這在全新的機器上很常見，因為 clone 目錄位於受管理的 `.gitignore` 區塊中 — `update --all` 不會再靜默跳過它。它會回報每個缺失的儲存庫，並提示你進行復原：
 
 ```
-! 1 tracked repo(s) declared in metadata but missing on disk:
-  ! _team-skills         clone directory absent
-→ Run 'skillshare install' to rehydrate tracked repositories
+! 1 tracked repo declared in metadata but missing on disk
+! _team-skills  clone directory absent
+  Run 'skillshare install' to rehydrate tracked repositories
 ```
 
 這適用於 global 與 project（`-p`）模式。若要從 metadata 重新建立 clones，執行不帶參數的 [install](/docs/reference/commands/install)（詳見 [Rehydrating After a Fresh Clone](/docs/understand/tracked-repositories#rehydrating-after-a-fresh-clone)）。
@@ -270,9 +252,9 @@ Updating 2 tracked repos + 3 skills
 當上游儲存庫重新命名或移除某個 skill 時，`update` 會偵測為 **stale（過期）** 並發出警告：
 
 ```
-⚠ 1 skill(s) no longer found in upstream repository:
-  ⚠ frontend/old-skill — stale (deleted upstream)
-ℹ Run with --prune to remove stale skills
+Deleted upstream
+! frontend/old-skill  stale — no longer in the upstream repository
+  Run with --prune to remove them
 ```
 
 加上 `--prune` 可自動移除過期的 skills（移到垃圾桶，而非永久刪除）：
@@ -360,25 +342,19 @@ skillshare update --all --diff
 對於 **tracked 儲存庫**，diff 使用 `git diff`，並包含行層級的統計數字：
 
 ```
-┌─ Files Changed ─────────────────────────────┐
-│                                             │
-│  ~ SKILL.md (+12 -3)                        │
-│  + scripts/deploy.sh (+45 -0)               │
-│  - old-helper.sh (+0 -22)                   │
-│  ~ utils/format.md (+5 -2)                  │
-│                                             │
-└─────────────────────────────────────────────┘
+Files changed
+  ~ SKILL.md (+12 -3)
+  + scripts/deploy.sh (+45 -0)
+  - old-helper.sh (+0 -22)
+  ~ utils/format.md (+5 -2)
 ```
 
 對於**一般 skills**（從遠端來源安裝），diff 會比較重新安裝前後的檔案雜湊值：
 
 ```
-┌─ Files Changed ─────────────────────────────┐
-│                                             │
-│  ~ SKILL.md                                 │
-│  + new-helper.sh                            │
-│                                             │
-└─────────────────────────────────────────────┘
+Files changed
+  ~ SKILL.md
+  + new-helper.sh
 ```
 
 標記：`+` 新增、`-` 刪除、`~` 修改。最多顯示 20 個檔案；超過的檔案會彙總為「... and N more file(s)」。
