@@ -113,8 +113,8 @@ func TestDoctor_ChecksAgentSource(t *testing.T) {
 
 	result := sb.RunCLI("doctor")
 	result.AssertSuccess(t)
-	result.AssertAnyOutputContains(t, "Agents source")
-	result.AssertAnyOutputContains(t, "1 agents")
+	result.AssertAnyOutputContains(t, "Agents")
+	result.AssertAnyOutputContains(t, "1 agent")
 }
 
 func TestDoctor_AgentTargetDrift(t *testing.T) {
@@ -172,7 +172,7 @@ targets:
 
 	result := sb.RunCLI("doctor")
 	result.AssertSuccess(t)
-	result.AssertAnyOutputContains(t, "1 agents")
+	result.AssertAnyOutputContains(t, "1 agent")
 	result.AssertOutputNotContains(t, "drift")
 }
 

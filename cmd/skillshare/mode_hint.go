@@ -51,8 +51,7 @@ func printSymlinkCompatHint(targets map[string]config.TargetConfig, defaultMode 
 	}
 
 	fmt.Println()
-	ui.Info("Symlink compatibility: some tools cannot read symlinked skills.")
-	ui.Info("If a tool can't discover your skills, switch it to copy mode:")
-	cmd := modeHintCommand(exampleTarget, projectMode)
-	fmt.Printf("  %s%s%s\n", ui.Muted, cmd, ui.Reset)
+	ui.Note("Symlink compatibility: some tools cannot read symlinked skills.")
+	ui.Note("If a tool can't discover your skills, switch it to copy mode:")
+	ui.Note("  " + modeHintCommand(exampleTarget, projectMode))
 }

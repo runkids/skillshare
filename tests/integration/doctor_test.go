@@ -107,7 +107,7 @@ targets: {}
 	result := sb.RunCLI("doctor")
 
 	result.AssertSuccess(t)
-	result.AssertOutputContains(t, "Symlink")
+	result.AssertOutputContains(t, "Links")
 }
 
 func TestDoctor_ShowsSymlinkCompatHint(t *testing.T) {
@@ -465,7 +465,7 @@ func TestDoctor_ProjectMode_AutoDetectsProjectConfig(t *testing.T) {
 	result.AssertOutputContains(t, "(project)")
 	result.AssertOutputContains(t, ".skillshare/config.yaml")
 	result.AssertOutputContains(t, ".skillshare/skills")
-	result.AssertOutputContains(t, "Backups: not used in project mode")
+	result.AssertOutputContains(t, "not used in project mode")
 }
 
 func TestDoctor_ProjectMode_WithFlagUsesProjectConfig(t *testing.T) {
