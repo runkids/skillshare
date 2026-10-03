@@ -139,9 +139,10 @@ func (b *fileBrowser) load() {
 		b.content, b.lineRows = numberLines(printableText(string(data)), mark, w)
 		return
 	}
-	// Front matter is shown elsewhere; the viewer shows the instructions.
+	// A skill's or agent's front matter is shown elsewhere; other files
+	// keep theirs.
 	var text string
-	if strings.HasSuffix(strings.ToLower(n.name), ".md") {
+	if b.single || n.name == "SKILL.md" {
 		text = utils.ReadSkillBody(path)
 	} else if data, err := os.ReadFile(path); err == nil {
 		text = strings.TrimSpace(string(data))

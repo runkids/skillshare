@@ -64,3 +64,40 @@ func TestFileBrowserOpenAt_ShowsAFindingOutsideTheTree(t *testing.T) {
 		}
 	}
 }
+
+func TestFileBrowser_KeepsFrontMatterOutsideSKILLmd(t *testing.T) {
+	dir := t.TempDir()
+	for name, text := range map[string]string{
+		"SKILL.md":  "---\nname: tool\n---\n# Tool\n",
+		"README.md": "---\ntemplate: release-notes\n---\nNotes body.\n",
+	} {
+		if err := os.WriteFile(filepath.Join(dir, name), []byte(text), 0644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	b := newFileBrowser("trash", "tool", dir, false, 120, 20)
+	b.openAt("README.md", 0)
+	got := xansi.Strip(b.view("", nil))
+
+	if !strings.Contains(got, "template: release-notes") {
+		t.Fatalf("README.md front matter should be shown:\n%s", got)
+	}
+}
+
+func TestFileBrowser_WrapsTextToANarrowPane(t *testing.T) {
+	dir := t.TempDir()
+	words := "alpha bravo charlie delta echo foxtrot golf hotel india juliet kilo lima"
+	if err := os.WriteFile(filepath.Join(dir, "notes.txt"), []byte(words+"\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	b := newFileBrowser("trash", "tool", dir, false, 50, 20)
+
+	// Lines wider than the pane get wrapped a second time by the layout,
+	// which breaks the rows apart and moves marked lines.
+	pane := 50 - sidebarWidth(50) - 2
+	for _, line := range strings.Split(b.content, "\n") {
+		if xansi.StringWidth(line) > pane {
+			t.Fatalf("line %q is wider than the %d-column pane", line, pane)
+		}
+	}
+}

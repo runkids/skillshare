@@ -27,12 +27,14 @@ func fileViewerHeight(termHeight int) int {
 	return max(termHeight-frameChrome, 5)
 }
 
-// fileViewerTextWidth is how wide the open file is drawn.
+// fileViewerTextWidth is how wide the open file is drawn: the pane's width
+// after its padding, so a narrow terminal wraps the text instead of
+// clipping it.
 func fileViewerTextWidth(termWidth int, noTree bool) int {
 	if noTree {
-		return max(termWidth-3, 40)
+		return max(termWidth-3, 10)
 	}
-	return max(termWidth-sidebarWidth(termWidth)-3, 40)
+	return max(termWidth-sidebarWidth(termWidth)-3, 10)
 }
 
 func renderFileViewer(width, height int, v fileViewer) string {
