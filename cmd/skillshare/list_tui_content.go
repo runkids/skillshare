@@ -438,11 +438,7 @@ func renderContentFullWidth(m listTUIModel) string {
 	b.WriteString(panel)
 	b.WriteString("\n\n")
 
-	help := "Ctrl+d/u scroll  g/G top/bottom  Esc back  q quit"
-	if scrollInfo != "" {
-		help += "  " + scrollInfo
-	}
-	b.WriteString(formatHelpBar(help))
+	b.WriteString(renderKeyLine(m.termWidth, []keyHint{{"ctrl+d/u", "scroll"}, {"g/G", "top/bottom"}, {"esc", "back"}, {"q", "quit"}}, scrollInfo))
 	b.WriteString("\n")
 
 	return b.String()
@@ -504,11 +500,7 @@ func renderContentDualPane(m listTUIModel) string {
 	b.WriteString(body)
 	b.WriteString("\n\n")
 
-	help := "j/k browse  l/Enter expand  h collapse  Ctrl+d/u scroll  g/G top/bottom  Esc back  q quit"
-	if scrollInfo != "" {
-		help += "  " + scrollInfo
-	}
-	b.WriteString(formatHelpBar(help))
+	b.WriteString(renderKeyLine(m.termWidth, []keyHint{{"j/k", "browse"}, {"l/enter", "expand"}, {"h", "collapse"}, {"ctrl+d/u", "scroll"}, {"g/G", "top/bottom"}, {"esc", "back"}, {"q", "quit"}}, scrollInfo))
 	b.WriteString("\n")
 
 	return b.String()

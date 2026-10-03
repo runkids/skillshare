@@ -114,8 +114,7 @@ func (d analyzeSkillDelegate) Render(w io.Writer, m list.Model, index int, listI
 	dot := analyzeDots[colorCode]
 
 	// Right-align token count: "● name          ~123"
-	// renderPrefixRow reserves: ▌(2) + PaddingLeft(1) = 3 chars from width
-	contentWidth := width - 3
+	contentWidth := width - rowIndent
 	lintPrefix := lintIcon(item.entry.LintIssues)
 	lintWidth := lipgloss.Width(lintPrefix)
 	name := item.entry.Name

@@ -50,7 +50,7 @@ Tracked repos
 
 ## 互動式 TUI
 
-在 TTY 中，`skillshare list` 會啟動一個互動式終端機 UI，具備：
+在 TTY 中，`skillshare list` 會開啟互動式終端機 UI。最上面一行顯示範圍與數量，右側是 **Skills** 與 **Agents** 分頁（按 `Tab` 切換）。左側是清單，右側是選取項目的詳細資訊，最下面一行列出常用按鍵。按 `?` 可看全部按鍵。
 
 - **智慧篩選** — 按 `/` 依名稱、路徑或來源篩選。支援 tag 語法做精準篩選：
 
@@ -66,20 +66,13 @@ Tracked repos
   ```
   t:tracked g:security audit
   ```
-  這會只顯示「security」群組中、名稱包含「audit」的 tracked skills。
+  這會只顯示「security」群組中、名稱包含「audit」的 tracked skills。`Esc` 會清除篩選；沒有篩選時，`Esc` 會離開。
 
-  :::tip
-  要篩選啟用/停用狀態，通常不需要用 tag — 直接按 `s`
-  （見下方**狀態篩選**）。`s:enabled` / `s:disabled` tag 是用來把
-  status 與其他 tags *組合*使用的，例如 `t:tracked s:disabled`。
-  :::
-
-- **狀態篩選** — 按 `s` 循環切換啟用/停用檢視：**全部 → 已啟用 → 已停用 → 全部**。目前狀態會以 `Status:` chip 顯示在分頁列旁邊，因此在很長的清單中，你可以立即縮小範圍到只看透過 `.skillignore` 停用的 skills（或隱藏它們）。可與分頁及 `/` 篩選組合使用。
-- **鍵盤導覽** — 方向鍵瀏覽，`q` 離開
-- **詳細面板** — 顯示選取 skill 的描述、磁碟路徑、檔案與已同步的 targets
-- **啟用/停用切換** — 按 `E` 切換選取 skill 的啟用/停用狀態。會立即寫入 `.skillignore`，不需離開 TUI。已停用的 skills 會在詳細面板顯示紅色的 **disabled** 徽章。
-- **僅手動切換** — 按 `M` 切換選取 skill `SKILL.md` 中的 `disable-model-invocation`。該 skill 仍保持已安裝，你仍可用名稱呼叫它，但模型不會再自動載入它；詳細面板會顯示 **manual only** 徽章。與 `E` 不同，這會編輯 skill 檔案本身：對於 tracked 或已安裝的 skill，TUI 會先詢問，因為 `skillshare update` 會跳過有本地變更的 tracked repos，而重新安裝 skill 會丟失這項編輯。再按一次 `M` 會移除該行並完整還原檔案。Agents 不受影響。[dashboard](/docs/reference/commands/ui) 顯示相同的 **manual only** 標籤，並在其 skill 編輯器中提供切換開關。
-- **內容檢視器** — 按 `Enter` 開啟雙欄檢視器，左側是檔案樹、右側是以 Markdown 渲染的內容。`j`/`k` 瀏覽檔案（自動預覽），`l`/`Enter` 展開目錄，`h` 收合。`Ctrl+d`/`u` 內容半頁捲動，`g`/`G` 跳到頂部/底部。也支援滑鼠滾輪與點擊。
+- **詳細面板** — 顯示選取 skill 的描述、來源、安裝日期、授權、磁碟路徑、檔案與已同步的 targets。用 `Ctrl+d`/`Ctrl+u` 捲動。
+- **動作** — `u` 更新、`d` 解除安裝、`!` 檢查（audit）選取的 skill。每個動作都會先在最下面一行詢問，並顯示將執行的指令，確認後離開 TUI 執行。
+- **啟用/停用切換** — 按 `t` 切換選取 skill 的啟用/停用狀態。會立即寫入 `.skillignore`，不需離開 TUI。已停用的 skills 會在清單與詳細面板顯示 **disabled**。
+- **僅手動切換** — 按 `m` 切換選取 skill `SKILL.md` 中的 `disable-model-invocation`。該 skill 仍保持已安裝，你仍可用名稱呼叫它，但模型不會再自動載入它；詳細面板會顯示 **manual only** 徽章。與 `t` 不同，這會編輯 skill 檔案本身：對於 tracked 或已安裝的 skill，TUI 會先詢問，因為 `skillshare update` 會跳過有本地變更的 tracked repos，而重新安裝 skill 會丟失這項編輯。再按一次 `m` 會移除該行並完整還原檔案。Agents 不受影響。[dashboard](/docs/reference/commands/ui) 顯示相同的 **manual only** 標籤，並在其 skill 編輯器中提供切換開關。
+- **內容檢視器** — 按 `Enter` 開啟雙欄檢視器，左側是檔案樹、右側是以 Markdown 渲染的內容。`j`/`k` 瀏覽檔案（自動預覽），`l`/`Enter` 展開目錄，`h` 收合。`Ctrl+d`/`u` 內容半頁捲動，`g`/`G` 跳到頂部/底部，`Esc` 回到清單。也支援滑鼠滾輪與點擊。
 
 使用 `--no-tui` 跳過 TUI，改印出純文字：
 
@@ -104,8 +97,8 @@ skillshare list --json | jq '.[].name'   # 供腳本使用的 JSON
 
 預設檢視（`--status all`）包含標記為停用的項目。`--status`
 會與 pattern 及 `--type` 以 AND 邏輯組合，在 project mode
-以及 `list agents` / `list --all` 中都能運作，並會決定 TUI `Status:` chip
-的初始狀態（你仍可從那裡按 `s` 循環切換）。
+以及 `list agents` / `list --all` 中都能運作，並會以相同方式縮小 TUI 的範圍，
+TUI 最上面一行會顯示例如 `disabled only`。在 TUI 裡請改在篩選中輸入 `s:disabled`。
 
 :::tip AI Usage
 以程式化方式檢查 skills 時，使用 `--json` 模式：

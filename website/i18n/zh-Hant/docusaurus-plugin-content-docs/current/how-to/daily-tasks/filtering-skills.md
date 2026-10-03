@@ -62,7 +62,7 @@ skillshare disable experimental-*   # 加入 .skillignore
 skillshare enable experimental-*    # 從 .skillignore 移除
 ```
 
-你也可以在 `skillshare list` TUI 中按下 **E** 來切換某個 Skill 的開關。
+你也可以在 `skillshare list` TUI 中按下 **t** 來切換某個 Skill 的開關。
 
 📖 [enable / disable](/docs/reference/commands/enable) · [.skillignore 語法](/docs/reference/appendix/file-structure#skillignore-optional) · [Filtering Reference](/docs/reference/filtering#skillignore)
 

@@ -76,8 +76,8 @@ func TestCompactSkillPath_TrackedRoot(t *testing.T) {
 
 func TestCompactSkillPath_LocalNested(t *testing.T) {
 	e := skillEntry{Name: "skill-name", RelPath: "group/skill-name"}
-	if got := compactSkillPath(e); got != "group/skill-name" {
-		t.Errorf("compactSkillPath() = %q, want %q", got, "group/skill-name")
+	if got := compactSkillPath(e); got != "skill-name" {
+		t.Errorf("compactSkillPath() = %q, want %q (the group heading shows the folder)", got, "skill-name")
 	}
 }
 

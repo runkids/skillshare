@@ -20,6 +20,9 @@ HERE=$(cd "$(dirname "$0")" && pwd)
 SCREENS='
 list|skillshare list|
 list-agents|skillshare list|Tab
+list-keys|skillshare list|Type `?`
+list-confirm|skillshare list|Down;Type `d`
+list-filter|skillshare list|Type `/`;Type `re`
 target|skillshare target list|
 extras|skillshare extras list|
 trash|skillshare trash list|

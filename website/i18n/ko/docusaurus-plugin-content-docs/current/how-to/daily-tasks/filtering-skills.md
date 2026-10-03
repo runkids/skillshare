@@ -62,7 +62,7 @@ skillshare disable experimental-*   # .skillignore에 추가
 skillshare enable experimental-*    # .skillignore에서 제거
 ```
 
-`skillshare list` TUI에서 **E**를 눌러 skill을 켜고 끌 수도 있습니다.
+`skillshare list` TUI에서 **t**를 눌러 skill을 켜고 끌 수도 있습니다.
 
 📖 [enable / disable](/docs/reference/commands/enable) · [.skillignore 문법](/docs/reference/appendix/file-structure#skillignore-optional) · [필터링 레퍼런스](/docs/reference/filtering#skillignore)
 
