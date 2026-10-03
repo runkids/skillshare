@@ -148,9 +148,12 @@ func alignRow(left, right string, width int) string {
 	return left + strings.Repeat(" ", max(room-lipgloss.Width(left), 0)+2) + right
 }
 
-// countNoun renders "1 item" or "3 items".
+// countNoun renders "1 item" or "3 items", and "3 entries" for "entry".
 func countNoun(n int, noun string) string {
 	if n != 1 {
+		if strings.HasSuffix(noun, "y") {
+			noun = strings.TrimSuffix(noun, "y") + "ie"
+		}
 		noun += "s"
 	}
 	return formatNumber(n) + " " + noun

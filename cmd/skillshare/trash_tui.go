@@ -55,7 +55,7 @@ func (trashDelegate) Render(w io.Writer, m list.Model, index int, li list.Item) 
 	if item.entry.Kind == "agent" {
 		meta = "agent · " + meta
 	}
-	width := max(m.Width(), 40)
+	width := m.Width()
 	renderPrefixRow(w, alignRow(mark+" "+item.entry.Name, theme.Dim().Render(meta), width-rowIndent), width, index == m.Index())
 }
 func (i trashItem) FilterValue() string { return i.entry.Name }

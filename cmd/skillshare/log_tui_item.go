@@ -2,9 +2,15 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"strings"
 
 	"skillshare/internal/oplog"
+	"skillshare/internal/theme"
+	"skillshare/internal/ui"
+
+	"github.com/charmbracelet/bubbles/list"
+	tea "github.com/charmbracelet/bubbletea"
 )
 
 // logItem wraps oplog.Entry to implement bubbles/list.Item interface.
@@ -62,6 +68,31 @@ func (i logItem) FilterValue() string {
 		parts = append(parts, detail)
 	}
 	return strings.Join(parts, " ")
+}
+
+// logDelegate renders "○ 01-02 15:04  command  ✓".
+type logDelegate struct{}
+
+func (logDelegate) Height() int                             { return 1 }
+func (logDelegate) Spacing() int                            { return 0 }
+func (logDelegate) Update(_ tea.Msg, _ *list.Model) tea.Cmd { return nil }
+
+func (logDelegate) Render(w io.Writer, m list.Model, index int, li list.Item) {
+	item, ok := li.(logItem)
+	if !ok {
+		return
+	}
+	mark := theme.Dim().Render("○")
+	if item.marked {
+		mark = theme.Accent().Render("◉")
+	}
+	when := formatLogTimestamp(item.entry.Timestamp)
+	if len(when) == len("2006-01-02 15:04") {
+		when = when[5:] // the year is noise in a list sorted by time
+	}
+	width := m.Width()
+	left := mark + " " + theme.Dim().Render(when) + "  " + item.entry.Command
+	renderPrefixRow(w, alignRow(left, ui.StyledMark(logStatusMark(item.entry.Status)), width-rowIndent), width, index == m.Index())
 }
 
 // toLogItems converts oplog entries to logItem slice.

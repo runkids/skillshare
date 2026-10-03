@@ -30,6 +30,8 @@ trash-confirm|skillshare trash list|Space;Down;Space;Type `d`
 restore-pick|skillshare restore|
 restore|skillshare restore|Enter
 log|skillshare log|
+log-stats|skillshare log|Tab
+log-confirm|skillshare log|Down;Space;Down;Space;Type `d`
 audit|skillshare audit|
 audit-rules|skillshare audit rules|
 diff|skillshare diff|

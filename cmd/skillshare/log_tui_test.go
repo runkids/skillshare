@@ -1,6 +1,14 @@
 package main
 
-import "testing"
+import (
+	"strings"
+	"testing"
+
+	tea "github.com/charmbracelet/bubbletea"
+	xansi "github.com/charmbracelet/x/ansi"
+
+	"skillshare/internal/oplog"
+)
 
 func TestLogListWidth(t *testing.T) {
 	tests := []struct {
@@ -26,21 +34,50 @@ func TestLogListWidth(t *testing.T) {
 func TestLogDetailPanelWidth(t *testing.T) {
 	tests := []struct {
 		termWidth int
-		wantMin   int // detail width must be >= 30
+		want      int
 	}{
-		{50, 30},   // 50-30-3=17 → clamped to min 30
-		{70, 37},   // 70-30-3=37
-		{100, 67},  // 100-30-3=67
-		{120, 87},  // 120-30-3=87
-		{160, 117}, // 160-40-3=117
+		{50, 30},   // 50-30=20 → clamped to min 30
+		{70, 40},   // 70-30
+		{120, 90},  // 120-30
+		{160, 120}, // 160-40
 	}
 	for _, tt := range tests {
-		got := logDetailPanelWidth(tt.termWidth)
-		if got != tt.wantMin {
-			t.Errorf("logDetailPanelWidth(%d) = %d, want %d", tt.termWidth, got, tt.wantMin)
+		if got := logDetailPanelWidth(tt.termWidth); got != tt.want {
+			t.Errorf("logDetailPanelWidth(%d) = %d, want %d", tt.termWidth, got, tt.want)
 		}
-		if got < 30 {
-			t.Errorf("logDetailPanelWidth(%d) = %d, should be >= 30", tt.termWidth, got)
+	}
+}
+
+func testLogModel() logTUIModel {
+	items := []logItem{
+		{entry: oplog.Entry{Timestamp: "2026-10-03T15:25:00Z", Command: "sync", Status: "ok"}, source: "operations"},
+		{entry: oplog.Entry{Timestamp: "2026-10-03T15:24:00Z", Command: "audit", Status: "error"}, source: "audit"},
+	}
+	m := newLogTUIModel(nil, items, "Operations", "global", "")
+	m.termWidth = 120
+	return m
+}
+
+func TestLogTitleLine_ShowsCountsRateAndTabs(t *testing.T) {
+	got := xansi.Strip(testLogModel().renderTitleLine())
+	for _, want := range []string{"skillshare log", "global", "2 entries", "50% ok", "Entries", "Stats"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("title line %q is missing %q", got, want)
 		}
+	}
+}
+
+func TestLogTab_OpensStats(t *testing.T) {
+	next, _ := testLogModel().Update(tea.KeyMsg{Type: tea.KeyTab})
+	if !next.(logTUIModel).showStats {
+		t.Fatal("tab should open the Stats tab")
+	}
+}
+
+func TestLogDeleteWithoutSelectionAsksAboutTheCursorEntry(t *testing.T) {
+	next, _ := testLogModel().Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("d")})
+	got := next.(logTUIModel)
+	if !got.confirmDelete || len(got.deleteItems) != 1 || got.deleteItems[0].entry.Command != "sync" {
+		t.Fatalf("d with nothing selected should ask about the entry under the cursor; confirm=%v items=%v", got.confirmDelete, got.deleteItems)
 	}
 }
