@@ -157,7 +157,7 @@ Audit エンジンは `.md` ファイルに対して **構造チェック**も�
 
 **Audit が検出する内容：**
 - 直接的なインジェクションのフレーズ："ignore previous instructions"、"disregard all rules"、"you are now"
-- プロンプト上書きの接頭辞：`SYSTEM:`、`OVERRIDE:`、`IGNORE:`、`ADMIN:`、`ROOT:`（大文字小文字を区別せず、空白にも寛容）
+- プロンプト上書きの接頭辞：`SYSTEM:`、`OVERRIDE:`、`IGNORE:`、`ADMIN:`、`ROOT:`（大文字小文字を区別せず、空白にも寛容）。小文字のキーに同じ行の単純な値だけを指定する行は設定とみなし、検出しません。どのキーでも真偽値や数値（`admin: false`）、`root` は空白を含まないパス（`root: ./src`）、`ignore` はインラインオブジェクト（`ignore: { tags: ["design"] }`）を値にできます
 - agent ディレクティブタグ：`<system>`、`</instructions>`、`</override>`、`</prompt>`、`</rules>`（任意で HTML 属性付き）
 - Jailbreak のディレクティブ：`DEVELOPER MODE`、`DEV MODE`、`JAILBREAK`、`DAN MODE`（大文字小文字を区別せず、空白にも寛容）
 - HTML コメント（`<!-- ... -->`）内に隠されたインジェクション
