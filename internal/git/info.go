@@ -707,7 +707,7 @@ func BehindCount(dir string) int {
 var ErrMergeFailed = errors.New("merging remote history failed")
 
 // FirstPull attaches a branch without upstream tracking to origin's default
-// branch. Local directories are kept by merging the remote history (it may be
+// branch. Local content is kept by merging the remote history (it may be
 // unrelated); with force, or with nothing local, the branch is reset to the
 // remote instead. Returns ErrNoRemoteBranches while origin is still empty.
 func FirstPull(dir string, force bool) (*UpdateInfo, error) {
@@ -723,7 +723,7 @@ func FirstPull(dir string, force bool) (*UpdateInfo, error) {
 	if err != nil {
 		return nil, err
 	}
-	hasLocal, err := HasLocalSkillDirs(dir)
+	hasLocal, err := HasLocalContent(dir)
 	if err != nil {
 		return nil, err
 	}
@@ -849,14 +849,16 @@ func HasRemoteSkillDirs(repoPath, remoteBranch string) (bool, error) {
 	return strings.TrimSpace(string(lsOut)) != "", nil
 }
 
-// HasLocalSkillDirs reports whether the repo root has at least one directory besides .git.
-func HasLocalSkillDirs(repoPath string) (bool, error) {
+// HasLocalContent reports whether the repo root holds anything besides the
+// .git directory and the scaffold .gitignore. Files count too: agents and
+// extras repos keep their content as root-level files.
+func HasLocalContent(repoPath string) (bool, error) {
 	entries, err := os.ReadDir(repoPath)
 	if err != nil {
 		return false, err
 	}
 	for _, e := range entries {
-		if e.IsDir() && e.Name() != ".git" {
+		if e.Name() != ".git" && e.Name() != ".gitignore" {
 			return true, nil
 		}
 	}

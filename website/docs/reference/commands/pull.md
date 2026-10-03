@@ -109,8 +109,8 @@ skillshare sync
 
 ## First Pull with Existing Skills
 
-On first pull (no upstream yet), if both local and remote already contain skill directories,
-`pull` attempts a **merge** to combine both sides. If the merge succeeds, both local and remote skills are preserved.
+On first pull (no upstream yet), if the local repository already holds content (any file or directory besides `.git` and `.gitignore`),
+`pull` attempts a **merge** to combine both sides. If the merge succeeds, both local and remote content is preserved. Only a repository with nothing else is reset to the remote branch.
 
 If there are **merge conflicts**, `pull` fails with a non-zero exit code:
 

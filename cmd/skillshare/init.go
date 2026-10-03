@@ -1326,7 +1326,7 @@ func tryPullAfterRemoteSetup(sourcePath, remoteURL string) bool {
 		return false
 	}
 
-	hasLocalSkills, err := gitops.HasLocalSkillDirs(sourcePath)
+	hasLocalSkills, err := gitops.HasLocalContent(sourcePath)
 	if err != nil {
 		spinner.Warn("Could not inspect local skills (will retry on pull)")
 		return true
