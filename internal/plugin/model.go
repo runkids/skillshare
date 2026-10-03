@@ -18,17 +18,20 @@ var Targets = func() []string {
 }()
 
 type Binding struct {
-	Entry      string   `json:"entry,omitempty" yaml:"entry,omitempty"`
-	SourceRef  string   `json:"sourceRef,omitempty" yaml:"source_ref,omitempty"`
-	Commit     string   `json:"commit,omitempty" yaml:"commit,omitempty"`
-	Components []string `json:"components,omitempty" yaml:"components,omitempty"`
-	Sync       *bool    `json:"sync,omitempty" yaml:"sync,omitempty"`
-	ID         string   `json:"id" yaml:"id"`
-	Source     string   `json:"source,omitempty" yaml:"source,omitempty"`
-	Plugin     string   `json:"plugin,omitempty" yaml:"plugin,omitempty"`
-	Digest     string   `json:"digest,omitempty" yaml:"digest,omitempty"`
-	Version    string   `json:"version,omitempty" yaml:"version,omitempty"`
-	Pending    string   `json:"pending,omitempty" yaml:"pending,omitempty"`
+	// PiRegistration references a private, content-addressed native entry. Values
+	// never enter shared config or API responses; only its digest is recorded.
+	PiRegistration string   `json:"piRegistration,omitempty" yaml:"pi_registration,omitempty"`
+	Entry          string   `json:"entry,omitempty" yaml:"entry,omitempty"`
+	SourceRef      string   `json:"sourceRef,omitempty" yaml:"source_ref,omitempty"`
+	Commit         string   `json:"commit,omitempty" yaml:"commit,omitempty"`
+	Components     []string `json:"components,omitempty" yaml:"components,omitempty"`
+	Sync           *bool    `json:"sync,omitempty" yaml:"sync,omitempty"`
+	ID             string   `json:"id" yaml:"id"`
+	Source         string   `json:"source,omitempty" yaml:"source,omitempty"`
+	Plugin         string   `json:"plugin,omitempty" yaml:"plugin,omitempty"`
+	Digest         string   `json:"digest,omitempty" yaml:"digest,omitempty"`
+	Version        string   `json:"version,omitempty" yaml:"version,omitempty"`
+	Pending        string   `json:"pending,omitempty" yaml:"pending,omitempty"`
 }
 
 // Source, SourceRef, Plugin, Entry and Version keep a package managed while no Agent is bound,
@@ -147,6 +150,7 @@ type Installed struct {
 	Enabled      bool   `json:"enabled"`
 	Installed    bool   `json:"installed"`
 	Filtered     bool   `json:"filtered,omitempty"`
+	Importable   bool   `json:"importable,omitempty"`
 }
 
 // What a caller would do about a host, so the dashboard can group Agents by the
@@ -209,11 +213,15 @@ type Inventory struct {
 }
 
 type Change struct {
-	Name    string `json:"name"`
-	Target  string `json:"target"`
-	ID      string `json:"id"`
-	Action  string `json:"action"`
-	Message string `json:"message,omitempty"`
+	PreservedKeys  []string `json:"preservedKeys,omitempty"`
+	piRecord       []byte
+	piSettingsHash string
+	piRestores     map[string]piRestoreReceipt
+	Name           string `json:"name"`
+	Target         string `json:"target"`
+	ID             string `json:"id"`
+	Action         string `json:"action"`
+	Message        string `json:"message,omitempty"`
 	// MessageKey names Message for the dashboard to translate, with MessageArgs.
 	MessageKey  string            `json:"messageKey,omitempty"`
 	MessageArgs map[string]string `json:"messageArgs,omitempty"`
@@ -254,7 +262,10 @@ type Service struct {
 	// Accounts are the targets that are another config directory of a built-in Agent,
 	// keyed by the name the config gives them.
 	Accounts map[string]Account
-	Run      Runner
+	// ExtrasSources maps each extra to its source folder, so a Pi extension that an
+	// extra links into Pi's folder is shown as that extra's file.
+	ExtrasSources map[string]string
+	Run           Runner
 }
 
 func (b Binding) Selected() bool { return b.Sync == nil || *b.Sync }

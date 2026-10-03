@@ -147,9 +147,83 @@ manifest name keeps the identity stable across Git checkouts and snapshots.
 
 ### Pi and OpenCode
 
+Pi keeps the first global registration and the last project registration of a
+package. If an earlier global or later project source has an unresolved identity,
+Skillshare cannot prove which entry owns a package and keeps potentially shadowed
+entries Unknown/read-only, including inherited project deltas. It does not guess
+identity by stripping URL queries. Proven entries outside that ambiguity remain editable.
+
 Pi uses `pi install` / `pi remove`; inventory reads documented package settings
 without loading extension code. `PI_CODING_AGENT_DIR` is respected. Pi project
 trust must be established in Pi; Skillshare does not pass `--approve` for you.
+
+#### Choosing a package's extensions
+
+In the dashboard, the target page of `pi` and of a Pi account has an **Extensions**
+tab. It lists each package entry of that target's `settings.json` with the
+extensions its filters select. A switch writes one exact `+path` or `-path` rule
+into that entry's `extensions` list. **Remove rule** deletes the exact rule for that
+file, written as a relative or an absolute path, and the file then follows the
+remaining rules; the preview shows the result. Apply shows a preview first and
+edits only those lists: the entry's other keys, its `skills`, `prompts` and
+`themes` filters, glob and `!` rules, and the rest of the file stay exactly as
+written. A string entry becomes `{"source": ...}` so it can hold a rule. For a
+string entry, Pi takes a package's skills, prompts and themes only from its `pi`
+manifest, while an object entry also loads them from the package's `skills`,
+`prompts` and `themes` folders when the manifest leaves them out. A string entry
+of a package with such a folder is read-only, because Skillshare can't show that
+converting it leaves those resources as they are. A source that is one file is
+read-only too, because Pi loads it as it is and ignores filters. A user-scoped npm registration without a managed cache is Unknown/read-only, not
+necessarily uninstalled: Pi may use a legacy global npm/pnpm root that Skillshare
+does not probe. If the file changed after the preview, or Pi holds its settings lock, nothing is written.
+An empty lock directory older than Pi's 10-second stale threshold can be reclaimed
+only if its inode and mtime are unchanged. Fresh, renewed, replaced, nonempty,
+file, and symlink locks are refused. Reclamation follows Pi's stale-lock protocol;
+age does not prove an owner has died, and the final check/removal is not an atomic CAS.
+While writing, Skillshare holds that lock the way Pi does and writes nothing if it
+loses it. Before each apply, Skillshare saves a persistent record of the changed
+extension lists and the before/after file hashes. Successful records are kept
+without automatic pruning; if Apply fails, only the new record for that attempt
+is removed. This is not a copy of `settings.json` and cannot restore the whole file. Installing and removing packages stays in `plugin`.
+
+Skillshare reads packages without running them, so the tab shows what the
+settings select (the **Configured** column), not whether Pi loaded them; reload Pi
+after applying. A file the settings name but the package lacks is marked as
+missing. A choice Skillshare can't work out shows **Can't tell** with the reason
+and where to change it, never a guessed on or off. Editing needs the target's own
+Pi to be a version Skillshare has verified (currently 0.99.2 and 1.0.0, each
+checked against Pi itself) and strict JSON settings; any other version is
+read-only and the tab says which version it found. A Pi account that runs a
+different executable is read-only, and Skillshare does not run it. An entry whose
+list is `[]` (nothing loads) is read-only, as is any extension decided by a
+pattern Skillshare cannot evaluate, such as `?` against an emoji. An entry with an
+empty source, or whose source or rules contain an unpaired UTF-16 surrogate escape
+or invalid UTF-8, is left as written and read-only, since Skillshare can't read it
+exactly as Pi does. Pi uses only the first global entry of a package, so when
+Skillshare can't read that entry, the package's later entries are read-only too.
+
+A project that syncs to Pi has the same tab on its project page. It shows each
+package as the project's settings select it on top of the global ones, marked as
+inherited from `pi (global)` or as a project override. A switch saves a rule to
+the project's `.pi/settings.json` only, the way `pi config` does: a global package
+gets a project entry `{"source": ..., "autoload": false, "extensions": [...]}`
+that changes only the files it names and leaves the global entry as it is. A local
+source is written relative to `.pi`, an npm or git source as the global settings
+have it. When the last project rule of such an entry is removed, the entry is
+removed only if that cannot reveal an earlier registration's filters; otherwise
+the empty winning override is kept. Only explicit JSON `false` means a delta;
+`autoload: null` is not `false`. A project entry with `autoload: false` and no global entry loads only the
+files it names with `+`. The file, and its `.pi` folder, are created only when you
+apply. The global settings and Pi's `trust.json` are never written, and
+Skillshare never trusts a project for you: Pi uses the project's settings only if
+it trusts the project. A global source that carries credentials or a query is
+never copied into a project, so that package is read-only there, and so is every
+package when the project's settings have an entry Skillshare can't read. Apply
+holds Pi's lock on the project file and checks both settings files and the
+package again right before it writes. Extensions in Pi's own `extensions`
+folders, including files linked there by [extras](./extras.md), are listed
+read-only with where to change them; a project lists its own folder, which Pi
+reads only if it trusts the project, and the global one.
 
 OpenCode registers the managed entry as a file URL in `opencode.json` or the
 existing `opencode.jsonc`, preserving comments and unrelated entries. Version 1
@@ -162,8 +236,19 @@ root export, or `index.js`) and required runtime dependencies. Skillshare does n
 run build scripts or install dependencies into the source. Registration is not
 proof the module loaded successfully; check OpenCode after reload.
 
-Import accepts plain Pi package sources and plain OpenCode config entries.
-Entries with resource filters/options are rejected to preserve those settings.
+Import accepts plain Pi package sources and, on verified Pi 0.99.2/1.0.0,
+filtered object entries with supported sources and option shapes. Preview lists
+retained field names, never opaque values. Import changes neither native settings
+nor installed files. The original entry is kept in private Skillshare state;
+shared config stores only its digest. Sync/update retain the live entry. When
+uninstalling, Skillshare captures its latest rules and options; reinstall restores
+that object before native installation, avoiding a default-enabled window.
+Multiple restores in one Apply recognize only that Apply's own exact writes;
+unrelated settings changes still stop later restores.
+Keep private state with these bindings: a missing, modified, or cross-target record
+blocks restoration. Unresolved sources, ambiguous precedence, unsupported encoding,
+and local references Pi would normalize remain read-only. Plain OpenCode entries
+can be imported; filtered OpenCode entries are still rejected.
 Imported Pi packages are updated with `pi update SOURCE` in global mode, which
 keeps their settings entry; a project's are updated in Pi, because `pi update`
 also reaches global packages. Imported OpenCode v1 packages are updated in their

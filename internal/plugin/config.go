@@ -88,6 +88,9 @@ func decodeDocument(raw []byte, accounts map[string]string) (*document, error) {
 			if !account {
 				agent = target
 			}
+			if b.PiRegistration != "" && (agent != "pi" || !piRegistrationDigestOK(b.PiRegistration)) {
+				return nil, fmt.Errorf("invalid preserved Pi registration for %s", name)
+			}
 			if !validTargetID(agent, b.ID) {
 				return nil, fmt.Errorf("invalid plugin binding for %s", name)
 			}

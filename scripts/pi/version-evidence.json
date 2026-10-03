@@ -1,0 +1,57 @@
+{
+  "package": "@earendil-works/pi-coding-agent",
+  "node": "v24.21.0",
+  "date": "2026-10-03",
+  "versions": [
+    {
+      "version": "0.99.2",
+      "integrity": "sha512-6R1BZ2N77CrVcGf3eC2KovTz1Q4RYiAeydvVWQT546N2fi1nBc81aURlbOZCgruWoW9VY/UrLzDynF4YTolpoA==",
+      "passed": true,
+      "checks": [
+        {
+          "name": "contract/core",
+          "exit": 0,
+          "summary": "# 34 scenarios, 141 assertions passed"
+        },
+        {
+          "name": "contract/bundle",
+          "exit": 0,
+          "summary": "# 34 scenarios, 141 assertions passed"
+        },
+        {
+          "name": "native-lock",
+          "exit": 0
+        },
+        {
+          "name": "project-native",
+          "exit": 0
+        }
+      ]
+    },
+    {
+      "version": "1.0.0",
+      "integrity": "sha512-/FtbxoSQU/mEv1QnichJjRjqteqaIaMWxmhB4G367+MwZfX7/DI5B9YAg5lqbN7nztFskBEtUSZ+FlmMBECtMw==",
+      "passed": true,
+      "checks": [
+        {
+          "name": "contract/core",
+          "exit": 0,
+          "summary": "# 34 scenarios, 141 assertions passed"
+        },
+        {
+          "name": "contract/bundle",
+          "exit": 0,
+          "summary": "# 34 scenarios, 141 assertions passed"
+        },
+        {
+          "name": "native-lock",
+          "exit": 0
+        },
+        {
+          "name": "project-native",
+          "exit": 0
+        }
+      ]
+    }
+  ]
+}

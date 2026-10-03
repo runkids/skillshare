@@ -17,6 +17,7 @@ import MCPProjectView from '../components/mcp/MCPProjectView';
 import { targetLabel } from '../components/mcp/mcpView';
 import ProjectSyncDialog from '../components/projects/ProjectSyncDialog';
 import ProjectTools from '../components/projects/ProjectTools';
+import TargetPiExtensions from '../components/targets/TargetPiExtensions';
 import { projectHealth, projectRows, toolGroups, type ProjectRow } from '../components/projects/projectView';
 import FilterSection, { ModePicker } from '../components/targets/FilterSection';
 import { refreshTargets } from '../components/targets/targetView';
@@ -26,9 +27,9 @@ import { useT } from '../i18n';
 import { useAvailableTargetsQuery, useHooksQuery, useMcpQuery } from '../hooks/useSharedQueries';
 
 type MCPList = Awaited<ReturnType<typeof mcpApi.list>>;
-type Tab = 'skills' | 'agents' | 'mcp' | 'hooks';
-const TABS: Tab[] = ['skills', 'agents', 'mcp', 'hooks'];
-const LABEL = { skills: 'Skills', agents: 'Agents', mcp: 'MCP', hooks: 'Hooks' };
+type Tab = 'skills' | 'agents' | 'mcp' | 'hooks' | 'extensions';
+const TABS: Tab[] = ['skills', 'agents', 'mcp', 'hooks', 'extensions'];
+const LABEL = { skills: 'Skills', agents: 'Agents', mcp: 'MCP', hooks: 'Hooks', extensions: 'Extensions' };
 const EVERYTHING: ProjectResource = { mode: 'merge', include: [], exclude: [] };
 
 export default function ProjectDetailPage() {
@@ -59,8 +60,11 @@ function ProjectEditor({ project, tools, mcp, hooks, hooksError }: { project: Pr
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const [params] = useSearchParams();
-  const tab = TABS.find((x) => x === params.get('tab')) ?? 'skills';
   const targets = useQuery({ queryKey: queryKeys.targets.projects, queryFn: () => api.listTargets('projects'), staleTime: staleTimes.targets });
+  // Declared tools do not always generate a target (for example, an agents-only Pi project).
+  const hasPiTarget = project.targets.includes('pi') && targets.data?.targets.some((target) => target.name === `${project.name}@pi`);
+  const shownTabs = TABS.filter((x) => x !== 'extensions' || hasPiTarget);
+  const tab = shownTabs.find((x) => x === params.get('tab')) ?? 'skills';
   const available = useAvailableTargetsQuery();
   const common = (available.data?.targets ?? []).filter((a) => a.installed || a.detected).map((a) => a.name);
 
@@ -89,7 +93,7 @@ function ProjectEditor({ project, tools, mcp, hooks, hooksError }: { project: Pr
     queryKey: ['sync-matrix-preview', project.name, previewTool, filters.skills, filters.agents],
     queryFn: () => api.previewSyncMatrix(`${project.name}@${previewTool}`, filters.skills?.include ?? [], filters.skills?.exclude ?? [], filters.agents?.include ?? [], filters.agents?.exclude ?? []),
     placeholderData: keepPreviousData,
-    enabled: Boolean(previewTool) && tab !== 'mcp' && tab !== 'hooks',
+    enabled: Boolean(previewTool) && tab !== 'mcp' && tab !== 'hooks' && tab !== 'extensions',
   });
   const entries = (preview.data?.entries ?? []).filter((e) => (e.kind === 'agent') === agent && e.status !== 'na');
 
@@ -152,7 +156,7 @@ function ProjectEditor({ project, tools, mcp, hooks, hooksError }: { project: Pr
 
   const tabs = (
     <nav className="ss-tabs" aria-label={project.name}>
-      {TABS.map((x) => (
+      {shownTabs.map((x) => (
         <Link key={x} to={x === 'skills' ? '?' : `?tab=${x}`} replace className={tab === x ? 'on' : ''} aria-current={tab === x}>{LABEL[x]}</Link>
       ))}
     </nav>
@@ -179,7 +183,7 @@ function ProjectEditor({ project, tools, mcp, hooks, hooksError }: { project: Pr
               <Link to={`/skills?tab=analyze&target=${encodeURIComponent(`${project.name}@${previewTool}`)}`} className="ss-btn ghost">{t('analyze.open')}</Link>
             )}
             <Button variant="ghost" onClick={() => setRemoving(true)}>{t('projects.remove')}</Button>
-            {tab !== 'mcp' && tab !== 'hooks' && <Button variant="primary" onClick={save} loading={saving} disabled={!canSave}>{t('common.save')}</Button>}
+            {tab !== 'mcp' && tab !== 'hooks' && tab !== 'extensions' && <Button variant="primary" onClick={save} loading={saving} disabled={!canSave}>{t('common.save')}</Button>}
           </>
         }
       />
@@ -192,7 +196,9 @@ function ProjectEditor({ project, tools, mcp, hooks, hooksError }: { project: Pr
       {/* The Hooks tab carries its own actions, so it draws this bar itself with them at the right. */}
       {!(tab === 'hooks' && !hooksError && hooks && hooksEntry) && <div className="mb-7">{tabs}</div>}
 
-      {tab === 'hooks' ? (
+      {tab === 'extensions' ? (
+        <TargetPiExtensions name={`${project.name}@pi`} />
+      ) : tab === 'hooks' ? (
         hooksError ? (
           <div className="ss-note bad"><span className="flex-1">{hooksError}</span></div>
         ) : hooks && hooksEntry ? (

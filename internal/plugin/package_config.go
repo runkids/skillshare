@@ -17,6 +17,16 @@ func (s *Service) piSettingsPath(target string) (string, error) {
 	if s.ProjectRoot != "" {
 		return filepath.Join(s.ProjectRoot, ".pi", "settings.json"), nil
 	}
+	dir, err := s.piAgentDir(target)
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(dir, "settings.json"), nil
+}
+
+// piAgentDir is the agent directory of a global Pi target or account, whatever
+// the project: a project's settings are read on top of the global ones.
+func (s *Service) piAgentDir(target string) (string, error) {
 	// An account's packages live in the account's own directory, not in the one the
 	// environment points the CLI at.
 	dir := ""
@@ -35,7 +45,7 @@ func (s *Service) piSettingsPath(target string) (string, error) {
 	if !filepath.IsAbs(dir) {
 		return "", fmt.Errorf("PI_CODING_AGENT_DIR must be absolute")
 	}
-	return filepath.Join(dir, "settings.json"), nil
+	return filepath.Clean(dir), nil
 }
 
 // Pi has no machine-readable list command. Read its documented settings without

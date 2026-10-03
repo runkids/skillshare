@@ -434,6 +434,9 @@ func (s *Server) registerRoutes() {
 	s.mux.HandleFunc("DELETE /api/targets/{name}/files", s.handleRemoveTargetFile)
 	s.mux.HandleFunc("GET /api/targets/{name}/files/content", s.handleGetTargetFileContent)
 	s.mux.HandleFunc("PUT /api/targets/{name}/files/content", s.handlePutTargetFileContent)
+	s.mux.HandleFunc("GET /api/targets/{name}/pi-extensions", s.requireLocalPlugin(s.handlePiExtensions))
+	s.mux.HandleFunc("POST /api/targets/{name}/pi-extensions/preview", s.requireLocalPlugin(s.handlePiExtensionsPreview))
+	s.mux.HandleFunc("POST /api/targets/{name}/pi-extensions/apply", s.requireLocalPlugin(s.handlePiExtensionsApply))
 
 	// Instruction files: shared files (tool targets are global only) and the project AGENTS.md
 	s.mux.HandleFunc("GET /api/instructions", s.handleListSharedInstructions)

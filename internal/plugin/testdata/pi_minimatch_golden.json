@@ -1,0 +1,3486 @@
+{
+ "pi": "0.99.2",
+ "minimatch": "10.2.6",
+ "cases": [
+  {
+   "pattern": "extensions/a.ts",
+   "subject": "extensions/a.ts",
+   "match": true
+  },
+  {
+   "pattern": "extensions/a.ts",
+   "subject": "a.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/a.ts",
+   "subject": "extensions/b.js",
+   "match": false
+  },
+  {
+   "pattern": "extensions/a.ts",
+   "subject": "b.js",
+   "match": false
+  },
+  {
+   "pattern": "extensions/a.ts",
+   "subject": "extensions/slow-lint.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/a.ts",
+   "subject": "slow-lint.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/a.ts",
+   "subject": "extensions/.hidden.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/a.ts",
+   "subject": ".hidden.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/a.ts",
+   "subject": "extensions/sub/index.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/a.ts",
+   "subject": "index.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/a.ts",
+   "subject": "/pkg/extensions/a.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/a.ts",
+   "subject": "/pkg/extensions/.hidden.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/a.ts",
+   "subject": "/pkg/extensions/sub/index.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/a.ts",
+   "subject": "extensions",
+   "match": false
+  },
+  {
+   "pattern": "extensions/a.ts",
+   "subject": "ab.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/a.ts",
+   "subject": "x/a.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/a.ts",
+   "subject": "é.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/a.ts",
+   "subject": "中文.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/a.ts",
+   "subject": "中.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/a.ts",
+   "subject": "😀.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/a.ts",
+   "subject": "a😀.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/a.ts",
+   "subject": "extensions/😀.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/a.ts",
+   "subject": "extensions/é.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/a.ts",
+   "subject": "/pkg/extensions/😀.ts",
+   "match": false
+  },
+  {
+   "pattern": "a.ts",
+   "subject": "extensions/a.ts",
+   "match": false
+  },
+  {
+   "pattern": "a.ts",
+   "subject": "a.ts",
+   "match": true
+  },
+  {
+   "pattern": "a.ts",
+   "subject": "extensions/b.js",
+   "match": false
+  },
+  {
+   "pattern": "a.ts",
+   "subject": "b.js",
+   "match": false
+  },
+  {
+   "pattern": "a.ts",
+   "subject": "extensions/slow-lint.ts",
+   "match": false
+  },
+  {
+   "pattern": "a.ts",
+   "subject": "slow-lint.ts",
+   "match": false
+  },
+  {
+   "pattern": "a.ts",
+   "subject": "extensions/.hidden.ts",
+   "match": false
+  },
+  {
+   "pattern": "a.ts",
+   "subject": ".hidden.ts",
+   "match": false
+  },
+  {
+   "pattern": "a.ts",
+   "subject": "extensions/sub/index.ts",
+   "match": false
+  },
+  {
+   "pattern": "a.ts",
+   "subject": "index.ts",
+   "match": false
+  },
+  {
+   "pattern": "a.ts",
+   "subject": "/pkg/extensions/a.ts",
+   "match": false
+  },
+  {
+   "pattern": "a.ts",
+   "subject": "/pkg/extensions/.hidden.ts",
+   "match": false
+  },
+  {
+   "pattern": "a.ts",
+   "subject": "/pkg/extensions/sub/index.ts",
+   "match": false
+  },
+  {
+   "pattern": "a.ts",
+   "subject": "extensions",
+   "match": false
+  },
+  {
+   "pattern": "a.ts",
+   "subject": "ab.ts",
+   "match": false
+  },
+  {
+   "pattern": "a.ts",
+   "subject": "x/a.ts",
+   "match": false
+  },
+  {
+   "pattern": "a.ts",
+   "subject": "é.ts",
+   "match": false
+  },
+  {
+   "pattern": "a.ts",
+   "subject": "中文.ts",
+   "match": false
+  },
+  {
+   "pattern": "a.ts",
+   "subject": "中.ts",
+   "match": false
+  },
+  {
+   "pattern": "a.ts",
+   "subject": "😀.ts",
+   "match": false
+  },
+  {
+   "pattern": "a.ts",
+   "subject": "a😀.ts",
+   "match": false
+  },
+  {
+   "pattern": "a.ts",
+   "subject": "extensions/😀.ts",
+   "match": false
+  },
+  {
+   "pattern": "a.ts",
+   "subject": "extensions/é.ts",
+   "match": false
+  },
+  {
+   "pattern": "a.ts",
+   "subject": "/pkg/extensions/😀.ts",
+   "match": false
+  },
+  {
+   "pattern": "*.ts",
+   "subject": "extensions/a.ts",
+   "match": false
+  },
+  {
+   "pattern": "*.ts",
+   "subject": "a.ts",
+   "match": true
+  },
+  {
+   "pattern": "*.ts",
+   "subject": "extensions/b.js",
+   "match": false
+  },
+  {
+   "pattern": "*.ts",
+   "subject": "b.js",
+   "match": false
+  },
+  {
+   "pattern": "*.ts",
+   "subject": "extensions/slow-lint.ts",
+   "match": false
+  },
+  {
+   "pattern": "*.ts",
+   "subject": "slow-lint.ts",
+   "match": true
+  },
+  {
+   "pattern": "*.ts",
+   "subject": "extensions/.hidden.ts",
+   "match": false
+  },
+  {
+   "pattern": "*.ts",
+   "subject": ".hidden.ts",
+   "match": false
+  },
+  {
+   "pattern": "*.ts",
+   "subject": "extensions/sub/index.ts",
+   "match": false
+  },
+  {
+   "pattern": "*.ts",
+   "subject": "index.ts",
+   "match": true
+  },
+  {
+   "pattern": "*.ts",
+   "subject": "/pkg/extensions/a.ts",
+   "match": false
+  },
+  {
+   "pattern": "*.ts",
+   "subject": "/pkg/extensions/.hidden.ts",
+   "match": false
+  },
+  {
+   "pattern": "*.ts",
+   "subject": "/pkg/extensions/sub/index.ts",
+   "match": false
+  },
+  {
+   "pattern": "*.ts",
+   "subject": "extensions",
+   "match": false
+  },
+  {
+   "pattern": "*.ts",
+   "subject": "ab.ts",
+   "match": true
+  },
+  {
+   "pattern": "*.ts",
+   "subject": "x/a.ts",
+   "match": false
+  },
+  {
+   "pattern": "*.ts",
+   "subject": "é.ts",
+   "match": true
+  },
+  {
+   "pattern": "*.ts",
+   "subject": "中文.ts",
+   "match": true
+  },
+  {
+   "pattern": "*.ts",
+   "subject": "中.ts",
+   "match": true
+  },
+  {
+   "pattern": "*.ts",
+   "subject": "😀.ts",
+   "match": true
+  },
+  {
+   "pattern": "*.ts",
+   "subject": "a😀.ts",
+   "match": true
+  },
+  {
+   "pattern": "*.ts",
+   "subject": "extensions/😀.ts",
+   "match": false
+  },
+  {
+   "pattern": "*.ts",
+   "subject": "extensions/é.ts",
+   "match": false
+  },
+  {
+   "pattern": "*.ts",
+   "subject": "/pkg/extensions/😀.ts",
+   "match": false
+  },
+  {
+   "pattern": "*",
+   "subject": "extensions/a.ts",
+   "match": false
+  },
+  {
+   "pattern": "*",
+   "subject": "a.ts",
+   "match": true
+  },
+  {
+   "pattern": "*",
+   "subject": "extensions/b.js",
+   "match": false
+  },
+  {
+   "pattern": "*",
+   "subject": "b.js",
+   "match": true
+  },
+  {
+   "pattern": "*",
+   "subject": "extensions/slow-lint.ts",
+   "match": false
+  },
+  {
+   "pattern": "*",
+   "subject": "slow-lint.ts",
+   "match": true
+  },
+  {
+   "pattern": "*",
+   "subject": "extensions/.hidden.ts",
+   "match": false
+  },
+  {
+   "pattern": "*",
+   "subject": ".hidden.ts",
+   "match": false
+  },
+  {
+   "pattern": "*",
+   "subject": "extensions/sub/index.ts",
+   "match": false
+  },
+  {
+   "pattern": "*",
+   "subject": "index.ts",
+   "match": true
+  },
+  {
+   "pattern": "*",
+   "subject": "/pkg/extensions/a.ts",
+   "match": false
+  },
+  {
+   "pattern": "*",
+   "subject": "/pkg/extensions/.hidden.ts",
+   "match": false
+  },
+  {
+   "pattern": "*",
+   "subject": "/pkg/extensions/sub/index.ts",
+   "match": false
+  },
+  {
+   "pattern": "*",
+   "subject": "extensions",
+   "match": true
+  },
+  {
+   "pattern": "*",
+   "subject": "ab.ts",
+   "match": true
+  },
+  {
+   "pattern": "*",
+   "subject": "x/a.ts",
+   "match": false
+  },
+  {
+   "pattern": "*",
+   "subject": "é.ts",
+   "match": true
+  },
+  {
+   "pattern": "*",
+   "subject": "中文.ts",
+   "match": true
+  },
+  {
+   "pattern": "*",
+   "subject": "中.ts",
+   "match": true
+  },
+  {
+   "pattern": "*",
+   "subject": "😀.ts",
+   "match": true
+  },
+  {
+   "pattern": "*",
+   "subject": "a😀.ts",
+   "match": true
+  },
+  {
+   "pattern": "*",
+   "subject": "extensions/😀.ts",
+   "match": false
+  },
+  {
+   "pattern": "*",
+   "subject": "extensions/é.ts",
+   "match": false
+  },
+  {
+   "pattern": "*",
+   "subject": "/pkg/extensions/😀.ts",
+   "match": false
+  },
+  {
+   "pattern": "?.ts",
+   "subject": "extensions/a.ts",
+   "match": false
+  },
+  {
+   "pattern": "?.ts",
+   "subject": "a.ts",
+   "match": true
+  },
+  {
+   "pattern": "?.ts",
+   "subject": "extensions/b.js",
+   "match": false
+  },
+  {
+   "pattern": "?.ts",
+   "subject": "b.js",
+   "match": false
+  },
+  {
+   "pattern": "?.ts",
+   "subject": "extensions/slow-lint.ts",
+   "match": false
+  },
+  {
+   "pattern": "?.ts",
+   "subject": "slow-lint.ts",
+   "match": false
+  },
+  {
+   "pattern": "?.ts",
+   "subject": "extensions/.hidden.ts",
+   "match": false
+  },
+  {
+   "pattern": "?.ts",
+   "subject": ".hidden.ts",
+   "match": false
+  },
+  {
+   "pattern": "?.ts",
+   "subject": "extensions/sub/index.ts",
+   "match": false
+  },
+  {
+   "pattern": "?.ts",
+   "subject": "index.ts",
+   "match": false
+  },
+  {
+   "pattern": "?.ts",
+   "subject": "/pkg/extensions/a.ts",
+   "match": false
+  },
+  {
+   "pattern": "?.ts",
+   "subject": "/pkg/extensions/.hidden.ts",
+   "match": false
+  },
+  {
+   "pattern": "?.ts",
+   "subject": "/pkg/extensions/sub/index.ts",
+   "match": false
+  },
+  {
+   "pattern": "?.ts",
+   "subject": "extensions",
+   "match": false
+  },
+  {
+   "pattern": "?.ts",
+   "subject": "ab.ts",
+   "match": false
+  },
+  {
+   "pattern": "?.ts",
+   "subject": "x/a.ts",
+   "match": false
+  },
+  {
+   "pattern": "?.ts",
+   "subject": "é.ts",
+   "match": true
+  },
+  {
+   "pattern": "?.ts",
+   "subject": "中文.ts",
+   "match": false
+  },
+  {
+   "pattern": "?.ts",
+   "subject": "中.ts",
+   "match": true
+  },
+  {
+   "pattern": "?.ts",
+   "subject": "😀.ts",
+   "match": false
+  },
+  {
+   "pattern": "?.ts",
+   "subject": "a😀.ts",
+   "match": false
+  },
+  {
+   "pattern": "?.ts",
+   "subject": "extensions/😀.ts",
+   "match": false
+  },
+  {
+   "pattern": "?.ts",
+   "subject": "extensions/é.ts",
+   "match": false
+  },
+  {
+   "pattern": "?.ts",
+   "subject": "/pkg/extensions/😀.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/*.ts",
+   "subject": "extensions/a.ts",
+   "match": true
+  },
+  {
+   "pattern": "extensions/*.ts",
+   "subject": "a.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/*.ts",
+   "subject": "extensions/b.js",
+   "match": false
+  },
+  {
+   "pattern": "extensions/*.ts",
+   "subject": "b.js",
+   "match": false
+  },
+  {
+   "pattern": "extensions/*.ts",
+   "subject": "extensions/slow-lint.ts",
+   "match": true
+  },
+  {
+   "pattern": "extensions/*.ts",
+   "subject": "slow-lint.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/*.ts",
+   "subject": "extensions/.hidden.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/*.ts",
+   "subject": ".hidden.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/*.ts",
+   "subject": "extensions/sub/index.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/*.ts",
+   "subject": "index.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/*.ts",
+   "subject": "/pkg/extensions/a.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/*.ts",
+   "subject": "/pkg/extensions/.hidden.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/*.ts",
+   "subject": "/pkg/extensions/sub/index.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/*.ts",
+   "subject": "extensions",
+   "match": false
+  },
+  {
+   "pattern": "extensions/*.ts",
+   "subject": "ab.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/*.ts",
+   "subject": "x/a.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/*.ts",
+   "subject": "é.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/*.ts",
+   "subject": "中文.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/*.ts",
+   "subject": "中.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/*.ts",
+   "subject": "😀.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/*.ts",
+   "subject": "a😀.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/*.ts",
+   "subject": "extensions/😀.ts",
+   "match": true
+  },
+  {
+   "pattern": "extensions/*.ts",
+   "subject": "extensions/é.ts",
+   "match": true
+  },
+  {
+   "pattern": "extensions/*.ts",
+   "subject": "/pkg/extensions/😀.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/*",
+   "subject": "extensions/a.ts",
+   "match": true
+  },
+  {
+   "pattern": "extensions/*",
+   "subject": "a.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/*",
+   "subject": "extensions/b.js",
+   "match": true
+  },
+  {
+   "pattern": "extensions/*",
+   "subject": "b.js",
+   "match": false
+  },
+  {
+   "pattern": "extensions/*",
+   "subject": "extensions/slow-lint.ts",
+   "match": true
+  },
+  {
+   "pattern": "extensions/*",
+   "subject": "slow-lint.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/*",
+   "subject": "extensions/.hidden.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/*",
+   "subject": ".hidden.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/*",
+   "subject": "extensions/sub/index.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/*",
+   "subject": "index.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/*",
+   "subject": "/pkg/extensions/a.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/*",
+   "subject": "/pkg/extensions/.hidden.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/*",
+   "subject": "/pkg/extensions/sub/index.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/*",
+   "subject": "extensions",
+   "match": false
+  },
+  {
+   "pattern": "extensions/*",
+   "subject": "ab.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/*",
+   "subject": "x/a.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/*",
+   "subject": "é.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/*",
+   "subject": "中文.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/*",
+   "subject": "中.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/*",
+   "subject": "😀.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/*",
+   "subject": "a😀.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/*",
+   "subject": "extensions/😀.ts",
+   "match": true
+  },
+  {
+   "pattern": "extensions/*",
+   "subject": "extensions/é.ts",
+   "match": true
+  },
+  {
+   "pattern": "extensions/*",
+   "subject": "/pkg/extensions/😀.ts",
+   "match": false
+  },
+  {
+   "pattern": "*/a.ts",
+   "subject": "extensions/a.ts",
+   "match": true
+  },
+  {
+   "pattern": "*/a.ts",
+   "subject": "a.ts",
+   "match": false
+  },
+  {
+   "pattern": "*/a.ts",
+   "subject": "extensions/b.js",
+   "match": false
+  },
+  {
+   "pattern": "*/a.ts",
+   "subject": "b.js",
+   "match": false
+  },
+  {
+   "pattern": "*/a.ts",
+   "subject": "extensions/slow-lint.ts",
+   "match": false
+  },
+  {
+   "pattern": "*/a.ts",
+   "subject": "slow-lint.ts",
+   "match": false
+  },
+  {
+   "pattern": "*/a.ts",
+   "subject": "extensions/.hidden.ts",
+   "match": false
+  },
+  {
+   "pattern": "*/a.ts",
+   "subject": ".hidden.ts",
+   "match": false
+  },
+  {
+   "pattern": "*/a.ts",
+   "subject": "extensions/sub/index.ts",
+   "match": false
+  },
+  {
+   "pattern": "*/a.ts",
+   "subject": "index.ts",
+   "match": false
+  },
+  {
+   "pattern": "*/a.ts",
+   "subject": "/pkg/extensions/a.ts",
+   "match": false
+  },
+  {
+   "pattern": "*/a.ts",
+   "subject": "/pkg/extensions/.hidden.ts",
+   "match": false
+  },
+  {
+   "pattern": "*/a.ts",
+   "subject": "/pkg/extensions/sub/index.ts",
+   "match": false
+  },
+  {
+   "pattern": "*/a.ts",
+   "subject": "extensions",
+   "match": false
+  },
+  {
+   "pattern": "*/a.ts",
+   "subject": "ab.ts",
+   "match": false
+  },
+  {
+   "pattern": "*/a.ts",
+   "subject": "x/a.ts",
+   "match": true
+  },
+  {
+   "pattern": "*/a.ts",
+   "subject": "é.ts",
+   "match": false
+  },
+  {
+   "pattern": "*/a.ts",
+   "subject": "中文.ts",
+   "match": false
+  },
+  {
+   "pattern": "*/a.ts",
+   "subject": "中.ts",
+   "match": false
+  },
+  {
+   "pattern": "*/a.ts",
+   "subject": "😀.ts",
+   "match": false
+  },
+  {
+   "pattern": "*/a.ts",
+   "subject": "a😀.ts",
+   "match": false
+  },
+  {
+   "pattern": "*/a.ts",
+   "subject": "extensions/😀.ts",
+   "match": false
+  },
+  {
+   "pattern": "*/a.ts",
+   "subject": "extensions/é.ts",
+   "match": false
+  },
+  {
+   "pattern": "*/a.ts",
+   "subject": "/pkg/extensions/😀.ts",
+   "match": false
+  },
+  {
+   "pattern": "ext*/a*.ts",
+   "subject": "extensions/a.ts",
+   "match": true
+  },
+  {
+   "pattern": "ext*/a*.ts",
+   "subject": "a.ts",
+   "match": false
+  },
+  {
+   "pattern": "ext*/a*.ts",
+   "subject": "extensions/b.js",
+   "match": false
+  },
+  {
+   "pattern": "ext*/a*.ts",
+   "subject": "b.js",
+   "match": false
+  },
+  {
+   "pattern": "ext*/a*.ts",
+   "subject": "extensions/slow-lint.ts",
+   "match": false
+  },
+  {
+   "pattern": "ext*/a*.ts",
+   "subject": "slow-lint.ts",
+   "match": false
+  },
+  {
+   "pattern": "ext*/a*.ts",
+   "subject": "extensions/.hidden.ts",
+   "match": false
+  },
+  {
+   "pattern": "ext*/a*.ts",
+   "subject": ".hidden.ts",
+   "match": false
+  },
+  {
+   "pattern": "ext*/a*.ts",
+   "subject": "extensions/sub/index.ts",
+   "match": false
+  },
+  {
+   "pattern": "ext*/a*.ts",
+   "subject": "index.ts",
+   "match": false
+  },
+  {
+   "pattern": "ext*/a*.ts",
+   "subject": "/pkg/extensions/a.ts",
+   "match": false
+  },
+  {
+   "pattern": "ext*/a*.ts",
+   "subject": "/pkg/extensions/.hidden.ts",
+   "match": false
+  },
+  {
+   "pattern": "ext*/a*.ts",
+   "subject": "/pkg/extensions/sub/index.ts",
+   "match": false
+  },
+  {
+   "pattern": "ext*/a*.ts",
+   "subject": "extensions",
+   "match": false
+  },
+  {
+   "pattern": "ext*/a*.ts",
+   "subject": "ab.ts",
+   "match": false
+  },
+  {
+   "pattern": "ext*/a*.ts",
+   "subject": "x/a.ts",
+   "match": false
+  },
+  {
+   "pattern": "ext*/a*.ts",
+   "subject": "é.ts",
+   "match": false
+  },
+  {
+   "pattern": "ext*/a*.ts",
+   "subject": "中文.ts",
+   "match": false
+  },
+  {
+   "pattern": "ext*/a*.ts",
+   "subject": "中.ts",
+   "match": false
+  },
+  {
+   "pattern": "ext*/a*.ts",
+   "subject": "😀.ts",
+   "match": false
+  },
+  {
+   "pattern": "ext*/a*.ts",
+   "subject": "a😀.ts",
+   "match": false
+  },
+  {
+   "pattern": "ext*/a*.ts",
+   "subject": "extensions/😀.ts",
+   "match": false
+  },
+  {
+   "pattern": "ext*/a*.ts",
+   "subject": "extensions/é.ts",
+   "match": false
+  },
+  {
+   "pattern": "ext*/a*.ts",
+   "subject": "/pkg/extensions/😀.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/slow-*.ts",
+   "subject": "extensions/a.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/slow-*.ts",
+   "subject": "a.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/slow-*.ts",
+   "subject": "extensions/b.js",
+   "match": false
+  },
+  {
+   "pattern": "extensions/slow-*.ts",
+   "subject": "b.js",
+   "match": false
+  },
+  {
+   "pattern": "extensions/slow-*.ts",
+   "subject": "extensions/slow-lint.ts",
+   "match": true
+  },
+  {
+   "pattern": "extensions/slow-*.ts",
+   "subject": "slow-lint.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/slow-*.ts",
+   "subject": "extensions/.hidden.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/slow-*.ts",
+   "subject": ".hidden.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/slow-*.ts",
+   "subject": "extensions/sub/index.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/slow-*.ts",
+   "subject": "index.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/slow-*.ts",
+   "subject": "/pkg/extensions/a.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/slow-*.ts",
+   "subject": "/pkg/extensions/.hidden.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/slow-*.ts",
+   "subject": "/pkg/extensions/sub/index.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/slow-*.ts",
+   "subject": "extensions",
+   "match": false
+  },
+  {
+   "pattern": "extensions/slow-*.ts",
+   "subject": "ab.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/slow-*.ts",
+   "subject": "x/a.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/slow-*.ts",
+   "subject": "é.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/slow-*.ts",
+   "subject": "中文.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/slow-*.ts",
+   "subject": "中.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/slow-*.ts",
+   "subject": "😀.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/slow-*.ts",
+   "subject": "a😀.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/slow-*.ts",
+   "subject": "extensions/😀.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/slow-*.ts",
+   "subject": "extensions/é.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/slow-*.ts",
+   "subject": "/pkg/extensions/😀.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/?.ts",
+   "subject": "extensions/a.ts",
+   "match": true
+  },
+  {
+   "pattern": "extensions/?.ts",
+   "subject": "a.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/?.ts",
+   "subject": "extensions/b.js",
+   "match": false
+  },
+  {
+   "pattern": "extensions/?.ts",
+   "subject": "b.js",
+   "match": false
+  },
+  {
+   "pattern": "extensions/?.ts",
+   "subject": "extensions/slow-lint.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/?.ts",
+   "subject": "slow-lint.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/?.ts",
+   "subject": "extensions/.hidden.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/?.ts",
+   "subject": ".hidden.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/?.ts",
+   "subject": "extensions/sub/index.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/?.ts",
+   "subject": "index.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/?.ts",
+   "subject": "/pkg/extensions/a.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/?.ts",
+   "subject": "/pkg/extensions/.hidden.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/?.ts",
+   "subject": "/pkg/extensions/sub/index.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/?.ts",
+   "subject": "extensions",
+   "match": false
+  },
+  {
+   "pattern": "extensions/?.ts",
+   "subject": "ab.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/?.ts",
+   "subject": "x/a.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/?.ts",
+   "subject": "é.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/?.ts",
+   "subject": "中文.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/?.ts",
+   "subject": "中.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/?.ts",
+   "subject": "😀.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/?.ts",
+   "subject": "a😀.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/?.ts",
+   "subject": "extensions/😀.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/?.ts",
+   "subject": "extensions/é.ts",
+   "match": true
+  },
+  {
+   "pattern": "extensions/?.ts",
+   "subject": "/pkg/extensions/😀.ts",
+   "match": false
+  },
+  {
+   "pattern": "/pkg/extensions/*.ts",
+   "subject": "extensions/a.ts",
+   "match": false
+  },
+  {
+   "pattern": "/pkg/extensions/*.ts",
+   "subject": "a.ts",
+   "match": false
+  },
+  {
+   "pattern": "/pkg/extensions/*.ts",
+   "subject": "extensions/b.js",
+   "match": false
+  },
+  {
+   "pattern": "/pkg/extensions/*.ts",
+   "subject": "b.js",
+   "match": false
+  },
+  {
+   "pattern": "/pkg/extensions/*.ts",
+   "subject": "extensions/slow-lint.ts",
+   "match": false
+  },
+  {
+   "pattern": "/pkg/extensions/*.ts",
+   "subject": "slow-lint.ts",
+   "match": false
+  },
+  {
+   "pattern": "/pkg/extensions/*.ts",
+   "subject": "extensions/.hidden.ts",
+   "match": false
+  },
+  {
+   "pattern": "/pkg/extensions/*.ts",
+   "subject": ".hidden.ts",
+   "match": false
+  },
+  {
+   "pattern": "/pkg/extensions/*.ts",
+   "subject": "extensions/sub/index.ts",
+   "match": false
+  },
+  {
+   "pattern": "/pkg/extensions/*.ts",
+   "subject": "index.ts",
+   "match": false
+  },
+  {
+   "pattern": "/pkg/extensions/*.ts",
+   "subject": "/pkg/extensions/a.ts",
+   "match": true
+  },
+  {
+   "pattern": "/pkg/extensions/*.ts",
+   "subject": "/pkg/extensions/.hidden.ts",
+   "match": false
+  },
+  {
+   "pattern": "/pkg/extensions/*.ts",
+   "subject": "/pkg/extensions/sub/index.ts",
+   "match": false
+  },
+  {
+   "pattern": "/pkg/extensions/*.ts",
+   "subject": "extensions",
+   "match": false
+  },
+  {
+   "pattern": "/pkg/extensions/*.ts",
+   "subject": "ab.ts",
+   "match": false
+  },
+  {
+   "pattern": "/pkg/extensions/*.ts",
+   "subject": "x/a.ts",
+   "match": false
+  },
+  {
+   "pattern": "/pkg/extensions/*.ts",
+   "subject": "é.ts",
+   "match": false
+  },
+  {
+   "pattern": "/pkg/extensions/*.ts",
+   "subject": "中文.ts",
+   "match": false
+  },
+  {
+   "pattern": "/pkg/extensions/*.ts",
+   "subject": "中.ts",
+   "match": false
+  },
+  {
+   "pattern": "/pkg/extensions/*.ts",
+   "subject": "😀.ts",
+   "match": false
+  },
+  {
+   "pattern": "/pkg/extensions/*.ts",
+   "subject": "a😀.ts",
+   "match": false
+  },
+  {
+   "pattern": "/pkg/extensions/*.ts",
+   "subject": "extensions/😀.ts",
+   "match": false
+  },
+  {
+   "pattern": "/pkg/extensions/*.ts",
+   "subject": "extensions/é.ts",
+   "match": false
+  },
+  {
+   "pattern": "/pkg/extensions/*.ts",
+   "subject": "/pkg/extensions/😀.ts",
+   "match": true
+  },
+  {
+   "pattern": "/pkg/*/a.ts",
+   "subject": "extensions/a.ts",
+   "match": false
+  },
+  {
+   "pattern": "/pkg/*/a.ts",
+   "subject": "a.ts",
+   "match": false
+  },
+  {
+   "pattern": "/pkg/*/a.ts",
+   "subject": "extensions/b.js",
+   "match": false
+  },
+  {
+   "pattern": "/pkg/*/a.ts",
+   "subject": "b.js",
+   "match": false
+  },
+  {
+   "pattern": "/pkg/*/a.ts",
+   "subject": "extensions/slow-lint.ts",
+   "match": false
+  },
+  {
+   "pattern": "/pkg/*/a.ts",
+   "subject": "slow-lint.ts",
+   "match": false
+  },
+  {
+   "pattern": "/pkg/*/a.ts",
+   "subject": "extensions/.hidden.ts",
+   "match": false
+  },
+  {
+   "pattern": "/pkg/*/a.ts",
+   "subject": ".hidden.ts",
+   "match": false
+  },
+  {
+   "pattern": "/pkg/*/a.ts",
+   "subject": "extensions/sub/index.ts",
+   "match": false
+  },
+  {
+   "pattern": "/pkg/*/a.ts",
+   "subject": "index.ts",
+   "match": false
+  },
+  {
+   "pattern": "/pkg/*/a.ts",
+   "subject": "/pkg/extensions/a.ts",
+   "match": true
+  },
+  {
+   "pattern": "/pkg/*/a.ts",
+   "subject": "/pkg/extensions/.hidden.ts",
+   "match": false
+  },
+  {
+   "pattern": "/pkg/*/a.ts",
+   "subject": "/pkg/extensions/sub/index.ts",
+   "match": false
+  },
+  {
+   "pattern": "/pkg/*/a.ts",
+   "subject": "extensions",
+   "match": false
+  },
+  {
+   "pattern": "/pkg/*/a.ts",
+   "subject": "ab.ts",
+   "match": false
+  },
+  {
+   "pattern": "/pkg/*/a.ts",
+   "subject": "x/a.ts",
+   "match": false
+  },
+  {
+   "pattern": "/pkg/*/a.ts",
+   "subject": "é.ts",
+   "match": false
+  },
+  {
+   "pattern": "/pkg/*/a.ts",
+   "subject": "中文.ts",
+   "match": false
+  },
+  {
+   "pattern": "/pkg/*/a.ts",
+   "subject": "中.ts",
+   "match": false
+  },
+  {
+   "pattern": "/pkg/*/a.ts",
+   "subject": "😀.ts",
+   "match": false
+  },
+  {
+   "pattern": "/pkg/*/a.ts",
+   "subject": "a😀.ts",
+   "match": false
+  },
+  {
+   "pattern": "/pkg/*/a.ts",
+   "subject": "extensions/😀.ts",
+   "match": false
+  },
+  {
+   "pattern": "/pkg/*/a.ts",
+   "subject": "extensions/é.ts",
+   "match": false
+  },
+  {
+   "pattern": "/pkg/*/a.ts",
+   "subject": "/pkg/extensions/😀.ts",
+   "match": false
+  },
+  {
+   "pattern": ".hidden.ts",
+   "subject": "extensions/a.ts",
+   "match": false
+  },
+  {
+   "pattern": ".hidden.ts",
+   "subject": "a.ts",
+   "match": false
+  },
+  {
+   "pattern": ".hidden.ts",
+   "subject": "extensions/b.js",
+   "match": false
+  },
+  {
+   "pattern": ".hidden.ts",
+   "subject": "b.js",
+   "match": false
+  },
+  {
+   "pattern": ".hidden.ts",
+   "subject": "extensions/slow-lint.ts",
+   "match": false
+  },
+  {
+   "pattern": ".hidden.ts",
+   "subject": "slow-lint.ts",
+   "match": false
+  },
+  {
+   "pattern": ".hidden.ts",
+   "subject": "extensions/.hidden.ts",
+   "match": false
+  },
+  {
+   "pattern": ".hidden.ts",
+   "subject": ".hidden.ts",
+   "match": true
+  },
+  {
+   "pattern": ".hidden.ts",
+   "subject": "extensions/sub/index.ts",
+   "match": false
+  },
+  {
+   "pattern": ".hidden.ts",
+   "subject": "index.ts",
+   "match": false
+  },
+  {
+   "pattern": ".hidden.ts",
+   "subject": "/pkg/extensions/a.ts",
+   "match": false
+  },
+  {
+   "pattern": ".hidden.ts",
+   "subject": "/pkg/extensions/.hidden.ts",
+   "match": false
+  },
+  {
+   "pattern": ".hidden.ts",
+   "subject": "/pkg/extensions/sub/index.ts",
+   "match": false
+  },
+  {
+   "pattern": ".hidden.ts",
+   "subject": "extensions",
+   "match": false
+  },
+  {
+   "pattern": ".hidden.ts",
+   "subject": "ab.ts",
+   "match": false
+  },
+  {
+   "pattern": ".hidden.ts",
+   "subject": "x/a.ts",
+   "match": false
+  },
+  {
+   "pattern": ".hidden.ts",
+   "subject": "é.ts",
+   "match": false
+  },
+  {
+   "pattern": ".hidden.ts",
+   "subject": "中文.ts",
+   "match": false
+  },
+  {
+   "pattern": ".hidden.ts",
+   "subject": "中.ts",
+   "match": false
+  },
+  {
+   "pattern": ".hidden.ts",
+   "subject": "😀.ts",
+   "match": false
+  },
+  {
+   "pattern": ".hidden.ts",
+   "subject": "a😀.ts",
+   "match": false
+  },
+  {
+   "pattern": ".hidden.ts",
+   "subject": "extensions/😀.ts",
+   "match": false
+  },
+  {
+   "pattern": ".hidden.ts",
+   "subject": "extensions/é.ts",
+   "match": false
+  },
+  {
+   "pattern": ".hidden.ts",
+   "subject": "/pkg/extensions/😀.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/.h*",
+   "subject": "extensions/a.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/.h*",
+   "subject": "a.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/.h*",
+   "subject": "extensions/b.js",
+   "match": false
+  },
+  {
+   "pattern": "extensions/.h*",
+   "subject": "b.js",
+   "match": false
+  },
+  {
+   "pattern": "extensions/.h*",
+   "subject": "extensions/slow-lint.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/.h*",
+   "subject": "slow-lint.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/.h*",
+   "subject": "extensions/.hidden.ts",
+   "match": true
+  },
+  {
+   "pattern": "extensions/.h*",
+   "subject": ".hidden.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/.h*",
+   "subject": "extensions/sub/index.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/.h*",
+   "subject": "index.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/.h*",
+   "subject": "/pkg/extensions/a.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/.h*",
+   "subject": "/pkg/extensions/.hidden.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/.h*",
+   "subject": "/pkg/extensions/sub/index.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/.h*",
+   "subject": "extensions",
+   "match": false
+  },
+  {
+   "pattern": "extensions/.h*",
+   "subject": "ab.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/.h*",
+   "subject": "x/a.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/.h*",
+   "subject": "é.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/.h*",
+   "subject": "中文.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/.h*",
+   "subject": "中.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/.h*",
+   "subject": "😀.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/.h*",
+   "subject": "a😀.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/.h*",
+   "subject": "extensions/😀.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/.h*",
+   "subject": "extensions/é.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/.h*",
+   "subject": "/pkg/extensions/😀.ts",
+   "match": false
+  },
+  {
+   "pattern": "*.js",
+   "subject": "extensions/a.ts",
+   "match": false
+  },
+  {
+   "pattern": "*.js",
+   "subject": "a.ts",
+   "match": false
+  },
+  {
+   "pattern": "*.js",
+   "subject": "extensions/b.js",
+   "match": false
+  },
+  {
+   "pattern": "*.js",
+   "subject": "b.js",
+   "match": true
+  },
+  {
+   "pattern": "*.js",
+   "subject": "extensions/slow-lint.ts",
+   "match": false
+  },
+  {
+   "pattern": "*.js",
+   "subject": "slow-lint.ts",
+   "match": false
+  },
+  {
+   "pattern": "*.js",
+   "subject": "extensions/.hidden.ts",
+   "match": false
+  },
+  {
+   "pattern": "*.js",
+   "subject": ".hidden.ts",
+   "match": false
+  },
+  {
+   "pattern": "*.js",
+   "subject": "extensions/sub/index.ts",
+   "match": false
+  },
+  {
+   "pattern": "*.js",
+   "subject": "index.ts",
+   "match": false
+  },
+  {
+   "pattern": "*.js",
+   "subject": "/pkg/extensions/a.ts",
+   "match": false
+  },
+  {
+   "pattern": "*.js",
+   "subject": "/pkg/extensions/.hidden.ts",
+   "match": false
+  },
+  {
+   "pattern": "*.js",
+   "subject": "/pkg/extensions/sub/index.ts",
+   "match": false
+  },
+  {
+   "pattern": "*.js",
+   "subject": "extensions",
+   "match": false
+  },
+  {
+   "pattern": "*.js",
+   "subject": "ab.ts",
+   "match": false
+  },
+  {
+   "pattern": "*.js",
+   "subject": "x/a.ts",
+   "match": false
+  },
+  {
+   "pattern": "*.js",
+   "subject": "é.ts",
+   "match": false
+  },
+  {
+   "pattern": "*.js",
+   "subject": "中文.ts",
+   "match": false
+  },
+  {
+   "pattern": "*.js",
+   "subject": "中.ts",
+   "match": false
+  },
+  {
+   "pattern": "*.js",
+   "subject": "😀.ts",
+   "match": false
+  },
+  {
+   "pattern": "*.js",
+   "subject": "a😀.ts",
+   "match": false
+  },
+  {
+   "pattern": "*.js",
+   "subject": "extensions/😀.ts",
+   "match": false
+  },
+  {
+   "pattern": "*.js",
+   "subject": "extensions/é.ts",
+   "match": false
+  },
+  {
+   "pattern": "*.js",
+   "subject": "/pkg/extensions/😀.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/sub/index.ts",
+   "subject": "extensions/a.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/sub/index.ts",
+   "subject": "a.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/sub/index.ts",
+   "subject": "extensions/b.js",
+   "match": false
+  },
+  {
+   "pattern": "extensions/sub/index.ts",
+   "subject": "b.js",
+   "match": false
+  },
+  {
+   "pattern": "extensions/sub/index.ts",
+   "subject": "extensions/slow-lint.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/sub/index.ts",
+   "subject": "slow-lint.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/sub/index.ts",
+   "subject": "extensions/.hidden.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/sub/index.ts",
+   "subject": ".hidden.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/sub/index.ts",
+   "subject": "extensions/sub/index.ts",
+   "match": true
+  },
+  {
+   "pattern": "extensions/sub/index.ts",
+   "subject": "index.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/sub/index.ts",
+   "subject": "/pkg/extensions/a.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/sub/index.ts",
+   "subject": "/pkg/extensions/.hidden.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/sub/index.ts",
+   "subject": "/pkg/extensions/sub/index.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/sub/index.ts",
+   "subject": "extensions",
+   "match": false
+  },
+  {
+   "pattern": "extensions/sub/index.ts",
+   "subject": "ab.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/sub/index.ts",
+   "subject": "x/a.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/sub/index.ts",
+   "subject": "é.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/sub/index.ts",
+   "subject": "中文.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/sub/index.ts",
+   "subject": "中.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/sub/index.ts",
+   "subject": "😀.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/sub/index.ts",
+   "subject": "a😀.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/sub/index.ts",
+   "subject": "extensions/😀.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/sub/index.ts",
+   "subject": "extensions/é.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/sub/index.ts",
+   "subject": "/pkg/extensions/😀.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/*/index.ts",
+   "subject": "extensions/a.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/*/index.ts",
+   "subject": "a.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/*/index.ts",
+   "subject": "extensions/b.js",
+   "match": false
+  },
+  {
+   "pattern": "extensions/*/index.ts",
+   "subject": "b.js",
+   "match": false
+  },
+  {
+   "pattern": "extensions/*/index.ts",
+   "subject": "extensions/slow-lint.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/*/index.ts",
+   "subject": "slow-lint.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/*/index.ts",
+   "subject": "extensions/.hidden.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/*/index.ts",
+   "subject": ".hidden.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/*/index.ts",
+   "subject": "extensions/sub/index.ts",
+   "match": true
+  },
+  {
+   "pattern": "extensions/*/index.ts",
+   "subject": "index.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/*/index.ts",
+   "subject": "/pkg/extensions/a.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/*/index.ts",
+   "subject": "/pkg/extensions/.hidden.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/*/index.ts",
+   "subject": "/pkg/extensions/sub/index.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/*/index.ts",
+   "subject": "extensions",
+   "match": false
+  },
+  {
+   "pattern": "extensions/*/index.ts",
+   "subject": "ab.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/*/index.ts",
+   "subject": "x/a.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/*/index.ts",
+   "subject": "é.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/*/index.ts",
+   "subject": "中文.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/*/index.ts",
+   "subject": "中.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/*/index.ts",
+   "subject": "😀.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/*/index.ts",
+   "subject": "a😀.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/*/index.ts",
+   "subject": "extensions/😀.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/*/index.ts",
+   "subject": "extensions/é.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/*/index.ts",
+   "subject": "/pkg/extensions/😀.ts",
+   "match": false
+  },
+  {
+   "pattern": "a*",
+   "subject": "extensions/a.ts",
+   "match": false
+  },
+  {
+   "pattern": "a*",
+   "subject": "a.ts",
+   "match": true
+  },
+  {
+   "pattern": "a*",
+   "subject": "extensions/b.js",
+   "match": false
+  },
+  {
+   "pattern": "a*",
+   "subject": "b.js",
+   "match": false
+  },
+  {
+   "pattern": "a*",
+   "subject": "extensions/slow-lint.ts",
+   "match": false
+  },
+  {
+   "pattern": "a*",
+   "subject": "slow-lint.ts",
+   "match": false
+  },
+  {
+   "pattern": "a*",
+   "subject": "extensions/.hidden.ts",
+   "match": false
+  },
+  {
+   "pattern": "a*",
+   "subject": ".hidden.ts",
+   "match": false
+  },
+  {
+   "pattern": "a*",
+   "subject": "extensions/sub/index.ts",
+   "match": false
+  },
+  {
+   "pattern": "a*",
+   "subject": "index.ts",
+   "match": false
+  },
+  {
+   "pattern": "a*",
+   "subject": "/pkg/extensions/a.ts",
+   "match": false
+  },
+  {
+   "pattern": "a*",
+   "subject": "/pkg/extensions/.hidden.ts",
+   "match": false
+  },
+  {
+   "pattern": "a*",
+   "subject": "/pkg/extensions/sub/index.ts",
+   "match": false
+  },
+  {
+   "pattern": "a*",
+   "subject": "extensions",
+   "match": false
+  },
+  {
+   "pattern": "a*",
+   "subject": "ab.ts",
+   "match": true
+  },
+  {
+   "pattern": "a*",
+   "subject": "x/a.ts",
+   "match": false
+  },
+  {
+   "pattern": "a*",
+   "subject": "é.ts",
+   "match": false
+  },
+  {
+   "pattern": "a*",
+   "subject": "中文.ts",
+   "match": false
+  },
+  {
+   "pattern": "a*",
+   "subject": "中.ts",
+   "match": false
+  },
+  {
+   "pattern": "a*",
+   "subject": "😀.ts",
+   "match": false
+  },
+  {
+   "pattern": "a*",
+   "subject": "a😀.ts",
+   "match": true
+  },
+  {
+   "pattern": "a*",
+   "subject": "extensions/😀.ts",
+   "match": false
+  },
+  {
+   "pattern": "a*",
+   "subject": "extensions/é.ts",
+   "match": false
+  },
+  {
+   "pattern": "a*",
+   "subject": "/pkg/extensions/😀.ts",
+   "match": false
+  },
+  {
+   "pattern": "*a",
+   "subject": "extensions/a.ts",
+   "match": false
+  },
+  {
+   "pattern": "*a",
+   "subject": "a.ts",
+   "match": false
+  },
+  {
+   "pattern": "*a",
+   "subject": "extensions/b.js",
+   "match": false
+  },
+  {
+   "pattern": "*a",
+   "subject": "b.js",
+   "match": false
+  },
+  {
+   "pattern": "*a",
+   "subject": "extensions/slow-lint.ts",
+   "match": false
+  },
+  {
+   "pattern": "*a",
+   "subject": "slow-lint.ts",
+   "match": false
+  },
+  {
+   "pattern": "*a",
+   "subject": "extensions/.hidden.ts",
+   "match": false
+  },
+  {
+   "pattern": "*a",
+   "subject": ".hidden.ts",
+   "match": false
+  },
+  {
+   "pattern": "*a",
+   "subject": "extensions/sub/index.ts",
+   "match": false
+  },
+  {
+   "pattern": "*a",
+   "subject": "index.ts",
+   "match": false
+  },
+  {
+   "pattern": "*a",
+   "subject": "/pkg/extensions/a.ts",
+   "match": false
+  },
+  {
+   "pattern": "*a",
+   "subject": "/pkg/extensions/.hidden.ts",
+   "match": false
+  },
+  {
+   "pattern": "*a",
+   "subject": "/pkg/extensions/sub/index.ts",
+   "match": false
+  },
+  {
+   "pattern": "*a",
+   "subject": "extensions",
+   "match": false
+  },
+  {
+   "pattern": "*a",
+   "subject": "ab.ts",
+   "match": false
+  },
+  {
+   "pattern": "*a",
+   "subject": "x/a.ts",
+   "match": false
+  },
+  {
+   "pattern": "*a",
+   "subject": "é.ts",
+   "match": false
+  },
+  {
+   "pattern": "*a",
+   "subject": "中文.ts",
+   "match": false
+  },
+  {
+   "pattern": "*a",
+   "subject": "中.ts",
+   "match": false
+  },
+  {
+   "pattern": "*a",
+   "subject": "😀.ts",
+   "match": false
+  },
+  {
+   "pattern": "*a",
+   "subject": "a😀.ts",
+   "match": false
+  },
+  {
+   "pattern": "*a",
+   "subject": "extensions/😀.ts",
+   "match": false
+  },
+  {
+   "pattern": "*a",
+   "subject": "extensions/é.ts",
+   "match": false
+  },
+  {
+   "pattern": "*a",
+   "subject": "/pkg/extensions/😀.ts",
+   "match": false
+  },
+  {
+   "pattern": "*-lint.ts",
+   "subject": "extensions/a.ts",
+   "match": false
+  },
+  {
+   "pattern": "*-lint.ts",
+   "subject": "a.ts",
+   "match": false
+  },
+  {
+   "pattern": "*-lint.ts",
+   "subject": "extensions/b.js",
+   "match": false
+  },
+  {
+   "pattern": "*-lint.ts",
+   "subject": "b.js",
+   "match": false
+  },
+  {
+   "pattern": "*-lint.ts",
+   "subject": "extensions/slow-lint.ts",
+   "match": false
+  },
+  {
+   "pattern": "*-lint.ts",
+   "subject": "slow-lint.ts",
+   "match": true
+  },
+  {
+   "pattern": "*-lint.ts",
+   "subject": "extensions/.hidden.ts",
+   "match": false
+  },
+  {
+   "pattern": "*-lint.ts",
+   "subject": ".hidden.ts",
+   "match": false
+  },
+  {
+   "pattern": "*-lint.ts",
+   "subject": "extensions/sub/index.ts",
+   "match": false
+  },
+  {
+   "pattern": "*-lint.ts",
+   "subject": "index.ts",
+   "match": false
+  },
+  {
+   "pattern": "*-lint.ts",
+   "subject": "/pkg/extensions/a.ts",
+   "match": false
+  },
+  {
+   "pattern": "*-lint.ts",
+   "subject": "/pkg/extensions/.hidden.ts",
+   "match": false
+  },
+  {
+   "pattern": "*-lint.ts",
+   "subject": "/pkg/extensions/sub/index.ts",
+   "match": false
+  },
+  {
+   "pattern": "*-lint.ts",
+   "subject": "extensions",
+   "match": false
+  },
+  {
+   "pattern": "*-lint.ts",
+   "subject": "ab.ts",
+   "match": false
+  },
+  {
+   "pattern": "*-lint.ts",
+   "subject": "x/a.ts",
+   "match": false
+  },
+  {
+   "pattern": "*-lint.ts",
+   "subject": "é.ts",
+   "match": false
+  },
+  {
+   "pattern": "*-lint.ts",
+   "subject": "中文.ts",
+   "match": false
+  },
+  {
+   "pattern": "*-lint.ts",
+   "subject": "中.ts",
+   "match": false
+  },
+  {
+   "pattern": "*-lint.ts",
+   "subject": "😀.ts",
+   "match": false
+  },
+  {
+   "pattern": "*-lint.ts",
+   "subject": "a😀.ts",
+   "match": false
+  },
+  {
+   "pattern": "*-lint.ts",
+   "subject": "extensions/😀.ts",
+   "match": false
+  },
+  {
+   "pattern": "*-lint.ts",
+   "subject": "extensions/é.ts",
+   "match": false
+  },
+  {
+   "pattern": "*-lint.ts",
+   "subject": "/pkg/extensions/😀.ts",
+   "match": false
+  },
+  {
+   "pattern": "??.ts",
+   "subject": "extensions/a.ts",
+   "match": false
+  },
+  {
+   "pattern": "??.ts",
+   "subject": "a.ts",
+   "match": false
+  },
+  {
+   "pattern": "??.ts",
+   "subject": "extensions/b.js",
+   "match": false
+  },
+  {
+   "pattern": "??.ts",
+   "subject": "b.js",
+   "match": false
+  },
+  {
+   "pattern": "??.ts",
+   "subject": "extensions/slow-lint.ts",
+   "match": false
+  },
+  {
+   "pattern": "??.ts",
+   "subject": "slow-lint.ts",
+   "match": false
+  },
+  {
+   "pattern": "??.ts",
+   "subject": "extensions/.hidden.ts",
+   "match": false
+  },
+  {
+   "pattern": "??.ts",
+   "subject": ".hidden.ts",
+   "match": false
+  },
+  {
+   "pattern": "??.ts",
+   "subject": "extensions/sub/index.ts",
+   "match": false
+  },
+  {
+   "pattern": "??.ts",
+   "subject": "index.ts",
+   "match": false
+  },
+  {
+   "pattern": "??.ts",
+   "subject": "/pkg/extensions/a.ts",
+   "match": false
+  },
+  {
+   "pattern": "??.ts",
+   "subject": "/pkg/extensions/.hidden.ts",
+   "match": false
+  },
+  {
+   "pattern": "??.ts",
+   "subject": "/pkg/extensions/sub/index.ts",
+   "match": false
+  },
+  {
+   "pattern": "??.ts",
+   "subject": "extensions",
+   "match": false
+  },
+  {
+   "pattern": "??.ts",
+   "subject": "ab.ts",
+   "match": true
+  },
+  {
+   "pattern": "??.ts",
+   "subject": "x/a.ts",
+   "match": false
+  },
+  {
+   "pattern": "??.ts",
+   "subject": "é.ts",
+   "match": false
+  },
+  {
+   "pattern": "??.ts",
+   "subject": "中文.ts",
+   "match": true
+  },
+  {
+   "pattern": "??.ts",
+   "subject": "中.ts",
+   "match": false
+  },
+  {
+   "pattern": "??.ts",
+   "subject": "😀.ts",
+   "match": true
+  },
+  {
+   "pattern": "??.ts",
+   "subject": "a😀.ts",
+   "match": false
+  },
+  {
+   "pattern": "??.ts",
+   "subject": "extensions/😀.ts",
+   "match": false
+  },
+  {
+   "pattern": "??.ts",
+   "subject": "extensions/é.ts",
+   "match": false
+  },
+  {
+   "pattern": "??.ts",
+   "subject": "/pkg/extensions/😀.ts",
+   "match": false
+  },
+  {
+   "pattern": "???.ts",
+   "subject": "extensions/a.ts",
+   "match": false
+  },
+  {
+   "pattern": "???.ts",
+   "subject": "a.ts",
+   "match": false
+  },
+  {
+   "pattern": "???.ts",
+   "subject": "extensions/b.js",
+   "match": false
+  },
+  {
+   "pattern": "???.ts",
+   "subject": "b.js",
+   "match": false
+  },
+  {
+   "pattern": "???.ts",
+   "subject": "extensions/slow-lint.ts",
+   "match": false
+  },
+  {
+   "pattern": "???.ts",
+   "subject": "slow-lint.ts",
+   "match": false
+  },
+  {
+   "pattern": "???.ts",
+   "subject": "extensions/.hidden.ts",
+   "match": false
+  },
+  {
+   "pattern": "???.ts",
+   "subject": ".hidden.ts",
+   "match": false
+  },
+  {
+   "pattern": "???.ts",
+   "subject": "extensions/sub/index.ts",
+   "match": false
+  },
+  {
+   "pattern": "???.ts",
+   "subject": "index.ts",
+   "match": false
+  },
+  {
+   "pattern": "???.ts",
+   "subject": "/pkg/extensions/a.ts",
+   "match": false
+  },
+  {
+   "pattern": "???.ts",
+   "subject": "/pkg/extensions/.hidden.ts",
+   "match": false
+  },
+  {
+   "pattern": "???.ts",
+   "subject": "/pkg/extensions/sub/index.ts",
+   "match": false
+  },
+  {
+   "pattern": "???.ts",
+   "subject": "extensions",
+   "match": false
+  },
+  {
+   "pattern": "???.ts",
+   "subject": "ab.ts",
+   "match": false
+  },
+  {
+   "pattern": "???.ts",
+   "subject": "x/a.ts",
+   "match": false
+  },
+  {
+   "pattern": "???.ts",
+   "subject": "é.ts",
+   "match": false
+  },
+  {
+   "pattern": "???.ts",
+   "subject": "中文.ts",
+   "match": false
+  },
+  {
+   "pattern": "???.ts",
+   "subject": "中.ts",
+   "match": false
+  },
+  {
+   "pattern": "???.ts",
+   "subject": "😀.ts",
+   "match": false
+  },
+  {
+   "pattern": "???.ts",
+   "subject": "a😀.ts",
+   "match": true
+  },
+  {
+   "pattern": "???.ts",
+   "subject": "extensions/😀.ts",
+   "match": false
+  },
+  {
+   "pattern": "???.ts",
+   "subject": "extensions/é.ts",
+   "match": false
+  },
+  {
+   "pattern": "???.ts",
+   "subject": "/pkg/extensions/😀.ts",
+   "match": false
+  },
+  {
+   "pattern": "é*.ts",
+   "subject": "extensions/a.ts",
+   "match": false
+  },
+  {
+   "pattern": "é*.ts",
+   "subject": "a.ts",
+   "match": false
+  },
+  {
+   "pattern": "é*.ts",
+   "subject": "extensions/b.js",
+   "match": false
+  },
+  {
+   "pattern": "é*.ts",
+   "subject": "b.js",
+   "match": false
+  },
+  {
+   "pattern": "é*.ts",
+   "subject": "extensions/slow-lint.ts",
+   "match": false
+  },
+  {
+   "pattern": "é*.ts",
+   "subject": "slow-lint.ts",
+   "match": false
+  },
+  {
+   "pattern": "é*.ts",
+   "subject": "extensions/.hidden.ts",
+   "match": false
+  },
+  {
+   "pattern": "é*.ts",
+   "subject": ".hidden.ts",
+   "match": false
+  },
+  {
+   "pattern": "é*.ts",
+   "subject": "extensions/sub/index.ts",
+   "match": false
+  },
+  {
+   "pattern": "é*.ts",
+   "subject": "index.ts",
+   "match": false
+  },
+  {
+   "pattern": "é*.ts",
+   "subject": "/pkg/extensions/a.ts",
+   "match": false
+  },
+  {
+   "pattern": "é*.ts",
+   "subject": "/pkg/extensions/.hidden.ts",
+   "match": false
+  },
+  {
+   "pattern": "é*.ts",
+   "subject": "/pkg/extensions/sub/index.ts",
+   "match": false
+  },
+  {
+   "pattern": "é*.ts",
+   "subject": "extensions",
+   "match": false
+  },
+  {
+   "pattern": "é*.ts",
+   "subject": "ab.ts",
+   "match": false
+  },
+  {
+   "pattern": "é*.ts",
+   "subject": "x/a.ts",
+   "match": false
+  },
+  {
+   "pattern": "é*.ts",
+   "subject": "é.ts",
+   "match": true
+  },
+  {
+   "pattern": "é*.ts",
+   "subject": "中文.ts",
+   "match": false
+  },
+  {
+   "pattern": "é*.ts",
+   "subject": "中.ts",
+   "match": false
+  },
+  {
+   "pattern": "é*.ts",
+   "subject": "😀.ts",
+   "match": false
+  },
+  {
+   "pattern": "é*.ts",
+   "subject": "a😀.ts",
+   "match": false
+  },
+  {
+   "pattern": "é*.ts",
+   "subject": "extensions/😀.ts",
+   "match": false
+  },
+  {
+   "pattern": "é*.ts",
+   "subject": "extensions/é.ts",
+   "match": false
+  },
+  {
+   "pattern": "é*.ts",
+   "subject": "/pkg/extensions/😀.ts",
+   "match": false
+  },
+  {
+   "pattern": "中?.ts",
+   "subject": "extensions/a.ts",
+   "match": false
+  },
+  {
+   "pattern": "中?.ts",
+   "subject": "a.ts",
+   "match": false
+  },
+  {
+   "pattern": "中?.ts",
+   "subject": "extensions/b.js",
+   "match": false
+  },
+  {
+   "pattern": "中?.ts",
+   "subject": "b.js",
+   "match": false
+  },
+  {
+   "pattern": "中?.ts",
+   "subject": "extensions/slow-lint.ts",
+   "match": false
+  },
+  {
+   "pattern": "中?.ts",
+   "subject": "slow-lint.ts",
+   "match": false
+  },
+  {
+   "pattern": "中?.ts",
+   "subject": "extensions/.hidden.ts",
+   "match": false
+  },
+  {
+   "pattern": "中?.ts",
+   "subject": ".hidden.ts",
+   "match": false
+  },
+  {
+   "pattern": "中?.ts",
+   "subject": "extensions/sub/index.ts",
+   "match": false
+  },
+  {
+   "pattern": "中?.ts",
+   "subject": "index.ts",
+   "match": false
+  },
+  {
+   "pattern": "中?.ts",
+   "subject": "/pkg/extensions/a.ts",
+   "match": false
+  },
+  {
+   "pattern": "中?.ts",
+   "subject": "/pkg/extensions/.hidden.ts",
+   "match": false
+  },
+  {
+   "pattern": "中?.ts",
+   "subject": "/pkg/extensions/sub/index.ts",
+   "match": false
+  },
+  {
+   "pattern": "中?.ts",
+   "subject": "extensions",
+   "match": false
+  },
+  {
+   "pattern": "中?.ts",
+   "subject": "ab.ts",
+   "match": false
+  },
+  {
+   "pattern": "中?.ts",
+   "subject": "x/a.ts",
+   "match": false
+  },
+  {
+   "pattern": "中?.ts",
+   "subject": "é.ts",
+   "match": false
+  },
+  {
+   "pattern": "中?.ts",
+   "subject": "中文.ts",
+   "match": true
+  },
+  {
+   "pattern": "中?.ts",
+   "subject": "中.ts",
+   "match": false
+  },
+  {
+   "pattern": "中?.ts",
+   "subject": "😀.ts",
+   "match": false
+  },
+  {
+   "pattern": "中?.ts",
+   "subject": "a😀.ts",
+   "match": false
+  },
+  {
+   "pattern": "中?.ts",
+   "subject": "extensions/😀.ts",
+   "match": false
+  },
+  {
+   "pattern": "中?.ts",
+   "subject": "extensions/é.ts",
+   "match": false
+  },
+  {
+   "pattern": "中?.ts",
+   "subject": "/pkg/extensions/😀.ts",
+   "match": false
+  },
+  {
+   "pattern": "😀*.ts",
+   "subject": "extensions/a.ts",
+   "match": false
+  },
+  {
+   "pattern": "😀*.ts",
+   "subject": "a.ts",
+   "match": false
+  },
+  {
+   "pattern": "😀*.ts",
+   "subject": "extensions/b.js",
+   "match": false
+  },
+  {
+   "pattern": "😀*.ts",
+   "subject": "b.js",
+   "match": false
+  },
+  {
+   "pattern": "😀*.ts",
+   "subject": "extensions/slow-lint.ts",
+   "match": false
+  },
+  {
+   "pattern": "😀*.ts",
+   "subject": "slow-lint.ts",
+   "match": false
+  },
+  {
+   "pattern": "😀*.ts",
+   "subject": "extensions/.hidden.ts",
+   "match": false
+  },
+  {
+   "pattern": "😀*.ts",
+   "subject": ".hidden.ts",
+   "match": false
+  },
+  {
+   "pattern": "😀*.ts",
+   "subject": "extensions/sub/index.ts",
+   "match": false
+  },
+  {
+   "pattern": "😀*.ts",
+   "subject": "index.ts",
+   "match": false
+  },
+  {
+   "pattern": "😀*.ts",
+   "subject": "/pkg/extensions/a.ts",
+   "match": false
+  },
+  {
+   "pattern": "😀*.ts",
+   "subject": "/pkg/extensions/.hidden.ts",
+   "match": false
+  },
+  {
+   "pattern": "😀*.ts",
+   "subject": "/pkg/extensions/sub/index.ts",
+   "match": false
+  },
+  {
+   "pattern": "😀*.ts",
+   "subject": "extensions",
+   "match": false
+  },
+  {
+   "pattern": "😀*.ts",
+   "subject": "ab.ts",
+   "match": false
+  },
+  {
+   "pattern": "😀*.ts",
+   "subject": "x/a.ts",
+   "match": false
+  },
+  {
+   "pattern": "😀*.ts",
+   "subject": "é.ts",
+   "match": false
+  },
+  {
+   "pattern": "😀*.ts",
+   "subject": "中文.ts",
+   "match": false
+  },
+  {
+   "pattern": "😀*.ts",
+   "subject": "中.ts",
+   "match": false
+  },
+  {
+   "pattern": "😀*.ts",
+   "subject": "😀.ts",
+   "match": true
+  },
+  {
+   "pattern": "😀*.ts",
+   "subject": "a😀.ts",
+   "match": false
+  },
+  {
+   "pattern": "😀*.ts",
+   "subject": "extensions/😀.ts",
+   "match": false
+  },
+  {
+   "pattern": "😀*.ts",
+   "subject": "extensions/é.ts",
+   "match": false
+  },
+  {
+   "pattern": "😀*.ts",
+   "subject": "/pkg/extensions/😀.ts",
+   "match": false
+  },
+  {
+   "pattern": "😀.ts",
+   "subject": "extensions/a.ts",
+   "match": false
+  },
+  {
+   "pattern": "😀.ts",
+   "subject": "a.ts",
+   "match": false
+  },
+  {
+   "pattern": "😀.ts",
+   "subject": "extensions/b.js",
+   "match": false
+  },
+  {
+   "pattern": "😀.ts",
+   "subject": "b.js",
+   "match": false
+  },
+  {
+   "pattern": "😀.ts",
+   "subject": "extensions/slow-lint.ts",
+   "match": false
+  },
+  {
+   "pattern": "😀.ts",
+   "subject": "slow-lint.ts",
+   "match": false
+  },
+  {
+   "pattern": "😀.ts",
+   "subject": "extensions/.hidden.ts",
+   "match": false
+  },
+  {
+   "pattern": "😀.ts",
+   "subject": ".hidden.ts",
+   "match": false
+  },
+  {
+   "pattern": "😀.ts",
+   "subject": "extensions/sub/index.ts",
+   "match": false
+  },
+  {
+   "pattern": "😀.ts",
+   "subject": "index.ts",
+   "match": false
+  },
+  {
+   "pattern": "😀.ts",
+   "subject": "/pkg/extensions/a.ts",
+   "match": false
+  },
+  {
+   "pattern": "😀.ts",
+   "subject": "/pkg/extensions/.hidden.ts",
+   "match": false
+  },
+  {
+   "pattern": "😀.ts",
+   "subject": "/pkg/extensions/sub/index.ts",
+   "match": false
+  },
+  {
+   "pattern": "😀.ts",
+   "subject": "extensions",
+   "match": false
+  },
+  {
+   "pattern": "😀.ts",
+   "subject": "ab.ts",
+   "match": false
+  },
+  {
+   "pattern": "😀.ts",
+   "subject": "x/a.ts",
+   "match": false
+  },
+  {
+   "pattern": "😀.ts",
+   "subject": "é.ts",
+   "match": false
+  },
+  {
+   "pattern": "😀.ts",
+   "subject": "中文.ts",
+   "match": false
+  },
+  {
+   "pattern": "😀.ts",
+   "subject": "中.ts",
+   "match": false
+  },
+  {
+   "pattern": "😀.ts",
+   "subject": "😀.ts",
+   "match": true
+  },
+  {
+   "pattern": "😀.ts",
+   "subject": "a😀.ts",
+   "match": false
+  },
+  {
+   "pattern": "😀.ts",
+   "subject": "extensions/😀.ts",
+   "match": false
+  },
+  {
+   "pattern": "😀.ts",
+   "subject": "extensions/é.ts",
+   "match": false
+  },
+  {
+   "pattern": "😀.ts",
+   "subject": "/pkg/extensions/😀.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/??.ts",
+   "subject": "extensions/a.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/??.ts",
+   "subject": "a.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/??.ts",
+   "subject": "extensions/b.js",
+   "match": false
+  },
+  {
+   "pattern": "extensions/??.ts",
+   "subject": "b.js",
+   "match": false
+  },
+  {
+   "pattern": "extensions/??.ts",
+   "subject": "extensions/slow-lint.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/??.ts",
+   "subject": "slow-lint.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/??.ts",
+   "subject": "extensions/.hidden.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/??.ts",
+   "subject": ".hidden.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/??.ts",
+   "subject": "extensions/sub/index.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/??.ts",
+   "subject": "index.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/??.ts",
+   "subject": "/pkg/extensions/a.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/??.ts",
+   "subject": "/pkg/extensions/.hidden.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/??.ts",
+   "subject": "/pkg/extensions/sub/index.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/??.ts",
+   "subject": "extensions",
+   "match": false
+  },
+  {
+   "pattern": "extensions/??.ts",
+   "subject": "ab.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/??.ts",
+   "subject": "x/a.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/??.ts",
+   "subject": "é.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/??.ts",
+   "subject": "中文.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/??.ts",
+   "subject": "中.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/??.ts",
+   "subject": "😀.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/??.ts",
+   "subject": "a😀.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/??.ts",
+   "subject": "extensions/😀.ts",
+   "match": true
+  },
+  {
+   "pattern": "extensions/??.ts",
+   "subject": "extensions/é.ts",
+   "match": false
+  },
+  {
+   "pattern": "extensions/??.ts",
+   "subject": "/pkg/extensions/😀.ts",
+   "match": false
+  },
+  {
+   "pattern": "a?.ts",
+   "subject": "extensions/a.ts",
+   "match": false
+  },
+  {
+   "pattern": "a?.ts",
+   "subject": "a.ts",
+   "match": false
+  },
+  {
+   "pattern": "a?.ts",
+   "subject": "extensions/b.js",
+   "match": false
+  },
+  {
+   "pattern": "a?.ts",
+   "subject": "b.js",
+   "match": false
+  },
+  {
+   "pattern": "a?.ts",
+   "subject": "extensions/slow-lint.ts",
+   "match": false
+  },
+  {
+   "pattern": "a?.ts",
+   "subject": "slow-lint.ts",
+   "match": false
+  },
+  {
+   "pattern": "a?.ts",
+   "subject": "extensions/.hidden.ts",
+   "match": false
+  },
+  {
+   "pattern": "a?.ts",
+   "subject": ".hidden.ts",
+   "match": false
+  },
+  {
+   "pattern": "a?.ts",
+   "subject": "extensions/sub/index.ts",
+   "match": false
+  },
+  {
+   "pattern": "a?.ts",
+   "subject": "index.ts",
+   "match": false
+  },
+  {
+   "pattern": "a?.ts",
+   "subject": "/pkg/extensions/a.ts",
+   "match": false
+  },
+  {
+   "pattern": "a?.ts",
+   "subject": "/pkg/extensions/.hidden.ts",
+   "match": false
+  },
+  {
+   "pattern": "a?.ts",
+   "subject": "/pkg/extensions/sub/index.ts",
+   "match": false
+  },
+  {
+   "pattern": "a?.ts",
+   "subject": "extensions",
+   "match": false
+  },
+  {
+   "pattern": "a?.ts",
+   "subject": "ab.ts",
+   "match": true
+  },
+  {
+   "pattern": "a?.ts",
+   "subject": "x/a.ts",
+   "match": false
+  },
+  {
+   "pattern": "a?.ts",
+   "subject": "é.ts",
+   "match": false
+  },
+  {
+   "pattern": "a?.ts",
+   "subject": "中文.ts",
+   "match": false
+  },
+  {
+   "pattern": "a?.ts",
+   "subject": "中.ts",
+   "match": false
+  },
+  {
+   "pattern": "a?.ts",
+   "subject": "😀.ts",
+   "match": false
+  },
+  {
+   "pattern": "a?.ts",
+   "subject": "a😀.ts",
+   "match": false
+  },
+  {
+   "pattern": "a?.ts",
+   "subject": "extensions/😀.ts",
+   "match": false
+  },
+  {
+   "pattern": "a?.ts",
+   "subject": "extensions/é.ts",
+   "match": false
+  },
+  {
+   "pattern": "a?.ts",
+   "subject": "/pkg/extensions/😀.ts",
+   "match": false
+  }
+ ]
+}

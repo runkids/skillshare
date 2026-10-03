@@ -103,6 +103,11 @@ func (s *Service) Preview(ctx context.Context, r Request) (*Plan, error) {
 	appendChange := func(c Change) {
 		h := host(c.Target)
 		agent := s.agentOf(c.Target)
+		if agent == "pi" && c.Binding.PiRegistration != "" && len(c.piRecord) == 0 && (c.Action == "install" || c.Action == "uninstall" || c.Action == "remove" || c.Action == "update") {
+			if err := s.preparePiRegistration(ctx, &c); err != nil {
+				c.Action, c.Message = "blocked", err.Error()
+			}
+		}
 		if h.Error != "" {
 			c.Action = "blocked"
 			c.Message = h.Error
@@ -312,7 +317,7 @@ func (s *Service) Preview(ctx context.Context, r Request) (*Plan, error) {
 		if agent := s.agentOf(r.From); agent == "cursor" || agent == "antigravity" {
 			return nil, fmt.Errorf("Local directory plugins can be added from source; importing existing or marketplace installations is not supported")
 		}
-		if installed.Filtered {
+		if installed.Filtered && s.agentOf(r.From) != "pi" {
 			return nil, fmt.Errorf("this native entry has resource filters or options; manage it in the native client to preserve those settings")
 		}
 		b := Binding{ID: installed.ID, Version: installed.Version}
@@ -322,7 +327,13 @@ func (s *Service) Preview(ctx context.Context, r Request) (*Plan, error) {
 			}
 			b = old
 		}
-		appendChange(Change{Name: name, Target: r.From, ID: b.ID, Binding: b, Action: "import", Message: "Record the existing native installation; leave its content and enabled state unchanged."})
+		change := Change{Name: name, Target: r.From, ID: b.ID, Binding: b, Action: "import", Message: "Record the existing native installation; leave its content and enabled state unchanged."}
+		if installed.Filtered {
+			if err := s.preparePiRegistration(ctx, &change); err != nil {
+				return nil, err
+			}
+		}
+		appendChange(change)
 	} else {
 		if r.Name != "" {
 			if _, ok := d.packages[r.Name]; !ok {
@@ -363,7 +374,7 @@ func (s *Service) Preview(ctx context.Context, r Request) (*Plan, error) {
 							c.Action = "noop"
 						}
 					}
-					if c.Action == "install" && exists {
+					if c.Action == "install" && exists && b.PiRegistration == "" {
 						c.Action = "noop"
 					}
 					if c.Action == "remove" && !exists && host(target).Error == "" && !mayOwnMarket(target, b) {

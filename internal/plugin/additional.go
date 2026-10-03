@@ -130,6 +130,16 @@ func (s *Service) additionalHost(ctx context.Context, target string) Host {
 		if err == nil {
 			h.Installed, h.Fingerprint, err = s.piInventory(target)
 		}
+		if err == nil && filepath.IsAbs(s.StateDir) && slices.ContainsFunc(h.Installed, func(i Installed) bool { return i.Filtered }) {
+			if _, why := s.piGate(ctx, target); why == "" {
+				for i := range h.Installed {
+					if h.Installed[i].Filtered {
+						_, _, _, entryErr := s.piRegistrationEntry(target, h.Installed[i].ID)
+						h.Installed[i].Importable = entryErr == nil
+					}
+				}
+			}
+		}
 		h.NoteKey = "plugins.note.pi"
 		h.Note = "Package registrations from Pi settings; resource loading is verified in Pi."
 	case "opencode":
@@ -215,6 +225,11 @@ func (s *Service) applyAdditional(ctx context.Context, c Change, b Binding) erro
 				}
 			}
 		} else {
+			if c.Action == "install" && b.PiRegistration != "" {
+				if err := s.restorePiRegistration(c, b); err != nil {
+					return err
+				}
+			}
 			command := "install"
 			if remove {
 				command = "remove"
