@@ -1,6 +1,8 @@
 package git
 
 import (
+	"bytes"
+	"errors"
 	"fmt"
 	"io/fs"
 	"os"
@@ -149,6 +151,36 @@ func ensureGitignoreEntry(dir, entry string) error {
 	return os.WriteFile(gitignore, []byte(content), 0o644)
 }
 
+// ConfigGitignoreNeedsRepair reports whether EnsureConfigUntracked would change
+// dir/.gitignore: the explicit config.yaml entry is missing, or the rules do
+// not actually ignore it. A dry run uses it to preview that change.
+func ConfigGitignoreNeedsRepair(dir string) bool {
+	data, err := os.ReadFile(filepath.Join(dir, ".gitignore"))
+	return err != nil || !gitignoreHasEntry(string(data), "config.yaml") || !isIgnored(dir, "config.yaml")
+}
+
+// isIgnored reports whether .gitignore rules ignore path, even if it is tracked.
+func isIgnored(dir, path string) bool {
+	cmd := exec.Command("git", "check-ignore", "-q", "--no-index", "--", path)
+	cmd.Dir = dir
+	return cmd.Run() == nil
+}
+
+// appendGitignoreLine appends entry to dir/.gitignore even when an earlier line
+// matches it, so it overrides any negation before it.
+func appendGitignoreLine(dir, entry string) error {
+	gitignore := filepath.Join(dir, ".gitignore")
+	existing, err := os.ReadFile(gitignore)
+	if err != nil {
+		return err
+	}
+	content := string(existing)
+	if content != "" && !strings.HasSuffix(content, "\n") {
+		content += "\n"
+	}
+	return os.WriteFile(gitignore, []byte(content+entry+"\n"), 0o644)
+}
+
 // IsConfigTracked reports whether config.yaml is tracked in the repo at dir.
 // Used by the web UI to warn that a root-scope repo is versioning the
 // machine-specific config.yaml.
@@ -195,15 +227,165 @@ func EnsureConfigUntracked(dir string) (removed bool, err error) {
 	if err := ensureGitignoreEntry(dir, "config.yaml"); err != nil {
 		return false, err
 	}
+	// A later "!config.yaml" (e.g. pulled from another machine) overrides the
+	// entry, and `git add -A` would track the file again; the last match wins.
+	if !isIgnored(dir, "config.yaml") {
+		if err := appendGitignoreLine(dir, "config.yaml"); err != nil {
+			return false, err
+		}
+	}
 	if !isTracked(dir, "config.yaml") {
 		return false, nil
 	}
-	cmd := exec.Command("git", "rm", "--cached", "--", "config.yaml")
+	cmd := exec.Command("git", "rm", "-r", "--cached", "--", "config.yaml")
 	cmd.Dir = dir
 	if err := cmd.Run(); err != nil {
 		return false, fmt.Errorf("untrack config.yaml: %w", err)
 	}
 	return true, nil
+}
+
+// KeepLocalConfig snapshots a root-scope repo's config.yaml (a file or a
+// symlink) before a pull. Git treats the ignored file as expendable, so a merge
+// or reset that brings in a remote-tracked config.yaml replaces this machine's
+// copy. The returned restore reports whether the upstream tracks config.yaml
+// after the pull, even when the tracked copy matches this machine's, so callers
+// can warn and suggest push to remove it. It puts the snapshot back only when
+// the pull changed config.yaml's index entry or removed the file (an aborted
+// merge that had brought it in deletes it again), so edits made while the
+// pull ran to a file Git left alone are kept.
+func KeepLocalConfig(dir string) (restore func() (remoteTracks bool, err error), err error) {
+	path := filepath.Join(dir, "config.yaml")
+	entryBefore := configIndexEntry(dir)
+	put, err := snapshotConfig(path)
+	if err != nil {
+		return nil, err
+	}
+	return func() (bool, error) {
+		remoteTracks := RemoteTracksConfig(dir, "@{u}")
+		entryAfter := configIndexEntry(dir)
+		_, statErr := os.Lstat(path)
+		if entryAfter == entryBefore && !errors.Is(statErr, fs.ErrNotExist) {
+			return remoteTracks, nil
+		}
+		if editedAfterCheckout(dir, entryAfter) {
+			return remoteTracks, nil
+		}
+		_, err := put()
+		return remoteTracks, err
+	}, nil
+}
+
+// editedAfterCheckout reports whether config.yaml on disk differs from what
+// the pull checked out (entry is its merged index entry), i.e. someone wrote a
+// newer copy or link after Git did. Conflicts and removals report false so the
+// snapshot is restored.
+func editedAfterCheckout(dir, entry string) bool {
+	fields := strings.Fields(entry)
+	if len(fields) != 4 || fields[2] != "0" {
+		return false
+	}
+	path := filepath.Join(dir, "config.yaml")
+	info, err := os.Lstat(path)
+	if err != nil {
+		return false
+	}
+	cmd := exec.Command("git", "hash-object", "--stdin")
+	cmd.Dir = dir
+	switch {
+	case info.Mode()&fs.ModeSymlink != 0 && fields[0] == "120000":
+		target, err := os.Readlink(path)
+		if err != nil {
+			return false
+		}
+		cmd.Stdin = strings.NewReader(target)
+	case info.Mode()&fs.ModeSymlink != 0:
+		return true // Git checks out a regular entry as a file, not a link
+	case info.Mode().IsRegular() && (fields[0] == "100644" || fields[0] == "100755"):
+		cmd = exec.Command("git", "hash-object", "--", "config.yaml")
+		cmd.Dir = dir
+	default:
+		return false
+	}
+	out, err := cmd.Output()
+	return err == nil && strings.TrimSpace(string(out)) != fields[1]
+}
+
+// configIndexEntry returns config.yaml's index entries (mode, blob, stage), or
+// "" when it is untracked. A merge, reset or conflict that touches the file
+// changes this value.
+func configIndexEntry(dir string) string {
+	cmd := exec.Command("git", "ls-files", "-s", "--", "config.yaml")
+	cmd.Dir = dir
+	out, err := cmd.Output()
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(out))
+}
+
+// removeCheckedOut clears whatever the pull left at path so the snapshot can be
+// written back. A pull can check out a tracked config.yaml/ directory there;
+// its contents are in Git, so removing it loses nothing.
+func removeCheckedOut(path string) error {
+	info, err := os.Lstat(path)
+	if errors.Is(err, fs.ErrNotExist) {
+		return nil
+	}
+	if err == nil && info.IsDir() {
+		err = os.RemoveAll(path)
+	} else if err == nil {
+		err = os.Remove(path)
+	}
+	if err != nil {
+		return fmt.Errorf("restore config.yaml: %w", err)
+	}
+	return nil
+}
+
+// snapshotConfig records the config.yaml at path and returns a put that writes
+// it back, reporting whether it had changed. A missing file is a no-op.
+func snapshotConfig(path string) (put func() (replaced bool, err error), err error) {
+	info, err := os.Lstat(path)
+	if errors.Is(err, fs.ErrNotExist) {
+		return func() (bool, error) { return false, nil }, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("snapshot config.yaml: %w", err)
+	}
+	if info.Mode()&fs.ModeSymlink != 0 {
+		target, err := os.Readlink(path)
+		if err != nil {
+			return nil, fmt.Errorf("snapshot config.yaml: %w", err)
+		}
+		return func() (bool, error) {
+			if cur, err := os.Readlink(path); err == nil && cur == target {
+				return false, nil
+			}
+			if err := removeCheckedOut(path); err != nil {
+				return true, err
+			}
+			return true, os.Symlink(target, path)
+		}, nil
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("snapshot config.yaml: %w", err)
+	}
+	return func() (bool, error) {
+		if cur, err := os.Lstat(path); err == nil && cur.Mode().IsRegular() && cur.Mode().Perm() == info.Mode().Perm() {
+			if got, err := os.ReadFile(path); err == nil && bytes.Equal(got, data) {
+				return false, nil
+			}
+		}
+		if err := removeCheckedOut(path); err != nil {
+			return true, err
+		}
+		if err := os.WriteFile(path, data, info.Mode().Perm()); err != nil {
+			return true, err
+		}
+		return true, os.Chmod(path, info.Mode().Perm()) // WriteFile's mode is masked by umask
+	}, nil
 }
 
 // NestedRepos returns subdirectories of dir (relative paths, excluding dir

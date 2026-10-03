@@ -116,6 +116,8 @@ skillshare push    # Push your changes
 
 If the merge hits a conflict, nothing is pushed and targets are not synced. Your changes stay committed locally; resolve the conflict, then run `skillshare push --pull` again. If the push succeeds but syncing targets fails, the remote is already updated, so run the `skillshare sync ... --global` command it prints to retry (one per synced resource, matching your `git_root`).
 
+At `git_root: root`, if the merge brings in a `config.yaml` that the remote tracks, `push --pull` keeps this machine's copy and removes `config.yaml` from the remote in the same push.
+
 `--pull` never rebases and never force-pushes.
 
 ## Workflow

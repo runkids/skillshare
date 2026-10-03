@@ -706,8 +706,24 @@ func (s *Server) handlePull(w http.ResponseWriter, r *http.Request) {
 	// A branch without upstream (e.g. a repo created here with a remote added
 	// later) is attached to the remote default branch first, like the CLI.
 	var info *git.UpdateInfo
+	remoteTracksConfig := false
 	if git.HasUpstream(src) {
+		// Root scope keeps this machine's config.yaml when the remote tracks
+		// one: Git would otherwise replace the ignored file (#353). A first
+		// pull refuses that case instead (ErrRemoteTracksConfig).
+		restoreConfig := func() (bool, error) { return false, nil }
+		if s.cfg.GitRoot == "root" {
+			if restoreConfig, err = git.KeepLocalConfig(src); err != nil {
+				writeError(w, http.StatusInternalServerError, err.Error())
+				return
+			}
+		}
 		info, err = git.PullWithResolution(src, body.Resolution)
+		// A restore failure joins the pull's own error so a conflict is still
+		// reported as one and the failure is logged below.
+		var restoreErr error
+		remoteTracksConfig, restoreErr = restoreConfig()
+		err = errors.Join(err, restoreErr)
 	} else {
 		if body.Resolution != nil {
 			writeError(w, http.StatusBadRequest, "conflict resolution requires an upstream branch")
@@ -757,6 +773,9 @@ func (s *Server) handlePull(w http.ResponseWriter, r *http.Request) {
 	}
 	if resp.Commits == nil {
 		resp.Commits = make([]git.CommitInfo, 0)
+	}
+	if remoteTracksConfig {
+		resp.Warnings = append(resp.Warnings, "The remote tracks config.yaml; kept this machine's copy. Push to remove it from the remote.")
 	}
 
 	// Sync what the pulled scope holds, as the CLI does. Skills always sync

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"time"
@@ -105,6 +106,59 @@ func stageAndCommit(sourcePath, message string, spinner *ui.Spinner) error {
 	return nil
 }
 
+// commitConfigSafety commits the config.yaml removal and .gitignore repair
+// EnsureConfigUntracked made, leaving any other worktree changes unstaged.
+func commitConfigSafety(source string) error {
+	// Another process may have edited .gitignore while the pull ran; only the
+	// appended config.yaml rule belongs in this commit.
+	if !gitignoreOnlyGainedConfigRule(source) {
+		return fmt.Errorf(".gitignore changed while pulling; commit it, then run: skillshare push")
+	}
+	add := exec.Command("git", "add", "--", ".gitignore")
+	add.Dir = source
+	if err := add.Run(); err != nil {
+		return fmt.Errorf("failed to stage .gitignore: %w", err)
+	}
+	staged := exec.Command("git", "diff", "--cached", "--quiet")
+	staged.Dir = source
+	if staged.Run() == nil {
+		return nil // nothing to commit
+	}
+	// Commit the index as staged: a pathspec would re-add config.yaml from disk.
+	commit := exec.Command("git", "commit", "-m", "Keep config.yaml out of version control")
+	commit.Dir = source
+	if out, err := commit.CombinedOutput(); err != nil {
+		return fmt.Errorf("failed to commit config.yaml safety changes: %w: %s", err, strings.TrimSpace(string(out)))
+	}
+	return nil
+}
+
+// gitignoreOnlyGainedConfigRule reports whether .gitignore differs from its
+// staged version only by appended config.yaml lines, the change
+// EnsureConfigUntracked makes.
+func gitignoreOnlyGainedConfigRule(source string) bool {
+	show := exec.Command("git", "show", ":.gitignore")
+	show.Dir = source
+	base, _ := show.Output() // missing from the index: EnsureConfigUntracked created it
+	cur, err := os.ReadFile(filepath.Join(source, ".gitignore"))
+	if err != nil {
+		return len(base) == 0 && os.IsNotExist(err)
+	}
+	if !strings.HasPrefix(string(cur), string(base)) {
+		return false
+	}
+	added := string(cur[len(base):])
+	if len(base) > 0 && !strings.HasSuffix(string(base), "\n") {
+		added = strings.TrimPrefix(added, "\n")
+	}
+	for _, line := range strings.Split(strings.TrimSuffix(added, "\n"), "\n") {
+		if line != "" && line != "config.yaml" {
+			return false
+		}
+	}
+	return true
+}
+
 // isAuthError returns true when git output indicates an authentication failure.
 func isAuthError(output string) bool {
 	return install.IsAuthError(output)
@@ -196,7 +250,8 @@ func cmdPush(args []string) (err error) {
 		return err
 	}
 
-	if sweep := rootScopeSafetySweep(cfg, source, opts.dryRun); sweep.hasNotice() {
+	sweep := rootScopeSafetySweep(cfg, source, opts.dryRun)
+	if sweep.hasNotice() {
 		spinner.Stop()
 		sweep.printNotices(source)
 		if len(sweep.nested) > 0 {
@@ -210,6 +265,7 @@ func cmdPush(args []string) (err error) {
 		spinner.Fail("Failed to check git status")
 		return err
 	}
+	changes = sweep.previewChanges(changes)
 	hasChanges := changes != ""
 
 	width := ui.RowWidth("Commit", "Pull", "Push", "Sync")
@@ -254,7 +310,7 @@ func cmdPush(args []string) (err error) {
 	if opts.pull {
 		pullStart := time.Now()
 		spinner = ui.StartSpinner("Pulling from remote...")
-		info, _, err := integrateRemote(source, false, spinner)
+		info, _, err := integrateRemote(source, false, cfg.GitRoot == "root", spinner)
 		if err != nil {
 			if hasChanges {
 				ui.Note("Your changes are committed locally; resolve, then run: skillshare push --pull")
@@ -265,6 +321,24 @@ func cmdPush(args []string) (err error) {
 		if info != nil {
 			ui.Row(ui.MarkOK, "Pull", pullSummary(info)+ui.Took(time.Since(pullStart)), width)
 			printCommitNotes(info.Commits)
+		}
+		// The pull may have brought in a remote-tracked config.yaml after the
+		// safety sweep ran; untrack it again so this push removes it remotely.
+		if cfg.GitRoot == "root" {
+			removed, err := gitops.EnsureConfigUntracked(source)
+			if err != nil {
+				return err
+			}
+			// It may also have repaired a pulled .gitignore that stopped ignoring
+			// config.yaml; commit only those safety changes, never other edits
+			// made while the pull ran.
+			if err := commitConfigSafety(source); err != nil {
+				return err
+			}
+			if removed {
+				ui.Success("Removed config.yaml from version control")
+				ui.Note("Kept on disk; it holds machine-specific paths")
+			}
 		}
 	}
 

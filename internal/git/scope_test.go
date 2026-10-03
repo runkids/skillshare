@@ -138,6 +138,29 @@ func TestEnsureConfigUntracked_RemovesTrackedConfig(t *testing.T) {
 	}
 }
 
+func TestEnsureConfigUntracked_OverridesNegatedIgnore(t *testing.T) {
+	dir := t.TempDir()
+	gitExec(t, dir, "init")
+	gitExec(t, dir, "config", "user.email", "t@t.com")
+	gitExec(t, dir, "config", "user.name", "t")
+	if err := os.WriteFile(filepath.Join(dir, ".gitignore"), []byte("config.yaml\n!config.yaml\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "config.yaml"), []byte("k: v\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	gitExec(t, dir, "add", "-A")
+	gitExec(t, dir, "commit", "-m", "leak config")
+
+	if _, err := EnsureConfigUntracked(dir); err != nil {
+		t.Fatal(err)
+	}
+	gitExec(t, dir, "add", "-A")
+	if isTracked(dir, "config.yaml") {
+		t.Fatalf("git add -A tracked config.yaml again; .gitignore:\n%s", readGitignore(t, dir))
+	}
+}
+
 func TestDisableNestedRepo_RenamesAndRefusesClobber(t *testing.T) {
 	dir := t.TempDir()
 	subGit := filepath.Join(dir, "skills", ".git")
@@ -262,5 +285,326 @@ func TestHasLocalRootConfig(t *testing.T) {
 	}
 	if !HasLocalRootConfig(dir) {
 		t.Error("dir with config.yaml on disk must report local root config")
+	}
+}
+
+// rootScopeRepoTrackingRemote makes a root-scope repo (config.yaml ignored,
+// a local config.yaml on disk) whose main branch tracks a bare remote.
+func rootScopeRepoTrackingRemote(t *testing.T) (repo, remote string) {
+	t.Helper()
+	remote = filepath.Join(t.TempDir(), "remote.git")
+	runGit(t, "", "init", "--bare", "-b", "main", remote)
+	repo = t.TempDir()
+	runGit(t, repo, "init", "-b", "main")
+	runGit(t, repo, "config", "user.email", "test@test.com")
+	runGit(t, repo, "config", "user.name", "test")
+	if err := os.WriteFile(filepath.Join(repo, ".gitignore"), []byte("config.yaml\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	runGit(t, repo, "add", ".gitignore")
+	runGit(t, repo, "commit", "-m", "scaffold")
+	runGit(t, repo, "remote", "add", "origin", remote)
+	runGit(t, repo, "push", "-u", "origin", "main")
+	if err := os.WriteFile(filepath.Join(repo, "config.yaml"), []byte("LOCAL-config\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	return repo, remote
+}
+
+// pushFromOtherClone commits files from a separate clone of remote, force-adding
+// them so an ignored config.yaml gets tracked, as another machine might.
+func pushFromOtherClone(t *testing.T, remote string, files map[string]string) {
+	t.Helper()
+	other := filepath.Join(t.TempDir(), "other")
+	runGit(t, "", "clone", remote, other)
+	runGit(t, other, "config", "user.email", "other@test.com")
+	runGit(t, other, "config", "user.name", "other")
+	for rel, content := range files {
+		if err := os.MkdirAll(filepath.Dir(filepath.Join(other, rel)), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(other, rel), []byte(content), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		runGit(t, other, "add", "-f", rel)
+	}
+	runGit(t, other, "commit", "-m", "other machine")
+	runGit(t, other, "push", "origin", "main")
+}
+
+func TestKeepLocalConfig_SurvivesPullThatTracksConfig(t *testing.T) {
+	repo, remote := rootScopeRepoTrackingRemote(t)
+	pushFromOtherClone(t, remote, map[string]string{"config.yaml": "remote-config\n"})
+	restore, err := KeepLocalConfig(repo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := PullWithEnv(repo, nil); err != nil {
+		t.Fatalf("PullWithEnv() error: %v", err)
+	}
+	tracked, err := restore()
+	got, _ := os.ReadFile(filepath.Join(repo, "config.yaml"))
+	if err != nil || !tracked || string(got) != "LOCAL-config\n" {
+		t.Fatalf("restore() = %v, %v; config.yaml = %q, want the local copy kept and tracking reported", tracked, err, got)
+	}
+}
+
+func TestKeepLocalConfig_RestoresSymlinkedConfig(t *testing.T) {
+	repo, remote := rootScopeRepoTrackingRemote(t)
+	pushFromOtherClone(t, remote, map[string]string{"config.yaml": "remote-config\n"})
+	real := filepath.Join(t.TempDir(), "dotfiles-config.yaml")
+	if err := os.WriteFile(real, []byte("LOCAL-config\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	link := filepath.Join(repo, "config.yaml")
+	if err := os.Remove(link); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(real, link); err != nil {
+		t.Fatal(err)
+	}
+	restore, err := KeepLocalConfig(repo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := PullWithEnv(repo, nil); err != nil {
+		t.Fatalf("PullWithEnv() error: %v", err)
+	}
+	if _, err := restore(); err != nil {
+		t.Fatal(err)
+	}
+	if target, err := os.Readlink(link); err != nil || target != real {
+		t.Fatalf("config.yaml symlink = %q, %v; want it pointing at %q", target, err, real)
+	}
+}
+
+func TestKeepLocalConfig_ReportsNothingWhenRemoteLeavesConfigAlone(t *testing.T) {
+	repo, remote := rootScopeRepoTrackingRemote(t)
+	pushFromOtherClone(t, remote, map[string]string{"skills/a/SKILL.md": "# a\n"})
+	restore, err := KeepLocalConfig(repo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := PullWithEnv(repo, nil); err != nil {
+		t.Fatalf("PullWithEnv() error: %v", err)
+	}
+	if tracked, err := restore(); err != nil || tracked {
+		t.Fatalf("restore() = %v, %v; want false, nil", tracked, err)
+	}
+}
+
+func TestKeepLocalConfig_LeavesEditsToUntrackedConfigAlone(t *testing.T) {
+	repo, remote := rootScopeRepoTrackingRemote(t)
+	pushFromOtherClone(t, remote, map[string]string{"skills/a/SKILL.md": "# a\n"})
+	restore, err := KeepLocalConfig(repo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg := filepath.Join(repo, "config.yaml")
+	if err := os.WriteFile(cfg, []byte("EDITED-during-pull\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := PullWithEnv(repo, nil); err != nil {
+		t.Fatalf("PullWithEnv() error: %v", err)
+	}
+	if _, err := restore(); err != nil {
+		t.Fatal(err)
+	}
+	if got, _ := os.ReadFile(cfg); string(got) != "EDITED-during-pull\n" {
+		t.Fatalf("config.yaml = %q; want the edit made during the pull kept", got)
+	}
+}
+
+func TestKeepLocalConfig_LeavesEditsToTrackedConfigGitLeftAlone(t *testing.T) {
+	repo, remote := rootScopeRepoTrackingRemote(t)
+	pushFromOtherClone(t, remote, map[string]string{"config.yaml": "LOCAL-config\n"})
+	if _, err := PullWithEnv(repo, nil); err != nil {
+		t.Fatalf("PullWithEnv() error: %v", err)
+	}
+	pushFromOtherClone(t, remote, map[string]string{"skills/a/SKILL.md": "# a\n"})
+	restore, err := KeepLocalConfig(repo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg := filepath.Join(repo, "config.yaml")
+	if err := os.WriteFile(cfg, []byte("EDITED-during-pull\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := PullWithEnv(repo, nil); err != nil {
+		t.Fatalf("PullWithEnv() error: %v", err)
+	}
+	if _, err := restore(); err != nil {
+		t.Fatal(err)
+	}
+	if got, _ := os.ReadFile(cfg); string(got) != "EDITED-during-pull\n" {
+		t.Fatalf("config.yaml = %q; want the edit made during the pull kept", got)
+	}
+}
+
+func TestKeepLocalConfig_IgnoresConfigTrackedOnlyLocally(t *testing.T) {
+	repo, _ := rootScopeRepoTrackingRemote(t)
+	runGit(t, repo, "add", "-f", "config.yaml")
+	runGit(t, repo, "commit", "-m", "track config locally")
+	restore, err := KeepLocalConfig(repo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := PullWithEnv(repo, nil); err != nil {
+		t.Fatalf("PullWithEnv() error: %v", err)
+	}
+	if tracked, err := restore(); err != nil || tracked {
+		t.Fatalf("restore() = %v, %v; want false, nil when only a local commit tracks config.yaml", tracked, err)
+	}
+}
+
+func TestKeepLocalConfig_RestoresAfterAbortedPull(t *testing.T) {
+	repo, remote := rootScopeRepoTrackingRemote(t)
+	pushFromOtherClone(t, remote, map[string]string{"config.yaml": "remote-config\n", "skills/a/SKILL.md": "# remote\n"})
+	if err := os.MkdirAll(filepath.Join(repo, "skills", "a"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(repo, "skills", "a", "SKILL.md"), []byte("# local\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	runGit(t, repo, "add", "skills")
+	runGit(t, repo, "commit", "-m", "local edit")
+	restore, err := KeepLocalConfig(repo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := PullWithEnv(repo, nil); err == nil {
+		t.Fatal("PullWithEnv() succeeded; want a conflict that aborts the merge")
+	}
+	if _, err := restore(); err != nil {
+		t.Fatal(err)
+	}
+	if got, err := os.ReadFile(filepath.Join(repo, "config.yaml")); err != nil || string(got) != "LOCAL-config\n" {
+		t.Fatalf("config.yaml = %q, %v; want the local copy restored after the aborted pull", got, err)
+	}
+}
+
+func TestKeepLocalConfig_RestoresModeOfIdenticalCopy(t *testing.T) {
+	repo, remote := rootScopeRepoTrackingRemote(t)
+	cfg := filepath.Join(repo, "config.yaml")
+	if err := os.Chmod(cfg, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	pushFromOtherClone(t, remote, map[string]string{"config.yaml": "LOCAL-config\n"})
+	restore, err := KeepLocalConfig(repo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := PullWithEnv(repo, nil); err != nil {
+		t.Fatalf("PullWithEnv() error: %v", err)
+	}
+	if _, err := restore(); err != nil {
+		t.Fatal(err)
+	}
+	if info, err := os.Stat(cfg); err != nil || info.Mode().Perm() != 0o600 {
+		t.Fatalf("config.yaml mode = %v, %v; want 0600 kept", info.Mode().Perm(), err)
+	}
+}
+
+func TestKeepLocalConfig_RestoresOverTrackedDirectory(t *testing.T) {
+	repo, remote := rootScopeRepoTrackingRemote(t)
+	pushFromOtherClone(t, remote, map[string]string{"config.yaml/file": "remote\n"})
+	restore, err := KeepLocalConfig(repo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := PullWithEnv(repo, nil); err != nil {
+		t.Fatalf("PullWithEnv() error: %v", err)
+	}
+	if _, err := restore(); err != nil {
+		t.Fatal(err)
+	}
+	if got, err := os.ReadFile(filepath.Join(repo, "config.yaml")); err != nil || string(got) != "LOCAL-config\n" {
+		t.Fatalf("config.yaml = %q, %v; want the local copy restored over the tracked directory", got, err)
+	}
+	if removed, err := EnsureConfigUntracked(repo); err != nil || !removed {
+		t.Fatalf("EnsureConfigUntracked() = %v, %v; want the tracked directory untracked", removed, err)
+	}
+}
+
+func TestKeepLocalConfig_KeepsEditMadeAfterCheckout(t *testing.T) {
+	repo, remote := rootScopeRepoTrackingRemote(t)
+	pushFromOtherClone(t, remote, map[string]string{"config.yaml": "remote-config\n"})
+	restore, err := KeepLocalConfig(repo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := PullWithEnv(repo, nil); err != nil {
+		t.Fatalf("PullWithEnv() error: %v", err)
+	}
+	cfg := filepath.Join(repo, "config.yaml")
+	if err := os.WriteFile(cfg, []byte("NEWER-local\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := restore(); err != nil {
+		t.Fatal(err)
+	}
+	if got, _ := os.ReadFile(cfg); string(got) != "NEWER-local\n" {
+		t.Fatalf("config.yaml = %q; want the copy written after checkout kept", got)
+	}
+}
+
+func TestKeepLocalConfig_KeepsSymlinkMadeAfterCheckout(t *testing.T) {
+	repo, remote := rootScopeRepoTrackingRemote(t)
+	pushFromOtherClone(t, remote, map[string]string{"config.yaml": "remote-config\n"})
+	restore, err := KeepLocalConfig(repo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := PullWithEnv(repo, nil); err != nil {
+		t.Fatalf("PullWithEnv() error: %v", err)
+	}
+	newer := filepath.Join(t.TempDir(), "dotfiles-config.yaml")
+	if err := os.WriteFile(newer, []byte("NEWER-local\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	link := filepath.Join(repo, "config.yaml")
+	if err := os.Remove(link); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(newer, link); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := restore(); err != nil {
+		t.Fatal(err)
+	}
+	if target, err := os.Readlink(link); err != nil || target != newer {
+		t.Fatalf("config.yaml symlink = %q, %v; want the link made after checkout kept", target, err)
+	}
+}
+
+func TestConfigGitignoreNeedsRepair_ExplicitEntryUnderBroaderRule(t *testing.T) {
+	dir := t.TempDir()
+	gitExec(t, dir, "init")
+	if err := os.WriteFile(filepath.Join(dir, ".gitignore"), []byte("*.yaml\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if !ConfigGitignoreNeedsRepair(dir) {
+		t.Fatal("ConfigGitignoreNeedsRepair() = false; want true when only *.yaml ignores config.yaml")
+	}
+	if _, err := EnsureConfigUntracked(dir); err != nil {
+		t.Fatal(err)
+	}
+	if ConfigGitignoreNeedsRepair(dir) {
+		t.Fatal("ConfigGitignoreNeedsRepair() = true after EnsureConfigUntracked; want false")
+	}
+}
+
+func TestKeepLocalConfig_ReportsTrackedCopyWithSameContent(t *testing.T) {
+	repo, remote := rootScopeRepoTrackingRemote(t)
+	pushFromOtherClone(t, remote, map[string]string{"config.yaml": "LOCAL-config\n"})
+	restore, err := KeepLocalConfig(repo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := PullWithEnv(repo, nil); err != nil {
+		t.Fatalf("PullWithEnv() error: %v", err)
+	}
+	if tracked, err := restore(); err != nil || !tracked {
+		t.Fatalf("restore() = %v, %v; want true, nil for a tracked copy with identical bytes", tracked, err)
 	}
 }

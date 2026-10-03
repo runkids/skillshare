@@ -91,7 +91,7 @@ func pullFromRemote(cfg *config.Config, dryRun, force bool) error {
 		return nil
 	}
 
-	info, remoteEmpty, err := integrateRemote(source, force, spinner)
+	info, remoteEmpty, err := integrateRemote(source, force, cfg.GitRoot == "root", spinner)
 	if err != nil {
 		return err
 	}
@@ -111,7 +111,10 @@ func pullFromRemote(cfg *config.Config, dryRun, force bool) error {
 // upstream): fetch, then merge or reset onto the remote default branch and
 // set upstream (see gitops.FirstPull). Subsequent pulls: normal git pull,
 // which merges. remoteEmpty reports a remote with no branches yet.
-func integrateRemote(source string, force bool, spinner *ui.Spinner) (info *gitops.UpdateInfo, remoteEmpty bool, err error) {
+// keepConfig (root scope) keeps this machine's config.yaml on later pulls even
+// when the remote tracks one, and warns so the user can untrack it with push.
+// FirstPull refuses that case instead (ErrRemoteTracksConfig).
+func integrateRemote(source string, force, keepConfig bool, spinner *ui.Spinner) (info *gitops.UpdateInfo, remoteEmpty bool, err error) {
 	if !gitops.HasUpstream(source) {
 		spinner.Update("Fetching from remote...")
 		info, err = gitops.FirstPull(source, force)
@@ -133,6 +136,24 @@ func integrateRemote(source string, force bool, spinner *ui.Spinner) (info *gito
 			return nil, false, err
 		}
 		return info, false, nil
+	}
+
+	if keepConfig {
+		// Not :=, which would shadow the named err the deferred restore reports into.
+		restore, keepErr := gitops.KeepLocalConfig(source)
+		if keepErr != nil {
+			spinner.Fail("Pull failed")
+			return nil, false, keepErr
+		}
+		defer func() {
+			remoteTracks, restoreErr := restore()
+			if restoreErr != nil {
+				err = errors.Join(err, restoreErr)
+			} else if remoteTracks {
+				spinner.Warn("The remote tracks config.yaml; kept this machine's copy")
+				ui.Note("Remove it from the remote: skillshare push")
+			}
+		}()
 	}
 
 	spinner.Update("Running git pull...")

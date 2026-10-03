@@ -116,6 +116,8 @@ skillshare push    # 推送你的更改
 
 如果合并遇到冲突，不会推送任何内容，也不会 sync targets。你的更改仍以 commit 形式保留在本地；解决冲突后，再次运行 `skillshare push --pull`。如果推送成功但 sync targets 失败，remote 已经更新，请运行输出中给出的 `skillshare sync ... --global` 命令重试（按 `git_root` 对应的资源，每项一行）。
 
+在 `git_root: root` 下，如果合并带入了 remote 跟踪的 `config.yaml`，`push --pull` 会保留本机的副本，并在同一次推送中把 `config.yaml` 从 remote 移除。
+
 `--pull` 从不 rebase，也从不 force-push。
 
 ## 工作流

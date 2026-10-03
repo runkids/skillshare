@@ -112,7 +112,7 @@ skillshare sync
 在首次拉取时（尚未有 upstream），如果本地 repository 已经有内容（任何目录，或 `.gitignore` 以外任何已跟踪或未被忽略的文件），
 `pull` 会尝试进行**合并（merge）**以整合双方内容。如果合并成功，本地和 remote 的内容都会被保留。只有除此之外没有任何内容的 repository 才会直接 reset 到 remote branch。
 
-在 `git_root: root` 下，`config.yaml` 属于机器特定的配置文件。若 remote repository 跟踪了 `config.yaml`，`pull` 会拒绝执行以避免本地配置被覆盖。请先在跟踪该文件的机器上通过 `skillshare push` 解除跟踪，然后再拉取。
+在 `git_root: root` 下，`config.yaml` 属于机器特定的配置文件。若 remote repository 跟踪了 `config.yaml`，首次 `pull` 会拒绝执行以避免本地配置被覆盖。请先在跟踪该文件的机器上通过 `skillshare push` 解除跟踪，然后再拉取。之后的 pull 则会保留本机的 `config.yaml` 并发出警告；运行 `skillshare push` 即可把它从 remote 移除。
 
 如果出现**合并冲突**，`pull` 会以非零退出码失败：
 

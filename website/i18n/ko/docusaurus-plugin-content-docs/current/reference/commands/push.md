@@ -116,6 +116,8 @@ skillshare push    # 내 변경 사항 push
 
 병합 중 충돌이 발생하면 아무것도 push되지 않고 target도 sync되지 않습니다. 변경 사항은 로컬에 커밋된 상태로 남아 있으니, 충돌을 해결한 뒤 `skillshare push --pull`을 다시 실행하세요. push는 성공했지만 target sync가 실패한 경우에는 remote가 이미 업데이트되었으므로 출력된 `skillshare sync ... --global` 명령(`git_root`에 맞는 리소스별 명령)을 실행해 다시 시도하세요.
 
+`git_root: root`에서 병합으로 remote가 추적하는 `config.yaml`이 들어오면, `push --pull`은 이 머신의 사본을 유지하고 같은 push에서 remote의 `config.yaml`을 제거합니다.
+
 `--pull`은 rebase도, force-push도 하지 않습니다.
 
 ## 워크플로우
