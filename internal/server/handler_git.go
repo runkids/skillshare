@@ -720,6 +720,11 @@ func (s *Server) handlePull(w http.ResponseWriter, r *http.Request) {
 		writeCodedError(w, http.StatusBadRequest, "remote_empty", "the remote has no branches yet; push first", nil)
 		return
 	}
+	if errors.Is(err, git.ErrRemoteTracksConfig) {
+		writeCodedError(w, http.StatusBadRequest, "remote_tracks_config",
+			"the remote repository tracks machine-specific config.yaml; untrack it on the remote via 'skillshare push' before pulling", nil)
+		return
+	}
 	if err != nil {
 		s.writeOpsLog("pull", "error", start, map[string]any{"dry_run": false, "force": body.Force, "scope": "ui"}, err.Error())
 		var conflict *git.PullConflictError

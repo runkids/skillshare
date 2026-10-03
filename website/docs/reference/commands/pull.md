@@ -112,6 +112,8 @@ skillshare sync
 On first pull (no upstream yet), if the local repository already holds content (any directory, or any tracked or non-ignored file other than `.gitignore`),
 `pull` attempts a **merge** to combine both sides. If the merge succeeds, both local and remote content is preserved. Only a repository with nothing else is reset to the remote branch.
 
+At `git_root: root`, `config.yaml` is machine-specific. If the remote repository tracks `config.yaml`, `pull` refuses with an error so local configuration is never overwritten. Untrack `config.yaml` on the remote first (via `skillshare push` on the machine that tracks it) before pulling.
+
 If there are **merge conflicts**, `pull` fails with a non-zero exit code:
 
 ```bash

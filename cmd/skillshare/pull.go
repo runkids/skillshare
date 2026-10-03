@@ -117,6 +117,11 @@ func integrateRemote(source string, force bool, spinner *ui.Spinner) (info *gito
 		info, err = gitops.FirstPull(source, force)
 		if errors.Is(err, gitops.ErrNoRemoteBranches) {
 			return nil, true, nil
+		} else if errors.Is(err, gitops.ErrRemoteTracksConfig) {
+			spinner.Fail("Remote tracks config.yaml")
+			ui.Note("The remote repository tracks machine-specific config.yaml.")
+			ui.Note("Untrack it on the remote first via 'skillshare push' from the machine that committed it, then pull.")
+			return nil, false, err
 		} else if err != nil {
 			spinner.Fail("Pull failed")
 			if errors.Is(err, gitops.ErrMergeFailed) {

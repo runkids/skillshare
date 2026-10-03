@@ -213,3 +213,54 @@ func TestDisableNestedRepo_DropsStaleGitlink(t *testing.T) {
 		t.Errorf("skills/SKILL.md must be tracked as a file after disabling, got %q (err %v)", out, err)
 	}
 }
+
+func TestRemoteTracksConfig(t *testing.T) {
+	dir := t.TempDir()
+	gitExec(t, dir, "init")
+	gitExec(t, dir, "config", "user.email", "t@t.com")
+	gitExec(t, dir, "config", "user.name", "t")
+
+	if err := os.WriteFile(filepath.Join(dir, "README.md"), []byte("# test\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	gitExec(t, dir, "add", "README.md")
+	gitExec(t, dir, "commit", "-m", "init")
+
+	if RemoteTracksConfig(dir, "HEAD") {
+		t.Error("expected RemoteTracksConfig to be false when config.yaml is not tracked")
+	}
+
+	if err := os.WriteFile(filepath.Join(dir, "config.yaml"), []byte("source: x\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	gitExec(t, dir, "add", "config.yaml")
+	gitExec(t, dir, "commit", "-m", "add config")
+
+	if !RemoteTracksConfig(dir, "HEAD") {
+		t.Error("expected RemoteTracksConfig to be true when config.yaml is tracked")
+	}
+}
+
+func TestHasLocalRootConfig(t *testing.T) {
+	dir := t.TempDir()
+	if HasLocalRootConfig(dir) {
+		t.Error("empty dir must not report local root config")
+	}
+
+	// .gitignore ignoring config.yaml
+	if err := os.WriteFile(filepath.Join(dir, ".gitignore"), []byte("config.yaml\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if !HasLocalRootConfig(dir) {
+		t.Error("dir with config.yaml in .gitignore must report local root config")
+	}
+
+	// Remove .gitignore, create config.yaml
+	os.Remove(filepath.Join(dir, ".gitignore"))
+	if err := os.WriteFile(filepath.Join(dir, "config.yaml"), []byte("source: x\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if !HasLocalRootConfig(dir) {
+		t.Error("dir with config.yaml on disk must report local root config")
+	}
+}

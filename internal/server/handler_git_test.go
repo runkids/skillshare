@@ -533,6 +533,31 @@ func TestHandlePull_FirstPullConflictCanBeForced(t *testing.T) {
 	}
 }
 
+func TestHandlePull_RootScopeRemoteTracksConfig_Refused(t *testing.T) {
+	s, src := newTestServer(t)
+	setServerGitRoot(t, "root", src)
+	base := config.BaseDir()
+	if err := os.MkdirAll(base, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	initServerGitRepo(t, base)
+	if err := os.WriteFile(filepath.Join(base, ".gitignore"), []byte("config.yaml\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	testutil.RunGit(t, base, "add", ".gitignore")
+	testutil.RunGit(t, base, "commit", "-m", "scaffold")
+	remote := filepath.Join(t.TempDir(), "remote.git")
+	testutil.RunGit(t, "", "init", "--bare", remote)
+	pushRemoteFile(t, remote, "config.yaml", "sources: {}\n")
+	pushRemoteFile(t, remote, "skills/test/SKILL.md", "# test\n")
+	testutil.RunGit(t, base, "remote", "add", "origin", remote)
+
+	rr := postPull(s, `{}`)
+	if rr.Code != http.StatusBadRequest || !strings.Contains(rr.Body.String(), `"remote_tracks_config"`) {
+		t.Fatalf("expected 400 remote_tracks_config, got %d: %s", rr.Code, rr.Body.String())
+	}
+}
+
 func TestHandlePull_ExtrasScopeSyncsExtras(t *testing.T) {
 	s, src := newTestServer(t)
 	extrasDir := filepath.Join(filepath.Dir(src), "extras")

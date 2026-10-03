@@ -1041,6 +1041,72 @@ func TestFirstPull_RootScopeScaffoldMergesAndStaysClean(t *testing.T) {
 	}
 }
 
+func TestFirstPull_RootScopeRemoteTracksConfig_Refused(t *testing.T) {
+	remote := createBareRemoteWithBranch(t, "main", map[string]string{
+		"config.yaml":                  "source: remote\n",
+		"skills/remote-skill/SKILL.md": "# remote\n",
+	})
+	repo := t.TempDir()
+	runGit(t, repo, "init")
+	runGit(t, repo, "config", "user.email", "test@test.com")
+	runGit(t, repo, "config", "user.name", "test")
+	if err := os.WriteFile(filepath.Join(repo, ".gitignore"), []byte("config.yaml\n.DS_Store\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	runGit(t, repo, "add", ".gitignore")
+	runGit(t, repo, "commit", "-m", "scaffold")
+	if err := os.MkdirAll(filepath.Join(repo, "skills"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(repo, "config.yaml"), []byte("source: local\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	runGit(t, repo, "remote", "add", "origin", remote)
+
+	// Merge path (force=false) must refuse
+	_, err := FirstPull(repo, false)
+	if !errors.Is(err, ErrRemoteTracksConfig) {
+		t.Fatalf("FirstPull(force=false) err = %v, want ErrRemoteTracksConfig", err)
+	}
+	content, err := os.ReadFile(filepath.Join(repo, "config.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(content) != "source: local\n" {
+		t.Fatalf("local config.yaml was overwritten: got %q, want %q", string(content), "source: local\n")
+	}
+
+	// Reset path (force=true) must also refuse
+	_, err = FirstPull(repo, true)
+	if !errors.Is(err, ErrRemoteTracksConfig) {
+		t.Fatalf("FirstPull(force=true) err = %v, want ErrRemoteTracksConfig", err)
+	}
+	content, err = os.ReadFile(filepath.Join(repo, "config.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(content) != "source: local\n" {
+		t.Fatalf("local config.yaml was overwritten on force: got %q, want %q", string(content), "source: local\n")
+	}
+}
+
+func TestFirstPull_NonRootScopeRemoteTracksConfig_Allowed(t *testing.T) {
+	// A non-root scope repo has no local config.yaml and does not ignore config.yaml.
+	remote := createBareRemoteWithBranch(t, "main", map[string]string{
+		"config.yaml":           "dummy\n",
+		"remote-skill/SKILL.md": "# remote\n",
+	})
+	repo := t.TempDir()
+	runGit(t, repo, "init")
+	runGit(t, repo, "config", "user.email", "test@test.com")
+	runGit(t, repo, "config", "user.name", "test")
+	runGit(t, repo, "remote", "add", "origin", remote)
+
+	if _, err := FirstPull(repo, false); err != nil {
+		t.Fatalf("FirstPull() error: %v", err)
+	}
+}
+
 func TestFirstPull_EmptyRemoteReportsNoBranches(t *testing.T) {
 	remote := filepath.Join(t.TempDir(), "remote.git")
 	runGit(t, "", "init", "--bare", remote)
