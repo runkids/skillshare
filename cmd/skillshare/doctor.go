@@ -534,7 +534,7 @@ func checkTargets(cfg *config.Config, result *doctorResult, isProject bool) map[
 			cached := displayTargetStatus(target, cfg.EffectiveSkillsSource(), mode, row)
 			cache[name] = cached
 			if cached.needsSync {
-				result.suggest("skillshare sync", "bring the Targets up to date")
+				result.suggest("skillshare sync", "bring the targets up to date")
 			}
 		}
 
@@ -700,7 +700,7 @@ func checkSyncDrift(cfg *config.Config, result *doctorResult, discovered []sync.
 				drift := expectedCount - cached.syncedCount
 				msg := fmt.Sprintf("%s: %d skill(s) not synced (%d/%d copied)", name, drift, cached.syncedCount, expectedCount)
 				ui.Row(ui.MarkWarn, name, plural(drift, "skill")+" not synced"+ui.DimText(fmt.Sprintf(" · %d/%d copied", cached.syncedCount, expectedCount)), width)
-				result.suggest("skillshare sync", "bring the Targets up to date")
+				result.suggest("skillshare sync", "bring the targets up to date")
 				result.addWarning()
 				driftDetails = append(driftDetails, msg)
 			}
@@ -712,7 +712,7 @@ func checkSyncDrift(cfg *config.Config, result *doctorResult, discovered []sync.
 				drift := expectedCount - cached.syncedCount
 				msg := fmt.Sprintf("%s: %d skill(s) not synced (%d/%d linked)", name, drift, cached.syncedCount, expectedCount)
 				ui.Row(ui.MarkWarn, name, plural(drift, "skill")+" not synced"+ui.DimText(fmt.Sprintf(" · %d/%d linked", cached.syncedCount, expectedCount)), width)
-				result.suggest("skillshare sync", "bring the Targets up to date")
+				result.suggest("skillshare sync", "bring the targets up to date")
 				result.addWarning()
 				driftDetails = append(driftDetails, msg)
 			}
@@ -1296,7 +1296,7 @@ func checkBackupStatus(result *doctorResult, isProject bool, backupDir string) {
 		default:
 			ageStr = fmt.Sprintf("%d days ago", int(age.Hours()/24))
 		}
-		ui.Row(ui.MarkNone, "Backups", "last "+latest+ui.DimText(" · "+ageStr), doctorWidth)
+		ui.Row(ui.MarkNone, "Backups", "last "+latest+ui.DimText(" · "+timeAgo(latestTime)), doctorWidth)
 		result.addCheck("backup", checkPass, fmt.Sprintf("Backups: last backup %s (%s)", latest, ageStr), nil)
 	} else {
 		result.addCheck("backup", checkPass, "Backups: none found", nil)
@@ -1415,8 +1415,8 @@ func printUpdateAvailable(update *versioncheck.CheckResult, result *doctorResult
 	if update == nil || !update.UpdateAvailable {
 		return
 	}
-	ui.Row(ui.MarkNone, "Update", fmt.Sprintf("%s -> %s available", update.CurrentVersion, update.LatestVersion), doctorWidth)
-	result.suggest(update.InstallMethod.UpgradeCommand(), "update to "+update.LatestVersion)
+	ui.Row(ui.MarkNone, "Update", ui.VersionLabel(update.CurrentVersion)+" → "+ui.VersionLabel(update.LatestVersion)+" available", doctorWidth)
+	result.suggest(update.InstallMethod.UpgradeCommand(), "update to "+ui.VersionLabel(update.LatestVersion))
 }
 
 func printDoctorHelp() {

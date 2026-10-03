@@ -297,7 +297,7 @@ func printSearchResults(results []search.SearchResult, isHub bool) {
 	for i, r := range results {
 		names[i] = truncate(r.Name, 24)
 		// Truncate source if too long
-		sources[i] = r.Source
+		sources[i] = shortenPath(r.Source)
 		if len(sources[i]) > 40 {
 			sources[i] = "..." + sources[i][len(sources[i])-37:]
 		}

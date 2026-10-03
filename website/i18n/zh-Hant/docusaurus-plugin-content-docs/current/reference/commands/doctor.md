@@ -48,13 +48,13 @@ Extras
 ✓ team      1 file · 4/4 targets OK
 
 Storage
-  Backups      last 2026-09-28_12-41-50 · 10 minutes ago
+  Backups      last 2026-09-28_12-41-50 · 10m ago
   Trash        1 item, 247 B · oldest under a day
 
 ✗ 6 errors, 4 warnings · 1.2s
 
 Next
-  skillshare sync  bring the Targets up to date
+  skillshare sync  bring the targets up to date
 ```
 
 ## 何時使用
@@ -98,7 +98,7 @@ MCP, hooks and plugins
   Plugins      none configured
 
 Storage
-  Backups      last 2026-01-18_09-00-00 · 3 days ago
+  Backups      last 2026-01-18_09-00-00 · 3d ago
   Trash        empty
 
 Version
@@ -314,19 +314,19 @@ Targets
 ✗ cursor: 2 broken symlinks: old-skill, removed-skill
 
 Storage
-  Backups      last 2026-01-18_09-00-00 · 3 days ago
+  Backups      last 2026-01-18_09-00-00 · 3d ago
   Trash        2 items, 45.2 KB · oldest 3 days
 
 Version
 ✓ CLI          1.2.0
 ✓ Skill        0.16.0
-  Update       1.2.0 -> 1.3.0 available
+  Update       v1.2.0 → v1.3.0 available
 
 ✗ 1 error, 5 warnings · 0.6s
 
 Next
-  skillshare sync          bring the Targets up to date
-  brew upgrade skillshare  update to 1.3.0
+  skillshare sync          bring the targets up to date
+  brew upgrade skillshare  update to v1.3.0
 ```
 
 ## JSON 輸出

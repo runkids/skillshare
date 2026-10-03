@@ -275,7 +275,7 @@ func cmdExtrasList(args []string) error {
 	fmt.Println()
 	ui.Done(ui.MarkNone, plural(len(entries), "extra"), 0)
 	if pending {
-		ui.Next("skillshare sync extras"+projectSuffix(mode), "bring the Targets up to date")
+		ui.Next("skillshare sync extras"+projectSuffix(mode), "bring the targets up to date")
 	}
 	return nil
 }
