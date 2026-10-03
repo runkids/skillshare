@@ -455,3 +455,36 @@ npm misses remain notInstalled, because native Pi has no legacy fallback there.
 passes; all plugin race tests passed. The isolated native fallback probe uses a
 substituted root lookup, actual native getNpmInstallPath and an empty fixture root;
 0.99.2/1.0.0 core/bundle each pass 32 scenarios/130 assertions, plus lock/project-native.
+
+## Review: three reproduced correctness failures at 16d4f8ac
+
+- Removing the last exact rule now keeps an empty winning project override when
+  deletion could expose an earlier same-identity or unresolved registration.
+  Only the requested extension changes; older resource filters remain shadowed.
+  `TestPiProjectDefaultDoesNotRevealShadowedResources` reproduced RED for earlier
+  replacement/delta/unresolved sources and verifies preview, applied selection,
+  retained precedence, unchanged earlier resource fields, global settings and trust.
+- A filtered restore batch uses Apply-local receipts keyed by settings path. Each
+  receipt records the reviewed hash and only the exact bytes our successful atomic
+  restore wrote. Later restores still validate at acquisition and the write boundary;
+  no native/external post-command snapshot is adopted. The nine global/project/account
+  batch cases cover two successful restores, external mutation refusal and a native
+  failure that preserves its retry while the second restore succeeds. All three
+  successful-batch scope cases reproduced RED before the fix.
+- `autoloadFalse` accepts only the explicit JSON literal `false`, matching native
+  `=== false`. Sixteen global/project cases cover null, booleans, a string, number,
+  array, object and whitespace. The null cases reproduced RED; other values retain
+  ordinary filtering semantics and bytes.
+- All plugin race tests pass. Added native scenarios demonstrate the unrequested
+  extension/skill/prompt changes caused by deleting a winner, preservation by keeping
+  it, and strict-false filtering. Both supported versions' core/bundle contracts pass
+  34 scenarios/141 assertions, plus native-lock/project-native checks. Valid-Git
+  make check, focused plugin/Pi API race tests, Windows ARM64 cross-compilation,
+  five-locale website build, context-router and diff checks also passed. A container
+  stop interrupted the first broad run; the same container was restarted without
+  removing data and the interrupted checks were rerun to completion.
+- Windows work remains separate: ARM64 UTM evidence at pinned 39294b56 confirms both
+  native launchers, lock interoperability and project resolution under full/basic
+  tokens, but stale reclamation fails because OpenRoot's initial Windows handle does
+  not share deletion; a POSIX-mode-only record assertion also fails. Those issues
+  are not claimed fixed by this correctness follow-up. No user settings were used.

@@ -194,8 +194,8 @@ func parsePiEntry(i int, raw json.RawMessage) piEntry {
 		e.problem, e.badSource = "unsupportedEntry", true
 		return e
 	}
-	var autoload bool
-	if a, ok := e.fields["autoload"]; ok && json.Unmarshal(a, &autoload) == nil && !autoload {
+	// Native Pi uses strict === false; decoding null into bool also yields false.
+	if a, ok := e.fields["autoload"]; ok && bytes.Equal(bytes.TrimSpace(a), []byte("false")) {
 		e.autoloadFalse = true
 	}
 	if r, ok := e.fields["extensions"]; ok {

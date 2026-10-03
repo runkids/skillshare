@@ -99,6 +99,8 @@ func (s *Service) Apply(ctx context.Context, r Request, revision string) (*Resul
 		return result, err
 	}
 	var failures []error
+	// Receipts are private to this Apply, and record only bytes our restore wrote.
+	piRestores := map[string]piRestoreReceipt{}
 	for _, c := range p.Changes {
 		if c.Action == "noop" || c.Action == "skip" {
 			continue
@@ -112,6 +114,7 @@ func (s *Service) Apply(ctx context.Context, r Request, revision string) (*Resul
 			continue
 		}
 		b := d.packages[c.Name].Bindings[c.Target]
+		c.piRestores = piRestores
 		applyErr := s.applyChange(ctx, c, b)
 		outcome := Outcome{Name: c.Name, Target: c.Target, Status: "installed", Message: "Native installation recorded. Reload the Agent and complete any required login or hook trust."}
 		if applyErr != nil {

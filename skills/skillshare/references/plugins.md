@@ -99,7 +99,9 @@ cannot reach, says why, and still updates the other targets.
   command for it. It is editable only on a verified Pi version (0.99.2, 1.0.0; a fork account
   is read-only and never run). On a project page it saves only `.pi/settings.json`, as
   `pi config` does: a global package gets a project entry `{source, autoload: false,
-  extensions}` (local source relative to `.pi`), removed with its last rule; the global
+  extensions}` (local source relative to `.pi`). With its last rule removed, the entry
+  is retained if deletion could expose earlier filters. Only explicit JSON `false`
+  is a delta, not `null`; the global
   settings and `trust.json` are never written and Skillshare never trusts the project. A
   global source with credentials or a query, or a project/global entry it can't read
   exactly, keeps the affected packages read-only.

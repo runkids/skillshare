@@ -272,6 +272,13 @@ func (s *Service) checkPiRestoreOwnership(st *piSettings, record *piRegistration
 
 var piBeforeRegistrationWrite = func(string) {}
 
+// A batch may advance a reviewed file only to bytes this Apply itself wrote.
+// Native/external writes are not adopted by reading the file after a command.
+type piRestoreReceipt struct {
+	reviewed string
+	written  string
+}
+
 // Restore the reviewed object before calling pi install: installing a string and
 // patching filters afterwards would briefly default-enable other resources.
 func (s *Service) restorePiRegistration(c Change, b Binding) error {
@@ -290,8 +297,15 @@ func (s *Service) restorePiRegistration(c Change, b Binding) error {
 		return err
 	}
 	defer lock.release()
+	expected := c.piSettingsHash
+	if receipt, ok := c.piRestores[file]; ok {
+		if receipt.reviewed != expected {
+			return errors.New("Pi settings changed since preview; preview again")
+		}
+		expected = receipt.written
+	}
 	st := readPiSettings(file)
-	if st.problem != "" || hash(st.raw) != c.piSettingsHash {
+	if st.problem != "" || hash(st.raw) != expected {
 		return errors.New("Pi settings changed since preview; preview again")
 	}
 	if err := s.checkPiRestoreOwnership(st, record, b.Pending == "install"); err != nil {
@@ -328,19 +342,25 @@ func (s *Service) restorePiRegistration(c Change, b Binding) error {
 	}
 	piBeforeRegistrationWrite(file)
 	latest := readPiSettings(file)
-	if latest.problem != "" || hash(latest.raw) != c.piSettingsHash {
+	if latest.problem != "" || hash(latest.raw) != expected {
 		return errors.New("Pi settings changed at the write boundary; preview again")
 	}
 	if err := lock.verify(); err != nil {
 		return err
 	}
+	out := value.Pack()
 	if s.ProjectRoot != "" {
-		root, err := os.OpenRoot(s.ProjectRoot)
-		if err != nil {
-			return err
+		root, openErr := os.OpenRoot(s.ProjectRoot)
+		if openErr != nil {
+			return openErr
 		}
 		defer root.Close()
-		return rootAtomicWrite(root, ".pi/settings.json", value.Pack(), info.Mode().Perm(), false)
+		err = rootAtomicWrite(root, ".pi/settings.json", out, info.Mode().Perm(), false)
+	} else {
+		err = atomicNativeWrite(file, out, info.Mode().Perm())
 	}
-	return atomicNativeWrite(file, value.Pack(), info.Mode().Perm())
+	if err == nil && c.piRestores != nil {
+		c.piRestores[file] = piRestoreReceipt{reviewed: c.piSettingsHash, written: hash(out)}
+	}
+	return err
 }

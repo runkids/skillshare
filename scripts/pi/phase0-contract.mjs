@@ -399,6 +399,25 @@ try {
     eq(replaced.extensions, ["extensions/a.ts:on", "extensions/b.ts:off", "extensions/c.ts:on"], "global -c no longer applies");
   });
 
+  await scenario("keeping an empty winning delta does not expose earlier project resource filters", async () => {
+    const global = { packages: [src] };
+    const earlier = { source: src, extensions: ["-extensions/b.ts"], skills: [], prompts: [], themes: [] };
+    const before = await run({ global, project: { packages: [earlier, { source: src, autoload: false, extensions: ["-extensions/a.ts"] }] } });
+    const kept = await run({ global, project: { packages: [earlier, { source: src, autoload: false }] } });
+    const removed = await run({ global, project: { packages: [earlier] } });
+    eq(before.extensions, ["extensions/a.ts:off", "extensions/b.ts:on", "extensions/c.ts:on"]);
+    eq(kept.extensions, ALL);
+    eq([kept.skills, kept.prompts, kept.themes], [before.skills, before.prompts, before.themes]);
+    eq([removed.extensions, removed.skills, removed.prompts], [["extensions/a.ts:on", "extensions/b.ts:off", "extensions/c.ts:on"], ["skills/review/SKILL.md:off"], ["prompts/commit.md:off"]], "deleting the winner exposes unrequested changes");
+  });
+
+  await scenario("only strict false is a delta; null and other autoload values use ordinary filtering", async () => {
+    for (const autoload of [null, true, false, "false", 0, [], {}]) {
+      const r = await run({ project: { packages: [{ source: src, autoload, extensions: ["+extensions/a.ts"] }] } });
+      eq(r.extensions, autoload === false ? ["extensions/a.ts:on"] : ALL);
+    }
+  });
+
   await scenario("project-only delta: -path and unnamed paths stay unloaded, +path loads, other resources none", async () => {
     const r = await run({ project: { packages: [{ source: src, autoload: false, extensions: ["-extensions/a.ts", "+extensions/b.ts"] }] } });
     eq(r.extensions, ["extensions/a.ts:off", "extensions/b.ts:on"], "c is not loaded at all");

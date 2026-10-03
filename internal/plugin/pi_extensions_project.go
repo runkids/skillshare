@@ -395,8 +395,8 @@ func (s *Service) piProjectPlan(ctx context.Context, target string, changes []Pi
 		diff.Converted = !e.object
 		pointer := "/packages/" + strconv.Itoa(e.index)
 		switch {
-		case t.delta && !hasRules && piOnlyOverride(e):
-			// Nothing of the override is left: drop it, as pi config does.
+		case t.delta && !hasRules && piOnlyOverride(e) && !piOverrideShadowsEarlier(st, e, p.src.identity):
+			// Drop an exhausted override only when it cannot expose an earlier entry.
 			diff.Removed, removed[e.index] = true, true
 			removals = append(removals, map[string]any{"op": "remove", "path": pointer})
 		case !e.object:
@@ -463,6 +463,19 @@ func (s *Service) piProjectPlan(ctx context.Context, target string, changes []Pi
 	data, _ := json.Marshal([]any{target, "project", v.Revision, sorted, plan.Entries, plan.Rows})
 	plan.Revision = hash(data)
 	return plan, st, out, nil
+}
+
+// Keep an empty override when deletion could expose a shadowed registration.
+// Retaining the winning entry preserves other resources without guessing the
+// identity of an earlier unresolved source.
+func piOverrideShadowsEarlier(st *piProjectState, e piEntry, identity string) bool {
+	for _, earlier := range st.project.entries[:e.index] {
+		id := resolvePiSource(earlier.source, st.agentDir, st.projectDir, "project").identity
+		if earlier.badSource || id == "" || id == identity {
+			return true
+		}
+	}
+	return false
 }
 
 // piOnlyOverride reports whether an override entry has nothing but its source,

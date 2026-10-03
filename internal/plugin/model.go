@@ -216,6 +216,7 @@ type Change struct {
 	PreservedKeys  []string `json:"preservedKeys,omitempty"`
 	piRecord       []byte
 	piSettingsHash string
+	piRestores     map[string]piRestoreReceipt
 	Name           string `json:"name"`
 	Target         string `json:"target"`
 	ID             string `json:"id"`

@@ -210,7 +210,9 @@ gets a project entry `{"source": ..., "autoload": false, "extensions": [...]}`
 that changes only the files it names and leaves the global entry as it is. A local
 source is written relative to `.pi`, an npm or git source as the global settings
 have it. When the last project rule of such an entry is removed, the entry is
-removed. A project entry with `autoload: false` and no global entry loads only the
+removed only if that cannot reveal an earlier registration's filters; otherwise
+the empty winning override is kept. Only explicit JSON `false` means a delta;
+`autoload: null` is not `false`. A project entry with `autoload: false` and no global entry loads only the
 files it names with `+`. The file, and its `.pi` folder, are created only when you
 apply. The global settings and Pi's `trust.json` are never written, and
 Skillshare never trusts a project for you: Pi uses the project's settings only if
@@ -241,6 +243,8 @@ nor installed files. The original entry is kept in private Skillshare state;
 shared config stores only its digest. Sync/update retain the live entry. When
 uninstalling, Skillshare captures its latest rules and options; reinstall restores
 that object before native installation, avoiding a default-enabled window.
+Multiple restores in one Apply recognize only that Apply's own exact writes;
+unrelated settings changes still stop later restores.
 Keep private state with these bindings: a missing, modified, or cross-target record
 blocks restoration. Unresolved sources, ambiguous precedence, unsupported encoding,
 and local references Pi would normalize remain read-only. Plain OpenCode entries
