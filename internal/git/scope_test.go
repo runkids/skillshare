@@ -213,6 +213,57 @@ func TestCheckUnpushedConfigHistory_IgnoresReplaceRefs(t *testing.T) {
 	}
 }
 
+func TestCheckUnpushedConfigHistory_BehindRemoteAllowsPublishedConfig(t *testing.T) {
+	dir := t.TempDir()
+	remote := filepath.Join(t.TempDir(), "origin.git")
+	gitExec(t, dir, "init", "--bare", remote)
+	gitExec(t, dir, "init", "-b", "main")
+	gitExec(t, dir, "remote", "add", "origin", remote)
+	if err := os.WriteFile(filepath.Join(dir, "config.yaml"), []byte("published\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	gitExec(t, dir, "add", "config.yaml")
+	gitExec(t, dir, "commit", "-m", "published config")
+	gitExec(t, dir, "rm", "--cached", "config.yaml")
+	gitExec(t, dir, "commit", "-m", "Keep config.yaml out of version control")
+	gitExec(t, dir, "push", "-u", "origin", "main")
+	other := t.TempDir()
+	gitExec(t, other, "clone", "-b", "main", remote, ".")
+	gitExec(t, other, "commit", "--allow-empty", "-m", "other machine")
+	gitExec(t, other, "push", "origin", "HEAD:main")
+	gitExec(t, dir, "commit", "--allow-empty", "-m", "local work")
+
+	// The remote tip is unknown here, so the push is rejected as non-fast-forward
+	// and `push --pull` must be allowed to pull first.
+	if err := CheckUnpushedConfigHistory(dir); err != nil {
+		t.Fatalf("behind remote with published config = %v; want allowed", err)
+	}
+}
+
+func TestCheckUnpushedConfigHistory_GoneUpstreamChecksOrigin(t *testing.T) {
+	dir := t.TempDir()
+	origin := filepath.Join(t.TempDir(), "origin.git")
+	fork := filepath.Join(t.TempDir(), "fork.git")
+	gitExec(t, dir, "init", "--bare", origin)
+	gitExec(t, dir, "init", "--bare", fork)
+	gitExec(t, dir, "init", "-b", "main")
+	gitExec(t, dir, "remote", "add", "origin", origin)
+	gitExec(t, dir, "remote", "add", "fork", fork)
+	if err := os.WriteFile(filepath.Join(dir, "config.yaml"), []byte("leaked\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	gitExec(t, dir, "add", "config.yaml")
+	gitExec(t, dir, "commit", "-m", "leak config")
+	gitExec(t, dir, "push", "-u", "fork", "main")
+	// Upstream config remains but @{u} no longer resolves, so PushArgs pushes to origin.
+	gitExec(t, dir, "update-ref", "-d", "refs/remotes/fork/main")
+
+	var historyErr *UnpushedConfigHistoryError
+	if err := CheckUnpushedConfigHistory(dir); !errors.As(err, &historyErr) || len(historyErr.Commits) != 1 {
+		t.Fatalf("gone upstream = %v; want the commit refused because origin lacks it", err)
+	}
+}
+
 func TestPushArgs_IgnoresPushDefaults(t *testing.T) {
 	for _, mode := range []string{"current", "matching"} {
 		t.Run(mode, func(t *testing.T) {

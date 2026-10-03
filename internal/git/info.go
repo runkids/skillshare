@@ -690,15 +690,16 @@ func upstreamRef(dir, local string) (remote, branch string, ok bool) {
 	return remote, branch, remote != "" && branch != ""
 }
 
-// PushRemote returns the remote a push from dir targets: the upstream remote,
-// or origin before the first push (see PushArgs).
-func PushRemote(dir string) string {
-	if local, err := GetCurrentBranch(dir); err == nil {
-		if remote, _, ok := upstreamRef(dir, local); ok {
-			return remote
+// pushTarget returns where PushArgs sends HEAD: the upstream remote and
+// branch, or origin with an empty branch when @{u} does not resolve (the first
+// push, where PushArgs picks the branch after fetching).
+func pushTarget(dir string) (remote, branch string) {
+	if local, err := GetCurrentBranch(dir); err == nil && HasUpstream(dir) {
+		if remote, branch, ok := upstreamRef(dir, local); ok {
+			return remote, branch
 		}
 	}
-	return "origin"
+	return "origin", ""
 }
 
 // AheadCount returns how many commits on HEAD are not on any remote-tracking
