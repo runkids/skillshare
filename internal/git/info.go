@@ -740,12 +740,8 @@ func FirstPull(dir string, force bool) (*UpdateInfo, error) {
 			abort.Run() // best-effort cleanup
 			return nil, fmt.Errorf("%w with %s: %s", ErrMergeFailed, remote, strings.TrimSpace(string(out)))
 		}
-	} else {
-		reset := exec.Command("git", "reset", "--hard", remote)
-		reset.Dir = dir
-		if out, err := reset.CombinedOutput(); err != nil {
-			return nil, fmt.Errorf("reset to %s failed: %s", remote, strings.TrimSpace(string(out)))
-		}
+	} else if err := ResetKeepingIgnores(dir, remote); err != nil {
+		return nil, err
 	}
 
 	local, _ := GetCurrentBranch(dir)
@@ -847,6 +843,60 @@ func HasRemoteSkillDirs(repoPath, remoteBranch string) (bool, error) {
 		return false, err
 	}
 	return strings.TrimSpace(string(lsOut)) != "", nil
+}
+
+// ResetKeepingIgnores runs `git reset --hard ref`. Rules from the local
+// .gitignore that the reset drops (such as root scope's config.yaml) stay in
+// effect through .git/info/exclude, so machine-local files do not turn into
+// untracked changes that block the next pull.
+func ResetKeepingIgnores(dir, ref string) error {
+	before, _ := os.ReadFile(filepath.Join(dir, ".gitignore"))
+
+	reset := exec.Command("git", "reset", "--hard", ref)
+	reset.Dir = dir
+	if out, err := reset.CombinedOutput(); err != nil {
+		return fmt.Errorf("reset to %s failed: %s", ref, strings.TrimSpace(string(out)))
+	}
+
+	after, _ := os.ReadFile(filepath.Join(dir, ".gitignore"))
+	var dropped []string
+	for _, line := range strings.Split(string(before), "\n") {
+		line = strings.TrimSpace(line)
+		if line != "" && !strings.HasPrefix(line, "#") && !gitignoreHasEntry(string(after), line) {
+			dropped = append(dropped, line)
+		}
+	}
+	if len(dropped) == 0 {
+		return nil
+	}
+
+	cmd := exec.Command("git", "rev-parse", "--git-path", "info/exclude")
+	cmd.Dir = dir
+	out, err := cmd.Output()
+	if err != nil {
+		return fmt.Errorf("locate info/exclude: %w", err)
+	}
+	exclude := strings.TrimSpace(string(out))
+	if !filepath.IsAbs(exclude) {
+		exclude = filepath.Join(dir, exclude)
+	}
+	if err := os.MkdirAll(filepath.Dir(exclude), 0o755); err != nil {
+		return fmt.Errorf("keep ignore rules: %w", err)
+	}
+	existing, _ := os.ReadFile(exclude)
+	content := string(existing)
+	if content != "" && !strings.HasSuffix(content, "\n") {
+		content += "\n"
+	}
+	for _, rule := range dropped {
+		if !gitignoreHasEntry(content, rule) {
+			content += rule + "\n"
+		}
+	}
+	if err := os.WriteFile(exclude, []byte(content), 0o644); err != nil {
+		return fmt.Errorf("keep ignore rules: %w", err)
+	}
+	return nil
 }
 
 // HasLocalContent reports whether the repo holds any tracked or non-ignored

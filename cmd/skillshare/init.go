@@ -1344,11 +1344,9 @@ func tryPullAfterRemoteSetup(sourcePath, remoteURL string) bool {
 	// This is safe because we verified hasLocalSkills is false above.
 	spinner.Update("Pulling skills from remote...")
 
-	resetCmd := exec.Command("git", "reset", "--hard", "origin/"+remoteBranch)
-	resetCmd.Dir = sourcePath
-	if output, err := resetCmd.CombinedOutput(); err != nil {
+	if err := gitops.ResetKeepingIgnores(sourcePath, "origin/"+remoteBranch); err != nil {
 		spinner.Fail("Failed to pull from remote")
-		fmt.Println(string(output))
+		fmt.Println(err.Error())
 		ui.Info("  Try manually: cd %s && git reset --hard origin/%s", sourcePath, remoteBranch)
 		return true
 	}

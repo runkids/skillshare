@@ -1014,6 +1014,30 @@ func TestFirstPull_KeepsFilesOnlyLocalCommits(t *testing.T) {
 	}
 }
 
+func TestFirstPull_ResetKeepsLocalIgnoreRules(t *testing.T) {
+	remote := createBareRemoteWithBranch(t, "main", map[string]string{"skills/remote-skill/SKILL.md": "# remote\n"})
+	repo := t.TempDir()
+	runGit(t, repo, "init")
+	runGit(t, repo, "config", "user.email", "test@test.com")
+	runGit(t, repo, "config", "user.name", "test")
+	if err := os.WriteFile(filepath.Join(repo, ".gitignore"), []byte("config.yaml\n.DS_Store\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	runGit(t, repo, "add", ".gitignore")
+	runGit(t, repo, "commit", "-m", "scaffold")
+	if err := os.WriteFile(filepath.Join(repo, "config.yaml"), []byte("source: x\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	runGit(t, repo, "remote", "add", "origin", remote)
+
+	if _, err := FirstPull(repo, false); err != nil {
+		t.Fatalf("FirstPull() error: %v", err)
+	}
+	if dirty, err := IsDirty(repo); err != nil || dirty {
+		t.Fatalf("expected clean tree after reset (dirty=%v, err=%v): %s", dirty, err, runGit(t, repo, "status", "--porcelain"))
+	}
+}
+
 func TestFirstPull_EmptyRemoteReportsNoBranches(t *testing.T) {
 	remote := filepath.Join(t.TempDir(), "remote.git")
 	runGit(t, "", "init", "--bare", remote)
