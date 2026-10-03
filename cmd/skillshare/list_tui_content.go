@@ -408,7 +408,7 @@ func renderContentOverlay(m listTUIModel) string {
 // handleContentMouse handles mouse events in the dual-pane content viewer.
 // Left side = tree navigation, right side = content scrolling.
 func (m listTUIModel) handleContentMouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
-	inSidebar := msg.X < sidebarWidth(m.termWidth)
+	inSidebar := m.contentKind != "agent" && msg.X < sidebarWidth(m.termWidth) // an agent has no tree
 
 	switch {
 	case msg.Button == tea.MouseButtonWheelUp:

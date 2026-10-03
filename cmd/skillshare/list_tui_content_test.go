@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	tea "github.com/charmbracelet/bubbletea"
 	xansi "github.com/charmbracelet/x/ansi"
 
 	"skillshare/internal/theme"
@@ -64,5 +65,14 @@ func TestLoadContentForSkill_AgentLeavesOutFrontMatter(t *testing.T) {
 	got := xansi.Strip(m.contentText)
 	if strings.Contains(got, "name: reviewer") || !strings.Contains(got, "Review the diff.") {
 		t.Fatalf("agent content should show the body without front matter, got %q", got)
+	}
+}
+
+func TestHandleContentMouse_WheelScrollsAnAgentAnywhere(t *testing.T) {
+	m := listTUIModel{contentKind: "agent", termWidth: 100, termHeight: 10, contentText: strings.Repeat("line\n", 40)}
+	next, _ := m.handleContentMouse(tea.MouseMsg{X: 2, Button: tea.MouseButtonWheelDown})
+
+	if got := next.(listTUIModel).contentScroll; got != 1 {
+		t.Fatalf("contentScroll = %d, want 1: an agent has no tree, so the wheel scrolls its text", got)
 	}
 }
