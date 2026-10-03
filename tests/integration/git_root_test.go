@@ -369,6 +369,47 @@ func TestGitRoot_PushPullUntracksConfigBroughtInByPull(t *testing.T) {
 	}
 }
 
+// push --pull at root scope repairs a pulled .gitignore that un-ignores
+// config.yaml and pushes the repair, leaving a clean tree.
+func TestGitRoot_PushPullCommitsGitignoreRepair(t *testing.T) {
+	requireWorkingGit(t)
+
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	base := filepath.Dir(sb.ConfigPath)
+	skills := filepath.Join(base, "skills")
+	grMkdir(t, skills)
+	sb.WriteConfig("git_root: root\nsource: " + skills + "\ntargets:\n  claude:\n    skills:\n      path: " + sb.CreateTarget("claude") + "\n")
+
+	bareRepo := testutil.SetupBareRemoteRepo(t, t.TempDir())
+	testutil.RunGit(t, base, "init")
+	testutil.ConfigureGitUser(t, base)
+	grWrite(t, filepath.Join(base, ".gitignore"), "config.yaml\n")
+	testutil.RunGit(t, base, "add", "-A")
+	testutil.RunGit(t, base, "commit", "-m", "initial")
+	testutil.RunGit(t, base, "branch", "-M", "main")
+	testutil.RunGit(t, base, "remote", "add", "origin", bareRepo)
+	testutil.RunGit(t, base, "push", "-u", "origin", "main")
+	testutil.RunGit(t, bareRepo, "symbolic-ref", "HEAD", "refs/heads/main")
+
+	other := filepath.Join(t.TempDir(), "other")
+	testutil.RunGit(t, "", "clone", "-b", "main", bareRepo, other)
+	testutil.ConfigureGitUser(t, other)
+	grWrite(t, filepath.Join(other, ".gitignore"), "config.yaml\n!config.yaml\n")
+	testutil.RunGit(t, other, "commit", "-am", "un-ignore config by mistake")
+	testutil.RunGit(t, other, "push", "origin", "main")
+
+	sb.RunCLI("push", "--pull").AssertSuccess(t)
+
+	if out := testutil.RunGit(t, base, "status", "--porcelain"); strings.TrimSpace(out) != "" {
+		t.Fatalf("working tree not clean after push --pull: %q", out)
+	}
+	if out := testutil.RunGit(t, bareRepo, "show", "main:.gitignore"); !strings.HasSuffix(out, "!config.yaml\nconfig.yaml") {
+		t.Fatalf("remote .gitignore = %q; want the repair that ignores config.yaml again", out)
+	}
+}
+
 // init --git-root <scope> on an already-initialized setup switches the scope
 // headlessly: it inits a repo at the new scope dir and persists git_root,
 // without prompting or erroring with "already initialized".

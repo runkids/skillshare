@@ -273,12 +273,18 @@ func cmdPush(args []string) (err error) {
 			if err != nil {
 				return err
 			}
-			if removed {
+			// It may also have repaired a pulled .gitignore that stopped ignoring
+			// config.yaml; commit that too so the push carries it.
+			if repaired, err := getGitChanges(source); err != nil {
+				return err
+			} else if repaired != "" {
 				spinner = ui.StartSpinner("Committing...")
-				if err := stageAndCommit(source, "Stop tracking config.yaml", spinner); err != nil {
+				if err := stageAndCommit(source, "Keep config.yaml out of version control", spinner); err != nil {
 					return err
 				}
 				spinner.Stop()
+			}
+			if removed {
 				ui.Success("Removed config.yaml from version control")
 				ui.Note("Kept on disk; it holds machine-specific paths")
 			}

@@ -483,6 +483,28 @@ func TestKeepLocalConfig_RestoresAfterAbortedPull(t *testing.T) {
 	}
 }
 
+func TestKeepLocalConfig_RestoresModeOfIdenticalCopy(t *testing.T) {
+	repo, remote := rootScopeRepoTrackingRemote(t)
+	cfg := filepath.Join(repo, "config.yaml")
+	if err := os.Chmod(cfg, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	pushFromOtherClone(t, remote, map[string]string{"config.yaml": "LOCAL-config\n"})
+	restore, err := KeepLocalConfig(repo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := PullWithEnv(repo, nil); err != nil {
+		t.Fatalf("PullWithEnv() error: %v", err)
+	}
+	if _, err := restore(); err != nil {
+		t.Fatal(err)
+	}
+	if info, err := os.Stat(cfg); err != nil || info.Mode().Perm() != 0o600 {
+		t.Fatalf("config.yaml mode = %v, %v; want 0600 kept", info.Mode().Perm(), err)
+	}
+}
+
 func TestKeepLocalConfig_ReportsTrackedCopyWithSameContent(t *testing.T) {
 	repo, remote := rootScopeRepoTrackingRemote(t)
 	pushFromOtherClone(t, remote, map[string]string{"config.yaml": "LOCAL-config\n"})

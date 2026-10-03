@@ -307,7 +307,7 @@ func snapshotConfig(path string) (put func() (replaced bool, err error), err err
 		return nil, fmt.Errorf("snapshot config.yaml: %w", err)
 	}
 	return func() (bool, error) {
-		if cur, err := os.Lstat(path); err == nil && cur.Mode().IsRegular() {
+		if cur, err := os.Lstat(path); err == nil && cur.Mode().IsRegular() && cur.Mode().Perm() == info.Mode().Perm() {
 			if got, err := os.ReadFile(path); err == nil && bytes.Equal(got, data) {
 				return false, nil
 			}
@@ -315,7 +315,10 @@ func snapshotConfig(path string) (put func() (replaced bool, err error), err err
 		if err := os.Remove(path); err != nil && !errors.Is(err, fs.ErrNotExist) {
 			return true, fmt.Errorf("restore config.yaml: %w", err)
 		}
-		return true, os.WriteFile(path, data, info.Mode().Perm())
+		if err := os.WriteFile(path, data, info.Mode().Perm()); err != nil {
+			return true, err
+		}
+		return true, os.Chmod(path, info.Mode().Perm()) // WriteFile's mode is masked by umask
 	}, nil
 }
 
