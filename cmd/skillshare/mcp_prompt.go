@@ -1,58 +1,24 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"maps"
 	"slices"
 	"strings"
 
-	"github.com/charmbracelet/bubbles/textarea"
-	tea "github.com/charmbracelet/bubbletea"
-
 	"skillshare/internal/mcp"
+	"skillshare/internal/ui"
 )
 
-type mcpInput struct {
-	title     string
-	input     textarea.Model
-	cancelled bool
-}
-
-func (m mcpInput) Init() tea.Cmd { return textarea.Blink }
-func (m mcpInput) View() string {
-	return m.title + "\n" + m.input.View() + "\nCtrl+D: continue · Esc: cancel\n"
-}
-func (m mcpInput) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	if key, ok := msg.(tea.KeyMsg); ok {
-		switch key.String() {
-		case "ctrl+d":
-			return m, tea.Quit
-		case "esc", "ctrl+c":
-			m.cancelled = true
-			return m, tea.Quit
-		}
-	}
-	var cmd tea.Cmd
-	m.input, cmd = m.input.Update(msg)
-	return m, cmd
-}
-
+// promptMCPText asks for an MCP value inline. Values may hold secrets, so
+// the answer is not echoed back.
 func promptMCPText(title, initial string) (string, error) {
-	input := textarea.New()
-	input.SetWidth(76)
-	input.SetHeight(6)
-	input.CharLimit = 1024 * 1024
-	input.SetValue(initial)
-	input.Focus()
-	result, err := tea.NewProgram(mcpInput{title: title, input: input}).Run()
-	if err != nil {
-		return "", err
-	}
-	m := result.(mcpInput)
-	if m.cancelled {
+	v, err := ui.Text(title, initial)
+	if errors.Is(err, ui.ErrCancelled) {
 		return "", errMCPCancelled
 	}
-	return strings.TrimSpace(m.input.Value()), nil
+	return strings.TrimSpace(v), err
 }
 
 func mcpTargetItems(service *mcp.Service, server *mcp.Server) []checklistItemData {
@@ -91,10 +57,14 @@ func mcpAddWizard(service *mcp.Service, o mcpOptions) error {
 	}
 	name := o.name
 	if name == "" {
-		name, err = promptMCPText("Choose a name for this MCP", "")
+		name, err = ui.Input("Choose a name for this MCP", "", "")
+		if errors.Is(err, ui.ErrCancelled) {
+			return errMCPCancelled
+		}
 		if err != nil {
 			return err
 		}
+		name = strings.TrimSpace(name)
 	}
 	candidate := mcp.Candidate{Name: name, Server: mcp.Server{URL: input}}
 	if strings.HasPrefix(input, "{") {

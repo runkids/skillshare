@@ -42,14 +42,7 @@ Next
 
 ## 인터랙티브 TUI
 
-TTY에서 `diff`는 좌우 패널 레이아웃의 interactive TUI를 실행합니다.
-
-- **왼쪽 패널** — 상태 아이콘이 있는 target 목록(`✓` synced, `!` diff 있음, `✗` error)
-- **오른쪽 패널** — 선택된 target의 세부 보기(mode, filter, 분류된 diff)
-- **Enter**를 눌러 skill의 file 단위 diff를 펼칩니다
-- **/**를 눌러 target을 필터링, **Ctrl+d/u**로 세부 정보 스크롤, **q**로 종료
-
-일반 text 출력을 원하면 `--no-tui`를 사용하거나, pipe로 연결하면 TUI가 자동으로 비활성화됩니다.
+TTY에서 `diff`는 대화형 화면을 엽니다. 왼쪽에는 target, 오른쪽에는 선택한 target의 차이가 표시되며 파일 단위 diff까지 볼 수 있습니다. 키는 화면 아래쪽에 표시됩니다. 일반 텍스트로 보려면 `--no-tui`를 사용하거나 출력을 파이프하세요.
 
 ## 사용 시점
 

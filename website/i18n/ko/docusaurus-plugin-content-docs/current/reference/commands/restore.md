@@ -21,28 +21,9 @@ skillshare restore claude --dry-run                    # Preview
 
 ## 대화형 TUI
 
-TTY에서 인자 없이 `skillshare restore`를 실행하면 통합 restore TUI가 실행됩니다.
+TTY에서 인수 없이 `skillshare restore`를 실행하면 먼저 백업과 휴지통 중 어디에서 복원할지 묻습니다. 백업을 고르면 target을 선택한 뒤 백업 버전을 둘러볼 수 있습니다. 각 버전에는 날짜, 크기, 현재 target과 비교해 추가되거나 제거될 항목이 표시되며, 여기서 오래된 버전을 삭제할 수도 있습니다. 휴지통을 고르면 trash TUI가 열립니다. 키는 화면 아래쪽에 표시됩니다.
 
-1. **Source picker** — "Backup Restore"와 "Trash Restore" 중 선택
-2. **Backup Restore** — target을 선택한 후, 다음 정보를 보여주는 상세 패널과 함께 백업 버전을 탐색:
-   - 백업 날짜, 크기, skill 개수
-   - 현재 target과의 diff (추가/제거된 skill)
-   - 개별 파일 목록
-3. **Trash Restore** — 삭제된 skill을 복원하기 위해 trash TUI를 엽니다
-
-### 키 바인딩
-
-| Key | Action |
-|-----|--------|
-| `↑`/`↓` | target/버전 탐색 |
-| `Enter` | target 선택 / 버전 복원 |
-| `/` | target 필터링 |
-| `d` | 백업 버전 삭제 |
-| `Ctrl+d`/`Ctrl+u` | 상세 패널 스크롤 |
-| `Esc` | 뒤로 가기 |
-| `q`/`Ctrl+C` | 종료 |
-
-TUI를 건너뛰고 일반 백업 목록을 표시하려면 `--no-tui`를 사용하세요.
+TUI를 건너뛰고 일반 백업 목록을 보려면 `--no-tui`를 사용하세요.
 
 ## 동작 방식
 

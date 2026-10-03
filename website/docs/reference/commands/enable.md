@@ -17,7 +17,7 @@ skillshare disable my-skill -p      # Project mode
 
 - Temporarily hide a skill from sync without uninstalling it
 - Mute a draft or experimental skill across all targets
-- Toggle skills on/off from the list TUI with the `E` key
+- Toggle skills on/off from the list TUI with the `t` key
 
 ## How It Works
 
@@ -118,9 +118,7 @@ Always wrap folder patterns in quotes (`"frontend/**"`) so your shell doesn't ex
 
 ## TUI Toggle
 
-In the interactive `skillshare list` TUI, press **E** to toggle the selected skill's enabled/disabled state. The change is written to `.skillignore` immediately — no need to exit the TUI first.
-
-Disabled skills show a red **disabled** badge in the detail panel.
+You can also turn skills on and off in the `skillshare list` TUI. The change is written to `.skillignore` immediately.
 
 ## Where is the .skillignore?
 
@@ -150,7 +148,7 @@ See [Agents](/docs/understand/agents) for background on agent management.
 
 ## See Also
 
-- [list](./list.md) — View disabled skills and toggle with `E` key
+- [list](./list.md) — View disabled skills and toggle with `t` key
 - [Filtering Skills](/docs/how-to/daily-tasks/filtering-skills) — All filtering layers
 - [.skillignore](/docs/reference/filtering#skillignore) — Pattern syntax
 - [sync](./sync.md) — Apply changes after enable/disable

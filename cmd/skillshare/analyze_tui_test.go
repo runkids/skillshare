@@ -1,9 +1,16 @@
 package main
 
 import (
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/charmbracelet/bubbles/list"
+	tea "github.com/charmbracelet/bubbletea"
+	xansi "github.com/charmbracelet/x/ansi"
+
+	ssync "skillshare/internal/sync"
 )
 
 func TestComputeThresholds(t *testing.T) {
@@ -149,5 +156,62 @@ func TestSwitchTarget(t *testing.T) {
 	}
 	if m.matchCount != 1 {
 		t.Errorf("matchCount after switch: got %d, want 1", m.matchCount)
+	}
+}
+
+func TestAnalyzeTitleLine_ShowsTokensAndTargetTabs(t *testing.T) {
+	m := analyzeTUIModel{
+		list:      list.New(nil, analyzeSkillDelegate{}, 80, 20),
+		sortBy:    "tokens",
+		modeLabel: "global",
+		termWidth: 140,
+		groups: []analyzeTargetGroup{
+			{entry: analyzeTargetEntry{Skills: []analyzeSkillEntry{{Name: "a", DescriptionTokens: 100, BodyTokens: 900}}}, names: []string{"claude", "codex"}},
+			{entry: analyzeTargetEntry{Skills: nil}, names: []string{"cursor"}},
+		},
+	}
+	m.switchTarget()
+
+	got := xansi.Strip(m.renderTitleLine())
+	for _, want := range []string{"skillshare analyze", "global", "1 skill", "always", "on demand", "claude +1", "cursor"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("title line %q is missing %q", got, want)
+		}
+	}
+}
+
+func TestAnalyzeO_CyclesTheSort(t *testing.T) {
+	m := analyzeTUIModel{list: list.New(nil, analyzeSkillDelegate{}, 80, 20), sortBy: "tokens"}
+	next, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("o")})
+	if got := next.(analyzeTUIModel); !got.sortAsc {
+		t.Fatalf("o should switch to tokens ↑, got %s", got.sortLabel())
+	}
+}
+
+func TestAnalyzeEnter_OpensTheSkillWithItsLintIssue(t *testing.T) {
+	dir := t.TempDir()
+	body := "---\nname: tiny\ndescription: Short\n---\n# Tiny skill\n\nDo the thing.\n"
+	if err := os.WriteFile(filepath.Join(dir, "SKILL.md"), []byte(body), 0644); err != nil {
+		t.Fatal(err)
+	}
+	m := analyzeTUIModel{
+		list:       list.New(nil, analyzeSkillDelegate{}, 80, 20),
+		sortBy:     "tokens",
+		termWidth:  120,
+		termHeight: 30,
+		groups: []analyzeTargetGroup{{names: []string{"claude"}, entry: analyzeTargetEntry{Skills: []analyzeSkillEntry{{
+			Name: "tiny", path: dir,
+			LintIssues: []ssync.LintIssue{{Severity: ssync.LintWarning, Message: "Description is too short (5 chars)"}},
+		}}}}},
+	}
+	m.switchTarget()
+
+	next, _ := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	view := xansi.Strip(next.View())
+
+	for _, want := range []string{"skillshare analyze · tiny · SKILL.md", "description: Short", "Description is too short (5 chars)"} {
+		if !strings.Contains(view, want) {
+			t.Errorf("view is missing %q:\n%s", want, view)
+		}
 	}
 }

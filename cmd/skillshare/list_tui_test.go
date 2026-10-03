@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	tea "github.com/charmbracelet/bubbletea"
 	xansi "github.com/charmbracelet/x/ansi"
 )
 
@@ -25,37 +26,21 @@ func TestListPanelWidthBounds(t *testing.T) {
 	}
 }
 
-func TestListDetailStatusBits(t *testing.T) {
-	got := detailStatusBits(skillEntry{
-		Name:        "demo",
-		RelPath:     "demo",
-		RepoName:    "org/repo",
-		InstalledAt: "2026-03-01",
-	})
-
-	for _, want := range []string{"tracked"} {
-		if !strings.Contains(got, want) {
-			t.Fatalf("detailStatusBits() missing %q in %q", want, got)
-		}
-	}
-}
-
-func TestListSummaryFooterCounts(t *testing.T) {
+func TestListTitleLine_ShowsScopeCountsAndTabs(t *testing.T) {
 	items := []skillItem{
-		{entry: skillEntry{Name: "local", RelPath: "local"}},
-		{entry: skillEntry{Name: "tracked", RelPath: "tracked", RepoName: "team/repo"}},
-		{entry: skillEntry{Name: "remote", RelPath: "remote", Source: "github.com/example/repo"}},
+		{entry: skillEntry{Name: "react", RelPath: "react"}},
+		{entry: skillEntry{Name: "vue", RelPath: "vue"}},
+		{entry: skillEntry{Name: "helper", RelPath: "helper.md", Kind: "agent"}},
 	}
-	m := listTUIModel{
-		allItems:    items,
-		tabFiltered: items, // All tab — same as allItems
-		matchCount:  2,
-	}
+	m := newListTUIModel(nil, items, len(items), "global", t.TempDir(), "", nil, kindAll)
+	m.termWidth = 100
+	m.filterText = "react"
+	m.applyFilter()
 
-	got := m.renderSummaryFooter()
-	for _, want := range []string{"2/3 visible", "1 local", "1 tracked", "1 remote"} {
+	got := xansi.Strip(m.renderTitleLine())
+	for _, want := range []string{"skillshare list", "global", "1 of 2 skills", "Skills 2", "Agents 1"} {
 		if !strings.Contains(got, want) {
-			t.Fatalf("renderSummaryFooter() missing %q in %q", want, got)
+			t.Fatalf("title line missing %q in %q", want, got)
 		}
 	}
 }
@@ -113,17 +98,6 @@ func TestListViewSplit_HeaderKeepsSkillNameWhenDetailScrolled(t *testing.T) {
 		t.Fatalf("viewSplit() missing skill path in detail pane: %q", got)
 	}
 
-	// Date should appear in the metadata line
-	if !strings.Contains(got, "2026-03-03") {
-		t.Fatalf("viewSplit() missing install date in detail pane: %q", got)
-	}
-
-	// Skill name should appear before the date
-	nameIdx := strings.Index(got, "accessibility")
-	dateIdx := strings.Index(got, "2026-03-03")
-	if nameIdx > dateIdx {
-		t.Fatalf("expected skill name before date; output: %q", got)
-	}
 }
 
 func TestApplyFilter_WithTags(t *testing.T) {
@@ -194,7 +168,7 @@ func TestTabCounts(t *testing.T) {
 		{entry: skillEntry{Name: "a1", RelPath: "a1.md", Kind: "agent"}},
 	}
 	m := newListTUIModel(nil, items, len(items), "global", t.TempDir(), "", nil, kindAll)
-	want := [3]int{3, 2, 1}
+	want := [2]int{2, 1}
 	if m.tabCounts != want {
 		t.Fatalf("tabCounts = %v, want %v", m.tabCounts, want)
 	}
@@ -208,21 +182,14 @@ func TestTabSwitchFiltersItems(t *testing.T) {
 	}
 	m := newListTUIModel(nil, items, len(items), "global", t.TempDir(), "", nil, kindAll)
 
-	// Default All tab — should show 3
-	if m.matchCount != 3 {
-		t.Fatalf("All tab matchCount = %d, want 3", m.matchCount)
-	}
-
-	// Switch to Skills tab
-	m.activeTab = listTabSkills
-	m.applyFilter()
+	// Default Skills tab
 	if m.matchCount != 2 {
 		t.Fatalf("Skills tab matchCount = %d, want 2", m.matchCount)
 	}
 
-	// Switch to Agents tab
-	m.activeTab = listTabAgents
-	m.applyFilter()
+	// tab switches to Agents
+	next, _ := m.Update(tea.KeyMsg{Type: tea.KeyTab})
+	m = next.(listTUIModel)
 	if m.matchCount != 1 {
 		t.Fatalf("Agents tab matchCount = %d, want 1", m.matchCount)
 	}
@@ -274,14 +241,54 @@ func TestStatusFilterComposesWithTabAndText(t *testing.T) {
 	}
 }
 
-func TestStatusChipRendering(t *testing.T) {
+func TestListTitleLine_ShowsStatusFromFlag(t *testing.T) {
 	m := newListTUIModel(nil, nil, 0, "global", t.TempDir(), "", nil, kindAll)
-	if got := xansi.Strip(m.renderStatusChip()); !strings.Contains(got, "Status: All") {
-		t.Fatalf("status chip = %q, want 'Status: All'", got)
-	}
 	m.statusFilter = statusFilterDisabled
-	if got := xansi.Strip(m.renderStatusChip()); !strings.Contains(got, "Status: Disabled") {
-		t.Fatalf("status chip = %q, want 'Status: Disabled'", got)
+	if got := xansi.Strip(m.renderTitleLine()); !strings.Contains(got, "disabled only") {
+		t.Fatalf("title line = %q, want 'disabled only'", got)
+	}
+}
+
+func TestListOpensAgentsTabWhenThereAreOnlyAgents(t *testing.T) {
+	items := []skillItem{{entry: skillEntry{Name: "helper", RelPath: "helper.md", Kind: "agent"}}}
+	m := newListTUIModel(nil, items, len(items), "global", t.TempDir(), "", nil, kindAll)
+	if m.activeTab != listTabAgents {
+		t.Fatalf("activeTab = %d, want the Agents tab", m.activeTab)
+	}
+}
+
+func TestListEsc_ClearsTheFilterBeforeQuitting(t *testing.T) {
+	items := []skillItem{{entry: skillEntry{Name: "react", RelPath: "react"}}, {entry: skillEntry{Name: "vue", RelPath: "vue"}}}
+	m := newListTUIModel(nil, items, len(items), "global", t.TempDir(), "", nil, kindAll)
+	m.filterText = "react"
+	m.applyFilter()
+
+	next, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEsc})
+	m = next.(listTUIModel)
+	if cmd != nil || m.filterText != "" || m.matchCount != 2 {
+		t.Fatalf("first esc should clear the filter and stay; filter=%q matches=%d", m.filterText, m.matchCount)
+	}
+
+	next, _ = m.Update(tea.KeyMsg{Type: tea.KeyEsc})
+	if !next.(listTUIModel).quitting {
+		t.Fatal("second esc should quit")
+	}
+}
+
+func TestListUninstallAsksOnTheKeyLine(t *testing.T) {
+	items := []skillItem{{entry: skillEntry{Name: "react", RelPath: "react"}}}
+	m := newListTUIModel(nil, items, len(items), "global", t.TempDir(), "", nil, kindAll)
+	m.termWidth, m.termHeight = 120, 30
+	m.syncListSize()
+
+	m = pressKey(t, m, "d")
+
+	got := xansi.Strip(m.View())
+	if !strings.Contains(got, "Uninstall react?") || !strings.Contains(got, "skillshare uninstall -g react") {
+		t.Fatalf("view should ask on the key line with the command; got %q", got)
+	}
+	if !strings.Contains(got, "skillshare list") {
+		t.Fatalf("the list should stay on screen while asking; got %q", got)
 	}
 }
 
@@ -313,43 +320,18 @@ func TestTabWithFilterComposition(t *testing.T) {
 		t.Fatalf("Skills+react matchCount = %d, want 1", m.matchCount)
 	}
 
-	// All tab + text filter "react" → skill "react" + agent "react-agent"
-	m.activeTab = listTabAll
-	m.applyFilter()
-	if m.matchCount != 2 {
-		t.Fatalf("All+react matchCount = %d, want 2", m.matchCount)
-	}
-}
-
-func TestTabBarRendering(t *testing.T) {
-	items := []skillItem{
-		{entry: skillEntry{Name: "s1", RelPath: "s1", Kind: "skill"}},
-		{entry: skillEntry{Name: "a1", RelPath: "a1.md", Kind: "agent"}},
-	}
-	m := newListTUIModel(nil, items, len(items), "global", t.TempDir(), "", nil, kindAll)
-	bar := xansi.Strip(m.renderTabBar())
-	for _, want := range []string{"All(2)", "Skills(1)", "Agents(1)"} {
-		if !strings.Contains(bar, want) {
-			t.Fatalf("tab bar missing %q in %q", want, bar)
-		}
-	}
-}
-
-func TestUpdateTitle(t *testing.T) {
-	m := newListTUIModel(nil, nil, 0, "global", t.TempDir(), "", nil, kindAll)
-	if !strings.Contains(m.list.Title, "resources") {
-		t.Fatalf("All tab title = %q, want 'resources'", m.list.Title)
-	}
-
-	m.activeTab = listTabSkills
-	m.updateTitle()
-	if !strings.Contains(m.list.Title, "skills") {
-		t.Fatalf("Skills tab title = %q, want 'skills'", m.list.Title)
-	}
-
+	// Agents tab + text filter "react" → only agent "react-agent"
 	m.activeTab = listTabAgents
-	m.updateTitle()
-	if !strings.Contains(m.list.Title, "agents") {
-		t.Fatalf("Agents tab title = %q, want 'agents'", m.list.Title)
+	m.applyFilter()
+	if m.matchCount != 1 {
+		t.Fatalf("Agents+react matchCount = %d, want 1", m.matchCount)
+	}
+}
+
+func TestRenderKeyLine_KeepsTheKeysHintWhenNarrow(t *testing.T) {
+	hints := []keyHint{{"↑↓", "move"}, {"/", "filter"}, {"enter", "open"}, {"d", "uninstall"}, {"?", "keys"}}
+	got := xansi.Strip(renderKeyLine(40, hints, "1/8"))
+	if xansi.StringWidth(got) > 40 || !strings.Contains(got, "? keys") || !strings.Contains(got, "1/8") {
+		t.Fatalf("narrow key line = %q, want it to fit 40 columns and keep '? keys' and the position", got)
 	}
 }

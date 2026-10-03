@@ -1041,7 +1041,7 @@
   "install.url.selectAll": "전체 선택",
   "install.url.deselectAll": "전체 선택 해제",
   "install.url.sourceLabel": "Git URL, GitHub 축약형 또는 로컬 경로",
-  "install.url.sourceHint": "하위 폴더도 됩니다: owner/repo/path/to/skill. SSH URL과 ~/Downloads/my-skill 같은 폴더도 가능합니다.",
+  "install.url.sourceHint": "하위 폴더도 됩니다: owner/repo/path/to/skill. SSH URL과 ~/Downloads/my-skill 같은 폴더도 가능합니다. npx skills add 명령을 그대로 붙여넣어도 됩니다.",
   "install.url.selected": "{count}개 선택됨",
   "install.url.filterSkills": "skill 필터",
   "install.url.filterAgents": "agent 필터",

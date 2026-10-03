@@ -42,14 +42,7 @@ Next
 
 ## 交互式 TUI
 
-在 TTY 环境下，`diff` 会启动一个左右分栏布局的交互式 TUI：
-
-- **左侧面板** — Target 列表，带状态图标（`✓` 已同步，`!` 有差异，`✗` 出错）
-- **右侧面板** — 所选 Target 的详情视图（mode、filters、分类后的 diff）
-- 按 **Enter** 展开某个 Skill 的文件级 diff
-- 按 **/** 筛选 Target，**Ctrl+d/u** 滚动详情面板，**q** 退出
-
-使用 `--no-tui` 输出纯文本，或通过管道自动禁用 TUI。
+在 TTY 上，`diff` 会打开交互式界面：左侧是 targets，右侧是所选 target 的差异，可以一直看到文件级别的 diff。按键列在界面底部。使用 `--no-tui` 或将输出 pipe 出去，就会改为输出纯文本。
 
 ## 使用场景
 

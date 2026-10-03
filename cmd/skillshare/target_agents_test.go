@@ -4,8 +4,11 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
+
+	tea "github.com/charmbracelet/bubbletea"
 
 	"skillshare/internal/config"
 	"skillshare/internal/targetsummary"
@@ -246,7 +249,7 @@ func TestRenderTargetDetail_AgentSection(t *testing.T) {
 					Include:       []string{"team-*"},
 				},
 			},
-			want: []string{"Skills:", ".cursor/skills", "Sync:", "merged (4 shared, 1 local)", "Agents:", ".cursor/agents", "2/3 linked", "Agent Include:", "team-*"},
+			want: []string{"Skills", ".cursor/skills", "Sync", "merged (4 shared, 1 local)", "Agents", ".cursor/agents", "2/3 linked", "Include", "team-*"},
 		},
 		{
 			name: "copy target shows custom agents section",
@@ -269,7 +272,7 @@ func TestRenderTargetDetail_AgentSection(t *testing.T) {
 					ExpectedCount: 2,
 				},
 			},
-			want: []string{"Skills:", "/tmp/custom/skills", "Sync:", "copied (2 managed, 0 local)", "Agents:", "/tmp/custom/agents", "2/2 managed", "No agent include/exclude filters"},
+			want: []string{"Skills", "/tmp/custom/skills", "Sync", "copied (2 managed, 0 local)", "Agents", "/tmp/custom/agents", "2/2 managed"},
 		},
 		{
 			name: "local-only agents are shown when source has none",
@@ -291,7 +294,7 @@ func TestRenderTargetDetail_AgentSection(t *testing.T) {
 					LocalCount:  1,
 				},
 			},
-			want: []string{"Agents:", ".claude/agents", "no source agents yet (1 local)", "No agent include/exclude filters"},
+			want: []string{"Agents", ".claude/agents", "no source agents yet (1 local)"},
 		},
 		{
 			name: "symlink agent target shows filters ignored warning",
@@ -316,8 +319,8 @@ func TestRenderTargetDetail_AgentSection(t *testing.T) {
 					Exclude:       []string{"draft-*"},
 				},
 			},
-			want:        []string{"Agents:", ".claude/agents", "5/5 linked (directory symlink)", "Agent include/exclude filters ignored in symlink mode"},
-			notContains: []string{"Agent Include:", "Agent Exclude:", "No agent include/exclude filters"},
+			want:        []string{"Agents", ".claude/agents", "5/5 linked (directory symlink)", "ignored in symlink mode"},
+			notContains: []string{"team-*", "draft-*"},
 		},
 		{
 			name: "unsupported target omits agents section",
@@ -333,8 +336,8 @@ func TestRenderTargetDetail_AgentSection(t *testing.T) {
 					},
 				},
 			},
-			want:        []string{"Skills:", "/tmp/custom-tool/skills", "Sync:", "not exist (0 shared, 0 local)"},
-			notContains: []string{"Agents:", "No agent include/exclude filters"},
+			want:        []string{"Skills", "/tmp/custom-tool/skills", "Sync", "not exist (0 shared, 0 local)"},
+			notContains: []string{"Agents"},
 		},
 	}
 
@@ -400,30 +403,33 @@ func TestFormatTargetAgentSyncSummary_IncludesLocalAgents(t *testing.T) {
 	}
 }
 
-func TestTargetScopeOptions_DisablesAgentFiltersInSymlinkMode(t *testing.T) {
+func TestTargetEditOptions_SkipsAgentFiltersInSymlinkMode(t *testing.T) {
 	item := targetTUIItem{
-		name: "claude",
-		agentSummary: &targetsummary.AgentSummary{
-			Mode: "symlink",
-		},
+		name:         "claude",
+		agentSummary: &targetsummary.AgentSummary{Mode: "symlink"},
 	}
 
-	options := targetScopeOptions(item, "include")
-	if len(options) != 2 {
-		t.Fatalf("expected 2 scope options, got %d", len(options))
+	options := targetEditOptions(item)
+	agentsMode := slices.IndexFunc(options, func(o targetEditOption) bool { return o.label() == "Agents mode" })
+	if agentsMode < 0 {
+		t.Fatalf("expected an Agents mode option, got %+v", options)
 	}
-	if !options[0].enabled || options[0].scope != "skills" {
-		t.Fatalf("expected skills option enabled, got %+v", options[0])
+	if got := moveEditMenuCursor(options, agentsMode, 1); got != agentsMode {
+		t.Fatalf("cursor should stay on Agents mode when the agent filters do nothing, got %d (%+v)", got, options[got])
 	}
-	if options[1].scope != "agents" || options[1].enabled {
-		t.Fatalf("expected agents option disabled, got %+v", options[1])
-	}
-	if options[1].disabled != "ignored in symlink mode" {
-		t.Fatalf("unexpected disabled reason: %+v", options[1])
-	}
+}
 
-	if got := moveScopePickerCursor(options, 0, 1); got != 0 {
-		t.Fatalf("cursor should stay on skills when agents is disabled, got %d", got)
+func TestTargetRemoveAsksOnTheKeyLine(t *testing.T) {
+	m := newTargetListTUIModel("global", nil, nil, "")
+	m.loading = false
+	m.termWidth = 120
+	m.allItems = []targetTUIItem{{name: "cursor"}}
+	m.applyTargetFilter()
+
+	next, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("d")})
+	got := stripANSIWarnings(next.(targetListTUIModel).renderBottom())
+	if !strings.Contains(got, "Remove target cursor?") || !strings.Contains(got, "skillshare target remove -g cursor") {
+		t.Fatalf("d should ask on the key line and show the command, got %q", got)
 	}
 }
 

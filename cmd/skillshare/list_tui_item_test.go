@@ -62,22 +62,45 @@ func TestSkillItem_Title_Tracked(t *testing.T) {
 
 func TestCompactSkillPath_TrackedDeep(t *testing.T) {
 	e := skillEntry{Name: "skill-name", RelPath: "_repo/security/skill-name", RepoName: "org/repo"}
-	if got := compactSkillPath(e); got != "security/skill-name" {
+	if got := compactSkillPath(e, false); got != "security/skill-name" {
 		t.Errorf("compactSkillPath() = %q, want %q", got, "security/skill-name")
 	}
 }
 
 func TestCompactSkillPath_TrackedRoot(t *testing.T) {
 	e := skillEntry{Name: "skillshare", RelPath: "_repo/skillshare", RepoName: "org/repo"}
-	if got := compactSkillPath(e); got != "skillshare" {
+	if got := compactSkillPath(e, false); got != "skillshare" {
 		t.Errorf("compactSkillPath() = %q, want %q", got, "skillshare")
 	}
 }
 
 func TestCompactSkillPath_LocalNested(t *testing.T) {
 	e := skillEntry{Name: "skill-name", RelPath: "group/skill-name"}
-	if got := compactSkillPath(e); got != "group/skill-name" {
-		t.Errorf("compactSkillPath() = %q, want %q", got, "group/skill-name")
+	if got := compactSkillPath(e, true); got != "skill-name" {
+		t.Errorf("compactSkillPath() = %q, want %q (the group heading shows the folder)", got, "skill-name")
+	}
+}
+
+func TestCompactSkillPath_LocalNestedWithoutHeadingKeepsTheFolder(t *testing.T) {
+	e := skillEntry{Name: "skill-name", RelPath: "group/skill-name"}
+	if got := compactSkillPath(e, false); got != "group/skill-name" {
+		t.Errorf("compactSkillPath() = %q, want %q (no heading names the folder)", got, "group/skill-name")
+	}
+}
+
+func TestBuildGroupedItems_MarksRowsUnderAHeading(t *testing.T) {
+	items := buildGroupedItems([]skillItem{
+		{entry: skillEntry{Name: "a", RelPath: "frontend/a"}},
+		{entry: skillEntry{Name: "b", RelPath: "backend/b"}},
+	})
+	for _, it := range items {
+		if s, ok := it.(skillItem); ok && !s.grouped {
+			t.Errorf("%s is under a heading but not marked grouped", s.entry.RelPath)
+		}
+	}
+	single := buildGroupedItems([]skillItem{{entry: skillEntry{Name: "a", RelPath: "frontend/a"}}})
+	if s := single[0].(skillItem); s.grouped {
+		t.Error("a single group has no heading, so its rows are not grouped")
 	}
 }
 

@@ -3,25 +3,25 @@ package main
 import (
 	"errors"
 	"fmt"
+	"io"
 	"net/url"
 	"slices"
 	"strings"
 	"time"
 
 	"github.com/charmbracelet/bubbles/list"
-	"github.com/charmbracelet/bubbles/viewport"
+	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 
 	"skillshare/internal/mcp"
 	"skillshare/internal/theme"
 )
 
 type mcpListItem struct {
-	name, description, detail string
+	name, description, kind, detail string
 }
 
-func (i mcpListItem) Title() string       { return i.name }
-func (i mcpListItem) Description() string { return i.description }
 func (i mcpListItem) FilterValue() string { return i.name + " " + i.description }
 
 // Lists never expose arguments or credential values, including URL queries.
@@ -64,8 +64,24 @@ func mcpListItems(source *mcp.Source, plan *mcp.Plan) []list.Item {
 			status = []string{"not synchronized / no preview"}
 		}
 		description := mcpConnectionSummary(server) + " · " + mcpTargetSummary(targets) + " · " + strings.Join(status, "; ")
+		kind := "http"
+		switch {
+		case server.Disabled:
+			kind = "off"
+		case server.Command != "":
+			kind = "stdio"
+		}
+
 		var detail strings.Builder
-		fmt.Fprintf(&detail, "%s\n\n%s\nArguments: %d (values hidden)\nTargets: %s\n\nSync status\n%s\n", name, mcpConnectionSummary(server), len(server.Args), mcpTargetSummary(targets), strings.Join(status, "\n"))
+		row := func(label, value string) {
+			detail.WriteString(theme.Dim().Render(fmt.Sprintf("%-10s ", label)) + value + "\n")
+		}
+		detail.WriteString(theme.Primary().Bold(true).Render(name) + "\n\n")
+		row("Connects", mcpConnectionSummary(server))
+		row("Arguments", fmt.Sprintf("%d", len(server.Args))+theme.Dim().Render(" · values hidden"))
+		row("Targets", mcpTargetSummary(targets))
+		row("Source", shortenPath(source.Path))
+		detail.WriteString("\n" + theme.Primary().Bold(true).Render("Sync") + "\n" + strings.Join(status, "\n") + "\n")
 		for _, group := range []struct {
 			title  string
 			values map[string]mcp.Value
@@ -76,34 +92,82 @@ func mcpListItems(source *mcp.Source, plan *mcp.Plan) []list.Item {
 			}
 			slices.Sort(keys)
 			if len(keys) > 0 {
-				fmt.Fprintf(&detail, "\n%s (values hidden)\n%s\n", group.title, strings.Join(keys, "\n"))
+				detail.WriteString("\n" + theme.Primary().Bold(true).Render(group.title) + theme.Dim().Render(" · values hidden") + "\n" + strings.Join(keys, "\n") + "\n")
 			}
 		}
 		if server.BearerToken != nil {
-			detail.WriteString("\nBearer token: environment reference (value hidden)\n")
+			detail.WriteString("\n" + theme.Dim().Render("Bearer token from an environment variable · value hidden") + "\n")
 		}
-		fmt.Fprintf(&detail, "\nSource: %s", source.Path)
-		items = append(items, mcpListItem{name: name, description: description, detail: detail.String()})
+		items = append(items, mcpListItem{name: name, description: description, kind: kind, detail: detail.String()})
 	}
 	return items
 }
 
+// mcpDelegate renders "name    http" rows.
+type mcpDelegate struct{}
+
+func (mcpDelegate) Height() int                             { return 1 }
+func (mcpDelegate) Spacing() int                            { return 0 }
+func (mcpDelegate) Update(_ tea.Msg, _ *list.Model) tea.Cmd { return nil }
+
+func (mcpDelegate) Render(w io.Writer, m list.Model, index int, li list.Item) {
+	item, ok := li.(mcpListItem)
+	if !ok {
+		return
+	}
+	renderPrefixRow(w, alignRow(item.name, theme.Dim().Render(item.kind), m.Width()-rowIndent), m.Width(), index == m.Index())
+}
+
 type mcpListModel struct {
-	list                 list.Model
-	viewport             viewport.Model
-	width, height        int
-	showDetail           bool
+	list          list.Model
+	allItems      []list.Item
+	filterInput   textinput.Model
+	filterText    string
+	filtering     bool
+	width, height int
+	detailScroll  int
+	showKeys      bool
+	scope         string
+	// action and name tell runMCPManager what to run after the TUI quits.
 	action, name, notice string
 }
 
 func newMCPListModel(source *mcp.Source, plan *mcp.Plan, scope, notice string) mcpListModel {
-	l := list.New(mcpListItems(source, plan), newPrefixDelegate(true), 80, 18)
-	l.Title = "MCP connections (" + scope + ")"
-	l.Styles.Title = theme.Title()
+	items := mcpListItems(source, plan)
+	l := list.New(items, mcpDelegate{}, 0, 0)
+	l.SetShowTitle(false)
+	l.SetShowStatusBar(false)
+	l.SetFilteringEnabled(false)
 	l.SetShowHelp(false)
-	l.SetStatusBarItemName("server", "servers")
-	applyTUIFilterStyle(&l)
-	return mcpListModel{list: l, viewport: viewport.New(76, 18), width: 80, height: 24, notice: notice}
+	l.SetShowPagination(false)
+	m := mcpListModel{list: l, allItems: items, filterInput: newTUIFilterInput("type to match a name, URL or target"), scope: scope, notice: notice}
+	m.resize(120, 30)
+	return m
+}
+
+// resize sizes the list for the terminal.
+func (m *mcpListModel) resize(width, height int) {
+	m.width, m.height = width, height
+	bodyHeight := max(height-frameChrome, 6)
+	if width < tuiMinSplitWidth {
+		m.list.SetSize(width, max(bodyHeight/2, 4))
+		return
+	}
+	m.list.SetSize(listPanelWidth(width), bodyHeight)
+}
+
+// applyFilter keeps the servers whose name, connection or targets match.
+func (m *mcpListModel) applyFilter() {
+	needle := strings.ToLower(m.filterText)
+	var matched []list.Item
+	for _, it := range m.allItems {
+		if needle == "" || strings.Contains(strings.ToLower(it.FilterValue()), needle) {
+			matched = append(matched, it)
+		}
+	}
+	m.list.SetItems(matched)
+	m.list.ResetSelected()
+	m.detailScroll = 0
 }
 
 func (m mcpListModel) Init() tea.Cmd { return nil }
@@ -111,60 +175,42 @@ func (m mcpListModel) Init() tea.Cmd { return nil }
 func (m mcpListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
-		m.width, m.height = msg.Width, msg.Height
-		m.list.SetSize(msg.Width, max(5, msg.Height-5))
-		m.viewport.Width, m.viewport.Height = max(10, msg.Width-4), max(3, msg.Height-5)
-		if item, ok := m.list.SelectedItem().(mcpListItem); ok {
-			m.viewport.SetContent(hardWrapContent(item.detail, m.viewport.Width))
-		}
+		m.resize(msg.Width, msg.Height)
 		return m, nil
 	case tea.KeyMsg:
-		if m.showDetail {
-			if msg.String() == "esc" || msg.String() == "enter" {
-				m.showDetail = false
-				return m, nil
-			}
-			if msg.String() == "q" || msg.String() == "ctrl+c" {
-				return m, tea.Quit
-			}
-			var cmd tea.Cmd
-			m.viewport, cmd = m.viewport.Update(msg)
-			return m, cmd
-		}
-		if m.list.FilterState() == list.Filtering {
-			break
+		if m.filtering {
+			return m, handleTUIFilterKey(msg, &m.filtering, &m.filterText, &m.filterInput, m.applyFilter)
 		}
 		switch msg.String() {
 		case "q", "ctrl+c":
 			return m, tea.Quit
 		case "esc":
-			if m.list.FilterState() == list.FilterApplied {
-				m.list.ResetFilter()
-				return m, nil
-			}
-			return m, tea.Quit
-		case "enter":
-			if item, ok := m.list.SelectedItem().(mcpListItem); ok {
-				m.showDetail = true
-				m.viewport.SetContent(hardWrapContent(item.detail, m.viewport.Width))
-				m.viewport.GotoTop()
+			switch {
+			case m.showKeys:
+				m.showKeys = false
+			case m.filterText != "":
+				m.filterText = ""
+				m.filterInput.SetValue("")
+				m.applyFilter()
+			default:
+				return m, tea.Quit
 			}
 			return m, nil
-		case "a", "A":
-			m.action = "add"
-		case "i", "I":
-			m.action = "import"
-		case "e", "E":
-			m.action = "edit"
-		case "x", "X":
-			m.action = "remove"
-		case "s":
-			m.action = "sync"
-		case "b":
-			m.action = "restore"
-		case "r":
-			m.action = "refresh"
+		case "?":
+			m.showKeys = !m.showKeys
+			return m, nil
+		case "/":
+			m.filtering = true
+			m.filterInput.Focus()
+			return m, textinput.Blink
+		case "ctrl+d":
+			m.detailScroll += 5
+			return m, nil
+		case "ctrl+u":
+			m.detailScroll = max(m.detailScroll-5, 0)
+			return m, nil
 		}
+		m.action = map[string]string{"n": "add", "i": "import", "e": "edit", "d": "remove", "s": "sync", "r": "restore"}[msg.String()]
 		if m.action != "" {
 			if item, ok := m.list.SelectedItem().(mcpListItem); ok {
 				m.name = item.name
@@ -176,20 +222,93 @@ func (m mcpListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 		}
 	}
+	prev := m.list.Index()
 	var cmd tea.Cmd
 	m.list, cmd = m.list.Update(msg)
+	if m.list.Index() != prev {
+		m.detailScroll = 0
+	}
 	return m, cmd
 }
 
 func (m mcpListModel) View() string {
-	if m.showDetail {
-		return "\n" + m.viewport.View() + "\n" + formatHelpBar("↑↓ scroll  Esc back  q quit")
+	bodyHeight := max(m.height-frameChrome, 6)
+	count := countNoun(len(m.allItems), "server")
+	if m.filterText != "" {
+		count = formatNumber(len(m.list.Items())) + " of " + count
 	}
-	notice := m.notice
-	if len(m.list.Items()) == 0 {
-		notice = "No MCP servers. Press a to add or i to import."
+	title := renderFrameTitle(m.width, "mcp", []string{m.scope, count}, nil)
+	if m.width < tuiMinSplitWidth {
+		detailHeight := max(bodyHeight-m.list.Height()-1, 4)
+		detail := lipgloss.NewStyle().Height(detailHeight).MaxHeight(detailHeight).PaddingLeft(1).
+			Render(m.renderRight(m.width-2, detailHeight))
+		return title + "\n\n" + m.list.View() + "\n\n" + detail + "\n" + m.renderBottom()
 	}
-	return m.list.View() + "\n" + theme.Dim().Render(hardWrapContent(notice, max(10, m.width-4))) + "\n" + formatHelpBar("/ search  Enter details  a add  i import  e edit  x remove") + "\n" + formatHelpBar("s sync  b backups  r refresh  q quit")
+	leftWidth := listPanelWidth(m.width)
+	rightWidth := m.width - leftWidth
+	return title + "\n\n" +
+		renderFrameSplit(m.list.View(), m.renderRight(rightWidth-2, bodyHeight), leftWidth, rightWidth, bodyHeight) + "\n" +
+		m.renderBottom()
+}
+
+// renderRight renders the selected server, or the key list while ? is on.
+func (m mcpListModel) renderRight(width, height int) string {
+	if m.showKeys {
+		return renderKeysPanel(mcpKeyGroups)
+	}
+	if len(m.allItems) == 0 {
+		return theme.Dim().Render("No MCP servers yet. Press n to add one, or i to import\nthe servers your Agents already have.")
+	}
+	item, ok := m.list.SelectedItem().(mcpListItem)
+	if !ok {
+		return ""
+	}
+	detail, _ := wrapAndScroll(item.detail, width, m.detailScroll, height)
+	return detail
+}
+
+// renderBottom renders the last action's result on the note line and the
+// key line; the filter input takes over the key line in place.
+func (m mcpListModel) renderBottom() string {
+	note := ""
+	if m.notice != "" {
+		note = theme.Dim().Render(truncateANSI("  "+m.notice, m.width))
+	}
+	var line string
+	switch {
+	case m.filtering:
+		line = renderFilterLine(m.width, m.filterInput.View(), len(m.list.Items()))
+	case m.showKeys:
+		line = renderKeyLine(m.width, []keyHint{{"?/esc", "close"}}, "")
+	default:
+		hints := []keyHint{{"↑↓", "move"}, {"n", "add"}, {"i", "import"}, {"e", "edit"}, {"d", "remove"}, {"s", "sync"}, {"?", "keys"}}
+		if len(m.allItems) == 0 {
+			hints = []keyHint{{"n", "add"}, {"i", "import"}, {"r", "restore"}, {"q", "quit"}}
+		}
+		line = renderKeyLine(m.width, hints, framePosition(m.list.Index()+1, len(m.list.Items())))
+	}
+	return note + "\n" + line
+}
+
+// mcpKeyGroups lists every key for the ? panel.
+var mcpKeyGroups = []keyGroup{
+	{"Move", []keyHint{
+		{"↑↓", "move"},
+		{"/", "filter"},
+		{"ctrl+d/u", "scroll the details"},
+		{"esc", "clear the filter, then quit"},
+		{"q", "quit"},
+	}},
+	{"Servers", []keyHint{
+		{"n", "add a server"},
+		{"i", "import servers from your Agents"},
+		{"e", "edit the server"},
+		{"d", "remove the server"},
+	}},
+	{"Agents", []keyHint{
+		{"s", "sync to your Agents"},
+		{"r", "restore an Agent file from a backup"},
+	}},
 }
 
 func runMCPManager(service *mcp.Service) error {
@@ -258,10 +377,8 @@ func mcpSyncWizard(service *mcp.Service, prompts mcpPrompts) error {
 	if !pending {
 		return nil
 	}
-	if err := prompts.review("Sync managed Agent entries", p); err != nil {
-		return err
-	}
-	_, err = chooseMCP(prompts, checklistConfig{title: "Apply these MCP changes?", items: []checklistItemData{{label: "Sync now", desc: "Only managed Agent entries will be changed; Esc cancels"}}, singleSelect: true})
+	fmt.Println() // apart from the plan printed above
+	_, err = chooseMCP(prompts, checklistConfig{title: "Apply these MCP changes?", items: []checklistItemData{{label: "Sync now", desc: "Only managed Agent entries will be changed"}}, singleSelect: true})
 	if err != nil {
 		return err
 	}

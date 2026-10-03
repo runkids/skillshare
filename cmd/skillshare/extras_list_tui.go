@@ -87,6 +87,12 @@ type extrasListTUIModel struct {
 	targetCursor    int
 	targetAction    string
 
+	// e menu: the mode and flatten setting of every target
+	showEditMenu   bool
+	editMenuCursor int
+
+	showKeys bool // ? swaps the detail panel for the full key list
+
 	// Mode picker
 	showModePicker   bool
 	modePickerTarget string // target path being edited
@@ -108,8 +114,7 @@ func newExtrasListTUIModel(
 	delegate := extrasListDelegate{}
 
 	l := list.New(nil, delegate, 0, 0)
-	l.Title = fmt.Sprintf("Extras (%s)", modeLabel)
-	l.Styles.Title = theme.Title()
+	l.SetShowTitle(false)
 	l.SetShowStatusBar(false)
 	l.SetFilteringEnabled(false)
 	l.SetShowHelp(false)
@@ -238,6 +243,10 @@ func (m extrasListTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m.handleModePickerKey(msg)
 		}
 
+		if m.showEditMenu {
+			return m.handleEditMenuKey(msg)
+		}
+
 		if m.filtering {
 			cmd := handleTUIFilterKey(msg, &m.filtering, &m.filterText, &m.filterInput, m.applyExtrasFilter)
 			return m, cmd
@@ -247,6 +256,22 @@ func (m extrasListTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "q", "ctrl+c":
 			m.quitting = true
 			return m, tea.Quit
+		case "esc":
+			switch {
+			case m.showKeys:
+				m.showKeys = false
+			case m.filterText != "":
+				m.filterText = ""
+				m.filterInput.SetValue("")
+				m.applyExtrasFilter()
+			default:
+				m.quitting = true
+				return m, tea.Quit
+			}
+			return m, nil
+		case "?":
+			m.showKeys = !m.showKeys
+			return m, nil
 		case "ctrl+d":
 			m.detailScroll += 8
 			return m, nil
@@ -267,19 +292,27 @@ func (m extrasListTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.showContent = true
 			}
 			return m, nil
-		case "N":
+		case "n":
 			m.wantsNew = true
 			return m, tea.Quit
-		case "X":
+		case "d":
 			return m.enterExtrasConfirm("remove")
-		case "S":
+		case "s":
 			return m.enterTargetMenu("sync")
-		case "C":
+		case "c":
 			return m.enterTargetMenu("collect")
-		case "M":
-			return m.enterTargetMenu("mode")
-		case "F":
-			return m.enterTargetMenu("flatten")
+		case "e":
+			if item, ok := m.list.SelectedItem().(extraTUIItem); ok {
+				if len(item.entry.Targets) == 0 {
+					m.lastActionMsg = "✗ No targets configured"
+					return m, nil
+				}
+				m.showEditMenu = true
+				m.showKeys = false
+				m.editMenuCursor = 0
+				m.lastActionMsg = ""
+			}
+			return m, nil
 		}
 	}
 
@@ -305,19 +338,93 @@ func (m extrasListTUIModel) View() string {
 	if m.showContent {
 		return m.renderExtrasContentOverlay()
 	}
-	if m.confirming {
-		return m.renderConfirmOverlay()
+	bodyHeight := max(m.termHeight-frameChrome, 6)
+	count := countNoun(len(m.allItems), "extra")
+	if m.filterText != "" {
+		count = formatNumber(m.matchCount) + " of " + count
 	}
-	if m.showTargetMenu {
+	title := renderFrameTitle(m.termWidth, "extras", []string{m.modeLabel, count}, nil)
+	if !extrasSplitActive(m.termWidth) {
+		detailHeight := max(bodyHeight-m.list.Height()-1, 4)
+		detail := lipgloss.NewStyle().Height(detailHeight).MaxHeight(detailHeight).PaddingLeft(1).
+			Render(m.renderRight(m.termWidth-2, detailHeight))
+		return title + "\n\n" + m.list.View() + "\n\n" + detail + "\n" + m.renderBottom()
+	}
+	leftWidth := extrasPanelWidth(m.termWidth)
+	rightWidth := m.termWidth - leftWidth
+	return title + "\n\n" +
+		renderFrameSplit(m.list.View(), m.renderRight(rightWidth-2, bodyHeight), leftWidth, rightWidth, bodyHeight) + "\n" +
+		m.renderBottom()
+}
+
+// renderRight renders the detail panel, or in its place the key list, the
+// e menu, the target menu or the mode picker.
+func (m extrasListTUIModel) renderRight(width, height int) string {
+	item, ok := m.list.SelectedItem().(extraTUIItem)
+	switch {
+	case m.showKeys:
+		return renderKeysPanel(extrasKeyGroups)
+	case !ok:
+		return ""
+	case m.showEditMenu:
+		return m.renderEditMenu(item.entry)
+	case m.showTargetMenu:
 		return m.renderTargetMenu()
-	}
-	if m.showModePicker {
+	case m.showModePicker:
 		return m.renderModePicker()
 	}
-	if extrasSplitActive(m.termWidth) {
-		return m.viewExtrasSplit()
+	detail, _ := wrapAndScroll(m.renderExtrasDetail(item.entry), width, m.detailScroll, height)
+	return detail
+}
+
+// renderBottom renders the last action's result on the note line and the
+// key line. Confirmations, the filter input and the open menu's keys take
+// over the key line in place.
+func (m extrasListTUIModel) renderBottom() string {
+	note := ""
+	if m.lastActionMsg != "" {
+		note = "  " + renderExtrasActionMsg(m.lastActionMsg)
 	}
-	return m.viewExtrasVertical()
+	var line string
+	switch {
+	case m.confirming:
+		question, what, danger := m.confirmText()
+		note = theme.Dim().Render("  " + what)
+		line = renderConfirmLine(m.termWidth, question, danger, "")
+	case m.filtering:
+		line = renderFilterLine(m.termWidth, m.filterInput.View(), m.matchCount)
+	case m.showEditMenu || m.showTargetMenu || m.showModePicker:
+		line = renderKeyLine(m.termWidth, []keyHint{{"↑↓", "move"}, {"enter", "choose"}, {"esc", "back"}}, "")
+	case m.showKeys:
+		line = renderKeyLine(m.termWidth, []keyHint{{"?/esc", "close"}}, "")
+	default:
+		filter := keyHint{"/", "filter"}
+		if m.filterText != "" {
+			filter = keyHint{"esc", "clear filter"}
+		}
+		hints := []keyHint{{"↑↓", "move"}, filter, {"enter", "files"}, {"s", "sync"}, {"c", "collect"}, {"e", "edit"}, {"?", "keys"}}
+		line = renderKeyLine(m.termWidth, hints, framePosition(m.list.Index()+1, m.matchCount))
+	}
+	return note + "\n" + line
+}
+
+// extrasKeyGroups lists every key for the ? panel.
+var extrasKeyGroups = []keyGroup{
+	{"Move", []keyHint{
+		{"↑↓", "move"},
+		{"/", "filter by name"},
+		{"enter", "browse the files"},
+		{"ctrl+d/u", "scroll the details"},
+		{"esc", "clear the filter, then quit"},
+		{"q", "quit"},
+	}},
+	{"Extras", []keyHint{
+		{"n", "new extra"},
+		{"d", "remove the extra"},
+		{"s", "sync to its targets"},
+		{"c", "collect from a target"},
+		{"e", "change a target's mode or flatten"},
+	}},
 }
 
 // ─── Layout ──────────────────────────────────────────────────────────
@@ -331,74 +438,13 @@ func extrasPanelWidth(termWidth int) int {
 	return max(min(width, 36), 22)
 }
 
-func extrasDetailPanelWidth(termWidth int) int {
-	return max(termWidth-extrasPanelWidth(termWidth)-1, 28)
-}
-
 func (m *extrasListTUIModel) syncExtrasListSize() {
+	bodyHeight := max(m.termHeight-frameChrome, 6)
 	if extrasSplitActive(m.termWidth) {
-		panelHeight := max(m.termHeight-5, 6)
-		m.list.SetSize(extrasPanelWidth(m.termWidth), panelHeight)
+		m.list.SetSize(extrasPanelWidth(m.termWidth), bodyHeight)
 		return
 	}
-	listHeight := max(m.termHeight-20, 6)
-	m.list.SetSize(m.termWidth, listHeight)
-}
-
-func (m extrasListTUIModel) viewExtrasSplit() string {
-	var b strings.Builder
-
-	panelHeight := max(m.termHeight-5, 6)
-	leftWidth := extrasPanelWidth(m.termWidth)
-	rightWidth := extrasDetailPanelWidth(m.termWidth)
-
-	var detailStr, scrollInfo string
-	if item, ok := m.list.SelectedItem().(extraTUIItem); ok {
-		detail := m.renderExtrasDetail(item.entry)
-		bodyHeight := max(panelHeight-1, 4)
-		detailStr, scrollInfo = wrapAndScroll(detail, rightWidth-1, m.detailScroll, bodyHeight)
-		detailStr = "\n" + detailStr
-	}
-
-	body := renderHorizontalSplit(m.list.View(), detailStr, leftWidth, rightWidth, panelHeight)
-	b.WriteString(body)
-	b.WriteString("\n\n")
-	b.WriteString(m.renderExtrasFilterBar())
-	if m.lastActionMsg != "" {
-		b.WriteString(renderExtrasActionMsg(m.lastActionMsg))
-		b.WriteString("\n")
-	}
-	b.WriteString(m.renderExtrasHelp(scrollInfo))
-	b.WriteString("\n")
-
-	return b.String()
-}
-
-func (m extrasListTUIModel) viewExtrasVertical() string {
-	var b strings.Builder
-
-	b.WriteString(m.list.View())
-	b.WriteString("\n\n")
-	b.WriteString(m.renderExtrasFilterBar())
-
-	var scrollInfo string
-	if item, ok := m.list.SelectedItem().(extraTUIItem); ok {
-		detailHeight := max(m.termHeight-m.termHeight*2/5-8, 6)
-		detail := m.renderExtrasDetail(item.entry)
-		body, bodyScrollInfo := wrapAndScroll(detail, m.termWidth, m.detailScroll, detailHeight)
-		scrollInfo = bodyScrollInfo
-		b.WriteString(body)
-	}
-
-	if m.lastActionMsg != "" {
-		b.WriteString("\n")
-		b.WriteString(renderExtrasActionMsg(m.lastActionMsg))
-	}
-	b.WriteString("\n")
-	b.WriteString(m.renderExtrasHelp(scrollInfo))
-	b.WriteString("\n")
-
-	return b.String()
+	m.list.SetSize(m.termWidth, max(bodyHeight/2, 4))
 }
 
 // ─── Detail Panel ────────────────────────────────────────────────────
@@ -415,10 +461,10 @@ func extrasTargetDisplayPath(file string, t extrasTargetInfo) string {
 func (m extrasListTUIModel) renderExtrasDetail(e extrasListEntry) string {
 	var b strings.Builder
 
-	b.WriteString(theme.Title().Render(e.Name))
+	b.WriteString(theme.Primary().Bold(true).Render(e.Name))
 	b.WriteString("\n\n")
 
-	label := theme.Dim().Width(14).Render("Source")
+	label := theme.Dim().Width(8).Render("Source")
 	if e.File != "" {
 		b.WriteString(label + shortenPath(filepath.Join(e.SourceDir, e.File)))
 		if !e.SourceExists {
@@ -431,7 +477,7 @@ func (m extrasListTUIModel) renderExtrasDetail(e extrasListEntry) string {
 		b.WriteString(label + theme.Dim().Render("not found") + "\n")
 	}
 
-	label = theme.Dim().Width(14).Render("Files")
+	label = theme.Dim().Width(8).Render("Files")
 	if e.SourceExists {
 		b.WriteString(label + fmt.Sprintf("%d", e.FileCount) + "\n")
 	} else {
@@ -439,7 +485,7 @@ func (m extrasListTUIModel) renderExtrasDetail(e extrasListEntry) string {
 	}
 
 	b.WriteString("\n")
-	b.WriteString(theme.Title().Render("Targets"))
+	b.WriteString(theme.Primary().Bold(true).Render("Targets"))
 	b.WriteString("\n")
 
 	if len(e.Targets) == 0 {
@@ -479,13 +525,13 @@ func (m extrasListTUIModel) renderExtrasDetail(e extrasListEntry) string {
 				style.Render(icon), shortenPath(extrasTargetDisplayPath(e.File, t)), modeLabel, theme.Dim().Render(statusText))
 		}
 		if hasDrift {
-			b.WriteString("\n" + theme.Warning().Render("hint:") + " press S to sync, or use --force to overwrite conflicts\n")
+			b.WriteString("\n" + theme.Warning().Render("hint:") + " press s to sync, or use --force to overwrite conflicts\n")
 		}
 	}
 
 	if e.SourceExists && e.FileCount > 0 {
 		b.WriteString("\n")
-		b.WriteString(theme.Title().Render("Files"))
+		b.WriteString(theme.Primary().Bold(true).Render("Files"))
 		b.WriteString("\n")
 		files := discoverExtraFileNames(e.SourceDir, e.File)
 		maxShow := 10
@@ -514,22 +560,6 @@ func discoverExtraFileNames(sourceDir, file string) []string {
 }
 
 // ─── Filter ──────────────────────────────────────────────────────────
-
-func (m extrasListTUIModel) renderExtrasFilterBar() string {
-	return renderTUIFilterBar(
-		m.filterInput.View(), m.filtering, m.filterText,
-		m.matchCount, len(m.allItems), 0,
-		"extras", renderPageInfoFromPaginator(m.list.Paginator),
-	)
-}
-
-func (m extrasListTUIModel) renderExtrasHelp(scrollInfo string) string {
-	helpText := "↑↓ navigate  / filter  Enter view  N new  X remove  S sync  C collect  M mode  F flatten  q quit"
-	if m.filtering {
-		helpText = "Enter lock  Esc clear  q quit"
-	}
-	return theme.Dim().MarginLeft(2).Render(appendScrollInfo(helpText, scrollInfo))
-}
 
 func renderExtrasActionMsg(msg string) string {
 	if strings.HasPrefix(msg, "✓") {
@@ -630,7 +660,7 @@ func (m extrasListTUIModel) enterExtrasConfirm(action string) (tea.Model, tea.Cm
 
 func (m extrasListTUIModel) handleConfirmKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
-	case "y", "Y", "enter":
+	case "y", "Y":
 		m.confirming = false
 		return m, m.executeAction()
 	case "n", "N", "esc", "q":
@@ -658,31 +688,23 @@ func (m extrasListTUIModel) confirmTargetLabel(entry extrasListEntry) string {
 	return shortenPath(m.confirmTarget)
 }
 
-func (m extrasListTUIModel) renderConfirmOverlay() string {
-	var title, body string
+// confirmText returns the question for the key line, what the action does
+// for the note line, and whether it is destructive.
+func (m extrasListTUIModel) confirmText() (question, what string, danger bool) {
 	var entry extrasListEntry
 	if item, ok := m.list.SelectedItem().(extraTUIItem); ok {
 		entry = item.entry
 	}
-
 	switch m.confirmAction {
 	case "remove":
-		title = "Remove"
 		if entry.File != "" {
-			body = fmt.Sprintf("Remove extra %q?\nIts target files are restored to what was there before.", m.confirmExtra)
-		} else {
-			body = fmt.Sprintf("Remove extra %q?\nThis only removes config.\nRun sync to clean up orphaned links.", m.confirmExtra)
+			return "Remove extra " + m.confirmExtra + "?", "Its target files are restored to what was there before", true
 		}
-	case "sync":
-		title = "Sync"
-		body = fmt.Sprintf("Sync %q to %s?", m.confirmExtra, m.confirmTargetLabel(entry))
+		return "Remove extra " + m.confirmExtra + "?", "Only removes it from the config; run sync to clean up the links it left", true
 	case "collect":
-		title = "Collect"
-		body = fmt.Sprintf("Collect from %s into %q?", m.confirmTargetLabel(entry), m.confirmExtra)
+		return "Collect into " + m.confirmExtra + "?", "Copies new files from " + m.confirmTargetLabel(entry) + " into the source", false
 	}
-
-	return fmt.Sprintf("\n%s\n\n%s\n\nProceed? [Y/n] ",
-		theme.Title().Render(title), body)
+	return "Sync " + m.confirmExtra + "?", "Writes the source to " + m.confirmTargetLabel(entry), false
 }
 
 // ─── Target Sub-Menu ─────────────────────────────────────────────────
@@ -696,14 +718,8 @@ func (m extrasListTUIModel) enterTargetMenu(action string) (tea.Model, tea.Cmd) 
 		m.lastActionMsg = "✗ No targets configured"
 		return m, nil
 	}
-	// Single target: skip menu for sync/collect/mode/flatten
+	// Single target: skip the menu
 	if len(item.entry.Targets) == 1 {
-		if action == "mode" {
-			return m.openModePicker(item.entry.Name, item.entry.Targets[0])
-		}
-		if action == "flatten" {
-			return m, m.doFlattenToggle(item.entry.Name, item.entry.Targets[0])
-		}
 		m.confirmExtra = item.entry.Name
 		m.confirmAction = action
 		m.confirmTarget = item.entry.Targets[0].Path
@@ -721,11 +737,7 @@ func (m extrasListTUIModel) enterTargetMenu(action string) (tea.Model, tea.Cmd) 
 }
 
 func (m extrasListTUIModel) handleTargetMenuKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	// "mode" and "flatten" have no "All targets" row
-	totalItems := len(m.targetMenuItems) + 1
-	if m.targetAction == "mode" || m.targetAction == "flatten" {
-		totalItems = len(m.targetMenuItems)
-	}
+	totalItems := len(m.targetMenuItems) + 1 // "All targets" first
 
 	switch msg.String() {
 	case "q", "esc":
@@ -749,17 +761,6 @@ func (m extrasListTUIModel) handleTargetMenuKey(msg tea.KeyMsg) (tea.Model, tea.
 			return m, nil
 		}
 		m.showTargetMenu = false
-
-		// Mode/flatten: no "All targets", go directly to picker/toggle
-		if m.targetAction == "mode" {
-			t := m.targetMenuItems[m.targetCursor]
-			return m.openModePicker(item.entry.Name, t)
-		}
-		if m.targetAction == "flatten" {
-			t := m.targetMenuItems[m.targetCursor]
-			return m, m.doFlattenToggle(item.entry.Name, t)
-		}
-
 		m.confirmExtra = item.entry.Name
 		m.confirmAction = m.targetAction
 		if m.targetCursor == 0 {
@@ -775,45 +776,80 @@ func (m extrasListTUIModel) handleTargetMenuKey(msg tea.KeyMsg) (tea.Model, tea.
 
 func (m extrasListTUIModel) renderTargetMenu() string {
 	var b strings.Builder
-
-	title := "Sync targets"
-	switch m.targetAction {
-	case "collect":
-		title = "Collect from"
-	case "mode":
-		title = "Change mode"
-	case "flatten":
-		title = "Toggle flatten"
+	title := "Sync " + m.confirmExtraName() + " to"
+	if m.targetAction == "collect" {
+		title = "Collect into " + m.confirmExtraName() + " from"
 	}
-
-	fmt.Fprintf(&b, "\n%s\n\n", theme.Title().Render(title))
-
-	if m.targetAction == "mode" || m.targetAction == "flatten" {
-		// No "All targets" for mode — list targets directly
-		for i, t := range m.targetMenuItems {
-			prefix := "  "
-			if i == m.targetCursor {
-				prefix = theme.Accent().Render(">") + " "
-			}
-			fmt.Fprintf(&b, "%s%s  (%s)\n", prefix, shortenPath(extrasTargetDisplayPath(m.targetMenuFile, t)), t.Mode)
-		}
-	} else {
-		for i := 0; i <= len(m.targetMenuItems); i++ {
-			prefix := "  "
-			if i == m.targetCursor {
-				prefix = theme.Accent().Render(">") + " "
-			}
-			if i == 0 {
-				fmt.Fprintf(&b, "%s%s\n", prefix, "All targets")
-			} else {
-				t := m.targetMenuItems[i-1]
-				fmt.Fprintf(&b, "%s%s  (%s)\n", prefix, shortenPath(extrasTargetDisplayPath(m.targetMenuFile, t)), t.Mode)
-			}
-		}
+	b.WriteString(theme.Primary().Bold(true).Render(title) + "\n\n")
+	b.WriteString(renderPickerRow("All targets", "", m.targetCursor == 0))
+	for i, t := range m.targetMenuItems {
+		b.WriteString(renderPickerRow(shortenPath(extrasTargetDisplayPath(m.targetMenuFile, t)), t.Mode, m.targetCursor == i+1))
 	}
+	return b.String()
+}
 
-	fmt.Fprintf(&b, "\n%s\n", theme.Dim().MarginLeft(2).Render("↑↓ select  Enter confirm  Esc cancel"))
+// confirmExtraName is the selected extra's name, for menu titles.
+func (m extrasListTUIModel) confirmExtraName() string {
+	return extrasSelectedKey(m.list.SelectedItem())
+}
 
+// extrasEditOption is one row of the e menu: the mode or flatten setting of
+// one target.
+type extrasEditOption struct {
+	action string // "mode" or "flatten"
+	target extrasTargetInfo
+}
+
+func extrasEditOptions(e extrasListEntry) []extrasEditOption {
+	var options []extrasEditOption
+	for _, t := range e.Targets {
+		options = append(options, extrasEditOption{"mode", t}, extrasEditOption{"flatten", t})
+	}
+	return options
+}
+
+func (m extrasListTUIModel) handleEditMenuKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	item, ok := m.list.SelectedItem().(extraTUIItem)
+	if !ok {
+		m.showEditMenu = false
+		return m, nil
+	}
+	options := extrasEditOptions(item.entry)
+	switch msg.String() {
+	case "q", "esc":
+		m.showEditMenu = false
+	case "up", "k":
+		m.editMenuCursor = max(m.editMenuCursor-1, 0)
+	case "down", "j":
+		m.editMenuCursor = min(m.editMenuCursor+1, len(options)-1)
+	case "enter":
+		m.showEditMenu = false
+		option := options[m.editMenuCursor]
+		if option.action == "mode" {
+			return m.openModePicker(item.entry.Name, option.target)
+		}
+		return m, m.doFlattenToggle(item.entry.Name, option.target)
+	}
+	return m, nil
+}
+
+// renderEditMenu renders the e menu: per target, its mode and flatten.
+func (m extrasListTUIModel) renderEditMenu(e extrasListEntry) string {
+	var b strings.Builder
+	b.WriteString(theme.Primary().Bold(true).Render("Edit "+e.Name) + "\n")
+	for i, option := range extrasEditOptions(e) {
+		if option.action == "mode" {
+			b.WriteString("\n" + theme.Dim().Render(shortenPath(extrasTargetDisplayPath(e.File, option.target))) + "\n")
+		}
+		current := sync.EffectiveMode(option.target.Mode)
+		if option.action == "flatten" {
+			current = "off"
+			if option.target.Flatten {
+				current = "on"
+			}
+		}
+		b.WriteString(renderPickerRow(fmt.Sprintf("%-8s", option.action), current, i == m.editMenuCursor))
+	}
 	return b.String()
 }
 
@@ -867,33 +903,11 @@ func (m extrasListTUIModel) handleModePickerKey(msg tea.KeyMsg) (tea.Model, tea.
 
 func (m extrasListTUIModel) renderModePicker() string {
 	var b strings.Builder
-
-	fmt.Fprintf(&b, "\n%s\n", theme.Title().Render("Change mode"))
-	fmt.Fprintf(&b, "%s  %s\n\n", theme.Dim().Render("Extra:"), m.modePickerExtra)
-	fmt.Fprintf(&b, "%s  %s\n\n", theme.Dim().Render("Target:"), shortenPath(m.modePickerTarget))
-
+	b.WriteString(theme.Primary().Bold(true).Render("Mode") + theme.Dim().Render(" · "+m.modePickerExtra+" → "+shortenPath(m.modePickerTarget)) + "\n\n")
 	for i, mode := range extrasSyncModes {
-		cursor := "  "
-		if i == m.modeCursor {
-			cursor = theme.Accent().Render(">") + " "
-		}
-		var desc string
-		switch mode {
-		case "merge":
-			desc = " (per-file symlinks)"
-		case "copy":
-			desc = " (file copies)"
-		case "symlink":
-			desc = " (directory symlink)"
-		}
-		if i == m.modeCursor {
-			fmt.Fprintf(&b, "%s%s%s\n", cursor, theme.Accent().Render(mode), theme.Dim().Render(desc))
-		} else {
-			fmt.Fprintf(&b, "%s%s%s\n", cursor, mode, theme.Dim().Render(desc))
-		}
+		desc := map[string]string{"merge": "per-file symlinks", "copy": "file copies", "symlink": "directory symlink"}[mode]
+		b.WriteString(renderPickerRow(mode, desc, i == m.modeCursor))
 	}
-
-	fmt.Fprintf(&b, "\n%s\n", theme.Dim().MarginLeft(2).Render("↑↓ select  Enter confirm  Esc cancel"))
 	return b.String()
 }
 
@@ -1173,7 +1187,7 @@ func (m *extrasListTUIModel) loadExtrasContentFile() {
 		return
 	}
 
-	rawText := strings.TrimSpace(string(data))
+	rawText := printableText(strings.TrimSpace(string(data)))
 	if rawText == "" {
 		m.contentText = "(empty)"
 		return
@@ -1188,12 +1202,11 @@ func (m *extrasListTUIModel) loadExtrasContentFile() {
 }
 
 func (m *extrasListTUIModel) extrasContentPanelWidth() int {
-	sw := sidebarWidth(m.termWidth)
-	return max(m.termWidth-sw-5-1, 40)
+	return fileViewerTextWidth(m.termWidth, false)
 }
 
 func (m *extrasListTUIModel) extrasContentViewHeight() int {
-	return max(m.termHeight-7, 5)
+	return fileViewerHeight(m.termHeight)
 }
 
 func (m *extrasListTUIModel) extrasContentMaxScroll() int {
@@ -1261,8 +1274,7 @@ func (m extrasListTUIModel) handleExtrasContentKey(msg tea.KeyMsg) (tea.Model, t
 }
 
 func (m extrasListTUIModel) handleExtrasContentMouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
-	sw := sidebarWidth(m.termWidth)
-	inSidebar := msg.X < sw+3
+	inSidebar := msg.X < sidebarWidth(m.termWidth)
 
 	switch {
 	case msg.Button == tea.MouseButtonWheelUp:
@@ -1343,132 +1355,11 @@ func (m *extrasListTUIModel) collapseOrParentExtras() {
 }
 
 func (m extrasListTUIModel) renderExtrasContentOverlay() string {
-	var b strings.Builder
-
-	extraName := m.contentExtraKey
-	fileName := ""
-	if len(m.treeNodes) > 0 && m.treeCursor < len(m.treeNodes) {
-		fileName = m.treeNodes[m.treeCursor].relPath
-	}
-
-	b.WriteString("\n")
-	b.WriteString(theme.Title().Render(fmt.Sprintf("  %s", extraName)))
-	if fileName != "" {
-		b.WriteString(theme.Dim().Render(fmt.Sprintf("  ─  %s", fileName)))
-	}
-	b.WriteString("\n\n")
-
-	sw := sidebarWidth(m.termWidth)
-	panelW := max(m.termWidth-sw-5, 20)
-	contentHeight := m.extrasContentViewHeight()
-
-	sidebarStr := m.renderExtrasSidebarStr(sw, contentHeight)
-	contentStr, scrollInfo := m.renderExtrasContentPanelStr(contentHeight)
-
-	leftPanel := lipgloss.NewStyle().
-		Width(sw).MaxWidth(sw).
-		Height(contentHeight).MaxHeight(contentHeight).
-		PaddingLeft(1).
-		Render(sidebarStr)
-
-	borderStyle := theme.Dim().Height(contentHeight).MaxHeight(contentHeight)
-	borderCol := strings.Repeat("│\n", contentHeight)
-	borderPanel := borderStyle.Render(strings.TrimRight(borderCol, "\n"))
-
-	rightPanel := lipgloss.NewStyle().
-		Width(panelW).MaxWidth(panelW).
-		Height(contentHeight).MaxHeight(contentHeight).
-		PaddingLeft(1).
-		Render(contentStr)
-
-	body := lipgloss.JoinHorizontal(lipgloss.Top, leftPanel, borderPanel, rightPanel)
-	b.WriteString(body)
-	b.WriteString("\n\n")
-
-	help := "j/k browse  l/Enter expand  h collapse  Ctrl+d/u scroll  g/G top/bottom  Esc back  q quit"
-	if scrollInfo != "" {
-		help += "  " + scrollInfo
-	}
-	b.WriteString(theme.Dim().MarginLeft(2).Render(help))
-	b.WriteString("\n")
-
-	return b.String()
-}
-
-func (m extrasListTUIModel) renderExtrasSidebarStr(width, height int) string {
-	if len(m.treeNodes) == 0 {
-		return "(no files)"
-	}
-
-	selectedStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#D4D93C"))
-	dirStyle := theme.Accent()
-	fileStyle := lipgloss.NewStyle()
-
-	total := len(m.treeNodes)
-	start := min(m.treeScroll, total-height)
-	start = max(start, 0)
-	end := min(start+height, total)
-
-	var lines []string
-	for i := start; i < end; i++ {
-		n := m.treeNodes[i]
-		indent := strings.Repeat("  ", n.depth)
-
-		var prefix string
-		if n.isDir {
-			if n.expanded {
-				prefix = "▾ "
-			} else {
-				prefix = "▸ "
-			}
-		} else {
-			prefix = "  "
-		}
-
-		name := n.name
-		if n.isDir {
-			name += "/"
-		}
-
-		label := indent + prefix + name
-		maxLabel := max(width-2, 5)
-		if len(label) > maxLabel {
-			label = label[:maxLabel-3] + "..."
-		}
-
-		if i == m.treeCursor {
-			lines = append(lines, selectedStyle.Render(label))
-		} else if n.isDir {
-			lines = append(lines, dirStyle.Render(label))
-		} else {
-			lines = append(lines, fileStyle.Render(label))
-		}
-	}
-
-	if total > height {
-		lines = append(lines, theme.Dim().Render(fmt.Sprintf(" (%d/%d)", m.treeCursor+1, total)))
-	}
-
-	return strings.Join(lines, "\n")
-}
-
-func (m extrasListTUIModel) renderExtrasContentPanelStr(height int) (string, string) {
-	lines := strings.Split(m.contentText, "\n")
-	totalLines := len(lines)
-
-	if totalLines <= height {
-		return strings.Join(lines, "\n"), ""
-	}
-
-	maxScroll := totalLines - height
-	offset := min(m.contentScroll, maxScroll)
-
-	visible := lines[offset : offset+height]
-	result := make([]string, height)
-	copy(result, visible)
-
-	scrollInfo := fmt.Sprintf("(%d/%d)", offset+1, maxScroll+1)
-	return strings.Join(result, "\n"), scrollInfo
+	return renderFileViewer(m.termWidth, m.termHeight, fileViewer{
+		command: "extras", name: m.contentExtraKey,
+		nodes: m.treeNodes, cursor: m.treeCursor, scroll: m.treeScroll,
+		content: m.contentText, contentScroll: m.contentScroll,
+	})
 }
 
 // ─── Runner ──────────────────────────────────────────────────────────
@@ -1511,7 +1402,7 @@ func runExtrasListTUI(
 		if projCfg != nil {
 			mode = modeProject
 		}
-		if err := cmdExtrasInitTUI(mode, cwd); err != nil {
+		if err := cmdExtrasInitPrompt(mode, cwd); err != nil {
 			return err
 		}
 	}

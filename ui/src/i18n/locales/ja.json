@@ -1041,7 +1041,7 @@
   "install.url.selectAll": "すべて選択",
   "install.url.deselectAll": "すべての選択を解除",
   "install.url.sourceLabel": "Git URL、GitHub 省略形、またはローカルパス",
-  "install.url.sourceHint": "サブフォルダも指定できます：owner/repo/path/to/skill。SSH URL や ~/Downloads/my-skill のようなフォルダも使えます。",
+  "install.url.sourceHint": "サブフォルダも指定できます：owner/repo/path/to/skill。SSH URL や ~/Downloads/my-skill のようなフォルダも使えます。npx skills add のコマンドをそのまま貼り付けることもできます。",
   "install.url.selected": "{count} 件選択中",
   "install.url.filterSkills": "スキルを絞り込み",
   "install.url.filterAgents": "エージェントを絞り込み",

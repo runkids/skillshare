@@ -111,23 +111,21 @@ $ skillshare install anthropics/skills
 ✓ Source    github.com/anthropics/skills
   Found     20 skills
 
-  Select skills to install (0/20 selected)
-
-▌ [ ] academy-guide (Complete terms in LICENSE.txt)
-▌ [ ] algorithmic-art (Complete terms in LICENSE.txt)
-▌ [ ] brand-guidelines (Complete terms in LICENSE.txt)
-▌ [ ] canvas-design (Complete terms in LICENSE.txt)
-▌ [ ] claude-api (Complete terms in LICENSE.txt)
-▌ [ ] discernment-nudge (Complete terms in LICENSE.txt)
-▌ [ ] doc-coauthoring
-▌ [ ] docx (Proprietary. LICENSE.txt has complete terms)
+? Install which skills?
+› ○ academy-guide        Complete terms in LICENSE.txt
+  ○ algorithmic-art      Complete terms in LICENSE.txt
+  ○ brand-guidelines     Complete terms in LICENSE.txt
+  ○ canvas-design        Complete terms in LICENSE.txt
+  ○ claude-api           Complete terms in LICENSE.txt
+  ○ discernment-nudge
+  ○ doc-coauthoring
+  ○ docx                 Proprietary. LICENSE.txt has complete terms
   …
 
-  20 skills
-  ↑↓ navigate  space toggle  a all  enter confirm  / filter  esc cancel
+  ↑↓ move · space toggle · ctrl+a all · enter confirm · / filter · esc cancel
 ```
 
-ディスカバリーは `.git` のみをスキップし、すべてのディレクトリを `SKILL.md` ファイルについてスキャンします。つまり、`.curated/` や `.system/` のような隠しディレクトリ内の Skill も自動的に検出されます。複数の Skill が見つかった場合、選択プロンプトはディレクトリごとにグルーピングされ、閲覧しやすくなります。
+ディスカバリーは `.git` のみをスキップし、すべてのディレクトリを `SKILL.md` ファイルについてスキャンします。つまり、`.curated/` や `.system/` のような隠しディレクトリ内の Skill も自動的に検出されます。複数の Skill が見つかった場合、選択プロンプトは同じフォルダの Skill をまとめて並べ、各 Skill の説明とフォルダを表示します。リストが長いときは `/` で絞り込めます。
 
 リポジトリのルートに `.skillignore` ファイルがある場合、一致する Skill はディスカバリーから自動的に除外されます。詳細は下記の [.skillignore](#skillignore) を参照してください。
 

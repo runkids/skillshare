@@ -77,23 +77,9 @@ Next
 
 ### Interactive TUI Mode
 
-When scanning multiple skills in an interactive terminal, the audit command launches a **full-screen TUI** (powered by bubbletea) instead of printing results line-by-line. The TUI uses a side-by-side layout:
+When scanning several skills in an interactive terminal, `audit` opens a full-screen view instead of printing results line by line: skills on the left with findings first, and the risk summary and findings of the selected skill on the right. Opening a skill shows its files at each finding, with the flagged line marked and its line number. The keys are listed at the bottom of the screen.
 
-**Left panel** — skill list sorted by severity (findings first), with `✗`/`!`/`✓` status badges and aggregate risk scores.
-
-**Right panel** — detail for the currently selected skill, automatically updated as you navigate:
-
-- **Summary**: risk score (colorized), max severity, block status, threshold, scan time, severity breakdown (c/h/m/l/i)
-- **Findings**: each finding shows `[N] SEVERITY pattern`, message, `file:line` location, and matched snippet
-
-**Controls:**
-- `↑↓` navigate skills, `←→` page
-- `/` filter skills by name
-- `Ctrl+d`/`Ctrl+u` scroll the detail panel
-- Mouse wheel scrolls the detail panel
-- `q`/`Esc` quit
-
-The TUI activates automatically when all conditions are met: interactive terminal, non-JSON output, and multiple results. Use `--no-tui` to force plain text output. Narrow terminals (`<70` columns) fall back to a vertical layout.
+It opens only when the terminal is interactive, the output is not JSON, and there is more than one result. Use `--no-tui` to force plain text.
 
 ### Large Scan Confirmation
 

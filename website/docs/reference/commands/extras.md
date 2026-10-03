@@ -206,25 +206,7 @@ skillshare extras list [--json] [--no-tui] [-p|-g]
 
 #### Interactive TUI
 
-The TUI provides a split-pane interface with extras list on the left and detail panel on the right. Key bindings:
-
-| Key | Action |
-|-----|--------|
-| `↑↓` | Navigate list |
-| `/` | Filter by name |
-| `Enter` | Content viewer (browse source files) |
-| `N` | Create new extra |
-| `X` | Remove extra (with confirmation) |
-| `S` | Sync extra to target(s) |
-| `C` | Collect from target(s) |
-| `M` | Change sync mode of a target |
-| `F` | Toggle flatten on/off for a target |
-| `Ctrl+U/D` | Scroll detail panel |
-| `q` / `Ctrl+C` | Quit |
-
-The color bar on each row reflects aggregate sync status: cyan = all synced, yellow = drift, red = not synced, gray = no source.
-
-For extras with multiple targets, `S`, `C`, `M`, and `F` open a target sub-menu. `S` and `C` allow selecting all targets at once; `M` and `F` require picking a specific target.
+On a TTY, `extras list` opens an interactive view: extras on the left, and the selected extra's targets and files on the right. From there you can create, remove, sync and collect extras, and change a target's mode or flatten setting. The keys are listed at the bottom of the screen.
 
 The TUI can be permanently disabled with `skillshare tui off`.
 
@@ -327,7 +309,7 @@ skillshare extras rules --remove-target ~/.cursor/rules
 skillshare extras rules --remove-target ~/.cursor/rules --prune
 ```
 
-Also available via the TUI (`M` key) and Web UI (mode dropdown and flatten checkbox on each target).
+Also available via the TUI (`e` key) and Web UI (mode dropdown and flatten checkbox on each target).
 
 ### `extras remove`
 

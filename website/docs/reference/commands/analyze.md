@@ -81,23 +81,7 @@ In the TUI, skills with lint issues show ✗ (error) or ⚠ (warning) icons next
 
 ## Interactive TUI
 
-By default, `analyze` launches an interactive TUI with:
-
-- **Left panel** — Skill list sorted by token cost, with color-coded dots (red/yellow/green by percentile)
-- **Right panel** — Detail view: token breakdown, lint quality issues, path, tracked status, description preview
-- **Bottom bar** — Target selector (Tab/Shift+Tab to switch) + token totals + estimation formula
-
-### TUI Controls
-
-| Key | Action |
-|-----|--------|
-| `↑`/`↓` | Navigate skill list |
-| `←`/`→` | Page up/down |
-| `Tab` / `Shift+Tab` | Switch target |
-| `/` | Filter skills by name |
-| `s` | Cycle sort: tokens↓ → tokens↑ → name A→Z → name Z→A |
-| `Ctrl+d` / `Ctrl+u` | Scroll detail panel |
-| `q` | Quit |
+On a TTY, `analyze` opens an interactive view of one target at a time: skills sorted by token cost on the left, and the token breakdown, lint issues and description of the selected skill on the right. Opening a skill shows its files as written, front matter included, so a lint issue can be checked against the text. The keys are listed at the bottom of the screen. Use `--no-tui` for plain text.
 
 ### Color Coding
 

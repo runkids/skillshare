@@ -7,7 +7,6 @@ import (
 
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
 	"skillshare/internal/config"
 	"skillshare/internal/theme"
 	"skillshare/internal/ui"
@@ -39,39 +38,6 @@ func shouldLaunchTUI(noTUI bool, cfg *config.Config) bool {
 func wrapAndScroll(content string, width, detailScroll, viewHeight int) (string, string) {
 	content = hardWrapContent(content, width)
 	return applyDetailScrollSplit(content, detailScroll, viewHeight)
-}
-
-// appendScrollInfo appends scroll position info to help text when present.
-func appendScrollInfo(help, scrollInfo string) string {
-	if scrollInfo != "" {
-		return help + "  " + scrollInfo
-	}
-	return help
-}
-
-// formatHelpBar colorizes a help string like "Tab skills/agents  ↑↓ navigate  q quit".
-// Each pair "key desc" is parsed: key gets HelpKey style (dim cyan), desc stays dim.
-// Pairs are separated by two or more spaces.
-func formatHelpBar(raw string) string {
-	// Split by double-space to get individual "key desc" pairs
-	pairs := strings.Split(raw, "  ")
-	var parts []string
-	for _, pair := range pairs {
-		pair = strings.TrimSpace(pair)
-		if pair == "" {
-			continue
-		}
-		// Split first space: key + description
-		if idx := strings.IndexByte(pair, ' '); idx > 0 {
-			key := pair[:idx]
-			desc := pair[idx:]
-			parts = append(parts, theme.Accent().Faint(true).Render(key)+theme.Dim().MarginLeft(2).UnsetMarginLeft().Render(desc))
-		} else {
-			// Single word (e.g. just a key)
-			parts = append(parts, theme.Accent().Faint(true).Render(pair))
-		}
-	}
-	return "  " + strings.Join(parts, "  ")
 }
 
 // applyDetailScrollSplit applies scrolling and returns (visible content, scroll info).
@@ -126,27 +92,6 @@ const tuiMinSplitWidth = 80
 // room than tuiMinSplitWidth; below this they use a vertical layout.
 const tuiNarrowSplitWidth = 70
 
-// renderHorizontalSplit renders a left-right split with a vertical border column.
-// leftContent and rightContent are pre-rendered strings.
-func renderHorizontalSplit(leftContent, rightContent string, leftWidth, rightWidth, panelHeight int) string {
-	leftPanel := lipgloss.NewStyle().
-		Width(leftWidth).MaxWidth(leftWidth).
-		Height(panelHeight).MaxHeight(panelHeight).
-		Render(leftContent)
-
-	borderStyle := theme.Dim().
-		Height(panelHeight).MaxHeight(panelHeight)
-	borderCol := strings.Repeat("│\n", panelHeight)
-	borderPanel := borderStyle.Render(strings.TrimRight(borderCol, "\n"))
-
-	rightPanel := lipgloss.NewStyle().
-		Width(rightWidth).MaxWidth(rightWidth).
-		PaddingLeft(1).
-		Render(rightContent)
-
-	return lipgloss.JoinHorizontal(lipgloss.Top, leftPanel, borderPanel, rightPanel)
-}
-
 // truncateStr truncates a string to maxLen, appending "..." if needed.
 func truncateStr(s string, maxLen int) string {
 	if len(s) <= maxLen {
@@ -192,30 +137,4 @@ func handleTUIFilterKey(msg tea.KeyMsg, filtering *bool, text *string, input *te
 		apply()
 	}
 	return cmd
-}
-
-// renderTUIFilterBar renders a unified filter + status line shared by all TUIs.
-// inputView is filterInput.View(). maxShown is the item cap (0 = no cap).
-func renderTUIFilterBar(inputView string, filtering bool, filterText string, matchCount, totalCount, maxShown int, noun, pageInfo string) string {
-	if filtering {
-		if filterText == "" {
-			status := fmt.Sprintf("  %s %s%s", formatNumber(totalCount), noun, pageInfo)
-			return "  " + inputView + theme.Dim().MarginLeft(2).Render(status) + "\n"
-		}
-		status := fmt.Sprintf("  %s/%s %s", formatNumber(matchCount), formatNumber(totalCount), noun)
-		if maxShown > 0 && matchCount > maxShown {
-			status += fmt.Sprintf(" (first %s shown)", formatNumber(maxShown))
-		}
-		status += pageInfo
-		return "  " + inputView + theme.Dim().MarginLeft(2).Render(status) + "\n"
-	}
-	if filterText != "" {
-		status := fmt.Sprintf("filter: %s — %s/%s %s", filterText, formatNumber(matchCount), formatNumber(totalCount), noun)
-		if maxShown > 0 && matchCount > maxShown {
-			status += fmt.Sprintf(" (first %s shown)", formatNumber(maxShown))
-		}
-		status += pageInfo
-		return theme.Dim().MarginLeft(2).Render(status) + "\n"
-	}
-	return theme.Dim().MarginLeft(2).Render(fmt.Sprintf("%s %s%s", formatNumber(totalCount), noun, pageInfo)) + "\n"
 }

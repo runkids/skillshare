@@ -143,27 +143,9 @@ skillshare extras list [--json] [--no-tui] [-p|-g]
 
 #### インタラクティブ TUI
 
-TUI は、左側に Extras リスト、右側に詳細パネルを配置した分割ペイン UI を提供します。キーバインド:
+TTY 上では、`extras list` はインタラクティブな画面を開きます。左側に extras、右側に選択した extra のターゲットとファイルが表示されます。ここから extras の作成、削除、sync、collect、およびターゲットのモードや flatten 設定の変更ができます。キーは画面下部に表示されます。
 
-| キー | 動作 |
-|-----|--------|
-| `↑↓` | リストを移動 |
-| `/` | 名前でフィルタ |
-| `Enter` | コンテンツビューア（Source ファイルを閲覧） |
-| `N` | 新しい Extras を作成 |
-| `X` | Extras を削除（確認あり） |
-| `S` | Extras を Target に sync |
-| `C` | Target から collect |
-| `M` | Target の sync モードを変更 |
-| `F` | Target の flatten を切り替え |
-| `Ctrl+U/D` | 詳細パネルをスクロール |
-| `q` / `Ctrl+C` | 終了 |
-
-各行のカラーバーは、集約された sync 状態を反映します: シアン = すべて sync 済み、黄色 = drift、赤 = 未 sync、灰色 = Source なし。
-
-複数 Target を持つ Extras の場合、`S`、`C`、`M`、`F` は Target のサブメニューを開きます。`S` と `C` はすべての Target を一括選択できますが、`M` と `F` は特定の Target を選ぶ必要があります。
-
-TUI は `skillshare tui off` で完全に無効化できます。
+`skillshare tui off` で TUI を恒久的に無効化できます。
 
 #### プレーンテキスト出力
 
@@ -262,7 +244,7 @@ skillshare extras rules --remove-target ~/.cursor/rules
 skillshare extras rules --remove-target ~/.cursor/rules --prune
 ```
 
-TUI（`M` キー）と Web UI（各 Target のモードのドロップダウンと flatten チェックボックス）からも操作できます。
+TUI（`e` キー）と Web UI（各 Target のモードのドロップダウンと flatten チェックボックス）からも操作できます。
 
 ### `extras remove`
 

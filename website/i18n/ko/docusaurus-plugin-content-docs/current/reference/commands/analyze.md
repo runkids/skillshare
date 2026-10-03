@@ -76,23 +76,7 @@ TUI에서는 lint 문제가 있는 skill의 이름 옆에 ✗ (error) 또는 ⚠
 
 ## Interactive TUI
 
-기본적으로 `analyze`는 다음을 포함한 interactive TUI를 실행합니다:
-
-- **왼쪽 패널** — 토큰 비용순으로 정렬된 skill 목록, 백분위별 색상 코드 점 표시(red/yellow/green)
-- **오른쪽 패널** — Detail view: 토큰 분석, lint 품질 문제, 경로, tracked 상태, description 미리보기
-- **하단 바** — Target selector (Tab/Shift+Tab으로 전환) + 토큰 총합 + 추정 공식
-
-### TUI Controls
-
-| Key | Action |
-|-----|--------|
-| `↑`/`↓` | skill 목록 탐색 |
-| `←`/`→` | 페이지 위/아래 |
-| `Tab` / `Shift+Tab` | target 전환 |
-| `/` | 이름으로 skill 필터링 |
-| `s` | 정렬 순환: tokens↓ → tokens↑ → name A→Z → name Z→A |
-| `Ctrl+d` / `Ctrl+u` | detail 패널 스크롤 |
-| `q` | 종료 |
+TTY에서 `analyze`는 한 번에 하나의 target을 보는 대화형 화면을 엽니다. 왼쪽에는 토큰 사용량 순으로 정렬된 skill, 오른쪽에는 선택한 skill의 토큰 내역, lint 문제, 설명이 표시됩니다. skill을 열면 front matter를 포함한 파일 원문이 표시되어 lint 문제와 바로 대조할 수 있습니다. 키는 화면 아래쪽에 표시됩니다. 일반 텍스트로 보려면 `--no-tui`를 사용하세요.
 
 ### Color Coding
 

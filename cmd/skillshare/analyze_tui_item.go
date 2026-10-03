@@ -72,7 +72,7 @@ var analyzeDots = map[string]string{
 // Pre-computed lint icons (same pattern as analyzeDots).
 var (
 	lintIconError   = theme.Danger().Render("✗") + " "
-	lintIconWarning = theme.Warning().Render("⚠") + " "
+	lintIconWarning = theme.Warning().Render("!") + " "
 )
 
 func lintIcon(issues []ssync.LintIssue) string {
@@ -104,44 +104,8 @@ func (d analyzeSkillDelegate) Render(w io.Writer, m list.Model, index int, listI
 	}
 
 	width := m.Width()
-	if width <= 0 {
-		width = 40
-	}
-
-	isSelected := index == m.Index()
 	tokenStr := formatTokensStr(item.entry.DescriptionTokens)
-	colorCode := tokenColorCode(item.entry.DescriptionTokens, d.thresholdLow, d.thresholdHigh)
-	dot := analyzeDots[colorCode]
-
-	// Right-align token count: "● name          ~123"
-	// renderPrefixRow reserves: ▌(2) + PaddingLeft(1) = 3 chars from width
-	contentWidth := width - 3
-	lintPrefix := lintIcon(item.entry.LintIssues)
-	lintWidth := lipgloss.Width(lintPrefix)
-	name := item.entry.Name
-	tokenWidth := len([]rune(tokenStr))
-
-	// Truncate name to ensure token count stays visible.
-	// Layout: dot(1) + space(1) + lintIcon + name + gap(min 2) + token
-	// nameWidth formula below adds 3 (dot rendering overhead + space),
-	// so maxName = contentWidth - 3 - lintWidth - tokenWidth - 2(gap).
-	maxName := contentWidth - 5 - lintWidth - tokenWidth
-	if maxName < 10 {
-		maxName = 10
-	}
-	nameRunes := []rune(name)
-	if len(nameRunes) > maxName {
-		name = string(nameRunes[:maxName-1]) + "…"
-	}
-
-	nameLabel := lintPrefix + name
-	nameWidth := 2 + 1 + lipgloss.Width(nameLabel) // dot(●=1) + ANSI reset(=1 visible) + space + name
-	gap := contentWidth - nameWidth - tokenWidth
-	if gap < 1 {
-		gap = 1
-	}
-	line := dot + " " + nameLabel + strings.Repeat(" ", gap) + theme.Dim().Render(tokenStr)
-
-	// Reuse the shared ▌ prefix row style (same as list, audit, log TUIs)
-	renderPrefixRow(w, line, width, isSelected)
+	dot := analyzeDots[tokenColorCode(item.entry.DescriptionTokens, d.thresholdLow, d.thresholdHigh)]
+	left := dot + " " + lintIcon(item.entry.LintIssues) + item.entry.Name
+	renderPrefixRow(w, alignRow(left, theme.Dim().Render(tokenStr), width-rowIndent), width, index == m.Index())
 }

@@ -44,23 +44,23 @@ func skillMDHasFlag(t *testing.T, path string) bool {
 func TestModelInvocationKey_LocalSkillTogglesDirectly(t *testing.T) {
 	m, path := modelInvocationTUI(t, skillEntry{Name: "mine", RelPath: "mine"}, "---\nname: mine\n---\n# Body\n")
 
-	m = pressKey(t, m, "M")
+	m = pressKey(t, m, "m")
 
 	if m.confirming {
-		t.Error("a local skill is yours to edit, so M should not ask")
+		t.Error("a local skill is yours to edit, so m should not ask")
 	}
 	if !skillMDHasFlag(t, path) {
-		t.Error("SKILL.md should carry the flag after M")
+		t.Error("SKILL.md should carry the flag after m")
 	}
 }
 
 func TestModelInvocationKey_TrackedSkillAsksFirst(t *testing.T) {
 	m, path := modelInvocationTUI(t, skillEntry{Name: "theirs", RelPath: "_team/theirs", RepoName: "_team"}, "---\nname: theirs\n---\n# Body\n")
 
-	m = pressKey(t, m, "M")
+	m = pressKey(t, m, "m")
 
 	if !m.confirming {
-		t.Fatal("editing a tracked repo blocks its updates, so M should ask")
+		t.Fatal("editing a tracked repo blocks its updates, so m should ask")
 	}
 	if skillMDHasFlag(t, path) {
 		t.Fatal("SKILL.md must stay untouched until confirmed")
@@ -79,7 +79,7 @@ func TestModelInvocationKey_TrackedSkillAsksFirst(t *testing.T) {
 func TestModelInvocationKey_TurningBackOnNeverAsks(t *testing.T) {
 	m, path := modelInvocationTUI(t, skillEntry{Name: "theirs", RelPath: "_team/theirs", RepoName: "_team"}, "---\nname: theirs\n"+flagLine+"\n---\n# Body\n")
 
-	m = pressKey(t, m, "M")
+	m = pressKey(t, m, "m")
 
 	if m.confirming {
 		t.Error("removing the flag restores the file, so there is nothing to warn about")
@@ -97,11 +97,11 @@ func TestModelInvocationKey_IgnoresAgents(t *testing.T) {
 	entry := skillEntry{Name: "helper", RelPath: "helper.md", Kind: "agent"}
 	m := newListTUIModel(nil, []skillItem{{entry: entry}}, 1, "global", t.TempDir(), agents, nil, kindAll)
 
-	m = pressKey(t, m, "M")
+	m = pressKey(t, m, "m")
 
 	got, _ := os.ReadFile(path)
 	if m.confirming || string(got) != orig {
-		t.Error("agents do not read this key, so M should do nothing")
+		t.Error("agents do not read this key, so m should do nothing")
 	}
 }
 

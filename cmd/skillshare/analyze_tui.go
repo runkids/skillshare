@@ -53,6 +53,11 @@ type analyzeTUIModel struct {
 	modeLabel   string
 
 	initialFilter string
+
+	showKeys bool // ? swaps the detail panel for the full key list
+
+	browser *fileBrowser // enter opens the selected skill's files
+	lint    string       // the opened skill's lint issues, shown above the keys
 }
 
 type analyzeDataLoadedMsg struct {
@@ -64,7 +69,7 @@ func newAnalyzeTUIModel(loadFn func() analyzeLoadResult, modeLabel string, initi
 	sp.Spinner = spinner.Dot
 	sp.Style = theme.Accent()
 
-	fi := newTUIFilterInput("filter skills")
+	fi := newTUIFilterInput("type to match a skill")
 
 	return analyzeTUIModel{
 		loading:       true,
@@ -240,6 +245,9 @@ func (m analyzeTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.termWidth = msg.Width
 		m.termHeight = msg.Height
 		m.syncListSize()
+		if m.browser != nil {
+			m.browser.resize(msg.Width, msg.Height)
+		}
 		return m, nil
 
 	case spinner.TickMsg:
@@ -265,8 +273,7 @@ func (m analyzeTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.groupIdx = 0
 		delegate := analyzeSkillDelegate{}
 		l := list.New(nil, delegate, 0, 0)
-		l.Title = m.listTitle()
-		l.Styles.Title = theme.Title()
+		l.SetShowTitle(false)
 		l.SetShowStatusBar(false)
 		l.SetFilteringEnabled(false)
 		l.SetShowHelp(false)
@@ -283,6 +290,15 @@ func (m analyzeTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case tea.MouseMsg:
+		if m.browser != nil {
+			switch msg.Button {
+			case tea.MouseButtonWheelUp:
+				m.browser.wheel(-1)
+			case tea.MouseButtonWheelDown:
+				m.browser.wheel(1)
+			}
+			return m, nil
+		}
 		if listSplitActive(m.termWidth) && !m.loading {
 			leftWidth := listPanelWidth(m.termWidth)
 			if msg.X > leftWidth {
@@ -312,26 +328,58 @@ func (m analyzeTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			cmd := handleTUIFilterKey(msg, &m.filtering, &m.filterText, &m.filterInput, m.applyFilter)
 			return m, cmd
 		}
+		if m.browser != nil {
+			switch msg.String() {
+			case "q", "ctrl+c":
+				m.quitting = true
+				return m, tea.Quit
+			case "esc":
+				m.browser = nil
+			default:
+				m.browser.key(msg.String())
+			}
+			return m, nil
+		}
 
 		switch msg.String() {
 		case "q", "ctrl+c":
 			m.quitting = true
 			return m, tea.Quit
+		case "enter":
+			if item, ok := m.list.SelectedItem().(analyzeSkillItem); ok {
+				m.browser = newFileBrowser("analyze", item.entry.Name, item.entry.path, true, m.termWidth, m.termHeight)
+				m.lint = lintNote(item.entry.LintIssues)
+			}
+			return m, nil
+		case "esc":
+			switch {
+			case m.showKeys:
+				m.showKeys = false
+			case m.filterText != "":
+				m.filterText = ""
+				m.filterInput.SetValue("")
+				m.applyFilter()
+			default:
+				m.quitting = true
+				return m, tea.Quit
+			}
+			return m, nil
+		case "?":
+			m.showKeys = !m.showKeys
+			return m, nil
 		case "tab":
 			if len(m.groups) > 1 {
 				m.groupIdx = (m.groupIdx + 1) % len(m.groups)
 				m.switchTarget()
-				m.list.Title = m.listTitle()
 			}
 			return m, nil
 		case "shift+tab":
 			if len(m.groups) > 1 {
 				m.groupIdx = (m.groupIdx - 1 + len(m.groups)) % len(m.groups)
 				m.switchTarget()
-				m.list.Title = m.listTitle()
 			}
 			return m, nil
-		case "s":
+		case "o":
 			m.cycleSort()
 			return m, nil
 		case "/":
@@ -371,262 +419,208 @@ func (m *analyzeTUIModel) syncListSize() {
 	if m.loading {
 		return
 	}
+	bodyHeight := max(m.termHeight-frameChrome, 6)
 	if listSplitActive(m.termWidth) {
-		panelHeight := m.termHeight - 9
-		if panelHeight < 6 {
-			panelHeight = 6
-		}
-		m.list.SetSize(listPanelWidth(m.termWidth), panelHeight)
+		m.list.SetSize(listPanelWidth(m.termWidth), bodyHeight)
 		return
 	}
-	listHeight := m.termHeight - 20
-	if listHeight < 6 {
-		listHeight = 6
-	}
-	m.list.SetSize(m.termWidth, listHeight)
+	m.list.SetSize(m.termWidth, max(bodyHeight/2, 4))
 }
 
-func (m analyzeTUIModel) listTitle() string {
-	if len(m.groups) == 0 {
-		return "Context Analysis"
-	}
-	g := m.groups[m.groupIdx]
+// groupLabel names a target group on its tab: "claude", or "claude +2"
+// when several targets load the same skills.
+func groupLabel(g analyzeTargetGroup) string {
 	if len(g.names) == 1 {
 		return g.names[0]
 	}
-	return fmt.Sprintf("%d targets", len(g.names))
+	return fmt.Sprintf("%s +%d", g.names[0], len(g.names)-1)
+}
+
+// lintNote names the first lint issue and how many more there are.
+func lintNote(issues []ssync.LintIssue) string {
+	if len(issues) == 0 {
+		return ""
+	}
+	icon := lintIcon(issues)
+	note := icon + theme.Dim().Render(issues[0].Message)
+	if len(issues) > 1 {
+		note += theme.Dim().Render(fmt.Sprintf(" · %d more in the details", len(issues)-1))
+	}
+	return note
 }
 
 func (m analyzeTUIModel) View() string {
 	if m.quitting {
 		return ""
 	}
+	if m.browser != nil {
+		return m.browser.view(m.lint, nil)
+	}
+	title := m.renderTitleLine()
 	if m.loading {
-		return fmt.Sprintf("\n  %s Loading skills...\n", m.loadSpinner.View())
+		return title + "\n\n" + renderBusyLine(m.termWidth, m.loadSpinner.View(), "Loading skills…")
 	}
-	if listSplitActive(m.termWidth) {
-		return m.viewSplit()
+	bodyHeight := max(m.termHeight-frameChrome, 6)
+	if !listSplitActive(m.termWidth) {
+		listHeight := max(bodyHeight/2, 4)
+		detailHeight := max(bodyHeight-listHeight-1, 4)
+		detail := lipgloss.NewStyle().Height(detailHeight).MaxHeight(detailHeight).PaddingLeft(1).
+			Render(m.renderRight(m.termWidth-2, detailHeight))
+		return title + "\n\n" + m.list.View() + "\n\n" + detail + "\n" + m.renderBottom()
 	}
-	return m.viewVertical()
-}
-
-func (m analyzeTUIModel) viewSplit() string {
-	var b strings.Builder
-
-	panelHeight := m.termHeight - 9
-	if panelHeight < 6 {
-		panelHeight = 6
-	}
-
 	leftWidth := listPanelWidth(m.termWidth)
 	rightWidth := listDetailPanelWidth(m.termWidth)
-
-	var detailStr, scrollInfo string
-	if item, ok := m.list.SelectedItem().(analyzeSkillItem); ok {
-		header := m.renderDetailHeader(item.entry, rightWidth-1)
-		bodyHeight := panelHeight - lipgloss.Height(header) - 2
-		if bodyHeight < 4 {
-			bodyHeight = 4
-		}
-		body, bodyScrollInfo := wrapAndScroll(m.renderDetailBody(item.entry, rightWidth-1), rightWidth-1, m.detailScroll, bodyHeight)
-		scrollInfo = bodyScrollInfo
-		detailStr = "\n" + header + "\n\n" + body
-	}
-
-	body := renderHorizontalSplit(m.list.View(), detailStr, leftWidth, rightWidth, panelHeight)
-	b.WriteString(body)
-	b.WriteString("\n\n")
-	b.WriteString(m.renderFilterBar())
-	b.WriteString(m.renderFooter(scrollInfo))
-
-	return b.String()
+	return title + "\n\n" +
+		renderFrameSplit(m.list.View(), m.renderRight(rightWidth-2, bodyHeight), leftWidth, rightWidth, bodyHeight) + "\n" +
+		m.renderBottom()
 }
 
-func (m analyzeTUIModel) viewVertical() string {
-	var b strings.Builder
-	b.WriteString(m.list.View())
-	b.WriteString("\n\n")
-	b.WriteString(m.renderFilterBar())
-
-	var scrollInfo string
-	if item, ok := m.list.SelectedItem().(analyzeSkillItem); ok {
-		detailHeight := m.termHeight - m.termHeight*2/5 - 10
-		if detailHeight < 6 {
-			detailHeight = 6
-		}
-		header := m.renderDetailHeader(item.entry, m.termWidth)
-		bodyHeight := detailHeight - lipgloss.Height(header) - 1
-		if bodyHeight < 4 {
-			bodyHeight = 4
-		}
-		body, bodyScrollInfo := wrapAndScroll(m.renderDetailBody(item.entry, m.termWidth), m.termWidth, m.detailScroll, bodyHeight)
-		scrollInfo = bodyScrollInfo
-		b.WriteString(header)
-		b.WriteString("\n\n")
-		b.WriteString(body)
+// renderTitleLine renders the scope, the skill count, the always-loaded and
+// on-demand tokens, and one tab per target group.
+func (m analyzeTUIModel) renderTitleLine() string {
+	facts := []string{m.modeLabel}
+	if m.loading || len(m.groups) == 0 {
+		return renderFrameTitle(m.termWidth, "analyze", facts, nil)
 	}
-
-	b.WriteString(m.renderFooter(scrollInfo))
-
-	return b.String()
-}
-
-func (m analyzeTUIModel) renderFooter(scrollInfo string) string {
-	var b strings.Builder
-	b.WriteString("\n")
-	b.WriteString(m.renderTargetBar())
-	b.WriteString(m.renderStatsLine())
-	b.WriteString("\n")
-	help := m.helpText()
-	help = appendScrollInfo(help, scrollInfo)
-	b.WriteString(theme.Dim().MarginLeft(2).Render(help))
-	b.WriteString("\n")
-	return b.String()
-}
-
-func (m analyzeTUIModel) renderFilterBar() string {
-	return renderTUIFilterBar(
-		m.filterInput.View(), m.filtering, m.filterText,
-		m.matchCount, len(m.allItems), 0,
-		"skills", renderPageInfoFromPaginator(m.list.Paginator),
-	)
-}
-
-func (m analyzeTUIModel) renderTargetBar() string {
-	if len(m.groups) <= 1 {
-		return ""
-	}
-	var parts []string
-	for i, g := range m.groups {
-		var label string
-		if len(g.names) == 1 {
-			label = fmt.Sprintf("%s (%d)", g.names[0], g.entry.SkillCount)
-		} else {
-			label = fmt.Sprintf("%d targets (%d)", len(g.names), g.entry.SkillCount)
-		}
-		if i == m.groupIdx {
-			parts = append(parts, theme.Accent().Render("► "+label))
-		} else {
-			parts = append(parts, theme.Dim().Render(label))
-		}
-	}
-	return "  " + strings.Join(parts, theme.Dim().Render("  ·  ")) + "\n"
-}
-
-func (m analyzeTUIModel) renderStatsLine() string {
-	if len(m.groups) == 0 {
-		return ""
-	}
-	g := m.groups[m.groupIdx]
-	totalTokens := m.filteredDescTokens + m.filteredBodyTokens
-
-	var countStr string
+	count := countNoun(len(m.allItems), "skill")
 	if m.filterText != "" {
-		countStr = fmt.Sprintf("%d/%d skills", m.matchCount, len(m.allItems))
+		count = formatNumber(m.matchCount) + " of " + count
+	}
+	facts = append(facts, count,
+		formatTokensStr(m.filteredDescTokens)+" always",
+		formatTokensStr(m.filteredBodyTokens)+" on demand")
+	var tabs []frameTab
+	if len(m.groups) > 1 {
+		for i, g := range m.groups {
+			tabs = append(tabs, frameTab{groupLabel(g), i == m.groupIdx})
+		}
 	} else {
-		countStr = fmt.Sprintf("%d skills", g.entry.SkillCount)
+		facts = append(facts, groupLabel(m.groups[0]))
 	}
-
-	return theme.Dim().MarginLeft(2).Render(fmt.Sprintf("%s  Always: %s tokens  On-demand: %s tokens  Total: %s tokens  %s",
-		countStr,
-		formatTokensStr(m.filteredDescTokens),
-		formatTokensStr(m.filteredBodyTokens),
-		formatTokensStr(totalTokens),
-		theme.Dim().Render("(1 token ≈ 4 ASCII chars or 1 CJK char)"),
-	)) + "\n"
+	return renderFrameTitle(m.termWidth, "analyze", facts, tabs)
 }
 
-func (m analyzeTUIModel) renderDetailHeader(e analyzeSkillEntry, width int) string {
-	title := theme.Title().Render(e.Name)
-	return lipgloss.NewStyle().Width(width).Render(title)
+// renderRight renders the detail panel, or the key list while ? is on.
+func (m analyzeTUIModel) renderRight(width, height int) string {
+	if m.showKeys {
+		return renderKeysPanel(analyzeKeyGroups)
+	}
+	item, ok := m.list.SelectedItem().(analyzeSkillItem)
+	if !ok {
+		return ""
+	}
+	header := theme.Primary().Bold(true).Render(item.entry.Name)
+	body, _ := wrapAndScroll(m.renderDetailBody(item.entry, width), width, m.detailScroll, max(height-2, 4))
+	return header + "\n\n" + body
 }
 
+// renderBottom renders the note line and the key line; the filter input
+// takes over the key line in place.
+func (m analyzeTUIModel) renderBottom() string {
+	note := "1 token ≈ 4 ASCII chars or 1 CJK char"
+	if len(m.groups) > 0 {
+		if g := m.groups[m.groupIdx]; len(g.names) > 1 {
+			note = strings.Join(g.names, ", ") + " load the same skills · " + note
+		}
+	}
+	note = theme.Dim().Render(truncateANSI("  "+note, m.termWidth))
+	var line string
+	switch {
+	case m.filtering:
+		line = renderFilterLine(m.termWidth, m.filterInput.View(), m.matchCount)
+	case m.showKeys:
+		line = renderKeyLine(m.termWidth, []keyHint{{"?/esc", "close"}}, "")
+	default:
+		filter := keyHint{"/", "filter"}
+		if m.filterText != "" {
+			filter = keyHint{"esc", "clear filter"}
+		}
+		hints := []keyHint{{"↑↓", "move"}, filter, {"o", "sort: " + m.sortLabel()}}
+		if len(m.groups) > 1 {
+			hints = append(hints, keyHint{"tab", "next target"})
+		}
+		hints = append(hints, keyHint{"enter", "open files"}, keyHint{"ctrl+d/u", "scroll"}, keyHint{"?", "keys"})
+		line = renderKeyLine(m.termWidth, hints, framePosition(m.list.Index()+1, m.matchCount))
+	}
+	return note + "\n" + line
+}
+
+// sortLabel names the current sort order, e.g. "tokens ↓".
+func (m analyzeTUIModel) sortLabel() string {
+	arrow := "↓"
+	if m.sortAsc {
+		arrow = "↑"
+	}
+	return m.sortBy + " " + arrow
+}
+
+// analyzeKeyGroups lists every key for the ? panel.
+var analyzeKeyGroups = []keyGroup{
+	{"Move", []keyHint{
+		{"↑↓", "move"},
+		{"←→", "page"},
+		{"/", "filter"},
+		{"tab", "next target"},
+		{"ctrl+d/u", "scroll the details"},
+		{"esc", "clear the filter, then quit"},
+		{"q", "quit"},
+	}},
+	{"View", []keyHint{
+		{"o", "sort by tokens or name, up or down"},
+		{"enter", "open the skill's files"},
+	}},
+}
+
+// renderDetailBody renders the description, the token counts, lint issues
+// and where the skill lives.
 func (m analyzeTUIModel) renderDetailBody(e analyzeSkillEntry, width int) string {
-	var b strings.Builder
-
-	// Token breakdown
-	g := m.groups[m.groupIdx]
-	pct := 0.0
-	if g.entry.AlwaysLoaded.EstimatedTokens > 0 {
-		pct = float64(e.DescriptionTokens) / float64(g.entry.AlwaysLoaded.EstimatedTokens) * 100
-	}
-	tokenRows := []string{
-		renderFactRow("Desc tokens", fmt.Sprintf("%s  (%.0f%%)", formatTokensStr(e.DescriptionTokens), pct)),
-		renderFactRow("Body tokens", formatTokensStr(e.BodyTokens)),
-		renderFactRow("Total", formatTokensStr(e.DescriptionTokens+e.BodyTokens)),
-	}
-	b.WriteString(renderDetailSection("Tokens", strings.Join(tokenRows, "\n"), width))
-	b.WriteString("\n\n")
-
-	if len(e.LintIssues) > 0 {
-		var qualityRows []string
-		for _, issue := range e.LintIssues {
-			var icon string
-			if issue.Severity == ssync.LintError {
-				icon = theme.Danger().Render("✗")
-			} else {
-				icon = theme.Warning().Render("⚠")
-			}
-			qualityRows = append(qualityRows, icon+" "+issue.Message)
-		}
-		b.WriteString(renderDetailSection("Quality", strings.Join(qualityRows, "\n"), width))
-		b.WriteString("\n\n")
-	}
-
-	// Metadata
-	var metaRows []string
-	if e.relPath != "" {
-		metaRows = append(metaRows, renderFactRow("Path", theme.Accent().Render(e.relPath)))
-	}
-	if e.isTracked {
-		metaRows = append(metaRows, renderFactRow("Tracked", theme.Success().Render("✓")))
-	}
-	if len(e.targetNames) > 0 {
-		metaRows = append(metaRows, renderFactRow("Restricted to", strings.Join(e.targetNames, ", ")))
-	}
-	if len(metaRows) > 0 {
-		b.WriteString(renderDetailSection("Details", strings.Join(metaRows, "\n"), width))
-		b.WriteString("\n\n")
-	}
-
-	// Description preview
+	var blocks []string
 	if e.description != "" {
-		maxWidth := width - 4
-		if maxWidth < 32 {
-			maxWidth = 32
-		}
-		lines := wordWrapLines(e.description, maxWidth)
+		lines := wordWrapLines(e.description, max(width, 20))
 		const maxLines = 6
 		if len(lines) > maxLines {
 			lines = lines[:maxLines]
-			lines[len(lines)-1] += "..."
+			lines[len(lines)-1] += "…"
 		}
-		body := strings.Join(lines, "\n")
-		b.WriteString(renderDetailSection("Description", lipgloss.NewStyle().Render(body), width))
+		blocks = append(blocks, strings.Join(lines, "\n"))
 	}
 
-	return b.String()
-}
+	var facts []string
+	fact := func(label, value string) {
+		facts = append(facts, theme.Dim().Render(fmt.Sprintf("%-9s ", label))+value)
+	}
+	g := m.groups[m.groupIdx]
+	always := formatTokensStr(e.DescriptionTokens)
+	if g.entry.AlwaysLoaded.EstimatedTokens > 0 {
+		pct := float64(e.DescriptionTokens) / float64(g.entry.AlwaysLoaded.EstimatedTokens) * 100
+		always += theme.Dim().Render(fmt.Sprintf(" · %.0f%% of always-loaded", pct))
+	}
+	fact("Always", always)
+	fact("On demand", formatTokensStr(e.BodyTokens))
+	fact("Total", formatTokensStr(e.DescriptionTokens+e.BodyTokens))
+	if e.relPath != "" {
+		fact("Path", e.relPath)
+	}
+	if e.isTracked {
+		fact("Source", "tracked")
+	}
+	if len(e.targetNames) > 0 {
+		fact("Only on", strings.Join(e.targetNames, ", "))
+	}
+	blocks = append(blocks, strings.Join(facts, "\n"))
 
-func (m analyzeTUIModel) helpText() string {
-	if m.filtering {
-		return "Enter lock  Esc clear  q quit"
+	if len(e.LintIssues) > 0 {
+		rows := []string{theme.Primary().Bold(true).Render("Quality")}
+		for _, issue := range e.LintIssues {
+			icon := theme.Warning().Render("!")
+			if issue.Severity == ssync.LintError {
+				icon = theme.Danger().Render("✗")
+			}
+			rows = append(rows, icon+" "+issue.Message)
+		}
+		blocks = append(blocks, strings.Join(rows, "\n"))
 	}
-	sortLabel := "tokens↓"
-	switch {
-	case m.sortBy == "tokens" && m.sortAsc:
-		sortLabel = "tokens↑"
-	case m.sortBy == "name" && m.sortAsc:
-		sortLabel = "name↑"
-	case m.sortBy == "name" && !m.sortAsc:
-		sortLabel = "name↓"
-	}
-	help := fmt.Sprintf("↑↓ navigate  ←→ page  / filter  s sort(%s)  Ctrl+d/u detail", sortLabel)
-	if len(m.groups) > 1 {
-		help += "  Tab target"
-	}
-	help += "  q quit"
-	return help
+	return strings.Join(blocks, "\n\n")
 }
 
 func runAnalyzeTUI(loadFn func() analyzeLoadResult, modeLabel string, initialFilter string) error {

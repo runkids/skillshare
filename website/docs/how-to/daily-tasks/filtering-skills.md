@@ -62,7 +62,7 @@ skillshare disable experimental-*   # adds to .skillignore
 skillshare enable experimental-*    # removes from .skillignore
 ```
 
-You can also press **E** in the `skillshare list` TUI to toggle a skill on or off.
+You can also press **t** in the `skillshare list` TUI to toggle a skill on or off.
 
 📖 [enable / disable](/docs/reference/commands/enable) · [.skillignore syntax](/docs/reference/appendix/file-structure#skillignore-optional) · [Filtering Reference](/docs/reference/filtering#skillignore)
 

@@ -15,7 +15,8 @@ import (
 
 // skillItem wraps skillEntry to implement bubbles/list.Item interface.
 type skillItem struct {
-	entry skillEntry
+	entry   skillEntry
+	grouped bool // shown under a group heading, which names the first path segment
 }
 
 // groupItem is a non-selectable visual separator in the skill list.
@@ -29,10 +30,7 @@ func (g groupItem) Title() string       { return g.label }
 func (g groupItem) Description() string { return "" }
 
 // listSkillDelegate renders a compact single-line browser row for the list TUI.
-// activeTab is a shared pointer so the delegate sees tab changes without re-creation.
-type listSkillDelegate struct {
-	activeTab *listTab // nil-safe: treat nil as listTabAll
-}
+type listSkillDelegate struct{}
 
 func (listSkillDelegate) Height() int  { return 1 }
 func (listSkillDelegate) Spacing() int { return 0 }
@@ -50,58 +48,31 @@ func (d listSkillDelegate) Render(w io.Writer, m list.Model, index int, item lis
 	case groupItem:
 		renderGroupRow(w, v, width)
 	case skillItem:
-		selected := index == m.Index()
-		allTab := d.activeTab != nil && *d.activeTab == listTabAll
-		renderSkillRow(w, v, width, selected, allTab)
+		renderPrefixRow(w, skillRowLine(v.entry, v.grouped, width-rowIndent), width, index == m.Index())
 	}
 }
 
+// renderGroupRow renders a group name as a dim heading over its rows.
 func renderGroupRow(w io.Writer, g groupItem, width int) {
-	label := g.label
-	if g.count > 0 {
-		label += fmt.Sprintf(" (%d)", g.count)
-	}
-	label = theme.Dim().Render(label)
-
-	lineWidth := width - lipgloss.Width(label) - 3 // "─ " prefix + " "
-	if lineWidth < 2 {
-		lineWidth = 2
-	}
-	line := strings.Repeat("─", lineWidth)
-
-	fmt.Fprint(w, theme.Dim().Render("─ ")+label+" "+theme.Dim().Render(line))
+	fmt.Fprint(w, truncateANSI(" "+theme.Dim().Render(g.label), width))
 }
 
-func renderSkillRow(w io.Writer, skill skillItem, width int, selected bool, allTab bool) {
-	renderPrefixRow(w, skillTitleLine(skill.entry, allTab), width, selected)
-}
+// rowIndent is the room before a row's text: a space, the "›" cursor on the
+// selected row, and a space.
+const rowIndent = 3
 
-// renderPrefixRow renders a single-line list row with a "▌" prefix bar.
-// Shared by list TUI and audit TUI delegates.
+// renderPrefixRow renders a single-line list row, marking the selected one
+// with "›" and a highlight. Shared by the full-screen TUIs.
 func renderPrefixRow(w io.Writer, line string, width int, selected bool) {
-	prefixStyle := theme.Dim()
-	bodyStyle := lipgloss.NewStyle().PaddingLeft(1)
-	if selected {
-		prefixStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#D4D93C"))
-		bodyStyle = theme.SelectedRow().PaddingLeft(1)
-		// Strip embedded ANSI so ListRowSelected's background fills the full
-		// row width — compound ANSI sequences (e.g. icon + name) contain
-		// resets that break the parent background propagation in lipgloss.
-		line = xansi.Strip(line)
-	}
-
-	bodyWidth := width - lipgloss.Width(prefixStyle.Render("▌"))
-	if bodyWidth < 10 {
-		bodyWidth = 10
-	}
-	textWidth := bodyWidth - bodyStyle.GetPaddingLeft() - bodyStyle.GetPaddingRight()
-	if textWidth < 8 {
-		textWidth = 8
-	}
-
+	textWidth := max(width-rowIndent, 8)
 	line = truncateANSI(line, textWidth)
-
-	fmt.Fprint(w, lipgloss.JoinHorizontal(lipgloss.Top, prefixStyle.Render("▌"), bodyStyle.Width(bodyWidth).MaxWidth(bodyWidth).Render(line)))
+	if !selected {
+		fmt.Fprint(w, strings.Repeat(" ", rowIndent)+line)
+		return
+	}
+	// Strip embedded ANSI so the highlight fills the whole row: compound
+	// sequences contain resets that break the background in lipgloss.
+	fmt.Fprint(w, " "+theme.Accent().Render("›")+" "+theme.SelectedRow().Width(textWidth).Render(xansi.Strip(line)))
 }
 
 // prefixItemDelegate is a generic list delegate that renders items with the "▌"
@@ -145,39 +116,12 @@ func (d prefixItemDelegate) Render(w io.Writer, m list.Model, index int, item li
 	}
 }
 
-// renderPrefixRowWithDesc renders a 2-line list row with a "▌" prefix bar.
-// Line 1: title (same as renderPrefixRow). Line 2: description in muted style.
+// renderPrefixRowWithDesc renders a 2-line list row: the title as in
+// renderPrefixRow and the description under it, dim.
 func renderPrefixRowWithDesc(w io.Writer, title, desc string, width int, selected bool) {
-	prefixStyle := theme.Dim()
-	bodyStyle := lipgloss.NewStyle().PaddingLeft(1)
-	descStyle := theme.Dim().PaddingLeft(1)
-	if selected {
-		prefixStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#D4D93C"))
-		bodyStyle = theme.SelectedRow().PaddingLeft(1)
-		descStyle = theme.SelectedRow().PaddingLeft(1)
-		title = xansi.Strip(title)
-		desc = xansi.Strip(desc)
-	}
-
-	bodyWidth := width - lipgloss.Width(prefixStyle.Render("▌"))
-	if bodyWidth < 10 {
-		bodyWidth = 10
-	}
-	textWidth := bodyWidth - bodyStyle.GetPaddingLeft() - bodyStyle.GetPaddingRight()
-	if textWidth < 8 {
-		textWidth = 8
-	}
-
-	title = truncateANSI(title, textWidth)
-	desc = truncateANSI(desc, textWidth)
-
-	titleLine := bodyStyle.Width(bodyWidth).MaxWidth(bodyWidth).Render(title)
-	descLine := descStyle.Width(bodyWidth).MaxWidth(bodyWidth).Render(desc)
-
-	fmt.Fprint(w, lipgloss.JoinHorizontal(lipgloss.Top,
-		prefixStyle.Render("▌\n▌"),
-		titleLine+"\n"+descLine,
-	))
+	textWidth := max(width-rowIndent, 8)
+	renderPrefixRow(w, title, width, selected)
+	fmt.Fprint(w, "\n"+strings.Repeat(" ", rowIndent)+theme.Dim().Render(truncateANSI(xansi.Strip(desc), textWidth)))
 }
 
 // FilterValue returns the searchable text for bubbletea's built-in fuzzy filter.
@@ -207,35 +151,26 @@ func (i skillItem) Description() string {
 	return ""
 }
 
-func skillTitleLine(e skillEntry, allTab bool) string {
+// skillRowLine renders a row's text: the short path, and how it was
+// installed (or that it is disabled) aligned at the right edge of width.
+func skillRowLine(e skillEntry, grouped bool, width int) string {
+	tag := skillTypeCategory(e)
+	name := colorSkillPath(compactSkillPath(e, grouped))
 	if e.Disabled {
-		// Disabled: dim the entire name + ⊘ prefix
-		return theme.Dim().Render("⊘ " + compactSkillPath(e))
+		tag = "disabled"
+		name = theme.Dim().Render(compactSkillPath(e, grouped))
 	}
-	var prefix string
-	if allTab {
-		if e.Kind == "agent" {
-			prefix = theme.Accent().Render("[A]") + " "
-		} else {
-			prefix = theme.Accent().Render("[S]") + " "
-		}
-	}
-	title := prefix + colorSkillPath(compactSkillPath(e))
-	if badge := skillTypeBadge(e); badge != "" {
-		return title + "  " + badge
-	}
-	return title
+	return alignRow(name, theme.Dim().Render(tag), width)
 }
 
 // compactSkillPath returns a short display path for list rows.
-// For tracked repos, strips the repo prefix (first segment) then shows
-// at most 2 trailing segments. The full path is in the detail panel header.
-func compactSkillPath(e skillEntry) string {
+// Strips a tracked skill's repo dir, and the first segment of any row
+// under a group heading, which shows it; then shows at most 2 trailing
+// segments. The full path is in the detail panel.
+func compactSkillPath(e skillEntry, grouped bool) string {
 	full := baseSkillPath(e)
 	segments := strings.Split(full, "/")
-
-	// Tracked repos: first segment is the repo dir (e.g. "_runkids-my-skills").
-	if e.RepoName != "" && len(segments) > 1 {
+	if (grouped || e.RepoName != "") && len(segments) > 1 {
 		segments = segments[1:]
 	}
 
@@ -395,6 +330,7 @@ func buildGroupedItems(skills []skillItem) []list.Item {
 			currentGroup = key
 			groupCount = 0
 		}
+		s.grouped = true
 		items = append(items, s)
 		groupCount++
 	}

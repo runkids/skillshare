@@ -62,24 +62,13 @@ skillshare sync --all
 
 ## 互動式管理
 
-執行 `skillshare mcp` 或 `skillshare mcp list`。與 skills 列表相同，此管理介面支援 `/` 搜尋與 `Enter` 檢視詳情。連線列表會隱藏參數、標頭與環境變數的值，並省略 URL 查詢字串。
-
-| 按鍵 | 動作 |
-|---|---|
-| `a` | 新增連線 |
-| `i` | 匯入一或多個連線 |
-| `e` | 編輯所選連線 |
-| `x` | 移除所選連線 |
-| `s` | 預覽並確認同步 |
-| `b` | 依 client 瀏覽備份，最新在前 |
-| `r` | 重新整理狀態 |
-| `q` | 離開 |
+執行 `skillshare mcp` 或 `skillshare mcp list` 即可新增、匯入、編輯、移除、同步與還原連線；所選連線的詳情顯示在列表旁。連線列表會隱藏參數、標頭與環境變數的值，並省略 URL 查詢字串。按鍵列在畫面底部。
 
 當省略名稱或 backup ID 時，`mcp edit`、`mcp remove` 與 `mcp restore` 會提供選單。編輯器涵蓋 command/URL、參數、環境變數、HTTP headers、bearer-token 環境參照、接收端 targets 與[工具政策](#tool-policy)（**工具**）。參數接受一行一個字面參數，或一個 JSON 陣列。切換傳輸方式會清除不適用於新連線類型的欄位。
 
 Add、edit、remove 與 import 在 **Save and sync** 或 **Save only** 之前會顯示預覽。Remove 另外提供 **Stop managing**，效果與 `--keep-files` 相同。Escape 可取消待處理的草稿。Restore 會預覽並確認對 Agent 項目的變更；它不會改寫 source 定義。
 
-不帶 server 名稱的 import 支援多重選取（`Space` 切換，`a` 全選）。無效的候選項會被跳過；除非指定 `--replace`，否則既有的 source 名稱會被跳過。此批次要選擇一組相容的接收端 clients。整個批次會先驗證完畢，source 才會一次儲存；後續原生檔案 I/O 失敗仍維持既有的復原行為。
+不帶 server 名稱的 import 支援多重選取。無效的候選項會被跳過；除非指定 `--replace`，否則既有的 source 名稱會被跳過。此批次要選擇一組相容的接收端 clients。整個批次會先驗證完畢，source 才會一次儲存；後續原生檔案 I/O 失敗仍維持既有的復原行為。
 
 對於腳本，請提供名稱與 flags。`mcp edit NAME --url URL`、`mcp edit NAME --target CLIENT` 與 `mcp edit NAME -- command args...` 會更新指定欄位，同時保留其他適用的設定。除非加上 `--sync`，否則只會儲存。搭配 `--no-tui` 時，remove 需要名稱，restore 需要 backup ID。`--dry-run` 永遠不會儲存或同步變更。
 

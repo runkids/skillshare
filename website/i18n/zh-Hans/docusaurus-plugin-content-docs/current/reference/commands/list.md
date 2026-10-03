@@ -50,7 +50,7 @@ Tracked repos
 
 ## 交互式 TUI
 
-在 TTY 上，`skillshare list` 会启动一个交互式终端 UI，包含：
+在 TTY 上，`skillshare list` 会打开交互式界面，skills 和 agents 各在一个标签页：左侧是列表，右侧是所选项目的详情。在这里可以更新、卸载或审计（audit）skill，启用或禁用 skill（立即写入 `.skillignore`），以及阅读它的文件。常用按键列在界面底部，按 `?` 可查看全部按键。
 
 - **智能过滤** —— 按 `/` 按名称、路径或来源过滤。支持标签语法以实现精确过滤：
 
@@ -68,28 +68,12 @@ Tracked repos
   ```
   这会仅显示 "security" group 中名称包含 "audit" 的 tracked skills。
 
-  :::tip
-  对于 enabled/disabled 过滤，通常不需要用标签——直接按 `s`
-  即可（见下方 **状态过滤**）。`s:enabled` / `s:disabled` 标签用于*组合*
-  状态与其他标签，例如 `t:tracked s:disabled`。
-  :::
-
-- **状态过滤** —— 按 `s` 循环切换 enabled/disabled 视图：**全部 → 已启用 → 已禁用 → 全部**。
-  当前状态会在标签栏旁以 `Status:` chip 显示，因此在大列表中你可以立刻缩小范围，
-  只看通过 `.skillignore` 禁用的 skills（或隐藏它们）。可与 tab 和 `/` 过滤组合使用。
-- **键盘导航** —— 方向键浏览，`q` 退出
-- **详情面板** —— 显示所选 skill 的描述、磁盘路径、文件以及已同步的 targets
-- **启用/禁用切换** —— 按 `E` 切换所选 skill 的启用/禁用状态。立即写入 `.skillignore`，
-  无需离开 TUI。已禁用的 skills 在详情面板中显示红色的 **disabled** 徽章。
-- **仅手动切换** —— 按 `M` 切换所选 skill 的 `SKILL.md` 中的 `disable-model-invocation`。
+- **仅手动切换** —— 按 `m` 切换所选 skill 的 `SKILL.md` 中的 `disable-model-invocation`。
   该 skill 仍保持已安装状态，你仍可以按名称调用它，但模型不会再自主加载它；详情面板会显示
-  **manual only** 徽章。与 `E` 不同，这会编辑 skill 文件本身：对于 tracked 或已安装的 skill，
+  **manual only** 徽章。与 `t` 不同，这会编辑 skill 文件本身：对于 tracked 或已安装的 skill，
   TUI 会先询问，因为 `skillshare update` 会跳过有本地更改的 tracked repos，而重新安装某个 skill
-  会丢弃该编辑。再次按 `M` 会移除该行并完全恢复文件。Agents 不受影响。
+  会丢弃该编辑。再次按 `m` 会移除该行并完全恢复文件。Agents 不受影响。
   [dashboard](/docs/reference/commands/ui) 显示相同的 **manual only** 标签，并在其 skill 编辑器中提供该开关。
-- **内容查看器** —— 按 `Enter` 打开双栏查看器，左侧是文件树，右侧是 Markdown 渲染的内容。
-  `j`/`k` 浏览文件（自动预览），`l`/`Enter` 展开目录，`h` 折叠。`Ctrl+d`/`u` 半页滚动内容，
-  `g`/`G` 跳转到顶部/底部。也支持鼠标滚轮和点击。
 
 使用 `--no-tui` 跳过 TUI，改为打印纯文本：
 
@@ -114,8 +98,8 @@ skillshare list --json | jq '.[].name'   # JSON for scripting
 
 默认视图（`--status all`）包含被标记为禁用的条目。`--status`
 与 pattern 及 `--type` 以 AND 语义组合，在 project mode 以及
-`list agents` / `list --all` 中均可用，并会为 TUI 的 `Status:` chip 设置初始值
-（你仍可以在那里按 `s` 循环切换）。
+`list agents` / `list --all` 中均可用，并会以相同方式缩小 TUI 的范围，
+TUI 最上面一行会显示例如 `disabled only`。在 TUI 里请改为在过滤中输入 `s:disabled`。
 
 :::tip AI Usage
 以编程方式检查 skills 时使用 `--json` 模式：

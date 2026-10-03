@@ -105,17 +105,9 @@ skillshare target list --json          # 供 CI/scripts 使用的 JSON 輸出
 
 #### 互動式 TUI
 
-在 TTY 上，`target list` 會啟動互動式終端機 UI，包含：
+在 TTY 中，`target list` 會開啟互動式畫面：左側是 targets，右側是選取 target 的路徑、模式與篩選規則。在這裡可以更改 target 的同步模式、命名方式與 include/exclude 篩選，或移除 target（會先備份再解除連結，與 `target remove` 相同）。按鍵列在畫面底部。
 
-- **分割版面** — 左側為 target 清單，右側為詳細面板（在較窄的終端機下會改為垂直版面）
-- **模糊篩選** — 按 `/` 依名稱篩選 targets
-- **模式選擇器** — 按 `M` 變更選定 target 的 sync 模式（merge、copy、symlink）
-- **命名選擇器** — 按 `N` 變更選定 target 的命名方式（flat、standard）
-- **Include/Exclude 編輯器** — 按 `I` 或 `E` 開啟選定 target 的 filter pattern 編輯器。用 `a` 新增模式，`d` 刪除
-- **移除 target** — 按 `R` 移除選定的 target。進行前會顯示確認提示（與 `target remove` 一樣會先備份再取消連結）
-- **鍵盤導覽** — `↑`/`↓` 瀏覽，`Ctrl+d`/`Ctrl+u` 捲動詳細面板，`q` 離開
-
-透過 TUI 所做的變更（模式、include/exclude）會立即儲存到設定中。執行 `skillshare sync` 以套用。
+變更會立即寫入 config。執行 `skillshare sync` 套用。
 
 使用 `--no-tui` 跳過 TUI，改為輸出純文字：
 

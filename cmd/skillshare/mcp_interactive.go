@@ -24,7 +24,6 @@ func mcpInteractive(o mcpOptions) bool {
 type mcpPrompts interface {
 	choose(checklistConfig) ([]int, error)
 	text(title, initial string) (string, error)
-	review(string, *mcp.Plan) error
 }
 
 type terminalMCPPrompts struct{}
@@ -127,17 +126,6 @@ func reviewMCPMutations(service *mcp.Service, mutations []mcp.Mutation, o mcpOpt
 		}
 		return nil
 	}
-	var summary strings.Builder
-	for _, mutation := range mutations {
-		action := "Save"
-		if mutation.Remove {
-			action = "Remove"
-		}
-		fmt.Fprintf(&summary, "%s source server: %s\n", action, mutation.Name)
-	}
-	if err := prompts.review(summary.String(), p); err != nil {
-		return err
-	}
 	choices := []checklistItemData{{label: "Save only", desc: "Update the source; leave Agent files unchanged"}}
 	if p.Blocked {
 		for _, mutation := range mutations {
@@ -156,7 +144,8 @@ func reviewMCPMutations(service *mcp.Service, mutations []mcp.Mutation, o mcpOpt
 			choices = append(choices, keep)
 		}
 	}
-	selected, err := chooseMCP(prompts, checklistConfig{title: "Review complete — save these MCP changes?", items: choices, singleSelect: true})
+	fmt.Println() // apart from the plan printed above
+	selected, err := chooseMCP(prompts, checklistConfig{title: "Save these MCP changes?", items: choices, singleSelect: true})
 	if err != nil {
 		return err
 	}
@@ -264,10 +253,8 @@ func runMCPRestore(service *mcp.Service, o mcpOptions, prompts mcpPrompts) error
 		return nil
 	}
 	if interactive {
-		if err := prompts.review("Restore backup: "+o.name, p); err != nil {
-			return err
-		}
-		_, err := chooseMCP(prompts, checklistConfig{title: "Restore the previewed Agent entries?", header: "The source definition stays unchanged. Esc cancels.", items: []checklistItemData{{label: "Restore backup", desc: o.name}}, singleSelect: true})
+		fmt.Println() // apart from the plan printed above
+		_, err := chooseMCP(prompts, checklistConfig{title: "Restore the previewed Agent entries?", header: "The source definition stays unchanged.", items: []checklistItemData{{label: "Restore backup", desc: o.name}}, singleSelect: true})
 		if err != nil {
 			return err
 		}

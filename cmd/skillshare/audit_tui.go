@@ -43,10 +43,15 @@ type auditItem struct {
 	result  *audit.Result
 	elapsed time.Duration
 	kind    string // "skill" or "agent"
+	grouped bool   // shown under a group row, which already names the first segment
 }
 
 func (i auditItem) Title() string {
-	name := colorSkillPath(compactAuditPath(i.result.SkillName))
+	path := i.result.SkillName
+	if i.grouped && auditRepoKey(path) != "" {
+		path = path[strings.Index(path, "/")+1:]
+	}
+	name := colorSkillPath(compactAuditPath(path))
 	if len(i.result.Findings) == 0 {
 		return theme.Success().Render("✓") + " " + name
 	}
@@ -134,6 +139,7 @@ func buildGroupedAuditItems(items []auditItem) []list.Item {
 			currentGroup = key
 			groupCount = 0
 		}
+		item.grouped = true
 		result = append(result, item)
 		groupCount++
 	}
@@ -160,11 +166,20 @@ func (auditDelegate) Render(w io.Writer, m list.Model, index int, item list.Item
 	case groupItem:
 		renderGroupRow(w, v, width)
 	case auditItem:
-		renderPrefixRow(w, v.Title(), width, index == m.Index())
+		renderPrefixRow(w, alignRow(v.Title(), v.severityTag(), width-rowIndent), width, index == m.Index())
 	}
 }
 
 func (i auditItem) Description() string { return "" }
+
+// severityTag is the row's right column: the worst finding's severity.
+func (i auditItem) severityTag() string {
+	sev := i.result.MaxSeverity()
+	if sev == "" {
+		return ""
+	}
+	return theme.SeverityStyle(sev).Render(strings.ToLower(sev))
+}
 
 func (i auditItem) FilterValue() string {
 	// Searchable: skill name, risk label, status, max severity, finding patterns, finding files.
@@ -228,6 +243,13 @@ type auditTUIModel struct {
 	skillSummary auditRunSummary
 	agentSummary auditRunSummary
 	tabCounts    [2]int // [skills, agents]
+
+	showKeys bool // ? swaps the detail panel for the full key list
+
+	// enter opens the selected result's files at its findings
+	browser  *fileBrowser
+	findings []audit.Finding
+	finding  int
 }
 
 func sortAuditItems(items []auditItem) {
@@ -296,8 +318,7 @@ func newAuditTUIModel(
 	listItems := buildGroupedAuditItems(displayItems)
 
 	l := list.New(listItems, auditDelegate{}, 0, 0)
-	l.Title = fmt.Sprintf("Audit results (%d scanned)", activeSummary.Scanned)
-	l.Styles.Title = theme.Title()
+	l.SetShowTitle(false)
 	l.Styles.NoItems = l.Styles.NoItems.PaddingLeft(2)
 	l.SetStatusBarItemName(initialTab.noun(), initialTab.noun())
 	l.SetShowStatusBar(false)
@@ -305,7 +326,7 @@ func newAuditTUIModel(
 	l.SetShowHelp(false)
 	l.SetShowPagination(false)
 
-	fi := newTUIFilterInput("")
+	fi := newTUIFilterInput("type to match a name, severity, rule or file")
 
 	m := auditTUIModel{
 		list:         l,
@@ -336,7 +357,6 @@ func (m *auditTUIModel) switchTab() {
 	m.filterInput.SetValue("")
 	m.detailScroll = 0
 	m.applyFilter()
-	m.list.Title = fmt.Sprintf("Audit results (%d scanned)", m.summary.Scanned)
 	m.list.SetStatusBarItemName(m.activeTab.noun(), m.activeTab.noun())
 	skipGroupItem(&m.list, 1)
 }
@@ -378,15 +398,28 @@ func (m auditTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.termWidth = msg.Width
 		m.termHeight = msg.Height
-		panelHeight := m.auditPanelHeight()
+		if m.browser != nil {
+			m.browser.resize(msg.Width, msg.Height)
+		}
+		bodyHeight := max(msg.Height-frameChrome, 6)
 		if m.termWidth >= tuiNarrowSplitWidth {
-			m.list.SetSize(auditListWidth(m.termWidth), panelHeight)
+			m.list.SetSize(auditListWidth(m.termWidth), bodyHeight)
 		} else {
-			m.list.SetSize(msg.Width, panelHeight)
+			// Narrow: the list sits above the details
+			m.list.SetSize(msg.Width, max(bodyHeight/2, 4))
 		}
 		return m, nil
 
 	case tea.MouseMsg:
+		if m.browser != nil {
+			switch msg.Button {
+			case tea.MouseButtonWheelUp:
+				m.browser.wheel(-1)
+			case tea.MouseButtonWheelDown:
+				m.browser.wheel(1)
+			}
+			return m, nil
+		}
 		if m.termWidth >= tuiNarrowSplitWidth {
 			leftWidth := auditListWidth(m.termWidth)
 			if msg.X > leftWidth {
@@ -408,11 +441,35 @@ func (m auditTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			cmd := handleTUIFilterKey(msg, &m.filtering, &m.filterText, &m.filterInput, m.applyFilter)
 			return m, cmd
 		}
+		if m.browser != nil {
+			return m.browserKey(msg.String())
+		}
 
 		switch msg.String() {
-		case "q", "ctrl+c", "esc":
+		case "enter":
+			if item, ok := m.list.SelectedItem().(auditItem); ok {
+				m.openFiles(item)
+			}
+			return m, nil
+		case "q", "ctrl+c":
 			m.quitting = true
 			return m, tea.Quit
+		case "esc":
+			switch {
+			case m.showKeys:
+				m.showKeys = false
+			case m.filterText != "":
+				m.filterText = ""
+				m.filterInput.SetValue("")
+				m.applyFilter()
+			default:
+				m.quitting = true
+				return m, tea.Quit
+			}
+			return m, nil
+		case "?":
+			m.showKeys = !m.showKeys
+			return m, nil
 		case "/":
 			m.filtering = true
 			m.filterInput.Focus()
@@ -456,156 +513,175 @@ func (m auditTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, cmd
 }
 
+// openFiles opens the result's files at its first finding, in the order
+// the details list them.
+func (m *auditTUIModel) openFiles(item auditItem) {
+	r := item.result
+	m.browser = newFileBrowser("audit", r.SkillName, r.ScanTarget, true, m.termWidth, m.termHeight)
+	m.findings = sortedFindings(r.Findings)
+	m.finding = 0
+	if len(m.findings) > 0 {
+		m.browser.openAt(m.findings[0].File, m.findings[0].Line)
+	}
+}
+
+func (m auditTUIModel) browserKey(k string) (tea.Model, tea.Cmd) {
+	switch k {
+	case "q", "ctrl+c":
+		m.quitting = true
+		return m, tea.Quit
+	case "esc":
+		m.browser = nil
+	case "n", "N":
+		if len(m.findings) > 0 {
+			step := 1
+			if k == "N" {
+				step = len(m.findings) - 1
+			}
+			m.finding = (m.finding + step) % len(m.findings)
+			f := m.findings[m.finding]
+			m.browser.openAt(f.File, f.Line)
+		}
+	default:
+		m.browser.key(k)
+	}
+	return m, nil
+}
+
+// findingNote says which finding is marked and what it is.
+func (m auditTUIModel) findingNote() string {
+	if len(m.findings) == 0 {
+		return theme.Dim().Render("No findings")
+	}
+	f := m.findings[m.finding]
+	return theme.Dim().Render(fmt.Sprintf("%d/%d ", m.finding+1, len(m.findings))) +
+		theme.SeverityStyle(f.Severity).Render(strings.ToUpper(f.Severity)) + " " +
+		theme.Primary().Bold(true).Render(f.Pattern) + theme.Dim().Render(" · "+f.Message)
+}
+
 func (m auditTUIModel) View() string {
 	if m.quitting {
 		return ""
 	}
-
-	// Narrow terminal (below tuiNarrowSplitWidth): vertical fallback
-	if m.termWidth < tuiNarrowSplitWidth {
-		return m.viewVertical()
+	if m.browser != nil {
+		var hints []keyHint
+		if len(m.findings) > 1 {
+			hints = []keyHint{{"n/N", "next/previous finding"}}
+		}
+		return m.browser.view(m.findingNote(), hints)
 	}
-
-	// ── Horizontal split layout ──
-	var b strings.Builder
-
-	b.WriteString(m.renderTabBar())
-	b.WriteString("\n")
-
-	panelHeight := m.auditPanelHeight()
-
+	bodyHeight := max(m.termHeight-frameChrome, 6)
+	title := m.renderTitleLine()
+	if m.termWidth < tuiNarrowSplitWidth {
+		listHeight := max(bodyHeight/2, 4)
+		detailHeight := max(bodyHeight-listHeight-1, 4)
+		detail := lipgloss.NewStyle().Height(detailHeight).MaxHeight(detailHeight).PaddingLeft(1).
+			Render(m.renderRight(m.termWidth-2, detailHeight))
+		return title + "\n\n" + m.list.View() + "\n\n" + detail + "\n" + m.renderBottom()
+	}
 	leftWidth := auditListWidth(m.termWidth)
 	rightWidth := auditDetailPanelWidth(m.termWidth)
-
-	// Left panel: list
-	leftPanel := lipgloss.NewStyle().
-		Width(leftWidth).MaxWidth(leftWidth).
-		Height(panelHeight).MaxHeight(panelHeight).
-		Render(m.list.View())
-
-	// Border column
-	borderStyle := theme.Dim().
-		Height(panelHeight).MaxHeight(panelHeight)
-	borderCol := strings.Repeat("│\n", panelHeight)
-	borderPanel := borderStyle.Render(strings.TrimRight(borderCol, "\n"))
-
-	// Right panel: detail for selected item
-	var detailStr, scrollInfo string
-	if item, ok := m.list.SelectedItem().(auditItem); ok {
-		detailStr, scrollInfo = wrapAndScroll(m.renderDetailContent(item), rightWidth-1, m.detailScroll, panelHeight)
-	}
-	rightPanel := lipgloss.NewStyle().
-		Width(rightWidth).MaxWidth(rightWidth).
-		Height(panelHeight).MaxHeight(panelHeight).
-		PaddingLeft(1).
-		Render(detailStr)
-
-	body := lipgloss.JoinHorizontal(lipgloss.Top, leftPanel, borderPanel, rightPanel)
-	b.WriteString(body)
-	b.WriteString("\n\n")
-
-	// Filter bar (below panels)
-	b.WriteString(m.renderFilterBar())
-
-	// Summary footer
-	b.WriteString(m.renderSummaryFooter())
-
-	// Help line
-	b.WriteString(theme.Dim().MarginLeft(2).Render(appendScrollInfo("Tab skills/agents  ↑↓ navigate  ←→ page  / filter  Ctrl+d/u scroll detail  q quit", scrollInfo)))
-
-	return b.String()
+	return title + "\n\n" +
+		renderFrameSplit(m.list.View(), m.renderRight(rightWidth-2, bodyHeight), leftWidth, rightWidth, bodyHeight) + "\n" +
+		m.renderBottom()
 }
 
-// viewVertical renders the original vertical layout for narrow terminals.
-func (m auditTUIModel) viewVertical() string {
-	var b strings.Builder
-
-	b.WriteString(m.renderTabBar())
-	b.WriteString("\n")
-
-	b.WriteString(m.list.View())
-	b.WriteString("\n\n")
-
-	b.WriteString(m.renderFilterBar())
-
-	var scrollInfo string
-	if item, ok := m.list.SelectedItem().(auditItem); ok {
-		detailHeight := m.termHeight - m.termHeight*2/5 - 8
-		var detailStr string
-		detailStr, scrollInfo = wrapAndScroll(m.renderDetailContent(item), m.termWidth, m.detailScroll, detailHeight)
-		b.WriteString(detailStr)
-	}
-
-	b.WriteString(m.renderSummaryFooter())
-
-	b.WriteString(theme.Dim().MarginLeft(2).Render(appendScrollInfo("Tab skills/agents  ↑↓ navigate  ←→ page  / filter  Ctrl+d/u scroll  q quit", scrollInfo)))
-	b.WriteString("\n")
-
-	return b.String()
-}
-
-func (m auditTUIModel) renderTabBar() string {
-	type tab struct {
-		label string
-		tab   auditTab
-		count int
-	}
-	tabs := []tab{
-		{"Skills", auditTabSkills, m.tabCounts[0]},
-		{"Agents", auditTabAgents, m.tabCounts[1]},
-	}
-
-	activeStyle := lipgloss.NewStyle().Bold(true).Underline(true)
-	inactiveStyle := theme.Dim()
-
-	var parts []string
-	for _, t := range tabs {
-		label := fmt.Sprintf("%s(%d)", t.label, t.count)
-		if t.tab == m.activeTab {
-			parts = append(parts, activeStyle.Inherit(theme.Accent()).Render(label))
-		} else {
-			parts = append(parts, inactiveStyle.Render(label))
-		}
-	}
-	return "  " + strings.Join(parts, "  ")
-}
-
-func (m auditTUIModel) renderFilterBar() string {
-	return renderTUIFilterBar(
-		m.filterInput.View(), m.filtering, m.filterText,
-		m.matchCount, len(m.allItems), maxListItems,
-		m.activeTab.noun(), m.renderPageInfo(),
-	)
-}
-
-func (m auditTUIModel) renderPageInfo() string {
-	return renderPageInfoFromPaginator(m.list.Paginator)
-}
-
-// renderSummaryFooter renders the compact summary above the help bar.
-// Line 1: scan counts + severity breakdown.
-// Line 2 (if any): category threat breakdown.
-func (m auditTUIModel) renderSummaryFooter() string {
+// renderTitleLine renders the scope, the scan counts and the Skills / Agents tabs.
+func (m auditTUIModel) renderTitleLine() string {
 	s := m.summary
-	pipe := theme.Dim().Render(" | ")
-
-	// ── Line 1: counts + severity ──
-	// Label is always dim; value uses semantic color + bold for non-zero emphasis.
-	parts := []string{
-		theme.Dim().Render("Scanned: ") + theme.Primary().Render(formatNumber(s.Scanned)),
-		theme.Dim().Render("Passed: ") + theme.Dim().Render(formatNumber(s.Passed)),
+	var facts []string
+	if s.Mode != "" {
+		facts = append(facts, s.Mode)
+	}
+	facts = append(facts, formatNumber(s.Scanned)+" scanned")
+	if m.filterText != "" {
+		facts = append(facts, formatNumber(m.matchCount)+" shown")
+	}
+	// Colored facts go last; a colored fact ends the dim run of facts.
+	if s.Failed > 0 {
+		facts = append(facts, theme.Danger().Render(formatNumber(s.Failed)+" failed"))
 	}
 	if s.Warning > 0 {
-		parts = append(parts, theme.Dim().Render("Warning: ")+theme.Warning().Bold(true).Render(formatNumber(s.Warning)))
-	} else {
-		parts = append(parts, theme.Dim().Render("Warning: ")+theme.Dim().Render(formatNumber(s.Warning)))
+		facts = append(facts, theme.Warning().Render(countNoun(s.Warning, "warning")))
 	}
-	if s.Failed > 0 {
-		parts = append(parts, theme.Dim().Render("Failed: ")+theme.Danger().Bold(true).Render(formatNumber(s.Failed)))
-	} else {
-		parts = append(parts, theme.Dim().Render("Failed: ")+theme.Dim().Render(formatNumber(s.Failed)))
+	tabs := []frameTab{
+		{fmt.Sprintf("Skills %d", m.tabCounts[0]), m.activeTab == auditTabSkills},
+		{fmt.Sprintf("Agents %d", m.tabCounts[1]), m.activeTab == auditTabAgents},
 	}
+	return renderFrameTitle(m.termWidth, "audit", facts, tabs)
+}
 
+// renderRight renders the detail panel, or the key list while ? is on.
+func (m auditTUIModel) renderRight(width, height int) string {
+	if m.showKeys {
+		return renderKeysPanel(auditKeyGroups)
+	}
+	item, ok := m.list.SelectedItem().(auditItem)
+	if !ok {
+		return ""
+	}
+	detail, _ := wrapAndScroll(m.renderDetailContent(item), width, m.detailScroll, height)
+	return detail
+}
+
+// renderBottom renders the scan summary on the note line and the key line;
+// the filter input takes over the key line in place.
+func (m auditTUIModel) renderBottom() string {
+	note := truncateANSI("  "+m.renderSummaryNote(), m.termWidth)
+	var line string
+	switch {
+	case m.filtering:
+		line = renderFilterLine(m.termWidth, m.filterInput.View(), m.matchCount)
+	case m.showKeys:
+		line = renderKeyLine(m.termWidth, []keyHint{{"?/esc", "close"}}, "")
+	default:
+		filter := keyHint{"/", "filter"}
+		if m.filterText != "" {
+			filter = keyHint{"esc", "clear filter"}
+		}
+		other := "agents"
+		if m.activeTab == auditTabAgents {
+			other = "skills"
+		}
+		hints := []keyHint{{"↑↓", "move"}, filter, {"tab", other}, {"enter", "open files"}, {"ctrl+d/u", "scroll"}, {"?", "keys"}}
+		line = renderKeyLine(m.termWidth, hints, framePosition(m.list.Index()+1-m.groupsAbove(), m.matchCount))
+	}
+	return note + "\n" + line
+}
+
+// groupsAbove counts the group rows at or above the cursor, so the position
+// counts results only.
+func (m auditTUIModel) groupsAbove() int {
+	n := 0
+	for i, it := range m.list.Items() {
+		if i > m.list.Index() {
+			break
+		}
+		if _, ok := it.(groupItem); ok {
+			n++
+		}
+	}
+	return n
+}
+
+// auditKeyGroups lists every key for the ? panel.
+var auditKeyGroups = []keyGroup{
+	{"Move", []keyHint{
+		{"↑↓", "move"},
+		{"←→", "page"},
+		{"/", "filter by name, severity, rule, file or category"},
+		{"tab", "switch between Skills and Agents"},
+		{"ctrl+d/u", "scroll the details"},
+		{"enter", "open the files at the findings; n/N moves between findings"},
+		{"esc", "clear the filter, then quit"},
+		{"q", "quit"},
+	}},
+}
+
+// renderSummaryNote renders the severity breakdown, threat categories,
+// auditability and policy of the whole scan on one line.
+func (m auditTUIModel) renderSummaryNote() string {
+	s := m.summary
 	sevParts := []string{
 		acSevCount(s.Critical, theme.Severity("critical")).Render(fmt.Sprintf("%d", s.Critical)),
 		acSevCount(s.High, theme.Severity("high")).Render(fmt.Sprintf("%d", s.High)),
@@ -613,28 +689,16 @@ func (m auditTUIModel) renderSummaryFooter() string {
 		acSevCount(s.Low, theme.Severity("low")).Render(fmt.Sprintf("%d", s.Low)),
 		acSevCount(s.Info, theme.Severity("info")).Render(fmt.Sprintf("%d", s.Info)),
 	}
-	sep := theme.Dim().Render("/")
-	parts = append(parts, theme.Dim().Render("c/h/m/l/i = ")+strings.Join(sevParts, sep))
-
-	parts = append(parts, theme.Dim().Render(fmt.Sprintf("Auditable: %.0f%% avg", s.AvgAnalyzability*100)))
+	dot := theme.Dim().Render(" · ")
+	parts := []string{theme.Dim().Render("c/h/m/l/i ") + strings.Join(sevParts, theme.Dim().Render("/"))}
+	if threats := formatCategoryBreakdownTUI(s.ByCategory); threats != "" {
+		parts = append(parts, threats)
+	}
+	parts = append(parts, theme.Dim().Render(fmt.Sprintf("%.0f%% auditable", s.AvgAnalyzability*100)))
 	if s.PolicyProfile != "" {
-		parts = append(parts, theme.Dim().Render("Policy: ")+tuiColorizeProfile(s.PolicyProfile))
+		parts = append(parts, theme.Dim().Render("policy ")+tuiColorizeProfile(s.PolicyProfile))
 	}
-
-	var b strings.Builder
-	b.WriteString("  ")
-	b.WriteString(strings.Join(parts, pipe))
-	b.WriteString("\n")
-
-	// ── Line 2: category breakdown with semantic colors ──
-	if threatsLine := formatCategoryBreakdownTUI(s.ByCategory); threatsLine != "" {
-		b.WriteString("  ")
-		b.WriteString(theme.Dim().Render("Threats: "))
-		b.WriteString(threatsLine)
-		b.WriteString("\n")
-	}
-
-	return b.String()
+	return strings.Join(parts, dot)
 }
 
 // renderDetailContent renders the full detail panel for the selected audit item.
@@ -645,15 +709,12 @@ func (m auditTUIModel) renderDetailContent(item auditItem) string {
 	r := item.result
 
 	row := func(label, value string) {
-		b.WriteString(theme.Dim().Width(14).Render(label))
+		b.WriteString(theme.Dim().Width(11).Render(label))
 		b.WriteString(value)
 		b.WriteString("\n")
 	}
 
-	// ── Header ──
-	b.WriteString(theme.Title().Render(r.SkillName))
-	b.WriteString("\n")
-	b.WriteString(theme.Dim().Render(strings.Repeat("─", 40)))
+	b.WriteString(theme.Primary().Bold(true).Render(r.SkillName))
 	b.WriteString("\n\n")
 
 	// ── Summary section ──
@@ -664,7 +725,7 @@ func (m auditTUIModel) renderDetailContent(item auditItem) string {
 	if r.RiskLabel == "clean" {
 		riskStyle = theme.Success()
 	}
-	row("Risk:", riskStyle.Render(riskText))
+	row("Risk", riskStyle.Render(riskText))
 
 	// Max severity — use severity color; NONE = green
 	maxSev := r.MaxSeverity()
@@ -675,35 +736,35 @@ func (m auditTUIModel) renderDetailContent(item auditItem) string {
 	if strings.ToUpper(maxSev) == "NONE" {
 		maxSevStyle = theme.Success()
 	}
-	row("Max sev:", maxSevStyle.Render(maxSev))
+	row("Max sev", maxSevStyle.Render(maxSev))
 
 	// Block status
 	if r.IsBlocked {
-		row("Status:", theme.Danger().Render("✗ BLOCKED"))
+		row("Status", theme.Danger().Render("✗ BLOCKED"))
 	} else if len(r.Findings) == 0 {
-		row("Status:", theme.Success().Render("✓ Clean"))
+		row("Status", theme.Success().Render("✓ Clean"))
 	} else {
-		row("Status:", theme.Warning().Render("! Has findings (not blocked)"))
+		row("Status", theme.Warning().Render("! Has findings (not blocked)"))
 	}
 
 	// Auditable — analyzability percentage
 	auditableText := fmt.Sprintf("%.0f%%", r.Analyzability*100)
 	if r.Analyzability >= 0.70 {
-		row("Auditable:", theme.Success().Render(auditableText))
+		row("Auditable", theme.Success().Render(auditableText))
 	} else if r.TotalBytes > 0 {
-		row("Auditable:", theme.Warning().Render(auditableText))
+		row("Auditable", theme.Warning().Render(auditableText))
 	} else {
-		row("Auditable:", theme.Dim().Render("—"))
+		row("Auditable", theme.Dim().Render("—"))
 	}
 
 	// Commands — tier profile
 	if !r.TierProfile.IsEmpty() {
-		row("Commands:", theme.Dim().Render(r.TierProfile.String()))
+		row("Commands", theme.Dim().Render(r.TierProfile.String()))
 	}
 
 	// Threshold
 	if r.Threshold != "" {
-		row("Threshold:", theme.Dim().Render("severity >= ")+theme.SeverityStyle(r.Threshold).Render(strings.ToUpper(r.Threshold)))
+		row("Threshold", theme.Dim().Render("severity >= ")+theme.SeverityStyle(r.Threshold).Render(strings.ToUpper(r.Threshold)))
 	}
 
 	// Policy
@@ -711,12 +772,12 @@ func (m auditTUIModel) renderDetailContent(item auditItem) string {
 		policyText := tuiColorizeProfile(m.summary.PolicyProfile) +
 			theme.Dim().Render(" / dedupe:") + tuiColorizeDedupe(m.summary.PolicyDedupe) +
 			theme.Dim().Render(" / analyzers:") + tuiColorizeAnalyzers(m.summary.PolicyAnalyzers)
-		row("Policy:", policyText)
+		row("Policy", policyText)
 	}
 
 	// Scan time
 	if item.elapsed > 0 {
-		row("Scan time:", theme.Dim().Render(fmt.Sprintf("%.1fs", item.elapsed.Seconds())))
+		row("Scan time", theme.Dim().Render(fmt.Sprintf("%.1fs", item.elapsed.Seconds())))
 	}
 
 	// Severity breakdown — only non-zero counts are colorized; zeros are dim
@@ -731,26 +792,18 @@ func (m auditTUIModel) renderDetailContent(item auditItem) string {
 			acSevCount(counts["MEDIUM"], theme.Severity("medium")).Render(fmt.Sprintf("%d", counts["MEDIUM"])) + sep +
 			acSevCount(counts["LOW"], theme.Severity("low")).Render(fmt.Sprintf("%d", counts["LOW"])) + sep +
 			acSevCount(counts["INFO"], theme.Severity("info")).Render(fmt.Sprintf("%d", counts["INFO"]))
-		row("Severity:", theme.Dim().Render("c/h/m/l/i = ")+sevLine)
-		row("Total:", theme.Primary().Render(fmt.Sprintf("%d", len(r.Findings)))+theme.Dim().Render(" finding(s)"))
+		row("Severity", theme.Dim().Render("c/h/m/l/i = ")+sevLine)
+		row("Total", theme.Primary().Render(fmt.Sprintf("%d", len(r.Findings)))+theme.Dim().Render(" finding(s)"))
 	}
 
 	b.WriteString("\n")
 
 	// ── Findings detail ──
 	if len(r.Findings) > 0 {
-		b.WriteString(theme.Title().Render("Findings"))
-		b.WriteString("\n")
-		b.WriteString(theme.Dim().Render(strings.Repeat("─", 40)))
+		b.WriteString(theme.Primary().Bold(true).Render("Findings"))
 		b.WriteString("\n\n")
 
-		sorted := make([]audit.Finding, len(r.Findings))
-		copy(sorted, r.Findings)
-		sort.Slice(sorted, func(i, j int) bool {
-			return audit.SeverityRank(sorted[i].Severity) < audit.SeverityRank(sorted[j].Severity)
-		})
-
-		for idx, f := range sorted {
+		for idx, f := range sortedFindings(r.Findings) {
 			// [N] SEVERITY  pattern
 			sevBadge := theme.SeverityStyle(f.Severity).Render(strings.ToUpper(f.Severity))
 			header := theme.Dim().Render(fmt.Sprintf("[%d] ", idx+1))
@@ -790,23 +843,14 @@ func (m auditTUIModel) renderDetailContent(item auditItem) string {
 	return b.String()
 }
 
-// auditFooterLines returns the number of lines the footer occupies below the panel.
-// gap(2) + tab(1) + filter(1) + summary(1-2) + help(1) = 6 or 7
-func (m auditTUIModel) auditFooterLines() int {
-	n := 6 // gap(2) + tab(1) + filter + summary-line1 + help
-	if len(m.summary.ByCategory) > 0 {
-		n++ // summary-line2 (threats)
-	}
-	return n
-}
-
-// auditPanelHeight returns the panel height for both SetSize and View.
-func (m auditTUIModel) auditPanelHeight() int {
-	h := m.termHeight - m.auditFooterLines()
-	if h < 6 {
-		h = 6
-	}
-	return h
+// sortedFindings orders findings most severe first, as the details number them.
+func sortedFindings(findings []audit.Finding) []audit.Finding {
+	sorted := make([]audit.Finding, len(findings))
+	copy(sorted, findings)
+	sort.SliceStable(sorted, func(i, j int) bool {
+		return audit.SeverityRank(sorted[i].Severity) < audit.SeverityRank(sorted[j].Severity)
+	})
+	return sorted
 }
 
 // auditListWidth returns the left panel width for horizontal layout.
@@ -824,11 +868,7 @@ func auditListWidth(termWidth int) int {
 
 // auditDetailPanelWidth returns the right detail panel width.
 func auditDetailPanelWidth(termWidth int) int {
-	w := termWidth - auditListWidth(termWidth) - 3
-	if w < 30 {
-		w = 30
-	}
-	return w
+	return max(termWidth-auditListWidth(termWidth), 30)
 }
 
 // ── TUI (lipgloss) color helpers for audit policy values ──

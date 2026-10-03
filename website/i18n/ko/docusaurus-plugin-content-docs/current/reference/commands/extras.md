@@ -143,27 +143,9 @@ skillshare extras list [--json] [--no-tui] [-p|-g]
 
 #### Interactive TUI
 
-TUI는 왼쪽에 extras 목록, 오른쪽에 detail 패널이 있는 split-pane 인터페이스를 제공합니다. 키 바인딩:
+TTY에서 `extras list`는 대화형 화면을 엽니다. 왼쪽에는 extras, 오른쪽에는 선택한 extra의 target과 파일이 표시됩니다. 여기서 extras를 만들고, 제거하고, sync하고, collect할 수 있으며 target의 모드나 flatten 설정도 바꿀 수 있습니다. 키는 화면 아래쪽에 표시됩니다.
 
-| Key | Action |
-|-----|--------|
-| `↑↓` | 목록 탐색 |
-| `/` | 이름으로 필터링 |
-| `Enter` | Content viewer (source 파일 탐색) |
-| `N` | 새 extra 생성 |
-| `X` | extra 제거 (확인 필요) |
-| `S` | extra를 target(들)에 동기화 |
-| `C` | target(들)에서 수집 |
-| `M` | target의 동기화 mode 변경 |
-| `F` | target의 flatten 켜기/끄기 |
-| `Ctrl+U/D` | detail 패널 스크롤 |
-| `q` / `Ctrl+C` | 종료 |
-
-각 행의 color bar는 종합 동기화 상태를 나타냅니다: cyan = 모두 동기화됨, yellow = drift, red = 동기화 안 됨, gray = source 없음.
-
-여러 target이 있는 extra의 경우, `S`, `C`, `M`, `F`는 target 하위 메뉴를 엽니다. `S`와 `C`는 모든 target을 한 번에 선택할 수 있으며, `M`과 `F`는 특정 target을 선택해야 합니다.
-
-TUI는 `skillshare tui off`로 영구적으로 비활성화할 수 있습니다.
+`skillshare tui off`로 TUI를 영구적으로 끌 수 있습니다.
 
 #### Plain text output
 
@@ -262,7 +244,7 @@ skillshare extras rules --remove-target ~/.cursor/rules
 skillshare extras rules --remove-target ~/.cursor/rules --prune
 ```
 
-Web UI(각 target의 mode 드롭다운과 flatten 체크박스)와 TUI(`M` 키)에서도 사용할 수 있습니다.
+Web UI(각 target의 mode 드롭다운과 flatten 체크박스)와 TUI(`e` 키)에서도 사용할 수 있습니다.
 
 ### `extras remove`
 

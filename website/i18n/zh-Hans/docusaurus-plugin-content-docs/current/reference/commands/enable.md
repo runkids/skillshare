@@ -17,7 +17,7 @@ skillshare disable my-skill -p      # Project mode
 
 - 临时将某个 skill 从同步中隐藏，而不卸载它
 - 在所有 targets 中静音某个草稿或实验性的 skill
-- 从 list TUI 中用 `E` 键切换 skills 的启用/禁用状态
+- 从 list TUI 中用 `t` 键切换 skills 的启用/禁用状态
 
 ## 工作原理
 
@@ -118,9 +118,7 @@ Next
 
 ## TUI 切换
 
-在交互式的 `skillshare list` TUI 中，按 **E** 切换所选 skill 的启用/禁用状态。更改会立即写入 `.skillignore`——无需先退出 TUI。
-
-被禁用的 skills 会在详情面板中显示红色的 **disabled** 徽章。
+你也可以在 `skillshare list` TUI 中启用或禁用 skills。更改会立即写入 `.skillignore`。
 
 ## .skillignore 在哪里？
 
@@ -150,7 +148,7 @@ skillshare disable --kind agent "experimental-*"   # 按模式禁用
 
 ## 另请参阅
 
-- [list](./list.md) — 查看被禁用的 skills，并用 `E` 键切换
+- [list](./list.md) — 查看被禁用的 skills，并用 `t` 键切换
 - [Filtering Skills](/docs/how-to/daily-tasks/filtering-skills) — 所有过滤层
 - [.skillignore](/docs/reference/filtering#skillignore) — 模式语法
 - [sync](./sync.md) — 在 enable/disable 之后应用更改

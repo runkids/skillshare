@@ -1041,7 +1041,7 @@
   "install.url.selectAll": "Seleccionar todo",
   "install.url.deselectAll": "Deseleccionar todo",
   "install.url.sourceLabel": "URL de git, atajo de GitHub o ruta local",
-  "install.url.sourceHint": "También sirve una subcarpeta: owner/repo/path/to/skill. Y URLs SSH y carpetas como ~/Downloads/my-skill.",
+  "install.url.sourceHint": "También sirve una subcarpeta: owner/repo/path/to/skill. Y URLs SSH y carpetas como ~/Downloads/my-skill. También puedes pegar un comando npx skills add.",
   "install.url.selected": "{count} seleccionadas",
   "install.url.filterSkills": "Filtrar skills",
   "install.url.filterAgents": "Filtrar agents",

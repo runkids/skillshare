@@ -42,14 +42,7 @@ Next
 
 ## Interactive TUI
 
-On a TTY, `diff` launches an interactive TUI with a left-right panel layout:
-
-- **Left panel** — Target list with status icons (`✓` synced, `!` has diffs, `✗` error)
-- **Right panel** — Detail view for the selected target (mode, filters, categorized diffs)
-- Press **Enter** to expand file-level diff for a skill
-- Press **/** to filter targets, **Ctrl+d/u** to scroll detail, **q** to quit
-
-Use `--no-tui` for plain text output, or pipe to disable TUI automatically.
+On a TTY, `diff` opens an interactive view: targets on the left, and what differs for the selected target on the right, down to file-level diffs. The keys are listed at the bottom of the screen. Use `--no-tui`, or pipe the output, for plain text.
 
 ## When to Use
 

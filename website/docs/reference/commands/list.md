@@ -50,7 +50,7 @@ Tracked repos
 
 ## Interactive TUI
 
-On a TTY, `skillshare list` launches an interactive terminal UI with:
+On a TTY, `skillshare list` opens an interactive view with skills and agents in two tabs: the list on the left, and details for the selected item on the right. From there you can update, uninstall or audit a skill, turn it on or off (written to `.skillignore` right away), and read its files. The common keys are at the bottom of the screen; press `?` for all of them.
 
 - **Smart filtering** — press `/` to filter by name, path, or source. Supports tag syntax for precise filtering:
 
@@ -68,18 +68,7 @@ On a TTY, `skillshare list` launches an interactive terminal UI with:
   ```
   This shows only tracked skills in the "security" group whose name contains "audit".
 
-  :::tip
-  For enabled/disabled filtering you usually don't need the tag — just press `s`
-  (see **Status filter** below). The `s:enabled` / `s:disabled` tag is for *combining*
-  status with other tags, e.g. `t:tracked s:disabled`.
-  :::
-
-- **Status filter** — press `s` to cycle the enabled/disabled view: **All → Enabled → Disabled → All**. The current state shows as a `Status:` chip next to the tab bar, so in a large list you can instantly narrow down to just the skills disabled via `.skillignore` (or hide them). Composes with the tab and `/` filters.
-- **Keyboard navigation** — arrow keys to browse, `q` to quit
-- **Detail panel** — shows description, disk path, files, and synced targets for the selected skill
-- **Enable/disable toggle** — press `E` to toggle the selected skill's enabled/disabled state. Writes to `.skillignore` immediately without leaving the TUI. Disabled skills show a red **disabled** badge in the detail panel.
-- **Manual only toggle** — press `M` to toggle `disable-model-invocation` in the selected skill's `SKILL.md`. The skill stays installed and you can still invoke it by name, but the model stops loading it on its own; the detail panel shows a **manual only** badge. Unlike `E`, this edits the skill file itself: for a tracked or installed skill the TUI asks first, because `skillshare update` skips tracked repos with local changes and reinstalling a skill drops the edit. Pressing `M` again removes the line and restores the file exactly. Agents are not affected. The [dashboard](/docs/reference/commands/ui) shows the same **manual only** tag and has the switch in its skill editor.
-- **Content viewer** — press `Enter` to open a dual-pane viewer with a file tree on the left and Markdown-rendered content on the right. `j`/`k` browse files (auto-preview), `l`/`Enter` expand directories, `h` collapse. `Ctrl+d`/`u` scroll content half-page, `g`/`G` jump to top/bottom. Mouse wheel and click are also supported.
+- **Manual only toggle** — press `m` to toggle `disable-model-invocation` in the selected skill's `SKILL.md`. The skill stays installed and you can still invoke it by name, but the model stops loading it on its own; the detail panel shows **manual only**. Unlike `t`, this edits the skill file itself: for a tracked or installed skill the TUI asks first, because `skillshare update` skips tracked repos with local changes and reinstalling a skill drops the edit. Pressing `m` again removes the line and restores the file exactly. Agents are not affected. The [dashboard](/docs/reference/commands/ui) shows the same **manual only** tag and has the switch in its skill editor.
 
 Use `--no-tui` to skip the TUI and print plain text instead:
 
@@ -104,8 +93,9 @@ skillshare list --json | jq '.[].name'   # JSON for scripting
 
 The default view (`--status all`) includes entries marked disabled. `--status`
 combines with the pattern and `--type` using AND semantics, works in project
-mode and for `list agents` / `list --all`, and seeds the TUI's `Status:` chip
-(you can still press `s` to cycle from there).
+mode and for `list agents` / `list --all`, and narrows the TUI the same way; its
+top line then says, for example, `disabled only`. Inside the TUI, type
+`s:disabled` in the filter instead.
 
 :::tip AI Usage
 Use `--json` mode when inspecting skills programmatically:

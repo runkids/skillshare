@@ -26,60 +26,9 @@ skillshare trash --all list              # List trashed skills + agents
 
 ## 互動式 TUI
 
-在 TTY 環境下，`trash list` 會啟動一個支援多選、篩選與內嵌 restore/delete 操作的互動式 TUI。每個項目會顯示種類標記：`[S]` 代表 skills，`[A]` 代表 agents。
+在 TTY 中，`trash list` 會開啟互動式的垃圾桶清單，最新的在前面。可以選取一個或多個項目來還原或永久刪除，也可以清空整個垃圾桶；每個動作都會先確認。打開項目會顯示它的檔案，還原前可以先確認內容。按鍵列在畫面底部。使用 `--all` 或沒有指定種類時，skills 與 agents 會列在一起。
 
-```
-Trash (global) — 5 items
-
-  [ ] [S] my-skill    (512 B, 2d ago)
-  [x] [S] old-tool    (1.2 KB, 5d ago)
-  [ ] [A] tutor       (2.0 KB, 3d ago)
-  [ ] [S] another     (128 B, 1d ago)
-
-  ─────────────────────────────────────────
-  Name:         old-tool
-  Type:         Skill
-  Trashed:      2026-02-27 14:30:05
-  Size:         1.2 KB
-  Path:         ~/.local/share/skillshare/trash/old-tool_...
-
-  ── SKILL.md ──────────────────────────────
-  ---
-  name: old-tool
-  description: A helpful tool
-  ---
-  # old-tool
-  ...
-
-  ↑↓ navigate  / filter  space select  r restore(1)  d delete(1)  D empty  q quit
-```
-
-使用 `--all` 或不加種類篩選時，TUI 會把 skills 與 agents 合併成一份依日期排序（最新在前）的清單。
-
-### 按鍵綁定
-
-| Key | Action |
-|-----|--------|
-| `↑`/`↓` | Navigate items |
-| `←`/`→` | Change page |
-| `/` | Enter filter mode (substring match on name) |
-| `Space` | Toggle select current item |
-| `a` | Toggle select all visible items |
-| `r` | Restore selected items (with confirmation) |
-| `d` | Permanently delete selected items (with confirmation) |
-| `D` | Empty all trash (ignores selection, with confirmation) |
-| `Ctrl+d`/`Ctrl+u` | Scroll detail panel down/up |
-| `q`/`Ctrl+C` | Quit |
-
-在確認模式下：`y`/`Enter` 確認，`n`/`Esc` 取消。
-
-### 批次操作
-
-當選取多個項目時，`r` 與 `d` 會對所有項目一併執行。如果部分項目失敗（例如要還原的 skill 名稱已存在於 source 中），TUI 會繼續處理其餘項目並顯示合併後的結果：
-
-```
-Restored 2 item(s)  Failed: my-skill: already exists
-```
+如果部分項目失敗（例如要還原的 skill 名稱已存在於 source），其餘項目仍會繼續處理，結果會列出失敗的項目。
 
 使用 `--no-tui` 可跳過 TUI，改印出純文字：
 

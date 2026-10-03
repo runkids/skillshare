@@ -143,27 +143,9 @@ skillshare extras list [--json] [--no-tui] [-p|-g]
 
 #### 交互式 TUI
 
-该 TUI 提供左右分栏界面，左侧是 extras 列表，右侧是详情面板。按键说明：
+在 TTY 上，`extras list` 会打开交互式界面：左侧是 extras，右侧是所选 extra 的 targets 和文件。在这里可以新建、移除、同步和收回（collect）extras，也可以更改某个 target 的模式或 flatten 设置。按键列在界面底部。
 
-| Key | Action |
-|-----|--------|
-| `↑↓` | 浏览列表 |
-| `/` | 按名称筛选 |
-| `Enter` | 内容查看器（浏览 source 文件） |
-| `N` | 创建新 extra |
-| `X` | 移除 extra（需确认） |
-| `S` | 将 extra 同步到 target |
-| `C` | 从 target 收集 |
-| `M` | 更改某个 target 的 sync mode |
-| `F` | 切换某个 target 的 flatten 开关 |
-| `Ctrl+U/D` | 滚动详情面板 |
-| `q` / `Ctrl+C` | 退出 |
-
-每行的颜色条反映聚合同步状态：cyan（青色）= 全部已同步，黄色 = 存在差异，红色 = 未同步，灰色 = 无 source。
-
-对于具有多个 target 的 extras，`S`、`C`、`M`、`F` 会打开 target 子菜单。`S` 和 `C` 允许一次选择所有 target；`M` 和 `F` 需要选定具体的 target。
-
-可以通过 `skillshare tui off` 永久禁用该 TUI。
+可以用 `skillshare tui off` 永久关闭 TUI。
 
 #### 纯文本输出
 
@@ -262,7 +244,7 @@ skillshare extras rules --remove-target ~/.cursor/rules
 skillshare extras rules --remove-target ~/.cursor/rules --prune
 ```
 
-也可以通过 TUI（`M` 键）和 Web UI（每个 target 上的 mode 下拉菜单和 flatten 复选框）进行操作。
+也可以通过 TUI（`e` 键）和 Web UI（每个 target 上的 mode 下拉菜单和 flatten 复选框）进行操作。
 
 ### `extras remove`
 

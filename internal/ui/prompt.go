@@ -33,20 +33,24 @@ type Option struct {
 
 // Select asks for one option and returns its value. The prompt runs inline
 // and erases itself when answered; call Answered to leave a summary line.
+// A list longer than the visible rows can be narrowed with /.
 func Select(title string, options []Option, selected string) (string, error) {
 	value := selected
 	field := huh.NewSelect[string]().
 		Title(promptTitle(title)).
 		Options(huhOptions(options, nil)...).
 		Value(&value)
-	if len(options) > promptVisibleRows {
+	long := len(options) > promptVisibleRows
+	if long {
 		field = field.Height(promptVisibleRows + 1)
 	}
-	return value, runPrompt(field)
+	err := runPrompt(field, long)
+	return value, err
 }
 
 // MultiSelect asks for any number of options and returns the chosen values
-// in option order. Values in selected start checked.
+// in option order. Values in selected start checked. Like Select, a list
+// longer than the visible rows can be narrowed with /.
 func MultiSelect(title string, options []Option, selected []string) ([]string, error) {
 	checked := map[string]bool{}
 	for _, v := range selected {
@@ -56,12 +60,14 @@ func MultiSelect(title string, options []Option, selected []string) ([]string, e
 	field := huh.NewMultiSelect[string]().
 		Title(promptTitle(title)).
 		Options(huhOptions(options, checked)...).
-		Filterable(false).
 		Value(&values)
-	if len(options) > promptVisibleRows {
+	long := len(options) > promptVisibleRows
+	field = field.Filterable(long)
+	if long {
 		field = field.Height(promptVisibleRows + 1)
 	}
-	return values, runPrompt(field)
+	err := runPrompt(field, long)
+	return values, err
 }
 
 // Confirm asks a yes/no question; def is the answer Enter gives. Without a
@@ -78,7 +84,8 @@ func Confirm(title string, def bool) (bool, error) {
 		Negative("No").
 		Inline(true).
 		Value(&value)
-	return value, runPrompt(field)
+	err := runPrompt(field, false)
+	return value, err
 }
 
 // ConfirmAction is Confirm for a question that guards one action: esc
@@ -137,12 +144,41 @@ func readLine(in io.Reader) string {
 
 // Input asks for one line of text. placeholder is shown while it is empty.
 func Input(title, placeholder, value string) (string, error) {
-	field := huh.NewInput().
+	return InputValid(title, placeholder, value, func(string) error { return nil })
+}
+
+// InputValid is Input that only accepts an answer check passes; otherwise
+// the error shows under the question and it stays open.
+func InputValid(title, placeholder, value string, check func(string) error) (string, error) {
+	err := runPrompt(inputField(title, placeholder, &value, check), false)
+	return value, err
+}
+
+func inputField(title, placeholder string, value *string, check func(string) error) *huh.Input {
+	return huh.NewInput().
 		Title(promptTitle(title)).
 		Prompt("› ").
 		Placeholder(placeholder).
-		Value(&value)
-	return value, runPrompt(field)
+		Validate(check).
+		Value(value)
+}
+
+// Text asks for text that may span lines, such as pasted JSON: enter
+// submits and alt+enter starts a new line. The box grows with value, from 3
+// to 10 lines.
+func Text(title, value string) (string, error) {
+	err := runPrompt(textField(title, &value), false)
+	return value, err
+}
+
+func textField(title string, value *string) *huh.Text {
+	lines := min(max(strings.Count(*value, "\n")+1, 3), 10)
+	return huh.NewText().
+		Title(promptTitle(title)).
+		Lines(lines).
+		CharLimit(1 << 20).
+		ExternalEditor(false).
+		Value(value)
 }
 
 // Answered prints the one-line record an answered prompt collapses into.
@@ -150,33 +186,98 @@ func Answered(label, value string) {
 	fmt.Printf("%s %-*s %s\n", theme.Success().Render("✓"), answerLabelWidth, label, value)
 }
 
-func runPrompt(field huh.Field) error {
-	return runForm(field, os.Stdin, os.Stdout)
+func runPrompt(field huh.Field, filterable bool) error {
+	return runForm(field, filterable, os.Stdin, os.Stdout)
 }
 
 // runForm runs the form itself instead of huh's Run, which cancels through
 // tea.Interrupt: Bubble Tea treats that as a kill and skips the final empty
 // frame, leaving the question on screen after esc.
-func runForm(field huh.Field, in io.Reader, out io.Writer) error {
+func runForm(field huh.Field, filterable bool, in io.Reader, out io.Writer) error {
 	keys := huh.NewDefaultKeyMap()
-	keys.Quit = key.NewBinding(key.WithKeys("ctrl+c", "esc"))
-	keys.Select.Filter.SetEnabled(false)
+	keys.Quit = key.NewBinding(key.WithKeys("ctrl+c"))
+	keys.Select.Filter.SetEnabled(filterable)
 	form := huh.NewForm(huh.NewGroup(field)).
 		WithTheme(promptTheme()).
 		WithKeyMap(keys).
-		WithShowHelp(true)
+		WithShowHelp(false)
 	form.SubmitCmd = tea.Quit
 	form.CancelCmd = tea.Quit
-	if _, err := tea.NewProgram(form, tea.WithInput(in), tea.WithOutput(out)).Run(); err != nil {
+	m := &promptModel{form: form, field: field, hint: promptHint(field, filterable)}
+	if _, err := tea.NewProgram(m, tea.WithInput(in), tea.WithOutput(out)).Run(); err != nil {
 		if errors.Is(err, tea.ErrInterrupted) {
 			return ErrCancelled
 		}
 		return err
 	}
-	if form.State == huh.StateAborted {
+	if m.cancelled || form.State == huh.StateAborted {
 		return ErrCancelled
 	}
 	return nil
+}
+
+// promptModel decides what esc means. huh's form quits on its Quit key
+// before the field sees it, so binding esc there would cancel the question
+// while the user only meant to leave the filter.
+type promptModel struct {
+	form      *huh.Form
+	field     huh.Field
+	cancelled bool
+	hint      string
+}
+
+// filtering asks the field itself: enter with no match keeps huh's Select
+// in the filter, which key presses alone cannot tell.
+func (m *promptModel) filtering() bool {
+	f, ok := m.field.(interface{ GetFiltering() bool })
+	return ok && f.GetFiltering()
+}
+
+func (m *promptModel) Init() tea.Cmd { return m.form.Init() }
+
+func (m *promptModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	if k, ok := msg.(tea.KeyMsg); ok && k.String() == "esc" && !m.filtering() {
+		m.cancelled = true
+		return m, tea.Quit
+	}
+	form, cmd := m.form.Update(msg)
+	m.form = form.(*huh.Form)
+	return m, cmd
+}
+
+// View draws nothing once answered or cancelled, so the question is erased.
+func (m *promptModel) View() string {
+	if m.cancelled || m.form.State != huh.StateNormal {
+		return ""
+	}
+	return m.form.View() + "\n\n" + m.hint
+}
+
+// promptHint is the key line under a question, in the same words the
+// full-screen TUIs use.
+func promptHint(field huh.Field, filterable bool) string {
+	var pairs [][2]string
+	switch field.(type) {
+	case *huh.Select[string]:
+		pairs = [][2]string{{"↑↓", "move"}, {"enter", "choose"}}
+	case *huh.MultiSelect[string]:
+		pairs = [][2]string{{"↑↓", "move"}, {"space", "toggle"}, {"ctrl+a", "all"}, {"enter", "confirm"}}
+	case *huh.Confirm:
+		pairs = [][2]string{{"y", "yes"}, {"n", "no"}}
+	case *huh.Text:
+		pairs = [][2]string{{"enter", "confirm"}, {"alt+enter", "new line"}}
+	default:
+		pairs = [][2]string{{"enter", "confirm"}}
+	}
+	if filterable {
+		pairs = append(pairs, [2]string{"/", "filter"})
+	}
+	pairs = append(pairs, [2]string{"esc", "cancel"})
+	parts := make([]string, len(pairs))
+	for i, p := range pairs {
+		parts[i] = theme.Primary().Render(p[0]) + " " + theme.Dim().Render(p[1])
+	}
+	return "  " + strings.Join(parts, theme.Dim().Render(" · "))
 }
 
 // focusedButton fills the chosen Yes/No button with the accent color.

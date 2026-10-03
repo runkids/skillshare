@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"sort"
@@ -23,29 +24,40 @@ import (
 // Left-right split layout: list on left, detail panel on right.
 // ---------------------------------------------------------------------------
 
-// trashItem is a list item for the trash TUI. 1-line with checkbox.
+// trashItem is a list item for the trash TUI: one row with a checkbox.
 type trashItem struct {
 	entry    trash.TrashEntry
 	idx      int  // index in allItems (stable identity)
 	selected bool // checkbox state
 }
 
-func (i trashItem) Title() string {
-	check := "[ ]"
-	if i.selected {
-		check = "[x]"
-	}
-	var kindBadge string
-	if i.entry.Kind == "agent" {
-		kindBadge = theme.Accent().Render("[A]") + " "
-	} else {
-		kindBadge = theme.Accent().Render("[S]") + " "
-	}
-	size := formatBytes(i.entry.Size)
-	return fmt.Sprintf("%s %s%s  (%s, %s)", check, kindBadge, i.entry.Name, size, timeAgo(i.entry.Date))
-}
+func (i trashItem) Title() string { return i.entry.Name }
 
 func (i trashItem) Description() string { return "" }
+
+// trashDelegate renders "○ name" with the kind, size and age at the right.
+type trashDelegate struct{}
+
+func (trashDelegate) Height() int                             { return 1 }
+func (trashDelegate) Spacing() int                            { return 0 }
+func (trashDelegate) Update(_ tea.Msg, _ *list.Model) tea.Cmd { return nil }
+
+func (trashDelegate) Render(w io.Writer, m list.Model, index int, li list.Item) {
+	item, ok := li.(trashItem)
+	if !ok {
+		return
+	}
+	mark := theme.Dim().Render("○")
+	if item.selected {
+		mark = theme.Accent().Render("◉")
+	}
+	meta := formatBytes(item.entry.Size) + " · " + timeAgo(item.entry.Date)
+	if item.entry.Kind == "agent" {
+		meta = "agent · " + meta
+	}
+	width := m.Width()
+	renderPrefixRow(w, alignRow(mark+" "+item.entry.Name, theme.Dim().Render(meta), width-rowIndent), width, index == m.Index())
+}
 func (i trashItem) FilterValue() string { return i.entry.Name }
 
 // trashOpDoneMsg is sent when an async operation (restore/delete/empty) completes.
@@ -82,10 +94,10 @@ type trashTUIModel struct {
 	selected map[int]bool // key = idx; true = marked
 	selCount int
 
-	// Confirmation overlay
-	confirming    bool
-	confirmAction string   // "restore", "delete", "empty"
-	confirmNames  []string // names for display
+	// Confirmation on the key line
+	confirming     bool
+	confirmAction  string             // "restore", "delete", "empty"
+	confirmEntries []trash.TrashEntry // what the confirmed action works on
 
 	// Operation spinner
 	operating      bool
@@ -93,10 +105,14 @@ type trashTUIModel struct {
 	opSpinner      spinner.Model
 
 	// Feedback
-	lastOpMsg string // green/red message after operation
+	lastOpMsg string // result of the last operation, shown above the key line
 
 	// Detail scroll for right panel
 	detailScroll int
+
+	showKeys bool // ? swaps the detail panel for the full key list
+
+	browser *fileBrowser // enter opens the selected item's files
 }
 
 func newTrashTUIModel(items []trash.TrashEntry, skillTrashBase, agentTrashBase, destDir, agentDestDir, cfgPath, modeLabel string) trashTUIModel {
@@ -108,9 +124,8 @@ func newTrashTUIModel(items []trash.TrashEntry, skillTrashBase, agentTrashBase, 
 		listItems[i] = ti
 	}
 
-	l := list.New(listItems, newPrefixDelegate(false), 0, 0)
-	l.Title = trashTUITitle(modeLabel, len(items))
-	l.Styles.Title = theme.Title()
+	l := list.New(listItems, trashDelegate{}, 0, 0)
+	l.SetShowTitle(false)
 	l.SetShowStatusBar(false)
 	l.SetFilteringEnabled(false)
 	l.SetShowHelp(false)
@@ -122,7 +137,7 @@ func newTrashTUIModel(items []trash.TrashEntry, skillTrashBase, agentTrashBase, 
 	sp.Style = theme.Accent()
 
 	// Filter text input
-	fi := newTUIFilterInput("")
+	fi := newTUIFilterInput("type to match a name")
 
 	return trashTUIModel{
 		list:           l,
@@ -138,10 +153,6 @@ func newTrashTUIModel(items []trash.TrashEntry, skillTrashBase, agentTrashBase, 
 		selected:       make(map[int]bool),
 		opSpinner:      sp,
 	}
-}
-
-func trashTUITitle(modeLabel string, count int) string {
-	return fmt.Sprintf("Trash (%s) — %d items", modeLabel, count)
 }
 
 // ---------------------------------------------------------------------------
@@ -164,27 +175,16 @@ func trashListWidth(termWidth int) int {
 }
 
 func trashDetailPanelWidth(termWidth int) int {
-	w := termWidth - trashListWidth(termWidth) - 3
-	if w < 28 {
-		w = 28
-	}
-	return w
+	return max(termWidth-trashListWidth(termWidth), 28)
 }
 
 func (m *trashTUIModel) syncTrashListSize() {
+	bodyHeight := max(m.termHeight-frameChrome, 6)
 	if trashSplitActive(m.termWidth) {
-		panelHeight := m.termHeight - 5
-		if panelHeight < 6 {
-			panelHeight = 6
-		}
-		m.list.SetSize(trashListWidth(m.termWidth), panelHeight)
+		m.list.SetSize(trashListWidth(m.termWidth), bodyHeight)
 		return
 	}
-	listHeight := m.termHeight - 14
-	if listHeight < 6 {
-		listHeight = 6
-	}
-	m.list.SetSize(m.termWidth, listHeight)
+	m.list.SetSize(m.termWidth, max(bodyHeight/2, 4))
 }
 
 // ---------------------------------------------------------------------------
@@ -199,9 +199,21 @@ func (m trashTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.termWidth = msg.Width
 		m.termHeight = msg.Height
 		m.syncTrashListSize()
+		if m.browser != nil {
+			m.browser.resize(msg.Width, msg.Height)
+		}
 		return m, nil
 
 	case tea.MouseMsg:
+		if m.browser != nil {
+			switch msg.Button {
+			case tea.MouseButtonWheelUp:
+				m.browser.wheel(-1)
+			case tea.MouseButtonWheelDown:
+				m.browser.wheel(1)
+			}
+			return m, nil
+		}
 		if trashSplitActive(m.termWidth) && !m.operating && !m.confirming {
 			leftWidth := trashListWidth(m.termWidth)
 			if msg.X > leftWidth {
@@ -227,16 +239,15 @@ func (m trashTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case trashOpDoneMsg:
 		m.operating = false
-		verb := capitalize(msg.action) + "d"
-		switch {
-		case msg.err != nil && msg.count > 0:
-			m.lastOpMsg = theme.Success().Render(fmt.Sprintf("%s %d item(s)", verb, msg.count)) +
-				"  " + theme.Danger().Render(fmt.Sprintf("Failed: %s", msg.err))
-		case msg.err != nil:
-			m.lastOpMsg = theme.Danger().Render(fmt.Sprintf("Error: %s", msg.err))
-		default:
-			m.lastOpMsg = theme.Success().Render(fmt.Sprintf("%s %d item(s)", verb, msg.count))
+		verb := map[string]string{"restore": "Restored", "delete": "Deleted", "empty": "Deleted"}[msg.action]
+		var parts []string
+		if msg.count > 0 {
+			parts = append(parts, theme.Success().Render("✓")+" "+verb+" "+countNoun(msg.count, "item"))
 		}
+		if msg.err != nil {
+			parts = append(parts, theme.Danger().Render("✗")+" "+msg.err.Error())
+		}
+		m.lastOpMsg = "  " + strings.Join(parts, "  ")
 		m.rebuildFromEntries(msg.reloadedItems)
 		return m, nil
 
@@ -250,16 +261,16 @@ func (m trashTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 
-		// --- Confirmation overlay ---
+		// --- Confirmation on the key line ---
 		if m.confirming {
 			switch msg.String() {
 			case "y", "Y", "enter":
 				m.confirming = false
 				return m.startOperation()
-			case "n", "N", "esc":
+			case "n", "N", "esc", "q":
 				m.confirming = false
 				m.confirmAction = ""
-				m.confirmNames = nil
+				m.confirmEntries = nil
 				return m, nil
 			}
 			return m, nil
@@ -271,11 +282,45 @@ func (m trashTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, cmd
 		}
 
+		if m.browser != nil {
+			switch msg.String() {
+			case "q", "ctrl+c":
+				m.quitting = true
+				return m, tea.Quit
+			case "esc":
+				m.browser = nil
+			default:
+				m.browser.key(msg.String())
+			}
+			return m, nil
+		}
+
 		// --- Normal mode ---
 		switch msg.String() {
 		case "q", "ctrl+c":
 			m.quitting = true
 			return m, tea.Quit
+		case "enter":
+			if item, ok := m.list.SelectedItem().(trashItem); ok {
+				m.browser = newFileBrowser("trash", item.entry.Name, item.entry.Path, false, m.termWidth, m.termHeight)
+			}
+			return m, nil
+		case "esc":
+			switch {
+			case m.showKeys:
+				m.showKeys = false
+			case m.filterText != "":
+				m.filterText = ""
+				m.filterInput.SetValue("")
+				m.applyTrashFilter()
+			default:
+				m.quitting = true
+				return m, tea.Quit
+			}
+			return m, nil
+		case "?":
+			m.showKeys = !m.showKeys
+			return m, nil
 		case "/":
 			m.filtering = true
 			m.filterInput.Focus()
@@ -333,37 +378,28 @@ func (m trashTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.refreshListItems()
 			return m, nil
 
-		case "r": // restore selected
-			if m.selCount == 0 {
+		case "r", "d": // restore / delete the selection, or the row under the cursor
+			entries := m.actionEntries()
+			if len(entries) == 0 {
 				break
 			}
-			names := m.selectedNames()
-			m.confirmAction = "restore"
-			m.confirmNames = names
+			m.confirmAction = map[string]string{"r": "restore", "d": "delete"}[msg.String()]
+			m.confirmEntries = entries
 			m.confirming = true
-			return m, nil
-
-		case "d": // delete selected permanently
-			if m.selCount == 0 {
-				break
-			}
-			names := m.selectedNames()
-			m.confirmAction = "delete"
-			m.confirmNames = names
-			m.confirming = true
+			m.lastOpMsg = ""
 			return m, nil
 
 		case "D": // empty all (ignores selection)
 			if len(m.allItems) == 0 {
 				break
 			}
-			names := make([]string, len(m.allItems))
-			for i, item := range m.allItems {
-				names[i] = item.entry.Name
+			m.confirmEntries = nil
+			for _, item := range m.allItems {
+				m.confirmEntries = append(m.confirmEntries, item.entry)
 			}
 			m.confirmAction = "empty"
-			m.confirmNames = names
 			m.confirming = true
+			m.lastOpMsg = ""
 			return m, nil
 		}
 	}
@@ -440,15 +476,16 @@ func (m *trashTUIModel) visibleIndices() []int {
 	return indices
 }
 
-// selectedNames returns names of all selected items.
-func (m *trashTUIModel) selectedNames() []string {
-	var names []string
-	for _, item := range m.allItems {
-		if m.selected[item.idx] {
-			names = append(names, item.entry.Name)
-		}
+// actionEntries is what r and d work on: the selection, or the row under
+// the cursor when nothing is selected.
+func (m *trashTUIModel) actionEntries() []trash.TrashEntry {
+	if m.selCount > 0 {
+		return m.selectedEntries()
 	}
-	return names
+	if item, ok := m.list.SelectedItem().(trashItem); ok {
+		return []trash.TrashEntry{item.entry}
+	}
+	return nil
 }
 
 // selectedEntries returns trash entries for all selected items.
@@ -469,20 +506,14 @@ func (m *trashTUIModel) selectedEntries() []trash.TrashEntry {
 // startOperation begins the async operation (restore/delete/empty).
 func (m trashTUIModel) startOperation() (tea.Model, tea.Cmd) {
 	action := m.confirmAction
+	entries := m.confirmEntries
 	m.operating = true
-	m.operatingLabel = capitalize(action) + " in progress..."
+	verb := map[string]string{"restore": "Restoring", "delete": "Deleting", "empty": "Deleting"}[action]
+	m.operatingLabel = verb + " " + countNoun(len(entries), "item") + "…"
 	m.confirmAction = ""
-	m.confirmNames = nil
+	m.confirmEntries = nil
 
 	// Capture values for goroutine
-	var entries []trash.TrashEntry
-	if action == "empty" {
-		for _, item := range m.allItems {
-			entries = append(entries, item.entry)
-		}
-	} else {
-		entries = m.selectedEntries()
-	}
 	destDir := m.destDir
 	agentDestDir := m.agentDestDir
 	cfgPath := m.cfgPath
@@ -569,7 +600,6 @@ func (m *trashTUIModel) rebuildFromEntries(entries []trash.TrashEntry) {
 	m.matchCount = len(entries)
 	m.list.SetItems(listItems)
 	m.list.ResetSelected()
-	m.list.Title = trashTUITitle(m.modeLabel, len(entries))
 	m.detailScroll = 0
 }
 
@@ -581,243 +611,179 @@ func (m trashTUIModel) View() string {
 	if m.quitting {
 		return ""
 	}
-
-	// Operating state — spinner
-	if m.operating {
-		return fmt.Sprintf("\n  %s %s\n", m.opSpinner.View(), m.operatingLabel)
+	if m.browser != nil {
+		return m.browser.view("", nil)
 	}
-
-	// Confirmation overlay
-	if m.confirming {
-		return m.viewConfirm()
+	bodyHeight := max(m.termHeight-frameChrome, 6)
+	title := m.renderTitleLine()
+	if !trashSplitActive(m.termWidth) {
+		listHeight := max(bodyHeight/2, 4)
+		detailHeight := max(bodyHeight-listHeight-1, 4)
+		detail := lipgloss.NewStyle().Height(detailHeight).MaxHeight(detailHeight).PaddingLeft(1).
+			Render(m.renderRight(m.termWidth-2, detailHeight))
+		return title + "\n\n" + m.list.View() + "\n\n" + detail + "\n" + m.renderBottom()
 	}
-
-	if trashSplitActive(m.termWidth) {
-		return m.viewTrashSplit()
-	}
-	return m.viewTrashVertical()
-}
-
-// viewTrashSplit renders the horizontal left-right split layout.
-func (m trashTUIModel) viewTrashSplit() string {
-	var b strings.Builder
-
-	panelHeight := m.termHeight - 5
-	if panelHeight < 6 {
-		panelHeight = 6
-	}
-
 	leftWidth := trashListWidth(m.termWidth)
 	rightWidth := trashDetailPanelWidth(m.termWidth)
-
-	var detailStr, scrollInfo string
-	if item, ok := m.list.SelectedItem().(trashItem); ok {
-		raw := m.renderTrashDetailPanel(item.entry, rightWidth-1)
-		detailStr, scrollInfo = wrapAndScroll(raw, rightWidth-1, m.detailScroll, panelHeight)
-	}
-
-	body := renderHorizontalSplit(m.list.View(), detailStr, leftWidth, rightWidth, panelHeight)
-	b.WriteString(body)
-	b.WriteString("\n\n")
-
-	b.WriteString(m.renderTrashFilterBar())
-	b.WriteString(m.renderTrashSummaryFooter())
-
-	if m.lastOpMsg != "" {
-		b.WriteString("  ")
-		b.WriteString(m.lastOpMsg)
-		b.WriteString("\n")
-	}
-
-	help := appendScrollInfo(m.trashHelpBar(), scrollInfo)
-	b.WriteString(theme.Dim().MarginLeft(2).Render(help))
-	b.WriteString("\n")
-
-	return b.String()
+	return title + "\n\n" +
+		renderFrameSplit(m.list.View(), m.renderRight(rightWidth-2, bodyHeight), leftWidth, rightWidth, bodyHeight) + "\n" +
+		m.renderBottom()
 }
 
-// viewTrashVertical renders the vertical stacked layout for narrow terminals.
-func (m trashTUIModel) viewTrashVertical() string {
-	var b strings.Builder
+// renderTitleLine renders the scope, the item count and the total size.
+func (m trashTUIModel) renderTitleLine() string {
+	var total int64
+	for _, item := range m.allItems {
+		total += item.entry.Size
+	}
+	count := countNoun(len(m.allItems), "item")
+	if m.filterText != "" {
+		count = formatNumber(m.matchCount) + " of " + count
+	}
+	return renderFrameTitle(m.termWidth, "trash", []string{m.modeLabel, count, formatBytes(total)}, nil)
+}
 
-	b.WriteString(m.list.View())
-	b.WriteString("\n\n")
-	b.WriteString(m.renderTrashFilterBar())
+// renderRight renders the detail panel, or the key list while ? is on.
+func (m trashTUIModel) renderRight(width, height int) string {
+	if m.showKeys {
+		return renderKeysPanel(trashKeyGroups)
+	}
+	item, ok := m.list.SelectedItem().(trashItem)
+	if !ok {
+		return ""
+	}
+	detail, _ := wrapAndScroll(m.renderTrashDetailPanel(item.entry, width), width, m.detailScroll, height)
+	return detail
+}
 
-	var scrollInfo string
-	if item, ok := m.list.SelectedItem().(trashItem); ok {
-		detailHeight := m.termHeight - m.termHeight*2/5 - 7
-		if detailHeight < 6 {
-			detailHeight = 6
+// renderBottom renders the note line and the key line. Confirmations, the
+// filter input and running operations take over the key line in place.
+func (m trashTUIModel) renderBottom() string {
+	note := m.lastOpMsg
+	var line string
+	switch {
+	case m.operating:
+		line = renderBusyLine(m.termWidth, m.opSpinner.View(), m.operatingLabel)
+	case m.confirming:
+		note = theme.Dim().Render("  " + m.confirmNote())
+		line = m.renderConfirm()
+	case m.filtering:
+		line = renderFilterLine(m.termWidth, m.filterInput.View(), m.matchCount)
+	default:
+		filter := keyHint{"/", "filter"}
+		if m.filterText != "" {
+			filter = keyHint{"esc", "clear filter"}
 		}
-		raw := m.renderTrashDetailPanel(item.entry, m.termWidth-4)
-		var detailStr string
-		detailStr, scrollInfo = wrapAndScroll(raw, m.termWidth-4, m.detailScroll, detailHeight)
-		b.WriteString(detailStr)
-		b.WriteString("\n")
+		hints := []keyHint{{"↑↓", "move"}, {"space", "select"}, filter, {"enter", "open files"}, {"r", "restore"}, {"d", "delete"}, {"?", "keys"}}
+		if m.showKeys {
+			hints = []keyHint{{"?/esc", "close"}}
+		}
+		right := framePosition(m.list.Index()+1, m.matchCount)
+		if m.selCount > 0 {
+			right = formatNumber(m.selCount) + " selected"
+		}
+		line = renderKeyLine(m.termWidth, hints, right)
 	}
-
-	b.WriteString(m.renderTrashSummaryFooter())
-
-	if m.lastOpMsg != "" {
-		b.WriteString("  ")
-		b.WriteString(m.lastOpMsg)
-		b.WriteString("\n")
-	}
-
-	help := appendScrollInfo(m.trashHelpBar(), scrollInfo)
-	b.WriteString(theme.Dim().MarginLeft(2).Render(help))
-	b.WriteString("\n")
-
-	return b.String()
+	return note + "\n" + line
 }
 
-// viewConfirm renders the confirmation overlay.
-func (m trashTUIModel) viewConfirm() string {
-	var b strings.Builder
-	b.WriteString("\n")
-
-	verb := m.confirmAction
-	switch verb {
+// renderConfirm asks about the pending action on the key line.
+func (m trashTUIModel) renderConfirm() string {
+	n := countNoun(len(m.confirmEntries), "item")
+	switch m.confirmAction {
 	case "restore":
-		b.WriteString(m.renderRestoreConfirmHeader())
-		b.WriteString("\n")
+		return renderConfirmLine(m.termWidth, "Restore "+n+"?", false, "")
 	case "delete":
-		b.WriteString("  ")
-		b.WriteString(theme.Danger().Render(fmt.Sprintf("Permanently delete %d item(s)?", len(m.confirmNames))))
-		b.WriteString("\n\n")
-	case "empty":
-		b.WriteString("  ")
-		b.WriteString(theme.Danger().Render(fmt.Sprintf("Empty trash — permanently delete ALL %d item(s)?", len(m.confirmNames))))
-		b.WriteString("\n\n")
+		return renderConfirmLine(m.termWidth, "Delete "+n+" for good?", true, "")
+	default:
+		return renderConfirmLine(m.termWidth, "Empty the trash? All "+n+" are deleted for good.", true, "")
 	}
-
-	// Show names (cap at 10)
-	show := m.confirmNames
-	if len(show) > 10 {
-		show = show[:10]
-	}
-	for _, name := range show {
-		b.WriteString(fmt.Sprintf("    %s\n", name))
-	}
-	if len(m.confirmNames) > 10 {
-		b.WriteString(fmt.Sprintf("    ... and %d more\n", len(m.confirmNames)-10))
-	}
-
-	b.WriteString("\n  ")
-	b.WriteString(theme.Dim().MarginLeft(2).Render("y confirm  n cancel"))
-	b.WriteString("\n")
-
-	return b.String()
 }
 
-func (m trashTUIModel) renderRestoreConfirmHeader() string {
+// confirmNote names what the pending action works on and, for a restore,
+// where it goes.
+func (m trashTUIModel) confirmNote() string {
+	names := make([]string, 0, 5)
+	for i, e := range m.confirmEntries {
+		if i == 5 {
+			names = append(names, fmt.Sprintf("+%d more", len(m.confirmEntries)-5))
+			break
+		}
+		names = append(names, e.Name)
+	}
+	note := strings.Join(names, ", ")
+	if m.confirmAction == "restore" {
+		note += " → " + m.restoreDestination()
+	}
+	return note
+}
+
+// restoreDestination says where the pending restore puts things.
+func (m trashTUIModel) restoreDestination() string {
 	var hasSkills, hasAgents bool
-	for _, entry := range m.selectedEntries() {
-		switch entry.Kind {
-		case "agent":
+	for _, e := range m.confirmEntries {
+		if e.Kind == "agent" {
 			hasAgents = true
-		default:
+		} else {
 			hasSkills = true
 		}
 	}
-
 	switch {
 	case hasSkills && hasAgents:
-		return fmt.Sprintf(
-			"  Restore %d item(s)?\n\n    skills -> %s\n    agents -> %s\n",
-			len(m.confirmNames),
-			m.destDir,
-			m.agentDestDir,
-		)
+		return "skills to " + shortenPath(m.destDir) + ", agents to " + shortenPath(m.agentDestDir)
 	case hasAgents:
-		return fmt.Sprintf("  Restore %d item(s) to %s?\n", len(m.confirmNames), m.agentDestDir)
+		return shortenPath(m.agentDestDir)
 	default:
-		return fmt.Sprintf("  Restore %d item(s) to %s?\n", len(m.confirmNames), m.destDir)
+		return shortenPath(m.destDir)
 	}
+}
+
+// trashKeyGroups lists every key for the ? panel.
+var trashKeyGroups = []keyGroup{
+	{"Move", []keyHint{
+		{"↑↓", "move"},
+		{"←→", "page"},
+		{"/", "filter by name"},
+		{"ctrl+d/u", "scroll the details"},
+		{"enter", "open the files"},
+		{"esc", "clear the filter, then quit"},
+		{"q", "quit"},
+	}},
+	{"Select", []keyHint{
+		{"space", "select"},
+		{"a", "select all, or none"},
+	}},
+	{"Actions", []keyHint{
+		{"r", "restore the selection, or the row under the cursor"},
+		{"d", "delete for good"},
+		{"D", "empty the trash"},
+	}},
 }
 
 // ---------------------------------------------------------------------------
 // Rendering helpers
 // ---------------------------------------------------------------------------
 
-// trashHelpBar returns the context-sensitive help text.
-func (m trashTUIModel) trashHelpBar() string {
-	var parts []string
-	parts = append(parts, "↑↓ navigate  ←→ page  / filter  Ctrl+d/u detail")
-
-	if m.selCount > 0 {
-		parts = append(parts, fmt.Sprintf("r restore(%d)  d delete(%d)", m.selCount, m.selCount))
-		parts = append(parts, "space toggle  a all")
-	} else {
-		parts = append(parts, "space select  a all")
-	}
-
-	parts = append(parts, "D empty  q quit")
-	return strings.Join(parts, "  ")
-}
-
-// renderTrashFilterBar renders the status line for the trash TUI.
-func (m trashTUIModel) renderTrashFilterBar() string {
-	return renderTUIFilterBar(
-		m.filterInput.View(), m.filtering, m.filterText,
-		m.matchCount, len(m.allItems), 0,
-		"items", renderPageInfoFromPaginator(m.list.Paginator),
-	)
-}
-
-// renderTrashSummaryFooter renders item count and total size summary.
-func (m trashTUIModel) renderTrashSummaryFooter() string {
-	var totalSize int64
-	for _, item := range m.allItems {
-		totalSize += item.entry.Size
-	}
-	parts := []string{
-		theme.Primary().Render(formatNumber(m.matchCount)) + theme.Dim().Render("/") +
-			theme.Dim().Render(formatNumber(len(m.allItems))) + theme.Dim().Render(" items"),
-		theme.Dim().Render("Total: ") + theme.Accent().Render(formatBytes(totalSize)),
-	}
-	return theme.Dim().MarginLeft(2).Render(strings.Join(parts, theme.Dim().Render(" | "))) + "\n"
-}
-
-// renderTrashDetailPanel renders the detail section for the selected trash entry.
+// renderTrashDetailPanel renders the facts and a preview of the selected entry.
 func (m trashTUIModel) renderTrashDetailPanel(entry trash.TrashEntry, width int) string {
 	var b strings.Builder
-
-	// Header: bold skill name
-	b.WriteString(theme.Title().Render(entry.Name))
+	b.WriteString(theme.Primary().Bold(true).Render(entry.Name))
 	b.WriteString("\n\n")
-
-	// Metadata rows
-	labelStyle := lipgloss.NewStyle().Faint(true).Width(12)
 	row := func(label, value string) {
-		b.WriteString(labelStyle.Render(label + ":"))
-		b.WriteString(" ")
-		b.WriteString(lipgloss.NewStyle().Render(value))
-		b.WriteString("\n")
+		b.WriteString(theme.Dim().Render(fmt.Sprintf("%-9s ", label)) + value + "\n")
 	}
-
+	kind := "skill"
 	if entry.Kind == "agent" {
-		row("Type", theme.Accent().Render("Agent"))
-	} else {
-		row("Type", theme.Accent().Render("Skill"))
+		kind = "agent"
 	}
-	row("Trashed", entry.Date.Format("2006-01-02 15:04:05"))
-	row("Age", timeAgo(entry.Date))
+	row("Kind", kind)
+	row("Trashed", entry.Date.Format("2006-01-02 15:04")+theme.Dim().Render(" · "+timeAgo(entry.Date)))
 	row("Size", formatBytes(entry.Size))
-
-	// Truncate path to panel width if needed
-	pathStr := entry.Path
-	maxPathLen := width - 14
-	if maxPathLen > 10 && len(pathStr) > maxPathLen {
-		pathStr = "..." + pathStr[len(pathStr)-maxPathLen+3:]
-	}
-	row("Path", pathStr)
+	row("Path", shortenPath(entry.Path))
 
 	// Content preview — SKILL.md for skills, agent .md file for agents
 	var previewFile, previewTitle string
 	if entry.Kind == "agent" {
-		// Find the .md file inside the trash directory
 		if entries, readErr := os.ReadDir(entry.Path); readErr == nil {
 			for _, e := range entries {
 				if !e.IsDir() && strings.HasSuffix(e.Name(), ".md") {
@@ -833,23 +799,18 @@ func (m trashTUIModel) renderTrashDetailPanel(entry trash.TrashEntry, width int)
 	}
 	if previewFile != "" {
 		if data, err := os.ReadFile(previewFile); err == nil {
-			lines := strings.SplitN(string(data), "\n", 16)
+			lines := strings.SplitN(printableText(string(data)), "\n", 16)
 			if len(lines) > 15 {
 				lines = lines[:15]
 			}
-			preview := strings.TrimRight(strings.Join(lines, "\n"), "\n")
-			if preview != "" {
-				b.WriteString("\n")
-				b.WriteString(theme.Title().Render(previewTitle))
-				b.WriteString("\n")
+			if preview := strings.TrimRight(strings.Join(lines, "\n"), "\n"); preview != "" {
+				b.WriteString("\n" + theme.Primary().Bold(true).Render(previewTitle) + "\n")
 				for _, line := range strings.Split(preview, "\n") {
-					b.WriteString(theme.Dim().Render(line))
-					b.WriteString("\n")
+					b.WriteString(theme.Dim().Render(line) + "\n")
 				}
 			}
 		}
 	}
-
 	return b.String()
 }
 

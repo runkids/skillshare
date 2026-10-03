@@ -7,8 +7,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/charmbracelet/bubbles/list"
-	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 
 	"skillshare/internal/mcp"
@@ -17,22 +15,6 @@ import (
 type scriptedMCPPrompts struct {
 	choices [][]int
 	texts   []string
-}
-
-func (*scriptedMCPPrompts) review(string, *mcp.Plan) error { return nil }
-
-func TestMCPReviewRequiresExplicitContinue(t *testing.T) {
-	for _, key := range []tea.KeyType{tea.KeyEsc, tea.KeyCtrlC, tea.KeyEnter} {
-		m := mcpReviewModel{viewport: viewport.New(76, 20), content: "Remove source server: docs"}
-		resized, _ := m.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
-		if !strings.Contains(resized.View(), "Remove source server: docs") {
-			t.Fatal("preview missing from terminal")
-		}
-		result, cmd := resized.Update(tea.KeyMsg{Type: key})
-		if cmd == nil || result.(mcpReviewModel).accepted != (key == tea.KeyEnter) {
-			t.Fatalf("unexpected preview decision for %v", key)
-		}
-	}
 }
 
 func (p *scriptedMCPPrompts) choose(checklistConfig) ([]int, error) {
@@ -65,25 +47,19 @@ func mcpTUIService(t *testing.T) *mcp.Service {
 func TestMCPListKeysAndPrivateDetails(t *testing.T) {
 	source := &mcp.Source{Targets: []string{"claude"}, Servers: map[string]mcp.Server{"docs": {URL: "https://example.com/mcp?token=hidden-query", Headers: map[string]mcp.Value{"Authorization": {Literal: "hidden-secret"}}}}}
 	m := newMCPListModel(source, nil, "global", "")
-	for _, key := range []string{"a", "i", "e", "x", "s", "b", "r"} {
+	for _, key := range []string{"n", "i", "e", "d", "s", "r"} {
 		updated, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(key)})
 		if cmd == nil || updated.(mcpListModel).action == "" {
 			t.Errorf("missing shortcut %s", key)
 		}
 	}
-	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
-	detail := updated.(mcpListModel)
-	if !detail.showDetail || strings.Contains(detail.View(), "hidden-") {
-		t.Fatalf("unsafe or missing details: %s", detail.View())
+	if view := m.View(); !strings.Contains(view, "docs") || strings.Contains(view, "hidden-") {
+		t.Fatalf("unsafe or missing details: %s", view)
 	}
-	updated, _ = detail.Update(tea.KeyMsg{Type: tea.KeyEsc})
-	if updated.(mcpListModel).showDetail {
-		t.Fatal("Escape did not return to list")
-	}
-	m.list.SetFilterState(list.Filtering)
-	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("a")})
+	m.filtering = true
+	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("n")})
 	if updated.(mcpListModel).action != "" {
-		t.Fatal("typing search triggered add")
+		t.Fatal("typing a filter triggered add")
 	}
 }
 

@@ -386,8 +386,8 @@ mcp:
 
 ## Interactive use
 
-For a person at a terminal: `skillshare mcp` opens the manager (`/` search, Enter
-details, `a` add, `i` import, `e` edit, `x` remove, `s` sync, `b` backups). `mcp add`
+For a person at a terminal: `skillshare mcp` opens the manager (`/` filter,
+`n` add, `i` import, `e` edit, `d` remove, `s` sync, `r` restore, `?` all keys). `mcp add`
 guides URL or JSON setup, `mcp edit` opens a server picker and editor, `mcp import
 --from claude` offers batch selection with one preview, and `mcp restore` browses
 backups. Review screens scroll before confirmation, and Esc cancels without saving. The

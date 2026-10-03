@@ -25,6 +25,8 @@ import { api, ApiError, type DiscoverResult, type DiscoveredSkill, type HubSaved
 import { clearAuditCache } from '../lib/auditCache';
 import { isAuditBlock, parseFindings, thresholdOf, type Finding } from '../lib/auditMessage';
 import { parseSkillMarkdown } from '../lib/frontmatter';
+import { parseSkillsAddCommand, requestedSkills } from '../lib/skillsAddCommand';
+import type { SkillsAddCommand } from '../lib/skillsAddCommand';
 import CodeView from './CodeView';
 import MarkdownView, { ViewToggle } from './MarkdownView';
 import { queryKeys, staleTimes } from '../lib/queryKeys';
@@ -129,6 +131,8 @@ export default function InstallDialog({ kind, initialTab, initialSource, onClose
   const [found, setFound] = useState<{ source: string; items: DiscoveredSkill[] } | null>(null);
   // The source whose discovery came back empty; the notice stays until the source changes.
   const [nothing, setNothing] = useState<string | null>(null);
+  // Skills named by a pasted `npx skills add --skill`; discovery of that source preselects only these.
+  const [wanted, setWanted] = useState<SkillsAddCommand | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [filter, setFilter] = useState('');
   const [expanded, setExpanded] = useState(false);
@@ -285,7 +289,8 @@ export default function InstallDialog({ kind, initialTab, initialSource, onClose
     const show = (items: DiscoveredSkill[]) => {
       setSource(from);
       setFound({ source: from, items });
-      setSelected(new Set(items.filter((i) => !isInstalled(i.kind ?? 'skill', discoveredSource(from, i.path))).map((i) => i.path)));
+      const preselected = requestedSkills(wanted, from, items) ?? items.filter((i) => !isInstalled(i.kind ?? 'skill', discoveredSource(from, i.path)));
+      setSelected(new Set(preselected.map((i) => i.path)));
       setFilter('');
       setExpanded(false);
       setTab('url');
@@ -681,7 +686,12 @@ export default function InstallDialog({ kind, initialTab, initialSource, onClose
               id={`${ids}src`}
               autoFocus
               value={source}
-              onChange={(e) => { setSource(e.target.value); setFound(null); }}
+              onChange={(e) => {
+                const command = parseSkillsAddCommand(e.target.value);
+                setSource(command?.source ?? e.target.value);
+                setWanted(command);
+                setFound(null);
+              }}
               onKeyDown={(e) => e.key === 'Enter' && !found && primary()}
               placeholder="owner/repo"
             />

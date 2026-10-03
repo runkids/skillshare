@@ -111,23 +111,21 @@ $ skillshare install anthropics/skills
 ✓ Source    github.com/anthropics/skills
   Found     20 skills
 
-  Select skills to install (0/20 selected)
-
-▌ [ ] academy-guide (Complete terms in LICENSE.txt)
-▌ [ ] algorithmic-art (Complete terms in LICENSE.txt)
-▌ [ ] brand-guidelines (Complete terms in LICENSE.txt)
-▌ [ ] canvas-design (Complete terms in LICENSE.txt)
-▌ [ ] claude-api (Complete terms in LICENSE.txt)
-▌ [ ] discernment-nudge (Complete terms in LICENSE.txt)
-▌ [ ] doc-coauthoring
-▌ [ ] docx (Proprietary. LICENSE.txt has complete terms)
+? Install which skills?
+› ○ academy-guide        Complete terms in LICENSE.txt
+  ○ algorithmic-art      Complete terms in LICENSE.txt
+  ○ brand-guidelines     Complete terms in LICENSE.txt
+  ○ canvas-design        Complete terms in LICENSE.txt
+  ○ claude-api           Complete terms in LICENSE.txt
+  ○ discernment-nudge
+  ○ doc-coauthoring
+  ○ docx                 Proprietary. LICENSE.txt has complete terms
   …
 
-  20 skills
-  ↑↓ navigate  space toggle  a all  enter confirm  / filter  esc cancel
+  ↑↓ move · space toggle · ctrl+a all · enter confirm · / filter · esc cancel
 ```
 
-Discovery scans all directories for `SKILL.md` files, skipping only `.git`. This means skills inside hidden directories like `.curated/` or `.system/` are discovered automatically. When multiple skills are found, the selection prompt groups them by directory for easier browsing.
+Discovery scans all directories for `SKILL.md` files, skipping only `.git`. This means skills inside hidden directories like `.curated/` or `.system/` are discovered automatically. When multiple skills are found, the prompt lists skills from the same folder together and shows each one's description and folder; press `/` to narrow a long list.
 
 If the repository contains a `.skillignore` file at its root, matching skills are automatically excluded from discovery. See [.skillignore](#skillignore) below.
 

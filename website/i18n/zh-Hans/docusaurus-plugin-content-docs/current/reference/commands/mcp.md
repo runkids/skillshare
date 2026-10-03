@@ -73,20 +73,9 @@ skillshare sync --all
 
 ## 交互式管理
 
-运行 `skillshare mcp` 或 `skillshare mcp list`。与 skills 列表一样，该管理器
-支持 `/` 搜索和 `Enter` 查看详情。连接列表会隐藏参数、
-header 和环境变量的值，并省略 URL 中的查询参数。
-
-| 按键 | 操作 |
-|---|---|
-| `a` | 添加一个连接 |
-| `i` | 导入一个或多个连接 |
-| `e` | 编辑所选的连接 |
-| `x` | 移除所选的连接 |
-| `s` | 预览并确认同步 |
-| `b` | 按 client 浏览备份，按最新排序 |
-| `r` | 刷新状态 |
-| `q` | 退出 |
+运行 `skillshare mcp` 或 `skillshare mcp list` 即可添加、导入、编辑、移除、同步和还原连接；
+所选连接的详情显示在列表旁。连接列表会隐藏参数、
+header 和环境变量的值，并省略 URL 中的查询参数。按键列在屏幕底部。
 
 省略名称或备份 ID 时，`mcp edit`、`mcp remove` 和 `mcp restore` 会提供选择菜单。
 编辑器涵盖 command/URL、参数、环境
@@ -99,8 +88,7 @@ only** 之前显示预览。Remove 还提供 **Stop managing**，效果与 `--ke
 会取消待处理的草稿。Restore 会预览并确认
 对 Agent 条目所做的更改；它不会重写 source 定义。
 
-不带 server 名称的 import 支持多选（`Space` 切换选中，
-`a` 全选）。无效的候选项会被跳过；已存在的 source 名称会被跳过，
+不带 server 名称的 import 支持多选。无效的候选项会被跳过；已存在的 source 名称会被跳过，
 除非指定了 `--replace`。为整批操作选择一组兼容的接收方 client。
 整批数据会先经过验证，然后 source 只被保存一次；
 之后的原生文件 I/O 失败仍保留现有的恢复行为。

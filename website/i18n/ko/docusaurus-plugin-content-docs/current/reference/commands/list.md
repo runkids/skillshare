@@ -50,7 +50,7 @@ Tracked repos
 
 ## Interactive TUI
 
-TTY에서 `skillshare list`를 실행하면 다음 기능을 갖춘 대화형 터미널 UI가 실행됩니다.
+TTY에서 `skillshare list`는 skill과 agent를 두 탭으로 나눈 대화형 화면을 엽니다. 왼쪽은 목록, 오른쪽은 선택한 항목의 상세 정보입니다. 여기서 skill을 업데이트, 제거, audit하고, 켜고 끄며(즉시 `.skillignore`에 기록), 파일을 읽을 수 있습니다. 자주 쓰는 키는 화면 아래쪽에 표시되며, `?`를 누르면 모든 키를 볼 수 있습니다.
 
 - **스마트 필터링** — `/`를 눌러 이름, 경로, source로 필터링합니다. 정밀한 필터링을 위한 태그 문법을 지원합니다.
 
@@ -68,18 +68,7 @@ TTY에서 `skillshare list`를 실행하면 다음 기능을 갖춘 대화형 �
   ```
   이는 "security" 그룹에 속한 tracked skill 중 이름에 "audit"이 포함된 것만 표시합니다.
 
-  :::tip
-  enabled/disabled 필터링에는 보통 태그가 필요 없습니다 — 그냥 `s`를 누르세요
-  (아래 **Status filter** 참조). `s:enabled` / `s:disabled` 태그는 status를
-  다른 태그와 *조합*할 때 사용합니다. 예: `t:tracked s:disabled`.
-  :::
-
-- **Status filter** — `s`를 눌러 enabled/disabled 보기를 순환합니다: **All → Enabled → Disabled → All**. 현재 상태는 탭 바 옆에 `Status:` 칩으로 표시되므로, 목록이 클 때 `.skillignore`로 비활성화된 skill만 바로 좁혀볼 수 있습니다(또는 숨길 수 있습니다). 탭 필터 및 `/` 필터와 함께 조합됩니다.
-- **키보드 탐색** — 화살표 키로 탐색, `q`로 종료
-- **Detail panel** — 선택한 skill의 설명, 디스크 경로, 파일, 동기화된 target을 표시합니다
-- **Enable/disable toggle** — `E`를 눌러 선택한 skill의 enabled/disabled 상태를 전환합니다. TUI를 나가지 않고 즉시 `.skillignore`에 기록됩니다. 비활성화된 skill은 detail panel에 빨간색 **disabled** 배지로 표시됩니다.
-- **Manual only toggle** — `M`을 눌러 선택한 skill의 `SKILL.md`에서 `disable-model-invocation`을 전환합니다. skill은 설치된 상태로 남고 이름으로 여전히 호출할 수 있지만, 모델이 자동으로 로드하지는 않습니다. detail panel에는 **manual only** 배지가 표시됩니다. `E`와 달리 이는 skill 파일 자체를 수정합니다: tracked 또는 설치된 skill의 경우 TUI가 먼저 확인을 묻는데, `skillshare update`가 로컬 변경 사항이 있는 tracked repo를 건너뛰고 skill을 재설치하면 편집 내용이 사라지기 때문입니다. `M`을 다시 누르면 해당 줄이 제거되어 파일이 정확히 원래대로 복원됩니다. Agent는 영향을 받지 않습니다. [대시보드](/docs/reference/commands/ui)에도 동일한 **manual only** 태그가 표시되며 skill 편집기에 해당 스위치가 있습니다.
-- **Content viewer** — `Enter`를 눌러 왼쪽에 파일 트리, 오른쪽에 Markdown 렌더링 콘텐츠가 있는 dual-pane 뷰어를 엽니다. `j`/`k`로 파일을 탐색(자동 미리보기), `l`/`Enter`로 디렉터리 확장, `h`로 축소합니다. `Ctrl+d`/`u`로 콘텐츠를 반 페이지씩 스크롤, `g`/`G`로 맨 위/맨 아래로 이동합니다. 마우스 휠과 클릭도 지원됩니다.
+- **Manual only toggle** — `m`을 눌러 선택한 skill의 `SKILL.md`에서 `disable-model-invocation`을 전환합니다. skill은 설치된 상태로 남고 이름으로 여전히 호출할 수 있지만, 모델이 자동으로 로드하지는 않습니다. detail panel에는 **manual only** 배지가 표시됩니다. `t`와 달리 이는 skill 파일 자체를 수정합니다: tracked 또는 설치된 skill의 경우 TUI가 먼저 확인을 묻는데, `skillshare update`가 로컬 변경 사항이 있는 tracked repo를 건너뛰고 skill을 재설치하면 편집 내용이 사라지기 때문입니다. `m`을 다시 누르면 해당 줄이 제거되어 파일이 정확히 원래대로 복원됩니다. Agent는 영향을 받지 않습니다. [대시보드](/docs/reference/commands/ui)에도 동일한 **manual only** 태그가 표시되며 skill 편집기에 해당 스위치가 있습니다.
 
 TUI를 건너뛰고 일반 텍스트를 출력하려면 `--no-tui`를 사용하세요.
 
@@ -104,8 +93,8 @@ skillshare list --json | jq '.[].name'   # JSON for scripting
 
 기본 보기(`--status all`)에는 비활성화로 표시된 항목도 포함됩니다. `--status`는
 패턴 및 `--type`과 AND 의미론으로 조합되며, project mode와 `list agents` /
-`list --all`에서도 동작하고, TUI의 `Status:` 칩을 미리 채웁니다
-(여전히 `s`를 눌러 거기서부터 순환할 수 있습니다).
+`list --all`에서도 동작하고, TUI도 같은 방식으로 좁혀집니다.
+이때 TUI 맨 윗줄에 `disabled only` 같은 표시가 나타납니다. TUI 안에서는 대신 필터에 `s:disabled`를 입력하세요.
 
 :::tip AI Usage
 skill을 프로그래밍 방식으로 검사할 때는 `--json` 모드를 사용하세요.

@@ -17,7 +17,7 @@ skillshare disable my-skill -p      # Project mode
 
 - アンインストールせずに、Skill を sync から一時的に隠したい
 - ドラフトや実験的な Skill をすべての Target でミュートしたい
-- `list` の TUI から `E` キーで Skill の有効/無効を切り替えたい
+- `list` の TUI から `t` キーで Skill の有効/無効を切り替えたい
 
 ## 仕組み
 
@@ -118,9 +118,7 @@ Next
 
 ## TUI での切り替え
 
-インタラクティブな `skillshare list` の TUI では、**E** キーを押すと選択中の Skill の有効/無効状態を切り替えられます。変更は即座に `.skillignore` に書き込まれ、TUI を終了する必要はありません。
-
-無効化された Skill は、詳細パネルに赤い **disabled** バッジで表示されます。
+`skillshare list` の TUI でも Skill の有効/無効を切り替えられます。変更は即座に `.skillignore` に書き込まれます。
 
 ## .skillignore はどこにある?
 
@@ -150,7 +148,7 @@ Agent 管理の背景については [Agents](/docs/understand/agents) を参照
 
 ## 関連項目
 
-- [list](./list.md) — 無効化された Skill の表示と `E` キーでの切り替え
+- [list](./list.md) — 無効化された Skill の表示と `t` キーでの切り替え
 - [Filtering Skills](/docs/how-to/daily-tasks/filtering-skills) — すべてのフィルタリング層
 - [.skillignore](/docs/reference/filtering#skillignore) — パターン構文
 - [sync](./sync.md) — 有効化・無効化後に変更を適用

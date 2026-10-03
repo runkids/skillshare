@@ -21,28 +21,9 @@ skillshare restore claude --dry-run                    # プレビュー
 
 ## 対話式 TUI
 
-TTY 上で `skillshare restore`（引数なし）を実行すると、統合された restore TUI が起動します。
+TTY 上で引数なしの `skillshare restore` を実行すると、まずバックアップとゴミ箱のどちらから復元するかを尋ねます。バックアップを選ぶと、ターゲットを選んでそのバックアップバージョンを閲覧できます。各バージョンには日付、サイズ、現在のターゲットと比べて追加・削除される項目が表示され、古いバージョンをここから削除することもできます。ゴミ箱を選ぶと trash TUI が開きます。キーは画面下部に表示されます。
 
-1. **Source picker** — "Backup Restore" と "Trash Restore" のどちらかを選択
-2. **Backup Restore** — target を選択し、詳細パネル付きでバックアップバージョンを参照:
-   - バックアップの日付、サイズ、Skill 数
-   - 現在の target との差分（追加/削除された Skill）
-   - 個別のファイル一覧
-3. **Trash Restore** — trash TUI を開いて削除された Skill を復元
-
-### キーバインド
-
-| キー | 動作 |
-|-----|--------|
-| `↑`/`↓` | targets / versions を移動 |
-| `Enter` | target を選択 / version を復元 |
-| `/` | targets を絞り込み |
-| `d` | バックアップバージョンを削除 |
-| `Ctrl+d`/`Ctrl+u` | 詳細パネルをスクロール |
-| `Esc` | 戻る |
-| `q`/`Ctrl+C` | 終了 |
-
-`--no-tui` を使うと TUI をスキップし、代わりにプレーンなバックアップ一覧を表示します。
+TUI をスキップしてプレーンなバックアップ一覧を表示するには `--no-tui` を使用します。
 
 ## 実行内容
 

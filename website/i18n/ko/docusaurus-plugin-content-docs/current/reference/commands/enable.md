@@ -17,7 +17,7 @@ skillshare disable my-skill -p      # Project mode
 
 - skill을 제거하지 않고 sync에서 일시적으로 숨길 때
 - 초안이나 실험적인 skill을 모든 target에서 음소거할 때
-- list TUI에서 `E` 키로 skill을 켜고 끌 때
+- list TUI에서 `t` 키로 skill을 켜고 끌 때
 
 ## 동작 방식
 
@@ -118,9 +118,7 @@ Next
 
 ## TUI 토글
 
-대화형 `skillshare list` TUI에서 **E**를 누르면 선택한 skill의 활성화/비활성화 상태가 토글됩니다. 변경 사항은 즉시 `.skillignore`에 기록되며, TUI를 먼저 종료할 필요가 없습니다.
-
-비활성화된 skill은 상세 패널에 빨간색 **disabled** 배지로 표시됩니다.
+`skillshare list` TUI에서도 skill을 켜고 끌 수 있습니다. 변경 사항은 즉시 `.skillignore`에 기록됩니다.
 
 ## .skillignore는 어디에 있나요?
 
@@ -150,7 +148,7 @@ agent 관리에 대한 배경 지식은 [Agents](/docs/understand/agents)를 참
 
 ## 참고 항목
 
-- [list](./list.md) — 비활성화된 skill 확인 및 `E` 키로 토글
+- [list](./list.md) — 비활성화된 skill 확인 및 `t` 키로 토글
 - [Filtering Skills](/docs/how-to/daily-tasks/filtering-skills) — 모든 필터링 레이어
 - [.skillignore](/docs/reference/filtering#skillignore) — 패턴 문법
 - [sync](./sync.md) — enable/disable 후 변경 사항 적용

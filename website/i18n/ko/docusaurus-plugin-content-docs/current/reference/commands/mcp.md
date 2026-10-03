@@ -73,20 +73,9 @@ noninteractive mode에서는 상태를 출력합니다. 이름 없이 noninterac
 
 ## Interactive management
 
-`skillshare mcp` 또는 `skillshare mcp list`를 실행하세요. skill 목록과 마찬가지로, 관리자는
-검색을 위한 `/`와 상세 정보를 위한 `Enter`를 지원합니다. 연결 목록은 인자, 헤더, 환경 변수
-값을 숨기며 URL 쿼리를 생략합니다.
-
-| Key | Action |
-|---|---|
-| `a` | 연결 추가 |
-| `i` | 하나 이상의 연결 import |
-| `e` | 선택한 연결 편집 |
-| `x` | 선택한 연결 제거 |
-| `s` | 동기화 미리보기 및 확인 |
-| `b` | client별로 백업 탐색, 최신순 |
-| `r` | 상태 새로고침 |
-| `q` | 종료 |
+`skillshare mcp` 또는 `skillshare mcp list`를 실행하면 연결을 추가, import, 편집, 제거, 동기화,
+복원할 수 있으며, 선택한 연결의 상세 정보가 목록 옆에 표시됩니다. 연결 목록은 인자, 헤더, 환경 변수
+값을 숨기며 URL 쿼리를 생략합니다. 키는 화면 하단에 표시됩니다.
 
 `mcp edit`, `mcp remove`, `mcp restore`는 이름이나 백업 ID가 생략된 경우 선택 메뉴를
 제공합니다. 편집기는 command/URL, 인자, 환경 변수, HTTP 헤더, bearer-token 환경 참조,
@@ -97,8 +86,7 @@ Add, edit, remove, import는 **Save and sync** 또는 **Save only** 전에 미�
 표시합니다. Remove는 `--keep-files`와 같은 **Stop managing**도 제공합니다. Escape를 누르면 대기 중인 초안이 취소됩니다. Restore는 Agent 항목에 대한
 변경 사항을 미리보고 확인하지만, source 정의는 다시 작성하지 않습니다.
 
-서버 이름 없이 import하면 여러 항목을 선택할 수 있습니다(`Space`로 토글, `a`로 전체
-선택). 유효하지 않은 후보는 건너뛰며, `--replace`를 지정하지 않는 한 기존 source 이름은
+서버 이름 없이 import하면 여러 항목을 선택할 수 있습니다. 유효하지 않은 후보는 건너뛰며, `--replace`를 지정하지 않는 한 기존 source 이름은
 건너뜁니다. 배치 전체에 대해 호환되는 하나의 수신 client 집합을 선택하세요. 전체 배치는
 source가 한 번 저장되기 전에 검증되며, 이후의 네이티브 파일 I/O 실패는 기존 복구 동작을
 유지합니다.

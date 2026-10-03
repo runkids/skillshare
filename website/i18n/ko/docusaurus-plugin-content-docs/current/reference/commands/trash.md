@@ -26,60 +26,9 @@ skillshare trash --all list              # trash된 skill + agent 나열
 
 ## 인터랙티브 TUI
 
-TTY에서 `trash list`는 다중 선택, 필터링, inline 복원/삭제 작업을 지원하는 interactive TUI를 실행합니다. 각 항목은 종류 배지를 표시합니다: skill은 `[S]`, agent는 `[A]`.
+TTY에서 `trash list`는 휴지통 항목을 최신순으로 대화형 목록에 엽니다. 하나 이상을 선택해 복원하거나 영구 삭제할 수 있고, 휴지통 전체를 비울 수도 있으며, 모두 실행 전에 확인합니다. 항목을 열면 파일이 표시되어 복원 전에 내용을 확인할 수 있습니다. 키는 화면 아래쪽에 표시됩니다. `--all`을 사용하거나 종류를 지정하지 않으면 skill과 agent가 함께 표시됩니다.
 
-```
-Trash (global) — 5 items
-
-  [ ] [S] my-skill    (512 B, 2d ago)
-  [x] [S] old-tool    (1.2 KB, 5d ago)
-  [ ] [A] tutor       (2.0 KB, 3d ago)
-  [ ] [S] another     (128 B, 1d ago)
-
-  ─────────────────────────────────────────
-  Name:         old-tool
-  Type:         Skill
-  Trashed:      2026-02-27 14:30:05
-  Size:         1.2 KB
-  Path:         ~/.local/share/skillshare/trash/old-tool_...
-
-  ── SKILL.md ──────────────────────────────
-  ---
-  name: old-tool
-  description: A helpful tool
-  ---
-  # old-tool
-  ...
-
-  ↑↓ navigate  / filter  space select  r restore(1)  d delete(1)  D empty  q quit
-```
-
-`--all`을 사용하거나 종류 filter 없이 사용하면, TUI는 skill과 agent를 날짜순(최신 먼저)으로 정렬된 하나의 목록으로 병합합니다.
-
-### 키 바인딩
-
-| 키 | 동작 |
-|-----|--------|
-| `↑`/`↓` | 항목 이동 |
-| `←`/`→` | 페이지 변경 |
-| `/` | filter 모드 진입(이름 부분 일치) |
-| `Space` | 현재 항목 선택 토글 |
-| `a` | 표시된 모든 항목 선택 토글 |
-| `r` | 선택된 항목 복원(확인 필요) |
-| `d` | 선택된 항목 영구 삭제(확인 필요) |
-| `D` | 모든 trash 비우기(선택 항목 무시, 확인 필요) |
-| `Ctrl+d`/`Ctrl+u` | 세부 패널을 아래/위로 스크롤 |
-| `q`/`Ctrl+C` | 종료 |
-
-확인 모드에서는: `y`/`Enter`로 확인, `n`/`Esc`로 취소.
-
-### 일괄 작업
-
-여러 항목이 선택되면 `r`과 `d`는 모두에 대해 동작합니다. 일부 항목이 실패하면(예: source에 이미 같은 이름이 존재하는 skill을 복원하는 경우), TUI는 나머지 항목 처리를 계속하고 결합된 결과를 표시합니다.
-
-```
-Restored 2 item(s)  Failed: my-skill: already exists
-```
+일부 항목이 실패해도(예: 복원하려는 skill 이름이 source에 이미 있는 경우) 나머지 항목은 계속 처리되고, 결과에 실패한 항목이 표시됩니다.
 
 TUI를 건너뛰고 plain text로 출력하려면 `--no-tui`를 사용하세요.
 

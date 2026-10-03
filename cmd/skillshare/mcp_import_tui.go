@@ -29,7 +29,7 @@ func mcpBatchImportWizard(service *mcp.Service, candidates []mcp.Candidate, o mc
 	if len(items) == 0 {
 		return fmt.Errorf("no new importable MCP servers")
 	}
-	selected, err := chooseMCP(prompts, checklistConfig{title: "Choose MCP servers to import", header: "Space toggles · a selects all · Enter continues · Esc cancels", items: items, itemName: "server"})
+	selected, err := chooseMCP(prompts, checklistConfig{title: "Choose MCP servers to import", items: items, itemName: "server"})
 	if err != nil {
 		return err
 	}

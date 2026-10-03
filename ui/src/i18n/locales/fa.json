@@ -1041,7 +1041,7 @@
   "install.url.selectAll": "انتخاب همه",
   "install.url.deselectAll": "لغو انتخاب همه",
   "install.url.sourceLabel": "URL گیت، شکل کوتاه GitHub یا مسیر محلی",
-  "install.url.sourceHint": "زیرپوشه هم کار می‌کند: owner/repo/path/to/skill. همین‌طور URLهای SSH و پوشه‌هایی مثل ~/Downloads/my-skill.",
+  "install.url.sourceHint": "زیرپوشه هم کار می‌کند: owner/repo/path/to/skill. همین‌طور URLهای SSH و پوشه‌هایی مثل ~/Downloads/my-skill. می‌توانید دستور npx skills add را هم جای‌گذاری کنید.",
   "install.url.selected": "{count} انتخاب‌شده",
   "install.url.filterSkills": "فیلتر اسکیل‌ها",
   "install.url.filterAgents": "فیلتر ایجنت‌ها",

@@ -76,23 +76,7 @@ token 估算使用 `chars / 4` 作为近似值。
 
 ## 交互式 TUI
 
-默认情况下，`analyze` 会启动一个交互式 TUI，包含：
-
-- **左侧面板** —— 按 token 开销排序的 skill 列表，用颜色编码的圆点表示（按百分位数分为红/黄/绿）
-- **右侧面板** —— 详情视图：token 明细、lint 质量问题、路径、tracked 状态、描述预览
-- **底部栏** —— target 选择器（Tab/Shift+Tab 切换）+ token 总计 + 估算公式
-
-### TUI 控制键
-
-| 按键 | 操作 |
-|-----|--------|
-| `↑`/`↓` | 在 skill 列表中导航 |
-| `←`/`→` | 上/下翻页 |
-| `Tab` / `Shift+Tab` | 切换 target |
-| `/` | 按名称过滤 skills |
-| `s` | 循环排序：tokens↓ → tokens↑ → name A→Z → name Z→A |
-| `Ctrl+d` / `Ctrl+u` | 滚动详情面板 |
-| `q` | 退出 |
+在 TTY 上，`analyze` 会打开交互式界面，一次查看一个 target：左侧是按 token 用量排序的 skills，右侧是所选 skill 的 token 明细、lint 问题和描述。打开 skill 会显示文件原文（含 front matter），可以直接对照 lint 问题。按键列在界面底部。使用 `--no-tui` 改为输出纯文本。
 
 ### 颜色编码
 

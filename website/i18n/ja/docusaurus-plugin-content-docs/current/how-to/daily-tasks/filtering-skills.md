@@ -62,7 +62,7 @@ skillshare disable experimental-*   # .skillignore に追加
 skillshare enable experimental-*    # .skillignore から削除
 ```
 
-`skillshare list` の TUI で **E** キーを押して Skill の有効/無効を切り替えることもできます。
+`skillshare list` の TUI で **t** キーを押して Skill の有効/無効を切り替えることもできます。
 
 📖 [enable / disable](/docs/reference/commands/enable) ・ [.skillignore の構文](/docs/reference/appendix/file-structure#skillignore-optional) ・ [フィルタリングリファレンス](/docs/reference/filtering#skillignore)
 

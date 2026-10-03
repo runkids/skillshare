@@ -111,23 +111,21 @@ $ skillshare install anthropics/skills
 ✓ Source    github.com/anthropics/skills
   Found     20 skills
 
-  Select skills to install (0/20 selected)
-
-▌ [ ] academy-guide (Complete terms in LICENSE.txt)
-▌ [ ] algorithmic-art (Complete terms in LICENSE.txt)
-▌ [ ] brand-guidelines (Complete terms in LICENSE.txt)
-▌ [ ] canvas-design (Complete terms in LICENSE.txt)
-▌ [ ] claude-api (Complete terms in LICENSE.txt)
-▌ [ ] discernment-nudge (Complete terms in LICENSE.txt)
-▌ [ ] doc-coauthoring
-▌ [ ] docx (Proprietary. LICENSE.txt has complete terms)
+? Install which skills?
+› ○ academy-guide        Complete terms in LICENSE.txt
+  ○ algorithmic-art      Complete terms in LICENSE.txt
+  ○ brand-guidelines     Complete terms in LICENSE.txt
+  ○ canvas-design        Complete terms in LICENSE.txt
+  ○ claude-api           Complete terms in LICENSE.txt
+  ○ discernment-nudge
+  ○ doc-coauthoring
+  ○ docx                 Proprietary. LICENSE.txt has complete terms
   …
 
-  20 skills
-  ↑↓ navigate  space toggle  a all  enter confirm  / filter  esc cancel
+  ↑↓ move · space toggle · ctrl+a all · enter confirm · / filter · esc cancel
 ```
 
-Discovery 會掃描所有目錄尋找 `SKILL.md` 檔案，只跳過 `.git`。這代表 `.curated/` 或 `.system/` 之類隱藏目錄中的 skills 也會被自動發現。當找到多個 skills 時，選擇提示會依目錄分組，方便瀏覽。
+Discovery 會掃描所有目錄尋找 `SKILL.md` 檔案，只跳過 `.git`。這代表 `.curated/` 或 `.system/` 之類隱藏目錄中的 skills 也會被自動發現。當找到多個 skills 時，選擇提示會把同一個資料夾的 skills 排在一起，並顯示每個 skill 的說明與所在資料夾；清單很長時按 `/` 篩選。
 
 如果 repository 根目錄有 `.skillignore` 檔案，符合的 skills 會自動從 discovery 中排除。見下方 [.skillignore](#skillignore)。
 

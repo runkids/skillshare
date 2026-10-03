@@ -88,9 +88,9 @@ func cmdExtrasInit(args []string) error {
 		}
 	}
 
-	// No arguments at all → launch interactive TUI wizard
+	// No arguments at all → ask for each setting
 	if name == "" && len(targets) == 0 && syncMode == "" && file == "" && as == "" && shouldLaunchTUI(noTUI, nil) {
-		return cmdExtrasInitTUI(mode, cwd)
+		return cmdExtrasInitPrompt(mode, cwd)
 	}
 	if name == "" {
 		return fmt.Errorf("extras name is required: skillshare extras init <name> --target <path>")

@@ -263,7 +263,7 @@ func pluginWizard(s *plugin.Service, o pluginOptions) error {
 	if len(p.Changes) == 0 {
 		return nil
 	}
-	_, err = pluginChoose("3/3 · Apply these changes? Esc cancels", []checklistItemData{{label: "Apply", desc: "Use native plugin management; login and hook trust remain in each Agent"}}, false)
+	_, err = pluginChoose("3/3 · Apply these changes?", []checklistItemData{{label: "Apply", desc: "Use native plugin management; login and hook trust remain in each Agent"}}, false)
 	if err != nil {
 		return err
 	}

@@ -21,28 +21,9 @@ skillshare restore claude --dry-run                    # 预览
 
 ## 交互式 TUI
 
-在 TTY 中，`skillshare restore`（不带参数）会启动一个统一的恢复 TUI：
+在 TTY 上，不带参数运行 `skillshare restore` 会先询问要从备份还是从回收站恢复。选择备份时，先选 target 再浏览它的备份版本：每个版本会显示日期、大小，以及与当前 target 相比会新增或移除哪些项目，也可以在这里删除旧版本。选择回收站则会打开 trash TUI。按键列在界面底部。
 
-1. **Source 选择器**——在 "Backup Restore" 和 "Trash Restore" 之间选择
-2. **Backup Restore**——选择一个 target，然后浏览备份版本，详情面板中会显示：
-   - 备份日期、大小和 skill 数量
-   - 与当前 target 的差异（新增/移除的 skills）
-   - 单个文件列表
-3. **Trash Restore**——打开 trash TUI 以恢复已删除的 skills
-
-### 键位绑定
-
-| 按键 | 操作 |
-|-----|------|
-| `↑`/`↓` | 在 targets / 版本之间导航 |
-| `Enter` | 选择 target / 恢复版本 |
-| `/` | 过滤 targets |
-| `d` | 删除某个备份版本 |
-| `Ctrl+d`/`Ctrl+u` | 滚动详情面板 |
-| `Esc` | 返回上一步 |
-| `q`/`Ctrl+C` | 退出 |
-
-使用 `--no-tui` 跳过 TUI，改为显示纯文本备份列表。
+使用 `--no-tui` 跳过 TUI，改为显示纯文本的备份列表。
 
 ## 会发生什么
 

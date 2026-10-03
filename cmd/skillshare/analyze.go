@@ -32,6 +32,7 @@ type analyzeSkillEntry struct {
 
 	// TUI-only fields (unexported, excluded from JSON)
 	relPath     string
+	path        string // the skill's folder, in the source or a target
 	isTracked   bool
 	targetNames []string
 	description string
@@ -339,6 +340,7 @@ func buildAnalyzeEntries(
 				Local:             s.Local,
 				Disabled:          s.Disabled,
 				relPath:           s.RelPath,
+				path:              s.SourcePath,
 				isTracked:         s.IsInRepo,
 				targetNames:       s.Targets,
 				description:       s.Description,
