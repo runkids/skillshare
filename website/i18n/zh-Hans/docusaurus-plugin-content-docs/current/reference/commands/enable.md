@@ -60,26 +60,34 @@ flowchart LR
 ```bash
 # 禁用单个 skill
 $ skillshare disable my-draft
-Disabled: my-draft (added to .skillignore)
-Run 'skillshare sync' to apply changes.
+✓ my-draft  added to .skillignore
+
+Next
+  skillshare sync  apply the change
 
 # 按 glob 模式禁用
 $ skillshare disable "experimental-*"
-Disabled: experimental-* (added to .skillignore)
-Run 'skillshare sync' to apply changes.
+✓ experimental-*  added to .skillignore
+
+Next
+  skillshare sync  apply the change
 
 # 重新启用
 $ skillshare enable my-draft
-Enabled: my-draft (removed from .skillignore)
-Run 'skillshare sync' to apply changes.
+✓ my-draft  removed from .skillignore
+
+Next
+  skillshare sync  apply the change
 
 # 预览而不写入
 $ skillshare disable my-skill --dry-run
-Would add 'my-skill' to ~/.config/skillshare/skills/.skillignore
+  my-skill  would be added to ~/.config/skillshare/skills/.skillignore
+
+Dry run — nothing was written
 
 # 已经被禁用
 $ skillshare disable my-draft
-warning: my-draft is already disabled
+! my-draft  already disabled
 ```
 
 ## 禁用整个文件夹
@@ -89,13 +97,17 @@ warning: my-draft is already disabled
 ```bash
 # 禁用 frontend/ 下的所有 skill（任意深度）
 $ skillshare disable "frontend/**"
-Disabled: frontend/** (added to .skillignore)
-Run 'skillshare sync' to apply changes.
+✓ frontend/**  added to .skillignore
+
+Next
+  skillshare sync  apply the change
 
 # 重新启用整个文件夹
 $ skillshare enable "frontend/**"
-Enabled: frontend/** (removed from .skillignore)
-Run 'skillshare sync' to apply changes.
+✓ frontend/**  removed from .skillignore
+
+Next
+  skillshare sync  apply the change
 ```
 
 :::tip 给模式加上引号

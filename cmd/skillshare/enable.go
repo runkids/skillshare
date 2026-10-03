@@ -101,13 +101,14 @@ func cmdToggleSkill(args []string, enable bool) error {
 		ignoreLabel = ".agentignore"
 	}
 
+	width := ui.RowWidth(patterns...)
 	changed := false
 	for _, pattern := range patterns {
 		if dryRun {
 			if enable {
-				ui.Info("Would remove %q from %s", pattern, ignorePath)
+				ui.Row(ui.MarkNone, pattern, "would be removed from "+shortenPath(ignorePath), width)
 			} else {
-				ui.Info("Would add %q to %s", pattern, ignorePath)
+				ui.Row(ui.MarkNone, pattern, "would be added to "+shortenPath(ignorePath), width)
 			}
 			continue
 		}
@@ -118,27 +119,31 @@ func cmdToggleSkill(args []string, enable bool) error {
 				return fmt.Errorf("failed to update %s: %w", ignoreLabel, err)
 			}
 			if !removed {
-				ui.Warning("%s is not disabled", pattern)
+				ui.Row(ui.MarkWarn, pattern, "not disabled", width)
 				continue
 			}
 			changed = true
-			ui.Success("Enabled: %s (removed from %s)", pattern, ignoreLabel)
+			ui.Row(ui.MarkOK, pattern, "removed from "+ignoreLabel, width)
 		} else {
 			added, err := skillignore.AddPattern(ignorePath, pattern)
 			if err != nil {
 				return fmt.Errorf("failed to update %s: %w", ignoreLabel, err)
 			}
 			if !added {
-				ui.Warning("%s is already disabled", pattern)
+				ui.Row(ui.MarkWarn, pattern, "already disabled", width)
 				continue
 			}
 			changed = true
-			ui.Success("Disabled: %s (added to %s)", pattern, ignoreLabel)
+			ui.Row(ui.MarkOK, pattern, "added to "+ignoreLabel, width)
 		}
 	}
 
+	if dryRun {
+		fmt.Println()
+		ui.DryRun()
+	}
 	if !dryRun && changed {
-		ui.Info("Run \"skillshare sync\" to apply changes.")
+		ui.Next("skillshare sync", "apply the change")
 
 		e := oplog.NewEntry(action, "ok", time.Since(start))
 		e.Args = map[string]any{

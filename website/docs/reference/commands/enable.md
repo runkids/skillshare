@@ -60,26 +60,34 @@ Mode is auto-detected when neither `-p` nor `-g` is specified (same as other com
 ```bash
 # Disable a single skill
 $ skillshare disable my-draft
-Disabled: my-draft (added to .skillignore)
-Run 'skillshare sync' to apply changes.
+✓ my-draft  added to .skillignore
+
+Next
+  skillshare sync  apply the change
 
 # Disable by glob pattern
 $ skillshare disable "experimental-*"
-Disabled: experimental-* (added to .skillignore)
-Run 'skillshare sync' to apply changes.
+✓ experimental-*  added to .skillignore
+
+Next
+  skillshare sync  apply the change
 
 # Re-enable
 $ skillshare enable my-draft
-Enabled: my-draft (removed from .skillignore)
-Run 'skillshare sync' to apply changes.
+✓ my-draft  removed from .skillignore
+
+Next
+  skillshare sync  apply the change
 
 # Preview without writing
 $ skillshare disable my-skill --dry-run
-Would add 'my-skill' to ~/.config/skillshare/skills/.skillignore
+  my-skill  would be added to ~/.config/skillshare/skills/.skillignore
+
+Dry run — nothing was written
 
 # Already disabled
 $ skillshare disable my-draft
-warning: my-draft is already disabled
+! my-draft  already disabled
 ```
 
 ## Disable a Whole Folder
@@ -89,13 +97,17 @@ warning: my-draft is already disabled
 ```bash
 # Disable every skill under frontend/ (any depth)
 $ skillshare disable "frontend/**"
-Disabled: frontend/** (added to .skillignore)
-Run 'skillshare sync' to apply changes.
+✓ frontend/**  added to .skillignore
+
+Next
+  skillshare sync  apply the change
 
 # Re-enable the whole folder
 $ skillshare enable "frontend/**"
-Enabled: frontend/** (removed from .skillignore)
-Run 'skillshare sync' to apply changes.
+✓ frontend/**  removed from .skillignore
+
+Next
+  skillshare sync  apply the change
 ```
 
 :::tip Quote the pattern
