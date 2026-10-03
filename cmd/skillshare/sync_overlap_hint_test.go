@@ -8,6 +8,7 @@ import (
 )
 
 func TestPrintSyncOverlapHint_NamesConflictAndFix(t *testing.T) {
+	keepPathsUnfolded(t)
 	targets := map[string]config.TargetConfig{
 		"universal": {Skills: &config.ResourceTargetConfig{Path: "/tmp/agents/skills", Exclude: []string{"feature-radar*"}}},
 		"codex":     {Skills: &config.ResourceTargetConfig{Path: "/tmp/agents/skills"}},

@@ -2,7 +2,17 @@ package main
 
 import "testing"
 
+// keepPathsUnfolded stops shortenPath from folding the /tmp fixtures to ~,
+// which it would where HOME is /tmp (as in the docker sandbox).
+func keepPathsUnfolded(t *testing.T) {
+	t.Helper()
+	old := cachedHome
+	cachedHome = "/nonexistent-home"
+	t.Cleanup(func() { cachedHome = old })
+}
+
 func TestConfirmTargetLabel_SingleFileShowsFile(t *testing.T) {
+	keepPathsUnfolded(t)
 	entry := extrasListEntry{
 		Name: "pi-prompt",
 		File: "system.md",
@@ -28,6 +38,7 @@ func TestConfirmTargetLabel_SingleFileShowsFile(t *testing.T) {
 }
 
 func TestConfirmTargetLabel_FolderShowsDirectory(t *testing.T) {
+	keepPathsUnfolded(t)
 	entry := extrasListEntry{Name: "rules", Targets: []extrasTargetInfo{{Path: "/tmp/rules"}}}
 	m := extrasListTUIModel{confirmTarget: "/tmp/rules"}
 	if got := m.confirmTargetLabel(entry); got != "/tmp/rules" {

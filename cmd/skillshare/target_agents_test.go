@@ -217,6 +217,7 @@ func TestTargetList_TextOutputShowsSkillsAndAgentsSections(t *testing.T) {
 }
 
 func TestRenderTargetDetail_AgentSection(t *testing.T) {
+	keepPathsUnfolded(t)
 	cases := []struct {
 		name        string
 		item        targetTUIItem
