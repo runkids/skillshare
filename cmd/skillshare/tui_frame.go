@@ -40,7 +40,10 @@ const frameChrome = 4
 func renderFrameTitle(width int, command string, facts []string, tabs []frameTab) string {
 	left := " " + theme.Primary().Bold(true).Render("skillshare "+command)
 	for _, f := range facts {
-		left += theme.Dim().Render(" · " + f)
+		if !strings.Contains(f, "\x1b") {
+			f = theme.Dim().Render(f) // facts that bring their own color keep it
+		}
+		left += theme.Dim().Render(" · ") + f
 	}
 	labels := make([]string, len(tabs))
 	for i, t := range tabs {
