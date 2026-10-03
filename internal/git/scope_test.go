@@ -577,6 +577,23 @@ func TestKeepLocalConfig_KeepsSymlinkMadeAfterCheckout(t *testing.T) {
 	}
 }
 
+func TestConfigGitignoreNeedsRepair_ExplicitEntryUnderBroaderRule(t *testing.T) {
+	dir := t.TempDir()
+	gitExec(t, dir, "init")
+	if err := os.WriteFile(filepath.Join(dir, ".gitignore"), []byte("*.yaml\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if !ConfigGitignoreNeedsRepair(dir) {
+		t.Fatal("ConfigGitignoreNeedsRepair() = false; want true when only *.yaml ignores config.yaml")
+	}
+	if _, err := EnsureConfigUntracked(dir); err != nil {
+		t.Fatal(err)
+	}
+	if ConfigGitignoreNeedsRepair(dir) {
+		t.Fatal("ConfigGitignoreNeedsRepair() = true after EnsureConfigUntracked; want false")
+	}
+}
+
 func TestKeepLocalConfig_ReportsTrackedCopyWithSameContent(t *testing.T) {
 	repo, remote := rootScopeRepoTrackingRemote(t)
 	pushFromOtherClone(t, remote, map[string]string{"config.yaml": "LOCAL-config\n"})

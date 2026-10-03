@@ -113,7 +113,7 @@ func rootScopeSafetySweep(cfg *config.Config, dir string, dryRun bool) rootSweep
 	}
 	if dryRun {
 		res.configUntracked = gitops.IsConfigTracked(dir)
-		res.ignoreRepair = !gitops.IsConfigIgnored(dir)
+		res.ignoreRepair = gitops.ConfigGitignoreNeedsRepair(dir)
 	} else if removed, err := gitops.EnsureConfigUntracked(dir); err == nil {
 		res.configUntracked = removed
 	}

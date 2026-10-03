@@ -151,10 +151,12 @@ func ensureGitignoreEntry(dir, entry string) error {
 	return os.WriteFile(gitignore, []byte(content), 0o644)
 }
 
-// IsConfigIgnored reports whether .gitignore rules ignore config.yaml at dir,
-// so a dry run can tell whether EnsureConfigUntracked would repair them.
-func IsConfigIgnored(dir string) bool {
-	return isIgnored(dir, "config.yaml")
+// ConfigGitignoreNeedsRepair reports whether EnsureConfigUntracked would change
+// dir/.gitignore: the explicit config.yaml entry is missing, or the rules do
+// not actually ignore it. A dry run uses it to preview that change.
+func ConfigGitignoreNeedsRepair(dir string) bool {
+	data, err := os.ReadFile(filepath.Join(dir, ".gitignore"))
+	return err != nil || !gitignoreHasEntry(string(data), "config.yaml") || !isIgnored(dir, "config.yaml")
 }
 
 // isIgnored reports whether .gitignore rules ignore path, even if it is tracked.

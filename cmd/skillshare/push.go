@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"time"
@@ -108,6 +109,11 @@ func stageAndCommit(sourcePath, message string, spinner *ui.Spinner) error {
 // commitConfigSafety commits the config.yaml removal and .gitignore repair
 // EnsureConfigUntracked made, leaving any other worktree changes unstaged.
 func commitConfigSafety(source string) error {
+	// Another process may have edited .gitignore while the pull ran; only the
+	// appended config.yaml rule belongs in this commit.
+	if !gitignoreOnlyGainedConfigRule(source) {
+		return fmt.Errorf(".gitignore changed while pulling; commit it, then run: skillshare push")
+	}
 	add := exec.Command("git", "add", "--", ".gitignore")
 	add.Dir = source
 	if err := add.Run(); err != nil {
@@ -125,6 +131,32 @@ func commitConfigSafety(source string) error {
 		return fmt.Errorf("failed to commit config.yaml safety changes: %w: %s", err, strings.TrimSpace(string(out)))
 	}
 	return nil
+}
+
+// gitignoreOnlyGainedConfigRule reports whether .gitignore differs from its
+// staged version only by appended config.yaml lines, the change
+// EnsureConfigUntracked makes.
+func gitignoreOnlyGainedConfigRule(source string) bool {
+	show := exec.Command("git", "show", ":.gitignore")
+	show.Dir = source
+	base, _ := show.Output() // missing from the index: EnsureConfigUntracked created it
+	cur, err := os.ReadFile(filepath.Join(source, ".gitignore"))
+	if err != nil {
+		return len(base) == 0 && os.IsNotExist(err)
+	}
+	if !strings.HasPrefix(string(cur), string(base)) {
+		return false
+	}
+	added := string(cur[len(base):])
+	if len(base) > 0 && !strings.HasSuffix(string(base), "\n") {
+		added = strings.TrimPrefix(added, "\n")
+	}
+	for _, line := range strings.Split(strings.TrimSuffix(added, "\n"), "\n") {
+		if line != "" && line != "config.yaml" {
+			return false
+		}
+	}
+	return true
 }
 
 // isAuthError returns true when git output indicates an authentication failure.
