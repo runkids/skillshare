@@ -49,10 +49,18 @@ func (s *Service) localRoot(target string) (string, string, error) {
 // folders between it and root are checked.
 func noSymlink(root, path string) error {
 	root, path = filepath.Clean(root), filepath.Clean(path)
-	if rel, err := filepath.Rel(root, path); err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+	rel, err := filepath.Rel(root, path)
+	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
 		return fmt.Errorf("native path %s is outside %s", path, root)
 	}
-	for p := path; p != root; p = filepath.Dir(p) {
+	if rel == "." {
+		return nil
+	}
+	// Walk up exactly as many levels as rel has, rather than until p equals root:
+	// Dir can spell root differently (a Windows UNC share root gains a trailing
+	// separator), and an equality test would then never end.
+	p := path
+	for range strings.Split(rel, string(filepath.Separator)) {
 		info, err := os.Lstat(p)
 		if err != nil && !os.IsNotExist(err) {
 			return err
@@ -60,6 +68,7 @@ func noSymlink(root, path string) error {
 		if err == nil && utils.IsLinkMode(p, info.Mode()) {
 			return fmt.Errorf("refusing to modify symlinked native path: %s", p)
 		}
+		p = filepath.Dir(p)
 	}
 	return nil
 }
