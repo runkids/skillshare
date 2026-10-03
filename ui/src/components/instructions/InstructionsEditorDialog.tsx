@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import { useBeforeUnload } from 'react-router-dom';
-import { TriangleAlert, X } from 'lucide-react';
+import { Trash2, TriangleAlert, X } from 'lucide-react';
 import AgentIcon from '../AgentIcon';
 import Button from '../Button';
 import CodeEditor from '../CodeEditor';
@@ -8,13 +8,16 @@ import ConfirmDialog from '../ConfirmDialog';
 import DialogShell from '../DialogShell';
 import { useToast } from '../Toast';
 import { useT } from '../../i18n';
+import { ApiError } from '../../api/client';
+import CodeView from '../CodeView';
+import CopyButton from '../CopyButton';
 import { shortenHome } from '../../lib/paths';
 import { useSaveShortcut } from './useSaveShortcut';
 import { BoxHeader, InstructionsPreview } from './ViewTabs';
 import { instructionsErrorMessage, isImportLine } from './instructionsView';
 
 /** Edits one instruction file in place: a shared file or the project AGENTS.md. */
-export default function InstructionsEditorDialog({ title, path, content, note, readers, warnings, onSave, onClose }: {
+export default function InstructionsEditorDialog({ title, path, content, note, readers, warnings, onSave, onClose, onDelete, onReadLatest }: {
   title: string;
   path: string;
   content: string;
@@ -27,6 +30,10 @@ export default function InstructionsEditorDialog({ title, path, content, note, r
   /** Resolves to the toast text when the save did more than write the file. */
   onSave: (content: string) => Promise<string | void>;
   onClose: () => void;
+  /** Optional action provided by the memory editor; confirmation belongs to its caller. */
+  onDelete?: () => void;
+  /** Memory reloads its saved version after a conflict while preserving this draft. */
+  onReadLatest?: () => Promise<string>;
 }) {
   const t = useT();
   const { toast } = useToast();
@@ -35,6 +42,8 @@ export default function InstructionsEditorDialog({ title, path, content, note, r
   const [saving, setSaving] = useState(false);
   const [reverting, setReverting] = useState(false);
   const [discarding, setDiscarding] = useState(false);
+  const [latest, setLatest] = useState<string | null>(null);
+  const [overwriting, setOverwriting] = useState(false);
   // Preview shows the draft; the draft and ⌘S work the same in both views.
   const [view, setView] = useState<'edit' | 'preview'>('edit');
   const dirty = draft !== base;
@@ -45,21 +54,26 @@ export default function InstructionsEditorDialog({ title, path, content, note, r
     try {
       const message = await onSave(draft);
       setBase(draft);
+      setLatest(null);
       toast(message || t('instructions.saved', { path: shortenHome(path) }), 'success');
     } catch (err) {
+      if (onReadLatest && err instanceof ApiError && err.code === 'memory_conflict') {
+        try { setLatest(await onReadLatest()); } catch (reloadError) { toast(instructionsErrorMessage(reloadError, t), 'error'); }
+      }
       toast(instructionsErrorMessage(err, t), 'error');
     } finally {
       setSaving(false);
     }
   };
+  const requestSave = () => latest !== null ? setOverwriting(true) : void save();
   const scope = useRef<HTMLDivElement>(null);
-  useSaveShortcut(() => void save(), true, scope);
+  useSaveShortcut(requestSave, true, scope);
   useBeforeUnload((e) => { if (dirty) { e.preventDefault(); e.returnValue = ''; } });
   // ✕, Esc and the backdrop ask before an unsaved edit is dropped.
   const close = () => (dirty ? setDiscarding(true) : onClose());
 
   return (
-    <DialogShell open onClose={close} maxWidth="full" padding="none" preventClose={saving || reverting || discarding} ariaLabel={title}>
+    <DialogShell open onClose={close} maxWidth="full" padding="none" preventClose={saving || reverting || discarding || overwriting} ariaLabel={title}>
       <div ref={scope} className="dh">
         <div className="flex min-w-0 flex-col gap-1">
           <h2 className="ss-h2 font-mono">{title}</h2>
@@ -68,7 +82,7 @@ export default function InstructionsEditorDialog({ title, path, content, note, r
         <button type="button" className="ss-ib" aria-label={t('common.close')} onClick={close} disabled={saving}><X size={16} /></button>
       </div>
       <div className="db">
-        <div className="grid grid-cols-[minmax(0,1fr)_300px] items-start gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_300px] items-start gap-6">
           <div className="ss-code flex h-[calc(100vh-16rem)] min-w-0 flex-col !overflow-hidden !p-0 !whitespace-normal">
             <BoxHeader content={draft} view={view} onChange={setView} />
             {view === 'edit' ? (
@@ -94,14 +108,31 @@ export default function InstructionsEditorDialog({ title, path, content, note, r
             )}
             {warnings?.map((w) => <div key={w} className="ss-note warn"><TriangleAlert size={16} /><span className="flex-1">{w}</span></div>)}
             {note && <p className="text-[12.5px] text-ink-3">{note}</p>}
+            {latest !== null && <div className="flex min-w-0 flex-col gap-2">
+              <div className="ss-note warn"><span>{t('memory.compareHint')}</span></div>
+              <h3 className="text-[13px] font-semibold">{t('memory.latestSaved')}</h3>
+              <CodeView content={latest} lang="md" className="max-h-[35vh]" />
+              <CopyButton value={draft} title={t('memory.copyDraft')} label={t('memory.copyDraft')} copiedLabel={t('memory.copied')} errorMessage={t('memory.copyFailed')} />
+            </div>}
           </aside>
         </div>
       </div>
       <div className="df">
+        {onDelete && <Button variant="danger" onClick={onDelete} disabled={saving}><Trash2 size={15} />{t('memory.delete')}</Button>}
         <span className="flex-1 text-[12.5px] text-ink-3">{t('instructions.editor.saveHint')}</span>
         <Button variant="ghost" onClick={() => setReverting(true)} disabled={!dirty || saving}>{t('config.revert')}</Button>
-        <Button variant="primary" onClick={() => void save()} loading={saving} disabled={!dirty}>{t('common.save')}</Button>
+        <Button variant="primary" onClick={requestSave} loading={saving} disabled={!dirty}>{t(latest !== null ? 'memory.saveDraft' : 'common.save')}</Button>
       </div>
+      <ConfirmDialog
+        open={overwriting}
+        title={t('memory.saveDraft')}
+        message={t('memory.overwriteMessage')}
+        confirmText={t('common.save')}
+        variant="danger"
+        loading={saving}
+        onCancel={() => setOverwriting(false)}
+        onConfirm={() => { setOverwriting(false); void save(); }}
+      />
       <ConfirmDialog
         open={reverting}
         title={t('config.revert.title')}

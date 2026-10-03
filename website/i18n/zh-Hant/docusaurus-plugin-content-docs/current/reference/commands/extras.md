@@ -21,6 +21,36 @@ Extras 是 skillshare 管理的額外資源類型——可以把它想成「給�
 
 ## Commands
 
+### `extras memory` {#extras-memory}
+
+管理 `memory` extra 中的共用 Markdown 筆記，可用任意文字編輯器編輯。
+[記憶共用教學（英文截圖）](../../how-to/daily-tasks/sharing-memory)示範建立、目錄瀏覽與跨 Agent 使用。
+
+| 子命令 | 行為 |
+|---|---|
+| `init` | 建立沒有 targets 的 memory extra，補上缺少的 `INDEX.md`、`LEARNED.md`，保留既有檔案與設定 |
+| `list` | 列出筆記；`--search <text>` 不分大小寫搜尋路徑與內容，包含子資料夾 |
+| `show <note.md>` | 讀取筆記；`--json` 包含 `version` hash |
+| `write <note.md> --from <file\|->` | 從檔案或 stdin 讀取內容；新增時不指定 `--version`，更新須使用最近讀取的 version |
+| `delete <note.md> --version <hash>` | 備份後刪除指定版本，拒絕過期或缺少的 version |
+| `instructions` | 輸出指向實際 source 資料夾的讀取指引 |
+
+各子命令支援 `--json`、`-g` / `--global`、`-p` / `--project` 及 `--help`。
+未指定時自動判斷 scope。預設 global 路徑為 `~/.config/skillshare/extras/memory/`，
+project 為 `.skillshare/extras/memory/`；沿用既有 extras source 覆寫設定。
+
+筆記須為相對 `.md` 路徑、UTF-8，最多 1 MiB；排除隱藏檔案、隱藏資料夾及內部符號連結。過大或非 UTF-8 檔案仍列出並標為不支援，其他正常筆記仍可使用。`wiki/architecture.md` 會自動建立資料夾。Dashboard 提供目錄樹、**Preview** / **Raw**、**Copy path**、**Edit**、**Delete note** 與 **History**，尚不支援重新命名或移動。
+
+儲存檢查最近讀取的 version。衝突會保留草稿，顯示最新儲存內容供比較。**Save my draft** 須確認，使用更新後的 version，備份已儲存內容後再取代。刪除也須確認、檢查版本並備份。**History** 與刪除後的還原連結會開啟 **Backup Files**，以筆記的絕對路徑篩選。CLI 可用 `backup files show <absolute-path>` 與 `backup files restore <absolute-path> <id>`。
+
+**New note** 的 **Link from INDEX.md** 在索引可讀取時顯示並預設勾選，於檔案末尾附加連結，檢查 version 並備份。失敗仍保留新筆記。**Add to INDEX** 可加入未索引的筆記。失效連結會顯示警告，不會自動移除。CLI 寫入不會新增索引連結。
+
+使用 **Connect to agents** 選取工具，再 **Review changes** → **Apply changes**。此流程將 scope/hash 標記區塊加入或更新至既有 instructions 或共用來源，保留其他內容與指派。可檢查變更、其他讀取工具與已知字元上限。既有檔案會備份，過期預覽會被拒絕。完整但過期的區塊可經檢查後更新；手動修改或格式有誤的區塊會保留。未同步或無法讀取的 instructions 檔案會略過。
+
+**Configured** 僅表示讀取鏈已有目前的指引，不代表已讀取。**Copy verification prompt** 用於新 session，要求 Agent 讀取 `INDEX.md` 與相關筆記、回報完整路徑及使用者加入的臨時驗證值。請手動檢查實際 read tool event；沒有保證可用的讀取 telemetry。
+
+**Copy guidance** 是手動貼上的替代方式，**Open AGENTS.md** 可編輯 instructions。Project 內的來源路徑相對於 **project root**，不依 instructions 檔案位置；外部或 global 來源用絕對路徑，移動後須重新產生。CLI `instructions` 也輸出相同的 scope/hash 區塊，未新增 CLI flags。不啟用 native automatic memory、自動學習或 Obsidian 整合。
+
 ### `extras init`
 
 建立新的 extra 資源類型。

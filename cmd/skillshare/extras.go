@@ -34,6 +34,8 @@ func cmdExtras(args []string) error {
 		return cmdExtrasCollect(rest)
 	case "source":
 		return cmdExtrasSource(rest)
+	case "memory":
+		return cmdExtrasMemory(rest)
 	case "--help", "-h":
 		printExtrasHelp()
 		return nil
@@ -57,6 +59,7 @@ Commands:
   remove <name>      Remove an extra resource type
   collect <name>     Collect local files from a target into extras source
   source [path]      Show or set the global extras_source directory
+  memory <command>   Manage shared Markdown memory notes
 
 Operating on an existing extra (flags on 'extras <name>'):
   skillshare extras <name> --mode <mode>           Change sync mode

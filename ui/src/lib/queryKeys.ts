@@ -53,6 +53,11 @@ export const queryKeys = {
   templates: ['templates'] as const,
   skillPreview: (req: object) => ['skill-preview', req] as const,
   extras: ['extras'] as const,
+  memory: {
+    all: ['memory'] as const,
+    list: (search: string) => ['memory', 'notes', search] as const,
+    content: (path: string) => ['memory', 'content', path] as const,
+  },
   instructions: {
     all: ['instructions'] as const,
     target: (name: string) => ['instructions', 'target', name] as const,

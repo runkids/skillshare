@@ -22,7 +22,7 @@ _skillshare() {
     local target_subcmds="add remove list"
     local trash_subcmds="agents list restore delete empty"
     local hub_subcmds="add list remove default index help"
-    local extras_subcmds="init list remove collect source"
+    local extras_subcmds="init list remove collect source memory"
     local backup_subcmds="files agents"
     local backup_files_subcmds="list show restore"
     local audit_subcmds="rules agents"
@@ -209,6 +209,19 @@ _skillshare() {
                 ;;
             extras)
                 case "${subcmd}" in
+                    memory)
+                        if [[ ${cword} -eq 3 ]]; then
+                            COMPREPLY=($(compgen -W "init list show write delete instructions --help -h ${global_flags}" -- "${cur}"))
+                        else
+                            local memory_flags="--json --help -h"
+                            case "${words[3]}" in
+                                list) memory_flags="${memory_flags} --search" ;;
+                                delete) memory_flags="${memory_flags} --version" ;;
+                                write) memory_flags="${memory_flags} --from --version" ;;
+                            esac
+                            COMPREPLY=($(compgen -W "${memory_flags} ${global_flags}" -- "${cur}"))
+                        fi
+                        ;;
                     init)    COMPREPLY=($(compgen -W "${extras_init_flags} ${global_flags}" -- "${cur}")) ;;
                     list)    COMPREPLY=($(compgen -W "${extras_list_flags} ${global_flags}" -- "${cur}")) ;;
                     remove)  COMPREPLY=($(compgen -W "${extras_remove_flags} ${global_flags}" -- "${cur}")) ;;

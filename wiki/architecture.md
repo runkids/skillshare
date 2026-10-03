@@ -40,6 +40,34 @@ A typical dashboard request follows this path:
 3. The handler uses the same `internal/` domain package as the CLI. Do not duplicate core behavior in the frontend or handler.
 4. Project/global differences use the server mode and existing helpers rather than a separate data model.
 
+## Shared Memory Notes
+
+`internal/memory` owns note discovery, bounded UTF-8 reads, content-version
+writes/deletes, backups, index inspection/link append, and scope/hash-marked
+guidance. CLI `extras memory` and dashboard handlers share its store and existing
+extra source resolution. Initialization preserves notes and creates missing
+`INDEX.md`/`LEARNED.md`; the source-only extra requires no targets. Unsupported
+notes remain listed and do not block valid notes. Explicit dashboard index actions
+append at EOF with version checks/backups; failed linking preserves a created
+note. Broken links are reported without rewriting user-owned index sections.
+
+`handler_memory_guidance.go` resolves existing target read chains and instruction
+assignments. Plan returns per-file before/after content, skips, reader/size
+warnings, and a token; apply recomputes it before backed-up writes and syncing
+shared copies. It preserves other content, assignments, and connection modes.
+Intact outdated blocks can be updated after review; modified/malformed blocks
+are protected. Non-UTF-8 instruction files are reported as broken/unsupported
+and skipped without rewriting their bytes; instruction files have no new size
+cap (known character limits remain review warnings). Guidance paths inside a project are relative to the project root;
+external sources remain absolute. GET reports file-based configuration state,
+never agent reads. Fresh-session read events provide manual verification only.
+
+The Memory tab uses the shared tree/Markdown editor. Conflicts retain drafts,
+display latest saved content, and require confirmation before a version-checked,
+backed-up replacement. History/restore links filter Backup Files by absolute
+note path. Rename/move, native automatic memory, telemetry, and Obsidian
+integration are outside this boundary.
+
 ## Sources of Truth
 
 - Command flags and behavior: `cmd/skillshare/*.go`.
