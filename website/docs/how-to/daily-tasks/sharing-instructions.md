@@ -13,6 +13,10 @@ This is a dashboard feature. There is no separate CLI command. A shared `AGENTS.
 is stored as an [extra](../../reference/commands/extras.md#single-file-extras), so
 `skillshare sync extras` also keeps it in place.
 
+To use shared instructions to read one folder of memory notes, follow the
+[Memory walkthrough](./sharing-memory.md), with screenshots from creation through
+connecting Claude and Codex.
+
 ## See what a target reads
 
 Open a target from **Targets**. Its page has a tab named after the file that target

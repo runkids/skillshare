@@ -559,7 +559,10 @@ func parseFileURL(matches []string, source *Source) (*Source, error) {
 	}
 
 	source.Type = SourceTypeGitHTTPS // Treat as git for cloning
-	source.CloneURL = "file://" + path
+	// filepath.Clean rewrites the separators for the local OS, but a file:// URL
+	// keeps forward slashes everywhere; on Windows the raw path would produce
+	// `file://\path\to\repo`, which git does not accept as a local repository.
+	source.CloneURL = "file://" + filepath.ToSlash(path)
 
 	if err := validateCloneURL(source.CloneURL); err != nil {
 		return nil, err

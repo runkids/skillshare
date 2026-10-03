@@ -3,7 +3,7 @@ name: skillshare
 description: |
   Manage skills, agents, extras, hooks, plugins, and MCP connection settings with the Skillshare CLI.
   Use when the user asks to configure or run Skillshare, install or sync resources
-  across AI tools, import MCP settings, manage targets, audit skills, recover backups,
+  across AI tools, manage shared memory notes, import MCP settings, manage targets, audit skills, recover backups,
   or troubleshoot Skillshare configuration and sync. Covers global and project modes,
   noninteractive automation, and guidance for the terminal UI.
 argument-hint: "[command] [target] [--json] [--dry-run] [-p|-g]"
@@ -26,6 +26,9 @@ Check `skillshare <command> --help` if the installed version differs from these 
   Source paths can be customized. Use the configured sources instead of assuming defaults.
 - Use native agents targets for agents. Use extras for arbitrary file resources or when
   flattening/content transformation is required; `extension:` works only on extras targets.
+- Shared memory notes live in the `memory` extra. Use `extras memory` to manage Markdown
+  notes and reading guidance; nested paths such as `wiki/architecture.md` are supported.
+  Read [extras.md](references/extras.md) for scope, version checks, and agent setup.
 - MCP uses its own receiving targets and source definitions. Read [mcp.md](references/mcp.md)
   before editing MCP settings or importing native configurations. Its Agent notes cover
   what is specific to Claude Code, Codex, OpenCode and Pi: scopes and files, names and

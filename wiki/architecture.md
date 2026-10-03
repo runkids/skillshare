@@ -40,6 +40,54 @@ A typical dashboard request follows this path:
 3. The handler uses the same `internal/` domain package as the CLI. Do not duplicate core behavior in the frontend or handler.
 4. Project/global differences use the server mode and existing helpers rather than a separate data model.
 
+## Shared Memory Notes
+
+`internal/memory` owns note discovery, bounded UTF-8 reads, content-version
+writes/deletes/moves, backups, index inspection/link append, and scope/hash-marked
+guidance. CLI `extras memory` and dashboard handlers share its store and existing
+extra source resolution. Initialization preserves notes and creates missing
+`INDEX.md`/`LEARNED.md`; the source-only extra requires no targets. Dashboard
+initialization requires both readable starters and the configured extra; note
+creation repairs missing starters before using the refreshed index. Unsupported
+notes remain listed and do not block valid notes. Explicit dashboard index actions
+append at EOF with version checks/backups; failed linking preserves a created
+note. Broken links are reported without rewriting user-owned index sections.
+Prepared writes and deletions recheck the version after backup immediately before
+replacement/removal; new notes use exclusive creation to reject concurrent creates.
+
+`handler_memory_guidance.go` resolves existing target read chains and instruction
+assignments. Plan returns per-file before/after content, skips, reader/size
+warnings, and a token; apply recomputes it before backed-up writes and syncing
+shared copies. Each file is checked against its reviewed content and existence
+before writing, including after backup. A later conflict preserves that file and
+reports `memory_guidance_stale` in the partial result alongside applied paths.
+New guidance files use exclusive creation; a competing creator also produces
+`memory_guidance_stale` without overwriting its file.
+It preserves other content, assignments, and connection modes.
+Intact outdated blocks can be updated after review; modified/malformed blocks
+are protected. Non-UTF-8 instruction files are reported as broken/unsupported
+and skipped without rewriting their bytes; instruction files have no new size
+cap (known character limits remain review warnings). Guidance paths inside a project are relative to the project root;
+external sources remain absolute. GET reports file-based configuration state,
+never agent reads. Fresh-session read events provide manual verification only.
+
+The Memory tab uses the shared tree/Markdown editor. Conflicts retain drafts,
+display latest saved content, and require confirmation before a version-checked,
+backed-up replacement. History/restore links filter Backup Files by absolute
+note path, and a requested path without backups shows an empty state.
+Windows history links compare normalized separators while backup API calls retain
+the native path; POSIX names retain literal backslashes. Project
+backup scope includes its configured memory source even outside the repository;
+without a configured memory extra, external backup access remains denied.
+Backup handlers hold the configuration lock from scope validation through reads
+or restore writes, so removing a memory extra cannot invalidate an active check.
+Initialization failures, including partial file creation, are logged.
+Dashboard move/rename preserves note content and permissions, creates
+missing parent folders, rejects stale versions and existing destinations, and
+backs up the source path. Links and path-keyed history remain at their original
+paths; index inspection reports broken links after a move. Native automatic
+memory, telemetry, and Obsidian integration are outside this boundary.
+
 ## Sources of Truth
 
 - Command flags and behavior: `cmd/skillshare/*.go`.

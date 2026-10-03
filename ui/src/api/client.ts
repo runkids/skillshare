@@ -6,6 +6,7 @@ import { gitApi } from './git';
 import { installApi } from './install';
 import { instructionsApi } from './instructions';
 import { logApi } from './log';
+import { memoryApi } from './memory';
 import { resourcesApi } from './resources';
 import { syncApi } from './sync';
 import { systemApi } from './system';
@@ -40,6 +41,7 @@ export const api = {
   ...extrasApi,
   ...instructionsApi,
   ...logApi,
+  ...memoryApi,
   ...auditApi,
   ...gitApi,
 

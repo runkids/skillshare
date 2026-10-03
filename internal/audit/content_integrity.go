@@ -30,7 +30,9 @@ func checkContentIntegrity(skillPath string, cache map[string][]byte, allFiles m
 		normalizedRel := filepath.FromSlash(rel)
 		// Reject absolute keys in metadata (e.g. "/etc/passwd").
 		// file_hashes must always be skill-relative paths.
-		if filepath.IsAbs(normalizedRel) {
+		// filepath.IsAbs is platform-dependent, so a leading separator is also
+		// rejected: on Windows "/etc/passwd" has no volume and looks relative.
+		if filepath.IsAbs(normalizedRel) || strings.HasPrefix(normalizedRel, string(filepath.Separator)) {
 			continue
 		}
 

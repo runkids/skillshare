@@ -154,6 +154,7 @@ def "nu-complete skillshare extras" [] {
         { value: "remove", description: "Remove extra resource type" }
         { value: "collect", description: "Collect local files into extras" }
         { value: "source", description: "Show/set extras source" }
+        { value: "memory", description: "Manage shared Markdown notes" }
     ]
 }
 
@@ -663,6 +664,18 @@ export extern "skillshare extras" [
     --force(-f)              # Overwrite existing
     --json                   # list: JSON output
     --no-tui                 # Skip interactive TUI
+    --project(-p)            # Use project-level config
+    --global(-g)             # Use global config
+    --help(-h)               # Show help
+]
+
+export extern "skillshare extras memory" [
+    command?: string@[init list show write delete instructions]
+    note?: string            # Relative Markdown path
+    --from: string           # Input file or - for stdin
+    --version: string        # Last read hash for updates
+    --search: string         # list: search names and content
+    --json                   # JSON output
     --project(-p)            # Use project-level config
     --global(-g)             # Use global config
     --help(-h)               # Show help
