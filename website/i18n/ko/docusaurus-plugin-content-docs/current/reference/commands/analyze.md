@@ -76,7 +76,7 @@ TUI에서는 lint 문제가 있는 skill의 이름 옆에 ✗ (error) 또는 ⚠
 
 ## Interactive TUI
 
-TTY에서 `analyze`는 한 번에 하나의 target을 보는 대화형 화면을 엽니다. 왼쪽에는 토큰 사용량 순으로 정렬된 skill, 오른쪽에는 선택한 skill의 토큰 내역, lint 문제, 설명이 표시됩니다. 키는 화면 아래쪽에 표시됩니다. 일반 텍스트로 보려면 `--no-tui`를 사용하세요.
+TTY에서 `analyze`는 한 번에 하나의 target을 보는 대화형 화면을 엽니다. 왼쪽에는 토큰 사용량 순으로 정렬된 skill, 오른쪽에는 선택한 skill의 토큰 내역, lint 문제, 설명이 표시됩니다. skill을 열면 front matter를 포함한 파일 원문이 표시되어 lint 문제와 바로 대조할 수 있습니다. 키는 화면 아래쪽에 표시됩니다. 일반 텍스트로 보려면 `--no-tui`를 사용하세요.
 
 ### Color Coding
 

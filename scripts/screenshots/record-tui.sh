@@ -50,6 +50,7 @@ audit-rules|skillshare audit rules|
 audit-rules-severity|skillshare audit rules|Enter;Down;Type `e`
 diff|skillshare diff|
 analyze|skillshare analyze|
+analyze-files|skillshare analyze|Enter
 search|skillshare search --hub ~/hub.json|Enter
 mcp|skillshare mcp|
 mcp-keys|skillshare mcp|Type `?`

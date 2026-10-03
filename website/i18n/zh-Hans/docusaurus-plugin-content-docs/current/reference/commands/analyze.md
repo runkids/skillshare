@@ -76,7 +76,7 @@ token 估算使用 `chars / 4` 作为近似值。
 
 ## 交互式 TUI
 
-在 TTY 上，`analyze` 会打开交互式界面，一次查看一个 target：左侧是按 token 用量排序的 skills，右侧是所选 skill 的 token 明细、lint 问题和描述。按键列在界面底部。使用 `--no-tui` 改为输出纯文本。
+在 TTY 上，`analyze` 会打开交互式界面，一次查看一个 target：左侧是按 token 用量排序的 skills，右侧是所选 skill 的 token 明细、lint 问题和描述。打开 skill 会显示文件原文（含 front matter），可以直接对照 lint 问题。按键列在界面底部。使用 `--no-tui` 改为输出纯文本。
 
 ### 颜色编码
 

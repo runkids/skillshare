@@ -76,7 +76,7 @@ token 估算採用 `chars / 4` 作為近似值。
 
 ## Interactive TUI
 
-在 TTY 中，`analyze` 會開啟互動式畫面，一次看一個 target：左側是依 token 用量排序的 skills，右側是選取 skill 的 token 明細、lint 問題與描述。按鍵列在畫面底部。使用 `--no-tui` 改印純文字。
+在 TTY 中，`analyze` 會開啟互動式畫面，一次看一個 target：左側是依 token 用量排序的 skills，右側是選取 skill 的 token 明細、lint 問題與描述。打開 skill 會顯示檔案原文（含 front matter），可以直接對照 lint 問題。按鍵列在畫面底部。使用 `--no-tui` 改印純文字。
 
 ### Color Coding
 

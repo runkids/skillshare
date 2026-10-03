@@ -81,7 +81,7 @@ In the TUI, skills with lint issues show ✗ (error) or ⚠ (warning) icons next
 
 ## Interactive TUI
 
-On a TTY, `analyze` opens an interactive view of one target at a time: skills sorted by token cost on the left, and the token breakdown, lint issues and description of the selected skill on the right. The keys are listed at the bottom of the screen. Use `--no-tui` for plain text.
+On a TTY, `analyze` opens an interactive view of one target at a time: skills sorted by token cost on the left, and the token breakdown, lint issues and description of the selected skill on the right. Opening a skill shows its files as written, front matter included, so a lint issue can be checked against the text. The keys are listed at the bottom of the screen. Use `--no-tui` for plain text.
 
 ### Color Coding
 

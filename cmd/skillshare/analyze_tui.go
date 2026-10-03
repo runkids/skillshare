@@ -55,6 +55,9 @@ type analyzeTUIModel struct {
 	initialFilter string
 
 	showKeys bool // ? swaps the detail panel for the full key list
+
+	browser *fileBrowser // enter opens the selected skill's files
+	lint    string       // the opened skill's lint issues, shown above the keys
 }
 
 type analyzeDataLoadedMsg struct {
@@ -242,6 +245,9 @@ func (m analyzeTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.termWidth = msg.Width
 		m.termHeight = msg.Height
 		m.syncListSize()
+		if m.browser != nil {
+			m.browser.resize(msg.Width, msg.Height)
+		}
 		return m, nil
 
 	case spinner.TickMsg:
@@ -284,6 +290,15 @@ func (m analyzeTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case tea.MouseMsg:
+		if m.browser != nil {
+			switch msg.Button {
+			case tea.MouseButtonWheelUp:
+				m.browser.wheel(-1)
+			case tea.MouseButtonWheelDown:
+				m.browser.wheel(1)
+			}
+			return m, nil
+		}
 		if listSplitActive(m.termWidth) && !m.loading {
 			leftWidth := listPanelWidth(m.termWidth)
 			if msg.X > leftWidth {
@@ -313,11 +328,29 @@ func (m analyzeTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			cmd := handleTUIFilterKey(msg, &m.filtering, &m.filterText, &m.filterInput, m.applyFilter)
 			return m, cmd
 		}
+		if m.browser != nil {
+			switch msg.String() {
+			case "q", "ctrl+c":
+				m.quitting = true
+				return m, tea.Quit
+			case "esc":
+				m.browser = nil
+			default:
+				m.browser.key(msg.String())
+			}
+			return m, nil
+		}
 
 		switch msg.String() {
 		case "q", "ctrl+c":
 			m.quitting = true
 			return m, tea.Quit
+		case "enter":
+			if item, ok := m.list.SelectedItem().(analyzeSkillItem); ok {
+				m.browser = newFileBrowser("analyze", item.entry.Name, item.entry.path, true, m.termWidth, m.termHeight)
+				m.lint = lintNote(item.entry.LintIssues)
+			}
+			return m, nil
 		case "esc":
 			switch {
 			case m.showKeys:
@@ -403,9 +436,25 @@ func groupLabel(g analyzeTargetGroup) string {
 	return fmt.Sprintf("%s +%d", g.names[0], len(g.names)-1)
 }
 
+// lintNote names the first lint issue and how many more there are.
+func lintNote(issues []ssync.LintIssue) string {
+	if len(issues) == 0 {
+		return ""
+	}
+	icon := lintIcon(issues)
+	note := icon + theme.Dim().Render(issues[0].Message)
+	if len(issues) > 1 {
+		note += theme.Dim().Render(fmt.Sprintf(" · %d more in the details", len(issues)-1))
+	}
+	return note
+}
+
 func (m analyzeTUIModel) View() string {
 	if m.quitting {
 		return ""
+	}
+	if m.browser != nil {
+		return m.browser.view(m.lint, nil)
 	}
 	title := m.renderTitleLine()
 	if m.loading {
@@ -490,7 +539,7 @@ func (m analyzeTUIModel) renderBottom() string {
 		if len(m.groups) > 1 {
 			hints = append(hints, keyHint{"tab", "next target"})
 		}
-		hints = append(hints, keyHint{"ctrl+d/u", "scroll"}, keyHint{"?", "keys"})
+		hints = append(hints, keyHint{"enter", "open files"}, keyHint{"ctrl+d/u", "scroll"}, keyHint{"?", "keys"})
 		line = renderKeyLine(m.termWidth, hints, framePosition(m.list.Index()+1, m.matchCount))
 	}
 	return note + "\n" + line
@@ -518,6 +567,7 @@ var analyzeKeyGroups = []keyGroup{
 	}},
 	{"View", []keyHint{
 		{"o", "sort by tokens or name, up or down"},
+		{"enter", "open the skill's files"},
 	}},
 }
 
