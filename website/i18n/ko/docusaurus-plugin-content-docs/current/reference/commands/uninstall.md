@@ -29,7 +29,6 @@ Uninstalling skill
 → Name: frontend/css-review
 → Path: ~/.config/skillshare/skills/frontend/css-review
 
-Are you sure you want to uninstall this skill? [y/N]: y
 ✓ Uninstalled skill: frontend/css-review
 → Moved to trash (7 days): ~/.local/share/skillshare/trash/frontend/css-review_2026-09-28_12-52-23
 
@@ -140,7 +139,7 @@ Uninstalling group (5 skills)
 → Name: feature-radar
 → Path: ~/.config/skillshare/skills/feature-radar
 
-Are you sure you want to uninstall this group? [y/N]:
+? Uninstall group feature-radar? moved to trash for 7 days   Yes   No
 ```
 
 `--group` 플래그는 **접두사 매칭**을 사용해 디렉터리 아래의 모든 skill을 제거합니다.

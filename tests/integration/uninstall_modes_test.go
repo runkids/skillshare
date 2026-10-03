@@ -51,13 +51,13 @@ func TestUninstallModes_SingleConfirmPrompt(t *testing.T) {
 
 	global := sb.RunCLIWithInput("n\n", "uninstall", "keep", "-g")
 	global.AssertSuccess(t)
-	global.AssertAnyOutputContains(t, "Are you sure you want to uninstall this skill? [y/N]")
-	global.AssertAnyOutputContains(t, "Cancelled")
+	global.AssertAnyOutputContains(t, "Uninstall keep?")
+	global.AssertAnyOutputContains(t, "Cancelled. Nothing was removed.")
 
 	project := sb.RunCLIInDirWithInput(projectRoot, "n\n", "uninstall", "keep", "-p")
 	project.AssertSuccess(t)
-	project.AssertAnyOutputContains(t, "Are you sure you want to uninstall this skill from the project? [y/N]")
-	project.AssertAnyOutputContains(t, "Cancelled")
+	project.AssertAnyOutputContains(t, "Uninstall keep from the project?")
+	project.AssertAnyOutputContains(t, "Cancelled. Nothing was removed.")
 }
 
 func TestUninstallModes_BatchConfirmPrompt(t *testing.T) {
@@ -72,11 +72,11 @@ func TestUninstallModes_BatchConfirmPrompt(t *testing.T) {
 
 	global := sb.RunCLIWithInput("n\n", "uninstall", "a", "b", "-g")
 	global.AssertSuccess(t)
-	global.AssertAnyOutputContains(t, "Uninstall 2 skills? [y/N]")
+	global.AssertAnyOutputContains(t, "Uninstall 2 skills?")
 
 	project := sb.RunCLIInDirWithInput(projectRoot, "n\n", "uninstall", "a", "b", "-p")
 	project.AssertSuccess(t)
-	project.AssertAnyOutputContains(t, "Uninstall 2 skills from the project? [y/N]")
+	project.AssertAnyOutputContains(t, "Uninstall 2 skills from the project?")
 }
 
 func TestUninstallModes_ReinstallHint(t *testing.T) {
@@ -187,7 +187,7 @@ func TestUninstallModes_ProjectIgnoresJSONFlag(t *testing.T) {
 	// Project mode neither emits JSON nor treats --json as --force.
 	result := sb.RunCLIInDirWithInput(projectRoot, "n\n", "uninstall", "keep", "--json", "-p")
 	result.AssertSuccess(t)
-	result.AssertAnyOutputContains(t, "from the project? [y/N]")
+	result.AssertAnyOutputContains(t, "Uninstall keep from the project?")
 	var out map[string]any
 	if json.Unmarshal([]byte(result.Stdout), &out) == nil {
 		t.Errorf("project uninstall should not print JSON, got %s", result.Stdout)

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
 
 	"skillshare/internal/theme"
 
@@ -12,6 +13,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/lipgloss"
+	"golang.org/x/term"
 )
 
 // ErrCancelled is returned when the user leaves a prompt with esc or ctrl+c.
@@ -62,8 +64,13 @@ func MultiSelect(title string, options []Option, selected []string) ([]string, e
 	return values, runPrompt(field)
 }
 
-// Confirm asks a yes/no question; def is the answer Enter gives.
+// Confirm asks a yes/no question; def is the answer Enter gives. Without a
+// terminal it reads one line instead, so piped answers such as
+// `echo y | skillshare uninstall x` keep working.
 func Confirm(title string, def bool) (bool, error) {
+	if !term.IsTerminal(int(os.Stdin.Fd())) || !term.IsTerminal(int(os.Stdout.Fd())) {
+		return lineConfirm(title, def, os.Stdin, os.Stdout), nil
+	}
 	value := def
 	field := huh.NewConfirm().
 		Title(promptTitle(title)).
@@ -72,6 +79,60 @@ func Confirm(title string, def bool) (bool, error) {
 		Inline(true).
 		Value(&value)
 	return value, runPrompt(field)
+}
+
+// ConfirmAction is Confirm for a question that guards one action: esc
+// answers no instead of returning ErrCancelled.
+func ConfirmAction(title string, def bool) (bool, error) {
+	ok, err := Confirm(title, def)
+	if errors.Is(err, ErrCancelled) {
+		return false, nil
+	}
+	return ok, err
+}
+
+// Cancelled reports a declined confirmation, e.g. Cancelled("removed").
+func Cancelled(nothingWas string) {
+	fmt.Println(theme.Dim().Render("Cancelled. Nothing was " + nothingWas + "."))
+}
+
+// lineConfirm asks a yes/no question as plain text: y/yes or n/no, and
+// anything else, including end of input, takes def.
+func lineConfirm(title string, def bool, in io.Reader, out io.Writer) bool {
+	hint := "[y/N]"
+	if def {
+		hint = "[Y/n]"
+	}
+	fmt.Fprintf(out, "%s %s ", promptTitle(title), theme.Dim().Render(hint))
+	answer := strings.ToLower(strings.TrimSpace(readLine(in)))
+	fmt.Fprintln(out)
+	switch answer {
+	case "y", "yes":
+		return true
+	case "n", "no":
+		return false
+	}
+	return def
+}
+
+// readLine reads up to the next newline one byte at a time, so it never
+// takes input meant for a later question.
+func readLine(in io.Reader) string {
+	var line []byte
+	b := make([]byte, 1)
+	for {
+		n, err := in.Read(b)
+		if n == 1 {
+			if b[0] == '\n' {
+				break
+			}
+			line = append(line, b[0])
+		}
+		if err != nil {
+			break
+		}
+	}
+	return string(line)
 }
 
 // Input asks for one line of text. placeholder is shown while it is empty.

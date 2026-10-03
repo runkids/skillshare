@@ -166,7 +166,6 @@ skillshare trash agents empty
 
 ```
 ⚠ This will permanently delete 3 item(s) from trash
-Continue? [y/N]: y
 ✓ Emptied trash: 3 item(s) permanently deleted
 ```
 

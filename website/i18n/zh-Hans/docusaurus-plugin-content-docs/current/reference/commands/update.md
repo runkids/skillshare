@@ -312,11 +312,11 @@ Tracked repositories（`_repo`）不受 `--prune` 影响。当某个 tracked rep
   [HIGH] Source repository link detected — may be used for supply-chain redirects (SKILL.md:5)
 
   Security findings at or above active threshold detected.
-  Apply anyway? [y/N]:
+? Apply anyway?   Yes   No
 ```
 
-- **`y`** — 接受更新，忽略 findings
-- **`N`**（默认）— 回滚到 pull 之前的状态
+- **Yes** — 接受更新，忽略 findings
+- **No**（默认）— 回滚到 pull 之前的状态
 
 ### 非交互模式（CI/CD）
 

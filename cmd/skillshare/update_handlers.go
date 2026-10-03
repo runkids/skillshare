@@ -1,13 +1,11 @@
 package main
 
 import (
-	"bufio"
 	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"sort"
-	"strings"
 	"time"
 
 	"skillshare/internal/audit"
@@ -83,11 +81,11 @@ func auditGateAfterPull(sourceDir, repoPath, beforeHash string, skipAudit, force
 
 	if ui.IsTTY() {
 		fmt.Printf("\n  Security findings at %s or above detected.\n", normalizedThreshold)
-		fmt.Printf("  Apply anyway? [y/N]: ")
-		reader := bufio.NewReader(os.Stdin)
-		answer, _ := reader.ReadString('\n')
-		answer = strings.TrimSpace(strings.ToLower(answer))
-		if answer == "y" || answer == "yes" {
+		apply, err := ui.ConfirmAction("Apply anyway?", false)
+		if err != nil {
+			return result, err
+		}
+		if apply {
 			recordAcceptedFindings(sourceDir, repoPath, result, normalizedThreshold)
 			return result, nil
 		}

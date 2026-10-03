@@ -256,12 +256,12 @@ func trashEmpty(mode runMode, cwd string, kind resourceKindFilter) error {
 	}
 
 	ui.Warning("This will permanently delete %d item(s) from trash", len(items))
-	fmt.Print("Continue? [y/N]: ")
-	var input string
-	fmt.Scanln(&input)
-	input = strings.ToLower(strings.TrimSpace(input))
-	if input != "y" && input != "yes" {
-		ui.Info("Cancelled")
+	ok, err := ui.ConfirmAction("Continue?", false)
+	if err != nil {
+		return err
+	}
+	if !ok {
+		ui.Cancelled("deleted")
 		return nil
 	}
 

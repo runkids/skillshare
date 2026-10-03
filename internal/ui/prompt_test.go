@@ -56,3 +56,33 @@ func TestRunForm_EscClearsThePrompt(t *testing.T) {
 		t.Errorf("prompt was not erased after cancel; output tail = %q", rendered[last:])
 	}
 }
+
+func TestLineConfirm_ReadsOneAnswerPerLine(t *testing.T) {
+	in := strings.NewReader("y\nno\n\n")
+	var out bytes.Buffer
+
+	got := []bool{
+		lineConfirm("First?", false, in, &out),
+		lineConfirm("Second?", true, in, &out),
+		lineConfirm("Third?", true, in, &out),
+	}
+
+	if got[0] != true || got[1] != false || got[2] != true {
+		t.Errorf("answers = %v, want [true false true]", got)
+	}
+}
+
+func TestLineConfirm_EOFTakesTheDefault(t *testing.T) {
+	var out bytes.Buffer
+	if lineConfirm("Remove?", false, strings.NewReader(""), &out) {
+		t.Error("empty input answered yes, want the default no")
+	}
+}
+
+func TestLineConfirm_ShowsTheDefault(t *testing.T) {
+	var out bytes.Buffer
+	lineConfirm("Remove?", false, strings.NewReader("\n"), &out)
+	if !strings.Contains(out.String(), "Remove? [y/N]") {
+		t.Errorf("output = %q, want the question with [y/N]", out.String())
+	}
+}

@@ -312,11 +312,11 @@ When findings are detected at or above the active threshold, you're prompted to 
   [HIGH] Source repository link detected — may be used for supply-chain redirects (SKILL.md:5)
 
   Security findings at or above active threshold detected.
-  Apply anyway? [y/N]:
+? Apply anyway?   Yes   No
 ```
 
-- **`y`** — Accept the update despite findings
-- **`N`** (default) — Roll back to the pre-pull state
+- **Yes** — Accept the update despite findings
+- **No** (default) — Roll back to the pre-pull state
 
 ### Non-Interactive Mode (CI/CD)
 

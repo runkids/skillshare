@@ -312,11 +312,11 @@ findings가 활성 threshold 이상에서 감지되면 결정하라는 프롬프
   [HIGH] Source repository link detected — may be used for supply-chain redirects (SKILL.md:5)
 
   Security findings at or above active threshold detected.
-  Apply anyway? [y/N]:
+? Apply anyway?   Yes   No
 ```
 
-- **`y`** — findings에도 불구하고 업데이트를 수락
-- **`N`**(기본값) — pull 이전 상태로 롤백
+- **Yes** — findings에도 불구하고 업데이트를 수락
+- **No**(기본값) — pull 이전 상태로 롤백
 
 ### 비대화형 Mode (CI/CD)
 

@@ -312,11 +312,11 @@ Tracked 儲存庫（`_repo`）不受 `--prune` 影響。當 tracked 儲存庫內
   [HIGH] Source repository link detected — may be used for supply-chain redirects (SKILL.md:5)
 
   Security findings at or above active threshold detected.
-  Apply anyway? [y/N]:
+? Apply anyway?   Yes   No
 ```
 
-- **`y`** — 接受更新，即使有發現的問題
-- **`N`**（預設）— 回滾到 pull 前的狀態
+- **Yes** — 接受更新，即使有發現的問題
+- **No**（預設）— 回滾到 pull 前的狀態
 
 ### 非互動模式（CI/CD）
 

@@ -424,7 +424,7 @@ func initCancelled(err error) error {
 		return err
 	}
 	fmt.Println()
-	ui.Warning("Cancelled. Nothing was written.")
+	ui.Cancelled("written")
 	return &jsonSilentError{cause: err}
 }
 

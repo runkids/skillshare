@@ -193,13 +193,11 @@ func upgradeCLIBinary(dryRun, force bool) (string, error) {
 
 	// Confirm if not forced
 	if !force {
-		fmt.Printf("%s\n", ui.TreeLine())
-		fmt.Printf("%s  Upgrade to v%s? [Y/n]: ", ui.TreeLine(), latestVersion)
-		var input string
-		fmt.Scanln(&input)
-		ui.ClearLines(2) // erase the prompt + tree-line above it
-		input = strings.ToLower(strings.TrimSpace(input))
-		if input == "n" || input == "no" {
+		ok, err := ui.ConfirmAction(fmt.Sprintf("Upgrade to v%s?", latestVersion), true)
+		if err != nil {
+			return "", err
+		}
+		if !ok {
 			ui.StepEnd("Status", "Cancelled")
 			return "", nil
 		}
@@ -293,14 +291,11 @@ func upgradeSkillshareSkill(dryRun, force bool) error {
 			return nil
 		}
 
-		fmt.Printf("%s\n", ui.TreeLine())
-		fmt.Printf("%s  Install built-in skillshare skill? [y/N]: ", ui.TreeLine())
-		var input string
-		fmt.Scanln(&input)
-		ui.ClearLines(2) // erase the prompt + tree-line above it
-		input = strings.ToLower(strings.TrimSpace(input))
-
-		if input != "y" && input != "yes" {
+		ok, err := ui.ConfirmAction("Install built-in skillshare skill?", false)
+		if err != nil {
+			return err
+		}
+		if !ok {
 			ui.StepEnd("Status", "Not installed (skipped)")
 			return nil
 		}

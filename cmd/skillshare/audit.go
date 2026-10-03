@@ -573,10 +573,11 @@ func auditInstalled(sourcePath, agentsSourcePath, mode, projectRoot, threshold s
 	if len(skillPaths) > largeAuditThreshold && !jsonOutput && !opts.Yes && ui.IsTTY() {
 		ui.Warning("Found %d %s. This may take a while.", len(skillPaths), kind.Noun(len(skillPaths)))
 		ui.Info("Tip: use 'audit --group <dir>' or 'audit <name>' to scan specific %s", kind.Noun(2))
-		fmt.Print("  Continue? [y/N]: ")
-		var answer string
-		fmt.Scanln(&answer)
-		if answer != "y" && answer != "Y" {
+		ok, err := ui.ConfirmAction("Continue?", false)
+		if err != nil {
+			return nil, base, err
+		}
+		if !ok {
 			return nil, base, fmt.Errorf("aborted by user")
 		}
 	}

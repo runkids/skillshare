@@ -1,9 +1,7 @@
 package main
 
 import (
-	"bufio"
 	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
 	gosync "sync"
@@ -14,6 +12,7 @@ import (
 	"skillshare/internal/git"
 	"skillshare/internal/install"
 	"skillshare/internal/sync"
+	"skillshare/internal/theme"
 	"skillshare/internal/trash"
 	"skillshare/internal/ui"
 )
@@ -89,26 +88,18 @@ var projectUninstallPreflight = uninstallPreflightMessages{
 
 // confirmUninstall prompts user for confirmation
 func confirmUninstall(target *uninstallTarget, suffix string) (bool, error) {
-	kind := "skill"
+	kind := ""
 	if target.isTrackedRepo {
-		kind = "tracked repository"
+		kind = "tracked repository "
 	} else if len(countGroupSkills(target.path)) > 0 {
-		kind = "group"
+		kind = "group "
 	}
 
-	fmt.Printf("Are you sure you want to uninstall this %s%s? [y/N]: ", kind, suffix)
-	return readUninstallConfirmation()
+	return ui.ConfirmAction(fmt.Sprintf("Uninstall %s%s%s? %s", kind, target.name, suffix, uninstallTrashHint()), false)
 }
 
-func readUninstallConfirmation() (bool, error) {
-	reader := bufio.NewReader(os.Stdin)
-	input, err := reader.ReadString('\n')
-	if err != nil {
-		return false, err
-	}
-
-	input = strings.TrimSpace(strings.ToLower(input))
-	return input == "y" || input == "yes", nil
+func uninstallTrashHint() string {
+	return theme.Dim().Render("moved to trash for 7 days")
 }
 
 // performUninstallQuiet moves the skill to trash without printing output.
@@ -445,14 +436,13 @@ func runUninstallSkills(opts *uninstallOptions, mode *uninstallMode, rawArgs []s
 		if single {
 			confirmed, err = confirmUninstall(targets[0], mode.confirmSuffix)
 		} else {
-			fmt.Printf("Uninstall %d %s%s? [y/N]: ", len(targets), summarizeUninstallTargets(targets).noun(), mode.confirmSuffix)
-			confirmed, err = readUninstallConfirmation()
+			confirmed, err = ui.ConfirmAction(fmt.Sprintf("Uninstall %d %s%s? %s", len(targets), summarizeUninstallTargets(targets).noun(), mode.confirmSuffix, uninstallTrashHint()), false)
 		}
 		if err != nil {
 			return err
 		}
 		if !confirmed {
-			ui.Info("Cancelled")
+			ui.Cancelled("removed")
 			return nil
 		}
 	}

@@ -87,8 +87,6 @@ Local skills found
   ℹ new-skill       [claude] ~/.claude/skills/new-skill
   ℹ another-skill   [claude] ~/.claude/skills/another-skill
 
-Collect these skills to source? [y/N]: y
-
 Collecting skills
   ✓ new-skill: copied to source
   ✓ another-skill: copied to source

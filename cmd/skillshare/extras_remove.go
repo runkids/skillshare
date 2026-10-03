@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 	"time"
 
 	"skillshare/internal/config"
@@ -149,11 +148,12 @@ func extrasRemoveGlobal(name string, force bool, start time.Time) error {
 		ui.Info("Source files in %s will NOT be deleted.", shortenPath(sourceDir))
 		ui.Info("%s", extraRemoveTargetNote(found))
 		fmt.Println()
-		fmt.Print("Remove? [y/N]: ")
-		var input string
-		fmt.Scanln(&input)
-		if input = strings.ToLower(strings.TrimSpace(input)); input != "y" && input != "yes" {
-			ui.Info("Cancelled.")
+		ok, err := ui.ConfirmAction("Remove?", false)
+		if err != nil {
+			return err
+		}
+		if !ok {
+			ui.Cancelled("removed")
 			return nil
 		}
 	}
@@ -185,11 +185,12 @@ func extrasRemoveProject(cwd, name string, force bool, start time.Time) error {
 		ui.Info("Source files in %s will NOT be deleted.", shortenPath(sourceDir))
 		ui.Info("%s", extraRemoveTargetNote(found))
 		fmt.Println()
-		fmt.Print("Remove? [y/N]: ")
-		var input string
-		fmt.Scanln(&input)
-		if input = strings.ToLower(strings.TrimSpace(input)); input != "y" && input != "yes" {
-			ui.Info("Cancelled.")
+		ok, err := ui.ConfirmAction("Remove?", false)
+		if err != nil {
+			return err
+		}
+		if !ok {
+			ui.Cancelled("removed")
 			return nil
 		}
 	}

@@ -312,11 +312,11 @@ skill を更新した後、`update` は自動的に security audit を実行し�
   [HIGH] Source repository link detected — may be used for supply-chain redirects (SKILL.md:5)
 
   Security findings at or above active threshold detected.
-  Apply anyway? [y/N]:
+? Apply anyway?   Yes   No
 ```
 
-- **`y`** — 検出結果があっても更新を受け入れる
-- **`N`**（デフォルト） — pull 前の状態にロールバックする
+- **Yes** — 検出結果があっても更新を受け入れる
+- **No**（デフォルト） — pull 前の状態にロールバックする
 
 ### 非対話モード（CI/CD）
 

@@ -39,6 +39,7 @@ Most commands route through `parseModeArgs()` for global (`-g`) or project (`-p`
 
 - Ask inline questions with `internal/ui/prompt.go` (`Select`, `MultiSelect`, `Confirm`, `Input`, built on `huh` with theme colors); keep full-screen Bubble Tea components for browsing lists. Do not add another prompt framework.
 - A question asked without a terminal takes its default. Print each decision with the flag that changes it instead of failing or silently doing less.
+- Confirm a single action (remove, delete, apply anyway) with `ui.ConfirmAction`: esc answers no, and a decline prints `ui.Cancelled("removed")`. Without a terminal `ui.Confirm` reads one line from stdin (`y`/`yes`, `n`/`no`, anything else is the default), so `echo y | skillshare …` keeps working.
 - Preserve dispatch order: structured JSON → TUI when interactive and allowed → empty state → plain text.
 - Structured-output stdout must remain machine-readable; progress, spinners, and diagnostics must not contaminate JSON.
 - When adding or changing a flag, inspect `--help`, completions, website command documentation, and tests.

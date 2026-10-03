@@ -197,12 +197,12 @@ func targetAdd(args []string) error {
 	// If path doesn't look like a skills directory, ask for confirmation
 	if !validate.IsLikelySkillsPath(path) {
 		ui.Warning("Path doesn't appear to be a skills directory")
-		fmt.Print("  Continue anyway? [y/N]: ")
-		var input string
-		fmt.Scanln(&input)
-		input = strings.ToLower(strings.TrimSpace(input))
-		if input != "y" && input != "yes" {
-			ui.Info("Cancelled")
+		ok, err := ui.ConfirmAction("Continue anyway?", false)
+		if err != nil {
+			return err
+		}
+		if !ok {
+			ui.Cancelled("added")
 			return nil
 		}
 	}

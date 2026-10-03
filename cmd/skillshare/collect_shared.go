@@ -179,8 +179,12 @@ func runCollectPlan(plan collectPlan, opts collectOptions, start time.Time, scop
 	}
 
 	if !opts.force && !opts.jsonOutput {
-		if !confirmCollect(label) {
-			ui.Info("Cancelled")
+		ok, err := confirmCollect(label)
+		if err != nil {
+			return summary, err
+		}
+		if !ok {
+			ui.Cancelled("collected")
 			return summary, nil
 		}
 	}
@@ -206,13 +210,9 @@ func displayLocalCollectItems(title string, items []collectDisplayItem) {
 	}
 }
 
-func confirmCollect(resourceLabel string) bool {
+func confirmCollect(resourceLabel string) (bool, error) {
 	fmt.Println()
-	fmt.Printf("Collect these %s to source? [y/N]: ", resourceLabel)
-	var input string
-	fmt.Scanln(&input)
-	input = strings.ToLower(strings.TrimSpace(input))
-	return input == "y" || input == "yes"
+	return ui.ConfirmAction(fmt.Sprintf("Collect these %s to source?", resourceLabel), false)
 }
 
 func renderCollectResult(resourceLabel string, result *sync.PullResult, source string) error {
