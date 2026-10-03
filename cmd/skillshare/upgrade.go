@@ -316,6 +316,9 @@ func upgradeSkillshareSkill(dryRun, force bool) (bool, error) {
 	spinner := ui.StartSpinner("Checking latest skill version...")
 	remoteVersion := versionpkg.FetchRemoteSkillVersion()
 	spinner.Stop()
+	if remoteVersion != "" {
+		versionpkg.SaveRemoteSkillVersion(remoteVersion)
+	}
 	if remoteVersion == "" {
 		printUpgradeRow(ui.MarkNone, "Skill", current+ui.DimText(" · couldn't check for a newer version (network unavailable)"), time.Time{})
 		return false, nil

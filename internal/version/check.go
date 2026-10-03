@@ -73,7 +73,11 @@ func GetCachedVersion() string {
 
 // loadCache loads the version check cache from disk
 func loadCache() (*Cache, error) {
-	data, err := os.ReadFile(getCachePath())
+	return loadCacheAt(getCachePath())
+}
+
+func loadCacheAt(cachePath string) (*Cache, error) {
+	data, err := os.ReadFile(cachePath)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil, nil // No cache yet
@@ -91,8 +95,10 @@ func loadCache() (*Cache, error) {
 
 // saveCache saves the version check cache to disk
 func saveCache(cache *Cache) error {
-	cachePath := getCachePath()
+	return saveCacheAt(getCachePath(), cache)
+}
 
+func saveCacheAt(cachePath string, cache *Cache) error {
 	// Ensure directory exists
 	if err := os.MkdirAll(filepath.Dir(cachePath), 0755); err != nil {
 		return err

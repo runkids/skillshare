@@ -84,3 +84,13 @@ func TestSkillOutdated(t *testing.T) {
 		}
 	}
 }
+
+func TestCachedRemoteSkillVersion_FreshCacheSkipsFetch(t *testing.T) {
+	t.Setenv("XDG_CACHE_HOME", t.TempDir())
+	// A version GitHub will never serve, so a fetch would be visible.
+	SaveRemoteSkillVersion("9.9.9")
+
+	if got := CachedRemoteSkillVersion(); got != "9.9.9" {
+		t.Fatalf("CachedRemoteSkillVersion() = %q, want the cached 9.9.9", got)
+	}
+}

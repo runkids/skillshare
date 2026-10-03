@@ -117,7 +117,7 @@ func cmdDoctorGlobal(jsonMode bool) error {
 	updateCh := make(chan *versioncheck.CheckResult, 1)
 	go func() { updateCh <- fetchDoctorUpdateResult() }()
 	skillCh := make(chan string, 1)
-	go func() { skillCh <- versioncheck.FetchRemoteSkillVersion() }()
+	go func() { skillCh <- versioncheck.CachedRemoteSkillVersion() }()
 
 	var restoreUI func()
 	if jsonMode {
@@ -173,7 +173,7 @@ func cmdDoctorProject(root string, jsonMode bool) error {
 	updateCh := make(chan *versioncheck.CheckResult, 1)
 	go func() { updateCh <- fetchDoctorUpdateResult() }()
 	skillCh := make(chan string, 1)
-	go func() { skillCh <- versioncheck.FetchRemoteSkillVersion() }()
+	go func() { skillCh <- versioncheck.CachedRemoteSkillVersion() }()
 
 	var restoreUI func()
 	if jsonMode {
