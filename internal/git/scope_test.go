@@ -505,6 +505,27 @@ func TestKeepLocalConfig_RestoresModeOfIdenticalCopy(t *testing.T) {
 	}
 }
 
+func TestKeepLocalConfig_RestoresOverTrackedDirectory(t *testing.T) {
+	repo, remote := rootScopeRepoTrackingRemote(t)
+	pushFromOtherClone(t, remote, map[string]string{"config.yaml/file": "remote\n"})
+	restore, err := KeepLocalConfig(repo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := PullWithEnv(repo, nil); err != nil {
+		t.Fatalf("PullWithEnv() error: %v", err)
+	}
+	if _, err := restore(); err != nil {
+		t.Fatal(err)
+	}
+	if got, err := os.ReadFile(filepath.Join(repo, "config.yaml")); err != nil || string(got) != "LOCAL-config\n" {
+		t.Fatalf("config.yaml = %q, %v; want the local copy restored over the tracked directory", got, err)
+	}
+	if removed, err := EnsureConfigUntracked(repo); err != nil || !removed {
+		t.Fatalf("EnsureConfigUntracked() = %v, %v; want the tracked directory untracked", removed, err)
+	}
+}
+
 func TestKeepLocalConfig_ReportsTrackedCopyWithSameContent(t *testing.T) {
 	repo, remote := rootScopeRepoTrackingRemote(t)
 	pushFromOtherClone(t, remote, map[string]string{"config.yaml": "LOCAL-config\n"})

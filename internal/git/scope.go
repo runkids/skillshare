@@ -229,7 +229,7 @@ func EnsureConfigUntracked(dir string) (removed bool, err error) {
 	if !isTracked(dir, "config.yaml") {
 		return false, nil
 	}
-	cmd := exec.Command("git", "rm", "--cached", "--", "config.yaml")
+	cmd := exec.Command("git", "rm", "-r", "--cached", "--", "config.yaml")
 	cmd.Dir = dir
 	if err := cmd.Run(); err != nil {
 		return false, fmt.Errorf("untrack config.yaml: %w", err)
@@ -277,6 +277,25 @@ func configIndexEntry(dir string) string {
 	return strings.TrimSpace(string(out))
 }
 
+// removeCheckedOut clears whatever the pull left at path so the snapshot can be
+// written back. A pull can check out a tracked config.yaml/ directory there;
+// its contents are in Git, so removing it loses nothing.
+func removeCheckedOut(path string) error {
+	info, err := os.Lstat(path)
+	if errors.Is(err, fs.ErrNotExist) {
+		return nil
+	}
+	if err == nil && info.IsDir() {
+		err = os.RemoveAll(path)
+	} else if err == nil {
+		err = os.Remove(path)
+	}
+	if err != nil {
+		return fmt.Errorf("restore config.yaml: %w", err)
+	}
+	return nil
+}
+
 // snapshotConfig records the config.yaml at path and returns a put that writes
 // it back, reporting whether it had changed. A missing file is a no-op.
 func snapshotConfig(path string) (put func() (replaced bool, err error), err error) {
@@ -296,8 +315,8 @@ func snapshotConfig(path string) (put func() (replaced bool, err error), err err
 			if cur, err := os.Readlink(path); err == nil && cur == target {
 				return false, nil
 			}
-			if err := os.Remove(path); err != nil && !errors.Is(err, fs.ErrNotExist) {
-				return true, fmt.Errorf("restore config.yaml: %w", err)
+			if err := removeCheckedOut(path); err != nil {
+				return true, err
 			}
 			return true, os.Symlink(target, path)
 		}, nil
@@ -312,8 +331,8 @@ func snapshotConfig(path string) (put func() (replaced bool, err error), err err
 				return false, nil
 			}
 		}
-		if err := os.Remove(path); err != nil && !errors.Is(err, fs.ErrNotExist) {
-			return true, fmt.Errorf("restore config.yaml: %w", err)
+		if err := removeCheckedOut(path); err != nil {
+			return true, err
 		}
 		if err := os.WriteFile(path, data, info.Mode().Perm()); err != nil {
 			return true, err
