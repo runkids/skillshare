@@ -30,7 +30,7 @@ To reproduce inside the devcontainer:
 docker exec "$CONTAINER" bash -lc 'cd /workspace && PI_ROOT=/home/developer/.local/agent-clis/lib/node_modules/@earendil-works/pi-coding-agent node scripts/pi/phase0-contract.mjs'
 ```
 
-Last run (2026-10-03, by `scripts/pi/version-matrix.sh` for Pi 0.99.2 and 1.0.0, against both `dist/core` and the CLI bundle): **28 scenarios, 87 assertions passed, exit 0** for each; see Version support. An earlier run of 21 scenarios, 53 assertions, also exit 0, no `/tmp/pi-phase0-*` left. Scenarios 18–20 cover string→object conversion of a package with a partial manifest and its controls, and single-file sources; scenario 21 shows that a rule with an unpaired surrogate escape names no file in Pi, while Go would read it as U+FFFD.
+Last run (2026-10-03, by `scripts/pi/version-matrix.sh` for Pi 0.99.2 and 1.0.0, against both `dist/core` and the CLI bundle): **29 scenarios, 90 assertions passed, exit 0** for each; see Version support. An earlier run of 21 scenarios, 53 assertions, also exit 0, no `/tmp/pi-phase0-*` left. Scenarios 18–20 cover string→object conversion of a package with a partial manifest and its controls, and single-file sources; scenario 21 shows that a rule with an unpaired surrogate escape names no file in Pi, while Go would read it as U+FFFD.
 
 How the script stays isolated:
 - `HOME` and every agent/project directory live under one `mkdtemp` root, removed in `finally`.
@@ -190,7 +190,7 @@ global) and runs four checks per version:
 | `native-lock` | `TestPiNativeLockHoldsAgainstPi`: Pi's proper-lockfile against Skillshare's lock |
 | `project-native` | `TestPiProjectOverridesResolveInPi`: Pi's `DefaultPackageManager` (through `scripts/pi/resolve-probe.mjs`, trust passed in, so no trust store is read or written) resolves project settings that Skillshare's editor wrote |
 
-Both versions passed all four, with 28 scenarios and 87 assertions each; scenario 28 verifies query-bearing Git identity and first-global/last-project precedence without installing or loading the packages. The integrity hashes
+Both versions passed all four, with 29 scenarios and 90 assertions each; scenario 28 verifies query-bearing Git identity and first-global/last-project precedence, and scenario 29 verifies that an invalid UTF-8 source can decode to and own a valid later local source. Neither installs or loads the packages. The integrity hashes
 and results are in `scripts/pi/version-evidence.json`, and `PiVerifiedVersions` must equal the
 versions listed there (a Go test enforces it). Scenario 27 adds the project-only delta:
 with no global entry, `+path` loads, `-path` and unnamed paths stay unloaded, and no other

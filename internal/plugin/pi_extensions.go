@@ -524,6 +524,8 @@ func (s *Service) piGlobalState(ctx context.Context, target string) (*piTargetSt
 				id := resolvePiSource(e.source, agentDir, "", "user").identity
 				seen[id] = true
 				unresolved = unresolved || id == ""
+			} else {
+				unresolved = true
 			}
 			v.Packages = append(v.Packages, pkg)
 			continue

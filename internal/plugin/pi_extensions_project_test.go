@@ -137,6 +137,68 @@ func TestPiProjectOverrideOfAGlobalPackage(t *testing.T) {
 
 // An unsupported source has no proven identity, but stays visible and read-only
 // without exposing credentials or becoming an inheritance/editing baseline.
+func TestPiBadSourceMakesPackageOwnershipUnknown(t *testing.T) {
+	for _, scope := range []string{"global", "inherited", "project"} {
+		for _, kind := range []string{"null", "empty", "whitespace", "invalid UTF-8"} {
+			t.Run(scope+"/"+kind, func(t *testing.T) {
+				f, root := projectFixture(t)
+				if scope == "global" {
+					f.svc.ProjectRoot = ""
+				}
+				source := filepath.Join(f.home, "pkgs", "replacement-\uFFFD")
+				writeTree(t, source, map[string]string{"extensions/a.ts": "throw new Error('never loaded')"})
+				bad := `{"source":null}`
+				switch kind {
+				case "empty":
+					bad = `{"source":""}`
+				case "whitespace":
+					bad = `{"source":"  "}`
+				case "invalid UTF-8":
+					raw, err := json.Marshal(map[string]any{"source": source, "extensions": []string{"-extensions/a.ts"}})
+					if err != nil {
+						t.Fatal(err)
+					}
+					bad = strings.ReplaceAll(string(raw), "\uFFFD", string([]byte{0xff}))
+				}
+				clean, _ := json.Marshal(source)
+				packageScope, index := "global", 1
+				if scope == "project" {
+					packageScope, index = "project", 0
+					f.global(map[string]any{"packages": []any{}})
+					if err := os.MkdirAll(filepath.Dir(f.projectFile(root)), 0o755); err != nil {
+						t.Fatal(err)
+					}
+					if err := os.WriteFile(f.projectFile(root), []byte(`{"packages":[`+string(clean)+`,`+bad+`]}`), 0o644); err != nil {
+						t.Fatal(err)
+					}
+				} else {
+					f.rawGlobal(`{"packages":[` + bad + `,` + string(clean) + `]}`)
+				}
+				same := unchanged(t, f.settingsPath(), f.projectFile(root), filepath.Join(f.agentDir, "trust.json"))
+				v := f.view("pi")
+				p := v.Packages[len(v.Packages)-1]
+				if scope == "project" {
+					p = v.Packages[0]
+				}
+				if p.Index != index || p.Problem != "sourceUnknown" || len(p.Rows) != 0 {
+					t.Fatalf("package ownership was assumed: %+v", v.Packages)
+				}
+				changes := []PiExtensionChange{{Scope: packageScope, Index: index, Source: source, Path: "extensions/a.ts", Action: "exclude"}}
+				if _, err := f.svc.PreviewPiExtensions(context.Background(), "pi", changes); err == nil {
+					t.Fatal("previewed an entry after an unreadable source")
+				}
+				if _, err := f.svc.ApplyPiExtensions(context.Background(), "pi", changes, v.Revision); err == nil {
+					t.Fatal("wrote an entry after an unreadable source")
+				}
+				same()
+				if records, _ := filepath.Glob(filepath.Join(f.svc.StateDir, "pi-extensions", "backups", "*.json")); len(records) != 0 {
+					t.Fatalf("refused apply made records: %v", records)
+				}
+			})
+		}
+	}
+}
+
 func TestPiUnresolvedRegistrationMakesOwnershipUnknown(t *testing.T) {
 	for _, scope := range []string{"global", "inherited", "project", "delta"} {
 		for _, unresolvedFirst := range []bool{false, true} {

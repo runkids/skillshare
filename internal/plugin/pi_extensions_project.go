@@ -94,6 +94,7 @@ func (s *Service) piProjectState(ctx context.Context, target string) (*piProject
 	unresolvedGlobal := false
 	for _, e := range global.entries {
 		if e.badSource {
+			unresolvedGlobal = true
 			continue // the view is read-only
 		}
 		p := openPiPackage(e.source, agentDir, projectDir, "user")
@@ -121,7 +122,9 @@ func (s *Service) piProjectState(ctx context.Context, target string) (*piProject
 	lastProject := map[string]int{}
 	lastUnresolved := -1
 	for _, e := range project.entries {
-		if e.problem == "" {
+		if e.badSource {
+			lastUnresolved = e.index
+		} else if e.problem == "" {
 			if id := resolvePiSource(e.source, agentDir, projectDir, "project").identity; id != "" {
 				lastProject[id] = e.index
 			} else {

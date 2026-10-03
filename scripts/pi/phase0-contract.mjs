@@ -218,6 +218,24 @@ try {
     }
   });
 
+  await scenario("invalid UTF-8 source decodes to a valid later source and owns its global identity", async () => {
+    const cwd = join(root, "bad-source-identity");
+    const agentDir = join(cwd, "agent");
+    mkdirSync(agentDir, { recursive: true });
+    const source = join(cwd, "replacement-\uFFFD");
+    const first = { source, extensions: ["-extensions/a.ts"] };
+    const last = { source, extensions: ["+extensions/a.ts"] };
+    const raw = Buffer.from(JSON.stringify({ packages: [first, last] }));
+    const offset = raw.indexOf(Buffer.from("\uFFFD"));
+    writeFileSync(join(agentDir, "settings.json"), Buffer.concat([raw.subarray(0, offset), Buffer.from([0xff]), raw.subarray(offset + 3)]));
+    const settingsManager = SettingsManager.create(cwd, agentDir);
+    const pm = new DefaultPackageManager({ cwd, agentDir, settingsManager });
+    const entries = settingsManager.getGlobalSettings().packages;
+    eq(entries[0].source, source);
+    eq(pm.getPackageIdentity(entries[0].source, "user"), pm.getPackageIdentity(entries[1].source, "user"));
+    eq(pm.dedupePackages(entries.map((pkg) => ({ pkg, scope: "user" }))), [{ pkg: first, scope: "user" }]);
+  });
+
   await scenario("native write keeps other filters, [] and unknown keys", async () => {
     const entry = { source: src, extensions: ["-extensions/b.ts"], skills: [], prompts: ["!prompts/commit.md"], themes: [], "x-acme": { keep: true, nested: [1] } };
     const r = await run({ global: { "x-top": 1, packages: [entry] } });
