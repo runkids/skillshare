@@ -9,6 +9,7 @@ import (
 
 	"skillshare/internal/config"
 	"skillshare/internal/skillignore"
+	"skillshare/internal/sourcefs"
 	"skillshare/internal/utils"
 )
 
@@ -207,8 +208,13 @@ func MigrateToSource(targetPath, sourcePath string) error {
 
 	// Check if source already exists
 	if _, err := os.Stat(sourcePath); err == nil {
-		// Source exists - merge files
-		if err := mergeDirectories(targetPath, sourcePath); err != nil {
+		// Source exists - merge files through the source handle
+		src, err := sourcefs.Open(sourcePath)
+		if err != nil {
+			return fmt.Errorf("failed to open source: %w", err)
+		}
+		defer src.Close()
+		if err := mergeDirectories(src.Writer(), targetPath, sourcePath); err != nil {
 			return fmt.Errorf("failed to merge directories: %w", err)
 		}
 		// Remove original target
@@ -218,8 +224,9 @@ func MigrateToSource(targetPath, sourcePath string) error {
 	} else {
 		// Source doesn't exist - just move
 		if err := os.Rename(targetPath, sourcePath); err != nil {
-			// Cross-device? Try copy then delete
-			if err := copyDirectory(targetPath, sourcePath); err != nil {
+			// Cross-device? Try copy then delete. The copy creates the
+			// missing source root itself, so nothing in it can be a link yet.
+			if err := copyDirectory(sourcefs.OS, targetPath, sourcePath); err != nil {
 				return fmt.Errorf("failed to copy to source: %w", err)
 			}
 			if err := os.RemoveAll(targetPath); err != nil {
@@ -314,8 +321,8 @@ func SyncTarget(name string, target config.TargetConfig, sourcePath string, dryR
 	}
 }
 
-// mergeDirectories copies files from src to dst, skipping existing files
-func mergeDirectories(src, dst string) error {
+// mergeDirectories copies files from src to dst through w, skipping existing files
+func mergeDirectories(w sourcefs.Writer, src, dst string) error {
 	return filepath.Walk(src, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
@@ -325,7 +332,7 @@ func mergeDirectories(src, dst string) error {
 		dstPath := filepath.Join(dst, relPath)
 
 		if info.IsDir() {
-			return os.MkdirAll(dstPath, info.Mode())
+			return w.MkdirAll(dstPath, info.Mode())
 		}
 
 		// Skip if destination exists
@@ -334,13 +341,13 @@ func mergeDirectories(src, dst string) error {
 			return nil
 		}
 
-		return copyFile(path, dstPath)
+		return copyFile(w, path, dstPath)
 	})
 }
 
-// copyDirectory copies a directory recursively
-func copyDirectory(src, dst string) error {
-	return copyDirectoryWithState(src, dst, map[string]bool{}, nil)
+// copyDirectory copies a directory recursively through w
+func copyDirectory(w sourcefs.Writer, src, dst string) error {
+	return copyDirectoryWithState(w, src, dst, map[string]bool{}, nil)
 }
 
 // copyDirectoryOpts controls behavior of copyDirectoryWithState.
@@ -349,14 +356,15 @@ type copyDirectoryOpts struct {
 	Ignore  *skillignore.Matcher
 }
 
-// copyDirectorySkipGit copies a directory recursively, skipping .git directories.
+// copyDirectorySkipGit copies a directory recursively through w, skipping .git directories.
 // Use this for collect/pull operations where .git is not wanted in the destination.
-func copyDirectorySkipGit(src, dst string) error {
-	return copyDirectoryWithState(src, dst, map[string]bool{}, &copyDirectoryOpts{SkipGit: true})
+func copyDirectorySkipGit(w sourcefs.Writer, src, dst string) error {
+	return copyDirectoryWithState(w, src, dst, map[string]bool{}, &copyDirectoryOpts{SkipGit: true})
 }
 
+// copyDirectoryWithIgnore copies a skill into a copy-mode target.
 func copyDirectoryWithIgnore(src, dst string, ignorePatterns []string) error {
-	return copyDirectoryWithState(src, dst, map[string]bool{}, &copyDirectoryOpts{
+	return copyDirectoryWithState(sourcefs.OS, src, dst, map[string]bool{}, &copyDirectoryOpts{
 		SkipGit: true,
 		Ignore:  compileFileIgnore(ignorePatterns),
 	})
@@ -364,7 +372,7 @@ func copyDirectoryWithIgnore(src, dst string, ignorePatterns []string) error {
 
 // copyDirectoryWithState copies recursively and dereferences directory symlinks.
 // active tracks real paths in the current recursion stack to prevent cycles.
-func copyDirectoryWithState(src, dst string, active map[string]bool, opts *copyDirectoryOpts) error {
+func copyDirectoryWithState(w sourcefs.Writer, src, dst string, active map[string]bool, opts *copyDirectoryOpts) error {
 	resolvedSrc, err := filepath.EvalSymlinks(src)
 	if err != nil {
 		return fmt.Errorf("failed to resolve source directory %s: %w", src, err)
@@ -397,7 +405,7 @@ func copyDirectoryWithState(src, dst string, active map[string]bool, opts *copyD
 			if relPath != "." && isFileIgnored(ignore, relPath, true) {
 				return filepath.SkipDir
 			}
-			return os.MkdirAll(dstPath, info.Mode())
+			return w.MkdirAll(dstPath, info.Mode())
 		}
 		if isFileIgnored(ignore, relPath, false) {
 			return nil
@@ -415,16 +423,16 @@ func copyDirectoryWithState(src, dst string, active map[string]bool, opts *copyD
 				if resolveErr != nil {
 					return fmt.Errorf("failed to resolve symlink directory %s: %w", path, resolveErr)
 				}
-				return copyDirectoryWithState(resolvedDir, dstPath, active, opts)
+				return copyDirectoryWithState(w, resolvedDir, dstPath, active, opts)
 			}
 		}
 
-		return copyFile(path, dstPath)
+		return copyFile(w, path, dstPath)
 	})
 }
 
-// copyFile copies a single file
-func copyFile(src, dst string) error {
+// copyFile copies a single file through w
+func copyFile(w sourcefs.Writer, src, dst string) error {
 	srcFile, err := os.Open(src)
 	if err != nil {
 		return err
@@ -436,7 +444,7 @@ func copyFile(src, dst string) error {
 		return err
 	}
 
-	dstFile, err := os.OpenFile(dst, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, srcInfo.Mode())
+	dstFile, err := w.OpenFile(dst, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, srcInfo.Mode())
 	if err != nil {
 		return err
 	}

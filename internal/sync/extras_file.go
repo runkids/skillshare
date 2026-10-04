@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"skillshare/internal/config"
+	"skillshare/internal/sourcefs"
 	"skillshare/internal/utils"
 )
 
@@ -242,7 +243,7 @@ func syncExtraFileReplace(f ExtraFile, dryRun bool, projectRoot string) (*ExtraR
 		return nil, fmt.Errorf("failed to create parent dir: %w", err)
 	}
 	if copyMode {
-		if err := copyFile(f.Source, f.Target); err != nil {
+		if err := copyFile(sourcefs.OS, f.Source, f.Target); err != nil {
 			return nil, fmt.Errorf("failed to copy file: %w", err)
 		}
 	} else if err := createLink(f.Target, f.Source, relative); err != nil {

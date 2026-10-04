@@ -9,6 +9,7 @@ import (
 	"sort"
 	"strings"
 
+	"skillshare/internal/sourcefs"
 	"skillshare/internal/utils"
 )
 
@@ -470,7 +471,7 @@ func syncOneExtraFile(srcFile, tgtFile, mode string, dryRun, force, relative boo
 			copies.forget(tgtRel)
 		}
 	case "copy":
-		if err := copyFile(srcFile, tgtFile); err != nil {
+		if err := copyFile(sourcefs.OS, srcFile, tgtFile); err != nil {
 			return 0, 0, fmt.Errorf("failed to copy file: %w", err)
 		}
 		if copies != nil {

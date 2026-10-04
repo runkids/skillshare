@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"skillshare/internal/resource"
+	"skillshare/internal/sourcefs"
 	"skillshare/internal/utils"
 )
 
@@ -245,7 +246,7 @@ func syncAgentsMergeCopy(agents []resource.DiscoveredResource, targetDir string,
 					return nil, fmt.Errorf("failed to replace %s: %w", name, err)
 				}
 			}
-			if err := copyFile(agent.AbsPath, targetPath); err != nil {
+			if err := copyFile(sourcefs.OS, agent.AbsPath, targetPath); err != nil {
 				return nil, fmt.Errorf("failed to copy %s: %w", name, err)
 			}
 			copies.record(name)
