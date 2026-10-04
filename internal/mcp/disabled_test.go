@@ -412,6 +412,28 @@ func TestPiSwitchConflictsWithLargerOverrideFromPi(t *testing.T) {
 	}
 }
 
+// Once sync owns the switch, Pi settings added to it in Pi are kept, as on any managed Pi
+// entry; turning the server back on in Pi is a conflict.
+func TestPiSwitchOwnedBySync(t *testing.T) {
+	for name, tc := range map[string]struct{ entry, action string }{
+		"exposure added": {"{\n  \"enabled\": false,\n  \"exposure\": \"direct\"\n}", "unchanged"},
+		"turned back on": {"{\n  \"enabled\": true\n}", "conflict"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			s, tmp := projectsService(t, "mcp:\n  servers: {}\n  projects:\n    $TMP/p1:\n      targets: [pi]\n      servers:\n        docs:\n          disabled: true\n")
+			applyProjects(t, s)
+			writePiProjectFile(t, filepath.Join(tmp, "p1"), `{"mcpServers":{"docs":`+tc.entry+`}}`)
+			plan, err := s.Preview()
+			if err != nil {
+				t.Fatal(err)
+			}
+			if c := changeFor(plan, filepath.Join(tmp, "p1", ".pi", "mcp.json"), "docs"); c == nil || c.Action != tc.action {
+				t.Fatalf("%+v", c)
+			}
+		})
+	}
+}
+
 // Removing the switch takes the Pi entry away.
 func TestPiSwitchRemovedWithTheEntry(t *testing.T) {
 	s, tmp := projectsService(t, "mcp:\n  servers:\n    docs:\n      command: tool\n      targets: [pi]\n  projects:\n    $TMP/p1:\n      targets: [pi]\n      servers:\n        docs:\n          disabled: true\n")

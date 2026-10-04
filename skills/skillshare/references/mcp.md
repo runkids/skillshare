@@ -251,7 +251,8 @@ skillshare mcp edit docs --pi-options '{}' --no-tui
 - A `disabled` entry turns a global server off for Pi 1.0.1+ too, in project mode or under
   `mcp.projects`: Skillshare writes that override, `"NAME": {"enabled": false}`, to
   `.pi/mcp.json`, and the global server keeps its args, env and credentials. An override
-  Pi already wrote with `enabled: false` is no conflict.
+  Pi already wrote as exactly `{"enabled": false}` is no conflict; Pi settings added in Pi
+  to a switch sync wrote are kept, and turning it back on in Pi is a conflict.
 
 ## Tool policy
 

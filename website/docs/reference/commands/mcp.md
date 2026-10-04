@@ -969,10 +969,12 @@ global entry of the same name; to turn off a global server in one project, see
 
 Since Pi 1.0.1, `/mcp` in Pi can add a project entry with only `enabled`, `exposure` or
 `toolExposure`, which overrides the global server of that name. It is not a server, so
-import skips it. A `disabled` entry writes the same override, so one that already says
-`enabled: false` is no conflict. If the project defines a server with the same name, or
-the override differs from the `disabled` entry, sync reports a conflict until you replace
-the entry or remove the override in Pi.
+import skips it. A `disabled` entry writes the same override, so one that is exactly
+`{"enabled": false}` is no conflict. Once sync has written the switch, Pi settings you add
+to it in Pi, such as `exposure`, are kept as on any Pi entry sync manages; turning the
+server back on in Pi is a conflict. If the project defines a server with the same name, or
+an override sync did not write differs from the `disabled` entry, sync reports a conflict
+until you replace the entry or remove the override in Pi.
 
 ### Other Pi settings {#pi-options}
 

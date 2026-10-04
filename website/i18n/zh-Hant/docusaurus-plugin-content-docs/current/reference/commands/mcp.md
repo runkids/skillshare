@@ -875,8 +875,10 @@ Pi 的 server 名稱只接受字母、數字、`_` 和 `-`；只差在 `-` 和 `
 
 Pi 1.0.1 起，Pi 的 `/mcp` 可以在專案中新增只有 `enabled`、`exposure` 或 `toolExposure` 的項目，
 用來覆寫同名的 global server。它不是 server，所以匯入會略過它。`disabled` 項目寫入的也是這種覆寫，
-所以已經是 `enabled: false` 的覆寫不算衝突。如果專案定義了同名的 server，或覆寫內容和 `disabled`
-項目不同，同步會回報衝突，直到你取代該項目，或在 Pi 中移除這個覆寫。
+所以剛好是 `{"enabled": false}` 的覆寫不算衝突。同步寫入開關後，你在 Pi 中替它加上的 Pi 設定（例如
+`exposure`）會像其他由同步管理的 Pi 項目一樣保留；在 Pi 中把 server 重新開啟則算衝突。如果專案定義了
+同名的 server，或不是同步寫入的覆寫和 `disabled` 項目不同，同步會回報衝突，直到你取代該項目，或在 Pi
+中移除這個覆寫。
 
 ### 其他 Pi 設定 {#pi-options}
 

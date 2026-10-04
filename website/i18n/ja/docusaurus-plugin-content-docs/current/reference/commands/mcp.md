@@ -815,7 +815,7 @@ Pi のサーバー名には英数字、`_`、`-` のみを使えます。`-` と
 エントリを丸ごと置き換えます。1 つの project で global サーバーをオフにするには、
 [1 つの project だけで global サーバーをオフにする](#turn-off-a-global-server-in-one-project)を参照してください。
 
-Pi 1.0.1 以降、Pi の `/mcp` は `enabled`、`exposure`、`toolExposure` だけを持つ project エントリを追加でき、同名の global サーバーを上書きします。これはサーバーではないため、インポートでは読み飛ばされます。`disabled` エントリも同じ上書きを書き込むため、すでに `enabled: false` になっている上書きは競合になりません。project が同名のサーバーを定義している場合、または上書きが `disabled` エントリと異なる場合、そのエントリを置き換えるか Pi で上書きを削除するまで、sync は競合を報告します。
+Pi 1.0.1 以降、Pi の `/mcp` は `enabled`、`exposure`、`toolExposure` だけを持つ project エントリを追加でき、同名の global サーバーを上書きします。これはサーバーではないため、インポートでは読み飛ばされます。`disabled` エントリも同じ上書きを書き込むため、ちょうど `{"enabled": false}` である上書きは競合になりません。sync がスイッチを書き込んだ後に Pi で追加した `exposure` などの Pi 設定は、sync が管理する他の Pi エントリと同様に保持されます。Pi でサーバーを再びオンにすると競合になります。project が同名のサーバーを定義している場合、または sync が書き込んでいない上書きが `disabled` エントリと異なる場合、そのエントリを置き換えるか Pi で上書きを削除するまで、sync は競合を報告します。
 
 ### その他の Pi 設定 {#pi-options}
 
