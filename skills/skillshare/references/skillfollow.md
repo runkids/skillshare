@@ -33,7 +33,8 @@ followed group. A nested tracked repo (also `--track --into`) owns its skills:
 list/status/dashboard counts, `.metadata.json` target overrides, and the
 dashboard single-skill uninstall guard. Nested links are not traversed.
 A declared entry is never created, even while offline: install (plain, --into,
---track, bare reinstall), new, and dashboard create/install refuse destinations
+--track, bare reinstall), new, collect, trash restore, init imports, symlink-mode
+sync migration, and dashboard create/install/collect/restore refuse destinations
 inside it (link error, 409); a tracked repo recorded inside it is never listed
 as missing or rehydrated.
 
