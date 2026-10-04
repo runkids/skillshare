@@ -796,7 +796,13 @@ func tryPullAfterRemoteSetup(sourcePath, remoteURL string) bool {
 	trackCmd.Run() // best-effort
 
 	// Count pulled skills (deep: count SKILL.md files, not top-level dirs)
-	discovered, _ := ssync.DiscoverSourceSkills(sourcePath)
+	follow := configuredSkillFollowSet(sourcePath)
+	discovered, _, discoverErr := ssync.DiscoverSourceSkillsWithOptions(sourcePath, ssync.DiscoveryOptions{Follow: follow})
+	if discoverErr != nil && follow != nil && follow.Err() != nil {
+		spinner.Stop()
+		ui.Warning("Failed to count pulled skills: %v", discoverErr)
+		return true
+	}
 	skillCount := len(discovered)
 
 	spinner.Stop()

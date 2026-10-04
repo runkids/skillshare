@@ -5,6 +5,7 @@ import (
 
 	"skillshare/internal/config"
 	"skillshare/internal/sourcewalk"
+	"skillshare/internal/utils"
 )
 
 // skillFollowSet binds discovery policy to the current command's resolved config.
@@ -27,4 +28,12 @@ func skillFollowSet(source string, targets map[string]config.TargetConfig, gitRo
 
 func globalSkillFollowSet(cfg *config.Config) *sourcewalk.FollowSet {
 	return skillFollowSet(cfg.EffectiveSkillsSource(), cfg.Targets, cfg.EffectiveGitRoot())
+}
+
+// configuredSkillFollowSet supports source-only init and hub entry points.
+func configuredSkillFollowSet(source string) *sourcewalk.FollowSet {
+	if cfg, err := config.Load(); err == nil && utils.PathsEqual(source, cfg.EffectiveSkillsSource()) {
+		return globalSkillFollowSet(cfg)
+	}
+	return skillFollowSet(source, nil, source)
 }

@@ -27,7 +27,7 @@ func cmdDiffProject(root, targetName string, kind resourceKindFilter, opts diffR
 	if !opts.jsonOutput {
 		spinner = ui.StartSpinner("Discovering skills")
 	}
-	discovered, err := sync.DiscoverSourceSkills(runtime.sourcePath)
+	discovered, _, err := sync.DiscoverSourceSkillsWithOptions(runtime.sourcePath, sync.DiscoveryOptions{Follow: skillFollowSet(runtime.sourcePath, runtime.targets, root)})
 	if err != nil {
 		if spinner != nil {
 			spinner.Fail("Discovery failed")

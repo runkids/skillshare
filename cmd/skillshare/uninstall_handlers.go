@@ -12,6 +12,7 @@ import (
 	"skillshare/internal/git"
 	"skillshare/internal/install"
 	"skillshare/internal/sourcefs"
+	"skillshare/internal/sourcewalk"
 	"skillshare/internal/sync"
 	"skillshare/internal/theme"
 	"skillshare/internal/trash"
@@ -20,6 +21,7 @@ import (
 
 // uninstallMode holds what differs between global and project skill uninstall.
 type uninstallMode struct {
+	follow      *sourcewalk.FollowSet
 	sourceDir   string
 	sourceLabel string // names sourceDir in not-found errors
 	trashDir    string
@@ -199,7 +201,7 @@ func runUninstallSkills(opts *uninstallOptions, mode *uninstallMode, rawArgs []s
 		if !opts.jsonOutput {
 			sp = ui.StartSpinner("Discovering skills...")
 		}
-		discovered, _, err := sync.DiscoverSourceSkillsLite(mode.sourceDir)
+		discovered, _, err := sync.DiscoverSourceSkillsLiteWithOptions(mode.sourceDir, sync.DiscoveryOptions{Follow: mode.follow})
 		if err != nil {
 			if sp != nil {
 				sp.Fail("Discovery failed")
@@ -236,10 +238,28 @@ func runUninstallSkills(opts *uninstallOptions, mode *uninstallMode, rawArgs []s
 		}
 	}
 
+	var followedSkills []sync.DiscoveredSkill
+	if mode.follow != nil && len(opts.skillNames) > 0 {
+		var err error
+		followedSkills, err = sync.DiscoverSourceSkillsAllWithOptions(mode.sourceDir, sync.DiscoveryOptions{Follow: mode.follow})
+		if err != nil {
+			if opts.jsonOutput {
+				return writeJSONError(err)
+			}
+			return err
+		}
+	}
+
 	for _, name := range opts.skillNames {
+		for _, skill := range followedSkills {
+			if skill.FlatName == name {
+				name = skill.RelPath
+				break
+			}
+		}
 		// Glob pattern matching (e.g. "core-*", "_team-?")
 		if mode.globs && isGlobPattern(name) {
-			globMatches, globErr := resolveUninstallByGlob(name, mode.sourceDir)
+			globMatches, globErr := resolveUninstallByGlob(name, mode.sourceDir, mode.follow)
 			if globErr != nil {
 				resolveWarnings = append(resolveWarnings, fmt.Sprintf("%s: %v", name, globErr))
 				continue
@@ -260,7 +280,7 @@ func runUninstallSkills(opts *uninstallOptions, mode *uninstallMode, rawArgs []s
 			continue
 		}
 
-		t, err := resolveUninstallTarget(name, mode.sourceDir, mode.sourceLabel)
+		t, err := resolveUninstallTarget(name, mode.sourceDir, mode.sourceLabel, mode.follow)
 		if err != nil {
 			resolveWarnings = append(resolveWarnings, fmt.Sprintf("%s: %v", name, err))
 			continue
@@ -301,6 +321,22 @@ func runUninstallSkills(opts *uninstallOptions, mode *uninstallMode, rawArgs []s
 		ui.Warning("It looks like '*' was expanded by your shell into file names.")
 		ui.Note("To uninstall all skills, use: skillshare uninstall --all")
 		return globErr
+	}
+
+	// Followed roots and descendants are read-only, including in dry runs.
+	if mode.follow != nil {
+		for _, target := range targets {
+			rel, err := filepath.Rel(mode.sourceDir, target.path)
+			if err == nil {
+				if entry, ok := mode.follow.InFollowed(filepath.ToSlash(rel)); ok {
+					refusal := &sourcefs.LinkError{Path: filepath.Join(mode.sourceDir, entry.Name)}
+					if opts.jsonOutput {
+						return writeJSONError(refusal)
+					}
+					return refusal
+				}
+			}
+		}
 	}
 
 	// --- Phase 2: VALIDATE ---
