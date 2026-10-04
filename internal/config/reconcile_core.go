@@ -149,15 +149,19 @@ func reconcileSkillsWalk(sourcePath string, store *install.MetadataStore, onFoun
 
 // pruneStaleEntries removes store entries not present in the live set. Entries
 // under an unavailable followed entry are kept: their absence proves nothing.
+// Keys are compared as logical paths: a legacy basename key carries its group
+// in the entry, and followed names are never migrated, so the raw key alone
+// would not match the live set or the declaration.
 func pruneStaleEntries(store *install.MetadataStore, live map[string]bool, follow *sourcewalk.FollowSet) bool {
 	changed := false
 	for _, name := range store.List() {
+		rel := install.KeyToRelPath(name, store.Get(name))
 		if follow != nil {
-			if entry, declared := follow.InFollowed(name); declared && entry.State != sourcewalk.Followed {
+			if entry, declared := follow.InFollowed(rel); declared && entry.State != sourcewalk.Followed {
 				continue
 			}
 		}
-		if !live[name] {
+		if !live[rel] {
 			store.Remove(name)
 			changed = true
 		}

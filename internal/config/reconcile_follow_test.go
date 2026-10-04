@@ -68,6 +68,29 @@ func TestReconcileFollow_KeepsMetadataOnlyUnderUnavailableEntry(t *testing.T) {
 	}
 }
 
+// Legacy basename keys carry their group in the entry. Followed names are never
+// migrated, so reconcile must read them as logical paths before pruning.
+func TestReconcileFollow_KeepsLegacyGroupedKeysUnderFollowedEntries(t *testing.T) {
+	cfg, set := newFollowReconcileSource(t)
+	store := install.NewMetadataStore()
+	store.Set("a", &install.MetadataEntry{Source: "github.com/user/a", Group: "_f"})
+	store.Set("b", &install.MetadataEntry{Source: "github.com/user/b", Group: "_off"})
+	store.Set("c", &install.MetadataEntry{Source: "github.com/user/c", Group: "gone"})
+
+	if err := ReconcileGlobalSkillsWithOptions(cfg, store, ReconcileOptions{Follow: set}); err != nil {
+		t.Fatal(err)
+	}
+	if !store.Has("a") {
+		t.Fatal("legacy key under the followed entry was pruned")
+	}
+	if !store.Has("b") {
+		t.Fatal("legacy key under the unavailable entry was pruned")
+	}
+	if store.Has("c") {
+		t.Fatal("stale legacy key outside any declaration was kept")
+	}
+}
+
 func TestReconcileFollow_WithoutPolicyIsUnchanged(t *testing.T) {
 	cfg, _ := newFollowReconcileSource(t)
 	store := install.NewMetadataStore()
