@@ -41,16 +41,14 @@ var caseInsensitiveNames = runtime.GOOS == "windows"
 
 // sameEntryName compares first-level entry names with platform path semantics.
 func sameEntryName(a, b string) bool {
-	if caseInsensitiveNames {
-		return strings.EqualFold(a, b)
-	}
-	return a == b
+	return entryNameKey(a) == entryNameKey(b)
 }
 
 // entryNameKey is the map key under which sameEntryName names are equal.
+// Upper-casing first folds pairs such as ſ and s, as NTFS does.
 func entryNameKey(name string) string {
 	if caseInsensitiveNames {
-		return strings.ToLower(name)
+		return strings.ToLower(strings.ToUpper(name))
 	}
 	return name
 }

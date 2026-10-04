@@ -118,3 +118,27 @@ func TestMarkMissingMatchesDeclaredNameCase(t *testing.T) {
 		}
 	})
 }
+
+// Matching and the deduplication key must fold the same names.
+func TestSameEntryNameFolding(t *testing.T) {
+	for _, tc := range []struct {
+		a, b   string
+		folded bool
+	}{
+		{"team", "team", true},
+		{"Team", "team", true},
+		{"ſkill", "SKILL", true}, // long s folds to s, like strings.EqualFold
+		{"team", "teams", false},
+	} {
+		eachNameSemantics(t, func(t *testing.T, folded bool) {
+			want := tc.a == tc.b || folded && tc.folded
+			if got := sameEntryName(tc.a, tc.b); got != want {
+				t.Errorf("sameEntryName(%q, %q) = %v, want %v", tc.a, tc.b, got, want)
+			}
+			// Declarations are deduplicated by key, so the key must agree.
+			if got := entryNameKey(tc.a) == entryNameKey(tc.b); got != want {
+				t.Errorf("entryNameKey(%q) == entryNameKey(%q) is %v, want %v", tc.a, tc.b, got, want)
+			}
+		})
+	}
+}
