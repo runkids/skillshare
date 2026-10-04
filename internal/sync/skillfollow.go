@@ -51,19 +51,14 @@ func newFollowScope(sourcePath string, set *sourcewalk.FollowSet) followScope {
 	return followScope{set: set, source: abs, canonSource: canon}
 }
 
-// paused lists the entries that pause prune, as "name (state)".
-func (s followScope) paused() []string {
+// PrunePaused lists the unavailable followed entries, as "name (state)", that
+// pause prune for an operation using set. Diff calls it to preview sync.
+func PrunePaused(set *sourcewalk.FollowSet) []string {
 	var names []string
-	for _, entry := range s.set.Unavailable() {
+	for _, entry := range set.Unavailable() {
 		names = append(names, entry.Name+" ("+string(entry.State)+")")
 	}
 	return names
-}
-
-// PrunePaused lists the unavailable followed entries, as "name (state)", that
-// pause prune for an operation using set. Diff calls it to preview sync.
-func PrunePaused(sourcePath string, set *sourcewalk.FollowSet) []string {
-	return newFollowScope(sourcePath, set).paused()
 }
 
 // KeepsManagedCopies reports whether copy sync keeps an existing managed copy
@@ -71,8 +66,8 @@ func PrunePaused(sourcePath string, set *sourcewalk.FollowSet) []string {
 // says nothing about the skill's origin, so while an entry is unavailable an
 // existing managed copy may be the only copy of its content. Flat names carry
 // the logical prefix and proceed.
-func KeepsManagedCopies(sourcePath, targetNaming string, set *sourcewalk.FollowSet) bool {
-	return len(newFollowScope(sourcePath, set).set.Unavailable()) > 0 &&
+func KeepsManagedCopies(targetNaming string, set *sourcewalk.FollowSet) bool {
+	return len(set.Unavailable()) > 0 &&
 		config.EffectiveTargetNaming(targetNaming) != "flat"
 }
 

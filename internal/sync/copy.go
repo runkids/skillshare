@@ -95,7 +95,7 @@ func SyncTargetCopyWithSkillsOptions(name string, target config.TargetConfig, al
 		fmt.Fprintf(DiagOutput, "  %d name collision(s) excluded\n", n)
 	}
 	result.Warnings = resolution.UnmatchedIncludeWarnings()
-	keepManaged := KeepsManagedCopies(sourcePath, sc.TargetNaming, opts.Follow)
+	keepManaged := KeepsManagedCopies(sc.TargetNaming, opts.Follow)
 
 	// Read existing manifest
 	manifest, err := ReadManifest(sc.Path)
@@ -267,7 +267,7 @@ func PruneOrphanCopiesWithOptions(opts PruneOptions) (*PruneResult, error) {
 	targetPath, allSourceSkills := opts.TargetPath, opts.Skills
 	include, exclude, targetName, targetNaming, dryRun := opts.Include, opts.Exclude, opts.TargetName, opts.TargetNaming, opts.DryRun
 	result := &PruneResult{}
-	if result.Paused = newFollowScope(opts.SourcePath, opts.Follow).paused(); len(result.Paused) > 0 {
+	if result.Paused = PrunePaused(opts.Follow); len(result.Paused) > 0 {
 		return result, nil
 	}
 

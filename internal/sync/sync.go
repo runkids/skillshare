@@ -717,7 +717,7 @@ func PruneOrphanLinksWithSkills(opts PruneOptions) (*PruneResult, error) {
 	scope := newFollowScope(sourcePath, opts.Follow)
 	// Discovery is incomplete, so no absent name can be attributed. --force
 	// does not override this.
-	if result.Paused = scope.paused(); len(result.Paused) > 0 {
+	if result.Paused = PrunePaused(scope.set); len(result.Paused) > 0 {
 		return result, nil
 	}
 

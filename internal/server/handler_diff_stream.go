@@ -103,7 +103,7 @@ func (s *Server) computeTargetDiff(name string, target config.TargetConfig, disc
 	}
 
 	// While an entry is unavailable sync prunes nothing, so neither does the preview.
-	dt.PrunePaused = ssync.PrunePaused(source, follow)
+	dt.PrunePaused = ssync.PrunePaused(follow)
 	paused := len(dt.PrunePaused) > 0
 
 	filtered, err := ssync.FilterSkills(discovered, sc.Include, sc.Exclude)
@@ -126,7 +126,7 @@ func (s *Server) computeTargetDiff(name string, target config.TargetConfig, disc
 	legacyNames := resolution.LegacyFlatNames()
 
 	if mode == "copy" {
-		keepManaged := ssync.KeepsManagedCopies(source, sc.TargetNaming, follow)
+		keepManaged := ssync.KeepsManagedCopies(sc.TargetNaming, follow)
 		kept := diffItem{Action: "skip", Reason: "managed copy kept while prune is paused; origin cannot be proven", Kind: kindSkill}
 		manifest, _ := ssync.ReadManifest(sc.Path)
 		for _, resolved := range resolution.Skills {

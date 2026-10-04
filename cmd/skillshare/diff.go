@@ -600,10 +600,10 @@ func collectTargetDiff(name string, target config.TargetConfig, source, mode str
 		return r
 	}
 
-	r.prunePaused = sync.PrunePaused(source, follow)
+	r.prunePaused = sync.PrunePaused(follow)
 	if mode == "copy" {
 		manifest, _ := sync.ReadManifest(sc.Path)
-		keepManaged := sync.KeepsManagedCopies(source, sc.TargetNaming, follow)
+		keepManaged := sync.KeepsManagedCopies(sc.TargetNaming, follow)
 		collectCopyDiff(&r, name, sc.Path, resolution.Skills, sourceSkills, legacyNames, manifest, ignorePatterns, keepManaged, dp)
 	} else {
 		// Merge mode (instant)
