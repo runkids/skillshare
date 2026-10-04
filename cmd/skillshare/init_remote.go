@@ -110,7 +110,7 @@ func remoteFailureReason(out string) string {
 
 // pullRemote fetches origin and moves the repo at gitRoot onto the remote's
 // default branch. The caller must make sure gitRoot holds no work of its own.
-func pullRemote(gitRoot, url string, follows ...*sourcewalk.FollowSet) error {
+func pullRemote(gitRoot, url string, follow *sourcewalk.FollowSet) error {
 	ctx, cancel := context.WithTimeout(context.Background(), remoteFetchTimeout*4)
 	defer cancel()
 	fetch := exec.CommandContext(ctx, "git", "fetch", "origin")
@@ -123,13 +123,13 @@ func pullRemote(gitRoot, url string, follows ...*sourcewalk.FollowSet) error {
 	if err != nil {
 		return err
 	}
-	return resetToRemoteBranch(gitRoot, branch, follows...)
+	return resetToRemoteBranch(gitRoot, branch, follow)
 }
 
 // resetToRemoteBranch checks out origin/<branch> and tracks it so push and
 // pull work without naming the remote.
-func resetToRemoteBranch(gitRoot, branch string, follows ...*sourcewalk.FollowSet) error {
-	revision, err := gitops.CheckSourceMutation(gitRoot, "origin/"+branch, firstFollowSet(follows))
+func resetToRemoteBranch(gitRoot, branch string, follow *sourcewalk.FollowSet) error {
+	revision, err := gitops.CheckSourceMutation(gitRoot, "origin/"+branch, follow)
 	if err != nil {
 		return err
 	}

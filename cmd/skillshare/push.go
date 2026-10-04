@@ -87,8 +87,8 @@ func getGitChanges(sourcePath string) (string, error) {
 }
 
 // stageAndCommit stages all changes and commits
-func stageAndCommit(sourcePath, message string, spinner *ui.Spinner, follows ...*sourcewalk.FollowSet) error {
-	if err := gitops.CheckFollowedLinks(sourcePath, firstFollowSet(follows)); err != nil {
+func stageAndCommit(sourcePath, message string, spinner *ui.Spinner, follow *sourcewalk.FollowSet) error {
+	if err := gitops.CheckFollowedLinks(sourcePath, follow); err != nil {
 		spinner.Fail("Cannot stage followed links")
 		return err
 	}

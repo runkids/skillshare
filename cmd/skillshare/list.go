@@ -531,7 +531,7 @@ func getSkillSuffix(s skillEntry) string {
 
 // displayTrackedRepos displays the tracked repositories section.
 // Git status checks run in parallel (bounded by maxDirtyWorkers).
-func displayTrackedRepos(trackedRepos []string, discovered []sync.DiscoveredSkill, sourcePath string, follows ...*sourcewalk.FollowSet) {
+func displayTrackedRepos(trackedRepos []string, discovered []sync.DiscoveredSkill, sourcePath string, follow *sourcewalk.FollowSet) {
 	ui.Section("Tracked repos")
 
 	// Parallel git status checks
@@ -560,8 +560,8 @@ func displayTrackedRepos(trackedRepos []string, discovered []sync.DiscoveredSkil
 	width := ui.RowWidth(trackedRepos...)
 	for i, repoName := range trackedRepos {
 		skills := ui.DimText(" · " + plural(countRepoSkills(repoName, discovered), "skill"))
-		if len(follows) > 0 && follows[0] != nil {
-			if entry, ok := follows[0].InFollowed(repoName); ok && entry.State == sourcewalk.Followed {
+		if follow != nil {
+			if entry, ok := follow.InFollowed(repoName); ok && entry.State == sourcewalk.Followed {
 				skills += ui.DimText(" → " + utils.FoldHomePath(entry.ResolvedTarget))
 			}
 		}

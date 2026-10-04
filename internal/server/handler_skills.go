@@ -564,7 +564,7 @@ func (s *Server) handleUninstallSkill(w http.ResponseWriter, r *http.Request) {
 // resolveTrackedRepo resolves a repo name (flat or nested) to its directory name
 // and absolute path under s.cfg.EffectiveSkillsSource(). Returns ("", "", nil) if not found.
 // Returns a non-nil error for ambiguous matches or internal failures.
-func (s *Server) resolveTrackedRepo(input string, follows ...*sourcewalk.FollowSet) (string, string, error) {
+func (s *Server) resolveTrackedRepo(input string, follow *sourcewalk.FollowSet) (string, string, error) {
 	sourceRoot := filepath.Clean(s.cfg.EffectiveSkillsSource())
 	candidates := []string{input}
 	if !strings.HasPrefix(filepath.Base(input), "_") {
@@ -586,12 +586,6 @@ func (s *Server) resolveTrackedRepo(input string, follows ...*sourcewalk.FollowS
 	}
 
 	// Fallback: match nested tracked repos by basename.
-	var follow *sourcewalk.FollowSet
-	if len(follows) > 0 {
-		follow = follows[0]
-	} else {
-		follow = s.skillFollowSet()
-	}
 	repos, err := install.GetTrackedReposWithOptions(s.cfg.EffectiveSkillsSource(), sourcewalk.Options{Follow: follow})
 	if err != nil {
 		return "", "", fmt.Errorf("failed to list tracked repositories: %w", err)

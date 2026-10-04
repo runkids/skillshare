@@ -570,13 +570,13 @@ func printGitIdentityNote(dir string) {
 
 // commitSourceFiles creates a single commit with all source files
 // (.gitignore, copied skills, installed skills).
-func commitSourceFiles(sourcePath string, follows ...*sourcewalk.FollowSet) error {
+func commitSourceFiles(sourcePath string, follow *sourcewalk.FollowSet) error {
 	gitDir := filepath.Join(sourcePath, ".git")
 	if _, err := os.Stat(gitDir); os.IsNotExist(err) {
 		return nil
 	}
 
-	if err := gitops.CheckFollowedLinks(sourcePath, firstFollowSet(follows)); err != nil {
+	if err := gitops.CheckFollowedLinks(sourcePath, follow); err != nil {
 		return err
 	}
 
@@ -625,7 +625,7 @@ func commitSourceFiles(sourcePath string, follows ...*sourcewalk.FollowSet) erro
 	return nil
 }
 
-func setupGitRemote(sourcePath, remoteURL string, dryRun, noGit bool, follows ...*sourcewalk.FollowSet) bool {
+func setupGitRemote(sourcePath, remoteURL string, dryRun, noGit bool, follow *sourcewalk.FollowSet) bool {
 	// Check if git is initialized
 	gitDir := filepath.Join(sourcePath, ".git")
 	if _, err := os.Stat(gitDir); os.IsNotExist(err) {
@@ -663,10 +663,10 @@ func setupGitRemote(sourcePath, remoteURL string, dryRun, noGit bool, follows ..
 		ui.Row(ui.MarkNone, "Remote", "would add origin → "+remoteURL, gitRowWidth)
 		return false
 	}
-	return addRemote(sourcePath, remoteURL, follows...)
+	return addRemote(sourcePath, remoteURL, follow)
 }
 
-func addRemote(sourcePath, remoteURL string, follows ...*sourcewalk.FollowSet) bool {
+func addRemote(sourcePath, remoteURL string, follow *sourcewalk.FollowSet) bool {
 	// SetOrAddRemote validates the URL (rejecting flag-smuggling values that
 	// begin with "-") and passes "--" before positional args. setupGitRemote
 	// has already confirmed origin is absent, so this takes the add path.
@@ -678,7 +678,7 @@ func addRemote(sourcePath, remoteURL string, follows ...*sourcewalk.FollowSet) b
 	ui.Row(ui.MarkOK, "Remote", "origin → "+remoteURL, gitRowWidth)
 
 	// Try to fetch and auto-pull if remote has existing skills
-	hadSkills := tryPullAfterRemoteSetup(sourcePath, remoteURL, follows...)
+	hadSkills := tryPullAfterRemoteSetup(sourcePath, remoteURL, follow)
 	if !hadSkills {
 		ui.Next("skillshare push", "share your skills")
 	}
@@ -706,7 +706,7 @@ func remoteFetchEnv(remoteURL string) []string {
 
 // tryPullAfterRemoteSetup attempts to fetch from remote and pull if it has content.
 // Returns true if remote had content (pulled or warned), false if remote is empty/unreachable.
-func tryPullAfterRemoteSetup(sourcePath, remoteURL string, follows ...*sourcewalk.FollowSet) bool {
+func tryPullAfterRemoteSetup(sourcePath, remoteURL string, follow *sourcewalk.FollowSet) bool {
 	spinner := ui.StartSpinner("Checking remote for existing skills...")
 
 	// Try to fetch (inject HTTPS token auth when available)
@@ -742,7 +742,7 @@ func tryPullAfterRemoteSetup(sourcePath, remoteURL string, follows ...*sourcewal
 		return false
 	}
 
-	revision, guardErr := gitops.CheckSourceMutation(sourcePath, "origin/"+remoteBranch, firstFollowSet(follows))
+	revision, guardErr := gitops.CheckSourceMutation(sourcePath, "origin/"+remoteBranch, follow)
 	if guardErr != nil {
 		spinner.Stop()
 		ui.Row(ui.MarkFail, "Pull", guardErr.Error(), gitRowWidth)
@@ -813,9 +813,10 @@ func tryPullAfterRemoteSetup(sourcePath, remoteURL string, follows ...*sourcewal
 	trackCmd.Run() // best-effort
 
 	// Count pulled skills (deep: count SKILL.md files, not top-level dirs)
-	follow := configuredSkillFollowSet(sourcePath)
-	discovered, _, discoverErr := ssync.DiscoverSourceSkillsWithOptions(sourcePath, ssync.DiscoveryOptions{Follow: follow})
-	if discoverErr != nil && follow != nil && follow.Err() != nil {
+	// The pull may have brought new declarations, so read them again.
+	pulled := configuredSkillFollowSet(sourcePath)
+	discovered, _, discoverErr := ssync.DiscoverSourceSkillsWithOptions(sourcePath, ssync.DiscoveryOptions{Follow: pulled})
+	if discoverErr != nil && pulled != nil && pulled.Err() != nil {
 		spinner.Stop()
 		ui.Warning("Failed to count pulled skills: %v", discoverErr)
 		return true

@@ -139,7 +139,7 @@ func looksLikeShellGlob(names []string, warnings []string) bool {
 // Supports short names for nested skills (e.g. "react-best-practices" resolves
 // to "frontend/react/react-best-practices"). sourceLabel names sourceDir in
 // not-found errors.
-func resolveUninstallTarget(skillName, sourceDir, sourceLabel string, follows ...*sourcewalk.FollowSet) (*uninstallTarget, error) {
+func resolveUninstallTarget(skillName, sourceDir, sourceLabel string, follow *sourcewalk.FollowSet) (*uninstallTarget, error) {
 	skillName = strings.TrimRight(strings.TrimSpace(skillName), `/\`)
 	skillName = normalizeUninstallName(skillName)
 	if skillName == "" || skillName == "." {
@@ -159,7 +159,7 @@ func resolveUninstallTarget(skillName, sourceDir, sourceLabel string, follows ..
 	if err != nil {
 		if os.IsNotExist(err) {
 			// Fallback: search by basename in nested directories
-			resolved, resolveErr := resolveNestedSkillDir(sourceDir, skillName, sourceLabel, follows...)
+			resolved, resolveErr := resolveNestedSkillDir(sourceDir, skillName, sourceLabel, follow)
 			if resolveErr != nil {
 				return nil, resolveErr
 			}
@@ -181,11 +181,7 @@ func resolveUninstallTarget(skillName, sourceDir, sourceLabel string, follows ..
 
 // resolveUninstallByGlob scans the source directory for top-level entries
 // whose names match the given glob pattern (e.g. "core-*", "_team-?").
-func resolveUninstallByGlob(pattern, sourceDir string, follows ...*sourcewalk.FollowSet) ([]*uninstallTarget, error) {
-	var follow *sourcewalk.FollowSet
-	if len(follows) > 0 {
-		follow = follows[0]
-	}
+func resolveUninstallByGlob(pattern, sourceDir string, follow *sourcewalk.FollowSet) ([]*uninstallTarget, error) {
 	entries, err := sourcewalk.ReadDir(sourceDir, sourcewalk.Options{Follow: follow})
 	if follow != nil && follow.Err() != nil {
 		return nil, follow.Err()
@@ -281,12 +277,8 @@ func resolveGroupSkills(group, sourceDir string) ([]*uninstallTarget, error) {
 // nested organizational folders. Also matches _name variant for tracked repos.
 // Returns the relative path from sourceDir, or an error listing all matches
 // when the name is ambiguous.
-func resolveNestedSkillDir(sourceDir, name, sourceLabel string, follows ...*sourcewalk.FollowSet) (string, error) {
+func resolveNestedSkillDir(sourceDir, name, sourceLabel string, follow *sourcewalk.FollowSet) (string, error) {
 	var matches []string
-	var follow *sourcewalk.FollowSet
-	if len(follows) > 0 {
-		follow = follows[0]
-	}
 
 	walkRoot := utils.ResolveSymlink(sourceDir)
 	if follow != nil {

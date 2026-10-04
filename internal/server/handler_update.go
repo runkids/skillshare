@@ -182,7 +182,7 @@ func (s *Server) updateSingleByKind(name, kind string, force, skipAudit bool) up
 	}
 
 	// Try tracked repo (flat, nested, or basename fallback)
-	repoName, repoPath, err := s.resolveTrackedRepo(name)
+	repoName, repoPath, err := s.resolveTrackedRepo(name, s.skillFollowSet())
 	if err != nil {
 		return updateResultItem{Name: name, Action: "error", Message: err.Error()}
 	}

@@ -249,15 +249,13 @@ func logCheckOp(cfgPath string, repos, skills, updatesAvailable, errors int, sco
 	oplog.WriteWithLimit(cfgPath, oplog.OpsFile, e, logMaxEntries()) //nolint:errcheck
 }
 
-func runCheck(sourceDir, projectRoot string, jsonOutput bool, extraTargetNames []string, follows ...*sourcewalk.FollowSet) error {
+func runCheck(sourceDir, projectRoot string, jsonOutput bool, extraTargetNames []string, follow *sourcewalk.FollowSet) error {
 	start := time.Now()
 
 	var scanSpinner *ui.Spinner
 	if !jsonOutput {
 		scanSpinner = ui.StartSpinner("Scanning skills...")
 	}
-
-	follow := firstFollowSet(follows)
 	repos, err := install.GetTrackedReposWithOptions(sourceDir, sourcewalk.Options{Follow: follow})
 	if err != nil {
 		// Incomplete declared discovery is an error, not an empty source.
@@ -645,7 +643,7 @@ func resolveSkillStatuses(
 // runCheckFiltered checks only the specified targets (resolved from names/groups).
 // Note: unlike runCheck, this intentionally skips warnUnknownSkillTargets because
 // filtered checks only verify update status for explicitly named skills/groups.
-func runCheckFiltered(sourceDir, projectRoot string, opts *checkOptions, follows ...*sourcewalk.FollowSet) error {
+func runCheckFiltered(sourceDir, projectRoot string, opts *checkOptions, follow *sourcewalk.FollowSet) error {
 	start := time.Now()
 
 	// --- Resolve targets ---
@@ -662,7 +660,7 @@ func runCheckFiltered(sourceDir, projectRoot string, opts *checkOptions, follows
 	for _, name := range opts.names {
 		// Check group directory first (same logic as update)
 		if isGroupDir(name, sourceDir, checkStore) {
-			groupMatches, groupErr := resolveGroupUpdatableWithOptions(name, sourceDir, sourcewalk.Options{Follow: firstFollowSet(follows)})
+			groupMatches, groupErr := resolveGroupUpdatableWithOptions(name, sourceDir, sourcewalk.Options{Follow: follow})
 			if groupErr != nil {
 				resolveWarnings = append(resolveWarnings, fmt.Sprintf("%s: %v", name, groupErr))
 				continue
@@ -681,7 +679,7 @@ func runCheckFiltered(sourceDir, projectRoot string, opts *checkOptions, follows
 			continue
 		}
 
-		match, err := resolveByBasename(sourceDir, name, firstFollowSet(follows))
+		match, err := resolveByBasename(sourceDir, name, follow)
 		if err != nil {
 			resolveWarnings = append(resolveWarnings, fmt.Sprintf("%s: %v", name, err))
 			continue
@@ -693,7 +691,7 @@ func runCheckFiltered(sourceDir, projectRoot string, opts *checkOptions, follows
 	}
 
 	for _, group := range opts.groups {
-		groupMatches, err := resolveGroupUpdatableWithOptions(group, sourceDir, sourcewalk.Options{Follow: firstFollowSet(follows)})
+		groupMatches, err := resolveGroupUpdatableWithOptions(group, sourceDir, sourcewalk.Options{Follow: follow})
 		if err != nil {
 			resolveWarnings = append(resolveWarnings, fmt.Sprintf("--group %s: %v", group, err))
 			continue

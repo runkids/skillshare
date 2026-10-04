@@ -398,9 +398,8 @@ type auditSkillRef struct {
 	path string
 }
 
-func collectInstalledSkillPaths(sourcePath string, follows ...*sourcewalk.FollowSet) ([]auditSkillRef, error) {
+func collectInstalledSkillPaths(sourcePath string, follow *sourcewalk.FollowSet) ([]auditSkillRef, error) {
 	// Share the operation's follow policy with both discovery and fallback groups.
-	follow := firstFollowSet(follows)
 	discovered, _, err := sync.DiscoverSourceSkillsLiteWithOptions(sourcePath, sync.DiscoveryOptions{Follow: follow})
 	if err != nil {
 		return nil, fmt.Errorf("failed to discover skills: %w", err)
@@ -446,8 +445,8 @@ func collectInstalledSkillPaths(sourcePath string, follows ...*sourcewalk.Follow
 
 // resolveSkillPath searches installed skills for a match by flat name or basename.
 // Returns the full path if found, empty string otherwise.
-func resolveSkillPath(sourcePath, name string, follows ...*sourcewalk.FollowSet) string {
-	skills, err := collectInstalledSkillPaths(sourcePath, firstFollowSet(follows))
+func resolveSkillPath(sourcePath, name string, follow *sourcewalk.FollowSet) string {
+	skills, err := collectInstalledSkillPaths(sourcePath, follow)
 	if err != nil {
 		return ""
 	}
@@ -512,7 +511,7 @@ func discoverForKind(kind resourceKindFilter, sourcePath string) ([]auditSkillRe
 	if kind == kindAgents {
 		return collectInstalledAgentPaths(sourcePath)
 	}
-	return collectInstalledSkillPaths(sourcePath)
+	return collectInstalledSkillPaths(sourcePath, nil)
 }
 
 func toInputsForKind(kind resourceKindFilter, items []auditSkillRef) []audit.SkillInput {
@@ -803,7 +802,7 @@ func auditFiltered(sourcePath, agentsSourcePath string, names, groups []string, 
 	return results, summary, nil
 }
 
-func auditSkillByName(sourcePath, name, mode, projectRoot, threshold, format, policyLine string, kind resourceKindFilter, reg *audit.Registry, follows ...*sourcewalk.FollowSet) ([]*audit.Result, auditRunSummary, error) {
+func auditSkillByName(sourcePath, name, mode, projectRoot, threshold, format, policyLine string, kind resourceKindFilter, reg *audit.Registry, follow *sourcewalk.FollowSet) ([]*audit.Result, auditRunSummary, error) {
 	summary := auditRunSummary{
 		Scope:     "single",
 		Skill:     name,
@@ -814,7 +813,7 @@ func auditSkillByName(sourcePath, name, mode, projectRoot, threshold, format, po
 	skillPath := filepath.Join(sourcePath, name)
 	if _, err := os.Stat(skillPath); os.IsNotExist(err) {
 		// Short-name fallback: search installed skills by flat name or basename.
-		resolved := resolveSkillPath(sourcePath, name, firstFollowSet(follows))
+		resolved := resolveSkillPath(sourcePath, name, follow)
 		if resolved == "" {
 			return nil, summary, fmt.Errorf("%s not found: %s", kind.SingularNoun(), name)
 		}
@@ -825,7 +824,7 @@ func auditSkillByName(sourcePath, name, mode, projectRoot, threshold, format, po
 	scan := func(path string) (*audit.Result, error) { return scanPathTarget(path, projectRoot, reg) }
 	var result *audit.Result
 	var err error
-	if auditPathFollowed(sourcePath, skillPath, firstFollowSet(follows)) {
+	if auditPathFollowed(sourcePath, skillPath, follow) {
 		result, err = audit.ScanResolvedSkill(skillPath, scan)
 	} else {
 		result, err = scan(skillPath)

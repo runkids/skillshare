@@ -343,7 +343,7 @@ func TestResolveTrackedRepo_AutoPrefixUnderscore(t *testing.T) {
 	s, src := newTestServer(t)
 	addTrackedRepo(t, src, "_team-skills")
 
-	name, path, err := s.resolveTrackedRepo("team-skills")
+	name, path, err := s.resolveTrackedRepo("team-skills", s.skillFollowSet())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -359,7 +359,7 @@ func TestResolveTrackedRepo_NestedAutoPrefix(t *testing.T) {
 	s, src := newTestServer(t)
 	addTrackedRepo(t, src, filepath.Join("org", "_team-skills"))
 
-	name, path, err := s.resolveTrackedRepo("org/team-skills")
+	name, path, err := s.resolveTrackedRepo("org/team-skills", s.skillFollowSet())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -375,7 +375,7 @@ func TestResolveTrackedRepo_AlreadyPrefixed(t *testing.T) {
 	s, src := newTestServer(t)
 	addTrackedRepo(t, src, "_team-skills")
 
-	name, path, err := s.resolveTrackedRepo("_team-skills")
+	name, path, err := s.resolveTrackedRepo("_team-skills", s.skillFollowSet())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -390,7 +390,7 @@ func TestResolveTrackedRepo_AlreadyPrefixed(t *testing.T) {
 func TestResolveTrackedRepo_NotFound(t *testing.T) {
 	s, _ := newTestServer(t)
 
-	name, path, err := s.resolveTrackedRepo("nonexistent")
+	name, path, err := s.resolveTrackedRepo("nonexistent", s.skillFollowSet())
 	if err != nil {
 		t.Fatalf("unexpected error for not-found: %v", err)
 	}
@@ -404,7 +404,7 @@ func TestResolveTrackedRepo_BasenameFallback(t *testing.T) {
 	addTrackedRepo(t, src, filepath.Join("org", "_team-skills"))
 
 	// Search by basename only — should find via fallback
-	name, path, err := s.resolveTrackedRepo("team-skills")
+	name, path, err := s.resolveTrackedRepo("team-skills", s.skillFollowSet())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

@@ -107,11 +107,7 @@ func savedHubURLSet(hub config.HubConfig) map[string]bool {
 }
 
 // searchBuiltinIndex builds the hub index from local skills and searches it in-memory.
-func searchBuiltinIndex(sourcePath, query string, limit int, follows ...*sourcewalk.FollowSet) ([]search.SearchResult, error) {
-	var follow *sourcewalk.FollowSet
-	if len(follows) > 0 {
-		follow = follows[0]
-	}
+func searchBuiltinIndex(sourcePath, query string, limit int, follow *sourcewalk.FollowSet) ([]search.SearchResult, error) {
 	idx, err := hub.BuildIndexWithOptions(sourcePath, false, false, ssync.DiscoveryOptions{Follow: follow})
 	if err != nil {
 		return nil, err
