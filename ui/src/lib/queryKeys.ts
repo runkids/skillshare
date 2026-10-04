@@ -74,6 +74,8 @@ export const queryKeys = {
   },
   mcp: ['mcp'] as const,
   piExtensions: (name: string) => ['pi-extensions', name] as const,
+  // Every Pi target's Extensions tab, which lists the packages Plugins syncs to Pi.
+  piExtensionsAll: ['pi-extensions'] as const,
   hooks: ['hooks'] as const,
   plugins: ['plugins'] as const,
   // Under `plugins`, so invalidating that key refreshes both.

@@ -51,7 +51,7 @@ describe('MCP project view', () => {
     await waitFor(() => expect(mcpApi.save).toHaveBeenLastCalledWith({ name: 'context7', replace: true, server: { disabled: true }, project: '/work/app' }));
   });
 
-  // Pi's switch carries the global server's command, so Pi turns it off here like the others.
+  // Pi's switch is its project override, so Pi turns it off here like the others.
   it('turns a server off here for Pi too', () => {
     view({ docs: { command: 'npx', targets: ['opencode', 'pi'] } }, { targets: ['opencode', 'pi'], servers: { docs: { disabled: true } } });
     expect(screen.getByRole('img', { name: 'Off in OpenCode, Pi' })).toBeInTheDocument();
@@ -74,9 +74,9 @@ describe('MCP project view', () => {
     expect(screen.queryByText(/not managed by skillshare/)).not.toBeInTheDocument();
   });
 
-  it('never counts Pi for a switch, as sync does', () => {
+  it('counts Pi for a switch, as sync does', () => {
     view({}, { targets: ['opencode', 'pi'], servers: { gone: { disabled: true } } });
-    expect(screen.getByRole('button', { name: 'Choose which agents get gone' })).toHaveTextContent('1/2');
+    expect(screen.getByRole('button', { name: 'Choose which agents get gone' })).toHaveTextContent('2/3');
   });
 
   const env: MCPCheckFinding = { level: 'error', check: 'env', target: '', subject: 'TOKEN', message: 'TOKEN is not set' };

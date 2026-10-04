@@ -98,7 +98,7 @@ func editMCPDraft(service *mcp.Service, name string, server mcp.Server, defaults
 			{label: "Targets", desc: mcpTargetSummary(targets)},
 			{label: "Review changes", desc: "Preview before saving"},
 		}
-		selected, err := chooseMCP(prompts, checklistConfig{title: "Edit MCP: " + name, header: "Esc cancels this draft without saving.", items: items, singleSelect: true})
+		selected, err := chooseMCP(prompts, checklistConfig{title: "Edit MCP: " + name, items: items, singleSelect: true})
 		if err != nil {
 			return server, err
 		}

@@ -12,8 +12,8 @@
   <a href="https://skillshare.runkids.cc"><img src="https://img.shields.io/badge/Website-skillshare.runkids.cc-blue?logo=docusaurus" alt="Website"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"></a>
   <a href="https://github.com/runkids/skillshare/releases"><img src="https://img.shields.io/github/v/release/runkids/skillshare" alt="Release"></a>
+  <a href="https://github.com/runkids/skillshare/releases"><img src="https://img.shields.io/github/downloads/runkids/skillshare/total" alt="Downloads"></a>
   <img src="https://img.shields.io/badge/platform-macOS%20%7C%20Linux%20%7C%20Windows-blue" alt="Platform">
-  <a href="https://goreportcard.com/report/github.com/runkids/skillshare"><img src="https://goreportcard.com/badge/github.com/runkids/skillshare" alt="Go Report Card"></a>
   <a href="https://deepwiki.com/runkids/skillshare"><img src="https://deepwiki.com/badge.svg" alt="Ask DeepWiki"></a>
   <a href="https://ko-fi.com/williehung"><img src="https://img.shields.io/badge/Support-skillshare-FF5E5B?logo=kofi&logoColor=white" alt="Support skillshare on Ko-fi"></a>
 </p>
@@ -47,7 +47,7 @@
 </p>
 
 > [!NOTE]
-> **Latest**: v0.23.0 — manage and sync **native hooks** in global and project scope; choose which **MCP tools** reach the model with `tools.allow` and `tools.deny`; and use the dashboard's new **Hooks page** and **MCP tool picker** to configure them. [All releases →](https://github.com/runkids/skillshare/releases)
+> **Latest**: v0.24.0 — a redesigned **`init`** that asks first and writes only after you confirm; one output style and keymap across the CLI and every **TUI**; **`push --pull`** to sync both ways in one command; shared **Markdown memory** across agents; and per-target **Pi extension** switches plus **npm packages from pi.dev**. [All releases →](https://github.com/runkids/skillshare/releases)
 
 ## Why skillshare
 
@@ -378,6 +378,7 @@ Thanks to everyone who helped shape skillshare.
 <a href="https://github.com/harisonw"><img src="https://github.com/harisonw.png" width="50" style="border-radius:50%" alt="harisonw"></a>
 <a href="https://github.com/wuhaoyujerry"><img src="https://github.com/wuhaoyujerry.png" width="50" style="border-radius:50%" alt="wuhaoyujerry"></a>
 <a href="https://github.com/star-nebula"><img src="https://github.com/star-nebula.png" width="50" style="border-radius:50%" alt="star-nebula"></a>
+<a href="https://github.com/AdamMagued"><img src="https://github.com/AdamMagued.png" width="50" style="border-radius:50%" alt="AdamMagued"></a>
 
 ---
 

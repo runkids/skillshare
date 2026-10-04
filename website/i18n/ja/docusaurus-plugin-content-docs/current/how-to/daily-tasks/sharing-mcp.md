@@ -261,7 +261,7 @@ skillshare sync mcp
 ダッシュボードでは、`skillshare ui` でプロジェクトフォルダから開き、**サーバーを追加** の
 横にある **グローバルサーバーをオフにする** ボタンを選びます。
 
-これは Claude Code、OpenCode、Kilo Code で動作します。Pi を含む他の Agent は拒否されます。各 Agent に対して
+これは Claude Code、OpenCode、Kilo Code、Pi 1.0.1 以降で動作します。他の Agent は拒否されます。各 Agent に対して
 何が書き込まれるか、また他の Agent が対応していない理由については
 [コマンドリファレンス](/docs/reference/commands/mcp#turn-off-a-global-server-in-one-project)
 を参照してください。

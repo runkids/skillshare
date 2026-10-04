@@ -383,7 +383,7 @@ export default function ConfigPage() {
             </div>
           )}
 
-          <div className="grid grid-cols-[190px_minmax(0,1fr)_300px] items-start gap-6">
+          <div className="grid grid-cols-[140px_minmax(0,1fr)_240px] items-start gap-5">
             <nav className="flex flex-col" aria-label={t('settings.tab.files')}>
               {FILES.map(({ value, label }) => (
                 <button
@@ -418,7 +418,7 @@ export default function ConfigPage() {
           </button>
         </div>
         <div className="db">
-          <div className="grid grid-cols-[minmax(0,1fr)_300px] items-start gap-6">
+          <div className="grid grid-cols-[minmax(0,1fr)_360px] items-start gap-5">
             {expanded && editorBlock}
             {expanded && panelBlock}
           </div>

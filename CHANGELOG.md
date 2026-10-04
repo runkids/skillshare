@@ -1,5 +1,112 @@
 # Changelog
 
+## [0.24.1] - 2026-10-04
+
+### New Features
+
+- **Agents can keep the shared memory notes up to date** — each connected agent now has an update mode. `passive`, the default, reads the notes and updates them only when you ask. `active` also lets the agent save facts that will matter in later sessions, such as a stated preference or a decision with its reason; it skips one-off details, asks before saving when unsure, updates an existing note instead of adding a duplicate, and tells you what it saved. Choose the mode per agent in the dashboard's **Connect to agents**, which now shows each file's change as one diff, or print the guidance from the CLI:
+  ```bash
+  skillshare extras memory instructions --update-mode active -g
+  ```
+  Agents that read the same file share one mode. The dashboard flags an agent that reads guidance in both modes from different files.
+- **Config files saved by the CLI are laid out like the dashboard's Beautify** — when a command saves `config.yaml`, globally or in a project, its sections follow the dashboard's order with a blank line between them, instead of running together with `mcp`, `plugins` and `hooks` above the sources. A file that uses YAML aliases keeps its order where sorting would break them.
+
+### Bug Fixes
+
+- **Pi turns a global MCP server off in a project with its own override** — a `disabled` entry now writes `"NAME": {"enabled": false}` to `.pi/mcp.json`, the override Pi 1.0.1 and later read, instead of a copy of the global server's command or url. Turning the server back on with Pi's `/mcp` used to start it without its args, env or headers; now the global server keeps all of them. It also works in project mode, where `pi` in a `disabled` entry used to be an error. The next sync rewrites switches written by earlier releases, and an identical override made with Pi's `/mcp` is no longer a conflict. Older Pi reports the override as invalid. Refs: #378.
+- **Audit no longer blocks config keys named like role labels** — `prompt-injection-1` reported lines such as `root: ./src`, `admin: false` or `ignore: { tags: ["design"] }` as CRITICAL prompt overrides and blocked the install. Lowercase config keys with a plain value now pass, while directives such as `SYSTEM: jailbreak`, `system: Override ...` or an empty `system:` opening an indented block are still flagged. Refs: #374.
+- **The dashboard counts hooks** — the global and project dashboards listed every resource type except hooks, so a source with hooks looked empty. Hooks now appear between MCP and Plugins, as in the sidebar.
+
+## [0.24.0] - 2026-10-03
+
+### Breaking Changes
+
+- **`init` without a terminal now sets up what pressing Enter would** — in CI, scripts and AI agents, `init` used to do less than the interactive defaults. It now enables git, installs the built-in skill and selects every detected tool, and prints each decision with the flag that changes it. To keep the previous minimal setup, pass the flags explicitly:
+  ```bash
+  skillshare init --no-git --no-skill --no-targets --no-copy
+  ```
+- **Output that is not a terminal is plain text** — piped or redirected output no longer contains ANSI colors. Parse `--json` where a command offers it rather than the human-readable text, which changed throughout this release.
+
+### New Features
+
+#### Init
+
+- **Init asks first, then writes** — `init` collects every answer, shows a summary with Yes / Change settings / Cancel, and writes nothing until you confirm. Esc cancels cleanly, and `--dry-run` no longer creates tool folders. The built-in skill is installed by default, and the first sync runs at the end so the tools work right away.
+- **Connect an existing skillshare repo** — on a second machine, choose "Connect my existing skillshare repo". Init checks the repo before writing, detects its layout, prefers the repo's version of a skill with the same name, and keeps local-only skills for the next push. Init no longer writes a git identity into a repo that already exists.
+
+#### Command output
+
+- **One output style for every command** — `sync`, `status`, `install`, `update`, `check`, `push`, `pull`, `doctor`, `audit`, `mcp`, `plugin`, `extras`, `target` and the other commands report results as aligned rows and end with one closing line or the next step to take, without boxes, logos or trees.
+- **Help that fits on one screen** — `skillshare help` lists one line per command, and `--help` after a subcommand shows that subcommand's help instead of running it.
+  ```bash
+  skillshare extras memory --help
+  ```
+- **`doctor` warns about an outdated built-in skill** — when a newer built-in skill is published, `doctor` says so and counts it in the summary.
+- **`trash empty --force`** — empties the trash without asking.
+
+#### Terminal UI
+
+- **One frame and keymap for every full-screen TUI** — `list`, `trash`, `log`, `audit`, `analyze`, `diff`, `restore`, `search`, `target`, `extras` and the MCP manager share one title line, one key line with the common keys and the position, and lowercase letters for actions. Less common keys are under `?`, and confirmations ask on the key line so the list stays visible. In `list`, `tab` switches between skills and agents; the All tab and the `s` status cycle are gone, and `status:` in the filter or `--status` covers enabled and disabled.
+- **Small choices are asked inline** — the install skill picker, a large repo's folder picker, the restore source, the `new` wizard, `extras init` and MCP and plugin values no longer take over the screen. The question appears in place and collapses into a `✓` line that stays in the scrollback. Long lists can be narrowed with `/`, and long descriptions are cut to one row.
+- **A file viewer in the TUIs** — browse a skill's files from `list`, `extras`, `audit` (opened at the finding), `analyze` and `trash` (before restoring). Control characters and hidden Unicode are shown as symbols, and very large files are skipped.
+
+#### Git sync
+
+- **`push --pull` syncs both ways in one command** — commits local changes, merges the remote the same way `pull` does, pushes, and syncs the scope's targets. A conflict stops before anything is pushed and keeps the local commit. It never rebases or force-pushes.
+  ```bash
+  skillshare push --pull
+  ```
+  The dashboard's Git Sync page has the same action as **Sync both ways**, which lists what it will do before changing anything.
+
+#### Memory
+
+- **Shared Markdown memory across agents** — keep notes in `extras/memory`, globally or per project, and connect the agents that should read them. The dashboard has a two-pane Memory browser with search, moves and renames, version history and recovery from backups. From the CLI:
+  ```bash
+  skillshare extras memory init
+  skillshare extras memory list --search deploy
+  skillshare extras memory instructions   # guidance to add to your agent instructions
+  ```
+  This is a shared file overlay; each agent's own automatic memory stays separate.
+
+#### Pi
+
+- **Turn individual Pi extensions on and off** — a Pi target's **Extensions** tab in the dashboard lists every package in Pi's settings, including ones installed with Pi itself, and switches each extension for the global, account or project target. Each change shows the exact edit to Pi's settings before it is written, changes only that package's extension list, and is refused if Pi would apply it differently. Turning a file back to what the package loads by default removes its rule instead of adding the opposite one. Editing needs Pi 0.99.2 or later; older versions are read-only and say which version is needed.
+- **Add npm packages from pi.dev** — `plugin add npm:<package>` installs a Pi package through `pi install` and records it like an import. The preview says that Pi runs the package's install scripts, and only targets that run Pi take npm sources. The dashboard also accepts a pasted `pi install` command or a pi.dev address.
+  ```bash
+  skillshare plugin add npm:@scope/package --target pi -g
+  ```
+
+#### Install and check
+
+- **`check` detects changes at local install sources** — skills installed from a local path, such as one shipped inside an app, used to show only "local source". `check` now compares the files at that path with the ones installed and reports an available update, or an error naming the path when the source is gone. Project installs with a relative path are compared against the project root.
+- **Paste an `npx skills add` command in the install dialog** — the dashboard reduces `npx skills@latest add owner/repo --skill=name` or `owner/repo@skill` to its source and preselects the named skills.
+
+### Bug Fixes
+
+#### Git sync
+
+- **Pull no longer discards local commits that hold only files** — a first pull treated an agents or extras repo whose content was root-level files as empty and reset it onto the remote without `--force`.
+- **This machine's `config.yaml` is protected at the root git scope** — a first pull is refused when the remote tracks `config.yaml`, a later pull that brings in a tracked copy keeps the local file and warns, and a push is refused when unpushed commits add or change `config.yaml`. The refusal says how to repair the history.
+- **Pull syncs extras at the root git scope** — in the CLI and the dashboard, merged extras changes now reach their targets.
+- **The pull conflict dialog shows what differs** — both versions get taller panes, lines only one side has are tinted, each side scrolls to its first difference, and the header counts the differing lines.
+
+#### Install and upgrade
+
+- **`upgrade` verifies the download before replacing the binary** — the release archive is checked against the release's `checksums.txt`; a mismatch or an unreachable checksums file stops the upgrade and leaves the running binary untouched.
+- **Local installs update from any directory** — global installs record the absolute path of a local source, so `update` and `check` no longer fail with "source path does not exist" when run elsewhere. A skill installed as its `SKILL.md` alone is updated in that shape instead of copying the whole folder.
+
+#### Windows
+
+- **No more flashing console windows** — started without a console, such as from a scheduled task or `pythonw`, a single `pull` opened about ten terminal windows. Skillshare now runs its child processes in a hidden console.
+- **Stopping skillshare stops its child processes** — killing it mid-pull no longer leaves git, ssh or hooks running. The `ui start` server, browser and editor still keep running.
+- **`install file:///C:/...` works** — the URL is no longer rewritten with backslashes before it is handed to git.
+- Interrupted or oversized downloads no longer leave temp files in `%TEMP%`, `audit` no longer reports `content-missing` for absolute paths in skill metadata, and Pi's locks left by a crashed process are recovered.
+
+#### Plugins and MCP
+
+- **Symlinked config folders are accepted** — a linked `/var` on macOS, a home on a linked volume, a dotfiles-linked `~/.pi`, or a `PI_CODING_AGENT_DIR`, `CLAUDE_CONFIG_DIR` or `CODEX_HOME` behind a link no longer fails with "refusing to modify symlinked native path". A linked file or folder inside the config folder is still refused.
+- **Pi project MCP overrides are explained** — a `.pi/mcp.json` entry that only enables or disables a global server, as `/mcp` in Pi 1.0.1 writes, is reported as a project override with nothing to import, and a sync conflict with it says to replace it or change it with `/mcp` in Pi.
+
 ## [0.23.5] - 2026-10-02
 
 ### Bug Fixes

@@ -259,7 +259,7 @@ skillshare sync mcp
 대시보드에서는 `skillshare ui`로 프로젝트 폴더에서 열어 **서버 추가** 옆에 있는
 **전역 서버 끄기** 버튼을 선택하세요.
 
-이 기능은 Claude Code, OpenCode, Kilo Code에서 작동합니다. Pi를 포함한 다른 Agent는
+이 기능은 Claude Code, OpenCode, Kilo Code, Pi 1.0.1 이상에서 작동합니다. 다른 Agent는
 거부됩니다. 각 Agent에 무엇이 기록되는지, 그리고 나머지가 왜 지원되지 않는지는
 [명령어 레퍼런스](/docs/reference/commands/mcp#turn-off-a-global-server-in-one-project)를
 참고하세요.

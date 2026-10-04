@@ -10,7 +10,7 @@ describe('MCP server drafts', () => {
     expect(initialServerDraft({ command: 'docs', tools: { deny: ['delete_*'] } }, 'docs', ['pi'], false).tools).toEqual({ deny: ['delete_*'] });
   });
 
-  it('leaves Pi out of the targets a new off switch starts with', () => {
-    expect(initialServerDraft(undefined, '', ['claude', 'pi'], true).targets).toEqual(['claude']);
+  it('keeps only Agents with a switch in the targets a new off switch starts with', () => {
+    expect(initialServerDraft(undefined, '', ['claude', 'cursor', 'pi'], true).targets).toEqual(['claude', 'pi']);
   });
 });

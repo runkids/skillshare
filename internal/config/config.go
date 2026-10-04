@@ -661,9 +661,9 @@ func Load() (*Config, error) {
 
 	// Migrate legacy flat target fields to skills: sub-key (one-time, persisted immediately)
 	if migrateTargetConfigs(cfg.Targets) {
-		if data, err := utils.MarshalYAML(&cfg); err == nil {
+		if data, err := marshalConfig(&cfg, schemaComment); err == nil {
 			tmpPath := path + ".tmp"
-			if writeErr := os.WriteFile(tmpPath, append(schemaComment, data...), 0644); writeErr == nil {
+			if writeErr := os.WriteFile(tmpPath, data, 0644); writeErr == nil {
 				os.Rename(tmpPath, path)
 			}
 		}
@@ -737,12 +737,10 @@ func (c *Config) Save() error {
 	if c.PreserveTildeOnSave {
 		payload = payload.cloneForSave()
 	}
-	data, err := utils.MarshalYAML(payload)
+	data, err := marshalConfig(payload, schemaComment)
 	if err != nil {
 		return fmt.Errorf("failed to marshal config: %w", err)
 	}
-
-	data = append(schemaComment, data...)
 
 	if err := os.WriteFile(path, data, 0644); err != nil {
 		return fmt.Errorf("failed to write config: %w", err)
@@ -871,11 +869,10 @@ func migrateSkillsToRegistry(configPath string) error {
 		return nil
 	}
 	delete(raw, "skills")
-	cleaned, err := utils.MarshalYAML(raw)
+	cleaned, err := marshalConfig(raw, schemaComment)
 	if err != nil {
 		return nil
 	}
-	cleaned = append(schemaComment, cleaned...)
 	return os.WriteFile(configPath, cleaned, 0644)
 }
 

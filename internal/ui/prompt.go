@@ -13,6 +13,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/x/ansi"
 	"golang.org/x/term"
 )
 
@@ -299,12 +300,31 @@ func promptTitle(title string) string {
 }
 
 func huhOptions(options []Option, checked map[string]bool) []huh.Option[string] {
+	width, _, err := term.GetSize(int(os.Stdout.Fd()))
+	if err != nil {
+		width = 0
+	}
 	out := make([]huh.Option[string], len(options))
 	for i, o := range options {
-		out[i] = huh.NewOption(o.Label, o.Value).Selected(checked[o.Value])
+		out[i] = huh.NewOption(fitOptionLabel(o.Label, width), o.Value).Selected(checked[o.Value])
 	}
 	return out
 }
+
+// fitOptionLabel keeps an option on one row: a long description would wrap
+// over several lines and push the rest of the list off the screen. It is
+// cut to the terminal width less the cursor and checkbox; width 0 means
+// unknown and only joins lines.
+func fitOptionLabel(label string, width int) string {
+	label = strings.Join(strings.Fields(label), " ")
+	if width <= 0 {
+		return label
+	}
+	return ansi.Truncate(label, max(width-optionPrefixWidth, 10), "…")
+}
+
+// optionPrefixWidth is "› " and "○ " before each option.
+const optionPrefixWidth = 4
 
 // promptTheme maps the skillshare palette onto huh's styles: no side bar,
 // "›" cursor, ◉/○ checkboxes, accent-colored focus.

@@ -12,8 +12,8 @@
   <a href="https://skillshare.runkids.cc"><img src="https://img.shields.io/badge/Website-skillshare.runkids.cc-blue?logo=docusaurus" alt="Website"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"></a>
   <a href="https://github.com/runkids/skillshare/releases"><img src="https://img.shields.io/github/v/release/runkids/skillshare" alt="Release"></a>
+  <a href="https://github.com/runkids/skillshare/releases"><img src="https://img.shields.io/github/downloads/runkids/skillshare/total" alt="Downloads"></a>
   <img src="https://img.shields.io/badge/platform-macOS%20%7C%20Linux%20%7C%20Windows-blue" alt="Platform">
-  <a href="https://goreportcard.com/report/github.com/runkids/skillshare"><img src="https://goreportcard.com/badge/github.com/runkids/skillshare" alt="Go Report Card"></a>
   <a href="https://deepwiki.com/runkids/skillshare"><img src="https://deepwiki.com/badge.svg" alt="Ask DeepWiki"></a>
 </p>
 
@@ -46,7 +46,7 @@
 </p>
 
 > [!NOTE]
-> **最新版本**：v0.23.0 — 管理与同步全局和项目范围的**原生 hooks**；用 `tools.allow` 与 `tools.deny` 选择模型可使用的 **MCP tools**；并通过 dashboard 新增的 **Hooks 页面**与 **MCP 工具选择界面**完成配置。完整的新功能与修复见 [Releases](https://github.com/runkids/skillshare/releases) 和[更新日志](https://skillshare.runkids.cc/changelog)。
+> **最新版本**：v0.24.0 — 重新设计的 **`init`** 先提问、确认后才写入；CLI 与所有 **TUI** 使用统一的输出风格和按键；用 **`push --pull`** 一条命令双向同步；在多个 agent 间共享 **Markdown 记忆**；并可按 target 开关 **Pi extension**、添加 **pi.dev 上的 npm 包**。完整的新功能与修复见 [Releases](https://github.com/runkids/skillshare/releases) 和[更新日志](https://skillshare.runkids.cc/changelog)。
 
 ## 为什么用 skillshare
 

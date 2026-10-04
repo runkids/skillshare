@@ -66,11 +66,7 @@ func runChecklistTUI(cfg checklistConfig) ([]int, error) {
 		indices = append(indices, i)
 		labels = append(labels, cfg.items[i].label)
 	}
-	answer := strings.Join(labels, ", ")
-	if answer == "" {
-		answer = theme.Dim().Render("none")
-	}
-	ui.Answered(checklistAnswerLabel(cfg), answer)
+	ui.Answered(checklistAnswerLabel(cfg), checklistAnswer(cfg, labels))
 	return indices, nil
 }
 
@@ -105,6 +101,22 @@ func checklistDefault(items []checklistItemData) string {
 
 // checklistAnswerLabel names the ✓ line: "Pattern", or "Targets" for a
 // multi-select over targets.
+// checklistAnswer is the summary after the label: the chosen names, or past
+// three a count and the first three, so a long pick stays on one line.
+func checklistAnswer(cfg checklistConfig, labels []string) string {
+	switch {
+	case len(labels) == 0:
+		return theme.Dim().Render("none")
+	case len(labels) <= 3:
+		return strings.Join(labels, ", ")
+	}
+	name := cfg.itemName
+	if name == "" {
+		name = "choice"
+	}
+	return countNoun(len(labels), name) + theme.Dim().Render(" ("+strings.Join(labels[:3], ", ")+", …)")
+}
+
 func checklistAnswerLabel(cfg checklistConfig) string {
 	name := cfg.itemName
 	if name == "" {

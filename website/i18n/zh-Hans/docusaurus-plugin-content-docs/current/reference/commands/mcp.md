@@ -357,7 +357,7 @@ mcp:
 | Claude Code | 是 | `~/.claude.json`：在此项目的 `disabledMcpServers` 列表中写入名称 |
 | OpenCode | 是 | `opencode.json`：`"NAME": {"enabled": false}` |
 | Kilo Code | 是 | `kilo.jsonc`：`"NAME": {"enabled": false}` |
-| Pi | 是，从 `mcp.projects` | `.pi/mcp.json`: `"NAME": {"command": "...", "enabled": false}`，见下文 |
+| Pi | 是，Pi 1.0.1 起 | `.pi/mcp.json`: `"NAME": {"enabled": false}`，见下文 |
 | Codex | 否 | 见下文 |
 | 其他所有 client | 否 | 选择其中任何一个都会报错；不会写入任何内容 |
 
@@ -374,13 +374,12 @@ Codex 因不同的原因被拒绝。它确实会将 `.codex/config.toml` 逐字�
 可能会导致另一位队友的 Codex 无法启动。请改为在每台机器上单独
 关闭该 server，在 `~/.codex/config.toml` 中设置 `enabled = false`。
 
-Pi 会用项目中的同名条目整条替换 global 条目。没有 `command` 或 `url` 的条目，Pi 1.0.1
-之前会跳过；1.0.1 起会关闭 global server，但在 global 配置没有该 server 的机器上，Pi 每次启动都会警告。
-因此对 Pi，Skillshare 会写入 global server 的 `command`，或去掉 query 的 `url`，再加上
-`enabled: false`。被关闭的 server 不会启动，所以 args、env 和 headers 都不会写进项目文件，
-其他项目也照常使用该 server。每次同步都会根据 global server 重写这个条目。这需要 global
-server，所以只适用于 global 配置中 `mcp.projects` 下的项目；项目自己的配置看不到 global
-server，在那里的 `disabled` 条目中使用 `pi` 会报错。
+Pi 会用项目中的同名条目整条替换 global 条目，但 Pi 1.0.1 起，没有 `command`、`url` 或 `type`
+的条目改为覆盖：只改 global server 的 `enabled`、`exposure` 和 `toolExposure`，args、env 和凭据
+都沿用 global server。Pi 的 `/mcp` 写的也是同样的条目。Pi 1.0.1 之前会把它当作无效条目报告。
+在 global Pi 配置没有该 server 的机器上，Pi 启动时会报告没有可覆盖的 server，其余配置照常加载。
+这个开关不需要 global server 的任何内容，所以项目模式也能用。旧版本写入的、带有 global server
+`command` 或 `url` 的条目，会在下次同步时改写为覆盖条目。
 
 ### OpenCode 和 Kilo Code
 
@@ -912,8 +911,11 @@ Pi 的 server 名称只允许字母、数字、`_` 和 `-`；只差在 `-` 和 `
 [在单个项目中关闭一个 global server](#turn-off-a-global-server-in-one-project)。
 
 Pi 1.0.1 起，Pi 的 `/mcp` 可以在项目中添加只有 `enabled`、`exposure` 或 `toolExposure` 的条目，
-用来覆盖同名的 global server。它不是 server，所以导入会跳过它。如果项目定义了同名的 server，
-同步会报告冲突，直到你替换该条目，或在 Pi 中移除这个覆盖。
+用来覆盖同名的 global server。它不是 server，所以导入会跳过它。`disabled` 条目写入的也是这种覆盖，
+所以恰好是 `{"enabled": false}` 的覆盖不算冲突。同步写入开关后，你在 Pi 中为它添加的 Pi 设置（例如
+`exposure`）会像其他由同步管理的 Pi 条目一样保留；在 Pi 中把 server 重新打开则算冲突。如果项目定义了
+同名的 server，或不是同步写入的覆盖与 `disabled` 条目不同，同步会报告冲突，直到你替换该条目，或在 Pi
+中移除这个覆盖。
 
 ### 其他 Pi 设置 {#pi-options}
 

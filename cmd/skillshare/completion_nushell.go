@@ -676,6 +676,7 @@ export extern "skillshare extras memory" [
     --from: string           # Input file or - for stdin
     --version: string        # Last read hash for updates
     --search: string         # list: search names and content
+    --update-mode: string    # instructions: passive or active
     --json                   # JSON output
     --project(-p)            # Use project-level config
     --global(-g)             # Use global config

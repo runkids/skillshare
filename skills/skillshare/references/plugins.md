@@ -102,7 +102,8 @@ cannot reach, says why, and still updates the other targets.
   in Pi; do not bypass it with automatic approval flags.
   Which of a package's extensions load is chosen per Pi target in the dashboard's
   Extensions tab (exact `+`/`-` rules, previewed, refused if the file changed or Pi's lock
-  is held or lost; "Remove rule" leaves the file to the remaining rules; a single-file source,
+  is held or lost; a switch removes the file's own rule instead when that alone gives the
+  requested state; "Remove rule", shown otherwise, leaves the file to the remaining rules; a single-file source,
   and a string entry of a package with convention skills/prompts/themes folders its manifest leaves
   out (conversion to an object can't be shown to keep them unchanged), are read-only; so is an entry
   with an empty source or an unpaired UTF-16 surrogate escape / invalid UTF-8 in its source or rules); there is no CLI

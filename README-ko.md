@@ -12,8 +12,8 @@
   <a href="https://skillshare.runkids.cc"><img src="https://img.shields.io/badge/Website-skillshare.runkids.cc-blue?logo=docusaurus" alt="Website"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"></a>
   <a href="https://github.com/runkids/skillshare/releases"><img src="https://img.shields.io/github/v/release/runkids/skillshare" alt="Release"></a>
+  <a href="https://github.com/runkids/skillshare/releases"><img src="https://img.shields.io/github/downloads/runkids/skillshare/total" alt="Downloads"></a>
   <img src="https://img.shields.io/badge/platform-macOS%20%7C%20Linux%20%7C%20Windows-blue" alt="Platform">
-  <a href="https://goreportcard.com/report/github.com/runkids/skillshare"><img src="https://goreportcard.com/badge/github.com/runkids/skillshare" alt="Go Report Card"></a>
   <a href="https://deepwiki.com/runkids/skillshare"><img src="https://deepwiki.com/badge.svg" alt="Ask DeepWiki"></a>
 </p>
 
@@ -46,7 +46,7 @@
 </p>
 
 > [!NOTE]
-> **최신 버전**: v0.23.0 — global과 project 범위의 **네이티브 hooks**를 관리·동기화하고, `tools.allow`와 `tools.deny`로 모델이 사용할 **MCP tools**를 선택할 수 있습니다. dashboard에 추가된 **Hooks 페이지**와 **MCP 도구 선택 화면**에서도 설정할 수 있습니다. 전체 새 기능과 수정 사항은 [Releases](https://github.com/runkids/skillshare/releases)와 [변경 내역](https://skillshare.runkids.cc/changelog)에서 확인하세요.
+> **최신 버전**: v0.24.0 — 먼저 묻고 확인한 뒤에만 쓰는 새 **`init`**, CLI와 모든 **TUI**에 통일된 출력 스타일과 키 조작, 명령 하나로 양방향 동기화하는 **`push --pull`**, 에이전트 간에 공유하는 **Markdown 메모리**, 그리고 target별 **Pi extension** 전환과 **pi.dev의 npm 패키지** 추가를 지원합니다. 전체 새 기능과 수정 사항은 [Releases](https://github.com/runkids/skillshare/releases)와 [변경 내역](https://skillshare.runkids.cc/changelog)에서 확인하세요.
 
 ## skillshare를 쓰는 이유
 

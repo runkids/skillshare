@@ -36,8 +36,8 @@ func switchOnly(target string, entry map[string]any) bool {
 		return true
 	}
 	if target == "pi" {
-		// Pi's switch carries the global server's command or url; see renderDisabled.
-		return len(entry) == 2 && entry["enabled"] == false && (entry["command"] != nil || entry["url"] != nil)
+		// Before Pi 1.0.1 support, the switch also carried the global server's command or url.
+		return entry["enabled"] == false && (len(entry) == 1 || len(entry) == 2 && (entry["command"] != nil || entry["url"] != nil))
 	}
 	return len(entry) == 1 && (entry["enabled"] == false || entry["disabled"] == true)
 }
@@ -283,7 +283,6 @@ func followingSwitches(servers map[string]Server, defaults []string, global *Sou
 		var reached []string
 		if global != nil {
 			if shared, ok := global.Servers[name]; ok {
-				server.global = &shared
 				if reached = shared.Targets; reached == nil {
 					reached = global.Targets
 				}
@@ -667,13 +666,15 @@ func (s *Service) previewResolved(source *Source, resolutions []Resolution) (*Pl
 				change.Switch = switchOnly(target, current)
 			}
 			switch {
-			case target == "pi" && current != nil && piOverride(current) && (change.Root != "" || s.ProjectRoot != "") &&
+			case target == "pi" && current != nil && piOverride(current) && (change.Root != "" || s.ProjectRoot != "") && entryHash(current) != entryHash(want) &&
 				(!managed || currentHash != owned.Hash) && !(managed && owned.Owner != source.ConfigPath && !ownerGone(owned.Owner)):
-				// Skillshare never writes a connection-less Pi entry, so Pi's /mcp wrote this one,
-				// possibly over an entry a config synced. It has no server for import to take, so
-				// this comes before every conflict that offers import. A live owner keeps its own
-				// message: only that config can release the entry. Replace records the entry as
-				// owned at its current hash, which lets the cases below write over it.
+				// Pi's /mcp wrote this override, possibly over an entry a config synced; one that
+				// is exactly the switch sync writes is not a conflict. The whole entry is compared:
+				// the ownership hash leaves out exposure and toolExposure. It has no server for
+				// import to take, so this comes before every conflict that offers import. A live
+				// owner keeps its own message: only that config can release the entry. Replace
+				// records the entry as owned at its current hash, which lets the cases below write
+				// over it.
 				change.Action, change.Message = "conflict", "existing entry is a Pi project override of a global server; replace it, or remove the override with /mcp in Pi"
 			case pruneConflict:
 				change.Action, change.Message = "conflict", "Pi setting changed since sync; import it before removing the cleared setting"

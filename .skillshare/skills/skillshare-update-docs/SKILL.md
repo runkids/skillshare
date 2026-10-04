@@ -108,7 +108,7 @@ Review `README.md` for sections that may need updates:
 ### Step 6: Build Verification
 
 ```bash
-docker exec "$CONTAINER" bash -c 'cd /workspace/website && pnpm run build'
+docker exec "$CONTAINER" bash -c 'cd /workspace/website && npm run build'   # as the Website Pages workflow builds
 ```
 
 Confirm no broken links or build errors.

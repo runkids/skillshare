@@ -248,10 +248,11 @@ skillshare mcp edit docs --pi-options '{}' --no-tui
 - A `.pi/mcp.json` entry with only `enabled`/`exposure`/`toolExposure` is Pi's project
   override (Pi 1.0.1+ `/mcp`), not a server: import skips it, and a same-name project
   server conflicts until the entry is replaced or the override is removed in Pi.
-- A `disabled` entry under `mcp.projects` turns a global server off for Pi too: Skillshare
-  writes the global server's `command` (or `url` without the query) with `enabled: false`
-  to `.pi/mcp.json`. A project's own config cannot see the global server, so `pi` there
-  is an error.
+- A `disabled` entry turns a global server off for Pi 1.0.1+ too, in project mode or under
+  `mcp.projects`: Skillshare writes that override, `"NAME": {"enabled": false}`, to
+  `.pi/mcp.json`, and the global server keeps its args, env and credentials. An override
+  Pi already wrote as exactly `{"enabled": false}` is no conflict; Pi settings added in Pi
+  to a switch sync wrote are kept, and turning it back on in Pi is a conflict.
 
 ## Tool policy
 
@@ -324,8 +325,9 @@ Skillshare does not check that it exists there.
 |---|---|---|
 | `claude` | Yes | name added to this project's `disabledMcpServers` in `~/.claude.json` (per machine) |
 | `opencode`, `kilocode` | Yes | `{"enabled": false}` |
+| `pi` | Pi 1.0.1+ | `{"enabled": false}`, Pi's project override |
 | `codex` | No | see [Codex](#codex) |
-| `pi`, all other targets | No | Error, nothing written |
+| All other targets | No | Error, nothing written |
 
 ```bash
 skillshare mcp add NAME --disabled --target opencode -p --no-tui

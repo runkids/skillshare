@@ -270,7 +270,7 @@ Agent は自身の global MCP ファイルと project のファイルを合わ�
 | Claude Code | Yes | `~/.claude.json`: この project の `disabledMcpServers` リストにその名前を追加 |
 | OpenCode | Yes | `opencode.json`: `"NAME": {"enabled": false}` |
 | Kilo Code | Yes | `kilo.jsonc`: `"NAME": {"enabled": false}` |
-| Pi | Yes（`mcp.projects` から） | `.pi/mcp.json`: `"NAME": {"command": "...", "enabled": false}`、下記参照 |
+| Pi | Yes（Pi 1.0.1 以降） | `.pi/mcp.json`: `"NAME": {"enabled": false}`、下記参照 |
 | Codex | No | 下記参照 |
 | その他すべてのクライアント | No | 選択するとエラー。何も書き込まれない |
 
@@ -282,12 +282,9 @@ global config がそのサーバーを定義しているマシンでは `enabled
 別のメンバーの Codex の起動を止めてしまう可能性があります。代わりに、マシンごとに `~/.codex/config.toml` で
 `enabled = false` を指定してサーバーをオフにしてください。
 
-Pi は project の同名エントリで global エントリを丸ごと置き換えます。`command` も `url` もないエントリは、Pi 1.0.1 より前では読み飛ばされ、1.0.1 以降は global サーバーをオフにしますが、global config にそのサーバーがないマシンでは Pi が起動のたびに警告します。
-そのため Pi には、global サーバーの `command`、またはクエリを除いた `url` を `enabled: false` と一緒に書き込みます。
-オフにしたサーバーは起動しないので、args、env、headers は project ファイルに書き込まれず、他の project では
-そのサーバーがそのまま使われます。sync のたびにエントリは global サーバーから書き直されます。global サーバーが
-必要なので、これは global config の `mcp.projects` 配下の project でのみ機能します。project 自身の config からは
-global サーバーが見えないため、そこで `disabled` エントリに `pi` を指定するとエラーになります。
+Pi は project の同名エントリで global エントリを丸ごと置き換えますが、Pi 1.0.1 以降、`command`、`url`、`type` のないエントリは上書きになります。global サーバーの `enabled`、`exposure`、`toolExposure` だけを変え、args、env、認証情報は global サーバーのものが使われます。Pi の `/mcp` が書き込むのも同じエントリです。Pi 1.0.1 より前ではこのエントリは無効として報告されます。
+global の Pi config にそのサーバーがないマシンでは、Pi は起動時に上書き対象のサーバーがないと報告し、残りの設定は読み込みます。
+このスイッチは global サーバーの内容を必要としないため、project モードでも使えます。以前のリリースが global サーバーの `command` または `url` を含めて書き込んだエントリは、次の sync で上書きエントリに書き直されます。
 
 ### OpenCode と Kilo Code
 
@@ -818,7 +815,7 @@ Pi のサーバー名には英数字、`_`、`-` のみを使えます。`-` と
 エントリを丸ごと置き換えます。1 つの project で global サーバーをオフにするには、
 [1 つの project だけで global サーバーをオフにする](#turn-off-a-global-server-in-one-project)を参照してください。
 
-Pi 1.0.1 以降、Pi の `/mcp` は `enabled`、`exposure`、`toolExposure` だけを持つ project エントリを追加でき、同名の global サーバーを上書きします。これはサーバーではないため、インポートでは読み飛ばされます。project が同名のサーバーを定義している場合、そのエントリを置き換えるか Pi で上書きを削除するまで、sync は競合を報告します。
+Pi 1.0.1 以降、Pi の `/mcp` は `enabled`、`exposure`、`toolExposure` だけを持つ project エントリを追加でき、同名の global サーバーを上書きします。これはサーバーではないため、インポートでは読み飛ばされます。`disabled` エントリも同じ上書きを書き込むため、ちょうど `{"enabled": false}` である上書きは競合になりません。sync がスイッチを書き込んだ後に Pi で追加した `exposure` などの Pi 設定は、sync が管理する他の Pi エントリと同様に保持されます。Pi でサーバーを再びオンにすると競合になります。project が同名のサーバーを定義している場合、または sync が書き込んでいない上書きが `disabled` エントリと異なる場合、そのエントリを置き換えるか Pi で上書きを削除するまで、sync は競合を報告します。
 
 ### その他の Pi 設定 {#pi-options}
 

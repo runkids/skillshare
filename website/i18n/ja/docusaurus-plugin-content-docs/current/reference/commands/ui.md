@@ -86,7 +86,7 @@ skillshare ui start --clear-cache
 
 | ページ | 説明 |
 |------|-------------|
-| **Dashboard** | Skill、Agent、Extras、MCP サーバー、Plugin、Target の件数、および対応が必要な項目 |
+| **Dashboard** | Skill、Agent、Extras、MCP サーバー、Hook、Plugin、Target の件数、および対応が必要な項目 |
 | **Sync** | 書き込む前に、Target ごとにすべての変更をプレビュー。含める項目を選択（Skills、Agents、Extras、MCP）。Target 内で編集されたファイルは、**Force** がオンでない限り保持される。Target にのみ存在する項目は、ここから Source に collect し戻せる。各 sync は最初に Target フォルダをバックアップする。Target が失敗しても他の Target は sync される。失敗した Target は、その部分（Skills、Agents、Extras、Config）とエラーとともに他の警告より上に一覧表示され、よくある原因（別の場所を指す symlink、権限不足、読み取り専用のファイルシステム、存在しないファイルやフォルダー、無効な Target 設定）にはわかりやすい説明も付き、別の場所を指す Skills の symlink には **Force をオンにする** が表示され、変更一覧でもその Target に印が付く。すべての Target が失敗した場合も、同じように一覧表示される。**前回の同期** カードには、直近の sync で失敗した Target が表示される |
 | **Git Sync** | Source リポジトリのコミットとプッシュ、remote にまだないコミットのプッシュ、プルを実行。ページを開くと remote から fetch するため、**Pull** には remote にあるコミット数が表示される。プルはリポジトリのスコープ（`skills`、`agents`、`extras`、または `root`）が保持するものを sync する。詳細は [`pull`](/docs/reference/commands/pull) を参照。**Sync both ways** はローカルの変更をコミットし、プルしてマージし、target を sync してからプッシュする（[`push --pull`](/docs/reference/commands/push#push-and-pull-together) と同じ）。コンフリクトが発生した場合はプッシュ前に停止する。remote に新しいコミットがあるためにプッシュが拒否された場合、エラーに **Pull** が表示される。最初のプルが remote とマージできない場合、remote ブランチでローカルファイルを置き換える force pull を提案する |
 | **Hubs** | スキル ページから移動。内蔵の hub、保存済みの hub、自分の Hub（**自分の**）を一覧表示し、選ぶとその Skill を絞り込んでインストールできる。**Hub を追加・作成** は既存の hub の追加、新しい Hub の作成、`skillshare-hub.json` の読み込みを行う。自分の Hub は **編集** で変更し、**共有** でインデックスをダウンロードして `hub add` コマンドを作る。[`hub`](/docs/reference/commands/hub) を参照 |

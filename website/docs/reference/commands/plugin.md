@@ -191,7 +191,10 @@ package's pi.dev address; either becomes its `npm:` source.
 In the dashboard, the target page of `pi` and of a Pi account has an **Extensions**
 tab. It lists each package entry of that target's `settings.json` with the
 extensions its filters select. A switch writes one exact `+path` or `-path` rule
-into that entry's `extensions` list. **Remove rule** deletes the exact rule for that
+into that entry's `extensions` list. When removing the file's own exact rule already
+gives the state the switch asks for, the switch removes that rule instead, so turning
+a file back to what the remaining rules select leaves no rule behind. **Remove rule**,
+shown when the switch would not remove the rule itself, deletes the exact rule for that
 file, written as a relative or an absolute path, and the file then follows the
 remaining rules; the preview shows the result. Apply shows a preview first and
 edits only those lists: the entry's other keys, its `skills`, `prompts` and

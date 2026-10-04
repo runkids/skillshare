@@ -30,6 +30,44 @@ CONTAINER=$(docker compose -f .devcontainer/docker-compose.yml ps -q skillshare-
 
 If it is empty, stop and ask the user to run `make devc-up` before executing product commands. The source tree is bind-mounted at `/workspace`. The `ss` wrapper automatically builds current source, so ordinary CLI verification does not need a separate `make build`.
 
+## Parallel Tasks: One Worktree and Container Each
+
+Several sessions may share this checkout and the devcontainer, and either can change under you: another task commits, cleans the tree, or recreates the container. When a task gets its own branch or pull request, set this up before the first edit, not after:
+
+```sh
+git worktree add -b runkids/<topic> ../skillshare-<topic> origin/main
+```
+
+Make every later edit, test, and commit in that worktree. Do not edit the shared checkout and copy files over. The devcontainer mounts only the main checkout, and changing its mounts affects the other sessions, so give the worktree a throwaway container from the devcontainer image instead. Keep the compose file in the session scratchpad:
+
+```yaml
+name: skillshare_wt_<topic>
+services:
+  dev:
+    image: skillshare_devcontainer-skillshare-devcontainer:latest
+    working_dir: /workspace
+    command: sleep infinity
+    environment: { HOME: /home/developer, GOCACHE: /go/build-cache }
+    volumes:
+      - <abs-path>/skillshare-<topic>:/workspace
+      - /workspace/ui/node_modules
+      - /workspace/website/node_modules
+      # The worktree's .git file points at the main checkout's .git by absolute path.
+      - <abs-path>/skillshare/.git:<abs-path>/skillshare/.git
+      - skillshare_devcontainer_go-mod-cache:/go/pkg/mod
+volumes:
+  skillshare_devcontainer_go-mod-cache: { external: true }
+```
+
+Start it with `docker compose -f <file> up -d`. Run commands there with `docker exec <container> bash -c '...'`, not `bash -lc`: its home is empty, so a login shell resets `PATH` and loses Go. Inside it, run `git config --global --add safe.directory /workspace`, disable the credential helper, run `pnpm install --frozen-lockfile` in `ui/` and `website/`, then use the commands below. It publishes no ports, so it never clashes with the shared dev servers.
+
+When the task is finished (pushed, or abandoned), remove both so they stop using disk:
+
+```sh
+docker compose -f <file> down -v              # the container and its node_modules volumes
+git worktree remove ../skillshare-<topic>     # only when its status is clean
+```
+
 ## Narrow Verification First
 
 Change to `/workspace` inside the container:

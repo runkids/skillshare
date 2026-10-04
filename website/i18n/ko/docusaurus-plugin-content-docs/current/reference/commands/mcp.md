@@ -355,7 +355,7 @@ Agent는 자체 global MCP 파일과 프로젝트 파일을 함께 읽습니다.
 | Claude Code | 예 | `~/.claude.json`: 이름을 이 프로젝트의 `disabledMcpServers` 목록에 추가 |
 | OpenCode | 예 | `opencode.json`: `"NAME": {"enabled": false}` |
 | Kilo Code | 예 | `kilo.jsonc`: `"NAME": {"enabled": false}` |
-| Pi | 예, `mcp.projects`에서 | `.pi/mcp.json`: `"NAME": {"command": "...", "enabled": false}`, 아래 참조 |
+| Pi | 예, Pi 1.0.1부터 | `.pi/mcp.json`: `"NAME": {"enabled": false}`, 아래 참조 |
 | Codex | 아니요 | 아래 참고 |
 | Every other client | 아니요 | 하나를 선택하면 오류가 발생하며 아무것도 작성되지 않음 |
 
@@ -372,14 +372,13 @@ Codex는 다른 이유로 거부됩니다. Codex는 `.codex/config.toml`을 필�
 Codex 시작을 막을 수 있습니다. 대신 `~/.codex/config.toml`에서 `enabled = false`로
 머신별로 서버를 끄세요.
 
-Pi는 같은 이름의 프로젝트 항목으로 global 항목을 통째로 대체합니다. `command`나 `url`이 없는 항목은
-Pi 1.0.1 이전에는 건너뛰고, 1.0.1부터는 global 서버를 끄지만 global 구성에 그 서버가 없는 머신에서는
-Pi가 시작할 때마다 경고합니다. 그래서 Pi에는 global 서버의 `command`, 또는 query를 뺀 `url`을 `enabled: false`와 함께
-씁니다. 꺼진 서버는 시작되지 않으므로 args, env, headers는 프로젝트 파일에 쓰지 않으며, 다른
-프로젝트는 그 서버를 그대로 사용합니다. sync할 때마다 이 항목은 global 서버를 기준으로 다시
-작성됩니다. global 서버가 필요하므로 global 구성의 `mcp.projects` 아래 프로젝트에서만 동작합니다.
-프로젝트 자체 구성에서는 global 서버를 볼 수 없으므로, 그곳의 `disabled` 항목에 `pi`를 쓰면
-오류가 납니다.
+Pi는 같은 이름의 프로젝트 항목으로 global 항목을 통째로 대체하지만, Pi 1.0.1부터 `command`, `url`,
+`type`이 없는 항목은 덮어쓰기가 됩니다. global 서버의 `enabled`, `exposure`, `toolExposure`만 바꾸고,
+args, env, 자격 증명은 global 서버의 것을 그대로 씁니다. Pi의 `/mcp`가 쓰는 항목도 같습니다. Pi 1.0.1
+이전에는 이 항목을 잘못된 항목으로 보고합니다. global Pi 구성에 그 서버가 없는 머신에서는 Pi가 시작할 때
+덮어쓸 서버가 없다고 보고하고 나머지는 불러옵니다. 이 스위치는 global 서버에서 아무것도 필요로 하지 않으므로
+프로젝트 모드에서도 동작합니다. 이전 릴리스가 global 서버의 `command`나 `url`과 함께 쓴 항목은 다음 sync에서
+덮어쓰기 항목으로 다시 작성됩니다.
 
 ### OpenCode and Kilo Code
 
@@ -937,8 +936,11 @@ global 항목을 통째로 대체합니다. 한 프로젝트에서 global 서버
 
 Pi 1.0.1부터 Pi의 `/mcp`는 `enabled`, `exposure`, `toolExposure`만 있는 프로젝트 항목을 추가해
 같은 이름의 global 서버를 덮어쓸 수 있습니다. 이 항목은 서버가 아니므로 가져오기에서 건너뜁니다.
-프로젝트가 같은 이름의 서버를 정의하면, 그 항목을 대체하거나 Pi에서 덮어쓰기를 제거할 때까지
-sync가 충돌을 보고합니다.
+`disabled` 항목도 같은 덮어쓰기를 쓰므로, 정확히 `{"enabled": false}`인 덮어쓰기는 충돌이 아닙니다.
+sync가 스위치를 쓴 뒤 Pi에서 추가한 `exposure` 같은 Pi 설정은 sync가 관리하는 다른 Pi 항목처럼 유지되고,
+Pi에서 서버를 다시 켜면 충돌입니다. 프로젝트가 같은 이름의 서버를 정의하거나, sync가 쓰지 않은 덮어쓰기가
+`disabled` 항목과 다르면, 그 항목을 대체하거나
+Pi에서 덮어쓰기를 제거할 때까지 sync가 충돌을 보고합니다.
 
 ### 기타 Pi 설정 {#pi-options}
 

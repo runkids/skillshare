@@ -64,6 +64,13 @@ reports `memory_guidance_stale` in the partial result alongside applied paths.
 New guidance files use exclusive creation; a competing creator also produces
 `memory_guidance_stale` without overwriting its file.
 It preserves other content, assignments, and connection modes.
+Each block records its update mode (`passive`, the default and unmarked, or
+`active`) in its begin marker, and status is checked against that mode's text.
+Plan and apply take a mode per target; a target left out keeps its block's mode.
+Targets reading one file share its block, so different modes for one file are
+rejected. A target whose live chain holds blocks of both modes is
+broken/`mixed_modes`; switching a target that reads blocks in several files is
+skipped as `multiple_blocks`, since rewriting one file would leave the others.
 Intact outdated blocks can be updated after review; modified/malformed blocks
 are protected. Non-UTF-8 instruction files are reported as broken/unsupported
 and skipped without rewriting their bytes; instruction files have no new size

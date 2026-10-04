@@ -18,6 +18,7 @@ import {
   Star,
   Trash2,
   TriangleAlert,
+  Webhook,
   X,
 } from 'lucide-react';
 import { api } from '../api/client';
@@ -35,7 +36,7 @@ import { PageSkeleton } from '../components/Skeleton';
 import { useToast } from '../components/Toast';
 import { useAppContext } from '../context/AppContext';
 import { useRepoUpdate } from '../hooks/useRepoUpdate';
-import { useMcpQuery, useOverviewQuery } from '../hooks/useSharedQueries';
+import { useHooksQuery, useMcpQuery, useOverviewQuery } from '../hooks/useSharedQueries';
 
 const STAR_CTA_DISMISSED_KEY = 'skillshare.dashboard.starCta.dismissed';
 
@@ -86,6 +87,7 @@ export default function DashboardPage() {
     staleTime: staleTimes.extras,
   });
   const { data: mcpData } = useMcpQuery();
+  const { data: hooksData } = useHooksQuery({ staleTime: staleTimes.extras });
   const { data: pluginData } = useQuery({ queryKey: queryKeys.pluginPackages, queryFn: () => pluginsApi.list(false) });
   const { data: lastSync } = useQuery({
     queryKey: queryKeys.log('ops', 1, { cmd: 'sync' }),
@@ -116,6 +118,7 @@ export default function DashboardPage() {
     { kind: 'agent', icon: Bot, value: data.agentCount, label: t('dashboard.stats.agents'), to: '/agents' },
     { kind: 'extra', icon: FolderPlus, value: extrasData?.extras?.length ?? 0, label: t('dashboard.stats.extras'), to: '/extras' },
     { kind: 'mcp', icon: Plug, value: mcpData ? Object.keys(mcpData.source.servers ?? {}).length : 0, label: t('mcp.title'), to: '/mcp' },
+    { kind: 'hooks', icon: Webhook, value: Object.keys(hooksData?.source.entries ?? {}).length, label: t('hooks.title'), to: '/hooks' },
     { kind: 'plugin', icon: Package, value: Object.keys(pluginData?.packages ?? {}).length, label: t('plugins.title'), to: '/plugins' },
   ];
 
@@ -150,7 +153,7 @@ export default function DashboardPage() {
       )}
 
       <div data-tour="stats-grid" className="flex flex-col gap-7">
-        <div className="ss-counts ss-only-clean !grid-cols-5">
+        <div className="ss-counts ss-only-clean !grid-cols-6">
           {counts.map(({ kind, icon: Icon, value, label, to }) => (
             <Link key={kind} to={to}>
               <span className={`ss-cat ${kind}`}><Icon size={17} /></span>
@@ -241,7 +244,7 @@ function TargetBoard({ data, targets, healths, counts }: {
           </>
         )}
       </svg>
-      <div className="ss-pinnote src flex-col !items-stretch justify-center gap-2.5 !px-5 !py-4" style={{ left: 40, top: sy - 125, width: 300, height: 250 }}>
+      <div className="ss-pinnote src flex-col !items-stretch justify-center gap-2.5 !px-5 !py-4" style={{ left: 40, top: sy - 142, width: 300, height: 284 }}>
         <span className="flex flex-col gap-0.5">
           <span className="ss-hand !text-[22px] !font-bold !text-ink">{t('dashboard.board.source')}</span>
           <span className="font-mono text-[11.5px] text-ink-3 truncate">{data.source}</span>

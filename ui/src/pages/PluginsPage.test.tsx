@@ -13,7 +13,7 @@ vi.mock('../context/AppContext', () => ({ useAppContext: () => ({ isProjectMode:
 vi.mock('../components/plugins/PluginAddDialog', () => ({ default: ({ initialTargets }: { initialTargets?: string[] }) => <div role="dialog" aria-label="add">{initialTargets?.join(',')}</div> }));
 vi.mock('../hooks/useSharedQueries', () => ({ useSyncedTargetsQuery: () => ({ data: { targets: [{ name: 'pi' }] } }) }));
 
-function mount(path = '/plugins') { return render(<MemoryRouter initialEntries={[path]}><QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><ToastProvider><PluginsPage /></ToastProvider></QueryClientProvider></MemoryRouter>); }
+function mount(path = '/plugins', client = new QueryClient({ defaultOptions: { queries: { retry: false } } })) { return render(<MemoryRouter initialEntries={[path]}><QueryClientProvider client={client}><ToastProvider><PluginsPage /></ToastProvider></QueryClientProvider></MemoryRouter>); }
 
 describe('PluginsPage', () => {
   beforeEach(() => {
@@ -146,6 +146,15 @@ describe('PluginsPage', () => {
     expect(await screen.findByText('plugins.outcome.installed')).toBeInTheDocument();
     expect(screen.getByText('plugins.outcome.installHelp')).toBeInTheDocument();
     expect(screen.queryByText(message)).not.toBeInTheDocument();
+  });
+  it('refreshes the Pi Extensions tabs after a sync, since they list the packages it changes', async () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const invalidate = vi.spyOn(client, 'invalidateQueries');
+    mount('/plugins', client);
+    fireEvent.click(await screen.findByRole('button', { name: 'plugins.syncAgain' }));
+    await screen.findByRole('dialog');
+    fireEvent.click(screen.getByRole('button', { name: 'plugins.apply' }));
+    await waitFor(() => expect(invalidate).toHaveBeenCalledWith({ queryKey: ['pi-extensions'] }));
   });
   it('requires a preview before sync and preserves partial failures', async () => {
     vi.mocked(pluginsApi.apply).mockResolvedValue({ result: { results: [{ name: 'demo', target: 'codex', status: 'failed', message: 'Native authentication required' }] }, failure: 'One target failed' });

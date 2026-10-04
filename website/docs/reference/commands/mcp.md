@@ -369,7 +369,7 @@ This works with four clients only:
 | Claude Code | Yes | `~/.claude.json`: the name, in this project's `disabledMcpServers` list |
 | OpenCode | Yes | `opencode.json`: `"NAME": {"enabled": false}` |
 | Kilo Code | Yes | `kilo.jsonc`: `"NAME": {"enabled": false}` |
-| Pi | Yes, from `mcp.projects` | `.pi/mcp.json`: `"NAME": {"command": "...", "enabled": false}`, see below |
+| Pi | Yes, Pi 1.0.1 and later | `.pi/mcp.json`: `"NAME": {"enabled": false}`, see below |
 | Codex | No | See below |
 | Every other client | No | Selecting one is an error; nothing is written |
 
@@ -386,14 +386,14 @@ no `command` or `url`, and Codex then fails to load its whole configuration with
 could stop Codex from starting for another. Turn the server off per machine instead,
 with `enabled = false` in `~/.codex/config.toml`.
 
-Pi replaces a global entry with the project entry of the same name. An entry without a
-`command` or `url` is skipped before Pi 1.0.1; from 1.0.1 it turns the global server off,
-but Pi warns at every start on a machine whose global config lacks the server. So for Pi, Skillshare writes the global server's `command`,
-or its `url` without the query, next to `enabled: false`. A disabled server is never
-started, so args, env and headers stay out of the project file, and other projects keep
-the server. Every sync rewrites the entry from the global server. This needs the global
-server, so it works for a project under `mcp.projects` in the global config; a project's
-own config cannot see the global one, and `pi` in a `disabled` entry there is an error.
+Pi replaces a global entry with the project entry of the same name, but since Pi 1.0.1
+an entry without `command`, `url` or `type` is an override instead: it changes only
+`enabled`, `exposure` and `toolExposure` of the global server, which keeps its args, env
+and credentials. Pi's `/mcp` writes the same entry. Pi before 1.0.1 reports it as invalid.
+On a machine whose global Pi config lacks the server, Pi reports at start that there is no
+server to override, and loads the rest. The switch needs nothing from the global server,
+so it works in project mode too. An entry that earlier releases wrote with the global
+server's `command` or `url` is rewritten as the override on the next sync.
 
 ### OpenCode and Kilo Code
 
@@ -969,8 +969,12 @@ global entry of the same name; to turn off a global server in one project, see
 
 Since Pi 1.0.1, `/mcp` in Pi can add a project entry with only `enabled`, `exposure` or
 `toolExposure`, which overrides the global server of that name. It is not a server, so
-import skips it. If the project defines a server with the same name, sync reports a
-conflict until you replace the entry or remove the override in Pi.
+import skips it. A `disabled` entry writes the same override, so one that is exactly
+`{"enabled": false}` is no conflict. Once sync has written the switch, Pi settings you add
+to it in Pi, such as `exposure`, are kept as on any Pi entry sync manages; turning the
+server back on in Pi is a conflict. If the project defines a server with the same name, or
+an override sync did not write differs from the `disabled` entry, sync reports a conflict
+until you replace the entry or remove the override in Pi.
 
 ### Other Pi settings {#pi-options}
 

@@ -39,7 +39,28 @@ With merge or rebase-merge, preserve the footer in the development commit. With 
 
 After the commit reaches `main`, verify that Release Please creates or updates the Release PR to the requested version. Review its manifest and synchronized metadata before merging. Adding a footer alone does not create the release tag or publish anything. Follow the existing authorization boundary when committing, pushing or merging.
 
-### 2. Review the Release PR
+### 2. Sync documentation first
+
+Before touching the Release PR, run `/skillshare-update-docs` over the pending range `<latest published tag>..origin/main`. Check every user-visible `feat`, `fix` and breaking change against the command pages, guides, troubleshooting, built-in skill and README, in English and every translated locale, and note the commits that need no documentation change. Then build the whole website inside the devcontainer the way the Website Pages workflow does:
+
+```bash
+cd website && npm run build
+```
+
+For a minor or major release (any `feat` or breaking change in the range), also update the README:
+
+- Rewrite the `Latest` callout near the top of `README.md` for the new version, and the same callout in every translated README (`README-ja.md`, `README-ko.md`, `README-zh-CN.md`, `README-zh-TW.md`), each in its own language.
+- Add the release's contributors to the `Contributors` section of `README.md` (the translations link to it). A contributor is the author of an issue or PR the range references, or a commit author or `Co-authored-by` in the range, other than the maintainer. Skip anyone already listed, and verify each account exists before adding its avatar link:
+
+  ```bash
+  git log <tag>..origin/main --format='%B' | grep -oE '#[0-9]+' | sort -u
+  gh api repos/runkids/skillshare/issues/<n> --jq '.user.login'
+  git log <tag>..origin/main --format='%an%n%(trailers:key=Co-authored-by,valueonly)' | sort -u
+  ```
+
+Documentation fixes go to `main`, with the usual authorization to commit and push. Finish them before the next step. A push to `main` whose commits change the generated notes, such as a new `feat` or `fix`, regenerates the Release PR and discards edits made on its branch; `docs` commits leave it as it is (the Release Please log says the PR "remained the same").
+
+### 3. Review the Release PR
 
 Use `/changelog` to turn generated notes into user-facing prose and examples. Work on the Release PR branch, then synchronize and check its files inside the devcontainer:
 
@@ -54,13 +75,13 @@ Check the manifest, built-in skill metadata and both changelog copies. Bot-creat
 
 Commit and push review edits, or merge the PR, only when explicitly authorized. Do not create a release tag locally: the automation tests the exact merged commit before creating the tag and draft.
 
-### 3. Inspect the draft
+### 4. Inspect the draft
 
 After the Release PR merges, the Release Please workflow tests its merge SHA, creates a draft and tag, and explicitly calls Build Release Draft. The workflow builds all six CLI archives and the UI archive, generates the Homebrew formula, verifies checksums and checks the packaged CLI version.
 
 Review the draft notes, migration guidance, tag and artifacts. A failed packaging job leaves an unpublished draft. Rerun the failed packaging job or, with authorization, dispatch Build Release Draft for that existing tag; do not create a second tag or change the version to hide a build failure.
 
-### 4. Release notes and announcements
+### 5. Release notes and announcements
 
 The published GitHub release body is `specs/RELEASE_NOTES_<version>.md`, not the CHANGELOG entry. Follow the most recent `specs/RELEASE_NOTES_*.md` (TL;DR, then one section per area) and verify every claim against source. The ignored `specs/` files stay local unless the user explicitly asks to commit them. Do not force-add them by default.
 
@@ -74,7 +95,7 @@ Rebuilding the draft (Build Release Draft) regenerates the body from the CHANGEL
 
 Draft announcements only when requested. Describe user-visible behavior, add examples and migration guidance, and avoid internal implementation details.
 
-### 5. Publish only when authorized
+### 6. Publish only when authorized
 
 Present the concrete draft and verification results. If publication is explicitly authorized, dispatch **Publish Release** with the exact `vX.Y.Z` tag. It verifies downloaded assets and the packaged CLI before publishing, then updates Homebrew and explicitly runs Docker Publish and Website Pages for the pinned tag commit. The website deploys only here, never on pushes to `main`.
 

@@ -142,7 +142,8 @@ function sharedDir(paths: string[]) {
 }
 
 /** Whether a row ends up on: a pending switch decides, a pending rule removal keeps what the settings say. */
-const isOn = (row: PiExtensionRow, action?: PiExtensionAction) => action === 'select' || (action !== 'exclude' && row.selection === 'loads');
+const isOn = (row: PiExtensionRow, action?: PiExtensionAction) =>
+  action === 'default' && row.unruled ? row.unruled === 'loads' : action === 'select' || (action !== 'exclude' && row.selection === 'loads');
 
 /** One package: a summary header, then its extensions as a grid. ownsRules: the rules shown are in the file this view writes, so one can be removed. */
 function PackageCard({ pkg, name, ownsRules, pending, set, t }: { pkg: PiExtensionPackage; name: string; ownsRules: boolean; pending: Record<string, PiExtensionAction>; set: SetAction; t: T }) {
@@ -247,7 +248,7 @@ function RowGrid({ dir, children }: { dir: string; children: ReactNode }) {
   return (
     <div className="ss-r !block !min-h-0 !p-0">
       {dir && <div className="px-4 pt-3 font-mono text-[12px] text-ink-3">{dir}</div>}
-      <ul className="grid grid-cols-[repeat(auto-fill,minmax(300px,1fr))] gap-x-4 px-2 pb-2 pt-1">{children}</ul>
+      <ul className="grid grid-cols-[repeat(auto-fill,minmax(440px,1fr))] gap-x-4 px-2 pb-2 pt-1">{children}</ul>
     </div>
   );
 }
@@ -255,24 +256,26 @@ function RowGrid({ dir, children }: { dir: string; children: ReactNode }) {
 function ExtensionCell({ pkg, row, dir, name, ownsRules, action, set, t }: { pkg: PiExtensionPackage; row: PiExtensionRow; dir: string; name: string; ownsRules: boolean; action?: PiExtensionAction; set: SetAction; t: T }) {
   const label = t('targetDetail.piExtensions.switchLabel', { path: row.path, pkg: pkg.identity || pkg.source, name });
   const change = (next?: PiExtensionAction) => set(pkg.scope, pkg.index, row.path, next);
-  const canRemove = ownsRules && row.editable && /^[+-]/.test(row.rule ?? '') && (row.origin === 'rule' || row.origin === 'project');
-  const switchable = row.editable && row.file === 'present' && action !== 'default';
+  // When removing the row's own rule gives the other state, the switch removes it, so no rule is left behind.
+  const dropsRule = Boolean(row.unruled) && row.unruled !== row.selection;
+  const canRemove = ownsRules && row.editable && !dropsRule && /^[+-]/.test(row.rule ?? '') && (row.origin === 'rule' || row.origin === 'project');
+  const switchable = row.editable && row.file === 'present' && (action !== 'default' || dropsRule);
   // The package default needs no note on every row; anything else says where the selection comes from.
   const showOrigin = Boolean(action) || row.origin !== 'default' || row.selection === 'unknown' || canRemove;
   return (
     <li className={`flex min-h-[46px] min-w-0 items-center gap-2.5 rounded-[var(--r-ctl)] px-2 py-1.5 ${action ? 'bg-link-bg' : ''}`}>
       {switchable
-        ? <RowSwitch on={isOn(row, action)} label={label} onToggle={() => change(action ? undefined : row.selection === 'loads' ? 'exclude' : 'select')} />
+        ? <RowSwitch on={isOn(row, action)} label={label} onToggle={() => change(action ? undefined : dropsRule ? 'default' : row.selection === 'loads' ? 'exclude' : 'select')} />
         : <StatusDot value={row.selection} t={t} />}
       <span className="flex min-w-0 flex-1 flex-col">
         <RowPath path={row.path} dir={dir} missing={row.file === 'missing'} t={t} />
         {showOrigin && (
           <span className="flex flex-wrap items-center gap-x-2 text-[12px] text-ink-3">
-            <RowOrigin row={row} action={action} canRemove={canRemove} onDefault={() => change('default')} onKeep={() => change()} t={t} />
+            <RowOrigin row={row} action={action} canRemove={canRemove} onDefault={() => change('default')} onKeep={dropsRule ? undefined : () => change()} t={t} />
           </span>
         )}
       </span>
-      {action ? <PendingSelection from={row.selection} action={action} t={t} /> : !switchable && <OddSelection value={row.selection} t={t} />}
+      {action ? <PendingSelection from={row.selection} action={action} unruled={row.unruled} t={t} /> : !switchable && <OddSelection value={row.selection} t={t} />}
     </li>
   );
 }
@@ -306,19 +309,19 @@ function MissingBadge({ t }: { t: T }) {
 }
 
 /** The selection a pending change leads to. */
-function PendingSelection({ from, action, t }: { from: PiSelection; action: PiExtensionAction; t: T }) {
-  // Without its rule the file follows the rules that remain; the preview computes that.
-  const to = action === 'default' ? 'afterReview' : action === 'select' ? 'loads' : 'skipped';
+function PendingSelection({ from, action, unruled, t }: { from: PiSelection; action: PiExtensionAction; unruled?: PiSelection; t: T }) {
+  // Without its rule the file follows the rules that remain; unless the view knows that, the preview computes it.
+  const to = action === 'default' ? unruled ?? 'afterReview' : action === 'select' ? 'loads' : 'skipped';
   return <span className="shrink-0 text-[13px] font-semibold text-link">{t(`targetDetail.piExtensions.sel.${from}`)} → {t(`targetDetail.piExtensions.sel.${to}`)}</span>;
 }
 
 /** Where the row's selection comes from, and the button that removes or keeps its exact rule. */
-function RowOrigin({ row, action, canRemove, onDefault, onKeep, t }: { row: PiExtensionRow; action?: PiExtensionAction; canRemove: boolean; onDefault: () => void; onKeep: () => void; t: T }) {
+function RowOrigin({ row, action, canRemove, onDefault, onKeep, t }: { row: PiExtensionRow; action?: PiExtensionAction; canRemove: boolean; onDefault: () => void; onKeep?: () => void; t: T }) {
   if (action === 'default') {
     return (
       <>
         <span>{t('targetDetail.piExtensions.origin.pendingDefault')}</span>
-        <button type="button" className="font-semibold text-ink-2 hover:text-ink" onClick={onKeep}>{t('targetDetail.piExtensions.keepRule')}</button>
+        {onKeep && <button type="button" className="font-semibold text-ink-2 hover:text-ink" onClick={onKeep}>{t('targetDetail.piExtensions.keepRule')}</button>}
       </>
     );
   }

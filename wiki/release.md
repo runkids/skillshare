@@ -47,12 +47,13 @@ Before starting:
 
 Then:
 
-1. Generate and review the changelog.
-2. Write the GitHub release body to `specs/RELEASE_NOTES_<version>.md`, following the newest one. After the draft is built, apply it with `gh release edit vX.Y.Z --notes-file specs/RELEASE_NOTES_<version>.md`; Publish Release keeps it, but rebuilding the draft regenerates the body from `CHANGELOG.md`.
-3. Review the manifest's proposed version and synchronize the Release PR files; do not perform a separate manual version bump.
-4. Commit review edits or merge the Release PR only when explicitly requested. Stage only task-owned files. The automation owns release tagging after verification.
-5. Draft concise GitHub release notes and a social announcement.
-6. Present tests, diffs, local-only artifacts, and commit/tag state; obtain confirmation before pushing or publishing.
+1. Bring the documentation up to date with the pending range `<latest published tag>..origin/main`, following the `documentation` topic: check each user-visible feature, fix and breaking change against the command pages, guides, troubleshooting, built-in skill and README in every locale, then build the whole website inside the devcontainer with `npm run build` in `website/`, as the Website Pages workflow does. For a minor or major release, also rewrite the `Latest` callout in `README.md` and every translated README, and add the range's contributors to the `README.md` Contributors section: authors of the issues and PRs it references, commit authors and `Co-authored-by` trailers, other than the maintainer and anyone already listed. Documentation fixes land on `main`, so finish them before editing the Release PR. A push to `main` whose commits change the generated notes, such as a new `feat` or `fix`, regenerates the Release PR and discards edits made on its branch; `docs` commits leave it as it is.
+2. Generate and review the changelog.
+3. Write the GitHub release body to `specs/RELEASE_NOTES_<version>.md`, following the newest one. After the draft is built, apply it with `gh release edit vX.Y.Z --notes-file specs/RELEASE_NOTES_<version>.md`; Publish Release keeps it, but rebuilding the draft regenerates the body from `CHANGELOG.md`.
+4. Review the manifest's proposed version and synchronize the Release PR files; do not perform a separate manual version bump.
+5. Commit review edits or merge the Release PR only when explicitly requested. Stage only task-owned files. The automation owns release tagging after verification.
+6. Draft concise GitHub release notes and a social announcement.
+7. Present tests, diffs, local-only artifacts, and commit/tag state; obtain confirmation before pushing or publishing.
 
 Release notes are local maintainer artifacts by default. Never force-add an ignored file unless explicitly requested. Never infer authorization for credentials, registry login, or external publication.
 

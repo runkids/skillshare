@@ -4,13 +4,16 @@ import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { api } from '../api/client';
 import type { Overview, Target } from '../api/client';
+import { hooksApi } from '../api/hooks';
+import type { HookInventory } from '../api/hooks';
 import { mcpApi } from '../api/mcp';
 import { pluginsApi } from '../api/plugins';
 import { ToastProvider } from '../components/Toast';
 import { I18nProvider } from '../i18n';
 import DashboardPage from './DashboardPage';
 
-vi.mock('../context/AppContext', () => ({ useAppContext: () => ({ isProjectMode: false }) }));
+const appContext = vi.hoisted(() => ({ isProjectMode: false }));
+vi.mock('../context/AppContext', () => ({ useAppContext: () => appContext }));
 vi.mock('../api/client', async (load) => {
   const actual = await load<typeof import('../api/client')>();
   return {
@@ -25,6 +28,10 @@ vi.mock('../api/client', async (load) => {
 vi.mock('../api/mcp', async (load) => {
   const actual = await load<typeof import('../api/mcp')>();
   return { ...actual, mcpApi: { ...actual.mcpApi, list: vi.fn() } };
+});
+vi.mock('../api/hooks', async (load) => {
+  const actual = await load<typeof import('../api/hooks')>();
+  return { ...actual, hooksApi: { ...actual.hooksApi, list: vi.fn() } };
 });
 vi.mock('../api/plugins', async (load) => {
   const actual = await load<typeof import('../api/plugins')>();
@@ -47,6 +54,7 @@ function renderPage() {
 describe('DashboardPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    appContext.isProjectMode = false;
     vi.mocked(api.getOverview).mockResolvedValue({ skillCount: 3, agentCount: 0, source: '/home/dev/skills', trackedRepos: [] } as unknown as Overview);
     vi.mocked(api.listTargets).mockResolvedValue({ targets: [target('codex', 'merged'), target('cursor', 'not exist')], sourceSkillCount: 3 } as Awaited<ReturnType<typeof api.listTargets>>);
     vi.mocked(api.listExtras).mockResolvedValue({ extras: [] } as unknown as Awaited<ReturnType<typeof api.listExtras>>);
@@ -56,12 +64,25 @@ describe('DashboardPage', () => {
     vi.mocked(api.getVersionCheck).mockReturnValue(new Promise(() => {}));
     vi.mocked(mcpApi.list).mockReturnValue(new Promise(() => {}));
     vi.mocked(pluginsApi.list).mockReturnValue(new Promise(() => {}));
+    vi.mocked(hooksApi.list).mockResolvedValue({ source: { entries: { lint: { bindings: {} }, fmt: { bindings: {} } } } } as unknown as HookInventory);
   });
 
   it('opens a target row on that target, not the target list', async () => {
     renderPage();
     const links = await screen.findAllByRole('link', { name: /codex/ });
     expect(links.map((a) => a.getAttribute('href'))).toEqual(links.map(() => '/targets/codex'));
+  });
+
+  it('counts the source hooks', async () => {
+    renderPage();
+    const links = await screen.findAllByRole('link', { name: /^2\s*Hooks$/ });
+    expect(links[0]).toHaveAttribute('href', '/hooks');
+  });
+
+  it('counts the project hooks in project mode', async () => {
+    appContext.isProjectMode = true;
+    renderPage();
+    expect((await screen.findAllByRole('link', { name: /^2\s*Hooks$/ }))[0]).toHaveAttribute('href', '/hooks');
   });
 
   it('opens a broken target from the attention list on that target', async () => {

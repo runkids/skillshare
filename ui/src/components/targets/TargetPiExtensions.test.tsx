@@ -187,6 +187,22 @@ describe('Pi target Extensions tab', () => {
     await waitFor(() => expect(piExtensionsApi.preview).toHaveBeenCalledWith('pi', [{ scope: 'global', index: 0, source: pkg, path: 'extensions/b.ts', action: 'default' }]));
   });
 
+  it('switches a rule away instead of writing its opposite when that gives the other state', async () => {
+    const user = userEvent.setup();
+    vi.mocked(piExtensionsApi.preview).mockResolvedValue(plan);
+    const view = global();
+    view.packages[0].rows[1] = { ...view.packages[0].rows[1], unruled: 'loads' };
+    show(view);
+    const sw = await screen.findByRole('switch', { name: `Load extensions/b.ts from ${pkg} in pi` });
+    // The switch already does what Remove rule would.
+    expect(screen.queryByRole('button', { name: 'Remove rule' })).not.toBeInTheDocument();
+    await user.click(sw);
+    expect(sw).toBeChecked();
+    expect(screen.getByText('Off → On')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Review changes' }));
+    await waitFor(() => expect(piExtensionsApi.preview).toHaveBeenCalledWith('pi', [{ scope: 'global', index: 0, source: pkg, path: 'extensions/b.ts', action: 'default' }]));
+  });
+
   it.each([
     { shape: 'delta' as const, rule: 'extensions/*.ts', selection: 'loads' as const },
     { shape: 'delta' as const, rule: '!extensions/*.ts', selection: 'skipped' as const },

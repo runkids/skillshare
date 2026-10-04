@@ -107,6 +107,9 @@ type PiExtensionRow struct {
 	Rule      string   `json:"rule,omitempty"`
 	Globs     []string `json:"globs,omitempty"`
 	Editable  bool     `json:"editable"`
+	// Unruled is the row's selection once its exact rule is removed, when Skillshare
+	// can make that change; a switch removes the rule when that is the state it wants.
+	Unruled string `json:"unruled,omitempty"`
 }
 
 // PiExtensionFolder is extensions Pi finds outside packages, always read-only.
@@ -458,6 +461,38 @@ func (r piRowState) row(editable bool) PiExtensionRow {
 	return row
 }
 
+// piSetUnruled fills Unruled for each switchable row with an exact rule. try
+// returns the selections after a change and whether the guard accepts it.
+func piSetUnruled(rows []PiExtensionRow, try func([]PiExtensionChange) (map[string]piRowState, error)) {
+	for i, r := range rows {
+		if !r.Editable || r.File != "present" || r.Rule == "" {
+			continue
+		}
+		after, err := try([]PiExtensionChange{{Path: r.Path, Action: "default"}})
+		if a, ok := after[r.Path]; err == nil && ok && a.eval.state != piUnknown {
+			rows[i].Unruled = a.eval.state.String()
+		}
+	}
+}
+
+// piTryEntry is piSetUnruled's try for an entry Pi applies as written.
+func piTryEntry(p *piPackage, e piEntry) func([]PiExtensionChange) (map[string]piRowState, error) {
+	return func(changes []PiExtensionChange) (map[string]piRowState, error) {
+		rules := piEditRules(e.rules, p.abs, changes)
+		hasRules := len(rules) > 0
+		return piEvaluateMap(p.evaluate(true, hasRules, rules)), piGuard(p, e, hasRules, rules, changes)
+	}
+}
+
+// piTryDelta is piSetUnruled's try for a project override.
+func piTryDelta(rules []string, p *piPackage, inherited []piRowState, hasBase bool) func([]PiExtensionChange) (map[string]piRowState, error) {
+	return func(changes []PiExtensionChange) (map[string]piRowState, error) {
+		before := piEvaluateMap(piDeltaStates(rules, p, inherited, hasBase))
+		after := piEvaluateMap(piDeltaStates(piEditRules(rules, p.abs, changes), p, inherited, hasBase))
+		return after, piGuardStates(before, after, changes, true)
+	}
+}
+
 // piTargetState is everything a preview or apply of a global target needs.
 type piTargetState struct {
 	view     *PiExtensionsView
@@ -585,6 +620,7 @@ func (s *Service) piGlobalState(ctx context.Context, target string) (*piTargetSt
 				}
 				pkg.Rows = append(pkg.Rows, r.row(editable))
 			}
+			piSetUnruled(pkg.Rows, piTryEntry(p, e))
 		}
 		v.Packages = append(v.Packages, pkg)
 	}

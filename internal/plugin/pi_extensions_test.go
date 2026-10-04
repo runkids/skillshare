@@ -397,6 +397,34 @@ func TestPiExtensionsListsARuleForAMissingFile(t *testing.T) {
 	}
 }
 
+// Unruled tells the switch whether removing a row's own rule gives the state it
+// wants: -a would load a again; +b is redundant, so b loads either way.
+func TestPiExtensionsUnruledIsTheSelectionWithoutTheRowsRule(t *testing.T) {
+	f := newPiFixture(t)
+	f.global(map[string]any{"packages": []any{map[string]any{"source": f.pkg, "extensions": []string{"-extensions/a.ts", "+extensions/b.ts"}}}})
+	got := []string{}
+	for _, r := range f.view("pi").Packages[0].Rows {
+		got = append(got, r.Path+":"+r.Unruled)
+	}
+	assertRows(t, got, "extensions/a.ts:loads", "extensions/b.ts:loads", "extensions/c.ts:")
+}
+
+// In a project override, a row without its rule inherits the global selection.
+func TestPiExtensionsUnruledInAnOverrideIsTheInheritedSelection(t *testing.T) {
+	f := newPiFixture(t)
+	root := filepath.Join(f.home, "code", "acme")
+	f.global(map[string]any{"packages": []any{map[string]any{"source": f.pkg, "extensions": []string{"-extensions/c.ts"}}}})
+	f.writeJSON(filepath.Join(root, ".pi", "settings.json"), map[string]any{"packages": []any{
+		map[string]any{"source": f.pkg, "autoload": false, "extensions": []string{"+extensions/c.ts", "-extensions/a.ts"}},
+	}})
+	f.svc.ProjectRoot = root
+	got := []string{}
+	for _, r := range f.view("pi").Packages[0].Rows {
+		got = append(got, r.Path+":"+r.Unruled)
+	}
+	assertRows(t, got, "extensions/a.ts:loads", "extensions/c.ts:skipped", "extensions/b.ts:")
+}
+
 func TestPiExtensionsMarksAnExtraInPisFolder(t *testing.T) {
 	f := newPiFixture(t)
 	extra := filepath.Join(f.home, "extras", "pi-ext")

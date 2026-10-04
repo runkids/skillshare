@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/charmbracelet/huh"
+	"github.com/charmbracelet/x/ansi"
 )
 
 // syncBuffer lets the test read what the program has drawn so far.
@@ -191,5 +192,14 @@ func TestLineConfirm_ShowsTheDefault(t *testing.T) {
 	lineConfirm("Remove?", false, strings.NewReader("\n"), &out)
 	if !strings.Contains(out.String(), "Remove? [y/N]") {
 		t.Errorf("output = %q, want the question with [y/N]", out.String())
+	}
+}
+
+func TestFitOptionLabel_KeepsALongDescriptionOnOneRow(t *testing.T) {
+	label := "agent-browser  Browser automation CLI for AI agents.\nUse when the user needs to interact with websites."
+	got := fitOptionLabel(label, 40)
+
+	if strings.Contains(got, "\n") || ansi.StringWidth(got) > 40-optionPrefixWidth || !strings.HasSuffix(got, "…") {
+		t.Fatalf("fitOptionLabel() = %q, want one row cut to %d columns", got, 40-optionPrefixWidth)
 	}
 }

@@ -13,6 +13,8 @@ export interface PiExtensionRow {
   rule?: string;
   globs?: string[];
   editable: boolean;
+  /** The selection once the row's exact rule is removed, when that change can be made. */
+  unruled?: PiSelection;
 }
 
 /** One entry of settings.json "packages". `rules` is its extensions list as written, null when it has none. */

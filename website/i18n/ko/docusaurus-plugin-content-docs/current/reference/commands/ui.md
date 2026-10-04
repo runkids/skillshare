@@ -86,7 +86,7 @@ skillshare ui start --clear-cache
 
 | Page | 설명 |
 |------|-------------|
-| **Dashboard** | skill, agent, extras, MCP 서버, plugin, target의 개수와 주의가 필요한 항목 |
+| **Dashboard** | skill, agent, extras, MCP 서버, hook, plugin, target의 개수와 주의가 필요한 항목 |
 | **Sync** | target별로 기록 전에 모든 변경 사항을 미리 봅니다. 포함할 부분(Skills, Agents, Extras, MCP)을 선택합니다. target 내부에서 편집된 파일은 **Force**가 켜져 있지 않은 한 유지됩니다. target에만 존재하는 항목은 여기서 source로 다시 수집할 수 있습니다. 각 sync는 먼저 target 폴더를 백업합니다. target이 실패해도 다른 target은 sync됩니다. 실패한 target은 해당 부분(Skills, Agents, Extras, Config)과 오류와 함께 다른 경고보다 위에 표시되고, 흔한 원인(다른 곳을 가리키는 symlink, 권한 거부, 읽기 전용 파일 시스템, 없는 파일이나 폴더, 잘못된 target 설정)에는 쉬운 설명도 붙으며, 다른 곳을 가리키는 Skills symlink에는 **Force 켜기**가 제공되며, 변경 목록에서도 해당 target이 표시됩니다. 모든 target이 실패해도 같은 방식으로 표시됩니다. **마지막 동기화** 카드에는 가장 최근 sync에서 실패한 target이 표시됩니다 |
 | **Git Sync** | source repo를 commit하고 push하며, 아직 remote에 없는 커밋을 push하고, pull합니다. 페이지를 열면 remote에서 fetch하므로 **Pull** 버튼에 remote에 있는 커밋 수가 표시됩니다. Pull은 [`pull`](/docs/reference/commands/pull)과 마찬가지로 repo scope가 담고 있는 것(`skills`, `agents`, `extras`, 또는 `root`)을 동기화합니다. **Sync both ways**는 로컬 변경 사항을 commit하고, pull해 병합하고, target을 동기화한 뒤 push합니다([`push --pull`](/docs/reference/commands/push#push-and-pull-together)과 같음). 충돌이 발생하면 push하기 전에 멈춥니다. remote에 더 새로운 커밋이 있어 push가 거부되면 오류 알림에서 **Pull**을 제공합니다. 첫 pull이 remote와 병합할 수 없을 때는 로컬 파일을 remote 브랜치로 교체하는 force pull을 제공합니다 |
 | **Hubs** | Skills 페이지에서 접근합니다. 내장 hub, 저장된 hub, 내 Hub(**내 Hub**)를 나열하며, 하나를 선택해 Skill을 필터링하고 설치합니다. **Hub 추가 또는 만들기**는 기존 hub 추가, 새 Hub 만들기, `skillshare-hub.json` 가져오기를 합니다. 내 Hub는 **편집**으로 변경하고 **공유**로 인덱스를 다운로드하고 `hub add` 명령을 만듭니다. [`hub`](/docs/reference/commands/hub) 참고 |

@@ -172,6 +172,7 @@ func (s *Service) piProjectState(ctx context.Context, target string) (*piProject
 			if g.problem == "" {
 				states := piDeltaStates(e.rules, g.pkg, g.rows, true)
 				pkg.Rows = piDeltaRows(states, v.Editable && pkg.ReadOnly == "")
+				piSetUnruled(pkg.Rows, piTryDelta(e.rules, g.pkg, g.rows, true))
 				st.targets[piTargetKey("project", e.index)] = &piProjectTarget{entry: e, pkg: g.pkg, delta: true, inherited: g.rows, hasBase: true}
 			}
 		case e.autoloadFalse:
@@ -182,6 +183,7 @@ func (s *Service) piProjectState(ctx context.Context, target string) (*piProject
 			pkg.ReadOnly = p.readOnly(true)
 			if p.problem == "" {
 				pkg.Rows = piDeltaRows(piDeltaStates(e.rules, p, nil, false), v.Editable && pkg.ReadOnly == "")
+				piSetUnruled(pkg.Rows, piTryDelta(e.rules, p, nil, false))
 				st.targets[piTargetKey("project", e.index)] = &piProjectTarget{entry: e, pkg: p, delta: true}
 			}
 		default:
@@ -197,6 +199,7 @@ func (s *Service) piProjectState(ctx context.Context, target string) (*piProject
 				for _, r := range p.evaluate(e.object, e.hasRules, e.rules) {
 					pkg.Rows = append(pkg.Rows, r.row(editable))
 				}
+				piSetUnruled(pkg.Rows, piTryEntry(p, e))
 				st.targets[piTargetKey("project", e.index)] = &piProjectTarget{entry: e, pkg: p}
 			}
 		}

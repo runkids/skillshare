@@ -30,7 +30,8 @@ type guidanceTarget struct {
 	Name   string `json:"name"`
 	State  string `json:"state"`            // unconfigured, configured, outdated or broken
 	File   string `json:"file,omitempty"`   // where the block is, or would be written
-	Detail string `json:"detail,omitempty"` // why broken: modified, malformed, not_synced, unreadable or unsupported
+	Detail string `json:"detail,omitempty"` // why broken: modified, malformed, mixed_modes, not_synced, unreadable or unsupported
+	Mode   string `json:"mode,omitempty"`   // passive or active, when a block is found
 }
 
 type guidanceChange struct {
@@ -76,17 +77,23 @@ type guidanceSite struct {
 	guidanceTarget
 	sources  []guidanceSource
 	dest     int    // the source that receives a new block
+	blocks   int    // live sources holding an intact block
 	shared   string // shared file of File, for syncing copies
 	maxChars int
 }
 
-// memoryInstructions returns the guidance block of the current mode. Callers
-// hold s.mu.
-func (s *Server) memoryInstructions(root string) string {
+// memoryInstructions returns the guidance block of the current scope in the
+// given update mode. Callers hold s.mu.
+func (s *Server) memoryInstructions(root, mode string) string {
 	if s.IsProjectMode() {
-		return memory.Instructions(root, s.projectRoot)
+		return memory.Instructions(root, s.projectRoot, mode)
 	}
-	return memory.Instructions(root, "")
+	return memory.Instructions(root, "", mode)
+}
+
+// memoryInstructionsByMode returns the block of every update mode, for copying.
+func (s *Server) memoryInstructionsByMode(root string) map[string]string {
+	return map[string]string{memory.ModePassive: s.memoryInstructions(root, memory.ModePassive), memory.ModeActive: s.memoryInstructions(root, memory.ModeActive)}
 }
 
 // realFile returns the file a write to path changes: a link's destination.
@@ -99,7 +106,7 @@ func realFile(path string) (string, error) {
 }
 
 // guidanceSites resolves every target's read chain. Callers hold s.mu.
-func (s *Server) guidanceSites(want string) []guidanceSite {
+func (s *Server) guidanceSites(root string) []guidanceSite {
 	out := []guidanceSite{}
 	if s.IsProjectMode() {
 		agents := filepath.Join(s.projectRoot, instructions.AgentsFile)
@@ -122,7 +129,7 @@ func (s *Server) guidanceSites(want string) []guidanceSite {
 					site.State, site.Detail, site.File = "broken", "unreadable", own
 				}
 			}
-			out = append(out, s.resolveSite(site, want))
+			out = append(out, s.resolveSite(site, root))
 		}
 		return out
 	}
@@ -161,20 +168,23 @@ func (s *Server) guidanceSites(want string) []guidanceSite {
 				break
 			}
 		}
-		out = append(out, s.resolveSite(site, want))
+		out = append(out, s.resolveSite(site, root))
 	}
 	return out
 }
 
 // resolveSite sets the state from the chain: a current block anywhere the
 // target reads wins; then a block it cannot be trusted with; then an
-// outdated one. Without a block, site.dest receives it.
-func (s *Server) resolveSite(site guidanceSite, want string) guidanceSite {
+// outdated one. Without a block, site.dest receives it. Each block is checked
+// against the text of the mode it records; blocks of different modes in one
+// chain contradict each other, and rewriting one file would not fix that.
+func (s *Server) resolveSite(site guidanceSite, root string) guidanceSite {
 	if site.State != "" {
 		return site
 	}
 	rank := map[string]int{memory.StateConfigured: 4, memory.StateModified: 3, memory.StateMalformed: 3, memory.StateOutdated: 2}
 	best, bestRank := -1, 0
+	modes := map[string]bool{}
 	for i, src := range site.sources {
 		data, err := os.ReadFile(src.read)
 		if err != nil && !os.IsNotExist(err) {
@@ -187,7 +197,8 @@ func (s *Server) resolveSite(site guidanceSite, want string) guidanceSite {
 			site.State, site.Detail, site.File = "broken", "unsupported", src.write
 			return site
 		}
-		state := memory.Inspect(string(data), want)
+		mode := memory.Mode(string(data), guidanceScope(s))
+		state := memory.Inspect(string(data), s.memoryInstructions(root, mode))
 		if !src.live {
 			if state != memory.StateUnconfigured {
 				site.State, site.Detail, site.File, site.shared = "broken", "not_synced", src.write, src.shared
@@ -195,14 +206,22 @@ func (s *Server) resolveSite(site guidanceSite, want string) guidanceSite {
 			}
 			continue
 		}
+		if state != memory.StateUnconfigured && state != memory.StateMalformed {
+			modes[mode] = true
+			site.blocks++
+		}
 		if rank[state] > bestRank {
 			best, bestRank = i, rank[state]
-			site.Detail = state
+			site.Detail, site.Mode = state, mode
 		}
 	}
 	if best >= 0 {
 		src := site.sources[best]
 		site.File, site.shared = src.write, src.shared
+		if len(modes) > 1 {
+			site.State, site.Detail, site.Mode = "broken", "mixed_modes", ""
+			return site
+		}
 		switch site.Detail {
 		case memory.StateConfigured:
 			site.State, site.Detail = "configured", ""
@@ -222,16 +241,17 @@ func (s *Server) resolveSite(site guidanceSite, want string) guidanceSite {
 	return site
 }
 
-// planGuidance builds the changes for the named targets. The token hashes
-// everything the plan depends on, so apply can reject a plan whose files or
-// config changed after review. Callers hold s.mu.
-func (s *Server) planGuidance(names []string) (guidancePlan, error) {
+// planGuidance builds the changes for the named targets, each in the mode
+// modes gives it; a target left out keeps its block's mode, or gets passive.
+// Targets reading one file share its block, so they must share a mode. The
+// token hashes everything the plan depends on, so apply can reject a plan
+// whose files or config changed after review. Callers hold s.mu.
+func (s *Server) planGuidance(names []string, modes map[string]string) (guidancePlan, error) {
 	root, err := s.memoryRoot()
 	if err != nil {
 		return guidancePlan{}, err
 	}
-	want := s.memoryInstructions(root)
-	sites := s.guidanceSites(want)
+	sites := s.guidanceSites(root)
 	byName := map[string]guidanceSite{}
 	for _, site := range sites {
 		byName[site.Name] = site
@@ -242,23 +262,40 @@ func (s *Server) planGuidance(names []string) (guidancePlan, error) {
 	}
 	plan := guidancePlan{Changes: []guidanceChange{}, Skipped: []guidanceSkip{}, Warnings: []guidanceWarning{}}
 	index := map[string]int{}
+	chosen, fileModes := map[string]string{}, map[string]string{}
 	for _, name := range names {
 		site, ok := byName[name]
 		if !ok {
 			return guidancePlan{}, errors.New("target has no instruction file: " + name)
 		}
-		switch site.State {
-		case "configured":
+		mode, err := memory.ParseMode(modes[name])
+		if err != nil {
+			return guidancePlan{}, err
+		}
+		if modes[name] == "" && site.Mode != "" {
+			mode = site.Mode
+		}
+		if other, ok := fileModes[site.File]; ok && other != mode && site.File != "" {
+			return guidancePlan{}, errors.New("targets reading " + site.File + " share its guidance and must use the same mode")
+		}
+		fileModes[site.File], chosen[name] = mode, mode
+		switch {
+		case site.State == "configured" && site.Mode == mode:
 			plan.Skipped = append(plan.Skipped, guidanceSkip{name, "configured"})
 			continue
-		case "broken":
+		case site.State == "broken":
 			plan.Skipped = append(plan.Skipped, guidanceSkip{name, site.Detail})
+			continue
+		case site.Mode != mode && site.blocks > 1:
+			// Rewriting only site.File would leave the other blocks in the old mode.
+			plan.Skipped = append(plan.Skipped, guidanceSkip{name, "multiple_blocks"})
 			continue
 		}
 		if i, ok := index[site.File]; ok {
 			plan.Changes[i].Targets = append(plan.Changes[i].Targets, name)
 			continue
 		}
+		want := s.memoryInstructions(root, mode)
 		data, readErr := os.ReadFile(site.File)
 		if readErr != nil && !os.IsNotExist(readErr) {
 			plan.Skipped = append(plan.Skipped, guidanceSkip{name, "unreadable"})
@@ -315,13 +352,14 @@ func (s *Server) planGuidance(names []string) (guidancePlan, error) {
 		routes = append(routes, r)
 	}
 	data, err := json.Marshal(struct {
-		Root, Want string
-		Names      []string
-		Plan       guidancePlan
-		Routes     []route
-		Extras     []config.ExtraConfig
-		Targets    any
-	}{root, want, names, plan, routes, s.extrasConfig(), s.cfg.Targets})
+		Root    string
+		Names   []string
+		Modes   map[string]string
+		Plan    guidancePlan
+		Routes  []route
+		Extras  []config.ExtraConfig
+		Targets any
+	}{root, names, chosen, plan, routes, s.extrasConfig(), s.cfg.Targets})
 	if err != nil {
 		return guidancePlan{}, err
 	}
@@ -339,8 +377,7 @@ func (s *Server) handleMemoryGuidance(w http.ResponseWriter, r *http.Request) {
 		writeMemoryError(w, err)
 		return
 	}
-	want := s.memoryInstructions(root)
-	writeJSON(w, map[string]any{"scope": guidanceScope(s), "instructions": want, "targets": guidanceTargets(s.guidanceSites(want))})
+	writeJSON(w, map[string]any{"scope": guidanceScope(s), "instructions": s.memoryInstructionsByMode(root), "targets": guidanceTargets(s.guidanceSites(root))})
 }
 
 func guidanceScope(s *Server) string {
@@ -359,8 +396,9 @@ func guidanceTargets(sites []guidanceSite) []guidanceTarget {
 }
 
 type guidanceRequest struct {
-	Targets []string `json:"targets"`
-	Token   string   `json:"token"`
+	Targets []string          `json:"targets"`
+	Modes   map[string]string `json:"modes"` // target name to passive or active
+	Token   string            `json:"token"`
 }
 
 func decodeGuidanceRequest(w http.ResponseWriter, r *http.Request) (guidanceRequest, bool) {
@@ -382,7 +420,7 @@ func (s *Server) handleMemoryGuidancePlan(w http.ResponseWriter, r *http.Request
 	}
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	plan, err := s.planGuidance(body.Targets)
+	plan, err := s.planGuidance(body.Targets, body.Modes)
 	if err != nil {
 		writeCodedError(w, http.StatusBadRequest, "memory_guidance_invalid", err.Error(), map[string]string{})
 		return
@@ -402,7 +440,7 @@ func (s *Server) handleMemoryGuidanceApply(w http.ResponseWriter, r *http.Reques
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	plan, err := s.planGuidance(body.Targets)
+	plan, err := s.planGuidance(body.Targets, body.Modes)
 	if err != nil {
 		writeCodedError(w, http.StatusBadRequest, "memory_guidance_invalid", err.Error(), map[string]string{})
 		return
@@ -439,9 +477,9 @@ func (s *Server) handleMemoryGuidanceApply(w http.ResponseWriter, r *http.Reques
 	if len(failures) > 0 {
 		status, msg = "partial", failures[0].Path+": "+failures[0].Error
 	}
-	s.writeOpsLog("memory-guidance", status, start, map[string]any{"targets": body.Targets, "files": applied, "scope": "ui"}, msg)
+	s.writeOpsLog("memory-guidance", status, start, map[string]any{"targets": body.Targets, "modes": body.Modes, "files": applied, "scope": "ui"}, msg)
 	root, _ := s.memoryRoot()
-	writeJSON(w, map[string]any{"success": len(failures) == 0, "applied": applied, "errors": failures, "targets": guidanceTargets(s.guidanceSites(s.memoryInstructions(root)))})
+	writeJSON(w, map[string]any{"success": len(failures) == 0, "applied": applied, "errors": failures, "targets": guidanceTargets(s.guidanceSites(root))})
 }
 
 var errGuidanceStale = errors.New("instruction files changed since the preview; review the changes again")

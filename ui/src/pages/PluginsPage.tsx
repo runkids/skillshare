@@ -65,7 +65,11 @@ export default function PluginsPage() {
   // The backend keys its fixed sentences; a message it assembled at runtime has no key
   // and is shown as it came, which is also what the CLI prints.
   const message = (key: string | undefined, text: string | undefined) => (key ? t(key, undefined, text) : text ?? '');
-  const refresh = () => { void cache.invalidateQueries({ queryKey: queryKeys.plugins }); void cache.invalidateQueries({ queryKey: queryKeys.config }); };
+  const refresh = () => {
+    void cache.invalidateQueries({ queryKey: queryKeys.plugins });
+    void cache.invalidateQueries({ queryKey: queryKeys.config });
+    void cache.invalidateQueries({ queryKey: queryKeys.piExtensionsAll });
+  };
   // `key` names the control that started this, so only it shows a spinner.
   const preview = async (request: PluginRequest, key = '') => {
     setBusy(true); setWorking(key); setFailure(''); setResult(null);

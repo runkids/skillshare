@@ -82,17 +82,16 @@ func TestDisabledRejected(t *testing.T) {
 	}
 }
 
-// A project's own config cannot see the global server, so it has no command or url to give
-// Pi's switch, and saving one for pi fails.
-func TestPiSwitchRejectedOnSave(t *testing.T) {
+// Pi's switch needs nothing from the global server, so a project's own config can save one
+// although it cannot see the global config.
+func TestPiSwitchSavedInProjectMode(t *testing.T) {
 	s := testService(t)
 	s.ProjectRoot = filepath.Join(s.Home, "project")
 	if err := os.WriteFile(s.ConfigPath, []byte("mcp:\n  servers: {}\n"), 0600); err != nil {
 		t.Fatal(err)
 	}
-	_, err := s.Mutate(Mutation{Name: "docs", Server: &Server{Disabled: true, Targets: []string{"pi"}}}, "", false)
-	if err == nil || !strings.Contains(err.Error(), "pi cannot turn off") {
-		t.Fatalf("got %v", err)
+	if _, err := s.Mutate(Mutation{Name: "docs", Server: &Server{Disabled: true, Targets: []string{"pi"}}}, "", false); err != nil {
+		t.Fatal(err)
 	}
 }
 
@@ -336,10 +335,9 @@ func TestSwitchWithoutTargetsFollowsTheProject(t *testing.T) {
 	}
 }
 
-// Pi replaces a global entry with the project entry of the same name, so its switch carries
-// the global server's command or url, and nothing else: args, env, headers and the url's
-// query stay out of the project file.
-func TestPiSwitchCarriesTheGlobalEndpoint(t *testing.T) {
+// Pi's switch is its project override, as Pi's /mcp writes it: the global server keeps its
+// command, args, env and credentials, and none of them reach the project file.
+func TestPiSwitchIsAnOverride(t *testing.T) {
 	s, tmp := projectsService(t, "mcp:\n  servers:\n    docs:\n      command: tool\n      args: [--port, \"3000\"]\n      env: {TOKEN: {fromEnv: TOKEN}}\n      targets: [opencode, pi]\n    web:\n      url: https://example.com/mcp?key=secret\n      headers: {Authorization: {fromEnv: AUTH}}\n      targets: [pi]\n  projects:\n    $TMP/p1:\n      targets: [opencode, pi]\n      servers:\n        docs:\n          disabled: true\n        web:\n          disabled: true\n")
 	plan := applyProjects(t, s)
 	for _, c := range plan.Changes {
@@ -355,7 +353,7 @@ func TestPiSwitchCarriesTheGlobalEndpoint(t *testing.T) {
 	if err := json.Unmarshal(data, &file); err != nil {
 		t.Fatal(err)
 	}
-	want := map[string]map[string]any{"docs": {"command": "tool", "enabled": false}, "web": {"url": "https://example.com/mcp", "enabled": false}}
+	want := map[string]map[string]any{"docs": {"enabled": false}, "web": {"enabled": false}}
 	if !reflect.DeepEqual(file.McpServers, want) {
 		t.Fatalf("project .pi/mcp.json: %s", data)
 	}
@@ -364,20 +362,87 @@ func TestPiSwitchCarriesTheGlobalEndpoint(t *testing.T) {
 	}
 }
 
-// The switch follows the global server, and removing it takes the Pi entry away.
-func TestPiSwitchFollowsTheGlobalServer(t *testing.T) {
-	s, tmp := projectsService(t, "mcp:\n  servers:\n    docs:\n      command: tool\n      targets: [pi]\n  projects:\n    $TMP/p1:\n      targets: [pi]\n      servers:\n        docs:\n          disabled: true\n")
+// Earlier releases wrote the global server's command next to the switch. Pi reads that entry
+// as a project server, and turning it on in Pi's /mcp starts it without args or env, so the
+// next sync rewrites it as the override.
+func TestPiSwitchReplacesTheEndpointSwitch(t *testing.T) {
+	s, tmp := projectsService(t, "mcp:\n  servers: {}\n  projects:\n    $TMP/p1:\n      targets: [pi]\n      servers:\n        docs:\n          command: tool\n          piOptions: {enabled: false}\n")
 	applyProjects(t, s)
 	project := filepath.Join(tmp, "p1", ".pi", "mcp.json")
+	if data, _ := os.ReadFile(project); !strings.Contains(string(data), `"command": "tool"`) {
+		t.Fatalf("no endpoint switch to start from: %s", data)
+	}
 	config, _ := os.ReadFile(s.ConfigPath)
-	if err := os.WriteFile(s.ConfigPath, []byte(strings.Replace(string(config), "command: tool", "command: tool2", 1)), 0600); err != nil {
+	if err := os.WriteFile(s.ConfigPath, []byte(strings.Replace(string(config), "command: tool\n          piOptions: {enabled: false}", "disabled: true", 1)), 0600); err != nil {
 		t.Fatal(err)
 	}
 	applyProjects(t, s)
-	if data, _ := os.ReadFile(project); !strings.Contains(string(data), `"tool2"`) {
-		t.Fatalf("switch did not follow the global command: %s", data)
+	data, _ := os.ReadFile(project)
+	var file struct{ McpServers map[string]map[string]any }
+	if err := json.Unmarshal(data, &file); err != nil || !reflect.DeepEqual(file.McpServers["docs"], map[string]any{"enabled": false}) {
+		t.Fatalf("project .pi/mcp.json: %s", data)
 	}
-	config, _ = os.ReadFile(s.ConfigPath)
+}
+
+// The override Pi's /mcp wrote is the switch sync would write, so it is no conflict.
+func TestPiSwitchMatchesOverrideFromPi(t *testing.T) {
+	s, tmp := projectsService(t, "mcp:\n  servers: {}\n  projects:\n    $TMP/p1:\n      targets: [pi]\n      servers:\n        docs:\n          disabled: true\n")
+	writePiProjectFile(t, filepath.Join(tmp, "p1"), `{"mcpServers":{"docs":{"enabled":false}}}`)
+	plan, err := s.Preview()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c := changeFor(plan, filepath.Join(tmp, "p1", ".pi", "mcp.json"), "docs"); c == nil || c.Action != "unchanged" {
+		t.Fatalf("%+v", c)
+	}
+}
+
+// An override from Pi that also sets exposure or toolExposure is not the switch sync writes,
+// although Skillshare's ownership hash leaves those fields out.
+func TestPiSwitchConflictsWithLargerOverrideFromPi(t *testing.T) {
+	s, tmp := projectsService(t, "mcp:\n  servers: {}\n  projects:\n    $TMP/p1:\n      targets: [pi]\n      servers:\n        docs:\n          disabled: true\n")
+	writePiProjectFile(t, filepath.Join(tmp, "p1"), `{"mcpServers":{"docs":{"enabled":false,"exposure":"direct"}}}`)
+	plan, err := s.Preview()
+	if err != nil {
+		t.Fatal(err)
+	}
+	c := changeFor(plan, filepath.Join(tmp, "p1", ".pi", "mcp.json"), "docs")
+	if c == nil || c.Action != "conflict" || !strings.HasPrefix(c.Message, "existing entry is a Pi project override") {
+		t.Fatalf("%+v", c)
+	}
+}
+
+// Once sync owns the switch, Pi settings added to it in Pi are kept, as on any managed Pi
+// entry; turning the server back on in Pi is a conflict.
+func TestPiSwitchOwnedBySync(t *testing.T) {
+	for name, tc := range map[string]struct{ entry, action string }{
+		"exposure added": {"{\n  \"enabled\": false,\n  \"exposure\": \"direct\"\n}", "unchanged"},
+		"turned back on": {"{\n  \"enabled\": true\n}", "conflict"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			s, tmp := projectsService(t, "mcp:\n  servers: {}\n  projects:\n    $TMP/p1:\n      targets: [pi]\n      servers:\n        docs:\n          disabled: true\n")
+			applyProjects(t, s)
+			writePiProjectFile(t, filepath.Join(tmp, "p1"), `{"mcpServers":{"docs":`+tc.entry+`}}`)
+			plan, err := s.Preview()
+			if err != nil {
+				t.Fatal(err)
+			}
+			if c := changeFor(plan, filepath.Join(tmp, "p1", ".pi", "mcp.json"), "docs"); c == nil || c.Action != tc.action {
+				t.Fatalf("%+v", c)
+			}
+		})
+	}
+}
+
+// Removing the switch takes the Pi entry away.
+func TestPiSwitchRemovedWithTheEntry(t *testing.T) {
+	s, tmp := projectsService(t, "mcp:\n  servers:\n    docs:\n      command: tool\n      targets: [pi]\n  projects:\n    $TMP/p1:\n      targets: [pi]\n      servers:\n        docs:\n          disabled: true\n")
+	applyProjects(t, s)
+	project := filepath.Join(tmp, "p1", ".pi", "mcp.json")
+	if data, _ := os.ReadFile(project); !strings.Contains(string(data), "docs") {
+		t.Fatalf("switch not in Pi: %s", data)
+	}
+	config, _ := os.ReadFile(s.ConfigPath)
 	if err := os.WriteFile(s.ConfigPath, []byte(strings.Replace(string(config), "        docs:\n          disabled: true\n", "        {}\n", 1)), 0600); err != nil {
 		t.Fatal(err)
 	}

@@ -261,8 +261,8 @@ skillshare sync mcp
 在控制台中，从项目文件夹使用 `skillshare ui` 打开它，选择 **添加服务器** 旁边的
 **关闭全局服务器** 按钮。
 
-此功能适用于 Claude Code、OpenCode 与 Kilo Code。其他 Agent（包括 Pi）则会被
-拒绝。
+此功能适用于 Claude Code、OpenCode、Kilo Code 与 Pi 1.0.1 及以上版本。其他 Agent
+则会被拒绝。
 [命令参考文档](/docs/reference/commands/mcp#turn-off-a-global-server-in-one-project)
 说明了针对每个 Agent 会写入什么内容，以及为何其他 Agent 不受支持。
 
