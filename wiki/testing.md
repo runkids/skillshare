@@ -59,7 +59,7 @@ volumes:
   skillshare_devcontainer_go-mod-cache: { external: true }
 ```
 
-Start it with `docker compose -f <file> up -d`. Run commands there with `docker exec <container> bash -c '...'`, not `bash -lc`: its home is empty, so a login shell resets `PATH` and loses Go. Inside it, run `git config --global --add safe.directory /workspace`, disable the credential helper, run `pnpm install --frozen-lockfile` in `ui/`, then use the commands below. It publishes no ports, so it never clashes with the shared dev servers.
+Start it with `docker compose -f <file> up -d`. Run commands there with `docker exec <container> bash -c '...'`, not `bash -lc`: its home is empty, so a login shell resets `PATH` and loses Go. Inside it, run `git config --global --add safe.directory /workspace`, disable the credential helper, run `pnpm install --frozen-lockfile` in `ui/` and `website/`, then use the commands below. It publishes no ports, so it never clashes with the shared dev servers.
 
 When the task is finished (pushed, or abandoned), remove both so they stop using disk:
 
