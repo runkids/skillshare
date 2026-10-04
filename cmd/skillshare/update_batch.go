@@ -58,6 +58,7 @@ func (uc *updateContext) makeInstallOpts() install.InstallOptions {
 		SkipAudit:      uc.opts.skipAudit,
 		AuditThreshold: uc.opts.threshold,
 		SourceDir:      uc.sourcePath,
+		Follow:         uc.follow,
 	}
 	if uc.isProject() {
 		opts.AuditProjectRoot = uc.projectRoot

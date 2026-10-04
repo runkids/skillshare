@@ -53,12 +53,3 @@ func skillfollowPauses(source string, follow *sourcewalk.FollowSet) []string {
 	}
 	return messages
 }
-
-// firstFollowSet preserves existing private helper callers while commands pass
-// the operation's config-bound set explicitly.
-func firstFollowSet(sets []*sourcewalk.FollowSet) *sourcewalk.FollowSet {
-	if len(sets) == 0 {
-		return nil
-	}
-	return sets[0]
-}

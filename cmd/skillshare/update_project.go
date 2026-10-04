@@ -55,8 +55,7 @@ func cmdUpdateProject(args []string, root string) (*updateResult, error) {
 	return cmdUpdateProjectBatch(sourcePath, opts, root, parseOptsFromProjectConfig(runtime.config), follow)
 }
 
-func cmdUpdateProjectBatch(sourcePath string, opts *updateOptions, projectRoot string, pOpts install.ParseOptions, follows ...*sourcewalk.FollowSet) (*updateResult, error) {
-	follow := firstFollowSet(follows)
+func cmdUpdateProjectBatch(sourcePath string, opts *updateOptions, projectRoot string, pOpts install.ParseOptions, follow *sourcewalk.FollowSet) (*updateResult, error) {
 	// --- Resolve targets ---
 	var targets []updateTarget
 	seen := map[string]bool{}

@@ -50,7 +50,7 @@ func TestCommitSourceFiles_CommitFailureIsReturned(t *testing.T) {
 		t.Fatalf("write SKILL.md: %v", err)
 	}
 
-	err := commitSourceFiles(repo)
+	err := commitSourceFiles(repo, nil)
 	if err == nil {
 		t.Fatal("expected commitSourceFiles to return error when git commit fails")
 	}
@@ -72,7 +72,7 @@ func TestCommitSourceFiles_NoChangesReturnsNil(t *testing.T) {
 	runGit(t, repo, "add", ".")
 	runGit(t, repo, "commit", "-m", "initial")
 
-	if err := commitSourceFiles(repo); err != nil {
+	if err := commitSourceFiles(repo, nil); err != nil {
 		t.Fatalf("expected nil error when nothing to commit, got: %v", err)
 	}
 }

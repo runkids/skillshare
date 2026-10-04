@@ -21,11 +21,11 @@ type updateTarget struct {
 
 // resolveByBasename searches nested skills and tracked repos by their
 // directory basename. Returns an error when zero or multiple matches found.
-func resolveByBasename(sourceDir, name string, follows ...*sourcewalk.FollowSet) (updateTarget, error) {
+func resolveByBasename(sourceDir, name string, follow *sourcewalk.FollowSet) (updateTarget, error) {
 	var matches []updateTarget
 
 	// Search tracked repos
-	repos, repoErr := install.GetTrackedReposWithOptions(sourceDir, sourcewalk.Options{Follow: firstFollowSet(follows)})
+	repos, repoErr := install.GetTrackedReposWithOptions(sourceDir, sourcewalk.Options{Follow: follow})
 	if repoErr != nil {
 		return updateTarget{}, repoErr
 	}
@@ -36,7 +36,7 @@ func resolveByBasename(sourceDir, name string, follows ...*sourcewalk.FollowSet)
 	}
 
 	// Search updatable skills
-	skills, _ := install.GetUpdatableSkills(sourceDir)
+	skills, _ := install.GetUpdatableSkillsWithOptions(sourceDir, sourcewalk.Options{Follow: follow})
 	for _, s := range skills {
 		if filepath.Base(s) == name {
 			matches = append(matches, updateTarget{name: s, path: filepath.Join(sourceDir, s), isRepo: false})
@@ -62,10 +62,10 @@ func resolveByBasename(sourceDir, name string, follows ...*sourcewalk.FollowSet)
 // resolveByGlob searches tracked repos and updatable skills whose basenames
 // match the given glob pattern (e.g. "core-*", "_team-?"). Returns all matches
 // sorted by name.
-func resolveByGlob(sourceDir, pattern string, follows ...*sourcewalk.FollowSet) ([]updateTarget, error) {
+func resolveByGlob(sourceDir, pattern string, follow *sourcewalk.FollowSet) ([]updateTarget, error) {
 	var matches []updateTarget
 
-	repos, repoErr := install.GetTrackedReposWithOptions(sourceDir, sourcewalk.Options{Follow: firstFollowSet(follows)})
+	repos, repoErr := install.GetTrackedReposWithOptions(sourceDir, sourcewalk.Options{Follow: follow})
 	if repoErr != nil {
 		return nil, repoErr
 	}
@@ -75,7 +75,7 @@ func resolveByGlob(sourceDir, pattern string, follows ...*sourcewalk.FollowSet) 
 		}
 	}
 
-	skills, _ := install.GetUpdatableSkills(sourceDir)
+	skills, _ := install.GetUpdatableSkillsWithOptions(sourceDir, sourcewalk.Options{Follow: follow})
 	for _, s := range skills {
 		if matchGlob(pattern, filepath.Base(s)) {
 			matches = append(matches, updateTarget{name: s, path: filepath.Join(sourceDir, s), isRepo: false})
@@ -86,12 +86,9 @@ func resolveByGlob(sourceDir, pattern string, follows ...*sourcewalk.FollowSet) 
 	return matches, nil
 }
 
-// resolveGroupUpdatable finds all updatable items (tracked repos or skills with
-// metadata) under a group directory. Local skills without metadata are skipped.
-func resolveGroupUpdatable(group, sourceDir string) ([]updateTarget, error) {
-	return resolveGroupUpdatableWithOptions(group, sourceDir, sourcewalk.Options{})
-}
-
+// resolveGroupUpdatableWithOptions finds all updatable items (tracked repos or
+// skills with metadata) under a group directory. Local skills without metadata
+// are skipped.
 func resolveGroupUpdatableWithOptions(group, sourceDir string, opts sourcewalk.Options) ([]updateTarget, error) {
 	group = strings.TrimSuffix(group, "/")
 	groupPath := filepath.Join(sourceDir, group)

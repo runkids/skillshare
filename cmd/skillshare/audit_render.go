@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"skillshare/internal/audit"
+	"skillshare/internal/sourcewalk"
 	"skillshare/internal/theme"
 	"skillshare/internal/ui"
 	"skillshare/internal/utils"
@@ -30,6 +31,7 @@ type auditTUIContext struct {
 	threshold        string
 	registry         *audit.Registry
 	mode             string
+	follow           *sourcewalk.FollowSet // skills snapshot for the skills tab
 }
 
 // presentAuditResults handles the common output path for audit scans:
@@ -119,7 +121,7 @@ func launchAuditTUIWithTabs(results []*audit.Result, scanOutputs []audit.ScanOut
 	}
 
 	if otherSource != "" {
-		otherPaths, err := discoverForKind(otherKindFilter, otherSource)
+		otherPaths, err := discoverForKind(otherKindFilter, otherSource, ctx.follow)
 		otherInputs := toInputsForKind(otherKindFilter, otherPaths)
 		if err == nil && len(otherPaths) > 0 {
 			otherScanResults := audit.ParallelScan(otherInputs, ctx.projectRoot, nil, ctx.registry)

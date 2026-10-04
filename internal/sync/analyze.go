@@ -15,7 +15,7 @@ import (
 //
 // A symlink-mode target exposes the whole source folder, so every discovered
 // skill counts, .skillignore'd ones included (pass a discovery that keeps them,
-// such as DiscoverSourceSkillsForAnalyze). Any other mode gets the enabled
+// such as DiscoverSourceSkillsForAnalyzeWithOptions). Any other mode gets the enabled
 // skills its include/exclude and `targets:` filters let through, plus the
 // skills that already live in the target folder without coming from the
 // source (Local), which the tool loads just the same.

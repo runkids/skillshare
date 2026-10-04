@@ -94,7 +94,7 @@ func discoverAuditAgents(source string) ([]skillEntry, error) {
 }
 
 // discoverAuditSkills discovers and deduplicates skills for audit scanning.
-func discoverAuditSkills(source string, follows ...*sourcewalk.FollowSet) ([]skillEntry, error) {
+func discoverAuditSkills(source string, follow *sourcewalk.FollowSet) ([]skillEntry, error) {
 	if source == "" {
 		return []skillEntry{}, nil
 	}
@@ -105,10 +105,6 @@ func discoverAuditSkills(source string, follows ...*sourcewalk.FollowSet) ([]ski
 		return nil, err
 	}
 
-	var follow *sourcewalk.FollowSet
-	if len(follows) > 0 {
-		follow = follows[0]
-	}
 	discovered, _, err := sync.DiscoverSourceSkillsWithOptions(source, sync.DiscoveryOptions{Follow: follow})
 	if err != nil {
 		if os.IsNotExist(err) {

@@ -347,21 +347,6 @@ func InstallTrackedRepo(source *Source, sourceDir string, opts InstallOptions) (
 	return installTrackedRepoImpl(source, sourceDir, opts)
 }
 
-// GetUpdatableSkills returns skill names that have metadata with a remote source.
-func GetUpdatableSkills(sourceDir string) ([]string, error) {
-	return getUpdatableSkillsImpl(sourceDir)
-}
-
-// GetTrackedRepos returns tracked repositories in the source directory.
-func GetTrackedRepos(sourceDir string) ([]string, error) {
-	return getTrackedReposImpl(sourceDir)
-}
-
-// GetMissingTrackedRepos returns tracked metadata entries whose repo clone is absent.
-func GetMissingTrackedRepos(sourceDir string) ([]TrackedRepoMeta, error) {
-	return getMissingTrackedReposImpl(sourceDir)
-}
-
 // RehydrateMissingTrackedRepos re-clones tracked repos declared in metadata whose
 // clone directories are absent on disk. Repos already present are left untouched.
 func RehydrateMissingTrackedRepos(sourceDir string, parseOpts ParseOptions, opts InstallOptions) ([]RehydrateResult, error) {

@@ -146,7 +146,7 @@ func (s *Server) handleBatchUninstallAgents(w http.ResponseWriter, body batchUni
 }
 
 func (s *Server) handleBatchUninstallSkills(w http.ResponseWriter, body batchUninstallRequest, start time.Time) {
-	// Use DiscoverSourceSkillsAll (not DiscoverSourceSkills) so disabled skills
+	// Use DiscoverSourceSkillsAllWithOptions so disabled skills
 	// — those listed in .skillignore — are also resolvable. The list handler
 	// shows disabled skills, so uninstall must be able to find them too (#190).
 	follow := s.skillFollowSet()

@@ -60,8 +60,13 @@ Operations that change configuration, sources, targets, or managed files must:
 - write the skills source through `internal/sourcefs`, which refuses paths with a link component. A helper that also writes other trees takes a `sourcefs.Writer`: the source passes `Root.Writer()`, everything else `sourcefs.OS`. The ratchet in `internal/sourcefs/ratchet_test.go` fails on any new raw `os` write call or `sourcefs.OS` reference until it gets a truthful reason in `testdata/raw_writes.tsv`.
 
 Skills reads must reuse the operation's config-bound `FollowSet` via sourcewalk
-or discovery `WithOptions` APIs; legacy wrappers intentionally do not follow.
-Keep logical paths and fail on `FollowSet.Err()`. Unavailable declarations pause
+or discovery `WithOptions` APIs. Commands build it once (`globalSkillFollowSet`
+or `skillFollowSet`; the server uses `s.skillFollowSet()` per request) and pass
+it as a plain `follow` parameter; follow-less shorthands exist only in tests.
+Keep logical paths and fail on `FollowSet.Err()`. `TestFollowSnapshotGuard`
+(`internal/sourcewalk/follow_guard_test.go`) fails on a discovery call in
+`cmd/skillshare` or `internal/server` that drops the snapshot or walks without
+checking `Err()`, until it gets a reason in `follow_allowlist.json`. Unavailable declarations pause
 prune even with force. Git subprocesses need the shared followed-update and
 source staging/mutation guards outside sourcefs; ff-only updates still have audit
 hard-reset rollback. Sourcefs retains generic link errors; do not advise the

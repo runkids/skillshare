@@ -261,7 +261,7 @@ func runDoctorChecks(cfg *config.Config, result *doctorResult, isProject bool, f
 		ui.Row(ui.MarkNone, "Skills", "checks skipped: skill discovery failed", doctorWidth)
 		skipDiscoveryChecks(result, discoverErr, "skills_validity", "skill_integrity", "skill_targets_field")
 	} else {
-		checkSkillsValidity(cfg.EffectiveSkillsSource(), result, discovered)
+		checkSkillsValidity(cfg.EffectiveSkillsSource(), result, discovered, follow)
 		checkSkillIntegrity(result, discovered)
 		checkSkillTargetsField(result, discovered, targetNamesFromConfig(cfg.Targets))
 	}
@@ -413,11 +413,6 @@ func checkSkillfollowPauses(result *doctorResult, source string, follow *sourcew
 		result.addWarning()
 		result.addCheck("skillfollow_prune", checkWarning, message, nil)
 	}
-}
-
-// checkUndeclaredSourceLinks reports first-level links without following them.
-func checkUndeclaredSourceLinks(source string, result *doctorResult) {
-	checkUndeclaredSourceLinksWithFollow(source, result, nil)
 }
 
 func checkUndeclaredSourceLinksWithFollow(source string, result *doctorResult, follow *sourcewalk.FollowSet) {
@@ -953,8 +948,8 @@ func checkMissingTrackedRepos(source string, result *doctorResult, isProject boo
 	)
 }
 
-func checkSkillsValidity(source string, result *doctorResult, discovered []sync.DiscoveredSkill) {
-	entries, err := sourcewalk.ReadDir(source, sourcewalk.Options{})
+func checkSkillsValidity(source string, result *doctorResult, discovered []sync.DiscoveredSkill, follow *sourcewalk.FollowSet) {
+	entries, err := sourcewalk.ReadDir(source, sourcewalk.Options{Follow: follow})
 	if err != nil {
 		return
 	}

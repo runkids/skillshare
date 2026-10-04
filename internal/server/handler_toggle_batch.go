@@ -187,7 +187,7 @@ func (s *Server) handleBatchToggleSkills(w http.ResponseWriter, r *http.Request)
 	// A written rule can still be overridden by a later one, such as a "!" line
 	// in the .local file, so re-check the outcome the way discovery sees it.
 	if len(written) > 0 {
-		states, err := s.disabledByRelPath(req.Kind, source, agentsSource)
+		states, err := s.disabledByRelPath(req.Kind, source, agentsSource, follow)
 		if err != nil {
 			s.mu.Unlock()
 			writeError(w, http.StatusInternalServerError, err.Error())

@@ -101,7 +101,7 @@ func TestResolveByGlob_MatchesTrackedRepos(t *testing.T) {
 	setupTrackedRepo(t, src, "_team-db")
 	setupTrackedRepo(t, src, "_other-repo")
 
-	matches, err := resolveByGlob(src, "_team-*")
+	matches, err := resolveByGlob(src, "_team-*", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -121,7 +121,7 @@ func TestResolveByGlob_MatchesUpdatableSkills(t *testing.T) {
 	setupUpdatableSkill(t, src, "core-db")
 	setupUpdatableSkill(t, src, "utils")
 
-	matches, err := resolveByGlob(src, "core-*")
+	matches, err := resolveByGlob(src, "core-*", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -140,7 +140,7 @@ func TestResolveByGlob_CaseInsensitive(t *testing.T) {
 	setupUpdatableSkill(t, src, "Core-Auth")
 	setupUpdatableSkill(t, src, "core-db")
 
-	matches, err := resolveByGlob(src, "CORE-*")
+	matches, err := resolveByGlob(src, "CORE-*", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -153,7 +153,7 @@ func TestResolveByGlob_NoMatch(t *testing.T) {
 	src := t.TempDir()
 	setupUpdatableSkill(t, src, "utils")
 
-	matches, err := resolveByGlob(src, "core-*")
+	matches, err := resolveByGlob(src, "core-*", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -168,7 +168,7 @@ func TestResolveByGlob_SortedByName(t *testing.T) {
 	setupUpdatableSkill(t, src, "a-skill")
 	setupUpdatableSkill(t, src, "m-skill")
 
-	matches, err := resolveByGlob(src, "*-skill")
+	matches, err := resolveByGlob(src, "*-skill", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
