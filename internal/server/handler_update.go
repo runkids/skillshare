@@ -178,7 +178,7 @@ func (s *Server) updateSingleByKind(name, kind string, force, skipAudit bool) up
 	// Try exact skill path first (prevents basename collision with nested repos)
 	skillPath := filepath.Join(s.cfg.EffectiveSkillsSource(), name)
 	if entry := s.skillsStore.GetByPath(name); entry != nil && entry.Source != "" {
-		return s.updateRegularSkill(name, skillPath, force, skipAudit)
+		return s.updateRegularSkill(name, skillPath, s.skillFollowSet(), force, skipAudit)
 	}
 
 	// Try tracked repo (flat, nested, or basename fallback)
@@ -367,7 +367,7 @@ func (s *Server) updateTrackedRepo(name, repoPath, sourceDir string, follow *sou
 		IsRepo:  true,
 	}
 	if !skipAudit {
-		blocked, auditResult := s.auditGateTrackedRepo(name, repoPath, info.BeforeHash, force, s.updateAuditThreshold())
+		blocked, auditResult := s.auditGateTrackedRepo(name, repoPath, info.BeforeHash, follow, force, s.updateAuditThreshold())
 		if blocked != nil {
 			return *blocked
 		}
@@ -383,14 +383,13 @@ func (s *Server) updateTrackedRepo(name, repoPath, sourceDir string, follow *sou
 // auditGateTrackedRepo scans a tracked repo after pull and rolls back if findings are detected
 // at or above the active threshold.
 // Returns (blocked item, audit result). blocked is non-nil when the update should be rejected.
-func (s *Server) auditGateTrackedRepo(name, repoPath, beforeHash string, force bool, threshold string) (*updateResultItem, *audit.Result) {
+func (s *Server) auditGateTrackedRepo(name, repoPath, beforeHash string, follow *sourcewalk.FollowSet, force bool, threshold string) (*updateResultItem, *audit.Result) {
 	scan := audit.ScanSkill
 	if s.IsProjectMode() {
 		scan = func(path string) (*audit.Result, error) { return audit.ScanSkillForProject(path, s.projectRoot) }
 	}
 	var result *audit.Result
 	var err error
-	follow := s.skillFollowSet()
 	rel, relErr := filepath.Rel(s.cfg.EffectiveSkillsSource(), repoPath)
 	followed := false
 	if relErr == nil {
@@ -439,8 +438,7 @@ func (s *Server) auditGateTrackedRepo(name, repoPath, beforeHash string, force b
 	return nil, result
 }
 
-func (s *Server) updateRegularSkill(name, skillPath string, force, skipAudit bool) updateResultItem {
-	follow := s.skillFollowSet()
+func (s *Server) updateRegularSkill(name, skillPath string, follow *sourcewalk.FollowSet, force, skipAudit bool) updateResultItem {
 	if err := install.RefuseFollowedSkillUpdate(name, follow); err != nil {
 		return updateResultItem{Name: name, Action: "error", Message: err.Error()}
 	}
@@ -508,7 +506,7 @@ func (s *Server) updateAll(force, skipAudit bool) ([]updateResultItem, error) {
 		results = append(results, s.updateTrackedRepo(repo, filepath.Join(source, repo), source, follow, force, skipAudit))
 	}
 	for _, skill := range skills {
-		results = append(results, s.updateRegularSkill(skill, filepath.Join(source, skill), force, skipAudit))
+		results = append(results, s.updateRegularSkill(skill, filepath.Join(source, skill), follow, force, skipAudit))
 	}
 	return results, nil
 }

@@ -124,9 +124,9 @@ func (s *Server) handleUpdateStream(w http.ResponseWriter, r *http.Request) {
 		// Lock per-item for write operations
 		s.mu.Lock()
 		if item.isRepo {
-			result = s.updateTrackedRepo(item.name, item.path, s.cfg.EffectiveSkillsSource(), s.skillFollowSet(), force, skipAudit)
+			result = s.updateTrackedRepo(item.name, item.path, source, follow, force, skipAudit)
 		} else {
-			result = s.updateRegularSkill(item.name, item.path, force, skipAudit)
+			result = s.updateRegularSkill(item.name, item.path, follow, force, skipAudit)
 		}
 		s.mu.Unlock()
 
