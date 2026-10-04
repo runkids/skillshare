@@ -982,5 +982,13 @@
     "root": "uiDir",
     "reason": "assets",
     "note": "Clean old extracted UI distributions"
+  },
+  {
+    "file": "internal/sourcewalk/follow.go",
+    "function": "readFollowDir",
+    "callee": "os.ReadDir",
+    "root": "path",
+    "reason": "sourcewalk",
+    "note": "Classify declared roots and enumerate first-level links"
   }
 ]
