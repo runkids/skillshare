@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"skillshare/internal/install"
-	"skillshare/internal/sourcewalk"
 )
 
 // handleUpdateStream serves an SSE endpoint that streams update progress in real time.
@@ -77,27 +76,26 @@ func (s *Server) handleUpdateStream(w http.ResponseWriter, r *http.Request) {
 		}
 	} else {
 		// Update all: tracked repos + regular skills
-		repos, err := install.GetTrackedReposWithOptions(source, sourcewalk.Options{Follow: follow})
-		if err == nil {
-			for _, repo := range repos {
-				items = append(items, updateItem{
-					name:   repo,
-					isRepo: true,
-					path:   filepath.Join(source, repo),
-				})
-			}
-		}
 		s.mu.RLock()
-		skills, err := getServerUpdatableSkills(source, s.skillsStore)
+		repos, skills, err := s.collectUpdateAll(source, follow)
 		s.mu.RUnlock()
-		if err == nil {
-			for _, skill := range skills {
-				items = append(items, updateItem{
-					name:   skill,
-					isRepo: false,
-					path:   filepath.Join(source, skill),
-				})
-			}
+		if err != nil {
+			safeSend("error", map[string]string{"error": err.Error()})
+			return
+		}
+		for _, repo := range repos {
+			items = append(items, updateItem{
+				name:   repo,
+				isRepo: true,
+				path:   filepath.Join(source, repo),
+			})
+		}
+		for _, skill := range skills {
+			items = append(items, updateItem{
+				name:   skill,
+				isRepo: false,
+				path:   filepath.Join(source, skill),
+			})
 		}
 	}
 
