@@ -3,8 +3,10 @@
 package integration
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
+	"slices"
 	"testing"
 
 	"skillshare/internal/testutil"
@@ -62,6 +64,57 @@ func TestSkillfollowCollectRefusesDeclaredEntry(t *testing.T) {
 					}
 				} else if !os.IsNotExist(err) {
 					t.Errorf("collect created the declared entry: %v\n%s", err, result.Output())
+				}
+			})
+		}
+	}
+}
+
+// collect --dry-run previews what the real run does: a target skill named like
+// a declared entry, live or offline, is listed as failed, not as collected.
+func TestSkillfollowCollectDryRunRefusesDeclaredEntry(t *testing.T) {
+	for _, live := range []bool{false, true} {
+		for _, jsonOutput := range []bool{false, true} {
+			t.Run(map[bool]string{false: "missing", true: "live"}[live]+map[bool]string{false: "/text", true: "/json"}[jsonOutput], func(t *testing.T) {
+				sb := testutil.NewSandbox(t)
+				defer sb.Cleanup()
+				targetPath := sb.CreateTarget("claude")
+				sb.WriteConfig("source: " + sb.SourcePath + "\ntargets:\n  claude:\n    path: " + targetPath + "\n")
+				for _, skill := range []string{"team", "keep"} {
+					sb.WriteFile(filepath.Join(targetPath, skill, "SKILL.md"), "---\nname: "+skill+"\n---\n# "+skill+"\n")
+				}
+				sb.WriteFile(filepath.Join(sb.SourcePath, ".skillfollow"), "team\n")
+				if live {
+					external := filepath.Join(sb.Root, "external")
+					sb.WriteFile(filepath.Join(external, "a", "SKILL.md"), "---\nname: a\n---\n# a\n")
+					if err := os.Symlink(external, filepath.Join(sb.SourcePath, "team")); err != nil {
+						t.Fatal(err)
+					}
+				}
+				refusal := filepath.Join(sb.SourcePath, "team") + " is a link; edit its target directly"
+
+				if jsonOutput {
+					result := sb.RunCLI("collect", "-g", "--dry-run", "--json")
+					result.AssertSuccess(t)
+					var out struct {
+						Pulled []string          `json:"pulled"`
+						Failed map[string]string `json:"failed"`
+						DryRun bool              `json:"dry_run"`
+					}
+					if err := json.Unmarshal([]byte(result.Stdout), &out); err != nil {
+						t.Fatalf("invalid JSON: %v\n%s", err, result.Stdout)
+					}
+					if !slices.Equal(out.Pulled, []string{"keep"}) || out.Failed["team"] != refusal || !out.DryRun {
+						t.Errorf("pulled = %v, failed = %v, dry_run = %v; want [keep], team refused, true", out.Pulled, out.Failed, out.DryRun)
+					}
+				} else {
+					result := sb.RunCLI("collect", "-g", "--dry-run")
+					result.AssertSuccess(t)
+					result.AssertOutputContains(t, refusal)
+					result.AssertOutputContains(t, "Would collect 1 skill")
+				}
+				if _, err := os.Stat(filepath.Join(sb.SourcePath, "keep")); !os.IsNotExist(err) {
+					t.Errorf("dry run collected keep: %v", err)
 				}
 			})
 		}

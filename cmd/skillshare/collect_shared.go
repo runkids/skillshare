@@ -110,7 +110,6 @@ type collectPlan struct {
 // collectResources holds the results of scanning a target for local resources.
 type collectResources struct {
 	items []collectDisplayItem
-	names []string
 	pull  func(sync.PullOptions) (*sync.PullResult, error)
 }
 
@@ -123,15 +122,11 @@ func toCollectResources[T any](
 	pull func([]T, string, sync.PullOptions) (*sync.PullResult, error),
 ) collectResources {
 	display := make([]collectDisplayItem, len(items))
-	names := make([]string, len(items))
 	for i, item := range items {
-		d := toDisplay(item)
-		display[i] = d
-		names[i] = d.Name
+		display[i] = toDisplay(item)
 	}
 	return collectResources{
 		items: display,
-		names: names,
 		pull: func(opts sync.PullOptions) (*sync.PullResult, error) {
 			return pull(items, source, opts)
 		},
@@ -165,19 +160,7 @@ func runCollectPlan(plan collectPlan, opts collectOptions, start time.Time, scop
 		displayLocalCollectItems(fmt.Sprintf("Local %s in targets", label), res.items)
 	}
 
-	if opts.dryRun {
-		result := &sync.PullResult{Pulled: res.names}
-		summary = updateCollectLogSummary(summary, result)
-		if opts.jsonOutput {
-			return summary, collectOutputJSON(result, true, start, nil)
-		}
-		fmt.Println()
-		ui.Done(ui.MarkNone, "Would collect "+plural(len(res.items), strings.TrimSuffix(label, "s")), 0)
-		ui.DryRun()
-		return summary, nil
-	}
-
-	if !opts.force && !opts.jsonOutput {
+	if !opts.dryRun && !opts.force && !opts.jsonOutput {
 		ok, err := confirmCollect(label)
 		if err != nil {
 			return summary, err
@@ -200,6 +183,12 @@ func runCollectPlan(plan collectPlan, opts collectOptions, start time.Time, scop
 	if collectErr != nil {
 		return summary, collectErr
 	}
+	if opts.dryRun {
+		// The pull refuses before its dry-run listing, so the preview shows
+		// the same failures as the real run.
+		renderCollectPreview(label, result)
+		return summary, nil
+	}
 	return summary, renderCollectResult(label, result, plan.source, start)
 }
 
@@ -217,6 +206,23 @@ func displayLocalCollectItems(title string, items []collectDisplayItem) {
 
 func confirmCollect(resourceLabel string) (bool, error) {
 	return ui.ConfirmAction(fmt.Sprintf("Collect these %s to source?", resourceLabel), false)
+}
+
+func renderCollectPreview(resourceLabel string, result *sync.PullResult) {
+	fmt.Println()
+	if len(result.Failed) > 0 {
+		var names []string
+		for name := range result.Failed {
+			names = append(names, name)
+		}
+		width := ui.RowWidth(names...)
+		for name, err := range result.Failed {
+			ui.Row(ui.MarkFail, name, err.Error(), width)
+		}
+		fmt.Println()
+	}
+	ui.Done(ui.MarkNone, "Would collect "+plural(len(result.Pulled), strings.TrimSuffix(resourceLabel, "s")), 0)
+	ui.DryRun()
 }
 
 func renderCollectResult(resourceLabel string, result *sync.PullResult, source string, start time.Time) error {
