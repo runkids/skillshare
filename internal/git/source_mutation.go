@@ -30,7 +30,7 @@ func CheckSourceMutation(dir, incoming string, follow *sourcewalk.FollowSet) (st
 			return "", err
 		}
 		if indexed {
-			return "", fmt.Errorf("refusing incoming commit %s: declared entry %q is indexed; run %s and add %q to %s, or fix the remote", commit, link.Path, UntrackCommand(link.Path), link.IgnoreLine, link.IgnoreFile)
+			return "", fmt.Errorf("refusing incoming commit %s: declared entry %q is indexed; run %s and add %q to %s, or fix the remote", commit, link.Path, UntrackCommand("", link.Path), link.IgnoreLine, link.IgnoreFile)
 		}
 	}
 	top := exec.Command("git", "rev-parse", "--show-toplevel")
@@ -71,7 +71,7 @@ func CheckSourceMutation(dir, incoming string, follow *sourcewalk.FollowSet) (st
 		link, inspectErr := linkComponent(root, path)
 		if link != "" {
 			rel, _ := filepath.Rel(root, link)
-			return "", fmt.Errorf("refusing incoming commit %s: path %q touches link %q; run %s if indexed, or fix the remote", commit, path, filepath.ToSlash(rel), UntrackCommand(filepath.ToSlash(rel)))
+			return "", fmt.Errorf("refusing incoming commit %s: path %q touches link %q; run %s if indexed, or fix the remote", commit, path, filepath.ToSlash(rel), UntrackCommand("", filepath.ToSlash(rel)))
 		}
 		// A missing declared link has no component to find, but writing below
 		// it would still create the entry as a real directory.

@@ -378,7 +378,7 @@ func checkFollowedIgnores(result *doctorResult, follow *sourcewalk.FollowSet) {
 			continue
 		}
 		if indexed {
-			report(fmt.Sprintf("%s: indexed; run %s and add %q to %s", link.Path, gitops.UntrackCommand(link.Path), link.IgnoreLine, link.IgnoreFile))
+			report(fmt.Sprintf("%s: indexed; run %s and add %q to %s", link.Path, gitops.UntrackCommand("", link.Path), link.IgnoreLine, link.IgnoreFile))
 		} else if !ignored {
 			report(fmt.Sprintf("%s: not-ignored; add %q to %s", link.Path, link.IgnoreLine, link.IgnoreFile))
 		}

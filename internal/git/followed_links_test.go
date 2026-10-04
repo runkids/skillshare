@@ -194,7 +194,7 @@ func TestUntrackCommandQuotesLiteralName(t *testing.T) {
 		t.Fatal(err)
 	}
 	testutil.RunGit(t, source, "add", "--", name)
-	cmd := exec.Command("sh", "-c", UntrackCommand(name))
+	cmd := exec.Command("sh", "-c", UntrackCommand("", name))
 	cmd.Dir = source
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("literal untrack failed: %s %v", out, err)

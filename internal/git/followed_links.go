@@ -124,7 +124,7 @@ func CheckFollowedLinks(stagingDir string, follow *sourcewalk.FollowSet) error {
 			return err
 		}
 		if indexed {
-			problems = append(problems, fmt.Sprintf("%s is indexed; run %s and add %q to %s", link.Path, UntrackCommand(link.Path), link.IgnoreLine, link.IgnoreFile))
+			problems = append(problems, fmt.Sprintf("%s is indexed; run %s and add %q to %s", link.Path, UntrackCommand("", link.Path), link.IgnoreLine, link.IgnoreFile))
 			continue
 		}
 		ignored, err := IsPathIgnored(stagingDir, link.Path)
@@ -171,14 +171,12 @@ func IsPathIgnored(dir, path string) (bool, error) {
 }
 
 // UntrackCommand quotes literal names for the platform's interactive shell.
-func UntrackCommand(path string) string {
+// A non-empty dir runs it there, so it works from any working directory.
+func UntrackCommand(dir, path string) string {
+	if dir != "" {
+		return "git -C " + shellQuote(dir) + " rm --cached -- " + shellQuote(path)
+	}
 	return "git rm --cached -- " + shellQuote(path)
-}
-
-// UntrackCommandIn is UntrackCommand run in dir, so it works from any
-// working directory.
-func UntrackCommandIn(dir, path string) string {
-	return "git -C " + shellQuote(dir) + " rm --cached -- " + shellQuote(path)
 }
 
 func shellQuote(s string) string {

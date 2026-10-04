@@ -201,7 +201,7 @@ func followIgnores(root *sourcefs.Root, source string, snapshot *sourcewalk.Foll
 			}
 		}
 		if indexed {
-			r.UntrackCommand = gitops.UntrackCommandIn(source, link.Path)
+			r.UntrackCommand = gitops.UntrackCommand(source, link.Path)
 		}
 	}
 	if opts.local {
