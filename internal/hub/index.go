@@ -12,6 +12,7 @@ import (
 
 	"skillshare/internal/audit"
 	"skillshare/internal/install"
+	"skillshare/internal/sourcefs"
 	ssync "skillshare/internal/sync"
 )
 
@@ -151,12 +152,18 @@ func BuildIndex(sourcePath string, full bool, auditSkills bool) (*Index, error) 
 	}, nil
 }
 
-// WriteIndex writes the index JSON to a file with stable pretty formatting.
+// WriteIndex is WriteIndexWith for a file outside the skills source.
 func WriteIndex(path string, idx *Index) error {
+	return WriteIndexWith(sourcefs.OS, path, idx)
+}
+
+// WriteIndexWith writes the index JSON to a file through w with stable
+// pretty formatting.
+func WriteIndexWith(w sourcefs.Writer, path string, idx *Index) error {
 	if idx == nil {
 		return fmt.Errorf("index is nil")
 	}
-	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+	if err := w.MkdirAll(filepath.Dir(path), 0755); err != nil {
 		return err
 	}
 	data, err := json.MarshalIndent(idx, "", "  ")
@@ -164,7 +171,7 @@ func WriteIndex(path string, idx *Index) error {
 		return err
 	}
 	data = append(data, '\n')
-	return os.WriteFile(path, data, 0644)
+	return w.WriteFile(path, data, 0644)
 }
 
 // readSkillTags extracts the tags from SKILL.md frontmatter.

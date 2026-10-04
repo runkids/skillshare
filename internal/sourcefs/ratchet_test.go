@@ -63,6 +63,7 @@ var validReasons = map[string]string{
 	"plugin":            "plugin, MCP, hooks, or instructions files of a tool",
 	"tmp":               "a temporary file or directory",
 	"project":           "a project's own files outside the skills source",
+	"output":            "a file the user named with --output, outside the skills source",
 	"shell":             "a shell completion script",
 	"binary":            "the skillshare executable during upgrade",
 	"devnull":           "os.DevNull",

@@ -14,6 +14,7 @@ cmd/skillshare/extras_init.go	extrasInitProject	os.MkdirAll	sourceDir	extras
 cmd/skillshare/extras_remove.go	cleanEmptyExtrasDir	os.Remove	dir	extras
 cmd/skillshare/extras_remove.go	cleanEmptyExtrasDirQuiet	os.Remove	dir	extras
 cmd/skillshare/helpers.go	removeEmptyDir	os.Remove	dir	extras
+cmd/skillshare/hub.go	cmdHubIndex	sourcefs.OS	<ref>	output	hub index --output outside the --source folder; the default index inside it goes through the source handle
 cmd/skillshare/init_apply.go	applyInitPlan	os.MkdirAll	dir	source-root
 cmd/skillshare/init_apply.go	replaceIdenticalCopies	os.RemoveAll	dst	target
 cmd/skillshare/init_project.go	createProjectTargetDirs	os.MkdirAll	absPath	target
@@ -136,8 +137,7 @@ internal/hub/drafts.go	(DraftStore).locked	os.MkdirAll	s.Dir	config
 internal/hub/drafts.go	(DraftStore).persist	os.CreateTemp	s.Dir	config
 internal/hub/drafts.go	(DraftStore).persist	os.Remove	tmp.Name()	config
 internal/hub/drafts.go	(DraftStore).persist	os.Rename	tmp.Name(), path	config
-internal/hub/index.go	WriteIndex	os.MkdirAll	filepath.Dir(path)	source-unmigrated
-internal/hub/index.go	WriteIndex	os.WriteFile	path	source-unmigrated
+internal/hub/index.go	WriteIndex	sourcefs.OS	<ref>	test-helper	only tests call WriteIndex; hub index picks its writer and calls WriteIndexWith
 internal/install/copy.go	copyDirExcluding	sourcefs.OS	<ref>	test-helper	only tests call copyDir and copyDirExcluding; installs copy into the source through copyTree with the source handle
 internal/install/gitea_download.go	cnbWriteBlob	os.MkdirAll	filepath.Dir(destPath)	clone
 internal/install/gitea_download.go	cnbWriteBlob	os.WriteFile	destPath	clone

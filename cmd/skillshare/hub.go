@@ -3,11 +3,13 @@ package main
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
 	"skillshare/internal/config"
 	"skillshare/internal/hub"
+	"skillshare/internal/sourcefs"
 	"skillshare/internal/ui"
 )
 
@@ -170,7 +172,21 @@ func cmdHubIndex(args []string) error {
 	if err != nil {
 		return fmt.Errorf("failed to build index: %w", err)
 	}
-	if err := hub.WriteIndex(outputPath, idx); err != nil {
+	// An index inside the source, the default, is written through its
+	// handle, so a link in the way is refused instead of written through.
+	out, writePath := sourcefs.OS, outputPath
+	if abs, err := filepath.Abs(outputPath); err == nil {
+		writePath = abs
+	}
+	if absSource, err := filepath.Abs(sourcePath); err == nil {
+		if src, err := sourcefs.Open(absSource); err == nil {
+			defer src.Close()
+			if _, err := src.Rel(writePath); err == nil {
+				out = src.Writer()
+			}
+		}
+	}
+	if err := hub.WriteIndexWith(out, writePath, idx); err != nil {
 		return fmt.Errorf("failed to write index: %w", err)
 	}
 
