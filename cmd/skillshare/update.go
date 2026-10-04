@@ -296,7 +296,7 @@ func cmdUpdate(args []string) error {
 			}
 
 			if isGroupDir(name, sourcePath, nameStore) {
-				groupMatches, groupErr := resolveGroupUpdatable(name, sourcePath)
+				groupMatches, groupErr := resolveGroupUpdatableWithOptions(name, sourcePath, sourcewalk.Options{Follow: follow})
 				if groupErr != nil {
 					resolveWarnings = append(resolveWarnings, fmt.Sprintf("%s: %v", name, groupErr))
 					continue
@@ -327,7 +327,7 @@ func cmdUpdate(args []string) error {
 		}
 
 		for _, group := range opts.groups {
-			groupMatches, err := resolveGroupUpdatable(group, sourcePath)
+			groupMatches, err := resolveGroupUpdatableWithOptions(group, sourcePath, sourcewalk.Options{Follow: follow})
 			if err != nil {
 				resolveWarnings = append(resolveWarnings, fmt.Sprintf("--group %s: %v", group, err))
 				continue

@@ -288,14 +288,6 @@
     "note": "Classify a selected uninstall candidate by contents"
   },
   {
-    "file": "cmd/skillshare/update_resolve.go",
-    "function": "resolveGroupUpdatable",
-    "callee": "filepath.Walk",
-    "root": "walkRoot",
-    "reason": "skill-dir",
-    "note": "Selected update group retains source containment checks"
-  },
-  {
     "file": "internal/audit/audit_scan_skill.go",
     "function": "scanSkillImpl",
     "callee": "filepath.Walk",

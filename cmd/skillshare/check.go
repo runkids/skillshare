@@ -651,7 +651,7 @@ func runCheckFiltered(sourceDir, projectRoot string, opts *checkOptions, follows
 	for _, name := range opts.names {
 		// Check group directory first (same logic as update)
 		if isGroupDir(name, sourceDir, checkStore) {
-			groupMatches, groupErr := resolveGroupUpdatable(name, sourceDir)
+			groupMatches, groupErr := resolveGroupUpdatableWithOptions(name, sourceDir, sourcewalk.Options{Follow: firstFollowSet(follows)})
 			if groupErr != nil {
 				resolveWarnings = append(resolveWarnings, fmt.Sprintf("%s: %v", name, groupErr))
 				continue
@@ -682,7 +682,7 @@ func runCheckFiltered(sourceDir, projectRoot string, opts *checkOptions, follows
 	}
 
 	for _, group := range opts.groups {
-		groupMatches, err := resolveGroupUpdatable(group, sourceDir)
+		groupMatches, err := resolveGroupUpdatableWithOptions(group, sourceDir, sourcewalk.Options{Follow: firstFollowSet(follows)})
 		if err != nil {
 			resolveWarnings = append(resolveWarnings, fmt.Sprintf("--group %s: %v", group, err))
 			continue

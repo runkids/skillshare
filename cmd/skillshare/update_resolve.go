@@ -89,6 +89,10 @@ func resolveByGlob(sourceDir, pattern string, follows ...*sourcewalk.FollowSet) 
 // resolveGroupUpdatable finds all updatable items (tracked repos or skills with
 // metadata) under a group directory. Local skills without metadata are skipped.
 func resolveGroupUpdatable(group, sourceDir string) ([]updateTarget, error) {
+	return resolveGroupUpdatableWithOptions(group, sourceDir, sourcewalk.Options{})
+}
+
+func resolveGroupUpdatableWithOptions(group, sourceDir string, opts sourcewalk.Options) ([]updateTarget, error) {
 	group = strings.TrimSuffix(group, "/")
 	groupPath := filepath.Join(sourceDir, group)
 
@@ -100,6 +104,17 @@ func resolveGroupUpdatable(group, sourceDir string) ([]updateTarget, error) {
 	walkRoot := utils.ResolveSymlink(groupPath)
 	resolvedSourceDir := utils.ResolveSymlink(sourceDir)
 
+	// Only declared boundaries may retain logical paths outside the source.
+	// Comparing the unresolved suffix prevents a nested link from escaping that boundary.
+	if opts.Follow != nil {
+		if entry, ok := opts.Follow.InFollowed(group); ok && entry.State == sourcewalk.Followed {
+			suffix, relErr := filepath.Rel(filepath.Join(sourceDir, entry.Name), groupPath)
+			if relErr == nil && utils.PathsEqual(walkRoot, filepath.Join(entry.ResolvedTarget, suffix)) {
+				walkRoot = filepath.Join(resolvedSourceDir, group)
+			}
+		}
+	}
+
 	// Guard: walkRoot must be inside resolvedSourceDir to prevent
 	// symlinked groups from reaching outside the source tree.
 	if srcRel, err := filepath.Rel(resolvedSourceDir, walkRoot); err != nil || strings.HasPrefix(srcRel, "..") {
@@ -110,7 +125,7 @@ func resolveGroupUpdatable(group, sourceDir string) ([]updateTarget, error) {
 	store, _ := install.LoadMetadata(resolvedSourceDir)
 
 	var matches []updateTarget
-	if walkErr := filepath.Walk(walkRoot, func(path string, fi os.FileInfo, err error) error {
+	if walkErr := sourcewalk.Walk(walkRoot, opts, func(path string, fi os.FileInfo, err error) error {
 		if err != nil {
 			return nil
 		}
@@ -143,6 +158,11 @@ func resolveGroupUpdatable(group, sourceDir string) ([]updateTarget, error) {
 		return nil, fmt.Errorf("failed to walk group '%s': %w", group, walkErr)
 	}
 
+	if opts.Follow != nil {
+		if err := opts.Follow.Err(); err != nil {
+			return nil, err
+		}
+	}
 	return matches, nil
 }
 
