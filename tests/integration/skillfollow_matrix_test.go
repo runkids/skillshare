@@ -96,9 +96,26 @@ func TestSkillfollowBehaviorMatrix(t *testing.T) {
 		{"uninstall-repo-dry-run", []string{"uninstall", "_repo", "--dry-run"}, nil, nil, []string{"is a link; edit its target directly"}, true, false},
 		{"uninstall-all-dry-run", []string{"uninstall", "--all", "--dry-run"}, nil, nil, []string{"is a link; edit its target directly"}, true, false},
 		{"diff", []string{"diff", "--no-tui"}, []string{"_repo__a", "group__c"}, []string{"secret"}, []string{"New"}, false, false},
+		// 3e: sync writes only the target; the missing declaration pauses prune.
+		{"sync", []string{"sync", "--json"}, []string{"claude"}, []string{"secret"}, []string{"\"prune_paused\": [", "missing (missing)"}, false, true},
+		// 3e: after sync, target views count the followed links as linked, not local.
+		{"target-info", []string{"target", "claude"}, nil, []string{"local"}, []string{"2 linked"}, false, false},
+		{"target-list", []string{"target", "list", "--no-tui"}, nil, []string{"local"}, []string{"2 shared"}, false, false},
+	}
+	// setup prepares target state a row observes; target writes leave the snapshots alone.
+	setup := map[string]func(){
+		// A managed link whose text is the resolved target counts as linked only with the follow set.
+		"sync": func() {
+			if err := os.Symlink(filepath.Join(external, "group", "c"), filepath.Join(target, "group__c")); err != nil {
+				t.Fatal(err)
+			}
+		},
 	}
 	for _, row := range matrix {
 		t.Run(row.name, func(t *testing.T) {
+			if prepare := setup[row.name]; prepare != nil {
+				prepare()
+			}
 			args := append(append([]string{}, row.args...), "-g")
 			result := sb.RunCLI(args...)
 			if row.refused {

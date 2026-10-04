@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 
@@ -176,5 +177,73 @@ func TestServerSkillfollowProjectPolicy(t *testing.T) {
 	}
 	if !found {
 		t.Fatal("missing staged classification")
+	}
+}
+
+// Dashboard sync and targets on the matrix layout with one merge target: the
+// unavailable declarations pause prune as in the CLI, and synced followed skills
+// count as linked, including one whose link text is the resolved target.
+func TestServerSkillfollowSyncAndTargets(t *testing.T) {
+	s, source, external := skillfollowServerFixture(t)
+	target := t.TempDir()
+	raw := "source: " + source + "\nmode: merge\ntargets:\n  claude:\n    path: " + target + "\n"
+	if err := os.WriteFile(os.Getenv("SKILLSHARE_CONFIG"), []byte(raw), 0644); err != nil {
+		t.Fatal(err)
+	}
+	s.cfg.Targets = map[string]config.TargetConfig{"claude": {Path: target}}
+	// A broken link into the source would normally be pruned.
+	stale := filepath.Join(target, "missing__c")
+	if err := os.Symlink(filepath.Join(source, "missing", "c"), stale); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(filepath.Join(external, "group", "c"), filepath.Join(target, "group__c")); err != nil {
+		t.Fatal(err)
+	}
+
+	rr := httptest.NewRecorder()
+	s.handler.ServeHTTP(rr, httptest.NewRequest(http.MethodPost, "/api/sync", strings.NewReader(`{"kind":"skill"}`)))
+	if rr.Code != http.StatusOK {
+		t.Fatalf("sync: %d %s", rr.Code, rr.Body.String())
+	}
+	var synced struct {
+		Results []struct {
+			Target      string   `json:"target"`
+			Linked      []string `json:"linked"`
+			Pruned      []string `json:"pruned"`
+			PrunePaused []string `json:"prune_paused"`
+		} `json:"results"`
+		Warnings []string `json:"warnings"`
+	}
+	if err := json.Unmarshal(rr.Body.Bytes(), &synced); err != nil {
+		t.Fatal(err)
+	}
+	if len(synced.Results) != 1 || !reflect.DeepEqual(synced.Results[0].PrunePaused, []string{"missing (missing)", "rejected (invalid-target)"}) || len(synced.Results[0].Pruned) != 0 {
+		t.Fatalf("sync results: %s", rr.Body.String())
+	}
+	if !slices.Contains(synced.Warnings, "claude: prune paused; unavailable .skillfollow entry: missing (missing), rejected (invalid-target)") {
+		t.Fatalf("sync warnings: %v", synced.Warnings)
+	}
+	if _, err := os.Lstat(stale); err != nil {
+		t.Fatalf("prune removed an unattributable link while paused: %v", err)
+	}
+
+	rr = httptest.NewRecorder()
+	s.handler.ServeHTTP(rr, httptest.NewRequest(http.MethodGet, "/api/targets", nil))
+	if rr.Code != http.StatusOK {
+		t.Fatalf("targets: %d %s", rr.Code, rr.Body.String())
+	}
+	var listed struct {
+		Targets []struct {
+			Name        string `json:"name"`
+			LinkedCount int    `json:"linkedCount"`
+			LocalCount  int    `json:"localCount"`
+		} `json:"targets"`
+	}
+	if err := json.Unmarshal(rr.Body.Bytes(), &listed); err != nil {
+		t.Fatal(err)
+	}
+	// Two followed links plus the kept in-source stale link; none is local.
+	if len(listed.Targets) != 1 || listed.Targets[0].LinkedCount != 3 || listed.Targets[0].LocalCount != 0 {
+		t.Fatalf("targets: %s", rr.Body.String())
 	}
 }
