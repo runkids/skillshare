@@ -152,7 +152,7 @@ func cmdDoctorGlobal(jsonMode bool) error {
 		return nil
 	}
 
-	runDoctorChecks(cfg, result, false)
+	runDoctorChecks(cfg, result, false, globalSkillFollowSet(cfg))
 	checkExtras(cfg.Extras, result, false, cfg.EffectiveSkillsSource(), cfg.EffectiveExtrasSource(), "", "", func() error { return cfg.ValidateExtras() })
 	checkNativeResources(cfg, "", result)
 	ui.Section("Storage")
@@ -213,7 +213,7 @@ func cmdDoctorProject(root string, jsonMode bool) error {
 		Audit:        rt.config.Audit,
 	}
 
-	runDoctorChecks(cfg, result, true)
+	runDoctorChecks(cfg, result, true, skillFollowSet(rt.sourcePath, rt.targets, root))
 	checkExtras(rt.config.Extras, result, true, "", "", root, rt.config.EffectiveExtrasSource(root), func() error { return rt.config.ValidateExtras(root) })
 	checkNativeResources(nil, root, result)
 	ui.Section("Storage")
@@ -231,10 +231,10 @@ func cmdDoctorProject(root string, jsonMode bool) error {
 	return nil
 }
 
-func runDoctorChecks(cfg *config.Config, result *doctorResult, isProject bool) {
+func runDoctorChecks(cfg *config.Config, result *doctorResult, isProject bool, follow *sourcewalk.FollowSet) {
 	// Single discovery pass for all checks (with .skillignore stats)
 	sp := ui.StartSpinner("Discovering skills...")
-	discovered, stats, discoverErr := sync.DiscoverSourceSkillsWithStats(cfg.EffectiveSkillsSource())
+	discovered, stats, discoverErr := sync.DiscoverSourceSkillsWithOptions(cfg.EffectiveSkillsSource(), sync.DiscoveryOptions{Follow: follow, CollectIgnored: true})
 	if discoverErr != nil {
 		discovered = nil
 	}

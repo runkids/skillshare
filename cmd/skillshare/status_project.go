@@ -23,12 +23,13 @@ func cmdStatusProject(root string) error {
 		return err
 	}
 
+	follow := skillFollowSet(runtime.sourcePath, runtime.targets, root)
 	sp := ui.StartSpinner("Discovering skills...")
-	discovered, stats, discoverErr := sync.DiscoverSourceSkillsWithStats(runtime.sourcePath)
+	discovered, stats, discoverErr := sync.DiscoverSourceSkillsWithOptions(runtime.sourcePath, sync.DiscoveryOptions{Follow: follow, CollectIgnored: true})
 	if discoverErr != nil {
 		discovered = nil
 	}
-	trackedRepos := extractTrackedRepos(runtime.sourcePath)
+	trackedRepos := extractTrackedReposWithFollow(runtime.sourcePath, follow)
 	sp.Stop()
 
 	agentCount := -1
@@ -63,12 +64,13 @@ func cmdStatusProjectJSON(root string) error {
 		return writeJSONError(err)
 	}
 
+	follow := skillFollowSet(runtime.sourcePath, runtime.targets, root)
 	output := statusJSONOutput{
 		Version: version,
 	}
 
-	discovered, stats, _ := sync.DiscoverSourceSkillsWithStats(runtime.sourcePath)
-	trackedRepos := extractTrackedRepos(runtime.sourcePath)
+	discovered, stats, _ := sync.DiscoverSourceSkillsWithOptions(runtime.sourcePath, sync.DiscoveryOptions{Follow: follow, CollectIgnored: true})
+	trackedRepos := extractTrackedReposWithFollow(runtime.sourcePath, follow)
 
 	output.Source = statusJSONSource{
 		Path:        runtime.sourcePath,

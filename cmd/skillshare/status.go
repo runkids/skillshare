@@ -16,6 +16,7 @@ import (
 	"skillshare/internal/install"
 	"skillshare/internal/resource"
 	"skillshare/internal/skillignore"
+	"skillshare/internal/sourcewalk"
 	"skillshare/internal/sync"
 	"skillshare/internal/theme"
 	"skillshare/internal/ui"
@@ -115,13 +116,14 @@ func cmdStatus(args []string) error {
 		return err
 	}
 
+	follow := globalSkillFollowSet(cfg)
 	if !jsonOutput {
 		sp := ui.StartSpinner("Discovering skills...")
-		discovered, stats, discoverErr := sync.DiscoverSourceSkillsWithStats(cfg.EffectiveSkillsSource())
+		discovered, stats, discoverErr := sync.DiscoverSourceSkillsWithOptions(cfg.EffectiveSkillsSource(), sync.DiscoveryOptions{Follow: follow, CollectIgnored: true})
 		if discoverErr != nil {
 			discovered = nil
 		}
-		trackedRepos := extractTrackedRepos(cfg.EffectiveSkillsSource())
+		trackedRepos := extractTrackedReposWithFollow(cfg.EffectiveSkillsSource(), follow)
 		sp.Stop()
 
 		printSourceStatus(cfg.EffectiveSkillsSource(), cfg.EffectiveAgentsSource(), utils.FoldHomePath, len(discovered), countSourceAgents(cfg.EffectiveAgentsSource()), stats)
@@ -146,8 +148,8 @@ func cmdStatus(args []string) error {
 		Version: version,
 	}
 
-	discovered, stats, _ := sync.DiscoverSourceSkillsWithStats(cfg.EffectiveSkillsSource())
-	trackedRepos := extractTrackedRepos(cfg.EffectiveSkillsSource())
+	discovered, stats, _ := sync.DiscoverSourceSkillsWithOptions(cfg.EffectiveSkillsSource(), sync.DiscoveryOptions{Follow: follow, CollectIgnored: true})
+	trackedRepos := extractTrackedReposWithFollow(cfg.EffectiveSkillsSource(), follow)
 
 	output.Source = statusJSONSource{
 		Path:        cfg.EffectiveSkillsSource(),
@@ -242,7 +244,11 @@ func buildSkillignoreJSON(stats *skillignore.IgnoreStats) *statusJSONSourceIgnor
 // skills) ensures repos with zero discoverable skills — e.g. those whose only
 // SKILL.md sits at the repo root — still appear in status output.
 func extractTrackedRepos(sourcePath string) []string {
-	repos, err := install.GetTrackedRepos(sourcePath)
+	return extractTrackedReposWithFollow(sourcePath, nil)
+}
+
+func extractTrackedReposWithFollow(sourcePath string, follow *sourcewalk.FollowSet) []string {
+	repos, err := install.GetTrackedReposWithOptions(sourcePath, sourcewalk.Options{Follow: follow})
 	if err != nil {
 		return nil
 	}

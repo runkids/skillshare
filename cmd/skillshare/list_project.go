@@ -21,6 +21,8 @@ func cmdListProject(root string, opts listOptions, kind resourceKindFilter) erro
 	}
 	skillsSource := projCfg.EffectiveSkillsSource(root)
 	agentsSource := projCfg.EffectiveAgentsSource(root)
+	targets, _ := config.ResolveValidProjectTargets(root, projCfg)
+	follow := skillFollowSet(skillsSource, targets, root)
 
 	resourceLabel := "skills"
 	if kind == kindAgents {
@@ -43,7 +45,7 @@ func cmdListProject(root string, opts listOptions, kind resourceKindFilter) erro
 		loadFn := func() listLoadResult {
 			// Always load both skills and agents — tab UI filters the view.
 			var allEntries []skillEntry
-			discovered, err := sync.DiscoverSourceSkillsAll(skillsSource)
+			discovered, _, err := sync.DiscoverSourceSkillsWithOptions(skillsSource, sync.DiscoveryOptions{Follow: follow, IncludeIgnored: true})
 			if err != nil {
 				return listLoadResult{err: fmt.Errorf("cannot discover project skills: %w", err)}
 			}
@@ -97,14 +99,14 @@ func cmdListProject(root string, opts listOptions, kind resourceKindFilter) erro
 
 	if kind.IncludesSkills() {
 		var discErr error
-		discoveredSkills, discErr = sync.DiscoverSourceSkillsAll(skillsSource)
+		discoveredSkills, _, discErr = sync.DiscoverSourceSkillsWithOptions(skillsSource, sync.DiscoveryOptions{Follow: follow, IncludeIgnored: true})
 		if discErr != nil {
 			if sp != nil {
 				sp.Fail("Discovery failed")
 			}
 			return fmt.Errorf("cannot discover project skills: %w", discErr)
 		}
-		trackedRepos = extractTrackedRepos(skillsSource)
+		trackedRepos = extractTrackedReposWithFollow(skillsSource, follow)
 		if sp != nil {
 			sp.Update(fmt.Sprintf("Reading metadata for %d skills...", len(discoveredSkills)))
 		}

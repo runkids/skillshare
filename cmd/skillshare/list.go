@@ -617,12 +617,13 @@ func cmdList(args []string) error {
 		return err
 	}
 
+	follow := globalSkillFollowSet(cfg)
 	// TTY + not JSON + TUI enabled → launch TUI with async loading (no blank screen)
 	if !opts.JSON && shouldLaunchTUI(opts.NoTUI, cfg) {
 		loadFn := func() listLoadResult {
 			// Always load both skills and agents — tab UI filters the view.
 			var allEntries []skillEntry
-			discovered, discErr := sync.DiscoverSourceSkillsAll(cfg.EffectiveSkillsSource())
+			discovered, _, discErr := sync.DiscoverSourceSkillsWithOptions(cfg.EffectiveSkillsSource(), sync.DiscoveryOptions{Follow: follow, IncludeIgnored: true})
 			if discErr != nil {
 				return listLoadResult{err: fmt.Errorf("cannot discover skills: %w", discErr)}
 			}
@@ -688,14 +689,14 @@ func cmdList(args []string) error {
 
 	if kind.IncludesSkills() {
 		var discErr error
-		discoveredSkills, discErr = sync.DiscoverSourceSkillsAll(cfg.EffectiveSkillsSource())
+		discoveredSkills, _, discErr = sync.DiscoverSourceSkillsWithOptions(cfg.EffectiveSkillsSource(), sync.DiscoveryOptions{Follow: follow, IncludeIgnored: true})
 		if discErr != nil {
 			if sp != nil {
 				sp.Fail("Discovery failed")
 			}
 			return fmt.Errorf("cannot discover skills: %w", discErr)
 		}
-		trackedRepos = extractTrackedRepos(cfg.EffectiveSkillsSource())
+		trackedRepos = extractTrackedReposWithFollow(cfg.EffectiveSkillsSource(), follow)
 		if sp != nil {
 			sp.Update(fmt.Sprintf("Reading metadata for %d skills...", len(discoveredSkills)))
 		}

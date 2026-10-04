@@ -17,11 +17,31 @@ import (
 
 // discoverOptions controls the behavior of discoverSourceSkillsInternal.
 type discoverOptions struct {
+	follow           *sourcewalk.FollowSet
 	parseFrontmatter bool // parse SKILL.md frontmatter for targets
 	collectIgnored   bool // collect ignored skill paths into IgnoreStats
 	collectTracked   bool // collect tracked repo paths (for Lite mode)
 	collectContext   bool // compute DescChars/BodyChars during walk (for analyze)
 	includeIgnored   bool // include ignored skills in results with Disabled=true
+}
+
+// DiscoveryOptions enables explicit source following and optional discovery details.
+// A nil Follow preserves the behavior of the existing discovery entry points.
+type DiscoveryOptions struct {
+	Follow         *sourcewalk.FollowSet
+	CollectIgnored bool
+	CollectContext bool
+	IncludeIgnored bool
+}
+
+// DiscoverSourceSkillsWithOptions shares a caller-owned FollowSet with discovery.
+// Read failures inside followed trees return an error and no partial skill set.
+func DiscoverSourceSkillsWithOptions(sourcePath string, opts DiscoveryOptions) ([]DiscoveredSkill, *skillignore.IgnoreStats, error) {
+	skills, _, stats, err := discoverSourceSkillsInternal(sourcePath, discoverOptions{
+		follow: opts.Follow, parseFrontmatter: true, collectIgnored: opts.CollectIgnored,
+		collectContext: opts.CollectContext, includeIgnored: opts.IncludeIgnored,
+	})
+	return skills, stats, err
 }
 
 var (
@@ -140,6 +160,9 @@ func discoverSourceSkillsInternal(sourcePath string, opts discoverOptions) ([]Di
 	ignoreMatchers := make(map[string]*skillignore.Matcher) // tracked repo abs path → .skillignore matcher
 
 	walkRoot := utils.ResolveSymlink(sourcePath)
+	if opts.follow != nil {
+		walkRoot = filepath.Clean(sourcePath)
+	}
 	rootMatcher := skillignore.ReadMatcher(walkRoot)
 
 	// Stats collection (only allocated when needed)
@@ -160,7 +183,7 @@ func discoverSourceSkillsInternal(sourcePath string, opts discoverOptions) ([]Di
 		}
 	}
 
-	err := sourcewalk.Walk(walkRoot, sourcewalk.Options{}, func(path string, info os.FileInfo, err error) error {
+	err := sourcewalk.Walk(walkRoot, sourcewalk.Options{Follow: opts.follow}, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return nil // Skip inaccessible paths
 		}
@@ -321,6 +344,9 @@ func discoverSourceSkillsInternal(sourcePath string, opts discoverOptions) ([]Di
 		return nil
 	})
 
+	if err == nil && opts.follow != nil {
+		err = opts.follow.Err()
+	}
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("failed to walk source directory: %w", err)
 	}

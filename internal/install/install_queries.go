@@ -218,10 +218,19 @@ func CheckCrossPathDuplicate(sourceDir, cloneURL, targetPrefix string) error {
 // directories (e.g. category/_team-repo/) are found.
 
 func getTrackedReposImpl(sourceDir string) ([]string, error) {
+	return GetTrackedReposWithOptions(sourceDir, sourcewalk.Options{})
+}
+
+// GetTrackedReposWithOptions discovers tracked repositories with an operation-owned
+// FollowSet. The legacy entry point deliberately keeps nil-follow behavior.
+func GetTrackedReposWithOptions(sourceDir string, opts sourcewalk.Options) ([]string, error) {
 	var repos []string
 
 	walkRoot := utils.ResolveSymlink(sourceDir)
-	err := sourcewalk.Walk(walkRoot, sourcewalk.Options{}, func(path string, info os.FileInfo, err error) error {
+	if opts.Follow != nil {
+		walkRoot = filepath.Clean(sourceDir)
+	}
+	err := sourcewalk.Walk(walkRoot, opts, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return nil
 		}
@@ -247,6 +256,9 @@ func getTrackedReposImpl(sourceDir string) ([]string, error) {
 	})
 	if err != nil {
 		return nil, err
+	}
+	if opts.Follow != nil && opts.Follow.Err() != nil {
+		return nil, opts.Follow.Err()
 	}
 	return repos, nil
 }
