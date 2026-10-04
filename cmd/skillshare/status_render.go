@@ -11,6 +11,7 @@ import (
 	"skillshare/internal/config"
 	"skillshare/internal/git"
 	"skillshare/internal/skillignore"
+	"skillshare/internal/sourcewalk"
 	"skillshare/internal/sync"
 	"skillshare/internal/theme"
 	"skillshare/internal/ui"
@@ -213,6 +214,17 @@ func printSkillignoreLine(stats *skillignore.IgnoreStats) {
 		hint += " (.local active)"
 	}
 	ui.Note(fmt.Sprintf("%s: %d patterns, %d skills ignored", hint, stats.PatternCount(), stats.IgnoredCount()))
+}
+
+func printSkillfollowLine(follow *sourcewalk.FollowSet) {
+	if follow == nil {
+		return
+	}
+	hint := ".skillfollow"
+	if follow.HasLocal() {
+		hint += " (.local active)"
+	}
+	ui.Note(fmt.Sprintf("%s: %d entries, %d skipped", hint, len(follow.ParsedEntries()), len(follow.Unavailable())))
 }
 
 // printTrackedReposStatus prints each tracked repository with its skill

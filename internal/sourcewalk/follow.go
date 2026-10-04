@@ -42,14 +42,14 @@ type FollowOptions struct {
 // Walkers using its pointer record read failures in the same set. It is intended
 // for one operation, and must not be mutated concurrently with traversal.
 type FollowSet struct {
-	walkErrors    []error
-	root          string
-	canonicalRoot string
-	entries       []Entry
-	parsed        []string
-	warnings      []string
-	active        bool
-	local         bool
+	declarationWarnings []string
+	walkErrors          []error
+	canonicalRoot       string
+	entries             []Entry
+	parsed              []string
+	warnings            []string
+	active              bool
+	local               bool
 }
 
 // Follow parses the root declarations and classifies all declared entries and
@@ -58,7 +58,7 @@ func Follow(root string, opts FollowOptions) FollowSet { return follow(root, opt
 
 func follow(root string, opts FollowOptions, links linkOps) FollowSet {
 	parsed := readDeclarations(root)
-	set := FollowSet{root: filepath.Clean(root), parsed: parsed.names, warnings: parsed.warnings, active: parsed.active, local: parsed.local}
+	set := FollowSet{declarationWarnings: parsed.warnings, parsed: parsed.names, warnings: parsed.warnings, active: parsed.active, local: parsed.local}
 	canon := func(path string) (string, error) { return canonicalize(path, links, 0) }
 	canonicalRoot, rootErr := canon(root)
 	set.canonicalRoot = canonicalRoot
@@ -197,6 +197,11 @@ func (s FollowSet) ParsedEntries() []string { return append([]string(nil), s.par
 
 // Warnings returns parse and classification diagnostics.
 func (s FollowSet) Warnings() []string { return append([]string(nil), s.warnings...) }
+
+// DeclarationWarnings returns file-read and parser diagnostics, without entry states.
+func (s FollowSet) DeclarationWarnings() []string {
+	return append([]string(nil), s.declarationWarnings...)
+}
 
 // Active reports whether either declaration file was read.
 func (s FollowSet) Active() bool { return s.active }

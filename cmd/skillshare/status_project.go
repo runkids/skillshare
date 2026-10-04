@@ -38,6 +38,7 @@ func cmdStatusProject(root string) error {
 	}
 	show := func(path string) string { return projectStatusPath(runtime.root, path) }
 	printSourceStatus(runtime.sourcePath, runtime.agentsSourcePath, show, len(discovered), agentCount, stats)
+	printSkillfollowLine(follow)
 	printTrackedReposStatus(runtime.sourcePath, discovered, trackedRepos)
 	if err := printProjectTargetsStatus(runtime, discovered); err != nil {
 		return err
@@ -76,6 +77,7 @@ func cmdStatusProjectJSON(root string) error {
 		Path:        runtime.sourcePath,
 		Exists:      dirExists(runtime.sourcePath),
 		Skillignore: buildSkillignoreJSON(stats),
+		Skillfollow: buildSkillfollowJSON(follow),
 	}
 	output.SkillCount = len(discovered)
 	output.TrackedRepos = buildTrackedRepoJSON(runtime.sourcePath, trackedRepos, discovered)

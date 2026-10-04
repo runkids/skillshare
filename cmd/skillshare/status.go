@@ -39,6 +39,7 @@ type statusJSONSource struct {
 	Path        string                  `json:"path"`
 	Exists      bool                    `json:"exists"`
 	Skillignore *statusJSONSourceIgnore `json:"skillignore"`
+	Skillfollow *statusJSONSourceFollow `json:"skillfollow,omitempty"`
 }
 
 type statusJSONSourceIgnore struct {
@@ -47,6 +48,33 @@ type statusJSONSourceIgnore struct {
 	Patterns      []string `json:"patterns,omitempty"`
 	IgnoredCount  int      `json:"ignored_count"`
 	IgnoredSkills []string `json:"ignored_skills,omitempty"`
+}
+
+type statusJSONSourceFollow struct {
+	Active        bool               `json:"active"`
+	LocalActive   bool               `json:"local_active"`
+	EntryCount    int                `json:"entry_count"`
+	FollowedCount int                `json:"followed_count"`
+	SkippedCount  int                `json:"skipped_count"`
+	Entries       []sourcewalk.Entry `json:"entries"`
+	Warnings      []string           `json:"warnings,omitempty"`
+}
+
+func buildSkillfollowJSON(follow *sourcewalk.FollowSet) *statusJSONSourceFollow {
+	if follow == nil {
+		return nil
+	}
+	entries := make([]sourcewalk.Entry, 0, len(follow.ParsedEntries()))
+	for _, entry := range follow.Entries() {
+		if entry.State != sourcewalk.UndeclaredLink {
+			entries = append(entries, entry)
+		}
+	}
+	return &statusJSONSourceFollow{
+		Active: follow.Active(), LocalActive: follow.HasLocal(),
+		EntryCount: len(follow.ParsedEntries()), FollowedCount: len(follow.Followed()),
+		SkippedCount: len(follow.Unavailable()), Entries: entries, Warnings: follow.Warnings(),
+	}
 }
 
 type statusJSONRepo struct {
@@ -127,6 +155,7 @@ func cmdStatus(args []string) error {
 		sp.Stop()
 
 		printSourceStatus(cfg.EffectiveSkillsSource(), cfg.EffectiveAgentsSource(), utils.FoldHomePath, len(discovered), countSourceAgents(cfg.EffectiveAgentsSource()), stats)
+		printSkillfollowLine(follow)
 		printTrackedReposStatus(cfg.EffectiveSkillsSource(), discovered, trackedRepos)
 		if err := printTargetsStatus(cfg, discovered); err != nil {
 			return err
@@ -155,6 +184,7 @@ func cmdStatus(args []string) error {
 		Path:        cfg.EffectiveSkillsSource(),
 		Exists:      dirExists(cfg.EffectiveSkillsSource()),
 		Skillignore: buildSkillignoreJSON(stats),
+		Skillfollow: buildSkillfollowJSON(follow),
 	}
 	output.SkillCount = len(discovered)
 	output.TrackedRepos = buildTrackedRepoJSON(cfg.EffectiveSkillsSource(), trackedRepos, discovered)

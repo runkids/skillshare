@@ -243,7 +243,8 @@ func runDoctorChecks(cfg *config.Config, result *doctorResult, isProject bool, f
 	checkSource(cfg, result, discovered, discoverErr)
 	checkAgentsSource(cfg, result)
 	checkSkillignore(result, stats)
-	checkUndeclaredSourceLinks(cfg.EffectiveSkillsSource(), result)
+	checkSkillfollow(result, follow)
+	checkUndeclaredSourceLinksWithFollow(cfg.EffectiveSkillsSource(), result, follow)
 	checkSymlinkSupport(result)
 	checkTheme(result)
 
@@ -306,8 +307,54 @@ func checkSkillignore(result *doctorResult, stats *skillignore.IgnoreStats) {
 	result.addCheck("skillignore", checkPass, ".skillignore: "+msg, details)
 }
 
+// checkSkillfollow reports declaration diagnostics and each declared entry state.
+func checkSkillfollow(result *doctorResult, follow *sourcewalk.FollowSet) {
+	if follow == nil {
+		return
+	}
+	for _, warning := range follow.DeclarationWarnings() {
+		ui.Row(ui.MarkWarn, "Skillfollow", warning, doctorWidth)
+		result.addWarning()
+		result.addCheck("skillfollow", checkWarning, warning, nil)
+	}
+	for _, entry := range follow.Entries() {
+		if entry.State == sourcewalk.UndeclaredLink {
+			continue
+		}
+		status, mark := checkPass, ui.MarkOK
+		if entry.State != sourcewalk.Followed && entry.State != sourcewalk.NotLink {
+			status, mark = checkWarning, ui.MarkWarn
+			result.addWarning()
+		}
+		message := fmt.Sprintf("%s: %s — %s", entry.Name, entry.State, entry.Reason)
+		ui.Row(mark, "Skillfollow", message, doctorWidth)
+		result.addCheck("skillfollow", status, message, nil)
+	}
+}
+
 // checkUndeclaredSourceLinks reports first-level links without following them.
 func checkUndeclaredSourceLinks(source string, result *doctorResult) {
+	checkUndeclaredSourceLinksWithFollow(source, result, nil)
+}
+
+func checkUndeclaredSourceLinksWithFollow(source string, result *doctorResult, follow *sourcewalk.FollowSet) {
+	report := func(name string) {
+		message := name + ": not followed by discovery; its contents are invisible to skillshare"
+		// Preserve existing output without declaration files.
+		if follow != nil {
+			message += "; declare it in .skillfollow to opt in"
+		}
+		ui.Row(ui.MarkNone, "Source link", message, doctorWidth)
+		result.addInfo("undeclared_source_links", message)
+	}
+	if follow != nil {
+		for _, entry := range follow.Entries() {
+			if entry.State == sourcewalk.UndeclaredLink {
+				report(entry.Name)
+			}
+		}
+		return
+	}
 	root := utils.ResolveSymlink(source)
 	entries, err := sourcewalk.ReadDir(root, sourcewalk.Options{})
 	if err != nil {
@@ -319,9 +366,7 @@ func checkUndeclaredSourceLinks(source string, result *doctorResult) {
 		if err != nil || !utils.IsLinkMode(path, info.Mode()) {
 			continue
 		}
-		message := entry.Name() + ": not followed by discovery; its contents are invisible to skillshare"
-		ui.Row(ui.MarkNone, "Source link", message, doctorWidth)
-		result.addInfo("undeclared_source_links", message)
+		report(entry.Name())
 	}
 }
 
