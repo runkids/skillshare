@@ -3,9 +3,13 @@ package install
 import (
 	"errors"
 	"fmt"
+	"io/fs"
 	"log/slog"
 	"os"
+	"path/filepath"
 	"strings"
+
+	"skillshare/internal/sourcefs"
 )
 
 // InstallOptions configures the install behavior
@@ -214,8 +218,20 @@ func buildForceHint(rawSource, into string) string {
 	return cmd
 }
 
-// removeAll is a test hook used by audit/install paths.
-var removeAll = os.RemoveAll
+// removeAll removes what a failed install or audit just created. It is a
+// test hook. The removal goes through a handle at the parent folder, so a
+// path that is itself a link is refused instead of removed.
+var removeAll = func(path string) error {
+	parent, err := sourcefs.Open(filepath.Dir(path))
+	if errors.Is(err, fs.ErrNotExist) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	defer parent.Close()
+	return parent.RemoveAll(filepath.Base(path))
+}
 
 var removeTempRepoPath = os.RemoveAll
 

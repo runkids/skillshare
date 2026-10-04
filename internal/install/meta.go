@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"skillshare/internal/sourcefs"
 	"skillshare/internal/utils"
 )
 
@@ -40,15 +41,21 @@ func (m *SkillMeta) EffectiveKind() string {
 
 // Deprecated: WriteMeta writes per-skill sidecar files.
 // New code should use MetadataStore.Set() + MetadataStore.Save() instead.
+// It writes through a handle at the skill's parent folder, so neither the
+// skill folder nor the sidecar may be a link; a discovered skill never sits
+// below one.
 func WriteMeta(skillPath string, meta *SkillMeta) error {
-	metaPath := filepath.Join(skillPath, MetaFileName)
-
 	data, err := json.MarshalIndent(meta, "", "  ")
 	if err != nil {
 		return fmt.Errorf("failed to marshal metadata: %w", err)
 	}
 
-	if err := os.WriteFile(metaPath, data, 0644); err != nil {
+	parent, err := sourcefs.Open(filepath.Dir(skillPath))
+	if err != nil {
+		return fmt.Errorf("failed to write metadata: %w", err)
+	}
+	defer parent.Close()
+	if err := parent.WriteFile(filepath.Join(filepath.Base(skillPath), MetaFileName), data, 0644); err != nil {
 		return fmt.Errorf("failed to write metadata: %w", err)
 	}
 

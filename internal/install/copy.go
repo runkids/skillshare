@@ -4,6 +4,8 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+
+	"skillshare/internal/sourcefs"
 )
 
 // copyDir recursively copies src into dst, skipping any `.git` directory.
@@ -11,12 +13,17 @@ func copyDir(src, dst string) error {
 	return copyDirExcluding(src, dst, nil)
 }
 
-// copyDirExcluding recursively copies src into dst, skipping any `.git`
+// copyDirExcluding is copyTree with the plain writer. Installs write the
+// skills source through copyTree with the source handle instead.
+func copyDirExcluding(src, dst string, excludes map[string]bool) error {
+	return copyTree(sourcefs.OS, src, dst, excludes)
+}
+
+// copyTree recursively copies src into dst through w, skipping any `.git`
 // directory and any subdirectory whose slash-normalized path relative to src
 // appears in excludes. The excludes keys must use forward slashes (e.g.
-// "skills/officecli-pptx"). Passing a nil or empty map is equivalent to
-// copyDir.
-func copyDirExcluding(src, dst string, excludes map[string]bool) error {
+// "skills/officecli-pptx"). Passing a nil or empty map copies everything.
+func copyTree(w sourcefs.Writer, src, dst string, excludes map[string]bool) error {
 	absDst, err := filepath.Abs(dst)
 	if err != nil {
 		return err
@@ -51,10 +58,10 @@ func copyDirExcluding(src, dst string, excludes map[string]bool) error {
 		}
 
 		if info.IsDir() {
-			return os.MkdirAll(dstPath, info.Mode())
+			return w.MkdirAll(dstPath, info.Mode())
 		}
 
-		return copyFile(path, dstPath)
+		return copyFile(w, path, dstPath)
 	})
 }
 
@@ -74,8 +81,8 @@ func startsWithParentTraversal(path string) bool {
 	return len(path) > 2 && path[:2] == ".." && os.IsPathSeparator(path[2])
 }
 
-// copyFile copies a single file
-func copyFile(src, dst string) error {
+// copyFile copies a single file through w.
+func copyFile(w sourcefs.Writer, src, dst string) error {
 	srcFile, err := os.Open(src)
 	if err != nil {
 		return err
@@ -87,7 +94,7 @@ func copyFile(src, dst string) error {
 		return err
 	}
 
-	dstFile, err := os.OpenFile(dst, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, srcInfo.Mode())
+	dstFile, err := w.OpenFile(dst, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, srcInfo.Mode())
 	if err != nil {
 		return err
 	}

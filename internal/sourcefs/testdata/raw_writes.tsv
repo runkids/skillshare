@@ -143,8 +143,7 @@ internal/hub/drafts.go	(DraftStore).persist	os.Remove	tmp.Name()	config
 internal/hub/drafts.go	(DraftStore).persist	os.Rename	tmp.Name(), path	config
 internal/hub/index.go	WriteIndex	os.MkdirAll	filepath.Dir(path)	source-unmigrated
 internal/hub/index.go	WriteIndex	os.WriteFile	path	source-unmigrated
-internal/install/copy.go	copyDirExcluding	os.MkdirAll	dstPath	source-unmigrated
-internal/install/copy.go	copyFile	os.OpenFile	dst	source-unmigrated
+internal/install/copy.go	copyDirExcluding	sourcefs.OS	<ref>	test-helper	only tests call copyDir and copyDirExcluding; installs copy into the source through copyTree with the source handle
 internal/install/gitea_download.go	cnbWriteBlob	os.MkdirAll	filepath.Dir(destPath)	clone
 internal/install/gitea_download.go	cnbWriteBlob	os.WriteFile	destPath	clone
 internal/install/gitea_download.go	cnbWriteContentItem	os.MkdirAll	target	clone
@@ -158,9 +157,8 @@ internal/install/github_download.go	downloadDirRecursive	os.MkdirAll	childDir	cl
 internal/install/github_download.go	downloadFile	os.MkdirAll	filepath.Dir(destPath)	clone
 internal/install/github_download.go	downloadFile	os.OpenFile	destPath	clone
 internal/install/github_download.go	downloadGitHubDirWithAPIBase	os.MkdirAll	destDir	clone
-internal/install/gitignore.go	writeGitignoreLines	os.WriteFile	path	source-unmigrated
-internal/install/install.go	<package>	os.RemoveAll	<ref>	source-unmigrated
-internal/install/install.go	<package>	os.RemoveAll	<ref>	source-unmigrated
+internal/install/gitignore.go	writeGitignoreLines	os.WriteFile	path	source-unmigrated	dir is the skills source in global mode, the project or .skillshare folder in project mode, or the config folder (oplog); callers do not say which, the exported Update/RemoveFromGitIgnore signatures are fixed by tests, and a linked .gitignore in the config or project folder must keep working, so moving it needs callers to pass a writer
+internal/install/install.go	<package>	os.RemoveAll	<ref>	tmp	removeTempRepoPath: removes the os.MkdirTemp clone of cleanupTempRepo
 internal/install/install_apply.go	UpdateAgentFromDiscovery	os.MkdirAll	filepath.Dir(destFile)	agents
 internal/install/install_apply.go	UpdateAgentFromDiscovery	os.MkdirTemp	""	tmp
 internal/install/install_apply.go	UpdateAgentFromDiscovery	os.RemoveAll	tempDir	tmp
@@ -168,13 +166,11 @@ internal/install/install_apply.go	UpdateAgentFromDiscovery	os.Rename	tempFile, d
 internal/install/install_apply.go	UpdateAgentFromDiscovery	os.WriteFile	destFile	agents
 internal/install/install_apply.go	installAgentFromDiscoveryInternal	os.MkdirAll	filepath.Dir(destFile)	agents
 internal/install/install_apply.go	installAgentFromDiscoveryInternal	os.WriteFile	destFile	agents
-internal/install/install_apply.go	installFromDiscoveryInternal	os.MkdirAll	workDest	source-unmigrated
 internal/install/install_apply.go	installFromDiscoveryInternal	os.MkdirTemp	""	tmp
 internal/install/install_apply.go	installFromDiscoveryInternal	os.RemoveAll	tempDir	tmp
 internal/install/install_apply.go	installFromGitSubdir	os.MkdirTemp	""	tmp
 internal/install/install_apply.go	installFromGitSubdir	os.RemoveAll	tempRepoPath	tmp
 internal/install/install_apply.go	installFromGitSubdir	os.RemoveAll	tempRepoPath	tmp
-internal/install/install_apply.go	installFromLocal	os.MkdirAll	destPath	source-unmigrated
 internal/install/install_audit.go	cleanEmptyInstallParents	os.Remove	dir	agents
 internal/install/install_discovery.go	discoverFromGitSubdirWithProgressImpl	os.MkdirTemp	""	tmp
 internal/install/install_discovery.go	discoverFromGitSubdirWithProgressImpl	os.RemoveAll	repoPath	tmp
@@ -189,17 +185,8 @@ internal/install/install_update.go	updateRepoRootOrchestrator	os.MkdirTemp	""	tm
 internal/install/install_update.go	updateRepoRootOrchestrator	os.RemoveAll	tempDir	tmp
 internal/install/lock.go	(*Lock).Save	os.Remove	path	project
 internal/install/lock.go	(*Lock).Save	os.WriteFile	path	project
-internal/install/meta.go	WriteMeta	os.WriteFile	metaPath	source-unmigrated
-internal/install/metadata.go	(*MetadataStore).Save	os.CreateTemp	dir	source-unmigrated
-internal/install/metadata.go	(*MetadataStore).Save	os.MkdirAll	dir	source-unmigrated
-internal/install/metadata.go	(*MetadataStore).Save	os.Remove	tmpName	source-unmigrated
-internal/install/metadata.go	(*MetadataStore).Save	os.Remove	tmpName	source-unmigrated
-internal/install/metadata.go	(*MetadataStore).Save	os.Remove	tmpName	source-unmigrated
-internal/install/metadata.go	(*MetadataStore).Save	os.Remove	tmpName	source-unmigrated
-internal/install/metadata.go	(*MetadataStore).Save	os.Rename	tmpName, target	source-unmigrated
-internal/install/metadata_migrate.go	cleanupOldRegistry	os.Remove	filepath.Join(dir, "registry.yaml")	source-unmigrated
+internal/install/metadata_migrate.go	cleanupOldRegistry	os.Remove	filepath.Join(parent, "registry.yaml")	config	the old registry.yaml in the folder above the skills or agents source: the config or project .skillshare folder
 internal/install/metadata_migrate.go	walkAgentSidecars	os.Remove	sidecarPath	agents
-internal/install/metadata_migrate.go	walkSkillDir	os.Remove	sidecarPath	source-unmigrated
 internal/instructions/convert.go	Apply	os.Remove	c.Path	plugin
 internal/instructions/convert.go	WriteFile	os.MkdirAll	filepath.Dir(path)	plugin
 internal/instructions/convert.go	WriteFile	os.WriteFile	path	plugin

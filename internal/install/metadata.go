@@ -8,6 +8,8 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	"skillshare/internal/sourcefs"
 )
 
 // MetadataFileName is the centralized metadata file stored in each directory.
@@ -295,11 +297,15 @@ func LoadMetadataOrNew(dir string) *MetadataStore {
 	return store
 }
 
-// Save writes .metadata.json atomically (temp file → rename).
+// Save writes .metadata.json atomically (temp file → rename) through a
+// handle at dir, so a .metadata.json that is a link is refused instead of
+// replaced.
 func (s *MetadataStore) Save(dir string) error {
-	if err := os.MkdirAll(dir, 0755); err != nil {
+	root, err := sourcefs.Create(dir)
+	if err != nil {
 		return fmt.Errorf("failed to create directory: %w", err)
 	}
+	defer root.Close()
 
 	data, err := json.MarshalIndent(s, "", "  ")
 	if err != nil {
@@ -307,30 +313,8 @@ func (s *MetadataStore) Save(dir string) error {
 	}
 	data = append(data, '\n')
 
-	target := filepath.Join(dir, MetadataFileName)
-	tmp, err := os.CreateTemp(dir, ".metadata-*.tmp")
-	if err != nil {
-		return fmt.Errorf("failed to create temp file: %w", err)
-	}
-	tmpName := tmp.Name()
-
-	if _, err := tmp.Write(data); err != nil {
-		tmp.Close()
-		os.Remove(tmpName)
-		return fmt.Errorf("failed to write temp file: %w", err)
-	}
-	if err := tmp.Chmod(metadataFileMode); err != nil {
-		tmp.Close()
-		os.Remove(tmpName)
-		return fmt.Errorf("failed to chmod temp file: %w", err)
-	}
-	if err := tmp.Close(); err != nil {
-		os.Remove(tmpName)
-		return fmt.Errorf("failed to close temp file: %w", err)
-	}
-	if err := os.Rename(tmpName, target); err != nil {
-		os.Remove(tmpName)
-		return fmt.Errorf("failed to rename temp file: %w", err)
+	if err := root.WriteFileAtomic(MetadataFileName, data, metadataFileMode); err != nil {
+		return fmt.Errorf("failed to save metadata: %w", err)
 	}
 	return nil
 }

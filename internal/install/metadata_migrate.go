@@ -7,6 +7,8 @@ import (
 	"strings"
 
 	"gopkg.in/yaml.v3"
+
+	"skillshare/internal/sourcefs"
 )
 
 // cleanupSidecars runs both skill and agent sidecar migration on dir.
@@ -64,9 +66,6 @@ func LoadMetadataWithMigration(dir, kind string) (*MetadataStore, error) {
 
 	// Phase 4: Clean up old registry.yaml (in dir and parent)
 	cleanupOldRegistry(dir)
-	if parent := filepath.Dir(dir); parent != dir {
-		cleanupOldRegistry(parent)
-	}
 
 	return store, nil
 }
@@ -137,6 +136,11 @@ func migrateSkillSidecars(store *MetadataStore, dir string) {
 	if err != nil {
 		return
 	}
+	root, err := sourcefs.Open(dir)
+	if err != nil {
+		return
+	}
+	defer root.Close()
 
 	for _, de := range entries {
 		if !de.IsDir() {
@@ -144,18 +148,22 @@ func migrateSkillSidecars(store *MetadataStore, dir string) {
 		}
 		skillName := de.Name()
 		skillPath := filepath.Join(dir, skillName)
-		walkSkillDir(store, skillPath, skillName, "")
+		walkSkillDir(store, root, skillPath, skillName, "")
 	}
 }
 
 // walkSkillDir recursively walks a skill directory to find .skillshare-meta.json sidecars.
-// group is the parent group prefix (empty for top-level skills).
-func walkSkillDir(store *MetadataStore, skillPath, name, group string) {
+// group is the parent group prefix (empty for top-level skills). A sidecar is
+// removed through root; one that is or sits below a link stays, and the next
+// load skips it again.
+func walkSkillDir(store *MetadataStore, root *sourcefs.Root, skillPath, name, group string) {
 	sidecarPath := filepath.Join(skillPath, MetaFileName)
 	if _, err := os.Stat(sidecarPath); err == nil {
 		// This directory has a sidecar — it's a leaf skill
 		mergeSkillSidecar(store, name, group, sidecarPath)
-		os.Remove(sidecarPath)
+		if rel, err := root.Rel(sidecarPath); err == nil {
+			root.Remove(rel) //nolint:errcheck
+		}
 		return
 	}
 
@@ -171,7 +179,7 @@ func walkSkillDir(store *MetadataStore, skillPath, name, group string) {
 			if group != "" {
 				subGroup = group + "/" + name
 			}
-			walkSkillDir(store, filepath.Join(skillPath, sub.Name()), sub.Name(), subGroup)
+			walkSkillDir(store, root, filepath.Join(skillPath, sub.Name()), sub.Name(), subGroup)
 		}
 	}
 }
@@ -339,7 +347,15 @@ func mergeAgentSidecar(store *MetadataStore, key, group, sidecarPath string) {
 	}
 }
 
-// cleanupOldRegistry removes registry.yaml from dir (best-effort, ignores errors).
+// cleanupOldRegistry removes the old registry.yaml from dir, through a
+// handle so a registry.yaml that is a link stays, and from the config folder
+// above dir.
 func cleanupOldRegistry(dir string) {
-	os.Remove(filepath.Join(dir, "registry.yaml"))
+	if root, err := sourcefs.Open(dir); err == nil {
+		root.Remove("registry.yaml") //nolint:errcheck
+		root.Close()
+	}
+	if parent := filepath.Dir(dir); parent != dir {
+		os.Remove(filepath.Join(parent, "registry.yaml"))
+	}
 }
