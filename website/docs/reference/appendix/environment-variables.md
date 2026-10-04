@@ -356,6 +356,32 @@ $env:SKILLSHARE_GIT_TOKEN = "your_token"
 
 ---
 
+## Plugins {#plugins}
+
+### SKILLSHARE_CODEX_CLI
+
+The Codex CLI that [plugin commands](/docs/reference/commands/plugin) run, on this machine only. Set it when Skillshare cannot find Codex by itself. It is read from the environment, so a `config.yaml` shared between macOS and Windows does not need a path that is wrong on the other one.
+
+Without it, Skillshare runs `codex` from `PATH`, then tries these places:
+
+| OS | Places |
+|---|---|
+| macOS | `/opt/homebrew/bin/codex`, `/usr/local/bin/codex`, and the CLI inside the Codex app (`/Applications/Codex.app` or `~/Applications/Codex.app`) |
+| Windows | The CLI the Codex app installs, `%LOCALAPPDATA%\OpenAI\Codex\bin\<version>\codex.exe` (the newest one) |
+
+```bash
+export SKILLSHARE_CODEX_CLI=/Applications/Codex.app/Contents/Resources/codex
+```
+
+**Windows:**
+```powershell
+$env:SKILLSHARE_CODEX_CLI = "C:\Tools\codex.exe"
+```
+
+An [account target](/docs/reference/commands/plugin#accounts) with its own `cli` keeps that `cli`.
+
+---
+
 ## Git SSL / TLS {#git-ssl--tls}
 
 These standard Git environment variables are passed through to all git operations. They are useful for self-hosted Git servers (GitLab, Gitea, etc.) with self-signed certificates or internal CAs.
@@ -455,6 +481,7 @@ export GITHUB_TOKEN="ghp_your_token_here"
 | `GITEA_TOKEN` | Gitea git clone + Contents API auth | None |
 | `CNB_TOKEN` | CNB git clone + contents API auth | None |
 | `SKILLSHARE_GIT_TOKEN` | Generic git clone auth (fallback) | None |
+| `SKILLSHARE_CODEX_CLI` | Codex CLI for plugin commands on this machine | `codex` on `PATH`, then known install places |
 | `GIT_SSL_CAINFO` | Custom CA certificate bundle path | System default |
 | `GIT_SSL_NO_VERIFY` | Disable SSL certificate verification | `false` |
 | `SKILLSHARE_TEST_BINARY` | Test binary path | `bin/skillshare` |

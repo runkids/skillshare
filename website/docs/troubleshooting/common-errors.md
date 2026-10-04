@@ -630,6 +630,15 @@ The same rule applies to `restore`: `restore is not supported in project mode (e
 2. If it is installed, add its directory to the `PATH` of whatever starts Skillshare, such as the scheduled job's environment.
 3. For an [account target](/docs/reference/commands/plugin#accounts), you can set `cli` to the executable's absolute path instead.
 
+### `Codex CLI not found on the machine running Skillshare` {#plugin-codex-not-found}
+
+**Cause:** Skillshare looked for the Codex CLI on `PATH`, in the Homebrew folders, and inside the Codex desktop app, and found none. The message lists every place it looked.
+
+**Solutions:**
+
+1. Install the Codex app or the Codex CLI on that machine.
+2. If Codex is somewhere else, set [`SKILLSHARE_CODEX_CLI`](/docs/reference/appendix/environment-variables#skillshare_codex_cli) to its path in the environment that starts Skillshare, such as the scheduled job. It stays on that machine, so a config shared with another OS is not affected.
+
 ### `The native marketplace X is gone` {#plugin-marketplace-gone}
 
 **Cause:** The plugin was imported, so Skillshare reinstalls it from the native marketplace it came from, and that marketplace is not registered in the Agent. This is common on a second machine: the import was recorded on the first machine only.

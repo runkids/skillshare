@@ -138,7 +138,21 @@ func (s *Service) run(ctx context.Context, target string, args ...string) ([]byt
 			bin = account.CLI
 		}
 	}
-	return run(ctx, dir, env, bin, args...)
+	if bin != "codex" {
+		return run(ctx, dir, env, bin, args...)
+	}
+	find := s.findCodex
+	if find == nil {
+		find = newCodexFinder().find
+	}
+	bin, looked := find()
+	out, err := run(ctx, dir, env, bin, args...)
+	if errors.Is(err, ErrCLIMissing) {
+		where := strings.Join(looked, ", ")
+		return nil, agentError{cause: ErrCLIMissing, key: "plugins.error.codexMissing", args: map[string]string{"looked": where},
+			message: fmt.Sprintf("Codex CLI not found on the machine running Skillshare (looked in: %s); install it there, or set %s to its path", where, codexCLIEnv)}
+	}
+	return out, err
 }
 
 func parseInventory(target string, data []byte, project string) ([]Installed, error) {

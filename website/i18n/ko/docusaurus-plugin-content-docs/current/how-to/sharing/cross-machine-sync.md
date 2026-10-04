@@ -205,7 +205,7 @@ Hooks에는 별도 파일이 없습니다. `config.yaml`의 `hooks:` 섹션을 �
 
 ### 각 머신에 남는 것 {#per-machine}
 
-- plugin을 설치하는 native CLI(`claude`, `codex` 등)는 Skillshare가 실행되는 곳에 설치되어 있고 `PATH`에 있어야 합니다. 예약 작업의 `PATH`는 터미널보다 짧은 경우가 많습니다.
+- plugin을 설치하는 native CLI(`claude`, `codex` 등)는 Skillshare가 실행되는 곳에 설치되어 있고 `PATH`에 있어야 합니다. 예약 작업의 `PATH`는 터미널보다 짧은 경우가 많습니다. Codex는 Codex 데스크톱 app과 Homebrew 폴더에서도 찾습니다. 다른 위치에 있는 머신에서는 [`SKILLSHARE_CODEX_CLI`](/docs/reference/appendix/environment-variables#skillshare_codex_cli)를 설정하세요.
 - 로그인, OAuth 토큰, native 신뢰 확인, 활성화/비활성화 상태는 각 Agent에 남습니다.
 - MCP 서버가 참조하는 환경 변수의 값.
 

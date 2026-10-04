@@ -174,6 +174,8 @@ type Host struct {
 	Error       string      `json:"error,omitempty"`
 	ErrorKey    string      `json:"errorKey,omitempty"`
 	Installed   []Installed `json:"installed"`
+	// ErrorArgs fill the {placeholders} of ErrorKey's sentence.
+	ErrorArgs map[string]string `json:"errorArgs,omitempty"`
 	// Marketplaces maps each Claude/Codex marketplace name to its root; nil when unknown.
 	Marketplaces map[string]string `json:"marketplaces,omitempty"`
 	// ManagedMarketplaces names the ones Skillshare registered from its own state directory.
@@ -187,11 +189,11 @@ func (h *Host) fail(err error) {
 		h.Installed = []Installed{}
 	}
 	h.Error = err.Error()
-	h.ErrorKey = ""
+	h.ErrorKey, h.ErrorArgs = "", nil
 	h.Status = HostBlocked
 	var keyed agentError
 	if errors.As(err, &keyed) {
-		h.ErrorKey = keyed.key
+		h.ErrorKey, h.ErrorArgs = keyed.key, keyed.args
 	}
 	if errors.Is(err, ErrCLIMissing) {
 		h.Status = HostMissing
@@ -268,6 +270,8 @@ type Service struct {
 	// extra links into Pi's folder is shown as that extra's file.
 	ExtrasSources map[string]string
 	Run           Runner
+	// findCodex stands in for the Codex CLI search in tests; nil searches this machine.
+	findCodex func() (string, []string)
 }
 
 func (b Binding) Selected() bool { return b.Sync == nil || *b.Sync }

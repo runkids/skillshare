@@ -693,6 +693,15 @@ Agent はベース名（`.md` を除く）でマッチするため、`draft-*` �
 2. インストール済みなら、Skillshare を起動するもの（スケジュールされたジョブの環境など）の `PATH` にそのディレクトリを追加します。
 3. [account target](/docs/reference/commands/plugin#accounts) の場合は、代わりに `cli` に実行ファイルの絶対パスを設定できます。
 
+### `Codex CLI not found on the machine running Skillshare` {#plugin-codex-not-found}
+
+**原因:** Skillshare は `PATH`、Homebrew のフォルダー、Codex デスクトップ app の中で Codex CLI を探しましたが、見つかりませんでした。メッセージには探したすべての場所が表示されます。
+
+**解決策:**
+
+1. そのマシンに Codex app または Codex CLI をインストールします。
+2. Codex が別の場所にある場合は、Skillshare を起動する環境（スケジュールされたジョブなど）で [`SKILLSHARE_CODEX_CLI`](/docs/reference/appendix/environment-variables#skillshare_codex_cli) にそのパスを設定します。この設定はそのマシンだけに残るため、他の OS と共有する config には影響しません。
+
 ### `The native marketplace X is gone` {#plugin-marketplace-gone}
 
 **原因:** この plugin はインポートされたものなので、Skillshare は元のネイティブ marketplace から再インストールしますが、その marketplace が Agent に登録されていません。2 台目のマシンでよく起こります。インポートは最初のマシンでしか記録されていないためです。

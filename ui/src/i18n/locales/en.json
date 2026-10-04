@@ -2278,6 +2278,7 @@
   "plugins.reason.antigravity-cli": "To update, use Antigravity CLI itself. Skillshare does not reinstall the plugin for updates because that could change whether it is enabled in Antigravity.",
   "plugins.reason.grok": "Install the plugin in Grok and approve its permissions first. Then choose Import installed here. Skillshare can track and remove it; installation and updates stay in Grok.",
   "plugins.error.cliMissing": "This CLI is not installed or not on PATH on the machine running Skillshare; install it there before syncing plugins.",
+  "plugins.error.codexMissing": "Skillshare cannot find the Codex CLI (looked in: {looked}). Install it on the machine running Skillshare, or set SKILLSHARE_CODEX_CLI to its path.",
   "plugins.error.timeout": "The command timed out or was cancelled; check the Agent before retrying.",
   "plugins.error.network": "Could not reach the plugin source. Check your network connection and try again.",
   "plugins.error.sourceNotFound": "The plugin source was not found. Check the repository address and branch, and whether the repository is private.",

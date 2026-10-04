@@ -15,7 +15,7 @@ export interface PluginInventory {
   packages: Record<string, PluginPackage>;
   /** `status`: 'ready' | 'missing' (its CLI is not on PATH here) | 'blocked' (deal with it in the Agent). */
   /** `managedMarketplaces`: the Claude/Codex marketplaces Skillshare registered from its own state directory. */
-  hosts: { target: PluginTarget; version: string; status: string; error?: string; errorKey?: string; note?: string; noteKey?: string; installed: NativePlugin[]; managedMarketplaces?: string[] }[];
+  hosts: { target: PluginTarget; version: string; status: string; error?: string; errorKey?: string; errorArgs?: Record<string, string>; note?: string; noteKey?: string; installed: NativePlugin[]; managedMarketplaces?: string[] }[];
 }
 /**
  * What Sync would do to one binding, '' when nothing. Without `host` (the Agents have not

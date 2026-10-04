@@ -205,7 +205,7 @@ Hooks 沒有獨立的檔案。把 `config.yaml` 的 `hooks:` 區段複製到另�
 
 ### 留在各台機器上的部分 {#per-machine}
 
-- 安裝 plugin 用的 native CLI（`claude`、`codex` 等）必須安裝在 Skillshare 執行的環境中，並且在 `PATH` 上。排程工作的 `PATH` 通常比你的終端機短。
+- 安裝 plugin 用的 native CLI（`claude`、`codex` 等）必須安裝在 Skillshare 執行的環境中，並且在 `PATH` 上。排程工作的 `PATH` 通常比你的終端機短。Codex 也會從 Codex 桌面 app 和 Homebrew 的資料夾裡找；裝在其他位置的機器，請設定 [`SKILLSHARE_CODEX_CLI`](/docs/reference/appendix/environment-variables#skillshare_codex_cli)。
 - 登入狀態、OAuth token、native 信任確認，以及啟用/停用狀態，都留在各個 Agent 裡。
 - MCP server 參照的環境變數的值。
 

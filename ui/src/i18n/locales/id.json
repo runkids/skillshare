@@ -2278,6 +2278,7 @@
   "plugins.reason.antigravity-cli": "Pembaruan perlu ditinjau di Antigravity CLI agar status aktif native tetap terjaga.",
   "plugins.reason.grok": "Pasang atau perbarui di Grok untuk menyelesaikan kepercayaan native, lalu impor.",
   "plugins.error.cliMissing": "CLI ini belum terpasang atau tidak ada di PATH mesin yang menjalankan Skillshare; pasang di sana sebelum menyinkronkan plugin.",
+  "plugins.error.codexMissing": "Skillshare tidak menemukan CLI Codex (dicari di: {looked}). Pasang di mesin yang menjalankan Skillshare, atau atur SKILLSHARE_CODEX_CLI ke path-nya.",
   "plugins.error.timeout": "Perintah kehabisan waktu atau dibatalkan; periksa Agent sebelum mencoba lagi.",
   "plugins.error.network": "Tidak dapat menjangkau sumber plugin. Periksa koneksi jaringan Anda lalu coba lagi.",
   "plugins.error.sourceNotFound": "Sumber plugin tidak ditemukan. Periksa alamat repositori dan branch, serta apakah repositori itu privat.",

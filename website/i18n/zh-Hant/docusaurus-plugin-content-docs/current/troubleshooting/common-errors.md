@@ -630,6 +630,15 @@ skillshare backup -p --all           # 效果相同（會縮小範圍到 Agent�
 2. 如果已經安裝，把它所在的目錄加到啟動 Skillshare 的程式的 `PATH`，例如排程工作的環境變數。
 3. 若是 [account target](/docs/reference/commands/plugin#accounts)，也可以把 `cli` 設成執行檔的絕對路徑。
 
+### `Codex CLI not found on the machine running Skillshare` {#plugin-codex-not-found}
+
+**原因：** Skillshare 在 `PATH`、Homebrew 的資料夾和 Codex 桌面 app 裡找 Codex CLI，都沒有找到。訊息會列出找過的每個位置。
+
+**解決方法：**
+
+1. 在那台機器上安裝 Codex app 或 Codex CLI。
+2. 如果 Codex 裝在其他地方，在啟動 Skillshare 的環境（例如排程工作）把 [`SKILLSHARE_CODEX_CLI`](/docs/reference/appendix/environment-variables#skillshare_codex_cli) 設成它的路徑。這個設定只留在那台機器，不會影響和其他作業系統共用的 config。
+
 ### `The native marketplace X is gone` {#plugin-marketplace-gone}
 
 **原因：** 這個 plugin 是匯入的，所以 Skillshare 會從它原本的原生 marketplace 重新安裝，但 Agent 裡沒有註冊這個 marketplace。這在第二台機器上很常見：匯入只記錄在第一台機器上。

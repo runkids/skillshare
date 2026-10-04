@@ -2278,6 +2278,7 @@
   "plugins.reason.antigravity-cli": "Updates müssen in der Antigravity CLI geprüft werden, damit der native Aktivierungsstatus erhalten bleibt.",
   "plugins.reason.grok": "Installiere oder aktualisiere in Grok, um die native Vertrauensfreigabe abzuschließen, und importiere danach.",
   "plugins.error.cliMissing": "Diese CLI ist nicht installiert oder nicht im PATH der Maschine, auf der Skillshare läuft; installiere sie dort, bevor du Plugins synchronisierst.",
+  "plugins.error.codexMissing": "Skillshare findet die Codex CLI nicht (gesucht in: {looked}). Installiere sie auf der Maschine, auf der Skillshare läuft, oder setze SKILLSHARE_CODEX_CLI auf ihren Pfad.",
   "plugins.error.timeout": "Der Befehl hat das Zeitlimit überschritten oder wurde abgebrochen; prüfe den Agent, bevor du es erneut versuchst.",
   "plugins.error.network": "Die Plugin-Quelle ist nicht erreichbar. Prüfe deine Netzwerkverbindung und versuche es erneut.",
   "plugins.error.sourceNotFound": "Die Plugin-Quelle wurde nicht gefunden. Prüfe Repository-Adresse und Branch und ob das Repository privat ist.",

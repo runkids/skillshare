@@ -308,5 +308,15 @@ describe('PluginsPage', () => {
     expect(screen.getByRole('link', { name: 'Kimi Code · plugins.officialDocs' })).toHaveAttribute('href', 'https://www.kimi.com/code/docs/en/kimi-code-cli/customization/plugins');
     expect(screen.getByRole('link', { name: 'Codex · plugins.officialDocs' })).toHaveAttribute('rel', 'noopener noreferrer');
   });
+  it('says where Skillshare looked for a missing Codex CLI', async () => {
+    vi.mocked(pluginsApi.list).mockResolvedValue({
+      packages: {},
+      targetDefinitions: [{ target: 'codex', label: 'Codex', project: false, operations: ['add'] }],
+      hosts: [{ target: 'codex', version: '', status: 'missing', installed: [], error: 'Codex CLI not found', errorKey: 'plugins.error.codexMissing', errorArgs: { looked: 'PATH, /Applications/Codex.app/Contents/Resources/codex' } }],
+    });
+    mount();
+    fireEvent.click(await screen.findByRole('button', { name: /Codex/ }));
+    expect(screen.getByText('plugins.hostMissing').parentElement!.parentElement!).toHaveTextContent('plugins.error.codexMissing');
+  });
 
 });

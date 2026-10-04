@@ -2278,6 +2278,7 @@
   "plugins.reason.antigravity-cli": "更新はネイティブの有効状態を保つため、Antigravity CLI での確認が必要です。",
   "plugins.reason.grok": "Grok でインストールまたは更新してネイティブの信頼を完了してから、インポートしてください。",
   "plugins.error.cliMissing": "この CLI はインストールされていないか、Skillshare を実行しているマシンの PATH にありません。plugin を同期する前に、そのマシンにインストールしてください。",
+  "plugins.error.codexMissing": "Skillshare は Codex CLI を見つけられません（確認した場所: {looked}）。Skillshare を実行しているマシンにインストールするか、SKILLSHARE_CODEX_CLI にそのパスを設定してください。",
   "plugins.error.timeout": "コマンドがタイムアウトまたはキャンセルされました。Agent の状態を確認してから再試行してください。",
   "plugins.error.network": "プラグインのソースに接続できませんでした。ネットワーク接続を確認して、もう一度お試しください。",
   "plugins.error.sourceNotFound": "プラグインのソースが見つかりません。リポジトリのアドレスとブランチ、リポジトリが非公開でないかを確認してください。",

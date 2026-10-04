@@ -64,7 +64,7 @@ export default function PluginsPage() {
   const agentLabel = (target: string) => pluginTargets[target]?.label ?? (target || t('plugins.skillshareOnly'));
   // The backend keys its fixed sentences; a message it assembled at runtime has no key
   // and is shown as it came, which is also what the CLI prints.
-  const message = (key: string | undefined, text: string | undefined) => (key ? t(key, undefined, text) : text ?? '');
+  const message = (key: string | undefined, text: string | undefined, args?: Record<string, string>) => (key ? t(key, args, text) : text ?? '');
   const refresh = () => {
     void cache.invalidateQueries({ queryKey: queryKeys.plugins });
     void cache.invalidateQueries({ queryKey: queryKeys.config });
@@ -236,7 +236,7 @@ export default function PluginsPage() {
               return (
                 <div key={h.target}>
                   <div className="ss-gh"><span className="ss-at"><AgentIcon target={h.target} size={17} /></span><span className="font-semibold">{(pluginTargets[h.target]?.label ?? h.target)}</span><span className="ss-cnt">{h.installed.length}</span></div>
-                  {h.installed.length === 0 && <div className="ss-r !min-h-11"><span className="text-[13px] text-ink-3">{message(h.errorKey, h.error) || t('plugins.absent')}</span></div>}
+                  {h.installed.length === 0 && <div className="ss-r !min-h-11"><span className="text-[13px] text-ink-3">{message(h.errorKey, h.error, h.errorArgs) || t('plugins.absent')}</span></div>}
                   {h.installed.map((i) => (
                     <div key={i.id} className="ss-r !min-h-11">
                       <span className="min-w-0 flex-1 truncate font-mono text-[13px] font-semibold" title={i.id}>{i.id}</span>

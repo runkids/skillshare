@@ -2278,6 +2278,7 @@
   "plugins.reason.antigravity-cli": "برای حفظ وضعیت فعال‌سازی بومی، به‌روزرسانی‌ها باید در Antigravity CLI بررسی شوند.",
   "plugins.reason.grok": "در Grok نصب یا به‌روزرسانی کنید تا اعتماد بومی کامل شود، سپس وارد کنید.",
   "plugins.error.cliMissing": "این CLI نصب نشده یا در PATH ماشینی که Skillshare را اجرا می‌کند نیست؛ پیش از همگام‌سازی plugin آن را همان‌جا نصب کنید.",
+  "plugins.error.codexMissing": "Skillshare نمی‌تواند CLI مربوط به Codex را پیدا کند (جاهای بررسی‌شده: {looked}). آن را روی ماشینی که Skillshare را اجرا می‌کند نصب کنید، یا SKILLSHARE_CODEX_CLI را برابر مسیر آن قرار دهید.",
   "plugins.error.timeout": "زمان اجرای فرمان تمام شد یا لغو شد؛ پیش از تلاش دوباره وضعیت را در Agent بررسی کنید.",
   "plugins.error.network": "دسترسی به منبع افزونه ممکن نشد. اتصال شبکه را بررسی کنید و دوباره تلاش کنید.",
   "plugins.error.sourceNotFound": "منبع افزونه پیدا نشد. نشانی مخزن و شاخه را بررسی کنید و ببینید آیا مخزن خصوصی است.",

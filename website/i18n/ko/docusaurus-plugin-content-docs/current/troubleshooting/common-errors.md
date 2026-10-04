@@ -630,6 +630,15 @@ skillshare backup -p --all           # 위와 동일 (agent로 좁혀짐)
 2. 이미 설치되어 있다면, Skillshare를 시작하는 쪽(예: 예약 작업의 환경)의 `PATH`에 그 디렉터리를 추가하세요.
 3. [account target](/docs/reference/commands/plugin#accounts)이라면 대신 `cli`에 실행 파일의 절대 경로를 설정할 수 있습니다.
 
+### `Codex CLI not found on the machine running Skillshare` {#plugin-codex-not-found}
+
+**Cause:** Skillshare가 `PATH`, Homebrew 폴더, Codex 데스크톱 app 안에서 Codex CLI를 찾았지만 찾지 못했습니다. 메시지에 찾아본 모든 위치가 표시됩니다.
+
+**Solutions:**
+
+1. 해당 머신에 Codex app 또는 Codex CLI를 설치하세요.
+2. Codex가 다른 곳에 있다면 Skillshare를 시작하는 환경(예: 예약 작업)에서 [`SKILLSHARE_CODEX_CLI`](/docs/reference/appendix/environment-variables#skillshare_codex_cli)를 그 경로로 설정하세요. 이 설정은 해당 머신에만 남으므로 다른 OS와 공유하는 config에는 영향을 주지 않습니다.
+
 ### `The native marketplace X is gone` {#plugin-marketplace-gone}
 
 **Cause:** 이 plugin은 import된 것이므로 Skillshare는 원래의 네이티브 marketplace에서 다시 설치하는데, 그 marketplace가 Agent에 등록되어 있지 않습니다. 두 번째 머신에서 흔히 발생합니다. import는 첫 번째 머신에만 기록되기 때문입니다.

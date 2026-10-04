@@ -205,7 +205,7 @@ Hooks には別ファイルがありません。`config.yaml` の `hooks:` セ�
 
 ### 各マシンに残るもの {#per-machine}
 
-- plugin をインストールする native CLI（`claude`、`codex` など）は、Skillshare を実行する環境にインストールされ、`PATH` 上にある必要があります。スケジュールされたジョブの `PATH` は、ターミナルより短いことがよくあります。
+- plugin をインストールする native CLI（`claude`、`codex` など）は、Skillshare を実行する環境にインストールされ、`PATH` 上にある必要があります。スケジュールされたジョブの `PATH` は、ターミナルより短いことがよくあります。Codex は Codex デスクトップ app と Homebrew のフォルダーからも探されます。別の場所にあるマシンでは [`SKILLSHARE_CODEX_CLI`](/docs/reference/appendix/environment-variables#skillshare_codex_cli) を設定してください。
 - サインイン、OAuth トークン、native の信頼確認、有効/無効の状態は各 Agent に残ります。
 - MCP サーバーが参照する環境変数の値。
 

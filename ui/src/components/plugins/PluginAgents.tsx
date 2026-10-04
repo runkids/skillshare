@@ -28,14 +28,14 @@ export default function PluginAgents({ inventory, ready, refreshing, disabled, o
   const label = (target: string) => labels[target]?.label ?? target;
   // The backend keys its fixed sentences; a message it assembled at runtime has no key
   // and is shown as it came, which is also what the CLI prints.
-  const message = (key: string | undefined, text: string | undefined) => (key ? t(key, undefined, text) : text ?? '');
+  const message = (key: string | undefined, text: string | undefined, args?: Record<string, string>) => (key ? t(key, args, text) : text ?? '');
   // Native registrations need not be managed by Skillshare; extension selection stays on each Pi target.
   const piTargets = new Set((useSyncedTargetsQuery().data?.targets ?? []).filter(isPiTarget).map((x) => x.name));
   const manual = inventory.hosts.filter((h) => labels[h.target]?.operations.length === 0);
   const byStatus = (status: string) => inventory.hosts.filter((h) => h.status === status && !manual.includes(h));
   const reasoned = (hosts: PluginInventory['hosts']) => hosts.map((h) => (
-    <RailRow key={h.target} target={h.target} label={label(h.target)} dim sub={message(h.errorKey, h.error)}
-      detail={<><span>{message(h.errorKey, h.error)}</span><PluginDocsLink target={h.target} label={label(h.target)} /></>} />
+    <RailRow key={h.target} target={h.target} label={label(h.target)} dim sub={message(h.errorKey, h.error, h.errorArgs)}
+      detail={<><span>{message(h.errorKey, h.error, h.errorArgs)}</span><PluginDocsLink target={h.target} label={label(h.target)} /></>} />
   ));
 
   return (
@@ -66,7 +66,9 @@ export default function PluginAgents({ inventory, ready, refreshing, disabled, o
           {/* One cause shared by every Agent here, so it is stated once instead of per row. */}
           {byStatus('missing').length > 0 && (
             <RailGroup label={t('plugins.hostMissing')} count={byStatus('missing').length} foot={t('plugins.hostMissingHelp')}>
-              {byStatus('missing').map((h) => <RailRow key={h.target} target={h.target} label={label(h.target)} dim right={<PluginDocsLink target={h.target} label={label(h.target)} />} />)}
+              {byStatus('missing').map((h) => h.errorArgs
+                ? reasoned([h])[0]
+                : <RailRow key={h.target} target={h.target} label={label(h.target)} dim right={<PluginDocsLink target={h.target} label={label(h.target)} />} />)}
             </RailGroup>
           )}
         </>

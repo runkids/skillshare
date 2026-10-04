@@ -356,6 +356,32 @@ $env:SKILLSHARE_GIT_TOKEN = "your_token"
 
 ---
 
+## Plugin {#plugins}
+
+### SKILLSHARE_CODEX_CLI
+
+[Plugin 指令](/docs/reference/commands/plugin)要執行的 Codex CLI，只對這台機器有效。Skillshare 自己找不到 Codex 時再設定。它從環境變數讀取，所以 macOS 和 Windows 共用同一份 `config.yaml` 時，不需要寫一個在另一台機器上錯誤的路徑。
+
+沒有設定時，Skillshare 先從 `PATH` 執行 `codex`，再依序嘗試這些位置：
+
+| 作業系統 | 位置 |
+|---|---|
+| macOS | `/opt/homebrew/bin/codex`、`/usr/local/bin/codex`，以及 Codex app 內附的 CLI（`/Applications/Codex.app` 或 `~/Applications/Codex.app`） |
+| Windows | Codex app 安裝的 CLI：`%LOCALAPPDATA%\OpenAI\Codex\bin\<version>\codex.exe`（取最新的一份） |
+
+```bash
+export SKILLSHARE_CODEX_CLI=/Applications/Codex.app/Contents/Resources/codex
+```
+
+**Windows:**
+```powershell
+$env:SKILLSHARE_CODEX_CLI = "C:\Tools\codex.exe"
+```
+
+自己設了 `cli` 的 [account target](/docs/reference/commands/plugin#accounts) 仍使用那個 `cli`。
+
+---
+
 ## Git SSL / TLS {#git-ssl--tls}
 
 這些標準 Git 環境變數會被傳遞給所有 git 操作。對於使用自簽憑證或內部 CA 的自架 Git 伺服器（GitLab、Gitea 等）非常實用。
@@ -455,6 +481,7 @@ export GITHUB_TOKEN="ghp_your_token_here"
 | `GITEA_TOKEN` | Gitea git clone + Contents API 驗證 | 無 |
 | `CNB_TOKEN` | CNB git clone + contents API 驗證 | 無 |
 | `SKILLSHARE_GIT_TOKEN` | 通用 git clone 驗證（備援） | 無 |
+| `SKILLSHARE_CODEX_CLI` | 這台機器上 plugin 指令使用的 Codex CLI | `PATH` 上的 `codex`，再找已知的安裝位置 |
 | `GIT_SSL_CAINFO` | 自訂 CA 憑證組合檔路徑 | 系統預設值 |
 | `GIT_SSL_NO_VERIFY` | 停用 SSL 憑證驗證 | `false` |
 | `SKILLSHARE_TEST_BINARY` | 測試執行檔路徑 | `bin/skillshare` |

@@ -205,7 +205,7 @@ Hooks have no separate file. Copy the `hooks:` section of `config.yaml` to the o
 
 ### What stays on each machine {#per-machine}
 
-- The native CLIs that install plugins (`claude`, `codex`, and so on) must be installed and on `PATH` where Skillshare runs. A scheduled job often has a shorter `PATH` than your terminal.
+- The native CLIs that install plugins (`claude`, `codex`, and so on) must be installed and on `PATH` where Skillshare runs. A scheduled job often has a shorter `PATH` than your terminal. Codex is also found inside the Codex desktop app and in Homebrew's folders; set [`SKILLSHARE_CODEX_CLI`](/docs/reference/appendix/environment-variables#skillshare_codex_cli) on a machine where it is elsewhere.
 - Sign-ins, OAuth tokens, native trust prompts and enabled/disabled state stay in each Agent.
 - The values of environment variables that MCP servers reference.
 

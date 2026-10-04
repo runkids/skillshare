@@ -2278,6 +2278,7 @@
   "plugins.reason.antigravity-cli": "需要更新时，请直接在 Antigravity CLI 内操作。Skillshare 暂不以重新安装的方式更新，以免改变你在 Antigravity 里的启用设置。",
   "plugins.reason.grok": "请先在 Grok 安装 plugin 并确认允许使用，再到这里选择“导入已安装”。Skillshare 可以记录与移除它；安装和更新仍需在 Grok 内操作。",
   "plugins.error.cliMissing": "这个 CLI 没有安装，或不在运行 Skillshare 这台机器的 PATH 上；要先在那里安装才能同步 plugin。",
+  "plugins.error.codexMissing": "Skillshare 找不到 Codex CLI（找过：{looked}）。请在运行 Skillshare 的这台机器上安装，或把 SKILLSHARE_CODEX_CLI 设为它的路径。",
   "plugins.error.timeout": "命令超时或被取消；请先在 Agent 内确认状态再重试。",
   "plugins.error.network": "无法连接 plugin 来源。请检查网络连接后重试。",
   "plugins.error.sourceNotFound": "找不到 plugin 来源。请确认仓库地址和分支，以及仓库是否为私有。",

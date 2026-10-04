@@ -122,7 +122,7 @@ func (s *Service) Preview(ctx context.Context, r Request) (*Plan, error) {
 		// A change already blocked keeps its own reason; the key always matches the message.
 		if h.Error != "" && c.Action != "blocked" {
 			c.Action = "blocked"
-			c.Message, c.MessageKey, c.MessageArgs = h.Error, h.ErrorKey, nil
+			c.Message, c.MessageKey, c.MessageArgs = h.Error, h.ErrorKey, h.ErrorArgs
 		}
 		if c.Action != "blocked" && c.Action != "noop" && c.Action != "skip" && c.Action != "import" && c.Action != "update-available" && c.Action != "native-check" {
 			if err := s.verifyCommand(ctx, c.Target, c.Action, c.ID); err != nil {
