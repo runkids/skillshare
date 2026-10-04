@@ -48,6 +48,20 @@ func PrepareFollowedUpdate(sourceDir, repoPath string, follow *sourcewalk.Follow
 	return policy, nil
 }
 
+// RefuseFollowedSkillUpdate refuses a regular skill below a followed entry
+// before any fetch, audit, or write. Only the followed repository itself is
+// updated, through PrepareFollowedUpdate.
+func RefuseFollowedSkillUpdate(skillRel string, follow *sourcewalk.FollowSet) error {
+	if follow == nil {
+		return nil
+	}
+	entry, followed := follow.InFollowed(filepath.ToSlash(skillRel))
+	if !followed {
+		return nil
+	}
+	return fmt.Errorf("%w: skill %s is inside followed entry %s; skillshare does not reinstall skills in a followed tree", ErrFollowedUpdate, filepath.ToSlash(skillRel), entry.Name)
+}
+
 // CheckClean fails closed when git cannot inspect the user's working tree.
 func (p *FollowedUpdate) CheckClean() error {
 	cmd := exec.Command("git", "status", "--porcelain", "-z", "--untracked-files=all")

@@ -80,6 +80,7 @@ func executeBatchUpdate(uc *updateContext, targets []updateTarget) (updateResult
 	var statusFailedEntries []batchBlockedEntry
 	var followedFailedEntries []batchBlockedEntry
 	failedFollowed := make(map[string]bool)
+	refusedSkills := 0
 
 	// Group skills by RepoURL to optimize updates
 	repoGroups := make(map[string][]updateTarget)
@@ -89,6 +90,13 @@ func executeBatchUpdate(uc *updateContext, targets []updateTarget) (updateResult
 	for _, t := range targets {
 		if t.isRepo {
 			trackedRepos = append(trackedRepos, t)
+			continue
+		}
+		if err := install.RefuseFollowedSkillUpdate(t.name, uc.follow); err != nil {
+			refusedSkills++
+			followedFailedEntries = append(followedFailedEntries, batchBlockedEntry{name: t.name, errMsg: err.Error()})
+			failedFollowed[t.name] = true
+			result.items = append(result.items, updateJSONItem{Name: t.name, Type: "skill", Status: "failed", Error: err.Error()})
 			continue
 		}
 		if t.meta != nil && t.meta.RepoURL != "" {
@@ -116,7 +124,7 @@ func executeBatchUpdate(uc *updateContext, targets []updateTarget) (updateResult
 
 	// Create a single progress bar up front — phase headers are rendered
 	// inline via SetHeader so the bar never duplicates on screen.
-	progressBar := ui.StartProgress("Updating skills", total)
+	progressBar := ui.StartProgress("Updating skills", total-refusedSkills)
 
 	// Phase 1: tracked repos (git pull)
 	if len(trackedRepos) > 0 {
@@ -372,8 +380,11 @@ func executeBatchUpdate(uc *updateContext, targets []updateTarget) (updateResult
 	if len(statusFailedEntries) > 0 {
 		errs = append(errs, fmt.Errorf("%d repo(s) failed to check git status", len(statusFailedEntries)))
 	}
-	if len(followedFailedEntries) > 0 {
-		errs = append(errs, fmt.Errorf("%d followed repo(s) refused update", len(followedFailedEntries)))
+	if repos := len(followedFailedEntries) - refusedSkills; repos > 0 {
+		errs = append(errs, fmt.Errorf("%d followed repo(s) refused update", repos))
+	}
+	if refusedSkills > 0 {
+		errs = append(errs, fmt.Errorf("%d skill(s) in followed trees refused update", refusedSkills))
 	}
 	return result, errors.Join(errs...)
 }

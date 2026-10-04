@@ -230,6 +230,9 @@ func updateTrackedRepo(uc *updateContext, repoName string) (updateResult, error)
 
 func updateRegularSkill(uc *updateContext, skillName string) (updateResult, error) {
 	skillPath := filepath.Join(uc.sourcePath, skillName)
+	if err := install.RefuseFollowedSkillUpdate(skillName, uc.follow); err != nil {
+		return updateResult{items: []updateJSONItem{{Name: skillName, Type: "skill", Status: "failed", Error: err.Error()}}}, err
+	}
 
 	// Read metadata to get source
 	store, storeErr := install.LoadMetadataWithMigration(uc.sourcePath, "")

@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"skillshare/internal/audit"
@@ -166,5 +167,116 @@ func TestFollowedAuditZeroCoverageRollsBack(t *testing.T) {
 	}
 	if testutil.RunGit(t, f.target, "rev-parse", "HEAD") != before {
 		t.Fatal("zero-coverage error did not roll back")
+	}
+}
+
+type followGroupFixture struct {
+	follow                     *sourcewalk.FollowSet
+	checkout, ordinary, before string
+	expected                   string
+	store                      *install.MetadataStore
+}
+
+// addFollowedGroupSkills declares a followed non-_ group holding metadata-backed
+// skills: group/g is a git checkout (the direct pull path) and group/plain is a
+// grouped reinstall. An ordinary checkout outside the group must still update.
+func addFollowedGroupSkills(t *testing.T, f followUpdateFixture) followGroupFixture {
+	t.Helper()
+	base := t.TempDir()
+	remote := testutil.SetupBareRemoteRepo(t, base)
+	testutil.SeedRemoteBranch(t, base, remote, "main", map[string]string{"SKILL.md": "---\nname: g\ndescription: Fixture\n---\n# G\n"})
+	group := filepath.Join(base, "group")
+	checkout, ordinary := filepath.Join(group, "g"), filepath.Join(f.source, "ordinary")
+	for _, path := range []string{checkout, ordinary} {
+		testutil.RunGit(t, "", "clone", remote, path)
+	}
+	if err := os.MkdirAll(filepath.Join(group, "plain"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(group, "plain", "SKILL.md"), []byte("# Plain\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(group, filepath.Join(f.source, "group")); err != nil {
+		t.Skip(err)
+	}
+	if err := os.WriteFile(filepath.Join(f.source, ".skillfollow"), []byte("_dev\ngroup\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	follow := skillFollowSet(f.source, nil, f.source)
+	if len(follow.Followed()) != 2 {
+		t.Fatalf("unexpected entries: %+v", follow.Entries())
+	}
+	url := "file://" + filepath.ToSlash(remote)
+	store := install.NewMetadataStore()
+	store.Set("group/g", &install.MetadataEntry{Source: url})
+	store.Set("group/plain", &install.MetadataEntry{Source: url + "//plain", RepoURL: url, Subdir: "plain"})
+	store.Set("ordinary", &install.MetadataEntry{Source: url})
+	if err := store.Save(f.source); err != nil {
+		t.Fatal(err)
+	}
+	before := testutil.RunGit(t, checkout, "rev-parse", "HEAD")
+	expected := commitFollowUpdateFile(t, filepath.Join(base, "seed-main"), "remote.txt", "new")
+	testutil.RunGit(t, filepath.Join(base, "seed-main"), "push", "origin", "HEAD:main")
+	return followGroupFixture{follow: follow, checkout: checkout, ordinary: ordinary, before: before, expected: expected, store: store}
+}
+
+func TestFollowedGroupSkillUpdateRefused(t *testing.T) {
+	for _, dryRun := range []bool{false, true} {
+		t.Run(map[bool]string{false: "real", true: "dry-run"}[dryRun], func(t *testing.T) {
+			f := newFollowUpdateFixture(t)
+			g := addFollowedGroupSkills(t, f)
+			uc := &updateContext{sourcePath: f.source, follow: g.follow, opts: &updateOptions{skipAudit: true, dryRun: dryRun}}
+
+			single, err := updateRegularSkill(uc, "group/g")
+			if !errors.Is(err, install.ErrFollowedUpdate) || len(single.items) != 1 || single.items[0].Status != "failed" || single.skipped != 0 {
+				t.Fatalf("single: %+v %v", single, err)
+			}
+
+			var targets []updateTarget
+			for _, name := range []string{"group/g", "group/plain", "ordinary"} {
+				targets = append(targets, updateTarget{name: name, path: filepath.Join(f.source, name), meta: g.store.GetByPath(name)})
+			}
+			result, err := executeBatchUpdate(uc, targets)
+			if err == nil || len(result.items) != 2 {
+				t.Fatalf("batch: %+v %v", result, err)
+			}
+			for i, name := range []string{"group/g", "group/plain"} {
+				item := result.items[i]
+				if item.Name != name || item.Status != "failed" || !strings.Contains(item.Error, install.ErrFollowedUpdate.Error()) {
+					t.Fatalf("refusal not reported for %s: %+v", name, result.items)
+				}
+			}
+			if !dryRun && (result.updated != 1 || testutil.RunGit(t, g.ordinary, "rev-parse", "HEAD") != g.expected) {
+				t.Fatalf("ordinary skill did not update: %+v", result)
+			}
+			if testutil.RunGit(t, g.checkout, "rev-parse", "HEAD") != g.before {
+				t.Fatal("refusal pulled the user's checkout")
+			}
+		})
+	}
+}
+
+func TestFollowedGroupSkillUpdateRefusedProjectAll(t *testing.T) {
+	f := newFollowUpdateFixture(t)
+	g := addFollowedGroupSkills(t, f)
+	uc := &updateContext{sourcePath: f.source, projectRoot: filepath.Dir(f.source), follow: g.follow, opts: &updateOptions{skipAudit: true}}
+	result, err := updateAllProjectSkills(uc)
+	if result == nil || err == nil {
+		t.Fatalf("missing refusal: %+v %v", result, err)
+	}
+	refused := map[string]bool{}
+	for _, item := range result.items {
+		if item.Status == "failed" && strings.Contains(item.Error, install.ErrFollowedUpdate.Error()) {
+			refused[item.Name] = true
+		}
+	}
+	if !refused["group/g"] || !refused["group/plain"] {
+		t.Fatalf("group skills not refused: %+v", result.items)
+	}
+	if testutil.RunGit(t, g.checkout, "rev-parse", "HEAD") != g.before {
+		t.Fatal("refusal pulled the user's checkout")
+	}
+	if testutil.RunGit(t, g.ordinary, "rev-parse", "HEAD") != g.expected {
+		t.Fatal("ordinary skill did not update")
 	}
 }
