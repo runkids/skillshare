@@ -393,7 +393,7 @@ func (s *Server) auditGateTrackedRepo(name, repoPath, beforeHash string, force b
 	follow := s.skillFollowSet()
 	rel, relErr := filepath.Rel(s.cfg.EffectiveSkillsSource(), repoPath)
 	followed := false
-	if follow != nil && relErr == nil {
+	if relErr == nil {
 		_, followed = follow.InFollowed(filepath.ToSlash(rel))
 	}
 	if followed {
@@ -638,7 +638,7 @@ func getServerUpdatableSkills(sourceDir string, store *install.MetadataStore, op
 	if err != nil {
 		return nil, err
 	}
-	if opts.Follow != nil && opts.Follow.Err() != nil {
+	if opts.Follow.Err() != nil {
 		return nil, opts.Follow.Err()
 	}
 	return skills, nil

@@ -403,7 +403,7 @@ func (s *Server) handleAuditSkill(w http.ResponseWriter, r *http.Request) {
 		// unreadable declaration refuses the scan as discovery does.
 		input := skillsToAuditInputs([]skillEntry{{name, skillPath}}, source, follow)[0]
 		switch {
-		case follow != nil && follow.Err() != nil:
+		case follow.Err() != nil:
 			err = follow.Err()
 		case input.Followed:
 			result, err = audit.ScanResolvedSkill(skillPath, scan)

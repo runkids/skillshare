@@ -212,38 +212,56 @@ func follow(root string, opts FollowOptions, links linkOps) FollowSet {
 func readFollowDir(path string) ([]os.DirEntry, error) { return os.ReadDir(path) }
 
 // Entries returns classifications in declaration order, followed by undeclared links.
-func (s FollowSet) Entries() []Entry { return append([]Entry(nil), s.entries...) }
+func (s *FollowSet) Entries() []Entry {
+	if s == nil {
+		return nil
+	}
+	return append([]Entry(nil), s.entries...)
+}
 
 // ParsedEntries returns accepted, deduplicated declaration names in file order.
-func (s FollowSet) ParsedEntries() []string { return append([]string(nil), s.parsed...) }
+func (s *FollowSet) ParsedEntries() []string {
+	if s == nil {
+		return nil
+	}
+	return append([]string(nil), s.parsed...)
+}
 
 // Warnings returns parse and classification diagnostics.
-func (s FollowSet) Warnings() []string { return append([]string(nil), s.warnings...) }
+func (s *FollowSet) Warnings() []string {
+	if s == nil {
+		return nil
+	}
+	return append([]string(nil), s.warnings...)
+}
 
 // DeclarationWarnings returns file-read and parser diagnostics, without entry states.
-func (s FollowSet) DeclarationWarnings() []string {
+func (s *FollowSet) DeclarationWarnings() []string {
+	if s == nil {
+		return nil
+	}
 	return append([]string(nil), s.declarationWarnings...)
 }
 
 // Active reports whether either declaration file was read.
-func (s FollowSet) Active() bool { return s.active }
+func (s *FollowSet) Active() bool { return s != nil && s.active }
 
 // HasLocal reports whether .skillfollow.local was read.
-func (s FollowSet) HasLocal() bool { return s.local }
+func (s *FollowSet) HasLocal() bool { return s != nil && s.local }
 
 // Followed returns only available followed directories.
-func (s FollowSet) Followed() []Entry {
+func (s *FollowSet) Followed() []Entry {
 	return s.selectEntries(func(e Entry) bool { return e.State == Followed })
 }
 
 // Unavailable returns declared entries that cannot supply complete discovery.
-func (s FollowSet) Unavailable() []Entry {
+func (s *FollowSet) Unavailable() []Entry {
 	return s.selectEntries(func(e Entry) bool { return e.State != Followed && e.State != NotLink && e.State != UndeclaredLink })
 }
 
 // PrunePauses names each unavailable entry that pauses prune, with the step
 // that resumes cleanup. source is the skills source path shown to the user.
-func (s FollowSet) PrunePauses(source string) []string {
+func (s *FollowSet) PrunePauses(source string) []string {
 	var messages []string
 	for _, entry := range s.Unavailable() {
 		messages = append(messages, fmt.Sprintf("prune paused: %s is %s; restore or fix %s, or remove %s from .skillfollow[.local], to resume cleanup",
@@ -251,7 +269,10 @@ func (s FollowSet) PrunePauses(source string) []string {
 	}
 	return messages
 }
-func (s FollowSet) selectEntries(match func(Entry) bool) []Entry {
+func (s *FollowSet) selectEntries(match func(Entry) bool) []Entry {
+	if s == nil {
+		return nil
+	}
 	var result []Entry
 	for _, entry := range s.entries {
 		if match(entry) {
@@ -263,7 +284,10 @@ func (s FollowSet) selectEntries(match func(Entry) bool) []Entry {
 
 // Owns reports containment in the canonical source or a currently followed target.
 // The input must already be canonical; this is containment, not link identity.
-func (s FollowSet) Owns(resolvedPath string) bool {
+func (s *FollowSet) Owns(resolvedPath string) bool {
+	if s == nil {
+		return false
+	}
 	if s.canonicalRoot != "" && containsPath(s.canonicalRoot, resolvedPath) {
 		return true
 	}
@@ -277,7 +301,10 @@ func (s FollowSet) Owns(resolvedPath string) bool {
 
 // InFollowed finds a declared logical prefix, including unavailable entries.
 // Real directories (not-link) and undeclared links are not followed boundaries.
-func (s FollowSet) InFollowed(logicalRel string) (Entry, bool) {
+func (s *FollowSet) InFollowed(logicalRel string) (Entry, bool) {
+	if s == nil {
+		return Entry{}, false
+	}
 	clean := filepath.ToSlash(filepath.Clean(logicalRel))
 	if filepath.IsAbs(logicalRel) || clean == ".." || strings.HasPrefix(clean, "../") {
 		return Entry{}, false
@@ -310,7 +337,12 @@ func (s *FollowSet) WriteBoundary(source, logicalRel string) error {
 }
 
 // Err reports declaration and traversal read failures, even if callbacks ignored them.
-func (s FollowSet) Err() error { return errors.Join(s.declarationError, errors.Join(s.walkErrors...)) }
+func (s *FollowSet) Err() error {
+	if s == nil {
+		return nil
+	}
+	return errors.Join(s.declarationError, errors.Join(s.walkErrors...))
+}
 
 func (s *FollowSet) markMissing(name string, err error) {
 	s.walkErrors = append(s.walkErrors, fmt.Errorf("incomplete discovery of %s: %w", name, err))
@@ -326,4 +358,9 @@ func (s *FollowSet) markMissing(name string, err error) {
 // SourceRoot returns the canonical source parent to which declarations are bound.
 // It does not resolve any declared final component, so git guards can inspect
 // the link entry itself rather than its external target.
-func (s FollowSet) SourceRoot() string { return s.canonicalRoot }
+func (s *FollowSet) SourceRoot() string {
+	if s == nil {
+		return ""
+	}
+	return s.canonicalRoot
+}

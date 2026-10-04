@@ -553,7 +553,7 @@ func SyncTargetMergeWithSkillsOptions(name string, target config.TargetConfig, a
 	}
 	result.Warnings = resolution.UnmatchedIncludeWarnings()
 	scope := newFollowScope(sourcePath, opts.Follow)
-	paused := len(scope.unavailable()) > 0
+	paused := len(scope.set.Unavailable()) > 0
 
 	manifest, err := ReadManifest(sc.Path)
 	if err != nil {

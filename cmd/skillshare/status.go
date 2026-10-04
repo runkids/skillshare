@@ -82,7 +82,7 @@ func buildSkillfollowJSON(follow *sourcewalk.FollowSet) *statusJSONSourceFollow 
 // addSkillfollowPausesJSON names the entries that pause prune in status JSON.
 func addSkillfollowPausesJSON(source *statusJSONSource, follow *sourcewalk.FollowSet) {
 	if source.Skillfollow != nil {
-		source.Skillfollow.PrunePaused = skillfollowPauses(source.Path, follow)
+		source.Skillfollow.PrunePaused = follow.PrunePauses(source.Path)
 	}
 }
 

@@ -15,7 +15,7 @@ import (
 // metadata, but it fails like discovery when the operation's snapshot is
 // incomplete, so callers cannot act on a partial view of the source.
 func GetUpdatableSkillsWithOptions(sourceDir string, opts sourcewalk.Options) ([]string, error) {
-	if opts.Follow != nil && opts.Follow.Err() != nil {
+	if opts.Follow.Err() != nil {
 		return nil, opts.Follow.Err()
 	}
 	store, err := LoadMetadata(sourceDir)
@@ -247,7 +247,7 @@ func GetTrackedReposWithOptions(sourceDir string, opts sourcewalk.Options) ([]st
 	if err != nil {
 		return nil, err
 	}
-	if opts.Follow != nil && opts.Follow.Err() != nil {
+	if opts.Follow.Err() != nil {
 		return nil, opts.Follow.Err()
 	}
 	return repos, nil

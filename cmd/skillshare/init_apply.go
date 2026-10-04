@@ -186,7 +186,7 @@ func applyRemote(p *initPlan, res *initResult, hadRepo bool) {
 	follow := globalSkillFollowSet(res.cfg)
 	if discovered, _, err := ssync.DiscoverSourceSkillsWithOptions(p.source(), ssync.DiscoveryOptions{Follow: follow}); err == nil {
 		res.pulled = len(discovered)
-	} else if follow != nil && follow.Err() != nil {
+	} else if follow.Err() != nil {
 		res.pullErr = err
 	}
 }

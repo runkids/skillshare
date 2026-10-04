@@ -37,12 +37,3 @@ func configuredSkillFollowSet(source string) *sourcewalk.FollowSet {
 	}
 	return skillFollowSet(source, nil, source)
 }
-
-// skillfollowPauses names each unavailable entry that pauses prune, with the
-// step that resumes cleanup.
-func skillfollowPauses(source string, follow *sourcewalk.FollowSet) []string {
-	if follow == nil {
-		return nil
-	}
-	return follow.PrunePauses(source)
-}

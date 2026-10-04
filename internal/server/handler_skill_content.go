@@ -258,7 +258,7 @@ func (s *Server) findMetadataEntry(name, kind, source, agentsSource string) *met
 	if kind != "agent" && source != "" {
 		follow := s.skillFollowSet()
 		discovered, err := sync.DiscoverSourceSkillsAllWithOptions(source, sync.DiscoveryOptions{Follow: follow})
-		if err != nil && follow != nil && follow.Err() != nil {
+		if err != nil && follow.Err() != nil {
 			return nil
 		}
 		if err == nil {
@@ -329,7 +329,7 @@ func (s *Server) resolveEditableSkillPath(source, agentsSource, name, kind strin
 		follow := s.skillFollowSet()
 		s.mu.RUnlock()
 		discovered, err := sync.DiscoverSourceSkillsAllWithOptions(source, sync.DiscoveryOptions{Follow: follow})
-		if err != nil && follow != nil && follow.Err() != nil {
+		if err != nil && follow.Err() != nil {
 			return "", "", err
 		}
 		if err == nil {

@@ -225,7 +225,7 @@ func printSkillfollowLine(source string, follow *sourcewalk.FollowSet) {
 		hint += " (.local active)"
 	}
 	ui.Note(fmt.Sprintf("%s: %d entries, %d skipped", hint, len(follow.ParsedEntries()), len(follow.Unavailable())))
-	for _, message := range skillfollowPauses(source, follow) {
+	for _, message := range follow.PrunePauses(source) {
 		ui.Warning("%s", message)
 	}
 }

@@ -183,7 +183,7 @@ func resolveUninstallTarget(skillName, sourceDir, sourceLabel string, follow *so
 // whose names match the given glob pattern (e.g. "core-*", "_team-?").
 func resolveUninstallByGlob(pattern, sourceDir string, follow *sourcewalk.FollowSet) ([]*uninstallTarget, error) {
 	entries, err := sourcewalk.ReadDir(sourceDir, sourcewalk.Options{Follow: follow})
-	if follow != nil && follow.Err() != nil {
+	if follow.Err() != nil {
 		return nil, follow.Err()
 	}
 	if err != nil {
@@ -305,7 +305,7 @@ func resolveNestedSkillDir(sourceDir, name, sourceLabel string, follow *sourcewa
 		return "", fmt.Errorf("failed to search for skill '%s': %w", name, walkErr)
 	}
 
-	if follow != nil && follow.Err() != nil {
+	if follow.Err() != nil {
 		return "", follow.Err()
 	}
 

@@ -408,7 +408,7 @@ func checkFollowedIgnores(result *doctorResult, follow *sourcewalk.FollowSet) {
 
 // checkSkillfollowPauses names each unavailable entry that pauses prune.
 func checkSkillfollowPauses(result *doctorResult, source string, follow *sourcewalk.FollowSet) {
-	for _, message := range skillfollowPauses(source, follow) {
+	for _, message := range follow.PrunePauses(source) {
 		ui.Row(ui.MarkWarn, "Skillfollow", message, doctorWidth)
 		result.addWarning()
 		result.addCheck("skillfollow_prune", checkWarning, message, nil)

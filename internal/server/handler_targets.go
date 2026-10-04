@@ -96,7 +96,7 @@ func (s *Server) handleListTargets(w http.ResponseWriter, r *http.Request) {
 
 	items := make([]targetItem, 0, len(targets))
 	discovered, _, discoveredErr := ssync.DiscoverSourceSkillsWithOptions(source, ssync.DiscoveryOptions{Follow: follow})
-	if discoveredErr != nil && follow != nil && follow.Err() != nil {
+	if discoveredErr != nil && follow.Err() != nil {
 		writeError(w, http.StatusInternalServerError, discoveredErr.Error())
 		return
 	}

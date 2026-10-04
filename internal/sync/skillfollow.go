@@ -31,19 +31,10 @@ func newFollowScope(sourcePath string, set *sourcewalk.FollowSet) followScope {
 	return followScope{set: set, source: abs, canonSource: canon}
 }
 
-// unavailable returns the declared entries that make discovery incomplete.
-// While any exists, nothing absent from discovery can be attributed.
-func (s followScope) unavailable() []sourcewalk.Entry {
-	if s.set == nil {
-		return nil
-	}
-	return s.set.Unavailable()
-}
-
 // paused lists the entries that pause prune, as "name (state)".
 func (s followScope) paused() []string {
 	var names []string
-	for _, entry := range s.unavailable() {
+	for _, entry := range s.set.Unavailable() {
 		names = append(names, entry.Name+" ("+string(entry.State)+")")
 	}
 	return names
@@ -61,7 +52,7 @@ func PrunePaused(sourcePath string, set *sourcewalk.FollowSet) []string {
 // existing managed copy may be the only copy of its content. Flat names carry
 // the logical prefix and proceed.
 func KeepsManagedCopies(sourcePath, targetNaming string, set *sourcewalk.FollowSet) bool {
-	return len(newFollowScope(sourcePath, set).unavailable()) > 0 &&
+	return len(newFollowScope(sourcePath, set).set.Unavailable()) > 0 &&
 		config.EffectiveTargetNaming(targetNaming) != "flat"
 }
 

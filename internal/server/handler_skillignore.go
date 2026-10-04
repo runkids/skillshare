@@ -65,7 +65,7 @@ func (s *Server) handleGetSkillignore(w http.ResponseWriter, r *http.Request) {
 
 	// Always discover stats — tracked repos may have their own .skillignore
 	_, stats, discoverErr := sync.DiscoverSourceSkillsWithOptions(source, sync.DiscoveryOptions{Follow: follow, CollectIgnored: true})
-	if discoverErr != nil && follow != nil && follow.Err() != nil {
+	if discoverErr != nil && follow.Err() != nil {
 		writeError(w, http.StatusInternalServerError, discoverErr.Error())
 		return
 	}

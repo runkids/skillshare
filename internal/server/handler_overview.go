@@ -109,7 +109,7 @@ func (s *Server) handleOverview(w http.ResponseWriter, r *http.Request) {
 func buildTrackedReposWithOptions(sourceDir string, skills []sync.DiscoveredSkill, opts sourcewalk.Options) ([]trackedRepoItem, error) {
 	repoNames, err := install.GetTrackedReposWithOptions(sourceDir, opts)
 	if err != nil || len(repoNames) == 0 {
-		if opts.Follow != nil && opts.Follow.Err() != nil {
+		if opts.Follow.Err() != nil {
 			return nil, opts.Follow.Err()
 		}
 		return []trackedRepoItem{}, nil
