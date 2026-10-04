@@ -64,6 +64,7 @@ A `_`-prefixed entry with `.git` is treated as a tracked repository; other follo
 - Use a direct child name only. Reject `.`, `..`, absolute paths, drive/volume names such as `C:`, UNC paths, names containing `/` or `\`, or names changed by path cleaning.
 - No glob or negation syntax: `*`, `?`, `[`, `]`, `{`, `}`, `!`, and NUL are rejected. Invalid lines produce warnings, not followed entries.
 - Only declared first-level links are followed. Nested links inside a followed tree are not traversed.
+- A declared entry is never created by skillshare, even while its link is offline: `install` (plain, `--into`, `--track`, bare reinstall), `new`, and the dashboard create and install routes refuse a destination inside a declared entry with `<source>/<entry> is a link; edit its target directly` (409 on the dashboard), and a tracked repository recorded inside a declared entry is never listed as missing or rehydrated.
 
 ## States and recovery {#states}
 

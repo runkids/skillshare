@@ -64,6 +64,7 @@ git rm --cached -- '_team-skills'
 - 只能是直接子条目名称；拒绝 `.`、`..`、绝对路径、`C:` 等 volume/drive 名称、UNC、`/`、`\`，及 path cleaning 会改变的名称。
 - 不接受 glob/否定：`*`、`?`、`[`、`]`、`{`、`}`、`!`、NUL 都拒绝。无效行产生警告，不成为 followed 条目。
 - 只跟随声明的第一层链接，不遍历 followed tree 内的嵌套链接。
+- skillshare 绝不会创建已声明的条目，即使其链接离线也一样：`install`（普通、`--into`、`--track`、无参数重装）、`new` 与 Dashboard 的 create/install 对声明条目内的目的地以 `<source>/<entry> is a link; edit its target directly` 拒绝（Dashboard 为 409）；记录在声明条目内的 tracked repo 不会被列为 missing，也不会被 rehydrate。
 
 ## 状态与恢复 {#states}
 
