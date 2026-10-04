@@ -507,11 +507,11 @@ func collectInstalledAgentPaths(agentsSourcePath string) ([]auditSkillRef, error
 	return agentPaths, nil
 }
 
-func discoverForKind(kind resourceKindFilter, sourcePath string) ([]auditSkillRef, error) {
+func discoverForKind(kind resourceKindFilter, sourcePath string, follow *sourcewalk.FollowSet) ([]auditSkillRef, error) {
 	if kind == kindAgents {
 		return collectInstalledAgentPaths(sourcePath)
 	}
-	return collectInstalledSkillPaths(sourcePath, nil)
+	return collectInstalledSkillPaths(sourcePath, follow)
 }
 
 func toInputsForKind(kind resourceKindFilter, items []auditSkillRef) []audit.SkillInput {
@@ -649,6 +649,7 @@ func auditInstalled(sourcePath, agentsSourcePath, mode, projectRoot, threshold s
 		threshold:        threshold,
 		registry:         reg,
 		mode:             mode,
+		follow:           opts.Follow,
 	}
 	if err := presentAuditResults(results, elapsed, scanResults, summary, jsonOutput, opts, time.Since(scanStart), tuiCtx); err != nil {
 		return results, summary, err
@@ -794,6 +795,7 @@ func auditFiltered(sourcePath, agentsSourcePath string, names, groups []string, 
 		threshold:        threshold,
 		registry:         reg,
 		mode:             mode,
+		follow:           opts.Follow,
 	}
 	if err := presentAuditResults(results, elapsed, scanResults, summary, jsonOutput, opts, time.Since(scanStart), tuiCtx); err != nil {
 		return results, summary, err
