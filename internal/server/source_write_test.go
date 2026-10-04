@@ -83,3 +83,23 @@ func TestHandlePutSkillignore_RefusesLinkedFile(t *testing.T) {
 		assertLinkKept(t, filepath.Join(src, ".skillignore"), shared, "# shared\n")
 	}
 }
+
+func TestHandleCreateSkill_RefusesIntoThroughLink(t *testing.T) {
+	s, src := newTestServer(t)
+	external := t.TempDir()
+	if err := os.Symlink(external, filepath.Join(src, "linked")); err != nil {
+		t.Fatal(err)
+	}
+
+	body := `{"name":"my-tool","pattern":"none","into":"linked"}`
+	req := httptest.NewRequest(http.MethodPost, "/api/resources", bytes.NewBufferString(body))
+	rr := httptest.NewRecorder()
+	s.handler.ServeHTTP(rr, req)
+
+	if rr.Code == http.StatusCreated || !strings.Contains(rr.Body.String(), "is a link") {
+		t.Fatalf("expected a link refusal, got %d: %s", rr.Code, rr.Body.String())
+	}
+	if entries, _ := os.ReadDir(external); len(entries) != 0 {
+		t.Fatalf("external tree changed: %v", entries)
+	}
+}

@@ -8,6 +8,7 @@ import (
 
 	"skillshare/internal/config"
 	"skillshare/internal/skill"
+	"skillshare/internal/sourcefs"
 	"skillshare/internal/ui"
 	"skillshare/internal/utils"
 )
@@ -145,26 +146,31 @@ func cmdNew(args []string) error {
 		return nil
 	}
 
-	// Create directory
-	if err := os.MkdirAll(skillDir, 0755); err != nil {
+	// Create directory through the source handle, so a link in the way is
+	// refused instead of written through.
+	src, err := sourcefs.Create(sourceDir)
+	if err != nil {
+		return fmt.Errorf("failed to create directory: %w", err)
+	}
+	defer src.Close()
+	if err := src.MkdirAll(skillName, 0755); err != nil {
 		return fmt.Errorf("failed to create directory: %w", err)
 	}
 
 	// Write SKILL.md
-	if err := os.WriteFile(skillFile, []byte(template), 0644); err != nil {
+	if err := src.WriteFile(filepath.Join(skillName, "SKILL.md"), []byte(template), 0644); err != nil {
 		// Clean up directory on failure
-		os.RemoveAll(skillDir)
+		src.RemoveAll(skillName)
 		return fmt.Errorf("failed to write SKILL.md: %w", err)
 	}
 
 	if len(scaffold) > 0 {
 		for _, dir := range scaffold {
-			dirPath := filepath.Join(skillDir, dir)
-			if err := os.MkdirAll(dirPath, 0755); err != nil {
+			dirPath := filepath.Join(skillName, dir)
+			if err := src.MkdirAll(dirPath, 0755); err != nil {
 				return fmt.Errorf("failed to create %s: %w", dir, err)
 			}
-			gitkeep := filepath.Join(dirPath, ".gitkeep")
-			if err := os.WriteFile(gitkeep, []byte{}, 0644); err != nil {
+			if err := src.WriteFile(filepath.Join(dirPath, ".gitkeep"), []byte{}, 0644); err != nil {
 				return fmt.Errorf("failed to create %s/.gitkeep: %w", dir, err)
 			}
 		}

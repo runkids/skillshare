@@ -10,6 +10,7 @@ import (
 	"unicode/utf8"
 
 	"skillshare/internal/skill"
+	"skillshare/internal/sourcefs"
 	"skillshare/internal/utils"
 )
 
@@ -117,8 +118,16 @@ func (s *Server) handleCreateSkill(w http.ResponseWriter, r *http.Request) {
 	// Generate SKILL.md content
 	content := req.content()
 
-	// Create directory
-	if err := os.MkdirAll(skillDir, 0755); err != nil {
+	// Create directory through the source handle, so an into path or name
+	// that crosses a link is refused instead of written through.
+	src, err := sourcefs.Create(source)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to create directory: "+err.Error())
+		return
+	}
+	defer src.Close()
+	skillRel := filepath.Join(req.Into, req.Name)
+	if err := src.MkdirAll(skillRel, 0755); err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to create directory: "+err.Error())
 		return
 	}
@@ -126,24 +135,22 @@ func (s *Server) handleCreateSkill(w http.ResponseWriter, r *http.Request) {
 	createdFiles := []string{"SKILL.md"}
 
 	// Write SKILL.md
-	skillFile := filepath.Join(skillDir, "SKILL.md")
-	if err := os.WriteFile(skillFile, []byte(content), 0644); err != nil {
-		os.RemoveAll(skillDir)
+	if err := src.WriteFile(filepath.Join(skillRel, "SKILL.md"), []byte(content), 0644); err != nil {
+		src.RemoveAll(skillRel)
 		writeError(w, http.StatusInternalServerError, "failed to write SKILL.md: "+err.Error())
 		return
 	}
 
 	// Create scaffold directories
 	for _, dir := range req.ScaffoldDirs {
-		dirPath := filepath.Join(skillDir, dir)
-		if err := os.MkdirAll(dirPath, 0755); err != nil {
-			os.RemoveAll(skillDir)
+		dirPath := filepath.Join(skillRel, dir)
+		if err := src.MkdirAll(dirPath, 0755); err != nil {
+			src.RemoveAll(skillRel)
 			writeError(w, http.StatusInternalServerError, fmt.Sprintf("failed to create %s: %s", dir, err.Error()))
 			return
 		}
-		gitkeep := filepath.Join(dirPath, ".gitkeep")
-		if err := os.WriteFile(gitkeep, []byte{}, 0644); err != nil {
-			os.RemoveAll(skillDir)
+		if err := src.WriteFile(filepath.Join(dirPath, ".gitkeep"), []byte{}, 0644); err != nil {
+			src.RemoveAll(skillRel)
 			writeError(w, http.StatusInternalServerError, fmt.Sprintf("failed to create %s/.gitkeep: %s", dir, err.Error()))
 			return
 		}

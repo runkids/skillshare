@@ -24,11 +24,6 @@ cmd/skillshare/init_remote.go	inspectRemote	os.MkdirTemp	""	tmp
 cmd/skillshare/init_remote.go	inspectRemote	os.RemoveAll	tmp	tmp
 cmd/skillshare/json_output.go	suppressUIToDevnull	os.OpenFile	os.DevNull	devnull
 cmd/skillshare/main.go	cleanupOldBinary	os.Remove	oldPath	binary
-cmd/skillshare/new.go	cmdNew	os.MkdirAll	dirPath	source-unmigrated
-cmd/skillshare/new.go	cmdNew	os.MkdirAll	skillDir	source-unmigrated
-cmd/skillshare/new.go	cmdNew	os.RemoveAll	skillDir	source-unmigrated
-cmd/skillshare/new.go	cmdNew	os.WriteFile	gitkeep	source-unmigrated
-cmd/skillshare/new.go	cmdNew	os.WriteFile	skillFile	source-unmigrated
 cmd/skillshare/restore_tui.go	(restoreTUIModel).startDelete	os.RemoveAll	tsDir	backup
 cmd/skillshare/restore_tui.go	(restoreTUIModel).startDelete	os.RemoveAll	version.Dir	backup
 cmd/skillshare/target.go	unlinkMergeMode	os.Remove	skillPath	target
@@ -282,13 +277,6 @@ internal/server/handler_agentignore.go	(*Server).handlePutAgentignore	os.WriteFi
 internal/server/handler_audit.go	(*Server).handlePutAuditRules	os.MkdirAll	filepath.Dir(path)	config
 internal/server/handler_audit.go	(*Server).handlePutAuditRules	os.WriteFile	path	config
 internal/server/handler_config.go	(*Server).handlePutConfig	os.WriteFile	s.configPath()	config
-internal/server/handler_create_skill.go	(*Server).handleCreateSkill	os.MkdirAll	dirPath	source-unmigrated
-internal/server/handler_create_skill.go	(*Server).handleCreateSkill	os.MkdirAll	skillDir	source-unmigrated
-internal/server/handler_create_skill.go	(*Server).handleCreateSkill	os.RemoveAll	skillDir	source-unmigrated
-internal/server/handler_create_skill.go	(*Server).handleCreateSkill	os.RemoveAll	skillDir	source-unmigrated
-internal/server/handler_create_skill.go	(*Server).handleCreateSkill	os.RemoveAll	skillDir	source-unmigrated
-internal/server/handler_create_skill.go	(*Server).handleCreateSkill	os.WriteFile	gitkeep	source-unmigrated
-internal/server/handler_create_skill.go	(*Server).handleCreateSkill	os.WriteFile	skillFile	source-unmigrated
 internal/server/handler_extensions.go	(*Server).handleExtensionsOpen	os.MkdirAll	dir	plugin
 internal/server/handler_extensions.go	(*Server).handleExtensionsRemove	os.RemoveAll	path	plugin
 internal/server/handler_extras.go	(*Server).handleExtrasCreate	os.MkdirAll	sourceDir	extras
