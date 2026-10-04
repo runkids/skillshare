@@ -105,7 +105,7 @@ git rm --cached -- '_team-skills'
 - **Doctor**：`skillfollow` 列宣告狀態，`skillfollow_prune` 列清理阻擋。未宣告連結維持 `undeclared_source_links` info。Git repo 內另檢查 indexed/`not-ignored` 連結與不安全的 local 檔，不修改檔案。
 - **`list --no-tui`**：followed tracked repo 加 `→ <resolved>`（家目錄可縮為 `~`）；skills 路徑仍為邏輯路徑，JSON 格式不變。
 - **Diff**：以與 sync 相同的規則預覽。宣告項目無法使用時不回報任何移除，顯示 `<target>: prune paused; unavailable .skillfollow entry: <name> (<state>)`，sync 會保留的 standard naming managed copy 列為 **Kept**。`diff --json` 逐 target 加上 `prune_paused` 與 `keep` 項目。Dashboard diff 加上 `prune_paused`，保留的 copy 顯示為 `skip`。它也依 sync 的 prune 規則預覽 followed orphan link：指向 followed 項目 resolved 位置的 managed merge link，在其 skill 退出 discovery 後列為 `prune`；你自行建立的同目標 link 列為 `local`。
-- **Dashboard**：Skills、Overview、Check、Update、Audit、Hub 可看到邏輯路徑（audit 透過 resolved root 掃描 followed skill）。內容編輯、解除安裝、啟停、target 覆寫、source URL 變更會拒絕。直接編輯外部樹，或在 **source-root `.skillignore`** 隱藏。尚無專用宣告編輯頁。Dashboard sync 與 CLI 共用 prune/copy 安全，逐 target 回報 `prune_paused`/`kept` 與警告；Targets 把 managed followed link 算為 linked 而非 local。
+- **Dashboard**：Skills、Overview、Check、Update、Audit、Hub 可看到邏輯路徑（audit 透過 resolved root 掃描 followed skill）。內容編輯、解除安裝、啟停、target 覆寫、source URL 變更會拒絕。直接編輯外部樹，或在 **source-root `.skillignore`** 隱藏。**Settings → Files → `.skillfollow`** 可編輯 `.skillfollow` 與 `.skillfollow.local`，顯示每個宣告項目的狀態、實際路徑與原因，並列出警告與 prune 暫停。儲存時無效名稱會連同行號被拒絕、檔案保持不變；儲存不建立連結、不改 `.gitignore`、不同步。Dashboard sync 與 CLI 共用 prune/copy 安全，逐 target 回報 `prune_paused`/`kept` 與警告；Targets 把 managed followed link 算為 linked 而非 local。
 
 可辨認的原始診斷：
 
@@ -146,7 +146,7 @@ Source **pull/reset/checkout** 也拒絕 indexed 宣告（包括不存在但仍 
 
 ## 限制
 
-單 skill 與宣告編輯頁仍是未來工作；巢狀連結不跟隨。在關閉 Developer Mode 的 Windows 11 ARM64 上，已用跟隨的 junction（管理員與 basic-user token）和目錄 symlink（管理員 token）驗證 global mode 的 discovery、status、sync、prune 暫停與恢復、update 拒絕、unfollow、`.skillfollow.local` 與 `invalid-target`。project mode 的相對連結、Developer Mode 的相對 symlink、以連結形式存在的 source root 或 target 上層目錄，以及 dashboard 在 Windows 上**尚未驗證**。`follow --to` 在 Windows 上透過 sync 使用的同一個 helper 建立 junction，這條路徑同樣尚未在真實 Windows 上執行過。
+單 skill 仍是未來工作；巢狀連結不跟隨。在關閉 Developer Mode 的 Windows 11 ARM64 上，已用跟隨的 junction（管理員與 basic-user token）和目錄 symlink（管理員 token）驗證 global mode 的 discovery、status、sync、prune 暫停與恢復、update 拒絕、unfollow、`.skillfollow.local` 與 `invalid-target`。project mode 的相對連結、Developer Mode 的相對 symlink、以連結形式存在的 source root 或 target 上層目錄，以及 dashboard 在 Windows 上**尚未驗證**。`follow --to` 在 Windows 上透過 sync 使用的同一個 helper 建立 junction，這條路徑同樣尚未在真實 Windows 上執行過。
 
 ## 另見
 

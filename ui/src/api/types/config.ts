@@ -43,6 +43,30 @@ export interface SkillignoreResponse {
   stats?: SkillignoreStats;
 }
 
+// Skillfollow types: the declaration files and the states status --json reports
+export interface SkillfollowFile {
+  path: string;
+  exists: boolean;
+  content: string;
+}
+
+export interface SkillfollowEntry {
+  name: string;
+  state: string;
+  resolved_target?: string;
+  reason: string;
+}
+
+export interface SkillfollowResponse {
+  base: SkillfollowFile;
+  local: SkillfollowFile;
+  active: boolean;
+  local_active: boolean;
+  entries: SkillfollowEntry[];
+  warnings: string[];
+  prune_paused: string[];
+}
+
 // Agentignore types
 export interface AgentignoreStats {
   pattern_count: number;

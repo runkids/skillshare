@@ -4,7 +4,7 @@ sidebar_position: 1
 
 # ui
 
-[`.skillfollow`](../skillfollow.md#visibility) は Skills、Overview、Check、Update、Audit、Hub で論理パスを表示。内容編集、uninstall、切替、target 上書き、source URL 書き込みは拒否します。外部ツリーを直接編集し、非表示には **source-root `.skillignore`** を使います。更新/staging/pull/checkout は CLI と同じ安全方針。Sync は target ごとの `prune_paused`/`kept` と警告を表示し、Targets は managed followed link を linked と数えます。宣言専用エディタはまだありません。
+[`.skillfollow`](../skillfollow.md#visibility) は Skills、Overview、Check、Update、Audit、Hub で論理パスを表示。内容編集、uninstall、切替、target 上書き、source URL 書き込みは拒否します。外部ツリーを直接編集し、非表示には **source-root `.skillignore`** を使います。更新/staging/pull/checkout は CLI と同じ安全方針。Sync は target ごとの `prune_paused`/`kept` と警告を表示し、Targets は managed followed link を linked と数えます。**Settings → Files → `.skillfollow`** で宣言ファイルを編集し、各エントリの状態を確認できます。
 
 視覚的な Skill 管理のための Web ダッシュボードを起動します。
 
@@ -99,7 +99,7 @@ skillshare ui start --clear-cache
 | **Targets** | ステータス付きの Target 一覧。**ターゲットを追加** では **別のアカウント** も選べます。すでに使っている Agent の 2 つ目の config フォルダで、書き込み先のプレビューが付きます。各 Target のページで include/exclude フィルタを編集し、ローカルのみの Skill を Source に collect し戻せる。一覧には各 Agent が受け取る MCP サーバー数も表示される。MCP 設定ファイルを持つ Target には **MCP** タブがあり、サーバーごとに 1 行で選ぶ。クリックするとすぐ保存され、**Sync all targets** ですべての Target の MCP ファイルに書き込まれる。各 Target には、そのファイル名のタブ（**CLAUDE.md**、**GEMINI.md**、**AGENTS.md** など）もあり、読み込み順を表示し、ファイルを編集し、`AGENTS.md` に変換できる |
 | **Projects** | global mode のみ。global config が sync する project フォルダーで、[`projects`](/docs/reference/targets/configuration#projects) と [`mcp.projects`](./mcp.md#projects-in-the-dashboard) から一覧される。**プロジェクトを追加** はフォルダー、その target、sync する内容を指定する。各 project には **Skills** と **Agents** タブがあり、フィルター、プレビュー、書き込まれるフォルダーを表示する。**MCP** タブでは、そのフォルダー内で global サーバーをオフにしたり、その project 独自のサーバーを追加したりでき、それらのサーバー用の **チェック** もある。**Sync project** はプレビューしてから、その project の skills、agents、MCP だけを sync する。すでに project フォルダーを指している Target は変換できる |
 | **Audit** | Skill と Agent のセキュリティスキャン。重大度別の検出結果を表示。**Rules** タブでは、カテゴリごとにすべてのルールを閲覧できる: ルールをオフにする、重大度を変更する、カテゴリ全体に重大度を適用する、スキャンプロファイル（`default`、`strict`、`permissive`）を選ぶ、カスタム `audit-rules.yaml` のエディタを開く、のいずれかができる |
-| **Settings** | タブ分け: **General**（Source パス、sync モード、外観）、**Backup**（Target フォルダのスナップショット、`AGENTS.md` などのファイルの以前のバージョン、MCP 設定のバックアップ。[`backup`](./backup.md#dashboard) を参照）、**Log**（操作履歴）、**Health**（[`doctor`](/docs/reference/commands/doctor) と同じチェック）、**Extensions**（sync 時のファイル変換）、**Files**（`config.yaml`、`.skillignore`、`.agentignore` の直接編集） |
+| **Settings** | タブ分け: **General**（Source パス、sync モード、外観）、**Backup**（Target フォルダのスナップショット、`AGENTS.md` などのファイルの以前のバージョン、MCP 設定のバックアップ。[`backup`](./backup.md#dashboard) を参照）、**Log**（操作履歴）、**Health**（[`doctor`](/docs/reference/commands/doctor) と同じチェック）、**Extensions**（sync 時のファイル変換）、**Files**（`config.yaml`、`.skillignore`、`.skillfollow`、`.agentignore` の直接編集。`.skillfollow` タブは `.skillfollow` と `.skillfollow.local` を切り替え、宣言エントリごとの状態・解決先・理由と、警告・prune 一時停止を表示） |
 
 変更一覧の横の **変更を破棄** は、確認後に選択した Git スコープ内の追跡中のファイルとステージング領域を最後のコミットに戻し、未追跡のファイルとフォルダーを削除します。Git に無視されたファイル、入れ子になった Git リポジトリ、`root` スコープの `config.yaml` は保持されます。コミット履歴の変更やリモートへのプッシュは行わず、この操作は元に戻せません。**ドライラン** はファイルを変更せずプレビューします。変更を破棄するには、リポジトリに最初のコミットが必要です。
 
@@ -184,6 +184,8 @@ Web ダッシュボードは `/api/` に REST API を公開しています。す
 | PUT | `/api/config` | 設定 YAML を更新 |
 | GET | `/api/skillignore` | `.skillignore` の内容 + ignore の統計を取得 |
 | PUT | `/api/skillignore` | `.skillignore` の内容を更新 |
+| GET | `/api/skillfollow` | `.skillfollow` と `.skillfollow.local` の内容、宣言エントリの状態、警告、prune 一時停止を取得 |
+| PUT | `/api/skillfollow` | `.skillfollow` または `.skillfollow.local` を書き込み（`file`: `base` または `local`）。無効な名前は 400、空の内容と `delete: true` でファイルを削除。リンク作成、`.gitignore` 変更、同期は行わない |
 | GET | `/api/doctor` | すべてのヘルスチェックを実行（JSON） |
 | GET | `/api/health` | 死活監視プローブ。サーバーの準備ができると `200` を返す |
 | GET | `/api/version` | 現在/最新バージョンとアップグレードの可否 |

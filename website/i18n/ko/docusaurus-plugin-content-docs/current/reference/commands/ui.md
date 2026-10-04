@@ -4,7 +4,7 @@ sidebar_position: 1
 
 # ui
 
-[`.skillfollow`](../skillfollow.md#visibility)는 Skills, Overview, Check, Update, Audit, Hub에서 논리 경로를 표시합니다. 내용, uninstall, 토글, target 덮어쓰기, source URL 쓰기는 거부합니다. 외부 트리를 직접 편집하고 **source-root `.skillignore`**로 숨기세요. 업데이트/staging/pull/checkout은 CLI와 같은 안전 정책입니다. Sync는 target별 `prune_paused`/`kept` 및 경고를 표시하고 Targets는 managed followed link를 linked로 계산합니다. 선언 전용 편집기는 아직 없습니다.
+[`.skillfollow`](../skillfollow.md#visibility)는 Skills, Overview, Check, Update, Audit, Hub에서 논리 경로를 표시합니다. 내용, uninstall, 토글, target 덮어쓰기, source URL 쓰기는 거부합니다. 외부 트리를 직접 편집하고 **source-root `.skillignore`**로 숨기세요. 업데이트/staging/pull/checkout은 CLI와 같은 안전 정책입니다. Sync는 target별 `prune_paused`/`kept` 및 경고를 표시하고 Targets는 managed followed link를 linked로 계산합니다. **Settings → Files → `.skillfollow`**에서 선언 파일을 편집하고 항목별 상태를 확인할 수 있습니다.
 
 시각적인 Skill 관리를 위한 웹 대시보드를 실행합니다.
 
@@ -99,7 +99,7 @@ skillshare ui start --clear-cache
 | **Targets** | 상태가 표시된 target 목록. **대상 추가**는 **다른 계정**도 받습니다. 이미 사용 중인 Agent의 두 번째 config 폴더이며, 어디에 기록되는지 미리보기로 보여줍니다. 각 target의 페이지에서 include/exclude 필터를 편집하고 로컬 전용 skill을 source로 다시 수집합니다. 목록에는 각 Agent가 받는 MCP 서버 수도 표시됩니다. MCP 설정 파일이 있는 target에는 **MCP** 탭이 있어 서버마다 한 행으로 고릅니다. 클릭하면 바로 저장되고 **Sync all targets**가 모든 target의 MCP 파일에 기록합니다. 각 target에는 지침 파일 이름을 딴 탭(**CLAUDE.md**, **GEMINI.md**, **AGENTS.md**, ...)도 있어, 읽는 순서를 보여 주고 파일을 편집하며 `AGENTS.md`로 변환합니다 |
 | **프로젝트** | Global mode 전용. global 설정이 동기화하는 프로젝트 폴더이며, [`projects`](/docs/reference/targets/configuration#projects)와 [`mcp.projects`](./mcp.md#projects-in-the-dashboard)에서 옵니다. **프로젝트 추가**는 폴더, 그 target, 동기화할 항목을 받습니다. 각 프로젝트에는 필터, 미리보기, 기록될 폴더를 보여주는 **Skills**와 **Agents** 탭, 그리고 해당 폴더에서 global 서버를 끄거나 프로젝트 자체 서버를 부여하며 그 서버를 위한 **검사**가 있는 **MCP** 탭이 있습니다. **Sync project**는 미리 본 뒤 해당 프로젝트의 skill, agent, MCP만 동기화합니다. 이미 프로젝트 폴더를 가리키는 Target은 변환할 수 있습니다 |
 | **Audit** | skill과 agent에 대한 보안 스캔이며, 심각도별로 findings를 표시합니다. **Rules** 탭에서는 카테고리별로 모든 rule을 탐색할 수 있습니다: rule을 끄거나, 심각도를 변경하거나, 카테고리 전체에 심각도를 적용하거나, 스캔 profile(`default`, `strict`, `permissive`)을 선택하거나, 사용자 지정 `audit-rules.yaml` 편집기를 엽니다 |
-| **Settings** | 탭으로 구성: **General**(source 경로, sync mode, 외관), **Backup**(대상 폴더 스냅샷, `AGENTS.md` 같은 파일의 이전 버전, MCP 설정 백업. [`backup`](./backup.md#dashboard) 참고), **Log**(작업 이력), **Health**([`doctor`](/docs/reference/commands/doctor)와 동일한 검사), **Extensions**(sync 시점의 파일 변환), **Files**(`config.yaml`, `.skillignore`, `.agentignore`를 위한 직접 편집기) |
+| **Settings** | 탭으로 구성: **General**(source 경로, sync mode, 외관), **Backup**(대상 폴더 스냅샷, `AGENTS.md` 같은 파일의 이전 버전, MCP 설정 백업. [`backup`](./backup.md#dashboard) 참고), **Log**(작업 이력), **Health**([`doctor`](/docs/reference/commands/doctor)와 동일한 검사), **Extensions**(sync 시점의 파일 변환), **Files**(`config.yaml`, `.skillignore`, `.skillfollow`, `.agentignore`를 위한 직접 편집기. `.skillfollow` 탭은 `.skillfollow`와 `.skillfollow.local`을 전환하고 선언 항목별 상태, 실제 경로, 이유와 경고, prune 일시 중지를 표시) |
 
 변경 목록 옆의 **변경 사항 버리기**는 확인 후 선택한 Git 범위 내의 추적 중인 파일과 스테이징 영역을 마지막 커밋으로 복원하고 추적되지 않은 파일과 폴더를 삭제합니다. Git에서 무시한 파일, 중첩된 Git 저장소 및 `root` 범위의 `config.yaml`은 유지됩니다. 커밋 기록을 변경하거나 원격 저장소로 푸시하지 않으며, 이 작업은 되돌릴 수 없습니다. **시험 실행**은 파일을 변경하지 않고 미리 봅니다. 변경 사항을 버리려면 저장소에 첫 번째 커밋이 있어야 합니다.
 
@@ -184,6 +184,8 @@ project mode(`-p`)로 실행할 때 대시보드는 다음과 같이 달라집�
 | PUT | `/api/config` | config YAML 업데이트 |
 | GET | `/api/skillignore` | `.skillignore` 내용 + ignore 통계 조회 |
 | PUT | `/api/skillignore` | `.skillignore` 내용 업데이트 |
+| GET | `/api/skillfollow` | `.skillfollow`와 `.skillfollow.local` 내용, 선언 항목 상태, 경고, prune 일시 중지 조회 |
+| PUT | `/api/skillfollow` | `.skillfollow` 또는 `.skillfollow.local` 쓰기(`file`: `base` 또는 `local`). 잘못된 이름은 400, 빈 내용과 `delete: true`는 파일 삭제. 링크 생성, `.gitignore` 변경, 동기화는 하지 않음 |
 | GET | `/api/doctor` | 모든 상태 검사 실행(JSON) |
 | GET | `/api/health` | liveness probe. 서버가 준비되면 `200`을 반환합니다 |
 | GET | `/api/version` | 현재/최신 버전 + 업그레이드 가능 여부 |

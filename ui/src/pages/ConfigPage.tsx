@@ -18,6 +18,7 @@ import PageHeader from '../components/PageHeader';
 import { PageSkeleton } from '../components/Skeleton';
 import { useToast } from '../components/Toast';
 import AssistantPanel from '../components/config/AssistantPanel';
+import { SkillfollowPanel, SkillfollowStates } from '../components/config/SkillfollowView';
 import ConfirmDialog from '../components/ConfirmDialog';
 import DialogShell from '../components/DialogShell';
 import { api } from '../api/client';
@@ -31,11 +32,17 @@ import { yamlKeyOffset } from '../lib/yamlSection';
 import { shortenHome } from '../lib/paths';
 import { useOverviewQuery } from '../hooks/useSharedQueries';
 
-type ConfigTab = 'config' | 'skillignore' | 'agentignore' | 'extensions';
+type ConfigTab = 'config' | 'skillignore' | 'skillfollow' | 'agentignore' | 'extensions';
+type FollowFile = 'base' | 'local';
+
+const FILE_TABS: string[] = ['extensions', 'skillignore', 'skillfollow', 'agentignore'];
+const tabFromUrl = (requested: string | null): ConfigTab =>
+  requested && FILE_TABS.includes(requested) ? (requested as ConfigTab) : 'config';
 
 const FILES: { value: ConfigTab; label: string }[] = [
   { value: 'config', label: 'config.yaml' },
   { value: 'skillignore', label: '.skillignore' },
+  { value: 'skillfollow', label: '.skillfollow' },
   { value: 'agentignore', label: '.agentignore' },
 ];
 
@@ -47,19 +54,14 @@ export default function ConfigPage() {
   const [searchParams] = useSearchParams();
   // Deep link: /config?tab=extensions opens the Extensions tab directly, so
   // the Extras page can guide users here to install one.
-  const [tab, setTab] = useState<ConfigTab>(() => {
-    const requested = searchParams.get('tab');
-    return requested === 'extensions' || requested === 'skillignore' || requested === 'agentignore'
-      ? requested
-      : 'config';
-  });
+  const [tab, setTab] = useState<ConfigTab>(() => tabFromUrl(searchParams.get('tab')));
   const overview = useOverviewQuery();
   const configDir = overview.data?.configDir;
   // Expanded editing: the same editor and panel, in a near-fullscreen dialog
   const [expanded, setExpanded] = useState(false);
   const urlTab = searchParams.get('tab');
   useEffect(() => {
-    setTab(urlTab === 'extensions' || urlTab === 'skillignore' || urlTab === 'agentignore' ? urlTab : 'config');
+    setTab(tabFromUrl(urlTab));
     // The expanded editor belongs to one file tab, so a tab arriving from the URL,
     // such as the browser's back button, closes it rather than retitling it.
     setExpanded(false);
@@ -211,6 +213,40 @@ export default function ConfigPage() {
     if (ignoreFile.change(value)) setShowSyncBanner(false);
   };
 
+  // --- .skillfollow state: two declaration files, edited one at a time ---
+  const [followFile, setFollowFile] = useState<FollowFile>('base');
+  const [followError, setFollowError] = useState<string | null>(null);
+  const { data: followData, isPending: followPending, error: followLoadError } = useQuery({
+    queryKey: queryKeys.skillfollow,
+    queryFn: () => api.getSkillfollow(),
+    staleTime: staleTimes.skillfollow,
+    enabled: tab === 'skillfollow',
+  });
+  // Keyed by content, so saving one file does not reload unsaved edits in the other.
+  const followBaseRaw = followData?.base.content;
+  const followLocalRaw = followData?.local.content;
+  const followBaseData = useMemo(() => (followBaseRaw === undefined ? undefined : { raw: followBaseRaw }), [followBaseRaw]);
+  const followLocalData = useMemo(() => (followLocalRaw === undefined ? undefined : { raw: followLocalRaw }), [followLocalRaw]);
+  // The response already carries the new entry states; discovery-backed pages refetch.
+  const saveFollow = async (file: FollowFile, value: string) => {
+    const res = await api.putSkillfollow(file, value);
+    setFollowError(null);
+    queryClient.setQueryData(queryKeys.skillfollow, res);
+    toast(t('config.skillfollow.savedSuccess', { file: file === 'base' ? '.skillfollow' : '.skillfollow.local' }), 'success');
+    queryClient.invalidateQueries({ queryKey: queryKeys.diff() });
+    queryClient.invalidateQueries({ queryKey: queryKeys.overview });
+    queryClient.invalidateQueries({ queryKey: queryKeys.skills.all });
+    queryClient.invalidateQueries({ queryKey: queryKeys.doctor });
+  };
+  const followBase = useEditableFile(followBaseData, { save: (v) => saveFollow('base', v), onError: (e) => setFollowError(e.message) });
+  const followLocal = useEditableFile(followLocalData, { save: (v) => saveFollow('local', v), onError: (e) => setFollowError(e.message) });
+  const followEdit = followFile === 'base' ? followBase : followLocal;
+
+  const handleFollowChange = (value: string) => {
+    setFollowError(null);
+    if (followEdit.change(value)) setShowSyncBanner(false);
+  };
+
   // --- .agentignore state ---
   const { data: agentIgnoreData, isPending: agentIgnorePending, error: agentIgnoreError } = useQuery({
     queryKey: queryKeys.agentignore,
@@ -240,27 +276,29 @@ export default function ConfigPage() {
   };
 
   // --- active tab dirty/saving state ---
-  const fileOf = (file: ConfigTab) => (file === 'config' ? configFile : file === 'skillignore' ? ignoreFile : file === 'agentignore' ? agentIgnoreFile : null);
+  const fileOf = (file: ConfigTab) => (file === 'config' ? configFile : file === 'skillignore' ? ignoreFile : file === 'skillfollow' ? followEdit : file === 'agentignore' ? agentIgnoreFile : null);
   const activeFile = fileOf(tab);
   const activeDirty = activeFile?.dirty ?? false;
   const activeSaving = activeFile?.saving ?? false;
   const handleSave = activeFile?.save ?? (() => {});
   saveRef.current = handleSave;
   const activeChangeCount = tab === 'config' ? changeCount : tab === 'skillignore' ? ignoreChangeCount : agentIgnoreChangeCount;
-  const dirtyOf = (file: ConfigTab) => fileOf(file)?.dirty ?? false;
+  const dirtyOf = (file: ConfigTab) => (file === 'skillfollow' ? followBase.dirty || followLocal.dirty : fileOf(file)?.dirty ?? false);
 
   // What the editor edits, and the line under it that says what the side panel is for.
   const ignoreHint = (data?: { exists: boolean }, fileName?: string, itemLabel?: string) =>
     data && !data.exists ? t('config.ignore.createHint', { fileName, itemLabel }) : t('config.panel.ignoreHint');
   const editor = tab === 'skillignore'
     ? { value: ignoreFile.value, onChange: handleIgnoreChange, extensions: ignoreExtensions, hint: ignoreHint(ignoreData, '.skillignore', 'skill') }
+    : tab === 'skillfollow'
+      ? { value: followEdit.value, onChange: handleFollowChange, extensions: ignoreExtensions, hint: t('config.skillfollow.hint') }
     : tab === 'agentignore'
       ? { value: agentIgnoreFile.value, onChange: handleAgentIgnoreChange, extensions: ignoreExtensions, hint: ignoreHint(agentIgnoreData, '.agentignore', 'agent') }
       : { value: raw, onChange: handleConfigChange, extensions: yamlExtensions, hint: t('config.saveShortcutHint') };
 
   // --- dirty state guard for tab switch ---
   const handleTabChange = (newTab: ConfigTab) => {
-    if (activeDirty) {
+    if (dirtyOf(tab)) {
       setPendingTab(newTab);
       setShowDiscardDialog(true);
     } else {
@@ -272,6 +310,7 @@ export default function ConfigPage() {
     if (pendingTab) {
       if (tab === 'config') configFile.reset();
       else if (tab === 'skillignore') ignoreFile.reset();
+      else if (tab === 'skillfollow') { followBase.reset(); followLocal.reset(); setFollowError(null); }
       else agentIgnoreFile.reset();
       setTab(pendingTab);
     }
@@ -285,15 +324,15 @@ export default function ConfigPage() {
   };
 
   // --- loading / error for active tab ---
-  const isPending = tab === 'config' ? configPending : tab === 'skillignore' ? ignorePending : tab === 'agentignore' ? agentIgnorePending : false;
-  const error = tab === 'config' ? configError : tab === 'skillignore' ? ignoreError : tab === 'agentignore' ? agentIgnoreError : null;
+  const isPending = tab === 'config' ? configPending : tab === 'skillignore' ? ignorePending : tab === 'skillfollow' ? followPending : tab === 'agentignore' ? agentIgnorePending : false;
+  const error = tab === 'config' ? configError : tab === 'skillignore' ? ignoreError : tab === 'skillfollow' ? followLoadError : tab === 'agentignore' ? agentIgnoreError : null;
 
   if (isPending) return <PageSkeleton />;
   if (error) {
     return (
       <div className="ss-note bad">
         <span className="flex-1">
-          {t('config.errorLoading', { file: tab === 'config' ? 'config' : tab === 'skillignore' ? '.skillignore' : '.agentignore' })} {error.message}
+          {t('config.errorLoading', { file: tab === 'config' ? 'config' : FILES.find((f) => f.value === tab)?.label ?? tab })} {error.message}
         </span>
       </div>
     );
@@ -305,6 +344,19 @@ export default function ConfigPage() {
   // Rendered inline or inside the expanded dialog, never both: CodeMirror owns editorRef.
   const editorBlock = (
     <div className="flex min-w-0 flex-col gap-3">
+      {tab === 'skillfollow' && (
+        <div className="ss-seg self-start" role="radiogroup" aria-label={t('config.skillfollow.files')}>
+          {(['base', 'local'] as const).map((file) => (
+            <button key={file} type="button" role="radio" aria-checked={followFile === file} className={`font-mono ${followFile === file ? 'on' : ''}`} onClick={() => setFollowFile(file)}>
+              {file === 'base' ? '.skillfollow' : '.skillfollow.local'}
+              {(file === 'base' ? followBase : followLocal).dirty && <span aria-label={t('config.unsavedChanges')}> •</span>}
+            </button>
+          ))}
+        </div>
+      )}
+      {tab === 'skillfollow' && followError && (
+        <div className="ss-note bad" role="alert"><span className="flex-1 break-words">{followError}</span></div>
+      )}
       {localIgnore && (
         <div className="ss-note warn">
           <Info size={16} className="mt-0.5 shrink-0" />
@@ -316,12 +368,12 @@ export default function ConfigPage() {
       )}
       <div className="ss-code !overflow-hidden !p-0">
         <CodeMirror
-          key={tab}
+          key={tab === 'skillfollow' ? `skillfollow-${followFile}` : tab}
           value={editor.value}
           onChange={editor.onChange}
           extensions={editor.extensions}
           theme="none"
-          height={expanded ? 'calc(100vh - 13rem)' : '500px'}
+          height={expanded ? 'calc(100vh - 13rem)' : tab === 'skillfollow' ? '240px' : '500px'}
           onCreateEditor={(view) => { editorRef.current = view; }}
           basicSetup={{
             lineNumbers: true,
@@ -351,11 +403,12 @@ export default function ConfigPage() {
           </Button>
         </span>
       </div>
+      {tab === 'skillfollow' && <SkillfollowStates data={followData} />}
     </div>
   );
   // The extensions tab renders its own branch and never this panel, but the type
   // cannot see that from here; AssistantPanel's default mode covers the dead case.
-  const panelBlock = (
+  const panelBlock = tab === 'skillfollow' ? <SkillfollowPanel /> : (
     <AssistantPanel
       mode={tab === 'extensions' ? undefined : tab}
       errors={tab === 'config' ? yamlErrors : []}
