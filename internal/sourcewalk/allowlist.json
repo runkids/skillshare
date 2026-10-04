@@ -1,0 +1,978 @@
+[
+  {
+    "file": "cmd/skillshare/backup.go",
+    "function": "previewBackup",
+    "callee": "os.ReadDir",
+    "root": "targetPath",
+    "reason": "target",
+    "note": "Preview installed target contents"
+  },
+  {
+    "file": "cmd/skillshare/diff.go",
+    "function": "collectCopyDiff",
+    "callee": "os.ReadDir",
+    "root": "targetPath",
+    "reason": "target",
+    "note": "Compare installed copy target"
+  },
+  {
+    "file": "cmd/skillshare/diff.go",
+    "function": "collectMergeDiff",
+    "callee": "os.ReadDir",
+    "root": "targetPath",
+    "reason": "target",
+    "note": "Compare installed merge target"
+  },
+  {
+    "file": "cmd/skillshare/diff.go",
+    "function": "latestMtime",
+    "callee": "filepath.Walk",
+    "root": "dir",
+    "reason": "skill-dir",
+    "note": "Single-directory modification time for diff"
+  },
+  {
+    "file": "cmd/skillshare/diff_agents.go",
+    "function": "computeAgentDiff",
+    "callee": "os.ReadDir",
+    "root": "targetDir",
+    "reason": "agents",
+    "note": "Compare agent target contents"
+  },
+  {
+    "file": "cmd/skillshare/diff_file.go",
+    "function": "walkFiles",
+    "callee": "filepath.Walk",
+    "root": "root",
+    "reason": "skill-dir",
+    "note": "Single skill file diff; root remapping deferred to step 4"
+  },
+  {
+    "file": "cmd/skillshare/doctor.go",
+    "function": "checkAgentsSource",
+    "callee": "os.ReadDir",
+    "root": "agentsSource",
+    "reason": "agents",
+    "note": "Count agent source entries"
+  },
+  {
+    "file": "cmd/skillshare/doctor.go",
+    "function": "checkBackupStatus",
+    "callee": "os.ReadDir",
+    "root": "backupDir",
+    "reason": "backup",
+    "note": "Inspect backup storage"
+  },
+  {
+    "file": "cmd/skillshare/doctor.go",
+    "function": "checkDuplicateSkills",
+    "callee": "os.ReadDir",
+    "root": "sc.Path",
+    "reason": "target",
+    "note": "Check duplicate skills in target"
+  },
+  {
+    "file": "cmd/skillshare/doctor.go",
+    "function": "findBrokenSymlinks",
+    "callee": "os.ReadDir",
+    "root": "dir",
+    "reason": "target",
+    "note": "Inspect target links recursively"
+  },
+  {
+    "file": "cmd/skillshare/doctor_agents.go",
+    "function": "countAgentLinksAndBroken",
+    "callee": "os.ReadDir",
+    "root": "dir",
+    "reason": "agents",
+    "note": "Inspect agent links"
+  },
+  {
+    "file": "cmd/skillshare/extras_remove.go",
+    "function": "cleanEmptyExtrasDir",
+    "callee": "os.ReadDir",
+    "root": "dir",
+    "reason": "extras",
+    "note": "Remove empty extra resource directory"
+  },
+  {
+    "file": "cmd/skillshare/extras_remove.go",
+    "function": "cleanEmptyExtrasDirQuiet",
+    "callee": "os.ReadDir",
+    "root": "dir",
+    "reason": "extras",
+    "note": "Remove empty extra resource directory"
+  },
+  {
+    "file": "cmd/skillshare/helpers.go",
+    "function": "copyDir",
+    "callee": "filepath.Walk",
+    "root": "src",
+    "reason": "target",
+    "note": "Copy imported skills or source contents into an existing target"
+  },
+  {
+    "file": "cmd/skillshare/helpers.go",
+    "function": "removeEmptyDir",
+    "callee": "os.ReadDir",
+    "root": "dir",
+    "reason": "extras",
+    "note": "Check empty extras parent before cleanup"
+  },
+  {
+    "file": "cmd/skillshare/init.go",
+    "function": "commitSourceFiles",
+    "callee": "os.ReadDir",
+    "root": "sourcePath",
+    "reason": "git-root",
+    "note": "Inspect staged source content to choose initial git commit message"
+  },
+  {
+    "file": "cmd/skillshare/init.go",
+    "function": "getAgentStatus",
+    "callee": "os.ReadDir",
+    "root": "path",
+    "reason": "agents",
+    "note": "Detect existing agent target content"
+  },
+  {
+    "file": "cmd/skillshare/init_apply.go",
+    "function": "sameTree",
+    "callee": "filepath.WalkDir",
+    "root": "root",
+    "reason": "skill-dir",
+    "note": "Compare individual imported skill trees"
+  },
+  {
+    "file": "cmd/skillshare/init_detect.go",
+    "function": "collectImports",
+    "callee": "os.ReadDir",
+    "root": "d.path",
+    "reason": "target",
+    "note": "Discover import candidates in agent targets"
+  },
+  {
+    "file": "cmd/skillshare/init_detect.go",
+    "function": "countSkillDirs",
+    "callee": "os.ReadDir",
+    "root": "path",
+    "reason": "target",
+    "note": "Count skill directories in existing agent targets"
+  },
+  {
+    "file": "cmd/skillshare/init_remote.go",
+    "function": "countEntries",
+    "callee": "os.ReadDir",
+    "root": "dir",
+    "reason": "clone",
+    "note": "Count agents or extras in inspected remote clone"
+  },
+  {
+    "file": "cmd/skillshare/init_remote.go",
+    "function": "hasSkillDirsBesides",
+    "callee": "os.ReadDir",
+    "root": "dir",
+    "reason": "clone",
+    "note": "Inspect remote clone layout"
+  },
+  {
+    "file": "cmd/skillshare/init_remote.go",
+    "function": "inspectRemote",
+    "callee": "os.ReadDir",
+    "root": "skillsDir",
+    "reason": "clone",
+    "note": "Inspect skills in downloaded remote clone"
+  },
+  {
+    "file": "cmd/skillshare/list_tui.go",
+    "function": "listSkillFiles",
+    "callee": "os.ReadDir",
+    "root": "dir",
+    "reason": "skill-dir",
+    "note": "List one skill's files for TUI"
+  },
+  {
+    "file": "cmd/skillshare/list_tui_content.go",
+    "function": "buildTreeNodes",
+    "callee": "os.ReadDir",
+    "root": "dir",
+    "reason": "skill-dir",
+    "note": "Build file tree for one skill"
+  },
+  {
+    "file": "cmd/skillshare/mode.go",
+    "function": "projectDirHasContent",
+    "callee": "os.ReadDir",
+    "root": "filepath.Join(dir, name)",
+    "reason": "project",
+    "note": "Detect authored skills or agents in incomplete project configuration"
+  },
+  {
+    "file": "cmd/skillshare/restore_tui.go",
+    "function": "(restoreTUIModel).renderTargetDetail",
+    "callee": "os.ReadDir",
+    "root": "latestDir",
+    "reason": "backup",
+    "note": "Render saved backup target contents"
+  },
+  {
+    "file": "cmd/skillshare/restore_tui.go",
+    "function": "(restoreTUIModel).startDelete",
+    "callee": "os.ReadDir",
+    "root": "tsDir",
+    "reason": "backup",
+    "note": "Check backup timestamp directory after deletion"
+  },
+  {
+    "file": "cmd/skillshare/restore_tui.go",
+    "function": "describeTargetState",
+    "callee": "os.ReadDir",
+    "root": "path",
+    "reason": "target",
+    "note": "Describe current restore destination"
+  },
+  {
+    "file": "cmd/skillshare/restore_tui.go",
+    "function": "listDirNames",
+    "callee": "os.ReadDir",
+    "root": "dir",
+    "reason": "target",
+    "note": "Compare current target entries against backup"
+  },
+  {
+    "file": "cmd/skillshare/status.go",
+    "function": "countSourceAgents",
+    "callee": "os.ReadDir",
+    "root": "agentsSource",
+    "reason": "agents",
+    "note": "Count agent source entries"
+  },
+  {
+    "file": "cmd/skillshare/target.go",
+    "function": "unlinkMergeMode",
+    "callee": "os.ReadDir",
+    "root": "targetPath",
+    "reason": "target",
+    "note": "Unlink managed merge target entries"
+  },
+  {
+    "file": "cmd/skillshare/trash_tui.go",
+    "function": "(trashTUIModel).renderTrashDetailPanel",
+    "callee": "os.ReadDir",
+    "root": "entry.Path",
+    "reason": "trash",
+    "note": "Render trash entry details"
+  },
+  {
+    "file": "cmd/skillshare/uninstall.go",
+    "function": "countGroupSkills",
+    "callee": "filepath.Walk",
+    "root": "walkRoot",
+    "reason": "skill-dir",
+    "note": "Count descendants in an explicitly selected group"
+  },
+  {
+    "file": "cmd/skillshare/uninstall.go",
+    "function": "resolveGroupSkills",
+    "callee": "filepath.Walk",
+    "root": "walkRoot",
+    "reason": "skill-dir",
+    "note": "Selected group walk retains source containment checks"
+  },
+  {
+    "file": "cmd/skillshare/uninstall.go",
+    "function": "uninstallTargetKind",
+    "callee": "filepath.WalkDir",
+    "root": "target.path",
+    "reason": "skill-dir",
+    "note": "Classify a selected uninstall candidate by contents"
+  },
+  {
+    "file": "cmd/skillshare/update_resolve.go",
+    "function": "resolveGroupUpdatable",
+    "callee": "filepath.Walk",
+    "root": "walkRoot",
+    "reason": "skill-dir",
+    "note": "Selected update group retains source containment checks"
+  },
+  {
+    "file": "internal/audit/audit_scan_skill.go",
+    "function": "scanSkillImpl",
+    "callee": "filepath.Walk",
+    "root": "skillPath",
+    "reason": "skill-dir",
+    "note": "Audit one skill or repo root; followed repo-root audit deferred to step 3"
+  },
+  {
+    "file": "internal/audit/content_integrity.go",
+    "function": "checkContentIntegrity",
+    "callee": "filepath.Walk",
+    "root": "skillPath",
+    "reason": "skill-dir",
+    "note": "Inspect one skill's content integrity; root remapping deferred"
+  },
+  {
+    "file": "internal/backup/backup.go",
+    "function": "ListInDir",
+    "callee": "os.ReadDir",
+    "root": "backupDir",
+    "reason": "backup",
+    "note": "List backup timestamps"
+  },
+  {
+    "file": "internal/backup/backup.go",
+    "function": "ListInDir",
+    "callee": "os.ReadDir",
+    "root": "backupPath",
+    "reason": "backup",
+    "note": "List backed up targets"
+  },
+  {
+    "file": "internal/backup/backup.go",
+    "function": "ListTargetsWithBackups",
+    "callee": "os.ReadDir",
+    "root": "backupDir",
+    "reason": "backup",
+    "note": "List backup timestamps for target selection"
+  },
+  {
+    "file": "internal/backup/backup.go",
+    "function": "ListTargetsWithBackups",
+    "callee": "os.ReadDir",
+    "root": "filepath.Join(backupDir, entry.Name())",
+    "reason": "backup",
+    "note": "List backed up target contents"
+  },
+  {
+    "file": "internal/backup/backup.go",
+    "function": "copyDir",
+    "callee": "os.ReadDir",
+    "root": "src",
+    "reason": "backup",
+    "note": "Copy snapshot contents without following child links"
+  },
+  {
+    "file": "internal/backup/backup.go",
+    "function": "createInDir",
+    "callee": "os.ReadDir",
+    "root": "stagingPath",
+    "reason": "backup",
+    "note": "Inspect staged snapshot"
+  },
+  {
+    "file": "internal/backup/backup.go",
+    "function": "createInDir",
+    "callee": "os.ReadDir",
+    "root": "targetPath",
+    "reason": "target",
+    "note": "Inspect target before creating snapshot"
+  },
+  {
+    "file": "internal/backup/backup.go",
+    "function": "removeDirIfEmpty",
+    "callee": "os.ReadDir",
+    "root": "path",
+    "reason": "backup",
+    "note": "Clean empty snapshot directory"
+  },
+  {
+    "file": "internal/backup/cleanup.go",
+    "function": "Stats",
+    "callee": "filepath.Walk",
+    "root": "path",
+    "reason": "backup",
+    "note": "Measure backup size"
+  },
+  {
+    "file": "internal/backup/cleanup.go",
+    "function": "cleanEmptyDirs",
+    "callee": "os.ReadDir",
+    "root": "path",
+    "reason": "backup",
+    "note": "Clean empty backup directory"
+  },
+  {
+    "file": "internal/backup/cleanup.go",
+    "function": "cleanEmptyDirs",
+    "callee": "os.ReadDir",
+    "root": "subPath",
+    "reason": "backup",
+    "note": "Clean empty nested backup directory"
+  },
+  {
+    "file": "internal/backup/restore.go",
+    "function": "ValidateRestore",
+    "callee": "os.ReadDir",
+    "root": "destPath",
+    "reason": "target",
+    "note": "Validate restore destination contents"
+  },
+  {
+    "file": "internal/backup/restore.go",
+    "function": "listBackupVersions",
+    "callee": "os.ReadDir",
+    "root": "backupDir",
+    "reason": "backup",
+    "note": "List backup versions"
+  },
+  {
+    "file": "internal/backup/restore.go",
+    "function": "listBackupVersions",
+    "callee": "os.ReadDir",
+    "root": "targetDir",
+    "reason": "backup",
+    "note": "List saved skills inside backup version"
+  },
+  {
+    "file": "internal/config/project_reconcile.go",
+    "function": "ReconcileProjectAgents",
+    "callee": "os.ReadDir",
+    "root": "agentsSourcePath",
+    "reason": "agents",
+    "note": "Reconcile project agent metadata"
+  },
+  {
+    "file": "internal/git/info.go",
+    "function": "HasLocalContent",
+    "callee": "os.ReadDir",
+    "root": "repoPath",
+    "reason": "git-root",
+    "note": "Check local content in repository"
+  },
+  {
+    "file": "internal/git/scope.go",
+    "function": "NestedRepos",
+    "callee": "filepath.WalkDir",
+    "root": "root",
+    "reason": "git-root",
+    "note": "Describe physical nested repositories staged by git; never follow source entries"
+  },
+  {
+    "file": "internal/hooks/apply.go",
+    "function": "(*Service).backupRecords",
+    "callee": "os.ReadDir",
+    "root": "dir",
+    "reason": "backup",
+    "note": "Read hook backup records"
+  },
+  {
+    "file": "internal/hooks/apply.go",
+    "function": "(*Service).pruneBackups",
+    "callee": "os.ReadDir",
+    "root": "dir",
+    "reason": "backup",
+    "note": "Prune hook backup records"
+  },
+  {
+    "file": "internal/hooks/inventory.go",
+    "function": "(*Service).unownedFiles",
+    "callee": "os.ReadDir",
+    "root": "dir",
+    "reason": "hooks",
+    "note": "Inspect unmanaged hook files"
+  },
+  {
+    "file": "internal/hub/drafts.go",
+    "function": "(DraftStore).List",
+    "callee": "os.ReadDir",
+    "root": "s.Dir",
+    "reason": "config",
+    "note": "Read saved hub draft records"
+  },
+  {
+    "file": "internal/install/copy.go",
+    "function": "copyDirExcluding",
+    "callee": "filepath.Walk",
+    "root": "src",
+    "reason": "skill-dir",
+    "note": "Copy individual skill or install staging tree"
+  },
+  {
+    "file": "internal/install/install.go",
+    "function": "dirIsEmpty",
+    "callee": "os.ReadDir",
+    "root": "path",
+    "reason": "skill-dir",
+    "note": "Check install destination emptiness"
+  },
+  {
+    "file": "internal/install/install_audit.go",
+    "function": "cleanEmptyInstallParents",
+    "callee": "os.ReadDir",
+    "root": "dir",
+    "reason": "skill-dir",
+    "note": "Check empty installation ancestors before cleanup"
+  },
+  {
+    "file": "internal/install/install_discovery.go",
+    "function": "discoverSkills",
+    "callee": "filepath.Walk",
+    "root": "repoPath",
+    "reason": "clone",
+    "note": "Discover skills in downloaded repository; followed repo-root consumer deferred to step 3"
+  },
+  {
+    "file": "internal/install/install_discovery.go",
+    "function": "scanAgentDir",
+    "callee": "filepath.Walk",
+    "root": "dir",
+    "reason": "agents",
+    "note": "Discover agents in repository"
+  },
+  {
+    "file": "internal/install/install_update.go",
+    "function": "hasDescendantSkillFile",
+    "callee": "filepath.Walk",
+    "root": "root",
+    "reason": "skill-dir",
+    "note": "Inspect selected update destination for descendant skills"
+  },
+  {
+    "file": "internal/install/meta.go",
+    "function": "ComputeFileHashes",
+    "callee": "filepath.Walk",
+    "root": "skillPath",
+    "reason": "skill-dir",
+    "note": "Hash individual skill files; followed single skills deferred to step 4"
+  },
+  {
+    "file": "internal/install/metadata_migrate.go",
+    "function": "migrateSkillSidecars",
+    "callee": "os.ReadDir",
+    "root": "dir",
+    "reason": "migration",
+    "note": "Read legacy skill sidecars without following source entries"
+  },
+  {
+    "file": "internal/install/metadata_migrate.go",
+    "function": "walkAgentSidecars",
+    "callee": "os.ReadDir",
+    "root": "dir",
+    "reason": "migration",
+    "note": "Read legacy agent sidecars"
+  },
+  {
+    "file": "internal/install/metadata_migrate.go",
+    "function": "walkSkillDir",
+    "callee": "os.ReadDir",
+    "root": "skillPath",
+    "reason": "migration",
+    "note": "Read nested legacy skill sidecars without following source entries"
+  },
+  {
+    "file": "internal/instructions/instructions.go",
+    "function": "countMarkdown",
+    "callee": "filepath.WalkDir",
+    "root": "dir",
+    "reason": "extras",
+    "note": "Count instruction Markdown files"
+  },
+  {
+    "file": "internal/mcp/backups.go",
+    "function": "(*Service).backupRecords",
+    "callee": "os.ReadDir",
+    "root": "dir",
+    "reason": "backup",
+    "note": "Read MCP backup records"
+  },
+  {
+    "file": "internal/mcp/backups.go",
+    "function": "(*Service).pruneBackups",
+    "callee": "os.ReadDir",
+    "root": "dir",
+    "reason": "backup",
+    "note": "Prune MCP backup records"
+  },
+  {
+    "file": "internal/memory/store.go",
+    "function": "List",
+    "callee": "filepath.WalkDir",
+    "root": "walkRoot",
+    "reason": "memory",
+    "note": "List shared memory notes"
+  },
+  {
+    "file": "internal/plugin/files.go",
+    "function": "(*Service).Files",
+    "callee": "filepath.WalkDir",
+    "root": "dir",
+    "reason": "plugin",
+    "note": "List plugin package files"
+  },
+  {
+    "file": "internal/plugin/local_bundle.go",
+    "function": "(*Service).localInventory",
+    "callee": "os.ReadDir",
+    "root": "root",
+    "reason": "plugin",
+    "note": "Inspect local plugin inventory"
+  },
+  {
+    "file": "internal/plugin/pi_extensions_discover.go",
+    "function": "(*piLayout).autoEntries",
+    "callee": "(*os.File).ReadDir",
+    "root": "f",
+    "reason": "plugin",
+    "note": "Discover Pi extension package entries through os.File"
+  },
+  {
+    "file": "internal/plugin/pi_extensions_lock.go",
+    "function": "reclaimPiNativeLock",
+    "callee": "(*os.File).ReadDir",
+    "root": "anchor",
+    "reason": "plugin",
+    "note": "Verify Pi lock directory is empty through os.File"
+  },
+  {
+    "file": "internal/plugin/source.go",
+    "function": "copyTree",
+    "callee": "filepath.WalkDir",
+    "root": "root",
+    "reason": "plugin",
+    "note": "Copy plugin source tree"
+  },
+  {
+    "file": "internal/plugin/source.go",
+    "function": "hashTree",
+    "callee": "filepath.WalkDir",
+    "root": "root",
+    "reason": "plugin",
+    "note": "Hash plugin source tree"
+  },
+  {
+    "file": "internal/plugin/source_links.go",
+    "function": "validateSourceLinks",
+    "callee": "os.ReadDir",
+    "root": "resolved",
+    "reason": "plugin",
+    "note": "Validate plugin source links"
+  },
+  {
+    "file": "internal/resource/agent.go",
+    "function": "(AgentKind).Discover",
+    "callee": "filepath.Walk",
+    "root": "walkRoot",
+    "reason": "agents",
+    "note": "Discover agent resources"
+  },
+  {
+    "file": "internal/resource/agent.go",
+    "function": "(AgentKind).Discover",
+    "callee": "os.ReadDir",
+    "root": "walkRoot",
+    "reason": "agents",
+    "note": "Read agent root entries"
+  },
+  {
+    "file": "internal/search/preview.go",
+    "function": "findSkillFile",
+    "callee": "filepath.WalkDir",
+    "root": "root",
+    "reason": "clone",
+    "note": "Find skill file in preview clone"
+  },
+  {
+    "file": "internal/server/handler_agent_diff.go",
+    "function": "computeAgentTargetDiff",
+    "callee": "os.ReadDir",
+    "root": "targetDir",
+    "reason": "agents",
+    "note": "Compare agent target entries"
+  },
+  {
+    "file": "internal/server/handler_backup.go",
+    "function": "(*Server).handleValidateRestore",
+    "callee": "os.ReadDir",
+    "root": "tPath",
+    "reason": "target",
+    "note": "Validate restore destination"
+  },
+  {
+    "file": "internal/server/handler_diff_stream.go",
+    "function": "(*Server).computeTargetDiff",
+    "callee": "os.ReadDir",
+    "root": "sc.Path",
+    "reason": "target",
+    "note": "Compute target diff"
+  },
+  {
+    "file": "internal/server/handler_skills.go",
+    "function": "(*Server).handleGetSkill",
+    "callee": "filepath.Walk",
+    "root": "d.SourcePath",
+    "reason": "skill-dir",
+    "note": "Read individual skill contents; followed single skills deferred to step 4"
+  },
+  {
+    "file": "internal/server/handler_targets.go",
+    "function": "(*Server).unlinkMergeSymlinks",
+    "callee": "os.ReadDir",
+    "root": "targetPath",
+    "reason": "target",
+    "note": "Inspect merge target links"
+  },
+  {
+    "file": "internal/server/handler_targets.go",
+    "function": "copySkillDir",
+    "callee": "filepath.Walk",
+    "root": "src",
+    "reason": "skill-dir",
+    "note": "Copy a skill to target"
+  },
+  {
+    "file": "internal/sourcewalk/walk.go",
+    "function": "ReadDir",
+    "callee": "os.ReadDir",
+    "root": "resolved",
+    "reason": "sourcewalk",
+    "note": "Shared source ReadDir implementation"
+  },
+  {
+    "file": "internal/sourcewalk/walk.go",
+    "function": "Walk",
+    "callee": "filepath.Walk",
+    "root": "utils.ResolveSymlink(root)",
+    "reason": "sourcewalk",
+    "note": "Shared source Walk implementation"
+  },
+  {
+    "file": "internal/sourcewalk/walk.go",
+    "function": "WalkDir",
+    "callee": "filepath.WalkDir",
+    "root": "utils.ResolveSymlink(root)",
+    "reason": "sourcewalk",
+    "note": "Shared source WalkDir implementation"
+  },
+  {
+    "file": "internal/sync/agent_sync.go",
+    "function": "FindLocalAgents",
+    "callee": "os.ReadDir",
+    "root": "targetDir",
+    "reason": "agents",
+    "note": "Discover local target agents"
+  },
+  {
+    "file": "internal/sync/agent_sync.go",
+    "function": "PruneOrphanAgentLinks",
+    "callee": "os.ReadDir",
+    "root": "targetDir",
+    "reason": "agents",
+    "note": "Prune managed agent links"
+  },
+  {
+    "file": "internal/sync/analyze.go",
+    "function": "folderSkills",
+    "callee": "os.ReadDir",
+    "root": "targetPath",
+    "reason": "target",
+    "note": "Inspect target skill entries"
+  },
+  {
+    "file": "internal/sync/copy.go",
+    "function": "CheckStatusCopy",
+    "callee": "os.ReadDir",
+    "root": "targetPath",
+    "reason": "target",
+    "note": "Check copy target status"
+  },
+  {
+    "file": "internal/sync/copy.go",
+    "function": "DirMaxMtimeWithIgnore",
+    "callee": "filepath.Walk",
+    "root": "dir",
+    "reason": "skill-dir",
+    "note": "Inspect one skill modification time; followed single skills deferred to step 4"
+  },
+  {
+    "file": "internal/sync/copy.go",
+    "function": "collectChecksumEntries",
+    "callee": "filepath.Walk",
+    "root": "root",
+    "reason": "skill-dir",
+    "note": "Compute checksums for one skill directory"
+  },
+  {
+    "file": "internal/sync/extension.go",
+    "function": "ListExtensions",
+    "callee": "os.ReadDir",
+    "root": "dir",
+    "reason": "target",
+    "note": "List target extension overlay directories"
+  },
+  {
+    "file": "internal/sync/extras.go",
+    "function": "CollectExtraFiles",
+    "callee": "filepath.Walk",
+    "root": "targetDir",
+    "reason": "extras",
+    "note": "Collect extra files from target"
+  },
+  {
+    "file": "internal/sync/extras.go",
+    "function": "DiscoverExtraFiles",
+    "callee": "filepath.Walk",
+    "root": "sourcePath",
+    "reason": "extras",
+    "note": "Discover extra source files"
+  },
+  {
+    "file": "internal/sync/extras.go",
+    "function": "cleanEmptyParents",
+    "callee": "os.ReadDir",
+    "root": "dir",
+    "reason": "extras",
+    "note": "Inspect empty extra directories"
+  },
+  {
+    "file": "internal/sync/extras.go",
+    "function": "pruneExtraManagedFiles",
+    "callee": "filepath.Walk",
+    "root": "targetPath",
+    "reason": "extras",
+    "note": "Prune managed extra target files"
+  },
+  {
+    "file": "internal/sync/extras.go",
+    "function": "pruneExtraOrphans",
+    "callee": "filepath.Walk",
+    "root": "targetPath",
+    "reason": "extras",
+    "note": "Prune orphan extra target files"
+  },
+  {
+    "file": "internal/sync/extras_backup.go",
+    "function": "extraBackupNames",
+    "callee": "os.ReadDir",
+    "root": "dir",
+    "reason": "backup",
+    "note": "List extra backup names"
+  },
+  {
+    "file": "internal/sync/file_backups.go",
+    "function": "ListFileBackups",
+    "callee": "os.ReadDir",
+    "root": "fileBackupsRoot()",
+    "reason": "backup",
+    "note": "List file backup storage"
+  },
+  {
+    "file": "internal/sync/pull.go",
+    "function": "CalculateDirSize",
+    "callee": "filepath.Walk",
+    "root": "path",
+    "reason": "skill-dir",
+    "note": "Measure individual directory size"
+  },
+  {
+    "file": "internal/sync/pull.go",
+    "function": "FindLocalSkills",
+    "callee": "os.ReadDir",
+    "root": "targetPath",
+    "reason": "target",
+    "note": "Discover local skills in target"
+  },
+  {
+    "file": "internal/sync/skills_off.go",
+    "function": "DetachSkills",
+    "callee": "os.ReadDir",
+    "root": "folder",
+    "reason": "target",
+    "note": "Detach managed skills from target folder"
+  },
+  {
+    "file": "internal/sync/sync.go",
+    "function": "CheckStatusMerge",
+    "callee": "os.ReadDir",
+    "root": "targetPath",
+    "reason": "target",
+    "note": "Check merge target status"
+  },
+  {
+    "file": "internal/sync/sync.go",
+    "function": "PruneOrphanLinksWithSkills",
+    "callee": "os.ReadDir",
+    "root": "targetPath",
+    "reason": "target",
+    "note": "Prune orphan target links"
+  },
+  {
+    "file": "internal/sync/sync.go",
+    "function": "copyDirectoryWithState",
+    "callee": "filepath.Walk",
+    "root": "src",
+    "reason": "skill-dir",
+    "note": "Copy individual skill directory contents"
+  },
+  {
+    "file": "internal/sync/sync.go",
+    "function": "mergeDirectories",
+    "callee": "filepath.Walk",
+    "root": "src",
+    "reason": "target",
+    "note": "Merge existing target contents into source during migration"
+  },
+  {
+    "file": "internal/targetsummary/agents.go",
+    "function": "countHealthyAgentLinks",
+    "callee": "os.ReadDir",
+    "root": "dir",
+    "reason": "agents",
+    "note": "Count healthy target agent links"
+  },
+  {
+    "file": "internal/testutil/testutil.go",
+    "function": "(*Sandbox).ListDir",
+    "callee": "os.ReadDir",
+    "root": "path",
+    "reason": "test-fixture",
+    "note": "List sandbox fixture contents"
+  },
+  {
+    "file": "internal/trash/trash.go",
+    "function": "List",
+    "callee": "filepath.WalkDir",
+    "root": "trashBase",
+    "reason": "trash",
+    "note": "List trash entries"
+  },
+  {
+    "file": "internal/trash/trash.go",
+    "function": "RestoreAgent",
+    "callee": "os.ReadDir",
+    "root": "entry.Path",
+    "reason": "trash",
+    "note": "Inspect trashed agent files before restore"
+  },
+  {
+    "file": "internal/trash/trash.go",
+    "function": "cleanEmptyParents",
+    "callee": "os.ReadDir",
+    "root": "dir",
+    "reason": "trash",
+    "note": "Inspect empty trash parent directory"
+  },
+  {
+    "file": "internal/trash/trash.go",
+    "function": "copyDir",
+    "callee": "os.ReadDir",
+    "root": "src",
+    "reason": "trash",
+    "note": "Copy trash entry across filesystems"
+  },
+  {
+    "file": "internal/trash/trash.go",
+    "function": "dirSize",
+    "callee": "filepath.Walk",
+    "root": "path",
+    "reason": "trash",
+    "note": "Measure trash entry size"
+  },
+  {
+    "file": "internal/uidist/uidist.go",
+    "function": "cleanOldVersions",
+    "callee": "os.ReadDir",
+    "root": "uiDir",
+    "reason": "assets",
+    "note": "Clean old extracted UI distributions"
+  }
+]

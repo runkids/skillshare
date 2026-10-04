@@ -11,6 +11,7 @@ import (
 	"skillshare/internal/config"
 	"skillshare/internal/install"
 	"skillshare/internal/skillignore"
+	"skillshare/internal/sourcewalk"
 	"skillshare/internal/utils"
 )
 
@@ -159,7 +160,7 @@ func discoverSourceSkillsInternal(sourcePath string, opts discoverOptions) ([]Di
 		}
 	}
 
-	err := filepath.Walk(walkRoot, func(path string, info os.FileInfo, err error) error {
+	err := sourcewalk.Walk(walkRoot, sourcewalk.Options{}, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return nil // Skip inaccessible paths
 		}

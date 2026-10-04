@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"skillshare/internal/sourcewalk"
 	"skillshare/internal/utils"
 )
 
@@ -24,7 +25,7 @@ func (SkillKind) Discover(sourceDir string) ([]DiscoveredResource, error) {
 
 	var resources []DiscoveredResource
 
-	err := filepath.Walk(walkRoot, func(path string, info os.FileInfo, err error) error {
+	err := sourcewalk.Walk(walkRoot, sourcewalk.Options{}, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return nil
 		}

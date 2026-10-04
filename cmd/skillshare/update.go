@@ -10,6 +10,7 @@ import (
 	"skillshare/internal/config"
 	"skillshare/internal/install"
 	"skillshare/internal/oplog"
+	"skillshare/internal/sourcewalk"
 	"skillshare/internal/ui"
 	"skillshare/internal/utils"
 )
@@ -214,7 +215,7 @@ func cmdUpdate(args []string) error {
 		if metaErr != nil {
 			resolveWarnings = append(resolveWarnings, fmt.Sprintf("could not read skill metadata: %v", metaErr))
 		}
-		err := filepath.Walk(walkRoot, func(path string, info os.FileInfo, err error) error {
+		err := sourcewalk.Walk(walkRoot, sourcewalk.Options{}, func(path string, info os.FileInfo, err error) error {
 			if err != nil || path == walkRoot {
 				return nil
 			}

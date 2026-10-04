@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"skillshare/internal/install"
+	"skillshare/internal/sourcewalk"
 	"skillshare/internal/utils"
 )
 
@@ -23,7 +24,7 @@ func reconcileSkillsWalk(sourcePath string, store *install.MetadataStore, onFoun
 	result := reconcileResult{live: map[string]bool{}}
 
 	walkRoot := utils.ResolveSymlink(sourcePath)
-	err := filepath.WalkDir(walkRoot, func(path string, d os.DirEntry, walkErr error) error {
+	err := sourcewalk.WalkDir(walkRoot, sourcewalk.Options{}, func(path string, d os.DirEntry, walkErr error) error {
 		if walkErr != nil {
 			return nil
 		}

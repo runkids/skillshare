@@ -2,13 +2,13 @@ package server
 
 import (
 	"net/http"
-	"os"
 	"path/filepath"
 	"strings"
 
 	"skillshare/internal/git"
 	"skillshare/internal/install"
 	"skillshare/internal/resource"
+	"skillshare/internal/sourcewalk"
 	"skillshare/internal/sync"
 	"skillshare/internal/utils"
 	versioncheck "skillshare/internal/version"
@@ -46,7 +46,7 @@ func (s *Server) handleOverview(w http.ResponseWriter, r *http.Request) {
 
 	// Count top-level source entries (for display)
 	topLevelCount := 0
-	entries, _ := os.ReadDir(source)
+	entries, _ := sourcewalk.ReadDir(source, sourcewalk.Options{})
 	for _, e := range entries {
 		if e.IsDir() && !utils.IsHidden(e.Name()) {
 			topLevelCount++

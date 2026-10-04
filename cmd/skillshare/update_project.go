@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"skillshare/internal/install"
+	"skillshare/internal/sourcewalk"
 	"skillshare/internal/ui"
 	"skillshare/internal/utils"
 )
@@ -176,7 +177,7 @@ func updateAllProjectSkills(uc *updateContext) (*updateResult, error) {
 	scanSpinner := ui.StartSpinner("Scanning skills...")
 	walkRoot := uc.sourcePath
 	metaStore, _ := install.LoadMetadataWithMigration(uc.sourcePath, "")
-	err := filepath.Walk(walkRoot, func(path string, info os.FileInfo, err error) error {
+	err := sourcewalk.Walk(walkRoot, sourcewalk.Options{}, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return nil
 		}

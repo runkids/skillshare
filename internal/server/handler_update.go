@@ -14,6 +14,7 @@ import (
 	"skillshare/internal/config"
 	"skillshare/internal/git"
 	"skillshare/internal/install"
+	"skillshare/internal/sourcewalk"
 	"skillshare/internal/utils"
 )
 
@@ -549,7 +550,7 @@ func (s *Server) handleRehydrateTrackedRepos(w http.ResponseWriter, r *http.Requ
 func getServerUpdatableSkills(sourceDir string, store *install.MetadataStore) ([]string, error) {
 	var skills []string
 	walkRoot := utils.ResolveSymlink(sourceDir)
-	err := filepath.WalkDir(walkRoot, func(path string, d os.DirEntry, err error) error {
+	err := sourcewalk.WalkDir(walkRoot, sourcewalk.Options{}, func(path string, d os.DirEntry, err error) error {
 		if err != nil {
 			return nil
 		}

@@ -12,6 +12,7 @@ import (
 	"skillshare/internal/config"
 	"skillshare/internal/oplog"
 	"skillshare/internal/resource"
+	"skillshare/internal/sourcewalk"
 	"skillshare/internal/sync"
 	"skillshare/internal/ui"
 	"skillshare/internal/utils"
@@ -411,7 +412,7 @@ func collectInstalledSkillPaths(sourcePath string) ([]auditSkillRef, error) {
 		skillPaths = append(skillPaths, auditSkillRef{d.FlatName, d.SourcePath})
 	}
 
-	entries, _ := os.ReadDir(sourcePath)
+	entries, _ := sourcewalk.ReadDir(sourcePath, sourcewalk.Options{})
 	for _, e := range entries {
 		if !e.IsDir() || utils.IsHidden(e.Name()) || utils.IsTrackedRepoDir(e.Name()) {
 			// Tracked hub repos are already handled by DiscoverSourceSkillsLite.

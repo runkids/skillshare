@@ -15,6 +15,7 @@ import (
 	"skillshare/internal/install"
 	"skillshare/internal/resource"
 	"skillshare/internal/skillignore"
+	"skillshare/internal/sourcewalk"
 	"skillshare/internal/sync"
 	"skillshare/internal/theme"
 	"skillshare/internal/trash"
@@ -325,7 +326,7 @@ func checkSource(cfg *config.Config, result *doctorResult, discovered []sync.Dis
 	if discoverErr == nil {
 		skillCount = len(discovered)
 	} else {
-		entries, _ := os.ReadDir(cfg.EffectiveSkillsSource())
+		entries, _ := sourcewalk.ReadDir(cfg.EffectiveSkillsSource(), sourcewalk.Options{})
 		for _, e := range entries {
 			if e.IsDir() && !utils.IsHidden(e.Name()) {
 				skillCount++
@@ -805,7 +806,7 @@ func checkMissingTrackedRepos(source string, result *doctorResult, isProject boo
 }
 
 func checkSkillsValidity(source string, result *doctorResult, discovered []sync.DiscoveredSkill) {
-	entries, err := os.ReadDir(source)
+	entries, err := sourcewalk.ReadDir(source, sourcewalk.Options{})
 	if err != nil {
 		return
 	}

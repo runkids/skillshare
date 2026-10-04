@@ -11,6 +11,7 @@ import (
 	"skillshare/internal/config"
 	"skillshare/internal/install"
 	"skillshare/internal/oplog"
+	"skillshare/internal/sourcewalk"
 	"skillshare/internal/trash"
 	"skillshare/internal/ui"
 	"skillshare/internal/utils"
@@ -181,7 +182,7 @@ func resolveUninstallTarget(skillName, sourceDir, sourceLabel string) (*uninstal
 // resolveUninstallByGlob scans the source directory for top-level entries
 // whose names match the given glob pattern (e.g. "core-*", "_team-?").
 func resolveUninstallByGlob(pattern, sourceDir string) ([]*uninstallTarget, error) {
-	entries, err := os.ReadDir(sourceDir)
+	entries, err := sourcewalk.ReadDir(sourceDir, sourcewalk.Options{})
 	if err != nil {
 		return nil, fmt.Errorf("cannot read source directory: %w", err)
 	}
@@ -277,7 +278,7 @@ func resolveNestedSkillDir(sourceDir, name, sourceLabel string) (string, error) 
 	var matches []string
 
 	walkRoot := utils.ResolveSymlink(sourceDir)
-	if walkErr := filepath.Walk(walkRoot, func(path string, info os.FileInfo, err error) error {
+	if walkErr := sourcewalk.Walk(walkRoot, sourcewalk.Options{}, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
