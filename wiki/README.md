@@ -30,6 +30,7 @@ Completed milestones are recorded here and read only when relevant.
 | File | Contents |
 |---|---|
 | [Proposal 274: steps 1 and 2](history/proposal-274-steps-1-and-2.md) | PR #385 source-link visibility, sourcewalk/sourcefs boundaries, ratchets and residual writes |
+| [Proposal 274: step 3](history/proposal-274-step-3.md) | Experimental declared groups/repos, ownership/prune safety, Git/update/audit guards, matrix and verification limits |
 | [Shared memory notes](history/extras-memory.md) | Shared Markdown source, CLI/API/dashboard, versioned edits and native memory boundaries |
 | [Git hooks management](history/git-hooks-management.md) | Config-mode destinations, includes, ownership, native verification and execution limits |
 | [Native hooks management](history/hooks-management.md) | Native formats, CLI/dashboard scope, ownership and verification evidence |
