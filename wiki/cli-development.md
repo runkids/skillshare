@@ -57,7 +57,7 @@ Operations that change configuration, sources, targets, or managed files must:
 - send security scan events to the audit log rather than the regular operation log;
 - preserve path validation, scope checks, and ownership checks;
 - use domain uninstall/remove flows for managed state rather than replacing them with filesystem deletion;
-- write the skills source through `internal/sourcefs`, which refuses paths with a link component. The ratchet in `internal/sourcefs/ratchet_test.go` fails on any new raw `os` write call until it gets a truthful reason in `testdata/raw_writes.tsv`.
+- write the skills source through `internal/sourcefs`, which refuses paths with a link component. A helper that also writes other trees takes a `sourcefs.Writer`: the source passes `Root.Writer()`, everything else `sourcefs.OS`. The ratchet in `internal/sourcefs/ratchet_test.go` fails on any new raw `os` write call or `sourcefs.OS` reference until it gets a truthful reason in `testdata/raw_writes.tsv`.
 
 ## Tests
 
