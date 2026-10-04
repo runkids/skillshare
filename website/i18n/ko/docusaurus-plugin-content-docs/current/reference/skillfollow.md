@@ -54,7 +54,7 @@ git rm --cached -- '_team-skills'
 
 `skillshare doctor`, `skillshare list --no-tui`, `skillshare sync --dry-run`으로 확인하고 올바르면 `skillshare sync`하세요. `-g`/`-p`로 범위를 선택하세요. 선언/ignore는 수동 편집이며 discovery, status, doctor, dry run이 자동 생성/복구하지 않습니다. 아직 `follow`/`unfollow` 명령은 없습니다.
 
-`_` 접두사와 `.git`을 가진 항목은 tracked repo, 그 외는 그룹입니다. Skills는 `_team-skills/review`（flat name `_team-skills__review`）같은 논리 경로를 유지합니다. Source-root/repo `.skillignore`는 계속 적용되며 미선언 첫 계층 링크는 보이지 않습니다.
+`_` 접두사와 `.git`을 가진 항목은 tracked repo, 그 외는 그룹입니다. Skills는 `_team-skills/review`（flat name `_team-skills__review`）같은 논리 경로를 유지합니다. Source-root/repo `.skillignore`는 계속 적용되며(followed 그룹 안에 중첩된 tracked repo 포함) 미선언 첫 계층 링크는 보이지 않습니다.
 
 ## 형식
 
@@ -91,7 +91,7 @@ Canonical path로 안전성을 검사하며 처음 해당되는 상태를 사용
 - **Status**: `.skillfollow: N entries, M skipped`, local 활성 시 `(.local active)`, 각 prune 중지 복구 메시지. JSON `source.skillfollow`에는 `active`, `local_active`, `entry_count`, `followed_count`, `skipped_count`, 선언 `entries`（`name`, `state`, 선택 `resolved_target`, `reason`）, 선택 `warnings`/`prune_paused`가 있습니다. 선언/선언 경고가 없으면 생략합니다.
 - **Doctor**: `skillfollow`는 선언 상태, `skillfollow_prune`은 정리 차단. 미선언 링크는 `undeclared_source_links` info. Git repo에서는 indexed/`not-ignored` 링크와 안전하지 않은 local 파일도 검사하지만 파일을 수정하지 않습니다.
 - **`list --no-tui`**: followed tracked repo에 `→ <resolved>` 추가（홈 경로는 `~`로 축약 가능）. Skills는 논리 경로, JSON 형식은 그대로입니다.
-- **Diff**: sync와 같은 규칙으로 미리 봅니다. 선언 항목을 사용할 수 없는 동안 제거를 보고하지 않고 `<target>: prune paused; unavailable .skillfollow entry: <name> (<state>)`를 표시하며, sync가 유지할 standard naming managed copy를 **Kept**로 표시합니다. `diff --json`은 target별 `prune_paused`와 `keep` 항목을 추가합니다. Dashboard diff는 `prune_paused`를 추가하고 유지되는 copy를 `skip`으로 표시합니다.
+- **Diff**: sync와 같은 규칙으로 미리 봅니다. 선언 항목을 사용할 수 없는 동안 제거를 보고하지 않고 `<target>: prune paused; unavailable .skillfollow entry: <name> (<state>)`를 표시하며, sync가 유지할 standard naming managed copy를 **Kept**로 표시합니다. `diff --json`은 target별 `prune_paused`와 `keep` 항목을 추가합니다. Dashboard diff는 `prune_paused`를 추가하고 유지되는 copy를 `skip`으로 표시합니다. followed orphan link도 sync의 prune과 같은 판단으로 미리 봅니다. followed 항목의 resolved 위치를 가리키는 managed merge link는 해당 skill이 discovery에서 빠지면 `prune`으로, 같은 곳을 가리키는 직접 만든 link는 `local`로 표시됩니다.
 - **Dashboard**: Skills, Overview, Check, Update, Audit, Hub에서 논리 경로 표시(audit는 resolved root를 통해 followed skill을 스캔). 내용 편집, uninstall, 토글, target 덮어쓰기, source URL 변경은 거부합니다. 외부 트리를 직접 편집하고 숨기려면 **source-root `.skillignore`**를 사용하세요. 선언 전용 편집기는 아직 없습니다. Dashboard sync는 CLI와 같은 prune/copy 안전 정책이며 target별 `prune_paused`/`kept` 및 경고를 표시합니다. Targets는 managed followed link를 local이 아닌 linked로 계산합니다.
 
 실제 진단 문자열:

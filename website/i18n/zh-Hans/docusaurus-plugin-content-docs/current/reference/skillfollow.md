@@ -54,7 +54,7 @@ git rm --cached -- '_team-skills'
 
 执行 `skillshare doctor`、`skillshare list --no-tui`、`skillshare sync --dry-run`；用 `-g`/`-p` 选范围，预览正确后 `skillshare sync`。声明与 ignore 文件须手动编辑；discovery、status、doctor、dry run 不会自动创建或修复。目前没有 `follow`/`unfollow` 命令。
 
-`_` 前缀且含 `.git` 的条目视为 tracked repo，其他 followed 目录视为组。Skills 保留 `_team-skills/review` 等逻辑路径（flat name：`_team-skills__review`）。Source-root/repo `.skillignore` 仍适用；未声明第一层链接仍不可见。
+`_` 前缀且含 `.git` 的条目视为 tracked repo，其他 followed 目录视为组。Skills 保留 `_team-skills/review` 等逻辑路径（flat name：`_team-skills__review`）。Source-root/repo `.skillignore` 仍适用（含 followed 组内嵌套的 tracked repo）；未声明第一层链接仍不可见。
 
 ## 格式
 
@@ -91,7 +91,7 @@ git rm --cached -- '_team-skills'
 - **Status**：`.skillfollow: N entries, M skipped`，local 启用时加 `(.local active)`，另列 prune 暂停恢复消息。JSON 的 `source.skillfollow` 含 `active`、`local_active`、`entry_count`、`followed_count`、`skipped_count`、声明 `entries`（`name`、`state`、可选 `resolved_target`、`reason`），以及可选 `warnings`/`prune_paused`。无声明或声明警告时省略此字段。
 - **Doctor**：`skillfollow` 列声明状态，`skillfollow_prune` 列清理阻挡。未声明链接保持 `undeclared_source_links` info。Git repo 内还检查 indexed/`not-ignored` 链接与不安全的 local 文件，不修改文件。
 - **`list --no-tui`**：followed tracked repo 加 `→ <resolved>`（家目录可缩为 `~`）；skills 路径仍为逻辑路径，JSON 格式不变。
-- **Diff**：以与 sync 相同的规则预览。声明条目不可用时不报告任何移除，显示 `<target>: prune paused; unavailable .skillfollow entry: <name> (<state>)`，sync 会保留的 standard naming managed copy 列为 **Kept**。`diff --json` 逐 target 加上 `prune_paused` 与 `keep` 条目。Dashboard diff 加上 `prune_paused`，保留的 copy 显示为 `skip`。
+- **Diff**：以与 sync 相同的规则预览。声明条目不可用时不报告任何移除，显示 `<target>: prune paused; unavailable .skillfollow entry: <name> (<state>)`，sync 会保留的 standard naming managed copy 列为 **Kept**。`diff --json` 逐 target 加上 `prune_paused` 与 `keep` 条目。Dashboard diff 加上 `prune_paused`，保留的 copy 显示为 `skip`。它也按 sync 的 prune 规则预览 followed orphan link：指向 followed 条目 resolved 位置的 managed merge link，在其 skill 退出 discovery 后列为 `prune`；你自行建立的同目标 link 列为 `local`。
 - **Dashboard**：Skills、Overview、Check、Update、Audit、Hub 可见逻辑路径（audit 通过 resolved root 扫描 followed skill）。内容编辑、卸载、启停、target 覆盖、source URL 更改会拒绝。直接编辑外部树，或在 **source-root `.skillignore`** 隐藏。尚无专用声明编辑页。Dashboard sync 与 CLI 共用 prune/copy 安全，逐 target 报告 `prune_paused`/`kept` 与警告；Targets 把 managed followed link 算为 linked 而非 local。
 
 原始诊断便于识别：

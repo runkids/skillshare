@@ -40,7 +40,7 @@ sidebar_position: 3
 
 **位置：**
 - Source 根目录：`~/.config/skillshare/skills/.skillignore` — 适用于所有 Skill
-- 已 track 的仓库根目录：`_team-repo/.skillignore` — 仅适用于该仓库内部
+- 已 track 的仓库根目录：`_team-repo/.skillignore` — 仅适用于该仓库内部，不限 source 中的深度（例如以 `--into group/sub` 安装的仓库，或 followed 组内的仓库）。仓库嵌套时以最内层仓库的规则为准
 
 **语法：** 完整的 [gitignore](https://git-scm.com/docs/gitignore) 语法 —— `*`（单段）、`**`（任意深度）、`?`、`[abc]`、`!pattern`（取反）、`/pattern`（锚定）、`pattern/`（仅目录）。
 

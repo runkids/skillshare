@@ -28,7 +28,8 @@ Invalid lines warn. There are no `follow`/`unfollow` commands yet.
 
 A `_`-prefixed directory with `.git` is a tracked repo; other directories are
 groups. Paths stay logical (`_team-skills/review`, flat `_team-skills__review`).
-Root/repo `.skillignore` still applies. Nested links are not traversed.
+Root/repo `.skillignore` still applies, including a tracked repo nested in a
+followed group. Nested links are not traversed.
 
 ## States and recovery
 
@@ -85,7 +86,9 @@ remove it or re-run with --force`.
   scans followed skills through the resolved root.
 - Diff previews sync: while paused it reports no removals, names the pause
   (`prune_paused` in JSON and dashboard), and shows kept standard-name copies
-  (`keep`; dashboard `skip`).
+  (`keep`; dashboard `skip`). Dashboard diff lists a managed merge link into a
+  followed entry's resolved location as `prune` once its skill leaves discovery,
+  and a user-made link to the same place as `local`.
 
 ## Git and update safety
 

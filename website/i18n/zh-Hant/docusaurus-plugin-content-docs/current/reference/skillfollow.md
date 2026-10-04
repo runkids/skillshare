@@ -54,7 +54,7 @@ git rm --cached -- '_team-skills'
 
 執行 `skillshare doctor`、`skillshare list --no-tui`、`skillshare sync --dry-run`；用 `-g`/`-p` 選定範圍，預覽正確再 `skillshare sync`。宣告與 ignore 檔須手動編輯；discovery、status、doctor、dry run 不會自動建立或修復它們。目前沒有 `follow`/`unfollow` 指令。
 
-`_` 前綴且含 `.git` 的項目視為 tracked repo，其他 followed 目錄視為群組。Skills 保留 `_team-skills/review` 等邏輯路徑（flat name：`_team-skills__review`）。Source-root/repo 的 `.skillignore` 仍適用；未宣告第一層連結仍不可見。
+`_` 前綴且含 `.git` 的項目視為 tracked repo，其他 followed 目錄視為群組。Skills 保留 `_team-skills/review` 等邏輯路徑（flat name：`_team-skills__review`）。Source-root/repo 的 `.skillignore` 仍適用（含 followed 群組內巢狀的 tracked repo）；未宣告第一層連結仍不可見。
 
 ## 格式
 
@@ -91,7 +91,7 @@ git rm --cached -- '_team-skills'
 - **Status**：`.skillfollow: N entries, M skipped`，local 啟用時加 `(.local active)`，另列 prune 暫停復原訊息。JSON 的 `source.skillfollow` 含 `active`、`local_active`、`entry_count`、`followed_count`、`skipped_count`、宣告 `entries`（`name`、`state`、選用 `resolved_target`、`reason`），以及選用 `warnings`/`prune_paused`。無宣告或宣告警告時省略此欄位。
 - **Doctor**：`skillfollow` 列宣告狀態，`skillfollow_prune` 列清理阻擋。未宣告連結維持 `undeclared_source_links` info。Git repo 內另檢查 indexed/`not-ignored` 連結與不安全的 local 檔，不修改檔案。
 - **`list --no-tui`**：followed tracked repo 加 `→ <resolved>`（家目錄可縮為 `~`）；skills 路徑仍為邏輯路徑，JSON 格式不變。
-- **Diff**：以與 sync 相同的規則預覽。宣告項目無法使用時不回報任何移除，顯示 `<target>: prune paused; unavailable .skillfollow entry: <name> (<state>)`，sync 會保留的 standard naming managed copy 列為 **Kept**。`diff --json` 逐 target 加上 `prune_paused` 與 `keep` 項目。Dashboard diff 加上 `prune_paused`，保留的 copy 顯示為 `skip`。
+- **Diff**：以與 sync 相同的規則預覽。宣告項目無法使用時不回報任何移除，顯示 `<target>: prune paused; unavailable .skillfollow entry: <name> (<state>)`，sync 會保留的 standard naming managed copy 列為 **Kept**。`diff --json` 逐 target 加上 `prune_paused` 與 `keep` 項目。Dashboard diff 加上 `prune_paused`，保留的 copy 顯示為 `skip`。它也依 sync 的 prune 規則預覽 followed orphan link：指向 followed 項目 resolved 位置的 managed merge link，在其 skill 退出 discovery 後列為 `prune`；你自行建立的同目標 link 列為 `local`。
 - **Dashboard**：Skills、Overview、Check、Update、Audit、Hub 可看到邏輯路徑（audit 透過 resolved root 掃描 followed skill）。內容編輯、解除安裝、啟停、target 覆寫、source URL 變更會拒絕。直接編輯外部樹，或在 **source-root `.skillignore`** 隱藏。尚無專用宣告編輯頁。Dashboard sync 與 CLI 共用 prune/copy 安全，逐 target 回報 `prune_paused`/`kept` 與警告；Targets 把 managed followed link 算為 linked 而非 local。
 
 可辨認的原始診斷：

@@ -44,7 +44,7 @@ Skill が Target に届くには、**すべての**レイヤーを通過する�
 
 **場所:**
 - Source のルート: `~/.config/skillshare/skills/.skillignore` — すべての Skill に適用される
-- Tracked repo のルート: `_team-repo/.skillignore` — そのリポジトリ内にのみ適用される
+- Tracked repo のルート: `_team-repo/.skillignore` — そのリポジトリ内にのみ適用される。source 内の深さは問わない（`--into group/sub` でインストールした repo や followed グループ内の repo も対象）。Tracked repo が入れ子の場合は最も内側の repo のルールが適用される
 
 **構文:** 完全な [gitignore](https://git-scm.com/docs/gitignore) — `*`（1セグメント）、
 `**`（任意の深さ）、`?`、`[abc]`、`!pattern`（否定）、`/pattern`（アンカー付き）、

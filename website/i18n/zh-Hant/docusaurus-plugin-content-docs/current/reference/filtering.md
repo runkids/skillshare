@@ -40,7 +40,7 @@ sidebar_position: 3
 
 **位置：**
 - Source 根目錄：`~/.config/skillshare/skills/.skillignore` — 套用於所有 skills
-- Tracked repo 根目錄：`_team-repo/.skillignore` — 只套用於該 repo 之內
+- Tracked repo 根目錄：`_team-repo/.skillignore` — 只套用於該 repo 之內，不限 source 中的深度（例如以 `--into group/sub` 安裝的 repo，或 followed 群組內的 repo）。Repo 巢狀時以最內層 repo 的規則為準
 
 **語法：** 完整的 [gitignore](https://git-scm.com/docs/gitignore) 語法 — `*`（單一段落）、`**`（任意深度）、`?`、`[abc]`、`!pattern`（否定）、`/pattern`（錨定）、`pattern/`（僅限目錄）。
 

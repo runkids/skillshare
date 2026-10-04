@@ -40,7 +40,7 @@ Skill이 Target에 도달하려면 **모든** 레이어를 통과해야 합니�
 
 **위치:**
 - Source 루트: `~/.config/skillshare/skills/.skillignore` — 모든 Skill에 적용
-- Tracked 저장소 루트: `_team-repo/.skillignore` — 해당 저장소 내에서만 적용
+- Tracked 저장소 루트: `_team-repo/.skillignore` — 해당 저장소 내에서만 적용. source 안의 깊이는 무관(`--into group/sub`로 설치한 저장소나 followed 그룹 안의 저장소도 포함). 저장소가 중첩되면 가장 안쪽 저장소의 규칙이 적용
 
 **문법:** 전체 [gitignore](https://git-scm.com/docs/gitignore) — `*`(단일 세그먼트), `**`(임의 깊이), `?`, `[abc]`, `!pattern`(부정), `/pattern`(경로 고정), `pattern/`(디렉터리 전용).
 

@@ -36,7 +36,7 @@ A skill must pass **all** layers to reach a target:
 
 **Locations:**
 - Source root: `~/.config/skillshare/skills/.skillignore` — applies to all skills
-- Tracked repo root: `_team-repo/.skillignore` — applies only within that repo
+- Tracked repo root: `_team-repo/.skillignore` — applies only within that repo, at any depth in the source (for example a repo installed with `--into group/sub` or inside a followed group). When tracked repos nest, the innermost repo's rules apply to its skills.
 
 **Syntax:** Full [gitignore](https://git-scm.com/docs/gitignore) — `*` (single segment), `**` (any depth), `?`, `[abc]`, `!pattern` (negation), `/pattern` (anchored), `pattern/` (directory-only).
 
