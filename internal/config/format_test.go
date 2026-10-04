@@ -83,3 +83,19 @@ func TestProjectSaveIn_OrdersAndSpacesSections(t *testing.T) {
 		t.Errorf("project config should start with targets then hooks\ngot:\n%s", got)
 	}
 }
+
+func TestMarshalConfig_KeepsOrderWhenSortingWouldBreakAnAlias(t *testing.T) {
+	var cfg Config
+	src := "hooks: &shared\n  claude: []\nmcp:\n  servers: *shared\nsources:\n  skills: /src\n"
+	if err := yaml.Unmarshal([]byte(src), &cfg); err != nil {
+		t.Fatal(err)
+	}
+	data, err := marshalConfig(&cfg, schemaComment)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var reloaded Config
+	if err := yaml.Unmarshal(data, &reloaded); err != nil {
+		t.Errorf("saved config does not load: %v\n%s", err, data)
+	}
+}

@@ -50,13 +50,33 @@ func sortSections(m *yaml.Node) {
 	for i := 0; i+1 < len(m.Content); i += 2 {
 		pairs = append(pairs, [2]*yaml.Node{m.Content[i], m.Content[i+1]})
 	}
+	original := m.Content
 	sort.SliceStable(pairs, func(i, j int) bool {
 		return rank(pairs[i][0].Value) < rank(pairs[j][0].Value)
 	})
-	m.Content = m.Content[:0]
+	m.Content = make([]*yaml.Node, 0, len(original))
 	for _, p := range pairs {
 		m.Content = append(m.Content, p[0], p[1])
 	}
+	// Keep the original order if moving sections would put an alias before its anchor.
+	if !aliasesFollowAnchors(m, map[string]bool{}) {
+		m.Content = original
+	}
+}
+
+func aliasesFollowAnchors(n *yaml.Node, anchors map[string]bool) bool {
+	if n.Kind == yaml.AliasNode && !anchors[n.Value] {
+		return false
+	}
+	if n.Anchor != "" {
+		anchors[n.Anchor] = true
+	}
+	for _, child := range n.Content {
+		if !aliasesFollowAnchors(child, anchors) {
+			return false
+		}
+	}
+	return true
 }
 
 // spaceSections inserts a blank line before each top-level key, or before the
