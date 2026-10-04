@@ -10,6 +10,7 @@ import (
 
 	"skillshare/internal/audit"
 	"skillshare/internal/resource"
+	"skillshare/internal/sourcewalk"
 	"skillshare/internal/sync"
 )
 
@@ -93,7 +94,7 @@ func discoverAuditAgents(source string) ([]skillEntry, error) {
 }
 
 // discoverAuditSkills discovers and deduplicates skills for audit scanning.
-func discoverAuditSkills(source string) ([]skillEntry, error) {
+func discoverAuditSkills(source string, follows ...*sourcewalk.FollowSet) ([]skillEntry, error) {
 	if source == "" {
 		return []skillEntry{}, nil
 	}
@@ -104,7 +105,11 @@ func discoverAuditSkills(source string) ([]skillEntry, error) {
 		return nil, err
 	}
 
-	discovered, err := sync.DiscoverSourceSkills(source)
+	var follow *sourcewalk.FollowSet
+	if len(follows) > 0 {
+		follow = follows[0]
+	}
+	discovered, _, err := sync.DiscoverSourceSkillsWithOptions(source, sync.DiscoveryOptions{Follow: follow})
 	if err != nil {
 		if os.IsNotExist(err) {
 			return []skillEntry{}, nil
@@ -294,6 +299,7 @@ func (s *Server) handleAuditAll(w http.ResponseWriter, r *http.Request) {
 	// Snapshot config under RLock, then release before I/O.
 	s.mu.RLock()
 	source, resultKind, isAgents := s.resolveAuditSource(r)
+	follow := s.skillFollowSet()
 	policy := s.auditPolicy()
 	projectRoot := s.projectRoot
 	cfgPath := s.configPath()
@@ -308,7 +314,7 @@ func (s *Server) handleAuditAll(w http.ResponseWriter, r *http.Request) {
 	if isAgents {
 		skills, err = discoverAuditAgents(source)
 	} else {
-		skills, err = discoverAuditSkills(source)
+		skills, err = discoverAuditSkills(source, follow)
 	}
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())

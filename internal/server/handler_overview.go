@@ -24,6 +24,7 @@ func (s *Server) handleOverview(w http.ResponseWriter, r *http.Request) {
 	// Snapshot config under RLock, then release before I/O.
 	s.mu.RLock()
 	source := s.cfg.EffectiveSkillsSource()
+	follow := s.skillFollowSet()
 	agentsSource := s.agentsSource()
 	extrasSource := s.cfg.EffectiveExtrasSource()
 	if s.IsProjectMode() {
@@ -38,7 +39,7 @@ func (s *Server) handleOverview(w http.ResponseWriter, r *http.Request) {
 	isProjectMode := projectRoot != ""
 
 	// Count skills
-	skills, err := sync.DiscoverSourceSkills(source)
+	skills, _, err := sync.DiscoverSourceSkillsWithOptions(source, sync.DiscoveryOptions{Follow: follow})
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -46,7 +47,14 @@ func (s *Server) handleOverview(w http.ResponseWriter, r *http.Request) {
 
 	// Count top-level source entries (for display)
 	topLevelCount := 0
-	entries, _ := sourcewalk.ReadDir(source, sourcewalk.Options{})
+	entries, readErr := sourcewalk.ReadDir(source, sourcewalk.Options{Follow: follow})
+	if follow != nil && (readErr != nil || follow.Err() != nil) {
+		if readErr == nil {
+			readErr = follow.Err()
+		}
+		writeError(w, http.StatusInternalServerError, readErr.Error())
+		return
+	}
 	for _, e := range entries {
 		if e.IsDir() && !utils.IsHidden(e.Name()) {
 			topLevelCount++
@@ -59,7 +67,11 @@ func (s *Server) handleOverview(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Tracked repos
-	trackedRepos := buildTrackedRepos(source, skills)
+	trackedRepos, err := buildTrackedReposWithOptions(source, skills, sourcewalk.Options{Follow: follow})
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
 
 	// Count agents
 	agentCount := 0
@@ -95,9 +107,17 @@ func (s *Server) handleOverview(w http.ResponseWriter, r *http.Request) {
 }
 
 func buildTrackedRepos(sourceDir string, skills []sync.DiscoveredSkill) []trackedRepoItem {
-	repoNames, err := install.GetTrackedRepos(sourceDir)
+	items, _ := buildTrackedReposWithOptions(sourceDir, skills, sourcewalk.Options{})
+	return items
+}
+
+func buildTrackedReposWithOptions(sourceDir string, skills []sync.DiscoveredSkill, opts sourcewalk.Options) ([]trackedRepoItem, error) {
+	repoNames, err := install.GetTrackedReposWithOptions(sourceDir, opts)
 	if err != nil || len(repoNames) == 0 {
-		return []trackedRepoItem{}
+		if opts.Follow != nil && opts.Follow.Err() != nil {
+			return nil, opts.Follow.Err()
+		}
+		return []trackedRepoItem{}, nil
 	}
 
 	items := make([]trackedRepoItem, 0, len(repoNames))
@@ -121,5 +141,5 @@ func buildTrackedRepos(sourceDir string, skills []sync.DiscoveredSkill) []tracke
 			Dirty:      dirty,
 		})
 	}
-	return items
+	return items, nil
 }

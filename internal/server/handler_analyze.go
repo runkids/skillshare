@@ -39,11 +39,12 @@ type analyzeTargetResponse struct {
 func (s *Server) handleAnalyze(w http.ResponseWriter, r *http.Request) {
 	s.mu.RLock()
 	source := s.cfg.EffectiveSkillsSource()
+	follow := s.skillFollowSet()
 	targets := s.cfg.Targets
 	defaultMode := s.cfg.Mode
 	s.mu.RUnlock()
 
-	discovered, err := ssync.DiscoverSourceSkillsForAnalyze(source)
+	discovered, err := ssync.DiscoverSourceSkillsForAnalyzeWithOptions(source, ssync.DiscoveryOptions{Follow: follow})
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return

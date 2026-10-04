@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"skillshare/internal/skillignore"
+	"skillshare/internal/sourcefs"
 	ssync "skillshare/internal/sync"
 )
 
@@ -54,6 +55,10 @@ func (s *Server) handleToggleSkill(w http.ResponseWriter, r *http.Request, enabl
 		relPath, isDisabled, err = s.resolveSkillRelPathWithStatus(source, name)
 		if err != nil {
 			writeError(w, http.StatusNotFound, err.Error())
+			return
+		}
+		if err := sourcefs.CheckMoveOut(source, filepath.Join(source, relPath)); err != nil {
+			writeError(w, http.StatusConflict, err.Error())
 			return
 		}
 		ignorePath = filepath.Join(source, ".skillignore")
@@ -112,7 +117,10 @@ func (s *Server) resolveSkillRelPath(source, name string) (string, error) {
 // resolveSkillRelPathWithStatus is like resolveSkillRelPath but also returns
 // whether the skill is currently disabled (matched by .skillignore).
 func (s *Server) resolveSkillRelPathWithStatus(source, name string) (string, bool, error) {
-	discovered, err := ssync.DiscoverSourceSkillsAll(source)
+	s.mu.RLock()
+	follow := s.skillFollowSet()
+	s.mu.RUnlock()
+	discovered, err := ssync.DiscoverSourceSkillsAllWithOptions(source, ssync.DiscoveryOptions{Follow: follow})
 	if err != nil {
 		return "", false, fmt.Errorf("failed to discover skills: %w", err)
 	}

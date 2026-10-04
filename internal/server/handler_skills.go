@@ -13,6 +13,7 @@ import (
 	"skillshare/internal/install"
 	"skillshare/internal/resource"
 	"skillshare/internal/sourcefs"
+	"skillshare/internal/sourcewalk"
 	"skillshare/internal/sync"
 	"skillshare/internal/trash"
 	"skillshare/internal/utils"
@@ -59,6 +60,7 @@ func (s *Server) handleListSkills(w http.ResponseWriter, r *http.Request) {
 	// Snapshot config under RLock, then release before I/O.
 	s.mu.RLock()
 	source := s.cfg.EffectiveSkillsSource()
+	follow := s.skillFollowSet()
 	agentsSource := s.agentsSource()
 	s.mu.RUnlock()
 
@@ -66,7 +68,7 @@ func (s *Server) handleListSkills(w http.ResponseWriter, r *http.Request) {
 
 	// Skills
 	if kindFilter == "" || kindFilter == "skill" {
-		discovered, err := sync.DiscoverSourceSkillsAll(source)
+		discovered, err := sync.DiscoverSourceSkillsAllWithOptions(source, sync.DiscoveryOptions{Follow: follow})
 		if err != nil {
 			writeError(w, http.StatusInternalServerError, err.Error())
 			return
@@ -148,6 +150,7 @@ func (s *Server) handleGetSkill(w http.ResponseWriter, r *http.Request) {
 	// Snapshot config under RLock, then release before I/O.
 	s.mu.RLock()
 	source := s.cfg.EffectiveSkillsSource()
+	follow := s.skillFollowSet()
 	agentsSource := s.agentsSource()
 	s.mu.RUnlock()
 
@@ -160,7 +163,7 @@ func (s *Server) handleGetSkill(w http.ResponseWriter, r *http.Request) {
 
 	// Find the skill by flat name (exact) first, then fall back to base name.
 	if kind != "agent" {
-		discovered, err := sync.DiscoverSourceSkillsAll(source)
+		discovered, err := sync.DiscoverSourceSkillsAllWithOptions(source, sync.DiscoveryOptions{Follow: follow})
 		if err != nil {
 			writeError(w, http.StatusInternalServerError, err.Error())
 			return
@@ -304,6 +307,7 @@ func (s *Server) handleGetSkillFile(w http.ResponseWriter, r *http.Request) {
 	// Snapshot config under RLock, then release before I/O.
 	s.mu.RLock()
 	source := s.cfg.EffectiveSkillsSource()
+	follow := s.skillFollowSet()
 	s.mu.RUnlock()
 
 	name := r.PathValue("name")
@@ -316,7 +320,7 @@ func (s *Server) handleGetSkillFile(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Find the skill
-	discovered, err := sync.DiscoverSourceSkills(source)
+	discovered, _, err := sync.DiscoverSourceSkillsWithOptions(source, sync.DiscoveryOptions{Follow: follow})
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -381,13 +385,19 @@ func (s *Server) handleUninstallRepo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	repoName, repoPath, resolveErr := s.resolveTrackedRepo(cleanName)
+	follow := s.skillFollowSet()
+	repoName, repoPath, resolveErr := s.resolveTrackedRepo(cleanName, follow)
 	if resolveErr != nil {
 		writeError(w, http.StatusBadRequest, resolveErr.Error())
 		return
 	}
 	if repoPath == "" {
 		writeError(w, http.StatusBadRequest, "not a tracked repository: "+cleanName)
+		return
+	}
+
+	if err := followedSkillWriteError(s.cfg.EffectiveSkillsSource(), repoName, follow); err != nil {
+		writeError(w, http.StatusConflict, err.Error())
 		return
 	}
 
@@ -510,7 +520,7 @@ func (s *Server) handleUninstallSkill(w http.ResponseWriter, r *http.Request) {
 
 	// Find skill path. Disabled skills are listed in .skillignore, but the UI
 	// still shows them, so single-resource uninstall must resolve them too (#190).
-	discovered, err := sync.DiscoverSourceSkillsAll(s.cfg.EffectiveSkillsSource())
+	discovered, err := sync.DiscoverSourceSkillsAllWithOptions(s.cfg.EffectiveSkillsSource(), sync.DiscoveryOptions{Follow: s.skillFollowSet()})
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -522,16 +532,17 @@ func (s *Server) handleUninstallSkill(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 
+		if err := sourcefs.CheckMoveOut(s.cfg.EffectiveSkillsSource(), d.SourcePath); err != nil {
+			writeError(w, http.StatusConflict, err.Error())
+			return
+		}
+
 		// Don't allow removing skills inside tracked repos
 		if d.IsInRepo {
 			writeError(w, http.StatusBadRequest, "cannot uninstall skill from tracked repo; use 'skillshare uninstall' for the whole repo")
 			return
 		}
 
-		if err := sourcefs.CheckMoveOut(s.cfg.EffectiveSkillsSource(), d.SourcePath); err != nil {
-			writeError(w, http.StatusConflict, err.Error())
-			return
-		}
 		if _, err := trash.MoveToTrash(d.SourcePath, baseName, s.trashBase()); err != nil {
 			writeError(w, http.StatusInternalServerError, "failed to trash skill: "+err.Error())
 			return
@@ -553,7 +564,7 @@ func (s *Server) handleUninstallSkill(w http.ResponseWriter, r *http.Request) {
 // resolveTrackedRepo resolves a repo name (flat or nested) to its directory name
 // and absolute path under s.cfg.EffectiveSkillsSource(). Returns ("", "", nil) if not found.
 // Returns a non-nil error for ambiguous matches or internal failures.
-func (s *Server) resolveTrackedRepo(input string) (string, string, error) {
+func (s *Server) resolveTrackedRepo(input string, follows ...*sourcewalk.FollowSet) (string, string, error) {
 	sourceRoot := filepath.Clean(s.cfg.EffectiveSkillsSource())
 	candidates := []string{input}
 	if !strings.HasPrefix(filepath.Base(input), "_") {
@@ -575,7 +586,13 @@ func (s *Server) resolveTrackedRepo(input string) (string, string, error) {
 	}
 
 	// Fallback: match nested tracked repos by basename.
-	repos, err := install.GetTrackedRepos(s.cfg.EffectiveSkillsSource())
+	var follow *sourcewalk.FollowSet
+	if len(follows) > 0 {
+		follow = follows[0]
+	} else {
+		follow = s.skillFollowSet()
+	}
+	repos, err := install.GetTrackedReposWithOptions(s.cfg.EffectiveSkillsSource(), sourcewalk.Options{Follow: follow})
 	if err != nil {
 		return "", "", fmt.Errorf("failed to list tracked repositories: %w", err)
 	}

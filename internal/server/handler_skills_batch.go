@@ -65,9 +65,10 @@ func (s *Server) handleBatchSetTargets(w http.ResponseWriter, r *http.Request) {
 	// Snapshot config under read lock, then discover without holding the lock.
 	s.mu.RLock()
 	source := s.cfg.EffectiveSkillsSource()
+	follow := s.skillFollowSet()
 	s.mu.RUnlock()
 
-	discovered, err := ssync.DiscoverSourceSkillsAll(source)
+	discovered, err := ssync.DiscoverSourceSkillsAllWithOptions(source, ssync.DiscoveryOptions{Follow: follow})
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to discover skills: "+err.Error())
 		return
@@ -94,6 +95,11 @@ func (s *Server) handleBatchSetTargets(w http.ResponseWriter, r *http.Request) {
 	for _, d := range discovered {
 		relPath := filepath.ToSlash(d.RelPath)
 		if !matchesFolder(relPath, folder) {
+			continue
+		}
+
+		if err := followedSkillWriteError(source, d.RelPath, follow); err != nil {
+			errors = append(errors, d.FlatName+": "+err.Error())
 			continue
 		}
 
@@ -194,9 +200,10 @@ func (s *Server) handleSetSkillTargets(w http.ResponseWriter, r *http.Request) {
 
 	s.mu.RLock()
 	source := s.cfg.EffectiveSkillsSource()
+	follow := s.skillFollowSet()
 	s.mu.RUnlock()
 
-	discovered, err := ssync.DiscoverSourceSkillsAll(source)
+	discovered, err := ssync.DiscoverSourceSkillsAllWithOptions(source, ssync.DiscoveryOptions{Follow: follow})
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to discover skills: "+err.Error())
 		return
@@ -206,6 +213,11 @@ func (s *Server) handleSetSkillTargets(w http.ResponseWriter, r *http.Request) {
 		baseName := filepath.Base(d.SourcePath)
 		if d.FlatName != name && baseName != name {
 			continue
+		}
+
+		if err := followedSkillWriteError(source, d.RelPath, follow); err != nil {
+			writeError(w, http.StatusConflict, err.Error())
+			return
 		}
 
 		var values []string

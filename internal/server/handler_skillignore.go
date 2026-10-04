@@ -28,6 +28,7 @@ func (s *Server) handleGetSkillignore(w http.ResponseWriter, r *http.Request) {
 	// Snapshot source path under RLock, then release before I/O.
 	s.mu.RLock()
 	source := s.cfg.EffectiveSkillsSource()
+	follow := s.skillFollowSet()
 	s.mu.RUnlock()
 
 	ignorePath := filepath.Join(source, ".skillignore")
@@ -41,7 +42,11 @@ func (s *Server) handleGetSkillignore(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Always discover stats — tracked repos may have their own .skillignore
-	_, stats, discoverErr := sync.DiscoverSourceSkillsWithStats(source)
+	_, stats, discoverErr := sync.DiscoverSourceSkillsWithOptions(source, sync.DiscoveryOptions{Follow: follow, CollectIgnored: true})
+	if discoverErr != nil && follow != nil && follow.Err() != nil {
+		writeError(w, http.StatusInternalServerError, discoverErr.Error())
+		return
+	}
 	if discoverErr == nil && stats != nil {
 		patterns := stats.Patterns
 		if patterns == nil {

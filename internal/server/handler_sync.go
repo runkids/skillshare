@@ -213,7 +213,7 @@ func (s *Server) syncResources(start time.Time, dryRun, force bool, kind, projec
 	// Skill sync (skip when kind == "agent")
 	if kind != kindAgent {
 		var err error
-		allSkills, ignoreStats, err = ssync.DiscoverSourceSkillsWithStatsAndContext(s.cfg.EffectiveSkillsSource())
+		allSkills, ignoreStats, err = ssync.DiscoverSourceSkillsWithOptions(s.cfg.EffectiveSkillsSource(), ssync.DiscoveryOptions{Follow: s.skillFollowSet(), CollectIgnored: true, CollectContext: true})
 		if err != nil {
 			return nil, http.StatusInternalServerError, fmt.Errorf("failed to discover skills: %w", err)
 		}
@@ -581,6 +581,7 @@ func (s *Server) handleDiff(w http.ResponseWriter, r *http.Request) {
 	// Snapshot config under RLock, then release before slow I/O.
 	s.mu.RLock()
 	source := s.cfg.EffectiveSkillsSource()
+	follow := s.skillFollowSet()
 	agentsSource := s.agentsSource()
 	globalMode := s.cfg.Mode
 	ignorePatterns := ssync.EffectiveFileIgnorePatterns(s.cfg.Ignore)
@@ -594,7 +595,7 @@ func (s *Server) handleDiff(w http.ResponseWriter, r *http.Request) {
 
 	filterTarget := r.URL.Query().Get("target")
 
-	discovered, ignoreStats, err := ssync.DiscoverSourceSkillsWithStats(source)
+	discovered, ignoreStats, err := ssync.DiscoverSourceSkillsWithOptions(source, ssync.DiscoveryOptions{Follow: follow, CollectIgnored: true})
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return

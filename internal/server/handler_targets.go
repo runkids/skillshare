@@ -57,6 +57,7 @@ func (s *Server) handleListTargets(w http.ResponseWriter, r *http.Request) {
 	// Snapshot config under RLock, then release before I/O.
 	s.mu.RLock()
 	source := s.cfg.EffectiveSkillsSource()
+	follow := s.skillFollowSet()
 	cfgMode := s.cfg.Mode
 	targets := s.cloneTargets()
 	isProjectMode := s.IsProjectMode()
@@ -94,7 +95,11 @@ func (s *Server) handleListTargets(w http.ResponseWriter, r *http.Request) {
 	}
 
 	items := make([]targetItem, 0, len(targets))
-	discovered, discoveredErr := ssync.DiscoverSourceSkills(source)
+	discovered, _, discoveredErr := ssync.DiscoverSourceSkillsWithOptions(source, ssync.DiscoveryOptions{Follow: follow})
+	if discoveredErr != nil && follow != nil && follow.Err() != nil {
+		writeError(w, http.StatusInternalServerError, discoveredErr.Error())
+		return
+	}
 
 	// Project targets are edited under projects, so they are listed only on request:
 	// scope=projects for them alone, scope=all for what a sync writes.

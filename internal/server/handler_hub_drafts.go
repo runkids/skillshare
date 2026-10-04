@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"skillshare/internal/hub"
+	ssync "skillshare/internal/sync"
 )
 
 func (s *Server) hubDraftStore() hub.DraftStore {
@@ -55,8 +56,9 @@ func decodeDraftBody(w http.ResponseWriter, r *http.Request, dst any) error {
 func (s *Server) handleHubDraftCandidates(w http.ResponseWriter, r *http.Request) {
 	s.mu.RLock()
 	source := s.skillsSource()
+	follow := s.skillFollowSet()
 	s.mu.RUnlock()
-	entries, err := hub.DraftCandidates(source)
+	entries, err := hub.DraftCandidatesWithOptions(source, ssync.DiscoveryOptions{Follow: follow})
 	if err != nil {
 		draftError(w, err)
 		return

@@ -60,11 +60,12 @@ func (s *Server) handleSyncMatrix(w http.ResponseWriter, r *http.Request) {
 	// Snapshot config under RLock, then release before I/O.
 	s.mu.RLock()
 	source := s.cfg.EffectiveSkillsSource()
+	follow := s.skillFollowSet()
 	agentsSource := s.agentsSource()
 	targets := s.cloneTargets()
 	s.mu.RUnlock()
 
-	skills, err := ssync.DiscoverSourceSkills(source)
+	skills, _, err := ssync.DiscoverSourceSkillsWithOptions(source, ssync.DiscoveryOptions{Follow: follow})
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to discover skills: "+err.Error())
 		return
@@ -139,6 +140,7 @@ func (s *Server) handleSyncMatrixPreview(w http.ResponseWriter, r *http.Request)
 	// Snapshot config under RLock, then release before I/O.
 	s.mu.RLock()
 	source := s.cfg.EffectiveSkillsSource()
+	follow := s.skillFollowSet()
 	agentsSource := s.agentsSource()
 	targets := s.cloneTargets()
 	s.mu.RUnlock()
@@ -180,7 +182,7 @@ func (s *Server) handleSyncMatrixPreview(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	skills, err := ssync.DiscoverSourceSkills(source)
+	skills, _, err := ssync.DiscoverSourceSkillsWithOptions(source, ssync.DiscoveryOptions{Follow: follow})
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to discover skills: "+err.Error())
 		return

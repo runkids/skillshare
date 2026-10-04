@@ -10,12 +10,15 @@ import (
 	"skillshare/internal/hub"
 	"skillshare/internal/install"
 	"skillshare/internal/search"
+	"skillshare/internal/sourcewalk"
+	ssync "skillshare/internal/sync"
 )
 
 func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 	// Snapshot config under RLock, then release before I/O.
 	s.mu.RLock()
 	source := s.skillsSource()
+	follow := s.skillFollowSet()
 	parseOpts := s.parseOpts()
 	hubCfg := s.cfg.Hub
 	if s.IsProjectMode() && s.projectCfg != nil {
@@ -37,7 +40,7 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 	var err error
 	switch {
 	case hubParam == "@builtin":
-		results, err = searchBuiltinIndex(source, query, limit)
+		results, err = searchBuiltinIndex(source, query, limit, follow)
 	case hubParam != "":
 		// SSH hub sources trigger a git clone using the host's SSH credentials.
 		// In the web server, restrict that to URLs the user has explicitly saved
@@ -104,8 +107,12 @@ func savedHubURLSet(hub config.HubConfig) map[string]bool {
 }
 
 // searchBuiltinIndex builds the hub index from local skills and searches it in-memory.
-func searchBuiltinIndex(sourcePath, query string, limit int) ([]search.SearchResult, error) {
-	idx, err := hub.BuildIndex(sourcePath, false, false)
+func searchBuiltinIndex(sourcePath, query string, limit int, follows ...*sourcewalk.FollowSet) ([]search.SearchResult, error) {
+	var follow *sourcewalk.FollowSet
+	if len(follows) > 0 {
+		follow = follows[0]
+	}
+	idx, err := hub.BuildIndexWithOptions(sourcePath, false, false, ssync.DiscoveryOptions{Follow: follow})
 	if err != nil {
 		return nil, err
 	}
