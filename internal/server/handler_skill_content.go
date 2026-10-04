@@ -12,6 +12,7 @@ import (
 	"skillshare/internal/git"
 	"skillshare/internal/install"
 	"skillshare/internal/resource"
+	"skillshare/internal/sourcefs"
 	"skillshare/internal/sync"
 )
 
@@ -67,7 +68,16 @@ func (s *Server) handlePutSkillContent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := writeFileAtomic(targetPath, []byte(req.Content), 0o644); err != nil {
+	if resolvedKind == "skill" {
+		err = writeSourceFileAtomic(source, targetPath, []byte(req.Content))
+	} else {
+		err = writeFileAtomic(targetPath, []byte(req.Content), 0o644)
+	}
+	if errors.Is(err, sourcefs.ErrLink) {
+		writeError(w, http.StatusConflict, err.Error())
+		return
+	}
+	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to save: "+err.Error())
 		return
 	}
@@ -338,6 +348,22 @@ func withinDir(path, dir string) bool {
 		return false
 	}
 	return rel == "." || (!strings.HasPrefix(rel, "..") && !filepath.IsAbs(rel))
+}
+
+// writeSourceFileAtomic replaces a file in the skills source through the
+// source-write handle, so neither the temp file nor the rename can reach
+// outside the source through a link, and a file that is a link is refused.
+func writeSourceFileAtomic(source, path string, data []byte) error {
+	src, err := sourcefs.Open(source)
+	if err != nil {
+		return err
+	}
+	defer src.Close()
+	rel, err := src.Rel(path)
+	if err != nil {
+		return err
+	}
+	return src.WriteFileAtomic(rel, data, 0o644)
 }
 
 // writeFileAtomic writes data to a temp file in the same directory, then renames it

@@ -118,6 +118,37 @@ func TestHandlePutSkillContent_AtomicTempCleanup(t *testing.T) {
 	}
 }
 
+func TestHandlePutSkillContent_RefusesLinkedSkillFile(t *testing.T) {
+	s, src := newTestServer(t)
+	addSkill(t, src, "my-skill")
+	shared := filepath.Join(t.TempDir(), "shared.md")
+	if err := os.WriteFile(shared, []byte("---\nname: my-skill\n---\n# Shared"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	skillFile := filepath.Join(src, "my-skill", "SKILL.md")
+	if err := os.Remove(skillFile); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(shared, skillFile); err != nil {
+		t.Fatal(err)
+	}
+
+	raw, _ := json.Marshal(skillContentRequest{Content: "replaced"})
+	req := httptest.NewRequest(http.MethodPut, "/api/resources/my-skill/content", bytes.NewReader(raw))
+	rr := httptest.NewRecorder()
+	s.handler.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusConflict || !strings.Contains(rr.Body.String(), "is a link; edit its target directly") {
+		t.Fatalf("expected 409 link refusal, got %d: %s", rr.Code, rr.Body.String())
+	}
+	if fi, err := os.Lstat(skillFile); err != nil || fi.Mode()&os.ModeSymlink == 0 {
+		t.Fatalf("SKILL.md is no longer a link: %v", err)
+	}
+	if got, _ := os.ReadFile(shared); !strings.Contains(string(got), "# Shared") {
+		t.Fatalf("shared file was modified: %q", got)
+	}
+}
+
 func TestHandlePutSkillContent_RejectsTraversal(t *testing.T) {
 	// The route only exposes {name}; Go's mux rejects a literal "/" inside
 	// {name}, but we still want to confirm `..` as a name doesn't escape.
