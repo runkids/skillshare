@@ -506,7 +506,7 @@ func installFromSearchResult(result search.SearchResult, cfg *config.Config) (er
 	if store == nil {
 		store = install.NewMetadataStore()
 	}
-	if rErr := config.ReconcileGlobalSkills(cfg, store); rErr != nil {
+	if rErr := config.ReconcileGlobalSkillsWithOptions(cfg, store, config.ReconcileOptions{Follow: globalSkillFollowSet(cfg)}); rErr != nil {
 		ui.Warning("Failed to reconcile global skills config: %v", rErr)
 	}
 

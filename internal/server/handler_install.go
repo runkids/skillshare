@@ -27,13 +27,15 @@ func (s *Server) reloadSkillsStore() {
 
 // reconcileSkillsConfig syncs the skills config with the metadata store,
 // logging failures as warnings so the calling operation still succeeds.
+// Callers hold s.mu.
 func (s *Server) reconcileSkillsConfig(sourceDir string) {
+	opts := config.ReconcileOptions{Follow: s.skillFollowSet()}
 	if s.IsProjectMode() {
-		if rErr := config.ReconcileProjectSkills(s.projectRoot, s.projectCfg, s.skillsStore, sourceDir); rErr != nil {
+		if rErr := config.ReconcileProjectSkillsWithOptions(s.projectRoot, s.projectCfg, s.skillsStore, sourceDir, opts); rErr != nil {
 			log.Printf("warning: failed to reconcile project skills config: %v", rErr)
 		}
 	} else {
-		if rErr := config.ReconcileGlobalSkills(s.cfg, s.skillsStore); rErr != nil {
+		if rErr := config.ReconcileGlobalSkillsWithOptions(s.cfg, s.skillsStore, opts); rErr != nil {
 			log.Printf("warning: failed to reconcile global skills config: %v", rErr)
 		}
 	}

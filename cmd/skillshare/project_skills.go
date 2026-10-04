@@ -13,7 +13,8 @@ func reconcileProjectRemoteSkills(runtime *projectRuntime) error {
 	if fresh, err := install.LoadMetadata(runtime.sourcePath); err == nil {
 		runtime.skillsStore = fresh
 	}
-	return config.ReconcileProjectSkills(runtime.root, runtime.config, runtime.skillsStore, runtime.sourcePath)
+	follow := skillFollowSet(runtime.sourcePath, runtime.targets, runtime.root)
+	return config.ReconcileProjectSkillsWithOptions(runtime.root, runtime.config, runtime.skillsStore, runtime.sourcePath, config.ReconcileOptions{Follow: follow})
 }
 
 // trackProjectLock returns a function for defer: it moves the lockfile pins of

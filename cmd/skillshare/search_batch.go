@@ -553,7 +553,7 @@ func batchInstallFromSearchWithProgress(selected []search.SearchResult, mode run
 		if store == nil {
 			store = install.NewMetadataStore()
 		}
-		_ = config.ReconcileGlobalSkills(cfg, store)
+		_ = config.ReconcileGlobalSkillsWithOptions(cfg, store, config.ReconcileOptions{Follow: globalSkillFollowSet(cfg)})
 	}
 
 	renderBatchSearchInstallSummary(results, mode, time.Since(batchStart))

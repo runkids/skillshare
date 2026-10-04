@@ -476,7 +476,7 @@ func cmdInstall(args []string) error {
 			store, storeErr := install.LoadMetadataWithMigration(cfg.EffectiveSkillsSource(), "")
 			if storeErr != nil {
 				ui.Warning("Failed to load metadata: %v", storeErr)
-			} else if rErr := config.ReconcileGlobalSkills(cfg, store); rErr != nil {
+			} else if rErr := config.ReconcileGlobalSkillsWithOptions(cfg, store, config.ReconcileOptions{Follow: globalSkillFollowSet(cfg)}); rErr != nil {
 				ui.Warning("Failed to reconcile global skills config: %v", rErr)
 			}
 		}
@@ -498,7 +498,7 @@ func cmdInstall(args []string) error {
 		store, storeErr := install.LoadMetadataWithMigration(cfg.EffectiveSkillsSource(), "")
 		if storeErr != nil {
 			ui.Warning("Failed to load metadata: %v", storeErr)
-		} else if rErr := config.ReconcileGlobalSkills(cfg, store); rErr != nil {
+		} else if rErr := config.ReconcileGlobalSkillsWithOptions(cfg, store, config.ReconcileOptions{Follow: globalSkillFollowSet(cfg)}); rErr != nil {
 			ui.Warning("Failed to reconcile global skills config: %v", rErr)
 		}
 	}

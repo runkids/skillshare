@@ -59,7 +59,7 @@ func (g *globalInstallContext) ConfigSkills() []install.SkillEntryDTO {
 	return storeToSkillEntryDTOs(g.store)
 }
 func (g *globalInstallContext) Reconcile() error {
-	return config.ReconcileGlobalSkills(g.cfg, g.store)
+	return config.ReconcileGlobalSkillsWithOptions(g.cfg, g.store, config.ReconcileOptions{Follow: globalSkillFollowSet(g.cfg)})
 }
 func (g *globalInstallContext) PostInstallSkill(string) error { return nil }
 func (g *globalInstallContext) Mode() string                  { return "global" }
