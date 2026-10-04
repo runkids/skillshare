@@ -330,12 +330,14 @@ func (r *Root) Writer() Writer { return rootWriter{r} }
 
 type rootWriter struct{ r *Root }
 
+// MkdirAll takes a full file mode, as a copy passes from Stat, and keeps only
+// its permission bits: os.MkdirAll ignores the rest, os.Root rejects them.
 func (w rootWriter) MkdirAll(path string, perm fs.FileMode) error {
 	rel, err := w.r.Rel(path)
 	if err != nil {
 		return err
 	}
-	return w.r.MkdirAll(rel, perm)
+	return w.r.MkdirAll(rel, perm&fs.ModePerm)
 }
 
 func (w rootWriter) OpenFile(path string, flag int, perm fs.FileMode) (*os.File, error) {
