@@ -345,7 +345,7 @@ internal/sync/agent_sync.go	syncAgentsMergeCopy	os.Remove	targetPath	target
 internal/sync/agent_sync.go	syncAgentsSymlink	os.MkdirAll	filepath.Dir(targetDir)	target
 internal/sync/agent_sync.go	syncAgentsSymlink	os.Remove	targetDir	target
 internal/sync/agent_sync.go	syncAgentsSymlink	os.RemoveAll	targetDir	target
-internal/sync/copy.go	PruneOrphanCopiesWithSkills	os.RemoveAll	entryPath	target
+internal/sync/copy.go	PruneOrphanCopiesWithOptions	os.RemoveAll	entryPath	target
 internal/sync/copy.go	SyncTargetCopyWithSkillsOptions	os.Remove	targetSkillPath	target
 internal/sync/copy.go	SyncTargetCopyWithSkillsOptions	os.RemoveAll	targetSkillPath	target
 internal/sync/copy.go	SyncTargetCopyWithSkillsOptions	os.RemoveAll	targetSkillPath	target

@@ -1,6 +1,7 @@
 package sync
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -292,5 +293,151 @@ func TestSkillfollowOwnership_HandMadeExternalLinkWithoutDeclarations(t *testing
 	assertPresent(t, filepath.Join(tgt, "a"))
 	if len(result.Warnings) != 1 || !strings.Contains(result.Warnings[0], "symlink to external location") {
 		t.Fatalf("warnings = %v", result.Warnings)
+	}
+}
+
+// run syncs and prunes one target the way the CLI does.
+func (f followFixture) run(t *testing.T, mode, naming string, force bool) SkillTargetResult {
+	t.Helper()
+	set, skills := f.discover(t)
+	target := config.TargetConfig{Skills: &config.ResourceTargetConfig{Path: f.tgt, Mode: mode, TargetNaming: naming}}
+	result := SyncSkillTarget(SkillTarget{Name: "test", Target: target, Mode: mode}, skills, SkillRunOptions{Source: f.src, Force: force, Follow: set})
+	if result.Err != nil {
+		t.Fatal(result.Err)
+	}
+	return result
+}
+
+// targetNames lists what the target holds, without the manifest.
+func targetNames(t *testing.T, dir string) []string {
+	t.Helper()
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var names []string
+	for _, entry := range entries {
+		if entry.Name() != ManifestFile {
+			names = append(names, entry.Name())
+		}
+	}
+	return names
+}
+
+func TestSkillfollowPause_MissingEntryRemovesNothing(t *testing.T) {
+	for _, mode := range []string{"merge", "copy"} {
+		for _, naming := range []string{"flat", "standard"} {
+			for _, force := range []bool{false, true} {
+				t.Run(fmt.Sprintf("%s/%s/force=%v", mode, naming, force), func(t *testing.T) {
+					f := newFollowFixture(t, filepath.Join(t.TempDir(), "src"), filepath.Join(t.TempDir(), "tgt"))
+					f.run(t, mode, naming, false)
+					before := targetNames(t, f.tgt)
+
+					// The drive holding the followed group is unmounted.
+					if err := os.Rename(filepath.Join(f.ext, "f"), filepath.Join(f.ext, "f.off")); err != nil {
+						t.Fatal(err)
+					}
+					result := f.run(t, mode, naming, force)
+
+					if got := targetNames(t, f.tgt); strings.Join(got, ",") != strings.Join(before, ",") {
+						t.Fatalf("target changed: %v -> %v", before, got)
+					}
+					if len(result.Pruned) != 0 || strings.Join(result.PrunePaused, ",") != "_f (missing)" {
+						t.Fatalf("pruned %v, paused %v", result.Pruned, result.PrunePaused)
+					}
+				})
+			}
+		}
+	}
+}
+
+func TestSkillfollowPause_InvalidTargetKeepsCopies(t *testing.T) {
+	f := newFollowFixture(t, filepath.Join(t.TempDir(), "src"), filepath.Join(t.TempDir(), "tgt"))
+	f.run(t, "copy", "flat", false)
+
+	link := filepath.Join(f.src, "_f")
+	if err := os.Remove(link); err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, link, "not a directory")
+	result := f.run(t, "copy", "flat", true)
+
+	for _, name := range []string{"_f__a", "_f__b"} {
+		assertPresent(t, filepath.Join(f.tgt, name, "SKILL.md"))
+	}
+	if strings.Join(result.PrunePaused, ",") != "_f (invalid-target)" {
+		t.Fatalf("paused = %v", result.PrunePaused)
+	}
+}
+
+// newOfflineFixture serves a from `_offline`, then makes `_offline` missing
+// while another a, under other/, becomes available.
+func newOfflineFixture(t *testing.T, mode, naming string) (followFixture, SkillTargetResult) {
+	t.Helper()
+	src, ext := filepath.Join(t.TempDir(), "src"), t.TempDir()
+	writeSkillMD(t, filepath.Join(ext, "a"), "---\nname: a\n---\n# offline a")
+	if err := os.MkdirAll(src, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(ext, filepath.Join(src, "_offline")); err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, filepath.Join(src, ".skillfollow"), "_offline\n")
+	f := followFixture{src: src, ext: ext, tgt: filepath.Join(t.TempDir(), "tgt")}
+	f.run(t, mode, naming, false)
+
+	if err := os.Rename(ext, ext+".off"); err != nil {
+		t.Fatal(err)
+	}
+	writeSkillMD(t, filepath.Join(src, "other", "a"), "---\nname: a\n---\n# other a")
+	return f, f.run(t, mode, naming, true)
+}
+
+func TestSkillfollowPause_StandardCopyKeepsUnprovableCopy(t *testing.T) {
+	f, result := newOfflineFixture(t, "copy", "standard")
+
+	content, err := os.ReadFile(filepath.Join(f.tgt, "a", "SKILL.md"))
+	if err != nil || !strings.Contains(string(content), "offline a") {
+		t.Fatalf("copy a was replaced: %q %v", content, err)
+	}
+	if strings.Join(result.Kept, ",") != "a" || len(result.Updated) != 0 {
+		t.Fatalf("kept %v, updated %v", result.Kept, result.Updated)
+	}
+}
+
+func TestSkillfollowPause_FlatCopyProceeds(t *testing.T) {
+	f, result := newOfflineFixture(t, "copy", "flat")
+
+	assertPresent(t, filepath.Join(f.tgt, "_offline__a", "SKILL.md"))
+	assertPresent(t, filepath.Join(f.tgt, "other__a", "SKILL.md"))
+	if len(result.Kept) != 0 || strings.Join(result.Linked, ",") != "other__a" {
+		t.Fatalf("kept %v, copied %v", result.Kept, result.Linked)
+	}
+}
+
+func TestSkillfollowPause_MergeRelinksWithWarning(t *testing.T) {
+	f, result := newOfflineFixture(t, "merge", "standard")
+
+	if dest, _ := os.Readlink(filepath.Join(f.tgt, "a")); dest != filepath.Join(f.src, "other", "a") {
+		t.Fatalf("a -> %s", dest)
+	}
+	want := "test: a: relinked while a followed entry is unavailable; this name may previously have come from that entry and may collide when it returns"
+	if strings.Join(result.Warnings, "\n") != want {
+		t.Fatalf("warnings = %v", result.Warnings)
+	}
+}
+
+func TestSkillfollowPause_ResumesWhenEntryReturns(t *testing.T) {
+	f := newFollowFixture(t, filepath.Join(t.TempDir(), "src"), filepath.Join(t.TempDir(), "tgt"))
+	f.run(t, "merge", "flat", false)
+	writeFile(t, filepath.Join(f.src, ".skillfollow"), "_f\n_gone\n")
+	if paused := f.run(t, "merge", "flat", false).PrunePaused; len(paused) != 1 {
+		t.Fatalf("paused = %v", paused)
+	}
+
+	writeFile(t, filepath.Join(f.src, ".skillfollow"), "")
+	result := f.run(t, "merge", "flat", false)
+	if len(result.PrunePaused) != 0 || len(result.Pruned) != 2 {
+		t.Fatalf("paused %v, pruned %v", result.PrunePaused, result.Pruned)
 	}
 }

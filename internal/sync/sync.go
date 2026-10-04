@@ -707,6 +707,9 @@ type PruneResult struct {
 	Removed   []string // Items that were removed
 	Warnings  []string // Items that were kept with warnings
 	LocalDirs []string // User-created entries (directories or links) not managed by skillshare
+	// Paused names the unavailable followed entries, as "name (state)", that
+	// stopped this prune. Nothing is removed while it is non-empty.
+	Paused []string
 }
 
 // PruneOptions holds parameters for PruneOrphanLinks / PruneOrphanCopies.
@@ -768,6 +771,12 @@ func PruneOrphanLinksWithSkills(opts PruneOptions) (*PruneResult, error) {
 	dryRun := opts.DryRun
 	force := opts.Force
 	result := &PruneResult{}
+	scope := newFollowScope(sourcePath, opts.Follow)
+	// Discovery is incomplete, so no absent name can be attributed. --force
+	// does not override this.
+	if result.Paused = scope.paused(); len(result.Paused) > 0 {
+		return result, nil
+	}
 
 	// Read manifest for managed-directory detection (may be empty/absent)
 	manifest, _ := ReadManifest(targetPath)
@@ -796,7 +805,6 @@ func PruneOrphanLinksWithSkills(opts PruneOptions) (*PruneResult, error) {
 	}
 
 	absSource, _ := filepath.Abs(sourcePath)
-	scope := newFollowScope(sourcePath, opts.Follow)
 
 	for _, entry := range entries {
 		name := entry.Name()

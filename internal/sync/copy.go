@@ -11,6 +11,7 @@ import (
 
 	"skillshare/internal/config"
 	"skillshare/internal/skillignore"
+	"skillshare/internal/sourcewalk"
 	"skillshare/internal/utils"
 )
 
@@ -21,11 +22,16 @@ type CopyResult struct {
 	Updated    []string // checksum changed, overwritten
 	DirCreated string   // Non-empty if target directory was auto-created (or would be in dry-run)
 	Warnings   []string // include patterns that select no skill
+	// Kept are managed copies left in place because their origin cannot be
+	// proven while a followed entry is unavailable.
+	Kept []string
 }
 
 // CopyOptions controls copy-mode sync behavior.
 type CopyOptions struct {
 	IgnorePatterns []string
+	// Follow is the operation's .skillfollow snapshot; nil keeps legacy rules.
+	Follow *sourcewalk.FollowSet
 }
 
 // SyncTargetCopy performs copy mode sync — copies each skill individually
@@ -38,7 +44,7 @@ func SyncTargetCopy(name string, target config.TargetConfig, sourcePath string, 
 
 // SyncTargetCopyWithOptions is SyncTargetCopy with explicit copy behavior options.
 func SyncTargetCopyWithOptions(name string, target config.TargetConfig, sourcePath string, dryRun, force bool, opts CopyOptions) (*CopyResult, error) {
-	skills, err := DiscoverSourceSkills(sourcePath)
+	skills, _, err := DiscoverSourceSkillsWithOptions(sourcePath, DiscoveryOptions{Follow: opts.Follow})
 	if err != nil {
 		return nil, fmt.Errorf("failed to discover skills: %w", err)
 	}
@@ -89,6 +95,11 @@ func SyncTargetCopyWithSkillsOptions(name string, target config.TargetConfig, al
 		fmt.Fprintf(DiagOutput, "  %d name collision(s) excluded\n", n)
 	}
 	result.Warnings = resolution.UnmatchedIncludeWarnings()
+	// In standard naming a target name says nothing about the skill's origin,
+	// so while an entry is unavailable an existing managed copy may be the only
+	// copy of its content. Flat names carry the logical prefix and proceed.
+	keepManaged := len(newFollowScope(sourcePath, opts.Follow).unavailable()) > 0 &&
+		config.EffectiveTargetNaming(sc.TargetNaming) != "flat"
 
 	// Read existing manifest
 	manifest, err := ReadManifest(sc.Path)
@@ -146,6 +157,10 @@ func SyncTargetCopyWithSkillsOptions(name string, target config.TargetConfig, al
 			} else {
 				// Non-directory entries are invalid for managed skills.
 				// Managed/forced entries should be replaced with a proper skill directory.
+				if keepManaged && isManaged && (!targetInfo.IsDir() || force || oldChecksum != srcChecksum) {
+					result.Kept = append(result.Kept, activeName)
+					continue
+				}
 				if !targetInfo.IsDir() {
 					if isManaged || force {
 						if dryRun {
@@ -250,7 +265,24 @@ func PruneOrphanCopies(targetPath, sourcePath string, include, exclude []string,
 
 // PruneOrphanCopiesWithSkills is like PruneOrphanCopies but accepts pre-discovered skills.
 func PruneOrphanCopiesWithSkills(targetPath string, allSourceSkills []DiscoveredSkill, include, exclude []string, targetName, targetNaming string, dryRun bool) (*PruneResult, error) {
+	return PruneOrphanCopiesWithOptions(PruneOptions{
+		TargetPath: targetPath, Skills: allSourceSkills, Include: include, Exclude: exclude,
+		TargetName: targetName, TargetNaming: targetNaming, DryRun: dryRun,
+	})
+}
+
+// PruneOrphanCopiesWithOptions is PruneOrphanCopiesWithSkills with an explicit
+// follow policy. It uses TargetPath, SourcePath, Skills, Include, Exclude,
+// TargetName, TargetNaming, DryRun, and Follow. While a followed entry is
+// unavailable it removes nothing: a managed copy may be the only remaining
+// copy of the unavailable content.
+func PruneOrphanCopiesWithOptions(opts PruneOptions) (*PruneResult, error) {
+	targetPath, allSourceSkills := opts.TargetPath, opts.Skills
+	include, exclude, targetName, targetNaming, dryRun := opts.Include, opts.Exclude, opts.TargetName, opts.TargetNaming, opts.DryRun
 	result := &PruneResult{}
+	if result.Paused = newFollowScope(opts.SourcePath, opts.Follow).paused(); len(result.Paused) > 0 {
+		return result, nil
+	}
 
 	manifest, err := ReadManifest(targetPath)
 	if err != nil {

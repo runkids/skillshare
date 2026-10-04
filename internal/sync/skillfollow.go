@@ -39,6 +39,15 @@ func (s followScope) unavailable() []sourcewalk.Entry {
 	return s.set.Unavailable()
 }
 
+// paused lists the entries that pause prune, as "name (state)".
+func (s followScope) paused() []string {
+	var names []string
+	for _, entry := range s.unavailable() {
+		names = append(names, entry.Name+" ("+string(entry.State)+")")
+	}
+	return names
+}
+
 // skillLinkTarget returns where a skill link points. Relative link text is read
 // against the link's canonical parent, which is where the OS resolves it.
 func skillLinkTarget(linkPath string) (string, error) {

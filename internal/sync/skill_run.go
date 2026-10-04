@@ -43,7 +43,11 @@ type SkillTargetResult struct {
 	Skipped []string
 	Pruned  []string // nil when no prune ran or it returned nothing
 	// LocalDirs are user folders a merge prune kept.
-	LocalDirs  []string
+	LocalDirs []string
+	// PrunePaused names the unavailable followed entries that paused prune.
+	PrunePaused []string
+	// Kept are managed copies a copy sync left in place while prune is paused.
+	Kept       []string
 	DirCreated string
 	// SymlinkStatus is the target path's status before a symlink-mode sync.
 	SymlinkStatus TargetStatus
@@ -77,14 +81,19 @@ func SyncSkillTarget(t SkillTarget, skills []DiscoveredSkill, opts SkillRunOptio
 		}
 
 	case "copy":
-		result, err := SyncTargetCopyWithSkillsOptions(t.Name, t.Target, skills, opts.Source, opts.DryRun, opts.Force, opts.OnProgress, CopyOptions{IgnorePatterns: opts.IgnorePatterns})
+		result, err := SyncTargetCopyWithSkillsOptions(t.Name, t.Target, skills, opts.Source, opts.DryRun, opts.Force, opts.OnProgress, CopyOptions{IgnorePatterns: opts.IgnorePatterns, Follow: opts.Follow})
 		if err != nil {
 			res.Err = err
 			return res
 		}
 		res.Linked, res.Updated, res.Skipped, res.DirCreated = result.Copied, result.Updated, result.Skipped, result.DirCreated
+		res.Kept = result.Kept
 		res.addTargetWarnings(result.Warnings)
-		prune, err := PruneOrphanCopiesWithSkills(sc.Path, skills, sc.Include, sc.Exclude, t.Name, sc.TargetNaming, opts.DryRun)
+		prune, err := PruneOrphanCopiesWithOptions(PruneOptions{
+			TargetPath: sc.Path, SourcePath: opts.Source, Skills: skills,
+			Include: sc.Include, Exclude: sc.Exclude, TargetNaming: sc.TargetNaming, TargetName: t.Name,
+			DryRun: opts.DryRun, Follow: opts.Follow,
+		})
 		res.addPrune(prune, err)
 
 	default:
@@ -122,6 +131,7 @@ func (res *SkillTargetResult) addPrune(prune *PruneResult, err error) {
 	}
 	if prune != nil {
 		res.Pruned = prune.Removed
+		res.PrunePaused = prune.Paused
 		res.Warnings = append(res.Warnings, prune.Warnings...)
 	}
 }
