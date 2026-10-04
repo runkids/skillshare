@@ -12,6 +12,7 @@ package sourcefs
 import (
 	"errors"
 	"fmt"
+	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -263,6 +264,56 @@ func (r *Root) MoveIn(src, name string) error {
 		return err
 	}
 	return os.Rename(src, filepath.Join(r.dir, name))
+}
+
+// CopyIn copies the directory tree src, which lives outside the root, to
+// name. It is the fallback for MoveIn when the rename crosses filesystems
+// (see IsCrossDevice) and keeps its contract: name must not exist yet, and
+// every directory and file is created through the root, so a link that
+// appears at or above name after the check is still refused by the handle.
+// Links inside src are copied as the content they point at.
+func (r *Root) CopyIn(src, name string) error {
+	if err := r.CheckNoLink(name); err != nil {
+		return err
+	}
+	if _, err := r.root.Lstat(name); err == nil {
+		return fmt.Errorf("%s already exists", filepath.Join(r.dir, name))
+	}
+	return filepath.Walk(src, func(path string, info fs.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		rel, err := filepath.Rel(src, path)
+		if err != nil {
+			return err
+		}
+		dst := filepath.Join(name, rel)
+		if info.IsDir() {
+			return r.root.Mkdir(dst, info.Mode().Perm())
+		}
+		return r.copyFileIn(path, dst)
+	})
+}
+
+func (r *Root) copyFileIn(src, dst string) error {
+	in, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer in.Close()
+	info, err := in.Stat()
+	if err != nil {
+		return err
+	}
+	out, err := r.root.OpenFile(dst, os.O_WRONLY|os.O_CREATE|os.O_EXCL, info.Mode().Perm())
+	if err != nil {
+		return err
+	}
+	if _, err := io.Copy(out, in); err != nil {
+		out.Close()
+		return err
+	}
+	return out.Close()
 }
 
 // Unlink removes entry, a first-level link, without touching its target.

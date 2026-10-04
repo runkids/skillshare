@@ -720,6 +720,14 @@
     "note": "Copy a skill to target"
   },
   {
+    "file": "internal/sourcefs/sourcefs.go",
+    "function": "(*Root).CopyIn",
+    "callee": "filepath.Walk",
+    "root": "src",
+    "reason": "skill-dir",
+    "note": "Copy a staged skill tree into the source through the root; the walk reads the staging directory outside the source"
+  },
+  {
     "file": "internal/sourcewalk/walk.go",
     "function": "ReadDir",
     "callee": "os.ReadDir",

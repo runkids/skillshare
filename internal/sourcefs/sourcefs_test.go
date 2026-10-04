@@ -292,3 +292,41 @@ func utilsResolve(t *testing.T, p string) string {
 	}
 	return resolved
 }
+
+func TestCopyInCopiesTreeThroughRoot(t *testing.T) {
+	r, ext := fixture(t)
+	before := snapshot(t, ext)
+	staged := filepath.Join(t.TempDir(), "skill")
+	mustWrite(t, filepath.Join(staged, "SKILL.md"), "staged")
+	mustWrite(t, filepath.Join(staged, "scripts", "run.sh"), "#!/bin/sh")
+	if err := os.Chmod(filepath.Join(staged, "scripts", "run.sh"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := r.CopyIn(staged, "copied"); err != nil {
+		t.Fatalf("CopyIn: %v", err)
+	}
+	got, want := snapshot(t, filepath.Join(r.Dir(), "copied")), snapshot(t, staged)
+	if len(got) != len(want) {
+		t.Fatalf("copied tree = %v, want %v", got, want)
+	}
+	for name, data := range want {
+		if got[name] != data {
+			t.Fatalf("%s = %q, want %q", name, got[name], data)
+		}
+	}
+	info, err := os.Stat(filepath.Join(r.Dir(), "copied", "scripts", "run.sh"))
+	if err != nil || info.Mode().Perm()&0o100 == 0 {
+		t.Fatalf("executable bit not preserved: %v %v", info, err)
+	}
+
+	for _, name := range []string{"_f", filepath.Join("_f", "new")} {
+		if err := r.CopyIn(staged, name); !errors.Is(err, ErrLink) {
+			t.Fatalf("CopyIn to %s: got %v, want ErrLink", name, err)
+		}
+	}
+	if err := r.CopyIn(staged, "copied"); err == nil || !strings.Contains(err.Error(), "already exists") {
+		t.Fatalf("CopyIn onto an existing name: got %v, want already exists", err)
+	}
+	assertUnchanged(t, before, ext)
+}

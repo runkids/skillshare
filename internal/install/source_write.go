@@ -1,7 +1,6 @@
 package install
 
 import (
-	"errors"
 	"fmt"
 
 	"skillshare/internal/sourcefs"
@@ -25,8 +24,9 @@ func removeInSource(sourceDir, destPath string) error {
 
 // swapStagedIntoSource replaces destPath, below the skills source sourceDir,
 // with the staged directory. The rename crosses the source's edge, so the
-// in-source side is checked through the handle first. A refusal never falls
-// back to the copy.
+// in-source side is checked through the handle first. Only a cross-device
+// rename falls back to a copy, and that copy also goes through the handle;
+// every other failure, a refused link included, is returned as is.
 func swapStagedIntoSource(sourceDir, staged, destPath string) error {
 	src, err := sourcefs.Open(sourceDir)
 	if err != nil {
@@ -41,12 +41,11 @@ func swapStagedIntoSource(sourceDir, staged, destPath string) error {
 		return fmt.Errorf("failed to remove existing skill: %w", err)
 	}
 	if err := src.MoveIn(staged, rel); err != nil {
-		if errors.Is(err, sourcefs.ErrLink) {
-			return err
-		}
-		// Rename failed (possibly cross-device), try copy instead
-		if err := copyDir(staged, destPath); err != nil {
+		if !sourcefs.IsCrossDevice(err) {
 			return fmt.Errorf("failed to move updated skill: %w", err)
+		}
+		if err := src.CopyIn(staged, rel); err != nil {
+			return fmt.Errorf("failed to copy updated skill: %w", err)
 		}
 	}
 	return nil
