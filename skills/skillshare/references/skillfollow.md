@@ -61,7 +61,8 @@ prune paused: <name> is <state>; restore or fix <path>, or remove <name> from .s
 Remove an abandoned name from every declaration file containing it, then sync.
 If `.skillfollow`/`.skillfollow.local` exists but cannot be read, discovery stops:
 sync refuses and keeps targets, check/status report the read error instead of
-empty counts, every update (CLI, dashboard, `install --update`) is refused even
+empty counts, doctor skips the discovery-based checks (skills_validity,
+skill_integrity, skill_targets_field, sync_drift) as info, every update (CLI, dashboard, `install --update`) is refused even
 with force, and source Git staging is refused. Restore read access or remove it.
 A group below a followed entry works the same: `check`/`update --group <g>` (or a
 positional group) refuse with `incomplete discovery of <entry>: …` when a

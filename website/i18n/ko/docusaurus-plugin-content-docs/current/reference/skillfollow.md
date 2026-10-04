@@ -84,7 +84,7 @@ Canonical path로 안전성을 검사하며 처음 해당되는 상태를 사용
 
 `followed`/`not-link`는 doctor pass, 다른 선언 상태는 warning이며 정리를 중지합니다. `undeclared-link`는 info만 표시하고 중지하지 않습니다. Parser 경고는 별도입니다.
 
-`.skillfollow` 또는 `.skillfollow.local`이 있지만 읽을 수 없으면 discovery는 불완전한 결과로 계속하지 않고 중단합니다. `sync`는 거부하고 기존 target을 유지하며, `check`와 `status`는 빈 카운트 대신 읽기 오류를 보고하며, 모든 `update`（CLI, Dashboard, `install --update`）는 `--force`로도 거부되고 Dashboard update-all은 전체가 실패하며, source Git staging도 거부됩니다. 파일의 읽기 권한을 복구하거나 파일을 제거하세요. 같은 규칙이 followed 항목 안에도 적용됩니다. 그 아래 그룹을 선택하는 `check`와 `update`(`--group <name>` 또는 위치 인자 그룹 이름)는 그룹 아래 디렉터리를 읽을 수 없으면 읽을 수 있는 부분만 처리하지 않고 `incomplete discovery of <entry>: <read error>`로 거부합니다.
+`.skillfollow` 또는 `.skillfollow.local`이 있지만 읽을 수 없으면 discovery는 불완전한 결과로 계속하지 않고 중단합니다. `sync`는 거부하고 기존 target을 유지하며, `check`와 `status`는 빈 카운트 대신 읽기 오류를 보고하며, `doctor`는 `skillfollow`로 보고하고 discovered skills가 필요한 검사(`skills_validity`, `skill_integrity`, `skill_targets_field`, `sync_drift`)를 빈 source로 판정하지 않고 skipped로 표시하며, 모든 `update`（CLI, Dashboard, `install --update`）는 `--force`로도 거부되고 Dashboard update-all은 전체가 실패하며, source Git staging도 거부됩니다. 파일의 읽기 권한을 복구하거나 파일을 제거하세요. 같은 규칙이 followed 항목 안에도 적용됩니다. 그 아래 그룹을 선택하는 `check`와 `update`(`--group <name>` 또는 위치 인자 그룹 이름)는 그룹 아래 디렉터리를 읽을 수 없으면 읽을 수 있는 부분만 처리하지 않고 `incomplete discovery of <entry>: <read error>`로 거부합니다.
 
 ## 명령 표시 {#visibility}
 
