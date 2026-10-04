@@ -397,6 +397,21 @@ func TestPiSwitchMatchesOverrideFromPi(t *testing.T) {
 	}
 }
 
+// An override from Pi that also sets exposure or toolExposure is not the switch sync writes,
+// although Skillshare's ownership hash leaves those fields out.
+func TestPiSwitchConflictsWithLargerOverrideFromPi(t *testing.T) {
+	s, tmp := projectsService(t, "mcp:\n  servers: {}\n  projects:\n    $TMP/p1:\n      targets: [pi]\n      servers:\n        docs:\n          disabled: true\n")
+	writePiProjectFile(t, filepath.Join(tmp, "p1"), `{"mcpServers":{"docs":{"enabled":false,"exposure":"direct"}}}`)
+	plan, err := s.Preview()
+	if err != nil {
+		t.Fatal(err)
+	}
+	c := changeFor(plan, filepath.Join(tmp, "p1", ".pi", "mcp.json"), "docs")
+	if c == nil || c.Action != "conflict" || !strings.HasPrefix(c.Message, "existing entry is a Pi project override") {
+		t.Fatalf("%+v", c)
+	}
+}
+
 // Removing the switch takes the Pi entry away.
 func TestPiSwitchRemovedWithTheEntry(t *testing.T) {
 	s, tmp := projectsService(t, "mcp:\n  servers:\n    docs:\n      command: tool\n      targets: [pi]\n  projects:\n    $TMP/p1:\n      targets: [pi]\n      servers:\n        docs:\n          disabled: true\n")

@@ -666,10 +666,11 @@ func (s *Service) previewResolved(source *Source, resolutions []Resolution) (*Pl
 				change.Switch = switchOnly(target, current)
 			}
 			switch {
-			case target == "pi" && current != nil && piOverride(current) && (change.Root != "" || s.ProjectRoot != "") && currentHash != wantHash &&
+			case target == "pi" && current != nil && piOverride(current) && (change.Root != "" || s.ProjectRoot != "") && entryHash(current) != entryHash(want) &&
 				(!managed || currentHash != owned.Hash) && !(managed && owned.Owner != source.ConfigPath && !ownerGone(owned.Owner)):
 				// Pi's /mcp wrote this override, possibly over an entry a config synced; one that
-				// already matches the switch sync writes is not a conflict. It has no server for
+				// is exactly the switch sync writes is not a conflict. The whole entry is compared:
+				// the ownership hash leaves out exposure and toolExposure. It has no server for
 				// import to take, so this comes before every conflict that offers import. A live
 				// owner keeps its own message: only that config can release the entry. Replace
 				// records the entry as owned at its current hash, which lets the cases below write
