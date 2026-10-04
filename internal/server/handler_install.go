@@ -449,11 +449,7 @@ func (s *Server) handleInstall(w http.ResponseWriter, r *http.Request) {
 				"scope":         "ui",
 				"failed_skills": []string{source.Name},
 			}, err.Error())
-			status := http.StatusInternalServerError
-			if errors.Is(err, sourcefs.ErrLink) {
-				status = http.StatusConflict
-			}
-			writeError(w, status, err.Error())
+			writeError(w, followWriteStatus(err), err.Error())
 			return
 		}
 		// Reconcile config after tracked repo install
@@ -540,11 +536,7 @@ func (s *Server) handleInstall(w http.ResponseWriter, r *http.Request) {
 			"scope":         "ui",
 			"failed_skills": []string{source.Name},
 		}, err.Error())
-		status := http.StatusInternalServerError
-		if errors.Is(err, sourcefs.ErrLink) {
-			status = http.StatusConflict
-		}
-		writeError(w, status, err.Error())
+		writeError(w, followWriteStatus(err), err.Error())
 		return
 	}
 
