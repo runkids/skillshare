@@ -4,7 +4,7 @@ sidebar_position: 1
 
 # ui
 
-[`.skillfollow`](../skillfollow.md#visibility) 在 Skills、Overview、Check、Update、Audit、Hub 显示 followed 逻辑路径。内容、卸载、启停、target 覆盖、source URL 写入拒绝；直接编辑外部树，或以 **source-root `.skillignore`** 隐藏。更新、staging/pull/checkout 与 CLI 共用安全策略。Sync 逐 target 报告 `prune_paused`/`kept` 与警告；Targets 把 managed followed link 算为 linked。尚无专用声明编辑页。
+[`.skillfollow`](../skillfollow.md#visibility) 在 Skills、Overview、Check、Update、Audit、Hub 显示 followed 逻辑路径。内容、卸载、启停、target 覆盖、source URL 写入拒绝；直接编辑外部树，或以 **source-root `.skillignore`** 隐藏。更新、staging/pull/checkout 与 CLI 共用安全策略。Sync 逐 target 报告 `prune_paused`/`kept` 与警告；Targets 把 managed followed link 算为 linked。**Settings → Files → `.skillfollow`** 可编辑声明文件并列出各条目状态。
 
 启动 web dashboard 以可视化管理 skills。
 
@@ -99,7 +99,7 @@ skillshare ui start --clear-cache
 | **Targets** | 带状态的 Target 列表。**添加目标** 还提供 **另一个账号**：你已在使用的某个 Agent 的第二个配置文件夹，并会预览它的写入位置。每个 Target 的页面可编辑 include/exclude filter，并把本地专属的 skills 收集回 Source。列表也会显示每个 Agent 拿到的 MCP server 数量。有 MCP 配置文件的 Target 会多一个 **MCP** 标签页，每个 server 一行；点一下就会保存，**Sync all targets** 会写入所有 Target 的 MCP 配置文件。每个 Target 还有一个以其指示文件命名的标签页（**CLAUDE.md**、**GEMINI.md**、**AGENTS.md** 等），显示读取顺序、编辑该文件，并可将其转换为 `AGENTS.md` |
 | **Projects** | 仅限 global mode。global 配置会 sync 进的项目文件夹，来自 [`projects`](/docs/reference/targets/configuration#projects) 和 [`mcp.projects`](./mcp.md#projects-in-the-dashboard)。**添加项目** 需要填写文件夹、它的 Target 和要 sync 的内容。每个项目都有带 filter 的 **Skills** 和 **Agents** 标签页，可以预览并查看会写入的文件夹，还有一个 **MCP** 标签页，用于在该文件夹中关闭 global server 或为它添加自己的 server，并提供 **检查** 来检查这些 server。**Sync project** 会先预览，然后只 sync 该项目的 skills、agents 和 MCP。已经指向某个项目文件夹的 Target 可以被转换 |
 | **Audit** | 对 skills 和 agents 的安全扫描，按严重程度列出 findings。**Rules** 标签页按类别浏览每一条规则：可以关闭某一条、更改其严重程度、把某个严重程度应用到整个类别、选择扫描 profile（`default`、`strict`、`permissive`），或打开自定义 `audit-rules.yaml` 的编辑器 |
-| **Settings** | 带标签页：**General**（source 路径、sync 模式、外观）、**Backup**（target 文件夹快照、`AGENTS.md` 等文件的早期版本，以及 MCP 配置备份；参见 [`backup`](./backup.md#dashboard)）、**Log**（操作历史）、**Health**（与 [`doctor`](/docs/reference/commands/doctor) 相同的检查）、**Extensions**（同步时的文件转换）、**Files**（`config.yaml`、`.skillignore` 和 `.agentignore` 的直接编辑器） |
+| **Settings** | 带标签页：**General**（source 路径、sync 模式、外观）、**Backup**（target 文件夹快照、`AGENTS.md` 等文件的早期版本，以及 MCP 配置备份；参见 [`backup`](./backup.md#dashboard)）、**Log**（操作历史）、**Health**（与 [`doctor`](/docs/reference/commands/doctor) 相同的检查）、**Extensions**（同步时的文件转换）、**Files**（`config.yaml`、`.skillignore`、`.skillfollow` 和 `.agentignore` 的直接编辑器；`.skillfollow` 标签页可切换 `.skillfollow` 与 `.skillfollow.local`，并列出每个声明条目的状态、实际路径、原因，以及警告与 prune 暂停） |
 
 更改列表旁的 **放弃更改** 会在确认后，将所选 Git 范围内所有已跟踪的文件和暂存区恢复至最后一次提交，并删除未跟踪的文件和文件夹。被 Git 忽略的文件、嵌套 Git 仓库，以及 `root` 范围的 `config.yaml` 都会保留。此操作不会更改提交记录，也不会推送到远程仓库，且无法撤销。**试运行** 只会预览，不会更改文件。仓库必须已有第一次提交，才能放弃更改。
 
@@ -184,6 +184,8 @@ web dashboard 在 `/api/` 下暴露一个 REST API。所有端点都返回 JSON�
 | PUT | `/api/config` | 更新 config YAML |
 | GET | `/api/skillignore` | 获取 `.skillignore` 内容 + 忽略统计 |
 | PUT | `/api/skillignore` | 更新 `.skillignore` 内容 |
+| GET | `/api/skillfollow` | 获取 `.skillfollow` 与 `.skillfollow.local` 内容，以及各声明条目状态、警告与 prune 暂停 |
+| PUT | `/api/skillfollow` | 写入 `.skillfollow` 或 `.skillfollow.local`（`file`：`base` 或 `local`）；无效名称返回 400，`delete: true` 搭配空内容会删除文件。不创建链接、不改 `.gitignore`、不同步 |
 | GET | `/api/doctor` | 运行所有健康检查（JSON） |
 | GET | `/api/health` | 存活探针；server 就绪后返回 `200` |
 | GET | `/api/version` | 当前/最新版本，以及是否有可用升级 |

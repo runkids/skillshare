@@ -92,7 +92,7 @@ git rm --cached -- '_team-skills'
 - **Doctor**：`skillfollow` 列宣告狀態，`skillfollow_prune` 列清理阻擋。未宣告連結維持 `undeclared_source_links` info。Git repo 內另檢查 indexed/`not-ignored` 連結與不安全的 local 檔，不修改檔案。
 - **`list --no-tui`**：followed tracked repo 加 `→ <resolved>`（家目錄可縮為 `~`）；skills 路徑仍為邏輯路徑，JSON 格式不變。
 - **Diff**：以與 sync 相同的規則預覽。宣告項目無法使用時不回報任何移除，顯示 `<target>: prune paused; unavailable .skillfollow entry: <name> (<state>)`，sync 會保留的 standard naming managed copy 列為 **Kept**。`diff --json` 逐 target 加上 `prune_paused` 與 `keep` 項目。Dashboard diff 加上 `prune_paused`，保留的 copy 顯示為 `skip`。它也依 sync 的 prune 規則預覽 followed orphan link：指向 followed 項目 resolved 位置的 managed merge link，在其 skill 退出 discovery 後列為 `prune`；你自行建立的同目標 link 列為 `local`。
-- **Dashboard**：Skills、Overview、Check、Update、Audit、Hub 可看到邏輯路徑（audit 透過 resolved root 掃描 followed skill）。內容編輯、解除安裝、啟停、target 覆寫、source URL 變更會拒絕。直接編輯外部樹，或在 **source-root `.skillignore`** 隱藏。尚無專用宣告編輯頁。Dashboard sync 與 CLI 共用 prune/copy 安全，逐 target 回報 `prune_paused`/`kept` 與警告；Targets 把 managed followed link 算為 linked 而非 local。
+- **Dashboard**：Skills、Overview、Check、Update、Audit、Hub 可看到邏輯路徑（audit 透過 resolved root 掃描 followed skill）。內容編輯、解除安裝、啟停、target 覆寫、source URL 變更會拒絕。直接編輯外部樹，或在 **source-root `.skillignore`** 隱藏。**Settings → Files → `.skillfollow`** 可編輯 `.skillfollow` 與 `.skillfollow.local`，顯示每個宣告項目的狀態、實際路徑與原因，並列出警告與 prune 暫停。儲存時無效名稱會連同行號被拒絕、檔案保持不變；儲存不建立連結、不改 `.gitignore`、不同步。Dashboard sync 與 CLI 共用 prune/copy 安全，逐 target 回報 `prune_paused`/`kept` 與警告；Targets 把 managed followed link 算為 linked 而非 local。
 
 可辨認的原始診斷：
 
@@ -133,7 +133,7 @@ Source **pull/reset/checkout** 也拒絕 indexed 宣告（包括不存在但仍 
 
 ## 限制
 
-單 skill、`follow`/`unfollow` 與宣告編輯頁仍是未來工作；巢狀連結不跟隨。Windows 有 junction 模擬與 cross-compilation，但**尚未驗證真實 Windows junction/Developer Mode 的完整功能執行矩陣**；編譯或早期 standalone probe 成功不等於 runtime 正確。
+單 skill 與 `follow`/`unfollow` 仍是未來工作；巢狀連結不跟隨。Windows 有 junction 模擬與 cross-compilation，但**尚未驗證真實 Windows junction/Developer Mode 的完整功能執行矩陣**；編譯或早期 standalone probe 成功不等於 runtime 正確。
 
 ## 另見
 

@@ -92,7 +92,7 @@ Canonical path で安全性を検査し、最初に該当する状態を採用�
 - **Doctor**：`skillfollow` は各宣言状態、`skillfollow_prune` は停止理由。未宣言リンクは `undeclared_source_links` info。Git repo 内では indexed/`not-ignored` リンクと安全でない local ファイルも検査しますが変更しません。
 - **`list --no-tui`**：followed tracked repo に `→ <resolved>` を追加（ホームは `~` に短縮可能）。Skills は論理パス、JSON 形式は不変。
 - **Diff**：sync と同じ規則でプレビューします。宣言が利用できない間は削除を報告せず、`<target>: prune paused; unavailable .skillfollow entry: <name> (<state>)` を表示し、sync が残す standard naming の managed copy を **Kept** として表示します。`diff --json` は target ごとに `prune_paused` と `keep` 項目を追加します。Dashboard diff は `prune_paused` を追加し、残す copy を `skip` で表示します。followed の orphan link も sync の prune と同じ判断で表示します。followed エントリの解決先を指す managed merge link は、その skill が discovery から外れると `prune` に、自分で作った同じ先への link は `local` になります。
-- **Dashboard**：Skills、Overview、Check、Update、Audit、Hub で論理パスを表示（audit は resolved root 経由で followed skill を走査）。内容編集、uninstall、切替、target 上書き、source URL 変更は拒否。外部ツリーを直接編集し、非表示には **source-root `.skillignore`** を使います。宣言専用エディタはまだありません。Dashboard sync は CLI と同じ prune/copy 安全方針で、target ごとの `prune_paused`/`kept` と警告を表示。Targets は managed followed link を local でなく linked と数えます。
+- **Dashboard**：Skills、Overview、Check、Update、Audit、Hub で論理パスを表示（audit は resolved root 経由で followed skill を走査）。内容編集、uninstall、切替、target 上書き、source URL 変更は拒否。外部ツリーを直接編集し、非表示には **source-root `.skillignore`** を使います。**Settings → Files → `.skillfollow`** で `.skillfollow` と `.skillfollow.local` を編集し、宣言エントリごとの状態・解決先・理由と、警告・prune 一時停止を表示します。保存時に無効な名前は行番号付きで拒否され、ファイルは変わりません。保存はリンク作成、`.gitignore` 変更、同期を行いません。Dashboard sync は CLI と同じ prune/copy 安全方針で、target ごとの `prune_paused`/`kept` と警告を表示。Targets は managed followed link を local でなく linked と数えます。
 
 実際の診断文字列：
 
@@ -133,7 +133,7 @@ Source **pull/reset/checkout** は indexed 宣言（不在だが indexed のリ�
 
 ## 制限
 
-単一 skill、`follow`/`unfollow`、宣言エディタは将来の対応です。入れ子リンクはたどりません。Windows junction シミュレーションと cross-compilation はありますが、**実 Windows junction/Developer Mode の機能実行 matrix は未検証**です。ビルドや以前の standalone probe 成功は全機能の runtime 証拠ではありません。
+単一 skill と `follow`/`unfollow` は将来の対応です。入れ子リンクはたどりません。Windows junction シミュレーションと cross-compilation はありますが、**実 Windows junction/Developer Mode の機能実行 matrix は未検証**です。ビルドや以前の standalone probe 成功は全機能の runtime 証拠ではありません。
 
 ## 関連項目
 

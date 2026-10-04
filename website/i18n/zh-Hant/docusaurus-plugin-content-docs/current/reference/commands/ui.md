@@ -4,7 +4,7 @@ sidebar_position: 1
 
 # ui
 
-[`.skillfollow`](../skillfollow.md#visibility) 在 Skills、Overview、Check、Update、Audit、Hub 顯示 followed 邏輯路徑。內容、解除安裝、啟停、target 覆寫、source URL 寫入拒絕；直接編輯外部樹，或以 **source-root `.skillignore`** 隱藏。更新、staging/pull/checkout 與 CLI 共用安全策略。Sync 逐 target 回報 `prune_paused`/`kept` 與警告；Targets 把 managed followed link 算為 linked。尚無專用宣告編輯頁。
+[`.skillfollow`](../skillfollow.md#visibility) 在 Skills、Overview、Check、Update、Audit、Hub 顯示 followed 邏輯路徑。內容、解除安裝、啟停、target 覆寫、source URL 寫入拒絕；直接編輯外部樹，或以 **source-root `.skillignore`** 隱藏。更新、staging/pull/checkout 與 CLI 共用安全策略。Sync 逐 target 回報 `prune_paused`/`kept` 與警告；Targets 把 managed followed link 算為 linked。**Settings → Files → `.skillfollow`** 可編輯宣告檔並列出各項目狀態。
 
 啟動用於視覺化 skill 管理的 Web dashboard。
 
@@ -99,7 +99,7 @@ skillshare ui start --clear-cache
 | **Targets** | 附帶狀態的 target 列表。**新增目標** 也接受 **另一個帳號**：你已在使用的某個 Agent 的第二個 config 資料夾，並會預覽它寫入的位置。每個 target 的頁面可編輯 include/exclude 篩選條件，並將僅存於本機的 skills 收集回 source。列表也會顯示每個 Agent 拿到的 MCP server 數量。有 MCP 設定檔的 target 會多一個 **MCP** 分頁，每個 server 一列；點一下就會儲存，**Sync all targets** 會寫入所有 target 的 MCP 設定檔。每個 target 還有一個以它所讀檔案命名的分頁（**CLAUDE.md**、**GEMINI.md**、**AGENTS.md**……），會顯示讀取順序、編輯該檔案，並能將它轉換成 `AGENTS.md` |
 | **Projects** | 僅限 global mode。global config 會同步進去的 project 資料夾，來自 [`projects`](/docs/reference/targets/configuration#projects) 與 [`mcp.projects`](./mcp.md#projects-in-the-dashboard)。**新增專案** 會要求填入資料夾、它的 targets，以及要同步的內容。每個 project 都有 **Skills** 與 **Agents** 分頁，附帶篩選條件、預覽畫面與會被寫入的資料夾，還有一個 **MCP** 分頁可在該資料夾中關閉 global servers 或給它專屬的 servers，並有 **檢查** 可檢查這些 servers。**Sync project** 會先預覽，再只同步該 project 的 skills、agents 與 MCP。已經指向某個 project 資料夾的 target 可以被轉換 |
 | **Audit** | 對 skills 與 agents 進行安全掃描，依嚴重程度列出發現項目。**Rules** 分頁可依分類瀏覽每一項規則：關閉某項、變更其嚴重程度、對整個分類套用嚴重程度、選擇掃描設定檔（`default`、`strict`、`permissive`），或開啟編輯器自訂 `audit-rules.yaml` |
-| **Settings** | 分頁式：**General**（source 路徑、同步模式、外觀）、**Backup**（target 資料夾快照、`AGENTS.md` 這類檔案的較早版本，以及 MCP 設定備份；參見 [`backup`](./backup.md#dashboard)）、**Log**（操作歷史）、**Health**（與 [`doctor`](/docs/reference/commands/doctor) 相同的檢查）、**Extensions**（同步時的檔案轉換）、**Files**（直接編輯 `config.yaml`、`.skillignore` 與 `.agentignore`） |
+| **Settings** | 分頁式：**General**（source 路徑、同步模式、外觀）、**Backup**（target 資料夾快照、`AGENTS.md` 這類檔案的較早版本，以及 MCP 設定備份；參見 [`backup`](./backup.md#dashboard)）、**Log**（操作歷史）、**Health**（與 [`doctor`](/docs/reference/commands/doctor) 相同的檢查）、**Extensions**（同步時的檔案轉換）、**Files**（直接編輯 `config.yaml`、`.skillignore`、`.skillfollow` 與 `.agentignore`；`.skillfollow` 分頁可切換 `.skillfollow` 與 `.skillfollow.local`，並列出每個宣告項目的狀態、實際路徑、原因，以及警告與 prune 暫停） |
 
 變更清單旁的 **捨棄變更** 會在確認後，將所選 Git 範圍內所有已追蹤的檔案與暫存區還原至最後一次提交，並刪除未追蹤的檔案與資料夾。被 Git 忽略的檔案、巢狀 Git 儲存庫，以及 `root` 範圍的 `config.yaml` 都會保留。此操作不會更動提交紀錄，也不會推送至遠端，且無法復原。**試跑** 只會預覽，不會變更檔案。儲存庫必須已有第一次提交，才能捨棄變更。
 
@@ -184,6 +184,8 @@ Web dashboard 在 `/api/` 上提供 REST API。所有端點皆回傳 JSON。
 | PUT | `/api/config` | 更新 config YAML |
 | GET | `/api/skillignore` | 取得 `.skillignore` 內容 + 忽略統計 |
 | PUT | `/api/skillignore` | 更新 `.skillignore` 內容 |
+| GET | `/api/skillfollow` | 取得 `.skillfollow` 與 `.skillfollow.local` 內容，以及各宣告項目狀態、警告與 prune 暫停 |
+| PUT | `/api/skillfollow` | 寫入 `.skillfollow` 或 `.skillfollow.local`（`file`：`base` 或 `local`）；無效名稱回 400，`delete: true` 搭配空內容會刪除檔案。不建立連結、不改 `.gitignore`、不同步 |
 | GET | `/api/doctor` | 執行所有健康檢查（JSON） |
 | GET | `/api/health` | 存活探測；伺服器就緒後回傳 `200` |
 | GET | `/api/version` | 目前/最新版本 + 是否有可用升級 |

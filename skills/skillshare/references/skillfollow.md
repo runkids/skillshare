@@ -86,7 +86,9 @@ remove it or re-run with --force`.
   `.skillignore`; do not promise that dashboard toggles work for followed skills.
   Dashboard sync shares prune/copy safety and reports `prune_paused`/`kept` with
   warnings; Targets counts managed followed links as linked, not local. Dashboard audit
-  scans followed skills through the resolved root.
+  scans followed skills through the resolved root. Settings → Files →
+  `.skillfollow` edits `.skillfollow`/`.skillfollow.local` (invalid names are
+  rejected by line) and lists each entry's state; saving never links or syncs.
 - Diff previews sync: while paused it reports no removals, names the pause
   (`prune_paused` in JSON and dashboard), and shows kept standard-name copies
   (`keep`; dashboard `skip`). Dashboard diff lists a managed merge link into a
@@ -115,7 +117,7 @@ Checkout checks the selected existing revision without adding a fetch. An ignore
 followed link survives dashboard discard. These guards do not cover external Git
 commands; unrelated agents/extras Git scopes are not automatically blocked.
 
-Single-skill entries and a declaration editor are future work. Real Windows
+Single-skill entries are future work. Real Windows
 junction/Developer Mode feature-runtime verification is pending; simulated tests
 and cross-compilation do not establish it.
 
