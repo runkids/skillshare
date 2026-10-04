@@ -1004,6 +1004,21 @@ func CheckNameCollisionsForTargets(
 
 // CheckStatusMerge checks the status of a target in merge mode
 func CheckStatusMerge(targetPath, sourcePath string) (TargetStatus, int, int) {
+	return CheckStatusMergeWithOptions(targetPath, sourcePath, StatusOptions{})
+}
+
+// StatusOptions carries one operation's policy into a status check.
+type StatusOptions struct {
+	// Follow is the operation's .skillfollow snapshot; nil keeps legacy rules.
+	Follow *sourcewalk.FollowSet
+}
+
+// CheckStatusMergeWithOptions is CheckStatusMerge with an explicit follow
+// policy. In-source links count exactly as before. A link that resolves only
+// through a followed root counts as linked when the manifest records it and it
+// is inside a currently followed entry's resolved target. This measures
+// connectivity, not per-name wiring.
+func CheckStatusMergeWithOptions(targetPath, sourcePath string, opts StatusOptions) (TargetStatus, int, int) {
 	// Returns: status, linked count, local count
 
 	info, err := os.Lstat(targetPath)
@@ -1058,6 +1073,8 @@ func CheckStatusMerge(targetPath, sourcePath string) (TargetStatus, int, int) {
 
 			// Check if the symlink target is within the source directory
 			if utils.PathHasPrefix(absLink, absSource+string(filepath.Separator)) || utils.PathsEqual(absLink, absSource) {
+				linkedCount++
+			} else if _, managed := manifest.Managed[entry.Name()]; managed && opts.Follow != nil && followedLink(skillPath, sourcePath, opts.Follow) {
 				linkedCount++
 			} else {
 				localCount++

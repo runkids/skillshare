@@ -157,7 +157,7 @@ func cmdStatus(args []string) error {
 		printSourceStatus(cfg.EffectiveSkillsSource(), cfg.EffectiveAgentsSource(), utils.FoldHomePath, len(discovered), countSourceAgents(cfg.EffectiveAgentsSource()), stats)
 		printSkillfollowLine(follow)
 		printTrackedReposStatus(cfg.EffectiveSkillsSource(), discovered, trackedRepos)
-		if err := printTargetsStatus(cfg, discovered); err != nil {
+		if err := printTargetsStatus(cfg, discovered, follow); err != nil {
 			return err
 		}
 
@@ -192,7 +192,7 @@ func cmdStatus(args []string) error {
 	for name, target := range cfg.Targets {
 		sc := target.SkillsConfig()
 		tMode := getTargetMode(sc.Mode, cfg.Mode)
-		res := getTargetStatusDetail(target, cfg.EffectiveSkillsSource(), tMode)
+		res := getTargetStatusDetail(target, cfg.EffectiveSkillsSource(), tMode, follow)
 		output.Targets = append(output.Targets, statusJSONTarget{
 			Name:        name,
 			Path:        sc.Path,
@@ -346,7 +346,7 @@ type targetStatusResult struct {
 	localCount  int
 }
 
-func printTargetsStatus(cfg *config.Config, discovered []sync.DiscoveredSkill) error {
+func printTargetsStatus(cfg *config.Config, discovered []sync.DiscoveredSkill, follow *sourcewalk.FollowSet) error {
 	builtinAgents := config.DefaultAgentTargets()
 	agentsSource := cfg.EffectiveAgentsSource()
 	agentsExist := dirExists(agentsSource)
@@ -362,7 +362,7 @@ func printTargetsStatus(cfg *config.Config, discovered []sync.DiscoveredSkill) e
 		target := cfg.Targets[name]
 		sc := target.SkillsConfig()
 		mode := getTargetMode(sc.Mode, cfg.Mode)
-		res := getTargetStatusDetail(target, cfg.EffectiveSkillsSource(), mode)
+		res := getTargetStatusDetail(target, cfg.EffectiveSkillsSource(), mode, follow)
 
 		// A target with skills off expects nothing, so it has no drift.
 		expected := 0
@@ -404,13 +404,13 @@ func getTargetMode(targetMode, globalMode string) string {
 	return "merge"
 }
 
-func getTargetStatusDetail(target config.TargetConfig, source, mode string) targetStatusResult {
+func getTargetStatusDetail(target config.TargetConfig, source, mode string, follow *sourcewalk.FollowSet) targetStatusResult {
 	if !target.SkillsConfig().IsEnabled() {
 		return targetStatusResult{statusStr: "skills off"}
 	}
 	switch mode {
 	case "merge":
-		return getMergeStatusDetail(target, source, mode)
+		return getMergeStatusDetail(target, source, follow)
 	case "copy":
 		return getCopyStatusDetail(target, mode)
 	default:
@@ -418,8 +418,8 @@ func getTargetStatusDetail(target config.TargetConfig, source, mode string) targ
 	}
 }
 
-func getMergeStatusDetail(target config.TargetConfig, source, mode string) targetStatusResult {
-	status, linkedCount, localCount := sync.CheckStatusMerge(target.SkillsConfig().Path, source)
+func getMergeStatusDetail(target config.TargetConfig, source string, follow *sourcewalk.FollowSet) targetStatusResult {
+	status, linkedCount, localCount := sync.CheckStatusMergeWithOptions(target.SkillsConfig().Path, source, sync.StatusOptions{Follow: follow})
 
 	switch status {
 	case sync.StatusMerged, sync.StatusLinked:

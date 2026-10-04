@@ -118,6 +118,13 @@ func (s followScope) inFollowedTarget(dest string) bool {
 	return false
 }
 
+// followedLink reports whether a link resolves inside a currently followed
+// entry's resolved target.
+func followedLink(linkPath, sourcePath string, set *sourcewalk.FollowSet) bool {
+	dest, err := skillLinkTarget(linkPath)
+	return err == nil && newFollowScope(sourcePath, set).inFollowedTarget(dest)
+}
+
 // pathUnder reports whether path is strictly below root.
 func pathUnder(path, root string) bool {
 	return utils.PathHasPrefix(path, strings.TrimRight(root, string(filepath.Separator))+string(filepath.Separator))

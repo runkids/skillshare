@@ -441,3 +441,78 @@ func TestSkillfollowPause_ResumesWhenEntryReturns(t *testing.T) {
 		t.Fatalf("paused %v, pruned %v", result.PrunePaused, result.Pruned)
 	}
 }
+
+func (f followFixture) status(t *testing.T) (TargetStatus, int, int) {
+	t.Helper()
+	set, _ := f.discover(t)
+	return CheckStatusMergeWithOptions(f.tgt, f.src, StatusOptions{Follow: set})
+}
+
+func TestSkillfollowStatus_LinksThroughFollowedEntriesAreLinked(t *testing.T) {
+	// In-source links are classified exactly as before, so with a linked
+	// source root the relative link to local still counts as local.
+	wantLocal := map[string]int{"linked source root and target parent": 1}
+	cases := map[string]func(t *testing.T) (followFixture, string){
+		"global absolute": func(t *testing.T) (followFixture, string) {
+			return newFollowFixture(t, filepath.Join(t.TempDir(), "src"), filepath.Join(t.TempDir(), "tgt")), ""
+		},
+		"project relative": func(t *testing.T) (followFixture, string) {
+			root := t.TempDir()
+			return newFollowFixture(t, filepath.Join(root, ".skillshare", "skills"), filepath.Join(root, ".claude", "skills")), root
+		},
+		"linked source root and target parent": func(t *testing.T) (followFixture, string) {
+			root := t.TempDir()
+			for _, dir := range []string{"real-src", "real-claude/skills", ".skillshare"} {
+				if err := os.MkdirAll(filepath.Join(root, dir), 0755); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if err := os.Symlink(filepath.Join(root, "real-src"), filepath.Join(root, ".skillshare", "skills")); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.Symlink(filepath.Join(root, "real-claude"), filepath.Join(root, ".claude")); err != nil {
+				t.Fatal(err)
+			}
+			return newFollowFixture(t, filepath.Join(root, ".skillshare", "skills"), filepath.Join(root, ".claude", "skills")), root
+		},
+	}
+	for name, setup := range cases {
+		t.Run(name, func(t *testing.T) {
+			f, projectRoot := setup(t)
+			f.merge(t, config.TargetConfig{Path: f.tgt, Mode: "merge"}, projectRoot)
+			if status, linked, local := f.status(t); status != StatusMerged || linked != 3-wantLocal[name] || local != wantLocal[name] {
+				t.Fatalf("status %s, linked %d, local %d", status, linked, local)
+			}
+		})
+	}
+}
+
+func TestSkillfollowStatus_FullyResolvedLinkCountsOnlyWhenManaged(t *testing.T) {
+	f := newFollowFixture(t, filepath.Join(t.TempDir(), "src"), filepath.Join(t.TempDir(), "tgt"))
+	if err := os.Symlink(filepath.Join(f.ext, "f", "a"), filepath.Join(f.tgt, "_f__a")); err != nil {
+		t.Fatal(err)
+	}
+	if _, linked, local := f.status(t); linked != 0 || local != 1 {
+		t.Fatalf("before sync: linked %d, local %d", linked, local)
+	}
+
+	f.merge(t, config.TargetConfig{Path: f.tgt, Mode: "merge"}, "")
+	if _, linked, local := f.status(t); linked != 3 || local != 0 {
+		t.Fatalf("after sync: linked %d, local %d", linked, local)
+	}
+	manifest, err := ReadManifest(f.tgt)
+	if err != nil || manifest.Managed["_f__a"] != "symlink" {
+		t.Fatalf("selected link was not adopted: %v %v", manifest.Managed, err)
+	}
+}
+
+func TestSkillfollowStatus_WithoutPolicyIsUnchanged(t *testing.T) {
+	f := newFollowFixture(t, filepath.Join(t.TempDir(), "src"), filepath.Join(t.TempDir(), "tgt"))
+	if err := os.Symlink(filepath.Join(f.ext, "f", "a"), filepath.Join(f.tgt, "_f__a")); err != nil {
+		t.Fatal(err)
+	}
+	f.merge(t, config.TargetConfig{Path: f.tgt, Mode: "merge"}, "")
+	if _, linked, local := CheckStatusMerge(f.tgt, f.src); linked != 2 || local != 1 {
+		t.Fatalf("linked %d, local %d", linked, local)
+	}
+}

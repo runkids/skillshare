@@ -8,6 +8,7 @@ import (
 	"skillshare/internal/audit"
 	"skillshare/internal/config"
 	"skillshare/internal/resource"
+	"skillshare/internal/sourcewalk"
 	"skillshare/internal/sync"
 	"skillshare/internal/ui"
 	"skillshare/internal/utils"
@@ -40,7 +41,7 @@ func cmdStatusProject(root string) error {
 	printSourceStatus(runtime.sourcePath, runtime.agentsSourcePath, show, len(discovered), agentCount, stats)
 	printSkillfollowLine(follow)
 	printTrackedReposStatus(runtime.sourcePath, discovered, trackedRepos)
-	if err := printProjectTargetsStatus(runtime, discovered); err != nil {
+	if err := printProjectTargetsStatus(runtime, discovered, follow); err != nil {
 		return err
 	}
 
@@ -92,7 +93,7 @@ func cmdStatusProjectJSON(root string) error {
 		if mode == "" {
 			mode = "merge"
 		}
-		res := getTargetStatusDetail(target, runtime.sourcePath, mode)
+		res := getTargetStatusDetail(target, runtime.sourcePath, mode, follow)
 		output.Targets = append(output.Targets, statusJSONTarget{
 			Name:        entry.Name,
 			Path:        sc.Path,
@@ -174,7 +175,7 @@ func resolveProjectAgentTargetPath(entry config.ProjectTargetEntry, builtinAgent
 	return ""
 }
 
-func printProjectTargetsStatus(runtime *projectRuntime, discovered []sync.DiscoveredSkill) error {
+func printProjectTargetsStatus(runtime *projectRuntime, discovered []sync.DiscoveredSkill, follow *sourcewalk.FollowSet) error {
 	builtinAgents := config.ProjectAgentTargets()
 	agentsExist := dirExists(runtime.agentsSourcePath)
 	var agents []resource.DiscoveredResource
@@ -197,7 +198,7 @@ func printProjectTargetsStatus(runtime *projectRuntime, discovered []sync.Discov
 		if mode == "" {
 			mode = "merge"
 		}
-		res := getTargetStatusDetail(target, runtime.sourcePath, mode)
+		res := getTargetStatusDetail(target, runtime.sourcePath, mode, follow)
 
 		// A target with skills off expects nothing, so it has no drift.
 		expected := 0

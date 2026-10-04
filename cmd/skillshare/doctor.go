@@ -256,7 +256,7 @@ func runDoctorChecks(cfg *config.Config, result *doctorResult, isProject bool, f
 	checkSkillsValidity(cfg.EffectiveSkillsSource(), result, discovered)
 	checkSkillIntegrity(result, discovered)
 	checkSkillTargetsField(result, discovered, targetNamesFromConfig(cfg.Targets))
-	targetCache := checkTargets(cfg, result, isProject)
+	targetCache := checkTargets(cfg, result, isProject, follow)
 	printSymlinkCompatHint(cfg.Targets, cfg.Mode, isProject)
 	checkSharedTargetPaths(cfg, result, isProject)
 	checkCrossTargetDiscovery(cfg, result, isProject)
@@ -534,7 +534,7 @@ type cachedTargetStatus struct {
 	needsSync   bool
 }
 
-func checkTargets(cfg *config.Config, result *doctorResult, isProject bool) map[string]cachedTargetStatus {
+func checkTargets(cfg *config.Config, result *doctorResult, isProject bool, follow *sourcewalk.FollowSet) map[string]cachedTargetStatus {
 	ui.Section("Targets")
 	cache := make(map[string]cachedTargetStatus)
 
@@ -601,7 +601,7 @@ func checkTargets(cfg *config.Config, result *doctorResult, isProject bool) map[
 			details = append(details, fmt.Sprintf("%s: %s", name, strings.Join(targetIssues, ", ")))
 			hasError = true
 		} else {
-			cached := displayTargetStatus(target, cfg.EffectiveSkillsSource(), mode, row)
+			cached := displayTargetStatus(target, cfg.EffectiveSkillsSource(), mode, follow, row)
 			cache[name] = cached
 			if cached.needsSync {
 				result.suggest("skillshare sync", "bring the targets up to date")
@@ -668,7 +668,7 @@ func checkTargetIssues(target config.TargetConfig, source, mode string) []string
 	return targetIssues
 }
 
-func displayTargetStatus(target config.TargetConfig, source, mode string, row func(mark, kind, text string)) cachedTargetStatus {
+func displayTargetStatus(target config.TargetConfig, source, mode string, follow *sourcewalk.FollowSet, row func(mark, kind, text string)) cachedTargetStatus {
 	sc := target.SkillsConfig()
 	var statusWord, detail string
 	var cached cachedTargetStatus
@@ -677,7 +677,7 @@ func displayTargetStatus(target config.TargetConfig, source, mode string, row fu
 
 	switch mode {
 	case "merge":
-		status, linkedCount, localCount := sync.CheckStatusMerge(sc.Path, source)
+		status, linkedCount, localCount := sync.CheckStatusMergeWithOptions(sc.Path, source, sync.StatusOptions{Follow: follow})
 		cached.status = status
 		cached.syncedCount = linkedCount
 		switch status {

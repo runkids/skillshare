@@ -889,7 +889,7 @@
   },
   {
     "file": "internal/sync/sync.go",
-    "function": "CheckStatusMerge",
+    "function": "CheckStatusMergeWithOptions",
     "callee": "os.ReadDir",
     "root": "targetPath",
     "reason": "target",
