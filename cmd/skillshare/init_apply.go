@@ -15,6 +15,7 @@ import (
 	gitops "skillshare/internal/git"
 	"skillshare/internal/install"
 	"skillshare/internal/sourcefs"
+	"skillshare/internal/sourcewalk"
 	ssync "skillshare/internal/sync"
 	"skillshare/internal/theme"
 	"skillshare/internal/ui"
@@ -109,10 +110,15 @@ func applyInitPlan(p *initPlan) (*initResult, error) {
 		}
 		defer source.Close()
 	}
+	follow := sourcewalk.Follow(p.source(), sourcewalk.FollowOptions{})
 	for _, s := range p.imports {
 		dst := filepath.Join(p.source(), s.name)
 		if _, err := os.Lstat(dst); err == nil {
 			continue // already there, e.g. pulled from the repo
+		}
+		if entry, ok := follow.InFollowed(s.name); ok {
+			res.warnings = append(res.warnings, fmt.Sprintf("Skipped %s: %v", s.name, &sourcefs.LinkError{Path: filepath.Join(p.source(), entry.Name)}))
+			continue
 		}
 		src, err := filepath.EvalSymlinks(s.from)
 		if err != nil {
@@ -218,6 +224,9 @@ func installBuiltinSkill(sourcePath string) (fallback bool, err error) {
 	}
 	if err == nil {
 		return false, nil
+	}
+	if errors.Is(err, sourcefs.ErrLink) {
+		return false, err // a declared entry, offline: the fallback must not create it either
 	}
 	if err := src.MkdirAll("skillshare", 0o755); err != nil {
 		return true, err

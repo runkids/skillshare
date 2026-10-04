@@ -234,6 +234,11 @@ func MigrateToSource(targetPath, sourcePath string) error {
 
 	// Check if source already exists
 	if _, err := os.Stat(sourcePath); err == nil {
+		// A declared entry is never created by the merge, even while its link
+		// is offline and there is nothing for the handle to refuse.
+		if err := followedMergeError(targetPath, sourcePath); err != nil {
+			return err
+		}
 		// Source exists - merge files through the source handle
 		src, err := sourcefs.Open(sourcePath)
 		if err != nil {
@@ -345,6 +350,22 @@ func SyncTarget(name string, target config.TargetConfig, sourcePath string, dryR
 	default:
 		return fmt.Errorf("unknown target status: %s", status)
 	}
+}
+
+// followedMergeError refuses a merge whose target holds a top-level entry
+// named like a .skillfollow declaration of the source, live or offline.
+func followedMergeError(targetPath, sourcePath string) error {
+	entries, err := os.ReadDir(targetPath)
+	if err != nil {
+		return nil
+	}
+	follow := sourcewalk.Follow(sourcePath, sourcewalk.FollowOptions{})
+	for _, e := range entries {
+		if entry, ok := follow.InFollowed(e.Name()); ok {
+			return &sourcefs.LinkError{Path: filepath.Join(sourcePath, entry.Name)}
+		}
+	}
+	return nil
 }
 
 // mergeDirectories copies files from src to dst through w, skipping existing files

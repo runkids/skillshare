@@ -905,6 +905,14 @@
   },
   {
     "file": "internal/sync/sync.go",
+    "function": "followedMergeError",
+    "callee": "os.ReadDir",
+    "root": "targetPath",
+    "reason": "target",
+    "note": "List target entries before migrating them into source"
+  },
+  {
+    "file": "internal/sync/sync.go",
     "function": "mergeDirectories",
     "callee": "filepath.Walk",
     "root": "src",
