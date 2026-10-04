@@ -298,16 +298,14 @@ internal/server/handler_memory_guidance.go	commitGuidanceChange	os.Remove	c.Path
 internal/server/handler_skill_content.go	writeFileAtomic	os.CreateTemp	dir	agents
 internal/server/handler_skill_content.go	writeFileAtomic	os.Remove	tmpPath	agents
 internal/server/handler_skill_content.go	writeFileAtomic	os.Rename	tmpPath, path	agents
-internal/server/handler_skillignore.go	(*Server).handlePutSkillignore	os.Remove	ignorePath	source-unmigrated
-internal/server/handler_skillignore.go	(*Server).handlePutSkillignore	os.WriteFile	ignorePath	source-unmigrated
 internal/server/handler_targets.go	<package>	os.Remove	<ref>	target
 internal/server/handler_targets.go	copySkillDir	os.MkdirAll	dstPath	target
 internal/server/handler_targets.go	copySkillDir	os.OpenFile	dstPath	target
 internal/server/handler_trash.go	(*Server).handleDeleteTrash	os.RemoveAll	resolved.entry.Path	trash
 internal/server/handler_trash.go	(*Server).handleEmptyTrash	os.RemoveAll	item.Path	trash
-internal/skillignore/write.go	AddPattern	os.MkdirAll	filepath.Dir(filePath)	source-unmigrated
-internal/skillignore/write.go	AddPattern	os.WriteFile	filePath	source-unmigrated
-internal/skillignore/write.go	RemovePattern	os.WriteFile	filePath	source-unmigrated
+internal/skillignore/write.go	AddPattern	sourcefs.OS	<ref>	test-helper	only tests call AddPattern; production gets its writer from OpenWriter
+internal/skillignore/write.go	OpenWriter	sourcefs.OS	<ref>	agents	the writer for .agentignore; .skillignore gets a handle at the skills source
+internal/skillignore/write.go	RemovePattern	sourcefs.OS	<ref>	test-helper	only tests call RemovePattern; production gets its writer from OpenWriter
 internal/sourcefs/sourcefs.go	(*Root).MoveIn	os.Rename	src, filepath.Join(r.dir, name)	sourcefs
 internal/sourcefs/sourcefs.go	(osWriter).MkdirAll	os.MkdirAll	path	os-writer
 internal/sourcefs/sourcefs.go	(osWriter).OpenFile	os.OpenFile	path	os-writer
@@ -489,9 +487,7 @@ internal/uidist/uidist.go	downloadToTemp	os.Remove	tmp.Name()	config
 internal/uidist/uidist.go	extractTarGz	os.MkdirAll	filepath.Dir(target)	config
 internal/uidist/uidist.go	extractTarGz	os.MkdirAll	target	config
 internal/uidist/uidist.go	extractTarGz	os.OpenFile	target	config
-internal/utils/frontmatter_write.go	SetFrontmatterList	os.WriteFile	filePath	source-unmigrated
-internal/utils/frontmatter_write.go	ToggleFrontmatterFlag	os.WriteFile	filePath	source-unmigrated
-internal/utils/frontmatter_write.go	ToggleFrontmatterFlag	os.WriteFile	filePath	source-unmigrated
+internal/utils/frontmatter_write.go	(osFileWriter).WriteFile	os.WriteFile	path	agents	SetFrontmatterList and ToggleFrontmatterFlag: the agent targets handler and tests; SKILL.md edits pass a source handle to the With variants
 internal/version/check.go	ClearCache	os.Remove	getCachePath()	config
 internal/version/check.go	cleanupLegacyCache	os.Remove	legacyPath	config
 internal/version/check.go	cleanupLegacyCache	os.Remove	parentDir	config

@@ -9,6 +9,7 @@ import (
 
 	"skillshare/internal/install"
 	"skillshare/internal/resource"
+	"skillshare/internal/sourcefs"
 	ssync "skillshare/internal/sync"
 	"skillshare/internal/utils"
 )
@@ -89,6 +90,15 @@ func (s *Server) handleBatchSetTargets(w http.ResponseWriter, r *http.Request) {
 		values = []string{req.Target}
 	}
 
+	var src *sourcefs.Root
+	if len(discovered) > 0 {
+		if src, err = sourcefs.Open(source); err != nil {
+			writeError(w, http.StatusInternalServerError, "failed to open skills source: "+err.Error())
+			return
+		}
+		defer src.Close()
+	}
+
 	// Acquire write lock only for the file-write loop.
 	s.mu.Lock()
 	for _, d := range discovered {
@@ -113,7 +123,7 @@ func (s *Server) handleBatchSetTargets(w http.ResponseWriter, r *http.Request) {
 		}
 
 		skillMDPath := filepath.Join(d.SourcePath, "SKILL.md")
-		if err := utils.SetFrontmatterList(skillMDPath, "metadata.targets", values); err != nil {
+		if err := utils.SetFrontmatterListWith(src.Writer(), skillMDPath, "metadata.targets", values); err != nil {
 			errors = append(errors, d.FlatName+": "+err.Error())
 			continue
 		}
@@ -229,7 +239,7 @@ func (s *Server) handleSetSkillTargets(w http.ResponseWriter, r *http.Request) {
 			skillMDPath := filepath.Join(d.SourcePath, "SKILL.md")
 
 			s.mu.Lock()
-			err := utils.SetFrontmatterList(skillMDPath, "metadata.targets", values)
+			err := setSourceFrontmatterList(source, skillMDPath, values)
 			s.mu.Unlock()
 
 			if err != nil {
@@ -303,4 +313,16 @@ func (s *Server) handleSetSkillTargets(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeError(w, http.StatusNotFound, "resource not found: "+name)
+}
+
+// setSourceFrontmatterList sets metadata.targets in a SKILL.md in the skills
+// source through its handle, so a linked SKILL.md is refused instead of
+// written through.
+func setSourceFrontmatterList(source, skillMDPath string, values []string) error {
+	src, err := sourcefs.Open(source)
+	if err != nil {
+		return err
+	}
+	defer src.Close()
+	return utils.SetFrontmatterListWith(src.Writer(), skillMDPath, "metadata.targets", values)
 }

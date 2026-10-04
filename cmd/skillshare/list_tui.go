@@ -9,6 +9,7 @@ import (
 
 	"skillshare/internal/config"
 	"skillshare/internal/skillignore"
+	"skillshare/internal/sourcefs"
 	"skillshare/internal/theme"
 	"skillshare/internal/utils"
 
@@ -510,12 +511,17 @@ func (m listTUIModel) toggleDisabled() (tea.Model, tea.Cmd) {
 		pattern = item.entry.Name
 	}
 
+	iw, closeIgnore, err := skillignore.OpenWriter(ignorePath, item.entry.Kind != "agent")
+	if err != nil {
+		return m, nil
+	}
+	defer closeIgnore()
 	newDisabled := !item.entry.Disabled
 	var writeErr error
 	if newDisabled {
-		_, writeErr = skillignore.AddPattern(ignorePath, pattern)
+		_, writeErr = skillignore.AddPatternWith(iw, ignorePath, pattern)
 	} else {
-		_, writeErr = skillignore.RemovePattern(ignorePath, pattern)
+		_, writeErr = skillignore.RemovePatternWith(iw, ignorePath, pattern)
 	}
 	if writeErr != nil {
 		return m, nil
@@ -598,8 +604,13 @@ func (m listTUIModel) toggleModelInvocation() (tea.Model, tea.Cmd) {
 	if !ok {
 		return m, nil
 	}
+	src, err := sourcefs.Open(m.sourcePath)
+	if err != nil {
+		return m, nil
+	}
+	defer src.Close()
 	skillMD := filepath.Join(m.sourcePath, item.entry.RelPath, "SKILL.md")
-	if _, err := utils.ToggleFrontmatterFlag(skillMD, modelInvocationKey); err != nil {
+	if _, err := utils.ToggleFrontmatterFlagWith(src.Writer(), skillMD, modelInvocationKey); err != nil {
 		return m, nil
 	}
 	delete(m.detailCache, item.entry.RelPath) // the chip re-reads the file

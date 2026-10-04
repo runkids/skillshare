@@ -110,6 +110,13 @@ func (s *Server) handleBatchToggleSkills(w http.ResponseWriter, r *http.Request)
 	var resp batchToggleResponse
 	resp.Results = make([]batchToggleItemResult, 0, len(req.Names))
 
+	iw, closeIgnore, err := skillignore.OpenWriter(ignorePath, req.Kind != "agent")
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to open ignore file: "+err.Error())
+		return
+	}
+	defer closeIgnore()
+
 	// Acquire the write lock only for the file-write loop.
 	s.mu.Lock()
 	for _, name := range req.Names {
@@ -126,7 +133,7 @@ func (s *Server) handleBatchToggleSkills(w http.ResponseWriter, r *http.Request)
 				resp.Summary.Unchanged++
 				continue
 			}
-			removed, err := skillignore.RemovePattern(ignorePath, e.relPath)
+			removed, err := skillignore.RemovePatternWith(iw, ignorePath, e.relPath)
 			if err != nil {
 				resp.Results = append(resp.Results, batchToggleItemResult{Name: name, Disabled: true, Error: err.Error()})
 				resp.Summary.Failed++
@@ -146,7 +153,7 @@ func (s *Server) handleBatchToggleSkills(w http.ResponseWriter, r *http.Request)
 			continue
 		}
 
-		added, err := skillignore.AddPattern(ignorePath, e.relPath)
+		added, err := skillignore.AddPatternWith(iw, ignorePath, e.relPath)
 		if err != nil {
 			resp.Results = append(resp.Results, batchToggleItemResult{Name: name, Error: err.Error()})
 			resp.Summary.Failed++
