@@ -437,7 +437,8 @@ func (s *Server) auditGateTrackedRepo(name, repoPath, beforeHash string, force b
 }
 
 func (s *Server) updateRegularSkill(name, skillPath string, force, skipAudit bool) updateResultItem {
-	if err := install.RefuseFollowedSkillUpdate(name, s.skillFollowSet()); err != nil {
+	follow := s.skillFollowSet()
+	if err := install.RefuseFollowedSkillUpdate(name, follow); err != nil {
 		return updateResultItem{Name: name, Action: "error", Message: err.Error()}
 	}
 	entry := s.skillsStore.GetByPath(name)
@@ -462,6 +463,7 @@ func (s *Server) updateRegularSkill(name, skillPath string, force, skipAudit boo
 		SkipAudit:      skipAudit,
 		AuditThreshold: s.updateAuditThreshold(),
 		SourceDir:      sourceDir,
+		Follow:         follow,
 	}
 	if s.IsProjectMode() {
 		opts.AuditProjectRoot = s.projectRoot

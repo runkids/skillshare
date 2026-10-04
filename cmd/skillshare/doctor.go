@@ -397,11 +397,6 @@ func checkSkillfollowPauses(result *doctorResult, source string, follow *sourcew
 	}
 }
 
-// checkUndeclaredSourceLinks reports first-level links without following them.
-func checkUndeclaredSourceLinks(source string, result *doctorResult) {
-	checkUndeclaredSourceLinksWithFollow(source, result, nil)
-}
-
 func checkUndeclaredSourceLinksWithFollow(source string, result *doctorResult, follow *sourcewalk.FollowSet) {
 	report := func(name string) {
 		message := name + ": not followed by discovery; its contents are invisible to skillshare"

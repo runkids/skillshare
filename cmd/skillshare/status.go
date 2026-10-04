@@ -287,14 +287,10 @@ func buildSkillignoreJSON(stats *skillignore.IgnoreStats) *statusJSONSourceIgnor
 	}
 }
 
-// extractTrackedRepos walks sourcePath for `_`-prefixed directories that are
-// git repositories. Using a directory walk (instead of deriving from discovered
+// extractTrackedReposWithFollow walks sourcePath for `_`-prefixed directories that
+// are git repositories. Using a directory walk (instead of deriving from discovered
 // skills) ensures repos with zero discoverable skills — e.g. those whose only
 // SKILL.md sits at the repo root — still appear in status output.
-func extractTrackedRepos(sourcePath string) []string {
-	return extractTrackedReposWithFollow(sourcePath, nil)
-}
-
 func extractTrackedReposWithFollow(sourcePath string, follow *sourcewalk.FollowSet) []string {
 	repos, err := install.GetTrackedReposWithOptions(sourcePath, sourcewalk.Options{Follow: follow})
 	if err != nil {

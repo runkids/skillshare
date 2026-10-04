@@ -1008,10 +1008,6 @@ func targetSkillSyncSummary(target config.TargetConfig, sourcePath string, follo
 	return buildTargetSkillSyncSummaryWithFollow(sc.Path, sourcePath, sc.Mode, follow)
 }
 
-func buildTargetSkillSyncSummary(targetPath, sourcePath, mode string) (summary, text string) {
-	return buildTargetSkillSyncSummaryWithFollow(targetPath, sourcePath, mode, nil)
-}
-
 func buildTargetSkillSyncSummaryWithFollow(targetPath, sourcePath, mode string, follow *sourcewalk.FollowSet) (summary, text string) {
 	var status fmt.Stringer
 	var synced, local int

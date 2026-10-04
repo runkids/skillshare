@@ -70,3 +70,14 @@ func TestCheckSkillsValidityIncludesFollowedEntries(t *testing.T) {
 		t.Fatalf("want docs reported without SKILL.md, got %+v", result.checks)
 	}
 }
+
+// Follow-less shorthands for tests of the plain (no .skillfollow) behavior.
+// Production callers pass the command's snapshot to the *WithFollow forms.
+
+func checkUndeclaredSourceLinks(source string, result *doctorResult) {
+	checkUndeclaredSourceLinksWithFollow(source, result, nil)
+}
+
+func buildTargetSkillSyncSummary(targetPath, sourcePath, mode string) (summary, text string) {
+	return buildTargetSkillSyncSummaryWithFollow(targetPath, sourcePath, mode, nil)
+}
