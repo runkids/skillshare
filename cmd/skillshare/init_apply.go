@@ -206,7 +206,9 @@ func hasBuiltinSkill(sourcePath string) bool {
 // installBuiltinSkill downloads the skillshare skill, falling back to a
 // minimal copy when GitHub can't be reached. Both paths write through the
 // source handle, so a skillshare folder that is a link is refused instead of
-// replaced, and the fallback cannot write through it either.
+// replaced, and the fallback cannot write through it either. The declaration
+// is consulted first: a declared or possibly declared (unreadable) skillshare
+// entry is refused before either path, since the fallback would create it.
 func installBuiltinSkill(sourcePath string) (fallback bool, err error) {
 	src, err := sourcefs.Create(sourcePath)
 	if err != nil {
@@ -214,6 +216,10 @@ func installBuiltinSkill(sourcePath string) (fallback bool, err error) {
 	}
 	defer src.Close()
 	if err := src.CheckNoLink("skillshare"); err != nil {
+		return false, err
+	}
+	follow := sourcewalk.Follow(sourcePath, sourcewalk.FollowOptions{})
+	if err := follow.WriteBoundary(sourcePath, "skillshare"); err != nil {
 		return false, err
 	}
 	dir := filepath.Join(sourcePath, "skillshare")

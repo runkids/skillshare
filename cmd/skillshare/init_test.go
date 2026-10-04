@@ -124,3 +124,18 @@ func TestInstallBuiltinSkill_RefusesLinkedFolder(t *testing.T) {
 		t.Fatalf("link target was created: %v", err)
 	}
 }
+
+// An unreadable declaration may name skillshare, so it is refused before the
+// download, and the fallback does not create the folder either.
+func TestInstallBuiltinSkill_RefusesUnreadableDeclaration(t *testing.T) {
+	source := t.TempDir()
+	if err := os.Mkdir(filepath.Join(source, ".skillfollow"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := installBuiltinSkill(source); err == nil || !strings.Contains(err.Error(), "read skillfollow declaration") {
+		t.Fatalf("installBuiltinSkill = %v, want the declaration read error", err)
+	}
+	if _, err := os.Lstat(filepath.Join(source, "skillshare")); !os.IsNotExist(err) {
+		t.Fatalf("skillshare folder was created: %v", err)
+	}
+}

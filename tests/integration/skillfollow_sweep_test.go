@@ -5,6 +5,7 @@ package integration
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"skillshare/internal/testutil"
@@ -69,4 +70,43 @@ func TestSkillfollowInitRefusesDeclaredEntry(t *testing.T) {
 			t.Errorf("init created the declared entry: %v\n%s", err, result.Output())
 		}
 	})
+	// An unreadable declaration may name skillshare: neither the download nor
+	// the offline fallback creates it. Without a declaration the fallback stays.
+	t.Run("builtin-skill-unreadable-declaration", func(t *testing.T) {
+		sb := testutil.NewSandbox(t)
+		defer sb.Cleanup()
+		os.Remove(sb.ConfigPath)
+		if err := os.MkdirAll(filepath.Join(sb.SourcePath, ".skillfollow"), 0755); err != nil {
+			t.Fatal(err)
+		}
+
+		result := sb.RunCLIEnv(offlineEnv(), "init", "--no-copy", "--no-targets", "--no-git", "--skill")
+		result.AssertSuccess(t)
+		result.AssertOutputContains(t, "read skillfollow declaration "+filepath.Join(sb.SourcePath, ".skillfollow"))
+		if _, err := os.Lstat(filepath.Join(sb.SourcePath, "skillshare")); !os.IsNotExist(err) {
+			t.Errorf("init created skillshare under an unreadable declaration: %v\n%s", err, result.Output())
+		}
+	})
+	t.Run("builtin-skill-offline-fallback", func(t *testing.T) {
+		sb := testutil.NewSandbox(t)
+		defer sb.Cleanup()
+		os.Remove(sb.ConfigPath)
+
+		result := sb.RunCLIEnv(offlineEnv(), "init", "--no-copy", "--no-targets", "--no-git", "--skill")
+		result.AssertSuccess(t)
+		data, err := os.ReadFile(filepath.Join(sb.SourcePath, "skillshare", "SKILL.md"))
+		if err != nil || !strings.Contains(string(data), "description: Manage and sync skills across AI CLI tools") {
+			t.Errorf("offline init did not write the fallback skill: %v\n%s", err, result.Output())
+		}
+	})
+}
+
+// offlineEnv points every download at a closed port, so the built-in skill
+// download fails and init takes its offline path.
+func offlineEnv() map[string]string {
+	proxy := "http://127.0.0.1:1"
+	return map[string]string{
+		"HTTPS_PROXY": proxy, "https_proxy": proxy, "HTTP_PROXY": proxy, "http_proxy": proxy,
+		"NO_PROXY": "", "no_proxy": "", "GIT_TERMINAL_PROMPT": "0",
+	}
 }
