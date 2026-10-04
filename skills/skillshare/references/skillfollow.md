@@ -122,7 +122,7 @@ declarations, including missing indexed links, and incoming paths through any
 working-tree link (declared or not). Ignoring alone cannot stop replacement: use
 the reported untrack/ignore instruction or fix the incoming remote revision.
 An incoming path inside a declared entry is refused even while its link is
-missing. Checkout checks the selected existing revision without adding a fetch. An ignored
+missing or the entry is a regular file. Checkout checks the selected existing revision without adding a fetch. An ignored
 followed link survives dashboard discard. These guards do not cover external Git
 commands; unrelated agents/extras Git scopes are not automatically blocked.
 

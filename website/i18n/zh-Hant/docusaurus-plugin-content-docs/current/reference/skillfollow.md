@@ -128,7 +128,7 @@ followed entry 之下的一般 skill 不會被重新安裝。`update` 在所有�
 
 `commit`、`push`、其 dry run、Dashboard staging、init source commit 會拒絕 Git 可到達的 indexed/未忽略宣告連結。依 doctor 指示加入精確的無尾斜線 ignore 並 `git rm --cached`；不會自動取消追蹤。Guard 依實體 Git 可達性判定，不會僅因 skills 宣告而阻擋無關 agents/extras repo。
 
-Source **pull/reset/checkout** 也拒絕 indexed 宣告（包括不存在但仍 indexed 的連結），或 incoming revision 觸碰含任何工作目錄連結元件的路徑，**宣告與否皆然**；宣告項目內的路徑即使其連結缺失也拒絕（錯誤會指出項目名；從 remote 移除該路徑，或從宣告移除該項目）。Ignore 不足以防止 Git 替換連結；錯誤列 commit/path，依指示取消追蹤並 ignore，或先修正 remote。Pull fetch 後檢查固定 revision；Dashboard checkout 檢查選定既有 local/remote-tracking revision，不增加隱含 fetch。Dashboard discard 保留 ignored followed link。
+Source **pull/reset/checkout** 也拒絕 indexed 宣告（包括不存在但仍 indexed 的連結），或 incoming revision 觸碰含任何工作目錄連結元件的路徑，**宣告與否皆然**；宣告項目內的路徑即使其連結缺失或項目是普通檔案也拒絕（錯誤會指出項目名；從 remote 移除該路徑，或從宣告移除該項目）。Ignore 不足以防止 Git 替換連結；錯誤列 commit/path，依指示取消追蹤並 ignore，或先修正 remote。Pull fetch 後檢查固定 revision；Dashboard checkout 檢查選定既有 local/remote-tracking revision，不增加隱含 fetch。Dashboard discard 保留 ignored followed link。
 
 這些 guard 只保護 skillshare 操作，不保護自行執行的 Git。
 

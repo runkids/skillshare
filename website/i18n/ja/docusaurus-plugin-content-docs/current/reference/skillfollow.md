@@ -128,7 +128,7 @@ followed entry 配下の通常 skill は再インストールされません。`
 
 `commit`、`push`、dry run、Dashboard staging、init source commit は Git が到達できる宣言リンクが indexed/未 ignore なら拒否します。Doctor の正確な末尾 `/` なし ignore と `git rm --cached` 指示に従います。自動で追跡解除しません。物理的 Git 到達性を使うため、skills の宣言だけで無関係な agents/extras repo は止めません。
 
-Source **pull/reset/checkout** は indexed 宣言（不在だが indexed のリンクも含む）、または作業ツリーのリンク要素を持つ incoming path を拒否します。**宣言の有無は問いません**。宣言エントリ内の path は、そのリンクが不在でも拒否します（エラーはエントリ名を示します。remote から path を外すか、宣言からエントリを外してください）。Ignore だけでは Git の置換を防げません。エラーの commit/path に従い、indexed なら追跡解除と ignore、または remote の修正が必要です。Pull は fetch 後に固定 revision を検査。Dashboard checkout は既存 local/remote-tracking revision を検査し、暗黙の fetch は追加しません。Dashboard discard は ignored followed link を残します。
+Source **pull/reset/checkout** は indexed 宣言（不在だが indexed のリンクも含む）、または作業ツリーのリンク要素を持つ incoming path を拒否します。**宣言の有無は問いません**。宣言エントリ内の path は、そのリンクが不在でも、エントリが通常ファイルでも拒否します（エラーはエントリ名を示します。remote から path を外すか、宣言からエントリを外してください）。Ignore だけでは Git の置換を防げません。エラーの commit/path に従い、indexed なら追跡解除と ignore、または remote の修正が必要です。Pull は fetch 後に固定 revision を検査。Dashboard checkout は既存 local/remote-tracking revision を検査し、暗黙の fetch は追加しません。Dashboard discard は ignored followed link を残します。
 
 これらは skillshare 操作の guard で、自分で実行する Git は保護しません。
 
