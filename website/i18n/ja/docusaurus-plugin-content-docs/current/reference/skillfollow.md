@@ -64,7 +64,7 @@ git rm --cached -- '_team-skills'
 
 ### 確認と sync
 
-`skillshare doctor`、`skillshare list --no-tui`、`skillshare sync --dry-run` で確認し、正しければ `skillshare sync`。`-g`/`-p` で対象を選びます。宣言/ignore を書き込むのは `follow` と `unfollow` だけです。Discovery、status、doctor、dry run は自動作成・修復しません。
+`skillshare doctor`、`skillshare list --no-tui`、`skillshare sync --dry-run` で確認し、正しければ `skillshare sync`。`-g`/`-p` で対象を選びます。宣言ファイルを書き込むのは `follow`、`unfollow`、dashboard の `.skillfollow` タブだけで、ignore 行を書くのは `follow` と `unfollow` だけです。Discovery、status、doctor、dry run は自動作成・修復しません。
 
 `_` 接頭辞と `.git` を持つディレクトリは tracked repo、それ以外はグループです。Skills は `_team-skills/review`（flat name `_team-skills__review`）などの論理パスを維持します。Source-root/repo の `.skillignore` は引き続き適用され（followed グループ内に入れ子の tracked repo も含む）、入れ子の tracked repo（`--track --into` で入れたものも）は自分の skills を所有します（`list` に repo 名、`status` と Dashboard の件数、`.metadata.json` の target override が適用、Dashboard は単一 skill の uninstall を拒否）。未宣言リンクは非表示のままです。
 
@@ -74,6 +74,7 @@ git rm --cached -- '_team-skills'
 
 - 前後の空白を除去。空行と `#` で始まる行は無視します。コメントは別の行に置きます。
 - 直接の子の名前のみ。`.`、`..`、絶対パス、`C:` 等の drive/volume、UNC、`/`、`\`、path cleaning で変わる名前は禁止です。
+- Windows では宣言名と実在エントリを大文字小文字を区別せずに照合します。`Team` は `team` という junction を追跡し、大文字小文字だけが異なる名前は最初の表記にまとめられます。macOS と Linux では完全一致です。
 - Glob/否定は禁止：`*`、`?`、`[`、`]`、`{`、`}`、`!`、NUL は拒否。無効行は警告され、followed エントリになりません。
 - 宣言された第一階層だけをたどり、そのツリー内の入れ子リンクは走査しません。
 - 宣言されたエントリを skillshare が作成することはありません（リンクがオフラインでも同じ）。`install`（通常、`--into`、`--track`、引数なしの再インストール）、`new`、`collect`、`trash restore`、`init` の取り込み、symlink モードの sync 移行、Dashboard の create/install/collect/restore は宣言エントリ内の宛先を `<source>/<entry> is a link; edit its target directly`（Dashboard は 409）で拒否し、宣言エントリ内に記録された tracked repo は missing 扱いにも rehydrate 対象にもなりません。宣言ファイルが存在するのに読み取れない間は、これらの書き込みはすべて読み取りエラーで拒否されます（読めないファイルが宛先を宣言している可能性があるため）。
@@ -102,10 +103,10 @@ Canonical path で安全性を検査し、最初に該当する状態を採用�
 ## コマンドの表示 {#visibility}
 
 - **Status**：`.skillfollow: N entries, M skipped`、local 有効時は `(.local active)`、各 prune 停止の復旧メッセージ。JSON は `source.skillfollow` に `active`、`local_active`、`entry_count`、`followed_count`、`skipped_count`、宣言 `entries`（`name`、`state`、任意の `resolved_target`、`reason`）、任意の `warnings`/`prune_paused`。宣言も宣言警告もない場合は省略。
-- **Doctor**：`skillfollow` は各宣言状態、`skillfollow_prune` は停止理由。未宣言リンクは `undeclared_source_links` info。Git repo 内では indexed/`not-ignored` リンクと安全でない local ファイルも検査しますが変更しません。
+- **Doctor**：`skillfollow` は各宣言状態、`skillfollow_prune` は停止理由。未宣言リンクは `undeclared_source_links` info。Git repo 内では indexed/`not-ignored` リンクと安全でない local ファイルも検査しますが変更しません。skill を一つも含まない followed group は、物理ディレクトリと同じく `SKILL.md` のないディレクトリとして `skills_validity` に報告されます。
 - **`list --no-tui`**：followed tracked repo に `→ <resolved>` を追加（ホームは `~` に短縮可能）。Skills は論理パス、JSON 形式は不変。
 - **Diff**：sync と同じ規則でプレビューします。宣言が利用できない間は削除を報告せず、`<target>: prune paused; unavailable .skillfollow entry: <name> (<state>)` を表示し、sync が残す standard naming の managed copy を **Kept** として表示します。`diff --json` は target ごとに `prune_paused` と `keep` 項目を追加します。Dashboard diff は `prune_paused` を追加し、残す copy を `skip` で表示します。followed の orphan link も sync の prune と同じ判断で表示します。followed エントリの解決先を指す managed merge link は、その skill が discovery から外れると `prune` に、自分で作った同じ先への link は `local` になります。
-- **Dashboard**：Skills、Overview、Check、Update、Audit、Hub で論理パスを表示（audit は resolved root 経由で followed skill を走査）。内容編集、uninstall、切替、target 上書き、source URL 変更は拒否。外部ツリーを直接編集し、非表示には **source-root `.skillignore`** を使います。**Settings → Files → `.skillfollow`** で `.skillfollow` と `.skillfollow.local` を編集し、宣言エントリごとの状態・解決先・理由と、警告・prune 一時停止を表示します。保存時に無効な名前は行番号付きで拒否され、ファイルは変わりません。保存はリンク作成、`.gitignore` 変更、同期を行いません。Dashboard sync は CLI と同じ prune/copy 安全方針で、target ごとの `prune_paused`/`kept` と警告を表示。Targets は managed followed link を local でなく linked と数えます。
+- **Dashboard**：Skills、Overview、Check、Update、Audit、Hub で論理パスを表示（audit は resolved root 経由で followed skill を走査）。skill 単体の audit パネルは、followed ディレクトリや宣言ファイルを読めないとき clean ではなくエラーを返します。内容編集、uninstall、切替、target 上書き、source URL 変更は拒否。外部ツリーを直接編集し、非表示には **source-root `.skillignore`** を使います。**Settings → Files → `.skillfollow`** で `.skillfollow` と `.skillfollow.local` を編集し、宣言エントリごとの状態・解決先・理由と、警告・prune 一時停止を表示します。保存時に無効な名前は行番号付きで拒否され、ファイルは変わりません。保存はリンク作成、`.gitignore` 変更、同期を行いません。Dashboard sync は CLI と同じ prune/copy 安全方針で、target ごとの `prune_paused`/`kept` と警告を表示。Targets は managed followed link を local でなく linked と数えます。
 
 実際の診断文字列：
 
@@ -146,7 +147,7 @@ Source **pull/reset/checkout** は indexed 宣言（不在だが indexed のリ�
 
 ## 制限
 
-単一 skill は将来の対応です。入れ子リンクはたどりません。Developer Mode オフの Windows 11 ARM64 で、global mode の discovery、status、sync、prune の一時停止と再開、update の拒否、unfollow、`.skillfollow.local`、`invalid-target` を、追跡対象の junction（管理者と basic-user の token）と directory symlink（管理者 token）で検証済みです。project mode の相対リンク、Developer Mode の相対 symlink、リンクされた source root や target の親ディレクトリ、dashboard は Windows で**未検証**です。`follow --to` は Windows では sync と同じ helper で junction を作成しますが、この経路も実 Windows では未実行です。
+単一 skill は将来の対応です。入れ子リンクはたどりません。Developer Mode オフの Windows 11 ARM64 で、global mode の discovery、status、sync、prune の一時停止と再開、update の拒否、宣言を手動で削除した後の prune、`.skillfollow.local`、`invalid-target` を、追跡対象の junction（管理者と basic-user の token）と directory symlink（管理者 token）で検証済みです。project mode の相対リンク、Developer Mode の相対 symlink、リンクされた source root や target の親ディレクトリ、dashboard、`follow`/`unfollow` コマンド（`follow --to` は sync と同じ helper で junction を作成）、大文字小文字を区別しない名前照合は Windows で**未検証**です。
 
 ## 関連項目
 

@@ -64,7 +64,7 @@ git rm --cached -- '_team-skills'
 
 ### 확인과 sync
 
-`skillshare doctor`, `skillshare list --no-tui`, `skillshare sync --dry-run`으로 확인하고 올바르면 `skillshare sync`하세요. `-g`/`-p`로 범위를 선택하세요. 선언/ignore 파일은 `follow`와 `unfollow`만 씁니다. discovery, status, doctor, dry run은 자동 생성/복구하지 않습니다.
+`skillshare doctor`, `skillshare list --no-tui`, `skillshare sync --dry-run`으로 확인하고 올바르면 `skillshare sync`하세요. `-g`/`-p`로 범위를 선택하세요. 선언 파일은 `follow`, `unfollow`, dashboard의 `.skillfollow` 탭만 쓰고, ignore 줄은 `follow`와 `unfollow`만 씁니다. discovery, status, doctor, dry run은 자동 생성/복구하지 않습니다.
 
 `_` 접두사와 `.git`을 가진 항목은 tracked repo, 그 외는 그룹입니다. Skills는 `_team-skills/review`（flat name `_team-skills__review`）같은 논리 경로를 유지합니다. Source-root/repo `.skillignore`는 계속 적용되며(followed 그룹 안에 중첩된 tracked repo 포함), 중첩된 tracked repo(`--track --into`로 설치한 것 포함)는 자신의 skills를 소유합니다(`list`에 repo 이름, `status`와 Dashboard 집계, `.metadata.json` target override 적용, Dashboard는 단일 skill uninstall 거부). 미선언 첫 계층 링크는 보이지 않습니다.
 
@@ -74,6 +74,7 @@ git rm --cached -- '_team-skills'
 
 - 앞뒤 공백을 제거하고 빈 줄과 `#`로 시작하는 줄을 무시합니다. 주석은 별도 줄에 쓰세요.
 - 직접 자식 이름만 허용합니다. `.`, `..`, 절대 경로, `C:` 같은 drive/volume, UNC, `/`, `\`, path cleaning으로 바뀌는 이름은 거부합니다.
+- Windows에서는 선언 이름을 실제 항목과 대소문자 구분 없이 비교합니다. `Team`은 `team`이라는 junction을 따라가며, 대소문자만 다른 이름은 처음 표기로 합쳐집니다. macOS와 Linux에서는 정확히 일치해야 합니다.
 - Glob/부정은 없습니다. `*`, `?`, `[`, `]`, `{`, `}`, `!`, NUL은 거부합니다. 잘못된 줄은 경고하며 followed 항목이 되지 않습니다.
 - 선언된 첫 계층 링크만 따라가고 그 트리 안의 중첩 링크는 순회하지 않습니다.
 - skillshare는 선언된 항목을 만들지 않습니다(링크가 오프라인이어도 같습니다). `install`(일반, `--into`, `--track`, 인자 없는 재설치), `new`, `collect`, `trash restore`, `init` 가져오기, symlink 모드 sync 이전, Dashboard의 create/install/collect/restore는 선언 항목 안의 대상을 `<source>/<entry> is a link; edit its target directly`(Dashboard는 409)로 거부하며, 선언 항목 안에 기록된 tracked repo는 missing으로 표시되거나 rehydrate되지 않습니다. 선언 파일이 있지만 읽을 수 없는 동안에는 이런 쓰기를 모두 읽기 오류로 거부합니다(읽지 못한 파일이 대상을 선언하고 있을 수 있기 때문입니다).
@@ -102,10 +103,10 @@ Canonical path로 안전성을 검사하며 처음 해당되는 상태를 사용
 ## 명령 표시 {#visibility}
 
 - **Status**: `.skillfollow: N entries, M skipped`, local 활성 시 `(.local active)`, 각 prune 중지 복구 메시지. JSON `source.skillfollow`에는 `active`, `local_active`, `entry_count`, `followed_count`, `skipped_count`, 선언 `entries`（`name`, `state`, 선택 `resolved_target`, `reason`）, 선택 `warnings`/`prune_paused`가 있습니다. 선언/선언 경고가 없으면 생략합니다.
-- **Doctor**: `skillfollow`는 선언 상태, `skillfollow_prune`은 정리 차단. 미선언 링크는 `undeclared_source_links` info. Git repo에서는 indexed/`not-ignored` 링크와 안전하지 않은 local 파일도 검사하지만 파일을 수정하지 않습니다.
+- **Doctor**: `skillfollow`는 선언 상태, `skillfollow_prune`은 정리 차단. 미선언 링크는 `undeclared_source_links` info. Git repo에서는 indexed/`not-ignored` 링크와 안전하지 않은 local 파일도 검사하지만 파일을 수정하지 않습니다. skill이 하나도 없는 followed group은 물리 디렉터리처럼 `SKILL.md`가 없는 디렉터리로 `skills_validity`에 보고됩니다.
 - **`list --no-tui`**: followed tracked repo에 `→ <resolved>` 추가（홈 경로는 `~`로 축약 가능）. Skills는 논리 경로, JSON 형식은 그대로입니다.
 - **Diff**: sync와 같은 규칙으로 미리 봅니다. 선언 항목을 사용할 수 없는 동안 제거를 보고하지 않고 `<target>: prune paused; unavailable .skillfollow entry: <name> (<state>)`를 표시하며, sync가 유지할 standard naming managed copy를 **Kept**로 표시합니다. `diff --json`은 target별 `prune_paused`와 `keep` 항목을 추가합니다. Dashboard diff는 `prune_paused`를 추가하고 유지되는 copy를 `skip`으로 표시합니다. followed orphan link도 sync의 prune과 같은 판단으로 미리 봅니다. followed 항목의 resolved 위치를 가리키는 managed merge link는 해당 skill이 discovery에서 빠지면 `prune`으로, 같은 곳을 가리키는 직접 만든 link는 `local`로 표시됩니다.
-- **Dashboard**: Skills, Overview, Check, Update, Audit, Hub에서 논리 경로 표시(audit는 resolved root를 통해 followed skill을 스캔). 내용 편집, uninstall, 토글, target 덮어쓰기, source URL 변경은 거부합니다. 외부 트리를 직접 편집하고 숨기려면 **source-root `.skillignore`**를 사용하세요. **Settings → Files → `.skillfollow`**에서 `.skillfollow`와 `.skillfollow.local`을 편집하고, 선언 항목별 상태, 실제 경로, 이유와 경고, prune 일시 중지를 확인합니다. 저장 시 잘못된 이름은 줄 번호와 함께 거부되고 파일은 바뀌지 않습니다. 저장은 링크 생성, `.gitignore` 변경, 동기화를 하지 않습니다. Dashboard sync는 CLI와 같은 prune/copy 안전 정책이며 target별 `prune_paused`/`kept` 및 경고를 표시합니다. Targets는 managed followed link를 local이 아닌 linked로 계산합니다.
+- **Dashboard**: Skills, Overview, Check, Update, Audit, Hub에서 논리 경로 표시(audit는 resolved root를 통해 followed skill을 스캔). skill 하나의 audit 패널은 followed 디렉터리나 선언 파일을 읽을 수 없으면 clean 대신 오류를 반환합니다. 내용 편집, uninstall, 토글, target 덮어쓰기, source URL 변경은 거부합니다. 외부 트리를 직접 편집하고 숨기려면 **source-root `.skillignore`**를 사용하세요. **Settings → Files → `.skillfollow`**에서 `.skillfollow`와 `.skillfollow.local`을 편집하고, 선언 항목별 상태, 실제 경로, 이유와 경고, prune 일시 중지를 확인합니다. 저장 시 잘못된 이름은 줄 번호와 함께 거부되고 파일은 바뀌지 않습니다. 저장은 링크 생성, `.gitignore` 변경, 동기화를 하지 않습니다. Dashboard sync는 CLI와 같은 prune/copy 안전 정책이며 target별 `prune_paused`/`kept` 및 경고를 표시합니다. Targets는 managed followed link를 local이 아닌 linked로 계산합니다.
 
 실제 진단 문자열:
 
@@ -146,7 +147,7 @@ Source **pull/reset/checkout**은 indexed 선언（없지만 indexed인 링크 �
 
 ## 제한
 
-단일 skill은 미래 작업입니다. 중첩 링크는 따라가지 않습니다. Developer Mode가 꺼진 Windows 11 ARM64에서 global mode의 discovery, status, sync, prune 일시 중지와 재개, update 거부, unfollow, `.skillfollow.local`, `invalid-target`을 팔로우한 junction(관리자 및 basic-user token)과 directory symlink(관리자 token)로 검증했습니다. project mode의 상대 링크, Developer Mode의 상대 symlink, 링크된 source root나 target 상위 디렉터리, dashboard는 Windows에서 **미검증**입니다. `follow --to`는 Windows에서 sync와 같은 helper로 junction을 만들지만 이 경로도 실제 Windows에서 실행된 적이 없습니다.
+단일 skill은 미래 작업입니다. 중첩 링크는 따라가지 않습니다. Developer Mode가 꺼진 Windows 11 ARM64에서 global mode의 discovery, status, sync, prune 일시 중지와 재개, update 거부, 선언을 직접 지운 뒤의 prune, `.skillfollow.local`, `invalid-target`을 팔로우한 junction(관리자 및 basic-user token)과 directory symlink(관리자 token)로 검증했습니다. project mode의 상대 링크, Developer Mode의 상대 symlink, 링크된 source root나 target 상위 디렉터리, dashboard, `follow`/`unfollow` 명령(`follow --to`는 sync와 같은 helper로 junction을 만듦), 대소문자 구분 없는 이름 비교는 Windows에서 **미검증**입니다.
 
 ## 함께 보기
 

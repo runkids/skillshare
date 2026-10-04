@@ -227,7 +227,7 @@ Doctor 會在兩類重複 skill 風險到達 runtime picker 之前先標示出�
 
 ### 其他
 
-- 沒有 `SKILL.md` 檔案的 skills
+- 沒有 `SKILL.md` 檔案的 skills，包括底下沒有任何 skill 的 [followed](../skillfollow.md) group
 - Skill 層級的 `targets:` 欄位驗證（對未知的 target 名稱發出警告）
 - 上次備份時間戳（global mode）
 - Trash 狀態（項目數量、總大小、最舊項目的存放時間）

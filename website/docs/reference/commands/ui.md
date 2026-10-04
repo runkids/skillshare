@@ -5,7 +5,7 @@ sidebar_position: 1
 # ui
 
 :::info Followed sources
-[`.skillfollow`](../skillfollow.md#visibility) makes followed skills visible under logical paths in Skills, Overview, Check, Update, Audit, and Hub. Writes through a followed tree (content, uninstall, toggles, target overrides, source URL changes) are refused: edit its external target directly, or hide it using the **source-root `.skillignore`**. Followed updates and source staging/pull/checkout use the same safety policies as the CLI. Sync reports unavailable-entry pauses and kept copies via per-target `prune_paused`/`kept` and warnings; Targets counts managed followed links as linked. **Settings → Files → `.skillfollow`** edits the declaration files and lists each entry's state.
+[`.skillfollow`](../skillfollow.md#visibility) makes followed skills visible under logical paths in Skills, Overview, Check, Update, Audit, and Hub. Writes through a followed tree (content, uninstall, toggles, target overrides, source URL changes) are refused: edit its external target directly, or hide it using the **source-root `.skillignore`**. Followed updates and source staging/pull/checkout use the same safety policies as the CLI. Sync reports unavailable-entry pauses and kept copies via per-target `prune_paused`/`kept` and warnings; Targets counts managed followed links as linked. **Settings → Files → `.skillfollow`** edits the declaration files and lists each entry's state. A skill's audit panel scans a followed skill through its resolved directory and returns an error instead of a clean result when that directory or a declaration file cannot be read.
 :::
 
 Launch the web dashboard for visual skill management.

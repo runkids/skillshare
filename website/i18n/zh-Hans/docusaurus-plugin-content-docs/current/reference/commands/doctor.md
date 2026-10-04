@@ -233,7 +233,7 @@ Doctor 会在两类重复 skill 风险到达运行时选择器之前将其标记
 
 ### 其他
 
-- 没有 `SKILL.md` 文件的 skills
+- 没有 `SKILL.md` 文件的 skills，包括底下没有任何 skill 的 [followed](../skillfollow.md) group
 - Skill 级别的 `targets:` 字段验证（对未知 target 名称发出警告）
 - 最近一次备份的时间戳（global mode）
 - Trash 状态（条目数量、总大小、最旧条目的存续时间）

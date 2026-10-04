@@ -64,7 +64,7 @@ git rm --cached -- '_team-skills'
 
 ### 检查与 sync
 
-执行 `skillshare doctor`、`skillshare list --no-tui`、`skillshare sync --dry-run`；用 `-g`/`-p` 选范围，预览正确后 `skillshare sync`。只有 `follow` 和 `unfollow` 会写入声明与 ignore 文件；discovery、status、doctor、dry run 不会自动创建或修复。
+执行 `skillshare doctor`、`skillshare list --no-tui`、`skillshare sync --dry-run`；用 `-g`/`-p` 选范围，预览正确后 `skillshare sync`。只有 `follow`、`unfollow` 与 dashboard 的 `.skillfollow` 标签页会写入声明文件，ignore 行只由 `follow` 和 `unfollow` 写入；discovery、status、doctor、dry run 不会自动创建或修复。
 
 `_` 前缀且含 `.git` 的条目视为 tracked repo，其他 followed 目录视为组。Skills 保留 `_team-skills/review` 等逻辑路径（flat name：`_team-skills__review`）。Source-root/repo `.skillignore` 仍适用（含 followed 组内嵌套的 tracked repo）；嵌套的 tracked repo（含 `--track --into` 安装的）拥有自己的 skills：`list` 显示该 repo、`status` 与 Dashboard 计入该 repo、`.metadata.json` target override 生效、Dashboard 拒绝单独卸载其中的 skill；未声明第一层链接仍不可见。
 
@@ -74,6 +74,7 @@ git rm --cached -- '_team-skills'
 
 - 去除行首尾空白，忽略空行及以 `#` 开始的整行注释；注释另起一行。
 - 只能是直接子条目名称；拒绝 `.`、`..`、绝对路径、`C:` 等 volume/drive 名称、UNC、`/`、`\`，及 path cleaning 会改变的名称。
+- 在 Windows 上，声明名称与磁盘上的条目比对时不区分大小写：`Team` 会跟随名为 `team` 的 junction，只有大小写不同的名称会合并为第一个写法。macOS 与 Linux 上必须完全一致。
 - 不接受 glob/否定：`*`、`?`、`[`、`]`、`{`、`}`、`!`、NUL 都拒绝。无效行产生警告，不成为 followed 条目。
 - 只跟随声明的第一层链接，不遍历 followed tree 内的嵌套链接。
 - skillshare 绝不会创建已声明的条目，即使其链接离线也一样：`install`（普通、`--into`、`--track`、无参数重装）、`new`、`collect`、`trash restore`、`init` 导入、symlink 模式的 sync 迁移，以及 Dashboard 的 create/install/collect/restore 对声明条目内的目的地以 `<source>/<entry> is a link; edit its target directly` 拒绝（Dashboard 为 409）；记录在声明条目内的 tracked repo 不会被列为 missing，也不会被 rehydrate。声明文件存在但无法读取时，这些写入一律以读取错误拒绝，因为读不到的文件可能正声明了该目的地。
@@ -102,10 +103,10 @@ git rm --cached -- '_team-skills'
 ## 命令显示 {#visibility}
 
 - **Status**：`.skillfollow: N entries, M skipped`，local 启用时加 `(.local active)`，另列 prune 暂停恢复消息。JSON 的 `source.skillfollow` 含 `active`、`local_active`、`entry_count`、`followed_count`、`skipped_count`、声明 `entries`（`name`、`state`、可选 `resolved_target`、`reason`），以及可选 `warnings`/`prune_paused`。无声明或声明警告时省略此字段。
-- **Doctor**：`skillfollow` 列声明状态，`skillfollow_prune` 列清理阻挡。未声明链接保持 `undeclared_source_links` info。Git repo 内还检查 indexed/`not-ignored` 链接与不安全的 local 文件，不修改文件。
+- **Doctor**：`skillfollow` 列声明状态，`skillfollow_prune` 列清理阻挡。未声明链接保持 `undeclared_source_links` info。Git repo 内还检查 indexed/`not-ignored` 链接与不安全的 local 文件，不修改文件。底下没有任何 skill 的 followed group 会和实体目录一样，以缺少 `SKILL.md` 的目录报告在 `skills_validity`。
 - **`list --no-tui`**：followed tracked repo 加 `→ <resolved>`（家目录可缩为 `~`）；skills 路径仍为逻辑路径，JSON 格式不变。
 - **Diff**：以与 sync 相同的规则预览。声明条目不可用时不报告任何移除，显示 `<target>: prune paused; unavailable .skillfollow entry: <name> (<state>)`，sync 会保留的 standard naming managed copy 列为 **Kept**。`diff --json` 逐 target 加上 `prune_paused` 与 `keep` 条目。Dashboard diff 加上 `prune_paused`，保留的 copy 显示为 `skip`。它也按 sync 的 prune 规则预览 followed orphan link：指向 followed 条目 resolved 位置的 managed merge link，在其 skill 退出 discovery 后列为 `prune`；你自行建立的同目标 link 列为 `local`。
-- **Dashboard**：Skills、Overview、Check、Update、Audit、Hub 可见逻辑路径（audit 通过 resolved root 扫描 followed skill）。内容编辑、卸载、启停、target 覆盖、source URL 更改会拒绝。直接编辑外部树，或在 **source-root `.skillignore`** 隐藏。**Settings → Files → `.skillfollow`** 可编辑 `.skillfollow` 与 `.skillfollow.local`，显示每个声明条目的状态、实际路径与原因，并列出警告与 prune 暂停。保存时无效名称会连同行号被拒绝、文件保持不变；保存不创建链接、不改 `.gitignore`、不同步。Dashboard sync 与 CLI 共用 prune/copy 安全，逐 target 报告 `prune_paused`/`kept` 与警告；Targets 把 managed followed link 算为 linked 而非 local。
+- **Dashboard**：Skills、Overview、Check、Update、Audit、Hub 可见逻辑路径（audit 通过 resolved root 扫描 followed skill）。单个 skill 的 audit 面板在 followed 目录或声明文件无法读取时返回错误，而不是 clean 结果。内容编辑、卸载、启停、target 覆盖、source URL 更改会拒绝。直接编辑外部树，或在 **source-root `.skillignore`** 隐藏。**Settings → Files → `.skillfollow`** 可编辑 `.skillfollow` 与 `.skillfollow.local`，显示每个声明条目的状态、实际路径与原因，并列出警告与 prune 暂停。保存时无效名称会连同行号被拒绝、文件保持不变；保存不创建链接、不改 `.gitignore`、不同步。Dashboard sync 与 CLI 共用 prune/copy 安全，逐 target 报告 `prune_paused`/`kept` 与警告；Targets 把 managed followed link 算为 linked 而非 local。
 
 原始诊断便于识别：
 
@@ -146,7 +147,7 @@ Source **pull/reset/checkout** 也拒绝 indexed 声明（包括不存在但仍 
 
 ## 限制
 
-单 skill 仍是未来工作；嵌套链接不跟随。在关闭 Developer Mode 的 Windows 11 ARM64 上，已用跟随的 junction（管理员与 basic-user token）和目录 symlink（管理员 token）验证 global mode 的 discovery、status、sync、prune 暂停与恢复、update 拒绝、unfollow、`.skillfollow.local` 和 `invalid-target`。project mode 的相对链接、Developer Mode 的相对 symlink、链接形式的 source root 或 target 上层目录，以及 dashboard 在 Windows 上**尚未验证**。`follow --to` 在 Windows 上通过 sync 使用的同一个 helper 创建 junction，这条路径同样尚未在真实 Windows 上运行过。
+单 skill 仍是未来工作；嵌套链接不跟随。在关闭 Developer Mode 的 Windows 11 ARM64 上，已用跟随的 junction（管理员与 basic-user token）和目录 symlink（管理员 token）验证 global mode 的 discovery、status、sync、prune 暂停与恢复、update 拒绝、手动移除声明后的 prune、`.skillfollow.local` 和 `invalid-target`。project mode 的相对链接、Developer Mode 的相对 symlink、链接形式的 source root 或 target 上层目录、dashboard、`follow`/`unfollow` 命令（`follow --to` 通过 sync 使用的同一个 helper 创建 junction），以及不区分大小写的名称比对，在 Windows 上**尚未验证**。
 
 ## 另见
 

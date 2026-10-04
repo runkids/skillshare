@@ -4,7 +4,7 @@ sidebar_position: 1
 
 # ui
 
-[`.skillfollow`](../skillfollow.md#visibility)는 Skills, Overview, Check, Update, Audit, Hub에서 논리 경로를 표시합니다. 내용, uninstall, 토글, target 덮어쓰기, source URL 쓰기는 거부합니다. 외부 트리를 직접 편집하고 **source-root `.skillignore`**로 숨기세요. 업데이트/staging/pull/checkout은 CLI와 같은 안전 정책입니다. Sync는 target별 `prune_paused`/`kept` 및 경고를 표시하고 Targets는 managed followed link를 linked로 계산합니다. **Settings → Files → `.skillfollow`**에서 선언 파일을 편집하고 항목별 상태를 확인할 수 있습니다.
+[`.skillfollow`](../skillfollow.md#visibility)는 Skills, Overview, Check, Update, Audit, Hub에서 논리 경로를 표시합니다. 내용, uninstall, 토글, target 덮어쓰기, source URL 쓰기는 거부합니다. 외부 트리를 직접 편집하고 **source-root `.skillignore`**로 숨기세요. 업데이트/staging/pull/checkout은 CLI와 같은 안전 정책입니다. Sync는 target별 `prune_paused`/`kept` 및 경고를 표시하고 Targets는 managed followed link를 linked로 계산합니다. **Settings → Files → `.skillfollow`**에서 선언 파일을 편집하고 항목별 상태를 확인할 수 있습니다. skill의 audit 패널은 followed skill을 실제 디렉터리를 통해 스캔하며, 그 디렉터리나 선언 파일을 읽을 수 없으면 clean 대신 오류를 반환합니다.
 
 시각적인 Skill 관리를 위한 웹 대시보드를 실행합니다.
 

@@ -229,7 +229,7 @@ Extras が設定されている場合、以下を検証します。
 
 ### その他
 
-- `SKILL.md` ファイルがない Skill
+- `SKILL.md` ファイルがない Skill（skill を一つも含まない [followed](../skillfollow.md) group を含む）
 - Skill レベルの `targets:` フィールド検証（未知の Target 名について警告）
 - 最後のバックアップのタイムスタンプ（グローバルモード）
 - Trash の状態（アイテム数、合計サイズ、最も古いアイテムの経過日数）

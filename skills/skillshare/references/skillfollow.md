@@ -33,7 +33,9 @@ unless the requested work authorizes that change.
 duplicates collapse. Trim whitespace, ignore blank lines and full-line `#`
 comments. Names must be direct children: no `.`, `..`, separators, absolute,
 volume/UNC forms, path-cleaning changes, glob/negation (`*?[]{}!`), or NUL.
-Invalid lines warn.
+Invalid lines warn. On Windows, names match entries case-insensitively (`Team`
+follows junction `team`; case-only duplicates collapse to the first spelling);
+elsewhere matching is exact.
 
 A `_`-prefixed directory with `.git` is a tracked repo; other directories are
 groups. Paths stay logical (`_team-skills/review`, flat `_team-skills__review`).
@@ -97,7 +99,8 @@ remove it or re-run with --force`.
 - Doctor uses `skillfollow` and `skillfollow_prune`; undeclared links remain
   `undeclared_source_links` info checks. `not-ignored` tells you the exact ignore
   line/file; indexed links require `git rm --cached`. A tracked/unignored local
-  file is also warned about. These checks never fix files automatically.
+  file is also warned about. These checks never fix files automatically. A
+  followed group with no skill below it is reported under `skills_validity`.
 - Plain list adds `→ <resolved>` for followed tracked repos. Dashboard reads
   show logical paths; content writes, uninstall, toggles, target overrides, and
   source URL edits through a followed tree are refused. The generic boundary
@@ -105,7 +108,9 @@ remove it or re-run with --force`.
   `.skillignore`; do not promise that dashboard toggles work for followed skills.
   Dashboard sync shares prune/copy safety and reports `prune_paused`/`kept` with
   warnings; Targets counts managed followed links as linked, not local. Dashboard audit
-  scans followed skills through the resolved root. Settings → Files →
+  scans followed skills through the resolved root; a single skill's audit errors
+  instead of reporting clean when its followed directory or a declaration file
+  cannot be read. Settings → Files →
   `.skillfollow` edits `.skillfollow`/`.skillfollow.local` (invalid names are
   rejected by line) and lists each entry's state; saving never links or syncs.
 - Diff previews sync: while paused it reports no removals, names the pause
@@ -140,9 +145,11 @@ commands; unrelated agents/extras Git scopes are not automatically blocked.
 
 Single-skill entries are future work. Windows 11 ARM64
 (Developer Mode off) has verified global-mode discovery, status, sync, prune
-pause/resume, update refusal, unfollow, `.skillfollow.local`, and `invalid-target`
-with followed junctions (admin and basic-user tokens) and directory symlinks (admin
-token). Project-mode relative links, Developer Mode relative symlinks, a linked
-source root or target parent, and the dashboard are not verified on Windows.
+pause/resume, pruning after a hand-removed declaration, `.skillfollow.local`, and
+`invalid-target` with followed junctions (admin and basic-user tokens) and
+directory symlinks (admin token). Project-mode relative links, Developer Mode
+relative symlinks, a linked source root or target parent, the dashboard,
+`follow`/`unfollow` (including the `--to` junction), and case-insensitive name
+matching are not verified on Windows.
 
 Full setup/state reference: https://skillshare.runkids.cc/docs/reference/skillfollow

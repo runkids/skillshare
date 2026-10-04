@@ -64,7 +64,7 @@ git rm --cached -- '_team-skills'
 
 ### 檢查與 sync
 
-執行 `skillshare doctor`、`skillshare list --no-tui`、`skillshare sync --dry-run`；用 `-g`/`-p` 選定範圍，預覽正確再 `skillshare sync`。只有 `follow` 與 `unfollow` 會寫入宣告與 ignore 檔；discovery、status、doctor、dry run 不會自動建立或修復它們。
+執行 `skillshare doctor`、`skillshare list --no-tui`、`skillshare sync --dry-run`；用 `-g`/`-p` 選定範圍，預覽正確再 `skillshare sync`。只有 `follow`、`unfollow` 與 dashboard 的 `.skillfollow` 分頁會寫入宣告檔，ignore 行只由 `follow` 與 `unfollow` 寫入；discovery、status、doctor、dry run 不會自動建立或修復它們。
 
 `_` 前綴且含 `.git` 的項目視為 tracked repo，其他 followed 目錄視為群組。Skills 保留 `_team-skills/review` 等邏輯路徑（flat name：`_team-skills__review`）。Source-root/repo 的 `.skillignore` 仍適用（含 followed 群組內巢狀的 tracked repo）；巢狀的 tracked repo（含 `--track --into` 安裝的）擁有自己的 skills：`list` 顯示該 repo、`status` 與 Dashboard 計入該 repo、`.metadata.json` target override 生效、Dashboard 拒絕單獨解除安裝其中的 skill；未宣告第一層連結仍不可見。
 
@@ -74,6 +74,7 @@ git rm --cached -- '_team-skills'
 
 - 去除行首尾空白，忽略空白行及以 `#` 開始的整行註解；註解另起一行。
 - 只能是直接子項目名稱；拒絕 `.`、`..`、絕對路徑、`C:` 等 volume/drive 名稱、UNC、`/`、`\`，及 path cleaning 會改變的名稱。
+- 在 Windows 上，宣告名稱與磁碟上的項目比對時不分大小寫：`Team` 會跟隨名為 `team` 的 junction，只有大小寫不同的名稱會合併為第一個寫法。macOS 與 Linux 上必須完全相同。
 - 不接受 glob/否定：`*`、`?`、`[`、`]`、`{`、`}`、`!`、NUL 都拒絕。無效行產生警告，不成為 followed 項目。
 - 只跟隨宣告的第一層連結，不遍歷 followed tree 內的巢狀連結。
 - skillshare 絕不會建立已宣告的項目，即使其連結離線也一樣：`install`（一般、`--into`、`--track`、無參數重裝）、`new`、`collect`、`trash restore`、`init` 匯入、symlink 模式的 sync 遷移，以及 Dashboard 的 create/install/collect/restore 對宣告項目內的目的地以 `<source>/<entry> is a link; edit its target directly` 拒絕（Dashboard 為 409）；記錄在宣告項目內的 tracked repo 不會被列為 missing，也不會被 rehydrate。宣告檔存在但無法讀取時，這些寫入一律以讀取錯誤拒絕，因為讀不到的檔案可能正宣告了該目的地。
@@ -102,10 +103,10 @@ git rm --cached -- '_team-skills'
 ## 指令呈現 {#visibility}
 
 - **Status**：`.skillfollow: N entries, M skipped`，local 啟用時加 `(.local active)`，另列 prune 暫停復原訊息。JSON 的 `source.skillfollow` 含 `active`、`local_active`、`entry_count`、`followed_count`、`skipped_count`、宣告 `entries`（`name`、`state`、選用 `resolved_target`、`reason`），以及選用 `warnings`/`prune_paused`。無宣告或宣告警告時省略此欄位。
-- **Doctor**：`skillfollow` 列宣告狀態，`skillfollow_prune` 列清理阻擋。未宣告連結維持 `undeclared_source_links` info。Git repo 內另檢查 indexed/`not-ignored` 連結與不安全的 local 檔，不修改檔案。
+- **Doctor**：`skillfollow` 列宣告狀態，`skillfollow_prune` 列清理阻擋。未宣告連結維持 `undeclared_source_links` info。Git repo 內另檢查 indexed/`not-ignored` 連結與不安全的 local 檔，不修改檔案。底下沒有任何 skill 的 followed group 會和實體目錄一樣，以缺少 `SKILL.md` 的目錄回報在 `skills_validity`。
 - **`list --no-tui`**：followed tracked repo 加 `→ <resolved>`（家目錄可縮為 `~`）；skills 路徑仍為邏輯路徑，JSON 格式不變。
 - **Diff**：以與 sync 相同的規則預覽。宣告項目無法使用時不回報任何移除，顯示 `<target>: prune paused; unavailable .skillfollow entry: <name> (<state>)`，sync 會保留的 standard naming managed copy 列為 **Kept**。`diff --json` 逐 target 加上 `prune_paused` 與 `keep` 項目。Dashboard diff 加上 `prune_paused`，保留的 copy 顯示為 `skip`。它也依 sync 的 prune 規則預覽 followed orphan link：指向 followed 項目 resolved 位置的 managed merge link，在其 skill 退出 discovery 後列為 `prune`；你自行建立的同目標 link 列為 `local`。
-- **Dashboard**：Skills、Overview、Check、Update、Audit、Hub 可看到邏輯路徑（audit 透過 resolved root 掃描 followed skill）。內容編輯、解除安裝、啟停、target 覆寫、source URL 變更會拒絕。直接編輯外部樹，或在 **source-root `.skillignore`** 隱藏。**Settings → Files → `.skillfollow`** 可編輯 `.skillfollow` 與 `.skillfollow.local`，顯示每個宣告項目的狀態、實際路徑與原因，並列出警告與 prune 暫停。儲存時無效名稱會連同行號被拒絕、檔案保持不變；儲存不建立連結、不改 `.gitignore`、不同步。Dashboard sync 與 CLI 共用 prune/copy 安全，逐 target 回報 `prune_paused`/`kept` 與警告；Targets 把 managed followed link 算為 linked 而非 local。
+- **Dashboard**：Skills、Overview、Check、Update、Audit、Hub 可看到邏輯路徑（audit 透過 resolved root 掃描 followed skill）。單一 skill 的 audit 面板在 followed 目錄或宣告檔無法讀取時回傳錯誤，而不是 clean 結果。內容編輯、解除安裝、啟停、target 覆寫、source URL 變更會拒絕。直接編輯外部樹，或在 **source-root `.skillignore`** 隱藏。**Settings → Files → `.skillfollow`** 可編輯 `.skillfollow` 與 `.skillfollow.local`，顯示每個宣告項目的狀態、實際路徑與原因，並列出警告與 prune 暫停。儲存時無效名稱會連同行號被拒絕、檔案保持不變；儲存不建立連結、不改 `.gitignore`、不同步。Dashboard sync 與 CLI 共用 prune/copy 安全，逐 target 回報 `prune_paused`/`kept` 與警告；Targets 把 managed followed link 算為 linked 而非 local。
 
 可辨認的原始診斷：
 
@@ -146,7 +147,7 @@ Source **pull/reset/checkout** 也拒絕 indexed 宣告（包括不存在但仍 
 
 ## 限制
 
-單 skill 仍是未來工作；巢狀連結不跟隨。在關閉 Developer Mode 的 Windows 11 ARM64 上，已用跟隨的 junction（管理員與 basic-user token）和目錄 symlink（管理員 token）驗證 global mode 的 discovery、status、sync、prune 暫停與恢復、update 拒絕、unfollow、`.skillfollow.local` 與 `invalid-target`。project mode 的相對連結、Developer Mode 的相對 symlink、以連結形式存在的 source root 或 target 上層目錄，以及 dashboard 在 Windows 上**尚未驗證**。`follow --to` 在 Windows 上透過 sync 使用的同一個 helper 建立 junction，這條路徑同樣尚未在真實 Windows 上執行過。
+單 skill 仍是未來工作；巢狀連結不跟隨。在關閉 Developer Mode 的 Windows 11 ARM64 上，已用跟隨的 junction（管理員與 basic-user token）和目錄 symlink（管理員 token）驗證 global mode 的 discovery、status、sync、prune 暫停與恢復、update 拒絕、手動移除宣告後的 prune、`.skillfollow.local` 與 `invalid-target`。project mode 的相對連結、Developer Mode 的相對 symlink、以連結形式存在的 source root 或 target 上層目錄、dashboard、`follow`/`unfollow` 指令（`follow --to` 透過 sync 使用的同一個 helper 建立 junction），以及不分大小寫的名稱比對，在 Windows 上**尚未驗證**。
 
 ## 另見
 

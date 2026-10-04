@@ -229,7 +229,7 @@ extras가 구성된 경우 다음을 검증합니다:
 
 ### 기타
 
-- `SKILL.md` 파일이 없는 skill
+- `SKILL.md` 파일이 없는 skill(skill이 하나도 없는 [followed](../skillfollow.md) group 포함)
 - Skill 수준 `targets:` 필드 검증 (알 수 없는 target 이름에 대해 경고)
 - 마지막 backup 타임스탬프 (global mode)
 - Trash 상태 (항목 수, 총 용량, 가장 오래된 항목의 경과 시간)

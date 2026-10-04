@@ -227,7 +227,7 @@ Previews `skillshare sync plugins` without fetching any source. Doctor only asks
 
 ### Other
 
-- Skills without `SKILL.md` files
+- Skills without `SKILL.md` files, including a [followed](../skillfollow.md) group with no skill below it
 - Skill-level `targets:` field validation (warns on unknown target names)
 - Last backup timestamp (global mode)
 - Trash status (item count, total size, oldest item age)

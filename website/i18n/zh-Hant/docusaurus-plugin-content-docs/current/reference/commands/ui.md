@@ -4,7 +4,7 @@ sidebar_position: 1
 
 # ui
 
-[`.skillfollow`](../skillfollow.md#visibility) 在 Skills、Overview、Check、Update、Audit、Hub 顯示 followed 邏輯路徑。內容、解除安裝、啟停、target 覆寫、source URL 寫入拒絕；直接編輯外部樹，或以 **source-root `.skillignore`** 隱藏。更新、staging/pull/checkout 與 CLI 共用安全策略。Sync 逐 target 回報 `prune_paused`/`kept` 與警告；Targets 把 managed followed link 算為 linked。**Settings → Files → `.skillfollow`** 可編輯宣告檔並列出各項目狀態。
+[`.skillfollow`](../skillfollow.md#visibility) 在 Skills、Overview、Check、Update、Audit、Hub 顯示 followed 邏輯路徑。內容、解除安裝、啟停、target 覆寫、source URL 寫入拒絕；直接編輯外部樹，或以 **source-root `.skillignore`** 隱藏。更新、staging/pull/checkout 與 CLI 共用安全策略。Sync 逐 target 回報 `prune_paused`/`kept` 與警告；Targets 把 managed followed link 算為 linked。**Settings → Files → `.skillfollow`** 可編輯宣告檔並列出各項目狀態。skill 的 audit 面板透過實際目錄掃描 followed skill；該目錄或宣告檔無法讀取時回傳錯誤，而不是 clean 結果。
 
 啟動用於視覺化 skill 管理的 Web dashboard。
 
