@@ -627,6 +627,8 @@ func (s *Server) registerRoutes() {
 	// Skillignore
 	s.mux.HandleFunc("GET /api/skillignore", s.handleGetSkillignore)
 	s.mux.HandleFunc("PUT /api/skillignore", s.handlePutSkillignore)
+	s.mux.HandleFunc("GET /api/skillfollow", s.handleGetSkillfollow)
+	s.mux.HandleFunc("PUT /api/skillfollow", s.handlePutSkillfollow)
 
 	// Agentignore
 	s.mux.HandleFunc("GET /api/agentignore", s.handleGetAgentignore)
