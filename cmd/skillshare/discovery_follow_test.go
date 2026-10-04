@@ -3,7 +3,10 @@ package main
 import (
 	"os"
 	"path/filepath"
+	"slices"
 	"testing"
+
+	"skillshare/internal/sync"
 )
 
 // followedGroupSource returns a source whose declared "group" link holds the
@@ -43,4 +46,27 @@ func TestDiscoverForKindSkillsUsesFollowSnapshot(t *testing.T) {
 		}
 	}
 	t.Fatalf("followed skill %s missing from %+v", want, refs)
+}
+
+// A followed entry is a first-level source entry, so doctor validates it like
+// a physical directory: one without any skill is reported.
+func TestCheckSkillsValidityIncludesFollowedEntries(t *testing.T) {
+	source := followedGroupSource(t)
+	docs := t.TempDir()
+	if err := os.Symlink(docs, filepath.Join(source, "docs")); err != nil {
+		t.Skip(err)
+	}
+	if err := os.WriteFile(filepath.Join(source, ".skillfollow"), []byte("group\ndocs\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	follow := skillFollowSet(source, nil, source)
+	discovered, _, err := sync.DiscoverSourceSkillsWithOptions(source, sync.DiscoveryOptions{Follow: follow})
+	if err != nil {
+		t.Fatal(err)
+	}
+	result := &doctorResult{}
+	checkSkillsValidity(source, result, discovered, follow)
+	if len(result.checks) != 1 || !slices.Equal(result.checks[0].Details, []string{"docs"}) {
+		t.Fatalf("want docs reported without SKILL.md, got %+v", result.checks)
+	}
 }

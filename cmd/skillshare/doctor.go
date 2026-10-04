@@ -255,7 +255,7 @@ func runDoctorChecks(cfg *config.Config, result *doctorResult, isProject bool, f
 	}
 	checkMissingTrackedRepos(cfg.EffectiveSkillsSource(), result, isProject, follow)
 
-	checkSkillsValidity(cfg.EffectiveSkillsSource(), result, discovered)
+	checkSkillsValidity(cfg.EffectiveSkillsSource(), result, discovered, follow)
 	checkSkillIntegrity(result, discovered)
 	checkSkillTargetsField(result, discovered, targetNamesFromConfig(cfg.Targets))
 	targetCache := checkTargets(cfg, result, isProject, follow)
@@ -935,8 +935,8 @@ func checkMissingTrackedRepos(source string, result *doctorResult, isProject boo
 	)
 }
 
-func checkSkillsValidity(source string, result *doctorResult, discovered []sync.DiscoveredSkill) {
-	entries, err := sourcewalk.ReadDir(source, sourcewalk.Options{})
+func checkSkillsValidity(source string, result *doctorResult, discovered []sync.DiscoveredSkill, follow *sourcewalk.FollowSet) {
+	entries, err := sourcewalk.ReadDir(source, sourcewalk.Options{Follow: follow})
 	if err != nil {
 		return
 	}
