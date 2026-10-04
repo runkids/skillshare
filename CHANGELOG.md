@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.24.4] - 2026-10-04
+
+### Bug Fixes
+
+- **A skill that ships its own `.claude/skills/` no longer floods your Agents with the author's dev skills** — installing a repository whose root is a skill copies the whole repository into the source, including any `.claude/skills/` the author keeps for working on it. Those showed up as nested skills such as `ffmpeg-skill/.claude/skills/code-review` and were synced to every target. Discovery now skips target directories (`.claude`, `.cursor`, `.factory`, ...) nested below the source root, as `install` already did. Host-style paths directly under the root, such as `.cursor/skills/*`, still work and still pick their target. The next sync removes the stray links.
+  ```bash
+  skillshare sync
+  ```
+- **The shared-memory guidance says which notes go to the project and which to the shared folder** — an Agent that reads both a global and a project guidance block saw the same text twice and had to guess where a user preference or a project decision belongs. The global block now points project notes at the project memory when one exists and keeps user preferences, decisions that apply across projects and pitfalls in a tool; the project block keeps decisions, conventions and pitfalls of that project and says that notes about you, your tools or other projects do not belong in it. Existing guidance blocks show as **Outdated** on the dashboard's Memory page; reconnect to update them.
+  ```bash
+  skillshare extras memory instructions --update-mode active -g
+  ```
+
 ## [0.24.3] - 2026-10-04
 
 ### New Features
