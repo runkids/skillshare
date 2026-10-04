@@ -157,7 +157,7 @@ This catches common quality issues like missing referenced files, renamed paths,
 
 **What the audit detects:**
 - Direct injection phrases: "ignore previous instructions", "disregard all rules", "you are now"
-- Prompt override prefixes: `SYSTEM:`, `OVERRIDE:`, `IGNORE:`, `ADMIN:`, `ROOT:` (case-insensitive, whitespace-tolerant)
+- Prompt override prefixes: `SYSTEM:`, `OVERRIDE:`, `IGNORE:`, `ADMIN:`, `ROOT:` (case-insensitive, whitespace-tolerant). A lowercase key with a plain value on the same line is treated as configuration and not flagged: a boolean or number for any of these keys (`admin: false`), a path without spaces for `root` (`root: ./src`), or an inline object for `ignore` (`ignore: { tags: ["design"] }`)
 - Agent directive tags: `<system>`, `</instructions>`, `</override>`, `</prompt>`, `</rules>` (with optional HTML attributes)
 - Jailbreak directives: `DEVELOPER MODE`, `DEV MODE`, `JAILBREAK`, `DAN MODE` (case-insensitive, whitespace-tolerant)
 - Injection hidden inside HTML comments (`<!-- ... -->`)

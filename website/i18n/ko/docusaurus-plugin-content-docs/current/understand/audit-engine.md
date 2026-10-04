@@ -157,7 +157,7 @@ audit engine은 `.md` 파일에 대해 **구조적 검사**도 수행합니다: 
 
 **audit이 탐지하는 것:**
 - 직접적인 인젝션 문구: "ignore previous instructions", "disregard all rules", "you are now"
-- 프롬프트 재정의 접두사: `SYSTEM:`, `OVERRIDE:`, `IGNORE:`, `ADMIN:`, `ROOT:` (대소문자 구분 없음, 공백 허용)
+- 프롬프트 재정의 접두사: `SYSTEM:`, `OVERRIDE:`, `IGNORE:`, `ADMIN:`, `ROOT:` (대소문자 구분 없음, 공백 허용). 소문자 키에 같은 줄의 단순 값만 지정한 줄은 설정으로 보고 탐지하지 않습니다. 모든 키는 불리언이나 숫자(`admin: false`), `root`는 공백 없는 경로(`root: ./src`), `ignore`는 인라인 객체(`ignore: { tags: ["design"] }`)를 값으로 쓸 수 있습니다
 - Agent directive tags: `<system>`, `</instructions>`, `</override>`, `</prompt>`, `</rules>` (선택적 HTML 속성 포함)
 - Jailbreak 지시문: `DEVELOPER MODE`, `DEV MODE`, `JAILBREAK`, `DAN MODE` (대소문자 구분 없음, 공백 허용)
 - HTML 주석(`<!-- ... -->`) 안에 숨겨진 인젝션

@@ -11,6 +11,14 @@ rules:
     pattern: prompt-injection
     message: "SYSTEM: prompt override detected"
     regex: '(?im)^\s*(SYSTEM|OVERRIDE|IGNORE|ADMIN|ROOT):'
+    # Lowercase config keys whose value is data on the same line are not
+    # directives; uppercase labels always match. Each key accepts only the
+    # value kinds its config uses: scalars for all, space-free paths for root
+    # (RE2 has no backreferences, so each quoting is listed), and inline
+    # objects for ignore whose words are joined by punctuation, not spaces or
+    # slashes. No empty values (an indented block follows) and no trailing
+    # comments (# and // do not hide text in Markdown).
+    exclude: '^\s*(?:(?:system|override|ignore|admin|root):\s*(?:true|false|yes|no|on|off|null|~|-?\d+(?:\.\d+)?)|root:\s*(?:"(?:[.~/]|\w[\w.-]*/|[A-Za-z]:\\)[^\s"'']*"|''(?:[.~/]|\w[\w.-]*/|[A-Za-z]:\\)[^\s"'']*''|(?:[.~/]|\w[\w.-]*/|[A-Za-z]:\\)[^\s"'']*)|ignore:\s*\{\s*(?:["'']?[\w-]*["'']?\s*[:,\[\]]\s*)*["'']?[\w-]*["'']?\s*\}),?\s*$'
 
   - id: prompt-injection-2
     severity: HIGH
