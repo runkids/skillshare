@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"skillshare/internal/oplog"
+	"skillshare/internal/sourcewalk"
 	"skillshare/internal/sync"
 	"skillshare/internal/theme"
 	"skillshare/internal/ui"
@@ -102,6 +103,7 @@ func collectCommandError(err error, jsonOutput bool) error {
 type collectPlan struct {
 	kind   resourceKindFilter
 	source string
+	follow *sourcewalk.FollowSet
 	scan   func(warn bool) collectResources
 }
 
@@ -189,6 +191,7 @@ func runCollectPlan(plan collectPlan, opts collectOptions, start time.Time, scop
 	result, collectErr := res.pull(sync.PullOptions{
 		DryRun: opts.dryRun,
 		Force:  opts.force,
+		Follow: plan.follow,
 	})
 	summary = updateCollectLogSummary(summary, result)
 	if opts.jsonOutput {

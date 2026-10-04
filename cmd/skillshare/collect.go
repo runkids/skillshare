@@ -108,7 +108,7 @@ func cmdCollectGlobal(cfg *config.Config, opts collectOptions, start time.Time) 
 	}
 
 	return runCollectPlan(collectPlan{
-		kind: kindSkills, source: cfg.EffectiveSkillsSource(),
+		kind: kindSkills, source: cfg.EffectiveSkillsSource(), follow: globalSkillFollowSet(cfg),
 		scan: func(warn bool) collectResources {
 			skills := collectLocalSkills(targets, cfg.EffectiveSkillsSource(), cfg.Mode, warn)
 			return toCollectResources(skills, cfg.EffectiveSkillsSource(), skillDisplayItem, sync.PullSkills)

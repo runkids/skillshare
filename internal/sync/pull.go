@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"skillshare/internal/sourcefs"
+	"skillshare/internal/sourcewalk"
 	"skillshare/internal/utils"
 )
 
@@ -28,6 +29,9 @@ type LocalSkillInfo struct {
 type PullOptions struct {
 	DryRun bool
 	Force  bool
+	// Follow is the source's declaration snapshot; skills named like a
+	// declared entry are refused, including while its link is offline.
+	Follow *sourcewalk.FollowSet
 }
 
 // PullResult describes the result of a pull operation
@@ -157,6 +161,12 @@ func PullSkills(skills []LocalSkillInfo, sourcePath string, opts PullOptions) (*
 	}
 
 	for _, skill := range skills {
+		if opts.Follow != nil {
+			if entry, ok := opts.Follow.InFollowed(skill.Name); ok {
+				result.Failed[skill.Name] = &sourcefs.LinkError{Path: filepath.Join(sourcePath, entry.Name)}
+				continue
+			}
+		}
 		if opts.DryRun {
 			result.Pulled = append(result.Pulled, skill.Name)
 			continue

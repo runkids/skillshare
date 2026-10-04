@@ -26,7 +26,7 @@ func cmdCollectProject(opts collectOptions, root string, start time.Time) (colle
 	}
 
 	return runCollectPlan(collectPlan{
-		kind: kindSkills, source: runtime.sourcePath,
+		kind: kindSkills, source: runtime.sourcePath, follow: skillFollowSet(runtime.sourcePath, runtime.targets, root),
 		scan: func(warn bool) collectResources {
 			skills := collectLocalSkills(targets, runtime.sourcePath, "", warn)
 			return toCollectResources(skills, runtime.sourcePath, skillDisplayItem, sync.PullSkills)
