@@ -62,11 +62,14 @@ records that requested version, not evidence that a release was published.
 ## Residual and verification limits
 
 At merge, 69 of the 509 write allowances still used `source-unmigrated`: skills
-source writes not yet moved onto the handle. A follow-up branch is migrating them;
-this log does not claim completion. Step 3 must not start until that list is empty
-or every remaining row has a documented reason for staying raw. The allowlist and
-`validReasons` are the evidence for this residual, rather than an assertion that
-all source mutations are already bounded.
+source writes not yet moved onto the handle. The follow-up migration on this branch
+moved 64 of them onto `sourcefs`, adding the `sourcefs.Writer` interface so shared
+helpers can take either the source handle or the plain `os` adapter. Five rows stay
+raw with a documented reason: the `.gitignore` writers in `internal/git/scope.go`
+and `internal/install/gitignore.go` serve the source, the config folder, and project
+folders through callers that do not name the scope. The allowlist and `validReasons`
+are the evidence for this residual, rather than an assertion that all source
+mutations are already bounded.
 
 Parsing, classification, followed-entry identity and ownership, unavailable-entry
 pauses, repo-root audit fixes, Git seams and followed-update policy remain step 3
