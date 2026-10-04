@@ -1,5 +1,11 @@
 # Install, Update, Uninstall & New
 
+For experimental [followed sources](skillfollow.md), install/collect/uninstall and
+dashboard writes cannot cross or replace source links, even with force. Followed
+tracked-repo updates (including `install --update`) require a clean tree and
+fast-forward-only pull, refuse explicit force, and still hard-reset on audit
+failure. Do not edit the external repo while updating it.
+
 Use `-p` for project resources or `-g` for global resources. For native agent workflows,
 see [native-agents.md](native-agents.md). These examples use skills unless specified otherwise.
 

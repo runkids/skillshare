@@ -24,6 +24,9 @@ Check `skillshare <command> --help` if the installed version differs from these 
   when location matters instead of relying on auto-detection.
 - Skills are directories containing `SKILL.md`; agents are single Markdown files.
   Source paths can be customized. Use the configured sources instead of assuming defaults.
+- First-level linked skills groups/repos require experimental `.skillfollow` declarations.
+  Read [skillfollow.md](references/skillfollow.md) before setup, updates, or recovery;
+  declarations grant discovery, not writes into external trees.
 - Use native agents targets for agents. Use extras for arbitrary file resources or when
   flattening/content transformation is required; `extension:` works only on extras targets.
 - Shared memory notes live in the `memory` extra. Use `extras memory` to manage Markdown
@@ -158,6 +161,7 @@ references for a single task.
 | Complete plugins, native lifecycle, and sync selection | [plugins.md](references/plugins.md) |
 | Init flags | [init.md](references/init.md) |
 | Sync/collect/commit/push/pull | [sync.md](references/sync.md) |
+| Linked skills sources, `.skillfollow`, and safety recovery | [skillfollow.md](references/skillfollow.md) |
 | Install/update/uninstall/new | [install.md](references/install.md) |
 | Status/diff/list/search/check | [status.md](references/status.md) |
 | Security audit | [audit.md](references/audit.md) |
