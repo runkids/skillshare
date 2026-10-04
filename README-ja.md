@@ -46,7 +46,7 @@
 </p>
 
 > [!NOTE]
-> **最新バージョン**：v0.24.0 — 先に質問し、確認してから書き込む新しい **`init`**、CLI とすべての **TUI** で統一された出力スタイルとキー操作、1 つのコマンドで双方向に同期する **`push --pull`**、エージェント間で共有する **Markdown メモリ**、そして target ごとの **Pi extension** の切り替えと **pi.dev の npm パッケージ**の追加に対応しました。新機能と修正の一覧は [Releases](https://github.com/runkids/skillshare/releases) と[変更履歴](https://skillshare.runkids.cc/changelog)をご覧ください。
+> **最新バージョン**：v0.24.5 — ダッシュボードの Plugins ページですべての **Pi パッケージ**のインストール済みバージョンを表示し、**npm パッケージ**の更新を確認できるようになりました。**Update** ボタンでそのパッケージの `pi update` を実行します。`status` は target が sync する agent だけを数えるため、変換された agent や include/exclude が drift として表示されなくなりました。ポータブルな `plugin.json` を含む **Codex** plugin の更新も再び動作します。新機能と修正の一覧は [Releases](https://github.com/runkids/skillshare/releases) と[変更履歴](https://skillshare.runkids.cc/changelog)をご覧ください。
 
 ## skillshare を使う理由
 

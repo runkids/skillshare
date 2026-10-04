@@ -44,7 +44,7 @@ sidebar_position: 3
 
 **語法：** 完整的 [gitignore](https://git-scm.com/docs/gitignore) 語法 — `*`（單一段落）、`**`（任意深度）、`?`、`[abc]`、`!pattern`（否定）、`/pattern`（錨定）、`pattern/`（僅限目錄）。
 
-**`.skillignore.local`：** 放在 `.skillignore` 旁邊。其中的規則會附加在基礎檔案之後 — 以最後一個符合的規則為準。使用 `!pattern` 可以取消忽略。請勿將此檔案 commit 進版本控制。
+**`.skillignore.local`：** 放在 `.skillignore` 旁邊。其中的規則會附加在基礎檔案之後 — 以最後一個符合的規則為準。使用 `!pattern` 可以取消忽略。請勿將此檔案 commit 進版本控制。不含 `/` 的規則會符合任意深度的同名路徑，所以 `!feature-radar` 也會重新啟用 `feature-radar/feature-radar`；只想符合頂層資料夾時寫 `!/feature-radar`。Dashboard 會在 **Settings → Files** 顯示此檔案的規則，被它覆蓋的開關會回報為失敗。
 
 **CLI 可見性：**
 

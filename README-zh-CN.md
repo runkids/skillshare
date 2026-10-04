@@ -46,7 +46,7 @@
 </p>
 
 > [!NOTE]
-> **最新版本**：v0.24.0 — 重新设计的 **`init`** 先提问、确认后才写入；CLI 与所有 **TUI** 使用统一的输出风格和按键；用 **`push --pull`** 一条命令双向同步；在多个 agent 间共享 **Markdown 记忆**；并可按 target 开关 **Pi extension**、添加 **pi.dev 上的 npm 包**。完整的新功能与修复见 [Releases](https://github.com/runkids/skillshare/releases) 和[更新日志](https://skillshare.runkids.cc/changelog)。
+> **最新版本**：v0.24.5 — Dashboard 的 Plugins 页面会显示每个 **Pi 包**的已安装版本，并检查 **npm 包**的更新，用 **Update** 按钮为该包运行 `pi update`；`status` 只计算 Target 会同步的 agent，转换过的 agent 与 include/exclude 不再显示为 drift；含便携 `plugin.json` 的 **Codex** plugin 也能再次更新。完整的新功能与修复见 [Releases](https://github.com/runkids/skillshare/releases) 和[更新日志](https://skillshare.runkids.cc/changelog)。
 
 ## 为什么用 skillshare
 

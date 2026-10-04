@@ -84,7 +84,7 @@ Targets                     skills                agents
 | `✗ links to …` / `✗ broken link` | 폴더가 다른 곳이나 존재하지 않는 곳을 가리키는 링크입니다 |
 | `skills off` | 이 target의 skills가 꺼져 있습니다 |
 
-**agents 열:** `✓ 8`은 연결된 agent 수입니다(최신 복사본도 연결된 것으로 셉니다). `! 7/8`은 일부가 빠졌다는 뜻이므로 `skillshare sync agents`를 실행하세요. copy fallback에서는 skillshare가 소유하지 않은 동일한 로컬 file을 보존하며 `· 1 local`로 셉니다. `—`는 그 target에 agents 폴더가 없다는 뜻입니다. agents source가 없으면 이 열은 생략됩니다.
+**agents 열:** `✓ 8`은 연결된 agent 수입니다(최신 복사본도 연결된 것으로 셉니다). `! 7/8`은 일부가 빠졌다는 뜻이므로 `skillshare sync agents`를 실행하세요. 이 target이 sync하는 agent만 셉니다. 즉 `.agentignore`, target의 agents include/exclude, 각 agent의 `targets` frontmatter를 거친 뒤 남은 agent입니다. copy fallback에서는 skillshare가 소유하지 않은 동일한 로컬 file을 보존하며 `· 1 local`로 셉니다. `—`는 그 target에 agents 폴더가 없다는 뜻입니다. agents source가 없으면 이 열은 생략됩니다.
 
 ### Extras
 

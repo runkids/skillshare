@@ -84,7 +84,7 @@ Targets                     skills                agents
 | `✗ links to …` / `✗ broken link` | フォルダが別の場所、または存在しない場所へのリンクです |
 | `skills off` | この target の skills はオフです |
 
-**agents 列:** `✓ 8` はリンク済みの agent 数です（最新のコピーもリンク済みとして数えます）。`! 7/8` は一部が欠けていることを示します。`skillshare sync agents` を実行してください。copy fallback では、skillshare が所有していない同一内容のローカルファイルは保持され、`· 1 local` として数えられます。`—` はその target に agents フォルダがないことを示します。agents source がない場合、この列は省略されます。
+**agents 列:** `✓ 8` はリンク済みの agent 数です（最新のコピーもリンク済みとして数えます）。`! 7/8` は一部が欠けていることを示します。`skillshare sync agents` を実行してください。数えるのはこの target が sync する agent だけで、`.agentignore`、target の agents の include/exclude、各 agent の `targets` frontmatter で残ったものです。copy fallback では、skillshare が所有していない同一内容のローカルファイルは保持され、`· 1 local` として数えられます。`—` はその target に agents フォルダがないことを示します。agents source がない場合、この列は省略されます。
 
 ### Extras
 

@@ -47,7 +47,7 @@
 </p>
 
 > [!NOTE]
-> **Latest**: v0.24.0 — a redesigned **`init`** that asks first and writes only after you confirm; one output style and keymap across the CLI and every **TUI**; **`push --pull`** to sync both ways in one command; shared **Markdown memory** across agents; and per-target **Pi extension** switches plus **npm packages from pi.dev**. [All releases →](https://github.com/runkids/skillshare/releases)
+> **Latest**: v0.24.5 — the dashboard's Plugins page shows the installed version of every **Pi package** and checks **npm packages** for updates, with an **Update** button that runs `pi update` for that package; `status` counts only the agents a target syncs, so converted agents and include/exclude no longer show as drift; and updating a **Codex** plugin that ships a portable `plugin.json` works again. [All releases →](https://github.com/runkids/skillshare/releases)
 
 ## Why skillshare
 

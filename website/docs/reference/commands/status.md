@@ -84,7 +84,7 @@ Targets                     skills                agents
 | `✗ links to …` / `✗ broken link` | The folder is a link to somewhere else, or to nothing |
 | `skills off` | Skills are turned off for this target |
 
-**agents column:** `✓ 8` is the number of linked agents (up-to-date copies count as linked). `! 7/8` means some are missing; run `skillshare sync agents`. In copy fallback, identical local files that skillshare does not own are kept and counted as `· 1 local`. `—` means the target has no agents folder. The column is left out when there is no agents source.
+**agents column:** `✓ 8` is the number of linked agents (up-to-date copies count as linked). `! 7/8` means some are missing; run `skillshare sync agents`. Only the agents this target syncs count: those left after `.agentignore`, the target's agents include/exclude and each agent's `targets` frontmatter. In copy fallback, identical local files that skillshare does not own are kept and counted as `· 1 local`. `—` means the target has no agents folder. The column is left out when there is no agents source.
 
 ### Extras
 

@@ -211,7 +211,8 @@ Copilot 與 Antigravity CLI 的安裝使用已檢視過的本機快照。匯入�
 ## Compatibility and boundaries
 
 - Claude 需要其原生的 `.claude-plugin/plugin.json` 套件。
-- Codex 接受 `.codex-plugin/plugin.json` 以及可辨識的可攜式根目錄 `plugin.json` 套件。僅限
+- Codex 接受 `.codex-plugin/plugin.json` 以及可辨識的可攜式根目錄 `plugin.json` 套件。兩者都有的套件，Codex 會從可攜式根目錄 `plugin.json`
+  安裝，所以 Skillshare 預期該 manifest 的版本，沒有版本時預期 `1.0.0`。僅限
   Claude 的套件不會被靜默轉換。
 - Source 可能包含帶有本機 plugin 項目的 marketplace。外部 catalog 會依 plugin 名稱/路徑合併。
   衝突的路徑會被拒絕；外部項目會附上說明，指引你直接加入其 repository，或以原生方式安裝後

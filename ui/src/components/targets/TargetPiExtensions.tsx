@@ -2,7 +2,7 @@ import { useState } from 'react';
 import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { AlertCircle, ArrowRight, ChevronDown, CircleCheck, Folder, Info, Lock, Puzzle, RotateCcw, X } from 'lucide-react';
+import { AlertCircle, ArrowRight, ChevronDown, CircleCheck, FileDiff, Folder, Info, Lock, Puzzle, RotateCcw, X } from 'lucide-react';
 import { ApiError } from '../../api/client';
 import { piExtensionsApi } from '../../api/piExtensions';
 import PiPackageIcon from '../PiPackageIcon';
@@ -47,6 +47,7 @@ function ExtensionsView({ name, view, applied, setApplied, t }: { name: string; 
     const source = view.packages.find((p) => p.scope === scope && p.index === Number(index))?.source ?? '';
     return { scope, index: Number(index), source, path, action };
   });
+  const pendingLabel = t(changes.length === 1 ? 'targetDetail.piExtensions.pending.one' : 'targetDetail.piExtensions.pending.other', { count: changes.length });
   const set: SetAction = (scope, index, path, action) => {
     setApplied('');
     setPending((prev) => {
@@ -86,13 +87,18 @@ function ExtensionsView({ name, view, applied, setApplied, t }: { name: string; 
       </p>
 
       {changes.length > 0 && (
-        <div className="sticky bottom-4 flex items-center gap-3 rounded-[var(--r-box)] border border-line-2 bg-surface px-4 py-3 shadow-[var(--sh-float)]">
-          <span className="flex-1 text-[13.5px]">
-            <span className="font-semibold">{t(changes.length === 1 ? 'targetDetail.piExtensions.pending.one' : 'targetDetail.piExtensions.pending.other', { count: changes.length })}</span>
-            <span className="text-ink-3"> · {t('targetDetail.piExtensions.pending.nothingYet')}</span>
-          </span>
-          <Button variant="ghost" onClick={() => setPending({})}>{t('targetDetail.piExtensions.discard')}</Button>
-          <Button variant="primary" onClick={() => setReviewing(true)}>{t('targetDetail.piExtensions.review')}</Button>
+        <div className="ss-bulk" role="toolbar" aria-label={pendingLabel}>
+          <b>{pendingLabel}</b>
+          <span className="text-ink-3 max-md:hidden">{t('targetDetail.piExtensions.pending.nothingYet')}</span>
+          <span className="dv" />
+          <Button variant="secondary" size="sm" onClick={() => setReviewing(true)}>
+            <FileDiff size={15} />
+            {t('targetDetail.piExtensions.review')}
+          </Button>
+          <span className="dv" />
+          <button type="button" className="ss-ib" aria-label={t('targetDetail.piExtensions.discard')} title={t('targetDetail.piExtensions.discard')} onClick={() => setPending({})}>
+            <X size={16} />
+          </button>
         </div>
       )}
       {reviewing && (

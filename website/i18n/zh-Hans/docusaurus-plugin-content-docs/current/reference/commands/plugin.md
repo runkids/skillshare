@@ -212,7 +212,8 @@ Skillshare 从不提供原生信任的批准 flags。
 
 - Claude 需要其原生的 `.claude-plugin/plugin.json` package。
 - Codex 接受 `.codex-plugin/plugin.json` 以及可识别的、便携的 root
-  `plugin.json` packages。仅限 Claude 的 package 不会被静默转换。
+  `plugin.json` packages。两者都有的 package，Codex 会从便携的 root `plugin.json` 安装，所以
+  Skillshare 预期该 manifest 的版本，没有版本时预期 `1.0.0`。仅限 Claude 的 package 不会被静默转换。
 - Sources 可能包含带有本地 plugin 条目的 marketplace。外部 catalog
   catalogs 会按 plugin 名称/路径合并。冲突的路径会被拒绝；外部
   条目会连同说明一起报告，提示直接添加其 repository 或原生安装后再导入。基于命令的 sources

@@ -177,7 +177,7 @@ Copilot과 Antigravity CLI 설치는 검토된 로컬 스냅샷을 사용합니�
 ## 호환성과 경계
 
 - Claude는 자체 네이티브 `.claude-plugin/plugin.json` 패키지를 요구합니다.
-- Codex는 `.codex-plugin/plugin.json`과 인식된 portable root `plugin.json` 패키지를 받아들입니다. Claude 전용 패키지는 자동으로 변환되지 않습니다.
+- Codex는 `.codex-plugin/plugin.json`과 인식된 portable root `plugin.json` 패키지를 받아들입니다. 둘 다 있는 패키지는 Codex가 portable root `plugin.json`에서 설치하므로, Skillshare는 그 manifest의 버전을, 없으면 `1.0.0`을 예상합니다. Claude 전용 패키지는 자동으로 변환되지 않습니다.
 - Source에는 local plugin entry가 있는 marketplace가 포함될 수 있습니다. 외부 카탈로그는 plugin 이름/경로로 병합됩니다. 충돌하는 경로는 거부됩니다. 외부 entry는 저장소를 직접 추가하거나 네이티브로 설치한 후 import하라는 안내와 함께 보고됩니다. command 기반 source는 자동으로 승인되지 않습니다.
 - 완전한 source 스냅샷은 plugin 스크립트, asset, 그리고 안전한 상대 symlink(`AGENTS.md → CLAUDE.md` 포함)를 유지합니다. 절대 경로, 범위를 벗어나는(escaping), 끊어진(dangling), 순환(cyclic), `.git`을 참조하는 링크와 특수 파일은 거부됩니다. source는 20,000개 파일과 100MiB로 제한됩니다.
 - 네이티브 설치가 런타임 활성화의 증거는 아닙니다. Agent를 재시작/다시 로드하고 해당 Agent에서 인증 또는 hook trust를 완료하세요.

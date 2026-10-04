@@ -84,7 +84,7 @@ Targets                     skills                agents
 | `✗ links to …` / `✗ broken link` | 資料夾連到別處，或連到不存在的位置 |
 | `skills off` | 這個 target 的 skills 已關閉 |
 
-**agents 欄：** `✓ 8` 是已連結的 agent 數量（最新的副本也算作已連結）。`! 7/8` 表示有部分缺失，請執行 `skillshare sync agents`。在 copy fallback 中，skillshare 不擁有但內容相同的本機檔案會被保留，並以 `· 1 local` 計算。`—` 表示該 target 沒有 agents 資料夾。沒有 agents source 時，這一欄會省略。
+**agents 欄：** `✓ 8` 是已連結的 agent 數量（最新的副本也算作已連結）。`! 7/8` 表示有部分缺失，請執行 `skillshare sync agents`。只計算該 target 會同步的 agent，也就是經過 `.agentignore`、target 的 agents include/exclude 以及各 agent 的 `targets` frontmatter 之後剩下的。在 copy fallback 中，skillshare 不擁有但內容相同的本機檔案會被保留，並以 `· 1 local` 計算。`—` 表示該 target 沒有 agents 資料夾。沒有 agents source 時，這一欄會省略。
 
 ### Extras
 

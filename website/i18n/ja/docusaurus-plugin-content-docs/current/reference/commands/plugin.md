@@ -178,7 +178,7 @@ Copilot と Antigravity CLI のインストールは、reviewed されたロー�
 ## 互換性と制約
 
 - Claude はネイティブな `.claude-plugin/plugin.json` package を必要とします。
-- Codex は `.codex-plugin/plugin.json` と、認識可能なポータブルなルート `plugin.json` package を受け付けます。Claude 専用の package が黙って変換されることはありません。
+- Codex は `.codex-plugin/plugin.json` と、認識可能なポータブルなルート `plugin.json` package を受け付けます。両方を含む package では Codex がポータブルなルート `plugin.json` からインストールするため、Skillshare はその manifest のバージョンを、ない場合は `1.0.0` を想定します。Claude 専用の package が黙って変換されることはありません。
 - source にはローカル plugin エントリを含むマーケットプレイスが含まれる場合があります。外部カタログは plugin の name/path でマージされます。パスが衝突する場合は拒否され、外部エントリはそのリポジトリを直接追加するか、ネイティブにインストールしてインポートするよう指示とともに報告されます。コマンドベースの source は自動承認されません。
 - 完全な source スナップショットは、plugin のスクリプト、アセット、および安全な相対 symlink（`AGENTS.md → CLAUDE.md` を含む）を保持します。絶対パス、脱出、dangling、循環、`.git` を参照する symlink や特殊ファイルは拒否されます。source は 20,000 ファイルおよび 100 MiB に制限されます。
 - ネイティブインストールは、ランタイムでの有効化を証明するものではありません。Agent を再起動/再読み込みし、その Agent 内で認証または hook trust を完了してください。

@@ -44,7 +44,7 @@ Skill이 Target에 도달하려면 **모든** 레이어를 통과해야 합니�
 
 **문법:** 전체 [gitignore](https://git-scm.com/docs/gitignore) — `*`(단일 세그먼트), `**`(임의 깊이), `?`, `[abc]`, `!pattern`(부정), `/pattern`(경로 고정), `pattern/`(디렉터리 전용).
 
-**`.skillignore.local`:** `.skillignore`와 함께 위치시킵니다. 패턴은 기본 파일 뒤에 추가되며 — 마지막에 일치하는 규칙이 우선합니다. `!pattern`으로 제외를 해제할 수 있습니다. 이 파일은 커밋하지 마세요.
+**`.skillignore.local`:** `.skillignore`와 함께 위치시킵니다. 패턴은 기본 파일 뒤에 추가되며 — 마지막에 일치하는 규칙이 우선합니다. `!pattern`으로 제외를 해제할 수 있습니다. 이 파일은 커밋하지 마세요. `/`가 없는 패턴은 어느 깊이의 같은 이름에도 일치하므로 `!feature-radar`는 `feature-radar/feature-radar`도 다시 활성화합니다. 최상위 폴더만 일치시키려면 `!/feature-radar`라고 쓰세요. 대시보드는 이 파일의 규칙을 **Settings → Files**에 보여 주고, 이 파일이 덮어쓴 전환을 실패로 보고합니다.
 
 **CLI에서의 표시:**
 

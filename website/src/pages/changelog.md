@@ -9,6 +9,33 @@ All notable changes to skillshare are documented here. For the full commit histo
 
 ---
 
+## [0.24.5] - 2026-10-04
+
+### New Features
+
+- **Pi packages show their version, and Check updates finds new ones on npm** — an npm package in Pi had no recorded version and no source, so the Plugins page showed none and **Check updates** could only say to check in Pi. The version now comes from the package Pi installed, on the Plugins page and in a Pi target's **Extensions** tab, for npm, git and local packages alike. For an npm package added without a version, `check` compares it with npm's `latest`. A newer version shows as `old → new` with an **Update** button on the row and in the check's result; it opens the update preview for that one plugin and Agent and runs `pi update <source>` for that package only. A package added with a version range or tag, or one that npm resolves to a registry other than npmjs, is left to Pi.
+  ```bash
+  skillshare plugin check -g
+  skillshare plugin update pi-mcp-adapter --target pi -g
+  ```
+- **The Plugins page's Sync box puts what needs a look first** — after a run, failures come first with their message, then the other changes, and Agents that ended the same way share one row with their logos (each names itself on hover). What stayed the same folds into one **Unchanged** line that opens to one row per plugin, with Pi packages apart. The preview folds what it leaves alone the same way, below the changes it will make.
+
+### Bug Fixes
+
+- **Agents synced through an agent extension no longer show as drift** — a target that converts agents (for example to `reviewer.toml`) was reported as `0/N` with drift by `status`, `doctor` and the dashboard after every successful sync, because the converted names never matched the sources. Converted outputs now count as synced, and editing an agent in the source shows as drift until the next sync. Outputs written by earlier releases count as current until that sync records their source. Refs: #391.
+  ```bash
+  skillshare sync agents
+  skillshare status
+  ```
+- **`status` expects only the agents a target would sync** — `status` counted every agent against each target, while `sync` leaves out the ones `.agentignore`, the target's include/exclude and an agent's `targets` frontmatter exclude, so such a target showed `N/M` with drift after a complete sync, in the table and in `--json`. `status` now applies the same filters, and a leftover link for an agent the target no longer syncs no longer stands in for a missing one. `doctor` and the dashboard already filtered this way. Refs: #395.
+- **Updating a Codex plugin that ships a portable `plugin.json` no longer fails on every sync** — Codex installs from a root `plugin.json` ahead of `.codex-plugin/plugin.json`, and reports `1.0.0` when that manifest has no version. Skillshare expected the version from `.codex-plugin/plugin.json`, so a package that ships both failed with `native update returned version 1.0.0; expected 4.10.3`. Skillshare now expects the version Codex reads, keeps the logo from `.codex-plugin/plugin.json`, and still checks the version of a package whose portable manifest has none.
+  ```bash
+  skillshare sync plugins
+  ```
+- **Disabling a skill that `.skillignore.local` keeps on now fails with the reason** — a `!` rule in `.skillignore.local` is applied after `.skillignore`, so the skill stayed enabled while the dashboard reported success. Single and batch toggles now report such a skill as failed and name the file that overrides it, the attempt is logged, and **Settings › Files** shows the `.local` rules above the editor.
+- **Plugins Skillshare installs into Pi are listed and named as plugins** — a plugin installed from a Git source and bound only to Pi landed in **Pi packages**, and Pi's **Extensions** tabs titled it by its state path, in global and project views. It now stays under the managed plugins, and the tabs show its name with the **Managed by Skillshare** tag. The **Import** dialog leaves out what Skillshare already manages and says when an Agent has nothing left to import.
+- **A folder switch that is partly on reads as partly on** — in the resource tree, the mixed state looked like a stuck off switch; it now has a half-tone track and a dash, like an indeterminate checkbox.
+
 ## [0.24.4] - 2026-10-04
 
 ### Bug Fixes

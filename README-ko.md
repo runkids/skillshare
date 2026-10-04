@@ -46,7 +46,7 @@
 </p>
 
 > [!NOTE]
-> **최신 버전**: v0.24.0 — 먼저 묻고 확인한 뒤에만 쓰는 새 **`init`**, CLI와 모든 **TUI**에 통일된 출력 스타일과 키 조작, 명령 하나로 양방향 동기화하는 **`push --pull`**, 에이전트 간에 공유하는 **Markdown 메모리**, 그리고 target별 **Pi extension** 전환과 **pi.dev의 npm 패키지** 추가를 지원합니다. 전체 새 기능과 수정 사항은 [Releases](https://github.com/runkids/skillshare/releases)와 [변경 내역](https://skillshare.runkids.cc/changelog)에서 확인하세요.
+> **최신 버전**: v0.24.5 — 대시보드의 Plugins 페이지가 모든 **Pi 패키지**의 설치된 버전을 보여 주고 **npm 패키지**의 업데이트를 확인하며, **Update** 버튼으로 그 패키지의 `pi update`를 실행합니다. `status`는 target이 sync하는 agent만 세므로 변환된 agent와 include/exclude가 더 이상 drift로 보이지 않습니다. portable `plugin.json`을 포함한 **Codex** plugin 업데이트도 다시 동작합니다. 전체 새 기능과 수정 사항은 [Releases](https://github.com/runkids/skillshare/releases)와 [변경 내역](https://skillshare.runkids.cc/changelog)에서 확인하세요.
 
 ## skillshare를 쓰는 이유
 
