@@ -244,6 +244,7 @@ func runDoctorChecks(cfg *config.Config, result *doctorResult, isProject bool, f
 	checkAgentsSource(cfg, result)
 	checkSkillignore(result, stats)
 	checkSkillfollow(result, follow)
+	checkSkillfollowPauses(result, cfg.EffectiveSkillsSource(), follow)
 	checkUndeclaredSourceLinksWithFollow(cfg.EffectiveSkillsSource(), result, follow)
 	checkSymlinkSupport(result)
 	checkTheme(result)
@@ -329,6 +330,15 @@ func checkSkillfollow(result *doctorResult, follow *sourcewalk.FollowSet) {
 		message := fmt.Sprintf("%s: %s — %s", entry.Name, entry.State, entry.Reason)
 		ui.Row(mark, "Skillfollow", message, doctorWidth)
 		result.addCheck("skillfollow", status, message, nil)
+	}
+}
+
+// checkSkillfollowPauses names each unavailable entry that pauses prune.
+func checkSkillfollowPauses(result *doctorResult, source string, follow *sourcewalk.FollowSet) {
+	for _, message := range skillfollowPauses(source, follow) {
+		ui.Row(ui.MarkWarn, "Skillfollow", message, doctorWidth)
+		result.addWarning()
+		result.addCheck("skillfollow_prune", checkWarning, message, nil)
 	}
 }
 

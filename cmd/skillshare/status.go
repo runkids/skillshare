@@ -58,6 +58,8 @@ type statusJSONSourceFollow struct {
 	SkippedCount  int                `json:"skipped_count"`
 	Entries       []sourcewalk.Entry `json:"entries"`
 	Warnings      []string           `json:"warnings,omitempty"`
+	// PrunePaused names each unavailable entry that pauses prune, with recovery.
+	PrunePaused []string `json:"prune_paused,omitempty"`
 }
 
 func buildSkillfollowJSON(follow *sourcewalk.FollowSet) *statusJSONSourceFollow {
@@ -74,6 +76,13 @@ func buildSkillfollowJSON(follow *sourcewalk.FollowSet) *statusJSONSourceFollow 
 		Active: follow.Active(), LocalActive: follow.HasLocal(),
 		EntryCount: len(follow.ParsedEntries()), FollowedCount: len(follow.Followed()),
 		SkippedCount: len(follow.Unavailable()), Entries: entries, Warnings: follow.Warnings(),
+	}
+}
+
+// addSkillfollowPausesJSON names the entries that pause prune in status JSON.
+func addSkillfollowPausesJSON(source *statusJSONSource, follow *sourcewalk.FollowSet) {
+	if source.Skillfollow != nil {
+		source.Skillfollow.PrunePaused = skillfollowPauses(source.Path, follow)
 	}
 }
 
@@ -155,7 +164,7 @@ func cmdStatus(args []string) error {
 		sp.Stop()
 
 		printSourceStatus(cfg.EffectiveSkillsSource(), cfg.EffectiveAgentsSource(), utils.FoldHomePath, len(discovered), countSourceAgents(cfg.EffectiveAgentsSource()), stats)
-		printSkillfollowLine(follow)
+		printSkillfollowLine(cfg.EffectiveSkillsSource(), follow)
 		printTrackedReposStatus(cfg.EffectiveSkillsSource(), discovered, trackedRepos)
 		if err := printTargetsStatus(cfg, discovered, follow); err != nil {
 			return err
@@ -186,6 +195,7 @@ func cmdStatus(args []string) error {
 		Skillignore: buildSkillignoreJSON(stats),
 		Skillfollow: buildSkillfollowJSON(follow),
 	}
+	addSkillfollowPausesJSON(&output.Source, follow)
 	output.SkillCount = len(discovered)
 	output.TrackedRepos = buildTrackedRepoJSON(cfg.EffectiveSkillsSource(), trackedRepos, discovered)
 

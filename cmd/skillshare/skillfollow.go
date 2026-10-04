@@ -1,6 +1,8 @@
 package main
 
 import (
+	"fmt"
+	"path/filepath"
 	"sort"
 
 	"skillshare/internal/config"
@@ -27,4 +29,18 @@ func skillFollowSet(source string, targets map[string]config.TargetConfig, gitRo
 
 func globalSkillFollowSet(cfg *config.Config) *sourcewalk.FollowSet {
 	return skillFollowSet(cfg.EffectiveSkillsSource(), cfg.Targets, cfg.EffectiveGitRoot())
+}
+
+// skillfollowPauses names each unavailable entry that pauses prune, with the
+// step that resumes cleanup.
+func skillfollowPauses(source string, follow *sourcewalk.FollowSet) []string {
+	if follow == nil {
+		return nil
+	}
+	var messages []string
+	for _, entry := range follow.Unavailable() {
+		messages = append(messages, fmt.Sprintf("prune paused: %s is %s; restore or fix %s, or remove %s from .skillfollow[.local], to resume cleanup",
+			entry.Name, entry.State, filepath.Join(source, entry.Name), entry.Name))
+	}
+	return messages
 }

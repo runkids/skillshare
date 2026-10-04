@@ -216,7 +216,7 @@ func printSkillignoreLine(stats *skillignore.IgnoreStats) {
 	ui.Note(fmt.Sprintf("%s: %d patterns, %d skills ignored", hint, stats.PatternCount(), stats.IgnoredCount()))
 }
 
-func printSkillfollowLine(follow *sourcewalk.FollowSet) {
+func printSkillfollowLine(source string, follow *sourcewalk.FollowSet) {
 	if follow == nil {
 		return
 	}
@@ -225,6 +225,9 @@ func printSkillfollowLine(follow *sourcewalk.FollowSet) {
 		hint += " (.local active)"
 	}
 	ui.Note(fmt.Sprintf("%s: %d entries, %d skipped", hint, len(follow.ParsedEntries()), len(follow.Unavailable())))
+	for _, message := range skillfollowPauses(source, follow) {
+		ui.Warning("%s", message)
+	}
 }
 
 // printTrackedReposStatus prints each tracked repository with its skill

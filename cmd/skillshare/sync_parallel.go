@@ -10,6 +10,7 @@ import (
 	"github.com/pterm/pterm"
 
 	"skillshare/internal/config"
+	"skillshare/internal/sourcewalk"
 	"skillshare/internal/sync"
 	"skillshare/internal/theme"
 	"skillshare/internal/ui"
@@ -27,6 +28,10 @@ type syncTargetResult struct {
 	warnings []string // prune warnings etc.
 	infos    []string // extra info lines (symlink mode hints)
 	errMsg   string   // non-empty if target failed
+	// prunePaused names the unavailable .skillfollow entries that paused prune.
+	prunePaused []string
+	// kept are managed copies left in place while prune is paused.
+	kept []string
 	// skillsOff marks a target with skills switched off: nothing was synced.
 	skillsOff bool
 }
@@ -162,11 +167,13 @@ type syncTargetEntry struct {
 	mode   string
 	// configErr fails the target without syncing it: its settings are invalid.
 	configErr error
+	// follow is the operation's .skillfollow snapshot; nil keeps legacy rules.
+	follow *sourcewalk.FollowSet
 }
 
 // collectSyncResult runs sync for one target and returns a result struct.
 // Does NOT print any UI output — all output data is captured in the result.
-func collectSyncResult(name string, target config.TargetConfig, source, mode string, skills []sync.DiscoveredSkill, ignorePatterns []string, dryRun, force bool, progress *syncProgress, projectRoot string) syncTargetResult {
+func collectSyncResult(name string, target config.TargetConfig, source, mode string, follow *sourcewalk.FollowSet, skills []sync.DiscoveredSkill, ignorePatterns []string, dryRun, force bool, progress *syncProgress, projectRoot string) syncTargetResult {
 	sc := target.SkillsConfig()
 	r := syncTargetResult{
 		name:    name,
@@ -183,7 +190,7 @@ func collectSyncResult(name string, target config.TargetConfig, source, mode str
 
 	opts := sync.SkillRunOptions{
 		Source: source, ProjectRoot: projectRoot, IgnorePatterns: ignorePatterns,
-		DryRun: dryRun, Force: force,
+		DryRun: dryRun, Force: force, Follow: follow,
 	}
 	if progress != nil {
 		opts.OnProgress = func(cur, total int, skill string) {
@@ -221,6 +228,7 @@ func collectMergeSyncResult(r *syncTargetResult, run sync.SkillTargetResult, dry
 
 	r.infos = append(r.infos, dirCreatedInfos(run.DirCreated, dryRun)...)
 	r.warnings = append(r.warnings, run.Warnings...)
+	addPausedSyncResult(r, run)
 }
 
 func collectCopySyncResult(r *syncTargetResult, run sync.SkillTargetResult, dryRun bool) {
@@ -236,6 +244,19 @@ func collectCopySyncResult(r *syncTargetResult, run sync.SkillTargetResult, dryR
 
 	r.infos = append(r.infos, dirCreatedInfos(run.DirCreated, dryRun)...)
 	r.warnings = append(r.warnings, run.Warnings...)
+	addPausedSyncResult(r, run)
+}
+
+// addPausedSyncResult reports a prune paused by an unavailable .skillfollow
+// entry and the managed copies it kept from replacement.
+func addPausedSyncResult(r *syncTargetResult, run sync.SkillTargetResult) {
+	r.prunePaused, r.kept = run.PrunePaused, run.Kept
+	if len(run.PrunePaused) > 0 {
+		r.warnings = append(r.warnings, fmt.Sprintf("%s: prune paused; unavailable .skillfollow entry: %s", r.name, strings.Join(run.PrunePaused, ", ")))
+	}
+	if len(run.Kept) > 0 {
+		r.warnings = append(r.warnings, fmt.Sprintf("%s: kept %d managed copies whose origin cannot be proven: %s", r.name, len(run.Kept), strings.Join(run.Kept, ", ")))
+	}
 }
 
 type countPart struct {
@@ -383,7 +404,7 @@ func runParallelSyncCore(entries []syncTargetEntry, source string, skills []sync
 				if m.entry.configErr != nil {
 					r.errMsg = invalidConfigMessage(m.entry.configErr)
 				} else {
-					r = collectSyncResult(m.entry.name, m.entry.target, source, m.entry.mode, skills, ignorePatterns, dryRun, force, progress, projectRoot)
+					r = collectSyncResult(m.entry.name, m.entry.target, source, m.entry.mode, m.entry.follow, skills, ignorePatterns, dryRun, force, progress, projectRoot)
 				}
 				if progress != nil {
 					progress.doneTarget(m.entry.name, r)

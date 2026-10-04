@@ -58,6 +58,10 @@ type syncJSONTargetDetail struct {
 	Updated int    `json:"updated"`
 	Pruned  int    `json:"pruned"`
 	Error   string `json:"error,omitempty"`
+	// PrunePaused names the unavailable .skillfollow entries that paused prune.
+	PrunePaused []string `json:"prune_paused,omitempty"`
+	// Kept are managed copies kept from replacement while prune is paused.
+	Kept []string `json:"kept,omitempty"`
 	// SkillsOff is true for a target with skills switched off (nothing synced).
 	SkillsOff bool `json:"skills_off,omitempty"`
 }
@@ -396,7 +400,7 @@ func cmdSync(args []string) error {
 	var entries []syncTargetEntry
 	for _, name := range slices.Sorted(maps.Keys(cfg.Targets)) {
 		target := cfg.Targets[name]
-		entries = append(entries, syncTargetEntry{name: name, target: target, mode: getTargetMode(target.SkillsConfig().Mode, cfg.Mode), configErr: invalid[name]})
+		entries = append(entries, syncTargetEntry{name: name, target: target, mode: getTargetMode(target.SkillsConfig().Mode, cfg.Mode), configErr: invalid[name], follow: follow})
 	}
 
 	var results []syncTargetResult
@@ -636,7 +640,9 @@ func syncOutputJSON(results []syncTargetResult, dryRun bool, start time.Time, iS
 			Pruned:  r.stats.pruned,
 			Error:   r.errMsg,
 
-			SkillsOff: r.skillsOff,
+			PrunePaused: r.prunePaused,
+			Kept:        r.kept,
+			SkillsOff:   r.skillsOff,
 		})
 	}
 	output := syncJSONOutput{

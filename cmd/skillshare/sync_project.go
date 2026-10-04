@@ -87,7 +87,7 @@ func cmdSyncProject(root string, dryRun, force, jsonOutput, quiet bool) (syncLog
 		if mode == "" {
 			mode = "merge"
 		}
-		entries = append(entries, syncTargetEntry{name: name, target: target, mode: mode, configErr: invalid[name]})
+		entries = append(entries, syncTargetEntry{name: name, target: target, mode: mode, configErr: invalid[name], follow: follow})
 	}
 
 	var results []syncTargetResult
