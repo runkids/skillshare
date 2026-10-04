@@ -52,7 +52,6 @@ cmd/skillshare/ui.go	writeUIPidFile	os.WriteFile	uiPidFile(opts)	config
 cmd/skillshare/upgrade.go	downloadAndReplace	os.Remove	archivePath	binary
 cmd/skillshare/upgrade.go	downloadArchive	os.CreateTemp	""	binary
 cmd/skillshare/upgrade.go	downloadArchive	os.Remove	tmp.Name()	binary
-cmd/skillshare/upgrade.go	downloadArchive	os.Remove	tmp.Name()	binary
 cmd/skillshare/upgrade.go	writeBinary	os.Chmod	tmpPath	binary
 cmd/skillshare/upgrade.go	writeBinary	os.CreateTemp	filepath.Dir(destPath)	binary
 cmd/skillshare/upgrade.go	writeBinary	os.Remove	oldPath	binary
@@ -498,7 +497,6 @@ internal/uidist/uidist.go	Download	os.Remove	tmpFile	config
 internal/uidist/uidist.go	Download	os.RemoveAll	dir	config
 internal/uidist/uidist.go	cleanOldVersions	os.RemoveAll	filepath.Join(uiDir, e.Name())	config
 internal/uidist/uidist.go	downloadToTemp	os.CreateTemp	""	config
-internal/uidist/uidist.go	downloadToTemp	os.Remove	tmp.Name()	config
 internal/uidist/uidist.go	downloadToTemp	os.Remove	tmp.Name()	config
 internal/uidist/uidist.go	extractTarGz	os.MkdirAll	filepath.Dir(target)	config
 internal/uidist/uidist.go	extractTarGz	os.MkdirAll	target	config
