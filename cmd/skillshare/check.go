@@ -384,7 +384,7 @@ func runCheck(sourceDir, projectRoot string, jsonOutput bool, extraTargetNames [
 
 	// Display results + summary, with unknown target names in skill-level
 	// targets fields among the warnings
-	warnings := unknownSkillTargetWarnings(sourceDir, extraTargetNames)
+	warnings := unknownSkillTargetWarnings(sourceDir, extraTargetNames, follow)
 	renderCheckResults(repoResults, skillResults, false, warnings, start)
 
 	return nil
@@ -886,10 +886,10 @@ func singleCheckStatus(repos []checkRepoResult, skills []checkSkillResult) singl
 
 // unknownSkillTargetWarnings names skill-level targets that match no
 // configured or known target.
-func unknownSkillTargetWarnings(sourceDir string, extraTargetNames []string) []string {
+func unknownSkillTargetWarnings(sourceDir string, extraTargetNames []string, follow *sourcewalk.FollowSet) []string {
 	sp := ui.StartSpinner("Validating skill targets...")
 	defer sp.Stop()
-	discovered, err := ssync.DiscoverSourceSkills(sourceDir)
+	discovered, _, err := ssync.DiscoverSourceSkillsWithOptions(sourceDir, ssync.DiscoveryOptions{Follow: follow})
 	if err != nil {
 		return nil
 	}
