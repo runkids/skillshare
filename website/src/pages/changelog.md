@@ -11,10 +11,12 @@ All notable changes to skillshare are documented here. For the full commit histo
 
 ## [0.24.2] - 2026-10-04
 
-
 ### Performance
 
-* **upgrade:** download release assets over parallel ranges ([#381](https://github.com/runkids/skillshare/issues/381)) ([887461b](https://github.com/runkids/skillshare/commit/887461b36af733efa69fb01729f5458736cb3ca0))
+- **Upgrades and the first dashboard start download much faster on throttled networks** — GitHub's release file server limits each connection on some networks, so `skillshare upgrade` could spend minutes on the 9 MB archive and the first `skillshare ui` of a new version waited again for the dashboard files. Downloads now split the file into 8 parts fetched at the same time, each on its own connection; in one measurement the darwin_arm64 archive went from 171 s to 25 s. Checksums are verified as before, and a server without partial download support gets a single download as before.
+  ```bash
+  skillshare upgrade
+  ```
 
 ## [0.24.1] - 2026-10-04
 
