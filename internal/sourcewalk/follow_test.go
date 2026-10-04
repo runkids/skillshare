@@ -118,7 +118,7 @@ func TestFollowQueries(t *testing.T) {
 	linkTo(t, root, "hidden", t.TempDir())
 	declare(t, root, "group", "missing")
 	set := Follow(root, FollowOptions{})
-	if len(set.Followed()) != 1 || len(set.Unavailable()) != 1 || !set.Owns(filepath.Join(ext, "child")) || set.Owns(ext+"-other") {
+	if len(set.Followed()) != 1 || len(set.Unavailable()) != 1 || !set.FollowedTargetContains(filepath.Join(ext, "child")) || set.FollowedTargetContains(ext+"-other") {
 		t.Fatalf("%+v", set)
 	}
 	if entry, ok := set.InFollowed("group/child"); !ok || entry.Name != "group" {

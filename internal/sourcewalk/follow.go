@@ -296,14 +296,12 @@ func (s *FollowSet) selectEntries(match func(Entry) bool) []Entry {
 	return result
 }
 
-// Owns reports containment in the canonical source or a currently followed target.
-// The input must already be canonical; this is containment, not link identity.
-func (s *FollowSet) Owns(resolvedPath string) bool {
+// FollowedTargetContains reports containment in a currently followed entry's
+// resolved target. The input must already be canonical; this is containment,
+// not link identity.
+func (s *FollowSet) FollowedTargetContains(resolvedPath string) bool {
 	if s == nil {
 		return false
-	}
-	if s.canonicalRoot != "" && containsPath(s.canonicalRoot, resolvedPath) {
-		return true
 	}
 	for _, entry := range s.entries {
 		if entry.State == Followed && containsPath(entry.ResolvedTarget, resolvedPath) {

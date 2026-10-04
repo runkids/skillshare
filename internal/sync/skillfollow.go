@@ -143,15 +143,7 @@ func (s followScope) inFollowedTarget(dest string) bool {
 		return false
 	}
 	canon, err := sourcewalk.Canonicalize(dest)
-	if err != nil {
-		return false
-	}
-	for _, entry := range s.set.Followed() {
-		if utils.PathsEqual(canon, entry.ResolvedTarget) || pathUnder(canon, entry.ResolvedTarget) {
-			return true
-		}
-	}
-	return false
+	return err == nil && s.set.FollowedTargetContains(canon)
 }
 
 // followedLink reports whether a link resolves inside a currently followed
