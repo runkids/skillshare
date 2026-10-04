@@ -275,7 +275,7 @@ func runCheck(sourceDir, projectRoot string, jsonOutput bool, extraTargetNames [
 		missingRepos = nil
 	}
 
-	skills, err := install.GetUpdatableSkills(sourceDir)
+	skills, err := install.GetUpdatableSkillsWithOptions(sourceDir, sourcewalk.Options{Follow: follow})
 	if err != nil {
 		skills = nil
 	}

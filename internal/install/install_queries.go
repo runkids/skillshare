@@ -10,7 +10,14 @@ import (
 	"skillshare/internal/utils"
 )
 
-func getUpdatableSkillsImpl(sourceDir string) ([]string, error) {
+// GetUpdatableSkillsWithOptions returns the metadata paths of installed skills
+// with a remote source, excluding tracked repositories. The list comes from
+// metadata, but it fails like discovery when the operation's snapshot is
+// incomplete, so callers cannot act on a partial view of the source.
+func GetUpdatableSkillsWithOptions(sourceDir string, opts sourcewalk.Options) ([]string, error) {
+	if opts.Follow != nil && opts.Follow.Err() != nil {
+		return nil, opts.Follow.Err()
+	}
 	store, err := LoadMetadata(sourceDir)
 	if err != nil {
 		return nil, err
@@ -38,13 +45,9 @@ type TrackedRepoMeta struct {
 	Branch string
 }
 
-// getMissingTrackedReposImpl returns tracked repositories declared in .metadata.json
-// whose clone directories are absent or no longer contain a git checkout.
-func getMissingTrackedReposImpl(sourceDir string) ([]TrackedRepoMeta, error) {
-	return GetMissingTrackedReposWithOptions(sourceDir, sourcewalk.Options{})
-}
-
-// GetMissingTrackedReposWithOptions uses the same ownership snapshot as discovery.
+// GetMissingTrackedReposWithOptions returns tracked repositories declared in
+// .metadata.json whose clone directories are absent or no longer contain a git
+// checkout. It uses the same ownership snapshot as discovery.
 func GetMissingTrackedReposWithOptions(sourceDir string, opts sourcewalk.Options) ([]TrackedRepoMeta, error) {
 	store, err := LoadMetadata(sourceDir)
 	if err != nil {
@@ -218,16 +221,10 @@ func CheckCrossPathDuplicate(sourceDir, cloneURL, targetPrefix string) error {
 		loc)
 }
 
-// getTrackedReposImpl returns tracked repositories from the source directory.
-// It walks subdirectories recursively so repos nested in organizational
-// directories (e.g. category/_team-repo/) are found.
-
-func getTrackedReposImpl(sourceDir string) ([]string, error) {
-	return GetTrackedReposWithOptions(sourceDir, sourcewalk.Options{})
-}
-
-// GetTrackedReposWithOptions discovers tracked repositories with an operation-owned
-// FollowSet. The legacy entry point deliberately keeps nil-follow behavior.
+// GetTrackedReposWithOptions returns tracked repositories in the source. It walks
+// subdirectories recursively so repos nested in organizational directories
+// (e.g. category/_team-repo/) are found. Callers pass the operation's FollowSet;
+// a nil Follow keeps plain traversal.
 func GetTrackedReposWithOptions(sourceDir string, opts sourcewalk.Options) ([]string, error) {
 	var repos []string
 

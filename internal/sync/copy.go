@@ -250,16 +250,7 @@ func SyncTargetCopyWithSkillsOptions(name string, target config.TargetConfig, al
 	return result, nil
 }
 
-// PruneOrphanCopies removes managed copies that no longer exist in source.
-func PruneOrphanCopies(targetPath, sourcePath string, include, exclude []string, targetName, targetNaming string, dryRun bool) (*PruneResult, error) {
-	allSourceSkills, err := DiscoverSourceSkills(sourcePath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to discover skills for pruning: %w", err)
-	}
-	return PruneOrphanCopiesWithSkills(targetPath, allSourceSkills, include, exclude, targetName, targetNaming, dryRun)
-}
-
-// PruneOrphanCopiesWithSkills is like PruneOrphanCopies but accepts pre-discovered skills.
+// PruneOrphanCopiesWithSkills removes managed copies missing from allSourceSkills.
 func PruneOrphanCopiesWithSkills(targetPath string, allSourceSkills []DiscoveredSkill, include, exclude []string, targetName, targetNaming string, dryRun bool) (*PruneResult, error) {
 	return PruneOrphanCopiesWithOptions(PruneOptions{
 		TargetPath: targetPath, Skills: allSourceSkills, Include: include, Exclude: exclude,

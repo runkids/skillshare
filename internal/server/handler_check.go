@@ -62,7 +62,7 @@ func (s *Server) handleCheck(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	skills, _ := install.GetUpdatableSkills(sourceDir)
+	skills, _ := install.GetUpdatableSkillsWithOptions(sourceDir, sourcewalk.Options{Follow: follow})
 
 	var repoResults []repoCheckResult
 	for _, repo := range repos {

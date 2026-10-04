@@ -56,83 +56,6 @@ func isSkillIgnored(relPath, walkRoot string, ignoreMatchers map[string]*skillig
 	return m != nil && m.Match(repoRelPath, false)
 }
 
-// DiscoverSourceSkillsLite recursively scans the source directory for skills
-// without parsing SKILL.md frontmatter. Targets is always nil for each skill.
-// It also collects tracked repo paths (directories starting with _ that contain
-// .git) during the same walk, eliminating the need for a separate GetTrackedRepos call.
-//
-// Use this for commands like list/uninstall that don't need per-skill target filtering.
-func DiscoverSourceSkillsLite(sourcePath string) ([]DiscoveredSkill, []string, error) {
-	skills, trackedRepos, _, err := discoverSourceSkillsInternal(sourcePath, discoverOptions{
-		parseFrontmatter: false,
-		collectIgnored:   false,
-		collectTracked:   true,
-	})
-	return skills, trackedRepos, err
-}
-
-// DiscoverSourceSkills recursively scans the source directory for skills.
-// A skill is identified by the presence of a SKILL.md file.
-// Returns all discovered skills with their metadata for syncing.
-func DiscoverSourceSkills(sourcePath string) ([]DiscoveredSkill, error) {
-	skills, _, _, err := discoverSourceSkillsInternal(sourcePath, discoverOptions{
-		parseFrontmatter: true,
-		collectIgnored:   false,
-		collectTracked:   false,
-	})
-	return skills, err
-}
-
-// DiscoverSourceSkillsForAnalyze scans skills and computes context usage
-// (name+description chars, body chars) in a single pass. Avoids re-reading
-// SKILL.md files in a separate analysis phase. Skills disabled by .skillignore
-// are kept with Disabled=true, since a symlink-mode target still loads them;
-// TargetSkills drops them for every other mode.
-func DiscoverSourceSkillsForAnalyze(sourcePath string) ([]DiscoveredSkill, error) {
-	skills, _, _, err := discoverSourceSkillsInternal(sourcePath, discoverOptions{
-		parseFrontmatter: true,
-		collectContext:   true,
-		includeIgnored:   true,
-	})
-	return skills, err
-}
-
-// DiscoverSourceSkillsWithStats recursively scans the source directory for skills
-// and collects .skillignore statistics (which files are active, patterns, ignored paths).
-// Use this for commands like doctor/status that need to report on .skillignore state.
-func DiscoverSourceSkillsWithStats(sourcePath string) ([]DiscoveredSkill, *skillignore.IgnoreStats, error) {
-	skills, _, stats, err := discoverSourceSkillsInternal(sourcePath, discoverOptions{
-		parseFrontmatter: true,
-		collectIgnored:   true,
-		collectTracked:   false,
-	})
-	return skills, stats, err
-}
-
-// DiscoverSourceSkillsWithStatsAndContext is like DiscoverSourceSkillsWithStats
-// but also computes DescChars/BodyChars for each skill in a single walk pass.
-// Use this for commands (e.g. sync) that need both ignore stats and context cost.
-func DiscoverSourceSkillsWithStatsAndContext(sourcePath string) ([]DiscoveredSkill, *skillignore.IgnoreStats, error) {
-	skills, _, stats, err := discoverSourceSkillsInternal(sourcePath, discoverOptions{
-		parseFrontmatter: true,
-		collectIgnored:   true,
-		collectContext:   true,
-		collectTracked:   false,
-	})
-	return skills, stats, err
-}
-
-// DiscoverSourceSkillsAll scans the source directory and returns ALL skills
-// including those ignored by .skillignore. Ignored skills have Disabled=true.
-// Use this for list/UI commands that need to show disabled skills.
-func DiscoverSourceSkillsAll(sourcePath string) ([]DiscoveredSkill, error) {
-	skills, _, _, err := discoverSourceSkillsInternal(sourcePath, discoverOptions{
-		parseFrontmatter: true,
-		includeIgnored:   true,
-	})
-	return skills, err
-}
-
 // TargetStatus represents the state of a target
 type TargetStatus int
 
@@ -539,20 +462,9 @@ func ensureRealTargetDir(targetPath, sourcePath, modeName string, dryRun bool) (
 	return false, nil
 }
 
-// SyncTargetMerge performs merge mode sync - creates symlinks for each skill individually
-// while preserving target-specific skills.
-// Supports nested skills: source path "personal/writing/email" becomes target symlink "personal__writing__email"
-// If force is true, local copies will be replaced with symlinks.
-func SyncTargetMerge(name string, target config.TargetConfig, sourcePath string, dryRun, force bool, projectRoot string) (*MergeResult, error) {
-	skills, err := DiscoverSourceSkills(sourcePath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to discover skills: %w", err)
-	}
-	return SyncTargetMergeWithSkills(name, target, skills, sourcePath, dryRun, force, projectRoot)
-}
-
-// SyncTargetMergeWithSkills is like SyncTargetMerge but accepts pre-discovered skills,
-// avoiding redundant filesystem walks when syncing multiple targets.
+// SyncTargetMergeWithSkills performs merge mode sync with pre-discovered skills:
+// it links each skill individually and preserves target-specific skills. Nested
+// source path "personal/writing/email" becomes target link "personal__writing__email".
 // sourcePath is the skills source directory, used to detect symlink-mode targets.
 func SyncTargetMergeWithSkills(name string, target config.TargetConfig, allSkills []DiscoveredSkill, sourcePath string, dryRun, force bool, projectRoot string) (*MergeResult, error) {
 	return SyncTargetMergeWithSkillsOptions(name, target, allSkills, sourcePath, dryRun, force, projectRoot, MergeOptions{})
@@ -726,7 +638,7 @@ type PruneResult struct {
 	Paused []string
 }
 
-// PruneOptions holds parameters for PruneOrphanLinks / PruneOrphanCopies.
+// PruneOptions holds parameters for PruneOrphanLinksWithSkills and PruneOrphanCopiesWithOptions.
 type PruneOptions struct {
 	TargetPath   string
 	SourcePath   string
@@ -747,33 +659,10 @@ type PruneOptions struct {
 	Follow *sourcewalk.FollowSet
 }
 
-// PruneOrphanLinks removes target entries that are no longer managed by sync.
-// This includes:
-// 1. Source-linked entries excluded by include/exclude filters (remove from target)
-// 2. Orphan links/directories that no longer exist in source
-// 3. Unknown local directories and live links skillshare never created (kept, reported as local)
-// A link that still resolves into the source is only removed when the manifest
-// records it (or force is set), so links created outside skillshare survive.
-func PruneOrphanLinks(targetPath, sourcePath string, include, exclude []string, targetName, targetNaming string, dryRun, force bool) (*PruneResult, error) {
-	allSourceSkills, err := DiscoverSourceSkills(sourcePath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to discover skills for pruning: %w", err)
-	}
-	return PruneOrphanLinksWithSkills(PruneOptions{
-		TargetPath:   targetPath,
-		SourcePath:   sourcePath,
-		Skills:       allSourceSkills,
-		Include:      include,
-		Exclude:      exclude,
-		TargetNaming: targetNaming,
-		TargetName:   targetName,
-		DryRun:       dryRun,
-		Force:        force,
-	})
-}
-
-// PruneOrphanLinksWithSkills is like PruneOrphanLinks but accepts pre-discovered skills
-// via PruneOptions, avoiding redundant filesystem walks.
+// PruneOrphanLinksWithSkills removes target entries that sync no longer manages:
+// filtered-out source links, orphans missing from opts.Skills, and nothing it
+// cannot prove is skillshare's. A link still resolving into the source is
+// removed only when the manifest records it (or Force is set).
 func PruneOrphanLinksWithSkills(opts PruneOptions) (*PruneResult, error) {
 	targetPath := opts.TargetPath
 	sourcePath := opts.SourcePath

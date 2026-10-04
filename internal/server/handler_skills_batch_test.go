@@ -296,7 +296,7 @@ func addTrackedRepoSkill(t *testing.T, sourceDir string) string {
 // effectiveTargets returns the targets discovery reports for relPath.
 func effectiveTargets(t *testing.T, sourceDir, relPath string) []string {
 	t.Helper()
-	skills, err := ssync.DiscoverSourceSkillsAll(sourceDir)
+	skills, err := ssync.DiscoverSourceSkillsAllWithOptions(sourceDir, ssync.DiscoveryOptions{})
 	if err != nil {
 		t.Fatalf("discover: %v", err)
 	}

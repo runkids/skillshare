@@ -34,7 +34,8 @@ type DiscoveryOptions struct {
 	IncludeIgnored bool
 }
 
-// DiscoverSourceSkillsWithOptions shares a caller-owned FollowSet with discovery.
+// DiscoverSourceSkillsWithOptions is the skills discovery entry point. Callers
+// pass the operation's FollowSet; a nil Follow keeps plain traversal.
 // Read failures inside followed trees return an error and no partial skill set.
 func DiscoverSourceSkillsWithOptions(sourcePath string, opts DiscoveryOptions) ([]DiscoveredSkill, *skillignore.IgnoreStats, error) {
 	skills, _, stats, err := discoverSourceSkillsInternal(sourcePath, discoverOptions{

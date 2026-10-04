@@ -106,11 +106,6 @@ func (s *Server) handleOverview(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, resp)
 }
 
-func buildTrackedRepos(sourceDir string, skills []sync.DiscoveredSkill) []trackedRepoItem {
-	items, _ := buildTrackedReposWithOptions(sourceDir, skills, sourcewalk.Options{})
-	return items
-}
-
 func buildTrackedReposWithOptions(sourceDir string, skills []sync.DiscoveredSkill, opts sourcewalk.Options) ([]trackedRepoItem, error) {
 	repoNames, err := install.GetTrackedReposWithOptions(sourceDir, opts)
 	if err != nil || len(repoNames) == 0 {

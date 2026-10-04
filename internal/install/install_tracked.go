@@ -409,6 +409,3 @@ func shouldFallbackTrackedClone(err error) bool {
 	}
 	return false
 }
-
-// GetUpdatableSkills returns skill names that have metadata with a remote source.
-// It walks subdirectories recursively so nested skills are found.

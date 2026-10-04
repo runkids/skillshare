@@ -45,7 +45,7 @@ func (s *Server) handleCheckStream(w http.ResponseWriter, r *http.Request) {
 		safeSend("error", map[string]string{"error": err.Error()})
 		return
 	}
-	skills, _ := install.GetUpdatableSkills(sourceDir)
+	skills, _ := install.GetUpdatableSkillsWithOptions(sourceDir, sourcewalk.Options{Follow: follow})
 
 	// --- Pre-process: group skills by URL (fast, local only) ---
 	urlGroups := make(map[urlBranchGroup][]skillWithMetaEntry)
