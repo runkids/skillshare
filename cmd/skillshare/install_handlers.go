@@ -864,6 +864,7 @@ func installFromGlobalConfig(cfg *config.Config, opts install.InstallOptions) (i
 		return summary, fmt.Errorf("failed to load metadata: %w", storeErr)
 	}
 	ctx := &globalInstallContext{cfg: cfg, store: store}
+	opts.Follow = globalSkillFollowSet(cfg)
 
 	if len(ctx.ConfigSkills()) == 0 {
 		ui.Done(ui.MarkNone, "No remote skills defined in metadata", 0)

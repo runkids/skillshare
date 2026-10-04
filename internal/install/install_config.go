@@ -141,6 +141,17 @@ func InstallFromConfig(ctx InstallContext, opts InstallOptions) (ConfigInstallRe
 		}
 
 		displayName := skill.FullName()
+		// A declared entry belongs to its external owner, even while the link is
+		// offline; installing below it would materialize the boundary.
+		if opts.Follow != nil {
+			if entry, followed := opts.Follow.InFollowed(displayName); followed {
+				result.Skipped++
+				if !opts.Quiet {
+					ui.StepDone(displayName, "skipped (inside followed entry "+entry.Name+")")
+				}
+				continue
+			}
+		}
 		destPath := filepath.Join(sourcePath, filepath.FromSlash(displayName))
 		locked := opts.Lock.CommitFor(displayName, skill.Source)
 

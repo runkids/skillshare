@@ -108,6 +108,7 @@ func installFromProjectConfig(runtime *projectRuntime, opts install.InstallOptio
 	}
 
 	ctx := &projectInstallContext{runtime: runtime}
+	opts.Follow = skillFollowSet(runtime.sourcePath, runtime.targets, runtime.root)
 
 	lock, err := install.LoadLock(projectdir.Resolve(runtime.root))
 	if err != nil {
