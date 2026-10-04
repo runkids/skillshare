@@ -276,7 +276,7 @@ func Delete(root, rel, version string) error {
 func Init(root string) error {
 	starters := []struct{ path, content string }{
 		{"INDEX.md", "# Shared memory\n\nKeep durable notes in this folder. Link relevant notes here with standard Markdown links.\n\n## Notes\n\n- [Lessons learned](LEARNED.md)\n"},
-		{"LEARNED.md", "# Lessons learned\n\nRecord durable lessons and verified solutions. Update only when the user requests it. Verify changeable claims before reusing them.\n\n## Lesson title\n\n- Date:\n- Context:\n- Conclusion:\n- Evidence:\n"},
+		{"LEARNED.md", "# Lessons learned\n\nRecord durable lessons and verified solutions here. Your memory guidance says when to update these notes. Verify changeable claims before reusing them.\n\n## Lesson title\n\n- Date:\n- Context:\n- Conclusion:\n- Evidence:\n"},
 	}
 	for _, starter := range starters {
 		if _, err := Read(root, starter.path); err == nil {

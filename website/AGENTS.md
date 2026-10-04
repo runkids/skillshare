@@ -30,7 +30,7 @@ docs/                        ~100 Markdown pages, English only
   how-to/                    daily-tasks/, sharing/, advanced/, recipes/
   understand/                Concepts, design philosophy
   reference/
-    commands/                One page per CLI command (33 commands + index)
+    commands/                One page per CLI command, plus index
     targets/                 Supported targets, target config
     appendix/                URL formats, env vars, file structure
     filtering.md
@@ -52,7 +52,7 @@ plugins/llms-txt.ts          Local plugin: writes build/llms.txt and llms-full.t
 
 ## Key Config
 
-- `docusaurus.config.ts` — Site config, navbar (Learn, How-To, Reference, Feature map, Blog, Changelog), footer, redirects from old `/docs/commands/*` paths
+- `docusaurus.config.ts` — Site config, navbar (Desktop App, Learn, How-To, Reference, Feature map, Blog, Changelog), footer, redirects from old `/docs/commands/*` paths
 - `sidebars.ts` — Learn / How-To / Understand / Reference / Troubleshooting, with nested command subcategories
 - `plugins/llms-txt.ts` — On the English build, writes `/llms.txt` (sidebar-ordered link index with first-sentence descriptions) and `/llms-full.txt` (all sidebar docs concatenated). Docs missing from `sidebars.ts` are left out of both
 - `onBrokenLinks: 'throw'` — a bad link fails the build

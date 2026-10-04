@@ -98,7 +98,7 @@ Rules:
 
 - Create a fresh environment for every E2E run; never reuse stale state.
 - `ssenv` isolates only `HOME`. `/tmp` and other system paths are shared, so runbooks must use unique paths or clean an exact target first.
-- Use `bash -c` for multi-command sequences and `cd /workspace` before Go commands.
+- In the shared devcontainer, `bash -lc` works for multi-command sequences; in a throwaway worktree container use `bash -c`, because its empty home makes a login shell lose Go. Run `cd /workspace` before Go commands in both.
 - `--init` already performs global initialization and creates the default `rules` extra; a runbook must not assume an empty environment.
 - `--seed` fills the environment for `init` testing: claude (2 skills), codex (1 skill), cursor, and a local repo at `$HOME/remote/skills.git` whose `pdf-tools` clashes with claude's.
 - Report the environment after execution. Delete or preserve it for debugging according to user direction; never discard requested evidence silently.

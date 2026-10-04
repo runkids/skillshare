@@ -50,7 +50,7 @@ func TestApplyReplacesOnlyOutdatedBlock(t *testing.T) {
 
 func TestApplyRefusesUserChangedBlocks(t *testing.T) {
 	want := Instructions("/notes", "", ModePassive)
-	modified := strings.Replace(want, "Read only", "Always read", 1)
+	modified := strings.Replace(want, "Open only", "Always open", 1)
 	unclosed := strings.Replace(want, blockEnd+"\n", "", 1)
 	twice := want + "\n" + want
 	for name, content := range map[string]string{StateModified: modified, StateMalformed: unclosed, StateMalformed + "-twice": twice} {

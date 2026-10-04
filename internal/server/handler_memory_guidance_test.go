@@ -113,7 +113,7 @@ func TestMemoryGuidance_PreservesUserChangedAndManualGuidance(t *testing.T) {
 	s, home := newInstructionsServer(t, "codex")
 	root, _ := memory.GlobalRoot(s.cfg)
 	block := memory.Instructions(root, "", memory.ModePassive)
-	edited := "own\n" + strings.Replace(block, "Read only", "Always read", 1)
+	edited := "own\n" + strings.Replace(block, "Open only", "Always open", 1)
 	codex := writeHome(t, home, ".codex/AGENTS.md", edited)
 	if got := guidanceState(t, s)["codex"]; got.State != "broken" || got.Detail != "modified" {
 		t.Fatalf("modified = %+v", got)

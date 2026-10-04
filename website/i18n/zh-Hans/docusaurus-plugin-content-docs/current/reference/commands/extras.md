@@ -33,7 +33,7 @@ Extras 是 skillshare 管理的额外资源类型 —— 可以把它们理解�
 | `show <note.md>` | 读取笔记；`--json` 包含 `version` hash |
 | `write <note.md> --from <file\|->` | 从文件或 stdin 读取内容；创建时不指定 `--version`，更新须使用最近读取的 version |
 | `delete <note.md> --version <hash>` | 备份后删除指定版本，拒绝过期或缺少的 version |
-| `instructions` | 输出指向实际 source 目录的读取指引；`--update-mode passive`（默认）要求 Agent 只在用户要求时更新笔记，`--update-mode active` 让 Agent 自行保存长期有用的事实、拿不准时先提议 |
+| `instructions` | 输出指向实际 source 目录的读取指引；两种模式都会在每个 task 开始时读 `INDEX.md`；`--update-mode passive`（默认）让 Agent 提出值得记的事实、只在用户要求时更新笔记，`--update-mode active` 让 Agent 把这类事实保存在这里而不是工具自己的记忆、拿不准时先提议 |
 
 各子命令支持 `--json`、`-g` / `--global`、`-p` / `--project` 和 `--help`。
 未指定时自动判断 scope。默认 global 路径为 `~/.config/skillshare/extras/memory/`，
