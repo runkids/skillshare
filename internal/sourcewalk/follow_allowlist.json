@@ -1,0 +1,44 @@
+[
+  {
+    "file": "cmd/skillshare/audit.go",
+    "function": "parseAuditArgs",
+    "rule": "options",
+    "expr": "auditOptions{}",
+    "reason": "Flag parsing result; cmdAudit sets Follow from the loaded global or project config before any scan"
+  },
+  {
+    "file": "cmd/skillshare/doctor.go",
+    "function": "checkSource",
+    "rule": "options",
+    "expr": "sourcewalk.Options{}",
+    "reason": "Error-path count of physical first-level directories after follow-aware discovery failed; the skillfollow checks report that failure"
+  },
+  {
+    "file": "cmd/skillshare/doctor.go",
+    "function": "checkUndeclaredSourceLinksWithFollow",
+    "rule": "options",
+    "expr": "sourcewalk.Options{}",
+    "reason": "Runs only when the snapshot is nil, to list first-level links as links without following them"
+  },
+  {
+    "file": "cmd/skillshare/update_agents.go",
+    "function": "batchUpdateAgents",
+    "rule": "options",
+    "expr": "install.InstallOptions{Kind: \"agent\", Force: opts.force, AuditOverride: opts.force, Update: true, SkipAudit: opts.skipAudit, AuditThreshold: opts.threshold, AuditProjectRoot: projectRoot, SourceDir: agentsDir}",
+    "reason": "Agent reinstall into the agents source; .skillfollow covers the skills source only"
+  },
+  {
+    "file": "cmd/skillshare/update_agents.go",
+    "function": "reinstallAgent",
+    "rule": "options",
+    "expr": "install.InstallOptions{Kind: \"agent\", Force: opts.force, AuditOverride: opts.force, Update: true, SkipAudit: opts.skipAudit, AuditThreshold: opts.threshold, AuditProjectRoot: projectRoot, SourceDir: agentsDir}",
+    "reason": "Agent reinstall into the agents source; .skillfollow covers the skills source only"
+  },
+  {
+    "file": "internal/server/handler_update.go",
+    "function": "(*Server).updateAgent",
+    "rule": "options",
+    "expr": "install.InstallOptions{Kind: \"agent\", Force: force, Update: true, SkipAudit: skipAudit, AuditThreshold: s.updateAuditThreshold(), SourceDir: agentsSource}",
+    "reason": "Agent reinstall into the agents source; .skillfollow covers the skills source only"
+  }
+]
