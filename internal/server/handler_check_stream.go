@@ -10,6 +10,7 @@ import (
 
 	"skillshare/internal/check"
 	"skillshare/internal/install"
+	"skillshare/internal/sourcewalk"
 )
 
 // handleCheckStream serves an SSE endpoint that streams check progress in real time.
@@ -33,12 +34,13 @@ func (s *Server) handleCheckStream(w http.ResponseWriter, r *http.Request) {
 	s.mu.RLock()
 	sourceDir := s.skillsSource()
 	projectRoot := s.projectRoot
+	follow := s.skillFollowSet()
 	s.mu.RUnlock()
 
 	// Immediate feedback before the potentially slow discovery walk.
 	safeSend("discovering", map[string]string{"phase": "scanning source directory"})
 
-	repos, _ := install.GetTrackedRepos(sourceDir)
+	repos, _ := install.GetTrackedReposWithOptions(sourceDir, sourcewalk.Options{Follow: follow})
 	skills, _ := install.GetUpdatableSkills(sourceDir)
 
 	// --- Pre-process: group skills by URL (fast, local only) ---

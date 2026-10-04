@@ -10,6 +10,7 @@ import (
 
 	"skillshare/internal/audit"
 	"skillshare/internal/config"
+	"skillshare/internal/install"
 	"skillshare/internal/oplog"
 	"skillshare/internal/resource"
 	"skillshare/internal/sourcewalk"
@@ -30,6 +31,7 @@ const (
 )
 
 type auditOptions struct {
+	Follow          *sourcewalk.FollowSet
 	Targets         []string
 	Groups          []string
 	InitRules       bool
@@ -184,6 +186,7 @@ func cmdAudit(args []string) error {
 			return err
 		}
 		sourcePath = rt.sourcePath
+		opts.Follow = skillFollowSet(rt.sourcePath, rt.targets, cwd)
 		agentsSourcePath = rt.agentsSourcePath
 		projectRoot = cwd
 		defaultThreshold = rt.config.Audit.BlockThreshold
@@ -197,6 +200,7 @@ func cmdAudit(args []string) error {
 			return err
 		}
 		sourcePath = cfg.EffectiveSkillsSource()
+		opts.Follow = globalSkillFollowSet(cfg)
 		agentsSourcePath = cfg.EffectiveAgentsSource()
 		defaultThreshold = cfg.Audit.BlockThreshold
 		configProfile = cfg.Audit.Profile
@@ -241,7 +245,7 @@ func cmdAudit(args []string) error {
 	case isSinglePath:
 		results, summary, err = auditPath(opts.Targets[0], modeString(mode), projectRoot, threshold, opts.Format, opts.PolicyLine, registry)
 	case isSingleName:
-		results, summary, err = auditSkillByName(sourcePath, opts.Targets[0], modeString(mode), projectRoot, threshold, opts.Format, opts.PolicyLine, kind, registry)
+		results, summary, err = auditSkillByName(sourcePath, opts.Targets[0], modeString(mode), projectRoot, threshold, opts.Format, opts.PolicyLine, kind, registry, opts.Follow)
 	default:
 		results, summary, err = auditFiltered(sourcePath, agentsSourcePath, opts.Targets, opts.Groups, modeString(mode), projectRoot, threshold, kind, opts, registry)
 	}
@@ -394,10 +398,10 @@ type auditSkillRef struct {
 	path string
 }
 
-func collectInstalledSkillPaths(sourcePath string) ([]auditSkillRef, error) {
-	// Use Lite variant: audit does not need Targets (frontmatter parsing),
-	// saving ~2-5s on large source directories (skips 100k SKILL.md reads).
-	discovered, _, err := sync.DiscoverSourceSkillsLite(sourcePath)
+func collectInstalledSkillPaths(sourcePath string, follows ...*sourcewalk.FollowSet) ([]auditSkillRef, error) {
+	// Share the operation's follow policy with both discovery and fallback groups.
+	follow := firstFollowSet(follows)
+	discovered, _, err := sync.DiscoverSourceSkillsWithOptions(sourcePath, sync.DiscoveryOptions{Follow: follow})
 	if err != nil {
 		return nil, fmt.Errorf("failed to discover skills: %w", err)
 	}
@@ -409,19 +413,31 @@ func collectInstalledSkillPaths(sourcePath string) ([]auditSkillRef, error) {
 			continue
 		}
 		seen[d.SourcePath] = true
-		skillPaths = append(skillPaths, auditSkillRef{d.FlatName, d.SourcePath})
+		skillPaths = append(skillPaths, auditSkillRef{name: d.FlatName, path: d.SourcePath})
 	}
 
-	entries, _ := sourcewalk.ReadDir(sourcePath, sourcewalk.Options{})
+	entries, readErr := sourcewalk.ReadDir(sourcePath, sourcewalk.Options{Follow: follow})
+	if follow != nil {
+		if readErr != nil {
+			return nil, readErr
+		}
+		if err := follow.Err(); err != nil {
+			return nil, err
+		}
+	}
 	for _, e := range entries {
-		if !e.IsDir() || utils.IsHidden(e.Name()) || utils.IsTrackedRepoDir(e.Name()) {
-			// Tracked hub repos are already handled by DiscoverSourceSkillsLite.
+		p := filepath.Join(sourcePath, e.Name())
+		tracked := utils.IsTrackedRepoDir(e.Name())
+		if auditPathFollowed(sourcePath, p, follow) && !install.IsGitRepo(p) {
+			tracked = false
+		}
+		if !e.IsDir() || utils.IsHidden(e.Name()) || tracked {
+			// Tracked hub repos are already handled by skill discovery.
 			continue
 		}
-		p := filepath.Join(sourcePath, e.Name())
 		if !seen[p] {
 			seen[p] = true
-			skillPaths = append(skillPaths, auditSkillRef{e.Name(), p})
+			skillPaths = append(skillPaths, auditSkillRef{name: e.Name(), path: p})
 		}
 	}
 
@@ -430,8 +446,8 @@ func collectInstalledSkillPaths(sourcePath string) ([]auditSkillRef, error) {
 
 // resolveSkillPath searches installed skills for a match by flat name or basename.
 // Returns the full path if found, empty string otherwise.
-func resolveSkillPath(sourcePath, name string) string {
-	skills, err := collectInstalledSkillPaths(sourcePath)
+func resolveSkillPath(sourcePath, name string, follows ...*sourcewalk.FollowSet) string {
+	skills, err := collectInstalledSkillPaths(sourcePath, firstFollowSet(follows))
 	if err != nil {
 		return ""
 	}
@@ -536,7 +552,7 @@ func auditInstalled(sourcePath, agentsSourcePath, mode, projectRoot, threshold s
 	if kind == kindAgents {
 		skillPaths, err = collectInstalledAgentPaths(sourcePath)
 	} else {
-		skillPaths, err = collectInstalledSkillPaths(sourcePath)
+		skillPaths, err = collectInstalledSkillPaths(sourcePath, opts.Follow)
 	}
 	if err != nil {
 		if spinner != nil {
@@ -584,6 +600,7 @@ func auditInstalled(sourcePath, agentsSourcePath, mode, projectRoot, threshold s
 		}
 	}
 	scanInputs := toInputsForKind(kind, skillPaths)
+	markFollowedAuditInputs(scanInputs, sourcePath, opts.Follow)
 	scanResults := audit.ParallelScan(scanInputs, projectRoot, onDone, reg)
 	if progressBar != nil {
 		progressBar.Stop()
@@ -654,7 +671,7 @@ func auditFiltered(sourcePath, agentsSourcePath string, names, groups []string, 
 	if kind == kindAgents {
 		allSkills, err = collectInstalledAgentPaths(sourcePath)
 	} else {
-		allSkills, err = collectInstalledSkillPaths(sourcePath)
+		allSkills, err = collectInstalledSkillPaths(sourcePath, opts.Follow)
 	}
 	if err != nil {
 		return nil, base, err
@@ -729,6 +746,7 @@ func auditFiltered(sourcePath, agentsSourcePath string, names, groups []string, 
 		}
 	}
 	scanInputs := toInputsForKind(kind, matched)
+	markFollowedAuditInputs(scanInputs, sourcePath, opts.Follow)
 	scanResults := audit.ParallelScan(scanInputs, projectRoot, onDone, reg)
 	if progressBar != nil {
 		progressBar.Stop()
@@ -785,7 +803,7 @@ func auditFiltered(sourcePath, agentsSourcePath string, names, groups []string, 
 	return results, summary, nil
 }
 
-func auditSkillByName(sourcePath, name, mode, projectRoot, threshold, format, policyLine string, kind resourceKindFilter, reg *audit.Registry) ([]*audit.Result, auditRunSummary, error) {
+func auditSkillByName(sourcePath, name, mode, projectRoot, threshold, format, policyLine string, kind resourceKindFilter, reg *audit.Registry, follows ...*sourcewalk.FollowSet) ([]*audit.Result, auditRunSummary, error) {
 	summary := auditRunSummary{
 		Scope:     "single",
 		Skill:     name,
@@ -796,7 +814,7 @@ func auditSkillByName(sourcePath, name, mode, projectRoot, threshold, format, po
 	skillPath := filepath.Join(sourcePath, name)
 	if _, err := os.Stat(skillPath); os.IsNotExist(err) {
 		// Short-name fallback: search installed skills by flat name or basename.
-		resolved := resolveSkillPath(sourcePath, name)
+		resolved := resolveSkillPath(sourcePath, name, firstFollowSet(follows))
 		if resolved == "" {
 			return nil, summary, fmt.Errorf("%s not found: %s", kind.SingularNoun(), name)
 		}
@@ -804,7 +822,14 @@ func auditSkillByName(sourcePath, name, mode, projectRoot, threshold, format, po
 	}
 
 	start := time.Now()
-	result, err := scanPathTarget(skillPath, projectRoot, reg)
+	scan := func(path string) (*audit.Result, error) { return scanPathTarget(path, projectRoot, reg) }
+	var result *audit.Result
+	var err error
+	if auditPathFollowed(sourcePath, skillPath, firstFollowSet(follows)) {
+		result, err = audit.ScanResolvedSkill(skillPath, scan)
+	} else {
+		result, err = scan(skillPath)
+	}
 	if err != nil {
 		return nil, summary, fmt.Errorf("scan error: %w", err)
 	}
@@ -1073,4 +1098,22 @@ func initAuditRules(path string) error {
 	}
 	ui.Row(ui.MarkOK, "Created", utils.FoldHomePath(path), ui.RowWidth("Created"))
 	return nil
+}
+
+func auditPathFollowed(source, path string, follow *sourcewalk.FollowSet) bool {
+	if follow == nil {
+		return false
+	}
+	rel, err := filepath.Rel(source, path)
+	if err != nil {
+		return false
+	}
+	_, ok := follow.InFollowed(filepath.ToSlash(rel))
+	return ok
+}
+
+func markFollowedAuditInputs(inputs []audit.SkillInput, source string, follow *sourcewalk.FollowSet) {
+	for i := range inputs {
+		inputs[i].Followed = auditPathFollowed(source, inputs[i].Path, follow)
+	}
 }

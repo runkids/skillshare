@@ -288,12 +288,27 @@ func auditTrackedRepoUpdate(repoPath, beforeHash string, result *TrackedRepoResu
 	}
 	result.AuditThreshold = threshold
 
-	var scanResult *audit.Result
+	scan := audit.ScanSkill
 	if opts.AuditProjectRoot != "" {
-		scanResult, err = audit.ScanSkillForProject(repoPath, opts.AuditProjectRoot)
-	} else {
-		scanResult, err = audit.ScanSkill(repoPath)
+		scan = func(path string) (*audit.Result, error) {
+			return audit.ScanSkillForProject(path, opts.AuditProjectRoot)
+		}
 	}
+	followed := false
+	if opts.Follow != nil {
+		rel, relErr := filepath.Rel(opts.SourceDir, repoPath)
+		if relErr != nil {
+			return relErr
+		}
+		_, followed = opts.Follow.InFollowed(filepath.ToSlash(rel))
+	}
+	var scanResult *audit.Result
+	if followed {
+		scanResult, err = audit.ScanResolvedSkill(repoPath, scan)
+	} else {
+		scanResult, err = scan(repoPath)
+	}
+
 	if err != nil {
 		if beforeHash == "" {
 			return fmt.Errorf(
@@ -349,11 +364,16 @@ func auditTrackedRepoUpdate(repoPath, beforeHash string, result *TrackedRepoResu
 				threshold, resetErr, audit.ErrBlocked)
 		}
 		details := blockedFindingDetails(scanResult.Findings, threshold)
+		advice := "Use --force to override or --skip-audit to bypass scanning"
+		if followed {
+			advice = "Resolve findings in the followed repository before updating"
+		}
 		return fmt.Errorf(
-			"security audit failed — findings at/above %s detected in tracked repository (rolled back to %s):\n%s\n\nUse --force to override or --skip-audit to bypass scanning: %w",
+			"security audit failed — findings at/above %s detected in tracked repository (rolled back to %s):\n%s\n\n%s: %w",
 			threshold,
 			shortHash(beforeHash),
 			strings.Join(details, "\n"),
+			advice,
 			audit.ErrBlocked,
 		)
 	}

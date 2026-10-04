@@ -187,6 +187,7 @@ func cmdUpdate(args []string) error {
 		opts.threshold = cfg.Audit.BlockThreshold
 	}
 	sourcePath := utils.ResolveSymlink(cfg.EffectiveSkillsSource())
+	follow := globalSkillFollowSet(cfg)
 
 	// In JSON mode, redirect all UI output to stderr early so the
 	// header, step, spinner, and handler output don't corrupt stdout.
@@ -215,7 +216,7 @@ func cmdUpdate(args []string) error {
 		if metaErr != nil {
 			resolveWarnings = append(resolveWarnings, fmt.Sprintf("could not read skill metadata: %v", metaErr))
 		}
-		err := sourcewalk.Walk(walkRoot, sourcewalk.Options{}, func(path string, info os.FileInfo, err error) error {
+		err := sourcewalk.Walk(walkRoot, sourcewalk.Options{Follow: follow}, func(path string, info os.FileInfo, err error) error {
 			if err != nil || path == walkRoot {
 				return nil
 			}
@@ -252,13 +253,16 @@ func cmdUpdate(args []string) error {
 			return nil
 		})
 		scanSpinner.Stop()
+		if err == nil && follow != nil {
+			err = follow.Err()
+		}
 		if err != nil {
 			if opts.jsonOutput {
 				return jsonWriteError(err)
 			}
 			return fmt.Errorf("failed to scan skills: %w", err)
 		}
-		missingRepos, _ := install.GetMissingTrackedRepos(sourcePath)
+		missingRepos, _ := install.GetMissingTrackedReposWithOptions(sourcePath, sourcewalk.Options{Follow: follow})
 		for _, repo := range missingRepos {
 			if !seen[repo.Name] {
 				seen[repo.Name] = true
@@ -272,7 +276,7 @@ func cmdUpdate(args []string) error {
 		for _, name := range opts.names {
 			// Glob pattern matching (e.g. "core-*", "_team-?")
 			if isGlobPattern(name) {
-				globMatches, globErr := resolveByGlob(sourcePath, name)
+				globMatches, globErr := resolveByGlob(sourcePath, name, follow)
 				if globErr != nil {
 					resolveWarnings = append(resolveWarnings, fmt.Sprintf("%s: %v", name, globErr))
 					continue
@@ -311,7 +315,7 @@ func cmdUpdate(args []string) error {
 				continue
 			}
 
-			match, err := resolveByBasename(sourcePath, name)
+			match, err := resolveByBasename(sourcePath, name, follow)
 			if err != nil {
 				resolveWarnings = append(resolveWarnings, fmt.Sprintf("%s: %v", name, err))
 				continue
@@ -364,7 +368,7 @@ func cmdUpdate(args []string) error {
 	}
 
 	// --- Execute ---
-	uc := &updateContext{sourcePath: sourcePath, registryDir: cfg.RegistryDir, opts: opts, parseOpts: parseOptsFromConfig(cfg)}
+	uc := &updateContext{follow: follow, sourcePath: sourcePath, registryDir: cfg.RegistryDir, opts: opts, parseOpts: parseOptsFromConfig(cfg)}
 
 	if len(targets) == 1 {
 		// Single target: verbose path
@@ -500,7 +504,7 @@ func logUpdateOp(cfgPath string, names []string, opts *updateOptions, mode strin
 }
 
 func printUpdateHelp() {
-	printHelp("skillshare update <name>... [options]\n       skillshare update [agents] <name|--all> [options]\n       skillshare update --group <group> [options]\n       skillshare update --all [options]", "Update one or more skills or tracked repositories.\n\nFor tracked repos (_repo-name): runs git pull\nFor regular skills: reinstalls from stored source metadata\n\nIf a positional name matches a group directory (not a repo or skill), it is\nautomatically expanded to all updatable skills in that group.\n\nSafety: Tracked repos with uncommitted changes are skipped by default, and\nupdates with audit findings at/above the block threshold are rolled back.\nUse --force to override both; --skip-audit skips scanning entirely.",
+	printHelp("skillshare update <name>... [options]\n       skillshare update [agents] <name|--all> [options]\n       skillshare update --group <group> [options]\n       skillshare update --all [options]", "Update one or more skills or tracked repositories.\n\nFor tracked repos (_repo-name): runs git pull\nFor regular skills: reinstalls from stored source metadata\n\nIf a positional name matches a group directory (not a repo or skill), it is\nautomatically expanded to all updatable skills in that group.\n\nSafety: Tracked repos with uncommitted changes are skipped by default, and\nupdates with audit findings at/above the block threshold are rolled back.\nUse --force to override both for installed repos; --skip-audit skips scanning.\nFollowed repos require a clean tree and fast-forward-only updates; --force is refused.\nAudit failures still hard-reset followed repos to the pre-pull commit.\nDo not edit a followed repo while update runs.",
 		helpGroup{title: "Arguments", rows: []helpRow{
 			{"name...", "Skill name(s) or tracked repo name(s)\nSupports glob patterns (e.g. \"core-*\", \"_team-?\")"},
 		}},

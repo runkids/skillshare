@@ -21,11 +21,12 @@ func cmdAuditProject(root, specificSkill string) (auditRunSummary, bool, error) 
 		threshold = audit.DefaultThreshold()
 	}
 
+	follow := skillFollowSet(rt.sourcePath, rt.targets, root)
 	if specificSkill != "" {
-		_, summary, err := auditSkillByName(rt.sourcePath, specificSkill, "project", root, threshold, formatText, "", kindSkills, nil)
+		_, summary, err := auditSkillByName(rt.sourcePath, specificSkill, "project", root, threshold, formatText, "", kindSkills, nil, follow)
 		return summary, summary.Failed > 0, err
 	}
 
-	_, summary, err := auditInstalled(rt.sourcePath, "", "project", root, threshold, kindSkills, auditOptions{}, nil)
+	_, summary, err := auditInstalled(rt.sourcePath, "", "project", root, threshold, kindSkills, auditOptions{Follow: follow}, nil)
 	return summary, summary.Failed > 0, err
 }

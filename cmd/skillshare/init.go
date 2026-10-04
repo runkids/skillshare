@@ -15,6 +15,7 @@ import (
 	gitops "skillshare/internal/git"
 	"skillshare/internal/install"
 	"skillshare/internal/oplog"
+	"skillshare/internal/sourcewalk"
 	ssync "skillshare/internal/sync"
 	"skillshare/internal/theme"
 	"skillshare/internal/ui"
@@ -300,14 +301,19 @@ func handleExistingInit(opts *initOptions) (bool, error) {
 			ui.Row(ui.MarkNone, "Git", "skipped"+ui.DimText(" · --no-git"), gitRowWidth)
 		} else {
 			doGitInitIfAbsent(gitRoot, scope, opts.dryRun)
+			if gitops.IsRepo(gitRoot) {
+				if err := gitops.CheckFollowedLinks(gitRoot, globalSkillFollowSet(cfg)); err != nil {
+					return true, err
+				}
+			}
 			// Commit any uncommitted source files so push/pull work cleanly
 			if !opts.dryRun {
-				if err := commitSourceFiles(gitRoot); err != nil {
+				if err := commitSourceFiles(gitRoot, globalSkillFollowSet(cfg)); err != nil {
 					ui.Warning("Failed to commit source files: %v", err)
 				}
 			}
 		}
-		setupGitRemote(gitRoot, opts.remoteURL, opts.dryRun, opts.noGit)
+		setupGitRemote(gitRoot, opts.remoteURL, opts.dryRun, opts.noGit, globalSkillFollowSet(cfg))
 		if opts.dryRun {
 			fmt.Println()
 			ui.DryRun()
@@ -564,10 +570,14 @@ func printGitIdentityNote(dir string) {
 
 // commitSourceFiles creates a single commit with all source files
 // (.gitignore, copied skills, installed skills).
-func commitSourceFiles(sourcePath string) error {
+func commitSourceFiles(sourcePath string, follows ...*sourcewalk.FollowSet) error {
 	gitDir := filepath.Join(sourcePath, ".git")
 	if _, err := os.Stat(gitDir); os.IsNotExist(err) {
 		return nil
+	}
+
+	if err := gitops.CheckFollowedLinks(sourcePath, firstFollowSet(follows)); err != nil {
+		return err
 	}
 
 	addCmd := exec.Command("git", "add", ".")
@@ -615,7 +625,7 @@ func commitSourceFiles(sourcePath string) error {
 	return nil
 }
 
-func setupGitRemote(sourcePath, remoteURL string, dryRun, noGit bool) bool {
+func setupGitRemote(sourcePath, remoteURL string, dryRun, noGit bool, follows ...*sourcewalk.FollowSet) bool {
 	// Check if git is initialized
 	gitDir := filepath.Join(sourcePath, ".git")
 	if _, err := os.Stat(gitDir); os.IsNotExist(err) {
@@ -653,10 +663,10 @@ func setupGitRemote(sourcePath, remoteURL string, dryRun, noGit bool) bool {
 		ui.Row(ui.MarkNone, "Remote", "would add origin → "+remoteURL, gitRowWidth)
 		return false
 	}
-	return addRemote(sourcePath, remoteURL)
+	return addRemote(sourcePath, remoteURL, follows...)
 }
 
-func addRemote(sourcePath, remoteURL string) bool {
+func addRemote(sourcePath, remoteURL string, follows ...*sourcewalk.FollowSet) bool {
 	// SetOrAddRemote validates the URL (rejecting flag-smuggling values that
 	// begin with "-") and passes "--" before positional args. setupGitRemote
 	// has already confirmed origin is absent, so this takes the add path.
@@ -668,7 +678,7 @@ func addRemote(sourcePath, remoteURL string) bool {
 	ui.Row(ui.MarkOK, "Remote", "origin → "+remoteURL, gitRowWidth)
 
 	// Try to fetch and auto-pull if remote has existing skills
-	hadSkills := tryPullAfterRemoteSetup(sourcePath, remoteURL)
+	hadSkills := tryPullAfterRemoteSetup(sourcePath, remoteURL, follows...)
 	if !hadSkills {
 		ui.Next("skillshare push", "share your skills")
 	}
@@ -696,7 +706,7 @@ func remoteFetchEnv(remoteURL string) []string {
 
 // tryPullAfterRemoteSetup attempts to fetch from remote and pull if it has content.
 // Returns true if remote had content (pulled or warned), false if remote is empty/unreachable.
-func tryPullAfterRemoteSetup(sourcePath, remoteURL string) bool {
+func tryPullAfterRemoteSetup(sourcePath, remoteURL string, follows ...*sourcewalk.FollowSet) bool {
 	spinner := ui.StartSpinner("Checking remote for existing skills...")
 
 	// Try to fetch (inject HTTPS token auth when available)
@@ -730,6 +740,13 @@ func tryPullAfterRemoteSetup(sourcePath, remoteURL string) bool {
 		}
 		ui.Row(ui.MarkWarn, "Pull", "could not find the remote's default branch"+ui.DimText(" · push and pull retry it"), gitRowWidth)
 		return false
+	}
+
+	revision, guardErr := gitops.CheckSourceMutation(sourcePath, "origin/"+remoteBranch, firstFollowSet(follows))
+	if guardErr != nil {
+		spinner.Stop()
+		ui.Row(ui.MarkFail, "Pull", guardErr.Error(), gitRowWidth)
+		return true
 	}
 
 	hasRemoteSkills, err := gitops.HasRemoteSkillDirs(sourcePath, remoteBranch)
@@ -772,7 +789,7 @@ func tryPullAfterRemoteSetup(sourcePath, remoteURL string) bool {
 	// This is safe because we verified hasLocalSkills is false above.
 	spinner.Update("Pulling skills from remote...")
 
-	resetCmd := exec.Command("git", "reset", "--hard", "origin/"+remoteBranch)
+	resetCmd := exec.Command("git", "reset", "--hard", revision)
 	resetCmd.Dir = sourcePath
 	if output, err := resetCmd.CombinedOutput(); err != nil {
 		spinner.Stop()

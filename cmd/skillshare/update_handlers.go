@@ -113,11 +113,19 @@ func auditGateAfterPull(sourceDir, repoPath, beforeHash string, skipAudit, force
 func updateTrackedRepo(uc *updateContext, repoName string) (updateResult, error) {
 	repoPath := filepath.Join(uc.sourcePath, repoName)
 	startUpdate := time.Now()
+	policy, policyErr := install.PrepareFollowedUpdate(uc.sourcePath, repoPath, uc.follow, uc.opts.force)
+	if policyErr != nil {
+		return followedUpdateFailure(repoName, policyErr), policyErr
+	}
 
 	// Check for uncommitted changes
 	spinner := ui.StartSpinner("Checking " + repoName + "...")
 
-	isDirty, dirtyErr := git.IsDirty(repoPath)
+	var isDirty bool
+	var dirtyErr error
+	if policy == nil {
+		isDirty, dirtyErr = git.IsDirty(repoPath)
+	}
 	if dirtyErr != nil && !uc.opts.force {
 		spinner.Stop()
 		statusErr := &gitStatusError{err: dirtyErr}
@@ -166,7 +174,9 @@ func updateTrackedRepo(uc *updateContext, repoName string) (updateResult, error)
 	// Use ForcePull if --force to handle force push
 	var info *git.UpdateInfo
 	var err error
-	if uc.opts.force {
+	if policy != nil {
+		info, err = git.PullFollowed(policy, onProgress)
+	} else if uc.opts.force {
 		info, err = git.ForcePullWithProgress(repoPath, git.AuthEnvForRepo(repoPath), onProgress)
 	} else {
 		info, err = git.PullWithProgress(repoPath, git.AuthEnvForRepo(repoPath), onProgress)
@@ -174,10 +184,13 @@ func updateTrackedRepo(uc *updateContext, repoName string) (updateResult, error)
 	if err != nil {
 		spinner.Stop()
 		msg := fmt.Sprintf("git pull failed: %v", err)
-		if !uc.opts.force {
+		if !uc.opts.force && policy == nil {
 			msg += " (try --force)"
 		}
 		printUpdateRow(ui.MarkFail, repoName, msg, 0)
+		if policy != nil {
+			return followedUpdateFailure(repoName, err), err
+		}
 		return updateResult{skipped: 1}, fmt.Errorf("git pull failed: %w", err)
 	}
 
@@ -304,8 +317,17 @@ func updateRegularSkill(uc *updateContext, skillName string) (updateResult, erro
 // Output is suppressed; caller handles display via progress bar.
 // Returns (updated, auditResult, error).
 func updateTrackedRepoQuick(uc *updateContext, repoPath string) (bool, *audit.Result, error) {
+	policy, policyErr := install.PrepareFollowedUpdate(uc.sourcePath, repoPath, uc.follow, uc.opts.force)
+	if policyErr != nil {
+		return false, nil, policyErr
+	}
+
 	// Check for uncommitted changes
-	isDirty, err := git.IsDirty(repoPath)
+	var isDirty bool
+	var err error
+	if policy == nil {
+		isDirty, err = git.IsDirty(repoPath)
+	}
 	if err != nil && !uc.opts.force {
 		return false, nil, &gitStatusError{err: err}
 	}
@@ -325,12 +347,17 @@ func updateTrackedRepoQuick(uc *updateContext, repoPath string) (bool, *audit.Re
 	}
 
 	var info *git.UpdateInfo
-	if uc.opts.force {
+	if policy != nil {
+		info, err = git.PullFollowed(policy, nil)
+	} else if uc.opts.force {
 		info, err = git.ForcePullWithProgress(repoPath, git.AuthEnvForRepo(repoPath), nil)
 	} else {
 		info, err = git.PullWithProgress(repoPath, git.AuthEnvForRepo(repoPath), nil)
 	}
 	if err != nil {
+		if policy != nil {
+			return false, nil, err
+		}
 		return false, nil, nil
 	}
 
@@ -351,6 +378,15 @@ func updateTrackedRepoQuick(uc *updateContext, repoPath string) (bool, *audit.Re
 }
 
 func refreshTrackedRootSkillMetadata(uc *updateContext, repoName, repoPath string) error {
+	if uc.follow != nil {
+		rel, err := filepath.Rel(uc.sourcePath, repoPath)
+		if err != nil {
+			return err
+		}
+		if _, followed := uc.follow.InFollowed(filepath.ToSlash(rel)); followed {
+			return nil
+		}
+	}
 	relPath := repoName
 	if relPath == "" {
 		rel, err := filepath.Rel(uc.sourcePath, repoPath)
@@ -513,3 +549,7 @@ func isSecurityError(err error) bool {
 }
 
 func truncateString(s string, maxLen int) string { return truncateStr(s, maxLen) }
+
+func followedUpdateFailure(name string, err error) updateResult {
+	return updateResult{items: []updateJSONItem{{Name: name, Type: "repo", Status: "failed", Error: err.Error()}}}
+}

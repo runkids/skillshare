@@ -21,6 +21,19 @@ func handleTrackedRepoInstall(source *install.Source, cfg *config.Config, opts i
 		return installLogSummary{}, err
 	}
 	opts.Kind = trackedKind
+	if trackedKind != "agent" {
+		gitRoot := cfg.EffectiveGitRoot()
+		if opts.AuditProjectRoot != "" {
+			gitRoot = opts.AuditProjectRoot
+		}
+		opts.Follow = skillFollowSet(cfg.EffectiveSkillsSource(), cfg.Targets, gitRoot)
+	}
+
+	// JSON install defaults use Force for overwrite mechanics. A tracked update
+	// does not need that permission; AuditOverride records an explicit --force.
+	if opts.Update && opts.Follow != nil && !opts.AuditOverride {
+		opts.Force = false
+	}
 
 	trackSourceDir := cfg.EffectiveSkillsSource()
 	if trackedKind == "agent" {

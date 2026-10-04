@@ -37,7 +37,7 @@ type missingTrackedRepoInfo struct {
 
 // missingTrackedRepos returns tracked repos declared in metadata but absent on disk.
 func (s *Server) missingTrackedRepos() []missingTrackedRepoInfo {
-	repos, err := install.GetMissingTrackedRepos(s.cfg.EffectiveSkillsSource())
+	repos, err := install.GetMissingTrackedReposWithOptions(s.cfg.EffectiveSkillsSource(), sourcewalk.Options{Follow: s.skillFollowSet()})
 	if err != nil || len(repos) == 0 {
 		return nil
 	}
@@ -292,36 +292,46 @@ func (s *Server) updateAgent(name string, force, skipAudit bool) updateResultIte
 }
 
 func (s *Server) updateTrackedRepo(name, repoPath string, force, skipAudit bool) updateResultItem {
-	// Check for uncommitted changes
-	if isDirty, _ := git.IsDirty(repoPath); isDirty {
-		if !force {
-			return updateResultItem{
-				Name:    name,
-				Action:  "skipped",
-				Message: "has uncommitted changes (use force to discard)",
-				IsRepo:  true,
+	policy, policyErr := install.PrepareFollowedUpdate(s.cfg.EffectiveSkillsSource(), repoPath, s.skillFollowSet(), force)
+	if policyErr != nil {
+		return updateResultItem{Name: name, Action: "error", Message: policyErr.Error(), IsRepo: true}
+	}
+
+	if policy == nil {
+		// Check for uncommitted changes
+		if isDirty, _ := git.IsDirty(repoPath); isDirty {
+			if !force {
+				return updateResultItem{
+					Name:    name,
+					Action:  "skipped",
+					Message: "has uncommitted changes (use force to discard)",
+					IsRepo:  true,
+				}
+			}
+			if err := git.Restore(repoPath); err != nil {
+				return updateResultItem{
+					Name:    name,
+					Action:  "error",
+					Message: "failed to discard changes: " + err.Error(),
+					IsRepo:  true,
+				}
 			}
 		}
-		if err := git.Restore(repoPath); err != nil {
-			return updateResultItem{
-				Name:    name,
-				Action:  "error",
-				Message: "failed to discard changes: " + err.Error(),
-				IsRepo:  true,
-			}
-		}
+
 	}
 
 	var info *git.UpdateInfo
 	var err error
-	if force {
+	if policy != nil {
+		info, err = git.PullFollowed(policy, nil)
+	} else if force {
 		info, err = git.ForcePullWithAuth(repoPath)
 	} else {
 		info, err = git.PullWithAuth(repoPath)
 	}
 	if err != nil {
 		msg := err.Error()
-		if !force {
+		if !force && policy == nil {
 			msg += " (try force update)"
 		}
 		return updateResultItem{
@@ -361,12 +371,22 @@ func (s *Server) updateTrackedRepo(name, repoPath string, force, skipAudit bool)
 // at or above the active threshold.
 // Returns (blocked item, audit result). blocked is non-nil when the update should be rejected.
 func (s *Server) auditGateTrackedRepo(name, repoPath, beforeHash string, force bool, threshold string) (*updateResultItem, *audit.Result) {
+	scan := audit.ScanSkill
+	if s.IsProjectMode() {
+		scan = func(path string) (*audit.Result, error) { return audit.ScanSkillForProject(path, s.projectRoot) }
+	}
 	var result *audit.Result
 	var err error
-	if s.IsProjectMode() {
-		result, err = audit.ScanSkillForProject(repoPath, s.projectRoot)
+	follow := s.skillFollowSet()
+	rel, relErr := filepath.Rel(s.cfg.EffectiveSkillsSource(), repoPath)
+	followed := false
+	if follow != nil && relErr == nil {
+		_, followed = follow.InFollowed(filepath.ToSlash(rel))
+	}
+	if followed {
+		result, err = audit.ScanResolvedSkill(repoPath, scan)
 	} else {
-		result, err = audit.ScanSkill(repoPath)
+		result, err = scan(repoPath)
 	}
 
 	if err != nil {
@@ -462,7 +482,7 @@ func (s *Server) updateAll(force, skipAudit bool) []updateResultItem {
 	var results []updateResultItem
 
 	// Update tracked repos
-	repos, err := install.GetTrackedRepos(s.cfg.EffectiveSkillsSource())
+	repos, err := install.GetTrackedReposWithOptions(s.cfg.EffectiveSkillsSource(), sourcewalk.Options{Follow: s.skillFollowSet()})
 	if err == nil {
 		for _, repo := range repos {
 			repoPath := filepath.Join(s.cfg.EffectiveSkillsSource(), repo)
@@ -503,6 +523,7 @@ func (s *Server) handleRehydrateTrackedRepos(w http.ResponseWriter, r *http.Requ
 
 	sourceDir := s.cfg.EffectiveSkillsSource()
 	opts := install.InstallOptions{
+		Follow:         s.skillFollowSet(),
 		AuditThreshold: s.updateAuditThreshold(),
 		SourceDir:      sourceDir,
 	}
