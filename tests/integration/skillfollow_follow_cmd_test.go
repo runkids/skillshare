@@ -176,7 +176,7 @@ func TestFollow_IndexedLinkIsNotUntracked(t *testing.T) {
 
 	result := e.run("follow", "_dev")
 	result.AssertSuccess(t)
-	result.AssertRowContains(t, "_dev", "indexed in Git; run git rm --cached -- '_dev'")
+	result.AssertRowContains(t, "_dev", "indexed in Git; run git -C '"+e.source+"' rm --cached -- '_dev'")
 	if out := testutil.RunGit(t, e.source, "ls-files", "_dev"); out != "_dev" {
 		t.Fatalf("follow untracked the link: %q", out)
 	}

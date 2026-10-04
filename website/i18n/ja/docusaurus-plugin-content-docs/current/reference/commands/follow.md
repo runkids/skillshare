@@ -31,7 +31,7 @@ skillshare follow _team-skills -p                        # プロジェクトモ
 
 `_` で始まり `.git` を含む名前は tracked repository として、それ以外の名前は group としてたどられます。`<name>` は直下の子の名前でなければなりません。`/` や `\`、glob や否定の文字、絶対パスやドライブ名は使えません。
 
-リンクがすでに Git に追跡されている場合、`follow` は追跡を解除しません。自分で実行する `git rm --cached` コマンドを表示します。これは `commit` と `doctor` が表示するものと同じです。
+リンクがすでに Git に追跡されている場合、`follow` は追跡を解除しません。自分で実行する `git -C <source> rm --cached` コマンドを表示します。どのディレクトリからでも実行できます。`commit` と `doctor` は `-C` なしの同じコマンドを表示するので、source で実行します。
 
 ## オプション
 
@@ -76,7 +76,7 @@ $ skillshare follow out --to ~/.claude
 $ skillshare follow _dev
 ✓ _dev        added to .skillfollow
 ✓ .gitignore  added /_dev
-! _dev        indexed in Git; run git rm --cached -- '_dev'
+! _dev        indexed in Git; run git -C '/home/me/.config/skillshare/skills' rm --cached -- '_dev'
 ✓ _dev        followed — following directory
 ```
 

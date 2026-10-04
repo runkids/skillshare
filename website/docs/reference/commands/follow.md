@@ -31,7 +31,7 @@ skillshare follow _team-skills -p                        # Project mode
 
 A `_`-prefixed name with `.git` inside is followed as a tracked repository; any other name is followed as a group. `<name>` must be a direct child name: no `/` or `\`, no glob or negation characters, no absolute paths or drive names.
 
-If the link is already tracked by Git, `follow` does not untrack it. It prints the `git rm --cached` command to run yourself, the same one `commit` and `doctor` print.
+If the link is already tracked by Git, `follow` does not untrack it. It prints the `git -C <source> rm --cached` command to run yourself, which works from any directory. `commit` and `doctor` print the same command without `-C`, to run from the source.
 
 ## Options
 
@@ -76,7 +76,7 @@ $ skillshare follow out --to ~/.claude
 $ skillshare follow _dev
 ✓ _dev        added to .skillfollow
 ✓ .gitignore  added /_dev
-! _dev        indexed in Git; run git rm --cached -- '_dev'
+! _dev        indexed in Git; run git -C '/home/me/.config/skillshare/skills' rm --cached -- '_dev'
 ✓ _dev        followed — following directory
 ```
 

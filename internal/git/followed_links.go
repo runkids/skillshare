@@ -172,8 +172,18 @@ func IsPathIgnored(dir, path string) (bool, error) {
 
 // UntrackCommand quotes literal names for the platform's interactive shell.
 func UntrackCommand(path string) string {
+	return "git rm --cached -- " + shellQuote(path)
+}
+
+// UntrackCommandIn is UntrackCommand run in dir, so it works from any
+// working directory.
+func UntrackCommandIn(dir, path string) string {
+	return "git -C " + shellQuote(dir) + " rm --cached -- " + shellQuote(path)
+}
+
+func shellQuote(s string) string {
 	if runtime.GOOS == "windows" {
-		return "git rm --cached -- '" + strings.ReplaceAll(path, "'", "''") + "'"
+		return "'" + strings.ReplaceAll(s, "'", "''") + "'"
 	}
-	return "git rm --cached -- '" + strings.ReplaceAll(path, "'", "'\\''") + "'"
+	return "'" + strings.ReplaceAll(s, "'", "'\\''") + "'"
 }

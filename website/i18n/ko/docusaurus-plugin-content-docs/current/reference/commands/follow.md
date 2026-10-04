@@ -31,7 +31,7 @@ skillshare follow _team-skills -p                        # Project mode
 
 `_`로 시작하고 `.git`을 포함한 이름은 tracked repository로, 나머지 이름은 group으로 따라갑니다. `<name>`은 바로 아래 자식 이름이어야 합니다. `/`나 `\`, glob이나 부정 문자, 절대 경로나 드라이브 이름은 사용할 수 없습니다.
 
-링크가 이미 Git에 추적되고 있으면 `follow`는 추적을 해제하지 않습니다. 직접 실행할 `git rm --cached` 명령을 출력하며, 이는 `commit`과 `doctor`가 출력하는 것과 같습니다.
+링크가 이미 Git에 추적되고 있으면 `follow`는 추적을 해제하지 않습니다. 직접 실행할 `git -C <source> rm --cached` 명령을 출력하며, 어느 디렉터리에서든 실행할 수 있습니다. `commit`과 `doctor`는 `-C` 없는 같은 명령을 출력하므로 source에서 실행합니다.
 
 ## 옵션
 
@@ -76,7 +76,7 @@ $ skillshare follow out --to ~/.claude
 $ skillshare follow _dev
 ✓ _dev        added to .skillfollow
 ✓ .gitignore  added /_dev
-! _dev        indexed in Git; run git rm --cached -- '_dev'
+! _dev        indexed in Git; run git -C '/home/me/.config/skillshare/skills' rm --cached -- '_dev'
 ✓ _dev        followed — following directory
 ```
 

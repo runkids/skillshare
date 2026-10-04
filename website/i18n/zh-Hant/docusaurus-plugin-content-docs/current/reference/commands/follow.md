@@ -31,7 +31,7 @@ skillshare follow _team-skills -p                        # Project mode
 
 以 `_` 開頭且內含 `.git` 的名稱會被當成 tracked repository 跟隨；其他名稱則當成 group 跟隨。`<name>` 必須是直接子項目的名稱：不可包含 `/` 或 `\`、不可使用 glob 或否定字元、不可是絕對路徑或磁碟代號。
 
-如果連結已經被 Git 追蹤，`follow` 不會取消追蹤。它會印出讓你自己執行的 `git rm --cached` 指令，與 `commit` 和 `doctor` 印出的相同。
+如果連結已經被 Git 追蹤，`follow` 不會取消追蹤。它會印出讓你自己執行的 `git -C <source> rm --cached` 指令，在任何目錄都能執行。`commit` 和 `doctor` 印出的是不帶 `-C` 的同一指令，要在 source 中執行。
 
 ## Options
 
@@ -76,7 +76,7 @@ $ skillshare follow out --to ~/.claude
 $ skillshare follow _dev
 ✓ _dev        added to .skillfollow
 ✓ .gitignore  added /_dev
-! _dev        indexed in Git; run git rm --cached -- '_dev'
+! _dev        indexed in Git; run git -C '/home/me/.config/skillshare/skills' rm --cached -- '_dev'
 ✓ _dev        followed — following directory
 ```
 
