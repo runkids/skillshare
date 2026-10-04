@@ -5,6 +5,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"skillshare/internal/sourcefs"
 )
 
 func installTrackedRepoImpl(source *Source, sourceDir string, opts InstallOptions) (*TrackedRepoResult, error) {
@@ -32,17 +34,19 @@ func installTrackedRepoImpl(source *Source, sourceDir string, opts InstallOption
 	if err := validateTrackedRepoDirName(trackedName); err != nil {
 		return nil, fmt.Errorf("invalid tracked repo name %q: %w", trackedName, err)
 	}
-	destBase := sourceDir
-	if opts.Into != "" {
-		destBase = filepath.Join(sourceDir, opts.Into)
-	}
-	if err := os.MkdirAll(destBase, 0755); err != nil {
-		if opts.Into != "" {
-			return nil, fmt.Errorf("failed to create --into directory: %w", err)
-		}
+	src, err := sourcefs.Create(sourceDir)
+	if err != nil {
 		return nil, fmt.Errorf("failed to create source directory: %w", err)
 	}
-	destPath := filepath.Join(destBase, trackedName)
+	defer src.Close()
+	destRel := trackedName
+	if opts.Into != "" {
+		if err := src.MkdirAll(opts.Into, 0755); err != nil {
+			return nil, fmt.Errorf("failed to create --into directory: %w", err)
+		}
+		destRel = filepath.Join(opts.Into, trackedName)
+	}
+	destPath := filepath.Join(sourceDir, destRel)
 
 	result := &TrackedRepoResult{
 		RepoName: trackedName,
@@ -67,9 +71,13 @@ func installTrackedRepoImpl(source *Source, sourceDir string, opts InstallOption
 			}
 			return nil, fmt.Errorf("tracked repo '%s' already exists. To overwrite: %s", trackedName, hint)
 		}
-		// Force mode - remove existing
+		// Force mode - remove existing. A link is refused, even in a dry
+		// run: removing it would disconnect the repo it points to.
+		if err := src.CheckNoLink(destRel); err != nil {
+			return nil, err
+		}
 		if !opts.DryRun {
-			if err := os.RemoveAll(destPath); err != nil {
+			if err := src.RemoveAll(destRel); err != nil {
 				return nil, fmt.Errorf("failed to remove existing repo: %w", err)
 			}
 		}
@@ -96,12 +104,12 @@ func installTrackedRepoImpl(source *Source, sourceDir string, opts InstallOption
 		return nil, fmt.Errorf("failed to clone repository: %w", err)
 	}
 	if isDetachedHead(destPath) {
-		_ = os.RemoveAll(destPath)
+		_ = src.RemoveAll(destRel)
 		return nil, errTrackedNeedsBranch(cloneBranch)
 	}
 	if source.Commit != "" {
 		if err := resetTrackedToCommit(destPath, source.Commit, source.authEnv()); err != nil {
-			_ = os.RemoveAll(destPath)
+			_ = src.RemoveAll(destRel)
 			return nil, err
 		}
 	}

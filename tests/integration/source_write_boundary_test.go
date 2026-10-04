@@ -1,0 +1,80 @@
+//go:build !online
+
+package integration
+
+import (
+	"io/fs"
+	"os"
+	"path/filepath"
+	"testing"
+
+	"skillshare/internal/testutil"
+)
+
+// treeSnapshot records every path, link target, and file content below dir.
+func treeSnapshot(t *testing.T, dir string) map[string]string {
+	t.Helper()
+	out := map[string]string{}
+	err := filepath.WalkDir(dir, func(p string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		rel, _ := filepath.Rel(dir, p)
+		switch {
+		case d.Type()&fs.ModeSymlink != 0:
+			target, _ := os.Readlink(p)
+			out[rel] = "-> " + target
+		case d.IsDir():
+			out[rel] = "<dir>"
+		default:
+			data, err := os.ReadFile(p)
+			if err != nil {
+				return err
+			}
+			out[rel] = string(data)
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return out
+}
+
+func assertTreeUnchanged(t *testing.T, before map[string]string, dir string) {
+	t.Helper()
+	after := treeSnapshot(t, dir)
+	if len(after) != len(before) {
+		t.Fatalf("%s changed: %d entries before, %d after", dir, len(before), len(after))
+	}
+	for k, v := range before {
+		if after[k] != v {
+			t.Fatalf("%s changed at %s", dir, k)
+		}
+	}
+}
+
+// install --track --force onto an existing tracked repo that is a link must
+// not remove the link and clone a real directory in its place: that would
+// silently disconnect the external repo.
+func TestInstall_TrackForce_RefusesLinkedRepo(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	setupGlobalConfig(sb)
+
+	repoURL := setupBareRepoWithCleanContent(t, sb, "linked")
+	external := filepath.Join(sb.Root, "external-repo")
+	run(t, sb.Root, "git", "clone", repoURL, external)
+	link := filepath.Join(sb.SourcePath, "_linked")
+	sb.CreateSymlink(external, link)
+	before := treeSnapshot(t, external)
+
+	result := sb.RunCLI("install", repoURL, "--track", "--name", "linked", "--force")
+	result.AssertFailure(t)
+	result.AssertAnyOutputContains(t, "is a link; edit its target directly")
+
+	if !sb.IsSymlink(link) || sb.SymlinkTarget(link) != external {
+		t.Fatalf("_linked is no longer a link to %s", external)
+	}
+	assertTreeUnchanged(t, before, external)
+}
