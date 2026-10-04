@@ -86,7 +86,7 @@ skillshare ui start --clear-cache
 
 | 頁面 | 說明 |
 |------|------|
-| **Dashboard** | Skills、agents、extras、MCP servers、plugins 與 targets 的數量，以及需要注意的項目 |
+| **Dashboard** | Skills、agents、extras、MCP servers、hooks、plugins 與 targets 的數量，以及需要注意的項目 |
 | **Sync** | 在寫入前預覽每個 target 的每項變更。選擇要包含的部分（Skills、Agents、Extras、MCP）。在 target 內編輯過的檔案，除非開啟 **Force**，否則會保留。只存在於 target 中的項目可以從這裡收集回 source。每次同步都會先備份 target 資料夾。某個 target 失敗時，其他 target 仍會同步：頁面會在其他警告上方列出每個失敗的 target，以及它的部分（Skills、Agents、Extras 或 Config）和錯誤，常見原因（symlink 指向別處、權限不足、唯讀檔案系統、檔案或資料夾不存在、target 設定無效）還會附上一句易懂的說明；若 Skills 的 symlink 指向別處，會提供 **開啟 Force**；變更清單中也會標出該 target。即使所有 target 都失敗，也會以同樣方式列出。**上次同步** 卡片會列出最近一次同步中失敗的 target |
 | **Git Sync** | Commit 並 push source repo、push 尚未在 remote 上的 commits，以及 pull。開啟頁面時會先從 remote fetch，所以 **Pull** 按鈕會顯示 remote 有幾個新的 commits。Pull 會同步 repo scope 所涵蓋的內容（`skills`、`agents`、`extras` 或 `root`），如同 [`pull`](/docs/reference/commands/pull)。**Sync both ways** 會 commit 本機變更、pull 並合併、sync targets，然後 push，如同 [`push --pull`](/docs/reference/commands/push#push-and-pull-together)；遇到衝突時會在 push 前停止。當 remote 因為有較新的 commits 而拒絕 push 時，錯誤訊息會提供 **Pull**。當第一次 pull 無法與 remote 合併時，會提供強制 pull 以本機檔案取代 remote 分支 |
 | **Hubs** | 從 Skills 頁面進入。列出內建 hub、已儲存的 hubs 與你自己的 Hub（**我的**）；選擇一個即可篩選並安裝其中的 skills。**加入或建立 Hub** 可加入現有的 hub、建立新的 Hub，或匯入 `skillshare-hub.json`。自己的 Hub 以 **編輯** 修改；**分享** 會下載索引並產生 `hub add` 指令。參見 [`hub`](/docs/reference/commands/hub) |

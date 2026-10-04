@@ -86,7 +86,7 @@ skillshare ui start --clear-cache
 
 | 页面 | 说明 |
 |------|------|
-| **Dashboard** | skills、agents、extras、MCP servers、plugins 和 targets 的计数，以及需要关注的项目 |
+| **Dashboard** | skills、agents、extras、MCP servers、hooks、plugins 和 targets 的计数，以及需要关注的项目 |
 | **Sync** | 在写入之前，按 Target 预览每一处变更。选择要包含的部分（Skills、Agents、Extras、MCP）。在 Target 内部编辑过的文件会被保留，除非开启了 **Force**。只存在于某个 Target 中的项目可以从这里收集回 Source。每次 sync 会先备份 Target 目录。某个 Target 失败时，其他 Target 仍会 sync：页面会在其他警告上方列出每个失败的 Target 及其部分（Skills、Agents、Extras 或 Config）和错误，常见原因（symlink 指向别处、权限不足、只读文件系统、文件或文件夹不存在、Target 设置无效）还会附上一句易懂的说明；若 Skills 的 symlink 指向别处，会提供 **开启 Force**；变更列表中也会标出该 Target。即使所有 Target 都失败，也会以同样方式列出。**上次同步** 卡片会列出最近一次 sync 中失败的 Target |
 | **Git Sync** | 提交并推送 source 仓库，推送尚未上 remote 的提交，并拉取。打开页面时会先从 remote fetch，所以 **Pull** 会显示 remote 有多少个新提交。Pull 会同步该仓库 scope 所涵盖的内容（`skills`、`agents`、`extras` 或 `root`），与 [`pull`](/docs/reference/commands/pull) 相同。**Sync both ways** 会提交本地更改、拉取并合并、同步 targets，然后推送，与 [`push --pull`](/docs/reference/commands/push#push-and-pull-together) 相同；遇到冲突时会在推送前停止。当 remote 因为有更新的提交而拒绝 push 时，错误提示会提供 **Pull**。当首次 pull 无法与 remote 合并时，它会提供一个强制 pull 选项，用 remote 分支替换本地文件 |
 | **Hubs** | 从 Skill 页面进入。列出内置 hub、已保存的 hubs 与你自己的 Hub（**我的**）；选择一个即可过滤并安装其中的 skills。**添加或创建 Hub** 可添加已有的 hub、创建新的 Hub，或导入 `skillshare-hub.json`。自己的 Hub 通过 **编辑** 修改；**分享** 会下载索引并生成 `hub add` 命令。参见 [`hub`](/docs/reference/commands/hub) |
