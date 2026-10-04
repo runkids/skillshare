@@ -62,6 +62,9 @@ func snapshotFollowedTree(t *testing.T, root string) map[string]string {
 func TestServerSkillfollowBehaviorMatrix(t *testing.T) {
 	s, source, external := skillfollowServerFixture(t)
 	before := snapshotFollowedTree(t, external)
+	// A skill named like the offline entry, outside the followed tree.
+	named := t.TempDir()
+	addSkill(t, named, "missing")
 	matrix := []struct {
 		name     string
 		method   string
@@ -97,6 +100,9 @@ func TestServerSkillfollowBehaviorMatrix(t *testing.T) {
 		{"create-offline", "POST", "/api/resources", `{"name":"fresh","pattern":"none","into":"missing"}`, 409, nil, nil, []string{"is a link; edit its target directly"}},
 		{"install-offline", "POST", "/api/install", `{"source":"` + filepath.Join(external, "repo", "a") + `","into":"missing/sub"}`, 409, nil, nil, []string{"is a link; edit its target directly"}},
 		{"install-batch-offline", "POST", "/api/install/batch", `{"source":"` + filepath.Join(external, "repo") + `","skills":[{"name":"a","path":"a"}],"into":"missing"}`, 409, nil, nil, []string{"is a link; edit its target directly"}},
+		// Without into, a skill named like the entry would create it; batch reports it per item.
+		{"install-name-offline", "POST", "/api/install", `{"source":"` + filepath.Join(named, "missing") + `"}`, 409, nil, nil, []string{"is a link; edit its target directly"}},
+		{"install-batch-name-offline", "POST", "/api/install/batch", `{"source":"` + named + `","skills":[{"name":"missing","path":"missing"}]}`, 200, nil, nil, []string{"is a link; edit its target directly", "\"name\":\"missing\""}},
 	}
 	for _, row := range matrix {
 		t.Run(row.name, func(t *testing.T) {

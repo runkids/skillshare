@@ -93,3 +93,56 @@ func TestSkillfollowNewRefusesOfflineEntry(t *testing.T) {
 		t.Errorf("new created the declared entry: %v", err)
 	}
 }
+
+// A plain install without --into whose skill is named like a declared entry is
+// refused while the entry's link is offline; a second skill in the same install
+// still lands.
+func TestSkillfollowInstallNamedLikeDeclaredEntryRefused(t *testing.T) {
+	for _, project := range []bool{false, true} {
+		for _, multi := range []bool{false, true} {
+			name := map[bool]string{false: "global", true: "project"}[project] + map[bool]string{false: "/single", true: "/multi"}[multi]
+			t.Run(name, func(t *testing.T) {
+				sb := testutil.NewSandbox(t)
+				defer sb.Cleanup()
+				skill := filepath.Join(sb.Root, "local", "group")
+				sb.WriteFile(filepath.Join(skill, "SKILL.md"), "---\nname: group\ndescription: Demo\n---\n# Demo\n")
+				args := []string{"install", skill, "--skip-audit"}
+				if multi {
+					remote := testutil.SetupBareRemoteRepo(t, sb.Root)
+					testutil.SeedRemoteBranch(t, sb.Root, remote, "main", map[string]string{
+						"skills/group/SKILL.md": "---\nname: group\n---\n# group\n",
+						"skills/keep/SKILL.md":  "---\nname: keep\n---\n# keep\n",
+					})
+					args = []string{"install", "file://" + remote, "--all", "--skip-audit"}
+				}
+				source, projectRoot := sb.SourcePath, ""
+				if project {
+					projectRoot = sb.SetupProjectDir("claude")
+					source = filepath.Join(projectRoot, ".skillshare", "skills")
+					args = append(args, "-p")
+				} else {
+					sb.WriteConfig("source: " + source + "\ntargets: {}\n")
+					args = append(args, "-g")
+				}
+				sb.WriteFile(filepath.Join(source, ".skillfollow"), "group\n")
+
+				var result *testutil.Result
+				if project {
+					result = sb.RunCLIInDir(projectRoot, args...)
+				} else {
+					result = sb.RunCLI(args...)
+				}
+				if !multi {
+					result.AssertFailure(t)
+				}
+				result.AssertAnyOutputContains(t, "is a link; edit its target directly")
+				if _, err := os.Lstat(filepath.Join(source, "group")); !os.IsNotExist(err) {
+					t.Errorf("install created the declared entry: %v\n%s", err, result.Output())
+				}
+				if _, err := os.Stat(filepath.Join(source, "keep", "SKILL.md")); multi && err != nil {
+					t.Errorf("other skill was not installed: %v\n%s", err, result.Output())
+				}
+			})
+		}
+	}
+}

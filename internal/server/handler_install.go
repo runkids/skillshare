@@ -208,6 +208,8 @@ func (s *Server) handleInstallBatch(w http.ResponseWriter, r *http.Request) {
 	isAgent := body.Kind == "agent"
 	if isAgent {
 		installOpts.SourceDir = s.agentsSource()
+	} else {
+		installOpts.Follow = s.skillFollowSet()
 	}
 
 	for _, sel := range body.Skills {
@@ -515,6 +517,7 @@ func (s *Server) handleInstall(w http.ResponseWriter, r *http.Request) {
 	}
 
 	result, err := install.Install(source, destPath, install.InstallOptions{
+		Follow:         s.skillFollowSet(),
 		Name:           body.Name,
 		Force:          body.Force,
 		AuditOverride:  body.Force,
@@ -537,7 +540,11 @@ func (s *Server) handleInstall(w http.ResponseWriter, r *http.Request) {
 			"scope":         "ui",
 			"failed_skills": []string{source.Name},
 		}, err.Error())
-		writeError(w, http.StatusInternalServerError, err.Error())
+		status := http.StatusInternalServerError
+		if errors.Is(err, sourcefs.ErrLink) {
+			status = http.StatusConflict
+		}
+		writeError(w, status, err.Error())
 		return
 	}
 

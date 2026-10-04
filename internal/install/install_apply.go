@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"skillshare/internal/sourcefs"
+	"skillshare/internal/sourcewalk"
 	"skillshare/internal/utils"
 )
 
@@ -175,8 +176,38 @@ func skillsRootFor(destPath string, opts InstallOptions) string {
 	return dir
 }
 
+// followedDestError refuses a destination inside a declared .skillfollow entry,
+// even while its link is offline, when there is no link for the source handle
+// to reject. Only an update of an existing skill may proceed; update callers
+// apply the followed update policy before reaching here. Without opts.Follow a
+// bare snapshot is enough: targets only change an entry's state, not whether it
+// is declared.
+func followedDestError(destPath string, opts InstallOptions) error {
+	var follow sourcewalk.FollowSet
+	if opts.Follow != nil {
+		follow = *opts.Follow
+	} else {
+		follow = sourcewalk.Follow(opts.SourceDir, sourcewalk.FollowOptions{})
+	}
+	rel, err := filepath.Rel(opts.SourceDir, destPath)
+	if err != nil {
+		return nil
+	}
+	entry, ok := follow.InFollowed(filepath.ToSlash(rel))
+	if !ok {
+		return nil
+	}
+	if _, err := os.Stat(destPath); err == nil && opts.Update {
+		return nil
+	}
+	return &sourcefs.LinkError{Path: filepath.Join(opts.SourceDir, entry.Name)}
+}
+
 func installImpl(source *Source, destPath string, opts InstallOptions) (*InstallResult, error) {
 	opts.SourceDir = skillsRootFor(destPath, opts)
+	if err := followedDestError(destPath, opts); err != nil {
+		return nil, err
+	}
 
 	result := &InstallResult{
 		SkillName: source.Name,
@@ -355,6 +386,9 @@ func installFromDiscoveryInternal(discovery *DiscoveryResult, skill SkillInfo, d
 	// Same derivation as Install: without it the metadata of an --into install
 	// lands in the group folder and the skill never reaches the config.
 	opts.SourceDir = skillsRootFor(destPath, opts)
+	if err := followedDestError(destPath, opts); err != nil {
+		return nil, err
+	}
 	fullSource, fullSubdir := discoveredSkillSourceParts(discovery, skill)
 
 	result := &InstallResult{
