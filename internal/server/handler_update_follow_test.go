@@ -345,3 +345,29 @@ func TestServerAgentRepoUpdateIgnoresSkillFollow(t *testing.T) {
 		})
 	}
 }
+
+// Rehydration never recreates a tracked repo below a declared entry whose link
+// is offline: that would turn the boundary into a real directory.
+func TestServerRehydrateSkipsUnavailableFollowedEntry(t *testing.T) {
+	s, source := newTestServer(t)
+	remote := testutil.SetupBareRemoteRepo(t, t.TempDir())
+	if err := os.WriteFile(filepath.Join(source, ".skillfollow"), []byte("group\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	store := install.NewMetadataStore()
+	store.Set("group/_repo", &install.MetadataEntry{Source: "file://" + remote, Tracked: true})
+	if err := store.Save(source); err != nil {
+		t.Fatal(err)
+	}
+	if missing := s.missingTrackedRepos(); len(missing) != 0 {
+		t.Errorf("offered for rehydration: %+v", missing)
+	}
+	rr := httptest.NewRecorder()
+	s.handler.ServeHTTP(rr, httptest.NewRequest("POST", "/api/update/rehydrate", nil))
+	if rr.Code != 200 || strings.Contains(rr.Body.String(), "group/_repo") {
+		t.Fatalf("status %d: %s", rr.Code, rr.Body.String())
+	}
+	if _, err := os.Lstat(filepath.Join(source, "group")); !os.IsNotExist(err) {
+		t.Fatalf("rehydrate created the declared entry: %v", err)
+	}
+}

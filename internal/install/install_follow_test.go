@@ -29,3 +29,45 @@ func TestGetTrackedReposWithFollow(t *testing.T) {
 		t.Fatalf("%v %v", repos, err)
 	}
 }
+
+// Metadata below a declared entry belongs to the entry's external owner, so it
+// is never offered for rehydration, whether the link is present or offline.
+func TestMissingTrackedReposSkipFollowedEntries(t *testing.T) {
+	remoteURL := makeRemote(t, "")
+	for _, linked := range []bool{false, true} {
+		t.Run(map[bool]string{false: "missing", true: "followed"}[linked], func(t *testing.T) {
+			root := t.TempDir()
+			if linked {
+				if err := os.Symlink(t.TempDir(), filepath.Join(root, "group")); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if err := os.WriteFile(filepath.Join(root, ".skillfollow"), []byte("group\n"), 0644); err != nil {
+				t.Fatal(err)
+			}
+			store := NewMetadataStore()
+			store.Set("group/_repo", &MetadataEntry{Source: remoteURL, Tracked: true})
+			store.Set("_plain", &MetadataEntry{Source: remoteURL, Tracked: true})
+			if err := store.Save(root); err != nil {
+				t.Fatal(err)
+			}
+			set := sourcewalk.Follow(root, sourcewalk.FollowOptions{})
+			missing, err := GetMissingTrackedReposWithOptions(root, sourcewalk.Options{Follow: &set})
+			if err != nil || len(missing) != 1 || missing[0].Name != "_plain" {
+				t.Errorf("missing = %+v, %v; want only _plain", missing, err)
+			}
+			results, err := RehydrateMissingTrackedRepos(root, ParseOptions{}, InstallOptions{Follow: &set, SkipAudit: true})
+			if err != nil || len(results) != 1 || results[0].Name != "_plain" {
+				t.Errorf("results = %+v, %v; want only _plain", results, err)
+			}
+			if _, err := os.Stat(filepath.Join(root, "group", "_repo")); !os.IsNotExist(err) {
+				t.Fatalf("rehydrate wrote below the followed entry: %v", err)
+			}
+			if info, err := os.Lstat(filepath.Join(root, "group")); linked && (err != nil || info.Mode()&os.ModeSymlink == 0) {
+				t.Fatalf("group link replaced: %v", err)
+			} else if !linked && !os.IsNotExist(err) {
+				t.Fatalf("rehydrate created the declared entry: %v", err)
+			}
+		})
+	}
+}

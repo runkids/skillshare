@@ -66,8 +66,17 @@ func TestSkillfollowDoctorTrackedRepoNotMissing(t *testing.T) {
 			if result := run(); missing(result) {
 				t.Errorf("live followed repository reported missing: %s", result.Stdout)
 			}
-			// Truly missing tracked repositories must still receive the recovery diagnostic.
+			// An offline followed entry is the external owner's to restore, so it
+			// gets no rehydrate diagnostic that would recreate it in place.
 			if err := os.Remove(filepath.Join(source, "_repo")); err != nil {
+				t.Fatal(err)
+			}
+			if result := run(); missing(result) {
+				t.Errorf("offline followed repository reported missing: %s", result.Stdout)
+			}
+			// Truly missing tracked repositories must still receive the recovery diagnostic.
+			store.Set("_other", &install.MetadataEntry{Source: "github.com/example/other", Tracked: true})
+			if err := store.Save(source); err != nil {
 				t.Fatal(err)
 			}
 			if result := run(); !missing(result) {

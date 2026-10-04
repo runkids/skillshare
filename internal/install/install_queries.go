@@ -74,6 +74,13 @@ func GetMissingTrackedReposWithOptions(sourceDir string, opts sourcewalk.Options
 		if existing[relPath] {
 			continue
 		}
+		// A declared entry's content belongs to its external owner, even while
+		// the link is offline; recreating it would materialize the boundary.
+		if opts.Follow != nil {
+			if _, followed := opts.Follow.InFollowed(relPath); followed {
+				continue
+			}
+		}
 
 		missing = append(missing, TrackedRepoMeta{
 			Name:   relPath,
@@ -96,43 +103,24 @@ type RehydrateResult struct {
 // of InstallFromConfig (bare `skillshare install`); repos already on disk are
 // left untouched. See issue #212.
 func rehydrateMissingTrackedReposImpl(sourceDir string, parseOpts ParseOptions, opts InstallOptions) ([]RehydrateResult, error) {
-	store, err := LoadMetadata(sourceDir)
+	missing, err := GetMissingTrackedReposWithOptions(sourceDir, sourcewalk.Options{Follow: opts.Follow})
 	if err != nil {
 		return nil, err
-	}
-	existingRepos, err := GetTrackedReposWithOptions(sourceDir, sourcewalk.Options{Follow: opts.Follow})
-	if err != nil {
-		return nil, err
-	}
-	existing := make(map[string]bool, len(existingRepos))
-	for _, repo := range existingRepos {
-		existing[filepath.ToSlash(repo)] = true
 	}
 
 	opts.Quiet = true
 	opts.Update = false
 	var results []RehydrateResult
-	for _, key := range store.List() {
-		entry := store.Get(key)
-		if entry == nil || !entry.Tracked {
-			continue
-		}
-		relPath := filepath.ToSlash(KeyToRelPath(key, entry))
-		if !strings.HasPrefix(filepath.Base(relPath), "_") {
-			continue
-		}
-		if existing[relPath] {
-			continue
-		}
-
+	for _, repo := range missing {
+		relPath := repo.Name
 		groupDir, bareName := splitTrackedRelPath(relPath)
-		source, perr := ParseSourceWithOptions(entry.Source, parseOpts)
+		source, perr := ParseSourceWithOptions(repo.Source, parseOpts)
 		if perr != nil {
 			results = append(results, RehydrateResult{Name: relPath, Action: "error", Error: "invalid source: " + perr.Error()})
 			continue
 		}
 		source.Name = bareName
-		source.ApplyRecordedBranch(entry.Branch)
+		source.ApplyRecordedBranch(repo.Branch)
 
 		trackOpts := opts
 		trackOpts.Name = bareName

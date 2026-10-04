@@ -14,6 +14,7 @@ import (
 
 // A live followed repository with tracked metadata is one healthy row, never
 // also a missing row: status reads missing repositories with the same snapshot.
+// Offline, it is not a missing row either: the external owner restores it.
 func TestSkillfollowStatusTrackedRepoNotDuplicated(t *testing.T) {
 	for _, project := range []bool{false, true} {
 		t.Run(map[bool]string{false: "global", true: "project"}[project], func(t *testing.T) {
@@ -70,8 +71,10 @@ func TestSkillfollowStatusTrackedRepoNotDuplicated(t *testing.T) {
 			if err := os.Remove(filepath.Join(source, "_repo")); err != nil {
 				t.Fatal(err)
 			}
-			if rows := repoRows(); len(rows) != 1 || rows[0] != "missing" {
-				t.Fatalf("missing repository rows = %q", rows)
+			// An offline followed entry is reported by its skillfollow state, never
+			// as a missing repository that rehydration would recreate in place.
+			if rows := repoRows(); len(rows) != 0 {
+				t.Fatalf("offline followed repository rows = %q", rows)
 			}
 		})
 	}
