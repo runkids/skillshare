@@ -158,3 +158,49 @@ func TestFollowWalkReadFailureMarksMissing(t *testing.T) {
 		}
 	}
 }
+
+func TestFollowSetDoesNotApplyDeclarationsToChildRoots(t *testing.T) {
+	root, ext := followFixture(t)
+	// The same name as a source declaration must not gain another hop when a
+	// nested consumer reuses the operation's FollowSet at a child root.
+	linkTo(t, ext, "group", t.TempDir())
+	set := Follow(root, FollowOptions{})
+	childRoot := filepath.Join(root, "group")
+	for _, dirWalk := range []bool{false, true} {
+		seen := false
+		check := func(path string, isDir bool, err error) error {
+			if err != nil {
+				return err
+			}
+			if path == filepath.Join(childRoot, "group") {
+				seen = true
+				if isDir {
+					t.Fatal("declaration reapplied below source root")
+				}
+			}
+			return nil
+		}
+		var err error
+		if dirWalk {
+			err = WalkDir(childRoot, Options{Follow: &set}, func(path string, entry fs.DirEntry, err error) error {
+				return check(path, entry != nil && entry.IsDir(), err)
+			})
+		} else {
+			err = Walk(childRoot, Options{Follow: &set}, func(path string, info os.FileInfo, err error) error {
+				return check(path, info != nil && info.IsDir(), err)
+			})
+		}
+		if err != nil || !seen {
+			t.Fatalf("seen=%v err=%v", seen, err)
+		}
+	}
+	entries, err := ReadDir(childRoot, Options{Follow: &set})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, entry := range entries {
+		if entry.Name() == "group" && entry.IsDir() {
+			t.Fatal("ReadDir reapplied declaration")
+		}
+	}
+}
