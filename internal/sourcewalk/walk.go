@@ -37,6 +37,9 @@ type Options struct{ Follow *FollowSet }
 // read failures are also recorded in FollowSet.Err; otherwise the base is resolved.
 func Walk(root string, opts Options, fn filepath.WalkFunc) error {
 	if opts.Follow != nil {
+		if opts.Follow.declarationError != nil {
+			return opts.Follow.declarationError
+		}
 		return walkFollow(root, opts.Follow, fn)
 	}
 	return filepath.Walk(utils.ResolveSymlink(root), fn)
@@ -45,6 +48,9 @@ func Walk(root string, opts Options, fn filepath.WalkFunc) error {
 // WalkDir is Walk's fs.DirEntry counterpart, with filepath.WalkDir semantics.
 func WalkDir(root string, opts Options, fn fs.WalkDirFunc) error {
 	if opts.Follow != nil {
+		if opts.Follow.declarationError != nil {
+			return opts.Follow.declarationError
+		}
 		return walkDirFollow(root, opts.Follow, fn)
 	}
 	return filepath.WalkDir(utils.ResolveSymlink(root), fn)
@@ -54,6 +60,9 @@ func WalkDir(root string, opts Options, fn fs.WalkDirFunc) error {
 // links, just as with os.ReadDir, unless Follow declares them as followed.
 func ReadDir(root string, opts Options) ([]os.DirEntry, error) {
 	if opts.Follow != nil {
+		if opts.Follow.declarationError != nil {
+			return nil, opts.Follow.declarationError
+		}
 		return readDirFollow(root, opts.Follow)
 	}
 	resolved := utils.ResolveSymlink(root)

@@ -42,6 +42,7 @@ type FollowOptions struct {
 // Walkers using its pointer record read failures in the same set. It is intended
 // for one operation, and must not be mutated concurrently with traversal.
 type FollowSet struct {
+	declarationError    error
 	declarationWarnings []string
 	walkErrors          []error
 	canonicalRoot       string
@@ -58,7 +59,7 @@ func Follow(root string, opts FollowOptions) FollowSet { return follow(root, opt
 
 func follow(root string, opts FollowOptions, links linkOps) FollowSet {
 	parsed := readDeclarations(root)
-	set := FollowSet{declarationWarnings: parsed.warnings, parsed: parsed.names, warnings: parsed.warnings, active: parsed.active, local: parsed.local}
+	set := FollowSet{declarationError: parsed.err, declarationWarnings: parsed.warnings, parsed: parsed.names, warnings: parsed.warnings, active: parsed.active, local: parsed.local}
 	canon := func(path string) (string, error) { return canonicalize(path, links, 0) }
 	canonicalRoot, rootErr := canon(root)
 	set.canonicalRoot = canonicalRoot
@@ -258,8 +259,8 @@ func (s FollowSet) InFollowed(logicalRel string) (Entry, bool) {
 	return Entry{}, false
 }
 
-// Err reports read failures recorded during traversal, even if callbacks ignored them.
-func (s FollowSet) Err() error { return errors.Join(s.walkErrors...) }
+// Err reports declaration and traversal read failures, even if callbacks ignored them.
+func (s FollowSet) Err() error { return errors.Join(s.declarationError, errors.Join(s.walkErrors...)) }
 
 func (s *FollowSet) markMissing(name string, err error) {
 	s.walkErrors = append(s.walkErrors, fmt.Errorf("incomplete discovery of %s: %w", name, err))

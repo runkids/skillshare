@@ -1,6 +1,7 @@
 package sourcewalk
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -8,6 +9,7 @@ import (
 )
 
 type declarations struct {
+	err      error
 	names    []string
 	warnings []string
 	active   bool
@@ -24,6 +26,7 @@ func readDeclarations(root string) declarations {
 		if err != nil {
 			if !os.IsNotExist(err) {
 				out.warnings = append(out.warnings, fmt.Sprintf("%s: %v", path, err))
+				out.err = errors.Join(out.err, fmt.Errorf("read skillfollow declaration %s: %w", path, err))
 			}
 			continue
 		}

@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -36,5 +37,31 @@ func TestParseMissingDeclarations(t *testing.T) {
 	got := readDeclarations(t.TempDir())
 	if got.active || got.local || len(got.names) != 0 || len(got.warnings) != 0 {
 		t.Fatalf("%+v", got)
+	}
+}
+
+func TestFollowUnreadableDeclaration(t *testing.T) {
+	if runtime.GOOS == "windows" || os.Geteuid() == 0 {
+		t.Skip("requires Unix permission enforcement")
+	}
+	for _, file := range []string{".skillfollow", ".skillfollow.local"} {
+		t.Run(file, func(t *testing.T) {
+			root := t.TempDir()
+			path := filepath.Join(root, file)
+			if err := os.WriteFile(path, []byte("group\n"), 0000); err != nil {
+				t.Fatal(err)
+			}
+			t.Cleanup(func() { _ = os.Chmod(path, 0600) })
+			set := Follow(root, FollowOptions{})
+			if err := set.Err(); err == nil || !strings.Contains(err.Error(), file) {
+				t.Fatalf("Err() = %v; want declaration read error", err)
+			}
+			if err := WalkDir(root, Options{Follow: &set}, func(_ string, _ os.DirEntry, _ error) error {
+				t.Fatal("incomplete declarations must prevent traversal")
+				return nil
+			}); err == nil {
+				t.Fatal("WalkDir accepted incomplete declarations")
+			}
+		})
 	}
 }
