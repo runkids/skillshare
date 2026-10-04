@@ -80,6 +80,16 @@ func addGitIgnoreEntries(dir string, entries []string) error {
 		return err
 	}
 
+	updated, changed := withGitIgnoreEntries(lines, entries)
+	if !changed {
+		return nil
+	}
+	return writeGitignoreLines(gitignorePath, updated)
+}
+
+// withGitIgnoreEntries adds pre-normalized entries to the managed block and
+// reports whether any entry was new.
+func withGitIgnoreEntries(lines, entries []string) ([]string, bool) {
 	lines, startIdx, endIdx := ensureMarkerBlock(lines)
 	managed := lines[startIdx+1 : endIdx]
 
@@ -108,15 +118,14 @@ func addGitIgnoreEntries(dir string, entries []string) error {
 	}
 
 	if len(newEntries) == 0 {
-		return nil
+		return lines, false
 	}
 
 	updated := make([]string, 0, len(lines)+len(newEntries))
 	updated = append(updated, lines[:endIdx]...)
 	updated = append(updated, newEntries...)
 	updated = append(updated, lines[endIdx:]...)
-
-	return writeGitignoreLines(gitignorePath, updated)
+	return updated, true
 }
 
 // RemoveFromGitIgnore removes an entry from the .gitignore file.
@@ -189,9 +198,23 @@ func RemoveFromGitIgnoreBatch(dir string, entries []string) (int, error) {
 		return 0, err
 	}
 
+	updated, removed := withoutGitIgnoreEntries(lines, entries)
+	if removed == 0 {
+		return 0, nil
+	}
+
+	if err := writeGitignoreLines(gitignorePath, updated); err != nil {
+		return 0, err
+	}
+	return removed, nil
+}
+
+// withoutGitIgnoreEntries drops entries from the managed block, matching
+// each with or without a trailing slash, and counts the removed lines.
+func withoutGitIgnoreEntries(lines, entries []string) ([]string, int) {
 	startIdx, endIdx := findMarkerBlock(lines)
 	if startIdx == -1 || endIdx == -1 || startIdx >= endIdx {
-		return 0, nil
+		return lines, 0
 	}
 
 	// Build set of entries to remove (both with and without trailing slash).
@@ -217,15 +240,7 @@ func RemoveFromGitIgnoreBatch(dir string, entries []string) (int, error) {
 		updated = append(updated, lines[i])
 	}
 	updated = append(updated, lines[endIdx:]...)
-
-	if removed == 0 {
-		return 0, nil
-	}
-
-	if err := writeGitignoreLines(gitignorePath, updated); err != nil {
-		return 0, err
-	}
-	return removed, nil
+	return updated, removed
 }
 
 // GitignoreContains checks if an entry exists in .gitignore (with or without trailing slash).
@@ -253,6 +268,20 @@ func GitignoreContains(path, entry string) (bool, error) {
 	return false, scanner.Err()
 }
 
+// AddGitIgnoreLines returns content with entries, written exactly as given,
+// in the managed block, for callers that write the file themselves.
+func AddGitIgnoreLines(content string, entries []string) (string, bool) {
+	updated, changed := withGitIgnoreEntries(splitGitignoreLines(content), entries)
+	return joinGitignoreLines(updated), changed
+}
+
+// RemoveGitIgnoreLines returns content without entries in the managed block,
+// for callers that write the file themselves.
+func RemoveGitIgnoreLines(content string, entries []string) (string, bool) {
+	updated, removed := withoutGitIgnoreEntries(splitGitignoreLines(content), entries)
+	return joinGitignoreLines(updated), removed > 0
+}
+
 func readGitignoreLines(path string) ([]string, error) {
 	content, err := os.ReadFile(path)
 	if err != nil {
@@ -262,20 +291,28 @@ func readGitignoreLines(path string) ([]string, error) {
 		return nil, fmt.Errorf("failed to read .gitignore: %w", err)
 	}
 
-	normalized := strings.ReplaceAll(string(content), "\r\n", "\n")
+	return splitGitignoreLines(string(content)), nil
+}
+
+func splitGitignoreLines(content string) []string {
+	normalized := strings.ReplaceAll(content, "\r\n", "\n")
 	lines := strings.Split(normalized, "\n")
 	for len(lines) > 0 && lines[len(lines)-1] == "" {
 		lines = lines[:len(lines)-1]
 	}
-
-	return lines, nil
+	return lines
 }
 
-func writeGitignoreLines(path string, lines []string) error {
+func joinGitignoreLines(lines []string) string {
 	content := strings.Join(lines, "\n")
 	if content != "" {
 		content += "\n"
 	}
+	return content
+}
+
+func writeGitignoreLines(path string, lines []string) error {
+	content := joinGitignoreLines(lines)
 	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
 		return fmt.Errorf("failed to write .gitignore: %w", err)
 	}

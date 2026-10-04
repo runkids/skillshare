@@ -57,6 +57,8 @@ var commands = map[string]func([]string) error{
 	"plugin":       cmdPlugin,
 	"enable":       cmdEnable,
 	"disable":      cmdDisable,
+	"follow":       cmdFollow,
+	"unfollow":     cmdUnfollow,
 	"completion":   cmdCompletion,
 }
 
@@ -202,6 +204,8 @@ func printUsage() {
 			{"new", "Create a skill from a template"},
 			{"enable", "Turn a skill or agent back on"},
 			{"disable", "Turn a skill or agent off"},
+			{"follow", "Follow a linked folder in the source"},
+			{"unfollow", "Stop following a linked folder"},
 			{"check", "See which ones have updates"},
 			{"update", "Pull updates"},
 			{"collect", "Bring local skills from a Target into the source"},

@@ -190,6 +190,25 @@ func TestCompletion_Hooks_AllShells(t *testing.T) {
 	}
 }
 
+func TestCompletion_FollowCommands_AllShells(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	for shell, literals := range map[string][]string{
+		"bash":       {"enable disable follow unfollow completion", `follow_flags="--to --local --json`, `unfollow_flags="--local --keep-link --json`},
+		"zsh":        {"'follow:Follow a linked folder in the source'", "'--keep-link[Keep the link and its ignore line]'"},
+		"fish":       {"-a unfollow -d", "using_command follow' -l to -r", "using_command unfollow' -l keep-link"},
+		"powershell": {"@{ Name = 'follow';", "'follow' = '--to', '--local', '--json'", "'unfollow' = '--local', '--keep-link', '--json'"},
+		"nushell":    {`export extern "skillshare follow"`, `export extern "skillshare unfollow"`, "--keep-link              #"},
+	} {
+		result := sb.RunCLI("completion", shell)
+		result.AssertSuccess(t)
+		for _, literal := range literals {
+			result.AssertOutputContains(t, literal)
+		}
+	}
+}
+
 func TestCompletion_UnsupportedShell_Errors(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
