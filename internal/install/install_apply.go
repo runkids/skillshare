@@ -1,6 +1,7 @@
 package install
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -193,14 +194,13 @@ func followedDestError(destPath string, opts InstallOptions) error {
 	if err != nil {
 		return nil
 	}
-	entry, ok := follow.InFollowed(filepath.ToSlash(rel))
-	if !ok {
-		return nil
+	refusal := follow.WriteBoundary(opts.SourceDir, filepath.ToSlash(rel))
+	if errors.Is(refusal, sourcefs.ErrLink) && opts.Update {
+		if _, err := os.Stat(destPath); err == nil {
+			return nil
+		}
 	}
-	if _, err := os.Stat(destPath); err == nil && opts.Update {
-		return nil
-	}
-	return &sourcefs.LinkError{Path: filepath.Join(opts.SourceDir, entry.Name)}
+	return refusal
 }
 
 func installImpl(source *Source, destPath string, opts InstallOptions) (*InstallResult, error) {

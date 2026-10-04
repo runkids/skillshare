@@ -100,8 +100,8 @@ func cmdNew(args []string) error {
 	// A declared .skillfollow entry is refused even while its link is offline,
 	// when there is no link for the source handle below to reject.
 	follow := sourcewalk.Follow(sourceDir, sourcewalk.FollowOptions{})
-	if entry, ok := follow.InFollowed(skillName); ok {
-		return &sourcefs.LinkError{Path: filepath.Join(sourceDir, entry.Name)}
+	if err := follow.WriteBoundary(sourceDir, skillName); err != nil {
+		return err
 	}
 
 	// Check if skill already exists

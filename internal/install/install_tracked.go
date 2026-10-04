@@ -1,6 +1,7 @@
 package install
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -47,11 +48,9 @@ func installTrackedRepoImpl(source *Source, sourceDir string, opts InstallOption
 	// Only an update of an existing followed repo may proceed. Anything else
 	// would write inside a declared entry, or create the entry itself while
 	// its link is offline.
-	if opts.Follow != nil {
-		if entry, ok := opts.Follow.InFollowed(filepath.ToSlash(destRel)); ok {
-			if _, err := os.Stat(destPath); err != nil || !opts.Update {
-				return nil, &sourcefs.LinkError{Path: filepath.Join(sourceDir, entry.Name)}
-			}
+	if refusal := opts.Follow.WriteBoundary(sourceDir, filepath.ToSlash(destRel)); refusal != nil {
+		if _, err := os.Stat(destPath); err != nil || !opts.Update || !errors.Is(refusal, sourcefs.ErrLink) {
+			return nil, refusal
 		}
 	}
 	if opts.Into != "" {

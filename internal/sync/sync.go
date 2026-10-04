@@ -361,8 +361,8 @@ func followedMergeError(targetPath, sourcePath string) error {
 	}
 	follow := sourcewalk.Follow(sourcePath, sourcewalk.FollowOptions{})
 	for _, e := range entries {
-		if entry, ok := follow.InFollowed(e.Name()); ok {
-			return &sourcefs.LinkError{Path: filepath.Join(sourcePath, entry.Name)}
+		if err := follow.WriteBoundary(sourcePath, e.Name()); err != nil {
+			return err
 		}
 	}
 	return nil

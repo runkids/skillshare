@@ -147,3 +147,56 @@ func TestSkillfollowUpdateUnreadableDeclarationRefuses(t *testing.T) {
 		})
 	}
 }
+
+// An unreadable declaration may hide any entry, so every CLI write that could
+// create one is refused with the read error and creates nothing.
+func TestSkillfollowWritesRefuseUnreadableDeclaration(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		setup func(t *testing.T, sb *testutil.Sandbox, target string) []string
+	}{
+		{"new", func(*testing.T, *testutil.Sandbox, string) []string {
+			return []string{"new", "team", "-P", "none", "-g"}
+		}},
+		{"install-into", func(_ *testing.T, sb *testutil.Sandbox, _ string) []string {
+			skill := filepath.Join(sb.Root, "local", "demo")
+			sb.WriteFile(filepath.Join(skill, "SKILL.md"), "---\nname: demo\ndescription: Demo\n---\n# Demo\n")
+			return []string{"install", skill, "--into", "team", "--skip-audit", "-g"}
+		}},
+		{"install", func(_ *testing.T, sb *testutil.Sandbox, _ string) []string {
+			skill := filepath.Join(sb.Root, "local", "team")
+			sb.WriteFile(filepath.Join(skill, "SKILL.md"), "---\nname: team\ndescription: Demo\n---\n# Demo\n")
+			return []string{"install", skill, "--skip-audit", "-g"}
+		}},
+		{"collect", func(_ *testing.T, sb *testutil.Sandbox, target string) []string {
+			sb.WriteFile(filepath.Join(target, "team", "SKILL.md"), "---\nname: team\n---\n# team\n")
+			return []string{"collect", "-g", "--force"}
+		}},
+		{"trash-restore", func(t *testing.T, sb *testutil.Sandbox, _ string) []string {
+			sb.WriteFile(filepath.Join(sb.SourcePath, "team", "SKILL.md"), "---\nname: team\n---\n# team\n")
+			sb.RunCLI("uninstall", "team", "--force", "-g").AssertSuccess(t)
+			return []string{"trash", "restore", "team", "-g"}
+		}},
+		{"init-import", func(_ *testing.T, sb *testutil.Sandbox, _ string) []string {
+			os.Remove(sb.ConfigPath)
+			sb.WriteFile(filepath.Join(sb.Home, ".claude", "skills", "team", "SKILL.md"), "# team")
+			return []string{"init", "--copy-from", "claude", "--no-targets", "--no-git", "--no-skill"}
+		}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			sb := testutil.NewSandbox(t)
+			defer sb.Cleanup()
+			target := sb.CreateTarget("claude")
+			sb.WriteConfig("source: " + sb.SourcePath + "\ntargets:\n  claude:\n    path: " + target + "\n")
+			args := tc.setup(t, sb, target)
+			if err := os.Mkdir(filepath.Join(sb.SourcePath, ".skillfollow"), 0755); err != nil {
+				t.Fatal(err)
+			}
+			result := sb.RunCLI(args...)
+			result.AssertAnyOutputContains(t, "read skillfollow declaration")
+			if _, err := os.Lstat(filepath.Join(sb.SourcePath, "team")); !os.IsNotExist(err) {
+				t.Errorf("%s created a possibly declared entry: %v\n%s", tc.name, err, result.Output())
+			}
+		})
+	}
+}

@@ -397,7 +397,7 @@ func (s *Server) handleUninstallRepo(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := followedSkillWriteError(s.cfg.EffectiveSkillsSource(), repoName, follow); err != nil {
-		writeError(w, http.StatusConflict, err.Error())
+		writeError(w, followWriteStatus(err), err.Error())
 		return
 	}
 

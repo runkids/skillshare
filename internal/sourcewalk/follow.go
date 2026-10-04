@@ -6,6 +6,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"skillshare/internal/sourcefs"
 )
 
 // State is the first applicable classification rule for an entry.
@@ -257,6 +259,24 @@ func (s FollowSet) InFollowed(logicalRel string) (Entry, bool) {
 		}
 	}
 	return Entry{}, false
+}
+
+// WriteBoundary refuses a write at logicalRel below source when it would land
+// at or below a declared entry, live or offline: skillshare never creates an
+// entry, so the result is a *sourcefs.LinkError naming it. An unreadable
+// declaration may hide any entry, so it fails closed with the read error, as
+// discovery does. A nil set (no declaration) allows every write.
+func (s *FollowSet) WriteBoundary(source, logicalRel string) error {
+	if s == nil {
+		return nil
+	}
+	if s.declarationError != nil {
+		return s.declarationError
+	}
+	if entry, ok := s.InFollowed(logicalRel); ok {
+		return &sourcefs.LinkError{Path: filepath.Join(source, entry.Name)}
+	}
+	return nil
 }
 
 // Err reports declaration and traversal read failures, even if callbacks ignored them.

@@ -1,6 +1,8 @@
 package server
 
 import (
+	"errors"
+	"net/http"
 	"path/filepath"
 	"sort"
 
@@ -43,12 +45,17 @@ func followSetFor(source string, targets map[string]config.TargetConfig, gitRoot
 	return &set
 }
 
-// followedSkillWriteError also refuses unavailable declared trees, before any write.
+// followedSkillWriteError also refuses unavailable declared trees, before any
+// write, and every write while a declaration cannot be read.
 func followedSkillWriteError(source, rel string, follow *sourcewalk.FollowSet) error {
-	if follow != nil {
-		if entry, ok := follow.InFollowed(filepath.ToSlash(rel)); ok {
-			return &sourcefs.LinkError{Path: filepath.Join(source, entry.Name)}
-		}
+	return follow.WriteBoundary(source, filepath.ToSlash(rel))
+}
+
+// followWriteStatus answers a declared entry with 409 and an unreadable
+// declaration with 500, as the other handlers do.
+func followWriteStatus(err error) int {
+	if errors.Is(err, sourcefs.ErrLink) {
+		return http.StatusConflict
 	}
-	return nil
+	return http.StatusInternalServerError
 }

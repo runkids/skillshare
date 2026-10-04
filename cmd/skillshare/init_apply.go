@@ -116,8 +116,8 @@ func applyInitPlan(p *initPlan) (*initResult, error) {
 		if _, err := os.Lstat(dst); err == nil {
 			continue // already there, e.g. pulled from the repo
 		}
-		if entry, ok := follow.InFollowed(s.name); ok {
-			res.warnings = append(res.warnings, fmt.Sprintf("Skipped %s: %v", s.name, &sourcefs.LinkError{Path: filepath.Join(p.source(), entry.Name)}))
+		if err := follow.WriteBoundary(p.source(), s.name); err != nil {
+			res.warnings = append(res.warnings, fmt.Sprintf("Skipped %s: %v", s.name, err))
 			continue
 		}
 		src, err := filepath.EvalSymlinks(s.from)

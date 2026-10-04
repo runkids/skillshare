@@ -226,7 +226,7 @@ func (s *Server) handleSetSkillTargets(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if err := followedSkillWriteError(source, d.RelPath, follow); err != nil {
-			writeError(w, http.StatusConflict, err.Error())
+			writeError(w, followWriteStatus(err), err.Error())
 			return
 		}
 

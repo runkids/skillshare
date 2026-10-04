@@ -161,11 +161,9 @@ func PullSkills(skills []LocalSkillInfo, sourcePath string, opts PullOptions) (*
 	}
 
 	for _, skill := range skills {
-		if opts.Follow != nil {
-			if entry, ok := opts.Follow.InFollowed(skill.Name); ok {
-				result.Failed[skill.Name] = &sourcefs.LinkError{Path: filepath.Join(sourcePath, entry.Name)}
-				continue
-			}
+		if err := opts.Follow.WriteBoundary(sourcePath, skill.Name); err != nil {
+			result.Failed[skill.Name] = err
+			continue
 		}
 		if opts.DryRun {
 			result.Pulled = append(result.Pulled, skill.Name)

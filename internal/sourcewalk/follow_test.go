@@ -1,10 +1,13 @@
 package sourcewalk
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"skillshare/internal/sourcefs"
 )
 
 func declare(t *testing.T, root string, names ...string) {
@@ -171,5 +174,33 @@ func TestFollowDanglingAndRegularFile(t *testing.T) {
 	set := Follow(root, FollowOptions{})
 	if set.Entries()[0].State != Missing || set.Entries()[1].State != InvalidTarget {
 		t.Fatalf("%+v", set.Entries())
+	}
+}
+
+func TestWriteBoundary(t *testing.T) {
+	root := t.TempDir()
+	var none *FollowSet
+	if err := none.WriteBoundary(root, "team"); err != nil {
+		t.Errorf("nil set: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(root, ".skillfollow"), []byte("team\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	declared := Follow(root, FollowOptions{})
+	if err := declared.WriteBoundary(root, "team/sub"); !errors.Is(err, sourcefs.ErrLink) || !strings.Contains(err.Error(), filepath.Join(root, "team")) {
+		t.Errorf("declared entry: got %v, want link error naming team", err)
+	}
+	if err := declared.WriteBoundary(root, "keep"); err != nil {
+		t.Errorf("undeclared name: %v", err)
+	}
+	if err := os.Remove(filepath.Join(root, ".skillfollow")); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Mkdir(filepath.Join(root, ".skillfollow"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	unreadable := Follow(root, FollowOptions{})
+	if err := unreadable.WriteBoundary(root, "keep"); err == nil || !strings.Contains(err.Error(), "read skillfollow declaration") {
+		t.Errorf("unreadable declaration: got %v, want the read error", err)
 	}
 }

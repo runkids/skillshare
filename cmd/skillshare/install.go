@@ -247,15 +247,16 @@ func agentsDirWithInto(agentsDir string, opts install.InstallOptions) string {
 
 // ensureIntoDirExists creates the Into subdirectory if opts.Into is set. An
 // Into inside a declared .skillfollow entry is refused even while its link is
-// offline, when there is no link for the source handle to reject. Targets only
-// change an entry's state, not whether it is declared, so none are needed here.
+// offline, when there is no link for the source handle to reject, and so is any
+// Into while a declaration cannot be read. Targets only change an entry's
+// state, not whether it is declared, so none are needed here.
 func ensureIntoDirExists(sourceDir string, opts install.InstallOptions) error {
 	if opts.Into == "" {
 		return nil
 	}
 	follow := sourcewalk.Follow(sourceDir, sourcewalk.FollowOptions{})
-	if entry, ok := follow.InFollowed(filepath.ToSlash(opts.Into)); ok {
-		return &sourcefs.LinkError{Path: filepath.Join(sourceDir, entry.Name)}
+	if err := follow.WriteBoundary(sourceDir, filepath.ToSlash(opts.Into)); err != nil {
+		return err
 	}
 	return sourcefs.MkdirAllIn(sourceDir, opts.Into)
 }
