@@ -27,6 +27,12 @@ const (
 	UndeclaredLink State = "undeclared-link"
 )
 
+// Declared reports whether the state belongs to a declared entry.
+func (s State) Declared() bool { return s != UndeclaredLink }
+
+// Available reports whether a declared entry supplies complete discovery.
+func (s State) Available() bool { return s == Followed || s == NotLink }
+
 // Entry describes a logical first-level name and its classification.
 type Entry struct {
 	Name           string `json:"name"`
@@ -197,7 +203,7 @@ func follow(root string, opts FollowOptions, links linkOps) FollowSet {
 				entry.State, entry.Reason = Followed, "following directory"
 			}
 		}
-		if entry.State != Followed && entry.State != NotLink {
+		if !entry.State.Available() {
 			set.warnings = append(set.warnings, entry.Name+": "+string(entry.State)+": "+entry.Reason)
 		}
 	}
@@ -252,6 +258,11 @@ func (s *FollowSet) Active() bool { return s != nil && s.active }
 // HasLocal reports whether .skillfollow.local was read.
 func (s *FollowSet) HasLocal() bool { return s != nil && s.local }
 
+// Declared returns every declared entry, without undeclared links.
+func (s *FollowSet) Declared() []Entry {
+	return s.selectEntries(func(e Entry) bool { return e.State.Declared() })
+}
+
 // Followed returns only available followed directories.
 func (s *FollowSet) Followed() []Entry {
 	return s.selectEntries(func(e Entry) bool { return e.State == Followed })
@@ -259,7 +270,7 @@ func (s *FollowSet) Followed() []Entry {
 
 // Unavailable returns declared entries that cannot supply complete discovery.
 func (s *FollowSet) Unavailable() []Entry {
-	return s.selectEntries(func(e Entry) bool { return e.State != Followed && e.State != NotLink && e.State != UndeclaredLink })
+	return s.selectEntries(func(e Entry) bool { return e.State.Declared() && !e.State.Available() })
 }
 
 // PrunePauses names each unavailable entry that pauses prune, with the step

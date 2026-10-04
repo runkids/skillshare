@@ -337,12 +337,9 @@ func checkSkillfollow(result *doctorResult, follow *sourcewalk.FollowSet) {
 		result.addWarning()
 		result.addCheck("skillfollow", checkWarning, warning, nil)
 	}
-	for _, entry := range follow.Entries() {
-		if entry.State == sourcewalk.UndeclaredLink {
-			continue
-		}
+	for _, entry := range follow.Declared() {
 		status, mark := checkPass, ui.MarkOK
-		if entry.State != sourcewalk.Followed && entry.State != sourcewalk.NotLink {
+		if !entry.State.Available() {
 			status, mark = checkWarning, ui.MarkWarn
 			result.addWarning()
 		}
@@ -427,7 +424,7 @@ func checkUndeclaredSourceLinksWithFollow(source string, result *doctorResult, f
 	}
 	if follow != nil {
 		for _, entry := range follow.Entries() {
-			if entry.State == sourcewalk.UndeclaredLink {
+			if !entry.State.Declared() {
 				report(entry.Name)
 			}
 		}

@@ -332,7 +332,7 @@ func renderFollow(r *followResult) {
 	}
 	if r.State != "" {
 		mark := ui.MarkOK
-		if r.State != sourcewalk.Followed && r.State != sourcewalk.NotLink {
+		if !r.State.Available() {
 			mark = ui.MarkWarn
 		}
 		ui.Row(mark, r.Name, string(r.State)+" — "+r.Reason, width)

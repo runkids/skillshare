@@ -66,12 +66,7 @@ func buildSkillfollowJSON(follow *sourcewalk.FollowSet) *statusJSONSourceFollow 
 	if follow == nil {
 		return nil
 	}
-	entries := make([]sourcewalk.Entry, 0, len(follow.ParsedEntries()))
-	for _, entry := range follow.Entries() {
-		if entry.State != sourcewalk.UndeclaredLink {
-			entries = append(entries, entry)
-		}
-	}
+	entries := append(make([]sourcewalk.Entry, 0, len(follow.ParsedEntries())), follow.Declared()...)
 	return &statusJSONSourceFollow{
 		Active: follow.Active(), LocalActive: follow.HasLocal(),
 		EntryCount: len(follow.ParsedEntries()), FollowedCount: len(follow.Followed()),

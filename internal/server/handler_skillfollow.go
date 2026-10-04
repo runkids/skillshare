@@ -53,11 +53,7 @@ func buildSkillfollowResponse(source string, follow *sourcewalk.FollowSet) skill
 		return resp
 	}
 	resp.Active, resp.LocalActive = follow.Active(), follow.HasLocal()
-	for _, entry := range follow.Entries() {
-		if entry.State != sourcewalk.UndeclaredLink {
-			resp.Entries = append(resp.Entries, entry)
-		}
-	}
+	resp.Entries = append(resp.Entries, follow.Declared()...)
 	resp.Warnings = append(resp.Warnings, follow.Warnings()...)
 	// Same recovery sentence as status and doctor print.
 	resp.PrunePaused = append(resp.PrunePaused, follow.PrunePauses(source)...)
