@@ -14,6 +14,7 @@ import (
 
 	"skillshare/internal/install"
 	"skillshare/internal/sourcefs"
+	"skillshare/internal/sourcewalk"
 )
 
 const (
@@ -30,6 +31,10 @@ const (
 // Files lists the declaration files in merge order.
 var Files = []string{File, LocalFile}
 
+// sameName matches a declaration line to a name the way discovery does, so
+// on Windows `unfollow team` removes a `Team` line. Tests swap it.
+var sameName = sourcewalk.SameEntryName
+
 // Declares reports whether file in the source declares name.
 func Declares(root *sourcefs.Root, file, name string) (bool, error) {
 	content, err := read(root, file)
@@ -37,7 +42,7 @@ func Declares(root *sourcefs.Root, file, name string) (bool, error) {
 		return false, err
 	}
 	for line := range strings.SplitSeq(content, "\n") {
-		if strings.TrimSpace(line) == name {
+		if sameName(strings.TrimSpace(line), name) {
 			return true, nil
 		}
 	}
@@ -52,7 +57,7 @@ func AddEntry(root *sourcefs.Root, file, name string) (bool, error) {
 		return false, err
 	}
 	for line := range strings.SplitSeq(content, "\n") {
-		if strings.TrimSpace(line) == name {
+		if sameName(strings.TrimSpace(line), name) {
 			return false, nil
 		}
 	}
@@ -76,7 +81,7 @@ func RemoveEntry(root *sourcefs.Root, file, name string) (bool, error) {
 	lines := strings.Split(content, "\n")
 	kept := lines[:0]
 	for _, line := range lines {
-		if strings.TrimSpace(line) != name {
+		if !sameName(strings.TrimSpace(line), name) {
 			kept = append(kept, line)
 		}
 	}

@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 
 	"skillshare/internal/sourcefs"
@@ -109,6 +110,23 @@ func TestDeclares(t *testing.T) {
 }
 
 // A refused write must leave the old content and no temporary file behind.
+func TestEntries_MatchCaseInsensitivelyWhenNamesFold(t *testing.T) {
+	old := sameName
+	sameName = strings.EqualFold // Windows semantics
+	t.Cleanup(func() { sameName = old })
+
+	root := openSource(t, map[string]string{File: "# team\nTeam\n"})
+	if added, err := AddEntry(root, File, "team"); err != nil || added {
+		t.Fatalf("AddEntry = %v, %v; want already declared", added, err)
+	}
+	if removed, err := RemoveEntry(root, File, "team"); err != nil || !removed {
+		t.Fatalf("RemoveEntry = %v, %v", removed, err)
+	}
+	if got := readFile(t, root, File); got != "# team\n" {
+		t.Fatalf("content = %q", got)
+	}
+}
+
 func TestAddEntry_FailedWriteLeavesFileUntouched(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("symlinks need Developer Mode")

@@ -56,6 +56,10 @@ func readDeclarations(root string) declarations {
 // ValidEntryName reports whether name is an accepted first-level declaration.
 func ValidEntryName(name string) bool { return validEntryName(name) }
 
+// SameEntryName reports whether two declared names identify the same
+// first-level entry: case-insensitively on Windows, exactly elsewhere.
+func SameEntryName(a, b string) bool { return sameEntryName(a, b) }
+
 func validEntryName(name string) bool {
 	// Check Windows separators and volumes on every host, not only Windows.
 	volume := len(name) >= 2 && ((name[0] >= 'a' && name[0] <= 'z') || (name[0] >= 'A' && name[0] <= 'Z')) && name[1] == ':'
