@@ -103,6 +103,7 @@ func resolveGroupUpdatableWithOptions(group, sourceDir string, opts sourcewalk.O
 
 	walkRoot := utils.ResolveSymlink(groupPath)
 	resolvedSourceDir := utils.ResolveSymlink(sourceDir)
+	walkStart := walkRoot
 
 	// Only declared boundaries may retain logical paths outside the source.
 	// Comparing the unresolved suffix prevents a nested link from escaping that boundary.
@@ -111,6 +112,9 @@ func resolveGroupUpdatableWithOptions(group, sourceDir string, opts sourcewalk.O
 			suffix, relErr := filepath.Rel(filepath.Join(sourceDir, entry.Name), groupPath)
 			if relErr == nil && utils.PathsEqual(walkRoot, filepath.Join(entry.ResolvedTarget, suffix)) {
 				walkRoot = filepath.Join(resolvedSourceDir, group)
+				// Walking from the source root lets the walk attribute read failures
+				// below the group to its declaration, so FollowSet.Err reports them.
+				walkStart = resolvedSourceDir
 			}
 		}
 	}
@@ -125,7 +129,8 @@ func resolveGroupUpdatableWithOptions(group, sourceDir string, opts sourcewalk.O
 	store, _ := install.LoadMetadata(resolvedSourceDir)
 
 	var matches []updateTarget
-	if walkErr := sourcewalk.Walk(walkRoot, opts, func(path string, fi os.FileInfo, err error) error {
+	groupRel := filepath.Clean(group)
+	if walkErr := sourcewalk.Walk(walkStart, opts, func(path string, fi os.FileInfo, err error) error {
 		if err != nil {
 			return nil
 		}
@@ -139,6 +144,12 @@ func resolveGroupUpdatableWithOptions(group, sourceDir string, opts sourcewalk.O
 		rel, relErr := filepath.Rel(resolvedSourceDir, path)
 		if relErr != nil || rel == "." || strings.HasPrefix(rel, "..") {
 			return nil
+		}
+		if walkStart != walkRoot && !strings.HasPrefix(rel, groupRel+string(filepath.Separator)) {
+			if strings.HasPrefix(groupRel, rel+string(filepath.Separator)) {
+				return nil
+			}
+			return filepath.SkipDir
 		}
 
 		// Tracked repo (has .git)

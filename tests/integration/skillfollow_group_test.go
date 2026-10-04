@@ -5,6 +5,7 @@ package integration
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"skillshare/internal/testutil"
@@ -86,6 +87,63 @@ func TestSkillfollowGroupCheckAndUpdate(t *testing.T) {
 					result.AssertAnyOutputContains(t, "outside source directory")
 				}
 			}
+		})
+	}
+}
+
+// An unreadable directory below a selected followed group makes discovery
+// incomplete, so group check and update must fail instead of acting on the
+// repos that were still readable.
+func TestSkillfollowGroupUnreadableSubdirFails(t *testing.T) {
+	if runtime.GOOS == "windows" || os.Geteuid() == 0 {
+		t.Skip("requires Unix permission enforcement")
+	}
+	for _, project := range []bool{false, true} {
+		t.Run(map[bool]string{false: "global", true: "project"}[project], func(t *testing.T) {
+			sb := testutil.NewSandbox(t)
+			defer sb.Cleanup()
+			source, projectRoot := sb.SourcePath, ""
+			if project {
+				projectRoot = sb.SetupProjectDir("claude")
+				source = filepath.Join(projectRoot, ".skillshare", "skills")
+			} else {
+				sb.WriteConfig("source: " + source + "\ntargets: {}\n")
+			}
+			run := func(args ...string) *testutil.Result {
+				if project {
+					return sb.RunCLIInDir(projectRoot, append(args, "-p")...)
+				}
+				return sb.RunCLI(append(args, "-g")...)
+			}
+			base := t.TempDir()
+			remote := testutil.SetupBareRemoteRepo(t, base)
+			testutil.SeedRemoteBranch(t, base, remote, "main", map[string]string{"safe/SKILL.md": "# Safe\n"})
+			external := filepath.Join(sb.Root, "external")
+			testutil.RunGit(t, "", "clone", remote, filepath.Join(external, "other", "_repo"))
+			unreadable := filepath.Join(external, "sub")
+			sb.WriteFile(filepath.Join(unreadable, "hidden", "SKILL.md"), "# Hidden\n")
+			if err := os.Symlink(external, filepath.Join(source, "group")); err != nil {
+				t.Fatal(err)
+			}
+			sb.WriteFile(filepath.Join(source, ".skillfollow"), "group\n")
+			if err := os.Chmod(unreadable, 0000); err != nil {
+				t.Fatal(err)
+			}
+			defer os.Chmod(unreadable, 0755)
+			for _, args := range [][]string{
+				{"update", "--group", "group", "--dry-run"},
+				{"update", "group", "--dry-run"},
+				{"check", "--group", "group"},
+				{"check", "group"},
+			} {
+				result := run(args...)
+				result.AssertFailure(t)
+				result.AssertAnyOutputContains(t, "incomplete discovery of group")
+				result.AssertAnyOutputContains(t, filepath.Join("group", "sub"))
+			}
+			result := run("update", "--group", "group", "--dry-run", "--json")
+			result.AssertFailure(t)
+			result.AssertOutputNotContains(t, "_repo")
 		})
 	}
 }

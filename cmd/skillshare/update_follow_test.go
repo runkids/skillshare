@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -278,5 +279,36 @@ func TestFollowedGroupSkillUpdateRefusedProjectAll(t *testing.T) {
 	}
 	if testutil.RunGit(t, g.ordinary, "rev-parse", "HEAD") != g.expected {
 		t.Fatal("ordinary skill did not update")
+	}
+}
+
+// Walking a selected followed group must attribute read failures to its
+// declaration so the resolver cannot return a partial target list.
+func TestResolveFollowedGroupRecordsReadFailure(t *testing.T) {
+	if runtime.GOOS == "windows" || os.Geteuid() == 0 {
+		t.Skip("requires Unix permission enforcement")
+	}
+	base := t.TempDir()
+	source, external := filepath.Join(base, "source"), filepath.Join(base, "external")
+	for _, dir := range []string{source, filepath.Join(external, "sub"), filepath.Join(external, "other", "_repo", ".git")} {
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.Symlink(external, filepath.Join(source, "group")); err != nil {
+		t.Skip(err)
+	}
+	if err := os.WriteFile(filepath.Join(source, ".skillfollow"), []byte("group\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(filepath.Join(external, "sub"), 0000); err != nil {
+		t.Fatal(err)
+	}
+	defer os.Chmod(filepath.Join(external, "sub"), 0755)
+	follow := skillFollowSet(source, nil, source)
+
+	matches, err := resolveGroupUpdatableWithOptions("group", source, sourcewalk.Options{Follow: follow})
+	if err == nil || !strings.Contains(err.Error(), "incomplete discovery of group") {
+		t.Fatalf("expected incomplete discovery error, got %v with %+v", err, matches)
 	}
 }
