@@ -52,6 +52,10 @@ A skill must pass **all** layers to reach a target:
 
 📖 [File structure reference](/docs/reference/appendix/file-structure#skillignore-optional)
 
+## .skillfollow
+
+[`.skillfollow`](./skillfollow.md) is a discovery opt-in, not another filter: it lets named first-level source links expose external groups and tracked repositories. Put `.skillfollow` and optional `.skillfollow.local` at the configured skills source root; add each link's anchored no-slash ignore line and `/.skillfollow.local` to `.gitignore`. The files form a union of strict child names, not gitignore patterns. Root/repo `.skillignore` still filters the followed skills. See the [complete setup and state/recovery table](./skillfollow.md#states) before syncing.
+
 ## SKILL.md targets field {#skillmd-targets-field}
 
 **Format:** Top-level or nested under `metadata`:

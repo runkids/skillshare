@@ -4,6 +4,8 @@ sidebar_position: 1
 
 # commit
 
+[`.skillfollow` Git 안전성](../skillfollow.md#git-safety)은 dry run 포함 staging에서 indexed/미 ignore 선언 링크를 거부합니다. Skills source `.gitignore`에 `/_team-skills`（끝 `/` 없음）와 `/.skillfollow.local`을 추가하고 indexed이면 확인 후 source에서 `git rm --cached -- '_team-skills'`를 실행하세요. Skillshare는 자동 추적 해제하지 않습니다.
+
 push하지 않고 source skills에 대한 로컬 git commit을 생성합니다.
 
 ```bash

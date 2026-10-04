@@ -36,6 +36,10 @@ Skill が Target に届くには、**すべての**レイヤーを通過する�
 3. **SKILL.md `metadata.targets`** — Sync 時に評価される（`FilterSkillsByTarget`）。Skill は
    宣言された Target に制限される。
 
+## .skillfollow
+
+[`.skillfollow`](./skillfollow.md) は filter でなく discovery の opt-in です。Skills source ルートで第一階層の外部グループ/tracked repo リンク名を宣言。Local は名前の和集合で gitignore pattern は不可。リンクのルート固定/末尾 `/` なし ignore と `/.skillfollow.local` を追加します。Root/repo `.skillignore` は適用されます。[設定と全状態](./skillfollow.md#states)を確認してください。
+
 ## .skillignore
 
 **場所:**

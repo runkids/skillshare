@@ -4,6 +4,8 @@ sidebar_position: 4
 
 # Cross-Machine Sync
 
+[`.skillfollow`](../../reference/skillfollow.md) 分享声明，**不分享链接**；每台机器自行连接外部组/repo。Source `.gitignore` 加链接的锚定无末尾斜杠规则与 `/.skillfollow.local`，本机新增用 local 文件。缺失/拒绝声明暂停清理；staging/incoming guard 防止 skillshare 提交或替换链接，不保护外部 Git 命令。
+
 使用 git 在多台电脑之间同步你的 Skill。
 
 ## Overview

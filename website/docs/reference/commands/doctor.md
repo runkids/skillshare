@@ -118,11 +118,12 @@ Version
 | Source | Source directory exists and is readable |
 | Agents | Agents source directory exists (if configured) |
 | Skillignore | `.skillignore` (and `.skillignore.local`) active patterns and ignored skill count |
-| Source link | Info for each first-level symlink or Windows junction in the skills source: discovery does not follow it, so its contents are invisible to skillshare |
+| Skillfollow | Declared entry states, indexed or `not-ignored` links, unsafe `.skillfollow.local`, and unavailable entries that pause prune |
+| Source link | Info for each **undeclared** first-level symlink or Windows junction: its contents stay invisible to discovery |
 | Links | System can create symlinks |
 | Git | Repository status and remote configuration |
 
-Source-link checks apply in both global and project mode. The source root is resolved as in discovery; only its first-level entries are checked, without following links or reading their contents. No source-link output is added when there are none. Each link also appears as an `undeclared_source_links` check with status `info` in `doctor --json`.
+Source-link checks apply in both global and project mode. Undeclared first-level links appear as `undeclared_source_links` checks with status `info`; no output is added when there are none. Declared entries use `skillfollow` checks: `followed` and `not-link` pass; unavailable states warn. `skillfollow_prune` prints `prune paused: <name> is <state>; restore or fix <path>, or remove <name> from .skillfollow[.local], to resume cleanup`. These checks do not edit files. See [all states and recovery](../skillfollow.md#states), including exact `not-ignored` and indexed-link instructions.
 
 ### Targets
 

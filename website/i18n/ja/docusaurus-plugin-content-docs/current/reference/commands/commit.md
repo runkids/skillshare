@@ -4,6 +4,8 @@ sidebar_position: 1
 
 # commit
 
+[`.skillfollow` の Git 安全性](../skillfollow.md#git-safety) は dry run を含め indexed/未 ignore の宣言リンクを staging から拒否。Skills source `.gitignore` に `/_team-skills`（末尾 `/` なし）と `/.skillfollow.local` を追加し、indexed なら確認後 source で `git rm --cached -- '_team-skills'` を実行します。Skillshare は自動で追跡解除しません。
+
 source skills をプッシュせずにローカルの git commit を作成します。
 
 ```bash

@@ -839,6 +839,8 @@ targets:
 
 ### `git_root` {#git-root}
 
+[Followed skills source](../skillfollow.md#git-safety) 的实际目标须在有效 staging tree 外；链接条目保持 untracked，并在 skills source `.gitignore` 加 `/_team-skills` 等无末尾斜杠规则。Guard 按物理 Git 可达性判断，无关 agents/extras scope 不自动 stage skills link。Project follow 分类以 project root 为 staging 边界。
+
 选择 `skillshare commit`、`push` 和 `pull` 所操作的目录。
 
 ```yaml

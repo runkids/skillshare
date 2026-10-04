@@ -4,6 +4,10 @@ sidebar_position: 2
 
 # pull
 
+:::info Protecting source links
+[Source Git safety](../skillfollow.md#git-safety) refuses indexed `.skillfollow` declarations, even missing indexed links, and incoming paths that touch a declared **or undeclared** link. Ignore lines alone cannot prevent Git replacing a link. The error names the commit/path: untrack it if indexed and add the exact ignore line, or fix the remote before retrying. This also applies to init resets and dashboard checkout; `--force` is not a bypass.
+:::
+
 Pull from git remote and sync to all targets.
 
 ```bash

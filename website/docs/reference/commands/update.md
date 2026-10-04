@@ -4,6 +4,10 @@ sidebar_position: 2
 
 # update
 
+:::warning Followed repositories
+[Followed tracked repos](../skillfollow.md#updates) require a clean tree and **fast-forward-only** updates. `--force` is refused, including dry runs; dirty/status-error/diverged items fail with the resolved path to fix, while other batch items continue. **Audit failures still hard-reset to the pre-pull commit.** Do not edit the repo or repoint its link during update. Ordinary installed repos keep the policy described below.
+:::
+
 Update one or more skills or tracked repositories to the latest version.
 
 ```bash
@@ -67,7 +71,7 @@ flowchart TD
 |------|-------------|
 | `--all, -a` | Update all tracked repos/skills, or all agents when used as `update agents --all` |
 | `--group, -G <name>` | Update all updatable skills in a group, or all agents in an agent subdirectory |
-| `--force, -f` | Discard local changes and proceed despite audit findings |
+| `--force, -f` | Installed repos: discard local changes and proceed despite audit findings; refused for followed repos |
 | `--dry-run, -n` | Preview without making changes |
 | `--skip-audit` | Skip the post-update security audit gate |
 | `--audit-threshold <t>`, `--threshold <t>`, `-T <t>` | Override update audit block threshold (`critical|high|medium|low|info`; shorthand: `c|h|m|l|i`, plus `crit`, `med`) |

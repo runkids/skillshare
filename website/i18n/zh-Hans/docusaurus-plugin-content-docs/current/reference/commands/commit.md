@@ -4,6 +4,8 @@ sidebar_position: 1
 
 # commit
 
+[`.skillfollow` Git 安全](../skillfollow.md#git-safety) 在 staging（含 dry run）拒绝 indexed/未忽略声明链接。在 skills source `.gitignore` 加 `/_team-skills`（无末尾斜杠）与 `/.skillfollow.local`；若已 indexed，确认后从 source 执行 `git rm --cached -- '_team-skills'`。Skillshare 不自动取消跟踪。
+
 为 source skills 创建本地 git commit，但不推送。
 
 ```bash

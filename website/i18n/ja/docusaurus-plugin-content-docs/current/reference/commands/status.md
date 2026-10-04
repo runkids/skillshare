@@ -4,6 +4,8 @@ sidebar_position: 7
 
 # status
 
+[`.skillfollow`](../skillfollow.md#visibility) は宣言/スキップ数、`(.local active)`、`prune paused` 復旧メッセージを追加します。JSON の任意 `source.skillfollow` は状態/件数と任意 `warnings`/`prune_paused` を含み、宣言/宣言警告がなければ省略。Followed tracked repo も表示します。Linked 数は集計された接続状態で、各名前の正しい接続の証明ではありません。
+
 skillshare の現在の状態（source、tracked repositories、targets、バージョン）を表示します。
 
 ```bash

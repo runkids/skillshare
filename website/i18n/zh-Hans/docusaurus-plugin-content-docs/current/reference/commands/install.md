@@ -4,6 +4,8 @@ sidebar_position: 3
 
 # install
 
+Install 不可穿越或替换 source link，含 `--into`/force。[`.skillfollow`](../skillfollow.md) 只授予发现，不授予所有权。Followed tracked repo 的 `install --update` 采用干净树、fast-forward-only、拒绝明确 force 策略；audit 失败仍 hard-reset 至 pull 前 commit。
+
 从 GitHub 仓库、git URL 或本地路径添加 Skill。
 
 ## 概述

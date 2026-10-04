@@ -4,6 +4,10 @@ sidebar_position: 1
 
 # ui
 
+:::info Followed sources
+[`.skillfollow`](../skillfollow.md#visibility) makes followed skills visible under logical paths in Skills, Overview, Check, Update, and Hub. Writes through a followed tree (content, uninstall, toggles, target overrides, source URL changes) are refused: edit its external target directly, or hide it using the **source-root `.skillignore`**. Followed updates and source staging/pull/checkout use the same safety policies as the CLI. Sync reports unavailable-entry pauses and kept copies via per-target `prune_paused`/`kept` and warnings; Targets counts managed followed links as linked. There is no dedicated declaration editor yet.
+:::
+
 Launch the web dashboard for visual skill management.
 
 ```bash

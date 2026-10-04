@@ -4,6 +4,8 @@ sidebar_position: 7
 
 # status
 
+[`.skillfollow`](../skillfollow.md#visibility) 另列宣告/略過數量、`(.local active)` 與 `prune paused` 復原訊息。JSON 加入選用 `source.skillfollow`，含狀態、計數、選用 `warnings`/`prune_paused`；無宣告或宣告警告時省略。Followed tracked repo 會列入；linked 計數是整體連通性，不保證每個名稱連到正確 skill。
+
 顯示 skillshare 目前的狀態：source、tracked 儲存庫、targets 與版本資訊。
 
 ```bash

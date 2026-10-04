@@ -4,6 +4,8 @@ sidebar_position: 2
 
 # pull
 
+[Source Git 安全](../skillfollow.md#git-safety) 拒絕 indexed 宣告（含不存在的 indexed link）與 incoming revision 觸碰宣告或**未宣告**連結的路徑。Ignore 不能單獨防止替換；依錯誤 commit/path 取消追蹤、加精確 ignore，或修正 remote。Init reset/Dashboard checkout 也適用；`--force` 不能繞過。
+
 從 git remote 拉取並同步到所有 targets。
 
 ```bash

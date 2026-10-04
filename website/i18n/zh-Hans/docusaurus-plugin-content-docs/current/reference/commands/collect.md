@@ -4,6 +4,8 @@ sidebar_position: 1
 
 # collect
 
+Collect 不可覆盖 source link 或通过链接组件写入，force 也不例外。[`.skillfollow`](../skillfollow.md) 只授予用户外部组/repo 的读取发现；直接编辑其目标。
+
 将本地 skills 或 agents 从 targets 收集回 source。
 
 ```bash

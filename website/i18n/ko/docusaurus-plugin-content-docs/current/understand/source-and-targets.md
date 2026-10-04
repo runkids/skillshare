@@ -4,6 +4,8 @@ sidebar_position: 2
 
 # Source & Targets
 
+실험적 [`.skillfollow`](../reference/skillfollow.md)는 linked **source root**와 다릅니다. Source **내부** 링크는 기본적으로 보이지 않으며 첫 계층 외부 그룹/repo를 선언하면 논리 경로로 검색합니다. 링크/선언/Git ignore를 직접 만들며 트리 쓰기 권한은 주지 않습니다. 단일 skill과 중첩 링크는 미지원이며 실제 Windows junction 런타임 검증은 미완료입니다.
+
 skillshare의 핵심 모델: 하나의 source, 여러 target.
 
 :::tip 언제 중요한가요?

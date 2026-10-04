@@ -4,6 +4,10 @@ sidebar_position: 2
 
 # update
 
+:::warning Followed repo
+[Followed tracked repo](../skillfollow.md#updates) は clean tree と **fast-forward-only** が必要です。`--force` は dry run でも拒否。Dirty/status-error/diverged 項目は解決先の実パスを示して失敗し、他の batch 項目は続行します。**Audit 失敗時は pull 前 commit へ hard-reset します。** 更新中は編集やリンク変更をしないでください。以下の force 方針は通常の installed repo 向けです。
+:::
+
 1 つ以上の skill または tracked repositories を最新バージョンに更新します。
 
 ```bash
@@ -67,7 +71,7 @@ flowchart TD
 |------|-------------|
 | `--all, -a` | すべての tracked repos/skills を更新、または `update agents --all` として使う場合はすべての agents を更新 |
 | `--group, -G <name>` | グループ内の更新可能なすべての skill、または agent サブディレクトリ内のすべての agent を更新 |
-| `--force, -f` | ローカルの変更を破棄し、audit の検出結果があっても続行 |
+| `--force, -f` | Installed repo：変更を破棄し audit 検出があっても続行。Followed repo は拒否 |
 | `--dry-run, -n` | 変更を加えずにプレビュー |
 | `--skip-audit` | 更新後の security audit gate をスキップ |
 | `--audit-threshold <t>`, `--threshold <t>`, `-T <t>` | update の audit ブロックしきい値を上書き（`critical|high|medium|low|info`；省略形: `c|h|m|l|i`、加えて `crit`、`med`） |

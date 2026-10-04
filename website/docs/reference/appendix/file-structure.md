@@ -195,6 +195,16 @@ Instructions for the AI...
 
 See [Skill Format](/docs/understand/skill-format) for details.
 
+### .skillfollow and .skillfollow.local (Optional) {#skillfollow-optional}
+
+At the **configured skills source root**, `.skillfollow` declares direct child link names to discover; `.skillfollow.local` adds machine-local names. They do not use `.skillignore` pattern syntax and are not nested repo configuration files. A tracked repo is a `_`-prefixed linked directory with `.git`; a followed root containing `SKILL.md` is not yet supported.
+
+```text title=".skillfollow"
+_team-skills
+```
+
+Pair it with `/_team-skills` and `/.skillfollow.local` in that source's `.gitignore`, without trailing slashes. Create the link separately on each machine. See [setup, strict names, states, and safety](../skillfollow.md) before syncing.
+
 ### .skillignore (Optional) {#skillignore-optional}
 
 Excludes skills from discovery. Supports two locations:

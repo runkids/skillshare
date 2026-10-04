@@ -4,6 +4,8 @@ sidebar_position: 3
 
 # install
 
+Install은 source link를 통과하거나 교체하는 쓰기를 `--into`/force로도 거부합니다. [`.skillfollow`](../skillfollow.md)는 검색만 허용합니다. Followed tracked repo의 `install --update`는 깨끗한 트리/fast-forward-only/명시적 force 거부 정책이며 audit 실패 시 pull 이전 commit으로 hard-reset합니다.
+
 GitHub repo, git URL, 또는 로컬 경로에서 skill을 추가합니다.
 
 ## 개요

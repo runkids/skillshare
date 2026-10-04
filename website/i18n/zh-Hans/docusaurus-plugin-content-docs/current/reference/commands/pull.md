@@ -4,6 +4,8 @@ sidebar_position: 2
 
 # pull
 
+[Source Git 安全](../skillfollow.md#git-safety) 拒绝 indexed 声明（含不存在的 indexed link）与 incoming revision 触碰声明或**未声明**链接的路径。Ignore 不能单独防止替换；按错误 commit/path 取消跟踪、加精确 ignore，或修正 remote。Init reset/Dashboard checkout 也适用；`--force` 不能绕过。
+
 从 git remote 拉取并同步到所有 targets。
 
 ```bash

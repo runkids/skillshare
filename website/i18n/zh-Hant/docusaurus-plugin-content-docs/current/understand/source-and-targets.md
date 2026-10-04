@@ -4,6 +4,8 @@ sidebar_position: 2
 
 # Source & Targets
 
+[`.skillfollow`](../reference/skillfollow.md)（實驗性）與 linked **source root** 不同：source **內部**連結預設不可見，宣告第一層外部群組/repo 後才以邏輯路徑探索。自行建立連結、宣告與 Git ignore；不授予透過該樹寫入權。單 skill、巢狀連結不支援，真實 Windows junction 執行驗證待完成。
+
 skillshare 背後的核心模型：一個 source，多個 targets。
 
 :::tip 這在什麼時候重要？

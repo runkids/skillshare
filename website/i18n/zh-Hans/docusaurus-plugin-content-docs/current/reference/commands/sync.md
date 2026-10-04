@@ -4,6 +4,8 @@ sidebar_position: 2
 
 # sync
 
+[`.skillfollow`](../skillfollow.md) 发现第一层声明链接，与 source root 链接不同。任意不可用声明会暂停全部 merge/copy skills prune，force 也不例外。新条目仍可同步；无法证明来源的 standard managed copy 保留，merge link 替换则警告恢复时冲突。修复或从两文件移除声明以恢复清理；见[清理安全](../skillfollow.md#cleanup)。
+
 把 skills 从 Source 推送到所有 Target。
 
 使用 `skillshare sync mcp` 处理 MCP 连接设置，或使用 `skillshare sync --all`

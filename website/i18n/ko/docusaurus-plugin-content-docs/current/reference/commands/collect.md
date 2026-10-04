@@ -4,6 +4,8 @@ sidebar_position: 1
 
 # collect
 
+Collect는 source link 교체나 링크를 통한 쓰기를 force로도 거부합니다. [`.skillfollow`](../skillfollow.md)는 사용자 소유 외부 그룹/repo의 읽기 검색만 허용합니다. 외부 대상을 직접 편집하세요.
+
 target에서 로컬 skill이나 agent를 source로 다시 수집합니다.
 
 ```bash

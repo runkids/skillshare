@@ -4,6 +4,8 @@ sidebar_position: 4
 
 # list
 
+[`.skillfollow`](../skillfollow.md#visibility) 以 `_team-skills/review` 等邏輯路徑呈現。`list --no-tui` 在 followed tracked repo 加 `→ <resolved>`；JSON 格式不變。未宣告第一層連結仍不可見。
+
 列出 source 目錄中所有已安裝的 skills。
 
 ```bash

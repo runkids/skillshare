@@ -4,6 +4,8 @@ sidebar_position: 1
 
 # collect
 
+Collect は source link の置換やリンク経由の書き込みを force でも拒否。[`.skillfollow`](../skillfollow.md) はユーザー所有の外部グループ/repo の読み取り discovery のみを許可します。対象を直接編集してください。
+
 ターゲットからソースへ、ローカルの Skill や agent を収集します。
 
 ```bash

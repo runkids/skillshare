@@ -32,6 +32,10 @@ Skill이 Target에 도달하려면 **모든** 레이어를 통과해야 합니�
 2. **Target include/exclude** — Sync 시(`FilterSkills`) 평가됩니다. Skill은 Discovery되지만 일치하지 않는 Target에서는 건너뜁니다.
 3. **SKILL.md `metadata.targets`** — Sync 시(`FilterSkillsByTarget`) 평가됩니다. Skill은 선언된 Target으로만 제한됩니다.
 
+## .skillfollow
+
+[`.skillfollow`](./skillfollow.md)는 필터가 아닌 검색 opt-in입니다. Skills source 루트에서 첫 계층 외부 그룹/tracked repo 링크 이름을 선언합니다. Local은 이름 합집합이며 gitignore pattern이 아닙니다. 링크의 루트 기준/끝 `/` 없는 ignore와 `/.skillfollow.local`을 추가하세요. Root/repo `.skillignore`는 계속 적용됩니다. [설정과 모든 상태](./skillfollow.md#states)를 확인하세요.
+
 ## .skillignore
 
 **위치:**

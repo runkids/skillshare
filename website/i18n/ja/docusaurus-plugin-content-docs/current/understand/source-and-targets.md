@@ -4,6 +4,8 @@ sidebar_position: 2
 
 # Source & Targets
 
+実験的な [`.skillfollow`](../reference/skillfollow.md) は linked **source root** とは別です。Source **内**のリンクはデフォルト非表示で、第一階層の外部グループ/repo を宣言すると論理パスで discovery します。リンク/宣言/Git ignore を自分で作成し、書き込み権限は与えません。単一 skill、入れ子リンクは未対応、実 Windows junction 実行検証は未完了です。
+
 skillshare の核となるモデル: 1 つの source から多数の target へ。
 
 :::tip これが重要になる場面

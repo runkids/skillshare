@@ -4,6 +4,10 @@ sidebar_position: 1
 
 # commit
 
+:::info Declared source links
+[Git safety for `.skillfollow`](../skillfollow.md#git-safety) blocks staging indexed or unignored declared links, including dry runs. For `_team-skills`, add `/_team-skills` (no trailing slash) to the skills source `.gitignore`; if indexed, run `git rm --cached -- '_team-skills'` from that source after reviewing the path. Add `/.skillfollow.local` too. Skillshare never untracks links automatically.
+:::
+
 Create a local git commit for source skills without pushing.
 
 ```bash

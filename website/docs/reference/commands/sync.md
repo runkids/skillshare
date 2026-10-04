@@ -4,6 +4,10 @@ sidebar_position: 2
 
 # sync
 
+:::info Followed sources and cleanup
+[`.skillfollow`](../skillfollow.md) opts first-level source links into discovery; it is distinct from a linked source root. In merge/copy modes, any unavailable declaration pauses prune on every skills target, even with `--force`. New entries can still sync; unprovable standard-name managed copies are kept, while replaced merge links warn of possible returning-name collisions. Restore/fix the entry or remove it from both declaration files to resume cleanup. See [cleanup safety](../skillfollow.md#cleanup).
+:::
+
 Push skills from source to all targets.
 
 Use `skillshare sync hooks` for native hooks (see [hooks](./hooks.md)).

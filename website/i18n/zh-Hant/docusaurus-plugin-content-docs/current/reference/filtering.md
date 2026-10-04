@@ -32,6 +32,10 @@ sidebar_position: 3
 2. **Target include/exclude** — 在 sync 階段評估（`FilterSkills`）。Skills 會被探索到，但對不符合的 targets 會被略過。
 3. **SKILL.md `metadata.targets`** — 在 sync 階段評估（`FilterSkillsByTarget`）。Skills 會被限制在它們宣告的 targets 之內。
 
+## .skillfollow
+
+[`.skillfollow`](./skillfollow.md) 是探索 opt-in，不是另一層 filter。檔案置於 skills source 根目錄，宣告第一層外部群組/tracked repo 連結；local 檔為名稱聯集，不接受 gitignore patterns。加入連結的根目錄錨定無尾斜線 ignore 與 `/.skillfollow.local`；root/repo `.skillignore` 仍篩選 followed skills。見[完整設定與狀態](./skillfollow.md#states)。
+
 ## .skillignore
 
 **位置：**

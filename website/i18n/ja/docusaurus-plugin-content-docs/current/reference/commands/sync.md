@@ -4,6 +4,8 @@ sidebar_position: 2
 
 # sync
 
+[`.skillfollow`](../skillfollow.md) は第一階層の宣言リンクを discovery し、source root のリンクとは別です。利用不能宣言があれば全 merge/copy skills prune を force でも停止。新規項目は sync 可能ですが、出所不明の standard managed copy は保持し、merge link 置換は復帰時衝突を警告します。修復するか両ファイルから削除して再開。詳しくは[クリーンアップ](../skillfollow.md#cleanup)。
+
 Skill を source からすべての targets にプッシュします。
 
 MCP 接続設定には `skillshare sync mcp` を、skills、agents、extras、MCP、hooks をまとめて含めるには

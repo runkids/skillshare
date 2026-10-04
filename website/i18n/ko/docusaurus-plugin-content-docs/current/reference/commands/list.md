@@ -4,6 +4,8 @@ sidebar_position: 4
 
 # list
 
+[`.skillfollow`](../skillfollow.md#visibility)는 `_team-skills/review` 같은 논리 경로를 표시합니다. `list --no-tui`는 followed tracked repo에 `→ <resolved>`를 추가하며 JSON 형식은 유지합니다. 미선언 첫 계층 링크는 계속 보이지 않습니다.
+
 source 디렉터리에 설치된 모든 skill을 나열합니다.
 
 ```bash
