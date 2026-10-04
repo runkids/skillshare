@@ -1,0 +1,513 @@
+# Raw os write calls allowed outside sourcefs. See ratchet_test.go.
+# file	function	callee	path argument	reason
+cmd/skillshare/completion.go	cmdCompletion	os.MkdirAll	dir	shell
+cmd/skillshare/completion.go	cmdCompletion	os.WriteFile	destPath	shell
+cmd/skillshare/doctor.go	checkSymlinkSupport	os.MkdirAll	testTarget	tmp
+cmd/skillshare/doctor.go	checkSymlinkSupport	os.Remove	testLink	tmp
+cmd/skillshare/doctor.go	checkSymlinkSupport	os.Remove	testLink	tmp
+cmd/skillshare/doctor.go	checkSymlinkSupport	os.RemoveAll	testTarget	tmp
+cmd/skillshare/doctor.go	checkSymlinkSupport	os.RemoveAll	testTarget	tmp
+cmd/skillshare/doctor.go	checkTargetIssues	os.Create	testFile	target
+cmd/skillshare/doctor.go	checkTargetIssues	os.Remove	testFile	target
+cmd/skillshare/extras_init.go	extrasInitGlobal	os.MkdirAll	sourceDir	extras
+cmd/skillshare/extras_init.go	extrasInitProject	os.MkdirAll	sourceDir	extras
+cmd/skillshare/extras_remove.go	cleanEmptyExtrasDir	os.Remove	dir	extras
+cmd/skillshare/extras_remove.go	cleanEmptyExtrasDirQuiet	os.Remove	dir	extras
+cmd/skillshare/helpers.go	copyDir	os.MkdirAll	dstPath	source-unmigrated
+cmd/skillshare/helpers.go	copyFile	os.OpenFile	dst	source-unmigrated
+cmd/skillshare/helpers.go	removeEmptyDir	os.Remove	dir	extras
+cmd/skillshare/init_apply.go	applyInitPlan	os.MkdirAll	dir	source-root
+cmd/skillshare/init_apply.go	replaceIdenticalCopies	os.RemoveAll	dst	target
+cmd/skillshare/init_project.go	createProjectTargetDirs	os.MkdirAll	absPath	target
+cmd/skillshare/init_project.go	ensureProjectGitignore	os.WriteFile	gitignorePath	project
+cmd/skillshare/init_project.go	performProjectInit	os.MkdirAll	filepath.Join(projectDir, "agents")	agents
+cmd/skillshare/init_project.go	performProjectInit	os.MkdirAll	filepath.Join(projectDir, "skills")	source-root
+cmd/skillshare/init_remote.go	inspectRemote	os.MkdirTemp	""	tmp
+cmd/skillshare/init_remote.go	inspectRemote	os.RemoveAll	tmp	tmp
+cmd/skillshare/json_output.go	suppressUIToDevnull	os.OpenFile	os.DevNull	devnull
+cmd/skillshare/main.go	cleanupOldBinary	os.Remove	oldPath	binary
+cmd/skillshare/new.go	cmdNew	os.MkdirAll	dirPath	source-unmigrated
+cmd/skillshare/new.go	cmdNew	os.MkdirAll	skillDir	source-unmigrated
+cmd/skillshare/new.go	cmdNew	os.RemoveAll	skillDir	source-unmigrated
+cmd/skillshare/new.go	cmdNew	os.WriteFile	gitkeep	source-unmigrated
+cmd/skillshare/new.go	cmdNew	os.WriteFile	skillFile	source-unmigrated
+cmd/skillshare/restore_tui.go	(restoreTUIModel).startDelete	os.RemoveAll	tsDir	backup
+cmd/skillshare/restore_tui.go	(restoreTUIModel).startDelete	os.RemoveAll	version.Dir	backup
+cmd/skillshare/target.go	unlinkMergeMode	os.Remove	skillPath	target
+cmd/skillshare/target.go	unlinkSymlinkMode	os.Remove	targetPath	target
+cmd/skillshare/target_project.go	targetAddProject	os.MkdirAll	absPath	target
+cmd/skillshare/trash.go	trashDelete	os.RemoveAll	entry.Path	trash
+cmd/skillshare/trash.go	trashEmpty	os.RemoveAll	item.Path	trash
+cmd/skillshare/trash_tui.go	(trashTUIModel).startOperation	os.RemoveAll	entry.Path	trash
+cmd/skillshare/ui.go	clearCurrentUIStateIfMatches	os.Remove	currentUIStateFile()	config
+cmd/skillshare/ui.go	openUILog	os.MkdirAll	dir	config
+cmd/skillshare/ui.go	openUILog	os.OpenFile	filepath.Join(dir, "ui.log")	config
+cmd/skillshare/ui.go	stopUI	os.Remove	uiPidFile(opts)	config
+cmd/skillshare/ui.go	stopUI	os.Remove	uiPidFile(opts)	config
+cmd/skillshare/ui.go	stopUI	os.Remove	uiPidFile(opts)	config
+cmd/skillshare/ui.go	writeCurrentUIState	os.MkdirAll	config.CacheDir()	config
+cmd/skillshare/ui.go	writeCurrentUIState	os.WriteFile	currentUIStateFile()	config
+cmd/skillshare/ui.go	writeUIPidFile	os.MkdirAll	config.CacheDir()	config
+cmd/skillshare/ui.go	writeUIPidFile	os.WriteFile	uiPidFile(opts)	config
+cmd/skillshare/upgrade.go	downloadAndReplace	os.Remove	archivePath	binary
+cmd/skillshare/upgrade.go	downloadArchive	os.CreateTemp	""	binary
+cmd/skillshare/upgrade.go	downloadArchive	os.Remove	tmp.Name()	binary
+cmd/skillshare/upgrade.go	downloadArchive	os.Remove	tmp.Name()	binary
+cmd/skillshare/upgrade.go	writeBinary	os.Chmod	tmpPath	binary
+cmd/skillshare/upgrade.go	writeBinary	os.CreateTemp	filepath.Dir(destPath)	binary
+cmd/skillshare/upgrade.go	writeBinary	os.Remove	oldPath	binary
+cmd/skillshare/upgrade.go	writeBinary	os.Remove	oldPath	binary
+cmd/skillshare/upgrade.go	writeBinary	os.Remove	tmpPath	binary
+cmd/skillshare/upgrade.go	writeBinary	os.Remove	tmpPath	binary
+cmd/skillshare/upgrade.go	writeBinary	os.Remove	tmpPath	binary
+cmd/skillshare/upgrade.go	writeBinary	os.Remove	tmpPath	binary
+cmd/skillshare/upgrade.go	writeBinary	os.Remove	tmpPath	binary
+cmd/skillshare/upgrade.go	writeBinary	os.Rename	destPath, oldPath	binary
+cmd/skillshare/upgrade.go	writeBinary	os.Rename	oldPath, destPath	binary
+cmd/skillshare/upgrade.go	writeBinary	os.Rename	tmpPath, destPath	binary
+cmd/skillshare/upgrade.go	writeBinary	os.Rename	tmpPath, destPath	binary
+internal/audit/patterns.go	InitRulesFile	os.MkdirAll	filepath.Dir(path)	config
+internal/audit/patterns.go	InitRulesFile	os.WriteFile	path	config
+internal/audit/rules_mutate.go	ResetRules	os.Remove	path	config
+internal/audit/rules_mutate.go	writeRulesFile	os.MkdirAll	filepath.Dir(path)	config
+internal/audit/rules_mutate.go	writeRulesFile	os.WriteFile	path	config
+internal/backup/backup.go	copyDir	os.MkdirAll	dst	backup
+internal/backup/backup.go	copyFile	os.OpenFile	dst	backup
+internal/backup/backup.go	createInDir	os.Chmod	stagingPath	backup
+internal/backup/backup.go	createInDir	os.MkdirAll	backupDir	backup
+internal/backup/backup.go	createInDir	os.MkdirAll	timestampDir	backup
+internal/backup/backup.go	createInDir	os.MkdirTemp	backupDir	backup
+internal/backup/backup.go	createInDir	os.RemoveAll	stagingPath	backup
+internal/backup/backup.go	createInDir	os.Rename	stagingPath, backupPath	backup
+internal/backup/backup.go	removeDirIfEmpty	os.Remove	path	backup
+internal/backup/cleanup.go	CleanupInDir	os.RemoveAll	backup.Path	backup
+internal/backup/cleanup.go	cleanEmptyDirs	os.Remove	subPath	backup
+internal/backup/delete.go	DeleteInDir	os.RemoveAll	path	backup
+internal/backup/restore.go	RestoreToPath	os.Remove	destPath	target
+internal/backup/restore.go	RestoreToPath	os.RemoveAll	destPath	target
+internal/check/tree_check.go	FetchRemoteTreeHashesForRef	os.MkdirTemp	""	tmp
+internal/check/tree_check.go	FetchRemoteTreeHashesForRef	os.RemoveAll	tmpDir	tmp
+internal/config/config.go	(*Config).Save	os.MkdirAll	dir	config
+internal/config/config.go	(*Config).Save	os.WriteFile	path	config
+internal/config/config.go	Load	os.Rename	tmpPath, path	config
+internal/config/config.go	Load	os.WriteFile	tmpPath	config
+internal/config/config.go	migrateSkillsToRegistry	os.WriteFile	configPath	config
+internal/config/extras_migrate.go	MigrateExtrasDir	os.MkdirAll	filepath.Join(configDir, "extras")	extras
+internal/config/extras_migrate.go	MigrateExtrasDir	os.Rename	oldPath, newPath	extras
+internal/config/migrate.go	migrateDir	os.MkdirAll	filepath.Dir(newPath)	source-root
+internal/config/migrate.go	migrateDir	os.Rename	oldPath, newPath	source-root
+internal/config/project.go	(*ProjectConfig).SaveIn	os.MkdirAll	dir	config
+internal/config/project.go	(*ProjectConfig).SaveIn	os.WriteFile	path	config
+internal/config/project.go	LoadProject	os.Rename	tmpPath, path	config
+internal/config/project.go	LoadProject	os.WriteFile	tmpPath	config
+internal/config/registry.go	(*Registry).Save	os.MkdirAll	dir	source-unmigrated
+internal/config/registry.go	(*Registry).Save	os.WriteFile	path	source-unmigrated
+internal/config/registry.go	MigrateRegistryToSource	os.Remove	oldPath	source-unmigrated
+internal/config/registry.go	MigrateRegistryToSource	os.WriteFile	newPath	source-unmigrated
+internal/git/info.go	resolveMetadataConflicts	os.WriteFile	filepath.Join(dir, path)	source-unmigrated
+internal/git/info.go	restorePullResidue	os.Remove	full	source-unmigrated
+internal/git/scope.go	DisableNestedRepo	os.Rename	gitDir, disabled	source-unmigrated
+internal/git/scope.go	InitScopeRepo	os.MkdirAll	dir	source-unmigrated
+internal/git/scope.go	WriteScopeGitignore	os.WriteFile	gitignore	source-unmigrated
+internal/git/scope.go	WriteScopeGitignore	os.WriteFile	gitignore	source-unmigrated
+internal/git/scope.go	appendGitignoreLine	os.WriteFile	gitignore	source-unmigrated
+internal/git/scope.go	ensureGitignoreEntry	os.WriteFile	gitignore	source-unmigrated
+internal/git/scope.go	ensureGitignoreEntry	os.WriteFile	gitignore	source-unmigrated
+internal/git/scope.go	removeCheckedOut	os.Remove	path	source-unmigrated
+internal/git/scope.go	removeCheckedOut	os.RemoveAll	path	source-unmigrated
+internal/git/scope.go	snapshotConfig	os.Chmod	path	source-unmigrated
+internal/git/scope.go	snapshotConfig	os.Symlink	target, path	source-unmigrated
+internal/git/scope.go	snapshotConfig	os.WriteFile	path	source-unmigrated
+internal/hooks/apply.go	(*Service).applyScoped	os.Remove	f.path	plugin
+internal/hooks/apply.go	(*Service).applyScoped	os.Remove	s.journalPath()	plugin
+internal/hooks/apply.go	(*Service).applyScoped	os.Remove	s.journalPath()	plugin
+internal/hooks/apply.go	(*Service).pruneBackups	os.Remove	filepath.Join(dir, name)	plugin
+internal/hooks/apply.go	(*Service).recoverPending	os.Remove	s.journalPath()	plugin
+internal/hooks/apply.go	atomicWrite	os.CreateTemp	filepath.Dir(path)	plugin
+internal/hooks/apply.go	atomicWrite	os.MkdirAll	filepath.Dir(path)	plugin
+internal/hooks/apply.go	atomicWrite	os.Remove	file.Name()	plugin
+internal/hooks/apply.go	atomicWrite	os.Rename	file.Name(), path	plugin
+internal/hooks/apply.go	pruneCreatedDirs	os.Remove	dir	plugin
+internal/hooks/apply.go	pruneEmptyDirs	os.Remove	dir	plugin
+internal/hooks/git_ops.go	(*filePlan).prepareGitWrite	os.CreateTemp	filepath.Dir(f.path)	plugin
+internal/hooks/git_ops.go	(*filePlan).prepareGitWrite	os.MkdirAll	filepath.Dir(f.path)	plugin
+internal/hooks/git_ops.go	(*filePlan).prepareGitWrite	os.OpenFile	f.path + ".lock"	plugin
+internal/hooks/git_ops.go	(*filePlan).prepareGitWrite	os.Remove	f.path	plugin
+internal/hooks/git_ops.go	(*filePlan).prepareGitWrite	os.Remove	f.path + ".lock"	plugin
+internal/hooks/git_ops.go	(*filePlan).prepareGitWrite	os.Remove	stagePath	plugin
+internal/hooks/git_ops.go	(*filePlan).prepareGitWrite	os.Rename	f.path + ".lock", f.path	plugin
+internal/hooks/service.go	(*Service).lock	os.MkdirAll	s.stateDir()	plugin
+internal/hub/drafts.go	(DraftStore).Delete	os.Remove	path	config
+internal/hub/drafts.go	(DraftStore).locked	os.MkdirAll	s.Dir	config
+internal/hub/drafts.go	(DraftStore).persist	os.CreateTemp	s.Dir	config
+internal/hub/drafts.go	(DraftStore).persist	os.Remove	tmp.Name()	config
+internal/hub/drafts.go	(DraftStore).persist	os.Rename	tmp.Name(), path	config
+internal/hub/index.go	WriteIndex	os.MkdirAll	filepath.Dir(path)	source-unmigrated
+internal/hub/index.go	WriteIndex	os.WriteFile	path	source-unmigrated
+internal/install/copy.go	copyDirExcluding	os.MkdirAll	dstPath	source-unmigrated
+internal/install/copy.go	copyFile	os.OpenFile	dst	source-unmigrated
+internal/install/gitea_download.go	cnbWriteBlob	os.MkdirAll	filepath.Dir(destPath)	clone
+internal/install/gitea_download.go	cnbWriteBlob	os.WriteFile	destPath	clone
+internal/install/gitea_download.go	cnbWriteContentItem	os.MkdirAll	target	clone
+internal/install/gitea_download.go	cnbWriteContentItem	os.MkdirAll	target	clone
+internal/install/gitea_download.go	downloadCNBDir	os.MkdirAll	destDir	clone
+internal/install/gitea_download.go	downloadGiteaDir	os.MkdirAll	destDir	clone
+internal/install/gitea_download.go	giteaDownloadDirRecursive	os.MkdirAll	childDir	clone
+internal/install/gitea_download.go	giteaDownloadFile	os.MkdirAll	filepath.Dir(destPath)	clone
+internal/install/gitea_download.go	giteaDownloadFile	os.OpenFile	destPath	clone
+internal/install/github_download.go	downloadDirRecursive	os.MkdirAll	childDir	clone
+internal/install/github_download.go	downloadFile	os.MkdirAll	filepath.Dir(destPath)	clone
+internal/install/github_download.go	downloadFile	os.OpenFile	destPath	clone
+internal/install/github_download.go	downloadGitHubDirWithAPIBase	os.MkdirAll	destDir	clone
+internal/install/gitignore.go	writeGitignoreLines	os.WriteFile	path	source-unmigrated
+internal/install/install.go	<package>	os.RemoveAll	<ref>	source-unmigrated
+internal/install/install.go	<package>	os.RemoveAll	<ref>	source-unmigrated
+internal/install/install_apply.go	UpdateAgentFromDiscovery	os.MkdirAll	filepath.Dir(destFile)	agents
+internal/install/install_apply.go	UpdateAgentFromDiscovery	os.MkdirTemp	""	tmp
+internal/install/install_apply.go	UpdateAgentFromDiscovery	os.RemoveAll	tempDir	tmp
+internal/install/install_apply.go	UpdateAgentFromDiscovery	os.Rename	tempFile, destFile	agents
+internal/install/install_apply.go	UpdateAgentFromDiscovery	os.WriteFile	destFile	agents
+internal/install/install_apply.go	installAgentFromDiscoveryInternal	os.MkdirAll	filepath.Dir(destFile)	agents
+internal/install/install_apply.go	installAgentFromDiscoveryInternal	os.WriteFile	destFile	agents
+internal/install/install_apply.go	installFromDiscoveryInternal	os.MkdirAll	workDest	source-unmigrated
+internal/install/install_apply.go	installFromDiscoveryInternal	os.MkdirTemp	""	tmp
+internal/install/install_apply.go	installFromDiscoveryInternal	os.RemoveAll	tempDir	tmp
+internal/install/install_apply.go	installFromGitSubdir	os.MkdirTemp	""	tmp
+internal/install/install_apply.go	installFromGitSubdir	os.RemoveAll	tempRepoPath	tmp
+internal/install/install_apply.go	installFromGitSubdir	os.RemoveAll	tempRepoPath	tmp
+internal/install/install_apply.go	installFromLocal	os.MkdirAll	destPath	source-unmigrated
+internal/install/install_audit.go	cleanEmptyInstallParents	os.Remove	dir	agents
+internal/install/install_discovery.go	discoverFromGitSubdirWithProgressImpl	os.MkdirTemp	""	tmp
+internal/install/install_discovery.go	discoverFromGitSubdirWithProgressImpl	os.RemoveAll	repoPath	tmp
+internal/install/install_discovery.go	discoverFromGitSubdirWithProgressImpl	os.RemoveAll	repoPath	tmp
+internal/install/install_discovery.go	discoverFromGitSubdirWithProgressImpl	os.RemoveAll	tempDir	tmp
+internal/install/install_discovery.go	discoverFromGitSubdirWithProgressImpl	os.RemoveAll	tempDir	tmp
+internal/install/install_discovery.go	discoverFromGitWithProgressImpl	os.MkdirTemp	""	tmp
+internal/install/install_git.go	ShallowCloneToTemp	os.MkdirTemp	""	tmp
+internal/install/install_update.go	handleUpdate	os.MkdirTemp	""	tmp
+internal/install/install_update.go	handleUpdate	os.RemoveAll	tempDir	tmp
+internal/install/install_update.go	updateRepoRootOrchestrator	os.MkdirTemp	""	tmp
+internal/install/install_update.go	updateRepoRootOrchestrator	os.RemoveAll	tempDir	tmp
+internal/install/lock.go	(*Lock).Save	os.Remove	path	project
+internal/install/lock.go	(*Lock).Save	os.WriteFile	path	project
+internal/install/meta.go	WriteMeta	os.WriteFile	metaPath	source-unmigrated
+internal/install/metadata.go	(*MetadataStore).Save	os.CreateTemp	dir	source-unmigrated
+internal/install/metadata.go	(*MetadataStore).Save	os.MkdirAll	dir	source-unmigrated
+internal/install/metadata.go	(*MetadataStore).Save	os.Remove	tmpName	source-unmigrated
+internal/install/metadata.go	(*MetadataStore).Save	os.Remove	tmpName	source-unmigrated
+internal/install/metadata.go	(*MetadataStore).Save	os.Remove	tmpName	source-unmigrated
+internal/install/metadata.go	(*MetadataStore).Save	os.Remove	tmpName	source-unmigrated
+internal/install/metadata.go	(*MetadataStore).Save	os.Rename	tmpName, target	source-unmigrated
+internal/install/metadata_migrate.go	cleanupOldRegistry	os.Remove	filepath.Join(dir, "registry.yaml")	source-unmigrated
+internal/install/metadata_migrate.go	walkAgentSidecars	os.Remove	sidecarPath	agents
+internal/install/metadata_migrate.go	walkSkillDir	os.Remove	sidecarPath	source-unmigrated
+internal/instructions/convert.go	Apply	os.Remove	c.Path	plugin
+internal/instructions/convert.go	WriteFile	os.MkdirAll	filepath.Dir(path)	plugin
+internal/instructions/convert.go	WriteFile	os.WriteFile	path	plugin
+internal/instructions/project.go	ApplyShim	os.MkdirAll	filepath.Dir(own)	plugin
+internal/instructions/project.go	ApplyShim	os.Symlink	rel, own	plugin
+internal/mcp/backups.go	(*Service).pruneBackups	os.Remove	filepath.Join(dir, name)	plugin
+internal/mcp/service.go	(*Service).lock	os.MkdirAll	dir	plugin
+internal/mcp/write.go	(*Service).applyScoped	os.Remove	journalPath	plugin
+internal/mcp/write.go	(*Service).applyScoped	os.Remove	journalPath	plugin
+internal/mcp/write.go	(*Service).recoverPending	os.Remove	filepath.Join(s.StateDir, "mcp", "pending.json")	plugin
+internal/mcp/write.go	atomicWrite	os.CreateTemp	filepath.Dir(path)	plugin
+internal/mcp/write.go	atomicWrite	os.MkdirAll	filepath.Dir(path)	plugin
+internal/mcp/write.go	atomicWrite	os.Remove	file.Name()	plugin
+internal/mcp/write.go	atomicWrite	os.Rename	file.Name(), path	plugin
+internal/memory/commit.go	commitNote	os.Rename	draft, path	extras
+internal/memory/commit.go	createNote	os.OpenFile	path	extras
+internal/memory/commit.go	createNote	os.Remove	path	extras
+internal/memory/commit.go	removeNote	os.Remove	path	extras
+internal/memory/move.go	Move	os.MkdirAll	filepath.Dir(destination)	extras
+internal/memory/move.go	Move	os.OpenFile	destination	extras
+internal/memory/move.go	Move	os.Remove	destination	extras
+internal/memory/move.go	Move	os.Remove	source	extras
+internal/memory/store.go	Write	os.CreateTemp	filepath.Dir(abs)	extras
+internal/memory/store.go	Write	os.MkdirAll	filepath.Dir(abs)	extras
+internal/memory/store.go	Write	os.Remove	tmp.Name()	extras
+internal/oplog/oplog.go	Clear	os.Truncate	path	config
+internal/oplog/oplog.go	Write	os.MkdirAll	dir	config
+internal/oplog/oplog.go	Write	os.OpenFile	filepath.Join(dir, filename)	config
+internal/oplog/oplog.go	rewriteEntries	os.Create	tmp	config
+internal/oplog/oplog.go	rewriteEntries	os.Remove	tmp	config
+internal/oplog/oplog.go	rewriteEntries	os.Remove	tmp	config
+internal/oplog/oplog.go	rewriteEntries	os.Remove	tmp	config
+internal/oplog/oplog.go	rewriteEntries	os.Remove	tmp	config
+internal/oplog/oplog.go	rewriteEntries	os.Rename	tmp, path	config
+internal/plugin/apply.go	(*Service).applyChange	os.RemoveAll	backup	plugin
+internal/plugin/apply.go	(*Service).applyChange	os.RemoveAll	failed	plugin
+internal/plugin/apply.go	(*Service).applyChange	os.Rename	backup, path	plugin
+internal/plugin/apply.go	(*Service).applyChange	os.Rename	failed, path	plugin
+internal/plugin/apply.go	(*Service).applyChange	os.Rename	path, failed	plugin
+internal/plugin/apply.go	(*Service).materialize	os.MkdirAll	filepath.Dir(p)	plugin
+internal/plugin/apply.go	(*Service).materialize	os.MkdirAll	parent	plugin
+internal/plugin/apply.go	(*Service).materialize	os.MkdirTemp	parent	plugin
+internal/plugin/apply.go	(*Service).materialize	os.RemoveAll	temp	plugin
+internal/plugin/apply.go	(*Service).materialize	os.Rename	backup, expected	plugin
+internal/plugin/apply.go	(*Service).materialize	os.Rename	expected, backup	plugin
+internal/plugin/apply.go	(*Service).materialize	os.Rename	temp, expected	plugin
+internal/plugin/apply.go	(*Service).materialize	os.WriteFile	filepath.Join(temp, ".skillshare-digest")	plugin
+internal/plugin/apply.go	(*Service).materialize	os.WriteFile	filepath.Join(temp, ".skillshare-owner")	plugin
+internal/plugin/apply.go	(*Service).materialize	os.WriteFile	p	plugin
+internal/plugin/config.go	(*Service).save	os.CreateTemp	filepath.Dir(s.ConfigPath)	plugin
+internal/plugin/config.go	(*Service).save	os.MkdirAll	filepath.Dir(s.ConfigPath)	plugin
+internal/plugin/config.go	(*Service).save	os.Remove	f.Name()	plugin
+internal/plugin/config.go	(*Service).save	os.Rename	f.Name(), s.ConfigPath	plugin
+internal/plugin/lifecycle.go	(*Service).Apply	os.MkdirAll	filepath.Dir(s.ConfigPath)	plugin
+internal/plugin/lifecycle.go	(*Service).Apply	os.OpenFile	s.ConfigPath + ".plugins.lock"	plugin
+internal/plugin/lifecycle.go	(*Service).Apply	os.Remove	s.ConfigPath + ".plugins.lock"	plugin
+internal/plugin/local_bundle.go	(*Service).applyLocal	os.MkdirAll	root	plugin
+internal/plugin/local_bundle.go	(*Service).applyLocal	os.MkdirTemp	root	plugin
+internal/plugin/local_bundle.go	(*Service).applyLocal	os.Remove	marker	plugin
+internal/plugin/local_bundle.go	(*Service).applyLocal	os.RemoveAll	backup	plugin
+internal/plugin/local_bundle.go	(*Service).applyLocal	os.RemoveAll	dest	plugin
+internal/plugin/local_bundle.go	(*Service).applyLocal	os.RemoveAll	temp	plugin
+internal/plugin/local_bundle.go	(*Service).applyLocal	os.Rename	backup, dest	plugin
+internal/plugin/local_bundle.go	(*Service).applyLocal	os.Rename	dest, backup	plugin
+internal/plugin/local_bundle.go	(*Service).applyLocal	os.Rename	temp, dest	plugin
+internal/plugin/local_bundle.go	atomicNativeWrite	os.CreateTemp	filepath.Dir(path)	plugin
+internal/plugin/local_bundle.go	atomicNativeWrite	os.MkdirAll	filepath.Dir(path)	plugin
+internal/plugin/local_bundle.go	atomicNativeWrite	os.Remove	f.Name()	plugin
+internal/plugin/local_bundle.go	atomicNativeWrite	os.Rename	f.Name(), path	plugin
+internal/plugin/package_config.go	(*Service).applyOpenCode	os.MkdirAll	filepath.Dir(path)	plugin
+internal/plugin/pi_extensions_lock.go	(*piNativeLock).release	os.Remove	l.path	plugin
+internal/plugin/pi_extensions_lock.go	acquirePiNativeLock	os.Mkdir	path	plugin
+internal/plugin/pi_extensions_lock.go	acquirePiNativeLock	os.Mkdir	path	plugin
+internal/plugin/pi_extensions_write.go	(*Service).lockPiSettings	os.MkdirAll	filepath.Dir(s.ConfigPath)	plugin
+internal/plugin/pi_extensions_write.go	(*Service).lockPiSettings	os.OpenFile	pluginLock	plugin
+internal/plugin/pi_extensions_write.go	(*Service).lockPiSettings	os.Remove	pluginLock	plugin
+internal/plugin/pi_extensions_write.go	(*Service).piBackup	os.MkdirAll	dir	plugin
+internal/plugin/pi_extensions_write.go	(*Service).piBackup	os.Remove	record	plugin
+internal/plugin/pi_registration_private_other.go	makePiRegistrationDir	os.MkdirAll	path	plugin
+internal/plugin/pi_registration_private_windows.go	makePiRegistrationDir	os.MkdirAll	filepath.Dir(path)	plugin
+internal/plugin/source.go	acquireRef	os.MkdirTemp	""	plugin
+internal/plugin/source.go	acquireRef	os.RemoveAll	root	plugin
+internal/plugin/source.go	copyTree	os.MkdirAll	to	plugin
+internal/plugin/source.go	copyTree	os.Symlink	link, to	plugin
+internal/plugin/source.go	copyTree	os.WriteFile	to	plugin
+internal/resource/agent.go	(AgentKind).CreateLink	os.Symlink	src, dst	target
+internal/resource/skill.go	(SkillKind).CreateLink	os.Symlink	src, dst	target
+internal/search/index.go	readIndexFromGitClone	os.RemoveAll	dir	tmp
+internal/search/preview.go	fetchViaClone	os.RemoveAll	dir	tmp
+internal/server/handler_agentignore.go	(*Server).handlePutAgentignore	os.MkdirAll	resolved	agents
+internal/server/handler_agentignore.go	(*Server).handlePutAgentignore	os.Remove	ignorePath	agents
+internal/server/handler_agentignore.go	(*Server).handlePutAgentignore	os.WriteFile	ignorePath	agents
+internal/server/handler_audit.go	(*Server).handlePutAuditRules	os.MkdirAll	filepath.Dir(path)	config
+internal/server/handler_audit.go	(*Server).handlePutAuditRules	os.WriteFile	path	config
+internal/server/handler_config.go	(*Server).handlePutConfig	os.WriteFile	s.configPath()	config
+internal/server/handler_create_skill.go	(*Server).handleCreateSkill	os.MkdirAll	dirPath	source-unmigrated
+internal/server/handler_create_skill.go	(*Server).handleCreateSkill	os.MkdirAll	skillDir	source-unmigrated
+internal/server/handler_create_skill.go	(*Server).handleCreateSkill	os.RemoveAll	skillDir	source-unmigrated
+internal/server/handler_create_skill.go	(*Server).handleCreateSkill	os.RemoveAll	skillDir	source-unmigrated
+internal/server/handler_create_skill.go	(*Server).handleCreateSkill	os.RemoveAll	skillDir	source-unmigrated
+internal/server/handler_create_skill.go	(*Server).handleCreateSkill	os.WriteFile	gitkeep	source-unmigrated
+internal/server/handler_create_skill.go	(*Server).handleCreateSkill	os.WriteFile	skillFile	source-unmigrated
+internal/server/handler_extensions.go	(*Server).handleExtensionsOpen	os.MkdirAll	dir	plugin
+internal/server/handler_extensions.go	(*Server).handleExtensionsRemove	os.RemoveAll	path	plugin
+internal/server/handler_extras.go	(*Server).handleExtrasCreate	os.MkdirAll	sourceDir	extras
+internal/server/handler_memory_guidance.go	commitGuidanceChange	os.MkdirAll	filepath.Dir(c.Path)	plugin
+internal/server/handler_memory_guidance.go	commitGuidanceChange	os.OpenFile	c.Path	plugin
+internal/server/handler_memory_guidance.go	commitGuidanceChange	os.Remove	c.Path	plugin
+internal/server/handler_skill_content.go	writeFileAtomic	os.CreateTemp	dir	agents
+internal/server/handler_skill_content.go	writeFileAtomic	os.Remove	tmpPath	agents
+internal/server/handler_skill_content.go	writeFileAtomic	os.Rename	tmpPath, path	agents
+internal/server/handler_skillignore.go	(*Server).handlePutSkillignore	os.Remove	ignorePath	source-unmigrated
+internal/server/handler_skillignore.go	(*Server).handlePutSkillignore	os.WriteFile	ignorePath	source-unmigrated
+internal/server/handler_targets.go	<package>	os.Remove	<ref>	target
+internal/server/handler_targets.go	copySkillDir	os.MkdirAll	dstPath	target
+internal/server/handler_targets.go	copySkillDir	os.OpenFile	dstPath	target
+internal/server/handler_trash.go	(*Server).handleDeleteTrash	os.RemoveAll	resolved.entry.Path	trash
+internal/server/handler_trash.go	(*Server).handleEmptyTrash	os.RemoveAll	item.Path	trash
+internal/skillignore/write.go	AddPattern	os.MkdirAll	filepath.Dir(filePath)	source-unmigrated
+internal/skillignore/write.go	AddPattern	os.WriteFile	filePath	source-unmigrated
+internal/skillignore/write.go	RemovePattern	os.WriteFile	filePath	source-unmigrated
+internal/sourcefs/sourcefs.go	(*Root).MoveIn	os.Rename	src, filepath.Join(r.dir, name)	sourcefs
+internal/sourcefs/sourcefs.go	Create	os.MkdirAll	dir	sourcefs
+internal/sync/agent_sync.go	PruneOrphanAgentLinks	os.Remove	filepath.Join(targetDir, name)	target
+internal/sync/agent_sync.go	PullAgent	os.RemoveAll	destPath	agents
+internal/sync/agent_sync.go	PullAgent	os.WriteFile	destPath	agents
+internal/sync/agent_sync.go	PullAgents	os.MkdirAll	sourcePath	agents
+internal/sync/agent_sync.go	SyncAgentsTransform	os.MkdirAll	targetDir	target
+internal/sync/agent_sync.go	SyncAgentsTransform	os.Remove	targetDir	target
+internal/sync/agent_sync.go	SyncAgentsTransform	os.Remove	tgtFile	target
+internal/sync/agent_sync.go	SyncAgentsTransform	os.Remove	tgtFile	target
+internal/sync/agent_sync.go	SyncAgentsTransform	os.WriteFile	tgtFile	target
+internal/sync/agent_sync.go	syncAgentsCopy	os.MkdirAll	targetDir	target
+internal/sync/agent_sync.go	syncAgentsCopy	os.Remove	targetPath	target
+internal/sync/agent_sync.go	syncAgentsCopy	os.WriteFile	targetPath	target
+internal/sync/agent_sync.go	syncAgentsCopy	os.WriteFile	targetPath	target
+internal/sync/agent_sync.go	syncAgentsCopy	os.WriteFile	targetPath	target
+internal/sync/agent_sync.go	syncAgentsMerge	os.MkdirAll	targetDir	target
+internal/sync/agent_sync.go	syncAgentsMerge	os.Remove	targetPath	target
+internal/sync/agent_sync.go	syncAgentsMerge	os.Remove	targetPath	target
+internal/sync/agent_sync.go	syncAgentsMergeCopy	os.MkdirAll	targetDir	target
+internal/sync/agent_sync.go	syncAgentsMergeCopy	os.Remove	targetPath	target
+internal/sync/agent_sync.go	syncAgentsSymlink	os.MkdirAll	filepath.Dir(targetDir)	target
+internal/sync/agent_sync.go	syncAgentsSymlink	os.Remove	targetDir	target
+internal/sync/agent_sync.go	syncAgentsSymlink	os.RemoveAll	targetDir	target
+internal/sync/copy.go	PruneOrphanCopiesWithSkills	os.RemoveAll	entryPath	target
+internal/sync/copy.go	SyncTargetCopyWithSkillsOptions	os.Remove	targetSkillPath	target
+internal/sync/copy.go	SyncTargetCopyWithSkillsOptions	os.RemoveAll	targetSkillPath	target
+internal/sync/copy.go	SyncTargetCopyWithSkillsOptions	os.RemoveAll	targetSkillPath	target
+internal/sync/extension.go	runExtensionFile	os.MkdirAll	filepath.Dir(tgtFile)	target
+internal/sync/extension.go	runExtensionFile	os.WriteFile	tgtFile	target
+internal/sync/extras.go	CollectExtraFiles	os.MkdirAll	filepath.Dir(destPath)	extras
+internal/sync/extras.go	CollectExtraFiles	os.MkdirAll	sourceDir	extras
+internal/sync/extras.go	CollectExtraFiles	os.Remove	path	extras
+internal/sync/extras.go	CollectExtraFiles	os.WriteFile	destPath	extras
+internal/sync/extras.go	cleanEmptyParents	os.Remove	dir	target
+internal/sync/extras.go	pruneExtraManagedFiles	os.Remove	path	target
+internal/sync/extras.go	pruneExtraOrphans	os.Remove	path	target
+internal/sync/extras.go	pruneExtraSymlinkTarget	os.Remove	targetPath	target
+internal/sync/extras.go	syncExtraSymlinkMode	os.MkdirAll	filepath.Dir(targetPath)	target
+internal/sync/extras.go	syncExtraSymlinkMode	os.Remove	targetPath	target
+internal/sync/extras.go	syncExtraSymlinkMode	os.RemoveAll	targetPath	target
+internal/sync/extras.go	syncExtraTransform	os.MkdirAll	filepath.Dir(tgtFile)	target
+internal/sync/extras.go	syncExtraTransform	os.Remove	tgtFile	target
+internal/sync/extras.go	syncExtraTransform	os.RemoveAll	tgtFile	target
+internal/sync/extras.go	syncExtraTransform	os.WriteFile	tgtFile	target
+internal/sync/extras.go	syncOneExtraFile	os.MkdirAll	filepath.Dir(tgtFile)	target
+internal/sync/extras.go	syncOneExtraFile	os.Remove	tgtFile	target
+internal/sync/extras_backup.go	backupExtraDrift	os.MkdirAll	dir	backup
+internal/sync/extras_backup.go	backupExtraDrift	os.WriteFile	filepath.Join(dir, name)	backup
+internal/sync/extras_backup.go	backupExtraDrift	os.WriteFile	filepath.Join(extraBackupDir(path), "path")	backup
+internal/sync/extras_backup.go	clearExtraAttach	os.Remove	filepath.Join(dir, name)	backup
+internal/sync/extras_backup.go	clearExtraImportBase	os.Remove	filepath.Join(extraBackupDir(path), extraImportBase)	backup
+internal/sync/extras_backup.go	clearExtraWritten	os.Remove	filepath.Join(extraBackupDir(path), extraWritten)	backup
+internal/sync/extras_backup.go	pruneExtraBackups	os.Remove	filepath.Join(dir, names[0])	backup
+internal/sync/extras_backup.go	putBackExtraRestorePoint	os.Symlink	string(dest), path	backup
+internal/sync/extras_backup.go	putBackExtraRestorePoint	os.WriteFile	path	backup
+internal/sync/extras_backup.go	recordExtraAttach	os.MkdirAll	dir	backup
+internal/sync/extras_backup.go	recordExtraAttach	os.WriteFile	filepath.Join(dir, "path")	backup
+internal/sync/extras_backup.go	recordExtraAttach	os.WriteFile	filepath.Join(dir, name)	backup
+internal/sync/extras_backup.go	recordExtraImportBase	os.MkdirAll	dir	backup
+internal/sync/extras_backup.go	recordExtraImportBase	os.WriteFile	filepath.Join(dir, extraImportBase)	backup
+internal/sync/extras_backup.go	recordExtraWritten	os.WriteFile	filepath.Join(extraBackupDir(path), extraWritten)	backup
+internal/sync/extras_backup.go	storeExtraBackup	os.MkdirAll	dir	backup
+internal/sync/extras_backup.go	storeExtraBackup	os.WriteFile	filepath.Join(dir, "path")	backup
+internal/sync/extras_backup.go	storeExtraBackup	os.WriteFile	filepath.Join(dir, name)	backup
+internal/sync/extras_file.go	CollectBackExtraFile	os.MkdirAll	filepath.Dir(f.Source)	extras
+internal/sync/extras_file.go	CollectBackExtraFile	os.WriteFile	f.Source	extras
+internal/sync/extras_file.go	RestoreExtraTarget	os.Remove	f.Target	target
+internal/sync/extras_file.go	RestoreExtraTarget	os.Remove	f.Target	target
+internal/sync/extras_file.go	replaceDriftedTarget	os.Remove	f.Target	target
+internal/sync/extras_file.go	restoreExtraImport	os.Remove	f.Target	target
+internal/sync/extras_file.go	restoreExtraImport	os.Remove	f.Target	target
+internal/sync/extras_file.go	restoreExtraImport	os.WriteFile	f.Target	target
+internal/sync/extras_file.go	syncExtraFileReplace	os.MkdirAll	filepath.Dir(f.Target)	target
+internal/sync/extras_file.go	syncExtraFileReplace	os.Remove	f.Target	target
+internal/sync/extras_file.go	syncExtraFileReplace	os.Remove	f.Target	target
+internal/sync/extras_file.go	syncExtraFileReplace	os.WriteFile	f.Target	target
+internal/sync/extras_file.go	syncExtraImport	os.MkdirAll	filepath.Dir(f.Target)	target
+internal/sync/extras_file.go	syncExtraImport	os.Remove	f.Target	target
+internal/sync/extras_file.go	syncExtraImport	os.WriteFile	f.Target	target
+internal/sync/file_backups.go	RestoreFileBackup	os.MkdirAll	filepath.Dir(path)	target
+internal/sync/file_backups.go	RestoreFileBackup	os.MkdirAll	filepath.Dir(path)	target
+internal/sync/file_backups.go	RestoreFileBackup	os.Remove	path	target
+internal/sync/file_backups.go	RestoreFileBackup	os.Remove	path	target
+internal/sync/file_backups.go	RestoreFileBackup	os.Remove	path	target
+internal/sync/file_backups.go	RestoreFileBackup	os.Symlink	v.LinkTo, path	target
+internal/sync/file_backups.go	RestoreFileBackup	os.WriteFile	path	target
+internal/sync/filelink.go	(*copyTracker).pruneOrphans	os.Remove	filepath.Join(t.dir, rel)	target
+internal/sync/manifest.go	RemoveManifest	os.Remove	filepath.Join(targetPath, ManifestFile)	target
+internal/sync/manifest.go	WriteManifest	os.WriteFile	filepath.Join(targetPath, ManifestFile)	target
+internal/sync/pull.go	PullSkill	os.RemoveAll	destPath	source-unmigrated
+internal/sync/relative.go	reformatLink	os.Remove	linkPath	target
+internal/sync/relative.go	reformatLink	os.Remove	tmpPath	target
+internal/sync/relative.go	reformatLink	os.Remove	tmpPath	target
+internal/sync/relative.go	reformatLink	os.Rename	tmpPath, linkPath	target
+internal/sync/skill_run.go	SyncSkillTarget	os.Remove	sc.Path	target
+internal/sync/skills_off.go	DetachSkills	os.Remove	entryPath	target
+internal/sync/skills_off.go	DetachSkills	os.Remove	folder	target
+internal/sync/symlink_unix.go	createLink	os.Symlink	target, linkPath	target
+internal/sync/symlink_windows.go	canCreateRelativeLink	os.Mkdir	target	tmp
+internal/sync/symlink_windows.go	canCreateRelativeLink	os.MkdirTemp	""	tmp
+internal/sync/symlink_windows.go	canCreateRelativeLink	os.RemoveAll	dir	tmp
+internal/sync/symlink_windows.go	canCreateRelativeLink	os.Symlink	"t", link	tmp
+internal/sync/symlink_windows.go	createLink	os.Symlink	absSource, absTarget	target
+internal/sync/symlink_windows.go	createLink	os.Symlink	absSource, absTarget	target
+internal/sync/symlink_windows.go	createLink	os.Symlink	rel, linkPath	target
+internal/sync/symlink_windows.go	platformCanCreateFileLink	os.MkdirTemp	""	tmp
+internal/sync/symlink_windows.go	platformCanCreateFileLink	os.RemoveAll	dir	tmp
+internal/sync/symlink_windows.go	platformCanCreateFileLink	os.Symlink	target, filepath.Join(dir, "l")	tmp
+internal/sync/symlink_windows.go	platformCanCreateFileLink	os.WriteFile	target	tmp
+internal/sync/sync.go	CreateSymlink	os.MkdirAll	filepath.Dir(targetPath)	target
+internal/sync/sync.go	MigrateToSource	os.MkdirAll	filepath.Dir(sourcePath)	source-unmigrated
+internal/sync/sync.go	MigrateToSource	os.RemoveAll	targetPath	target
+internal/sync/sync.go	MigrateToSource	os.RemoveAll	targetPath	target
+internal/sync/sync.go	MigrateToSource	os.Rename	targetPath, sourcePath	source-unmigrated
+internal/sync/sync.go	PruneOrphanLinksWithSkills	os.RemoveAll	entryPath	target
+internal/sync/sync.go	SyncTarget	os.Remove	sc.Path	target
+internal/sync/sync.go	SyncTargetMergeWithSkills	os.Remove	targetSkillPath	target
+internal/sync/sync.go	SyncTargetMergeWithSkills	os.RemoveAll	targetSkillPath	target
+internal/sync/sync.go	copyDirectoryWithState	os.MkdirAll	dstPath	source-unmigrated
+internal/sync/sync.go	copyFile	os.OpenFile	dst	source-unmigrated
+internal/sync/sync.go	ensureRealTargetDir	os.MkdirAll	targetPath	target
+internal/sync/sync.go	ensureRealTargetDir	os.MkdirAll	targetPath	target
+internal/sync/sync.go	ensureRealTargetDir	os.Remove	targetPath	target
+internal/sync/sync.go	mergeDirectories	os.MkdirAll	dstPath	source-unmigrated
+internal/sync/target_naming_migration.go	selectActiveTargetNameForSync	os.Rename	legacyPath, desiredPath	target
+internal/testutil/git_helpers.go	SeedRemoteBranch	os.MkdirAll	filepath.Dir(full)	test-helper
+internal/testutil/git_helpers.go	SeedRemoteBranch	os.WriteFile	full	test-helper
+internal/testutil/testutil.go	(*Sandbox).CreateNestedSkill	os.MkdirAll	skillDir	test-helper
+internal/testutil/testutil.go	(*Sandbox).CreateNestedSkill	os.WriteFile	path	test-helper
+internal/testutil/testutil.go	(*Sandbox).CreateProjectSkill	os.MkdirAll	skillDir	test-helper
+internal/testutil/testutil.go	(*Sandbox).CreateProjectSkill	os.WriteFile	path	test-helper
+internal/testutil/testutil.go	(*Sandbox).CreateSkill	os.MkdirAll	skillDir	test-helper
+internal/testutil/testutil.go	(*Sandbox).CreateSkill	os.WriteFile	path	test-helper
+internal/testutil/testutil.go	(*Sandbox).CreateSymlink	os.MkdirAll	dir	test-helper
+internal/testutil/testutil.go	(*Sandbox).CreateSymlink	os.Symlink	target, link	test-helper
+internal/testutil/testutil.go	(*Sandbox).CreateTarget	os.MkdirAll	path	test-helper
+internal/testutil/testutil.go	(*Sandbox).SetupProjectDir	os.MkdirAll	dir	test-helper
+internal/testutil/testutil.go	(*Sandbox).SetupProjectDir	os.MkdirAll	filepath.Join(projectRoot, p)	test-helper
+internal/testutil/testutil.go	(*Sandbox).SetupProjectDir	os.WriteFile	filepath.Join(skillshareDir, ".gitignore")	test-helper
+internal/testutil/testutil.go	(*Sandbox).SetupProjectDir	os.WriteFile	filepath.Join(skillshareDir, "config.yaml")	test-helper
+internal/testutil/testutil.go	(*Sandbox).WriteConfig	os.MkdirAll	dir	test-helper
+internal/testutil/testutil.go	(*Sandbox).WriteConfig	os.WriteFile	sb.ConfigPath	test-helper
+internal/testutil/testutil.go	(*Sandbox).WriteFile	os.MkdirAll	dir	test-helper
+internal/testutil/testutil.go	(*Sandbox).WriteFile	os.WriteFile	path	test-helper
+internal/testutil/testutil.go	(*Sandbox).WriteProjectConfig	os.MkdirAll	dir	test-helper
+internal/testutil/testutil.go	(*Sandbox).WriteProjectConfig	os.WriteFile	path	test-helper
+internal/testutil/testutil.go	NewSandbox	os.MkdirAll	dir	test-helper
+internal/trash/trash.go	Cleanup	os.RemoveAll	item.Path	trash
+internal/trash/trash.go	MoveAgentToTrash	os.MkdirAll	trashDir	trash
+internal/trash/trash.go	MoveAgentToTrash	os.Remove	agentFile	agents
+internal/trash/trash.go	MoveAgentToTrash	os.Remove	metaFile	agents
+internal/trash/trash.go	MoveAgentToTrash	os.Rename	agentFile, destFile	agents
+internal/trash/trash.go	MoveAgentToTrash	os.Rename	metaFile, destMeta	agents
+internal/trash/trash.go	MoveAgentToTrash	os.WriteFile	destFile	trash
+internal/trash/trash.go	MoveAgentToTrash	os.WriteFile	destMeta	trash
+internal/trash/trash.go	MoveToTrash	os.MkdirAll	filepath.Dir(trashPath)	trash
+internal/trash/trash.go	MoveToTrash	os.RemoveAll	srcPath	source-checked
+internal/trash/trash.go	MoveToTrash	os.Rename	srcPath, trashPath	source-checked
+internal/trash/trash.go	Restore	os.MkdirAll	filepath.Dir(destPath)	source-unmigrated
+internal/trash/trash.go	Restore	os.RemoveAll	entry.Path	trash
+internal/trash/trash.go	Restore	os.Rename	entry.Path, destPath	source-unmigrated
+internal/trash/trash.go	RestoreAgent	os.MkdirAll	targetDir	agents
+internal/trash/trash.go	RestoreAgent	os.RemoveAll	entry.Path	trash
+internal/trash/trash.go	RestoreAgent	os.Rename	srcPath, destPath	agents
+internal/trash/trash.go	RestoreAgent	os.WriteFile	destPath	agents
+internal/trash/trash.go	cleanEmptyParents	os.Remove	dir	trash
+internal/trash/trash.go	copyDir	os.MkdirAll	dst	source-unmigrated
+internal/trash/trash.go	copyFile	os.OpenFile	dst	source-unmigrated
+internal/uidist/uidist.go	ClearCache	os.RemoveAll	dir	config
+internal/uidist/uidist.go	ClearVersion	os.RemoveAll	dir	config
+internal/uidist/uidist.go	Download	os.MkdirAll	dir	config
+internal/uidist/uidist.go	Download	os.Remove	tmpFile	config
+internal/uidist/uidist.go	Download	os.RemoveAll	dir	config
+internal/uidist/uidist.go	cleanOldVersions	os.RemoveAll	filepath.Join(uiDir, e.Name())	config
+internal/uidist/uidist.go	downloadToTemp	os.CreateTemp	""	config
+internal/uidist/uidist.go	downloadToTemp	os.Remove	tmp.Name()	config
+internal/uidist/uidist.go	downloadToTemp	os.Remove	tmp.Name()	config
+internal/uidist/uidist.go	extractTarGz	os.MkdirAll	filepath.Dir(target)	config
+internal/uidist/uidist.go	extractTarGz	os.MkdirAll	target	config
+internal/uidist/uidist.go	extractTarGz	os.OpenFile	target	config
+internal/utils/frontmatter_write.go	SetFrontmatterList	os.WriteFile	filePath	source-unmigrated
+internal/utils/frontmatter_write.go	ToggleFrontmatterFlag	os.WriteFile	filePath	source-unmigrated
+internal/utils/frontmatter_write.go	ToggleFrontmatterFlag	os.WriteFile	filePath	source-unmigrated
+internal/version/check.go	ClearCache	os.Remove	getCachePath()	config
+internal/version/check.go	cleanupLegacyCache	os.Remove	legacyPath	config
+internal/version/check.go	cleanupLegacyCache	os.Remove	parentDir	config
+internal/version/check.go	saveCacheAt	os.MkdirAll	filepath.Dir(cachePath)	config
+internal/version/check.go	saveCacheAt	os.WriteFile	cachePath	config
