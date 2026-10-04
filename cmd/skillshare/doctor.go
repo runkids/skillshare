@@ -255,16 +255,34 @@ func runDoctorChecks(cfg *config.Config, result *doctorResult, isProject bool, f
 	}
 	checkMissingTrackedRepos(cfg.EffectiveSkillsSource(), result, isProject, follow)
 
-	checkSkillsValidity(cfg.EffectiveSkillsSource(), result, discovered)
-	checkSkillIntegrity(result, discovered)
-	checkSkillTargetsField(result, discovered, targetNamesFromConfig(cfg.Targets))
+	// A failed scan is not an empty source: skip the checks that read the
+	// discovered skills rather than report its absence as findings.
+	if discoverErr != nil {
+		ui.Row(ui.MarkNone, "Skills", "checks skipped: skill discovery failed", doctorWidth)
+		skipDiscoveryChecks(result, discoverErr, "skills_validity", "skill_integrity", "skill_targets_field")
+	} else {
+		checkSkillsValidity(cfg.EffectiveSkillsSource(), result, discovered)
+		checkSkillIntegrity(result, discovered)
+		checkSkillTargetsField(result, discovered, targetNamesFromConfig(cfg.Targets))
+	}
 	targetCache := checkTargets(cfg, result, isProject, follow)
 	printSymlinkCompatHint(cfg.Targets, cfg.Mode, isProject)
 	checkSharedTargetPaths(cfg, result, isProject)
 	checkCrossTargetDiscovery(cfg, result, isProject)
-	checkSyncDrift(cfg, result, discovered, targetCache)
+	if discoverErr != nil {
+		skipDiscoveryChecks(result, discoverErr, "sync_drift")
+	} else {
+		checkSyncDrift(cfg, result, discovered, targetCache)
+	}
 	checkBrokenSymlinks(cfg, result)
 	checkDuplicateSkills(cfg, result, discovered)
+}
+
+// skipDiscoveryChecks records checks that need the discovered skills as skipped.
+func skipDiscoveryChecks(result *doctorResult, discoverErr error, names ...string) {
+	for _, name := range names {
+		result.addInfo(name, "Skipped: skill discovery failed: "+discoverErr.Error())
+	}
 }
 
 func printDoctorSummary(result *doctorResult) {

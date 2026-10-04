@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"skillshare/internal/install"
@@ -73,5 +74,59 @@ func TestSkillfollowDoctorTrackedRepoNotMissing(t *testing.T) {
 				t.Errorf("missing repository was not reported: %s", result.Stdout)
 			}
 		})
+	}
+}
+
+// An unreadable declaration makes discovery fail; doctor must skip the checks
+// that need the discovered skills instead of reading the failed scan as empty.
+// A directory named .skillfollow fails to read for every user, including root.
+func TestSkillfollowDoctorUnreadableDeclarationSkipsDiscoveryChecks(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	target := sb.CreateTarget("claude")
+	sb.WriteConfig("source: " + sb.SourcePath + "\ntargets:\n  claude:\n    path: " + target + "\n")
+	sb.WriteFile(filepath.Join(sb.SourcePath, "group", "a", "SKILL.md"), "---\nname: a\ndescription: A\n---\n# A\n")
+	sb.RunCLI("sync", "-g").AssertSuccess(t)
+	if err := os.Mkdir(filepath.Join(sb.SourcePath, ".skillfollow"), 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	text := sb.RunCLI("doctor", "-g")
+	text.AssertAnyOutputContains(t, "skill discovery failed")
+	if strings.Contains(text.Stdout+text.Stderr, "without SKILL.md") {
+		t.Errorf("failed discovery reported as a group without SKILL.md:\n%s%s", text.Stdout, text.Stderr)
+	}
+
+	result := sb.RunCLI("doctor", "--json", "-g")
+	var output struct {
+		Checks []struct {
+			Name    string `json:"name"`
+			Status  string `json:"status"`
+			Message string `json:"message"`
+		} `json:"checks"`
+	}
+	if err := json.Unmarshal([]byte(result.Stdout), &output); err != nil {
+		t.Fatal(err, result.Stdout)
+	}
+	skipped := map[string]bool{"skills_validity": false, "skill_integrity": false, "skill_targets_field": false, "sync_drift": false}
+	declarationReported := false
+	for _, check := range output.Checks {
+		if check.Name == "skillfollow" && check.Status == "warning" && strings.Contains(check.Message, ".skillfollow") {
+			declarationReported = true
+		}
+		if _, ok := skipped[check.Name]; ok {
+			if check.Status != "info" || !strings.Contains(check.Message, "skill discovery failed") {
+				t.Errorf("%s: want skipped info, got %s %q", check.Name, check.Status, check.Message)
+			}
+			skipped[check.Name] = true
+		}
+	}
+	if !declarationReported {
+		t.Errorf("declaration read error not reported: %s", result.Stdout)
+	}
+	for name, seen := range skipped {
+		if !seen {
+			t.Errorf("%s: skipped check not reported", name)
+		}
 	}
 }
