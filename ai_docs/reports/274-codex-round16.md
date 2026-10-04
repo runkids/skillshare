@@ -1,12 +1,13 @@
 # PR 390 Codex round 16 fix
 
-Both findings held against reviewed commit `0d7779a8`. They share one root cause: when a declared entry is unavailable, its link is absent, so nothing rejects a write at that path, and the write creates the declared name as a real directory. The next snapshot classifies the entry as `not-link`, the prune pause ends, and the external tree is masked when it returns. Auditing the other write paths turned up the same gap in bare `install`, in `install --into` (CLI and dashboard), in tracked installs and in `skillshare new`. The fixes are three commits on `runkids/codex-round16`. Every new test failed before its fix and passes after it. Nothing was pushed and no GitHub thread was changed.
+Both findings held against reviewed commit `0d7779a8`. They share one root cause: when a declared entry is unavailable, its link is absent, so nothing rejects a write at that path, and the write creates the declared name as a real directory. The next snapshot classifies the entry as `not-link`, the prune pause ends, and the external tree is masked when it returns. Auditing the other write paths turned up the same gap in bare `install`, in `install --into` (CLI and dashboard), in tracked installs, in `skillshare new` and in plain installs whose skill is named like a declared entry. The fixes are four commits on `runkids/codex-round16`. Every new test failed before its fix and passes after it. Nothing was pushed and no GitHub thread was changed.
 
 | Commit | Scope |
 |---|---|
 | `b52636ce` | P1: missing tracked repos and rehydration |
 | `ffe3518f` | Bare `install` from metadata or project config (found during the P1 audit) |
 | `a6a71ed4` | P2: dashboard create, plus the install and `new` paths found during the audit |
+| `039ea0f8` | Plain installs without `--into` whose skill name equals a declared entry (follow-up to the audit) |
 
 ## Replies ready for the coordinator
 
@@ -30,7 +31,7 @@ Coverage:
 
 ### P2: Refuse creation beneath unavailable followed entries
 
-Fixed in `a6a71ed4`. Confirmed as described. `POST /api/resources` with `{"into":"missing"}` returned 201 and created `missing/fresh`. With a live `group` link the source handle refused, but as a 500 (`failed to create directory: … is a link`).
+Fixed in `a6a71ed4`, with `039ea0f8` closing the plain-install variant. Confirmed as described. `POST /api/resources` with `{"into":"missing"}` returned 201 and created `missing/fresh`. With a live `group` link the source handle refused, but as a 500 (`failed to create directory: … is a link`).
 
 What changed: `handleCreateSkill` calls `followedSkillWriteError(source, into/name, snapshot)` before any `Stat` or `MkdirAll`. It answers 409 with the wording every other dashboard write uses for followed paths: `<source>/<entry> is a link; edit its target directly`. Writes inside a followed entry are refused whether its link is live or offline.
 
@@ -45,6 +46,10 @@ Audit of the other writes that take a path under the skills source:
 | CLI `install --into` (all plain flows share `ensureIntoDirExists`) | Offline: created the entry | Link error before the directory is created |
 | Tracked install (`InstallTrackedRepo`: CLI `--track`, dashboard, rehydrate) | Offline: created `group/` or `_repo` | Refuses when the destination (`into/_name`, or `_name` itself) is inside a declared entry. An update of an existing followed repo (`Update` with the repo present) still goes through `PrepareFollowedUpdate` |
 | CLI `skillshare new <name>` | Offline: created the entry | Link error before `MkdirAll` |
+| CLI plain install without `--into`, skill named like an entry (single, `install <source> --name`, `--all`, `-s`, interactive selection; global and project) | Offline: created the entry | Link error before the directory is created (`039ea0f8`). In a multi-skill install that skill fails and the others install |
+| Dashboard install (`POST /api/install`) of a skill named like an entry | Offline: created the entry | 409 (`039ea0f8`) |
+| Dashboard batch install (`POST /api/install/batch`) with a per-skill name equal to an entry | Offline: created the entry | That item fails with the link error, the others continue, the response stays 200 like other per-item failures (`039ea0f8`) |
+| CLI `search` installs (`Install` / `InstallFromDiscovery`) | Offline: a skill named like an entry created it | Refused by the same funnel check (`039ea0f8`; covered by the shared funnel, not tested separately). Updates of existing skills are unchanged |
 | Bare `install` (`InstallFromConfig`) | Offline: created the entry | Skipped (`ffe3518f`) |
 | Rehydrate (CLI no-arg and dashboard) | Offline: created the entry | Not listed (`b52636ce`) |
 | Content save (`PUT /api/resources/{name}/content`) | Already safe: resolves an existing discovered skill (offline: 404) and writes only through the source handle | Unchanged |
@@ -55,6 +60,8 @@ Audit of the other writes that take a path under the skills source:
 | Hub drafts | Read-only on the source | Unchanged |
 | Project `init` | Creates the source root, not a path below an entry | Unchanged |
 
+Every plain install, CLI and dashboard, ends in `install.Install` or `install.InstallFromDiscovery`, so `039ea0f8` adds one check there (`followedDestError` in `internal/install/install_apply.go`) instead of one per caller. It uses `opts.Follow` when the caller passes it (the dashboard passes `s.skillFollowSet()`), and otherwise a bare snapshot of the source. Only an update of an existing skill proceeds; update callers already apply `RefuseFollowedSkillUpdate` or the followed update policy first.
+
 The CLI checks (`ensureIntoDirExists`, `new`) take a bare snapshot, `sourcewalk.Follow(source, FollowOptions{})`. Targets and the Git root only decide an entry's state, never whether it is declared, and `InFollowed` returns every declared state except `not-link`.
 
 Coverage:
@@ -62,6 +69,7 @@ Coverage:
 - New rows in `TestServerSkillfollowBehaviorMatrix`: `create` (live `group`), `create-offline`, `install-offline` and `install-batch-offline` (all 409). Every row now also asserts that the offline `missing` entry was not created.
 - `TestInstallTrackedRepoRefusesDeclaredEntry` (`internal/install`): a repo named `_repo`, `Into: group`, and `Into: group` with `Update`. All three are refused and neither `group` nor `_repo` is created.
 - `TestSkillfollowInstallIntoDeclaredEntryRefused` and `TestSkillfollowNewRefusesOfflineEntry` (integration).
+- `039ea0f8`: rows `install-name-offline` (409) and `install-batch-name-offline` (200 with a per-item link error) in `TestServerSkillfollowBehaviorMatrix`, each with a skill named `missing` and no `into`; the matrix asserts `source/missing` is never created. `TestSkillfollowInstallNamedLikeDeclaredEntryRefused` (integration, global and project): a local skill `group` installed alone fails with the link error, and `install file://<repo> --all` with skills `group` and `keep` reports the link error for `group` and still installs `keep`. Neither creates `group/`.
 
 ## Failures before the fixes
 
@@ -83,6 +91,12 @@ install_follow_test.go:89: {Name:repo …} / {Name:other Into:group} / {… Upda
 install_follow_test.go:94: tracked install created declared entry group / _repo
 skillfollow_install_test.go:74: expected failure, but command succeeded        (install --into group/sub)
 skillfollow_install_test.go:90: expected failure, but command succeeded        (new group)
+TestServerSkillfollowBehaviorMatrix/install-name-offline: status 200, want 409: {"action":"copied","skillName":"missing","warnings":null}
+TestServerSkillfollowBehaviorMatrix/install-batch-name-offline: missing "is a link; edit its target directly"   (and: request created the offline declared entry)
+skillfollow_install_test.go:133: expected failure, but command succeeded        (global/single, project/single)
+skillfollow_install_test.go:135: expected output or error to contain "is a link; edit its target directly"   (all four rows)
+skillfollow_install_test.go:137: install created the declared entry: <nil>    (global/single, project/single)
+global/multi, project/multi: ✓ Installed 2 skills (group and keep), so group/ was created
 ```
 
 ## User-visible behavior changes (for the docs update)
@@ -96,23 +110,23 @@ These apply only when `.skillfollow` or `.skillfollow.local` declares the entry.
 5. Tracked installs whose destination is inside a declared entry, or is the entry's own name (such as `_repo`), fail with the same error. Updating an existing followed repo is unchanged.
 6. `skillshare new <name>` fails with the same error when `<name>` is a declared entry.
 7. Dashboard create skill into a declared entry returns 409 with that error. Before, a live entry gave a 500 and an offline entry created the directory.
+8. A plain install (CLI global or project, single or multi-skill, and the dashboard install and batch install) of a skill whose name equals a declared entry fails with the same error (409 for a dashboard single install; a per-item error in batch). Other skills in the same install still install. This includes offline entries.
 
 ## Evidence
 
-All Go commands ran in a throwaway container from the devcontainer image (compose project `skillshare_wt_round16`, this worktree at `/workspace`). Nothing ran on the host. `make check` inside the container exited 0. Tail:
+All Go commands ran in a throwaway container from the devcontainer image (compose project `skillshare_wt_round16`, this worktree at `/workspace`; `039ea0f8` in `skillshare_wt_round16b`). Nothing ran on the host. `make check` inside the container exited 0 for both runs. Tail after `039ea0f8`:
 
 ```text
 === RUN   TestXDG_StatusWorksWithXDGPath
 --- PASS: TestXDG_StatusWorksWithXDGPath (0.03s)
 PASS
-ok  	skillshare/tests/integration	60.126s
+ok  	skillshare/tests/integration	59.263s
 
 ✓ All tests passed!
 ```
 
 ## Notes and limits
 
-- **Not fixed:** a plain install with no `--into` whose skill name equals a declared entry name (CLI single and multi-skill installs, dashboard `POST /api/install` and batch per-skill names). With the entry offline, this still creates the entry as a real directory. It is a rarer variant: the user must install a skill whose name equals the declaration. The checks above cover every `into` path and the tracked and `new` destinations. Covering this case would need a check at each per-skill destination. It is left for a decision rather than widened here.
-- With an unreadable declaration the snapshot knows no entries, so the bare-install skip and the `into` refusals do not apply. The missing-repo query already fails in that case, because `GetTrackedReposWithOptions` returns the snapshot error. This is unchanged from before.
+- With an unreadable declaration the snapshot knows no entries, so the bare-install skip, the `into` refusals and the plain-install name check do not apply. The missing-repo query already fails in that case, because `GetTrackedReposWithOptions` returns the snapshot error. This is unchanged from before.
 - The test for `skillshare new` was shown failing by temporarily restoring `cmd/skillshare/new.go` from `HEAD`, then putting the fix back. The other new tests were written and run before their fix.
 - No dependency on `runkids/discovery-entry`. No website docs, README or built-in skill edits.
