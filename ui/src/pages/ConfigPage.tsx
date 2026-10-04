@@ -299,9 +299,21 @@ export default function ConfigPage() {
     );
   }
 
+  // The .local file is not editable here, but its rules can override this one.
+  const localIgnore = tab === 'skillignore' ? ignoreData?.local : tab === 'agentignore' ? agentIgnoreData?.local : undefined;
+
   // Rendered inline or inside the expanded dialog, never both: CodeMirror owns editorRef.
   const editorBlock = (
     <div className="flex min-w-0 flex-col gap-3">
+      {localIgnore && (
+        <div className="ss-note warn">
+          <Info size={16} className="mt-0.5 shrink-0" />
+          <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+            <span>{t('config.ignore.localNote', { path: shortenHome(localIgnore.path) })}</span>
+            <pre className="whitespace-pre-wrap break-all font-mono text-xs">{localIgnore.raw.trimEnd()}</pre>
+          </div>
+        </div>
+      )}
       <div className="ss-code !overflow-hidden !p-0">
         <CodeMirror
           key={tab}

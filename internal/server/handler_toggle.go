@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"skillshare/internal/resource"
 	"skillshare/internal/skillignore"
 	"skillshare/internal/sourcefs"
 	ssync "skillshare/internal/sync"
@@ -99,19 +100,74 @@ func (s *Server) handleToggleSkill(w http.ResponseWriter, r *http.Request, enabl
 			writeError(w, http.StatusInternalServerError, "failed to update .skillignore: "+err.Error())
 			return
 		}
-		if !added {
+		if !added && isDisabled {
 			writeJSON(w, map[string]any{"success": true, "name": name, "disabled": true, "message": "already disabled"})
 			return
 		}
 	}
 
-	s.writeOpsLog(action, "ok", start, map[string]any{
+	// The file write alone does not decide the outcome: a later rule, such as a
+	// "!" line in the .local file, can still override it.
+	states, err := s.disabledByRelPath(kind, source, agentsSource)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	logArgs := map[string]any{
 		"name":  name,
 		"kind":  kind,
 		"scope": "ui",
-	}, "")
+	}
+	if msg := toggleOverrideError(kind, enable, states[relPath]); msg != "" {
+		// The ignore file may already have changed, so the attempt is still logged.
+		s.writeOpsLog(action, "error", start, logArgs, msg)
+		writeError(w, http.StatusConflict, msg)
+		return
+	}
+
+	s.writeOpsLog(action, "ok", start, logArgs, "")
 
 	writeJSON(w, map[string]any{"success": true, "name": name, "disabled": disabled})
+}
+
+// disabledByRelPath re-discovers skills or agents and reports, by relPath,
+// whether each is disabled under the merged ignore and .local rules.
+func (s *Server) disabledByRelPath(kind, source, agentsSource string) (map[string]bool, error) {
+	states := map[string]bool{}
+	if kind == "agent" {
+		discovered, err := resource.AgentKind{}.Discover(agentsSource)
+		if err != nil {
+			return nil, fmt.Errorf("failed to discover agents: %w", err)
+		}
+		for _, d := range discovered {
+			states[d.RelPath] = d.Disabled
+		}
+		return states, nil
+	}
+	discovered, err := ssync.DiscoverSourceSkillsAll(source)
+	if err != nil {
+		return nil, fmt.Errorf("failed to discover skills: %w", err)
+	}
+	for _, d := range discovered {
+		states[d.RelPath] = d.Disabled
+	}
+	return states, nil
+}
+
+// toggleOverrideError explains why a toggle did not take effect, or returns ""
+// when the resource ended up in the requested state.
+func toggleOverrideError(kind string, enable, disabled bool) string {
+	file := ".skillignore"
+	if kind == "agent" {
+		file = ".agentignore"
+	}
+	switch {
+	case !enable && !disabled:
+		return fmt.Sprintf("still enabled: a \"!\" rule in %[1]s.local or %[1]s re-includes it — remove that rule to disable it", file)
+	case enable && disabled:
+		return fmt.Sprintf("still disabled: another rule in %[1]s or %[1]s.local matches it — remove that rule to enable it", file)
+	}
+	return ""
 }
 
 // resolveSkillRelPath finds a skill's relPath by flatName or baseName.

@@ -226,6 +226,7 @@
   "config.ignore.noneSkills": "Aucun skill ignoré pour l’instant.",
   "config.ignore.noneAgents": "Aucun agent ignoré pour l’instant.",
   "config.ignore.syntaxNote": "Même syntaxe que .gitignore.",
+  "config.ignore.localNote": "Sur cette machine, {path} s’applique aussi. Ses règles passent après ce fichier et peuvent le remplacer.",
   "config.revert.confirmText": "Rétablir",
   "config.revert.message": "Réinitialiser l'éditeur à la dernière version enregistrée ? Cette action est irréversible.",
   "config.revert.title": "Annuler les modifications",

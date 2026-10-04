@@ -226,6 +226,7 @@
   "config.ignore.noneSkills": "除外中のスキルはまだありません。",
   "config.ignore.noneAgents": "除外中のエージェントはまだありません。",
   "config.ignore.syntaxNote": ".gitignore と同じ書式です。",
+  "config.ignore.localNote": "このマシンでは {path} も適用されます。そのルールはこのファイルの後に評価され、ここでの設定を上書きすることがあります。",
   "config.revert.confirmText": "元に戻す",
   "config.revert.message": "エディターを最後に保存したバージョンにリセットしますか？この操作は元に戻せません。",
   "config.revert.title": "変更を元に戻す",

@@ -71,9 +71,14 @@ func checkAgentTargetInline(name string, target config.TargetConfig, builtinAgen
 		return
 	}
 
-	linked, broken := countAgentLinksAndBroken(agentPath)
 	preserved := 0
-	linked += sync.SyncedAgentCopies(agentPath, expected, &preserved)
+	linked, broken := countAgentLinksAndBroken(agentPath)
+	if ac.Extension != "" {
+		// Outputs are converted copies; a leftover link still counts as broken.
+		linked = sync.SyncedExtensionOutputs(agentPath, expected)
+	} else {
+		linked += sync.SyncedAgentCopies(agentPath, expected, &preserved)
+	}
 	countLabel := agentCountLabel(linked, agentCount, preserved)
 	if broken > 0 {
 		msg := fmt.Sprintf("[%s] %s, %d broken", mode, countLabel, broken)

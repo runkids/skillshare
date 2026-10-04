@@ -288,6 +288,35 @@ func SyncedAgentCopies(targetDir string, agents []resource.DiscoveredResource, p
 	return n
 }
 
+// SyncedExtensionOutputs counts agents whose extension output is tracked in
+// the target's manifest, unchanged since sync, and converted from the
+// source's current content. An extension renames the output per output_ext
+// and transforms its content, so neither the source name nor the source
+// content can be compared with the output; the manifest's output hash and
+// source fingerprint are the record of what sync wrote and from what. Any
+// output_ext is matched by stem, so callers need not load the extension
+// spec. Refs #391.
+func SyncedExtensionOutputs(targetDir string, agents []resource.DiscoveredResource) int {
+	copies := loadCopyTracker(targetDir)
+	used := make(map[string]bool) // one output satisfies one agent, even when flat names collide
+	n := 0
+	for _, a := range agents {
+		stem := strings.TrimSuffix(a.FlatName, filepath.Ext(a.FlatName))
+		for key := range copies.m.Managed {
+			if used[key] || strings.TrimSuffix(key, filepath.Ext(key)) != stem {
+				continue
+			}
+			rel := filepath.FromSlash(key)
+			if copies.owns(rel) && copies.sourceMatches(rel, a.AbsPath) {
+				used[key] = true
+				n++
+				break
+			}
+		}
+	}
+	return n
+}
+
 // syncAgentsSymlink creates a single directory symlink from targetDir to sourceDir.
 // If targetDir already exists as a real directory, it's replaced only with force.
 func syncAgentsSymlink(sourceDir, targetDir string, dryRun, force bool, projectRoot string) (*AgentSyncResult, error) {
@@ -493,6 +522,7 @@ func SyncAgentsTransform(agents []resource.DiscoveredResource, sourceDir, target
 		}
 		if readErr == nil && bytes.Equal(existing, out) && !force {
 			copies.record(name) // adopts outputs made before tracking
+			copies.recordSource(name, agent.AbsPath)
 			result.Linked = append(result.Linked, name)
 			continue
 		}
@@ -504,6 +534,7 @@ func SyncAgentsTransform(agents []resource.DiscoveredResource, sourceDir, target
 			continue
 		}
 		copies.record(name)
+		copies.recordSource(name, agent.AbsPath)
 		if readErr == nil {
 			result.Updated = append(result.Updated, name)
 		} else {

@@ -226,6 +226,7 @@
   "config.ignore.noneSkills": "Aún no hay skills ignorados.",
   "config.ignore.noneAgents": "Aún no hay agents ignorados.",
   "config.ignore.syntaxNote": "Misma sintaxis que .gitignore.",
+  "config.ignore.localNote": "En este equipo también se aplica {path}. Sus reglas se evalúan después de este archivo y pueden anularlo.",
   "config.revert.confirmText": "Revertir",
   "config.revert.message": "¿Restablecer el editor a la última versión guardada? Esta acción no se puede deshacer.",
   "config.revert.title": "Revertir cambios",

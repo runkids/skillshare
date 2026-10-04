@@ -156,7 +156,7 @@ func buildProjectAgentStatusJSON(rt *projectRuntime) *statusJSONAgents {
 			continue
 		}
 
-		linked := countLinkedAgents(agentPath, agents)
+		linked := countLinkedAgents(entry.AgentsConfig(), agentPath, agents)
 		result.Targets = append(result.Targets, statusJSONAgentTarget{
 			Name:     entry.Name,
 			Path:     agentPath,
@@ -229,7 +229,7 @@ func printProjectTargetsStatus(runtime *projectRuntime, discovered []sync.Discov
 		if agentsExist {
 			if agentPath := resolveProjectAgentTargetPath(entry, builtinAgents, runtime.root); agentPath != "" {
 				preserved := 0
-				linked := countLinkedAgents(agentPath, agents, &preserved)
+				linked := countLinkedAgents(entry.AgentsConfig(), agentPath, agents, &preserved)
 				row.agents = agentsCell(linked, len(agents), preserved)
 			}
 		}

@@ -239,6 +239,60 @@ func TestSyncedAgentCopies_CountsOnlyCurrentCopies(t *testing.T) {
 	}
 }
 
+func TestSyncedExtensionOutputs_CountsTrackedRenamedOutputs(t *testing.T) {
+	src, tgt, agents := agentFixture(t)
+	spec := &ExtensionSpec{Run: []string{"cat"}, Dir: src, Name: "id", OutputExt: "toml"}
+	if _, err := SyncAgentsTransform(agents, src, tgt, "copy", spec, false, false); err != nil {
+		t.Fatal(err)
+	}
+	if n := SyncedAgentCopies(tgt, agents); n != 0 {
+		t.Fatalf("source-name count = %d, want 0 (output is tutor.toml)", n)
+	}
+	if n := SyncedExtensionOutputs(tgt, agents); n != 1 {
+		t.Fatalf("after sync = %d, want 1", n)
+	}
+
+	os.WriteFile(filepath.Join(tgt, "tutor.toml"), []byte("edited"), 0644)
+
+	if n := SyncedExtensionOutputs(tgt, agents); n != 0 {
+		t.Errorf("edited output counted: %d, want 0", n)
+	}
+}
+
+func TestSyncedExtensionOutputs_OneOutputPerAgent(t *testing.T) {
+	src, tgt, agents := agentFixture(t)
+	spec := &ExtensionSpec{Run: []string{"cat"}, Dir: src, Name: "id", OutputExt: "toml"}
+	if _, err := SyncAgentsTransform(agents, src, tgt, "copy", spec, false, false); err != nil {
+		t.Fatal(err)
+	}
+	// A second agent flattening to the same name must not reuse the one output.
+	twins := append(agents, agents[0])
+
+	if n := SyncedExtensionOutputs(tgt, twins); n != 1 {
+		t.Errorf("colliding agents = %d, want 1", n)
+	}
+}
+
+func TestSyncedExtensionOutputs_ChangedSourceIsDrift(t *testing.T) {
+	src, tgt, agents := agentFixture(t)
+	spec := &ExtensionSpec{Run: []string{"cat"}, Dir: src, Name: "id", OutputExt: "toml"}
+	if _, err := SyncAgentsTransform(agents, src, tgt, "copy", spec, false, false); err != nil {
+		t.Fatal(err)
+	}
+
+	os.WriteFile(agents[0].AbsPath, []byte("v2"), 0644)
+
+	if n := SyncedExtensionOutputs(tgt, agents); n != 0 {
+		t.Fatalf("output of an old source counted: %d, want 0", n)
+	}
+	if _, err := SyncAgentsTransform(agents, src, tgt, "copy", spec, false, false); err != nil {
+		t.Fatal(err)
+	}
+	if n := SyncedExtensionOutputs(tgt, agents); n != 1 {
+		t.Errorf("after resync = %d, want 1", n)
+	}
+}
+
 func TestSyncAgents_MergeWithoutFileLinksPreservesIdenticalLocalFile(t *testing.T) {
 	withoutFileLinks(t)
 	src, tgt, agents := agentFixture(t)

@@ -89,10 +89,42 @@ func (t *copyTracker) record(rel string) {
 	}
 }
 
+// recordSource remembers which source content rel was converted from, so
+// status can tell a stale extension output from a current one without
+// running the extension.
+func (t *copyTracker) recordSource(rel, srcPath string) {
+	key := filepath.ToSlash(rel)
+	h, err := utils.FileHash(srcPath)
+	if err != nil || t.m.Sources[key] == h {
+		return
+	}
+	if t.m.Sources == nil {
+		t.m.Sources = make(map[string]string)
+	}
+	t.m.Sources[key] = h
+	t.changed = true
+}
+
+// sourceMatches reports whether rel was converted from srcPath's current
+// content. An output recorded before source fingerprints existed has no
+// entry and is taken as current; the next sync records it.
+func (t *copyTracker) sourceMatches(rel, srcPath string) bool {
+	sum, ok := t.m.Sources[filepath.ToSlash(rel)]
+	if !ok {
+		return true
+	}
+	h, err := utils.FileHash(srcPath)
+	return err == nil && h == sum
+}
+
 func (t *copyTracker) forget(rel string) {
 	key := filepath.ToSlash(rel)
 	if _, ok := t.m.Managed[key]; ok {
 		delete(t.m.Managed, key)
+		t.changed = true
+	}
+	if _, ok := t.m.Sources[key]; ok {
+		delete(t.m.Sources, key)
 		t.changed = true
 	}
 }

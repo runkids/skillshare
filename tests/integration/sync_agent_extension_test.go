@@ -57,6 +57,44 @@ func TestSync_AgentsExtension_TransformsAndRenames(t *testing.T) {
 	}
 }
 
+// Refs #391: status compared extension outputs against the source name and
+// content, so every converted agent counted as missing.
+func TestStatus_AgentsExtension_CountsConvertedOutputs(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	createAgentSource(t, sb, map[string]string{"reviewer.md": "body", "editor.md": "body2"})
+	agentsPath := createAgentTarget(t, sb, "codex")
+	ext := writeAgentExtension(t, sb, "upper2toml", "run: [\"tr\", \"a-z\", \"A-Z\"]\noutput_ext: toml\n")
+	sb.WriteConfig(agentExtensionConfig(sb, agentsPath, "      extension: "+ext+"\n"))
+
+	sb.RunCLI("sync", "agents").AssertSuccess(t)
+
+	res := sb.RunCLI("status", "--json")
+	res.AssertSuccess(t)
+	if !strings.Contains(res.Stdout, `"expected": 2`) || !strings.Contains(res.Stdout, `"linked": 2`) || !strings.Contains(res.Stdout, `"drift": false`) {
+		t.Errorf("status --json should report 2/2 without drift, got:\n%s", res.Stdout)
+	}
+
+	doctor := sb.RunCLI("doctor")
+	if !strings.Contains(doctor.Stdout, "2/2 linked") {
+		t.Errorf("doctor should report 2/2 linked, got:\n%s", doctor.Stdout)
+	}
+
+	// A changed source is drift until it is converted again.
+	createAgentSource(t, sb, map[string]string{"reviewer.md": "body v2"})
+	res = sb.RunCLI("status", "--json")
+	res.AssertSuccess(t)
+	if !strings.Contains(res.Stdout, `"linked": 1`) || !strings.Contains(res.Stdout, `"drift": true`) {
+		t.Errorf("status --json should report drift after a source change, got:\n%s", res.Stdout)
+	}
+	sb.RunCLI("sync", "agents").AssertSuccess(t)
+	res = sb.RunCLI("status", "--json")
+	if !strings.Contains(res.Stdout, `"linked": 2`) || !strings.Contains(res.Stdout, `"drift": false`) {
+		t.Errorf("status --json should report 2/2 after resync, got:\n%s", res.Stdout)
+	}
+}
+
 func TestSync_AgentsExtension_RejectsMergeMode(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()

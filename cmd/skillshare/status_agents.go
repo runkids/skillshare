@@ -42,12 +42,13 @@ func buildAgentStatusJSON(cfg *config.Config) *statusJSONAgents {
 
 	builtinAgents := config.DefaultAgentTargets()
 	for name := range cfg.Targets {
-		agentPath := resolveAgentTargetPath(cfg.Targets[name], builtinAgents, name)
+		target := cfg.Targets[name]
+		agentPath := resolveAgentTargetPath(target, builtinAgents, name)
 		if agentPath == "" {
 			continue
 		}
 
-		linked := countLinkedAgents(agentPath, agents)
+		linked := countLinkedAgents(target.AgentsConfig(), agentPath, agents)
 		result.Targets = append(result.Targets, statusJSONAgentTarget{
 			Name:     name,
 			Path:     agentPath,
@@ -61,8 +62,12 @@ func buildAgentStatusJSON(cfg *config.Config) *statusJSONAgents {
 }
 
 // countLinkedAgents counts healthy .md symlinks in the target agent directory,
-// plus up-to-date copies made where file links are unavailable.
-func countLinkedAgents(targetDir string, agents []resource.DiscoveredResource, preserved ...*int) int {
+// plus up-to-date copies made where file links are unavailable. With an
+// extension, it counts the tracked converted outputs instead.
+func countLinkedAgents(ac config.ResourceTargetConfig, targetDir string, agents []resource.DiscoveredResource, preserved ...*int) int {
+	if ac.Extension != "" {
+		return sync.SyncedExtensionOutputs(targetDir, agents)
+	}
 	linked, _ := countAgentLinksAndBroken(targetDir)
 	return linked + sync.SyncedAgentCopies(targetDir, agents, preserved...)
 }

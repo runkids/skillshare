@@ -207,6 +207,7 @@
   "config.ignore.noneSkills": "No skills ignored yet.",
   "config.ignore.noneAgents": "No agents ignored yet.",
   "config.ignore.syntaxNote": "Same syntax as .gitignore.",
+  "config.ignore.localNote": "{path} also applies on this machine. Its rules run after this file and can override it.",
   "config.revert.confirmText": "Revert",
   "config.revert.message": "Reset editor to the last saved version? This cannot be undone.",
   "config.revert.title": "Revert Changes",

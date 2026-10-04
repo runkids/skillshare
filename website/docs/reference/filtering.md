@@ -40,7 +40,7 @@ A skill must pass **all** layers to reach a target:
 
 **Syntax:** Full [gitignore](https://git-scm.com/docs/gitignore) — `*` (single segment), `**` (any depth), `?`, `[abc]`, `!pattern` (negation), `/pattern` (anchored), `pattern/` (directory-only).
 
-**`.skillignore.local`:** Place alongside `.skillignore`. Patterns are appended after the base file — last matching rule wins. Use `!pattern` to un-ignore. Don't commit this file.
+**`.skillignore.local`:** Place alongside `.skillignore`. Patterns are appended after the base file — last matching rule wins. Use `!pattern` to un-ignore. Don't commit this file. A pattern without `/` matches that name at any depth, so `!feature-radar` also re-enables `feature-radar/feature-radar`; write `!/feature-radar` to match only the top-level folder. The dashboard shows this file's rules in **Settings → Files** and reports a toggle that it overrides as failed.
 
 **CLI visibility:**
 

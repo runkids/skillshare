@@ -23,6 +23,7 @@ type agentignoreResponse struct {
 	Exists bool              `json:"exists"`
 	Path   string            `json:"path"`
 	Raw    string            `json:"raw"`
+	Local  *ignoreLocalFile  `json:"local,omitempty"`
 	Stats  *agentignoreStats `json:"stats,omitempty"`
 }
 
@@ -45,6 +46,7 @@ func (s *Server) handleGetAgentignore(w http.ResponseWriter, _ *http.Request) {
 		Exists: err == nil,
 		Path:   ignorePath,
 		Raw:    string(raw),
+		Local:  readIgnoreLocal(ignorePath),
 	}
 
 	// Discover agents to compute ignore stats

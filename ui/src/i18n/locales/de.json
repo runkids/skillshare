@@ -226,6 +226,7 @@
   "config.ignore.noneSkills": "Noch keine Skills ignoriert.",
   "config.ignore.noneAgents": "Noch keine Agents ignoriert.",
   "config.ignore.syntaxNote": "Gleiche Syntax wie .gitignore.",
+  "config.ignore.localNote": "Auf diesem Rechner gilt zusätzlich {path}. Seine Regeln werden nach dieser Datei angewendet und können sie überschreiben.",
   "config.revert.confirmText": "Zurücksetzen",
   "config.revert.message": "Editor auf die zuletzt gespeicherte Version zurücksetzen? Dies kann nicht rückgängig gemacht werden.",
   "config.revert.title": "Änderungen zurücksetzen",

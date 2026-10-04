@@ -158,12 +158,15 @@ svg.lucide { flex: none; stroke-width: var(--isw); }
 .ss-sw i { width: 16px; height: 16px; border-radius: 99px; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.25); }
 .ss-sw.on { background: var(--ink); justify-content: flex-end; }
 .ss-sw.on i { background: var(--surface); }
-/* Some of the items it covers are on: knob in the middle, track as for off. */
-.ss-sw.mix { justify-content: center; }
+/* Some of the items it covers are on: half-tone track, centered knob with a dash. */
+.ss-sw.mix { justify-content: center; background: var(--ink-3); }
+.ss-sw.mix i { display: grid; place-items: center; }
+.ss-sw.mix i::after { content: ''; width: 8px; height: 2px; border-radius: 1px; background: var(--ink-3); }
 :root[data-theme="playful"] .ss-sw { width: 38px; height: 22px; background: var(--surface); border: 2px solid var(--line); padding: 2px; }
 :root[data-theme="playful"] .ss-sw i { width: 14px; height: 14px; background: var(--ink-3); box-shadow: none; }
 :root[data-theme="playful"] .ss-sw.on { background: var(--ok-bg); }
 :root[data-theme="playful"] .ss-sw.on i { background: var(--ok); }
+:root[data-theme="playful"] .ss-sw.mix i::after { width: 6px; background: var(--surface); }
 .ss-st { display: inline-flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 500; white-space: nowrap; }
 .ss-st::before { content: ''; width: 7px; height: 7px; border-radius: 99px; background: var(--ink-3); }
 .ss-st.ok::before { background: var(--ok); }

@@ -366,8 +366,11 @@ export default function ResourcesPage({ kind }: { kind: Kind }) {
     },
     onSuccess: (res, { enable }) => {
       const { updated, unchanged, failed } = res.summary;
-      if (failed > 0 && updated > 0) toast(t('resources.batchToggle.toast.partial', { updated, failed }), 'warning');
-      else if (failed > 0) toast(t(failed === 1 ? 'resources.batchToggle.toast.failed.one' : 'resources.batchToggle.toast.failed.other', { count: failed }), 'error');
+      // Name the first failure: the count alone hides why an item stayed as it was.
+      const firstError = res.results.find((r) => r.error);
+      const reason = firstError ? ` — ${firstError.name}: ${firstError.error}` : '';
+      if (failed > 0 && updated > 0) toast(t('resources.batchToggle.toast.partial', { updated, failed }) + reason, 'warning');
+      else if (failed > 0) toast(t(failed === 1 ? 'resources.batchToggle.toast.failed.one' : 'resources.batchToggle.toast.failed.other', { count: failed }) + reason, 'error');
       else if (updated === 0 && unchanged > 0) toast(t('resources.batchToggle.toast.noChange'), 'info', { key: TOGGLE_TOAST });
       else toast(t(`resources.batchToggle.toast.${enable ? 'enabled' : 'disabled'}.${updated === 1 ? 'one' : 'other'}`, { count: updated }), 'success', { key: TOGGLE_TOAST });
       setSelected(new Set());

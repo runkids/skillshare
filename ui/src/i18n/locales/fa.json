@@ -226,6 +226,7 @@
   "config.ignore.noneSkills": "هنوز اسکیلی نادیده گرفته نشده است.",
   "config.ignore.noneAgents": "هنوز ایجنتی نادیده گرفته نشده است.",
   "config.ignore.syntaxNote": "همان نحو .gitignore.",
+  "config.ignore.localNote": "در این دستگاه {path} هم اعمال می‌شود. قوانین آن بعد از این فایل اجرا می‌شوند و ممکن است آن را نادیده بگیرند.",
   "config.revert.confirmText": "بازگشت",
   "config.revert.message": "ویرایشگر را به آخرین نسخه ذخیره‌شده بازنشانی کنید؟ این عمل قابل بازگشت نیست.",
   "config.revert.title": "بازگشت تغییرات",

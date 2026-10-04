@@ -103,7 +103,7 @@ describe('Skills tree view', () => {
     vi.mocked(api.listTargets).mockResolvedValue({ targets: [], sourceSkillCount: 0 });
     vi.mocked(api.listTrash).mockResolvedValue({ items: [] } as unknown as Awaited<ReturnType<typeof api.listTrash>>);
     vi.mocked(api.getSyncMatrix).mockResolvedValue({ entries: [] } as unknown as Awaited<ReturnType<typeof api.getSyncMatrix>>);
-    vi.mocked(api.batchToggleResources).mockResolvedValue({ summary: { updated: 1, unchanged: 0, failed: 0 } } as Awaited<ReturnType<typeof api.batchToggleResources>>);
+    vi.mocked(api.batchToggleResources).mockResolvedValue({ results: [], summary: { updated: 1, unchanged: 0, failed: 0 } } as Awaited<ReturnType<typeof api.batchToggleResources>>);
     vi.mocked(api.batchSetTargets).mockResolvedValue({ updated: 2, skipped: 0, errors: [] });
     vi.mocked(api.availableTargets).mockResolvedValue({ targets: [{ name: 'claude', installed: true }] } as Awaited<ReturnType<typeof api.availableTargets>>);
   });

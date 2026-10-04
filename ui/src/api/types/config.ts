@@ -21,6 +21,12 @@ export interface AvailableTarget {
   readBy?: string[];
 }
 
+// Machine-only .local companion of an ignore file; its rules override the shared file.
+export interface IgnoreLocalFile {
+  path: string;
+  raw: string;
+}
+
 // Skillignore types
 export interface SkillignoreStats {
   pattern_count: number;
@@ -33,6 +39,7 @@ export interface SkillignoreResponse {
   exists: boolean;
   path: string;
   raw: string;
+  local?: IgnoreLocalFile;
   stats?: SkillignoreStats;
 }
 
@@ -48,5 +55,6 @@ export interface AgentignoreResponse {
   exists: boolean;
   path: string;
   raw: string;
+  local?: IgnoreLocalFile;
   stats?: AgentignoreStats;
 }

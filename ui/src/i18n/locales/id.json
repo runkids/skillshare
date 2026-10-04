@@ -226,6 +226,7 @@
   "config.ignore.noneSkills": "Belum ada skill yang diabaikan.",
   "config.ignore.noneAgents": "Belum ada agent yang diabaikan.",
   "config.ignore.syntaxNote": "Sintaksnya sama dengan .gitignore.",
+  "config.ignore.localNote": "Di mesin ini, {path} juga berlaku. Aturannya dijalankan setelah file ini dan bisa menimpanya.",
   "config.revert.confirmText": "Kembalikan",
   "config.revert.message": "Reset editor ke versi yang terakhir disimpan? Tindakan ini tidak dapat dibatalkan.",
   "config.revert.title": "Kembalikan Perubahan",

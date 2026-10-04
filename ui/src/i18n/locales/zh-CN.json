@@ -226,6 +226,7 @@
   "config.ignore.noneSkills": "目前没有忽略任何 skill。",
   "config.ignore.noneAgents": "目前没有忽略任何 agent。",
   "config.ignore.syntaxNote": "语法与 .gitignore 相同。",
+  "config.ignore.localNote": "这台机器上还会应用 {path}。它的规则在此文件之后执行，可能会覆盖这里的设置。",
   "config.revert.confirmText": "恢复",
   "config.revert.message": "将编辑器重置为上次保存的版本？此操作无法撤销。",
   "config.revert.title": "恢复更改",

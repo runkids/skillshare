@@ -159,3 +159,31 @@ func TestHandleBatchToggle_InvalidKind(t *testing.T) {
 		t.Errorf("expected 400 for invalid kind, got %d", rr.Code)
 	}
 }
+
+// A "!name" rule in .skillignore.local re-includes every path segment called
+// name, so writing the skill's path to .skillignore does not disable it.
+func seedLocalNegation(t *testing.T, src string) {
+	t.Helper()
+	addSkill(t, src, "feature-radar/feature-radar")
+	addSkill(t, src, "feature-radar/feature-radar-scan")
+	if err := os.WriteFile(filepath.Join(src, ".skillignore.local"), []byte("!feature-radar\n"), 0644); err != nil {
+		t.Fatalf("seed .skillignore.local: %v", err)
+	}
+}
+
+func TestHandleBatchToggle_DisableOverriddenByLocalNegation_Fails(t *testing.T) {
+	s, src := newTestServer(t)
+	seedLocalNegation(t, src)
+
+	rr, resp := postBatchToggle(t, s, `{"names":["feature-radar__feature-radar","feature-radar__feature-radar-scan"],"kind":"skill","enable":false}`)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rr.Code, rr.Body.String())
+	}
+	if resp.Summary.Updated != 1 || resp.Summary.Failed != 1 {
+		t.Fatalf("expected updated=1 failed=1, got %+v", resp.Summary)
+	}
+	r := resp.Results[0]
+	if r.Success || r.Disabled || !strings.Contains(r.Error, ".skillignore.local") {
+		t.Errorf("expected overridden skill to fail naming .skillignore.local, got %+v", r)
+	}
+}

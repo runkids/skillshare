@@ -134,7 +134,7 @@ func (b *Builder) buildSummary(targetName, path, displayPath string, ac config.R
 	if b.sourceExists {
 		summary.ExpectedCount = len(expectedAgents)
 	}
-	summary.ManagedCount = countManagedAgents(path, mode, b.sourcePath, summary.ExpectedCount, expectedAgents)
+	summary.ManagedCount = countManagedAgents(path, mode, ac.Extension, b.sourcePath, summary.ExpectedCount, expectedAgents)
 	// Extension output is managed, not local, even when it keeps the .md name.
 	if ac.Extension == "" {
 		summary.LocalCount = countLocalAgents(path, b.sourcePath)
@@ -143,7 +143,10 @@ func (b *Builder) buildSummary(targetName, path, displayPath string, ac config.R
 	return summary, nil
 }
 
-func countManagedAgents(targetPath, mode, sourcePath string, expectedCount int, agents []resource.DiscoveredResource) int {
+func countManagedAgents(targetPath, mode, extension, sourcePath string, expectedCount int, agents []resource.DiscoveredResource) int {
+	if extension != "" {
+		return ssync.SyncedExtensionOutputs(targetPath, agents)
+	}
 	switch mode {
 	case "copy":
 		_, managed, _ := ssync.CheckStatusCopy(targetPath)

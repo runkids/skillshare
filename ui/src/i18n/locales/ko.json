@@ -226,6 +226,7 @@
   "config.ignore.noneSkills": "아직 무시된 스킬이 없습니다.",
   "config.ignore.noneAgents": "아직 무시된 에이전트가 없습니다.",
   "config.ignore.syntaxNote": ".gitignore와 문법이 같습니다.",
+  "config.ignore.localNote": "이 기기에서는 {path}도 적용됩니다. 이 파일 다음에 적용되므로 여기 설정을 덮어쓸 수 있습니다.",
   "config.revert.confirmText": "되돌리기",
   "config.revert.message": "편집기를 마지막 저장 버전으로 되돌리시겠습니까? 이 작업은 취소할 수 없습니다.",
   "config.revert.title": "변경사항 되돌리기",
