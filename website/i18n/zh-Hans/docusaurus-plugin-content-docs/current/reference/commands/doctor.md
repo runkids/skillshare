@@ -4,6 +4,8 @@ sidebar_position: 1
 
 # doctor
 
+[`.skillfollow`](../skillfollow.md#states) 声明状态用 `skillfollow`：`followed`/`not-link` 为 pass，其他不可用状态 warning。`skillfollow_prune` 显示 `prune paused: <name> is <state>; restore or fix <path>, or remove <name> from .skillfollow[.local], to resume cleanup`。`not-ignored` 与 indexed 诊断提供精确 ignore/untrack 指令，不自动修文件。
+
 检查环境并诊断你的 skillshare 设置中的问题。
 
 ```bash
@@ -118,11 +120,12 @@ Version
 | Source | Source directory exists and is readable |
 | Agents | Agents source directory exists (if configured) |
 | Skillignore | `.skillignore` (and `.skillignore.local`) active patterns and ignored skill count |
-| Source link | skills source 第一层的每个 symlink 或 Windows junction 各一条 info：discovery 不会跟进去，所以其内容对 skillshare 不可见 |
+| Skillfollow | 声明状态、indexed/`not-ignored` 链接、不安全 local 文件与 prune 暂停 |
+| Source link | **未声明**第一层 symlink/junction 为 info，其内容不可见 |
 | Links | System can create symlinks |
 | Git | Repository status and remote configuration |
 
-Source link 检查在 global 与 project mode 都会执行。source 根目录按 discovery 的方式解析，只检查第一层项目，不跟随链接、不读取其内容。没有这类链接时不会增加输出。每个链接在 `doctor --json` 中也会以 status 为 `info` 的 `undeclared_source_links` 检查出现。
+Global/project mode 均检查；未声明链接保持 `undeclared_source_links` info，没有时不加输出。声明项由 `skillfollow`/`skillfollow_prune` 检查，见[状态与恢复](../skillfollow.md#states)。
 
 ### Targets
 

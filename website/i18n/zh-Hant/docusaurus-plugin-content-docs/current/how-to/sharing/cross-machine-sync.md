@@ -4,6 +4,8 @@ sidebar_position: 4
 
 # 跨機器 Sync
 
+[`.skillfollow`](../../reference/skillfollow.md) 分享宣告，**不分享連結**；每台機器自行連到外部群組/repo。Source `.gitignore` 加連結的錨定無尾斜線規則與 `/.skillfollow.local`，本機新增用 local 檔。缺失/拒絕宣告會暫停清理；staging/incoming guard 防止 skillshare 提交或替換連結，不保護外部 Git 指令。
+
 使用 git 在多台電腦之間 Sync 你的 skills。
 
 ## 概覽

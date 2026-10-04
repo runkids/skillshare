@@ -4,6 +4,8 @@ sidebar_position: 1
 
 # doctor
 
+[`.skillfollow`](../skillfollow.md#states) の宣言は `skillfollow` 検査で、`followed`/`not-link` は pass、利用不能状態は warning。`skillfollow_prune` は `prune paused: <name> is <state>; restore or fix <path>, or remove <name> from .skillfollow[.local], to resume cleanup` を表示。Indexed/`not-ignored` 診断は正確な ignore/追跡解除指示を示し、自動修復しません。
+
 環境をチェックし、skillshare のセットアップに関する問題を診断します。
 
 ```bash
@@ -118,11 +120,12 @@ Version
 | Source | Source ディレクトリが存在し、読み取り可能であること |
 | Agents | Agents source ディレクトリが存在すること（設定されている場合） |
 | Skillignore | `.skillignore`（および `.skillignore.local`）の有効なパターンと、無視されている Skill 数 |
-| Source link | skills source 直下にあるシンボリックリンクまたは Windows ジャンクションごとの情報。discovery はこれらを辿らないため、その中身は skillshare から見えません |
+| Skillfollow | 宣言状態、indexed/`not-ignored` リンク、安全でない local ファイルと prune 停止 |
+| Source link | **未宣言**の第一階層 symlink/junction の info。内容は discovery に非表示 |
 | Links | システムがシンボリックリンクを作成できること |
 | Git | リポジトリの状態と remote の設定 |
 
-Source link の確認はグローバルモードとプロジェクトモードの両方で行われます。source のルートは discovery と同じ方法で解決され、直下のエントリだけを確認します。リンクは辿らず、中身も読みません。該当するリンクがなければ出力は追加されません。各リンクは `doctor --json` では status `info` の `undeclared_source_links` チェックとしても現れます。
+Global/project で検査。未宣言リンクは `undeclared_source_links` info、なければ出力なし。宣言は `skillfollow`/`skillfollow_prune` で検査します。[状態と復旧](../skillfollow.md#states)参照。
 
 ### Targets
 

@@ -36,7 +36,7 @@ skillshare sync
 
 ### I use a dotfiles manager (stow/chezmoi/yadm) — will skillshare break my symlinks?
 
-아니요. skillshare는 Source와 Target 디렉터리 양쪽에서 외부 symlink를 감지하고 보존합니다. sync, update, uninstall, list, diff, install을 포함한 모든 명령어는 symlink를 해석해 실제 디렉터리에 대해 동작하며, 링크 자체를 제거하지 않습니다. 자세한 내용은 [Dotfiles Manager Compatibility](/docs/reference/commands/sync#dotfiles-manager-compatibility)를 참고하세요.
+Symlink source **root**와 외부 target-directory symlink는 지원합니다. [Dotfiles 호환성](/docs/reference/commands/sync#dotfiles-manager-compatibility) 참조. Source **내부** 링크는 별도로 첫 계층 그룹/repo를 [`.skillfollow`](../reference/skillfollow.md)에 선언해야 검색하며 쓰기 권한은 주지 않아 uninstall/내용 쓰기를 거부합니다. 단일 skill과 중첩 링크는 미지원이고 실제 Windows junction 런타임 검증은 미완료입니다.
 
 dotfiles로 `config.yaml`을 버전 관리한다면, 경로를 절대 경로 대신 `~/...`로 유지하도록 `preserve_tilde_on_save: true`를 활성화하는 것을 고려하세요 — [Configuration](/docs/reference/targets/configuration#preserve_tilde_on_save)를 참고하세요.
 

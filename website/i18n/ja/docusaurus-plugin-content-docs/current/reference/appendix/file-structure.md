@@ -198,6 +198,10 @@ Instructions for the AI...
 
 詳細は [Skill フォーマット](/docs/understand/skill-format) を参照してください。
 
+### .skillfollow / .skillfollow.local {#skillfollow-optional}
+
+**設定された skills source ルート**に直接の子リンク名（例 `_team-skills`）を宣言。Local はマシン固有名を追加し、ignore pattern や入れ子 repo 設定ではありません。Source `.gitignore` に `/_team-skills`、`/.skillfollow.local`（末尾 `/` なし）を追加し、各マシンでリンクを作成。`_` 接頭辞と `.git` は tracked repo、ルート `SKILL.md` は未対応。[設定・厳密な名前・安全性](../skillfollow.md)参照。
+
 ### .skillignore（任意） {#skillignore-optional}
 
 Discovery から Skill を除外します。2つの場所に対応しています。

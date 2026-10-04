@@ -4,6 +4,8 @@ sidebar_position: 4
 
 # list
 
+[`.skillfollow`](../skillfollow.md#visibility) は `_team-skills/review` 等の論理パスを表示。`list --no-tui` は followed tracked repo に `→ <resolved>` を追加し、JSON 形式は不変です。未宣言の第一階層リンクは非表示のままです。
+
 ソースディレクトリにインストールされているすべての Skill を一覧表示します。
 
 ```bash

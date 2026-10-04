@@ -4,6 +4,8 @@ sidebar_position: 4
 
 # クロスマシン Sync
 
+[`.skillfollow`](../../reference/skillfollow.md) は宣言を共有し、**リンクは共有しません**。各マシンで外部グループ/repo へリンクを作成。Source `.gitignore` にルート固定/末尾 `/` なしのリンク行と `/.skillfollow.local` を追加し、固有名は local に記入します。不在/拒否宣言は cleanup を停止。Staging/incoming guard は skillshare のリンク commit/置換を防ぎますが、外部 Git は保護しません。
+
 git を使って複数のコンピューター間で Skill を Sync します。
 
 ## 概要

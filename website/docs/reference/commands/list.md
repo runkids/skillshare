@@ -4,6 +4,10 @@ sidebar_position: 4
 
 # list
 
+:::info Followed sources
+[`.skillfollow`](../skillfollow.md#visibility) exposes skills under logical paths such as `_team-skills/review`. Plain `list --no-tui` adds `→ <resolved>` to followed tracked repositories; JSON keeps its existing shape. Undeclared first-level links remain invisible.
+:::
+
 List all installed skills in the source directory.
 
 ```bash

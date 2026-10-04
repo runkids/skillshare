@@ -95,6 +95,21 @@ backs up the source path. Links and path-keyed history remain at their original
 paths; index inspection reports broken links after a move. Native automatic
 memory, telemetry, and Obsidian integration are outside this boundary.
 
+## Skills source traversal and ownership
+
+`internal/sourcewalk` owns source reads. Callers build one config-bound `FollowSet`
+per operation and pass it through `Options`/discovery `WithOptions` APIs; nil
+wrappers preserve non-following behavior. `.skillfollow[.local]` declares strict
+first-level groups/repos, remapping physical reads to logical source paths.
+Nested links remain unfollowed; `FollowSet.Err()` prevents partial discovery.
+`internal/sourcefs` refuses source writes through/replacing links. Followed trees
+are user-owned; reconcile does not create/update their metadata. Unavailable
+entries pause skills prune, and unprovable standard-name copies are kept.
+`internal/install/followed_update.go` owns clean/ff-only/no-force updates; Git
+adapters guard reachable staging and incoming link paths. Audit scans resolved
+roots and can hard-reset to the pre-pull hash. See the [step 3 milestone](history/proposal-274-step-3.md)
+for evidence and limits; single-skill following remains future work.
+
 ## Sources of Truth
 
 - Command flags and behavior: `cmd/skillshare/*.go`.

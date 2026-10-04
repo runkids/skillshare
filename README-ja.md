@@ -193,6 +193,20 @@ skillshare target <name> --mode copy
 skillshare sync
 ```
 
+**Discovery 設定ファイル** — `.skillignore` で非表示、`.skillfollow` で外部グループを読み込む（実験的）
+
+設定された skills source のルートで、`.skillignore` は一致する skills を非表示にします。外部の複数 skill リポジトリを移動せず使うには、第一階層のリンクを作成します（macOS/Linux の例）：
+
+```bash
+ln -s "$HOME/work/team-skills" "$HOME/.config/skillshare/skills/_team-skills"
+```
+
+`<source>/.skillfollow` に `_team-skills` を一行で記入し、`<source>/.gitignore` に `/_team-skills` と `/.skillfollow.local` を追加します（末尾の `/` なし）。index 登録済みなら source で `git rm --cached -- '_team-skills'` を実行します。`.skillfollow.local` はマシン固有の名前を追加します。両ファイルは直接の子の名前のみで、パス、glob、否定は不可。空行と `#` コメントは使え、重複は統合されます。外部ルートはグループ/repo で、ルート自体に `SKILL.md` を置けません。`-p` では project の skills source を使います。
+
+`skillshare doctor`、`skillshare sync --dry-run`、`skillshare sync` の順で確認します。未宣言リンクは非表示のままで、入れ子のリンクはたどりません。利用不能な宣言は force でも prune を一時停止します。修復するか両ファイルから削除してください。Followed repo の更新は clean なツリーと fast-forward が必要で、`--force` は拒否されますが、audit 失敗時の hard-reset は残ります。更新中は repo を編集しないでください。Dashboard は読み取り可能ですが、ツリーを通した書き込みは拒否します。実際の Windows junction 実行検証は未完了です。
+
+[設定、厳密な名前規則、doctor の全状態と Git 復旧 →](https://skillshare.runkids.cc/ja/docs/reference/skillfollow)
+
 **セキュリティ監査** — skills が agent に届く前にスキャン
 
 ```bash

@@ -4,6 +4,10 @@ sidebar_position: 3
 
 # install
 
+:::info Followed source entries
+Install cannot write through or replace a source link, including `--into` and force overwrite. [`.skillfollow`](../skillfollow.md) grants discovery, not ownership. For a followed tracked repo, `install --update` uses the same clean-tree, fast-forward-only, no-explicit-force policy as [update](./update.md); audit failure still hard-resets to the pre-pull commit.
+:::
+
 Add skills from GitHub repos, git URLs, or local paths.
 
 ## Overview

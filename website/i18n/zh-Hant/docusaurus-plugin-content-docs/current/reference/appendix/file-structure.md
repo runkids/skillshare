@@ -195,6 +195,10 @@ Instructions for the AI...
 
 詳見 [Skill Format](/docs/understand/skill-format)。
 
+### .skillfollow / .skillfollow.local {#skillfollow-optional}
+
+位於**設定的 skills source 根目錄**，宣告直接子連結名稱（如 `_team-skills`）。Local 檔加入本機名稱，不使用 ignore patterns，也不是巢狀 repo 設定。搭配 source `.gitignore` 的 `/_team-skills`、`/.skillfollow.local`（無尾斜線），每台機器自行建連結。`_` 前綴且含 `.git` 為 tracked repo；根目錄含 `SKILL.md` 尚不支援。見[設定、嚴格名稱與安全](../skillfollow.md)。
+
 ### .skillignore（選用） {#skillignore-optional}
 
 將 skills 排除在探索之外。支援兩種位置：

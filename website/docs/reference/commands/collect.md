@@ -4,6 +4,10 @@ sidebar_position: 1
 
 # collect
 
+:::info Source write boundary
+Collect cannot overwrite a link or write through a linked source component, even with `--force`. [`.skillfollow`](../skillfollow.md) only grants read discovery of user-owned groups/repos; edit their external targets directly.
+:::
+
 Collect local skills or agents from targets back to source.
 
 ```bash

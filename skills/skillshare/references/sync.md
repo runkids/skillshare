@@ -34,6 +34,11 @@ Copy mode note:
 - `skillshare doctor` duplicate checks ignore manifest-managed copy entries (expected mirrors of source).
 - Duplicate warnings in copy mode are for true local copies that collide with source skill names.
 
+For declared external groups/repos, read [skillfollow.md](skillfollow.md).
+An unavailable declaration pauses skills prune even with force; standard-name
+managed copies of unprovable origin are kept. Restore/fix the entry or remove it
+from both declaration files to resume cleanup.
+
 ## Agents and MCP
 
 `skillshare sync agents` distributes native agents. `skillshare sync mcp` applies
@@ -107,6 +112,12 @@ Global `commit`, `push`, and `pull` use `git_root`: `skills` (default), `agents`
 `extras`, or `root`. Inspect the configured repository rather than assuming it is
 always the skills directory. A Git-root mismatch is an error; do not relocate `.git`
 or initialize a replacement repository as an automatic recovery step.
+
+Declared source links reachable by Git must be untracked and ignored before
+commit/push, including dry runs. Use the exact no-slash ignore line and
+`git rm --cached` instruction from doctor; never untrack automatically.
+Source pull/reset/checkout also refuses indexed declarations or incoming paths
+through any link, declared or not. See [skillfollow.md](skillfollow.md).
 
 ## push
 

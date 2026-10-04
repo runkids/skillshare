@@ -4,6 +4,8 @@ sidebar_position: 1
 
 # push
 
+[`.skillfollow` の Git 安全性](../skillfollow.md#git-safety) は dry run を含め indexed/未 ignore の宣言リンクを staging から拒否。Skills source `.gitignore` に `/_team-skills`（末尾 `/` なし）と `/.skillfollow.local` を追加し、indexed なら確認後 source で `git rm --cached -- '_team-skills'` を実行します。`--pull` も適用前に incoming link path を検査します。
+
 Source を git remote にコミットしてプッシュします。
 
 プッシュせずにローカルのチェックポイントだけを作りたい場合は、代わりに [`commit`](./commit.md) を使ってください。

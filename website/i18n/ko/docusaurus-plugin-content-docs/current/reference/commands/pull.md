@@ -4,6 +4,8 @@ sidebar_position: 2
 
 # pull
 
+[Source Git 안전성](../skillfollow.md#git-safety)은 indexed 선언（없는 indexed link 포함）과 선언/**미선언** 링크를 건드리는 incoming path를 거부합니다. Ignore만으로 교체를 막지 못합니다. 오류 commit/path에 따라 추적 해제/정확한 ignore 또는 remote 수정 후 재시도하세요. Init reset/Dashboard checkout에도 적용되며 `--force`는 우회할 수 없습니다.
+
 git remote에서 pull하여 모든 target에 동기화합니다.
 
 ```bash

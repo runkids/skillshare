@@ -844,6 +844,8 @@ targets:
 
 ### `git_root` {#git-root}
 
+[Followed skills source](../skillfollow.md#git-safety)의 실제 대상은 유효 staging tree 밖에 있어야 합니다. 링크는 untracked로 유지하고 skills source `.gitignore`에 `/_team-skills` 같은 끝 `/` 없는 줄을 추가하세요. Guard는 물리적 Git 도달성을 사용하며 무관한 agents/extras scope는 skills link를 자동 stage하지 않습니다. Project follow 경계는 project root입니다.
+
 `skillshare commit`, `push`, `pull`이 어떤 디렉터리에서 동작할지 선택합니다.
 
 ```yaml

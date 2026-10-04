@@ -53,6 +53,8 @@ Version  CLI 0.24.0 · skill 0.21.12
 
 Shows the skills folder and how many skills it holds. When an agents folder exists, it is shown on a second line with its agent count. An active `.skillignore` adds a line with its pattern and ignored-skill counts.
 
+[`.skillfollow`](../skillfollow.md#visibility) adds entry/skipped counts, `(.local active)` when applicable, and `prune paused` messages naming each unavailable entry and its recovery. JSON adds `source.skillfollow` with state/count data and optional `prune_paused` messages; it is omitted when there are no declarations or declaration warnings. Followed tracked repositories are included. Linked counts are aggregate connectivity, not proof that each managed name points to the correct skill.
+
 ### Tracked Repositories
 
 Lists git repositories installed with `--track`, each with its skill count. `✓` means the repository is clean; `!` adds `uncommitted changes`, or the git error when its status cannot be read.

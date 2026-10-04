@@ -36,7 +36,7 @@ Then create skills directly in `~/.claude/skills/` — they won't be touched.
 
 ### I use a dotfiles manager (stow/chezmoi/yadm) — will skillshare break my symlinks?
 
-No. Skillshare detects external symlinks on both source and target directories and preserves them. All commands — sync, update, uninstall, list, diff, install — resolve symlinks and operate on the underlying directories without removing the links themselves. See [Dotfiles Manager Compatibility](/docs/reference/commands/sync#dotfiles-manager-compatibility) for details.
+A symlinked source **root** and external target-directory symlinks are supported; see [Dotfiles Manager Compatibility](/docs/reference/commands/sync#dotfiles-manager-compatibility). Links **inside** the skills source are different: they remain invisible unless a first-level group/repository is declared in [`.skillfollow`](../reference/skillfollow.md). This grants discovery, not writes through the link; uninstall and content writes are refused. Single-skill entries and nested link traversal are not supported yet. Real Windows junction runtime verification remains pending.
 
 If you version-control `config.yaml` via dotfiles, consider enabling `preserve_tilde_on_save: true` to keep paths as `~/...` instead of absolute — see [Configuration](/docs/reference/targets/configuration#preserve_tilde_on_save).
 

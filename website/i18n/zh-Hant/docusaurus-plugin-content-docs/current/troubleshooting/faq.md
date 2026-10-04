@@ -36,7 +36,7 @@ skillshare sync
 
 ### 我使用 dotfiles 管理工具（stow/chezmoi/yadm） — skillshare 會弄壞我的 symlink 嗎？
 
-不會。Skillshare 會偵測 Source 與 Target 目錄上的外部 symlink，並保留它們。所有指令 — sync、update、uninstall、list、diff、install — 都會解析 symlink 並對底層目錄操作，而不會移除 symlink 本身。詳情請參閱 [Dotfiles 管理工具相容性](/docs/reference/commands/sync#dotfiles-manager-compatibility)。
+支援 symlink source **root** 與外部 target-directory symlink，見[Dotfiles 相容性](/docs/reference/commands/sync#dotfiles-manager-compatibility)。Source **內部**連結不同：第一層群組/repo 須宣告 [`.skillfollow`](../reference/skillfollow.md) 才可探索，且不授予寫入權；uninstall/內容寫入拒絕。單 skill、巢狀連結不支援，真實 Windows junction 執行驗證待完成。
 
 如果你透過 dotfiles 對 `config.yaml` 做版本控制，可以考慮啟用 `preserve_tilde_on_save: true`，讓路徑保持 `~/...` 的形式而非絕對路徑 — 詳見[設定](/docs/reference/targets/configuration#preserve_tilde_on_save)。
 

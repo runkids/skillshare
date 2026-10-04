@@ -193,6 +193,20 @@ skillshare target <name> --mode copy
 skillshare sync
 ```
 
+**探索設定檔** — 用 `.skillignore` 隱藏 skills；用 `.skillfollow` 納入外部群組（實驗性）
+
+在設定的 skills source 根目錄，`.skillignore` 隱藏符合規則的 skills。要保留外部多 skill repo 的位置，可建立第一層連結（macOS/Linux 範例）：
+
+```bash
+ln -s "$HOME/work/team-skills" "$HOME/.config/skillshare/skills/_team-skills"
+```
+
+在 `<source>/.skillfollow` 單獨一行寫入 `_team-skills`，並在 `<source>/.gitignore` 加入 `/_team-skills`、`/.skillfollow.local`（不加尾端斜線）。若已納入 index，在 source 執行 `git rm --cached -- '_team-skills'`。`.skillfollow.local` 加入本機名稱；兩檔只接受直接子項目名稱，不接受路徑、glob 或否定規則。空白行與 `#` 註解可用，重複名稱合併。外部根目錄須為群組/repo，本身不能含 `SKILL.md`。`-p` 使用專案 skills source。
+
+先執行 `skillshare doctor`，再執行 `skillshare sync --dry-run` 與 `skillshare sync`。未宣告連結仍不可見，巢狀連結不跟隨。無法使用的宣告會暫停 prune，force 也不例外；修復它或從兩檔移除。Followed repo 更新要求乾淨且可 fast-forward，拒絕 `--force`，但 audit 失敗仍會 hard-reset。更新期間不要編輯 repo。Dashboard 可讀取，但拒絕透過該樹寫入。真實 Windows junction 執行驗證尚待完成。
+
+[設定、嚴格名稱規則、所有 doctor 狀態與 Git 復原 →](https://skillshare.runkids.cc/zh-Hant/docs/reference/skillfollow)
+
 **安全稽核** — 在 skills 進到 agent 之前先掃描
 
 ```bash

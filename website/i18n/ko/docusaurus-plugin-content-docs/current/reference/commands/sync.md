@@ -4,6 +4,8 @@ sidebar_position: 2
 
 # sync
 
+[`.skillfollow`](../skillfollow.md)는 첫 계층 선언 링크를 검색하며 source root 링크와 다릅니다. 사용할 수 없는 선언이 있으면 모든 merge/copy skills prune이 force로도 중지됩니다. 새 항목은 sync 가능하지만 출처 불명 standard managed copy는 유지하고 merge link 교체는 복귀 시 충돌을 경고합니다. 복구하거나 두 파일에서 제거해 재개하세요. [정리 안전성](../skillfollow.md#cleanup) 참조.
+
 Source에서 모든 Target으로 skill을 push합니다.
 
 MCP + hooks 연결 설정은 `skillshare sync mcp`를 사용하고, skill, agent, extras, MCP + hooks를

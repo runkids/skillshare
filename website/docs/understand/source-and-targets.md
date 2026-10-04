@@ -102,6 +102,10 @@ The source directory can be a symlink — common when using dotfiles managers (G
 └── ...
 ```
 
+### External groups and repositories
+
+A linked **source root** is different from a link **inside** the source. Internal links stay invisible unless declared in [`.skillfollow`](../reference/skillfollow.md). This experimental opt-in discovers first-level external groups/tracked repos under logical paths, without allowing source writes through them. Create the link and declaration yourself and keep the link Git-ignored. Single-skill entries and nested link traversal are not supported yet; real Windows junction runtime verification is pending.
+
 ### Organize with Folders (Auto-Flattening) {#organize-with-folders-auto-flattening}
 
 You can use folders to organize your own skills — they'll be auto-flattened when synced to targets:

@@ -4,6 +4,8 @@ sidebar_position: 3
 
 # uninstall
 
+[Followed tree](../skillfollow.md)는 사용자 소유로 루트/자식 uninstall을 force/dry run으로도 거부합니다: `<path> is a link; edit its target directly`. 검색을 중지하려면 모든 선언 파일에서 이름을 제거하거나 source-root `.skillignore`로 숨기세요. 아직 `unfollow`는 없고 외부 트리는 trash로 이동하지 않습니다.
+
 source 디렉터리에서 하나 이상의 skill 또는 tracked repository를 제거합니다. skill은 trash로 이동되어 자동 정리 전까지 7일간 보관됩니다.
 
 ```bash

@@ -849,6 +849,8 @@ This option applies to the global `config.yaml` only. Project configs (`.skillsh
 
 ### `git_root` {#git-root}
 
+[Followed skills sources](../skillfollow.md#git-safety) must resolve outside this effective staging tree. The link entry itself must be untracked and ignored using an anchored no-slash line (for example `/_team-skills`) in the skills source `.gitignore`. Staging guards use physical Git reachability, not just logical containment; unrelated agents/extras scopes do not automatically stage skills links. Project follow classification uses the project root as its staging boundary.
+
 Selects which directory `skillshare commit`, `push`, and `pull` operate on.
 
 ```yaml

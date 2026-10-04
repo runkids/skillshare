@@ -4,6 +4,8 @@ sidebar_position: 1
 
 # push
 
+[`.skillfollow` Git 安全](../skillfollow.md#git-safety) 在 staging（含 dry run）拒绝 indexed/未忽略声明链接。在 skills source `.gitignore` 加 `/_team-skills`（无末尾斜杠）与 `/.skillfollow.local`；若已 indexed，确认后从 source 执行 `git rm --cached -- '_team-skills'`。`--pull` 也先检查 incoming link paths。
+
 提交 source 并推送到 git remote。
 
 如果你只想要一个不推送的本地检查点，请改用 [`commit`](./commit.md)。

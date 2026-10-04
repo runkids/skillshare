@@ -23,7 +23,7 @@ Docusaurus 3.9.2 with React 19, TypeScript, MDX. Builds with Rspack and SWC (`fu
 ## Structure
 
 ```
-docs/                        ~100 Markdown pages, English only
+docs/                        English source Markdown pages
   intro.md                   /docs/ landing page
   getting-started/           Install → first sync
   learn/                     Quickstarts by scenario
@@ -35,6 +35,7 @@ docs/                        ~100 Markdown pages, English only
     appendix/                URL formats, env vars, file structure
     filtering.md
   troubleshooting/           Errors, FAQ, Windows
+i18n/                        ja, ko, zh-Hans, zh-Hant translated docs
 blog/                        Blog posts (enabled, /blog)
 src/
   pages/index.tsx            Homepage: product demo video, desktop installation,

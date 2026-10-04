@@ -4,6 +4,10 @@ sidebar_position: 4
 
 # Cross-Machine Sync
 
+:::info External working repositories
+With [`.skillfollow`](../../reference/skillfollow.md), share the declaration, **not the link**: create a first-level link to the external group/repo on each machine. Add its anchored no-slash ignore line plus `/.skillfollow.local` to the skills source `.gitignore`. Use `.skillfollow.local` for machine-local additions. Missing/rejected declarations pause cleanup until fixed or removed; staging and incoming-revision guards prevent skillshare Git operations from committing or replacing links. They do not protect Git commands run outside skillshare.
+:::
+
 Sync your skills across multiple computers using git.
 
 ## Overview

@@ -203,6 +203,7 @@ const sidebars: SidebarsConfig = {
           ],
         },
         'reference/filtering',
+        'reference/skillfollow',
         {
           type: 'category',
           label: 'Appendix',

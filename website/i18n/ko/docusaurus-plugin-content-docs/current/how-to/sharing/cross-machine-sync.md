@@ -4,6 +4,8 @@ sidebar_position: 4
 
 # Cross-Machine Sync
 
+[`.skillfollow`](../../reference/skillfollow.md)는 선언을 공유하며 **링크는 공유하지 않습니다**. 머신마다 외부 그룹/repo로 링크를 만드세요. Source `.gitignore`에 루트 기준/끝 `/` 없는 링크 줄과 `/.skillfollow.local`을 추가하고 머신별 이름은 local에 두세요. 없거나 거부된 선언은 cleanup을 중지합니다. Staging/incoming guard는 skillshare의 링크 commit/교체를 막지만 외부 Git은 보호하지 않습니다.
+
 git을 사용해 여러 컴퓨터에서 Skill을 동기화합니다.
 
 ## 개요

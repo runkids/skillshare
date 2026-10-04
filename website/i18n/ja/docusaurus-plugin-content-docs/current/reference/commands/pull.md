@@ -4,6 +4,8 @@ sidebar_position: 2
 
 # pull
 
+[Source Git の安全性](../skillfollow.md#git-safety) は indexed 宣言（不在の indexed link も含む）と、宣言済み/**未宣言**リンクに触れる incoming path を拒否。Ignore だけでは置換を防げません。エラーの commit/path に従い追跡解除/正確な ignore、または remote 修正を行います。Init reset/Dashboard checkout も同じで、`--force` は回避策ではありません。
+
 git remote から pull して、すべての Target に同期します。
 
 ```bash
