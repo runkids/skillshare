@@ -56,7 +56,8 @@ Operations that change configuration, sources, targets, or managed files must:
 - write an oplog entry to `operations.log` with the operation, status, duration, and necessary arguments;
 - send security scan events to the audit log rather than the regular operation log;
 - preserve path validation, scope checks, and ownership checks;
-- use domain uninstall/remove flows for managed state rather than replacing them with filesystem deletion.
+- use domain uninstall/remove flows for managed state rather than replacing them with filesystem deletion;
+- write the skills source through `internal/sourcefs`, which refuses paths with a link component. The ratchet in `internal/sourcefs/ratchet_test.go` fails on any new raw `os` write call until it gets a truthful reason in `testdata/raw_writes.tsv`.
 
 ## Tests
 
