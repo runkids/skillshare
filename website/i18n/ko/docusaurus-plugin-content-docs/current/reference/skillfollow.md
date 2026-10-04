@@ -64,7 +64,7 @@ git rm --cached -- '_team-skills'
 - 직접 자식 이름만 허용합니다. `.`, `..`, 절대 경로, `C:` 같은 drive/volume, UNC, `/`, `\`, path cleaning으로 바뀌는 이름은 거부합니다.
 - Glob/부정은 없습니다. `*`, `?`, `[`, `]`, `{`, `}`, `!`, NUL은 거부합니다. 잘못된 줄은 경고하며 followed 항목이 되지 않습니다.
 - 선언된 첫 계층 링크만 따라가고 그 트리 안의 중첩 링크는 순회하지 않습니다.
-- skillshare는 선언된 항목을 만들지 않습니다(링크가 오프라인이어도 같습니다). `install`(일반, `--into`, `--track`, 인자 없는 재설치), `new`, `collect`, `trash restore`, `init` 가져오기, symlink 모드 sync 이전, Dashboard의 create/install/collect/restore는 선언 항목 안의 대상을 `<source>/<entry> is a link; edit its target directly`(Dashboard는 409)로 거부하며, 선언 항목 안에 기록된 tracked repo는 missing으로 표시되거나 rehydrate되지 않습니다.
+- skillshare는 선언된 항목을 만들지 않습니다(링크가 오프라인이어도 같습니다). `install`(일반, `--into`, `--track`, 인자 없는 재설치), `new`, `collect`, `trash restore`, `init` 가져오기, symlink 모드 sync 이전, Dashboard의 create/install/collect/restore는 선언 항목 안의 대상을 `<source>/<entry> is a link; edit its target directly`(Dashboard는 409)로 거부하며, 선언 항목 안에 기록된 tracked repo는 missing으로 표시되거나 rehydrate되지 않습니다. 선언 파일이 있지만 읽을 수 없는 동안에는 이런 쓰기를 모두 읽기 오류로 거부합니다(읽지 못한 파일이 대상을 선언하고 있을 수 있기 때문입니다).
 
 ## 상태 및 복구 {#states}
 

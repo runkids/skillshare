@@ -36,7 +36,8 @@ A declared entry is never created, even while offline: install (plain, --into,
 --track, bare reinstall), new, collect, trash restore, init imports, symlink-mode
 sync migration, and dashboard create/install/collect/restore refuse destinations
 inside it (link error, 409); a tracked repo recorded inside it is never listed
-as missing or rehydrated.
+as missing or rehydrated. While a declaration exists but cannot be read, all of
+these writes are refused with the read error.
 
 ## States and recovery
 

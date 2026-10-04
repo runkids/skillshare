@@ -64,7 +64,7 @@ git rm --cached -- '_team-skills'
 - 直接の子の名前のみ。`.`、`..`、絶対パス、`C:` 等の drive/volume、UNC、`/`、`\`、path cleaning で変わる名前は禁止です。
 - Glob/否定は禁止：`*`、`?`、`[`、`]`、`{`、`}`、`!`、NUL は拒否。無効行は警告され、followed エントリになりません。
 - 宣言された第一階層だけをたどり、そのツリー内の入れ子リンクは走査しません。
-- 宣言されたエントリを skillshare が作成することはありません（リンクがオフラインでも同じ）。`install`（通常、`--into`、`--track`、引数なしの再インストール）、`new`、`collect`、`trash restore`、`init` の取り込み、symlink モードの sync 移行、Dashboard の create/install/collect/restore は宣言エントリ内の宛先を `<source>/<entry> is a link; edit its target directly`（Dashboard は 409）で拒否し、宣言エントリ内に記録された tracked repo は missing 扱いにも rehydrate 対象にもなりません。
+- 宣言されたエントリを skillshare が作成することはありません（リンクがオフラインでも同じ）。`install`（通常、`--into`、`--track`、引数なしの再インストール）、`new`、`collect`、`trash restore`、`init` の取り込み、symlink モードの sync 移行、Dashboard の create/install/collect/restore は宣言エントリ内の宛先を `<source>/<entry> is a link; edit its target directly`（Dashboard は 409）で拒否し、宣言エントリ内に記録された tracked repo は missing 扱いにも rehydrate 対象にもなりません。宣言ファイルが存在するのに読み取れない間は、これらの書き込みはすべて読み取りエラーで拒否されます（読めないファイルが宛先を宣言している可能性があるため）。
 
 ## 状態と復旧 {#states}
 

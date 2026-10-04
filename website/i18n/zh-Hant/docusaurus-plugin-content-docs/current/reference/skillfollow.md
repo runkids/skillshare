@@ -64,7 +64,7 @@ git rm --cached -- '_team-skills'
 - 只能是直接子項目名稱；拒絕 `.`、`..`、絕對路徑、`C:` 等 volume/drive 名稱、UNC、`/`、`\`，及 path cleaning 會改變的名稱。
 - 不接受 glob/否定：`*`、`?`、`[`、`]`、`{`、`}`、`!`、NUL 都拒絕。無效行產生警告，不成為 followed 項目。
 - 只跟隨宣告的第一層連結，不遍歷 followed tree 內的巢狀連結。
-- skillshare 絕不會建立已宣告的項目，即使其連結離線也一樣：`install`（一般、`--into`、`--track`、無參數重裝）、`new`、`collect`、`trash restore`、`init` 匯入、symlink 模式的 sync 遷移，以及 Dashboard 的 create/install/collect/restore 對宣告項目內的目的地以 `<source>/<entry> is a link; edit its target directly` 拒絕（Dashboard 為 409）；記錄在宣告項目內的 tracked repo 不會被列為 missing，也不會被 rehydrate。
+- skillshare 絕不會建立已宣告的項目，即使其連結離線也一樣：`install`（一般、`--into`、`--track`、無參數重裝）、`new`、`collect`、`trash restore`、`init` 匯入、symlink 模式的 sync 遷移，以及 Dashboard 的 create/install/collect/restore 對宣告項目內的目的地以 `<source>/<entry> is a link; edit its target directly` 拒絕（Dashboard 為 409）；記錄在宣告項目內的 tracked repo 不會被列為 missing，也不會被 rehydrate。宣告檔存在但無法讀取時，這些寫入一律以讀取錯誤拒絕，因為讀不到的檔案可能正宣告了該目的地。
 
 ## 狀態與復原 {#states}
 
