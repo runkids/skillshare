@@ -13,6 +13,7 @@ import (
 	"skillshare/internal/git"
 	"skillshare/internal/install"
 	"skillshare/internal/resource"
+	"skillshare/internal/sourcewalk"
 	"skillshare/internal/sync"
 	"skillshare/internal/theme"
 	"skillshare/internal/ui"
@@ -530,7 +531,7 @@ func getSkillSuffix(s skillEntry) string {
 
 // displayTrackedRepos displays the tracked repositories section.
 // Git status checks run in parallel (bounded by maxDirtyWorkers).
-func displayTrackedRepos(trackedRepos []string, discovered []sync.DiscoveredSkill, sourcePath string) {
+func displayTrackedRepos(trackedRepos []string, discovered []sync.DiscoveredSkill, sourcePath string, follows ...*sourcewalk.FollowSet) {
 	ui.Section("Tracked repos")
 
 	// Parallel git status checks
@@ -559,6 +560,11 @@ func displayTrackedRepos(trackedRepos []string, discovered []sync.DiscoveredSkil
 	width := ui.RowWidth(trackedRepos...)
 	for i, repoName := range trackedRepos {
 		skills := ui.DimText(" · " + plural(countRepoSkills(repoName, discovered), "skill"))
+		if len(follows) > 0 && follows[0] != nil {
+			if entry, ok := follows[0].InFollowed(repoName); ok && entry.State == sourcewalk.Followed {
+				skills += ui.DimText(" → " + utils.FoldHomePath(entry.ResolvedTarget))
+			}
+		}
 		if err := results[i].err; err != nil {
 			ui.Row(ui.MarkWarn, repoName, "git status unknown"+skills, width)
 			ui.Note((&gitStatusError{err: err}).Error())
@@ -725,7 +731,7 @@ func cmdList(args []string) error {
 
 	printSkillList(skillList{
 		entries: allEntries, total: totalCount, trackedRepos: trackedRepos,
-		discovered: discoveredSkills, skillsSource: cfg.EffectiveSkillsSource(),
+		discovered: discoveredSkills, skillsSource: cfg.EffectiveSkillsSource(), follow: follow,
 		label: resourceLabel, kind: kind, opts: opts,
 	})
 	return nil
@@ -733,6 +739,7 @@ func cmdList(args []string) error {
 
 // skillList is what the plain list output shows.
 type skillList struct {
+	follow       *sourcewalk.FollowSet
 	entries      []skillEntry
 	total        int
 	trackedRepos []string
@@ -778,7 +785,7 @@ func printSkillList(l skillList) {
 
 	// Hide tracked repos section when filter/pattern is active
 	if len(l.trackedRepos) > 0 && !hasFilter {
-		displayTrackedRepos(l.trackedRepos, l.discovered, l.skillsSource)
+		displayTrackedRepos(l.trackedRepos, l.discovered, l.skillsSource, l.follow)
 	}
 
 	fmt.Println()

@@ -25,6 +25,7 @@ func (s *Server) handleAuditStream(w http.ResponseWriter, r *http.Request) {
 	// Snapshot config under RLock, then release before slow I/O.
 	s.mu.RLock()
 	source, resultKind, isAgents := s.resolveAuditSource(r)
+	follow := s.skillFollowSet()
 	projectRoot := s.projectRoot
 	policy := s.auditPolicy()
 	s.mu.RUnlock()
@@ -35,7 +36,7 @@ func (s *Server) handleAuditStream(w http.ResponseWriter, r *http.Request) {
 	if isAgents {
 		skills, err = discoverAuditAgents(source)
 	} else {
-		skills, err = discoverAuditSkills(source)
+		skills, err = discoverAuditSkills(source, follow)
 	}
 	if err != nil {
 		safeSend("error", map[string]string{"error": err.Error()})

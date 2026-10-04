@@ -247,11 +247,19 @@ type metadataLookup struct {
 // findMetadataEntry looks up a metadata entry by name across skills and agents stores.
 func (s *Server) findMetadataEntry(name, kind, source, agentsSource string) *metadataLookup {
 	if kind != "agent" && source != "" {
-		discovered, err := sync.DiscoverSourceSkillsAll(source)
+		follow := s.skillFollowSet()
+		discovered, err := sync.DiscoverSourceSkillsAllWithOptions(source, sync.DiscoveryOptions{Follow: follow})
+		if err != nil && follow != nil && follow.Err() != nil {
+			return nil
+		}
 		if err == nil {
 			for _, d := range discovered {
 				if d.FlatName != name && filepath.Base(d.SourcePath) != name {
 					continue
+				}
+				// Source URL edits must not reach the external repository.
+				if followedSkillWriteError(source, d.RelPath, follow) != nil {
+					return nil
 				}
 				return &metadataLookup{
 					Store: s.skillsStore, StoreDir: source,
@@ -308,7 +316,13 @@ func findRepoRoot(path, root string) string {
 // Returns (absPath, resolvedKind, error).
 func (s *Server) resolveEditableSkillPath(source, agentsSource, name, kind string) (string, string, error) {
 	if kind != "agent" && source != "" {
-		discovered, err := sync.DiscoverSourceSkillsAll(source)
+		s.mu.RLock()
+		follow := s.skillFollowSet()
+		s.mu.RUnlock()
+		discovered, err := sync.DiscoverSourceSkillsAllWithOptions(source, sync.DiscoveryOptions{Follow: follow})
+		if err != nil && follow != nil && follow.Err() != nil {
+			return "", "", err
+		}
 		if err == nil {
 			for _, d := range discovered {
 				baseName := filepath.Base(d.SourcePath)

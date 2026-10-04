@@ -199,7 +199,7 @@ func runAnalyze(opts *analyzeOptions) error {
 	}
 	if opts.targetName == "" && !opts.json && shouldLaunchTUI(opts.noTUI, cfg) {
 		loadFn := func() analyzeLoadResult {
-			discovered, err := ssync.DiscoverSourceSkillsForAnalyze(cfg.EffectiveSkillsSource())
+			discovered, err := ssync.DiscoverSourceSkillsForAnalyzeWithOptions(cfg.EffectiveSkillsSource(), ssync.DiscoveryOptions{Follow: globalSkillFollowSet(cfg)})
 			if err != nil {
 				return analyzeLoadResult{err: err}
 			}
@@ -211,16 +211,16 @@ func runAnalyze(opts *analyzeOptions) error {
 		}
 		return runAnalyzeTUI(loadFn, "global", opts.filter)
 	}
-	return runAnalyzeCore(cfg.EffectiveSkillsSource(), cfg.Targets, cfg.Mode, cfg.ContextBudget, opts)
+	return runAnalyzeCore(cfg.EffectiveSkillsSource(), cfg.Targets, cfg.Mode, cfg.ContextBudget, opts, ssync.DiscoveryOptions{Follow: globalSkillFollowSet(cfg)})
 }
 
-func runAnalyzeCore(sourcePath string, targets map[string]config.TargetConfig, defaultMode string, budget config.ContextBudgetConfig, opts *analyzeOptions) error {
+func runAnalyzeCore(sourcePath string, targets map[string]config.TargetConfig, defaultMode string, budget config.ContextBudgetConfig, opts *analyzeOptions, discovery ssync.DiscoveryOptions) error {
 	var sp *ui.Spinner
 	if !opts.json {
 		sp = ui.StartSpinner("Analyzing skills...")
 	}
 
-	discovered, err := ssync.DiscoverSourceSkillsForAnalyze(sourcePath)
+	discovered, err := ssync.DiscoverSourceSkillsForAnalyzeWithOptions(sourcePath, discovery)
 	if err != nil {
 		if sp != nil {
 			sp.Fail("Analysis failed")

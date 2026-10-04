@@ -136,7 +136,7 @@ func cmdListProject(root string, opts listOptions, kind resourceKindFilter) erro
 
 	printSkillList(skillList{
 		entries: allEntries, total: totalCount, trackedRepos: trackedRepos,
-		discovered: discoveredSkills, skillsSource: skillsSource,
+		discovered: discoveredSkills, skillsSource: skillsSource, follow: follow,
 		label: resourceLabel, kind: kind, opts: opts, project: true,
 	})
 	return nil

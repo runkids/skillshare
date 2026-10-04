@@ -81,8 +81,12 @@ func inspectRemote(url string) *remoteRepo {
 			r.names = append(r.names, e.Name())
 		}
 	}
-	if discovered, err := ssync.DiscoverSourceSkills(skillsDir); err == nil {
+	follow := skillFollowSet(skillsDir, nil, repo)
+	if discovered, _, err := ssync.DiscoverSourceSkillsWithOptions(skillsDir, ssync.DiscoveryOptions{Follow: follow}); err == nil {
 		r.skills = len(discovered)
+	} else if follow != nil && follow.Err() != nil {
+		r.reachable = false
+		r.reason = "failed to discover skills: " + err.Error()
 	}
 	return r
 }

@@ -22,7 +22,7 @@ func cmdAnalyzeProject(root string, opts *analyzeOptions) error {
 
 	if opts.targetName == "" && !opts.json && shouldLaunchTUI(opts.noTUI, nil) {
 		loadFn := func() analyzeLoadResult {
-			discovered, err := ssync.DiscoverSourceSkillsForAnalyze(runtime.sourcePath)
+			discovered, err := ssync.DiscoverSourceSkillsForAnalyzeWithOptions(runtime.sourcePath, ssync.DiscoveryOptions{Follow: skillFollowSet(runtime.sourcePath, runtime.targets, root)})
 			if err != nil {
 				return analyzeLoadResult{err: err}
 			}
@@ -35,5 +35,5 @@ func cmdAnalyzeProject(root string, opts *analyzeOptions) error {
 		return runAnalyzeTUI(loadFn, "project", opts.filter)
 	}
 
-	return runAnalyzeCore(runtime.sourcePath, runtime.targets, "", runtime.config.ContextBudget, opts)
+	return runAnalyzeCore(runtime.sourcePath, runtime.targets, "", runtime.config.ContextBudget, opts, ssync.DiscoveryOptions{Follow: skillFollowSet(runtime.sourcePath, runtime.targets, root)})
 }

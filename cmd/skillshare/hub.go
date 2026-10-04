@@ -8,6 +8,7 @@ import (
 
 	"skillshare/internal/config"
 	"skillshare/internal/hub"
+	ssync "skillshare/internal/sync"
 	"skillshare/internal/ui"
 )
 
@@ -165,7 +166,15 @@ func cmdHubIndex(args []string) error {
 
 	start := time.Now()
 	sp := ui.StartSpinner("Scanning source directory...")
-	idx, err := hub.BuildIndex(sourcePath, full, auditSkills)
+	follow := configuredSkillFollowSet(sourcePath)
+	if mode == modeProject {
+		rt, err := loadProjectRuntime(cwd)
+		if err != nil {
+			return err
+		}
+		follow = skillFollowSet(sourcePath, rt.targets, cwd)
+	}
+	idx, err := hub.BuildIndexWithOptions(sourcePath, full, auditSkills, ssync.DiscoveryOptions{Follow: follow})
 	sp.Stop()
 	if err != nil {
 		return fmt.Errorf("failed to build index: %w", err)

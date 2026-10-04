@@ -13,7 +13,12 @@ import (
 // DraftCandidates offers installed skills without treating local relative paths
 // as GitHub shorthand. Unknown origins stay local until the author supplies one.
 func DraftCandidates(sourcePath string) ([]DraftEntry, error) {
-	discovered, err := ssync.DiscoverSourceSkills(sourcePath)
+	return DraftCandidatesWithOptions(sourcePath, ssync.DiscoveryOptions{})
+}
+
+// DraftCandidatesWithOptions shares the operation's source discovery policy.
+func DraftCandidatesWithOptions(sourcePath string, opts ssync.DiscoveryOptions) ([]DraftEntry, error) {
+	discovered, _, err := ssync.DiscoverSourceSkillsWithOptions(sourcePath, opts)
 	if err != nil {
 		return nil, err
 	}

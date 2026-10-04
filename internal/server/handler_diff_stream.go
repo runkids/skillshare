@@ -28,6 +28,7 @@ func (s *Server) handleDiffStream(w http.ResponseWriter, r *http.Request) {
 	// Snapshot config under RLock, then release before slow I/O.
 	s.mu.RLock()
 	source := s.cfg.EffectiveSkillsSource()
+	follow := s.skillFollowSet()
 	agentsSource := s.agentsSource()
 	globalMode := s.cfg.Mode
 	ignorePatterns := ssync.EffectiveFileIgnorePatterns(s.cfg.Ignore)
@@ -40,7 +41,7 @@ func (s *Server) handleDiffStream(w http.ResponseWriter, r *http.Request) {
 
 	safeSend("discovering", map[string]string{"phase": "scanning source directory"})
 
-	discovered, ignoreStats, err := ssync.DiscoverSourceSkillsWithStats(source)
+	discovered, ignoreStats, err := ssync.DiscoverSourceSkillsWithOptions(source, ssync.DiscoveryOptions{Follow: follow, CollectIgnored: true})
 	if err != nil {
 		safeSend("error", map[string]string{"error": err.Error()})
 		return

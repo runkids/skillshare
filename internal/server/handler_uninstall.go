@@ -149,7 +149,8 @@ func (s *Server) handleBatchUninstallSkills(w http.ResponseWriter, body batchUni
 	// Use DiscoverSourceSkillsAll (not DiscoverSourceSkills) so disabled skills
 	// — those listed in .skillignore — are also resolvable. The list handler
 	// shows disabled skills, so uninstall must be able to find them too (#190).
-	discovered, err := sync.DiscoverSourceSkillsAll(s.cfg.EffectiveSkillsSource())
+	follow := s.skillFollowSet()
+	discovered, err := sync.DiscoverSourceSkillsAllWithOptions(s.cfg.EffectiveSkillsSource(), sync.DiscoveryOptions{Follow: follow})
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to discover skills: "+err.Error())
 		return
@@ -170,6 +171,22 @@ func (s *Server) handleBatchUninstallSkills(w http.ResponseWriter, body batchUni
 
 	for _, name := range body.Names {
 		res := batchUninstallItemResult{Name: name, Kind: "skill"}
+
+		relPath := name
+		if skill := flatNameMap[name]; skill != nil {
+			relPath = skill.RelPath
+		} else if skill := baseNameMap[name]; skill != nil {
+			relPath = skill.RelPath
+		}
+		if err := followedSkillWriteError(s.cfg.EffectiveSkillsSource(), relPath, follow); err != nil {
+			res.Error = err.Error()
+			results = append(results, res)
+			failed++
+			if firstErr == "" {
+				firstErr = res.Error
+			}
+			continue
+		}
 
 		if strings.HasPrefix(name, "_") {
 			repoPath := filepath.Join(s.cfg.EffectiveSkillsSource(), name)

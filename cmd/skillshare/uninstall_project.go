@@ -52,7 +52,9 @@ func cmdUninstallProject(args []string, root string) error {
 		targetNames[i] = t.Name
 	}
 	sort.Strings(targetNames)
+	targets, _ := config.ResolveValidProjectTargets(root, projectCfg)
 	mode := &uninstallMode{
+		follow:              skillFollowSet(sourceDir, targets, root),
 		sourceDir:           sourceDir,
 		sourceLabel:         ".skillshare/skills",
 		trashDir:            trash.ProjectTrashDir(root),

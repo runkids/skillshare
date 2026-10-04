@@ -54,6 +54,7 @@ func (s *Server) handleBatchToggleSkills(w http.ResponseWriter, r *http.Request)
 	// Snapshot config under read lock, then discover without holding the lock.
 	s.mu.RLock()
 	source := s.cfg.EffectiveSkillsSource()
+	follow := s.skillFollowSet()
 	agentsSource := s.agentsSource()
 	s.mu.RUnlock()
 
@@ -93,7 +94,7 @@ func (s *Server) handleBatchToggleSkills(w http.ResponseWriter, r *http.Request)
 		}
 		ignorePath = filepath.Join(agentsSource, ".agentignore")
 	} else {
-		discovered, err := ssync.DiscoverSourceSkillsAll(source)
+		discovered, err := ssync.DiscoverSourceSkillsAllWithOptions(source, ssync.DiscoveryOptions{Follow: follow})
 		if err != nil {
 			writeError(w, http.StatusInternalServerError, "failed to discover skills: "+err.Error())
 			return
@@ -118,6 +119,14 @@ func (s *Server) handleBatchToggleSkills(w http.ResponseWriter, r *http.Request)
 			resp.Results = append(resp.Results, batchToggleItemResult{Name: name, Error: "resource not found: " + name})
 			resp.Summary.Failed++
 			continue
+		}
+
+		if req.Kind != "agent" {
+			if err := followedSkillWriteError(source, e.relPath, follow); err != nil {
+				resp.Results = append(resp.Results, batchToggleItemResult{Name: name, Error: err.Error()})
+				resp.Summary.Failed++
+				continue
+			}
 		}
 
 		if req.Enable {

@@ -164,8 +164,11 @@ func applyRemote(p *initPlan, res *initResult, hadRepo bool) {
 		res.pullErr = err
 		return
 	}
-	if discovered, err := ssync.DiscoverSourceSkills(p.source()); err == nil {
+	follow := globalSkillFollowSet(res.cfg)
+	if discovered, _, err := ssync.DiscoverSourceSkillsWithOptions(p.source(), ssync.DiscoveryOptions{Follow: follow}); err == nil {
 		res.pulled = len(discovered)
+	} else if follow != nil && follow.Err() != nil {
+		res.pullErr = err
 	}
 }
 
@@ -265,7 +268,7 @@ func printInitDone(p *initPlan, res *initResult) {
 func firstSync(cfg *config.Config) (skills int, kept []string, err error) {
 	start := time.Now()
 	spinner := ui.StartSpinner("Syncing…")
-	discovered, err := ssync.DiscoverSourceSkills(cfg.EffectiveSkillsSource())
+	discovered, _, err := ssync.DiscoverSourceSkillsWithOptions(cfg.EffectiveSkillsSource(), ssync.DiscoveryOptions{Follow: globalSkillFollowSet(cfg)})
 	if err != nil {
 		spinner.Fail("Sync failed")
 		return 0, nil, err
