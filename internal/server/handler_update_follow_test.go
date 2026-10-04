@@ -1,6 +1,7 @@
 package server
 
 import (
+	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
@@ -8,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	"skillshare/internal/config"
 	"skillshare/internal/install"
 	"skillshare/internal/testutil"
 )
@@ -369,5 +371,84 @@ func TestServerRehydrateSkipsUnavailableFollowedEntry(t *testing.T) {
 	}
 	if _, err := os.Lstat(filepath.Join(source, "group")); !os.IsNotExist(err) {
 		t.Fatalf("rehydrate created the declared entry: %v", err)
+	}
+}
+
+// The project dashboard's update-all reads the project source with the project
+// follow snapshot. `ui -p` hands NewProject a synthetic config whose Source is
+// the project skills source, and every API request reloads it, so
+// s.cfg.EffectiveSkillsSource() and s.skillsSource() name the same tree. The
+// global source's unreadable declaration proves nothing reads the global tree.
+func TestServerProjectUpdateAllUsesProjectSource(t *testing.T) {
+	for _, stream := range []bool{false, true} {
+		for _, unreadable := range []bool{false, true} {
+			name := map[bool]string{false: "all", true: "sse"}[stream] + map[bool]string{false: "/followed", true: "/unreadable"}[unreadable]
+			t.Run(name, func(t *testing.T) {
+				_, global := newTestServer(t)
+				if err := os.Mkdir(filepath.Join(global, ".skillfollow"), 0755); err != nil {
+					t.Fatal(err)
+				}
+				root := t.TempDir()
+				pcfg := &config.ProjectConfig{}
+				if err := pcfg.Save(root); err != nil {
+					t.Fatal(err)
+				}
+				source := pcfg.EffectiveSkillsSource(root)
+				base := t.TempDir()
+				remote := testutil.SetupBareRemoteRepo(t, base)
+				testutil.SeedRemoteBranch(t, base, remote, "main", map[string]string{"safe/SKILL.md": "# Safe\n"})
+				target := filepath.Join(base, "external")
+				testutil.RunGit(t, "", "clone", remote, target)
+				testutil.ConfigureGitUser(t, target)
+				if err := os.MkdirAll(source, 0755); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.Symlink(target, filepath.Join(source, "_dev")); err != nil {
+					t.Skip(err)
+				}
+				declaration := filepath.Join(source, ".skillfollow")
+				if unreadable {
+					err := os.Mkdir(declaration, 0755)
+					if err != nil {
+						t.Fatal(err)
+					}
+				} else if err := os.WriteFile(declaration, []byte("_dev\n"), 0644); err != nil {
+					t.Fatal(err)
+				}
+				expected := commitServerFollowFile(t, filepath.Join(base, "seed-main"), "remote.txt", "new")
+				testutil.RunGit(t, filepath.Join(base, "seed-main"), "push", "origin", "HEAD:main")
+				before := testutil.RunGit(t, target, "rev-parse", "HEAD")
+
+				// Mirrors cmd/skillshare/ui.go: the project server's synthetic config.
+				s := NewProject(&config.Config{Source: source, Mode: "merge"}, pcfg, root, "127.0.0.1:0", "", "")
+				var req *http.Request
+				if stream {
+					req = httptest.NewRequest(http.MethodGet, "/api/update/stream?skipAudit=true", nil)
+				} else {
+					req = httptest.NewRequest(http.MethodPost, "/api/update", strings.NewReader(`{"all":true,"skipAudit":true}`))
+				}
+				rr := httptest.NewRecorder()
+				s.handler.ServeHTTP(rr, req)
+				body := rr.Body.String()
+				if strings.Contains(body, global) {
+					t.Fatalf("update-all read the global source: %s", body)
+				}
+				if unreadable {
+					if !strings.Contains(body, "read skillfollow declaration "+declaration) {
+						t.Fatalf("missing project declaration error: %d %s", rr.Code, body)
+					}
+					if testutil.RunGit(t, target, "rev-parse", "HEAD") != before {
+						t.Fatal("followed HEAD changed despite the unreadable declaration")
+					}
+					return
+				}
+				if rr.Code != http.StatusOK || !strings.Contains(body, `"name":"_dev"`) || !strings.Contains(body, `"action":"updated"`) {
+					t.Fatalf("followed project entry not updated: %d %s", rr.Code, body)
+				}
+				if testutil.RunGit(t, target, "rev-parse", "HEAD") != expected {
+					t.Fatal("followed project entry did not move to the remote HEAD")
+				}
+			})
+		}
 	}
 }
