@@ -84,7 +84,7 @@ Safety checks use canonical paths. The first applicable state wins; overlap chec
 
 `not-link` and `followed` pass doctor checks. Other declared states are warnings and pause cleanup. `undeclared-link` is informational and does not pause cleanup. Parser warnings are reported separately.
 
-If `.skillfollow` or `.skillfollow.local` exists but cannot be read, discovery stops rather than continuing with a partial view: `sync` refuses and leaves existing targets in place, `check` and `status` report the read error instead of empty counts, every `update` (CLI, dashboard, `install --update`) is refused even with `--force` and dashboard update-all fails as a whole, and source Git staging is refused. Restore read access to the file or remove it.
+If `.skillfollow` or `.skillfollow.local` exists but cannot be read, discovery stops rather than continuing with a partial view: `sync` refuses and leaves existing targets in place, `check` and `status` report the read error instead of empty counts, every `update` (CLI, dashboard, `install --update`) is refused even with `--force` and dashboard update-all fails as a whole, and source Git staging is refused. Restore read access to the file or remove it. The same rule applies inside a followed entry: `check` and `update` that select a group below it (`--group <name>` or a positional group name) refuse with `incomplete discovery of <entry>: <read error>` when a directory under that group cannot be read, instead of acting on the readable part.
 
 ## What commands show {#visibility}
 

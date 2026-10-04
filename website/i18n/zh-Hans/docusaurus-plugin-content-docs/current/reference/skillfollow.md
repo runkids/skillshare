@@ -84,7 +84,7 @@ git rm --cached -- '_team-skills'
 
 `not-link`/`followed` 的 doctor 检查为 pass；其他声明状态为 warning 并暂停清理。`undeclared-link` 仅 info，不暂停清理。Parser 警告另列。
 
-若 `.skillfollow` 或 `.skillfollow.local` 存在但无法读取，discovery 会停止而不是以不完整的结果继续：`sync` 拒绝并保留既有 target，`check` 与 `status` 回报读取错误而非空计数，所有 `update`（CLI、Dashboard、`install --update`）即使 `--force` 也拒绝、Dashboard update-all 整体失败，source 的 Git staging 也会拒绝。恢复该文件的读取权限或移除它。
+若 `.skillfollow` 或 `.skillfollow.local` 存在但无法读取，discovery 会停止而不是以不完整的结果继续：`sync` 拒绝并保留既有 target，`check` 与 `status` 回报读取错误而非空计数，所有 `update`（CLI、Dashboard、`install --update`）即使 `--force` 也拒绝、Dashboard update-all 整体失败，source 的 Git staging 也会拒绝。恢复该文件的读取权限或移除它。同一规则也适用于 followed 条目内部：选取其下某个组的 `check` 与 `update`（`--group <name>` 或位置参数组名）在组内有目录无法读取时，以 `incomplete discovery of <entry>: <read error>` 拒绝，而不是只处理可读的部分。
 
 ## 命令显示 {#visibility}
 

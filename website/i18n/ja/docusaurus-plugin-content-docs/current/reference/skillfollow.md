@@ -84,7 +84,7 @@ Canonical path で安全性を検査し、最初に該当する状態を採用�
 
 `followed`/`not-link` は doctor の pass。それ以外の宣言状態は warning でクリーンアップを停止。`undeclared-link` は info のみで停止しません。Parser 警告は別途表示します。
 
-`.skillfollow` または `.skillfollow.local` が存在するのに読み取れない場合、discovery は不完全な結果で続行せず停止します。`sync` は拒否して既存 target を保持し、`check` と `status` は空のカウントではなく読み取りエラーを報告し、すべての `update`（CLI、Dashboard、`install --update`）は `--force` でも拒否され、Dashboard の update-all は全体が失敗し、source の Git staging も拒否されます。ファイルの読み取り権限を復旧するか、ファイルを削除してください。
+`.skillfollow` または `.skillfollow.local` が存在するのに読み取れない場合、discovery は不完全な結果で続行せず停止します。`sync` は拒否して既存 target を保持し、`check` と `status` は空のカウントではなく読み取りエラーを報告し、すべての `update`（CLI、Dashboard、`install --update`）は `--force` でも拒否され、Dashboard の update-all は全体が失敗し、source の Git staging も拒否されます。ファイルの読み取り権限を復旧するか、ファイルを削除してください。同じ規則は followed エントリの内側にも適用されます。その下のグループを選ぶ `check` と `update`（`--group <name>` または位置引数のグループ名）は、グループ配下のディレクトリが読み取れないとき、読み取れる部分だけを処理せず `incomplete discovery of <entry>: <read error>` で拒否します。
 
 ## コマンドの表示 {#visibility}
 

@@ -61,6 +61,9 @@ If `.skillfollow`/`.skillfollow.local` exists but cannot be read, discovery stop
 sync refuses and keeps targets, check/status report the read error instead of
 empty counts, every update (CLI, dashboard, `install --update`) is refused even
 with force, and source Git staging is refused. Restore read access or remove it.
+A group below a followed entry works the same: `check`/`update --group <g>` (or a
+positional group) refuse with `incomplete discovery of <entry>: …` when a
+directory under it cannot be read.
 Removing a declaration does not delete its external tree. Managed orphan links
 through the logical source can be pruned; fully external managed links after
 unfollow are kept with `managed link resolves outside the source after unfollow;
