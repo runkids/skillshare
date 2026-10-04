@@ -10,6 +10,7 @@ import (
 	"unicode/utf8"
 
 	"skillshare/internal/install"
+	"skillshare/internal/sourcewalk"
 )
 
 // PullResolution applies whole-file choices only to the revisions the user reviewed.
@@ -49,8 +50,8 @@ func (e *PullConflictError) Error() string {
 }
 
 // PullWithResolution retries a pull with the user's reviewed choices, preserving both histories.
-func PullWithResolution(repoPath string, resolution *PullResolution) (*UpdateInfo, error) {
-	return pullWithResolution(repoPath, AuthEnvForRepo(repoPath), nil, resolution)
+func PullWithResolution(repoPath string, resolution *PullResolution, follows ...*sourcewalk.FollowSet) (*UpdateInfo, error) {
+	return pullWithResolution(repoPath, AuthEnvForRepo(repoPath), nil, resolution, follows...)
 }
 
 func conflictVersion(dir, path string, stage int) ConflictVersion {

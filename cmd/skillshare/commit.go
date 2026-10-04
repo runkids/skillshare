@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"skillshare/internal/config"
+	gitops "skillshare/internal/git"
 	"skillshare/internal/oplog"
 	"skillshare/internal/ui"
 )
@@ -50,6 +51,12 @@ func cmdCommit(args []string) error {
 		return err
 	}
 
+	follow := globalSkillFollowSet(cfg)
+	if err := gitops.CheckFollowedLinks(source, follow); err != nil {
+		spinner.Fail("Cannot stage followed links")
+		return err
+	}
+
 	sweep := rootScopeSafetySweep(cfg, source, opts.dryRun)
 	if sweep.hasNotice() {
 		spinner.Stop()
@@ -84,7 +91,7 @@ func cmdCommit(args []string) error {
 		return nil
 	}
 
-	if err := stageAndCommit(source, opts.message, spinner); err != nil {
+	if err := stageAndCommit(source, opts.message, spinner, follow); err != nil {
 		return err
 	}
 

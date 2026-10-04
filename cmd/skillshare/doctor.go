@@ -12,6 +12,7 @@ import (
 
 	"skillshare/internal/backup"
 	"skillshare/internal/config"
+	gitops "skillshare/internal/git"
 	"skillshare/internal/install"
 	"skillshare/internal/resource"
 	"skillshare/internal/skillignore"
@@ -329,6 +330,60 @@ func checkSkillfollow(result *doctorResult, follow *sourcewalk.FollowSet) {
 		message := fmt.Sprintf("%s: %s — %s", entry.Name, entry.State, entry.Reason)
 		ui.Row(mark, "Skillfollow", message, doctorWidth)
 		result.addCheck("skillfollow", status, message, nil)
+	}
+	checkFollowedIgnores(result, follow)
+}
+
+// checkFollowedIgnores reports only; step 3 never edits declaration or ignore files.
+func checkFollowedIgnores(result *doctorResult, follow *sourcewalk.FollowSet) {
+	source := follow.SourceRoot()
+	if source == "" || !gitops.IsRepo(source) {
+		return
+	}
+	report := func(message string) {
+		ui.Row(ui.MarkWarn, "Skillfollow", message, doctorWidth)
+		result.addWarning()
+		result.addCheck("skillfollow", checkWarning, message, nil)
+	}
+	links, err := gitops.FollowedLinksStaged(source, follow)
+	if err != nil {
+		report(err.Error())
+		return
+	}
+	for _, link := range links {
+		indexed, indexErr := gitops.IsPathIndexed(source, link.Path)
+		ignored, ignoreErr := gitops.IsPathIgnored(source, link.Path)
+		if indexErr != nil {
+			report(indexErr.Error())
+			continue
+		}
+		if ignoreErr != nil {
+			report(ignoreErr.Error())
+			continue
+		}
+		if indexed {
+			report(fmt.Sprintf("%s: indexed; run %s and add %q to %s", link.Path, gitops.UntrackCommand(link.Path), link.IgnoreLine, link.IgnoreFile))
+		} else if !ignored {
+			report(fmt.Sprintf("%s: not-ignored; add %q to %s", link.Path, link.IgnoreLine, link.IgnoreFile))
+		}
+	}
+	if follow.HasLocal() {
+		indexed, indexErr := gitops.IsPathIndexed(source, ".skillfollow.local")
+		ignored, ignoreErr := gitops.IsPathIgnored(source, ".skillfollow.local")
+		if indexErr != nil {
+			report(indexErr.Error())
+			return
+		}
+		if ignoreErr != nil {
+			report(ignoreErr.Error())
+			return
+		}
+		if indexed {
+			report(".skillfollow.local: tracked; run git rm --cached -- .skillfollow.local")
+		}
+		if !ignored {
+			report(fmt.Sprintf(".skillfollow.local: not-ignored; add %q to %s", "/.skillfollow.local", filepath.Join(source, ".gitignore")))
+		}
 	}
 }
 

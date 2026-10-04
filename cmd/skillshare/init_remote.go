@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"skillshare/internal/sourcewalk"
 	"strings"
 	"time"
 
@@ -105,7 +106,7 @@ func remoteFailureReason(out string) string {
 
 // pullRemote fetches origin and moves the repo at gitRoot onto the remote's
 // default branch. The caller must make sure gitRoot holds no work of its own.
-func pullRemote(gitRoot, url string) error {
+func pullRemote(gitRoot, url string, follows ...*sourcewalk.FollowSet) error {
 	ctx, cancel := context.WithTimeout(context.Background(), remoteFetchTimeout*4)
 	defer cancel()
 	fetch := exec.CommandContext(ctx, "git", "fetch", "origin")
@@ -118,13 +119,17 @@ func pullRemote(gitRoot, url string) error {
 	if err != nil {
 		return err
 	}
-	return resetToRemoteBranch(gitRoot, branch)
+	return resetToRemoteBranch(gitRoot, branch, follows...)
 }
 
 // resetToRemoteBranch checks out origin/<branch> and tracks it so push and
 // pull work without naming the remote.
-func resetToRemoteBranch(gitRoot, branch string) error {
-	reset := exec.Command("git", "reset", "--hard", "origin/"+branch)
+func resetToRemoteBranch(gitRoot, branch string, follows ...*sourcewalk.FollowSet) error {
+	revision, err := gitops.CheckSourceMutation(gitRoot, "origin/"+branch, firstFollowSet(follows))
+	if err != nil {
+		return err
+	}
+	reset := exec.Command("git", "reset", "--hard", revision)
 	reset.Dir = gitRoot
 	if out, err := reset.CombinedOutput(); err != nil {
 		return fmt.Errorf("git reset failed: %s", strings.TrimSpace(string(out)))

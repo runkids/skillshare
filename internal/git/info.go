@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"skillshare/internal/install"
+	"skillshare/internal/sourcewalk"
 )
 
 // DiffStats holds git diff statistics
@@ -239,7 +240,7 @@ func PullWithProgress(repoPath string, extraEnv []string, onProgress func(string
 	return pullWithResolution(repoPath, extraEnv, onProgress, nil)
 }
 
-func pullWithResolution(repoPath string, extraEnv []string, onProgress func(string), resolution *PullResolution) (*UpdateInfo, error) {
+func pullWithResolution(repoPath string, extraEnv []string, onProgress func(string), resolution *PullResolution, follows ...*sourcewalk.FollowSet) (*UpdateInfo, error) {
 	info := &UpdateInfo{}
 
 	beforeHash, err := GetCurrentFullHash(repoPath)
@@ -254,6 +255,13 @@ func pullWithResolution(repoPath string, extraEnv []string, onProgress func(stri
 	args := []string{"pull", "--no-rebase", "--ff", "--no-edit", "--quiet"}
 	if onProgress != nil {
 		args[len(args)-1] = "--progress"
+	}
+	if len(follows) > 0 {
+		incoming, err := sourcePullRevision(repoPath, extraEnv, onProgress, follows[0])
+		if err != nil {
+			return nil, err
+		}
+		args = []string{"merge", "--ff", "--no-edit", "--quiet", incoming}
 	}
 	if err := runGitWithProgress(repoPath, args, extraEnv, onProgress); err != nil {
 		conflicts := conflictedFiles(repoPath)
@@ -404,8 +412,8 @@ func resolveMetadataConflicts(dir string, conflicts []string) error {
 
 // PullWithEnv runs git pull and returns update info (quiet mode) with
 // additional environment variables.
-func PullWithEnv(repoPath string, extraEnv []string) (*UpdateInfo, error) {
-	return PullWithProgress(repoPath, extraEnv, nil)
+func PullWithEnv(repoPath string, extraEnv []string, follows ...*sourcewalk.FollowSet) (*UpdateInfo, error) {
+	return pullWithResolution(repoPath, extraEnv, nil, nil, follows...)
 }
 
 // FileChange describes a single file change between two git revisions.
@@ -596,7 +604,12 @@ func HasRemote(dir string) bool {
 }
 
 // StageAll stages all changes (git add -A)
-func StageAll(dir string) error {
+func StageAll(dir string, follows ...*sourcewalk.FollowSet) error {
+	if len(follows) > 0 {
+		if err := CheckFollowedLinks(dir, follows[0]); err != nil {
+			return err
+		}
+	}
 	cmd := exec.Command("git", "add", "-A")
 	cmd.Dir = dir
 	return cmd.Run()
@@ -741,7 +754,7 @@ var ErrRemoteTracksConfig = errors.New("remote tracks config.yaml")
 // branch. Local content is kept by merging the remote history (it may be
 // unrelated); with force, or with nothing local, the branch is reset to the
 // remote instead. Returns ErrNoRemoteBranches while origin is still empty.
-func FirstPull(dir string, force bool) (*UpdateInfo, error) {
+func FirstPull(dir string, force bool, follows ...*sourcewalk.FollowSet) (*UpdateInfo, error) {
 	authEnv := AuthEnvForRepo(dir)
 	fetch := exec.Command("git", "fetch", "origin")
 	fetch.Dir = dir
@@ -762,11 +775,18 @@ func FirstPull(dir string, force bool) (*UpdateInfo, error) {
 	info := &UpdateInfo{}
 	info.BeforeHash, _ = GetCurrentFullHash(dir) // empty before the first commit
 	remote := "origin/" + branch
+	revision := remote
+	if len(follows) > 0 {
+		revision, err = CheckSourceMutation(dir, remote, follows[0])
+		if err != nil {
+			return nil, err
+		}
+	}
 	if RemoteTracksConfig(dir, remote) && HasLocalRootConfig(dir) {
 		return nil, fmt.Errorf("%w at %s: remote tracks machine-specific config.yaml", ErrRemoteTracksConfig, remote)
 	}
 	if hasLocal && !force {
-		merge := exec.Command("git", "-c", "merge.ff=false", "merge", "--allow-unrelated-histories", "--no-edit", remote)
+		merge := exec.Command("git", "-c", "merge.ff=false", "merge", "--allow-unrelated-histories", "--no-edit", revision)
 		merge.Dir = dir
 		if out, err := merge.CombinedOutput(); err != nil {
 			abort := exec.Command("git", "merge", "--abort")
@@ -775,7 +795,7 @@ func FirstPull(dir string, force bool) (*UpdateInfo, error) {
 			return nil, fmt.Errorf("%w with %s: %s", ErrMergeFailed, remote, strings.TrimSpace(string(out)))
 		}
 	} else {
-		reset := exec.Command("git", "reset", "--hard", remote)
+		reset := exec.Command("git", "reset", "--hard", revision)
 		reset.Dir = dir
 		if out, err := reset.CombinedOutput(); err != nil {
 			return nil, fmt.Errorf("reset to %s failed: %s", remote, strings.TrimSpace(string(out)))
@@ -1245,11 +1265,16 @@ func ListRemoteBranches(repoPath string) ([]string, error) {
 
 // Checkout switches to the given branch. If the branch exists only on
 // the remote, a new local tracking branch is created automatically.
-func Checkout(repoPath, branch string) error {
+func Checkout(repoPath, branch string, follows ...*sourcewalk.FollowSet) error {
 	// Check if local branch exists
 	check := exec.Command("git", "rev-parse", "--verify", "refs/heads/"+branch)
 	check.Dir = repoPath
 	if check.Run() == nil {
+		if len(follows) > 0 {
+			if _, err := CheckSourceMutation(repoPath, "refs/heads/"+branch, follows[0]); err != nil {
+				return err
+			}
+		}
 		// Local branch exists — simple checkout
 		cmd := exec.Command("git", "checkout", branch)
 		cmd.Dir = repoPath
@@ -1261,6 +1286,11 @@ func Checkout(repoPath, branch string) error {
 	}
 
 	// Try remote tracking branch
+	if len(follows) > 0 {
+		if _, err := CheckSourceMutation(repoPath, "refs/remotes/origin/"+branch, follows[0]); err != nil {
+			return err
+		}
+	}
 	cmd := exec.Command("git", "checkout", "-b", branch, "origin/"+branch)
 	cmd.Dir = repoPath
 	out, err := cmd.CombinedOutput()

@@ -328,3 +328,10 @@ func containsGitignoreEntry(lines []string, entry string) bool {
 	}
 	return false
 }
+
+// FollowedIgnoreLine is an anchored file pattern: git stores a symlink as a
+// file, so a directory pattern ending in slash would not protect it.
+func FollowedIgnoreLine(name string) string {
+	escape := strings.NewReplacer("\\", "\\\\", "*", "\\*", "?", "\\?", "[", "\\[", "]", "\\]")
+	return "/" + escape.Replace(name)
+}

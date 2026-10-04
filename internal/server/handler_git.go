@@ -330,7 +330,7 @@ func (s *Server) handleGitCheckout(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Checkout
-	if err := git.Checkout(src, body.Branch); err != nil {
+	if err := git.Checkout(src, body.Branch, s.skillFollowSet()); err != nil {
 		s.writeOpsLog("checkout", "error", start, map[string]any{
 			"branch": body.Branch,
 			"scope":  "ui",
@@ -386,6 +386,11 @@ func (s *Server) handleGitCommit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if err := git.CheckFollowedLinks(src, s.skillFollowSet()); err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
 	if s.rootScopeGuard(w, src, body.DryRun) {
 		return
 	}
@@ -415,7 +420,7 @@ func (s *Server) handleGitCommit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := git.StageAll(src); err != nil {
+	if err := git.StageAll(src, s.skillFollowSet()); err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to stage changes: "+err.Error())
 		return
 	}
@@ -470,6 +475,11 @@ func (s *Server) handlePush(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if err := git.CheckFollowedLinks(src, s.skillFollowSet()); err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
 	if s.rootScopeGuard(w, src, body.DryRun) {
 		return
 	}
@@ -515,7 +525,7 @@ func (s *Server) handlePush(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if status != "" {
-		if err := git.StageAll(src); err != nil {
+		if err := git.StageAll(src, s.skillFollowSet()); err != nil {
 			fail(fmt.Errorf("failed to stage changes: %w", err))
 			return
 		}
@@ -742,7 +752,7 @@ func (s *Server) handlePull(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 		}
-		info, err = git.PullWithResolution(src, body.Resolution)
+		info, err = git.PullWithResolution(src, body.Resolution, s.skillFollowSet())
 		// A restore failure joins the pull's own error so a conflict is still
 		// reported as one and the failure is logged below.
 		var restoreErr error
@@ -753,7 +763,7 @@ func (s *Server) handlePull(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusBadRequest, "conflict resolution requires an upstream branch")
 			return
 		}
-		info, err = git.FirstPull(src, body.Force)
+		info, err = git.FirstPull(src, body.Force, s.skillFollowSet())
 	}
 	if errors.Is(err, git.ErrNoRemoteBranches) {
 		// Sync both ways pushes on this code, like push --pull.

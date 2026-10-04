@@ -10,6 +10,7 @@ import (
 	"skillshare/internal/config"
 	gitops "skillshare/internal/git"
 	"skillshare/internal/oplog"
+	"skillshare/internal/sourcewalk"
 	"skillshare/internal/ui"
 )
 
@@ -91,7 +92,7 @@ func pullFromRemote(cfg *config.Config, dryRun, force bool) error {
 		return nil
 	}
 
-	info, remoteEmpty, err := integrateRemote(source, force, cfg.GitRoot == "root", spinner)
+	info, remoteEmpty, err := integrateRemote(source, force, cfg.GitRoot == "root", spinner, globalSkillFollowSet(cfg))
 	if err != nil {
 		return err
 	}
@@ -114,10 +115,10 @@ func pullFromRemote(cfg *config.Config, dryRun, force bool) error {
 // keepConfig (root scope) keeps this machine's config.yaml on later pulls even
 // when the remote tracks one, and warns so the user can untrack it with push.
 // FirstPull refuses that case instead (ErrRemoteTracksConfig).
-func integrateRemote(source string, force, keepConfig bool, spinner *ui.Spinner) (info *gitops.UpdateInfo, remoteEmpty bool, err error) {
+func integrateRemote(source string, force, keepConfig bool, spinner *ui.Spinner, follows ...*sourcewalk.FollowSet) (info *gitops.UpdateInfo, remoteEmpty bool, err error) {
 	if !gitops.HasUpstream(source) {
 		spinner.Update("Fetching from remote...")
-		info, err = gitops.FirstPull(source, force)
+		info, err = gitops.FirstPull(source, force, follows...)
 		if errors.Is(err, gitops.ErrNoRemoteBranches) {
 			return nil, true, nil
 		} else if errors.Is(err, gitops.ErrRemoteTracksConfig) {
@@ -157,7 +158,7 @@ func integrateRemote(source string, force, keepConfig bool, spinner *ui.Spinner)
 	}
 
 	spinner.Update("Running git pull...")
-	if info, err = gitops.PullWithEnv(source, gitops.AuthEnvForRepo(source)); err != nil {
+	if info, err = gitops.PullWithEnv(source, gitops.AuthEnvForRepo(source), follows...); err != nil {
 		spinner.Fail("git pull failed")
 		fmt.Println(err.Error())
 		hintGitRemoteError(err.Error())

@@ -13,6 +13,7 @@ import (
 	gitops "skillshare/internal/git"
 	"skillshare/internal/install"
 	"skillshare/internal/oplog"
+	"skillshare/internal/sourcewalk"
 	"skillshare/internal/ui"
 )
 
@@ -86,7 +87,11 @@ func getGitChanges(sourcePath string) (string, error) {
 }
 
 // stageAndCommit stages all changes and commits
-func stageAndCommit(sourcePath, message string, spinner *ui.Spinner) error {
+func stageAndCommit(sourcePath, message string, spinner *ui.Spinner, follows ...*sourcewalk.FollowSet) error {
+	if err := gitops.CheckFollowedLinks(sourcePath, firstFollowSet(follows)); err != nil {
+		spinner.Fail("Cannot stage followed links")
+		return err
+	}
 	spinner.Update("Staging changes...")
 	cmd := exec.Command("git", "add", "-A")
 	cmd.Dir = sourcePath
@@ -256,6 +261,12 @@ func cmdPush(args []string) (err error) {
 		}
 	}
 
+	follow := globalSkillFollowSet(cfg)
+	if err := gitops.CheckFollowedLinks(source, follow); err != nil {
+		spinner.Fail("Cannot stage followed links")
+		return err
+	}
+
 	sweep := rootScopeSafetySweep(cfg, source, opts.dryRun)
 	if sweep.hasNotice() {
 		spinner.Stop()
@@ -303,7 +314,7 @@ func cmdPush(args []string) (err error) {
 	}
 
 	if hasChanges {
-		if err := stageAndCommit(source, opts.message, spinner); err != nil {
+		if err := stageAndCommit(source, opts.message, spinner, follow); err != nil {
 			return err
 		}
 		spinner.Stop()
@@ -316,7 +327,7 @@ func cmdPush(args []string) (err error) {
 	if opts.pull {
 		pullStart := time.Now()
 		spinner = ui.StartSpinner("Pulling from remote...")
-		info, _, err := integrateRemote(source, false, cfg.GitRoot == "root", spinner)
+		info, _, err := integrateRemote(source, false, cfg.GitRoot == "root", spinner, follow)
 		if err != nil {
 			if hasChanges {
 				ui.Note("Your changes are committed locally; resolve, then run: skillshare push --pull")

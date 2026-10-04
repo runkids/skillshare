@@ -271,3 +271,8 @@ func (s *FollowSet) markMissing(name string, err error) {
 		}
 	}
 }
+
+// SourceRoot returns the canonical source parent to which declarations are bound.
+// It does not resolve any declared final component, so git guards can inspect
+// the link entry itself rather than its external target.
+func (s FollowSet) SourceRoot() string { return s.canonicalRoot }
