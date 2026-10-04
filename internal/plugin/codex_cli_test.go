@@ -94,12 +94,24 @@ func TestCodexFinderFindsNewestWindowsApp(t *testing.T) {
 	}
 }
 
+// The official PowerShell installer's CLI comes before the app's copy, like Homebrew on macOS.
+func TestCodexFinderPrefersWindowsInstaller(t *testing.T) {
+	local := t.TempDir()
+	want := filepath.Join(local, "Programs", "OpenAI", "Codex", "bin", "codex.exe")
+	writeExe(t, want, time.Now())
+	writeExe(t, filepath.Join(local, "OpenAI", "Codex", "bin", "aaa", "codex.exe"), time.Now())
+	f := codexFinder{goos: "windows", localAppData: local, getenv: noEnv, lookPath: notOnPath}
+	if bin, _ := f.find(); bin != want {
+		t.Fatalf("bin = %q, want %q", bin, want)
+	}
+}
+
 // Found nowhere, codex still runs by name so it fails as missing, and every place is named.
 func TestCodexFinderListsWhereItLooked(t *testing.T) {
 	local := t.TempDir()
 	f := codexFinder{goos: "windows", localAppData: local, getenv: noEnv, lookPath: notOnPath}
 	bin, looked := f.find()
-	want := []string{"PATH", filepath.Join(local, "OpenAI", "Codex", "bin", "*", "codex.exe")}
+	want := []string{"PATH", filepath.Join(local, "Programs", "OpenAI", "Codex", "bin", "codex.exe"), filepath.Join(local, "OpenAI", "Codex", "bin", "*", "codex.exe")}
 	if bin != "codex" || !slices.Equal(looked, want) {
 		t.Fatalf("bin = %q, looked = %v", bin, looked)
 	}

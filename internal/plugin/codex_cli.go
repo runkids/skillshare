@@ -26,8 +26,9 @@ func newCodexFinder() codexFinder {
 	return codexFinder{goos: runtime.GOOS, home: home, localAppData: os.Getenv("LOCALAPPDATA"), getenv: os.Getenv, lookPath: exec.LookPath}
 }
 
-// candidates are the places a Codex CLI is installed outside PATH: Homebrew, which a
-// background job's PATH lacks, and the copy the Codex desktop app ships. A pattern may
+// candidates are the places a Codex CLI is installed outside PATH: Homebrew or the
+// Windows installer, which a background job's PATH may lack, and the copy the Codex
+// desktop app ships. A pattern may
 // hold one *, for the Windows app's per-version folder.
 func (f codexFinder) candidates() []string {
 	switch f.goos {
@@ -47,8 +48,12 @@ func (f codexFinder) candidates() []string {
 		}
 		return paths
 	case "windows":
+		// The official PowerShell installer's default, then the copy the app keeps.
 		if f.localAppData != "" {
-			return []string{filepath.Join(f.localAppData, "OpenAI", "Codex", "bin", "*", "codex.exe")}
+			return []string{
+				filepath.Join(f.localAppData, "Programs", "OpenAI", "Codex", "bin", "codex.exe"),
+				filepath.Join(f.localAppData, "OpenAI", "Codex", "bin", "*", "codex.exe"),
+			}
 		}
 	}
 	return nil

@@ -367,7 +367,7 @@ $env:SKILLSHARE_GIT_TOKEN = "your_token"
 | 作業系統 | 位置 |
 |---|---|
 | macOS | `/opt/homebrew/bin/codex`、`/usr/local/bin/codex`，以及 Codex app 內附的 CLI（`/Applications` 或 `~/Applications` 裡的 `ChatGPT.app` 或 `Codex.app`） |
-| Windows | Codex app 安裝的 CLI：`%LOCALAPPDATA%\OpenAI\Codex\bin\<version>\codex.exe`（取最新的一份） |
+| Windows | 官方 PowerShell 安裝程式的 `%LOCALAPPDATA%\Programs\OpenAI\Codex\bin\codex.exe`，再來是 Codex app 安裝的 CLI：`%LOCALAPPDATA%\OpenAI\Codex\bin\<version>\codex.exe`（取最新的一份） |
 
 ```bash
 export SKILLSHARE_CODEX_CLI=/Applications/ChatGPT.app/Contents/Resources/codex-cli/bin/codex
