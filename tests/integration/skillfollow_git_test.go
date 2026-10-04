@@ -163,32 +163,52 @@ func TestSkillfollowInstallUpdateJSONForce(t *testing.T) {
 	}
 }
 
+// A declared entry that is missing, or exists as a regular file (an invalid
+// target), must not become a real directory through an incoming pull.
 func TestSkillfollowPullRefusesPathBelowMissingEntry(t *testing.T) {
-	sb := testutil.NewSandbox(t)
-	defer sb.Cleanup()
-	sb.WriteConfig("source: " + sb.SourcePath + "\ntargets: {}\n")
-	base := t.TempDir()
-	remote := testutil.SetupBareRemoteRepo(t, base)
-	testutil.SeedRemoteBranch(t, base, remote, "main", map[string]string{"README.md": "# Source\n", ".gitignore": "/group\n", ".skillfollow": "group\n"})
-	if err := os.RemoveAll(sb.SourcePath); err != nil {
-		t.Fatal(err)
-	}
-	testutil.RunGit(t, "", "clone", remote, sb.SourcePath)
-	seed := filepath.Join(base, "seed-main")
-	if err := os.MkdirAll(filepath.Join(seed, "group", "a"), 0755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(seed, "group", "a", "SKILL.md"), []byte("# A\n"), 0644); err != nil {
-		t.Fatal(err)
-	}
-	testutil.RunGit(t, seed, "add", "-f", "--", "group/a/SKILL.md")
-	testutil.RunGit(t, seed, "commit", "-m", "add group")
-	testutil.RunGit(t, seed, "push", "origin", "HEAD:main")
+	for _, existing := range []string{"missing", "regular-file"} {
+		t.Run(existing, func(t *testing.T) {
+			sb := testutil.NewSandbox(t)
+			defer sb.Cleanup()
+			sb.WriteConfig("source: " + sb.SourcePath + "\ntargets: {}\n")
+			base := t.TempDir()
+			remote := testutil.SetupBareRemoteRepo(t, base)
+			testutil.SeedRemoteBranch(t, base, remote, "main", map[string]string{"README.md": "# Source\n", ".gitignore": "/group\n", ".skillfollow": "group\n"})
+			if err := os.RemoveAll(sb.SourcePath); err != nil {
+				t.Fatal(err)
+			}
+			testutil.RunGit(t, "", "clone", remote, sb.SourcePath)
+			entry := filepath.Join(sb.SourcePath, "group")
+			if existing == "regular-file" {
+				if err := os.WriteFile(entry, []byte("user file\n"), 0644); err != nil {
+					t.Fatal(err)
+				}
+			}
+			before := testutil.RunGit(t, sb.SourcePath, "rev-parse", "HEAD")
+			seed := filepath.Join(base, "seed-main")
+			if err := os.MkdirAll(filepath.Join(seed, "group", "a"), 0755); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(filepath.Join(seed, "group", "a", "SKILL.md"), []byte("# A\n"), 0644); err != nil {
+				t.Fatal(err)
+			}
+			testutil.RunGit(t, seed, "add", "-f", "--", "group/a/SKILL.md")
+			testutil.RunGit(t, seed, "commit", "-m", "add group")
+			testutil.RunGit(t, seed, "push", "origin", "HEAD:main")
 
-	result := sb.RunCLI("pull")
-	result.AssertFailure(t)
-	result.AssertAnyOutputContains(t, `inside declared entry "group"`)
-	if _, err := os.Lstat(filepath.Join(sb.SourcePath, "group")); !os.IsNotExist(err) {
-		t.Fatalf("pull created the declared entry: %v", err)
+			result := sb.RunCLI("pull")
+			result.AssertFailure(t)
+			result.AssertAnyOutputContains(t, `inside declared entry "group"`)
+			if got := testutil.RunGit(t, sb.SourcePath, "rev-parse", "HEAD"); got != before {
+				t.Fatalf("pull moved HEAD: %s", got)
+			}
+			if existing == "regular-file" {
+				if data, err := os.ReadFile(entry); err != nil || string(data) != "user file\n" {
+					t.Fatalf("pull changed the declared file: %q %v", data, err)
+				}
+			} else if _, err := os.Lstat(entry); !os.IsNotExist(err) {
+				t.Fatalf("pull created the declared entry: %v", err)
+			}
+		})
 	}
 }

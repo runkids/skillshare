@@ -71,7 +71,10 @@ func declaredLinkLocations(stagingDir string, follow *sourcewalk.FollowSet, incl
 		if err != nil && !os.IsNotExist(err) {
 			return nil, err
 		}
-		if info != nil && !utils.IsLinkMode(path, info.Mode()) {
+		// A real directory is an intentional not-link and stays exempt. For the
+		// mutation guard, any other non-link (an invalid target such as a regular
+		// file) still marks the entry, which must not become a directory.
+		if info != nil && !utils.IsLinkMode(path, info.Mode()) && (!includeMissing || info.IsDir()) {
 			continue
 		}
 		links = append(links, FollowedLink{Path: filepath.ToSlash(rel), IgnoreFile: filepath.Join(parent, ".gitignore"), IgnoreLine: install.FollowedIgnoreLine(name)})

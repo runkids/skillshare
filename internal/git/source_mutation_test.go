@@ -132,13 +132,18 @@ func TestSourceMutationRefusesMissingIndexedDeclaration(t *testing.T) {
 func TestSourceMutationRefusesPathsBelowMissingDeclaration(t *testing.T) {
 	for _, c := range []struct {
 		name, prefix string
-		link         bool
+		existing     string // "", "link", "file", "indexed-file" or "dir" at the declared path
 		incoming     []string
 		refusal      string
 	}{
 		{name: "missing", incoming: []string{"group/a/SKILL.md"}, refusal: `is inside declared entry "group"`},
 		{name: "nested-source", prefix: "skills/", incoming: []string{"skills/group/a/SKILL.md"}, refusal: `is inside declared entry "group"`},
-		{name: "live-ignored", link: true, incoming: []string{"group/a/SKILL.md"}, refusal: `touches link "group"`},
+		{name: "live-ignored", existing: "link", incoming: []string{"group/a/SKILL.md"}, refusal: `touches link "group"`},
+		// A regular file is an invalid target, not an intentional real directory,
+		// so the declared prefix still guards it against becoming a directory.
+		{name: "regular-file", existing: "file", incoming: []string{"group/a/SKILL.md"}, refusal: `is inside declared entry "group"`},
+		{name: "indexed-file", existing: "indexed-file", incoming: []string{"group/a/SKILL.md"}, refusal: `declared entry "group" is indexed`},
+		{name: "real-directory", existing: "dir", incoming: []string{"group/a/SKILL.md"}},
 		{name: "sibling", incoming: []string{"group-other/a/SKILL.md", "groupx/a/SKILL.md"}},
 	} {
 		t.Run(c.name, func(t *testing.T) {
@@ -151,9 +156,23 @@ func TestSourceMutationRefusesPathsBelowMissingDeclaration(t *testing.T) {
 			testutil.RunGit(t, "", "clone", remote, root)
 			source := filepath.Join(root, filepath.FromSlash(c.prefix))
 			entry := filepath.Join(source, "group")
-			if c.link {
+			switch c.existing {
+			case "link":
 				if err := os.Symlink(t.TempDir(), entry); err != nil {
 					t.Skip(err)
+				}
+			case "file", "indexed-file":
+				if err := os.WriteFile(entry, []byte("user file\n"), 0644); err != nil {
+					t.Fatal(err)
+				}
+				if c.existing == "indexed-file" {
+					testutil.ConfigureGitUser(t, root)
+					testutil.RunGit(t, root, "add", "-f", "--", filepath.Join(filepath.FromSlash(c.prefix), "group"))
+					testutil.RunGit(t, root, "commit", "-m", "indexed file")
+				}
+			case "dir":
+				if err := os.Mkdir(entry, 0755); err != nil {
+					t.Fatal(err)
 				}
 			}
 			seed := filepath.Join(base, "seed-main")
@@ -177,7 +196,7 @@ func TestSourceMutationRefusesPathsBelowMissingDeclaration(t *testing.T) {
 			_, err := CheckSourceMutation(source, "origin/main", &follow)
 			if c.refusal == "" {
 				if err != nil {
-					t.Fatalf("sibling path was refused: %v", err)
+					t.Fatalf("path outside a guarded entry was refused: %v", err)
 				}
 				return
 			}
@@ -187,7 +206,11 @@ func TestSourceMutationRefusesPathsBelowMissingDeclaration(t *testing.T) {
 			if got := testutil.RunGit(t, root, "rev-parse", "HEAD"); got != before {
 				t.Fatalf("HEAD changed: %s", got)
 			}
-			if info, err := os.Lstat(entry); c.link != (err == nil) || (c.link && info.Mode()&os.ModeSymlink == 0) {
+			if c.existing == "file" || c.existing == "indexed-file" {
+				if data, err := os.ReadFile(entry); err != nil || string(data) != "user file\n" {
+					t.Fatalf("declared file changed: %q %v", data, err)
+				}
+			} else if info, err := os.Lstat(entry); (c.existing == "link") != (err == nil) || (c.existing == "link" && info.Mode()&os.ModeSymlink == 0) {
 				t.Fatalf("declared entry changed: %v %v", info, err)
 			}
 		})

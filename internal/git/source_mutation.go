@@ -68,10 +68,7 @@ func CheckSourceMutation(dir, incoming string, follow *sourcewalk.FollowSet) (st
 		if path == "" {
 			continue
 		}
-		link, err := linkComponent(root, path)
-		if err != nil {
-			return "", fmt.Errorf("inspect incoming path %q: %w", path, err)
-		}
+		link, inspectErr := linkComponent(root, path)
 		if link != "" {
 			rel, _ := filepath.Rel(root, link)
 			return "", fmt.Errorf("refusing incoming commit %s: path %q touches link %q; run %s if indexed, or fix the remote", commit, path, filepath.ToSlash(rel), UntrackCommand(filepath.ToSlash(rel)))
@@ -83,6 +80,11 @@ func CheckSourceMutation(dir, incoming string, follow *sourcewalk.FollowSet) (st
 			if path == entry || strings.HasPrefix(path, entry+"/") {
 				return "", fmt.Errorf("refusing incoming commit %s: path %q is inside declared entry %q; remove it from the remote, or remove the entry from .skillfollow or .skillfollow.local", commit, path, link.Path)
 			}
+		}
+		// Checked after the declared entries: a path below a declared regular
+		// file fails to inspect (ENOTDIR), and that entry is the clearer refusal.
+		if inspectErr != nil {
+			return "", fmt.Errorf("inspect incoming path %q: %w", path, inspectErr)
 		}
 	}
 	return commit, nil
