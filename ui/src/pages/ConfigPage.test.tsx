@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { api } from '../api/client';
-import type { Overview } from '../api/client';
+import type { Overview, SkillfollowResponse } from '../api/client';
 import { ToastProvider } from '../components/Toast';
 import { I18nProvider } from '../i18n';
 import ConfigPage from './ConfigPage';
@@ -24,9 +24,21 @@ vi.mock('../api/client', async (load) => {
   const actual = await load<typeof import('../api/client')>();
   return {
     ...actual,
-    api: { ...actual.api, getOverview: vi.fn(), getConfig: vi.fn(), getSkillignore: vi.fn(), getAgentignore: vi.fn() },
+    api: { ...actual.api, getOverview: vi.fn(), getConfig: vi.fn(), getSkillignore: vi.fn(), getAgentignore: vi.fn(), getSkillfollow: vi.fn(), putSkillfollow: vi.fn() },
   };
 });
+
+function followResponse(base: string, local = '', entries: SkillfollowResponse['entries'] = []): SkillfollowResponse {
+  return {
+    base: { path: '/src/.skillfollow', exists: base !== '', content: base },
+    local: { path: '/src/.skillfollow.local', exists: local !== '', content: local },
+    active: base !== '' || local !== '',
+    local_active: local !== '',
+    entries,
+    warnings: [],
+    prune_paused: entries.filter((e) => e.state === 'missing').map((e) => `prune paused: ${e.name} is missing`),
+  };
+}
 
 function renderPage(query: string) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -72,5 +84,57 @@ describe('ConfigPage', () => {
     await screen.findByDisplayValue(/skills/);
     await waitFor(() => expect(view.focus).toHaveBeenCalled());
     expect(view.dispatch).not.toHaveBeenCalled();
+  });
+
+  describe('.skillfollow tab', () => {
+    const team = { name: '_team', state: 'followed', resolved_target: '/work/team', reason: 'following directory' };
+    const gone = { name: '_gone', state: 'missing', reason: 'no such file or directory' };
+
+    it('shows each declared entry with its state and the prune pause', async () => {
+      vi.mocked(api.getSkillfollow).mockResolvedValue(followResponse('_team\n_gone\n', '', [team, gone]));
+      renderPage('tab=skillfollow');
+
+      const rows = await screen.findAllByRole('row');
+      expect(rows.slice(1).map((row) => within(row).getAllByRole('cell').slice(0, 2).map((c) => c.textContent))).toEqual([
+        ['_team', 'followed'],
+        ['_gone', 'missing'],
+      ]);
+      expect(screen.getByText('prune paused: _gone is missing')).toBeInTheDocument();
+    });
+
+    it('shows an empty editor and no entries without declaration files', async () => {
+      vi.mocked(api.getSkillfollow).mockResolvedValue(followResponse(''));
+      renderPage('tab=skillfollow');
+
+      expect(await screen.findByText('No entries declared.')).toBeInTheDocument();
+      expect((screen.getByLabelText('editor') as HTMLTextAreaElement).value).toBe('');
+    });
+
+    it('shows a rejected line inline and keeps the edit', async () => {
+      const user = userEvent.setup();
+      vi.mocked(api.getSkillfollow).mockResolvedValue(followResponse('_team\n', '', [team]));
+      vi.mocked(api.putSkillfollow).mockRejectedValue(new Error('.skillfollow:2: invalid first-level entry "a/b"'));
+      renderPage('tab=skillfollow');
+
+      fireEvent.change(await screen.findByDisplayValue('_team'), { target: { value: '_team\na/b\n' } });
+      await user.click(screen.getByRole('button', { name: 'Save' }));
+
+      expect(await screen.findByRole('alert')).toHaveTextContent('.skillfollow:2: invalid first-level entry "a/b"');
+      expect((screen.getByLabelText('editor') as HTMLTextAreaElement).value).toBe('_team\na/b\n');
+    });
+
+    it('saves .skillfollow.local and shows the states the server returns', async () => {
+      const user = userEvent.setup();
+      vi.mocked(api.getSkillfollow).mockResolvedValue(followResponse('_team\n', '', [team]));
+      vi.mocked(api.putSkillfollow).mockResolvedValue(followResponse('_team\n', '_gone\n', [team, gone]));
+      renderPage('tab=skillfollow');
+
+      await user.click(await screen.findByRole('radio', { name: '.skillfollow.local' }));
+      fireEvent.change(screen.getByLabelText('editor'), { target: { value: '_gone\n' } });
+      await user.click(screen.getByRole('button', { name: 'Save' }));
+
+      expect(api.putSkillfollow).toHaveBeenCalledWith('local', '_gone\n');
+      expect(await screen.findByText('prune paused: _gone is missing')).toBeInTheDocument();
+    });
   });
 });

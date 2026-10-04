@@ -1,5 +1,5 @@
 import { apiFetch } from './http';
-import type { AgentignoreResponse, AvailableTarget, ConfigSaveResponse, SkillignoreResponse } from './types/config';
+import type { AgentignoreResponse, AvailableTarget, ConfigSaveResponse, SkillfollowResponse, SkillignoreResponse } from './types/config';
 
 export const configApi = {
   getConfig: () => apiFetch<{ config: unknown; raw: string }>('/config'),
@@ -20,6 +20,13 @@ export const configApi = {
     apiFetch<{ success: boolean }>('/skillignore', {
       method: 'PUT',
       body: JSON.stringify({ raw }),
+    }),
+  getSkillfollow: () => apiFetch<SkillfollowResponse>('/skillfollow'),
+  /** Writes one declaration file; empty content with delete removes it. */
+  putSkillfollow: (file: 'base' | 'local', content: string) =>
+    apiFetch<SkillfollowResponse>('/skillfollow', {
+      method: 'PUT',
+      body: JSON.stringify({ file, content, delete: content === '' }),
     }),
   getAgentignore: () => apiFetch<AgentignoreResponse>('/agentignore'),
   putAgentignore: (raw: string) =>

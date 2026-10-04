@@ -94,6 +94,7 @@ export const queryKeys = {
   analyze: ['analyze'] as const,
   doctor: ['doctor'] as const,
   skillignore: ['skillignore'] as const,
+  skillfollow: ['skillfollow'] as const,
   agentignore: ['agentignore'] as const,
 };
 
@@ -119,5 +120,6 @@ export const staleTimes = {
   analyze: 2 * 60 * 1000,   // 2min — walks every skill file
   doctor: 60 * 1000,        // 1min — health checks
   skillignore: 5 * 60 * 1000, // 5min — rarely changes
+  skillfollow: 5 * 60 * 1000, // 5min — rarely changes
   agentignore: 5 * 60 * 1000, // 5min — rarely changes
 };
