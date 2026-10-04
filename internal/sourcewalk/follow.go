@@ -81,6 +81,9 @@ func Follow(root string, opts FollowOptions) FollowSet { return follow(root, opt
 func follow(root string, opts FollowOptions, links linkOps) FollowSet {
 	parsed := readDeclarations(root)
 	set := FollowSet{declarationError: parsed.err, declarationWarnings: parsed.warnings, parsed: parsed.names, warnings: parsed.warnings, active: parsed.active, local: parsed.local}
+	if !parsed.active && parsed.err == nil {
+		return set // nothing declared: no entry to classify or boundary to check
+	}
 	canon := func(path string) (string, error) { return canonicalize(path, links, 0) }
 	canonicalRoot, rootErr := canon(root)
 	set.canonicalRoot = canonicalRoot

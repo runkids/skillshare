@@ -4,6 +4,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"slices"
 	"testing"
 )
 
@@ -53,8 +54,14 @@ func TestJunctionInSourceIsDiscoveredOnlyWhenDeclared(t *testing.T) {
 	}
 	links := simulatedJunction(t, root, "_j", ext)
 
+	inactive := follow(root, FollowOptions{}, links)
+	if found := skillFiles(t, root, &inactive); len(found) != 0 {
+		t.Fatalf("undeclared junction was traversed: %v", found)
+	}
+
+	declare(t, root, "other")
 	undeclared := follow(root, FollowOptions{}, links)
-	if entries := undeclared.Entries(); len(entries) != 1 || entries[0].State != UndeclaredLink {
+	if entries := undeclared.Entries(); !slices.ContainsFunc(entries, func(e Entry) bool { return e.Name == "_j" && e.State == UndeclaredLink }) {
 		t.Fatalf("undeclared junction: %+v", entries)
 	}
 	if found := skillFiles(t, root, &undeclared); len(found) != 0 {
