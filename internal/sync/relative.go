@@ -5,8 +5,39 @@ import (
 	"os"
 	"path/filepath"
 
+	"skillshare/internal/sourcewalk"
 	"skillshare/internal/utils"
 )
+
+// skillLinkPath names a skill link destination by its source root and logical
+// tail. Relative link text runs from the canonical source root through the
+// logical tail, so a followed entry stays in the text and the OS resolves it
+// when the link is opened.
+type skillLinkPath struct {
+	root string // skills source root
+	tail string // logical path below root, slash-separated; "" for the root itself
+}
+
+// relativeLinkText computes the stored text of a relative link at linkPath.
+// The OS resolves relative links from the link's real parent, so that parent
+// is canonicalized. Agents and extras (skill == nil) canonicalize the whole
+// destination; skills canonicalize only the source root and keep the tail.
+// evalOrClean cannot be used for skills because it does not resolve Windows
+// junctions in the link's parent.
+func relativeLinkText(linkPath, sourcePath string, skill *skillLinkPath) (string, error) {
+	if skill == nil {
+		return filepath.Rel(evalOrClean(filepath.Dir(linkPath)), evalOrClean(sourcePath))
+	}
+	linkDir, err := sourcewalk.Canonicalize(filepath.Dir(linkPath))
+	if err != nil {
+		return "", err
+	}
+	root, err := sourcewalk.Canonicalize(skill.root)
+	if err != nil {
+		return "", err
+	}
+	return filepath.Rel(linkDir, filepath.Join(root, filepath.FromSlash(skill.tail)))
+}
 
 // shouldUseRelative returns true if both sourcePath and targetPath
 // are under the given projectRoot, meaning a relative symlink
@@ -88,9 +119,18 @@ func linkNeedsReformat(dest string, wantRelative bool) bool {
 // over the original so the link is never missing. Falls back to
 // remove→create when rename fails (e.g. Windows junctions).
 func reformatLink(linkPath, sourcePath string, relative bool) error {
+	return reformatLinkAs(linkPath, sourcePath, relative, nil)
+}
+
+// reformatSkillLink is reformatLink for a skill link; see skillLinkPath.
+func reformatSkillLink(linkPath, sourcePath string, skill skillLinkPath, relative bool) error {
+	return reformatLinkAs(linkPath, sourcePath, relative, &skill)
+}
+
+func reformatLinkAs(linkPath, sourcePath string, relative bool, skill *skillLinkPath) error {
 	tmpPath := linkPath + ".ss-reformat"
 	os.Remove(tmpPath) // clean up stale temp
-	if err := createLink(tmpPath, sourcePath, relative); err != nil {
+	if err := createLinkAs(tmpPath, sourcePath, relative, skill); err != nil {
 		return err
 	}
 	if err := os.Rename(tmpPath, linkPath); err == nil {
@@ -101,5 +141,5 @@ func reformatLink(linkPath, sourcePath string, relative bool) error {
 	if err := os.Remove(linkPath); err != nil {
 		return fmt.Errorf("failed to remove old link: %w", err)
 	}
-	return createLink(linkPath, sourcePath, relative)
+	return createLinkAs(linkPath, sourcePath, relative, skill)
 }

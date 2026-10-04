@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"skillshare/internal/config"
+	"skillshare/internal/sourcewalk"
 	"skillshare/internal/utils"
 )
 
@@ -27,6 +28,8 @@ type SkillRunOptions struct {
 	IgnorePatterns []string
 	DryRun         bool
 	Force          bool
+	// Follow is the operation's .skillfollow snapshot; nil keeps legacy rules.
+	Follow *sourcewalk.FollowSet
 	// OnProgress reports copy-mode progress; nil reports nothing.
 	OnProgress func(current, total int, skill string)
 }
@@ -56,7 +59,7 @@ func SyncSkillTarget(t SkillTarget, skills []DiscoveredSkill, opts SkillRunOptio
 
 	switch t.Mode {
 	case "merge":
-		result, err := SyncTargetMergeWithSkills(t.Name, t.Target, skills, opts.Source, opts.DryRun, opts.Force, opts.ProjectRoot)
+		result, err := SyncTargetMergeWithSkillsOptions(t.Name, t.Target, skills, opts.Source, opts.DryRun, opts.Force, opts.ProjectRoot, MergeOptions{Follow: opts.Follow})
 		if err != nil {
 			res.Err = err
 			return res

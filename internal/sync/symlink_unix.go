@@ -5,20 +5,24 @@ package sync
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 )
 
 // createLink creates a symlink on Unix systems.
 // If relative is true, the symlink stores a relative path from linkPath's
 // directory to sourcePath. Falls back to absolute if filepath.Rel fails.
 func createLink(linkPath, sourcePath string, relative bool) error {
+	return createLinkAs(linkPath, sourcePath, relative, nil)
+}
+
+// createSkillLink is createLink for a skill link; see skillLinkPath.
+func createSkillLink(linkPath, sourcePath string, skill skillLinkPath, relative bool) error {
+	return createLinkAs(linkPath, sourcePath, relative, &skill)
+}
+
+func createLinkAs(linkPath, sourcePath string, relative bool, skill *skillLinkPath) error {
 	target := sourcePath
 	if relative {
-		// Resolve real paths: the OS resolves relative symlinks from
-		// the real parent directory, not the lexical one.
-		linkDir := evalOrClean(filepath.Dir(linkPath))
-		src := evalOrClean(sourcePath)
-		if rel, err := filepath.Rel(linkDir, src); err == nil {
+		if rel, err := relativeLinkText(linkPath, sourcePath, skill); err == nil {
 			target = rel
 		}
 	}

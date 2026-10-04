@@ -20,6 +20,15 @@ import (
 // (requires Developer Mode). Falls back to junction with absolute paths.
 // A file source only gets a symlink: a junction to a file cannot be read.
 func createLink(linkPath, sourcePath string, relative bool) error {
+	return createLinkAs(linkPath, sourcePath, relative, nil)
+}
+
+// createSkillLink is createLink for a skill link; see skillLinkPath.
+func createSkillLink(linkPath, sourcePath string, skill skillLinkPath, relative bool) error {
+	return createLinkAs(linkPath, sourcePath, relative, &skill)
+}
+
+func createLinkAs(linkPath, sourcePath string, relative bool, skill *skillLinkPath) error {
 	absSource, err := filepath.Abs(sourcePath)
 	if err != nil {
 		return fmt.Errorf("failed to resolve source path: %w", err)
@@ -44,11 +53,7 @@ func createLink(linkPath, sourcePath string, relative bool) error {
 
 	// If relative requested, try os.Symlink with relative path first
 	if relative {
-		// Resolve real paths: OS resolves relative symlinks from the
-		// real parent directory, not the lexical one.
-		linkDir := evalOrClean(filepath.Dir(absTarget))
-		src := evalOrClean(absSource)
-		rel, relErr := filepath.Rel(linkDir, src)
+		rel, relErr := relativeLinkText(absTarget, absSource, skill)
 		if relErr == nil {
 			if symlinkErr := os.Symlink(rel, linkPath); symlinkErr == nil {
 				return nil

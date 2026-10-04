@@ -9,6 +9,7 @@ import (
 
 	"skillshare/internal/config"
 	"skillshare/internal/skillignore"
+	"skillshare/internal/sourcewalk"
 	"skillshare/internal/utils"
 )
 
@@ -241,7 +242,7 @@ func CreateSymlink(targetPath, sourcePath, projectRoot string) error {
 	}
 
 	// Create link (uses junction on Windows, symlink on Unix)
-	if err := createLink(targetPath, sourcePath, relative); err != nil {
+	if err := createSkillLink(targetPath, sourcePath, skillLinkPath{root: sourcePath}, relative); err != nil {
 		return fmt.Errorf("failed to create link: %w", err)
 	}
 
@@ -275,7 +276,7 @@ func SyncTarget(name string, target config.TargetConfig, sourcePath string, dryR
 			fmt.Fprintf(DiagOutput, "[dry-run] Would reformat symlink: %s\n", sc.Path)
 			return nil
 		}
-		return reformatLink(sc.Path, sourcePath, relative)
+		return reformatSkillLink(sc.Path, sourcePath, skillLinkPath{root: sourcePath}, relative)
 
 	case StatusNotExist:
 		if dryRun {
@@ -540,6 +541,19 @@ func SyncTargetMerge(name string, target config.TargetConfig, sourcePath string,
 // avoiding redundant filesystem walks when syncing multiple targets.
 // sourcePath is the skills source directory, used to detect symlink-mode targets.
 func SyncTargetMergeWithSkills(name string, target config.TargetConfig, allSkills []DiscoveredSkill, sourcePath string, dryRun, force bool, projectRoot string) (*MergeResult, error) {
+	return SyncTargetMergeWithSkillsOptions(name, target, allSkills, sourcePath, dryRun, force, projectRoot, MergeOptions{})
+}
+
+// MergeOptions carries one operation's policy into a merge sync.
+type MergeOptions struct {
+	// Follow is the operation's .skillfollow snapshot; nil keeps legacy rules.
+	Follow *sourcewalk.FollowSet
+}
+
+// SyncTargetMergeWithSkillsOptions is SyncTargetMergeWithSkills with an explicit
+// follow policy. Link identity accepts links through followed entries, and while
+// an entry is unavailable a replaced link is reported with a warning.
+func SyncTargetMergeWithSkillsOptions(name string, target config.TargetConfig, allSkills []DiscoveredSkill, sourcePath string, dryRun, force bool, projectRoot string, opts MergeOptions) (*MergeResult, error) {
 	sc := target.SkillsConfig()
 	result := &MergeResult{}
 	if !sc.IsEnabled() {
@@ -572,6 +586,8 @@ func SyncTargetMergeWithSkills(name string, target config.TargetConfig, allSkill
 		fmt.Fprintf(DiagOutput, "  %d name collision(s) excluded\n", n)
 	}
 	result.Warnings = resolution.UnmatchedIncludeWarnings()
+	scope := newFollowScope(sourcePath, opts.Follow)
+	paused := len(scope.unavailable()) > 0
 
 	manifest, err := ReadManifest(sc.Path)
 	if err != nil {
@@ -580,6 +596,7 @@ func SyncTargetMergeWithSkills(name string, target config.TargetConfig, allSkill
 
 	for _, resolved := range resolution.Skills {
 		skill := resolved.Skill
+		skillPath := scope.skillPath(skill)
 		activeName, err := selectActiveTargetNameForSync("merge", sc.Path, resolved, manifest, dryRun)
 		if err != nil {
 			return nil, err
@@ -591,14 +608,12 @@ func SyncTargetMergeWithSkills(name string, target config.TargetConfig, allSkill
 		if err == nil {
 			// Something exists at target path
 			if utils.IsSymlinkOrJunction(targetSkillPath) {
-				// It's a symlink/junction - check if it points to source
-				absLink, err := utils.ResolveLinkTarget(targetSkillPath)
-				if err != nil {
+				// It's a symlink/junction - check if it points to this skill
+				if _, err := utils.ResolveLinkTarget(targetSkillPath); err != nil {
 					return nil, fmt.Errorf("failed to resolve link target for %s: %w", activeName, err)
 				}
-				absSource, _ := filepath.Abs(skill.SourcePath)
 
-				if utils.PathsEqual(absLink, absSource) {
+				if sameSkillLink(targetSkillPath, skill, scope) {
 					rawDest, _ := os.Readlink(targetSkillPath)
 					if !linkNeedsReformat(rawDest, relative) {
 						// Already correctly linked with correct format
@@ -607,7 +622,7 @@ func SyncTargetMergeWithSkills(name string, target config.TargetConfig, allSkill
 					}
 					// Correct target but wrong format (abs↔rel) — recreate
 					if !dryRun {
-						if err := reformatLink(targetSkillPath, skill.SourcePath, relative); err != nil {
+						if err := reformatSkillLink(targetSkillPath, skill.SourcePath, skillPath, relative); err != nil {
 							return nil, fmt.Errorf("failed to reformat link for %s: %w", activeName, err)
 						}
 					}
@@ -616,13 +631,19 @@ func SyncTargetMergeWithSkills(name string, target config.TargetConfig, allSkill
 				}
 
 				// Symlink points elsewhere - broken or wrong
+				if paused {
+					// The manifest records no origin, so the old link may have
+					// served this name from the unavailable entry.
+					result.Warnings = append(result.Warnings, fmt.Sprintf(
+						"%s: relinked while a followed entry is unavailable; this name may previously have come from that entry and may collide when it returns", activeName))
+				}
 				if dryRun {
 					if !quietDryRun {
 						fmt.Fprintf(DiagOutput, "[dry-run] Would fix symlink: %s\n", activeName)
 					}
 				} else {
 					os.Remove(targetSkillPath)
-					if err := createLink(targetSkillPath, skill.SourcePath, relative); err != nil {
+					if err := createSkillLink(targetSkillPath, skill.SourcePath, skillPath, relative); err != nil {
 						return nil, fmt.Errorf("failed to create link for %s: %w", activeName, err)
 					}
 				}
@@ -639,7 +660,7 @@ func SyncTargetMergeWithSkills(name string, target config.TargetConfig, allSkill
 						if err := os.RemoveAll(targetSkillPath); err != nil {
 							return nil, fmt.Errorf("failed to remove local copy %s: %w", activeName, err)
 						}
-						if err := createLink(targetSkillPath, skill.SourcePath, relative); err != nil {
+						if err := createSkillLink(targetSkillPath, skill.SourcePath, skillPath, relative); err != nil {
 							return nil, fmt.Errorf("failed to create link for %s: %w", activeName, err)
 						}
 					}
@@ -656,7 +677,7 @@ func SyncTargetMergeWithSkills(name string, target config.TargetConfig, allSkill
 					fmt.Fprintf(DiagOutput, "[dry-run] Would create link: %s -> %s\n", targetSkillPath, skill.SourcePath)
 				}
 			} else {
-				if err := createLink(targetSkillPath, skill.SourcePath, relative); err != nil {
+				if err := createSkillLink(targetSkillPath, skill.SourcePath, skillPath, relative); err != nil {
 					return nil, fmt.Errorf("failed to create link for %s: %w", activeName, err)
 				}
 			}

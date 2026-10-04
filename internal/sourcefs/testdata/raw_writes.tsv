@@ -412,21 +412,21 @@ internal/sync/filelink.go	(*copyTracker).pruneOrphans	os.Remove	filepath.Join(t.
 internal/sync/manifest.go	RemoveManifest	os.Remove	filepath.Join(targetPath, ManifestFile)	target
 internal/sync/manifest.go	WriteManifest	os.WriteFile	filepath.Join(targetPath, ManifestFile)	target
 internal/sync/pull.go	PullSkill	os.RemoveAll	destPath	source-unmigrated
-internal/sync/relative.go	reformatLink	os.Remove	linkPath	target
-internal/sync/relative.go	reformatLink	os.Remove	tmpPath	target
-internal/sync/relative.go	reformatLink	os.Remove	tmpPath	target
-internal/sync/relative.go	reformatLink	os.Rename	tmpPath, linkPath	target
+internal/sync/relative.go	reformatLinkAs	os.Remove	linkPath	target
+internal/sync/relative.go	reformatLinkAs	os.Remove	tmpPath	target
+internal/sync/relative.go	reformatLinkAs	os.Remove	tmpPath	target
+internal/sync/relative.go	reformatLinkAs	os.Rename	tmpPath, linkPath	target
 internal/sync/skill_run.go	SyncSkillTarget	os.Remove	sc.Path	target
 internal/sync/skills_off.go	DetachSkills	os.Remove	entryPath	target
 internal/sync/skills_off.go	DetachSkills	os.Remove	folder	target
-internal/sync/symlink_unix.go	createLink	os.Symlink	target, linkPath	target
+internal/sync/symlink_unix.go	createLinkAs	os.Symlink	target, linkPath	target
 internal/sync/symlink_windows.go	canCreateRelativeLink	os.Mkdir	target	tmp
 internal/sync/symlink_windows.go	canCreateRelativeLink	os.MkdirTemp	""	tmp
 internal/sync/symlink_windows.go	canCreateRelativeLink	os.RemoveAll	dir	tmp
 internal/sync/symlink_windows.go	canCreateRelativeLink	os.Symlink	"t", link	tmp
-internal/sync/symlink_windows.go	createLink	os.Symlink	absSource, absTarget	target
-internal/sync/symlink_windows.go	createLink	os.Symlink	absSource, absTarget	target
-internal/sync/symlink_windows.go	createLink	os.Symlink	rel, linkPath	target
+internal/sync/symlink_windows.go	createLinkAs	os.Symlink	absSource, absTarget	target
+internal/sync/symlink_windows.go	createLinkAs	os.Symlink	absSource, absTarget	target
+internal/sync/symlink_windows.go	createLinkAs	os.Symlink	rel, linkPath	target
 internal/sync/symlink_windows.go	platformCanCreateFileLink	os.MkdirTemp	""	tmp
 internal/sync/symlink_windows.go	platformCanCreateFileLink	os.RemoveAll	dir	tmp
 internal/sync/symlink_windows.go	platformCanCreateFileLink	os.Symlink	target, filepath.Join(dir, "l")	tmp
@@ -438,8 +438,8 @@ internal/sync/sync.go	MigrateToSource	os.RemoveAll	targetPath	target
 internal/sync/sync.go	MigrateToSource	os.Rename	targetPath, sourcePath	source-unmigrated
 internal/sync/sync.go	PruneOrphanLinksWithSkills	os.RemoveAll	entryPath	target
 internal/sync/sync.go	SyncTarget	os.Remove	sc.Path	target
-internal/sync/sync.go	SyncTargetMergeWithSkills	os.Remove	targetSkillPath	target
-internal/sync/sync.go	SyncTargetMergeWithSkills	os.RemoveAll	targetSkillPath	target
+internal/sync/sync.go	SyncTargetMergeWithSkillsOptions	os.Remove	targetSkillPath	target
+internal/sync/sync.go	SyncTargetMergeWithSkillsOptions	os.RemoveAll	targetSkillPath	target
 internal/sync/sync.go	copyDirectoryWithState	os.MkdirAll	dstPath	source-unmigrated
 internal/sync/sync.go	copyFile	os.OpenFile	dst	source-unmigrated
 internal/sync/sync.go	ensureRealTargetDir	os.MkdirAll	targetPath	target
