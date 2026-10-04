@@ -165,6 +165,7 @@ func TestFollow_PrintsRejectedState(t *testing.T) {
 		if out.State != "target-overlap" || out.Added || !strings.Contains(out.Reason, "active skills target") {
 			t.Fatalf("unexpected JSON: %s", jsonResult.Stdout)
 		}
+		jsonResult.AssertOutputContains(t, `"ignore_lines_added": []`)
 	})
 }
 
@@ -311,6 +312,10 @@ func TestUnfollow_JSON(t *testing.T) {
 		if len(out.FilesEdited) != 1 || out.FilesEdited[0] != ".skillfollow.local" || len(out.StillDeclaredIn) != 0 || !out.LinkRemoved || !out.IgnoreLineRemoved {
 			t.Fatalf("unexpected JSON: %s", result.Stdout)
 		}
+		result.AssertOutputContains(t, `"still_declared_in": []`)
+		again := e.run("unfollow", "_dev", "--json")
+		again.AssertSuccess(t)
+		again.AssertOutputContains(t, `"files_edited": []`)
 
 		failed := e.run("unfollow", "a/b", "--json")
 		failed.AssertFailure(t)
