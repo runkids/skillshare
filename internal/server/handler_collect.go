@@ -188,8 +188,6 @@ func (s *Server) handleCollect(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	opts := ssync.PullOptions{Force: body.Force}
-
 	// Merged results across skills and agents.
 	var allPulled, allSkipped []string
 	allFailed := make(map[string]error)
@@ -227,8 +225,7 @@ func (s *Server) handleCollect(w http.ResponseWriter, r *http.Request) {
 			})
 		}
 
-		skillOpts := opts
-		skillOpts.Follow = s.skillFollowSet()
+		skillOpts := ssync.PullOptions{Force: body.Force, Follow: s.skillFollowSet()}
 		result, err := ssync.PullSkills(resolved, s.cfg.EffectiveSkillsSource(), skillOpts)
 		if err != nil {
 			writeError(w, http.StatusInternalServerError, "collect failed: "+err.Error())
@@ -277,7 +274,7 @@ func (s *Server) handleCollect(w http.ResponseWriter, r *http.Request) {
 			})
 		}
 
-		result, err := ssync.PullAgents(resolved, agentsSource, opts)
+		result, err := ssync.PullAgents(resolved, agentsSource, ssync.PullOptions{Force: body.Force})
 		if err != nil {
 			writeError(w, http.StatusInternalServerError, "agent collect failed: "+err.Error())
 			return

@@ -40,5 +40,19 @@
     "rule": "options",
     "expr": "install.InstallOptions{Kind: \"agent\", Force: force, Update: true, SkipAudit: skipAudit, AuditThreshold: s.updateAuditThreshold(), SourceDir: agentsSource}",
     "reason": "Agent reinstall into the agents source; .skillfollow covers the skills source only"
+  },
+  {
+    "file": "internal/server/handler_collect.go",
+    "function": "(*Server).handleCollect",
+    "rule": "options",
+    "expr": "ssync.PullOptions{Force: body.Force}",
+    "reason": "Agent pull into the agents source; .skillfollow covers the skills source only"
+  },
+  {
+    "file": "internal/server/handler_update.go",
+    "function": "(*Server).updateAgent",
+    "rule": "argument",
+    "expr": "s.updateTrackedRepo",
+    "reason": "Agent repository update in the agents source; .skillfollow covers the skills source only"
   }
 ]
