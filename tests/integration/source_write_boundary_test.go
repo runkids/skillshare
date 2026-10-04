@@ -99,3 +99,24 @@ func TestInstall_Into_RefusesPathThroughLink(t *testing.T) {
 
 	assertTreeUnchanged(t, before, external)
 }
+
+// Uninstall moves a skill to the trash, a move across the source's edge. A
+// skill reached through a link in the source stays where it is.
+func TestUninstall_RefusesSkillThroughLink(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	setupGlobalConfig(sb)
+
+	external := filepath.Join(sb.Root, "external-group")
+	sb.WriteFile(filepath.Join(external, "child", "SKILL.md"), "---\nname: child\n---\n# Child")
+	sb.CreateSymlink(external, filepath.Join(sb.SourcePath, "alias"))
+	before := treeSnapshot(t, external)
+
+	// --json because the plain single-target output does not print the
+	// trash error today.
+	result := sb.RunCLI("uninstall", "alias/child", "--force", "--json")
+	result.AssertFailure(t)
+	result.AssertAnyOutputContains(t, "is a link; edit its target directly")
+
+	assertTreeUnchanged(t, before, external)
+}

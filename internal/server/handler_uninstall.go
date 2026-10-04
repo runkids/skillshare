@@ -11,6 +11,7 @@ import (
 
 	"skillshare/internal/git"
 	"skillshare/internal/install"
+	"skillshare/internal/sourcefs"
 	"skillshare/internal/sync"
 	"skillshare/internal/trash"
 )
@@ -201,6 +202,16 @@ func (s *Server) handleBatchUninstallSkills(w http.ResponseWriter, body batchUni
 				continue
 			}
 
+			if err := sourcefs.CheckMoveOut(s.cfg.EffectiveSkillsSource(), repoPath); err != nil {
+				res.Success = false
+				res.Error = err.Error()
+				results = append(results, res)
+				failed++
+				if firstErr == "" {
+					firstErr = res.Error
+				}
+				continue
+			}
 			if _, err := trash.MoveToTrash(repoPath, name, s.trashBase()); err != nil {
 				res.Success = false
 				res.Error = fmt.Sprintf("failed to trash repo: %v", err)
@@ -248,6 +259,16 @@ func (s *Server) handleBatchUninstallSkills(w http.ResponseWriter, body batchUni
 		}
 
 		baseName := filepath.Base(skill.SourcePath)
+		if err := sourcefs.CheckMoveOut(s.cfg.EffectiveSkillsSource(), skill.SourcePath); err != nil {
+			res.Success = false
+			res.Error = err.Error()
+			results = append(results, res)
+			failed++
+			if firstErr == "" {
+				firstErr = res.Error
+			}
+			continue
+		}
 		if _, err := trash.MoveToTrash(skill.SourcePath, baseName, s.trashBase()); err != nil {
 			res.Success = false
 			res.Error = fmt.Sprintf("failed to trash skill: %v", err)

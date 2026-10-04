@@ -11,6 +11,7 @@ import (
 
 	"skillshare/internal/git"
 	"skillshare/internal/install"
+	"skillshare/internal/sourcefs"
 	"skillshare/internal/sync"
 	"skillshare/internal/theme"
 	"skillshare/internal/trash"
@@ -104,12 +105,15 @@ func uninstallTrashHint() string {
 // performUninstallQuiet moves the skill to trash without printing output.
 // Used by batch mode; returns the type label for StepDone display.
 // Note: .gitignore cleanup is handled in batch by the caller.
-func performUninstallQuiet(target *uninstallTarget, trashDir string) (typeLabel string, err error) {
+func performUninstallQuiet(target *uninstallTarget, sourceDir, trashDir string) (typeLabel string, err error) {
 	groupSkillCount := 0
 	if !target.isTrackedRepo {
 		groupSkillCount = len(countGroupSkills(target.path))
 	}
 
+	if err := sourcefs.CheckMoveOut(sourceDir, target.path); err != nil {
+		return "", err
+	}
 	if _, err := trash.MoveToTrash(target.path, target.name, trashDir); err != nil {
 		return "", fmt.Errorf("failed to move to trash: %w", err)
 	}
@@ -126,6 +130,9 @@ func performUninstallQuiet(target *uninstallTarget, trashDir string) (typeLabel 
 // performUninstall moves the skill to trash (verbose single-target output).
 // Note: .gitignore cleanup is handled in batch by the caller.
 func performUninstall(target *uninstallTarget, mode *uninstallMode) error {
+	if err := sourcefs.CheckMoveOut(mode.sourceDir, target.path); err != nil {
+		return err
+	}
 	if _, err := trash.MoveToTrash(target.path, target.name, mode.trashDir); err != nil {
 		return err
 	}
@@ -464,7 +471,7 @@ func runUninstallSkills(opts *uninstallOptions, mode *uninstallMode, rawArgs []s
 	if opts.jsonOutput {
 		// JSON mode: quiet execution, no UI output
 		for _, t := range targets {
-			if _, err := performUninstallQuiet(t, mode.trashDir); err != nil {
+			if _, err := performUninstallQuiet(t, mode.sourceDir, mode.trashDir); err != nil {
 				failed = append(failed, fmt.Sprintf("%s: %v", t.name, err))
 			} else {
 				succeeded = append(succeeded, t)
@@ -621,7 +628,7 @@ func executeUninstallBatch(targets []*uninstallTarget, summary uninstallTypeSumm
 	var results []batchResult
 
 	for _, t := range targets {
-		typeLabel, err := performUninstallQuiet(t, mode.trashDir)
+		typeLabel, err := performUninstallQuiet(t, mode.sourceDir, mode.trashDir)
 		if err != nil {
 			results = append(results, batchResult{target: t, errMsg: err.Error()})
 			failed = append(failed, fmt.Sprintf("%s: %v", t.name, err))

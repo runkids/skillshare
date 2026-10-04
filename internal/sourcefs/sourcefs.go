@@ -76,6 +76,24 @@ func MkdirAllIn(dir, name string) error {
 	return r.MkdirAll(name, 0o755)
 }
 
+// CheckMoveOut checks the in-source side of a move of path, below the source
+// root dir, to a place outside it such as the trash. Such a move cannot use
+// Root.Rename, so it is checked through the root first: a link above path is
+// refused. Path itself may be a link; a rename moves the link, never its
+// target.
+func CheckMoveOut(dir, path string) error {
+	r, err := Open(dir)
+	if err != nil {
+		return err
+	}
+	defer r.Close()
+	rel, err := r.Rel(path)
+	if err != nil {
+		return err
+	}
+	return r.CheckParent(rel)
+}
+
 // Close releases the root.
 func (r *Root) Close() error { return r.root.Close() }
 

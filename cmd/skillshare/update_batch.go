@@ -9,6 +9,7 @@ import (
 
 	"skillshare/internal/audit"
 	"skillshare/internal/install"
+	"skillshare/internal/sourcefs"
 	"skillshare/internal/trash"
 	"skillshare/internal/ui"
 )
@@ -381,6 +382,9 @@ func pruneSkill(skillPath, name string, uc *updateContext) error {
 		trashDir = trash.ProjectTrashDir(uc.projectRoot)
 	} else {
 		trashDir = trash.TrashDir()
+	}
+	if err := sourcefs.CheckMoveOut(uc.sourcePath, skillPath); err != nil {
+		return err
 	}
 	_, err := trash.MoveToTrash(skillPath, name, trashDir)
 	return err

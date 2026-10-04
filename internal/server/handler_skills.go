@@ -12,6 +12,7 @@ import (
 	"skillshare/internal/git"
 	"skillshare/internal/install"
 	"skillshare/internal/resource"
+	"skillshare/internal/sourcefs"
 	"skillshare/internal/sync"
 	"skillshare/internal/trash"
 	"skillshare/internal/utils"
@@ -391,6 +392,10 @@ func (s *Server) handleUninstallRepo(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Move to trash first — only clean gitignore after durable removal.
+	if err := sourcefs.CheckMoveOut(s.cfg.EffectiveSkillsSource(), repoPath); err != nil {
+		writeError(w, http.StatusConflict, err.Error())
+		return
+	}
 	if _, err := trash.MoveToTrash(repoPath, repoName, s.trashBase()); err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to trash repo: "+err.Error())
 		return
@@ -523,6 +528,10 @@ func (s *Server) handleUninstallSkill(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		if err := sourcefs.CheckMoveOut(s.cfg.EffectiveSkillsSource(), d.SourcePath); err != nil {
+			writeError(w, http.StatusConflict, err.Error())
+			return
+		}
 		if _, err := trash.MoveToTrash(d.SourcePath, baseName, s.trashBase()); err != nil {
 			writeError(w, http.StatusInternalServerError, "failed to trash skill: "+err.Error())
 			return
