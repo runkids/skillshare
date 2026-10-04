@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -147,8 +148,8 @@ func TestHandlePutSkillfollow_DeleteNeedsFlag(t *testing.T) {
 }
 
 func TestHandlePutSkillfollow_FailedWriteKeepsFile(t *testing.T) {
-	if os.Geteuid() == 0 {
-		t.Skip("root ignores directory permissions")
+	if runtime.GOOS == "windows" || os.Geteuid() == 0 {
+		t.Skip("requires Unix permission enforcement")
 	}
 	s, src := newTestServer(t)
 	path := filepath.Join(src, ".skillfollow")
