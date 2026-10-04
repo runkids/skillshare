@@ -24,6 +24,7 @@ type DiscoveredSkill struct {
 	RelPath     string      // Relative path from source: _team/frontend/ui
 	FlatName    string      // Flat name for target: _team__frontend__ui
 	IsInRepo    bool        // Whether this skill is inside a tracked repo (_-prefixed directory)
+	RepoRelPath string      // Relative path of the innermost tracked repo holding it (when IsInRepo)
 	Targets     []string    // From SKILL.md frontmatter; nil = all targets
 	DescChars   int         // Rune count of name + description (populated when collectContext)
 	BodyChars   int         // Rune count of body after frontmatter (populated when collectContext)
@@ -47,6 +48,24 @@ func repoIgnoreMatcher(relPath, walkRoot string, ignoreMatchers map[string]*skil
 		}
 	}
 	return nil, ""
+}
+
+// enclosingRepo returns the relative path of the innermost tracked repo that
+// holds the skill at relPath, or is that skill. It uses the repos recorded in
+// ignoreMatchers, so ownership and .skillignore agree at any depth. A
+// _-prefixed first component still counts without a .git, as before.
+func enclosingRepo(relPath, walkRoot string, ignoreMatchers map[string]*skillignore.Matcher) string {
+	parts := strings.Split(relPath, "/")
+	for i := len(parts); i > 0; i-- {
+		repo := strings.Join(parts[:i], "/")
+		if _, ok := ignoreMatchers[filepath.Join(walkRoot, filepath.FromSlash(repo))]; ok {
+			return repo
+		}
+	}
+	if utils.IsTrackedRepoDir(parts[0]) {
+		return parts[0]
+	}
+	return ""
 }
 
 // isSkillIgnored checks whether a skill inside a tracked repo should be

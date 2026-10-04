@@ -2,6 +2,8 @@ package main
 
 import (
 	"strings"
+
+	"skillshare/internal/utils"
 )
 
 // filterQuery holds the parsed result of a structured filter string.
@@ -177,8 +179,9 @@ func skillTypeCategory(e skillEntry) string {
 }
 
 // skillGroup extracts the group directory segment from a skill entry's RelPath.
-// For tracked repos: the second path segment (after the repo dir prefix).
-// For non-tracked: the first path segment.
+// For a tracked repo at the first level: the second path segment (after the
+// repo dir prefix). Otherwise, including a repo nested in a group: the first
+// path segment.
 // Root-level skills (no subdirectory) return "".
 func skillGroup(e skillEntry) string {
 	parts := strings.Split(e.RelPath, "/")
@@ -186,7 +189,7 @@ func skillGroup(e skillEntry) string {
 		return ""
 	}
 
-	if e.RepoName != "" {
+	if e.RepoName != "" && utils.IsTrackedRepoDir(parts[0]) {
 		// Tracked: first segment is repo dir, second is group
 		if len(parts) >= 3 {
 			return parts[1]

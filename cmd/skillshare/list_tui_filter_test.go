@@ -146,6 +146,13 @@ func TestSkillGroup_TrackedRoot(t *testing.T) {
 	}
 }
 
+func TestSkillGroup_TrackedRepoInGroup(t *testing.T) {
+	e := skillEntry{RelPath: "group/sub/_repo/audit", RepoName: "group/sub/_repo"}
+	if got := skillGroup(e); got != "group" {
+		t.Fatalf("skillGroup() = %q, want %q", got, "group")
+	}
+}
+
 func TestSkillGroup_LocalNested(t *testing.T) {
 	e := skillEntry{RelPath: "frontend/react-tips"}
 	if got := skillGroup(e); got != "frontend" {

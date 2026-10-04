@@ -47,21 +47,18 @@ func (SkillKind) Discover(sourceDir string) ([]DiscoveredResource, error) {
 				name = filepath.Base(skillDir)
 			}
 
-			isInRepo := false
-			parts := strings.Split(relPath, "/")
-			if len(parts) > 0 && utils.IsTrackedRepoDir(parts[0]) {
-				isInRepo = true
-			}
+			repoRelPath := findSkillRepoRelPath(walkRoot, relPath)
 
 			resources = append(resources, DiscoveredResource{
-				Name:       name,
-				Kind:       "skill",
-				RelPath:    relPath,
-				AbsPath:    skillDir,
-				IsNested:   strings.Contains(relPath, "/"),
-				FlatName:   utils.PathToFlatName(relPath),
-				IsInRepo:   isInRepo,
-				SourcePath: filepath.Join(sourceDir, relPath),
+				Name:        name,
+				Kind:        "skill",
+				RelPath:     relPath,
+				AbsPath:     skillDir,
+				IsNested:    strings.Contains(relPath, "/"),
+				FlatName:    utils.PathToFlatName(relPath),
+				IsInRepo:    repoRelPath != "",
+				RepoRelPath: repoRelPath,
+				SourcePath:  filepath.Join(sourceDir, relPath),
 			})
 		}
 
@@ -73,6 +70,26 @@ func (SkillKind) Discover(sourceDir string) ([]DiscoveredResource, error) {
 	}
 
 	return resources, nil
+}
+
+// findSkillRepoRelPath returns the innermost _-prefixed git repo that holds
+// the skill at relPath, or is that skill, matching the sync discovery walk. A
+// _-prefixed first component still counts without a .git.
+func findSkillRepoRelPath(root, relPath string) string {
+	parts := strings.Split(relPath, "/")
+	for i := len(parts); i > 0; i-- {
+		if !utils.IsTrackedRepoDir(parts[i-1]) {
+			continue
+		}
+		repo := strings.Join(parts[:i], "/")
+		if _, err := os.Stat(filepath.Join(root, filepath.FromSlash(repo), ".git")); err == nil {
+			return repo
+		}
+	}
+	if utils.IsTrackedRepoDir(parts[0]) {
+		return parts[0]
+	}
+	return ""
 }
 
 // ResolveName reads the name field from SKILL.md frontmatter.

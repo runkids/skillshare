@@ -3,11 +3,13 @@
 package integration
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"runtime"
 	"testing"
 
+	"skillshare/internal/install"
 	"skillshare/internal/testutil"
 )
 
@@ -173,5 +175,73 @@ func TestSkillfollowGroupNestedRepoSkillignore(t *testing.T) {
 	}
 	if _, err := os.Lstat(filepath.Join(target, "group__sub___repo__drop")); !os.IsNotExist(err) {
 		t.Fatalf("ignored skill linked: %v", err)
+	}
+}
+
+// A skill in a tracked repo below the first path component, whether installed
+// there with --into or reached through a followed group, belongs to that repo:
+// list and status report the repo, and its target override decides the sync.
+func TestSkillfollowGroupNestedRepoOwnership(t *testing.T) {
+	for _, followed := range []bool{false, true} {
+		t.Run(map[bool]string{false: "plain", true: "followed"}[followed], func(t *testing.T) {
+			sb := testutil.NewSandbox(t)
+			defer sb.Cleanup()
+			claude, cursor := sb.CreateTarget("claude"), sb.CreateTarget("cursor")
+			sb.WriteConfig("source: " + sb.SourcePath + "\nmode: merge\ntargets:\n  claude:\n    path: " + claude + "\n  cursor:\n    path: " + cursor + "\n")
+			group := filepath.Join(sb.SourcePath, "group")
+			if followed {
+				group = filepath.Join(sb.Root, "external")
+			}
+			repo := filepath.Join(group, "sub", "_repo")
+			sb.WriteFile(filepath.Join(repo, "a", "SKILL.md"), "---\nname: a\n---\n# a\n")
+			testutil.RunGit(t, "", "init", repo)
+			if followed {
+				if err := os.Symlink(group, filepath.Join(sb.SourcePath, "group")); err != nil {
+					t.Fatal(err)
+				}
+				sb.WriteFile(filepath.Join(sb.SourcePath, ".skillfollow"), "group\n")
+			}
+			store := install.NewMetadataStore()
+			store.SetTargetOverride("group/sub/_repo/a", []string{"cursor"})
+			if err := store.Save(sb.SourcePath); err != nil {
+				t.Fatal(err)
+			}
+
+			list := sb.RunCLI("list", "-g", "--json")
+			list.AssertSuccess(t)
+			var skills []struct {
+				RelPath  string `json:"relPath"`
+				RepoName string `json:"repoName"`
+			}
+			if err := json.Unmarshal([]byte(list.Stdout), &skills); err != nil {
+				t.Fatalf("invalid list JSON: %v\n%s", err, list.Stdout)
+			}
+			if len(skills) != 1 || skills[0].RepoName != "group/sub/_repo" {
+				t.Errorf("list: want repoName group/sub/_repo, got %+v", skills)
+			}
+
+			status := sb.RunCLI("status", "-g", "--json")
+			status.AssertSuccess(t)
+			var st struct {
+				TrackedRepos []struct {
+					Name       string `json:"name"`
+					SkillCount int    `json:"skill_count"`
+				} `json:"tracked_repos"`
+			}
+			if err := json.Unmarshal([]byte(status.Stdout), &st); err != nil {
+				t.Fatalf("invalid status JSON: %v\n%s", err, status.Stdout)
+			}
+			if len(st.TrackedRepos) != 1 || st.TrackedRepos[0].Name != "group/sub/_repo" || st.TrackedRepos[0].SkillCount != 1 {
+				t.Errorf("status: want group/sub/_repo with 1 skill, got %+v", st.TrackedRepos)
+			}
+
+			sb.RunCLI("sync", "-g").AssertSuccess(t)
+			if _, err := os.Lstat(filepath.Join(cursor, "group__sub___repo__a")); err != nil {
+				t.Errorf("override target cursor not linked: %v", err)
+			}
+			if _, err := os.Lstat(filepath.Join(claude, "group__sub___repo__a")); !os.IsNotExist(err) {
+				t.Errorf("skill linked to claude despite override: %v", err)
+			}
+		})
 	}
 }

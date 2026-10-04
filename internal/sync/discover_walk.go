@@ -264,11 +264,7 @@ func discoverSourceSkillsInternal(sourcePath string, opts discoverOptions) ([]Di
 
 			relPath = strings.ReplaceAll(relPath, "\\", "/")
 
-			isInRepo := false
-			parts := strings.Split(relPath, "/")
-			if len(parts) > 0 && utils.IsTrackedRepoDir(parts[0]) {
-				isInRepo = true
-			}
+			repoRelPath := enclosingRepo(relPath, walkRoot, ignoreMatchers)
 
 			// Root-level .skillignore fallback (for files in non-skipped dirs),
 			// then the repo-level .skillignore inside tracked repos. With
@@ -325,7 +321,8 @@ func discoverSourceSkillsInternal(sourcePath string, opts discoverOptions) ([]Di
 				SourcePath:  filepath.Join(sourcePath, relPath),
 				RelPath:     relPath,
 				FlatName:    utils.PathToFlatName(relPath),
-				IsInRepo:    isInRepo,
+				IsInRepo:    repoRelPath != "",
+				RepoRelPath: repoRelPath,
 				Targets:     targets,
 				DescChars:   ctx.DescChars,
 				BodyChars:   ctx.BodyChars,

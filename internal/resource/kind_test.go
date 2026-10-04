@@ -107,6 +107,22 @@ func TestSkillKind_Discover_Nested(t *testing.T) {
 	}
 }
 
+func TestSkillKind_Discover_NestedTrackedRepo(t *testing.T) {
+	dir := t.TempDir()
+	repo := filepath.Join(dir, "group", "sub", "_repo")
+	os.MkdirAll(filepath.Join(repo, ".git"), 0o755)
+	os.MkdirAll(filepath.Join(repo, "a"), 0o755)
+	os.WriteFile(filepath.Join(repo, "a", "SKILL.md"), []byte("---\nname: a\n---\n# A"), 0o644)
+
+	resources, err := SkillKind{}.Discover(dir)
+	if err != nil || len(resources) != 1 {
+		t.Fatalf("Discover: %+v %v", resources, err)
+	}
+	if r := resources[0]; !r.IsInRepo || r.RepoRelPath != "group/sub/_repo" {
+		t.Errorf("IsInRepo=%v RepoRelPath=%q, want true group/sub/_repo", r.IsInRepo, r.RepoRelPath)
+	}
+}
+
 func TestSkillKind_ResolveName_FromFrontmatter(t *testing.T) {
 	dir := t.TempDir()
 	skillDir := filepath.Join(dir, "my-skill")
