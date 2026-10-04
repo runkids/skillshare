@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"skillshare/internal/config"
+	"skillshare/internal/sourcewalk"
 	"skillshare/internal/sync"
 	"skillshare/internal/targetsummary"
 	"skillshare/internal/theme"
@@ -178,6 +179,7 @@ func buildTargetTUIItems(isProject bool, cwd string) ([]targetTUIItem, error) {
 		if err != nil {
 			return nil, err
 		}
+		follow := skillFollowSet(projCfg.EffectiveSkillsSource(cwd), resolvedTargets, cwd)
 		for _, entry := range projCfg.Targets {
 			resolved, ok := resolvedTargets[entry.Name]
 			if !ok {
@@ -187,7 +189,7 @@ func buildTargetTUIItems(isProject bool, cwd string) ([]targetTUIItem, error) {
 			if err != nil {
 				return nil, err
 			}
-			skillSync, skillSyncText := targetSkillSyncSummary(resolved, projCfg.EffectiveSkillsSource(cwd))
+			skillSync, skillSyncText := targetSkillSyncSummary(resolved, projCfg.EffectiveSkillsSource(cwd), follow)
 			items = append(items, targetTUIItem{
 				name:          entry.Name,
 				target:        resolved,
@@ -207,12 +209,13 @@ func buildTargetTUIItems(isProject bool, cwd string) ([]targetTUIItem, error) {
 		if err != nil {
 			return nil, err
 		}
+		follow := globalSkillFollowSet(cfg)
 		for name, t := range cfg.Targets {
 			agentSummary, err := agentBuilder.GlobalTarget(name, t)
 			if err != nil {
 				return nil, err
 			}
-			skillSync, skillSyncText := targetSkillSyncSummary(t, cfg.EffectiveSkillsSource())
+			skillSync, skillSyncText := targetSkillSyncSummary(t, cfg.EffectiveSkillsSource(), follow)
 			items = append(items, targetTUIItem{
 				name:          name,
 				target:        t,
@@ -997,15 +1000,19 @@ const skillsOffSummary = "skills off (not synced)"
 
 // targetSkillSyncSummary returns the skills sync summary twice: as the TUI
 // and JSON show it, and as the plain list shows it, with zero counts left out.
-func targetSkillSyncSummary(target config.TargetConfig, sourcePath string) (summary, text string) {
+func targetSkillSyncSummary(target config.TargetConfig, sourcePath string, follow *sourcewalk.FollowSet) (summary, text string) {
 	sc := target.SkillsConfig()
 	if !sc.IsEnabled() {
 		return skillsOffSummary, skillsOffSummary
 	}
-	return buildTargetSkillSyncSummary(sc.Path, sourcePath, sc.Mode)
+	return buildTargetSkillSyncSummaryWithFollow(sc.Path, sourcePath, sc.Mode, follow)
 }
 
 func buildTargetSkillSyncSummary(targetPath, sourcePath, mode string) (summary, text string) {
+	return buildTargetSkillSyncSummaryWithFollow(targetPath, sourcePath, mode, nil)
+}
+
+func buildTargetSkillSyncSummaryWithFollow(targetPath, sourcePath, mode string, follow *sourcewalk.FollowSet) (summary, text string) {
 	var status fmt.Stringer
 	var synced, local int
 	label := "managed"
@@ -1013,7 +1020,7 @@ func buildTargetSkillSyncSummary(targetPath, sourcePath, mode string) (summary, 
 	case "copy":
 		status, synced, local = sync.CheckStatusCopy(targetPath)
 	case "merge":
-		status, synced, local = sync.CheckStatusMerge(targetPath, sourcePath)
+		status, synced, local = sync.CheckStatusMergeWithOptions(targetPath, sourcePath, sync.StatusOptions{Follow: follow})
 		label = "shared"
 	default:
 		s := sync.CheckStatus(targetPath, sourcePath).String()

@@ -458,7 +458,7 @@ func targetInfoProject(name string, args []string, root string) error {
 		status, managed, local := sync.CheckStatusCopy(resolvedSC.Path)
 		statusLine = statusWithCounts(status, managed, "managed", local)
 	default:
-		status, linked, local := sync.CheckStatusMerge(resolvedSC.Path, sourcePath)
+		status, linked, local := sync.CheckStatusMergeWithOptions(resolvedSC.Path, sourcePath, sync.StatusOptions{Follow: skillFollowSet(sourcePath, targets, root)})
 		statusLine = statusWithCounts(status, linked, "linked", local)
 	}
 

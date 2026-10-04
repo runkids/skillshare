@@ -825,7 +825,7 @@ func showTargetInfo(cfg *config.Config, name string, target config.TargetConfig)
 		status, managed, local := sync.CheckStatusCopy(sc.Path)
 		statusLine = statusWithCounts(status, managed, "managed", local)
 	case effectiveMode == "merge":
-		status, linked, local := sync.CheckStatusMerge(sc.Path, cfg.EffectiveSkillsSource())
+		status, linked, local := sync.CheckStatusMergeWithOptions(sc.Path, cfg.EffectiveSkillsSource(), sync.StatusOptions{Follow: globalSkillFollowSet(cfg)})
 		statusLine = statusWithCounts(status, linked, "linked", local)
 	default:
 		statusLine = sync.CheckStatus(sc.Path, cfg.EffectiveSkillsSource()).String()

@@ -163,7 +163,7 @@ func (s *Server) handleListTargets(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 			if mode == "merge" {
-				status, linked, local := ssync.CheckStatusMerge(sc.Path, source)
+				status, linked, local := ssync.CheckStatusMergeWithOptions(sc.Path, source, ssync.StatusOptions{Follow: follow})
 				item.Status = status.String()
 				item.LinkedCount = linked
 				item.LocalCount = local
