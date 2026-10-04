@@ -5,13 +5,13 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"os"
 	"path/filepath"
 	"strconv"
 	"time"
 
 	"skillshare/internal/config"
 	"skillshare/internal/install"
+	"skillshare/internal/sourcefs"
 )
 
 // reloadSkillsStore refreshes the in-memory skills metadata store from disk.
@@ -175,7 +175,7 @@ func (s *Server) handleInstallBatch(w http.ResponseWriter, r *http.Request) {
 		if body.Kind == "agent" {
 			baseDir = s.agentsSource()
 		}
-		if err := os.MkdirAll(filepath.Join(baseDir, body.Into), 0755); err != nil {
+		if err := sourcefs.MkdirAllIn(baseDir, body.Into); err != nil {
 			writeError(w, http.StatusInternalServerError, "failed to create into directory: "+err.Error())
 			return
 		}
@@ -487,7 +487,7 @@ func (s *Server) handleInstall(w http.ResponseWriter, r *http.Request) {
 	// Regular install
 	destPath := filepath.Join(s.cfg.EffectiveSkillsSource(), body.Into, source.Name)
 	if body.Into != "" {
-		if err := os.MkdirAll(filepath.Join(s.cfg.EffectiveSkillsSource(), body.Into), 0755); err != nil {
+		if err := sourcefs.MkdirAllIn(s.cfg.EffectiveSkillsSource(), body.Into); err != nil {
 			writeError(w, http.StatusInternalServerError, "failed to create into directory: "+err.Error())
 			return
 		}

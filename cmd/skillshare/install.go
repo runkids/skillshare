@@ -10,6 +10,7 @@ import (
 	"skillshare/internal/config"
 	"skillshare/internal/install"
 	"skillshare/internal/oplog"
+	"skillshare/internal/sourcefs"
 	"skillshare/internal/ui"
 	"skillshare/internal/validate"
 )
@@ -246,7 +247,7 @@ func ensureIntoDirExists(sourceDir string, opts install.InstallOptions) error {
 	if opts.Into == "" {
 		return nil
 	}
-	return os.MkdirAll(filepath.Join(sourceDir, opts.Into), 0755)
+	return sourcefs.MkdirAllIn(sourceDir, opts.Into)
 }
 
 // parseOptsFromConfig builds install.ParseOptions from the global config.

@@ -65,6 +65,17 @@ func Create(dir string) (*Root, error) {
 	return Open(dir)
 }
 
+// MkdirAllIn creates name below the source root dir, creating the root when
+// it is missing. It is for callers that write nothing else.
+func MkdirAllIn(dir, name string) error {
+	r, err := Create(dir)
+	if err != nil {
+		return err
+	}
+	defer r.Close()
+	return r.MkdirAll(name, 0o755)
+}
+
 // Close releases the root.
 func (r *Root) Close() error { return r.root.Close() }
 

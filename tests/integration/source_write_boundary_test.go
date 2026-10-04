@@ -78,3 +78,24 @@ func TestInstall_TrackForce_RefusesLinkedRepo(t *testing.T) {
 	}
 	assertTreeUnchanged(t, before, external)
 }
+
+// An explicit --into path through an undeclared link in the source is
+// refused instead of creating directories in the link's target.
+func TestInstall_Into_RefusesPathThroughLink(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	setupGlobalConfig(sb)
+
+	localSkill := filepath.Join(sb.Root, "pdf-skill")
+	sb.WriteFile(filepath.Join(localSkill, "SKILL.md"), "---\nname: pdf-skill\n---\n# PDF Skill")
+	external := filepath.Join(sb.Root, "external-group")
+	sb.WriteFile(filepath.Join(external, "README.md"), "external")
+	sb.CreateSymlink(external, filepath.Join(sb.SourcePath, "alias"))
+	before := treeSnapshot(t, external)
+
+	result := sb.RunCLI("install", localSkill, "--into", "alias/new")
+	result.AssertFailure(t)
+	result.AssertAnyOutputContains(t, "is a link; edit its target directly")
+
+	assertTreeUnchanged(t, before, external)
+}
