@@ -393,19 +393,19 @@ internal/sync/relative.go	reformatLinkAs	os.Rename	tmpPath, linkPath	target
 internal/sync/skill_run.go	SyncSkillTarget	os.Remove	sc.Path	target
 internal/sync/skills_off.go	DetachSkills	os.Remove	entryPath	target
 internal/sync/skills_off.go	DetachSkills	os.Remove	folder	target
-internal/sync/symlink_unix.go	createLinkAs	os.Symlink	target, linkPath	target
+internal/sync/symlink_unix.go	createLinkAs	os.Symlink	target, linkPath	target	also creates the first-level source link for follow --to, through sync.CreateSymlink, after the follow handler checked the entry name and that it does not exist; a Windows junction cannot be created through os.Root
 internal/sync/symlink_windows.go	canCreateRelativeLink	os.Mkdir	target	tmp
 internal/sync/symlink_windows.go	canCreateRelativeLink	os.MkdirTemp	""	tmp
 internal/sync/symlink_windows.go	canCreateRelativeLink	os.RemoveAll	dir	tmp
 internal/sync/symlink_windows.go	canCreateRelativeLink	os.Symlink	"t", link	tmp
-internal/sync/symlink_windows.go	createLinkAs	os.Symlink	absSource, absTarget	target
-internal/sync/symlink_windows.go	createLinkAs	os.Symlink	absSource, absTarget	target
+internal/sync/symlink_windows.go	createLinkAs	os.Symlink	absSource, absTarget	target	also creates the first-level source link for follow --to, through sync.CreateSymlink, after the follow handler checked the entry name and that it does not exist; a Windows junction cannot be created through os.Root
+internal/sync/symlink_windows.go	createLinkAs	os.Symlink	absSource, absTarget	target	also creates the first-level source link for follow --to, through sync.CreateSymlink, after the follow handler checked the entry name and that it does not exist; a Windows junction cannot be created through os.Root
 internal/sync/symlink_windows.go	createLinkAs	os.Symlink	rel, linkPath	target
 internal/sync/symlink_windows.go	platformCanCreateFileLink	os.MkdirTemp	""	tmp
 internal/sync/symlink_windows.go	platformCanCreateFileLink	os.RemoveAll	dir	tmp
 internal/sync/symlink_windows.go	platformCanCreateFileLink	os.Symlink	target, filepath.Join(dir, "l")	tmp
 internal/sync/symlink_windows.go	platformCanCreateFileLink	os.WriteFile	target	tmp
-internal/sync/sync.go	CreateSymlink	os.MkdirAll	filepath.Dir(targetPath)	target
+internal/sync/sync.go	CreateSymlink	os.MkdirAll	filepath.Dir(targetPath)	target	also called by follow --to, where the parent is the already-open skills source root, so it creates nothing there
 internal/sync/sync.go	MigrateToSource	os.MkdirAll	filepath.Dir(sourcePath)	source-root	creates the parent of the skills source root before the target moves in as the root
 internal/sync/sync.go	MigrateToSource	os.RemoveAll	targetPath	target
 internal/sync/sync.go	MigrateToSource	os.RemoveAll	targetPath	target

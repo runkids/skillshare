@@ -28,6 +28,8 @@ skillshare 명령 치트시트입니다.
 | `check` | Skill 업데이트 확인 |
 | `check --json` | 업데이트 확인 (JSON 출력) |
 | `upgrade` | CLI와 내장 Skill 업그레이드 |
+| `follow <name> --to <dir>` | 외부 디렉터리를 source에 링크하고 따라가기 |
+| `unfollow <name>` | 따라가기를 중지하고 링크 제거 |
 | `hub list` | 설정된 Skill Hub 목록 표시 |
 | `hub add <url>` | Skill Hub 추가 |
 

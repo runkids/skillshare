@@ -20,6 +20,16 @@ Skills source 첫 번째 계층의 symlink 또는 Windows junction을 선언해 
 └── .gitignore
 ```
 
+entry 이름과 외부 디렉터리를 지정해 [`follow`](./commands/follow.md)를 실행하세요.
+
+```bash
+skillshare follow _team-skills --to ~/work/team-skills
+```
+
+링크(Windows에서는 junction)를 만들고, `_team-skills`를 `.skillfollow`에 추가하고, source가 Git 작업 트리 안에 있으면 `/_team-skills`를 `.gitignore`에 추가한 뒤 entry의 [state](#states)를 출력합니다. 링크가 이미 있으면 `--to`를 생략하세요. `--local`을 붙이면 `.skillfollow.local`에 선언하고 `/.skillfollow.local`도 `.gitignore`에 추가합니다. [`unfollow`](./commands/unfollow.md)는 이 모든 것을 되돌립니다.
+
+### 직접 설정
+
 첫 계층 링크를 직접 만드세요. macOS/Linux:
 
 ```bash
@@ -52,7 +62,9 @@ Git은 symlink를 디렉터리가 아닌 파일로 저장하므로 `/_team-skill
 git rm --cached -- '_team-skills'
 ```
 
-`skillshare doctor`, `skillshare list --no-tui`, `skillshare sync --dry-run`으로 확인하고 올바르면 `skillshare sync`하세요. `-g`/`-p`로 범위를 선택하세요. 선언/ignore는 수동 편집이며 discovery, status, doctor, dry run이 자동 생성/복구하지 않습니다. 아직 `follow`/`unfollow` 명령은 없습니다.
+### 확인과 sync
+
+`skillshare doctor`, `skillshare list --no-tui`, `skillshare sync --dry-run`으로 확인하고 올바르면 `skillshare sync`하세요. `-g`/`-p`로 범위를 선택하세요. 선언/ignore 파일은 `follow`와 `unfollow`만 씁니다. discovery, status, doctor, dry run은 자동 생성/복구하지 않습니다.
 
 `_` 접두사와 `.git`을 가진 항목은 tracked repo, 그 외는 그룹입니다. Skills는 `_team-skills/review`（flat name `_team-skills__review`）같은 논리 경로를 유지합니다. Source-root/repo `.skillignore`는 계속 적용되며(followed 그룹 안에 중첩된 tracked repo 포함), 중첩된 tracked repo(`--track --into`로 설치한 것 포함)는 자신의 skills를 소유합니다(`list`에 repo 이름, `status`와 Dashboard 집계, `.metadata.json` target override 적용, Dashboard는 단일 skill uninstall 거부). 미선언 첫 계층 링크는 보이지 않습니다.
 
@@ -81,7 +93,7 @@ Canonical path로 안전성을 검사하며 처음 해당되는 상태를 사용
 | `entry-overlap` | 선언 대상이 같거나 서로 포함. 선언 제거/변경으로 중복 해결 |
 | `single-skill` | 대상 루트에 `SKILL.md`. 아직 미지원. 상위 그룹/repo 사용 또는 선언 제거 |
 | `followed` | 안전하고 읽을 수 있는 그룹/tracked repo. 검색/sync 가능 |
-| `undeclared-link` | 두 파일에 없는 첫 계층 링크. 숨겨 두거나 선언과 ignore 추가 |
+| `undeclared-link` | 두 파일에 없는 첫 계층 링크. 숨겨 두거나 `skillshare follow <name>` 실행 |
 
 `followed`/`not-link`는 doctor pass, 다른 선언 상태는 warning이며 정리를 중지합니다. `undeclared-link`는 info만 표시하고 중지하지 않습니다. Parser 경고는 별도입니다.
 
@@ -114,7 +126,7 @@ Status/doctor는 차단마다 표시합니다:
 prune paused: <name> is <state>; restore or fix <path>, or remove <name> from .skillfollow[.local], to resume cleanup
 ```
 
-복구하거나 이름이 있는 **모든 선언 파일**에서 제거한 후 sync하세요. 폐기된 선언을 남기면 무기한 중지됩니다. 선언 제거는 외부 트리를 삭제하지 않습니다. 논리 source를 통한 managed orphan link는 prune할 수 있지만 follow 해제된 외부 경로를 직접 가리키는 managed link는 보존하며 `managed link resolves outside the source after unfollow; remove it or re-run with --force`로 경고합니다.
+복구하거나 이름이 있는 **모든 선언 파일**에서 제거한 후(`skillshare unfollow <name>`이 이를 처리하고 링크도 제거합니다) sync하세요. 폐기된 선언을 남기면 무기한 중지됩니다. 선언 제거는 외부 트리를 삭제하지 않습니다. 논리 source를 통한 managed orphan link는 prune할 수 있지만 follow 해제된 외부 경로를 직접 가리키는 managed link는 보존하며 `managed link resolves outside the source after unfollow; remove it or re-run with --force`로 경고합니다.
 
 ## 업데이트 안전성 {#updates}
 
@@ -134,7 +146,7 @@ Source **pull/reset/checkout**은 indexed 선언（없지만 indexed인 링크 �
 
 ## 제한
 
-단일 skill, `follow`/`unfollow`, 선언 편집기는 미래 작업입니다. 중첩 링크는 따라가지 않습니다. Developer Mode가 꺼진 Windows 11 ARM64에서 global mode의 discovery, status, sync, prune 일시 중지와 재개, update 거부, unfollow, `.skillfollow.local`, `invalid-target`을 팔로우한 junction(관리자 및 basic-user token)과 directory symlink(관리자 token)로 검증했습니다. project mode의 상대 링크, Developer Mode의 상대 symlink, 링크된 source root나 target 상위 디렉터리, dashboard는 Windows에서 **미검증**입니다.
+단일 skill과 선언 편집기는 미래 작업입니다. 중첩 링크는 따라가지 않습니다. Developer Mode가 꺼진 Windows 11 ARM64에서 global mode의 discovery, status, sync, prune 일시 중지와 재개, update 거부, unfollow, `.skillfollow.local`, `invalid-target`을 팔로우한 junction(관리자 및 basic-user token)과 directory symlink(관리자 token)로 검증했습니다. project mode의 상대 링크, Developer Mode의 상대 symlink, 링크된 source root나 target 상위 디렉터리, dashboard는 Windows에서 **미검증**입니다. `follow --to`는 Windows에서 sync와 같은 helper로 junction을 만들지만 이 경로도 실제 Windows에서 실행된 적이 없습니다.
 
 ## 함께 보기
 

@@ -38,6 +38,8 @@ _skillshare() {
         'extras:Manage extra resource types'
         'enable:Enable a disabled skill/agent'
         'disable:Disable a skill/agent'
+        'follow:Follow a linked folder in the source'
+        'unfollow:Stop following a linked folder'
         'completion:Generate shell completion scripts'
         'version:Show version'
         'help:Show help'
@@ -722,6 +724,24 @@ _skillshare() {
                         '--kind[Resource kind]:kind:(skill agent)' \
                         '--dry-run[Preview changes]' \
                         '-n[Preview changes]' \
+                        $global_flags \
+                        '--help[Show help]' \
+                        '-h[Show help]'
+                    ;;
+                follow)
+                    _arguments \
+                        '--to[Create the link to this directory]:directory:_files -/' \
+                        '--local[Write .skillfollow.local]' \
+                        '--json[Output as JSON]' \
+                        $global_flags \
+                        '--help[Show help]' \
+                        '-h[Show help]'
+                    ;;
+                unfollow)
+                    _arguments \
+                        '--local[Remove from .skillfollow.local only]' \
+                        '--keep-link[Keep the link and its ignore line]' \
+                        '--json[Output as JSON]' \
                         $global_flags \
                         '--help[Show help]' \
                         '-h[Show help]'

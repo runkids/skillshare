@@ -37,6 +37,8 @@ def "nu-complete skillshare commands" [] {
         { value: "extras", description: "Manage extra resource types" }
         { value: "enable", description: "Enable a disabled skill/agent" }
         { value: "disable", description: "Disable a skill/agent" }
+        { value: "follow", description: "Follow a linked folder in the source" }
+        { value: "unfollow", description: "Stop following a linked folder" }
         { value: "completion", description: "Generate shell completion scripts" }
         { value: "version", description: "Show version" }
         { value: "help", description: "Show help" }
@@ -698,6 +700,28 @@ export extern "skillshare disable" [
     name: string             # Skill/agent name or pattern
     --kind: string@"nu-complete skillshare kind-flag"
     --dry-run(-n)            # Preview changes
+    --project(-p)            # Use project-level config
+    --global(-g)             # Use global config
+    --help(-h)               # Show help
+]
+
+# Follow
+export extern "skillshare follow" [
+    name: string             # First-level entry in the source
+    --to: path               # Create the link to this directory
+    --local                  # Write .skillfollow.local
+    --json                   # JSON output
+    --project(-p)            # Use project-level config
+    --global(-g)             # Use global config
+    --help(-h)               # Show help
+]
+
+# Unfollow
+export extern "skillshare unfollow" [
+    name: string             # Declared first-level entry
+    --local                  # Remove from .skillfollow.local only
+    --keep-link              # Keep the link and its ignore line
+    --json                   # JSON output
     --project(-p)            # Use project-level config
     --global(-g)             # Use global config
     --help(-h)               # Show help

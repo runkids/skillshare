@@ -20,6 +20,16 @@ Skills source の第一階層にある symlink や Windows junction を明示的
 └── .gitignore
 ```
 
+entry 名と外部ディレクトリを指定して [`follow`](./commands/follow.md) を実行します。
+
+```bash
+skillshare follow _team-skills --to ~/work/team-skills
+```
+
+リンク（Windows では junction）を作成し、`_team-skills` を `.skillfollow` に追加し、source が Git の作業ツリー内にあれば `/_team-skills` を `.gitignore` に追加して、最後に entry の [状態](#states) を表示します。リンクがすでにある場合は `--to` を省略します。`--local` を付けると `.skillfollow.local` に宣言し、`/.skillfollow.local` も `.gitignore` に追加します。[`unfollow`](./commands/unfollow.md) はこれらをすべて元に戻します。
+
+### 手動で設定する
+
 第一階層のリンクを自分で作成します。macOS/Linux：
 
 ```bash
@@ -52,7 +62,9 @@ Git は symlink をディレクトリでなくファイルとして保存する�
 git rm --cached -- '_team-skills'
 ```
 
-`skillshare doctor`、`skillshare list --no-tui`、`skillshare sync --dry-run` で確認し、正しければ `skillshare sync`。`-g`/`-p` で対象を選びます。宣言/ignore は手動編集です。Discovery、status、doctor、dry run は自動作成・修復しません。`follow`/`unfollow` コマンドはまだありません。
+### 確認と sync
+
+`skillshare doctor`、`skillshare list --no-tui`、`skillshare sync --dry-run` で確認し、正しければ `skillshare sync`。`-g`/`-p` で対象を選びます。宣言/ignore を書き込むのは `follow` と `unfollow` だけです。Discovery、status、doctor、dry run は自動作成・修復しません。
 
 `_` 接頭辞と `.git` を持つディレクトリは tracked repo、それ以外はグループです。Skills は `_team-skills/review`（flat name `_team-skills__review`）などの論理パスを維持します。Source-root/repo の `.skillignore` は引き続き適用され（followed グループ内に入れ子の tracked repo も含む）、入れ子の tracked repo（`--track --into` で入れたものも）は自分の skills を所有します（`list` に repo 名、`status` と Dashboard の件数、`.metadata.json` の target override が適用、Dashboard は単一 skill の uninstall を拒否）。未宣言リンクは非表示のままです。
 
@@ -81,7 +93,7 @@ Canonical path で安全性を検査し、最初に該当する状態を採用�
 | `entry-overlap` | 宣言対象が同じか包含関係。宣言を削除/変更して重複を解消 |
 | `single-skill` | 対象ルートに `SKILL.md`。まだ未対応。親グループ/repo を使うか宣言削除 |
 | `followed` | 安全で読めるグループ/tracked repo。Discovery/sync 可能 |
-| `undeclared-link` | 両ファイルにない第一階層リンク。非表示のままにするか、宣言と ignore を追加 |
+| `undeclared-link` | 両ファイルにない第一階層リンク。非表示のままにするか、`skillshare follow <name>` を実行 |
 
 `followed`/`not-link` は doctor の pass。それ以外の宣言状態は warning でクリーンアップを停止。`undeclared-link` は info のみで停止しません。Parser 警告は別途表示します。
 
@@ -114,7 +126,7 @@ Status/doctor は各停止理由を表示します：
 prune paused: <name> is <state>; restore or fix <path>, or remove <name> from .skillfollow[.local], to resume cleanup
 ```
 
-修復するか、名前がある**すべての宣言ファイル**から削除し、再 sync。不要な宣言を放置すると停止は無期限です。宣言削除は外部ツリーを削除しません。論理 source 経由の managed orphan link は prune できますが、follow 解除後の外部パスへ直接向く managed link は残し、`managed link resolves outside the source after unfollow; remove it or re-run with --force` と警告します。
+修復するか、名前がある**すべての宣言ファイル**から削除し（`skillshare unfollow <name>` がこれを行い、リンクも削除します）、再 sync。不要な宣言を放置すると停止は無期限です。宣言削除は外部ツリーを削除しません。論理 source 経由の managed orphan link は prune できますが、follow 解除後の外部パスへ直接向く managed link は残し、`managed link resolves outside the source after unfollow; remove it or re-run with --force` と警告します。
 
 ## 更新の安全性 {#updates}
 
@@ -134,7 +146,7 @@ Source **pull/reset/checkout** は indexed 宣言（不在だが indexed のリ�
 
 ## 制限
 
-単一 skill、`follow`/`unfollow`、宣言エディタは将来の対応です。入れ子リンクはたどりません。Developer Mode オフの Windows 11 ARM64 で、global mode の discovery、status、sync、prune の一時停止と再開、update の拒否、unfollow、`.skillfollow.local`、`invalid-target` を、追跡対象の junction（管理者と basic-user の token）と directory symlink（管理者 token）で検証済みです。project mode の相対リンク、Developer Mode の相対 symlink、リンクされた source root や target の親ディレクトリ、dashboard は Windows で**未検証**です。
+単一 skill と宣言エディタは将来の対応です。入れ子リンクはたどりません。Developer Mode オフの Windows 11 ARM64 で、global mode の discovery、status、sync、prune の一時停止と再開、update の拒否、unfollow、`.skillfollow.local`、`invalid-target` を、追跡対象の junction（管理者と basic-user の token）と directory symlink（管理者 token）で検証済みです。project mode の相対リンク、Developer Mode の相対 symlink、リンクされた source root や target の親ディレクトリ、dashboard は Windows で**未検証**です。`follow --to` は Windows では sync と同じ helper で junction を作成しますが、この経路も実 Windows では未実行です。
 
 ## 関連項目
 

@@ -14,7 +14,7 @@ _skillshare() {
         cword=$COMP_CWORD
     fi
 
-    local commands="init install uninstall list search sync mcp hooks plugin status diff backup restore collect pull push commit doctor target upgrade update check new trash analyze audit hub log ui tui extras enable disable completion version help"
+    local commands="init install uninstall list search sync mcp hooks plugin status diff backup restore collect pull push commit doctor target upgrade update check new trash analyze audit hub log ui tui extras enable disable follow unfollow completion version help"
 
     local global_flags="--project -p --global -g"
 
@@ -67,6 +67,8 @@ _skillshare() {
     local tui_flags="--help -h"
     local enable_flags="--dry-run -n --kind --help -h"
     local disable_flags="--dry-run -n --kind --help -h"
+    local follow_flags="--to --local --json --help -h"
+    local unfollow_flags="--local --keep-link --json --help -h"
     local analyze_flags="--verbose -v --filter --no-tui --json --help -h"
     local extras_flags="--mode --target --flatten --no-flatten --add-target --as --remove-target --prune --help -h"
     local extras_init_flags="--target --mode --source --file --as --flatten --force --no-tui --help -h"
@@ -266,6 +268,8 @@ _skillshare() {
         tui)        COMPREPLY=($(compgen -W "on off ${tui_flags}" -- "${cur}")) ;;
         enable)     COMPREPLY=($(compgen -W "${enable_flags} ${global_flags}" -- "${cur}")) ;;
         disable)    COMPREPLY=($(compgen -W "${disable_flags} ${global_flags}" -- "${cur}")) ;;
+        follow)     COMPREPLY=($(compgen -W "${follow_flags} ${global_flags}" -- "${cur}")) ;;
+        unfollow)   COMPREPLY=($(compgen -W "${unfollow_flags} ${global_flags}" -- "${cur}")) ;;
         analyze)    COMPREPLY=($(compgen -W "${analyze_flags} ${global_flags}" -- "${cur}")) ;;
         extras)     COMPREPLY=($(compgen -W "${extras_flags} ${global_flags}" -- "${cur}")) ;;
         completion) COMPREPLY=($(compgen -W "${completion_flags}" -- "${cur}")) ;;

@@ -5,7 +5,7 @@ sidebar_position: 3
 # uninstall
 
 :::info Followed trees are user-owned
-[Followed entries](../skillfollow.md) and their descendants cannot be uninstalled through skillshare, including with `--force` or `--dry-run`. The refusal is `<path> is a link; edit its target directly`. To stop discovery, remove the name from every declaration file containing it, or hide skills with the source-root `.skillignore`. There is no `unfollow` command yet; the external tree is not moved to trash.
+[Followed entries](../skillfollow.md) and their descendants cannot be uninstalled through skillshare, including with `--force` or `--dry-run`. The refusal is `<path> is a link; edit its target directly`. To stop discovery, run [`unfollow`](./unfollow.md), which removes the name from every declaration file and removes the link, or hide skills with the source-root `.skillignore`. The external tree is not moved to trash.
 :::
 
 Remove one or more skills or tracked repositories from the source directory. Skills are moved to trash and kept for 7 days before automatic cleanup.

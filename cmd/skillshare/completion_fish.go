@@ -98,6 +98,8 @@ complete -c skillshare -n __fish_skillshare_no_subcommand -a tui -d 'Toggle inte
 complete -c skillshare -n __fish_skillshare_no_subcommand -a extras -d 'Manage extra resource types'
 complete -c skillshare -n __fish_skillshare_no_subcommand -a enable -d 'Enable a disabled skill/agent'
 complete -c skillshare -n __fish_skillshare_no_subcommand -a disable -d 'Disable a skill/agent'
+complete -c skillshare -n __fish_skillshare_no_subcommand -a follow -d 'Follow a linked folder in the source'
+complete -c skillshare -n __fish_skillshare_no_subcommand -a unfollow -d 'Stop following a linked folder'
 complete -c skillshare -n __fish_skillshare_no_subcommand -a completion -d 'Generate shell completion scripts'
 complete -c skillshare -n __fish_skillshare_no_subcommand -a version -d 'Show version'
 complete -c skillshare -n __fish_skillshare_no_subcommand -a help -d 'Show help'
@@ -438,6 +440,18 @@ complete -c skillshare -n '__fish_skillshare_using_command enable' -l help -s h 
 complete -c skillshare -n '__fish_skillshare_using_command disable' -l kind -r -a 'skill agent' -d 'Resource kind'
 complete -c skillshare -n '__fish_skillshare_using_command disable' -l dry-run -s n -d 'Preview changes'
 complete -c skillshare -n '__fish_skillshare_using_command disable' -l help -s h -d 'Show help'
+
+# follow
+complete -c skillshare -n '__fish_skillshare_using_command follow' -l to -r -a '(__fish_complete_directories)' -d 'Create the link to this directory'
+complete -c skillshare -n '__fish_skillshare_using_command follow' -l local -d 'Write .skillfollow.local'
+complete -c skillshare -n '__fish_skillshare_using_command follow' -l json -d 'Output as JSON'
+complete -c skillshare -n '__fish_skillshare_using_command follow' -l help -s h -d 'Show help'
+
+# unfollow
+complete -c skillshare -n '__fish_skillshare_using_command unfollow' -l local -d 'Remove from .skillfollow.local only'
+complete -c skillshare -n '__fish_skillshare_using_command unfollow' -l keep-link -d 'Keep the link and its ignore line'
+complete -c skillshare -n '__fish_skillshare_using_command unfollow' -l json -d 'Output as JSON'
+complete -c skillshare -n '__fish_skillshare_using_command unfollow' -l help -s h -d 'Show help'
 
 # analyze
 complete -c skillshare -n '__fish_skillshare_using_command analyze' -l verbose -s v -d 'Show detailed information'

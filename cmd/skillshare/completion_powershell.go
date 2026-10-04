@@ -40,6 +40,8 @@ $_skillshareCompleter = {
             @{ Name = 'extras'; Desc = 'Manage extra resource types' }
             @{ Name = 'enable'; Desc = 'Enable a disabled skill/agent' }
             @{ Name = 'disable'; Desc = 'Disable a skill/agent' }
+            @{ Name = 'follow'; Desc = 'Follow a linked folder in the source' }
+            @{ Name = 'unfollow'; Desc = 'Stop following a linked folder' }
             @{ Name = 'completion'; Desc = 'Generate shell completion scripts' }
             @{ Name = 'version'; Desc = 'Show version' }
             @{ Name = 'help'; Desc = 'Show help' }
@@ -202,6 +204,8 @@ $_skillshareCompleter = {
         'ui' = '--port', '--host', '--base-path', '-b', '--no-open', '--clear-cache', '--app', '--help', '-h', '--project', '-p', '--global', '-g'
         'enable' = '--dry-run', '-n', '--kind', '--help', '-h', '--project', '-p', '--global', '-g'
         'disable' = '--dry-run', '-n', '--kind', '--help', '-h', '--project', '-p', '--global', '-g'
+        'follow' = '--to', '--local', '--json', '--help', '-h', '--project', '-p', '--global', '-g'
+        'unfollow' = '--local', '--keep-link', '--json', '--help', '-h', '--project', '-p', '--global', '-g'
         'analyze' = '--verbose', '-v', '--filter', '--no-tui', '--json', '--help', '-h', '--project', '-p', '--global', '-g'
         'mcp' = '--tools-allow', '--tools-deny', '--pi-options', '--target', '--from', '--url', '--file', '--sync', '--replace', '--disabled', '--keep-files', '--revision', '--dry-run', '-n', '--json', '--no-dns', '--live', '--timeout', '--no-tui', '--help', '-h', '--project', '-p', '--global', '-g'
         'plugin' = '--target', '--from', '--plugin', '--name', '--source-ref', '--entry', '--revision', '--dry-run', '-n', '--json', '--no-tui', '--help', '-h', '--project', '-p', '--global', '-g'

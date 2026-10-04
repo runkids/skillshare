@@ -20,6 +20,16 @@ For example, an external repository contains `review/SKILL.md` and `.git`, but n
 └── .gitignore
 ```
 
+Run [`follow`](./commands/follow.md) with the entry name and the external directory:
+
+```bash
+skillshare follow _team-skills --to ~/work/team-skills
+```
+
+It creates the link (a junction on Windows), adds `_team-skills` to `.skillfollow`, and, when the source is in a Git work tree, adds `/_team-skills` to `.gitignore`. It then prints the entry's [state](#states). If the link already exists, leave out `--to`. Add `--local` to declare the name in `.skillfollow.local` instead; that also adds `/.skillfollow.local` to `.gitignore`. [`unfollow`](./commands/unfollow.md) reverses all of this.
+
+### By hand
+
 Create the first-level link yourself. On macOS/Linux:
 
 ```bash
@@ -52,7 +62,9 @@ In the skills source's `.gitignore`, add anchored lines **without a trailing sla
 git rm --cached -- '_team-skills'
 ```
 
-Then run `skillshare doctor`, `skillshare list --no-tui`, and `skillshare sync --dry-run`. Use `-g` or `-p` to select the intended scope; run `skillshare sync` when the preview is correct. Declaration and ignore files are hand-edited: discovery, status, doctor, and dry runs do not create or repair them. There is no `follow` or `unfollow` command yet.
+### Check and sync
+
+Then run `skillshare doctor`, `skillshare list --no-tui`, and `skillshare sync --dry-run`. Use `-g` or `-p` to select the intended scope; run `skillshare sync` when the preview is correct. Only `follow` and `unfollow` write declaration and ignore files: discovery, status, doctor, and dry runs do not create or repair them.
 
 A `_`-prefixed entry with `.git` is treated as a tracked repository; other followed directories are groups. Skills retain logical paths such as `_team-skills/review` (flat name `_team-skills__review`). Root and repository `.skillignore` rules still apply, including a tracked repository nested inside a followed group; following does not bypass filtering. Such a nested repository (also one installed with `--track --into`) owns its skills: `list` names it, `status` and the dashboard count them under it, `.metadata.json` target overrides apply, and the dashboard refuses to uninstall a single skill from it. An undeclared first-level link remains invisible to discovery, as before.
 
@@ -81,7 +93,7 @@ Safety checks use canonical paths. The first applicable state wins; overlap chec
 | `entry-overlap` | Declared targets are equal or one contains the other | Keep only non-overlapping declarations or repoint the links |
 | `single-skill` | Resolved root contains `SKILL.md` | Not supported yet; follow a containing group/repository instead, or remove the declaration |
 | `followed` | Safe, readable group or tracked repository | Ready for discovery and sync |
-| `undeclared-link` | First-level link not named in either declaration file | Leave it invisible, or declare it and add its ignore line |
+| `undeclared-link` | First-level link not named in either declaration file | Leave it invisible, or run `skillshare follow <name>` |
 
 `not-link` and `followed` pass doctor checks. Other declared states are warnings and pause cleanup. `undeclared-link` is informational and does not pause cleanup. Parser warnings are reported separately.
 
@@ -114,7 +126,7 @@ Status and doctor print this recovery sentence for each blocker:
 prune paused: <name> is <state>; restore or fix <path>, or remove <name> from .skillfollow[.local], to resume cleanup
 ```
 
-Restore/fix the entry, or remove its name from **every** declaration file containing it, then sync again. An abandoned declaration keeps cleanup paused indefinitely. Removing a declaration does not delete the external tree. Managed orphan links through the logical source can then be pruned; a managed link pointing directly to a now-unfollowed external path is kept with `managed link resolves outside the source after unfollow; remove it or re-run with --force`.
+Restore/fix the entry, or remove its name from **every** declaration file containing it (`skillshare unfollow <name>` does this and also removes the link), then sync again. An abandoned declaration keeps cleanup paused indefinitely. Removing a declaration does not delete the external tree. Managed orphan links through the logical source can then be pruned; a managed link pointing directly to a now-unfollowed external path is kept with `managed link resolves outside the source after unfollow; remove it or re-run with --force`.
 
 ## Update safety {#updates}
 
@@ -134,7 +146,7 @@ These guards protect skillshare operations, not Git commands you run yourself.
 
 ## Limits
 
-Single-skill entries, `follow`/`unfollow`, and a dashboard declaration editor remain future work. Nested links are not followed. On Windows 11 ARM64 with Developer Mode off, global-mode discovery, status, sync, prune pause and resume, update refusal, unfollow, `.skillfollow.local`, and `invalid-target` have been verified with followed junctions (administrator and basic-user tokens) and directory symlinks (administrator token). Project mode's relative links, the Developer Mode relative-symlink path, a linked source root or target parent, and the dashboard have **not** been verified on Windows.
+Single-skill entries and a dashboard declaration editor remain future work. Nested links are not followed. On Windows 11 ARM64 with Developer Mode off, global-mode discovery, status, sync, prune pause and resume, update refusal, unfollow, `.skillfollow.local`, and `invalid-target` have been verified with followed junctions (administrator and basic-user tokens) and directory symlinks (administrator token). Project mode's relative links, the Developer Mode relative-symlink path, a linked source root or target parent, and the dashboard have **not** been verified on Windows. `follow --to` creates a junction on Windows through the same helper sync uses; that path has not been run on real Windows either.
 
 ## See also
 

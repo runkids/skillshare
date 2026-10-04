@@ -4,7 +4,7 @@ sidebar_position: 3
 
 # uninstall
 
-[Followed tree](../skillfollow.md) はユーザー所有で、ルート/子の uninstall は force/dry run でも拒否：`<path> is a link; edit its target directly`。Discovery を止めるには全宣言ファイルから名前を削除するか source-root `.skillignore` で非表示にします。`unfollow` は未実装で、外部ツリーは trash に移動しません。
+[Followed tree](../skillfollow.md) はユーザー所有で、ルート/子の uninstall は force/dry run でも拒否：`<path> is a link; edit its target directly`。Discovery を止めるには [`unfollow`](./unfollow.md)（全宣言ファイルから名前を削除し、リンクも削除）を実行するか、source-root `.skillignore` で非表示にします。外部ツリーは trash に移動しません。
 
 source ディレクトリから 1 つ以上の skill または tracked repository を削除します。Skill は trash に移動され、自動クリーンアップまで 7 日間保持されます。
 

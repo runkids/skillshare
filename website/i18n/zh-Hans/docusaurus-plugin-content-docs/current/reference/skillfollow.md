@@ -20,6 +20,16 @@ sidebar_position: 4
 └── .gitignore
 ```
 
+运行 [`follow`](./commands/follow.md)，指定 entry 名称和外部目录：
+
+```bash
+skillshare follow _team-skills --to ~/work/team-skills
+```
+
+它会创建链接（Windows 上是 junction），把 `_team-skills` 加入 `.skillfollow`，source 位于 Git 工作区内时再把 `/_team-skills` 加入 `.gitignore`，最后打印该 entry 的 [状态](#states)。链接已存在时省略 `--to`。加上 `--local` 会改为声明在 `.skillfollow.local`，并把 `/.skillfollow.local` 加入 `.gitignore`。[`unfollow`](./commands/unfollow.md) 会撤销以上全部操作。
+
+### 手动设置
+
 自行创建第一层链接。macOS/Linux：
 
 ```bash
@@ -52,7 +62,9 @@ _team-skills
 git rm --cached -- '_team-skills'
 ```
 
-执行 `skillshare doctor`、`skillshare list --no-tui`、`skillshare sync --dry-run`；用 `-g`/`-p` 选范围，预览正确后 `skillshare sync`。声明与 ignore 文件须手动编辑；discovery、status、doctor、dry run 不会自动创建或修复。目前没有 `follow`/`unfollow` 命令。
+### 检查与 sync
+
+执行 `skillshare doctor`、`skillshare list --no-tui`、`skillshare sync --dry-run`；用 `-g`/`-p` 选范围，预览正确后 `skillshare sync`。只有 `follow` 和 `unfollow` 会写入声明与 ignore 文件；discovery、status、doctor、dry run 不会自动创建或修复。
 
 `_` 前缀且含 `.git` 的条目视为 tracked repo，其他 followed 目录视为组。Skills 保留 `_team-skills/review` 等逻辑路径（flat name：`_team-skills__review`）。Source-root/repo `.skillignore` 仍适用（含 followed 组内嵌套的 tracked repo）；嵌套的 tracked repo（含 `--track --into` 安装的）拥有自己的 skills：`list` 显示该 repo、`status` 与 Dashboard 计入该 repo、`.metadata.json` target override 生效、Dashboard 拒绝单独卸载其中的 skill；未声明第一层链接仍不可见。
 
@@ -81,7 +93,7 @@ git rm --cached -- '_team-skills'
 | `entry-overlap` | 声明目标相同或互相包含；移除或改指向，使声明不重叠 |
 | `single-skill` | 目标根目录含 `SKILL.md`，目前不支持；改跟随外层组/repo 或移除声明 |
 | `followed` | 安全可读的组/tracked repo，可发现与同步 |
-| `undeclared-link` | 未在两文件声明的第一层链接；可保持不可见，或声明并加入 ignore |
+| `undeclared-link` | 未在两文件声明的第一层链接；可保持不可见，或运行 `skillshare follow <name>` |
 
 `not-link`/`followed` 的 doctor 检查为 pass；其他声明状态为 warning 并暂停清理。`undeclared-link` 仅 info，不暂停清理。Parser 警告另列。
 
@@ -114,7 +126,7 @@ Status/doctor 对每个阻挡显示：
 prune paused: <name> is <state>; restore or fix <path>, or remove <name> from .skillfollow[.local], to resume cleanup
 ```
 
-修复条目，或从**每个含此名称的声明文件**移除，随后再 sync。废弃声明让清理无限期暂停；移除声明不删除外部树。通过逻辑 source 的 managed orphan link 可清理；直接指向已取消跟随外部路径的 managed link 则保留并警告 `managed link resolves outside the source after unfollow; remove it or re-run with --force`。
+修复条目，或从**每个含此名称的声明文件**移除（`skillshare unfollow <name>` 会完成这一步并同时移除链接），随后再 sync。废弃声明让清理无限期暂停；移除声明不删除外部树。通过逻辑 source 的 managed orphan link 可清理；直接指向已取消跟随外部路径的 managed link 则保留并警告 `managed link resolves outside the source after unfollow; remove it or re-run with --force`。
 
 ## 更新安全 {#updates}
 
@@ -134,7 +146,7 @@ Source **pull/reset/checkout** 也拒绝 indexed 声明（包括不存在但仍 
 
 ## 限制
 
-单 skill、`follow`/`unfollow` 与声明编辑页仍是未来工作；嵌套链接不跟随。在关闭 Developer Mode 的 Windows 11 ARM64 上，已用跟随的 junction（管理员与 basic-user token）和目录 symlink（管理员 token）验证 global mode 的 discovery、status、sync、prune 暂停与恢复、update 拒绝、unfollow、`.skillfollow.local` 和 `invalid-target`。project mode 的相对链接、Developer Mode 的相对 symlink、链接形式的 source root 或 target 上层目录，以及 dashboard 在 Windows 上**尚未验证**。
+单 skill 与声明编辑页仍是未来工作；嵌套链接不跟随。在关闭 Developer Mode 的 Windows 11 ARM64 上，已用跟随的 junction（管理员与 basic-user token）和目录 symlink（管理员 token）验证 global mode 的 discovery、status、sync、prune 暂停与恢复、update 拒绝、unfollow、`.skillfollow.local` 和 `invalid-target`。project mode 的相对链接、Developer Mode 的相对 symlink、链接形式的 source root 或 target 上层目录，以及 dashboard 在 Windows 上**尚未验证**。`follow --to` 在 Windows 上通过 sync 使用的同一个 helper 创建 junction，这条路径同样尚未在真实 Windows 上运行过。
 
 ## 另见
 
