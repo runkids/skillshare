@@ -222,6 +222,10 @@ Skillshare 从不提供原生信任的批准 flags。
   循环以及引用 `.git` 的链接和特殊文件会被拒绝；sources 限制为 20,000 个文件和 100 MiB。
 - 原生安装并不能证明运行时已激活。请重启/重新加载
   该 Agent，并在该 Agent 中完成认证或 hook trust。
+- Codex 会从 `PATH` 运行 `codex`。不在 `PATH` 上时，Skillshare 会依次尝试 Homebrew 的
+  `/opt/homebrew/bin` 和 `/usr/local/bin`，再尝试 Codex 桌面 app 内置的 CLI
+  （macOS 的 `Codex.app`、Windows 的 `%LOCALAPPDATA%\OpenAI\Codex\bin`）。Codex 装在其他位置的机器，
+  请设置 [`SKILLSHARE_CODEX_CLI`](/docs/reference/appendix/environment-variables#skillshare_codex_cli)。自己设置了 `cli` 的账号不会进行搜索。
 - Codex 原生 project 安装不由此适配器提供。同步选择
   对全局 Codex 安装仍然有效。
 - Codex 没有 update 命令，因此更新会用刷新后的快照再次 add 该 plugin。

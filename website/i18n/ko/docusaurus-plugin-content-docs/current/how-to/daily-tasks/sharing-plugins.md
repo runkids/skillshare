@@ -33,6 +33,7 @@ skillshare plugin add
 
 Claude Code, Codex, Copilot, Antigravity CLI, Grok, Pi, 또는 OpenCode CLI는
 **Skillshare 백엔드가 실행되는 곳**에 설치되어 있어야 합니다.
+Codex는 Codex 데스크톱 app에 포함된 CLI도 인정됩니다. Codex가 다른 위치에 있는 머신에서는 [`SKILLSHARE_CODEX_CLI`](/docs/reference/appendix/environment-variables#skillshare_codex_cli)를 설정하세요.
 Cursor와 Antigravity 데스크톱은 대신 로컬 플러그인 디렉터리에 완전한 파일을 받습니다.
 컨테이너 안에서 실행되는 대시보드는 호스트 머신에만 설치된 플러그인을 관리할 수
 없습니다. 로컬 CLI를 사용하거나, 네이티브 클라이언트 옆에서 Skillshare를 실행하세요.

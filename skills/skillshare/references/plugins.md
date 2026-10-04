@@ -128,6 +128,11 @@ cannot reach, says why, and still updates the other targets.
   `PI_CODING_AGENT_DIR`, and the account keeps its own bindings. Global scope only. With
   `cli:` it runs that compatible CLI instead (such as `omo` for Pi); a Pi account also sets
   `SENPI_CODING_AGENT_DIR` and `OMO_CODING_AGENT_DIR`. A missing CLI fails, with no fallback.
+- Codex without `cli:`: `codex` on PATH, then Homebrew (`/opt/homebrew/bin`, `/usr/local/bin`)
+  and the CLI shipped in the Codex desktop app (macOS `Codex.app`, Windows
+  `%LOCALAPPDATA%\OpenAI\Codex\bin\<version>`). The machine-local env var
+  `SKILLSHARE_CODEX_CLI` overrides the search; prefer it over a path in a shared config.
+  The missing-CLI error lists every place searched.
 - Local directory plugins cannot import unowned folders or marketplace installs.
   Pi 0.99.2 or later can import supported filtered entries without changing
   native settings. Preview shows retained keys; raw entries stay in private state

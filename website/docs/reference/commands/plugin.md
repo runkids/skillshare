@@ -336,6 +336,11 @@ never supplies native trust approval flags.
   cyclic, and `.git`-referencing links and special files are rejected; sources are limited to 20,000 files and 100 MiB.
 - Native installation is not proof of runtime activation. Restart/reload the
   Agent and complete authentication or hook trust in that Agent.
+- Codex runs `codex` from `PATH`. When it is not there, Skillshare tries Homebrew's
+  `/opt/homebrew/bin` and `/usr/local/bin`, then the CLI inside the Codex desktop app
+  (`Codex.app` on macOS, `%LOCALAPPDATA%\OpenAI\Codex\bin` on Windows). Set
+  [`SKILLSHARE_CODEX_CLI`](/docs/reference/appendix/environment-variables#skillshare_codex_cli)
+  on a machine where Codex is elsewhere. An account with its own `cli` is not searched.
 - Codex native project installation is not provided by this adapter. Sync
   selection still works for global Codex installations.
 - Codex has no update command, so an update adds the plugin again from the

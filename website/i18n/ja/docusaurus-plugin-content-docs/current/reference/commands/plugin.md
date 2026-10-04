@@ -182,6 +182,10 @@ Copilot と Antigravity CLI のインストールは、reviewed されたロー�
 - source にはローカル plugin エントリを含むマーケットプレイスが含まれる場合があります。外部カタログは plugin の name/path でマージされます。パスが衝突する場合は拒否され、外部エントリはそのリポジトリを直接追加するか、ネイティブにインストールしてインポートするよう指示とともに報告されます。コマンドベースの source は自動承認されません。
 - 完全な source スナップショットは、plugin のスクリプト、アセット、および安全な相対 symlink（`AGENTS.md → CLAUDE.md` を含む）を保持します。絶対パス、脱出、dangling、循環、`.git` を参照する symlink や特殊ファイルは拒否されます。source は 20,000 ファイルおよび 100 MiB に制限されます。
 - ネイティブインストールは、ランタイムでの有効化を証明するものではありません。Agent を再起動/再読み込みし、その Agent 内で認証または hook trust を完了してください。
+- Codex は `PATH` の `codex` を実行します。`PATH` にない場合、Skillshare は Homebrew の
+  `/opt/homebrew/bin` と `/usr/local/bin`、次に Codex デスクトップ app に同梱の CLI
+  （macOS の `Codex.app`、Windows の `%LOCALAPPDATA%\OpenAI\Codex\bin`）を順に試します。Codex が別の場所にあるマシンでは
+  [`SKILLSHARE_CODEX_CLI`](/docs/reference/appendix/environment-variables#skillshare_codex_cli) を設定してください。独自の `cli` を持つ account は検索されません。
 - Codex のネイティブな project インストールは、このアダプタでは提供されません。global の Codex インストールに対する sync 選択は引き続き機能します。
 - Codex には update コマンドがないため、update は更新後のスナップショットからプラグインを再度 add します。add は常にプラグインを有効にするため、Codex で無効化されたプラグインはスキップされます。Import した Codex プラグインは `codex plugin marketplace upgrade NAME` で更新されます。これは Codex がその marketplace からインストールしたすべてのプラグインを再インストールするもので、Codex も起動時に同じことを行います。
 - update は対応できない Target を理由を示してスキップし、そのプラグインのほかの Agent は通常どおり更新されます。スキップされた update は保留のまま残り、後の sync で処理されます。

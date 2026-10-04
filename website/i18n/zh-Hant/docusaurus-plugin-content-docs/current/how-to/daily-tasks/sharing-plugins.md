@@ -26,6 +26,7 @@ skillshare plugin add
 ```
 
 Claude Code、Codex、Copilot、Antigravity CLI、Grok、Pi 或 OpenCode CLI 必須安裝在 **Skillshare 後端執行的所在位置**。
+Codex 的話，Codex 桌面 app 內附的 CLI 也算；Codex 裝在其他位置的機器，請設定 [`SKILLSHARE_CODEX_CLI`](/docs/reference/appendix/environment-variables#skillshare_codex_cli)。
 Cursor 與 Antigravity desktop 則是直接在其本機 plugin 目錄中接收完整的檔案。
 在容器中執行的 dashboard 無法管理僅安裝在主機上的 plugin。請改用本機 CLI，或將 Skillshare 與原生 client 並行執行。
 

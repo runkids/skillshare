@@ -31,7 +31,9 @@ skillshare plugin add
 ```
 
 Claude Code、Codex、Copilot、Antigravity CLI、Grok、Pi、または OpenCode CLI は、**skillshare の
-バックエンドが動作している場所**にインストールされている必要があります。Cursor と Antigravity
+バックエンドが動作している場所**にインストールされている必要があります。
+Codex の場合、Codex デスクトップ app に同梱の CLI も対象です。Codex が別の場所にあるマシンでは [`SKILLSHARE_CODEX_CLI`](/docs/reference/appendix/environment-variables#skillshare_codex_cli) を設定してください。
+Cursor と Antigravity
 デスクトップは代わりに、それぞれのローカルプラグインディレクトリに完全なファイルを受け取ります。
 コンテナ内で動作しているダッシュボードは、ホストマシンにのみインストールされているプラグインを
 管理できません。ローカルの CLI を使うか、ネイティブクライアントと並べて skillshare を実行してください。
