@@ -71,6 +71,13 @@ func SameSkillLink(linkPath string, skill DiscoveredSkill, sourcePath string, se
 	return sameSkillLink(linkPath, skill, newFollowScope(sourcePath, set))
 }
 
+// OwnsSourceLink reports whether linkPath resolves inside the source or a
+// currently followed entry's resolved target, as merge sync's orphan prune
+// decides it. Diff calls it to preview sync.
+func OwnsSourceLink(linkPath, sourcePath string, set *sourcewalk.FollowSet) bool {
+	return newFollowScope(sourcePath, set).ownsLink(linkPath)
+}
+
 // skillLinkTarget returns where a skill link points. Relative link text is read
 // against the link's canonical parent, which is where the OS resolves it.
 func skillLinkTarget(linkPath string) (string, error) {

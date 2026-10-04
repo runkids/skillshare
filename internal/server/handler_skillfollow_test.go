@@ -394,6 +394,76 @@ func TestServerSkillfollowDiffPreviewsPausedPrune(t *testing.T) {
 	}
 }
 
+// A managed link whose text is a followed skill's resolved path is owned like
+// a link into the source: once the skill leaves discovery, diff previews the
+// prune sync performs, and an unmanaged link there stays local.
+func TestServerSkillfollowDiffPrunesFollowedOrphan(t *testing.T) {
+	s, source, external := skillfollowServerFixture(t)
+	merge := t.TempDir()
+	raw := "source: " + source + "\nmode: merge\ntargets:\n  claude:\n    path: " + merge + "\n"
+	if err := os.WriteFile(os.Getenv("SKILLSHARE_CONFIG"), []byte(raw), 0644); err != nil {
+		t.Fatal(err)
+	}
+	s.cfg.Targets = map[string]config.TargetConfig{"claude": {Path: merge}}
+	for name, body := range map[string]string{".skillfollow": "_repo\ngroup\n", ".skillignore": "group/c\n"} {
+		if err := os.WriteFile(filepath.Join(source, name), []byte(body), 0644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	resolvedExternal, err := filepath.EvalSymlinks(external)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{"group__c", "mine"} {
+		if err := os.Symlink(filepath.Join(resolvedExternal, "group", "c"), filepath.Join(merge, name)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := ssync.WriteManifest(merge, &ssync.Manifest{Managed: map[string]string{"group__c": "symlink"}}); err != nil {
+		t.Fatal(err)
+	}
+
+	for _, path := range []string{"/api/diff", "/api/diff/stream"} {
+		rr := httptest.NewRecorder()
+		s.handler.ServeHTTP(rr, httptest.NewRequest(http.MethodGet, path, nil))
+		body := rr.Body.String()
+		if _, done, ok := strings.Cut(body, "event: done\ndata: "); ok {
+			body, _, _ = strings.Cut(done, "\n")
+		}
+		var out struct {
+			Diffs []struct {
+				Items []struct {
+					Skill  string `json:"skill"`
+					Action string `json:"action"`
+					Reason string `json:"reason"`
+				} `json:"items"`
+			} `json:"diffs"`
+		}
+		if err := json.Unmarshal([]byte(body), &out); err != nil || len(out.Diffs) != 1 {
+			t.Fatalf("%s: %d %s", path, rr.Code, rr.Body.String())
+		}
+		got := map[string]string{}
+		for _, it := range out.Diffs[0].Items {
+			got[it.Skill] = it.Action + ": " + it.Reason
+		}
+		if got["group__c"] != "prune: orphan symlink" || got["mine"] != "local: local only" {
+			t.Errorf("%s items = %v", path, got)
+		}
+	}
+
+	rr := httptest.NewRecorder()
+	s.handler.ServeHTTP(rr, httptest.NewRequest(http.MethodPost, "/api/sync", strings.NewReader(`{"kind":"skill"}`)))
+	if rr.Code != http.StatusOK {
+		t.Fatalf("sync: %d %s", rr.Code, rr.Body.String())
+	}
+	if _, err := os.Lstat(filepath.Join(merge, "group__c")); !os.IsNotExist(err) {
+		t.Errorf("sync kept the managed orphan: %v", err)
+	}
+	if _, err := os.Lstat(filepath.Join(merge, "mine")); err != nil {
+		t.Errorf("sync removed the unmanaged link: %v", err)
+	}
+}
+
 // Dashboard audits scan followed content through the resolved root, as the CLI
 // does, and report the logical path.
 func TestServerSkillfollowAuditReportsFollowedFindings(t *testing.T) {

@@ -252,6 +252,14 @@ func (s *Server) computeTargetDiff(name string, target config.TargetConfig, disc
 				absSource, _ := filepath.Abs(source)
 				if utils.PathHasPrefix(absLink, absSource+string(filepath.Separator)) {
 					prune("orphan symlink")
+				} else if _, statErr := os.Stat(absLink); statErr == nil && follow != nil && ssync.OwnsSourceLink(entryPath, source, follow) {
+					// Sync prunes a live followed link only when it created it;
+					// otherwise the link is the user's own wiring.
+					if _, inManifest := manifest.Managed[eName]; inManifest {
+						prune("orphan symlink")
+					} else {
+						dt.Items = append(dt.Items, diffItem{Skill: eName, Action: "local", Reason: "local only", Kind: kindSkill})
+					}
 				}
 			} else if info.IsDir() {
 				if _, inManifest := manifest.Managed[eName]; inManifest {
