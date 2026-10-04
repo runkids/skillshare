@@ -309,7 +309,7 @@ func checkSkillignore(result *doctorResult, stats *skillignore.IgnoreStats) {
 // checkUndeclaredSourceLinks reports first-level links without following them.
 func checkUndeclaredSourceLinks(source string, result *doctorResult) {
 	root := utils.ResolveSymlink(source)
-	entries, err := os.ReadDir(root)
+	entries, err := sourcewalk.ReadDir(root, sourcewalk.Options{})
 	if err != nil {
 		return
 	}
