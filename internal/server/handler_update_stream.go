@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"skillshare/internal/install"
+	"skillshare/internal/sourcewalk"
 )
 
 // handleUpdateStream serves an SSE endpoint that streams update progress in real time.
@@ -32,6 +33,7 @@ func (s *Server) handleUpdateStream(w http.ResponseWriter, r *http.Request) {
 	// Snapshot source under RLock, then release before slow I/O.
 	s.mu.RLock()
 	source := s.cfg.EffectiveSkillsSource()
+	follow := s.skillFollowSet()
 	s.mu.RUnlock()
 
 	// Collect items to update based on "names" query param.
@@ -75,7 +77,7 @@ func (s *Server) handleUpdateStream(w http.ResponseWriter, r *http.Request) {
 		}
 	} else {
 		// Update all: tracked repos + regular skills
-		repos, err := install.GetTrackedRepos(source)
+		repos, err := install.GetTrackedReposWithOptions(source, sourcewalk.Options{Follow: follow})
 		if err == nil {
 			for _, repo := range repos {
 				items = append(items, updateItem{

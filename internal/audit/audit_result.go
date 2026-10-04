@@ -10,6 +10,7 @@ var riskWeights = map[string]int{
 
 // Result holds all findings for a single skill.
 type Result struct {
+	scannedFiles   int         // Internal coverage evidence; not part of serialized results.
 	SkillName      string      `json:"skillName"`
 	Kind           string      `json:"kind,omitempty"` // "skill" or "agent" — set by caller
 	Findings       []Finding   `json:"findings"`

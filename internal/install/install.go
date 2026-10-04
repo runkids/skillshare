@@ -6,16 +6,19 @@ import (
 	"log/slog"
 	"os"
 	"strings"
+
+	"skillshare/internal/sourcewalk"
 )
 
 // InstallOptions configures the install behavior
 type InstallOptions struct {
-	Name             string // Override skill name
-	Kind             string // "skill", "agent", or "" (auto-detect)
-	Force            bool   // Overwrite existing
-	DryRun           bool   // Preview only
-	Update           bool   // Update existing installation
-	Track            bool   // Install as tracked repository (preserves .git)
+	Follow           *sourcewalk.FollowSet // Operation-scoped source ownership policy.
+	Name             string                // Override skill name
+	Kind             string                // "skill", "agent", or "" (auto-detect)
+	Force            bool                  // Overwrite existing
+	DryRun           bool                  // Preview only
+	Update           bool                  // Update existing installation
+	Track            bool                  // Install as tracked repository (preserves .git)
 	OnProgress       ProgressCallback
 	Skills           []string // Select specific skills from multi-skill repo (comma-separated)
 	AgentNames       []string // Select specific agents from repo (comma-separated)

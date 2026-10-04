@@ -28,3 +28,12 @@ func skillFollowSet(source string, targets map[string]config.TargetConfig, gitRo
 func globalSkillFollowSet(cfg *config.Config) *sourcewalk.FollowSet {
 	return skillFollowSet(cfg.EffectiveSkillsSource(), cfg.Targets, cfg.EffectiveGitRoot())
 }
+
+// firstFollowSet preserves existing private helper callers while commands pass
+// the operation's config-bound set explicitly.
+func firstFollowSet(sets []*sourcewalk.FollowSet) *sourcewalk.FollowSet {
+	if len(sets) == 0 {
+		return nil
+	}
+	return sets[0]
+}

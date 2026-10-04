@@ -56,6 +56,7 @@ func installTrackedRepoImpl(source *Source, sourceDir string, opts InstallOption
 	// Check if already exists
 	if _, err := os.Stat(destPath); err == nil {
 		if opts.Update {
+			opts.SourceDir = sourceDir
 			return updateTrackedRepo(destPath, result, opts)
 		}
 		if !opts.Force {
@@ -163,6 +164,15 @@ func errTrackedNeedsBranch(ref string) error {
 
 // updateTrackedRepo performs git pull on an existing tracked repo
 func updateTrackedRepo(repoPath string, result *TrackedRepoResult, opts InstallOptions) (*TrackedRepoResult, error) {
+	sourceDir := opts.SourceDir
+	if sourceDir == "" {
+		sourceDir = filepath.Dir(repoPath)
+	}
+	policy, policyErr := PrepareFollowedUpdate(sourceDir, repoPath, opts.Follow, opts.Force || opts.AuditOverride)
+	if policyErr != nil {
+		return nil, policyErr
+	}
+
 	if !IsGitRepo(repoPath) {
 		return nil, fmt.Errorf("'%s' is not a git repository", repoPath)
 	}
@@ -181,7 +191,11 @@ func updateTrackedRepo(repoPath string, result *TrackedRepoResult, opts InstallO
 		return nil, fmt.Errorf("failed to determine rollback commit before update (aborting for safety): empty commit hash")
 	}
 
-	if err := gitPull(repoPath, opts.OnProgress); err != nil {
+	pull := func() error { return gitPull(repoPath, opts.OnProgress) }
+	if policy != nil {
+		pull = func() error { return policy.Pull(opts.OnProgress) }
+	}
+	if err := pull(); err != nil {
 		return nil, fmt.Errorf("failed to update: %w", err)
 	}
 
@@ -190,15 +204,19 @@ func updateTrackedRepo(repoPath string, result *TrackedRepoResult, opts InstallO
 		return nil, err
 	}
 
-	// Re-discover skills (include root so count matches `sync` view).
-	skills := discoverSkills(repoPath, true)
+	// Re-discover the resolved root while retaining RepoPath for logical output.
+	discoveryRoot := repoPath
+	if policy != nil {
+		discoveryRoot = policy.Path
+	}
+	skills := discoverSkills(discoveryRoot, true)
 	result.SkillCount = len(skills)
 	for _, skill := range skills {
 		result.Skills = append(result.Skills, skill.Name)
 	}
 
 	// Also discover agents in the tracked repo
-	agents := discoverAgents(repoPath, len(skills) > 0)
+	agents := discoverAgents(discoveryRoot, len(skills) > 0)
 	result.AgentCount = len(agents)
 	if len(agents) > 0 {
 		for _, agent := range agents {

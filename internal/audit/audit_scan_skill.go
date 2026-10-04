@@ -174,6 +174,7 @@ func scanSkillImpl(skillPath string, activeRules []rule, disabled map[string]boo
 		}
 
 		auditableBytes += int64(len(data))
+		result.scannedFiles++
 
 		// Cache content for content-integrity check reuse.
 		fileCache[normalizedRel] = data

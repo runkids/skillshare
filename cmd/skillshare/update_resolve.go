@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"skillshare/internal/install"
+	"skillshare/internal/sourcewalk"
 	"skillshare/internal/utils"
 )
 
@@ -20,11 +21,14 @@ type updateTarget struct {
 
 // resolveByBasename searches nested skills and tracked repos by their
 // directory basename. Returns an error when zero or multiple matches found.
-func resolveByBasename(sourceDir, name string) (updateTarget, error) {
+func resolveByBasename(sourceDir, name string, follows ...*sourcewalk.FollowSet) (updateTarget, error) {
 	var matches []updateTarget
 
 	// Search tracked repos
-	repos, _ := install.GetTrackedRepos(sourceDir)
+	repos, repoErr := install.GetTrackedReposWithOptions(sourceDir, sourcewalk.Options{Follow: firstFollowSet(follows)})
+	if repoErr != nil {
+		return updateTarget{}, repoErr
+	}
 	for _, r := range repos {
 		if filepath.Base(r) == "_"+name || filepath.Base(r) == name {
 			matches = append(matches, updateTarget{name: r, path: filepath.Join(sourceDir, r), isRepo: true})
@@ -58,10 +62,13 @@ func resolveByBasename(sourceDir, name string) (updateTarget, error) {
 // resolveByGlob searches tracked repos and updatable skills whose basenames
 // match the given glob pattern (e.g. "core-*", "_team-?"). Returns all matches
 // sorted by name.
-func resolveByGlob(sourceDir, pattern string) ([]updateTarget, error) {
+func resolveByGlob(sourceDir, pattern string, follows ...*sourcewalk.FollowSet) ([]updateTarget, error) {
 	var matches []updateTarget
 
-	repos, _ := install.GetTrackedRepos(sourceDir)
+	repos, repoErr := install.GetTrackedReposWithOptions(sourceDir, sourcewalk.Options{Follow: firstFollowSet(follows)})
+	if repoErr != nil {
+		return nil, repoErr
+	}
 	for _, r := range repos {
 		if matchGlob(pattern, filepath.Base(r)) {
 			matches = append(matches, updateTarget{name: r, path: filepath.Join(sourceDir, r), isRepo: true})

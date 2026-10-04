@@ -38,6 +38,7 @@ func (s *Server) handlePutSkillContent(w http.ResponseWriter, r *http.Request) {
 	s.mu.RLock()
 	source := s.cfg.EffectiveSkillsSource()
 	agentsSource := s.agentsSource()
+
 	s.mu.RUnlock()
 
 	name := r.PathValue("name")
@@ -140,6 +141,14 @@ func (s *Server) handlePatchSkillSource(w http.ResponseWriter, r *http.Request) 
 	source := s.cfg.EffectiveSkillsSource()
 	agentsSource := s.agentsSource()
 
+	if kind != "agent" {
+		if follow := s.skillFollowSet(); follow != nil {
+			if entry, ok := follow.InFollowed(filepath.ToSlash(name)); ok {
+				writeError(w, http.StatusBadRequest, fmt.Sprintf("%s is a followed entry; edit its source in %s", entry.Name, entry.ResolvedTarget))
+				return
+			}
+		}
+	}
 	m := s.findMetadataEntry(name, kind, source, agentsSource)
 	if m == nil {
 		writeError(w, http.StatusNotFound, "resource not found: "+name)

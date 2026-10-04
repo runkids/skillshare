@@ -8,6 +8,7 @@ import (
 	"skillshare/internal/check"
 	"skillshare/internal/git"
 	"skillshare/internal/install"
+	"skillshare/internal/sourcewalk"
 )
 
 // skillWithMetaEntry holds a skill name paired with its centralized metadata entry.
@@ -53,9 +54,10 @@ func (s *Server) handleCheck(w http.ResponseWriter, r *http.Request) {
 	s.mu.RLock()
 	sourceDir := s.skillsSource()
 	projectRoot := s.projectRoot
+	follow := s.skillFollowSet()
 	s.mu.RUnlock()
 
-	repos, _ := install.GetTrackedRepos(sourceDir)
+	repos, _ := install.GetTrackedReposWithOptions(sourceDir, sourcewalk.Options{Follow: follow})
 	skills, _ := install.GetUpdatableSkills(sourceDir)
 
 	var repoResults []repoCheckResult

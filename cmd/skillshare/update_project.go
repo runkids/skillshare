@@ -37,6 +37,7 @@ func cmdUpdateProject(args []string, root string) (*updateResult, error) {
 	}
 
 	sourcePath := utils.ResolveSymlink(runtime.sourcePath)
+	follow := skillFollowSet(runtime.sourcePath, runtime.targets, root)
 	if opts.threshold == "" {
 		opts.threshold = runtime.config.Audit.BlockThreshold
 	}
@@ -47,14 +48,15 @@ func cmdUpdateProject(args []string, root string) (*updateResult, error) {
 	}
 
 	if opts.all {
-		uc := &updateContext{sourcePath: sourcePath, projectRoot: root, opts: opts, parseOpts: parseOptsFromProjectConfig(runtime.config)}
+		uc := &updateContext{follow: follow, sourcePath: sourcePath, projectRoot: root, opts: opts, parseOpts: parseOptsFromProjectConfig(runtime.config)}
 		return updateAllProjectSkills(uc)
 	}
 
-	return cmdUpdateProjectBatch(sourcePath, opts, root, parseOptsFromProjectConfig(runtime.config))
+	return cmdUpdateProjectBatch(sourcePath, opts, root, parseOptsFromProjectConfig(runtime.config), follow)
 }
 
-func cmdUpdateProjectBatch(sourcePath string, opts *updateOptions, projectRoot string, pOpts install.ParseOptions) (*updateResult, error) {
+func cmdUpdateProjectBatch(sourcePath string, opts *updateOptions, projectRoot string, pOpts install.ParseOptions, follows ...*sourcewalk.FollowSet) (*updateResult, error) {
+	follow := firstFollowSet(follows)
 	// --- Resolve targets ---
 	var targets []updateTarget
 	seen := map[string]bool{}
@@ -152,7 +154,7 @@ func cmdUpdateProjectBatch(sourcePath string, opts *updateOptions, projectRoot s
 	}
 
 	// --- Execute ---
-	uc := &updateContext{sourcePath: sourcePath, projectRoot: projectRoot, opts: opts, parseOpts: pOpts}
+	uc := &updateContext{follow: follow, sourcePath: sourcePath, projectRoot: projectRoot, opts: opts, parseOpts: pOpts}
 
 	if len(targets) == 1 {
 		t := targets[0]
@@ -177,7 +179,7 @@ func updateAllProjectSkills(uc *updateContext) (*updateResult, error) {
 	scanSpinner := ui.StartSpinner("Scanning skills...")
 	walkRoot := uc.sourcePath
 	metaStore, _ := install.LoadMetadataWithMigration(uc.sourcePath, "")
-	err := sourcewalk.Walk(walkRoot, sourcewalk.Options{}, func(path string, info os.FileInfo, err error) error {
+	err := sourcewalk.Walk(walkRoot, sourcewalk.Options{Follow: uc.follow}, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return nil
 		}
@@ -213,6 +215,9 @@ func updateAllProjectSkills(uc *updateContext) (*updateResult, error) {
 		return nil
 	})
 	scanSpinner.Stop()
+	if err == nil && uc.follow != nil {
+		err = uc.follow.Err()
+	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to scan skills: %w", err)
 	}
@@ -223,7 +228,7 @@ func updateAllProjectSkills(uc *updateContext) (*updateResult, error) {
 	for _, t := range targets {
 		existing[t.name] = true
 	}
-	missingRepos, _ := install.GetMissingTrackedRepos(uc.sourcePath)
+	missingRepos, _ := install.GetMissingTrackedReposWithOptions(uc.sourcePath, sourcewalk.Options{Follow: uc.follow})
 	for _, repo := range missingRepos {
 		if !existing[repo.Name] {
 			existing[repo.Name] = true

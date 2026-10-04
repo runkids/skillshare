@@ -4,12 +4,14 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
 	"skillshare/internal/audit"
 	"skillshare/internal/install"
 	"skillshare/internal/sourcefs"
+	"skillshare/internal/sourcewalk"
 	"skillshare/internal/trash"
 	"skillshare/internal/ui"
 )
@@ -17,6 +19,7 @@ import (
 // updateContext holds mode-specific configuration for update operations.
 // projectRoot == "" means global mode.
 type updateContext struct {
+	follow      *sourcewalk.FollowSet
 	sourcePath  string
 	registryDir string // cached SourceRoot result for global mode
 	projectRoot string
@@ -29,12 +32,22 @@ func (uc *updateContext) isProject() bool {
 }
 
 func (uc *updateContext) auditScanFn() auditScanFunc {
+	scan := audit.ScanSkill
 	if uc.isProject() {
-		return func(path string) (*audit.Result, error) {
-			return audit.ScanSkillForProject(path, uc.projectRoot)
-		}
+		scan = func(path string) (*audit.Result, error) { return audit.ScanSkillForProject(path, uc.projectRoot) }
 	}
-	return audit.ScanSkill
+	return func(path string) (*audit.Result, error) {
+		if uc.follow != nil {
+			rel, err := filepath.Rel(uc.sourcePath, path)
+			if err != nil {
+				return nil, err
+			}
+			if _, followed := uc.follow.InFollowed(filepath.ToSlash(rel)); followed {
+				return audit.ScanResolvedSkill(path, scan)
+			}
+		}
+		return scan(path)
+	}
 }
 
 func (uc *updateContext) makeInstallOpts() install.InstallOptions {
@@ -65,6 +78,8 @@ func executeBatchUpdate(uc *updateContext, targets []updateTarget) (updateResult
 	var prunedNames []string
 	var missingRepoNames []string
 	var statusFailedEntries []batchBlockedEntry
+	var followedFailedEntries []batchBlockedEntry
+	failedFollowed := make(map[string]bool)
 
 	// Group skills by RepoURL to optimize updates
 	repoGroups := make(map[string][]updateTarget)
@@ -128,6 +143,10 @@ func executeBatchUpdate(uc *updateContext, targets []updateTarget) (updateResult
 				result.securityFailed++
 				blockedEntries = append(blockedEntries, batchBlockedEntry{name: t.name, errMsg: err.Error()})
 				result.items = append(result.items, updateJSONItem{Name: t.name, Type: "repo", Status: "security_blocked", Error: err.Error()})
+			} else if errors.Is(err, install.ErrFollowedUpdate) {
+				followedFailedEntries = append(followedFailedEntries, batchBlockedEntry{name: t.name, errMsg: err.Error()})
+				failedFollowed[t.name] = true
+				result.items = append(result.items, updateJSONItem{Name: t.name, Type: "repo", Status: "failed", Error: err.Error()})
 			} else if errors.As(err, &statusErr) {
 				statusFailedEntries = append(statusFailedEntries, batchBlockedEntry{name: t.name, errMsg: err.Error()})
 				result.items = append(result.items, updateJSONItem{Name: t.name, Type: "repo", Status: "failed", Error: err.Error()})
@@ -293,6 +312,11 @@ func executeBatchUpdate(uc *updateContext, targets []updateTarget) (updateResult
 		pruneRegistry(prunedNames, uc)
 	}
 
+	// Render followed refusals in real and dry-run modes.
+	for _, e := range followedFailedEntries {
+		ui.Error("%s: %s", e.name, e.errMsg)
+	}
+
 	// Render results
 	if !uc.opts.dryRun {
 		displayUpdateBlockedSection(blockedEntries)
@@ -312,7 +336,12 @@ func executeBatchUpdate(uc *updateContext, targets []updateTarget) (updateResult
 		})
 	} else {
 		repos := 0
+		planned := 0
 		for _, t := range targets {
+			if failedFollowed[t.name] {
+				continue
+			}
+			planned++
 			if t.isRepo {
 				repos++
 				printUpdateRow(ui.MarkNone, t.name, "would run git pull", 0)
@@ -324,7 +353,7 @@ func executeBatchUpdate(uc *updateContext, targets []updateTarget) (updateResult
 		if repos > 0 {
 			parts = append(parts, plural(repos, "tracked repo"))
 		}
-		if skills := total - repos; skills > 0 {
+		if skills := planned - repos; skills > 0 {
 			parts = append(parts, plural(skills, "skill"))
 		}
 		fmt.Println()
@@ -342,6 +371,9 @@ func executeBatchUpdate(uc *updateContext, targets []updateTarget) (updateResult
 	}
 	if len(statusFailedEntries) > 0 {
 		errs = append(errs, fmt.Errorf("%d repo(s) failed to check git status", len(statusFailedEntries)))
+	}
+	if len(followedFailedEntries) > 0 {
+		errs = append(errs, fmt.Errorf("%d followed repo(s) refused update", len(followedFailedEntries)))
 	}
 	return result, errors.Join(errs...)
 }

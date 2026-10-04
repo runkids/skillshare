@@ -21,9 +21,10 @@ func workerCount() int {
 
 // SkillInput describes a skill to scan.
 type SkillInput struct {
-	Name   string
-	Path   string
-	IsFile bool // true for individual file scanning (agents)
+	Name     string
+	Path     string
+	Followed bool // Resolve and verify an explicitly followed skill root.
+	IsFile   bool // true for individual file scanning (agents)
 }
 
 // ScanOutput holds the result of scanning a single skill.
@@ -55,26 +56,37 @@ func ParallelScan(skills []SkillInput, projectRoot string, onDone func(), regist
 			start := time.Now()
 			var res *Result
 			var err error
-			if input.IsFile {
-				// Agent: scan individual file
-				if projectRoot != "" {
-					res, err = ScanFileForProject(input.Path, projectRoot)
+			scan := func(path string) (*Result, error) {
+				var res *Result
+				var err error
+				if input.IsFile {
+					// Agent: scan individual file
+					if projectRoot != "" {
+						res, err = ScanFileForProject(path, projectRoot)
+					} else {
+						res, err = ScanFile(path)
+					}
+				} else if registry != nil {
+					if projectRoot != "" {
+						res, err = ScanSkillFilteredForProject(path, projectRoot, registry)
+					} else {
+						res, err = ScanSkillFiltered(path, registry)
+					}
 				} else {
-					res, err = ScanFile(input.Path)
+					if projectRoot != "" {
+						res, err = ScanSkillForProject(path, projectRoot)
+					} else {
+						res, err = ScanSkill(path)
+					}
 				}
-			} else if registry != nil {
-				if projectRoot != "" {
-					res, err = ScanSkillFilteredForProject(input.Path, projectRoot, registry)
-				} else {
-					res, err = ScanSkillFiltered(input.Path, registry)
-				}
-			} else {
-				if projectRoot != "" {
-					res, err = ScanSkillForProject(input.Path, projectRoot)
-				} else {
-					res, err = ScanSkill(input.Path)
-				}
+				return res, err
 			}
+			if input.Followed && !input.IsFile {
+				res, err = ScanResolvedSkill(input.Path, scan)
+			} else {
+				res, err = scan(input.Path)
+			}
+
 			outputs[idx] = ScanOutput{
 				Result:  res,
 				Err:     err,

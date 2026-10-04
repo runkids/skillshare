@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -24,6 +25,7 @@ type installArgs struct {
 
 // installJSONOutput is the JSON representation for install --json output.
 type installJSONOutput struct {
+	Error    string   `json:"error,omitempty"`
 	Source   string   `json:"source"`
 	Tracked  bool     `json:"tracked"`
 	DryRun   bool     `json:"dry_run"`
@@ -517,6 +519,9 @@ func installOutputJSON(summary installLogSummary, start time.Time, installErr er
 		Skills:   summary.InstalledSkills,
 		Failed:   summary.FailedSkills,
 		Duration: formatDuration(start),
+	}
+	if errors.Is(installErr, install.ErrFollowedUpdate) {
+		output.Error = installErr.Error()
 	}
 	return writeJSONResult(&output, installErr)
 }
