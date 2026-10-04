@@ -4,11 +4,11 @@ import (
 	"errors"
 	"net/http"
 	"path/filepath"
-	"sort"
 
 	"skillshare/internal/config"
 	"skillshare/internal/sourcefs"
 	"skillshare/internal/sourcewalk"
+	ssync "skillshare/internal/sync"
 )
 
 // skillFollowSet snapshots the active skills targets and staging boundary.
@@ -20,29 +20,13 @@ func (s *Server) skillFollowSet() *sourcewalk.FollowSet {
 		return serverSkillFollowSet(s.cfg)
 	}
 	targets, _ := config.ResolveValidProjectTargets(s.projectRoot, s.projectCfg)
-	return followSetFor(s.skillsSource(), targets, s.projectRoot)
+	return ssync.FollowSetFor(s.skillsSource(), targets, s.projectRoot)
 }
 
 // serverSkillFollowSet binds discovery policy to the global server configuration.
 // Keeping a nil set without declarations preserves legacy traversal and output.
 func serverSkillFollowSet(cfg *config.Config) *sourcewalk.FollowSet {
-	return followSetFor(cfg.EffectiveSkillsSource(), cfg.Targets, cfg.EffectiveGitRoot())
-}
-
-func followSetFor(source string, targets map[string]config.TargetConfig, gitRoot string) *sourcewalk.FollowSet {
-	var paths []string
-	for _, target := range targets {
-		skills := target.SkillsConfig()
-		if skills.IsEnabled() && skills.Path != "" {
-			paths = append(paths, skills.Path)
-		}
-	}
-	sort.Strings(paths)
-	set := sourcewalk.Follow(source, sourcewalk.FollowOptions{TargetPaths: paths, GitRoot: gitRoot})
-	if !set.Active() && len(set.Warnings()) == 0 {
-		return nil
-	}
-	return &set
+	return ssync.FollowSetFor(cfg.EffectiveSkillsSource(), cfg.Targets, cfg.EffectiveGitRoot())
 }
 
 // followedSkillWriteError also refuses unavailable declared trees, before any

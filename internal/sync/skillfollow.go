@@ -3,12 +3,32 @@ package sync
 import (
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"skillshare/internal/config"
 	"skillshare/internal/sourcewalk"
 	"skillshare/internal/utils"
 )
+
+// FollowSetFor snapshots source's declarations against the enabled skills
+// targets and the staging boundary gitRoot. It returns nil without declarations
+// or diagnostics, which preserves legacy traversal and output.
+func FollowSetFor(source string, targets map[string]config.TargetConfig, gitRoot string) *sourcewalk.FollowSet {
+	var paths []string
+	for _, target := range targets {
+		skills := target.SkillsConfig()
+		if skills.IsEnabled() && skills.Path != "" {
+			paths = append(paths, skills.Path)
+		}
+	}
+	sort.Strings(paths)
+	set := sourcewalk.Follow(source, sourcewalk.FollowOptions{TargetPaths: paths, GitRoot: gitRoot})
+	if !set.Active() && len(set.Warnings()) == 0 {
+		return nil
+	}
+	return &set
+}
 
 // followScope binds one operation's FollowSet to the skills source root, so
 // link identity, ownership, and status agree on the same canonical roots.
