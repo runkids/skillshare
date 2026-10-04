@@ -82,7 +82,7 @@ func cmdStatusProjectJSON(root string) error {
 	}
 	addSkillfollowPausesJSON(&output.Source, follow)
 	output.SkillCount = len(discovered)
-	output.TrackedRepos = buildTrackedRepoJSON(runtime.sourcePath, trackedRepos, discovered)
+	output.TrackedRepos = buildTrackedRepoJSON(runtime.sourcePath, trackedRepos, discovered, follow)
 
 	for _, entry := range runtime.config.Targets {
 		target, ok := runtime.targets[entry.Name]

@@ -197,7 +197,7 @@ func cmdStatus(args []string) error {
 	}
 	addSkillfollowPausesJSON(&output.Source, follow)
 	output.SkillCount = len(discovered)
-	output.TrackedRepos = buildTrackedRepoJSON(cfg.EffectiveSkillsSource(), trackedRepos, discovered)
+	output.TrackedRepos = buildTrackedRepoJSON(cfg.EffectiveSkillsSource(), trackedRepos, discovered, follow)
 
 	for name, target := range cfg.Targets {
 		sc := target.SkillsConfig()
@@ -297,10 +297,11 @@ func extractTrackedReposWithFollow(sourcePath string, follow *sourcewalk.FollowS
 }
 
 // buildTrackedRepoJSON builds statusJSONRepo entries with parallel git.IsDirty checks.
-func buildTrackedRepoJSON(sourcePath string, trackedRepos []string, discovered []sync.DiscoveredSkill) []statusJSONRepo {
+func buildTrackedRepoJSON(sourcePath string, trackedRepos []string, discovered []sync.DiscoveredSkill, follow *sourcewalk.FollowSet) []statusJSONRepo {
 	results := make([]statusJSONRepo, len(trackedRepos))
 
-	missingRepos, _ := install.GetMissingTrackedRepos(sourcePath)
+	// Same ownership snapshot as trackedRepos, so a live followed repository is never also missing.
+	missingRepos, _ := install.GetMissingTrackedReposWithOptions(sourcePath, sourcewalk.Options{Follow: follow})
 
 	// Count skills per repo (single pass). A tracked repo may surface skills
 	// at the repo root (RelPath equals the repo name, no slash) or nested
