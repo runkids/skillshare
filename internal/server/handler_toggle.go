@@ -9,6 +9,7 @@ import (
 	"skillshare/internal/resource"
 	"skillshare/internal/skillignore"
 	"skillshare/internal/sourcefs"
+	"skillshare/internal/sourcewalk"
 	ssync "skillshare/internal/sync"
 )
 
@@ -33,6 +34,7 @@ func (s *Server) handleToggleSkill(w http.ResponseWriter, r *http.Request, enabl
 	// Resolve under RLock — discovery is I/O-heavy, don't hold write lock
 	s.mu.RLock()
 	source := s.cfg.EffectiveSkillsSource()
+	follow := s.skillFollowSet()
 	agentsSource := s.agentsSource()
 	s.mu.RUnlock()
 
@@ -108,7 +110,7 @@ func (s *Server) handleToggleSkill(w http.ResponseWriter, r *http.Request, enabl
 
 	// The file write alone does not decide the outcome: a later rule, such as a
 	// "!" line in the .local file, can still override it.
-	states, err := s.disabledByRelPath(kind, source, agentsSource)
+	states, err := s.disabledByRelPath(kind, source, agentsSource, follow)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -131,8 +133,9 @@ func (s *Server) handleToggleSkill(w http.ResponseWriter, r *http.Request, enabl
 }
 
 // disabledByRelPath re-discovers skills or agents and reports, by relPath,
-// whether each is disabled under the merged ignore and .local rules.
-func (s *Server) disabledByRelPath(kind, source, agentsSource string) (map[string]bool, error) {
+// whether each is disabled under the merged ignore and .local rules. Skills use the
+// request snapshot, so the check sees the same tree as the lookup before it.
+func (s *Server) disabledByRelPath(kind, source, agentsSource string, follow *sourcewalk.FollowSet) (map[string]bool, error) {
 	states := map[string]bool{}
 	if kind == "agent" {
 		discovered, err := resource.AgentKind{}.Discover(agentsSource)
@@ -144,7 +147,7 @@ func (s *Server) disabledByRelPath(kind, source, agentsSource string) (map[strin
 		}
 		return states, nil
 	}
-	discovered, err := ssync.DiscoverSourceSkillsAll(source)
+	discovered, err := ssync.DiscoverSourceSkillsAllWithOptions(source, ssync.DiscoveryOptions{Follow: follow})
 	if err != nil {
 		return nil, fmt.Errorf("failed to discover skills: %w", err)
 	}
