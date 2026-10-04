@@ -98,20 +98,17 @@ internal/config/project.go	LoadProject	os.WriteFile	tmpPath	config
 internal/config/registry.go	(*Registry).Save	os.MkdirAll	dir	config	the only production caller is the legacy config.yaml migration, which saves into the config folder; SaveSplitByKind has no production caller
 internal/config/registry.go	(*Registry).Save	os.WriteFile	path	config	the only production caller is the legacy config.yaml migration, which saves into the config folder; SaveSplitByKind has no production caller
 internal/config/registry.go	MigrateRegistryToSource	os.Remove	oldPath	config	removes the old registry.yaml from the config folder after it moved to the source root
-internal/git/info.go	resolveMetadataConflicts	os.WriteFile	filepath.Join(dir, path)	source-unmigrated
-internal/git/info.go	restorePullResidue	os.Remove	full	source-unmigrated
-internal/git/scope.go	DisableNestedRepo	os.Rename	gitDir, disabled	source-unmigrated
-internal/git/scope.go	InitScopeRepo	os.MkdirAll	dir	source-unmigrated
-internal/git/scope.go	WriteScopeGitignore	os.WriteFile	gitignore	source-unmigrated
-internal/git/scope.go	WriteScopeGitignore	os.WriteFile	gitignore	source-unmigrated
-internal/git/scope.go	appendGitignoreLine	os.WriteFile	gitignore	source-unmigrated
-internal/git/scope.go	ensureGitignoreEntry	os.WriteFile	gitignore	source-unmigrated
-internal/git/scope.go	ensureGitignoreEntry	os.WriteFile	gitignore	source-unmigrated
-internal/git/scope.go	removeCheckedOut	os.Remove	path	source-unmigrated
-internal/git/scope.go	removeCheckedOut	os.RemoveAll	path	source-unmigrated
-internal/git/scope.go	snapshotConfig	os.Chmod	path	source-unmigrated
-internal/git/scope.go	snapshotConfig	os.Symlink	target, path	source-unmigrated
-internal/git/scope.go	snapshotConfig	os.WriteFile	path	source-unmigrated
+internal/git/scope.go	InitScopeRepo	os.MkdirAll	dir	source-root	creates the git scope folder itself: the skills source root (or the folder above it with init --subdir) or the config folder
+internal/git/scope.go	WriteScopeGitignore	os.WriteFile	gitignore	source-unmigrated	the git scope folder is the skills source (skills scope, or the folder above it with init --subdir) or the config folder (root scope); a .gitignore there may be linked by a dotfile manager at root scope, and DisableNestedRepo and the init callers do not say which scope they write, so moving it needs the scope passed down (API change)
+internal/git/scope.go	WriteScopeGitignore	os.WriteFile	gitignore	source-unmigrated	the git scope folder is the skills source (skills scope, or the folder above it with init --subdir) or the config folder (root scope); a .gitignore there may be linked by a dotfile manager at root scope, and DisableNestedRepo and the init callers do not say which scope they write, so moving it needs the scope passed down (API change)
+internal/git/scope.go	appendGitignoreLine	os.WriteFile	gitignore	config	only EnsureConfigUntracked calls it, and only at root scope, where dir is the config folder
+internal/git/scope.go	ensureGitignoreEntry	os.WriteFile	gitignore	source-unmigrated	the git scope folder is the skills source (skills scope, or the folder above it with init --subdir) or the config folder (root scope); a .gitignore there may be linked by a dotfile manager at root scope, and DisableNestedRepo and the init callers do not say which scope they write, so moving it needs the scope passed down (API change)
+internal/git/scope.go	ensureGitignoreEntry	os.WriteFile	gitignore	source-unmigrated	the git scope folder is the skills source (skills scope, or the folder above it with init --subdir) or the config folder (root scope); a .gitignore there may be linked by a dotfile manager at root scope, and DisableNestedRepo and the init callers do not say which scope they write, so moving it needs the scope passed down (API change)
+internal/git/scope.go	removeCheckedOut	os.Remove	path	config	config.yaml in the root-scope repo, the config folder: KeepLocalConfig runs only at root scope
+internal/git/scope.go	removeCheckedOut	os.RemoveAll	path	config	config.yaml in the root-scope repo, the config folder: KeepLocalConfig runs only at root scope
+internal/git/scope.go	snapshotConfig	os.Chmod	path	config	config.yaml in the root-scope repo, the config folder: KeepLocalConfig runs only at root scope
+internal/git/scope.go	snapshotConfig	os.Symlink	target, path	config	config.yaml in the root-scope repo, the config folder: KeepLocalConfig runs only at root scope
+internal/git/scope.go	snapshotConfig	os.WriteFile	path	config	config.yaml in the root-scope repo, the config folder: KeepLocalConfig runs only at root scope
 internal/hooks/apply.go	(*Service).applyScoped	os.Remove	f.path	plugin
 internal/hooks/apply.go	(*Service).applyScoped	os.Remove	s.journalPath()	plugin
 internal/hooks/apply.go	(*Service).applyScoped	os.Remove	s.journalPath()	plugin

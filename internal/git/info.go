@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"skillshare/internal/install"
+	"skillshare/internal/sourcefs"
 )
 
 // DiffStats holds git diff statistics
@@ -352,8 +353,20 @@ func restorePullResidue(dir string, dirtyBefore map[string]bool) {
 		unstage := exec.Command("git", "rm", "--cached", "--quiet", "--ignore-unmatch", "--", path)
 		unstage.Dir = dir
 		unstage.Run()
-		os.Remove(full)
+		removeInRepo(dir, path)
 	}
+}
+
+// removeInRepo removes path, relative to the repo at dir, through a handle at
+// dir, so a path that is or sits below a link is left alone. Best-effort, like
+// the rest of the pull cleanup.
+func removeInRepo(dir, path string) {
+	root, err := sourcefs.Open(dir)
+	if err != nil {
+		return
+	}
+	defer root.Close()
+	root.Remove(filepath.FromSlash(path)) //nolint:errcheck
 }
 
 // conflictedFiles lists the paths an in-progress merge left unmerged.
@@ -380,6 +393,13 @@ func resolveMetadataConflicts(dir string, conflicts []string) error {
 		out, _ := cmd.Output() // a missing stage (file absent on that side) reads as empty
 		return out
 	}
+	// Write through a handle at the repo, so a metadata file that is or sits
+	// below a link is refused instead of written through.
+	root, err := sourcefs.Open(dir)
+	if err != nil {
+		return err
+	}
+	defer root.Close()
 	for _, path := range conflicts {
 		if filepath.Base(path) != install.MetadataFileName {
 			return fmt.Errorf("%s is not metadata", path)
@@ -388,7 +408,7 @@ func resolveMetadataConflicts(dir string, conflicts []string) error {
 		if err != nil {
 			return err
 		}
-		if err := os.WriteFile(filepath.Join(dir, path), merged, 0644); err != nil {
+		if err := root.WriteFile(filepath.FromSlash(path), merged, 0644); err != nil {
 			return err
 		}
 		add := exec.Command("git", "add", "--", path)

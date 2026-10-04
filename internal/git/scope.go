@@ -10,6 +10,8 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+
+	"skillshare/internal/sourcefs"
 )
 
 // WriteScopeGitignore ensures a .gitignore at dir. If none exists it writes a
@@ -612,7 +614,14 @@ func DisableNestedRepo(dir, sub string) error {
 	if _, err := os.Stat(disabled); err == nil {
 		return fmt.Errorf("%s/.git.disabled already exists; resolve it manually", sub)
 	}
-	if err := os.Rename(gitDir, disabled); err != nil {
+	// Rename through a handle at the repo, so a sub that crosses a link is
+	// refused instead of renaming a .git outside it.
+	root, err := sourcefs.Open(dir)
+	if err != nil {
+		return err
+	}
+	defer root.Close()
+	if err := root.Rename(filepath.Join(sub, ".git"), filepath.Join(sub, ".git.disabled")); err != nil {
 		return err
 	}
 	if err := ensureGitignoreEntry(dir, ".git.disabled"); err != nil {
