@@ -64,6 +64,10 @@ func (r *unfollowResult) leftDiscovery() bool {
 
 const linkKeptRealDir = "not a link; a real directory is never removed"
 
+// sameFollowName matches a declared name the way discovery does. Tests swap
+// it to cover Windows semantics.
+var sameFollowName = sourcewalk.SameEntryName
+
 // runFollow declares opts.name, creating its link first when opts.to is set,
 // and adds the ignore lines a Git source needs.
 func runFollow(fc *followContext, opts followOptions) (*followResult, error) {
@@ -102,7 +106,7 @@ func runFollow(fc *followContext, opts followOptions) (*followResult, error) {
 	}
 	if snapshot != nil {
 		for _, entry := range snapshot.Entries() {
-			if entry.Name == opts.name {
+			if sameFollowName(entry.Name, opts.name) {
 				r.State, r.Reason, r.ResolvedTarget = entry.State, entry.Reason, entry.ResolvedTarget
 			}
 		}
@@ -175,11 +179,11 @@ func followIgnores(root *sourcefs.Root, source string, snapshot *sourcewalk.Foll
 	if err != nil {
 		return err
 	}
-	line := install.FollowedIgnoreLine(opts.name)
 	for _, link := range links {
-		if link.IgnoreLine != line {
+		if !sameFollowName(filepath.Base(link.Path), opts.name) {
 			continue
 		}
+		line := link.IgnoreLine
 		r.IgnoreFile = link.IgnoreFile
 		indexed, err := gitops.IsPathIndexed(source, link.Path)
 		if err != nil {
@@ -234,6 +238,7 @@ func runUnfollow(fc *followContext, opts followOptions) (*unfollowResult, error)
 	if opts.local {
 		files = []string{skillfollow.LocalFile}
 	}
+	declared := ""
 	for _, file := range files {
 		removed, err := skillfollow.RemoveEntry(root, file, opts.name)
 		if err != nil {
@@ -243,9 +248,16 @@ func runUnfollow(fc *followContext, opts followOptions) (*unfollowResult, error)
 			}
 			return nil, err
 		}
-		if removed {
+		if removed != "" {
 			r.FilesEdited = append(r.FilesEdited, file)
+			if declared == "" {
+				declared = removed
+			}
 		}
+	}
+	// Follow wrote the ignore line in the declared spelling.
+	if declared != "" {
+		r.IgnoreLine = install.FollowedIgnoreLine(declared)
 	}
 	if opts.local {
 		declared, err := skillfollow.Declares(root, skillfollow.File, opts.name)
@@ -283,6 +295,11 @@ func runUnfollow(fc *followContext, opts followOptions) (*unfollowResult, error)
 
 	if r.LinkRemoved {
 		removed, err := skillfollow.RemoveIgnoreLine(root, r.IgnoreLine)
+		if typed := install.FollowedIgnoreLine(opts.name); err == nil && !removed && typed != r.IgnoreLine {
+			if removed, err = skillfollow.RemoveIgnoreLine(root, typed); removed {
+				r.IgnoreLine = typed
+			}
+		}
 		if err != nil {
 			return nil, fmt.Errorf("removed %s and its link, but not its ignore line: %w", opts.name, err)
 		}

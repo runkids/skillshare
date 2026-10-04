@@ -72,23 +72,29 @@ func AddEntry(root *sourcefs.Root, file, name string) (bool, error) {
 }
 
 // RemoveEntry drops every line of file that declares name and keeps all
-// other lines as they are. It reports false when file does not declare name.
-func RemoveEntry(root *sourcefs.Root, file, name string) (bool, error) {
+// other lines as they are. It returns the first removed line's spelling,
+// which differs from name only on Windows, or "" when file does not declare
+// name.
+func RemoveEntry(root *sourcefs.Root, file, name string) (string, error) {
 	content, err := read(root, file)
 	if err != nil {
-		return false, err
+		return "", err
 	}
 	lines := strings.Split(content, "\n")
 	kept := lines[:0]
+	declared := ""
 	for _, line := range lines {
-		if !sameName(strings.TrimSpace(line), name) {
+		entry := strings.TrimSpace(line)
+		if !sameName(entry, name) {
 			kept = append(kept, line)
+		} else if declared == "" {
+			declared = entry
 		}
 	}
-	if len(kept) == len(lines) {
-		return false, nil
+	if declared == "" {
+		return "", nil
 	}
-	return true, root.WriteFileAtomic(file, []byte(strings.Join(kept, "\n")), 0644)
+	return declared, root.WriteFileAtomic(file, []byte(strings.Join(kept, "\n")), 0644)
 }
 
 // AddIgnoreLine puts line in the managed block of the source's .gitignore.
