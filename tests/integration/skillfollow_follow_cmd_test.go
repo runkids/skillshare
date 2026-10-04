@@ -325,6 +325,31 @@ func TestUnfollow_JSON(t *testing.T) {
 	})
 }
 
+// A refused declaration write must remove the link follow --to just made.
+func TestFollow_ToRemovesNewLinkWhenDeclarationFails(t *testing.T) {
+	e := newFollowEnv(t, false)
+	outside := filepath.Join(e.sb.Root, "decl")
+	e.sb.WriteFile(outside, "# team\n")
+	if err := os.Symlink(outside, filepath.Join(e.source, ".skillfollow")); err != nil {
+		t.Fatal(err)
+	}
+
+	result := e.run("follow", "x", "--to", e.external, "--json")
+	result.AssertFailure(t)
+	var out struct {
+		Error string `json:"error"`
+	}
+	if err := json.Unmarshal([]byte(result.Stdout), &out); err != nil || !strings.Contains(out.Error, "failed to update .skillfollow") {
+		t.Fatalf("unexpected JSON error (%v): %s", err, result.Stdout)
+	}
+	if _, err := os.Lstat(filepath.Join(e.source, "x")); !os.IsNotExist(err) {
+		t.Fatalf("the new link was left in place: %v", err)
+	}
+	if got := e.sb.ReadFile(outside); got != "# team\n" {
+		t.Fatalf("write went through the link: %q", got)
+	}
+}
+
 // A refused second write must fail the command without claiming an unfollow.
 func TestUnfollow_PartialWriteFailureReportsFailure(t *testing.T) {
 	e := newFollowEnv(t, false)
