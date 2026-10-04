@@ -133,7 +133,7 @@ Source **pull/reset/checkout** 也拒絕 indexed 宣告（包括不存在但仍 
 
 ## 限制
 
-單 skill、`follow`/`unfollow` 與宣告編輯頁仍是未來工作；巢狀連結不跟隨。Windows 有 junction 模擬與 cross-compilation，但**尚未驗證真實 Windows junction/Developer Mode 的完整功能執行矩陣**；編譯或早期 standalone probe 成功不等於 runtime 正確。
+單 skill、`follow`/`unfollow` 與宣告編輯頁仍是未來工作；巢狀連結不跟隨。在關閉 Developer Mode 的 Windows 11 ARM64 上，已用跟隨的 junction（管理員與 basic-user token）和目錄 symlink（管理員 token）驗證 global mode 的 discovery、status、sync、prune 暫停與恢復、update 拒絕、unfollow、`.skillfollow.local` 與 `invalid-target`。project mode 的相對連結、Developer Mode 的相對 symlink、以連結形式存在的 source root 或 target 上層目錄，以及 dashboard 在 Windows 上**尚未驗證**。
 
 ## 另見
 

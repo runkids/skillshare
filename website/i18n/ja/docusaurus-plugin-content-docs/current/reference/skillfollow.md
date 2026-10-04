@@ -133,7 +133,7 @@ Source **pull/reset/checkout** は indexed 宣言（不在だが indexed のリ�
 
 ## 制限
 
-単一 skill、`follow`/`unfollow`、宣言エディタは将来の対応です。入れ子リンクはたどりません。Windows junction シミュレーションと cross-compilation はありますが、**実 Windows junction/Developer Mode の機能実行 matrix は未検証**です。ビルドや以前の standalone probe 成功は全機能の runtime 証拠ではありません。
+単一 skill、`follow`/`unfollow`、宣言エディタは将来の対応です。入れ子リンクはたどりません。Developer Mode オフの Windows 11 ARM64 で、global mode の discovery、status、sync、prune の一時停止と再開、update の拒否、unfollow、`.skillfollow.local`、`invalid-target` を、追跡対象の junction（管理者と basic-user の token）と directory symlink（管理者 token）で検証済みです。project mode の相対リンク、Developer Mode の相対 symlink、リンクされた source root や target の親ディレクトリ、dashboard は Windows で**未検証**です。
 
 ## 関連項目
 

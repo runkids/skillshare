@@ -133,7 +133,7 @@ These guards protect skillshare operations, not Git commands you run yourself.
 
 ## Limits
 
-Single-skill entries, `follow`/`unfollow`, and a dashboard declaration editor remain future work. Nested links are not followed. Windows junction classification has simulated coverage and Windows cross-compilation, but the feature's real Windows junction/Developer Mode runtime matrix has **not** been verified; neither a successful build nor the earlier standalone probes establish that runtime behavior.
+Single-skill entries, `follow`/`unfollow`, and a dashboard declaration editor remain future work. Nested links are not followed. On Windows 11 ARM64 with Developer Mode off, global-mode discovery, status, sync, prune pause and resume, update refusal, unfollow, `.skillfollow.local`, and `invalid-target` have been verified with followed junctions (administrator and basic-user tokens) and directory symlinks (administrator token). Project mode's relative links, the Developer Mode relative-symlink path, a linked source root or target parent, and the dashboard have **not** been verified on Windows.
 
 ## See also
 
