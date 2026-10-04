@@ -128,7 +128,7 @@ followed entry 아래의 일반 skill은 재설치되지 않습니다. `update`�
 
 `commit`, `push`, dry run, Dashboard staging, init source commit은 Git이 도달하는 선언 링크가 indexed/미 ignore이면 거부합니다. Doctor의 정확한 끝 `/` 없는 ignore 줄과 `git rm --cached` 지시를 따르세요. 자동으로 추적 해제하지 않습니다. 물리적 Git 도달성을 사용하므로 skills 선언만으로 무관한 agents/extras repo를 차단하지 않습니다.
 
-Source **pull/reset/checkout**은 indexed 선언（없지만 indexed인 링크 포함）이나 작업 트리 링크 구성 요소를 포함하는 incoming path를 거부합니다. **선언 여부와 무관합니다**. Ignore만으로 Git의 링크 교체를 막을 수 없습니다. 오류의 commit/path를 보고 indexed이면 추적 해제와 ignore, 또는 remote 수정 후 재시도하세요. Pull은 fetch 후 고정 revision을 검사합니다. Dashboard checkout은 선택한 기존 local/remote-tracking revision을 검사하며 암묵적 fetch를 추가하지 않습니다. Dashboard discard는 ignored followed link를 남깁니다.
+Source **pull/reset/checkout**은 indexed 선언（없지만 indexed인 링크 포함）이나 작업 트리 링크 구성 요소를 포함하는 incoming path를 거부합니다. **선언 여부와 무관합니다**. 선언 항목 안의 path는 링크가 없어도 거부합니다(오류가 항목 이름을 알려 줍니다. remote에서 path를 빼거나 선언에서 항목을 빼세요). Ignore만으로 Git의 링크 교체를 막을 수 없습니다. 오류의 commit/path를 보고 indexed이면 추적 해제와 ignore, 또는 remote 수정 후 재시도하세요. Pull은 fetch 후 고정 revision을 검사합니다. Dashboard checkout은 선택한 기존 local/remote-tracking revision을 검사하며 암묵적 fetch를 추가하지 않습니다. Dashboard discard는 ignored followed link를 남깁니다.
 
 이 guard는 skillshare 작업만 보호하며 직접 실행한 Git은 보호하지 않습니다.
 
