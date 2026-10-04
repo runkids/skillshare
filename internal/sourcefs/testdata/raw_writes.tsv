@@ -95,10 +95,9 @@ internal/config/project.go	(*ProjectConfig).SaveIn	os.MkdirAll	dir	config
 internal/config/project.go	(*ProjectConfig).SaveIn	os.WriteFile	path	config
 internal/config/project.go	LoadProject	os.Rename	tmpPath, path	config
 internal/config/project.go	LoadProject	os.WriteFile	tmpPath	config
-internal/config/registry.go	(*Registry).Save	os.MkdirAll	dir	source-unmigrated
-internal/config/registry.go	(*Registry).Save	os.WriteFile	path	source-unmigrated
-internal/config/registry.go	MigrateRegistryToSource	os.Remove	oldPath	source-unmigrated
-internal/config/registry.go	MigrateRegistryToSource	os.WriteFile	newPath	source-unmigrated
+internal/config/registry.go	(*Registry).Save	os.MkdirAll	dir	config	the only production caller is the legacy config.yaml migration, which saves into the config folder; SaveSplitByKind has no production caller
+internal/config/registry.go	(*Registry).Save	os.WriteFile	path	config	the only production caller is the legacy config.yaml migration, which saves into the config folder; SaveSplitByKind has no production caller
+internal/config/registry.go	MigrateRegistryToSource	os.Remove	oldPath	config	removes the old registry.yaml from the config folder after it moved to the source root
 internal/git/info.go	resolveMetadataConflicts	os.WriteFile	filepath.Join(dir, path)	source-unmigrated
 internal/git/info.go	restorePullResidue	os.Remove	full	source-unmigrated
 internal/git/scope.go	DisableNestedRepo	os.Rename	gitDir, disabled	source-unmigrated

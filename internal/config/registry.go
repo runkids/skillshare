@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"gopkg.in/yaml.v3"
+	"skillshare/internal/sourcefs"
 	"skillshare/internal/utils"
 )
 
@@ -96,7 +97,14 @@ func MigrateRegistryToSource(configDir, sourceRoot string) {
 	if err != nil {
 		return
 	}
-	if err := os.WriteFile(newPath, data, 0644); err != nil {
+	// Write through a handle at the source root, so a registry.yaml link
+	// there is refused instead of written through.
+	root, err := sourcefs.Open(sourceRoot)
+	if err != nil {
+		return
+	}
+	defer root.Close()
+	if err := root.WriteFile(registryFileName, data, 0644); err != nil {
 		return
 	}
 	os.Remove(oldPath)
