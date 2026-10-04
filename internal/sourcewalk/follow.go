@@ -1,6 +1,7 @@
 package sourcewalk
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -41,6 +42,7 @@ type FollowOptions struct {
 // Walkers using its pointer record read failures in the same set. It is intended
 // for one operation, and must not be mutated concurrently with traversal.
 type FollowSet struct {
+	walkErrors    []error
 	root          string
 	canonicalRoot string
 	entries       []Entry
@@ -250,7 +252,12 @@ func (s FollowSet) InFollowed(logicalRel string) (Entry, bool) {
 	}
 	return Entry{}, false
 }
+
+// Err reports read failures recorded during traversal, even if callbacks ignored them.
+func (s FollowSet) Err() error { return errors.Join(s.walkErrors...) }
+
 func (s *FollowSet) markMissing(name string, err error) {
+	s.walkErrors = append(s.walkErrors, fmt.Errorf("incomplete discovery of %s: %w", name, err))
 	for i := range s.entries {
 		if s.entries[i].Name == name {
 			s.entries[i].State, s.entries[i].Reason = Missing, err.Error()

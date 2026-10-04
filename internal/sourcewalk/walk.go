@@ -1,5 +1,5 @@
 // Package sourcewalk owns traversal of the skills source. Only the source root
-// is resolved; links encountered inside the source are never followed.
+// is resolved by default; an explicit FollowSet enables declared first-level links.
 package sourcewalk
 
 import (
@@ -10,24 +10,34 @@ import (
 	"skillshare/internal/utils"
 )
 
-// Options reserves the operation's traversal policy. The zero value preserves
-// existing traversal; following entries is not implemented.
-type Options struct{}
+// Options carries one operation's traversal policy. A nil Follow preserves
+// existing traversal and resolved-root callback paths.
+type Options struct{ Follow *FollowSet }
 
 // Walk walks the resolved source root with filepath.Walk's callback, ordering,
-// SkipDir, and error semantics. Callback paths use the resolved root as base.
-func Walk(root string, _ Options, fn filepath.WalkFunc) error {
+// SkipDir, and error semantics. With Follow, paths retain the logical root and
+// read failures are also recorded in FollowSet.Err; otherwise the base is resolved.
+func Walk(root string, opts Options, fn filepath.WalkFunc) error {
+	if opts.Follow != nil {
+		return walkFollow(root, opts.Follow, fn)
+	}
 	return filepath.Walk(utils.ResolveSymlink(root), fn)
 }
 
 // WalkDir is Walk's fs.DirEntry counterpart, with filepath.WalkDir semantics.
-func WalkDir(root string, _ Options, fn fs.WalkDirFunc) error {
+func WalkDir(root string, opts Options, fn fs.WalkDirFunc) error {
+	if opts.Follow != nil {
+		return walkDirFollow(root, opts.Follow, fn)
+	}
 	return filepath.WalkDir(utils.ResolveSymlink(root), fn)
 }
 
 // ReadDir reads the resolved source root in filename order. Child links remain
-// links, just as with os.ReadDir.
-func ReadDir(root string, _ Options) ([]os.DirEntry, error) {
+// links, just as with os.ReadDir, unless Follow declares them as followed.
+func ReadDir(root string, opts Options) ([]os.DirEntry, error) {
+	if opts.Follow != nil {
+		return readDirFollow(root, opts.Follow)
+	}
 	resolved := utils.ResolveSymlink(root)
 	entries, err := os.ReadDir(resolved)
 	if resolved == root {
