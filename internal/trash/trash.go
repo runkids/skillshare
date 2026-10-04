@@ -13,6 +13,7 @@ import (
 
 	"skillshare/internal/config"
 	"skillshare/internal/projectdir"
+	"skillshare/internal/sourcefs"
 	"skillshare/internal/utils"
 )
 
@@ -217,7 +218,7 @@ func MoveToTrash(srcPath, name, trashBase string) (string, error) {
 	}
 
 	// Fallback: copy then delete (cross-device)
-	if err := copyDir(srcPath, trashPath); err != nil {
+	if err := copyDir(sourcefs.OS, srcPath, trashPath); err != nil {
 		return "", fmt.Errorf("failed to move to trash: %w", err)
 	}
 
@@ -352,8 +353,9 @@ func FindByName(trashBase, name string) *TrashEntry {
 	return nil
 }
 
-// Restore moves a trashed skill back to the destination directory.
-// Returns an error if the destination already exists.
+// Restore moves a trashed skill back to the destination directory, the
+// skills source, through its handle: a link at or above the restored path is
+// refused. Returns an error if the destination already exists.
 func Restore(entry *TrashEntry, destDir string) error {
 	if err := validateTrashName(entry.Name); err != nil {
 		return fmt.Errorf("invalid trash entry name: %w", err)
@@ -365,8 +367,18 @@ func Restore(entry *TrashEntry, destDir string) error {
 		return fmt.Errorf("restore path unsafe: %w", err)
 	}
 
+	dest, err := sourcefs.Create(destDir)
+	if err != nil {
+		return fmt.Errorf("failed to create destination directory: %w", err)
+	}
+	defer dest.Close()
+	rel, err := dest.Rel(destPath)
+	if err != nil {
+		return fmt.Errorf("restore path unsafe: %w", err)
+	}
+
 	// Ensure parent directory exists for nested names (e.g., "org/_team-skills")
-	if err := os.MkdirAll(filepath.Dir(destPath), 0755); err != nil {
+	if err := dest.MkdirAll(filepath.Dir(rel), 0755); err != nil {
 		return fmt.Errorf("failed to create destination directory: %w", err)
 	}
 
@@ -375,12 +387,12 @@ func Restore(entry *TrashEntry, destDir string) error {
 	}
 
 	// Try atomic rename first
-	if err := os.Rename(entry.Path, destPath); err == nil {
+	if err := dest.MoveIn(entry.Path, rel); err == nil {
 		return nil
 	}
 
 	// Fallback: copy then delete
-	if err := copyDir(entry.Path, destPath); err != nil {
+	if err := copyDir(dest.Writer(), entry.Path, destPath); err != nil {
 		return fmt.Errorf("failed to restore: %w", err)
 	}
 
@@ -491,9 +503,9 @@ func dirSize(path string) int64 {
 	return size
 }
 
-// copyDir copies a directory recursively.
-func copyDir(src, dst string) error {
-	if err := os.MkdirAll(dst, 0755); err != nil {
+// copyDir copies a directory recursively through w.
+func copyDir(w sourcefs.Writer, src, dst string) error {
+	if err := w.MkdirAll(dst, 0755); err != nil {
 		return err
 	}
 
@@ -517,11 +529,11 @@ func copyDir(src, dst string) error {
 		}
 
 		if info.IsDir() {
-			if err := copyDir(srcPath, dstPath); err != nil {
+			if err := copyDir(w, srcPath, dstPath); err != nil {
 				return err
 			}
 		} else if info.Mode().IsRegular() {
-			if err := copyFile(srcPath, dstPath); err != nil {
+			if err := copyFile(w, srcPath, dstPath); err != nil {
 				return err
 			}
 		}
@@ -530,8 +542,8 @@ func copyDir(src, dst string) error {
 	return nil
 }
 
-// copyFile copies a single file.
-func copyFile(src, dst string) error {
+// copyFile copies a single file through w.
+func copyFile(w sourcefs.Writer, src, dst string) error {
 	srcFile, err := os.Open(src)
 	if err != nil {
 		return err
@@ -543,7 +555,7 @@ func copyFile(src, dst string) error {
 		return err
 	}
 
-	dstFile, err := os.OpenFile(dst, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, srcInfo.Mode())
+	dstFile, err := w.OpenFile(dst, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, srcInfo.Mode())
 	if err != nil {
 		return err
 	}

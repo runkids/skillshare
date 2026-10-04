@@ -13,8 +13,6 @@ cmd/skillshare/extras_init.go	extrasInitGlobal	os.MkdirAll	sourceDir	extras
 cmd/skillshare/extras_init.go	extrasInitProject	os.MkdirAll	sourceDir	extras
 cmd/skillshare/extras_remove.go	cleanEmptyExtrasDir	os.Remove	dir	extras
 cmd/skillshare/extras_remove.go	cleanEmptyExtrasDirQuiet	os.Remove	dir	extras
-cmd/skillshare/helpers.go	copyDir	os.MkdirAll	dstPath	source-unmigrated
-cmd/skillshare/helpers.go	copyFile	os.OpenFile	dst	source-unmigrated
 cmd/skillshare/helpers.go	removeEmptyDir	os.Remove	dir	extras
 cmd/skillshare/init_apply.go	applyInitPlan	os.MkdirAll	dir	source-root
 cmd/skillshare/init_apply.go	replaceIdenticalCopies	os.RemoveAll	dst	target
@@ -34,7 +32,9 @@ cmd/skillshare/new.go	cmdNew	os.WriteFile	skillFile	source-unmigrated
 cmd/skillshare/restore_tui.go	(restoreTUIModel).startDelete	os.RemoveAll	tsDir	backup
 cmd/skillshare/restore_tui.go	(restoreTUIModel).startDelete	os.RemoveAll	version.Dir	backup
 cmd/skillshare/target.go	unlinkMergeMode	os.Remove	skillPath	target
+cmd/skillshare/target.go	unlinkMergeMode	sourcefs.OS	<ref>	target	copies skills back into a target that stops linking to the source
 cmd/skillshare/target.go	unlinkSymlinkMode	os.Remove	targetPath	target
+cmd/skillshare/target.go	unlinkSymlinkMode	sourcefs.OS	<ref>	target	copies the source back into a target that stops linking to it
 cmd/skillshare/target_project.go	targetAddProject	os.MkdirAll	absPath	target
 cmd/skillshare/trash.go	trashDelete	os.RemoveAll	entry.Path	trash
 cmd/skillshare/trash.go	trashEmpty	os.RemoveAll	item.Path	trash
@@ -471,16 +471,13 @@ internal/trash/trash.go	MoveAgentToTrash	os.WriteFile	destMeta	trash
 internal/trash/trash.go	MoveToTrash	os.MkdirAll	filepath.Dir(trashPath)	trash
 internal/trash/trash.go	MoveToTrash	os.RemoveAll	srcPath	source-checked
 internal/trash/trash.go	MoveToTrash	os.Rename	srcPath, trashPath	source-checked
-internal/trash/trash.go	Restore	os.MkdirAll	filepath.Dir(destPath)	source-unmigrated
+internal/trash/trash.go	MoveToTrash	sourcefs.OS	<ref>	trash	cross-device fallback that copies into the trash
 internal/trash/trash.go	Restore	os.RemoveAll	entry.Path	trash
-internal/trash/trash.go	Restore	os.Rename	entry.Path, destPath	source-unmigrated
 internal/trash/trash.go	RestoreAgent	os.MkdirAll	targetDir	agents
 internal/trash/trash.go	RestoreAgent	os.RemoveAll	entry.Path	trash
 internal/trash/trash.go	RestoreAgent	os.Rename	srcPath, destPath	agents
 internal/trash/trash.go	RestoreAgent	os.WriteFile	destPath	agents
 internal/trash/trash.go	cleanEmptyParents	os.Remove	dir	trash
-internal/trash/trash.go	copyDir	os.MkdirAll	dst	source-unmigrated
-internal/trash/trash.go	copyFile	os.OpenFile	dst	source-unmigrated
 internal/uidist/uidist.go	ClearCache	os.RemoveAll	dir	config
 internal/uidist/uidist.go	ClearVersion	os.RemoveAll	dir	config
 internal/uidist/uidist.go	Download	os.MkdirAll	dir	config

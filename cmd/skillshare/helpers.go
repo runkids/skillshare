@@ -7,6 +7,8 @@ import (
 	"strings"
 	"unicode"
 	"unicode/utf8"
+
+	"skillshare/internal/sourcefs"
 )
 
 // isGlobPattern returns true if the string contains glob metacharacters.
@@ -47,7 +49,7 @@ func capitalize(s string) string {
 }
 
 // copyDir copies a directory recursively.
-func copyDir(src, dst string) error {
+func copyDir(w sourcefs.Writer, src, dst string) error {
 	return filepath.Walk(src, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
@@ -57,15 +59,15 @@ func copyDir(src, dst string) error {
 		dstPath := filepath.Join(dst, relPath)
 
 		if info.IsDir() {
-			return os.MkdirAll(dstPath, info.Mode())
+			return w.MkdirAll(dstPath, info.Mode())
 		}
 
-		return copyFile(path, dstPath)
+		return copyFile(w, path, dstPath)
 	})
 }
 
-// copyFile copies a single file.
-func copyFile(src, dst string) error {
+// copyFile copies a single file through w.
+func copyFile(w sourcefs.Writer, src, dst string) error {
 	srcFile, err := os.Open(src)
 	if err != nil {
 		return err
@@ -77,7 +79,7 @@ func copyFile(src, dst string) error {
 		return err
 	}
 
-	dstFile, err := os.OpenFile(dst, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, srcInfo.Mode())
+	dstFile, err := w.OpenFile(dst, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, srcInfo.Mode())
 	if err != nil {
 		return err
 	}
