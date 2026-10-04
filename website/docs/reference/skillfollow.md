@@ -84,7 +84,7 @@ Safety checks use canonical paths. The first applicable state wins; overlap chec
 
 `not-link` and `followed` pass doctor checks. Other declared states are warnings and pause cleanup. `undeclared-link` is informational and does not pause cleanup. Parser warnings are reported separately.
 
-If `.skillfollow` or `.skillfollow.local` exists but cannot be read, discovery stops rather than continuing with a partial view: `sync` refuses and leaves existing targets in place, `check` and `status` report the read error instead of empty counts, and source Git staging is refused. Restore read access to the file or remove it.
+If `.skillfollow` or `.skillfollow.local` exists but cannot be read, discovery stops rather than continuing with a partial view: `sync` refuses and leaves existing targets in place, `check` and `status` report the read error instead of empty counts, every `update` (CLI, dashboard, `install --update`) is refused even with `--force` and dashboard update-all fails as a whole, and source Git staging is refused. Restore read access to the file or remove it.
 
 ## What commands show {#visibility}
 
@@ -105,7 +105,7 @@ _team-skills: indexed; run git rm --cached -- '_team-skills' and add "/_team-ski
 
 ## Cleanup safety {#cleanup}
 
-While **any declared entry** is unavailable (anything except `followed` or `not-link`), skills-target prune pauses in merge and copy modes, even with `sync --force`. New links and copies can still be created. With standard target naming, an existing managed copy is kept if replacement cannot prove its origin; flat naming can proceed. Merge links may be replaced with a warning that the name could collide when the unavailable entry returns.
+While **any declared entry** is unavailable (anything except `followed` or `not-link`), skills-target prune pauses in merge and copy modes, even with `sync --force` and during init's first sync after pulling a source. New links and copies can still be created. With standard target naming, an existing managed copy is kept if replacement cannot prove its origin; flat naming can proceed. Merge links may be replaced with a warning that the name could collide when the unavailable entry returns.
 
 Status and doctor print this recovery sentence for each blocker:
 
@@ -119,7 +119,7 @@ Restore/fix the entry, or remove its name from **every** declaration file contai
 
 Followed tracked repositories are user-owned working copies. CLI, dashboard (including update-all/streaming), and `install --update` require a clean tree and use **fast-forward-only** pull (`--ff-only --no-rebase`). Explicit `--force` is refused, including dry runs. Dirty trees, status-check errors, or failed fast-forwards (including divergence) report an item failure with ``resolve in `<resolved path>` ``; independent batch items continue. Resolve changes/history in that external repository, not by retrying force. Ordinary installed repositories retain their existing update policy.
 
-Regular skills below a followed entry are never reinstalled. `update` refuses each one as an item failure, `followed repository update refused: skill <path> is inside followed entry <name>`, in every selection mode (`--all`, names, globs, groups, project mode, dry runs) and in the dashboard's single update; other items continue. Only the followed repository itself is updated, through the policy above.
+Regular skills below a followed entry are never reinstalled. `update` refuses each one as an item failure, `followed repository update refused: skill <path> is inside followed entry <name>`, in every selection mode (`--all`, names, globs, groups, project mode, dry runs) and in the dashboard's single and update-all routes; other items continue. Only the followed repository itself is updated, through the policy above.
 
 **Audit failures still hard-reset a followed repository to the pre-pull commit.** The audit scans the resolved root and reports logical paths; scan errors also block updates. Refusing force does not remove this rollback. Do not edit, repoint the link, or run another Git process in the repository during update: checks are snapshots, not locks, and rollback could discard concurrent changes. Changes pulled or edited outside skillshare are not automatically audited; run `skillshare audit` yourself.
 

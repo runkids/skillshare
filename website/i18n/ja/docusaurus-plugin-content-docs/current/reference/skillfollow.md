@@ -84,7 +84,7 @@ Canonical path で安全性を検査し、最初に該当する状態を採用�
 
 `followed`/`not-link` は doctor の pass。それ以外の宣言状態は warning でクリーンアップを停止。`undeclared-link` は info のみで停止しません。Parser 警告は別途表示します。
 
-`.skillfollow` または `.skillfollow.local` が存在するのに読み取れない場合、discovery は不完全な結果で続行せず停止します。`sync` は拒否して既存 target を保持し、`check` と `status` は空のカウントではなく読み取りエラーを報告し、source の Git staging も拒否されます。ファイルの読み取り権限を復旧するか、ファイルを削除してください。
+`.skillfollow` または `.skillfollow.local` が存在するのに読み取れない場合、discovery は不完全な結果で続行せず停止します。`sync` は拒否して既存 target を保持し、`check` と `status` は空のカウントではなく読み取りエラーを報告し、すべての `update`（CLI、Dashboard、`install --update`）は `--force` でも拒否され、Dashboard の update-all は全体が失敗し、source の Git staging も拒否されます。ファイルの読み取り権限を復旧するか、ファイルを削除してください。
 
 ## コマンドの表示 {#visibility}
 
@@ -105,7 +105,7 @@ _team-skills: indexed; run git rm --cached -- '_team-skills' and add "/_team-ski
 
 ## クリーンアップの安全性 {#cleanup}
 
-**いずれかの宣言**が利用不能（`followed`/`not-link` 以外）なら merge/copy の全 skills target で prune を停止し、`sync --force` も解除しません。新しいリンク/コピーは作成可能。Standard naming の既存 managed copy は出所が証明できないと置換せず、flat naming は続行可能。Merge link の置換は可能ですが、エントリ復帰時の名前衝突を警告します。
+**いずれかの宣言**が利用不能（`followed`/`not-link` 以外）なら merge/copy の全 skills target で prune を停止し、`sync --force` も解除せず、source を pull した直後の init 初回 sync でも同様です。新しいリンク/コピーは作成可能。Standard naming の既存 managed copy は出所が証明できないと置換せず、flat naming は続行可能。Merge link の置換は可能ですが、エントリ復帰時の名前衝突を警告します。
 
 Status/doctor は各停止理由を表示します：
 
@@ -119,7 +119,7 @@ prune paused: <name> is <state>; restore or fix <path>, or remove <name> from .s
 
 CLI、Dashboard（all/streaming 含む）、`install --update` は同じ followed tracked repo 方針です：clean tree と **fast-forward-only** pull（`--ff-only --no-rebase`）。明示 `--force` は dry run でも拒否。Dirty、status-check error、fast-forward 失敗（履歴分岐含む）は項目ごとに失敗し、`resolve in` と解決先の実パスを表示。他の batch 項目は続行します。外部 repo で解決し、force 再試行はしないでください。通常 installed repo は従来どおりです。
 
-followed entry 配下の通常 skill は再インストールされません。`update` はすべての選択方法（`--all`、名前、glob、group、project mode、dry run）と Dashboard の単一更新で、各項目を `followed repository update refused: skill <path> is inside followed entry <name>` として失敗にし、他の項目は続行します。更新されるのは上記方針に従う followed repository 自体だけです。
+followed entry 配下の通常 skill は再インストールされません。`update` はすべての選択方法（`--all`、名前、glob、group、project mode、dry run）と Dashboard の単一更新・update-all で、各項目を `followed repository update refused: skill <path> is inside followed entry <name>` として失敗にし、他の項目は続行します。更新されるのは上記方針に従う followed repository 自体だけです。
 
 **Audit 失敗時は pull 前の commit に hard-reset します。** Resolved root をスキャンして論理パスで報告し、scan error も更新を止めます。更新中は編集、リンク先変更、別の Git 操作をしないでください。検査は snapshot で lock ではなく、rollback が同時変更を失う可能性があります。Skillshare 外の pull/編集は自動 audit されないため `skillshare audit` を実行してください。
 

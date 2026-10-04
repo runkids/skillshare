@@ -46,7 +46,7 @@ Root/repo `.skillignore` still applies. Nested links are not traversed.
 | `undeclared-link` | Leave invisible or declare and ignore it; info only |
 
 Declared states other than `followed`/`not-link` pause all merge/copy skills
-prune, even with force. New links/copies may still be created. Standard-name
+prune, even with force and during init's first sync. New links/copies may still be created. Standard-name
 managed copies are kept when replacement cannot prove their origin; flat naming
 can proceed. Replaced merge links warn of possible collisions when entries return.
 Status/doctor say:
@@ -58,7 +58,8 @@ prune paused: <name> is <state>; restore or fix <path>, or remove <name> from .s
 Remove an abandoned name from every declaration file containing it, then sync.
 If `.skillfollow`/`.skillfollow.local` exists but cannot be read, discovery stops:
 sync refuses and keeps targets, check/status report the read error instead of
-empty counts, and source Git staging is refused. Restore read access or remove it.
+empty counts, every update (CLI, dashboard, `install --update`) is refused even
+with force, and source Git staging is refused. Restore read access or remove it.
 Removing a declaration does not delete its external tree. Managed orphan links
 through the logical source can be pruned; fully external managed links after
 unfollow are kept with `managed link resolves outside the source after unfollow;
@@ -93,7 +94,7 @@ Explicit `--force` is refused, even for dry runs. Dirty/status-error/diverged
 items fail with `resolve in <resolved path>`; independent batch items continue.
 CLI, dashboard including streaming/all, and `install --update` share the policy.
 Regular skills below a followed entry are never reinstalled: every selection mode
-and the dashboard single update refuse them per item with `followed repository
+and the dashboard (single and update-all) refuse them per item with `followed repository
 update refused: skill <path> is inside followed entry <name>`; other items continue.
 **Audit failure still hard-resets to the pre-pull commit.** Do not edit the repo,
 repoint links, or run Git concurrently: checks are snapshots, not locks. Edits or

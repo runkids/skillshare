@@ -84,7 +84,7 @@ git rm --cached -- '_team-skills'
 
 `not-link`/`followed` 的 doctor 檢查為 pass；其他宣告狀態為 warning 並暫停清理。`undeclared-link` 僅 info，不暫停清理。Parser 警告另外呈現。
 
-若 `.skillfollow` 或 `.skillfollow.local` 存在但無法讀取，discovery 會停止而不是以不完整的結果繼續：`sync` 拒絕並保留既有 target，`check` 與 `status` 回報讀取錯誤而非空計數，source 的 Git staging 也會拒絕。恢復該檔案的讀取權限或移除它。
+若 `.skillfollow` 或 `.skillfollow.local` 存在但無法讀取，discovery 會停止而不是以不完整的結果繼續：`sync` 拒絕並保留既有 target，`check` 與 `status` 回報讀取錯誤而非空計數，所有 `update`（CLI、Dashboard、`install --update`）即使 `--force` 也拒絕、Dashboard update-all 整體失敗，source 的 Git staging 也會拒絕。恢復該檔案的讀取權限或移除它。
 
 ## 指令呈現 {#visibility}
 
@@ -105,7 +105,7 @@ _team-skills: indexed; run git rm --cached -- '_team-skills' and add "/_team-ski
 
 ## 清理安全 {#cleanup}
 
-**任何宣告項目**不可用（除了 `followed`/`not-link`）時，merge/copy 的所有 skills target 暫停 prune，`sync --force` 也不能覆寫。仍可建立新連結/副本。Standard naming 下，無法證明來源的既有 managed copy 不替換；flat naming 可繼續。Merge link 可替換，但會警告：項目恢復時可能名稱衝突。
+**任何宣告項目**不可用（除了 `followed`/`not-link`）時，merge/copy 的所有 skills target 暫停 prune，`sync --force` 也不能覆寫，pull source 後 init 的首次 sync 亦同。仍可建立新連結/副本。Standard naming 下，無法證明來源的既有 managed copy 不替換；flat naming 可繼續。Merge link 可替換，但會警告：項目恢復時可能名稱衝突。
 
 Status/doctor 對每個阻擋顯示：
 
@@ -119,7 +119,7 @@ prune paused: <name> is <state>; restore or fix <path>, or remove <name> from .s
 
 CLI、Dashboard（含 all/streaming）、`install --update` 共用 followed tracked repo 策略：乾淨樹與 **fast-forward-only** pull（`--ff-only --no-rebase`）。明確 `--force` 在 dry run 也拒絕。Dirty、status-check error、fast-forward 失敗（含分歧）為各項失敗，提供 ``resolve in `<resolved path>` ``；其他 batch 項目繼續。請在外部 repo 解決，不要用 force 重試；一般 installed repo 策略不變。
 
-followed entry 之下的一般 skill 不會被重新安裝。`update` 在所有選擇方式（`--all`、名稱、glob、group、project mode、dry run）與 Dashboard 單項更新中，把每一項標為失敗 `followed repository update refused: skill <path> is inside followed entry <name>`，其他項目繼續。只有 followed repository 本身會依上述策略更新。
+followed entry 之下的一般 skill 不會被重新安裝。`update` 在所有選擇方式（`--all`、名稱、glob、group、project mode、dry run）與 Dashboard 單項更新、update-all 中，把每一項標為失敗 `followed repository update refused: skill <path> is inside followed entry <name>`，其他項目繼續。只有 followed repository 本身會依上述策略更新。
 
 **Audit 失敗仍 hard-reset 到 pull 前 commit。** Audit 掃描 resolved root、回報邏輯路徑，scan error 也阻擋。更新期間不要編輯 repo、重指連結或同時跑 Git：檢查是 snapshot，不是 lock，rollback 可丟失併發變更。Skillshare 外的 pull/編輯不會自動 audit；自行執行 `skillshare audit`。
 
