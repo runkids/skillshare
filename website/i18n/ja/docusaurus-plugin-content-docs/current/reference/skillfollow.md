@@ -54,7 +54,7 @@ git rm --cached -- '_team-skills'
 
 `skillshare doctor`、`skillshare list --no-tui`、`skillshare sync --dry-run` で確認し、正しければ `skillshare sync`。`-g`/`-p` で対象を選びます。宣言/ignore は手動編集です。Discovery、status、doctor、dry run は自動作成・修復しません。`follow`/`unfollow` コマンドはまだありません。
 
-`_` 接頭辞と `.git` を持つディレクトリは tracked repo、それ以外はグループです。Skills は `_team-skills/review`（flat name `_team-skills__review`）などの論理パスを維持します。Source-root/repo の `.skillignore` は引き続き適用され（followed グループ内に入れ子の tracked repo も含む）、未宣言リンクは非表示のままです。
+`_` 接頭辞と `.git` を持つディレクトリは tracked repo、それ以外はグループです。Skills は `_team-skills/review`（flat name `_team-skills__review`）などの論理パスを維持します。Source-root/repo の `.skillignore` は引き続き適用され（followed グループ内に入れ子の tracked repo も含む）、入れ子の tracked repo（`--track --into` で入れたものも）は自分の skills を所有します（`list` に repo 名、`status` と Dashboard の件数、`.metadata.json` の target override が適用、Dashboard は単一 skill の uninstall を拒否）。未宣言リンクは非表示のままです。
 
 ## 形式
 

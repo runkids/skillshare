@@ -54,7 +54,7 @@ git rm --cached -- '_team-skills'
 
 `skillshare doctor`, `skillshare list --no-tui`, `skillshare sync --dry-run`으로 확인하고 올바르면 `skillshare sync`하세요. `-g`/`-p`로 범위를 선택하세요. 선언/ignore는 수동 편집이며 discovery, status, doctor, dry run이 자동 생성/복구하지 않습니다. 아직 `follow`/`unfollow` 명령은 없습니다.
 
-`_` 접두사와 `.git`을 가진 항목은 tracked repo, 그 외는 그룹입니다. Skills는 `_team-skills/review`（flat name `_team-skills__review`）같은 논리 경로를 유지합니다. Source-root/repo `.skillignore`는 계속 적용되며(followed 그룹 안에 중첩된 tracked repo 포함) 미선언 첫 계층 링크는 보이지 않습니다.
+`_` 접두사와 `.git`을 가진 항목은 tracked repo, 그 외는 그룹입니다. Skills는 `_team-skills/review`（flat name `_team-skills__review`）같은 논리 경로를 유지합니다. Source-root/repo `.skillignore`는 계속 적용되며(followed 그룹 안에 중첩된 tracked repo 포함), 중첩된 tracked repo(`--track --into`로 설치한 것 포함)는 자신의 skills를 소유합니다(`list`에 repo 이름, `status`와 Dashboard 집계, `.metadata.json` target override 적용, Dashboard는 단일 skill uninstall 거부). 미선언 첫 계층 링크는 보이지 않습니다.
 
 ## 형식
 

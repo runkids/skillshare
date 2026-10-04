@@ -54,7 +54,7 @@ git rm --cached -- '_team-skills'
 
 執行 `skillshare doctor`、`skillshare list --no-tui`、`skillshare sync --dry-run`；用 `-g`/`-p` 選定範圍，預覽正確再 `skillshare sync`。宣告與 ignore 檔須手動編輯；discovery、status、doctor、dry run 不會自動建立或修復它們。目前沒有 `follow`/`unfollow` 指令。
 
-`_` 前綴且含 `.git` 的項目視為 tracked repo，其他 followed 目錄視為群組。Skills 保留 `_team-skills/review` 等邏輯路徑（flat name：`_team-skills__review`）。Source-root/repo 的 `.skillignore` 仍適用（含 followed 群組內巢狀的 tracked repo）；未宣告第一層連結仍不可見。
+`_` 前綴且含 `.git` 的項目視為 tracked repo，其他 followed 目錄視為群組。Skills 保留 `_team-skills/review` 等邏輯路徑（flat name：`_team-skills__review`）。Source-root/repo 的 `.skillignore` 仍適用（含 followed 群組內巢狀的 tracked repo）；巢狀的 tracked repo（含 `--track --into` 安裝的）擁有自己的 skills：`list` 顯示該 repo、`status` 與 Dashboard 計入該 repo、`.metadata.json` target override 生效、Dashboard 拒絕單獨解除安裝其中的 skill；未宣告第一層連結仍不可見。
 
 ## 格式
 

@@ -54,7 +54,7 @@ git rm --cached -- '_team-skills'
 
 Then run `skillshare doctor`, `skillshare list --no-tui`, and `skillshare sync --dry-run`. Use `-g` or `-p` to select the intended scope; run `skillshare sync` when the preview is correct. Declaration and ignore files are hand-edited: discovery, status, doctor, and dry runs do not create or repair them. There is no `follow` or `unfollow` command yet.
 
-A `_`-prefixed entry with `.git` is treated as a tracked repository; other followed directories are groups. Skills retain logical paths such as `_team-skills/review` (flat name `_team-skills__review`). Root and repository `.skillignore` rules still apply, including a tracked repository nested inside a followed group; following does not bypass filtering. An undeclared first-level link remains invisible to discovery, as before.
+A `_`-prefixed entry with `.git` is treated as a tracked repository; other followed directories are groups. Skills retain logical paths such as `_team-skills/review` (flat name `_team-skills__review`). Root and repository `.skillignore` rules still apply, including a tracked repository nested inside a followed group; following does not bypass filtering. Such a nested repository (also one installed with `--track --into`) owns its skills: `list` names it, `status` and the dashboard count them under it, `.metadata.json` target overrides apply, and the dashboard refuses to uninstall a single skill from it. An undeclared first-level link remains invisible to discovery, as before.
 
 ## File format
 

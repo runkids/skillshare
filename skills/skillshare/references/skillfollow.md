@@ -29,7 +29,9 @@ Invalid lines warn. There are no `follow`/`unfollow` commands yet.
 A `_`-prefixed directory with `.git` is a tracked repo; other directories are
 groups. Paths stay logical (`_team-skills/review`, flat `_team-skills__review`).
 Root/repo `.skillignore` still applies, including a tracked repo nested in a
-followed group. Nested links are not traversed.
+followed group. A nested tracked repo (also `--track --into`) owns its skills:
+list/status/dashboard counts, `.metadata.json` target overrides, and the
+dashboard single-skill uninstall guard. Nested links are not traversed.
 
 ## States and recovery
 
