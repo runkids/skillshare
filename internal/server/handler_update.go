@@ -88,7 +88,17 @@ func (s *Server) handleUpdate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if body.All {
-		results := s.updateAll(body.Force, body.SkipAudit)
+		results, err := s.updateAll(body.Force, body.SkipAudit)
+		if err != nil {
+			s.writeOpsLog("update", "error", start, map[string]any{
+				"name":       "--all",
+				"force":      body.Force,
+				"skip_audit": body.SkipAudit,
+				"scope":      "ui",
+			}, err.Error())
+			writeError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
 		total := len(results)
 		failed := 0
 		blocked := 0
@@ -481,28 +491,36 @@ func (s *Server) updateRegularSkill(name, skillPath string, force, skipAudit boo
 	return item
 }
 
-func (s *Server) updateAll(force, skipAudit bool) []updateResultItem {
+func (s *Server) updateAll(force, skipAudit bool) ([]updateResultItem, error) {
 	var results []updateResultItem
-
-	// Update tracked repos
-	repos, err := install.GetTrackedReposWithOptions(s.cfg.EffectiveSkillsSource(), sourcewalk.Options{Follow: s.skillFollowSet()})
-	if err == nil {
-		for _, repo := range repos {
-			repoPath := filepath.Join(s.cfg.EffectiveSkillsSource(), repo)
-			results = append(results, s.updateTrackedRepo(repo, repoPath, force, skipAudit))
-		}
+	source := s.cfg.EffectiveSkillsSource()
+	repos, skills, err := s.collectUpdateAll(source, s.skillFollowSet())
+	if err != nil {
+		return nil, err
 	}
-
-	// Update regular skills with source metadata
-	skills, err := getServerUpdatableSkills(s.cfg.EffectiveSkillsSource(), s.skillsStore)
-	if err == nil {
-		for _, skill := range skills {
-			skillPath := filepath.Join(s.cfg.EffectiveSkillsSource(), skill)
-			results = append(results, s.updateRegularSkill(skill, skillPath, force, skipAudit))
-		}
+	for _, repo := range repos {
+		results = append(results, s.updateTrackedRepo(repo, filepath.Join(source, repo), force, skipAudit))
 	}
+	for _, skill := range skills {
+		results = append(results, s.updateRegularSkill(skill, filepath.Join(source, skill), force, skipAudit))
+	}
+	return results, nil
+}
 
-	return results
+// collectUpdateAll lists tracked repos and regular skills with source metadata.
+// With a follow snapshot, incomplete discovery fails the request rather than
+// omitting items; without one, a failed walk keeps the legacy empty list.
+func (s *Server) collectUpdateAll(source string, follow *sourcewalk.FollowSet) (repos, skills []string, err error) {
+	opts := sourcewalk.Options{Follow: follow}
+	repos, err = install.GetTrackedReposWithOptions(source, opts)
+	if err != nil && follow != nil {
+		return nil, nil, err
+	}
+	skills, err = getServerUpdatableSkills(source, s.skillsStore, opts)
+	if err != nil && follow != nil {
+		return nil, nil, err
+	}
+	return repos, skills, nil
 }
 
 // handleMissingTrackedRepos returns tracked repos declared in metadata whose
@@ -571,10 +589,13 @@ func (s *Server) handleRehydrateTrackedRepos(w http.ResponseWriter, r *http.Requ
 
 // getServerUpdatableSkills returns relative paths of skills that have metadata with a remote source.
 // It walks the source directory recursively to find nested skills (e.g. utils/ascii-box-check).
-func getServerUpdatableSkills(sourceDir string, store *install.MetadataStore) ([]string, error) {
+func getServerUpdatableSkills(sourceDir string, store *install.MetadataStore, opts sourcewalk.Options) ([]string, error) {
 	var skills []string
 	walkRoot := utils.ResolveSymlink(sourceDir)
-	err := sourcewalk.WalkDir(walkRoot, sourcewalk.Options{}, func(path string, d os.DirEntry, err error) error {
+	if opts.Follow != nil {
+		walkRoot = filepath.Clean(sourceDir)
+	}
+	err := sourcewalk.WalkDir(walkRoot, opts, func(path string, d os.DirEntry, err error) error {
 		if err != nil {
 			return nil
 		}
@@ -610,6 +631,9 @@ func getServerUpdatableSkills(sourceDir string, store *install.MetadataStore) ([
 	})
 	if err != nil {
 		return nil, err
+	}
+	if opts.Follow != nil && opts.Follow.Err() != nil {
+		return nil, opts.Follow.Err()
 	}
 	return skills, nil
 }

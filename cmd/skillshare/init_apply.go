@@ -281,7 +281,8 @@ func printInitDone(p *initPlan, res *initResult) {
 func firstSync(cfg *config.Config) (skills int, kept []string, err error) {
 	start := time.Now()
 	spinner := ui.StartSpinner("Syncing…")
-	discovered, _, err := ssync.DiscoverSourceSkillsWithOptions(cfg.EffectiveSkillsSource(), ssync.DiscoveryOptions{Follow: globalSkillFollowSet(cfg)})
+	follow := globalSkillFollowSet(cfg)
+	discovered, _, err := ssync.DiscoverSourceSkillsWithOptions(cfg.EffectiveSkillsSource(), ssync.DiscoveryOptions{Follow: follow})
 	if err != nil {
 		spinner.Fail("Sync failed")
 		return 0, nil, err
@@ -290,13 +291,22 @@ func firstSync(cfg *config.Config) (skills int, kept []string, err error) {
 
 	var entries []syncTargetEntry
 	for name, target := range cfg.Targets {
-		entries = append(entries, syncTargetEntry{name: name, target: target, mode: getTargetMode(target.SkillsConfig().Mode, cfg.Mode)})
+		entries = append(entries, syncTargetEntry{name: name, target: target, mode: getTargetMode(target.SkillsConfig().Mode, cfg.Mode), follow: follow})
 	}
-	_, failed := runParallelSyncQuiet(entries, cfg.EffectiveSkillsSource(), discovered, ssync.EffectiveFileIgnorePatterns(cfg.Ignore), false, false, "")
+	results, failed := runParallelSyncQuiet(entries, cfg.EffectiveSkillsSource(), discovered, ssync.EffectiveFileIgnorePatterns(cfg.Ignore), false, false, "")
 	if _, agentErr := syncAgentsGlobal(cfg, false, false, true, start); agentErr != nil && err == nil {
 		err = agentErr
 	}
 	spinner.Stop()
+	// Only .skillfollow pauses are shown here; skillshare sync reports the rest.
+	for _, r := range results {
+		if len(r.prunePaused) > 0 {
+			ui.Warning("%s: prune paused; unavailable .skillfollow entry: %s", r.name, strings.Join(r.prunePaused, ", "))
+		}
+		if len(r.kept) > 0 {
+			ui.Warning("%s: kept %d managed copies whose origin cannot be proven: %s", r.name, len(r.kept), strings.Join(r.kept, ", "))
+		}
+	}
 	if failed > 0 {
 		err = fmt.Errorf("%s failed to sync; run skillshare sync for details", plural(failed, "tool"))
 	}

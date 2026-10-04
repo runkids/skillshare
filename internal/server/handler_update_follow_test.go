@@ -4,6 +4,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -87,7 +88,10 @@ func TestServerFollowedMixedUpdate(t *testing.T) {
 						t.Fatalf("missing per-item results: %s", body)
 					}
 				} else {
-					results := f.server.updateAll(condition == "force", true)
+					results, err := f.server.updateAll(condition == "force", true)
+					if err != nil {
+						t.Fatal(err)
+					}
 					actions := map[string]string{}
 					for _, item := range results {
 						actions[item.Name] = item.Action
@@ -183,5 +187,121 @@ func TestServerFollowedGroupSkillUpdateRefused(t *testing.T) {
 	}
 	if testutil.RunGit(t, checkout, "rev-parse", "HEAD") != before {
 		t.Fatal("refusal pulled the user's checkout")
+	}
+}
+
+// unreadableServerFollowFixture pushes a new remote commit, then hides the
+// declaration that marks _dev as followed.
+func unreadableServerFollowFixture(t *testing.T) (serverFollowFixture, string) {
+	t.Helper()
+	if runtime.GOOS == "windows" || os.Geteuid() == 0 {
+		t.Skip("requires Unix permission enforcement")
+	}
+	f := newServerFollowFixture(t)
+	commitServerFollowFile(t, f.seed, "remote.txt", "new")
+	testutil.RunGit(t, f.seed, "push", "origin", "HEAD:main")
+	before := testutil.RunGit(t, f.target, "rev-parse", "HEAD")
+	declaration := filepath.Join(f.source, ".skillfollow")
+	if err := os.Chmod(declaration, 0000); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { os.Chmod(declaration, 0644) })
+	return f, before
+}
+
+// Named routes resolve _dev with os.Stat before any walk, so the policy itself
+// must refuse when the declaration cannot be read, even with force.
+func TestServerFollowedNamedUpdateUnreadableDeclaration(t *testing.T) {
+	for _, stream := range []bool{false, true} {
+		t.Run(map[bool]string{false: "json", true: "sse"}[stream], func(t *testing.T) {
+			f, before := unreadableServerFollowFixture(t)
+			recorder := httptest.NewRecorder()
+			if stream {
+				f.server.handleUpdateStream(recorder, httptest.NewRequest("GET", "/api/update/stream?names=_dev&force=true&skipAudit=true", nil))
+			} else {
+				f.server.handleUpdate(recorder, httptest.NewRequest("POST", "/api/update", strings.NewReader(`{"name":"_dev","force":true,"skipAudit":true}`)))
+			}
+			body := recorder.Body.String()
+			if !strings.Contains(body, `"action":"error"`) || !strings.Contains(body, "read skillfollow declaration") {
+				t.Fatalf("unreadable declaration was not refused: %s", body)
+			}
+			if testutil.RunGit(t, f.target, "rev-parse", "HEAD") != before {
+				t.Fatal("update moved the followed checkout")
+			}
+		})
+	}
+}
+
+// Update-all must descend into a followed non-_ group so a metadata-backed
+// skill there is refused per item instead of silently omitted.
+func TestServerFollowedGroupSkillUpdateAllRefused(t *testing.T) {
+	for _, stream := range []bool{false, true} {
+		t.Run(map[bool]string{false: "json", true: "sse"}[stream], func(t *testing.T) {
+			f := newServerFollowFixture(t)
+			base := t.TempDir()
+			group := filepath.Join(base, "group")
+			if err := os.MkdirAll(filepath.Join(group, "g"), 0755); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(filepath.Join(group, "g", "SKILL.md"), []byte("# G\n"), 0644); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.Symlink(group, filepath.Join(f.source, "group")); err != nil {
+				t.Skip(err)
+			}
+			if err := os.WriteFile(filepath.Join(f.source, ".skillfollow"), []byte("_dev\ngroup\n"), 0644); err != nil {
+				t.Fatal(err)
+			}
+			store := install.NewMetadataStore()
+			store.Set("group/g", &install.MetadataEntry{Source: "file:///nonexistent/remote.git"})
+			f.server.skillsStore = store
+			expected := commitServerFollowFile(t, f.seed, "remote.txt", "new")
+			testutil.RunGit(t, f.seed, "push", "origin", "HEAD:main")
+
+			var body string
+			if stream {
+				recorder := httptest.NewRecorder()
+				f.server.handleUpdateStream(recorder, httptest.NewRequest("GET", "/api/update/stream?skipAudit=true", nil))
+				body = recorder.Body.String()
+			} else {
+				recorder := httptest.NewRecorder()
+				f.server.handleUpdate(recorder, httptest.NewRequest("POST", "/api/update", strings.NewReader(`{"all":true,"skipAudit":true}`)))
+				body = recorder.Body.String()
+			}
+			if !strings.Contains(body, `"name":"group/g","action":"error","message":"`+install.ErrFollowedUpdate.Error()) {
+				t.Fatalf("followed group skill was not refused per item: %s", body)
+			}
+			if testutil.RunGit(t, f.ordinary, "rev-parse", "HEAD") != expected {
+				t.Fatalf("ordinary repo did not update: %s", body)
+			}
+		})
+	}
+}
+
+// An unreadable declaration hides followed entries, so update-all fails
+// instead of reporting success with every tracked repository omitted.
+func TestServerFollowedUpdateAllUnreadableDeclaration(t *testing.T) {
+	for _, stream := range []bool{false, true} {
+		t.Run(map[bool]string{false: "json", true: "sse"}[stream], func(t *testing.T) {
+			f, before := unreadableServerFollowFixture(t)
+			ordinaryBefore := testutil.RunGit(t, f.ordinary, "rev-parse", "HEAD")
+			declaration := filepath.Join(f.source, ".skillfollow")
+			recorder := httptest.NewRecorder()
+			if stream {
+				f.server.handleUpdateStream(recorder, httptest.NewRequest("GET", "/api/update/stream?force=true&skipAudit=true", nil))
+				body := recorder.Body.String()
+				if !strings.Contains(body, "event: error") || !strings.Contains(body, declaration) || strings.Contains(body, "event: done") {
+					t.Fatalf("stream did not fail: %s", body)
+				}
+			} else {
+				f.server.handleUpdate(recorder, httptest.NewRequest("POST", "/api/update", strings.NewReader(`{"all":true,"force":true,"skipAudit":true}`)))
+				if recorder.Code != 500 || !strings.Contains(recorder.Body.String(), declaration) {
+					t.Fatalf("update-all did not fail: %d %s", recorder.Code, recorder.Body.String())
+				}
+			}
+			if testutil.RunGit(t, f.target, "rev-parse", "HEAD") != before || testutil.RunGit(t, f.ordinary, "rev-parse", "HEAD") != ordinaryBefore {
+				t.Fatal("update-all changed a repository after discovery failed")
+			}
+		})
 	}
 }

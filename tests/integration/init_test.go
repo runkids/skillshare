@@ -1388,6 +1388,45 @@ func TestInit_Headless_RemoteWithSameNameSkill_UsesRepoVersion(t *testing.T) {
 	}
 }
 
+// A pulled .skillfollow entry that is missing on this machine pauses prune in
+// init's first sync, as in skillshare sync, so links into it are kept.
+func TestInit_Headless_RemoteWithMissingFollowEntry_PausesPrune(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	os.Remove(sb.ConfigPath)
+	remote := createSkillsRemote(t, sb.Root, map[string]string{"tdd": "repo tdd"})
+	work := filepath.Join(sb.Root, "remote-work")
+	os.WriteFile(filepath.Join(work, ".skillfollow"), []byte("_off\n"), 0644)
+	for _, args := range [][]string{
+		{"add", ".skillfollow"},
+		{"-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "follow"},
+		{"push", "-q", strings.TrimPrefix(remote, "file://"), "main"},
+	} {
+		cmd := exec.Command("git", args...)
+		cmd.Dir = work
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("git %v: %v (%s)", args, err, out)
+		}
+	}
+	target := filepath.Join(sb.Home, ".claude", "skills")
+	os.MkdirAll(target, 0755)
+	stale := filepath.Join(target, "_off__c")
+	if err := os.Symlink(filepath.Join(sb.SourcePath, "_off", "c"), stale); err != nil {
+		t.Fatal(err)
+	}
+
+	result := sb.RunCLI("init", "--remote", remote, "--no-skill")
+	result.AssertSuccess(t)
+	result.AssertOutputContains(t, "prune paused")
+	if _, err := os.Lstat(stale); err != nil {
+		t.Fatalf("init's sync pruned a link into a missing followed entry: %v", err)
+	}
+	if !sb.IsSymlink(filepath.Join(target, "tdd")) {
+		t.Error("the repo's skills should still be linked")
+	}
+}
+
 func TestInit_DryRun_DoesNotCreateToolFolders(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
