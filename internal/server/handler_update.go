@@ -187,7 +187,7 @@ func (s *Server) updateSingleByKind(name, kind string, force, skipAudit bool) up
 		return updateResultItem{Name: name, Action: "error", Message: err.Error()}
 	}
 	if repoPath != "" {
-		return s.updateTrackedRepo(repoName, repoPath, force, skipAudit)
+		return s.updateTrackedRepo(repoName, repoPath, s.cfg.EffectiveSkillsSource(), s.skillFollowSet(), force, skipAudit)
 	}
 
 	return updateResultItem{
@@ -210,7 +210,8 @@ func (s *Server) updateAgent(name string, force, skipAudit bool) updateResultIte
 
 	if localAgent.RepoRelPath != "" {
 		repoPath := filepath.Join(agentsSource, filepath.FromSlash(localAgent.RepoRelPath))
-		return s.updateTrackedRepo(agentMetaKey(localAgent.RelPath), repoPath, force, skipAudit)
+		// .skillfollow belongs to the skills source; agent repos never carry a follow policy.
+		return s.updateTrackedRepo(agentMetaKey(localAgent.RelPath), repoPath, agentsSource, nil, force, skipAudit)
 	}
 
 	metaKey := agentMetaKey(localAgent.RelPath)
@@ -301,8 +302,10 @@ func (s *Server) updateAgent(name string, force, skipAudit bool) updateResultIte
 	}
 }
 
-func (s *Server) updateTrackedRepo(name, repoPath string, force, skipAudit bool) updateResultItem {
-	policy, policyErr := install.PrepareFollowedUpdate(s.cfg.EffectiveSkillsSource(), repoPath, s.skillFollowSet(), force)
+// updateTrackedRepo pulls a tracked repo under sourceDir. follow is the policy of
+// that source: skills callers pass the skillfollow snapshot, agent callers nil.
+func (s *Server) updateTrackedRepo(name, repoPath, sourceDir string, follow *sourcewalk.FollowSet, force, skipAudit bool) updateResultItem {
+	policy, policyErr := install.PrepareFollowedUpdate(sourceDir, repoPath, follow, force)
 	if policyErr != nil {
 		return updateResultItem{Name: name, Action: "error", Message: policyErr.Error(), IsRepo: true}
 	}
@@ -494,12 +497,13 @@ func (s *Server) updateRegularSkill(name, skillPath string, force, skipAudit boo
 func (s *Server) updateAll(force, skipAudit bool) ([]updateResultItem, error) {
 	var results []updateResultItem
 	source := s.cfg.EffectiveSkillsSource()
-	repos, skills, err := s.collectUpdateAll(source, s.skillFollowSet())
+	follow := s.skillFollowSet()
+	repos, skills, err := s.collectUpdateAll(source, follow)
 	if err != nil {
 		return nil, err
 	}
 	for _, repo := range repos {
-		results = append(results, s.updateTrackedRepo(repo, filepath.Join(source, repo), force, skipAudit))
+		results = append(results, s.updateTrackedRepo(repo, filepath.Join(source, repo), source, follow, force, skipAudit))
 	}
 	for _, skill := range skills {
 		results = append(results, s.updateRegularSkill(skill, filepath.Join(source, skill), force, skipAudit))

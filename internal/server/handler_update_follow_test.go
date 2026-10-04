@@ -128,7 +128,7 @@ func TestServerFollowedAuditRollback(t *testing.T) {
 					t.Fatal(recorder.Body.String())
 				}
 			} else {
-				result := f.server.updateTrackedRepo("_dev", f.logical, false, false)
+				result := f.server.updateTrackedRepo("_dev", f.logical, f.source, f.server.skillFollowSet(), false, false)
 				if result.Action != "blocked" {
 					t.Fatalf("audit accepted malicious revision: %+v", result)
 				}
@@ -301,6 +301,46 @@ func TestServerFollowedUpdateAllUnreadableDeclaration(t *testing.T) {
 			}
 			if testutil.RunGit(t, f.target, "rev-parse", "HEAD") != before || testutil.RunGit(t, f.ordinary, "rev-parse", "HEAD") != ordinaryBefore {
 				t.Fatal("update-all changed a repository after discovery failed")
+			}
+		})
+	}
+}
+
+// Agent repos live under the agents source, so the skills .skillfollow
+// snapshot must not apply to them, even when it cannot be read.
+func TestServerAgentRepoUpdateIgnoresSkillFollow(t *testing.T) {
+	for _, declaration := range []string{"valid", "unreadable"} {
+		t.Run(declaration, func(t *testing.T) {
+			s, source := newTestServer(t)
+			base := t.TempDir()
+			agents := filepath.Join(base, "agents")
+			raw := "source: " + source + "\nagents_source: " + agents + "\nmode: merge\ntargets: {}\n"
+			if err := os.WriteFile(os.Getenv("SKILLSHARE_CONFIG"), []byte(raw), 0644); err != nil {
+				t.Fatal(err)
+			}
+			if declaration == "valid" {
+				err := os.WriteFile(filepath.Join(source, ".skillfollow"), []byte("_dev\n"), 0644)
+				if err != nil {
+					t.Fatal(err)
+				}
+			} else if err := os.Mkdir(filepath.Join(source, ".skillfollow"), 0755); err != nil {
+				t.Fatal(err)
+			}
+			remote := testutil.SetupBareRemoteRepo(t, base)
+			testutil.SeedRemoteBranch(t, base, remote, "main", map[string]string{"reviewer.md": "# Reviewer\n"})
+			repo := filepath.Join(agents, "_team")
+			testutil.RunGit(t, "", "clone", remote, repo)
+			expected := commitServerFollowFile(t, filepath.Join(base, "seed-main"), "reviewer.md", "# Reviewer v2\n")
+			testutil.RunGit(t, filepath.Join(base, "seed-main"), "push", "origin", "HEAD:main")
+
+			recorder := httptest.NewRecorder()
+			body := `{"name":"_team/reviewer","kind":"agent","skipAudit":true}`
+			s.handler.ServeHTTP(recorder, httptest.NewRequest("POST", "/api/update", strings.NewReader(body)))
+			if !strings.Contains(recorder.Body.String(), `"action":"updated"`) {
+				t.Fatalf("agent repo update failed: %s", recorder.Body.String())
+			}
+			if testutil.RunGit(t, repo, "rev-parse", "HEAD") != expected {
+				t.Fatal("agent repo did not move to the remote HEAD")
 			}
 		})
 	}
