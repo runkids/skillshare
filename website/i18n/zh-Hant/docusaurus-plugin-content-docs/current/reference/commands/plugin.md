@@ -41,7 +41,7 @@ target 會儲存這個選擇。下一次 `sync plugins` 會移除其受管理的
 | `import [NATIVE-ID]` | 採用既有安裝，不重新安裝也不啟用 |
 | `inspect NAME` | 檢查單一受管理的套件 |
 | `sync [NAME]` | 協調已選的 target 並重試未完成的原生操作 |
-| `check [NAME]` | 比對 source 內容與記錄的 digest；絕不更新 |
+| `check [NAME]` | 比對 source 內容與記錄的 digest，或 Pi npm 套件版本與 npm 最新版；絕不更新 |
 | `update [NAME]` | 檢視 source 變更並使用支援的原生更新操作 |
 | `enable / disable [NAME]` | 在下一次 sync 中納入/排除某個 target |
 | `remove [NAME]` | 解除安裝受管理的綁定並移除其定義 |
@@ -152,7 +152,7 @@ skillshare plugin add npm:@scope/package@1.2.0 --target pi --no-tui -g
 
 Pi 會下載套件並執行它的 install script，Skillshare 無法事先檢查內容；加入前請先在 pi.dev 或 npm 確認套件。`discover` 不接受 npm 來源，npm 來源也不接受 `--source-ref`、`--entry` 或 `--plugin`。只有 Pi target 能接受 npm 來源，包括執行 `pi` 的 Pi 帳號；執行其他執行檔的帳號，請用那個執行檔安裝後再匯入。搭配 `--project` 時，Pi 會把套件裝進專案的設定；專案一旦有 `.pi` 資料夾，要先在 Pi 信任這個專案，Pi 才會修改它的套件。
 
-Pi 每個套件名稱只保留一筆。Pi 已經有相同來源時，`add` 會匯入它；同一套件的其他版本則會安裝，由 Pi 替換那一筆的來源。`update` 會執行 `pi update`，但釘在精確版本的套件 Pi 會維持原版本，請改用新版本重新加入。如果你關掉了套件裡的某些 extension，Pi 會把這些規則保留到新版本，Skillshare 也會重新記錄，之後重裝時會還原。已經由另一個 Skillshare 套件管理的 Pi 套件會被拒絕，請改為更新或移除那一個。
+Pi 每個套件名稱只保留一筆。Pi 已經有相同來源時，`add` 會匯入它；同一套件的其他版本則會安裝，由 Pi 替換那一筆的來源。`update` 會執行 `pi update`，但釘在精確版本的套件 Pi 會維持原版本，請改用新版本重新加入。對於沒有指定版本就加入的套件，`check` 會拿已安裝套件 `package.json` 裡的版本，和公開 registry 上 npm `latest` 標籤指向的版本比較；`update` 遇到已經是該版本的套件時不做任何事。帶版本範圍或標籤加入的套件、被環境變數或 `.npmrc` 指向其他 registry 的套件，或版本不是單純 `X.Y.Z` 的套件，會顯示為需要在 Pi 裡檢查。dashboard 會在 Plugins 頁面和 Pi target 的 Extensions 分頁顯示每個 Pi 套件的已安裝版本。如果你關掉了套件裡的某些 extension，Pi 會把這些規則保留到新版本，Skillshare 也會重新記錄，之後重裝時會還原。已經由另一個 Skillshare 套件管理的 Pi 套件會被拒絕，請改為更新或移除那一個。
 
 在 dashboard 的新增對話框，可以直接貼上 `pi install npm:<套件>` 指令或套件的 pi.dev 網址，兩者都會轉成對應的 `npm:` 來源。
 
@@ -229,7 +229,7 @@ Copilot 與 Antigravity CLI 的安裝使用已檢視過的本機快照。匯入�
 - Codex 沒有 update 指令，因此更新會以重新整理後的快照再次 add 該 plugin。add 一定會啟用它，所以在 Codex 中被停用的 plugin 會被略過。匯入的 Codex plugin 會以 `codex plugin marketplace upgrade NAME` 更新，這會重新安裝 Codex 從該 marketplace 安裝的所有 plugin，Codex 啟動時也會這麼做。
 - 更新遇到無法處理的 target 時會略過並說明原因；該 plugin 的其他 Agent 仍會照常更新，被略過的更新會保留為待處理，留待之後的 sync。
 - 匯入的 plugin 會保留其原始的 marketplace 身分。對於沒有 source 的匯入 plugin，`check` 無法
-  推斷是否有新版本可用。若匯入的 Claude 或 Codex plugin 的原生 marketplace 已經不在，
+  推斷是否有新版本可用，但 Pi 的 npm 套件會向 npm 檢查。若匯入的 Claude 或 Codex plugin 的原生 marketplace 已經不在，
   sync 和 update 會略過該 target 並說明原因。在從未加入該 marketplace 的另一台機器上，
   也會發生同樣的情況。請在 Agent 中恢復該 marketplace，或移除該
   target 後從 source 重新加入 plugin；Skillshare 不會自行把匯入的 plugin 改到其他 source。

@@ -72,7 +72,7 @@ func checkAgentTargetInline(name string, target config.TargetConfig, builtinAgen
 	}
 
 	preserved := 0
-	linked, broken := countAgentLinksAndBroken(agentPath)
+	linked, broken := countAgentLinksAndBroken(agentPath, expected)
 	if ac.Extension != "" {
 		// Outputs are converted copies; a leftover link still counts as broken.
 		linked = sync.SyncedExtensionOutputs(agentPath, expected)
@@ -104,10 +104,16 @@ func checkAgentTargetInline(name string, target config.TargetConfig, builtinAgen
 }
 
 // countAgentLinksAndBroken counts .md symlinks and broken symlinks in a directory.
-func countAgentLinksAndBroken(dir string) (linked, broken int) {
+func countAgentLinksAndBroken(dir string, expected []resource.DiscoveredResource) (linked, broken int) {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		return 0, 0
+	}
+	// Only links for expected agents count as linked; a leftover link for an
+	// agent the target no longer syncs must not stand in for a missing one.
+	want := make(map[string]bool, len(expected))
+	for _, a := range expected {
+		want[a.FlatName] = true
 	}
 	for _, e := range entries {
 		if e.IsDir() {
@@ -122,7 +128,7 @@ func countAgentLinksAndBroken(dir string) (linked, broken int) {
 		// It's a symlink — check if target exists (os.Stat follows symlinks)
 		if _, statErr := os.Stat(filepath.Join(dir, e.Name())); statErr != nil {
 			broken++
-		} else {
+		} else if want[e.Name()] {
 			linked++
 		}
 	}

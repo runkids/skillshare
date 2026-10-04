@@ -399,6 +399,7 @@ func (s *Service) Preview(ctx context.Context, r Request) (*Plan, error) {
 		}
 		slices.Sort(names)
 		discoveries := map[string]*Discovery{}
+		latests := map[string][]int{}
 		for _, name := range names {
 			if r.Name != "" && r.Name != name {
 				continue
@@ -452,10 +453,24 @@ func (s *Service) Preview(ctx context.Context, r Request) (*Plan, error) {
 						break
 					}
 					if b.Source == "" {
-						if r.Action == "check" {
-							c.Action = "native-check"
-							c.Message = "Imported installation: use the native marketplace to check releases."
+						// An npm package has no source snapshot to compare; npm names its latest version instead.
+						installed, latest := s.npmVersions(ctx, target, b.ID, host(target), latests)
+						known := installed != nil && latest != nil
+						if known && slices.Compare(latest, installed) <= 0 {
+							c.Action = "noop"
+							break
 						}
+						if r.Action != "check" {
+							// No version is recorded: what Pi installed is read back from the package each time.
+							break
+						}
+						if known {
+							c.Action = "update-available"
+							c.Binding.Version = fmt.Sprintf("%d.%d.%d", latest[0], latest[1], latest[2])
+							break
+						}
+						c.Action = "native-check"
+						c.Message, c.MessageKey = "Imported installation: use the native marketplace to check releases.", "plugins.note.nativeCheck"
 						break
 					}
 					ref := b.SourceRef
@@ -491,7 +506,7 @@ func (s *Service) Preview(ctx context.Context, r Request) (*Plan, error) {
 						c.Action = "noop"
 					} else if r.Action == "check" {
 						c.Action = "update-available"
-						c.Message = "Source content changed; review an update before applying."
+						c.Message, c.MessageKey = "Source content changed; review an update before applying.", "plugins.note.sourceChanged"
 						// Check is read-only; the binding carries the source's version so the change can show old → new.
 						c.Binding.Version = candidate.TargetInfo[agent].Version
 					} else {

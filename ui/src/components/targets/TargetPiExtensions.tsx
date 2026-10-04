@@ -149,7 +149,8 @@ const isOn = (row: PiExtensionRow, action?: PiExtensionAction) =>
 function PackageCard({ pkg, name, ownsRules, pending, set, t }: { pkg: PiExtensionPackage; name: string; ownsRules: boolean; pending: Record<string, PiExtensionAction>; set: SetAction; t: T }) {
   const [open, setOpen] = useState(true);
   const [details, setDetails] = useState(false);
-  const title = pkg.identity || pkg.source;
+  // A plugin Skillshare installs is a local path into its state directory: its name says which one.
+  const title = pkg.managedBy || pkg.identity || pkg.source;
   const actionOf = (r: PiExtensionRow) => pending[keyOf(pkg.scope, pkg.index, r.path)];
   const on = pkg.rows.filter((r) => isOn(r, actionOf(r))).length;
   const locked = Boolean(pkg.readOnly) || (pkg.rows.length > 0 && pkg.rows.every((r) => !r.editable));
@@ -161,9 +162,9 @@ function PackageCard({ pkg, name, ownsRules, pending, set, t }: { pkg: PiExtensi
         <span className="ss-cat bg-sunken text-ink" aria-hidden><PiPackageIcon size={26} /></span>
         <span className="flex min-w-0 flex-1 flex-col gap-1">
           <span className="nm m truncate" title={pkg.source}>{title}</span>
-          {(pkg.kind || pkg.shape || pkg.managedBy) && (
+          {(pkg.kind || pkg.version || pkg.shape || pkg.managedBy) && (
             <span className="flex flex-wrap items-center gap-1.5">
-              {pkg.kind && <span className="ss-tag">{pkg.kind}</span>}
+              {(pkg.kind || pkg.version) && <span className="ss-tag">{[pkg.kind, pkg.version].filter(Boolean).join(' ')}</span>}
               {pkg.shape && <span className="ss-tag inf">{t(`targetDetail.piExtensions.shape.${pkg.shape}`)}</span>}
               {pkg.managedBy && <Link to="/plugins" className="ss-tag hover:text-ink">{t('targetDetail.piExtensions.managedBy')}</Link>}
             </span>

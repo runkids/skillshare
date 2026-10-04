@@ -396,9 +396,14 @@ func printTargetsStatus(cfg *config.Config, discovered []sync.DiscoveredSkill, f
 		}
 		if agentsExist {
 			if agentPath := resolveAgentTargetPath(target, builtinAgents, name); agentPath != "" {
+				ac := target.AgentsConfig()
+				expected, err := expectedAgentsForTarget(ac, name, agents)
+				if err != nil {
+					return err
+				}
 				preserved := 0
-				linked := countLinkedAgents(target.AgentsConfig(), agentPath, agents, &preserved)
-				row.agents = agentsCell(linked, len(agents), preserved)
+				linked := countLinkedAgents(ac, agentPath, expected, &preserved)
+				row.agents = agentsCell(linked, len(expected), preserved)
 			}
 		}
 		rows = append(rows, row)

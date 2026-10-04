@@ -28,6 +28,8 @@ export interface PiExtensionPackage {
   /** Project only: delta, deltaOnly, replaces, projectOnly, or global for a global entry the project keeps. */
   shape?: string;
   install: 'present' | 'missing' | 'unknown';
+  /** The installed package.json version, when there is one. */
+  version?: string;
   problem?: string;
   /** Why rows that can be read have no switch; credentials and reference only for a global package in a project. */
   readOnly?: 'singleFile' | 'otherResources' | 'credentials' | 'reference';

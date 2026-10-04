@@ -156,13 +156,18 @@ func buildProjectAgentStatusJSON(rt *projectRuntime) *statusJSONAgents {
 			continue
 		}
 
-		linked := countLinkedAgents(entry.AgentsConfig(), agentPath, agents)
+		ac := entry.AgentsConfig()
+		expected, err := expectedAgentsForTarget(ac, entry.Name, agents)
+		if err != nil {
+			expected = resource.ActiveAgents(agents) // invalid include/exclude: keep .agentignore at least
+		}
+		linked := countLinkedAgents(ac, agentPath, expected)
 		result.Targets = append(result.Targets, statusJSONAgentTarget{
 			Name:     entry.Name,
 			Path:     agentPath,
-			Expected: len(agents),
+			Expected: len(expected),
 			Linked:   linked,
-			Drift:    linked != len(agents) && len(agents) > 0,
+			Drift:    linked != len(expected) && len(expected) > 0,
 		})
 	}
 
@@ -228,9 +233,14 @@ func printProjectTargetsStatus(runtime *projectRuntime, discovered []sync.Discov
 		}
 		if agentsExist {
 			if agentPath := resolveProjectAgentTargetPath(entry, builtinAgents, runtime.root); agentPath != "" {
+				ac := entry.AgentsConfig()
+				expected, err := expectedAgentsForTarget(ac, entry.Name, agents)
+				if err != nil {
+					return err
+				}
 				preserved := 0
-				linked := countLinkedAgents(entry.AgentsConfig(), agentPath, agents, &preserved)
-				row.agents = agentsCell(linked, len(agents), preserved)
+				linked := countLinkedAgents(ac, agentPath, expected, &preserved)
+				row.agents = agentsCell(linked, len(expected), preserved)
 			}
 		}
 		rows = append(rows, row)

@@ -69,6 +69,7 @@ source 新增；請參考 [跨機器 Sync — Plugins](/docs/how-to/sharing/cros
 在 dashboard 中，Plugins 頁面右上角的 **Sync** 方塊會列出下一次同步將為每個 Agent
 安裝或移除的內容。點選其按鈕會開啟預覽；在你確認之前，任何 Agent 都不會有變動。
 plugin 清單會立即顯示，而方塊下方的 **Agents** 欄位則會隨著各個 Agent 的 CLI 回應而逐步填入。
+執行後，方塊會列出結果：失敗排在最前，接著是其他變更，結果相同的 Agent 合併成一列。沒有變化的項目收成一行 **Unchanged**，展開後每個 plugin 一列，Pi 套件分開列出。預覽也用同樣方式，把不會變動的項目收在要執行的變更下方。清單會顯示每個 Pi 套件的已安裝版本，讀取自 Pi 安裝的套件。
 
 ```bash
 skillshare plugin disable review --target codex --no-tui
@@ -90,6 +91,8 @@ Cursor 與 Antigravity 會在檢查過本機是否有編輯後，取代受管理
 Pi 與 OpenCode 會更新已審閱的快照。Copilot 可以在保留已知啟用狀態的同時重新整理已審閱的來源。
 Antigravity CLI 與 Grok 的更新仍留在原生工具中進行；匯入套件的限制請參閱指令參考。
 更新無法處理的 target 會被略過並說明原因，該 plugin 的其他 Agent 仍會照常更新。
+
+Pi 的 npm 套件沒有可比對的 source，所以 **Check updates** 會拿已安裝版本和 npm 上的最新版本比較。找到新版本時，該列會顯示 `old → new` 和 **Update** 按鈕，檢查結果裡每個找到的 plugin 也各有一個；兩者都會先打開該 plugin 的更新預覽。
 
 如果某個 target 失敗，結果會保留其餘成功的結果。請先解決原生 client 的驗證或設定問題，
 再重新同步該 target：

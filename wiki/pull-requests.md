@@ -11,6 +11,7 @@ Open a pull request only when explicitly asked; a push alone does not authorize 
 - Before each commit, run `git diff --cached --name-only` and stage only task-owned files. Changes another session left in the tree stay unstaged unless the user asks to include them; name any you do include in the PR body.
 - Fill `.github/PULL_REQUEST_TEMPLATE.md`. Leave a checklist box unticked when it is not true, and say why next to it.
 - List the checks actually run, such as `make check`, UI tests and build, website build, or E2E runbooks. Name any check that was not run.
+- Right after opening, start following Codex's first review yourself, as described below. Do not end the turn asking the user to report findings.
 
 ## Codex Review
 
@@ -24,7 +25,7 @@ Handle each finding as a bug report:
 4. Reply in each thread in English: the fix commit, what changed, and the covering test. For a finding that does not hold, reply with the evidence instead. Do not resolve threads; the maintainer does.
 5. Comment `@codex review` on the pull request to request a review of the new commit.
 
-Then follow up until Codex answers. Poll in the background (for example every 30 seconds, up to 30 minutes). A 👀 reaction on the comment, or **Running** in the summary, means the review is still in progress. Codex has answered when any of these appears:
+After opening the pull request, and after each `@codex review` comment, follow up until Codex answers. Poll in the background (for example every 30 seconds, up to 30 minutes). A 👀 reaction on the comment, or **Running** in the summary, means the review is still in progress. Codex has answered when any of these appears:
 
 - a review submitted after the `@codex review` comment;
 - the summary row showing **Completed** for the new commit;

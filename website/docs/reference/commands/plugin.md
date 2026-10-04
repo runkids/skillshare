@@ -47,7 +47,7 @@ removed. `remove NAME` without `--target` removes it from Skillshare.
 | `import [NATIVE-ID]` | Adopt an existing installation without reinstalling or enabling it |
 | `inspect NAME` | Inspect one managed package |
 | `sync [NAME]` | Reconcile selected targets and retry incomplete native operations |
-| `check [NAME]` | Compare source content with the recorded digest; never update |
+| `check [NAME]` | Compare source content with the recorded digest, or a Pi npm package's version with npm's latest; never update |
 | `update [NAME]` | Review source changes and use a supported native update operation |
 | `enable / disable [NAME]` | Include/exclude a target in the next sync |
 | `remove [NAME]` | Uninstall managed bindings and remove their definitions |
@@ -178,7 +178,13 @@ has a `.pi` folder, Pi changes its packages only after you trust the project in 
 Pi keeps one entry per package name. If Pi already has the same source, `add` imports
 it; another version of the package is installed, and Pi replaces that entry's source.
 `update` runs `pi update`, except for a package pinned to an exact version, which Pi
-keeps: add the package again with the new version instead. When you turned off some of the
+keeps: add the package again with the new version instead. For a package added without a
+version, `check` compares the version in the installed package's `package.json` with the
+version npm's `latest` tag names on the public registry, and `update` leaves a package that is
+already at that version alone. A package added with a version range or tag, one that the
+environment or an `.npmrc` sends to another registry, or one whose version is not a plain
+`X.Y.Z`, is reported as something to check in Pi. The dashboard shows the installed version of every Pi package, on
+the Plugins page and in a Pi target's Extensions tab. When you turned off some of the
 package's extensions, Pi keeps those rules on the new version, and Skillshare records them
 again so a later reinstall restores them. A Pi package that another Skillshare package
 already manages is refused; update or remove that one instead.
@@ -326,7 +332,10 @@ never supplies native trust approval flags.
 
 - Claude requires its native `.claude-plugin/plugin.json` package.
 - Codex accepts `.codex-plugin/plugin.json` and recognized portable root
-  `plugin.json` packages. A Claude-only package is not silently converted.
+  `plugin.json` packages. When a package has both, Codex installs from the portable
+  root `plugin.json`, so Skillshare expects that manifest's version, or `1.0.0`
+  when it has none.
+  A Claude-only package is not silently converted.
 - Sources may contain a marketplace with local plugin entries. External catalog
   catalogs are merged by plugin name/path. Conflicting paths are rejected; external
   entries are reported with instructions to add their repository directly or
@@ -351,7 +360,8 @@ never supplies native trust approval flags.
 - An update skips a target it cannot reach and says why; the plugin's other
   Agents still update, and a skipped update stays pending for a later sync.
 - Imported plugins retain their original marketplace identity. `check` cannot
-  infer release availability for an imported plugin without a source. If an
+  infer release availability for an imported plugin without a source, except an npm
+  package in Pi, which it checks against npm. If an
   imported Claude or Codex plugin's native marketplace is gone, sync and update
   skip that target and say so. This also happens on another machine where that
   marketplace was never added. Restore the marketplace in the Agent, or remove

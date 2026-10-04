@@ -38,7 +38,7 @@ skillshare plugin remove review --no-tui
 | `import [NATIVE-ID]` | 재설치하거나 활성화하지 않고 기존 설치를 채택 |
 | `inspect NAME` | 관리되는 패키지 하나를 검사 |
 | `sync [NAME]` | 선택된 target을 재조정하고 미완료된 네이티브 작업을 재시도 |
-| `check [NAME]` | source 내용을 기록된 digest와 비교. 업데이트는 절대 하지 않음 |
+| `check [NAME]` | source 내용을 기록된 digest와, 또는 Pi npm 패키지 버전을 npm 최신 버전과 비교. 업데이트는 절대 하지 않음 |
 | `update [NAME]` | source 변경 사항을 검토하고 지원되는 네이티브 업데이트 작업을 사용 |
 | `enable / disable [NAME]` | 다음 sync에 target을 포함/제외 |
 | `remove [NAME]` | 관리되는 바인딩을 제거하고 정의를 삭제 |
@@ -131,7 +131,7 @@ skillshare plugin add npm:@scope/package@1.2.0 --target pi --no-tui -g
 
 Pi가 패키지를 내려받고 install script를 실행하므로 Skillshare는 내용을 미리 검토할 수 없습니다. 추가하기 전에 pi.dev나 npm에서 패키지를 확인하세요. `discover`는 npm 소스를 받지 않으며, npm 소스에는 `--source-ref`, `--entry`, `--plugin`을 쓸 수 없습니다. npm 소스는 Pi target만 받으며, `pi`를 실행하는 Pi 계정도 포함됩니다. 다른 실행 파일을 쓰는 계정은 그 실행 파일로 설치한 뒤 가져오세요. `--project`를 쓰면 Pi가 패키지를 프로젝트 설정에 설치합니다. 프로젝트에 `.pi` 폴더가 있으면 Pi에서 프로젝트를 신뢰해야 Pi가 패키지를 변경합니다.
 
-Pi는 패키지 이름마다 항목을 하나만 유지합니다. Pi에 같은 소스가 이미 있으면 `add`는 그것을 가져옵니다. 같은 패키지의 다른 버전은 설치되며, Pi가 그 항목의 소스를 바꿉니다. `update`는 `pi update`를 실행하지만, 정확한 버전에 고정된 패키지는 Pi가 그대로 유지하므로 새 버전으로 다시 추가하세요. 패키지의 일부 extension을 꺼 두었다면 Pi가 그 규칙을 새 버전에도 유지하고, Skillshare도 다시 기록하므로 나중에 다시 설치해도 복원됩니다. 다른 Skillshare 패키지가 이미 관리하는 Pi 패키지는 거부됩니다. 그 패키지를 업데이트하거나 제거하세요.
+Pi는 패키지 이름마다 항목을 하나만 유지합니다. Pi에 같은 소스가 이미 있으면 `add`는 그것을 가져옵니다. 같은 패키지의 다른 버전은 설치되며, Pi가 그 항목의 소스를 바꿉니다. `update`는 `pi update`를 실행하지만, 정확한 버전에 고정된 패키지는 Pi가 그대로 유지하므로 새 버전으로 다시 추가하세요. 버전 없이 추가한 패키지라면 `check`는 설치된 패키지의 `package.json` 버전을 공개 registry에서 npm의 `latest` 태그가 가리키는 버전과 비교하고, `update`는 이미 그 버전인 패키지는 그대로 둡니다. 버전 범위나 태그를 붙여 추가한 패키지, 환경 변수나 `.npmrc`가 다른 registry로 보내는 패키지, 버전이 단순한 `X.Y.Z`가 아닌 패키지는 Pi에서 확인할 항목으로 표시됩니다. dashboard는 Plugins 페이지와 Pi Target의 Extensions 탭에서 모든 Pi 패키지의 설치된 버전을 보여 줍니다. 패키지의 일부 extension을 꺼 두었다면 Pi가 그 규칙을 새 버전에도 유지하고, Skillshare도 다시 기록하므로 나중에 다시 설치해도 복원됩니다. 다른 Skillshare 패키지가 이미 관리하는 Pi 패키지는 거부됩니다. 그 패키지를 업데이트하거나 제거하세요.
 
 대시보드의 추가 대화 상자에는 `pi install npm:<package>` 명령이나 패키지의 pi.dev 주소를 그대로 붙여 넣을 수 있습니다. 둘 다 해당하는 `npm:` 소스로 바뀝니다.
 
@@ -188,7 +188,7 @@ Copilot과 Antigravity CLI 설치는 검토된 로컬 스냅샷을 사용합니�
 - Codex의 네이티브 project 설치는 이 adapter에서 제공되지 않습니다. global Codex 설치에 대해서는 sync 선택이 여전히 동작합니다.
 - Codex에는 update 명령이 없으므로, 업데이트는 갱신된 스냅샷에서 플러그인을 다시 add합니다. add는 항상 플러그인을 활성화하므로 Codex에서 비활성화된 플러그인은 건너뜁니다. Import한 Codex 플러그인은 `codex plugin marketplace upgrade NAME`으로 업데이트되며, 이는 Codex가 해당 마켓플레이스에서 설치한 모든 플러그인을 다시 설치합니다. Codex도 시작할 때 같은 작업을 합니다.
 - 업데이트는 처리할 수 없는 Target을 이유와 함께 건너뛰며, 해당 플러그인의 다른 Agent는 그대로 업데이트됩니다. 건너뛴 업데이트는 대기 상태로 남아 이후 sync에서 처리됩니다.
-- import된 plugin은 원래의 marketplace identity를 유지합니다. `check`는 source가 없는 import된 plugin에 대해 release 가능 여부를 추론할 수 없습니다. import한 Claude 또는 Codex plugin의 네이티브 marketplace가 사라지면 sync와 update는 해당 Target을 건너뛰고 이유를 알려 줍니다. 그 marketplace를 한 번도 추가하지 않은 다른 머신에서도 마찬가지입니다. Agent에서 marketplace를 복원하거나, 해당 Target을 제거한 뒤 source에서 plugin을 다시 추가하세요. Skillshare는 import된 plugin을 임의로 다른 source로 옮기지 않습니다.
+- import된 plugin은 원래의 marketplace identity를 유지합니다. `check`는 source가 없는 import된 plugin에 대해 release 가능 여부를 추론할 수 없습니다. 단, Pi의 npm 패키지는 npm에서 확인합니다. import한 Claude 또는 Codex plugin의 네이티브 marketplace가 사라지면 sync와 update는 해당 Target을 건너뛰고 이유를 알려 줍니다. 그 marketplace를 한 번도 추가하지 않은 다른 머신에서도 마찬가지입니다. Agent에서 marketplace를 복원하거나, 해당 Target을 제거한 뒤 source에서 plugin을 다시 추가하세요. Skillshare는 import된 plugin을 임의로 다른 source로 옮기지 않습니다.
 - Skillshare는 관리하는 Claude/Codex plugin마다 marketplace를 하나 등록하고 `skillshare-<plugin>-<hash>`로 이름을 붙입니다(이전 설치는 `skillshare-<hash>`를 유지). plugin을 제거하거나 제외하면 plugin이 이미 없더라도 그 marketplace도 제거하며, 실패한 정리는 다음 sync에서 다시 시도합니다. marketplace가 사라졌다면 update가 다시 등록합니다. 다른 경로에 있는 같은 이름의 등록과 import된 plugin의 marketplace는 건드리지 않습니다. 스냅샷과 네이티브 캐시는 유지됩니다.
 - 이 등록은 user 설정이든 project 설정이든 이 머신의 Skillshare 상태 디렉터리를 가리킵니다. Git이나 dotfile 관리 도구로 Agent 설정을 공유하면 다른 머신에는 없는 경로가 함께 옮겨집니다. 각 머신에서 source로부터 plugin을 추가하세요.
 - Claude는 skills 디렉터리에서 plugin manifest가 있는 skill 폴더도 `<name>@skills-dir`라는 plugin으로 읽으며, 같은 이름의 plugin은 하나만 불러옵니다. 같은 이름의 Claude plugin을 추가하면 미리보기에서 이를 알려 줍니다. 둘 중 하나의 이름을 바꾸거나 제거할 때까지 Claude는 plugin을 불러오고 skill 폴더는 건너뜁니다.

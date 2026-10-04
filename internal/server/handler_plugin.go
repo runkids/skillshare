@@ -14,7 +14,9 @@ import (
 
 func (s *Server) pluginService() *plugin.Service {
 	service := &plugin.Service{ConfigPath: s.configPath(), ProjectRoot: s.projectRoot, StateDir: config.StateDir()}
-	if !s.IsProjectMode() {
+	if s.IsProjectMode() {
+		service.GlobalConfigPath = config.ConfigPath()
+	} else {
 		service.Accounts = pluginAccounts(s.cfg)
 	}
 	return service

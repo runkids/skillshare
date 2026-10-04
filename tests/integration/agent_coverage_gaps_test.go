@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"skillshare/internal/testutil"
@@ -278,4 +279,44 @@ targets:
 	result.AssertAnyOutputContains(t, `"agents"`)
 	result.AssertAnyOutputContains(t, `"expected"`)
 	result.AssertAnyOutputContains(t, `"linked"`)
+}
+
+// Refs #395: status counted every discovered agent, so a target that excludes
+// some of them was reported as drifted after a complete sync.
+func TestStatus_Agents_JSON_AppliesSyncFilters(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	agentsDir := createAgentSource(t, sb, map[string]string{
+		"tutor.md":    "# Tutor",
+		"reviewer.md": "# Reviewer",
+		"ignored.md":  "# Ignored",
+		"cursor.md":   "---\ntargets: [cursor]\n---\n# Cursor only",
+	})
+	sb.WriteFile(filepath.Join(agentsDir, ".agentignore"), "ignored.md\n")
+	claudeAgents := createAgentTarget(t, sb, "claude")
+
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets:
+  claude:
+    skills:
+      path: ` + sb.CreateTarget("claude") + `
+    agents:
+      path: ` + claudeAgents + `
+      exclude: [reviewer]
+`)
+
+	sb.RunCLI("sync", "agents").AssertSuccess(t)
+
+	result := sb.RunCLI("status", "--json")
+	result.AssertSuccess(t)
+	if !strings.Contains(result.Stdout, `"expected": 1`) || !strings.Contains(result.Stdout, `"linked": 1`) || !strings.Contains(result.Stdout, `"drift": false`) {
+		t.Errorf("status --json should expect only tutor (1/1, no drift), got:\n%s", result.Stdout)
+	}
+
+	human := sb.RunCLI("status")
+	human.AssertSuccess(t)
+	if strings.Contains(human.Stdout, "1/4") {
+		t.Errorf("status should not report 1/4 agents, got:\n%s", human.Stdout)
+	}
 }

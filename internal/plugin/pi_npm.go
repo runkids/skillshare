@@ -2,10 +2,16 @@ package plugin
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
+	"os/exec"
+	"path/filepath"
 	"regexp"
 	"runtime"
 	"strings"
+	"time"
 )
 
 // An npm source (npm:<package>[@version], as on pi.dev) is installed by Pi itself. Skillshare
@@ -135,4 +141,109 @@ func (s *Service) recordPiEntry(ctx context.Context, target string, b *Binding) 
 	}
 	b.PiRegistration = c.Binding.PiRegistration
 	return nil
+}
+
+// npmRegistry is where an update check asks for a package's latest version; tests point it elsewhere.
+var npmRegistry = "https://registry.npmjs.org"
+
+// npmVersions is the installed and latest plain X.Y.Z versions of an npm package added without a version, nil
+// where either is unknown. latests holds the registry's answers for one preview.
+// ponytail: asks the public registry only; a package from a private registry or an .npmrc
+// scope reads as unknown, and the check falls back to the native client.
+func (s *Service) npmVersions(ctx context.Context, target, id string, h Host, latests map[string][]int) (installed, latest []int) {
+	// Pi keeps a package added with a version, range or tag to that spec; only one added
+	// without a version follows npm's latest.
+	name, spec := npmSpec(id)
+	if !isNpmSource(id) || spec != "" {
+		return nil, nil
+	}
+	settings, err := s.piSettingsPath(target)
+	if err != nil || !npmUsesPublicRegistry(ctx, filepath.Join(filepath.Dir(settings), "npm"), name) {
+		return nil, nil
+	}
+	for _, item := range h.Installed {
+		if item.ID == id {
+			installed = plainVersion(item.Version)
+		}
+	}
+	if installed == nil {
+		return nil, nil
+	}
+	latest, ok := latests[name]
+	if !ok {
+		latest = plainVersion(npmLatest(ctx, name))
+		latests[name] = latest
+	}
+	return installed, latest
+}
+
+// npmConfig runs `npm config get` with keys in dir, where Pi runs npm; tests stand in for it.
+var npmConfig = func(ctx context.Context, dir string, keys ...string) (string, error) {
+	cmd := exec.CommandContext(ctx, "npm", append([]string{"config", "get"}, keys...)...)
+	cmd.Dir = dir
+	out, err := cmd.Output()
+	return string(out), err
+}
+
+// npmUsesPublicRegistry asks npm, in the folder Pi runs it in, which registry it fetches name
+// from, for everything and for the package's scope. npm resolves its environment, every .npmrc
+// and the overrides they make itself. Another registry, or npm not answering, is a no, so a
+// private name never goes to npmjs.
+func npmUsesPublicRegistry(ctx context.Context, dir, name string) bool {
+	keys := []string{"registry"}
+	if scope, _, ok := strings.Cut(name, "/"); ok && strings.HasPrefix(scope, "@") {
+		keys = append(keys, scope+":registry")
+	}
+	ctx, cancel := context.WithTimeout(ctx, 15*time.Second)
+	defer cancel()
+	out, err := npmConfig(ctx, dir, keys...)
+	if err != nil {
+		return false
+	}
+	// One key prints its value; several print key=value lines, "undefined" for one not set.
+	values := map[string]string{"registry": strings.TrimSpace(out)}
+	if len(keys) > 1 {
+		for line := range strings.SplitSeq(out, "\n") {
+			if key, value, ok := strings.Cut(strings.TrimSpace(line), "="); ok {
+				values[key] = value
+			}
+		}
+	}
+	for _, key := range keys {
+		value := strings.TrimSuffix(strings.TrimSpace(values[key]), "/")
+		if key != "registry" && (value == "" || value == "undefined") {
+			continue
+		}
+		if value != "https://registry.npmjs.org" {
+			return false
+		}
+	}
+	return true
+}
+
+// npmLatest is the version npm's "latest" tag names, "" when the registry does not say.
+func npmLatest(ctx context.Context, name string) string {
+	ctx, cancel := context.WithTimeout(ctx, 15*time.Second)
+	defer cancel()
+	// A scoped name keeps its slash encoded, as the registry addresses package documents.
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, npmRegistry+"/"+strings.Replace(name, "/", "%2f", 1)+"/latest", nil)
+	if err != nil {
+		return ""
+	}
+	req.Header.Set("Accept", "application/json")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return ""
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return ""
+	}
+	var doc struct {
+		Version string `json:"version"`
+	}
+	if json.NewDecoder(io.LimitReader(resp.Body, 1<<20)).Decode(&doc) != nil {
+		return ""
+	}
+	return doc.Version
 }

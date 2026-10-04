@@ -30,15 +30,45 @@ CONTAINER=$(docker compose -f .devcontainer/docker-compose.yml ps -q skillshare-
 
 If it is empty, stop and ask the user to run `make devc-up` before executing product commands. The source tree is bind-mounted at `/workspace`. The `ss` wrapper automatically builds current source, so ordinary CLI verification does not need a separate `make build`.
 
-## Parallel Tasks: One Worktree and Container Each
+## Parallel Tasks: Shared Container, Isolated Worktrees and State
 
-Several sessions may share this checkout and the devcontainer, and either can change under you: another task commits, cleans the tree, or recreates the container. When a task gets its own branch or pull request, set this up before the first edit, not after:
+Use the existing devcontainer by default. `ssenv` gives each task its own HOME and XDG directories; it does not isolate source code, processes, ports, or `/tmp`. A new test environment alone does not need another container.
+
+For a separate branch or pull request, create a worktree before the first edit:
 
 ```sh
 git worktree add -b runkids/<topic> ../skillshare-<topic> origin/main
 ```
 
-Make every later edit, test, and commit in that worktree. Do not edit the shared checkout and copy files over. The devcontainer mounts only the main checkout, and changing its mounts affects the other sessions, so give the worktree a throwaway container from the devcontainer image instead. Keep the compose file in the session scratchpad:
+Keep all edits, tests, and commits in that worktree. Never switch the shared checkout's branch or copy task changes into it to run tests.
+
+### Share the Linux Toolchain
+
+Before using a worktree in the shared container, verify that it is mounted and that its `.git` reference resolves there. The current compose configuration mounts only the main checkout at `/workspace`; sibling and Orca worktrees are not automatically available. Arrange worktree mounts and the main repository's Git metadata at a coordinated container restart. Do not recreate an active shared container or change its mounts underneath other sessions. If the task cannot wait for that setup, use a temporary container as described below.
+
+For an already mounted worktree, create a fresh environment and explicitly select its wrapper and build output:
+
+```sh
+ENV_NAME="task-<unique-run-id>"
+WORKTREE="/worktrees/<topic>" # Actual path already mounted inside the container.
+docker exec "$CONTAINER" ssenv create "$ENV_NAME"
+docker exec "$CONTAINER" ssenv enter "$ENV_NAME" -- \
+  env -u SKILLSHARE_CONFIG SKILLSHARE_DEV_WORKSPACE_ROOT="$WORKTREE" \
+  SKILLSHARE_DEV_USE_BINARY=0 bash -c '
+    export SKILLSHARE_DEV_TMP_BINARY="$HOME/skillshare-dev"
+    export TMPDIR="$HOME/tmp"
+    mkdir -p "$TMPDIR"
+    bash "$SKILLSHARE_DEV_WORKSPACE_ROOT/.devcontainer/bin/skillshare" version
+  '
+```
+
+Use the same environment and exports for subsequent task commands. Invoke the selected worktree's `skillshare` wrapper explicitly: the `ss` shortcut points at `/workspace`. Run initialization through that wrapper when the test needs it; creating the environment without `--init` avoids initializing through the main checkout's binary. Do not run concurrent builds into the same environment's binary path; allocate one environment per concurrent run.
+
+For Go tests, change to the mounted worktree inside the command before running the narrowest required check. Shared Go module and build caches can remain shared. Use task-specific temporary paths; `TMPDIR` does not isolate code that hardcodes `/tmp`. Avoid changing shared Git configuration or restarting shared services. Frontend tasks additionally need Linux `node_modules` for their own worktree and distinct ports/output paths; never reuse another branch's writable dependency directory or host macOS bindings.
+
+### Temporary Containers When Needed
+
+Use a separate container when the worktree is not mounted yet, a test changes system dependencies, or services and fixed paths cannot safely coexist. Reuse the existing devcontainer image and Go cache volumes. Keep task compose files in a repository scratch directory, and install only dependencies required by that task: Go-only work does not need UI or website packages.
 
 ```yaml
 name: skillshare_wt_<topic>
@@ -50,23 +80,21 @@ services:
     environment: { HOME: /home/developer, GOCACHE: /go/build-cache }
     volumes:
       - <abs-path>/skillshare-<topic>:/workspace
-      - /workspace/ui/node_modules
-      - /workspace/website/node_modules
-      # The worktree's .git file points at the main checkout's .git by absolute path.
+      # The worktree's .git file references this absolute host path.
       - <abs-path>/skillshare/.git:<abs-path>/skillshare/.git
       - skillshare_devcontainer_go-mod-cache:/go/pkg/mod
+      - skillshare_devcontainer_go-build-cache:/go/build-cache
+      # Add Linux node_modules volumes only for frontend work:
+      # - /workspace/ui/node_modules
+      # - /workspace/website/node_modules
 volumes:
   skillshare_devcontainer_go-mod-cache: { external: true }
+  skillshare_devcontainer_go-build-cache: { external: true }
 ```
 
-Start it with `docker compose -f <file> up -d`. Run commands there with `docker exec <container> bash -c '...'`, not `bash -lc`: its home is empty, so a login shell resets `PATH` and loses Go. Inside it, run `git config --global --add safe.directory /workspace`, disable the credential helper, run `pnpm install --frozen-lockfile` in `ui/` and `website/`, then use the commands below. It publishes no ports, so it never clashes with the shared dev servers.
+Verify the image and external volumes exist before starting with `docker compose -f <file> up -d`. Use `bash -c`, not `bash -lc`: an empty home can make a login shell lose Go from PATH. Configure Git safe-directory and credential isolation only in the task's own HOME. Publish ports only when needed, choosing unused host ports.
 
-When the task is finished (pushed, or abandoned), remove both so they stop using disk:
-
-```sh
-docker compose -f <file> down -v              # the container and its node_modules volumes
-git worktree remove ../skillshare-<topic>     # only when its status is clean
-```
+At completion, identify the exact task-owned environment, container, volumes, and clean worktree. Obtain authorization for deletion unless task cleanup was already explicitly authorized; preserve requested debugging evidence. Remove temporary containers with `docker compose -f <file> down -v` so their anonymous dependency volumes do not accumulate. External shared caches must remain. Do not use broad system or volume pruning as task cleanup, and do not remove another task's running container.
 
 ## Narrow Verification First
 
@@ -97,8 +125,8 @@ docker exec "$CONTAINER" ssenv enter "$ENV_NAME" -- ss status --json
 Rules:
 
 - Create a fresh environment for every E2E run; never reuse stale state.
-- `ssenv` isolates only `HOME`. `/tmp` and other system paths are shared, so runbooks must use unique paths or clean an exact target first.
-- In the shared devcontainer, `bash -lc` works for multi-command sequences; in a throwaway worktree container use `bash -c`, because its empty home makes a login shell lose Go. Run `cd /workspace` before Go commands in both.
+- `ssenv` isolates HOME and XDG directories. `/tmp`, source trees, binary outputs, and ports remain shared; follow the parallel-task isolation rules above.
+- Prefer `bash -c` for isolated multi-command sequences so login profiles do not reset the task environment. Before Go commands, change to the selected source tree (`/workspace` only for the main checkout or a task container mounted there).
 - `--init` already performs global initialization and creates the default `rules` extra; a runbook must not assume an empty environment.
 - `--seed` fills the environment for `init` testing: claude (2 skills), codex (1 skill), cursor, and a local repo at `$HOME/remote/skills.git` whose `pdf-tools` clashes with claude's.
 - Report the environment after execution. Delete or preserve it for debugging according to user direction; never discard requested evidence silently.

@@ -112,20 +112,54 @@ func TestDroidPluginTargetNotSupported(t *testing.T) {
 	}
 }
 
-func TestNativeManifestPrecedesPortableFallback(t *testing.T) {
+// Codex 0.159 installs from a portable root plugin.json ahead of .codex-plugin/plugin.json, so
+// its version is what Codex reports after an update.
+func TestCodexPortableManifestPrecedesNative(t *testing.T) {
 	root := fixture(t)
-	writeFile(t, root, "plugin.json", `{"$schema":"https://agent-plugins.org/schemas/1.0.0/plugin.schema.json","name":"demo","version":"old"}`)
+	writeFile(t, root, "plugin.json", `{"$schema":"https://agent-plugins.org/schemas/1.0.0/plugin.schema.json","name":"demo","version":"portable"}`)
 	d, err := Discover(context.Background(), root)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if d.Candidates[0].TargetInfo["codex"].Manifest != ".codex-plugin/plugin.json" {
-		t.Fatal("portable fallback hid native manifest")
+	if info := d.Candidates[0].TargetInfo["codex"]; info.Manifest != "plugin.json" || info.Version != "portable" {
+		t.Fatalf("Codex manifest: %+v", info)
 	}
 	writeFile(t, root, "plugin.json", "{")
 	d, err = Discover(context.Background(), root)
 	if err != nil || !slices.Contains(d.Candidates[0].Targets, "codex") {
 		t.Fatalf("broken fallback hid native manifest: %+v %v", d, err)
+	}
+}
+
+// Codex reports 1.0.0 for a portable manifest without a version; expecting it keeps the
+// post-update version check instead of skipping it.
+func TestCodexExpectsDefaultVersionOfVersionlessPortableManifest(t *testing.T) {
+	root := t.TempDir()
+	writeFile(t, root, "plugin.json", `{"$schema":"https://agent-plugins.org/schemas/1.0.0/plugin.schema.json","name":"demo"}`)
+	d, err := Discover(context.Background(), root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := d.Candidates[0].TargetInfo["codex"].Version; got != "1.0.0" {
+		t.Fatalf("Codex version = %q, want 1.0.0", got)
+	}
+	if got := d.Candidates[0].TargetInfo["cursor"].Version; got != "" {
+		t.Fatalf("cursor version = %q, want none", got)
+	}
+}
+
+// Codex overlays .codex-plugin/plugin.json on a portable manifest, so its logo still applies.
+func TestCodexKeepsNativeLogoUnderPortableManifest(t *testing.T) {
+	root := fixture(t)
+	writeFile(t, root, ".codex-plugin/plugin.json", `{"name":"demo","version":"1.0.0","skills":"./skills","interface":{"logo":"./logo.png"}}`)
+	writeFile(t, root, "logo.png", "png-bytes")
+	writeFile(t, root, "plugin.json", `{"$schema":"https://agent-plugins.org/schemas/1.0.0/plugin.schema.json","name":"demo"}`)
+	d, err := Discover(context.Background(), root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := d.Candidates[0].TargetInfo["codex"].Logo; got != "data:image/png;base64,cG5nLWJ5dGVz" {
+		t.Fatalf("native logo lost: %q", got)
 	}
 }
 

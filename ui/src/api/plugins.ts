@@ -32,6 +32,16 @@ export const syncAction = (b: PluginBinding, host?: PluginInventory['hosts'][num
   return !host || host.error || exists ? '' : 'install';
 };
 /**
+ * A binding's version: what config recorded, else what the Agent reports installed. On a Pi
+ * target Pi's answer comes first: it reads each installed package's package.json, npm, git or
+ * local, and a version recorded at import goes stale with the next pi update.
+ */
+export const bindingVersion = (inventory: Pick<PluginInventory, 'hosts' | 'targetDefinitions'>, target: PluginTarget, b: PluginBinding) => {
+  const installed = inventory.hosts.find((h) => h.target === target)?.installed.find((i) => i.id === b.id)?.version;
+  const pi = inventory.targetDefinitions?.some((d) => d.target === target && d.npm);
+  return pi ? installed ?? b.version : b.version ?? installed;
+};
+/**
  * The command that adds this plugin from its source on another machine, '' when the source is a
  * local directory, which only exists here. Agents are left for whoever runs it to choose. It always
  * adds globally: run inside a project with its own config, it would otherwise land in that project.
@@ -47,6 +57,20 @@ export interface PluginDiscovery {
   warnings?: string[]; source: string; sourceRef?: string; commit?: string; targetDefinitions?: PluginTargetDefinition[]; digest: string; candidates: PluginCandidate[] }
 export interface PluginPlan { revision: string; blocked: boolean; changes: { name: string; target: PluginTarget; id: string; action: string; message?: string; messageKey?: string; messageArgs?: Record<string, string>; components?: string[]; preservedKeys?: string[]; logo?: string; binding?: PluginBinding }[] }
 export interface PluginOutcome { name: string; target: PluginTarget; status: string; message?: string; messageKey?: string; messageArgs?: Record<string, string> }
+
+export interface PluginRun { name: string; target: string; version?: string }
+
+/** Rows that differ only by Agent become one row naming every Agent; `key` says what else must match. */
+export function byPlugin<R extends PluginRun>(rows: R[], key: (r: R) => string = () => '') {
+  const groups = new Map<string, R & { targets: string[] }>();
+  for (const r of rows) {
+    const k = `${r.name}\0${key(r)}`;
+    const group = groups.get(k);
+    if (group) group.targets.push(r.target);
+    else groups.set(k, { ...r, targets: [r.target] });
+  }
+  return [...groups.values()];
+}
 export interface PluginResult { result: { results: PluginOutcome[] } | null; failure: string }
 const post = <T,>(path: string, body: unknown) => apiFetch<T>(path, { method: 'POST', body: JSON.stringify(body) });
 export const pluginsApi = {

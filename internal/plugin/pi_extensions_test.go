@@ -387,6 +387,30 @@ func TestPiExtensionsManifestAndInstallLocations(t *testing.T) {
 	}
 }
 
+func TestPiExtensionsShowTheInstalledVersion(t *testing.T) {
+	f := newPiFixture(t)
+	writeTree(t, filepath.Join(f.agentDir, "npm", "node_modules", "pi-mcp-adapter"), map[string]string{
+		"package.json": `{"name":"pi-mcp-adapter","version":"5.0.0"}`,
+		"index.ts":     "x",
+	})
+	f.global(map[string]any{"packages": []any{"npm:pi-mcp-adapter"}})
+	if p := f.view("pi").Packages[0]; p.Version != "5.0.0" {
+		t.Fatalf("version: %+v", p)
+	}
+}
+
+// A version that is not a string is someone's mistake, not a reason to lose the manifest Pi reads.
+func TestPiExtensionsKeepTheManifestOfAPackageWithAnOddVersion(t *testing.T) {
+	f := newPiFixture(t)
+	writeTree(t, f.pkg, map[string]string{"package.json": `{"name":"tools","version":1,"pi":{"extensions":["./extensions/a.ts"]}}`})
+	f.global(map[string]any{"packages": []any{f.pkg}})
+	p := f.view("pi").Packages[0]
+	if p.Version != "" {
+		t.Fatalf("version: %q", p.Version)
+	}
+	assertRows(t, selections(p), "extensions/a.ts:loads")
+}
+
 func TestPiExtensionsListsARuleForAMissingFile(t *testing.T) {
 	f := newPiFixture(t)
 	f.global(map[string]any{"packages": []any{map[string]any{"source": f.pkg, "extensions": []string{"-extensions/gone.ts"}}}})
@@ -423,6 +447,64 @@ func TestPiExtensionsUnruledInAnOverrideIsTheInheritedSelection(t *testing.T) {
 		got = append(got, r.Path+":"+r.Unruled)
 	}
 	assertRows(t, got, "extensions/a.ts:loads", "extensions/c.ts:skipped", "extensions/b.ts:")
+}
+
+// A project view names the plugin Skillshare installed, for the project's entry and an inherited global one.
+func TestPiProjectExtensionsNameTheManagedPlugin(t *testing.T) {
+	for _, project := range []bool{true, false} {
+		f := newPiFixture(t)
+		root := filepath.Join(f.home, "code", "acme")
+		writeTree(t, f.home, map[string]string{"config.yaml": "plugins:\n  packages:\n    powers:\n      bindings:\n        pi:\n          id: " + f.pkg + "\n"})
+		f.global(map[string]any{"packages": []any{f.pkg}})
+		entries := []any{}
+		if project {
+			entries = append(entries, map[string]any{"source": f.pkg, "autoload": false, "extensions": []string{"-extensions/a.ts"}})
+		}
+		f.writeJSON(filepath.Join(root, ".pi", "settings.json"), map[string]any{"packages": entries})
+		f.svc.ProjectRoot = root
+		if got := f.view("pi").Packages[0]; got.ManagedBy != "powers" {
+			t.Fatalf("project entry %v: managedBy = %q, scope %s", project, got.ManagedBy, got.Scope)
+		}
+	}
+}
+
+// A dashboard in project mode reads the project's config; the global config still owns inherited packages and their overrides.
+func TestPiProjectModeNamesTheGlobalManagedPlugin(t *testing.T) {
+	f := newPiFixture(t)
+	root := filepath.Join(f.home, "code", "acme")
+	writeTree(t, f.home, map[string]string{"config.yaml": "plugins:\n  packages:\n    powers:\n      bindings:\n        pi:\n          id: " + f.pkg + "\n"})
+	f.global(map[string]any{"packages": []any{f.pkg}})
+	for _, scope := range []string{"global", "project"} {
+		entries := []any{}
+		if scope == "project" {
+			// The override Skillshare writes when a global package's extension is switched in the project.
+			entries = append(entries, map[string]any{"source": f.pkg, "autoload": false, "extensions": []string{"-extensions/a.ts"}})
+		}
+		f.writeJSON(filepath.Join(root, ".pi", "settings.json"), map[string]any{"packages": entries})
+		f.svc.ProjectRoot, f.svc.GlobalConfigPath, f.svc.ConfigPath = root, filepath.Join(f.home, "config.yaml"), filepath.Join(root, ".skillshare", "config.yaml")
+		if got := f.view("pi").Packages[0]; got.Scope != scope || got.ManagedBy != "powers" {
+			t.Fatalf("scope = %q, want %q; managedBy = %q", got.Scope, scope, got.ManagedBy)
+		}
+	}
+}
+
+// An entry Skillshare can't edit, here a non-list "extensions", still names the plugin that owns it.
+func TestPiExtensionsNameTheManagedPluginOfAProblemEntry(t *testing.T) {
+	for _, project := range []bool{false, true} {
+		f := newPiFixture(t)
+		writeTree(t, f.home, map[string]string{"config.yaml": "plugins:\n  packages:\n    powers:\n      bindings:\n        pi:\n          id: " + f.pkg + "\n"})
+		entry := []any{map[string]any{"source": f.pkg, "extensions": nil}}
+		if project {
+			root := filepath.Join(f.home, "code", "acme")
+			f.writeJSON(filepath.Join(root, ".pi", "settings.json"), map[string]any{"packages": entry})
+			f.svc.ProjectRoot = root
+		} else {
+			f.global(map[string]any{"packages": entry})
+		}
+		if got := f.view("pi").Packages[0]; got.Problem == "" || got.ManagedBy != "powers" {
+			t.Fatalf("project %v: problem = %q, managedBy = %q", project, got.Problem, got.ManagedBy)
+		}
+	}
 }
 
 func TestPiExtensionsMarksAnExtraInPisFolder(t *testing.T) {

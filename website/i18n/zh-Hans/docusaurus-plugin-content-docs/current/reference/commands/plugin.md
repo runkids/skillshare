@@ -41,7 +41,7 @@ target 会保存该选择。下一次 `sync plugins` 会移除其受管理的安
 | `import [NATIVE-ID]` | Adopt an existing installation without reinstalling or enabling it |
 | `inspect NAME` | Inspect one managed package |
 | `sync [NAME]` | Reconcile selected targets and retry incomplete native operations |
-| `check [NAME]` | Compare source content with the recorded digest; never update |
+| `check [NAME]` | 比对 source 内容与记录的 digest，或 Pi npm 包版本与 npm 最新版；绝不更新 |
 | `update [NAME]` | Review source changes and use a supported native update operation |
 | `enable / disable [NAME]` | Include/exclude a target in the next sync |
 | `remove [NAME]` | Uninstall managed bindings and remove their definitions |
@@ -152,7 +152,7 @@ skillshare plugin add npm:@scope/package@1.2.0 --target pi --no-tui -g
 
 Pi 会下载包并运行它的 install script，Skillshare 无法事先检查内容；添加前请先在 pi.dev 或 npm 确认包。`discover` 不接受 npm 来源，npm 来源也不接受 `--source-ref`、`--entry` 或 `--plugin`。只有 Pi target 能接受 npm 来源，包括运行 `pi` 的 Pi 账号；运行其他可执行文件的账号，请用那个可执行文件安装后再导入。搭配 `--project` 时，Pi 会把包装进项目的设置；项目一旦有 `.pi` 文件夹，要先在 Pi 信任这个项目，Pi 才会修改它的包。
 
-Pi 每个包名只保留一条。Pi 已经有相同来源时，`add` 会导入它；同一包的其他版本则会安装，由 Pi 替换那一条的来源。`update` 会运行 `pi update`，但固定在精确版本的包 Pi 会保持原版本，请改用新版本重新添加。如果你关闭了包里的某些 extension，Pi 会把这些规则保留到新版本，Skillshare 也会重新记录，之后重装时会还原。已经由另一个 Skillshare 包管理的 Pi 包会被拒绝，请改为更新或移除那一个。
+Pi 每个包名只保留一条。Pi 已经有相同来源时，`add` 会导入它；同一包的其他版本则会安装，由 Pi 替换那一条的来源。`update` 会运行 `pi update`，但固定在精确版本的包 Pi 会保持原版本，请改用新版本重新添加。对于没有指定版本就添加的包，`check` 会拿已安装包 `package.json` 里的版本，和公开 registry 上 npm `latest` 标签指向的版本比较；`update` 遇到已经是该版本的包时不做任何事。带版本范围或标签添加的包、被环境变量或 `.npmrc` 指向其他 registry 的包，或版本不是单纯 `X.Y.Z` 的包，会显示为需要在 Pi 里检查。dashboard 会在 Plugins 页面和 Pi target 的 Extensions 分页显示每个 Pi 包的已安装版本。如果你关闭了包里的某些 extension，Pi 会把这些规则保留到新版本，Skillshare 也会重新记录，之后重装时会还原。已经由另一个 Skillshare 包管理的 Pi 包会被拒绝，请改为更新或移除那一个。
 
 在 dashboard 的添加对话框，可以直接粘贴 `pi install npm:<包>` 命令或包的 pi.dev 网址，两者都会转成对应的 `npm:` 来源。
 
@@ -235,7 +235,7 @@ Skillshare 从不提供原生信任的批准 flags。
 - 更新遇到无法处理的 target 时会跳过并说明原因；该 plugin 的其他 Agent 仍会照常更新，
   被跳过的更新会保留为待处理，留给之后的 sync。
 - 已导入的 plugins 保留其原始的 marketplace 身份。`check` 无法为没有 source 的
-  已导入 plugin 推断发布可用性。若已导入的 Claude 或 Codex plugin 的原生
+  已导入 plugin 推断发布可用性，但 Pi 的 npm 包会向 npm 检查。若已导入的 Claude 或 Codex plugin 的原生
   marketplace 已经不在，sync 和 update 会跳过该 target 并说明原因。在从未添加该 marketplace 的另一台
   机器上也会出现同样的情况。请在 Agent
   中恢复该 marketplace，或移除该 target 后从 source 重新添加 plugin；Skillshare

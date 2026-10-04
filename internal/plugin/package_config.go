@@ -95,7 +95,16 @@ func (s *Service) piInventory(target string) ([]Installed, string, error) {
 		if !validTargetID("pi", source) {
 			return nil, "", fmt.Errorf("invalid Pi package source")
 		}
-		result = append(result, Installed{ID: source, Name: logicalName(source), Installed: true, Enabled: true, Filtered: filtered})
+		// Pi keeps installs beside its settings file; what is there says which version is installed.
+		scope, base := "user", filepath.Dir(path)
+		if s.ProjectRoot != "" {
+			scope = "project"
+		}
+		version := ""
+		if src := resolvePiSource(source, base, base, scope); src.kind != "unknown" {
+			version = piInstalledVersion(src.install)
+		}
+		result = append(result, Installed{ID: source, Name: logicalName(source), Version: version, Installed: true, Enabled: true, Filtered: filtered})
 	}
 	return result, hash(raw), nil
 }
