@@ -9,6 +9,13 @@ All notable changes to skillshare are documented here. For the full commit histo
 
 ---
 
+## [0.24.2] - 2026-10-04
+
+
+### Performance
+
+* **upgrade:** download release assets over parallel ranges ([#381](https://github.com/runkids/skillshare/issues/381)) ([887461b](https://github.com/runkids/skillshare/commit/887461b36af733efa69fb01729f5458736cb3ca0))
+
 ## [0.24.1] - 2026-10-04
 
 ### New Features
