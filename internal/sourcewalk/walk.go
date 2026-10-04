@@ -10,6 +10,24 @@ import (
 	"skillshare/internal/utils"
 )
 
+// TargetDotDirs is the set of hidden directory names (e.g. ".claude", ".cursor")
+// that hold target-synced copies rather than source skills. Set by the CLI
+// entrypoint from config data to avoid a circular import.
+var TargetDotDirs map[string]bool
+
+// SkipTargetDotDir reports whether a directory found while walking the source
+// should be skipped as a target dotdir. Only dotdirs nested below the source
+// root are skipped: a skill installed from a repo that ships its own
+// .claude/skills/ must not surface those as nested skills. Dotdirs directly
+// under the root (e.g. ".cursor/skills/*") stay visible because host-style
+// paths there are used to infer the skill's targets.
+func SkipTargetDotDir(walkRoot, path string, info os.FileInfo) bool {
+	if !info.IsDir() || !TargetDotDirs[info.Name()] {
+		return false
+	}
+	return filepath.Dir(path) != walkRoot
+}
+
 // Options carries one operation's traversal policy. A nil Follow preserves
 // existing traversal and resolved-root callback paths.
 type Options struct{ Follow *FollowSet }

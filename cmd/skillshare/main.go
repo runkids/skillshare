@@ -13,6 +13,7 @@ import (
 	"skillshare/internal/childproc"
 	"skillshare/internal/config"
 	"skillshare/internal/install"
+	"skillshare/internal/sourcewalk"
 	"skillshare/internal/theme"
 	"skillshare/internal/ui"
 	versioncheck "skillshare/internal/version"
@@ -84,7 +85,9 @@ func main() {
 	versioncheck.Version = version
 
 	// Inject target dotdirs for skill discovery (avoids circular import)
-	install.TargetDotDirs = config.ProjectTargetDotDirs()
+	targetDotDirs := config.ProjectTargetDotDirs()
+	install.TargetDotDirs = targetDotDirs
+	sourcewalk.TargetDotDirs = targetDotDirs
 
 	if len(os.Args) < 2 {
 		printUsage()

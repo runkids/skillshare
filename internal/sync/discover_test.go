@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"skillshare/internal/sourcewalk"
 )
 
 func writeSkillMD(t *testing.T, dir, content string) {
@@ -70,6 +72,31 @@ func TestDiscoverSourceSkills_SkipsGitDir(t *testing.T) {
 	}
 	if skills[0].FlatName != "real-skill" {
 		t.Errorf("expected 'real-skill', got %q", skills[0].FlatName)
+	}
+}
+
+func TestDiscoverSourceSkills_SkipsTargetDotDirs(t *testing.T) {
+	orig := sourcewalk.TargetDotDirs
+	sourcewalk.TargetDotDirs = map[string]bool{".claude": true, ".skillshare": true}
+	defer func() { sourcewalk.TargetDotDirs = orig }()
+
+	src := t.TempDir()
+	// A root-level skill installed from a repo that ships its own .claude/skills/
+	writeSkillMD(t, filepath.Join(src, "ffmpeg-skill"), "---\nname: ffmpeg-skill\n---\n# FFmpeg")
+	writeSkillMD(t, filepath.Join(src, "ffmpeg-skill", ".claude", "skills", "code-review"), "---\nname: code-review\n---\n# Dev only")
+	// A root-level host-style path stays visible (used for target inference)
+	writeSkillMD(t, filepath.Join(src, ".claude", "skills", "host-skill"), "---\nname: host-skill\n---\n# Host")
+
+	skills, err := DiscoverSourceSkills(src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := map[string]bool{}
+	for _, s := range skills {
+		got[s.RelPath] = true
+	}
+	if len(skills) != 2 || !got["ffmpeg-skill"] || !got[".claude/skills/host-skill"] {
+		t.Fatalf("expected ffmpeg-skill and .claude/skills/host-skill only, got %+v", skills)
 	}
 }
 

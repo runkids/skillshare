@@ -30,7 +30,7 @@ func (SkillKind) Discover(sourceDir string) ([]DiscoveredResource, error) {
 			return nil
 		}
 
-		if info.IsDir() && info.Name() == ".git" {
+		if (info.IsDir() && info.Name() == ".git") || sourcewalk.SkipTargetDotDir(walkRoot, path, info) {
 			return filepath.SkipDir
 		}
 

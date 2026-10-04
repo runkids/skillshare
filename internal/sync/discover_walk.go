@@ -188,8 +188,9 @@ func discoverSourceSkillsInternal(sourcePath string, opts discoverOptions) ([]Di
 			return nil // Skip inaccessible paths
 		}
 
-		// Skip .git directory
-		if info.IsDir() && info.Name() == ".git" {
+		// Skip .git and nested target dotdirs (.claude, .cursor, ...) so a skill
+		// that ships its own target copies is not re-discovered as nested skills.
+		if (info.IsDir() && info.Name() == ".git") || sourcewalk.SkipTargetDotDir(walkRoot, path, info) {
 			return filepath.SkipDir
 		}
 

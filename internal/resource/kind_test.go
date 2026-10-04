@@ -4,6 +4,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"skillshare/internal/sourcewalk"
 )
 
 // --- SkillKind tests ---
@@ -12,6 +14,25 @@ func TestSkillKind_Kind(t *testing.T) {
 	k := SkillKind{}
 	if k.Kind() != "skill" {
 		t.Errorf("SkillKind.Kind() = %q, want %q", k.Kind(), "skill")
+	}
+}
+
+func TestSkillKind_Discover_SkipsTargetDotDirs(t *testing.T) {
+	orig := sourcewalk.TargetDotDirs
+	sourcewalk.TargetDotDirs = map[string]bool{".claude": true}
+	defer func() { sourcewalk.TargetDotDirs = orig }()
+
+	dir := t.TempDir()
+	os.MkdirAll(filepath.Join(dir, "ffmpeg-skill", ".claude", "skills", "code-review"), 0o755)
+	os.WriteFile(filepath.Join(dir, "ffmpeg-skill", "SKILL.md"), []byte("---\nname: ffmpeg-skill\n---\n# FFmpeg"), 0o644)
+	os.WriteFile(filepath.Join(dir, "ffmpeg-skill", ".claude", "skills", "code-review", "SKILL.md"), []byte("---\nname: code-review\n---\n# Dev only"), 0o644)
+
+	resources, err := SkillKind{}.Discover(dir)
+	if err != nil {
+		t.Fatalf("Discover error: %v", err)
+	}
+	if len(resources) != 1 || resources[0].RelPath != "ffmpeg-skill" {
+		t.Fatalf("expected only ffmpeg-skill (skipping .claude), got %+v", resources)
 	}
 }
 
