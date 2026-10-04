@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.24.1](https://github.com/runkids/skillshare/compare/v0.24.0...v0.24.1) (2026-10-04)
+
+
+### New Features
+
+* **config:** lay out auto-saved config files like the dashboard's Beautify ([#380](https://github.com/runkids/skillshare/issues/380)) ([5fe2d78](https://github.com/runkids/skillshare/commit/5fe2d78c2bcce7081a76eef5968d33c068697dbd))
+* **memory:** let each agent choose passive or active note updates ([#377](https://github.com/runkids/skillshare/issues/377)) ([b4296e3](https://github.com/runkids/skillshare/commit/b4296e3cff6e1c12ddc26b0ec766890e42e3f084))
+
+
+### Bug Fixes
+
+* **audit:** stop flagging config keys named like role labels ([#376](https://github.com/runkids/skillshare/issues/376)) ([27f5331](https://github.com/runkids/skillshare/commit/27f53317d45caec655da8aa73fe9eec93b838e23))
+* **mcp:** turn off a global server for Pi with its project override ([#379](https://github.com/runkids/skillshare/issues/379)) ([91dbd2a](https://github.com/runkids/skillshare/commit/91dbd2a9fcdca30c9990af71f7ee1b97a9d96a75))
+* **ui:** count hooks on the dashboard ([77727bd](https://github.com/runkids/skillshare/commit/77727bd578f10422eae1d2e51b5f22fc7562c6f8))
+
 ## [0.24.0] - 2026-10-03
 
 ### Breaking Changes
