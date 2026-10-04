@@ -33,7 +33,7 @@ Extras는 skillshare가 관리하는 추가 리소스 유형입니다 — "skill
 | `show <note.md>` | 노트 읽기. `--json`에는 `version` hash 포함 |
 | `write <note.md> --from <file\|->` | 파일 또는 stdin에서 내용 읽기. 새 노트는 `--version`을 생략하고 업데이트는 마지막으로 읽은 version 필요 |
 | `delete <note.md> --version <hash>` | 백업 후 지정 version 삭제. 오래되거나 누락된 version은 거부 |
-| `instructions` | 실제 source 폴더를 가리키는 읽기 지침 출력 |
+| `instructions` | 실제 source 폴더를 가리키는 읽기 지침 출력. `--update-mode passive`(기본값)는 요청할 때만 노트를 업데이트하게 하고, `--update-mode active`는 오래 쓸 사실을 스스로 저장하고 확실하지 않으면 제안하게 합니다 |
 
 각 하위 명령은 `--json`, `-g` / `--global`, `-p` / `--project`, `--help`를 지원합니다.
 Scope는 생략하면 자동 감지합니다. 기본 global 경로는 `~/.config/skillshare/extras/memory/`,
@@ -45,11 +45,11 @@ Project는 `.skillshare/extras/memory/`입니다. 기존 extras source 설정이
 
 **New note**의 **Link from INDEX.md**는 인덱스를 읽을 수 있을 때 표시되며 기본으로 선택됩니다. 파일 끝에 링크를 추가하고 version을 확인하며 백업합니다. 실패해도 새 노트는 유지됩니다. **Add to INDEX**로 인덱스에 없는 노트를 추가할 수 있습니다. 깨진 링크는 경고하지만 자동 삭제하지 않습니다. CLI 쓰기는 링크를 추가하지 않습니다.
 
-**Connect to agents**에서 도구를 선택하고 **Review changes** → **Apply changes**를 실행하세요. 기존 지침 파일이나 공유 소스에 scope/hash 마커 블록을 추가하거나 업데이트하고 다른 내용과 할당은 보존합니다. 변경 내용, 다른 읽기 도구, 알려진 글자 수 제한을 검토할 수 있습니다. 기존 파일을 백업하며 오래된 계획은 거부합니다. 수정되지 않은 오래된 블록은 검토 후 업데이트할 수 있으며 수동 수정되었거나 잘못된 블록은 보존합니다. 동기화되지 않았거나 읽을 수 없는 지침 파일은 건너뜁니다.
+**Connect to agents**에서 도구와 각각의 업데이트 모드(`passive` 또는 `active`)를 선택하고 **Review changes** → **Apply changes**를 실행하세요. 같은 파일을 읽는 도구는 블록 하나를 공유하므로 모드도 함께 바뀝니다. 설정된 도구의 모드도 같은 검토로 변경할 수 있습니다. 기존 지침 파일이나 공유 소스에 scope/hash 마커 블록을 추가하거나 업데이트하고 다른 내용과 할당은 보존합니다. 변경 내용, 다른 읽기 도구, 알려진 글자 수 제한을 검토할 수 있습니다. 기존 파일을 백업하며 오래된 계획은 거부합니다. 수정되지 않은 오래된 블록은 검토 후 업데이트할 수 있으며 수동 수정되었거나 잘못된 블록은 보존합니다. 동기화되지 않았거나 읽을 수 없는 지침 파일은 건너뜁니다.
 
 **Configured**는 읽기 경로에 현재 안내가 있음을 표시하며 읽었다는 뜻은 아닙니다. **Copy verification prompt**를 새 세션에서 사용하여 `INDEX.md`와 관련 노트를 읽고 전체 경로와 사용자가 추가한 임시 검증 값을 보고하도록 요청하세요. 실제 읽기 이벤트를 수동으로 확인하세요. 읽기 telemetry는 보장하지 않습니다.
 
-**Copy guidance**는 수동 붙여 넣기 대안이며 **Open AGENTS.md**에서 편집할 수 있습니다. 프로젝트 내부 소스는 지침 파일의 위치와 관계없이 **project root** 기준 상대 경로이고 외부 또는 global 소스는 절대 경로입니다. 이동 후 안내를 다시 생성하세요. CLI `instructions`도 같은 scope/hash 블록을 출력합니다. CLI 플래그는 변경되지 않습니다. Native automatic memory, 자동 학습, Obsidian 통합을 활성화하지 않습니다.
+**Copy guidance**는 수동 붙여 넣기 대안으로 모드를 골라 복사하며 **Open AGENTS.md**에서 편집할 수 있습니다. 프로젝트 내부 소스는 지침 파일의 위치와 관계없이 **project root** 기준 상대 경로이고 외부 또는 global 소스는 절대 경로입니다. 이동 후 안내를 다시 생성하세요. CLI `instructions`도 같은 scope/hash 블록을 출력합니다. Native automatic memory, 자동 학습, Obsidian 통합을 활성화하지 않습니다.
 
 ### `extras init`
 

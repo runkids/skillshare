@@ -15,16 +15,22 @@ export interface MemoryIndex {
   error?: string;
 }
 
+/** passive agents update notes only when asked; active ones also save lasting facts. */
+export type MemoryUpdateMode = 'passive' | 'active';
+
+export type MemoryInstructions = Record<MemoryUpdateMode, string>;
+
 export interface MemoryGuidanceTarget {
   name: string;
   state: 'unconfigured' | 'configured' | 'outdated' | 'broken';
   file?: string;
   detail?: string;
+  mode?: MemoryUpdateMode;
 }
 
 export interface MemoryGuidance {
   scope: 'global' | 'project';
-  instructions: string;
+  instructions: MemoryInstructions;
   targets: MemoryGuidanceTarget[];
 }
 
@@ -39,7 +45,7 @@ export interface MemoryNotesResponse {
   root: string;
   initialized: boolean;
   notes: MemoryNote[];
-  instructions: string;
+  instructions: MemoryInstructions;
   index?: MemoryIndex;
 }
 
@@ -47,11 +53,11 @@ export const memoryApi = {
   listMemoryNotes: (search = '') => apiFetch<MemoryNotesResponse>(`/extras/memory/notes?search=${encodeURIComponent(search)}`),
   initMemory: () => apiFetch<{ success: boolean; root: string }>('/extras/memory/init', { method: 'POST' }),
   getMemoryGuidance: () => apiFetch<MemoryGuidance>('/extras/memory/guidance'),
-  planMemoryGuidance: (targets: string[]) => apiFetch<MemoryGuidancePlan>('/extras/memory/guidance/plan', {
-    method: 'POST', body: JSON.stringify({ targets }),
+  planMemoryGuidance: (targets: string[], modes: Record<string, MemoryUpdateMode>) => apiFetch<MemoryGuidancePlan>('/extras/memory/guidance/plan', {
+    method: 'POST', body: JSON.stringify({ targets, modes }),
   }),
-  applyMemoryGuidance: (targets: string[], token: string) => apiFetch<{ success: boolean; applied: string[]; errors: { path: string; error: string }[]; targets: MemoryGuidanceTarget[] }>('/extras/memory/guidance/apply', {
-    method: 'POST', body: JSON.stringify({ targets, token }),
+  applyMemoryGuidance: (targets: string[], modes: Record<string, MemoryUpdateMode>, token: string) => apiFetch<{ success: boolean; applied: string[]; errors: { path: string; error: string }[]; targets: MemoryGuidanceTarget[] }>('/extras/memory/guidance/apply', {
+    method: 'POST', body: JSON.stringify({ targets, modes, token }),
   }),
   linkMemoryIndex: (path: string, version: string) => apiFetch<MemoryNote>('/extras/memory/index', {
     method: 'PUT', body: JSON.stringify({ path, version }),

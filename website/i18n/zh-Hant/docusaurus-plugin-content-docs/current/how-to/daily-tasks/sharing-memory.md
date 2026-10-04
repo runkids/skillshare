@@ -28,15 +28,20 @@ skillshare ui -g
 
 ## 2. 連接工具
 
-在 **Use with agents** 點擊 **Connect to agents**。自行選取工具，再點擊 **Review changes**。
+在 **Use with agents** 點擊 **Connect to agents**。自行選取工具並為每個工具選擇更新模式，再點擊 **Review changes**。
+
+- `passive`（預設）：Agent 會讀筆記，只在你要求時更新。
+- `active`：Agent 也會保存之後的工作階段仍用得到的事實，例如你明確表示的偏好、附理由的決定或已確認的陷阱。它會略過一次性的細節與猜測；拿不準時先提議並等你同意；優先更新既有筆記而不是重複新增，並告訴你存了什麼。
+
+讀取同一個檔案的工具共用一個區塊，所以切換其中一個會一起切換。要改已設定工具的模式，再開一次 **Connect to agents** 切換即可，變更同樣會經過預覽。
 
 ![英文連接對話框中的 instructions 檔案變更預覽](/img/memory-connect-demo.png)
 
-檢查路徑及 **Before** / **After** 內容，再點擊 **Apply changes**。Skillshare 將受管理的閱讀指引區塊加入工具既有的 instructions 檔案，或工具已讀取的共用來源；若檔案尚不存在，也可建立。區塊帶有 scope 與內容 hash 標記，其餘內容、既有指派與連接模式皆保留。修改既有檔案前會備份。若其他工具也讀取同一檔案，預覽會提示，也會警告已知的字元上限。
+檢查每個檔案的差異（刪除行標 `−`，新增行標 `+`），再點擊 **Apply changes**。Skillshare 將受管理的閱讀指引區塊加入工具既有的 instructions 檔案，或工具已讀取的共用來源；若檔案尚不存在，也可建立。區塊帶有 scope 與內容 hash 標記，其餘內容、既有指派與連接模式皆保留。修改既有檔案前會備份。若其他工具也讀取同一檔案，預覽會提示，也會警告已知的字元上限。
 
 ![英文 Memory 分頁顯示已設定的工具](/img/memory-connected-demo.png)
 
-**Configured** 表示工具的讀取鏈已有目前的指引，不代表 Agent 已讀取。**Not configured**、**Outdated** 與 **Needs attention** 描述的是 instructions 檔案。完整但過期的區塊可經再次檢查後更新；手動修改或標記格式有誤的區塊會保留，需手動修復。未同步的共用 instructions 要先 sync；無法讀取的 instructions 檔案會略過。若預覽後檔案改變，必須重新檢查再套用。
+**Configured** 表示工具的讀取鏈已有目前的指引，不代表 Agent 已讀取。**Not configured**、**Outdated** 與 **Needs attention** 描述的是 instructions 檔案。完整但過期的區塊可經再次檢查後更新；手動修改或標記格式有誤的區塊會保留，需手動修復。若工具從不同檔案讀到兩種模式的區塊，也會顯示需要處理：請把讀這些檔案的工具設成同一種模式。從多個檔案讀到區塊的工具，要先移除多餘的區塊才能切換模式。未同步的共用 instructions 要先 sync；無法讀取的 instructions 檔案會略過。若預覽後檔案改變，必須重新檢查再套用。
 
 使用 **Open AGENTS.md** 檢查或修復 instructions。連接預覽是 dashboard 流程，沒有新增 CLI 連接命令。
 
@@ -98,7 +103,7 @@ Update notes when the user asks you to remember a decision.
 
 檢查實際 read tool event，核對完整路徑與臨時值。在另一個已連接工具重複驗證，再移除臨時值。這是手動驗證，Skillshare 沒有保證可用的讀取 telemetry。Agent 自稱讀過或顯示 **Configured** 都不足以證明讀取。
 
-需要記錄經驗時，請要求 Agent 更新 `LEARNED.md` 的背景、結論與證據。筆記由使用者管理，指引要求 Agent 只在使用者要求時更新。本功能不啟用 native automatic memory、自動學習或 Obsidian 整合。
+需要記錄經驗時，請要求 Agent 更新 `LEARNED.md` 的背景、結論與證據。筆記由使用者管理：`passive` 指引要求 Agent 只在使用者要求時更新；`active` 指引則讓 Agent 依上述規則自行保存長期有用的事實。本功能不啟用 native automatic memory、自動學習或 Obsidian 整合。
 
 ## Project mode
 
@@ -113,7 +118,7 @@ skillshare ui -p
 
 ## 進階替代方式：自行複製指引
 
-將游標移到 **Copy guidance** 或用鍵盤聚焦，預覽產生的區塊，再複製到 Agent 會讀取的 instructions 檔案。**Open AGENTS.md** 可開啟既有編輯器。
+打開 **Copy guidance**，選擇 `passive` 或 `active`，再把複製的區塊貼到 Agent 會讀取的 instructions 檔案。**Open AGENTS.md** 可開啟既有編輯器。
 
 ![英文 Copy guidance 預覽](/img/memory-guidance-demo.png)
 
@@ -132,9 +137,10 @@ printf '# Architecture decisions\n\nRead relevant notes on demand.\n' |
 skillshare extras memory list --search architecture -g
 skillshare extras memory show wiki/architecture.md -g
 skillshare extras memory instructions -g
+skillshare extras memory instructions --update-mode active -g
 ```
 
-CLI 只輸出閱讀指引，需自行貼上；不會連接工具或新增索引連結。更新筆記須提供目前的 `--version`，詳見 [`extras memory` 參考](../../reference/commands/extras.md#extras-memory)。
+CLI 只輸出閱讀指引（未指定 `--update-mode active` 時為 `passive`），需自行貼上；不會連接工具或新增索引連結。更新筆記須提供目前的 `--version`，詳見 [`extras memory` 參考](../../reference/commands/extras.md#extras-memory)。
 
 ## 重新命名或移動筆記
 

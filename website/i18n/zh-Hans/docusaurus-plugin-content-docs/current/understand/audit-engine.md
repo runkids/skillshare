@@ -157,7 +157,7 @@ audit engine 还会对 `.md` 文件执行**结构性检查**：提取所有内�
 
 **audit 检测的内容：**
 - 直接注入短语："ignore previous instructions"、"disregard all rules"、"you are now"
-- Prompt 覆盖前缀：`SYSTEM:`、`OVERRIDE:`、`IGNORE:`、`ADMIN:`、`ROOT:`（不区分大小写，容忍空白字符）
+- Prompt 覆盖前缀：`SYSTEM:`、`OVERRIDE:`、`IGNORE:`、`ADMIN:`、`ROOT:`（不区分大小写，容忍空白字符）。小写键在同一行只带简单值的行会视为配置，不会被检测：所有键可用布尔值或数字（`admin: false`），`root` 可用不含空格的路径（`root: ./src`），`ignore` 可用内联对象（`ignore: { tags: ["design"] }`）
 - Agent 指令标签：`<system>`、`</instructions>`、`</override>`、`</prompt>`、`</rules>`（带可选 HTML 属性）
 - Jailbreak 指令：`DEVELOPER MODE`、`DEV MODE`、`JAILBREAK`、`DAN MODE`（不区分大小写，容忍空白字符）
 - 隐藏在 HTML 注释（`<!-- ... -->`）中的注入

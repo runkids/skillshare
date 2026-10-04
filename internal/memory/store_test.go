@@ -84,7 +84,7 @@ func TestInitPreservesExistingIndex(t *testing.T) {
 	}
 	// Instructions renders the folder in slash form, so comparing it against an OS-native
 	// Windows path can never match.
-	if !strings.Contains(Instructions(root, ""), filepath.ToSlash(root)) {
+	if !strings.Contains(Instructions(root, "", ModePassive), filepath.ToSlash(root)) {
 		t.Fatal("loading instructions missing canonical path")
 	}
 }
