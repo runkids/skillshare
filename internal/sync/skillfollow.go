@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"skillshare/internal/config"
 	"skillshare/internal/sourcewalk"
 	"skillshare/internal/utils"
 )
@@ -46,6 +47,28 @@ func (s followScope) paused() []string {
 		names = append(names, entry.Name+" ("+string(entry.State)+")")
 	}
 	return names
+}
+
+// PrunePaused lists the unavailable followed entries, as "name (state)", that
+// pause prune for an operation using set. Diff calls it to preview sync.
+func PrunePaused(sourcePath string, set *sourcewalk.FollowSet) []string {
+	return newFollowScope(sourcePath, set).paused()
+}
+
+// KeepsManagedCopies reports whether copy sync keeps an existing managed copy
+// it would otherwise overwrite or replace. In standard naming a target name
+// says nothing about the skill's origin, so while an entry is unavailable an
+// existing managed copy may be the only copy of its content. Flat names carry
+// the logical prefix and proceed.
+func KeepsManagedCopies(sourcePath, targetNaming string, set *sourcewalk.FollowSet) bool {
+	return len(newFollowScope(sourcePath, set).unavailable()) > 0 &&
+		config.EffectiveTargetNaming(targetNaming) != "flat"
+}
+
+// SameSkillLink reports whether linkPath already points at skill, as merge
+// sync decides it. Diff calls it to preview sync.
+func SameSkillLink(linkPath string, skill DiscoveredSkill, sourcePath string, set *sourcewalk.FollowSet) bool {
+	return sameSkillLink(linkPath, skill, newFollowScope(sourcePath, set))
 }
 
 // skillLinkTarget returns where a skill link points. Relative link text is read

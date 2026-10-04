@@ -89,6 +89,7 @@ Canonical path で安全性を検査し、最初に該当する状態を採用�
 - **Status**：`.skillfollow: N entries, M skipped`、local 有効時は `(.local active)`、各 prune 停止の復旧メッセージ。JSON は `source.skillfollow` に `active`、`local_active`、`entry_count`、`followed_count`、`skipped_count`、宣言 `entries`（`name`、`state`、任意の `resolved_target`、`reason`）、任意の `warnings`/`prune_paused`。宣言も宣言警告もない場合は省略。
 - **Doctor**：`skillfollow` は各宣言状態、`skillfollow_prune` は停止理由。未宣言リンクは `undeclared_source_links` info。Git repo 内では indexed/`not-ignored` リンクと安全でない local ファイルも検査しますが変更しません。
 - **`list --no-tui`**：followed tracked repo に `→ <resolved>` を追加（ホームは `~` に短縮可能）。Skills は論理パス、JSON 形式は不変。
+- **Diff**：sync と同じ規則でプレビューします。宣言が利用できない間は削除を報告せず、`<target>: prune paused; unavailable .skillfollow entry: <name> (<state>)` を表示し、sync が残す standard naming の managed copy を **Kept** として表示します。`diff --json` は target ごとに `prune_paused` と `keep` 項目を追加します。Dashboard diff は `prune_paused` を追加し、残す copy を `skip` で表示します。
 - **Dashboard**：Skills、Overview、Check、Update、Hub で論理パスを表示。内容編集、uninstall、切替、target 上書き、source URL 変更は拒否。外部ツリーを直接編集し、非表示には **source-root `.skillignore`** を使います。宣言専用エディタはまだありません。Dashboard sync は CLI と同じ prune/copy 安全方針で、target ごとの `prune_paused`/`kept` と警告を表示。Targets は managed followed link を local でなく linked と数えます。
 
 実際の診断文字列：

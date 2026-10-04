@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"skillshare/internal/config"
+	ssync "skillshare/internal/sync"
 	"skillshare/internal/testutil"
 )
 
@@ -265,5 +266,129 @@ func TestServerSkillfollowSyncAndTargets(t *testing.T) {
 	// Two followed links plus the kept in-source stale link; none is local.
 	if len(listed.Targets) != 1 || listed.Targets[0].LinkedCount != 3 || listed.Targets[0].LocalCount != 0 {
 		t.Fatalf("targets: %s", rr.Body.String())
+	}
+}
+
+// Diff previews sync with the same follow set: while an entry is unavailable
+// nothing is pruned, standard-naming copies are kept, and a managed link whose
+// text is the resolved followed path is not reported as pointing elsewhere.
+func TestServerSkillfollowDiffPreviewsPausedPrune(t *testing.T) {
+	s, source, external := skillfollowServerFixture(t)
+	merge, copyTarget := t.TempDir(), t.TempDir()
+	raw := "source: " + source + "\nmode: merge\ntargets:\n  claude:\n    path: " + merge + "\n  cursor:\n    skills:\n      path: " + copyTarget + "\n      mode: copy\n      target_naming: standard\n"
+	if err := os.WriteFile(os.Getenv("SKILLSHARE_CONFIG"), []byte(raw), 0644); err != nil {
+		t.Fatal(err)
+	}
+	s.cfg.Targets = map[string]config.TargetConfig{
+		"claude": {Path: merge},
+		"cursor": {Skills: &config.ResourceTargetConfig{Path: copyTarget, Mode: "copy", TargetNaming: "standard"}},
+	}
+	// A broken link into the unavailable entry, and a link whose text is the resolved followed path.
+	if err := os.Symlink(filepath.Join(source, "missing", "x"), filepath.Join(merge, "missing__x")); err != nil {
+		t.Fatal(err)
+	}
+	resolvedExternal, err := filepath.EvalSymlinks(external)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(filepath.Join(resolvedExternal, "group", "c"), filepath.Join(merge, "group__c")); err != nil {
+		t.Fatal(err)
+	}
+	// Standard naming needs the frontmatter name to match the folder.
+	if err := os.WriteFile(filepath.Join(external, "group", "c", "SKILL.md"), []byte("---\nname: c\n---\n# c\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	// Managed copies: x came from the unavailable entry, c has an outdated checksum.
+	for _, name := range []string{"x", "c"} {
+		addSkill(t, copyTarget, name)
+	}
+	if err := ssync.WriteManifest(copyTarget, &ssync.Manifest{Managed: map[string]string{"x": "old", "c": "old"}}); err != nil {
+		t.Fatal(err)
+	}
+
+	type diffs struct {
+		Diffs []struct {
+			Target      string   `json:"target"`
+			PrunePaused []string `json:"prune_paused"`
+			Items       []struct {
+				Skill  string `json:"skill"`
+				Action string `json:"action"`
+				Reason string `json:"reason"`
+			} `json:"items"`
+		} `json:"diffs"`
+	}
+	read := func(path string) diffs {
+		t.Helper()
+		rr := httptest.NewRecorder()
+		s.handler.ServeHTTP(rr, httptest.NewRequest(http.MethodGet, path, nil))
+		if rr.Code != http.StatusOK {
+			t.Fatalf("%s: %d %s", path, rr.Code, rr.Body.String())
+		}
+		body := rr.Body.String()
+		if strings.HasSuffix(path, "/stream") {
+			_, done, ok := strings.Cut(body, "event: done\ndata: ")
+			if !ok {
+				t.Fatalf("no done event: %s", body)
+			}
+			body, _, _ = strings.Cut(done, "\n")
+		}
+		var out diffs
+		if err := json.Unmarshal([]byte(body), &out); err != nil {
+			t.Fatal(err, body)
+		}
+		return out
+	}
+	// item returns "action: reason" for skill on target, or "".
+	item := func(out diffs, target, skill string) string {
+		for _, d := range out.Diffs {
+			for _, it := range d.Items {
+				if d.Target == target && it.Skill == skill {
+					return it.Action + ": " + it.Reason
+				}
+			}
+		}
+		return ""
+	}
+
+	for _, path := range []string{"/api/diff", "/api/diff/stream"} {
+		t.Run(strings.TrimPrefix(path, "/api/"), func(t *testing.T) {
+			out := read(path)
+			for _, d := range out.Diffs {
+				if !reflect.DeepEqual(d.PrunePaused, []string{"missing (missing)", "rejected (invalid-target)"}) {
+					t.Errorf("%s prune_paused = %v", d.Target, d.PrunePaused)
+				}
+				for _, it := range d.Items {
+					if it.Action == "prune" || it.Reason == "symlink points elsewhere" {
+						t.Errorf("%s: %s %s (%s) while prune is paused", d.Target, it.Action, it.Skill, it.Reason)
+					}
+				}
+			}
+			if got := item(out, "cursor", "c"); got != "skip: managed copy kept while prune is paused; origin cannot be proven" {
+				t.Errorf("cursor c = %q", got)
+			}
+		})
+	}
+
+	// Removing the unavailable entries resumes cleanup; diff reports what sync would do.
+	if err := os.WriteFile(filepath.Join(source, ".skillfollow"), []byte("_repo\ngroup\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	for _, path := range []string{"/api/diff", "/api/diff/stream"} {
+		out := read(path)
+		for target, want := range map[[2]string]string{
+			{"claude", "missing__x"}: "prune: orphan symlink",
+			{"claude", "group__c"}:   "",
+			{"cursor", "x"}:          "prune: orphan copy",
+			{"cursor", "c"}:          "update: content changed",
+		} {
+			if got := item(out, target[0], target[1]); got != want {
+				t.Errorf("%s %s %s = %q, want %q", path, target[0], target[1], got, want)
+			}
+		}
+		for _, d := range out.Diffs {
+			if d.PrunePaused != nil {
+				t.Errorf("%s %s prune_paused = %v after restore", path, d.Target, d.PrunePaused)
+			}
+		}
 	}
 }

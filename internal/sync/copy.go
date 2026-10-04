@@ -95,11 +95,7 @@ func SyncTargetCopyWithSkillsOptions(name string, target config.TargetConfig, al
 		fmt.Fprintf(DiagOutput, "  %d name collision(s) excluded\n", n)
 	}
 	result.Warnings = resolution.UnmatchedIncludeWarnings()
-	// In standard naming a target name says nothing about the skill's origin,
-	// so while an entry is unavailable an existing managed copy may be the only
-	// copy of its content. Flat names carry the logical prefix and proceed.
-	keepManaged := len(newFollowScope(sourcePath, opts.Follow).unavailable()) > 0 &&
-		config.EffectiveTargetNaming(sc.TargetNaming) != "flat"
+	keepManaged := KeepsManagedCopies(sourcePath, sc.TargetNaming, opts.Follow)
 
 	// Read existing manifest
 	manifest, err := ReadManifest(sc.Path)

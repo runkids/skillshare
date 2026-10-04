@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 
 	"skillshare/internal/config"
+	"skillshare/internal/sourcewalk"
 	ssync "skillshare/internal/sync"
 	"skillshare/internal/utils"
 )
@@ -59,7 +60,7 @@ func (s *Server) handleDiffStream(w http.ResponseWriter, r *http.Request) {
 		default:
 		}
 
-		dt := s.computeTargetDiff(name, target, discovered, globalMode, source, ignorePatterns)
+		dt := s.computeTargetDiff(name, target, discovered, globalMode, source, ignorePatterns, follow)
 		diffs = append(diffs, dt)
 		checked++
 
@@ -79,7 +80,9 @@ func (s *Server) handleDiffStream(w http.ResponseWriter, r *http.Request) {
 
 // computeTargetDiff computes the diff for a single target.
 // Extracted from handleDiff to share logic with the stream handler.
-func (s *Server) computeTargetDiff(name string, target config.TargetConfig, discovered []ssync.DiscoveredSkill, globalMode, source string, ignorePatterns []string) diffTarget {
+// follow is the operation's set, so the diff makes sync's prune and link
+// identity decisions; a nil set keeps the legacy comparisons.
+func (s *Server) computeTargetDiff(name string, target config.TargetConfig, discovered []ssync.DiscoveredSkill, globalMode, source string, ignorePatterns []string, follow *sourcewalk.FollowSet) diffTarget {
 	sc := target.SkillsConfig()
 	mode := sc.Mode
 	if mode == "" {
@@ -98,6 +101,10 @@ func (s *Server) computeTargetDiff(name string, target config.TargetConfig, disc
 		}
 		return dt
 	}
+
+	// While an entry is unavailable sync prunes nothing, so neither does the preview.
+	dt.PrunePaused = ssync.PrunePaused(source, follow)
+	paused := len(dt.PrunePaused) > 0
 
 	filtered, err := ssync.FilterSkills(discovered, sc.Include, sc.Exclude)
 	if err != nil {
@@ -119,6 +126,8 @@ func (s *Server) computeTargetDiff(name string, target config.TargetConfig, disc
 	legacyNames := resolution.LegacyFlatNames()
 
 	if mode == "copy" {
+		keepManaged := ssync.KeepsManagedCopies(source, sc.TargetNaming, follow)
+		kept := diffItem{Action: "skip", Reason: "managed copy kept while prune is paused; origin cannot be proven", Kind: kindSkill}
 		manifest, _ := ssync.ReadManifest(sc.Path)
 		for _, resolved := range resolution.Skills {
 			skill := resolved.Skill
@@ -143,6 +152,11 @@ func (s *Server) computeTargetDiff(name string, target config.TargetConfig, disc
 				} else if statErr != nil {
 					dt.Items = append(dt.Items, diffItem{Skill: resolved.TargetName, Action: "update", Reason: "cannot access target entry", Kind: kindSkill})
 				} else if !targetInfo.IsDir() {
+					if keepManaged {
+						kept.Skill = resolved.TargetName
+						dt.Items = append(dt.Items, kept)
+						continue
+					}
 					dt.Items = append(dt.Items, diffItem{Skill: resolved.TargetName, Action: "update", Reason: "target entry is not a directory", Kind: kindSkill})
 				} else {
 					oldMtime := manifest.Mtimes[resolved.TargetName]
@@ -153,6 +167,9 @@ func (s *Server) computeTargetDiff(name string, target config.TargetConfig, disc
 					srcChecksum, checksumErr := ssync.DirChecksumWithIgnore(skill.SourcePath, ignorePatterns)
 					if checksumErr != nil {
 						dt.Items = append(dt.Items, diffItem{Skill: resolved.TargetName, Action: "update", Reason: "cannot compute checksum", Kind: kindSkill})
+					} else if srcChecksum != oldChecksum && keepManaged {
+						kept.Skill = resolved.TargetName
+						dt.Items = append(dt.Items, kept)
 					} else if srcChecksum != oldChecksum {
 						dt.Items = append(dt.Items, diffItem{Skill: resolved.TargetName, Action: "update", Reason: "content changed", Kind: kindSkill})
 					}
@@ -160,6 +177,9 @@ func (s *Server) computeTargetDiff(name string, target config.TargetConfig, disc
 			}
 		}
 		for managedName := range manifest.Managed {
+			if paused {
+				break
+			}
 			if _, keepLegacy := legacyNames[managedName]; keepLegacy {
 				continue
 			}
@@ -189,7 +209,11 @@ func (s *Server) computeTargetDiff(name string, target config.TargetConfig, disc
 				continue
 			}
 			absSource, _ := filepath.Abs(skill.SourcePath)
-			if !utils.PathsEqual(absLink, absSource) {
+			same := utils.PathsEqual(absLink, absSource)
+			if follow != nil {
+				same = ssync.SameSkillLink(targetSkillPath, skill, source, follow)
+			}
+			if !same {
 				dt.Items = append(dt.Items, diffItem{Skill: resolved.TargetName, Action: "update", Reason: "symlink points elsewhere", Kind: kindSkill})
 			}
 		} else {
@@ -208,6 +232,12 @@ func (s *Server) computeTargetDiff(name string, target config.TargetConfig, disc
 		if _, keepLegacy := legacyNames[eName]; keepLegacy {
 			continue
 		}
+		// prune reports an orphan unless prune is paused.
+		prune := func(reason string) {
+			if !paused {
+				dt.Items = append(dt.Items, diffItem{Skill: eName, Action: "prune", Reason: reason, Kind: kindSkill})
+			}
+		}
 		entryPath := filepath.Join(sc.Path, eName)
 		if !validNames[eName] {
 			info, statErr := os.Lstat(entryPath)
@@ -221,14 +251,14 @@ func (s *Server) computeTargetDiff(name string, target config.TargetConfig, disc
 				}
 				absSource, _ := filepath.Abs(source)
 				if utils.PathHasPrefix(absLink, absSource+string(filepath.Separator)) {
-					dt.Items = append(dt.Items, diffItem{Skill: eName, Action: "prune", Reason: "orphan symlink", Kind: kindSkill})
+					prune("orphan symlink")
 				}
 			} else if info.IsDir() {
 				if _, inManifest := manifest.Managed[eName]; inManifest {
-					dt.Items = append(dt.Items, diffItem{Skill: eName, Action: "prune", Reason: "orphan managed directory (manifest)", Kind: kindSkill})
+					prune("orphan managed directory (manifest)")
 				} else {
 					if resolution.Naming == "flat" && (utils.HasNestedSeparator(eName) || utils.IsTrackedRepoDir(eName)) {
-						dt.Items = append(dt.Items, diffItem{Skill: eName, Action: "prune", Reason: "orphan managed directory", Kind: kindSkill})
+						prune("orphan managed directory")
 					} else {
 						dt.Items = append(dt.Items, diffItem{Skill: eName, Action: "local", Reason: "local only", Kind: kindSkill})
 					}

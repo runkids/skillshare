@@ -89,6 +89,7 @@ git rm --cached -- '_team-skills'
 - **Status**：`.skillfollow: N entries, M skipped`，local 启用时加 `(.local active)`，另列 prune 暂停恢复消息。JSON 的 `source.skillfollow` 含 `active`、`local_active`、`entry_count`、`followed_count`、`skipped_count`、声明 `entries`（`name`、`state`、可选 `resolved_target`、`reason`），以及可选 `warnings`/`prune_paused`。无声明或声明警告时省略此字段。
 - **Doctor**：`skillfollow` 列声明状态，`skillfollow_prune` 列清理阻挡。未声明链接保持 `undeclared_source_links` info。Git repo 内还检查 indexed/`not-ignored` 链接与不安全的 local 文件，不修改文件。
 - **`list --no-tui`**：followed tracked repo 加 `→ <resolved>`（家目录可缩为 `~`）；skills 路径仍为逻辑路径，JSON 格式不变。
+- **Diff**：以与 sync 相同的规则预览。声明条目不可用时不报告任何移除，显示 `<target>: prune paused; unavailable .skillfollow entry: <name> (<state>)`，sync 会保留的 standard naming managed copy 列为 **Kept**。`diff --json` 逐 target 加上 `prune_paused` 与 `keep` 条目。Dashboard diff 加上 `prune_paused`，保留的 copy 显示为 `skip`。
 - **Dashboard**：Skills、Overview、Check、Update、Hub 可见逻辑路径。内容编辑、卸载、启停、target 覆盖、source URL 更改会拒绝。直接编辑外部树，或在 **source-root `.skillignore`** 隐藏。尚无专用声明编辑页。Dashboard sync 与 CLI 共用 prune/copy 安全，逐 target 报告 `prune_paused`/`kept` 与警告；Targets 把 managed followed link 算为 linked 而非 local。
 
 原始诊断便于识别：

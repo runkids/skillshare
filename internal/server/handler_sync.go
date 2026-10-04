@@ -588,6 +588,8 @@ type diffTarget struct {
 	Items          []diffItem `json:"items"`
 	SkippedCount   int        `json:"skippedCount,omitempty"`
 	CollisionCount int        `json:"collisionCount,omitempty"`
+	// PrunePaused names the unavailable .skillfollow entries that pause prune.
+	PrunePaused []string `json:"prune_paused,omitempty"`
 }
 
 func (s *Server) handleDiff(w http.ResponseWriter, r *http.Request) {
@@ -619,7 +621,7 @@ func (s *Server) handleDiff(w http.ResponseWriter, r *http.Request) {
 		if filterTarget != "" && filterTarget != name {
 			continue
 		}
-		diffs = append(diffs, s.computeTargetDiff(name, target, discovered, globalMode, source, ignorePatterns))
+		diffs = append(diffs, s.computeTargetDiff(name, target, discovered, globalMode, source, ignorePatterns, follow))
 	}
 
 	diffs = s.appendAgentDiffs(diffs, targets, agentsSource, filterTarget)

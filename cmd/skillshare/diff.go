@@ -13,6 +13,7 @@ import (
 
 	"skillshare/internal/config"
 	"skillshare/internal/oplog"
+	"skillshare/internal/sourcewalk"
 	"skillshare/internal/sync"
 	"skillshare/internal/ui"
 	"skillshare/internal/utils"
@@ -41,6 +42,8 @@ type diffJSONTarget struct {
 	Items   []diffJSONItem `json:"items"`
 	Include []string       `json:"include"`
 	Exclude []string       `json:"exclude"`
+	// PrunePaused names the unavailable .skillfollow entries that pause prune.
+	PrunePaused []string `json:"prune_paused,omitempty"`
 }
 
 type diffJSONItem struct {
@@ -144,10 +147,12 @@ type targetDiffResult struct {
 	exclude    []string
 	srcMtime   time.Time // newest file mtime across source skills
 	dstMtime   time.Time // newest file mtime in target dir
+	// prunePaused names the unavailable .skillfollow entries that pause prune.
+	prunePaused []string
 }
 
 type copyDiffEntry struct {
-	action string // "add", "modify", "remove"
+	action string // "add", "modify", "remove", "keep"
 	name   string
 	kind   string // "skill" or "agent" (empty defaults to "skill")
 	reason string
@@ -365,7 +370,8 @@ func cmdDiffGlobal(targetName string, kind resourceKindFilter, opts diffRenderOp
 	if !opts.jsonOutput {
 		spinner = ui.StartSpinner("Discovering skills")
 	}
-	discovered, _, discoverErr := sync.DiscoverSourceSkillsWithOptions(cfg.EffectiveSkillsSource(), sync.DiscoveryOptions{Follow: globalSkillFollowSet(cfg)})
+	follow := globalSkillFollowSet(cfg)
+	discovered, _, discoverErr := sync.DiscoverSourceSkillsWithOptions(cfg.EffectiveSkillsSource(), sync.DiscoveryOptions{Follow: follow})
 	if discoverErr != nil {
 		if spinner != nil {
 			spinner.Fail("Discovery failed")
@@ -452,7 +458,7 @@ func cmdDiffGlobal(targetName string, kind resourceKindFilter, opts diffRenderOp
 			defer wg.Done()
 			defer func() { <-sem }()
 			progress.startTarget(fe.name)
-			r := collectTargetDiff(fe.name, fe.target, cfg.EffectiveSkillsSource(), fe.mode, fe.filtered, sync.EffectiveFileIgnorePatterns(cfg.Ignore), progress)
+			r := collectTargetDiff(fe.name, fe.target, cfg.EffectiveSkillsSource(), fe.mode, fe.filtered, sync.EffectiveFileIgnorePatterns(cfg.Ignore), follow, progress)
 			progress.doneTarget(fe.name, r)
 			results[idx] = r
 		}(i, fe)
@@ -511,6 +517,8 @@ func diffOutputJSON(results []targetDiffResult, start time.Time) error {
 			Error:   r.errMsg,
 			Include: r.include,
 			Exclude: r.exclude,
+
+			PrunePaused: r.prunePaused,
 		}
 		for _, item := range r.items {
 			jt.Items = append(jt.Items, diffItemToJSON(item))
@@ -538,6 +546,8 @@ func diffOutputJSONWithExtras(results []targetDiffResult, extrasResults []extraD
 			Error:   r.errMsg,
 			Include: r.include,
 			Exclude: r.exclude,
+
+			PrunePaused: r.prunePaused,
 		}
 		for _, item := range r.items {
 			jt.Items = append(jt.Items, diffItemToJSON(item))
@@ -547,7 +557,9 @@ func diffOutputJSONWithExtras(results []targetDiffResult, extrasResults []extraD
 	return writeJSON(&o)
 }
 
-func collectTargetDiff(name string, target config.TargetConfig, source, mode string, filtered []sync.DiscoveredSkill, ignorePatterns []string, dp *diffProgress) targetDiffResult {
+// collectTargetDiff previews sync for one target. follow is the operation's
+// set, so prune pauses and kept copies match what sync would do.
+func collectTargetDiff(name string, target config.TargetConfig, source, mode string, filtered []sync.DiscoveredSkill, ignorePatterns []string, follow *sourcewalk.FollowSet, dp *diffProgress) targetDiffResult {
 	sc := target.SkillsConfig()
 	r := targetDiffResult{
 		name:    name,
@@ -588,9 +600,11 @@ func collectTargetDiff(name string, target config.TargetConfig, source, mode str
 		return r
 	}
 
+	r.prunePaused = sync.PrunePaused(source, follow)
 	if mode == "copy" {
 		manifest, _ := sync.ReadManifest(sc.Path)
-		collectCopyDiff(&r, name, sc.Path, resolution.Skills, sourceSkills, legacyNames, manifest, ignorePatterns, dp)
+		keepManaged := sync.KeepsManagedCopies(source, sc.TargetNaming, follow)
+		collectCopyDiff(&r, name, sc.Path, resolution.Skills, sourceSkills, legacyNames, manifest, ignorePatterns, keepManaged, dp)
 	} else {
 		// Merge mode (instant)
 		collectMergeDiff(&r, sc.Path, sourceSkills, sourceMap, legacyNames)
@@ -627,7 +641,8 @@ func collectSymlinkDiff(r *targetDiffResult, targetPath, source string) {
 	}
 }
 
-func collectCopyDiff(r *targetDiffResult, targetName, targetPath string, filtered []sync.ResolvedTargetSkill, sourceSkills map[string]bool, legacyNames map[string]sync.ResolvedTargetSkill, manifest *sync.Manifest, ignorePatterns []string, dp *diffProgress) {
+func collectCopyDiff(r *targetDiffResult, targetName, targetPath string, filtered []sync.ResolvedTargetSkill, sourceSkills map[string]bool, legacyNames map[string]sync.ResolvedTargetSkill, manifest *sync.Manifest, ignorePatterns []string, keepManaged bool, dp *diffProgress) {
+	kept := copyDiffEntry{action: "keep", reason: "managed copy kept while prune is paused; origin cannot be proven"}
 	for _, resolved := range filtered {
 		skill := resolved.Skill
 		dp.update(targetName, resolved.TargetName)
@@ -659,6 +674,11 @@ func collectCopyDiff(r *targetDiffResult, targetName, targetPath string, filtere
 			continue
 		}
 		if !targetInfo.IsDir() {
+			if keepManaged {
+				kept.name, kept.srcDir, kept.dstDir = resolved.TargetName, srcDir, dstDir
+				r.items = append(r.items, kept)
+				continue
+			}
 			r.items = append(r.items, copyDiffEntry{action: "modify", name: resolved.TargetName, reason: "target entry is not a directory", isSync: true, srcDir: srcDir, dstDir: dstDir})
 			continue
 		}
@@ -673,13 +693,19 @@ func collectCopyDiff(r *targetDiffResult, targetName, targetPath string, filtere
 			r.items = append(r.items, copyDiffEntry{action: "modify", name: resolved.TargetName, reason: "cannot compute checksum", isSync: true, srcDir: srcDir, dstDir: dstDir})
 			continue
 		}
-		if srcChecksum != oldChecksum {
+		if srcChecksum != oldChecksum && keepManaged {
+			kept.name, kept.srcDir, kept.dstDir = resolved.TargetName, srcDir, dstDir
+			r.items = append(r.items, kept)
+		} else if srcChecksum != oldChecksum {
 			r.items = append(r.items, copyDiffEntry{action: "modify", name: resolved.TargetName, reason: "content changed", isSync: true, srcDir: srcDir, dstDir: dstDir})
 		}
 	}
 
-	// Orphan managed copies
+	// Orphan managed copies; sync prunes none while prune is paused.
 	for name := range manifest.Managed {
+		if len(r.prunePaused) > 0 {
+			break
+		}
 		if _, keepLegacy := legacyNames[name]; keepLegacy {
 			continue
 		}
@@ -812,6 +838,8 @@ func categorizeItems(items []copyDiffEntry) []actionCategory {
 
 	for _, item := range items {
 		switch {
+		case item.action == "keep":
+			add("kept", "kept", "Kept", item.name)
 		case item.reason == "source only" || item.reason == "not in target":
 			add("new", "new", "New", item.name)
 		case item.reason == "deleted from target":
@@ -925,6 +953,18 @@ func renderGroupedDiffs(results []targetDiffResult, extras []extraDiffResult, op
 		}
 		if syncedLabel != "" {
 			ui.Row(ui.MarkOK, syncedLabel, "in sync", width)
+		}
+	}
+	var pauses []string
+	for _, r := range results {
+		if len(r.prunePaused) > 0 {
+			pauses = append(pauses, fmt.Sprintf("%s: prune paused; unavailable .skillfollow entry: %s", r.name, strings.Join(r.prunePaused, ", ")))
+		}
+	}
+	if len(pauses) > 0 {
+		out.gap()
+		for _, pause := range pauses {
+			ui.Warning("%s", pause)
 		}
 	}
 
@@ -1063,6 +1103,8 @@ func renderDiffGroup(r targetDiffResult, opts diffRenderOpts, next *diffNext, wi
 				agent = true
 			}
 			switch {
+			case cat.kind == "kept":
+				// sync leaves it in place
 			case cat.kind == "override":
 				next.force = true
 			case cat.kind == "local" && agent:

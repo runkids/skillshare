@@ -78,6 +78,9 @@ remove it or re-run with --force`.
   `.skillignore`; do not promise that dashboard toggles work for followed skills.
   Dashboard sync shares prune/copy safety and reports `prune_paused`/`kept` with
   warnings; Targets counts managed followed links as linked, not local.
+- Diff previews sync: while paused it reports no removals, names the pause
+  (`prune_paused` in JSON and dashboard), and shows kept standard-name copies
+  (`keep`; dashboard `skip`).
 
 ## Git and update safety
 
