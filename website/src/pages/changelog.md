@@ -9,6 +9,31 @@ All notable changes to skillshare are documented here. For the full commit histo
 
 ---
 
+## [0.24.3] - 2026-10-04
+
+### New Features
+
+- **`doctor` points out links at the top of the skills source** — a symlink or Windows junction directly inside the skills source is not followed by discovery, so the skills behind it never reach your Agents. `doctor` now lists each one as a **Source link** info row, in global and project mode, without following it; `doctor --json` reports them as `undeclared_source_links` checks with status `info`. A write into the skills source whose path crosses such a link is refused instead of written through it. Refs: #274.
+  ```bash
+  skillshare doctor
+  ```
+
+### Bug Fixes
+
+- **Plugin commands find the Codex CLI that the desktop app ships** — Codex installed only through the Codex desktop app, Homebrew or the Windows installer was not on `PATH` for Skillshare, so plugin commands for the `codex` target stopped with a missing-CLI error. Skillshare now also looks in those places (macOS `ChatGPT.app`, Windows `%LOCALAPPDATA%\OpenAI\Codex\bin\<version>`, `/opt/homebrew/bin`, `/usr/local/bin`), and the error lists every place it searched. On a machine where Codex lives elsewhere, set `SKILLSHARE_CODEX_CLI`; it is read from the environment, so a `config.yaml` shared between machines needs no machine-specific path. Refs: #338.
+  ```bash
+  export SKILLSHARE_CODEX_CLI=/path/to/codex
+  skillshare sync plugins
+  ```
+- **The shared-memory `active` guidance says where a lesson goes** — a durable fact or decision gets its own note linked from `INDEX.md`; a lesson from a failure goes under a new heading in `LEARNED.md`, as the starter file and the sharing-memory guide describe. The `--update-mode` help now also says that `passive` saves notes when you ask, not only points them out.
+
+### Performance
+
+- **Agents are told to save to the shared notes instead of their own memory** — the guidance block connected to each Agent now says that the notes folder is shared by every coding tool, to read `INDEX.md` at the start of each task, and, in `active` mode, to save a fact worth keeping here rather than in the tool's own memory, with a note format and the `INDEX.md` line to add. `passive` still saves only on request, but points out facts worth keeping so you can ask. Existing guidance blocks show as **Outdated** in the dashboard's Memory page; reconnect to update them.
+  ```bash
+  skillshare extras memory instructions --update-mode active -g
+  ```
+
 ## [0.24.2] - 2026-10-04
 
 ### Performance

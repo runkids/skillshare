@@ -8,7 +8,7 @@ description: |
   noninteractive automation, and guidance for the terminal UI.
 argument-hint: "[command] [target] [--json] [--dry-run] [-p|-g]"
 metadata:
-  version: v0.24.2
+  version: v0.24.3
 ---
 
 # Skillshare CLI

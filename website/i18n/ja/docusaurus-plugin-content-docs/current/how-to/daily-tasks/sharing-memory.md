@@ -114,7 +114,7 @@ skillshare extras memory init -p
 skillshare ui -p
 ```
 
-既定の source は `.skillshare/extras/memory/`、可視設定ディレクトリなら `skillshare/extras/memory/` です。既存の extras source override も適用します。同じ接続、インデックス、編集、復元の機能を使えます。リポジトリ内の source は **project root** からの相対パスで示します。指示ファイルがサブフォルダーにある場合も同じです。Project 外の override は絶対パスです。絶対 source の移動や配置変更後はガイダンスを再生成し、レビューしてください。
+既定の source は `.skillshare/extras/memory/`、可視設定ディレクトリなら `skillshare/extras/memory/` です。既存の extras source override も適用します。同じ接続、インデックス、編集、復元の機能を使えます。リポジトリ内の source は **project root** からの相対パスで示します。指示ファイルがサブフォルダーにある場合も同じです。Project のガイダンスは、このプロジェクトに関するメモはここに、あなた自身やツール、他のプロジェクトに関するメモはここには属さないとエージェントに伝えるので、shared memory のガイダンスも読むエージェントは各事実の置き場所が分かります。Project 外の override は絶対パスです。絶対 source の移動や配置変更後はガイダンスを再生成し、レビューしてください。
 
 ## 高度な代替手段：ガイダンスを手動でコピーする
 

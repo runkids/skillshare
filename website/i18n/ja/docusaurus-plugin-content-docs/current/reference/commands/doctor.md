@@ -118,8 +118,11 @@ Version
 | Source | Source ディレクトリが存在し、読み取り可能であること |
 | Agents | Agents source ディレクトリが存在すること（設定されている場合） |
 | Skillignore | `.skillignore`（および `.skillignore.local`）の有効なパターンと、無視されている Skill 数 |
+| Source link | skills source 直下にあるシンボリックリンクまたは Windows ジャンクションごとの情報。discovery はこれらを辿らないため、その中身は skillshare から見えません |
 | Links | システムがシンボリックリンクを作成できること |
 | Git | リポジトリの状態と remote の設定 |
+
+Source link の確認はグローバルモードとプロジェクトモードの両方で行われます。source のルートは discovery と同じ方法で解決され、直下のエントリだけを確認します。リンクは辿らず、中身も読みません。該当するリンクがなければ出力は追加されません。各リンクは `doctor --json` では status `info` の `undeclared_source_links` チェックとしても現れます。
 
 ### Targets
 

@@ -118,8 +118,11 @@ Version
 | Source | Source 目錄存在且可讀取 |
 | Agents | Agents source 目錄存在（若有設定） |
 | Skillignore | `.skillignore`（及 `.skillignore.local`）目前生效的 patterns 與被忽略的 skill 數量 |
+| Source link | skills source 第一層的每個 symlink 或 Windows junction 各一條 info：discovery 不會跟進去，所以其內容對 skillshare 不可見 |
 | Links | 系統可以建立 symlinks |
 | Git | Repository 狀態與 remote 設定 |
+
+Source link 檢查在 global 與 project mode 都會執行。source 根目錄依 discovery 的方式解析，只檢查第一層項目，不跟隨連結、不讀取其內容。沒有這類連結時不會增加輸出。每個連結在 `doctor --json` 中也會以 status 為 `info` 的 `undeclared_source_links` 檢查出現。
 
 ### Targets
 

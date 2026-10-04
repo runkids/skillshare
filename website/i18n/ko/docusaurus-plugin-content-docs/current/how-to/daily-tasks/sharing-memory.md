@@ -114,7 +114,7 @@ skillshare extras memory init -p
 skillshare ui -p
 ```
 
-기본 소스는 `.skillshare/extras/memory/`이며 표시되는 설정 디렉터리를 사용하면 `skillshare/extras/memory/`입니다. 기존 extras source overrides도 적용됩니다. 같은 연결, 인덱스, 편집, 복원 기능을 제공합니다. 저장소 내부 소스는 **project root** 기준 상대 경로를 사용합니다. 지침 파일이 하위 폴더에 있어도 동일합니다. 프로젝트 외부 override는 절대 경로를 사용합니다. 절대 소스를 이동하거나 위치를 바꾸면 안내를 다시 생성하고 검토하세요.
+기본 소스는 `.skillshare/extras/memory/`이며 표시되는 설정 디렉터리를 사용하면 `skillshare/extras/memory/`입니다. 기존 extras source overrides도 적용됩니다. 같은 연결, 인덱스, 편집, 복원 기능을 제공합니다. 저장소 내부 소스는 **project root** 기준 상대 경로를 사용합니다. 지침 파일이 하위 폴더에 있어도 동일합니다. Project 안내는 이 프로젝트에 관한 노트는 여기에, 사용자 자신이나 도구, 다른 프로젝트에 관한 노트는 여기에 속하지 않는다고 에이전트에게 알려 주므로, shared memory 안내도 읽는 에이전트는 각 사실을 어디에 저장할지 알 수 있습니다. 프로젝트 외부 override는 절대 경로를 사용합니다. 절대 소스를 이동하거나 위치를 바꾸면 안내를 다시 생성하고 검토하세요.
 
 ## 고급 대안: 안내를 직접 복사
 

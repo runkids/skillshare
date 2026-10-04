@@ -114,7 +114,7 @@ skillshare extras memory init -p
 skillshare ui -p
 ```
 
-默认来源为 `.skillshare/extras/memory/`；使用可见配置目录时为 `skillshare/extras/memory/`。现有 extras source overrides 仍适用。Project mode 提供相同的连接、索引、编辑与恢复流程。Repo 内来源的指引使用相对于 **project root** 的路径，即使 instructions 文件在子文件夹中也一样。Project 外的 override 使用绝对路径。移动绝对来源或更改位置后，请重新生成并检查指引。
+默认来源为 `.skillshare/extras/memory/`；使用可见配置目录时为 `skillshare/extras/memory/`。现有 extras source overrides 仍适用。Project mode 提供相同的连接、索引、编辑与恢复流程。Repo 内来源的指引使用相对于 **project root** 的路径，即使 instructions 文件在子文件夹中也一样。Project 指引会告诉 agent 把这个项目的笔记放在这里，关于你、你的工具或其他项目的笔记不属于这里，因此同时读到 shared memory 指引的 agent 知道每个事实该存哪里。Project 外的 override 使用绝对路径。移动绝对来源或更改位置后，请重新生成并检查指引。
 
 ## 高级替代方式：自行复制指引
 

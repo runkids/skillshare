@@ -118,8 +118,11 @@ Version
 | Source | source 디렉터리 존재 여부 및 읽기 가능 여부 |
 | Agents | agents source 디렉터리 존재 여부 (구성된 경우) |
 | Skillignore | `.skillignore` (및 `.skillignore.local`) 활성 패턴과 무시된 skill 수 |
+| Source link | skills source 바로 아래의 symlink 또는 Windows junction마다 info 한 줄. discovery가 따라가지 않으므로 그 내용은 skillshare에 보이지 않습니다 |
 | Links | 시스템이 symlink를 생성할 수 있는지 여부 |
 | Git | 저장소 상태 및 remote 구성 |
+
+Source link 검사는 global과 project mode 모두에서 수행됩니다. source 루트는 discovery와 같은 방식으로 해석되며, 바로 아래 항목만 검사합니다. 링크를 따라가거나 내용을 읽지 않습니다. 해당 링크가 없으면 출력이 추가되지 않습니다. 각 링크는 `doctor --json`에서 status `info`인 `undeclared_source_links` 검사로도 나타납니다.
 
 ### Targets
 

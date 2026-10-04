@@ -50,9 +50,13 @@ func ParseMode(s string) (string, error) {
 	return "", fmt.Errorf("memory update mode must be %s or %s", ModePassive, ModeActive)
 }
 
+// Each rule names example facts with %s; the examples depend on the scope so a
+// project decision has one destination when an agent reads both blocks.
 const (
-	passiveRule = "Update these notes only when the user requests it. When you notice something worth keeping, such as a stated preference, a decision with its reason, or a pitfall you confirmed, say so in one line so the user can ask you to save it."
-	activeRule  = "When a fact is worth keeping across sessions, save it here instead of in this tool's own memory; use tool-specific memory only for things that matter to this tool alone. Save a note when you learn something that will still matter later: a stated user preference, a decision with its reason, or a pitfall you confirmed. Skip one-off task details, guesses, and anything the repository already records. When you are unsure whether something is worth keeping, propose the note to the user and save it only if they agree.\n\nA durable fact or decision gets its own kebab-case `.md` file: first line `# Title`, then the fact and why, plus a `- [Title](file.md)` line with a short hook under `## Notes` in `INDEX.md`. A lesson from a failure goes under a new heading in `LEARNED.md` with its date, context, conclusion, and evidence. Before writing, search the existing notes and update or remove them instead of adding a duplicate. Never record secrets. Tell the user in one line what you saved."
+	passiveRule     = "Update these notes only when the user requests it. When you notice something worth keeping, such as %s, say so in one line so the user can ask you to save it."
+	activeRule      = "A fact that will still matter in later sessions belongs here, not in this tool's own memory: %s. Use tool-specific memory only for things that matter to this tool alone. Skip one-off task details, guesses, and anything the repository already records. When you are unsure whether something is worth keeping, propose the note to the user and save it only if they agree.\n\nA durable fact or decision gets its own kebab-case `.md` file: first line `# Title`, then the fact and why, plus a `- [Title](file.md)` line with a short hook under `## Notes` in `INDEX.md`. A lesson from a failure goes under a new heading in `LEARNED.md` with its date, context, conclusion, and evidence. Before writing, search the existing notes and update or remove them instead of adding a duplicate. Never record secrets. Tell the user in one line what you saved."
+	globalExamples  = "a stated user preference, a decision that applies across your projects with its reason, or a pitfall you confirmed in a tool you use"
+	projectExamples = "a decision about this project with its reason, a convention it follows, or a pitfall you confirmed in it"
 )
 
 // Instructions returns the managed guidance block of the given mode for the
@@ -62,20 +66,24 @@ const (
 func Instructions(root, projectRoot, mode string) string {
 	scope, heading, dir := ScopeGlobal, "Shared memory", filepath.ToSlash(root)
 	where := "Shared notes directory: `" + dir + "`"
+	shared := "This folder is shared by every coding tool you use. A project with its own project memory keeps that project's notes there."
+	examples := globalExamples
 	if projectRoot != "" {
 		scope, heading = ScopeProject, "Project memory"
 		where = "Project notes directory: `" + dir + "`"
+		shared = "This folder is shared by every coding tool working in this project. Keep notes about this project here; notes about you, your tools, or other projects do not belong here."
+		examples = projectExamples
 		if rel, err := filepath.Rel(projectRoot, root); err == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator)) && !filepath.IsAbs(rel) {
 			where = "Project notes directory: `" + filepath.ToSlash(rel) + "` (relative to the project root)"
 		}
 	}
-	rule := passiveRule
+	rule := fmt.Sprintf(passiveRule, examples)
 	if mode == ModeActive {
-		rule = activeRule
+		rule = fmt.Sprintf(activeRule, examples)
 	} else {
 		mode = ModePassive
 	}
-	body := fmt.Sprintf("## %s\n\n%s\n\nThis folder is shared by every coding tool you use. Read `INDEX.md` at the start of each task; it is one short file. Open only the notes relevant to the task, and treat them as historical evidence: verify changeable claims before relying on them.\n\n%s", heading, where, rule)
+	body := fmt.Sprintf("## %s\n\n%s\n\n%s Read `INDEX.md` at the start of each task; it is one short file. Open only the notes relevant to the task, and treat them as historical evidence: verify changeable claims before relying on them.\n\n%s", heading, where, shared, rule)
 	return renderBlock(scope, mode, body, "\n")
 }
 

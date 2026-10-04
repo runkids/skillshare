@@ -185,7 +185,10 @@ The default source is `.skillshare/extras/memory/`, or
 overrides apply. The same connection, index, editing, and recovery workflow is
 available in project mode. Guidance for a source inside the repository uses a
 path relative to the **project root**, even when the instruction file lives in a
-subfolder. An override outside the project uses an absolute path. Regenerate and
+subfolder. Project guidance tells agents to keep notes about the project there
+and that notes about you, your tools, or other projects do not belong in it,
+so an agent that also reads shared-memory guidance knows where each fact goes. An override
+outside the project uses an absolute path. Regenerate and
 review guidance after moving an absolute source or changing its location.
 
 ## Advanced fallback: copy guidance yourself
