@@ -18,6 +18,7 @@ Complete reference for all skillshare commands.
 | Search for community skills | [`search`](./search.md) |
 | Update installed skills | [`check`](./check.md) then [`update`](./update.md) |
 | Temporarily hide a skill without removing it | [`enable` / `disable`](./enable.md) |
+| Discover skills from a linked repository I edit elsewhere | [`follow`](./follow.md) / [`unfollow`](./unfollow.md) |
 | Save or sync changes with git | [`commit`](./commit.md) / [`push`](./push.md) / [`pull`](./pull.md) |
 | Set up an MCP server once for every tool | [`mcp`](./mcp.md) |
 | Manage native hooks across tools | [`hooks`](./hooks.md) |
@@ -36,7 +37,7 @@ Complete reference for all skillshare commands.
 | Category | Commands |
 |----------|----------|
 | **Core** | `init`, `install`, `uninstall`, `list`, `search`, `sync`, `status` |
-| **Skill Management** | `new`, `check`, `update`, `upgrade`, `enable`, `disable` |
+| **Skill Management** | `new`, `check`, `update`, `upgrade`, `enable`, `disable`, `follow`, `unfollow` |
 | **MCP Connections** | `mcp` (`add`, `edit`, `import`, `list`, `remove`, `restore`), `sync mcp` |
 | **Hooks** | `hooks` (`list`, `add`, `edit`, `import`, `enable`, `disable`, `remove`, `sync`, `restore`) |
 | **Plugin Management** | `plugin` (`list`, `discover`, `add`, `import`, `inspect`, `sync`, `check`, `update`, `enable`, `disable`, `remove`) |
@@ -68,6 +69,8 @@ Complete reference for all skillshare commands.
 | [update](./update.md) | Update a skill or tracked repo |
 | [upgrade](./upgrade.md) | Upgrade CLI or built-in skill |
 | [enable / disable](./enable.md) | Temporarily enable or disable skills |
+| [follow](./follow.md) | Follow a first-level link in the skills source |
+| [unfollow](./unfollow.md) | Stop following a first-level link |
 
 ## Target Management
 

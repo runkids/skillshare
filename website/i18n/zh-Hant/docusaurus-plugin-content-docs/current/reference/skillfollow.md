@@ -20,6 +20,16 @@ sidebar_position: 4
 └── .gitignore
 ```
 
+執行 [`follow`](./commands/follow.md)，指定 entry 名稱與外部目錄：
+
+```bash
+skillshare follow _team-skills --to ~/work/team-skills
+```
+
+它會建立連結（Windows 上是 junction）、把 `_team-skills` 加進 `.skillfollow`，source 在 Git 工作目錄內時再把 `/_team-skills` 加進 `.gitignore`，最後印出該 entry 的 [state](#states)。連結已存在時省略 `--to`。加上 `--local` 會改為宣告在 `.skillfollow.local`，並把 `/.skillfollow.local` 加進 `.gitignore`。[`unfollow`](./commands/unfollow.md) 會把這些全部還原。
+
+### 手動設定
+
 自行建立第一層連結。macOS/Linux：
 
 ```bash
@@ -52,7 +62,9 @@ _team-skills
 git rm --cached -- '_team-skills'
 ```
 
-執行 `skillshare doctor`、`skillshare list --no-tui`、`skillshare sync --dry-run`；用 `-g`/`-p` 選定範圍，預覽正確再 `skillshare sync`。宣告與 ignore 檔須手動編輯；discovery、status、doctor、dry run 不會自動建立或修復它們。目前沒有 `follow`/`unfollow` 指令。
+### 檢查與 sync
+
+執行 `skillshare doctor`、`skillshare list --no-tui`、`skillshare sync --dry-run`；用 `-g`/`-p` 選定範圍，預覽正確再 `skillshare sync`。只有 `follow` 與 `unfollow` 會寫入宣告與 ignore 檔；discovery、status、doctor、dry run 不會自動建立或修復它們。
 
 `_` 前綴且含 `.git` 的項目視為 tracked repo，其他 followed 目錄視為群組。Skills 保留 `_team-skills/review` 等邏輯路徑（flat name：`_team-skills__review`）。Source-root/repo 的 `.skillignore` 仍適用（含 followed 群組內巢狀的 tracked repo）；未宣告第一層連結仍不可見。
 
@@ -80,7 +92,7 @@ git rm --cached -- '_team-skills'
 | `entry-overlap` | 宣告目標相同或相互包含；移除或改指向，使宣告不重疊 |
 | `single-skill` | 目標根目錄含 `SKILL.md`，目前不支援；改跟隨外層群組/repo 或移除宣告 |
 | `followed` | 安全可讀的群組/tracked repo，可探索與同步 |
-| `undeclared-link` | 未在兩檔宣告的第一層連結；可維持不可見，或宣告並加入 ignore |
+| `undeclared-link` | 未在兩檔宣告的第一層連結；可維持不可見，或執行 `skillshare follow <name>` |
 
 `not-link`/`followed` 的 doctor 檢查為 pass；其他宣告狀態為 warning 並暫停清理。`undeclared-link` 僅 info，不暫停清理。Parser 警告另外呈現。
 
@@ -113,7 +125,7 @@ Status/doctor 對每個阻擋顯示：
 prune paused: <name> is <state>; restore or fix <path>, or remove <name> from .skillfollow[.local], to resume cleanup
 ```
 
-修復項目，或從**每個含該名稱的宣告檔**移除，然後再 sync。廢棄宣告會讓清理無限期暫停；移除宣告不刪除外部樹。透過邏輯 source 的 managed orphan link 可清理；直接指向已取消跟隨外部路徑的 managed link 則保留並警告 `managed link resolves outside the source after unfollow; remove it or re-run with --force`。
+修復項目，或從**每個含該名稱的宣告檔**移除（`skillshare unfollow <name>` 會做這件事並一併移除連結），然後再 sync。廢棄宣告會讓清理無限期暫停；移除宣告不刪除外部樹。透過邏輯 source 的 managed orphan link 可清理；直接指向已取消跟隨外部路徑的 managed link 則保留並警告 `managed link resolves outside the source after unfollow; remove it or re-run with --force`。
 
 ## 更新安全 {#updates}
 
@@ -133,7 +145,7 @@ Source **pull/reset/checkout** 也拒絕 indexed 宣告（包括不存在但仍 
 
 ## 限制
 
-單 skill、`follow`/`unfollow` 與宣告編輯頁仍是未來工作；巢狀連結不跟隨。Windows 有 junction 模擬與 cross-compilation，但**尚未驗證真實 Windows junction/Developer Mode 的完整功能執行矩陣**；編譯或早期 standalone probe 成功不等於 runtime 正確。
+單 skill 與宣告編輯頁仍是未來工作；`follow --to` 在 Windows 上透過 sync 使用的同一個 helper 建立 junction，這條路徑同樣尚未在真實 Windows 上執行過；巢狀連結不跟隨。Windows 有 junction 模擬與 cross-compilation，但**尚未驗證真實 Windows junction/Developer Mode 的完整功能執行矩陣**；編譯或早期 standalone probe 成功不等於 runtime 正確。
 
 ## 另見
 

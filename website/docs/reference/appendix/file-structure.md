@@ -203,7 +203,7 @@ At the **configured skills source root**, `.skillfollow` declares direct child l
 _team-skills
 ```
 
-Pair it with `/_team-skills` and `/.skillfollow.local` in that source's `.gitignore`, without trailing slashes. Create the link separately on each machine. See [setup, strict names, states, and safety](../skillfollow.md) before syncing.
+Pair it with `/_team-skills` and `/.skillfollow.local` in that source's `.gitignore`, without trailing slashes. Create the link separately on each machine. `skillshare follow` and `skillshare unfollow` write or remove the link, the declaration, and the ignore lines together. See [setup, strict names, states, and safety](../skillfollow.md) before syncing.
 
 ### .skillignore (Optional) {#skillignore-optional}
 

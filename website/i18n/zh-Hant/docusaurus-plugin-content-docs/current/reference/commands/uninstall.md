@@ -4,7 +4,7 @@ sidebar_position: 3
 
 # uninstall
 
-[Followed tree](../skillfollow.md) 是使用者所有，根項目/子項不可透過 skillshare uninstall，含 force/dry run。訊息為 `<path> is a link; edit its target directly`。停止探索須從所有宣告檔移除名稱，或用 source-root `.skillignore` 隱藏；尚無 `unfollow`。外部樹不搬到 trash。
+[Followed tree](../skillfollow.md) 是使用者所有，根項目/子項不可透過 skillshare uninstall，含 force/dry run。訊息為 `<path> is a link; edit its target directly`。停止探索請執行 [`unfollow`](./unfollow.md)（從所有宣告檔移除名稱並移除連結），或用 source-root `.skillignore` 隱藏。外部樹不搬到 trash。
 
 從 source 目錄移除一個或多個 skills 或 tracked repositories。Skills 會先移到 trash，保留 7 天後才會自動清除。
 

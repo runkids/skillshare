@@ -197,7 +197,7 @@ Instructions for the AI...
 
 ### .skillfollow / .skillfollow.local {#skillfollow-optional}
 
-**설정된 skills source 루트**에 직접 자식 링크 이름（예 `_team-skills`）을 선언합니다. Local은 머신별 이름을 추가하며 ignore pattern이나 중첩 repo 설정이 아닙니다. Source `.gitignore`에 `/_team-skills`, `/.skillfollow.local`（끝 `/` 없음）을 추가하고 머신마다 링크를 만드세요. `_` 접두사와 `.git`은 tracked repo이며 루트 `SKILL.md`는 미지원입니다. [설정/엄격한 이름/안전성](../skillfollow.md) 참조.
+**설정된 skills source 루트**에 직접 자식 링크 이름（예 `_team-skills`）을 선언합니다. Local은 머신별 이름을 추가하며 ignore pattern이나 중첩 repo 설정이 아닙니다. Source `.gitignore`에 `/_team-skills`, `/.skillfollow.local`（끝 `/` 없음）을 추가하고 머신마다 링크를 만드세요. `skillshare follow`/`unfollow`는 링크, 선언, ignore 줄을 함께 쓰거나 제거합니다. `_` 접두사와 `.git`은 tracked repo이며 루트 `SKILL.md`는 미지원입니다. [설정/엄격한 이름/안전성](../skillfollow.md) 참조.
 
 ### .skillignore (선택) {#skillignore-optional}
 

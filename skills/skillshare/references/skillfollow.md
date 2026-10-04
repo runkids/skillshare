@@ -12,7 +12,16 @@ Windows `%AppData%\skillshare\skills\`, project `.skillshare/skills/`, or
 multi-skill repo/group. It must not contain a root `SKILL.md`, overlap the source
 or an enabled skills target, or reside inside the effective Git staging tree.
 
-Write `_team-skills` on its own line in `<source>/.skillfollow`. Add
+`skillshare follow _team-skills --to <dir>` creates the link (a junction on
+Windows), declares it, adds the ignore line in a Git source, and prints the
+entry's state; omit `--to` when the link exists, add `--local` for
+`.skillfollow.local` (also ignored). It never untracks an indexed link; it prints
+the `git rm --cached` command. `skillshare unfollow <name>` removes the name from
+every declaration file, then the link (never its target; a real directory stays)
+and its ignore line; `--keep-link` keeps both, `--local` edits only the local file
+and reports when `.skillfollow` still declares the name. Both take `-g`/`-p` and
+`--json`, and neither syncs. By hand instead: write `_team-skills` on its own
+line in `<source>/.skillfollow`. Add
 `/_team-skills` and `/.skillfollow.local` to `<source>/.gitignore`, with **no
 trailing slash**. If indexed, review and run `git rm --cached -- '_team-skills'`
 from that source; this leaves the working link. Commit the declaration, not the
@@ -24,7 +33,7 @@ unless the requested work authorizes that change.
 duplicates collapse. Trim whitespace, ignore blank lines and full-line `#`
 comments. Names must be direct children: no `.`, `..`, separators, absolute,
 volume/UNC forms, path-cleaning changes, glob/negation (`*?[]{}!`), or NUL.
-Invalid lines warn. There are no `follow`/`unfollow` commands yet.
+Invalid lines warn.
 
 A `_`-prefixed directory with `.git` is a tracked repo; other directories are
 groups. Paths stay logical (`_team-skills/review`, flat `_team-skills__review`).
@@ -44,7 +53,7 @@ followed group. Nested links are not traversed.
 | `entry-overlap` | Remove/repoint overlapping declarations; both are rejected |
 | `single-skill` | Unsupported until the next rollout; use a containing group |
 | `followed` | Ready |
-| `undeclared-link` | Leave invisible or declare and ignore it; info only |
+| `undeclared-link` | Leave invisible or `follow <name>`; info only |
 
 Declared states other than `followed`/`not-link` pause all merge/copy skills
 prune, even with force and during init's first sync. New links/copies may still be created. Standard-name
@@ -56,7 +65,8 @@ Status/doctor say:
 prune paused: <name> is <state>; restore or fix <path>, or remove <name> from .skillfollow[.local], to resume cleanup
 ```
 
-Remove an abandoned name from every declaration file containing it, then sync.
+Remove an abandoned name from every declaration file containing it (`unfollow
+<name>`), then sync.
 If `.skillfollow`/`.skillfollow.local` exists but cannot be read, discovery stops:
 sync refuses and keeps targets, check/status report the read error instead of
 empty counts, every update (CLI, dashboard, `install --update`) is refused even

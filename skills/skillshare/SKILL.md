@@ -24,7 +24,8 @@ Check `skillshare <command> --help` if the installed version differs from these 
   when location matters instead of relying on auto-detection.
 - Skills are directories containing `SKILL.md`; agents are single Markdown files.
   Source paths can be customized. Use the configured sources instead of assuming defaults.
-- First-level linked skills groups/repos require experimental `.skillfollow` declarations.
+- First-level linked skills groups/repos require experimental `.skillfollow` declarations,
+  written by `skillshare follow <name> [--to <dir>]` and removed by `skillshare unfollow <name>`.
   Read [skillfollow.md](references/skillfollow.md) before setup, updates, or recovery;
   declarations grant discovery, not writes into external trees.
 - Use native agents targets for agents. Use extras for arbitrary file resources or when

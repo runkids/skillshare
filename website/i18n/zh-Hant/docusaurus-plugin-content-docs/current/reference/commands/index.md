@@ -18,6 +18,7 @@ skillshare 所有指令的完整參考。
 | 搜尋社群 skills | [`search`](./search.md) |
 | 更新已安裝的 skills | [`check`](./check.md) 然後 [`update`](./update.md) |
 | 暫時隱藏某個 skill 而不移除它 | [`enable` / `disable`](./enable.md) |
+| 從在別處編輯的連結 repository 找到 skill | [`follow`](./follow.md) / [`unfollow`](./unfollow.md) |
 | 用 git 儲存或同步變更 | [`commit`](./commit.md) / [`push`](./push.md) / [`pull`](./pull.md) |
 | 為每個工具一次設定好 MCP server | [`mcp`](./mcp.md) |
 | 在支援的工具間管理完整的 plugins | [`plugin`](./plugin.md) |
@@ -35,7 +36,7 @@ skillshare 所有指令的完整參考。
 | 分類 | 指令 |
 |----------|----------|
 | **核心** | `init`, `install`, `uninstall`, `list`, `search`, `sync`, `status` |
-| **Skill 管理** | `new`, `check`, `update`, `upgrade`, `enable`, `disable` |
+| **Skill 管理** | `new`, `check`, `update`, `upgrade`, `enable`, `disable`, `follow`, `unfollow` |
 | **MCP 連線** | `mcp` (`add`, `edit`, `import`, `list`, `remove`, `restore`), `sync mcp` |
 | **Plugin 管理** | `plugin` (`list`, `discover`, `add`, `import`, `inspect`, `sync`, `check`, `update`, `enable`, `disable`, `remove`) |
 | **Target 管理** | `target`, `diff` |
@@ -66,6 +67,8 @@ skillshare 所有指令的完整參考。
 | [update](./update.md) | 更新一個 skill 或 tracked repo |
 | [upgrade](./upgrade.md) | 升級 CLI 或內建 skill |
 | [enable / disable](./enable.md) | 暫時啟用或停用 skills |
+| [follow](./follow.md) | 跟隨 skills source 中的第一層連結 |
+| [unfollow](./unfollow.md) | 停止跟隨第一層連結 |
 
 ## Target 管理
 

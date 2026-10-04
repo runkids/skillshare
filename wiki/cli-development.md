@@ -65,7 +65,8 @@ Keep logical paths and fail on `FollowSet.Err()`. Unavailable declarations pause
 prune even with force. Git subprocesses need the shared followed-update and
 source staging/mutation guards outside sourcefs; ff-only updates still have audit
 hard-reset rollback. Sourcefs retains generic link errors; do not advise the
-future `unfollow` command. See [step 3](history/proposal-274-step-3.md).
+`unfollow` command. `follow`/`unfollow` write declarations and ignore lines
+through `internal/skillfollow`. See [step 3](history/proposal-274-step-3.md).
 
 ## Tests
 

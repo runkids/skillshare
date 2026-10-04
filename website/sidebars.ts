@@ -152,6 +152,8 @@ const sidebars: SidebarsConfig = {
                 'reference/commands/update',
                 'reference/commands/upgrade',
                 'reference/commands/enable',
+                'reference/commands/follow',
+                'reference/commands/unfollow',
               ],
             },
             {

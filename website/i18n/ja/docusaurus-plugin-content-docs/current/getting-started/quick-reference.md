@@ -28,6 +28,8 @@ skillshare のコマンド早見表です。
 | `check` | Skill の更新を確認 |
 | `check --json` | 更新を確認（JSON 出力） |
 | `upgrade` | CLI と Built-in skill をアップグレード |
+| `follow <name> --to <dir>` | 外部ディレクトリを source にリンクしてたどる |
+| `unfollow <name>` | たどるのをやめてリンクを削除 |
 | `hub list` | 設定済みの Skill Hub を一覧表示 |
 | `hub add <url>` | Skill Hub を追加 |
 

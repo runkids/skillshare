@@ -28,6 +28,8 @@ skillshare 命令速查。
 | `check` | 检查 skill 更新 |
 | `check --json` | 检查更新（JSON 输出） |
 | `upgrade` | 升级 CLI 与内置 skill |
+| `follow <name> --to <dir>` | 把外部目录链接进 source 并跟随它 |
+| `unfollow <name>` | 停止跟随并移除链接 |
 | `hub list` | 列出已配置的 skill Hub |
 | `hub add <url>` | 添加一个 skill Hub |
 

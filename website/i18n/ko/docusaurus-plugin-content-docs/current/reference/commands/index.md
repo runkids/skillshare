@@ -18,6 +18,7 @@ sidebar_position: 1
 | 커뮤니티 skill 검색하기 | [`search`](./search.md) |
 | 설치된 skill 업데이트하기 | [`check`](./check.md) 후 [`update`](./update.md) |
 | skill을 제거하지 않고 임시로 숨기기 | [`enable` / `disable`](./enable.md) |
+| 다른 곳에서 편집하는 링크된 repository의 skill 찾기 | [`follow`](./follow.md) / [`unfollow`](./unfollow.md) |
 | git으로 변경사항 저장 또는 동기화하기 | [`commit`](./commit.md) / [`push`](./push.md) / [`pull`](./pull.md) |
 | 모든 도구에 대해 MCP 서버를 한 번에 설정하기 | [`mcp`](./mcp.md) |
 | 지원되는 도구 전반에서 완전한 plugin 관리하기 | [`plugin`](./plugin.md) |
@@ -35,7 +36,7 @@ sidebar_position: 1
 | 카테고리 | 명령어 |
 |----------|----------|
 | **Core** | `init`, `install`, `uninstall`, `list`, `search`, `sync`, `status` |
-| **Skill Management** | `new`, `check`, `update`, `upgrade`, `enable`, `disable` |
+| **Skill Management** | `new`, `check`, `update`, `upgrade`, `enable`, `disable`, `follow`, `unfollow` |
 | **MCP Connections** | `mcp` (`add`, `edit`, `import`, `list`, `remove`, `restore`), `sync mcp` |
 | **Plugin Management** | `plugin` (`list`, `discover`, `add`, `import`, `inspect`, `sync`, `check`, `update`, `enable`, `disable`, `remove`) |
 | **Target Management** | `target`, `diff` |
@@ -66,6 +67,8 @@ sidebar_position: 1
 | [update](./update.md) | skill 또는 tracked 저장소 업데이트 |
 | [upgrade](./upgrade.md) | CLI 또는 built-in skill 업그레이드 |
 | [enable / disable](./enable.md) | skill을 임시로 활성화/비활성화 |
+| [follow](./follow.md) | skills source의 첫 번째 단계 링크 따라가기 |
+| [unfollow](./unfollow.md) | 첫 번째 단계 링크 따라가기 중지 |
 
 ## Target Management
 

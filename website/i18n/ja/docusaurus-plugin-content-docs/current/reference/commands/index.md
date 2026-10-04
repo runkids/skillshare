@@ -18,6 +18,7 @@ skillshare のすべてのコマンドに関する完全なリファレンスで
 | コミュニティの Skill を検索する | [`search`](./search.md) |
 | インストール済みの Skill を更新する | [`check`](./check.md) の後に [`update`](./update.md) |
 | 削除せずに一時的に Skill を隠す | [`enable` / `disable`](./enable.md) |
+| 別の場所で編集しているリンク先リポジトリの Skill を見つける | [`follow`](./follow.md) / [`unfollow`](./unfollow.md) |
 | git で変更を保存・sync する | [`commit`](./commit.md) / [`push`](./push.md) / [`pull`](./pull.md) |
 | すべてのツールに向けて MCP サーバーを一度だけ設定する | [`mcp`](./mcp.md) |
 | サポート対象のツール全体で完全な plugin を管理する | [`plugin`](./plugin.md) |
@@ -35,7 +36,7 @@ skillshare のすべてのコマンドに関する完全なリファレンスで
 | カテゴリ | コマンド |
 |----------|----------|
 | **コア** | `init`, `install`, `uninstall`, `list`, `search`, `sync`, `status` |
-| **Skill 管理** | `new`, `check`, `update`, `upgrade`, `enable`, `disable` |
+| **Skill 管理** | `new`, `check`, `update`, `upgrade`, `enable`, `disable`, `follow`, `unfollow` |
 | **MCP 接続** | `mcp`（`add`, `edit`, `import`, `list`, `remove`, `restore`）, `sync mcp` |
 | **Plugin 管理** | `plugin`（`list`, `discover`, `add`, `import`, `inspect`, `sync`, `check`, `update`, `enable`, `disable`, `remove`） |
 | **ターゲット管理** | `target`, `diff` |
@@ -66,6 +67,8 @@ skillshare のすべてのコマンドに関する完全なリファレンスで
 | [update](./update.md) | Skill またはトラック対象リポジトリを更新 |
 | [upgrade](./upgrade.md) | CLI または組み込み Skill をアップグレード |
 | [enable / disable](./enable.md) | Skill を一時的に有効化/無効化 |
+| [follow](./follow.md) | skills source の第 1 階層のリンクをたどる |
+| [unfollow](./unfollow.md) | 第 1 階層のリンクをたどるのをやめる |
 
 ## ターゲット管理
 

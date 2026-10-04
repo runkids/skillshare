@@ -4,7 +4,7 @@ Issue: [#274](https://github.com/runkids/skillshare/issues/274). Related: [#314]
 
 Credits: the `.skillfollow` design, the call-site list, and the reference implementation come from @hhdebb in #274. The Windows junction analysis and the provenance suggestion come from @star-nebula's comment on #274 and from #314/#315.
 
-Source baseline: the original analysis and line references were checked against `main` at `475b1769`. The shipped steps 1 and 2 are checked against PR [#385](https://github.com/runkids/skillshare/pull/385), squash commit `8c60f51b`. Step 3 is implemented on the `runkids/274-step3` integration branch; its slice reports and current code are the evidence (see Phased Rollout). Step 4 remains design, not implemented behavior. Line numbers will drift; function names are the stable reference. The analysis comes from reading the source, plus two Windows probes (§6, "Windows evidence"; §4, the `os.Root` table). The rest of the Windows behavior still needs the runbook in the Test Plan. This revision includes two rounds of adversarial review.
+Source baseline: the original analysis and line references were checked against `main` at `475b1769`. The shipped steps 1 and 2 are checked against PR [#385](https://github.com/runkids/skillshare/pull/385), squash commit `8c60f51b`. Step 3 is implemented on the `runkids/274-step3` integration branch; its slice reports and current code are the evidence (see Phased Rollout). In step 4, only the `follow`/`unfollow` CLI is implemented ([report](../ai_docs/reports/274-follow-cmd.md)); the rest of step 4 remains design. Line numbers will drift; function names are the stable reference. The analysis comes from reading the source, plus two Windows probes (§6, "Windows evidence"; §4, the `os.Root` table). The rest of the Windows behavior still needs the runbook in the Test Plan. This revision includes two rounds of adversarial review.
 
 ## Problem
 
@@ -506,6 +506,7 @@ Any line estimate is rough, not a commitment.
    - Slice 3e completes install-time reconcile, merge-status target views, and dashboard sync policy propagation (`1d32fea8`, `ab2e44db`, `1154fde6`, `589076f3`; `ai_docs/reports/274-step3e-wiring.md` on the integration branch). Dashboard sync reports `prune_paused`/`kept` and the CLI warning text; `TestServerSkillfollowSyncAndTargets` pins pause and target counts. Test-only nil wrappers, whole-source symlink-mode status, and conservative `DetachSkills` remain intentionally nil.
    - Linux checks, junction simulation, and Windows cross-compilation are recorded in the reports; the real Windows junction/Developer Mode runtime matrix remains pending.
 4. **`follow`/`unfollow`, the dashboard tab, and followed single skills** (with `WalkSkill` and the tracked-root hash refresh). Revisit `install --link` (#206) and `include_sources` (#253) on this base if they are still wanted.
+   - The `follow`/`unfollow` CLI is implemented; see the [follow command report](../ai_docs/reports/274-follow-cmd.md) for grammar, tests, and deviations.
 
 ## Decisions
 

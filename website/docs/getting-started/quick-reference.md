@@ -28,6 +28,8 @@ Command cheat sheet for skillshare.
 | `check` | Check for skill updates |
 | `check --json` | Check for updates (JSON output) |
 | `upgrade` | Upgrade CLI and built-in skill |
+| `follow <name> --to <dir>` | Link an external directory into the source and follow it |
+| `unfollow <name>` | Stop following it and remove the link |
 | `hub list` | List configured skill hubs |
 | `hub add <url>` | Add a skill hub |
 
