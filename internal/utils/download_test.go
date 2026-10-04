@@ -90,3 +90,27 @@ func TestDownloadToFile_RejectsOversizeBeforeDownloading(t *testing.T) {
 		t.Fatalf("err = %v, want the maximum size error", err)
 	}
 }
+
+func TestDownloadToFile_RangesKeepTheClientTransport(t *testing.T) {
+	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.ServeContent(w, r, "asset", time.Time{}, bytes.NewReader(payload))
+	}))
+	defer srv.Close()
+	f, err := os.CreateTemp(t.TempDir(), "dl-*")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer f.Close()
+
+	// srv.Client() trusts the test server's certificate; http.DefaultTransport does not.
+	if err := DownloadToFile(srv.Client(), srv.URL+"/asset", f, int64(len(payload)), nil); err != nil {
+		t.Fatal(err)
+	}
+	got, err := os.ReadFile(f.Name())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(got, payload) {
+		t.Fatalf("got %d bytes, want the exact %d-byte payload", len(got), len(payload))
+	}
+}

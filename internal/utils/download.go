@@ -59,7 +59,7 @@ func DownloadToFile(client *http.Client, url string, dst *os.File, maxSize int64
 			parts = 1
 		}
 		// Ranges go to the URL after redirects: the signed CDN URL, not github.com again.
-		return downloadRanges(client.Timeout, resp.Request.URL.String(), dst, total, parts, onProgress)
+		return downloadRanges(client, resp.Request.URL.String(), dst, total, parts, onProgress)
 	default:
 		return fmt.Errorf("download failed with status %d", resp.StatusCode)
 	}
@@ -79,7 +79,7 @@ func rangeTotal(header string) (int64, error) {
 	return total, nil
 }
 
-func downloadRanges(timeout time.Duration, url string, dst *os.File, total int64, parts int, onProgress ProgressFunc) error {
+func downloadRanges(client *http.Client, url string, dst *os.File, total int64, parts int, onProgress ProgressFunc) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	progress := &sharedProgress{total: total, fn: onProgress}
@@ -93,12 +93,7 @@ func downloadRanges(timeout time.Duration, url string, dst *os.File, total int64
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			// A transport per range gives each its own connection: over HTTP/2 the
-			// ranges would share one, and the throttle is per connection.
-			transport := http.DefaultTransport.(*http.Transport).Clone()
-			defer transport.CloseIdleConnections()
-			client := &http.Client{Timeout: timeout, Transport: transport}
-			if err := downloadRange(ctx, client, url, dst, start, end, progress); err != nil {
+			if err := downloadRange(ctx, rangeClient(client), url, dst, start, end, progress); err != nil {
 				once.Do(func() { firstErr = err; cancel() })
 			}
 		}()
@@ -108,12 +103,30 @@ func downloadRanges(timeout time.Duration, url string, dst *os.File, total int64
 	return firstErr
 }
 
+// rangeClient copies client with a clone of its transport, so each range gets its
+// own connection: over HTTP/2 the ranges would share one, and the throttle is per
+// connection. The clone keeps the caller's TLS, proxy and dialer settings. A
+// transport that cannot be cloned is shared as is.
+func rangeClient(client *http.Client) *http.Client {
+	c := *client
+	switch t := client.Transport.(type) {
+	case nil:
+		c.Transport = http.DefaultTransport.(*http.Transport).Clone()
+	case *http.Transport:
+		c.Transport = t.Clone()
+	}
+	return &c
+}
+
 func downloadRange(ctx context.Context, client *http.Client, url string, dst *os.File, start, end int64, progress *sharedProgress) error {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return err
 	}
 	req.Header.Set("Range", fmt.Sprintf("bytes=%d-%d", start, end))
+	if t, ok := client.Transport.(*http.Transport); ok {
+		defer t.CloseIdleConnections()
+	}
 	resp, err := client.Do(req)
 	if err != nil {
 		return err
