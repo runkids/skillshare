@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"skillshare/internal/sourcefs"
 	"skillshare/internal/utils"
 )
 
@@ -128,19 +129,25 @@ func PullSkill(skill LocalSkillInfo, sourcePath string, force bool) error {
 	destPath := filepath.Join(sourcePath, skill.Name)
 
 	// Check if skill already exists in source
-	if _, err := os.Stat(destPath); err == nil {
-		if !force {
-			return ErrAlreadyExists
-		}
+	_, statErr := os.Stat(destPath)
+	if statErr == nil && !force {
+		return ErrAlreadyExists
+	}
+	src, err := sourcefs.Create(sourcePath)
+	if err != nil {
+		return err
+	}
+	defer src.Close()
+	if statErr == nil {
 		// Remove existing to overwrite
-		if err := os.RemoveAll(destPath); err != nil {
+		if err := src.RemoveAll(skill.Name); err != nil {
 			return fmt.Errorf("failed to remove existing: %w", err)
 		}
 	}
 
-	// Copy skill to source, skipping .git directories (collect brings
-	// user content, not repository metadata).
-	return copyDirectorySkipGit(skill.Path, destPath)
+	// Copy skill to source through the handle, skipping .git directories
+	// (collect brings user content, not repository metadata).
+	return copyDirectorySkipGit(src.Writer(), skill.Path, destPath)
 }
 
 // PullSkills pulls multiple skills to source

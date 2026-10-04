@@ -10,6 +10,7 @@ import (
 	"skillshare/internal/config"
 	"skillshare/internal/oplog"
 	"skillshare/internal/skillignore"
+	"skillshare/internal/sourcefs"
 	"skillshare/internal/ui"
 )
 
@@ -101,6 +102,16 @@ func cmdToggleSkill(args []string, enable bool) error {
 		ignoreLabel = ".agentignore"
 	}
 
+	var ignoreWriter sourcefs.Writer
+	if !dryRun {
+		iw, closeIgnore, err := skillignore.OpenWriter(ignorePath, !isAgent)
+		if err != nil {
+			return fmt.Errorf("failed to update %s: %w", ignoreLabel, err)
+		}
+		defer closeIgnore()
+		ignoreWriter = iw
+	}
+
 	width := ui.RowWidth(patterns...)
 	changed := false
 	for _, pattern := range patterns {
@@ -114,7 +125,7 @@ func cmdToggleSkill(args []string, enable bool) error {
 		}
 
 		if enable {
-			removed, err := skillignore.RemovePattern(ignorePath, pattern)
+			removed, err := skillignore.RemovePatternWith(ignoreWriter, ignorePath, pattern)
 			if err != nil {
 				return fmt.Errorf("failed to update %s: %w", ignoreLabel, err)
 			}
@@ -125,7 +136,7 @@ func cmdToggleSkill(args []string, enable bool) error {
 			changed = true
 			ui.Row(ui.MarkOK, pattern, "removed from "+ignoreLabel, width)
 		} else {
-			added, err := skillignore.AddPattern(ignorePath, pattern)
+			added, err := skillignore.AddPatternWith(ignoreWriter, ignorePath, pattern)
 			if err != nil {
 				return fmt.Errorf("failed to update %s: %w", ignoreLabel, err)
 			}

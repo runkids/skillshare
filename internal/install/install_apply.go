@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"skillshare/internal/sourcefs"
 	"skillshare/internal/utils"
 )
 
@@ -238,14 +239,19 @@ func installFromLocal(source *Source, destPath string, result *InstallResult, op
 		return result, nil
 	}
 
+	src, err := sourcefs.Create(opts.SourceDir)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create destination: %w", err)
+	}
+	defer src.Close()
 	if opts.skillFileOnly {
-		if err := os.MkdirAll(destPath, 0755); err != nil {
+		if err := src.Writer().MkdirAll(destPath, 0755); err != nil {
 			return nil, fmt.Errorf("failed to create destination: %w", err)
 		}
-		if err := copyFile(filepath.Join(source.Path, "SKILL.md"), filepath.Join(destPath, "SKILL.md")); err != nil {
+		if err := copyFile(src.Writer(), filepath.Join(source.Path, "SKILL.md"), filepath.Join(destPath, "SKILL.md")); err != nil {
 			return nil, fmt.Errorf("failed to copy SKILL.md: %w", err)
 		}
-	} else if err := copyDir(source.Path, destPath); err != nil {
+	} else if err := copyTree(src.Writer(), source.Path, destPath, nil); err != nil {
 		return nil, fmt.Errorf("failed to copy skill: %w", err)
 	}
 
@@ -387,15 +393,20 @@ func installFromDiscoveryInternal(discovery *DiscoveryResult, skill SkillInfo, d
 		return result, nil
 	}
 
-	workDest := destPath
+	workRoot, workDest := opts.SourceDir, destPath
 	if stage {
 		tempDir, err := os.MkdirTemp("", "skillshare-update-*")
 		if err != nil {
 			return nil, fmt.Errorf("failed to create temp directory: %w", err)
 		}
 		defer os.RemoveAll(tempDir)
-		workDest = filepath.Join(tempDir, "skill")
+		workRoot, workDest = tempDir, filepath.Join(tempDir, "skill")
 	}
+	work, err := sourcefs.Create(workRoot)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create destination: %w", err)
+	}
+	defer work.Close()
 
 	// Determine source path in temp repo
 	sourceRoot := discoverySourceRoot(discovery)
@@ -425,13 +436,13 @@ func installFromDiscoveryInternal(discovery *DiscoveryResult, skill SkillInfo, d
 
 	if rootIsRepoRoot && excludes != nil {
 		// Repo-root orchestrator: copy only SKILL.md (no directory boundary).
-		if err := os.MkdirAll(workDest, 0755); err != nil {
+		if err := work.Writer().MkdirAll(workDest, 0755); err != nil {
 			return nil, fmt.Errorf("failed to create destination: %w", err)
 		}
-		if err := copyFile(filepath.Join(srcPath, "SKILL.md"), filepath.Join(workDest, "SKILL.md")); err != nil {
+		if err := copyFile(work.Writer(), filepath.Join(srcPath, "SKILL.md"), filepath.Join(workDest, "SKILL.md")); err != nil {
 			return nil, fmt.Errorf("failed to copy SKILL.md: %w", err)
 		}
-	} else if err := copyDirExcluding(srcPath, workDest, excludes); err != nil {
+	} else if err := copyTree(work.Writer(), srcPath, workDest, excludes); err != nil {
 		return nil, fmt.Errorf("failed to copy skill: %w", err)
 	}
 
@@ -606,7 +617,12 @@ func installFromGitSubdir(source *Source, destPath string, result *InstallResult
 	}
 
 	// Copy subdirectory to destination
-	if err := copyDir(subdirPath, destPath); err != nil {
+	src, err := sourcefs.Create(opts.SourceDir)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create destination: %w", err)
+	}
+	defer src.Close()
+	if err := copyTree(src.Writer(), subdirPath, destPath, nil); err != nil {
 		return nil, fmt.Errorf("failed to copy skill: %w", err)
 	}
 

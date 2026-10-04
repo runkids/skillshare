@@ -481,7 +481,7 @@
   },
   {
     "file": "internal/install/copy.go",
-    "function": "copyDirExcluding",
+    "function": "copyTree",
     "callee": "filepath.Walk",
     "root": "src",
     "reason": "skill-dir",

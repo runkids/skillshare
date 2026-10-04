@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"skillshare/internal/sourcefs"
 	"skillshare/internal/sync"
 )
 
@@ -83,15 +84,26 @@ func (s *Server) handlePutSkillignore(w http.ResponseWriter, r *http.Request) {
 	}
 
 	source := s.cfg.EffectiveSkillsSource()
-	ignorePath := filepath.Join(source, ".skillignore")
 
+	// Write through the source handle, so a linked .skillignore is refused
+	// instead of written through or removed.
+	src, err := sourcefs.Open(source)
+	if err == nil {
+		defer src.Close()
+	}
 	if body.Raw == "" {
-		if err := os.Remove(ignorePath); err != nil && !errors.Is(err, os.ErrNotExist) {
+		if err == nil {
+			err = src.Remove(".skillignore")
+		}
+		if err != nil && !errors.Is(err, os.ErrNotExist) {
 			writeError(w, http.StatusInternalServerError, "failed to delete .skillignore: "+err.Error())
 			return
 		}
 	} else {
-		if err := os.WriteFile(ignorePath, []byte(body.Raw), 0644); err != nil {
+		if err == nil {
+			err = src.WriteFile(".skillignore", []byte(body.Raw), 0644)
+		}
+		if err != nil {
 			writeError(w, http.StatusInternalServerError, "failed to write .skillignore: "+err.Error())
 			return
 		}

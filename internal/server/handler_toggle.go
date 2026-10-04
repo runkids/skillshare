@@ -67,6 +67,13 @@ func (s *Server) handleToggleSkill(w http.ResponseWriter, r *http.Request, enabl
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
+	iw, closeIgnore, err := skillignore.OpenWriter(ignorePath, kind != "agent")
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to update .skillignore: "+err.Error())
+		return
+	}
+	defer closeIgnore()
+
 	action := "disable"
 	disabled := true
 
@@ -77,7 +84,7 @@ func (s *Server) handleToggleSkill(w http.ResponseWriter, r *http.Request, enabl
 			writeJSON(w, map[string]any{"success": true, "name": name, "disabled": false, "message": "not disabled"})
 			return
 		}
-		removed, err := skillignore.RemovePattern(ignorePath, relPath)
+		removed, err := skillignore.RemovePatternWith(iw, ignorePath, relPath)
 		if err != nil {
 			writeError(w, http.StatusInternalServerError, "failed to update .skillignore: "+err.Error())
 			return
@@ -87,7 +94,7 @@ func (s *Server) handleToggleSkill(w http.ResponseWriter, r *http.Request, enabl
 			return
 		}
 	} else {
-		added, err := skillignore.AddPattern(ignorePath, relPath)
+		added, err := skillignore.AddPatternWith(iw, ignorePath, relPath)
 		if err != nil {
 			writeError(w, http.StatusInternalServerError, "failed to update .skillignore: "+err.Error())
 			return

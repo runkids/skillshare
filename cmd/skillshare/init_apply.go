@@ -101,6 +101,14 @@ func applyInitPlan(p *initPlan) (*initResult, error) {
 		}
 	}
 
+	var source *sourcefs.Root
+	if len(p.imports) > 0 {
+		var err error
+		if source, err = sourcefs.Open(p.source()); err != nil {
+			return res, err
+		}
+		defer source.Close()
+	}
 	for _, s := range p.imports {
 		dst := filepath.Join(p.source(), s.name)
 		if _, err := os.Lstat(dst); err == nil {
@@ -111,7 +119,7 @@ func applyInitPlan(p *initPlan) (*initResult, error) {
 			res.warnings = append(res.warnings, fmt.Sprintf("Skipped %s: %v", s.name, err))
 			continue
 		}
-		if err := copyDir(src, dst); err != nil {
+		if err := copyDir(source.Writer(), src, dst); err != nil {
 			res.warnings = append(res.warnings, fmt.Sprintf("Failed to copy %s: %v", s.name, err))
 			continue
 		}

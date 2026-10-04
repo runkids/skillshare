@@ -1,5 +1,5 @@
 # Raw os write calls allowed outside sourcefs. See ratchet_test.go.
-# file	function	callee	path argument	reason
+# file	function	callee	path argument	reason	[note]
 cmd/skillshare/completion.go	cmdCompletion	os.MkdirAll	dir	shell
 cmd/skillshare/completion.go	cmdCompletion	os.WriteFile	destPath	shell
 cmd/skillshare/doctor.go	checkSymlinkSupport	os.MkdirAll	testTarget	tmp
@@ -13,9 +13,8 @@ cmd/skillshare/extras_init.go	extrasInitGlobal	os.MkdirAll	sourceDir	extras
 cmd/skillshare/extras_init.go	extrasInitProject	os.MkdirAll	sourceDir	extras
 cmd/skillshare/extras_remove.go	cleanEmptyExtrasDir	os.Remove	dir	extras
 cmd/skillshare/extras_remove.go	cleanEmptyExtrasDirQuiet	os.Remove	dir	extras
-cmd/skillshare/helpers.go	copyDir	os.MkdirAll	dstPath	source-unmigrated
-cmd/skillshare/helpers.go	copyFile	os.OpenFile	dst	source-unmigrated
 cmd/skillshare/helpers.go	removeEmptyDir	os.Remove	dir	extras
+cmd/skillshare/hub.go	cmdHubIndex	sourcefs.OS	<ref>	output	hub index --output outside the --source folder; the default index inside it goes through the source handle
 cmd/skillshare/init_apply.go	applyInitPlan	os.MkdirAll	dir	source-root
 cmd/skillshare/init_apply.go	replaceIdenticalCopies	os.RemoveAll	dst	target
 cmd/skillshare/init_project.go	createProjectTargetDirs	os.MkdirAll	absPath	target
@@ -26,15 +25,12 @@ cmd/skillshare/init_remote.go	inspectRemote	os.MkdirTemp	""	tmp
 cmd/skillshare/init_remote.go	inspectRemote	os.RemoveAll	tmp	tmp
 cmd/skillshare/json_output.go	suppressUIToDevnull	os.OpenFile	os.DevNull	devnull
 cmd/skillshare/main.go	cleanupOldBinary	os.Remove	oldPath	binary
-cmd/skillshare/new.go	cmdNew	os.MkdirAll	dirPath	source-unmigrated
-cmd/skillshare/new.go	cmdNew	os.MkdirAll	skillDir	source-unmigrated
-cmd/skillshare/new.go	cmdNew	os.RemoveAll	skillDir	source-unmigrated
-cmd/skillshare/new.go	cmdNew	os.WriteFile	gitkeep	source-unmigrated
-cmd/skillshare/new.go	cmdNew	os.WriteFile	skillFile	source-unmigrated
 cmd/skillshare/restore_tui.go	(restoreTUIModel).startDelete	os.RemoveAll	tsDir	backup
 cmd/skillshare/restore_tui.go	(restoreTUIModel).startDelete	os.RemoveAll	version.Dir	backup
 cmd/skillshare/target.go	unlinkMergeMode	os.Remove	skillPath	target
+cmd/skillshare/target.go	unlinkMergeMode	sourcefs.OS	<ref>	target	copies skills back into a target that stops linking to the source
 cmd/skillshare/target.go	unlinkSymlinkMode	os.Remove	targetPath	target
+cmd/skillshare/target.go	unlinkSymlinkMode	sourcefs.OS	<ref>	target	copies the source back into a target that stops linking to it
 cmd/skillshare/target_project.go	targetAddProject	os.MkdirAll	absPath	target
 cmd/skillshare/trash.go	trashDelete	os.RemoveAll	entry.Path	trash
 cmd/skillshare/trash.go	trashEmpty	os.RemoveAll	item.Path	trash
@@ -99,24 +95,20 @@ internal/config/project.go	(*ProjectConfig).SaveIn	os.MkdirAll	dir	config
 internal/config/project.go	(*ProjectConfig).SaveIn	os.WriteFile	path	config
 internal/config/project.go	LoadProject	os.Rename	tmpPath, path	config
 internal/config/project.go	LoadProject	os.WriteFile	tmpPath	config
-internal/config/registry.go	(*Registry).Save	os.MkdirAll	dir	source-unmigrated
-internal/config/registry.go	(*Registry).Save	os.WriteFile	path	source-unmigrated
-internal/config/registry.go	MigrateRegistryToSource	os.Remove	oldPath	source-unmigrated
-internal/config/registry.go	MigrateRegistryToSource	os.WriteFile	newPath	source-unmigrated
-internal/git/info.go	resolveMetadataConflicts	os.WriteFile	filepath.Join(dir, path)	source-unmigrated
-internal/git/info.go	restorePullResidue	os.Remove	full	source-unmigrated
-internal/git/scope.go	DisableNestedRepo	os.Rename	gitDir, disabled	source-unmigrated
-internal/git/scope.go	InitScopeRepo	os.MkdirAll	dir	source-unmigrated
-internal/git/scope.go	WriteScopeGitignore	os.WriteFile	gitignore	source-unmigrated
-internal/git/scope.go	WriteScopeGitignore	os.WriteFile	gitignore	source-unmigrated
-internal/git/scope.go	appendGitignoreLine	os.WriteFile	gitignore	source-unmigrated
-internal/git/scope.go	ensureGitignoreEntry	os.WriteFile	gitignore	source-unmigrated
-internal/git/scope.go	ensureGitignoreEntry	os.WriteFile	gitignore	source-unmigrated
-internal/git/scope.go	removeCheckedOut	os.Remove	path	source-unmigrated
-internal/git/scope.go	removeCheckedOut	os.RemoveAll	path	source-unmigrated
-internal/git/scope.go	snapshotConfig	os.Chmod	path	source-unmigrated
-internal/git/scope.go	snapshotConfig	os.Symlink	target, path	source-unmigrated
-internal/git/scope.go	snapshotConfig	os.WriteFile	path	source-unmigrated
+internal/config/registry.go	(*Registry).Save	os.MkdirAll	dir	config	the only production caller is the legacy config.yaml migration, which saves into the config folder; SaveSplitByKind has no production caller
+internal/config/registry.go	(*Registry).Save	os.WriteFile	path	config	the only production caller is the legacy config.yaml migration, which saves into the config folder; SaveSplitByKind has no production caller
+internal/config/registry.go	MigrateRegistryToSource	os.Remove	oldPath	config	removes the old registry.yaml from the config folder after it moved to the source root
+internal/git/scope.go	InitScopeRepo	os.MkdirAll	dir	source-root	creates the git scope folder itself: the skills source root (or the folder above it with init --subdir) or the config folder
+internal/git/scope.go	WriteScopeGitignore	os.WriteFile	gitignore	source-unmigrated	the git scope folder is the skills source (skills scope, or the folder above it with init --subdir) or the config folder (root scope); a .gitignore there may be linked by a dotfile manager at root scope, and DisableNestedRepo and the init callers do not say which scope they write, so moving it needs the scope passed down (API change)
+internal/git/scope.go	WriteScopeGitignore	os.WriteFile	gitignore	source-unmigrated	the git scope folder is the skills source (skills scope, or the folder above it with init --subdir) or the config folder (root scope); a .gitignore there may be linked by a dotfile manager at root scope, and DisableNestedRepo and the init callers do not say which scope they write, so moving it needs the scope passed down (API change)
+internal/git/scope.go	appendGitignoreLine	os.WriteFile	gitignore	config	only EnsureConfigUntracked calls it, and only at root scope, where dir is the config folder
+internal/git/scope.go	ensureGitignoreEntry	os.WriteFile	gitignore	source-unmigrated	the git scope folder is the skills source (skills scope, or the folder above it with init --subdir) or the config folder (root scope); a .gitignore there may be linked by a dotfile manager at root scope, and DisableNestedRepo and the init callers do not say which scope they write, so moving it needs the scope passed down (API change)
+internal/git/scope.go	ensureGitignoreEntry	os.WriteFile	gitignore	source-unmigrated	the git scope folder is the skills source (skills scope, or the folder above it with init --subdir) or the config folder (root scope); a .gitignore there may be linked by a dotfile manager at root scope, and DisableNestedRepo and the init callers do not say which scope they write, so moving it needs the scope passed down (API change)
+internal/git/scope.go	removeCheckedOut	os.Remove	path	config	config.yaml in the root-scope repo, the config folder: KeepLocalConfig runs only at root scope
+internal/git/scope.go	removeCheckedOut	os.RemoveAll	path	config	config.yaml in the root-scope repo, the config folder: KeepLocalConfig runs only at root scope
+internal/git/scope.go	snapshotConfig	os.Chmod	path	config	config.yaml in the root-scope repo, the config folder: KeepLocalConfig runs only at root scope
+internal/git/scope.go	snapshotConfig	os.Symlink	target, path	config	config.yaml in the root-scope repo, the config folder: KeepLocalConfig runs only at root scope
+internal/git/scope.go	snapshotConfig	os.WriteFile	path	config	config.yaml in the root-scope repo, the config folder: KeepLocalConfig runs only at root scope
 internal/hooks/apply.go	(*Service).applyScoped	os.Remove	f.path	plugin
 internal/hooks/apply.go	(*Service).applyScoped	os.Remove	s.journalPath()	plugin
 internal/hooks/apply.go	(*Service).applyScoped	os.Remove	s.journalPath()	plugin
@@ -141,10 +133,8 @@ internal/hub/drafts.go	(DraftStore).locked	os.MkdirAll	s.Dir	config
 internal/hub/drafts.go	(DraftStore).persist	os.CreateTemp	s.Dir	config
 internal/hub/drafts.go	(DraftStore).persist	os.Remove	tmp.Name()	config
 internal/hub/drafts.go	(DraftStore).persist	os.Rename	tmp.Name(), path	config
-internal/hub/index.go	WriteIndex	os.MkdirAll	filepath.Dir(path)	source-unmigrated
-internal/hub/index.go	WriteIndex	os.WriteFile	path	source-unmigrated
-internal/install/copy.go	copyDirExcluding	os.MkdirAll	dstPath	source-unmigrated
-internal/install/copy.go	copyFile	os.OpenFile	dst	source-unmigrated
+internal/hub/index.go	WriteIndex	sourcefs.OS	<ref>	test-helper	only tests call WriteIndex; hub index picks its writer and calls WriteIndexWith
+internal/install/copy.go	copyDirExcluding	sourcefs.OS	<ref>	test-helper	only tests call copyDir and copyDirExcluding; installs copy into the source through copyTree with the source handle
 internal/install/gitea_download.go	cnbWriteBlob	os.MkdirAll	filepath.Dir(destPath)	clone
 internal/install/gitea_download.go	cnbWriteBlob	os.WriteFile	destPath	clone
 internal/install/gitea_download.go	cnbWriteContentItem	os.MkdirAll	target	clone
@@ -158,9 +148,8 @@ internal/install/github_download.go	downloadDirRecursive	os.MkdirAll	childDir	cl
 internal/install/github_download.go	downloadFile	os.MkdirAll	filepath.Dir(destPath)	clone
 internal/install/github_download.go	downloadFile	os.OpenFile	destPath	clone
 internal/install/github_download.go	downloadGitHubDirWithAPIBase	os.MkdirAll	destDir	clone
-internal/install/gitignore.go	writeGitignoreLines	os.WriteFile	path	source-unmigrated
-internal/install/install.go	<package>	os.RemoveAll	<ref>	source-unmigrated
-internal/install/install.go	<package>	os.RemoveAll	<ref>	source-unmigrated
+internal/install/gitignore.go	writeGitignoreLines	os.WriteFile	path	source-unmigrated	dir is the skills source in global mode, the project or .skillshare folder in project mode, or the config folder (oplog); callers do not say which, the exported Update/RemoveFromGitIgnore signatures are fixed by tests, and a linked .gitignore in the config or project folder must keep working, so moving it needs callers to pass a writer
+internal/install/install.go	<package>	os.RemoveAll	<ref>	tmp	removeTempRepoPath: removes the os.MkdirTemp clone of cleanupTempRepo
 internal/install/install_apply.go	UpdateAgentFromDiscovery	os.MkdirAll	filepath.Dir(destFile)	agents
 internal/install/install_apply.go	UpdateAgentFromDiscovery	os.MkdirTemp	""	tmp
 internal/install/install_apply.go	UpdateAgentFromDiscovery	os.RemoveAll	tempDir	tmp
@@ -168,13 +157,11 @@ internal/install/install_apply.go	UpdateAgentFromDiscovery	os.Rename	tempFile, d
 internal/install/install_apply.go	UpdateAgentFromDiscovery	os.WriteFile	destFile	agents
 internal/install/install_apply.go	installAgentFromDiscoveryInternal	os.MkdirAll	filepath.Dir(destFile)	agents
 internal/install/install_apply.go	installAgentFromDiscoveryInternal	os.WriteFile	destFile	agents
-internal/install/install_apply.go	installFromDiscoveryInternal	os.MkdirAll	workDest	source-unmigrated
 internal/install/install_apply.go	installFromDiscoveryInternal	os.MkdirTemp	""	tmp
 internal/install/install_apply.go	installFromDiscoveryInternal	os.RemoveAll	tempDir	tmp
 internal/install/install_apply.go	installFromGitSubdir	os.MkdirTemp	""	tmp
 internal/install/install_apply.go	installFromGitSubdir	os.RemoveAll	tempRepoPath	tmp
 internal/install/install_apply.go	installFromGitSubdir	os.RemoveAll	tempRepoPath	tmp
-internal/install/install_apply.go	installFromLocal	os.MkdirAll	destPath	source-unmigrated
 internal/install/install_audit.go	cleanEmptyInstallParents	os.Remove	dir	agents
 internal/install/install_discovery.go	discoverFromGitSubdirWithProgressImpl	os.MkdirTemp	""	tmp
 internal/install/install_discovery.go	discoverFromGitSubdirWithProgressImpl	os.RemoveAll	repoPath	tmp
@@ -189,17 +176,8 @@ internal/install/install_update.go	updateRepoRootOrchestrator	os.MkdirTemp	""	tm
 internal/install/install_update.go	updateRepoRootOrchestrator	os.RemoveAll	tempDir	tmp
 internal/install/lock.go	(*Lock).Save	os.Remove	path	project
 internal/install/lock.go	(*Lock).Save	os.WriteFile	path	project
-internal/install/meta.go	WriteMeta	os.WriteFile	metaPath	source-unmigrated
-internal/install/metadata.go	(*MetadataStore).Save	os.CreateTemp	dir	source-unmigrated
-internal/install/metadata.go	(*MetadataStore).Save	os.MkdirAll	dir	source-unmigrated
-internal/install/metadata.go	(*MetadataStore).Save	os.Remove	tmpName	source-unmigrated
-internal/install/metadata.go	(*MetadataStore).Save	os.Remove	tmpName	source-unmigrated
-internal/install/metadata.go	(*MetadataStore).Save	os.Remove	tmpName	source-unmigrated
-internal/install/metadata.go	(*MetadataStore).Save	os.Remove	tmpName	source-unmigrated
-internal/install/metadata.go	(*MetadataStore).Save	os.Rename	tmpName, target	source-unmigrated
-internal/install/metadata_migrate.go	cleanupOldRegistry	os.Remove	filepath.Join(dir, "registry.yaml")	source-unmigrated
+internal/install/metadata_migrate.go	cleanupOldRegistry	os.Remove	filepath.Join(parent, "registry.yaml")	config	the old registry.yaml in the folder above the skills or agents source: the config or project .skillshare folder
 internal/install/metadata_migrate.go	walkAgentSidecars	os.Remove	sidecarPath	agents
-internal/install/metadata_migrate.go	walkSkillDir	os.Remove	sidecarPath	source-unmigrated
 internal/instructions/convert.go	Apply	os.Remove	c.Path	plugin
 internal/instructions/convert.go	WriteFile	os.MkdirAll	filepath.Dir(path)	plugin
 internal/instructions/convert.go	WriteFile	os.WriteFile	path	plugin
@@ -295,13 +273,6 @@ internal/server/handler_agentignore.go	(*Server).handlePutAgentignore	os.WriteFi
 internal/server/handler_audit.go	(*Server).handlePutAuditRules	os.MkdirAll	filepath.Dir(path)	config
 internal/server/handler_audit.go	(*Server).handlePutAuditRules	os.WriteFile	path	config
 internal/server/handler_config.go	(*Server).handlePutConfig	os.WriteFile	s.configPath()	config
-internal/server/handler_create_skill.go	(*Server).handleCreateSkill	os.MkdirAll	dirPath	source-unmigrated
-internal/server/handler_create_skill.go	(*Server).handleCreateSkill	os.MkdirAll	skillDir	source-unmigrated
-internal/server/handler_create_skill.go	(*Server).handleCreateSkill	os.RemoveAll	skillDir	source-unmigrated
-internal/server/handler_create_skill.go	(*Server).handleCreateSkill	os.RemoveAll	skillDir	source-unmigrated
-internal/server/handler_create_skill.go	(*Server).handleCreateSkill	os.RemoveAll	skillDir	source-unmigrated
-internal/server/handler_create_skill.go	(*Server).handleCreateSkill	os.WriteFile	gitkeep	source-unmigrated
-internal/server/handler_create_skill.go	(*Server).handleCreateSkill	os.WriteFile	skillFile	source-unmigrated
 internal/server/handler_extensions.go	(*Server).handleExtensionsOpen	os.MkdirAll	dir	plugin
 internal/server/handler_extensions.go	(*Server).handleExtensionsRemove	os.RemoveAll	path	plugin
 internal/server/handler_extras.go	(*Server).handleExtrasCreate	os.MkdirAll	sourceDir	extras
@@ -311,17 +282,18 @@ internal/server/handler_memory_guidance.go	commitGuidanceChange	os.Remove	c.Path
 internal/server/handler_skill_content.go	writeFileAtomic	os.CreateTemp	dir	agents
 internal/server/handler_skill_content.go	writeFileAtomic	os.Remove	tmpPath	agents
 internal/server/handler_skill_content.go	writeFileAtomic	os.Rename	tmpPath, path	agents
-internal/server/handler_skillignore.go	(*Server).handlePutSkillignore	os.Remove	ignorePath	source-unmigrated
-internal/server/handler_skillignore.go	(*Server).handlePutSkillignore	os.WriteFile	ignorePath	source-unmigrated
 internal/server/handler_targets.go	<package>	os.Remove	<ref>	target
 internal/server/handler_targets.go	copySkillDir	os.MkdirAll	dstPath	target
 internal/server/handler_targets.go	copySkillDir	os.OpenFile	dstPath	target
 internal/server/handler_trash.go	(*Server).handleDeleteTrash	os.RemoveAll	resolved.entry.Path	trash
 internal/server/handler_trash.go	(*Server).handleEmptyTrash	os.RemoveAll	item.Path	trash
-internal/skillignore/write.go	AddPattern	os.MkdirAll	filepath.Dir(filePath)	source-unmigrated
-internal/skillignore/write.go	AddPattern	os.WriteFile	filePath	source-unmigrated
-internal/skillignore/write.go	RemovePattern	os.WriteFile	filePath	source-unmigrated
+internal/skillignore/write.go	AddPattern	sourcefs.OS	<ref>	test-helper	only tests call AddPattern; production gets its writer from OpenWriter
+internal/skillignore/write.go	OpenWriter	sourcefs.OS	<ref>	agents	the writer for .agentignore; .skillignore gets a handle at the skills source
+internal/skillignore/write.go	RemovePattern	sourcefs.OS	<ref>	test-helper	only tests call RemovePattern; production gets its writer from OpenWriter
 internal/sourcefs/sourcefs.go	(*Root).MoveIn	os.Rename	src, filepath.Join(r.dir, name)	sourcefs
+internal/sourcefs/sourcefs.go	(osWriter).MkdirAll	os.MkdirAll	path	os-writer
+internal/sourcefs/sourcefs.go	(osWriter).OpenFile	os.OpenFile	path	os-writer
+internal/sourcefs/sourcefs.go	(osWriter).WriteFile	os.WriteFile	path	os-writer
 internal/sourcefs/sourcefs.go	Create	os.MkdirAll	dir	sourcefs
 internal/sync/agent_sync.go	PruneOrphanAgentLinks	os.Remove	filepath.Join(targetDir, name)	target
 internal/sync/agent_sync.go	PullAgent	os.RemoveAll	destPath	agents
@@ -342,6 +314,7 @@ internal/sync/agent_sync.go	syncAgentsMerge	os.Remove	targetPath	target
 internal/sync/agent_sync.go	syncAgentsMerge	os.Remove	targetPath	target
 internal/sync/agent_sync.go	syncAgentsMergeCopy	os.MkdirAll	targetDir	target
 internal/sync/agent_sync.go	syncAgentsMergeCopy	os.Remove	targetPath	target
+internal/sync/agent_sync.go	syncAgentsMergeCopy	sourcefs.OS	<ref>	target	copies an agent into a copy-mode agent target
 internal/sync/agent_sync.go	syncAgentsSymlink	os.MkdirAll	filepath.Dir(targetDir)	target
 internal/sync/agent_sync.go	syncAgentsSymlink	os.Remove	targetDir	target
 internal/sync/agent_sync.go	syncAgentsSymlink	os.RemoveAll	targetDir	target
@@ -368,6 +341,7 @@ internal/sync/extras.go	syncExtraTransform	os.RemoveAll	tgtFile	target
 internal/sync/extras.go	syncExtraTransform	os.WriteFile	tgtFile	target
 internal/sync/extras.go	syncOneExtraFile	os.MkdirAll	filepath.Dir(tgtFile)	target
 internal/sync/extras.go	syncOneExtraFile	os.Remove	tgtFile	target
+internal/sync/extras.go	syncOneExtraFile	sourcefs.OS	<ref>	extras	copies an extras file into its target
 internal/sync/extras_backup.go	backupExtraDrift	os.MkdirAll	dir	backup
 internal/sync/extras_backup.go	backupExtraDrift	os.WriteFile	filepath.Join(dir, name)	backup
 internal/sync/extras_backup.go	backupExtraDrift	os.WriteFile	filepath.Join(extraBackupDir(path), "path")	backup
@@ -398,6 +372,7 @@ internal/sync/extras_file.go	syncExtraFileReplace	os.MkdirAll	filepath.Dir(f.Tar
 internal/sync/extras_file.go	syncExtraFileReplace	os.Remove	f.Target	target
 internal/sync/extras_file.go	syncExtraFileReplace	os.Remove	f.Target	target
 internal/sync/extras_file.go	syncExtraFileReplace	os.WriteFile	f.Target	target
+internal/sync/extras_file.go	syncExtraFileReplace	sourcefs.OS	<ref>	extras	copies a single-file extra into its target
 internal/sync/extras_file.go	syncExtraImport	os.MkdirAll	filepath.Dir(f.Target)	target
 internal/sync/extras_file.go	syncExtraImport	os.Remove	f.Target	target
 internal/sync/extras_file.go	syncExtraImport	os.WriteFile	f.Target	target
@@ -411,7 +386,6 @@ internal/sync/file_backups.go	RestoreFileBackup	os.WriteFile	path	target
 internal/sync/filelink.go	(*copyTracker).pruneOrphans	os.Remove	filepath.Join(t.dir, rel)	target
 internal/sync/manifest.go	RemoveManifest	os.Remove	filepath.Join(targetPath, ManifestFile)	target
 internal/sync/manifest.go	WriteManifest	os.WriteFile	filepath.Join(targetPath, ManifestFile)	target
-internal/sync/pull.go	PullSkill	os.RemoveAll	destPath	source-unmigrated
 internal/sync/relative.go	reformatLinkAs	os.Remove	linkPath	target
 internal/sync/relative.go	reformatLinkAs	os.Remove	tmpPath	target
 internal/sync/relative.go	reformatLinkAs	os.Remove	tmpPath	target
@@ -432,20 +406,19 @@ internal/sync/symlink_windows.go	platformCanCreateFileLink	os.RemoveAll	dir	tmp
 internal/sync/symlink_windows.go	platformCanCreateFileLink	os.Symlink	target, filepath.Join(dir, "l")	tmp
 internal/sync/symlink_windows.go	platformCanCreateFileLink	os.WriteFile	target	tmp
 internal/sync/sync.go	CreateSymlink	os.MkdirAll	filepath.Dir(targetPath)	target
-internal/sync/sync.go	MigrateToSource	os.MkdirAll	filepath.Dir(sourcePath)	source-unmigrated
+internal/sync/sync.go	MigrateToSource	os.MkdirAll	filepath.Dir(sourcePath)	source-root	creates the parent of the skills source root before the target moves in as the root
 internal/sync/sync.go	MigrateToSource	os.RemoveAll	targetPath	target
 internal/sync/sync.go	MigrateToSource	os.RemoveAll	targetPath	target
-internal/sync/sync.go	MigrateToSource	os.Rename	targetPath, sourcePath	source-unmigrated
+internal/sync/sync.go	MigrateToSource	os.Rename	targetPath, sourcePath	source-root	moves a target into place as the missing skills source root
+internal/sync/sync.go	MigrateToSource	sourcefs.OS	<ref>	source-root	cross-device fallback that creates the missing skills source root by copying the target into it
 internal/sync/sync.go	PruneOrphanLinksWithSkills	os.RemoveAll	entryPath	target
 internal/sync/sync.go	SyncTarget	os.Remove	sc.Path	target
 internal/sync/sync.go	SyncTargetMergeWithSkillsOptions	os.Remove	targetSkillPath	target
 internal/sync/sync.go	SyncTargetMergeWithSkillsOptions	os.RemoveAll	targetSkillPath	target
-internal/sync/sync.go	copyDirectoryWithState	os.MkdirAll	dstPath	source-unmigrated
-internal/sync/sync.go	copyFile	os.OpenFile	dst	source-unmigrated
+internal/sync/sync.go	copyDirectoryWithIgnore	sourcefs.OS	<ref>	target	its only callers copy a skill into a copy-mode target
 internal/sync/sync.go	ensureRealTargetDir	os.MkdirAll	targetPath	target
 internal/sync/sync.go	ensureRealTargetDir	os.MkdirAll	targetPath	target
 internal/sync/sync.go	ensureRealTargetDir	os.Remove	targetPath	target
-internal/sync/sync.go	mergeDirectories	os.MkdirAll	dstPath	source-unmigrated
 internal/sync/target_naming_migration.go	selectActiveTargetNameForSync	os.Rename	legacyPath, desiredPath	target
 internal/testutil/git_helpers.go	SeedRemoteBranch	os.MkdirAll	filepath.Dir(full)	test-helper
 internal/testutil/git_helpers.go	SeedRemoteBranch	os.WriteFile	full	test-helper
@@ -480,16 +453,13 @@ internal/trash/trash.go	MoveAgentToTrash	os.WriteFile	destMeta	trash
 internal/trash/trash.go	MoveToTrash	os.MkdirAll	filepath.Dir(trashPath)	trash
 internal/trash/trash.go	MoveToTrash	os.RemoveAll	srcPath	source-checked
 internal/trash/trash.go	MoveToTrash	os.Rename	srcPath, trashPath	source-checked
-internal/trash/trash.go	Restore	os.MkdirAll	filepath.Dir(destPath)	source-unmigrated
+internal/trash/trash.go	MoveToTrash	sourcefs.OS	<ref>	trash	cross-device fallback that copies into the trash
 internal/trash/trash.go	Restore	os.RemoveAll	entry.Path	trash
-internal/trash/trash.go	Restore	os.Rename	entry.Path, destPath	source-unmigrated
 internal/trash/trash.go	RestoreAgent	os.MkdirAll	targetDir	agents
 internal/trash/trash.go	RestoreAgent	os.RemoveAll	entry.Path	trash
 internal/trash/trash.go	RestoreAgent	os.Rename	srcPath, destPath	agents
 internal/trash/trash.go	RestoreAgent	os.WriteFile	destPath	agents
 internal/trash/trash.go	cleanEmptyParents	os.Remove	dir	trash
-internal/trash/trash.go	copyDir	os.MkdirAll	dst	source-unmigrated
-internal/trash/trash.go	copyFile	os.OpenFile	dst	source-unmigrated
 internal/uidist/uidist.go	ClearCache	os.RemoveAll	dir	config
 internal/uidist/uidist.go	ClearVersion	os.RemoveAll	dir	config
 internal/uidist/uidist.go	Download	os.MkdirAll	dir	config
@@ -501,9 +471,7 @@ internal/uidist/uidist.go	downloadToTemp	os.Remove	tmp.Name()	config
 internal/uidist/uidist.go	extractTarGz	os.MkdirAll	filepath.Dir(target)	config
 internal/uidist/uidist.go	extractTarGz	os.MkdirAll	target	config
 internal/uidist/uidist.go	extractTarGz	os.OpenFile	target	config
-internal/utils/frontmatter_write.go	SetFrontmatterList	os.WriteFile	filePath	source-unmigrated
-internal/utils/frontmatter_write.go	ToggleFrontmatterFlag	os.WriteFile	filePath	source-unmigrated
-internal/utils/frontmatter_write.go	ToggleFrontmatterFlag	os.WriteFile	filePath	source-unmigrated
+internal/utils/frontmatter_write.go	(osFileWriter).WriteFile	os.WriteFile	path	agents	SetFrontmatterList and ToggleFrontmatterFlag: the agent targets handler and tests; SKILL.md edits pass a source handle to the With variants
 internal/version/check.go	ClearCache	os.Remove	getCachePath()	config
 internal/version/check.go	cleanupLegacyCache	os.Remove	legacyPath	config
 internal/version/check.go	cleanupLegacyCache	os.Remove	parentDir	config

@@ -12,6 +12,7 @@ import (
 	"skillshare/internal/hooks"
 	"skillshare/internal/mcp"
 	"skillshare/internal/oplog"
+	"skillshare/internal/sourcefs"
 	"skillshare/internal/sync"
 	"skillshare/internal/targetsummary"
 	"skillshare/internal/theme"
@@ -507,7 +508,7 @@ func unlinkSymlinkMode(targetPath, sourcePath string) error {
 	}
 
 	// Copy source contents to target
-	if err := copyDir(sourcePath, targetPath); err != nil {
+	if err := copyDir(sourcefs.OS, sourcePath, targetPath); err != nil {
 		return fmt.Errorf("failed to copy skills: %w", err)
 	}
 
@@ -548,7 +549,7 @@ func unlinkMergeMode(targetPath, sourcePath string) error {
 		// Remove symlink and copy the skill back if source still exists
 		os.Remove(skillPath)
 		if _, statErr := os.Stat(absLink); statErr == nil {
-			if err := copyDir(absLink, skillPath); err != nil {
+			if err := copyDir(sourcefs.OS, absLink, skillPath); err != nil {
 				return fmt.Errorf("failed to copy %s: %w", entry.Name(), err)
 			}
 		}

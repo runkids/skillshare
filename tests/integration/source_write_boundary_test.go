@@ -120,3 +120,22 @@ func TestUninstall_RefusesSkillThroughLink(t *testing.T) {
 
 	assertTreeUnchanged(t, before, external)
 }
+
+// hub index writes its default index into the source. A skillshare-hub.json
+// that is a link to a shared file is refused instead of rewritten.
+func TestHubIndex_RefusesLinkedIndexFile(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	sb.CreateSkill("alpha", map[string]string{"SKILL.md": "---\nname: alpha\n---\n# Alpha"})
+	sb.WriteConfig(`source: ` + sb.SourcePath + "\ntargets: {}\n")
+	external := filepath.Join(sb.Root, "shared")
+	sb.WriteFile(filepath.Join(external, "hub.json"), "{}")
+	sb.CreateSymlink(filepath.Join(external, "hub.json"), filepath.Join(sb.SourcePath, "skillshare-hub.json"))
+	before := treeSnapshot(t, external)
+
+	result := sb.RunCLI("hub", "index")
+	result.AssertFailure(t)
+	result.AssertAnyOutputContains(t, "is a link; edit its target directly")
+
+	assertTreeUnchanged(t, before, external)
+}

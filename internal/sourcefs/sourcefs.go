@@ -316,6 +316,63 @@ func (r *Root) copyFileIn(src, dst string) error {
 	return out.Close()
 }
 
+// Writer is what the copy and edit helpers shared by the skills source and
+// other trees need. Paths are absolute. A Root's Writer refuses what the Root
+// refuses; OS writes directly, for callers outside the skills source.
+type Writer interface {
+	MkdirAll(path string, perm fs.FileMode) error
+	OpenFile(path string, flag int, perm fs.FileMode) (*os.File, error)
+	WriteFile(path string, data []byte, perm fs.FileMode) error
+}
+
+// Writer returns the root as a Writer. Each path must lie below the root.
+func (r *Root) Writer() Writer { return rootWriter{r} }
+
+type rootWriter struct{ r *Root }
+
+// MkdirAll takes a full file mode, as a copy passes from Stat, and keeps only
+// its permission bits: os.MkdirAll ignores the rest, os.Root rejects them.
+func (w rootWriter) MkdirAll(path string, perm fs.FileMode) error {
+	rel, err := w.r.Rel(path)
+	if err != nil {
+		return err
+	}
+	return w.r.MkdirAll(rel, perm&fs.ModePerm)
+}
+
+func (w rootWriter) OpenFile(path string, flag int, perm fs.FileMode) (*os.File, error) {
+	rel, err := w.r.Rel(path)
+	if err != nil {
+		return nil, err
+	}
+	return w.r.OpenFile(rel, flag, perm)
+}
+
+func (w rootWriter) WriteFile(path string, data []byte, perm fs.FileMode) error {
+	rel, err := w.r.Rel(path)
+	if err != nil {
+		return err
+	}
+	return w.r.WriteFile(rel, data, perm)
+}
+
+// OS is the Writer for trees outside the skills source: targets, trash,
+// agents, and extras. The ratchet counts every reference to it as a raw
+// write, so each use carries a reason like an os call does.
+var OS Writer = osWriter{}
+
+type osWriter struct{}
+
+func (osWriter) MkdirAll(path string, perm fs.FileMode) error { return os.MkdirAll(path, perm) }
+
+func (osWriter) OpenFile(path string, flag int, perm fs.FileMode) (*os.File, error) {
+	return os.OpenFile(path, flag, perm)
+}
+
+func (osWriter) WriteFile(path string, data []byte, perm fs.FileMode) error {
+	return os.WriteFile(path, data, perm)
+}
+
 // Unlink removes entry, a first-level link, without touching its target.
 // It is the only way to remove a link in the source.
 func (r *Root) Unlink(entry string) error {

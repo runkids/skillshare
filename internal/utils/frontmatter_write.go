@@ -7,12 +7,32 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// SetFrontmatterList writes a YAML list field into a SKILL.md file's frontmatter.
+// FileWriter writes a whole file. A sourcefs.Writer satisfies it: callers
+// that edit a file in the skills source pass their source handle's Writer.
+type FileWriter interface {
+	WriteFile(path string, data []byte, perm os.FileMode) error
+}
+
+// osFileWriter writes with plain os calls, for files outside the skills
+// source such as agents.
+type osFileWriter struct{}
+
+func (osFileWriter) WriteFile(path string, data []byte, perm os.FileMode) error {
+	return os.WriteFile(path, data, perm)
+}
+
+// SetFrontmatterList is SetFrontmatterListWith for a file outside the skills
+// source.
+func SetFrontmatterList(filePath string, field string, values []string) error {
+	return SetFrontmatterListWith(osFileWriter{}, filePath, field, values)
+}
+
+// SetFrontmatterListWith writes a YAML list field into a SKILL.md file's frontmatter through w.
 // The field parameter uses dot notation: "metadata.targets" operates on fm["metadata"]["targets"].
 // When values is nil, the field is removed. When non-nil, the field is set.
 // For "metadata.targets", any legacy top-level "targets" field is also removed.
 // All other frontmatter fields and the body content are preserved.
-func SetFrontmatterList(filePath string, field string, values []string) error {
+func SetFrontmatterListWith(w FileWriter, filePath string, field string, values []string) error {
 	data, err := os.ReadFile(filePath)
 	if err != nil {
 		return err
@@ -84,7 +104,7 @@ func SetFrontmatterList(filePath string, field string, values []string) error {
 		sb.WriteString(body)
 	}
 
-	return os.WriteFile(filePath, []byte(sb.String()), 0644)
+	return w.WriteFile(filePath, []byte(sb.String()), 0644)
 }
 
 // splitFrontmatterAndBody splits SKILL.md content into raw frontmatter YAML
@@ -127,12 +147,18 @@ func splitFrontmatterAndBody(content string) (string, string) {
 	return fmRaw, body
 }
 
-// ToggleFrontmatterFlag flips a top-level boolean frontmatter key and reports the new state.
+// ToggleFrontmatterFlag is ToggleFrontmatterFlagWith for a file outside the
+// skills source.
+func ToggleFrontmatterFlag(filePath, key string) (bool, error) {
+	return ToggleFrontmatterFlagWith(osFileWriter{}, filePath, key)
+}
+
+// ToggleFrontmatterFlagWith flips a top-level boolean frontmatter key through w and reports the new state.
 // Absent or false becomes "key: true"; true removes the line, so toggling twice hands back
 // the original file byte for byte — which keeps a tracked repo clean once the flag is off again.
 // It edits one line instead of round-tripping YAML: key order, comments, line endings and the
 // body are never touched.
-func ToggleFrontmatterFlag(filePath, key string) (bool, error) {
+func ToggleFrontmatterFlagWith(w FileWriter, filePath, key string) (bool, error) {
 	data, err := os.ReadFile(filePath)
 	if err != nil {
 		return false, err
@@ -163,7 +189,7 @@ func ToggleFrontmatterFlag(filePath, key string) (bool, error) {
 	}
 	if end < 0 {
 		out := "---" + cr + "\n" + flagLine + "\n" + "---" + cr + "\n" + content
-		return true, os.WriteFile(filePath, []byte(out), 0644)
+		return true, w.WriteFile(filePath, []byte(out), 0644)
 	}
 
 	on := true
@@ -185,5 +211,5 @@ func ToggleFrontmatterFlag(filePath, key string) (bool, error) {
 	if !found {
 		lines = append(lines[:end], append([]string{flagLine}, lines[end:]...)...)
 	}
-	return on, os.WriteFile(filePath, []byte(strings.Join(lines, "\n")), 0644)
+	return on, w.WriteFile(filePath, []byte(strings.Join(lines, "\n")), 0644)
 }

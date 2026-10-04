@@ -4,13 +4,21 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"skillshare/internal/sourcefs"
 )
 
-// AddPattern appends a pattern to a .skillignore file.
+// AddPattern is AddPatternWith for an ignore file outside the skills source,
+// such as .agentignore.
+func AddPattern(filePath, pattern string) (bool, error) {
+	return AddPatternWith(sourcefs.OS, filePath, pattern)
+}
+
+// AddPatternWith appends a pattern to an ignore file through w.
 // Creates the file (and parent dirs) if it doesn't exist.
 // Returns true if the pattern was added, false if it already existed.
-func AddPattern(filePath, pattern string) (bool, error) {
-	if err := os.MkdirAll(filepath.Dir(filePath), 0755); err != nil {
+func AddPatternWith(w sourcefs.Writer, filePath, pattern string) (bool, error) {
+	if err := w.MkdirAll(filepath.Dir(filePath), 0755); err != nil {
 		return false, err
 	}
 
@@ -29,12 +37,18 @@ func AddPattern(filePath, pattern string) (bool, error) {
 	}
 	content += pattern + "\n"
 
-	return true, os.WriteFile(filePath, []byte(content), 0644)
+	return true, w.WriteFile(filePath, []byte(content), 0644)
 }
 
-// RemovePattern removes all lines matching the exact pattern from a .skillignore file.
-// Returns true if the pattern was found and removed, false if not found.
+// RemovePattern is RemovePatternWith for an ignore file outside the skills
+// source, such as .agentignore.
 func RemovePattern(filePath, pattern string) (bool, error) {
+	return RemovePatternWith(sourcefs.OS, filePath, pattern)
+}
+
+// RemovePatternWith removes all lines matching the exact pattern from an ignore file through w.
+// Returns true if the pattern was found and removed, false if not found.
+func RemovePatternWith(w sourcefs.Writer, filePath, pattern string) (bool, error) {
 	data, err := os.ReadFile(filePath)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -64,7 +78,7 @@ func RemovePattern(filePath, pattern string) (bool, error) {
 		result = strings.TrimSuffix(result, "\n")
 	}
 
-	return true, os.WriteFile(filePath, []byte(result), 0644)
+	return true, w.WriteFile(filePath, []byte(result), 0644)
 }
 
 // HasPattern returns true if the exact pattern exists in a .skillignore file.
@@ -80,4 +94,20 @@ func HasPattern(filePath, pattern string) bool {
 		}
 	}
 	return false
+}
+
+// OpenWriter returns the writer for the ignore file at path. For a
+// .skillignore it is a handle at the skills source, the file's folder,
+// created when missing, so a linked .skillignore is refused instead of
+// written through. For an .agentignore it is the plain writer. close
+// releases the handle.
+func OpenWriter(path string, skillsSource bool) (w sourcefs.Writer, close func(), err error) {
+	if !skillsSource {
+		return sourcefs.OS, func() {}, nil
+	}
+	root, err := sourcefs.Create(filepath.Dir(path))
+	if err != nil {
+		return nil, nil, err
+	}
+	return root.Writer(), func() { root.Close() }, nil
 }
