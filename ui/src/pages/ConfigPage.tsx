@@ -23,6 +23,7 @@ import ConfirmDialog from '../components/ConfirmDialog';
 import DialogShell from '../components/DialogShell';
 import { api } from '../api/client';
 import { queryKeys, staleTimes } from '../lib/queryKeys';
+import { invalidateDiscovery } from '../lib/sync';
 import { useAppContext } from '../context/AppContext';
 import { handTheme } from '../lib/codemirror-theme';
 import SyncPreviewModal from '../components/SyncPreviewModal';
@@ -195,10 +196,7 @@ export default function ConfigPage() {
       await api.putSkillignore(value);
       toast(t('config.skillignore.savedSuccess'), 'success');
       queryClient.invalidateQueries({ queryKey: queryKeys.skillignore });
-      queryClient.invalidateQueries({ queryKey: queryKeys.diff() });
-      queryClient.invalidateQueries({ queryKey: queryKeys.overview });
-      queryClient.invalidateQueries({ queryKey: queryKeys.skills.all });
-      queryClient.invalidateQueries({ queryKey: queryKeys.doctor });
+      invalidateDiscovery(queryClient);
     },
   });
 
@@ -233,10 +231,7 @@ export default function ConfigPage() {
     setFollowError(null);
     queryClient.setQueryData(queryKeys.skillfollow, res);
     toast(t('config.skillfollow.savedSuccess', { file: file === 'base' ? '.skillfollow' : '.skillfollow.local' }), 'success');
-    queryClient.invalidateQueries({ queryKey: queryKeys.diff() });
-    queryClient.invalidateQueries({ queryKey: queryKeys.overview });
-    queryClient.invalidateQueries({ queryKey: queryKeys.skills.all });
-    queryClient.invalidateQueries({ queryKey: queryKeys.doctor });
+    invalidateDiscovery(queryClient);
   };
   const followBase = useEditableFile(followBaseData, { save: (v) => saveFollow('base', v), onError: (e) => setFollowError(e.message) });
   const followLocal = useEditableFile(followLocalData, { save: (v) => saveFollow('local', v), onError: (e) => setFollowError(e.message) });
@@ -259,10 +254,7 @@ export default function ConfigPage() {
       await api.putAgentignore(value);
       toast(t('config.agentignore.savedSuccess'), 'success');
       queryClient.invalidateQueries({ queryKey: queryKeys.agentignore });
-      queryClient.invalidateQueries({ queryKey: queryKeys.diff() });
-      queryClient.invalidateQueries({ queryKey: queryKeys.overview });
-      queryClient.invalidateQueries({ queryKey: queryKeys.skills.all });
-      queryClient.invalidateQueries({ queryKey: queryKeys.doctor });
+      invalidateDiscovery(queryClient);
     },
   });
 

@@ -23,3 +23,11 @@ export function invalidateAfterSync(queryClient: QueryClient) {
   queryClient.invalidateQueries({ queryKey: queryKeys.overview });
   queryClient.invalidateQueries({ queryKey: queryKeys.diff() });
 }
+
+/** Invalidate queries that depend on which skills discovery finds. */
+export function invalidateDiscovery(queryClient: QueryClient) {
+  queryClient.invalidateQueries({ queryKey: queryKeys.diff() });
+  queryClient.invalidateQueries({ queryKey: queryKeys.overview });
+  queryClient.invalidateQueries({ queryKey: queryKeys.skills.all });
+  queryClient.invalidateQueries({ queryKey: queryKeys.doctor });
+}
