@@ -9,6 +9,8 @@ import (
 	"slices"
 	"strings"
 	"testing"
+
+	"skillshare/internal/trash"
 )
 
 // followedTeam declares team in source and, when live, links it to an external
@@ -72,6 +74,33 @@ func TestHandleCollect_RefusesDeclaredEntry(t *testing.T) {
 			}
 			if !slices.Equal(resp.Pulled, []string{"keep"}) {
 				t.Errorf("pulled = %v, want [keep]", resp.Pulled)
+			}
+			assertTeamUntouched(t, source, external, live)
+		})
+	}
+}
+
+func TestHandleRestoreTrash_RefusesDeclaredEntry(t *testing.T) {
+	for _, live := range []bool{false, true} {
+		t.Run(map[bool]string{false: "missing", true: "live"}[live], func(t *testing.T) {
+			s, source := newTestServer(t)
+			external := followedTeam(t, source, live)
+			trashed := filepath.Join(t.TempDir(), "team")
+			addSkill(t, filepath.Dir(trashed), "team")
+			if _, err := trash.MoveToTrash(trashed, "team", s.trashBase()); err != nil {
+				t.Fatal(err)
+			}
+
+			rr := httptest.NewRecorder()
+			s.handler.ServeHTTP(rr, httptest.NewRequest(http.MethodPost, "/api/trash/team/restore", nil))
+			if rr.Code != http.StatusConflict {
+				t.Errorf("expected 409, got %d: %s", rr.Code, rr.Body.String())
+			}
+			if !strings.Contains(rr.Body.String(), "is a link; edit its target directly") {
+				t.Errorf("missing link error: %s", rr.Body.String())
+			}
+			if trash.FindByName(s.trashBase(), "team") == nil {
+				t.Error("trash entry should stay after a refused restore")
 			}
 			assertTeamUntouched(t, source, external, live)
 		})

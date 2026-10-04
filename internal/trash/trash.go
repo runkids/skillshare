@@ -14,6 +14,7 @@ import (
 	"skillshare/internal/config"
 	"skillshare/internal/projectdir"
 	"skillshare/internal/sourcefs"
+	"skillshare/internal/sourcewalk"
 	"skillshare/internal/utils"
 )
 
@@ -355,10 +356,15 @@ func FindByName(trashBase, name string) *TrashEntry {
 
 // Restore moves a trashed skill back to the destination directory, the
 // skills source, through its handle: a link at or above the restored path is
-// refused. Returns an error if the destination already exists.
+// refused, and so is a path at or below an entry declared in .skillfollow,
+// even while its link is offline. Returns an error if the destination
+// already exists.
 func Restore(entry *TrashEntry, destDir string) error {
 	if err := validateTrashName(entry.Name); err != nil {
 		return fmt.Errorf("invalid trash entry name: %w", err)
+	}
+	if followed, ok := sourcewalk.Follow(destDir, sourcewalk.FollowOptions{}).InFollowed(entry.Name); ok {
+		return &sourcefs.LinkError{Path: filepath.Join(destDir, followed.Name)}
 	}
 
 	destPath := filepath.Join(destDir, entry.Name)

@@ -1,11 +1,13 @@
 package server
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
 	"time"
 
+	"skillshare/internal/sourcefs"
 	"skillshare/internal/trash"
 )
 
@@ -164,6 +166,10 @@ func (s *Server) handleRestoreTrash(w http.ResponseWriter, r *http.Request) {
 		err = trash.RestoreAgent(resolved.entry, resolved.dest)
 	default:
 		err = trash.Restore(resolved.entry, resolved.dest)
+	}
+	if errors.Is(err, sourcefs.ErrLink) {
+		writeError(w, http.StatusConflict, err.Error())
+		return
 	}
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to restore: "+err.Error())
