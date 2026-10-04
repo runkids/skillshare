@@ -107,3 +107,20 @@ func TestRemoteFetchEnv_RespectsExistingSSHCommand(t *testing.T) {
 		t.Fatalf("expected existing GIT_SSH_COMMAND to be preserved, got %q (present=%v)", v, ok)
 	}
 }
+
+// A skillshare folder that is a link (here a dangling one, which
+// hasBuiltinSkill does not count) is refused before the download, so neither
+// the install nor the fallback writes into its target.
+func TestInstallBuiltinSkill_RefusesLinkedFolder(t *testing.T) {
+	source := t.TempDir()
+	external := filepath.Join(t.TempDir(), "elsewhere")
+	if err := os.Symlink(external, filepath.Join(source, "skillshare")); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := installBuiltinSkill(source); err == nil || !strings.Contains(err.Error(), "is a link") {
+		t.Fatalf("installBuiltinSkill = %v, want a link refusal", err)
+	}
+	if _, err := os.Lstat(external); !os.IsNotExist(err) {
+		t.Fatalf("link target was created: %v", err)
+	}
+}

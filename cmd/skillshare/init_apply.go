@@ -13,6 +13,7 @@ import (
 	"skillshare/internal/config"
 	gitops "skillshare/internal/git"
 	"skillshare/internal/install"
+	"skillshare/internal/sourcefs"
 	ssync "skillshare/internal/sync"
 	"skillshare/internal/theme"
 	"skillshare/internal/ui"
@@ -181,8 +182,18 @@ func hasBuiltinSkill(sourcePath string) bool {
 }
 
 // installBuiltinSkill downloads the skillshare skill, falling back to a
-// minimal copy when GitHub can't be reached.
+// minimal copy when GitHub can't be reached. Both paths write through the
+// source handle, so a skillshare folder that is a link is refused instead of
+// replaced, and the fallback cannot write through it either.
 func installBuiltinSkill(sourcePath string) (fallback bool, err error) {
+	src, err := sourcefs.Create(sourcePath)
+	if err != nil {
+		return false, err
+	}
+	defer src.Close()
+	if err := src.CheckNoLink("skillshare"); err != nil {
+		return false, err
+	}
 	dir := filepath.Join(sourcePath, "skillshare")
 	source, err := install.ParseSource(skillshareSkillSource)
 	if err == nil {
@@ -192,10 +203,10 @@ func installBuiltinSkill(sourcePath string) (fallback bool, err error) {
 	if err == nil {
 		return false, nil
 	}
-	if err := os.MkdirAll(dir, 0o755); err != nil {
+	if err := src.MkdirAll("skillshare", 0o755); err != nil {
 		return true, err
 	}
-	return true, os.WriteFile(filepath.Join(dir, "SKILL.md"), []byte(fallbackSkillContent), 0o644)
+	return true, src.WriteFile(filepath.Join("skillshare", "SKILL.md"), []byte(fallbackSkillContent), 0o644)
 }
 
 // printInitDone prints what was set up.
