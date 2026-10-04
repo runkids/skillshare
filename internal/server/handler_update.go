@@ -427,6 +427,9 @@ func (s *Server) auditGateTrackedRepo(name, repoPath, beforeHash string, force b
 }
 
 func (s *Server) updateRegularSkill(name, skillPath string, force, skipAudit bool) updateResultItem {
+	if err := install.RefuseFollowedSkillUpdate(name, s.skillFollowSet()); err != nil {
+		return updateResultItem{Name: name, Action: "error", Message: err.Error()}
+	}
 	entry := s.skillsStore.GetByPath(name)
 	if entry == nil {
 		return updateResultItem{Name: name, Action: "error", Message: "no metadata found"}

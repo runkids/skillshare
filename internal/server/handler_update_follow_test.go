@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"skillshare/internal/install"
 	"skillshare/internal/testutil"
 )
 
@@ -147,5 +148,40 @@ func TestPatchSourceRefusesFollowedRepo(t *testing.T) {
 	}
 	if testutil.RunGit(t, f.target, "remote", "get-url", "origin") != before {
 		t.Fatal("external remote changed")
+	}
+}
+
+// The single update route reaches install.handleUpdate through a metadata
+// entry; a skill below a followed group must be refused before any pull.
+func TestServerFollowedGroupSkillUpdateRefused(t *testing.T) {
+	f := newServerFollowFixture(t)
+	base := t.TempDir()
+	remote := testutil.SetupBareRemoteRepo(t, base)
+	testutil.SeedRemoteBranch(t, base, remote, "main", map[string]string{"SKILL.md": "---\nname: g\ndescription: Fixture\n---\n# G\n"})
+	group := filepath.Join(base, "group")
+	checkout := filepath.Join(group, "g")
+	testutil.RunGit(t, "", "clone", remote, checkout)
+	if err := os.Symlink(group, filepath.Join(f.source, "group")); err != nil {
+		t.Skip(err)
+	}
+	if err := os.WriteFile(filepath.Join(f.source, ".skillfollow"), []byte("_dev\ngroup\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	store := install.NewMetadataStore()
+	store.Set("group/g", &install.MetadataEntry{Source: "file://" + filepath.ToSlash(remote)})
+	if err := store.Save(f.source); err != nil {
+		t.Fatal(err)
+	}
+	f.server.skillsStore = store
+	before := testutil.RunGit(t, checkout, "rev-parse", "HEAD")
+	commitServerFollowFile(t, filepath.Join(base, "seed-main"), "remote.txt", "new")
+	testutil.RunGit(t, filepath.Join(base, "seed-main"), "push", "origin", "HEAD:main")
+
+	item := f.server.updateSingle("group/g", false, true)
+	if item.Action != "error" || !strings.Contains(item.Message, install.ErrFollowedUpdate.Error()) {
+		t.Fatalf("followed group skill was not refused: %+v", item)
+	}
+	if testutil.RunGit(t, checkout, "rev-parse", "HEAD") != before {
+		t.Fatal("refusal pulled the user's checkout")
 	}
 }
