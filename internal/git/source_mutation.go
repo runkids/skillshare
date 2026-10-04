@@ -43,6 +43,16 @@ func CheckSourceMutation(dir, incoming string, follow *sourcewalk.FollowSet) (st
 	if err != nil {
 		return "", err
 	}
+	// Declared links are relative to dir; diff paths are relative to the git root.
+	staging, err := sourcewalk.Canonicalize(dir)
+	if err != nil {
+		return "", err
+	}
+	prefix, err := filepath.Rel(root, staging)
+	if err != nil {
+		return "", err
+	}
+	prefix = strings.TrimPrefix(filepath.ToSlash(prefix)+"/", "./")
 	args := []string{"diff", "--name-only", "--no-renames", "-z", "HEAD", commit, "--"}
 	if _, headErr := GetCurrentFullHash(root); headErr != nil {
 		// An unborn initial checkout has no HEAD; every incoming tree path is new.
@@ -65,6 +75,14 @@ func CheckSourceMutation(dir, incoming string, follow *sourcewalk.FollowSet) (st
 		if link != "" {
 			rel, _ := filepath.Rel(root, link)
 			return "", fmt.Errorf("refusing incoming commit %s: path %q touches link %q; run %s if indexed, or fix the remote", commit, path, filepath.ToSlash(rel), UntrackCommand(filepath.ToSlash(rel)))
+		}
+		// A missing declared link has no component to find, but writing below
+		// it would still create the entry as a real directory.
+		for _, link := range links {
+			entry := prefix + link.Path
+			if path == entry || strings.HasPrefix(path, entry+"/") {
+				return "", fmt.Errorf("refusing incoming commit %s: path %q is inside declared entry %q; remove it from the remote, or remove the entry from .skillfollow or .skillfollow.local", commit, path, link.Path)
+			}
 		}
 	}
 	return commit, nil

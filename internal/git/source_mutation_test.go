@@ -128,3 +128,68 @@ func TestSourceMutationRefusesMissingIndexedDeclaration(t *testing.T) {
 		t.Fatalf("missing indexed declaration was accepted: %v", err)
 	}
 }
+
+func TestSourceMutationRefusesPathsBelowMissingDeclaration(t *testing.T) {
+	for _, c := range []struct {
+		name, prefix string
+		link         bool
+		incoming     []string
+		refusal      string
+	}{
+		{name: "missing", incoming: []string{"group/a/SKILL.md"}, refusal: `is inside declared entry "group"`},
+		{name: "nested-source", prefix: "skills/", incoming: []string{"skills/group/a/SKILL.md"}, refusal: `is inside declared entry "group"`},
+		{name: "live-ignored", link: true, incoming: []string{"group/a/SKILL.md"}, refusal: `touches link "group"`},
+		{name: "sibling", incoming: []string{"group-other/a/SKILL.md", "groupx/a/SKILL.md"}},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			base := t.TempDir()
+			remote := testutil.SetupBareRemoteRepo(t, base)
+			testutil.SeedRemoteBranch(t, base, remote, "main", map[string]string{
+				"README.md": "# Source\n", c.prefix + ".gitignore": "/group\n", c.prefix + ".skillfollow": "group\n",
+			})
+			root := filepath.Join(base, "source")
+			testutil.RunGit(t, "", "clone", remote, root)
+			source := filepath.Join(root, filepath.FromSlash(c.prefix))
+			entry := filepath.Join(source, "group")
+			if c.link {
+				if err := os.Symlink(t.TempDir(), entry); err != nil {
+					t.Skip(err)
+				}
+			}
+			seed := filepath.Join(base, "seed-main")
+			for _, rel := range c.incoming {
+				path := filepath.Join(seed, filepath.FromSlash(rel))
+				if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.WriteFile(path, []byte("# Remote\n"), 0644); err != nil {
+					t.Fatal(err)
+				}
+			}
+			testutil.RunGit(t, seed, append([]string{"add", "-f", "--"}, c.incoming...)...)
+			testutil.RunGit(t, seed, "commit", "-m", "incoming")
+			testutil.RunGit(t, seed, "push", "origin", "HEAD:main")
+			if err := Fetch(root); err != nil {
+				t.Fatal(err)
+			}
+			before := testutil.RunGit(t, root, "rev-parse", "HEAD")
+			follow := sourcewalk.Follow(source, sourcewalk.FollowOptions{GitRoot: root})
+			_, err := CheckSourceMutation(source, "origin/main", &follow)
+			if c.refusal == "" {
+				if err != nil {
+					t.Fatalf("sibling path was refused: %v", err)
+				}
+				return
+			}
+			if err == nil || !strings.Contains(err.Error(), c.refusal) {
+				t.Fatalf("err = %v, want %q", err, c.refusal)
+			}
+			if got := testutil.RunGit(t, root, "rev-parse", "HEAD"); got != before {
+				t.Fatalf("HEAD changed: %s", got)
+			}
+			if info, err := os.Lstat(entry); c.link != (err == nil) || (c.link && info.Mode()&os.ModeSymlink == 0) {
+				t.Fatalf("declared entry changed: %v %v", info, err)
+			}
+		})
+	}
+}
