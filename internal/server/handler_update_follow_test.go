@@ -4,6 +4,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -183,5 +184,47 @@ func TestServerFollowedGroupSkillUpdateRefused(t *testing.T) {
 	}
 	if testutil.RunGit(t, checkout, "rev-parse", "HEAD") != before {
 		t.Fatal("refusal pulled the user's checkout")
+	}
+}
+
+// unreadableServerFollowFixture pushes a new remote commit, then hides the
+// declaration that marks _dev as followed.
+func unreadableServerFollowFixture(t *testing.T) (serverFollowFixture, string) {
+	t.Helper()
+	if runtime.GOOS == "windows" || os.Geteuid() == 0 {
+		t.Skip("requires Unix permission enforcement")
+	}
+	f := newServerFollowFixture(t)
+	commitServerFollowFile(t, f.seed, "remote.txt", "new")
+	testutil.RunGit(t, f.seed, "push", "origin", "HEAD:main")
+	before := testutil.RunGit(t, f.target, "rev-parse", "HEAD")
+	declaration := filepath.Join(f.source, ".skillfollow")
+	if err := os.Chmod(declaration, 0000); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { os.Chmod(declaration, 0644) })
+	return f, before
+}
+
+// Named routes resolve _dev with os.Stat before any walk, so the policy itself
+// must refuse when the declaration cannot be read, even with force.
+func TestServerFollowedNamedUpdateUnreadableDeclaration(t *testing.T) {
+	for _, stream := range []bool{false, true} {
+		t.Run(map[bool]string{false: "json", true: "sse"}[stream], func(t *testing.T) {
+			f, before := unreadableServerFollowFixture(t)
+			recorder := httptest.NewRecorder()
+			if stream {
+				f.server.handleUpdateStream(recorder, httptest.NewRequest("GET", "/api/update/stream?names=_dev&force=true&skipAudit=true", nil))
+			} else {
+				f.server.handleUpdate(recorder, httptest.NewRequest("POST", "/api/update", strings.NewReader(`{"name":"_dev","force":true,"skipAudit":true}`)))
+			}
+			body := recorder.Body.String()
+			if !strings.Contains(body, `"action":"error"`) || !strings.Contains(body, "read skillfollow declaration") {
+				t.Fatalf("unreadable declaration was not refused: %s", body)
+			}
+			if testutil.RunGit(t, f.target, "rev-parse", "HEAD") != before {
+				t.Fatal("update moved the followed checkout")
+			}
+		})
 	}
 }

@@ -22,6 +22,9 @@ func PrepareFollowedUpdate(sourceDir, repoPath string, follow *sourcewalk.Follow
 	if follow == nil {
 		return nil, nil
 	}
+	if err := followDiscoveryError(follow); err != nil {
+		return nil, err
+	}
 	rel, err := filepath.Rel(sourceDir, repoPath)
 	if err != nil {
 		return nil, err
@@ -55,11 +58,23 @@ func RefuseFollowedSkillUpdate(skillRel string, follow *sourcewalk.FollowSet) er
 	if follow == nil {
 		return nil
 	}
+	if err := followDiscoveryError(follow); err != nil {
+		return err
+	}
 	entry, followed := follow.InFollowed(filepath.ToSlash(skillRel))
 	if !followed {
 		return nil
 	}
 	return fmt.Errorf("%w: skill %s is inside followed entry %s; skillshare does not reinstall skills in a followed tree", ErrFollowedUpdate, filepath.ToSlash(skillRel), entry.Name)
+}
+
+// followDiscoveryError fails closed: an incomplete snapshot cannot prove that a
+// path is outside every followed entry.
+func followDiscoveryError(follow *sourcewalk.FollowSet) error {
+	if err := follow.Err(); err != nil {
+		return fmt.Errorf("%w: skillfollow discovery is incomplete: %w", ErrFollowedUpdate, err)
+	}
+	return nil
 }
 
 // CheckClean fails closed when git cannot inspect the user's working tree.

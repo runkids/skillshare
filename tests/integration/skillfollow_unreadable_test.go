@@ -100,3 +100,50 @@ func TestSkillfollowCheckUnreadableDeclarationFails(t *testing.T) {
 		}
 	}
 }
+
+// An unreadable declaration hides which repositories are followed, so updates
+// must refuse instead of treating a followed checkout as an installed repo.
+func TestSkillfollowUpdateUnreadableDeclarationRefuses(t *testing.T) {
+	if runtime.GOOS == "windows" || os.Geteuid() == 0 {
+		t.Skip("requires Unix permission enforcement")
+	}
+	routes := map[string]func(remote string) []string{
+		"update --force": func(string) []string { return []string{"update", "_dev", "--force", "--skip-audit", "-g"} },
+		"install --update": func(remote string) []string {
+			return []string{"install", "file://" + remote, "--track", "--name", "dev", "--update", "--skip-audit", "-g"}
+		},
+	}
+	for name, args := range routes {
+		t.Run(name, func(t *testing.T) {
+			sb := testutil.NewSandbox(t)
+			defer sb.Cleanup()
+			sb.WriteConfig("source: " + sb.SourcePath + "\ntargets: {}\n")
+			base := t.TempDir()
+			remote := testutil.SetupBareRemoteRepo(t, base)
+			testutil.SeedRemoteBranch(t, base, remote, "main", map[string]string{"safe/SKILL.md": "# Safe\n"})
+			external := filepath.Join(sb.Root, "external")
+			testutil.RunGit(t, "", "clone", remote, external)
+			if err := os.Symlink(external, filepath.Join(sb.SourcePath, "_dev")); err != nil {
+				t.Fatal(err)
+			}
+			seed := filepath.Join(base, "seed-main")
+			sb.WriteFile(filepath.Join(seed, "remote.txt"), "new\n")
+			testutil.RunGit(t, seed, "add", ".")
+			testutil.RunGit(t, seed, "commit", "-m", "remote")
+			testutil.RunGit(t, seed, "push", "origin", "HEAD:main")
+			before := testutil.RunGit(t, external, "rev-parse", "HEAD")
+			declaration := filepath.Join(sb.SourcePath, ".skillfollow")
+			sb.WriteFile(declaration, "_dev\n")
+			if err := os.Chmod(declaration, 0000); err != nil {
+				t.Fatal(err)
+			}
+			defer os.Chmod(declaration, 0600)
+			result := sb.RunCLI(args(remote)...)
+			result.AssertFailure(t)
+			result.AssertAnyOutputContains(t, "read skillfollow declaration")
+			if testutil.RunGit(t, external, "rev-parse", "HEAD") != before {
+				t.Fatal("update moved the followed checkout")
+			}
+		})
+	}
+}
