@@ -69,7 +69,7 @@ func SyncSkillTarget(t SkillTarget, skills []DiscoveredSkill, opts SkillRunOptio
 		prune, err := PruneOrphanLinksWithSkills(PruneOptions{
 			TargetPath: sc.Path, SourcePath: opts.Source, Skills: skills,
 			Include: sc.Include, Exclude: sc.Exclude, TargetNaming: sc.TargetNaming, TargetName: t.Name,
-			DryRun: opts.DryRun, Force: opts.Force,
+			DryRun: opts.DryRun, Force: opts.Force, Follow: opts.Follow,
 		})
 		res.addPrune(prune, err)
 		if prune != nil {

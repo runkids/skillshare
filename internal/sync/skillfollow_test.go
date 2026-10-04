@@ -169,3 +169,128 @@ func TestRelativeLinkText_SkillKeepsLogicalTail(t *testing.T) {
 		t.Fatalf("agents and extras keep resolving the whole destination: %s", legacy)
 	}
 }
+
+func (f followFixture) prune(t *testing.T, exclude []string, force bool) *PruneResult {
+	t.Helper()
+	set, skills := f.discover(t)
+	result, err := PruneOrphanLinksWithSkills(PruneOptions{
+		TargetPath: f.tgt, SourcePath: f.src, Skills: skills, Exclude: exclude,
+		TargetName: "test", Force: force, Follow: set,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return result
+}
+
+func assertGone(t *testing.T, path string) {
+	t.Helper()
+	if _, err := os.Lstat(path); !os.IsNotExist(err) {
+		t.Fatalf("%s still exists (%v)", path, err)
+	}
+}
+
+func assertPresent(t *testing.T, path string) {
+	t.Helper()
+	if _, err := os.Lstat(path); err != nil {
+		t.Fatalf("%s was removed: %v", path, err)
+	}
+}
+
+func TestSkillfollowOwnership_PrunesFullyResolvedManagedLink(t *testing.T) {
+	f := newFollowFixture(t, filepath.Join(t.TempDir(), "src"), filepath.Join(t.TempDir(), "tgt"))
+	if err := os.Symlink(filepath.Join(f.ext, "f", "a"), filepath.Join(f.tgt, "_f__a")); err != nil {
+		t.Fatal(err)
+	}
+	f.merge(t, config.TargetConfig{Path: f.tgt, Mode: "merge"}, "")
+
+	f.prune(t, []string{"_f__a"}, false)
+	assertGone(t, filepath.Join(f.tgt, "_f__a"))
+}
+
+func TestSkillfollowOwnership_UnmanagedLinkIntoFollowedTargetIsLocal(t *testing.T) {
+	f := newFollowFixture(t, filepath.Join(t.TempDir(), "src"), filepath.Join(t.TempDir(), "tgt"))
+	if err := os.Symlink(filepath.Join(f.ext, "f", "a"), filepath.Join(f.tgt, "mine")); err != nil {
+		t.Fatal(err)
+	}
+
+	result := f.prune(t, nil, false)
+	assertPresent(t, filepath.Join(f.tgt, "mine"))
+	if len(result.LocalDirs) != 1 || result.LocalDirs[0] != "mine" {
+		t.Fatalf("local dirs = %v", result.LocalDirs)
+	}
+}
+
+func TestSkillfollowOwnership_UnfollowPrunesLinksThroughEntry(t *testing.T) {
+	for _, linkedRoot := range []bool{false, true} {
+		t.Run(map[bool]string{false: "plain source", true: "linked source root"}[linkedRoot], func(t *testing.T) {
+			root := t.TempDir()
+			src := filepath.Join(root, ".skillshare", "skills")
+			if linkedRoot {
+				real := filepath.Join(root, "real-src")
+				if err := os.MkdirAll(real, 0755); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.MkdirAll(filepath.Dir(src), 0755); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.Symlink(real, src); err != nil {
+					t.Fatal(err)
+				}
+			}
+			f := newFollowFixture(t, src, filepath.Join(root, ".claude", "skills"))
+			f.merge(t, config.TargetConfig{Path: f.tgt, Mode: "merge"}, root)
+
+			writeFile(t, filepath.Join(f.src, ".skillfollow"), "# _f unfollowed\n")
+			result := f.prune(t, nil, false)
+			for _, name := range []string{"_f__a", "_f__b"} {
+				assertGone(t, filepath.Join(f.tgt, name))
+			}
+			if len(result.Removed) != 2 {
+				t.Fatalf("removed = %v, warnings = %v", result.Removed, result.Warnings)
+			}
+		})
+	}
+}
+
+func TestSkillfollowOwnership_UnfollowKeepsPhysicalManagedLink(t *testing.T) {
+	f := newFollowFixture(t, filepath.Join(t.TempDir(), "src"), filepath.Join(t.TempDir(), "tgt"))
+	link := filepath.Join(f.tgt, "_f__a")
+	if err := os.Symlink(filepath.Join(f.ext, "f", "a"), link); err != nil {
+		t.Fatal(err)
+	}
+	f.merge(t, config.TargetConfig{Path: f.tgt, Mode: "merge"}, "")
+	writeFile(t, filepath.Join(f.src, ".skillfollow"), "")
+
+	result := f.prune(t, nil, false)
+	assertPresent(t, link)
+	want := "_f__a: managed link resolves outside the source after unfollow; remove it or re-run with --force"
+	if len(result.Warnings) != 1 || result.Warnings[0] != want {
+		t.Fatalf("warnings = %v", result.Warnings)
+	}
+
+	f.prune(t, nil, true)
+	assertGone(t, link)
+}
+
+func TestSkillfollowOwnership_HandMadeExternalLinkWithoutDeclarations(t *testing.T) {
+	src, tgt := setupMergeTest(t, "alpha")
+	ext := t.TempDir()
+	writeSkillMD(t, filepath.Join(ext, "a"), "---\nname: a\n---\n# a")
+	if err := os.Symlink(filepath.Join(ext, "a"), filepath.Join(tgt, "a")); err != nil {
+		t.Fatal(err)
+	}
+	skills, err := DiscoverSourceSkills(src)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	result, err := PruneOrphanLinksWithSkills(PruneOptions{TargetPath: tgt, SourcePath: src, Skills: skills, TargetName: "test"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertPresent(t, filepath.Join(tgt, "a"))
+	if len(result.Warnings) != 1 || !strings.Contains(result.Warnings[0], "symlink to external location") {
+		t.Fatalf("warnings = %v", result.Warnings)
+	}
+}

@@ -725,6 +725,9 @@ type PruneOptions struct {
 	// broken-external-link cleanup are skipped. For directories that are not a
 	// configured target's own path.
 	ManagedOnly bool
+	// Follow is the operation's .skillfollow snapshot; nil keeps legacy rules.
+	// Managed links into a currently followed entry's target are owned too.
+	Follow *sourcewalk.FollowSet
 }
 
 // PruneOrphanLinks removes target entries that are no longer managed by sync.
@@ -793,6 +796,7 @@ func PruneOrphanLinksWithSkills(opts PruneOptions) (*PruneResult, error) {
 	}
 
 	absSource, _ := filepath.Abs(sourcePath)
+	scope := newFollowScope(sourcePath, opts.Follow)
 
 	for _, entry := range entries {
 		name := entry.Name()
@@ -833,11 +837,19 @@ func PruneOrphanLinksWithSkills(opts PruneOptions) (*PruneResult, error) {
 				targetExists = true
 			}
 
-			if utils.PathHasPrefix(absLink, absSource+string(filepath.Separator)) {
+			_, inManifest := manifest.Managed[name]
+			owned := utils.PathHasPrefix(absLink, absSource+string(filepath.Separator))
+			if !owned && opts.Follow != nil && targetExists {
+				// Relative links read from the canonical parent, a source that
+				// is itself a link, and followed entries' targets.
+				owned = scope.ownsLink(entryPath)
+			}
+
+			if owned {
 				if !targetExists {
 					shouldRemove = true
 					reason = "broken symlink to source"
-				} else if _, inManifest := manifest.Managed[name]; inManifest || force {
+				} else if inManifest || force {
 					shouldRemove = true
 					reason = "orphan symlink to source"
 				} else {
@@ -854,6 +866,11 @@ func PruneOrphanLinksWithSkills(opts PruneOptions) (*PruneResult, error) {
 				// Valid external symlink, but force mode requested
 				shouldRemove = true
 				reason = "external symlink (force)"
+			} else if inManifest && opts.Follow != nil {
+				// Links created through a followed entry stay inside the source
+				// after unfollow; a physical external path was made by hand.
+				result.Warnings = append(result.Warnings,
+					fmt.Sprintf("%s: managed link resolves outside the source after unfollow; remove it or re-run with --force", name))
 			} else {
 				result.Warnings = append(result.Warnings,
 					fmt.Sprintf("%s: symlink to external location (%s), kept", name, absLink))

@@ -3,6 +3,7 @@ package sync
 import (
 	"os"
 	"path/filepath"
+	"strings"
 
 	"skillshare/internal/sourcewalk"
 	"skillshare/internal/utils"
@@ -74,4 +75,41 @@ func sameSkillLink(linkPath string, skill DiscoveredSkill, scope followScope) bo
 	}
 	resolved, err := sourcewalk.Canonicalize(logical)
 	return err == nil && utils.PathsEqual(dest, resolved)
+}
+
+// ownsLink reports whether a link resolves inside the logical source, the
+// canonical source root, or the resolved target of a currently followed entry.
+// This is containment, not provenance: prune still requires the manifest.
+func (s followScope) ownsLink(linkPath string) bool {
+	dest, err := skillLinkTarget(linkPath)
+	if err != nil {
+		return false
+	}
+	if pathUnder(dest, s.source) || pathUnder(dest, s.canonSource) {
+		return true
+	}
+	return s.inFollowedTarget(dest)
+}
+
+// inFollowedTarget reports whether dest resolves inside a currently followed
+// entry's resolved target.
+func (s followScope) inFollowedTarget(dest string) bool {
+	if s.set == nil {
+		return false
+	}
+	canon, err := sourcewalk.Canonicalize(dest)
+	if err != nil {
+		return false
+	}
+	for _, entry := range s.set.Followed() {
+		if utils.PathsEqual(canon, entry.ResolvedTarget) || pathUnder(canon, entry.ResolvedTarget) {
+			return true
+		}
+	}
+	return false
+}
+
+// pathUnder reports whether path is strictly below root.
+func pathUnder(path, root string) bool {
+	return utils.PathHasPrefix(path, strings.TrimRight(root, string(filepath.Separator))+string(filepath.Separator))
 }
