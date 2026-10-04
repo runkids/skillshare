@@ -70,6 +70,11 @@ func TestSkillfollowBehaviorMatrix(t *testing.T) {
 		return files
 	}
 	sourceBefore, externalBefore := snapshot(sb.SourcePath), snapshot(external)
+	// The list suffix prints the canonical target; on macOS the temp dir is a symlink.
+	resolvedExternal, err := filepath.EvalSymlinks(external)
+	if err != nil {
+		t.Fatal(err)
+	}
 	matrix := []struct {
 		name     string
 		args     []string
@@ -80,7 +85,7 @@ func TestSkillfollowBehaviorMatrix(t *testing.T) {
 		json     bool
 	}{
 		{"list", []string{"list", "--json"}, []string{"_repo/a", "group/c"}, []string{"secret"}, []string{"\"repoName\": \"_repo\""}, false, true},
-		{"list-text", []string{"list", "--no-tui"}, []string{"_repo", "group"}, []string{"secret"}, []string{"→ " + filepath.Join(external, "repo")}, false, false},
+		{"list-text", []string{"list", "--no-tui"}, []string{"_repo", "group"}, []string{"secret"}, []string{"→ " + filepath.Join(resolvedExternal, "repo")}, false, false},
 		// 3b: the missing declaration pauses prune, and status says so next to the entry states.
 		{"status", []string{"status", "--json"}, []string{"_repo"}, []string{"secret"}, []string{"\"skill_count\": 2", "missing", "invalid-target", "prune_paused"}, false, true},
 		// 3c: check reports the followed repo as a tracked repo; a local followed group is not a tracked repo.

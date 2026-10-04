@@ -78,8 +78,15 @@ func TestSkillfollowSyncPausesPruneForMissingEntry(t *testing.T) {
 			if err := json.Unmarshal([]byte(status.Stdout), &output); err != nil {
 				t.Fatal(err, status.Stdout)
 			}
-			want := "prune paused: _off is missing; restore or fix " + filepath.Join(source, "_off") + ", or remove _off from .skillfollow[.local], to resume cleanup"
-			if len(output.Source.Follow.PrunePaused) != 1 || output.Source.Follow.PrunePaused[0] != want {
+			// Project mode reports the canonical source path; on macOS the temp dir is a symlink.
+			resolvedSource, err := filepath.EvalSymlinks(source)
+			if err != nil {
+				t.Fatal(err)
+			}
+			wantFor := func(dir string) string {
+				return "prune paused: _off is missing; restore or fix " + filepath.Join(dir, "_off") + ", or remove _off from .skillfollow[.local], to resume cleanup"
+			}
+			if got := output.Source.Follow.PrunePaused; len(got) != 1 || (got[0] != wantFor(source) && got[0] != wantFor(resolvedSource)) {
 				t.Fatalf("status prune_paused = %v", output.Source.Follow.PrunePaused)
 			}
 
@@ -95,7 +102,7 @@ func TestSkillfollowSyncPausesPruneForMissingEntry(t *testing.T) {
 			}
 			named := false
 			for _, check := range diagnostic.Checks {
-				named = named || (check.Name == "skillfollow_prune" && check.Message == want)
+				named = named || (check.Name == "skillfollow_prune" && (check.Message == wantFor(source) || check.Message == wantFor(resolvedSource)))
 			}
 			if !named {
 				t.Fatalf("doctor does not name the blocking entry: %s", doctor.Stdout)
