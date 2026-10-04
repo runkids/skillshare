@@ -135,18 +135,18 @@ func TestMissingCodexNamesWhereItLooked(t *testing.T) {
 	}
 }
 
-// An account's own cli is what it asked for; the Codex search does not replace it.
+// An account's own cli is what it asked for, even the bare name codex; the search does not replace it.
 func TestCodexAccountCLIIsNotSearched(t *testing.T) {
 	var ran string
 	s := &Service{
-		Accounts:  map[string]Account{"codex-work": {Agent: "codex", Dir: t.TempDir(), CLI: "/opt/work/codex"}},
+		Accounts:  map[string]Account{"codex-work": {Agent: "codex", Dir: t.TempDir(), CLI: "codex"}},
 		findCodex: func() (string, []string) { t.Fatal("searched for codex"); return "", nil },
 		Run: func(_ context.Context, _ string, _ []string, bin string, _ ...string) ([]byte, error) {
 			ran = bin
 			return nil, nil
 		},
 	}
-	if _, err := s.run(context.Background(), "codex-work", "--version"); err != nil || ran != "/opt/work/codex" {
+	if _, err := s.run(context.Background(), "codex-work", "--version"); err != nil || ran != "codex" {
 		t.Fatalf("ran %q, err = %v", ran, err)
 	}
 }

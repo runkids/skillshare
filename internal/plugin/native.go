@@ -132,13 +132,15 @@ func (s *Service) run(ctx context.Context, target string, args ...string) ([]byt
 	if bin == "antigravity-cli" {
 		bin = "agy"
 	}
+	explicit := false
 	if account, ok := s.account(target); ok {
 		env = account.env()
 		if account.CLI != "" {
-			bin = account.CLI
+			bin, explicit = account.CLI, true
 		}
 	}
-	if bin != "codex" {
+	// Only the default codex is searched for; an account's cli, even "codex", is kept.
+	if bin != "codex" || explicit {
 		return run(ctx, dir, env, bin, args...)
 	}
 	find := s.findCodex
