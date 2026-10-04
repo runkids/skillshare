@@ -375,11 +375,11 @@ func (s *Server) handleUninstallRepo(w http.ResponseWriter, r *http.Request) {
 	defer s.mu.Unlock()
 
 	name := strings.TrimSpace(r.PathValue("name"))
-	cleanName := filepath.Clean(filepath.FromSlash(name))
-	if name == "" || cleanName == "." || cleanName == ".." || filepath.IsAbs(cleanName) || strings.HasPrefix(cleanName, ".."+string(filepath.Separator)) {
+	if !validSourceName(name) {
 		writeError(w, http.StatusBadRequest, "invalid or missing tracked repository name")
 		return
 	}
+	cleanName := filepath.Clean(filepath.FromSlash(name))
 
 	repoName, repoPath, resolveErr := s.resolveTrackedRepo(cleanName)
 	if resolveErr != nil {

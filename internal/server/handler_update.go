@@ -134,6 +134,10 @@ func (s *Server) handleUpdate(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid kind: "+body.Kind)
 		return
 	}
+	if body.Kind != "agent" && !validSourceName(body.Name) {
+		writeError(w, http.StatusBadRequest, "invalid skill name: "+body.Name)
+		return
+	}
 
 	result := s.updateSingleByKind(body.Name, body.Kind, body.Force, body.SkipAudit)
 	status := "ok"

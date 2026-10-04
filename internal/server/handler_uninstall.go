@@ -171,6 +171,17 @@ func (s *Server) handleBatchUninstallSkills(w http.ResponseWriter, body batchUni
 	for _, name := range body.Names {
 		res := batchUninstallItemResult{Name: name, Kind: "skill"}
 
+		if !validSourceName(name) {
+			res.Success = false
+			res.Error = "invalid skill name: " + name
+			results = append(results, res)
+			failed++
+			if firstErr == "" {
+				firstErr = res.Error
+			}
+			continue
+		}
+
 		if strings.HasPrefix(name, "_") {
 			repoPath := filepath.Join(s.cfg.EffectiveSkillsSource(), name)
 			if !install.IsGitRepo(repoPath) {

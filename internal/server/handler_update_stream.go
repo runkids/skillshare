@@ -39,9 +39,10 @@ func (s *Server) handleUpdateStream(w http.ResponseWriter, r *http.Request) {
 	namesParam := r.URL.Query().Get("names")
 
 	type updateItem struct {
-		name   string
-		isRepo bool
-		path   string
+		name    string
+		isRepo  bool
+		path    string
+		invalid bool // the name would resolve outside the source; reported, never touched
 	}
 
 	var items []updateItem
@@ -51,6 +52,10 @@ func (s *Server) handleUpdateStream(w http.ResponseWriter, r *http.Request) {
 		for name := range strings.SplitSeq(namesParam, ",") {
 			name = strings.TrimSpace(name)
 			if name == "" {
+				continue
+			}
+			if !validSourceName(name) {
+				items = append(items, updateItem{name: name, invalid: true})
 				continue
 			}
 			// Check if it's a tracked repo
@@ -123,9 +128,12 @@ func (s *Server) handleUpdateStream(w http.ResponseWriter, r *http.Request) {
 
 		// Lock per-item for write operations
 		s.mu.Lock()
-		if item.isRepo {
+		switch {
+		case item.invalid:
+			result = updateResultItem{Name: item.name, Action: "error", Message: "invalid skill name: " + item.name}
+		case item.isRepo:
 			result = s.updateTrackedRepo(item.name, item.path, force, skipAudit)
-		} else {
+		default:
 			result = s.updateRegularSkill(item.name, item.path, force, skipAudit)
 		}
 		s.mu.Unlock()

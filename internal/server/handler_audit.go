@@ -386,6 +386,10 @@ func (s *Server) handleAuditSkill(w http.ResponseWriter, r *http.Request) {
 			result, err = audit.ScanFile(agentPath)
 		}
 	} else {
+		if !validSourceName(name) {
+			writeError(w, http.StatusBadRequest, "invalid skill name: "+name)
+			return
+		}
 		skillPath := filepath.Join(source, name)
 		if _, statErr := os.Stat(skillPath); os.IsNotExist(statErr) {
 			writeError(w, http.StatusNotFound, "skill not found: "+name)
