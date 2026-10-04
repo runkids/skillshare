@@ -45,6 +45,8 @@ func readIgnoreLocal(ignorePath string) *ignoreLocalFile {
 
 func (s *Server) handleGetSkillignore(w http.ResponseWriter, r *http.Request) {
 	// Snapshot source path under RLock, then release before I/O.
+	// In project mode this equals s.skillsSource(), which /api/skillfollow uses
+	// (see TestServerProjectUpdateAllUsesProjectSource).
 	s.mu.RLock()
 	source := s.cfg.EffectiveSkillsSource()
 	follow := s.skillFollowSet()

@@ -102,6 +102,16 @@ func TestCanonicalizeMissingAncestor(t *testing.T) {
 		t.Fatalf("%s %v", got, err)
 	}
 }
+func TestPrunePausesNamesUnavailableEntries(t *testing.T) {
+	root, ext := t.TempDir(), t.TempDir()
+	linkTo(t, root, "group", ext)
+	declare(t, root, "group", "_gone")
+	set := Follow(root, FollowOptions{})
+	want := "prune paused: _gone is missing; restore or fix " + filepath.Join("/src", "_gone") + ", or remove _gone from .skillfollow[.local], to resume cleanup"
+	if got := set.PrunePauses("/src"); len(got) != 1 || got[0] != want {
+		t.Fatalf("PrunePauses = %q, want [%q]", got, want)
+	}
+}
 func TestFollowQueries(t *testing.T) {
 	root, ext := t.TempDir(), t.TempDir()
 	linkTo(t, root, "group", ext)

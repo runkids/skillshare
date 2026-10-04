@@ -1,8 +1,6 @@
 package main
 
 import (
-	"fmt"
-	"path/filepath"
 	"sort"
 
 	"skillshare/internal/config"
@@ -46,10 +44,5 @@ func skillfollowPauses(source string, follow *sourcewalk.FollowSet) []string {
 	if follow == nil {
 		return nil
 	}
-	var messages []string
-	for _, entry := range follow.Unavailable() {
-		messages = append(messages, fmt.Sprintf("prune paused: %s is %s; restore or fix %s, or remove %s from .skillfollow[.local], to resume cleanup",
-			entry.Name, entry.State, filepath.Join(source, entry.Name), entry.Name))
-	}
-	return messages
+	return follow.PrunePauses(source)
 }

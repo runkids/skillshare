@@ -60,10 +60,7 @@ func buildSkillfollowResponse(source string, follow *sourcewalk.FollowSet) skill
 	}
 	resp.Warnings = append(resp.Warnings, follow.Warnings()...)
 	// Same recovery sentence as status and doctor print.
-	for _, entry := range follow.Unavailable() {
-		resp.PrunePaused = append(resp.PrunePaused, fmt.Sprintf("prune paused: %s is %s; restore or fix %s, or remove %s from .skillfollow[.local], to resume cleanup",
-			entry.Name, entry.State, filepath.Join(source, entry.Name), entry.Name))
-	}
+	resp.PrunePaused = append(resp.PrunePaused, follow.PrunePauses(source)...)
 	return resp
 }
 

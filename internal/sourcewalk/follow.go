@@ -242,6 +242,17 @@ func (s FollowSet) Followed() []Entry {
 func (s FollowSet) Unavailable() []Entry {
 	return s.selectEntries(func(e Entry) bool { return e.State != Followed && e.State != NotLink && e.State != UndeclaredLink })
 }
+
+// PrunePauses names each unavailable entry that pauses prune, with the step
+// that resumes cleanup. source is the skills source path shown to the user.
+func (s FollowSet) PrunePauses(source string) []string {
+	var messages []string
+	for _, entry := range s.Unavailable() {
+		messages = append(messages, fmt.Sprintf("prune paused: %s is %s; restore or fix %s, or remove %s from .skillfollow[.local], to resume cleanup",
+			entry.Name, entry.State, filepath.Join(source, entry.Name), entry.Name))
+	}
+	return messages
+}
 func (s FollowSet) selectEntries(match func(Entry) bool) []Entry {
 	var result []Entry
 	for _, entry := range s.entries {
