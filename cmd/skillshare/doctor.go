@@ -243,6 +243,7 @@ func runDoctorChecks(cfg *config.Config, result *doctorResult, isProject bool) {
 	checkSource(cfg, result, discovered, discoverErr)
 	checkAgentsSource(cfg, result)
 	checkSkillignore(result, stats)
+	checkUndeclaredSourceLinks(cfg.EffectiveSkillsSource(), result)
 	checkSymlinkSupport(result)
 	checkTheme(result)
 
@@ -303,6 +304,25 @@ func checkSkillignore(result *doctorResult, stats *skillignore.IgnoreStats) {
 		details = append(details, stats.IgnoredSkills...)
 	}
 	result.addCheck("skillignore", checkPass, ".skillignore: "+msg, details)
+}
+
+// checkUndeclaredSourceLinks reports first-level links without following them.
+func checkUndeclaredSourceLinks(source string, result *doctorResult) {
+	root := utils.ResolveSymlink(source)
+	entries, err := os.ReadDir(root)
+	if err != nil {
+		return
+	}
+	for _, entry := range entries {
+		path := filepath.Join(root, entry.Name())
+		info, err := entry.Info()
+		if err != nil || !utils.IsLinkMode(path, info.Mode()) {
+			continue
+		}
+		message := entry.Name() + ": not followed by discovery; its contents are invisible to skillshare"
+		ui.Row(ui.MarkNone, "Source link", message, doctorWidth)
+		result.addInfo("undeclared_source_links", message)
+	}
 }
 
 func checkSource(cfg *config.Config, result *doctorResult, discovered []sync.DiscoveredSkill, discoverErr error) {

@@ -76,6 +76,8 @@ skillshare search <query> -n 10     # Limit results (default: 20)
 
 Diagnose configuration and environment issues. Also checks sync drift for skills, agents and extras, plus MCP servers, hooks and plugins (offline; `mcp check --live` and `plugin check` go further).
 
+In global and project mode, each first-level symlink or Windows junction in the skills source gets an info line: discovery does not follow it, so its contents are invisible to skillshare. The check does not follow these links or read their contents. With no such links, it adds no output. In `doctor --json`, each link is an `undeclared_source_links` check with status `info`.
+
 ```bash
 skillshare doctor
 ```
