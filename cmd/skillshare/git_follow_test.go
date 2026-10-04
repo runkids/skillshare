@@ -3,6 +3,7 @@ package main
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -64,6 +65,62 @@ func TestFollowedStagingCLISurfaces(t *testing.T) {
 				}
 			})
 		}
+	}
+}
+
+func TestFollowedStagingUnreadableDeclaration(t *testing.T) {
+	if runtime.GOOS == "windows" || os.Geteuid() == 0 {
+		t.Skip("requires Unix permission enforcement")
+	}
+	for _, route := range []string{"commit", "push", "stage", "init"} {
+		t.Run(route, func(t *testing.T) {
+			xdg := t.TempDir()
+			t.Setenv("XDG_CONFIG_HOME", xdg)
+			base := filepath.Join(xdg, "skillshare")
+			source := filepath.Join(base, "skills")
+			if err := os.MkdirAll(source, 0755); err != nil {
+				t.Fatal(err)
+			}
+			t.Setenv("SKILLSHARE_CONFIG", filepath.Join(base, "config.yaml"))
+			cfg := &config.Config{Source: source}
+			if err := cfg.Save(); err != nil {
+				t.Fatal(err)
+			}
+			testutil.RunGit(t, source, "init")
+			testutil.ConfigureGitUser(t, source)
+			testutil.RunGit(t, source, "remote", "add", "origin", filepath.Join(t.TempDir(), "remote.git"))
+			if err := os.Symlink(t.TempDir(), filepath.Join(source, "_dev")); err != nil {
+				t.Skip(err)
+			}
+			if err := os.WriteFile(filepath.Join(source, ".gitignore"), []byte("/.skillfollow.local\n"), 0644); err != nil {
+				t.Fatal(err)
+			}
+			local := filepath.Join(source, ".skillfollow.local")
+			if err := os.WriteFile(local, []byte("_dev\n"), 0000); err != nil {
+				t.Fatal(err)
+			}
+			t.Cleanup(func() { _ = os.Chmod(local, 0600) })
+			follow := globalSkillFollowSet(cfg)
+			var err error
+			switch route {
+			case "commit":
+				err = cmdCommit([]string{"--dry-run"})
+			case "push":
+				err = cmdPush([]string{"--dry-run"})
+			case "stage":
+				spinner := ui.StartSpinner("test")
+				err = stageAndCommit(source, "test", spinner, follow)
+				spinner.Stop()
+			case "init":
+				err = commitSourceFiles(source, follow)
+			}
+			if err == nil || !strings.Contains(err.Error(), "read skillfollow declaration") {
+				t.Fatalf("missing refusal: %v", err)
+			}
+			if got := testutil.RunGit(t, source, "ls-files"); got != "" {
+				t.Fatalf("guard staged files: %s", got)
+			}
+		})
 	}
 }
 

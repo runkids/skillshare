@@ -206,3 +206,38 @@ func TestUntrackCommandQuotesLiteralName(t *testing.T) {
 		t.Fatalf("literal name remains indexed: %v", err)
 	}
 }
+
+func TestFollowedLinksUnreadableDeclarationFailsClosed(t *testing.T) {
+	if runtime.GOOS == "windows" || os.Geteuid() == 0 {
+		t.Skip("requires Unix permission enforcement")
+	}
+	source := t.TempDir()
+	testutil.RunGit(t, source, "init")
+	if err := os.Symlink(t.TempDir(), filepath.Join(source, "_dev")); err != nil {
+		t.Skip(err)
+	}
+	if err := os.WriteFile(filepath.Join(source, ".gitignore"), []byte("/.skillfollow.local\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	local := filepath.Join(source, ".skillfollow.local")
+	if err := os.WriteFile(local, []byte("_dev\n"), 0000); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(local, 0600) })
+	set := sourcewalk.Follow(source, sourcewalk.FollowOptions{})
+	if len(set.ParsedEntries()) != 0 || set.Err() == nil {
+		t.Fatalf("fixture: parsed %v, err %v", set.ParsedEntries(), set.Err())
+	}
+	if links, err := FollowedLinksStaged(source, &set); err == nil {
+		t.Fatalf("FollowedLinksStaged accepted an unread declaration: %+v", links)
+	}
+	if err := CheckFollowedLinks(source, &set); err == nil || !strings.Contains(err.Error(), ".skillfollow.local") {
+		t.Fatalf("CheckFollowedLinks = %v", err)
+	}
+	if err := StageAll(source, &set); err == nil {
+		t.Fatal("StageAll accepted an unread declaration")
+	}
+	if got := testutil.RunGit(t, source, "ls-files"); got != "" {
+		t.Fatalf("guard staged files: %s", got)
+	}
+}

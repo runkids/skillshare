@@ -28,7 +28,14 @@ func FollowedLinksStaged(stagingDir string, follow *sourcewalk.FollowSet) ([]Fol
 }
 
 func declaredLinkLocations(stagingDir string, follow *sourcewalk.FollowSet, includeMissing bool) ([]FollowedLink, error) {
-	if follow == nil || len(follow.ParsedEntries()) == 0 {
+	if follow == nil {
+		return nil, nil
+	}
+	// An unread declaration may hide declared links, so its empty snapshot is not proof.
+	if err := follow.Err(); err != nil {
+		return nil, err
+	}
+	if len(follow.ParsedEntries()) == 0 {
 		return nil, nil
 	}
 	stagingRoot, err := sourcewalk.Canonicalize(stagingDir)
