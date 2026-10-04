@@ -1109,6 +1109,6 @@ func auditPathFollowed(source, path string, follow *sourcewalk.FollowSet) bool {
 	if err != nil {
 		return false
 	}
-	_, ok := follow.InFollowed(filepath.ToSlash(rel))
+	_, ok := follow.InFollowed(rel)
 	return ok
 }

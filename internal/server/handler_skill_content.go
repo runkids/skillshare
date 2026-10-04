@@ -143,7 +143,7 @@ func (s *Server) handlePatchSkillSource(w http.ResponseWriter, r *http.Request) 
 
 	if kind != "agent" {
 		if follow := s.skillFollowSet(); follow != nil {
-			if entry, ok := follow.InFollowed(filepath.ToSlash(name)); ok {
+			if entry, ok := follow.InFollowed(name); ok {
 				writeError(w, http.StatusBadRequest, fmt.Sprintf("%s is a followed entry; edit its source in %s", entry.Name, entry.ResolvedTarget))
 				return
 			}
@@ -267,7 +267,7 @@ func (s *Server) findMetadataEntry(name, kind, source, agentsSource string) *met
 					continue
 				}
 				// Source URL edits must not reach the external repository.
-				if followedSkillWriteError(source, d.RelPath, follow) != nil {
+				if follow.WriteBoundary(source, d.RelPath) != nil {
 					return nil
 				}
 				return &metadataLookup{

@@ -194,7 +194,7 @@ func followedDestError(destPath string, opts InstallOptions) error {
 	if err != nil {
 		return nil
 	}
-	refusal := follow.WriteBoundary(opts.SourceDir, filepath.ToSlash(rel))
+	refusal := follow.WriteBoundary(opts.SourceDir, rel)
 	if errors.Is(refusal, sourcefs.ErrLink) && opts.Update {
 		if _, err := os.Stat(destPath); err == nil {
 			return nil

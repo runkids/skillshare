@@ -3,7 +3,6 @@ package server
 import (
 	"errors"
 	"net/http"
-	"path/filepath"
 
 	"skillshare/internal/config"
 	"skillshare/internal/sourcefs"
@@ -27,12 +26,6 @@ func (s *Server) skillFollowSet() *sourcewalk.FollowSet {
 // Keeping a nil set without declarations preserves legacy traversal and output.
 func serverSkillFollowSet(cfg *config.Config) *sourcewalk.FollowSet {
 	return ssync.FollowSetFor(cfg.EffectiveSkillsSource(), cfg.Targets, cfg.EffectiveGitRoot())
-}
-
-// followedSkillWriteError also refuses unavailable declared trees, before any
-// write, and every write while a declaration cannot be read.
-func followedSkillWriteError(source, rel string, follow *sourcewalk.FollowSet) error {
-	return follow.WriteBoundary(source, filepath.ToSlash(rel))
 }
 
 // followWriteStatus answers a declared entry with 409 and an unreadable

@@ -394,7 +394,7 @@ func (s *Server) auditGateTrackedRepo(name, repoPath, beforeHash string, force b
 	rel, relErr := filepath.Rel(s.cfg.EffectiveSkillsSource(), repoPath)
 	followed := false
 	if relErr == nil {
-		_, followed = follow.InFollowed(filepath.ToSlash(rel))
+		_, followed = follow.InFollowed(rel)
 	}
 	if followed {
 		result, err = audit.ScanResolvedSkill(repoPath, scan)

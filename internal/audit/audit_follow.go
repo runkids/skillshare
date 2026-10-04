@@ -43,7 +43,7 @@ func MarkFollowedInputs(inputs []SkillInput, source string, follow *sourcewalk.F
 		if err != nil {
 			continue
 		}
-		_, inputs[i].Followed = follow.InFollowed(filepath.ToSlash(rel))
+		_, inputs[i].Followed = follow.InFollowed(rel)
 	}
 }
 

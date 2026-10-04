@@ -255,7 +255,7 @@ func ensureIntoDirExists(sourceDir string, opts install.InstallOptions) error {
 		return nil
 	}
 	follow := sourcewalk.Follow(sourceDir, sourcewalk.FollowOptions{})
-	if err := follow.WriteBoundary(sourceDir, filepath.ToSlash(opts.Into)); err != nil {
+	if err := follow.WriteBoundary(sourceDir, opts.Into); err != nil {
 		return err
 	}
 	return sourcefs.MkdirAllIn(sourceDir, opts.Into)

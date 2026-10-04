@@ -158,7 +158,7 @@ func (s *Server) handleInstallBatch(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if body.Kind != "agent" && body.Into != "" {
-		if err := followedSkillWriteError(s.cfg.EffectiveSkillsSource(), body.Into, s.skillFollowSet()); err != nil {
+		if err := s.skillFollowSet().WriteBoundary(s.cfg.EffectiveSkillsSource(), body.Into); err != nil {
 			writeError(w, followWriteStatus(err), err.Error())
 			return
 		}
@@ -506,7 +506,7 @@ func (s *Server) handleInstall(w http.ResponseWriter, r *http.Request) {
 	// Regular install
 	destPath := filepath.Join(s.cfg.EffectiveSkillsSource(), body.Into, source.Name)
 	if body.Into != "" {
-		if err := followedSkillWriteError(s.cfg.EffectiveSkillsSource(), body.Into, s.skillFollowSet()); err != nil {
+		if err := s.skillFollowSet().WriteBoundary(s.cfg.EffectiveSkillsSource(), body.Into); err != nil {
 			writeError(w, followWriteStatus(err), err.Error())
 			return
 		}

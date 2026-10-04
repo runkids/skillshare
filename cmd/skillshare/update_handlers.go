@@ -386,7 +386,7 @@ func refreshTrackedRootSkillMetadata(uc *updateContext, repoName, repoPath strin
 		if err != nil {
 			return err
 		}
-		if _, followed := uc.follow.InFollowed(filepath.ToSlash(rel)); followed {
+		if _, followed := uc.follow.InFollowed(rel); followed {
 			return nil
 		}
 	}

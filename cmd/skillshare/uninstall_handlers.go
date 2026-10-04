@@ -328,7 +328,7 @@ func runUninstallSkills(opts *uninstallOptions, mode *uninstallMode, rawArgs []s
 		for _, target := range targets {
 			rel, err := filepath.Rel(mode.sourceDir, target.path)
 			if err == nil {
-				if refusal := mode.follow.WriteBoundary(mode.sourceDir, filepath.ToSlash(rel)); refusal != nil {
+				if refusal := mode.follow.WriteBoundary(mode.sourceDir, rel); refusal != nil {
 					if opts.jsonOutput {
 						return writeJSONError(refusal)
 					}

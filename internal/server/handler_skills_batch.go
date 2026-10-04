@@ -108,7 +108,7 @@ func (s *Server) handleBatchSetTargets(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 
-		if err := followedSkillWriteError(source, d.RelPath, follow); err != nil {
+		if err := follow.WriteBoundary(source, d.RelPath); err != nil {
 			errors = append(errors, d.FlatName+": "+err.Error())
 			continue
 		}
@@ -225,7 +225,7 @@ func (s *Server) handleSetSkillTargets(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 
-		if err := followedSkillWriteError(source, d.RelPath, follow); err != nil {
+		if err := follow.WriteBoundary(source, d.RelPath); err != nil {
 			writeError(w, followWriteStatus(err), err.Error())
 			return
 		}

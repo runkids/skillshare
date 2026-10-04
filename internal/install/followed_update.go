@@ -29,7 +29,7 @@ func PrepareFollowedUpdate(sourceDir, repoPath string, follow *sourcewalk.Follow
 	if err != nil {
 		return nil, err
 	}
-	entry, followed := follow.InFollowed(filepath.ToSlash(rel))
+	entry, followed := follow.InFollowed(rel)
 	if !followed {
 		return nil, nil
 	}
@@ -61,7 +61,7 @@ func RefuseFollowedSkillUpdate(skillRel string, follow *sourcewalk.FollowSet) er
 	if err := followDiscoveryError(follow); err != nil {
 		return err
 	}
-	entry, followed := follow.InFollowed(filepath.ToSlash(skillRel))
+	entry, followed := follow.InFollowed(skillRel)
 	if !followed {
 		return nil
 	}

@@ -178,7 +178,7 @@ func (s *Server) handleBatchUninstallSkills(w http.ResponseWriter, body batchUni
 		} else if skill := baseNameMap[name]; skill != nil {
 			relPath = skill.RelPath
 		}
-		if err := followedSkillWriteError(s.cfg.EffectiveSkillsSource(), relPath, follow); err != nil {
+		if err := follow.WriteBoundary(s.cfg.EffectiveSkillsSource(), relPath); err != nil {
 			res.Error = err.Error()
 			results = append(results, res)
 			failed++

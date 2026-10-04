@@ -144,7 +144,7 @@ func (s *Server) handleBatchToggleSkills(w http.ResponseWriter, r *http.Request)
 		}
 
 		if req.Kind != "agent" {
-			if err := followedSkillWriteError(source, e.relPath, follow); err != nil {
+			if err := follow.WriteBoundary(source, e.relPath); err != nil {
 				resp.Results = append(resp.Results, batchToggleItemResult{Name: name, Error: err.Error()})
 				resp.Summary.Failed++
 				continue

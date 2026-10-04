@@ -111,7 +111,7 @@ func (s *Server) handleCreateSkill(w http.ResponseWriter, r *http.Request) {
 
 	// A declared entry is refused even while its link is offline, when there is
 	// no link for the source handle below to reject.
-	if err := followedSkillWriteError(source, relPath, s.skillFollowSet()); err != nil {
+	if err := s.skillFollowSet().WriteBoundary(source, relPath); err != nil {
 		writeError(w, followWriteStatus(err), err.Error())
 		return
 	}

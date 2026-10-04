@@ -42,7 +42,7 @@ func (uc *updateContext) auditScanFn() auditScanFunc {
 			if err != nil {
 				return nil, err
 			}
-			if _, followed := uc.follow.InFollowed(filepath.ToSlash(rel)); followed {
+			if _, followed := uc.follow.InFollowed(rel); followed {
 				return audit.ScanResolvedSkill(path, scan)
 			}
 		}

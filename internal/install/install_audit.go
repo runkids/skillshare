@@ -300,7 +300,7 @@ func auditTrackedRepoUpdate(repoPath, beforeHash string, result *TrackedRepoResu
 		if relErr != nil {
 			return relErr
 		}
-		_, followed = opts.Follow.InFollowed(filepath.ToSlash(rel))
+		_, followed = opts.Follow.InFollowed(rel)
 	}
 	var scanResult *audit.Result
 	if followed {
