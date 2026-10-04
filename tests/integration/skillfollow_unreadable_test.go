@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 
 	"skillshare/internal/testutil"
@@ -53,43 +54,49 @@ func TestSkillfollowSyncUnreadableDeclarationPreservesTargets(t *testing.T) {
 	}
 }
 
-// check must report incomplete discovery, not an empty source, when a
-// declaration exists but cannot be read.
+// check and status must report incomplete discovery, not an empty source,
+// when a declaration exists but cannot be read.
 func TestSkillfollowCheckUnreadableDeclarationFails(t *testing.T) {
 	if runtime.GOOS == "windows" || os.Geteuid() == 0 {
 		t.Skip("requires Unix permission enforcement")
 	}
+	commands := [][]string{{"check", "--json"}, {"status"}, {"status", "--json"}}
 	for _, project := range []bool{false, true} {
-		t.Run(map[bool]string{false: "global", true: "project"}[project], func(t *testing.T) {
-			sb := testutil.NewSandbox(t)
-			defer sb.Cleanup()
-			source, projectRoot := sb.SourcePath, ""
-			if project {
-				projectRoot = sb.SetupProjectDir("claude")
-				source = filepath.Join(projectRoot, ".skillshare", "skills")
-			} else {
-				sb.WriteConfig("source: " + source + "\ntargets: {}\n")
-			}
-			external := filepath.Join(sb.Root, "external")
-			sb.WriteFile(filepath.Join(external, "a", "SKILL.md"), "# A\n")
-			if err := os.Symlink(external, filepath.Join(source, "group")); err != nil {
-				t.Fatal(err)
-			}
-			declaration := filepath.Join(source, ".skillfollow")
-			sb.WriteFile(declaration, "group\n")
-			if err := os.Chmod(declaration, 0000); err != nil {
-				t.Fatal(err)
-			}
-			defer os.Chmod(declaration, 0600)
-			var result *testutil.Result
-			if project {
-				result = sb.RunCLIInDir(projectRoot, "check", "--json", "-p")
-			} else {
-				result = sb.RunCLI("check", "--json", "-g")
-			}
-			result.AssertFailure(t)
-			result.AssertAnyOutputContains(t, ".skillfollow")
-			result.AssertAnyOutputContains(t, "permission denied")
-		})
+		for _, command := range commands {
+			t.Run(map[bool]string{false: "global", true: "project"}[project]+"/"+strings.Join(command, " "), func(t *testing.T) {
+				sb := testutil.NewSandbox(t)
+				defer sb.Cleanup()
+				source, projectRoot := sb.SourcePath, ""
+				if project {
+					projectRoot = sb.SetupProjectDir("claude")
+					source = filepath.Join(projectRoot, ".skillshare", "skills")
+				} else {
+					sb.WriteConfig("source: " + source + "\ntargets: {}\n")
+				}
+				external := filepath.Join(sb.Root, "external")
+				sb.WriteFile(filepath.Join(external, "a", "SKILL.md"), "# A\n")
+				if err := os.Symlink(external, filepath.Join(source, "group")); err != nil {
+					t.Fatal(err)
+				}
+				declaration := filepath.Join(source, ".skillfollow")
+				sb.WriteFile(declaration, "group\n")
+				if err := os.Chmod(declaration, 0000); err != nil {
+					t.Fatal(err)
+				}
+				defer os.Chmod(declaration, 0600)
+				var result *testutil.Result
+				if project {
+					result = sb.RunCLIInDir(projectRoot, append(command, "-p")...)
+				} else {
+					result = sb.RunCLI(append(command, "-g")...)
+				}
+				result.AssertFailure(t)
+				result.AssertAnyOutputContains(t, ".skillfollow")
+				result.AssertAnyOutputContains(t, "permission denied")
+				if strings.Contains(result.Stdout, "skill_count") || strings.Contains(result.Stdout, "0 entries") {
+					t.Fatalf("incomplete discovery reported as a count: %s", result.Stdout)
+				}
+			})
+		}
 	}
 }

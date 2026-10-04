@@ -28,6 +28,11 @@ func cmdStatusProject(root string) error {
 	sp := ui.StartSpinner("Discovering skills...")
 	discovered, stats, discoverErr := sync.DiscoverSourceSkillsWithOptions(runtime.sourcePath, sync.DiscoveryOptions{Follow: follow, CollectIgnored: true})
 	if discoverErr != nil {
+		// Incomplete declared discovery is an error, not an empty source.
+		if follow != nil {
+			sp.Stop()
+			return discoverErr
+		}
 		discovered = nil
 	}
 	trackedRepos := extractTrackedReposWithFollow(runtime.sourcePath, follow)
@@ -71,7 +76,10 @@ func cmdStatusProjectJSON(root string) error {
 		Version: version,
 	}
 
-	discovered, stats, _ := sync.DiscoverSourceSkillsWithOptions(runtime.sourcePath, sync.DiscoveryOptions{Follow: follow, CollectIgnored: true})
+	discovered, stats, discoverErr := sync.DiscoverSourceSkillsWithOptions(runtime.sourcePath, sync.DiscoveryOptions{Follow: follow, CollectIgnored: true})
+	if discoverErr != nil && follow != nil {
+		return writeJSONError(discoverErr)
+	}
 	trackedRepos := extractTrackedReposWithFollow(runtime.sourcePath, follow)
 
 	output.Source = statusJSONSource{
