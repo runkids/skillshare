@@ -94,12 +94,17 @@ func walkFollowNode(logical, physical string, info os.FileInfo, owner string, de
 	if err := fn(logical, info, readErr); readErr != nil || err != nil {
 		return err
 	}
+	atRoot := depth == 0 && utils.PathsEqual(physical, set.canonicalRoot)
 	for _, child := range children {
 		childLogical, childPhysical := filepath.Join(logical, child.Name()), filepath.Join(physical, child.Name())
 		childOwner := owner
 		var childInfo os.FileInfo
 		var err error
-		if entry, ok := set.followedChild(child.Name()); depth == 0 && utils.PathsEqual(physical, set.canonicalRoot) && ok {
+		entry, ok := Entry{}, false
+		if atRoot {
+			entry, ok = set.followedChild(child.Name())
+		}
+		if ok {
 			childPhysical, childOwner = entry.ResolvedTarget, entry.Name
 			childInfo, err = followedInfo(childPhysical)
 		} else {
@@ -158,10 +163,15 @@ func walkDirFollowNode(logical, physical string, entry fs.DirEntry, owner string
 			return err
 		}
 	}
+	atRoot := depth == 0 && utils.PathsEqual(physical, set.canonicalRoot)
 	for _, child := range children {
 		childLogical, childPhysical := filepath.Join(logical, child.Name()), filepath.Join(physical, child.Name())
 		childOwner := owner
-		if followed, ok := set.followedChild(child.Name()); depth == 0 && utils.PathsEqual(physical, set.canonicalRoot) && ok {
+		followed, ok := Entry{}, false
+		if atRoot {
+			followed, ok = set.followedChild(child.Name())
+		}
+		if ok {
 			childPhysical, childOwner = followed.ResolvedTarget, followed.Name
 			info, err := followedInfo(childPhysical)
 			if err != nil {
