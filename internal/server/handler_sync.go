@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"slices"
 	"sort"
+	"strings"
 	"time"
 
 	"skillshare/internal/backup"
@@ -57,6 +58,10 @@ type syncTargetResult struct {
 	Skipped    []string `json:"skipped"`
 	Pruned     []string `json:"pruned"`
 	DirCreated string   `json:"dir_created,omitempty"`
+	// PrunePaused names the unavailable .skillfollow entries that paused prune.
+	PrunePaused []string `json:"prune_paused,omitempty"`
+	// Kept are managed copies kept from replacement while prune is paused.
+	Kept []string `json:"kept,omitempty"`
 }
 
 func (s *Server) handleSync(w http.ResponseWriter, r *http.Request) {
@@ -213,7 +218,8 @@ func (s *Server) syncResources(start time.Time, dryRun, force bool, kind, projec
 	// Skill sync (skip when kind == "agent")
 	if kind != kindAgent {
 		var err error
-		allSkills, ignoreStats, err = ssync.DiscoverSourceSkillsWithOptions(s.cfg.EffectiveSkillsSource(), ssync.DiscoveryOptions{Follow: s.skillFollowSet(), CollectIgnored: true, CollectContext: true})
+		follow := s.skillFollowSet()
+		allSkills, ignoreStats, err = ssync.DiscoverSourceSkillsWithOptions(s.cfg.EffectiveSkillsSource(), ssync.DiscoveryOptions{Follow: follow, CollectIgnored: true, CollectContext: true})
 		if err != nil {
 			return nil, http.StatusInternalServerError, fmt.Errorf("failed to discover skills: %w", err)
 		}
@@ -234,7 +240,7 @@ func (s *Server) syncResources(start time.Time, dryRun, force bool, kind, projec
 		}
 		runOpts := ssync.SkillRunOptions{
 			Source: s.cfg.EffectiveSkillsSource(), ProjectRoot: s.projectRoot, IgnorePatterns: ignorePatterns,
-			DryRun: dryRun, Force: force,
+			DryRun: dryRun, Force: force, Follow: follow,
 		}
 		for name, target := range runTargets {
 			sc := target.SkillsConfig()
@@ -265,6 +271,13 @@ func (s *Server) syncResources(start time.Time, dryRun, force bool, kind, projec
 				res.Linked, res.Updated, res.Skipped, res.DirCreated = run.Linked, run.Updated, run.Skipped, run.DirCreated
 				if run.Pruned != nil {
 					res.Pruned = run.Pruned
+				}
+				res.PrunePaused, res.Kept = run.PrunePaused, run.Kept
+				if len(run.PrunePaused) > 0 {
+					warnings = append(warnings, fmt.Sprintf("%s: prune paused; unavailable .skillfollow entry: %s", name, strings.Join(run.PrunePaused, ", ")))
+				}
+				if len(run.Kept) > 0 {
+					warnings = append(warnings, fmt.Sprintf("%s: kept %d managed copies whose origin cannot be proven: %s", name, len(run.Kept), strings.Join(run.Kept, ", ")))
 				}
 			default:
 				res.Linked = []string{"(symlink mode)"}
