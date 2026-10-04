@@ -9,6 +9,7 @@ import (
 	"skillshare/internal/config"
 	"skillshare/internal/skill"
 	"skillshare/internal/sourcefs"
+	"skillshare/internal/sourcewalk"
 	"skillshare/internal/ui"
 	"skillshare/internal/utils"
 )
@@ -95,6 +96,13 @@ func cmdNew(args []string) error {
 	// Create skill directory path
 	skillDir := filepath.Join(sourceDir, skillName)
 	skillFile := filepath.Join(skillDir, "SKILL.md")
+
+	// A declared .skillfollow entry is refused even while its link is offline,
+	// when there is no link for the source handle below to reject.
+	follow := sourcewalk.Follow(sourceDir, sourcewalk.FollowOptions{})
+	if entry, ok := follow.InFollowed(skillName); ok {
+		return &sourcefs.LinkError{Path: filepath.Join(sourceDir, entry.Name)}
+	}
 
 	// Check if skill already exists
 	if _, err := os.Stat(skillDir); err == nil {

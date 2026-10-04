@@ -59,3 +59,37 @@ func TestSkillfollowInstallFromConfigSkipsFollowedEntry(t *testing.T) {
 		})
 	}
 }
+
+// install --into below a declared entry is refused before any directory is
+// created, including while the entry's link is offline.
+func TestSkillfollowInstallIntoDeclaredEntryRefused(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	sb.WriteConfig("source: " + sb.SourcePath + "\ntargets: {}\n")
+	skill := filepath.Join(sb.Root, "local", "demo")
+	sb.WriteFile(filepath.Join(skill, "SKILL.md"), "---\nname: demo\ndescription: Demo\n---\n# Demo\n")
+	sb.WriteFile(filepath.Join(sb.SourcePath, ".skillfollow"), "group\n")
+
+	result := sb.RunCLI("install", skill, "--into", "group/sub", "--skip-audit")
+	result.AssertFailure(t)
+	result.AssertAnyOutputContains(t, "is a link; edit its target directly")
+	if _, err := os.Lstat(filepath.Join(sb.SourcePath, "group")); !os.IsNotExist(err) {
+		t.Errorf("install created the declared entry: %v", err)
+	}
+}
+
+// new refuses a skill named like a declared entry whose link is offline, which
+// would otherwise create the entry as a real directory.
+func TestSkillfollowNewRefusesOfflineEntry(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	sb.WriteConfig("source: " + sb.SourcePath + "\ntargets: {}\n")
+	sb.WriteFile(filepath.Join(sb.SourcePath, ".skillfollow"), "group\n")
+
+	result := sb.RunCLI("new", "group", "-P", "none", "-g")
+	result.AssertFailure(t)
+	result.AssertAnyOutputContains(t, "is a link; edit its target directly")
+	if _, err := os.Lstat(filepath.Join(sb.SourcePath, "group")); !os.IsNotExist(err) {
+		t.Errorf("new created the declared entry: %v", err)
+	}
+}

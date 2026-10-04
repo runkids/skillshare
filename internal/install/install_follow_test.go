@@ -3,6 +3,7 @@ package install
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"skillshare/internal/sourcewalk"
@@ -69,5 +70,28 @@ func TestMissingTrackedReposSkipFollowedEntries(t *testing.T) {
 				t.Fatalf("rehydrate created the declared entry: %v", err)
 			}
 		})
+	}
+}
+
+// A tracked install never creates a repo inside a declared entry, or the entry
+// itself while its link is offline; only an update of an existing repo proceeds.
+func TestInstallTrackedRepoRefusesDeclaredEntry(t *testing.T) {
+	remoteURL := makeRemote(t, "")
+	root := t.TempDir()
+	if err := os.WriteFile(filepath.Join(root, ".skillfollow"), []byte("group\n_repo\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	set := sourcewalk.Follow(root, sourcewalk.FollowOptions{})
+	source := &Source{Type: SourceTypeGitHTTPS, Raw: remoteURL, CloneURL: remoteURL}
+	for _, opts := range []InstallOptions{{Name: "repo"}, {Name: "other", Into: "group"}, {Name: "other", Into: "group", Update: true}} {
+		opts.Follow, opts.SkipAudit = &set, true
+		if _, err := InstallTrackedRepo(source, root, opts); err == nil || !strings.Contains(err.Error(), "is a link") {
+			t.Errorf("%+v: err = %v, want link refusal", opts, err)
+		}
+	}
+	for _, name := range []string{"group", "_repo"} {
+		if _, err := os.Lstat(filepath.Join(root, name)); !os.IsNotExist(err) {
+			t.Errorf("tracked install created declared entry %s: %v", name, err)
+		}
 	}
 }

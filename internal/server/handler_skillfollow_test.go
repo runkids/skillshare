@@ -91,6 +91,12 @@ func TestServerSkillfollowBehaviorMatrix(t *testing.T) {
 		{"targets-batch", "POST", "/api/resources/batch/targets", `{"folder":"*","target":"claude"}`, 200, nil, nil, []string{"is a link; edit its target directly", "\"updated\":0"}},
 		{"uninstall-batch", "POST", "/api/uninstall/batch", `{"names":["group__c","_repo","_repo__a"],"force":true}`, 200, nil, nil, []string{"is a link; edit its target directly", "\"failed\":3"}},
 		{"content-write", "PUT", "/api/resources/group__c/content", `{"content":"changed"}`, 409, nil, nil, []string{"is a link; edit its target directly"}},
+		// Creating or installing inside a declared entry is refused whether its link
+		// is live or offline; offline, it would otherwise become a real directory.
+		{"create", "POST", "/api/resources", `{"name":"fresh","pattern":"none","into":"group"}`, 409, nil, nil, []string{"is a link; edit its target directly"}},
+		{"create-offline", "POST", "/api/resources", `{"name":"fresh","pattern":"none","into":"missing"}`, 409, nil, nil, []string{"is a link; edit its target directly"}},
+		{"install-offline", "POST", "/api/install", `{"source":"` + filepath.Join(external, "repo", "a") + `","into":"missing/sub"}`, 409, nil, nil, []string{"is a link; edit its target directly"}},
+		{"install-batch-offline", "POST", "/api/install/batch", `{"source":"` + filepath.Join(external, "repo") + `","skills":[{"name":"a","path":"a"}],"into":"missing"}`, 409, nil, nil, []string{"is a link; edit its target directly"}},
 	}
 	for _, row := range matrix {
 		t.Run(row.name, func(t *testing.T) {
@@ -123,6 +129,9 @@ func TestServerSkillfollowBehaviorMatrix(t *testing.T) {
 			}
 			if _, err := os.Stat(filepath.Join(source, ".skillignore")); !os.IsNotExist(err) {
 				t.Fatal("refused toggle changed .skillignore")
+			}
+			if _, err := os.Lstat(filepath.Join(source, "missing")); !os.IsNotExist(err) {
+				t.Fatalf("request created the offline declared entry: %v", err)
 			}
 		})
 	}

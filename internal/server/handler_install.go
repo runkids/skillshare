@@ -157,6 +157,13 @@ func (s *Server) handleInstallBatch(w http.ResponseWriter, r *http.Request) {
 		source.Raw = source.Path
 	}
 
+	if body.Kind != "agent" && body.Into != "" {
+		if err := followedSkillWriteError(s.cfg.EffectiveSkillsSource(), body.Into, s.skillFollowSet()); err != nil {
+			writeError(w, http.StatusConflict, err.Error())
+			return
+		}
+	}
+
 	discovery, err := discoverInstallSource(source)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "discovery failed: "+err.Error())
@@ -415,7 +422,11 @@ func (s *Server) handleInstall(w http.ResponseWriter, r *http.Request) {
 		if s.IsProjectMode() {
 			installOpts.AuditProjectRoot = s.projectRoot
 		}
+		if trackedKind != "agent" {
+			installOpts.Follow = s.skillFollowSet()
+		}
 		result, err := install.InstallTrackedRepo(source, trackSourceDir, install.InstallOptions{
+			Follow:           installOpts.Follow,
 			Name:             installOpts.Name,
 			Kind:             installOpts.Kind,
 			Force:            installOpts.Force,
@@ -436,7 +447,11 @@ func (s *Server) handleInstall(w http.ResponseWriter, r *http.Request) {
 				"scope":         "ui",
 				"failed_skills": []string{source.Name},
 			}, err.Error())
-			writeError(w, http.StatusInternalServerError, err.Error())
+			status := http.StatusInternalServerError
+			if errors.Is(err, sourcefs.ErrLink) {
+				status = http.StatusConflict
+			}
+			writeError(w, status, err.Error())
 			return
 		}
 		// Reconcile config after tracked repo install
@@ -489,6 +504,10 @@ func (s *Server) handleInstall(w http.ResponseWriter, r *http.Request) {
 	// Regular install
 	destPath := filepath.Join(s.cfg.EffectiveSkillsSource(), body.Into, source.Name)
 	if body.Into != "" {
+		if err := followedSkillWriteError(s.cfg.EffectiveSkillsSource(), body.Into, s.skillFollowSet()); err != nil {
+			writeError(w, http.StatusConflict, err.Error())
+			return
+		}
 		if err := sourcefs.MkdirAllIn(s.cfg.EffectiveSkillsSource(), body.Into); err != nil {
 			writeError(w, http.StatusInternalServerError, "failed to create into directory: "+err.Error())
 			return
