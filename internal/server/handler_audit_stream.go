@@ -78,7 +78,7 @@ func (s *Server) handleAuditStream(w http.ResponseWriter, r *http.Request) {
 			inputs[i] = audit.SkillInput{Name: s.name, Path: s.path, IsFile: true}
 		}
 	} else {
-		inputs = skillsToAuditInputs(skills)
+		inputs = skillsToAuditInputs(skills, source, follow)
 	}
 	outputs := audit.ParallelScan(inputs, projectRoot, onDone, nil)
 	close(done) // signal ticker goroutine to stop

@@ -600,7 +600,7 @@ func auditInstalled(sourcePath, agentsSourcePath, mode, projectRoot, threshold s
 		}
 	}
 	scanInputs := toInputsForKind(kind, skillPaths)
-	markFollowedAuditInputs(scanInputs, sourcePath, opts.Follow)
+	audit.MarkFollowedInputs(scanInputs, sourcePath, opts.Follow)
 	scanResults := audit.ParallelScan(scanInputs, projectRoot, onDone, reg)
 	if progressBar != nil {
 		progressBar.Stop()
@@ -746,7 +746,7 @@ func auditFiltered(sourcePath, agentsSourcePath string, names, groups []string, 
 		}
 	}
 	scanInputs := toInputsForKind(kind, matched)
-	markFollowedAuditInputs(scanInputs, sourcePath, opts.Follow)
+	audit.MarkFollowedInputs(scanInputs, sourcePath, opts.Follow)
 	scanResults := audit.ParallelScan(scanInputs, projectRoot, onDone, reg)
 	if progressBar != nil {
 		progressBar.Stop()
@@ -1110,10 +1110,4 @@ func auditPathFollowed(source, path string, follow *sourcewalk.FollowSet) bool {
 	}
 	_, ok := follow.InFollowed(filepath.ToSlash(rel))
 	return ok
-}
-
-func markFollowedAuditInputs(inputs []audit.SkillInput, source string, follow *sourcewalk.FollowSet) {
-	for i := range inputs {
-		inputs[i].Followed = auditPathFollowed(source, inputs[i].Path, follow)
-	}
 }

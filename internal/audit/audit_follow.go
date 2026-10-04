@@ -31,6 +31,22 @@ func ScanResolvedSkill(logicalPath string, scan func(string) (*Result, error)) (
 	return result, nil
 }
 
+// MarkFollowedInputs flags the skill inputs under a followed entry so ParallelScan
+// resolves their root and enforces the coverage check. A nil follow marks none.
+func MarkFollowedInputs(inputs []SkillInput, source string, follow *sourcewalk.FollowSet) {
+	for i := range inputs {
+		inputs[i].Followed = false
+		if follow == nil {
+			continue
+		}
+		rel, err := filepath.Rel(source, inputs[i].Path)
+		if err != nil {
+			continue
+		}
+		_, inputs[i].Followed = follow.InFollowed(filepath.ToSlash(rel))
+	}
+}
+
 func verifyFollowedScan(root string, result *Result) error {
 	if result.scannedFiles > 0 {
 		return nil

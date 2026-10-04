@@ -332,7 +332,7 @@ func (s *Server) handleAuditAll(w http.ResponseWriter, r *http.Request) {
 			inputs[i] = audit.SkillInput{Name: s.name, Path: s.path, IsFile: true}
 		}
 	} else {
-		inputs = skillsToAuditInputs(skills)
+		inputs = skillsToAuditInputs(skills, source, follow)
 	}
 	scanned := audit.ParallelScan(inputs, auditProjectRoot, nil, nil)
 
@@ -783,11 +783,14 @@ func (s *Server) handleResetRules(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, map[string]any{"success": true})
 }
 
-func skillsToAuditInputs(skills []skillEntry) []audit.SkillInput {
+// skillsToAuditInputs builds scan inputs, marking skills under a followed entry
+// so the scan resolves their root as the CLI audit does.
+func skillsToAuditInputs(skills []skillEntry, source string, follow *sourcewalk.FollowSet) []audit.SkillInput {
 	inputs := make([]audit.SkillInput, len(skills))
 	for i, s := range skills {
 		inputs[i] = audit.SkillInput{Name: s.name, Path: s.path}
 	}
+	audit.MarkFollowedInputs(inputs, source, follow)
 	return inputs
 }
 
