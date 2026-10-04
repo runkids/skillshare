@@ -71,10 +71,10 @@ func TestServerSkillfollowBehaviorMatrix(t *testing.T) {
 	}{
 		{"skills", "GET", "/api/resources", "", 200, []string{"_repo/a", "group/c"}, []string{"secret"}, []string{"\"isInRepo\":true"}},
 		{"overview", "GET", "/api/overview", "", 200, []string{"_repo"}, []string{"secret"}, []string{"\"skillCount\":2", "\"topLevelCount\":2"}},
-		// pending 3c: update-all currently excludes both followed trees.
-		{"update", "POST", "/api/update", `{"all":true}`, 200, nil, []string{"\"_repo\"", "group/c", "secret"}, []string{"\"results\":null"}},
-		// pending 3c: followed repo check and local group discovery are not connected yet.
-		{"check", "GET", "/api/check", "", 200, nil, []string{"\"_repo\"", "group/c", "secret"}, []string{"\"tracked_repos\":[]"}},
+		// 3c: update-all sees the followed repo and refuses it per item (the fixture repo is dirty); local groups stay out of update.
+		{"update", "POST", "/api/update", `{"all":true}`, 200, []string{"\"_repo\""}, []string{"group/c", "secret"}, []string{"\"action\":\"error\"", "followed repository update refused"}},
+		// 3c: check reports the followed repo as a tracked repo; local groups are not tracked repos.
+		{"check", "GET", "/api/check", "", 200, []string{"\"_repo\""}, []string{"group/c", "secret"}, []string{"\"status\":\"dirty\""}},
 		{"hub", "GET", "/api/hub/index", "", 200, []string{"_repo/a", "group/c"}, []string{"secret"}, nil},
 		{"hub-candidates", "GET", "/api/hub/drafts/candidates", "", 200, []string{"_repo/a", "group/c"}, []string{"secret"}, nil},
 		{"skill-content", "GET", "/api/resources/group__c", "", 200, []string{"group/c"}, []string{"secret"}, nil},

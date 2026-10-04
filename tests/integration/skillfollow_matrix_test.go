@@ -81,14 +81,14 @@ func TestSkillfollowBehaviorMatrix(t *testing.T) {
 	}{
 		{"list", []string{"list", "--json"}, []string{"_repo/a", "group/c"}, []string{"secret"}, []string{"\"repoName\": \"_repo\""}, false, true},
 		{"list-text", []string{"list", "--no-tui"}, []string{"_repo", "group"}, []string{"secret"}, []string{"→ " + filepath.Join(external, "repo")}, false, false},
-		// pending 3b: ownership/prune aggregates; 3a already discovers followed skills.
-		{"status", []string{"status", "--json"}, []string{"_repo"}, []string{"secret"}, []string{"\"skill_count\": 2", "missing", "invalid-target"}, false, true},
-		// pending 3c: currently neither followed repos nor local followed groups are checked.
-		{"check", []string{"check", "--json"}, nil, []string{"\"_repo\"", "group/c", "secret"}, []string{"\"tracked_repos\": []"}, false, true},
-		// pending 3c: --all currently sees no updatable entries through links.
-		{"update-all-dry-run", []string{"update", "--all", "--dry-run"}, nil, []string{"_repo", "group/c", "secret"}, []string{"Nothing to update"}, false, false},
-		// pending 3c: CLI audit discovery is handed off with repo-root audit fixes.
-		{"audit", []string{"audit", "--no-tui"}, nil, []string{"_repo/a", "group/c", "secret"}, []string{"No skills"}, false, false},
+		// 3b: the missing declaration pauses prune, and status says so next to the entry states.
+		{"status", []string{"status", "--json"}, []string{"_repo"}, []string{"secret"}, []string{"\"skill_count\": 2", "missing", "invalid-target", "prune_paused"}, false, true},
+		// 3c: check reports the followed repo as a tracked repo; a local followed group is not a tracked repo.
+		{"check", []string{"check", "--json"}, []string{"\"_repo\""}, []string{"group/c", "secret"}, []string{"\"status\": \"dirty\""}, false, true},
+		// 3c: --all reaches the followed repo and refuses it per item (the fixture repo is dirty), with no mutation.
+		{"update-all-dry-run", []string{"update", "--all", "--dry-run"}, nil, []string{"group/c", "secret"}, []string{"followed repository update refused", "has uncommitted changes"}, true, false},
+		// 3c: audit discovers the followed repo's two skills and the followed group's skill through their resolved roots.
+		{"audit", []string{"audit", "--no-tui"}, nil, []string{"secret"}, []string{"3 skills"}, false, false},
 		{"doctor", []string{"doctor", "--json"}, []string{"_repo: followed", "group: followed"}, []string{"secret"}, []string{"missing: missing", "rejected: invalid-target", "undeclared: not followed"}, false, true},
 		{"uninstall-dry-run", []string{"uninstall", "group/c", "--dry-run"}, []string{"group"}, nil, []string{"is a link; edit its target directly"}, true, false},
 		{"uninstall-basename-dry-run", []string{"uninstall", "c", "--dry-run"}, nil, nil, []string{"is a link; edit its target directly"}, true, false},
