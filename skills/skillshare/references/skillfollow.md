@@ -99,6 +99,7 @@ Followed tracked repos update with a clean-tree check and `--ff-only --no-rebase
 Explicit `--force` is refused, even for dry runs. Dirty/status-error/diverged
 items fail with `resolve in <resolved path>`; independent batch items continue.
 CLI, dashboard including streaming/all, and `install --update` share the policy.
+Agent repos are outside it: dashboard agent updates never read `.skillfollow`.
 Regular skills below a followed entry are never reinstalled: every selection mode
 and the dashboard (single and update-all) refuse them per item with `followed repository
 update refused: skill <path> is inside followed entry <name>`; other items continue.

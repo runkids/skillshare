@@ -117,7 +117,7 @@ prune paused: <name> is <state>; restore or fix <path>, or remove <name> from .s
 
 ## 更新安全 {#updates}
 
-CLI、Dashboard（含 all/streaming）、`install --update` 共用 followed tracked repo 策略：干净树与 **fast-forward-only** pull（`--ff-only --no-rebase`）。明确 `--force` 在 dry run 也拒绝。Dirty、status-check error、fast-forward 失败（含分歧）为逐项失败，提供 ``resolve in `<resolved path>` ``；其他 batch 条目继续。在外部 repo 解决，不要用 force 重试；普通 installed repo 策略不变。
+CLI、Dashboard（含 all/streaming）、`install --update` 共用 followed tracked repo 策略：干净树与 **fast-forward-only** pull（`--ff-only --no-rebase`）。明确 `--force` 在 dry run 也拒绝。Dirty、status-check error、fast-forward 失败（含分歧）为逐项失败，提供 ``resolve in `<resolved path>` ``；其他 batch 条目继续。在外部 repo 解决，不要用 force 重试；普通 installed repo 策略不变。Agent repo 完全不在此策略内：`.skillfollow` 属于 skills source，Dashboard 更新 repo-backed agent 时不会读取它，即使 skills 的声明文件无法读取也一样。
 
 followed entry 之下的普通 skill 不会被重新安装。`update` 在所有选择方式（`--all`、名称、glob、group、project mode、dry run）与 Dashboard 单项更新、update-all 中，把每一项标为失败 `followed repository update refused: skill <path> is inside followed entry <name>`，其他条目继续。只有 followed repository 本身会依上述策略更新。
 

@@ -117,7 +117,7 @@ prune paused: <name> is <state>; restore or fix <path>, or remove <name> from .s
 
 ## 업데이트 안전성 {#updates}
 
-CLI, Dashboard（all/streaming 포함）, `install --update`는 같은 followed tracked repo 정책을 씁니다. 깨끗한 트리와 **fast-forward-only** pull（`--ff-only --no-rebase`）이 필요합니다. 명시적 `--force`는 dry run에서도 거부합니다. Dirty, status-check error, fast-forward 실패（분기 포함）는 항목별 실패로 `resolve in`과 실제 해결 경로를 표시하고 다른 batch 항목은 계속합니다. 외부 repo에서 해결하고 force로 재시도하지 마세요. 일반 installed repo 정책은 유지됩니다.
+CLI, Dashboard（all/streaming 포함）, `install --update`는 같은 followed tracked repo 정책을 씁니다. 깨끗한 트리와 **fast-forward-only** pull（`--ff-only --no-rebase`）이 필요합니다. 명시적 `--force`는 dry run에서도 거부합니다. Dirty, status-check error, fast-forward 실패（분기 포함）는 항목별 실패로 `resolve in`과 실제 해결 경로를 표시하고 다른 batch 항목은 계속합니다. 외부 repo에서 해결하고 force로 재시도하지 마세요. 일반 installed repo 정책은 유지됩니다. Agent repo는 이 정책 밖에 있습니다. `.skillfollow`는 skills source의 파일이므로 Dashboard에서 repo 기반 agent를 update할 때는 skills 선언을 읽을 수 없어도 참조하지 않습니다.
 
 followed entry 아래의 일반 skill은 재설치되지 않습니다. `update`는 모든 선택 방식（`--all`, 이름, glob, group, project mode, dry run）과 Dashboard 단일 업데이트·update-all에서 각 항목을 `followed repository update refused: skill <path> is inside followed entry <name>`로 실패 처리하고 다른 항목은 계속합니다. 위 정책을 따르는 followed repository 자체만 업데이트됩니다.
 
