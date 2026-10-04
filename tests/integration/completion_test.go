@@ -364,7 +364,7 @@ func TestCompletion_Memory_AllShells(t *testing.T) {
 			result := sb.RunCLI("completion", shell)
 			result.AssertSuccess(t)
 			result.AssertOutputContains(t, commands)
-			for _, flag := range []string{"version", "search", "from"} {
+			for _, flag := range []string{"version", "search", "from", "update-mode"} {
 				result.AssertOutputContains(t, flag)
 			}
 		})

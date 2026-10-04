@@ -403,6 +403,7 @@ complete -c skillshare -n '__fish_skillshare_using_subcommand extras memory' -l 
 complete -c skillshare -n '__fish_skillshare_using_subcommand extras memory; and __fish_seen_subcommand_from list' -l search -r -d 'Search names and content'
 complete -c skillshare -n '__fish_skillshare_using_subcommand extras memory; and __fish_seen_subcommand_from write' -l from -r -F -d 'Input file or stdin'
 complete -c skillshare -n '__fish_skillshare_using_subcommand extras memory; and __fish_seen_subcommand_from write delete' -l version -r -d 'Last read hash'
+complete -c skillshare -n '__fish_skillshare_using_subcommand extras memory; and __fish_seen_subcommand_from instructions' -l update-mode -r -a 'passive active' -d 'How agents update notes'
 
 # extras subcommands and extras <name>
 complete -c skillshare -n '__fish_skillshare_using_subcommand extras init' -l target -r -F -d 'Target directory'

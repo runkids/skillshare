@@ -218,6 +218,7 @@ _skillshare() {
                                 list) memory_flags="${memory_flags} --search" ;;
                                 delete) memory_flags="${memory_flags} --version" ;;
                                 write) memory_flags="${memory_flags} --from --version" ;;
+                                instructions) memory_flags="${memory_flags} --update-mode" ;;
                             esac
                             COMPREPLY=($(compgen -W "${memory_flags} ${global_flags}" -- "${cur}"))
                         fi

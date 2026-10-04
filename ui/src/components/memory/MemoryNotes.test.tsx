@@ -16,11 +16,13 @@ function Notes() {
 
 vi.mock('../../api/client', async (load) => {
   const actual = await load<typeof import('../../api/client')>();
-  return { ...actual, api: { ...actual.api, listMemoryNotes: vi.fn(), initMemory: vi.fn(), readMemoryNote: vi.fn(), writeMemoryNote: vi.fn(), deleteMemoryNote: vi.fn(), moveMemoryNote: vi.fn(), getMemoryGuidance: vi.fn(), linkMemoryIndex: vi.fn() } };
+  return { ...actual, api: { ...actual.api, listMemoryNotes: vi.fn(), initMemory: vi.fn(), readMemoryNote: vi.fn(), writeMemoryNote: vi.fn(), deleteMemoryNote: vi.fn(), moveMemoryNote: vi.fn(), getMemoryGuidance: vi.fn(), planMemoryGuidance: vi.fn(), linkMemoryIndex: vi.fn() } };
 });
 vi.mock('../instructions/InstructionsEditorDialog', () => ({ default: ({ content, onSave }: { content: string; onSave: (value: string) => Promise<void> }) => (
   <button onClick={() => void onSave(content + '\nupdated')}>Save note</button>
 ) }));
+
+const noGuidance = { passive: '', active: '' };
 
 const renderNotes = () => render(
   <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
@@ -30,8 +32,8 @@ const renderNotes = () => render(
 
 beforeEach(() => {
   vi.clearAllMocks();
-  vi.mocked(api.getMemoryGuidance).mockResolvedValue({ scope: 'global', instructions: '', targets: [] });
-  vi.mocked(api.listMemoryNotes).mockResolvedValue({ root: '/shared/extras/memory', initialized: true, notes: [{ path: 'build.md', title: 'Build notes', version: 'old' }], instructions: 'Read the shared notes.' });
+  vi.mocked(api.getMemoryGuidance).mockResolvedValue({ scope: 'global', instructions: noGuidance, targets: [] });
+  vi.mocked(api.listMemoryNotes).mockResolvedValue({ root: '/shared/extras/memory', initialized: true, notes: [{ path: 'build.md', title: 'Build notes', version: 'old' }], instructions: { passive: 'Read the shared notes.', active: 'Save lasting facts.' } });
   vi.mocked(api.readMemoryNote).mockResolvedValue({ path: 'build.md', title: 'Build notes', content: '# Build', version: 'old' });
   vi.mocked(api.writeMemoryNote).mockResolvedValue({ path: 'build.md', title: 'Build notes', content: '# Build\nupdated', version: 'new' });
 });
@@ -40,7 +42,7 @@ it('keeps valid notes available when another note is invalid', async () => {
   vi.mocked(api.listMemoryNotes).mockResolvedValue({ root: '/shared/extras/memory', initialized: true, notes: [
     { path: 'large.md', title: 'Large note', version: '', invalid: 'Too large to read' },
     { path: 'build.md', title: 'Build notes', version: 'old' },
-  ], instructions: '' });
+  ], instructions: noGuidance });
   const user = userEvent.setup();
   renderNotes();
   await user.click(await screen.findByRole('button', { name: 'Large note large.md' }));
@@ -51,7 +53,7 @@ it('keeps valid notes available when another note is invalid', async () => {
 });
 
 it('keeps a newly created note when updating its index conflicts', async () => {
-  vi.mocked(api.listMemoryNotes).mockResolvedValue({ root: '/shared/extras/memory', initialized: true, notes: [], instructions: '',
+  vi.mocked(api.listMemoryNotes).mockResolvedValue({ root: '/shared/extras/memory', initialized: true, notes: [], instructions: noGuidance,
     index: { version: 'index-v1', unindexed: [], broken_links: [] } });
   vi.mocked(api.linkMemoryIndex).mockRejectedValue(new Error('Index changed'));
   const user = userEvent.setup();
@@ -75,7 +77,7 @@ it('saves against the version read from disk and offers an instruction entry poi
 });
 
 it('initializes a source-only memory extra from its empty state', async () => {
-  vi.mocked(api.listMemoryNotes).mockResolvedValue({ root: '/shared/extras/memory', initialized: false, notes: [], instructions: '' });
+  vi.mocked(api.listMemoryNotes).mockResolvedValue({ root: '/shared/extras/memory', initialized: false, notes: [], instructions: noGuidance });
   vi.mocked(api.initMemory).mockResolvedValue({ success: true, root: '/shared/extras/memory' });
   const user = userEvent.setup();
   renderNotes();
@@ -84,7 +86,7 @@ it('initializes a source-only memory extra from its empty state', async () => {
 });
 
 it('keeps the search box when no note matches', async () => {
-  vi.mocked(api.listMemoryNotes).mockImplementation(async (search) => ({ root: '/shared/extras/memory', initialized: true, instructions: '',
+  vi.mocked(api.listMemoryNotes).mockImplementation(async (search) => ({ root: '/shared/extras/memory', initialized: true, instructions: noGuidance,
     notes: search ? [] : [{ path: 'build.md', title: 'Build notes', version: 'old' }] }));
   const user = userEvent.setup();
   renderNotes();
@@ -95,7 +97,7 @@ it('keeps the search box when no note matches', async () => {
 
 it('moves a note with its read version, clears search and selects the new path', async () => {
   vi.mocked(api.moveMemoryNote).mockImplementation(async () => {
-    vi.mocked(api.listMemoryNotes).mockResolvedValue({ root: '/shared/extras/memory', initialized: true, instructions: '', notes: [{ path: 'wiki/build.md', title: 'Moved build', version: 'v2' }] });
+    vi.mocked(api.listMemoryNotes).mockResolvedValue({ root: '/shared/extras/memory', initialized: true, instructions: noGuidance, notes: [{ path: 'wiki/build.md', title: 'Moved build', version: 'v2' }] });
     vi.mocked(api.readMemoryNote).mockResolvedValue({ path: 'wiki/build.md', title: 'Moved build', content: '# Moved build', version: 'v2' });
     return { path: 'wiki/build.md', title: 'Moved build', version: 'v2' };
   });
@@ -128,14 +130,29 @@ it('explains a destination that already exists', async () => {
   expect(screen.getByRole('dialog')).toBeInTheDocument();
 });
 
-it('previews the copyable guidance on hover and hides it on leave', async () => {
+it('copies the guidance of the chosen update mode', async () => {
   const user = userEvent.setup();
   renderNotes();
-  const copy = await screen.findByRole('button', { name: 'Copy guidance' });
-  await user.hover(copy);
-  expect(await screen.findByRole('tooltip')).toHaveTextContent('Read the shared notes.');
-  await user.unhover(copy);
-  expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
+  await user.click(await screen.findByRole('button', { name: /Copy guidance/ }));
+  await user.click(screen.getByRole('menuitem', { name: /^active/ }));
+  expect(await navigator.clipboard.readText()).toBe('Save lasting facts.');
+});
+
+it('switches every agent reading the same file to one mode', async () => {
+  vi.mocked(api.getMemoryGuidance).mockResolvedValue({ scope: 'global', instructions: noGuidance, targets: [
+    { name: 'antigravity-cli', state: 'configured', file: '/shared/AGENTS.md', mode: 'passive' },
+    { name: 'claude', state: 'configured', file: '/home/.claude/CLAUDE.md', mode: 'passive' },
+    { name: 'codex', state: 'configured', file: '/shared/AGENTS.md', mode: 'passive' },
+  ] });
+  vi.mocked(api.planMemoryGuidance).mockResolvedValue({ token: 't', changes: [], skipped: [], warnings: [] });
+  const user = userEvent.setup();
+  renderNotes();
+  await user.click(await screen.findByRole('button', { name: 'Connect to agents' }));
+  const dialog = await screen.findByRole('dialog');
+  await user.click(within(within(dialog).getByRole('radiogroup', { name: 'Update mode for codex' })).getByRole('radio', { name: 'active' }));
+  expect(within(within(dialog).getByRole('radiogroup', { name: 'Update mode for antigravity-cli' })).getByRole('radio', { name: 'active' })).toHaveAttribute('aria-checked', 'true');
+  await user.click(within(dialog).getByRole('button', { name: 'Review changes' }));
+  expect(api.planMemoryGuidance).toHaveBeenCalledWith(['antigravity-cli', 'codex'], { 'antigravity-cli': 'active', codex: 'active' });
 });
 
 it('previews the verification prompt on hover and hides it on leave', async () => {
@@ -186,7 +203,7 @@ it('browses nested notes with collapsible folders and a separate preview', async
   vi.mocked(api.listMemoryNotes).mockResolvedValue({ root: '/shared/extras/memory', initialized: true, notes: [
     { path: 'INDEX.md', title: 'Index', version: 'index' },
     { path: 'wiki/architecture notes.md', title: 'Architecture', version: 'architecture' },
-  ], instructions: '' });
+  ], instructions: noGuidance });
   vi.mocked(api.readMemoryNote).mockImplementation(async (path) => ({ path, title: path, version: 'version', content: path === 'INDEX.md' ? '# Index\n[Architecture](wiki/architecture%20notes.md)' : '# Architecture decisions' }));
   const user = userEvent.setup();
   renderNotes();
@@ -216,7 +233,7 @@ it('keeps the destination draft open when the source version is stale', async ()
 });
 
 it('initializes missing starters before creating and linking the first note', async () => {
-  const empty = { root: '/shared/extras/memory', initialized: false, notes: [], instructions: '' };
+  const empty = { root: '/shared/extras/memory', initialized: false, notes: [], instructions: noGuidance };
   vi.mocked(api.listMemoryNotes).mockResolvedValueOnce(empty).mockResolvedValue({ ...empty, initialized: true,
     index: { version: 'starter-index', unindexed: [], broken_links: [] } });
   vi.mocked(api.initMemory).mockResolvedValue({ success: true, root: empty.root });
