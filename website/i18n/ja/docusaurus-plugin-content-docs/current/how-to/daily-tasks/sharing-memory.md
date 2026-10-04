@@ -103,7 +103,7 @@ Update notes when the user asks you to remember a decision.
 
 実際の読み取りツールのイベントで完全なパスと一時的な値を確認します。他の接続ツールでも繰り返し、最後に値を削除します。これは手動検証で、Skillshare は読み取り telemetry を保証しません。読み取ったという回答や **Configured** だけでは証拠になりません。
 
-教訓を残すときは、背景、結論、証拠を `LEARNED.md` に記録するよう依頼します。ノートはユーザー所有です。`passive` のガイダンスはユーザーの依頼時だけ更新するよう指示し、`active` のガイダンスは上記のとおり長く役立つ事実を自分で保存させます。Native automatic memory、自動学習、Obsidian 連携は有効になりません。
+教訓を残すときは、背景、結論、証拠を `LEARNED.md` に記録するよう依頼します。どちらのモードも各タスクの開始時に `INDEX.md` を読みます。ノートはユーザー所有です。`passive` のガイダンスは残す価値のある事実を指摘させ、更新は依頼時だけ行わせます。`active` のガイダンスは上記のとおり、そうした事実をツール自身のメモリではなくここに保存させます。Native automatic memory、自動学習、Obsidian 連携は有効になりません。
 
 ## Project mode
 

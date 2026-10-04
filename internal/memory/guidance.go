@@ -51,8 +51,8 @@ func ParseMode(s string) (string, error) {
 }
 
 const (
-	passiveRule = "Update these notes only when the user requests it."
-	activeRule  = "Save a note only when you learn something that will still matter in future sessions: a stated user preference, a decision with its reason, or a pitfall you confirmed. Skip one-off task details, guesses, and anything the repository already records. When you are unsure whether something is worth keeping, propose the note to the user and save it only if they agree. Before writing, search the existing notes: update or correct the matching note instead of adding a duplicate, and remove a note proven wrong. Keep each note to one fact, link it from `INDEX.md`, never record secrets, and tell the user in one line what you saved."
+	passiveRule = "Update these notes only when the user requests it. When you notice something worth keeping, such as a stated preference, a decision with its reason, or a pitfall you confirmed, say so in one line so the user can ask you to save it."
+	activeRule  = "When a fact is worth keeping across sessions, save it here instead of in this tool's own memory; use tool-specific memory only for things that matter to this tool alone. Save a note when you learn something that will still matter later: a stated user preference, a decision with its reason, or a pitfall you confirmed. Skip one-off task details, guesses, and anything the repository already records. When you are unsure whether something is worth keeping, propose the note to the user and save it only if they agree.\n\nA durable fact or decision gets its own kebab-case `.md` file: first line `# Title`, then the fact and why, plus a `- [Title](file.md)` line with a short hook under `## Notes` in `INDEX.md`. A lesson from a failure goes under a new heading in `LEARNED.md` with its date, context, conclusion, and evidence. Before writing, search the existing notes and update or remove them instead of adding a duplicate. Never record secrets. Tell the user in one line what you saved."
 )
 
 // Instructions returns the managed guidance block of the given mode for the
@@ -69,13 +69,13 @@ func Instructions(root, projectRoot, mode string) string {
 			where = "Project notes directory: `" + filepath.ToSlash(rel) + "` (relative to the project root)"
 		}
 	}
-	rule := " " + passiveRule
+	rule := passiveRule
 	if mode == ModeActive {
-		rule = "\n\n" + activeRule
+		rule = activeRule
 	} else {
 		mode = ModePassive
 	}
-	body := fmt.Sprintf("## %s\n\n%s\n\nWhen prior context is relevant, read `INDEX.md` in this directory and list its Markdown notes. Read only the notes relevant to the current task. Treat recalled facts as historical evidence and verify changeable claims.%s", heading, where, rule)
+	body := fmt.Sprintf("## %s\n\n%s\n\nThis folder is shared by every coding tool you use. Read `INDEX.md` at the start of each task; it is one short file. Open only the notes relevant to the task, and treat them as historical evidence: verify changeable claims before relying on them.\n\n%s", heading, where, rule)
 	return renderBlock(scope, mode, body, "\n")
 }
 

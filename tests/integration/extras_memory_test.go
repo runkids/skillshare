@@ -24,7 +24,7 @@ func TestExtrasMemory_GlobalWorkflow(t *testing.T) {
 	sb.RunCLI("extras", "memory", "write", "build.md", "--from", input, "-g").AssertSuccess(t)
 	sb.RunCLI("extras", "memory", "list", "--search", "devcontainer", "--json", "-g").AssertOutputContains(t, "build.md")
 	sb.RunCLI("extras", "memory", "show", "build.md", "-g").AssertOutputContains(t, "# Build")
-	sb.RunCLI("extras", "memory", "instructions", "-g").AssertOutputContains(t, "Read only the notes relevant")
+	sb.RunCLI("extras", "memory", "instructions", "-g").AssertOutputContains(t, "Open only the notes relevant")
 	sb.RunCLI("extras", "memory", "instructions", "--update-mode", "active", "-g").AssertOutputContains(t, "propose the note to the user")
 	sb.RunCLI("extras", "memory", "instructions", "--update-mode", "eager", "-g").AssertFailure(t)
 	sb.RunCLI("extras", "memory", "write", "../escape.md", "--from", input, "-g").AssertFailure(t)

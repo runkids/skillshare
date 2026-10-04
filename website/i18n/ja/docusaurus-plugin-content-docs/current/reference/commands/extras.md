@@ -33,7 +33,7 @@ Extras は skillshare が管理する追加のリソースタイプです — �
 | `show <note.md>` | ノートを読む。`--json` は `version` hash を含む |
 | `write <note.md> --from <file\|->` | ファイルまたは stdin から書き込む。新規作成では `--version` を省略し、更新には最後に読んだ version が必要 |
 | `delete <note.md> --version <hash>` | バックアップ後に指定 version を削除。古い version や未指定の version は拒否 |
-| `instructions` | 実際の source フォルダーを指す読み込み指示を出力。`--update-mode passive`（既定）は依頼時だけノートを更新させ、`--update-mode active` は長く役立つ事実を自分で保存させ、迷うときは提案させます |
+| `instructions` | 実際の source フォルダーを指す読み込み指示を出力。どちらのモードも各タスクの開始時に `INDEX.md` を読みます。`--update-mode passive`（既定）は残す価値のある事実を指摘させ、更新は依頼時だけ行わせます。`--update-mode active` はそうした事実をツール自身のメモリではなくここに保存させ、迷うときは提案させます |
 
 各サブコマンドは `--json`、`-g` / `--global`、`-p` / `--project`、`--help` に対応します。
 Scope は未指定なら自動検出。既定の global パスは `~/.config/skillshare/extras/memory/`、

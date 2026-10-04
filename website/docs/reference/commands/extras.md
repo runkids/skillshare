@@ -43,7 +43,7 @@ skillshare extras memory instructions --update-mode active -g
 | `list` | List notes; `--search <text>` searches filenames and content, case-insensitively |
 | `show <note.md>` | Print a note; `--json` includes its `version` hash |
 | `write <note.md>` | Read UTF-8 content from `--from <file>` or `--from -` (stdin) |
-| `instructions` | Print a scope/hash-marked guidance block; project sources inside the repo use paths relative to the project root. `--update-mode passive` (default) asks agents to update notes only on request; `--update-mode active` lets them save lasting facts and propose notes they are unsure of |
+| `instructions` | Print a scope/hash-marked guidance block; project sources inside the repo use paths relative to the project root. Both modes read `INDEX.md` at the start of each task. `--update-mode passive` (default) asks agents to point out facts worth keeping and update notes only on request; `--update-mode active` has them save such facts here instead of in the tool's own memory and propose notes they are unsure of |
 | `delete <note.md> --version <hash>` | Back up and delete the last read version; reject stale or missing versions |
 
 All subcommands accept `--json`, `--global` / `-g`, `--project` / `-p`, and

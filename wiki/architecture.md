@@ -73,8 +73,8 @@ broken/`mixed_modes`; switching a target that reads blocks in several files is
 skipped as `multiple_blocks`, since rewriting one file would leave the others.
 Intact outdated blocks can be updated after review; modified/malformed blocks
 are protected. Non-UTF-8 instruction files are reported as broken/unsupported
-and skipped without rewriting their bytes; instruction files have no new size
-cap (known character limits remain review warnings). Guidance paths inside a project are relative to the project root;
+and skipped without rewriting their bytes; instruction files have no size
+cap, and known character limits are review warnings. Guidance paths inside a project are relative to the project root;
 external sources remain absolute. GET reports file-based configuration state,
 never agent reads. Fresh-session read events provide manual verification only.
 

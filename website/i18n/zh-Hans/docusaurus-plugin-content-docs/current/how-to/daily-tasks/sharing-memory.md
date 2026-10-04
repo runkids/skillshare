@@ -103,7 +103,7 @@ Update notes when the user asks you to remember a decision.
 
 检查实际 read tool event，核对完整路径与临时值。在另一个已连接工具重复验证，再移除临时值。这是手动验证，Skillshare 没有保证可用的读取 telemetry。Agent 自称读过或显示 **Configured** 都不足以证明读取。
 
-需要记录经验时，请要求 Agent 更新 `LEARNED.md` 的背景、结论与证据。笔记由用户管理：`passive` 指引要求 Agent 只在用户要求时更新；`active` 指引则让 Agent 按上述规则自行保存长期有用的事实。本功能不启用 native automatic memory、自动学习或 Obsidian 集成。
+需要记录经验时，请要求 Agent 更新 `LEARNED.md` 的背景、结论与证据。两种模式都会在每个 task 开始时读 `INDEX.md`。笔记由用户管理：`passive` 指引让 Agent 提出值得记的事实、只在用户要求时更新；`active` 指引则让 Agent 按上述规则把这类事实保存在这里，而不是工具自己的记忆。本功能不启用 native automatic memory、自动学习或 Obsidian 集成。
 
 ## Project mode
 

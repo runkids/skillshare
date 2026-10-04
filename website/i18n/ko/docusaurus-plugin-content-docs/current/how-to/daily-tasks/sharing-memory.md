@@ -103,7 +103,7 @@ Update notes when the user asks you to remember a decision.
 
 실제 읽기 도구 이벤트에서 전체 경로와 임시 값을 확인하세요. 다른 연결 도구에서도 반복하고 임시 값을 제거하세요. 수동 검증이며 Skillshare는 읽기 telemetry를 보장하지 않습니다. 읽었다는 답변이나 **Configured** 표시만으로는 읽기의 증거가 되지 않습니다.
 
-교훈을 저장하려면 배경, 결론, 증거를 `LEARNED.md`에 기록하도록 요청하세요. 노트는 사용자 소유입니다. `passive` 안내는 사용자 요청이 있을 때만 업데이트하도록 지시하고, `active` 안내는 위 규칙에 따라 오래 쓸 사실을 스스로 저장하게 합니다. Native automatic memory, 자동 학습, Obsidian 통합은 활성화하지 않습니다.
+교훈을 저장하려면 배경, 결론, 증거를 `LEARNED.md`에 기록하도록 요청하세요. 두 모드 모두 각 작업 시작 시 `INDEX.md`를 읽습니다. 노트는 사용자 소유입니다. `passive` 안내는 남길 만한 사실을 알려 주되 사용자 요청이 있을 때만 업데이트하게 하고, `active` 안내는 위 규칙에 따라 그런 사실을 도구 자체 메모리 대신 여기에 저장하게 합니다. Native automatic memory, 자동 학습, Obsidian 통합은 활성화하지 않습니다.
 
 ## Project mode
 

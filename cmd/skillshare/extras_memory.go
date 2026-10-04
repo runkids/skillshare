@@ -101,7 +101,7 @@ func printMemoryHelp() {
 		helpNotes("Notes",
 			"An empty --version creates a new note. To update, use the version from show --json.",
 			"Changes are backed up; a stale version is rejected. Native automatic memory is separate.",
-			"--update-mode passive (default) lets agents update notes only when asked; active lets them save lasting facts and propose ones they are unsure of.",
+			"Both modes read INDEX.md at the start of each task. --update-mode passive (default) points out facts worth keeping and saves them only when asked; active saves them here instead of the tool's own memory and proposes ones it is unsure of.",
 		),
 	)
 }

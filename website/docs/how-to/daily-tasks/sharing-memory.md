@@ -165,9 +165,10 @@ verification: Skillshare has no guaranteed read telemetry. A claimed read or a
 **Configured** label alone is insufficient evidence.
 
 To save a lesson, ask the agent to update `LEARNED.md` with its context,
-conclusion, and evidence. Notes are user-owned: `passive` guidance asks agents to
-update them only at your request, and `active` guidance lets them save lasting
-facts on their own as described above. This feature does not enable native automatic memory,
+conclusion, and evidence. Both modes read `INDEX.md` at the start of each task. Notes are user-owned:
+`passive` guidance has agents point out facts worth keeping and update notes only
+at your request, and `active` guidance has them save such facts here instead of
+in the tool's own memory, as described above. This feature does not enable native automatic memory,
 automatic learning, or an Obsidian integration.
 
 ## Project mode

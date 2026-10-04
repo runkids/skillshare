@@ -180,7 +180,7 @@ Global and project modes use the **same short names** (e.g., `claude`, `cursor`,
 
 ## Safety
 
-**Always use** `target remove` to unlink targets.
+Unlink targets with `target remove`: it removes the link itself and leaves the linked destination alone.
 
 Inspect whether a path is a symlink before filesystem operations. Removing a symlink
 itself and traversing its target are different operations; `target remove` handles the
