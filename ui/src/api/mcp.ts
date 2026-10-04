@@ -24,7 +24,7 @@ export interface MCPServer {
   disabled?: boolean;
 }
 /** Agents with a per-project switch: a field merged over the global entry, or Claude Code's own off list. */
-export const mcpOffTargets: readonly string[] = ['claude', 'opencode', 'kilocode'];
+export const mcpOffTargets: readonly string[] = ['claude', 'opencode', 'kilocode', 'pi'];
 export interface MCPMutation {
   /** A root under mcp.projects; with `remove` and no `name`, the project itself. */
   project?: string;

@@ -299,10 +299,9 @@ export const isResolvable = (change: MCPChange) =>
 export const canImportConflict = (change: MCPChange) =>
   isResolvable(change) && !change.switch && conflictKeys[conflictPrefix(change.message ?? '')] !== 'mcp.conflictPiOverride';
 
-/** Agents a project can turn a global server off for: those it uses, that the server reaches and that have a switch.
- * Pi takes one when given the global server itself, whose command or url its switch carries. */
+/** Agents a project can turn a global server off for: those it uses, that the server reaches and that have a switch. */
 export const switchTargets = (server: MCPServer, defaults: string[], projectTargets: readonly string[]) =>
-  (server.targets ?? defaults).filter((x) => (mcpOffTargets.includes(x) || (x === 'pi' && Boolean(server.command || server.url))) && projectTargets.includes(x));
+  (server.targets ?? defaults).filter((x) => mcpOffTargets.includes(x) && projectTargets.includes(x));
 
 /** The Agents a server of one scope goes to. A switch that names none follows the scope's, where the Agent has a switch, as sync works it out. */
 export const reachOf = (server: MCPServer, defaults: string[]) =>

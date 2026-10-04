@@ -45,8 +45,8 @@ function projectViewModel(data: MCPList, root: string, offered: readonly string[
   const unmanaged = data.unmanaged.filter((u) => u.project === root);
   // A switch for a global server belongs to the list above; everything else is the project's own.
   const own = Object.fromEntries(Object.entries(servers).filter(([n, s]) => !(s.disabled && globals[n])));
-  // A switch that names no targets follows the project. Pi's needs a global server's command or url.
-  const targetsOf = (n: string) => own[n]?.targets ?? (own[n]?.disabled ? targets.filter((x) => x !== 'pi') : targets);
+  // A switch that names no targets follows the project.
+  const targetsOf = (n: string) => own[n]?.targets ?? targets;
   const offTargets = mcpOffTargets;
   const switchable = (server: MCPServer) => switchTargets(server, defaults, targets);
   const ownRows = buildMatrix(own, data.plan && { ...data.plan, changes: changes.filter((c) => own[c.name]) });
@@ -187,12 +187,12 @@ export default function MCPProjectView({ data, root, offered, onChanged, onRemov
                 const off = Boolean(entry?.disabled);
                 const to = switchable(server);
                 // Off shows as Agent logos. A sentence is kept for the switch that cannot be used, which needs a reason.
-                const written = (entry?.targets ?? to).filter((x) => mcpOffTargets.includes(x) || x === 'pi');
+                const written = (entry?.targets ?? to).filter((x) => mcpOffTargets.includes(x));
                 const reason = entry && !off ? t('mcp.projects.overridden')
                   : off ? (written.length === 0 ? t('mcp.projects.noSwitchHere') : '')
                   : to.length > 0 ? ''
                   // Some Agent could turn it off, just none this project uses.
-                  : switchTargets(server, defaults, [...mcpOffTargets, 'pi']).length > 0 ? t('mcp.projects.noSwitchHere') : t('mcp.projects.noSwitch');
+                  : switchTargets(server, defaults, mcpOffTargets).length > 0 ? t('mcp.projects.noSwitchHere') : t('mcp.projects.noSwitch');
                 // What the page has to admit: the badge says off, yet an Agent without a switch keeps
                 // loading the server here, and a list saved with the entry does not follow the project.
                 const stillOn = off ? targets.filter((x) => (server.targets ?? defaults).includes(x) && !written.includes(x)) : [];

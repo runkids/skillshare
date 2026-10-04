@@ -88,9 +88,6 @@ type Server struct {
 	// Agent's global config defines. Unselecting an Agent already covers a server
 	// Skillshare defines, so a disabled server carries no command or url.
 	Disabled bool `yaml:"disabled,omitempty" json:"disabled,omitempty"`
-	// global is the global server a project's switch-only entry turns off, when the plan
-	// knows it. Pi needs its command or url to take the switch.
-	global *Server
 }
 
 // legacyServerFields chose Pi's MCP extension and opted in to pruning Pi fields, before

@@ -84,9 +84,9 @@ describe('switchTargets', () => {
     expect(switchTargets(context7, [], ['opencode', 'pi'])).toEqual(['opencode', 'pi']);
   });
 
-  // Pi's switch carries the global server's command or url, so a switch entry alone cannot reach it.
-  it('leaves Pi out for a switch entry, which has no command or url', () => {
-    expect(switchTargets({ disabled: true }, ['opencode', 'pi'], ['opencode', 'pi'])).toEqual(['opencode']);
+  // Pi's switch is its project override, which needs nothing from the global server.
+  it('includes Pi for a switch entry, which has no command or url', () => {
+    expect(switchTargets({ disabled: true }, ['opencode', 'pi'], ['opencode', 'pi'])).toEqual(['opencode', 'pi']);
   });
 
   it('follows the default targets of a server that names none', () => {
