@@ -17,14 +17,22 @@ type reconcileResult struct {
 	changed bool
 }
 
+// ReconcileOptions carries one operation's policy into a skills reconcile.
+type ReconcileOptions struct {
+	// Follow is the operation's .skillfollow snapshot; nil keeps legacy rules.
+	Follow *sourcewalk.FollowSet
+}
+
 // reconcileSkillsWalk walks sourcePath for installed skills (those with metadata
 // or tracked repos) and ensures they are present in the MetadataStore.
 // onFound is called for each discovered installed skill; pass nil to skip.
-func reconcileSkillsWalk(sourcePath string, store *install.MetadataStore, onFound func(fullPath string)) (reconcileResult, error) {
+// Names under a followed entry are marked live, but their metadata is never
+// created or updated: that tree belongs to the user.
+func reconcileSkillsWalk(sourcePath string, store *install.MetadataStore, onFound func(fullPath string), follow *sourcewalk.FollowSet) (reconcileResult, error) {
 	result := reconcileResult{live: map[string]bool{}}
 
 	walkRoot := utils.ResolveSymlink(sourcePath)
-	err := sourcewalk.WalkDir(walkRoot, sourcewalk.Options{}, func(path string, d os.DirEntry, walkErr error) error {
+	err := sourcewalk.WalkDir(walkRoot, sourcewalk.Options{Follow: follow}, func(path string, d os.DirEntry, walkErr error) error {
 		if walkErr != nil {
 			return nil
 		}
@@ -47,6 +55,16 @@ func reconcileSkillsWalk(sourcePath string, store *install.MetadataStore, onFoun
 		}
 
 		fullPath := filepath.ToSlash(relPath)
+		if follow != nil {
+			if _, followed := follow.InFollowed(fullPath); followed {
+				existing := store.GetByPath(fullPath)
+				if (existing != nil && existing.Source != "") || isGitRepo(path) {
+					result.live[fullPath] = true
+					return filepath.SkipDir
+				}
+				return nil
+			}
+		}
 
 		group := ""
 		if idx := strings.LastIndex(fullPath, "/"); idx >= 0 {
@@ -129,10 +147,16 @@ func reconcileSkillsWalk(sourcePath string, store *install.MetadataStore, onFoun
 	return result, err
 }
 
-// pruneStaleEntries removes store entries not present in the live set.
-func pruneStaleEntries(store *install.MetadataStore, live map[string]bool) bool {
+// pruneStaleEntries removes store entries not present in the live set. Entries
+// under an unavailable followed entry are kept: their absence proves nothing.
+func pruneStaleEntries(store *install.MetadataStore, live map[string]bool, follow *sourcewalk.FollowSet) bool {
 	changed := false
 	for _, name := range store.List() {
+		if follow != nil {
+			if entry, declared := follow.InFollowed(name); declared && entry.State != sourcewalk.Followed {
+				continue
+			}
+		}
 		if !live[name] {
 			store.Remove(name)
 			changed = true

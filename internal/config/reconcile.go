@@ -11,17 +11,23 @@ import (
 // skills (those with install metadata or tracked repos) and ensures they are
 // present in the MetadataStore.
 func ReconcileGlobalSkills(cfg *Config, store *install.MetadataStore) error {
+	return ReconcileGlobalSkillsWithOptions(cfg, store, ReconcileOptions{})
+}
+
+// ReconcileGlobalSkillsWithOptions is ReconcileGlobalSkills with an explicit
+// follow policy.
+func ReconcileGlobalSkillsWithOptions(cfg *Config, store *install.MetadataStore, opts ReconcileOptions) error {
 	sourcePath := cfg.EffectiveSkillsSource()
 	if _, err := os.Stat(sourcePath); os.IsNotExist(err) {
 		return nil
 	}
 
-	result, err := reconcileSkillsWalk(sourcePath, store, nil)
+	result, err := reconcileSkillsWalk(sourcePath, store, nil, opts.Follow)
 	if err != nil {
 		return fmt.Errorf("failed to scan global skills: %w", err)
 	}
 
-	if pruneStaleEntries(store, result.live) {
+	if pruneStaleEntries(store, result.live, opts.Follow) {
 		result.changed = true
 	}
 

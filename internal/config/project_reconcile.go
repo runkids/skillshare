@@ -15,6 +15,12 @@ import (
 // and ensures they are present in the MetadataStore.
 // It also updates the project directory's .gitignore for each tracked skill.
 func ReconcileProjectSkills(projectRoot string, projectCfg *ProjectConfig, store *install.MetadataStore, sourcePath string) error {
+	return ReconcileProjectSkillsWithOptions(projectRoot, projectCfg, store, sourcePath, ReconcileOptions{})
+}
+
+// ReconcileProjectSkillsWithOptions is ReconcileProjectSkills with an explicit
+// follow policy.
+func ReconcileProjectSkillsWithOptions(projectRoot string, projectCfg *ProjectConfig, store *install.MetadataStore, sourcePath string, opts ReconcileOptions) error {
 	if _, err := os.Stat(sourcePath); os.IsNotExist(err) {
 		return nil
 	}
@@ -28,12 +34,12 @@ func ReconcileProjectSkills(projectRoot string, projectCfg *ProjectConfig, store
 		}
 	}
 
-	result, err := reconcileSkillsWalk(sourcePath, store, onFound)
+	result, err := reconcileSkillsWalk(sourcePath, store, onFound, opts.Follow)
 	if err != nil {
 		return fmt.Errorf("failed to scan project skills: %w", err)
 	}
 
-	if pruneStaleEntries(store, result.live) {
+	if pruneStaleEntries(store, result.live, opts.Follow) {
 		result.changed = true
 	}
 
