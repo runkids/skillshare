@@ -270,7 +270,7 @@ skillshare ui -p
 
 `skillshare ui`는 최초 실행 시 일치하는 GitHub Release에서 미리 빌드된 UI 자산을 자동으로 다운로드합니다. 자산은 `~/.cache/skillshare/ui/<version>/`에 캐시되어(`XDG_CACHE_HOME`을 따름) 이후 실행은 즉시, 오프라인으로 이루어집니다.
 
-- **First run**은 UI 자산(~1MB)을 다운로드하기 위해 인터넷 연결이 필요합니다
+- **First run**은 UI 자산(약 2MB)을 다운로드하기 위해 인터넷 연결이 필요합니다
 - **Subsequent runs**은 캐시된 자산을 사용합니다 — 네트워크가 필요 없습니다
 - **On upgrade** 시, 이전에 캐시된 버전은 자동으로 정리되며, 새 UI는 `skillshare upgrade` 중에 미리 다운로드됩니다
 - **To clear the cache manually**, `skillshare ui --clear-cache`를 실행하세요

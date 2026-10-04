@@ -272,7 +272,7 @@ The dashboard reads and writes `.skillshare/config.yaml`, syncs to project-local
 
 `skillshare ui` automatically downloads pre-built UI assets from the matching GitHub Release on first launch. The assets are cached in `~/.cache/skillshare/ui/<version>/` (respects `XDG_CACHE_HOME`) so subsequent launches are instant and offline.
 
-- **First run** requires an internet connection to download the UI assets (~1 MB)
+- **First run** requires an internet connection to download the UI assets (about 2 MB)
 - **Subsequent runs** use the cached assets — no network needed
 - **On upgrade**, old cached versions are automatically cleaned up; the new UI is pre-downloaded during `skillshare upgrade`
 - **To clear the cache manually**, run `skillshare ui --clear-cache`

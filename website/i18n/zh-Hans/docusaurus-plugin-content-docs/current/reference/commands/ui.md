@@ -271,7 +271,7 @@ dashboard 会读写 `.skillshare/config.yaml`，同步到 project 本地的 targ
 
 `skillshare ui` 会在首次启动时自动从匹配的 GitHub Release 下载预构建的 UI 资源。这些资源会缓存在 `~/.cache/skillshare/ui/<version>/`（遵循 `XDG_CACHE_HOME`），因此后续启动是即时且离线的。
 
-- **首次运行** 需要网络连接来下载 UI 资源（约 1 MB）
+- **首次运行** 需要网络连接来下载 UI 资源（约 2 MB）
 - **后续运行** 使用缓存的资源——无需网络
 - **升级时**，旧的缓存版本会自动清理；新 UI 会在 `skillshare upgrade` 期间被预先下载
 - **手动清除缓存**，运行 `skillshare ui --clear-cache`

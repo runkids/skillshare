@@ -440,34 +440,17 @@ func downloadAndReplace(downloadURL, checksumsURL, destPath string, onProgress u
 }
 
 func downloadArchive(url string, onProgress utils.ProgressFunc) (string, error) {
-	client := &http.Client{Timeout: 5 * time.Minute}
-	resp, err := client.Get(url)
-	if err != nil {
-		return "", err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != 200 {
-		return "", fmt.Errorf("download failed with status %d", resp.StatusCode)
-	}
-
 	tmp, err := os.CreateTemp("", "skillshare-upgrade-archive-*")
 	if err != nil {
 		return "", err
 	}
 	defer tmp.Close()
 
-	limited := io.LimitReader(utils.NewProgressReader(resp.Body, resp.ContentLength, onProgress), maxArchiveSize+1)
-	n, err := io.Copy(tmp, limited)
-	if err != nil {
+	client := &http.Client{Timeout: 5 * time.Minute}
+	if err := utils.DownloadToFile(client, url, tmp, maxArchiveSize, onProgress); err != nil {
 		tmp.Close()
 		os.Remove(tmp.Name())
 		return "", err
-	}
-	if n > maxArchiveSize {
-		tmp.Close()
-		os.Remove(tmp.Name())
-		return "", fmt.Errorf("archive exceeds the maximum size (%d MB)", maxArchiveSize/(1024*1024))
 	}
 	return tmp.Name(), nil
 }

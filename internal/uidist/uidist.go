@@ -118,36 +118,18 @@ const maxDownloadSize = 100 * 1024 * 1024 // 100 MB
 
 // downloadToTemp downloads a URL to a temporary file and returns its path.
 func downloadToTemp(url string, onProgress utils.ProgressFunc) (string, error) {
-	client := &http.Client{Timeout: 120 * time.Second}
-	resp, err := client.Get(url)
-	if err != nil {
-		return "", err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("download returned HTTP %d", resp.StatusCode)
-	}
-
 	tmp, err := os.CreateTemp("", "skillshare-ui-dist-*.tar.gz")
 	if err != nil {
 		return "", err
 	}
 	defer tmp.Close()
 
-	limited := io.LimitReader(utils.NewProgressReader(resp.Body, resp.ContentLength, onProgress), maxDownloadSize+1)
-	n, err := io.Copy(tmp, limited)
-	if err != nil {
+	client := &http.Client{Timeout: 120 * time.Second}
+	if err := utils.DownloadToFile(client, url, tmp, maxDownloadSize, onProgress); err != nil {
 		tmp.Close()
 		os.Remove(tmp.Name())
 		return "", err
 	}
-	if n > maxDownloadSize {
-		tmp.Close()
-		os.Remove(tmp.Name())
-		return "", fmt.Errorf("download exceeds maximum size (%d MB)", maxDownloadSize/(1024*1024))
-	}
-
 	return tmp.Name(), nil
 }
 
