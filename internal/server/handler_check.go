@@ -57,7 +57,11 @@ func (s *Server) handleCheck(w http.ResponseWriter, r *http.Request) {
 	follow := s.skillFollowSet()
 	s.mu.RUnlock()
 
-	repos, _ := install.GetTrackedReposWithOptions(sourceDir, sourcewalk.Options{Follow: follow})
+	repos, err := install.GetTrackedReposWithOptions(sourceDir, sourcewalk.Options{Follow: follow})
+	if err != nil && follow != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
 	skills, _ := install.GetUpdatableSkills(sourceDir)
 
 	var repoResults []repoCheckResult

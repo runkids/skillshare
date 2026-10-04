@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"slices"
 	"strings"
 	"testing"
@@ -439,6 +440,31 @@ func TestServerSkillfollowAuditInputsMarkFollowed(t *testing.T) {
 		rel, _ := filepath.Rel(source, input.Path)
 		if followed, ok := want[filepath.ToSlash(rel)]; !ok || input.Followed != followed {
 			t.Errorf("%s followed=%v, want %v", rel, input.Followed, followed)
+		}
+	}
+}
+
+// The dashboard check reports an unreadable declaration instead of an empty source.
+func TestServerSkillfollowCheckUnreadableDeclaration(t *testing.T) {
+	if runtime.GOOS == "windows" || os.Geteuid() == 0 {
+		t.Skip("requires Unix permission enforcement")
+	}
+	s, source, _ := skillfollowServerFixture(t)
+	declaration := filepath.Join(source, ".skillfollow")
+	if err := os.Chmod(declaration, 0000); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(declaration, 0600) })
+
+	for path, want := range map[string]string{"/api/check": "", "/api/check/stream": "event: error"} {
+		rr := httptest.NewRecorder()
+		s.handler.ServeHTTP(rr, httptest.NewRequest(http.MethodGet, path, nil))
+		body := rr.Body.String()
+		if path == "/api/check" && rr.Code != http.StatusInternalServerError {
+			t.Fatalf("%s status %d: %s", path, rr.Code, body)
+		}
+		if !strings.Contains(body, want) || !strings.Contains(body, ".skillfollow") || strings.Contains(body, `"tracked_repos":[]`) {
+			t.Fatalf("%s did not report the declaration read error: %s", path, body)
 		}
 	}
 }

@@ -257,11 +257,22 @@ func runCheck(sourceDir, projectRoot string, jsonOutput bool, extraTargetNames [
 		scanSpinner = ui.StartSpinner("Scanning skills...")
 	}
 
-	repos, err := install.GetTrackedReposWithOptions(sourceDir, sourcewalk.Options{Follow: firstFollowSet(follows)})
+	follow := firstFollowSet(follows)
+	repos, err := install.GetTrackedReposWithOptions(sourceDir, sourcewalk.Options{Follow: follow})
 	if err != nil {
+		// Incomplete declared discovery is an error, not an empty source.
+		if follow != nil {
+			if scanSpinner != nil {
+				scanSpinner.Stop()
+			}
+			if jsonOutput {
+				return writeJSONError(err)
+			}
+			return err
+		}
 		repos = nil
 	}
-	missingRepos, err := install.GetMissingTrackedReposWithOptions(sourceDir, sourcewalk.Options{Follow: firstFollowSet(follows)})
+	missingRepos, err := install.GetMissingTrackedReposWithOptions(sourceDir, sourcewalk.Options{Follow: follow})
 	if err != nil {
 		missingRepos = nil
 	}
