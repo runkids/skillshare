@@ -99,3 +99,10 @@
 - **Discovery**: `ss sync --json` emits `{targets, linked, local, updated, pruned, ignored_count, ignored_skills, dry_run, duration, details[], context_cost}`. Failure is signalled by the process exit code and per-target details, not by a top-level `errors` field. Many AI-generated assertions assume a generic `.errors == 0` pattern from REST APIs — that pattern doesn't apply here
 - **Fix**: Assert positive evidence of the sync outcome instead. Examples: `jq: .linked == <N>` for "N skills got linked", `jq: .details[0].name == "<target>"` for target-level reporting, `jq: .updated == 0` for "nothing changed in this re-run". Pair with `exit_code: 0` for the failure-case guard
 - **Runbooks affected**: global_sources_map_runbook.md (step 5 fixed before merging)
+
+### [critical] Step stdout must end with a newline or the step reports "session aborted"
+
+- **Context**: skillfollow_runbook step 10 ended with `ls ... | tr '\n' ','`, which prints no trailing newline. mdproof reported `step did not complete (session aborted)` with `duration_ms: 0`, yet `-keep-failed-artifacts` showed `step_10_out` held the correct output and every later step passed
+- **Discovery**: the session script `cat`s the step's stdout file and then `echo`es `@@RB:END:<n>:<rc>:<ms>@@`. Without a trailing newline the END marker lands on the same line as the output and the parser never sees it, so the step is marked aborted even though it ran. Steps whose last command prints nothing (`tr` on empty input) hide the problem
+- **Fix**: end such pipelines with `; echo` (or make the last command one that prints a newline, such as `readlink`). The lost marker only affects the step that owns it; following steps are unaffected
+- **Runbooks affected**: skillfollow_runbook.md (steps 5 and 10)
