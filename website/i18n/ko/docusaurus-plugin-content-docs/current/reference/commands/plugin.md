@@ -183,7 +183,7 @@ Copilot과 Antigravity CLI 설치는 검토된 로컬 스냅샷을 사용합니�
 - 네이티브 설치가 런타임 활성화의 증거는 아닙니다. Agent를 재시작/다시 로드하고 해당 Agent에서 인증 또는 hook trust를 완료하세요.
 - Codex는 `PATH`의 `codex`를 실행합니다. `PATH`에 없으면 Skillshare는 Homebrew의
   `/opt/homebrew/bin`과 `/usr/local/bin`, 그다음 Codex 데스크톱 app에 포함된 CLI
-  (macOS의 `Codex.app`, Windows의 `%LOCALAPPDATA%\OpenAI\Codex\bin`)를 차례로 시도합니다. Codex가 다른 위치에 있는 머신에서는
+  (macOS의 `ChatGPT.app` 또는 `Codex.app`, Windows의 `%LOCALAPPDATA%\OpenAI\Codex\bin`)를 차례로 시도합니다. Codex가 다른 위치에 있는 머신에서는
   [`SKILLSHARE_CODEX_CLI`](/docs/reference/appendix/environment-variables#skillshare_codex_cli)를 설정하세요. 자체 `cli`를 가진 account는 검색하지 않습니다.
 - Codex의 네이티브 project 설치는 이 adapter에서 제공되지 않습니다. global Codex 설치에 대해서는 sync 선택이 여전히 동작합니다.
 - Codex에는 update 명령이 없으므로, 업데이트는 갱신된 스냅샷에서 플러그인을 다시 add합니다. add는 항상 플러그인을 활성화하므로 Codex에서 비활성화된 플러그인은 건너뜁니다. Import한 Codex 플러그인은 `codex plugin marketplace upgrade NAME`으로 업데이트되며, 이는 Codex가 해당 마켓플레이스에서 설치한 모든 플러그인을 다시 설치합니다. Codex도 시작할 때 같은 작업을 합니다.

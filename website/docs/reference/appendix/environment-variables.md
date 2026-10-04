@@ -366,11 +366,11 @@ Without it, Skillshare runs `codex` from `PATH`, then tries these places:
 
 | OS | Places |
 |---|---|
-| macOS | `/opt/homebrew/bin/codex`, `/usr/local/bin/codex`, and the CLI inside the Codex app (`/Applications/Codex.app` or `~/Applications/Codex.app`) |
+| macOS | `/opt/homebrew/bin/codex`, `/usr/local/bin/codex`, and the CLI inside the Codex app (`ChatGPT.app` or `Codex.app` in `/Applications` or `~/Applications`) |
 | Windows | The CLI the Codex app installs, `%LOCALAPPDATA%\OpenAI\Codex\bin\<version>\codex.exe` (the newest one) |
 
 ```bash
-export SKILLSHARE_CODEX_CLI=/Applications/Codex.app/Contents/Resources/codex
+export SKILLSHARE_CODEX_CLI=/Applications/ChatGPT.app/Contents/Resources/codex
 ```
 
 **Windows:**

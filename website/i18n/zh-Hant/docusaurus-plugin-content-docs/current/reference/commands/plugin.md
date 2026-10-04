@@ -223,7 +223,7 @@ Copilot 與 Antigravity CLI 的安裝使用已檢視過的本機快照。匯入�
   hook 信任。
 - Codex 會從 `PATH` 執行 `codex`。不在 `PATH` 上時，Skillshare 會依序嘗試 Homebrew 的
   `/opt/homebrew/bin` 和 `/usr/local/bin`，再來是 Codex 桌面 app 內附的 CLI
-  （macOS 的 `Codex.app`、Windows 的 `%LOCALAPPDATA%\OpenAI\Codex\bin`）。Codex 裝在其他位置的機器，
+  （macOS 的 `ChatGPT.app` 或 `Codex.app`、Windows 的 `%LOCALAPPDATA%\OpenAI\Codex\bin`）。Codex 裝在其他位置的機器，
   請設定 [`SKILLSHARE_CODEX_CLI`](/docs/reference/appendix/environment-variables#skillshare_codex_cli)。自己設了 `cli` 的帳號不會進行搜尋。
 - 此 adapter 不提供 Codex 原生的專案安裝。全域 Codex 安裝的 sync 選擇仍然可用。
 - Codex 沒有 update 指令，因此更新會以重新整理後的快照再次 add 該 plugin。add 一定會啟用它，所以在 Codex 中被停用的 plugin 會被略過。匯入的 Codex plugin 會以 `codex plugin marketplace upgrade NAME` 更新，這會重新安裝 Codex 從該 marketplace 安裝的所有 plugin，Codex 啟動時也會這麼做。

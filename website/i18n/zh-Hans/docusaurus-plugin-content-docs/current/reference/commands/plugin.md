@@ -224,7 +224,7 @@ Skillshare 从不提供原生信任的批准 flags。
   该 Agent，并在该 Agent 中完成认证或 hook trust。
 - Codex 会从 `PATH` 运行 `codex`。不在 `PATH` 上时，Skillshare 会依次尝试 Homebrew 的
   `/opt/homebrew/bin` 和 `/usr/local/bin`，再尝试 Codex 桌面 app 内置的 CLI
-  （macOS 的 `Codex.app`、Windows 的 `%LOCALAPPDATA%\OpenAI\Codex\bin`）。Codex 装在其他位置的机器，
+  （macOS 的 `ChatGPT.app` 或 `Codex.app`、Windows 的 `%LOCALAPPDATA%\OpenAI\Codex\bin`）。Codex 装在其他位置的机器，
   请设置 [`SKILLSHARE_CODEX_CLI`](/docs/reference/appendix/environment-variables#skillshare_codex_cli)。自己设置了 `cli` 的账号不会进行搜索。
 - Codex 原生 project 安装不由此适配器提供。同步选择
   对全局 Codex 安装仍然有效。

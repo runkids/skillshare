@@ -184,7 +184,7 @@ Copilot と Antigravity CLI のインストールは、reviewed されたロー�
 - ネイティブインストールは、ランタイムでの有効化を証明するものではありません。Agent を再起動/再読み込みし、その Agent 内で認証または hook trust を完了してください。
 - Codex は `PATH` の `codex` を実行します。`PATH` にない場合、Skillshare は Homebrew の
   `/opt/homebrew/bin` と `/usr/local/bin`、次に Codex デスクトップ app に同梱の CLI
-  （macOS の `Codex.app`、Windows の `%LOCALAPPDATA%\OpenAI\Codex\bin`）を順に試します。Codex が別の場所にあるマシンでは
+  （macOS の `ChatGPT.app` または `Codex.app`、Windows の `%LOCALAPPDATA%\OpenAI\Codex\bin`）を順に試します。Codex が別の場所にあるマシンでは
   [`SKILLSHARE_CODEX_CLI`](/docs/reference/appendix/environment-variables#skillshare_codex_cli) を設定してください。独自の `cli` を持つ account は検索されません。
 - Codex のネイティブな project インストールは、このアダプタでは提供されません。global の Codex インストールに対する sync 選択は引き続き機能します。
 - Codex には update コマンドがないため、update は更新後のスナップショットからプラグインを再度 add します。add は常にプラグインを有効にするため、Codex で無効化されたプラグインはスキップされます。Import した Codex プラグインは `codex plugin marketplace upgrade NAME` で更新されます。これは Codex がその marketplace からインストールしたすべてのプラグインを再インストールするもので、Codex も起動時に同じことを行います。

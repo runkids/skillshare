@@ -58,6 +58,18 @@ func TestCodexFinderFindsMacApp(t *testing.T) {
 	}
 }
 
+// Since the ChatGPT app merger the bundle is ChatGPT.app; it is tried before Codex.app.
+func TestCodexFinderFindsChatGPTApp(t *testing.T) {
+	home := t.TempDir()
+	want := filepath.Join(home, "Applications", "ChatGPT.app", "Contents", "Resources", "codex")
+	writeExe(t, want, time.Now())
+	writeExe(t, filepath.Join(home, "Applications", "Codex.app", "Contents", "Resources", "codex"), time.Now())
+	f := codexFinder{goos: "darwin", home: home, getenv: noEnv, lookPath: notOnPath}
+	if bin, _ := f.find(); bin != want {
+		t.Fatalf("bin = %q, want %q", bin, want)
+	}
+}
+
 // The Windows app keeps one folder per version it installed; the newest one runs.
 func TestCodexFinderFindsNewestWindowsApp(t *testing.T) {
 	local := t.TempDir()

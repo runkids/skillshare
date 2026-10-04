@@ -32,9 +32,16 @@ func newCodexFinder() codexFinder {
 func (f codexFinder) candidates() []string {
 	switch f.goos {
 	case "darwin":
-		paths := []string{"/opt/homebrew/bin/codex", "/usr/local/bin/codex", "/Applications/Codex.app/Contents/Resources/codex"}
+		paths := []string{"/opt/homebrew/bin/codex", "/usr/local/bin/codex"}
+		dirs := []string{"/Applications"}
 		if f.home != "" {
-			paths = append(paths, filepath.Join(f.home, "Applications", "Codex.app", "Contents", "Resources", "codex"))
+			dirs = append(dirs, filepath.Join(f.home, "Applications"))
+		}
+		// The app is ChatGPT.app since it merged with ChatGPT, Codex.app before.
+		for _, dir := range dirs {
+			for _, app := range []string{"ChatGPT.app", "Codex.app"} {
+				paths = append(paths, filepath.Join(dir, app, "Contents", "Resources", "codex"))
+			}
 		}
 		return paths
 	case "windows":

@@ -338,7 +338,7 @@ never supplies native trust approval flags.
   Agent and complete authentication or hook trust in that Agent.
 - Codex runs `codex` from `PATH`. When it is not there, Skillshare tries Homebrew's
   `/opt/homebrew/bin` and `/usr/local/bin`, then the CLI inside the Codex desktop app
-  (`Codex.app` on macOS, `%LOCALAPPDATA%\OpenAI\Codex\bin` on Windows). Set
+  (`ChatGPT.app` or `Codex.app` on macOS, `%LOCALAPPDATA%\OpenAI\Codex\bin` on Windows). Set
   [`SKILLSHARE_CODEX_CLI`](/docs/reference/appendix/environment-variables#skillshare_codex_cli)
   on a machine where Codex is elsewhere. An account with its own `cli` is not searched.
 - Codex native project installation is not provided by this adapter. Sync
