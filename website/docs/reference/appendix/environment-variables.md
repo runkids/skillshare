@@ -370,7 +370,7 @@ Without it, Skillshare runs `codex` from `PATH`, then tries these places:
 | Windows | The CLI the Codex app installs, `%LOCALAPPDATA%\OpenAI\Codex\bin\<version>\codex.exe` (the newest one) |
 
 ```bash
-export SKILLSHARE_CODEX_CLI=/Applications/ChatGPT.app/Contents/Resources/codex
+export SKILLSHARE_CODEX_CLI=/Applications/ChatGPT.app/Contents/Resources/codex-cli/bin/codex
 ```
 
 **Windows:**

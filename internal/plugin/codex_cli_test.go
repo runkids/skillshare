@@ -70,6 +70,17 @@ func TestCodexFinderFindsChatGPTApp(t *testing.T) {
 	}
 }
 
+// ChatGPT 26.924 moved the CLI to the packaged entrypoint codex-cli/bin/codex.
+func TestCodexFinderFindsPackagedEntrypoint(t *testing.T) {
+	home := t.TempDir()
+	want := filepath.Join(home, "Applications", "ChatGPT.app", "Contents", "Resources", "codex-cli", "bin", "codex")
+	writeExe(t, want, time.Now())
+	f := codexFinder{goos: "darwin", home: home, getenv: noEnv, lookPath: notOnPath}
+	if bin, _ := f.find(); bin != want {
+		t.Fatalf("bin = %q, want %q", bin, want)
+	}
+}
+
 // The Windows app keeps one folder per version it installed; the newest one runs.
 func TestCodexFinderFindsNewestWindowsApp(t *testing.T) {
 	local := t.TempDir()

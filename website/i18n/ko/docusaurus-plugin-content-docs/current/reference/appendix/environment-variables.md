@@ -370,7 +370,7 @@ $env:SKILLSHARE_GIT_TOKEN = "your_token"
 | Windows | Codex app이 설치하는 CLI: `%LOCALAPPDATA%\OpenAI\Codex\bin\<version>\codex.exe`(가장 최신 것) |
 
 ```bash
-export SKILLSHARE_CODEX_CLI=/Applications/ChatGPT.app/Contents/Resources/codex
+export SKILLSHARE_CODEX_CLI=/Applications/ChatGPT.app/Contents/Resources/codex-cli/bin/codex
 ```
 
 **Windows:**

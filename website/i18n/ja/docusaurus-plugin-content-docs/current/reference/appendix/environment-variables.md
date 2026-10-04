@@ -398,7 +398,7 @@ $env:SKILLSHARE_GIT_TOKEN = "your_token"
 | Windows | Codex app がインストールする CLI：`%LOCALAPPDATA%\OpenAI\Codex\bin\<version>\codex.exe`（最新のもの） |
 
 ```bash
-export SKILLSHARE_CODEX_CLI=/Applications/ChatGPT.app/Contents/Resources/codex
+export SKILLSHARE_CODEX_CLI=/Applications/ChatGPT.app/Contents/Resources/codex-cli/bin/codex
 ```
 
 **Windows:**

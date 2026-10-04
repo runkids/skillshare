@@ -37,10 +37,12 @@ func (f codexFinder) candidates() []string {
 		if f.home != "" {
 			dirs = append(dirs, filepath.Join(f.home, "Applications"))
 		}
-		// The app is ChatGPT.app since it merged with ChatGPT, Codex.app before.
+		// The app is ChatGPT.app since it merged with ChatGPT, Codex.app before. Since 26.924
+		// its CLI is the packaged entrypoint codex-cli/bin/codex; older builds have codex.
 		for _, dir := range dirs {
 			for _, app := range []string{"ChatGPT.app", "Codex.app"} {
-				paths = append(paths, filepath.Join(dir, app, "Contents", "Resources", "codex"))
+				resources := filepath.Join(dir, app, "Contents", "Resources")
+				paths = append(paths, filepath.Join(resources, "codex-cli", "bin", "codex"), filepath.Join(resources, "codex"))
 			}
 		}
 		return paths
