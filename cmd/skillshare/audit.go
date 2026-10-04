@@ -401,7 +401,7 @@ type auditSkillRef struct {
 func collectInstalledSkillPaths(sourcePath string, follows ...*sourcewalk.FollowSet) ([]auditSkillRef, error) {
 	// Share the operation's follow policy with both discovery and fallback groups.
 	follow := firstFollowSet(follows)
-	discovered, _, err := sync.DiscoverSourceSkillsWithOptions(sourcePath, sync.DiscoveryOptions{Follow: follow})
+	discovered, _, err := sync.DiscoverSourceSkillsLiteWithOptions(sourcePath, sync.DiscoveryOptions{Follow: follow})
 	if err != nil {
 		return nil, fmt.Errorf("failed to discover skills: %w", err)
 	}

@@ -59,7 +59,7 @@ func (s *Server) handleListSkills(w http.ResponseWriter, r *http.Request) {
 
 	// Snapshot config under RLock, then release before I/O.
 	s.mu.RLock()
-	source := s.cfg.EffectiveSkillsSource()
+	source := s.skillsSource()
 	follow := s.skillFollowSet()
 	agentsSource := s.agentsSource()
 	s.mu.RUnlock()
@@ -149,7 +149,7 @@ func (s *Server) handleListSkills(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleGetSkill(w http.ResponseWriter, r *http.Request) {
 	// Snapshot config under RLock, then release before I/O.
 	s.mu.RLock()
-	source := s.cfg.EffectiveSkillsSource()
+	source := s.skillsSource()
 	follow := s.skillFollowSet()
 	agentsSource := s.agentsSource()
 	s.mu.RUnlock()
@@ -306,7 +306,7 @@ func (s *Server) handleGetSkill(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleGetSkillFile(w http.ResponseWriter, r *http.Request) {
 	// Snapshot config under RLock, then release before I/O.
 	s.mu.RLock()
-	source := s.cfg.EffectiveSkillsSource()
+	source := s.skillsSource()
 	follow := s.skillFollowSet()
 	s.mu.RUnlock()
 

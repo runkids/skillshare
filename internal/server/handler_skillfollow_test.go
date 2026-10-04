@@ -180,6 +180,26 @@ func TestServerSkillfollowProjectPolicy(t *testing.T) {
 	}
 }
 
+// The project dashboard discovers through the project source, which is also
+// what its follow set is bound to, even when the global config points elsewhere.
+func TestServerSkillfollowProjectSourceDiffersFromGlobal(t *testing.T) {
+	s, source, _ := skillfollowServerFixture(t)
+	root := t.TempDir()
+	pcfg := &config.ProjectConfig{Sources: config.ProjectSources{Skills: source}}
+	if err := pcfg.Save(root); err != nil {
+		t.Fatal(err)
+	}
+	global := *s.cfg
+	global.Source = t.TempDir()
+	global.Sources.Skills = global.Source
+	s = NewProject(&global, pcfg, root, "127.0.0.1:0", "", "")
+	rr := httptest.NewRecorder()
+	s.handler.ServeHTTP(rr, httptest.NewRequest(http.MethodGet, "/api/resources", nil))
+	if rr.Code != 200 || !strings.Contains(rr.Body.String(), "_repo/a") {
+		t.Fatalf("project dashboard did not follow the project source: %d %s", rr.Code, rr.Body.String())
+	}
+}
+
 // Dashboard sync and targets on the matrix layout with one merge target: the
 // unavailable declarations pause prune as in the CLI, and synced followed skills
 // count as linked, including one whose link text is the resolved target.
