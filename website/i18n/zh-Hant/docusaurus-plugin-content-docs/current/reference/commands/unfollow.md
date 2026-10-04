@@ -54,6 +54,9 @@ $ skillshare unfollow _team-skills --keep-link
   _team-skills  link kept: --keep-link
   .gitignore    kept /_team-skills
 
+Next
+  skillshare sync  prune the entry's managed links
+
 # 已 commit 的檔案仍然宣告它
 $ skillshare unfollow _team-skills --local
 ✓ _team-skills  removed from .skillfollow.local
@@ -86,7 +89,7 @@ skillshare unfollow _team-skills --json
 }
 ```
 
-連結被保留時，`link_kept` 會說明原因。失敗時會印出 `{"error": "..."}` 並以狀態碼 1 結束。
+連結被保留時，`link_kept` 會說明原因。失敗時會印出 `{"error": "..."}` 並以狀態碼 1 結束。參數錯誤（例如未知的 flag 或缺少名稱）即使加上 `--json` 也會印出純文字。
 
 ## See Also
 

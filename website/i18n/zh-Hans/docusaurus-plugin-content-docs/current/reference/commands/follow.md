@@ -72,12 +72,18 @@ $ skillshare follow out --to ~/.claude
 ✓ .gitignore  added /out
 ! out         target-overlap — target overlaps active skills target /home/me/.claude/skills
 
+Next
+  skillshare sync  apply the change
+
 # 链接已被 Git 跟踪
 $ skillshare follow _dev
 ✓ _dev        added to .skillfollow
 ✓ .gitignore  added /_dev
 ! _dev        indexed in Git; run git -C '/home/me/.config/skillshare/skills' rm --cached -- '_dev'
 ✓ _dev        followed — following directory
+
+Next
+  skillshare sync  apply the change
 ```
 
 被拒绝的 entry 仍保持声明状态，并会暂停 target 清理，直到你修复它或运行 [`unfollow`](./unfollow.md)。参见 [状态与恢复](../skillfollow.md#states)。
@@ -104,7 +110,7 @@ skillshare follow _team-skills --json
 }
 ```
 
-指定 `--to` 时会出现 `link_target`，链接已被 Git 跟踪时会出现 `untrack_command`。失败时打印 `{"error": "..."}` 并以状态码 1 退出。
+指定 `--to` 时会出现 `link_target`，链接已被 Git 跟踪时会出现 `untrack_command`。失败时打印 `{"error": "..."}` 并以状态码 1 退出。参数错误（如未知 flag 或缺少名称）即使使用 `--json` 也打印纯文本。
 
 ## 另请参阅
 

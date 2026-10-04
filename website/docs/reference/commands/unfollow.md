@@ -54,6 +54,9 @@ $ skillshare unfollow _team-skills --keep-link
   _team-skills  link kept: --keep-link
   .gitignore    kept /_team-skills
 
+Next
+  skillshare sync  prune the entry's managed links
+
 # The committed file still declares it
 $ skillshare unfollow _team-skills --local
 ✓ _team-skills  removed from .skillfollow.local
@@ -86,7 +89,7 @@ skillshare unfollow _team-skills --json
 }
 ```
 
-`link_kept` gives the reason when the link stays. A failure prints `{"error": "..."}` and exits with status 1.
+`link_kept` gives the reason when the link stays. A failure prints `{"error": "..."}` and exits with status 1. An argument error, such as an unknown flag or a missing name, prints plain text even with `--json`.
 
 ## See Also
 

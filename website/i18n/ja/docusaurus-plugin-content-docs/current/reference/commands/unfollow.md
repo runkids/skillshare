@@ -54,6 +54,9 @@ $ skillshare unfollow _team-skills --keep-link
   _team-skills  link kept: --keep-link
   .gitignore    kept /_team-skills
 
+Next
+  skillshare sync  prune the entry's managed links
+
 # コミット済みのファイルがまだ宣言している
 $ skillshare unfollow _team-skills --local
 ✓ _team-skills  removed from .skillfollow.local
@@ -86,7 +89,7 @@ skillshare unfollow _team-skills --json
 }
 ```
 
-リンクを残した場合、`link_kept` に理由が入ります。失敗すると `{"error": "..."}` を表示し、ステータス 1 で終了します。
+リンクを残した場合、`link_kept` に理由が入ります。失敗すると `{"error": "..."}` を表示し、ステータス 1 で終了します。不明なフラグや名前の欠落などの引数エラーは、`--json` を付けてもプレーンテキストで表示されます。
 
 ## 関連項目
 

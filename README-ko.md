@@ -195,15 +195,16 @@ skillshare sync
 
 **검색 설정 파일** — `.skillignore`로 숨기고 `.skillfollow`로 외부 그룹 읽기（실험적）
 
-설정된 skills source 루트에서 `.skillignore`는 일치하는 skills를 숨깁니다. 외부 다중 skill 저장소를 옮기지 않고 쓰려면 첫 번째 계층 링크를 만드세요（macOS/Linux 예）：
+설정된 skills source 루트에서 `.skillignore`는 일치하는 skills를 숨깁니다. 외부 다중 skill 저장소를 옮기지 않고 쓰려면 첫 번째 계층 항목으로 follow하세요：
 
 ```bash
-ln -s "$HOME/work/team-skills" "$HOME/.config/skillshare/skills/_team-skills"
+skillshare follow _team-skills --to "$HOME/work/team-skills"
+skillshare unfollow _team-skills
 ```
 
-`<source>/.skillfollow`에 `_team-skills`를 한 줄로 쓰고 `<source>/.gitignore`에 `/_team-skills`와 `/.skillfollow.local`을 추가하세요（끝에 `/` 없음）. 이미 index에 있으면 source에서 `git rm --cached -- '_team-skills'`를 실행하세요. `.skillfollow.local`은 머신별 이름을 추가합니다. 두 파일은 직접 자식 이름만 허용하며 경로, glob, 부정은 허용하지 않습니다. 빈 줄과 `#` 주석은 허용하고 중복은 합칩니다. 외부 루트는 그룹/repo여야 하며 자체 `SKILL.md`는 없어야 합니다. `-p`에서는 프로젝트 skills source를 사용합니다.
+`follow --to`는 링크（Windows에서는 junction）를 만들고 `.skillfollow`에 선언하며, Git source에서는 ignore 줄도 추가합니다. `unfollow`는 선언과 링크를 제거하고 대상은 건드리지 않습니다. 직접 설정하려면 `ln -s "$HOME/work/team-skills" "$HOME/.config/skillshare/skills/_team-skills"`를 실행하고（macOS/Linux）, `<source>/.skillfollow`에 `_team-skills`를 한 줄로 쓰고 `<source>/.gitignore`에 `/_team-skills`와 `/.skillfollow.local`을 추가하세요（끝에 `/` 없음）. 이미 index에 있으면 source에서 `git rm --cached -- '_team-skills'`를 실행하세요. `.skillfollow.local`은 머신별 이름을 추가합니다. 두 파일은 직접 자식 이름만 허용하며 경로, glob, 부정은 허용하지 않습니다. 빈 줄과 `#` 주석은 허용하고 중복은 합칩니다. 외부 루트는 그룹/repo여야 하며 자체 `SKILL.md`는 없어야 합니다. `-p`에서는 프로젝트 skills source를 사용합니다.
 
-`skillshare doctor`, `skillshare sync --dry-run`, `skillshare sync` 순서로 확인하세요. 선언하지 않은 링크는 계속 보이지 않으며 중첩 링크는 따라가지 않습니다. 사용할 수 없는 선언은 force로도 prune을 일시 중지합니다. 복구하거나 두 파일에서 제거하세요. Followed repo 업데이트에는 깨끗한 트리와 fast-forward가 필요하고 `--force`는 거부하지만 audit 실패 시 hard-reset은 유지됩니다. 업데이트 중 repo를 편집하지 마세요. Dashboard는 읽을 수 있지만 트리를 통한 쓰기는 거부합니다. 실제 Windows junction 런타임 검증은 아직 완료되지 않았습니다.
+`skillshare doctor`, `skillshare sync --dry-run`, `skillshare sync` 순서로 확인하세요. 선언하지 않은 링크는 계속 보이지 않으며 중첩 링크는 따라가지 않습니다. 사용할 수 없는 선언은 force로도 prune을 일시 중지합니다. 복구하거나 두 파일에서 제거하세요. Followed repo 업데이트에는 깨끗한 트리와 fast-forward가 필요하고 `--force`는 거부하지만 audit 실패 시 hard-reset은 유지됩니다. 업데이트 중 repo를 편집하지 마세요. Dashboard는 읽을 수 있지만 트리를 통한 쓰기는 거부합니다. Windows 11 ARM64에서는 global 모드 junction 사례가 `scripts/windows/e2e-skillfollow.ps1`로 검증되었습니다. `follow --to` junction과 대소문자를 구분하지 않는 이름은 아직 실제 Windows에서 실행하지 않았습니다.
 
 [설정, 엄격한 이름 규칙, 모든 doctor 상태 및 Git 복구 →](https://skillshare.runkids.cc/ko/docs/reference/skillfollow)
 

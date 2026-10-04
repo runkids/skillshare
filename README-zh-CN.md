@@ -195,15 +195,16 @@ skillshare sync
 
 **发现配置文件** — 用 `.skillignore` 隐藏 skills；用 `.skillfollow` 纳入外部组（实验性）
 
-在配置的 skills source 根目录，`.skillignore` 隐藏匹配规则的 skills。要保留外部多 skill repo 的位置，可创建第一层链接（macOS/Linux 示例）：
+在配置的 skills source 根目录，`.skillignore` 隐藏匹配规则的 skills。要保留外部多 skill repo 的位置，可将其作为第一层项目 follow：
 
 ```bash
-ln -s "$HOME/work/team-skills" "$HOME/.config/skillshare/skills/_team-skills"
+skillshare follow _team-skills --to "$HOME/work/team-skills"
+skillshare unfollow _team-skills
 ```
 
-在 `<source>/.skillfollow` 单独一行写入 `_team-skills`，并在 `<source>/.gitignore` 加入 `/_team-skills`、`/.skillfollow.local`（不加末尾斜杠）。若已纳入 index，在 source 执行 `git rm --cached -- '_team-skills'`。`.skillfollow.local` 加入本机名称；两文件只接受直接子项名称，不接受路径、glob 或否定规则。空行与 `#` 注释可用，重复名称合并。外部根目录须为组/repo，本身不能含 `SKILL.md`。`-p` 使用项目 skills source。
+`follow --to` 创建链接（Windows 上为 junction）、在 `.skillfollow` 中声明，并在 Git source 中加入 ignore 行；`unfollow` 移除声明与链接，不碰目标。如要手动设置，执行 `ln -s "$HOME/work/team-skills" "$HOME/.config/skillshare/skills/_team-skills"`（macOS/Linux），再在 `<source>/.skillfollow` 单独一行写入 `_team-skills`，并在 `<source>/.gitignore` 加入 `/_team-skills`、`/.skillfollow.local`（不加末尾斜杠）。若已纳入 index，在 source 执行 `git rm --cached -- '_team-skills'`。`.skillfollow.local` 加入本机名称；两文件只接受直接子项名称，不接受路径、glob 或否定规则。空行与 `#` 注释可用，重复名称合并。外部根目录须为组/repo，本身不能含 `SKILL.md`。`-p` 使用项目 skills source。
 
-先执行 `skillshare doctor`，再执行 `skillshare sync --dry-run` 与 `skillshare sync`。未声明链接仍不可见，嵌套链接不跟随。不可用声明会暂停 prune，force 也不例外；修复它或从两文件移除。Followed repo 更新要求干净且可 fast-forward，拒绝 `--force`，但 audit 失败仍会 hard-reset。更新期间不要编辑 repo。Dashboard 可读取，但拒绝通过该树写入。真实 Windows junction 运行验证尚待完成。
+先执行 `skillshare doctor`，再执行 `skillshare sync --dry-run` 与 `skillshare sync`。未声明链接仍不可见，嵌套链接不跟随。不可用声明会暂停 prune，force 也不例外；修复它或从两文件移除。Followed repo 更新要求干净且可 fast-forward，拒绝 `--force`，但 audit 失败仍会 hard-reset。更新期间不要编辑 repo。Dashboard 可读取，但拒绝通过该树写入。在 Windows 11 ARM64 上，global 模式的 junction 案例已通过 `scripts/windows/e2e-skillfollow.ps1` 验证；`follow --to` 的 junction 与不区分大小写的名称尚未在真实 Windows 上运行。
 
 [设置、严格名称规则、所有 doctor 状态与 Git 恢复 →](https://skillshare.runkids.cc/zh-Hans/docs/reference/skillfollow)
 

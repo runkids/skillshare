@@ -72,12 +72,18 @@ $ skillshare follow out --to ~/.claude
 ✓ .gitignore  added /out
 ! out         target-overlap — target overlaps active skills target /home/me/.claude/skills
 
+Next
+  skillshare sync  apply the change
+
 # The link is already tracked by Git
 $ skillshare follow _dev
 ✓ _dev        added to .skillfollow
 ✓ .gitignore  added /_dev
 ! _dev        indexed in Git; run git -C '/home/me/.config/skillshare/skills' rm --cached -- '_dev'
 ✓ _dev        followed — following directory
+
+Next
+  skillshare sync  apply the change
 ```
 
 거부된 entry는 선언된 채로 남아 있으며, 고치거나 [`unfollow`](./unfollow.md)를 실행할 때까지 target 정리를 일시 중지합니다. [States and recovery](../skillfollow.md#states)를 참고하세요.
@@ -104,7 +110,7 @@ skillshare follow _team-skills --json
 }
 ```
 
-`--to`를 지정하면 `link_target`이, 링크가 Git에 추적되고 있으면 `untrack_command`가 나타납니다. 실패하면 `{"error": "..."}`를 출력하고 상태 코드 1로 종료합니다.
+`--to`를 지정하면 `link_target`이, 링크가 Git에 추적되고 있으면 `untrack_command`가 나타납니다. 실패하면 `{"error": "..."}`를 출력하고 상태 코드 1로 종료합니다. 알 수 없는 플래그나 이름 누락 같은 인수 오류는 `--json`을 지정해도 일반 텍스트로 출력됩니다.
 
 ## 참고 항목
 

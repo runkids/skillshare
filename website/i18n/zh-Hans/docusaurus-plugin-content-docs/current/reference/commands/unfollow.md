@@ -54,6 +54,9 @@ $ skillshare unfollow _team-skills --keep-link
   _team-skills  link kept: --keep-link
   .gitignore    kept /_team-skills
 
+Next
+  skillshare sync  prune the entry's managed links
+
 # 已提交的文件仍然声明它
 $ skillshare unfollow _team-skills --local
 ✓ _team-skills  removed from .skillfollow.local
@@ -86,7 +89,7 @@ skillshare unfollow _team-skills --json
 }
 ```
 
-链接被保留时，`link_kept` 给出原因。失败时打印 `{"error": "..."}` 并以状态码 1 退出。
+链接被保留时，`link_kept` 给出原因。失败时打印 `{"error": "..."}` 并以状态码 1 退出。参数错误（如未知 flag 或缺少名称）即使使用 `--json` 也打印纯文本。
 
 ## 另请参阅
 

@@ -54,6 +54,9 @@ $ skillshare unfollow _team-skills --keep-link
   _team-skills  link kept: --keep-link
   .gitignore    kept /_team-skills
 
+Next
+  skillshare sync  prune the entry's managed links
+
 # The committed file still declares it
 $ skillshare unfollow _team-skills --local
 ✓ _team-skills  removed from .skillfollow.local
@@ -86,7 +89,7 @@ skillshare unfollow _team-skills --json
 }
 ```
 
-링크를 유지한 경우 `link_kept`에 이유가 들어갑니다. 실패하면 `{"error": "..."}`를 출력하고 상태 코드 1로 종료합니다.
+링크를 유지한 경우 `link_kept`에 이유가 들어갑니다. 실패하면 `{"error": "..."}`를 출력하고 상태 코드 1로 종료합니다. 알 수 없는 플래그나 이름 누락 같은 인수 오류는 `--json`을 지정해도 일반 텍스트로 출력됩니다.
 
 ## 참고 항목
 

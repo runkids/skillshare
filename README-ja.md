@@ -195,15 +195,16 @@ skillshare sync
 
 **Discovery 設定ファイル** — `.skillignore` で非表示、`.skillfollow` で外部グループを読み込む（実験的）
 
-設定された skills source のルートで、`.skillignore` は一致する skills を非表示にします。外部の複数 skill リポジトリを移動せず使うには、第一階層のリンクを作成します（macOS/Linux の例）：
+設定された skills source のルートで、`.skillignore` は一致する skills を非表示にします。外部の複数 skill リポジトリを移動せず使うには、第一階層の項目として follow します：
 
 ```bash
-ln -s "$HOME/work/team-skills" "$HOME/.config/skillshare/skills/_team-skills"
+skillshare follow _team-skills --to "$HOME/work/team-skills"
+skillshare unfollow _team-skills
 ```
 
-`<source>/.skillfollow` に `_team-skills` を一行で記入し、`<source>/.gitignore` に `/_team-skills` と `/.skillfollow.local` を追加します（末尾の `/` なし）。index 登録済みなら source で `git rm --cached -- '_team-skills'` を実行します。`.skillfollow.local` はマシン固有の名前を追加します。両ファイルは直接の子の名前のみで、パス、glob、否定は不可。空行と `#` コメントは使え、重複は統合されます。外部ルートはグループ/repo で、ルート自体に `SKILL.md` を置けません。`-p` では project の skills source を使います。
+`follow --to` はリンク（Windows では junction）を作成して `.skillfollow` に宣言し、Git の source では ignore 行も追加します。`unfollow` は宣言とリンクを削除し、リンク先には触れません。手動で設定する場合は `ln -s "$HOME/work/team-skills" "$HOME/.config/skillshare/skills/_team-skills"` を実行し（macOS/Linux）、`<source>/.skillfollow` に `_team-skills` を一行で記入し、`<source>/.gitignore` に `/_team-skills` と `/.skillfollow.local` を追加します（末尾の `/` なし）。index 登録済みなら source で `git rm --cached -- '_team-skills'` を実行します。`.skillfollow.local` はマシン固有の名前を追加します。両ファイルは直接の子の名前のみで、パス、glob、否定は不可。空行と `#` コメントは使え、重複は統合されます。外部ルートはグループ/repo で、ルート自体に `SKILL.md` を置けません。`-p` では project の skills source を使います。
 
-`skillshare doctor`、`skillshare sync --dry-run`、`skillshare sync` の順で確認します。未宣言リンクは非表示のままで、入れ子のリンクはたどりません。利用不能な宣言は force でも prune を一時停止します。修復するか両ファイルから削除してください。Followed repo の更新は clean なツリーと fast-forward が必要で、`--force` は拒否されますが、audit 失敗時の hard-reset は残ります。更新中は repo を編集しないでください。Dashboard は読み取り可能ですが、ツリーを通した書き込みは拒否します。実際の Windows junction 実行検証は未完了です。
+`skillshare doctor`、`skillshare sync --dry-run`、`skillshare sync` の順で確認します。未宣言リンクは非表示のままで、入れ子のリンクはたどりません。利用不能な宣言は force でも prune を一時停止します。修復するか両ファイルから削除してください。Followed repo の更新は clean なツリーと fast-forward が必要で、`--force` は拒否されますが、audit 失敗時の hard-reset は残ります。更新中は repo を編集しないでください。Dashboard は読み取り可能ですが、ツリーを通した書き込みは拒否します。Windows 11 ARM64 では global モードの junction ケースが `scripts/windows/e2e-skillfollow.ps1` で検証済みです。`follow --to` の junction と大文字小文字を区別しない名前は、実機の Windows ではまだ実行していません。
 
 [設定、厳密な名前規則、doctor の全状態と Git 復旧 →](https://skillshare.runkids.cc/ja/docs/reference/skillfollow)
 

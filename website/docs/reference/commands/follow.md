@@ -72,12 +72,18 @@ $ skillshare follow out --to ~/.claude
 ✓ .gitignore  added /out
 ! out         target-overlap — target overlaps active skills target /home/me/.claude/skills
 
+Next
+  skillshare sync  apply the change
+
 # The link is already tracked by Git
 $ skillshare follow _dev
 ✓ _dev        added to .skillfollow
 ✓ .gitignore  added /_dev
 ! _dev        indexed in Git; run git -C '/home/me/.config/skillshare/skills' rm --cached -- '_dev'
 ✓ _dev        followed — following directory
+
+Next
+  skillshare sync  apply the change
 ```
 
 A rejected entry stays declared and pauses target cleanup until you fix it or run [`unfollow`](./unfollow.md). See [States and recovery](../skillfollow.md#states).
@@ -104,7 +110,7 @@ skillshare follow _team-skills --json
 }
 ```
 
-`link_target` appears when `--to` was given, and `untrack_command` when the link is indexed. A failure prints `{"error": "..."}` and exits with status 1.
+`link_target` appears when `--to` was given, and `untrack_command` when the link is indexed. A failure prints `{"error": "..."}` and exits with status 1. An argument error, such as an unknown flag or a missing name, prints plain text even with `--json`.
 
 ## See Also
 

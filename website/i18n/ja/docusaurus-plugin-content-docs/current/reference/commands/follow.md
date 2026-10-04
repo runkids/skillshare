@@ -72,12 +72,18 @@ $ skillshare follow out --to ~/.claude
 ✓ .gitignore  added /out
 ! out         target-overlap — target overlaps active skills target /home/me/.claude/skills
 
+Next
+  skillshare sync  apply the change
+
 # リンクがすでに Git に追跡されている
 $ skillshare follow _dev
 ✓ _dev        added to .skillfollow
 ✓ .gitignore  added /_dev
 ! _dev        indexed in Git; run git -C '/home/me/.config/skillshare/skills' rm --cached -- '_dev'
 ✓ _dev        followed — following directory
+
+Next
+  skillshare sync  apply the change
 ```
 
 拒否された entry は宣言されたまま残り、修正するか [`unfollow`](./unfollow.md) を実行するまで target のクリーンアップを一時停止します。[状態と復旧](../skillfollow.md#states) を参照してください。
@@ -104,7 +110,7 @@ skillshare follow _team-skills --json
 }
 ```
 
-`--to` を指定した場合は `link_target` が、リンクが Git に追跡されている場合は `untrack_command` が含まれます。失敗すると `{"error": "..."}` を表示し、ステータス 1 で終了します。
+`--to` を指定した場合は `link_target` が、リンクが Git に追跡されている場合は `untrack_command` が含まれます。失敗すると `{"error": "..."}` を表示し、ステータス 1 で終了します。不明なフラグや名前の欠落などの引数エラーは、`--json` を付けてもプレーンテキストで表示されます。
 
 ## 関連項目
 

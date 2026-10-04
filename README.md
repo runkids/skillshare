@@ -196,15 +196,16 @@ skillshare sync
 
 **Discovery files** —hide skills with `.skillignore`; opt in to external groups with `.skillfollow` (experimental)
 
-At the configured skills source root, `.skillignore` hides matching skills from discovery. To read an external multi-skill repository without moving it, create a first-level link (macOS/Linux example):
+At the configured skills source root, `.skillignore` hides matching skills from discovery. To read an external multi-skill repository without moving it, follow it as a first-level entry:
 
 ```bash
-ln -s "$HOME/work/team-skills" "$HOME/.config/skillshare/skills/_team-skills"
+skillshare follow _team-skills --to "$HOME/work/team-skills"
+skillshare unfollow _team-skills
 ```
 
-Put `_team-skills` on its own line in `<source>/.skillfollow`, and add `/_team-skills` and `/.skillfollow.local` to `<source>/.gitignore` (no trailing slash). If indexed, run `git rm --cached -- '_team-skills'` from the source. `.skillfollow.local` adds machine-local names; both files use direct child names, not paths, globs, or negation. Blank lines and `#` comments are allowed; duplicates collapse. The external root must be a group/repository, not contain `SKILL.md` itself. Use the project skills source for `-p`.
+`follow --to` creates the link (a junction on Windows), declares it in `.skillfollow`, and in a Git source adds its ignore line; `unfollow` removes the declaration and the link, never the target. To set it up by hand instead, run `ln -s "$HOME/work/team-skills" "$HOME/.config/skillshare/skills/_team-skills"` (macOS/Linux), put `_team-skills` on its own line in `<source>/.skillfollow`, and add `/_team-skills` and `/.skillfollow.local` to `<source>/.gitignore` (no trailing slash). If indexed, run `git rm --cached -- '_team-skills'` from the source. `.skillfollow.local` adds machine-local names; both files use direct child names, not paths, globs, or negation. Blank lines and `#` comments are allowed; duplicates collapse. The external root must be a group/repository, not contain `SKILL.md` itself. Use the project skills source for `-p`.
 
-Run `skillshare doctor`, then `skillshare sync --dry-run` and `skillshare sync`. Undeclared links remain invisible; nested links are not followed. An unavailable declaration pauses prune even with force; restore/fix it or remove it from both files. Followed repo updates require a clean tree and fast-forward history, refuse `--force`, and still hard-reset on audit failure. Do not edit the repo during update. Dashboard reads work, but writes through the tree are refused. Real Windows junction runtime verification remains pending.
+Run `skillshare doctor`, then `skillshare sync --dry-run` and `skillshare sync`. Undeclared links remain invisible; nested links are not followed. An unavailable declaration pauses prune even with force; restore/fix it or remove it from both files. Followed repo updates require a clean tree and fast-forward history, refuse `--force`, and still hard-reset on audit failure. Do not edit the repo during update. Dashboard reads work, but writes through the tree are refused. On Windows 11 ARM64, the global-mode junction cases pass `scripts/windows/e2e-skillfollow.ps1`; the `follow --to` junction and case-insensitive names have not run on a real Windows machine yet.
 
 [Setup, strict-name rules, every doctor state, and Git recovery →](https://skillshare.runkids.cc/docs/reference/skillfollow)
 

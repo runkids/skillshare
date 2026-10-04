@@ -61,7 +61,7 @@ these writes are refused with the read error.
 | `target-overlap` | Separate external input from enabled skills outputs |
 | `inside-git-root` | Move external target outside effective staging tree |
 | `entry-overlap` | Remove/repoint overlapping declarations; both are rejected |
-| `single-skill` | Unsupported until the next rollout; use a containing group |
+| `single-skill` | Not supported yet; use a containing group |
 | `followed` | Ready |
 | `undeclared-link` | Leave invisible or `follow <name>`; info only |
 
@@ -145,10 +145,10 @@ commands; unrelated agents/extras Git scopes are not automatically blocked.
 
 Single-skill entries are future work. Windows 11 ARM64
 (Developer Mode off) has verified global-mode discovery, status, sync, prune
-pause/resume, pruning after a hand-removed declaration, `.skillfollow.local`, and
-`invalid-target` with followed junctions (admin and basic-user tokens) and
-directory symlinks (admin token). Project-mode relative links, Developer Mode
-relative symlinks, a linked source root or target parent, the dashboard,
+pause/resume, update refusal, pruning after a hand-removed declaration,
+`.skillfollow.local`, and `invalid-target` with followed junctions (admin and
+basic-user tokens) and directory symlinks (admin token). Project-mode relative
+links, Developer Mode relative symlinks, a linked source root or target parent, the dashboard,
 `follow`/`unfollow` (including the `--to` junction), and case-insensitive name
 matching are not verified on Windows.
 
