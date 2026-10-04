@@ -26,6 +26,20 @@ func TestCountLinkedAgents_CountsFallbackCopiesAsCopyMode(t *testing.T) {
 	}
 }
 
+func TestCountLinkedAgents_IgnoresLinksOutsideExpected(t *testing.T) {
+	src, tgt := t.TempDir(), t.TempDir()
+	os.WriteFile(filepath.Join(src, "reviewer.md"), []byte("# Reviewer"), 0644)
+	// A link left for an agent the target no longer syncs, and nothing for tutor.
+	if err := os.Symlink(filepath.Join(src, "reviewer.md"), filepath.Join(tgt, "reviewer.md")); err != nil {
+		t.Skip("symlinks unavailable")
+	}
+	expected := []resource.DiscoveredResource{{FlatName: "tutor.md", AbsPath: filepath.Join(src, "tutor.md")}}
+
+	if n := countLinkedAgents(config.ResourceTargetConfig{}, tgt, expected); n != 0 {
+		t.Errorf("linked = %d, want 0 (reviewer link is not an expected agent)", n)
+	}
+}
+
 func TestAgentStatusPreservedFallbackCopy(t *testing.T) {
 	t.Cleanup(sync.SetFileLinksForTest(false))
 	src, tgt := t.TempDir(), t.TempDir()

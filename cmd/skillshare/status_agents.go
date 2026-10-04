@@ -48,17 +48,34 @@ func buildAgentStatusJSON(cfg *config.Config) *statusJSONAgents {
 			continue
 		}
 
-		linked := countLinkedAgents(target.AgentsConfig(), agentPath, agents)
+		ac := target.AgentsConfig()
+		expected, err := expectedAgentsForTarget(ac, name, agents)
+		if err != nil {
+			expected = resource.ActiveAgents(agents) // invalid include/exclude: keep .agentignore at least
+		}
+		linked := countLinkedAgents(ac, agentPath, expected)
 		result.Targets = append(result.Targets, statusJSONAgentTarget{
 			Name:     name,
 			Path:     agentPath,
-			Expected: len(agents),
+			Expected: len(expected),
 			Linked:   linked,
-			Drift:    linked != len(agents) && len(agents) > 0,
+			Drift:    linked != len(expected) && len(expected) > 0,
 		})
 	}
 
 	return result
+}
+
+// expectedAgentsForTarget applies the filters sync agents applies before
+// writing to a target: .agentignore (ActiveAgents), the target's
+// include/exclude, and the agents' frontmatter targets. status counts and
+// expects only these, so a target that leaves some agents out is not drift.
+func expectedAgentsForTarget(ac config.ResourceTargetConfig, targetName string, agents []resource.DiscoveredResource) ([]resource.DiscoveredResource, error) {
+	filtered, err := sync.FilterAgents(resource.ActiveAgents(agents), ac.Include, ac.Exclude)
+	if err != nil {
+		return nil, fmt.Errorf("target %s has invalid agent include/exclude config: %w", targetName, err)
+	}
+	return sync.FilterAgentsByTarget(filtered, targetName), nil
 }
 
 // countLinkedAgents counts healthy .md symlinks in the target agent directory,
@@ -68,7 +85,7 @@ func countLinkedAgents(ac config.ResourceTargetConfig, targetDir string, agents 
 	if ac.Extension != "" {
 		return sync.SyncedExtensionOutputs(targetDir, agents)
 	}
-	linked, _ := countAgentLinksAndBroken(targetDir)
+	linked, _ := countAgentLinksAndBroken(targetDir, agents)
 	return linked + sync.SyncedAgentCopies(targetDir, agents, preserved...)
 }
 

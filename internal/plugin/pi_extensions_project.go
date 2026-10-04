@@ -89,6 +89,12 @@ func (s *Service) piProjectState(ctx context.Context, target string) (*piProject
 		rows    []piRowState
 		problem string
 	}
+	managed, globalManaged := s.piManaged(target), s.piManaged(target)
+	if s.GlobalConfigPath != "" {
+		global := *s
+		global.ConfigPath = s.GlobalConfigPath
+		globalManaged = global.piManaged(target)
+	}
 	globals := map[string]*globalPkg{}
 	globalOrder := []*globalPkg{}
 	unresolvedGlobal := false
@@ -141,12 +147,20 @@ func (s *Service) piProjectState(ctx context.Context, target string) (*piProject
 		if e.hasRules {
 			pkg.Rules = e.rules
 		}
+		src := resolvePiSource(e.source, agentDir, projectDir, "project")
+		if !e.badSource {
+			// An override of a global package keeps the owner of that package.
+			pkg.ManagedBy = piManagedBy(managed, e.source, src)
+			if pkg.ManagedBy == "" {
+				pkg.ManagedBy = piManagedBy(globalManaged, e.source, src)
+			}
+		}
 		if e.problem != "" {
 			pkg.Problem = e.problem
 			v.Packages = append(v.Packages, pkg)
 			continue
 		}
-		id := resolvePiSource(e.source, agentDir, projectDir, "project").identity
+		id := src.identity
 		pkg.Identity = redactSource(id)
 		if id != "" && lastProject[id] != e.index {
 			pkg.Problem = "duplicate"
@@ -167,7 +181,7 @@ func (s *Service) piProjectState(ctx context.Context, target string) (*piProject
 		switch {
 		case e.autoloadFalse && g != nil:
 			pkg.Shape = "delta"
-			pkg.Kind, pkg.Install, pkg.Problem = g.pkg.src.kind, g.pkg.install, g.problem
+			pkg.Kind, pkg.Install, pkg.Version, pkg.Problem = g.pkg.src.kind, g.pkg.install, g.pkg.version, g.problem
 			pkg.ReadOnly = g.pkg.readOnly(true)
 			if g.problem == "" {
 				states := piDeltaStates(e.rules, g.pkg, g.rows, true)
@@ -179,7 +193,7 @@ func (s *Service) piProjectState(ctx context.Context, target string) (*piProject
 			// With no global entry to inherit from, Pi loads only the paths it names.
 			pkg.Shape = "deltaOnly"
 			p := openPiPackage(e.source, agentDir, projectDir, "project")
-			pkg.Kind, pkg.Install, pkg.Problem = p.src.kind, p.install, p.problem
+			pkg.Kind, pkg.Install, pkg.Version, pkg.Problem = p.src.kind, p.install, p.version, p.problem
 			pkg.ReadOnly = p.readOnly(true)
 			if p.problem == "" {
 				pkg.Rows = piDeltaRows(piDeltaStates(e.rules, p, nil, false), v.Editable && pkg.ReadOnly == "")
@@ -192,7 +206,7 @@ func (s *Service) piProjectState(ctx context.Context, target string) (*piProject
 				pkg.Shape = "replaces"
 			}
 			p := openPiPackage(e.source, agentDir, projectDir, "project")
-			pkg.Kind, pkg.Install, pkg.Problem = p.src.kind, p.install, p.problem
+			pkg.Kind, pkg.Install, pkg.Version, pkg.Problem = p.src.kind, p.install, p.version, p.problem
 			pkg.ReadOnly = p.readOnly(e.object)
 			if p.problem == "" {
 				editable := v.Editable && pkg.ReadOnly == ""
@@ -210,13 +224,14 @@ func (s *Service) piProjectState(ctx context.Context, target string) (*piProject
 		if id != "" && shadowed[id] {
 			continue
 		}
-		pkg := PiExtensionPackage{Index: g.entry.index, Source: redactSource(g.entry.source), Identity: redactSource(id), Kind: g.pkg.src.kind, Form: "string", Scope: "global", Shape: "global", Install: g.pkg.install, Problem: g.problem, OtherKeys: g.entry.otherKeys(), Rows: []PiExtensionRow{}}
+		pkg := PiExtensionPackage{Index: g.entry.index, Source: redactSource(g.entry.source), Identity: redactSource(id), Kind: g.pkg.src.kind, Form: "string", Scope: "global", Shape: "global", Install: g.pkg.install, Version: g.pkg.version, Problem: g.problem, OtherKeys: g.entry.otherKeys(), Rows: []PiExtensionRow{}}
 		if g.entry.object {
 			pkg.Form = "object"
 		}
 		if g.entry.hasRules {
 			pkg.Rules = g.entry.rules
 		}
+		pkg.ManagedBy = piManagedBy(globalManaged, g.entry.source, g.pkg.src)
 		reference, readOnly := piOverrideReference(g.entry.source, g.pkg, agentDir, projectDir)
 		pkg.ReadOnly = readOnly
 		for _, r := range g.rows {

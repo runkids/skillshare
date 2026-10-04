@@ -52,7 +52,7 @@ func TestCodexFinderFindsMacApp(t *testing.T) {
 	home := t.TempDir()
 	want := filepath.Join(home, "Applications", "Codex.app", "Contents", "Resources", "codex")
 	writeExe(t, want, time.Now())
-	f := codexFinder{goos: "darwin", home: home, getenv: noEnv, lookPath: notOnPath}
+	f := codexFinder{goos: "darwin", root: t.TempDir(), home: home, getenv: noEnv, lookPath: notOnPath}
 	if bin, _ := f.find(); bin != want {
 		t.Fatalf("bin = %q, want %q", bin, want)
 	}
@@ -64,7 +64,7 @@ func TestCodexFinderFindsChatGPTApp(t *testing.T) {
 	want := filepath.Join(home, "Applications", "ChatGPT.app", "Contents", "Resources", "codex")
 	writeExe(t, want, time.Now())
 	writeExe(t, filepath.Join(home, "Applications", "Codex.app", "Contents", "Resources", "codex"), time.Now())
-	f := codexFinder{goos: "darwin", home: home, getenv: noEnv, lookPath: notOnPath}
+	f := codexFinder{goos: "darwin", root: t.TempDir(), home: home, getenv: noEnv, lookPath: notOnPath}
 	if bin, _ := f.find(); bin != want {
 		t.Fatalf("bin = %q, want %q", bin, want)
 	}
@@ -75,7 +75,7 @@ func TestCodexFinderFindsPackagedEntrypoint(t *testing.T) {
 	home := t.TempDir()
 	want := filepath.Join(home, "Applications", "ChatGPT.app", "Contents", "Resources", "codex-cli", "bin", "codex")
 	writeExe(t, want, time.Now())
-	f := codexFinder{goos: "darwin", home: home, getenv: noEnv, lookPath: notOnPath}
+	f := codexFinder{goos: "darwin", root: t.TempDir(), home: home, getenv: noEnv, lookPath: notOnPath}
 	if bin, _ := f.find(); bin != want {
 		t.Fatalf("bin = %q, want %q", bin, want)
 	}

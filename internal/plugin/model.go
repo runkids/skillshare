@@ -263,6 +263,9 @@ type Service struct {
 	ConfigPath  string
 	StateDir    string
 	ProjectRoot string
+	// GlobalConfigPath is the global config when ConfigPath is a project's: the plugins
+	// it binds own the global Pi packages a project inherits.
+	GlobalConfigPath string
 	// Accounts are the targets that are another config directory of a built-in Agent,
 	// keyed by the name the config gives them.
 	Accounts map[string]Account

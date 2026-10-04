@@ -85,6 +85,11 @@ In the dashboard, the **Sync** box at the top right of the Plugins page lists wh
 the next sync would install or remove for each Agent. Its button opens a preview;
 nothing changes in an Agent until you confirm it. The plugin list appears at once,
 while the **Agents** column below the box fills in as each Agent's CLI answers.
+After a run, the box lists what happened: failures first, then other changes, with
+Agents that ended the same way on one row. What stayed the same is folded into one
+**Unchanged** line, which opens to one row per plugin, Pi packages apart. The preview
+folds what it leaves alone the same way, below the changes it will make. The list shows
+the installed version of every Pi package, read from the package Pi installed.
 
 ```bash
 skillshare plugin disable review --target codex --no-tui
@@ -119,6 +124,11 @@ source while preserving known enabled state. Antigravity CLI and Grok updates
 stay in the native tool; see the command reference for imported-package limits.
 A target an update cannot reach is skipped with the reason, and the plugin's
 other Agents still update.
+
+An npm package in Pi has no source to compare, so **Check updates** compares its
+installed version with the latest version on npm. When a check finds a newer version,
+the row shows `old → new` with an **Update** button, and the check's own result has one
+for each plugin it found; both open the update preview for that plugin first.
 
 If one target fails, the result keeps the successful outcomes. Resolve the native
 client's authentication or configuration issue, then sync that target again:

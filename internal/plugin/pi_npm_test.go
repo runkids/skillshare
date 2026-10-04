@@ -3,6 +3,9 @@ package plugin
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"slices"
@@ -253,6 +256,151 @@ func TestNpmVersionRangeUpdatesThroughPi(t *testing.T) {
 		t.Fatal(err)
 	}
 	if c := p.Changes[0]; c.Action != "update" {
+		t.Fatalf("changes: %+v", p.Changes)
+	}
+}
+
+// fakeNpmRegistry answers every package's latest version with version, or 404 when it is "".
+func fakeNpmRegistry(t *testing.T, version string) {
+	t.Helper()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if version == "" || !strings.HasSuffix(r.URL.Path, "/latest") {
+			http.NotFound(w, r)
+			return
+		}
+		_, _ = w.Write([]byte(`{"version":"` + version + `"}`))
+	}))
+	t.Cleanup(server.Close)
+	old := npmRegistry
+	npmRegistry = server.URL
+	t.Cleanup(func() { npmRegistry = old })
+	fakeNpmConfig(t, nil)
+}
+
+// fakeNpmConfig is `npm config get` with these settings, the public registry for anything else
+// it is asked about; asked records each call's folder and keys. A nil error from answer means npm ran.
+func fakeNpmConfig(t *testing.T, settings map[string]string) (asked *[]string) {
+	t.Helper()
+	calls := []string{}
+	old := npmConfig
+	npmConfig = func(_ context.Context, dir string, keys ...string) (string, error) {
+		calls = append(calls, dir+" "+strings.Join(keys, " "))
+		if settings["error"] != "" {
+			return "", errors.New(settings["error"])
+		}
+		value := func(key string) string {
+			if v, ok := settings[key]; ok {
+				return v
+			}
+			if key == "registry" {
+				return "https://registry.npmjs.org/"
+			}
+			return "undefined"
+		}
+		if len(keys) == 1 {
+			return value(keys[0]) + "\n", nil
+		}
+		lines := []string{}
+		for _, key := range keys {
+			lines = append(lines, key+"="+value(key))
+		}
+		return strings.Join(lines, "\n") + "\n", nil
+	}
+	t.Cleanup(func() { npmConfig = old })
+	return &calls
+}
+
+// installedNpmDemo adds npm:demo through Pi, with the package Pi installed at version.
+func installedNpmDemo(t *testing.T, version string) *Service {
+	t.Helper()
+	var commands []string
+	s := fakePiNpm(t, &commands)
+	applyPluginRequest(t, s, Request{Action: "add", Source: "npm:demo", Targets: []string{"pi"}})
+	writePluginFile(t, os.Getenv("HOME"), ".pi/agent/npm/node_modules/demo/package.json", `{"name":"demo","version":"`+version+`"}`)
+	return s
+}
+
+func TestNpmPackageCheckFindsANewerVersionOnNpm(t *testing.T) {
+	fakeNpmRegistry(t, "1.2.0")
+	s := installedNpmDemo(t, "1.0.0")
+	p, err := s.Preview(context.Background(), Request{Action: "check", Name: "demo"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c := p.Changes[0]; c.Action != "update-available" || c.Binding.Version != "1.2.0" {
+		t.Fatalf("changes: %+v", p.Changes)
+	}
+}
+
+func TestNpmPackageAtTheLatestVersionHasNothingToUpdate(t *testing.T) {
+	fakeNpmRegistry(t, "1.0.0")
+	s := installedNpmDemo(t, "1.0.0")
+	p, err := s.Preview(context.Background(), Request{Action: "update", Name: "demo"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c := p.Changes[0]; c.Action != "noop" {
+		t.Fatalf("changes: %+v", p.Changes)
+	}
+}
+
+func TestNpmPackageCheckFallsBackToPiWhenNpmDoesNotAnswer(t *testing.T) {
+	fakeNpmRegistry(t, "")
+	s := installedNpmDemo(t, "1.0.0")
+	p, err := s.Preview(context.Background(), Request{Action: "check", Name: "demo"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c := p.Changes[0]; c.Action != "native-check" {
+		t.Fatalf("changes: %+v", p.Changes)
+	}
+}
+
+// A package npm fetches from another registry may share its name with a public one; npmjs's
+// latest says nothing about it. npm is asked in the folder Pi runs it in, scope included.
+func TestNpmPackageCheckLeavesAPrivateRegistryToPi(t *testing.T) {
+	for name, c := range map[string]struct {
+		id       string
+		settings map[string]string
+	}{
+		"registry":    {"npm:demo", map[string]string{"registry": "https://npm.example.com/"}},
+		"scope":       {"npm:@acme/demo", map[string]string{"@acme:registry": "https://npm.example.com/"}},
+		"npm missing": {"npm:demo", map[string]string{"error": "exec: npm: not found"}},
+	} {
+		t.Run(name, func(t *testing.T) {
+			fakeNpmRegistry(t, "1.2.0")
+			var commands []string
+			s := fakePiNpm(t, &commands)
+			applyPluginRequest(t, s, Request{Action: "add", Source: c.id, Name: "demo", Targets: []string{"pi"}})
+			pkg, _ := npmSpec(c.id)
+			writePluginFile(t, os.Getenv("HOME"), ".pi/agent/npm/node_modules/"+pkg+"/package.json", `{"version":"1.0.0"}`)
+			asked := fakeNpmConfig(t, c.settings)
+			p, err := s.Preview(context.Background(), Request{Action: "check", Name: "demo"})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if ch := p.Changes[0]; ch.Action != "native-check" {
+				t.Fatalf("changes: %+v", p.Changes)
+			}
+			if name == "scope" && (len(*asked) != 1 || (*asked)[0] != filepath.Join(os.Getenv("HOME"), ".pi/agent/npm")+" registry @acme:registry") {
+				t.Fatalf("asked npm: %q", *asked)
+			}
+		})
+	}
+}
+
+// npm's latest says nothing about a package Pi keeps to a range or a tag.
+func TestNpmPackageCheckLeavesAVersionRangeToPi(t *testing.T) {
+	fakeNpmRegistry(t, "2.0.0")
+	var commands []string
+	s := fakePiNpm(t, &commands)
+	applyPluginRequest(t, s, Request{Action: "add", Source: "npm:demo@^1.2.0", Targets: []string{"pi"}})
+	writePluginFile(t, os.Getenv("HOME"), ".pi/agent/npm/node_modules/demo/package.json", `{"version":"1.3.0"}`)
+	p, err := s.Preview(context.Background(), Request{Action: "check", Name: "demo"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c := p.Changes[0]; c.Action != "native-check" {
 		t.Fatalf("changes: %+v", p.Changes)
 	}
 }

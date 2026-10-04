@@ -273,6 +273,19 @@ func TestPiRelativePackageIdentity(t *testing.T) {
 	}
 }
 
+func TestPiInventoryReadsTheInstalledVersion(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("PI_CODING_AGENT_DIR", filepath.Join(home, ".pi/agent"))
+	writePluginFile(t, home, ".pi/agent/settings.json", `{"packages":["npm:demo"]}`)
+	writePluginFile(t, home, ".pi/agent/npm/node_modules/demo/package.json", `{"name":"demo","version":"1.4.0"}`)
+	s := &Service{}
+	items, _, err := s.piInventory("pi")
+	if err != nil || len(items) != 1 || items[0].Version != "1.4.0" {
+		t.Fatalf("installed version: %+v %v", items, err)
+	}
+}
+
 func TestUnavailableNativeClientDoesNotForgetBinding(t *testing.T) {
 	home := t.TempDir()
 	writePluginFile(t, home, "config.yaml", "plugins:\n  packages:\n    demo:\n      bindings:\n        pi:\n          id: npm:demo\n")

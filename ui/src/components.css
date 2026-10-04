@@ -205,6 +205,9 @@ svg.lucide { flex: none; stroke-width: var(--isw); }
 .ss-stack { display: inline-flex; align-items: center; }
 .ss-stack .ss-at { border-width: 1px; width: 24px; height: 24px; border-radius: 99px; margin-left: -6px; box-shadow: 0 0 0 2px var(--surface); }
 .ss-stack .ss-at:first-child { margin-left: 0; }
+/* A stack whose logos each sit in a Tooltip wrapper. */
+.ss-stack > :not(:first-child) > .ss-at:first-child { margin-left: -6px; }
+.ss-stack .ss-at:focus-visible { position: relative; z-index: 1; }
 /* The ring that separates stacked logos takes the color of what it sits on. */
 .ss-r.sel .ss-stack .ss-at { box-shadow: 0 0 0 2px var(--accent-bg); }
 :root[data-theme="playful"] .ss-r.sel .ss-stack .ss-at { box-shadow: 0 0 0 2px var(--pe); }

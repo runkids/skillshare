@@ -38,7 +38,7 @@ skillshare plugin remove review --no-tui
 | `import [NATIVE-ID]` | 再インストールや有効化を行わずに既存のインストールを取り込む |
 | `inspect NAME` | 管理下の 1 つの package を検査 |
 | `sync [NAME]` | 選択済みの target を整合させ、未完了のネイティブ操作を再試行 |
-| `check [NAME]` | Source の内容を記録済みのダイジェストと比較。更新は行わない |
+| `check [NAME]` | Source の内容を記録済みのダイジェストと、または Pi の npm パッケージのバージョンを npm の最新と比較。更新は行わない |
 | `update [NAME]` | Source の変更を確認し、対応するネイティブ更新操作を使用 |
 | `enable / disable [NAME]` | 次の sync に target を含める / 除外する |
 | `remove [NAME]` | 管理下のバインディングをアンインストールし、その定義を削除 |
@@ -132,7 +132,7 @@ skillshare plugin add npm:@scope/package@1.2.0 --target pi --no-tui -g
 
 Pi がパッケージをダウンロードして install script を実行するため、Skillshare は事前に内容を確認できません。追加する前に pi.dev または npm でパッケージを確認してください。`discover` は npm ソースを受け付けず、npm ソースには `--source-ref`、`--entry`、`--plugin` を指定できません。npm ソースを受け付けるのは Pi の target だけで、`pi` を実行する Pi アカウントも含みます。別の実行ファイルを使うアカウントでは、その実行ファイルでインストールしてからインポートしてください。`--project` を付けると、Pi はパッケージをプロジェクトの設定にインストールします。プロジェクトに `.pi` フォルダがある場合、Pi でプロジェクトを信頼するまで Pi はそのパッケージを変更しません。
 
-Pi はパッケージ名ごとに 1 つのエントリだけを保持します。Pi に同じソースがすでにある場合、`add` はそれをインポートします。同じパッケージの別バージョンはインストールされ、Pi がそのエントリのソースを置き換えます。`update` は `pi update` を実行しますが、正確なバージョンに固定されたパッケージは Pi がそのまま維持するため、新しいバージョンで追加し直してください。パッケージの一部の extension をオフにしている場合、Pi はそのルールを新しいバージョンにも引き継ぎ、Skillshare も記録し直すため、後で再インストールしても元に戻ります。別の Skillshare パッケージがすでに管理している Pi パッケージは拒否されます。そちらを更新または削除してください。
+Pi はパッケージ名ごとに 1 つのエントリだけを保持します。Pi に同じソースがすでにある場合、`add` はそれをインポートします。同じパッケージの別バージョンはインストールされ、Pi がそのエントリのソースを置き換えます。`update` は `pi update` を実行しますが、正確なバージョンに固定されたパッケージは Pi がそのまま維持するため、新しいバージョンで追加し直してください。バージョンを指定せずに追加したパッケージでは、`check` はインストール済みパッケージの `package.json` のバージョンを、公開 registry で npm の `latest` タグが示すバージョンと比べます。`update` はすでにそのバージョンのパッケージには何もしません。バージョン範囲やタグを付けて追加したパッケージ、環境変数や `.npmrc` で別の registry に向けられたパッケージ、バージョンが単純な `X.Y.Z` でないパッケージは、Pi で確認するものとして表示されます。dashboard は Plugins ページと Pi Target の Extensions タブで、すべての Pi パッケージのインストール済みバージョンを表示します。パッケージの一部の extension をオフにしている場合、Pi はそのルールを新しいバージョンにも引き継ぎ、Skillshare も記録し直すため、後で再インストールしても元に戻ります。別の Skillshare パッケージがすでに管理している Pi パッケージは拒否されます。そちらを更新または削除してください。
 
 ダッシュボードの追加ダイアログには、`pi install npm:<package>` コマンドやパッケージの pi.dev のアドレスをそのまま貼り付けられます。どちらも対応する `npm:` ソースに変換されます。
 
@@ -189,7 +189,7 @@ Copilot と Antigravity CLI のインストールは、reviewed されたロー�
 - Codex のネイティブな project インストールは、このアダプタでは提供されません。global の Codex インストールに対する sync 選択は引き続き機能します。
 - Codex には update コマンドがないため、update は更新後のスナップショットからプラグインを再度 add します。add は常にプラグインを有効にするため、Codex で無効化されたプラグインはスキップされます。Import した Codex プラグインは `codex plugin marketplace upgrade NAME` で更新されます。これは Codex がその marketplace からインストールしたすべてのプラグインを再インストールするもので、Codex も起動時に同じことを行います。
 - update は対応できない Target を理由を示してスキップし、そのプラグインのほかの Agent は通常どおり更新されます。スキップされた update は保留のまま残り、後の sync で処理されます。
-- インポートされた plugin は元のマーケットプレイス identity を保持します。`check` は、source のないインポート済み plugin についてリリースの有無を推測できません。インポートした Claude または Codex の plugin のネイティブ marketplace がなくなった場合、sync と update はその Target をスキップして理由を示します。その marketplace を一度も追加していない別のマシンでも同じことが起こります。Agent で marketplace を復元するか、その Target を削除して source から plugin を追加し直してください。Skillshare がインポート済み plugin を勝手に別の source へ移すことはありません。
+- インポートされた plugin は元のマーケットプレイス identity を保持します。`check` は、source のないインポート済み plugin についてリリースの有無を推測できません。ただし Pi の npm パッケージは npm で確認します。インポートした Claude または Codex の plugin のネイティブ marketplace がなくなった場合、sync と update はその Target をスキップして理由を示します。その marketplace を一度も追加していない別のマシンでも同じことが起こります。Agent で marketplace を復元するか、その Target を削除して source から plugin を追加し直してください。Skillshare がインポート済み plugin を勝手に別の source へ移すことはありません。
 - Skillshare は管理下の Claude/Codex plugin ごとに marketplace を 1 つ登録し、`skillshare-<plugin>-<hash>` と名付けます（以前のインストールは `skillshare-<hash>` のまま）。plugin を削除または除外すると、plugin がすでになくてもその marketplace も削除し、失敗したクリーンアップは次回の sync で再試行します。marketplace がなくなっていた場合、update で再登録します。別のパスにある同名の登録とインポート済み plugin の marketplace には触れません。スナップショットとネイティブキャッシュは保持されます。
 - これらの登録は、user 設定でも project 設定でも、このマシンの Skillshare 状態ディレクトリを指します。Git や dotfile マネージャーで Agent の設定を共有すると、ほかのマシンには存在しないパスが持ち込まれます。各マシンで source から plugin を追加してください。
 - Claude は、skills ディレクトリ内で plugin manifest を持つ skill フォルダも `<name>@skills-dir` という plugin として読み込み、同じ名前の plugin は 1 つしか読み込みません。同名の Claude plugin を追加するとプレビューでそのことを伝えます。名前を変えるかどちらかを削除するまで、Claude は plugin を読み込み、skill フォルダはスキップします。

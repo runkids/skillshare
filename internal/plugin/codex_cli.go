@@ -15,6 +15,7 @@ const codexCLIEnv = "SKILLSHARE_CODEX_CLI"
 // codexFinder looks for the Codex CLI. Its fields are the machine, so tests can stand in.
 type codexFinder struct {
 	goos         string
+	root         string // prefixes the absolute install paths; "" on a real machine
 	home         string
 	localAppData string
 	getenv       func(string) string
@@ -33,8 +34,8 @@ func newCodexFinder() codexFinder {
 func (f codexFinder) candidates() []string {
 	switch f.goos {
 	case "darwin":
-		paths := []string{"/opt/homebrew/bin/codex", "/usr/local/bin/codex"}
-		dirs := []string{"/Applications"}
+		paths := []string{filepath.Join(f.root, "/opt/homebrew/bin/codex"), filepath.Join(f.root, "/usr/local/bin/codex")}
+		dirs := []string{filepath.Join(f.root, "/Applications")}
 		if f.home != "" {
 			dirs = append(dirs, filepath.Join(f.home, "Applications"))
 		}

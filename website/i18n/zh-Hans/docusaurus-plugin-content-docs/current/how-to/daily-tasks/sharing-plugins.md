@@ -82,6 +82,7 @@ Target**，而不是“在该 Agent 内部启用”。
 每个 Agent 安装或移除的内容。其按钮会打开预览；在你确认之前，任何
 Agent 都不会发生变更。plugin 列表会立即显示，而方框下方的 **Agents**
 栏位则会在各 Agent 的 CLI 逐一响应后陆续填入。
+运行后，方框会列出结果：失败排在最前，接着是其他变更，结果相同的 Agent 合并成一行。没有变化的项目收成一行 **Unchanged**，展开后每个 plugin 一行，Pi 包单独列出。预览也用同样方式，把不会变动的项目收在要执行的变更下方。列表会显示每个 Pi 包的已安装版本，读取自 Pi 安装的包。
 
 ```bash
 skillshare plugin disable review --target codex --no-tui
@@ -106,6 +107,8 @@ Pi 与 OpenCode 会更新经审核的快照。Copilot 可以在保留已知启�
 同时刷新一份经审核的 Source。Antigravity CLI 与 Grok 的更新
 仍留在原生工具中处理；被 import 套件的限制请参见命令参考文档。
 更新无法处理的 Target 会被跳过并说明原因，该 plugin 的其他 Agent 仍会照常更新。
+
+Pi 的 npm 包没有可比对的 source，所以 **Check updates** 会拿已安装版本和 npm 上的最新版本比较。发现新版本时，该行会显示 `old → new` 和 **Update** 按钮，检查结果里每个找到的 plugin 也各有一个；两者都会先打开该 plugin 的更新预览。
 
 如果某个 Target 失败，结果仍会保留那些成功的部分。请先解决该原生
 客户端的身份验证或配置问题，然后再次同步该 Target：

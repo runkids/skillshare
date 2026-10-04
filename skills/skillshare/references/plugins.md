@@ -23,7 +23,9 @@ or a `pi install npm:<package>` command, pass `npm:<package>`; the CLI does not 
 It needs a Pi `--target` (not an account running
 another executable), takes no `--source-ref`, `--entry` or `--plugin`, and `discover` rejects
 it. Pi keeps one entry per package name; another version replaces it and keeps its extension
-filters, and `update` skips a package pinned to an exact version. A Pi package another
+filters, and `update` skips a package pinned to an exact version. `check` compares a
+package added without a version with npm's latest; a range, tag or private registry is left
+to Pi. A Pi package another
 Skillshare package already manages is refused. In a project with a `.pi` folder, Pi changes
 packages only after the user trusts the project in Pi. For a multi-plugin
 marketplace, select a named candidate with `--plugin`. Use `--name` to bind
