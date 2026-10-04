@@ -5,7 +5,7 @@ sidebar_position: 2
 # update
 
 :::warning Followed repo
-[Followed tracked repo](../skillfollow.md#updates) は clean tree と **fast-forward-only** が必要です。`--force` は dry run でも拒否。Dirty/status-error/diverged 項目は解決先の実パスを示して失敗し、他の batch 項目は続行します。**Audit 失敗時は pull 前 commit へ hard-reset します。** 更新中は編集やリンク変更をしないでください。以下の force 方針は通常の installed repo 向けです。
+[Followed tracked repo](../skillfollow.md#updates) は clean tree と **fast-forward-only** が必要です。`--force` は dry run でも拒否。Dirty/status-error/diverged 項目は解決先の実パスを示して失敗し、他の batch 項目は続行します。**Audit 失敗時は pull 前 commit へ hard-reset します。** 更新中は編集やリンク変更をしないでください。以下の force 方針は通常の installed repo 向けです。 followed entry 配下の通常 skill は再インストールされず、項目ごとに拒否されます。
 :::
 
 1 つ以上の skill または tracked repositories を最新バージョンに更新します。

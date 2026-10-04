@@ -56,6 +56,9 @@ prune paused: <name> is <state>; restore or fix <path>, or remove <name> from .s
 ```
 
 Remove an abandoned name from every declaration file containing it, then sync.
+If `.skillfollow`/`.skillfollow.local` exists but cannot be read, discovery stops:
+sync refuses and keeps targets, check/status report the read error instead of
+empty counts, and source Git staging is refused. Restore read access or remove it.
 Removing a declaration does not delete its external tree. Managed orphan links
 through the logical source can be pruned; fully external managed links after
 unfollow are kept with `managed link resolves outside the source after unfollow;
@@ -77,7 +80,8 @@ remove it or re-run with --force`.
   says `<path> is a link; edit its target directly`. Hide using source-root
   `.skillignore`; do not promise that dashboard toggles work for followed skills.
   Dashboard sync shares prune/copy safety and reports `prune_paused`/`kept` with
-  warnings; Targets counts managed followed links as linked, not local.
+  warnings; Targets counts managed followed links as linked, not local. Dashboard audit
+  scans followed skills through the resolved root.
 - Diff previews sync: while paused it reports no removals, names the pause
   (`prune_paused` in JSON and dashboard), and shows kept standard-name copies
   (`keep`; dashboard `skip`).
@@ -88,6 +92,9 @@ Followed tracked repos update with a clean-tree check and `--ff-only --no-rebase
 Explicit `--force` is refused, even for dry runs. Dirty/status-error/diverged
 items fail with `resolve in <resolved path>`; independent batch items continue.
 CLI, dashboard including streaming/all, and `install --update` share the policy.
+Regular skills below a followed entry are never reinstalled: every selection mode
+and the dashboard single update refuse them per item with `followed repository
+update refused: skill <path> is inside followed entry <name>`; other items continue.
 **Audit failure still hard-resets to the pre-pull commit.** Do not edit the repo,
 repoint links, or run Git concurrently: checks are snapshots, not locks. Edits or
 pulls outside skillshare are not automatically audited; run `audit` explicitly.

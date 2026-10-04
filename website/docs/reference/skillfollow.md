@@ -84,13 +84,15 @@ Safety checks use canonical paths. The first applicable state wins; overlap chec
 
 `not-link` and `followed` pass doctor checks. Other declared states are warnings and pause cleanup. `undeclared-link` is informational and does not pause cleanup. Parser warnings are reported separately.
 
+If `.skillfollow` or `.skillfollow.local` exists but cannot be read, discovery stops rather than continuing with a partial view: `sync` refuses and leaves existing targets in place, `check` and `status` report the read error instead of empty counts, and source Git staging is refused. Restore read access to the file or remove it.
+
 ## What commands show {#visibility}
 
 - **`status`** adds `.skillfollow: N entries, M skipped`, with `(.local active)` when applicable, then each prune-pause recovery message. `status --json` adds `source.skillfollow` with `active`, `local_active`, `entry_count`, `followed_count`, `skipped_count`, declared `entries` (`name`, `state`, optional `resolved_target`, `reason`), optional `warnings`, and optional `prune_paused` recovery messages. With no declarations or declaration warnings, the field is omitted.
 - **`doctor`** reports each declared state under `skillfollow`, and cleanup blockers under `skillfollow_prune`. Undeclared links remain `undeclared_source_links` info checks. In a Git repository it also reports indexed links, `not-ignored` links, and an unsafe `.skillfollow.local` without changing files.
 - **Plain `list --no-tui`** shows followed tracked repositories with `→ <resolved>` (home paths may be shortened to `~`). Skill paths stay logical; the list JSON shape is unchanged.
 - **`diff`** previews sync with the same rules. While an entry is unavailable it reports no removals, prints `<target>: prune paused; unavailable .skillfollow entry: <name> (<state>)`, and lists standard-naming managed copies that sync would keep as **Kept**. `diff --json` adds per-target `prune_paused` and `keep` items. Dashboard diff adds `prune_paused` and shows kept copies as `skip`.
-- **Dashboard** skills, overview, check, update, and hub discovery include followed skills under logical paths. Content edits, uninstall, enable/disable, target overrides, and source URL changes through a followed tree are refused. Edit the external tree directly; to hide it, edit the **source-root `.skillignore`**. There is no dedicated `.skillfollow` editor tab yet. Dashboard sync shares CLI prune/copy safety and reports per-target `prune_paused`/`kept` plus warnings; Targets counts managed followed links as linked rather than local.
+- **Dashboard** skills, overview, check, update, audit, and hub discovery include followed skills under logical paths; audit scans followed skills through the resolved root. Content edits, uninstall, enable/disable, target overrides, and source URL changes through a followed tree are refused. Edit the external tree directly; to hide it, edit the **source-root `.skillignore`**. There is no dedicated `.skillfollow` editor tab yet. Dashboard sync shares CLI prune/copy safety and reports per-target `prune_paused`/`kept` plus warnings; Targets counts managed followed links as linked rather than local.
 
 For `_team-skills`, doctor prints the actionable ignore diagnostics:
 
@@ -116,6 +118,8 @@ Restore/fix the entry, or remove its name from **every** declaration file contai
 ## Update safety {#updates}
 
 Followed tracked repositories are user-owned working copies. CLI, dashboard (including update-all/streaming), and `install --update` require a clean tree and use **fast-forward-only** pull (`--ff-only --no-rebase`). Explicit `--force` is refused, including dry runs. Dirty trees, status-check errors, or failed fast-forwards (including divergence) report an item failure with ``resolve in `<resolved path>` ``; independent batch items continue. Resolve changes/history in that external repository, not by retrying force. Ordinary installed repositories retain their existing update policy.
+
+Regular skills below a followed entry are never reinstalled. `update` refuses each one as an item failure, `followed repository update refused: skill <path> is inside followed entry <name>`, in every selection mode (`--all`, names, globs, groups, project mode, dry runs) and in the dashboard's single update; other items continue. Only the followed repository itself is updated, through the policy above.
 
 **Audit failures still hard-reset a followed repository to the pre-pull commit.** The audit scans the resolved root and reports logical paths; scan errors also block updates. Refusing force does not remove this rollback. Do not edit, repoint the link, or run another Git process in the repository during update: checks are snapshots, not locks, and rollback could discard concurrent changes. Changes pulled or edited outside skillshare are not automatically audited; run `skillshare audit` yourself.
 

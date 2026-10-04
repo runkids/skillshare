@@ -4,7 +4,7 @@ sidebar_position: 1
 
 # ui
 
-[`.skillfollow`](../skillfollow.md#visibility) 在 Skills、Overview、Check、Update、Hub 显示 followed 逻辑路径。内容、卸载、启停、target 覆盖、source URL 写入拒绝；直接编辑外部树，或以 **source-root `.skillignore`** 隐藏。更新、staging/pull/checkout 与 CLI 共用安全策略。Sync 逐 target 报告 `prune_paused`/`kept` 与警告；Targets 把 managed followed link 算为 linked。尚无专用声明编辑页。
+[`.skillfollow`](../skillfollow.md#visibility) 在 Skills、Overview、Check、Update、Audit、Hub 显示 followed 逻辑路径。内容、卸载、启停、target 覆盖、source URL 写入拒绝；直接编辑外部树，或以 **source-root `.skillignore`** 隐藏。更新、staging/pull/checkout 与 CLI 共用安全策略。Sync 逐 target 报告 `prune_paused`/`kept` 与警告；Targets 把 managed followed link 算为 linked。尚无专用声明编辑页。
 
 启动 web dashboard 以可视化管理 skills。
 

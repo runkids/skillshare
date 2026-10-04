@@ -84,13 +84,15 @@ Canonical path로 안전성을 검사하며 처음 해당되는 상태를 사용
 
 `followed`/`not-link`는 doctor pass, 다른 선언 상태는 warning이며 정리를 중지합니다. `undeclared-link`는 info만 표시하고 중지하지 않습니다. Parser 경고는 별도입니다.
 
+`.skillfollow` 또는 `.skillfollow.local`이 있지만 읽을 수 없으면 discovery는 불완전한 결과로 계속하지 않고 중단합니다. `sync`는 거부하고 기존 target을 유지하며, `check`와 `status`는 빈 카운트 대신 읽기 오류를 보고하고, source Git staging도 거부됩니다. 파일의 읽기 권한을 복구하거나 파일을 제거하세요.
+
 ## 명령 표시 {#visibility}
 
 - **Status**: `.skillfollow: N entries, M skipped`, local 활성 시 `(.local active)`, 각 prune 중지 복구 메시지. JSON `source.skillfollow`에는 `active`, `local_active`, `entry_count`, `followed_count`, `skipped_count`, 선언 `entries`（`name`, `state`, 선택 `resolved_target`, `reason`）, 선택 `warnings`/`prune_paused`가 있습니다. 선언/선언 경고가 없으면 생략합니다.
 - **Doctor**: `skillfollow`는 선언 상태, `skillfollow_prune`은 정리 차단. 미선언 링크는 `undeclared_source_links` info. Git repo에서는 indexed/`not-ignored` 링크와 안전하지 않은 local 파일도 검사하지만 파일을 수정하지 않습니다.
 - **`list --no-tui`**: followed tracked repo에 `→ <resolved>` 추가（홈 경로는 `~`로 축약 가능）. Skills는 논리 경로, JSON 형식은 그대로입니다.
 - **Diff**: sync와 같은 규칙으로 미리 봅니다. 선언 항목을 사용할 수 없는 동안 제거를 보고하지 않고 `<target>: prune paused; unavailable .skillfollow entry: <name> (<state>)`를 표시하며, sync가 유지할 standard naming managed copy를 **Kept**로 표시합니다. `diff --json`은 target별 `prune_paused`와 `keep` 항목을 추가합니다. Dashboard diff는 `prune_paused`를 추가하고 유지되는 copy를 `skip`으로 표시합니다.
-- **Dashboard**: Skills, Overview, Check, Update, Hub에서 논리 경로 표시. 내용 편집, uninstall, 토글, target 덮어쓰기, source URL 변경은 거부합니다. 외부 트리를 직접 편집하고 숨기려면 **source-root `.skillignore`**를 사용하세요. 선언 전용 편집기는 아직 없습니다. Dashboard sync는 CLI와 같은 prune/copy 안전 정책이며 target별 `prune_paused`/`kept` 및 경고를 표시합니다. Targets는 managed followed link를 local이 아닌 linked로 계산합니다.
+- **Dashboard**: Skills, Overview, Check, Update, Audit, Hub에서 논리 경로 표시(audit는 resolved root를 통해 followed skill을 스캔). 내용 편집, uninstall, 토글, target 덮어쓰기, source URL 변경은 거부합니다. 외부 트리를 직접 편집하고 숨기려면 **source-root `.skillignore`**를 사용하세요. 선언 전용 편집기는 아직 없습니다. Dashboard sync는 CLI와 같은 prune/copy 안전 정책이며 target별 `prune_paused`/`kept` 및 경고를 표시합니다. Targets는 managed followed link를 local이 아닌 linked로 계산합니다.
 
 실제 진단 문자열:
 
@@ -116,6 +118,8 @@ prune paused: <name> is <state>; restore or fix <path>, or remove <name> from .s
 ## 업데이트 안전성 {#updates}
 
 CLI, Dashboard（all/streaming 포함）, `install --update`는 같은 followed tracked repo 정책을 씁니다. 깨끗한 트리와 **fast-forward-only** pull（`--ff-only --no-rebase`）이 필요합니다. 명시적 `--force`는 dry run에서도 거부합니다. Dirty, status-check error, fast-forward 실패（분기 포함）는 항목별 실패로 `resolve in`과 실제 해결 경로를 표시하고 다른 batch 항목은 계속합니다. 외부 repo에서 해결하고 force로 재시도하지 마세요. 일반 installed repo 정책은 유지됩니다.
+
+followed entry 아래의 일반 skill은 재설치되지 않습니다. `update`는 모든 선택 방식（`--all`, 이름, glob, group, project mode, dry run）과 Dashboard 단일 업데이트에서 각 항목을 `followed repository update refused: skill <path> is inside followed entry <name>`로 실패 처리하고 다른 항목은 계속합니다. 위 정책을 따르는 followed repository 자체만 업데이트됩니다.
 
 **Audit 실패 시 pull 이전 commit으로 hard-reset합니다.** Resolved root를 스캔하고 논리 경로로 보고하며 scan error도 업데이트를 차단합니다. 업데이트 중 편집, 링크 변경, 다른 Git 실행을 하지 마세요. 검사는 snapshot이지 lock이 아니며 rollback이 동시 변경을 잃게 할 수 있습니다. Skillshare 외부 pull/편집은 자동 audit되지 않으니 `skillshare audit`를 직접 실행하세요.
 

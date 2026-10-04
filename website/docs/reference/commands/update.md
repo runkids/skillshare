@@ -5,7 +5,7 @@ sidebar_position: 2
 # update
 
 :::warning Followed repositories
-[Followed tracked repos](../skillfollow.md#updates) require a clean tree and **fast-forward-only** updates. `--force` is refused, including dry runs; dirty/status-error/diverged items fail with the resolved path to fix, while other batch items continue. **Audit failures still hard-reset to the pre-pull commit.** Do not edit the repo or repoint its link during update. Ordinary installed repos keep the policy described below.
+[Followed tracked repos](../skillfollow.md#updates) require a clean tree and **fast-forward-only** updates. `--force` is refused, including dry runs; dirty/status-error/diverged items fail with the resolved path to fix, while other batch items continue. **Audit failures still hard-reset to the pre-pull commit.** Do not edit the repo or repoint its link during update. Ordinary installed repos keep the policy described below. Regular skills below a followed entry are refused per item instead of being reinstalled.
 :::
 
 Update one or more skills or tracked repositories to the latest version.

@@ -5,7 +5,7 @@ sidebar_position: 2
 # update
 
 :::warning Followed repo
-[Followed tracked repo](../skillfollow.md#updates) 必須為乾淨樹且 **fast-forward-only**。`--force` 在 dry run 也拒絕；dirty/status-error/diverged 項目失敗並提供修復實體路徑，其他 batch 項目繼續。**Audit 失敗仍 hard-reset 到 pull 前 commit。** 更新期間不要編輯或重指連結。下述 force 策略僅供一般 installed repo。
+[Followed tracked repo](../skillfollow.md#updates) 必須為乾淨樹且 **fast-forward-only**。`--force` 在 dry run 也拒絕；dirty/status-error/diverged 項目失敗並提供修復實體路徑，其他 batch 項目繼續。**Audit 失敗仍 hard-reset 到 pull 前 commit。** 更新期間不要編輯或重指連結。下述 force 策略僅供一般 installed repo。 followed entry 之下的一般 skill 不會重新安裝，而是逐項拒絕。
 :::
 
 將一個或多個 skills 或 tracked 儲存庫更新到最新版本。

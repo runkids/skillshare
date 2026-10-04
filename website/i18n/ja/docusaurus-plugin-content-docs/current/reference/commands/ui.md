@@ -4,7 +4,7 @@ sidebar_position: 1
 
 # ui
 
-[`.skillfollow`](../skillfollow.md#visibility) は Skills、Overview、Check、Update、Hub で論理パスを表示。内容編集、uninstall、切替、target 上書き、source URL 書き込みは拒否します。外部ツリーを直接編集し、非表示には **source-root `.skillignore`** を使います。更新/staging/pull/checkout は CLI と同じ安全方針。Sync は target ごとの `prune_paused`/`kept` と警告を表示し、Targets は managed followed link を linked と数えます。宣言専用エディタはまだありません。
+[`.skillfollow`](../skillfollow.md#visibility) は Skills、Overview、Check、Update、Audit、Hub で論理パスを表示。内容編集、uninstall、切替、target 上書き、source URL 書き込みは拒否します。外部ツリーを直接編集し、非表示には **source-root `.skillignore`** を使います。更新/staging/pull/checkout は CLI と同じ安全方針。Sync は target ごとの `prune_paused`/`kept` と警告を表示し、Targets は managed followed link を linked と数えます。宣言専用エディタはまだありません。
 
 視覚的な Skill 管理のための Web ダッシュボードを起動します。
 

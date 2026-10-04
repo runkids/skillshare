@@ -84,13 +84,15 @@ git rm --cached -- '_team-skills'
 
 `not-link`/`followed` 的 doctor 检查为 pass；其他声明状态为 warning 并暂停清理。`undeclared-link` 仅 info，不暂停清理。Parser 警告另列。
 
+若 `.skillfollow` 或 `.skillfollow.local` 存在但无法读取，discovery 会停止而不是以不完整的结果继续：`sync` 拒绝并保留既有 target，`check` 与 `status` 回报读取错误而非空计数，source 的 Git staging 也会拒绝。恢复该文件的读取权限或移除它。
+
 ## 命令显示 {#visibility}
 
 - **Status**：`.skillfollow: N entries, M skipped`，local 启用时加 `(.local active)`，另列 prune 暂停恢复消息。JSON 的 `source.skillfollow` 含 `active`、`local_active`、`entry_count`、`followed_count`、`skipped_count`、声明 `entries`（`name`、`state`、可选 `resolved_target`、`reason`），以及可选 `warnings`/`prune_paused`。无声明或声明警告时省略此字段。
 - **Doctor**：`skillfollow` 列声明状态，`skillfollow_prune` 列清理阻挡。未声明链接保持 `undeclared_source_links` info。Git repo 内还检查 indexed/`not-ignored` 链接与不安全的 local 文件，不修改文件。
 - **`list --no-tui`**：followed tracked repo 加 `→ <resolved>`（家目录可缩为 `~`）；skills 路径仍为逻辑路径，JSON 格式不变。
 - **Diff**：以与 sync 相同的规则预览。声明条目不可用时不报告任何移除，显示 `<target>: prune paused; unavailable .skillfollow entry: <name> (<state>)`，sync 会保留的 standard naming managed copy 列为 **Kept**。`diff --json` 逐 target 加上 `prune_paused` 与 `keep` 条目。Dashboard diff 加上 `prune_paused`，保留的 copy 显示为 `skip`。
-- **Dashboard**：Skills、Overview、Check、Update、Hub 可见逻辑路径。内容编辑、卸载、启停、target 覆盖、source URL 更改会拒绝。直接编辑外部树，或在 **source-root `.skillignore`** 隐藏。尚无专用声明编辑页。Dashboard sync 与 CLI 共用 prune/copy 安全，逐 target 报告 `prune_paused`/`kept` 与警告；Targets 把 managed followed link 算为 linked 而非 local。
+- **Dashboard**：Skills、Overview、Check、Update、Audit、Hub 可见逻辑路径（audit 通过 resolved root 扫描 followed skill）。内容编辑、卸载、启停、target 覆盖、source URL 更改会拒绝。直接编辑外部树，或在 **source-root `.skillignore`** 隐藏。尚无专用声明编辑页。Dashboard sync 与 CLI 共用 prune/copy 安全，逐 target 报告 `prune_paused`/`kept` 与警告；Targets 把 managed followed link 算为 linked 而非 local。
 
 原始诊断便于识别：
 
@@ -116,6 +118,8 @@ prune paused: <name> is <state>; restore or fix <path>, or remove <name> from .s
 ## 更新安全 {#updates}
 
 CLI、Dashboard（含 all/streaming）、`install --update` 共用 followed tracked repo 策略：干净树与 **fast-forward-only** pull（`--ff-only --no-rebase`）。明确 `--force` 在 dry run 也拒绝。Dirty、status-check error、fast-forward 失败（含分歧）为逐项失败，提供 ``resolve in `<resolved path>` ``；其他 batch 条目继续。在外部 repo 解决，不要用 force 重试；普通 installed repo 策略不变。
+
+followed entry 之下的普通 skill 不会被重新安装。`update` 在所有选择方式（`--all`、名称、glob、group、project mode、dry run）与 Dashboard 单项更新中，把每一项标为失败 `followed repository update refused: skill <path> is inside followed entry <name>`，其他条目继续。只有 followed repository 本身会依上述策略更新。
 
 **Audit 失败仍 hard-reset 到 pull 前 commit。** Audit 扫描 resolved root、报告逻辑路径，scan error 也阻挡。更新期间不要编辑 repo、重新指向链接或同时运行 Git：检查是 snapshot，不是 lock，rollback 可丢失并发更改。Skillshare 外的 pull/编辑不会自动 audit；自行运行 `skillshare audit`。
 

@@ -5,7 +5,7 @@ sidebar_position: 2
 # update
 
 :::warning Followed repo
-[Followed tracked repo](../skillfollow.md#updates)는 깨끗한 트리와 **fast-forward-only**가 필요합니다. `--force`는 dry run에서도 거부합니다. Dirty/status-error/diverged 항목은 해결할 실제 경로를 표시하며 실패하고 다른 batch 항목은 계속합니다. **Audit 실패는 pull 이전 commit으로 hard-reset합니다.** 업데이트 중 편집/링크 변경을 하지 마세요. 아래 force 정책은 일반 installed repo에만 적용됩니다.
+[Followed tracked repo](../skillfollow.md#updates)는 깨끗한 트리와 **fast-forward-only**가 필요합니다. `--force`는 dry run에서도 거부합니다. Dirty/status-error/diverged 항목은 해결할 실제 경로를 표시하며 실패하고 다른 batch 항목은 계속합니다. **Audit 실패는 pull 이전 commit으로 hard-reset합니다.** 업데이트 중 편집/링크 변경을 하지 마세요. 아래 force 정책은 일반 installed repo에만 적용됩니다. followed entry 아래의 일반 skill은 재설치되지 않고 항목별로 거부됩니다.
 :::
 
 하나 이상의 skill 또는 tracked 저장소를 최신 버전으로 업데이트합니다.

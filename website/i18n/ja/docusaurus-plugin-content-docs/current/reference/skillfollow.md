@@ -84,13 +84,15 @@ Canonical path で安全性を検査し、最初に該当する状態を採用�
 
 `followed`/`not-link` は doctor の pass。それ以外の宣言状態は warning でクリーンアップを停止。`undeclared-link` は info のみで停止しません。Parser 警告は別途表示します。
 
+`.skillfollow` または `.skillfollow.local` が存在するのに読み取れない場合、discovery は不完全な結果で続行せず停止します。`sync` は拒否して既存 target を保持し、`check` と `status` は空のカウントではなく読み取りエラーを報告し、source の Git staging も拒否されます。ファイルの読み取り権限を復旧するか、ファイルを削除してください。
+
 ## コマンドの表示 {#visibility}
 
 - **Status**：`.skillfollow: N entries, M skipped`、local 有効時は `(.local active)`、各 prune 停止の復旧メッセージ。JSON は `source.skillfollow` に `active`、`local_active`、`entry_count`、`followed_count`、`skipped_count`、宣言 `entries`（`name`、`state`、任意の `resolved_target`、`reason`）、任意の `warnings`/`prune_paused`。宣言も宣言警告もない場合は省略。
 - **Doctor**：`skillfollow` は各宣言状態、`skillfollow_prune` は停止理由。未宣言リンクは `undeclared_source_links` info。Git repo 内では indexed/`not-ignored` リンクと安全でない local ファイルも検査しますが変更しません。
 - **`list --no-tui`**：followed tracked repo に `→ <resolved>` を追加（ホームは `~` に短縮可能）。Skills は論理パス、JSON 形式は不変。
 - **Diff**：sync と同じ規則でプレビューします。宣言が利用できない間は削除を報告せず、`<target>: prune paused; unavailable .skillfollow entry: <name> (<state>)` を表示し、sync が残す standard naming の managed copy を **Kept** として表示します。`diff --json` は target ごとに `prune_paused` と `keep` 項目を追加します。Dashboard diff は `prune_paused` を追加し、残す copy を `skip` で表示します。
-- **Dashboard**：Skills、Overview、Check、Update、Hub で論理パスを表示。内容編集、uninstall、切替、target 上書き、source URL 変更は拒否。外部ツリーを直接編集し、非表示には **source-root `.skillignore`** を使います。宣言専用エディタはまだありません。Dashboard sync は CLI と同じ prune/copy 安全方針で、target ごとの `prune_paused`/`kept` と警告を表示。Targets は managed followed link を local でなく linked と数えます。
+- **Dashboard**：Skills、Overview、Check、Update、Audit、Hub で論理パスを表示（audit は resolved root 経由で followed skill を走査）。内容編集、uninstall、切替、target 上書き、source URL 変更は拒否。外部ツリーを直接編集し、非表示には **source-root `.skillignore`** を使います。宣言専用エディタはまだありません。Dashboard sync は CLI と同じ prune/copy 安全方針で、target ごとの `prune_paused`/`kept` と警告を表示。Targets は managed followed link を local でなく linked と数えます。
 
 実際の診断文字列：
 
@@ -116,6 +118,8 @@ prune paused: <name> is <state>; restore or fix <path>, or remove <name> from .s
 ## 更新の安全性 {#updates}
 
 CLI、Dashboard（all/streaming 含む）、`install --update` は同じ followed tracked repo 方針です：clean tree と **fast-forward-only** pull（`--ff-only --no-rebase`）。明示 `--force` は dry run でも拒否。Dirty、status-check error、fast-forward 失敗（履歴分岐含む）は項目ごとに失敗し、`resolve in` と解決先の実パスを表示。他の batch 項目は続行します。外部 repo で解決し、force 再試行はしないでください。通常 installed repo は従来どおりです。
+
+followed entry 配下の通常 skill は再インストールされません。`update` はすべての選択方法（`--all`、名前、glob、group、project mode、dry run）と Dashboard の単一更新で、各項目を `followed repository update refused: skill <path> is inside followed entry <name>` として失敗にし、他の項目は続行します。更新されるのは上記方針に従う followed repository 自体だけです。
 
 **Audit 失敗時は pull 前の commit に hard-reset します。** Resolved root をスキャンして論理パスで報告し、scan error も更新を止めます。更新中は編集、リンク先変更、別の Git 操作をしないでください。検査は snapshot で lock ではなく、rollback が同時変更を失う可能性があります。Skillshare 外の pull/編集は自動 audit されないため `skillshare audit` を実行してください。
 
