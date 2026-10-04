@@ -218,9 +218,11 @@ func discoverSourceSkillsInternal(sourcePath string, opts discoverOptions) ([]Di
 						trackedRepos = append(trackedRepos, relPath)
 					}
 				}
+				// Record every tracked repo, so the innermost one encloses
+				// its skills even when it has no rules of its own.
 				m := skillignore.ReadMatcher(path)
+				ignoreMatchers[path] = m
 				if m.HasRules() {
-					ignoreMatchers[path] = m
 					// Record repo-level .skillignore in stats
 					if opts.collectIgnored {
 						repoIgnorePath := filepath.Join(path, ".skillignore")
@@ -242,15 +244,8 @@ func discoverSourceSkillsInternal(sourcePath string, opts discoverOptions) ([]Di
 			relPath, relErr := filepath.Rel(walkRoot, path)
 			if relErr == nil && relPath != "." {
 				relPath = strings.ReplaceAll(relPath, "\\", "/")
-				parts := strings.Split(relPath, "/")
-				if len(parts) > 1 && utils.IsTrackedRepoDir(parts[0]) {
-					repoAbsPath := filepath.Join(walkRoot, parts[0])
-					if m, ok := ignoreMatchers[repoAbsPath]; ok {
-						repoRelPath := strings.Join(parts[1:], "/")
-						if m.CanSkipDir(repoRelPath) {
-							return filepath.SkipDir
-						}
-					}
+				if m, repoRelPath := repoIgnoreMatcher(relPath, walkRoot, ignoreMatchers); m != nil && m.CanSkipDir(repoRelPath) {
+					return filepath.SkipDir
 				}
 			}
 		}
@@ -279,7 +274,7 @@ func discoverSourceSkillsInternal(sourcePath string, opts discoverOptions) ([]Di
 			// then the repo-level .skillignore inside tracked repos. With
 			// includeIgnored the skill is kept, flagged Disabled, and measured
 			// like any other so analyze can price it for symlink-mode targets.
-			disabled := rootMatcher.Match(relPath, false) || (isInRepo && isSkillIgnored(parts, walkRoot, ignoreMatchers))
+			disabled := rootMatcher.Match(relPath, false) || isSkillIgnored(relPath, walkRoot, ignoreMatchers)
 			if disabled {
 				if opts.collectIgnored {
 					stats.IgnoredSkills = append(stats.IgnoredSkills, relPath)

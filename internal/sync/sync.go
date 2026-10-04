@@ -35,19 +35,25 @@ type DiscoveredSkill struct {
 	Local       bool        // Found in a target folder rather than the source; see TargetSkills
 }
 
+// repoIgnoreMatcher returns the .skillignore matcher of the innermost tracked
+// repo strictly above relPath (relative to the source root, slash-separated),
+// and relPath made relative to that repo. A repo may sit at any depth, such as
+// one installed with --into or one inside a followed group.
+func repoIgnoreMatcher(relPath, walkRoot string, ignoreMatchers map[string]*skillignore.Matcher) (*skillignore.Matcher, string) {
+	parts := strings.Split(relPath, "/")
+	for i := len(parts) - 1; i > 0; i-- {
+		if m, ok := ignoreMatchers[filepath.Join(walkRoot, filepath.FromSlash(strings.Join(parts[:i], "/")))]; ok {
+			return m, strings.Join(parts[i:], "/")
+		}
+	}
+	return nil, ""
+}
+
 // isSkillIgnored checks whether a skill inside a tracked repo should be
 // skipped based on the repo's .skillignore matcher.
-// parts is strings.Split(relPath, "/"), where relPath is relative to source root.
-func isSkillIgnored(parts []string, walkRoot string, ignoreMatchers map[string]*skillignore.Matcher) bool {
-	if len(parts) < 2 {
-		return false
-	}
-	repoAbsPath := filepath.Join(walkRoot, parts[0])
-	m, ok := ignoreMatchers[repoAbsPath]
-	if !ok {
-		return false
-	}
-	return m.Match(strings.Join(parts[1:], "/"), false)
+func isSkillIgnored(relPath, walkRoot string, ignoreMatchers map[string]*skillignore.Matcher) bool {
+	m, repoRelPath := repoIgnoreMatcher(relPath, walkRoot, ignoreMatchers)
+	return m != nil && m.Match(repoRelPath, false)
 }
 
 // DiscoverSourceSkillsLite recursively scans the source directory for skills

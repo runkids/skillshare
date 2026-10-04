@@ -89,3 +89,31 @@ func TestSkillfollowGroupCheckAndUpdate(t *testing.T) {
 		})
 	}
 }
+
+// A tracked repo nested in a followed group applies its own .skillignore, so
+// sync links only the skills that repo keeps.
+func TestSkillfollowGroupNestedRepoSkillignore(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	target := sb.CreateTarget("claude")
+	sb.WriteConfig("source: " + sb.SourcePath + "\nmode: merge\ntargets:\n  claude:\n    path: " + target + "\n")
+	external := filepath.Join(sb.Root, "external")
+	repo := filepath.Join(external, "sub", "_repo")
+	for _, skill := range []string{"keep", "drop"} {
+		sb.WriteFile(filepath.Join(repo, skill, "SKILL.md"), "---\nname: "+skill+"\n---\n# "+skill+"\n")
+	}
+	sb.WriteFile(filepath.Join(repo, ".skillignore"), "drop\n")
+	testutil.RunGit(t, "", "init", repo)
+	if err := os.Symlink(external, filepath.Join(sb.SourcePath, "group")); err != nil {
+		t.Fatal(err)
+	}
+	sb.WriteFile(filepath.Join(sb.SourcePath, ".skillfollow"), "group\n")
+
+	sb.RunCLI("sync", "-g").AssertSuccess(t)
+	if _, err := os.Lstat(filepath.Join(target, "group__sub___repo__keep")); err != nil {
+		t.Fatalf("kept skill not linked: %v", err)
+	}
+	if _, err := os.Lstat(filepath.Join(target, "group__sub___repo__drop")); !os.IsNotExist(err) {
+		t.Fatalf("ignored skill linked: %v", err)
+	}
+}

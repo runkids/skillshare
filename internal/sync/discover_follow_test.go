@@ -47,3 +47,45 @@ func TestDiscoverSourceSkillsWithFollow(t *testing.T) {
 		t.Fatalf("%+v", skills)
 	}
 }
+
+// A tracked repository nested below the first path component applies its own
+// .skillignore, whether it is reached through a followed group or a plain one.
+func TestDiscoverSourceSkillsNestedRepoSkillignore(t *testing.T) {
+	for _, followed := range []bool{false, true} {
+		t.Run(map[bool]string{false: "plain", true: "followed"}[followed], func(t *testing.T) {
+			root, group := t.TempDir(), filepath.Join(t.TempDir(), "group")
+			if !followed {
+				group = filepath.Join(root, "group")
+			}
+			repo := filepath.Join(group, "sub", "_repo")
+			for _, rel := range []string{".git", "keep", "drop"} {
+				if err := os.MkdirAll(filepath.Join(repo, rel), 0755); err != nil {
+					t.Fatal(err)
+				}
+				if rel != ".git" {
+					if err := os.WriteFile(filepath.Join(repo, rel, "SKILL.md"), []byte("# Skill"), 0644); err != nil {
+						t.Fatal(err)
+					}
+				}
+			}
+			if err := os.WriteFile(filepath.Join(repo, ".skillignore"), []byte("drop\n"), 0644); err != nil {
+				t.Fatal(err)
+			}
+			opts := DiscoveryOptions{}
+			if followed {
+				if err := os.Symlink(group, filepath.Join(root, "group")); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.WriteFile(filepath.Join(root, ".skillfollow"), []byte("group\n"), 0644); err != nil {
+					t.Fatal(err)
+				}
+				set := sourcewalk.Follow(root, sourcewalk.FollowOptions{})
+				opts.Follow = &set
+			}
+			skills, _, err := DiscoverSourceSkillsWithOptions(root, opts)
+			if err != nil || len(skills) != 1 || skills[0].RelPath != "group/sub/_repo/keep" {
+				t.Fatalf("%+v %v", skills, err)
+			}
+		})
+	}
+}
