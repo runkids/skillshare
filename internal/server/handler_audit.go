@@ -353,6 +353,7 @@ func (s *Server) handleAuditSkill(w http.ResponseWriter, r *http.Request) {
 	s.mu.RLock()
 	source := s.cfg.EffectiveSkillsSource()
 	agentsSource := s.agentsSource()
+	follow := s.skillFollowSet()
 	policy := s.auditPolicy()
 	projectRoot := s.projectRoot
 	cfgPath := s.configPath()
@@ -397,10 +398,21 @@ func (s *Server) handleAuditSkill(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusNotFound, "skill not found: "+name)
 			return
 		}
+		scan := audit.ScanSkill
 		if isProjectMode {
-			result, err = audit.ScanSkillForProject(skillPath, projectRoot)
-		} else {
-			result, err = audit.ScanSkill(skillPath)
+			scan = func(path string) (*audit.Result, error) { return audit.ScanSkillForProject(path, projectRoot) }
+		}
+		// Mark the skill as the bulk route does: a followed skill is scanned
+		// through its resolved root so the coverage check applies, and an
+		// unreadable declaration refuses the scan as discovery does.
+		input := skillsToAuditInputs([]skillEntry{{name, skillPath}}, source, follow)[0]
+		switch {
+		case follow != nil && follow.Err() != nil:
+			err = follow.Err()
+		case input.Followed:
+			result, err = audit.ScanResolvedSkill(skillPath, scan)
+		default:
+			result, err = scan(skillPath)
 		}
 	}
 	if err != nil {
