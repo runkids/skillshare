@@ -143,15 +143,8 @@ func handleUpdate(source *Source, destPath string, result *InstallResult, opts I
 	updatedMeta := readTempUpdateMeta(tempDir)
 
 	// Installation succeeded - now safe to remove original and move new
-	if err := os.RemoveAll(destPath); err != nil {
-		return nil, fmt.Errorf("failed to remove existing skill: %w", err)
-	}
-
-	if err := os.Rename(tempDest, destPath); err != nil {
-		// Rename failed (possibly cross-device), try copy instead
-		if err := copyDir(tempDest, destPath); err != nil {
-			return nil, fmt.Errorf("failed to move updated skill: %w", err)
-		}
+	if err := swapStagedIntoSource(opts.SourceDir, tempDest, destPath); err != nil {
+		return nil, err
 	}
 
 	if updatedMeta != nil {
@@ -257,13 +250,8 @@ func updateRepoRootOrchestrator(source *Source, destPath string, result *Install
 		result.Warnings = append(result.Warnings, innerResult.Warnings...)
 	}
 
-	if err := os.RemoveAll(destPath); err != nil {
-		return true, fmt.Errorf("failed to remove existing skill: %w", err)
-	}
-	if err := os.Rename(tempDest, destPath); err != nil {
-		if err := copyDir(tempDest, destPath); err != nil {
-			return true, fmt.Errorf("failed to move updated skill: %w", err)
-		}
+	if err := swapStagedIntoSource(opts.SourceDir, tempDest, destPath); err != nil {
+		return true, err
 	}
 
 	fullSource, fullSubdir := discoveredSkillSourceParts(discovery, rootSkill)

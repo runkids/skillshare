@@ -199,7 +199,7 @@ func installImpl(source *Source, destPath string, opts InstallOptions) (*Install
 		}
 		// Force mode (or empty dir): remove existing
 		if !opts.DryRun {
-			if err := os.RemoveAll(destPath); err != nil {
+			if err := removeInSource(opts.SourceDir, destPath); err != nil {
 				return nil, fmt.Errorf("failed to remove existing skill: %w", err)
 			}
 		}
@@ -374,7 +374,7 @@ func installFromDiscoveryInternal(discovery *DiscoveryResult, skill SkillInfo, d
 		// overwrite in place.
 		stage = opts.Update
 		if !opts.DryRun && !stage {
-			if err := os.RemoveAll(destPath); err != nil {
+			if err := removeInSource(opts.SourceDir, destPath); err != nil {
 				return nil, fmt.Errorf("failed to remove existing skill: %w", err)
 			}
 		}
@@ -446,14 +446,8 @@ func installFromDiscoveryInternal(discovery *DiscoveryResult, skill SkillInfo, d
 	}
 
 	if stage {
-		if err := os.RemoveAll(destPath); err != nil {
-			return nil, fmt.Errorf("failed to remove existing skill: %w", err)
-		}
-		if err := os.Rename(workDest, destPath); err != nil {
-			// Rename failed (possibly cross-device), try copy instead
-			if err := copyDir(workDest, destPath); err != nil {
-				return nil, fmt.Errorf("failed to move updated skill: %w", err)
-			}
+		if err := swapStagedIntoSource(opts.SourceDir, workDest, destPath); err != nil {
+			return nil, err
 		}
 	}
 
