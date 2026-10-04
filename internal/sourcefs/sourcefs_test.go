@@ -330,3 +330,34 @@ func TestCopyInCopiesTreeThroughRoot(t *testing.T) {
 	}
 	assertUnchanged(t, before, ext)
 }
+
+func TestWriterTakesAbsolutePathsAndRefusesLinks(t *testing.T) {
+	r, ext := fixture(t)
+	before := snapshot(t, ext)
+	w := r.Writer()
+
+	if err := w.MkdirAll(filepath.Join(r.Dir(), "new", "deep"), 0o755); err != nil {
+		t.Fatalf("MkdirAll below the root: %v", err)
+	}
+	if err := w.WriteFile(filepath.Join(r.Dir(), "new", "SKILL.md"), []byte("new"), 0o644); err != nil {
+		t.Fatalf("WriteFile below the root: %v", err)
+	}
+
+	through := filepath.Join(r.Dir(), "_f", "SKILL.md")
+	if err := w.WriteFile(through, []byte("x"), 0o644); !errors.Is(err, ErrLink) {
+		t.Fatalf("WriteFile through _f: got %v, want ErrLink", err)
+	}
+	if err := w.MkdirAll(filepath.Join(r.Dir(), "_f", "new"), 0o755); !errors.Is(err, ErrLink) {
+		t.Fatalf("MkdirAll through _f: got %v, want ErrLink", err)
+	}
+	if f, err := w.OpenFile(through, os.O_WRONLY|os.O_TRUNC, 0o644); !errors.Is(err, ErrLink) {
+		if f != nil {
+			f.Close()
+		}
+		t.Fatalf("OpenFile through _f: got %v, want ErrLink", err)
+	}
+	if err := w.WriteFile(filepath.Join(ext, "SKILL.md"), []byte("x"), 0o644); err == nil {
+		t.Fatal("WriteFile outside the root should fail")
+	}
+	assertUnchanged(t, before, ext)
+}

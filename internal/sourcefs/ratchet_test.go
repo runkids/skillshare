@@ -23,14 +23,18 @@ import (
 // call in a non-test file under cmd/ and internal/ must have an allowance in
 // testdata/raw_writes.tsv with a reason that says why it does not write the
 // skills source, or source-unmigrated when it does and still has to move onto
-// this package. The check is syntactic: it cannot follow data flow.
+// this package. A reference to sourcefs.OS, the plain Writer that shared
+// helpers take, counts as a raw write too. The check is syntactic: it cannot
+// follow data flow.
 //
 // To regenerate the list after adding or removing calls, run
 //
 //	SOURCEFS_RATCHET_UPDATE=1 go test ./internal/sourcefs -run TestRawWriteRatchet
 //
-// It keeps the reasons of existing entries and marks new ones unclassified,
-// which still fails until a reviewer gives each one a reason.
+// It keeps the reasons and notes of existing entries and marks new ones
+// unclassified, which still fails until a reviewer gives each one a reason.
+// An optional sixth column is a note that says why a call keeps its reason,
+// for example why a source-unmigrated call cannot move yet.
 
 const allowlistPath = "testdata/raw_writes.tsv"
 
@@ -45,6 +49,7 @@ var rawWriteFuncs = map[string]bool{
 // validReasons are the tags an allowance may carry.
 var validReasons = map[string]string{
 	"sourcefs":          "this package: the handle's own root creation and edge-crossing rename",
+	"os-writer":         "this package: the plain Writer behind sourcefs.OS, whose every use carries its own reason",
 	"source-checked":    "writes the source after the in-source side was checked through sourcefs",
 	"source-unmigrated": "writes the skills source and still has to move onto sourcefs",
 	"source-root":       "creates or moves the skills source root itself, before a handle can be opened on it",
@@ -70,7 +75,7 @@ type rawWrite struct {
 
 type allowance struct {
 	rawWrite
-	Reason string
+	Reason string // the tag, then optionally a tab and a note
 }
 
 func (w rawWrite) String() string {
@@ -115,28 +120,48 @@ func scanRawWrites(root string, dirs ...string) ([]rawWrite, error) {
 }
 
 // fileRawWrites finds raw writes in one file. Matching follows the file's
-// import of "os", so an aliased import counts too.
+// imports of "os" and sourcefs, so an aliased import counts too.
 func fileRawWrites(fset *token.FileSet, rel string, file *ast.File) []rawWrite {
-	osName := ""
+	osName, fsName := "", ""
 	for _, imp := range file.Imports {
-		if p, _ := strconv.Unquote(imp.Path.Value); p == "os" {
+		p, _ := strconv.Unquote(imp.Path.Value)
+		name := ""
+		if imp.Name != nil {
+			name = imp.Name.Name
+		}
+		switch p {
+		case "os":
 			osName = "os"
-			if imp.Name != nil {
-				osName = imp.Name.Name
+			if name != "" {
+				osName = name
+			}
+		case "skillshare/internal/sourcefs":
+			fsName = "sourcefs"
+			if name != "" {
+				fsName = name
 			}
 		}
 	}
-	if osName == "" || osName == "_" || osName == "." {
+	usable := func(name string) bool { return name != "" && name != "_" && name != "." }
+	if !usable(osName) && !usable(fsName) {
 		return nil
 	}
 	isRawWrite := func(sel *ast.SelectorExpr) bool {
 		id, ok := sel.X.(*ast.Ident)
-		return ok && id.Name == osName && rawWriteFuncs[sel.Sel.Name]
+		if !ok {
+			return false
+		}
+		return (usable(osName) && id.Name == osName && rawWriteFuncs[sel.Sel.Name]) ||
+			(usable(fsName) && id.Name == fsName && sel.Sel.Name == "OS")
 	}
 
 	var out []rawWrite
 	record := func(fn string, sel *ast.SelectorExpr, args []ast.Expr) {
-		out = append(out, rawWrite{File: rel, Func: fn, Callee: "os." + sel.Sel.Name, Arg: argFingerprint(fset, sel.Sel.Name, args)})
+		pkg := "os."
+		if id := sel.X.(*ast.Ident); id.Name == fsName && sel.Sel.Name == "OS" {
+			pkg = "sourcefs."
+		}
+		out = append(out, rawWrite{File: rel, Func: fn, Callee: pkg + sel.Sel.Name, Arg: argFingerprint(fset, sel.Sel.Name, args)})
 	}
 	visit := func(fn string, node ast.Node) {
 		called := map[*ast.SelectorExpr]bool{}
@@ -224,10 +249,10 @@ func loadAllowlist(path string) ([]allowance, error) {
 			continue
 		}
 		cols := strings.Split(text, "\t")
-		if len(cols) != 5 {
-			return nil, fmt.Errorf("%s:%d: want 5 tab-separated columns, got %d", path, line, len(cols))
+		if len(cols) != 5 && len(cols) != 6 {
+			return nil, fmt.Errorf("%s:%d: want 5 or 6 tab-separated columns, got %d", path, line, len(cols))
 		}
-		out = append(out, allowance{rawWrite{cols[0], cols[1], cols[2], cols[3]}, cols[4]})
+		out = append(out, allowance{rawWrite{cols[0], cols[1], cols[2], cols[3]}, strings.Join(cols[4:], "\t")})
 	}
 	return out, sc.Err()
 }
@@ -263,7 +288,7 @@ func writeAllowlist(path string, found []rawWrite, allowed []allowance) error {
 	sort.SliceStable(sorted, func(i, j int) bool { return sorted[i].String() < sorted[j].String() })
 	var buf bytes.Buffer
 	buf.WriteString("# Raw os write calls allowed outside sourcefs. See ratchet_test.go.\n")
-	buf.WriteString("# file\tfunction\tcallee\tpath argument\treason\n")
+	buf.WriteString("# file\tfunction\tcallee\tpath argument\treason\t[note]\n")
 	for _, w := range sorted {
 		reason := "unclassified"
 		if rs := reasons[w]; len(rs) > 0 {
@@ -293,8 +318,9 @@ func TestRawWriteRatchet(t *testing.T) {
 	}
 
 	for _, a := range allowed {
-		if _, ok := validReasons[a.Reason]; !ok {
-			t.Errorf("%s: reason %q is not one of the valid reasons in ratchet_test.go", a.rawWrite, a.Reason)
+		tag, _, _ := strings.Cut(a.Reason, "\t")
+		if _, ok := validReasons[tag]; !ok {
+			t.Errorf("%s: reason %q is not one of the valid reasons in ratchet_test.go", a.rawWrite, tag)
 		}
 	}
 	unlisted, stale := diffAllowlist(found, allowed)
@@ -351,5 +377,31 @@ var remove = xos.Remove
 	unlisted, stale = diffAllowlist(found, []allowance{{write, "tmp"}, {write, "tmp"}, {ref, "tmp"}, {gone, "tmp"}})
 	if len(unlisted) != 0 || len(stale) != 1 || stale[0].rawWrite != gone {
 		t.Fatalf("unlisted = %v, stale = %v; want the Rename allowance stale", unlisted, stale)
+	}
+}
+
+func TestRatchetCountsSourcefsOSReferences(t *testing.T) {
+	root := t.TempDir()
+	src := `package p
+
+import sfs "skillshare/internal/sourcefs"
+
+func copyOut() { use(sfs.OS) }
+
+func use(sfs.Writer) {}
+`
+	if err := os.MkdirAll(filepath.Join(root, "internal", "p"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "internal", "p", "p.go"), []byte(src), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	found, err := scanRawWrites(root, "internal")
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := rawWrite{"internal/p/p.go", "copyOut", "sourcefs.OS", "<ref>"}
+	if len(found) != 1 || found[0] != want {
+		t.Fatalf("found %v, want only %v", found, want)
 	}
 }

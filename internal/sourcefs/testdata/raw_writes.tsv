@@ -1,5 +1,5 @@
 # Raw os write calls allowed outside sourcefs. See ratchet_test.go.
-# file	function	callee	path argument	reason
+# file	function	callee	path argument	reason	[note]
 cmd/skillshare/completion.go	cmdCompletion	os.MkdirAll	dir	shell
 cmd/skillshare/completion.go	cmdCompletion	os.WriteFile	destPath	shell
 cmd/skillshare/doctor.go	checkSymlinkSupport	os.MkdirAll	testTarget	tmp
@@ -322,6 +322,9 @@ internal/skillignore/write.go	AddPattern	os.MkdirAll	filepath.Dir(filePath)	sour
 internal/skillignore/write.go	AddPattern	os.WriteFile	filePath	source-unmigrated
 internal/skillignore/write.go	RemovePattern	os.WriteFile	filePath	source-unmigrated
 internal/sourcefs/sourcefs.go	(*Root).MoveIn	os.Rename	src, filepath.Join(r.dir, name)	sourcefs
+internal/sourcefs/sourcefs.go	(osWriter).MkdirAll	os.MkdirAll	path	os-writer
+internal/sourcefs/sourcefs.go	(osWriter).OpenFile	os.OpenFile	path	os-writer
+internal/sourcefs/sourcefs.go	(osWriter).WriteFile	os.WriteFile	path	os-writer
 internal/sourcefs/sourcefs.go	Create	os.MkdirAll	dir	sourcefs
 internal/sync/agent_sync.go	PruneOrphanAgentLinks	os.Remove	filepath.Join(targetDir, name)	target
 internal/sync/agent_sync.go	PullAgent	os.RemoveAll	destPath	agents
