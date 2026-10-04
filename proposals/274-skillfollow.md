@@ -279,7 +279,9 @@ A `not-link` entry is a real directory, so it keeps today's ownership rules: nam
 | Pull, audit rollback, and `--force` on a followed repo | §5's followed-update policy |
 | Dashboard source change on a followed repo | `handlePatchSkillSource` (`internal/server/handler_skill_content.go:98`), which calls `git.SetRemoteURL` at `:162` |
 | Staging | §5's staging guard |
-| Source-repo pull and reset: `ss pull` (`pullFromRemote`, `cmd/skillshare/pull.go:54`), the dashboard pull (`handlePull`, `internal/server/handler_git.go:677`, via `PullWithResolution` at `:745`), and the `init` resets to a remote branch (`resetToRemoteBranch`, `cmd/skillshare/init_remote.go:126`; `cmd/skillshare/init.go:775`) | Fetch first. Then refuse while any declared entry in the staging tree is indexed, or while the incoming revision touches a path that has a link component in the working tree, declared or not. Each path from `git diff --name-only -z HEAD <incoming>`, parsed on NUL so that quoted names are read exactly, is checked with `Lstat` on its existing ancestors. Ignoring the link is not enough: Git treats ignored files as expendable, so a remote commit that adds that path would replace the link. Checking undeclared links too keeps this seam consistent with the final-component rule above, and it closes the same exposure that undeclared links have today. The message names the path and the commit, and says to run `git rm --cached` or to fix the remote. |
+| Source-repo pull, reset, and checkout: `ss pull` (`pullFromRemote`, `cmd/skillshare/pull.go:54`), the dashboard pull (`handlePull`, `internal/server/handler_git.go:677`, via `PullWithResolution` at `:745`), the `init` resets to a remote branch (`resetToRemoteBranch`, `cmd/skillshare/init_remote.go:126`; `cmd/skillshare/init.go:775`), and the dashboard branch switch (`handleGitCheckout`, `handler_git.go:274`, via `git.Checkout` at `:333`). For checkout, the incoming revision is the branch being checked out. | Fetch first. Then refuse while any declared entry in the staging tree is indexed, or while the incoming revision touches a path that has a link component in the working tree, declared or not. Each path from `git diff --name-only -z HEAD <incoming>`, parsed on NUL so that quoted names are read exactly, is checked with `Lstat` on its existing ancestors. Ignoring the link is not enough: Git treats ignored files as expendable, so a remote commit that adds that path would replace the link. Checking undeclared links too keeps this seam consistent with the final-component rule above, and it closes the same exposure that undeclared links have today. The message names the path and the commit, and says to run `git rm --cached` or to fix the remote. |
+
+The dashboard discard (`handleGitDiscard`, `internal/server/handler_git_discard.go:13`, via `git.DiscardChanges`) needs no new seam. `git clean -fd` runs without `-x`, so an ignored link stays, and `git restore --source=HEAD` rewrites only indexed paths, which the staging guard keeps the link out of. An undeclared link that is neither indexed nor ignored is untracked, so discard removes it today, and that behavior is unchanged. The Test Plan pins the followed case.
 
 `enable`/`disable` (`cmd/skillshare/enable.go`) and `PUT /api/skillignore` (`internal/server/handler_skillignore.go:80-89`) write only the root ignore files, which the handle allows.
 
@@ -339,10 +341,11 @@ A followed repo is the user's working copy. The current update paths are not saf
 5. Followed repos never get "try force update" advice.
 6. Installed (non-followed) tracked repos keep today's behavior exactly.
 
-**Audit rollback is kept and documented.** When the audit fails after a pull, two paths run `git reset --hard <beforeHash>`, even without `--force`:
+**Audit rollback is kept and documented.** When the audit fails after a pull, three paths run `git reset --hard <beforeHash>`, even without `--force`:
 
 - `auditGateAfterPull` (`update_handlers.go:56`, `:96`, `:107`)
 - the server's `auditGateTrackedRepo` (`handler_update.go:375`, `:392`)
+- `install --update`'s `auditTrackedRepoUpdate` (`internal/install/install_audit.go:277`)
 
 The tree was clean before the pull, so in the normal case this undoes only what skillshare pulled. The docs must say plainly that refusing `--force` does not mean skillshare never hard-resets a followed repo.
 
@@ -467,7 +470,7 @@ Any line estimate is rough, not a commitment.
   - Unfollow and uninstall of a followed entry remove only the link and the declarations. Partial-write failure is reported as failure.
   - Audit on a followed repo: a pulled commit adding a malicious child skill blocks and rolls back to `beforeHash`, through the CLI, the server, and `install --update`. A zero-file scan of a non-empty root is a scan error.
   - Update: a mixed `update --all` of ordinary and followed repos, covering dirty trees, `--force`, divergence, and an `IsDirty` error. The ordinary repo still updates, and each followed refusal is reported per item in batch, project, server, and SSE output. Rollback-failure and concurrency messages are checked too.
-  - Source-repo `pull`, dashboard pull, and `init` reset: refused with an indexed declared link, and refused when the remote adds or changes a path through a declared or undeclared link that is only ignored. The link is unchanged after each refusal.
+  - Source-repo `pull`, dashboard pull, dashboard checkout, and `init` reset: refused with an indexed declared link, and refused when the incoming revision adds or changes a path through a declared or undeclared link that is only ignored. The link is unchanged after each refusal. Dashboard discard: an ignored followed link survives `git clean -fd`, and the target is unchanged.
   - The staging guard at `commit`, `push`, and `init --remote`: indexed versus unignored links; a source linked out of the git root (not guarded); an alias source pointing into the root (guarded); agents, extras, and custom-root scopes; under both `git_root: skills` and `git_root: root`.
   - A missing or rejected entry with `--force`: the prune pause holds, and copy replacement is refused in standard naming.
 - **Windows:** the `skillshare-windows-utm` runbook for §3 cases 11–13, §6, and the §4 boundary through a junction with the basic token.
