@@ -369,6 +369,15 @@ The tree was clean before the pull, so in the normal case this undoes only what 
   Consequences for this design:
   - `utils.ResolveSymlink` and `evalOrClean` are no-ops on junctions, so they cannot be used to resolve followed entries, run cycle and overlap checks, or find the staging tree on Windows. The walker reads the entry's target with `utils.ResolveLinkTarget`. Canonical comparisons use a junction-aware canonicalizer that resolves link components one at a time.
   - The relative-link branch of `createLink` (Developer Mode only) canonicalizes with `evalOrClean` today, so it has the same exposure on Windows. §3 switches it to `canon`. It needs a test under Developer Mode, which this probe did not cover.
+- **Feature runtime evidence (2026-10-04).** `ai_docs/tests/windows_skillfollow_runbook.md` (`scripts/windows/e2e-skillfollow.ps1`) ran `0da66fde`, cross-compiled for `windows/arm64`, on Windows 11 Home ARM64 (10.0.26200) with Developer Mode off, as the desktop user in global mode. With the full token (an administrator token: `SeCreateSymbolicLinkPrivilege` present, directory symlinks allowed) it ran the scenarios twice, once with followed entries as junctions and once as directory symlinks: 80 pass, 0 fail. With the basic-user token it ran the junction scenarios: 40 pass, 0 fail; the directory-symlink scenarios were skipped because that token cannot create them. Each run covered:
+  - undeclared links stay invisible; declared entries are discovered, with the repository and nested-repository `.skillignore` applied, and a CRLF `.skillfollow` parsed;
+  - `status --json` counts, states, and `resolved_target`, and `doctor --json` checks;
+  - `sync` creating junctions (`0xa0000003`) whose stored target is the logical `<src>\group\alpha`, also when the entry is a directory symlink; `SKILL.md` reads through them; a second sync reports `updated=0` without recreating them; status counts them as `merged`;
+  - a dangling `_off` entry is `missing`; `sync`, `sync --json`, `status --json`, and `diff` report the prune pause and a stale junction into it is kept; restoring it prunes the stale junction and links the restored skill;
+  - `update _team --force --dry-run` is refused with exit 1 and HEAD stays put;
+  - unfollowing prunes the one managed link; `.skillfollow.local` forms a union and collapses a duplicate; a regular file and a junction or file symlink to a file are `invalid-target` and pause prune.
+
+  No failures, so no fix was needed. Not covered: project mode's relative links, the Developer Mode relative-symlink branch of `createLink` (test case 13), a linked source root or target parent, the dashboard, and source Git staging. Report: `ai_docs/reports/274-windows-skillfollow.md`.
 - **`os.Root` evidence.** A second probe verified that `os.Root` refuses writes through junctions and symlinks that leave the root, on Windows and Linux, with both tokens. §4 has the table.
 - Real-Windows coverage goes in an `ai_docs/tests/` runbook, run with `skillshare-windows-utm`. It runs two configurations: a basic-user token (junctions only) and Developer Mode (relative symlinks). It covers:
   - discovery

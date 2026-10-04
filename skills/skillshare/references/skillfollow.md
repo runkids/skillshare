@@ -115,8 +115,11 @@ Checkout checks the selected existing revision without adding a fetch. An ignore
 followed link survives dashboard discard. These guards do not cover external Git
 commands; unrelated agents/extras Git scopes are not automatically blocked.
 
-Single-skill entries and a declaration editor are future work. Real Windows
-junction/Developer Mode feature-runtime verification is pending; simulated tests
-and cross-compilation do not establish it.
+Single-skill entries and a declaration editor are future work. Windows 11 ARM64
+(Developer Mode off) has verified global-mode discovery, status, sync, prune
+pause/resume, update refusal, unfollow, `.skillfollow.local`, and `invalid-target`
+with followed junctions (admin and basic-user tokens) and directory symlinks (admin
+token). Project-mode relative links, Developer Mode relative symlinks, a linked
+source root or target parent, and the dashboard are not verified on Windows.
 
 Full setup/state reference: https://skillshare.runkids.cc/docs/reference/skillfollow

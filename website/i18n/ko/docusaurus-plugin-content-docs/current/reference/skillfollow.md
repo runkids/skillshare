@@ -133,7 +133,7 @@ Source **pull/reset/checkout**은 indexed 선언（없지만 indexed인 링크 �
 
 ## 제한
 
-단일 skill, `follow`/`unfollow`, 선언 편집기는 미래 작업입니다. 중첩 링크는 따라가지 않습니다. Windows junction 시뮬레이션과 cross-compilation은 있지만 **실제 Windows junction/Developer Mode 기능 런타임 matrix는 미검증**입니다. 빌드나 이전 standalone probe 성공은 전체 런타임 증거가 아닙니다.
+단일 skill, `follow`/`unfollow`, 선언 편집기는 미래 작업입니다. 중첩 링크는 따라가지 않습니다. Developer Mode가 꺼진 Windows 11 ARM64에서 global mode의 discovery, status, sync, prune 일시 중지와 재개, update 거부, unfollow, `.skillfollow.local`, `invalid-target`을 팔로우한 junction(관리자 및 basic-user token)과 directory symlink(관리자 token)로 검증했습니다. project mode의 상대 링크, Developer Mode의 상대 symlink, 링크된 source root나 target 상위 디렉터리, dashboard는 Windows에서 **미검증**입니다.
 
 ## 함께 보기
 
