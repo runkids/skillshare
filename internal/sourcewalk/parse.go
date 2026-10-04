@@ -43,9 +43,10 @@ func readDeclarations(root string) declarations {
 				out.warnings = append(out.warnings, fmt.Sprintf("%s:%d: invalid first-level entry %q", path, i+1, name))
 				continue
 			}
-			if !seen[name] {
+			// Keep the first spelling of names the platform treats as equal.
+			if key := entryNameKey(name); !seen[key] {
 				out.names = append(out.names, name)
-				seen[name] = true
+				seen[key] = true
 			}
 		}
 	}

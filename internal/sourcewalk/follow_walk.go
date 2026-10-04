@@ -23,7 +23,7 @@ func (d followedDirEntry) Info() (os.FileInfo, error) { return d.FileInfo, nil }
 
 func (s *FollowSet) followedChild(name string) (Entry, bool) {
 	for _, entry := range s.entries {
-		if entry.Name == name && entry.State == Followed {
+		if sameEntryName(entry.Name, name) && entry.State == Followed {
 			return entry, true
 		}
 	}

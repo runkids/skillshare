@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 
 	"skillshare/internal/sourcefs"
@@ -32,6 +33,26 @@ type Entry struct {
 	State          State  `json:"state"`
 	ResolvedTarget string `json:"resolved_target,omitempty"`
 	Reason         string `json:"reason"`
+}
+
+// caseInsensitiveNames matches Windows, where names differing only by case
+// identify the same filesystem entry. Tests flip it to cover both semantics.
+var caseInsensitiveNames = runtime.GOOS == "windows"
+
+// sameEntryName compares first-level entry names with platform path semantics.
+func sameEntryName(a, b string) bool {
+	if caseInsensitiveNames {
+		return strings.EqualFold(a, b)
+	}
+	return a == b
+}
+
+// entryNameKey is the map key under which sameEntryName names are equal.
+func entryNameKey(name string) string {
+	if caseInsensitiveNames {
+		return strings.ToLower(name)
+	}
+	return name
 }
 
 // FollowOptions supplies the operation's active skills targets and staging root.
@@ -85,7 +106,7 @@ func follow(root string, opts FollowOptions, links linkOps) FollowSet {
 	}
 	declared := make(map[string]bool)
 	for _, name := range parsed.names {
-		declared[name] = true
+		declared[entryNameKey(name)] = true
 		entry := Entry{Name: name}
 		path := filepath.Join(root, name)
 		info, err := os.Lstat(path)
@@ -182,7 +203,7 @@ func follow(root string, opts FollowOptions, links linkOps) FollowSet {
 	children, err := readFollowDir(root)
 	if err == nil {
 		for _, child := range children {
-			if !declared[child.Name()] && links.isLink(filepath.Join(root, child.Name()), child.Type()) {
+			if !declared[entryNameKey(child.Name())] && links.isLink(filepath.Join(root, child.Name()), child.Type()) {
 				set.entries = append(set.entries, Entry{Name: child.Name(), State: UndeclaredLink, Reason: "not declared in .skillfollow or .skillfollow.local"})
 			}
 		}
@@ -254,7 +275,7 @@ func (s FollowSet) InFollowed(logicalRel string) (Entry, bool) {
 	}
 	name := strings.SplitN(clean, "/", 2)[0]
 	for _, entry := range s.entries {
-		if entry.Name == name && entry.State != NotLink && entry.State != UndeclaredLink {
+		if sameEntryName(entry.Name, name) && entry.State != NotLink && entry.State != UndeclaredLink {
 			return entry, true
 		}
 	}
@@ -285,7 +306,7 @@ func (s FollowSet) Err() error { return errors.Join(s.declarationError, errors.J
 func (s *FollowSet) markMissing(name string, err error) {
 	s.walkErrors = append(s.walkErrors, fmt.Errorf("incomplete discovery of %s: %w", name, err))
 	for i := range s.entries {
-		if s.entries[i].Name == name {
+		if sameEntryName(s.entries[i].Name, name) {
 			s.entries[i].State, s.entries[i].Reason = Missing, err.Error()
 			s.warnings = append(s.warnings, name+": missing: "+err.Error())
 			return
