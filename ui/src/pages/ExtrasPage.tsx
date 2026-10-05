@@ -630,7 +630,10 @@ export default function ExtrasPage() {
         subtitle={t(isProjectMode ? 'extras.subtitle.project' : 'extras.subtitle.global')}
         actions={tab === 'folders' ? <span data-tour="extras-list"><Button variant="primary" onClick={() => setShowAdd(true)}><Plus size={15} />{t('extras.addExtra')}</Button></span>
           : tab === 'instructions' ? <Button variant="primary" onClick={() => setCreatingShared(true)}><Plus size={15} />{t(isProjectMode ? 'instructions.projectShared.new' : 'instructions.shared.new')}</Button>
-          : <Button variant="primary" onClick={() => setCreatingNote(true)}><Plus size={15} />{t('memory.new')}</Button>}
+          : <>
+            <Button variant="ghost" onClick={() => void queryClient.invalidateQueries({ queryKey: queryKeys.memory.all })}><RefreshCw size={15} />{t('memory.refresh')}</Button>
+            <Button variant="primary" onClick={() => setCreatingNote(true)}><Plus size={15} />{t('memory.new')}</Button>
+          </>}
       />
 
       <nav className="ss-tabs mb-7" aria-label={t('extras.tabs')}>

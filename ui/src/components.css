@@ -109,6 +109,10 @@ svg.lucide { flex: none; stroke-width: var(--isw); }
 .ss-chip>button { cursor: pointer; height: 100%; }
 .ss-chip.set { border-style: solid; border-color: var(--pri); background: var(--pri); color: var(--on-pri); padding-right: 4px; }
 .ss-chip.set .p { opacity: .7; }
+/* A door on a target row: one thing the target gets, linking to the tab that manages it. Ghost: text with a hover fill, like .ss-btn.ghost. */
+.ss-door { display: inline-flex; align-items: center; gap: 5px; height: 24px; padding: 0 8px; border-radius: 999px; color: var(--ink-2); font-size: 12.5px; font-weight: 500; white-space: nowrap; transition: background-color .12s, color .12s; }
+.ss-door:hover { background: var(--sel); color: var(--sel-ink); }
+.ss-door>b { font-weight: 600; font-size: 11px; color: var(--ink-3); }
 .ss-chip .x { width: 22px; height: 22px; display: grid; place-items: center; border-radius: 999px; }
 .ss-chip .x:hover { background: color-mix(in srgb, var(--on-pri) 20%, transparent); }
 :root[data-theme="playful"] .ss-chip.set { border-color: var(--line); box-shadow: var(--sh-btn); }
@@ -600,7 +604,7 @@ button:disabled { cursor: not-allowed; }
 :root[data-theme="playful"] .ss-btn.ghost:hover:not(:disabled) { background: var(--sunken); border-color: var(--ink-3); }
 /* Its outline is what has to line up here, so the pull that lined up the bare icon is undone. */
 :root[data-theme="playful"] .ss-btn.ghost.flush { margin-left: 0; }
-.ss-btn:focus-visible, .ss-ib:focus-visible, .ss-nv:focus-visible, .ss-seg>*:focus-visible, .ss-tabs>*:focus-visible, .ss-menu>:is(a,button):focus-visible, .ss-sw:focus-visible, .ss-r.link:focus-visible, .ss-counts>a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.ss-btn:focus-visible, .ss-ib:focus-visible, .ss-nv:focus-visible, .ss-door:focus-visible, .ss-rl:focus-visible, .ss-seg>*:focus-visible, .ss-tabs>*:focus-visible, .ss-menu>:is(a,button):focus-visible, .ss-sw:focus-visible, .ss-r.link:focus-visible, .ss-counts>a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .ss-ib { transition: background-color .12s, color .12s; }
 .ss-ib:hover:not(:disabled) { background: var(--sel); color: var(--ink); }
 .ss-ib:disabled { opacity: .42; }
@@ -617,6 +621,9 @@ button:disabled { cursor: not-allowed; }
 .ss-menu>:is(a,button).dng:hover { background: var(--bad-bg); }
 .ss-r.link { cursor: pointer; }
 .ss-r.link:hover { background: var(--sunken); }
+/* A row whose name is the link: the whole row lights up, as if the row were the link. */
+.ss-rl { cursor: pointer; }
+.ss-r:has(>.ss-rl:hover) { background: var(--sunken); }
 .ss-counts>a { transition: background-color .12s, transform .12s, box-shadow .12s; }
 .ss-counts>a .lbl { font-size: 13px; color: var(--ink-2); }
 :root:not([data-theme="playful"]) .ss-counts>a:hover { background: var(--sunken); }

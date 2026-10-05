@@ -1,5 +1,27 @@
 # Changelog
 
+## [0.24.6] - 2026-10-05
+
+### New Features
+
+- **Memory has a Refresh button, and agents keep short facts in `INDEX.md`** — an agent writes shared notes from outside the dashboard, so the note list and the open note stayed stale until you reloaded the page. **Refresh** sits next to the search box and reloads both. The `active` guidance also told agents to create a separate file for every durable fact, which left a folder of one-sentence files. A fact that fits in a sentence or two now goes as one bullet under `## Notes` in `INDEX.md`; only a longer note gets its own file. Existing `active` guidance blocks show as **Outdated** on the Memory page; reconnect to update them.
+  ```bash
+  skillshare extras memory instructions --update-mode active -g
+  ```
+- **The Targets list links each part of a target to its tab** — the **Syncing** column described what a target gets as one line of text, and the whole row led to the Skills tab. MCP, Hooks and the instruction file are now separate links into their own tabs, and the connected shared `AGENTS.md` shows by its file name, so the list shows at a glance which targets are not connected yet.
+
+### Bug Fixes
+
+- **`diff` and the Sync tab no longer list synced agents as pending when a target converts them** — after a successful sync, a target with an agent extension (for example Codex writing `reviewer.toml`) still showed every agent as **New** in `skillshare diff` and in the dashboard's Sync tab, because they looked for the source name. They now check what the sync recorded, so converted agents drop out once synced and show again when the source changes. An output whose agent was removed from the source shows as a removal, and `diff` leaves out the agents a target would not receive because of its include/exclude or an agent's `targets` frontmatter, as `sync` does. Refs: #391.
+  ```bash
+  skillshare sync agents
+  skillshare diff
+  ```
+- **`status` no longer counts a plain copy as a converted agent** — when a target that already held copied agents started using an agent extension, `status`, `doctor`, `diff` and the dashboard counted the old `reviewer.md` copy as the converted output, although the next sync writes `reviewer.toml` and removes the copy. Only outputs the extension wrote count now. A converted output written before 0.24.5 shows as pending until the next sync records its source.
+- **The dashboard rejects skill names that point outside the skills folder** — the audit, update and batch uninstall routes joined the name from the request to the source without checking it, so a name such as `../../x` made audit scan a folder outside the skills source and report it clean. These routes now answer with an error for such a name. Nested names such as `group/skill` work as before. Refs: #402.
+- **`skillshare audit agents` keeps the Skills tab on skills** — the audit screen opened for agents only discovered skills inside the agents folder, and `audit agents --json` reported names such as `../agents/helper.md` when the two folders are siblings. Agents are now named relative to the agents folder and the Skills tab reads the skills source.
+- **The hub filters sit on the title row** — the title and the filters used two rows with a wide empty strip above and below the filters; they now share one row.
+
 ## [0.24.5] - 2026-10-04
 
 ### New Features

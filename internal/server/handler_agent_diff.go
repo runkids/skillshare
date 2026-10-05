@@ -5,14 +5,48 @@ import (
 	"path/filepath"
 	"strings"
 
+	"skillshare/internal/config"
 	"skillshare/internal/resource"
+	"skillshare/internal/sync"
 	"skillshare/internal/utils"
 )
 
 // computeAgentTargetDiff computes diff items for agents in a single target directory.
 // Returns items with Kind="agent" for each pending action (link, update, prune, local).
-func computeAgentTargetDiff(targetDir string, agents []resource.DiscoveredResource) []diffItem {
+// Like sync, it applies the target's include/exclude and the agents' frontmatter
+// targets first, and a target with an extension compares the converted outputs
+// recorded in its manifest.
+func computeAgentTargetDiff(targetName, targetDir string, ac config.ResourceTargetConfig, agents []resource.DiscoveredResource) []diffItem {
 	var items []diffItem
+
+	filtered, err := sync.FilterAgents(agents, ac.Include, ac.Exclude)
+	if err != nil {
+		filtered = agents // invalid include/exclude: sync reports it
+	}
+	agents = sync.FilterAgentsByTarget(filtered, targetName)
+
+	if ac.Extension != "" {
+		synced, orphans := sync.ExtensionOutputStatus(targetDir, agents)
+		for i, a := range agents {
+			if !synced[i] {
+				items = append(items, diffItem{
+					Skill:  a.FlatName,
+					Action: "link",
+					Reason: "output missing or outdated",
+					Kind:   kindAgent,
+				})
+			}
+		}
+		for _, name := range orphans {
+			items = append(items, diffItem{
+				Skill:  name,
+				Action: "prune",
+				Reason: "orphan output",
+				Kind:   kindAgent,
+			})
+		}
+		return items
+	}
 
 	// Build expected set
 	expected := make(map[string]resource.DiscoveredResource, len(agents))

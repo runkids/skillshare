@@ -96,6 +96,12 @@ Verify the image and external volumes exist before starting with `docker compose
 
 At completion, identify the exact task-owned environment, container, volumes, and clean worktree. Obtain authorization for deletion unless task cleanup was already explicitly authorized; preserve requested debugging evidence. Remove temporary containers with `docker compose -f <file> down -v` so their anonymous dependency volumes do not accumulate. External shared caches must remain. Do not use broad system or volume pruning as task cleanup, and do not remove another task's running container.
 
+Check for leftovers on the host when the disk runs low, since the host Docker volumes are not the only source. Use `/usr/bin/du`, because `du` may be aliased to `dust`.
+
+- `.git/objects/pack/tmp_pack_*` comes from interrupted fetch or push operations and once reached 32 GB. When `pgrep -fl "git (fetch|push|gc|repack)"` shows nothing running, delete only that glob, then run `git fsck --connectivity-only`.
+- The ignored repository-root directories `.verify-home`, `.pnpm-store`, `.cache`, and `tmp/` hold verification homes, package stores, and built binaries. Remove only the ones the current task created, after confirming with the user.
+- Report sizes before deleting, and never prune Docker volumes broadly; `skillshare_devcontainer_go-build-cache` is shared.
+
 ## Narrow Verification First
 
 Change to `/workspace` inside the container:

@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -39,5 +40,22 @@ func TestHandleGetSkillignore_NoLocalFile(t *testing.T) {
 	}
 	if resp.Local != nil {
 		t.Fatalf("expected no local file, got %+v", resp.Local)
+	}
+}
+
+// In project mode the route serves the project skills source; the handler now
+// reads it through skillsSource() like the other source-reading routes.
+func TestHandleGetSkillignore_ProjectModeUsesProjectSource(t *testing.T) {
+	s, projectRoot := newTestProjectServerWithExtras(t, nil)
+
+	rr := httptest.NewRecorder()
+	s.handler.ServeHTTP(rr, httptest.NewRequest(http.MethodGet, "/api/skillignore", nil))
+
+	var resp skillignoreResponse
+	if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode: %v (body=%s)", err, rr.Body.String())
+	}
+	if !strings.HasPrefix(resp.Path, projectRoot+string(filepath.Separator)) {
+		t.Fatalf("expected .skillignore under the project source %s, got %s", projectRoot, resp.Path)
 	}
 }

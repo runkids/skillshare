@@ -401,3 +401,32 @@ func TestCopyFallbackMissingManifestIsSyncedButUnowned(t *testing.T) {
 		t.Fatal(got)
 	}
 }
+
+func TestExtensionOutputStatus_ReportsOrphanOutputs(t *testing.T) {
+	src, tgt, agents := agentFixture(t)
+	spec := &ExtensionSpec{Run: []string{"cat"}, Dir: src, Name: "id", OutputExt: "toml"}
+	if _, err := SyncAgentsTransform(agents, src, tgt, "copy", spec, false, false); err != nil {
+		t.Fatal(err)
+	}
+
+	synced, orphans := ExtensionOutputStatus(tgt, nil)
+
+	if len(synced) != 0 || len(orphans) != 1 || orphans[0] != "tutor.toml" {
+		t.Errorf("orphans = %v, want [tutor.toml]", orphans)
+	}
+}
+
+// Refs #415: a plain copy tracked before the extension was enabled has no
+// source fingerprint, so it must not pass for a converted output.
+func TestExtensionOutputStatus_PlainCopyIsNotConverted(t *testing.T) {
+	src, tgt, agents := agentFixture(t)
+	if _, err := SyncAgents(agents, src, tgt, "copy", false, false, ""); err != nil {
+		t.Fatal(err)
+	}
+
+	synced, _ := ExtensionOutputStatus(tgt, agents)
+
+	if synced[0] {
+		t.Error("tracked plain copy tutor.md counted as a converted output")
+	}
+}

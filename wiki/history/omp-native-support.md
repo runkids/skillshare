@@ -129,5 +129,12 @@ mutation occurred.
   branch scan still reports existing component maintainability warnings; scores across
   different scopes are not comparable. Platform acceptance remains unverified.
 
-The review fixes are included in the OMP pull request branch. No release or
-real-user Agent mutation was performed.
+The review fixes are included in the OMP pull request branch. Before opening the
+PR, main at `6b5a79de4` was merged without rewriting branch history. The Targets
+conflict preserves main's tab navigation, OMP account hook counts and OMP's
+Extensions link. Merged `make check`, focused UI/i18n (24/24), lint, UI build and
+context checks passed; the English website build also passed. The full merged UI
+suite had 917 passing tests and one pre-existing Memory Refresh failure. That
+component and test are identical to main, and the failure reproduces in isolation;
+no unrelated memory code or validation was changed. No release or real-user Agent
+mutation was performed.

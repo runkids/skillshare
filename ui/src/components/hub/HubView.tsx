@@ -81,30 +81,30 @@ export default function HubView({ title, draftId, url, actions }: Props) {
     <div className="flex min-w-0 flex-col gap-3">
       {/* The filter has to stay reachable: a hosted hub runs to hundreds of rows.
           The band runs wider than the content so the list's offset shadow scrolls under it too. */}
-      <div className="sticky top-0 z-10 -mx-2 -mt-6 flex flex-col gap-3 bg-bg px-2 pt-6 pb-3">
+      <div className="sticky top-0 z-10 -mx-2 flex flex-col gap-3 bg-bg px-2">
         <div className="ss-sec !mb-0 !items-center">
           <h2>{title}</h2>
           {results && <span className="ss-cnt">{results.length}</span>}
           {draftId && <span className="ss-tag inf">{t('hubs.mine')}</span>}
-          <span className="ml-auto flex items-center gap-2">{actions}</span>
-        </div>
-        <div className="flex items-center gap-2.5">
-          <span className="flex-1 text-[12.5px] text-ink-3">{draftId && t('hubs.view.mineNote')}</span>
-          {tags.length > 0 && (
-            <Select
-              size="sm"
-              className="w-[150px] shrink-0"
-              prefix={t('hubs.browse.tag')}
-              value={tag}
-              onChange={setTag}
-              options={[{ value: '', label: t('hubs.browse.allTags') }, ...tags.map((v) => ({ value: v, label: v }))]}
-            />
-          )}
-          <span className="ss-inp sm !h-8 w-[220px]">
-            <Search size={14} className="shrink-0 text-ink-3" />
-            <input value={filter} onChange={(e) => setFilter(e.target.value)} placeholder={t('hubs.browse.filter')} aria-label={t('hubs.browse.filter')} />
+          <span className="ml-auto flex items-center gap-2.5">
+            {tags.length > 0 && (
+              <Select
+                size="sm"
+                className="w-[150px] shrink-0"
+                prefix={t('hubs.browse.tag')}
+                value={tag}
+                onChange={setTag}
+                options={[{ value: '', label: t('hubs.browse.allTags') }, ...tags.map((v) => ({ value: v, label: v }))]}
+              />
+            )}
+            <span className="ss-inp sm !h-8 w-[220px]">
+              <Search size={14} className="shrink-0 text-ink-3" />
+              <input value={filter} onChange={(e) => setFilter(e.target.value)} placeholder={t('hubs.browse.filter')} aria-label={t('hubs.browse.filter')} />
+            </span>
+            {actions}
           </span>
         </div>
+        {draftId && <span className="text-[12.5px] text-ink-3">{t('hubs.view.mineNote')}</span>}
       </div>
 
       {contents.isPending && (

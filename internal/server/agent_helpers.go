@@ -114,7 +114,7 @@ func (s *Server) appendAgentDiffs(diffs []diffTarget, targets map[string]config.
 		if agentPath == "" {
 			continue
 		}
-		if items := computeAgentTargetDiff(agentPath, agents); len(items) > 0 {
+		if items := computeAgentTargetDiff(name, agentPath, target.AgentsConfig(), agents); len(items) > 0 {
 			diffs = mergeAgentDiffItems(diffs, name, items)
 		}
 	}

@@ -73,7 +73,7 @@ Update notes when the user asks you to remember a decision.
 
 ![英語の保存済みノートの Markdown プレビュー](/img/memory-note-demo.png)
 
-左のツリーはネストしたフォルダー、上部に検索ボックスがあります。右のペインは **Preview** / **Source** を切り替えます。長いノートは折りたたまれて開き、**Show all** で全体を表示します。ノート名の横に **Edit** と **More actions** メニューがあり、**Copy file path**、**History**、**Move or rename**、**Delete note** を含みます。**Use with agents** はノートの下にあります。既存ノートへの相対リンクは同じビューアーで開きます。
+左のツリーはネストしたフォルダー、上部に検索ボックスがあり、その横の **Refresh** ボタンは、エージェントがダッシュボードの外からノートを書いた後に、一覧と開いているノートを再読み込みします。右のペインは **Preview** / **Source** を切り替えます。長いノートは折りたたまれて開き、**Show all** で全体を表示します。ノート名の横に **Edit** と **More actions** メニューがあり、**Copy file path**、**History**、**Move or rename**、**Delete note** を含みます。**Use with agents** はノートの下にあります。既存ノートへの相対リンクは同じビューアーで開きます。
 
 ![wiki を展開した英語の Memory ビューアー](/img/memory-tree-demo.png)
 
@@ -103,7 +103,7 @@ Update notes when the user asks you to remember a decision.
 
 実際の読み取りツールのイベントで完全なパスと一時的な値を確認します。他の接続ツールでも繰り返し、最後に値を削除します。これは手動検証で、Skillshare は読み取り telemetry を保証しません。読み取ったという回答や **Configured** だけでは証拠になりません。
 
-教訓を残すときは、背景、結論、証拠を `LEARNED.md` に記録するよう依頼します。どちらのモードも各タスクの開始時に `INDEX.md` を読みます。ノートはユーザー所有です。`passive` のガイダンスは残す価値のある事実を指摘させ、更新は依頼時だけ行わせます。`active` のガイダンスは上記のとおり、そうした事実をツール自身のメモリではなくここに保存させます。Native automatic memory、自動学習、Obsidian 連携は有効になりません。
+教訓を残すときは、背景、結論、証拠を `LEARNED.md` に記録するよう依頼します。どちらのモードも各タスクの開始時に `INDEX.md` を読みます。ノートはユーザー所有です。`passive` のガイダンスは残す価値のある事実を指摘させ、更新は依頼時だけ行わせます。`active` のガイダンスは上記のとおり、そうした事実をツール自身のメモリではなくここに保存させます。1〜2 文で済む事実は `INDEX.md` の `## Notes` に箇条書き 1 件として直接書き、長いノートだけ別ファイルにします。Native automatic memory、自動学習、Obsidian 連携は有効になりません。
 
 ## Project mode
 
