@@ -7,6 +7,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"skillshare/internal/resource"
@@ -289,18 +290,36 @@ func SyncedAgentCopies(targetDir string, agents []resource.DiscoveredResource, p
 
 // SyncedExtensionOutputs counts agents whose extension output is tracked in
 // the target's manifest, unchanged since sync, and converted from the
-// source's current content. An extension renames the output per output_ext
-// and transforms its content, so neither the source name nor the source
-// content can be compared with the output; the manifest's output hash and
-// source fingerprint are the record of what sync wrote and from what. Any
-// output_ext is matched by stem, so callers need not load the extension
-// spec. Refs #391.
+// source's current content. See ExtensionOutputStatus. Refs #391.
 func SyncedExtensionOutputs(targetDir string, agents []resource.DiscoveredResource) int {
-	copies := loadCopyTracker(targetDir)
-	used := make(map[string]bool) // one output satisfies one agent, even when flat names collide
+	synced, _ := ExtensionOutputStatus(targetDir, agents)
 	n := 0
-	for _, a := range agents {
+	for _, ok := range synced {
+		if ok {
+			n++
+		}
+	}
+	return n
+}
+
+// ExtensionOutputStatus compares agents with an extension target's manifest.
+// synced[i] reports whether agents[i] has a tracked output that is unchanged
+// since sync and was converted from the source's current content. orphans are
+// unchanged tracked outputs that no agent converts to; sync prunes them.
+//
+// An extension renames the output per output_ext and transforms its content,
+// so neither the source name nor the source content can be compared with the
+// output; the manifest's output hash and source fingerprint are the record of
+// what sync wrote and from what. Any output_ext is matched by stem, so callers
+// need not load the extension spec.
+func ExtensionOutputStatus(targetDir string, agents []resource.DiscoveredResource) (synced []bool, orphans []string) {
+	copies := loadCopyTracker(targetDir)
+	synced = make([]bool, len(agents))
+	stems := make(map[string]bool, len(agents))
+	used := make(map[string]bool) // one output satisfies one agent, even when flat names collide
+	for i, a := range agents {
 		stem := strings.TrimSuffix(a.FlatName, filepath.Ext(a.FlatName))
+		stems[stem] = true
 		for key := range copies.m.Managed {
 			if used[key] || strings.TrimSuffix(key, filepath.Ext(key)) != stem {
 				continue
@@ -308,12 +327,18 @@ func SyncedExtensionOutputs(targetDir string, agents []resource.DiscoveredResour
 			rel := filepath.FromSlash(key)
 			if copies.owns(rel) && copies.sourceMatches(rel, a.AbsPath) {
 				used[key] = true
-				n++
+				synced[i] = true
 				break
 			}
 		}
 	}
-	return n
+	for key := range copies.m.Managed {
+		if !stems[strings.TrimSuffix(key, filepath.Ext(key))] && copies.owns(filepath.FromSlash(key)) {
+			orphans = append(orphans, key)
+		}
+	}
+	slices.Sort(orphans)
+	return synced, orphans
 }
 
 // syncAgentsSymlink creates a single directory symlink from targetDir to sourceDir.

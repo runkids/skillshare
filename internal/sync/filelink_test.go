@@ -401,3 +401,17 @@ func TestCopyFallbackMissingManifestIsSyncedButUnowned(t *testing.T) {
 		t.Fatal(got)
 	}
 }
+
+func TestExtensionOutputStatus_ReportsOrphanOutputs(t *testing.T) {
+	src, tgt, agents := agentFixture(t)
+	spec := &ExtensionSpec{Run: []string{"cat"}, Dir: src, Name: "id", OutputExt: "toml"}
+	if _, err := SyncAgentsTransform(agents, src, tgt, "copy", spec, false, false); err != nil {
+		t.Fatal(err)
+	}
+
+	synced, orphans := ExtensionOutputStatus(tgt, nil)
+
+	if len(synced) != 0 || len(orphans) != 1 || orphans[0] != "tutor.toml" {
+		t.Errorf("orphans = %v, want [tutor.toml]", orphans)
+	}
+}

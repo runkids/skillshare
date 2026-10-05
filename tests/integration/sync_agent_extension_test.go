@@ -95,6 +95,42 @@ func TestStatus_AgentsExtension_CountsConvertedOutputs(t *testing.T) {
 	}
 }
 
+// Refs #391: diff compared extension outputs against the source name, so a
+// synced target kept listing every converted agent as pending.
+func TestDiff_AgentsExtension_SyncedOutputsAreNotPending(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	agentsSource := createAgentSource(t, sb, map[string]string{"reviewer.md": "body", "editor.md": "body2"})
+	agentsPath := createAgentTarget(t, sb, "codex")
+	ext := writeAgentExtension(t, sb, "upper2toml", "run: [\"tr\", \"a-z\", \"A-Z\"]\noutput_ext: toml\n")
+	sb.WriteConfig(agentExtensionConfig(sb, agentsPath, "      extension: "+ext+"\n"))
+
+	before := sb.RunCLI("diff", "--json")
+	before.AssertSuccess(t)
+	if !strings.Contains(before.Stdout, "reviewer.md") {
+		t.Fatalf("diff should list unsynced agents before sync, got:\n%s", before.Stdout)
+	}
+
+	sb.RunCLI("sync", "agents").AssertSuccess(t)
+
+	after := sb.RunCLI("diff", "--json")
+	after.AssertSuccess(t)
+	if strings.Contains(after.Stdout, "reviewer.md") || strings.Contains(after.Stdout, "editor.md") {
+		t.Errorf("diff should not list synced agents, got:\n%s", after.Stdout)
+	}
+
+	// Removing a source leaves its converted output behind until the next sync.
+	if err := os.Remove(filepath.Join(agentsSource, "editor.md")); err != nil {
+		t.Fatal(err)
+	}
+	orphan := sb.RunCLI("diff", "--json")
+	orphan.AssertSuccess(t)
+	if !strings.Contains(orphan.Stdout, "editor.toml") {
+		t.Errorf("diff should list the orphan output, got:\n%s", orphan.Stdout)
+	}
+}
+
 func TestSync_AgentsExtension_RejectsMergeMode(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()

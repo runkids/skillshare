@@ -8,6 +8,7 @@ import (
 
 	"skillshare/internal/config"
 	"skillshare/internal/resource"
+	"skillshare/internal/sync"
 	"skillshare/internal/ui"
 	"skillshare/internal/utils"
 )
@@ -38,7 +39,7 @@ func diffProjectAgents(root, targetName string, opts diffRenderOpts, start time.
 			continue
 		}
 
-		r := computeAgentDiff(entry.Name, agentPath, agents)
+		r := computeAgentDiff(entry.Name, agentPath, entry.AgentsConfig(), agents)
 		results = append(results, r)
 	}
 
@@ -67,12 +68,13 @@ func diffGlobalAgents(cfg *config.Config, targetName string, opts diffRenderOpts
 		if targetName != "" && name != targetName {
 			continue
 		}
-		agentPath := resolveAgentTargetPath(cfg.Targets[name], builtinAgents, name)
+		tc := cfg.Targets[name]
+		agentPath := resolveAgentTargetPath(tc, builtinAgents, name)
 		if agentPath == "" {
 			continue
 		}
 
-		r := computeAgentDiff(name, agentPath, agents)
+		r := computeAgentDiff(name, agentPath, tc.AgentsConfig(), agents)
 		results = append(results, r)
 	}
 
@@ -102,11 +104,12 @@ func mergeAgentDiffsGlobal(cfg *config.Config, results []targetDiffResult, targe
 		if targetName != "" && name != targetName {
 			continue
 		}
-		agentPath := resolveAgentTargetPath(cfg.Targets[name], builtinAgents, name)
+		tc := cfg.Targets[name]
+		agentPath := resolveAgentTargetPath(tc, builtinAgents, name)
 		if agentPath == "" {
 			continue
 		}
-		agentResults = append(agentResults, computeAgentDiff(name, agentPath, agents))
+		agentResults = append(agentResults, computeAgentDiff(name, agentPath, tc.AgentsConfig(), agents))
 	}
 
 	return mergeAgentResults(results, agentResults)
@@ -136,7 +139,7 @@ func mergeAgentDiffsProject(root string, results []targetDiffResult, targetName 
 		if agentPath == "" {
 			continue
 		}
-		agentResults = append(agentResults, computeAgentDiff(entry.Name, agentPath, agents))
+		agentResults = append(agentResults, computeAgentDiff(entry.Name, agentPath, entry.AgentsConfig(), agents))
 	}
 
 	return mergeAgentResults(results, agentResults)
@@ -171,12 +174,48 @@ func mergeAgentResults(skillResults, agentResults []targetDiffResult) []targetDi
 	return skillResults
 }
 
-// computeAgentDiff compares source agents against a target directory.
-func computeAgentDiff(targetName, targetDir string, agents []resource.DiscoveredResource) targetDiffResult {
+// computeAgentDiff compares the agents a target would receive against its
+// directory. Like sync, it applies the target's include/exclude and the
+// agents' frontmatter targets first, and a target with an extension compares
+// the converted outputs recorded in its manifest.
+func computeAgentDiff(targetName, targetDir string, ac config.ResourceTargetConfig, agents []resource.DiscoveredResource) targetDiffResult {
 	r := targetDiffResult{
 		name:   targetName,
 		mode:   "merge",
 		synced: true,
+	}
+
+	agents, err := expectedAgentsForTarget(ac, targetName, agents)
+	if err != nil {
+		agents = sync.FilterAgentsByTarget(resource.ActiveAgents(agents), targetName) // invalid include/exclude: sync reports it
+	}
+
+	if ac.Extension != "" {
+		synced, orphans := sync.ExtensionOutputStatus(targetDir, agents)
+		for i, a := range agents {
+			if !synced[i] {
+				r.items = append(r.items, copyDiffEntry{
+					action: "add",
+					name:   a.FlatName,
+					kind:   "agent",
+					reason: "output missing or outdated",
+					isSync: true,
+				})
+				r.syncCount++
+			}
+		}
+		for _, name := range orphans {
+			r.items = append(r.items, copyDiffEntry{
+				action: "remove",
+				name:   name,
+				kind:   "agent",
+				reason: "orphan output",
+				isSync: true,
+			})
+			r.syncCount++
+		}
+		r.synced = r.syncCount == 0
+		return r
 	}
 
 	// Build map of expected agents
