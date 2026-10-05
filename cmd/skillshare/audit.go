@@ -236,11 +236,7 @@ func cmdAudit(args []string) error {
 	case isSinglePath:
 		results, summary, err = auditPath(opts.Targets[0], modeString(mode), projectRoot, threshold, opts.Format, opts.PolicyLine, registry)
 	case isSingleName:
-		nameSource := sourcePath
-		if kind == kindAgents {
-			nameSource = agentsSourcePath
-		}
-		results, summary, err = auditSkillByName(nameSource, opts.Targets[0], modeString(mode), projectRoot, threshold, opts.Format, opts.PolicyLine, kind, registry)
+		results, summary, err = auditSkillByName(auditScanRoot(kind, sourcePath, agentsSourcePath), opts.Targets[0], modeString(mode), projectRoot, threshold, opts.Format, opts.PolicyLine, kind, registry)
 	default:
 		results, summary, err = auditFiltered(sourcePath, agentsSourcePath, opts.Targets, opts.Groups, modeString(mode), projectRoot, threshold, kind, opts, registry)
 	}
@@ -498,6 +494,16 @@ func discoverForKind(kind resourceKindFilter, sourcePath string) ([]auditSkillRe
 	return collectInstalledSkillPaths(sourcePath)
 }
 
+// auditScanRoot picks the source a kind-filtered scan reads and relativizes
+// against. The skills source is kept apart so the TUI can scan the other kind
+// when switching tabs.
+func auditScanRoot(kind resourceKindFilter, sourcePath, agentsSourcePath string) string {
+	if kind == kindAgents {
+		return agentsSourcePath
+	}
+	return sourcePath
+}
+
 func toInputsForKind(kind resourceKindFilter, items []auditSkillRef) []audit.SkillInput {
 	return toAuditInputs(items, kind == kindAgents)
 }
@@ -530,13 +536,8 @@ func auditInstalled(sourcePath, agentsSourcePath, mode, projectRoot, threshold s
 	if !jsonOutput {
 		spinner = ui.StartSpinner(fmt.Sprintf("Discovering %s...", kind.Noun(2)))
 	}
-	var skillPaths []auditSkillRef
-	var err error
-	if kind == kindAgents {
-		skillPaths, err = collectInstalledAgentPaths(agentsSourcePath)
-	} else {
-		skillPaths, err = collectInstalledSkillPaths(sourcePath)
-	}
+	scanRoot := auditScanRoot(kind, sourcePath, agentsSourcePath)
+	skillPaths, err := discoverForKind(kind, scanRoot)
 	if err != nil {
 		if spinner != nil {
 			spinner.Fail("Discovery failed")
@@ -569,7 +570,7 @@ func auditInstalled(sourcePath, agentsSourcePath, mode, projectRoot, threshold s
 
 	// Print the header before scan so user sees context while waiting.
 	if !jsonOutput {
-		printAuditHeader(mode, sourcePath, threshold, opts.PolicyLine)
+		printAuditHeader(mode, scanRoot, threshold, opts.PolicyLine)
 	}
 
 	// Phase 1: parallel scan with progress bar.
@@ -605,7 +606,7 @@ func auditInstalled(sourcePath, agentsSourcePath, mode, projectRoot, threshold s
 		sr.Result.IsBlocked = sr.Result.HasSeverityAtOrAbove(threshold)
 		sr.Result.Kind = kind.SingularNoun()
 		// Use relative path so TUI shows group hierarchy (e.g. "frontend/vue/skill").
-		if rel, err := filepath.Rel(sourcePath, sr.Result.ScanTarget); err == nil && rel != sr.Result.SkillName {
+		if rel, err := filepath.Rel(scanRoot, sr.Result.ScanTarget); err == nil && rel != sr.Result.SkillName {
 			sr.Result.SkillName = rel
 		}
 		results = append(results, sr.Result)
@@ -648,13 +649,8 @@ func auditFiltered(sourcePath, agentsSourcePath string, names, groups []string, 
 		Threshold: threshold,
 	}
 
-	var allSkills []auditSkillRef
-	var err error
-	if kind == kindAgents {
-		allSkills, err = collectInstalledAgentPaths(agentsSourcePath)
-	} else {
-		allSkills, err = collectInstalledSkillPaths(sourcePath)
-	}
+	scanRoot := auditScanRoot(kind, sourcePath, agentsSourcePath)
+	allSkills, err := discoverForKind(kind, scanRoot)
 	if err != nil {
 		return nil, base, err
 	}
@@ -714,7 +710,7 @@ func auditFiltered(sourcePath, agentsSourcePath string, names, groups []string, 
 	// Print the header before scan so user sees context while waiting.
 	scanStart := time.Now()
 	if !jsonOutput {
-		printAuditHeader(mode, sourcePath, threshold, opts.PolicyLine)
+		printAuditHeader(mode, scanRoot, threshold, opts.PolicyLine)
 	}
 
 	// Phase 1: parallel scan with progress bar.
@@ -749,7 +745,7 @@ func auditFiltered(sourcePath, agentsSourcePath string, names, groups []string, 
 		sr.Result.Threshold = threshold
 		sr.Result.IsBlocked = sr.Result.HasSeverityAtOrAbove(threshold)
 		sr.Result.Kind = kind.SingularNoun()
-		if rel, err := filepath.Rel(sourcePath, sr.Result.ScanTarget); err == nil && rel != sr.Result.SkillName {
+		if rel, err := filepath.Rel(scanRoot, sr.Result.ScanTarget); err == nil && rel != sr.Result.SkillName {
 			sr.Result.SkillName = rel
 		}
 		results = append(results, sr.Result)

@@ -36,4 +36,7 @@ func TestAuditInstalled_AgentsKindScansAgentsSource(t *testing.T) {
 	if len(results) != 1 || results[0].Kind != "agent" || !strings.HasPrefix(results[0].ScanTarget, agents) {
 		t.Fatalf("expected the one agent from the agents source, got %+v", results)
 	}
+	if results[0].SkillName != "helper.md" {
+		t.Fatalf("expected the name relative to the agents source, got %q", results[0].SkillName)
+	}
 }
