@@ -325,7 +325,9 @@ func ExtensionOutputStatus(targetDir string, agents []resource.DiscoveredResourc
 				continue
 			}
 			rel := filepath.FromSlash(key)
-			if copies.owns(rel) && copies.sourceMatches(rel, a.AbsPath) {
+			// Only a transform records a source fingerprint; a tracked plain
+			// copy left from before the extension was enabled has none.
+			if _, converted := copies.m.Sources[key]; converted && copies.owns(rel) && copies.sourceMatches(rel, a.AbsPath) {
 				used[key] = true
 				synced[i] = true
 				break
