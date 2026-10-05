@@ -47,7 +47,7 @@
 </p>
 
 > [!NOTE]
-> **Latest**: v0.24.5 — the dashboard's Plugins page shows the installed version of every **Pi package** and checks **npm packages** for updates, with an **Update** button that runs `pi update` for that package; `status` counts only the agents a target syncs, so converted agents and include/exclude no longer show as drift; and updating a **Codex** plugin that ships a portable `plugin.json` works again. [All releases →](https://github.com/runkids/skillshare/releases)
+> **Latest**: v0.24.6 — `diff` and the dashboard's Sync tab no longer list converted agents (Codex, OpenCode) as pending after a sync, and follow each target's include/exclude; the Targets list links each part of a target straight to its tab; Memory gets a **Refresh** button, and agents keep short facts in `INDEX.md`; and the dashboard rejects skill names that point outside the skills folder. [All releases →](https://github.com/runkids/skillshare/releases)
 
 ## Why skillshare
 

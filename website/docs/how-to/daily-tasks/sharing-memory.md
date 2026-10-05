@@ -114,7 +114,8 @@ Update notes when the user asks you to remember a decision.
 
 ![English saved note in Markdown preview](/img/memory-note-demo.png)
 
-The tree supports nested folders and has the search box on top. The note pane
+The tree supports nested folders and has the search box on top, with a **Refresh** button
+next to it that reloads the list and the open note after an agent writes from outside the dashboard. The note pane
 switches between **Preview** and **Source**, and a long note opens collapsed until
 you click **Show all**. Next to the note's name are **Edit** and the **More actions**
 menu with **Copy file path**, **History**, **Move or rename**, and **Delete note**.
@@ -168,7 +169,8 @@ To save a lesson, ask the agent to update `LEARNED.md` with its context,
 conclusion, and evidence. Both modes read `INDEX.md` at the start of each task. Notes are user-owned:
 `passive` guidance has agents point out facts worth keeping and update notes only
 at your request, and `active` guidance has them save such facts here instead of
-in the tool's own memory, as described above. This feature does not enable native automatic memory,
+in the tool's own memory, as described above: a fact that fits in a sentence or two goes
+as one bullet under `## Notes` in `INDEX.md`, and only a longer note gets its own file. This feature does not enable native automatic memory,
 automatic learning, or an Obsidian integration.
 
 ## Project mode

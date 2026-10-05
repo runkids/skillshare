@@ -73,7 +73,7 @@ Update notes when the user asks you to remember a decision.
 
 ![저장된 영어 노트의 Markdown 미리 보기](/img/memory-note-demo.png)
 
-왼쪽 트리는 중첩 폴더를, 위쪽에 검색 상자가 있습니다. 오른쪽 패널은 **Preview** / **Source**를 전환하며, 긴 노트는 접힌 상태로 열리고 **Show all**로 펼칩니다. 노트 이름 옆에는 **Edit**와 **More actions** 메뉴가 있으며 **Copy file path**, **History**, **Move or rename**, **Delete note**가 들어 있습니다. **Use with agents**는 노트 아래에 있습니다. 기존 노트의 상대 링크는 같은 뷰어에서 열립니다.
+왼쪽 트리는 중첩 폴더를, 위쪽에 검색 상자가 있으며, 그 옆의 **Refresh** 버튼은 에이전트가 대시보드 밖에서 노트를 쓴 뒤 목록과 열려 있는 노트를 다시 불러옵니다. 오른쪽 패널은 **Preview** / **Source**를 전환하며, 긴 노트는 접힌 상태로 열리고 **Show all**로 펼칩니다. 노트 이름 옆에는 **Edit**와 **More actions** 메뉴가 있으며 **Copy file path**, **History**, **Move or rename**, **Delete note**가 들어 있습니다. **Use with agents**는 노트 아래에 있습니다. 기존 노트의 상대 링크는 같은 뷰어에서 열립니다.
 
 ![wiki 폴더를 펼친 영어 Memory 뷰어](/img/memory-tree-demo.png)
 
@@ -103,7 +103,7 @@ Update notes when the user asks you to remember a decision.
 
 실제 읽기 도구 이벤트에서 전체 경로와 임시 값을 확인하세요. 다른 연결 도구에서도 반복하고 임시 값을 제거하세요. 수동 검증이며 Skillshare는 읽기 telemetry를 보장하지 않습니다. 읽었다는 답변이나 **Configured** 표시만으로는 읽기의 증거가 되지 않습니다.
 
-교훈을 저장하려면 배경, 결론, 증거를 `LEARNED.md`에 기록하도록 요청하세요. 두 모드 모두 각 작업 시작 시 `INDEX.md`를 읽습니다. 노트는 사용자 소유입니다. `passive` 안내는 남길 만한 사실을 알려 주되 사용자 요청이 있을 때만 업데이트하게 하고, `active` 안내는 위 규칙에 따라 그런 사실을 도구 자체 메모리 대신 여기에 저장하게 합니다. Native automatic memory, 자동 학습, Obsidian 통합은 활성화하지 않습니다.
+교훈을 저장하려면 배경, 결론, 증거를 `LEARNED.md`에 기록하도록 요청하세요. 두 모드 모두 각 작업 시작 시 `INDEX.md`를 읽습니다. 노트는 사용자 소유입니다. `passive` 안내는 남길 만한 사실을 알려 주되 사용자 요청이 있을 때만 업데이트하게 하고, `active` 안내는 위 규칙에 따라 그런 사실을 도구 자체 메모리 대신 여기에 저장하게 합니다. 한두 문장으로 끝나는 사실은 `INDEX.md`의 `## Notes` 아래 항목 하나로 바로 적고, 긴 노트만 별도 파일로 만듭니다. Native automatic memory, 자동 학습, Obsidian 통합은 활성화하지 않습니다.
 
 ## Project mode
 
