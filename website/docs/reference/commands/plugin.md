@@ -190,7 +190,10 @@ foreign link, npm dependency collision or ambiguous runtime owner is refused.
 If the cache manifest is missing, the adapter requires a unique runtime-lock key
 whose scope-local link points to that installation's cache; it never guesses the
 marketplace name and reports success with the actual runtime link still installed.
-Unverifiable active installations remain blocked. Native file changes invalidate the preview. Partially completed removal can be
+Unverifiable active installations remain blocked. If native uninstall already
+removed the cache, registration and runtime link/selection, Forget drops only the
+stale Skillshare binding; another plugin's `node_modules` directory does not block it.
+Native file changes invalidate the preview. Partially completed removal can be
 retried from the retained cache and binding identity without saving full native
 settings backups. Windows writes additionally require verifiable private ACLs;
 Skillshare does not change permissions to make them pass. No extension code runs.

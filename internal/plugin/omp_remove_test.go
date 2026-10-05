@@ -237,4 +237,34 @@ func TestOMPRemovalResumesAfterRegistryWasAlreadyRemoved(t *testing.T) {
 	if _, err := os.Lstat(filepath.Join(root, "node_modules", "demo-runtime")); !os.IsNotExist(err) {
 		t.Fatalf("partial removal link remained: %v", err)
 	}
+	t.Run("forget after native uninstall with another plugin", func(t *testing.T) {
+		s, _, root, cache := ompRemovalFixture(t, false)
+		writeFile(t, root, "installed_plugins.json", `{"version":2,"plugins":{}}`)
+		lock := `{"plugins":{"other":{"enabled":false}},"settings":{"other":{"keep":true}}}`
+		writeFile(t, root, "omp-plugins.lock.json", lock)
+		writeFile(t, root, "node_modules/other/keep.txt", "KEEP")
+		for _, path := range []string{filepath.Join(root, "node_modules", "demo-runtime"), filepath.Join(cache, "package.json"), filepath.Join(cache, "sentinel.txt"), cache} {
+			if err := os.Remove(path); err != nil {
+				t.Fatal(err)
+			}
+		}
+		r := Request{Action: "remove", Name: "demo"}
+		p, err := s.Preview(context.Background(), r)
+		if err != nil || p.Blocked || p.Changes[0].Action != "forget" {
+			t.Fatalf("native-uninstalled binding cannot be forgotten: %+v %v", p, err)
+		}
+		if _, err := s.Apply(context.Background(), r, p.Revision); err != nil {
+			t.Fatal(err)
+		}
+		if data, err := os.ReadFile(filepath.Join(root, "omp-plugins.lock.json")); err != nil || string(data) != lock {
+			t.Fatalf("forget changed unrelated runtime state: %s %v", data, err)
+		}
+		if data, err := os.ReadFile(filepath.Join(root, "node_modules", "other", "keep.txt")); err != nil || string(data) != "KEEP" {
+			t.Fatalf("forget damaged another plugin: %s %v", data, err)
+		}
+		inv, err := s.Packages()
+		if err != nil || len(inv.Packages) != 0 {
+			t.Fatalf("forgotten binding remained: %+v %v", inv, err)
+		}
+	})
 }

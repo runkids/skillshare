@@ -138,3 +138,14 @@ suite had 917 passing tests and one pre-existing Memory Refresh failure. That
 component and test are identical to main, and the failure reproduces in isolation;
 no unrelated memory code or validation was changed. No release or real-user Agent
 mutation was performed.
+
+## PR #423: first Codex review
+
+- Confirmed stale imported bindings could not be forgotten after native uninstall
+  when another plugin kept node_modules present. Extended the existing removal
+  recovery test: it failed before the fix, then passed. Cache/registration/known
+  runtime state absence now permits binding-only Forget without touching native files.
+- Rejected the ancestor-override suggestion against the pinned native contract.
+  OMP 18.6.1 resolves a plugin registry anchor separately, but its loader and manager
+  resolve plugin-overrides.json from the session cwd. Executing the installed native
+  path helpers confirmed nested cwd paths, not ancestor paths; no Agent or resource ran.

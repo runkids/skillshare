@@ -168,6 +168,14 @@ func (s *Service) ompRemovalPlan(b Binding, cacheRoot string) (*ompRemoval, erro
 	}
 	if pkg.body["name"] == nil && !matched {
 		_, registered := plugins[b.ID]
+		_, selected := runtimePlugins[module]
+		_, cacheErr := os.Lstat(cache)
+		if !registered && !selected && os.IsNotExist(cacheErr) {
+			// Native uninstall already removed this installation. Forget only the
+			// Skillshare binding; another plugin's node_modules is not our state.
+			p.files = append(p.files, cfg)
+			return p, nil
+		}
 		_, err := os.Lstat(filepath.Join(root, "node_modules"))
 		if registered || !os.IsNotExist(err) {
 			return nil, fmt.Errorf("OMP runtime name cannot be verified without its manifest or link")
