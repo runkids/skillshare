@@ -101,7 +101,13 @@ export default function MemoryBrowser({ notes, root, busy, onEdit, onMove, onDel
   return (
     <div className="grid grid-cols-[220px_minmax(0,1fr)] items-start gap-6">
       <div className="sticky top-6 flex max-h-[calc(100dvh-48px)] min-w-0 flex-col gap-2.5">
-        {search}
+        <div className="flex items-center gap-2">
+          {search}
+          <button type="button" className="ss-ib shrink-0" title={t('memory.refresh')} aria-label={t('memory.refresh')} disabled={busy}
+            onClick={() => void queryClient.invalidateQueries({ queryKey: queryKeys.memory.all })}>
+            <RefreshCw size={16} />
+          </button>
+        </div>
         <nav className="ss-list min-h-0 !overflow-y-auto flex flex-col gap-0.5 p-1.5" aria-label={t('memory.title')}>
           {fileTree(paths).filter((row) => !Array.from(collapsed).some((path) => row.path.startsWith(`${path}/`))).map((row) => {
             const note = notes.find((note) => note.path === row.path);
@@ -132,10 +138,6 @@ export default function MemoryBrowser({ notes, root, busy, onEdit, onMove, onDel
               <span className="truncate font-mono text-[12px] text-ink-3" title={notePath}>{shortenHome(notePath)}</span>
             </div>
             <Button variant="secondary" size="sm" disabled={unavailable} onClick={() => file.data && onEdit(file.data)}>{t('instructions.edit')}</Button>
-            <button type="button" className="ss-ib" title={t('memory.refresh')} aria-label={t('memory.refresh')} disabled={busy || file.isFetching}
-              onClick={() => void queryClient.invalidateQueries({ queryKey: queryKeys.memory.all })}>
-              <RefreshCw size={16} />
-            </button>
             <button type="button" className="ss-ib" aria-label={t('instructions.shared.more')} aria-haspopup="menu" aria-expanded={menu !== null}
               onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); setMenu({ x: r.right - 200, y: r.bottom + 4 }); }}>
               <Ellipsis size={16} />
