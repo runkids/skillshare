@@ -3046,6 +3046,7 @@
   "memory.indexPartial": "Catatan berhasil dibuat, tetapi tautan indeksnya tidak dapat ditambahkan",
   "memory.brokenLinks": "Tautan rusak di INDEX.md: {paths}",
   "memory.history": "Riwayat",
+  "memory.refresh": "Segarkan",
   "memory.restoreNote": "Pulihkan di Backup Files",
   "memory.compareHint": "Draf Anda dipertahankan. Bandingkan dengan konten terakhir yang disimpan sebelum mengganti versi tersebut.",
   "memory.latestSaved": "Konten terakhir yang disimpan",

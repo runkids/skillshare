@@ -3046,6 +3046,7 @@
   "memory.indexPartial": "A nota foi criada, mas não foi possível adicionar o link ao índice",
   "memory.brokenLinks": "Links quebrados em INDEX.md: {paths}",
   "memory.history": "Histórico",
+  "memory.refresh": "Atualizar",
   "memory.restoreNote": "Restaurar em Backup Files",
   "memory.compareHint": "Seu rascunho foi preservado. Compare-o com o último conteúdo salvo antes de substituir essa versão.",
   "memory.latestSaved": "Último conteúdo salvo",

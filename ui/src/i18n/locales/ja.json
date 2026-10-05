@@ -3046,6 +3046,7 @@
   "memory.indexPartial": "ノートは作成されましたが、インデックスへのリンクを追加できませんでした",
   "memory.brokenLinks": "INDEX.md のリンク切れ：{paths}",
   "memory.history": "履歴",
+  "memory.refresh": "更新",
   "memory.restoreNote": "Backup Files で復元",
   "memory.compareHint": "下書きは保持されています。最新の保存内容と比較してから、そのバージョンを置き換えてください。",
   "memory.latestSaved": "最新の保存内容",

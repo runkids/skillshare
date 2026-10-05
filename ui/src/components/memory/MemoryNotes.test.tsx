@@ -258,3 +258,16 @@ it('opens a long note collapsed and expands it on request', async () => {
   await user.click(toggle);
   expect(screen.getByRole('button', { name: /Collapse/ })).toHaveAttribute('aria-expanded', 'true');
 });
+
+it('reloads the note list and content from disk on refresh', async () => {
+  const user = userEvent.setup();
+  renderNotes();
+  expect(await screen.findByRole('heading', { name: 'Build' })).toBeInTheDocument();
+  vi.mocked(api.listMemoryNotes).mockResolvedValue({ root: '/shared/extras/memory', initialized: true, instructions: noGuidance, notes: [
+    { path: 'build.md', title: 'Build notes', version: 'v2' }, { path: 'new.md', title: 'New note', version: 'v1' },
+  ] });
+  vi.mocked(api.readMemoryNote).mockResolvedValue({ path: 'build.md', title: 'Build notes', content: '# Build\nedited elsewhere', version: 'v2' });
+  await user.click(screen.getByRole('button', { name: 'Refresh' }));
+  expect(await screen.findByText('edited elsewhere')).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'New note new.md' })).toBeInTheDocument();
+});

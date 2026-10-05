@@ -3046,6 +3046,7 @@
   "memory.indexPartial": "노트는 생성되었지만 인덱스 링크를 추가하지 못했습니다",
   "memory.brokenLinks": "INDEX.md의 깨진 링크: {paths}",
   "memory.history": "기록",
+  "memory.refresh": "새로고침",
   "memory.restoreNote": "Backup Files에서 복원",
   "memory.compareHint": "초안을 보존했습니다. 최신 저장 내용을 대체하기 전에 비교하세요.",
   "memory.latestSaved": "최신 저장 내용",

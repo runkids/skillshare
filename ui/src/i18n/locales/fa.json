@@ -3046,6 +3046,7 @@
   "memory.indexPartial": "یادداشت ایجاد شد، اما پیوند آن به نمایه اضافه نشد",
   "memory.brokenLinks": "پیوندهای شکسته در INDEX.md: {paths}",
   "memory.history": "تاریخچه",
+  "memory.refresh": "تازه‌سازی",
   "memory.restoreNote": "بازیابی در Backup Files",
   "memory.compareHint": "پیش‌نویس شما حفظ شده است. پیش از جایگزینی نسخه، آن را با آخرین محتوای ذخیره‌شده مقایسه کنید.",
   "memory.latestSaved": "آخرین محتوای ذخیره‌شده",

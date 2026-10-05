@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { ReactNode } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { ChevronDown, ChevronRight, ChevronUp, Copy, Ellipsis, FileText, Folder, FolderInput, History, Trash2 } from 'lucide-react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { ChevronDown, ChevronRight, ChevronUp, Copy, Ellipsis, FileText, Folder, FolderInput, History, RefreshCw, Trash2 } from 'lucide-react';
 import type { Components } from 'react-markdown';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { api } from '../../api/client';
@@ -50,6 +50,7 @@ export default function MemoryBrowser({ notes, root, busy, onEdit, onMove, onDel
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const selected = notes.some((note) => note.path === picked) ? picked
     : notes.find((note) => note.path === 'INDEX.md')?.path ?? notes[0]?.path ?? '';
   const invalid = notes.find((note) => note.path === selected)?.invalid;
@@ -131,6 +132,10 @@ export default function MemoryBrowser({ notes, root, busy, onEdit, onMove, onDel
               <span className="truncate font-mono text-[12px] text-ink-3" title={notePath}>{shortenHome(notePath)}</span>
             </div>
             <Button variant="secondary" size="sm" disabled={unavailable} onClick={() => file.data && onEdit(file.data)}>{t('instructions.edit')}</Button>
+            <button type="button" className="ss-ib" title={t('memory.refresh')} aria-label={t('memory.refresh')} disabled={busy || file.isFetching}
+              onClick={() => void queryClient.invalidateQueries({ queryKey: queryKeys.memory.all })}>
+              <RefreshCw size={16} />
+            </button>
             <button type="button" className="ss-ib" aria-label={t('instructions.shared.more')} aria-haspopup="menu" aria-expanded={menu !== null}
               onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); setMenu({ x: r.right - 200, y: r.bottom + 4 }); }}>
               <Ellipsis size={16} />

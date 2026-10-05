@@ -3046,6 +3046,7 @@
   "memory.indexPartial": "Note created, but its INDEX.md link could not be added",
   "memory.brokenLinks": "Broken INDEX.md links: {paths}",
   "memory.history": "History",
+  "memory.refresh": "Refresh",
   "memory.restoreNote": "Restore in Backup Files",
   "memory.compareHint": "Your draft is preserved. Compare it with the latest saved content before replacing that version.",
   "memory.latestSaved": "Latest saved version",

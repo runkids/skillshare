@@ -3046,6 +3046,7 @@
   "memory.indexPartial": "La note a été créée, mais son lien dans l’index n’a pas pu être ajouté",
   "memory.brokenLinks": "Liens cassés dans INDEX.md : {paths}",
   "memory.history": "Historique",
+  "memory.refresh": "Actualiser",
   "memory.restoreNote": "Restaurer dans Backup Files",
   "memory.compareHint": "Votre brouillon est conservé. Comparez-le au dernier contenu enregistré avant de remplacer cette version.",
   "memory.latestSaved": "Dernier contenu enregistré",

@@ -3046,6 +3046,7 @@
   "memory.indexPartial": "筆記已建立，但無法加入索引連結",
   "memory.brokenLinks": "INDEX.md 中的失效連結：{paths}",
   "memory.history": "歷史版本",
+  "memory.refresh": "重新整理",
   "memory.restoreNote": "在 Backup Files 還原",
   "memory.compareHint": "已保留你的草稿。取代最新儲存版本前，請先比較內容。",
   "memory.latestSaved": "最新儲存內容",

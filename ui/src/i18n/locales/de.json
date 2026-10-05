@@ -3046,6 +3046,7 @@
   "memory.indexPartial": "Die Notiz wurde erstellt, aber der Index-Link konnte nicht hinzugefügt werden",
   "memory.brokenLinks": "Ungültige Links in INDEX.md: {paths}",
   "memory.history": "Verlauf",
+  "memory.refresh": "Aktualisieren",
   "memory.restoreNote": "In Backup Files wiederherstellen",
   "memory.compareHint": "Dein Entwurf bleibt erhalten. Vergleiche ihn mit dem zuletzt gespeicherten Inhalt, bevor du diese Version ersetzt.",
   "memory.latestSaved": "Zuletzt gespeicherter Inhalt",
