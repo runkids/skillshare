@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 )
 
 // Additional clients share the portable model but differ in file scope and
@@ -23,6 +24,7 @@ func piAdapterPath(path string) string {
 
 var clientFormats = map[string]clientFormat{
 	"pi":             {key: "mcpServers", urlKey: "url", refPrefix: "${", globalPath: ".pi/agent/mcp.json", projectPath: ".pi/mcp.json"},
+	"omp":            {key: "mcpServers", localType: "stdio", remoteType: "http", urlKey: "url", refPrefix: "${", globalPath: ".omp/agent/mcp.json", projectPath: ".omp/mcp.json"},
 	"amp":            {key: "amp.mcpServers", urlKey: "url", refPrefix: "${", globalPath: ".config/amp/settings.json", projectPath: ".amp/settings.json"},
 	"claude-desktop": {key: "mcpServers", urlKey: "url", stdioOnly: true},
 	"cline":          {key: "mcpServers", localType: "stdio", remoteType: "streamableHttp", urlKey: "url", refPrefix: "${env:"},
@@ -112,8 +114,8 @@ func (s *Service) additionalClientPath(target string, format clientFormat) (stri
 			}
 		}
 		return filepath.Join(data, "settings", file), nil
-	case "pi":
-		if dir, _ := s.configDir("pi"); dir != "" {
+	case "pi", "omp":
+		if dir, _ := s.configDir(target); dir != "" {
 			if !filepath.IsAbs(dir) {
 				return "", fmt.Errorf("PI_CODING_AGENT_DIR must be absolute")
 			}
@@ -191,6 +193,16 @@ func renderAdditionalClient(target string, format clientFormat, s Server) (map[s
 		}
 		if len(headers) > 0 {
 			out["headers"] = headers
+		}
+	}
+	if target == "omp" {
+		for _, key := range []string{"env", "headers"} {
+			values, _ := out[key].(map[string]string)
+			for _, value := range values {
+				if strings.HasPrefix(value, "!") {
+					return nil, fmt.Errorf("OMP: a literal beginning with ! would run a command; use fromEnv instead")
+				}
+			}
 		}
 	}
 	if target == "copilot" {

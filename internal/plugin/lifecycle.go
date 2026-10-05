@@ -128,6 +128,12 @@ func (s *Service) Apply(ctx context.Context, r Request, revision string) (*Resul
 				delete(pack.Bindings, c.Target)
 				outcome.Status = "removed"
 				outcome.Message = "Native plugin removed; shared marketplaces are retained."
+				if s.agentOf(c.Target) == "omp" {
+					outcome.Message, outcome.MessageKey = "Removed from this scope; shared cache, marketplaces and plugin settings were retained.", "plugins.outcome.ompRemoved"
+				}
+				if c.Action == "forget" && s.agentOf(c.Target) == "omp" {
+					outcome.Message = "Removed from Skillshare; the native plugin was already absent. Shared marketplaces are retained."
+				}
 			} else {
 				b.Pending = ""
 				if c.piRecordAfter {
@@ -143,6 +149,9 @@ func (s *Service) Apply(ctx context.Context, r Request, revision string) (*Resul
 				if c.Action == "uninstall" {
 					outcome.Status = "excluded"
 					outcome.Message = "Removed from this target; plugin definition retained."
+					if s.agentOf(c.Target) == "omp" {
+						outcome.Message, outcome.MessageKey = "Removed from this scope; shared cache, marketplaces and plugin settings were retained.", "plugins.outcome.ompRemoved"
+					}
 				}
 				if c.Action == "import" {
 					outcome.Status = "imported"

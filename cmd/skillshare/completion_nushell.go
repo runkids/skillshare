@@ -51,12 +51,20 @@ def "nu-complete skillshare mcp" [] {
     [add check edit import list remove restore]
 }
 
+def "nu-complete skillshare mcp-target" [] {
+    [claude codex cursor vscode opencode kilocode grok antigravity amp claude-desktop cline copilot factory gemini goose junie kiro lmstudio warp windsurf pi omp]
+}
+
+def "nu-complete skillshare account-agent" [] {
+    [claude codex pi omp]
+}
+
 def "nu-complete skillshare hooks" [] {
     [add disable edit enable import list remove restore sync]
 }
 
 def "nu-complete skillshare plugin-target" [] {
-    [claude codex cursor antigravity agy antigravity-cli copilot grok kimi hermes devin pi opencode]
+    [claude codex cursor antigravity agy antigravity-cli copilot grok kimi hermes devin pi opencode omp]
 }
 
 export extern "skillshare mcp" [
@@ -65,8 +73,8 @@ export extern "skillshare mcp" [
     --tools-allow: string # Only these tools, comma-separated, * matches any characters; empty clears
     --tools-deny: string # Never these tools, comma-separated, * matches any characters; empty clears
     --pi-options: string # Other Pi built-in per-server fields as JSON
-    --target: string
-    --from: string
+    --target: string@"nu-complete skillshare mcp-target"
+    --from: string@"nu-complete skillshare mcp-target"
     --url: string
     --file: string
     --revision: string
@@ -477,7 +485,7 @@ export extern "skillshare target" [
     --add-agent-exclude: string    # Add agent exclude filter
     --remove-agent-include: string # Remove agent include filter
     --remove-agent-exclude: string # Remove agent exclude filter
-    --agent: string          # With add: the Agent this is another account of
+    --agent: string@"nu-complete skillshare account-agent" # With add: the Agent this is another account of
     --config-dir: string     # With add: that account's config directory
     --cli: string            # With add: the executable that runs its plugin commands
     --skills: string         # Sync skills to this target (true or false)

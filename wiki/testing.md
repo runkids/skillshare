@@ -112,6 +112,13 @@ Start with the specific package or test that proves the change. Broaden only whe
 
 Real-shell completion tests (`TestCompletion_{Zsh,Fish}_Completes*`) skip when zsh or fish is missing, as in the devcontainer. To run them, start a throwaway container from the devcontainer image with the checkout at `/workspace` and the Go cache volumes, install `zsh fish` with apt-get there only, then `make build` and `go test ./tests/integration -run 'Completion' -count=1`.
 
+## Test Value
+
+- Name the concrete failure a new test catches before adding it. Prefer the smallest existing check that already proves the change; test count is not a completion criterion.
+- Do not add duplicate coverage, assertions that merely repeat implementation literals, or mocked translation tests that cannot detect the real rendering failure.
+- For copy, translations and straightforward visual changes, reuse locale/placeholder checks, builds and rendered inspection. Do not create a new test solely because a file changed.
+- Add regression coverage when there is meaningful behavior to protect, especially data loss, permissions, input validation or state transitions. Do not weaken existing validation to reduce cost, and respect explicit user instructions about adding tests.
+
 ## Stateful CLI Isolation
 
 Use a fresh `ssenv` for tests that modify configuration or state:

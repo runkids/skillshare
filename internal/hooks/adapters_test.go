@@ -19,6 +19,7 @@ var adapterEntry = map[string]string{
 	"copilot":     `{"events":{"preToolUse":[{"type":"command","bash":"echo copilot","timeoutSec":10}]}}`,
 	"antigravity": `{"events":{"PreToolUse":[{"matcher":"run_command","hooks":[{"type":"command","command":"echo agy","timeout":10}]}],"Stop":[{"command":"echo stop"}]}}`,
 	"pi":          `{"code":"export default function (pi) {\n  pi.on(\"tool_call\", async () => {});\n}\n"}`,
+	"omp":         `{"code":"export default function (pi) {\n  pi.on(\"tool_call\", async () => {});\n}\n"}`,
 	"amp":         `{"code":"export default function (amp) {\n  amp.on(\"tool.call\", async () => ({ action: \"allow\" }));\n}\n"}`,
 	"opencode":    `{"code":"export const Demo = async () => ({\n  \"tool.execute.before\": async () => {},\n})\n"}`,
 }
@@ -27,7 +28,7 @@ func TestAdapters_GlobalPathsAndNativeShape(t *testing.T) {
 	want := map[string]string{
 		"claude": ".claude/settings.json", "codex": ".codex/hooks.json", "gemini": ".gemini/settings.json",
 		"qwen": ".qwen/settings.json", "droid": ".factory/hooks.json", "cursor": ".cursor/hooks.json",
-		"copilot": ".copilot/hooks/skillshare-demo.json", "pi": ".pi/agent/extensions/skillshare-demo.ts",
+		"copilot": ".copilot/hooks/skillshare-demo.json", "pi": ".pi/agent/extensions/skillshare-demo.ts", "omp": ".omp/agent/extensions/skillshare-demo.ts",
 		"amp": ".config/amp/plugins/skillshare-demo.ts", "opencode": ".config/opencode/plugins/skillshare-demo.ts",
 		"antigravity": ".gemini/config/hooks.json",
 	}
@@ -40,7 +41,7 @@ func TestAdapters_GlobalPathsAndNativeShape(t *testing.T) {
 			var b Binding
 			must(t, json.Unmarshal([]byte(binding), &b))
 			switch target {
-			case "pi", "amp", "opencode":
+			case "pi", "omp", "amp", "opencode":
 				if content != b.Code {
 					t.Fatalf("code must be written verbatim, got %q", content)
 				}
@@ -88,7 +89,7 @@ func TestAdapters_ProjectPathsNeverFallBackToGlobal(t *testing.T) {
 	want := map[string]string{
 		"claude": ".claude/settings.json", "codex": ".codex/hooks.json", "gemini": ".gemini/settings.json",
 		"qwen": ".qwen/settings.json", "droid": ".factory/hooks.json", "cursor": ".cursor/hooks.json",
-		"copilot": ".github/hooks/skillshare-demo.json", "pi": ".pi/extensions/skillshare-demo.ts",
+		"copilot": ".github/hooks/skillshare-demo.json", "pi": ".pi/extensions/skillshare-demo.ts", "omp": ".omp/extensions/skillshare-demo.ts",
 		"amp": ".amp/plugins/skillshare-demo.ts", "opencode": ".opencode/plugins/skillshare-demo.ts",
 		"antigravity": ".agents/hooks.json",
 	}

@@ -18,7 +18,7 @@ type manifestSpec struct{ path, target string }
 
 func inspect(root string, explicit ...string) (Candidate, error) {
 	c := Candidate{Targets: []string{}, Components: []string{}, TargetInfo: map[string]TargetPackage{}}
-	specs := []manifestSpec{{".codex-plugin/plugin.json", "codex"}, {".claude-plugin/plugin.json", "claude"}, {".cursor-plugin/plugin.json", "cursor"}, {"package.json", "pi"}, {"package.json", "opencode"}, {".plugin/plugin.json", "copilot"}, {".github/plugin/plugin.json", "copilot"}, {".grok-plugin/plugin.json", "grok"}, {"kimi.plugin.json", "kimi"}, {".kimi-plugin/plugin.json", "kimi"}, {".devin-plugin/plugin.json", "devin"}, {".hermes-plugin/plugin.yaml", "hermes"}, {"plugin.json", "codex"}}
+	specs := []manifestSpec{{".codex-plugin/plugin.json", "codex"}, {".claude-plugin/plugin.json", "claude"}, {".omp-plugin/plugin.json", "omp"}, {".cursor-plugin/plugin.json", "cursor"}, {"package.json", "pi"}, {"package.json", "opencode"}, {".plugin/plugin.json", "copilot"}, {".github/plugin/plugin.json", "copilot"}, {".grok-plugin/plugin.json", "grok"}, {"kimi.plugin.json", "kimi"}, {".kimi-plugin/plugin.json", "kimi"}, {".devin-plugin/plugin.json", "devin"}, {".hermes-plugin/plugin.yaml", "hermes"}, {"plugin.json", "codex"}}
 	for _, spec := range specs {
 		data, err := os.ReadFile(filepath.Join(root, spec.path))
 		if os.IsNotExist(err) {
@@ -125,7 +125,7 @@ func inspect(root string, explicit ...string) (Candidate, error) {
 			c.TargetInfo[spec.target] = info
 		}
 		if spec.path == "plugin.json" && spec.target == "codex" {
-			for _, target := range []string{"cursor", "copilot"} {
+			for _, target := range []string{"cursor", "copilot", "omp"} {
 				if _, exists := c.TargetInfo[target]; !exists {
 					c.TargetInfo[target] = info
 				}
@@ -143,11 +143,24 @@ func inspect(root string, explicit ...string) (Candidate, error) {
 		}
 	}
 	if info, ok := c.TargetInfo["claude"]; ok && info.Problem == "" {
-		for _, target := range []string{"copilot", "grok", "antigravity-cli"} {
+		for _, target := range []string{"copilot", "grok", "antigravity-cli", "omp"} {
 			if _, exists := c.TargetInfo[target]; !exists {
 				c.TargetInfo[target] = info
 			}
 		}
+	}
+	// omp loads a Claude plugin's content and, from package.json, its own extension modules. Its
+	// install records the version it finds itself, never the one in .omp-plugin/plugin.json.
+	if info, ok := c.TargetInfo["omp"]; ok && info.Problem == "" {
+		info.Components = slices.Clone(info.Components)
+		info.Version = ompInstallVersion(root)
+		if !validOMPName(c.Name) {
+			info.block("plugins.problem.ompName", "OMP plugin names use only ASCII letters, digits, hyphens and dots, up to 64 characters", nil)
+		} else if ompExtensions(root) && !slices.Contains(info.Components, "extensions") {
+			info.Components = append(info.Components, "extensions")
+			slices.Sort(info.Components)
+		}
+		c.TargetInfo["omp"] = info
 	}
 	if info, ok := c.TargetInfo["antigravity"]; ok {
 		c.TargetInfo["antigravity-cli"] = info

@@ -2,7 +2,7 @@ import { useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import type { CompletionSource } from '@codemirror/autocomplete';
 import type { Diagnostic } from '@codemirror/lint';
-import { Maximize2, Minimize2, Plus, SquareTerminal, WandSparkles, X } from 'lucide-react';
+import { AlertCircle, Maximize2, Minimize2, Plus, SquareTerminal, WandSparkles, X } from 'lucide-react';
 import { useT } from '../../i18n';
 import CodeEditor from '../CodeEditor';
 import { Select } from '../Select';
@@ -229,6 +229,8 @@ export default function HookBindingEditor({ agent, name, draft, check, onChange,
           )}
         </Expandable>
         <p className="text-xs leading-normal text-ink-2">{t('hooks.codeVersionNote', { agent: hookLabel(agent) })}</p>
+        {/* Oh My Pi loads project extensions without asking for trust, so a synced file can run at its next start. */}
+        {agent === 'omp' && <div className="ss-note warn" role="note"><AlertCircle size={16} /><span className="flex-1">{t('hooks.ompNoTrust')}</span></div>}
       </div>
     );
   }

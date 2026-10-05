@@ -180,6 +180,9 @@ type Host struct {
 	Marketplaces map[string]string `json:"marketplaces,omitempty"`
 	// ManagedMarketplaces names the ones Skillshare registered from its own state directory.
 	ManagedMarketplaces []string `json:"managedMarketplaces,omitempty"`
+	// ompCacheRoot is the folder OMP caches marketplace plugins in, shared by its user scope and
+	// every project; a cache folder that exists there may be in use by a project not visible here.
+	ompCacheRoot string
 }
 
 // fail records a failure and buckets it by its cause. A failed inventory call leaves
@@ -219,6 +222,7 @@ type Change struct {
 	piRecord       []byte
 	piSettingsHash string
 	piRestores     map[string]piRestoreReceipt
+	ompRemoval     *ompRemoval
 	// piRecordAfter records the entry Pi writes on install, which keeps another version's filters.
 	piRecordAfter bool
 	Name          string `json:"name"`

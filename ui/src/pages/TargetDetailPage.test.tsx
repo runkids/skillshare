@@ -21,6 +21,7 @@ vi.mock('../components/instructions/TargetInstructions', () => ({ default: () =>
 vi.mock('../components/targetFiles/TargetFileTab', () => ({ default: () => null }));
 vi.mock('../api/mcp', async (load) => ({ ...await load<typeof import('../api/mcp')>(), mcpApi: { list: vi.fn() } }));
 vi.mock('../components/targets/TargetPiExtensions', () => ({ default: ({ name }: { name: string }) => <p>pi extensions of {name}</p> }));
+vi.mock('../components/targets/TargetOmpExtensions', () => ({ default: ({ name }: { name: string }) => <p>omp extensions of {name}</p> }));
 
 const target = (over: Partial<Target>) => ({
   path: '/home/me/.gemini/skills', mode: 'merge', targetNaming: 'flat', status: 'merged', linkedCount: 0, localCount: 0,
@@ -136,6 +137,20 @@ describe('Target detail file tabs', () => {
   it.each(['pi', 'pi-work'])('gives %s an Extensions tab', async (name) => {
     view(name, [target({ name, agent: name === 'pi-work' ? 'pi' : undefined, path: '/home/me/.pi/agent/skills' })]);
     expect(await screen.findByRole('link', { name: 'Extensions' })).toHaveAttribute('href', '/targets/' + name + '?tab=extensions');
+  });
+
+  // Oh My Pi lists its extensions read-only on the same tab, for omp and an omp account.
+  it.each(['omp', 'omp-work'])('opens the read-only Extensions tab of %s', async (name) => {
+    vi.mocked(api.listTargets).mockResolvedValue({ targets: [target({ name, agent: name === 'omp-work' ? 'omp' : undefined, path: '/home/me/.omp/agent/skills' })], sourceSkillCount: 0 });
+    render(
+      <MemoryRouter initialEntries={[`/targets/${name}?tab=extensions`]}>
+        <QueryClientProvider client={new QueryClient()}><I18nProvider><ToastProvider>
+          <Routes><Route path="/targets/:name" element={<TargetDetailPage />} /></Routes>
+        </ToastProvider></I18nProvider></QueryClientProvider>
+      </MemoryRouter>,
+    );
+    expect(await screen.findByText(`omp extensions of ${name}`)).toBeInTheDocument();
+    expect(screen.queryByText(/pi extensions of/)).not.toBeInTheDocument();
   });
 
   it('gives other targets no Extensions tab', async () => {

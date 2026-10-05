@@ -111,6 +111,14 @@ describe('Target hooks conflicts', () => {
 });
 
 describe('Target hooks native guidance', () => {
+  it('uses the account binding key but its native Agent for code and guidance', () => {
+    const inventory = { ...data, source: { ...data.source, entries: { guard: { bindings: { 'omp-work': { code: 'export default () => {}' } } } } }, targets: [{ name: 'omp-work', agent: 'omp', kind: 'code' }] } as HookInventory;
+    render(<MemoryRouter><QueryClientProvider client={new QueryClient()}><I18nProvider><ToastProvider><TargetHooks agent="omp-work" data={inventory} /></ToastProvider></I18nProvider></QueryClientProvider></MemoryRouter>);
+    expect(screen.getByText('1 hook is configured for omp-work (Oh My Pi).')).toBeInTheDocument();
+    expect(screen.getByText('code')).toBeInTheDocument();
+    expect(screen.getByText(/asks for no project trust/)).toBeInTheDocument();
+  });
+
   it('shows the Codex guidance in the dashboard language and keeps the native terms', async () => {
     localStorage.setItem(LOCALE_STORAGE_KEY, 'zh-TW');
     view();

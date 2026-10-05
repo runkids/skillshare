@@ -158,6 +158,9 @@ func (s *Service) run(ctx context.Context, target string, args ...string) ([]byt
 }
 
 func parseInventory(target string, data []byte, project string) ([]Installed, error) {
+	if target == "omp" {
+		return parseOMPInventory(data, project)
+	}
 	result := []Installed{}
 	if target == "codex" {
 		var envelope struct {
@@ -211,13 +214,20 @@ func validID(id string) bool {
 
 func (s *Service) host(ctx context.Context, target string) Host {
 	agent := s.agentOf(target)
-	if agent != "claude" && agent != "codex" {
+	if !marketplaceAgent(agent) {
 		return s.additionalHost(ctx, target)
 	}
 	h := Host{Target: target, Status: HostReady, Installed: []Installed{}}
 	if agent == "codex" && s.ProjectRoot != "" {
 		h.block("plugins.error.userScoped", "Codex native plugin installation is user-scoped; use global mode. Project operations never fall back to global.")
 		return h
+	}
+	if agent == "omp" {
+		if key, message := s.ompHostProblem(); key != "" {
+			h.block(key, message)
+			return h
+		}
+		h.NoteKey, h.Note = "plugins.note.omp", "Marketplace plugins only; npm, Git and linked plugins are installed by bun and stay managed in omp. OMP loads plugin extension modules in-process when it starts."
 	}
 	version, err := s.run(ctx, target, "--version")
 	if err != nil {
@@ -235,10 +245,18 @@ func (s *Service) host(ctx context.Context, target string) Host {
 		h.fail(err)
 		return h
 	}
+	if agent == "omp" {
+		h.ompCacheRoot = ompDefaultCacheRoot()
+	}
 	// Marketplaces stays nil when the list cannot be read: planning then keeps a removal
 	// pending instead of guessing that nothing is left to clean up.
 	if markets, err := s.marketplaces(ctx, target); err == nil {
 		h.Marketplaces = markets
+		// omp has one marketplace registry for every scope and project, so a Skillshare
+		// marketplace is never counted as this configuration's to remove (see removeMarketplace).
+		if agent == "omp" {
+			return h
+		}
 		for name, root := range markets {
 			// A name also declared elsewhere ("") stays claimed, so removal reports the clash
 			// instead of forgetting the binding.
@@ -300,7 +318,7 @@ func (s *Service) nativeArgs(target, action, id string) ([]string, error) {
 		}
 		return nil, fmt.Errorf("Codex has no verified native %s command; manage this operation in Codex", action)
 	}
-	if agent != "claude" {
+	if agent != "claude" && agent != "omp" {
 		return nil, fmt.Errorf("unsupported plugin target %q", target)
 	}
 	if action == "install" || action == "update" || action == "remove" {
@@ -308,12 +326,17 @@ func (s *Service) nativeArgs(target, action, id string) ([]string, error) {
 		if action == "remove" {
 			command = "uninstall"
 		}
+		// omp has no update: upgrade reinstalls from the marketplace and keeps the plugin's
+		// enabled state, feature selection and settings.
+		if action == "update" && agent == "omp" {
+			command = "upgrade"
+		}
 		scope := "user"
 		if s.ProjectRoot != "" {
 			scope = "project"
 		}
 		args := []string{"plugin", command, id, "--scope", scope}
-		if action == "install" || action == "update" {
+		if (action == "install" || action == "update") && agent == "claude" {
 			args = append(args, "--json")
 		}
 		return args, nil
@@ -322,7 +345,10 @@ func (s *Service) nativeArgs(target, action, id string) ([]string, error) {
 }
 
 func (s *Service) verifyCommand(ctx context.Context, target, action, id string) error {
-	if agent := s.agentOf(target); agent != "claude" && agent != "codex" {
+	if s.agentOf(target) == "omp" && (action == "remove" || action == "uninstall" || action == "forget") {
+		return nil // Scoped removal does not call OMP's destructive uninstall.
+	}
+	if !marketplaceAgent(s.agentOf(target)) {
 		return s.verifyAdditional(ctx, target, action, id)
 	}
 	args, err := s.nativeArgs(target, action, id)

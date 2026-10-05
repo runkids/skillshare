@@ -98,8 +98,8 @@ _skillshare() {
                         '--tools-allow[Only these tools, comma-separated, * matches any characters; empty clears]:tools:' \
                         '--tools-deny[Never these tools, comma-separated, * matches any characters; empty clears]:tools:' \
                         '--pi-options[Other Pi built-in per-server fields as JSON]:json:' \
-                        '--target[Receiving client]:target:' \
-                        '--from[Import client]:target:' \
+                        '--target[Receiving client]:target:(claude codex cursor vscode opencode kilocode grok antigravity amp claude-desktop cline copilot factory gemini goose junie kiro lmstudio warp windsurf pi omp)' \
+                        '--from[Import client]:target:(claude codex cursor vscode opencode kilocode grok antigravity amp claude-desktop cline copilot factory gemini goose junie kiro lmstudio warp windsurf pi omp)' \
                         '--url[MCP endpoint]:url:' \
                         '--file[Import file]:file:_files' \
                         '--sync[Sync after saving]' \
@@ -136,8 +136,8 @@ _skillshare() {
                 plugin)
                     _arguments \
                         '1:command:(add discover import list inspect sync check update enable disable remove)' \
-                        '--target[Receiving target]:target:(claude codex cursor antigravity agy antigravity-cli copilot grok kimi hermes devin pi opencode)' \
-                        '--from[Import target]:target:(claude codex cursor antigravity agy antigravity-cli copilot grok kimi hermes devin pi opencode)' \
+                        '--target[Receiving target]:target:(claude codex cursor antigravity agy antigravity-cli copilot grok kimi hermes devin pi opencode omp)' \
+                        '--from[Import target]:target:(claude codex cursor antigravity agy antigravity-cli copilot grok kimi hermes devin pi opencode omp)' \
                         '--plugin[Source plugin]:name:' \
                         '--name[Logical package name]:name:' \
                         '--source-ref[Git branch, tag or commit]:ref:' \
@@ -376,7 +376,7 @@ _skillshare() {
                         '--add-agent-exclude[Add agent exclude filter]:pattern:' \
                         '--remove-agent-include[Remove agent include filter]:pattern:' \
                         '--remove-agent-exclude[Remove agent exclude filter]:pattern:' \
-                        '--agent[With add: the Agent this is another account of]:agent:(claude codex pi)' \
+                        '--agent[With add: the Agent this is another account of]:agent:(claude codex pi omp)' \
                         '--config-dir[With add: the config directory of that account]:dir:_files -/' \
                         '--cli[With add: the executable that runs its plugin commands]:executable:_command_names' \
                         '--skills=[Sync skills to this target]:enabled:(true false)' \

@@ -67,6 +67,9 @@ func (s *Service) validate(r Request) error {
 			return fmt.Errorf("npm packages are installed by Pi; choose a Pi target")
 		}
 	}
+	if r.Action == "import" && s.agentOf(r.From) == "omp" && !validID(r.Plugin) && ompPackageName.MatchString(r.Plugin) {
+		return agentError{key: "plugins.error.ompPackageImport", message: "This OMP plugin was installed by bun from npm, Git or a local link, which runs its install scripts; Skillshare manages OMP marketplace plugins only. Keep managing it in omp."}
+	}
 	if r.Action == "import" && (!slices.Contains(targets, r.From) || !validTargetID(s.agentOf(r.From), r.Plugin)) {
 		return fmt.Errorf("import requires --from <target> and a native plugin identifier")
 	}
@@ -101,15 +104,13 @@ func (s *Service) Preview(ctx context.Context, r Request) (*Plan, error) {
 	}
 	// ownMarket reports whether the marketplace Skillshare registered for b is still in place.
 	ownMarket := func(target string, b Binding) bool {
-		agent := s.agentOf(target)
 		_, market, _ := strings.Cut(b.ID, "@")
-		return (agent == "claude" || agent == "codex") && b.Source != "" && slices.Contains(host(target).ManagedMarketplaces, market)
+		return marketplaceAgent(s.agentOf(target)) && b.Source != "" && slices.Contains(host(target).ManagedMarketplaces, market)
 	}
 	// mayOwnMarket also covers an Agent whose marketplace list could not be read, so a removal
 	// stays pending instead of dropping the binding before its cleanup.
 	mayOwnMarket := func(target string, b Binding) bool {
-		agent := s.agentOf(target)
-		return ownMarket(target, b) || (agent == "claude" || agent == "codex") && b.Source != "" && host(target).Marketplaces == nil
+		return ownMarket(target, b) || marketplaceAgent(s.agentOf(target)) && b.Source != "" && host(target).Marketplaces == nil
 	}
 	appendChange := func(c Change) {
 		h := host(c.Target)
@@ -137,7 +138,7 @@ func (s *Service) Preview(ctx context.Context, r Request) (*Plan, error) {
 		}
 		// An import reinstalls and updates from its native marketplace. Once that is gone, only the
 		// native client, or adding the plugin again from a reviewed source, can bring it back.
-		if c.Binding.Source == "" && (agent == "claude" || agent == "codex") && (c.Action == "install" || c.Action == "update") && h.Marketplaces != nil {
+		if c.Binding.Source == "" && marketplaceAgent(agent) && (c.Action == "install" || c.Action == "update") && h.Marketplaces != nil {
 			_, market, _ := strings.Cut(c.ID, "@")
 			if _, ok := h.Marketplaces[market]; !ok {
 				skip("plugins.skip.marketplaceGone", fmt.Sprintf("The native marketplace %s is gone. Restore it in the native client, or remove this Agent and add the plugin again from its source.", market), map[string]string{"market": market})
@@ -154,6 +155,11 @@ func (s *Service) Preview(ctx context.Context, r Request) (*Plan, error) {
 				}
 			}
 		}
+		// omp copies a marketplace plugin without running it, but imports its extension modules
+		// and tools in-process at its next start; there is no native trust prompt to lean on.
+		if agent == "omp" && (c.Action == "install" || c.Action == "update") && c.Message == "" {
+			c.Message, c.MessageKey = "Installs the reviewed snapshot. If the plugin provides extensions or tools, OMP loads them at its next startup.", "plugins.note.ompRuntime"
+		}
 		if c.Action == "update" && agent == "antigravity-cli" {
 			skip("plugins.skip.keepEnablement", "Update in Antigravity CLI to preserve native enablement; automatic reinstall updates are not supported.", map[string]string{"agent": "Antigravity CLI"})
 		}
@@ -161,8 +167,9 @@ func (s *Service) Preview(ctx context.Context, r Request) (*Plan, error) {
 		if version := pinnedNpm(c.ID); c.Action == "update" && agent == "pi" && version != "" {
 			skip("plugins.skip.npmPinned", fmt.Sprintf("Pinned to %s; to use another version, add the package again with that version.", version), map[string]string{"version": version})
 		}
-		// pi update has no project scope, and OpenCode v1 has no update command.
-		if c.Action == "update" && c.Binding.Source == "" && s.ProjectRoot != "" && agent == "pi" || c.Action == "update" && c.Binding.Source == "" && agent == "opencode" && (s.ProjectRoot != "" || !strings.HasPrefix(strings.TrimPrefix(h.Version, "v"), "2.")) {
+		// pi update has no project scope, and OpenCode v1 has no update command. omp's upgrade
+		// would reinstall whatever the native marketplace holds, which Skillshare never reviewed.
+		if c.Action == "update" && c.Binding.Source == "" && (s.ProjectRoot != "" && agent == "pi" || agent == "omp") || c.Action == "update" && c.Binding.Source == "" && agent == "opencode" && (s.ProjectRoot != "" || !strings.HasPrefix(strings.TrimPrefix(h.Version, "v"), "2.")) {
 			skip("plugins.skip.imported", "Update imported packages in the native client; Skillshare updates reviewed source snapshots only.", nil)
 		}
 		if c.Action == "update" && agent == "opencode" && c.Binding.Source == "" {
@@ -203,6 +210,13 @@ func (s *Service) Preview(ctx context.Context, r Request) (*Plan, error) {
 				if item.ID == c.ID && !item.Enabled {
 					skip("plugins.skip.codexDisabled", "Enable the plugin in Codex before updating it; updating would turn it back on.", nil)
 				}
+			}
+		}
+		// Skips above are not native commands; what is left for omp must not destroy a shared cache.
+		if agent == "omp" && h.Error == "" {
+			ompGuard(h, &c)
+			if c.Action == "remove" || c.Action == "uninstall" || c.Action == "forget" {
+				s.prepareOMPRemoval(h, &c)
 			}
 		}
 		if c.Action == "blocked" {
@@ -304,11 +318,15 @@ func (s *Service) Preview(ctx context.Context, r Request) (*Plan, error) {
 		for _, target := range slices.Compact(slices.Sorted(slices.Values(r.Targets))) {
 			agent := s.agentOf(target)
 			// Name the plugin so native marketplace lists show what Skillshare added.
-			market := "skillshare-" + marketUnsafe.ReplaceAllString(c.Name, "-") + "-" + hash([]byte(s.ConfigPath + "\x00" + discovered.Source + "\x00" + c.Name + "\x00" + target))[:16]
+			digest := hash([]byte(s.ConfigPath + "\x00" + discovered.Source + "\x00" + c.Name + "\x00" + target))[:16]
+			market := "skillshare-" + marketUnsafe.ReplaceAllString(c.Name, "-") + "-" + digest
 			b := Binding{ID: c.Name + "@" + market, Source: discovered.Source, SourceRef: discovered.SourceRef, Commit: discovered.Commit, Plugin: c.Name, Digest: discovered.Digest, Version: c.TargetInfo[agent].Version, Components: c.TargetInfo[agent].Components}
 			switch agent {
 			case "cursor", "antigravity", "antigravity-cli", "copilot", "grok", "kimi", "hermes", "devin":
 				b.ID = c.Name
+			case "omp":
+				// omp caps marketplace names at 64 characters, so the plugin name is left out.
+				b.ID = c.Name + "@skillshare-" + digest
 			case "pi":
 				b.ID = filepath.Join(s.snapshotPath(b, target), "content", filepath.FromSlash(c.pathFor(agent)))
 			case "opencode":
@@ -416,7 +434,7 @@ func (s *Service) Preview(ctx context.Context, r Request) (*Plan, error) {
 				case "sync":
 					if !b.Selected() {
 						c.Action = "uninstall"
-						if !exists && !ownMarket(target, b) {
+						if !exists && !ownMarket(target, b) && agent != "omp" {
 							c.Action = "noop"
 						}
 						break
@@ -524,7 +542,7 @@ func (s *Service) Preview(ctx context.Context, r Request) (*Plan, error) {
 					c.Action = "blocked"
 					c.Message = "Imported installation has no reinstall source; install it in the native client, then sync again."
 				}
-				if c.Action == "forget" || c.Action == "selection" {
+				if c.Action == "forget" && agent != "omp" || c.Action == "selection" {
 					p.Changes = append(p.Changes, c)
 				} else {
 					appendChange(c)
@@ -552,12 +570,26 @@ func (s *Service) Preview(ctx context.Context, r Request) (*Plan, error) {
 	}
 	// Bind previews to source bytes, selected operations, native versions/inventory,
 	// and config bytes. A changed selection or external edit invalidates approval.
+	ompRoots := map[string]string{}
+	for target, host := range hosts {
+		if host.ompCacheRoot != "" {
+			ompRoots[target] = host.ompCacheRoot
+		}
+	}
+	ompRemovals := map[string]string{}
+	for _, c := range p.Changes {
+		if c.ompRemoval != nil {
+			ompRemovals[c.Target+"\x00"+c.ID] = c.ompRemoval.revision
+		}
+	}
 	fingerprint, _ := json.Marshal(struct {
-		Request Request
-		Raw     string
-		Changes []Change
-		Hosts   map[string]Host
-	}{r, string(d.raw), p.Changes, hosts})
+		Request       Request
+		Raw           string
+		Changes       []Change
+		Hosts         map[string]Host
+		OMPCacheRoots map[string]string
+		OMPRemovals   map[string]string
+	}{r, string(d.raw), p.Changes, hosts, ompRoots, ompRemovals})
 	p.Revision = hash(fingerprint)
 	return p, nil
 }

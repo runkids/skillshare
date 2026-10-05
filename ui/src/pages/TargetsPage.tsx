@@ -52,7 +52,7 @@ export default function TargetsPage() {
     const servers = mcp.data ? serverCount(mcp.data, mcpClient(tg.name)) : 0;
     // With skills off only the rest of what the target gets is worth a word.
     // Hooks follow the Agent, not the skills switch: a target with skills off still shows its hooks.
-    const agent = hookAgentOf(tg.name);
+    const agent = hookAgentOf(tg.name, tg.agent);
     const hookN = hooks.data && agent ? hookCount(hooks.data, agent, tg.project) : 0;
     return [tg.skillsEnabled !== false && syncing(tg, state, pending), servers > 0 && t('projects.content.mcp', { count: servers }), hookN > 0 && t('projects.content.hooks', { count: hookN })].filter(Boolean).join(' · ');
   };

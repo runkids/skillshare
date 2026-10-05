@@ -161,11 +161,17 @@ func (s *Service) applyChange(ctx context.Context, c Change, b Binding) (resultE
 			_ = os.RemoveAll(failed)
 		}()
 	}
+	if c.ompRemoval != nil && s.agentOf(c.Target) == "omp" {
+		if err := s.applyOMPRemoval(c.ompRemoval); err != nil {
+			return agentError{cause: err, key: "plugins.error.ompRemovalFailed", message: "OMP removal did not complete; shared cache was retained. Preview again before retrying: " + err.Error()}
+		}
+		return nil
+	}
 	if c.Action == "import" || c.Action == "forget" || c.Action == "selection" {
 		return nil
 	}
 	agent := s.agentOf(c.Target)
-	if agent != "claude" && agent != "codex" {
+	if !marketplaceAgent(agent) {
 		return s.applyAdditional(ctx, c, b)
 	}
 	if (c.Action == "install" || c.Action == "update") && b.Source != "" {
@@ -182,6 +188,7 @@ func (s *Service) applyChange(ctx context.Context, c Change, b Binding) (resultE
 				return err
 			}
 			if !registered {
+				// omp keeps one marketplace registry for both scopes and prints no JSON.
 				args := []string{"plugin", "marketplace", "add", path}
 				if agent == "claude" {
 					scope := "user"
@@ -189,7 +196,7 @@ func (s *Service) applyChange(ctx context.Context, c Change, b Binding) (resultE
 						scope = "project"
 					}
 					args = append(args, "--scope", scope)
-				} else {
+				} else if agent == "codex" {
 					args = append(args, "--json")
 				}
 				if _, err := s.run(ctx, c.Target, args...); err != nil {
@@ -198,7 +205,8 @@ func (s *Service) applyChange(ctx context.Context, c Change, b Binding) (resultE
 			}
 		}
 		// Codex reads a local marketplace in place; its marketplace upgrade is for Git ones.
-		if c.Action == "update" && agent == "claude" {
+		// omp installs from the catalog it cached when the marketplace was added.
+		if c.Action == "update" && (agent == "claude" || agent == "omp") {
 			_, market, _ := strings.Cut(b.ID, "@")
 			if _, err := s.run(ctx, c.Target, "plugin", "marketplace", "update", market); err != nil {
 				return err
@@ -256,7 +264,9 @@ func (s *Service) applyChange(ctx context.Context, c Change, b Binding) (resultE
 func (s *Service) removeMarketplace(ctx context.Context, target string, b Binding) error {
 	path := s.snapshotPath(b, target)
 	market := filepath.Base(path)
-	if b.Source == "" || !strings.HasPrefix(market, "skillshare-") {
+	// omp's marketplace registry and plugin cache are shared by its user scope and every
+	// project; what else refers to this marketplace cannot be seen from here, so it stays.
+	if b.Source == "" || !strings.HasPrefix(market, "skillshare-") || s.agentOf(target) == "omp" {
 		return nil
 	}
 	kept := func(cause error) error {
@@ -308,6 +318,14 @@ func (s *Service) registered(ctx context.Context, target, id, path string) (bool
 // settings scope into one list without saying which scope declared an entry; a name
 // declared at several roots maps to "", since removing it would remove every copy.
 func (s *Service) marketplaces(ctx context.Context, target string) (map[string]string, error) {
+	agent := s.agentOf(target)
+	if agent == "omp" {
+		data, err := s.run(ctx, target, "plugin", "marketplace", "list")
+		if err != nil {
+			return nil, err
+		}
+		return parseOMPMarketplaces(data)
+	}
 	data, err := s.run(ctx, target, "plugin", "marketplace", "list", "--json")
 	if err != nil {
 		return nil, err
@@ -319,7 +337,6 @@ func (s *Service) marketplaces(ctx context.Context, target string) (map[string]s
 		Source          string `json:"source"`
 	}
 	var entries []entry
-	agent := s.agentOf(target)
 	if agent == "codex" {
 		var envelope struct {
 			Marketplaces json.RawMessage `json:"marketplaces"`

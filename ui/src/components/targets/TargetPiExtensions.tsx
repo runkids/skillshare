@@ -2,7 +2,7 @@ import { useState } from 'react';
 import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { AlertCircle, ArrowRight, ChevronDown, CircleCheck, FileDiff, Folder, Info, Lock, Puzzle, RotateCcw, X } from 'lucide-react';
+import { AlertCircle, ArrowRight, ChevronDown, CircleCheck, FileDiff, Folder, Info, Lock, Package, Puzzle, RotateCcw, X } from 'lucide-react';
 import { ApiError } from '../../api/client';
 import { piExtensionsApi } from '../../api/piExtensions';
 import PiPackageIcon from '../PiPackageIcon';
@@ -153,10 +153,10 @@ const isOn = (row: PiExtensionRow, action?: PiExtensionAction) =>
 
 /** One package: a summary header, then its extensions as a grid. ownsRules: the rules shown are in the file this view writes, so one can be removed. */
 function PackageCard({ pkg, name, ownsRules, pending, set, t }: { pkg: PiExtensionPackage; name: string; ownsRules: boolean; pending: Record<string, PiExtensionAction>; set: SetAction; t: T }) {
-  const [open, setOpen] = useState(true);
   const [details, setDetails] = useState(false);
   // A plugin Skillshare installs is a local path into its state directory: its name says which one.
-  const title = pkg.managedBy || pkg.identity || pkg.source;
+  const title = pkg.managedBy ? `${t('plugins.title')} · ${pkg.managedBy}` : pkg.identity || pkg.source;
+  const Icon = pkg.managedBy ? Package : PiPackageIcon;
   const actionOf = (r: PiExtensionRow) => pending[keyOf(pkg.scope, pkg.index, r.path)];
   const on = pkg.rows.filter((r) => isOn(r, actionOf(r))).length;
   const locked = Boolean(pkg.readOnly) || (pkg.rows.length > 0 && pkg.rows.every((r) => !r.editable));
@@ -165,14 +165,15 @@ function PackageCard({ pkg, name, ownsRules, pending, set, t }: { pkg: PiExtensi
   return (
     <section className="ss-list !shadow-none" aria-label={title}>
       <div className="ss-r !min-h-[60px]">
-        <span className="ss-cat bg-sunken text-ink" aria-hidden><PiPackageIcon size={26} /></span>
+        <span className={`ss-cat bg-sunken ${pkg.managedBy ? 'text-ink-2' : 'text-ink'}`} title={pkg.managedBy ? t('targetDetail.piExtensions.managedBy') : undefined} aria-hidden><Icon size={26} /></span>
         <span className="flex min-w-0 flex-1 flex-col gap-1">
           <span className="nm m truncate" title={pkg.source}>{title}</span>
           {(pkg.kind || pkg.version || pkg.shape || pkg.managedBy) && (
             <span className="flex flex-wrap items-center gap-1.5">
-              {(pkg.kind || pkg.version) && <span className="ss-tag">{[pkg.kind, pkg.version].filter(Boolean).join(' ')}</span>}
-              {pkg.shape && <span className="ss-tag inf">{t(`targetDetail.piExtensions.shape.${pkg.shape}`)}</span>}
-              {pkg.managedBy && <Link to="/plugins" className="ss-tag hover:text-ink">{t('targetDetail.piExtensions.managedBy')}</Link>}
+              {(pkg.managedBy ? pkg.version : pkg.kind || pkg.version) && <span className="ss-tag">{[!pkg.managedBy && pkg.kind, pkg.version].filter(Boolean).join(' ')}</span>}
+              {pkg.managedBy && <span className="ss-tag inf">{pkg.scope}</span>}
+              {pkg.shape && (!pkg.managedBy || pkg.shape !== 'global') && <span className="ss-tag inf">{t(`targetDetail.piExtensions.shape.${pkg.shape}`)}</span>}
+              {pkg.managedBy && <Link to="/plugins" className="ss-ib !h-6 !w-6" aria-label={t('targetDetail.piExtensions.openPlugins')} title={t('targetDetail.piExtensions.openPlugins')}><ArrowRight size={14} /></Link>}
             </span>
           )}
         </span>
@@ -180,9 +181,6 @@ function PackageCard({ pkg, name, ownsRules, pending, set, t }: { pkg: PiExtensi
         {locked && <span className="ss-tag shrink-0"><Lock size={11} />{t('targetDetail.piExtensions.readOnlyTag')}</span>}
         <button type="button" className="inline-flex shrink-0 items-center gap-1 text-[12px] font-semibold text-ink-2 hover:text-ink" aria-expanded={details} onClick={() => setDetails(!details)}>
           {t('targetDetail.piExtensions.details.show')}<ChevronDown size={12} className={details ? 'rotate-180' : ''} />
-        </button>
-        <button type="button" className="ss-ib shrink-0" aria-expanded={open} aria-label={t(open ? 'targetDetail.piExtensions.collapse' : 'targetDetail.piExtensions.expand', { pkg: title })} onClick={() => setOpen(!open)}>
-          <ChevronDown size={16} className={open ? 'rotate-180' : ''} />
         </button>
       </div>
       {details && (
@@ -193,19 +191,15 @@ function PackageCard({ pkg, name, ownsRules, pending, set, t }: { pkg: PiExtensi
           <span className="text-ink-3">{t('targetDetail.piExtensions.details.otherKeys')}</span><span className="font-mono">{pkg.otherKeys.join(', ') || t('targetDetail.piExtensions.details.none')}</span>
         </div>
       )}
-      {open && (
-        <>
-          {pkg.problem && <div className="ss-r !min-h-0 bg-sunken text-[13px] text-ink-2"><AlertCircle size={14} className="shrink-0 text-warn" />{t(`targetDetail.piExtensions.problem.${pkg.problem}`)}</div>}
-          {pkg.readOnly && <div className="ss-r !min-h-0 bg-sunken text-[13px] text-ink-2"><Lock size={14} className="shrink-0 text-ink-3" />{t(`targetDetail.piExtensions.packageReadOnly.${pkg.readOnly}`)}</div>}
-          {pkg.rows.length === 0 && !pkg.problem && <div className="ss-r !min-h-[42px] text-[13px] text-ink-3">{t('targetDetail.piExtensions.noExtensions')}</div>}
-          {pkg.rows.length > 0 && (
-            <RowGrid dir={dir}>
-              {pkg.rows.map((r) => (
-                <ExtensionCell key={r.path} pkg={pkg} row={r} dir={dir} name={name} ownsRules={ownsRules} action={actionOf(r)} set={set} t={t} />
-              ))}
-            </RowGrid>
-          )}
-        </>
+      {pkg.problem && <div className="ss-r !min-h-0 bg-sunken text-[13px] text-ink-2"><AlertCircle size={14} className="shrink-0 text-warn" />{t(`targetDetail.piExtensions.problem.${pkg.problem}`)}</div>}
+      {pkg.readOnly && <div className="ss-r !min-h-0 bg-sunken text-[13px] text-ink-2"><Lock size={14} className="shrink-0 text-ink-3" />{t(`targetDetail.piExtensions.packageReadOnly.${pkg.readOnly}`)}</div>}
+      {pkg.rows.length === 0 && !pkg.problem && <div className="ss-r !min-h-[42px] text-[13px] text-ink-3">{t('targetDetail.piExtensions.noExtensions')}</div>}
+      {pkg.rows.length > 0 && (
+        <RowGrid dir={dir}>
+          {pkg.rows.map((r) => (
+            <ExtensionCell key={r.path} pkg={pkg} row={r} dir={dir} name={name} ownsRules={ownsRules} action={actionOf(r)} set={set} t={t} />
+          ))}
+        </RowGrid>
       )}
     </section>
   );

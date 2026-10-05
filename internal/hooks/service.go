@@ -209,6 +209,7 @@ var configDirEnv = map[string]string{
 	"codex":   "CODEX_HOME",
 	"copilot": "COPILOT_HOME",
 	"pi":      "PI_CODING_AGENT_DIR",
+	"omp":     "PI_CODING_AGENT_DIR", // OMP is a Pi fork and reads the same variable.
 	"xdg":     "XDG_CONFIG_HOME",
 }
 
@@ -227,7 +228,7 @@ func (s *Service) configDir(target string) (string, error) {
 		return d.base, err
 	}
 	if s.ProjectRoot != "" {
-		dirs := map[string]string{"claude": ".claude", "codex": ".codex", "gemini": ".gemini", "qwen": ".qwen", "copilot": ".github", "cursor": ".cursor", "droid": ".factory", "antigravity": ".agents", "pi": ".pi", "amp": ".amp", "opencode": ".opencode"}
+		dirs := map[string]string{"claude": ".claude", "codex": ".codex", "gemini": ".gemini", "qwen": ".qwen", "copilot": ".github", "cursor": ".cursor", "droid": ".factory", "antigravity": ".agents", "pi": ".pi", "omp": ".omp", "amp": ".amp", "opencode": ".opencode"}
 		dir, ok := dirs[target]
 		if !ok {
 			return "", fmt.Errorf("unsupported hooks Agent %q", target)
@@ -264,6 +265,8 @@ func (s *Service) defaultConfigDir(target string) (string, error) {
 		return filepath.Join(home, ".gemini", "config"), nil
 	case "pi":
 		return filepath.Join(home, ".pi", "agent"), nil
+	case "omp":
+		return filepath.Join(home, ".omp", "agent"), nil
 	case "amp":
 		return filepath.Join(xdg, "amp"), nil
 	case "opencode":
@@ -290,7 +293,7 @@ func (s *Service) nativePath(target string) (string, error) {
 		return filepath.Join(dir, "hooks.json"), nil
 	case "copilot":
 		return filepath.Join(dir, "hooks"), nil
-	case "pi":
+	case "pi", "omp":
 		return filepath.Join(dir, "extensions"), nil
 	case "amp", "opencode":
 		return filepath.Join(dir, "plugins"), nil

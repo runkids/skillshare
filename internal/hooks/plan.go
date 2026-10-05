@@ -221,7 +221,12 @@ func (s *Service) renderScope(d *desired, root string, entries map[string]Entry)
 			}
 			canonical := canonicalPath(dir)
 			if previous := dirOwner[canonical]; previous != "" && previous != target {
-				return fmt.Errorf("hooks: %s and %s both write %s; give each account its own config_dir", previous, target, canonical)
+				hint := "give each account its own config_dir"
+				if env := configDirEnv[s.agentOf(previous)]; env != "" && env == configDirEnv[agent] && previous == s.agentOf(previous) && target == agent {
+					// Two built-in Agents share one directory only through their common variable.
+					hint = "both read " + env + "; unset it or bind only one of them"
+				}
+				return fmt.Errorf("hooks: %s and %s both write %s; %s", previous, target, canonical, hint)
 			}
 			dirOwner[canonical] = target
 			def, _ := targetDef(agent)

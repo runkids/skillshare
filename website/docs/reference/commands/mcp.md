@@ -124,7 +124,7 @@ Skillshare config. The schema is `schemas/mcp.schema.json` in the repository.
 
 Client IDs are `claude`, `codex`, `cursor`, `vscode`, `opencode`, `kilocode`,
 `grok`, `antigravity`, `amp`, `claude-desktop`, `cline`, `copilot`, `factory`, `gemini`,
-`goose`, `junie`, `kiro`, `lmstudio`, `warp`, `windsurf`, and `pi`.
+`goose`, `junie`, `kiro`, `lmstudio`, `warp`, `windsurf`, `pi`, and `omp`.
 `grok` means the official xAI Grok CLI. Server names use letters,
 digits, dots, underscores and hyphens. A server must select at least one client
 either directly or through `mcp.targets` before synchronization, unless its own
@@ -189,6 +189,7 @@ Names such as `company-docs` work across all supported clients.
 | [LM Studio](https://lmstudio.ai/docs/app/mcp) | `~/.lmstudio/mcp.json` | Global only | `mcpServers` |
 | [Warp](https://docs.warp.dev/agents/capabilities/mcp/) | `~/.warp/.mcp.json` | `.warp/.mcp.json` | `mcpServers` |
 | [Windsurf (Cascade)](https://docs.devin.ai/desktop/cascade/mcp) | `~/.codeium/windsurf/mcp_config.json` | Global only | `mcpServers` |
+| [Oh My Pi (OMP)](https://github.com/can1357/oh-my-pi/blob/v18.6.1/docs/mcp-config.md) | `~/.omp/agent/mcp.json` | `.omp/mcp.json` | `mcpServers` |
 
 The dashboard's server form edits HTTP headers the same way as environment variables,
 including `fromEnv` references. **View what each Agent gets**, in a server's menu and
@@ -327,7 +328,7 @@ server approval and authentication remain the receiving Agent's responsibility.
 
 ### Another account of an Agent {#accounts}
 
-A target declared as [another account of an Agent](/docs/reference/targets/configuration#agent-config-dir) is an MCP target too, for `claude` (`CLAUDE_CONFIG_DIR`), `codex` (`CODEX_HOME`) and `pi` (`PI_CODING_AGENT_DIR`). Its servers are written in that Agent's format, into the account's own file: `<config_dir>/.claude.json` for Claude, `<config_dir>/config.toml` for Codex, or `<config_dir>/mcp.json` for Pi.
+A target declared as [another account of an Agent](/docs/reference/targets/configuration#agent-config-dir) is an MCP target too, for `claude` (`CLAUDE_CONFIG_DIR`), `codex` (`CODEX_HOME`), `pi` and `omp` (both use `PI_CODING_AGENT_DIR`). Its servers are written in that Agent's format, into the account's own file: `<config_dir>/.claude.json` for Claude, `<config_dir>/config.toml` for Codex, or `<config_dir>/mcp.json` for Pi and OMP.
 
 ```yaml
 targets:
@@ -362,7 +363,7 @@ defined in the global file therefore loads in every project. To stop it loading 
 one project, add an entry **with the same name the Agent's global file uses** and
 mark it `disabled`.
 
-This works with four clients only:
+This works with five clients only:
 
 | Client | Supported | What Skillshare writes |
 |---|---|---|
@@ -370,11 +371,13 @@ This works with four clients only:
 | OpenCode | Yes | `opencode.json`: `"NAME": {"enabled": false}` |
 | Kilo Code | Yes | `kilo.jsonc`: `"NAME": {"enabled": false}` |
 | Pi | Yes, Pi 1.0.1 and later | `.pi/mcp.json`: `"NAME": {"enabled": false}`, see below |
+| Oh My Pi | Yes | `.omp/mcp.json`: `"NAME": {"enabled": false}` shadows the same-named user entry |
 | Codex | No | See below |
 | Every other client | No | Selecting one is an error; nothing is written |
 
-Only the switch is written. The Agent keeps the command or URL from its global
-entry. The other clients are refused because they replace the whole global entry
+Only the switch is written. OpenCode, Kilo Code and Pi keep the command or URL from
+the global entry; OMP suppresses the disabled project entry before name deduplication,
+so the same-named user entry cannot connect. The other clients are refused because they replace the whole global entry
 with the project one, or have no project file, so a lone switch would break the
 server instead of turning it off.
 
@@ -771,7 +774,7 @@ and writes no files until you choose for that entry:
   Defaults an Agent fills in, such as `"type": "stdio"`, an empty `env` or
   header name case, are not changes. Turning a managed server off with
   `enabled: false` or `disabled: true` is reported as a conflict.
-  Pi is an exception: changing `enabled` alone does not cause an ownership conflict. A source `piOptions.enabled` still takes precedence on sync.
+  Pi and OMP are exceptions: changing `enabled` alone on a connection entry does not cause an ownership conflict. A source `piOptions.enabled` still takes precedence on sync.
 - A preview stays valid while an Agent rewrites unrelated settings in the same
   file, as Claude Code does with `~/.claude.json`. Only a change to that file's
   MCP entries requires a new preview.
@@ -919,6 +922,49 @@ icon explains the section and a summary shows `All tools`, the policy (such as
 
 The server row shows a tag with the policy in words, such as `Tools: 2 tools excluded`,
 and **View what each Agent gets** warns per Agent about the parts it does not apply.
+
+## Oh My Pi (OMP) {#omp}
+
+`omp` is a separate client from Pi. Skillshare writes OMP's native `mcpServers`
+map, with explicit `type: stdio` or `type: http` and `${VARIABLE}` environment
+references. It never writes into `.pi/`, Claude or Codex configuration on OMP's behalf.
+Server names must be at most 100 characters.
+
+```bash
+skillshare mcp add docs --url https://example.com/mcp --target omp -g --sync --no-tui
+skillshare mcp import docs --from omp --target omp -g --replace --dry-run --json
+```
+
+Sync preserves `$schema`, `disabledServers`, `enabledServers` and unrelated servers.
+It also keeps native per-server fields such as `enabled`, `timeout`, `instructions`,
+`requestIdFormat`, `cwd`, `auth` and `oauth` when updating an existing connection.
+These fields are not `piOptions`: Pi-only settings are never sent to OMP. Import
+warns about native fields that cannot be represented by the portable model; keep
+them in OMP's file. The portable model supports stdio and Streamable HTTP, not
+OMP's legacy SSE transport; unsupported imports are refused rather than converted.
+
+`disabledServers` wins over `enabledServers` and an entry's `enabled` value.
+Sync does not remove a user denylist entry to activate a server. Import refuses
+servers hidden by `disabledServers` or `enabled: false`, unless the latter is
+force-enabled by `enabledServers`. JSON with OMP's schema or enable/disable lists
+is recognized as OMP when pasted into the importer.
+
+OMP can run env/header values beginning with `!` as shell commands. Skillshare
+refuses exporting such literals or importing those credentials and never executes
+them. Prefer `{fromEnv: VARIABLE}` in the source and `${VARIABLE}` in native JSON.
+A same-name bare env reference, such as `"TOKEN": "TOKEN"`, imports as `fromEnv`;
+set the variable before connecting, since the portable reference has no literal
+fallback. Other client-specific interpolation needs conversion before import.
+
+Global MCP honors `PI_CODING_AGENT_DIR`; project MCP remains `.omp/mcp.json`.
+Since Pi uses the same environment variable, syncing both into the same file is
+refused. Use separate directories or explicit account targets. Named-profile
+and `PI_CONFIG_DIR` automatic path selection are not managed: declare a target
+with `agent: omp` and `config_dir: ~/.omp/profiles/work/agent` for that profile.
+Account targets are global-only; project definitions use `omp`.
+
+After editing or syncing, run `/mcp reload` in OMP, then `/mcp list` to inspect the
+source and connection status. Approval and OAuth login remain OMP's responsibility.
 
 ## Pi {#pi}
 

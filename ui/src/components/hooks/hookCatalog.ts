@@ -113,6 +113,15 @@ export default function (pi: ExtensionAPI) {
   });
 }
 `,
+    // Oh My Pi is a Pi fork with the same extension shape under its own package name.
+    omp: `import type { ExtensionAPI } from "@oh-my-pi/pi-coding-agent";
+
+export default function (pi: ExtensionAPI) {
+  pi.on("tool_call", async (event, ctx) => {
+    // Inspect event and return { block: true, reason } to stop the call.
+  });
+}
+`,
     amp: `export default function (amp) {
   amp.on("tool.call", async (event) => {
     // Return { action: "allow" } to let the call run.

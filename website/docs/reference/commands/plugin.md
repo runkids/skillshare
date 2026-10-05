@@ -60,10 +60,10 @@ commands require explicit inputs. `sync` and `check` may operate on all packages
 
 | Option | Meaning |
 |---|---|
-| `--target TARGET` | Repeatable selection: `claude`, `codex`, `cursor`, `antigravity` (`agy` alias), `antigravity-cli`, `copilot`, `grok`, `pi`, `opencode`, or the name of [another account of an Agent](#accounts); see the capability table below |
+| `--target TARGET` | Repeatable selection: `claude`, `codex`, `cursor`, `antigravity` (`agy` alias), `antigravity-cli`, `copilot`, `grok`, `pi`, `omp`, `opencode`, or the name of [another account of an Agent](#accounts); see the capability table below |
 | `--plugin NAME` | Select one plugin from a source marketplace |
 | `--name NAME` | Logical package name when adding or importing |
-| `--from TARGET` | Import from Claude, Codex, Antigravity CLI, Copilot, Grok, Pi, OpenCode, or [another account of an Agent](#accounts) |
+| `--from TARGET` | Import from Claude, Codex, Antigravity CLI, Copilot, Grok, Pi, OMP marketplaces, OpenCode, or [another account of an Agent](#accounts) |
 | `--dry-run`, `-n` | Preview without changing Skillshare or Agent configuration |
 | `--source-ref REF` | Git branch, tag, or commit for `discover`, `add`, and `update`; remote sources only |
 | `--entry PATH` | Explicit built OpenCode JS/TS entry, relative to the package root (`discover` and `add`) |
@@ -71,7 +71,7 @@ commands require explicit inputs. `sync` and `check` may operate on all packages
 | `--json` | Machine-readable output; disables TUI |
 | `--no-tui` | Disable interactive menus; also respects `tui: false` |
 | `--global`, `-g` | Global Skillshare config and native user scope |
-| `--project`, `-p` | Project config; Claude, Antigravity, Pi, or OpenCode (never global fallback) |
+| `--project`, `-p` | Project config; Claude, Antigravity, Pi, OMP, or OpenCode (never global fallback) |
 
 JSON output includes source paths and native identifiers. Do not put credentials
 in source URLs. A failed mutation can still return successful per-target outcomes;
@@ -86,6 +86,7 @@ the CLI exits nonzero when any target fails. Inspect the result before retrying.
 | Cursor | `.cursor-plugin/plugin.json` or Agent Plugins root manifest | Yes | No | Replace reviewed local copy |
 | Antigravity Desktop | Root `plugin.json` with an explicit name | Yes | Yes | Replace reviewed local copy |
 | Pi | `package.json` with `pi` resources, or `pi-package` keyword and conventional resource folders | Yes | Yes, with native project trust | Refresh managed source snapshot |
+| Oh My Pi | Marketplace-backed local/Git plugins with native-compatible metadata | Fresh-cache install/reinstall, import and scoped removal | At OMP's project anchor | Updates blocked; removal retains shared cache |
 | OpenCode | `package.json` with an SDK dependency, `.opencode/plugins/` entry, or explicit `--entry` | Yes | Yes | Refresh managed source snapshot |
 
 | Antigravity CLI | Native root manifest or Claude manifest accepted by `agy` | Yes | No | Update natively to preserve enablement |
@@ -145,6 +146,98 @@ marketplace installs is not supported. Skillshare refuses to overwrite unowned
 folders, symlinks, or locally edited managed content. An explicit Antigravity
 manifest name keeps the identity stable across Git checkouts and snapshots.
 
+### Oh My Pi (OMP) {#omp}
+
+OMP uses its own marketplace lifecycle, not Pi's package commands. Skillshare
+manages reviewed local/Git plugin sources and imports native marketplace entries
+identified as `name@marketplace`:
+
+```bash
+skillshare plugin add ./my-omp-plugin --target omp --dry-run --json -g
+skillshare plugin add ./my-omp-plugin --target omp --no-tui -g
+skillshare plugin import demo@my-market --from omp --dry-run --json -g
+```
+
+Installation requires OMP **18.6.1**, a reviewed local/Git source and a verified,
+previously unused cache destination. The adapter keeps the plugin tree together,
+uses native marketplace installation, and verifies the resulting registration. Catalogs can use
+`.omp-plugin/marketplace.json` or the legacy `.claude-plugin/marketplace.json`.
+Preview does not invoke OMP's native `--dry-run`, which can write files. Review
+the source before applying: OMP can execute plugin
+extensions and tools in-process at the next startup, without a project trust
+prompt. Installation is not proof that those resources loaded successfully.
+
+**Shared-cache limitation in OMP 18.6.1:** its native uninstall and upgrade can
+delete or replace plugin cache files still referenced by a different project.
+Native inventory lists only the user registry and the current project's registry,
+so it cannot establish the safety of those operations across other projects.
+Skillshare does not invoke those destructive commands. **Remove** and
+disable-plus-sync instead use a scoped adapter that deletes the installation's
+registry entry, runtime selection and verified `node_modules` link. The plugin
+is uninstalled from that scope, not merely disabled. Shared cache, marketplaces
+and plugin settings are retained; no cache garbage collection is attempted.
+Reinstall automatically chooses a fresh marketplace/cache identity when the old
+cache still exists, without replacing files another project may use. Unreadable,
+linked or non-directory cache destinations remain blocked.
+
+Removal requires the verified 18.6.1 metadata contract, matching installed
+version, unambiguous JSON and proven runtime-link ownership. A real module folder,
+foreign link, npm dependency collision or ambiguous runtime owner is refused.
+Native file changes invalidate the preview. Partially completed removal can be
+retried from the retained cache and binding identity without saving full native
+settings backups. Windows writes additionally require verifiable private ACLs;
+Skillshare does not change permissions to make them pass. No extension code runs.
+
+The adapter serializes Skillshare removals and checks native file revisions, but
+OMP's plugin commands do not participate in its lock; do not run native plugin
+mutations concurrently. This is not an atomic multi-file native transaction.
+**Updates remain blocked** until a non-destructive upgrade contract is available;
+imported code is never upgraded without a reviewed source.
+
+Project operations require the selected root to match OMP's native project
+anchor; they never silently install globally or in an ancestor project. Native
+profile/config-root overrides (`PI_CONFIG_DIR`, `PI_CODING_AGENT_DIR`,
+`OMP_PROFILE` or `PI_PROFILE`) block plugin management. A relocated native cache
+invalidates an existing preview. An arbitrary account `config_dir` does not redirect OMP's
+plugin store, so OMP account plugin targets are not supported.
+
+Native npm/Git/link packages are visible in inventory but are not imported as
+marketplace plugins. Manage those packages in OMP; `plugin add npm:...` remains a
+Pi-only workflow. Do not separately copy a plugin's extensions, hooks, skills or
+MCP entries into Skillshare's other resources.
+
+#### Choosing standalone OMP extensions
+
+Open an OMP target's **Extensions** tab to review file-based selection. Cards group
+files by source and scope, with plugins grouped by their inspected package root
+and other files by directory. File lists remain visible. Plugin cards use a package
+icon and `Plugins · <name>` heading from the native package identity, not the
+extension folder name. Known manifest versions and scope stay visible, with an
+**Open Plugins** navigation icon rather than repeated origin tags. Shared folders
+are plugin-relative, and full file paths remain in tooltips. **Details** uses the
+same labeled two-column layout as Pi for the full source, native name, selection
+identifiers and notes. Missing identity metadata falls back to the inspected
+folder; no package identity or version is guessed. Read-only
+reasons and links to Hooks or Plugins remain visible with their entries.
+Supported standalone modules have switches; **Preview** shows the change and **Apply**
+writes only `disabledExtensions` in the selected native YAML settings file.
+Global, project and explicitly configured account directories remain separate.
+The editor preserves unrelated YAML and comments, checks the reviewed revision
+again under OMP's native lock, and refuses stale or busy writes.
+
+Selection editing requires a verifiable OMP **18.6.1** package behind the selected
+launcher. Unidentified versions, standalone binaries and wrapper launchers stay
+read-only. This check reads package metadata without running OMP. Same-name
+module groups, explicit files that bypass the disabled-name filter, ambient
+`hooks/pre|post` factories, uncertain selection and linked paths are read-only.
+Hooks-owned and plugin-owned entries stay with their respective managers.
+
+The backup records the before/after selection and settings hashes under
+`omp-extensions/backups` in Skillshare's state directory, not unrelated YAML
+values or credentials. It is a selection recovery record, not a whole-settings
+restore. A successful apply describes configuration on disk, not a running
+extension; restart/reload remains an OMP action.
+
 ### Pi and OpenCode
 
 Pi keeps the first global registration and the last project registration of a
@@ -196,7 +289,13 @@ package's pi.dev address; either becomes its `npm:` source.
 
 In the dashboard, the target page of `pi` and of a Pi account has an **Extensions**
 tab. It lists each package entry of that target's `settings.json` with the
-extensions its filters select. A switch writes one exact `+path` or `-path` rule
+extensions its filters select. Packages managed by Skillshare use a package icon
+and `Plugins · <name>` heading, matching OMP plugin cards. They retain the installed
+version, scope and relevant project override shape; the navigation icon opens
+Plugins. Unmanaged Pi packages keep their native identity and Pi icon. This
+presentation does not change ownership or extension-selection rules. Extension
+rows remain visible; **Details** independently shows the source and filter rules.
+A switch writes one exact `+path` or `-path` rule
 into that entry's `extensions` list. When removing the file's own exact rule already
 gives the state the switch asks for, the switch removes that rule instead, so turning
 a file back to what the remaining rules select leaves no rule behind. **Remove rule**,
@@ -225,7 +324,7 @@ without automatic pruning; if Apply fails, only the new record for that attempt
 is removed. This is not a copy of `settings.json` and cannot restore the whole file. The tab lists every package in the settings, including ones installed with Pi itself, such as `npm:` packages from [pi.dev](https://pi.dev/packages). Skillshare installs and removes packages only through `plugin`: `plugin add` takes a local directory, a Git source or an [npm package](#npm-packages-from-pidev), and `plugin import --from pi` adopts a package installed with Pi.
 
 Skillshare reads packages without running them, so the tab shows what the
-settings select (the **Configured** column), not whether Pi loaded them; reload Pi
+settings select (switches and selection notes), not whether Pi loaded them; reload Pi
 after applying. A file the settings name but the package lacks is marked as
 missing. A choice Skillshare can't work out shows **Can't tell** with the reason
 and where to change it, never a guessed on or off. Editing needs the target's own

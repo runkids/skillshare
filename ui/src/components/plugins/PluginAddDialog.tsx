@@ -162,7 +162,7 @@ export default function PluginAddDialog({ onClose, onPreview, initialSource = ''
               <div className="flex flex-col gap-2">
                 {discovery.candidates.map((c) => (
                   <button key={c.name} type="button" role="radio" aria-checked={name === c.name} disabled={busy || !!c.problem} className={`ss-pick text-left disabled:opacity-55 ${name === c.name ? 'on' : ''}`} onClick={() => { setName(c.name); setTargets(initialTargets); }}>
-                    <span className={`ss-chk rad ${name === c.name ? 'on' : ''}`} />
+                    <span className={`ss-chk rad self-start mt-0.5 ${name === c.name ? 'on' : ''}`} />
                     <span className="flex min-w-0 flex-1 flex-col gap-0.5">
                       <span className="flex items-center gap-2"><span className="font-mono font-semibold">{c.name}</span>{c.version && <span className="ss-tag">{c.version}</span>}</span>
                       {(c.problem || c.description) && <span className={`text-[13px] ${c.problem ? 'text-bad' : 'text-ink-2'}`}>{c.problemKey ? t(c.problemKey, c.problemArgs, c.problem) : c.problem || c.description}</span>}

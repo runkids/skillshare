@@ -608,6 +608,14 @@
     "note": "Inspect local plugin inventory"
   },
   {
+    "file": "internal/plugin/omp_extensions.go",
+    "function": "(*ompInventory).entries",
+    "callee": "os.ReadDir",
+    "root": "dir",
+    "reason": "plugin",
+    "note": "Inspect native OMP extension and plugin directories, not the skills source"
+  },
+  {
     "file": "internal/plugin/pi_extensions_discover.go",
     "function": "(*piLayout).autoEntries",
     "callee": "(*os.File).ReadDir",

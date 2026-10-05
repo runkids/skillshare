@@ -12,6 +12,10 @@ func renderDisabled(target string, s Server) (map[string]any, error) {
 	switch {
 	case openCodeFormat(target):
 		return map[string]any{"enabled": false}, nil
+	case target == "omp":
+		// OMP suppresses disabled entries before name deduplication, so this shadows
+		// the user definition without starting a connection or needing its transport.
+		return map[string]any{"enabled": false}, nil
 	case target == "claude":
 		// No entry to write: destination sends the name to Claude Code's per-project off list.
 		return map[string]any{}, nil
@@ -27,7 +31,7 @@ func renderDisabled(target string, s Server) (map[string]any, error) {
 		// env and credentials. Pi's /mcp writes the same entry. Older Pi reports it as invalid.
 		return map[string]any{"enabled": false}, nil
 	}
-	return nil, fmt.Errorf("%s cannot turn off a global server from a project file; disabled supports claude, opencode, kilocode and pi", target)
+	return nil, fmt.Errorf("%s cannot turn off a global server from a project file; disabled supports claude, opencode, kilocode, pi and omp", target)
 }
 
 // Render converts a portable definition to a native entry without reading env.

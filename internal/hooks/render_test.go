@@ -39,7 +39,7 @@ func TestRender_AllAdaptersNativeShapesWithoutWriting(t *testing.T) {
 		".claude/settings.json": "claude", ".codex/hooks.json": "codex", ".gemini/settings.json": "gemini",
 		".qwen/settings.json": "qwen", ".factory/hooks.json": "droid", ".cursor/hooks.json": "cursor",
 		".cursor/hooks/skillshare/demo/guard.sh": "cursor",
-		".copilot/hooks/skillshare-demo.json":    "copilot", ".pi/agent/extensions/skillshare-demo.ts": "pi",
+		".copilot/hooks/skillshare-demo.json":    "copilot", ".pi/agent/extensions/skillshare-demo.ts": "pi", ".omp/agent/extensions/skillshare-demo.ts": "omp",
 		".config/amp/plugins/skillshare-demo.ts": "amp", ".config/opencode/plugins/skillshare-demo.ts": "opencode",
 		".gemini/config/hooks.json": "antigravity",
 	}

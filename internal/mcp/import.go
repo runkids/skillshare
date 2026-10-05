@@ -6,6 +6,7 @@ import (
 	"net/url"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 
 	"github.com/tailscale/hujson"
@@ -66,6 +67,11 @@ func detectJSONFormat(data []byte) string {
 	v.Standardize()
 	var document map[string]json.RawMessage
 	_ = json.Unmarshal(v.Pack(), &document)
+	var schema string
+	_ = json.Unmarshal(document["$schema"], &schema)
+	if document["disabledServers"] != nil || document["enabledServers"] != nil || strings.Contains(schema, "/can1357/oh-my-pi/") {
+		return "omp"
+	}
 	if document["exposure"] != nil || document["toolExposure"] != nil || document["directTools"] != nil {
 		return "pi"
 	}
@@ -154,10 +160,28 @@ func importNative(target string, data []byte, singleName string, adapter, piProj
 	if len(native.Entries) == 0 {
 		return nil, fmt.Errorf("no MCP entries found; select the matching client format")
 	}
+	var ompLists struct {
+		Disabled []string `json:"disabledServers"`
+		Enabled  []string `json:"enabledServers"`
+	}
+	if target == "omp" {
+		v := native.json.Clone()
+		v.Standardize()
+		if err := json.Unmarshal(v.Pack(), &ompLists); err != nil {
+			return nil, fmt.Errorf("invalid OMP server lists: %w", err)
+		}
+	}
 	out := []Candidate{}
 	for _, name := range sortedKeys(native.Entries) {
 		entry := native.Entries[name]
 		c := Candidate{Name: name, Problems: []string{}, Warnings: []string{}}
+		if target == "omp" {
+			if slices.Contains(ompLists.Disabled, name) {
+				c.Problems = append(c.Problems, "OMP disabledServers hides this server; it cannot be imported as an active connection")
+			} else if slices.Contains(ompLists.Enabled, name) && entry["enabled"] == false {
+				delete(entry, "enabled")
+			}
+		}
 		if piProject && piOverride(entry) {
 			c.Problems = append(c.Problems, "a Pi project override of the global server with this name, not a server; there is nothing to import")
 			out = append(out, c)
@@ -316,9 +340,13 @@ func importNative(target string, data []byte, singleName string, adapter, piProj
 				}
 				if target == "pi" && adapter && strings.HasPrefix(value, "!!") {
 					value = strings.TrimPrefix(value, "!")
-				} else if target == "pi" && strings.HasPrefix(value, "!") {
-					c.Problems = append(c.Problems, "Pi command-based credentials must remain in Pi; use an environment reference to import this connection")
+				} else if (target == "pi" || target == "omp") && strings.HasPrefix(value, "!") {
+					c.Problems = append(c.Problems, map[string]string{"pi": "Pi", "omp": "OMP"}[target]+" command-based credentials must remain in the client; use an environment reference to import this connection")
 					continue
+				}
+				if target == "omp" && value == k && envName.MatchString(value) {
+					c.Warnings = append(c.Warnings, "OMP same-name environment reference imported as fromEnv; set the variable before connecting")
+					value = "${" + value + "}"
 				}
 				if openCodeFormat(target) {
 					prefix := ""

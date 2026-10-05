@@ -2,7 +2,9 @@ package config
 
 import (
 	_ "embed"
+	"os"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strings"
 	"sync"
@@ -98,7 +100,15 @@ func loadTargetSpecs() ([]targetSpec, error) {
 		loadedTargets = file.Targets
 	})
 
-	return loadedTargets, loadTargetsErr
+	// Resolve native config homes per call, without changing the embedded defaults
+	// or explicit paths saved in a user's config.
+	specs := append([]targetSpec(nil), loadedTargets...)
+	for i, spec := range specs {
+		if home := targetConfigHome(spec.Name, runtime.GOOS); home != "" {
+			specs[i].Skills.Global = filepath.Join(home, "skills")
+		}
+	}
+	return specs, loadTargetsErr
 }
 
 // DefaultTargets returns the well-known CLI skills directories for global mode.
@@ -634,4 +644,29 @@ func normalizeTargetPath(path string) string {
 		path = expandPath(path)
 	}
 	return filepath.FromSlash(path)
+}
+
+func targetConfigHome(name, goos string) string {
+	switch name {
+	case "deepseek-harness":
+		if home := os.Getenv("DSH_HOME"); strings.TrimSpace(home) != "" {
+			// Harness resolves relative overrides against the current directory.
+			if path, err := filepath.Abs(expandPath(home)); err == nil {
+				return path
+			}
+		}
+	case "gitlab-duo":
+		if home := os.Getenv("GLAB_CONFIG_DIR"); home != "" {
+			return home
+		}
+		if home := os.Getenv("XDG_CONFIG_HOME"); home != "" {
+			return filepath.Join(home, "gitlab", "duo")
+		}
+		if goos == "windows" {
+			if home := os.Getenv("APPDATA"); home != "" {
+				return filepath.Join(home, "GitLab", "duo")
+			}
+		}
+	}
+	return ""
 }

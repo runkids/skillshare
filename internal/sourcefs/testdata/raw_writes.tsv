@@ -269,6 +269,8 @@ internal/plugin/local_bundle.go	atomicNativeWrite	os.CreateTemp	filepath.Dir(pat
 internal/plugin/local_bundle.go	atomicNativeWrite	os.MkdirAll	filepath.Dir(path)	plugin
 internal/plugin/local_bundle.go	atomicNativeWrite	os.Remove	f.Name()	plugin
 internal/plugin/local_bundle.go	atomicNativeWrite	os.Rename	f.Name(), path	plugin
+internal/plugin/omp_extensions_write.go	(*Service).ApplyOMPExtensions	os.MkdirAll	parent	plugin
+internal/plugin/omp_extensions_yaml.go	(*Service).ompBackup	os.MkdirAll	dir	plugin
 internal/plugin/package_config.go	(*Service).applyOpenCode	os.MkdirAll	filepath.Dir(path)	plugin
 internal/plugin/pi_extensions_lock.go	(*piNativeLock).release	os.Remove	l.path	plugin
 internal/plugin/pi_extensions_lock.go	acquirePiNativeLock	os.Mkdir	path	plugin

@@ -203,6 +203,13 @@ targets:
       global: "~/.deepagents/agent/AGENTS.md"
       project: ".deepagents/AGENTS.md"
     aliases: [deep-agents]
+  - name: deepseek-harness
+    skills:
+      global: "~/.dsh/skills"
+      project: ".dsh/skills"
+    also_scans:
+      global: ["~/.agents/skills"]
+      project: [".agents/skills"]
   - name: devin
     skills:
       global: "~/.config/devin/skills"
@@ -270,6 +277,12 @@ targets:
       global: "~/.gemini/GEMINI.md"
       project: "GEMINI.md"
     aliases: [gemini-cli]
+  - name: gitlab-duo
+    skills:
+      global: "~/.gitlab/duo/skills"
+      project: "skills"
+    also_scans:
+      global: ["~/.agents/skills"]
   - name: goose
     detect: "~/.config/goose"
     skills:
@@ -401,6 +414,7 @@ targets:
       global: "~/.neovate/skills"
       project: ".neovate/skills"
   - name: omp
+    config_dir: "~/.omp/agent"
     skills:
       global: "~/.omp/agent/skills"
       project: ".omp/skills"

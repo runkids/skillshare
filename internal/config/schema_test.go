@@ -383,7 +383,7 @@ func TestSchema_HooksAllowAccountBindings(t *testing.T) {
 	if !ok {
 		t.Fatal("globalBindings missing")
 	}
-	pattern := `^(?!(claude|codex|gemini|qwen|copilot|cursor|droid|factory|antigravity|antigravity-cli|agy|pi|amp|opencode|git)$)[A-Za-z0-9][A-Za-z0-9._-]*$`
+	pattern := `^(?!(claude|codex|gemini|qwen|copilot|cursor|droid|factory|antigravity|antigravity-cli|agy|pi|omp|amp|opencode|git)$)[A-Za-z0-9][A-Za-z0-9._-]*$`
 	patterns := gb["patternProperties"].(map[string]any)
 	if len(patterns) != 1 || patterns[pattern] == nil {
 		t.Fatalf("%v", patterns)

@@ -1,6 +1,6 @@
 import { apiFetch } from './client';
 
-export const mcpTargets = ['claude', 'codex', 'cursor', 'vscode', 'opencode', 'kilocode', 'grok', 'antigravity', 'amp', 'claude-desktop', 'cline', 'copilot', 'factory', 'gemini', 'goose', 'junie', 'kiro', 'lmstudio', 'warp', 'windsurf', 'pi'] as const;
+export const mcpTargets = ['claude', 'codex', 'cursor', 'vscode', 'opencode', 'kilocode', 'grok', 'antigravity', 'amp', 'claude-desktop', 'cline', 'copilot', 'factory', 'gemini', 'goose', 'junie', 'kiro', 'lmstudio', 'warp', 'windsurf', 'pi', 'omp'] as const;
 export type MCPValue = string | { fromEnv: string };
 /** A scope's defaults. A save replaces them, so a value left out is cleared. */
 export interface MCPSettings { targets?: string[] }
@@ -24,7 +24,7 @@ export interface MCPServer {
   disabled?: boolean;
 }
 /** Agents with a per-project switch: a field merged over the global entry, or Claude Code's own off list. */
-export const mcpOffTargets: readonly string[] = ['claude', 'opencode', 'kilocode', 'pi'];
+export const mcpOffTargets: readonly string[] = ['claude', 'opencode', 'kilocode', 'pi', 'omp'];
 export interface MCPMutation {
   /** A root under mcp.projects; with `remove` and no `name`, the project itself. */
   project?: string;

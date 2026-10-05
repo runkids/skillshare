@@ -36,7 +36,7 @@ func validTargetID(target, id string) bool {
 	switch target {
 	case "":
 		return validID(id)
-	case "claude", "codex":
+	case "claude", "codex", "omp":
 		return validID(id)
 	case "cursor", "antigravity", "antigravity-cli", "grok", "kimi", "hermes", "devin":
 		return namePattern.MatchString(id)
@@ -50,7 +50,7 @@ func validTargetID(target, id string) bool {
 
 func (s *Service) snapshotPath(b Binding, target string) string {
 	market := "skillshare-" + hash([]byte(s.ConfigPath + "\x00" + b.Source + "\x00" + b.Plugin + "\x00" + target))[:16]
-	if agent := s.agentOf(target); agent == "claude" || agent == "codex" {
+	if marketplaceAgent(s.agentOf(target)) {
 		_, market, _ = strings.Cut(b.ID, "@")
 	}
 	return filepath.Join(s.managedRoot(), market)

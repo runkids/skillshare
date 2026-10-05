@@ -29,6 +29,7 @@ Completed milestones are recorded here and read only when relevant.
 
 | File | Contents |
 |---|---|
+| [OMP native support](history/omp-native-support.md) | Native MCP/Hooks, safe Extension selection, bounded Plugin support and shared-cache blocker |
 | [Shared memory notes](history/extras-memory.md) | Shared Markdown source, CLI/API/dashboard, versioned edits and native memory boundaries |
 | [Git hooks management](history/git-hooks-management.md) | Config-mode destinations, includes, ownership, native verification and execution limits |
 | [Native hooks management](history/hooks-management.md) | Native formats, CLI/dashboard scope, ownership and verification evidence |

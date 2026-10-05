@@ -138,6 +138,7 @@
         "antigravity-cli": {"$ref": "#/$defs/commandBinding"},
         "agy": {"$ref": "#/$defs/commandBinding"},
         "pi": {"$ref": "#/$defs/codeBinding"},
+        "omp": {"$ref": "#/$defs/codeBinding"},
         "amp": {"$ref": "#/$defs/codeBinding"},
         "opencode": {"$ref": "#/$defs/codeBinding"}
       }
@@ -159,11 +160,12 @@
         "antigravity-cli": {"$ref": "#/$defs/commandBinding"},
         "agy": {"$ref": "#/$defs/commandBinding"},
         "pi": {"$ref": "#/$defs/codeBinding"},
+        "omp": {"$ref": "#/$defs/codeBinding"},
         "amp": {"$ref": "#/$defs/codeBinding"},
         "opencode": {"$ref": "#/$defs/codeBinding"}
       },
       "patternProperties": {
-        "^(?!(claude|codex|gemini|qwen|copilot|cursor|droid|factory|antigravity|antigravity-cli|agy|pi|amp|opencode|git)$)[A-Za-z0-9][A-Za-z0-9._-]*$": {
+        "^(?!(claude|codex|gemini|qwen|copilot|cursor|droid|factory|antigravity|antigravity-cli|agy|pi|omp|amp|opencode|git)$)[A-Za-z0-9][A-Za-z0-9._-]*$": {
           "description": "Account keys are declared under targets with agent and config_dir and are valid in global config only.",
           "anyOf": [{"$ref": "#/$defs/commandBinding"}, {"$ref": "#/$defs/codeBinding"}]
         }

@@ -319,6 +319,15 @@ describe('account hook bindings', () => {
     expect(screen.getByText('pi-2 (Pi) runs a plugin file written for its own API. Start from its template.')).toBeInTheDocument();
   });
 
+  it('warns that Oh My Pi loads a project extension without a trust prompt', async () => {
+    const user = userEvent.setup();
+    wrap(<HookDialog accounts={{ 'omp-work': 'omp' }} existingNames={[]} onClose={vi.fn()} onSaved={vi.fn()} />);
+    await user.click(screen.getByRole('checkbox', { name: 'omp-work (Oh My Pi)' }));
+    await user.click(screen.getByRole('button', { name: 'Start from scratch' }));
+    expect(screen.getByRole('note')).toHaveTextContent('Oh My Pi has no project trust prompt');
+    expect((screen.getByLabelText('Oh My Pi Extension code') as HTMLTextAreaElement).value).toContain('@oh-my-pi/pi-coding-agent');
+  });
+
   it('reads unmanaged native hooks from accounts', async () => {
     vi.mocked(hooksApi.import).mockResolvedValue([]);
     const data = { source: { path: '/s', configPath: '/s', entries: {} }, targets: [{ name: 'codex-2', agent: 'codex', kind: 'command' }], paths: { 'codex-2': '/home/u/.codex-2/hooks.json' }, unmanaged: [{ target: 'codex-2', path: '/home/u/.codex-2/hooks.json', names: ['Stop'] }], backups: [], plan: null, previewError: '' } satisfies HookInventory;

@@ -3,9 +3,17 @@
 Manage hooks with `skillshare hooks`; use `-g` or `-p` explicitly. Declarations
 live in `hooks.entries` in the selected config. Entries contain `description`,
 optional `enabled` (default true), and `bindings` keyed by receiving Agent.
-Command bindings keep native `events`; Pi, Amp and OpenCode bindings keep native
+Command bindings keep native `events`; Pi, OMP, Amp and OpenCode bindings keep native
 `code`. Optional command scripts use `files`. Do not translate native event
 names, matchers, handler types or timeout units across Agents.
+
+OMP writes verbatim `code` to `~/.omp/agent/extensions/skillshare-NAME.ts`,
+`.omp/extensions/skillshare-NAME.ts` in a project, or an explicit account's
+`extensions` directory. It has no project trust prompt: code may execute at the
+next OMP startup, never during Skillshare management. Use OMP's installed
+extension API; Pi compatibility is not guaranteed. Native `hooks/pre` and
+`hooks/post` factories are listed as additional unmanaged sources, not imported.
+Pi and OMP share `PI_CODING_AGENT_DIR`; colliding output paths block before writes.
 
 ```bash
 skillshare hooks list --json
@@ -41,7 +49,7 @@ require a specific one). Unrelated native settings and unowned hooks survive.
 are, sync no longer touches them, and import offers them again (not with `--sync`).
 
 Agent IDs: `claude`, `codex`, `gemini`, `copilot`, `cursor`, `droid`, `qwen`,
-`antigravity`, `pi`, `amp`, `opencode`, `git`; `factory` aliases `droid`, and
+`antigravity`, `pi`, `omp`, `amp`, `opencode`, `git`; `factory` aliases `droid`, and
 `antigravity-cli`/`agy` alias `antigravity`. Code must match the native
 Agent's installed API version. Check actual destination paths in the inventory
 and preview; global config-directory overrides do not apply to project paths.
@@ -58,7 +66,7 @@ the Agent: a successful sync is configuration-generation evidence only.
 ## Accounts
 
 A global binding key can name a target declared with `agent` and `config_dir`,
-for example `codex-2: {events: ...}` for a Codex account. Claude, Codex and Pi
+for example `codex-2: {events: ...}` for a Codex account. Claude, Codex, Pi and OMP
 accounts keep their Agent's native format and write into that account home.
 Accounts are global only; project configs and `hooks.projects` bind the Agent.
 Missing account homes are skipped with warnings and never created.

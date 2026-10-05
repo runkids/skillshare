@@ -32,8 +32,8 @@ complete -c skillshare -n __fish_skillshare_no_subcommand -a search -d 'Search o
 complete -c skillshare -n __fish_skillshare_no_subcommand -a sync -d 'Sync skills/agents/extras/MCP to targets'
 complete -c skillshare -n __fish_skillshare_no_subcommand -a plugin -d 'Manage complete native plugins'
 complete -c skillshare -n '__fish_skillshare_using_command plugin' -a 'add discover import list inspect sync check update enable disable remove'
-complete -c skillshare -n '__fish_skillshare_using_command plugin' -l target -r -a 'claude codex cursor antigravity agy antigravity-cli copilot grok kimi hermes devin pi opencode' -d 'Plugin target'
-complete -c skillshare -n '__fish_skillshare_using_command plugin' -l from -r -a 'claude codex cursor antigravity agy antigravity-cli copilot grok kimi hermes devin pi opencode' -d 'Plugin target'
+complete -c skillshare -n '__fish_skillshare_using_command plugin' -l target -r -a 'claude codex cursor antigravity agy antigravity-cli copilot grok kimi hermes devin pi opencode omp' -d 'Plugin target'
+complete -c skillshare -n '__fish_skillshare_using_command plugin' -l from -r -a 'claude codex cursor antigravity agy antigravity-cli copilot grok kimi hermes devin pi opencode omp' -d 'Plugin target'
 complete -c skillshare -n '__fish_skillshare_using_command plugin' -l plugin -r
 complete -c skillshare -n '__fish_skillshare_using_command plugin' -l name -r
 complete -c skillshare -n '__fish_skillshare_using_command plugin' -l source-ref -r
@@ -51,8 +51,8 @@ complete -c skillshare -n '__fish_skillshare_using_command mcp' -l no-dns -d 'Sk
 complete -c skillshare -n '__fish_skillshare_using_command mcp' -l live -d 'check: start or call each server'
 complete -c skillshare -n '__fish_skillshare_using_command mcp' -l timeout -r -d 'check --live: per-server timeout'
 complete -c skillshare -n '__fish_skillshare_using_command mcp' -l url -r -d 'MCP endpoint'
-complete -c skillshare -n '__fish_skillshare_using_command mcp' -l target -r -d 'Receiving client'
-complete -c skillshare -n '__fish_skillshare_using_command mcp' -l from -r -d 'Import client'
+complete -c skillshare -n '__fish_skillshare_using_command mcp' -l target -r -a 'claude codex cursor vscode opencode kilocode grok antigravity amp claude-desktop cline copilot factory gemini goose junie kiro lmstudio warp windsurf pi omp' -d 'Receiving client'
+complete -c skillshare -n '__fish_skillshare_using_command mcp' -l from -r -a 'claude codex cursor vscode opencode kilocode grok antigravity amp claude-desktop cline copilot factory gemini goose junie kiro lmstudio warp windsurf pi omp' -d 'Import client'
 complete -c skillshare -n '__fish_skillshare_using_command mcp' -l file -r -F -d 'Import file'
 complete -c skillshare -n '__fish_skillshare_using_command mcp' -l sync -d 'Sync after saving'
 complete -c skillshare -n '__fish_skillshare_using_command mcp' -l replace -d 'Replace an existing entry'
@@ -259,7 +259,7 @@ complete -c skillshare -n '__fish_skillshare_using_command target' -l add-agent-
 complete -c skillshare -n '__fish_skillshare_using_command target' -l add-agent-exclude -r -d 'Add agent exclude filter'
 complete -c skillshare -n '__fish_skillshare_using_command target' -l remove-agent-include -r -d 'Remove agent include filter'
 complete -c skillshare -n '__fish_skillshare_using_command target' -l remove-agent-exclude -r -d 'Remove agent exclude filter'
-complete -c skillshare -n '__fish_skillshare_using_command target' -l agent -r -a 'claude codex pi' -d 'With add: the Agent this is another account of'
+complete -c skillshare -n '__fish_skillshare_using_command target' -l agent -r -a 'claude codex pi omp' -d 'With add: the Agent this is another account of'
 complete -c skillshare -n '__fish_skillshare_using_command target' -l config-dir -r -F -d 'With add: the config directory of that account'
 complete -c skillshare -n '__fish_skillshare_using_command target' -l cli -r -d 'With add: the executable that runs its plugin commands'
 complete -c skillshare -n '__fish_skillshare_using_command target' -l skills -r -a 'true false' -d 'Sync skills to this target'

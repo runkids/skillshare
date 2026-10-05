@@ -309,7 +309,7 @@ export const reachOf = (server: MCPServer, defaults: string[]) =>
 
 /** Display names for the MCP clients, as in their own docs. */
 export const targetLabel = (target: string) =>
-  ({ pi: 'Pi', claude: 'Claude', codex: 'Codex', cursor: 'Cursor', vscode: 'VS Code', opencode: 'OpenCode', kilocode: 'Kilo Code', grok: 'Grok', antigravity: 'Antigravity', amp: 'Amp', 'claude-desktop': 'Claude Desktop', cline: 'Cline', commandcode: 'Command Code', copilot: 'Copilot CLI', droid: 'Droid', factory: 'Factory', gemini: 'Gemini CLI', goose: 'Goose', junie: 'Junie', kiro: 'Kiro', lmstudio: 'LM Studio', warp: 'Warp', windsurf: 'Windsurf', zed: 'Zed' })[target] ?? target;
+  ({ pi: 'Pi', omp: 'Oh My Pi', claude: 'Claude', codex: 'Codex', cursor: 'Cursor', vscode: 'VS Code', opencode: 'OpenCode', kilocode: 'Kilo Code', grok: 'Grok', antigravity: 'Antigravity', amp: 'Amp', 'claude-desktop': 'Claude Desktop', cline: 'Cline', commandcode: 'Command Code', copilot: 'Copilot CLI', droid: 'Droid', factory: 'Factory', gemini: 'Gemini CLI', goose: 'Goose', junie: 'Junie', kiro: 'Kiro', lmstudio: 'LM Studio', warp: 'Warp', windsurf: 'Windsurf', zed: 'Zed' })[target] ?? target;
 
 /** Splits a command line into words, honouring single and double quotes. */
 // ponytail: no backslash escapes; a word holding both quote kinds needs the YAML config.

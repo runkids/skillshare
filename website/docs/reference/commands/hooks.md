@@ -123,12 +123,12 @@ stay on one line.
 | `enabled` | Defaults to true; false retains the source and removes unchanged owned outputs on the next sync |
 | `bindings` | Map of native Agent IDs to bindings |
 | `bindings.AGENT.events` | Native event map for command/configuration Agents |
-| `bindings.AGENT.code` | Supplied native extension/plugin source for Pi, Amp or OpenCode |
+| `bindings.AGENT.code` | Supplied native extension/plugin source for Pi, OMP, Amp or OpenCode |
 | `bindings.git.commands` | Named Git config hooks: `events`, `command`, optional `parallel` |
 | `bindings.AGENT.files` | Optional UTF-8 script files for command bindings, keyed by relative filename |
 
 Agent IDs are `claude`, `codex`, `gemini`, `copilot`, `cursor`, `droid`, `qwen`,
-`antigravity`, `pi`, `amp` and `opencode` and `git`. `factory` is accepted as an alias for
+`antigravity`, `pi`, `omp`, `amp`, `opencode` and `git`. `factory` is accepted as an alias for
 `droid`, and `antigravity-cli` and `agy` for `antigravity`. A binding may also
 name an account target declared under `targets` in global mode.
 Keep event names, matchers, handler types, commands, timeout units and payloads
@@ -136,11 +136,27 @@ in each Agent's native format. Skillshare does not translate one Agent's
 runtime behavior into another's. Event names are checked against each command
 Agent's documented events: an unknown name, such as a misspelled `Stopp`, is a
 warning in previews and in the plan's `warnings`, never a sync blocker, because
-Agents add events over time. Pi, Amp and OpenCode code is not checked.
+Agents add events over time. Pi, OMP, Amp and OpenCode code is not checked.
 
-Pi, Amp and OpenCode use their own extension/plugin APIs. Supply code matching
+Pi, OMP, Amp and OpenCode use their own extension/plugin APIs. Supply code matching
 the installed Agent version, including its imports. Skillshare writes it to a
 dedicated `skillshare-NAME.ts` file without generating a universal hook runtime.
+
+### Oh My Pi code bindings {#omp}
+
+Use `bindings.omp.code` with the extension API of your installed OMP version.
+Skillshare copies the source verbatim; it does not translate shell events or
+execute the extension to validate it. OMP has no project trust prompt, so a
+synced project extension can execute at the next OMP startup.
+
+OMP's `hooks/pre` and `hooks/post` factories remain additional unmanaged sources.
+They are listed but not imported into `extensions`, which would risk loading the
+same factory twice. Importing an existing standalone extension also leaves its
+original file in place; review the import warning before syncing another copy.
+
+Pi and OMP both honor `PI_CODING_AGENT_DIR`. If bindings resolve to the same
+output file, Skillshare blocks the plan before writing. Use separate explicit
+account directories when managing both.
 Script files are stored under the Agent config directory's
 `hooks/skillshare/NAME/`; commands retain the native macros or explicit paths
 you provide. Inspect the exact paths in the preview.
@@ -159,6 +175,7 @@ you provide. Inspect the exact paths in the preview.
 | [Qwen Code](https://qwenlm.github.io/qwen-code-docs/en/users/features/hooks/) | `~/.qwen/settings.json` | `.qwen/settings.json` | `hooks` event map |
 | [Antigravity](https://antigravity.google/docs/hooks) | `~/.gemini/config/hooks.json` | `.agents/hooks.json` | Named hook blocks, one per hook |
 | [Pi](https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/extensions.md) | `~/.pi/agent/extensions/skillshare-NAME.ts` | `.pi/extensions/skillshare-NAME.ts` | Native extension code |
+| [Oh My Pi](https://github.com/can1357/oh-my-pi/blob/v18.6.1/docs/extensions.md) | `~/.omp/agent/extensions/skillshare-NAME.ts` | `.omp/extensions/skillshare-NAME.ts` | Native OMP extension code |
 | [Amp](https://ampcode.com/docs/plugin-api) | `~/.config/amp/plugins/skillshare-NAME.ts` | `.amp/plugins/skillshare-NAME.ts` | Native plugin code |
 | [OpenCode](https://opencode.ai/docs/plugins/) | `~/.config/opencode/plugins/skillshare-NAME.ts` | `.opencode/plugins/skillshare-NAME.ts` | Supplied v1/v2 plugin code |
 
@@ -177,7 +194,7 @@ avoids silently changing which native source Droid loads.
 ## Another account of an Agent {#accounts}
 
 A target declared with `agent` and `config_dir` can receive hooks under its
-own name. Claude, Codex and Pi accounts use their Agent's native binding format.
+own name. Claude, Codex, Pi and OMP accounts use their Agent's native binding format.
 The `git` key always means [Git config hooks](#git-hooks), so an account named `git`
 receives no hooks, and the plan warns once an entry uses the `git` binding; give it
 another name:

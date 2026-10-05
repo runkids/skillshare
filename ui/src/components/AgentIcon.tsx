@@ -9,6 +9,7 @@ import claudeColor from '@lobehub/icons-static-svg/icons/claude-color.svg?url';
 import claudecodeColor from '@lobehub/icons-static-svg/icons/claudecode-color.svg?url';
 import codebuddyColor from '@lobehub/icons-static-svg/icons/codebuddy-color.svg?url';
 import codexColor from '@lobehub/icons-static-svg/icons/codex-color.svg?url';
+import deepseekColor from '@lobehub/icons-static-svg/icons/deepseek-color.svg?url';
 import devinColor from '@lobehub/icons-static-svg/icons/devin-color.svg?url';
 import geminiColor from '@lobehub/icons-static-svg/icons/gemini-color.svg?url';
 import huaweiColor from '@lobehub/icons-static-svg/icons/huawei-color.svg?url';
@@ -74,6 +75,7 @@ const colored: Record<string, string> = {
   comate: baiduColor,
   cortex: snowflakeColor,
   deepagents: langchainColor,
+  'deepseek-harness': deepseekColor,
   devin: devinColor,
   gemini: geminiColor,
   iflow: alibabaColor,

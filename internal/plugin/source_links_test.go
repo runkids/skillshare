@@ -85,7 +85,7 @@ func TestDiscoverAllCatalogsAndRelativeURL(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(d.Candidates) != 2 || d.Candidates[0].Problem != "" || len(d.Candidates[0].Targets) != 5 {
+	if len(d.Candidates) != 2 || d.Candidates[0].Problem != "" || len(d.Candidates[0].Targets) != 6 {
 		t.Fatalf("catalogs not merged: %+v", d)
 	}
 }

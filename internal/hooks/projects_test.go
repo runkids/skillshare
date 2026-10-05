@@ -194,7 +194,7 @@ func TestList_InventoryShowsTargetsPathsUnmanagedAndBackups(t *testing.T) {
 	save(t, e.service, Mutation{Name: "guard", Entry: entry(t, claudeEntry)})
 	inv, err := e.service.List()
 	must(t, err)
-	if len(inv.Targets) != 12 || inv.Paths["droid"] != filepath.Join(e.home, ".factory", "hooks.json") || len(inv.Backups) != 1 || inv.Plan == nil {
+	if len(inv.Targets) != 13 || inv.Paths["droid"] != filepath.Join(e.home, ".factory", "hooks.json") || len(inv.Backups) != 1 || inv.Plan == nil {
 		t.Fatalf("inventory: %+v", inv)
 	}
 	got := map[string]string{}

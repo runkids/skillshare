@@ -45,6 +45,13 @@ The config editor's Beautify and Save actions organize top-level YAML sections: 
 
 Git Sync shows both local and remote commit counts when histories diverge and offers **Pull and merge** before pushing. With uncommitted changes and known remote updates, **Commit and pull** saves local changes before merging. A `pull_conflict` response opens a whole-file version comparison: users must choose local or remote for every conflict before applying. Cancel leaves the repository unchanged. The API retries the merge and validates the reviewed local/remote revision hashes; stale choices require a fresh review. Metadata conflicts still merge automatically. Binary files and files over 16 KiB have no text preview. After merging and syncing, users push separately. **Sync both ways** chains commit (when dirty), pull, and push in one action, like `push --pull`, after a confirmation listing each step with the current counts (dry run previews without asking); a conflict stops it at the review before pushing. It pulls with `alwaysSync` so targets sync even when nothing new arrives, and on `remote_empty` it pushes first, then pulls to sync. First-pull `merge_failed` handling and its confirmed force replacement remain separate from this workflow. See `ai_docs/tests/git_ui_conflicts_runbook.md` for verification and an isolated preview fixture.
 
+## Localization Verification
+
+- Check rendered non-English UI, not just locale-key parity. Skillshare-owned API reasons, notes, warnings and guidance are UI copy too; do not display their English messages directly merely because they originate in Go.
+- Trace each changed message from its producer to every visible consumer, including file rows, Details, tooltips and dialogs. Reuse existing translation mappings; preserve paths, names, identifiers, native terms and unknown external diagnostics.
+- Inspect representative populated states in the requested locale, including read-only/managed rows. A translated heading or a successful build does not establish that backend guidance is translated.
+- Copy/translation-only changes normally need existing locale/placeholder checks and rendered verification, not new tests repeating dictionary values or mocked translations. Add coverage only for a concrete behavioral failure that existing checks cannot detect; follow the `testing` topic's test-value rules.
+
 ## Website Boundary
 
 This topic also loads `website/AGENTS.md` for website-specific commands, structure, and deployment rules. Additional boundaries:

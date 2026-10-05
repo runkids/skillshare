@@ -2,7 +2,7 @@ import { hookAgents, hookCodeAgents, type HookChange, type HookEntry, type HookP
 import { parseDocument, stringify as stringifyYaml } from 'yaml';
 
 export const hookLabel = (agent: string) =>
-  ({ claude: 'Claude', codex: 'Codex', gemini: 'Gemini CLI', copilot: 'Copilot CLI', cursor: 'Cursor', droid: 'Droid', qwen: 'Qwen Code', antigravity: 'Antigravity', pi: 'Pi', amp: 'Amp', opencode: 'OpenCode', git: 'Git' })[agent] ?? agent;
+  ({ claude: 'Claude', codex: 'Codex', gemini: 'Gemini CLI', copilot: 'Copilot CLI', cursor: 'Cursor', droid: 'Droid', qwen: 'Qwen Code', antigravity: 'Antigravity', pi: 'Pi', omp: 'Oh My Pi', amp: 'Amp', opencode: 'OpenCode', git: 'Git' })[agent] ?? agent;
 
 /** The dashboard's own wording of an Agent's native loading and trust guidance. Only an Agent this build does not know falls back to the server's English note. */
 export const hookNote = (t: (key: string) => string, agent: string, fallback?: string) =>
@@ -365,8 +365,9 @@ export const hookCount = (data: Scoped, agent: string, project?: string) =>
 /** Bare folder name of a project root. */
 export const rootName = (root: string) => root.replace(/[\\/]+$/, '').split(/[\\/]/).pop() || root;
 
-/** The Agent behind a target: a project target is `<project>@<tool>`. Undefined for a tool hooks are not managed for. */
-export const hookAgentOf = (target: string) => {
+/** The hooks binding key: account names stay distinct; project targets use their tool. */
+export const hookAgentOf = (target: string, agent?: string) => {
+  if (agent) return (hookAgents as readonly string[]).includes(agent) ? target : undefined;
   const tool = target.slice(target.lastIndexOf('@') + 1);
   // The Antigravity IDE and CLI share one hooks file, so both are the one hooks target.
   const name = tool === 'antigravity-cli' || tool === 'agy' ? 'antigravity' : tool;

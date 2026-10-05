@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { api, type Project, type Target } from '../api/client';
@@ -16,6 +17,7 @@ vi.mock('../api/client', async (load) => ({
 vi.mock('../api/mcp', async (load) => ({ ...await load<typeof import('../api/mcp')>(), mcpApi: { list: vi.fn() } }));
 vi.mock('../api/hooks', async (load) => ({ ...await load<typeof import('../api/hooks')>(), hooksApi: { list: vi.fn() } }));
 vi.mock('../components/targets/TargetPiExtensions', () => ({ default: ({ name }: { name: string }) => <p>pi extensions of {name}</p> }));
+vi.mock('../components/targets/TargetOmpExtensions', () => ({ default: ({ name }: { name: string }) => <p>omp extensions of {name}</p> }));
 
 const project = (targets: string[]): Project => ({
   root: '/home/me/acme', path: '/home/me/acme', name: 'acme', targets, skills: { mode: 'merge', include: [], exclude: [] }, agents: null, groups: [], missing: false, hasOwnConfig: false,
@@ -70,6 +72,23 @@ describe('project Extensions tab', () => {
     view(['pi'], '?tab=extensions');
     expect(await screen.findByRole('link', { name: 'Skills' })).toHaveAttribute('aria-current', 'true');
     expect(screen.queryByRole('link', { name: 'Extensions' })).not.toBeInTheDocument();
+    expect(screen.queryByText(/pi extensions of/)).not.toBeInTheDocument();
+  });
+
+  it("shows the project's Oh My Pi extensions read-only when only omp is declared", async () => {
+    vi.mocked(api.listTargets).mockResolvedValue({ targets: [{ ...piTarget, name: 'acme@omp', path: '/home/me/acme/.omp/skills' }], sourceSkillCount: 0 });
+    view(['omp'], '?tab=extensions');
+    expect(await screen.findByText('omp extensions of acme@omp')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Oh My Pi' })).not.toBeInTheDocument();
+  });
+
+  it('lets a project with both Pi and Oh My Pi pick which extensions to show', async () => {
+    const user = userEvent.setup();
+    vi.mocked(api.listTargets).mockResolvedValue({ targets: [piTarget, { ...piTarget, name: 'acme@omp', path: '/home/me/acme/.omp/skills' }], sourceSkillCount: 0 });
+    view(['pi', 'omp'], '?tab=extensions');
+    expect(await screen.findByText('pi extensions of acme@pi')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Oh My Pi' }));
+    expect(screen.getByText('omp extensions of acme@omp')).toBeInTheDocument();
     expect(screen.queryByText(/pi extensions of/)).not.toBeInTheDocument();
   });
 

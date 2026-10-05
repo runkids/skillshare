@@ -594,7 +594,7 @@ func TestHandleAvailableTargets_NamesTheConfigDir(t *testing.T) {
 		Targets []struct{ Name, ConfigDir string } `json:"targets"`
 	}
 	json.Unmarshal(rr.Body.Bytes(), &resp)
-	accounts := map[string]bool{"claude": true, "codex": true, "pi": true}
+	accounts := map[string]bool{"claude": true, "codex": true, "pi": true, "omp": true}
 	for _, target := range resp.Targets {
 		if accounts[target.Name] != (target.ConfigDir != "") {
 			t.Errorf("%s: configDir = %q", target.Name, target.ConfigDir)

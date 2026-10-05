@@ -109,6 +109,14 @@ describe('PluginAddDialog targets', () => {
     fireEvent.click(screen.getByRole('button', { name: 'plugins.preview' }));
     await waitFor(() => expect(preview).toHaveBeenCalledWith(expect.objectContaining({ targets: ['pi'] })));
   });
+  it('top-aligns the radio beside a candidate with a long description', async () => {
+    vi.mocked(pluginsApi.discover).mockResolvedValue({ source: '/demo', digest: 'abc', candidates: [{ name: 'demo', description: 'A long plugin description that wraps onto multiple lines.', version: '1', components: ['skills'], targets: ['pi'] }] });
+    render(<PluginAddDialog initialSource="/demo" onClose={() => {}} onPreview={vi.fn()} />);
+    fireEvent.click(screen.getByRole('button', { name: 'plugins.discover' }));
+    const radio = await screen.findByRole('radio');
+    expect(radio.querySelector('.ss-chk.rad')).toHaveClass('self-start');
+  });
+
   it('does not pick the only candidate when it cannot be installed', async () => {
     vi.mocked(pluginsApi.discover).mockResolvedValue({ targetDefinitions: [], source: '/demo', digest: 'abc', candidates: [{ name: 'demo', description: '', version: '1', components: [], targets: ['codex'], problem: 'blocked', problemKey: 'plugins.problem.noManifest' }] });
     render(<PluginAddDialog initialSource="/demo" onClose={() => {}} onPreview={vi.fn()} />);

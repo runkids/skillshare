@@ -71,6 +71,7 @@ export default function PluginsPage() {
     void cache.invalidateQueries({ queryKey: queryKeys.plugins });
     void cache.invalidateQueries({ queryKey: queryKeys.config });
     void cache.invalidateQueries({ queryKey: queryKeys.piExtensionsAll });
+    void cache.invalidateQueries({ queryKey: queryKeys.ompExtensionsAll });
   };
   // `key` names the control that started this, so only it shows a spinner.
   const preview = async (request: PluginRequest, key = '') => {

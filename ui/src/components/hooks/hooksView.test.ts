@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { hookAccounts, keyLabel, agentOfKey, boundAgents, bindingToDraft, checkBinding, draftToBinding, eventsToRows, hookAgentOf, hookCount, hookMessage, newRow, ownerRoot, rootPlan, rowsToEvents, scopeBackups, scopeChanges, scopeEntries, scopePaths, scopePlan, scopeUnmanaged, switchMode, syncState, writes } from './hooksView';
+import { hookAccounts, keyLabel, agentOfKey, boundAgents, bindingToDraft, checkBinding, draftToBinding, eventsToRows, hookAgentOf, hookCount, hookMessage, newRow, ownerRoot, rootPlan, rowsToEvents, scopeBackups, scopeChanges, scopeEntries, scopePaths, scopePlan, scopeUnmanaged, switchMode, syncState, writes, isCodeAgent, hookLabel, hookNote } from './hooksView';
 
 const claudeEvents = {
   PreToolUse: [{ matcher: 'Bash', hooks: [{ type: 'command', command: './check.sh', timeout: 30, statusMessage: 'checking' }] }],
@@ -186,6 +186,9 @@ describe('project isolation', () => {
 
   it('reads the Agent behind a project target and ignores tools without hooks', () => {
     expect([hookAgentOf('app@codex'), hookAgentOf('codex'), hookAgentOf('windsurf')]).toEqual(['codex', 'codex', undefined]);
+    expect(hookAgentOf('omp-work', 'omp')).toBe('omp-work');
+    expect(hookAgentOf('pi-work', 'pi')).toBe('pi-work');
+    expect(hookAgentOf('unsupported', 'windsurf')).toBeUndefined();
   });
 });
 
@@ -196,6 +199,14 @@ describe('hookMessage', () => {
     expect(hookMessage(t, 'an identical hook exists that Skillshare does not manage; import it or explicitly replace it')).toBe('[hooks.message.identicalUnmanaged]');
     expect(hookMessage(t, 'hook guard: gemini does not document the event "Stopp"; check its spelling')).toBe('[hooks.message.unknownEvent]');
     expect(hookMessage(t, 'something new')).toBe('something new');
+  });
+});
+
+describe('Oh My Pi hooks', () => {
+  it('is a code Agent with its own label and native note', () => {
+    expect(isCodeAgent('omp')).toBe(true);
+    expect(hookLabel('omp')).toBe('Oh My Pi');
+    expect(hookNote((k) => k, 'omp', 'server note')).toBe('hooks.native.omp');
   });
 });
 

@@ -211,7 +211,7 @@
         "agent": {
           "type": "string",
           "description": "Makes this target another config directory of a built-in Agent, such as a second account. Goes with config_dir. The skills and agents paths follow config_dir unless skills.path or agents.path is set.",
-          "enum": ["claude", "codex", "pi"]
+          "enum": ["claude", "codex", "pi", "omp"]
         },
         "config_dir": {
           "type": "string",

@@ -187,7 +187,7 @@ func discoverRoot(root, source string, explicit ...string) (*Discovery, error) {
 	}
 	seenAt := map[string]int{}
 	// Read all native catalogs; the same package may be advertised more than once.
-	for _, path := range []string{".agents/plugins/marketplace.json", ".claude-plugin/marketplace.json", ".cursor-plugin/marketplace.json", ".github/plugin/marketplace.json", ".plugin/marketplace.json", "marketplace.json"} {
+	for _, path := range []string{".agents/plugins/marketplace.json", ".omp-plugin/marketplace.json", ".claude-plugin/marketplace.json", ".cursor-plugin/marketplace.json", ".github/plugin/marketplace.json", ".plugin/marketplace.json", "marketplace.json"} {
 		data, err := os.ReadFile(filepath.Join(root, path))
 		if os.IsNotExist(err) {
 			continue
@@ -300,7 +300,7 @@ func discoverRoot(root, source string, explicit ...string) (*Discovery, error) {
 }
 
 // catalogOwner is the Agent each native catalog is written for.
-var catalogOwner = map[string]string{".agents/plugins/marketplace.json": "codex", ".claude-plugin/marketplace.json": "claude", ".cursor-plugin/marketplace.json": "cursor", ".github/plugin/marketplace.json": "copilot", ".plugin/marketplace.json": "copilot"}
+var catalogOwner = map[string]string{".agents/plugins/marketplace.json": "codex", ".omp-plugin/marketplace.json": "omp", ".claude-plugin/marketplace.json": "claude", ".cursor-plugin/marketplace.json": "cursor", ".github/plugin/marketplace.json": "copilot", ".plugin/marketplace.json": "copilot"}
 
 // mergeCatalogPath folds in the same plugin that another catalog places in another folder
 // (one folder per Agent). An Agent keeps the folder found first, unless its own catalog says otherwise.

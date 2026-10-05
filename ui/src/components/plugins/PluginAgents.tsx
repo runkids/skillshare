@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { RefreshCw } from 'lucide-react';
 import { targetMap, type PluginInventory } from '../../api/plugins';
+import { isOmpTarget } from '../../api/ompExtensions';
 import { isPiTarget } from '../../api/piExtensions';
 import IconButton from '../IconButton';
 import { RailGroup, RailRow, RailSection } from '../StatusRail';
@@ -29,8 +30,8 @@ export default function PluginAgents({ inventory, ready, refreshing, disabled, o
   // The backend keys its fixed sentences; a message it assembled at runtime has no key
   // and is shown as it came, which is also what the CLI prints.
   const message = (key: string | undefined, text: string | undefined, args?: Record<string, string>) => (key ? t(key, args, text) : text ?? '');
-  // Native registrations need not be managed by Skillshare; extension selection stays on each Pi target.
-  const piTargets = new Set((useSyncedTargetsQuery().data?.targets ?? []).filter(isPiTarget).map((x) => x.name));
+  // Native registrations need not be managed by Skillshare; extension selection stays on each Pi and Oh My Pi target.
+  const extensionTargets = new Set((useSyncedTargetsQuery().data?.targets ?? []).filter((x) => isPiTarget(x) || isOmpTarget(x)).map((x) => x.name));
   const manual = inventory.hosts.filter((h) => labels[h.target]?.operations.length === 0);
   const byStatus = (status: string) => inventory.hosts.filter((h) => h.status === status && !manual.includes(h));
   const reasoned = (hosts: PluginInventory['hosts']) => hosts.map((h) => (
@@ -55,7 +56,7 @@ export default function PluginAgents({ inventory, ready, refreshing, disabled, o
                   detail={<>
                     <span>{h.target === 'grok' ? t('plugins.reason.grok') : message(h.noteKey || 'plugins.note.native', h.note)}</span>
                     {h.version && <span className="break-all font-mono text-xs text-ink-3">{h.version}</span>}
-                    {piTargets.has(h.target) && <Link to={`/targets/${encodeURIComponent(h.target)}?tab=extensions`} className="text-xs font-semibold text-ink-2 hover:text-ink">{t('plugins.piExtensions', { name: label(h.target) })}</Link>}
+                    {extensionTargets.has(h.target) && <Link to={`/targets/${encodeURIComponent(h.target)}?tab=extensions`} className="text-xs font-semibold text-ink-2 hover:text-ink">{t('plugins.piExtensions', { name: label(h.target) })}</Link>}
                     <PluginDocsLink target={h.target} label={label(h.target)} />
                   </>} />
               ))}

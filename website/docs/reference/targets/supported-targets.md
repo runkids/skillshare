@@ -8,7 +8,7 @@ Complete list of AI CLIs that skillshare supports out of the box.
 
 ## Overview
 
-skillshare supports **65+ AI CLI tools**. When you run `skillshare init`, it automatically detects and configures any installed tools.
+skillshare provides **79 built-in targets**, including the shared Universal target. When you run `skillshare init`, it automatically detects and configures any installed tools.
 
 ---
 
@@ -41,6 +41,7 @@ These are auto-detected during `skillshare init`:
   <a className="target-badge" href="#target-crush">Crush</a>
   <a className="target-badge" href="#target-cursor">Cursor</a>
   <a className="target-badge" href="#target-deepagents">Deep Agents</a>
+  <a className="target-badge" href="#target-deepseek-harness">DeepSeek Harness</a>
   <a className="target-badge" href="#target-devin">Devin</a>
   <a className="target-badge" href="#target-dexto">Dexto</a>
   <a className="target-badge" href="#target-droid">Droid</a>
@@ -48,6 +49,7 @@ These are auto-detected during `skillshare init`:
   <a className="target-badge" href="#target-forgecode">ForgeCode</a>
   <a className="target-badge" href="#target-fx">fx</a>
   <a className="target-badge" href="#target-gemini">Gemini CLI</a>
+  <a className="target-badge" href="#target-gitlab-duo">GitLab Duo</a>
   <a className="target-badge" href="#target-goose">Goose</a>
   <a className="target-badge" href="#target-grok">Grok</a>
   <a className="target-badge" href="#target-hermes">Hermes</a>
@@ -129,6 +131,7 @@ These are auto-detected during `skillshare init`:
 <tr id="target-crush"><td>crush</td><td><code>&#126;/.config/crush/skills</code></td><td><code>.crush/skills</code></td></tr>
 <tr id="target-cursor"><td>cursor</td><td><code>&#126;/.cursor/skills</code></td><td><code>.agents/skills</code></td></tr>
 <tr id="target-deepagents"><td>deepagents</td><td><code>&#126;/.deepagents/agent/skills</code></td><td><code>.deepagents/skills</code></td></tr>
+<tr id="target-deepseek-harness"><td>deepseek-harness</td><td><code>&#126;/.dsh/skills</code></td><td><code>.dsh/skills</code></td></tr>
 <tr id="target-devin"><td>devin</td><td><code>&#126;/.config/devin/skills</code></td><td><code>.devin/skills</code></td></tr>
 <tr id="target-dexto"><td>dexto</td><td><code>&#126;/.agents/skills</code></td><td><code>.agents/skills</code></td></tr>
 <tr id="target-droid"><td>droid</td><td><code>&#126;/.factory/skills</code></td><td><code>.factory/skills</code></td></tr>
@@ -137,6 +140,7 @@ These are auto-detected during `skillshare init`:
 <tr id="target-fx"><td>fx</td><td><code>&#126;/.fx/skills</code></td><td><code>.fx/skills</code></td></tr>
 
 <tr id="target-gemini"><td>gemini</td><td><code>&#126;/.gemini/skills</code></td><td><code>.gemini/skills</code></td></tr>
+<tr id="target-gitlab-duo"><td>gitlab-duo</td><td><code>&#126;/.gitlab/duo/skills</code></td><td><code>skills</code></td></tr>
 <tr id="target-goose"><td>goose</td><td><code>&#126;/.agents/skills</code></td><td><code>.agents/skills</code></td></tr>
 <tr id="target-grok"><td>grok</td><td><code>&#126;/.grok/skills</code></td><td><code>.grok/skills</code></td></tr>
 <tr id="target-hermes"><td>hermes</td><td><code>&#126;/.hermes/skills</code></td><td><code>.hermes/skills</code></td></tr>
@@ -191,6 +195,47 @@ The **universal** target (`&#126;/.agents/skills`) is a shared agent directory t
 
 This is the same path used by the [npx skills CLI](https://github.com/vercel-labs/skills). See [FAQ: Using universal alongside npx skills](/docs/troubleshooting/faq#using-universal-alongside-npx-skills) for coexistence details.
 :::
+
+## Oh My Pi (OMP)
+
+Use `omp` for native skills, [MCP configuration](../commands/mcp.md#omp) and
+[code hooks](../commands/hooks.md#omp).
+Skills go to `~/.omp/agent/skills` globally or `.omp/skills` in a project. OMP scans
+one level of `<skill>/SKILL.md` and requires a description; Skillshare's default
+flat target naming fits that layout. `oh-my-pi` is a skill-target alias; the MCP
+client ID is `omp`.
+
+MCP uses `~/.omp/agent/mcp.json` or `.omp/mcp.json`, not Pi's files. Sync preserves
+OMP's enable/disable lists and native server settings. For a named profile,
+[declare an account target](./configuration.md#agent-config-dir) with `agent: omp`
+and its explicit `config_dir`; automatic profile path selection is separate.
+
+The dashboard's **Extensions** tab lists native, configured, hook and plugin
+extension files, their scope, and selection from inspected settings. Selected
+does not mean loaded or running. Supported standalone modules can be toggled
+through a revision-checked preview and apply; unsupported or uncertain rows
+remain read-only. The inventory never imports extension code or migrates
+settings. Hooks-owned files link back to Hooks only when Skillshare's ownership
+record and file hash match.
+
+[OMP plugin management](../commands/plugin.md#omp) supports marketplace-backed
+local/Git sources in native user/project scopes. OMP accounts do not redirect
+plugin storage. See the same reference for extension editing's verified-version,
+ownership and native-lock requirements.
+
+OMP has no project trust prompt. Review code before syncing hooks: a written
+extension may execute at the next OMP startup.
+
+## DeepSeek Harness and GitLab Duo
+
+The paths above show defaults. For built-in global paths, skillshare also honors:
+
+- **DeepSeek Harness:** `DSH_HOME` selects `<DSH_HOME>/skills`. Empty or whitespace-only values use the default. The tool also reads `~/.agents/skills` and project `.agents/skills`; its project target stays at `.dsh/skills`. See the [native skill discovery documentation](https://github.com/deepseek-ai/deepseek-harness/blob/master/packages/skill/skill-filesystem/README.md).
+- **GitLab Duo:** `GLAB_CONFIG_DIR` selects `<GLAB_CONFIG_DIR>/skills`; otherwise `XDG_CONFIG_HOME` selects `<XDG_CONFIG_HOME>/gitlab/duo/skills`. With neither override, Windows uses `%APPDATA%\GitLab\duo\skills`, while macOS/Linux use `~/.gitlab/duo/skills`. Its project target is `skills`, not `.gitlab/duo/skills`.
+
+GitLab Duo's user-level skills are experimental and require `glab duo cli --enable-global-skills true` or `GITLAB_ENABLE_GLOBAL_SKILLS=true`. It also reads the shared `~/.agents/skills` directory when global skills are enabled. Syncing files alone does not enable discovery. See [GitLab's Agent Skills documentation](https://docs.gitlab.com/user/duo_agent_platform/customize/agent_skills/).
+
+Run skillshare with the same native home overrides as the tool. An explicit skills path in your skillshare configuration remains unchanged; tool-specific configuration and alternative shared roots such as `DSH_AGENTS_HOME` require an explicit target path.
 
 ## Aliases
 

@@ -105,21 +105,53 @@ describe('Pi target Extensions tab', () => {
     expect(screen.queryByText('Package default')).not.toBeInTheDocument();
   });
 
-  it('names a package Skillshare installs by its plugin, not its state path', async () => {
-    show(global({ packages: [{ ...global().packages[0], managedBy: 'superpowers' }] }));
-    expect(await screen.findByRole('region', { name: 'superpowers' })).toBeInTheDocument();
+  it.each(['local', 'npm'] as const)('labels a managed %s plugin like OMP without changing its selection identity', async (kind) => {
+    const user = userEvent.setup();
+    show(global({ packages: [{ ...global().packages[0], kind, version: '5.0.0', managedBy: 'superpowers' }] }));
+    const card = await screen.findByRole('region', { name: 'Plugins · superpowers' });
+    expect(card.querySelector('.lucide-package')).toBeInTheDocument();
+    expect(within(card).getByText('5.0.0')).toBeInTheDocument();
+    expect(within(card).queryByText('plugin')).not.toBeInTheDocument();
+    expect(within(card).getByText('global')).toBeInTheDocument();
+    expect(within(card).getByRole('link', { name: 'Open Plugins' })).toHaveAttribute('href', '/plugins');
+    expect(within(card).queryByText('Plugins')).not.toBeInTheDocument();
+    expect(within(card).getByTitle('Managed by Skillshare')).toBeInTheDocument();
+    expect(within(card).getByRole('switch', { name: `Load extensions/a.ts from ${pkg} in pi` })).toBeChecked();
+    await user.click(within(card).getByRole('switch', { name: `Load extensions/b.ts from ${pkg} in pi` }));
+    expect(within(card).getByText('2 / 3 on')).toBeInTheDocument();
+    expect(within(card).queryByRole('button', { name: /^(Collapse|Expand) / })).not.toBeInTheDocument();
+    expect(within(card).getAllByRole('switch')).toHaveLength(2);
+    expect(screen.getByRole('toolbar')).toHaveTextContent('1 extension change');
+    await user.click(within(card).getByRole('button', { name: 'Details' }));
+    expect(within(card).getByRole('region', { name: 'Details of Plugins · superpowers' })).toHaveTextContent(pkg);
+  });
+
+  it('keeps a managed project plugin\'s native override shape and rule controls', async () => {
+    const data = project();
+    data.packages = [{ ...data.packages[0], managedBy: 'superpowers' }];
+    show(data);
+    const card = await screen.findByRole('region', { name: 'Plugins · superpowers' });
+    expect(within(card).getByText('Changes pi (global)')).toBeInTheDocument();
+    expect(within(card).getByRole('switch', { name: `Load extensions/a.ts from ${pkg} in acme@pi` })).not.toBeChecked();
+    expect(within(card).getByRole('button', { name: 'Remove rule' })).toBeInTheDocument();
   });
 
   it('shows the version the installed package declares beside its kind', async () => {
     show(global({ packages: [{ ...global().packages[0], version: '5.0.0' }] }));
     expect(within(await screen.findByRole('region', { name: pkg })).getByText('local 5.0.0')).toBeInTheDocument();
   });
-  it('collapses a package to its header', async () => {
+  it('always shows extension rows while Details remains independently toggleable', async () => {
     const user = userEvent.setup();
     show(global());
-    await user.click(await screen.findByRole('button', { name: `Collapse ${pkg}` }));
-    expect(screen.queryByRole('switch')).not.toBeInTheDocument();
-    expect(screen.getByText('1 / 3 on')).toBeInTheDocument();
+    const card = await screen.findByRole('region', { name: pkg });
+    expect(within(card).queryByRole('button', { name: /^(Collapse|Expand) / })).not.toBeInTheDocument();
+    expect(within(card).getAllByRole('switch')).toHaveLength(2);
+    await user.click(within(card).getByRole('button', { name: 'Details' }));
+    expect(within(card).getByRole('region', { name: `Details of ${pkg}` })).toBeInTheDocument();
+    await user.click(within(card).getByRole('button', { name: 'Details' }));
+    expect(within(card).queryByRole('region', { name: `Details of ${pkg}` })).not.toBeInTheDocument();
+    expect(within(card).getAllByRole('switch')).toHaveLength(2);
+    expect(within(card).getByText('1 / 3 on')).toBeInTheDocument();
   });
 
   it('explains what the page does in one note shown on hover and on focus', async () => {

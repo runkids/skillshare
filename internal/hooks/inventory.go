@@ -80,6 +80,14 @@ func (s *Service) unmanaged(state ledger) []Unmanaged {
 			inline := filepath.Join(dir, "config.toml")
 			add(t.Name, inline, codexInlineEvents(inline))
 		}
+		if agent == "omp" {
+			// OMP also loads hook factories from hooks/pre and hooks/post; Skillshare never writes there.
+			dir, _ := sc.configDir(agent)
+			for _, sub := range []string{"pre", "post"} {
+				factories := filepath.Join(dir, "hooks", sub)
+				add(t.Name, factories, sc.unownedFiles(agent, factories, state))
+			}
+		}
 		switch {
 		case t.Kind == KindCode || agent == "copilot":
 			add(t.Name, path, sc.unownedFiles(agent, path, state))

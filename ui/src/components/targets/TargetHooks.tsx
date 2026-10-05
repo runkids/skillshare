@@ -8,7 +8,7 @@ import EmptyState from '../EmptyState';
 import { useToast } from '../Toast';
 import HookDialog from '../hooks/HookDialog';
 import { HooksSyncDialog } from '../hooks/HooksSyncBox';
-import { blockedHint, boundAgents, hookAccounts, hookLabel, hookMessage, hookNote, isCodeAgent, scopeEntries, scopePlan, syncState, writes } from '../hooks/hooksView';
+import { agentOfKey, blockedHint, boundAgents, hookAccounts, keyLabel, hookMessage, hookNote, isCodeAgent, scopeEntries, scopePlan, syncState, writes } from '../hooks/hooksView';
 import { useT } from '../../i18n';
 import { queryKeys } from '../../lib/queryKeys';
 
@@ -30,18 +30,21 @@ export default function TargetHooks({ agent, data, project }: { agent: string; d
   const pending = mine.filter(writes).length;
   // Sync all applies the whole plan globally (projects included) and only the root for a project.
   const all = ((project ? plan : data.plan)?.changes ?? []).filter(writes).length;
-  const note = hookNote(t, agent, data.targets.find((x) => x.name === agent)?.note);
+  const accounts = hookAccounts(data.targets);
+  const nativeAgent = agentOfKey(accounts, agent);
+  const label = keyLabel(accounts, agent);
+  const note = hookNote(t, nativeAgent, data.targets.find((x) => x.name === agent)?.note);
   const manage = project ? `/projects/${encodeURIComponent(project)}?tab=hooks` : '/hooks';
 
   if (rows.length === 0) {
-    return <EmptyState icon={Webhook} title={t('targetDetail.hooks.emptyTitle', { name: hookLabel(agent) })} description={t('targetDetail.hooks.emptyDescription', { name: hookLabel(agent) })} action={<Link to={manage} className="ss-btn pri">{t('targetDetail.hooks.open')}</Link>} />;
+    return <EmptyState icon={Webhook} title={t('targetDetail.hooks.emptyTitle', { name: label })} description={t('targetDetail.hooks.emptyDescription', { name: label })} action={<Link to={manage} className="ss-btn pri">{t('targetDetail.hooks.open')}</Link>} />;
   }
 
   return (
     <div className="grid grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] items-start gap-12">
       <section className="flex flex-col gap-5">
         <h2 className="ss-h2">{t('targetDetail.whatSyncs')}</h2>
-        <p className="text-[13.5px]">{t(rows.length === 1 ? 'targetDetail.hooks.summary.one' : 'targetDetail.hooks.summary.other', { count: rows.length, name: hookLabel(agent) })}</p>
+        <p className="text-[13.5px]">{t(rows.length === 1 ? 'targetDetail.hooks.summary.one' : 'targetDetail.hooks.summary.other', { count: rows.length, name: label })}</p>
         {conflicts.map((c) => (
           <div key={`${c.path}:${c.name}`} className="ss-note warn">
             <AlertCircle size={16} />
@@ -61,7 +64,7 @@ export default function TargetHooks({ agent, data, project }: { agent: string; d
                 <span className="flex min-w-0 flex-1 items-center gap-2">
                   <span title={name} className={`truncate font-mono text-[13px] font-semibold ${enabled ? '' : 'text-ink-3'}`}>{name}</span>
                   {!enabled && <span className="ss-tag">{t('hooks.disabled')}</span>}
-                  <span className="ss-tag">{t(isCodeAgent(agent) ? 'hooks.kind.code' : 'hooks.kind.command')}</span>
+                  <span className="ss-tag">{t(isCodeAgent(nativeAgent) ? 'hooks.kind.code' : 'hooks.kind.command')}</span>
                 </span>
                 {/* Synchronized only: whether the Agent trusts and loads it is the Agent's call. */}
                 <span className="w-[96px] shrink-0"><span className={`ss-st ${state === 'synced' ? 'ok' : state === 'pending' ? 'warn' : state === 'conflict' ? 'bad' : 'off'}`}>{t(`hooks.sync.${state}`)}</span></span>
@@ -90,7 +93,7 @@ export default function TargetHooks({ agent, data, project }: { agent: string; d
         </div>
         <div className="flex flex-col gap-3">
           <h2 className="ss-h2">{t('targetDetail.hooks.manage')}</h2>
-          <p className="text-[13px] text-ink-2">{t('targetDetail.hooks.manageHint', { name: hookLabel(agent) })}</p>
+          <p className="text-[13px] text-ink-2">{t('targetDetail.hooks.manageHint', { name: label })}</p>
           <Link to={manage} className="ss-btn self-start">{t('targetDetail.hooks.open')}<ArrowRight size={14} /></Link>
         </div>
       </aside>
@@ -98,7 +101,7 @@ export default function TargetHooks({ agent, data, project }: { agent: string; d
       {syncing && <HooksSyncDialog project={project} onClose={() => setSyncing(false)} />}
       {editing && (
         <HookDialog
-          accounts={hookAccounts(data.targets)}
+          accounts={accounts}
           initial={{ name: editing, entry: entries[editing] }}
           existingNames={Object.keys(entries)}
           project={project}

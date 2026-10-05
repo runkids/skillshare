@@ -416,7 +416,7 @@ func managedEntry(target string, entry map[string]any) map[string]any {
 			}
 		}
 	}
-	if out["enabled"] == true || target == "pi" && (out["command"] != nil || out["url"] != nil) {
+	if out["enabled"] == true || (target == "pi" || target == "omp") && (out["command"] != nil || out["url"] != nil) {
 		delete(out, "enabled")
 	}
 	if out["disabled"] == false {
@@ -440,7 +440,7 @@ func withAgentFields(target string, current, want map[string]any) map[string]any
 	out := maps.Clone(want)
 	for key, value := range current {
 		// A field the config sets wins over the one in the file, e.g. Pi's directTools.
-		if _, set := want[key]; !set && (!slices.Contains(additionalManagedFields(target), key) || target == "pi" && key == "enabled") {
+		if _, set := want[key]; !set && (!slices.Contains(additionalManagedFields(target), key) || (target == "pi" || target == "omp") && key == "enabled") {
 			out[key] = value
 		}
 	}

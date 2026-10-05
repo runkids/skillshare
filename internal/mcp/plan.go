@@ -338,6 +338,9 @@ func (s *Service) renderScope(desired map[fileKey]map[string]map[string]any, roo
 				entry["name"] = name
 			}
 			key := fileKey{path, native}
+			if native == "omp" && desired[fileKey{path, "pi"}] != nil || native == "pi" && desired[fileKey{path, "omp"}] != nil {
+				return fmt.Errorf("Pi and OMP MCP destinations overlap at %s; use separate config directories", path)
+			}
 			if target == "pi" {
 				for other := range desired[key] {
 					if other != name && piServerKey(other) == piServerKey(name) {
@@ -482,6 +485,8 @@ func (s *Service) checkScope(name, target string, server Server) error {
 	switch {
 	case server.Disabled && s.ProjectRoot == "":
 		return fmt.Errorf("MCP %s: disabled only applies in project mode, where it turns off a server from the Agent's global config; here, unselect the Agent instead", name)
+	case target == "omp" && len(name) > 100:
+		return fmt.Errorf("OMP MCP %s: server names must be at most 100 characters", name)
 	case target == "pi" && strings.Contains(name, "."):
 		return fmt.Errorf("Pi built-in MCP %s: use letters, digits, underscores or hyphens", name)
 	case target == "pi" && s.ProjectRoot != "" && server.PiOptions["auth"] != nil:

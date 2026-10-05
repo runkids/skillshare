@@ -11,12 +11,14 @@ import ConfirmDialog from '../components/ConfirmDialog';
 import EmptyState from '../components/EmptyState';
 import PageHeader from '../components/PageHeader';
 import { PageSkeleton } from '../components/Skeleton';
+import SegmentedControl from '../components/SegmentedControl';
 import { useToast } from '../components/Toast';
 import HooksScope from '../components/hooks/HooksScope';
 import MCPProjectView from '../components/mcp/MCPProjectView';
 import { targetLabel } from '../components/mcp/mcpView';
 import ProjectSyncDialog from '../components/projects/ProjectSyncDialog';
 import ProjectTools from '../components/projects/ProjectTools';
+import TargetOmpExtensions from '../components/targets/TargetOmpExtensions';
 import TargetPiExtensions from '../components/targets/TargetPiExtensions';
 import { projectHealth, projectRows, toolGroups, type ProjectRow } from '../components/projects/projectView';
 import FilterSection, { ModePicker } from '../components/targets/FilterSection';
@@ -62,8 +64,12 @@ function ProjectEditor({ project, tools, mcp, hooks, hooksError }: { project: Pr
   const [params] = useSearchParams();
   const targets = useQuery({ queryKey: queryKeys.targets.projects, queryFn: () => api.listTargets('projects'), staleTime: staleTimes.targets });
   // Declared tools do not always generate a target (for example, an agents-only Pi project).
-  const hasPiTarget = project.targets.includes('pi') && targets.data?.targets.some((target) => target.name === `${project.name}@pi`);
-  const shownTabs = TABS.filter((x) => x !== 'extensions' || hasPiTarget);
+  const hasTarget = (tool: string) => project.targets.includes(tool) && Boolean(targets.data?.targets.some((target) => target.name === `${project.name}@${tool}`));
+  // Pi and Oh My Pi both switch their extensions here. With both, the tab picks one.
+  const extensionTools = (['pi', 'omp'] as const).filter(hasTarget);
+  const [extensionTool, setExtensionTool] = useState<'pi' | 'omp'>('pi');
+  const shownExtensionTool = extensionTools.includes(extensionTool) ? extensionTool : extensionTools[0];
+  const shownTabs = TABS.filter((x) => x !== 'extensions' || extensionTools.length > 0);
   const tab = shownTabs.find((x) => x === params.get('tab')) ?? 'skills';
   const available = useAvailableTargetsQuery();
   const common = (available.data?.targets ?? []).filter((a) => a.installed || a.detected).map((a) => a.name);
@@ -197,7 +203,12 @@ function ProjectEditor({ project, tools, mcp, hooks, hooksError }: { project: Pr
       {!(tab === 'hooks' && !hooksError && hooks && hooksEntry) && <div className="mb-7">{tabs}</div>}
 
       {tab === 'extensions' ? (
-        <TargetPiExtensions name={`${project.name}@pi`} />
+        <div className="flex flex-col gap-5">
+          {extensionTools.length > 1 && (
+            <SegmentedControl value={shownExtensionTool ?? 'pi'} onChange={setExtensionTool} options={[{ value: 'pi', label: 'Pi' }, { value: 'omp', label: 'Oh My Pi' }]} className="self-start" />
+          )}
+          {shownExtensionTool === 'omp' ? <TargetOmpExtensions name={`${project.name}@omp`} /> : <TargetPiExtensions name={`${project.name}@pi`} />}
+        </div>
       ) : tab === 'hooks' ? (
         hooksError ? (
           <div className="ss-note bad"><span className="flex-1">{hooksError}</span></div>

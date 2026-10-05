@@ -9,6 +9,7 @@ const docs: Record<string, string> = {
   antigravity: 'https://www.antigravity.google/docs/plugins',
   'antigravity-cli': 'https://www.antigravity.google/docs/plugins?tab=cli',
   pi: 'https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/packages.md',
+  omp: 'https://github.com/can1357/oh-my-pi/blob/v18.6.1/docs/extensions.md',
   opencode: 'https://opencode.ai/docs/plugins/',
   copilot: 'https://docs.github.com/en/copilot/how-tos/copilot-cli/customize-copilot/plugins-finding-installing',
   grok: 'https://docs.x.ai/build/features/skills-plugins-marketplaces',

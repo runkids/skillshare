@@ -224,11 +224,11 @@ targets:
     config_dir: ~/.codex-work    # skills go to ~/.codex-work/skills
 ```
 
-Codex reads the shared `~/.agents/skills` as well, but an account owns only its own directory, so its skills go to `<config_dir>/skills`. Pi works the same way. Only Claude has an agents directory.
+Codex reads the shared `~/.agents/skills` as well, but an account owns only its own directory, so its skills go to `<config_dir>/skills`. Pi and OMP work the same way. Only Claude has an agents directory.
 
 | Field | Description |
 |-------|-------------|
-| `agent` | The built-in Agent: `claude` (`CLAUDE_CONFIG_DIR`), `codex` (`CODEX_HOME`) or `pi` (`PI_CODING_AGENT_DIR`) |
+| `agent` | The built-in Agent: `claude` (`CLAUDE_CONFIG_DIR`), `codex` (`CODEX_HOME`), `pi` or `omp` (both use `PI_CODING_AGENT_DIR`) |
 | `config_dir` | That account's config directory. Absolute or starting with `~`, not the Agent's default one, and used by one target only |
 | `cli` | Optional. Runs the account's [plugin commands](/docs/reference/commands/plugin#accounts) with a compatible CLI instead of the Agent's own, such as `omo` for Pi. A name found on `PATH`, or an absolute path that may start with `~`. One executable without arguments; shell aliases are not seen |
 
@@ -244,7 +244,7 @@ targets:
 
 `cli` changes only which program installs and removes plugins. Skills, agents and MCP servers are written to `config_dir` as before.
 
-`mode`, `include`, `exclude` and the other target settings work as on any target. A `skills.path` or `agents.path` you write yourself wins over the derived one. The target name can also be used as an [MCP target](/docs/reference/commands/mcp#accounts), as a [plugin target](/docs/reference/commands/plugin#accounts) and as a [hooks target](/docs/reference/commands/hooks#accounts).
+`mode`, `include`, `exclude` and the other target settings work as on any target. A `skills.path` or `agents.path` you write yourself wins over the derived one. The target name can also be used as an [MCP target](/docs/reference/commands/mcp#accounts). For Agents supported by those resources, it can also be a [plugin target](/docs/reference/commands/plugin#accounts) or a [hooks target](/docs/reference/commands/hooks#accounts). OMP accounts support skills, instructions, files, MCP and native code hooks, but not plugin sync. Their Extensions tab inventories native modules and offers [selection editing](/docs/reference/commands/plugin#omp) only when the native version, file identity and settings scope are verified; it is not a runtime status monitor.
 
 #### Instruction file {#target-instructions}
 

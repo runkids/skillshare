@@ -19,6 +19,15 @@ const renderDialog = (props: Partial<Parameters<typeof MCPServerDialog>[0]> = {}
   render(<QueryClientProvider client={new QueryClient()}><I18nProvider><MCPServerDialog defaultTargets={['claude']} existingNames={[]} onClose={vi.fn()} onSaved={vi.fn()} {...props} /></I18nProvider></QueryClientProvider>);
 
 describe('MCP server dialog', () => {
+  it('offers OMP as its own client without Pi settings', async () => {
+    const user = userEvent.setup();
+    renderDialog({ initial: { name: 'docs', server: { url: 'https://example.com/mcp', targets: ['omp'] } }, availableTargets: ['omp'] });
+    expect(screen.getByRole('checkbox', { name: 'Oh My Pi' })).toBeChecked();
+    expect(screen.queryByRole('button', { name: 'About Pi settings' })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(mcpApi.save).toHaveBeenCalledWith(expect.objectContaining({ server: { url: 'https://example.com/mcp', targets: ['omp'] } })));
+  });
+
   it('offers Pi settings without a Pi mode, cleanup switch or Direct tools', async () => {
     const user = userEvent.setup();
     renderDialog({ initial: { name: 'docs', server: { url: 'https://example.com/mcp', targets: ['pi'] } } });

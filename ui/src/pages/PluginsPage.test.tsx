@@ -11,13 +11,15 @@ vi.mock('../api/plugins', async (importOriginal) => ({ ...await importOriginal<t
 vi.mock('../i18n', () => ({ useT: () => (key: string) => key }));
 vi.mock('../context/AppContext', () => ({ useAppContext: () => ({ isProjectMode: false }) }));
 vi.mock('../components/plugins/PluginAddDialog', () => ({ default: ({ initialTargets }: { initialTargets?: string[] }) => <div role="dialog" aria-label="add">{initialTargets?.join(',')}</div> }));
-vi.mock('../hooks/useSharedQueries', () => ({ useSyncedTargetsQuery: () => ({ data: { targets: [{ name: 'pi' }] } }) }));
+const synced = vi.hoisted(() => ({ targets: [{ name: 'pi' }] as { name: string; agent?: string }[] }));
+vi.mock('../hooks/useSharedQueries', () => ({ useSyncedTargetsQuery: () => ({ data: synced }) }));
 
 function mount(path = '/plugins', client = new QueryClient({ defaultOptions: { queries: { retry: false } } })) { return render(<MemoryRouter initialEntries={[path]}><QueryClientProvider client={client}><ToastProvider><PluginsPage /></ToastProvider></QueryClientProvider></MemoryRouter>); }
 
 describe('PluginsPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    synced.targets = [{ name: 'pi' }];
     vi.mocked(pluginsApi.list).mockResolvedValue({ targetDefinitions: [{target:'codex',label:'Codex',project:false,operations:['add','sync','import']}], packages: { demo: { bindings: { codex: { id: 'demo@market' } } } }, hosts: [{ target: 'codex', version: '0.154', status: 'ready', installed: [{ id: 'demo@market', enabled: false }] }] });
     vi.mocked(pluginsApi.preview).mockResolvedValue({ revision: 'reviewed', blocked: false, changes: [{ name: 'demo', target: 'codex', id: 'demo@market', action: 'selection' }] });
     vi.mocked(pluginsApi.apply).mockResolvedValue({ result: { results: [] }, failure: '' });
@@ -486,6 +488,71 @@ describe('PluginsPage', () => {
     mount();
     fireEvent.click(await screen.findByRole('button', { name: /Codex/ }));
     expect(screen.getByText('plugins.hostMissing').parentElement!.parentElement!).toHaveTextContent('plugins.error.codexMissing');
+  });
+
+  const omp = (bindings: PluginInventory['packages'][string]['bindings'], installed: { id: string; enabled: boolean }[] = []): PluginInventory => ({
+    targetDefinitions: [{ target: 'omp', label: 'Oh My Pi', project: true, operations: ['add', 'import', 'sync', 'check', 'update', 'remove', 'enable', 'disable'] }],
+    packages: { guard: { source: 'owner/guard', bindings } },
+    hosts: [{ target: 'omp', version: '18.6.1', status: 'ready', installed, noteKey: 'plugins.note.omp' }],
+  });
+  it('links Oh My Pi extensions and uses the same Preview/Apply workflow as other Agents', async () => {
+    synced.targets = [{ name: 'omp' }];
+    vi.mocked(pluginsApi.list).mockResolvedValue(omp({ omp: { id: 'guard', source: 'owner/guard', pending: 'install' } }));
+    vi.mocked(pluginsApi.preview).mockResolvedValue({ revision: 'r1', blocked: false, changes: [{ name: 'guard', target: 'omp', id: 'guard', action: 'install' }] });
+    mount();
+    fireEvent.click(await screen.findByRole('button', { name: /Oh My Pi/ }));
+    expect(screen.getByText('plugins.note.omp')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'plugins.piExtensions' })).toHaveAttribute('href', '/targets/omp?tab=extensions');
+    expect(screen.getByRole('link', { name: 'Oh My Pi · plugins.officialDocs' })).toHaveAttribute('href', 'https://github.com/can1357/oh-my-pi/blob/v18.6.1/docs/extensions.md');
+    fireEvent.click(screen.getByRole('button', { name: 'plugins.sync' }));
+    const dialog = await screen.findByRole('dialog', { name: 'plugins.preview' });
+    expect(within(dialog).queryByText('plugins.ompRisk.text')).not.toBeInTheDocument();
+    expect(within(dialog).queryByRole('checkbox')).not.toBeInTheDocument();
+    const apply = within(dialog).getByRole('button', { name: 'plugins.apply' });
+    expect(apply).toBeEnabled();
+    fireEvent.click(apply);
+    await waitFor(() => expect(pluginsApi.apply).toHaveBeenCalledWith({ action: 'sync' }, 'r1'));
+  });
+  it('does not add an OMP-only confirmation when no skills target is configured', async () => {
+    synced.targets = [];
+    vi.mocked(pluginsApi.list).mockResolvedValue(omp({ omp: { id: 'guard', source: 'owner/guard', pending: 'install' } }));
+    vi.mocked(pluginsApi.preview).mockResolvedValue({ revision: 'r1', blocked: false, changes: [{ name: 'guard', target: 'omp', id: 'guard', action: 'install' }] });
+    mount();
+    fireEvent.click(await screen.findByRole('button', { name: 'plugins.sync' }));
+    const dialog = await screen.findByRole('dialog', { name: 'plugins.preview' });
+    expect(within(dialog).queryByRole('checkbox')).not.toBeInTheDocument();
+    expect(within(dialog).getByRole('button', { name: 'plugins.apply' })).toBeEnabled();
+  });
+
+  it('still blocks an unsafe OMP plan but allows a reviewed fresh install without a special confirmation', async () => {
+    synced.targets = [{ name: 'omp' }, { name: 'omp-work', agent: 'omp' }];
+    vi.mocked(pluginsApi.list).mockResolvedValue(omp({ omp: { id: 'guard', source: 'owner/guard', sync: false } }, [{ id: 'guard', enabled: true }]));
+    vi.mocked(pluginsApi.preview).mockResolvedValueOnce({ revision: 'r1', blocked: true, changes: [{ name: 'guard', target: 'omp', id: 'guard', action: 'blocked', message: 'OMP scoped removal cannot verify this installation or runtime ownership.', messageKey: 'plugins.error.ompRemovalOwnership' }] });
+    mount();
+    fireEvent.click(await screen.findByRole('button', { name: 'plugins.sync' }));
+    const dialog = await screen.findByRole('dialog', { name: 'plugins.preview' });
+    expect(within(dialog).queryByText('plugins.ompRisk.text')).not.toBeInTheDocument();
+    expect(within(dialog).getByRole('button', { name: 'plugins.apply' })).toBeDisabled();
+    fireEvent.click(within(dialog).getByRole('button', { name: 'common.cancel' }));
+    vi.mocked(pluginsApi.preview).mockResolvedValueOnce({ revision: 'r2', blocked: false, changes: [{ name: 'guard', target: 'omp', id: 'guard', action: 'install' }] });
+    fireEvent.click(screen.getByRole('button', { name: 'plugins.sync' }));
+    const again = await screen.findByRole('dialog', { name: 'plugins.preview' });
+    await waitFor(() => expect(within(again).getByRole('button', { name: 'plugins.apply' })).toBeEnabled());
+    expect(within(again).queryByText('plugins.ompRisk.text')).not.toBeInTheDocument();
+    expect(within(again).queryByRole('checkbox')).not.toBeInTheDocument();
+  });
+  it('shows an Oh My Pi account the backend does not automate as manual, with its reason and no Extensions link', async () => {
+    synced.targets = [{ name: 'omp' }, { name: 'omp-work', agent: 'omp' }];
+    vi.mocked(pluginsApi.list).mockResolvedValue({
+      packages: {},
+      targetDefinitions: [{ target: 'omp', label: 'Oh My Pi', project: true, operations: ['add'] }, { target: 'omp-work', label: 'omp-work', project: false, operations: [], reason: 'Plugins of an Oh My Pi account are managed in that account.' }],
+      hosts: [{ target: 'omp', version: '18.6.1', status: 'ready', installed: [] }, { target: 'omp-work', version: '', status: 'blocked', installed: [], error: 'Plugins of an Oh My Pi account are managed in that account.' }],
+    });
+    mount();
+    expect(await screen.findByText('plugins.hostManual')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /omp-work/ }));
+    expect(screen.getByText('plugins.hostManual').parentElement!.parentElement!).toHaveTextContent('Plugins of an Oh My Pi account are managed in that account.');
+    expect(screen.queryByRole('link', { name: 'plugins.piExtensions' })).not.toBeInTheDocument();
   });
 
 });

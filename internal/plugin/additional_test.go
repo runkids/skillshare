@@ -214,7 +214,8 @@ func TestPluginFormatsRemainDistinct(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !slices.Equal(d.Candidates[0].Targets, []string{"codex", "copilot", "cursor"}) {
+	// OMP reads Agent Plugins 1.0.0 root manifests through its agent-plugins provider (docs/marketplace.md).
+	if !slices.Equal(d.Candidates[0].Targets, []string{"codex", "copilot", "cursor", "omp"}) {
 		t.Fatalf("silently converted portable plugin: %+v", d.Candidates)
 	}
 	writePluginFile(t, root, "plugin.json", `{"$schema":"https://antigravity.google/schemas/v1/plugin.json","name":"demo"}`)

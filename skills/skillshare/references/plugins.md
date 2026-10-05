@@ -86,7 +86,7 @@ Claude supports native updates; Codex re-adds the reviewed snapshot unless the p
 local copies; Pi/OpenCode refresh reviewed source snapshots. Imported Codex plugins update by upgrading their marketplace; imported Pi packages through `pi update`, global only. Imported OpenCode v1 packages must be updated natively. OpenCode v2 global
 imports may use native update; project imports may not. Copilot source updates
 require known native enabled state; Antigravity CLI and Grok update natively. Project mode supports Claude, Antigravity, Pi,
-and OpenCode, never falling back to global scope. An update skips a target it
+OMP and OpenCode, never falling back to global scope. An update skips a target it
 cannot reach, says why, and still updates the other targets.
 
 ## Additional formats and scopes
@@ -102,6 +102,10 @@ cannot reach, says why, and still updates the other targets.
 - Pi: `package.json` with a `pi` resource manifest or `pi-package` conventions. Native install/remove; read-only
   settings inventory honors `PI_CODING_AGENT_DIR`. Project trust must be completed
   in Pi; do not bypass it with automatic approval flags.
+  Managed plugin cards use the same package icon and `Plugins · <name>` heading
+  as OMP, without repeating the plugin origin in tags. Version, scope and native
+  project override labels remain; the navigation icon opens Plugins. Unmanaged
+  Pi packages retain their native identity and Pi icon.
   Which of a package's extensions load is chosen per Pi target in the dashboard's
   Extensions tab (exact `+`/`-` rules, previewed, refused if the file changed or Pi's lock
   is held or lost; a switch removes the file's own rule instead when that alone gives the
@@ -118,6 +122,34 @@ cannot reach, says why, and still updates the other targets.
   settings and `trust.json` are never written and Skillshare never trusts the project. A
   global source with credentials or a query, or a project/global entry it can't read
   exactly, keeps the affected packages read-only.
+- OMP (`omp`): marketplace-backed local/Git plugins use reviewed snapshots and native
+  fresh-cache installation with post-operation inventory verification. Native 18.6.1
+  uninstall/upgrade can delete shared cache still used by an invisible project.
+  Remove and deselection-plus-sync use a scoped adapter: registration, runtime
+  selection and verified links are removed, not disabled; cache, marketplace
+  registrations and plugin settings remain. Reinstall chooses a fresh cache
+  identity. Unknown ownership or metadata blocks removal, Windows requires private
+  native ACLs, and interrupted removal can be retried. Do not run native plugin
+  mutations concurrently; their writer does not share the adapter lock.
+  Updates remain blocked, and imported code is not upgraded without a reviewed source. Native `.omp-plugin/marketplace.json` catalogs are supported.
+  User/project scopes require the matching native root. Import `name@marketplace`,
+  not bare npm/Git/link packages; manage those in OMP. OMP accounts are not plugin
+  targets: `config_dir` does not redirect its plugin store. Preview never calls native
+  `--dry-run`. OMP has no project trust prompt; plugin extensions/tools may execute
+  in-process on its next startup. Keep every plugin's resources together.
+  The target's Extensions tab groups plugins by inspected package root and other
+  files by source/scope/directory. Plugin headers use the native package name and
+  known manifest version; shared folders are plugin-relative, with full paths in
+  tooltips. Details uses Pi's labeled two-column layout for source, native name,
+  selection identifiers and notes. File lists remain visible without collapse controls.
+  It can preview/apply `disabledExtensions`
+  changes for verified standalone modules, using native locks and stale-revision protection.
+  It requires a statically identifiable OMP 18.6.1 package; unknown versions/wrappers,
+  ambiguous same-name groups, explicit-file bypasses, ambient hooks, linked paths,
+  uncertain selection and resources owned by Hooks/Plugins remain read-only.
+  Selection-only backup records live under `StateDir/omp-extensions/backups`; they
+  do not copy unrelated native settings or credentials. No extension code is executed
+  during selection management, and selected never means loaded or running.
 - OpenCode: SDK dependency, `.opencode/plugins/` convention, or explicit `--entry`,
   with an existing JS/TS entry.
   Preserve the whole tree and register its file URL in the native JSON/JSONC config.

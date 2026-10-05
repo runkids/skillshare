@@ -16,7 +16,9 @@ import RemoveTargetDialog from '../components/targets/RemoveTargetDialog';
 import SkillsOffDialog from '../components/targets/SkillsOffDialog';
 import TargetMCP from '../components/targets/TargetMCP';
 import TargetHooks from '../components/targets/TargetHooks';
+import TargetOmpExtensions from '../components/targets/TargetOmpExtensions';
 import TargetPiExtensions from '../components/targets/TargetPiExtensions';
+import { isOmpTarget, ompExtensionsApi } from '../api/ompExtensions';
 import { isPiTarget, piExtensionsApi } from '../api/piExtensions';
 import { hookAgentOf, hookCount, scopePaths } from '../components/hooks/hooksView';
 import TargetInstructions from '../components/instructions/TargetInstructions';
@@ -70,7 +72,7 @@ function TargetEditor({ target, targets }: { target: Target; targets: Target[] }
   const mcp = useMcpQuery();
   const hooks = useHooksQuery();
   // Hooks are managed per Agent; a project target reads its project's hooks, never the global ones.
-  const hookAgent = hookAgentOf(target.name);
+  const hookAgent = hookAgentOf(target.name, target.agent);
   const hooksPath = hookAgent && hooks.data && scopePaths(hooks.data, target.project)[hookAgent];
   // Only an Agent that has an MCP file in this scope (global, or the -p project) gets the tab.
   const client = mcpClient(target.name);
@@ -78,15 +80,19 @@ function TargetEditor({ target, targets }: { target: Target; targets: Target[] }
   // Until the list arrives, loading or failing, the tab stays so it can say which.
   const filePath = params.get('tab') === 'file' ? params.get('path') ?? '' : '';
   const pi = isPiTarget(target);
+  const omp = isOmpTarget(target);
+  // Pi and Oh My Pi both switch their extensions here.
+  const hasExtensions = pi || omp;
   const tab: Kind | 'mcp' | 'hooks' | 'extensions' | 'instructions' | 'file' = filePath ? 'file' : params.get('tab') === 'instructions' ? 'instructions'
-    : pi && params.get('tab') === 'extensions' ? 'extensions'
+    : hasExtensions && params.get('tab') === 'extensions' ? 'extensions'
     : target.agentPath && params.get('tab') === 'agents' ? 'agent' : params.get('tab') === 'mcp' && (mcpPath || !mcp.data) ? 'mcp' : params.get('tab') === 'hooks' && hookAgent && (hooksPath || !hooks.data) ? 'hooks' : 'skill';
   const kind: Kind = tab === 'agent' ? 'agent' : 'skill';
-  const tabs = (['skill', 'agent', 'mcp', 'hooks', 'extensions', 'instructions'] as const).filter((k) => k === 'skill' || k === 'instructions' || (k === 'extensions' ? pi : k === 'agent' ? target.agentPath : k === 'hooks' ? hookAgent && (hooksPath || tab === 'hooks') : mcpPath || tab === 'mcp'));
+  const tabs = (['skill', 'agent', 'mcp', 'hooks', 'extensions', 'instructions'] as const).filter((k) => k === 'skill' || k === 'instructions' || (k === 'extensions' ? hasExtensions : k === 'agent' ? target.agentPath : k === 'hooks' ? hookAgent && (hooksPath || tab === 'hooks') : mcpPath || tab === 'mcp'));
   const instructions = useQuery({ queryKey: queryKeys.instructions.target(target.name), queryFn: () => api.getTargetInstructions(target.name) });
   const files = useQuery({ queryKey: queryKeys.targetFiles.list(target.name), queryFn: () => api.listTargetFiles(target.name) });
   // Asks Pi for its version, so it runs only once the tab is opened; the count stays after that.
   const piExtensions = useQuery({ queryKey: queryKeys.piExtensions(target.name), queryFn: () => piExtensionsApi.get(target.name), enabled: pi && tab === 'extensions' });
+  const ompExtensions = useQuery({ queryKey: queryKeys.ompExtensions(target.name), queryFn: () => ompExtensionsApi.get(target.name), enabled: omp && tab === 'extensions' });
   const syncTab = tab === 'skill' || tab === 'agent';
   const saved = draftOf(target);
   const [draft, setDraft] = useState<Draft>(saved);
@@ -163,7 +169,7 @@ function TargetEditor({ target, targets }: { target: Target; targets: Target[] }
     k === 'skill' && !skillsOn ? null : (k === 'mcp' ? mcp.data && serverCount(mcp.data, client)
       : k === 'hooks' ? hooks.data && hookAgent && hookCount(hooks.data, hookAgent, target.project)
       : k === 'instructions' ? instructions.data?.read_order.filter((e) => e.read).length
-        : k === 'extensions' ? piExtensions.data && [...piExtensions.data.packages, ...piExtensions.data.folders].reduce((n, p) => n + p.rows.length, 0)
+        : k === 'extensions' ? (omp ? ompExtensions.data?.rows.length : piExtensions.data && [...piExtensions.data.packages, ...piExtensions.data.folders].reduce((n, p) => n + p.rows.length, 0))
         : entriesOf(k).length) || null;
   // Name the tab after the file this target actually reads (CLAUDE.md, GEMINI.md, …).
   const instructionsTab = instructions.data?.supported && instructions.data.path ? fileName(instructions.data.path) : 'AGENTS.md';
@@ -246,7 +252,7 @@ function TargetEditor({ target, targets }: { target: Target; targets: Target[] }
       ) : tab === 'mcp' ? (
         mcp.data ? <TargetMCP name={client} data={mcp.data} /> : mcp.error ? <div className="ss-note bad"><span className="flex-1">{mcp.error.message}</span></div> : <PageSkeleton />
       ) : tab === 'extensions' ? (
-        <TargetPiExtensions name={target.name} />
+        omp ? <TargetOmpExtensions name={target.name} /> : <TargetPiExtensions name={target.name} />
       ) : tab === 'hooks' && hookAgent ? (
         hooks.data ? <TargetHooks agent={hookAgent} data={hooks.data} project={target.project} /> : hooks.error ? <div className="ss-note bad"><span className="flex-1">{hooks.error.message}</span></div> : <PageSkeleton />
       ) : !agent && !skillsOn ? (

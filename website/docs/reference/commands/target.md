@@ -67,7 +67,7 @@ If the account runs a compatible CLI, such as omo for Pi, `--cli` makes its [plu
 skillshare target add omo --agent pi --config-dir ~/.omo/agent --cli omo
 ```
 
-`--agent` accepts `claude` (`CLAUDE_CONFIG_DIR`), `codex` (`CODEX_HOME`) and `pi` (`PI_CODING_AGENT_DIR`). A Codex or Pi account syncs its skills to `<config_dir>/skills`; only Claude also has an agents directory. The directory must be absolute or start with `~`, must not be the Agent's default one, and cannot be shared by two targets.
+`--agent` accepts `claude` (`CLAUDE_CONFIG_DIR`), `codex` (`CODEX_HOME`), `pi` and `omp` (both use `PI_CODING_AGENT_DIR`). A Codex, Pi or OMP account syncs its skills to `<config_dir>/skills`; only Claude also has an agents directory. OMP accounts support skills, instructions, files and MCP, but not hooks or plugin commands. The directory must be absolute or start with `~`, must not be the Agent's default one, and cannot be shared by two targets.
 
 Removing such a target never fails because of MCP: if `mcp.targets` or a server's `targets` still names it, `skillshare target remove` removes the target and warns you to take the name out there too.
 

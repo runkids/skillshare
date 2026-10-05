@@ -80,10 +80,21 @@ func TestEnvShadowFollowsSymlink(t *testing.T) {
 func TestAccountAgentsMatchConfig(t *testing.T) {
 	got := slices.Clone(accountAgents)
 	slices.Sort(got)
-	want := config.AgentConfigDirAgents()
+	want := slices.DeleteFunc(config.AgentConfigDirAgents(), func(agent string) bool {
+		_, supported := targetDef(agent)
+		return !supported
+	})
 	slices.Sort(want)
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("%v != %v", got, want)
+	}
+}
+
+func TestOMPAccountExposesHooks(t *testing.T) {
+	e := newEnv(t)
+	e.service.Accounts = map[string]Account{"omp-work": {Agent: "omp", Dir: e.home}}
+	if a, ok := e.service.lookupAccount("omp-work"); !ok || a.Agent != "omp" {
+		t.Fatal("OMP accounts carry hooks like Pi accounts")
 	}
 }
 

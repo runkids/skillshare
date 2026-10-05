@@ -33,7 +33,7 @@ func TestDiscoverPreservesComponentsAndLeavesOutEscapes(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(d.Candidates) != 1 || len(d.Candidates[0].Targets) != 5 {
+	if len(d.Candidates) != 1 || len(d.Candidates[0].Targets) != 6 {
 		t.Fatalf("unexpected discovery: %+v", d)
 	}
 	if err := os.Symlink("/etc/passwd", filepath.Join(root, "escape")); err != nil {
@@ -604,11 +604,36 @@ func (f *fakeAgents) service(t *testing.T) *Service {
 		command := strings.Join(args, " ")
 		switch {
 		case command == "--version":
+			if bin == "omp" {
+				return []byte("omp/18.6.1"), nil
+			}
 			return []byte("test"), nil
 		case strings.Contains(command, "--help"):
 			return []byte("--json --scope upgrade"), nil
 		case command == "plugin list --json" && bin == "codex":
 			return json.Marshal(map[string]any{"installed": f.installed[bin], "available": []any{}})
+		case command == "plugin list --json" && bin == "omp":
+			// omp plugin list --json: npm/link plugins, then marketplace summaries per scope.
+			npm, market := []map[string]any{}, []map[string]any{}
+			for _, i := range f.installed[bin] {
+				if !validID(i.ID) {
+					npm = append(npm, map[string]any{"name": i.ID, "version": i.Version, "enabled": i.Enabled, "manifest": map[string]any{}})
+					continue
+				}
+				scope := i.Scope
+				if scope == "" {
+					scope = "user"
+				}
+				market = append(market, map[string]any{"id": i.ID, "scope": scope, "entries": []map[string]any{{"scope": scope, "installPath": ompCachePath(filepath.Join(os.Getenv("HOME"), ".omp/plugins/cache/plugins"), i.ID, i.Version), "version": i.Version, "enabled": i.Enabled}}})
+			}
+			return json.Marshal(map[string]any{"npm": npm, "marketplace": market})
+		case command == "plugin marketplace list" && bin == "omp":
+			var text strings.Builder
+			text.WriteString("Configured Marketplaces:\n\n")
+			for name, root := range f.market(bin) {
+				text.WriteString("  \x1b[36m" + name + "\x1b[39m  \x1b[2m" + root + "\x1b[22m\n")
+			}
+			return []byte(text.String()), nil
 		case command == "plugin list --json":
 			return json.Marshal(append([]Installed{}, f.installed[bin]...))
 		case command == "plugin marketplace list --json":
@@ -641,8 +666,21 @@ func (f *fakeAgents) service(t *testing.T) *Service {
 			if !f.stuck {
 				delete(f.market(bin), args[3])
 			}
-		case args[1] == "add" || args[1] == "install" || args[1] == "update":
-			f.installed[bin] = []Installed{{ID: args[2], PluginID: args[2], Installed: true, Enabled: true, Version: f.version, Scope: "user"}}
+		case args[1] == "add" || args[1] == "install" || args[1] == "update" || args[1] == "upgrade":
+			scope := "user"
+			if i := slices.Index(args, "--scope"); i >= 0 {
+				scope = args[i+1]
+			}
+			enabled := true
+			// OMP's upgrade reinstalls from the marketplace and keeps a disabled plugin disabled.
+			if args[1] == "upgrade" {
+				for _, i := range f.installed[bin] {
+					if i.ID == args[2] {
+						enabled = i.Enabled
+					}
+				}
+			}
+			f.installed[bin] = []Installed{{ID: args[2], PluginID: args[2], Installed: true, Enabled: enabled, Version: f.version, Scope: scope}}
 		case args[1] == "remove" || args[1] == "uninstall":
 			f.installed[bin] = nil
 		}

@@ -22,7 +22,7 @@ const C = '/docs/reference/commands/';
 const D = '/docs/';
 
 export const COMMAND_COUNT = 35;
-export const TARGET_COUNT = 67;
+export const TARGET_COUNT = 79;
 
 export const FEATURE_GROUPS: FeatureGroup[] = [
   {

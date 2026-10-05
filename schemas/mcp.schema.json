@@ -7,7 +7,7 @@
   "additionalProperties": false,
   "properties": {"servers": {"$ref": "#/$defs/servers"}},
   "$defs": {
-    "targets": {"type": "array", "uniqueItems": true, "items": {"anyOf": [{"enum": ["claude", "codex", "cursor", "vscode", "opencode", "kilocode", "grok", "antigravity", "amp", "claude-desktop", "cline", "copilot", "factory", "gemini", "goose", "junie", "kiro", "lmstudio", "warp", "windsurf", "pi"]}, {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$", "description": "A target that is another account of an Agent, declared under targets with agent and config_dir. Global config only."}]}},
+    "targets": {"type": "array", "uniqueItems": true, "items": {"anyOf": [{"enum": ["claude", "codex", "cursor", "vscode", "opencode", "kilocode", "grok", "antigravity", "amp", "claude-desktop", "cline", "copilot", "factory", "gemini", "goose", "junie", "kiro", "lmstudio", "warp", "windsurf", "pi", "omp"]}, {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$", "description": "A target that is another account of an Agent, declared under targets with agent and config_dir. Global config only."}]}},
     "directTools": {
       "deprecated": true,
       "description": "Converted since 0.23.0: pi-mcp-adapter's setting becomes Pi's exposure (true: direct, \"search\": deferred) in piOptions, or piOptions.toolExposure for a list of tool names; a default under mcp or a project applies to each server that reaches Pi. Saving the config drops it.",
