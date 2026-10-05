@@ -159,7 +159,11 @@ skillshare plugin import demo@my-market --from omp --dry-run --json -g
 ```
 
 Installation requires OMP **18.6.1**, a reviewed local/Git source and a verified,
-previously unused cache destination. The adapter keeps the plugin tree together,
+previously unused cache destination and an absent scope-local runtime destination.
+The runtime package name comes from the reviewed source, not just the marketplace
+name. Existing module directories or links block installation rather than being
+replaced; the destination is bound to the preview and checked again before install.
+The adapter keeps the plugin tree together,
 uses native marketplace installation, and verifies the resulting registration. Catalogs can use
 `.omp-plugin/marketplace.json` or the legacy `.claude-plugin/marketplace.json`.
 Preview does not invoke OMP's native `--dry-run`, which can write files. Review
@@ -183,7 +187,10 @@ linked or non-directory cache destinations remain blocked.
 Removal requires the verified 18.6.1 metadata contract, matching installed
 version, unambiguous JSON and proven runtime-link ownership. A real module folder,
 foreign link, npm dependency collision or ambiguous runtime owner is refused.
-Native file changes invalidate the preview. Partially completed removal can be
+If the cache manifest is missing, the adapter requires a unique runtime-lock key
+whose scope-local link points to that installation's cache; it never guesses the
+marketplace name and reports success with the actual runtime link still installed.
+Unverifiable active installations remain blocked. Native file changes invalidate the preview. Partially completed removal can be
 retried from the retained cache and binding identity without saving full native
 settings backups. Windows writes additionally require verifiable private ACLs;
 Skillshare does not change permissions to make them pass. No extension code runs.

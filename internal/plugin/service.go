@@ -215,6 +215,9 @@ func (s *Service) Preview(ctx context.Context, r Request) (*Plan, error) {
 		// Skips above are not native commands; what is left for omp must not destroy a shared cache.
 		if agent == "omp" && h.Error == "" {
 			ompGuard(h, &c)
+			if c.Action == "install" {
+				s.prepareOMPInstall(ctx, h, &c)
+			}
 			if c.Action == "remove" || c.Action == "uninstall" || c.Action == "forget" {
 				s.prepareOMPRemoval(h, &c)
 			}
@@ -577,19 +580,24 @@ func (s *Service) Preview(ctx context.Context, r Request) (*Plan, error) {
 		}
 	}
 	ompRemovals := map[string]string{}
+	ompRuntimePaths := map[string]string{}
 	for _, c := range p.Changes {
+		if c.ompRuntimePath != "" {
+			ompRuntimePaths[c.Target+"\x00"+c.ID] = c.ompRuntimePath
+		}
 		if c.ompRemoval != nil {
 			ompRemovals[c.Target+"\x00"+c.ID] = c.ompRemoval.revision
 		}
 	}
 	fingerprint, _ := json.Marshal(struct {
-		Request       Request
-		Raw           string
-		Changes       []Change
-		Hosts         map[string]Host
-		OMPCacheRoots map[string]string
-		OMPRemovals   map[string]string
-	}{r, string(d.raw), p.Changes, hosts, ompRoots, ompRemovals})
+		Request         Request
+		Raw             string
+		Changes         []Change
+		Hosts           map[string]Host
+		OMPCacheRoots   map[string]string
+		OMPRemovals     map[string]string
+		OMPRuntimePaths map[string]string
+	}{r, string(d.raw), p.Changes, hosts, ompRoots, ompRemovals, ompRuntimePaths})
 	p.Revision = hash(fingerprint)
 	return p, nil
 }

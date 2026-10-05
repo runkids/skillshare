@@ -123,12 +123,16 @@ cannot reach, says why, and still updates the other targets.
   global source with credentials or a query, or a project/global entry it can't read
   exactly, keeps the affected packages read-only.
 - OMP (`omp`): marketplace-backed local/Git plugins use reviewed snapshots and native
-  fresh-cache installation with post-operation inventory verification. Native 18.6.1
+  fresh-cache installation with post-operation inventory verification. The reviewed
+  runtime destination must also be absent; existing directories and links are never
+  replaced. Preview binds that path and install rechecks it. Native 18.6.1
   uninstall/upgrade can delete shared cache still used by an invisible project.
   Remove and deselection-plus-sync use a scoped adapter: registration, runtime
   selection and verified links are removed, not disabled; cache, marketplace
   registrations and plugin settings remain. Reinstall chooses a fresh cache
-  identity. Unknown ownership or metadata blocks removal, Windows requires private
+  identity. A missing cache manifest requires a unique runtime-lock key and link
+  to the exact retained cache, never a guessed marketplace name. Unverifiable active
+  ownership or metadata blocks removal, Windows requires private
   native ACLs, and interrupted removal can be retried. Do not run native plugin
   mutations concurrently; their writer does not share the adapter lock.
   Updates remain blocked, and imported code is not upgraded without a reviewed source. Native `.omp-plugin/marketplace.json` catalogs are supported.

@@ -174,6 +174,11 @@ func (s *Service) applyChange(ctx context.Context, c Change, b Binding) (resultE
 	if !marketplaceAgent(agent) {
 		return s.applyAdditional(ctx, c, b)
 	}
+	if agent == "omp" && c.Action == "install" {
+		if err := ompEmptyRuntime(c.ompRuntimePath); err != nil {
+			return agentError{cause: err, key: "plugins.error.ompRuntimeSafety", message: err.Error()}
+		}
+	}
 	if (c.Action == "install" || c.Action == "update") && b.Source != "" {
 		path, err := s.materialize(ctx, b, c.Target)
 		if err != nil {
@@ -227,6 +232,11 @@ func (s *Service) applyChange(ctx context.Context, c Change, b Binding) (resultE
 	}
 	if err != nil {
 		return err
+	}
+	if agent == "omp" && c.Action == "install" {
+		if err := ompEmptyRuntime(c.ompRuntimePath); err != nil {
+			return agentError{cause: err, key: "plugins.error.ompRuntimeSafety", message: err.Error()}
+		}
 	}
 	if _, err := s.run(ctx, c.Target, args...); err != nil {
 		return err

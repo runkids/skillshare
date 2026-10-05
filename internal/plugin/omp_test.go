@@ -177,6 +177,9 @@ func TestOMPNeverRunsCacheDestructiveNativeCommands(t *testing.T) {
 	// The installation is gone but project B still needs its retained cache. A
 	// reinstall must choose another identity, never replace that directory.
 	agents.installed["omp"] = nil
+	// Reinstall the reviewed version; the earlier update probe changed this local source.
+	writeFile(t, source, ".claude-plugin/plugin.json", `{"name":"demo","version":"1.0.0"}`)
+	writeFile(t, source, ".codex-plugin/plugin.json", `{"name":"demo","version":"1.0.0","skills":"./skills"}`)
 	applyPluginRequest(t, s, Request{Action: "enable", Name: "demo", Targets: []string{"omp"}})
 	if p, err := s.Preview(context.Background(), Request{Action: "sync"}); err != nil || p.Blocked || p.Changes[0].MessageKey != "plugins.note.ompFreshCache" || p.Changes[0].ID == id {
 		t.Fatalf("reinstall did not choose a fresh cache identity: %+v %v", p, err)

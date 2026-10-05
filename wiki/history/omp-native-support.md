@@ -102,4 +102,32 @@ radio indicators now align with the first line, including multi-line description
 Linux runtime verification does not establish macOS or Windows runtime behavior.
 Platform lock adapters cross-compiled, but native platform acceptance remains
 unverified. Existing narrow-screen dashboard overflow was not redesigned.
-Changes remain uncommitted; no release, push or real-user Agent mutation occurred.
+Native support was committed as `ce96d5ce2`; no release, push or real-user Agent
+mutation occurred.
+
+## Post-commit review fixes
+
+- Installation now resolves the reviewed runtime package name, binds its selected
+  scope's destination to the preview and rechecks absence before native install.
+  An existing unregistered directory or link is never passed to native replacement.
+- Missing cache manifests no longer cause guessed runtime names during removal.
+  A unique runtime-lock key with a link to the exact cache proves the actual name;
+  unverifiable active ownership blocks removal without dropping the binding.
+- Whole-view reasons, inventory/review warnings and unresolved-path guidance now use
+  all 11 locales, including fixed backend messages and parameterized paths. Unknown
+  external diagnostics and real paths/identities remain unchanged.
+- Existing OMP tests, `make check`, focused UI/i18n tests (22/22), lint and UI build
+  passed. The existing lifecycle fixture restores its reviewed local source before
+  testing reinstall; no new translation or mocked tests were added.
+- Real pinned OMP in `omp-review-fix-verified-409` passed four scenarios: foreign
+  runtime data survives blocked installation; empty-destination installation succeeds;
+  unverifiable missing-manifest ownership blocks removal; and link-proven removal
+  deletes the real runtime link, selection and registry. No executable plugin
+  resources or Agent session ran. Browser DOM verification confirmed Chinese readonly
+  reasons/warnings on `omp-work`; native terms and config_dir remain intact.
+- React Doctor reports no new issues against `ce96d5ce2` (`--base HEAD`). Its broader
+  branch scan still reports existing component maintainability warnings; scores across
+  different scopes are not comparable. Platform acceptance remains unverified.
+
+The review fixes are included in the OMP pull request branch. No release or
+real-user Agent mutation was performed.

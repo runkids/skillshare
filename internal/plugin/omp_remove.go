@@ -125,6 +125,54 @@ func (s *Service) ompRemovalPlan(b Binding, cacheRoot string) (*ompRemoval, erro
 		return nil, err
 	}
 	p.files = append(p.files, reg, pkg)
+	cfg, err := ompRemovalJSON(filepath.Join(root, "omp-plugins.lock.json"))
+	if err != nil {
+		return nil, err
+	}
+	runtimePlugins, err := ompRemovalObject(cfg, "plugins")
+	if err != nil {
+		return nil, err
+	}
+	// A missing manifest cannot prove the runtime name. Recover it only from
+	// one lock key whose scope-local link targets this exact retained cache.
+	matched := false
+	runtimeNames := map[string]string{}
+	for key := range runtimePlugins {
+		if len(key) > 214 || !ompRuntimeName.MatchString(key) {
+			return nil, fmt.Errorf("unsafe OMP runtime package name")
+		}
+		link := filepath.Join(root, "node_modules", filepath.FromSlash(key))
+		if err := ompSafePath(filepath.Dir(link)); err != nil {
+			return nil, err
+		}
+		target, err := os.Readlink(link)
+		if err != nil {
+			continue
+		}
+		if !filepath.IsAbs(target) {
+			target = filepath.Join(filepath.Dir(link), target)
+		}
+		target = filepath.Clean(target)
+		if _, exists := runtimeNames[target]; exists {
+			runtimeNames[target] = ""
+		} else {
+			runtimeNames[target] = key
+		}
+		if target != cache {
+			continue
+		}
+		if matched || pkg.body["name"] != nil && module != key {
+			return nil, fmt.Errorf("OMP runtime ownership is ambiguous")
+		}
+		module, matched = key, true
+	}
+	if pkg.body["name"] == nil && !matched {
+		_, registered := plugins[b.ID]
+		_, err := os.Lstat(filepath.Join(root, "node_modules"))
+		if registered || !os.IsNotExist(err) {
+			return nil, fmt.Errorf("OMP runtime name cannot be verified without its manifest or link")
+		}
+	}
 	for id, raw := range plugins {
 		var entries []struct{ Scope, InstallPath, Version string }
 		if json.Unmarshal(raw, &entries) != nil || len(entries) != 1 {
@@ -146,13 +194,15 @@ func (s *Service) ompRemovalPlan(b Binding, cacheRoot string) (*ompRemoval, erro
 			return nil, err
 		}
 		p.files = append(p.files, otherPkg)
+		if otherPkg.body["name"] == nil {
+			otherName = runtimeNames[filepath.Clean(e.InstallPath)]
+			if otherName == "" {
+				return nil, fmt.Errorf("another OMP runtime owner cannot be verified")
+			}
+		}
 		if strings.EqualFold(module, otherName) {
 			return nil, fmt.Errorf("OMP runtime package has another owner")
 		}
-	}
-	cfg, err := ompRemovalJSON(filepath.Join(root, "omp-plugins.lock.json"))
-	if err != nil {
-		return nil, err
 	}
 	manifest, err := ompRemovalJSON(filepath.Join(root, "package.json"))
 	if err != nil {

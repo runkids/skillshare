@@ -35,7 +35,10 @@ only the opposite scope visible from the current directory is also insufficient.
 The adapter therefore does not provide a complete OMP plugin lifecycle:
 
 - Reviewed local/Git marketplace installation is allowed only for OMP 18.6.1,
-  a verified cache root and a previously absent cache identity.
+  a verified cache root, a previously absent cache identity and an absent runtime
+  destination in the selected scope. The reviewed source establishes the runtime
+  package name; preview binds the destination and apply rechecks it before native
+  installation, which otherwise recursively removes that destination.
 - An unknown root/version/source or unreadable/linked/non-directory destination
   blocks installation. Reinstall picks a fresh marketplace/cache identity when
   retained cache exists; old content and shared registrations are never replaced.
@@ -45,7 +48,10 @@ The adapter therefore does not provide a complete OMP plugin lifecycle:
   entry, runtime selection and link, retaining all cache, marketplaces and plugin
   settings. The plugin is genuinely uninstalled in that scope, not disabled.
   Ambiguous JSON/ownership, version mismatch, foreign links, real module folders
-  and npm collisions refuse writes. Windows native writes require private ACLs.
+  and npm collisions refuse writes. A missing cache manifest requires a unique
+  runtime-lock key whose link targets the exact cache; otherwise active removal
+  fails closed instead of guessing the marketplace name. Windows native writes
+  require private ACLs.
 - Interrupted removal is retryable from retained cache and binding identity.
   Revisions include native registry, runtime lock, dependency/package metadata
   and link target. Skillshare removals share a lock, but native OMP plugin commands
@@ -72,6 +78,11 @@ No native trust prompt is bypassed and no extension code runs during management.
   runtime entries work with or without the optional root package manifest.
 - Native isolated tests reproduced the defect and verified blocked Skillshare
   operations preserve the affected registry, cache and project link.
+- Review follow-up in `omp-review-fix-verified-409` verified that an undeclared runtime
+  directory and its foreign file survive blocked preview/apply, an empty destination
+  accepts the inert plugin, unverifiable missing-manifest ownership blocks removal,
+  and missing cache metadata still permits complete scoped removal using the proven
+  runtime link name. No Agent or extension code ran.
 - `TestOMPRemoveRetainsCacheUsedByInvisibleProject`: user and project removal
   preserve foreign registry/link/cache, unrelated raw values and plugin settings.
 - `TestOMPRemovalRefusesForeignLinkAndStaleNativeFile`,

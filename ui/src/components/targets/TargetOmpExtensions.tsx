@@ -9,7 +9,7 @@ import DialogShell from '../DialogShell';
 import EmptyState from '../EmptyState';
 import Tooltip from '../Tooltip';
 import { PageSkeleton } from '../Skeleton';
-import { useT } from '../../i18n';
+import { messagesByLocale, useT } from '../../i18n';
 import { queryKeys } from '../../lib/queryKeys';
 import { fileName, shortenHome } from '../../lib/paths';
 
@@ -37,30 +37,24 @@ const selTone: Record<OmpExtensionRow['selection'], string> = { selected: 'ok', 
 const selOf = (on: boolean) => (on ? 'selected' : 'disabled');
 
 // Localize Skillshare's fixed inventory guidance; keep unknown diagnostics verbatim.
-const guidanceKeys = new Map([
-  ['Managed by Hooks; change it on the Hooks page.', 'hooksOwned'],
-  ['Hooks-owned file has drifted; resolve it on the Hooks page.', 'hooksDrift'],
-  ['Managed by its plugin; change it on the Plugins page.', 'pluginReadOnly'],
-  ['Ambient hooks use hook IDs and bypass the extension-module filter.', 'ambient'],
-  ['This file also loads through an explicit file or ambient hook that bypasses extension-module filtering.', 'bypass'],
-  ['Duplicate derived-name group: changing this ID affects multiple entries; rename or resolve the collision first.', 'collision'],
-  ['Effective selection could not be established.', 'unknownSelection'],
-  ['Explicit configured files bypass disabledExtensions; edit their configuration in OMP.', 'explicit'],
-  ['Unsupported extension entry-point type; selection is read-only.', 'entryType'],
-  ['Native gitignore filtering is not reproduced.', 'gitignore'],
-  ['Extension file is unreadable or exceeds the static inventory limit.', 'unreadable'],
-  ['Earlier native entry with the same derived name wins.', 'namePrecedence'],
-  ['Effective settings could not be established.', 'unknownSettings'],
-  ['Earlier absolute path wins; symlink aliases are not collapsed.', 'pathPrecedence'],
-  ['Entry is missing, unreadable, or not a regular file.', 'missing'],
-  ['Explicit file bypasses the extension-module disabled-name filter.', 'explicitNote'],
-  ['Managed by Hooks; review changes in the Hooks page.', 'hooksOwned'],
-  ['Hooks ownership record exists but the file has drifted; resolve it in Hooks before changing extension selection.', 'hooksDrift'],
-  ['Project plugin with the same package name wins.', 'projectPlugin'],
-]);
+const guidanceKeys = new Map(Object.entries(messagesByLocale.en)
+  .filter(([key]) => key.startsWith('targetDetail.ompExtensions.guidance.') || key === 'targetDetail.ompExtensions.pluginReadOnly')
+  .map(([key, text]) => [text, key]));
 const guidance = (text: string, t: T) => {
+  if (text === 'Managed by Hooks; review changes in the Hooks page.') return t('targetDetail.ompExtensions.guidance.hooksOwned');
+  if (text === 'Hooks ownership record exists but the file has drifted; resolve it in Hooks before changing extension selection.') return t('targetDetail.ompExtensions.guidance.hooksDrift');
   const key = guidanceKeys.get(text);
-  return key ? t(`targetDetail.ompExtensions.${key === 'pluginReadOnly' ? key : `guidance.${key}`}`) : text;
+  if (key) return t(key);
+  // Only canonical guidance templates are translated; paths and unknown diagnostics stay verbatim.
+  for (const [template, key] of guidanceKeys) {
+    const marker = template.indexOf('{path}');
+    if (marker < 0 || template.includes('{name}')) continue;
+    const prefix = template.slice(0, marker), suffix = template.slice(marker + 6);
+    if (text.startsWith(prefix) && text.endsWith(suffix)) return t(key, { path: text.slice(prefix.length, suffix ? -suffix.length : undefined) });
+  }
+  const unsupported = text.match(/^Unsupported (.+) (list|entry) in (.+)$/s);
+  if (unsupported) return t(`targetDetail.ompExtensions.guidance.unsupported${unsupported[2] === 'list' ? 'List' : 'Entry'}`, { name: unsupported[1], path: unsupported[3] });
+  return text;
 };
 
 function ExtensionsView({ name, view, pending, setPending, applied, setApplied, t }: { name: string; view: OmpExtensionsView; pending: Pending; setPending: (p: Pending) => void; applied: string; setApplied: (p: string) => void; t: T }) {
@@ -80,17 +74,16 @@ function ExtensionsView({ name, view, pending, setPending, applied, setApplied, 
   return (
     <div className="flex flex-col gap-5">
       {applied && <div className="ss-note ok" role="status"><CircleCheck size={16} /><span className="flex-1">{t('targetDetail.ompExtensions.applied', { path: shortenHome(applied) })}</span></div>}
-      {/* Reasons and warnings come from the server as written; they name files and settings, not UI state. */}
       {view.readOnly && (
         <div className="ss-note warn">
           <Lock size={16} />
           <div className="min-w-0 flex-1">
             {t('targetDetail.ompExtensions.readOnly', { name })}
-            {view.reasons.length > 0 && <ul className="mt-1 list-disc pl-4">{view.reasons.map((r) => <li key={r}>{r}</li>)}</ul>}
+            {view.reasons.length > 0 && <ul className="mt-1 list-disc pl-4">{view.reasons.map((r) => <li key={r}>{guidance(r, t)}</li>)}</ul>}
           </div>
         </div>
       )}
-      {view.warnings.map((w) => <div key={w} className="ss-note warn" role="alert"><AlertCircle size={16} /><span className="flex-1">{w}</span></div>)}
+      {view.warnings.map((w) => <div key={w} className="ss-note warn" role="alert"><AlertCircle size={16} /><span className="flex-1">{guidance(w, t)}</span></div>)}
       <p className="flex items-center gap-1.5 text-[13px] text-ink-2">
         <span>{t('targetDetail.ompExtensions.hint', { name, path: shortenHome(view.settingsPath) })}</span>
         <Tooltip content={<span className="flex flex-col gap-2"><span>{t('targetDetail.ompExtensions.switchHint')}</span><span>{t('targetDetail.ompExtensions.footer')}</span></span>}>
@@ -213,7 +206,7 @@ function Row({ row, dir, name, switchable, showLock, draft, onFlip, t }: { row: 
         : <span className={`ss-st ${selTone[row.selection]} w-[38px] shrink-0 justify-center`} aria-hidden />}
       <span className="flex min-w-0 flex-1 flex-col gap-1">
         <span className="flex min-w-0 flex-wrap items-center gap-2">
-          <span title={row.path} className="truncate font-mono text-[13px] font-semibold">{row.path.slice(dir.length) || row.name}</span>
+          <span title={row.path} className="truncate font-mono text-[13px] font-semibold">{row.path.slice(dir.length) || guidance(row.name, t)}</span>
           {hooksLink && <Link to={hooksLink} className="ss-tag hover:text-ink">{t('targetDetail.ompExtensions.managedInHooks')}</Link>}
           {showLock && <span className="ss-tag"><Lock size={11} />{t('targetDetail.ompExtensions.readOnlyTag')}</span>}
         </span>
@@ -277,7 +270,7 @@ function ReviewDialog({ name, view, changes, onClose, onApplied, t }: { name: st
                 </li>
               ))}
             </ul>
-            {plan.warnings.map((w) => <div key={w} className="ss-note warn" role="alert"><AlertCircle size={16} /><span className="flex-1">{w}</span></div>)}
+            {plan.warnings.map((w) => <div key={w} className="ss-note warn" role="alert"><AlertCircle size={16} /><span className="flex-1">{guidance(w, t)}</span></div>)}
             <p className="text-[12.5px] text-ink-2">{t('targetDetail.ompExtensions.dialog.kept')}</p>
             <p className="text-[12.5px] text-ink-3">{t('targetDetail.ompExtensions.dialog.revision', { revision: plan.revision.slice(0, 7) })}</p>
           </>

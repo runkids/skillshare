@@ -223,6 +223,7 @@ type Change struct {
 	piSettingsHash string
 	piRestores     map[string]piRestoreReceipt
 	ompRemoval     *ompRemoval
+	ompRuntimePath string
 	// piRecordAfter records the entry Pi writes on install, which keeps another version's filters.
 	piRecordAfter bool
 	Name          string `json:"name"`
