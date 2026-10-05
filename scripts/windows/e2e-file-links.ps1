@@ -90,11 +90,12 @@ extras:
       - path: '$H\.codex'
 "@ | Set-Content "$env:APPDATA\skillshare\config.yaml"
 
-Section 'isolation check (doctor Config line)'
-$doc = & $Exe doctor 2>&1 | ForEach-Object { "$_" }
-$cfgLine = ($doc | Select-String 'Config:' | Select-Object -First 1) -join ''
-Log $cfgLine.Trim()
-if ($cfgLine -notlike "*$Root*") { Log 'ABORT: config is not under the test root'; Log 'DONE'; exit 1 }
+# status --json reports the source from the loaded config; it matches only the config written above.
+# (doctor prints the config path shortened to ~, so its text cannot prove the path is under $Root.)
+Section 'isolation check (status --json source.path)'
+$st = try { (& $Exe status --json 2> "$env:TEMP\stderr.txt" | Out-String) | ConvertFrom-Json } catch { $null }
+Log "source.path=$($st.source.path)"
+if (-not $st -or ($st.source.path.TrimEnd('\') -ine "$S\skills")) { Log 'ABORT: config is not under the test root'; Log 'DONE'; exit 1 }
 
 $paths = @("$H\.claude\skills\demo-skill", "$H\.claude\agents\demo-agent.md", "$H\.claude\rules\style.md", "$H\.codex\AGENTS.md")
 $manifests = @("$H\.claude\skills", "$H\.claude\agents", "$H\.claude\rules", "$H\.codex")

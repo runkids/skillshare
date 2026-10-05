@@ -45,7 +45,7 @@ func readIgnoreLocal(ignorePath string) *ignoreLocalFile {
 func (s *Server) handleGetSkillignore(w http.ResponseWriter, r *http.Request) {
 	// Snapshot source path under RLock, then release before I/O.
 	s.mu.RLock()
-	source := s.cfg.EffectiveSkillsSource()
+	source := s.skillsSource()
 	s.mu.RUnlock()
 
 	ignorePath := filepath.Join(source, ".skillignore")
@@ -96,7 +96,7 @@ func (s *Server) handlePutSkillignore(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	source := s.cfg.EffectiveSkillsSource()
+	source := s.skillsSource()
 	ignorePath := filepath.Join(source, ".skillignore")
 
 	if body.Raw == "" {

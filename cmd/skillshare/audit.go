@@ -205,11 +205,6 @@ func cmdAudit(args []string) error {
 		cfgPath = config.ConfigPath()
 	}
 
-	// When kind is agents-only, override sourcePath to the agents source directory.
-	if kind == kindAgents && agentsSourcePath != "" {
-		sourcePath = agentsSourcePath
-	}
-
 	policy := audit.ResolvePolicy(audit.PolicyInputs{
 		Profile:          opts.Profile,
 		Threshold:        opts.Threshold,
@@ -241,7 +236,11 @@ func cmdAudit(args []string) error {
 	case isSinglePath:
 		results, summary, err = auditPath(opts.Targets[0], modeString(mode), projectRoot, threshold, opts.Format, opts.PolicyLine, registry)
 	case isSingleName:
-		results, summary, err = auditSkillByName(sourcePath, opts.Targets[0], modeString(mode), projectRoot, threshold, opts.Format, opts.PolicyLine, kind, registry)
+		nameSource := sourcePath
+		if kind == kindAgents {
+			nameSource = agentsSourcePath
+		}
+		results, summary, err = auditSkillByName(nameSource, opts.Targets[0], modeString(mode), projectRoot, threshold, opts.Format, opts.PolicyLine, kind, registry)
 	default:
 		results, summary, err = auditFiltered(sourcePath, agentsSourcePath, opts.Targets, opts.Groups, modeString(mode), projectRoot, threshold, kind, opts, registry)
 	}
@@ -534,7 +533,7 @@ func auditInstalled(sourcePath, agentsSourcePath, mode, projectRoot, threshold s
 	var skillPaths []auditSkillRef
 	var err error
 	if kind == kindAgents {
-		skillPaths, err = collectInstalledAgentPaths(sourcePath)
+		skillPaths, err = collectInstalledAgentPaths(agentsSourcePath)
 	} else {
 		skillPaths, err = collectInstalledSkillPaths(sourcePath)
 	}
@@ -652,7 +651,7 @@ func auditFiltered(sourcePath, agentsSourcePath string, names, groups []string, 
 	var allSkills []auditSkillRef
 	var err error
 	if kind == kindAgents {
-		allSkills, err = collectInstalledAgentPaths(sourcePath)
+		allSkills, err = collectInstalledAgentPaths(agentsSourcePath)
 	} else {
 		allSkills, err = collectInstalledSkillPaths(sourcePath)
 	}
