@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.24.6](https://github.com/runkids/skillshare/compare/v0.24.5...v0.24.6) (2026-10-05)
+
+
+### New Features
+
+* **memory:** add a refresh button and keep short facts in INDEX.md ([#413](https://github.com/runkids/skillshare/issues/413)) ([a3afc5f](https://github.com/runkids/skillshare/commit/a3afc5f39a26e172e85b35a8cdaac1ab0944bef0))
+* **ui:** link each part of a target from the Targets list ([64b9255](https://github.com/runkids/skillshare/commit/64b92550757c798b80adfaf40854f131e64e747e))
+
+
+### Bug Fixes
+
+* **audit:** keep the skills source when auditing agents only ([#412](https://github.com/runkids/skillshare/issues/412)) ([d1371db](https://github.com/runkids/skillshare/commit/d1371db7ea2f924541b24b4bff8022975f91ecad))
+* **diff:** compare extension agent outputs and apply target filters ([#414](https://github.com/runkids/skillshare/issues/414)) ([72ed5ba](https://github.com/runkids/skillshare/commit/72ed5ba0fbf0bb9beaf3a2864c66c58c52495378))
+* **server:** reject skill names that escape the skills source ([#408](https://github.com/runkids/skillshare/issues/408)) ([c61f488](https://github.com/runkids/skillshare/commit/c61f48865ec5d038e556b2538f705ab4a5423efa)), closes [#402](https://github.com/runkids/skillshare/issues/402)
+* **status:** require a source fingerprint for extension outputs ([#416](https://github.com/runkids/skillshare/issues/416)) ([8879d44](https://github.com/runkids/skillshare/commit/8879d445ab847bf350594e601384e57f2bd0d17b)), closes [#415](https://github.com/runkids/skillshare/issues/415)
+* **ui:** put the hub filters on the title row ([0fe02dc](https://github.com/runkids/skillshare/commit/0fe02dc59bc39dcdf3a2250ae23fd86608695694))
+
 ## [0.24.5] - 2026-10-04
 
 ### New Features
