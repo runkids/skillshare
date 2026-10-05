@@ -73,7 +73,7 @@ Update notes when the user asks you to remember a decision.
 
 ![英文笔记的 Markdown 预览](/img/memory-note-demo.png)
 
-左侧树视图支持嵌套文件夹，上方有搜索框；右侧可切换 **Preview** / **Source**，较长的笔记会先折叠，点击 **Show all** 展开。笔记名称旁是 **Edit** 与 **More actions** 菜单，包含 **Copy file path**、**History**、**Move or rename** 与 **Delete note**；**Use with agents** 位于笔记下方。相对链接可在查看器中打开现有笔记。
+左侧树视图支持嵌套文件夹，上方有搜索框，旁边的 **Refresh** 按钮会在 Agent 从 dashboard 之外写入笔记后，重新加载列表与当前打开的笔记；右侧可切换 **Preview** / **Source**，较长的笔记会先折叠，点击 **Show all** 展开。笔记名称旁是 **Edit** 与 **More actions** 菜单，包含 **Copy file path**、**History**、**Move or rename** 与 **Delete note**；**Use with agents** 位于笔记下方。相对链接可在查看器中打开现有笔记。
 
 ![展开 wiki 的英文双栏 Memory 查看器](/img/memory-tree-demo.png)
 
@@ -103,7 +103,7 @@ Update notes when the user asks you to remember a decision.
 
 检查实际 read tool event，核对完整路径与临时值。在另一个已连接工具重复验证，再移除临时值。这是手动验证，Skillshare 没有保证可用的读取 telemetry。Agent 自称读过或显示 **Configured** 都不足以证明读取。
 
-需要记录经验时，请要求 Agent 更新 `LEARNED.md` 的背景、结论与证据。两种模式都会在每个 task 开始时读 `INDEX.md`。笔记由用户管理：`passive` 指引让 Agent 提出值得记的事实、只在用户要求时更新；`active` 指引则让 Agent 按上述规则把这类事实保存在这里，而不是工具自己的记忆。本功能不启用 native automatic memory、自动学习或 Obsidian 集成。
+需要记录经验时，请要求 Agent 更新 `LEARNED.md` 的背景、结论与证据。两种模式都会在每个 task 开始时读 `INDEX.md`。笔记由用户管理：`passive` 指引让 Agent 提出值得记的事实、只在用户要求时更新；`active` 指引则让 Agent 按上述规则把这类事实保存在这里，而不是工具自己的记忆：一两句话说得完的事实，直接作为 `INDEX.md` 中 `## Notes` 下的一个条目，较长的笔记才另建文件。本功能不启用 native automatic memory、自动学习或 Obsidian 集成。
 
 ## Project mode
 

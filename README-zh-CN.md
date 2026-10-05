@@ -46,7 +46,7 @@
 </p>
 
 > [!NOTE]
-> **最新版本**：v0.24.5 — Dashboard 的 Plugins 页面会显示每个 **Pi 包**的已安装版本，并检查 **npm 包**的更新，用 **Update** 按钮为该包运行 `pi update`；`status` 只计算 Target 会同步的 agent，转换过的 agent 与 include/exclude 不再显示为 drift；含便携 `plugin.json` 的 **Codex** plugin 也能再次更新。完整的新功能与修复见 [Releases](https://github.com/runkids/skillshare/releases) 和[更新日志](https://skillshare.runkids.cc/changelog)。
+> **最新版本**：v0.24.6 — `diff` 与 Dashboard 的 Sync 标签页不再把已同步的转换后 agent（Codex、OpenCode）列为待同步，并遵循各 Target 的 include/exclude；Targets 列表中 Target 的每一部分都直接链接到对应标签页；Memory 新增 **Refresh** 按钮，agent 会把简短的事实记在 `INDEX.md`；指向 skills 文件夹之外的 skill 名称会被 Dashboard 拒绝。完整的新功能与修复见 [Releases](https://github.com/runkids/skillshare/releases) 和[更新日志](https://skillshare.runkids.cc/changelog)。
 
 ## 为什么用 skillshare
 

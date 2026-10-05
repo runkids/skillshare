@@ -46,7 +46,7 @@
 </p>
 
 > [!NOTE]
-> **最新バージョン**：v0.24.5 — ダッシュボードの Plugins ページですべての **Pi パッケージ**のインストール済みバージョンを表示し、**npm パッケージ**の更新を確認できるようになりました。**Update** ボタンでそのパッケージの `pi update` を実行します。`status` は target が sync する agent だけを数えるため、変換された agent や include/exclude が drift として表示されなくなりました。ポータブルな `plugin.json` を含む **Codex** plugin の更新も再び動作します。新機能と修正の一覧は [Releases](https://github.com/runkids/skillshare/releases) と[変更履歴](https://skillshare.runkids.cc/changelog)をご覧ください。
+> **最新バージョン**：v0.24.6 — `diff` とダッシュボードの Sync タブは、sync 済みの変換された agent（Codex、OpenCode）を未同期として表示しなくなり、各 target の include/exclude にも従います。Targets 一覧では target の各項目から対応するタブへ直接移動できます。Memory に **Refresh** ボタンが加わり、agent は短い事実を `INDEX.md` に書きます。skills フォルダーの外を指す skill 名はダッシュボードで拒否されます。新機能と修正の一覧は [Releases](https://github.com/runkids/skillshare/releases) と[変更履歴](https://skillshare.runkids.cc/changelog)をご覧ください。
 
 ## skillshare を使う理由
 
