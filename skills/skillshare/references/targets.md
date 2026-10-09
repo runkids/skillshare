@@ -178,6 +178,7 @@ skillshare target claude --mode merge         # Per-skill symlinks (default)
 skillshare target claude --mode copy          # Real-file copies with manifest tracking
 skillshare target claude --mode symlink       # Entire dir symlinked
 skillshare target claude --mode copy -p       # Project target mode
+skillshare target claude --mode copy --target-naming prefixed  # Several settings are checked together and saved once
 ```
 
 | Mode | Description | Local Skills |

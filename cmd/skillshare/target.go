@@ -139,6 +139,7 @@ func printTargetHelp() {
 			helpRow{"skillshare target list", ""},
 			helpRow{"skillshare target cursor", ""},
 			helpRow{"skillshare target claude --agent-mode copy", ""},
+			helpRow{"skillshare target claude --mode copy --target-naming prefixed", ""},
 			helpRow{"skillshare target claude --add-include \"team-*\"", ""},
 			helpRow{"skillshare target claude --add-agent-include \"team-*\"", ""},
 			helpRow{"skillshare target claude --remove-include \"team-*\"", ""},
