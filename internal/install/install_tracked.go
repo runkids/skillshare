@@ -173,14 +173,12 @@ func installTrackedRepoImpl(source *Source, sourceDir string, opts InstallOption
 	if cloneBranch == "" {
 		cloneBranch = source.Branch
 	}
-	// --force clones beside the destination and swaps it in only after every
-	// check passed, so a failure never costs the existing repo.
+	// Clone beside the destination and move it in only after every check
+	// passed, so a failure never costs the existing repo, and cleanup never
+	// removes a destination another installer created meanwhile.
 	stamp := strconv.FormatInt(time.Now().UnixNano(), 36)
-	cloneRel, clonePath := destRel, destPath
-	if replacing {
-		cloneRel = filepath.Join(filepath.Dir(destRel), ".skillshare-clone-"+stamp)
-		clonePath = filepath.Join(sourceDir, cloneRel)
-	}
+	cloneRel := filepath.Join(filepath.Dir(destRel), ".skillshare-clone-"+stamp)
+	clonePath := filepath.Join(sourceDir, cloneRel)
 	installed := false
 	defer func() {
 		if !installed {
@@ -241,9 +239,7 @@ func installTrackedRepoImpl(source *Source, sourceDir string, opts InstallOption
 
 	// Security audit on the entire tracked repo. Accepted findings are keyed by
 	// the final path, not the staging one.
-	if replacing {
-		opts.AuditAcceptRoot, opts.AuditAcceptPath = opts.auditAcceptTarget(destPath)
-	}
+	opts.AuditAcceptRoot, opts.AuditAcceptPath = opts.auditAcceptTarget(destPath)
 	if err := auditTrackedRepo(clonePath, result, opts); err != nil {
 		return nil, err
 	}
@@ -263,6 +259,8 @@ func installTrackedRepoImpl(source *Source, sourceDir string, opts InstallOption
 		if err := src.RemoveAll(backup); err != nil {
 			result.Warnings = append(result.Warnings, fmt.Sprintf("failed to remove the previous repo %s: %v", backup, err))
 		}
+	} else if err := src.Rename(cloneRel, destRel); err != nil {
+		return nil, fmt.Errorf("failed to move the new clone into place: %w", err)
 	}
 	installed = true
 

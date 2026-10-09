@@ -458,3 +458,24 @@ func TestInstallTrackedRepo_ForceReportsRootSkillUnderFinalName(t *testing.T) {
 		t.Errorf("Skills = %v, want [_foo]", result.Skills)
 	}
 }
+
+func TestInstallTrackedRepo_KeepsDestinationClaimedByAnotherInstaller(t *testing.T) {
+	remoteURL := makeRemote(t, "")
+	sourceDir := t.TempDir()
+	source := &Source{Type: SourceTypeGitHTTPS, Raw: remoteURL, CloneURL: remoteURL}
+	theirs := filepath.Join(sourceDir, "_foo", "theirs.txt")
+	claim := func(string) {
+		// Another process creates the destination while this clone runs.
+		if err := os.MkdirAll(filepath.Dir(theirs), 0755); err == nil {
+			_ = os.WriteFile(theirs, []byte("x"), 0644)
+		}
+	}
+
+	_, err := InstallTrackedRepo(source, sourceDir, InstallOptions{Name: "foo", OnProgress: claim})
+	if err == nil {
+		t.Fatal("expected the install to fail when the destination was claimed meanwhile")
+	}
+	if _, statErr := os.Stat(theirs); statErr != nil {
+		t.Fatalf("the other installer's checkout must survive: %v", statErr)
+	}
+}
