@@ -2,6 +2,7 @@ package install
 
 import (
 	"fmt"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -9,14 +10,15 @@ import (
 	"skillshare/internal/sourcefs"
 )
 
-// localFileURL builds the file:// URL for a local path; a Windows drive path
-// (C:/repo) needs the empty authority: file:///C:/repo.
+// localFileURL builds the file:// URL for a local path. A Windows drive path
+// (C:/repo) needs the empty authority (file:///C:/repo), and characters such as
+// spaces, '#' and '%' must be escaped because git decodes the URL.
 func localFileURL(path string) string {
 	p := filepath.ToSlash(path)
 	if !strings.HasPrefix(p, "/") {
 		p = "/" + p
 	}
-	return "file://" + p
+	return (&url.URL{Scheme: "file", Path: p}).String()
 }
 
 // normalizeTrackSource turns a local path that is a git repository into the

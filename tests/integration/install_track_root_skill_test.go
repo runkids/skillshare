@@ -357,13 +357,13 @@ func TestInstall_Track_LocalGitPath(t *testing.T) {
 	defer sb.Cleanup()
 	setupGlobalConfig(sb)
 
-	repo := filepath.Join(sb.Root, "local-repo")
+	repo := filepath.Join(sb.Root, "local repo%20x")
 	run(t, "", "git", "init", "--initial-branch=main", repo)
 	os.WriteFile(filepath.Join(repo, "SKILL.md"), []byte("---\nname: local-repo\n---\n# s\n"), 0644)
 	run(t, repo, "git", "add", "-A")
 	run(t, repo, "git", "commit", "-m", "initial")
 
-	result := sb.RunCLI("install", repo, "--track", "--branch", "main", "--skip-audit")
+	result := sb.RunCLI("install", repo, "--track", "--name", "local-repo", "--branch", "main", "--skip-audit")
 	result.AssertSuccess(t)
 
 	if !sb.FileExists(filepath.Join(sb.SourcePath, "_local-repo", "SKILL.md")) {

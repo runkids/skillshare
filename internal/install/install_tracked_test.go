@@ -284,6 +284,9 @@ func TestLocalFileURL_KeepsWindowsDriveInPath(t *testing.T) {
 	if got := localFileURL("/tmp/repo"); got != "file:///tmp/repo" {
 		t.Errorf("localFileURL(/tmp/repo) = %q, want file:///tmp/repo", got)
 	}
+	if got := localFileURL("/tmp/my repo%20x#1"); got != "file:///tmp/my%20repo%2520x%231" {
+		t.Errorf("localFileURL escaping = %q, want file:///tmp/my%%20repo%%2520x%%231", got)
+	}
 }
 
 func TestParseSource_ExplicitUNCFileURLKeepsAuthority(t *testing.T) {
