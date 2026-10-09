@@ -154,20 +154,15 @@ See [Tracked Repositories](/docs/understand/tracked-repositories#nested-skills--
 
 When multiple skills share the same `name` field, sync checks whether they actually land on the same target after `include`/`exclude` filters are applied.
 
-**Filters isolate the collision** — informational only:
-
-```
-ℹ Duplicate skill names exist but are isolated by target filters:
-  'ui' (2 definitions)
-```
+**Filters isolate the collision** — nothing is printed; the skills never reach the same target.
 
 **Collision reaches the same target** — actionable warning:
 
 ```
-⚠ Target 'claude': skill name 'ui' is defined in multiple places:
-  - _team-a/frontend/ui
-  - _team-b/components/ui
-Rename one in SKILL.md or adjust include/exclude filters
+! 1 duplicate skill names detected
+  ui                              _team-a/ vs _team-b/
+  Rename one in SKILL.md or adjust include/exclude filters
+  1 name collision(s) excluded
 ```
 
 **Solution:** Use namespaced names or route with filters:

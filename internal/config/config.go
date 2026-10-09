@@ -1,6 +1,7 @@
 package config
 
 import (
+	"cmp"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -60,6 +61,25 @@ func TargetNamingModeError(naming, mode string) error {
 		return nil
 	}
 	return fmt.Errorf("target naming %q requires copy mode, but the target syncs in %q mode", "prefixed", mode)
+}
+
+// TargetNamingModeConfigError is TargetNamingModeError for a target as written in a
+// config file, with the fix.
+func TargetNamingModeConfigError(naming, mode string) error {
+	err := TargetNamingModeError(naming, mode)
+	if err == nil {
+		return nil
+	}
+	return fmt.Errorf("%w; set mode: copy on the target", err)
+}
+
+// NamingModeConfigError is TargetNamingModeConfigError for a target that syncs skills,
+// nil when skills are off. defaultMode is the mode a target without its own inherits.
+func (r ResourceTargetConfig) NamingModeConfigError(defaultMode string) error {
+	if !r.IsEnabled() {
+		return nil
+	}
+	return TargetNamingModeConfigError(r.TargetNaming, cmp.Or(r.Mode, defaultMode))
 }
 
 // NewTargetSkillsMode is the skills mode a new target is written with: copy when it

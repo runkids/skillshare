@@ -101,8 +101,22 @@ func TestSync_TargetNamingPrefixed_RejectedOutsideCopyMode(t *testing.T) {
 	result := sb.RunCLI("sync")
 	result.AssertFailure(t)
 	result.AssertAnyOutputContains(t, `target naming "prefixed" requires copy mode`)
+	result.AssertAnyOutputContains(t, "set mode: copy on the target")
 	if entries := sb.ListDir(targetPath); len(entries) != 0 {
 		t.Fatalf("merge target was written: %v", entries)
+	}
+}
+
+func TestPrefixedNamingOutsideCopyMode_IsFlaggedBeforeSync(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	targetPath := prefixedFixture(t, sb)
+	writeNamingConfig(sb, targetPath, "prefixed", "merge")
+
+	for _, args := range [][]string{{"status"}, {"doctor"}, {"target", "list", "--no-tui"}, {"target", "list", "--json"}} {
+		t.Run(strings.Join(args, " "), func(t *testing.T) {
+			sb.RunCLI(args...).AssertAnyOutputContains(t, "set mode: copy on the target")
+		})
 	}
 }
 
@@ -297,7 +311,9 @@ func TestTargetAdd_GlobalPrefixedNamingUnderMergeUsesCopyMode(t *testing.T) {
 	writeNamingConfig(sb, targetPath, "prefixed", "copy")
 	sb.WriteConfig(strings.Replace(sb.ReadFile(sb.ConfigPath), "targets:", "mode: merge\ntargets:", 1))
 
-	sb.RunCLI("target", "add", "cursor", sb.CreateTarget("cursor")).AssertSuccess(t)
+	added := sb.RunCLI("target", "add", "cursor", sb.CreateTarget("cursor"))
+	added.AssertSuccess(t)
+	added.AssertOutputContains(t, "mode copy")
 	sb.RunCLI("sync").AssertOutputNotContains(t, "requires copy mode")
 }
 
@@ -335,6 +351,10 @@ func TestSync_TargetNamingPrefixed_ReportsCollisionsOnlyThePrefixCreates(t *test
 	result.AssertSuccess(t)
 	result.AssertOutputContains(t, "duplicate skill names")
 	result.AssertOutputContains(t, "_a/ vs a-b-c/")
+	// The tracked skill cannot be renamed in SKILL.md; say what prefixing did and what to change.
+	result.AssertOutputContains(t, "Prefixed naming renamed a tracked skill")
+	result.AssertOutputContains(t, "--name")
+	result.AssertOutputNotContains(t, "Rename one in SKILL.md")
 }
 
 func TestSync_TargetNamingPrefixed_FromMergeFlatPrunesLinksAndCopies(t *testing.T) {
@@ -348,7 +368,7 @@ func TestSync_TargetNamingPrefixed_FromMergeFlatPrunesLinksAndCopies(t *testing.
 	writeNamingConfig(sb, targetPath, "prefixed", "copy")
 	result := sb.RunCLI("sync")
 	result.AssertSuccess(t)
-	// Prefixing, not a filter, keeps the two prototypes apart.
-	result.AssertAnyOutputContains(t, "isolated by target filters or naming")
+	// Prefixing keeps the two prototypes apart, so there is nothing to report.
+	result.AssertOutputNotContains(t, "duplicate skill names")
 	assertEntries(t, sb, targetPath, "bmad-ux", "emil-design-prototype", "mattpocock-skills-prototype", "my-skill")
 }

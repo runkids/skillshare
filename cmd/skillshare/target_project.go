@@ -98,7 +98,8 @@ func targetAddProject(args []string, root string) error {
 	if noSkills {
 		entry.EnsureSkills().SetEnabled(false)
 	}
-	if mode := config.NewTargetSkillsMode(cfg.TargetNaming, ""); mode != "" {
+	mode := config.NewTargetSkillsMode(cfg.TargetNaming, "")
+	if mode != "" {
 		entry.EnsureSkills().Mode = mode // a project target defaults to merge
 	}
 
@@ -113,7 +114,7 @@ func targetAddProject(args []string, root string) error {
 		}
 	}
 
-	reportTargetAdded(name, path, noSkills)
+	reportTargetAdded(name, path, noSkills, mode)
 	return nil
 }
 

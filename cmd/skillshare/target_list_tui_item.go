@@ -22,6 +22,8 @@ type targetTUIItem struct {
 	skillSyncText string
 	agentConfig   config.ResourceTargetConfig
 	agentSummary  *targetsummary.AgentSummary
+	// namingErr is why sync will fail for this target's naming and mode, with the fix.
+	namingErr error
 }
 
 func (i targetTUIItem) FilterValue() string { return i.name }

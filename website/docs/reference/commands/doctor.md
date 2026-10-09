@@ -134,6 +134,7 @@ Each target shows sub-items for **skills** and **agents** (when agents are confi
   - `merge` mode: skipped (local skills are expected)
   - `copy` mode: manifest-managed copies are ignored; only local colliding copies are warned
 - Valid include/exclude glob patterns
+- Naming and mode: a target that resolves to `prefixed` outside copy mode is an error, because sync would skip it
 - Info-level per-target compatibility hint when applicable (example target priority: `cursor` → `antigravity` → `copilot` → `opencode`; no hint when these targets are absent)
 
 ### Path Overlap

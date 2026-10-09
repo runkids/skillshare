@@ -541,7 +541,7 @@ func TestValidateConfigForSync_PrefixedNamingRequiresCopyMode(t *testing.T) {
 		},
 	}
 	_, invalid, err := ValidateConfigForSync(cfg)
-	if err != nil || len(invalid) != 1 || invalid["merge"] == nil || !strings.Contains(invalid["merge"].Error(), `target naming "prefixed" requires copy mode`) {
+	if err != nil || len(invalid) != 1 || invalid["merge"] == nil || !strings.Contains(invalid["merge"].Error(), `target naming "prefixed" requires copy mode`) || !strings.Contains(invalid["merge"].Error(), "set mode: copy on the target") {
 		t.Fatalf("err = %v, invalid = %v; want only merge invalid", err, invalid)
 	}
 }
@@ -597,5 +597,28 @@ func TestValidateConfigForSync_SkillsOffSkipsNamingModeCheck(t *testing.T) {
 	off.SetEnabled(false)
 	if err := cfg.ProjectNamingError(map[string]ManagedProject{"~/work/app": {Skills: off}}, "merge"); err != nil {
 		t.Fatalf("managed project: %v", err)
+	}
+}
+
+func TestResourceTargetConfig_NamingModeConfigError(t *testing.T) {
+	off := false
+	for _, tc := range []struct {
+		name string
+		sc   ResourceTargetConfig
+		mode string
+		want bool
+	}{
+		{"prefixed inheriting merge", ResourceTargetConfig{TargetNaming: "prefixed"}, "merge", true},
+		{"prefixed inheriting the default", ResourceTargetConfig{TargetNaming: "prefixed"}, "", true},
+		{"own copy mode wins", ResourceTargetConfig{TargetNaming: "prefixed", Mode: "copy"}, "merge", false},
+		{"skills off", ResourceTargetConfig{TargetNaming: "prefixed", Enabled: &off}, "merge", false},
+	} {
+		err := tc.sc.NamingModeConfigError(tc.mode)
+		if got := err != nil; got != tc.want {
+			t.Errorf("%s: error = %v, want error %v", tc.name, err, tc.want)
+		}
+		if err != nil && !strings.Contains(err.Error(), "set mode: copy on the target") {
+			t.Errorf("%s: %q has no fix", tc.name, err)
+		}
 	}
 }

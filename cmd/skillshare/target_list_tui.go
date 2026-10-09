@@ -197,6 +197,7 @@ func buildTargetTUIItems(isProject bool, cwd string) ([]targetTUIItem, error) {
 				skillSyncText: skillSyncText,
 				agentConfig:   config.ResourceTargetConfig{Mode: agentSummaryMode(agentSummary), Include: agentSummaryInclude(agentSummary), Exclude: agentSummaryExclude(agentSummary)},
 				agentSummary:  agentSummary,
+				namingErr:     resolved.SkillsConfig().NamingModeConfigError(""),
 			})
 		}
 	} else {
@@ -222,6 +223,7 @@ func buildTargetTUIItems(isProject bool, cwd string) ([]targetTUIItem, error) {
 				skillSyncText: skillSyncText,
 				agentConfig:   config.ResourceTargetConfig{Mode: agentSummaryMode(agentSummary), Include: agentSummaryInclude(agentSummary), Exclude: agentSummaryExclude(agentSummary)},
 				agentSummary:  agentSummary,
+				namingErr:     t.SkillsConfig().NamingModeConfigError(cfg.Mode),
 			})
 		}
 	}

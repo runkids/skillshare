@@ -134,6 +134,7 @@ Source link 檢查在 global 與 project mode 都會執行。source 根目錄依
   - `merge` 模式：跳過（本機 skills 屬於預期情況）
   - `copy` 模式：由 manifest 管理的副本會被忽略；只有本機衝突的副本會被警告
 - 有效的 include/exclude glob patterns
+- Naming 與 mode：在 copy 以外的 mode 下解析為 `prefixed` 的 target 會被標為錯誤，因為 sync 會略過它
 - 適用時提供資訊層級的每個 target 相容性提示（範例 target 優先順序：`cursor` → `antigravity` → `copilot` → `opencode`；若這些 targets 都不存在則不會顯示提示）
 
 ### Path Overlap

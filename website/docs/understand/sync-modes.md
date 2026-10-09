@@ -263,12 +263,12 @@ skillshare sync
 
 - A name that already starts with the repo name is not prefixed again: `_bmad/skills/bmad-ux` stays `bmad-ux`.
 - Skills outside tracked repos keep their name.
-- The source skill must pass the `standard` checks first. A prefixed name longer than 64 characters is skipped with a warning, and names that still collide are skipped as in `standard`.
+- The source skill must pass the `standard` checks first. A prefixed name longer than 64 characters is skipped with a warning, and names that still collide are skipped as in `standard`. The sync output then says the prefix caused it; rename the other skill or re-track the repo with `--name`.
 - For a shorter prefix, track the repo under a short name: `skillshare install <repo> --track --name mp` gives `mp-prototype`.
 - Relative links to sibling skills (`../other-skill/`) are not rewritten, the same as `flat` in copy mode.
 - The name becomes what the tool shows; in Claude Code it is the slash command, e.g. `/mattpocock-skills-prototype`.
 
-`prefixed` needs copy mode because merge links point at the source, where `name:` cannot change. A target that resolves to `prefixed` in merge or symlink mode fails validation and is skipped by sync. When a new target would inherit `prefixed` in a mode other than copy (a project target defaults to merge), `target add` gives it copy mode.
+`prefixed` needs copy mode because merge links point at the source, where `name:` cannot change. A target that resolves to `prefixed` in merge or symlink mode fails validation and is skipped by sync. When a new target would inherit `prefixed` in a mode other than copy (a project target defaults to merge), `target add` gives it copy mode. `target add` says so when it does, and `status`, `doctor` and `target list` flag a target that resolves to `prefixed` without copy mode before you sync; the fix is `mode: copy` on the target.
 
 ```yaml
 targets:

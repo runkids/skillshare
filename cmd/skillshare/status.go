@@ -325,6 +325,9 @@ func printTargetsStatus(cfg *config.Config, discovered []sync.DiscoveredSkill) e
 		sc := target.SkillsConfig()
 		mode := getTargetMode(sc.Mode, cfg.Mode)
 		res := getTargetStatusDetail(target, cfg.EffectiveSkillsSource(), mode)
+		if err := sc.NamingModeConfigError(mode); err != nil {
+			warnings = append(warnings, name+": "+err.Error())
+		}
 
 		// A target with skills off expects nothing, so it has no drift.
 		expected := 0

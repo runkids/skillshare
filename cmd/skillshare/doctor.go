@@ -582,6 +582,16 @@ func checkTargets(cfg *config.Config, result *doctorResult, isProject bool) map[
 			hasError = true
 			continue
 		}
+		if err := config.TargetNamingModeConfigError(sc.TargetNaming, mode); err != nil {
+			row(ui.MarkFail, "skills", err.Error()+ui.DimText(" · "+mode))
+			result.addError()
+			details = append(details, fmt.Sprintf("%s: %v", name, err))
+			hasError = true
+			if agentsExist {
+				checkAgentTargetInline(name, target, builtinAgents, discoveredAgents, result, row)
+			}
+			continue
+		}
 		if mode == "symlink" && (len(sc.Include) > 0 || len(sc.Exclude) > 0) {
 			row(ui.MarkWarn, "skills", "include/exclude ignored in symlink mode")
 			result.addWarning()

@@ -157,6 +157,8 @@ skillshare target list --json
 }
 ```
 
+`warning` は、sync がその Target を拒否する場合（例：copy 以外の mode での `prefixed` naming）にのみ追加され、修正方法も示されます。
+
 ### target info / settings
 
 Target の詳細を表示、または設定を変更します。

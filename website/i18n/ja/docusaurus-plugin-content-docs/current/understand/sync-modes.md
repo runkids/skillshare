@@ -264,12 +264,12 @@ skillshare sync
 
 - 名前がすでに repo 名で始まっている場合は、再度プレフィックスを付けません: `_bmad/skills/bmad-ux` は `bmad-ux` のままです。
 - tracked repo の外にある Skill は名前をそのまま保ちます。
-- source の Skill は、まず `standard` のチェックを通過する必要があります。prefixed 名が 64 文字を超える場合は警告付きでスキップされ、それでも名前が衝突する場合は `standard` と同様にスキップされます。
+- source の Skill は、まず `standard` のチェックを通過する必要があります。prefixed 名が 64 文字を超える場合は警告付きでスキップされ、それでも名前が衝突する場合は `standard` と同様にスキップされます。その場合、sync の出力は prefix が原因であることを示します。もう一方の Skill の名前を変えるか、`--name` で repo を再度 track してください。
 - より短いプレフィックスにしたい場合は、repo を短い名前で track します: `skillshare install <repo> --track --name mp` は `mp-prototype` になります。
 - 兄弟 Skill への相対リンク（`../other-skill/`）は書き換えられません。これは copy mode の `flat` と同じです。
 - この名前がツールに表示される名前になります。Claude Code ではスラッシュコマンドになります。例: `/mattpocock-skills-prototype`。
 
-`prefixed` は copy mode が必要です。merge のリンクは source を指しており、そこでは `name:` を変更できないためです。merge mode または symlink mode で `prefixed` に解決される Target は、バリデーションに失敗し、sync でスキップされます。新しい Target が copy 以外の mode で `prefixed` を継承する場合（プロジェクトの Target は既定で merge）、`target add` はその Target を copy mode にします。
+`prefixed` は copy mode が必要です。merge のリンクは source を指しており、そこでは `name:` を変更できないためです。merge mode または symlink mode で `prefixed` に解決される Target は、バリデーションに失敗し、sync でスキップされます。新しい Target が copy 以外の mode で `prefixed` を継承する場合（プロジェクトの Target は既定で merge）、`target add` はその Target を copy mode にします。`target add` はそうしたときにその旨を表示します。また `status`、`doctor`、`target list` は、copy 以外の mode で `prefixed` に解決される Target を sync の前に警告します。対処は、その Target に `mode: copy` を設定することです。
 
 ```yaml
 targets:

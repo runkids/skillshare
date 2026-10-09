@@ -134,6 +134,7 @@ Source link の確認はグローバルモードとプロジェクトモード�
   - `merge` モード: スキップ（ローカルの Skill は想定内のため）
   - `copy` モード: マニフェストで管理されているコピーは無視され、ローカルで衝突しているコピーのみ警告
 - 有効な include/exclude glob パターン
+- Naming と mode：copy 以外の mode で `prefixed` に解決される Target はエラーになります。sync がスキップするためです
 - 該当する場合、Target ごとの情報レベルの互換性ヒント（Target の優先順位の例: `cursor` → `antigravity` → `copilot` → `opencode`。これらの Target が存在しない場合はヒントなし）
 
 ### パスの重複

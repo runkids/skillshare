@@ -157,6 +157,8 @@ skillshare target list --json
 }
 ```
 
+`warning` is added only when sync would reject the target, for example `prefixed` naming outside copy mode; the text says how to fix it.
+
 ### target info / settings
 
 Show target details or change settings.
