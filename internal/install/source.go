@@ -552,7 +552,12 @@ func parseSSHURL(matches []string, source *Source) (*Source, error) {
 
 // fileCloneURL builds the file:// URL git clones a local repository from.
 func fileCloneURL(path string) string {
-	return "file://" + filepath.ToSlash(path)
+	p := filepath.ToSlash(path)
+	// A Windows drive path (C:/repo) needs the empty authority: file:///C:/repo.
+	if !strings.HasPrefix(p, "/") {
+		p = "/" + p
+	}
+	return "file://" + p
 }
 
 func parseFileURL(matches []string, source *Source) (*Source, error) {

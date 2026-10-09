@@ -275,3 +275,13 @@ func TestInferTrackedKind_PlainLocalDirHintsFileURL(t *testing.T) {
 		t.Fatalf("want error naming file://, got %v", err)
 	}
 }
+
+func TestFileCloneURL_KeepsWindowsDriveInPath(t *testing.T) {
+	// Linux ToSlash leaves "/" alone, so this is the form a Windows path takes after ToSlash.
+	if got := fileCloneURL("C:/repo"); got != "file:///C:/repo" {
+		t.Errorf("fileCloneURL(C:/repo) = %q, want file:///C:/repo", got)
+	}
+	if got := fileCloneURL("/tmp/repo"); got != "file:///tmp/repo" {
+		t.Errorf("fileCloneURL(/tmp/repo) = %q, want file:///tmp/repo", got)
+	}
+}

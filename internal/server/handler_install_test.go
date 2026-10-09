@@ -347,3 +347,38 @@ func TestReloadSkillsStore_PicksUpNewEntry(t *testing.T) {
 		t.Errorf("Type = %q, want github-subdir", got.Type)
 	}
 }
+
+func TestHandleInstall_TrackAcceptsLocalGitPath(t *testing.T) {
+	s, skillsDir := newTestServer(t)
+
+	repoDir := t.TempDir()
+	initGitRepo(t, repoDir)
+	if err := os.WriteFile(filepath.Join(repoDir, "SKILL.md"), []byte("---\nname: local-tracked\n---\n# s"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	for _, args := range [][]string{{"add", "SKILL.md"}, {"commit", "-m", "add skill"}} {
+		cmd := exec.Command("git", args...)
+		cmd.Dir = repoDir
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("git %v failed: %s %v", args, out, err)
+		}
+	}
+
+	payload, _ := json.Marshal(map[string]any{"source": repoDir, "track": true, "skipAudit": true})
+	req := httptest.NewRequest(http.MethodPost, "/api/install", bytes.NewReader(payload))
+	rr := httptest.NewRecorder()
+	s.mux.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("unexpected status: got %d, body=%s", rr.Code, rr.Body.String())
+	}
+	var resp struct {
+		RepoName string `json:"repoName"`
+	}
+	if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(skillsDir, resp.RepoName, "SKILL.md")); err != nil {
+		t.Fatalf("expected tracked repo %q in skills source: %v", resp.RepoName, err)
+	}
+}
