@@ -298,3 +298,15 @@ func TestParseSource_ExplicitUNCFileURLKeepsAuthority(t *testing.T) {
 		t.Errorf("CloneURL = %q, want file://server/share/repo", source.CloneURL)
 	}
 }
+
+func TestInferTrackedKind_LocalBareRepoPath(t *testing.T) {
+	bare := strings.TrimPrefix(makeRemote(t, ""), "file://")
+
+	source, err := ParseSource(bare)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := InferTrackedKind(source, "skill"); err != nil {
+		t.Fatalf("local bare repo should be trackable: %v", err)
+	}
+}

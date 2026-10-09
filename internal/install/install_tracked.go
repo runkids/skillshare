@@ -24,7 +24,7 @@ func localFileURL(path string) string {
 // normalizeTrackSource turns a local path that is a git repository into the
 // file:// form that parseFileURL builds, and rejects other non-git sources.
 func normalizeTrackSource(source *Source) error {
-	if source.Type == SourceTypeLocalPath && IsGitRepo(source.Path) {
+	if source.Type == SourceTypeLocalPath && IsLocalGitRepo(source.Path) {
 		source.Type = SourceTypeGitHTTPS
 		source.CloneURL = localFileURL(source.Path)
 		return validateCloneURL(source.CloneURL)

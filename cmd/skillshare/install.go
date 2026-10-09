@@ -202,7 +202,7 @@ func parseInstallArgs(args []string) (*installArgs, bool, error) {
 	if result.opts.Branch != "" && result.sourceArg != "" {
 		source, parseErr := install.ParseSource(result.sourceArg)
 		trackableLocal := result.opts.Track && source != nil &&
-			source.Type == install.SourceTypeLocalPath && install.IsGitRepo(source.Path)
+			source.Type == install.SourceTypeLocalPath && install.IsLocalGitRepo(source.Path)
 		if parseErr == nil && !source.IsGit() && !trackableLocal {
 			return nil, false, fmt.Errorf("--branch can only be used with git repository sources")
 		}

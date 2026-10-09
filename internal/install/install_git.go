@@ -35,6 +35,17 @@ func IsGitRepo(path string) bool {
 	return err == nil && (info.IsDir() || info.Mode().IsRegular())
 }
 
+// IsLocalGitRepo reports whether path is the root of a git repository, either a
+// working tree (.git) or a bare repository (HEAD and objects at the root).
+func IsLocalGitRepo(path string) bool {
+	if IsGitRepo(path) {
+		return true
+	}
+	head, headErr := os.Stat(filepath.Join(path, "HEAD"))
+	objects, objErr := os.Stat(filepath.Join(path, "objects"))
+	return headErr == nil && head.Mode().IsRegular() && objErr == nil && objects.IsDir()
+}
+
 // IsTrackedCheckout reports whether path is a tracked repo checkout: a
 // _-prefixed directory that is a git repo.
 func IsTrackedCheckout(path string) bool {

@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"skillshare/internal/install"
@@ -368,5 +369,22 @@ func TestInstall_Track_LocalGitPath(t *testing.T) {
 
 	if !sb.FileExists(filepath.Join(sb.SourcePath, "_local-repo", "SKILL.md")) {
 		t.Fatalf("tracked repo should be cloned to _local-repo")
+	}
+}
+
+// TestInstall_Track_LocalBareRepoPath verifies --track also takes a local bare
+// repository path, as file:// does.
+func TestInstall_Track_LocalBareRepoPath(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	setupGlobalConfig(sb)
+
+	bare := strings.TrimPrefix(setupBareRepoWithRootSkill(t, sb, "bare-local"), "file://")
+
+	result := sb.RunCLI("install", bare, "--track", "--name", "bare-local", "--skip-audit")
+	result.AssertSuccess(t)
+
+	if !sb.FileExists(filepath.Join(sb.SourcePath, "_bare-local", "SKILL.md")) {
+		t.Fatalf("tracked repo should be cloned to _bare-local")
 	}
 }
