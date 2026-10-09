@@ -198,7 +198,7 @@ func (s *Server) computeTargetDiff(name string, target config.TargetConfig, disc
 			if !utils.PathsEqual(absLink, absSource) {
 				dt.Items = append(dt.Items, diffItem{Skill: resolved.TargetName, Action: "update", Reason: "symlink points elsewhere", Kind: kindSkill})
 			}
-		} else if manifest.IsCopyModeCopy(resolved.TargetName) {
+		} else if manifest.OwnsCopy(resolved.TargetName, targetSkillPath) {
 			dt.Items = append(dt.Items, diffItem{Skill: resolved.TargetName, Action: "update", Reason: ssync.CopyToLinkReason, Kind: kindSkill})
 		} else {
 			dt.Items = append(dt.Items, diffItem{Skill: resolved.TargetName, Action: "skip", Reason: "local copy (sync --force to replace)", Kind: kindSkill})

@@ -475,20 +475,23 @@ targets:
 	result.AssertOutputNotContains(t, ".system__example")
 }
 
+// singleTargetConfig is a config with one claude target in the given mode.
+func singleTargetConfig(source, targetPath, mode string) string {
+	return `source: ` + source + `
+targets:
+  claude:
+    path: ` + targetPath + `
+    mode: ` + mode + `
+`
+}
+
 func TestDiff_MergeMode_CopyModeCopy_SyncReplacesWithoutForce(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
 
 	sb.CreateSkill("skill-a", map[string]string{"SKILL.md": "---\nname: skill-a\n---\n# A"})
 	targetPath := sb.CreateTarget("claude")
-	config := func(mode string) string {
-		return `source: ` + sb.SourcePath + `
-targets:
-  claude:
-    path: ` + targetPath + `
-    mode: ` + mode + `
-`
-	}
+	config := func(mode string) string { return singleTargetConfig(sb.SourcePath, targetPath, mode) }
 
 	sb.WriteConfig(config("copy"))
 	sb.RunCLI("sync").AssertSuccess(t)
@@ -501,6 +504,34 @@ targets:
 	sb.RunCLI("sync").AssertSuccess(t)
 	if !sb.IsSymlink(filepath.Join(targetPath, "skill-a")) {
 		t.Error("sync should turn the copy-mode copy back into a link without --force")
+	}
+}
+
+func TestSync_MergeMode_EditedCopyModeCopy_NeedsForce(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sb.CreateSkill("skill-a", map[string]string{"SKILL.md": "---\nname: skill-a\n---\n# A"})
+	targetPath := sb.CreateTarget("claude")
+	config := func(mode string) string { return singleTargetConfig(sb.SourcePath, targetPath, mode) }
+
+	sb.WriteConfig(config("copy"))
+	sb.RunCLI("sync").AssertSuccess(t)
+	edited := filepath.Join(targetPath, "skill-a", "SKILL.md")
+	os.WriteFile(edited, []byte("# my edits"), 0644)
+	sb.WriteConfig(config("merge"))
+
+	sb.RunCLI("sync").AssertSuccess(t)
+	if sb.IsSymlink(filepath.Join(targetPath, "skill-a")) {
+		t.Fatal("an edited copy must survive sync without --force")
+	}
+	if got, _ := os.ReadFile(edited); string(got) != "# my edits" {
+		t.Errorf("edits lost: %q", got)
+	}
+
+	sb.RunCLI("sync", "--force").AssertSuccess(t)
+	if !sb.IsSymlink(filepath.Join(targetPath, "skill-a")) {
+		t.Error("--force should replace the edited copy")
 	}
 }
 

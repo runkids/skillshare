@@ -140,17 +140,32 @@ func TestSyncTargetMerge_ForceReplacesLocal(t *testing.T) {
 	}
 }
 
+// setupCopyModeCopy leaves tgt/name as copy mode would: a copy of the source
+// skill and a manifest entry holding the source checksum.
+func setupCopyModeCopy(t *testing.T, src, tgt, name string) string {
+	t.Helper()
+	patterns := DefaultFileIgnorePatterns()
+	sum, err := DirChecksumWithIgnore(filepath.Join(src, name), patterns)
+	if err != nil {
+		t.Fatal(err)
+	}
+	dst := filepath.Join(tgt, name)
+	if err := copySkillToTarget(filepath.Join(src, name), dst, "", patterns); err != nil {
+		t.Fatal(err)
+	}
+	if err := WriteManifest(tgt, &Manifest{Managed: map[string]string{name: sum}}); err != nil {
+		t.Fatal(err)
+	}
+	return dst
+}
+
 // A copy the manifest records with a checksum was made by copy mode, so
 // switching back to merge turns it into a link without --force.
 func TestSyncTargetMerge_ReplacesCopyModeCopy(t *testing.T) {
 	src, tgt := setupMergeTest(t, "alpha")
 	target := config.TargetConfig{Path: tgt, Mode: "merge"}
 
-	copyDir := filepath.Join(tgt, "alpha")
-	os.MkdirAll(copyDir, 0755)
-	if err := WriteManifest(tgt, &Manifest{Managed: map[string]string{"alpha": "abc123"}}); err != nil {
-		t.Fatal(err)
-	}
+	copyDir := setupCopyModeCopy(t, src, tgt, "alpha")
 
 	result, err := SyncTargetMerge("test", target, src, false, false, "")
 	if err != nil {
@@ -172,11 +187,7 @@ func TestSyncTargetMerge_ReplacesCopyModeCopy_DryRun(t *testing.T) {
 	src, tgt := setupMergeTest(t, "alpha")
 	target := config.TargetConfig{Path: tgt, Mode: "merge"}
 
-	copyDir := filepath.Join(tgt, "alpha")
-	os.MkdirAll(copyDir, 0755)
-	if err := WriteManifest(tgt, &Manifest{Managed: map[string]string{"alpha": "abc123"}}); err != nil {
-		t.Fatal(err)
-	}
+	copyDir := setupCopyModeCopy(t, src, tgt, "alpha")
 
 	result, err := SyncTargetMerge("test", target, src, true, false, "")
 	if err != nil {
@@ -187,6 +198,28 @@ func TestSyncTargetMerge_ReplacesCopyModeCopy_DryRun(t *testing.T) {
 	}
 	if utils.IsSymlinkOrJunction(copyDir) {
 		t.Error("dry-run must leave the copy in place")
+	}
+}
+
+// A copy edited since copy mode made it is the user's work now; only --force replaces it.
+func TestSyncTargetMerge_KeepsEditedCopyModeCopy(t *testing.T) {
+	src, tgt := setupMergeTest(t, "alpha")
+	target := config.TargetConfig{Path: tgt, Mode: "merge"}
+
+	copyDir := setupCopyModeCopy(t, src, tgt, "alpha")
+	if err := os.WriteFile(filepath.Join(copyDir, "SKILL.md"), []byte("edited"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	result, err := SyncTargetMerge("test", target, src, false, false, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result.Skipped) != 1 || len(result.Updated) != 0 {
+		t.Errorf("expected edited copy kept, got skipped=%v updated=%v", result.Skipped, result.Updated)
+	}
+	if got, _ := os.ReadFile(filepath.Join(copyDir, "SKILL.md")); string(got) != "edited" {
+		t.Errorf("edited copy was changed: %q", got)
 	}
 }
 

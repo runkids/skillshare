@@ -761,7 +761,7 @@ func collectMergeDiff(r *targetDiffResult, targetPath string, sourceSkills map[s
 			r.syncCount++
 		} else if !targetSymlinks[skill] {
 			reason := "local copy (sync --force to replace)"
-			if manifest.IsCopyModeCopy(skill) {
+			if manifest.OwnsCopy(skill, dstDir) {
 				reason = sync.CopyToLinkReason
 			}
 			r.items = append(r.items, copyDiffEntry{action: "modify", name: skill, reason: reason, isSync: true, srcDir: srcDir, dstDir: dstDir})

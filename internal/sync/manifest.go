@@ -61,14 +61,19 @@ func (m *Manifest) Remove(name string) {
 // CopyToLinkReason is the diff reason for a copy-mode copy that merge sync replaces with a link.
 const CopyToLinkReason = "copy mode copy (sync replaces with link)"
 
-// IsCopyModeCopy reports whether the manifest records name as a copy made by
-// copy mode (a checksum), as opposed to a merge-mode link.
-func (m *Manifest) IsCopyModeCopy(name string) bool {
+// OwnsCopy reports whether dir is still the copy that copy mode made for name:
+// the manifest records a checksum (not a merge-mode link) and the folder still
+// hashes to it, so nothing the user edited is lost when it is replaced.
+func (m *Manifest) OwnsCopy(name, dir string) bool {
 	if m == nil {
 		return false
 	}
-	v, ok := m.Managed[name]
-	return ok && v != "symlink"
+	recorded, ok := m.Managed[name]
+	if !ok || recorded == "symlink" {
+		return false
+	}
+	sum, err := DirChecksumWithIgnore(dir, DefaultFileIgnorePatterns())
+	return err == nil && sum == recorded
 }
 
 // SkipsHidden reports whether a target scan should skip name. Hidden entries

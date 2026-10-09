@@ -75,7 +75,11 @@ func TestComputeTargetDiff_MergeModeCopyModeCopyIsReplacedWithLink(t *testing.T)
 			t.Fatal(err)
 		}
 	}
-	if err := ssync.WriteManifest(target, &ssync.Manifest{Managed: map[string]string{"alpha": "checksum"}}); err != nil {
+	checksum, err := ssync.DirChecksumWithIgnore(filepath.Join(source, "alpha"), ssync.DefaultFileIgnorePatterns())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := ssync.WriteManifest(target, &ssync.Manifest{Managed: map[string]string{"alpha": checksum}}); err != nil {
 		t.Fatal(err)
 	}
 	discovered, err := ssync.DiscoverSourceSkills(source)
