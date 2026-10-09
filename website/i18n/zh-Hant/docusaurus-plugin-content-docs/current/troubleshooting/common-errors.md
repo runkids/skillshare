@@ -560,7 +560,7 @@ targets:
 ```
 
 :::tip
-如果篩選條件已經隔離了重複項目，sync 會顯示資訊訊息而非警告 — 無需採取行動。
+如果篩選條件已經隔離了重複項目，sync 不會輸出任何相關內容 — 無需採取行動。
 完整語法請參閱 [Target 篩選條件](/docs/reference/targets/configuration#include--exclude-target-filters)。
 :::
 

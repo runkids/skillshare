@@ -596,7 +596,7 @@ targets:
 ```
 
 :::tip
-If filters already isolate the duplicates, sync shows an info message instead of a warning — no action needed.
+If filters already isolate the duplicates, sync prints nothing about them — no action needed.
 See [Target Filters](/docs/reference/targets/configuration#include--exclude-target-filters) for full syntax.
 :::
 

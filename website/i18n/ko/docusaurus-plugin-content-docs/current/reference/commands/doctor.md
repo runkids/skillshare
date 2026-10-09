@@ -128,12 +128,14 @@ Source link 검사는 global과 project mode 모두에서 수행됩니다. sourc
 
 각 target은 **skills**와 **agents**(agent가 구성된 경우)에 대한 하위 항목을 보여줍니다:
 - Skills: 경로, sync 모드, sync 상태, shared/local 개수
+  - "N skills not synced"는 `sync`가 배치할 skill만 센다. `sync`가 의도적으로 건너뛰는 것(`standard`/`prefixed` naming에서 잘못된 이름이거나 이름 충돌)은 제외한다
 - Agents: sync mode, linked 개수, drift 탐지. Developer Mode가 없는 Windows에서는 `merge`가 `copy`로 표시되며, 최신 상태의 관리되는 복사본은 linked로 집계됩니다. skillshare가 소유하지 않는 내용이 같은 로컬 파일은 유지됩니다. copy fallback에서 agent 개수는 이를 `local preserved`로 따로 표시합니다(예: `0/1 linked, 1 local preserved`).
 - 깨진 symlink 없음
 - 의도치 않은 local 충돌에 대한 중복 skill 검사:
   - `merge` 모드: 건너뜀 (local skill은 예상된 것)
   - `copy` 모드: manifest로 관리되는 복사본은 무시하며, local 충돌 복사본만 경고
 - 유효한 include/exclude glob 패턴
+- Naming과 mode: copy 이외의 mode에서 `prefixed`로 결정되는 target은 sync가 건너뛰므로 오류로 표시됩니다
 - 해당하는 경우 target별 호환성 힌트 (info 수준) (예시 target 우선순위: `cursor` → `antigravity` → `copilot` → `opencode`; 이 target들이 없으면 힌트 없음)
 
 ### Path Overlap

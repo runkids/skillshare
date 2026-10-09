@@ -284,21 +284,18 @@ skillshare install github.com/team/skills --branch 8f14e45 --all
 
 複数の Skill が同じ `name` フィールドを共有している場合、sync は `include`/`exclude` フィルターの適用後に、それらが実際に同じ Target に配置されるかどうかを確認します。
 
-**フィルターによって衝突が分離される場合** — 情報提供のみ:
-
-```
-ℹ Duplicate skill names exist but are isolated by target filters:
-  'ui' (2 definitions)
-```
+**フィルターによって衝突が分離される場合** — 何も出力されません。これらの Skill が同じ Target に配置されることはありません。
 
 **衝突が同じ Target に達する場合** — 対応が必要な警告:
 
 ```
-⚠ Target 'claude': skill name 'ui' is defined in multiple places:
-  - _team-a/frontend/ui
-  - _team-b/components/ui
-Rename one in SKILL.md or adjust include/exclude filters
+! 1 duplicate skill names detected
+  ui                              _team-a/ vs _team-b/
+  Rename one in SKILL.md or adjust include/exclude filters
+  1 name collision(s) excluded
 ```
+
+`target_naming: prefixed` では、tracked Skill が、すでにその prefixed 名を持つ Skill と衝突することもあります（`_alpha/prototype` は `alpha-prototype` になります）。tracked Skill は `SKILL.md` で名前を変更できないため、sync はもう一方の Skill の名前を変えるか、`--name` で repo を再度 track することを提案します。
 
 **ベストプラクティス** — Skill に名前空間を付けるか、フィルターを使用します:
 

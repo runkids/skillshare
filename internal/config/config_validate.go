@@ -98,7 +98,7 @@ func validateGlobalTarget(name string, target TargetConfig, globalMode, globalNa
 	}
 	naming, mode := cmp.Or(sc.TargetNaming, globalNaming), cmp.Or(sc.Mode, globalMode)
 	// Skills off syncs no skill, and the target's agents must still sync.
-	if err := TargetNamingModeError(naming, mode); err != nil && sc.IsEnabled() {
+	if err := TargetNamingModeConfigError(naming, mode, target.ProjectRoot()); err != nil && sc.IsEnabled() {
 		problems = append(problems, err.Error())
 	}
 	if sc.Path == "" {
@@ -195,7 +195,7 @@ func validateProjectTarget(entry ProjectTargetEntry, projectRoot, sourcePath, ag
 	if !IsValidTargetNaming(sc.TargetNaming) {
 		return append(problems, fmt.Sprintf("invalid target naming %q (valid: %s)", sc.TargetNaming, strings.Join(ValidTargetNamings, ", ")))
 	}
-	if err := TargetNamingModeError(sc.TargetNaming, sc.Mode); err != nil && sc.IsEnabled() {
+	if err := TargetNamingModeConfigError(sc.TargetNaming, sc.Mode, ""); err != nil && sc.IsEnabled() {
 		problems = append(problems, err.Error())
 	}
 

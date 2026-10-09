@@ -34,7 +34,7 @@ func setTargetSkillsGlobal(cfg *config.Config, name string, target config.Target
 		// An off target may keep a naming its mode cannot sync.
 		sc := target.SkillsConfig()
 		if err := config.TargetNamingModeError(sc.TargetNaming, cmp.Or(sc.Mode, cfg.Mode)); err != nil {
-			return err
+			return fmt.Errorf("%w; set --mode copy first", err)
 		}
 	}
 	res, err := switchTargetSkills(name, enabled, dryRun, func() error {
@@ -55,7 +55,7 @@ func setTargetSkillsProject(cfg *config.ProjectConfig, idx int, enabled, dryRun 
 	if enabled {
 		sc := cfg.Targets[idx].SkillsConfig()
 		if err := config.TargetNamingModeError(sc.TargetNaming, sc.Mode); err != nil {
-			return err
+			return fmt.Errorf("%w; set --mode copy first", err)
 		}
 	}
 	res, err := switchTargetSkills(name, enabled, dryRun, func() error {

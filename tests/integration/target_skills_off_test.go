@@ -253,4 +253,5 @@ targets:
 	result := sb.RunCLI("target", "claude", "--skills=true")
 	result.AssertFailure(t)
 	result.AssertAnyOutputContains(t, "requires copy mode")
+	result.AssertAnyOutputContains(t, "set --mode copy first")
 }

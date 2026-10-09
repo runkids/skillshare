@@ -1,6 +1,7 @@
 package sync
 
 import (
+	"crypto/sha256"
 	"fmt"
 	"io"
 	"os"
@@ -558,7 +559,8 @@ func ensureRealTargetDir(targetPath, sourcePath, modeName string, dryRun bool) (
 // SyncTargetMerge performs merge mode sync - creates symlinks for each skill individually
 // while preserving target-specific skills.
 // Supports nested skills: source path "personal/writing/email" becomes target symlink "personal__writing__email"
-// If force is true, local copies will be replaced with symlinks.
+// If force is true, local copies will be replaced with symlinks. Copies that copy
+// mode made and nobody edited since (the manifest checksum still matches) are replaced too.
 func SyncTargetMerge(name string, target config.TargetConfig, sourcePath string, dryRun, force bool, projectRoot string) (*MergeResult, error) {
 	skills, err := DiscoverSourceSkills(sourcePath)
 	if err != nil {
@@ -596,12 +598,7 @@ func SyncTargetMergeWithSkills(name string, target config.TargetConfig, allSkill
 	if err != nil {
 		return nil, err
 	}
-	if n := len(resolution.Warnings); n > 0 {
-		fmt.Fprintf(DiagOutput, "  %d skill(s) skipped (naming validation)\n", n)
-	}
-	if n := len(resolution.Collisions); n > 0 {
-		fmt.Fprintf(DiagOutput, "  %d name collision(s) excluded\n", n)
-	}
+	printResolutionSummary(resolution)
 	result.UnmatchedIncludes = resolution.UnmatchedIncludes
 
 	manifest, err := ReadManifest(sc.Path)
@@ -661,18 +658,18 @@ func SyncTargetMergeWithSkills(name string, target config.TargetConfig, allSkill
 				result.Updated = append(result.Updated, activeName)
 			} else {
 				// It's a real directory
-				if force {
-					// Force: replace local copy with symlink
+				if force || manifest.OwnsCopy(activeName, targetSkillPath) {
+					// Force, or an unedited copy left by copy mode: replace it with a symlink
 					if dryRun {
 						if !quietDryRun {
 							fmt.Fprintf(DiagOutput, "[dry-run] Would replace local copy: %s\n", activeName)
 						}
 					} else {
-						if err := os.RemoveAll(targetSkillPath); err != nil {
-							return nil, fmt.Errorf("failed to remove local copy %s: %w", activeName, err)
-						}
-						if err := createLink(targetSkillPath, skill.SourcePath, relative, sourcePath); err != nil {
-							return nil, fmt.Errorf("failed to create link for %s: %w", activeName, err)
+						err := replaceWithLink(targetSkillPath, func() error {
+							return createLink(targetSkillPath, skill.SourcePath, relative, sourcePath)
+						})
+						if err != nil {
+							return nil, fmt.Errorf("failed to replace local copy %s with a link: %w", activeName, err)
 						}
 					}
 					result.Updated = append(result.Updated, activeName)
@@ -701,16 +698,44 @@ func SyncTargetMergeWithSkills(name string, target config.TargetConfig, allSkill
 	// Write manifest (additive: merge with existing entries)
 	if !dryRun {
 		for _, name := range result.Linked {
-			manifest.Managed[name] = "symlink"
+			manifest.Managed[name] = manifestSymlink
 		}
 		for _, name := range result.Updated {
-			manifest.Managed[name] = "symlink"
+			manifest.Remove(name) // drops what copy mode recorded for a copy that is now a link
+			manifest.Managed[name] = manifestSymlink
 		}
 		// Skipped items are NOT added — they are user-local copies
 		WriteManifest(sc.Path, manifest) //nolint:errcheck
 	}
 
 	return result, nil
+}
+
+// parkedPath is where replaceWithLink waits with the folder at path. The name is
+// a fixed length because the entry's own name may already be near the filesystem limit.
+func parkedPath(path string) string {
+	return filepath.Join(filepath.Dir(path), fmt.Sprintf(".skillshare-replaced-%x", sha256.Sum256([]byte(filepath.Base(path)))))
+}
+
+// replaceWithLink swaps the real folder at path for a link. The folder waits
+// beside it until link has run, so a failed link leaves the folder as it was.
+func replaceWithLink(path string, link func() error) error {
+	parked := parkedPath(path)
+	// A leftover may be the only copy if an earlier run died before it could restore it.
+	if _, err := os.Lstat(parked); err == nil {
+		return fmt.Errorf("%s is left from an earlier replacement; move or delete it, then sync again", parked)
+	}
+	if err := os.Rename(path, parked); err != nil {
+		return err
+	}
+	if err := link(); err != nil {
+		os.Remove(path)
+		if rbErr := os.Rename(parked, path); rbErr != nil {
+			return fmt.Errorf("%w (the local copy is kept at %s: %v)", err, parked, rbErr)
+		}
+		return err
+	}
+	return os.RemoveAll(parked)
 }
 
 // PruneResult holds the result of a prune operation

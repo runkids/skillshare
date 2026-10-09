@@ -284,21 +284,18 @@ Tags and commit SHAs cannot be combined with `--track`: a tracked repo pulls fro
 
 When multiple skills share the same `name` field, sync checks whether they actually land on the same target after `include`/`exclude` filters are applied.
 
-**Filters isolate the collision** — informational only:
-
-```
-ℹ Duplicate skill names exist but are isolated by target filters:
-  'ui' (2 definitions)
-```
+**Filters isolate the collision** — nothing is printed; the skills never reach the same target.
 
 **Collision reaches the same target** — actionable warning:
 
 ```
-⚠ Target 'claude': skill name 'ui' is defined in multiple places:
-  - _team-a/frontend/ui
-  - _team-b/components/ui
-Rename one in SKILL.md or adjust include/exclude filters
+! 1 duplicate skill names detected
+  ui                              _team-a/ vs _team-b/
+  Rename one in SKILL.md or adjust include/exclude filters
+  1 name collision(s) excluded
 ```
+
+With `target_naming: prefixed`, a tracked skill can also collide with a skill that already has its prefixed name (`_alpha/prototype` becomes `alpha-prototype`). A tracked skill cannot be renamed in `SKILL.md`, so sync suggests renaming the other skill or re-tracking the repo with `--name`.
 
 **Best practice** — namespace your skills or use filters:
 

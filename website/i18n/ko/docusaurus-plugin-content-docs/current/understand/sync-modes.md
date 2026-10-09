@@ -186,6 +186,8 @@ skillshare target claude --mode merge
 skillshare sync
 ```
 
+copy mode가 만든 복사본 중 편집하지 않은 것은 이 sync에서 `--force` 없이 링크로 교체됩니다. 나머지는 `sync --force`를 실행할 때까지 유지됩니다. 직접 만든 폴더(manifest에 기록되지 않음)와 copy mode가 만든 뒤 편집한 복사본이 해당됩니다. `prefixed` naming 때문에 copy mode가 `name:`을 다시 쓴 복사본도 편집된 것으로 간주됩니다. 같은 sync에서 `target_naming`도 바꾸면 복사본의 항목 이름이 달라지므로, 편집 여부와 관계없이 orphan으로 제거됩니다. 일반 `sync`의 백업에 남아 있습니다.
+
 ### Target별 재정의 (권장)
 
 모든 target에 대해 하나의 global mode를 사용할 필요는 없습니다. 흔한 패턴은 다음과 같습니다:
@@ -263,12 +265,12 @@ skillshare sync
 
 - 이름이 이미 repo 이름으로 시작하면 접두사를 다시 붙이지 않습니다: `_bmad/skills/bmad-ux`는 `bmad-ux`로 유지됩니다.
 - tracked repo 밖의 skill은 이름을 그대로 유지합니다.
-- source skill은 먼저 `standard` 검사를 통과해야 합니다. 접두사가 붙은 이름이 64자를 넘으면 경고와 함께 건너뛰어지고, 그래도 이름이 충돌하면 `standard`와 같이 건너뛰어집니다.
+- source skill은 먼저 `standard` 검사를 통과해야 합니다. 접두사가 붙은 이름이 64자를 넘으면 경고와 함께 건너뛰어지고, 그래도 이름이 충돌하면 `standard`와 같이 건너뛰어집니다. tracked skill은 `SKILL.md`에서 이름을 바꿀 수 없으므로 sync는 다른 skill의 이름을 바꾸거나 `--name`으로 repo를 다시 track하도록 안내합니다.
 - 더 짧은 접두사가 필요하면 repo를 짧은 이름으로 track하세요: `skillshare install <repo> --track --name mp`는 `mp-prototype`을 만듭니다.
 - 형제 skill로의 상대 링크(`../other-skill/`)는 다시 쓰이지 않으며, 이는 copy mode의 `flat`과 같습니다.
 - 이 이름이 도구에 표시되는 이름이 됩니다. Claude Code에서는 slash command이며, 예: `/mattpocock-skills-prototype`.
 
-`prefixed`는 merge 링크가 source를 가리키고 그곳의 `name:`은 바꿀 수 없으므로 copy mode가 필요합니다. merge 또는 symlink mode에서 `prefixed`로 결정되는 target은 검증에 실패하며 sync에서 건너뛰어집니다. 새 target이 copy 이외의 mode에서 `prefixed`를 상속하게 되면(프로젝트 target 기본값은 merge) `target add`는 새 target을 copy mode로 추가합니다.
+`prefixed`는 merge 링크가 source를 가리키고 그곳의 `name:`은 바꿀 수 없으므로 copy mode가 필요합니다. merge 또는 symlink mode에서 `prefixed`로 결정되는 target은 검증에 실패하며 sync에서 건너뛰어집니다. 새 target이 copy 이외의 mode에서 `prefixed`를 상속하게 되면(프로젝트 target 기본값은 merge) `target add`는 새 target을 copy mode로 추가합니다. `target add`는 그렇게 할 때 알려 주며, `status`와 `doctor`는 copy 이외의 mode에서 `prefixed`로 결정되는 target을 sync 전에 표시하며, `targets:`에 있는 target은 `target list`도 표시합니다. 해결 방법은 해당 target에 `mode: copy`를 설정하는 것입니다. `projects:` 항목에서 확장된 target이라면 `projects.<root>.skills.mode: copy`를 설정하세요.
 
 ```yaml
 targets:

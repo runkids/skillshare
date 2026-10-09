@@ -161,6 +161,18 @@ func (r *TargetSkillResolution) ValidTargetNames() map[string]bool {
 	return names
 }
 
+// ExpectedSkillCount is how many skills sync places in a target: the ones its
+// filters select, less those naming validation skips and name collisions
+// exclude. Running sync again cannot add the rest, so status and doctor must
+// not count them as missing.
+func ExpectedSkillCount(targetName string, sc config.ResourceTargetConfig, allSkills []DiscoveredSkill) (int, error) {
+	resolution, err := ResolveTargetSkillsForTarget(targetName, sc, allSkills)
+	if err != nil {
+		return 0, err
+	}
+	return len(resolution.Skills), nil
+}
+
 // LegacyNames returns the entries in targetPath that a skill still holds under
 // the name another target naming gave it, keyed by that name. Sync renames such
 // an entry unless the new name is taken, so prune and diff must not treat it
@@ -179,6 +191,38 @@ func (r *TargetSkillResolution) LegacyNames(mode, targetPath string, manifest *M
 	return legacy
 }
 
+// maxListed caps how many names a summary line spells out.
+const maxListed = 5
+
+// printResolutionSummary reports skipped skills and collisions. It names only
+// the first few skipped skills, so a source with thousands of invalid names
+// does not flood the output.
+func printResolutionSummary(r *TargetSkillResolution) {
+	if n := len(r.Warnings); n > 0 {
+		fmt.Fprintf(DiagOutput, "  %d skill(s) skipped (naming validation)\n", n)
+		for _, w := range r.Warnings[:min(n, maxListed)] {
+			fmt.Fprintf(DiagOutput, "    %s\n", w)
+		}
+		if n > maxListed {
+			fmt.Fprintf(DiagOutput, "    ... and %d more\n", n-maxListed)
+		}
+	}
+	if n := len(r.Collisions); n > 0 {
+		fmt.Fprintf(DiagOutput, "  %d name collision(s) excluded\n", n)
+	}
+}
+
+// keptLocalWarning tells which target entries sync left alone because a folder
+// the user made already holds the name of a source skill. Like the skipped
+// list, it names only the first few.
+func keptLocalWarning(names []string) string {
+	msg := "kept local: " + strings.Join(names[:min(len(names), maxListed)], ", ")
+	if n := len(names) - maxListed; n > 0 {
+		msg += fmt.Sprintf(" ... and %d more", n)
+	}
+	return msg + " (sync --force replaces them)"
+}
+
 // RenamedFrom inverts LegacyNames: for each target name sync will move a
 // legacy entry into, the entry's current name.
 func RenamedFrom(legacy map[string]ResolvedTargetSkill) map[string]string {
@@ -187,6 +231,12 @@ func RenamedFrom(legacy map[string]ResolvedTargetSkill) map[string]string {
 		renamed[skill.TargetName] = old
 	}
 	return renamed
+}
+
+// KeptLegacyReason is the diff reason for a local folder that holds a skill's
+// new name. Sync leaves the folder alone and keeps the skill under old.
+func KeptLegacyReason(old string) string {
+	return "local folder; the skill stays at " + old
 }
 
 // NamingChangedReason is the diff reason for a managed copy made under another

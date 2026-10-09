@@ -35,6 +35,9 @@ export interface ChangeGroup {
   rows: ChangeRow[];
 }
 
+/** The server's reason (CopyToLinkReason) for a copy left by copy mode that a merge sync turns into a link. */
+const COPY_TO_LINK = 'copy mode copy (sync replaces with link)';
+
 const editedRow = (force: boolean) => ({ icon: force ? 'update' : 'kept', text: force ? 'sync.row.forceReplace' : 'sync.row.kept', counts: force, edited: true }) as const;
 
 const flatKey = (name: string) => name.replace(/\//g, '__').replace(/\.md$/i, '');
@@ -56,10 +59,11 @@ export function resourceGroups(diffs: DiffTarget[], targets: Target[], parts: Se
       // Agents always sync as symlinks, whatever the target mode.
       const copy = part === 'skill' && target?.mode === 'copy';
       const row = { key: `${d.target}/${part}/${item.skill}`, part, name: part === 'agent' ? formatAgentDisplayName(item.skill) : item.skill } as const;
-      if (item.skill === '(target naming)') rows.push({ ...row, icon: 'kept', text: null, detail: item.reason, counts: false });
+      // A kept item: a local folder holds the new name, so sync keeps the old entry, with or without force.
+      if (item.skill === '(target naming)' || item.action === 'kept') rows.push({ ...row, icon: 'kept', text: null, detail: item.reason, counts: false });
       else if (item.skill === '(entire directory)') rows.push({ ...row, name: target?.path ?? item.skill, icon: 'add', text: 'sync.row.folder', counts: true });
       else if (item.action === 'link') rows.push({ ...row, icon: 'add', text: item.reason?.startsWith('missing') ? 'sync.row.recopy' : copy ? 'sync.row.newCopy' : 'sync.row.newLink', counts: true });
-      else if (item.action === 'update') rows.push({ ...row, icon: 'update', text: copy ? 'sync.row.updateCopy' : 'sync.row.updateLink', counts: true });
+      else if (item.action === 'update') rows.push({ ...row, icon: 'update', text: item.reason === COPY_TO_LINK ? 'sync.row.copyToLink' : copy ? 'sync.row.updateCopy' : 'sync.row.updateLink', counts: true });
       else if (item.action === 'prune') rows.push({ ...row, icon: 'remove', text: ignoredKeys[part].has(flatKey(item.skill)) ? 'sync.row.pruneIgnored' : 'sync.row.prune', counts: true });
       else if (item.action === 'skip') rows.push({ ...row, ...editedRow(force) });
     }
@@ -167,7 +171,7 @@ export function groupByFolder(names: string[]) {
 export function changeSets(groups: ChangeGroup[]): { key: string; targets: ChangeGroup[]; rows: ChangeRow[] }[] {
   const sets = new Map<string, { key: string; targets: ChangeGroup[]; rows: ChangeRow[] }>();
   for (const g of groups) {
-    const sig = g.rows.map((r) => `${r.part}\t${r.name}\t${r.icon}\t${r.text}`).sort().join('\n');
+    const sig = g.rows.map((r) => `${r.part}\t${r.name}\t${r.icon}\t${r.text}\t${r.detail ?? ''}`).sort().join('\n');
     const set = sets.get(sig);
     if (set) set.targets.push(g);
     else sets.set(sig, { key: g.key, targets: [g], rows: g.rows });

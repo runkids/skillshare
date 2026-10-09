@@ -745,80 +745,87 @@ func backupTargetsBeforeSync(cfg *config.Config) {
 }
 
 func reportCollisions(skills []sync.DiscoveredSkill, targets map[string]config.TargetConfig) {
-	global, perTarget := sync.CheckNameCollisionsForTargets(skills, targets)
-	// A target's naming can make distinct names collide (prefixed _a/b-c vs a-b-c).
-	if len(global) == 0 && len(perTarget) == 0 {
+	_, perTarget := sync.CheckNameCollisionsForTargets(skills, targets)
+	// Duplicates that filters or naming keep apart are not a problem, so only collisions
+	// that reach a target are reported.
+	if len(perTarget) == 0 {
 		return
 	}
-
-	if len(perTarget) > 0 {
-		// Deduplicate collisions across targets: group by skill name, collect affected targets
-		type collisionInfo struct {
-			Paths   []string
-			Targets []string
-		}
-		deduped := make(map[string]*collisionInfo)
-		var orderedNames []string
-		var targetNames []string
-		seenTargets := make(map[string]bool)
-
-		for _, tc := range perTarget {
-			if !seenTargets[tc.TargetName] {
-				seenTargets[tc.TargetName] = true
-				targetNames = append(targetNames, tc.TargetName)
-			}
-			for _, c := range tc.Collisions {
-				if info, ok := deduped[c.Name]; ok {
-					info.Targets = append(info.Targets, tc.TargetName)
-				} else {
-					deduped[c.Name] = &collisionInfo{
-						Paths:   c.Paths,
-						Targets: []string{tc.TargetName},
-					}
-					orderedNames = append(orderedNames, c.Name)
-				}
-			}
-		}
-
-		// Summary line
-		if len(targetNames) == len(seenTargets) && len(seenTargets) > 1 {
-			ui.Warning("%d duplicate skill names affect %d targets (%s)",
-				len(deduped), len(targetNames), strings.Join(targetNames, ", "))
-		} else {
-			ui.Warning("%d duplicate skill names detected", len(deduped))
-		}
-
-		// One entry per collision name
-		for _, name := range orderedNames {
-			info := deduped[name]
-			// Show only parent directories for brevity (e.g., "skillshare/, skillshare2/")
-			dirs := make([]string, 0, len(info.Paths))
-			for _, p := range info.Paths {
-				parts := strings.SplitN(p, "/", 2)
-				if len(parts) > 0 {
-					dirs = append(dirs, parts[0]+"/")
-				}
-			}
-			ui.Note(fmt.Sprintf("%-30s  %s", name, strings.Join(dirs, " vs ")))
-		}
-		ui.Note("Rename one in SKILL.md or adjust include/exclude filters")
-		fmt.Println()
-	} else {
-		// Global collision exists but filters or target naming isolate them — show first few names
-		const maxShow = 5
-		names := make([]string, 0, maxShow)
-		for i, c := range global {
-			if i >= maxShow {
-				break
-			}
-			names = append(names, c.Name)
-		}
-		line := fmt.Sprintf("%d duplicate skill names (isolated by target filters or naming): %s", len(global), strings.Join(names, ", "))
-		if len(global) > maxShow {
-			line += fmt.Sprintf(", ... and %d more", len(global)-maxShow)
-		}
-		fmt.Println(theme.Dim().Render(line))
+	tracked := make(map[string]bool)
+	for _, skill := range skills {
+		tracked[skill.RelPath] = skill.IsInRepo
 	}
+
+	// Deduplicate collisions across targets: group by skill name
+	type collisionInfo struct {
+		Paths []string
+		// Prefixed is set when a tracked skill collides on a prefixed target: its name
+		// comes from its repo, so SKILL.md is not where to change it. Other is set when
+		// some target's collision has no such skill. A name can have both across targets.
+		Prefixed, Other bool
+	}
+	deduped := make(map[string]*collisionInfo)
+	var orderedNames []string
+	var targetNames []string
+	seenTargets := make(map[string]bool)
+
+	for _, tc := range perTarget {
+		if !seenTargets[tc.TargetName] {
+			seenTargets[tc.TargetName] = true
+			targetNames = append(targetNames, tc.TargetName)
+		}
+		target := targets[tc.TargetName]
+		targetPrefixed := config.EffectiveTargetNaming(target.SkillsConfig().TargetNaming) == "prefixed"
+		for _, c := range tc.Collisions {
+			info, ok := deduped[c.Name]
+			if !ok {
+				info = &collisionInfo{Paths: c.Paths}
+				deduped[c.Name] = info
+				orderedNames = append(orderedNames, c.Name)
+			}
+			trackedPaths := 0
+			for _, p := range c.Paths {
+				if tracked[p] {
+					trackedPaths++
+				}
+			}
+			trackedClash := targetPrefixed && trackedPaths > 0
+			// Re-tracking fixes the tracked skill only: ordinary skills still clash if two remain.
+			info.Prefixed = info.Prefixed || trackedClash
+			info.Other = info.Other || !trackedClash || len(c.Paths)-trackedPaths >= 2
+		}
+	}
+
+	// Summary line
+	if len(targetNames) == len(seenTargets) && len(seenTargets) > 1 {
+		ui.Warning("%d duplicate skill names affect %d targets (%s)",
+			len(deduped), len(targetNames), strings.Join(targetNames, ", "))
+	} else {
+		ui.Warning("%d duplicate skill names detected", len(deduped))
+	}
+
+	// One entry per collision name
+	var anyPrefixed, anyOther bool
+	for _, name := range orderedNames {
+		info := deduped[name]
+		// Show only parent directories for brevity (e.g., "skillshare/, skillshare2/")
+		dirs := make([]string, 0, len(info.Paths))
+		for _, p := range info.Paths {
+			parts := strings.SplitN(p, "/", 2)
+			if len(parts) > 0 {
+				dirs = append(dirs, parts[0]+"/")
+			}
+		}
+		ui.Note(fmt.Sprintf("%-30s  %s", name, strings.Join(dirs, " vs ")))
+		anyPrefixed, anyOther = anyPrefixed || info.Prefixed, anyOther || info.Other
+	}
+	if anyPrefixed {
+		ui.Note("A tracked skill cannot be renamed in SKILL.md: rename the other skill, re-track the repo with --name (prefixed naming puts the repo name in front), or adjust include/exclude filters")
+	}
+	if anyOther {
+		ui.Note("Rename one in SKILL.md or adjust include/exclude filters")
+	}
+	fmt.Println()
 }
 
 func printSyncHelp() {

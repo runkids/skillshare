@@ -154,20 +154,15 @@ _org-skills/
 
 当多个 Skill 共享相同的 `name` 字段时，sync 会检查它们在套用 `include`/`exclude` 过滤器后，是否真的会落在同一个 Target 上。
 
-**过滤器隔离了冲突**——仅供参考：
-
-```
-ℹ Duplicate skill names exist but are isolated by target filters:
-  'ui' (2 definitions)
-```
+**过滤器隔离了冲突** —— 不会输出任何内容，这些 Skill 不会落到同一个 Target。
 
 **冲突落在同一个 Target 上**——需要处理的警告：
 
 ```
-⚠ Target 'claude': skill name 'ui' is defined in multiple places:
-  - _team-a/frontend/ui
-  - _team-b/components/ui
-Rename one in SKILL.md or adjust include/exclude filters
+! 1 duplicate skill names detected
+  ui                              _team-a/ vs _team-b/
+  Rename one in SKILL.md or adjust include/exclude filters
+  1 name collision(s) excluded
 ```
 
 **解法：** 使用带命名空间的名称，或用过滤器分流：

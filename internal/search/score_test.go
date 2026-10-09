@@ -394,6 +394,19 @@ func TestParseFrontmatterField_OneLineFrontmatter(t *testing.T) {
 	}
 }
 
+func TestParseFrontmatterField_BOM(t *testing.T) {
+	content := "\ufeff---\nname: bom-skill\ndescription: Written by Notepad\n---\n# Body\n"
+
+	if got := parseFrontmatterField(content, "name"); got != "bom-skill" {
+		t.Fatalf("name = %q, want bom-skill", got)
+	}
+	// The fallback line scanner runs when the YAML does not parse.
+	broken := "\ufeff---\nname: bom-skill\nbad: [unclosed\n---\n"
+	if got := parseFrontmatterField(broken, "name"); got != "bom-skill" {
+		t.Fatalf("fallback name = %q, want bom-skill", got)
+	}
+}
+
 func TestBuildTrustedSkillRepoSearchQuery(t *testing.T) {
 	got := buildTrustedSkillRepoSearchQuery("frontend-design", "anthropics/skills")
 	want := `filename:SKILL.md repo:anthropics/skills "name:" "description:" frontend-design`

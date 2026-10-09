@@ -128,12 +128,14 @@ Source link の確認はグローバルモードとプロジェクトモード�
 
 各 Target には **skills** と **agents**（Agent が設定されている場合）のサブ項目が表示されます。
 - Skills: パス、sync モード、sync 状態、共有/ローカルの件数
+  - 「N skills not synced」には `sync` が配置する skill だけを数えます。`sync` が意図的にスキップするもの（`standard` / `prefixed` naming での無効な名前、または名前の衝突）は含みません
 - Agents: sync モード、リンク済み件数、drift の検出。Developer Mode がオフの Windows では `merge` が `copy` と表示され、最新の管理対象コピーはリンク済みとして数えられます。skillshare が所有していない、内容が同じローカルファイルは保持されます。copy fallback では agent の件数に `local preserved` として別に表示されます（例：`0/1 linked, 1 local preserved`）。
 - 壊れたシンボリックリンクがないこと
 - 意図しないローカルの衝突を検出する Skill 重複チェック:
   - `merge` モード: スキップ（ローカルの Skill は想定内のため）
   - `copy` モード: マニフェストで管理されているコピーは無視され、ローカルで衝突しているコピーのみ警告
 - 有効な include/exclude glob パターン
+- Naming と mode：copy 以外の mode で `prefixed` に解決される Target はエラーになります。sync がスキップするためです
 - 該当する場合、Target ごとの情報レベルの互換性ヒント（Target の優先順位の例: `cursor` → `antigravity` → `copilot` → `opencode`。これらの Target が存在しない場合はヒントなし）
 
 ### パスの重複

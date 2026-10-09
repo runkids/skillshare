@@ -154,20 +154,15 @@ _org-skills/
 
 여러 Skill이 같은 `name` 필드를 공유하는 경우, sync는 `include`/`exclude` 필터가 적용된 후 실제로 동일한 Target에 도달하는지 확인합니다.
 
-**필터가 충돌을 격리함** — 정보성 알림만 표시:
-
-```
-ℹ Duplicate skill names exist but are isolated by target filters:
-  'ui' (2 definitions)
-```
+**필터가 충돌을 격리함** — 아무것도 출력되지 않습니다. 해당 skill은 같은 target에 도달하지 않습니다.
 
 **충돌이 동일한 Target에 도달함** — 조치가 필요한 경고:
 
 ```
-⚠ Target 'claude': skill name 'ui' is defined in multiple places:
-  - _team-a/frontend/ui
-  - _team-b/components/ui
-Rename one in SKILL.md or adjust include/exclude filters
+! 1 duplicate skill names detected
+  ui                              _team-a/ vs _team-b/
+  Rename one in SKILL.md or adjust include/exclude filters
+  1 name collision(s) excluded
 ```
 
 **해결 방법:** 네임스페이스가 적용된 이름을 사용하거나 필터로 라우팅하세요:

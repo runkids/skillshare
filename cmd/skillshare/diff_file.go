@@ -85,7 +85,9 @@ func walkFiles(root string) map[string]os.FileInfo {
 	if root == "" {
 		return result
 	}
-	if _, err := os.Stat(root); err != nil {
+	// A merge-made link stands for the folder it points to.
+	root, err := filepath.EvalSymlinks(root)
+	if err != nil {
 		return result
 	}
 

@@ -187,6 +187,8 @@ skillshare target claude --mode merge
 skillshare sync
 ```
 
+copy mode が作ったコピーのうち、編集されていないものは、この sync で `--force` なしにリンクへ置き換えられます。それ以外は `sync --force` を実行するまで残ります。自作のフォルダー（manifest に記録なし）と、copy mode が作成した後に編集したコピーです。`prefixed` naming のために copy mode が `name:` を書き換えたコピーも、編集済みとして扱われます。同じ sync で `target_naming` も変えると、コピーのエントリ名が変わるため、編集済みかどうかに関係なく孤立エントリとして削除されます。通常の `sync` のバックアップに残ります。
+
 ### target ごとの上書き(推奨)
 
 すべての target に対して 1 つのグローバルモードを使う必要はありません。よくあるパターンは次の通りです。
@@ -264,12 +266,12 @@ skillshare sync
 
 - 名前がすでに repo 名で始まっている場合は、再度プレフィックスを付けません: `_bmad/skills/bmad-ux` は `bmad-ux` のままです。
 - tracked repo の外にある Skill は名前をそのまま保ちます。
-- source の Skill は、まず `standard` のチェックを通過する必要があります。prefixed 名が 64 文字を超える場合は警告付きでスキップされ、それでも名前が衝突する場合は `standard` と同様にスキップされます。
+- source の Skill は、まず `standard` のチェックを通過する必要があります。prefixed 名が 64 文字を超える場合は警告付きでスキップされ、それでも名前が衝突する場合は `standard` と同様にスキップされます。tracked Skill は `SKILL.md` で名前を変更できないため、sync はもう一方の Skill の名前を変えるか、`--name` で repo を再度 track することを提案します。
 - より短いプレフィックスにしたい場合は、repo を短い名前で track します: `skillshare install <repo> --track --name mp` は `mp-prototype` になります。
 - 兄弟 Skill への相対リンク（`../other-skill/`）は書き換えられません。これは copy mode の `flat` と同じです。
 - この名前がツールに表示される名前になります。Claude Code ではスラッシュコマンドになります。例: `/mattpocock-skills-prototype`。
 
-`prefixed` は copy mode が必要です。merge のリンクは source を指しており、そこでは `name:` を変更できないためです。merge mode または symlink mode で `prefixed` に解決される Target は、バリデーションに失敗し、sync でスキップされます。新しい Target が copy 以外の mode で `prefixed` を継承する場合（プロジェクトの Target は既定で merge）、`target add` はその Target を copy mode にします。
+`prefixed` は copy mode が必要です。merge のリンクは source を指しており、そこでは `name:` を変更できないためです。merge mode または symlink mode で `prefixed` に解決される Target は、バリデーションに失敗し、sync でスキップされます。新しい Target が copy 以外の mode で `prefixed` を継承する場合（プロジェクトの Target は既定で merge）、`target add` はその Target を copy mode にします。`target add` はそうしたときにその旨を表示します。また `status` と `doctor` は、copy 以外の mode で `prefixed` に解決される Target を sync の前に警告します。`targets:` にある Target については `target list` も同様です。対処は、その Target に `mode: copy` を設定することです。`projects:` エントリから展開された Target の場合は `projects.<root>.skills.mode: copy` を設定します。
 
 ```yaml
 targets:

@@ -560,7 +560,7 @@ targets:
 ```
 
 :::tip
-필터가 이미 중복 항목을 분리하고 있다면, sync는 경고 대신 정보 메시지를 표시합니다 — 별도 조치가 필요 없습니다.
+필터가 이미 중복 항목을 분리하고 있다면, sync는 이에 대해 아무것도 출력하지 않습니다 — 별도 조치가 필요 없습니다.
 전체 문법은 [Target Filters](/docs/reference/targets/configuration#include--exclude-target-filters)를 참고하세요.
 :::
 

@@ -77,7 +77,7 @@ Targets                     skills                agents
 |------|------|
 | `✓ 8 linked` / `✓ 8 copied` | 预期的 skill 都已就位。merge 和 copy 模式按经过 `include`/`exclude` 过滤后的集合计算 |
 | `· 2 local` | 该文件夹中你自己的 skill，sync 不会改动它们 |
-| `! 6/8 linked` | 部分 skill 尚未同步；status 最后会列出数量和 `sync` 命令 |
+| `! 6/8 linked` | 部分 skill 尚未同步；status 最后会列出数量和 `sync` 命令。`sync` 有意跳过的 skill（`standard` 或 `prefixed` 命名下名称无效，或名称冲突）不计入，因为再次运行 `sync` 也补不上；`sync` 会列出它们 |
 | `✓ symlinked` | symlink 模式：整个文件夹链接到 source |
 | `! needs sync` | 模式已变更，运行 `sync` 应用 |
 | `! has files` / `! not synced yet` | 这个 Target 还没有同步过 |
@@ -167,6 +167,8 @@ skillshare status --json
   "version": "0.17.0"
 }
 ```
+
+只有 sync 会拒绝某个 target 时，该 target 才会有 `warning` 字符串，例如在 copy 以外的模式下使用 `prefixed` naming；文字中会说明如何修正。
 
 无法读取 git status 的 tracked repo 会显示 `"status": "unknown"`，`message` 中包含错误信息；此时 `dirty` 为 false，且没有意义。
 

@@ -157,6 +157,8 @@ skillshare target list --json
 }
 ```
 
+只有 sync 会拒绝该 target 时才会出现 `warning`，例如在 copy 以外的模式下使用 `prefixed` naming；文字中会说明如何修正。
+
 ### target info / settings
 
 显示 target 详情或更改设置。
@@ -195,7 +197,7 @@ skillshare sync  # Apply changes
 | `prefixed` | Copy mode only. Like `standard`, but a skill inside a tracked repo is named `<repo>-<name>`, in the folder and in the copy's `name:` (e.g. `mattpocock-skills-prototype`). |
 
 `target --target-naming` 控制 skill 目录在 targets 中的命名方式。在 `standard` 和 `prefixed` 模式下，
-名称无效或冲突的 skills 会被警告并跳过。`flat` 和 `standard` 在 symlink 模式下会被忽略。除非 target 以 copy 模式同步 skills，否则 `--target-naming prefixed` 会被拒绝；当 target 使用 `prefixed` 时，`--mode` 也会拒绝离开 copy 模式。见 [Target 命名](/docs/understand/sync-modes#target-naming)。
+名称无效或冲突的 skills 会被警告并跳过。`flat` 和 `standard` 在 symlink 模式下会被忽略。除非 target 以 copy 模式同步 skills，否则 `--target-naming prefixed` 会被拒绝；当 target 使用 `prefixed` 时，`--mode` 也会拒绝离开 copy 模式。要同时切换两者，可在一条命令中一起指定：`skillshare target cursor --mode copy --target-naming prefixed`。`--mode`、`--agent-mode` 和 `--target-naming` 可以这样组合：它们会一起检查并只保存一次，target 已有的值会显示为未变更。它们不能与 `--skills` 或 include/exclude 标志组合，请分开执行。见 [Target 命名](/docs/understand/sync-modes#target-naming)。
 
 ```bash
 # Set target to copy mode (for Cursor, Copilot CLI, etc.)

@@ -12,6 +12,9 @@ import (
 // ManifestFile is the filename for the sync manifest.
 const ManifestFile = ".skillshare-manifest.json"
 
+// manifestSymlink is the Managed value merge mode records for a link it made.
+const manifestSymlink = "symlink"
+
 // Manifest tracks which skills are managed by skillshare in a target directory.
 // Used by both merge mode (values: "symlink") and copy mode (values: SHA-256 checksum).
 type Manifest struct {
@@ -56,6 +59,24 @@ func (m *Manifest) Remove(name string) {
 	delete(m.Managed, name)
 	delete(m.Mtimes, name)
 	delete(m.Naming, name)
+}
+
+// CopyToLinkReason is the diff reason for a copy-mode copy that merge sync replaces with a link.
+const CopyToLinkReason = "copy mode copy (sync replaces with link)"
+
+// OwnsCopy reports whether dir is still the copy that copy mode made for name:
+// the manifest records a checksum (not a merge-mode link) and the folder still
+// hashes to it, so nothing the user edited is lost when it is replaced.
+func (m *Manifest) OwnsCopy(name, dir string) bool {
+	if m == nil {
+		return false
+	}
+	recorded, ok := m.Managed[name]
+	if !ok || recorded == manifestSymlink {
+		return false
+	}
+	sum, err := DirChecksumWithIgnore(dir, DefaultFileIgnorePatterns())
+	return err == nil && sum == recorded
 }
 
 // SkipsHidden reports whether a target scan should skip name. Hidden entries

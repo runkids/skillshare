@@ -451,13 +451,16 @@ internal/sync/sync.go	MigrateToSource	os.Rename	targetPath, sourcePath	source-un
 internal/sync/sync.go	PruneOrphanLinksWithSkills	os.RemoveAll	entryPath	target
 internal/sync/sync.go	SyncTarget	os.Remove	sc.Path	target
 internal/sync/sync.go	SyncTargetMergeWithSkills	os.Remove	targetSkillPath	target
-internal/sync/sync.go	SyncTargetMergeWithSkills	os.RemoveAll	targetSkillPath	target
 internal/sync/sync.go	copyDirectoryWithState	os.MkdirAll	dstPath	source-unmigrated
 internal/sync/sync.go	copyFile	os.OpenFile	dst	source-unmigrated
 internal/sync/sync.go	ensureRealTargetDir	os.MkdirAll	targetPath	target
 internal/sync/sync.go	ensureRealTargetDir	os.MkdirAll	targetPath	target
 internal/sync/sync.go	ensureRealTargetDir	os.Remove	targetPath	target
 internal/sync/sync.go	mergeDirectories	os.MkdirAll	dstPath	source-unmigrated
+internal/sync/sync.go	replaceWithLink	os.Remove	path	target
+internal/sync/sync.go	replaceWithLink	os.RemoveAll	parked	target
+internal/sync/sync.go	replaceWithLink	os.Rename	parked, path	target
+internal/sync/sync.go	replaceWithLink	os.Rename	path, parked	target
 internal/sync/target_naming_migration.go	selectActiveTargetNameForSync	os.Rename	legacyPath, desiredPath	target
 internal/sync/target_naming_migration.go	selectActiveTargetNameForSync	os.Rename	desiredPath, legacyPath	target
 internal/testutil/git_helpers.go	SeedRemoteBranch	os.MkdirAll	filepath.Dir(full)	test-helper

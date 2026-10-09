@@ -222,7 +222,7 @@ A shared Markdown parser recognizes fenced code-block boundaries, including long
 **Attack scenario:** A skill file looks normal to the eye, but contains zero-width Unicode characters that spell out malicious instructions only visible to the AI. Or a long base64-encoded string decodes to a shell script that exfiltrates data.
 
 **What the audit detects:**
-- Zero-width Unicode characters (U+200B, U+200C, U+200D, U+2060, U+FEFF)
+- Zero-width Unicode characters (U+200B, U+200C, U+200D, U+2060, U+FEFF), except a byte order mark at the very start of a file (Windows editors write one)
 - Base64 decode piped to shell execution (`base64 -d | bash`)
 - Long base64-encoded strings (100+ characters)
 - Consecutive hex/unicode escape sequences

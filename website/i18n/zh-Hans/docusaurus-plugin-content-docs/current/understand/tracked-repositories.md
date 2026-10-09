@@ -284,21 +284,18 @@ Tag 和 commit SHA 不能与 `--track` 组合使用：tracked 仓库从分支 pu
 
 当多个 Skill 共享相同的 `name` 字段时，Sync 会检查在应用 `include`/`exclude` 过滤器后，它们是否会实际落到同一个 Target 上。
 
-**过滤器隔离了冲突** —— 仅作提示：
-
-```
-ℹ Duplicate skill names exist but are isolated by target filters:
-  'ui' (2 definitions)
-```
+**过滤器隔离了冲突** —— 不会输出任何内容，这些 Skill 不会落到同一个 Target。
 
 **冲突落到了同一个 Target** —— 需要处理的警告：
 
 ```
-⚠ Target 'claude': skill name 'ui' is defined in multiple places:
-  - _team-a/frontend/ui
-  - _team-b/components/ui
-Rename one in SKILL.md or adjust include/exclude filters
+! 1 duplicate skill names detected
+  ui                              _team-a/ vs _team-b/
+  Rename one in SKILL.md or adjust include/exclude filters
+  1 name collision(s) excluded
 ```
+
+使用 `target_naming: prefixed` 时，tracked skill 也可能与已使用该前缀名称的 skill 冲突（`_alpha/prototype` 会变成 `alpha-prototype`）。tracked skill 不能在 `SKILL.md` 中改名，因此 Sync 会建议重命名另一个 skill，或用 `--name` 重新 track 该 repo。
 
 **最佳实践** —— 为 Skill 命名空间化，或使用过滤器：
 

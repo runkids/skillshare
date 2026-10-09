@@ -3,6 +3,7 @@ package sync
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"skillshare/internal/config"
@@ -137,6 +138,165 @@ func TestSyncTargetMerge_ForceReplacesLocal(t *testing.T) {
 	}
 	if !utils.IsLinkMode(filepath.Join(tgt, "alpha"), info.Mode()) {
 		t.Error("expected symlink after force replace")
+	}
+}
+
+// setupCopyModeCopy leaves tgt/name as copy mode would: a copy of the source
+// skill and a manifest entry holding the source checksum.
+func setupCopyModeCopy(t *testing.T, src, tgt, name string) string {
+	t.Helper()
+	patterns := DefaultFileIgnorePatterns()
+	sum, err := DirChecksumWithIgnore(filepath.Join(src, name), patterns)
+	if err != nil {
+		t.Fatal(err)
+	}
+	dst := filepath.Join(tgt, name)
+	if err := copySkillToTarget(filepath.Join(src, name), dst, "", patterns); err != nil {
+		t.Fatal(err)
+	}
+	m := &Manifest{Managed: map[string]string{name: sum}, Mtimes: map[string]int64{name: 42}, Naming: map[string]string{name: "flat"}}
+	if err := WriteManifest(tgt, m); err != nil {
+		t.Fatal(err)
+	}
+	return dst
+}
+
+// A copy the manifest records with a checksum was made by copy mode, so
+// switching back to merge turns it into a link without --force.
+func TestSyncTargetMerge_ReplacesCopyModeCopy(t *testing.T) {
+	src, tgt := setupMergeTest(t, "alpha")
+	target := config.TargetConfig{Path: tgt, Mode: "merge"}
+
+	copyDir := setupCopyModeCopy(t, src, tgt, "alpha")
+
+	result, err := SyncTargetMerge("test", target, src, false, false, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result.Updated) != 1 || len(result.Skipped) != 0 {
+		t.Errorf("expected copy-mode copy updated, got updated=%v skipped=%v", result.Updated, result.Skipped)
+	}
+	if !utils.IsSymlinkOrJunction(copyDir) {
+		t.Error("expected a link after switching back to merge")
+	}
+	manifest, _ := ReadManifest(tgt)
+	if manifest.Managed["alpha"] != "symlink" {
+		t.Errorf("manifest should record a link, got %q", manifest.Managed["alpha"])
+	}
+	if _, ok := manifest.Mtimes["alpha"]; ok {
+		t.Error("copy-mode mtime should be forgotten once the entry is a link")
+	}
+	if _, ok := manifest.Naming["alpha"]; ok {
+		t.Error("copy-mode naming should be forgotten once the entry is a link")
+	}
+}
+
+// A parked copy left by a crashed earlier run may be the only one; never drop it.
+func TestReplaceWithLink_KeepsLeftoverParkedCopy(t *testing.T) {
+	parent := t.TempDir()
+	dir := filepath.Join(parent, "alpha")
+	leftover := parkedPath(dir)
+	os.MkdirAll(dir, 0755)
+	os.MkdirAll(leftover, 0755)
+	os.WriteFile(filepath.Join(leftover, "SKILL.md"), []byte("only copy"), 0644)
+
+	if err := replaceWithLink(dir, func() error { return nil }); err == nil {
+		t.Fatal("expected an error for the leftover parked copy")
+	}
+	if got, _ := os.ReadFile(filepath.Join(leftover, "SKILL.md")); string(got) != "only copy" {
+		t.Errorf("leftover parked copy was touched: %q", got)
+	}
+	if _, err := os.Stat(dir); err != nil {
+		t.Errorf("the folder must stay in place: %v", err)
+	}
+}
+
+// A flattened nested skill can be near the 255-byte name limit; the parked name must not grow with it.
+func TestReplaceWithLink_LongEntryName(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), strings.Repeat("a", 250))
+	os.MkdirAll(dir, 0755)
+
+	if err := replaceWithLink(dir, func() error { return os.Symlink(t.TempDir(), dir) }); err != nil {
+		t.Fatalf("replace failed: %v", err)
+	}
+	if !utils.IsSymlinkOrJunction(dir) {
+		t.Error("expected a link after the replacement")
+	}
+}
+
+func TestReplaceWithLink_KeepsFolderWhenLinkFails(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "alpha")
+	os.MkdirAll(dir, 0755)
+	os.WriteFile(filepath.Join(dir, "SKILL.md"), []byte("mine"), 0644)
+
+	err := replaceWithLink(dir, func() error { return os.ErrPermission })
+	if err == nil {
+		t.Fatal("expected the link error")
+	}
+	if got, _ := os.ReadFile(filepath.Join(dir, "SKILL.md")); string(got) != "mine" {
+		t.Errorf("folder not restored after a failed link: %q", got)
+	}
+	if entries, _ := os.ReadDir(filepath.Dir(dir)); len(entries) != 1 {
+		t.Errorf("parked copy left behind: %v", entries)
+	}
+}
+
+func TestSyncTargetMerge_ReplacesCopyModeCopy_DryRun(t *testing.T) {
+	src, tgt := setupMergeTest(t, "alpha")
+	target := config.TargetConfig{Path: tgt, Mode: "merge"}
+
+	copyDir := setupCopyModeCopy(t, src, tgt, "alpha")
+
+	result, err := SyncTargetMerge("test", target, src, true, false, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result.Updated) != 1 {
+		t.Errorf("expected dry-run to report the copy as updated, got %v", result.Updated)
+	}
+	if utils.IsSymlinkOrJunction(copyDir) {
+		t.Error("dry-run must leave the copy in place")
+	}
+}
+
+// A copy edited since copy mode made it is the user's work now; only --force replaces it.
+func TestSyncTargetMerge_KeepsEditedCopyModeCopy(t *testing.T) {
+	src, tgt := setupMergeTest(t, "alpha")
+	target := config.TargetConfig{Path: tgt, Mode: "merge"}
+
+	copyDir := setupCopyModeCopy(t, src, tgt, "alpha")
+	if err := os.WriteFile(filepath.Join(copyDir, "SKILL.md"), []byte("edited"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	result, err := SyncTargetMerge("test", target, src, false, false, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result.Skipped) != 1 || len(result.Updated) != 0 {
+		t.Errorf("expected edited copy kept, got skipped=%v updated=%v", result.Skipped, result.Updated)
+	}
+	if got, _ := os.ReadFile(filepath.Join(copyDir, "SKILL.md")); string(got) != "edited" {
+		t.Errorf("edited copy was changed: %q", got)
+	}
+}
+
+// A folder the manifest records as a link is not a copy-mode copy; it is the user's.
+func TestSyncTargetMerge_KeepsFolderRecordedAsLink(t *testing.T) {
+	src, tgt := setupMergeTest(t, "alpha")
+	target := config.TargetConfig{Path: tgt, Mode: "merge"}
+
+	os.MkdirAll(filepath.Join(tgt, "alpha"), 0755)
+	if err := WriteManifest(tgt, &Manifest{Managed: map[string]string{"alpha": "symlink"}}); err != nil {
+		t.Fatal(err)
+	}
+
+	result, err := SyncTargetMerge("test", target, src, false, false, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result.Skipped) != 1 || len(result.Updated) != 0 {
+		t.Errorf("expected folder kept, got skipped=%v updated=%v", result.Skipped, result.Updated)
 	}
 }
 

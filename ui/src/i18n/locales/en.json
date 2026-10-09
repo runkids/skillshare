@@ -1866,6 +1866,7 @@
   "sync.row.newCopy": "New copy",
   "sync.row.recopy": "Deleted in target. Will be copied again",
   "sync.row.updateLink": "Link is broken or points elsewhere. Will be relinked",
+  "sync.row.copyToLink": "Copy made by copy mode. Will be replaced by a link",
   "sync.row.updateCopy": "Differs from source. Will be copied again",
   "sync.row.prune": "No longer in source. Will be removed",
   "sync.row.kept": "Edited in target. Kept unless you use Force",

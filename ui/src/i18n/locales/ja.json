@@ -1866,6 +1866,7 @@
   "sync.row.newCopy": "新しいコピー",
   "sync.row.recopy": "ターゲットで削除済み。再度コピーされます",
   "sync.row.updateLink": "リンクが壊れているか別の場所を指しています。張り直されます",
+  "sync.row.copyToLink": "copy モードが作ったコピーです。リンクに置き換えられます",
   "sync.row.updateCopy": "ソースと異なります。再度コピーされます",
   "sync.row.prune": "ソースにありません。削除されます",
   "sync.row.kept": "ターゲットで編集済み。Force を使わない限り残ります",

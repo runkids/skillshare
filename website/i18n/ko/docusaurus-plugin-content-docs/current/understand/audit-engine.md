@@ -222,7 +222,7 @@ Output suppression은 Markdown 문맥과 별개로 일치한 근거에 따라 �
 **공격 시나리오:** skill 파일이 눈에는 정상적으로 보이지만, AI에게만 보이는 악성 지침을 만드는 zero-width 유니코드 문자를 포함하고 있습니다. 또는 긴 base64 인코딩 문자열이 데이터를 유출하는 셸 스크립트로 디코딩됩니다.
 
 **audit이 탐지하는 것:**
-- Zero-width 유니코드 문자 (U+200B, U+200C, U+200D, U+2060, U+FEFF)
+- Zero-width 유니코드 문자 (U+200B, U+200C, U+200D, U+2060, U+FEFF). 파일 맨 앞의 바이트 순서 표시(BOM, Windows 편집기가 기록)는 제외
 - 셸 실행으로 파이프되는 Base64 decode (`base64 -d | bash`)
 - 긴 base64 인코딩 문자열 (100자 이상)
 - 연속된 hex/유니코드 이스케이프 시퀀스

@@ -7,6 +7,8 @@ import (
 	"unicode/utf8"
 
 	"gopkg.in/yaml.v3"
+
+	"skillshare/internal/utils"
 )
 
 // EstimateTokens approximates how many tokens s costs. ASCII text runs about
@@ -57,7 +59,7 @@ func CalcSkillContext(skillPath string) (descChars, bodyChars int, description s
 // yamlErr is non-nil when the frontmatter YAML between --- delimiters cannot
 // be parsed; body metrics are still valid in that case.
 func calcContextFromContent(content []byte) (sc skillContext, yamlErr error) {
-	s := string(content)
+	s := utils.TrimBOM(string(content))
 	if len(s) == 0 {
 		return sc, nil
 	}

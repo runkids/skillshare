@@ -77,7 +77,7 @@ Targets                     skills                agents
 |------|------|
 | `✓ 8 linked` / `✓ 8 copied` | 예상되는 skill이 모두 있습니다. merge와 copy는 `include`/`exclude`로 거른 뒤의 skill을 셉니다 |
 | `· 2 local` | 그 폴더에 있는 직접 만든 skill로, sync가 건드리지 않습니다 |
-| `! 6/8 linked` | 일부 skill이 아직 sync되지 않았습니다. status 마지막에 개수와 `sync` 명령이 표시됩니다 |
+| `! 6/8 linked` | 일부 skill이 아직 sync되지 않았습니다. status 마지막에 개수와 `sync` 명령이 표시됩니다. `sync`가 의도적으로 건너뛰는 skill(`standard`/`prefixed` naming에서 잘못된 이름이거나 이름 충돌)은 세지 않습니다. `sync`를 다시 실행해도 추가할 수 없기 때문이며, `sync`가 해당 skill을 알려 줍니다 |
 | `✓ symlinked` | symlink mode: 폴더 전체가 source에 연결되어 있습니다 |
 | `! needs sync` | mode가 바뀌었습니다. `sync`를 실행해 적용하세요 |
 | `! has files` / `! not synced yet` | 이 target은 아직 한 번도 sync되지 않았습니다 |
@@ -167,6 +167,8 @@ skillshare status --json
   "version": "0.17.0"
 }
 ```
+
+`warning` 문자열은 sync가 해당 target을 거부할 때만 붙습니다(예: copy 이외의 mode에서 `prefixed` naming). 문구에 해결 방법이 포함됩니다.
 
 git status를 읽을 수 없는 tracked repo는 `"status": "unknown"`이 되고 `message`에 오류가 담깁니다. 이때 `dirty`는 false이며 의미가 없습니다.
 

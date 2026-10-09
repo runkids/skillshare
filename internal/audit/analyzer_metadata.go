@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+
+	"skillshare/internal/utils"
 )
 
 // metadataAnalyzer cross-references SKILL.md metadata (name, description)
@@ -144,7 +146,7 @@ func readSkillFrontmatter(skillMDPath string, fileCache map[string][]byte) (name
 
 // parseFrontmatterNameDesc extracts name and description from YAML frontmatter bytes.
 func parseFrontmatterNameDesc(data []byte) (name, description string) {
-	lines := strings.Split(string(data), "\n")
+	lines := strings.Split(utils.TrimBOM(string(data)), "\n")
 	inFrontmatter := false
 	for _, line := range lines {
 		trimmed := strings.TrimSpace(line)
