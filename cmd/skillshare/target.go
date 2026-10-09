@@ -767,15 +767,18 @@ func (u targetSettingsUpdate) apply(settings parsedTargetSettingFlags) error {
 		}
 	}
 
-	mode, naming := cmp.Or(settings.SkillMode, u.oldMode), cmp.Or(settings.Naming, u.oldNaming)
-	if err := config.TargetNamingModeError(naming, mode); err != nil {
-		switch {
-		case settings.Naming == "":
-			return fmt.Errorf("%w; change the target naming first", err)
-		case settings.SkillMode == "":
-			return fmt.Errorf("%w; set --mode copy first", err)
+	// An agents-only change leaves the skills pair alone: a target with skills off may keep one it cannot sync.
+	if settings.SkillMode != "" || settings.Naming != "" {
+		mode, naming := cmp.Or(settings.SkillMode, u.oldMode), cmp.Or(settings.Naming, u.oldNaming)
+		if err := config.TargetNamingModeError(naming, mode); err != nil {
+			switch {
+			case settings.Naming == "":
+				return fmt.Errorf("%w; change the target naming first", err)
+			case settings.SkillMode == "":
+				return fmt.Errorf("%w; set --mode copy first", err)
+			}
+			return err
 		}
-		return err
 	}
 
 	type row struct {

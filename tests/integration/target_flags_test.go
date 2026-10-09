@@ -117,3 +117,34 @@ func TestTarget_SameValueIsReportedUnchanged(t *testing.T) {
 		})
 	}
 }
+
+// A target with skills off may keep a prefixed naming its mode cannot sync, so
+// an agents-only change must not trip over that skills pair.
+func TestTarget_AgentModeIgnoresSkillsPairOfSkillsOffTarget(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	scopes := targetFlagScopes(t, sb)
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets:
+  claude:
+    skills:
+      path: ` + sb.CreateTarget("claude") + `
+      mode: merge
+      target_naming: prefixed
+      enabled: false
+`)
+	if err := os.WriteFile(scopes[1].configPath, []byte(`targets:
+  - name: claude
+    skills:
+      mode: merge
+      target_naming: prefixed
+      enabled: false
+`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	for _, sc := range scopes {
+		t.Run(sc.name, func(t *testing.T) {
+			sc.run("--agent-mode", "copy").AssertSuccess(t)
+		})
+	}
+}
