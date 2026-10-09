@@ -783,8 +783,16 @@ func reportCollisions(skills []sync.DiscoveredSkill, targets map[string]config.T
 				deduped[c.Name] = info
 				orderedNames = append(orderedNames, c.Name)
 			}
-			trackedClash := targetPrefixed && slices.ContainsFunc(c.Paths, func(p string) bool { return tracked[p] })
-			info.Prefixed, info.Other = info.Prefixed || trackedClash, info.Other || !trackedClash
+			trackedPaths := 0
+			for _, p := range c.Paths {
+				if tracked[p] {
+					trackedPaths++
+				}
+			}
+			trackedClash := targetPrefixed && trackedPaths > 0
+			// Re-tracking fixes the tracked skill only: ordinary skills still clash if two remain.
+			info.Prefixed = info.Prefixed || trackedClash
+			info.Other = info.Other || !trackedClash || len(c.Paths)-trackedPaths >= 2
 		}
 	}
 

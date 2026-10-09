@@ -370,6 +370,8 @@ func TestSync_TargetNamingPrefixed_CollisionHintStaysWhenSourceAlreadyHasDuplica
 	result := sb.RunCLI("sync")
 	result.AssertOutputContains(t, "A tracked skill cannot be renamed in SKILL.md")
 	result.AssertOutputContains(t, "--name")
+	// Re-tracking leaves the two ordinary skills clashing, so their remedy stays too.
+	result.AssertOutputContains(t, "Rename one in SKILL.md")
 }
 
 func TestSync_TargetNamingPrefixed_CollisionPrintsBothHintsAcrossTargets(t *testing.T) {
