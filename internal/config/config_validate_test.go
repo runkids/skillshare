@@ -572,8 +572,12 @@ func TestValidateConfig_ProjectPrefixedNamingRequiresCopyMode(t *testing.T) {
 	cfg := &Config{Source: t.TempDir(), Mode: "merge", Projects: map[string]ManagedProject{
 		"~/work/app": {Skills: &ResourceTargetConfig{TargetNaming: "prefixed"}},
 	}}
-	if _, err := ValidateConfig(cfg); err == nil || !strings.Contains(err.Error(), `projects: ~/work/app: target naming "prefixed" requires copy mode`) {
+	_, err := ValidateConfig(cfg)
+	if err == nil || !strings.Contains(err.Error(), `projects: ~/work/app: target naming "prefixed" requires copy mode`) {
 		t.Fatalf("err = %v, want the project's prefixed naming rejected", err)
+	}
+	if !strings.Contains(err.Error(), "set mode: copy in the project's skills settings") {
+		t.Fatalf("err = %v, want the project settings hint", err)
 	}
 }
 
