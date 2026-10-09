@@ -679,3 +679,18 @@ func TestHandleUpdateTarget_ReenablingSkillsChecksPrefixedNaming(t *testing.T) {
 		t.Fatalf("re-enable under merge: got %d %s, want 400", rr.Code, rr.Body.String())
 	}
 }
+
+func TestHandleUpdateTarget_DisablingSkillsSkipsNamingCheck(t *testing.T) {
+	s, _ := newTestServer(t)
+	s.cfg.Targets = map[string]config.TargetConfig{"claude": {Skills: &config.ResourceTargetConfig{
+		Path: filepath.Join(t.TempDir(), "skills"), Mode: "copy", TargetNaming: "prefixed",
+	}}}
+	if err := s.saveConfig(); err != nil {
+		t.Fatal(err)
+	}
+	rr := httptest.NewRecorder()
+	s.handler.ServeHTTP(rr, httptest.NewRequest(http.MethodPatch, "/api/targets/claude", strings.NewReader(`{"skills_enabled":false,"mode":"merge"}`)))
+	if rr.Code != http.StatusOK {
+		t.Fatalf("disable with merge: got %d %s, want 200", rr.Code, rr.Body.String())
+	}
+}

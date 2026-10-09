@@ -265,12 +265,12 @@ skillshare sync
 
 - 名称已经以 repo 名开头时不会重复加前缀：`_bmad/skills/bmad-ux` 仍是 `bmad-ux`。
 - 不在 tracked repo 内的 skill 保持原名。
-- source skill 必须先通过 `standard` 检查。带前缀的名称超过 64 个字符时会收到警告并被跳过，仍然冲突的名称与 `standard` 一样被跳过。
+- source skill 必须先通过 `standard` 检查。带前缀的名称超过 64 个字符时会收到警告并被跳过，仍然冲突的名称与 `standard` 一样被跳过。tracked skill 不能在 `SKILL.md` 中改名，因此 sync 会建议重命名另一个 skill，或用 `--name` 重新 track 该 repo。
 - 想要更短的前缀，可以用较短的名称 track repo：`skillshare install <repo> --track --name mp` 会得到 `mp-prototype`。
 - 指向同级 skill 的相对链接（`../other-skill/`）不会被改写，与 copy 模式下的 `flat` 相同。
 - 该名称就是工具中显示的名称；在 Claude Code 中它是 slash command，例如 `/mattpocock-skills-prototype`。
 
-`prefixed` 需要 copy 模式，因为 merge 链接指向 source，而 source 中的 `name:` 不能被修改。在 merge 或 symlink 模式下解析为 `prefixed` 的 target 会校验失败，并被 sync 跳过。新 target 若会在 copy 以外的模式下继承 `prefixed`（项目 target 默认为 merge），`target add` 会让它使用 copy 模式。
+`prefixed` 需要 copy 模式，因为 merge 链接指向 source，而 source 中的 `name:` 不能被修改。在 merge 或 symlink 模式下解析为 `prefixed` 的 target 会校验失败，并被 sync 跳过。新 target 若会在 copy 以外的模式下继承 `prefixed`（项目 target 默认为 merge），`target add` 会让它使用 copy 模式。`target add` 这样做时会提示；`status` 和 `doctor` 会在 sync 之前标出在 copy 以外的模式下解析为 `prefixed` 的 target，`target list` 对 `targets:` 中的 target 也会如此，修正方法是在该 target 上设置 `mode: copy`；若该 target 由 `projects:` 条目展开而来，则设置 `projects.<root>.skills.mode: copy`。
 
 ```yaml
 targets:

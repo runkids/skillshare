@@ -124,6 +124,9 @@ func (i diffTargetItem) row() (string, string) {
 	if r.localCount > 0 {
 		parts = append(parts, fmt.Sprintf("%d local", r.localCount))
 	}
+	if n := r.keptCount(); n > 0 {
+		parts = append(parts, fmt.Sprintf("%d kept", n))
+	}
 	desc := "differs"
 	if len(parts) > 0 {
 		desc = strings.Join(parts, " · ")
@@ -495,15 +498,17 @@ func (m diffTUIModel) View() string {
 
 // renderTitleLine renders the target and extra counts and how many differ.
 func (m diffTUIModel) renderTitleLine() string {
-	var errN, diffN, syncN int
+	var errN, diffN, keptN, syncN int
 	for _, r := range m.allItems {
 		switch {
 		case r.errMsg != "":
 			errN++
-		case !r.synced:
-			diffN++
-		default:
+		case r.synced:
 			syncN++
+		case r.syncCount == 0 && r.keptCount() > 0:
+			keptN++
+		default:
+			diffN++
 		}
 	}
 	facts := []string{countNoun(len(m.allItems), "target")}
@@ -516,6 +521,9 @@ func (m diffTUIModel) renderTitleLine() string {
 	// Colored facts go last; a colored fact ends the dim run of facts.
 	if diffN > 0 {
 		facts = append(facts, theme.Warning().Render(formatNumber(diffN)+" differ"))
+	}
+	if keptN > 0 {
+		facts = append(facts, theme.Warning().Render(formatNumber(keptN)+" kept under old name"))
 	}
 	if errN > 0 {
 		facts = append(facts, theme.Danger().Render(countNoun(errN, "error")))
@@ -719,7 +727,7 @@ func (m diffTUIModel) buildDiffDetail() string {
 			kindStyle = theme.Success()
 		case "modified":
 			kindStyle = theme.Accent()
-		case "override":
+		case "override", "kept":
 			kindStyle = theme.Warning()
 		case "orphan":
 			kindStyle = theme.Danger()
@@ -739,6 +747,8 @@ func (m diffTUIModel) buildDiffDetail() string {
 			for _, name := range cat.names {
 				if agentNames[name] {
 					b.WriteString("  " + name + theme.Dim().Render("  agent"))
+				} else if cat.kind == "kept" {
+					b.WriteString("  " + findDiffItem(m.cachedItems, name).label())
 				} else {
 					b.WriteString("  " + name)
 				}
@@ -805,6 +815,8 @@ func (m diffTUIModel) buildDiffDetail() string {
 			hints = append(hints, "sync")
 		case "override":
 			hints = append(hints, "sync --force")
+		case "kept":
+			hints = append(hints, "sync  "+theme.Dim().Render(keptSyncHint))
 		case "local":
 			hints = append(hints, "collect")
 		}

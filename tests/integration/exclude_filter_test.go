@@ -297,8 +297,8 @@ targets:
 	// Should NOT show "Name conflicts detected" (warning-level header)
 	result.AssertOutputNotContains(t, "Name conflicts detected")
 
-	// Should show info-level message about isolated duplicates
-	result.AssertAnyOutputContains(t, "isolated by target filters")
+	// Isolated duplicates are not a problem, so sync stays quiet about them
+	result.AssertOutputNotContains(t, "duplicate skill names")
 
 	// Verify correct skills landed on correct targets
 	if !sb.IsSymlink(filepath.Join(codexTarget, "codex-plan")) {

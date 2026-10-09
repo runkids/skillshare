@@ -40,6 +40,9 @@ func newTargetListJSONItem(item targetTUIItem) targetListJSONItem {
 
 		SkillsEnabled: sc.IsEnabled(),
 	}
+	if item.namingErr != nil {
+		jsonItem.Warning = item.namingErr.Error()
+	}
 	applyTargetListAgentSummary(&jsonItem, item.agentSummary)
 	return jsonItem
 }
@@ -146,6 +149,9 @@ func printTargetListPlain(items []targetTUIItem) {
 			detail = sync.EffectiveMode(sc.Mode) + " · " + config.EffectiveTargetNaming(sc.TargetNaming) + " · " + item.skillSyncText
 		}
 		ui.Row(ui.MarkNone, "Skills", shortenPath(displayPath)+"  "+ui.DimText(detail), width)
+		if item.namingErr != nil {
+			ui.Row(ui.MarkWarn, "", item.namingErr.Error(), width)
+		}
 		if f := filterSummary(sc.Include, sc.Exclude); sc.IsEnabled() && f != "" {
 			ui.Row(ui.MarkNone, "", ui.DimText(f), width)
 		}

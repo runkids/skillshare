@@ -11,6 +11,7 @@ export type FrontmatterValue =
 export type Frontmatter = Record<string, FrontmatterValue>;
 
 export interface ParsedSkillMarkdown {
+  bom: string; // '\uFEFF' when the file starts with one, so a save can put it back
   frontmatter: Frontmatter;
   rawFrontmatter: string;
   body: string;
@@ -20,6 +21,12 @@ export interface ParsedSkillMarkdown {
 const FENCE = /^---\s*(?:\r?\n|$)/;
 
 export function parseSkillMarkdown(content: string): ParsedSkillMarkdown {
+  // Windows editors write a BOM before the opening fence; the Go readers skip it too.
+  const bom = content.startsWith('\uFEFF') ? '\uFEFF' : '';
+  return { bom, ...parseFenced(content.slice(bom.length)) };
+}
+
+function parseFenced(content: string): Omit<ParsedSkillMarkdown, 'bom'> {
   if (!content) {
     return { frontmatter: {}, rawFrontmatter: '', body: '', hasFrontmatter: false };
   }
@@ -214,6 +221,7 @@ export function composeSkillMarkdown(
   body: string,
   keyOrder?: string[],
   rawFrontmatter?: string,
+  bom = '',
 ): string {
   // Preserve original frontmatter text when it hasn't been edited,
   // avoiding spurious formatting changes (quote style, line wrapping).
@@ -221,5 +229,5 @@ export function composeSkillMarkdown(
     ? `---\n${rawFrontmatter}\n---`
     : serializeFrontmatter(fm, keyOrder);
   const bodyText = body.startsWith('\n') ? body : '\n' + body;
-  return `${fmText}${bodyText}`;
+  return `${bom}${fmText}${bodyText}`;
 }

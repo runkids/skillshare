@@ -598,12 +598,7 @@ func SyncTargetMergeWithSkills(name string, target config.TargetConfig, allSkill
 	if err != nil {
 		return nil, err
 	}
-	if n := len(resolution.Warnings); n > 0 {
-		fmt.Fprintf(DiagOutput, "  %d skill(s) skipped (naming validation)\n", n)
-	}
-	if n := len(resolution.Collisions); n > 0 {
-		fmt.Fprintf(DiagOutput, "  %d name collision(s) excluded\n", n)
-	}
+	printResolutionSummary(resolution)
 	result.UnmatchedIncludes = resolution.UnmatchedIncludes
 
 	manifest, err := ReadManifest(sc.Path)
@@ -703,11 +698,11 @@ func SyncTargetMergeWithSkills(name string, target config.TargetConfig, allSkill
 	// Write manifest (additive: merge with existing entries)
 	if !dryRun {
 		for _, name := range result.Linked {
-			manifest.Managed[name] = "symlink"
+			manifest.Managed[name] = manifestSymlink
 		}
 		for _, name := range result.Updated {
 			manifest.Remove(name) // drops what copy mode recorded for a copy that is now a link
-			manifest.Managed[name] = "symlink"
+			manifest.Managed[name] = manifestSymlink
 		}
 		// Skipped items are NOT added — they are user-local copies
 		WriteManifest(sc.Path, manifest) //nolint:errcheck

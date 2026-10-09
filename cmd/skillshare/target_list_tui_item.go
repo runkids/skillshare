@@ -22,6 +22,8 @@ type targetTUIItem struct {
 	skillSyncText string
 	agentConfig   config.ResourceTargetConfig
 	agentSummary  *targetsummary.AgentSummary
+	// namingErr is why sync will fail for this target's naming and mode, with the fix.
+	namingErr error
 }
 
 func (i targetTUIItem) FilterValue() string { return i.name }
@@ -44,5 +46,9 @@ func (targetListDelegate) Render(w io.Writer, m list.Model, index int, item list
 	if !ti.target.SkillsConfig().IsEnabled() {
 		mode = "skills off"
 	}
-	renderPrefixRow(w, alignRow(ti.name, theme.Dim().Render(mode), m.Width()-rowIndent), m.Width(), index == m.Index())
+	modeStyle := theme.Dim()
+	if ti.namingErr != nil {
+		modeStyle, mode = theme.Warning(), "! "+mode
+	}
+	renderPrefixRow(w, alignRow(ti.name, modeStyle.Render(mode), m.Width()-rowIndent), m.Width(), index == m.Index())
 }

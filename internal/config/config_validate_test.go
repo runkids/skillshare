@@ -541,7 +541,7 @@ func TestValidateConfigForSync_PrefixedNamingRequiresCopyMode(t *testing.T) {
 		},
 	}
 	_, invalid, err := ValidateConfigForSync(cfg)
-	if err != nil || len(invalid) != 1 || invalid["merge"] == nil || !strings.Contains(invalid["merge"].Error(), `target naming "prefixed" requires copy mode`) {
+	if err != nil || len(invalid) != 1 || invalid["merge"] == nil || !strings.Contains(invalid["merge"].Error(), `target naming "prefixed" requires copy mode`) || !strings.Contains(invalid["merge"].Error(), "set mode: copy on the target") {
 		t.Fatalf("err = %v, invalid = %v; want only merge invalid", err, invalid)
 	}
 }
@@ -572,8 +572,12 @@ func TestValidateConfig_ProjectPrefixedNamingRequiresCopyMode(t *testing.T) {
 	cfg := &Config{Source: t.TempDir(), Mode: "merge", Projects: map[string]ManagedProject{
 		"~/work/app": {Skills: &ResourceTargetConfig{TargetNaming: "prefixed"}},
 	}}
-	if _, err := ValidateConfig(cfg); err == nil || !strings.Contains(err.Error(), `projects: ~/work/app: target naming "prefixed" requires copy mode`) {
+	_, err := ValidateConfig(cfg)
+	if err == nil || !strings.Contains(err.Error(), `projects: ~/work/app: target naming "prefixed" requires copy mode`) {
 		t.Fatalf("err = %v, want the project's prefixed naming rejected", err)
+	}
+	if !strings.Contains(err.Error(), "set mode: copy in the project's skills settings") {
+		t.Fatalf("err = %v, want the project settings hint", err)
 	}
 }
 
@@ -597,5 +601,40 @@ func TestValidateConfigForSync_SkillsOffSkipsNamingModeCheck(t *testing.T) {
 	off.SetEnabled(false)
 	if err := cfg.ProjectNamingError(map[string]ManagedProject{"~/work/app": {Skills: off}}, "merge"); err != nil {
 		t.Fatalf("managed project: %v", err)
+	}
+}
+
+func TestTargetConfig_NamingModeConfigError(t *testing.T) {
+	off := false
+	for _, tc := range []struct {
+		name string
+		tc   TargetConfig
+		mode string
+		fix  string // empty when no error is expected
+	}{
+		{"prefixed inheriting merge", TargetConfig{Skills: &ResourceTargetConfig{TargetNaming: "prefixed"}}, "merge", "set mode: copy on the target"},
+		{"prefixed inheriting the default", TargetConfig{Skills: &ResourceTargetConfig{TargetNaming: "prefixed"}}, "", "set mode: copy on the target"},
+		{"own copy mode wins", TargetConfig{Skills: &ResourceTargetConfig{TargetNaming: "prefixed", Mode: "copy"}}, "merge", ""},
+		{"skills off", TargetConfig{Skills: &ResourceTargetConfig{TargetNaming: "prefixed", Enabled: &off}}, "merge", ""},
+		// A managed project's target cannot be edited as a target; its project settings hold the mode.
+		{"managed project target", TargetConfig{Skills: &ResourceTargetConfig{TargetNaming: "prefixed"}, projectRoot: "/work/app"}, "merge", "set mode: copy in the project's skills settings"},
+	} {
+		err := tc.tc.NamingModeConfigError(tc.mode)
+		switch {
+		case tc.fix == "" && err != nil:
+			t.Errorf("%s: unexpected error %v", tc.name, err)
+		case tc.fix != "" && (err == nil || !strings.Contains(err.Error(), tc.fix)):
+			t.Errorf("%s: error = %v, want fix %q", tc.name, err, tc.fix)
+		}
+	}
+}
+
+func TestValidateConfigForSync_ManagedProjectPrefixedHintPointsAtProject(t *testing.T) {
+	problems := validateGlobalTarget("app@claude", TargetConfig{
+		Skills:      &ResourceTargetConfig{Path: filepath.Join(t.TempDir(), "skills")},
+		projectRoot: "/work/app",
+	}, "merge", "prefixed")
+	if len(problems) != 1 || !strings.Contains(problems[0], "in the project's skills settings") {
+		t.Fatalf("problems = %v, want the project settings hint", problems)
 	}
 }

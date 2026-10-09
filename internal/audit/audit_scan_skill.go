@@ -285,7 +285,8 @@ func scanFileUnified(
 	activeRules []rule, profile *TierProfile,
 	hasStatic, hasDataflow, isShell bool,
 ) (staticFindings, dfFindings []Finding) {
-	text := string(data)
+	// A BOM at the very start is the file's encoding mark, not a hidden character.
+	text := utils.TrimBOM(string(data))
 
 	if isMarkdown {
 		return scanFileUnifiedMarkdown(text, relPath, activeRules, profile, hasStatic, hasDataflow)

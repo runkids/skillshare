@@ -12,6 +12,9 @@ import (
 // ManifestFile is the filename for the sync manifest.
 const ManifestFile = ".skillshare-manifest.json"
 
+// manifestSymlink is the Managed value merge mode records for a link it made.
+const manifestSymlink = "symlink"
+
 // Manifest tracks which skills are managed by skillshare in a target directory.
 // Used by both merge mode (values: "symlink") and copy mode (values: SHA-256 checksum).
 type Manifest struct {
@@ -69,7 +72,7 @@ func (m *Manifest) OwnsCopy(name, dir string) bool {
 		return false
 	}
 	recorded, ok := m.Managed[name]
-	if !ok || recorded == "symlink" {
+	if !ok || recorded == manifestSymlink {
 		return false
 	}
 	sum, err := DirChecksumWithIgnore(dir, DefaultFileIgnorePatterns())

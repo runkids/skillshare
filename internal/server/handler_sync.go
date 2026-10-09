@@ -594,7 +594,7 @@ func (s *Server) computeContextCost(skills []ssync.DiscoveredSkill) map[string]a
 
 type diffItem struct {
 	Skill  string `json:"skill"`
-	Action string `json:"action"` // "link", "update", "skip", "prune", "local"
+	Action string `json:"action"` // "link", "update", "skip", "prune", "local", "kept" (the skill stays at a legacy entry; force changes nothing)
 	Reason string `json:"reason"` // human-readable description
 	Kind   string `json:"kind,omitempty"`
 }

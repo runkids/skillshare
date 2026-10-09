@@ -323,6 +323,18 @@ func TestRenderTargetDetail_AgentSection(t *testing.T) {
 			notContains: []string{"team-*", "draft-*"},
 		},
 		{
+			name: "naming the mode cannot honour shows the fix",
+			item: targetTUIItem{
+				name:      "claude",
+				skillSync: "merged (7 shared, 0 local)",
+				target: config.TargetConfig{
+					Skills: &config.ResourceTargetConfig{Path: "/tmp/claude/skills", Mode: "merge", TargetNaming: "prefixed"},
+				},
+				namingErr: config.TargetNamingModeConfigError("prefixed", "merge", ""),
+			},
+			want: []string{"set mode: copy on the target"},
+		},
+		{
 			name: "unsupported target omits agents section",
 			item: targetTUIItem{
 				name:        "custom-tool",

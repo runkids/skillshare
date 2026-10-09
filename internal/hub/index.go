@@ -14,6 +14,7 @@ import (
 	"skillshare/internal/install"
 	"skillshare/internal/sourcewalk"
 	ssync "skillshare/internal/sync"
+	"skillshare/internal/utils"
 )
 
 // Index is the private hub index document format (schema v1).
@@ -175,7 +176,7 @@ func readSkillTags(skillPath string) []string {
 	if err != nil {
 		return nil
 	}
-	lines := strings.Split(string(data), "\n")
+	lines := strings.Split(utils.TrimBOM(string(data)), "\n")
 	if len(lines) < 3 || strings.TrimSpace(lines[0]) != "---" {
 		return nil
 	}
@@ -210,7 +211,7 @@ func readSkillDescription(skillPath string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	lines := strings.Split(string(data), "\n")
+	lines := strings.Split(utils.TrimBOM(string(data)), "\n")
 	if len(lines) < 3 || strings.TrimSpace(lines[0]) != "---" {
 		return "", nil
 	}

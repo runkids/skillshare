@@ -33,6 +33,25 @@ func TestPrefixedTargetName(t *testing.T) {
 	}
 }
 
+func TestResolveTargetSkillsForTarget_BOMFrontmatter(t *testing.T) {
+	dir := t.TempDir()
+	skill := createTempSkill(t, dir, "notepad-skill", "notepad-skill")
+	content := "\ufeff---\nname: notepad-skill\n---\n# notepad-skill"
+	if err := os.WriteFile(filepath.Join(skill.SourcePath, "SKILL.md"), []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	for _, naming := range []string{"standard", "prefixed"} {
+		resolution, err := ResolveTargetSkillsForTarget("claude", config.ResourceTargetConfig{TargetNaming: naming}, []DiscoveredSkill{skill})
+		if err != nil {
+			t.Fatalf("%s: %v", naming, err)
+		}
+		if len(resolution.Skills) != 1 || resolution.Skills[0].TargetName != "notepad-skill" {
+			t.Errorf("%s: skills = %+v, want notepad-skill kept", naming, resolution.Skills)
+		}
+	}
+}
+
 func TestResolveTargetSkillsForTarget_PrefixedNaming(t *testing.T) {
 	dir := t.TempDir()
 	inRepo := func(s DiscoveredSkill, repo string) DiscoveredSkill {
@@ -118,5 +137,14 @@ func TestCopySkillToTarget_RewritesReadOnlySkillFile(t *testing.T) {
 	info, err := os.Stat(filepath.Join(dst, "SKILL.md"))
 	if err != nil || info.Mode().Perm() != 0o444 {
 		t.Fatalf("copied SKILL.md mode = %v, err = %v; want the source's 0444 kept", info, err)
+	}
+}
+
+func TestKeptLocalWarning_CapsTheNameList(t *testing.T) {
+	names := []string{"a", "b", "c", "d", "e", "f", "g"}
+	got := keptLocalWarning(names)
+	want := "kept local: a, b, c, d, e ... and 2 more (sync --force replaces them)"
+	if got != want {
+		t.Fatalf("keptLocalWarning = %q, want %q", got, want)
 	}
 }

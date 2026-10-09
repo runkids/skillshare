@@ -284,21 +284,18 @@ tag와 commit SHA는 `--track`과 함께 사용할 수 없습니다. tracked rep
 
 여러 skill이 같은 `name` 필드를 공유할 때, sync는 `include`/`exclude` 필터가 적용된 후 실제로 동일한 target에 도달하는지 확인합니다.
 
-**필터가 충돌을 격리함** — 정보성 메시지일 뿐입니다:
-
-```
-ℹ Duplicate skill names exist but are isolated by target filters:
-  'ui' (2 definitions)
-```
+**필터가 충돌을 격리함** — 아무것도 출력되지 않습니다. 해당 skill은 같은 target에 도달하지 않습니다.
 
 **충돌이 동일한 target에 도달함** — 실행 가능한 경고입니다:
 
 ```
-⚠ Target 'claude': skill name 'ui' is defined in multiple places:
-  - _team-a/frontend/ui
-  - _team-b/components/ui
-Rename one in SKILL.md or adjust include/exclude filters
+! 1 duplicate skill names detected
+  ui                              _team-a/ vs _team-b/
+  Rename one in SKILL.md or adjust include/exclude filters
+  1 name collision(s) excluded
 ```
+
+`target_naming: prefixed`에서는 tracked skill이 이미 그 접두사 이름을 가진 skill과 충돌할 수도 있습니다(`_alpha/prototype`은 `alpha-prototype`이 됩니다). tracked skill은 `SKILL.md`에서 이름을 바꿀 수 없으므로 sync는 다른 skill의 이름을 바꾸거나 `--name`으로 repo를 다시 track하도록 안내합니다.
 
 **모범 사례** — skill에 네임스페이스를 부여하거나 필터를 사용하세요:
 

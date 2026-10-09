@@ -560,7 +560,7 @@ targets:
 ```
 
 :::tip
-如果过滤器已经把重复项隔离开来，sync 只会显示信息提示而不是警告——不需要额外处理。
+如果过滤器已经把重复项隔离开来，sync 不会输出任何相关内容——不需要额外处理。
 完整语法参见 [Target Filters](/docs/reference/targets/configuration#include--exclude-target-filters)。
 :::
 

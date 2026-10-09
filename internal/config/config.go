@@ -1,6 +1,7 @@
 package config
 
 import (
+	"cmp"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -60,6 +61,30 @@ func TargetNamingModeError(naming, mode string) error {
 		return nil
 	}
 	return fmt.Errorf("target naming %q requires copy mode, but the target syncs in %q mode", "prefixed", mode)
+}
+
+// TargetNamingModeConfigError is TargetNamingModeError for a target as written in a
+// config file, with the fix. A managed project's target has projectRoot set: it cannot
+// be edited as a target, so its fix is in the project's settings.
+func TargetNamingModeConfigError(naming, mode, projectRoot string) error {
+	err := TargetNamingModeError(naming, mode)
+	if err == nil {
+		return nil
+	}
+	if projectRoot != "" {
+		return fmt.Errorf("%w; set mode: copy in the project's skills settings", err)
+	}
+	return fmt.Errorf("%w; set mode: copy on the target", err)
+}
+
+// NamingModeConfigError is TargetNamingModeConfigError for a target that syncs skills,
+// nil when skills are off. defaultMode is the mode a target without its own inherits.
+func (tc TargetConfig) NamingModeConfigError(defaultMode string) error {
+	sc := tc.SkillsConfig()
+	if !sc.IsEnabled() {
+		return nil
+	}
+	return TargetNamingModeConfigError(sc.TargetNaming, cmp.Or(sc.Mode, defaultMode), tc.projectRoot)
 }
 
 // NewTargetSkillsMode is the skills mode a new target is written with: copy when it

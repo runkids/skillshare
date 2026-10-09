@@ -158,20 +158,15 @@ _org-skills/
 複数の Skill が同じ `name` フィールドを共有する場合、Sync は `include`/`exclude` フィルターの適用後、
 それらが実際に同じ Target に配置されるかどうかをチェックします。
 
-**フィルターが衝突を分離する** — 情報提供のみ:
-
-```
-ℹ Duplicate skill names exist but are isolated by target filters:
-  'ui' (2 definitions)
-```
+**フィルターによって衝突が分離される場合** — 何も出力されません。これらの Skill が同じ Target に配置されることはありません。
 
 **衝突が同じ Target に到達する** — 対応が必要な警告:
 
 ```
-⚠ Target 'claude': skill name 'ui' is defined in multiple places:
-  - _team-a/frontend/ui
-  - _team-b/components/ui
-Rename one in SKILL.md or adjust include/exclude filters
+! 1 duplicate skill names detected
+  ui                              _team-a/ vs _team-b/
+  Rename one in SKILL.md or adjust include/exclude filters
+  1 name collision(s) excluded
 ```
 
 **解決策:** 名前空間化された名前を使うか、フィルターでルーティングします。

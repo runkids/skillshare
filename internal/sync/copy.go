@@ -17,7 +17,8 @@ import (
 // CopyResult holds the result of a copy sync operation.
 type CopyResult struct {
 	Copied     []string // newly copied skills
-	Skipped    []string // checksum unchanged, skipped
+	Skipped    []string // checksum unchanged, or a user's folder kept
+	KeptLocal  []string // the Skipped that are a user's folder on a skill's name; --force replaces them
 	Updated    []string // checksum changed, overwritten
 	DirCreated string   // Non-empty if target directory was auto-created (or would be in dry-run)
 	// UnmatchedIncludes are the include patterns that select no skill.
@@ -83,12 +84,7 @@ func SyncTargetCopyWithSkillsOptions(name string, target config.TargetConfig, al
 	if err != nil {
 		return nil, err
 	}
-	if n := len(resolution.Warnings); n > 0 {
-		fmt.Fprintf(DiagOutput, "  %d skill(s) skipped (naming validation)\n", n)
-	}
-	if n := len(resolution.Collisions); n > 0 {
-		fmt.Fprintf(DiagOutput, "  %d name collision(s) excluded\n", n)
-	}
+	printResolutionSummary(resolution)
 	result.UnmatchedIncludes = resolution.UnmatchedIncludes
 
 	// Read existing manifest
@@ -192,6 +188,7 @@ func SyncTargetCopyWithSkillsOptions(name string, target config.TargetConfig, al
 
 					// Local non-directory entry — preserve unless --force.
 					result.Skipped = append(result.Skipped, activeName)
+					result.KeptLocal = append(result.KeptLocal, activeName)
 					continue
 				}
 
@@ -232,6 +229,7 @@ func SyncTargetCopyWithSkillsOptions(name string, target config.TargetConfig, al
 
 				// Not managed (local skill) — preserve
 				result.Skipped = append(result.Skipped, activeName)
+				result.KeptLocal = append(result.KeptLocal, activeName)
 				continue
 			}
 		}
@@ -239,7 +237,15 @@ func SyncTargetCopyWithSkillsOptions(name string, target config.TargetConfig, al
 		// Copy skill to target
 		if dryRun {
 			if !quietDryRun {
-				fmt.Fprintf(DiagOutput, "[dry-run] Would copy: %s -> %s\n", skill.SourcePath, targetSkillPath)
+				dest := targetSkillPath
+				// A dry run leaves an entry it would rename at its old name.
+				if !onDesiredName {
+					newPath := filepath.Join(sc.Path, resolved.TargetName)
+					if _, err := os.Lstat(newPath); os.IsNotExist(err) {
+						dest = newPath
+					}
+				}
+				fmt.Fprintf(DiagOutput, "[dry-run] Would copy: %s -> %s\n", skill.SourcePath, dest)
 			}
 		} else {
 			if err := copySkillToTarget(skill.SourcePath, targetSkillPath, rewriteName, ignorePatterns); err != nil {

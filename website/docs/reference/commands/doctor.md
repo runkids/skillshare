@@ -128,12 +128,14 @@ Source-link checks apply in both global and project mode. The source root is res
 
 Each target shows sub-items for **skills** and **agents** (when agents are configured):
 - Skills: path, sync mode, sync state, shared/local counts
+  - "N skills not synced" counts only skills `sync` would place; ones it skips on purpose (an invalid name under `standard` or `prefixed` naming, or a name collision) are left out
 - Agents: sync mode, linked count, drift detection. On Windows without Developer Mode, `merge` shows as `copy`; up-to-date managed copies count as linked. Identical local files that skillshare does not own are preserved. In copy fallback, agent counts show them separately as `local preserved`, for example `0/1 linked, 1 local preserved`.
 - No broken symlinks
 - Duplicate-skill checks for unintended local collisions:
   - `merge` mode: skipped (local skills are expected)
   - `copy` mode: manifest-managed copies are ignored; only local colliding copies are warned
 - Valid include/exclude glob patterns
+- Naming and mode: a target that resolves to `prefixed` outside copy mode is an error, because sync would skip it
 - Info-level per-target compatibility hint when applicable (example target priority: `cursor` → `antigravity` → `copilot` → `opencode`; no hint when these targets are absent)
 
 ### Path Overlap
