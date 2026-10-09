@@ -1,6 +1,7 @@
 package sync
 
 import (
+	"crypto/sha256"
 	"fmt"
 	"io"
 	"os"
@@ -715,10 +716,16 @@ func SyncTargetMergeWithSkills(name string, target config.TargetConfig, allSkill
 	return result, nil
 }
 
+// parkedPath is where replaceWithLink waits with the folder at path. The name is
+// a fixed length because the entry's own name may already be near the filesystem limit.
+func parkedPath(path string) string {
+	return filepath.Join(filepath.Dir(path), fmt.Sprintf(".skillshare-replaced-%x", sha256.Sum256([]byte(filepath.Base(path)))))
+}
+
 // replaceWithLink swaps the real folder at path for a link. The folder waits
 // beside it until link has run, so a failed link leaves the folder as it was.
 func replaceWithLink(path string, link func() error) error {
-	parked := filepath.Join(filepath.Dir(path), "."+filepath.Base(path)+".skillshare-replaced")
+	parked := parkedPath(path)
 	// A leftover may be the only copy if an earlier run died before it could restore it.
 	if _, err := os.Lstat(parked); err == nil {
 		return fmt.Errorf("%s is left from an earlier replacement; move or delete it, then sync again", parked)

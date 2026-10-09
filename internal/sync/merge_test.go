@@ -3,6 +3,7 @@ package sync
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"skillshare/internal/config"
@@ -194,7 +195,7 @@ func TestSyncTargetMerge_ReplacesCopyModeCopy(t *testing.T) {
 func TestReplaceWithLink_KeepsLeftoverParkedCopy(t *testing.T) {
 	parent := t.TempDir()
 	dir := filepath.Join(parent, "alpha")
-	leftover := filepath.Join(parent, ".alpha.skillshare-replaced")
+	leftover := parkedPath(dir)
 	os.MkdirAll(dir, 0755)
 	os.MkdirAll(leftover, 0755)
 	os.WriteFile(filepath.Join(leftover, "SKILL.md"), []byte("only copy"), 0644)
@@ -207,6 +208,19 @@ func TestReplaceWithLink_KeepsLeftoverParkedCopy(t *testing.T) {
 	}
 	if _, err := os.Stat(dir); err != nil {
 		t.Errorf("the folder must stay in place: %v", err)
+	}
+}
+
+// A flattened nested skill can be near the 255-byte name limit; the parked name must not grow with it.
+func TestReplaceWithLink_LongEntryName(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), strings.Repeat("a", 250))
+	os.MkdirAll(dir, 0755)
+
+	if err := replaceWithLink(dir, func() error { return os.Symlink(t.TempDir(), dir) }); err != nil {
+		t.Fatalf("replace failed: %v", err)
+	}
+	if !utils.IsSymlinkOrJunction(dir) {
+		t.Error("expected a link after the replacement")
 	}
 }
 

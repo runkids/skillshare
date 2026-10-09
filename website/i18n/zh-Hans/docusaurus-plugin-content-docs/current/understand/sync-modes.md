@@ -186,7 +186,7 @@ skillshare target claude --mode merge
 skillshare sync
 ```
 
-copy 模式创建且未被编辑的副本，会在这次 sync 中被替换为链接，不需要 `--force`。其他项目会保留，直到运行 `sync --force`：自建的文件夹（manifest 没有记录），以及 copy 模式创建后被编辑过的副本。为 `prefixed` naming 而被 copy 模式改写 `name:` 的副本，也视为已编辑。
+copy 模式创建且未被编辑的副本，会在这次 sync 中被替换为链接，不需要 `--force`。其他项目会保留，直到运行 `sync --force`：自建的文件夹（manifest 没有记录），以及 copy 模式创建后被编辑过的副本。为 `prefixed` naming 而被 copy 模式改写 `name:` 的副本，也视为已编辑。如果在同一次 sync 中同时更改 `target_naming`，副本会获得新的条目名称，因此无论是否被编辑过，都会作为孤儿条目被移除；普通 `sync` 的备份中会保留它。
 
 ### 按 target 覆盖（推荐）
 
