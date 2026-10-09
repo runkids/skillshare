@@ -402,9 +402,9 @@ func TestSync_TargetNamingPrefixed_FromMergeKeepsLinkWhenLocalSkillTakesNewName(
 }
 
 func TestDiff_LocalFolderOnNewName_ReportsKeptLegacyEntry(t *testing.T) {
-	for _, tc := range []struct{ mode, from, to, newName string }{
-		{"copy", "standard", "prefixed", "emil-design-prototype"},
-		{"merge", "flat", "standard", "prototype"},
+	for _, tc := range []struct{ mode, from, to, newName, oldName string }{
+		{"copy", "standard", "prefixed", "emil-design-prototype", "prototype"},
+		{"merge", "flat", "standard", "prototype", "_emil-design__skills__prototype"},
 	} {
 		t.Run(tc.mode, func(t *testing.T) {
 			sb := testutil.NewSandbox(t)
@@ -421,10 +421,15 @@ func TestDiff_LocalFolderOnNewName_ReportsKeptLegacyEntry(t *testing.T) {
 			writeNamingConfig(sb, targetPath, tc.to, tc.mode)
 			result := sb.RunCLI("diff", "--no-tui")
 			result.AssertSuccess(t)
-			result.AssertRowContains(t, "Local only, skill kept under old name", tc.newName)
+			result.AssertRowContains(t, "Local only, skill kept under old name", tc.newName+" (stays at "+tc.oldName+")")
 			result.AssertOutputNotContains(t, "sync --force")
 			result.AssertOutputNotContains(t, "to sync")
+			result.AssertOutputNotContains(t, "in sync")
+			result.AssertOutputContains(t, "1 target: 1 kept under old name")
 			result.AssertOutputContains(t, "after renaming or removing the local folders")
+			if got := diffJSONActions(t, sb)[tc.newName]; got != "kept" {
+				t.Errorf("diff --json action for %s = %q, want kept", tc.newName, got)
+			}
 			// Sync leaves the folder alone, so its files are not shown as deletions.
 			sb.RunCLI("diff", "--no-tui", "--stat").AssertOutputNotContains(t, "SKILL.md")
 		})
@@ -459,4 +464,73 @@ func TestTarget_SetModeAndNamingReportsInheritedNaming(t *testing.T) {
 	result := sb.RunCLI("target", "claude", "--mode", "copy", "--target-naming", "prefixed")
 	result.AssertSuccess(t)
 	result.AssertAnyOutputContains(t, "target naming: standard -> prefixed")
+}
+
+// diffJSONActions maps each item name in diff --json to its action.
+func diffJSONActions(t *testing.T, sb *testutil.Sandbox) map[string]string {
+	t.Helper()
+	result := sb.RunCLI("diff", "--json")
+	result.AssertSuccess(t)
+	var out struct {
+		Targets []struct {
+			Items []struct{ Name, Action string } `json:"items"`
+		} `json:"targets"`
+	}
+	if err := json.Unmarshal([]byte(result.Stdout), &out); err != nil {
+		t.Fatalf("invalid JSON: %v\n%s", err, result.Stdout)
+	}
+	actions := map[string]string{}
+	for _, target := range out.Targets {
+		for _, item := range target.Items {
+			actions[item.Name] = item.Action
+		}
+	}
+	return actions
+}
+
+func TestDiff_KeptOnlyTargetIsCountedInSummary(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	sb.CreateNestedSkill("_emil-design/skills/prototype", map[string]string{"SKILL.md": "---\nname: prototype\n---\n# Emil"})
+	claude := sb.CreateTarget("claude")
+	cursor := sb.CreateTarget("cursor")
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+mode: copy
+targets:
+  claude:
+    path: ` + claude + `
+  cursor:
+    path: ` + cursor + `
+`)
+	sb.RunCLI("sync").AssertSuccess(t)
+	sb.WriteFile(filepath.Join(claude, "emil-design-prototype", "SKILL.md"), "---\nname: emil-design-prototype\n---\n# Mine")
+	sb.RunCLI("target", "claude", "--target-naming", "prefixed").AssertSuccess(t)
+
+	result := sb.RunCLI("diff", "--no-tui")
+	result.AssertSuccess(t)
+	result.AssertOutputContains(t, "2 targets: 1 kept under old name, 1 in sync")
+}
+
+// A merge-made link renamed by a copy-mode migration points at the source,
+// so the rename has no file changes to show, and a dry run copies to the new name.
+func TestDiff_RenamedMergeLinkShowsNoFileChanges(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	sb.CreateNestedSkill("_emil-design/skills/prototype", map[string]string{"SKILL.md": "---\nname: prototype\n---\n# Emil"})
+	targetPath := sb.CreateTarget("claude")
+	writeNamingConfig(sb, targetPath, "flat", "merge")
+	sb.RunCLI("sync").AssertSuccess(t)
+	sb.RunCLI("target", "claude", "--mode", "copy", "--target-naming", "prefixed").AssertSuccess(t)
+
+	result := sb.RunCLI("diff", "--no-tui")
+	result.AssertSuccess(t)
+	result.AssertRowContains(t, "Renamed", "emil-design-prototype")
+	result.AssertOutputNotContains(t, "bytes")
+
+	dryRun := sb.RunCLI("sync", "--dry-run")
+	dryRun.AssertSuccess(t)
+	dryRun.AssertAnyOutputContains(t, "-> "+filepath.Join(targetPath, "emil-design-prototype"))
+	if out := dryRun.Stdout + dryRun.Stderr; strings.Contains(out, "-> "+filepath.Join(targetPath, "_emil-design__skills__prototype")+"\n") {
+		t.Errorf("dry run copies to the old name:\n%s", out)
+	}
 }
