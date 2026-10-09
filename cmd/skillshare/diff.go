@@ -152,7 +152,7 @@ type copyDiffEntry struct {
 	kind   string // "skill" or "agent" (empty defaults to "skill")
 	reason string
 	isSync bool            // true = needs sync, false = local-only
-	kept   bool            // a local folder holds the skill's new name; sync changes nothing
+	kept   bool            // a local folder holds the skill's new name; sync changes nothing, so no dstDir
 	files  []fileDiffEntry // file-level diffs (nil until populated)
 	srcDir string          // source directory path (for lazy diff)
 	dstDir string          // target directory path (for lazy diff)
@@ -642,7 +642,7 @@ func collectCopyDiff(r *targetDiffResult, targetName, targetPath string, filtere
 		if !isManaged {
 			if info, err := os.Stat(targetSkillPath); err == nil {
 				if old, ok := renamedFrom[resolved.TargetName]; ok {
-					r.items = append(r.items, copyDiffEntry{action: "remove", name: resolved.TargetName, reason: sync.KeptLegacyReason(old), kept: true, dstDir: dstDir})
+					r.items = append(r.items, copyDiffEntry{action: "remove", name: resolved.TargetName, reason: sync.KeptLegacyReason(old), kept: true})
 				} else if info.IsDir() {
 					r.items = append(r.items, copyDiffEntry{action: "modify", name: resolved.TargetName, reason: "local copy (sync --force to replace)", isSync: true, srcDir: srcDir, dstDir: dstDir})
 				} else {
@@ -764,7 +764,7 @@ func collectMergeDiff(r *targetDiffResult, targetPath string, sourceSkills map[s
 			r.items = append(r.items, copyDiffEntry{action: "add", name: skill, reason: "source only", isSync: true, srcDir: srcDir, dstDir: dstDir})
 			r.syncCount++
 		} else if old, ok := renamedFrom[skill]; ok && !targetSymlinks[skill] {
-			r.items = append(r.items, copyDiffEntry{action: "remove", name: skill, reason: sync.KeptLegacyReason(old), kept: true, dstDir: dstDir})
+			r.items = append(r.items, copyDiffEntry{action: "remove", name: skill, reason: sync.KeptLegacyReason(old), kept: true})
 		} else if !targetSymlinks[skill] {
 			r.items = append(r.items, copyDiffEntry{action: "modify", name: skill, reason: "local copy (sync --force to replace)", isSync: true, srcDir: srcDir, dstDir: dstDir})
 			r.syncCount++

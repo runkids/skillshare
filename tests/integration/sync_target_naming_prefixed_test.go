@@ -425,6 +425,8 @@ func TestDiff_LocalFolderOnNewName_ReportsKeptLegacyEntry(t *testing.T) {
 			result.AssertOutputNotContains(t, "sync --force")
 			result.AssertOutputNotContains(t, "to sync")
 			result.AssertOutputContains(t, "after renaming or removing the local folders")
+			// Sync leaves the folder alone, so its files are not shown as deletions.
+			sb.RunCLI("diff", "--no-tui", "--stat").AssertOutputNotContains(t, "SKILL.md")
 		})
 	}
 }
