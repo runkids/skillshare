@@ -314,3 +314,23 @@ func TestInferTrackedKind_LocalBareRepoPath(t *testing.T) {
 		t.Fatalf("local bare repo should be trackable: %v", err)
 	}
 }
+
+func TestInstallTrackedRepo_RefusesLocalSourceThatIsTheDestination(t *testing.T) {
+	sourceDir := t.TempDir()
+	dest := filepath.Join(sourceDir, "_foo")
+	mustRunGit(t, "", "init", "-b", "main", dest)
+	if err := os.WriteFile(filepath.Join(dest, "SKILL.md"), []byte("# unpushed"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	source, err := ParseSource(dest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := InstallTrackedRepo(source, sourceDir, InstallOptions{Name: "foo", Force: true}); err == nil {
+		t.Fatal("expected an error when the source is the install destination")
+	}
+	if _, err := os.Stat(filepath.Join(dest, "SKILL.md")); err != nil {
+		t.Fatalf("destination must be left intact: %v", err)
+	}
+}

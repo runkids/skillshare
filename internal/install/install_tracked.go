@@ -92,7 +92,11 @@ func installTrackedRepoImpl(source *Source, sourceDir string, opts InstallOption
 	}
 
 	// Check if already exists
-	if _, err := os.Stat(destPath); err == nil {
+	if destInfo, err := os.Stat(destPath); err == nil {
+		// --force removes the destination before cloning; never do that to the clone source.
+		if srcInfo, srcErr := os.Stat(source.Path); source.Path != "" && srcErr == nil && os.SameFile(srcInfo, destInfo) {
+			return nil, fmt.Errorf("source %s is the install destination; nothing to install", source.Path)
+		}
 		if opts.Update {
 			return updateTrackedRepo(destPath, result, opts)
 		}
