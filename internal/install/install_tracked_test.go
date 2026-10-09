@@ -301,6 +301,10 @@ func TestParseSource_ExplicitUNCFileURLKeepsAuthority(t *testing.T) {
 
 func TestInferTrackedKind_LocalBareRepoPath(t *testing.T) {
 	bare := strings.TrimPrefix(makeRemote(t, ""), "file://")
+	// A Windows file URL is file:///C:/dir; drop the slash before the drive.
+	if len(bare) > 2 && bare[0] == '/' && bare[2] == ':' {
+		bare = bare[1:]
+	}
 
 	source, err := ParseSource(bare)
 	if err != nil {
