@@ -33,6 +33,25 @@ func TestPrefixedTargetName(t *testing.T) {
 	}
 }
 
+func TestResolveTargetSkillsForTarget_BOMFrontmatter(t *testing.T) {
+	dir := t.TempDir()
+	skill := createTempSkill(t, dir, "notepad-skill", "notepad-skill")
+	content := "\ufeff---\nname: notepad-skill\n---\n# notepad-skill"
+	if err := os.WriteFile(filepath.Join(skill.SourcePath, "SKILL.md"), []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	for _, naming := range []string{"standard", "prefixed"} {
+		resolution, err := ResolveTargetSkillsForTarget("claude", config.ResourceTargetConfig{TargetNaming: naming}, []DiscoveredSkill{skill})
+		if err != nil {
+			t.Fatalf("%s: %v", naming, err)
+		}
+		if len(resolution.Skills) != 1 || resolution.Skills[0].TargetName != "notepad-skill" {
+			t.Errorf("%s: skills = %+v, want notepad-skill kept", naming, resolution.Skills)
+		}
+	}
+}
+
 func TestResolveTargetSkillsForTarget_PrefixedNaming(t *testing.T) {
 	dir := t.TempDir()
 	inRepo := func(s DiscoveredSkill, repo string) DiscoveredSkill {

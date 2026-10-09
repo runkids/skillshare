@@ -45,6 +45,12 @@ func TestToggleFrontmatterFlag(t *testing.T) {
 			wantOn: true,
 		},
 		{
+			name:   "BOM is kept in front of the block",
+			in:     "\ufeff---\nname: s\n---\nBody\n",
+			want:   "\ufeff---\nname: s\ndisable-model-invocation: true\n---\nBody\n",
+			wantOn: true,
+		},
+		{
 			name:   "no frontmatter gets one",
 			in:     "# Just a body\n",
 			want:   "---\ndisable-model-invocation: true\n---\n# Just a body\n",

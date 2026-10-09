@@ -15,6 +15,7 @@ import (
 	"gopkg.in/yaml.v3"
 
 	ghclient "skillshare/internal/github"
+	"skillshare/internal/utils"
 	"skillshare/internal/validate"
 )
 
@@ -868,7 +869,7 @@ func parseSkillMetadata(content string) skillMetadata {
 }
 
 func extractSkillFrontmatter(content string) (string, bool) {
-	lines := strings.Split(content, "\n")
+	lines := strings.Split(utils.TrimBOM(content), "\n")
 	if len(lines) == 0 {
 		return "", false
 	}
@@ -1022,6 +1023,7 @@ func hasYAMLValue(v any) bool {
 
 // parseFrontmatterField extracts a field value from YAML frontmatter.
 func parseFrontmatterField(content, field string) string {
+	content = utils.TrimBOM(content)
 	if raw, ok := extractSkillFrontmatter(content); ok {
 		if fm, ok := parseSkillFrontmatter(raw); ok {
 			if val := yamlScalarString(fm[field]); val != "" {
