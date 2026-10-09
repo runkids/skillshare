@@ -146,6 +146,10 @@ type targetDiffResult struct {
 	dstMtime   time.Time // newest file mtime in target dir
 }
 
+// inSync reports that sync has nothing to do for the target. Folders only the
+// target holds stay listed, but sync never touches them.
+func (r targetDiffResult) inSync() bool { return r.errMsg == "" && r.syncCount == 0 }
+
 type copyDiffEntry struct {
 	action string // "add", "modify", "remove"
 	name   string
@@ -506,7 +510,7 @@ func diffOutputJSON(results []targetDiffResult, start time.Time) error {
 		jt := diffJSONTarget{
 			Name:    r.name,
 			Mode:    r.mode,
-			Synced:  r.synced,
+			Synced:  r.inSync(),
 			Error:   r.errMsg,
 			Include: r.include,
 			Exclude: r.exclude,
@@ -533,7 +537,7 @@ func diffOutputJSONWithExtras(results []targetDiffResult, extrasResults []extraD
 		jt := diffJSONTarget{
 			Name:    r.name,
 			Mode:    r.mode,
-			Synced:  r.synced,
+			Synced:  r.inSync(),
 			Error:   r.errMsg,
 			Include: r.include,
 			Exclude: r.exclude,
@@ -886,6 +890,7 @@ func renderGroupedDiffs(results []targetDiffResult, extras []extraDiffResult, op
 
 	var errorResults []targetDiffResult
 	var syncedNames []string
+	localOnly := 0 // in sync, but listed for the folders only the target holds
 	type diffGroup struct {
 		names  []string
 		result targetDiffResult
@@ -926,7 +931,11 @@ func renderGroupedDiffs(results []targetDiffResult, extras []extraDiffResult, op
 	for _, fp := range groupOrder {
 		g := groups[fp]
 		sort.Strings(g.names)
-		needCount += len(g.names)
+		if g.result.inSync() {
+			localOnly += len(g.names)
+		} else {
+			needCount += len(g.names)
+		}
 		out.section(strings.Join(g.names, ", "))
 		renderDiffGroup(g.result, opts, &next, groupWidth)
 	}
@@ -974,6 +983,7 @@ func renderGroupedDiffs(results []targetDiffResult, extras []extraDiffResult, op
 		}
 		if extrasNeed == 0 {
 			ui.Done(ui.MarkOK, text, 0)
+			ui.Next(next.pairs()...)
 			return
 		}
 		if total == 0 {
@@ -992,8 +1002,8 @@ func renderGroupedDiffs(results []targetDiffResult, extras []extraDiffResult, op
 	if len(errorResults) > 0 {
 		parts = append(parts, fmt.Sprintf("%d unreadable", len(errorResults)))
 	}
-	if len(syncedNames) > 0 {
-		parts = append(parts, fmt.Sprintf("%d in sync", len(syncedNames)))
+	if n := len(syncedNames) + localOnly; n > 0 {
+		parts = append(parts, fmt.Sprintf("%d in sync", n))
 	}
 	text := plural(total, "target")
 	if len(parts) > 0 {

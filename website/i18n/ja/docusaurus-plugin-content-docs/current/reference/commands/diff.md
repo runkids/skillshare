@@ -250,6 +250,8 @@ skillshare diff --json
 }
 ```
 
+`sync` がその target に対して行うことがない場合、`synced` は `true` です。`"is_sync": false` の項目（target にだけ存在するフォルダーなど）は引き続き一覧に表示されますが、`false` にはしません。テキスト出力でも、local-only フォルダーだけの target は同期済みとして扱われます。
+
 ## 関連項目
 
 - [sync](/docs/reference/commands/sync) — Target へ同期

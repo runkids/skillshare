@@ -128,6 +128,7 @@ Source link 检查在 global 与 project mode 都会执行。source 根目录按
 
 每个 target 都会显示 **skills** 和 **agents** 的子项（当配置了 agents 时）：
 - Skills：路径、同步模式、同步状态、共享/本地计数
+  - “N skills not synced” 只统计 `sync` 会放置的 skill；`sync` 有意跳过的（`standard` 或 `prefixed` 命名下名称无效，或名称冲突）不计入
 - Agents：同步模式、已链接数量、drift 检测。在未开启 Developer Mode 的 Windows 上，`merge` 会显示为 `copy`；最新的受管理副本会计为 linked。skillshare 不拥有、但内容相同的本地文件会被保留。在 copy fallback 中，agent 计数会以 `local preserved` 单独显示，例如 `0/1 linked, 1 local preserved`。
 - 没有损坏的 symlinks
 - 针对意外本地冲突的重复 skill 检查：

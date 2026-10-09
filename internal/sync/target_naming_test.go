@@ -120,3 +120,12 @@ func TestCopySkillToTarget_RewritesReadOnlySkillFile(t *testing.T) {
 		t.Fatalf("copied SKILL.md mode = %v, err = %v; want the source's 0444 kept", info, err)
 	}
 }
+
+func TestKeptLocalWarning_CapsTheNameList(t *testing.T) {
+	names := []string{"a", "b", "c", "d", "e", "f", "g"}
+	got := keptLocalWarning(names)
+	want := "kept local: a, b, c, d, e ... and 2 more (sync --force replaces them)"
+	if got != want {
+		t.Fatalf("keptLocalWarning = %q, want %q", got, want)
+	}
+}

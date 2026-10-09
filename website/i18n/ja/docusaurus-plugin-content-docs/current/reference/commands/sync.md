@@ -209,6 +209,8 @@ $ skillshare sync
   Context  ~1.2K tokens always loaded · ~18.5K on demand
 ```
 
+自分で作成したフォルダーが skill の sync 先の名前をすでに使っている場合、sync はそのフォルダーを残し、skill はインストールしません。該当するフォルダーがある target には、最初のいくつかの名前を示す 1 行（`kept local: a, b (sync --force replaces them)`）が出力され、`up to date` ではなく `local` として数えられます。`skillshare diff` ではこれらが `Local override` として表示されます。
+
 ---
 
 ## Collect

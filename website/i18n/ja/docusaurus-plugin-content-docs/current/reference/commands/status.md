@@ -77,7 +77,7 @@ Targets                     skills                agents
 |------|------|
 | `✓ 8 linked` / `✓ 8 copied` | 想定されるすべての skill が配置済みです。merge と copy では `include`/`exclude` で絞り込んだ後の skill を数えます |
 | `· 2 local` | そのフォルダにある自分の skill です。sync はこれらに触れません |
-| `! 6/8 linked` | 一部の skill がまだ sync されていません。status の最後に数と `sync` コマンドが表示されます |
+| `! 6/8 linked` | 一部の skill がまだ sync されていません。status の最後に数と `sync` コマンドが表示されます。`sync` が意図的にスキップする skill（`standard` / `prefixed` naming での無効な名前、または名前の衝突）は数えません。`sync` を再実行しても追加できないためで、`sync` がそれらを表示します |
 | `✓ symlinked` | symlink モード：フォルダ全体が source にリンクしています |
 | `! needs sync` | モードが変更されました。`sync` を実行して反映します |
 | `! has files` / `! not synced yet` | この target はまだ一度も sync されていません |

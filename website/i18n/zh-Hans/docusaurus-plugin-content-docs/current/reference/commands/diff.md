@@ -250,6 +250,8 @@ skillshare diff --json
 }
 ```
 
+当 `sync` 对该 target 无事可做时，`synced` 为 `true`。`"is_sync": false` 的条目（例如只存在于 target 的文件夹）仍会列出，但不会让它变成 `false`。文本输出同样把只有 local-only 文件夹的 target 视为已同步。
+
 ## 另请参阅
 
 - [sync](/docs/reference/commands/sync) — 同步到 Target

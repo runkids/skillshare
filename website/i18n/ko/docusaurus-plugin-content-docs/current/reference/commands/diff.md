@@ -250,6 +250,8 @@ skillshare diff --json
 }
 ```
 
+`sync`가 해당 target에서 할 일이 없으면 `synced`는 `true`입니다. `"is_sync": false` 항목(target에만 있는 폴더 등)은 계속 목록에 표시되지만 `false`로 만들지 않습니다. 텍스트 출력에서도 local-only 폴더만 있는 target은 동기화된 것으로 취급합니다.
+
 ## 참고
 
 - [sync](/docs/reference/commands/sync) — target으로 sync

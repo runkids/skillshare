@@ -17,7 +17,8 @@ import (
 // CopyResult holds the result of a copy sync operation.
 type CopyResult struct {
 	Copied     []string // newly copied skills
-	Skipped    []string // checksum unchanged, skipped
+	Skipped    []string // checksum unchanged, or a user's folder kept
+	KeptLocal  []string // the Skipped that are a user's folder on a skill's name; --force replaces them
 	Updated    []string // checksum changed, overwritten
 	DirCreated string   // Non-empty if target directory was auto-created (or would be in dry-run)
 	// UnmatchedIncludes are the include patterns that select no skill.
@@ -187,6 +188,7 @@ func SyncTargetCopyWithSkillsOptions(name string, target config.TargetConfig, al
 
 					// Local non-directory entry — preserve unless --force.
 					result.Skipped = append(result.Skipped, activeName)
+					result.KeptLocal = append(result.KeptLocal, activeName)
 					continue
 				}
 
@@ -227,6 +229,7 @@ func SyncTargetCopyWithSkillsOptions(name string, target config.TargetConfig, al
 
 				// Not managed (local skill) — preserve
 				result.Skipped = append(result.Skipped, activeName)
+				result.KeptLocal = append(result.KeptLocal, activeName)
 				continue
 			}
 		}

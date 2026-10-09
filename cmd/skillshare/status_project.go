@@ -207,11 +207,11 @@ func printProjectTargetsStatus(runtime *projectRuntime, discovered []sync.Discov
 		// A target with skills off expects nothing, so it has no drift.
 		expected := 0
 		if sc.IsEnabled() && (mode == "merge" || mode == "copy") {
-			filtered, err := sync.SelectTargetSkills(discovered, entry.Name, sc)
+			var err error
+			expected, err = sync.ExpectedSkillCount(entry.Name, sc, discovered)
 			if err != nil {
 				return fmt.Errorf("target %s has invalid include/exclude config: %w", entry.Name, err)
 			}
-			expected = len(filtered)
 			notSynced = max(notSynced, expected-res.syncedCount)
 		} else if sc.IsEnabled() && (len(sc.Include) > 0 || len(sc.Exclude) > 0) {
 			warnings = append(warnings, entry.Name+": include/exclude ignored in symlink mode")
