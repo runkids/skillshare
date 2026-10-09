@@ -372,6 +372,32 @@ func TestSync_TargetNamingPrefixed_CollisionHintStaysWhenSourceAlreadyHasDuplica
 	result.AssertOutputContains(t, "--name")
 }
 
+func TestSync_TargetNamingPrefixed_CollisionPrintsBothHintsAcrossTargets(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	// On the prefixed target the tracked skill joins the clash; on the standard one only the ordinary pair clashes.
+	sb.CreateNestedSkill("_alpha/prototype", map[string]string{"SKILL.md": "---\nname: prototype\n---\n# A"})
+	sb.CreateSkill("alpha-prototype", map[string]string{"SKILL.md": "---\nname: alpha-prototype\n---\n# One"})
+	sb.CreateNestedSkill("team/alpha-prototype", map[string]string{"SKILL.md": "---\nname: alpha-prototype\n---\n# Two"})
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets:
+  claude:
+    skills:
+      path: ` + sb.CreateTarget("claude") + `
+      mode: copy
+      target_naming: prefixed
+  codex:
+    skills:
+      path: ` + sb.CreateTarget("codex") + `
+      mode: copy
+      target_naming: standard
+`)
+
+	result := sb.RunCLI("sync")
+	result.AssertOutputContains(t, "A tracked skill cannot be renamed in SKILL.md")
+	result.AssertOutputContains(t, "Rename one in SKILL.md")
+}
+
 func TestSync_TargetNamingPrefixed_UnderscoreFolderWithoutRepoIsNotTracked(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()

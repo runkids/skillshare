@@ -760,8 +760,9 @@ func reportCollisions(skills []sync.DiscoveredSkill, targets map[string]config.T
 	type collisionInfo struct {
 		Paths []string
 		// Prefixed is set when a tracked skill collides on a prefixed target: its name
-		// comes from its repo, so SKILL.md is not where to change it.
-		Prefixed bool
+		// comes from its repo, so SKILL.md is not where to change it. Other is set when
+		// some target's collision has no such skill. A name can have both across targets.
+		Prefixed, Other bool
 	}
 	deduped := make(map[string]*collisionInfo)
 	var orderedNames []string
@@ -782,7 +783,8 @@ func reportCollisions(skills []sync.DiscoveredSkill, targets map[string]config.T
 				deduped[c.Name] = info
 				orderedNames = append(orderedNames, c.Name)
 			}
-			info.Prefixed = info.Prefixed || targetPrefixed && slices.ContainsFunc(c.Paths, func(p string) bool { return tracked[p] })
+			trackedClash := targetPrefixed && slices.ContainsFunc(c.Paths, func(p string) bool { return tracked[p] })
+			info.Prefixed, info.Other = info.Prefixed || trackedClash, info.Other || !trackedClash
 		}
 	}
 
@@ -807,7 +809,7 @@ func reportCollisions(skills []sync.DiscoveredSkill, targets map[string]config.T
 			}
 		}
 		ui.Note(fmt.Sprintf("%-30s  %s", name, strings.Join(dirs, " vs ")))
-		anyPrefixed, anyOther = anyPrefixed || info.Prefixed, anyOther || !info.Prefixed
+		anyPrefixed, anyOther = anyPrefixed || info.Prefixed, anyOther || info.Other
 	}
 	if anyPrefixed {
 		ui.Note("A tracked skill cannot be renamed in SKILL.md: rename the other skill, or re-track the repo with --name (prefixed naming puts the repo name in front)")
