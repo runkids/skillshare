@@ -28,7 +28,8 @@ func localCloneSource(source *Source) string {
 		return source.Path
 	}
 	u, err := url.Parse(source.CloneURL)
-	if err != nil || u.Scheme != "file" || u.Host != "" {
+	// file://localhost/path is the same local path as file:///path.
+	if err != nil || u.Scheme != "file" || (u.Host != "" && !strings.EqualFold(u.Host, "localhost")) {
 		return ""
 	}
 	// file:///C:/repo carries the drive after a leading slash.

@@ -325,6 +325,7 @@ func TestInstallTrackedRepo_RefusesLocalSourceInsideTheDestination(t *testing.T)
 		{"same path", "", func(p string) string { return p }, false},
 		{"nested path", "nested", func(p string) string { return p }, false},
 		{"explicit file URL", "nested", func(p string) string { return fileURL(p) }, false},
+		{"localhost file URL", "nested", func(p string) string { return "file://localhost" + p }, false},
 		{"dry run", "nested", func(p string) string { return p }, true},
 	}
 	for _, tc := range cases {
