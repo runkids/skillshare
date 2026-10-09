@@ -407,8 +407,8 @@ func targetInfoProject(name string, args []string, root string) error {
 
 	if settings.SkillMode != "" && settings.Naming != "" {
 		entry := &cfg.Targets[targetIdx]
-		oldMode := cmp.Or(entry.SkillsConfig().Mode, "merge")
-		return updateTargetModeAndNaming(entry.Name, entry.EnsureSkills(), oldMode, settings.SkillMode, settings.Naming, func() error {
+		old := entry.SkillsConfig()
+		return updateTargetModeAndNaming(entry.Name, entry.EnsureSkills(), cmp.Or(old.Mode, "merge"), old.TargetNaming, settings.SkillMode, settings.Naming, func() error {
 			return cfg.Save(root)
 		})
 	}

@@ -86,7 +86,7 @@ func TestComputeTargetDiff_LocalFolderOnNewNameKeepsLegacyEntry(t *testing.T) {
 	}
 
 	dt := (&Server{}).computeTargetDiff("claude", config.TargetConfig{Skills: &config.ResourceTargetConfig{Path: target, Mode: "copy", TargetNaming: "prefixed"}}, discovered, "merge", source, nil)
-	if len(dt.Items) != 1 || dt.Items[0].Skill != "emil-design-prototype" || dt.Items[0].Reason != ssync.KeptLegacyReason("prototype") {
+	if len(dt.Items) != 1 || dt.Items[0].Skill != "emil-design-prototype" || dt.Items[0].Action != "kept" || dt.Items[0].Reason != ssync.KeptLegacyReason("prototype") {
 		t.Fatalf("items = %+v, want the local folder reported with the kept legacy entry", dt.Items)
 	}
 }

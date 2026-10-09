@@ -445,3 +445,14 @@ func TestSync_TargetNamingPrefixed_LeavesUnmanagedLinkAlone(t *testing.T) {
 		t.Fatal("expected a managed copy at bmad-ux")
 	}
 }
+
+func TestTarget_SetModeAndNamingReportsInheritedNaming(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	targetPath := prefixedFixture(t, sb)
+	writeNamingConfig(sb, targetPath, "standard", "copy") // claude inherits standard
+
+	result := sb.RunCLI("target", "claude", "--mode", "copy", "--target-naming", "prefixed")
+	result.AssertSuccess(t)
+	result.AssertAnyOutputContains(t, "target naming: standard -> prefixed")
+}

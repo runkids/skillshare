@@ -126,7 +126,7 @@ func (s *Server) computeTargetDiff(name string, target config.TargetConfig, disc
 			if !isManaged {
 				if info, statErr := os.Stat(targetSkillPath); statErr == nil {
 					if old, ok := renamedFrom[resolved.TargetName]; ok {
-						dt.Items = append(dt.Items, diffItem{Skill: resolved.TargetName, Action: "skip", Reason: ssync.KeptLegacyReason(old), Kind: kindSkill})
+						dt.Items = append(dt.Items, diffItem{Skill: resolved.TargetName, Action: "kept", Reason: ssync.KeptLegacyReason(old), Kind: kindSkill})
 					} else if info.IsDir() {
 						dt.Items = append(dt.Items, diffItem{Skill: resolved.TargetName, Action: "skip", Reason: "local copy (sync --force to replace)", Kind: kindSkill})
 					} else {
@@ -201,7 +201,7 @@ func (s *Server) computeTargetDiff(name string, target config.TargetConfig, disc
 				dt.Items = append(dt.Items, diffItem{Skill: resolved.TargetName, Action: "update", Reason: "symlink points elsewhere", Kind: kindSkill})
 			}
 		} else if old, ok := renamedFrom[resolved.TargetName]; ok {
-			dt.Items = append(dt.Items, diffItem{Skill: resolved.TargetName, Action: "skip", Reason: ssync.KeptLegacyReason(old), Kind: kindSkill})
+			dt.Items = append(dt.Items, diffItem{Skill: resolved.TargetName, Action: "kept", Reason: ssync.KeptLegacyReason(old), Kind: kindSkill})
 		} else {
 			dt.Items = append(dt.Items, diffItem{Skill: resolved.TargetName, Action: "skip", Reason: "local copy (sync --force to replace)", Kind: kindSkill})
 		}

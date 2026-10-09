@@ -710,8 +710,8 @@ func targetInfo(name string, args []string) error {
 	}
 
 	if settings.SkillMode != "" && settings.Naming != "" {
-		oldMode := cmp.Or(target.SkillsConfig().Mode, cfg.Mode, "merge")
-		return updateTargetModeAndNaming(name, target.EnsureSkills(), oldMode, settings.SkillMode, settings.Naming, func() error {
+		old := target.SkillsConfig()
+		return updateTargetModeAndNaming(name, target.EnsureSkills(), cmp.Or(old.Mode, cfg.Mode, "merge"), old.TargetNaming, settings.SkillMode, settings.Naming, func() error {
 			cfg.Targets[name] = target
 			return cfg.Save()
 		})
@@ -767,7 +767,7 @@ func updateTargetMode(cfg *config.Config, name string, target config.TargetConfi
 // updateTargetModeAndNaming applies --mode and --target-naming given together.
 // It checks the final pair, sets both and saves once, so the config never
 // holds half of the change.
-func updateTargetModeAndNaming(name string, sc *config.ResourceTargetConfig, oldMode, mode, naming string, save func() error) error {
+func updateTargetModeAndNaming(name string, sc *config.ResourceTargetConfig, oldMode, oldNaming, mode, naming string, save func() error) error {
 	if !config.IsValidSyncMode(mode) {
 		return fmt.Errorf("invalid mode '%s'. Use 'merge', 'symlink', or 'copy'", mode)
 	}
@@ -777,13 +777,12 @@ func updateTargetModeAndNaming(name string, sc *config.ResourceTargetConfig, old
 	if err := config.TargetNamingModeError(naming, mode); err != nil {
 		return err
 	}
-	oldNaming := config.EffectiveTargetNaming(sc.TargetNaming)
 	sc.Mode, sc.TargetNaming = mode, naming
 	if err := save(); err != nil {
 		return err
 	}
 	ui.Done(ui.MarkOK, fmt.Sprintf("Changed %s mode: %s -> %s", name, oldMode, mode), 0)
-	ui.Done(ui.MarkOK, fmt.Sprintf("Changed %s target naming: %s -> %s", name, oldNaming, naming), 0)
+	ui.Done(ui.MarkOK, fmt.Sprintf("Changed %s target naming: %s -> %s", name, config.EffectiveTargetNaming(oldNaming), naming), 0)
 	ui.Next("skillshare sync", "apply the new mode and naming")
 	return nil
 }
