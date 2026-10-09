@@ -315,18 +315,20 @@ func TestInferTrackedKind_LocalBareRepoPath(t *testing.T) {
 	}
 }
 
-func TestInstallTrackedRepo_RefusesLocalSourceInsideTheDestination(t *testing.T) {
+func TestInstallTrackedRepo_ForceNeverDestroysItsLocalSource(t *testing.T) {
 	cases := []struct {
 		name   string
 		repo   string // relative to the destination
 		source func(repo string) string
 		dryRun bool
+		refuse bool // a plain local path inside the destination is refused outright
 	}{
-		{"same path", "", func(p string) string { return p }, false},
-		{"nested path", "nested", func(p string) string { return p }, false},
-		{"explicit file URL", "nested", func(p string) string { return fileURL(p) }, false},
-		{"localhost file URL", "nested", func(p string) string { return "file://localhost/" + strings.TrimPrefix(filepath.ToSlash(p), "/") }, false},
-		{"dry run", "nested", func(p string) string { return p }, true},
+		{"same path", "", func(p string) string { return p }, false, true},
+		{"nested path", "nested", func(p string) string { return p }, false, true},
+		{"dry run", "nested", func(p string) string { return p }, true, true},
+		// URL forms are not matched by path; the clone must finish before anything is removed.
+		{"explicit file URL", "nested", func(p string) string { return fileURL(p) }, false, false},
+		{"localhost file URL", "nested", func(p string) string { return "file://localhost/" + strings.TrimPrefix(filepath.ToSlash(p), "/") }, false, false},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -338,18 +340,80 @@ func TestInstallTrackedRepo_RefusesLocalSourceInsideTheDestination(t *testing.T)
 			if err := os.WriteFile(marker, []byte("# unpushed"), 0644); err != nil {
 				t.Fatal(err)
 			}
+			mustRunGit(t, repo, "add", ".")
+			mustRunGit(t, repo, "-c", "user.email=a@b", "-c", "user.name=n", "commit", "-m", "i")
 
 			source, err := ParseSource(tc.source(repo))
 			if err != nil {
 				t.Fatal(err)
 			}
 			_, err = InstallTrackedRepo(source, sourceDir, InstallOptions{Name: "foo", Force: true, DryRun: tc.dryRun})
-			if err == nil {
+			switch {
+			case tc.refuse && err == nil:
 				t.Fatal("expected an error when the source is inside the install destination")
-			}
-			if _, err := os.Stat(marker); err != nil {
-				t.Fatalf("source must be left intact: %v", err)
+			case err != nil:
+				if _, statErr := os.Stat(marker); statErr != nil {
+					t.Fatalf("source must be left intact after a failure: %v", statErr)
+				}
+			default:
+				if _, statErr := os.Stat(filepath.Join(dest, "SKILL.md")); statErr != nil {
+					t.Fatalf("a successful install must leave the cloned repo in place: %v", statErr)
+				}
 			}
 		})
+	}
+}
+
+func TestInstallTrackedRepo_ForceKeepsExistingRepoWhenCloneFails(t *testing.T) {
+	remoteURL := makeRemote(t, "")
+	sourceDir := t.TempDir()
+	source := &Source{Type: SourceTypeGitHTTPS, Raw: remoteURL, CloneURL: remoteURL}
+	if _, err := InstallTrackedRepo(source, sourceDir, InstallOptions{Name: "foo"}); err != nil {
+		t.Fatalf("first install: %v", err)
+	}
+
+	_, err := InstallTrackedRepo(source, sourceDir, InstallOptions{Name: "foo", Force: true, Branch: "no-such-branch"})
+	if err == nil {
+		t.Fatal("expected the clone of a missing branch to fail")
+	}
+	if _, statErr := os.Stat(filepath.Join(sourceDir, "_foo", "SKILL.md")); statErr != nil {
+		t.Fatalf("the existing repo must survive a failed forced reinstall: %v", statErr)
+	}
+	entries, _ := os.ReadDir(sourceDir)
+	for _, e := range entries {
+		if strings.HasPrefix(e.Name(), ".skillshare-clone-") {
+			t.Errorf("staging dir %s was left behind", e.Name())
+		}
+	}
+}
+
+func TestInstallTrackedRepo_ForceReplacesExistingRepoInto(t *testing.T) {
+	remoteURL := makeRemote(t, "")
+	sourceDir := t.TempDir()
+	source := &Source{Type: SourceTypeGitHTTPS, Raw: remoteURL, CloneURL: remoteURL}
+	opts := InstallOptions{Name: "foo", Into: "team"}
+	if _, err := InstallTrackedRepo(source, sourceDir, opts); err != nil {
+		t.Fatalf("first install: %v", err)
+	}
+	stale := filepath.Join(sourceDir, "team", "_foo", "stale.txt")
+	if err := os.WriteFile(stale, []byte("x"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	opts.Force = true
+	if _, err := InstallTrackedRepo(source, sourceDir, opts); err != nil {
+		t.Fatalf("forced reinstall: %v", err)
+	}
+	if _, err := os.Stat(stale); !os.IsNotExist(err) {
+		t.Errorf("the previous checkout should be replaced, stat err = %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(sourceDir, "team", "_foo", "SKILL.md")); err != nil {
+		t.Errorf("the new clone should be in place: %v", err)
+	}
+	entries, _ := os.ReadDir(filepath.Join(sourceDir, "team"))
+	for _, e := range entries {
+		if strings.HasPrefix(e.Name(), ".skillshare-") {
+			t.Errorf("leftover %s after a forced reinstall", e.Name())
+		}
 	}
 }
