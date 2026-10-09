@@ -194,7 +194,7 @@ skillshare sync  # 変更を適用
 | `standard` | SKILL.md の `name` フィールドをそのまま使用する（例: `dev`）。[Agent Skills spec](https://agentskills.io/specification) に準拠する。 |
 | `prefixed` | copy mode 専用。`standard` と同じだが、tracked repo 内の Skill はフォルダー名とコピー先の `name:` の両方が `<repo>-<name>` になる（例: `mattpocock-skills-prototype`）。 |
 
-`target --target-naming` は Target 内で Skill ディレクトリがどのように命名されるかを制御します。`standard` および `prefixed` モードでは、無効または衝突する名前を持つ Skill は警告付きでスキップされます。`flat` と `standard` は symlink モードでは無視されます。`--target-naming prefixed` は、Target が copy mode で Skill を sync していない限り拒否され、Target が `prefixed` を使っている間は `--mode` で copy mode から外れることも拒否されます。 両方を一度に切り替えるには、まとめて指定します: `skillshare target cursor --mode copy --target-naming prefixed`。[Target の命名規則](/docs/understand/sync-modes#target-naming) を参照してください。
+`target --target-naming` は Target 内で Skill ディレクトリがどのように命名されるかを制御します。`standard` および `prefixed` モードでは、無効または衝突する名前を持つ Skill は警告付きでスキップされます。`flat` と `standard` は symlink モードでは無視されます。`--target-naming prefixed` は、Target が copy mode で Skill を sync していない限り拒否され、Target が `prefixed` を使っている間は `--mode` で copy mode から外れることも拒否されます。両方を一度に切り替えるには、まとめて指定します: `skillshare target cursor --mode copy --target-naming prefixed`。[Target の命名規則](/docs/understand/sync-modes#target-naming) を参照してください。
 
 ```bash
 # Target を copy モードに設定する（Cursor、Copilot CLI などに向けて）
