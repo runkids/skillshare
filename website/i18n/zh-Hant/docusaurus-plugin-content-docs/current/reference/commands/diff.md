@@ -252,6 +252,8 @@ skillshare diff --json
 }
 ```
 
+當 `sync` 對該 target 無事可做時，`synced` 為 `true`。`"is_sync": false` 的項目（例如只存在於 target 的資料夾）仍會列出，但不會讓它變成 `false`。文字輸出同樣把只有 local-only 資料夾的 target 視為已同步。
+
 `action` 為 `add`、`modify`、`remove` 或 `kept`。`kept` 表示本機資料夾佔用了目前 `target_naming` 給 skill 的名稱，skill 留在舊名稱下，sync 不會變動該資料夾。
 
 ## 另請參閱

@@ -329,11 +329,11 @@ func printTargetsStatus(cfg *config.Config, discovered []sync.DiscoveredSkill) e
 		// A target with skills off expects nothing, so it has no drift.
 		expected := 0
 		if sc.IsEnabled() && (mode == "merge" || mode == "copy") {
-			filtered, err := sync.SelectTargetSkills(discovered, name, sc)
+			var err error
+			expected, err = sync.ExpectedSkillCount(name, sc, discovered)
 			if err != nil {
 				return fmt.Errorf("target %s has invalid include/exclude config: %w", name, err)
 			}
-			expected = len(filtered)
 			notSynced = max(notSynced, expected-res.syncedCount)
 		} else if sc.IsEnabled() && (len(sc.Include) > 0 || len(sc.Exclude) > 0) {
 			warnings = append(warnings, name+": include/exclude ignored in symlink mode")

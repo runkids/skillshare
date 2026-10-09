@@ -232,11 +232,12 @@ func collectCopySyncResult(r *syncTargetResult, run sync.SkillTargetResult, dryR
 	copiedCount := len(run.Linked)
 	updatedCount := len(run.Updated)
 	skippedCount := len(run.Skipped)
+	keptCount := len(run.KeptLocal)
 	removedCount := len(run.Pruned)
 	r.stats = syncModeStats{linked: copiedCount, local: skippedCount, updated: updatedCount, pruned: removedCount}
 
 	r.message = syncCounts("no skills",
-		countPart{copiedCount, "copied"}, countPart{skippedCount, "up to date"},
+		countPart{copiedCount, "copied"}, countPart{skippedCount - keptCount, "up to date"}, countPart{keptCount, "local"},
 		countPart{updatedCount, "updated"}, countPart{removedCount, "pruned"})
 
 	r.infos = append(r.infos, dirCreatedInfos(run.DirCreated, dryRun)...)

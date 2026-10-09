@@ -252,6 +252,8 @@ skillshare diff --json
 }
 ```
 
+`synced` is `true` when `sync` has nothing to do for the target. Items with `"is_sync": false`, such as folders that exist only in the target, are still listed but do not make it `false`. The text output likewise counts a target with only local-only folders as in sync.
+
 `action` is `add`, `modify`, `remove`, or `kept`. `kept` means a local folder holds the name the current `target_naming` gives the skill, so the skill stays under its old name and sync leaves the folder alone.
 
 ## See Also

@@ -209,6 +209,8 @@ $ skillshare sync
   Context  ~1.2K tokens always loaded · ~18.5K on demand
 ```
 
+若你自己建立的資料夾已佔用某個 skill 要同步的名稱，sync 會保留你的資料夾，不安裝該 skill。每個有這類資料夾的 target 會多一行，列出前幾個名稱（`kept local: a, b (sync --force replaces them)`），並計為 `local` 而不是 `up to date`。`skillshare diff` 會把它們列為 `Local override`。
+
 ---
 
 ## Collect

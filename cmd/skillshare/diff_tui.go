@@ -505,7 +505,7 @@ func (m diffTUIModel) renderTitleLine() string {
 			errN++
 		case r.synced:
 			syncN++
-		case r.syncCount+r.localCount == 0 && r.keptCount() > 0:
+		case r.syncCount == 0 && r.keptCount() > 0:
 			keptN++
 		default:
 			diffN++

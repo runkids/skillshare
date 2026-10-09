@@ -252,6 +252,8 @@ skillshare diff --json
 }
 ```
 
+`sync`가 해당 target에서 할 일이 없으면 `synced`는 `true`입니다. `"is_sync": false` 항목(target에만 있는 폴더 등)은 계속 목록에 표시되지만 `false`로 만들지 않습니다. 텍스트 출력에서도 local-only 폴더만 있는 target은 동기화된 것으로 취급합니다.
+
 `action`은 `add`, `modify`, `remove`, `kept` 중 하나입니다. `kept`는 현재 `target_naming`이 skill에 주는 이름을 로컬 폴더가 사용 중이라 skill이 이전 이름으로 남고 sync가 그 폴더를 건드리지 않는다는 뜻입니다.
 
 ## 참고

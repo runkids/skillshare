@@ -252,6 +252,8 @@ skillshare diff --json
 }
 ```
 
+`sync` がその target に対して行うことがない場合、`synced` は `true` です。`"is_sync": false` の項目（target にだけ存在するフォルダーなど）は引き続き一覧に表示されますが、`false` にはしません。テキスト出力でも、local-only フォルダーだけの target は同期済みとして扱われます。
+
 `action` は `add`、`modify`、`remove`、`kept` のいずれかです。`kept` は、現在の `target_naming` が付ける名前をローカルフォルダーが使っているため、Skill が以前の名前のまま残り、sync がそのフォルダーに触れないことを示します。
 
 ## 関連項目

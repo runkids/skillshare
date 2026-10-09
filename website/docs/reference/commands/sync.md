@@ -217,6 +217,8 @@ $ skillshare sync
   Context  ~1.2K tokens always loaded · ~18.5K on demand
 ```
 
+When a folder you made already sits on the name a skill syncs to, sync keeps your folder and does not install the skill. Each target with such folders gets one line naming the first few (`kept local: a, b (sync --force replaces them)`), and they count as `local` instead of `up to date`. `skillshare diff` lists them as `Local override`.
+
 ---
 
 ## Collect
