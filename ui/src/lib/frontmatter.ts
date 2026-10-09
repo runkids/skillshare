@@ -20,6 +20,8 @@ export interface ParsedSkillMarkdown {
 const FENCE = /^---\s*(?:\r?\n|$)/;
 
 export function parseSkillMarkdown(content: string): ParsedSkillMarkdown {
+  // Windows editors write a BOM before the opening fence; the Go readers skip it too.
+  content = content.replace(/^\uFEFF/, '');
   if (!content) {
     return { frontmatter: {}, rawFrontmatter: '', body: '', hasFrontmatter: false };
   }

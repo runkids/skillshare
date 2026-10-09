@@ -4,6 +4,8 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+
+	"skillshare/internal/utils"
 )
 
 // ScanContent scans raw content for security issues and returns findings.
@@ -24,7 +26,8 @@ func ScanContentWithRules(content []byte, filename string, activeRules []rule) [
 	}
 
 	var findings []Finding
-	text := string(content)
+	// A BOM at the very start is the file's encoding mark, not a hidden character.
+	text := utils.TrimBOM(string(content))
 	lineNum := 0
 	for start := 0; start <= len(text); {
 		lineNum++
@@ -74,7 +77,7 @@ func ScanMarkdownContentWithRules(content []byte, filename string, activeRules [
 		}
 	}
 
-	findings, _ := scanFileUnifiedMarkdown(string(content), filename, activeRules, nil, true, false)
+	findings, _ := scanFileUnifiedMarkdown(utils.TrimBOM(string(content)), filename, activeRules, nil, true, false)
 	return findings
 }
 

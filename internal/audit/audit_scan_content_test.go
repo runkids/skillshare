@@ -348,6 +348,30 @@ func TestScanContent_CredentialAccess(t *testing.T) {
 	}
 }
 
+func TestScanContent_LeadingBOMIsNotHidden(t *testing.T) {
+	// Windows editors write a BOM at the start of a file; it hides nothing there.
+	if findings := ScanContent([]byte("\ufeff# Title\nplain text"), "SKILL.md"); len(findings) != 0 {
+		t.Errorf("leading BOM produced findings: %+v", findings)
+	}
+
+	rules, err := Rules()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if static, _ := scanFileUnified([]byte("\ufeff# Title\nplain text"), "SKILL.md", true, rules, nil, true, false, false); len(static) != 0 {
+		t.Errorf("leading BOM produced findings in the skill scan: %+v", static)
+	}
+
+	if findings := ScanMarkdownContentWithRules([]byte("\ufeff# Title\nplain text"), "SKILL.md", rules); len(findings) != 0 {
+		t.Errorf("leading BOM produced findings in the markdown scan: %+v", findings)
+	}
+
+	findings := ScanContent([]byte("\ufeff# Title\nmid\ufeffline"), "SKILL.md")
+	if len(findings) != 1 || findings[0].Pattern != "hidden-unicode" || findings[0].Line != 2 {
+		t.Errorf("a BOM past the start must still be reported on line 2, got: %+v", findings)
+	}
+}
+
 func TestScanContent_HiddenUnicode(t *testing.T) {
 	content := []byte("Normal text with hidden\u200Bcharacter")
 	findings := ScanContent(content, "SKILL.md")

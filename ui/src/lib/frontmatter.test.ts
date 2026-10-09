@@ -25,6 +25,15 @@ describe('parseSkillMarkdown', () => {
     expect(frontmatter.description).toBe('Line one\nLine two');
   });
 
+  it('skips a leading BOM before the opening fence', () => {
+    const { frontmatter, body, hasFrontmatter } = parseSkillMarkdown(
+      '\uFEFF---\nname: foo\n---\n# body'
+    );
+    expect(hasFrontmatter).toBe(true);
+    expect(frontmatter.name).toBe('foo');
+    expect(body).toBe('# body');
+  });
+
   it('returns hasFrontmatter=false when missing', () => {
     const result = parseSkillMarkdown('# just a body');
     expect(result.hasFrontmatter).toBe(false);
