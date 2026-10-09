@@ -607,7 +607,7 @@ targets:
 ```
 
 :::tip
-フィルターがすでに重複を分離している場合、sync は警告ではなく情報メッセージを表示します —
+フィルターがすでに重複を分離している場合、sync はそれについて何も出力しません —
 対応は不要です。
 完全な構文は [Target フィルター](/docs/reference/targets/configuration#include--exclude-target-filters)
 を参照してください。
