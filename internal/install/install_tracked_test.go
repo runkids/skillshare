@@ -321,14 +321,12 @@ func TestInstallTrackedRepo_ForceNeverDestroysItsLocalSource(t *testing.T) {
 		repo   string // relative to the destination
 		source func(repo string) string
 		dryRun bool
-		refuse bool // a plain local path inside the destination is refused outright
 	}{
-		{"same path", "", func(p string) string { return p }, false, true},
-		{"nested path", "nested", func(p string) string { return p }, false, true},
-		{"dry run", "nested", func(p string) string { return p }, true, true},
-		// URL forms are not matched by path; the clone must finish before anything is removed.
-		{"explicit file URL", "nested", func(p string) string { return fileURL(p) }, false, false},
-		{"localhost file URL", "nested", func(p string) string { return "file://localhost/" + strings.TrimPrefix(filepath.ToSlash(p), "/") }, false, false},
+		{"same path", "", func(p string) string { return p }, false},
+		{"nested path", "nested", func(p string) string { return p }, false},
+		{"dry run", "nested", func(p string) string { return p }, true},
+		{"explicit file URL", "nested", func(p string) string { return fileURL(p) }, false},
+		{"localhost file URL", "nested", func(p string) string { return "file://localhost/" + strings.TrimPrefix(filepath.ToSlash(p), "/") }, false},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -336,31 +334,36 @@ func TestInstallTrackedRepo_ForceNeverDestroysItsLocalSource(t *testing.T) {
 			dest := filepath.Join(sourceDir, "_foo")
 			repo := filepath.Join(dest, tc.repo)
 			mustRunGit(t, "", "init", "-b", "main", repo)
-			marker := filepath.Join(repo, "SKILL.md")
-			if err := os.WriteFile(marker, []byte("# unpushed"), 0644); err != nil {
+			if err := os.WriteFile(filepath.Join(repo, "SKILL.md"), []byte("# skill"), 0644); err != nil {
 				t.Fatal(err)
 			}
 			mustRunGit(t, repo, "add", ".")
 			mustRunGit(t, repo, "-c", "user.email=a@b", "-c", "user.name=n", "commit", "-m", "i")
+			// Uncommitted work: a clone cannot carry it, so only refusing keeps it.
+			wip := filepath.Join(repo, "wip.txt")
+			if err := os.WriteFile(wip, []byte("unpushed"), 0644); err != nil {
+				t.Fatal(err)
+			}
 
 			source, err := ParseSource(tc.source(repo))
 			if err != nil {
 				t.Fatal(err)
 			}
 			_, err = InstallTrackedRepo(source, sourceDir, InstallOptions{Name: "foo", Force: true, DryRun: tc.dryRun})
-			switch {
-			case tc.refuse && err == nil:
+			if err == nil {
 				t.Fatal("expected an error when the source is inside the install destination")
-			case err != nil:
-				if _, statErr := os.Stat(marker); statErr != nil {
-					t.Fatalf("source must be left intact after a failure: %v", statErr)
-				}
-			default:
-				if _, statErr := os.Stat(filepath.Join(dest, "SKILL.md")); statErr != nil {
-					t.Fatalf("a successful install must leave the cloned repo in place: %v", statErr)
-				}
+			}
+			if _, err := os.Stat(wip); err != nil {
+				t.Fatalf("source must be left intact: %v", err)
 			}
 		})
+	}
+}
+
+func TestLocalCloneSource_UNCFileURL(t *testing.T) {
+	got := localCloneSource(&Source{CloneURL: "file://server/share/repo"})
+	if want := filepath.FromSlash("//server/share/repo"); got != want {
+		t.Errorf("localCloneSource = %q, want %q", got, want)
 	}
 }
 

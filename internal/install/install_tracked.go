@@ -23,6 +23,26 @@ func localFileURL(path string) string {
 	return (&url.URL{Scheme: "file", Path: p}).String()
 }
 
+// localCloneSource returns the filesystem path a local source clones from: the
+// plain path, or the path a file:// URL names, or "" for a remote source.
+func localCloneSource(source *Source) string {
+	if source.Path != "" {
+		return source.Path
+	}
+	u, err := url.Parse(source.CloneURL)
+	if err != nil || u.Scheme != "file" {
+		return ""
+	}
+	p := u.Path
+	switch {
+	case u.Host != "" && !strings.EqualFold(u.Host, "localhost"):
+		p = "//" + u.Host + p // UNC: file://server/share/repo
+	case len(p) > 2 && p[0] == '/' && p[2] == ':':
+		p = p[1:] // file:///C:/repo
+	}
+	return filepath.FromSlash(p)
+}
+
 // pathWithin reports whether path is dir itself or lies below it, after
 // resolving links.
 func pathWithin(dir, path string) bool {
@@ -112,8 +132,9 @@ func installTrackedRepoImpl(source *Source, sourceDir string, opts InstallOption
 	// Check if already exists
 	replacing := false
 	if _, err := os.Stat(destPath); err == nil {
-		// A plain local path that is, or lies inside, the destination would be replaced under itself.
-		if p := source.Path; p != "" && pathWithin(destPath, p) {
+		// A local source that is, or lies inside, the destination would be
+		// replaced under itself; a clone cannot carry its uncommitted work.
+		if p := localCloneSource(source); p != "" && pathWithin(destPath, p) {
 			return nil, fmt.Errorf("source %s is inside the install destination %s; nothing to install", p, destPath)
 		}
 		if opts.Update {
@@ -153,8 +174,7 @@ func installTrackedRepoImpl(source *Source, sourceDir string, opts InstallOption
 		cloneBranch = source.Branch
 	}
 	// --force clones beside the destination and swaps it in only after every
-	// check passed, so a failure (or a source that lives under the destination,
-	// however its URL is spelled) never costs the existing repo.
+	// check passed, so a failure never costs the existing repo.
 	stamp := strconv.FormatInt(time.Now().UnixNano(), 36)
 	cloneRel, clonePath := destRel, destPath
 	if replacing {
