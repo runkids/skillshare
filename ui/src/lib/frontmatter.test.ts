@@ -34,6 +34,12 @@ describe('parseSkillMarkdown', () => {
     expect(body).toBe('# body');
   });
 
+  it('puts the BOM back when composing', () => {
+    const original = '\uFEFF---\nname: foo\n---\n# body';
+    const { frontmatter, body, rawFrontmatter, bom } = parseSkillMarkdown(original);
+    expect(composeSkillMarkdown(frontmatter, body, undefined, rawFrontmatter, bom)).toBe(original);
+  });
+
   it('returns hasFrontmatter=false when missing', () => {
     const result = parseSkillMarkdown('# just a body');
     expect(result.hasFrontmatter).toBe(false);
