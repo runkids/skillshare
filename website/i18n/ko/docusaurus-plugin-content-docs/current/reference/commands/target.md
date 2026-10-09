@@ -194,7 +194,7 @@ skillshare sync  # Apply changes
 | `standard` | SKILL.md의 `name` 필드를 그대로 사용합니다(예: `dev`). [Agent Skills spec](https://agentskills.io/specification)을 따릅니다. |
 | `prefixed` | Copy mode 전용. `standard`와 같지만 tracked repo 안의 skill은 폴더 이름과 복사본의 `name:` 모두 `<repo>-<name>`으로 이름이 지정됩니다(예: `mattpocock-skills-prototype`). |
 
-`target --target-naming`은 target에서 skill 디렉터리의 이름 지정 방식을 제어합니다. `standard` 및 `prefixed` mode에서는 이름이 유효하지 않거나 충돌하는 skill에 대해 경고가 표시되고 건너뜁니다. `flat`과 `standard`는 symlink mode에서 무시됩니다. target이 copy mode로 skills를 sync하지 않으면 `--target-naming prefixed`는 거부되며, target이 `prefixed`를 사용하는 동안 `--mode`로 copy mode를 벗어나는 것도 거부됩니다. 둘을 한 번에 바꾸려면 함께 지정하세요: `skillshare target cursor --mode copy --target-naming prefixed`. [Target Naming](/docs/understand/sync-modes#target-naming) 참고.
+`target --target-naming`은 target에서 skill 디렉터리의 이름 지정 방식을 제어합니다. `standard` 및 `prefixed` mode에서는 이름이 유효하지 않거나 충돌하는 skill에 대해 경고가 표시되고 건너뜁니다. `flat`과 `standard`는 symlink mode에서 무시됩니다. target이 copy mode로 skills를 sync하지 않으면 `--target-naming prefixed`는 거부되며, target이 `prefixed`를 사용하는 동안 `--mode`로 copy mode를 벗어나는 것도 거부됩니다. 둘을 한 번에 바꾸려면 함께 지정하세요: `skillshare target cursor --mode copy --target-naming prefixed`. `--mode`, `--agent-mode`, `--target-naming`은 이렇게 함께 쓸 수 있으며, 함께 검사되어 한 번에 저장됩니다. target이 이미 가진 값은 변경되지 않음으로 표시됩니다. `--skills`나 include/exclude 플래그와는 함께 쓸 수 없으니 별도 명령으로 실행하세요. [Target Naming](/docs/understand/sync-modes#target-naming) 참고.
 
 ```bash
 # Set target to copy mode (for Cursor, Copilot CLI, etc.)
