@@ -330,7 +330,7 @@ func TestRenderTargetDetail_AgentSection(t *testing.T) {
 				target: config.TargetConfig{
 					Skills: &config.ResourceTargetConfig{Path: "/tmp/claude/skills", Mode: "merge", TargetNaming: "prefixed"},
 				},
-				namingErr: config.TargetNamingModeConfigError("prefixed", "merge"),
+				namingErr: config.TargetNamingModeConfigError("prefixed", "merge", ""),
 			},
 			want: []string{"set mode: copy on the target"},
 		},

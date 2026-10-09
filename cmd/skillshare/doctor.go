@@ -582,7 +582,7 @@ func checkTargets(cfg *config.Config, result *doctorResult, isProject bool) map[
 			hasError = true
 			continue
 		}
-		if err := config.TargetNamingModeConfigError(sc.TargetNaming, mode); err != nil {
+		if err := target.NamingModeConfigError(mode); err != nil {
 			row(ui.MarkFail, "skills", err.Error()+ui.DimText(" · "+mode))
 			result.addError()
 			details = append(details, fmt.Sprintf("%s: %v", name, err))

@@ -46,9 +46,9 @@ func (targetListDelegate) Render(w io.Writer, m list.Model, index int, item list
 	if !ti.target.SkillsConfig().IsEnabled() {
 		mode = "skills off"
 	}
-	modeText := theme.Dim().Render(mode)
+	modeStyle := theme.Dim()
 	if ti.namingErr != nil {
-		modeText = theme.Warning().Render("! " + mode)
+		modeStyle, mode = theme.Warning(), "! "+mode
 	}
-	renderPrefixRow(w, alignRow(ti.name, modeText, m.Width()-rowIndent), m.Width(), index == m.Index())
+	renderPrefixRow(w, alignRow(ti.name, modeStyle.Render(mode), m.Width()-rowIndent), m.Width(), index == m.Index())
 }

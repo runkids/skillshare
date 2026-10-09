@@ -103,7 +103,7 @@ func cmdStatusProjectJSON(root string) error {
 			Exclude:     sc.Exclude,
 
 			SkillsEnabled: sc.IsEnabled(),
-			Warning:       namingWarning(sc, mode),
+			Warning:       namingWarning(target, mode),
 		})
 	}
 
@@ -204,7 +204,7 @@ func printProjectTargetsStatus(runtime *projectRuntime, discovered []sync.Discov
 			mode = "merge"
 		}
 		res := getTargetStatusDetail(target, runtime.sourcePath, mode)
-		if err := sc.NamingModeConfigError(mode); err != nil {
+		if err := target.NamingModeConfigError(mode); err != nil {
 			warnings = append(warnings, entry.Name+": "+err.Error())
 		}
 

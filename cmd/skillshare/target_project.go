@@ -114,7 +114,7 @@ func targetAddProject(args []string, root string) error {
 		}
 	}
 
-	reportTargetAdded(name, path, noSkills, mode)
+	reportTargetAdded(name, path, noSkills, mode != "")
 	return nil
 }
 

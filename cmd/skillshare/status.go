@@ -177,7 +177,7 @@ func cmdStatus(args []string) error {
 			Exclude:     sc.Exclude,
 
 			SkillsEnabled: sc.IsEnabled(),
-			Warning:       namingWarning(sc, tMode),
+			Warning:       namingWarning(target, tMode),
 		})
 	}
 
@@ -328,7 +328,7 @@ func printTargetsStatus(cfg *config.Config, discovered []sync.DiscoveredSkill) e
 		sc := target.SkillsConfig()
 		mode := getTargetMode(sc.Mode, cfg.Mode)
 		res := getTargetStatusDetail(target, cfg.EffectiveSkillsSource(), mode)
-		if err := sc.NamingModeConfigError(mode); err != nil {
+		if err := target.NamingModeConfigError(mode); err != nil {
 			warnings = append(warnings, name+": "+err.Error())
 		}
 
@@ -368,8 +368,8 @@ func printTargetsStatus(cfg *config.Config, discovered []sync.DiscoveredSkill) e
 }
 
 // namingWarning is the naming and mode error of a target that syncs skills, as text.
-func namingWarning(sc config.ResourceTargetConfig, mode string) string {
-	if err := sc.NamingModeConfigError(mode); err != nil {
+func namingWarning(target config.TargetConfig, mode string) string {
+	if err := target.NamingModeConfigError(mode); err != nil {
 		return err.Error()
 	}
 	return ""
