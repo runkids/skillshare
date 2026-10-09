@@ -123,7 +123,12 @@ func TestFrontmatterEntryPoints_DelimiterRules(t *testing.T) {
 		{
 			name:    "BOM",
 			content: "\xef\xbb\xbf---\nname: a\ntargets: [t]\n---\nbody\n",
-			want:    fmSnapshot{SkillName: "", Field: "", Fields: "", List: "", ListBytes: "", Map: "a", Body: "\ufeff---\nname: a\ntargets: [t]\n---\nbody", Rewrite: "---\ntargets:\n  - x\n---\n\ufeff---\nname: a\ntargets: [t]\n---\nbody\n"},
+			want:    fmSnapshot{SkillName: "a", Field: "a", Fields: "a", List: "t", ListBytes: "t", Map: "a", Body: "body", Rewrite: "\ufeff---\nname: a\ntargets:\n  - x\n---\nbody\n"},
+		},
+		{
+			name:    "BOM without frontmatter",
+			content: "\xef\xbb\xbf# Title\n\nbody\n",
+			want:    fmSnapshot{SkillName: "", Field: "", Fields: "", List: "", ListBytes: "", Map: "error: no frontmatter at the start", Body: "\ufeff# Title\n\nbody", Rewrite: "\ufeff---\ntargets:\n  - x\n---\n# Title\n\nbody\n"},
 		},
 		{
 			name:    "empty block",

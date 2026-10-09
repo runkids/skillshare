@@ -4,14 +4,28 @@ import (
 	"bufio"
 	"bytes"
 	"os"
+	"strings"
 )
+
+// utf8BOM is the byte order mark that Windows editors write at the start of a file.
+var utf8BOM = []byte("\xef\xbb\xbf")
+
+// SplitBOM cuts a leading UTF-8 BOM off s, so a caller that rewrites the file can put it back.
+func SplitBOM(s string) (bom, rest string) {
+	rest = strings.TrimPrefix(s, string(utf8BOM))
+	return s[:len(s)-len(rest)], rest
+}
+
+// TrimBOM returns s without a leading UTF-8 BOM.
+func TrimBOM(s string) string {
+	_, rest := SplitBOM(s)
+	return rest
+}
 
 // frontmatterPolicy is the rule one reader uses to find the --- delimiters. The readers
 // do not agree on it (issue #449), so each difference is a field here and each reader
 // names its policy below.
 type frontmatterPolicy struct {
-	// skipBOM ignores a UTF-8 byte order mark before the opening delimiter.
-	skipBOM bool
 	// dashGuard gives up unless the content, after leading whitespace, starts with ---.
 	// The delimiter itself may still be a later line.
 	dashGuard bool
@@ -25,7 +39,7 @@ type frontmatterPolicy struct {
 var (
 	// strictBlock is the Agent Skills format: the file begins with exactly ---, and the
 	// block ends at the next line that is exactly ---. CRLF is fine. ParseFrontmatterMap.
-	strictBlock = frontmatterPolicy{skipBOM: true, firstLine: true, delim: delimExact}
+	strictBlock = frontmatterPolicy{firstLine: true, delim: delimExact}
 
 	// lenientBlock takes the first two lines that are --- after trimming all whitespace,
 	// wherever they are. ParseSkillName, ParseFrontmatterList, ParseFrontmatterListFromBytes,
@@ -103,9 +117,7 @@ func (w *blockWalk) next(line []byte) lineKind {
 // lines only as far as the closing delimiter and allocates nothing, so a large body
 // costs no memory. Whether an unclosed block counts is the caller's decision.
 func locateFrontmatter(content []byte, p frontmatterPolicy) frontmatterBlock {
-	if p.skipBOM {
-		content = bytes.TrimPrefix(content, []byte("\xef\xbb\xbf"))
-	}
+	content = bytes.TrimPrefix(content, utf8BOM)
 	if p.dashGuard && !bytes.HasPrefix(bytes.TrimSpace(content), []byte("---")) {
 		return frontmatterBlock{}
 	}
@@ -144,12 +156,16 @@ func scanLenientBlock(path string, fn func(line []byte) bool) error {
 
 	w := blockWalk{p: lenientBlock}
 	scanner := bufio.NewScanner(f)
-	for scanner.Scan() {
-		switch w.next(scanner.Bytes()) {
+	for first := true; scanner.Scan(); first = false {
+		line := scanner.Bytes()
+		if first {
+			line = bytes.TrimPrefix(line, utf8BOM)
+		}
+		switch w.next(line) {
 		case lineClose, lineNoBlock:
 			return nil
 		case lineInside:
-			if !fn(scanner.Bytes()) {
+			if !fn(line) {
 				return nil
 			}
 		}

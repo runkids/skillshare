@@ -106,6 +106,22 @@ func TestBuildIndex_DescriptionPipeScalar(t *testing.T) {
 	}
 }
 
+func TestBuildIndex_BOMFrontmatter(t *testing.T) {
+	source := t.TempDir()
+	createSkill(t, source, "bom-skill", "\ufeff---\nname: bom-skill\ndescription: From Notepad\ntags: git, review\n---\n# Body")
+
+	idx, err := BuildIndex(source, false, false)
+	if err != nil {
+		t.Fatalf("BuildIndex: %v", err)
+	}
+	if len(idx.Skills) != 1 || idx.Skills[0].Description != "From Notepad" {
+		t.Fatalf("skills = %+v, want one skill with its description", idx.Skills)
+	}
+	if got := readSkillTags(filepath.Join(source, "bom-skill")); len(got) != 2 {
+		t.Errorf("tags = %v, want git and review", got)
+	}
+}
+
 func TestBuildIndex_DescriptionVariants(t *testing.T) {
 	tests := []struct {
 		frontmatter string

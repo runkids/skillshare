@@ -28,7 +28,8 @@ func SetFrontmatterList(filePath string, field string, values []string) error {
 // RewriteFrontmatterList returns updated frontmatter while preserving the body.
 // It has the same field and removal semantics as SetFrontmatterList.
 func RewriteFrontmatterList(data []byte, field string, values []string) ([]byte, error) {
-	fmRaw, body := splitFrontmatterAndBody(data)
+	bom, rest := SplitBOM(string(data))
+	fmRaw, body := splitFrontmatterAndBody([]byte(rest))
 
 	var fm map[string]any
 	if len(fmRaw) > 0 {
@@ -86,6 +87,7 @@ func RewriteFrontmatterList(data []byte, field string, values []string) ([]byte,
 	}
 
 	var sb strings.Builder
+	sb.WriteString(bom)
 	sb.WriteString("---\n")
 	sb.Write(fmBytes)
 	sb.WriteString("---\n")
@@ -132,7 +134,7 @@ func ToggleFrontmatterFlag(filePath, key string) (bool, error) {
 	default:
 		lines[i] = flagLine
 	}
-	return on, os.WriteFile(filePath, []byte(strings.Join(lines, "\n")), 0644)
+	return on, os.WriteFile(filePath, []byte(fm.join(lines)), 0644)
 }
 
 // SetFrontmatterValue sets a top-level frontmatter key to a plain scalar value,
@@ -191,13 +193,14 @@ func SetFrontmatterValue(filePath, key, value string) error {
 	} else {
 		lines = append(lines[:fm.end], append([]string{line}, lines[fm.end:]...)...)
 	}
-	return os.WriteFile(filePath, []byte(strings.Join(lines, "\n")), 0644)
+	return os.WriteFile(filePath, []byte(fm.join(lines)), 0644)
 }
 
 // frontmatterLines is a file split on "\n" only, so CRLF files keep their "\r"
 // on every untouched line; open and end index the "---" delimiters (end < 0
 // when there is no frontmatter block).
 type frontmatterLines struct {
+	bom       string // a leading UTF-8 BOM, kept in front of whatever is written back
 	content   string
 	cr        string
 	lines     []string
@@ -205,7 +208,8 @@ type frontmatterLines struct {
 }
 
 func splitFrontmatterLines(content string) frontmatterLines {
-	fm := frontmatterLines{content: content, lines: strings.Split(content, "\n"), open: -1, end: -1}
+	bom, content := SplitBOM(content)
+	fm := frontmatterLines{bom: bom, content: content, lines: strings.Split(content, "\n"), open: -1, end: -1}
 	if strings.Contains(content, "\r\n") {
 		fm.cr = "\r"
 	}
@@ -223,6 +227,11 @@ func splitFrontmatterLines(content string) frontmatterLines {
 		}
 	}
 	return fm
+}
+
+// join returns lines as file content, with the BOM back in front.
+func (fm frontmatterLines) join(lines []string) string {
+	return fm.bom + strings.Join(lines, "\n")
 }
 
 // keyLine returns the index of the line holding key at column 0 (nested keys
@@ -302,7 +311,7 @@ func (fm frontmatterLines) keySpan(mapping *yaml.Node, key string) (int, int) {
 
 // prepend returns the content with a new frontmatter block holding line.
 func (fm frontmatterLines) prepend(line string) string {
-	return "---" + fm.cr + "\n" + line + "\n" + "---" + fm.cr + "\n" + fm.content
+	return fm.bom + "---" + fm.cr + "\n" + line + "\n" + "---" + fm.cr + "\n" + fm.content
 }
 
 func isTrueValue(rest string) bool {

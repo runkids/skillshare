@@ -222,7 +222,7 @@ Output suppression 依命中的證據分級，不取決於 Markdown 上下文：
 **攻擊情境：** 一個 skill 檔案外觀看起來很正常，但其中含有零寬度 Unicode 字元，拼出只有 AI 看得見的惡意指令。或是一長串 base64 編碼字串解碼後是外洩資料的 shell 腳本。
 
 **Audit 偵測的內容：**
-- 零寬度 Unicode 字元（U+200B、U+200C、U+200D、U+2060、U+FEFF）
+- 零寬度 Unicode 字元（U+200B、U+200C、U+200D、U+2060、U+FEFF）；檔案開頭的位元組順序標記（Windows 編輯器會寫入 BOM）除外
 - Base64 解碼後導向 shell 執行（`base64 -d | bash`）
 - 長 base64 編碼字串（100 個字元以上）
 - 連續的十六進位／unicode 逸出序列

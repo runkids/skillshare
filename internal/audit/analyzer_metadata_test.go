@@ -54,6 +54,12 @@ func TestParseFrontmatterNameDesc(t *testing.T) {
 			wantDesc: "",
 		},
 		{
+			name:     "BOM before the opening delimiter",
+			content:  "\ufeff---\nname: my-skill\ndescription: A useful tool\n---\n# Content",
+			wantName: "my-skill",
+			wantDesc: "A useful tool",
+		},
+		{
 			name:     "empty description",
 			content:  "---\nname: test\n---\n",
 			wantName: "test",

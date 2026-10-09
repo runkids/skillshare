@@ -28,6 +28,20 @@ func TestCalcSkillContext_WithDescription(t *testing.T) {
 	}
 }
 
+func TestCalcSkillContext_BOM(t *testing.T) {
+	dir := t.TempDir()
+	content := "\ufeff---\nname: my-skill\ndescription: A helpful skill\n---\n# My Skill"
+	os.WriteFile(filepath.Join(dir, "SKILL.md"), []byte(content), 0644)
+
+	_, bodyChars, description, err := CalcSkillContext(dir)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if description != "A helpful skill" || bodyChars != len("# My Skill") {
+		t.Errorf("got description %q, bodyChars %d; want frontmatter split off the body", description, bodyChars)
+	}
+}
+
 func TestCalcSkillContext_NoDescription(t *testing.T) {
 	dir := t.TempDir()
 	content := "---\nname: minimal\n---\n# Minimal\nJust body"
