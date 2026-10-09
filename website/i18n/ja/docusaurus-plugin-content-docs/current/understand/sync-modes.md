@@ -269,7 +269,7 @@ skillshare sync
 - 兄弟 Skill への相対リンク（`../other-skill/`）は書き換えられません。これは copy mode の `flat` と同じです。
 - この名前がツールに表示される名前になります。Claude Code ではスラッシュコマンドになります。例: `/mattpocock-skills-prototype`。
 
-`prefixed` は copy mode が必要です。merge のリンクは source を指しており、そこでは `name:` を変更できないためです。merge mode または symlink mode で `prefixed` に解決される Target は、バリデーションに失敗し、sync でスキップされます。新しい Target が copy 以外の mode で `prefixed` を継承する場合（プロジェクトの Target は既定で merge）、`target add` はその Target を copy mode にします。`target add` はそうしたときにその旨を表示します。また `status`、`doctor`、`target list` は、copy 以外の mode で `prefixed` に解決される Target を sync の前に警告します。対処は、その Target に `mode: copy` を設定することです。`projects:` エントリから展開された Target の場合は `projects.<root>.skills.mode: copy` を設定します。
+`prefixed` は copy mode が必要です。merge のリンクは source を指しており、そこでは `name:` を変更できないためです。merge mode または symlink mode で `prefixed` に解決される Target は、バリデーションに失敗し、sync でスキップされます。新しい Target が copy 以外の mode で `prefixed` を継承する場合（プロジェクトの Target は既定で merge）、`target add` はその Target を copy mode にします。`target add` はそうしたときにその旨を表示します。また `status` と `doctor` は、copy 以外の mode で `prefixed` に解決される Target を sync の前に警告します。`targets:` にある Target については `target list` も同様です。対処は、その Target に `mode: copy` を設定することです。`projects:` エントリから展開された Target の場合は `projects.<root>.skills.mode: copy` を設定します。
 
 ```yaml
 targets:
