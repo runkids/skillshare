@@ -91,9 +91,9 @@ cursor
 |-------|---------|--------|
 | New | Source にあり、Target にない | `sync` が追加する |
 | Restore | Target にあったが削除された | `sync` が復元する |
-| Modified | 内容または target naming が変更された（copy mode）、または merge sync がリンクに置き換える copy mode のコピー | `sync` が更新する |
+| Modified | 内容または target naming が変更された（copy mode）、または merge sync がリンクに置き換える、編集されていない copy mode のコピー | `sync` が更新する |
 | Renamed | 管理対象のエントリが以前の `target_naming` による名前のまま | `sync` が名前を変更する |
-| Local override | symlink ではなくローカルコピー | `sync --force` で置き換え |
+| Local override | symlink ではなくローカルコピー（編集済みの copy mode コピーを含む） | `sync --force` で置き換え |
 | Orphan | マニフェストにあるが Source にない | `sync` が刈り取る |
 | Local only | Target のみに存在し、Source にない | `collect` でインポート |
 

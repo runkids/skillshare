@@ -186,7 +186,7 @@ skillshare target claude --mode merge
 skillshare sync
 ```
 
-Copies that copy mode made are replaced with links on that sync, without `--force`. Folders you made yourself, which the manifest does not record, are kept; `--force` replaces those too.
+Unedited copies that copy mode made are replaced with links on that sync, without `--force`. Everything else is kept until you run `sync --force`: a folder you made yourself (the manifest does not record it) and a copy you edited after copy mode made it. A copy whose `name:` copy mode rewrote for `prefixed` naming also counts as edited.
 
 ### By-target overrides (recommended)
 

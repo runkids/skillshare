@@ -186,7 +186,7 @@ skillshare target claude --mode merge
 skillshare sync
 ```
 
-copy mode가 만든 복사본은 이 sync에서 `--force` 없이 링크로 교체됩니다. manifest에 기록되지 않은 직접 만든 폴더는 그대로 유지되며, 교체하려면 `--force`가 필요합니다.
+copy mode가 만든 복사본 중 편집하지 않은 것은 이 sync에서 `--force` 없이 링크로 교체됩니다. 나머지는 `sync --force`를 실행할 때까지 유지됩니다. 직접 만든 폴더(manifest에 기록되지 않음)와 copy mode가 만든 뒤 편집한 복사본이 해당됩니다. `prefixed` naming 때문에 copy mode가 `name:`을 다시 쓴 복사본도 편집된 것으로 간주됩니다.
 
 ### Target별 재정의 (권장)
 

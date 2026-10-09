@@ -91,9 +91,9 @@ cursor
 |-------|---------|--------|
 | New | 存在於 source，target 中缺失 | `sync` 會新增它 |
 | Restore | 曾存在於 target，已被刪除 | `sync` 會還原它 |
-| Modified | 內容或 target naming 已變更（copy 模式），或 merge sync 會替換為連結的 copy mode 副本 | `sync` 會更新它 |
+| Modified | 內容或 target naming 已變更（copy 模式），或 merge sync 會替換為連結且未被編輯的 copy mode 副本 | `sync` 會更新它 |
 | Renamed | 受管理的項目仍使用先前 `target_naming` 給的名稱 | `sync` 會重新命名它 |
-| Local override | 本機複本而非 symlink | `sync --force` 以取代 |
+| Local override | 本機複本而非 symlink（包含被編輯過的 copy mode 副本） | `sync --force` 以取代 |
 | Orphan | 存在於 manifest 但不在 source 中 | `sync` 會清除它 |
 | Local only | 只存在於 target，不在 source 中 | 用 `collect` 匯入 |
 

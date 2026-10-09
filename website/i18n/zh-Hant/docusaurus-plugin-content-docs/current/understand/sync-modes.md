@@ -186,7 +186,7 @@ skillshare target claude --mode merge
 skillshare sync
 ```
 
-copy mode 建立的副本會在這次 sync 中被替換為連結，不需要 `--force`。manifest 沒有記錄的自建資料夾會保留，要替換它們需要 `--force`。
+copy mode 建立且未被編輯的副本，會在這次 sync 中被替換為連結，不需要 `--force`。其他項目會保留，直到執行 `sync --force`：自建的資料夾（manifest 沒有記錄），以及 copy mode 建立後被編輯過的副本。為 `prefixed` naming 而被 copy mode 改寫 `name:` 的副本，也視為已編輯。
 
 ### 依 target 覆寫（建議做法）
 
