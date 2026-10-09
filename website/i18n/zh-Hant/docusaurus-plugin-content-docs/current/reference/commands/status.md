@@ -168,6 +168,8 @@ skillshare status --json
 }
 ```
 
+只有 sync 會拒絕某個 target 時，該 target 才會有 `warning` 字串，例如在 copy 以外的 mode 下使用 `prefixed` naming；文字中會說明如何修正。
+
 無法讀取 git status 的 tracked repo 會顯示 `"status": "unknown"`，`message` 中包含錯誤訊息；此時 `dirty` 為 false，且不具意義。
 
 `source.skillignore` 欄位只有在至少存在一個 `.skillignore` 或 `.skillignore.local` 檔案時才會出現。若不存在則為：`"skillignore": { "active": false }`。`files` 陣列在有 `.skillignore.local` 時也會包含其路徑。在文字模式下，若有任何 `.skillignore.local` 生效，`.skillignore` 那一行會顯示 `(.local active)`。

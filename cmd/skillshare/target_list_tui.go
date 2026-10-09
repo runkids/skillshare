@@ -975,6 +975,9 @@ func (m targetListTUIModel) renderTargetDetail(item targetTUIItem) string {
 	if sc.IsEnabled() {
 		row("Mode", sync.EffectiveMode(sc.Mode))
 		row("Naming", config.EffectiveTargetNaming(sc.TargetNaming))
+		if item.namingErr != nil {
+			row("Warning", theme.Warning().Render(item.namingErr.Error()))
+		}
 	}
 	row("Sync", item.skillSync)
 	// Filters are kept for turning skills back on but do nothing while off.

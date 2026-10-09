@@ -168,6 +168,8 @@ skillshare status --json
 }
 ```
 
+`warning` 文字列は、sync がその Target を拒否する場合（例：copy 以外の mode での `prefixed` naming）にのみ付き、修正方法も示されます。
+
 git status を読み取れない tracked repo は `"status": "unknown"` となり、`message` にエラーが入ります。この場合 `dirty` は false で、意味を持ちません。
 
 `source.skillignore` フィールドは、少なくとも 1 つの `.skillignore` または `.skillignore.local` ファイルが存在する場合にのみ存在します。存在しない場合: `"skillignore": { "active": false }`。`files` 配列には、存在する場合 `.skillignore.local` のパスも含まれます。テキストモードでは、`.skillignore.local` が有効な場合、`.skillignore` の行に `(.local active)` と表示されます。

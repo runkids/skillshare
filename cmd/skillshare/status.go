@@ -67,6 +67,8 @@ type statusJSONTarget struct {
 	Exclude     []string `json:"exclude"`
 	// SkillsEnabled is false for a target with skills switched off.
 	SkillsEnabled bool `json:"skills_enabled"`
+	// Warning says why sync will reject the target, with the fix.
+	Warning string `json:"warning,omitempty"`
 }
 
 type statusJSONAudit struct {
@@ -175,6 +177,7 @@ func cmdStatus(args []string) error {
 			Exclude:     sc.Exclude,
 
 			SkillsEnabled: sc.IsEnabled(),
+			Warning:       namingWarning(sc, tMode),
 		})
 	}
 
@@ -362,6 +365,14 @@ func printTargetsStatus(cfg *config.Config, discovered []sync.DiscoveredSkill) e
 	}
 	printStatusTargets(rows, agentsExist, warnings, notSynced)
 	return nil
+}
+
+// namingWarning is the naming and mode error of a target that syncs skills, as text.
+func namingWarning(sc config.ResourceTargetConfig, mode string) string {
+	if err := sc.NamingModeConfigError(mode); err != nil {
+		return err.Error()
+	}
+	return ""
 }
 
 func getTargetMode(targetMode, globalMode string) string {

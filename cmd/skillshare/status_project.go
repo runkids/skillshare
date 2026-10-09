@@ -103,6 +103,7 @@ func cmdStatusProjectJSON(root string) error {
 			Exclude:     sc.Exclude,
 
 			SkillsEnabled: sc.IsEnabled(),
+			Warning:       namingWarning(sc, mode),
 		})
 	}
 

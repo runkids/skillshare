@@ -168,6 +168,8 @@ skillshare status --json
 }
 ```
 
+A target gets a `warning` string only when sync would reject it, for example `prefixed` naming outside copy mode; the text says how to fix it.
+
 A tracked repo whose git status cannot be read has `"status": "unknown"` and `message` holding the error; `dirty` is then false and not meaningful.
 
 The `source.skillignore` field is present only when at least one `.skillignore` or `.skillignore.local` file exists. When absent: `"skillignore": { "active": false }`. The `files` array includes `.skillignore.local` paths when present. In text mode, the `.skillignore` line shows `(.local active)` when any `.skillignore.local` is in effect.

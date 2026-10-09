@@ -113,7 +113,7 @@ func TestPrefixedNamingOutsideCopyMode_IsFlaggedBeforeSync(t *testing.T) {
 	targetPath := prefixedFixture(t, sb)
 	writeNamingConfig(sb, targetPath, "prefixed", "merge")
 
-	for _, args := range [][]string{{"status"}, {"doctor"}, {"target", "list", "--no-tui"}, {"target", "list", "--json"}} {
+	for _, args := range [][]string{{"status"}, {"status", "--json"}, {"doctor"}, {"target", "list", "--no-tui"}, {"target", "list", "--json"}} {
 		t.Run(strings.Join(args, " "), func(t *testing.T) {
 			sb.RunCLI(args...).AssertAnyOutputContains(t, "set mode: copy on the target")
 		})
