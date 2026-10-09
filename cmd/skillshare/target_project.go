@@ -404,6 +404,12 @@ func targetInfoProject(name string, args []string, root string) error {
 		return setTargetSkillsProject(cfg, targetIdx, *settings.Skills, settings.DryRun, root)
 	}
 
+	if settings.SkillMode != "" && settings.Naming != "" {
+		return updateTargetModeAndNaming(settings.SkillMode, settings.Naming,
+			func() error { return updateTargetModeProject(cfg, targetIdx, settings.SkillMode, root) },
+			func() error { return updateTargetNamingProject(cfg, targetIdx, settings.Naming, root) })
+	}
+
 	if settings.SkillMode != "" {
 		return updateTargetModeProject(cfg, targetIdx, settings.SkillMode, root)
 	}

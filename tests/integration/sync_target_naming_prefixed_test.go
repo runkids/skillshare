@@ -352,3 +352,51 @@ func TestSync_TargetNamingPrefixed_FromMergeFlatPrunesLinksAndCopies(t *testing.
 	result.AssertAnyOutputContains(t, "isolated by target filters or naming")
 	assertEntries(t, sb, targetPath, "bmad-ux", "emil-design-prototype", "mattpocock-skills-prototype", "my-skill")
 }
+
+func TestTarget_SetModeAndNamingInOneCommand(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	targetPath := prefixedFixture(t, sb)
+	writeNamingConfig(sb, targetPath, "flat", "merge")
+
+	// Each order of the two settings must pass through a valid pair.
+	sb.RunCLI("target", "claude", "--mode", "copy", "--target-naming", "prefixed").AssertSuccess(t)
+	sb.RunCLI("sync").AssertSuccess(t)
+	assertEntries(t, sb, targetPath, "emil-design-prototype", "mattpocock-skills-prototype", "my-skill")
+
+	sb.RunCLI("target", "claude", "--target-naming", "flat", "--mode", "merge").AssertSuccess(t)
+	if cfg := sb.ReadFile(sb.ConfigPath); !strings.Contains(cfg, "mode: merge") || !strings.Contains(cfg, "target_naming: flat") {
+		t.Fatalf("expected merge + flat in config:\n%s", cfg)
+	}
+
+	rejected := sb.RunCLI("target", "claude", "--mode", "merge", "--target-naming", "prefixed")
+	rejected.AssertFailure(t)
+	rejected.AssertAnyOutputContains(t, "requires copy mode")
+	if cfg := sb.ReadFile(sb.ConfigPath); strings.Contains(cfg, "prefixed") {
+		t.Fatalf("a rejected pair must not change the config:\n%s", cfg)
+	}
+}
+
+func TestSync_TargetNamingPrefixed_FromMergeKeepsLinkWhenLocalSkillTakesNewName(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	sb.CreateNestedSkill("_bmad/skills/ux", map[string]string{"SKILL.md": "---\nname: ux\n---\n# UX"})
+	targetPath := sb.CreateTarget("claude")
+	writeNamingConfig(sb, targetPath, "flat", "merge")
+	sb.RunCLI("sync").AssertSuccess(t)
+
+	local := filepath.Join(targetPath, "bmad-ux", "SKILL.md")
+	sb.WriteFile(local, "---\nname: bmad-ux\n---\n# Mine")
+	writeNamingConfig(sb, targetPath, "prefixed", "copy")
+	result := sb.RunCLI("sync")
+	result.AssertSuccess(t)
+	result.AssertAnyOutputContains(t, "kept legacy managed entry _bmad__skills__ux")
+
+	legacy := filepath.Join(targetPath, "_bmad__skills__ux")
+	if sb.IsSymlink(legacy) || !sb.FileExists(filepath.Join(legacy, "SKILL.md")) {
+		t.Fatalf("expected %s to stay as a managed copy", legacy)
+	}
+	if got := sb.ReadFile(local); !strings.Contains(got, "# Mine") {
+		t.Fatalf("local skill changed:\n%s", got)
+	}
+}

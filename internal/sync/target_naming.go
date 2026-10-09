@@ -179,6 +179,25 @@ func (r *TargetSkillResolution) LegacyNames(mode, targetPath string, manifest *M
 	return legacy
 }
 
+// printResolutionSummary reports skipped skills and collisions. It names only
+// the first few skipped skills, so a source with thousands of invalid names
+// does not flood the output.
+func printResolutionSummary(r *TargetSkillResolution) {
+	const maxShow = 5
+	if n := len(r.Warnings); n > 0 {
+		fmt.Fprintf(DiagOutput, "  %d skill(s) skipped (naming validation)\n", n)
+		for _, w := range r.Warnings[:min(n, maxShow)] {
+			fmt.Fprintf(DiagOutput, "    %s\n", w)
+		}
+		if n > maxShow {
+			fmt.Fprintf(DiagOutput, "    ... and %d more\n", n-maxShow)
+		}
+	}
+	if n := len(r.Collisions); n > 0 {
+		fmt.Fprintf(DiagOutput, "  %d name collision(s) excluded\n", n)
+	}
+}
+
 // RenamedFrom inverts LegacyNames: for each target name sync will move a
 // legacy entry into, the entry's current name.
 func RenamedFrom(legacy map[string]ResolvedTargetSkill) map[string]string {

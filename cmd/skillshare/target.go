@@ -709,6 +709,12 @@ func targetInfo(name string, args []string) error {
 		return setTargetSkillsGlobal(cfg, name, target, *settings.Skills, settings.DryRun)
 	}
 
+	if settings.SkillMode != "" && settings.Naming != "" {
+		return updateTargetModeAndNaming(settings.SkillMode, settings.Naming,
+			func() error { return updateTargetMode(cfg, name, cfg.Targets[name], settings.SkillMode) },
+			func() error { return updateTargetNaming(cfg, name, cfg.Targets[name], settings.Naming) })
+	}
+
 	// If --mode is provided, update the mode
 	if settings.SkillMode != "" {
 		return updateTargetMode(cfg, name, target, settings.SkillMode)
@@ -754,6 +760,30 @@ func updateTargetMode(cfg *config.Config, name string, target config.TargetConfi
 	ui.Done(ui.MarkOK, fmt.Sprintf("Changed %s mode: %s -> %s", name, oldMode, newMode), 0)
 	ui.Next("skillshare sync", "apply the new mode")
 	return nil
+}
+
+// updateTargetModeAndNaming applies --mode and --target-naming given together.
+// It checks the final pair first, then runs the two setters in the order that
+// keeps the pair saved in between valid: a copy mode goes first, any other mode
+// goes after the naming, which the check above has ruled out being prefixed.
+func updateTargetModeAndNaming(mode, naming string, setMode, setNaming func() error) error {
+	if !config.IsValidTargetNaming(naming) {
+		return fmt.Errorf("invalid target naming '%s'. Use 'flat', 'standard', or 'prefixed'", naming)
+	}
+	if !config.IsValidSyncMode(mode) {
+		return fmt.Errorf("invalid mode '%s'. Use 'merge', 'symlink', or 'copy'", mode)
+	}
+	if err := config.TargetNamingModeError(naming, mode); err != nil {
+		return err
+	}
+	first, second := setNaming, setMode
+	if mode == "copy" {
+		first, second = setMode, setNaming
+	}
+	if err := first(); err != nil {
+		return err
+	}
+	return second()
 }
 
 func updateTargetAgentMode(cfg *config.Config, name string, target config.TargetConfig, newMode string) error {

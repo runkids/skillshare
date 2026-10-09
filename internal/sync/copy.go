@@ -83,12 +83,7 @@ func SyncTargetCopyWithSkillsOptions(name string, target config.TargetConfig, al
 	if err != nil {
 		return nil, err
 	}
-	if n := len(resolution.Warnings); n > 0 {
-		fmt.Fprintf(DiagOutput, "  %d skill(s) skipped (naming validation)\n", n)
-	}
-	if n := len(resolution.Collisions); n > 0 {
-		fmt.Fprintf(DiagOutput, "  %d name collision(s) excluded\n", n)
-	}
+	printResolutionSummary(resolution)
 	result.UnmatchedIncludes = resolution.UnmatchedIncludes
 
 	// Read existing manifest
