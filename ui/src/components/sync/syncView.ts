@@ -168,7 +168,7 @@ export function groupByFolder(names: string[]) {
 export function changeSets(groups: ChangeGroup[]): { key: string; targets: ChangeGroup[]; rows: ChangeRow[] }[] {
   const sets = new Map<string, { key: string; targets: ChangeGroup[]; rows: ChangeRow[] }>();
   for (const g of groups) {
-    const sig = g.rows.map((r) => `${r.part}\t${r.name}\t${r.icon}\t${r.text}`).sort().join('\n');
+    const sig = g.rows.map((r) => `${r.part}\t${r.name}\t${r.icon}\t${r.text}\t${r.detail ?? ''}`).sort().join('\n');
     const set = sets.get(sig);
     if (set) set.targets.push(g);
     else sets.set(sig, { key: g.key, targets: [g], rows: g.rows });

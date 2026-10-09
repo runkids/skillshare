@@ -32,6 +32,15 @@ describe('resourceGroups', () => {
     expect([countChanges(groups), groups[0].rows[0].detail]).toEqual([0, 'local folder; the skill stays at _bmad__ux']);
   });
 
+  it('keeps targets apart when their kept entries sit at different old names', () => {
+    const kept: DiffTarget[] = [
+      { target: 'claude', items: [{ skill: 'bmad-ux', action: 'kept', reason: 'local folder; the skill stays at _bmad__ux' }] },
+      { target: 'cursor', items: [{ skill: 'bmad-ux', action: 'kept', reason: 'local folder; the skill stays at ux' }] },
+    ];
+    const groups = resourceGroups(kept, [target('claude', 'copy'), target('cursor', 'copy')], new Set(['skill'] as const), false).groups;
+    expect(changeSets(groups)).toHaveLength(2);
+  });
+
   it('treats a target with only local items as in sync', () => {
     expect(resourceGroups(diff, [target('claude'), target('codex')], new Set(['skill', 'agent']), false).inSync).toEqual(['codex']);
   });

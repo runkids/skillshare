@@ -233,13 +233,10 @@ func RenamedFrom(legacy map[string]ResolvedTargetSkill) map[string]string {
 	return renamed
 }
 
-// KeptLegacyPrefix starts KeptLegacyReason, so diff can recognise it.
-const KeptLegacyPrefix = "local folder; "
-
 // KeptLegacyReason is the diff reason for a local folder that holds a skill's
 // new name. Sync leaves the folder alone and keeps the skill under old.
 func KeptLegacyReason(old string) string {
-	return KeptLegacyPrefix + "the skill stays at " + old
+	return "local folder; the skill stays at " + old
 }
 
 // NamingChangedReason is the diff reason for a managed copy made under another
