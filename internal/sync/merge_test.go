@@ -153,7 +153,8 @@ func setupCopyModeCopy(t *testing.T, src, tgt, name string) string {
 	if err := copySkillToTarget(filepath.Join(src, name), dst, "", patterns); err != nil {
 		t.Fatal(err)
 	}
-	if err := WriteManifest(tgt, &Manifest{Managed: map[string]string{name: sum}}); err != nil {
+	m := &Manifest{Managed: map[string]string{name: sum}, Mtimes: map[string]int64{name: 42}, Naming: map[string]string{name: "flat"}}
+	if err := WriteManifest(tgt, m); err != nil {
 		t.Fatal(err)
 	}
 	return dst
@@ -180,6 +181,49 @@ func TestSyncTargetMerge_ReplacesCopyModeCopy(t *testing.T) {
 	manifest, _ := ReadManifest(tgt)
 	if manifest.Managed["alpha"] != "symlink" {
 		t.Errorf("manifest should record a link, got %q", manifest.Managed["alpha"])
+	}
+	if _, ok := manifest.Mtimes["alpha"]; ok {
+		t.Error("copy-mode mtime should be forgotten once the entry is a link")
+	}
+	if _, ok := manifest.Naming["alpha"]; ok {
+		t.Error("copy-mode naming should be forgotten once the entry is a link")
+	}
+}
+
+// A parked copy left by a crashed earlier run may be the only one; never drop it.
+func TestReplaceWithLink_KeepsLeftoverParkedCopy(t *testing.T) {
+	parent := t.TempDir()
+	dir := filepath.Join(parent, "alpha")
+	leftover := filepath.Join(parent, ".alpha.skillshare-replaced")
+	os.MkdirAll(dir, 0755)
+	os.MkdirAll(leftover, 0755)
+	os.WriteFile(filepath.Join(leftover, "SKILL.md"), []byte("only copy"), 0644)
+
+	if err := replaceWithLink(dir, func() error { return nil }); err == nil {
+		t.Fatal("expected an error for the leftover parked copy")
+	}
+	if got, _ := os.ReadFile(filepath.Join(leftover, "SKILL.md")); string(got) != "only copy" {
+		t.Errorf("leftover parked copy was touched: %q", got)
+	}
+	if _, err := os.Stat(dir); err != nil {
+		t.Errorf("the folder must stay in place: %v", err)
+	}
+}
+
+func TestReplaceWithLink_KeepsFolderWhenLinkFails(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "alpha")
+	os.MkdirAll(dir, 0755)
+	os.WriteFile(filepath.Join(dir, "SKILL.md"), []byte("mine"), 0644)
+
+	err := replaceWithLink(dir, func() error { return os.ErrPermission })
+	if err == nil {
+		t.Fatal("expected the link error")
+	}
+	if got, _ := os.ReadFile(filepath.Join(dir, "SKILL.md")); string(got) != "mine" {
+		t.Errorf("folder not restored after a failed link: %q", got)
+	}
+	if entries, _ := os.ReadDir(filepath.Dir(dir)); len(entries) != 1 {
+		t.Errorf("parked copy left behind: %v", entries)
 	}
 }
 

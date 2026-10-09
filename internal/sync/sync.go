@@ -669,11 +669,11 @@ func SyncTargetMergeWithSkills(name string, target config.TargetConfig, allSkill
 							fmt.Fprintf(DiagOutput, "[dry-run] Would replace local copy: %s\n", activeName)
 						}
 					} else {
-						if err := os.RemoveAll(targetSkillPath); err != nil {
-							return nil, fmt.Errorf("failed to remove local copy %s: %w", activeName, err)
-						}
-						if err := createLink(targetSkillPath, skill.SourcePath, relative, sourcePath); err != nil {
-							return nil, fmt.Errorf("failed to create link for %s: %w", activeName, err)
+						err := replaceWithLink(targetSkillPath, func() error {
+							return createLink(targetSkillPath, skill.SourcePath, relative, sourcePath)
+						})
+						if err != nil {
+							return nil, fmt.Errorf("failed to replace local copy %s with a link: %w", activeName, err)
 						}
 					}
 					result.Updated = append(result.Updated, activeName)
@@ -705,6 +705,7 @@ func SyncTargetMergeWithSkills(name string, target config.TargetConfig, allSkill
 			manifest.Managed[name] = "symlink"
 		}
 		for _, name := range result.Updated {
+			manifest.Remove(name) // drops what copy mode recorded for a copy that is now a link
 			manifest.Managed[name] = "symlink"
 		}
 		// Skipped items are NOT added — they are user-local copies
@@ -712,6 +713,27 @@ func SyncTargetMergeWithSkills(name string, target config.TargetConfig, allSkill
 	}
 
 	return result, nil
+}
+
+// replaceWithLink swaps the real folder at path for a link. The folder waits
+// beside it until link has run, so a failed link leaves the folder as it was.
+func replaceWithLink(path string, link func() error) error {
+	parked := filepath.Join(filepath.Dir(path), "."+filepath.Base(path)+".skillshare-replaced")
+	// A leftover may be the only copy if an earlier run died before it could restore it.
+	if _, err := os.Lstat(parked); err == nil {
+		return fmt.Errorf("%s is left from an earlier replacement; move or delete it, then sync again", parked)
+	}
+	if err := os.Rename(path, parked); err != nil {
+		return err
+	}
+	if err := link(); err != nil {
+		os.Remove(path)
+		if rbErr := os.Rename(parked, path); rbErr != nil {
+			return fmt.Errorf("%w (the local copy is kept at %s: %v)", err, parked, rbErr)
+		}
+		return err
+	}
+	return os.RemoveAll(parked)
 }
 
 // PruneResult holds the result of a prune operation
