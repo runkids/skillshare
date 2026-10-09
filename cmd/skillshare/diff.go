@@ -152,6 +152,7 @@ type copyDiffEntry struct {
 	kind   string // "skill" or "agent" (empty defaults to "skill")
 	reason string
 	isSync bool            // true = needs sync, false = local-only
+	kept   bool            // a local folder holds the skill's new name; sync changes nothing
 	files  []fileDiffEntry // file-level diffs (nil until populated)
 	srcDir string          // source directory path (for lazy diff)
 	dstDir string          // target directory path (for lazy diff)
@@ -641,7 +642,7 @@ func collectCopyDiff(r *targetDiffResult, targetName, targetPath string, filtere
 		if !isManaged {
 			if info, err := os.Stat(targetSkillPath); err == nil {
 				if old, ok := renamedFrom[resolved.TargetName]; ok {
-					r.items = append(r.items, copyDiffEntry{action: "remove", name: resolved.TargetName, reason: sync.KeptLegacyReason(old), dstDir: dstDir})
+					r.items = append(r.items, copyDiffEntry{action: "remove", name: resolved.TargetName, reason: sync.KeptLegacyReason(old), kept: true, dstDir: dstDir})
 				} else if info.IsDir() {
 					r.items = append(r.items, copyDiffEntry{action: "modify", name: resolved.TargetName, reason: "local copy (sync --force to replace)", isSync: true, srcDir: srcDir, dstDir: dstDir})
 				} else {
@@ -718,15 +719,16 @@ func collectCopyDiff(r *targetDiffResult, targetName, targetPath string, filtere
 		r.items = append(r.items, copyDiffEntry{action: "remove", name: e.Name(), reason: "local only", isSync: false, dstDir: filepath.Join(targetPath, e.Name())})
 	}
 
-	// Compute counts
+	// Compute counts. A kept legacy entry is shown but counts as neither:
+	// sync changes nothing until the user moves the folder.
 	for _, item := range r.items {
 		if item.isSync {
 			r.syncCount++
-		} else {
+		} else if !item.kept {
 			r.localCount++
 		}
 	}
-	r.synced = r.syncCount == 0 && r.localCount == 0
+	r.synced = len(r.items) == 0
 }
 
 func collectMergeDiff(r *targetDiffResult, targetPath string, sourceSkills map[string]bool, sourceMap map[string]string, legacyNames map[string]sync.ResolvedTargetSkill) {
@@ -762,8 +764,7 @@ func collectMergeDiff(r *targetDiffResult, targetPath string, sourceSkills map[s
 			r.items = append(r.items, copyDiffEntry{action: "add", name: skill, reason: "source only", isSync: true, srcDir: srcDir, dstDir: dstDir})
 			r.syncCount++
 		} else if old, ok := renamedFrom[skill]; ok && !targetSymlinks[skill] {
-			r.items = append(r.items, copyDiffEntry{action: "remove", name: skill, reason: sync.KeptLegacyReason(old), dstDir: dstDir})
-			r.localCount++
+			r.items = append(r.items, copyDiffEntry{action: "remove", name: skill, reason: sync.KeptLegacyReason(old), kept: true, dstDir: dstDir})
 		} else if !targetSymlinks[skill] {
 			r.items = append(r.items, copyDiffEntry{action: "modify", name: skill, reason: "local copy (sync --force to replace)", isSync: true, srcDir: srcDir, dstDir: dstDir})
 			r.syncCount++
@@ -781,7 +782,7 @@ func collectMergeDiff(r *targetDiffResult, targetPath string, sourceSkills map[s
 		}
 	}
 
-	r.synced = r.syncCount == 0 && r.localCount == 0
+	r.synced = len(r.items) == 0
 }
 
 // diffFingerprint generates a grouping key from diff items.
@@ -804,7 +805,7 @@ func diffFingerprint(items []copyDiffEntry) string {
 
 // actionCategory groups diff items by the user action needed.
 type actionCategory struct {
-	kind   string // "new", "modified", "restore", "override", "orphan", "local", "warn"
+	kind   string // "new", "modified", "restore", "override", "kept", "orphan", "local", "warn"
 	label  string // e.g. "New", "Modified", "Local Override"
 	names  []string
 	expand bool // true = list skill names
@@ -843,8 +844,8 @@ func categorizeItems(items []copyDiffEntry) []actionCategory {
 			add("override", "override", "Local Override", item.name)
 		case strings.Contains(item.reason, "orphan"):
 			add("orphan", "orphan", "Orphan", item.name)
-		case strings.HasPrefix(item.reason, sync.KeptLegacyPrefix):
-			add("kept", "warn", "Local only, skill kept under old name", item.name)
+		case item.kept:
+			add("kept", "kept", "Local only, skill kept under old name", item.name)
 		case item.reason == "local only" || item.reason == "not in source" || item.reason == "local file":
 			add("local", "local", "Local Only", item.name)
 		default:
@@ -926,7 +927,9 @@ func renderGroupedDiffs(results []targetDiffResult, extras []extraDiffResult, op
 	for _, fp := range groupOrder {
 		g := groups[fp]
 		sort.Strings(g.names)
-		needCount += len(g.names)
+		if g.result.syncCount+g.result.localCount > 0 {
+			needCount += len(g.names)
+		}
 		out.section(strings.Join(g.names, ", "))
 		renderDiffGroup(g.result, opts, &next, groupWidth)
 	}
@@ -974,6 +977,7 @@ func renderGroupedDiffs(results []targetDiffResult, extras []extraDiffResult, op
 		}
 		if extrasNeed == 0 {
 			ui.Done(ui.MarkOK, text, 0)
+			ui.Next(next.pairs()...)
 			return
 		}
 		if total == 0 {
@@ -1030,6 +1034,7 @@ func (o *diffOutput) section(name string) {
 type diffNext struct {
 	skills, agents, extras bool // something to sync
 	force                  bool // local copies sync would only replace with --force
+	kept                   bool // local folders holding a skill's new name
 	collectSkills          bool // local-only skills
 	collectAgents          bool // local-only agents
 }
@@ -1049,6 +1054,9 @@ func (n diffNext) pairs() []string {
 	}
 	if n.force {
 		pairs = append(pairs, "skillshare sync --force", "also replace local copies")
+	}
+	if n.kept {
+		pairs = append(pairs, "skillshare sync", "after renaming or removing the local folders kept under the old name")
 	}
 	if n.collectSkills {
 		pairs = append(pairs, "skillshare collect", "copy local-only skills into source")
@@ -1088,6 +1096,8 @@ func renderDiffGroup(r targetDiffResult, opts diffRenderOpts, next *diffNext, wi
 			switch {
 			case cat.kind == "override":
 				next.force = true
+			case cat.kind == "kept":
+				next.kept = true
 			case cat.kind == "local" && agent:
 				next.collectAgents = true
 			case cat.kind == "local":

@@ -423,6 +423,8 @@ func TestDiff_LocalFolderOnNewName_ReportsKeptLegacyEntry(t *testing.T) {
 			result.AssertSuccess(t)
 			result.AssertRowContains(t, "Local only, skill kept under old name", tc.newName)
 			result.AssertOutputNotContains(t, "sync --force")
+			result.AssertOutputNotContains(t, "to sync")
+			result.AssertOutputContains(t, "after renaming or removing the local folders")
 		})
 	}
 }
