@@ -1,6 +1,7 @@
 package main
 
 import (
+	"cmp"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -405,9 +406,11 @@ func targetInfoProject(name string, args []string, root string) error {
 	}
 
 	if settings.SkillMode != "" && settings.Naming != "" {
-		return updateTargetModeAndNaming(settings.SkillMode, settings.Naming,
-			func() error { return updateTargetModeProject(cfg, targetIdx, settings.SkillMode, root) },
-			func() error { return updateTargetNamingProject(cfg, targetIdx, settings.Naming, root) })
+		entry := &cfg.Targets[targetIdx]
+		oldMode := cmp.Or(entry.SkillsConfig().Mode, "merge")
+		return updateTargetModeAndNaming(entry.Name, entry.EnsureSkills(), oldMode, settings.SkillMode, settings.Naming, func() error {
+			return cfg.Save(root)
+		})
 	}
 
 	if settings.SkillMode != "" {

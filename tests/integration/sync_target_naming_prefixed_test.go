@@ -400,3 +400,29 @@ func TestSync_TargetNamingPrefixed_FromMergeKeepsLinkWhenLocalSkillTakesNewName(
 		t.Fatalf("local skill changed:\n%s", got)
 	}
 }
+
+func TestDiff_LocalFolderOnNewName_ReportsKeptLegacyEntry(t *testing.T) {
+	for _, tc := range []struct{ mode, from, to, newName string }{
+		{"copy", "standard", "prefixed", "emil-design-prototype"},
+		{"merge", "flat", "standard", "prototype"},
+	} {
+		t.Run(tc.mode, func(t *testing.T) {
+			sb := testutil.NewSandbox(t)
+			defer sb.Cleanup()
+			sb.CreateNestedSkill("_emil-design/skills/prototype", map[string]string{
+				"SKILL.md": "---\nname: prototype\n---\n# Emil prototype",
+			})
+			targetPath := sb.CreateTarget("claude")
+			writeNamingConfig(sb, targetPath, tc.from, tc.mode)
+			sb.RunCLI("sync").AssertSuccess(t)
+			sb.WriteFile(filepath.Join(targetPath, tc.newName, "SKILL.md"), "---\nname: "+tc.newName+"\n---\n# Mine")
+
+			// Sync keeps the old entry and leaves the folder alone, even with --force.
+			writeNamingConfig(sb, targetPath, tc.to, tc.mode)
+			result := sb.RunCLI("diff", "--no-tui")
+			result.AssertSuccess(t)
+			result.AssertRowContains(t, "Local only, skill kept under old name", tc.newName)
+			result.AssertOutputNotContains(t, "sync --force")
+		})
+	}
+}

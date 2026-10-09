@@ -93,6 +93,7 @@ Targets with different results (e.g. due to `include`/`exclude` filters) are sti
 | Restore | Was in target, deleted | `sync` will restore it |
 | Modified | Content or target naming changed (copy mode) | `sync` will update it |
 | Renamed | Managed entry still under the name an earlier `target_naming` gave it | `sync` will rename it |
+| Local only, skill kept under old name | A local folder holds the name the current `target_naming` gives a skill, so the skill stays under its old managed entry | Rename or remove the folder, then `sync` |
 | Local override | Local copy instead of symlink | `sync --force` to replace |
 | Orphan | In manifest but not in source | `sync` will prune it |
 | Local only | Only in target, not in source | `collect` to import |

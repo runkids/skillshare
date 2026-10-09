@@ -640,7 +640,9 @@ func collectCopyDiff(r *targetDiffResult, targetName, targetPath string, filtere
 		dstDir := targetSkillPath
 		if !isManaged {
 			if info, err := os.Stat(targetSkillPath); err == nil {
-				if info.IsDir() {
+				if old, ok := renamedFrom[resolved.TargetName]; ok {
+					r.items = append(r.items, copyDiffEntry{action: "remove", name: resolved.TargetName, reason: sync.KeptLegacyReason(old), dstDir: dstDir})
+				} else if info.IsDir() {
 					r.items = append(r.items, copyDiffEntry{action: "modify", name: resolved.TargetName, reason: "local copy (sync --force to replace)", isSync: true, srcDir: srcDir, dstDir: dstDir})
 				} else {
 					r.items = append(r.items, copyDiffEntry{action: "modify", name: resolved.TargetName, reason: "target entry is not a directory", isSync: true, srcDir: srcDir, dstDir: dstDir})
@@ -759,6 +761,9 @@ func collectMergeDiff(r *targetDiffResult, targetPath string, sourceSkills map[s
 		} else if !targetSkills[skill] {
 			r.items = append(r.items, copyDiffEntry{action: "add", name: skill, reason: "source only", isSync: true, srcDir: srcDir, dstDir: dstDir})
 			r.syncCount++
+		} else if old, ok := renamedFrom[skill]; ok && !targetSymlinks[skill] {
+			r.items = append(r.items, copyDiffEntry{action: "remove", name: skill, reason: sync.KeptLegacyReason(old), dstDir: dstDir})
+			r.localCount++
 		} else if !targetSymlinks[skill] {
 			r.items = append(r.items, copyDiffEntry{action: "modify", name: skill, reason: "local copy (sync --force to replace)", isSync: true, srcDir: srcDir, dstDir: dstDir})
 			r.syncCount++
@@ -838,6 +843,8 @@ func categorizeItems(items []copyDiffEntry) []actionCategory {
 			add("override", "override", "Local Override", item.name)
 		case strings.Contains(item.reason, "orphan"):
 			add("orphan", "orphan", "Orphan", item.name)
+		case strings.HasPrefix(item.reason, sync.KeptLegacyPrefix):
+			add("kept", "warn", "Local only, skill kept under old name", item.name)
 		case item.reason == "local only" || item.reason == "not in source" || item.reason == "local file":
 			add("local", "local", "Local Only", item.name)
 		default:

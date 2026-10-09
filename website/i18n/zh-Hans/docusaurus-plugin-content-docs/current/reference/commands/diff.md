@@ -93,6 +93,7 @@ cursor
 | Restore | 曾存在于 Target 中，已被删除 | `sync` 会恢复它 |
 | Modified | 内容或 target naming 已更改（copy mode） | `sync` 会更新它 |
 | Renamed | 受管理的条目仍使用之前 `target_naming` 给出的名称 | `sync` 会重命名它 |
+| Local only, skill kept under old name | 本地文件夹占用了当前 `target_naming` 给 skill 的名称，skill 保留在旧的受管理条目 | 重命名或删除该文件夹后 `sync` |
 | Local override | 本地副本而非 symlink | 使用 `sync --force` 替换 |
 | Orphan | 存在于 manifest 中，但不在 Source 中 | `sync` 会清理它 |
 | Local only | 仅存在于 Target 中，不在 Source 中 | 使用 `collect` 导入 |
