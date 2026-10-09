@@ -263,7 +263,7 @@ skillshare sync
 
 - 名称已经以 repo 名开头时不会重复加前缀：`_bmad/skills/bmad-ux` 仍是 `bmad-ux`。
 - 不在 tracked repo 内的 skill 保持原名。
-- source skill 必须先通过 `standard` 检查。带前缀的名称超过 64 个字符时会收到警告并被跳过，仍然冲突的名称与 `standard` 一样被跳过。此时 sync 输出会指出冲突由前缀造成；请重命名另一个 skill，或用 `--name` 重新 track 该 repo。
+- source skill 必须先通过 `standard` 检查。带前缀的名称超过 64 个字符时会收到警告并被跳过，仍然冲突的名称与 `standard` 一样被跳过。tracked skill 不能在 `SKILL.md` 中改名，因此 sync 会建议重命名另一个 skill，或用 `--name` 重新 track 该 repo。
 - 想要更短的前缀，可以用较短的名称 track repo：`skillshare install <repo> --track --name mp` 会得到 `mp-prototype`。
 - 指向同级 skill 的相对链接（`../other-skill/`）不会被改写，与 copy 模式下的 `flat` 相同。
 - 该名称就是工具中显示的名称；在 Claude Code 中它是 slash command，例如 `/mattpocock-skills-prototype`。

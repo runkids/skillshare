@@ -295,7 +295,7 @@ tag와 commit SHA는 `--track`과 함께 사용할 수 없습니다. tracked rep
   1 name collision(s) excluded
 ```
 
-`target_naming: prefixed`에서는 tracked skill이 이미 그 접두사 이름을 가진 skill과 충돌할 수도 있습니다(`_alpha/prototype`은 `alpha-prototype`이 됩니다). 이때 sync는 접두사가 원인임을 알려 줍니다. tracked skill은 `SKILL.md`에서 이름을 바꿀 수 없으므로 다른 skill의 이름을 바꾸거나 `--name`으로 repo를 다시 track하세요.
+`target_naming: prefixed`에서는 tracked skill이 이미 그 접두사 이름을 가진 skill과 충돌할 수도 있습니다(`_alpha/prototype`은 `alpha-prototype`이 됩니다). tracked skill은 `SKILL.md`에서 이름을 바꿀 수 없으므로 sync는 다른 skill의 이름을 바꾸거나 `--name`으로 repo를 다시 track하도록 안내합니다.
 
 **모범 사례** — skill에 네임스페이스를 부여하거나 필터를 사용하세요:
 

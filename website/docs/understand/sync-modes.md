@@ -263,7 +263,7 @@ skillshare sync
 
 - A name that already starts with the repo name is not prefixed again: `_bmad/skills/bmad-ux` stays `bmad-ux`.
 - Skills outside tracked repos keep their name.
-- The source skill must pass the `standard` checks first. A prefixed name longer than 64 characters is skipped with a warning, and names that still collide are skipped as in `standard`. The sync output then says the prefix caused it; rename the other skill or re-track the repo with `--name`.
+- The source skill must pass the `standard` checks first. A prefixed name longer than 64 characters is skipped with a warning, and names that still collide are skipped as in `standard`. A tracked skill cannot be renamed in `SKILL.md`, so sync then suggests renaming the other skill or re-tracking the repo with `--name`.
 - For a shorter prefix, track the repo under a short name: `skillshare install <repo> --track --name mp` gives `mp-prototype`.
 - Relative links to sibling skills (`../other-skill/`) are not rewritten, the same as `flat` in copy mode.
 - The name becomes what the tool shows; in Claude Code it is the slash command, e.g. `/mattpocock-skills-prototype`.

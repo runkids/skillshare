@@ -295,7 +295,7 @@ When multiple skills share the same `name` field, sync checks whether they actua
   1 name collision(s) excluded
 ```
 
-With `target_naming: prefixed`, a tracked skill can also collide with a skill that already has its prefixed name (`_alpha/prototype` becomes `alpha-prototype`). Sync then says the prefix caused it. A tracked skill cannot be renamed in `SKILL.md`, so rename the other skill or re-track the repo with `--name`.
+With `target_naming: prefixed`, a tracked skill can also collide with a skill that already has its prefixed name (`_alpha/prototype` becomes `alpha-prototype`). A tracked skill cannot be renamed in `SKILL.md`, so sync suggests renaming the other skill or re-tracking the repo with `--name`.
 
 **Best practice** — namespace your skills or use filters:
 

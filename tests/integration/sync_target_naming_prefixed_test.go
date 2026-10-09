@@ -352,9 +352,24 @@ func TestSync_TargetNamingPrefixed_ReportsCollisionsOnlyThePrefixCreates(t *test
 	result.AssertOutputContains(t, "duplicate skill names")
 	result.AssertOutputContains(t, "_a/ vs a-b-c/")
 	// The tracked skill cannot be renamed in SKILL.md; say what prefixing did and what to change.
-	result.AssertOutputContains(t, "Prefixed naming renamed a tracked skill")
+	result.AssertOutputContains(t, "A tracked skill cannot be renamed in SKILL.md")
 	result.AssertOutputContains(t, "--name")
 	result.AssertOutputNotContains(t, "Rename one in SKILL.md")
+}
+
+func TestSync_TargetNamingPrefixed_CollisionHintStaysWhenSourceAlreadyHasDuplicates(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	// Two ordinary skills already share a name; the tracked skill joins them once prefixed.
+	sb.CreateNestedSkill("_alpha/prototype", map[string]string{"SKILL.md": "---\nname: prototype\n---\n# A"})
+	sb.CreateSkill("alpha-prototype", map[string]string{"SKILL.md": "---\nname: alpha-prototype\n---\n# One"})
+	sb.CreateNestedSkill("team/alpha-prototype", map[string]string{"SKILL.md": "---\nname: alpha-prototype\n---\n# Two"})
+	targetPath := sb.CreateTarget("claude")
+	writeNamingConfig(sb, targetPath, "prefixed", "copy")
+
+	result := sb.RunCLI("sync")
+	result.AssertOutputContains(t, "A tracked skill cannot be renamed in SKILL.md")
+	result.AssertOutputContains(t, "--name")
 }
 
 func TestSync_TargetNamingPrefixed_FromMergeFlatPrunesLinksAndCopies(t *testing.T) {

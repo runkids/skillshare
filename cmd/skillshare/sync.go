@@ -744,23 +744,25 @@ func backupTargetsBeforeSync(cfg *config.Config) {
 	}
 }
 
+// inTrackedRepo reports whether a source-relative skill path lies in a tracked repo,
+// whose folder starts with "_".
+func inTrackedRepo(relPath string) bool {
+	return slices.ContainsFunc(strings.Split(relPath, "/"), func(seg string) bool { return strings.HasPrefix(seg, "_") })
+}
+
 func reportCollisions(skills []sync.DiscoveredSkill, targets map[string]config.TargetConfig) {
-	global, perTarget := sync.CheckNameCollisionsForTargets(skills, targets)
+	_, perTarget := sync.CheckNameCollisionsForTargets(skills, targets)
 	// Duplicates that filters or naming keep apart are not a problem, so only collisions
 	// that reach a target are reported.
 	if len(perTarget) == 0 {
 		return
 	}
-	inSource := make(map[string]bool, len(global))
-	for _, c := range global {
-		inSource[c.Name] = true
-	}
 
 	// Deduplicate collisions across targets: group by skill name
 	type collisionInfo struct {
 		Paths []string
-		// Prefixed is set when a prefixed target creates the collision: the names clash
-		// only after the tracked repo's name is put in front.
+		// Prefixed is set when a tracked skill collides on a prefixed target: its name
+		// comes from its repo, so SKILL.md is not where to change it.
 		Prefixed bool
 	}
 	deduped := make(map[string]*collisionInfo)
@@ -782,7 +784,7 @@ func reportCollisions(skills []sync.DiscoveredSkill, targets map[string]config.T
 				deduped[c.Name] = info
 				orderedNames = append(orderedNames, c.Name)
 			}
-			info.Prefixed = info.Prefixed || targetPrefixed && !inSource[c.Name]
+			info.Prefixed = info.Prefixed || targetPrefixed && slices.ContainsFunc(c.Paths, inTrackedRepo)
 		}
 	}
 
@@ -810,8 +812,7 @@ func reportCollisions(skills []sync.DiscoveredSkill, targets map[string]config.T
 		anyPrefixed, anyOther = anyPrefixed || info.Prefixed, anyOther || !info.Prefixed
 	}
 	if anyPrefixed {
-		// A tracked skill cannot be renamed in SKILL.md: its name comes from the repo.
-		ui.Note("Prefixed naming renamed a tracked skill to a name another skill has; rename the other skill or re-track the repo with --name")
+		ui.Note("A tracked skill cannot be renamed in SKILL.md: rename the other skill, or re-track the repo with --name (prefixed naming puts the repo name in front)")
 	}
 	if anyOther {
 		ui.Note("Rename one in SKILL.md or adjust include/exclude filters")

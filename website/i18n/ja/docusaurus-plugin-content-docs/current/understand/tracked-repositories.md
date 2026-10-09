@@ -295,7 +295,7 @@ skillshare install github.com/team/skills --branch 8f14e45 --all
   1 name collision(s) excluded
 ```
 
-`target_naming: prefixed` では、tracked Skill が、すでにその prefixed 名を持つ Skill と衝突することもあります（`_alpha/prototype` は `alpha-prototype` になります）。この場合、sync は prefix が原因であることを示します。tracked Skill は `SKILL.md` で名前を変更できないため、もう一方の Skill の名前を変えるか、`--name` で repo を再度 track してください。
+`target_naming: prefixed` では、tracked Skill が、すでにその prefixed 名を持つ Skill と衝突することもあります（`_alpha/prototype` は `alpha-prototype` になります）。tracked Skill は `SKILL.md` で名前を変更できないため、sync はもう一方の Skill の名前を変えるか、`--name` で repo を再度 track することを提案します。
 
 **ベストプラクティス** — Skill に名前空間を付けるか、フィルターを使用します:
 

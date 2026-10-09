@@ -264,7 +264,7 @@ skillshare sync
 
 - 名前がすでに repo 名で始まっている場合は、再度プレフィックスを付けません: `_bmad/skills/bmad-ux` は `bmad-ux` のままです。
 - tracked repo の外にある Skill は名前をそのまま保ちます。
-- source の Skill は、まず `standard` のチェックを通過する必要があります。prefixed 名が 64 文字を超える場合は警告付きでスキップされ、それでも名前が衝突する場合は `standard` と同様にスキップされます。その場合、sync の出力は prefix が原因であることを示します。もう一方の Skill の名前を変えるか、`--name` で repo を再度 track してください。
+- source の Skill は、まず `standard` のチェックを通過する必要があります。prefixed 名が 64 文字を超える場合は警告付きでスキップされ、それでも名前が衝突する場合は `standard` と同様にスキップされます。tracked Skill は `SKILL.md` で名前を変更できないため、sync はもう一方の Skill の名前を変えるか、`--name` で repo を再度 track することを提案します。
 - より短いプレフィックスにしたい場合は、repo を短い名前で track します: `skillshare install <repo> --track --name mp` は `mp-prototype` になります。
 - 兄弟 Skill への相対リンク（`../other-skill/`）は書き換えられません。これは copy mode の `flat` と同じです。
 - この名前がツールに表示される名前になります。Claude Code ではスラッシュコマンドになります。例: `/mattpocock-skills-prototype`。

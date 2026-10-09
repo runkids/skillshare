@@ -295,7 +295,7 @@ Tag 與 commit SHA 不能搭配 `--track`：tracked repo 是從 branch pull，de
   1 name collision(s) excluded
 ```
 
-使用 `target_naming: prefixed` 時，tracked skill 也可能與已使用該前綴名稱的 skill 衝突（`_alpha/prototype` 會變成 `alpha-prototype`）。此時 sync 會指出衝突由前綴造成。tracked skill 無法在 `SKILL.md` 中改名，請重新命名另一個 skill，或以 `--name` 重新 track 該 repo。
+使用 `target_naming: prefixed` 時，tracked skill 也可能與已使用該前綴名稱的 skill 衝突（`_alpha/prototype` 會變成 `alpha-prototype`）。tracked skill 無法在 `SKILL.md` 中改名，因此 sync 會建議重新命名另一個 skill，或以 `--name` 重新 track 該 repo。
 
 **最佳做法** — 為 skills 加上命名空間，或使用過濾：
 
