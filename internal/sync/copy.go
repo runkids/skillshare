@@ -234,7 +234,15 @@ func SyncTargetCopyWithSkillsOptions(name string, target config.TargetConfig, al
 		// Copy skill to target
 		if dryRun {
 			if !quietDryRun {
-				fmt.Fprintf(DiagOutput, "[dry-run] Would copy: %s -> %s\n", skill.SourcePath, targetSkillPath)
+				dest := targetSkillPath
+				// A dry run leaves an entry it would rename at its old name.
+				if !onDesiredName {
+					newPath := filepath.Join(sc.Path, resolved.TargetName)
+					if _, err := os.Lstat(newPath); os.IsNotExist(err) {
+						dest = newPath
+					}
+				}
+				fmt.Fprintf(DiagOutput, "[dry-run] Would copy: %s -> %s\n", skill.SourcePath, dest)
 			}
 		} else {
 			if err := copySkillToTarget(skill.SourcePath, targetSkillPath, rewriteName, ignorePatterns); err != nil {
