@@ -268,7 +268,7 @@ skillshare sync
 - 指向同層 skill 的相對連結（`../other-skill/`）不會被改寫，與 copy mode 下的 `flat` 相同。
 - 該名稱就是工具中顯示的名稱；在 Claude Code 中它是 slash command，例如 `/mattpocock-skills-prototype`。
 
-`prefixed` 需要 copy mode，因為 merge 連結指向 source，而 source 中的 `name:` 不能被修改。在 merge 或 symlink mode 下解析為 `prefixed` 的 target 會驗證失敗，並被 sync 略過。新 target 若會在 copy 以外的 mode 下繼承 `prefixed`（專案 target 預設為 merge），`target add` 會讓它使用 copy mode。`target add` 這麼做時會提示；`status`、`doctor` 和 `target list` 會在 sync 之前標出在 copy 以外的 mode 下解析為 `prefixed` 的 target，修正方式是在該 target 上設定 `mode: copy`。
+`prefixed` 需要 copy mode，因為 merge 連結指向 source，而 source 中的 `name:` 不能被修改。在 merge 或 symlink mode 下解析為 `prefixed` 的 target 會驗證失敗，並被 sync 略過。新 target 若會在 copy 以外的 mode 下繼承 `prefixed`（專案 target 預設為 merge），`target add` 會讓它使用 copy mode。`target add` 這麼做時會提示；`status`、`doctor` 和 `target list` 會在 sync 之前標出在 copy 以外的 mode 下解析為 `prefixed` 的 target，修正方式是在該 target 上設定 `mode: copy`；若該 target 由 `projects:` 項目展開而來，則設定 `projects.<root>.skills.mode: copy`。
 
 ```yaml
 targets:

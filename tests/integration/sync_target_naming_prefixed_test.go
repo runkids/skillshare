@@ -372,6 +372,20 @@ func TestSync_TargetNamingPrefixed_CollisionHintStaysWhenSourceAlreadyHasDuplica
 	result.AssertOutputContains(t, "--name")
 }
 
+func TestSync_TargetNamingPrefixed_UnderscoreFolderWithoutRepoIsNotTracked(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	// "_drafts" is an ordinary folder here (no .git), so nothing is tracked or re-trackable.
+	sb.CreateNestedSkill("org/_drafts/dup", map[string]string{"SKILL.md": "---\nname: dup\n---\n# One"})
+	sb.CreateSkill("dup", map[string]string{"SKILL.md": "---\nname: dup\n---\n# Two"})
+	targetPath := sb.CreateTarget("claude")
+	writeNamingConfig(sb, targetPath, "prefixed", "copy")
+
+	result := sb.RunCLI("sync")
+	result.AssertOutputContains(t, "Rename one in SKILL.md")
+	result.AssertOutputNotContains(t, "A tracked skill cannot be renamed")
+}
+
 func TestSync_TargetNamingPrefixed_FromMergeFlatPrunesLinksAndCopies(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()

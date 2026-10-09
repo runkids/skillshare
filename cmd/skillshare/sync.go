@@ -744,18 +744,16 @@ func backupTargetsBeforeSync(cfg *config.Config) {
 	}
 }
 
-// inTrackedRepo reports whether a source-relative skill path lies in a tracked repo,
-// whose folder starts with "_".
-func inTrackedRepo(relPath string) bool {
-	return slices.ContainsFunc(strings.Split(relPath, "/"), func(seg string) bool { return strings.HasPrefix(seg, "_") })
-}
-
 func reportCollisions(skills []sync.DiscoveredSkill, targets map[string]config.TargetConfig) {
 	_, perTarget := sync.CheckNameCollisionsForTargets(skills, targets)
 	// Duplicates that filters or naming keep apart are not a problem, so only collisions
 	// that reach a target are reported.
 	if len(perTarget) == 0 {
 		return
+	}
+	tracked := make(map[string]bool)
+	for _, skill := range skills {
+		tracked[skill.RelPath] = skill.IsInRepo
 	}
 
 	// Deduplicate collisions across targets: group by skill name
@@ -784,7 +782,7 @@ func reportCollisions(skills []sync.DiscoveredSkill, targets map[string]config.T
 				deduped[c.Name] = info
 				orderedNames = append(orderedNames, c.Name)
 			}
-			info.Prefixed = info.Prefixed || targetPrefixed && slices.ContainsFunc(c.Paths, inTrackedRepo)
+			info.Prefixed = info.Prefixed || targetPrefixed && slices.ContainsFunc(c.Paths, func(p string) bool { return tracked[p] })
 		}
 	}
 
