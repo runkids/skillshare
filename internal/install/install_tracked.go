@@ -132,11 +132,6 @@ func installTrackedRepoImpl(source *Source, sourceDir string, opts InstallOption
 	// Check if already exists
 	replacing := false
 	if _, err := os.Stat(destPath); err == nil {
-		// A local source that is, or lies inside, the destination would be
-		// replaced under itself; a clone cannot carry its uncommitted work.
-		if p := localCloneSource(source); p != "" && pathWithin(destPath, p) {
-			return nil, fmt.Errorf("source %s is inside the install destination %s; nothing to install", p, destPath)
-		}
 		if opts.Update {
 			return updateTrackedRepo(destPath, result, opts)
 		}
@@ -152,6 +147,11 @@ func installTrackedRepoImpl(source *Source, sourceDir string, opts InstallOption
 				return nil, fmt.Errorf("tracked repo '%s' already exists (installed from %s). To overwrite: %s", trackedName, existingURL, hint)
 			}
 			return nil, fmt.Errorf("tracked repo '%s' already exists. To overwrite: %s", trackedName, hint)
+		}
+		// A local source that is, or lies inside, the destination would be
+		// replaced under itself; a clone cannot carry its uncommitted work.
+		if p := localCloneSource(source); p != "" && pathWithin(destPath, p) {
+			return nil, fmt.Errorf("source %s is inside the install destination %s; nothing to install", p, destPath)
 		}
 		// Force mode - remove existing. A link is refused, even in a dry
 		// run: removing it would disconnect the repo it points to.

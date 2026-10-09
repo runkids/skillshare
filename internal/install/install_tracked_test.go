@@ -420,3 +420,24 @@ func TestInstallTrackedRepo_ForceReplacesExistingRepoInto(t *testing.T) {
 		}
 	}
 }
+
+func TestInstallTrackedRepo_UpdateAcceptsSourceThatIsTheDestination(t *testing.T) {
+	remoteURL := makeRemote(t, "")
+	sourceDir := t.TempDir()
+	remote := &Source{Type: SourceTypeGitHTTPS, Raw: remoteURL, CloneURL: remoteURL}
+	if _, err := InstallTrackedRepo(remote, sourceDir, InstallOptions{Name: "foo"}); err != nil {
+		t.Fatalf("first install: %v", err)
+	}
+
+	source, err := ParseSource(filepath.Join(sourceDir, "_foo"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := InstallTrackedRepo(source, sourceDir, InstallOptions{Name: "foo", Update: true})
+	if err != nil {
+		t.Fatalf("--update pulls in place and must not be refused: %v", err)
+	}
+	if result.Action != "updated" {
+		t.Errorf("Action = %q, want updated", result.Action)
+	}
+}
