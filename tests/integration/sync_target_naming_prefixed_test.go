@@ -426,3 +426,22 @@ func TestDiff_LocalFolderOnNewName_ReportsKeptLegacyEntry(t *testing.T) {
 		})
 	}
 }
+
+func TestSync_TargetNamingPrefixed_LeavesUnmanagedLinkAlone(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	sb.CreateNestedSkill("_bmad/skills/ux", map[string]string{"SKILL.md": "---\nname: ux\n---\n# UX"})
+	targetPath := sb.CreateTarget("claude")
+	// The user's own link, under the flat name, with no manifest record.
+	userLink := filepath.Join(targetPath, "_bmad__skills__ux")
+	sb.CreateSymlink(filepath.Join(sb.SourcePath, "_bmad", "skills", "ux"), userLink)
+	writeNamingConfig(sb, targetPath, "prefixed", "copy")
+	sb.RunCLI("sync").AssertSuccess(t)
+
+	if !sb.IsSymlink(userLink) {
+		t.Fatal("an unmanaged link must not be migrated")
+	}
+	if sb.IsSymlink(filepath.Join(targetPath, "bmad-ux")) || !sb.FileExists(filepath.Join(targetPath, "bmad-ux", "SKILL.md")) {
+		t.Fatal("expected a managed copy at bmad-ux")
+	}
+}

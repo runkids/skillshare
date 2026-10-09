@@ -696,10 +696,10 @@ func SyncTargetMergeWithSkills(name string, target config.TargetConfig, allSkill
 	// Write manifest (additive: merge with existing entries)
 	if !dryRun {
 		for _, name := range result.Linked {
-			manifest.Managed[name] = "symlink"
+			manifest.Managed[name] = manifestSymlink
 		}
 		for _, name := range result.Updated {
-			manifest.Managed[name] = "symlink"
+			manifest.Managed[name] = manifestSymlink
 		}
 		// Skipped items are NOT added — they are user-local copies
 		WriteManifest(sc.Path, manifest) //nolint:errcheck

@@ -91,12 +91,15 @@ func isManagedTargetEntry(mode, entryPath string, info os.FileInfo, skill Resolv
 	case "merge":
 		return utils.IsSymlinkOrJunction(entryPath) && isSymlinkToSource(entryPath, skill.Skill.SourcePath)
 	case "copy":
-		// A link to the skill is the entry merge mode made; copy sync replaces it
-		// with a copy, so it migrates like a managed copy.
-		if utils.IsLinkMode(entryPath, info.Mode()) {
-			return isSymlinkToSource(entryPath, skill.Skill.SourcePath)
+		if manifest == nil {
+			return false
 		}
-		if manifest == nil || !info.IsDir() {
+		// A link merge mode made (recorded as "symlink") migrates like a managed
+		// copy; copy sync replaces it with a copy. A user's own link stays put.
+		if utils.IsLinkMode(entryPath, info.Mode()) {
+			return manifest.Managed[c.name] == manifestSymlink && isSymlinkToSource(entryPath, skill.Skill.SourcePath)
+		}
+		if !info.IsDir() {
 			return false
 		}
 		if _, managed := manifest.Managed[c.name]; !managed {
