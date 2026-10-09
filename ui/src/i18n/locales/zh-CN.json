@@ -1866,6 +1866,7 @@
   "sync.row.newCopy": "新建副本",
   "sync.row.recopy": "已在目标中删除，将重新复制",
   "sync.row.updateLink": "链接已损坏或指向别处，将重新链接",
+  "sync.row.copyToLink": "由 copy 模式创建的副本，将替换为链接",
   "sync.row.updateCopy": "与来源不同，将重新复制",
   "sync.row.prune": "来源中已不存在，将被移除",
   "sync.row.kept": "已在目标中修改，除非使用 Force 否则保留",

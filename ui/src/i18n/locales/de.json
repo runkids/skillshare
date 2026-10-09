@@ -1866,6 +1866,7 @@
   "sync.row.newCopy": "Neue Kopie",
   "sync.row.recopy": "Im Ziel gelöscht. Wird erneut kopiert",
   "sync.row.updateLink": "Link ist defekt oder zeigt woanders hin. Wird neu verknüpft",
+  "sync.row.copyToLink": "Kopie aus dem Copy-Modus. Wird durch einen Link ersetzt",
   "sync.row.updateCopy": "Weicht von der Quelle ab. Wird erneut kopiert",
   "sync.row.prune": "Nicht mehr in der Quelle. Wird entfernt",
   "sync.row.kept": "Im Ziel bearbeitet. Bleibt erhalten, außer mit Force",

@@ -35,6 +35,9 @@ export interface ChangeGroup {
   rows: ChangeRow[];
 }
 
+/** The server's reason (CopyToLinkReason) for a copy left by copy mode that a merge sync turns into a link. */
+const COPY_TO_LINK = 'copy mode copy (sync replaces with link)';
+
 const editedRow = (force: boolean) => ({ icon: force ? 'update' : 'kept', text: force ? 'sync.row.forceReplace' : 'sync.row.kept', counts: force, edited: true }) as const;
 
 const flatKey = (name: string) => name.replace(/\//g, '__').replace(/\.md$/i, '');
@@ -59,7 +62,7 @@ export function resourceGroups(diffs: DiffTarget[], targets: Target[], parts: Se
       if (item.skill === '(target naming)') rows.push({ ...row, icon: 'kept', text: null, detail: item.reason, counts: false });
       else if (item.skill === '(entire directory)') rows.push({ ...row, name: target?.path ?? item.skill, icon: 'add', text: 'sync.row.folder', counts: true });
       else if (item.action === 'link') rows.push({ ...row, icon: 'add', text: item.reason?.startsWith('missing') ? 'sync.row.recopy' : copy ? 'sync.row.newCopy' : 'sync.row.newLink', counts: true });
-      else if (item.action === 'update') rows.push({ ...row, icon: 'update', text: copy ? 'sync.row.updateCopy' : 'sync.row.updateLink', counts: true });
+      else if (item.action === 'update') rows.push({ ...row, icon: 'update', text: item.reason === COPY_TO_LINK ? 'sync.row.copyToLink' : copy ? 'sync.row.updateCopy' : 'sync.row.updateLink', counts: true });
       else if (item.action === 'prune') rows.push({ ...row, icon: 'remove', text: ignoredKeys[part].has(flatKey(item.skill)) ? 'sync.row.pruneIgnored' : 'sync.row.prune', counts: true });
       else if (item.action === 'skip') rows.push({ ...row, ...editedRow(force) });
     }

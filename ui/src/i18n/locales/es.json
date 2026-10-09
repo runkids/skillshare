@@ -1866,6 +1866,7 @@
   "sync.row.newCopy": "Nueva copia",
   "sync.row.recopy": "Eliminado en el destino. Se copiará de nuevo",
   "sync.row.updateLink": "El enlace está roto o apunta a otro sitio. Se volverá a enlazar",
+  "sync.row.copyToLink": "Copia hecha por el modo copy. Se reemplazará por un enlace",
   "sync.row.updateCopy": "Difiere del origen. Se copiará de nuevo",
   "sync.row.prune": "Ya no está en el origen. Se eliminará",
   "sync.row.kept": "Editado en el destino. Se conserva salvo con Force",

@@ -26,6 +26,11 @@ describe('resourceGroups', () => {
     expect([countChanges(resourceGroups(diff, targets, all, false).groups), countChanges(resourceGroups(diff, targets, all, true).groups)]).toEqual([2, 3]);
   });
 
+  it('says a copy-mode copy in a merge target is replaced by a link', () => {
+    const copied: DiffTarget[] = [{ target: 'claude', items: [{ skill: 'pdf', action: 'update', reason: 'copy mode copy (sync replaces with link)' }] }];
+    expect(resourceGroups(copied, [target('claude')], new Set(['skill']), false).groups[0].rows[0].text).toBe('sync.row.copyToLink');
+  });
+
   it('treats a target with only local items as in sync', () => {
     expect(resourceGroups(diff, [target('claude'), target('codex')], new Set(['skill', 'agent']), false).inSync).toEqual(['codex']);
   });

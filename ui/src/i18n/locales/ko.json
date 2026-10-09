@@ -1866,6 +1866,7 @@
   "sync.row.newCopy": "새 복사본",
   "sync.row.recopy": "대상에서 삭제됨. 다시 복사됩니다",
   "sync.row.updateLink": "링크가 깨졌거나 다른 곳을 가리킵니다. 다시 연결됩니다",
+  "sync.row.copyToLink": "copy 모드가 만든 복사본입니다. 링크로 교체됩니다",
   "sync.row.updateCopy": "소스와 다릅니다. 다시 복사됩니다",
   "sync.row.prune": "소스에 더 이상 없습니다. 제거됩니다",
   "sync.row.kept": "대상에서 수정됨. Force를 쓰지 않으면 유지됩니다",

@@ -1866,6 +1866,7 @@
   "sync.row.newCopy": "Salinan baru",
   "sync.row.recopy": "Dihapus di target. Akan disalin lagi",
   "sync.row.updateLink": "Tautan rusak atau mengarah ke tempat lain. Akan ditautkan ulang",
+  "sync.row.copyToLink": "Salinan dari mode copy. Akan diganti dengan tautan",
   "sync.row.updateCopy": "Berbeda dari sumber. Akan disalin lagi",
   "sync.row.prune": "Tidak ada lagi di sumber. Akan dihapus",
   "sync.row.kept": "Diedit di target. Dipertahankan kecuali memakai Force",
