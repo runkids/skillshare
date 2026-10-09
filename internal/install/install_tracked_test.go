@@ -276,12 +276,22 @@ func TestInferTrackedKind_PlainLocalDirHintsFileURL(t *testing.T) {
 	}
 }
 
-func TestFileCloneURL_KeepsWindowsDriveInPath(t *testing.T) {
-	// Linux ToSlash leaves "/" alone, so this is the form a Windows path takes after ToSlash.
-	if got := fileCloneURL("C:/repo"); got != "file:///C:/repo" {
-		t.Errorf("fileCloneURL(C:/repo) = %q, want file:///C:/repo", got)
+func TestLocalFileURL_KeepsWindowsDriveInPath(t *testing.T) {
+	// "C:/repo" is what a Windows path looks like after filepath.ToSlash.
+	if got := localFileURL("C:/repo"); got != "file:///C:/repo" {
+		t.Errorf("localFileURL(C:/repo) = %q, want file:///C:/repo", got)
 	}
-	if got := fileCloneURL("/tmp/repo"); got != "file:///tmp/repo" {
-		t.Errorf("fileCloneURL(/tmp/repo) = %q, want file:///tmp/repo", got)
+	if got := localFileURL("/tmp/repo"); got != "file:///tmp/repo" {
+		t.Errorf("localFileURL(/tmp/repo) = %q, want file:///tmp/repo", got)
+	}
+}
+
+func TestParseSource_ExplicitUNCFileURLKeepsAuthority(t *testing.T) {
+	source, err := ParseSource("file://server/share/repo")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if source.CloneURL != "file://server/share/repo" {
+		t.Errorf("CloneURL = %q, want file://server/share/repo", source.CloneURL)
 	}
 }

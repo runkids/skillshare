@@ -359,6 +359,7 @@ func TestFindLocalSkills_SkipsDirWithoutSkillMd(t *testing.T) {
 	tgt := filepath.Join(tmp, "target")
 	os.MkdirAll(src, 0755)
 	os.MkdirAll(filepath.Join(tgt, "scratch-dir"), 0755)
+	os.MkdirAll(filepath.Join(tgt, "dir-named-skill-md", "SKILL.md"), 0755)
 	os.MkdirAll(filepath.Join(tgt, "my-local"), 0755)
 	os.WriteFile(filepath.Join(tgt, "my-local", "SKILL.md"), []byte("local skill"), 0644)
 

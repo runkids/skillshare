@@ -412,7 +412,7 @@ func TestHandleCollect_RejectsFolderWithoutSkillMd(t *testing.T) {
 
 	tgtPath := filepath.Join(t.TempDir(), "claude-skills")
 	s, _ := newTestServerWithTargets(t, map[string]string{"claude": tgtPath})
-	os.MkdirAll(filepath.Join(tgtPath, "scratch-dir"), 0755)
+	os.MkdirAll(filepath.Join(tgtPath, "scratch-dir", "SKILL.md"), 0755) // a directory, not a file
 
 	body := `{"skills":[{"name":"scratch-dir","targetName":"claude"}],"force":true}`
 	req := httptest.NewRequest(http.MethodPost, "/api/collect", strings.NewReader(body))

@@ -220,7 +220,7 @@ func (s *Server) handleCollect(w http.ResponseWriter, r *http.Request) {
 				writeError(w, http.StatusBadRequest, "skill is not a directory: "+ref.Name)
 				return
 			}
-			if _, err := os.Stat(filepath.Join(skillPath, "SKILL.md")); err != nil {
+			if !ssync.HasSkillFile(skillPath) {
 				writeError(w, http.StatusBadRequest, "not a skill (no SKILL.md): "+ref.Name)
 				return
 			}

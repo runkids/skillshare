@@ -9,12 +9,22 @@ import (
 	"skillshare/internal/sourcefs"
 )
 
+// localFileURL builds the file:// URL for a local path; a Windows drive path
+// (C:/repo) needs the empty authority: file:///C:/repo.
+func localFileURL(path string) string {
+	p := filepath.ToSlash(path)
+	if !strings.HasPrefix(p, "/") {
+		p = "/" + p
+	}
+	return "file://" + p
+}
+
 // normalizeTrackSource turns a local path that is a git repository into the
 // file:// form that parseFileURL builds, and rejects other non-git sources.
 func normalizeTrackSource(source *Source) error {
 	if source.Type == SourceTypeLocalPath && IsGitRepo(source.Path) {
 		source.Type = SourceTypeGitHTTPS
-		source.CloneURL = fileCloneURL(source.Path)
+		source.CloneURL = localFileURL(source.Path)
 		return validateCloneURL(source.CloneURL)
 	}
 	if source.IsGit() {

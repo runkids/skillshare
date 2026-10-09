@@ -550,16 +550,6 @@ func parseSSHURL(matches []string, source *Source) (*Source, error) {
 	return source, nil
 }
 
-// fileCloneURL builds the file:// URL git clones a local repository from.
-func fileCloneURL(path string) string {
-	p := filepath.ToSlash(path)
-	// A Windows drive path (C:/repo) needs the empty authority: file:///C:/repo.
-	if !strings.HasPrefix(p, "/") {
-		p = "/" + p
-	}
-	return "file://" + p
-}
-
 func parseFileURL(matches []string, source *Source) (*Source, error) {
 	// matches: [full, path, subdir]
 	path := filepath.Clean(matches[1])
@@ -572,7 +562,7 @@ func parseFileURL(matches []string, source *Source) (*Source, error) {
 	// filepath.Clean rewrites the separators for the local OS, but a file:// URL
 	// keeps forward slashes everywhere; on Windows the raw path would produce
 	// `file://\path\to\repo`, which git does not accept as a local repository.
-	source.CloneURL = fileCloneURL(path)
+	source.CloneURL = "file://" + filepath.ToSlash(path)
 
 	if err := validateCloneURL(source.CloneURL); err != nil {
 		return nil, err
