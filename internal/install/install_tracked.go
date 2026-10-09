@@ -9,9 +9,26 @@ import (
 	"skillshare/internal/sourcefs"
 )
 
+// normalizeTrackSource turns a local path that is a git repository into the
+// file:// form that parseFileURL builds, and rejects other non-git sources.
+func normalizeTrackSource(source *Source) error {
+	if source.Type == SourceTypeLocalPath && IsGitRepo(source.Path) {
+		source.Type = SourceTypeGitHTTPS
+		source.CloneURL = fileCloneURL(source.Path)
+		return validateCloneURL(source.CloneURL)
+	}
+	if source.IsGit() {
+		return nil
+	}
+	if source.Type == SourceTypeLocalPath {
+		return fmt.Errorf("--track requires a git repository source; %s is not a git repository root (use file:///path for a repository URL)", source.Path)
+	}
+	return fmt.Errorf("--track requires a git repository source")
+}
+
 func installTrackedRepoImpl(source *Source, sourceDir string, opts InstallOptions) (*TrackedRepoResult, error) {
-	if !source.IsGit() {
-		return nil, fmt.Errorf("--track requires a git repository source")
+	if err := normalizeTrackSource(source); err != nil {
+		return nil, err
 	}
 	if err := resolveWebRef(source); err != nil {
 		return nil, err

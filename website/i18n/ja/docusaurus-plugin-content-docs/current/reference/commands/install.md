@@ -409,6 +409,7 @@ skillshare install google-gemini/gemini-cli/.../skill-creator --name my-creator
 
 `--name` は、インストールが単一の Skill に解決される場合にのみ機能します。
 `--track` モードでは、カスタム名はトラック対象リポジトリのディレクトリ名として保存され（自動的に `_` がプレフィックスされます）、パスセパレータや `..` を含んではいけません。
+`--track` は、パスが git リポジトリのルートであればローカルパスも受け付けます（`file:///path` と同様に clone されます）。それ以外のローカルフォルダは `--track` なしでインストールしてください。
 
 ```bash
 # ✅ 単一 Skill（動作する）

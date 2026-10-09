@@ -26,6 +26,8 @@ skillshare collect agents claude    # Skill の代わりに agent を収集
 - Skill: `~/.claude/skills/my-skill/`
 - Agent: `~/.claude/agents/tutor.md`
 
+スキルのフォルダには `SKILL.md` が必要です。ターゲット内のそれ以外のフォルダ（作業用ディレクトリなど）は collect されません。
+
 ## 何が起きるか
 
 ```mermaid

@@ -409,6 +409,7 @@ skillshare install google-gemini/gemini-cli/.../skill-creator --name my-creator
 
 `--name` 只在 install 解析出單一 skill 時才有效。
 在 `--track` 模式下，自訂名稱會以 tracked repo 目錄儲存（自動加上 `_` 前綴），且不得包含路徑分隔符或 `..`。
+`--track` 也接受本機路徑，前提是該路徑是 git repository 的根目錄（會像 `file:///path` 一樣被 clone）；其他本機資料夾請不要加 `--track` 安裝。
 
 ```bash
 # ✅ 單一 skill（可行）

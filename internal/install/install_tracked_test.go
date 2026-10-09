@@ -241,3 +241,37 @@ func TestMissingTrackedReposFollowPolicy(t *testing.T) {
 		t.Fatalf("present followed checkout listed for install: %+v", got)
 	}
 }
+
+func TestInferTrackedKind_LocalGitPathBecomesFileURL(t *testing.T) {
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git not available")
+	}
+	repo := t.TempDir()
+	mustRunGit(t, "", "init", "-b", "main", repo)
+	if err := os.WriteFile(filepath.Join(repo, "SKILL.md"), []byte("# s"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	source, err := ParseSource(repo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	kind, err := InferTrackedKind(source, "skill")
+	if err != nil {
+		t.Fatalf("local git repo should be trackable: %v", err)
+	}
+	if kind != "skill" || source.CloneURL != fileURL(repo) {
+		t.Errorf("kind=%q cloneURL=%q, want skill / %q", kind, source.CloneURL, fileURL(repo))
+	}
+}
+
+func TestInferTrackedKind_PlainLocalDirHintsFileURL(t *testing.T) {
+	source, err := ParseSource(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = InferTrackedKind(source, "skill")
+	if err == nil || !strings.Contains(err.Error(), "file://") {
+		t.Fatalf("want error naming file://, got %v", err)
+	}
+}

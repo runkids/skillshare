@@ -26,6 +26,8 @@ skillshare collect agents claude    # Collect agents instead of skills
 - Skills: `~/.claude/skills/my-skill/`
 - Agents: `~/.claude/agents/tutor.md`
 
+技能資料夾必須包含 `SKILL.md`；目標中的其他資料夾（例如暫存目錄）不會被 collect。
+
 ## 執行流程
 
 ```mermaid

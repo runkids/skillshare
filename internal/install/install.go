@@ -280,8 +280,8 @@ func (e *TrackKindAmbiguousError) Error() string {
 // the kind explicitly to avoid ambiguous install roots; in that case the
 // returned error is a *TrackKindAmbiguousError carrying the discovered counts.
 func InferTrackedKind(source *Source, explicitKind string) (string, error) {
-	if !source.IsGit() {
-		return "", fmt.Errorf("--track requires a git repository source")
+	if err := normalizeTrackSource(source); err != nil {
+		return "", err
 	}
 
 	if explicitKind == "skill" || explicitKind == "agent" {

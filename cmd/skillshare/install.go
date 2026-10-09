@@ -201,7 +201,9 @@ func parseInstallArgs(args []string) (*installArgs, bool, error) {
 
 	if result.opts.Branch != "" && result.sourceArg != "" {
 		source, parseErr := install.ParseSource(result.sourceArg)
-		if parseErr == nil && !source.IsGit() {
+		trackableLocal := result.opts.Track && source != nil &&
+			source.Type == install.SourceTypeLocalPath && install.IsGitRepo(source.Path)
+		if parseErr == nil && !source.IsGit() && !trackableLocal {
 			return nil, false, fmt.Errorf("--branch can only be used with git repository sources")
 		}
 	}
@@ -597,7 +599,7 @@ func printInstallHelp() {
 			{"-f, --force", "Overwrite existing skill; also continue if audit would block"},
 			{"-u, --update", "Update existing (git pull if possible, else reinstall)"},
 			{"-b, --branch <ref>", "Git branch, tag, or commit SHA to install from (default: remote default)"},
-			{"-t, --track", "Install as tracked repo (preserves .git for updates)"},
+			{"-t, --track", "Install as tracked repo (preserves .git for updates; a local\npath works if it is a git repository)"},
 			{"-a, --agent <names>", "Select specific agents from a multi-agent repo (comma-separated)"},
 			{"-s, --skill <names>", "Select specific skills from multi-skill repo (comma-separated;\nsupports glob patterns like \"core-*\", \"test-?\")"},
 			{"--exclude <names>", "Skip specific skills during install (comma-separated;\nsupports glob patterns like \"test-*\")"},

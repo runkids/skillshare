@@ -70,7 +70,7 @@ skillshare install user/repo --skip-audit             # Skip security scan
 | `--branch, -b <name>` | Select a Git branch, tag or commit SHA (overrides a ref in a web URL) |
 | `--force, -f` | Overwrite existing and explicitly override audit blocking |
 | `--update, -u` | Update if exists |
-| `--track, -t` | Track for updates (preserves .git) |
+| `--track, -t` | Track for updates (preserves .git); a local path works if it is a git repository |
 | `--skill, -s <names>` | Select specific skills from multi-skill repo (comma-separated) |
 | `--into <dir>` | Install into subdirectory (e.g., `--into frontend`) |
 | `--all` | Install all discovered skills without prompting |

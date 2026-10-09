@@ -349,3 +349,24 @@ func TestInstall_Track_EmptyRepo_NextSteps(t *testing.T) {
 
 	result.AssertOutputNotContains(t, "Run 'skillshare sync'")
 }
+
+// TestInstall_Track_LocalGitPath verifies --track accepts a local path that is
+// a git repository (also with --branch), the same as the file:// form.
+func TestInstall_Track_LocalGitPath(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	setupGlobalConfig(sb)
+
+	repo := filepath.Join(sb.Root, "local-repo")
+	run(t, "", "git", "init", "--initial-branch=main", repo)
+	os.WriteFile(filepath.Join(repo, "SKILL.md"), []byte("---\nname: local-repo\n---\n# s\n"), 0644)
+	run(t, repo, "git", "add", "-A")
+	run(t, repo, "git", "commit", "-m", "initial")
+
+	result := sb.RunCLI("install", repo, "--track", "--branch", "main", "--skip-audit")
+	result.AssertSuccess(t)
+
+	if !sb.FileExists(filepath.Join(sb.SourcePath, "_local-repo", "SKILL.md")) {
+		t.Fatalf("tracked repo should be cloned to _local-repo")
+	}
+}

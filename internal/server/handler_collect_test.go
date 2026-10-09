@@ -402,3 +402,24 @@ func TestHandleCollectScan_AgentKind_NoSource(t *testing.T) {
 		t.Fatalf("expected totalCount=0 when no agents source, got %d", resp.TotalCount)
 	}
 }
+
+func TestHandleCollect_RejectsFolderWithoutSkillMd(t *testing.T) {
+	home := filepath.Join(t.TempDir(), "home")
+	if err := os.MkdirAll(home, 0o755); err != nil {
+		t.Fatalf("mkdir home: %v", err)
+	}
+	t.Setenv("HOME", home)
+
+	tgtPath := filepath.Join(t.TempDir(), "claude-skills")
+	s, _ := newTestServerWithTargets(t, map[string]string{"claude": tgtPath})
+	os.MkdirAll(filepath.Join(tgtPath, "scratch-dir"), 0755)
+
+	body := `{"skills":[{"name":"scratch-dir","targetName":"claude"}],"force":true}`
+	req := httptest.NewRequest(http.MethodPost, "/api/collect", strings.NewReader(body))
+	rr := httptest.NewRecorder()
+	s.handler.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d: %s", rr.Code, rr.Body.String())
+	}
+}

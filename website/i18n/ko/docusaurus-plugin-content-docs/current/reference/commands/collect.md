@@ -26,6 +26,8 @@ target 디렉터리에서 직접 리소스를 생성하거나 수정했고, 이�
 - Skill: `~/.claude/skills/my-skill/`
 - Agent: `~/.claude/agents/tutor.md`
 
+스킬 폴더에는 `SKILL.md`가 있어야 합니다. 타깃의 다른 폴더(임시 작업 디렉터리 등)는 collect되지 않습니다.
+
 ## 동작 방식
 
 ```mermaid

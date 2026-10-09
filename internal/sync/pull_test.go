@@ -83,6 +83,7 @@ func TestFindLocalSkills_SkipsCopyManaged(t *testing.T) {
 	// Create a copy-mode managed skill
 	managedSkill := filepath.Join(tgt, "managed")
 	os.MkdirAll(managedSkill, 0755)
+	os.WriteFile(filepath.Join(managedSkill, "SKILL.md"), []byte("managed"), 0644)
 
 	// Write manifest marking it as managed
 	m := &Manifest{Managed: map[string]string{"managed": "abc123"}}
@@ -93,6 +94,7 @@ func TestFindLocalSkills_SkipsCopyManaged(t *testing.T) {
 	// Also create a truly local skill
 	localSkill := filepath.Join(tgt, "local-only")
 	os.MkdirAll(localSkill, 0755)
+	os.WriteFile(filepath.Join(localSkill, "SKILL.md"), []byte("local skill"), 0644)
 
 	skills, err := FindLocalSkills(tgt, src, "copy")
 	if err != nil {
@@ -147,6 +149,7 @@ func TestFindLocalSkills_EmptyModePassedDirectly(t *testing.T) {
 
 	// Physical dir with copy-mode manifest
 	os.MkdirAll(filepath.Join(tgt, "skill-a"), 0755)
+	os.WriteFile(filepath.Join(tgt, "skill-a", "SKILL.md"), []byte("a"), 0644)
 	m := &Manifest{Managed: map[string]string{"skill-a": "abc123"}}
 	if err := WriteManifest(tgt, m); err != nil {
 		t.Fatal(err)
@@ -347,5 +350,23 @@ func TestPullSkill_ForceOverwrite(t *testing.T) {
 	}
 	if string(data) != "new" {
 		t.Errorf("expected 'new' content after force pull, got %q", string(data))
+	}
+}
+
+func TestFindLocalSkills_SkipsDirWithoutSkillMd(t *testing.T) {
+	tmp := t.TempDir()
+	src := filepath.Join(tmp, "source")
+	tgt := filepath.Join(tmp, "target")
+	os.MkdirAll(src, 0755)
+	os.MkdirAll(filepath.Join(tgt, "scratch-dir"), 0755)
+	os.MkdirAll(filepath.Join(tgt, "my-local"), 0755)
+	os.WriteFile(filepath.Join(tgt, "my-local", "SKILL.md"), []byte("local skill"), 0644)
+
+	skills, err := FindLocalSkills(tgt, src, "merge")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(skills) != 1 || skills[0].Name != "my-local" {
+		t.Fatalf("expected only my-local, got %+v", skills)
 	}
 }

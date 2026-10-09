@@ -26,6 +26,8 @@ Examples:
 - Skills: `~/.claude/skills/my-skill/`
 - Agents: `~/.claude/agents/tutor.md`
 
+A skill folder must contain a `SKILL.md`; other folders in a target (such as scratch directories) are not collected.
+
 ## What Happens
 
 ```mermaid

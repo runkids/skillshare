@@ -108,6 +108,11 @@ func FindLocalSkills(targetPath, sourcePath, syncMode string) ([]LocalSkillInfo,
 			continue
 		}
 
+		// A folder without SKILL.md (a scratch dir) is not a skill.
+		if _, err := os.Stat(filepath.Join(skillPath, "SKILL.md")); err != nil {
+			continue
+		}
+
 		// Skip copy-mode managed skills.
 		// Only relevant when the target is still in copy mode; after switching
 		// to merge the old manifest entries are stale (the physical copies are

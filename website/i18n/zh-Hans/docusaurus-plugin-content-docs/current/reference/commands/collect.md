@@ -26,6 +26,8 @@ skillshare collect agents claude    # 收集 agents 而不是 skills
 - Skills：`~/.claude/skills/my-skill/`
 - Agents：`~/.claude/agents/tutor.md`
 
+技能文件夹必须包含 `SKILL.md`；目标中的其他文件夹（如临时目录）不会被 collect。
+
 ## 会发生什么
 
 ```mermaid
