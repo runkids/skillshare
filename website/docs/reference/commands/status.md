@@ -77,7 +77,7 @@ Targets                     skills                agents
 |-------|---------|
 | `✓ 8 linked` / `✓ 8 copied` | Every expected skill is in place. Merge and copy targets count the skills left after `include`/`exclude` |
 | `· 2 local` | Skills of your own in that folder, which sync leaves alone |
-| `! 6/8 linked` | Some skills are not synced yet; status ends with how many and the `sync` command |
+| `! 6/8 linked` | Some skills are not synced yet; status ends with how many and the `sync` command. Skills that `sync` skips on purpose (an invalid name under `standard` or `prefixed` naming, or a name collision) are not counted, because running `sync` again cannot add them; `sync` names them |
 | `✓ symlinked` | Symlink mode: the whole folder links to the source |
 | `! needs sync` | The mode changed; run `sync` to apply it |
 | `! has files` / `! not synced yet` | The target has never been synced |

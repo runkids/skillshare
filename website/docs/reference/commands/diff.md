@@ -93,6 +93,7 @@ Targets with different results (e.g. due to `include`/`exclude` filters) are sti
 | Restore | Was in target, deleted | `sync` will restore it |
 | Modified | Content or target naming changed (copy mode) | `sync` will update it |
 | Renamed | Managed entry still under the name an earlier `target_naming` gave it | `sync` will rename it |
+| Local only, skill kept under old name | A local folder holds the name the current `target_naming` gives a skill, so the skill stays under its old managed entry, shown as `name (stays at old-name)` | Rename or remove the folder, then `sync` |
 | Local override | Local copy instead of symlink | `sync --force` to replace |
 | Orphan | In manifest but not in source | `sync` will prune it |
 | Local only | Only in target, not in source | `collect` to import |
@@ -238,8 +239,10 @@ skillshare diff --json
       "mode": "merge",
       "synced": false,
       "items": [
-        {"action": "link", "name": "missing-skill", "reason": "not in target", "is_sync": true},
-        {"action": "update", "name": "local-copy", "reason": "local override", "is_sync": true}
+        {"action": "add", "name": "missing-skill", "kind": "skill", "reason": "source only", "is_sync": true},
+        {"action": "modify", "name": "local-copy", "kind": "skill", "reason": "local copy (sync --force to replace)", "is_sync": true},
+        {"action": "remove", "name": "my-own-skill", "kind": "skill", "reason": "local only", "is_sync": false},
+        {"action": "kept", "name": "prototype", "kind": "skill", "reason": "local folder; the skill stays at _emil-design__skills__prototype", "is_sync": false}
       ],
       "include": [],
       "exclude": []
@@ -248,6 +251,10 @@ skillshare diff --json
   "duration": "0.045s"
 }
 ```
+
+`synced` is `true` when `sync` has nothing to do for the target. Items with `"is_sync": false`, such as folders that exist only in the target, are still listed but do not make it `false`. The text output likewise counts a target with only local-only folders as in sync.
+
+`action` is `add`, `modify`, `remove`, or `kept`. `kept` means a local folder holds the name the current `target_naming` gives the skill, so the skill stays under its old name and sync leaves the folder alone.
 
 ## See Also
 

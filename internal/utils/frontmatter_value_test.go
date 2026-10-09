@@ -107,6 +107,16 @@ func TestSetFrontmatterValue(t *testing.T) {
 			in:   "# Just a body\n",
 			want: "---\nname: emil-design-prototype\n---\n# Just a body\n",
 		},
+		{
+			name: "BOM is kept and only the name value changes",
+			in:   "\ufeff---\r\nname: prototype\r\ndescription: d\r\n---\r\nBody\r\n",
+			want: "\ufeff---\r\nname: emil-design-prototype\r\ndescription: d\r\n---\r\nBody\r\n",
+		},
+		{
+			name: "BOM without frontmatter stays first, the new block follows it",
+			in:   "\ufeff# Just a body\n",
+			want: "\ufeff---\nname: emil-design-prototype\n---\n# Just a body\n",
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

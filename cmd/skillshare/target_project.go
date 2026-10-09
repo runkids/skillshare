@@ -1,6 +1,7 @@
 package main
 
 import (
+	"cmp"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -313,9 +314,8 @@ func targetInfoProject(name string, args []string, root string) error {
 	if err != nil {
 		return err
 	}
-	// Filters return before the skills switch is read, so it would be dropped silently.
-	if settings.Skills != nil && filterOpts.hasUpdates() {
-		return fmt.Errorf("--skills/--no-skills cannot be combined with include/exclude flags; run them as separate commands")
+	if err := checkTargetFlagCombination(settings, filterOpts); err != nil {
+		return err
 	}
 
 	cfg, err := config.LoadProject(root)
@@ -405,16 +405,8 @@ func targetInfoProject(name string, args []string, root string) error {
 		return setTargetSkillsProject(cfg, targetIdx, *settings.Skills, settings.DryRun, root)
 	}
 
-	if settings.SkillMode != "" {
-		return updateTargetModeProject(cfg, targetIdx, settings.SkillMode, root)
-	}
-
-	if settings.AgentMode != "" {
-		return updateTargetAgentModeProject(cfg, targetIdx, settings.AgentMode, root)
-	}
-
-	if settings.Naming != "" {
-		return updateTargetNamingProject(cfg, targetIdx, settings.Naming, root)
+	if settings.changesTarget() {
+		return updateTargetSettingsProject(cfg, targetIdx, settings, root)
 	}
 
 	targets, err := config.ResolveProjectTargets(root, cfg)
@@ -473,81 +465,21 @@ func targetInfoProject(name string, args []string, root string) error {
 	return nil
 }
 
-func updateTargetModeProject(cfg *config.ProjectConfig, idx int, newMode string, root string) error {
-	if newMode != "merge" && newMode != "symlink" && newMode != "copy" {
-		return fmt.Errorf("invalid mode '%s'. Use 'merge', 'symlink', or 'copy'", newMode)
-	}
-
+func updateTargetSettingsProject(cfg *config.ProjectConfig, idx int, settings parsedTargetSettingFlags, root string) error {
 	entry := &cfg.Targets[idx]
-	oldMode := entry.SkillsConfig().Mode
-	if oldMode == "" {
-		oldMode = "merge"
+	sc := entry.SkillsConfig()
+	u := targetSettingsUpdate{name: entry.Name, oldMode: cmp.Or(sc.Mode, "merge"), oldNaming: sc.TargetNaming,
+		ensureSkills: entry.EnsureSkills, ensureAgents: entry.EnsureAgents, save: func() error { return cfg.Save(root) }}
+	if settings.AgentMode != "" {
+		agentBuilder, err := targetsummary.NewProjectBuilder(cfg.EffectiveAgentsSource(root), root)
+		if err != nil {
+			return err
+		}
+		if u.agent, err = agentBuilder.ProjectTarget(*entry); err != nil {
+			return err
+		}
 	}
-	if err := config.TargetNamingModeError(entry.SkillsConfig().TargetNaming, newMode); err != nil {
-		return fmt.Errorf("%w; change the target naming first", err)
-	}
-
-	entry.EnsureSkills().Mode = newMode
-	if err := cfg.Save(root); err != nil {
-		return err
-	}
-
-	ui.Done(ui.MarkOK, fmt.Sprintf("Changed %s mode: %s -> %s", entry.Name, oldMode, newMode), 0)
-	ui.Next("skillshare sync", "apply the new mode")
-	return nil
-}
-
-func updateTargetAgentModeProject(cfg *config.ProjectConfig, idx int, newMode string, root string) error {
-	if newMode != "merge" && newMode != "symlink" && newMode != "copy" {
-		return fmt.Errorf("invalid agent mode '%s'. Use 'merge', 'symlink', or 'copy'", newMode)
-	}
-
-	entry := &cfg.Targets[idx]
-	agentBuilder, err := targetsummary.NewProjectBuilder(cfg.EffectiveAgentsSource(root), root)
-	if err != nil {
-		return err
-	}
-	agentSummary, err := agentBuilder.ProjectTarget(*entry)
-	if err != nil {
-		return err
-	}
-	if agentSummary == nil {
-		return fmt.Errorf("target '%s' does not have an agents path", entry.Name)
-	}
-
-	oldMode := agentSummary.Mode
-	entry.EnsureAgents().Mode = newMode
-	if err := cfg.Save(root); err != nil {
-		return err
-	}
-
-	if newMode == "symlink" && (len(agentSummary.Include) > 0 || len(agentSummary.Exclude) > 0) {
-		ui.Warning("Agent include/exclude filters are ignored in symlink mode")
-	}
-	ui.Done(ui.MarkOK, fmt.Sprintf("Changed %s agent mode: %s -> %s", entry.Name, oldMode, newMode), 0)
-	ui.Next("skillshare sync", "apply the new mode")
-	return nil
-}
-
-func updateTargetNamingProject(cfg *config.ProjectConfig, idx int, newNaming string, root string) error {
-	if !config.IsValidTargetNaming(newNaming) {
-		return fmt.Errorf("invalid target naming '%s'. Use 'flat', 'standard', or 'prefixed'", newNaming)
-	}
-
-	entry := &cfg.Targets[idx]
-	if err := config.TargetNamingModeError(newNaming, entry.SkillsConfig().Mode); err != nil {
-		return fmt.Errorf("%w; set --mode copy first", err)
-	}
-	oldNaming := config.EffectiveTargetNaming(entry.SkillsConfig().TargetNaming)
-
-	entry.EnsureSkills().TargetNaming = newNaming
-	if err := cfg.Save(root); err != nil {
-		return err
-	}
-
-	ui.Done(ui.MarkOK, fmt.Sprintf("Changed %s target naming: %s -> %s", entry.Name, oldNaming, newNaming), 0)
-	ui.Next("skillshare sync", "apply the new naming")
-	return nil
+	return u.apply(settings)
 }
 
 func unlinkMergeModeSafe(targetPath, sourcePath string) error {

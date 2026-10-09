@@ -440,3 +440,185 @@ func TestSync_TargetNamingPrefixed_FromMergeFlatPrunesLinksAndCopies(t *testing.
 	result.AssertOutputNotContains(t, "duplicate skill names")
 	assertEntries(t, sb, targetPath, "bmad-ux", "emil-design-prototype", "mattpocock-skills-prototype", "my-skill")
 }
+
+func TestTarget_SetModeAndNamingInOneCommand(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	targetPath := prefixedFixture(t, sb)
+	writeNamingConfig(sb, targetPath, "flat", "merge")
+
+	// Each order of the two settings must pass through a valid pair.
+	sb.RunCLI("target", "claude", "--mode", "copy", "--target-naming", "prefixed").AssertSuccess(t)
+	sb.RunCLI("sync").AssertSuccess(t)
+	assertEntries(t, sb, targetPath, "emil-design-prototype", "mattpocock-skills-prototype", "my-skill")
+
+	sb.RunCLI("target", "claude", "--target-naming", "flat", "--mode", "merge").AssertSuccess(t)
+	if cfg := sb.ReadFile(sb.ConfigPath); !strings.Contains(cfg, "mode: merge") || !strings.Contains(cfg, "target_naming: flat") {
+		t.Fatalf("expected merge + flat in config:\n%s", cfg)
+	}
+
+	rejected := sb.RunCLI("target", "claude", "--mode", "merge", "--target-naming", "prefixed")
+	rejected.AssertFailure(t)
+	rejected.AssertAnyOutputContains(t, "requires copy mode")
+	if cfg := sb.ReadFile(sb.ConfigPath); strings.Contains(cfg, "prefixed") {
+		t.Fatalf("a rejected pair must not change the config:\n%s", cfg)
+	}
+}
+
+func TestSync_TargetNamingPrefixed_FromMergeKeepsLinkWhenLocalSkillTakesNewName(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	sb.CreateNestedSkill("_bmad/skills/ux", map[string]string{"SKILL.md": "---\nname: ux\n---\n# UX"})
+	targetPath := sb.CreateTarget("claude")
+	writeNamingConfig(sb, targetPath, "flat", "merge")
+	sb.RunCLI("sync").AssertSuccess(t)
+
+	local := filepath.Join(targetPath, "bmad-ux", "SKILL.md")
+	sb.WriteFile(local, "---\nname: bmad-ux\n---\n# Mine")
+	writeNamingConfig(sb, targetPath, "prefixed", "copy")
+	result := sb.RunCLI("sync")
+	result.AssertSuccess(t)
+	result.AssertAnyOutputContains(t, "kept legacy managed entry _bmad__skills__ux")
+
+	legacy := filepath.Join(targetPath, "_bmad__skills__ux")
+	if sb.IsSymlink(legacy) || !sb.FileExists(filepath.Join(legacy, "SKILL.md")) {
+		t.Fatalf("expected %s to stay as a managed copy", legacy)
+	}
+	if got := sb.ReadFile(local); !strings.Contains(got, "# Mine") {
+		t.Fatalf("local skill changed:\n%s", got)
+	}
+}
+
+func TestDiff_LocalFolderOnNewName_ReportsKeptLegacyEntry(t *testing.T) {
+	for _, tc := range []struct{ mode, from, to, newName, oldName string }{
+		{"copy", "standard", "prefixed", "emil-design-prototype", "prototype"},
+		{"merge", "flat", "standard", "prototype", "_emil-design__skills__prototype"},
+	} {
+		t.Run(tc.mode, func(t *testing.T) {
+			sb := testutil.NewSandbox(t)
+			defer sb.Cleanup()
+			sb.CreateNestedSkill("_emil-design/skills/prototype", map[string]string{
+				"SKILL.md": "---\nname: prototype\n---\n# Emil prototype",
+			})
+			targetPath := sb.CreateTarget("claude")
+			writeNamingConfig(sb, targetPath, tc.from, tc.mode)
+			sb.RunCLI("sync").AssertSuccess(t)
+			sb.WriteFile(filepath.Join(targetPath, tc.newName, "SKILL.md"), "---\nname: "+tc.newName+"\n---\n# Mine")
+
+			// Sync keeps the old entry and leaves the folder alone, even with --force.
+			writeNamingConfig(sb, targetPath, tc.to, tc.mode)
+			result := sb.RunCLI("diff", "--no-tui")
+			result.AssertSuccess(t)
+			result.AssertRowContains(t, "Local only, skill kept under old name", tc.newName+" (stays at "+tc.oldName+")")
+			result.AssertOutputNotContains(t, "sync --force")
+			result.AssertOutputNotContains(t, "to sync")
+			result.AssertOutputNotContains(t, "in sync")
+			result.AssertOutputContains(t, "1 target: 1 kept under old name")
+			result.AssertOutputContains(t, "after renaming or removing the local folders")
+			if got := diffJSONActions(t, sb)[tc.newName]; got != "kept" {
+				t.Errorf("diff --json action for %s = %q, want kept", tc.newName, got)
+			}
+			// Sync leaves the folder alone, so its files are not shown as deletions.
+			sb.RunCLI("diff", "--no-tui", "--stat").AssertOutputNotContains(t, "SKILL.md")
+		})
+	}
+}
+
+func TestSync_TargetNamingPrefixed_LeavesUnmanagedLinkAlone(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	sb.CreateNestedSkill("_bmad/skills/ux", map[string]string{"SKILL.md": "---\nname: ux\n---\n# UX"})
+	targetPath := sb.CreateTarget("claude")
+	// The user's own link, under the flat name, with no manifest record.
+	userLink := filepath.Join(targetPath, "_bmad__skills__ux")
+	sb.CreateSymlink(filepath.Join(sb.SourcePath, "_bmad", "skills", "ux"), userLink)
+	writeNamingConfig(sb, targetPath, "prefixed", "copy")
+	sb.RunCLI("sync").AssertSuccess(t)
+
+	if !sb.IsSymlink(userLink) {
+		t.Fatal("an unmanaged link must not be migrated")
+	}
+	if sb.IsSymlink(filepath.Join(targetPath, "bmad-ux")) || !sb.FileExists(filepath.Join(targetPath, "bmad-ux", "SKILL.md")) {
+		t.Fatal("expected a managed copy at bmad-ux")
+	}
+}
+
+func TestTarget_SetModeAndNamingReportsInheritedNaming(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	targetPath := prefixedFixture(t, sb)
+	writeNamingConfig(sb, targetPath, "standard", "copy") // claude inherits standard
+
+	result := sb.RunCLI("target", "claude", "--mode", "copy", "--target-naming", "prefixed")
+	result.AssertSuccess(t)
+	result.AssertAnyOutputContains(t, "target naming: standard -> prefixed")
+}
+
+// diffJSONActions maps each item name in diff --json to its action.
+func diffJSONActions(t *testing.T, sb *testutil.Sandbox) map[string]string {
+	t.Helper()
+	result := sb.RunCLI("diff", "--json")
+	result.AssertSuccess(t)
+	var out struct {
+		Targets []struct {
+			Items []struct{ Name, Action string } `json:"items"`
+		} `json:"targets"`
+	}
+	if err := json.Unmarshal([]byte(result.Stdout), &out); err != nil {
+		t.Fatalf("invalid JSON: %v\n%s", err, result.Stdout)
+	}
+	actions := map[string]string{}
+	for _, target := range out.Targets {
+		for _, item := range target.Items {
+			actions[item.Name] = item.Action
+		}
+	}
+	return actions
+}
+
+func TestDiff_KeptOnlyTargetIsCountedInSummary(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	sb.CreateNestedSkill("_emil-design/skills/prototype", map[string]string{"SKILL.md": "---\nname: prototype\n---\n# Emil"})
+	claude := sb.CreateTarget("claude")
+	cursor := sb.CreateTarget("cursor")
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+mode: copy
+targets:
+  claude:
+    path: ` + claude + `
+  cursor:
+    path: ` + cursor + `
+`)
+	sb.RunCLI("sync").AssertSuccess(t)
+	sb.WriteFile(filepath.Join(claude, "emil-design-prototype", "SKILL.md"), "---\nname: emil-design-prototype\n---\n# Mine")
+	sb.RunCLI("target", "claude", "--target-naming", "prefixed").AssertSuccess(t)
+
+	result := sb.RunCLI("diff", "--no-tui")
+	result.AssertSuccess(t)
+	result.AssertOutputContains(t, "2 targets: 1 kept under old name, 1 in sync")
+}
+
+// A merge-made link renamed by a copy-mode migration points at the source,
+// so the rename has no file changes to show, and a dry run copies to the new name.
+func TestDiff_RenamedMergeLinkShowsNoFileChanges(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	sb.CreateNestedSkill("_emil-design/skills/prototype", map[string]string{"SKILL.md": "---\nname: prototype\n---\n# Emil"})
+	targetPath := sb.CreateTarget("claude")
+	writeNamingConfig(sb, targetPath, "flat", "merge")
+	sb.RunCLI("sync").AssertSuccess(t)
+	sb.RunCLI("target", "claude", "--mode", "copy", "--target-naming", "prefixed").AssertSuccess(t)
+
+	result := sb.RunCLI("diff", "--no-tui")
+	result.AssertSuccess(t)
+	result.AssertRowContains(t, "Renamed", "emil-design-prototype")
+	result.AssertOutputNotContains(t, "bytes")
+
+	dryRun := sb.RunCLI("sync", "--dry-run")
+	dryRun.AssertSuccess(t)
+	dryRun.AssertAnyOutputContains(t, "-> "+filepath.Join(targetPath, "emil-design-prototype"))
+	if out := dryRun.Stdout + dryRun.Stderr; strings.Contains(out, "-> "+filepath.Join(targetPath, "_emil-design__skills__prototype")+"\n") {
+		t.Errorf("dry run copies to the old name:\n%s", out)
+	}
+}

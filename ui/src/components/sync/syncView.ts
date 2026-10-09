@@ -56,7 +56,8 @@ export function resourceGroups(diffs: DiffTarget[], targets: Target[], parts: Se
       // Agents always sync as symlinks, whatever the target mode.
       const copy = part === 'skill' && target?.mode === 'copy';
       const row = { key: `${d.target}/${part}/${item.skill}`, part, name: part === 'agent' ? formatAgentDisplayName(item.skill) : item.skill } as const;
-      if (item.skill === '(target naming)') rows.push({ ...row, icon: 'kept', text: null, detail: item.reason, counts: false });
+      // A kept item: a local folder holds the new name, so sync keeps the old entry, with or without force.
+      if (item.skill === '(target naming)' || item.action === 'kept') rows.push({ ...row, icon: 'kept', text: null, detail: item.reason, counts: false });
       else if (item.skill === '(entire directory)') rows.push({ ...row, name: target?.path ?? item.skill, icon: 'add', text: 'sync.row.folder', counts: true });
       else if (item.action === 'link') rows.push({ ...row, icon: 'add', text: item.reason?.startsWith('missing') ? 'sync.row.recopy' : copy ? 'sync.row.newCopy' : 'sync.row.newLink', counts: true });
       else if (item.action === 'update') rows.push({ ...row, icon: 'update', text: copy ? 'sync.row.updateCopy' : 'sync.row.updateLink', counts: true });
@@ -167,7 +168,7 @@ export function groupByFolder(names: string[]) {
 export function changeSets(groups: ChangeGroup[]): { key: string; targets: ChangeGroup[]; rows: ChangeRow[] }[] {
   const sets = new Map<string, { key: string; targets: ChangeGroup[]; rows: ChangeRow[] }>();
   for (const g of groups) {
-    const sig = g.rows.map((r) => `${r.part}\t${r.name}\t${r.icon}\t${r.text}`).sort().join('\n');
+    const sig = g.rows.map((r) => `${r.part}\t${r.name}\t${r.icon}\t${r.text}\t${r.detail ?? ''}`).sort().join('\n');
     const set = sets.get(sig);
     if (set) set.targets.push(g);
     else sets.set(sig, { key: g.key, targets: [g], rows: g.rows });

@@ -222,7 +222,7 @@ Output suppression 按匹配的证据分级，不取决于 Markdown 上下文：
 **攻击场景：** 一个 skill 文件表面上看起来正常，但包含拼出恶意指令、仅对 AI 可见的零宽 Unicode 字符。或者一长串 base64 编码字符串解码后是一个渗出数据的 shell 脚本。
 
 **audit 检测的内容：**
-- 零宽 Unicode 字符（U+200B、U+200C、U+200D、U+2060、U+FEFF）
+- 零宽 Unicode 字符（U+200B、U+200C、U+200D、U+2060、U+FEFF）；文件开头的字节顺序标记（Windows 编辑器会写入 BOM）除外
 - 通过管道传给 shell 执行的 Base64 解码（`base64 -d | bash`）
 - 较长的 base64 编码字符串（100 个以上字符）
 - 连续的十六进制/Unicode 转义序列

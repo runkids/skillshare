@@ -43,13 +43,15 @@ type SkillTargetResult struct {
 	Linked  []string // merge: linked; copy: copied
 	Updated []string
 	Skipped []string
-	Pruned  []string // nil when no prune ran or it returned nothing
+	// KeptLocal are the skipped entries that are a user's folder on a skill's name.
+	KeptLocal []string
+	Pruned    []string // nil when no prune ran or it returned nothing
 	// LocalDirs are user folders a merge prune kept.
 	LocalDirs  []string
 	DirCreated string
 	// SymlinkStatus is the target path's status before a symlink-mode sync.
 	SymlinkStatus TargetStatus
-	Warnings      []string // prune failure, then the prune's own warnings
+	Warnings      []string // prune failure, the prune's own warnings, then the kept user folders
 	// UnmatchedIncludes are the include patterns that select no skill;
 	// UnmatchedWarnings renders them for the CLI.
 	UnmatchedIncludes []UnmatchedInclude
@@ -70,6 +72,7 @@ func SyncSkillTarget(t SkillTarget, skills []DiscoveredSkill, opts SkillRunOptio
 			return res
 		}
 		res.Linked, res.Updated, res.Skipped, res.DirCreated = result.Linked, result.Updated, result.Skipped, result.DirCreated
+		res.KeptLocal = result.Skipped // merge skips only folders the user made
 		// A partial source may hold what the filter names, so only a full one reports unmatched patterns.
 		if opts.SourceIncomplete {
 			break
@@ -92,6 +95,7 @@ func SyncSkillTarget(t SkillTarget, skills []DiscoveredSkill, opts SkillRunOptio
 			return res
 		}
 		res.Linked, res.Updated, res.Skipped, res.DirCreated = result.Copied, result.Updated, result.Skipped, result.DirCreated
+		res.KeptLocal = result.KeptLocal
 		// A partial source may hold what the filter names, so only a full one reports unmatched patterns.
 		if opts.SourceIncomplete {
 			break
@@ -117,6 +121,9 @@ func SyncSkillTarget(t SkillTarget, skills []DiscoveredSkill, opts SkillRunOptio
 			}
 		}
 		res.Err = SyncTarget(t.Name, t.Target, opts.Source, opts.DryRun, opts.ProjectRoot)
+	}
+	if len(res.KeptLocal) > 0 {
+		res.Warnings = append(res.Warnings, fmt.Sprintf("%s: %s", res.Name, keptLocalWarning(res.KeptLocal)))
 	}
 	return res
 }

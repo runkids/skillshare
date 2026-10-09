@@ -139,6 +139,7 @@ func printTargetHelp() {
 			helpRow{"skillshare target list", ""},
 			helpRow{"skillshare target cursor", ""},
 			helpRow{"skillshare target claude --agent-mode copy", ""},
+			helpRow{"skillshare target claude --mode copy --target-naming prefixed", ""},
 			helpRow{"skillshare target claude --add-include \"team-*\"", ""},
 			helpRow{"skillshare target claude --add-agent-include \"team-*\"", ""},
 			helpRow{"skillshare target claude --remove-include \"team-*\"", ""},
@@ -631,9 +632,8 @@ func targetInfo(name string, args []string) error {
 	if err != nil {
 		return err
 	}
-	// Filters return before the skills switch is read, so it would be dropped silently.
-	if settings.Skills != nil && filterOpts.hasUpdates() {
-		return fmt.Errorf("--skills/--no-skills cannot be combined with include/exclude flags; run them as separate commands")
+	if err := checkTargetFlagCombination(settings, filterOpts); err != nil {
+		return err
 	}
 
 	cfg, err := config.LoadWithoutProjects()
@@ -716,103 +716,118 @@ func targetInfo(name string, args []string) error {
 		return setTargetSkillsGlobal(cfg, name, target, *settings.Skills, settings.DryRun)
 	}
 
-	// If --mode is provided, update the mode
-	if settings.SkillMode != "" {
-		return updateTargetMode(cfg, name, target, settings.SkillMode)
-	}
-
-	if settings.AgentMode != "" {
-		return updateTargetAgentMode(cfg, name, target, settings.AgentMode)
-	}
-
-	// If --target-naming is provided, update the naming
-	if settings.Naming != "" {
-		return updateTargetNaming(cfg, name, target, settings.Naming)
+	if settings.changesTarget() {
+		return updateTargetSettingsGlobal(cfg, name, target, settings)
 	}
 
 	// Show target info
 	return showTargetInfo(cfg, name, target)
 }
 
-func updateTargetMode(cfg *config.Config, name string, target config.TargetConfig, newMode string) error {
-	if newMode != "merge" && newMode != "symlink" && newMode != "copy" {
-		return fmt.Errorf("invalid mode '%s'. Use 'merge', 'symlink', or 'copy'", newMode)
-	}
-
+func updateTargetSettingsGlobal(cfg *config.Config, name string, target config.TargetConfig, settings parsedTargetSettingFlags) error {
+	u := targetSettingsUpdate{name: name, ensureSkills: target.EnsureSkills, ensureAgents: target.EnsureAgents, save: func() error {
+		cfg.Targets[name] = target
+		return cfg.Save()
+	}}
 	sc := target.SkillsConfig()
-	oldMode := sc.Mode
-	if oldMode == "" {
-		oldMode = cfg.Mode
-		if oldMode == "" {
-			oldMode = "merge"
+	u.oldMode, u.oldNaming = cmp.Or(sc.Mode, cfg.Mode, "merge"), sc.TargetNaming
+	if settings.AgentMode != "" {
+		agentBuilder, err := targetsummary.NewGlobalBuilder(cfg)
+		if err != nil {
+			return err
+		}
+		if u.agent, err = agentBuilder.GlobalTarget(name, target); err != nil {
+			return err
+		}
+	}
+	return u.apply(settings)
+}
+
+// targetSettingsUpdate carries one target's current skills and agents settings
+// and how to write them, for --mode, --agent-mode and --target-naming in
+// global and project mode alike.
+type targetSettingsUpdate struct {
+	name               string
+	oldMode, oldNaming string                      // effective skills values
+	agent              *targetsummary.AgentSummary // set only when --agent-mode is given
+	ensureSkills       func() *config.ResourceTargetConfig
+	ensureAgents       func() *config.ResourceTargetConfig
+	save               func() error
+}
+
+// apply checks every given setting as a whole, writes the ones that differ
+// and saves once, so the config never holds half of the change. A setting the
+// target already has is reported as unchanged and, when nothing else differs,
+// the config is not rewritten.
+func (u targetSettingsUpdate) apply(settings parsedTargetSettingFlags) error {
+	if settings.SkillMode != "" && !config.IsValidSyncMode(settings.SkillMode) {
+		return fmt.Errorf("invalid mode '%s'. Use 'merge', 'symlink', or 'copy'", settings.SkillMode)
+	}
+	if settings.Naming != "" && !config.IsValidTargetNaming(settings.Naming) {
+		return fmt.Errorf("invalid target naming '%s'. Use 'flat', 'standard', or 'prefixed'", settings.Naming)
+	}
+	if settings.AgentMode != "" {
+		if !config.IsValidSyncMode(settings.AgentMode) {
+			return fmt.Errorf("invalid agent mode '%s'. Use 'merge', 'symlink', or 'copy'", settings.AgentMode)
+		}
+		if u.agent == nil {
+			return fmt.Errorf("target '%s' does not have an agents path", u.name)
 		}
 	}
 
-	if err := config.TargetNamingModeError(sc.TargetNaming, newMode); err != nil {
-		return fmt.Errorf("%w; change the target naming first", err)
+	// An agents-only change leaves the skills pair alone: a target with skills off may keep one it cannot sync.
+	if settings.SkillMode != "" || settings.Naming != "" {
+		mode, naming := cmp.Or(settings.SkillMode, u.oldMode), cmp.Or(settings.Naming, u.oldNaming)
+		if err := config.TargetNamingModeError(naming, mode); err != nil {
+			switch {
+			case settings.Naming == "":
+				return fmt.Errorf("%w; change the target naming first", err)
+			case settings.SkillMode == "":
+				return fmt.Errorf("%w; set --mode copy first", err)
+			}
+			return err
+		}
 	}
 
-	target.EnsureSkills().Mode = newMode
-	cfg.Targets[name] = target
-	if err := cfg.Save(); err != nil {
-		return err
+	type row struct {
+		label, old, want string
+		set              func(string)
+	}
+	rows := []row{
+		{"mode", u.oldMode, settings.SkillMode, func(v string) { u.ensureSkills().Mode = v }},
+		{"target naming", config.EffectiveTargetNaming(u.oldNaming), settings.Naming, func(v string) { u.ensureSkills().TargetNaming = v }},
+	}
+	if u.agent != nil {
+		rows = append(rows, row{"agent mode", u.agent.Mode, settings.AgentMode, func(v string) { u.ensureAgents().Mode = v }})
+	}
+	changed := false
+	var lines []string
+	for _, r := range rows {
+		switch {
+		case r.want == "":
+		case r.want == r.old:
+			lines = append(lines, fmt.Sprintf("%s %s unchanged: %s", u.name, r.label, r.old))
+		default:
+			r.set(r.want)
+			changed = true
+			lines = append(lines, fmt.Sprintf("Changed %s %s: %s -> %s", u.name, r.label, r.old, r.want))
+		}
+	}
+	if changed {
+		if err := u.save(); err != nil {
+			return err
+		}
 	}
 
-	ui.Done(ui.MarkOK, fmt.Sprintf("Changed %s mode: %s -> %s", name, oldMode, newMode), 0)
-	ui.Next("skillshare sync", "apply the new mode")
-	return nil
-}
-
-func updateTargetAgentMode(cfg *config.Config, name string, target config.TargetConfig, newMode string) error {
-	if newMode != "merge" && newMode != "symlink" && newMode != "copy" {
-		return fmt.Errorf("invalid agent mode '%s'. Use 'merge', 'symlink', or 'copy'", newMode)
+	for _, line := range lines {
+		ui.Done(ui.MarkOK, line, 0)
 	}
-
-	agentBuilder, err := targetsummary.NewGlobalBuilder(cfg)
-	if err != nil {
-		return err
-	}
-	agentSummary, err := agentBuilder.GlobalTarget(name, target)
-	if err != nil {
-		return err
-	}
-	if agentSummary == nil {
-		return fmt.Errorf("target '%s' does not have an agents path", name)
-	}
-
-	oldMode := agentSummary.Mode
-	target.EnsureAgents().Mode = newMode
-	cfg.Targets[name] = target
-	if err := cfg.Save(); err != nil {
-		return err
-	}
-
-	if newMode == "symlink" && (len(agentSummary.Include) > 0 || len(agentSummary.Exclude) > 0) {
+	if settings.AgentMode == "symlink" && settings.AgentMode != u.agent.Mode && (len(u.agent.Include) > 0 || len(u.agent.Exclude) > 0) {
 		ui.Warning("Agent include/exclude filters are ignored in symlink mode")
 	}
-	ui.Done(ui.MarkOK, fmt.Sprintf("Changed %s agent mode: %s -> %s", name, oldMode, newMode), 0)
-	ui.Next("skillshare sync", "apply the new mode")
-	return nil
-}
-
-func updateTargetNaming(cfg *config.Config, name string, target config.TargetConfig, newNaming string) error {
-	if !config.IsValidTargetNaming(newNaming) {
-		return fmt.Errorf("invalid target naming '%s'. Use 'flat', 'standard', or 'prefixed'", newNaming)
+	if changed {
+		ui.Next("skillshare sync", "apply the new settings")
 	}
-	if err := config.TargetNamingModeError(newNaming, cmp.Or(target.SkillsConfig().Mode, cfg.Mode)); err != nil {
-		return fmt.Errorf("%w; set --mode copy first", err)
-	}
-
-	oldNaming := config.EffectiveTargetNaming(target.SkillsConfig().TargetNaming)
-
-	target.EnsureSkills().TargetNaming = newNaming
-	cfg.Targets[name] = target
-	if err := cfg.Save(); err != nil {
-		return err
-	}
-
-	ui.Done(ui.MarkOK, fmt.Sprintf("Changed %s target naming: %s -> %s", name, oldNaming, newNaming), 0)
-	ui.Next("skillshare sync", "apply the new naming")
 	return nil
 }
 

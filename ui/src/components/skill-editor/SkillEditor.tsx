@@ -98,7 +98,7 @@ export default function SkillEditor({ resource, docName, initialContent, onBack,
   const dirty = fmDirty || body !== initial.body;
   const sourceChanged = source !== (resource.source ?? '');
   const pending = dirty || sourceChanged;
-  const next = composeSkillMarkdown(migrateRootTargets(fm), body, undefined, fmDirty ? undefined : initial.rawFrontmatter);
+  const next = composeSkillMarkdown(migrateRootTargets(fm), body, undefined, fmDirty ? undefined : initial.rawFrontmatter, initial.bom);
 
   const save = async () => {
     setSaving(true);

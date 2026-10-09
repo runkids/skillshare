@@ -35,7 +35,7 @@ func TestModeFlagsInOptionValues(t *testing.T) {
 		{"backup", []string{"backup", "--target"}, "target '-p' not found", false},
 		{"restore", []string{"restore", "--from"}, "usage: skillshare restore", false},
 		{"init", []string{"init", "--mode"}, "invalid --mode value \"-p\"", false},
-		{"target", []string{"target", "claude", "--mode"}, "target 'claude' not found", false},
+		{"target", []string{"target", "claude", "--mode"}, "--mode requires a value", false},
 		{"hub-add", []string{"hub", "add", "https://example.invalid/index.json", "--label"}, "Added hub \"-p\"", true},
 		{"hub-index", []string{"hub", "index", "--source"}, "stat -p:", false},
 		{"ui", []string{"ui", "--port"}, "unknown port", false},

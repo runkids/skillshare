@@ -93,6 +93,7 @@ cursor
 | Restore | Target にあったが削除された | `sync` が復元する |
 | Modified | 内容または target naming が変更された（copy mode） | `sync` が更新する |
 | Renamed | 管理対象のエントリが以前の `target_naming` による名前のまま | `sync` が名前を変更する |
+| Local only, skill kept under old name | 現在の `target_naming` が付ける名前をローカルフォルダーが使っているため、Skill は以前の管理対象エントリのまま（`name (stays at old-name)` と表示） | フォルダーの名前を変えるか削除してから `sync` |
 | Local override | symlink ではなくローカルコピー | `sync --force` で置き換え |
 | Orphan | マニフェストにあるが Source にない | `sync` が刈り取る |
 | Local only | Target のみに存在し、Source にない | `collect` でインポート |
@@ -238,8 +239,10 @@ skillshare diff --json
       "mode": "merge",
       "synced": false,
       "items": [
-        {"action": "link", "name": "missing-skill", "reason": "not in target", "is_sync": true},
-        {"action": "update", "name": "local-copy", "reason": "local override", "is_sync": true}
+        {"action": "add", "name": "missing-skill", "kind": "skill", "reason": "source only", "is_sync": true},
+        {"action": "modify", "name": "local-copy", "kind": "skill", "reason": "local copy (sync --force to replace)", "is_sync": true},
+        {"action": "remove", "name": "my-own-skill", "kind": "skill", "reason": "local only", "is_sync": false},
+        {"action": "kept", "name": "prototype", "kind": "skill", "reason": "local folder; the skill stays at _emil-design__skills__prototype", "is_sync": false}
       ],
       "include": [],
       "exclude": []
@@ -248,6 +251,10 @@ skillshare diff --json
   "duration": "0.045s"
 }
 ```
+
+`sync` がその target に対して行うことがない場合、`synced` は `true` です。`"is_sync": false` の項目（target にだけ存在するフォルダーなど）は引き続き一覧に表示されますが、`false` にはしません。テキスト出力でも、local-only フォルダーだけの target は同期済みとして扱われます。
+
+`action` は `add`、`modify`、`remove`、`kept` のいずれかです。`kept` は、現在の `target_naming` が付ける名前をローカルフォルダーが使っているため、Skill が以前の名前のまま残り、sync がそのフォルダーに触れないことを示します。
 
 ## 関連項目
 

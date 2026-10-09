@@ -146,12 +146,17 @@ type targetDiffResult struct {
 	dstMtime   time.Time // newest file mtime in target dir
 }
 
+// inSync reports that sync has nothing to do for the target. Folders only the
+// target holds stay listed, but sync never touches them.
+func (r targetDiffResult) inSync() bool { return r.errMsg == "" && r.syncCount == 0 }
+
 type copyDiffEntry struct {
 	action string // "add", "modify", "remove"
 	name   string
 	kind   string // "skill" or "agent" (empty defaults to "skill")
 	reason string
 	isSync bool            // true = needs sync, false = local-only
+	keptAt string          // old name a skill stays at while a local folder holds its new one; sync changes nothing, so no dstDir
 	files  []fileDiffEntry // file-level diffs (nil until populated)
 	srcDir string          // source directory path (for lazy diff)
 	dstDir string          // target directory path (for lazy diff)
@@ -167,6 +172,25 @@ func (e *copyDiffEntry) ensureFiles() {
 		return
 	}
 	e.files = diffSkillFiles(e.srcDir, e.dstDir)
+}
+
+// label is the item's name, plus the old name a kept skill stays at.
+func (e copyDiffEntry) label() string {
+	if e.keptAt == "" {
+		return e.name
+	}
+	return e.name + " (stays at " + e.keptAt + ")"
+}
+
+// keptCount counts the skills kept under their old name.
+func (r targetDiffResult) keptCount() int {
+	n := 0
+	for _, item := range r.items {
+		if item.keptAt != "" {
+			n++
+		}
+	}
+	return n
 }
 
 // latestMtime returns the newest file mtime under dir.
@@ -332,7 +356,7 @@ func (dp *diffProgress) doneTarget(name string, r targetDiffResult) {
 			dp.details[i] = "fully synced"
 		} else {
 			dp.states[i] = "done"
-			dp.details[i] = fmt.Sprintf("%d difference(s)", r.syncCount+r.localCount)
+			dp.details[i] = fmt.Sprintf("%d difference(s)", len(r.items))
 		}
 		break
 	}
@@ -489,8 +513,12 @@ func diffItemToJSON(item copyDiffEntry) diffJSONItem {
 	if k == "" {
 		k = "skill"
 	}
+	action := item.action
+	if item.keptAt != "" {
+		action = "kept" // as the Web API reports it
+	}
 	return diffJSONItem{
-		Action: item.action,
+		Action: action,
 		Name:   item.name,
 		Kind:   k,
 		Reason: item.reason,
@@ -506,7 +534,7 @@ func diffOutputJSON(results []targetDiffResult, start time.Time) error {
 		jt := diffJSONTarget{
 			Name:    r.name,
 			Mode:    r.mode,
-			Synced:  r.synced,
+			Synced:  r.inSync(),
 			Error:   r.errMsg,
 			Include: r.include,
 			Exclude: r.exclude,
@@ -533,7 +561,7 @@ func diffOutputJSONWithExtras(results []targetDiffResult, extrasResults []extraD
 		jt := diffJSONTarget{
 			Name:    r.name,
 			Mode:    r.mode,
-			Synced:  r.synced,
+			Synced:  r.inSync(),
 			Error:   r.errMsg,
 			Include: r.include,
 			Exclude: r.exclude,
@@ -640,7 +668,9 @@ func collectCopyDiff(r *targetDiffResult, targetName, targetPath string, filtere
 		dstDir := targetSkillPath
 		if !isManaged {
 			if info, err := os.Stat(targetSkillPath); err == nil {
-				if info.IsDir() {
+				if old, ok := renamedFrom[resolved.TargetName]; ok {
+					r.items = append(r.items, copyDiffEntry{action: "remove", name: resolved.TargetName, reason: sync.KeptLegacyReason(old), keptAt: old})
+				} else if info.IsDir() {
 					r.items = append(r.items, copyDiffEntry{action: "modify", name: resolved.TargetName, reason: "local copy (sync --force to replace)", isSync: true, srcDir: srcDir, dstDir: dstDir})
 				} else {
 					r.items = append(r.items, copyDiffEntry{action: "modify", name: resolved.TargetName, reason: "target entry is not a directory", isSync: true, srcDir: srcDir, dstDir: dstDir})
@@ -716,15 +746,16 @@ func collectCopyDiff(r *targetDiffResult, targetName, targetPath string, filtere
 		r.items = append(r.items, copyDiffEntry{action: "remove", name: e.Name(), reason: "local only", isSync: false, dstDir: filepath.Join(targetPath, e.Name())})
 	}
 
-	// Compute counts
+	// Compute counts. A kept legacy entry is shown but counts as neither:
+	// sync changes nothing until the user moves the folder.
 	for _, item := range r.items {
 		if item.isSync {
 			r.syncCount++
-		} else {
+		} else if item.keptAt == "" {
 			r.localCount++
 		}
 	}
-	r.synced = r.syncCount == 0 && r.localCount == 0
+	r.synced = len(r.items) == 0
 }
 
 func collectMergeDiff(r *targetDiffResult, targetPath string, sourceSkills map[string]bool, sourceMap map[string]string, legacyNames map[string]sync.ResolvedTargetSkill) {
@@ -759,6 +790,8 @@ func collectMergeDiff(r *targetDiffResult, targetPath string, sourceSkills map[s
 		} else if !targetSkills[skill] {
 			r.items = append(r.items, copyDiffEntry{action: "add", name: skill, reason: "source only", isSync: true, srcDir: srcDir, dstDir: dstDir})
 			r.syncCount++
+		} else if old, ok := renamedFrom[skill]; ok && !targetSymlinks[skill] {
+			r.items = append(r.items, copyDiffEntry{action: "remove", name: skill, reason: sync.KeptLegacyReason(old), keptAt: old})
 		} else if !targetSymlinks[skill] {
 			r.items = append(r.items, copyDiffEntry{action: "modify", name: skill, reason: "local copy (sync --force to replace)", isSync: true, srcDir: srcDir, dstDir: dstDir})
 			r.syncCount++
@@ -776,7 +809,7 @@ func collectMergeDiff(r *targetDiffResult, targetPath string, sourceSkills map[s
 		}
 	}
 
-	r.synced = r.syncCount == 0 && r.localCount == 0
+	r.synced = len(r.items) == 0
 }
 
 // diffFingerprint generates a grouping key from diff items.
@@ -799,7 +832,7 @@ func diffFingerprint(items []copyDiffEntry) string {
 
 // actionCategory groups diff items by the user action needed.
 type actionCategory struct {
-	kind   string // "new", "modified", "restore", "override", "orphan", "local", "warn"
+	kind   string // "new", "modified", "restore", "override", "kept", "orphan", "local", "warn"
 	label  string // e.g. "New", "Modified", "Local Override"
 	names  []string
 	expand bool // true = list skill names
@@ -838,6 +871,8 @@ func categorizeItems(items []copyDiffEntry) []actionCategory {
 			add("override", "override", "Local Override", item.name)
 		case strings.Contains(item.reason, "orphan"):
 			add("orphan", "orphan", "Orphan", item.name)
+		case item.keptAt != "":
+			add("kept", "kept", "Local only, skill kept under old name", item.name)
 		case item.reason == "local only" || item.reason == "not in source" || item.reason == "local file":
 			add("local", "local", "Local Only", item.name)
 		default:
@@ -879,6 +914,7 @@ func renderGroupedDiffs(results []targetDiffResult, extras []extraDiffResult, op
 
 	var errorResults []targetDiffResult
 	var syncedNames []string
+	localOnly := 0 // in sync, but listed for the folders only the target holds
 	type diffGroup struct {
 		names  []string
 		result targetDiffResult
@@ -915,11 +951,20 @@ func renderGroupedDiffs(results []targetDiffResult, extras []extraDiffResult, op
 
 	out := &diffOutput{}
 	var next diffNext
-	needCount := 0
+	needCount, keptCount := 0, 0
 	for _, fp := range groupOrder {
 		g := groups[fp]
 		sort.Strings(g.names)
-		needCount += len(g.names)
+		// Kept rows need the user to move a folder first, so they are neither
+		// in sync nor something sync can apply.
+		switch {
+		case g.result.syncCount == 0 && g.result.keptCount() > 0:
+			keptCount += len(g.names)
+		case g.result.inSync():
+			localOnly += len(g.names)
+		default:
+			needCount += len(g.names)
+		}
 		out.section(strings.Join(g.names, ", "))
 		renderDiffGroup(g.result, opts, &next, groupWidth)
 	}
@@ -957,7 +1002,7 @@ func renderGroupedDiffs(results []targetDiffResult, extras []extraDiffResult, op
 		fmt.Println()
 	}
 	total := len(results)
-	if needCount == 0 && len(errorResults) == 0 {
+	if needCount == 0 && keptCount == 0 && len(errorResults) == 0 {
 		text := "No differences"
 		switch {
 		case total == 1:
@@ -967,6 +1012,7 @@ func renderGroupedDiffs(results []targetDiffResult, extras []extraDiffResult, op
 		}
 		if extrasNeed == 0 {
 			ui.Done(ui.MarkOK, text, 0)
+			ui.Next(next.pairs()...)
 			return
 		}
 		if total == 0 {
@@ -982,11 +1028,14 @@ func renderGroupedDiffs(results []targetDiffResult, extras []extraDiffResult, op
 	if needCount > 0 {
 		parts = append(parts, fmt.Sprintf("%d to sync", needCount))
 	}
+	if keptCount > 0 {
+		parts = append(parts, fmt.Sprintf("%d kept under old name", keptCount))
+	}
 	if len(errorResults) > 0 {
 		parts = append(parts, fmt.Sprintf("%d unreadable", len(errorResults)))
 	}
-	if len(syncedNames) > 0 {
-		parts = append(parts, fmt.Sprintf("%d in sync", len(syncedNames)))
+	if n := len(syncedNames) + localOnly; n > 0 {
+		parts = append(parts, fmt.Sprintf("%d in sync", n))
 	}
 	text := plural(total, "target")
 	if len(parts) > 0 {
@@ -1019,10 +1068,14 @@ func (o *diffOutput) section(name string) {
 	fmt.Println(ui.Bold + name + ui.Reset)
 }
 
+// keptSyncHint says when sync moves a skill kept under its old name.
+const keptSyncHint = "after renaming or removing the local folders kept under the old name"
+
 // diffNext collects which commands would resolve the differences shown.
 type diffNext struct {
 	skills, agents, extras bool // something to sync
 	force                  bool // local copies sync would only replace with --force
+	kept                   bool // local folders holding a skill's new name
 	collectSkills          bool // local-only skills
 	collectAgents          bool // local-only agents
 }
@@ -1042,6 +1095,9 @@ func (n diffNext) pairs() []string {
 	}
 	if n.force {
 		pairs = append(pairs, "skillshare sync --force", "also replace local copies")
+	}
+	if n.kept {
+		pairs = append(pairs, "skillshare sync", keptSyncHint)
 	}
 	if n.collectSkills {
 		pairs = append(pairs, "skillshare collect", "copy local-only skills into source")
@@ -1081,6 +1137,8 @@ func renderDiffGroup(r targetDiffResult, opts diffRenderOpts, next *diffNext, wi
 			switch {
 			case cat.kind == "override":
 				next.force = true
+			case cat.kind == "kept":
+				next.kept = true
 			case cat.kind == "local" && agent:
 				next.collectAgents = true
 			case cat.kind == "local":
@@ -1096,8 +1154,15 @@ func renderDiffGroup(r targetDiffResult, opts diffRenderOpts, next *diffNext, wi
 			ui.Row(ui.MarkNone, labels[i], plural(len(cat.names), "item"), width)
 			continue
 		}
+		shown := cat.names
+		if cat.kind == "kept" {
+			shown = make([]string, len(cat.names))
+			for j, name := range cat.names {
+				shown[j] = findDiffItem(items, name).label()
+			}
+		}
 		if !opts.showStat && !opts.showPatch && cat.kind != "modified" {
-			ui.Row(ui.MarkNone, labels[i], strings.Join(cat.names, ", "), width)
+			ui.Row(ui.MarkNone, labels[i], strings.Join(shown, ", "), width)
 			continue
 		}
 		for j, name := range cat.names {
@@ -1105,7 +1170,7 @@ func renderDiffGroup(r targetDiffResult, opts diffRenderOpts, next *diffNext, wi
 			if j == 0 {
 				label = labels[i]
 			}
-			ui.Row(ui.MarkNone, label, name, width)
+			ui.Row(ui.MarkNone, label, shown[j], width)
 			item := findDiffItem(items, name)
 			if item == nil {
 				continue

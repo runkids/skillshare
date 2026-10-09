@@ -116,49 +116,71 @@ func parseFilterFlags(args []string) (parsedTargetFilterFlags, []string, error) 
 	return opts, rest, nil
 }
 
+// settingValue returns the value after args[i]. A following flag counts as
+// missing: parseModeArgs hands over the token after a value flag, so
+// "--target-naming -p" arrives here with -p as its apparent value.
+func settingValue(args []string, i int, flag, hint string) (string, error) {
+	if i+1 >= len(args) || args[i+1] == "" || strings.HasPrefix(args[i+1], "-") {
+		return "", fmt.Errorf("%s requires a value (%s)", flag, hint)
+	}
+	return args[i+1], nil
+}
+
 func parseTargetSettingFlags(args []string) (parsedTargetSettingFlags, error) {
 	var settings parsedTargetSettingFlags
 
 	for i := 0; i < len(args); i++ {
+		var err error
 		switch args[i] {
 		case "--mode", "-m":
-			if i+1 >= len(args) {
-				return settings, fmt.Errorf("--mode requires a value (merge, symlink, or copy)")
-			}
-			settings.SkillMode = args[i+1]
+			settings.SkillMode, err = settingValue(args, i, "--mode", "merge, symlink, or copy")
 			i++
 		case "--agent-mode":
-			if i+1 >= len(args) {
-				return settings, fmt.Errorf("--agent-mode requires a value (merge, symlink, or copy)")
-			}
-			settings.AgentMode = args[i+1]
+			settings.AgentMode, err = settingValue(args, i, "--agent-mode", "merge, symlink, or copy")
 			i++
 		case "--target-naming":
-			if i+1 >= len(args) {
-				return settings, fmt.Errorf("--target-naming requires a value (flat, standard, or prefixed)")
-			}
-			settings.Naming = args[i+1]
+			settings.Naming, err = settingValue(args, i, "--target-naming", "flat, standard, or prefixed")
 			i++
 		case "--skills":
-			if i+1 >= len(args) {
-				return settings, fmt.Errorf("--skills requires a value (true or false)")
+			var value string
+			if value, err = settingValue(args, i, "--skills", "true or false"); err == nil {
+				err = setSkillsFlag(&settings, value)
 			}
 			i++
-			if err := setSkillsFlag(&settings, args[i]); err != nil {
-				return settings, err
-			}
 		case "--dry-run", "-n":
 			settings.DryRun = true
 		default:
 			if value, ok := strings.CutPrefix(args[i], "--skills="); ok {
-				if err := setSkillsFlag(&settings, value); err != nil {
-					return settings, err
-				}
+				err = setSkillsFlag(&settings, value)
 			}
+		}
+		if err != nil {
+			return settings, err
 		}
 	}
 
 	return settings, nil
+}
+
+// changesTarget reports whether any of --mode, --agent-mode or --target-naming is given.
+func (s parsedTargetSettingFlags) changesTarget() bool {
+	return s.SkillMode != "" || s.AgentMode != "" || s.Naming != ""
+}
+
+// checkTargetFlagCombination refuses flag groups the dispatch cannot apply
+// together, so none is dropped silently: filters, --skills and the
+// mode/naming settings each run as their own command.
+func checkTargetFlagCombination(settings parsedTargetSettingFlags, filters parsedTargetFilterFlags) error {
+	if settings.Skills != nil && filters.hasUpdates() {
+		return fmt.Errorf("--skills/--no-skills cannot be combined with include/exclude flags; run them as separate commands")
+	}
+	if settings.DryRun && settings.Skills == nil {
+		return fmt.Errorf("--dry-run only previews --skills=false; it is not supported with other target flags")
+	}
+	if settings.changesTarget() && (settings.Skills != nil || filters.hasUpdates()) {
+		return fmt.Errorf("--mode/--agent-mode/--target-naming cannot be combined with include/exclude flags or --skills; run them as separate commands")
+	}
+	return nil
 }
 
 func setSkillsFlag(settings *parsedTargetSettingFlags, value string) error {

@@ -93,6 +93,7 @@ cursor
 | Restore | 曾存在于 Target 中，已被删除 | `sync` 会恢复它 |
 | Modified | 内容或 target naming 已更改（copy mode） | `sync` 会更新它 |
 | Renamed | 受管理的条目仍使用之前 `target_naming` 给出的名称 | `sync` 会重命名它 |
+| Local only, skill kept under old name | 本地文件夹占用了当前 `target_naming` 给 skill 的名称，skill 保留在旧的受管理条目，显示为 `name (stays at old-name)` | 重命名或删除该文件夹后 `sync` |
 | Local override | 本地副本而非 symlink | 使用 `sync --force` 替换 |
 | Orphan | 存在于 manifest 中，但不在 Source 中 | `sync` 会清理它 |
 | Local only | 仅存在于 Target 中，不在 Source 中 | 使用 `collect` 导入 |
@@ -238,8 +239,10 @@ skillshare diff --json
       "mode": "merge",
       "synced": false,
       "items": [
-        {"action": "link", "name": "missing-skill", "reason": "not in target", "is_sync": true},
-        {"action": "update", "name": "local-copy", "reason": "local override", "is_sync": true}
+        {"action": "add", "name": "missing-skill", "kind": "skill", "reason": "source only", "is_sync": true},
+        {"action": "modify", "name": "local-copy", "kind": "skill", "reason": "local copy (sync --force to replace)", "is_sync": true},
+        {"action": "remove", "name": "my-own-skill", "kind": "skill", "reason": "local only", "is_sync": false},
+        {"action": "kept", "name": "prototype", "kind": "skill", "reason": "local folder; the skill stays at _emil-design__skills__prototype", "is_sync": false}
       ],
       "include": [],
       "exclude": []
@@ -248,6 +251,10 @@ skillshare diff --json
   "duration": "0.045s"
 }
 ```
+
+当 `sync` 对该 target 无事可做时，`synced` 为 `true`。`"is_sync": false` 的条目（例如只存在于 target 的文件夹）仍会列出，但不会让它变成 `false`。文本输出同样把只有 local-only 文件夹的 target 视为已同步。
+
+`action` 为 `add`、`modify`、`remove` 或 `kept`。`kept` 表示本地文件夹占用了当前 `target_naming` 给 skill 的名称，skill 保留在旧名称下，sync 不会改动该文件夹。
 
 ## 另请参阅
 

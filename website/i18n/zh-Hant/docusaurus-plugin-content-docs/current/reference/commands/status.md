@@ -77,7 +77,7 @@ Targets                     skills                agents
 |------|------|
 | `✓ 8 linked` / `✓ 8 copied` | 預期的 skill 都已就位。merge 與 copy 模式以經過 `include`/`exclude` 過濾後的集合計算 |
 | `· 2 local` | 該資料夾中你自己的 skill，sync 不會動它們 |
-| `! 6/8 linked` | 部分 skill 尚未同步；status 最後會列出數量與 `sync` 指令 |
+| `! 6/8 linked` | 部分 skill 尚未同步；status 最後會列出數量與 `sync` 指令。`sync` 刻意略過的 skill（`standard` 或 `prefixed` 命名下名稱無效，或名稱衝突）不計入，因為再執行 `sync` 也補不上；`sync` 會列出它們 |
 | `✓ symlinked` | symlink 模式：整個資料夾連結到 source |
 | `! needs sync` | 模式已變更，執行 `sync` 套用 |
 | `! has files` / `! not synced yet` | 這個 target 還沒同步過 |

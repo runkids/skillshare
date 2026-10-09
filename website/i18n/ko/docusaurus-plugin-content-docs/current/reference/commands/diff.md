@@ -93,6 +93,7 @@ cursor
 | Restore | target에 있었으나 삭제됨 | `sync`가 복원함 |
 | Modified | 콘텐츠 또는 target naming이 변경됨(copy mode) | `sync`가 업데이트함 |
 | Renamed | 관리 항목이 이전 `target_naming`이 준 이름을 아직 사용함 | `sync`가 이름을 변경함 |
+| Local only, skill kept under old name | 현재 `target_naming`이 skill에 주는 이름을 로컬 폴더가 사용 중이라 skill이 이전 관리 항목에 남음(`name (stays at old-name)`으로 표시) | 폴더 이름을 바꾸거나 삭제한 뒤 `sync` |
 | Local override | symlink 대신 local 사본 | `sync --force`로 교체 |
 | Orphan | manifest에는 있지만 source에는 없음 | `sync`가 제거함 |
 | Local only | target에만 존재, source에는 없음 | `collect`로 가져오기 |
@@ -238,8 +239,10 @@ skillshare diff --json
       "mode": "merge",
       "synced": false,
       "items": [
-        {"action": "link", "name": "missing-skill", "reason": "not in target", "is_sync": true},
-        {"action": "update", "name": "local-copy", "reason": "local override", "is_sync": true}
+        {"action": "add", "name": "missing-skill", "kind": "skill", "reason": "source only", "is_sync": true},
+        {"action": "modify", "name": "local-copy", "kind": "skill", "reason": "local copy (sync --force to replace)", "is_sync": true},
+        {"action": "remove", "name": "my-own-skill", "kind": "skill", "reason": "local only", "is_sync": false},
+        {"action": "kept", "name": "prototype", "kind": "skill", "reason": "local folder; the skill stays at _emil-design__skills__prototype", "is_sync": false}
       ],
       "include": [],
       "exclude": []
@@ -248,6 +251,10 @@ skillshare diff --json
   "duration": "0.045s"
 }
 ```
+
+`sync`가 해당 target에서 할 일이 없으면 `synced`는 `true`입니다. `"is_sync": false` 항목(target에만 있는 폴더 등)은 계속 목록에 표시되지만 `false`로 만들지 않습니다. 텍스트 출력에서도 local-only 폴더만 있는 target은 동기화된 것으로 취급합니다.
+
+`action`은 `add`, `modify`, `remove`, `kept` 중 하나입니다. `kept`는 현재 `target_naming`이 skill에 주는 이름을 로컬 폴더가 사용 중이라 skill이 이전 이름으로 남고 sync가 그 폴더를 건드리지 않는다는 뜻입니다.
 
 ## 참고
 
