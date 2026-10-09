@@ -441,3 +441,20 @@ func TestInstallTrackedRepo_UpdateAcceptsSourceThatIsTheDestination(t *testing.T
 		t.Errorf("Action = %q, want updated", result.Action)
 	}
 }
+
+func TestInstallTrackedRepo_ForceReportsRootSkillUnderFinalName(t *testing.T) {
+	remoteURL := makeRemote(t, "")
+	sourceDir := t.TempDir()
+	source := &Source{Type: SourceTypeGitHTTPS, Raw: remoteURL, CloneURL: remoteURL}
+	if _, err := InstallTrackedRepo(source, sourceDir, InstallOptions{Name: "foo"}); err != nil {
+		t.Fatalf("first install: %v", err)
+	}
+
+	result, err := InstallTrackedRepo(source, sourceDir, InstallOptions{Name: "foo", Force: true})
+	if err != nil {
+		t.Fatalf("forced reinstall: %v", err)
+	}
+	if len(result.Skills) != 1 || result.Skills[0] != "_foo" {
+		t.Errorf("Skills = %v, want [_foo]", result.Skills)
+	}
+}

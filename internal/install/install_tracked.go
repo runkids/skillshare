@@ -216,6 +216,9 @@ func installTrackedRepoImpl(source *Source, sourceDir string, opts InstallOption
 	skills := discoverSkills(clonePath, true)
 	result.SkillCount = len(skills)
 	for _, skill := range skills {
+		if skill.Path == "." {
+			skill.Name = trackedName // the root skill is named after its directory, not the staging one
+		}
 		result.Skills = append(result.Skills, skill.Name)
 	}
 	result.Warnings = append(result.Warnings, SubmoduleWarnings(clonePath, source.authEnv())...)
