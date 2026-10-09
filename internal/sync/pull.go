@@ -42,11 +42,11 @@ type PullResult struct {
 	Failed   map[string]error
 }
 
-// HasSkillFile reports whether dir holds a SKILL.md file; a folder without one
-// (a scratch dir) is not a skill.
+// HasSkillFile reports whether dir holds a regular SKILL.md file; a folder
+// without one (a scratch dir) is not a skill, and a FIFO would block a copy.
 func HasSkillFile(dir string) bool {
 	info, err := os.Stat(filepath.Join(dir, "SKILL.md"))
-	return err == nil && !info.IsDir()
+	return err == nil && info.Mode().IsRegular()
 }
 
 // FindLocalSkills finds all local (non-symlinked) skills in a target directory.

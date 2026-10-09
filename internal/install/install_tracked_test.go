@@ -315,22 +315,40 @@ func TestInferTrackedKind_LocalBareRepoPath(t *testing.T) {
 	}
 }
 
-func TestInstallTrackedRepo_RefusesLocalSourceThatIsTheDestination(t *testing.T) {
-	sourceDir := t.TempDir()
-	dest := filepath.Join(sourceDir, "_foo")
-	mustRunGit(t, "", "init", "-b", "main", dest)
-	if err := os.WriteFile(filepath.Join(dest, "SKILL.md"), []byte("# unpushed"), 0644); err != nil {
-		t.Fatal(err)
+func TestInstallTrackedRepo_RefusesLocalSourceInsideTheDestination(t *testing.T) {
+	cases := []struct {
+		name   string
+		repo   string // relative to the destination
+		source func(repo string) string
+		dryRun bool
+	}{
+		{"same path", "", func(p string) string { return p }, false},
+		{"nested path", "nested", func(p string) string { return p }, false},
+		{"explicit file URL", "nested", func(p string) string { return fileURL(p) }, false},
+		{"dry run", "nested", func(p string) string { return p }, true},
 	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			sourceDir := t.TempDir()
+			dest := filepath.Join(sourceDir, "_foo")
+			repo := filepath.Join(dest, tc.repo)
+			mustRunGit(t, "", "init", "-b", "main", repo)
+			marker := filepath.Join(repo, "SKILL.md")
+			if err := os.WriteFile(marker, []byte("# unpushed"), 0644); err != nil {
+				t.Fatal(err)
+			}
 
-	source, err := ParseSource(dest)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := InstallTrackedRepo(source, sourceDir, InstallOptions{Name: "foo", Force: true}); err == nil {
-		t.Fatal("expected an error when the source is the install destination")
-	}
-	if _, err := os.Stat(filepath.Join(dest, "SKILL.md")); err != nil {
-		t.Fatalf("destination must be left intact: %v", err)
+			source, err := ParseSource(tc.source(repo))
+			if err != nil {
+				t.Fatal(err)
+			}
+			_, err = InstallTrackedRepo(source, sourceDir, InstallOptions{Name: "foo", Force: true, DryRun: tc.dryRun})
+			if err == nil {
+				t.Fatal("expected an error when the source is inside the install destination")
+			}
+			if _, err := os.Stat(marker); err != nil {
+				t.Fatalf("source must be left intact: %v", err)
+			}
+		})
 	}
 }

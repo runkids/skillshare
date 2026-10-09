@@ -21,6 +21,39 @@ func localFileURL(path string) string {
 	return (&url.URL{Scheme: "file", Path: p}).String()
 }
 
+// localCloneSource returns the filesystem path a local source clones from, or
+// "" for a remote one.
+func localCloneSource(source *Source) string {
+	if source.Path != "" {
+		return source.Path
+	}
+	u, err := url.Parse(source.CloneURL)
+	if err != nil || u.Scheme != "file" || u.Host != "" {
+		return ""
+	}
+	// file:///C:/repo carries the drive after a leading slash.
+	if p := u.Path; len(p) > 2 && p[0] == '/' && p[2] == ':' {
+		return filepath.FromSlash(p[1:])
+	}
+	return filepath.FromSlash(u.Path)
+}
+
+// pathWithin reports whether path is dir itself or lies below it, after
+// resolving links.
+func pathWithin(dir, path string) bool {
+	resolve := func(p string) string {
+		if abs, err := filepath.Abs(p); err == nil {
+			p = abs
+		}
+		if r, err := filepath.EvalSymlinks(p); err == nil {
+			p = r
+		}
+		return p
+	}
+	rel, err := filepath.Rel(resolve(dir), resolve(path))
+	return err == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator))
+}
+
 // normalizeTrackSource turns a local path that is a git repository into the
 // file:// form that parseFileURL builds, and rejects other non-git sources.
 func normalizeTrackSource(source *Source) error {
@@ -92,10 +125,10 @@ func installTrackedRepoImpl(source *Source, sourceDir string, opts InstallOption
 	}
 
 	// Check if already exists
-	if destInfo, err := os.Stat(destPath); err == nil {
+	if _, err := os.Stat(destPath); err == nil {
 		// --force removes the destination before cloning; never do that to the clone source.
-		if srcInfo, srcErr := os.Stat(source.Path); source.Path != "" && srcErr == nil && os.SameFile(srcInfo, destInfo) {
-			return nil, fmt.Errorf("source %s is the install destination; nothing to install", source.Path)
+		if p := localCloneSource(source); p != "" && pathWithin(destPath, p) {
+			return nil, fmt.Errorf("source %s is inside the install destination %s; nothing to install", p, destPath)
 		}
 		if opts.Update {
 			return updateTrackedRepo(destPath, result, opts)

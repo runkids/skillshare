@@ -371,3 +371,13 @@ func TestFindLocalSkills_SkipsDirWithoutSkillMd(t *testing.T) {
 		t.Fatalf("expected only my-local, got %+v", skills)
 	}
 }
+
+func TestHasSkillFile_RejectsDirectoryNamedSkillMd(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.Mkdir(filepath.Join(dir, "SKILL.md"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	if HasSkillFile(dir) {
+		t.Error("a directory named SKILL.md is not a skill file")
+	}
+}

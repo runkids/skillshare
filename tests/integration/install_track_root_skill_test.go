@@ -388,3 +388,24 @@ func TestInstall_Track_LocalBareRepoPath(t *testing.T) {
 		t.Fatalf("tracked repo should be cloned to _bare-local")
 	}
 }
+
+// TestInstall_Track_Force_KeepsLocalSourceInsideDestination verifies that
+// --force never removes the repository it is meant to clone from.
+func TestInstall_Track_Force_KeepsLocalSourceInsideDestination(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	setupGlobalConfig(sb)
+
+	dest := filepath.Join(sb.SourcePath, "_foo")
+	for _, repo := range []string{dest, filepath.Join(dest, "nested")} {
+		run(t, "", "git", "init", "--initial-branch=main", repo)
+		os.WriteFile(filepath.Join(repo, "SKILL.md"), []byte("---\nname: foo\n---\n# unpushed\n"), 0644)
+
+		result := sb.RunCLI("install", repo, "--track", "--name", "foo", "--force", "--skip-audit")
+		result.AssertFailure(t)
+		result.AssertAnyOutputContains(t, "inside the install destination")
+		if !sb.FileExists(filepath.Join(repo, "SKILL.md")) {
+			t.Fatalf("source %s must be left intact", repo)
+		}
+	}
+}
