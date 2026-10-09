@@ -820,7 +820,7 @@ func reportCollisions(skills []sync.DiscoveredSkill, targets map[string]config.T
 		anyPrefixed, anyOther = anyPrefixed || info.Prefixed, anyOther || info.Other
 	}
 	if anyPrefixed {
-		ui.Note("A tracked skill cannot be renamed in SKILL.md: rename the other skill, or re-track the repo with --name (prefixed naming puts the repo name in front)")
+		ui.Note("A tracked skill cannot be renamed in SKILL.md: rename the other skill, re-track the repo with --name (prefixed naming puts the repo name in front), or adjust include/exclude filters")
 	}
 	if anyOther {
 		ui.Note("Rename one in SKILL.md or adjust include/exclude filters")

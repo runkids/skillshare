@@ -400,6 +400,17 @@ targets:
 	result.AssertOutputContains(t, "Rename one in SKILL.md")
 }
 
+func TestSync_TargetNamingPrefixed_SameRepoDuplicateStillOffersFilters(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	// Re-tracking cannot separate two skills of one repo, so filters must be offered.
+	sb.CreateNestedSkill("_repo/a/dup", map[string]string{"SKILL.md": "---\nname: dup\n---\n# A"})
+	sb.CreateNestedSkill("_repo/b/dup", map[string]string{"SKILL.md": "---\nname: dup\n---\n# B"})
+	writeNamingConfig(sb, sb.CreateTarget("claude"), "prefixed", "copy")
+
+	sb.RunCLI("sync").AssertOutputContains(t, "adjust include/exclude filters")
+}
+
 func TestSync_TargetNamingPrefixed_UnderscoreFolderWithoutRepoIsNotTracked(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
