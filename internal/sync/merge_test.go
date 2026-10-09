@@ -140,6 +140,75 @@ func TestSyncTargetMerge_ForceReplacesLocal(t *testing.T) {
 	}
 }
 
+// A copy the manifest records with a checksum was made by copy mode, so
+// switching back to merge turns it into a link without --force.
+func TestSyncTargetMerge_ReplacesCopyModeCopy(t *testing.T) {
+	src, tgt := setupMergeTest(t, "alpha")
+	target := config.TargetConfig{Path: tgt, Mode: "merge"}
+
+	copyDir := filepath.Join(tgt, "alpha")
+	os.MkdirAll(copyDir, 0755)
+	if err := WriteManifest(tgt, &Manifest{Managed: map[string]string{"alpha": "abc123"}}); err != nil {
+		t.Fatal(err)
+	}
+
+	result, err := SyncTargetMerge("test", target, src, false, false, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result.Updated) != 1 || len(result.Skipped) != 0 {
+		t.Errorf("expected copy-mode copy updated, got updated=%v skipped=%v", result.Updated, result.Skipped)
+	}
+	if !utils.IsSymlinkOrJunction(copyDir) {
+		t.Error("expected a link after switching back to merge")
+	}
+	manifest, _ := ReadManifest(tgt)
+	if manifest.Managed["alpha"] != "symlink" {
+		t.Errorf("manifest should record a link, got %q", manifest.Managed["alpha"])
+	}
+}
+
+func TestSyncTargetMerge_ReplacesCopyModeCopy_DryRun(t *testing.T) {
+	src, tgt := setupMergeTest(t, "alpha")
+	target := config.TargetConfig{Path: tgt, Mode: "merge"}
+
+	copyDir := filepath.Join(tgt, "alpha")
+	os.MkdirAll(copyDir, 0755)
+	if err := WriteManifest(tgt, &Manifest{Managed: map[string]string{"alpha": "abc123"}}); err != nil {
+		t.Fatal(err)
+	}
+
+	result, err := SyncTargetMerge("test", target, src, true, false, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result.Updated) != 1 {
+		t.Errorf("expected dry-run to report the copy as updated, got %v", result.Updated)
+	}
+	if utils.IsSymlinkOrJunction(copyDir) {
+		t.Error("dry-run must leave the copy in place")
+	}
+}
+
+// A folder the manifest records as a link is not a copy-mode copy; it is the user's.
+func TestSyncTargetMerge_KeepsFolderRecordedAsLink(t *testing.T) {
+	src, tgt := setupMergeTest(t, "alpha")
+	target := config.TargetConfig{Path: tgt, Mode: "merge"}
+
+	os.MkdirAll(filepath.Join(tgt, "alpha"), 0755)
+	if err := WriteManifest(tgt, &Manifest{Managed: map[string]string{"alpha": "symlink"}}); err != nil {
+		t.Fatal(err)
+	}
+
+	result, err := SyncTargetMerge("test", target, src, false, false, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result.Skipped) != 1 || len(result.Updated) != 0 {
+		t.Errorf("expected folder kept, got skipped=%v updated=%v", result.Skipped, result.Updated)
+	}
+}
+
 func TestSyncTargetMerge_DryRun(t *testing.T) {
 	src, tgt := setupMergeTest(t, "alpha")
 	target := config.TargetConfig{Path: tgt, Mode: "merge"}

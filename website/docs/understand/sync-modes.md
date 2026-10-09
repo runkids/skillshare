@@ -186,6 +186,8 @@ skillshare target claude --mode merge
 skillshare sync
 ```
 
+Copies that copy mode made are replaced with links on that sync, without `--force`. Folders you made yourself, which the manifest does not record, are kept; `--force` replaces those too.
+
 ### By-target overrides (recommended)
 
 You do not need one global mode for every target. A common pattern is:

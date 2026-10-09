@@ -91,7 +91,7 @@ Targets with different results (e.g. due to `include`/`exclude` filters) are sti
 |-------|---------|--------|
 | New | In source, missing in target | `sync` will add it |
 | Restore | Was in target, deleted | `sync` will restore it |
-| Modified | Content or target naming changed (copy mode) | `sync` will update it |
+| Modified | Content or target naming changed (copy mode), or a copy-mode copy that merge sync replaces with a link | `sync` will update it |
 | Renamed | Managed entry still under the name an earlier `target_naming` gave it | `sync` will rename it |
 | Local override | Local copy instead of symlink | `sync --force` to replace |
 | Orphan | In manifest but not in source | `sync` will prune it |

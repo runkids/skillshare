@@ -187,6 +187,8 @@ skillshare target claude --mode merge
 skillshare sync
 ```
 
+copy mode が作ったコピーは、この sync で `--force` なしにリンクへ置き換えられます。manifest に記録されていない自作のフォルダーはそのまま残り、置き換えるには `--force` が必要です。
+
 ### target ごとの上書き(推奨)
 
 すべての target に対して 1 つのグローバルモードを使う必要はありません。よくあるパターンは次の通りです。

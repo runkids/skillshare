@@ -186,6 +186,8 @@ skillshare target claude --mode merge
 skillshare sync
 ```
 
+copy mode가 만든 복사본은 이 sync에서 `--force` 없이 링크로 교체됩니다. manifest에 기록되지 않은 직접 만든 폴더는 그대로 유지되며, 교체하려면 `--force`가 필요합니다.
+
 ### Target별 재정의 (권장)
 
 모든 target에 대해 하나의 global mode를 사용할 필요는 없습니다. 흔한 패턴은 다음과 같습니다:

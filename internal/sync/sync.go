@@ -558,7 +558,8 @@ func ensureRealTargetDir(targetPath, sourcePath, modeName string, dryRun bool) (
 // SyncTargetMerge performs merge mode sync - creates symlinks for each skill individually
 // while preserving target-specific skills.
 // Supports nested skills: source path "personal/writing/email" becomes target symlink "personal__writing__email"
-// If force is true, local copies will be replaced with symlinks.
+// If force is true, local copies will be replaced with symlinks. Copies that copy
+// mode made (recorded in the manifest) are always replaced.
 func SyncTargetMerge(name string, target config.TargetConfig, sourcePath string, dryRun, force bool, projectRoot string) (*MergeResult, error) {
 	skills, err := DiscoverSourceSkills(sourcePath)
 	if err != nil {
@@ -661,8 +662,8 @@ func SyncTargetMergeWithSkills(name string, target config.TargetConfig, allSkill
 				result.Updated = append(result.Updated, activeName)
 			} else {
 				// It's a real directory
-				if force {
-					// Force: replace local copy with symlink
+				if force || manifest.IsCopyModeCopy(activeName) {
+					// Force, or a copy left by copy mode: replace it with a symlink
 					if dryRun {
 						if !quietDryRun {
 							fmt.Fprintf(DiagOutput, "[dry-run] Would replace local copy: %s\n", activeName)

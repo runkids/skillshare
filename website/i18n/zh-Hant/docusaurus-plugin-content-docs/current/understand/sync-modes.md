@@ -186,6 +186,8 @@ skillshare target claude --mode merge
 skillshare sync
 ```
 
+copy mode 建立的副本會在這次 sync 中被替換為連結，不需要 `--force`。manifest 沒有記錄的自建資料夾會保留，要替換它們需要 `--force`。
+
 ### 依 target 覆寫（建議做法）
 
 你不需要為每個 target 使用同一個全域 mode。常見的做法是：

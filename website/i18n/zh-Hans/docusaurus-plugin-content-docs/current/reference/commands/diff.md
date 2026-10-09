@@ -91,7 +91,7 @@ cursor
 |-------|---------|--------|
 | New | 存在于 Source，但 Target 中缺失 | `sync` 会添加它 |
 | Restore | 曾存在于 Target 中，已被删除 | `sync` 会恢复它 |
-| Modified | 内容或 target naming 已更改（copy mode） | `sync` 会更新它 |
+| Modified | 内容或 target naming 已更改（copy mode），或 merge sync 会替换为链接的 copy mode 副本 | `sync` 会更新它 |
 | Renamed | 受管理的条目仍使用之前 `target_naming` 给出的名称 | `sync` 会重命名它 |
 | Local override | 本地副本而非 symlink | 使用 `sync --force` 替换 |
 | Orphan | 存在于 manifest 中，但不在 Source 中 | `sync` 会清理它 |
