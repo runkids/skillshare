@@ -148,7 +148,7 @@ func MissingFromConfig(ctx InstallContext) []SkillEntryDTO {
 // (via ctx.ConfigSkills) and installs each one that is not already present.
 // It handles both tracked repos and plain skills, delegates per-skill hooks
 // to ctx.PostInstallSkill, and calls ctx.Reconcile when at least one skill
-// was installed.
+// was installed or found moved, so the moved skill's record follows it.
 //
 // The caller is responsible for UI chrome (logo, spinner, next-steps).
 func InstallFromConfig(ctx InstallContext, opts InstallOptions) (ConfigInstallResult, error) {
@@ -385,7 +385,7 @@ func InstallFromConfig(ctx InstallContext, opts InstallOptions) (ConfigInstallRe
 		result.Installed++
 	}
 
-	// ── Phase 4: Reconcile config after successful installs ──
+	// ── Phase 4: Reconcile config after installs and moves ──
 	if (result.Installed > 0 || moved > 0) && !opts.DryRun {
 		if err := ctx.Reconcile(); err != nil {
 			return result, err

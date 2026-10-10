@@ -404,7 +404,8 @@ func TestReconcileGlobalSkills_DefersMoveWhileSourceLinkUnavailable(t *testing.T
 }
 
 // TestReconcileGlobalSkills_DefersMoveWhenWalkFails verifies that a move is
-// not inferred while an unreadable directory may hide another copy.
+// not inferred while an unreadable directory may hide another copy, and that
+// the record waits instead of being pruned.
 func TestReconcileGlobalSkills_DefersMoveWhenWalkFails(t *testing.T) {
 	if os.Geteuid() == 0 {
 		t.Skip("root reads directories regardless of mode")
@@ -437,6 +438,9 @@ func TestReconcileGlobalSkills_DefersMoveWhenWalkFails(t *testing.T) {
 
 	if got := store.Get("new/demo"); got != nil {
 		t.Errorf("move inferred from a failed walk: %+v", got)
+	}
+	if !store.Has("old/demo") {
+		t.Error("deferred record was pruned, so it can no longer follow the copy")
 	}
 }
 

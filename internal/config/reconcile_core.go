@@ -166,6 +166,11 @@ func reconcileSkillsWalk(sourcePath string, walk sourcewalk.Options, store *inst
 		}
 	}
 
+	// A record left waiting on a failed walk must not be pruned as gone.
+	if walkFailed && len(moves) > 0 {
+		result.incomplete = true
+	}
+
 	if names := walk.Follow.Unavailable(); len(names) > 0 {
 		// The walk missed whatever those links hold; that is not a removal.
 		result.incomplete = true
