@@ -307,3 +307,21 @@ func TestInstallInto_BatchRefusalExitsNonZero(t *testing.T) {
 	result.AssertFailure(t)
 	result.AssertAnyOutputContains(t, "dest_is_skill")
 }
+
+// The preview of a batch install is refused at the same --into folder the real
+// install is, instead of promising what it would then refuse.
+func TestInstallInto_BatchDryRunRefusesLikeTheInstall(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	sb.WriteConfig("source: " + sb.SourcePath + "\ntargets: {}\n")
+	sb.CreateSkill("holder", map[string]string{"SKILL.md": "---\nname: holder\n---\n# Holder"})
+	repo := filepath.Join(sb.Root, "incoming", "pair")
+	sb.WriteFile(filepath.Join(repo, "one", "SKILL.md"), "---\nname: one\n---\n# One")
+	sb.WriteFile(filepath.Join(repo, "two", "SKILL.md"), "---\nname: two\n---\n# Two")
+	initGitRepo(t, repo)
+
+	result := sb.RunCLI("install", "file://"+repo, "--all", "--into", "holder/sub", "--dry-run")
+
+	result.AssertFailure(t)
+	result.AssertAnyOutputContains(t, "dest_is_skill")
+}
