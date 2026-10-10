@@ -261,7 +261,7 @@ func (s *Server) handleGetSkill(w http.ResponseWriter, r *http.Request) {
 				if err != nil {
 					return nil
 				}
-				if info.IsDir() && utils.IsHidden(info.Name()) {
+				if info.IsDir() && path != walkRoot && utils.IsHidden(info.Name()) {
 					return filepath.SkipDir
 				}
 				if !info.IsDir() {

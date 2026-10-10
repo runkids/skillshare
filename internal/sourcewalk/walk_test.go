@@ -27,6 +27,31 @@ func fixture(t *testing.T) string {
 	return root
 }
 
+func TestSkipTargetDotDir(t *testing.T) {
+	orig := TargetDotDirs
+	TargetDotDirs = map[string]bool{".claude": true, ".cursor": true, ".skillshare": true}
+	defer func() { TargetDotDirs = orig }()
+
+	root := filepath.Join(t.TempDir(), ".skillshare")
+	for dir, want := range map[string]bool{
+		".":                  false, // the source root is never skipped
+		"some-skill/.claude": true,  // nested below a source child
+		".cursor":            false, // first level stays visible
+	} {
+		path := filepath.Join(root, dir)
+		if err := os.MkdirAll(path, 0755); err != nil {
+			t.Fatal(err)
+		}
+		info, err := os.Stat(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got := SkipTargetDotDir(root, path, info); got != want {
+			t.Errorf("SkipTargetDotDir(%q) = %v, want %v", dir, got, want)
+		}
+	}
+}
+
 func TestWalkParity(t *testing.T) {
 	root := fixture(t)
 	for _, skip := range []string{"", "skip", "z", "."} {
