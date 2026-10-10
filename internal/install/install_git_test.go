@@ -155,3 +155,30 @@ func runGit(t *testing.T, dir string, args ...string) {
 		t.Fatalf("git %v failed: %s\n%s", args, err, out)
 	}
 }
+
+func TestTrackedAncestor(t *testing.T) {
+	source := t.TempDir()
+	repo := filepath.Join(source, "org", "_team")
+	if err := os.MkdirAll(filepath.Join(repo, ".git"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(source, "_plain", "skill"), 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	cases := []struct {
+		rel, want string
+	}{
+		{"org/_team/foo", "org/_team"},
+		{"org/_team/foo/sub", "org/_team"},
+		{"org/_team", ""},    // the last element is not an ancestor
+		{"_plain/skill", ""}, // _-prefixed but not a git repo
+		{"org/other/foo", ""},
+	}
+	for _, c := range cases {
+		got, ok := TrackedAncestor(source, c.rel, nil)
+		if got != c.want || ok != (c.want != "") {
+			t.Errorf("TrackedAncestor(%q) = %q, %v; want %q", c.rel, got, ok, c.want)
+		}
+	}
+}

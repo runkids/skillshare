@@ -380,3 +380,53 @@ func TestReconcileProjectSkills_MovesGitignoreRule(t *testing.T) {
 		t.Errorf(".gitignore = %q, want the rule moved from skills/old/demo to skills/new/demo", data)
 	}
 }
+
+// TestReconcileProjectSkills_MovedSkillKeepsGroupAndPin follows a move made by
+// skillmove: the record and the lock pin are re-keyed, then reconcile runs. The
+// config entry must take the new group and the pin must keep the older commit.
+func TestReconcileProjectSkills_MovedSkillKeepsGroupAndPin(t *testing.T) {
+	root := t.TempDir()
+	skillsDir := filepath.Join(root, ".skillshare", "skills")
+	moved := filepath.Join(skillsDir, "grp", "demo")
+	if err := os.MkdirAll(moved, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(moved, "SKILL.md"), []byte("---\nname: demo\n---\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	pinned := strings.Repeat("a", 40)
+	installed := strings.Repeat("b", 40)
+	dir := filepath.Join(root, ".skillshare")
+	lock := &install.Lock{Skills: map[string]install.LockEntry{"demo": {Source: "github.com/user/repo/demo", Commit: pinned}}}
+	if !lock.MovePin("demo", "grp/demo") {
+		t.Fatal("no pin to move")
+	}
+	if err := lock.Save(dir); err != nil {
+		t.Fatal(err)
+	}
+	cfg := &ProjectConfig{
+		Targets: []ProjectTargetEntry{{Name: "claude"}},
+		Skills:  []SkillEntry{{Name: "demo", Source: "github.com/user/repo/demo"}},
+	}
+	store := install.NewMetadataStore()
+	store.Set("demo", &install.MetadataEntry{Source: "github.com/user/repo/demo", Commit: installed})
+	store.MovePath("demo", "grp/demo")
+
+	if err := ReconcileProjectSkills(root, cfg, store, skillsDir); err != nil {
+		t.Fatal(err)
+	}
+
+	if len(cfg.Skills) != 1 || cfg.Skills[0].Group != "grp" || cfg.Skills[0].Name != "demo" {
+		t.Errorf("config skills = %+v, want one entry demo in group grp", cfg.Skills)
+	}
+	got, err := install.LoadLock(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if pin := got.Skills["grp/demo"]; pin.Commit != pinned {
+		t.Errorf("pin = %+v, want the deliberately older commit kept", pin)
+	}
+	if _, stale := got.Skills["demo"]; stale {
+		t.Error("the pin of the old path was left behind")
+	}
+}

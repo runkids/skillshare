@@ -14,7 +14,7 @@ _skillshare() {
         cword=$COMP_CWORD
     fi
 
-    local commands="init install uninstall link unlink list search sync mcp hooks plugin status diff backup restore collect pull push commit doctor target upgrade update check new trash analyze audit hub log ui tui extras enable disable completion version help"
+    local commands="init install uninstall link unlink move list search sync mcp hooks plugin status diff backup restore collect pull push commit doctor target upgrade update check new trash analyze audit hub log ui tui extras enable disable completion version help"
 
     local global_flags="--project -p --global -g"
 
@@ -36,6 +36,7 @@ _skillshare() {
     local uninstall_flags="--all --force -f --dry-run -n --json --group -G --help -h"
     local link_flags="--name --enable --help -h"
     local unlink_flags="--help -h"
+    local move_flags="--dry-run -n --force -f --json --help -h"
     local list_flags="--verbose -v --json -j --no-tui --type -t --status --sort -s --all --help -h"
     local sync_flags="--all --dry-run -n --force -f --json --quiet -q --help -h"
     local mcp_flags="--tools-allow --tools-deny --pi-options --url --target --from --file --sync --replace --disabled --keep-files --revision --dry-run -n --json --no-tui --no-dns --live --timeout --http --tls-cert --tls-key --check --help -h"
@@ -253,6 +254,7 @@ _skillshare() {
         uninstall)  COMPREPLY=($(compgen -W "${uninstall_flags} ${global_flags}" -- "${cur}")) ;;
         link)       COMPREPLY=($(compgen -W "${link_flags} ${global_flags}" -- "${cur}")) ;;
         unlink)     COMPREPLY=($(compgen -W "${unlink_flags} ${global_flags}" -- "${cur}")) ;;
+        move)       COMPREPLY=($(compgen -W "${move_flags} ${global_flags}" -- "${cur}")) ;;
         list)       COMPREPLY=($(compgen -W "${list_flags} ${global_flags}" -- "${cur}")) ;;
         sync)       COMPREPLY=($(compgen -W "${sync_flags} ${global_flags}" -- "${cur}")) ;;
         plugin)     COMPREPLY=($(compgen -W "add discover import list inspect sync check update enable disable remove --target --from --plugin --name --source-ref --entry --revision --dry-run -n --json --no-tui --help -h ${global_flags}" -- "${cur}")) ;;

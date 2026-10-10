@@ -382,3 +382,45 @@ func TestHandleInstall_TrackAcceptsLocalGitPath(t *testing.T) {
 		t.Fatalf("expected tracked repo %q in skills source: %v", resp.RepoName, err)
 	}
 }
+
+// An into folder inside a skill, inside a tracked checkout or malformed is
+// refused with move's codes before anything is created, on both endpoints.
+func TestHandleInstall_RefusesUnsafeInto(t *testing.T) {
+	s, src := newTestServer(t)
+	addSkill(t, src, "holder")
+	addTrackedRepo(t, src, "_team")
+
+	for _, endpoint := range []string{"/api/install", "/api/install/batch"} {
+		for _, tc := range []struct {
+			into   string
+			status int
+			code   string
+		}{
+			{"holder/sub", http.StatusConflict, "dest_is_skill"},
+			{"_team/sub", http.StatusConflict, "dest_inside_tracked_repo"},
+			{"../out", http.StatusBadRequest, "invalid_dest"},
+		} {
+			t.Run(endpoint+" "+tc.into, func(t *testing.T) {
+				payload, _ := json.Marshal(map[string]any{
+					"source": "./not-read", "into": tc.into,
+					"skills": []map[string]string{{"name": "x", "path": "x"}},
+				})
+				rr := httptest.NewRecorder()
+				s.mux.ServeHTTP(rr, httptest.NewRequest(http.MethodPost, endpoint, bytes.NewReader(payload)))
+
+				var got struct {
+					ErrorCode string `json:"error_code"`
+				}
+				_ = json.Unmarshal(rr.Body.Bytes(), &got)
+				if rr.Code != tc.status || got.ErrorCode != tc.code {
+					t.Fatalf("status = %d, code = %q; want %d %s (%s)", rr.Code, got.ErrorCode, tc.status, tc.code, rr.Body.String())
+				}
+			})
+		}
+	}
+	for _, rel := range []string{"holder/sub", "_team/sub"} {
+		if _, err := os.Stat(filepath.Join(src, filepath.FromSlash(rel))); !os.IsNotExist(err) {
+			t.Errorf("%s was created by a refused install", rel)
+		}
+	}
+}

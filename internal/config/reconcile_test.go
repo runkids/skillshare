@@ -508,3 +508,58 @@ func TestReconcileGlobalSkills_TracksOnlyPrefixedCheckouts(t *testing.T) {
 		t.Error("org/side: an unprefixed checkout without an entry must not be registered")
 	}
 }
+
+// nestedRecordFixture installs "foo" with a nested skill "foo/sub" that has a
+// record of its own, as a move leaves them. The walk stops at foo, so the
+// nested record is only live through its installed parent.
+func nestedRecordFixture(t *testing.T) (*Config, *install.MetadataStore, string) {
+	t.Helper()
+	root := t.TempDir()
+	sourceDir := filepath.Join(root, "skills")
+	t.Setenv("SKILLSHARE_CONFIG", filepath.Join(root, "config.yaml"))
+	nested := filepath.Join(sourceDir, "grp", "foo", "sub")
+	if err := os.MkdirAll(nested, 0755); err != nil {
+		t.Fatal(err)
+	}
+	store := install.NewMetadataStore()
+	store.Set("grp/foo", &install.MetadataEntry{Source: "github.com/user/repo/foo", Group: "grp"})
+	store.Set("grp/foo/sub", &install.MetadataEntry{Source: "github.com/user/repo/sub", Group: "grp/foo"})
+	store.AuditAccepted = map[string][]string{"grp/foo/sub": {"accepted-key"}}
+	return &Config{Source: sourceDir}, store, nested
+}
+
+func TestReconcileGlobalSkills_KeepsNestedRecordBelowInstalledParent(t *testing.T) {
+	cfg, store, _ := nestedRecordFixture(t)
+
+	if err := ReconcileGlobalSkills(cfg, store); err != nil {
+		t.Fatal(err)
+	}
+
+	if !store.Has("grp/foo/sub") {
+		t.Fatal("nested record was pruned although its directory exists below the installed parent")
+	}
+	if got := store.AuditAccepted["grp/foo/sub"]; !reflect.DeepEqual(got, []string{"accepted-key"}) {
+		t.Errorf("accepted audit findings = %v, want them kept", got)
+	}
+}
+
+// TestReconcileGlobalSkills_PrunesDeletedNestedRecord is the inverse: a nested
+// record whose directory is gone is still pruned, so the keep rule cannot pin
+// records of deleted skills for as long as their parent lives.
+func TestReconcileGlobalSkills_PrunesDeletedNestedRecord(t *testing.T) {
+	cfg, store, nested := nestedRecordFixture(t)
+	if err := os.RemoveAll(nested); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := ReconcileGlobalSkills(cfg, store); err != nil {
+		t.Fatal(err)
+	}
+
+	if store.Has("grp/foo/sub") {
+		t.Error("record of a deleted nested skill survived reconcile")
+	}
+	if !store.Has("grp/foo") {
+		t.Error("the installed parent's record must stay")
+	}
+}

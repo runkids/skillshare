@@ -10,6 +10,7 @@ import (
 	"skillshare/internal/config"
 	"skillshare/internal/install"
 	"skillshare/internal/oplog"
+	"skillshare/internal/skillmove"
 	"skillshare/internal/sourcefs"
 	"skillshare/internal/ui"
 	"skillshare/internal/validate"
@@ -244,12 +245,30 @@ func agentsDirWithInto(agentsDir string, opts install.InstallOptions) string {
 	return agentsDir
 }
 
-// ensureIntoDirExists creates the Into subdirectory if opts.Into is set.
+// ensureIntoDirExists creates the Into subdirectory if opts.Into is set. It
+// first refuses a folder an install must not land in: inside a skill or inside
+// a tracked checkout. Links are sourcefs's to follow or refuse.
 func ensureIntoDirExists(sourceDir string, opts install.InstallOptions) error {
 	if opts.Into == "" {
 		return nil
 	}
+	if err := checkIntoFolder(sourceDir, opts); err != nil {
+		return err
+	}
 	return sourcefs.MkdirAllIn(sourceDir, opts.Into, opts.SourceFollow)
+}
+
+// checkIntoFolder reports why opts.Into is no place for an install, with the
+// code move uses for it; nil when it is fine or unset.
+func checkIntoFolder(sourceDir string, opts install.InstallOptions) error {
+	if opts.Into == "" {
+		return nil
+	}
+	_, refusal := skillmove.CheckDest(opts.Into, skillmove.Options{SourceDir: sourceDir, Follow: opts.SourceFollow, Install: true})
+	if refusal == nil {
+		return nil
+	}
+	return fmt.Errorf("%s (%s)", refusal.Error(), refusal.Code)
 }
 
 // parseOptsFromConfig builds install.ParseOptions from the global config.

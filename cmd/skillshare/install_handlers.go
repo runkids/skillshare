@@ -25,6 +25,8 @@ func handleTrackedRepoInstall(source *install.Source, cfg *config.Config, opts i
 	trackSourceDir := cfg.EffectiveSkillsSource()
 	if trackedKind == "agent" {
 		trackSourceDir = cfg.EffectiveAgentsSource()
+	} else if err := checkIntoFolder(trackSourceDir, opts); err != nil {
+		return installLogSummary{}, err
 	}
 
 	logSummary := installLogSummary{
@@ -400,11 +402,11 @@ func installSelectedSkills(selected []install.SkillInfo, discovery *install.Disc
 	if opts.Into != "" {
 		if err := ensureIntoDirExists(cfg.EffectiveSkillsSource(), opts); err != nil {
 			if installSpinner != nil {
-				installSpinner.Fail("Failed to create --into directory")
+				installSpinner.Fail("Failed to create --into directory: " + err.Error())
 			}
 			if progressBar != nil {
 				progressBar.Stop()
-				ui.ErrorMsg("Failed to create --into directory")
+				ui.ErrorMsg("Failed to create --into directory: %v", err)
 			}
 			return installBatchSummary{}
 		}

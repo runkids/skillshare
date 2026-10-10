@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path"
 	"path/filepath"
 	"strings"
 
@@ -173,6 +174,8 @@ func reconcileSkillsWalk(sourcePath string, walk sourcewalk.Options, store *inst
 		}
 	}
 
+	keepNestedRecords(walkRoot, store, result.live)
+
 	// A record left waiting on a failed walk must not be pruned as gone.
 	if walkFailed && len(moves) > 0 {
 		result.incomplete = true
@@ -184,6 +187,29 @@ func reconcileSkillsWalk(sourcePath string, walk sourcewalk.Options, store *inst
 		fmt.Fprintf(os.Stderr, "Warning: source link %s is unavailable; kept its install metadata\n", strings.Join(names, ", "))
 	}
 	return result, err
+}
+
+// keepNestedRecords marks the records below a live plain install as live while
+// their directory still exists. The walk stops at an installed skill, so it
+// never reaches a nested record; pruning it would lose its audit acceptances.
+// A tracked checkout is left out: its skills are not recorded by path.
+func keepNestedRecords(walkRoot string, store *install.MetadataStore, live map[string]bool) {
+	for _, key := range store.List() {
+		if live[key] {
+			continue
+		}
+		rel := filepath.ToSlash(install.KeyToRelPath(key, store.Get(key)))
+		for parent := path.Dir(rel); parent != "."; parent = path.Dir(parent) {
+			owner := store.Get(parent)
+			if !live[parent] || owner == nil || owner.Tracked || owner.Source == "" {
+				continue
+			}
+			if info, err := os.Stat(filepath.Join(walkRoot, filepath.FromSlash(rel))); err == nil && info.IsDir() {
+				live[key], live[rel] = true, true
+			}
+			break
+		}
+	}
 }
 
 // pruneStaleEntries removes store entries not present in the live set.

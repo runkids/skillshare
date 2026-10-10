@@ -67,6 +67,26 @@ func RemovePattern(filePath, pattern string) (bool, error) {
 	return true, os.WriteFile(filePath, []byte(result), 0644)
 }
 
+// RenamePatterns rewrites every line that is exactly a key of renames, or a
+// "!" negation of one, to its value and reports whether any changed. Lines keep
+// their place: with negations the last matching rule wins, so a removed and
+// re-added line would change what the file means.
+func RenamePatterns(content string, renames map[string]string) (string, bool) {
+	lines := strings.Split(content, "\n")
+	changed := false
+	for i, line := range lines {
+		pattern := strings.TrimRight(line, " \t\r")
+		negation := strings.HasPrefix(pattern, "!")
+		if to, ok := renames[strings.TrimPrefix(pattern, "!")]; ok {
+			if negation {
+				to = "!" + to
+			}
+			lines[i], changed = to, true
+		}
+	}
+	return strings.Join(lines, "\n"), changed
+}
+
 // HasPattern returns true if the exact pattern exists in a .skillignore file.
 func HasPattern(filePath, pattern string) bool {
 	data, err := os.ReadFile(filePath)

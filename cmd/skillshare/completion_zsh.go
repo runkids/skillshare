@@ -10,6 +10,7 @@ _skillshare() {
         'uninstall:Remove skills/agents from source directory'
         'link:Link a folder of your own skills into the source'
         'unlink:Remove a link from the source'
+        'move:Move skills or folders within the source'
         'list:List installed skills'
         'search:Search or browse GitHub for skills'
         'sync:Sync skills/agents/extras/MCP to targets'
@@ -218,6 +219,18 @@ _skillshare() {
                 unlink)
                     _arguments \
                         '1:name:' \
+                        $global_flags \
+                        '--help[Show help]' \
+                        '-h[Show help]'
+                    ;;
+                move)
+                    _arguments \
+                        '*:skill, folder or destination:' \
+                        '--dry-run[Preview changes]' \
+                        '-n[Preview changes]' \
+                        '--force[Accept a target name collision]' \
+                        '-f[Accept a target name collision]' \
+                        '--json[JSON output]' \
                         $global_flags \
                         '--help[Show help]' \
                         '-h[Show help]'
