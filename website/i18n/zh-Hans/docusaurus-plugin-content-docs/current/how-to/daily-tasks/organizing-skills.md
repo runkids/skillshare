@@ -290,7 +290,7 @@ skillshare sync
 执行 `sync` 后，Target 会自动更新——旧的扁平符号链接会被清理，并创建新的扁平化名称。
 
 :::warning 通过 `skillshare install` 安装的 Skill
-不要用 `mv` 移动已安装的 Skill。`.metadata.json` 里的安装记录以路径为键，移动后的副本会失去来源链接，记录仍指向旧位置。请改用 [`skillshare move`](/docs/reference/commands/move)。它会把 Skill 和安装记录一起移动，不会重新下载：
+不要用 `mv` 移动已安装的 Skill。`.metadata.json` 里的安装记录以路径为键，记录会留在旧路径，直到下一次 `install` 或 **Install missing** 认出移动后的副本（同名、安装后未修改、只有一份）并把记录移过去；在那之前 `update` 和 `uninstall` 找不到这个 Skill，项目的 lock pin 和 `.skillignore` 行也不会跟着走。请改用 [`skillshare move`](/docs/reference/commands/move)。它会把 Skill 和安装记录一起移动，不会重新下载：
 
 ```bash
 skillshare move react-best-practices frontend/react

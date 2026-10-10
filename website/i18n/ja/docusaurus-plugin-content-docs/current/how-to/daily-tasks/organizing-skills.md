@@ -290,7 +290,7 @@ skillshare sync
 `sync` の後、Target は自動的に更新されます — 古いフラットなシンボリックリンクはクリーンアップされ、新しいフラット化された名前が作成されます。
 
 :::warning `skillshare install` でインストールした Skill
-インストール済みの Skill は `mv` で移動しないでください。`.metadata.json` のインストール記録はパスをキーにしているため、移動したコピーはソースとのリンクを失い、記録は古い場所を指したままになります。代わりに [`skillshare move`](/docs/reference/commands/move) を使ってください。Skill とインストール記録を一緒に移動するため、再ダウンロードは行われません：
+インストール済みの Skill は `mv` で移動しないでください。`.metadata.json` のインストール記録はパスをキーにしているため、次に `install` または **Install missing** が移動したコピー（同名・インストール後未変更・1 つだけ）を認識して記録を移すまで、記録は古いパスに残ります。それまで `update` と `uninstall` はその Skill を見つけられず、プロジェクトのロックピンと `.skillignore` の行は追従しません。代わりに [`skillshare move`](/docs/reference/commands/move) を使ってください。Skill とインストール記録を一緒に移動するため、再ダウンロードは行われません：
 
 ```bash
 skillshare move react-best-practices frontend/react
