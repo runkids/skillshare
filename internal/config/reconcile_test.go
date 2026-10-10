@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"testing"
 
 	"skillshare/internal/install"
@@ -407,8 +408,8 @@ func TestReconcileGlobalSkills_DefersMoveWhileSourceLinkUnavailable(t *testing.T
 // not inferred while an unreadable directory may hide another copy, and that
 // the record waits instead of being pruned.
 func TestReconcileGlobalSkills_DefersMoveWhenWalkFails(t *testing.T) {
-	if os.Geteuid() == 0 {
-		t.Skip("root reads directories regardless of mode")
+	if os.Geteuid() == 0 || runtime.GOOS == "windows" {
+		t.Skip("root, and Windows, read directories regardless of mode")
 	}
 	root := t.TempDir()
 	sourceDir := filepath.Join(root, "skills")
