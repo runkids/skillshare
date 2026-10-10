@@ -327,6 +327,9 @@ func handleGitInstall(source *install.Source, cfg *config.Config, opts install.I
 		}
 
 		if opts.DryRun {
+			if err := checkIntoFolder(cfg.EffectiveSkillsSource(), opts); err != nil {
+				return logSummary, err
+			}
 			fmt.Println()
 			printSkillListCompact(selected)
 			fmt.Println()

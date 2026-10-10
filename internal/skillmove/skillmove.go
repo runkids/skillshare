@@ -417,46 +417,75 @@ func checkRecords(planned []Planned, o Options) {
 // another skill already has there is a collision (refused unless forced), and
 // an include or exclude rule that no longer decides the same is a warning.
 func checkTargets(planned []Planned, discovered []sync.DiscoveredSkill, o Options) {
-	moved := map[string]string{} // old relPath -> new
-	for _, p := range planned {
-		if p.Err != nil {
-			continue
-		}
-		for _, s := range p.Skills {
-			moved[s.From] = s.To
-		}
-	}
-	if len(moved) == 0 || len(o.Targets) == 0 {
+	if len(o.Targets) == 0 {
 		return
 	}
-	after := make([]sync.DiscoveredSkill, len(discovered))
-	copy(after, discovered)
-	for i, d := range after {
-		if to, ok := moved[d.RelPath]; ok {
-			// SourcePath stays: the SKILL.md is read from where it still is.
-			after[i].RelPath, after[i].FlatName = to, utils.PathToFlatName(to)
+	// A refused name's new paths will not exist, so the others are checked
+	// again without them. A clash with a path no name of this batch creates
+	// refuses its joiner first; names that only clash with each other's new
+	// paths wait until no such clash is left, and are then all refused.
+	befores := map[string]map[string][]string{} // per target: what already clashed; read only when something does now
+	for {
+		moved := map[string]string{} // old relPath -> new
+		newPaths := map[string]bool{}
+		for _, p := range planned {
+			if p.Err != nil {
+				continue
+			}
+			for _, s := range p.Skills {
+				moved[s.From] = s.To
+				newPaths[s.To] = true
+			}
+		}
+		if len(moved) == 0 {
+			return
+		}
+		after := make([]sync.DiscoveredSkill, len(discovered))
+		copy(after, discovered)
+		for i, d := range after {
+			if to, ok := moved[d.RelPath]; ok {
+				// SourcePath stays: the SKILL.md is read from where it still is.
+				after[i].RelPath, after[i].FlatName = to, utils.PathToFlatName(to)
+			}
+		}
+		hard, soft := map[int]*Refusal{}, map[int]*Refusal{}
+		for _, t := range o.Targets {
+			for name, paths := range collisions(t, after) {
+				before, ok := befores[t.Name]
+				if !ok {
+					before = collisions(t, discovered)
+					befores[t.Name] = before
+				}
+				bucket := soft
+				if slices.ContainsFunc(paths, func(path string) bool { return !newPaths[path] }) {
+					bucket = hard
+				}
+				for i := range planned {
+					p := &planned[i]
+					if p.Err != nil || !joins(p, paths, before[name]) {
+						continue
+					}
+					msg := fmt.Sprintf("target %s would get two skills named %q (%s)", t.Name, name, strings.Join(paths, ", "))
+					if o.Force {
+						p.Warnings = append(p.Warnings, msg+"; sync skips both until one is renamed")
+					} else if bucket[i] == nil {
+						bucket[i] = &Refusal{CodeNameCollision, msg + "; use --force to move anyway"}
+					}
+				}
+			}
+		}
+		if len(hard) == 0 {
+			for i, r := range soft {
+				planned[i].Err = r
+			}
+			break
+		}
+		for i, r := range hard {
+			planned[i].Err = r
 		}
 	}
 
 	for _, t := range o.Targets {
-		var before map[string][]string // what already clashed; read only when something does now
-		for name, paths := range collisions(t, after) {
-			if before == nil {
-				before = collisions(t, discovered)
-			}
-			for i := range planned {
-				p := &planned[i]
-				if p.Err != nil || !joins(p, paths, before[name]) {
-					continue
-				}
-				msg := fmt.Sprintf("target %s would get two skills named %q (%s)", t.Name, name, strings.Join(paths, ", "))
-				if o.Force {
-					p.Warnings = append(p.Warnings, msg+"; sync skips both until one is renamed")
-				} else {
-					p.Err = &Refusal{CodeNameCollision, msg + "; use --force to move anyway"}
-				}
-			}
-		}
 		for i := range planned {
 			p := &planned[i]
 			if p.Err != nil {
@@ -656,10 +685,13 @@ func followUp(root *sourcefs.Root, moved []*Planned, o Options) error {
 		}
 		note("move the "+install.LockFileName+" pin", err)
 	}
-	if data, err := os.ReadFile(filepath.Join(o.SourceDir, ".skillignore")); err == nil {
+	data, err := os.ReadFile(filepath.Join(o.SourceDir, ".skillignore"))
+	if err == nil {
 		if out, changed := skillignore.RenamePatterns(string(data), pins); changed {
 			note("update .skillignore", root.WriteFileAtomic(".skillignore", []byte(out), 0o644))
 		}
+	} else if !os.IsNotExist(err) {
+		note("read .skillignore", err)
 	}
 	if o.Reconcile != nil {
 		note("reconcile install records", o.Reconcile())

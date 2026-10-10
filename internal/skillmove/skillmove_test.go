@@ -799,3 +799,52 @@ func TestPlan_MoveJoiningAnExistingCollisionIsRefused(t *testing.T) {
 	// An unrelated skill never joins it.
 	wantMoved(t, f.plan(t, "elsewhere", "x/other")[0])
 }
+
+// A refused name's new paths will not exist, so an unrelated name is not
+// refused for colliding with them.
+func TestPlan_RefusedNameDoesNotBlockOthersAtItsPaths(t *testing.T) {
+	f := newFixture(t)
+	f.skill(t, "x/e")
+	f.skill(t, "x/q")
+	f.skill(t, "x__q")
+	f.skill(t, "grp__x__e") // holds the flat name grp/x/e would get
+	f.opts.Targets = []Target{{Name: "claude", Config: config.ResourceTargetConfig{TargetNaming: "flat"}}}
+
+	planned := f.plan(t, "grp", "x", "x__q")
+
+	wantRefusal(t, planned[0], CodeNameCollision)
+	wantMoved(t, planned[1])
+}
+
+// A .skillignore that cannot be read is reported after the rename, because a
+// literal line in it stays keyed to the old path.
+func TestRun_UnreadableSkillignoreIsReported(t *testing.T) {
+	f := newFixture(t)
+	f.skill(t, "demo")
+	// A directory in its place fails to read for any user, root included.
+	if err := os.Mkdir(f.path(".skillignore"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	out := Run(f.plan(t, "grp", "demo"), f.opts)
+
+	if out.Err == nil || !strings.Contains(out.Err.Error(), ".skillignore") {
+		t.Errorf("Outcome.Err = %v, want it to name .skillignore", out.Err)
+	}
+	if !f.exists("grp/demo/SKILL.md") {
+		t.Error("the rename did not happen")
+	}
+}
+
+// Two names that only clash with each other's new paths are both refused.
+func TestPlan_NamesCollidingOnlyWithEachOtherAreAllRefused(t *testing.T) {
+	f := newFixture(t)
+	f.skill(t, "p/y/z")  // folder p/y becomes g/y/z, flat g__y__z
+	f.skill(t, "q/y__z") // becomes g/y__z, flat g__y__z
+	f.opts.Targets = []Target{{Name: "claude", Config: config.ResourceTargetConfig{TargetNaming: "flat"}}}
+
+	planned := f.plan(t, "g", "p/y", "q/y__z")
+
+	wantRefusal(t, planned[0], CodeNameCollision)
+	wantRefusal(t, planned[1], CodeNameCollision)
+}
