@@ -290,3 +290,20 @@ func TestInstallTrackInto_RefusesFolderInsideSkill(t *testing.T) {
 		t.Error("a refused tracked install created the folder")
 	}
 }
+
+// A batch install (--all) refused at its --into folder exits non-zero, as the
+// single-skill path does, so automation can see it.
+func TestInstallInto_BatchRefusalExitsNonZero(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	sb.WriteConfig("source: " + sb.SourcePath + "\ntargets: {}\n")
+	sb.CreateSkill("holder", map[string]string{"SKILL.md": "---\nname: holder\n---\n# Holder"})
+	repo := filepath.Join(sb.Root, "incoming", "pair")
+	sb.WriteFile(filepath.Join(repo, "one", "SKILL.md"), "---\nname: one\n---\n# One")
+	sb.WriteFile(filepath.Join(repo, "two", "SKILL.md"), "---\nname: two\n---\n# Two")
+
+	result := sb.RunCLI("install", repo, "--all", "--into", "holder/sub")
+
+	result.AssertFailure(t)
+	result.AssertAnyOutputContains(t, "dest_is_skill")
+}

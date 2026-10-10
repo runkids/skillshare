@@ -51,6 +51,7 @@ type installLogSummary struct {
 type installBatchSummary struct {
 	InstalledSkills []string
 	FailedSkills    []string
+	Err             error // the batch could not start, e.g. a refused --into folder
 }
 
 // parseInstallArgs parses install command arguments

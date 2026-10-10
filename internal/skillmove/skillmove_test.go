@@ -782,3 +782,20 @@ func TestRun_PinOfRecordWithoutSkillFollows(t *testing.T) {
 		t.Errorf("lock = %+v, want the pin under grp/foo/data", got.Skills)
 	}
 }
+
+// A move that adds a skill to a collision that already exists makes it worse:
+// sync skips every member, so the move needs --force like a new collision.
+func TestPlan_MoveJoiningAnExistingCollisionIsRefused(t *testing.T) {
+	f := newFixture(t)
+	f.skill(t, "a/b__c")    // flat name a__b__c
+	f.skill(t, "a__b/c")    // flat name a__b__c
+	f.skill(t, "x/a__b__c") // flat name x__a__b__c, becomes a__b__c at the root
+	f.skill(t, "x/other")
+	f.opts.Targets = []Target{{Name: "claude", Config: config.ResourceTargetConfig{TargetNaming: "flat"}}}
+
+	wantRefusal(t, f.plan(t, ".", "x/a__b__c")[0], CodeNameCollision)
+	// Moving a member of the collision elsewhere does not add to it.
+	wantMoved(t, f.plan(t, "elsewhere", "a/b__c")[0])
+	// An unrelated skill never joins it.
+	wantMoved(t, f.plan(t, "elsewhere", "x/other")[0])
+}

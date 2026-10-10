@@ -444,12 +444,9 @@ func checkTargets(planned []Planned, discovered []sync.DiscoveredSkill, o Option
 			if before == nil {
 				before = collisions(t, discovered)
 			}
-			if _, existed := before[name]; existed {
-				continue
-			}
 			for i := range planned {
 				p := &planned[i]
-				if p.Err != nil || !touches(p, paths) {
+				if p.Err != nil || !joins(p, paths, before[name]) {
 					continue
 				}
 				msg := fmt.Sprintf("target %s would get two skills named %q (%s)", t.Name, name, strings.Join(paths, ", "))
@@ -484,10 +481,13 @@ func syncedWord(was bool) string {
 	return "it was not synced, it now is"
 }
 
-// touches reports whether one of p's skills lands on one of paths.
-func touches(p *Planned, paths []string) bool {
+// joins reports whether one of p's skills becomes a member of the collision at
+// paths that it was not part of before, where members are the old paths of the
+// collision already there. A skill that merely stays in a collision it was in
+// is no new problem; one that adds itself to it is.
+func joins(p *Planned, paths, members []string) bool {
 	for _, s := range p.Skills {
-		if slices.Contains(paths, s.To) {
+		if slices.Contains(paths, s.To) && !slices.Contains(members, s.From) {
 			return true
 		}
 	}

@@ -336,6 +336,9 @@ func handleGitInstall(source *install.Source, cfg *config.Config, opts install.I
 		}
 
 		batchSummary := installSelectedSkills(selected, discovery, cfg, opts)
+		if batchSummary.Err != nil {
+			return logSummary, batchSummary.Err
+		}
 		logSummary.InstalledSkills = append(logSummary.InstalledSkills, batchSummary.InstalledSkills...)
 		logSummary.FailedSkills = append(logSummary.FailedSkills, batchSummary.FailedSkills...)
 		logSummary.SkillCount = len(logSummary.InstalledSkills)
@@ -372,6 +375,9 @@ func handleGitInstall(source *install.Source, cfg *config.Config, opts install.I
 	}
 
 	batchSummary := installSelectedSkills(selected, discovery, cfg, opts)
+	if batchSummary.Err != nil {
+		return logSummary, batchSummary.Err
+	}
 	logSummary.InstalledSkills = append(logSummary.InstalledSkills, batchSummary.InstalledSkills...)
 	logSummary.FailedSkills = append(logSummary.FailedSkills, batchSummary.FailedSkills...)
 	logSummary.SkillCount = len(logSummary.InstalledSkills)
@@ -402,13 +408,12 @@ func installSelectedSkills(selected []install.SkillInfo, discovery *install.Disc
 	if opts.Into != "" {
 		if err := ensureIntoDirExists(cfg.EffectiveSkillsSource(), opts); err != nil {
 			if installSpinner != nil {
-				installSpinner.Fail("Failed to create --into directory: " + err.Error())
+				installSpinner.Fail("Failed to create --into directory")
 			}
 			if progressBar != nil {
 				progressBar.Stop()
-				ui.ErrorMsg("Failed to create --into directory: %v", err)
 			}
-			return installBatchSummary{}
+			return installBatchSummary{Err: fmt.Errorf("failed to create --into directory: %w", err)}
 		}
 	}
 
