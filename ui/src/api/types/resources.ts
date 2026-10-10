@@ -130,6 +130,39 @@ export interface BatchUninstallResult {
   summary: { succeeded: number; failed: number };
 }
 
+export interface MoveRequest {
+  /** Skills (flat name, relPath or basename) or folder relPaths. */
+  names: string[];
+  /** Folder under the skills source; '.' is the source root. */
+  dest: string;
+  /** Accepts a name collision; nothing else. */
+  force?: boolean;
+  /** Plan only: nothing on disk or in the store changes. */
+  dryRun?: boolean;
+}
+
+export interface MoveItemResult {
+  name: string;
+  success: boolean;
+  from?: string;
+  to?: string;
+  flatName?: string;
+  /** The skill had an install record, and it moved with it. */
+  record?: boolean;
+  /** For a folder: how many skills moved with it. */
+  skills?: number;
+  error?: string;
+  /** Stable refusal code; the dashboard shows its own text for it, never `error`. */
+  error_code?: string;
+}
+
+export interface MoveResult {
+  results: MoveItemResult[];
+  summary: { succeeded: number; failed: number };
+  warnings: string[];
+  dryRun: boolean;
+}
+
 export interface BatchToggleItemResult {
   name: string;
   success: boolean;

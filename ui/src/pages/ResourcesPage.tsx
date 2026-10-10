@@ -17,6 +17,7 @@ import {
   Github,
   Globe,
   Info,
+  FolderInput,
   LayoutGrid,
   List,
   Link2,
@@ -67,6 +68,8 @@ import type { SelectMode } from '../components/resources/SkillTree';
 import TreeDetailPane from '../components/resources/TreeDetailPane';
 import type { PaneSubject } from '../components/resources/TreeDetailPane';
 import { UninstallDialog } from '../components/resources/UninstallDialog';
+import { MoveDialog } from '../components/resources/MoveDialog';
+import { canMove, canMoveFolder } from '../lib/moveFolders';
 import LinkFolderDialog from '../components/resources/LinkFolderDialog';
 import UnlinkFolderDialog from '../components/resources/UnlinkFolderDialog';
 import TreeSplit from '../components/resources/TreeSplit';
@@ -89,6 +92,7 @@ type MenuState =
   | { mode: 'item'; skill: Skill; point: Point }
   | { mode: 'folder'; path: string; summary: TargetSummary; point: Point }
   | { mode: 'repo'; repo: string; point: Point }
+  | { mode: 'moveFolder'; path: string; point: Point }
   | { mode: 'skill'; skill: Skill; point: Point }
   | { mode: 'bulk'; names: string[]; point: Point }
   | { mode: 'add'; point: Point };
@@ -283,11 +287,14 @@ export default function ResourcesPage({ kind }: { kind: Kind }) {
   const [anchor, setAnchor] = useState<string | null>(null);
   const [menu, setMenu] = useState<MenuState | null>(null);
   const [uninstalling, setUninstalling] = useState<Skill[] | null>(null);
+  // Skills picked for the move dialog (with how many selected ones cannot move), or a whole folder.
+  const [moving, setMoving] = useState<{ skills?: Skill[]; folder?: string; skipped?: number } | null>(null);
   const [confirmDisable, setConfirmDisable] = useState<string[] | null>(null);
 
   const all = data?.resources ?? EMPTY;
   const items = useMemo(() => all.filter((s) => s.kind === kind), [all, kind]);
   const sourceLinks = useMemo(() => isAgent ? [] : data?.sourceLinks ?? [], [isAgent, data?.sourceLinks]);
+  const linkNames = useMemo(() => sourceLinks.map((l) => l.name), [sourceLinks]);
 
   const targetIndex = useMemo(() => byTargetOrProject(syncedByTarget(items, matrix)), [items, matrix]);
   // A target that stopped appearing (kind switch, uninstall) would filter everything out.
@@ -510,6 +517,16 @@ export default function ResourcesPage({ kind }: { kind: Kind }) {
     e.stopPropagation();
     setMenu({ mode: 'repo', repo, point: menuPoint(e) });
   };
+  const openFolderMenu = (e: ReactMouseEvent, path: string) => {
+    if (isAgent) return;
+    e.preventDefault();
+    e.stopPropagation();
+    setMenu({ mode: 'moveFolder', path, point: menuPoint(e) });
+  };
+  const moveSkills = (list: Skill[]) => {
+    const skills = list.filter(canMove);
+    return skills.length > 0 ? { skills, skipped: list.length - skills.length } : null;
+  };
   const openRow = (e: ReactMouseEvent, s: Skill) => {
     if ((e.target as HTMLElement).closest('a,button,label,input')) return;
     navigate(resourceHref(s));
@@ -597,8 +614,11 @@ export default function ResourcesPage({ kind }: { kind: Kind }) {
 
   const folderName = (key: string) => (key === '' ? t('resources.folder.root') : formatTrackedRepoName(key));
 
+  // A plain folder: not the source root, a tracked repo or a followed link.
+  const movable = (g: FolderGroup) => !isAgent && canMoveFolder(g.key, g, linkNames);
+
   const folderHead = (g: FolderGroup, asLabel: boolean) => (
-    <div key={`f:${g.key}`} className={asLabel ? 'ss-gl' : 'ss-gh'}>
+    <div key={`f:${g.key}`} className={asLabel ? 'ss-gl' : 'ss-gh'} onContextMenu={movable(g) ? (e) => openFolderMenu(e, g.key) : undefined}>
       {!asLabel && groupToggle(folderKey(g.key), g.link ? g.link.name : folderName(g.key))}
       {g.link ? <Link2 size={15} className="shrink-0 text-ink-2" /> : <Folder size={15} className="shrink-0 text-ink-2" />}
       <b className={g.key ? 'font-mono' : ''}>{g.link ? g.link.name : folderName(g.key)}</b>
@@ -607,6 +627,14 @@ export default function ResourcesPage({ kind }: { kind: Kind }) {
       {g.link && <span className="min-w-0 truncate font-mono text-xs text-ink-3" title={g.link.target}>{g.link.target}</span>}
       <span className="shrink-0 text-ink-3">{g.link?.warning ?? countLabel(t, kind, g.items.length)}</span>
       {g.link && !isAgent && <><span className="flex-1" />{unlinkButton(g.link)}</>}
+      {movable(g) && (
+        <>
+          <span className="flex-1" />
+          <button type="button" className="ss-ib" aria-label={t('resources.table.actions')} onClick={(e) => openFolderMenu(e, g.key)}>
+            <Ellipsis size={16} />
+          </button>
+        </>
+      )}
     </div>
   );
 
@@ -716,6 +744,12 @@ export default function ResourcesPage({ kind }: { kind: Kind }) {
     );
   } else if (view === 'tree') {
     const subject = paneSubject;
+    // What the tree pane's Move button does for the selection; none when it cannot move.
+    const picked = moveSkills(subject.type === 'skill' ? [subject.skill] : subject.type === 'multi' ? subject.skills : []);
+    const paneMove = isAgent ? undefined
+      : subject.type === 'folder'
+        ? (canMoveFolder(subject.node.path, subject.node, linkNames) ? { label: t('move.menu.folder'), run: () => setMoving({ folder: subject.node.path }) } : undefined)
+        : picked ? { label: t('move.menu.skill'), run: () => setMoving(picked) } : undefined;
     const link = subject.type === 'folder' && !isAgent ? subject.node.link : undefined;
     const repoRoot = subject.type === 'folder' && !isAgent && !link && isRepoRoot(subject.node) ? subject.node.path : null;
     content = (
@@ -733,6 +767,7 @@ export default function ResourcesPage({ kind }: { kind: Kind }) {
             onContextMenu={isAgent ? undefined : (e, row) => {
               if (row.type === 'item') openItemMenu(e, row.skill);
               else if (row.repo && !row.node.link) openGroupMenu(e, row.node.path);
+              else if (canMoveFolder(row.node.path, row.node, linkNames)) openFolderMenu(e, row.node.path);
             }}
           />
         }
@@ -750,6 +785,7 @@ export default function ResourcesPage({ kind }: { kind: Kind }) {
               else if (subject.type === 'multi') setMenu({ mode: 'bulk', names: subject.skills.map((s) => s.flatName), point });
             }}
             onUninstall={() => setUninstalling(treeSkills)}
+            move={paneMove}
             syncedTo={subject.type === 'skill' && syncedCell(subject.skill)}
             repoActions={(repoRoot || link) && (
               <>
@@ -1021,6 +1057,12 @@ export default function ResourcesPage({ kind }: { kind: Kind }) {
                   {t('resources.setTargets')}
                 </Button>
               )}
+              {!isAgent && (
+                <Button variant="secondary" size="sm" disabled={!selectedItems.some(canMove)} onClick={() => setMoving(moveSkills(selectedItems))}>
+                  <FolderInput size={15} />
+                  {t('move.menu.skill')}
+                </Button>
+              )}
               <Button variant="secondary" size="sm" onClick={() => setUninstalling(selectedItems)}>
                 <Trash2 size={15} />
                 {t('resources.contextMenu.uninstall')}
@@ -1049,6 +1091,9 @@ export default function ResourcesPage({ kind }: { kind: Kind }) {
                   icon: menu.skill.disabled ? <CircleCheck size={14} /> : <Power size={14} />,
                   onSelect: () => toggleOne.mutate({ s: menu.skill, disable: !menu.skill.disabled }),
                 },
+                ...(!isAgent && canMove(menu.skill)
+                  ? [{ key: 'move', label: t('move.menu.skill'), icon: <FolderInput size={14} />, onSelect: () => setMoving({ skills: [menu.skill] }) }]
+                  : []),
                 {
                   key: 'uninstall',
                   label: t(menu.skill.isInRepo && !isAgent && !sourceLinkOf(menu.skill) ? 'resources.contextMenu.uninstallRepo' : 'resources.contextMenu.uninstall'),
@@ -1097,6 +1142,14 @@ export default function ResourcesPage({ kind }: { kind: Kind }) {
             />
           )}
 
+          {menu?.mode === 'moveFolder' && (
+            <SkillContextMenu
+              open
+              anchorPoint={menu.point}
+              onClose={() => setMenu(null)}
+              items={[{ key: 'move-folder', label: t('move.menu.folder'), icon: <FolderInput size={14} />, onSelect: () => setMoving({ folder: menu.path }) }]}
+            />
+          )}
           {menu?.mode === 'repo' && (
             <SkillContextMenu
               open
@@ -1131,6 +1184,16 @@ export default function ResourcesPage({ kind }: { kind: Kind }) {
             message={t('resources.batchToggle.confirmMessage')}
           />
 
+          {moving && (
+            <MoveDialog
+              skills={moving.skills}
+              folder={moving.folder}
+              skipped={moving.skipped}
+              all={items}
+              onMoved={() => { setSelected(new Set()); setTreeSel(new Set()); }}
+              onClose={() => setMoving(null)}
+            />
+          )}
           {uninstalling && (
             <UninstallDialog
               kind={kind}

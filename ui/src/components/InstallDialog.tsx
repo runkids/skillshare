@@ -31,7 +31,7 @@ import type { SkillsAddCommand } from '../lib/skillsAddCommand';
 import CodeView from './CodeView';
 import MarkdownView, { ViewToggle } from './MarkdownView';
 import { queryKeys, staleTimes } from '../lib/queryKeys';
-import { existingFolders, linkPrefix, newFolderPath, skillNameFromSource } from '../lib/moveFolders';
+import { existingFolders, linkPrefix, skillNameFromSource } from '../lib/moveFolders';
 import { formatSkillDisplayName } from '../lib/resourceNames';
 import { useI18n, useT } from '../i18n';
 import Button from './Button';
@@ -41,7 +41,7 @@ import DialogShell from './DialogShell';
 import EmptyState from './EmptyState';
 import FindingList from './FindingList';
 import FolderPicker from './FolderPicker';
-import NewFolderFields from './NewFolderFields';
+import { useNewFolderStep } from './useNewFolderStep';
 import { Select } from './Select';
 import Spinner from './Spinner';
 import { useToast } from './Toast';
@@ -132,8 +132,6 @@ export default function InstallDialog({ kind, initialTab, initialSource, onClose
   const [track, setTrack] = useState(false);
   const [advanced, setAdvanced] = useState(false);
   const [into, setInto] = useState('');
-  // The new-folder step: which folder it goes in and the name typed so far.
-  const [draft, setDraft] = useState({ parent: '', name: '' });
   const [branch, setBranch] = useState('');
   const [name, setName] = useState('');
   const [force, setForce] = useState(false);
@@ -192,6 +190,17 @@ export default function InstallDialog({ kind, initialTab, initialSource, onClose
   // For the folder caption and the new-folder step's link names; null when the source does not say.
   // --name renames the one skill that is installed, so it wins; several picks name no single skill.
   const skillName = name.trim() || (found ? (picked.length === 1 ? picked[0].name : null) : skillNameFromSource(src));
+  const newFolder = useNewFolderStep({
+    kind,
+    folders,
+    rootCount: ofKind.length,
+    skill: skillName,
+    onUse: (path) => {
+      setInto(path);
+      setView(null);
+    },
+    onBack: () => setView(null),
+  });
   const canTrack = !src || isGitSource(src);
   const tracking = track && canTrack;
 
@@ -544,34 +553,8 @@ export default function InstallDialog({ kind, initialTab, initialSource, onClose
       </>
     );
   } else if (view === 'folder') {
-    const path = newFolderPath(draft.parent, draft.name);
-    const use = () => {
-      if (!path) return;
-      setInto(path);
-      setView(null);
-    };
-    title = t('folderPicker.newTitle');
-    sub = t('folderPicker.newHint');
-    onBack = () => setView(null);
-    body = (
-      <NewFolderFields
-        kind={kind}
-        folders={folders}
-        rootCount={ofKind.length}
-        parent={draft.parent}
-        name={draft.name}
-        skill={skillName}
-        onParent={(parent) => setDraft({ ...draft, parent })}
-        onName={(name) => setDraft({ ...draft, name })}
-        onSubmit={use}
-      />
-    );
-    foot = (
-      <>
-        <Button variant="secondary" onClick={() => setView(null)}>{t('folderPicker.back')}</Button>
-        <Button variant="primary" disabled={!path} onClick={use}>{t('folderPicker.use')}</Button>
-      </>
-    );
+    ({ title, sub, body, foot } = newFolder);
+    onBack = newFolder.back;
   } else if (view === 'warnings') {
     title = t('install.warnings.title');
     body = (
@@ -831,7 +814,7 @@ export default function InstallDialog({ kind, initialTab, initialSource, onClose
               folders={folders}
               rootCount={ofKind.length}
               onNewFolder={(parent) => {
-                setDraft({ parent, name: '' });
+                newFolder.start(parent);
                 setView('folder');
               }}
               caption={tracking ? undefined : <InstallsTo folder={into} skill={skillName} />}
@@ -864,9 +847,12 @@ export default function InstallDialog({ kind, initialTab, initialSource, onClose
     );
   }
 
+  // Only the new-folder step slides; the dialog's other views swap as they did.
+  const step = view === 'folder' ? 'folder' : 'main';
+  const stepMotion = newFolder.motion;
   return (
     <DialogShell open onClose={onBack ?? onClose} padding="none" preventClose={locked} ariaLabel={title} className={WIDTH[view ?? tab]}>
-      <div className="dh">
+      <div key={`dh-${step}`} className={`dh ${stepMotion.className}`} onAnimationEnd={stepMotion.onAnimationEnd}>
         {onBack && (
           <button type="button" className="ss-ib" aria-label={t('folderPicker.backAria')} onClick={onBack}>
             <ArrowLeft size={18} />
@@ -880,8 +866,8 @@ export default function InstallDialog({ kind, initialTab, initialSource, onClose
           <X size={18} />
         </button>
       </div>
-      <div className="db min-h-0 flex-1 overflow-y-auto">{body}</div>
-      <div className="df">{foot}</div>
+      <div key={`db-${step}`} className={`db min-h-0 flex-1 overflow-y-auto ${stepMotion.className}`} onAnimationEnd={stepMotion.onAnimationEnd}>{body}</div>
+      <div key={`df-${step}`} className={`df ${stepMotion.className}`} onAnimationEnd={stepMotion.onAnimationEnd}>{foot}</div>
     </DialogShell>
   );
 }

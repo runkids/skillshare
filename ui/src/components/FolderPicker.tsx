@@ -7,14 +7,16 @@ import { Select, type SelectOption } from './Select';
 
 // Not a folder path: paths cannot contain ':'.
 const NEW = ':new';
+// Matches no option, so the field shows its placeholder.
+const NONE = ':none';
 
 type Kind = 'skill' | 'agent';
 
 interface FolderPickerProps {
   label: string;
   kind: Kind;
-  /** '' is the source root. A path outside `folders` shows as a new folder. */
-  value: string;
+  /** '' is the source root; null is nothing chosen yet. A path outside `folders` shows as a new folder. */
+  value: string | null;
   onChange: (path: string) => void;
   folders: FolderOption[];
   /** Skills at and below the root, shown beside "Root". */
@@ -23,6 +25,8 @@ interface FolderPickerProps {
   disabledPaths?: string[];
   /** "New folder…" was chosen. `parent` is the existing folder that was selected ('' for the root or a folder not made yet); the caller shows the step that makes the name. */
   onNewFolder: (parent: string) => void;
+  /** Shown in the field while `value` is null. */
+  placeholder?: string;
   /** Under the field, e.g. where the install lands. */
   caption?: ReactNode;
   /** Under the caption, like the other install options. */
@@ -30,17 +34,23 @@ interface FolderPickerProps {
 }
 
 /** Pick the source root or an existing folder; "New folder…" hands over to the caller's new-folder step. */
-export default function FolderPicker({ label, kind, value, onChange, folders, rootCount, disabledPaths, onNewFolder, caption, hint }: FolderPickerProps) {
+export default function FolderPicker({ label, kind, value, onChange, folders, rootCount, disabledPaths, onNewFolder, placeholder, caption, hint }: FolderPickerProps) {
   const t = useT();
-  const isNew = value !== '' && !folders.some((f) => f.path === value);
+  const isNew = value !== null && value !== '' && !folders.some((f) => f.path === value);
   const options: SelectOption[] = [
     ...folderOptions(t, kind, folders, rootCount, disabledPaths),
-    ...(isNew ? [{ value, label: value, mono: true, icon: <Folder size={14} />, trailing: t('folderPicker.newTag') }] : []),
+    ...(isNew ? [{ value: value!, label: value!, mono: true, icon: <Folder size={14} />, trailing: t('folderPicker.newTag') }] : []),
     { value: NEW, label: t('folderPicker.new'), icon: <FolderPlus size={14} />, separated: true },
   ];
   return (
     <div className="ss-fld min-w-0">
-      <Select label={label} value={value} options={options} onChange={(v) => (v === NEW ? onNewFolder(isNew ? '' : value) : onChange(v))} />
+      <Select
+        label={label}
+        value={value ?? NONE}
+        placeholder={placeholder}
+        options={options}
+        onChange={(v) => (v === NEW ? onNewFolder(isNew ? '' : value ?? '') : onChange(v))}
+      />
       {caption && <span className="hp">{caption}</span>}
       {hint && <span className="hp font-mono">{hint}</span>}
     </div>

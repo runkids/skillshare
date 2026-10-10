@@ -1,5 +1,6 @@
 import type { Skill } from '../api/client';
 import { buildTree, findFolder, folderPaths } from '../components/resources/tree';
+import { repoOf, sourceLinkOf } from './resourceGrouping';
 
 export interface FolderOption {
   path: string;
@@ -30,9 +31,12 @@ export const isValidFolderName = (name: string) => /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,
 /** Client-side mirror of `validate.IntoPath`. */
 export const isValidIntoPath = (path: string) => path.length <= 256 && path.split('/').every(isValidFolderName);
 
-/** The folder `name` makes inside `parent` ('' is the source root), or null when it is not a legal path. */
+/** `name` inside `parent` ('' is the source root). */
+export const joinFolder = (parent: string, name: string) => (parent ? `${parent}/${name}` : name);
+
+/** The folder `name` makes inside `parent`, or null when it is not a legal path. */
 export function newFolderPath(parent: string, name: string): string | null {
-  const path = parent ? `${parent}/${name}` : name;
+  const path = joinFolder(parent, name);
   return isValidFolderName(name) && isValidIntoPath(path) ? path : null;
 }
 
@@ -58,4 +62,57 @@ export function skillNameFromSource(source: string): string | null {
 function lastName(parts: string[]): string | null {
   const name = parts[parts.length - 1];
   return isValidFolderName(name) ? name : null;
+}
+
+/** A skill the move dialog can take: not an agent, not in a tracked repo, not below a followed link. */
+export const canMove = (s: Skill) => s.kind === 'skill' && !s.isInRepo && !sourceLinkOf(s);
+
+/** The last segment of a path. */
+export const baseName = (path: string) => path.slice(path.lastIndexOf('/') + 1);
+
+/**
+ * A folder the move dialog can take whole: not the source root, not a tracked repo or followed link,
+ * not inside a `_`-prefixed (tracked) folder and not below a followed link (`linkNames`). The server's dry run has the last word.
+ */
+export const canMoveFolder = (path: string, node: { repo?: unknown; link?: unknown } = {}, linkNames: string[] = []) =>
+  path !== '' && !node.repo && !node.link && !path.split('/').some((seg) => seg.startsWith('_')) && !linkNames.some((n) => under(path, n));
+
+export interface FolderPlan {
+  /** Skills directly in the folder. */
+  direct: Skill[];
+  /** First-level subfolders that hold skills, with how many. */
+  subfolders: { name: string; count: number }[];
+  /** Tracked repos and followed links inside the folder: the server refuses the whole folder because of them. */
+  blocked: { path: string; why: 'repo' | 'link' }[];
+  /** Every skill that moves with the folder. */
+  count: number;
+}
+
+/** What moving `folder` takes along, from the loaded resources. */
+export function planFolder(resources: Skill[], folder: string): FolderPlan {
+  // A folder can itself be a skill (SKILL.md at its root); it moves with what is below it.
+  const inside = resources.filter((s) => s.kind === 'skill' && (s.relPath === folder || s.relPath.startsWith(`${folder}/`)));
+  const moving = inside.filter(canMove);
+  const counts = new Map<string, number>();
+  const direct: Skill[] = [];
+  for (const s of moving) {
+    const rest = s.relPath.slice(folder.length + 1);
+    const i = rest.indexOf('/');
+    if (s.relPath === folder) { direct.push(s); continue; }
+    if (i < 0) direct.push(s);
+    else counts.set(rest.slice(0, i), (counts.get(rest.slice(0, i)) ?? 0) + 1);
+  }
+  const blocked = new Map<string, 'repo' | 'link'>();
+  for (const s of inside) {
+    const link = sourceLinkOf(s)?.name;
+    const repo = repoOf(s);
+    if (link) blocked.set(link, 'link');
+    else if (repo) blocked.set(repo, 'repo');
+  }
+  return {
+    direct,
+    subfolders: [...counts].map(([name, count]) => ({ name, count })).sort((a, b) => a.name.localeCompare(b.name)),
+    blocked: [...blocked].map(([path, why]) => ({ path: path.startsWith(`${folder}/`) ? path.slice(folder.length + 1) : path, why })),
+    count: moving.length,
+  };
 }

@@ -126,6 +126,16 @@ describe('Skills tree view', () => {
     ));
   });
 
+  it('offers to move a plain folder whole, but not a tracked repo', async () => {
+    mount();
+    fireEvent.contextMenu(await row('local'));
+    expect(await screen.findByRole('menuitem', { name: 'Move whole folder…' })).toBeInTheDocument();
+    fireEvent.keyDown(document, { key: 'Escape' });
+    fireEvent.contextMenu(await row('repo'));
+    expect(await screen.findByRole('menuitem', { name: 'Update repo' })).toBeInTheDocument();
+    expect(screen.queryByRole('menuitem', { name: 'Move whole folder…' })).toBeNull();
+  });
+
   it('sets targets for a folder inside a tracked repo', async () => {
     const user = userEvent.setup();
     mount();
@@ -135,6 +145,34 @@ describe('Skills tree view', () => {
     await waitFor(() => expect(api.batchSetTargets).toHaveBeenCalledWith('_repo/plugins/demo/skills', 'claude'));
   });
 
+});
+
+describe('Move to folder', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    vi.clearAllMocks();
+    vi.mocked(api.listSkills).mockResolvedValue({ resources: [at('local/one'), at('_repo/skills/gamma')] } as Awaited<ReturnType<typeof api.listSkills>>);
+    vi.mocked(api.diff).mockResolvedValue({ diffs: [] } as unknown as Awaited<ReturnType<typeof api.diff>>);
+    vi.mocked(api.listTargets).mockResolvedValue({ targets: [], sourceSkillCount: 0 });
+    vi.mocked(api.getSyncMatrix).mockResolvedValue({ entries: [] } as unknown as Awaited<ReturnType<typeof api.getSyncMatrix>>);
+  });
+
+  it('opens from the selection bar with the skills that can move', async () => {
+    mount();
+    fireEvent.click(await screen.findByRole('checkbox', { name: 'one' }));
+    fireEvent.click(screen.getByRole('checkbox', { name: 'gamma' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Move to folder…' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Move to folder' });
+    expect(within(dialog).getByText('one')).toBeInTheDocument();
+    expect(within(dialog).queryByText('gamma')).toBeNull();
+    expect(within(dialog).getByText(/1 selected items stay where they are/)).toBeInTheDocument();
+  });
+
+  it('stays disabled while only a tracked-repo skill is selected', async () => {
+    mount();
+    fireEvent.click(await screen.findByRole('checkbox', { name: 'gamma' }));
+    expect(screen.getByRole('button', { name: 'Move to folder…' })).toBeDisabled();
+  });
 });
 
 /** Link folder sits in the menu beside Install. */

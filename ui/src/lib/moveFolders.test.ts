@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Skill } from '../api/client';
 import { folderOptions } from './folderOptions';
-import { existingFolders, isValidFolderName, isValidIntoPath, linkPrefix, newFolderPath, skillNameFromSource } from './moveFolders';
+import { canMove, existingFolders, isValidFolderName, isValidIntoPath, linkPrefix, newFolderPath, canMoveFolder, planFolder, skillNameFromSource } from './moveFolders';
 
 const paths = (resources: Skill[]) => existingFolders(resources).map((f) => f.path);
 
@@ -119,5 +119,67 @@ describe('folderOptions', () => {
   it('blocks only the root when the root is disabled', () => {
     const blocked = folderOptions(t, 'skill', folders, 4, ['']).filter((o) => o.disabled).map((o) => o.value);
     expect(blocked).toEqual(['']);
+  });
+});
+
+describe('canMove', () => {
+  it('takes a plain skill', () => {
+    expect(canMove(skill('a/demo'))).toBe(true);
+  });
+
+  it.each([
+    ['an agent', skill('a/x.md', { kind: 'agent' })],
+    ['a skill in a tracked repo', skill('_team/demo', { isInRepo: true, repoPath: '_team' })],
+    ['a skill below a followed link', skill('mine/demo', { linkName: 'mine', linkTarget: '/elsewhere' })],
+  ])('refuses %s', (_, s) => expect(canMove(s)).toBe(false));
+});
+
+describe('canMoveFolder', () => {
+  it('takes a plain folder', () => {
+    expect(canMoveFolder('frontend/svelte')).toBe(true);
+  });
+
+  it.each([
+    ['the root', '', {}],
+    ['a tracked repo root', 'org/_team', { repo: true }],
+    ['a followed link', 'mine', { link: {} }],
+    ['a folder inside a tracked repo', '_team/plugins', {}],
+  ])('refuses %s', (_, path, node) => expect(canMoveFolder(path, node)).toBe(false));
+
+  it('refuses a folder below a followed link', () => {
+    expect(canMoveFolder('mine/sub', {}, ['mine'])).toBe(false);
+    expect(canMoveFolder('mine2/sub', {}, ['mine'])).toBe(true);
+  });
+});
+
+describe('planFolder', () => {
+  const resources = [
+    skill('frontend/pdf'),
+    skill('frontend/docx'),
+    skill('frontend/svelte/one'),
+    skill('frontend/svelte/two'),
+    skill('frontend/_acme/skills/x', { isInRepo: true, repoPath: 'frontend/_acme' }),
+    skill('other/elsewhere'),
+  ];
+
+  it('lists direct skills, first-level subfolders and the total', () => {
+    const plan = planFolder(resources, 'frontend');
+    expect(plan.direct.map((s) => s.relPath)).toEqual(['frontend/pdf', 'frontend/docx']);
+    expect(plan.subfolders).toEqual([{ name: 'svelte', count: 2 }]);
+    expect(plan.count).toBe(4);
+  });
+
+  it('names a tracked repo inside the folder as blocked, relative to the folder', () => {
+    expect(planFolder(resources, 'frontend').blocked).toEqual([{ path: '_acme', why: 'repo' }]);
+  });
+
+  it('counts a skill at the folder root with what is below it', () => {
+    const plan = planFolder([skill('suite'), skill('suite/inner')], 'suite');
+    expect(plan.count).toBe(2);
+    expect(plan.direct.map((s) => s.relPath)).toEqual(['suite', 'suite/inner']);
+  });
+
+  it('has no blockers for a plain folder', () => {
+    expect(planFolder(resources, 'other').blocked).toEqual([]);
   });
 });

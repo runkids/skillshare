@@ -9,6 +9,9 @@ export const queryKeys = {
     file: (name: string, path: string) => ['skill-file', name, path] as const,
   },
 
+  /** A dry-run of the move dialog: what a move to `dest` would do. */
+  movePreview: (names: string[], dest: string) => ['move-preview', names, dest] as const,
+
   targets: {
     all: ['targets'] as const,
     available: ['targets', 'available'] as const,

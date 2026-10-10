@@ -1,10 +1,10 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient, type UseQueryResult } from '@tanstack/react-query';
 import type { Components } from 'react-markdown';
 import {
   ChevronDown, ChevronRight, CircleArrowUp, CircleCheck, Copy, Ellipsis, ExternalLink, File, FileCode2, FileText, Folder,
-  FolderOpen, Github, Globe, Pencil, Power, RefreshCw, ShieldAlert, ShieldCheck, Trash2, TriangleAlert, X,
+  FolderInput, FolderOpen, Github, Globe, Pencil, Power, RefreshCw, ShieldAlert, ShieldCheck, Trash2, TriangleAlert, X,
 } from 'lucide-react';
 import { api, type AuditResult, type DiffTarget, type Skill, type SyncMatrixEntry } from '../api/client';
 import { queryKeys, staleTimes } from '../lib/queryKeys';
@@ -34,6 +34,8 @@ import { SkillContextMenu, type ContextMenuItem } from '../components/TargetMenu
 import { useToast } from '../components/Toast';
 import { SkillEditor } from '../components/skill-editor';
 import { UninstallDialog } from '../components/resources/UninstallDialog';
+import { MoveDialog } from '../components/resources/MoveDialog';
+import { canMove } from '../lib/moveFolders';
 import { checkKey, hasUpdate, updateUnits, useCheckStatuses } from './UpdatePage';
 import { useDiffQuery, useSkillsQuery } from '../hooks/useSharedQueries';
 import { invalidate } from '../lib/queryEvents';
@@ -77,6 +79,9 @@ export default function ResourceDetailPage() {
   const [editing, setEditing] = useState(false);
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
   const [uninstalling, setUninstalling] = useState(false);
+  // The skill being moved, kept as it was: the page's own data changes name under the dialog.
+  const [moving, setMoving] = useState<Skill | null>(null);
+  const movedTo = useRef<string | null>(null);
   const [updating, setUpdating] = useState(false);
   const [toggling, setToggling] = useState(false);
   const [blocked, setBlocked] = useState<string | null>(null);
@@ -92,13 +97,31 @@ export default function ResourceDetailPage() {
     return { byName, byFlat };
   }, [allSkills.data]);
 
-  if (isPending) return <SkillDetailSkeleton />;
+  // After a move the old name no longer loads, so the page falls to its loading or error view: the dialog is
+  // drawn there too, and the page goes to the new name only when the dialog closes.
+  const moveDialog = moving && (
+    <MoveDialog
+      skills={[moving]}
+      all={allSkills.data?.resources ?? [moving]}
+      onMoved={(results) => { movedTo.current = results.find((r) => r.success && r.flatName)?.flatName ?? null; }}
+      onClose={() => {
+        const flatName = movedTo.current;
+        movedTo.current = null;
+        setMoving(null);
+        if (flatName) navigate(resourceHref({ flatName, kind: moving.kind }), { replace: true });
+      }}
+    />
+  );
+  if (isPending) return <><SkillDetailSkeleton />{moveDialog}</>;
   if (error || !data) {
     return (
-      <div className="ss-note bad">
-        <TriangleAlert size={16} />
-        <div className="flex-1"><b>{t('resourceDetail.error.failedToLoad')}</b> {error?.message}</div>
-      </div>
+      <>
+        <div className="ss-note bad">
+          <TriangleAlert size={16} />
+          <div className="flex-1"><b>{t('resourceDetail.error.failedToLoad')}</b> {error?.message}</div>
+        </div>
+        {moveDialog}
+      </>
     );
   }
 
@@ -222,6 +245,9 @@ export default function ResourceDetailPage() {
       icon: resource.disabled ? <CircleCheck size={14} /> : <Power size={14} />,
       onSelect: toggleDisabled,
     },
+    ...(canMove(resource)
+      ? [{ key: 'move', label: t('move.menu.skill'), icon: <FolderInput size={14} />, onSelect: () => setMoving(resource) }]
+      : []),
     {
       key: 'uninstall',
       label: t(resource.isInRepo && !isAgent && !sourceLinkOf(resource) ? 'resourceDetail.actions.uninstallRepo' : 'resourceDetail.actions.uninstall'),
@@ -265,6 +291,7 @@ export default function ResourceDetailPage() {
   const description = str(frontmatter.description);
 
   return (
+    <>
     <div className="animate-fade-in">
       <PageHeader
         crumbs={[{ label: t(isAgent ? 'layout.nav.agents' : 'layout.nav.skills'), to: listPath }, { label: resource.name }]}
@@ -361,6 +388,8 @@ export default function ResourceDetailPage() {
         <BlockedDialog name={resource.name} message={blocked} loading={updating} onSkip={() => runUpdate(true)} onClose={() => setBlocked(null)} />
       )}
     </div>
+      {moveDialog}
+    </>
   );
 }
 
