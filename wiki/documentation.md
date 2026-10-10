@@ -42,7 +42,7 @@ All root instructions and wiki topics are English. Preserve historical documents
 ## Verification
 
 1. Search for every changed flag, path, configuration key, and command name in source.
-2. Check relative links, frontmatter, and sidebar placement.
+2. Check relative links, frontmatter, and sidebar placement. A page that has no translated copies is served as a fallback in every locale: give it absolute `/docs/...` links, and put an explicit `{#id}` on any heading it anchors into, in the English page and each `website/i18n/*` copy.
 3. Build the website inside the devcontainer to validate types and broken links.
 4. For public behavior changes, inspect README, built-in skill, and changelog impact. Update release history only when explicitly requested.
 5. After wiki/router changes, run `python3 scripts/ai-context.py check`.
