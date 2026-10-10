@@ -27,6 +27,8 @@ Per skill, in this order:
 4. `.skillignore`: if a literal line equals the old relPath, `skillignore.RemovePattern` + `AddPattern` (`internal/skillignore/write.go`) with the new one. Glob rules are left alone; re-run `sync.DiscoverSourceSkillsAll` and warn when `Disabled` flipped (as `toggleOverrideError` does).
 5. Project `.gitignore`: swap the old entry for the new one via `config.ProjectGitignoreTarget` + `install.RemoveFromGitIgnoreBatch` (reconcile's `onFound` only adds). Whether project uninstall removes skill lines today is unverified; check before coding.
 
+The reconcile walk stops at an installed parent (`reconcile_core.go`: `existing.Source != ""` returns `SkipDir`) and `pruneStaleEntries` then drops every record absent from that walk, so a re-keyed nested record under an installed parent would be pruned with its audit acceptances. Step 2 therefore also changes reconcile to keep records whose key lies below a live installed record (own test in `internal/config`), rather than bypassing the prune.
+
 Order is rename first, store second: a failed rename changes nothing; a failed store save after a rename is healed by #513's reconcile when hashes exist, and reported otherwise.
 
 `MetadataStore` has no exported "key for relPath" (`GetByPath` returns the entry only), so add `KeyForPath(relPath) string` matching `KeyToRelPath(key, entry)`; needed for legacy basename keys that carry a `Group`.
@@ -44,6 +46,7 @@ Refusals (stable `Code`, shared by CLI and API):
 | `invalid_dest` | not `validate.IntoPath`; `.` means the source root. Segments starting with `_` fail `validate.SkillName`, so tracked-repo names cannot be typed |
 | `dest_inside_source_folder` | moving a folder into itself or one of its descendants |
 | `duplicate_dest` | two names in one batch resolve to the same destination path (`frontend/foo` and `backend/foo` into `archive`). Both are refused before any rename; `--force` does not change it |
+| `overlapping_sources` | one requested root equals or sits below another (`move foo foo/sub archive`). Refused before any rename; the parent already carries the child |
 | `same_folder` | already there; no-op, exit 0 |
 | `name_collision` | forceable, below |
 
@@ -53,7 +56,7 @@ Extract the tracked-repo ancestor loop from `uninstall.checkMoveOut` into an exp
 
 Name collisions: target names are `FlatName` (`grp__demo`) or SKILL.md names, depending on `target_naming`. For each target run `sync.ResolveTargetSkillsForTarget` on the discovered list with the moved skills rewritten, and report `Collisions` that include a moved path. Identical destination paths are `duplicate_dest`, checked first, and never reach this step. The `flat` branch of that function returns before collision detection (verified, `internal/sync/target_naming.go`), so also compare `FlatName` duplicates directly. A collision does not lose data (sync skips both entries), so `--force` accepts it. That is the only thing `--force` does.
 
-Target filters are not rewritten. `include`/`exclude` match flat names (`internal/sync/filter.go`), so a rule naming `demo` stops matching `grp__demo`. Preflight lists target rules matching the old flat name and not the new one as warnings; `sync` already warns on unmatched includes (`UnmatchedInclude.Warning`).
+Target filters are not rewritten. `include`/`exclude` match flat names (`internal/sync/filter.go`), so a rule naming `demo` stops matching `grp__demo`. Preflight evaluates each target's effective filter (`ShouldSyncFlatName`) for the old and the new flat name and warns whenever the result differs in either direction (a rule naming `demo` stops matching; an `exclude: archive__*` newly drops it; an `include` newly adds it); `sync` already warns on unmatched includes (`UnmatchedInclude.Warning`).
 
 ### CLI: `skillshare move <skill|folder>... <dest-folder>`
 
@@ -145,7 +148,7 @@ Behavioural code is ~400 lines Go (core, CLI, handler) and ~350 lines TS; the fi
 
 Unit (devcontainer only; load `testing` first):
 - `internal/install`: `KeyForPath` (full and legacy basename keys), `Lock.MovePin`, tracked-ancestor helper.
-- `internal/skillmove` table tests: record re-keyed with audit acceptances; skill without record; edited skill (hashes differ); no `file_hashes`; every refusal code; `same_folder`; `duplicate_dest` with `--force`; skill with a nested skill (both re-keyed, pin and acceptances kept); folder move (all skills re-keyed, empty folder and non-skill files move along, one refusal such as a nested tracked checkout (including one with no discoverable skill) or link aborts before any rename, `dest_inside_source_folder`); dry-run leaves disk and store untouched; literal `.skillignore` rewrite; flat-name collision with and without force; batch with one failure keeps the others.
+- `internal/skillmove` table tests: record re-keyed with audit acceptances; skill without record; edited skill (hashes differ); no `file_hashes`; every refusal code; `same_folder`; `duplicate_dest` with `--force`; `overlapping_sources`; reconcile keeps nested records under an installed parent; skill with a nested skill (both re-keyed, pin and acceptances kept); folder move (all skills re-keyed, empty folder and non-skill files move along, one refusal such as a nested tracked checkout (including one with no discoverable skill) or link aborts before any rename, `dest_inside_source_folder`); dry-run leaves disk and store untouched; literal `.skillignore` rewrite; flat-name collision with and without force; batch with one failure keeps the others.
 - `internal/config`: extend `project_reconcile_test.go`: after a move the project `skills:` entry has the new group and the lock keeps the old commit pin.
 - `internal/server/handler_move_test.go`: success, dry-run, partial failure, 400s, project mode, oplog entry written.
 - `tests/integration/move_test.go` (`testutil.NewSandbox`): basic, `--dry-run`, `--json`, `-p`, refusals, `Next` hint; after `sync`, the target has `grp__demo` and no `demo`.
