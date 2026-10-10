@@ -272,7 +272,7 @@ This gives you:
 
 ---
 
-## Migrating from Flat to Folders
+## Migrating from Flat to Folders {#migrating-from-flat-to-folders}
 
 :::tip New installs
 For new skills, use `--into` to install directly into the right folder — see [Install Directly into Folders](#install-directly-into-folders) above.

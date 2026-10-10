@@ -272,7 +272,7 @@ skillshare push -m "organize skills into categories"
 
 ---
 
-## 평면 구조에서 폴더 구조로 마이그레이션
+## 평면 구조에서 폴더 구조로 마이그레이션 {#migrating-from-flat-to-folders}
 
 :::tip 새로 설치하는 경우
 새 Skill의 경우, 위의 [폴더에 바로 설치하기](#install-directly-into-folders)에서 설명한 대로 `--into`를 사용해 원하는 폴더에 바로 설치하세요.

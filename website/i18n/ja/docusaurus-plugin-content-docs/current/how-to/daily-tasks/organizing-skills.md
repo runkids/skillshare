@@ -272,7 +272,7 @@ skillshare push -m "organize skills into categories"
 
 ---
 
-## フラットからフォルダへの移行
+## フラットからフォルダへの移行 {#migrating-from-flat-to-folders}
 
 :::tip 新規インストール
 新しい Skill には、`--into` を使って正しいフォルダに直接インストールしてください — 上記の [フォルダへの直接インストール](#install-directly-into-folders) を参照。

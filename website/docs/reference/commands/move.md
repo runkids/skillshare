@@ -111,7 +111,7 @@ Each refusal has a stable code. It appears in `--json` output (`failed[].code`) 
 | `dest_exists` | `<dest>/<base>` already exists, as a skill or a folder. Never overwritten or merged; `--force` does not change it |
 | `inside_tracked_repo` | The skill is under a `_`-prefixed tracked repo checkout, which `update` pulls into. A folder that is or contains a tracked checkout, even one with no skill of its own, is refused as a whole |
 | `dest_inside_tracked_repo` | The destination is inside a tracked repo |
-| `linked_folder` | The skill or folder is, or sits below, a followed source link ([`follow_source_links`](../targets/configuration.md#follow_source_links)), or the destination is below one. Other symlinks inside a folder are ordinary entries and move with it |
+| `linked_folder` | The skill or folder is, or sits below, a followed source link ([`follow_source_links`](/docs/reference/targets/configuration#follow_source_links)), or the destination is below one. Other symlinks inside a folder are ordinary entries and move with it |
 | `dest_is_skill` | The destination, or one of its ancestors, is itself a skill |
 | `invalid_dest` | Not a valid folder path: use letters, numbers, `_` and `-`, and no segment starting with `_` |
 | `dest_inside_source_folder` | A folder is moved into itself or one of its descendants |
@@ -200,7 +200,7 @@ The response is `200` with one result per name, also when some names failed. A f
 ## See Also
 
 - [Organizing Skills](/docs/how-to/daily-tasks/organizing-skills) — Folder layouts and migration from a flat source
-- [install](./install.md) — `--into` installs straight into a folder
-- [uninstall](./uninstall.md) — Remove a skill or group
-- [sync](./sync.md) — Rename the links in your targets after a move
+- [install](/docs/reference/commands/install) — `--into` installs straight into a folder
+- [uninstall](/docs/reference/commands/uninstall) — Remove a skill or group
+- [sync](/docs/reference/commands/sync) — Rename the links in your targets after a move
 - [Project Skills](/docs/understand/project-skills) — Lockfile and project config

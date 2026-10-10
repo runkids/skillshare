@@ -272,7 +272,7 @@ skillshare push -m "organize skills into categories"
 
 ---
 
-## 從平面結構遷移到資料夾結構
+## 從平面結構遷移到資料夾結構 {#migrating-from-flat-to-folders}
 
 :::tip 新安裝的 Skills
 若是新的 Skills，請直接使用 `--into` 安裝到正確的資料夾中 — 參見上方的 [直接安裝到資料夾中](#install-directly-into-folders)。
