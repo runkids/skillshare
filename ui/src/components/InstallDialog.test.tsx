@@ -145,4 +145,18 @@ describe('InstallDialog', () => {
 
     await waitFor(() => expect(api.install).toHaveBeenCalledWith(expect.objectContaining({ source: 'acme/team-skills', into: 'frontend' })));
   });
+
+  it('blocks install while a new folder has no name', async () => {
+    HTMLElement.prototype.scrollIntoView = vi.fn();
+    const user = userEvent.setup();
+    renderDialog('url');
+
+    await user.type(screen.getByLabelText(/git url/i), 'acme/team-skills');
+    await user.click(screen.getByRole('switch', { name: /track this repo/i }));
+    await user.click(screen.getByRole('button', { name: /advanced/i }));
+    await user.click(await screen.findByRole('combobox', { name: /into folder/i }));
+    await user.click(await screen.findByRole('option', { name: /new folder/i }));
+
+    expect(screen.getByRole('button', { name: /install repo/i })).toBeDisabled();
+  });
 });

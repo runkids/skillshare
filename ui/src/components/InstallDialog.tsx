@@ -30,7 +30,7 @@ import type { SkillsAddCommand } from '../lib/skillsAddCommand';
 import CodeView from './CodeView';
 import MarkdownView, { ViewToggle } from './MarkdownView';
 import { queryKeys, staleTimes } from '../lib/queryKeys';
-import { existingFolders, isValidIntoPath } from '../lib/moveFolders';
+import { existingFolders } from '../lib/moveFolders';
 import { formatSkillDisplayName } from '../lib/resourceNames';
 import { useI18n, useT } from '../i18n';
 import Button from './Button';
@@ -129,6 +129,7 @@ export default function InstallDialog({ kind, initialTab, initialSource, onClose
   const [track, setTrack] = useState(false);
   const [advanced, setAdvanced] = useState(false);
   const [into, setInto] = useState('');
+  const [intoInvalid, setIntoInvalid] = useState(false);
   const [branch, setBranch] = useState('');
   const [name, setName] = useState('');
   const [force, setForce] = useState(false);
@@ -149,8 +150,6 @@ export default function InstallDialog({ kind, initialTab, initialSource, onClose
   const { data: skillsData } = useSkillsQuery();
   // `useSkillsQuery` returns skills and agents together; agents install under their own source.
   const folders = useMemo(() => existingFolders((skillsData?.resources ?? []).filter((r) => r.kind === kind)), [skillsData, kind]);
-  // The field is inside Advanced; collapsed, the server reports a bad path instead of a button that won't say why.
-  const intoInvalid = advanced && into !== '' && !isValidIntoPath(into);
   const installedKeys = useMemo(() => new Set((skillsData?.resources ?? []).filter((r) => r.source).map((r) => `${r.kind}:${sourceKey(r.source!)}`)), [skillsData]);
   const isInstalled = (k: Kind, source: string) => installedKeys.has(`${k}:${sourceKey(source)}`);
   const isInstalledResult = (result: SearchResult) => {
@@ -786,7 +785,7 @@ export default function InstallDialog({ kind, initialTab, initialSource, onClose
         {advanced && (
           <div className="ml-[22px] flex flex-col gap-3.5">
             <div className="grid grid-cols-3 gap-3.5">
-              <FolderPicker label={t('install.url.into')} hint="--into" value={into} onChange={setInto} folders={folders} />
+              <FolderPicker label={t('install.url.into')} hint="--into" value={into} onChange={(path, valid) => { setInto(path); setIntoInvalid(!valid); }} folders={folders} />
               {canTrack && (
                 <Field label={t('install.url.branch')} hint="--branch" icon={<GitBranch size={15} className="shrink-0 text-ink-3" />}>
                   <input value={branch} onChange={(e) => { setBranch(e.target.value); setFound(null); setNothing(null); }} placeholder="main" />

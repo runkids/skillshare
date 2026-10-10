@@ -13,7 +13,8 @@ interface FolderPickerProps {
   hint?: string;
   /** '' is the source root. */
   value: string;
-  onChange: (path: string) => void;
+  /** `valid` is false for a new folder that is still empty or not a legal path. */
+  onChange: (path: string, valid: boolean) => void;
   folders: string[];
   /** A folder that cannot be picked, e.g. where a skill already is. */
   disabledFolder?: string;
@@ -39,14 +40,14 @@ export default function FolderPicker({ label, hint, value, onChange, folders, di
         options={options}
         onChange={(v) => {
           setTyping(v === NEW);
-          onChange(v === NEW ? '' : v);
+          onChange(v === NEW ? '' : v, v !== NEW);
         }}
       />
       {creating && (
         <Input
           autoFocus
           value={value}
-          onChange={(e) => onChange(e.target.value.trim())}
+          onChange={(e) => onChange(e.target.value.trim(), isValidIntoPath(e.target.value.trim()))}
           placeholder={t('folderPicker.newPlaceholder')}
           aria-label={t('folderPicker.new')}
           aria-invalid={invalid}
