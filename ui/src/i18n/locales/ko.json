@@ -1144,7 +1144,7 @@
   "move.caption.one": "링크 이름이 {name}(으)로 바뀝니다",
   "move.caption.other": "링크 이름이 {name} 등 모두 {count}개 바뀝니다",
   "move.captionFolder": "링크 이름이 {prefix}(으)로 시작합니다",
-  "move.filterWarning": "이름이 바뀔 링크를 가리키는 타깃 필터 규칙이 {count}개 있습니다. 이동 후에는 일치하지 않으니 타깃 페이지에서 조정하세요.",
+  "move.filterWarning": "링크 이름이 바뀐 뒤 타깃 필터 규칙 {count}개의 일치 결과가 달라질 수 있습니다. 타깃 페이지에서 확인하세요.",
   "move.skipped": "선택한 {count}개는 이동하지 않습니다. tracked repo와 링크된 폴더는 이동할 수 없습니다.",
   "move.nested.one": "선택한 항목 안에 있는 skill {count}개도 함께 이동합니다",
   "move.nested.other": "선택한 항목 안에 있는 skill {count}개도 함께 이동합니다",

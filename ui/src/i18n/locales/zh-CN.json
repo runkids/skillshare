@@ -1144,7 +1144,7 @@
   "move.caption.one": "链接会改名为 {name}",
   "move.caption.other": "链接会改名为 {name} 等 {count} 个",
   "move.captionFolder": "链接名称会以 {prefix} 开头",
-  "move.filterWarning": "有 {count} 条目标过滤规则指向即将改名的链接，移动后会失效，请到「目标」页调整。",
+  "move.filterWarning": "有 {count} 条目标过滤规则在链接改名后的匹配结果可能不同，请到「目标」页确认。",
   "move.skipped": "已选的 {count} 项不会移动：tracked repo 和链接文件夹不能移动。",
   "move.nested.one": "有 {count} 个 skill 在已选项目里面，会一起移动",
   "move.nested.other": "有 {count} 个 skill 在已选项目里面，会一起移动",

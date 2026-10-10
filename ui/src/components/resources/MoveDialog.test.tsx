@@ -83,6 +83,49 @@ describe('MoveDialog', () => {
     expect(await screen.findByRole('button', { name: /^Move 3 skills$/ })).toBeEnabled();
   });
 
+  it('sends only the outer skill when one selected skill is inside another', async () => {
+    vi.mocked(api.moveResources).mockImplementation(async (opts) => result(opts.names.map((n) => ok(n, `archive/${n}`)), !!opts.dryRun));
+    const user = userEvent.setup();
+    const outer = skill('suite');
+    const inner = skill('suite/inner');
+    mount({ skills: [outer, inner, skill('solo')], all: [...ALL, outer, inner] });
+    await pick(user, /^archive/);
+
+    await waitFor(() => expect(api.moveResources).toHaveBeenCalledWith({ names: ['suite', 'solo'], dest: 'archive', dryRun: true }));
+  });
+
+  it('counts the skills under a moved folder, not the one result', async () => {
+    vi.mocked(api.moveResources).mockImplementation(async (opts) => result([ok('frontend', 'archive/frontend', { skills: 4 })], !!opts.dryRun));
+    const user = userEvent.setup();
+    mount({ skills: undefined, folder: 'frontend', all: ALL });
+    await pick(user, /^archive/);
+    await user.click(await screen.findByRole('button', { name: 'Move folder' }));
+
+    expect(await screen.findByText('Moved 4 skills')).toBeInTheDocument();
+  });
+
+  it('locks Later and Sync now while a "Move anyway" retry runs', async () => {
+    let release: (r: MoveResult) => void = () => undefined;
+    vi.mocked(api.moveResources).mockImplementation((opts) => {
+      if (opts.dryRun) return Promise.resolve(result(opts.names.map((n) => ok(n, `archive/${n}`)), true));
+      if (opts.force) return new Promise<MoveResult>((resolve) => { release = resolve; });
+      return Promise.resolve(result([
+        ok('frontend__pdf', 'archive/pdf'),
+        { name: 'frontend__docx', success: false, error: 'y', error_code: 'name_collision' },
+      ]));
+    });
+    const user = userEvent.setup();
+    mount();
+    await pick(user, /^archive/);
+    await user.click(await screen.findByRole('button', { name: /^Move 2 skills$/ }));
+    await user.click(await screen.findByRole('button', { name: 'Move anyway' }));
+
+    expect(screen.getByRole('button', { name: 'Later' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Sync Now' })).toBeDisabled();
+    release(result([ok('frontend__docx', 'archive/docx')]));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Later' })).toBeEnabled());
+  });
+
   it('sends "." for the source root', async () => {
     vi.mocked(api.moveResources).mockImplementation(async (opts) => result(opts.names.map((n) => ok(n, 'pdf')), !!opts.dryRun));
     const user = userEvent.setup();
@@ -115,7 +158,7 @@ describe('MoveDialog', () => {
 
     await pick(user, /^archive/);
 
-    expect(await screen.findByText(/target filter rules name a link that is about to be renamed \(1\)/)).toBeInTheDocument();
+    expect(await screen.findByText(/may match differently once links are renamed \(1\)/)).toBeInTheDocument();
     expect(screen.queryByText(/will stop matching/)).toBeNull();
   });
 

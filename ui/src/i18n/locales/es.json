@@ -1144,7 +1144,7 @@
   "move.caption.one": "El enlace se renombrará a {name}",
   "move.caption.other": "Los enlaces se renombrarán, por ejemplo a {name}, {count} en total",
   "move.captionFolder": "Los nombres de enlace empezarán por {prefix}",
-  "move.filterWarning": "{count} reglas de filtro de destinos nombran un enlace que va a cambiar de nombre. Dejarán de coincidir tras el movimiento; ajústalas en la página Destinos.",
+  "move.filterWarning": "Tras renombrar los enlaces, {count} reglas de filtro de destinos pueden coincidir de otra forma. Revísalas en la página Destinos.",
   "move.skipped": "{count} elementos seleccionados se quedan donde están: los repos seguidos y las carpetas enlazadas no se pueden mover.",
   "move.nested.one": "{count} skill dentro de uno seleccionado se mueve con él",
   "move.nested.other": "{count} skills dentro de los seleccionados se mueven con ellos",

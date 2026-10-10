@@ -58,11 +58,13 @@ function MoveResults({ results, skills, destFor, running, onRetry, onSync, onClo
   const t = useT();
   const byName = new Map(skills.map((s) => [s.flatName, s]));
   const done = results.filter((r) => r.success && !unchanged(r));
+  // A folder is one result that stands for every skill under it.
+  const movedCount = done.reduce((n, r) => n + (r.skills ?? 1), 0);
   const failed = results.filter((r) => !r.success && r.error_code !== 'same_folder');
   const collided = failed.filter((r) => r.error_code === 'name_collision');
   const title = failed.length === 0
-    ? t(plural('move.result.allMoved', done.length), { count: done.length })
-    : t('move.result.partial', { moved: done.length, failed: failed.length });
+    ? t(plural('move.result.allMoved', movedCount), { count: movedCount })
+    : t('move.result.partial', { moved: movedCount, failed: failed.length });
   return (
     <DialogShell open onClose={onClose} maxWidth="lg" padding="none" ariaLabel={title} preventClose={running}>
       <div className="dh">
@@ -103,9 +105,9 @@ function MoveResults({ results, skills, destFor, running, onRetry, onSync, onClo
           </Button>
         )}
         <span className="flex-1" />
-        <Button variant="secondary" onClick={onClose}>{t('move.result.later')}</Button>
+        <Button variant="secondary" onClick={onClose} disabled={running}>{t('move.result.later')}</Button>
         {done.length > 0 && (
-          <Button variant="primary" onClick={onSync}>
+          <Button variant="primary" onClick={onSync} disabled={running}>
             <RefreshCw size={15} />
             {t('syncPreview.syncNowButton')}
           </Button>
@@ -138,18 +140,21 @@ export function MoveDialog({ skills: given = [], folder, all, skipped = 0, onMov
   const [results, setResults] = useState<MoveItemResult[] | null>(null);
   const [syncing, setSyncing] = useState(false);
   // What was asked for stays what is shown: a detail page changes its skill's name once the move is done.
-  const [skills] = useState(given);
+  const [given0] = useState(given);
 
   const skillsOnly = useMemo(() => all.filter((s) => s.kind === 'skill'), [all]);
+  // A selected skill below another selected one already moves with it; the API refuses the pair as overlapping.
+  const roots = useMemo(() => given0.filter((s) => !given0.some((o) => o !== s && s.relPath.startsWith(`${o.relPath}/`))), [given0]);
   const folders = useMemo(() => existingFolders(skillsOnly), [skillsOnly]);
   const plan = useMemo(() => (folder ? planFolder(all, folder) : null), [all, folder]);
+  const skills = roots;
   const names = folder ? [folder] : skills.map((s) => s.flatName);
   const disabledPaths = folder ? [folder] : undefined;
   // Skills nested inside a selected one: renaming the directory carries them too.
-  const nested = useMemo(() => {
-    const picked = new Set(skills.map((s) => s.flatName));
-    return skillsOnly.filter((x) => !picked.has(x.flatName) && skills.some((s) => x.relPath.startsWith(`${s.relPath}/`))).length;
-  }, [skills, skillsOnly]);
+  const nested = useMemo(
+    () => skillsOnly.filter((x) => roots.some((s) => x.relPath.startsWith(`${s.relPath}/`))).length,
+    [roots, skillsOnly],
+  );
   const moving = plan ? plan.count : skills.length + nested;
   const base = folder ? baseName(folder) : '';
   const [firstSkill] = skills;

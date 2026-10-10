@@ -105,8 +105,10 @@ export default function ResourceDetailPage() {
       all={allSkills.data?.resources ?? [moving]}
       onMoved={(results) => { movedTo.current = results.find((r) => r.success && r.flatName)?.flatName ?? null; }}
       onClose={() => {
+        const flatName = movedTo.current;
+        movedTo.current = null;
         setMoving(null);
-        if (movedTo.current) navigate(resourceHref({ flatName: movedTo.current, kind: moving.kind }), { replace: true });
+        if (flatName) navigate(resourceHref({ flatName, kind: moving.kind }), { replace: true });
       }}
     />
   );

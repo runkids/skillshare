@@ -1144,7 +1144,7 @@
   "move.caption.one": "リンクは {name} に名前が変わります",
   "move.caption.other": "リンクは {name} など計 {count} 件の名前が変わります",
   "move.captionFolder": "リンク名は {prefix} で始まります",
-  "move.filterWarning": "名前が変わるリンクを指すターゲットのフィルタルールが {count} 件あります。移動後は一致しなくなるので、ターゲットのページで調整してください。",
+  "move.filterWarning": "リンク名の変更後、{count} 件のターゲットのフィルタルールの一致結果が変わる可能性があります。ターゲットのページで確認してください。",
   "move.skipped": "選択した {count} 件は移動しません。tracked repo とリンクされたフォルダは移動できません。",
   "move.nested.one": "選択した skill の中にある {count} 件も一緒に移動します",
   "move.nested.other": "選択した skill の中にある {count} 件も一緒に移動します",

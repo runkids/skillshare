@@ -1144,7 +1144,7 @@
   "move.caption.one": "Le lien sera renommé en {name}",
   "move.caption.other": "Les liens seront renommés, par exemple en {name}, {count} au total",
   "move.captionFolder": "Les noms de lien commenceront par {prefix}",
-  "move.filterWarning": "{count} règles de filtre de cibles nomment un lien qui va être renommé. Elles ne correspondront plus après le déplacement ; ajustez-les dans la page Cibles.",
+  "move.filterWarning": "Après le renommage des liens, {count} règles de filtre de cibles peuvent correspondre différemment. Vérifiez-les dans la page Cibles.",
   "move.skipped": "{count} éléments sélectionnés restent en place : les dépôts suivis et les dossiers liés ne se déplacent pas.",
   "move.nested.one": "{count} skill dans un élément sélectionné est déplacé avec lui",
   "move.nested.other": "{count} skills dans les éléments sélectionnés sont déplacés avec eux",
