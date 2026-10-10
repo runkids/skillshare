@@ -13,6 +13,7 @@ import (
 	"skillshare/internal/backup"
 	"skillshare/internal/config"
 	"skillshare/internal/hooks"
+	"skillshare/internal/install"
 	"skillshare/internal/mcp"
 	"skillshare/internal/oplog"
 	"skillshare/internal/skillignore"
@@ -359,6 +360,18 @@ func cmdSync(args []string) error {
 		return agentErr
 	}
 
+	// A skill moved by hand keeps its install record; sync never prunes one.
+	var metaWarnings []string
+	if !dryRun {
+		store, adoptErr := install.LoadMetadata(cfg.EffectiveSkillsSource())
+		if adoptErr == nil {
+			adoptErr = config.AdoptMovedGlobalSkills(cfg, store)
+		}
+		if adoptErr != nil {
+			metaWarnings = append(metaWarnings, fmt.Sprintf("install metadata not updated: %v", adoptErr))
+		}
+	}
+
 	// Phase 1: Discovery (skills)
 	var spinner *ui.Spinner
 	if !jsonOutput {
@@ -380,7 +393,7 @@ func cmdSync(args []string) error {
 		reportCollisions(discoveredSkills, cfg.Targets)
 	}
 	sourceIncomplete := walk.Follow.Incomplete()
-	linkWarnings := sync.SourceLinkWarnings(walk, sourceIncomplete)
+	linkWarnings := append(metaWarnings, sync.SourceLinkWarnings(walk, sourceIncomplete)...)
 	if !jsonOutput {
 		for _, w := range linkWarnings {
 			ui.Warning("%s", w)

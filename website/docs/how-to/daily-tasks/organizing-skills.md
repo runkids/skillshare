@@ -290,7 +290,7 @@ skillshare sync
 After `sync`, targets are updated automatically — old flat symlinks are cleaned up and new flattened names are created.
 
 :::warning Skills installed with `skillshare install`
-Do not move an installed skill with `mv`. Its install record in `.metadata.json` is keyed by its path, so the record stays at the old path until the next `install` or **Install missing** recognizes the moved copy (same name, files unchanged since install, only one such copy) and moves it; until then `update` and `uninstall` cannot find the skill, and the project lock pin and `.skillignore` lines never follow. Use [`skillshare move`](/docs/reference/commands/move) instead. It moves the skill together with its install record, so nothing is downloaded again:
+Do not move an installed skill with `mv`. Its install record in `.metadata.json` is keyed by its path, so the record stays at the old path until the next `sync`, `install` or **Install missing** recognizes the moved copy (same name, files unchanged since install, only one such copy) and moves it; until then `update` and `uninstall` cannot find the skill, and `.skillignore` lines never follow. Use [`skillshare move`](/docs/reference/commands/move) instead. It moves the skill together with its install record, so nothing is downloaded again:
 
 ```bash
 skillshare move react-best-practices frontend/react

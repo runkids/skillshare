@@ -53,6 +53,14 @@ func cmdSyncProject(root string, dryRun, force, jsonOutput, quiet bool) (syncLog
 		return stats, nil, nil, nil, nil, nil, fmt.Errorf("source directory does not exist: %s", runtime.sourcePath)
 	}
 
+	// A skill moved by hand keeps its install record; sync never prunes one.
+	var metaWarnings []string
+	if !dryRun {
+		if rErr := config.AdoptMovedProjectSkills(root, cfg, runtime.skillsStore, runtime.sourcePath); rErr != nil {
+			metaWarnings = append(metaWarnings, fmt.Sprintf("install metadata not updated: %v", rErr))
+		}
+	}
+
 	// Phase 1: Discovery
 	var spinner *ui.Spinner
 	if !jsonOutput {
@@ -71,7 +79,7 @@ func cmdSyncProject(root string, dryRun, force, jsonOutput, quiet bool) (syncLog
 		reportCollisions(discoveredSkills, runtime.targets)
 	}
 	sourceIncomplete := walk.Follow.Incomplete()
-	linkWarnings := sync.SourceLinkWarnings(walk, sourceIncomplete)
+	linkWarnings := append(metaWarnings, sync.SourceLinkWarnings(walk, sourceIncomplete)...)
 	if !jsonOutput {
 		for _, w := range linkWarnings {
 			ui.Warning("%s", w)

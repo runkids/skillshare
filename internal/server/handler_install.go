@@ -42,6 +42,21 @@ func (s *Server) reconcileSkills(sourceDir string) error {
 	return config.ReconcileGlobalSkills(s.cfg, s.skillsStore)
 }
 
+// adoptMovedSkills is reconcileSkills without the prune, for sync. It reads
+// the store from disk first: the cached one may be the empty stand-in New
+// uses when the file does not load, and saving that would drop every record.
+func (s *Server) adoptMovedSkills() error {
+	st, err := install.LoadMetadataWithMigration(s.cfg.EffectiveSkillsSource(), "")
+	if err != nil {
+		return err
+	}
+	s.skillsStore = st
+	if s.IsProjectMode() {
+		return config.AdoptMovedProjectSkills(s.projectRoot, s.projectCfg, s.skillsStore, s.cfg.EffectiveSkillsSource())
+	}
+	return config.AdoptMovedGlobalSkills(s.cfg, s.skillsStore)
+}
+
 // checkInstallInto refuses an into folder an install must not land in: inside
 // a skill or inside a tracked checkout, with the codes move uses. A path below
 // a source link is left to the install, which follows it or refuses it itself. It writes the response and returns false when it refuses.
