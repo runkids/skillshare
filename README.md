@@ -380,6 +380,7 @@ Thanks to everyone who helped shape skillshare.
 <a href="https://github.com/AdamMagued"><img src="https://github.com/AdamMagued.png" width="50" style="border-radius:50%" alt="AdamMagued"></a>
 <a href="https://github.com/mbury"><img src="https://github.com/mbury.png" width="50" style="border-radius:50%" alt="mbury"></a>
 <a href="https://github.com/483218131"><img src="https://github.com/483218131.png" width="50" style="border-radius:50%" alt="483218131"></a>
+<a href="https://github.com/neilforest7"><img src="https://github.com/neilforest7.png" width="50" style="border-radius:50%" alt="neilforest7"></a>
 
 ---
 
