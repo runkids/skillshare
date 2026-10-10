@@ -1,22 +1,27 @@
 # Changelog
 
-## [0.25.5] - 2026-10-10
-
-
-* **release:** request version 0.25.5 ([3494fea](https://github.com/runkids/skillshare/commit/3494fea1f27c369bbb8826f2400b75a0e462707c))
-
+## [0.25.5] - 2026-10-11
 
 ### New Features
 
-* **move:** move installed skills and folders without losing their records ([#520](https://github.com/runkids/skillshare/issues/520)) ([bf1731d](https://github.com/runkids/skillshare/commit/bf1731dec443a2345a9dbc0dbfa8accbdb2de31f)), closes [#510](https://github.com/runkids/skillshare/issues/510)
-* **sync:** adopt the install record of a skill moved by hand ([#523](https://github.com/runkids/skillshare/issues/523)) ([3a5da6b](https://github.com/runkids/skillshare/commit/3a5da6b529db19c4230b8368fdf2533fa5cedb56))
-* **ui:** move installed skills and folders from the dashboard ([#519](https://github.com/runkids/skillshare/issues/519)) ([5e85f53](https://github.com/runkids/skillshare/commit/5e85f5313bc5f3b41e92430da970d881c115acd6)), closes [#510](https://github.com/runkids/skillshare/issues/510)
-* **ui:** pick an existing folder when installing into a folder ([#517](https://github.com/runkids/skillshare/issues/517)) ([049c2d6](https://github.com/runkids/skillshare/commit/049c2d68f552124894e53863f8fbd1aa0ce56ddb)), closes [#510](https://github.com/runkids/skillshare/issues/510)
+#### Install
 
+- **Move installed skills and folders without losing their records** — `skillshare move` moves skills, or whole folders of skills, to another folder of the source and takes the install record with them: the `.metadata.json` entry and accepted audit findings, the project lockfile pin and `config.yaml` group, the project `.gitignore` line and a literal `.skillignore` line. Moving an installed skill by hand left its record behind, so the next `install` or **Install missing** started over. Refs: #510.
+  ```bash
+  skillshare move react-best-practices frontend      # one skill into frontend/
+  skillshare move pdf docx office                    # several skills
+  skillshare move frontend archive                   # a whole folder -> archive/frontend/
+  skillshare move react-best-practices frontend -n   # preview
+  ```
+  - A move never syncs. It prints `skillshare sync`, which renames the links in your targets. `--dry-run`/`-n` previews, `--json` reports each name with a stable `error_code`, and `-p` works in project mode.
+  - Everything is checked before anything is renamed, and a folder moves whole or not at all. Refused: a skill or folder inside a tracked repo or below a followed source link, a destination inside a skill or a tracked repo, and a short name that matches several skills (use the full path). A target name collision needs `--force`. A target `include`/`exclude` rule that decides differently for the new flat name is warned about; `config.yaml` is not changed.
+  - `install --into` now refuses a folder inside a skill or a tracked checkout, with the same codes.
+- **`sync` adopts a skill moved by hand** — after a plain `mv`, the next `sync` moves the install record, accepted audit findings and project lock pin to the new path, when exactly one unchanged copy with that name exists. Before, only `install` or **Install missing** did, so `update` and `uninstall` could not find the skill after `mv` + `sync`. `sync` never removes a record; `--dry-run` adopts nothing. Refs: #523.
 
-### Bug Fixes
+#### Dashboard
 
-* **move:** recompute collisions after a refusal, report an unreadable .skillignore, preflight batch dry-run --into ([#522](https://github.com/runkids/skillshare/issues/522)) ([f1ca009](https://github.com/runkids/skillshare/commit/f1ca009de34423f7c33a11fc7529af86497b8a1c)), closes [#521](https://github.com/runkids/skillshare/issues/521)
+- **Move to folder** — select skills and choose **Move to folder…**, or open a folder's menu and choose **Move whole folder…**; the skill page has the same entry. The dialog previews the new paths and link names, blocks a folder move when any item is refused and says why, offers **Move anyway** only for a name collision, and ends with **Sync now**.
+- **Pick an existing folder when installing into a folder** — the *Into folder* field of the install dialog lists the source root and every existing folder with its skill count. **New folder…** opens a step that builds the path and shows the resulting link name before you confirm.
 
 ## [0.25.4] - 2026-10-10
 
