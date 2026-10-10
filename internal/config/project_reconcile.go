@@ -16,6 +16,16 @@ import (
 // and ensures they are present in the MetadataStore.
 // It also updates the project directory's .gitignore for each tracked skill.
 func ReconcileProjectSkills(projectRoot string, projectCfg *ProjectConfig, store *install.MetadataStore, sourcePath string) error {
+	return reconcileProjectSkills(projectRoot, projectCfg, store, sourcePath, true)
+}
+
+// AdoptMovedProjectSkills is ReconcileProjectSkills without the prune; see
+// AdoptMovedGlobalSkills.
+func AdoptMovedProjectSkills(projectRoot string, projectCfg *ProjectConfig, store *install.MetadataStore, sourcePath string) error {
+	return reconcileProjectSkills(projectRoot, projectCfg, store, sourcePath, false)
+}
+
+func reconcileProjectSkills(projectRoot string, projectCfg *ProjectConfig, store *install.MetadataStore, sourcePath string, prune bool) error {
 	if _, err := os.Stat(sourcePath); os.IsNotExist(err) {
 		return nil
 	}
@@ -52,7 +62,7 @@ func ReconcileProjectSkills(projectRoot string, projectCfg *ProjectConfig, store
 		return fmt.Errorf("failed to scan project skills: %w", err)
 	}
 
-	if !result.incomplete && pruneStaleEntries(store, result.live) {
+	if prune && !result.incomplete && pruneStaleEntries(store, result.live) {
 		result.changed = true
 	}
 

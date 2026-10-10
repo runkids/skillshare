@@ -25,7 +25,7 @@ For skills you created yourself with `skillshare new`, a plain `mv` + `sync` wor
 
 ## Compared with `mv`
 
-A hand `mv` renames the directory and nothing else. `sync` still updates the links in your targets, and the next `install` or **Install missing** adopts the moved copy of an installed skill and moves its record and accepted audit findings, as long as the copy has the same name, its files are unchanged since the install and there is only one such copy. Until then `update` and `uninstall` do not find the skill.
+A hand `mv` renames the directory and nothing else. The next `sync`, `install` or **Install missing** adopts the moved copy of an installed skill and moves its record and accepted audit findings, as long as the copy has the same name, its files are unchanged since the install and there is only one such copy. Until then `update` and `uninstall` do not find the skill. `sync --dry-run` adopts nothing.
 
 What `mv` never does, and `move` does:
 

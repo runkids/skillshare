@@ -13,6 +13,7 @@ import (
 	"skillshare/internal/backup"
 	"skillshare/internal/config"
 	"skillshare/internal/hooks"
+	"skillshare/internal/install"
 	"skillshare/internal/mcp"
 	"skillshare/internal/oplog"
 	"skillshare/internal/skillignore"
@@ -357,6 +358,15 @@ func cmdSync(args []string) error {
 			Force:         force,
 		}, start, agentErr)
 		return agentErr
+	}
+
+	// A skill moved by hand keeps its install record; sync never prunes one.
+	if !dryRun {
+		if store, loadErr := install.LoadMetadata(cfg.EffectiveSkillsSource()); loadErr == nil {
+			if rErr := config.AdoptMovedGlobalSkills(cfg, store); rErr != nil && !jsonOutput {
+				ui.Warning("Could not update install metadata: %v", rErr)
+			}
+		}
 	}
 
 	// Phase 1: Discovery (skills)

@@ -53,6 +53,13 @@ func cmdSyncProject(root string, dryRun, force, jsonOutput, quiet bool) (syncLog
 		return stats, nil, nil, nil, nil, nil, fmt.Errorf("source directory does not exist: %s", runtime.sourcePath)
 	}
 
+	// A skill moved by hand keeps its install record; sync never prunes one.
+	if !dryRun {
+		if rErr := config.AdoptMovedProjectSkills(root, cfg, runtime.skillsStore, runtime.sourcePath); rErr != nil && !jsonOutput {
+			ui.Warning("Could not update install metadata: %v", rErr)
+		}
+	}
+
 	// Phase 1: Discovery
 	var spinner *ui.Spinner
 	if !jsonOutput {

@@ -563,3 +563,36 @@ func TestReconcileGlobalSkills_PrunesDeletedNestedRecord(t *testing.T) {
 		t.Error("the installed parent's record must stay")
 	}
 }
+
+// TestAdoptMovedGlobalSkills_FollowsMoveButKeepsGoneRecord verifies the sync
+// variant: a moved copy takes its record, a record without a copy survives.
+func TestAdoptMovedGlobalSkills_FollowsMoveButKeepsGoneRecord(t *testing.T) {
+	root := t.TempDir()
+	sourceDir := filepath.Join(root, "skills")
+	t.Setenv("SKILLSHARE_CONFIG", filepath.Join(root, "config.yaml"))
+	moved := filepath.Join(sourceDir, "new", "demo")
+	if err := os.MkdirAll(moved, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(moved, "SKILL.md"), []byte("---\nname: demo\n---\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	hashes, err := install.ComputeFileHashes(moved)
+	if err != nil {
+		t.Fatal(err)
+	}
+	store := install.NewMetadataStore()
+	store.Set("old/demo", &install.MetadataEntry{Source: "github.com/user/repo/demo", Group: "old", FileHashes: hashes})
+	store.Set("gone", &install.MetadataEntry{Source: "github.com/user/gone"})
+
+	if err := AdoptMovedGlobalSkills(&Config{Source: sourceDir}, store); err != nil {
+		t.Fatal(err)
+	}
+
+	if !store.Has("new/demo") || store.Has("old/demo") {
+		t.Errorf("entries = %v, want old/demo moved to new/demo", store.List())
+	}
+	if !store.Has("gone") {
+		t.Errorf("entries = %v, want the gone record kept", store.List())
+	}
+}

@@ -290,7 +290,7 @@ skillshare sync
 `sync` 후에는 Target이 자동으로 업데이트됩니다 — 이전의 평면 심볼릭 링크는 정리되고 새로운 평탄화된 이름이 생성됩니다.
 
 :::warning `skillshare install`로 설치한 Skill
-설치한 Skill은 `mv`로 옮기지 마세요. `.metadata.json`의 설치 기록은 경로를 키로 사용하므로, 다음 `install` 또는 **Install missing**이 옮긴 복사본(같은 이름, 설치 후 변경 없음, 하나뿐)을 인식해 기록을 옮기기 전까지 기록은 이전 경로에 남습니다. 그동안 `update`와 `uninstall`은 그 Skill을 찾지 못하며, 프로젝트 잠금 핀과 `.skillignore` 줄은 따라오지 않습니다. 대신 [`skillshare move`](/docs/reference/commands/move)를 사용하세요. Skill과 설치 기록을 함께 옮기므로 다시 다운로드하지 않습니다:
+설치한 Skill은 `mv`로 옮기지 마세요. `.metadata.json`의 설치 기록은 경로를 키로 사용하므로, 다음 `sync`, `install` 또는 **Install missing**이 옮긴 복사본(같은 이름, 설치 후 변경 없음, 하나뿐)을 인식해 기록을 옮기기 전까지 기록은 이전 경로에 남습니다. 그동안 `update`와 `uninstall`은 그 Skill을 찾지 못하며, 프로젝트 잠금 핀과 `.skillignore` 줄은 따라오지 않습니다. 대신 [`skillshare move`](/docs/reference/commands/move)를 사용하세요. Skill과 설치 기록을 함께 옮기므로 다시 다운로드하지 않습니다:
 
 ```bash
 skillshare move react-best-practices frontend/react

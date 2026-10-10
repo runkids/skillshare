@@ -42,6 +42,19 @@ func (s *Server) reconcileSkills(sourceDir string) error {
 	return config.ReconcileGlobalSkills(s.cfg, s.skillsStore)
 }
 
+// adoptMovedSkills is reconcileSkillsConfig without the prune, for sync.
+func (s *Server) adoptMovedSkills() {
+	var err error
+	if s.IsProjectMode() {
+		err = config.AdoptMovedProjectSkills(s.projectRoot, s.projectCfg, s.skillsStore, s.cfg.EffectiveSkillsSource())
+	} else {
+		err = config.AdoptMovedGlobalSkills(s.cfg, s.skillsStore)
+	}
+	if err != nil {
+		log.Printf("warning: failed to update install metadata: %v", err)
+	}
+}
+
 // checkInstallInto refuses an into folder an install must not land in: inside
 // a skill or inside a tracked checkout, with the codes move uses. A path below
 // a source link is left to the install, which follows it or refuses it itself. It writes the response and returns false when it refuses.
