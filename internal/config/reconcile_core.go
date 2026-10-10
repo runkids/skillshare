@@ -71,8 +71,7 @@ func reconcileSkillsWalk(sourcePath string, walk sourcewalk.Options, store *inst
 		if existing == nil && !tracked {
 			if key := store.MovedEntryKey(walkRoot, fullPath, path, walk.Follow); key != "" {
 				existing = store.Get(key)
-				store.Remove(key)
-				store.Set(fullPath, existing)
+				store.MoveEntry(key, fullPath)
 				result.changed = true
 			}
 		}

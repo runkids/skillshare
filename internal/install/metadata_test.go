@@ -433,3 +433,30 @@ func TestRefreshTrackedRepoMetadata_NestedRepoWithoutEntry(t *testing.T) {
 		t.Errorf("top-level _team hashes were overwritten: %q", h)
 	}
 }
+
+// TestMovedEntryKey_IgnoresRecordUnderUnavailableLink verifies that a record
+// below a source link that cannot be read is not treated as moved: the skill
+// may still be there once the link returns.
+func TestMovedEntryKey_IgnoresRecordUnderUnavailableLink(t *testing.T) {
+	sourceDir := t.TempDir()
+	if err := os.Symlink(filepath.Join(t.TempDir(), "gone"), filepath.Join(sourceDir, "linked")); err != nil {
+		t.Skipf("symlink: %v", err)
+	}
+	copyDir := filepath.Join(sourceDir, "other", "demo")
+	if err := os.MkdirAll(copyDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(copyDir, "SKILL.md"), []byte("---\nname: demo\n---\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	hashes, err := ComputeFileHashes(copyDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	store := NewMetadataStore()
+	store.Set("linked/demo", &MetadataEntry{Source: "github.com/user/repo/demo", Group: "linked", FileHashes: hashes})
+
+	if key := store.MovedEntryKey(sourceDir, "other/demo", copyDir, nil); key != "" {
+		t.Errorf("MovedEntryKey() = %q, want no match below an unavailable link", key)
+	}
+}

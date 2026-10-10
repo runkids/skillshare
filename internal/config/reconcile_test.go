@@ -299,6 +299,7 @@ func TestReconcileGlobalSkills_FollowsMovedSkill(t *testing.T) {
 	}
 	store := install.NewMetadataStore()
 	store.Set("old/demo", &install.MetadataEntry{Source: "github.com/user/repo/demo", Group: "old", FileHashes: hashes})
+	store.AuditAccepted = map[string][]string{"old/demo": {"accepted-key"}}
 
 	if err := ReconcileGlobalSkills(&Config{Source: sourceDir}, store); err != nil {
 		t.Fatal(err)
@@ -306,6 +307,9 @@ func TestReconcileGlobalSkills_FollowsMovedSkill(t *testing.T) {
 
 	if got := store.Get("new/demo"); got == nil || got.Source != "github.com/user/repo/demo" || got.Group != "new" {
 		t.Errorf("moved skill entry = %+v, want the old record under new/demo", got)
+	}
+	if got := store.AuditAccepted["new/demo"]; !reflect.DeepEqual(got, []string{"accepted-key"}) {
+		t.Errorf("accepted audit findings = %v, want them moved to new/demo", got)
 	}
 }
 

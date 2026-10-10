@@ -161,6 +161,15 @@ func (s *MetadataStore) MovedEntryKey(sourcePath, relPath, dir string, follow *s
 		if _, err := os.Lstat(filepath.Join(sourcePath, filepath.FromSlash(old))); !os.IsNotExist(err) {
 			continue
 		}
+		// Below a source link that cannot be read, the skill may still exist.
+		if first, _, nested := strings.Cut(old, "/"); nested {
+			top := filepath.Join(sourcePath, first)
+			if _, err := os.Lstat(top); err == nil {
+				if _, err := os.Stat(top); err != nil {
+					continue
+				}
+			}
+		}
 		if hashes == nil {
 			var err error
 			if hashes, err = ComputeFileHashes(dir, follow); err != nil {
@@ -176,6 +185,18 @@ func (s *MetadataStore) MovedEntryKey(sourcePath, relPath, dir string, follow *s
 		found = key
 	}
 	return found
+}
+
+// MoveEntry re-keys the entry at oldKey to newKey, with the audit findings
+// accepted for it.
+func (s *MetadataStore) MoveEntry(oldKey, newKey string) {
+	entry := s.Entries[oldKey]
+	accepted, ok := s.AuditAccepted[filepath.ToSlash(KeyToRelPath(oldKey, entry))]
+	s.Remove(oldKey)
+	s.Set(newKey, entry)
+	if ok {
+		s.AuditAccepted[newKey] = accepted
+	}
 }
 
 // List returns sorted entry names.
