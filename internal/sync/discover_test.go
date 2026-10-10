@@ -100,6 +100,23 @@ func TestDiscoverSourceSkills_SkipsTargetDotDirs(t *testing.T) {
 	}
 }
 
+func TestDiscoverSourceSkills_SourceRootNamedAsTargetDotDir(t *testing.T) {
+	orig := sourcewalk.TargetDotDirs
+	sourcewalk.TargetDotDirs = map[string]bool{".claude": true, ".skillshare": true}
+	defer func() { sourcewalk.TargetDotDirs = orig }()
+
+	src := filepath.Join(t.TempDir(), ".skillshare")
+	writeSkillMD(t, filepath.Join(src, "skills", "demo"), "---\nname: demo\n---\n# Demo")
+
+	skills, err := DiscoverSourceSkills(src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(skills) != 1 || skills[0].RelPath != "skills/demo" {
+		t.Fatalf("expected skills/demo under a .skillshare source root, got %+v", skills)
+	}
+}
+
 func TestDiscoverSourceSkills_SkipsRoot(t *testing.T) {
 	src := t.TempDir()
 	// SKILL.md at root level should be skipped (relPath == ".")
