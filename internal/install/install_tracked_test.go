@@ -73,6 +73,40 @@ func (metadataInstallContext) AzureHosts() []string          { return nil }
 func (metadataInstallContext) CNBHosts() []string            { return nil }
 func (metadataInstallContext) GiteaHosts() []string          { return nil }
 
+// TestInstallFromConfig_SkipsMovedSkill verifies that a recorded skill the
+// user moved to another folder is not installed again at its old path, which
+// would leave two copies (issue #510).
+func TestInstallFromConfig_SkipsMovedSkill(t *testing.T) {
+	origin := filepath.Join(t.TempDir(), "demo")
+	sourceDir := t.TempDir()
+	moved := filepath.Join(sourceDir, "grp", "demo")
+	for _, dir := range []string{origin, moved} {
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(dir, "SKILL.md"), []byte("---\nname: demo\n---\n"), 0644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	hashes, err := ComputeFileHashes(moved)
+	if err != nil {
+		t.Fatal(err)
+	}
+	store := LoadMetadataOrNew(sourceDir)
+	store.Set("demo", &MetadataEntry{Source: origin, Type: "local", FileHashes: hashes})
+	if err := store.Save(sourceDir); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := InstallFromConfig(metadataInstallContext{sourceDir}, InstallOptions{SkipAudit: true, Quiet: true}); err != nil {
+		t.Fatalf("InstallFromConfig() error = %v", err)
+	}
+
+	if _, err := os.Stat(filepath.Join(sourceDir, "demo")); !os.IsNotExist(err) {
+		t.Errorf("moved skill was installed again at its old path (stat err = %v)", err)
+	}
+}
+
 // TestInstallFromConfig_ReclonesMissingTrackedRepo verifies that a tracked repo
 // declared in metadata but absent on disk is listed as missing and re-cloned
 // under its recorded name (issue #212).

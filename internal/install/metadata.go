@@ -3,6 +3,7 @@ package install
 import (
 	"encoding/json"
 	"fmt"
+	"maps"
 	"os"
 	"path"
 	"path/filepath"
@@ -141,6 +142,40 @@ func (s *MetadataStore) MigrateLegacyKey(fullPath string, existing *MetadataEntr
 	s.Remove(filepath.Base(fullPath))
 	s.Set(fullPath, existing)
 	return true
+}
+
+// MovedEntryKey returns the key of the recorded skill that dir, found at
+// relPath under sourcePath, is a moved copy of: a plain skill of the same name
+// whose recorded directory is gone and whose recorded file hashes match dir.
+// It returns "" unless exactly one entry matches.
+func (s *MetadataStore) MovedEntryKey(sourcePath, relPath, dir string, follow *sourcewalk.Follow) string {
+	relPath = filepath.ToSlash(relPath)
+	var hashes map[string]string
+	found := ""
+	for _, key := range s.List() {
+		e := s.Entries[key]
+		old := filepath.ToSlash(KeyToRelPath(key, e))
+		if e.Tracked || len(e.FileHashes) == 0 || old == relPath || path.Base(old) != path.Base(relPath) {
+			continue
+		}
+		if _, err := os.Lstat(filepath.Join(sourcePath, filepath.FromSlash(old))); !os.IsNotExist(err) {
+			continue
+		}
+		if hashes == nil {
+			var err error
+			if hashes, err = ComputeFileHashes(dir, follow); err != nil {
+				return ""
+			}
+		}
+		if !maps.Equal(hashes, e.FileHashes) {
+			continue
+		}
+		if found != "" {
+			return ""
+		}
+		found = key
+	}
+	return found
 }
 
 // List returns sorted entry names.

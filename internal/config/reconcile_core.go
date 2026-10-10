@@ -67,6 +67,15 @@ func reconcileSkillsWalk(sourcePath string, walk sourcewalk.Options, store *inst
 				existing = nil
 			}
 		}
+		// A skill moved with mv takes its record along to the new path.
+		if existing == nil && !tracked {
+			if key := store.MovedEntryKey(walkRoot, fullPath, path, walk.Follow); key != "" {
+				existing = store.Get(key)
+				store.Remove(key)
+				store.Set(fullPath, existing)
+				result.changed = true
+			}
+		}
 		if existing != nil && existing.Source != "" {
 			source = existing.Source
 		} else if tracked {

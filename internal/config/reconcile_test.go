@@ -280,6 +280,61 @@ func TestReconcileGlobalSkills_PrunesStaleEntries(t *testing.T) {
 	}
 }
 
+// TestReconcileGlobalSkills_FollowsMovedSkill verifies that an installed skill
+// moved to another folder keeps its install record (issue #510).
+func TestReconcileGlobalSkills_FollowsMovedSkill(t *testing.T) {
+	root := t.TempDir()
+	sourceDir := filepath.Join(root, "skills")
+	t.Setenv("SKILLSHARE_CONFIG", filepath.Join(root, "config.yaml"))
+	moved := filepath.Join(sourceDir, "new", "demo")
+	if err := os.MkdirAll(moved, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(moved, "SKILL.md"), []byte("---\nname: demo\n---\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	hashes, err := install.ComputeFileHashes(moved)
+	if err != nil {
+		t.Fatal(err)
+	}
+	store := install.NewMetadataStore()
+	store.Set("old/demo", &install.MetadataEntry{Source: "github.com/user/repo/demo", Group: "old", FileHashes: hashes})
+
+	if err := ReconcileGlobalSkills(&Config{Source: sourceDir}, store); err != nil {
+		t.Fatal(err)
+	}
+
+	if got := store.Get("new/demo"); got == nil || got.Source != "github.com/user/repo/demo" || got.Group != "new" {
+		t.Errorf("moved skill entry = %+v, want the old record under new/demo", got)
+	}
+}
+
+// TestReconcileGlobalSkills_IgnoresSameNameSkillWithOtherFiles verifies that a
+// different skill sharing the name never takes a gone skill's record, so a
+// later update cannot overwrite it from that source.
+func TestReconcileGlobalSkills_IgnoresSameNameSkillWithOtherFiles(t *testing.T) {
+	root := t.TempDir()
+	sourceDir := filepath.Join(root, "skills")
+	t.Setenv("SKILLSHARE_CONFIG", filepath.Join(root, "config.yaml"))
+	own := filepath.Join(sourceDir, "new", "demo")
+	if err := os.MkdirAll(own, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(own, "SKILL.md"), []byte("---\nname: demo\n---\nmine\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	store := install.NewMetadataStore()
+	store.Set("old/demo", &install.MetadataEntry{Source: "github.com/user/repo/demo", Group: "old", FileHashes: map[string]string{"SKILL.md": "sha256:other"}})
+
+	if err := ReconcileGlobalSkills(&Config{Source: sourceDir}, store); err != nil {
+		t.Fatal(err)
+	}
+
+	if got := store.Get("new/demo"); got != nil {
+		t.Errorf("unrelated skill took the record: %+v", got)
+	}
+}
+
 func TestReconcileGlobalSkills_KeepsMetadataOfUnavailableSourceLink(t *testing.T) {
 	root := t.TempDir()
 	sourceDir := filepath.Join(root, "skills")

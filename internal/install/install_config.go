@@ -3,11 +3,14 @@ package install
 import (
 	"fmt"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 
 	"skillshare/internal/sourcefs"
+	"skillshare/internal/sourcewalk"
 	"skillshare/internal/ui"
+	"skillshare/internal/utils"
 	"skillshare/internal/validate"
 )
 
@@ -171,6 +174,7 @@ func InstallFromConfig(ctx InstallContext, opts InstallOptions) (ConfigInstallRe
 	var plain []configSkillEntry
 
 	store := LoadMetadataOrNew(sourcePath)
+	moved := 0
 
 	for _, skill := range ctx.ConfigSkills() {
 		_, bareName := skill.EffectiveParts()
@@ -218,6 +222,16 @@ func InstallFromConfig(ctx InstallContext, opts InstallOptions) (ConfigInstallRe
 				continue
 			}
 			relock = true
+		} else if to := movedCopyOf(store, sourcePath, displayName, opts.SourceFollow); to != "" {
+			// Reconcile moves the record to the copy; installing would duplicate it.
+			result.Skipped++
+			if !opts.DryRun {
+				moved++
+			}
+			if !opts.Quiet {
+				ui.StepDone(displayName, "moved to "+to+", record follows")
+			}
+			continue
 		}
 
 		source, err := ParseSourceWithOptions(skill.Source, parseOpts)
@@ -372,13 +386,44 @@ func InstallFromConfig(ctx InstallContext, opts InstallOptions) (ConfigInstallRe
 	}
 
 	// ── Phase 4: Reconcile config after successful installs ──
-	if result.Installed > 0 && !opts.DryRun {
+	if (result.Installed > 0 || moved > 0) && !opts.DryRun {
 		if err := ctx.Reconcile(); err != nil {
 			return result, err
 		}
 	}
 
 	return result, nil
+}
+
+// movedCopyOf returns the source-relative path the recorded skill displayName
+// was moved to (see MetadataStore.MovedEntryKey), or "".
+func movedCopyOf(store *MetadataStore, sourcePath, displayName string, follow *sourcewalk.Follow) string {
+	entry := store.GetByPath(displayName)
+	if entry == nil || entry.Tracked || len(entry.FileHashes) == 0 {
+		return ""
+	}
+	found := ""
+	_ = sourcewalk.WalkDir(sourcePath, sourcewalk.Options{Follow: follow}, func(p string, d os.DirEntry, err error) error {
+		if err != nil || !d.IsDir() || p == sourcePath {
+			return nil
+		}
+		if utils.IsHidden(d.Name()) {
+			return filepath.SkipDir
+		}
+		if d.Name() != path.Base(displayName) {
+			return nil
+		}
+		rel, relErr := filepath.Rel(sourcePath, p)
+		if relErr != nil {
+			return nil
+		}
+		if key := store.MovedEntryKey(sourcePath, rel, p, follow); key != "" && store.Entries[key] == entry {
+			found = filepath.ToSlash(rel)
+			return filepath.SkipAll
+		}
+		return nil
+	})
+	return found
 }
 
 // trackedInstallOutcome captures the result of a single tracked-repo install
