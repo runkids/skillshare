@@ -39,4 +39,18 @@ gh api repos/runkids/skillshare/pulls/<n>/reviews -q '.[] | "\(.submitted_at) \(
 gh api repos/runkids/skillshare/issues/comments/<comment-id>/reactions -q '.[].content'
 ```
 
-When new findings arrive, repeat from step 1. Report each round to the user: what was found, what changed, and which threads were answered.
+When new findings arrive, repeat from step 1 within the limits below. Report each round to the user: what was found, what changed, and which threads were answered.
+
+## Review Rounds
+
+A pull request should settle in one or two Codex rounds. Before opening it, and before every further `@codex review`, sweep every consumer of each concept the change adds or alters (CLI text, `--json`, TUI, server handlers, dashboard, status and doctor, docs, translations), run the realistic end-to-end scenarios, and fix everything found in one commit. For a change that mutates records or reconciles state, first list the state dimensions it crosses (global and project mode, plain and tracked installs, followed links, legacy keys, lock pins, audit acceptances, ambiguous matches) and cover each with a test before the first review; Codex finding them one per round means the matrix was never written down. One fix per round wastes the maintainer's time.
+
+Not every finding deserves code. Fix a finding when a user can hit it through a supported workflow. When it needs an unrealistic combination (hand-edited metadata, a manifest pointed at another source while a byte-identical copy exists elsewhere, YAML syntax no real file uses), reply in the thread with the supported scope and why the case is outside it, add the case to the pull request's "Not covered" section, and do not request another review for it.
+
+Stop requesting reviews, and report to the user, when any of these holds:
+
+- Three rounds are done. From then on, answer new findings in the thread and in "Not covered" instead of changing code, unless a finding shows data loss or a broken supported workflow.
+- A round produced no finding that changes behaviour.
+- Fixing a finding would widen the change beyond the pull request's scope. Say so in the thread and leave it for a follow-up issue.
+
+The user decides whether a fourth fixing round happens; do not start one on your own.
