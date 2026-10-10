@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   ChevronDown,
   ChevronRight,
+  ArrowLeft,
   CircleX,
   Download,
   ExternalLink,
@@ -30,6 +31,7 @@ import type { SkillsAddCommand } from '../lib/skillsAddCommand';
 import CodeView from './CodeView';
 import MarkdownView, { ViewToggle } from './MarkdownView';
 import { queryKeys, staleTimes } from '../lib/queryKeys';
+import { existingFolders, linkPrefix, newFolderPath, skillNameFromSource } from '../lib/moveFolders';
 import { formatSkillDisplayName } from '../lib/resourceNames';
 import { useI18n, useT } from '../i18n';
 import Button from './Button';
@@ -38,6 +40,8 @@ import { Checkbox } from './Checkbox';
 import DialogShell from './DialogShell';
 import EmptyState from './EmptyState';
 import FindingList from './FindingList';
+import FolderPicker from './FolderPicker';
+import NewFolderFields from './NewFolderFields';
 import { Select } from './Select';
 import Spinner from './Spinner';
 import { useToast } from './Toast';
@@ -46,7 +50,7 @@ import { invalidate } from '../lib/queryEvents';
 
 type Kind = 'skill' | 'agent';
 type Tab = 'search' | 'url';
-type View = 'preview' | 'kind' | 'blocked' | 'warnings';
+type View = 'preview' | 'kind' | 'blocked' | 'warnings' | 'folder';
 type InstallOpts = Parameters<typeof api.install>[0];
 type BatchOpts = Parameters<typeof api.installBatch>[0];
 type Blocked = { source: string; names: string[]; threshold: string; findings: Finding[]; retry: InstallOpts | BatchOpts };
@@ -70,6 +74,7 @@ const WIDTH: Record<Tab | View, string> = {
   blocked: '!max-w-[600px]',
   warnings: '!max-w-[600px]',
   kind: '!max-w-[460px]',
+  folder: '!max-w-[560px]',
 };
 
 function isGitSource(s: string) {
@@ -127,6 +132,8 @@ export default function InstallDialog({ kind, initialTab, initialSource, onClose
   const [track, setTrack] = useState(false);
   const [advanced, setAdvanced] = useState(false);
   const [into, setInto] = useState('');
+  // The new-folder step: which folder it goes in and the name typed so far.
+  const [draft, setDraft] = useState({ parent: '', name: '' });
   const [branch, setBranch] = useState('');
   const [name, setName] = useState('');
   const [force, setForce] = useState(false);
@@ -145,6 +152,9 @@ export default function InstallDialog({ kind, initialTab, initialSource, onClose
   const [warnings, setWarnings] = useState<Finding[]>([]);
 
   const { data: skillsData } = useSkillsQuery();
+  // `useSkillsQuery` returns skills and agents together; agents install under their own source.
+  const ofKind = useMemo(() => (skillsData?.resources ?? []).filter((r) => r.kind === kind), [skillsData, kind]);
+  const folders = useMemo(() => existingFolders(ofKind), [ofKind]);
   const installedKeys = useMemo(() => new Set((skillsData?.resources ?? []).filter((r) => r.source).map((r) => `${r.kind}:${sourceKey(r.source!)}`)), [skillsData]);
   const isInstalled = (k: Kind, source: string) => installedKeys.has(`${k}:${sourceKey(source)}`);
   const isInstalledResult = (result: SearchResult) => {
@@ -178,6 +188,10 @@ export default function InstallDialog({ kind, initialTab, initialSource, onClose
   const compact = new Intl.NumberFormat(locale, { notation: 'compact', maximumFractionDigits: 1 });
   const locked = busy !== null && busy !== 'search';
   const src = source.trim();
+  const picked = found?.items.filter((i) => selected.has(i.path)) ?? [];
+  // For the folder caption and the new-folder step's link names; null when the source does not say.
+  // --name renames the one skill that is installed, so it wins; several picks name no single skill.
+  const skillName = name.trim() || (found ? (picked.length === 1 ? picked[0].name : null) : skillNameFromSource(src));
   const canTrack = !src || isGitSource(src);
   const tracking = track && canTrack;
 
@@ -317,7 +331,7 @@ export default function InstallDialog({ kind, initialTab, initialSource, onClose
 
   const formOpts = () => ({
     name: name.trim() || undefined,
-    into: into.trim() || undefined,
+    into: into || undefined,
     branch: (canTrack && branch.trim()) || undefined,
     force,
     skipAudit,
@@ -406,6 +420,7 @@ export default function InstallDialog({ kind, initialTab, initialSource, onClose
 
   let title = t(isAgent ? 'install.title.agents' : 'install.title.skills');
   let sub: ReactNode = null;
+  let onBack: (() => void) | undefined;
   let body: ReactNode;
   let foot: ReactNode;
 
@@ -526,6 +541,35 @@ export default function InstallDialog({ kind, initialTab, initialSource, onClose
         <Button variant="danger" loading={busy === 'force'} onClick={() => forceInstall(blocked)}>{t('install.blocked.force')}</Button>
         <span className="flex-1" />
         <Button variant="primary" onClick={() => setView(null)} disabled={locked}>{t('common.cancel')}</Button>
+      </>
+    );
+  } else if (view === 'folder') {
+    const path = newFolderPath(draft.parent, draft.name);
+    const use = () => {
+      if (!path) return;
+      setInto(path);
+      setView(null);
+    };
+    title = t('folderPicker.newTitle');
+    sub = t('folderPicker.newHint');
+    onBack = () => setView(null);
+    body = (
+      <NewFolderFields
+        kind={kind}
+        folders={folders}
+        rootCount={ofKind.length}
+        parent={draft.parent}
+        name={draft.name}
+        skill={skillName}
+        onParent={(parent) => setDraft({ ...draft, parent })}
+        onName={(name) => setDraft({ ...draft, name })}
+        onSubmit={use}
+      />
+    );
+    foot = (
+      <>
+        <Button variant="secondary" onClick={() => setView(null)}>{t('folderPicker.back')}</Button>
+        <Button variant="primary" disabled={!path} onClick={use}>{t('folderPicker.use')}</Button>
       </>
     );
   } else if (view === 'warnings') {
@@ -779,10 +823,21 @@ export default function InstallDialog({ kind, initialTab, initialSource, onClose
         </button>
         {advanced && (
           <div className="ml-[22px] flex flex-col gap-3.5">
-            <div className="grid grid-cols-3 gap-3.5">
-              <Field label={t('install.url.into')} hint="--into">
-                <input value={into} onChange={(e) => setInto(e.target.value)} placeholder="frontend" />
-              </Field>
+            <FolderPicker
+              label={t('install.url.into')}
+              kind={kind}
+              value={into}
+              onChange={setInto}
+              folders={folders}
+              rootCount={ofKind.length}
+              onNewFolder={(parent) => {
+                setDraft({ parent, name: '' });
+                setView('folder');
+              }}
+              caption={tracking ? undefined : <InstallsTo folder={into} skill={skillName} />}
+              hint="--into"
+            />
+            <div className="grid grid-cols-2 gap-3.5">
               {canTrack && (
                 <Field label={t('install.url.branch')} hint="--branch" icon={<GitBranch size={15} className="shrink-0 text-ink-3" />}>
                   <input value={branch} onChange={(e) => { setBranch(e.target.value); setFound(null); setNothing(null); }} placeholder="main" />
@@ -810,9 +865,14 @@ export default function InstallDialog({ kind, initialTab, initialSource, onClose
   }
 
   return (
-    <DialogShell open onClose={onClose} padding="none" preventClose={locked} ariaLabel={title} className={WIDTH[view ?? tab]}>
+    <DialogShell open onClose={onBack ?? onClose} padding="none" preventClose={locked} ariaLabel={title} className={WIDTH[view ?? tab]}>
       <div className="dh">
-        <div className="flex min-w-0 flex-col gap-1">
+        {onBack && (
+          <button type="button" className="ss-ib" aria-label={t('folderPicker.backAria')} onClick={onBack}>
+            <ArrowLeft size={18} />
+          </button>
+        )}
+        <div className="flex min-w-0 flex-1 flex-col gap-1">
           <h2 className="ss-h2">{title}</h2>
           {sub && <p className="text-[13px] text-ink-2">{sub}</p>}
         </div>
@@ -823,6 +883,23 @@ export default function InstallDialog({ kind, initialTab, initialSource, onClose
       <div className="db min-h-0 flex-1 overflow-y-auto">{body}</div>
       <div className="df">{foot}</div>
     </DialogShell>
+  );
+}
+
+/** "Installs to <folder/skill>, linked as <flat name>", with the two names in monospace. */
+function InstallsTo({ folder, skill }: { folder: string; skill: string | null }) {
+  const t = useT();
+  const name = skill ?? '<skill>';
+  // t() fills the sentence; the markers let the two names be set apart without splitting translations.
+  const parts = t('folderPicker.caption', { path: '\u241Fp', link: '\u241Fl' }).split(/(\u241F[pl])/);
+  return (
+    <>
+      {parts.map((part, i) => (
+        part === '\u241Fp' ? <code key={i} className="font-mono">{folder ? `${folder}/${name}` : name}</code>
+          : part === '\u241Fl' ? <code key={i} className="font-mono">{linkPrefix(folder)}{name}</code>
+          : part
+      ))}
+    </>
   );
 }
 

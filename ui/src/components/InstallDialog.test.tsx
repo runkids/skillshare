@@ -25,14 +25,14 @@ vi.mock('../api/client', async (importOriginal) => {
   };
 });
 
-function renderDialog(initialTab: 'search' | 'url') {
+function renderDialog(initialTab: 'search' | 'url', onClose: () => void = () => undefined) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <MemoryRouter>
       <QueryClientProvider client={queryClient}>
       <I18nProvider>
         <ToastProvider>
-          <InstallDialog kind="skill" initialTab={initialTab} onClose={() => undefined} />
+          <InstallDialog kind="skill" initialTab={initialTab} onClose={onClose} />
         </ToastProvider>
       </I18nProvider>
     </QueryClientProvider>
@@ -124,5 +124,85 @@ describe('InstallDialog', () => {
     ));
     expect(api.searchHub).toHaveBeenCalledWith('pdf', 'https://acme.dev/hub.json');
     expect(screen.getByText(/skipped git submodule "vendor\/up"/)).toBeInTheDocument();
+  });
+
+  it('sends the folder picked from the existing ones as `into`', async () => {
+    vi.mocked(api.listSkills).mockResolvedValue({
+      resources: [{ name: 'demo', kind: 'skill', flatName: 'frontend__demo', relPath: 'frontend/demo', sourcePath: '/s/frontend/demo', isInRepo: false }],
+    });
+    // jsdom has no scrollIntoView, which the dropdown calls on its focused option.
+    HTMLElement.prototype.scrollIntoView = vi.fn();
+    vi.mocked(api.install).mockResolvedValue({ skillName: 'team' } as Awaited<ReturnType<typeof api.install>>);
+    const user = userEvent.setup();
+    renderDialog('url');
+
+    await user.type(screen.getByLabelText(/git url/i), 'acme/team-skills');
+    await user.click(screen.getByRole('switch', { name: /track this repo/i }));
+    await user.click(screen.getByRole('button', { name: /advanced/i }));
+    await user.click(await screen.findByRole('combobox', { name: /into folder/i }));
+    await user.click(await screen.findByRole('option', { name: /^frontend/ }));
+    await user.click(screen.getByRole('button', { name: /install repo/i }));
+
+    await waitFor(() => expect(api.install).toHaveBeenCalledWith(expect.objectContaining({ source: 'acme/team-skills', into: 'frontend' })));
+  });
+
+  it('makes a new folder in the picked folder through the new-folder step', async () => {
+    vi.mocked(api.listSkills).mockResolvedValue({
+      resources: [{ name: 'demo', kind: 'skill', flatName: 'frontend__demo', relPath: 'frontend/demo', sourcePath: '/s/frontend/demo', isInRepo: false }],
+    });
+    vi.mocked(api.install).mockResolvedValue({ skillName: 'team' } as Awaited<ReturnType<typeof api.install>>);
+    HTMLElement.prototype.scrollIntoView = vi.fn();
+    const user = userEvent.setup();
+    renderDialog('url');
+
+    await user.type(screen.getByLabelText(/git url/i), 'acme/team-skills');
+    await user.click(screen.getByRole('switch', { name: /track this repo/i }));
+    await user.click(screen.getByRole('button', { name: /advanced/i }));
+    await user.click(await screen.findByRole('combobox', { name: /into folder/i }));
+    await user.click(await screen.findByRole('option', { name: /^frontend/ }));
+    await user.click(screen.getByRole('combobox', { name: /into folder/i }));
+    await user.click(await screen.findByRole('option', { name: /new folder/i }));
+    await user.type(screen.getByRole('textbox', { name: /^name$/i }), 'office');
+
+    expect(screen.getByText('frontend/office')).toBeInTheDocument();
+    expect(screen.getByText(/frontend__office__/)).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /use this folder/i }));
+    await user.click(screen.getByRole('button', { name: /install repo/i }));
+
+    await waitFor(() => expect(api.install).toHaveBeenCalledWith(expect.objectContaining({ into: 'frontend/office' })));
+  });
+
+  it('keeps "Use this folder" disabled while the name is not a legal folder name', async () => {
+    HTMLElement.prototype.scrollIntoView = vi.fn();
+    const user = userEvent.setup();
+    renderDialog('url');
+
+    await user.click(screen.getByRole('button', { name: /advanced/i }));
+    await user.click(await screen.findByRole('combobox', { name: /into folder/i }));
+    await user.click(await screen.findByRole('option', { name: /new folder/i }));
+    const use = screen.getByRole('button', { name: /use this folder/i });
+    expect(use).toBeDisabled();
+
+    await user.type(screen.getByRole('textbox', { name: /^name$/i }), '_hidden');
+    expect(use).toBeDisabled();
+
+    await user.clear(screen.getByRole('textbox', { name: /^name$/i }));
+    await user.type(screen.getByRole('textbox', { name: /^name$/i }), 'office');
+    expect(use).toBeEnabled();
+  });
+
+  it('goes back from the new-folder step on Escape instead of closing the dialog', async () => {
+    HTMLElement.prototype.scrollIntoView = vi.fn();
+    const onClose = vi.fn();
+    const user = userEvent.setup();
+    renderDialog('url', onClose);
+
+    await user.click(screen.getByRole('button', { name: /advanced/i }));
+    await user.click(await screen.findByRole('combobox', { name: /into folder/i }));
+    await user.click(await screen.findByRole('option', { name: /new folder/i }));
+    await user.keyboard('{Escape}');
+
+    expect(await screen.findByRole('combobox', { name: /into folder/i })).toBeInTheDocument();
+    expect(onClose).not.toHaveBeenCalled();
   });
 });
