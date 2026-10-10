@@ -1,5 +1,62 @@
 # Changelog
 
+## [0.25.4] - 2026-10-10
+
+### New Features
+
+#### Sync
+
+- **Prefixed target naming for skills from tracked repos** — `target_naming: prefixed` names each skill inside a tracked repo `<repo>-<name>`, in the copied folder and in the copy's `name:`, so same-named skills from different repos (for example two `prototype` skills) both reach the tool instead of being skipped as a collision under `standard`. A name that already starts with the repo name is not prefixed again (`_bmad/skills/bmad-ux` stays `bmad-ux`). Local skills keep their standard name, and the source is never changed. It works in copy mode only. Refs: #497.
+  ```bash
+  skillshare target claude --mode copy --target-naming prefixed
+  skillshare sync
+  ```
+  - Switching between `flat`, `standard` and `prefixed` renames managed entries in place, and copies are copied again so their `name:` matches the new naming. If a local skill already holds the new name, the skill stays under its old entry, and `diff` reports that folder as `Local only, skill kept under old name`.
+  - A target that resolves to `prefixed` outside copy mode fails validation; `status`, `doctor` and, for the targets in `targets:`, `target list` flag it before you sync, and `target list --json` adds a `warning` field. `target add` gives a new target copy mode when it would inherit `prefixed`, and says so.
+  - When prefixing is what makes two names collide, sync suggests renaming the other skill or re-tracking the repo with `--name`, since a tracked skill cannot be renamed in `SKILL.md`.
+  - The dashboard's Naming control, the TUI naming picker and the JSON schemas offer `prefixed`; the dashboard disables it outside copy mode and says why.
+
+#### Dashboard
+
+- **Shared skills folder conflicts are shown where you change them** — when another target writes the same skills folder, the target page warns under the mode, naming or filter control whose change would make the two syncs undo each other, and offers to use the other target's value. The Sync page's folder conflict notice now lists which settings differ, with a link to the target page.
+- **Tighter Skills toolbar and a pinned Hub header** — the Skills toolbar no longer sits about 60px below the tabs, and the Hub header now pins like the Skills toolbar, with padding and a bottom line once it sticks.
+
+### Bug Fixes
+
+#### Sync
+
+- **Targets sharing a skills folder with a different mode or naming are reported** — only `include` and `exclude` were compared, so two targets that undid each other on every sync got the generic shared-folder hint. `sync` and `doctor` now warn that their settings differ. Naming is not compared when both targets use `symlink` mode, which ignores it. Refs: #498.
+- **Switching a target from copy back to merge replaces its copies with links** — the copies stayed real folders, so `status` and `doctor` kept saying "run skillshare sync" while sync changed nothing until `sync --force`. Merge sync now replaces copies that copy mode made and that were not edited since; edited copies and folders you made yourself are still kept until `sync --force`. If the same sync also changes `target_naming`, as leaving `prefixed` does, a renamed copy is removed even if edited; the backup of a plain `sync` keeps it. `diff` and the dashboard Sync page say which copies will be replaced by a link.
+- **A `SKILL.md` that starts with a UTF-8 BOM is read** — files saved by Notepad and other Windows editors had no readable name, so `standard` naming skipped them, the dashboard viewer and editor missed their frontmatter, and `audit` reported the BOM as HIGH `hidden-unicode`. A BOM at the start of the file is now skipped; one later in the file is still reported.
+- **Skills skipped by naming checks are listed** — sync only printed a count (`1 skill(s) skipped (naming validation)`). It now lists the first five with their reason, then `... and N more`.
+- **No duplicate-name line on every sync** — the dim "N duplicate skill names (isolated by ...)" line was printed on every sync, even when nothing was wrong.
+
+#### Sources
+
+- **A skills source folder named like a tool folder is read again** — since 0.24.4, a `sources.skills` folder whose own name is a target folder name, such as `.skillshare` or `.claude`, was skipped as a whole, so `list` showed no skills and `sync` removed links it had made before. Folders with those names inside the source are still skipped. Refs: #511.
+- **An agents source in a hidden folder is read** — a `sources.agents` folder such as `~/.agents` found no agents. Hidden folders inside it are still skipped.
+
+#### Dashboard
+
+- **AGENTS.md targets update immediately** — adding, removing, or changing a target, or saving `config.yaml`, now refreshes instruction queries instead of leaving the target list and instruction paths cached until a page reload or cache expiry.
+
+#### Target
+
+- **`--mode` and `--target-naming` in one command are both applied** — only `--mode` was saved. Both are now checked together and saved once, and an invalid pair leaves the config unchanged.
+  ```bash
+  skillshare target cursor --mode copy --target-naming standard
+  ```
+
+#### Install and collect
+
+- **`collect` picks up only skills** — `collect`, `collect --force` and the dashboard scan also collected folders without a `SKILL.md`, such as scratch folders in a target. They are now left out, and the dashboard refuses to collect such a folder.
+- **`install <path> --track` accepts a local git repository** — `--track` rejected local paths, also with `--branch`. A path at the root of a git repository, including a bare repository, is now cloned like `file:///path`; any other folder gets an error that points to `file://`.
+  ```bash
+  skillshare install ~/code/team-skills --track
+  ```
+- **`install --track --force` keeps the existing repo until the new clone is in place** — it removed the tracked repo before cloning, so a failed clone, for example of a missing branch, lost it. A local source (path or `file://` URL) that is, or lies inside, that tracked repo is now refused instead of being deleted.
+- **Moving an installed skill to another folder keeps its source** — after an installed skill was moved with `mv` (for example into a group folder), the dashboard's **Install missing** and a bare `skillshare install` installed it again at its old path, leaving two copies that both synced. They now recognize the moved copy — same name, files unchanged since install, and only one such copy — and move its install record to the new folder instead. In project mode its `.skillshare/.gitignore` rule moves with it. Refs: #510.
+
 ## [0.25.3] - 2026-10-08
 
 ### New Features
