@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"skillshare/internal/install"
@@ -337,5 +338,45 @@ func TestReconcileProjectSkills_FollowsMovedSkill(t *testing.T) {
 
 	if got := store.Get("new/demo"); got == nil || got.Source != "github.com/user/repo/demo" {
 		t.Errorf("moved skill entry = %+v, want the record under new/demo", got)
+	}
+}
+
+// TestReconcileProjectSkills_MovesGitignoreRule verifies that a moved skill's
+// managed ignore rule moves with it, so the old path is not ignored forever.
+func TestReconcileProjectSkills_MovesGitignoreRule(t *testing.T) {
+	root := t.TempDir()
+	skillsDir := filepath.Join(root, ".skillshare", "skills")
+	moved := filepath.Join(skillsDir, "new", "demo")
+	if err := os.MkdirAll(moved, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(moved, "SKILL.md"), []byte("---\nname: demo\n---\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	gitignore := filepath.Join(root, ".skillshare", ".gitignore")
+	if err := os.WriteFile(gitignore, []byte("# BEGIN SKILLSHARE MANAGED - DO NOT EDIT\nskills/old/demo/\n# END SKILLSHARE MANAGED\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	hashes, err := install.ComputeFileHashes(moved)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg := &ProjectConfig{
+		Targets: []ProjectTargetEntry{{Name: "claude"}},
+		Skills:  []SkillEntry{{Name: "demo", Group: "old", Source: "github.com/user/repo/demo"}},
+	}
+	store := install.NewMetadataStore()
+	store.Set("old/demo", &install.MetadataEntry{Source: "github.com/user/repo/demo", Group: "old", FileHashes: hashes})
+
+	if err := ReconcileProjectSkills(root, cfg, store, skillsDir); err != nil {
+		t.Fatal(err)
+	}
+
+	data, err := os.ReadFile(gitignore)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(data), "skills/old/demo") || !strings.Contains(string(data), "skills/new/demo/") {
+		t.Errorf(".gitignore = %q, want the rule moved from skills/old/demo to skills/new/demo", data)
 	}
 }

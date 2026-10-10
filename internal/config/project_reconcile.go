@@ -56,6 +56,17 @@ func ReconcileProjectSkills(projectRoot string, projectCfg *ProjectConfig, store
 		result.changed = true
 	}
 
+	// A moved skill's old ignore rule would keep ignoring whatever lands there.
+	if gitignoreDir != "" && len(result.movedFrom) > 0 {
+		var stale []string
+		for _, old := range result.movedFrom {
+			stale = append(stale, prefix+"/"+old)
+		}
+		if _, err := install.RemoveFromGitIgnoreBatch(gitignoreDir, stale); err != nil {
+			return fmt.Errorf("failed to update .gitignore: %w", err)
+		}
+	}
+
 	if len(gitignoreEntries) > 0 {
 		if err := install.UpdateGitIgnoreBatch(gitignoreDir, gitignoreEntries); err != nil {
 			return fmt.Errorf("failed to update .gitignore: %w", err)

@@ -19,6 +19,8 @@ type reconcileResult struct {
 	// incomplete means a followed source link could not be read, so entries
 	// absent from live may still exist and must not be removed.
 	incomplete bool
+	// movedFrom lists the source-relative paths records were moved away from.
+	movedFrom []string
 }
 
 // reconcileSkillsWalk walks sourcePath for installed skills (those with metadata
@@ -154,6 +156,7 @@ func reconcileSkillsWalk(sourcePath string, walk sourcewalk.Options, store *inst
 			continue
 		}
 		entry := store.Get(key)
+		result.movedFrom = append(result.movedFrom, filepath.ToSlash(install.KeyToRelPath(key, entry)))
 		store.MoveEntry(key, dests[0])
 		entry.Group = ""
 		if idx := strings.LastIndex(dests[0], "/"); idx >= 0 {
