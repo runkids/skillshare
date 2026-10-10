@@ -24,7 +24,8 @@ type reconcileResult struct {
 // reconcileSkillsWalk walks sourcePath for installed skills (those with metadata
 // or tracked repos) and ensures they are present in the MetadataStore.
 // onFound is called for each discovered installed skill; pass nil to skip.
-func reconcileSkillsWalk(sourcePath string, walk sourcewalk.Options, store *install.MetadataStore, onFound func(fullPath string)) (reconcileResult, error) {
+// canMove limits which gone records may follow a moved copy; nil allows all.
+func reconcileSkillsWalk(sourcePath string, walk sourcewalk.Options, store *install.MetadataStore, onFound func(fullPath string), canMove func(key string) bool) (reconcileResult, error) {
 	result := reconcileResult{live: map[string]bool{}}
 	moves := map[string][]string{} // gone record key -> candidate destinations
 
@@ -71,7 +72,7 @@ func reconcileSkillsWalk(sourcePath string, walk sourcewalk.Options, store *inst
 		// A skill moved with mv takes its record along once the walk shows a
 		// single destination.
 		if existing == nil && !tracked {
-			if key := store.MovedEntryKey(walkRoot, fullPath, path, walk.Follow); key != "" {
+			if key := store.MovedEntryKey(walkRoot, fullPath, path, walk.Follow); key != "" && (canMove == nil || canMove(key)) {
 				moves[key] = append(moves[key], fullPath)
 				return filepath.SkipDir
 			}

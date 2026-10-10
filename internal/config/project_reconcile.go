@@ -34,7 +34,20 @@ func ReconcileProjectSkills(projectRoot string, projectCfg *ProjectConfig, store
 		targets, _ := ResolveValidProjectTargets(projectRoot, projectCfg)
 		walk = SkillsWalk(projectCfg.FollowSourceLinks, sourcePath, targets)
 	}
-	result, err := reconcileSkillsWalk(sourcePath, walk, store, onFound)
+	// The manifest, not the metadata, says what each skill installs; a record
+	// it no longer declares that way must not follow a copy.
+	declared := map[string]install.SkillEntryDTO{}
+	if projectCfg != nil {
+		for _, skill := range ProjectSkillEntries(projectCfg.Skills) {
+			declared[skill.FullName()] = skill
+		}
+	}
+	canMove := func(key string) bool {
+		entry := store.Get(key)
+		skill, ok := declared[filepath.ToSlash(install.KeyToRelPath(key, entry))]
+		return ok && entry.MatchesDeclaration(skill)
+	}
+	result, err := reconcileSkillsWalk(sourcePath, walk, store, onFound, canMove)
 	if err != nil {
 		return fmt.Errorf("failed to scan project skills: %w", err)
 	}

@@ -193,6 +193,12 @@ func (s *MetadataStore) MovedEntryKey(sourcePath, relPath, dir string, follow *s
 	return found
 }
 
+// MatchesDeclaration reports whether this plain-skill record still installs
+// what skill declares, so a moved copy of it can stand in for skill.
+func (e *MetadataEntry) MatchesDeclaration(skill SkillEntryDTO) bool {
+	return !e.Tracked && !skill.Tracked && e.Source == skill.Source && e.Branch == skill.Branch
+}
+
 // MoveEntry re-keys the entry at oldKey to newKey, with the audit findings
 // accepted for it.
 func (s *MetadataStore) MoveEntry(oldKey, newKey string) {

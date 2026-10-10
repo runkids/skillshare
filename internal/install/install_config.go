@@ -402,7 +402,7 @@ func InstallFromConfig(ctx InstallContext, opts InstallOptions) (ConfigInstallRe
 func movedCopyOf(store *MetadataStore, sourcePath string, skill SkillEntryDTO, follow *sourcewalk.Follow, locked string) string {
 	displayName := skill.FullName()
 	entry := store.GetByPath(displayName)
-	if entry == nil || entry.Tracked || len(entry.FileHashes) == 0 || entry.Source != skill.Source || entry.Branch != skill.Branch {
+	if entry == nil || len(entry.FileHashes) == 0 || !entry.MatchesDeclaration(skill) {
 		return ""
 	}
 	var found []string

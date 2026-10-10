@@ -16,7 +16,7 @@ func ReconcileGlobalSkills(cfg *Config, store *install.MetadataStore) error {
 		return nil
 	}
 
-	result, err := reconcileSkillsWalk(sourcePath, cfg.SkillsWalk(), store, nil)
+	result, err := reconcileSkillsWalk(sourcePath, cfg.SkillsWalk(), store, nil, nil)
 	if err != nil {
 		return fmt.Errorf("failed to scan global skills: %w", err)
 	}

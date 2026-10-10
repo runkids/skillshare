@@ -274,3 +274,68 @@ func TestReconcileProjectSkills_PrunesStaleEntries(t *testing.T) {
 		t.Error("expected deleted-skill to be pruned")
 	}
 }
+
+// TestReconcileProjectSkills_KeepsChangedDeclarationOnMove verifies that a
+// gone record whose declaration now names another source is not moved to a
+// copy of the old source, which would replace the user's declaration.
+func TestReconcileProjectSkills_KeepsChangedDeclarationOnMove(t *testing.T) {
+	root := t.TempDir()
+	skillsDir := filepath.Join(root, ".skillshare", "skills")
+	copyDir := filepath.Join(skillsDir, "new", "demo")
+	if err := os.MkdirAll(copyDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(copyDir, "SKILL.md"), []byte("---\nname: demo\n---\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	hashes, err := install.ComputeFileHashes(copyDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg := &ProjectConfig{
+		Targets: []ProjectTargetEntry{{Name: "claude"}},
+		Skills:  []SkillEntry{{Name: "demo", Group: "old", Source: "github.com/user/b/demo"}},
+	}
+	store := install.NewMetadataStore()
+	store.Set("old/demo", &install.MetadataEntry{Source: "github.com/user/a/demo", Group: "old", FileHashes: hashes})
+
+	if err := ReconcileProjectSkills(root, cfg, store, skillsDir); err != nil {
+		t.Fatal(err)
+	}
+
+	if got := store.Get("new/demo"); got != nil {
+		t.Errorf("old source's record moved to the copy: %+v", got)
+	}
+}
+
+// TestReconcileProjectSkills_FollowsMovedSkill verifies that a declared skill
+// moved to another folder keeps its record in project mode.
+func TestReconcileProjectSkills_FollowsMovedSkill(t *testing.T) {
+	root := t.TempDir()
+	skillsDir := filepath.Join(root, ".skillshare", "skills")
+	moved := filepath.Join(skillsDir, "new", "demo")
+	if err := os.MkdirAll(moved, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(moved, "SKILL.md"), []byte("---\nname: demo\n---\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	hashes, err := install.ComputeFileHashes(moved)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg := &ProjectConfig{
+		Targets: []ProjectTargetEntry{{Name: "claude"}},
+		Skills:  []SkillEntry{{Name: "demo", Group: "old", Source: "github.com/user/repo/demo"}},
+	}
+	store := install.NewMetadataStore()
+	store.Set("old/demo", &install.MetadataEntry{Source: "github.com/user/repo/demo", Group: "old", FileHashes: hashes})
+
+	if err := ReconcileProjectSkills(root, cfg, store, skillsDir); err != nil {
+		t.Fatal(err)
+	}
+
+	if got := store.Get("new/demo"); got == nil || got.Source != "github.com/user/repo/demo" {
+		t.Errorf("moved skill entry = %+v, want the record under new/demo", got)
+	}
+}

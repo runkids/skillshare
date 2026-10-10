@@ -241,6 +241,18 @@ func TestMovedCopyOf_IgnoresChangedSource(t *testing.T) {
 	}
 }
 
+// TestMovedCopyOf_IgnoresSkillNowTracked verifies that a plain copy is not
+// taken as the skill once the config declares it tracked.
+func TestMovedCopyOf_IgnoresSkillNowTracked(t *testing.T) {
+	sourceDir := t.TempDir()
+	store := NewMetadataStore()
+	store.Set("demo", &MetadataEntry{Source: "github.com/user/repo/demo", FileHashes: writeMovedCopies(t, sourceDir, "grp/demo")})
+
+	if to := movedCopyOf(store, sourceDir, SkillEntryDTO{Name: "demo", Source: "github.com/user/repo/demo", Tracked: true}, nil, ""); to != "" {
+		t.Errorf("movedCopyOf() = %q, want no match once the skill is tracked", to)
+	}
+}
+
 // TestMovedCopyOf_IgnoresTrackedCheckout verifies that a git checkout
 // reconcile treats as tracked is never taken as a moved plain skill.
 func TestMovedCopyOf_IgnoresTrackedCheckout(t *testing.T) {
