@@ -4,7 +4,7 @@ import { useQuery, useQueryClient, type UseQueryResult } from '@tanstack/react-q
 import type { Components } from 'react-markdown';
 import {
   ChevronDown, ChevronRight, CircleArrowUp, CircleCheck, Copy, Ellipsis, ExternalLink, File, FileCode2, FileText, Folder,
-  FolderOpen, Github, Globe, Pencil, Power, RefreshCw, ShieldAlert, ShieldCheck, Trash2, TriangleAlert, X,
+  FolderInput, FolderOpen, Github, Globe, Pencil, Power, RefreshCw, ShieldAlert, ShieldCheck, Trash2, TriangleAlert, X,
 } from 'lucide-react';
 import { api, type AuditResult, type DiffTarget, type Skill, type SyncMatrixEntry } from '../api/client';
 import { queryKeys, staleTimes } from '../lib/queryKeys';
@@ -34,6 +34,8 @@ import { SkillContextMenu, type ContextMenuItem } from '../components/TargetMenu
 import { useToast } from '../components/Toast';
 import { SkillEditor } from '../components/skill-editor';
 import { UninstallDialog } from '../components/resources/UninstallDialog';
+import { MoveDialog } from '../components/resources/MoveDialog';
+import { canMove } from '../lib/moveFolders';
 import { checkKey, hasUpdate, updateUnits, useCheckStatuses } from './UpdatePage';
 import { useDiffQuery, useSkillsQuery } from '../hooks/useSharedQueries';
 import { invalidate } from '../lib/queryEvents';
@@ -77,6 +79,7 @@ export default function ResourceDetailPage() {
   const [editing, setEditing] = useState(false);
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
   const [uninstalling, setUninstalling] = useState(false);
+  const [moving, setMoving] = useState(false);
   const [updating, setUpdating] = useState(false);
   const [toggling, setToggling] = useState(false);
   const [blocked, setBlocked] = useState<string | null>(null);
@@ -222,6 +225,9 @@ export default function ResourceDetailPage() {
       icon: resource.disabled ? <CircleCheck size={14} /> : <Power size={14} />,
       onSelect: toggleDisabled,
     },
+    ...(canMove(resource)
+      ? [{ key: 'move', label: t('move.menu.skill'), icon: <FolderInput size={14} />, onSelect: () => setMoving(true) }]
+      : []),
     {
       key: 'uninstall',
       label: t(resource.isInRepo && !isAgent && !sourceLinkOf(resource) ? 'resourceDetail.actions.uninstallRepo' : 'resourceDetail.actions.uninstall'),
@@ -346,6 +352,18 @@ export default function ResourceDetailPage() {
       )}
 
       <SkillContextMenu open={!!menu} anchorPoint={menu ?? undefined} items={menuItems} onClose={() => setMenu(null)} />
+      {moving && (
+        <MoveDialog
+          skills={[resource]}
+          all={allSkills.data?.resources ?? [resource]}
+          // The page is keyed by the flat name, which the move changes.
+          onMoved={(results) => {
+            const flatName = results.find((r) => r.success && r.flatName)?.flatName;
+            if (flatName) navigate(resourceHref({ flatName, kind: resource.kind }), { replace: true });
+          }}
+          onClose={() => setMoving(false)}
+        />
+      )}
       {uninstalling && (
         <UninstallDialog
           kind={resource.kind}

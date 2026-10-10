@@ -36,6 +36,7 @@ it('uninstalls only the linked skill from its detail page', async () => {
   </MemoryRouter>);
   await user.click(await screen.findByRole('button', { name: 'More actions' }));
   expect(screen.queryByRole('menuitem', { name: 'Uninstall Repo' })).toBeNull();
+  expect(screen.queryByRole('menuitem', { name: 'Move to folder…' })).toBeNull();
   await user.click(screen.getByRole('menuitem', { name: 'Uninstall' }));
   const dialog = screen.getByRole('dialog');
   expect(within(dialog).getByText('Selected skills are moved out of the linked folder to the trash.')).toBeInTheDocument();
@@ -43,4 +44,25 @@ it('uninstalls only the linked skill from its detail page', async () => {
   expect(within(dialog).queryByText('bar')).toBeNull();
   await user.click(within(dialog).getByRole('button', { name: 'Uninstall' }));
   await waitFor(() => expect(api.batchUninstall).toHaveBeenCalledWith({ names: ['_dev__foo'], kind: 'skill', force: false }));
+});
+
+it('offers Move to folder for a plain skill and opens the dialog', async () => {
+  const user = userEvent.setup();
+  const plain: Skill = { name: 'demo', kind: 'skill', flatName: 'grp__demo', relPath: 'grp/demo', sourcePath: '/skills/grp/demo', isInRepo: false };
+  vi.mocked(api.getResource).mockResolvedValue({ resource: plain, skillMdContent: '', files: [] });
+  vi.mocked(api.listSkills).mockResolvedValue({ resources: [plain] });
+  vi.mocked(api.listTargets).mockResolvedValue({ targets: [], sourceSkillCount: 1 });
+  vi.mocked(api.getSyncMatrix).mockResolvedValue({ entries: [] } as never);
+  vi.mocked(api.diff).mockResolvedValue({ diffs: [] } as never);
+  vi.mocked(api.auditSkill).mockResolvedValue({ result: { findings: [] } } as never);
+  render(<MemoryRouter initialEntries={['/skills/grp__demo']}>
+    <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+      <I18nProvider><ToastProvider><Routes>
+        <Route path="/skills/:name" element={<ResourceDetailPage />} />
+      </Routes></ToastProvider></I18nProvider>
+    </QueryClientProvider>
+  </MemoryRouter>);
+  await user.click(await screen.findByRole('button', { name: 'More actions' }));
+  await user.click(screen.getByRole('menuitem', { name: 'Move to folder…' }));
+  expect(await screen.findByRole('dialog', { name: 'Move to folder' })).toBeInTheDocument();
 });

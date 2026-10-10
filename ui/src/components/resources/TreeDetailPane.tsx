@@ -1,6 +1,6 @@
 import type { MouseEvent, ReactNode } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowUpRight, Bot, Puzzle, Target, Trash2 } from 'lucide-react';
+import { ArrowUpRight, Bot, FolderInput, Puzzle, Target, Trash2 } from 'lucide-react';
 import type { Skill } from '../../api/client';
 import { useT } from '../../i18n';
 import { formatTrackedRepoName, resourceHref } from '../../lib/resourceNames';
@@ -25,6 +25,8 @@ interface Props {
   onToggleOne: (skill: Skill) => void;
   onSetTargets: (e: MouseEvent) => void;
   onUninstall: () => void;
+  /** Opens the move dialog for what is selected; leave out when it cannot move. */
+  move?: { label: string; run: () => void };
   /** Update / Uninstall or Unlink for a source group root. */
   repoActions?: ReactNode;
   /** Where a single selected item actually syncs to, as the list's Targets column shows it; replaces its `targets:` setting. */
@@ -53,7 +55,7 @@ function Switch({ on, mixed, label, disabled, onClick }: { on: boolean; mixed?: 
 }
 
 /** Right side of the tree view: what is selected, whether it is on, and where it goes. */
-export default function TreeDetailPane({ kind, subject, busy, onToggleAll, onToggleOne, onSetTargets, onUninstall, repoActions, syncedTo }: Props) {
+export default function TreeDetailPane({ kind, subject, busy, onToggleAll, onToggleOne, onSetTargets, onUninstall, move, repoActions, syncedTo }: Props) {
   const t = useT();
   const isAgent = kind === 'agent';
   const ItemIcon = isAgent ? Bot : Puzzle;
@@ -99,6 +101,12 @@ export default function TreeDetailPane({ kind, subject, busy, onToggleAll, onTog
           <h2 className={`min-w-0 truncate text-lg font-bold tracking-tight ${subject.type === 'multi' ? '' : 'font-mono'}`}>{title}</h2>
           {tracked && <span className="ss-tag shrink-0">tracked</span>}
           <span className="flex-1" />
+          {move && (
+            <Button variant="secondary" size="sm" className="shrink-0" onClick={move.run}>
+              <FolderInput size={14} />
+              {move.label}
+            </Button>
+          )}
           {subject.type === 'skill' && (
             <Link to={resourceHref(subject.skill)} className="ss-btn sm shrink-0">
               {t(isAgent ? 'resources.tree.pane.openAgent' : 'resources.tree.pane.openSkill')}

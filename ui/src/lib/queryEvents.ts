@@ -20,6 +20,7 @@ const events = {
   skillEdited: (name: string) => keys(k.skills.detail(name)),
   installDialogClosed: () => keys(k.skills.all),
   reposChanged: () => keys(k.overview, k.skills.all, k.trash),
+  skillsMoved: () => keys(k.skills.all, k.overview, k.syncMatrixAll, k.diff()),
   skillsUninstalled: () => keys(k.skills.all, k.overview, k.trash, k.syncMatrixAll, k.diff()),
   trashChanged: () => keys(k.trash, k.skills.all, k.syncMatrixAll),
   skillSyncChanged: () => keys(k.skills.all, k.syncMatrixAll),

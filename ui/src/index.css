@@ -150,6 +150,22 @@ html.theme-transitioning :is(.ss-box, .ss-list, .ss-btn, .ss-tag, .ss-inp, .ss-d
   animation: dialogIn 0.2s ease-out;
 }
 
+/* A dialog changing step: the new content slides in from the side it was reached from. */
+@keyframes stepFwd {
+  from { opacity: 0; transform: translateX(14px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+@keyframes stepBack {
+  from { opacity: 0; transform: translateX(-14px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+/* After .animate-dialog-in, so it also replaces the entrance of a dialog opened from another dialog. */
+.animate-step-fwd { animation: stepFwd 0.18s ease-out; }
+.animate-step-back { animation: stepBack 0.18s ease-out; }
+@media (prefers-reduced-motion: reduce) {
+  .animate-step-fwd, .animate-step-back { animation: none; }
+}
+
 /* Skeleton shimmer */
 @keyframes skeleton-shimmer {
   0% { background-position: -200% 0; }

@@ -72,6 +72,7 @@ const stale: Record<QueryEvent, Label[] | { args: string[]; stale: Label[] }> = 
   skillEdited: { args: ['a'], stale: ['skill'] },
   installDialogClosed: S,
   reposChanged: [...S, 'overview', 'trash'],
+  skillsMoved: [...S, 'overview', ...SM, 'diff'],
   skillsUninstalled: [...S, 'overview', 'trash', ...SM, 'diff'],
   trashChanged: ['trash', ...S, ...SM],
   skillSyncChanged: [...S, ...SM],

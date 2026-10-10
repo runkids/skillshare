@@ -19,13 +19,15 @@ interface SyncPreviewModalProps {
   onClose: () => void;
   /** Syncs only this kind and says so; unset syncs skills and agents together. */
   kind?: 'skill' | 'agent';
+  /** Extra classes for the dialog, e.g. a slide-in when it replaces another dialog. */
+  className?: string;
 }
 
 /**
  * Previews from /api/diff, the same data as the Sync page and the pending dots, so the counts agree:
  * a dry-run reports every existing link as linked again.
  */
-export default function SyncPreviewModal({ open, onClose, kind }: SyncPreviewModalProps) {
+export default function SyncPreviewModal({ open, onClose, kind, className }: SyncPreviewModalProps) {
   const t = useT();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
@@ -78,7 +80,7 @@ export default function SyncPreviewModal({ open, onClose, kind }: SyncPreviewMod
 
   const title = synced ? t('syncPreview.titleComplete') : kind ? t(`syncPreview.title.${kind}`) : t('syncPreview.titlePreview');
   return (
-    <DialogShell open={open} onClose={onClose} maxWidth="2xl" padding="none" preventClose={syncing} ariaLabel={title}>
+    <DialogShell open={open} onClose={onClose} maxWidth="2xl" padding="none" preventClose={syncing} ariaLabel={title} className={className}>
       <div className="dh">
         <div className="flex flex-col gap-1">
           <h2 className="ss-h2">{title}</h2>
