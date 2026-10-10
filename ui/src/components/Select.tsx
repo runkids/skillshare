@@ -15,6 +15,12 @@ export interface SelectOption {
   disabled?: boolean;
   /** A short tag at the right end of the option, e.g. a capability. */
   badge?: string;
+  /** Muted caption at the right end, e.g. a count. Not shown with `columns`, like `mono`. */
+  trailing?: string;
+  /** The label is a path or identifier: set it in the monospace font. */
+  mono?: boolean;
+  /** Draws a line above the option, to set it apart from the ones before it. */
+  separated?: boolean;
 }
 
 interface SelectProps {
@@ -258,7 +264,7 @@ export function Select({ label, ariaLabel, value = '', onChange, values, onChang
               {chosen.slice(0, 6).map((o) => <span key={o.value} className={values ? 'ss-at' : 'flex items-center'}>{o.icon}</span>)}
             </span>
           )}
-          <span className={`truncate ${columns ? 'font-mono' : ''} ${chosen.length === 0 && placeholder ? 'text-ink-3' : ''}`}>{chosen.length === 0 && placeholder ? placeholder : selectedLabel}</span>
+          <span className={`truncate ${columns || chosen[0]?.mono ? 'font-mono' : ''} ${chosen.length === 0 && placeholder ? 'text-ink-3' : ''}`}>{chosen.length === 0 && placeholder ? placeholder : selectedLabel}</span>
         </span>
         <ChevronDown
           size={size === 'sm' ? 13 : 15}
@@ -293,6 +299,7 @@ export function Select({ label, ariaLabel, value = '', onChange, values, onChang
             return (
               <Fragment key={opt.value}>
               {heading && <li role="presentation" className="px-2 pt-2 pb-1 text-xs font-semibold text-ink-3">{heading}</li>}
+              {opt.separated && <li role="presentation" className="mx-1.5 my-1 h-px shrink-0 bg-line-soft" />}
               <li
                 role="option"
                 aria-selected={isSelected}
@@ -313,7 +320,7 @@ export function Select({ label, ariaLabel, value = '', onChange, values, onChang
                   </>
                 ) : (
                 <span className="flex-1 min-w-0">
-                  <span className={`block truncate ${isSelected ? 'font-medium' : ''}`}>
+                  <span className={`block truncate ${opt.mono ? 'font-mono' : ''} ${isSelected ? 'font-medium' : ''}`}>
                     {opt.label}
                     {opt.note && <span className="font-normal opacity-70"> {opt.note}</span>}
                   </span>
@@ -324,6 +331,7 @@ export function Select({ label, ariaLabel, value = '', onChange, values, onChang
                   )}
                 </span>
                 )}
+                {opt.trailing && <span className={`shrink-0 text-xs ${isFocused && !opt.disabled ? 'opacity-70' : 'text-ink-3'}`}>{opt.trailing}</span>}
               </li>
               </Fragment>
             );

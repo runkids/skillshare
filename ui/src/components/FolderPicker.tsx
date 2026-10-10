@@ -1,60 +1,47 @@
-import { useState } from 'react';
-import { isValidIntoPath } from '../lib/moveFolders';
+import type { ReactNode } from 'react';
+import { Folder, FolderPlus } from 'lucide-react';
+import { folderOptions } from '../lib/folderOptions';
+import type { FolderOption } from '../lib/moveFolders';
 import { useT } from '../i18n';
-import { Input } from './Input';
-import { Select } from './Select';
+import { Select, type SelectOption } from './Select';
 
 // Not a folder path: paths cannot contain ':'.
 const NEW = ':new';
 
+type Kind = 'skill' | 'agent';
+
 interface FolderPickerProps {
   label: string;
-  /** Shown under the field, like the other install options. */
-  hint?: string;
-  /** '' is the source root. */
+  kind: Kind;
+  /** '' is the source root. A path outside `folders` shows as a new folder. */
   value: string;
-  /** `valid` is false for a new folder that is still empty or not a legal path. */
-  onChange: (path: string, valid: boolean) => void;
-  folders: string[];
-  /** A folder that cannot be picked, e.g. where a skill already is. */
-  disabledFolder?: string;
+  onChange: (path: string) => void;
+  folders: FolderOption[];
+  /** Skills at and below the root, shown beside "Root". */
+  rootCount: number;
+  /** Paths that cannot be picked, with everything below them, e.g. where a skill already is. */
+  disabledPaths?: string[];
+  /** "New folder…" was chosen. `parent` is the existing folder that was selected ('' for the root or a folder not made yet); the caller shows the step that makes the name. */
+  onNewFolder: (parent: string) => void;
+  /** Under the field, e.g. where the install lands. */
+  caption?: ReactNode;
+  /** Under the caption, like the other install options. */
+  hint?: string;
 }
 
-/** Pick the source root, an existing folder, or type a new one. */
-export default function FolderPicker({ label, hint, value, onChange, folders, disabledFolder }: FolderPickerProps) {
+/** Pick the source root or an existing folder; "New folder…" hands over to the caller's new-folder step. */
+export default function FolderPicker({ label, kind, value, onChange, folders, rootCount, disabledPaths, onNewFolder, caption, hint }: FolderPickerProps) {
   const t = useT();
-  // A value outside the list can only have been typed, so it shows as a new folder too.
-  const [typing, setTyping] = useState(false);
-  const creating = typing || (value !== '' && !folders.includes(value));
-  const invalid = creating && value !== '' && !isValidIntoPath(value);
-  const options = [
-    { value: '', label: t('folderPicker.root'), disabled: disabledFolder === '', description: disabledFolder === '' ? t('folderPicker.here') : undefined },
-    ...folders.map((f) => ({ value: f, label: f, disabled: f === disabledFolder, description: f === disabledFolder ? t('folderPicker.here') : undefined })),
-    { value: NEW, label: t('folderPicker.new') },
+  const isNew = value !== '' && !folders.some((f) => f.path === value);
+  const options: SelectOption[] = [
+    ...folderOptions(t, kind, folders, rootCount, disabledPaths),
+    ...(isNew ? [{ value, label: value, mono: true, icon: <Folder size={14} />, trailing: t('folderPicker.newTag') }] : []),
+    { value: NEW, label: t('folderPicker.new'), icon: <FolderPlus size={14} />, separated: true },
   ];
   return (
     <div className="ss-fld min-w-0">
-      <Select
-        label={label}
-        value={creating ? NEW : value}
-        options={options}
-        onChange={(v) => {
-          setTyping(v === NEW);
-          onChange(v === NEW ? '' : v, v !== NEW);
-        }}
-      />
-      {creating && (
-        <Input
-          autoFocus
-          value={value}
-          onChange={(e) => onChange(e.target.value.trim(), isValidIntoPath(e.target.value.trim()))}
-          placeholder={t('folderPicker.newPlaceholder')}
-          aria-label={t('folderPicker.new')}
-          aria-invalid={invalid}
-          className={invalid ? 'err' : ''}
-        />
-      )}
-      {invalid && <span className="hp text-bad">{t('folderPicker.invalid')}</span>}
+      <Select label={label} value={value} options={options} onChange={(v) => (v === NEW ? onNewFolder(isNew ? '' : value) : onChange(v))} />
+      {caption && <span className="hp">{caption}</span>}
       {hint && <span className="hp font-mono">{hint}</span>}
     </div>
   );
