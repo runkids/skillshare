@@ -411,16 +411,20 @@ func movedCopyOf(store *MetadataStore, sourcePath, displayName string, follow *s
 		if utils.IsHidden(d.Name()) {
 			return filepath.SkipDir
 		}
-		if d.Name() != path.Base(displayName) {
-			return nil
-		}
 		rel, relErr := filepath.Rel(sourcePath, p)
 		if relErr != nil {
 			return nil
 		}
-		if key := store.MovedEntryKey(sourcePath, rel, p, follow); key != "" && store.Entries[key] == entry {
-			found = filepath.ToSlash(rel)
-			return filepath.SkipAll
+		if d.Name() == path.Base(displayName) {
+			if key := store.MovedEntryKey(sourcePath, rel, p, follow); key != "" && store.Entries[key] == entry {
+				found = filepath.ToSlash(rel)
+				return filepath.SkipAll
+			}
+		}
+		// Reconcile does not look inside an installed skill or tracked checkout,
+		// so a copy there could not take the record.
+		if e := store.GetByPath(rel); IsTrackedCheckout(p) || e != nil && e != entry && e.Source != "" {
+			return filepath.SkipDir
 		}
 		return nil
 	})

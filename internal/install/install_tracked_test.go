@@ -131,6 +131,31 @@ func TestMovedCopyOf_IgnoresCopyBehindLock(t *testing.T) {
 	}
 }
 
+// TestMovedCopyOf_StopsAtInstalledSkill verifies that a copy inside another
+// installed skill is not taken as the move: reconcile never looks there, so
+// it would prune the record the install was skipped for.
+func TestMovedCopyOf_StopsAtInstalledSkill(t *testing.T) {
+	sourceDir := t.TempDir()
+	moved := filepath.Join(sourceDir, "parent", "demo")
+	if err := os.MkdirAll(moved, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(moved, "SKILL.md"), []byte("---\nname: demo\n---\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	hashes, err := ComputeFileHashes(moved)
+	if err != nil {
+		t.Fatal(err)
+	}
+	store := NewMetadataStore()
+	store.Set("demo", &MetadataEntry{Source: "github.com/user/repo/demo", FileHashes: hashes})
+	store.Set("parent", &MetadataEntry{Source: "github.com/user/repo/parent"})
+
+	if to := movedCopyOf(store, sourceDir, "demo", nil, ""); to != "" {
+		t.Errorf("movedCopyOf() = %q, want no match inside an installed skill", to)
+	}
+}
+
 // TestInstallFromConfig_ReclonesMissingTrackedRepo verifies that a tracked repo
 // declared in metadata but absent on disk is listed as missing and re-cloned
 // under its recorded name (issue #212).
