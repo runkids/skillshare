@@ -191,8 +191,10 @@ func (s *MetadataStore) MovedEntryKey(sourcePath, relPath, dir string, follow *s
 // accepted for it.
 func (s *MetadataStore) MoveEntry(oldKey, newKey string) {
 	entry := s.Entries[oldKey]
-	accepted, ok := s.AuditAccepted[filepath.ToSlash(KeyToRelPath(oldKey, entry))]
+	oldPath := filepath.ToSlash(KeyToRelPath(oldKey, entry))
+	accepted, ok := s.AuditAccepted[oldPath]
 	s.Remove(oldKey)
+	delete(s.AuditAccepted, oldPath)
 	s.Set(newKey, entry)
 	if ok {
 		s.AuditAccepted[newKey] = accepted

@@ -460,3 +460,18 @@ func TestMovedEntryKey_IgnoresRecordUnderUnavailableLink(t *testing.T) {
 		t.Errorf("MovedEntryKey() = %q, want no match below an unavailable link", key)
 	}
 }
+
+// TestMoveEntry_DropsLegacyPathAuditAcceptance verifies that findings accepted
+// for a legacy basename key's path do not stay behind for whatever later
+// occupies that path.
+func TestMoveEntry_DropsLegacyPathAuditAcceptance(t *testing.T) {
+	store := NewMetadataStore()
+	store.Set("demo", &MetadataEntry{Source: "github.com/user/repo/demo", Group: "old"})
+	store.AuditAccepted = map[string][]string{"old/demo": {"accepted-key"}}
+
+	store.MoveEntry("demo", "new/demo")
+
+	if got, ok := store.AuditAccepted["old/demo"]; ok {
+		t.Errorf("accepted findings left at the old path: %v", got)
+	}
+}

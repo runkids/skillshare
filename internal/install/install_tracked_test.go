@@ -107,6 +107,30 @@ func TestInstallFromConfig_SkipsMovedSkill(t *testing.T) {
 	}
 }
 
+// TestMovedCopyOf_IgnoresCopyBehindLock verifies that a moved copy at another
+// commit than the lockfile pins is not taken as the locked skill, so the pin
+// is not overwritten with the copy's older commit.
+func TestMovedCopyOf_IgnoresCopyBehindLock(t *testing.T) {
+	sourceDir := t.TempDir()
+	moved := filepath.Join(sourceDir, "grp", "demo")
+	if err := os.MkdirAll(moved, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(moved, "SKILL.md"), []byte("---\nname: demo\n---\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	hashes, err := ComputeFileHashes(moved)
+	if err != nil {
+		t.Fatal(err)
+	}
+	store := NewMetadataStore()
+	store.Set("demo", &MetadataEntry{Source: "github.com/user/repo/demo", Commit: strings.Repeat("a", 40), FileHashes: hashes})
+
+	if to := movedCopyOf(store, sourceDir, "demo", nil, strings.Repeat("b", 40)); to != "" {
+		t.Errorf("movedCopyOf() = %q, want no match for a copy behind the lock", to)
+	}
+}
+
 // TestInstallFromConfig_ReclonesMissingTrackedRepo verifies that a tracked repo
 // declared in metadata but absent on disk is listed as missing and re-cloned
 // under its recorded name (issue #212).

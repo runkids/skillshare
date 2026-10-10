@@ -222,7 +222,7 @@ func InstallFromConfig(ctx InstallContext, opts InstallOptions) (ConfigInstallRe
 				continue
 			}
 			relock = true
-		} else if to := movedCopyOf(store, sourcePath, displayName, opts.SourceFollow); to != "" {
+		} else if to := movedCopyOf(store, sourcePath, displayName, opts.SourceFollow, locked); to != "" {
 			// Reconcile moves the record to the copy; installing would duplicate it.
 			result.Skipped++
 			if !opts.DryRun {
@@ -396,8 +396,9 @@ func InstallFromConfig(ctx InstallContext, opts InstallOptions) (ConfigInstallRe
 }
 
 // movedCopyOf returns the source-relative path the recorded skill displayName
-// was moved to (see MetadataStore.MovedEntryKey), or "".
-func movedCopyOf(store *MetadataStore, sourcePath, displayName string, follow *sourcewalk.Follow) string {
+// was moved to (see MetadataStore.MovedEntryKey), or "". A copy at another
+// commit than locked does not count, so the lockfile's pin is kept.
+func movedCopyOf(store *MetadataStore, sourcePath, displayName string, follow *sourcewalk.Follow, locked string) string {
 	entry := store.GetByPath(displayName)
 	if entry == nil || entry.Tracked || len(entry.FileHashes) == 0 {
 		return ""
@@ -423,6 +424,9 @@ func movedCopyOf(store *MetadataStore, sourcePath, displayName string, follow *s
 		}
 		return nil
 	})
+	if found != "" && locked != "" && InstalledCommit(filepath.Join(sourcePath, filepath.FromSlash(found)), entry) != locked {
+		return ""
+	}
 	return found
 }
 
