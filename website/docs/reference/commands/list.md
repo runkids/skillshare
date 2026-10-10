@@ -251,7 +251,7 @@ Project list uses the same visual format as global list, with `· project` label
 
 ## Directory Grouping
 
-When skills are organized into folders (via [`--into`](/docs/reference/commands/install) during install or manual `mv` + `sync`), `list` automatically groups them by directory:
+When skills are organized into folders (via [`--into`](/docs/reference/commands/install) during install or [`move`](/docs/reference/commands/move) + `sync`), `list` automatically groups them by directory:
 
 ```
   frontend/

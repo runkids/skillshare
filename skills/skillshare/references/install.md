@@ -1,4 +1,4 @@
-# Install, Update, Uninstall & New
+# Install, Update, Uninstall, Move & New
 
 Use `-p` for project resources or `-g` for global resources. For native agent workflows,
 see [native-agents.md](native-agents.md). These examples use skills unless specified otherwise.
@@ -207,6 +207,43 @@ skillshare uninstall my-skill --json
 **Undo:** `skillshare trash restore <name>` to recover. See [trash.md](trash.md).
 
 **After uninstall:** `skillshare sync`
+
+## move
+
+Move installed skills, or whole folders, to another folder of the source, keeping install
+records, audit acceptances and (project mode) the lock pin and config group. Nothing is
+downloaded again. Use it instead of `mv` for installed skills.
+
+```bash
+skillshare move react-best-practices frontend      # Skill -> frontend/react-best-practices
+skillshare move pdf docx office                    # Several skills into office/
+skillshare move frontend archive                   # Folder -> archive/frontend/
+skillshare move archive/old-skill .                # Back to the source root
+skillshare move my-skill frontend --dry-run        # Preview
+skillshare move my-skill frontend -p --json        # Project mode, JSON output
+```
+
+The last argument is the destination folder relative to the skills source; `.` is the source
+root. A name resolves as exact skill path, exact folder path, flat name (`grp__demo`), then
+unique skill base name. A skill with nested skills moves with them.
+
+| Flag | Description |
+|------|-------------|
+| `--dry-run, -n` | Preview, change nothing |
+| `--force, -f` | Accept a target-name collision only; never overwrites or moves tracked or linked content |
+| `--json` | JSON output: `moved`, `failed` (with `code`), `skipped`, `warnings`, `dry_run`, `duration` |
+| `--project, -p` / `--global, -g` | Select mode |
+
+Agents are not supported (no `--kind`). Refusals use stable codes in `failed[].code`:
+`skill_not_found`, `ambiguous_name`, `dest_exists` (never overwritten), `inside_tracked_repo`,
+`dest_inside_tracked_repo`, `linked_folder`, `dest_is_skill`, `invalid_dest`,
+`dest_inside_source_folder`, `duplicate_dest`, `overlapping_sources`, `same_folder` (no-op),
+`name_collision`, `ambiguous_record`. A folder holding a tracked repo is refused as a whole before anything is renamed.
+The exit code is non-zero when `failed` is not empty.
+
+**After move:** `skillshare sync`. Move does not sync, so old target links dangle until then.
+Target `include`/`exclude` filters match flat names and are not rewritten; `move` warns when a
+filter result changes.
 
 ## new
 
