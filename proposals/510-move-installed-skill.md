@@ -17,7 +17,7 @@ One core operation, exposed as `skillshare move` and `POST /api/resources/batch/
 
 `Plan(discovered, names, dest, Options) []Planned` resolves and refuses without touching disk. `Run([]Planned, Options) Outcome` applies, with per-item results like `uninstall.Run`.
 
-A name that resolves to a skill moves that skill. A name that is a folder under the source (and not itself a skill) moves the folder with every skill under it, keeping its base name: `move frontend archive` gives `archive/frontend/...`. `Plan` expands a folder into one `Planned` per skill below it and refuses every one of them before any rename; a single refusal aborts the whole folder, so a folder never ends half-moved. The folder is then renamed once (`Root.Rename`), so empty subfolders and non-skill files move along; the per-skill steps below (store, lock, `.skillignore`, `.gitignore`) run for each skill.
+A name that resolves to a skill moves that skill, plus any skills nested below its directory (discovery keeps walking after a `SKILL.md`, so `foo/SKILL.md` and `foo/sub/SKILL.md` are both discovered; the rename carries both, so both need their records moved). A name that is a folder under the source moves the folder with every skill under it, keeping its base name: `move frontend archive` gives `archive/frontend/...`. `Plan` expands either into one `Planned` per discovered skill below it and refuses every one of them before any rename; a single refusal aborts the whole folder, so a folder never ends half-moved. Because discovery only sees skills, `Plan` also walks the whole directory tree of a skill or folder for `_`-prefixed tracked checkouts (even one with no discoverable skill) and followed links, and refuses on the first. The folder is then renamed once (`Root.Rename`), so empty subfolders and non-skill files move along; the per-skill steps below (store, lock, `.skillignore`, `.gitignore`) run for each skill, and the rename happens once per requested name.
 
 Per skill, in this order:
 
@@ -43,6 +43,7 @@ Refusals (stable `Code`, shared by CLI and API):
 | `dest_is_skill` | `dest` or an ancestor holds `SKILL.md` (guard; discovery behaviour for nested skills unverified) |
 | `invalid_dest` | not `validate.IntoPath`; `.` means the source root. Segments starting with `_` fail `validate.SkillName`, so tracked-repo names cannot be typed |
 | `dest_inside_source_folder` | moving a folder into itself or one of its descendants |
+| `duplicate_dest` | two names in one batch resolve to the same destination path (`frontend/foo` and `backend/foo` into `archive`). Both are refused before any rename; `--force` does not change it |
 | `same_folder` | already there; no-op, exit 0 |
 | `name_collision` | forceable, below |
 
@@ -50,7 +51,7 @@ Empty folders and non-skill files inside a moved folder are not refusal reasons;
 
 Extract the tracked-repo ancestor loop from `uninstall.checkMoveOut` into an exported helper in `internal/install` (next to `IsTrackedCheckout`) so both packages share it.
 
-Name collisions: target names are `FlatName` (`grp__demo`) or SKILL.md names, depending on `target_naming`. For each target run `sync.ResolveTargetSkillsForTarget` on the discovered list with the moved skills rewritten, and report `Collisions` that include a moved path. The `flat` branch of that function returns before collision detection (verified, `internal/sync/target_naming.go`), so also compare `FlatName` duplicates directly. A collision does not lose data (sync skips both entries), so `--force` accepts it. That is the only thing `--force` does.
+Name collisions: target names are `FlatName` (`grp__demo`) or SKILL.md names, depending on `target_naming`. For each target run `sync.ResolveTargetSkillsForTarget` on the discovered list with the moved skills rewritten, and report `Collisions` that include a moved path. Identical destination paths are `duplicate_dest`, checked first, and never reach this step. The `flat` branch of that function returns before collision detection (verified, `internal/sync/target_naming.go`), so also compare `FlatName` duplicates directly. A collision does not lose data (sync skips both entries), so `--force` accepts it. That is the only thing `--force` does.
 
 Target filters are not rewritten. `include`/`exclude` match flat names (`internal/sync/filter.go`), so a rule naming `demo` stops matching `grp__demo`. Preflight lists target rules matching the old flat name and not the new one as warnings; `sync` already warns on unmatched includes (`UnmatchedInclude.Warning`).
 
@@ -144,7 +145,7 @@ Behavioural code is ~400 lines Go (core, CLI, handler) and ~350 lines TS; the fi
 
 Unit (devcontainer only; load `testing` first):
 - `internal/install`: `KeyForPath` (full and legacy basename keys), `Lock.MovePin`, tracked-ancestor helper.
-- `internal/skillmove` table tests: record re-keyed with audit acceptances; skill without record; edited skill (hashes differ); no `file_hashes`; every refusal code; `same_folder`; folder move (all skills re-keyed, empty folder and non-skill files move along, one refusal such as a nested tracked checkout or link aborts before any rename, `dest_inside_source_folder`); dry-run leaves disk and store untouched; literal `.skillignore` rewrite; flat-name collision with and without force; batch with one failure keeps the others.
+- `internal/skillmove` table tests: record re-keyed with audit acceptances; skill without record; edited skill (hashes differ); no `file_hashes`; every refusal code; `same_folder`; `duplicate_dest` with `--force`; skill with a nested skill (both re-keyed, pin and acceptances kept); folder move (all skills re-keyed, empty folder and non-skill files move along, one refusal such as a nested tracked checkout (including one with no discoverable skill) or link aborts before any rename, `dest_inside_source_folder`); dry-run leaves disk and store untouched; literal `.skillignore` rewrite; flat-name collision with and without force; batch with one failure keeps the others.
 - `internal/config`: extend `project_reconcile_test.go`: after a move the project `skills:` entry has the new group and the lock keeps the old commit pin.
 - `internal/server/handler_move_test.go`: success, dry-run, partial failure, 400s, project mode, oplog entry written.
 - `tests/integration/move_test.go` (`testutil.NewSandbox`): basic, `--dry-run`, `--json`, `-p`, refusals, `Next` hint; after `sync`, the target has `grp__demo` and no `demo`.
