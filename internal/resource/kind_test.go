@@ -386,6 +386,23 @@ func TestAgentKind_Discover_SkipsGitDir(t *testing.T) {
 	}
 }
 
+func TestAgentKind_Discover_HiddenSourceRoot(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), ".agents")
+	os.MkdirAll(filepath.Join(dir, ".nested"), 0o755)
+	os.WriteFile(filepath.Join(dir, "demo.md"), []byte("# Demo"), 0o644)
+	os.WriteFile(filepath.Join(dir, ".nested", "skipped.md"), []byte("# Skipped"), 0o644)
+
+	k := AgentKind{}
+	resources, err := k.Discover(dir)
+	if err != nil {
+		t.Fatalf("Discover error: %v", err)
+	}
+
+	if len(resources) != 1 || resources[0].Name != "demo" {
+		t.Fatalf("expected only 'demo' under a hidden source root, got %+v", resources)
+	}
+}
+
 func TestAgentKind_Discover_TrackedRepoWithAgentsDir(t *testing.T) {
 	dir := t.TempDir()
 
