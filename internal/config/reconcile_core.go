@@ -26,6 +26,7 @@ type reconcileResult struct {
 // onFound is called for each discovered installed skill; pass nil to skip.
 func reconcileSkillsWalk(sourcePath string, walk sourcewalk.Options, store *install.MetadataStore, onFound func(fullPath string)) (reconcileResult, error) {
 	result := reconcileResult{live: map[string]bool{}}
+	moves := map[string][]string{} // gone record key -> candidate destinations
 
 	walkRoot := utils.ResolveSymlink(sourcePath)
 	err := sourcewalk.WalkDir(walkRoot, walk, func(path string, d os.DirEntry, walkErr error) error {
@@ -67,12 +68,12 @@ func reconcileSkillsWalk(sourcePath string, walk sourcewalk.Options, store *inst
 				existing = nil
 			}
 		}
-		// A skill moved with mv takes its record along to the new path.
+		// A skill moved with mv takes its record along once the walk shows a
+		// single destination.
 		if existing == nil && !tracked {
 			if key := store.MovedEntryKey(walkRoot, fullPath, path, walk.Follow); key != "" {
-				existing = store.Get(key)
-				store.MoveEntry(key, fullPath)
-				result.changed = true
+				moves[key] = append(moves[key], fullPath)
+				return filepath.SkipDir
 			}
 		}
 		if existing != nil && existing.Source != "" {
@@ -143,6 +144,23 @@ func reconcileSkillsWalk(sourcePath string, walk sourcewalk.Options, store *inst
 
 		return nil
 	})
+
+	for key, dests := range moves {
+		if len(dests) != 1 {
+			continue
+		}
+		entry := store.Get(key)
+		store.MoveEntry(key, dests[0])
+		entry.Group = ""
+		if idx := strings.LastIndex(dests[0], "/"); idx >= 0 {
+			entry.Group = dests[0][:idx]
+		}
+		result.live[dests[0]] = true
+		result.changed = true
+		if onFound != nil {
+			onFound(dests[0])
+		}
+	}
 
 	if names := walk.Follow.Unavailable(); len(names) > 0 {
 		// The walk missed whatever those links hold; that is not a removal.

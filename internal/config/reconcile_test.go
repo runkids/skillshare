@@ -339,6 +339,38 @@ func TestReconcileGlobalSkills_IgnoresSameNameSkillWithOtherFiles(t *testing.T) 
 	}
 }
 
+// TestReconcileGlobalSkills_LeavesAmbiguousMove verifies that a gone record
+// with two identical copies is given to neither of them.
+func TestReconcileGlobalSkills_LeavesAmbiguousMove(t *testing.T) {
+	root := t.TempDir()
+	sourceDir := filepath.Join(root, "skills")
+	t.Setenv("SKILLSHARE_CONFIG", filepath.Join(root, "config.yaml"))
+	var hashes map[string]string
+	for _, group := range []string{"a", "b"} {
+		dir := filepath.Join(sourceDir, group, "demo")
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(dir, "SKILL.md"), []byte("---\nname: demo\n---\n"), 0644); err != nil {
+			t.Fatal(err)
+		}
+		var err error
+		if hashes, err = install.ComputeFileHashes(dir); err != nil {
+			t.Fatal(err)
+		}
+	}
+	store := install.NewMetadataStore()
+	store.Set("old/demo", &install.MetadataEntry{Source: "github.com/user/repo/demo", Group: "old", FileHashes: hashes})
+
+	if err := ReconcileGlobalSkills(&Config{Source: sourceDir}, store); err != nil {
+		t.Fatal(err)
+	}
+
+	if a, b := store.Get("a/demo"), store.Get("b/demo"); a != nil || b != nil {
+		t.Errorf("record given to a copy: a/demo=%+v b/demo=%+v", a, b)
+	}
+}
+
 func TestReconcileGlobalSkills_KeepsMetadataOfUnavailableSourceLink(t *testing.T) {
 	root := t.TempDir()
 	sourceDir := filepath.Join(root, "skills")

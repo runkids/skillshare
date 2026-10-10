@@ -222,7 +222,7 @@ func InstallFromConfig(ctx InstallContext, opts InstallOptions) (ConfigInstallRe
 				continue
 			}
 			relock = true
-		} else if to := movedCopyOf(store, sourcePath, displayName, opts.SourceFollow, locked); to != "" {
+		} else if to := movedCopyOf(store, sourcePath, skill, opts.SourceFollow, locked); to != "" {
 			// Reconcile moves the record to the copy; installing would duplicate it.
 			result.Skipped++
 			if !opts.DryRun {
@@ -395,15 +395,17 @@ func InstallFromConfig(ctx InstallContext, opts InstallOptions) (ConfigInstallRe
 	return result, nil
 }
 
-// movedCopyOf returns the source-relative path the recorded skill displayName
-// was moved to (see MetadataStore.MovedEntryKey), or "". A copy at another
+// movedCopyOf returns the source-relative path the recorded skill was moved
+// to (see MetadataStore.MovedEntryKey), or "" unless exactly one copy matches.
+// The record must still install what skill declares, and a copy at another
 // commit than locked does not count, so the lockfile's pin is kept.
-func movedCopyOf(store *MetadataStore, sourcePath, displayName string, follow *sourcewalk.Follow, locked string) string {
+func movedCopyOf(store *MetadataStore, sourcePath string, skill SkillEntryDTO, follow *sourcewalk.Follow, locked string) string {
+	displayName := skill.FullName()
 	entry := store.GetByPath(displayName)
-	if entry == nil || entry.Tracked || len(entry.FileHashes) == 0 {
+	if entry == nil || entry.Tracked || len(entry.FileHashes) == 0 || entry.Source != skill.Source || entry.Branch != skill.Branch {
 		return ""
 	}
-	found := ""
+	var found []string
 	// The walk reports paths under the resolved root, as in reconcile.
 	root := utils.ResolveSymlink(sourcePath)
 	_ = sourcewalk.WalkDir(root, sourcewalk.Options{Follow: follow}, func(p string, d os.DirEntry, err error) error {
@@ -417,23 +419,23 @@ func movedCopyOf(store *MetadataStore, sourcePath, displayName string, follow *s
 		if relErr != nil {
 			return nil
 		}
-		if d.Name() == path.Base(displayName) {
-			if key := store.MovedEntryKey(root, rel, p, follow); key != "" && store.Entries[key] == entry {
-				found = filepath.ToSlash(rel)
-				return filepath.SkipAll
-			}
-		}
 		// Reconcile does not look inside an installed skill or tracked checkout,
 		// so a copy there could not take the record.
 		if e := store.GetByPath(rel); IsTrackedCheckout(p) || e != nil && e != entry && e.Source != "" {
 			return filepath.SkipDir
 		}
+		if d.Name() == path.Base(displayName) {
+			if key := store.MovedEntryKey(root, rel, p, follow); key != "" && store.Entries[key] == entry {
+				found = append(found, filepath.ToSlash(rel))
+				return filepath.SkipDir
+			}
+		}
 		return nil
 	})
-	if found != "" && locked != "" && InstalledCommit(filepath.Join(sourcePath, filepath.FromSlash(found)), entry) != locked {
+	if len(found) != 1 || locked != "" && InstalledCommit(filepath.Join(root, filepath.FromSlash(found[0])), entry) != locked {
 		return ""
 	}
-	return found
+	return found[0]
 }
 
 // trackedInstallOutcome captures the result of a single tracked-repo install
