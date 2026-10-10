@@ -406,10 +406,15 @@ func movedCopyOf(store *MetadataStore, sourcePath string, skill SkillEntryDTO, f
 		return ""
 	}
 	var found []string
+	walkFailed := false // an unreadable directory may hide a copy
 	// The walk reports paths under the resolved root, as in reconcile.
 	root := utils.ResolveSymlink(sourcePath)
 	_ = sourcewalk.WalkDir(root, sourcewalk.Options{Follow: follow}, func(p string, d os.DirEntry, err error) error {
-		if err != nil || !d.IsDir() || p == root {
+		if err != nil {
+			walkFailed = true
+			return nil
+		}
+		if !d.IsDir() || p == root {
 			return nil
 		}
 		if utils.IsHidden(d.Name()) {
@@ -433,7 +438,7 @@ func movedCopyOf(store *MetadataStore, sourcePath string, skill SkillEntryDTO, f
 		return nil
 	})
 	// An unreadable source link may hide another copy.
-	if len(found) != 1 || follow.Incomplete() || locked != "" && InstalledCommit(filepath.Join(root, filepath.FromSlash(found[0])), entry) != locked {
+	if len(found) != 1 || walkFailed || follow.Incomplete() || locked != "" && InstalledCommit(filepath.Join(root, filepath.FromSlash(found[0])), entry) != locked {
 		return ""
 	}
 	return found[0]

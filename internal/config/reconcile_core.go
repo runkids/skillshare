@@ -28,10 +28,12 @@ type reconcileResult struct {
 func reconcileSkillsWalk(sourcePath string, walk sourcewalk.Options, store *install.MetadataStore, onFound func(fullPath string), canMove func(key string) bool) (reconcileResult, error) {
 	result := reconcileResult{live: map[string]bool{}}
 	moves := map[string][]string{} // gone record key -> candidate destinations
+	walkFailed := false            // an unreadable directory may hide a copy
 
 	walkRoot := utils.ResolveSymlink(sourcePath)
 	err := sourcewalk.WalkDir(walkRoot, walk, func(path string, d os.DirEntry, walkErr error) error {
 		if walkErr != nil {
+			walkFailed = true
 			return nil
 		}
 		if path == walkRoot {
@@ -148,7 +150,7 @@ func reconcileSkillsWalk(sourcePath string, walk sourcewalk.Options, store *inst
 
 	for key, dests := range moves {
 		// An unreadable source link may hide another copy, so wait for it.
-		if len(dests) != 1 || walk.Follow.Incomplete() {
+		if len(dests) != 1 || walkFailed || walk.Follow.Incomplete() {
 			continue
 		}
 		entry := store.Get(key)
