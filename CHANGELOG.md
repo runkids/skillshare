@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.25.5](https://github.com/runkids/skillshare/compare/v0.25.4...v0.25.5) (2026-10-10)
+
+
+* **release:** request version 0.25.5 ([3494fea](https://github.com/runkids/skillshare/commit/3494fea1f27c369bbb8826f2400b75a0e462707c))
+
+
+### New Features
+
+* **move:** move installed skills and folders without losing their records ([#520](https://github.com/runkids/skillshare/issues/520)) ([bf1731d](https://github.com/runkids/skillshare/commit/bf1731dec443a2345a9dbc0dbfa8accbdb2de31f)), closes [#510](https://github.com/runkids/skillshare/issues/510)
+* **sync:** adopt the install record of a skill moved by hand ([#523](https://github.com/runkids/skillshare/issues/523)) ([3a5da6b](https://github.com/runkids/skillshare/commit/3a5da6b529db19c4230b8368fdf2533fa5cedb56))
+* **ui:** move installed skills and folders from the dashboard ([#519](https://github.com/runkids/skillshare/issues/519)) ([5e85f53](https://github.com/runkids/skillshare/commit/5e85f5313bc5f3b41e92430da970d881c115acd6)), closes [#510](https://github.com/runkids/skillshare/issues/510)
+* **ui:** pick an existing folder when installing into a folder ([#517](https://github.com/runkids/skillshare/issues/517)) ([049c2d6](https://github.com/runkids/skillshare/commit/049c2d68f552124894e53863f8fbd1aa0ce56ddb)), closes [#510](https://github.com/runkids/skillshare/issues/510)
+
+
+### Bug Fixes
+
+* **move:** recompute collisions after a refusal, report an unreadable .skillignore, preflight batch dry-run --into ([#522](https://github.com/runkids/skillshare/issues/522)) ([f1ca009](https://github.com/runkids/skillshare/commit/f1ca009de34423f7c33a11fc7529af86497b8a1c)), closes [#521](https://github.com/runkids/skillshare/issues/521)
+
 ## [0.25.4] - 2026-10-10
 
 ### New Features
