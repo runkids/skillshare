@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.25.4](https://github.com/runkids/skillshare/compare/v0.25.3...v0.25.4) (2026-10-10)
+## [0.25.4] - 2026-10-10
 
 
 * **api:** cover skillsSharedWith in the targets list ([eabe5fb](https://github.com/runkids/skillshare/commit/eabe5fbc10f278397f3caba62b4470f29e9a9d44))
