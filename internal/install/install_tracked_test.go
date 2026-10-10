@@ -156,6 +156,30 @@ func TestMovedCopyOf_StopsAtInstalledSkill(t *testing.T) {
 	}
 }
 
+// TestMovedCopyOf_IgnoresRecordedSkill verifies that a skill with its own
+// record is never taken as another, identical skill's moved copy.
+func TestMovedCopyOf_IgnoresRecordedSkill(t *testing.T) {
+	sourceDir := t.TempDir()
+	other := filepath.Join(sourceDir, "new", "demo")
+	if err := os.MkdirAll(other, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(other, "SKILL.md"), []byte("---\nname: demo\n---\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	hashes, err := ComputeFileHashes(other)
+	if err != nil {
+		t.Fatal(err)
+	}
+	store := NewMetadataStore()
+	store.Set("old/demo", &MetadataEntry{Source: "github.com/user/repo/demo", Group: "old", FileHashes: hashes})
+	store.Set("new/demo", &MetadataEntry{Source: "github.com/user/repo/demo", Group: "new", FileHashes: hashes})
+
+	if to := movedCopyOf(store, sourceDir, "old/demo", nil, ""); to != "" {
+		t.Errorf("movedCopyOf() = %q, want no match for a recorded skill", to)
+	}
+}
+
 // TestInstallFromConfig_ReclonesMissingTrackedRepo verifies that a tracked repo
 // declared in metadata but absent on disk is listed as missing and re-cloned
 // under its recorded name (issue #212).

@@ -150,10 +150,16 @@ func (s *MetadataStore) MigrateLegacyKey(fullPath string, existing *MetadataEntr
 // It returns "" unless exactly one entry matches.
 func (s *MetadataStore) MovedEntryKey(sourcePath, relPath, dir string, follow *sourcewalk.Follow) string {
 	relPath = filepath.ToSlash(relPath)
+	// A directory with a record of its own is that skill, not a moved copy;
+	// GetByPath may return the gone record itself through its basename lookup.
+	owner := s.GetByPath(relPath)
 	var hashes map[string]string
 	found := ""
 	for _, key := range s.List() {
 		e := s.Entries[key]
+		if owner != nil && owner != e {
+			continue
+		}
 		old := filepath.ToSlash(KeyToRelPath(key, e))
 		if e.Tracked || len(e.FileHashes) == 0 || old == relPath || path.Base(old) != path.Base(relPath) {
 			continue
