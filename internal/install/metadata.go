@@ -3,6 +3,7 @@ package install
 import (
 	"encoding/json"
 	"fmt"
+	"maps"
 	"os"
 	"path"
 	"path/filepath"
@@ -141,6 +142,77 @@ func (s *MetadataStore) MigrateLegacyKey(fullPath string, existing *MetadataEntr
 	s.Remove(filepath.Base(fullPath))
 	s.Set(fullPath, existing)
 	return true
+}
+
+// MovedEntryKey returns the key of the recorded skill that dir, found at
+// relPath under sourcePath, is a moved copy of: a plain skill of the same name
+// whose recorded directory is gone and whose recorded file hashes match dir.
+// It returns "" unless exactly one entry matches, and an error when dir cannot
+// be hashed: it might be a copy, so a search that hit one is incomplete.
+func (s *MetadataStore) MovedEntryKey(sourcePath, relPath, dir string, follow *sourcewalk.Follow) (string, error) {
+	relPath = filepath.ToSlash(relPath)
+	// A directory with a record of its own is that skill, not a moved copy;
+	// GetByPath may return the gone record itself through its basename lookup.
+	owner := s.GetByPath(relPath)
+	var hashes map[string]string
+	found := ""
+	for _, key := range s.List() {
+		e := s.Entries[key]
+		if owner != nil && owner != e {
+			continue
+		}
+		old := filepath.ToSlash(KeyToRelPath(key, e))
+		if e.Tracked || len(e.FileHashes) == 0 || old == relPath || path.Base(old) != path.Base(relPath) {
+			continue
+		}
+		if _, err := os.Lstat(filepath.Join(sourcePath, filepath.FromSlash(old))); !os.IsNotExist(err) {
+			continue
+		}
+		// Below a source link that cannot be read, the skill may still exist.
+		if first, _, nested := strings.Cut(old, "/"); nested {
+			top := filepath.Join(sourcePath, first)
+			if _, err := os.Lstat(top); err == nil {
+				if _, err := os.Stat(top); err != nil {
+					continue
+				}
+			}
+		}
+		if hashes == nil {
+			var err error
+			if hashes, err = ComputeFileHashes(dir, follow); err != nil {
+				return "", err
+			}
+		}
+		if !maps.Equal(hashes, e.FileHashes) {
+			continue
+		}
+		if found != "" {
+			return "", nil
+		}
+		found = key
+	}
+	return found, nil
+}
+
+// MatchesDeclaration reports whether this plain-skill record still installs
+// what skill declares, so a moved copy of it can stand in for skill.
+func (e *MetadataEntry) MatchesDeclaration(skill SkillEntryDTO) bool {
+	return !e.Tracked && !skill.Tracked && e.Source == skill.Source && e.Branch == skill.Branch
+}
+
+// MoveEntry re-keys the entry at oldKey to newKey, with the audit findings
+// accepted for it.
+func (s *MetadataStore) MoveEntry(oldKey, newKey string) {
+	entry := s.Entries[oldKey]
+	oldPath := filepath.ToSlash(KeyToRelPath(oldKey, entry))
+	accepted, ok := s.AuditAccepted[oldPath]
+	s.Remove(oldKey)
+	delete(s.AuditAccepted, oldPath)
+	delete(s.AuditAccepted, newKey)
+	s.Set(newKey, entry)
+	if ok {
+		s.AuditAccepted[newKey] = accepted
+	}
 }
 
 // List returns sorted entry names.

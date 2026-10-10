@@ -19,17 +19,23 @@ type reconcileResult struct {
 	// incomplete means a followed source link could not be read, so entries
 	// absent from live may still exist and must not be removed.
 	incomplete bool
+	// movedFrom lists the source-relative paths records were moved away from.
+	movedFrom []string
 }
 
 // reconcileSkillsWalk walks sourcePath for installed skills (those with metadata
 // or tracked repos) and ensures they are present in the MetadataStore.
 // onFound is called for each discovered installed skill; pass nil to skip.
-func reconcileSkillsWalk(sourcePath string, walk sourcewalk.Options, store *install.MetadataStore, onFound func(fullPath string)) (reconcileResult, error) {
+// canMove limits which gone records may follow a moved copy; nil allows all.
+func reconcileSkillsWalk(sourcePath string, walk sourcewalk.Options, store *install.MetadataStore, onFound func(fullPath string), canMove func(key string) bool) (reconcileResult, error) {
 	result := reconcileResult{live: map[string]bool{}}
+	moves := map[string][]string{} // gone record key -> candidate destinations
+	walkFailed := false            // an unreadable directory may hide a copy
 
 	walkRoot := utils.ResolveSymlink(sourcePath)
 	err := sourcewalk.WalkDir(walkRoot, walk, func(path string, d os.DirEntry, walkErr error) error {
 		if walkErr != nil {
+			walkFailed = true
 			return nil
 		}
 		if path == walkRoot {
@@ -65,6 +71,18 @@ func reconcileSkillsWalk(sourcePath string, walk sourcewalk.Options, store *inst
 			existing = store.GetByPath(fullPath)
 			if tracked && existing != nil && existing.Group != group {
 				existing = nil
+			}
+		}
+		// A skill moved with mv takes its record along once the walk shows a
+		// single destination.
+		if existing == nil && !tracked {
+			key, hashErr := store.MovedEntryKey(walkRoot, fullPath, path, walk.Follow)
+			if hashErr != nil {
+				walkFailed = true
+			}
+			if key != "" && (canMove == nil || canMove(key)) {
+				moves[key] = append(moves[key], fullPath)
+				return filepath.SkipDir
 			}
 		}
 		if existing != nil && existing.Source != "" {
@@ -135,6 +153,30 @@ func reconcileSkillsWalk(sourcePath string, walk sourcewalk.Options, store *inst
 
 		return nil
 	})
+
+	for key, dests := range moves {
+		// An unreadable source link may hide another copy, so wait for it.
+		if len(dests) != 1 || walkFailed || walk.Follow.Incomplete() {
+			continue
+		}
+		entry := store.Get(key)
+		result.movedFrom = append(result.movedFrom, filepath.ToSlash(install.KeyToRelPath(key, entry)))
+		store.MoveEntry(key, dests[0])
+		entry.Group = ""
+		if idx := strings.LastIndex(dests[0], "/"); idx >= 0 {
+			entry.Group = dests[0][:idx]
+		}
+		result.live[dests[0]] = true
+		result.changed = true
+		if onFound != nil {
+			onFound(dests[0])
+		}
+	}
+
+	// A record left waiting on a failed walk must not be pruned as gone.
+	if walkFailed && len(moves) > 0 {
+		result.incomplete = true
+	}
 
 	if names := walk.Follow.Unavailable(); len(names) > 0 {
 		// The walk missed whatever those links hold; that is not a removal.

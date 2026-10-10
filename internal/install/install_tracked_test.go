@@ -73,6 +73,212 @@ func (metadataInstallContext) AzureHosts() []string          { return nil }
 func (metadataInstallContext) CNBHosts() []string            { return nil }
 func (metadataInstallContext) GiteaHosts() []string          { return nil }
 
+// TestInstallFromConfig_SkipsMovedSkill verifies that a recorded skill the
+// user moved to another folder is not installed again at its old path, which
+// would leave two copies (issue #510).
+func TestInstallFromConfig_SkipsMovedSkill(t *testing.T) {
+	origin := filepath.Join(t.TempDir(), "demo")
+	sourceDir := t.TempDir()
+	moved := filepath.Join(sourceDir, "grp", "demo")
+	for _, dir := range []string{origin, moved} {
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(dir, "SKILL.md"), []byte("---\nname: demo\n---\n"), 0644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	hashes, err := ComputeFileHashes(moved)
+	if err != nil {
+		t.Fatal(err)
+	}
+	store := LoadMetadataOrNew(sourceDir)
+	store.Set("demo", &MetadataEntry{Source: origin, Type: "local", FileHashes: hashes})
+	if err := store.Save(sourceDir); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := InstallFromConfig(metadataInstallContext{sourceDir}, InstallOptions{SkipAudit: true, Quiet: true}); err != nil {
+		t.Fatalf("InstallFromConfig() error = %v", err)
+	}
+
+	if _, err := os.Stat(filepath.Join(sourceDir, "demo")); !os.IsNotExist(err) {
+		t.Errorf("moved skill was installed again at its old path (stat err = %v)", err)
+	}
+}
+
+// TestMovedCopyOf_IgnoresCopyBehindLock verifies that a moved copy at another
+// commit than the lockfile pins is not taken as the locked skill, so the pin
+// is not overwritten with the copy's older commit.
+func TestMovedCopyOf_IgnoresCopyBehindLock(t *testing.T) {
+	sourceDir := t.TempDir()
+	moved := filepath.Join(sourceDir, "grp", "demo")
+	if err := os.MkdirAll(moved, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(moved, "SKILL.md"), []byte("---\nname: demo\n---\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	hashes, err := ComputeFileHashes(moved)
+	if err != nil {
+		t.Fatal(err)
+	}
+	store := NewMetadataStore()
+	store.Set("demo", &MetadataEntry{Source: "github.com/user/repo/demo", Commit: strings.Repeat("a", 40), FileHashes: hashes})
+
+	if to := movedCopyOf(store, sourceDir, SkillEntryDTO{Name: "demo", Source: "github.com/user/repo/demo"}, nil, strings.Repeat("b", 40)); to != "" {
+		t.Errorf("movedCopyOf() = %q, want no match for a copy behind the lock", to)
+	}
+}
+
+// TestMovedCopyOf_StopsAtInstalledSkill verifies that a copy inside another
+// installed skill is not taken as the move: reconcile never looks there, so
+// it would prune the record the install was skipped for.
+func TestMovedCopyOf_StopsAtInstalledSkill(t *testing.T) {
+	sourceDir := t.TempDir()
+	moved := filepath.Join(sourceDir, "parent", "demo")
+	if err := os.MkdirAll(moved, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(moved, "SKILL.md"), []byte("---\nname: demo\n---\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	hashes, err := ComputeFileHashes(moved)
+	if err != nil {
+		t.Fatal(err)
+	}
+	store := NewMetadataStore()
+	store.Set("demo", &MetadataEntry{Source: "github.com/user/repo/demo", FileHashes: hashes})
+	store.Set("parent", &MetadataEntry{Source: "github.com/user/repo/parent"})
+
+	if to := movedCopyOf(store, sourceDir, SkillEntryDTO{Name: "demo", Source: "github.com/user/repo/demo"}, nil, ""); to != "" {
+		t.Errorf("movedCopyOf() = %q, want no match inside an installed skill", to)
+	}
+}
+
+// TestMovedCopyOf_IgnoresRecordedSkill verifies that a skill with its own
+// record is never taken as another, identical skill's moved copy.
+func TestMovedCopyOf_IgnoresRecordedSkill(t *testing.T) {
+	sourceDir := t.TempDir()
+	other := filepath.Join(sourceDir, "new", "demo")
+	if err := os.MkdirAll(other, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(other, "SKILL.md"), []byte("---\nname: demo\n---\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	hashes, err := ComputeFileHashes(other)
+	if err != nil {
+		t.Fatal(err)
+	}
+	store := NewMetadataStore()
+	store.Set("old/demo", &MetadataEntry{Source: "github.com/user/repo/demo", Group: "old", FileHashes: hashes})
+	store.Set("new/demo", &MetadataEntry{Source: "github.com/user/repo/demo", Group: "new", FileHashes: hashes})
+
+	if to := movedCopyOf(store, sourceDir, SkillEntryDTO{Name: "demo", Group: "old", Source: "github.com/user/repo/demo"}, nil, ""); to != "" {
+		t.Errorf("movedCopyOf() = %q, want no match for a recorded skill", to)
+	}
+}
+
+// TestMovedCopyOf_StopsAtInstalledSkillUnderLinkedSource verifies that the
+// installed-skill boundary holds when the skills source is itself a link.
+func TestMovedCopyOf_StopsAtInstalledSkillUnderLinkedSource(t *testing.T) {
+	realDir := t.TempDir()
+	sourceDir := filepath.Join(t.TempDir(), "skills")
+	if err := os.Symlink(realDir, sourceDir); err != nil {
+		t.Skipf("symlink: %v", err)
+	}
+	moved := filepath.Join(realDir, "grp", "parent", "demo")
+	if err := os.MkdirAll(moved, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(moved, "SKILL.md"), []byte("---\nname: demo\n---\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	hashes, err := ComputeFileHashes(moved)
+	if err != nil {
+		t.Fatal(err)
+	}
+	store := NewMetadataStore()
+	store.Set("demo", &MetadataEntry{Source: "github.com/user/repo/demo", FileHashes: hashes})
+	store.Set("grp/parent", &MetadataEntry{Source: "github.com/user/repo/parent", Group: "grp"})
+
+	if to := movedCopyOf(store, sourceDir, SkillEntryDTO{Name: "demo", Source: "github.com/user/repo/demo"}, nil, ""); to != "" {
+		t.Errorf("movedCopyOf() = %q, want no match inside an installed skill", to)
+	}
+}
+
+// writeMovedCopies writes identical demo skills at rels under sourceDir and
+// returns their file hashes.
+func writeMovedCopies(t *testing.T, sourceDir string, rels ...string) map[string]string {
+	t.Helper()
+	var hashes map[string]string
+	for _, rel := range rels {
+		dir := filepath.Join(sourceDir, filepath.FromSlash(rel))
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(dir, "SKILL.md"), []byte("---\nname: demo\n---\n"), 0644); err != nil {
+			t.Fatal(err)
+		}
+		var err error
+		if hashes, err = ComputeFileHashes(dir); err != nil {
+			t.Fatal(err)
+		}
+	}
+	return hashes
+}
+
+// TestMovedCopyOf_IgnoresChangedSource verifies that a copy of what was
+// recorded is not taken as the skill once the config declares another source.
+func TestMovedCopyOf_IgnoresChangedSource(t *testing.T) {
+	sourceDir := t.TempDir()
+	store := NewMetadataStore()
+	store.Set("demo", &MetadataEntry{Source: "github.com/user/a/demo", FileHashes: writeMovedCopies(t, sourceDir, "grp/demo")})
+
+	if to := movedCopyOf(store, sourceDir, SkillEntryDTO{Name: "demo", Source: "github.com/user/b/demo"}, nil, ""); to != "" {
+		t.Errorf("movedCopyOf() = %q, want no match after the source changed", to)
+	}
+}
+
+// TestMovedCopyOf_IgnoresSkillNowTracked verifies that a plain copy is not
+// taken as the skill once the config declares it tracked.
+func TestMovedCopyOf_IgnoresSkillNowTracked(t *testing.T) {
+	sourceDir := t.TempDir()
+	store := NewMetadataStore()
+	store.Set("demo", &MetadataEntry{Source: "github.com/user/repo/demo", FileHashes: writeMovedCopies(t, sourceDir, "grp/demo")})
+
+	if to := movedCopyOf(store, sourceDir, SkillEntryDTO{Name: "demo", Source: "github.com/user/repo/demo", Tracked: true}, nil, ""); to != "" {
+		t.Errorf("movedCopyOf() = %q, want no match once the skill is tracked", to)
+	}
+}
+
+// TestMovedCopyOf_IgnoresTrackedCheckout verifies that a git checkout
+// reconcile treats as tracked is never taken as a moved plain skill.
+func TestMovedCopyOf_IgnoresTrackedCheckout(t *testing.T) {
+	sourceDir := t.TempDir()
+	hashes := writeMovedCopies(t, sourceDir, "grp/_demo")
+	mustRunGit(t, "", "init", "-q", filepath.Join(sourceDir, "grp", "_demo"))
+	store := NewMetadataStore()
+	store.Set("_demo", &MetadataEntry{Source: "github.com/user/repo/_demo", FileHashes: hashes})
+
+	if to := movedCopyOf(store, sourceDir, SkillEntryDTO{Name: "_demo", Source: "github.com/user/repo/_demo"}, nil, ""); to != "" {
+		t.Errorf("movedCopyOf() = %q, want no match for a tracked checkout", to)
+	}
+}
+
+// TestMovedCopyOf_RequiresSingleCopy verifies that two identical copies leave
+// the move undecided instead of picking one.
+func TestMovedCopyOf_RequiresSingleCopy(t *testing.T) {
+	sourceDir := t.TempDir()
+	store := NewMetadataStore()
+	store.Set("demo", &MetadataEntry{Source: "github.com/user/repo/demo", FileHashes: writeMovedCopies(t, sourceDir, "a/demo", "b/demo")})
+
+	if to := movedCopyOf(store, sourceDir, SkillEntryDTO{Name: "demo", Source: "github.com/user/repo/demo"}, nil, ""); to != "" {
+		t.Errorf("movedCopyOf() = %q, want no match with two copies", to)
+	}
+}
+
 // TestInstallFromConfig_ReclonesMissingTrackedRepo verifies that a tracked repo
 // declared in metadata but absent on disk is listed as missing and re-cloned
 // under its recorded name (issue #212).

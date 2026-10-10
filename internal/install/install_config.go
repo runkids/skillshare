@@ -3,11 +3,14 @@ package install
 import (
 	"fmt"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 
 	"skillshare/internal/sourcefs"
+	"skillshare/internal/sourcewalk"
 	"skillshare/internal/ui"
+	"skillshare/internal/utils"
 	"skillshare/internal/validate"
 )
 
@@ -145,7 +148,7 @@ func MissingFromConfig(ctx InstallContext) []SkillEntryDTO {
 // (via ctx.ConfigSkills) and installs each one that is not already present.
 // It handles both tracked repos and plain skills, delegates per-skill hooks
 // to ctx.PostInstallSkill, and calls ctx.Reconcile when at least one skill
-// was installed.
+// was installed or found moved, so the moved skill's record follows it.
 //
 // The caller is responsible for UI chrome (logo, spinner, next-steps).
 func InstallFromConfig(ctx InstallContext, opts InstallOptions) (ConfigInstallResult, error) {
@@ -171,6 +174,7 @@ func InstallFromConfig(ctx InstallContext, opts InstallOptions) (ConfigInstallRe
 	var plain []configSkillEntry
 
 	store := LoadMetadataOrNew(sourcePath)
+	moved := 0
 
 	for _, skill := range ctx.ConfigSkills() {
 		_, bareName := skill.EffectiveParts()
@@ -218,6 +222,16 @@ func InstallFromConfig(ctx InstallContext, opts InstallOptions) (ConfigInstallRe
 				continue
 			}
 			relock = true
+		} else if to := movedCopyOf(store, sourcePath, skill, opts.SourceFollow, locked); to != "" {
+			// Reconcile moves the record to the copy; installing would duplicate it.
+			result.Skipped++
+			if !opts.DryRun {
+				moved++
+			}
+			if !opts.Quiet {
+				ui.StepDone(displayName, "moved to "+to+", record follows")
+			}
+			continue
 		}
 
 		source, err := ParseSourceWithOptions(skill.Source, parseOpts)
@@ -371,14 +385,67 @@ func InstallFromConfig(ctx InstallContext, opts InstallOptions) (ConfigInstallRe
 		result.Installed++
 	}
 
-	// ── Phase 4: Reconcile config after successful installs ──
-	if result.Installed > 0 && !opts.DryRun {
+	// ── Phase 4: Reconcile config after installs and moves ──
+	if (result.Installed > 0 || moved > 0) && !opts.DryRun {
 		if err := ctx.Reconcile(); err != nil {
 			return result, err
 		}
 	}
 
 	return result, nil
+}
+
+// movedCopyOf returns the source-relative path the recorded skill was moved
+// to (see MetadataStore.MovedEntryKey), or "" unless exactly one copy matches.
+// The record must still install what skill declares, and a copy at another
+// commit than locked does not count, so the lockfile's pin is kept.
+func movedCopyOf(store *MetadataStore, sourcePath string, skill SkillEntryDTO, follow *sourcewalk.Follow, locked string) string {
+	displayName := skill.FullName()
+	entry := store.GetByPath(displayName)
+	if entry == nil || len(entry.FileHashes) == 0 || !entry.MatchesDeclaration(skill) {
+		return ""
+	}
+	var found []string
+	walkFailed := false // an unreadable directory may hide a copy
+	// The walk reports paths under the resolved root, as in reconcile.
+	root := utils.ResolveSymlink(sourcePath)
+	_ = sourcewalk.WalkDir(root, sourcewalk.Options{Follow: follow}, func(p string, d os.DirEntry, err error) error {
+		if err != nil {
+			walkFailed = true
+			return nil
+		}
+		if !d.IsDir() || p == root {
+			return nil
+		}
+		if utils.IsHidden(d.Name()) {
+			return filepath.SkipDir
+		}
+		rel, relErr := filepath.Rel(root, p)
+		if relErr != nil {
+			return nil
+		}
+		// Reconcile does not look inside an installed skill or tracked checkout,
+		// so a copy there could not take the record.
+		if e := store.GetByPath(rel); IsTrackedCheckout(p) || e != nil && e != entry && e.Source != "" {
+			return filepath.SkipDir
+		}
+		if d.Name() == path.Base(displayName) {
+			key, hashErr := store.MovedEntryKey(root, rel, p, follow)
+			if hashErr != nil {
+				walkFailed = true
+			}
+			if key != "" && store.Entries[key] == entry {
+				found = append(found, filepath.ToSlash(rel))
+				return filepath.SkipDir
+			}
+		}
+		return nil
+	})
+	// An unreadable source link may hide another copy.
+	if len(found) != 1 || walkFailed || follow.Incomplete() || locked != "" && InstalledCommit(filepath.Join(root, filepath.FromSlash(found[0])), entry) != locked {
+		return ""
+	}
+	return found[0]
 }
 
 // trackedInstallOutcome captures the result of a single tracked-repo install

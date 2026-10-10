@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"testing"
 
 	"skillshare/internal/install"
@@ -277,6 +278,170 @@ func TestReconcileGlobalSkills_PrunesStaleEntries(t *testing.T) {
 	}
 	if !store.Has("alive-skill") {
 		t.Errorf("expected surviving entry 'alive-skill'")
+	}
+}
+
+// TestReconcileGlobalSkills_FollowsMovedSkill verifies that an installed skill
+// moved to another folder keeps its install record (issue #510).
+func TestReconcileGlobalSkills_FollowsMovedSkill(t *testing.T) {
+	root := t.TempDir()
+	sourceDir := filepath.Join(root, "skills")
+	t.Setenv("SKILLSHARE_CONFIG", filepath.Join(root, "config.yaml"))
+	moved := filepath.Join(sourceDir, "new", "demo")
+	if err := os.MkdirAll(moved, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(moved, "SKILL.md"), []byte("---\nname: demo\n---\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	hashes, err := install.ComputeFileHashes(moved)
+	if err != nil {
+		t.Fatal(err)
+	}
+	store := install.NewMetadataStore()
+	store.Set("old/demo", &install.MetadataEntry{Source: "github.com/user/repo/demo", Group: "old", FileHashes: hashes})
+	store.AuditAccepted = map[string][]string{"old/demo": {"accepted-key"}}
+
+	if err := ReconcileGlobalSkills(&Config{Source: sourceDir}, store); err != nil {
+		t.Fatal(err)
+	}
+
+	if got := store.Get("new/demo"); got == nil || got.Source != "github.com/user/repo/demo" || got.Group != "new" {
+		t.Errorf("moved skill entry = %+v, want the old record under new/demo", got)
+	}
+	if got := store.AuditAccepted["new/demo"]; !reflect.DeepEqual(got, []string{"accepted-key"}) {
+		t.Errorf("accepted audit findings = %v, want them moved to new/demo", got)
+	}
+}
+
+// TestReconcileGlobalSkills_IgnoresSameNameSkillWithOtherFiles verifies that a
+// different skill sharing the name never takes a gone skill's record, so a
+// later update cannot overwrite it from that source.
+func TestReconcileGlobalSkills_IgnoresSameNameSkillWithOtherFiles(t *testing.T) {
+	root := t.TempDir()
+	sourceDir := filepath.Join(root, "skills")
+	t.Setenv("SKILLSHARE_CONFIG", filepath.Join(root, "config.yaml"))
+	own := filepath.Join(sourceDir, "new", "demo")
+	if err := os.MkdirAll(own, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(own, "SKILL.md"), []byte("---\nname: demo\n---\nmine\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	store := install.NewMetadataStore()
+	store.Set("old/demo", &install.MetadataEntry{Source: "github.com/user/repo/demo", Group: "old", FileHashes: map[string]string{"SKILL.md": "sha256:other"}})
+
+	if err := ReconcileGlobalSkills(&Config{Source: sourceDir}, store); err != nil {
+		t.Fatal(err)
+	}
+
+	if got := store.Get("new/demo"); got != nil {
+		t.Errorf("unrelated skill took the record: %+v", got)
+	}
+}
+
+// TestReconcileGlobalSkills_LeavesAmbiguousMove verifies that a gone record
+// with two identical copies is given to neither of them.
+func TestReconcileGlobalSkills_LeavesAmbiguousMove(t *testing.T) {
+	root := t.TempDir()
+	sourceDir := filepath.Join(root, "skills")
+	t.Setenv("SKILLSHARE_CONFIG", filepath.Join(root, "config.yaml"))
+	var hashes map[string]string
+	for _, group := range []string{"a", "b"} {
+		dir := filepath.Join(sourceDir, group, "demo")
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(dir, "SKILL.md"), []byte("---\nname: demo\n---\n"), 0644); err != nil {
+			t.Fatal(err)
+		}
+		var err error
+		if hashes, err = install.ComputeFileHashes(dir); err != nil {
+			t.Fatal(err)
+		}
+	}
+	store := install.NewMetadataStore()
+	store.Set("old/demo", &install.MetadataEntry{Source: "github.com/user/repo/demo", Group: "old", FileHashes: hashes})
+
+	if err := ReconcileGlobalSkills(&Config{Source: sourceDir}, store); err != nil {
+		t.Fatal(err)
+	}
+
+	if a, b := store.Get("a/demo"), store.Get("b/demo"); a != nil || b != nil {
+		t.Errorf("record given to a copy: a/demo=%+v b/demo=%+v", a, b)
+	}
+}
+
+// TestReconcileGlobalSkills_DefersMoveWhileSourceLinkUnavailable verifies that
+// a move is not inferred while an unreadable source link may hide another copy.
+func TestReconcileGlobalSkills_DefersMoveWhileSourceLinkUnavailable(t *testing.T) {
+	root := t.TempDir()
+	sourceDir := filepath.Join(root, "skills")
+	t.Setenv("SKILLSHARE_CONFIG", filepath.Join(root, "config.yaml"))
+	moved := filepath.Join(sourceDir, "new", "demo")
+	if err := os.MkdirAll(moved, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(moved, "SKILL.md"), []byte("---\nname: demo\n---\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(filepath.Join(root, "unmounted"), filepath.Join(sourceDir, "_dev-skills")); err != nil {
+		t.Fatal(err)
+	}
+	hashes, err := install.ComputeFileHashes(moved)
+	if err != nil {
+		t.Fatal(err)
+	}
+	store := install.NewMetadataStore()
+	store.Set("old/demo", &install.MetadataEntry{Source: "github.com/user/repo/demo", Group: "old", FileHashes: hashes})
+
+	if err := ReconcileGlobalSkills(&Config{Source: sourceDir, FollowSourceLinks: true}, store); err != nil {
+		t.Fatal(err)
+	}
+
+	if got := store.Get("new/demo"); got != nil {
+		t.Errorf("move inferred from an incomplete walk: %+v", got)
+	}
+}
+
+// TestReconcileGlobalSkills_DefersMoveWhenWalkFails verifies that a move is
+// not inferred while an unreadable directory may hide another copy, and that
+// the record waits instead of being pruned.
+func TestReconcileGlobalSkills_DefersMoveWhenWalkFails(t *testing.T) {
+	if os.Geteuid() == 0 || runtime.GOOS == "windows" {
+		t.Skip("root, and Windows, read directories regardless of mode")
+	}
+	root := t.TempDir()
+	sourceDir := filepath.Join(root, "skills")
+	t.Setenv("SKILLSHARE_CONFIG", filepath.Join(root, "config.yaml"))
+	moved := filepath.Join(sourceDir, "new", "demo")
+	if err := os.MkdirAll(moved, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(moved, "SKILL.md"), []byte("---\nname: demo\n---\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	locked := filepath.Join(sourceDir, "locked")
+	if err := os.MkdirAll(locked, 0); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { os.Chmod(locked, 0755) })
+	hashes, err := install.ComputeFileHashes(moved)
+	if err != nil {
+		t.Fatal(err)
+	}
+	store := install.NewMetadataStore()
+	store.Set("old/demo", &install.MetadataEntry{Source: "github.com/user/repo/demo", Group: "old", FileHashes: hashes})
+
+	if err := ReconcileGlobalSkills(&Config{Source: sourceDir}, store); err != nil {
+		t.Fatal(err)
+	}
+
+	if got := store.Get("new/demo"); got != nil {
+		t.Errorf("move inferred from a failed walk: %+v", got)
+	}
+	if !store.Has("old/demo") {
+		t.Error("deferred record was pruned, so it can no longer follow the copy")
 	}
 }
 
