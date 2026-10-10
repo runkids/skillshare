@@ -76,7 +76,11 @@ func reconcileSkillsWalk(sourcePath string, walk sourcewalk.Options, store *inst
 		// A skill moved with mv takes its record along once the walk shows a
 		// single destination.
 		if existing == nil && !tracked {
-			if key := store.MovedEntryKey(walkRoot, fullPath, path, walk.Follow); key != "" && (canMove == nil || canMove(key)) {
+			key, hashErr := store.MovedEntryKey(walkRoot, fullPath, path, walk.Follow)
+			if hashErr != nil {
+				walkFailed = true
+			}
+			if key != "" && (canMove == nil || canMove(key)) {
 				moves[key] = append(moves[key], fullPath)
 				return filepath.SkipDir
 			}

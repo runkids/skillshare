@@ -456,7 +456,7 @@ func TestMovedEntryKey_IgnoresRecordUnderUnavailableLink(t *testing.T) {
 	store := NewMetadataStore()
 	store.Set("linked/demo", &MetadataEntry{Source: "github.com/user/repo/demo", Group: "linked", FileHashes: hashes})
 
-	if key := store.MovedEntryKey(sourceDir, "other/demo", copyDir, nil); key != "" {
+	if key, _ := store.MovedEntryKey(sourceDir, "other/demo", copyDir, nil); key != "" {
 		t.Errorf("MovedEntryKey() = %q, want no match below an unavailable link", key)
 	}
 }
@@ -487,5 +487,28 @@ func TestMoveEntry_ClearsStaleAuditAcceptanceAtDestination(t *testing.T) {
 
 	if got, ok := store.AuditAccepted["new/demo"]; ok {
 		t.Errorf("moved skill inherited accepted findings: %v", got)
+	}
+}
+
+// TestMovedEntryKey_ReportsHashFailure verifies that a candidate that cannot
+// be hashed is reported, so the search counts as incomplete: it may be a
+// second copy that would make the move ambiguous.
+func TestMovedEntryKey_ReportsHashFailure(t *testing.T) {
+	if os.Geteuid() == 0 || runtime.GOOS == "windows" {
+		t.Skip("root, and Windows, read files regardless of mode")
+	}
+	sourceDir := t.TempDir()
+	copyDir := filepath.Join(sourceDir, "other", "demo")
+	if err := os.MkdirAll(copyDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(copyDir, "SKILL.md"), []byte("---\nname: demo\n---\n"), 0); err != nil {
+		t.Fatal(err)
+	}
+	store := NewMetadataStore()
+	store.Set("demo", &MetadataEntry{Source: "github.com/user/repo/demo", FileHashes: map[string]string{"SKILL.md": "sha256:x"}})
+
+	if _, err := store.MovedEntryKey(sourceDir, "other/demo", copyDir, nil); err == nil {
+		t.Error("MovedEntryKey() hid a candidate it could not hash")
 	}
 }

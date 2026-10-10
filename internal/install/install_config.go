@@ -430,7 +430,11 @@ func movedCopyOf(store *MetadataStore, sourcePath string, skill SkillEntryDTO, f
 			return filepath.SkipDir
 		}
 		if d.Name() == path.Base(displayName) {
-			if key := store.MovedEntryKey(root, rel, p, follow); key != "" && store.Entries[key] == entry {
+			key, hashErr := store.MovedEntryKey(root, rel, p, follow)
+			if hashErr != nil {
+				walkFailed = true
+			}
+			if key != "" && store.Entries[key] == entry {
 				found = append(found, filepath.ToSlash(rel))
 				return filepath.SkipDir
 			}

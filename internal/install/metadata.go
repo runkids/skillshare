@@ -147,8 +147,9 @@ func (s *MetadataStore) MigrateLegacyKey(fullPath string, existing *MetadataEntr
 // MovedEntryKey returns the key of the recorded skill that dir, found at
 // relPath under sourcePath, is a moved copy of: a plain skill of the same name
 // whose recorded directory is gone and whose recorded file hashes match dir.
-// It returns "" unless exactly one entry matches.
-func (s *MetadataStore) MovedEntryKey(sourcePath, relPath, dir string, follow *sourcewalk.Follow) string {
+// It returns "" unless exactly one entry matches, and an error when dir cannot
+// be hashed: it might be a copy, so a search that hit one is incomplete.
+func (s *MetadataStore) MovedEntryKey(sourcePath, relPath, dir string, follow *sourcewalk.Follow) (string, error) {
 	relPath = filepath.ToSlash(relPath)
 	// A directory with a record of its own is that skill, not a moved copy;
 	// GetByPath may return the gone record itself through its basename lookup.
@@ -179,18 +180,18 @@ func (s *MetadataStore) MovedEntryKey(sourcePath, relPath, dir string, follow *s
 		if hashes == nil {
 			var err error
 			if hashes, err = ComputeFileHashes(dir, follow); err != nil {
-				return ""
+				return "", err
 			}
 		}
 		if !maps.Equal(hashes, e.FileHashes) {
 			continue
 		}
 		if found != "" {
-			return ""
+			return "", nil
 		}
 		found = key
 	}
-	return found
+	return found, nil
 }
 
 // MatchesDeclaration reports whether this plain-skill record still installs
