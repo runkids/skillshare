@@ -910,3 +910,34 @@ func TestHandleSync_ProjectTargetWithoutPathFailsAlone(t *testing.T) {
 		t.Fatalf("expected one config failure for custom, got %+v", resp.Failed)
 	}
 }
+
+// TestHandleSync_MalformedMetadataIsWarnedNotOverwritten verifies that sync
+// refuses to adopt moved records when .metadata.json does not load, so the
+// empty stand-in store is never saved over it.
+func TestHandleSync_MalformedMetadataIsWarnedNotOverwritten(t *testing.T) {
+	tgtPath := filepath.Join(t.TempDir(), "claude-skills")
+	s, src := newTestServerWithTargets(t, map[string]string{"claude": tgtPath})
+	addSkill(t, src, "alpha")
+	metaPath := filepath.Join(src, install.MetadataFileName)
+	if err := os.WriteFile(metaPath, []byte("{not json"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/api/sync", strings.NewReader(`{"dryRun":false}`))
+	rr := httptest.NewRecorder()
+	s.handler.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rr.Code, rr.Body.String())
+	}
+	var resp struct {
+		Warnings []string `json:"warnings"`
+	}
+	json.Unmarshal(rr.Body.Bytes(), &resp)
+	if !slices.ContainsFunc(resp.Warnings, func(w string) bool { return strings.HasPrefix(w, "install metadata not updated") }) {
+		t.Errorf("warnings = %v, want the metadata load failure", resp.Warnings)
+	}
+	if data, _ := os.ReadFile(metaPath); string(data) != "{not json" {
+		t.Errorf("metadata file = %q, want it left untouched", data)
+	}
+}
