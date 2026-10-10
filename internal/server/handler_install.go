@@ -29,15 +29,17 @@ func (s *Server) reloadSkillsStore() {
 // reconcileSkillsConfig syncs the skills config with the metadata store,
 // logging failures as warnings so the calling operation still succeeds.
 func (s *Server) reconcileSkillsConfig(sourceDir string) {
-	if s.IsProjectMode() {
-		if rErr := config.ReconcileProjectSkills(s.projectRoot, s.projectCfg, s.skillsStore, sourceDir); rErr != nil {
-			log.Printf("warning: failed to reconcile project skills config: %v", rErr)
-		}
-	} else {
-		if rErr := config.ReconcileGlobalSkills(s.cfg, s.skillsStore); rErr != nil {
-			log.Printf("warning: failed to reconcile global skills config: %v", rErr)
-		}
+	if err := s.reconcileSkills(sourceDir); err != nil {
+		log.Printf("warning: failed to reconcile skills config: %v", err)
 	}
+}
+
+// reconcileSkills is reconcileSkillsConfig for a caller that reports the error.
+func (s *Server) reconcileSkills(sourceDir string) error {
+	if s.IsProjectMode() {
+		return config.ReconcileProjectSkills(s.projectRoot, s.projectCfg, s.skillsStore, sourceDir)
+	}
+	return config.ReconcileGlobalSkills(s.cfg, s.skillsStore)
 }
 
 // checkInstallInto refuses an into folder an install must not land in: inside

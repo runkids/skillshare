@@ -238,3 +238,43 @@ func TestHandleBatchMove_AlreadyInPlaceIsNotAFailure(t *testing.T) {
 		t.Errorf("oplog = %+v, want one ok entry", entries)
 	}
 }
+
+// A failed reconcile after the rename is reported in the response and the log,
+// not swallowed: the project's recorded state is out of step until fixed.
+func TestHandleBatchMove_ReportsReconcileFailure(t *testing.T) {
+	s, _ := newTestServer(t)
+	root := t.TempDir()
+	skills := filepath.Join(root, ".skillshare", "skills")
+	s.projectRoot = root
+	s.projectCfg = &config.ProjectConfig{
+		Targets: []config.ProjectTargetEntry{{Name: "claude"}},
+		Skills:  []config.SkillEntry{{Name: "demo", Source: "github.com/user/repo/demo"}},
+	}
+	s.cfg.Source = skills
+	addSkill(t, skills, "demo")
+	s.skillsStore = install.NewMetadataStore()
+	s.skillsStore.Set("demo", &install.MetadataEntry{Source: "github.com/user/repo/demo"})
+	// A directory where config.yaml belongs: the group change cannot be saved.
+	if err := os.MkdirAll(filepath.Join(root, ".skillshare", "config.yaml"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	raw, _ := json.Marshal(map[string]any{"names": []string{"demo"}, "dest": "grp"})
+	rr := httptest.NewRecorder()
+	s.handleBatchMove(rr, httptest.NewRequest(http.MethodPost, "/api/resources/batch/move", bytes.NewReader(raw)))
+
+	var resp moveResponse
+	if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode: %v: %s", err, rr.Body.String())
+	}
+	if len(resp.Results) != 1 || !resp.Results[0].Success {
+		t.Fatalf("results = %+v, want the rename reported", resp.Results)
+	}
+	if len(resp.Warns) != 1 || !strings.Contains(resp.Warns[0], "follow-up step failed") {
+		t.Errorf("warnings = %v, want the reconcile failure", resp.Warns)
+	}
+	entries, _ := oplog.Read(s.configPath(), oplog.OpsFile, 10)
+	if len(entries) != 1 || entries[0].Status == "ok" {
+		t.Errorf("oplog = %+v, want a non-ok entry", entries)
+	}
+}
