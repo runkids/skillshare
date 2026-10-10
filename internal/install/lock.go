@@ -72,6 +72,23 @@ func (l *Lock) MovePin(oldName, newName string) bool {
 	return ok
 }
 
+// MoveLockPins re-keys the pins of the skills in moves (old path to new path)
+// in dir's lockfile and saves it when one changed.
+func MoveLockPins(dir string, moves map[string]string) error {
+	lock, err := LoadLock(dir)
+	if err != nil {
+		return err
+	}
+	changed := false
+	for from, to := range moves {
+		changed = lock.MovePin(from, to) || changed
+	}
+	if !changed {
+		return nil
+	}
+	return lock.Save(dir)
+}
+
 // Save writes the lockfile, leaving it untouched when nothing changed and
 // removing it when there is nothing to pin.
 func (l *Lock) Save(dir string) error {

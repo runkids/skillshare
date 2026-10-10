@@ -66,7 +66,7 @@ func (s *Server) handleBatchMove(w http.ResponseWriter, r *http.Request) {
 		Targets:   skillmove.EnabledTargets(s.cfg.Targets),
 		Force:     body.Force,
 		DryRun:    body.DryRun,
-		Reconcile: func() error { return s.reconcileSkills(source) },
+		Reconcile: func() error { return s.reconcileSkills(source, true) },
 	}
 	if s.IsProjectMode() {
 		opts.ProjectRoot = s.projectRoot

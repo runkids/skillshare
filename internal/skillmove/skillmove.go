@@ -672,18 +672,7 @@ func followUp(root *sourcefs.Root, moved []*Planned, o Options) error {
 		note("update .gitignore", err)
 	}
 	if o.ProjectRoot != "" {
-		dir := projectdir.Resolve(o.ProjectRoot)
-		lock, err := install.LoadLock(dir)
-		if err == nil {
-			changed := false
-			for from, to := range pins {
-				changed = lock.MovePin(from, to) || changed
-			}
-			if changed {
-				err = lock.Save(dir)
-			}
-		}
-		note("move the "+install.LockFileName+" pin", err)
+		note("move the "+install.LockFileName+" pin", install.MoveLockPins(projectdir.Resolve(o.ProjectRoot), pins))
 	}
 	data, err := os.ReadFile(filepath.Join(o.SourceDir, ".skillignore"))
 	if err == nil {
