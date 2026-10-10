@@ -20,9 +20,11 @@ type reconcileResult struct {
 	// incomplete means a followed source link could not be read, so entries
 	// absent from live may still exist and must not be removed.
 	incomplete bool
-	// movedFrom lists the source-relative paths records were moved away from.
-	movedFrom []string
+	// moved lists the records that followed a hand-moved copy, by source-relative path.
+	moved []movedRecord
 }
+
+type movedRecord struct{ from, to string }
 
 // reconcileSkillsWalk walks sourcePath for installed skills (those with metadata
 // or tracked repos) and ensures they are present in the MetadataStore.
@@ -105,8 +107,14 @@ func reconcileSkillsWalk(sourcePath string, walk sourcewalk.Options, store *inst
 		}
 
 		if existing != nil {
+			// A basename key found under another folder is a top-level skill
+			// moved by hand, not a legacy key: its pin and ignore line must follow.
+			from := filepath.ToSlash(install.KeyToRelPath(fullPath[strings.LastIndex(fullPath, "/")+1:], existing))
 			if store.MigrateLegacyKey(fullPath, existing) {
 				result.changed = true
+				if from != fullPath && !tracked {
+					result.moved = append(result.moved, movedRecord{from, fullPath})
+				}
 			}
 			if existing.Source != source {
 				existing.Source = source
@@ -161,7 +169,7 @@ func reconcileSkillsWalk(sourcePath string, walk sourcewalk.Options, store *inst
 			continue
 		}
 		entry := store.Get(key)
-		result.movedFrom = append(result.movedFrom, filepath.ToSlash(install.KeyToRelPath(key, entry)))
+		result.moved = append(result.moved, movedRecord{filepath.ToSlash(install.KeyToRelPath(key, entry)), dests[0]})
 		store.MoveEntry(key, dests[0])
 		entry.Group = ""
 		if idx := strings.LastIndex(dests[0], "/"); idx >= 0 {

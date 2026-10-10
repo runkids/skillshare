@@ -290,7 +290,7 @@ skillshare sync
 執行 `sync` 後，Targets 會自動更新 — 舊的平面 symlink 會被清除，並建立新的攤平後名稱。
 
 :::warning 透過 `skillshare install` 安裝的 Skill
-不要用 `mv` 移動已安裝的 Skill。`.metadata.json` 裡的安裝紀錄以路徑為 key，紀錄會留在舊路徑，直到下一次 `sync`、`install` 或 **Install missing** 認出移動後的副本（同名、安裝後未修改、只有一份）並把紀錄移過去；在那之前 `update` 和 `uninstall` 找不到這個 Skill，專案的 lock pin 和 `.skillignore` 行也不會跟著走。請改用 [`skillshare move`](/docs/reference/commands/move)。它會把 Skill 和安裝紀錄一起移動，不會重新下載：
+不要用 `mv` 移動已安裝的 Skill。`.metadata.json` 裡的安裝紀錄以路徑為 key，紀錄會留在舊路徑，直到下一次 `sync`、`install` 或 **Install missing** 認出移動後的副本（同名、安裝後未修改、只有一份）並把紀錄移過去；在那之前 `update` 和 `uninstall` 找不到這個 Skill，`.skillignore` 行也不會跟著走。請改用 [`skillshare move`](/docs/reference/commands/move)。它會把 Skill 和安裝紀錄一起移動，不會重新下載：
 
 ```bash
 skillshare move react-best-practices frontend/react

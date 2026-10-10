@@ -67,10 +67,10 @@ func reconcileProjectSkills(projectRoot string, projectCfg *ProjectConfig, store
 	}
 
 	// A moved skill's old ignore rule would keep ignoring whatever lands there.
-	if gitignoreDir != "" && len(result.movedFrom) > 0 {
+	if gitignoreDir != "" && len(result.moved) > 0 {
 		var stale []string
-		for _, old := range result.movedFrom {
-			stale = append(stale, prefix+"/"+old)
+		for _, m := range result.moved {
+			stale = append(stale, prefix+"/"+m.from)
 		}
 		if _, err := install.RemoveFromGitIgnoreBatch(gitignoreDir, stale); err != nil {
 			return fmt.Errorf("failed to update .gitignore: %w", err)
@@ -101,6 +101,23 @@ func reconcileProjectSkills(projectRoot string, projectCfg *ProjectConfig, store
 	}
 
 	if projectCfg != nil {
+		// The pin must follow first, or WriteProjectLock pins the local commit.
+		if len(result.moved) > 0 {
+			dir := projectdir.Resolve(projectRoot)
+			lock, err := install.LoadLock(dir)
+			if err != nil {
+				return err
+			}
+			changed := false
+			for _, m := range result.moved {
+				changed = lock.MovePin(m.from, m.to) || changed
+			}
+			if changed {
+				if err := lock.Save(dir); err != nil {
+					return fmt.Errorf("failed to write %s: %w", install.LockFileName, err)
+				}
+			}
+		}
 		if err := WriteProjectLock(projectRoot, projectCfg, store, sourcePath); err != nil {
 			return fmt.Errorf("failed to write %s: %w", install.LockFileName, err)
 		}

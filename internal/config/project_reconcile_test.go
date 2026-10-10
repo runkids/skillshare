@@ -430,3 +430,49 @@ func TestReconcileProjectSkills_MovedSkillKeepsGroupAndPin(t *testing.T) {
 		t.Error("the pin of the old path was left behind")
 	}
 }
+
+// TestReconcileProjectSkills_HandMovedSkillKeepsPin verifies that adopting a
+// copy moved with mv re-keys the lock pin instead of pinning the local commit.
+func TestReconcileProjectSkills_HandMovedSkillKeepsPin(t *testing.T) {
+	root := t.TempDir()
+	skillsDir := filepath.Join(root, ".skillshare", "skills")
+	moved := filepath.Join(skillsDir, "grp", "demo")
+	if err := os.MkdirAll(moved, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(moved, "SKILL.md"), []byte("---\nname: demo\n---\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	hashes, err := install.ComputeFileHashes(moved)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pinned := strings.Repeat("a", 40)
+	installed := strings.Repeat("b", 40)
+	dir := filepath.Join(root, ".skillshare")
+	lock := &install.Lock{Skills: map[string]install.LockEntry{"demo": {Source: "github.com/user/repo/demo", Commit: pinned}}}
+	if err := lock.Save(dir); err != nil {
+		t.Fatal(err)
+	}
+	cfg := &ProjectConfig{
+		Targets: []ProjectTargetEntry{{Name: "claude"}},
+		Skills:  []SkillEntry{{Name: "demo", Source: "github.com/user/repo/demo"}},
+	}
+	store := install.NewMetadataStore()
+	store.Set("demo", &install.MetadataEntry{Source: "github.com/user/repo/demo", Commit: installed, FileHashes: hashes})
+
+	if err := AdoptMovedProjectSkills(root, cfg, store, skillsDir); err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := install.LoadLock(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if pin := got.Skills["grp/demo"]; pin.Commit != pinned {
+		t.Errorf("pin = %+v, want the shared commit kept under grp/demo", pin)
+	}
+	if _, stale := got.Skills["demo"]; stale {
+		t.Error("the pin of the old path was left behind")
+	}
+}

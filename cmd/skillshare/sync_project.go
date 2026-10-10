@@ -54,9 +54,10 @@ func cmdSyncProject(root string, dryRun, force, jsonOutput, quiet bool) (syncLog
 	}
 
 	// A skill moved by hand keeps its install record; sync never prunes one.
+	var metaWarnings []string
 	if !dryRun {
-		if rErr := config.AdoptMovedProjectSkills(root, cfg, runtime.skillsStore, runtime.sourcePath); rErr != nil && !jsonOutput {
-			ui.Warning("Could not update install metadata: %v", rErr)
+		if rErr := config.AdoptMovedProjectSkills(root, cfg, runtime.skillsStore, runtime.sourcePath); rErr != nil {
+			metaWarnings = append(metaWarnings, fmt.Sprintf("install metadata not updated: %v", rErr))
 		}
 	}
 
@@ -78,7 +79,7 @@ func cmdSyncProject(root string, dryRun, force, jsonOutput, quiet bool) (syncLog
 		reportCollisions(discoveredSkills, runtime.targets)
 	}
 	sourceIncomplete := walk.Follow.Incomplete()
-	linkWarnings := sync.SourceLinkWarnings(walk, sourceIncomplete)
+	linkWarnings := append(metaWarnings, sync.SourceLinkWarnings(walk, sourceIncomplete)...)
 	if !jsonOutput {
 		for _, w := range linkWarnings {
 			ui.Warning("%s", w)

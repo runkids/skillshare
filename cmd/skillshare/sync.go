@@ -361,11 +361,14 @@ func cmdSync(args []string) error {
 	}
 
 	// A skill moved by hand keeps its install record; sync never prunes one.
+	var metaWarnings []string
 	if !dryRun {
-		if store, loadErr := install.LoadMetadata(cfg.EffectiveSkillsSource()); loadErr == nil {
-			if rErr := config.AdoptMovedGlobalSkills(cfg, store); rErr != nil && !jsonOutput {
-				ui.Warning("Could not update install metadata: %v", rErr)
-			}
+		store, adoptErr := install.LoadMetadata(cfg.EffectiveSkillsSource())
+		if adoptErr == nil {
+			adoptErr = config.AdoptMovedGlobalSkills(cfg, store)
+		}
+		if adoptErr != nil {
+			metaWarnings = append(metaWarnings, fmt.Sprintf("install metadata not updated: %v", adoptErr))
 		}
 	}
 
@@ -390,7 +393,7 @@ func cmdSync(args []string) error {
 		reportCollisions(discoveredSkills, cfg.Targets)
 	}
 	sourceIncomplete := walk.Follow.Incomplete()
-	linkWarnings := sync.SourceLinkWarnings(walk, sourceIncomplete)
+	linkWarnings := append(metaWarnings, sync.SourceLinkWarnings(walk, sourceIncomplete)...)
 	if !jsonOutput {
 		for _, w := range linkWarnings {
 			ui.Warning("%s", w)
