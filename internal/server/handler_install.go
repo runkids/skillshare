@@ -20,41 +20,46 @@ import (
 // server's cached s.skillsStore stays stale after an install — a freshly
 // installed skill would then render with an empty source/type (shown as "Local"
 // with a blank source in the UI) until the server restarts.
-func (s *Server) reloadSkillsStore() {
-	if st, err := install.LoadMetadataWithMigration(s.cfg.EffectiveSkillsSource(), ""); err == nil && st != nil {
-		s.skillsStore = st
-	}
-}
-
-// reconcileSkillsConfig syncs the skills config with the metadata store,
-// logging failures as warnings so the calling operation still succeeds.
-func (s *Server) reconcileSkillsConfig(sourceDir string) {
-	if err := s.reconcileSkills(sourceDir); err != nil {
-		log.Printf("warning: failed to reconcile skills config: %v", err)
-	}
-}
-
-// reconcileSkills is reconcileSkillsConfig for a caller that reports the error.
-func (s *Server) reconcileSkills(sourceDir string) error {
-	if s.IsProjectMode() {
-		return config.ReconcileProjectSkills(s.projectRoot, s.projectCfg, s.skillsStore, sourceDir)
-	}
-	return config.ReconcileGlobalSkills(s.cfg, s.skillsStore)
-}
-
-// adoptMovedSkills is reconcileSkills without the prune, for sync. It reads
-// the store from disk first: the cached one may be the empty stand-in New
-// uses when the file does not load, and saving that would drop every record.
-func (s *Server) adoptMovedSkills() error {
+func (s *Server) reloadSkillsStore() error {
 	st, err := install.LoadMetadataWithMigration(s.cfg.EffectiveSkillsSource(), "")
 	if err != nil {
 		return err
 	}
 	s.skillsStore = st
+	return nil
+}
+
+// reconcileSkillsConfig syncs the skills config with the metadata store,
+// logging failures as warnings so the calling operation still succeeds.
+func (s *Server) reconcileSkillsConfig(sourceDir string) {
+	if err := s.reconcileSkills(sourceDir, true); err != nil {
+		log.Printf("warning: failed to reconcile skills config: %v", err)
+	}
+}
+
+// reconcileSkills is reconcileSkillsConfig for a caller that reports the error.
+// Without prune it only adopts moved records.
+func (s *Server) reconcileSkills(sourceDir string, prune bool) error {
 	if s.IsProjectMode() {
-		return config.AdoptMovedProjectSkills(s.projectRoot, s.projectCfg, s.skillsStore, s.cfg.EffectiveSkillsSource())
+		if prune {
+			return config.ReconcileProjectSkills(s.projectRoot, s.projectCfg, s.skillsStore, sourceDir)
+		}
+		return config.AdoptMovedProjectSkills(s.projectRoot, s.projectCfg, s.skillsStore, sourceDir)
+	}
+	if prune {
+		return config.ReconcileGlobalSkills(s.cfg, s.skillsStore)
 	}
 	return config.AdoptMovedGlobalSkills(s.cfg, s.skillsStore)
+}
+
+// adoptMovedSkills is the sync step. It reads the store from disk first: the
+// cached one may be the empty stand-in New uses when the file does not load,
+// and saving that would drop every record.
+func (s *Server) adoptMovedSkills() error {
+	if err := s.reloadSkillsStore(); err != nil {
+		return err
+	}
+	return s.reconcileSkills(s.cfg.EffectiveSkillsSource(), false)
 }
 
 // checkInstallInto refuses an into folder an install must not land in: inside

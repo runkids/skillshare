@@ -228,8 +228,8 @@ func (s *Server) syncResources(start time.Time, dryRun, force bool, kind, projec
 	if kind != kindAgent {
 		var err error
 		if !dryRun {
-			if err := s.adoptMovedSkills(); err != nil {
-				warnings = append(warnings, "install metadata not updated: "+err.Error())
+			if adoptErr := s.adoptMovedSkills(); adoptErr != nil {
+				warnings = append(warnings, "install metadata not updated: "+adoptErr.Error())
 			}
 		}
 		walk := s.skillsWalk()

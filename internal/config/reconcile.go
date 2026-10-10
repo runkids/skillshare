@@ -26,6 +26,9 @@ func reconcileGlobalSkills(cfg *Config, store *install.MetadataStore, prune bool
 	if _, err := os.Stat(sourcePath); os.IsNotExist(err) {
 		return nil
 	}
+	if !prune && !anyRecordGone(sourcePath, store) {
+		return nil
+	}
 
 	result, err := reconcileSkillsWalk(sourcePath, cfg.SkillsWalk(), store, nil, nil)
 	if err != nil {

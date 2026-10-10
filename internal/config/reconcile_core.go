@@ -20,11 +20,10 @@ type reconcileResult struct {
 	// incomplete means a followed source link could not be read, so entries
 	// absent from live may still exist and must not be removed.
 	incomplete bool
-	// moved lists the records that followed a hand-moved copy, by source-relative path.
-	moved []movedRecord
+	// moved maps the old source-relative path of each record that followed a
+	// hand-moved copy to its new one.
+	moved map[string]string
 }
-
-type movedRecord struct{ from, to string }
 
 // reconcileSkillsWalk walks sourcePath for installed skills (those with metadata
 // or tracked repos) and ensures they are present in the MetadataStore.
@@ -165,7 +164,10 @@ func reconcileSkillsWalk(sourcePath string, walk sourcewalk.Options, store *inst
 			continue
 		}
 		entry := store.Get(key)
-		result.moved = append(result.moved, movedRecord{filepath.ToSlash(install.KeyToRelPath(key, entry)), dests[0]})
+		if result.moved == nil {
+			result.moved = map[string]string{}
+		}
+		result.moved[filepath.ToSlash(install.KeyToRelPath(key, entry))] = dests[0]
 		store.MoveEntry(key, dests[0])
 		entry.Group = ""
 		if idx := strings.LastIndex(dests[0], "/"); idx >= 0 {
@@ -191,6 +193,21 @@ func reconcileSkillsWalk(sourcePath string, walk sourcewalk.Options, store *inst
 		fmt.Fprintf(os.Stderr, "Warning: source link %s is unavailable; kept its install metadata\n", strings.Join(names, ", "))
 	}
 	return result, err
+}
+
+// anyRecordGone reports whether a plain record's directory is missing, the
+// only state a hand move leaves behind. Adoption skips the walk otherwise.
+func anyRecordGone(sourcePath string, store *install.MetadataStore) bool {
+	for _, key := range store.List() {
+		entry := store.Get(key)
+		if entry.Tracked || len(entry.FileHashes) == 0 {
+			continue
+		}
+		if _, err := os.Lstat(filepath.Join(sourcePath, filepath.FromSlash(install.KeyToRelPath(key, entry)))); os.IsNotExist(err) {
+			return true
+		}
+	}
+	return false
 }
 
 // keepNestedRecords marks the records below a live plain install as live while
