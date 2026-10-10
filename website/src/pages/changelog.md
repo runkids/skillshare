@@ -11,70 +11,60 @@ All notable changes to skillshare are documented here. For the full commit histo
 
 ## [0.25.4] - 2026-10-10
 
-
-* **api:** cover skillsSharedWith in the targets list ([eabe5fb](https://github.com/runkids/skillshare/commit/eabe5fbc10f278397f3caba62b4470f29e9a9d44))
-
-
 ### New Features
 
-* **api:** list the targets that share a target's skills folder ([06b37d0](https://github.com/runkids/skillshare/commit/06b37d0fcf5224c880e647a3b236d1e7e3763120))
-* **sync:** add target_naming: prefixed for copy-mode targets ([8a952a0](https://github.com/runkids/skillshare/commit/8a952a0515376f1cbb9ab1862ed3a08ffc85fdf0))
-* **sync:** add target_naming: prefixed for copy-mode targets ([35f3bb0](https://github.com/runkids/skillshare/commit/35f3bb0e281074cebb3242b0dc19856a8d32230f))
-* **sync:** make prefixed target naming misconfigurations visible ([#503](https://github.com/runkids/skillshare/issues/503)) ([b0d87fb](https://github.com/runkids/skillshare/commit/b0d87fba281cb27a8bcff17ed2d6c26c8731ec74))
-* **target:** offer prefixed naming in the CLI, dashboard and schemas ([226c5c9](https://github.com/runkids/skillshare/commit/226c5c9a744992a366a9fc28c213b4c0b204180a))
-* **ui:** show prefixed naming disabled outside copy mode ([3d55f4c](https://github.com/runkids/skillshare/commit/3d55f4cb1adfbceebe2f9e3aacabe2f2fa2797fa))
-* **ui:** show which settings differ in the Sync page folder conflict ([c7905de](https://github.com/runkids/skillshare/commit/c7905decde512d3b09bf772377b22865da35fd30))
-* **ui:** warn on the target page when settings clash with a shared folder ([5f81209](https://github.com/runkids/skillshare/commit/5f81209c6cc540ddc8fc1ca4c652992ff721b1c9))
-* **utils:** add a line-based frontmatter string setter ([a9c3189](https://github.com/runkids/skillshare/commit/a9c3189ce3c3e2bbd4799e82b6c96cd244460c70))
+#### Sync
 
+- **Prefixed target naming for skills from tracked repos** — `target_naming: prefixed` names each skill inside a tracked repo `<repo>-<name>`, in the copied folder and in the copy's `name:`, so same-named skills from different repos (for example two `prototype` skills) both reach the tool instead of being skipped as a collision under `standard`. A name that already starts with the repo name is not prefixed again (`_bmad/skills/bmad-ux` stays `bmad-ux`). Local skills keep their standard name, and the source is never changed. It works in copy mode only. Refs: #497.
+  ```bash
+  skillshare target claude --mode copy --target-naming prefixed
+  skillshare sync
+  ```
+  - Switching between `flat`, `standard` and `prefixed` renames managed entries in place, and copies are copied again so their `name:` matches the new naming. If a local skill already holds the new name, the skill stays under its old entry, and `diff` reports that folder as `Local only, skill kept under old name`.
+  - A target that resolves to `prefixed` outside copy mode fails validation; `status`, `doctor` and, for the targets in `targets:`, `target list` flag it before you sync, and `target list --json` adds a `warning` field. `target add` gives a new target copy mode when it would inherit `prefixed`, and says so.
+  - When prefixing is what makes two names collide, sync suggests renaming the other skill or re-tracking the repo with `--name`, since a tracked skill cannot be renamed in `SKILL.md`.
+  - The dashboard's Naming control, the TUI naming picker and the JSON schemas offer `prefixed`; the dashboard disables it outside copy mode and says why.
+
+#### Dashboard
+
+- **Shared skills folder conflicts are shown where you change them** — when another target writes the same skills folder, the target page warns under the mode, naming or filter control whose change would make the two syncs undo each other, and offers to use the other target's value. The Sync page's folder conflict notice now lists which settings differ, with a link to the target page.
+- **Tighter Skills toolbar and a pinned Hub header** — the Skills toolbar no longer sits about 60px below the tabs, and the Hub header now pins like the Skills toolbar, with padding and a bottom line once it sticks.
 
 ### Bug Fixes
 
-* **collect,install:** collect only real skills; let --track take a local git path ([#508](https://github.com/runkids/skillshare/issues/508)) ([2ce4683](https://github.com/runkids/skillshare/commit/2ce46834e2015fbec0686429e3c1d352af85e2ca))
-* **config:** keep agents-only projects valid under prefixed naming ([dd8d03f](https://github.com/runkids/skillshare/commit/dd8d03fa7c31f449c798d3936b8e5eb088e19c69))
-* **config:** reject prefixed naming on a managed project in raw configs ([6e328b0](https://github.com/runkids/skillshare/commit/6e328b0a880e677244487b390a7d9b9bd5a02704))
-* **config:** reject prefixed naming on non-copy projects entries ([9ed8272](https://github.com/runkids/skillshare/commit/9ed82728916404039141e19a185ee50eb82c406d))
-* **config:** skip the naming-mode check for targets with skills off ([0782395](https://github.com/runkids/skillshare/commit/0782395634097101f851979513637ec9b114d7b7))
-* **config:** validate a project target against the inherited naming ([0b496c9](https://github.com/runkids/skillshare/commit/0b496c9de7095631a2c88c5b7b487da30183a900))
-* **diff:** report a copy recorded under another naming as modified ([2ff8bde](https://github.com/runkids/skillshare/commit/2ff8bdeb590b16618adbd4852190a62d08d53ceb))
-* **diff:** report a target naming migration as a rename ([0477f1e](https://github.com/runkids/skillshare/commit/0477f1e837529ac0b056244f70c37c70de6f8195))
-* **frontmatter:** read and rewrite SKILL.md that starts with a UTF-8 BOM ([#505](https://github.com/runkids/skillshare/issues/505)) ([9c994fa](https://github.com/runkids/skillshare/commit/9c994faa1765d365ea7ebb9241b3c95cc815e18c))
-* **install:** keep a moved skill's record instead of reinstalling it ([#513](https://github.com/runkids/skillshare/issues/513)) ([dcffa2e](https://github.com/runkids/skillshare/commit/dcffa2ec5e55536d7a1627c05f3a7236ede069ca))
-* **resource:** never skip a hidden-named agents source root ([#515](https://github.com/runkids/skillshare/issues/515)) ([81974cf](https://github.com/runkids/skillshare/commit/81974cf3504ef7288c7112567e7d62f823102c8a))
-* **server:** check unexpanded projects before changing the global mode ([e1889e4](https://github.com/runkids/skillshare/commit/e1889e4f6be217bcc51c20cfbcff173b1a56199b))
-* **server:** refuse a global mode that breaks inherited prefixed naming ([92f3d80](https://github.com/runkids/skillshare/commit/92f3d809c024b3018be01109036ff3c307112bb7))
-* **sourcewalk:** never skip the source root as a target dotdir ([#514](https://github.com/runkids/skillshare/issues/514)) ([d2f5936](https://github.com/runkids/skillshare/commit/d2f5936be9f15a9f99cd53ece421a8aceb8702ce)), closes [#511](https://github.com/runkids/skillshare/issues/511)
-* **sync:** add a missing name before the first frontmatter key ([4c43328](https://github.com/runkids/skillshare/commit/4c433281a83380abf022b78e94d604916a73bf1b))
-* **sync:** add the prefixed name before a YAML document end marker ([5cf18e2](https://github.com/runkids/skillshare/commit/5cf18e27231df1d685e24e311a38d4c38e73c413))
-* **sync:** close gaps found while simulating the prefixed naming switch ([#504](https://github.com/runkids/skillshare/issues/504)) ([ec2a8ab](https://github.com/runkids/skillshare/commit/ec2a8ab3aaec26534a39e5acbd08363d1bf0a701))
-* **sync:** credit target naming for isolated duplicate names ([e610006](https://github.com/runkids/skillshare/commit/e610006ba48e8f053419af9aa61d44bfae51ef4c))
-* **sync:** decode the whole block when the name line is not a string ([4e850e5](https://github.com/runkids/skillshare/commit/4e850e5a3fa0fadf471ef50cc5c67e9e17724954))
-* **sync:** decode the whole frontmatter when no plain name line is found ([ca38177](https://github.com/runkids/skillshare/commit/ca38177d2544c00f4f6b5610a48db959f1e7e06a))
-* **sync:** drop a copy whose prefixed name could not be written ([096de1a](https://github.com/runkids/skillshare/commit/096de1ad9be452a0ae39846564a97f8df60b658c))
-* **sync:** find a document end marker followed by a comment ([967e1fa](https://github.com/runkids/skillshare/commit/967e1fad0793b157f2b3a0ea964ffc54d5de1ed3))
-* **sync:** flag shared skills folders whose mode or naming differ ([5e3840e](https://github.com/runkids/skillshare/commit/5e3840ef6fb445cc9ce77a10d164935d5da0a9d7))
-* **sync:** flag shared skills folders whose mode or naming differ ([366fb23](https://github.com/runkids/skillshare/commit/366fb236c1d4edbb67645613bd49a31d176031da)), closes [#498](https://github.com/runkids/skillshare/issues/498)
-* **sync:** ignore target naming for symlink targets sharing a folder ([588d29c](https://github.com/runkids/skillshare/commit/588d29c79d381b3f695017aa5528d588ff3557da))
-* **sync:** keep naming migration from claiming another skill's entry ([1e00939](https://github.com/runkids/skillshare/commit/1e009395120258e793499f36a2dde5df970b0cc1))
-* **sync:** keep the indent of an indented root mapping when renaming ([adf375d](https://github.com/runkids/skillshare/commit/adf375d3e2afa8f4179eb31880e993441cecad9f))
-* **sync:** keep the name's YAML anchor when prefixing it ([183beeb](https://github.com/runkids/skillshare/commit/183beeba54f078d731197da20d52626f7154858d))
-* **sync:** keep Unicode letters and digits in the repo prefix ([7febeb9](https://github.com/runkids/skillshare/commit/7febeb90076178321ecd48472265e9a3c56e3c78))
-* **sync:** read a block-scalar skill name ([04dacce](https://github.com/runkids/skillshare/commit/04dacce11703a09ba61b86f25c8a58fe4c51ac78))
-* **sync:** read a skill's name from any valid YAML key form ([c95e385](https://github.com/runkids/skillshare/commit/c95e385698eaa257770fa11fcec5cda375a2eb25))
-* **sync:** replace copy-mode copies with links when switching back to merge ([#506](https://github.com/runkids/skillshare/issues/506)) ([c638b46](https://github.com/runkids/skillshare/commit/c638b4609631c05ed3587bf29b553f2621b95524))
-* **sync:** replace the whole name entry when prefixing a copied skill ([330b345](https://github.com/runkids/skillshare/commit/330b34510e67f267459b2a69e0b9f3ed18487265))
-* **sync:** report collisions that only a target's naming creates ([33892c2](https://github.com/runkids/skillshare/commit/33892c2f9e305ee4afdff000e9c5fbe330b5f6d0))
-* **sync:** resolve a skill name given as a YAML alias ([fae3439](https://github.com/runkids/skillshare/commit/fae3439647100bf067802ffe9ef06aee5a86476b))
-* **sync:** resolve a skill name inherited through a YAML merge key ([65f468c](https://github.com/runkids/skillshare/commit/65f468c0fd5e506d6e17d76d7d1b29bf73d4d3a7))
-* **sync:** rewrite only the name value, keeping its key as written ([666df43](https://github.com/runkids/skillshare/commit/666df43edd0d9c6679c0c49bb8ff059efea3f37b))
-* **sync:** rewrite the name inside flow-style frontmatter ([84cccb0](https://github.com/runkids/skillshare/commit/84cccb0d2f42e7f7194f5007f22f3653e4329df4))
-* **sync:** rewrite the prefixed name of a read-only SKILL.md ([c0d2d04](https://github.com/runkids/skillshare/commit/c0d2d0409a3b32b616d1478f220c2bc72bc27cd2))
-* **target:** add global targets in copy mode when they would inherit prefixed ([a9e3613](https://github.com/runkids/skillshare/commit/a9e361328262cd9105d6d2c9aa97cbae9e3f4a87))
-* **target:** add project targets in copy mode under prefixed naming ([7b67650](https://github.com/runkids/skillshare/commit/7b676502a537379d947997260e48cd968ba61a39))
-* **target:** check prefixed naming when turning skills back on ([86ff94f](https://github.com/runkids/skillshare/commit/86ff94fa8aabb59571e11672b13bee0c50db64e4))
-* **target:** describe prefixed in the TUI naming picker ([73a3c51](https://github.com/runkids/skillshare/commit/73a3c5176af1b1159637d9d8c218408fef549a8d))
-* **ui:** refresh instruction queries after target changes ([b6b5130](https://github.com/runkids/skillshare/commit/b6b51306b7c96804355ba5dc0a9ca254b6beb510))
-* **ui:** warn on the target page when only the shared filters differ ([dd3cc06](https://github.com/runkids/skillshare/commit/dd3cc06e2b1382f85babbad9a8916257529c8800))
+#### Sync
+
+- **Targets sharing a skills folder with a different mode or naming are reported** — only `include` and `exclude` were compared, so two targets that undid each other on every sync got the generic shared-folder hint. `sync` and `doctor` now warn that their settings differ. Naming is not compared when both targets use `symlink` mode, which ignores it. Refs: #498.
+- **Switching a target from copy back to merge replaces its copies with links** — the copies stayed real folders, so `status` and `doctor` kept saying "run skillshare sync" while sync changed nothing until `sync --force`. Merge sync now replaces copies that copy mode made and that were not edited since; edited copies and folders you made yourself are still kept until `sync --force`. If the same sync also changes `target_naming`, as leaving `prefixed` does, a renamed copy is removed even if edited; the backup of a plain `sync` keeps it. `diff` and the dashboard Sync page say which copies will be replaced by a link.
+- **A `SKILL.md` that starts with a UTF-8 BOM is read** — files saved by Notepad and other Windows editors had no readable name, so `standard` naming skipped them, the dashboard viewer and editor missed their frontmatter, and `audit` reported the BOM as HIGH `hidden-unicode`. A BOM at the start of the file is now skipped; one later in the file is still reported.
+- **Skills skipped by naming checks are listed** — sync only printed a count (`1 skill(s) skipped (naming validation)`). It now lists the first five with their reason, then `... and N more`.
+- **No duplicate-name line on every sync** — the dim "N duplicate skill names (isolated by ...)" line was printed on every sync, even when nothing was wrong.
+
+#### Sources
+
+- **A skills source folder named like a tool folder is read again** — since 0.24.4, a `sources.skills` folder whose own name is a target folder name, such as `.skillshare` or `.claude`, was skipped as a whole, so `list` showed no skills and `sync` removed links it had made before. Folders with those names inside the source are still skipped. Refs: #511.
+- **An agents source in a hidden folder is read** — a `sources.agents` folder such as `~/.agents` found no agents. Hidden folders inside it are still skipped.
+
+#### Dashboard
+
+- **AGENTS.md targets update immediately** — adding, removing, or changing a target, or saving `config.yaml`, now refreshes instruction queries instead of leaving the target list and instruction paths cached until a page reload or cache expiry.
+
+#### Target
+
+- **`--mode` and `--target-naming` in one command are both applied** — only `--mode` was saved. Both are now checked together and saved once, and an invalid pair leaves the config unchanged.
+  ```bash
+  skillshare target cursor --mode copy --target-naming standard
+  ```
+
+#### Install and collect
+
+- **`collect` picks up only skills** — `collect`, `collect --force` and the dashboard scan also collected folders without a `SKILL.md`, such as scratch folders in a target. They are now left out, and the dashboard refuses to collect such a folder.
+- **`install <path> --track` accepts a local git repository** — `--track` rejected local paths, also with `--branch`. A path at the root of a git repository, including a bare repository, is now cloned like `file:///path`; any other folder gets an error that points to `file://`.
+  ```bash
+  skillshare install ~/code/team-skills --track
+  ```
+- **`install --track --force` keeps the existing repo until the new clone is in place** — it removed the tracked repo before cloning, so a failed clone, for example of a missing branch, lost it. A local source (path or `file://` URL) that is, or lies inside, that tracked repo is now refused instead of being deleted.
+- **Moving an installed skill to another folder keeps its source** — after an installed skill was moved with `mv` (for example into a group folder), the dashboard's **Install missing** and a bare `skillshare install` installed it again at its old path, leaving two copies that both synced. They now recognize the moved copy — same name, files unchanged since install, and only one such copy — and move its install record to the new folder instead. In project mode its `.skillshare/.gitignore` rule moves with it. Refs: #510.
 
 ## [0.25.3] - 2026-10-08
 
