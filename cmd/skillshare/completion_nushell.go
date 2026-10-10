@@ -9,6 +9,7 @@ def "nu-complete skillshare commands" [] {
         { value: "uninstall", description: "Remove skills/agents from source directory" }
         { value: "link", description: "Link a folder of your own skills into the source" }
         { value: "unlink", description: "Remove a link from the source" }
+        { value: "move", description: "Move skills or folders within the source" }
         { value: "list", description: "List installed skills" }
         { value: "search", description: "Search or browse GitHub for skills" }
         { value: "sync", description: "Sync skills/agents/extras/MCP to targets" }
@@ -359,6 +360,17 @@ export extern "skillshare link" [
 # Unlink
 export extern "skillshare unlink" [
     name: string             # Link name in the source
+    --project(-p)            # Use project-level config
+    --global(-g)             # Use global config
+    --help(-h)               # Show help
+]
+
+# Move
+export extern "skillshare move" [
+    ...names: string         # Skills or folders, then the destination folder
+    --dry-run(-n)            # Preview changes
+    --force(-f)              # Accept a target name collision
+    --json                   # JSON output
     --project(-p)            # Use project-level config
     --global(-g)             # Use global config
     --help(-h)               # Show help

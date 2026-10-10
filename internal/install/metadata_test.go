@@ -512,3 +512,46 @@ func TestMovedEntryKey_ReportsHashFailure(t *testing.T) {
 		t.Error("MovedEntryKey() hid a candidate it could not hash")
 	}
 }
+
+// TestMetadataStore_MovePath re-keys a folder's records whether they are keyed
+// by full path or by a legacy basename with a Group, and carries the findings
+// accepted for them, with or without an entry of their own.
+func TestMetadataStore_MovePath(t *testing.T) {
+	store := NewMetadataStore()
+	store.Set("frontend/full", &MetadataEntry{Source: "s/full", Group: "frontend"})
+	store.Set("legacy", &MetadataEntry{Source: "s/legacy", Group: "frontend/deep"})
+	store.Set("frontend", &MetadataEntry{Source: "s/folder-skill"})
+	store.Set("frontend-other", &MetadataEntry{Source: "s/other"})
+	store.AuditAccepted = map[string][]string{
+		"frontend/full":        {"a"},
+		"frontend/deep/legacy": {"b"},
+		"frontend/local":       {"c"}, // accepted for a skill with no entry
+	}
+
+	if got := store.MovePath("frontend", "archive/frontend"); got != 3 {
+		t.Fatalf("MovePath moved %d entries, want 3", got)
+	}
+
+	for _, key := range []string{"archive/frontend/full", "archive/frontend/deep/legacy", "archive/frontend"} {
+		if !store.Has(key) {
+			t.Errorf("missing entry %q; keys = %v", key, store.List())
+		}
+	}
+	if got := store.Get("archive/frontend/deep/legacy"); got.Group != "archive/frontend/deep" {
+		t.Errorf("legacy entry group = %q, want archive/frontend/deep", got.Group)
+	}
+	if got := store.Get("archive/frontend"); got.Group != "archive" {
+		t.Errorf("folder skill group = %q, want archive", got.Group)
+	}
+	if !store.Has("frontend-other") {
+		t.Error("a sibling that only shares the prefix moved too")
+	}
+	for _, key := range []string{"archive/frontend/full", "archive/frontend/deep/legacy", "archive/frontend/local"} {
+		if len(store.AuditAccepted[key]) != 1 {
+			t.Errorf("accepted findings for %q = %v, want them carried", key, store.AuditAccepted[key])
+		}
+	}
+	if len(store.AuditAccepted) != 3 {
+		t.Errorf("accepted findings left at old paths: %v", store.AuditAccepted)
+	}
+}

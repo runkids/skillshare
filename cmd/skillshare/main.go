@@ -59,6 +59,7 @@ var commands = map[string]func([]string) error{
 	"plugin":       cmdPlugin,
 	"enable":       cmdEnable,
 	"disable":      cmdDisable,
+	"move":         cmdMove,
 	"completion":   cmdCompletion,
 }
 
@@ -210,6 +211,7 @@ func printUsage() {
 		helpGroup{title: "Skills and agents", rows: []helpRow{
 			{"install", "Install from a repo or path"},
 			{"uninstall", "Remove from the source"},
+			{"move", "Move skills or folders within the source"},
 			{"link", "Link a folder of your own skills into the source"},
 			{"unlink", "Remove a link from the source"},
 			{"list", "List what is installed"},

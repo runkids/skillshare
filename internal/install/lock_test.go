@@ -20,3 +20,20 @@ func TestLockCommitFor(t *testing.T) {
 		t.Errorf("nil lock returned %q", got)
 	}
 }
+
+func TestLockMovePin(t *testing.T) {
+	lock := &Lock{Skills: map[string]LockEntry{"demo": {Source: "src", Commit: "abc"}}}
+
+	if !lock.MovePin("demo", "grp/demo") {
+		t.Fatal("MovePin reported no pin for a pinned skill")
+	}
+	if _, ok := lock.Skills["demo"]; ok {
+		t.Error("pin stayed at the old name")
+	}
+	if got := lock.Skills["grp/demo"]; got.Commit != "abc" || got.Source != "src" {
+		t.Errorf("pin at the new name = %+v, want it carried unchanged", got)
+	}
+	if lock.MovePin("absent", "grp/absent") {
+		t.Error("MovePin reported a pin for a skill that has none")
+	}
+}

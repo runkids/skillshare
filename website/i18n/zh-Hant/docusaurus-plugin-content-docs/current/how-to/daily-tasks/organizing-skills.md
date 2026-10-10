@@ -290,16 +290,14 @@ skillshare sync
 執行 `sync` 後，Targets 會自動更新 — 舊的平面 symlink 會被清除，並建立新的攤平後名稱。
 
 :::warning 透過 `skillshare install` 安裝的 Skill
-不要用 `mv` 移動已安裝的 Skill。`.metadata.json` 裡的安裝紀錄以路徑為 key，移動後的副本會失去來源連結，紀錄仍指向舊位置。請改為重新安裝到資料夾中：
+不要用 `mv` 移動已安裝的 Skill。`.metadata.json` 裡的安裝紀錄以路徑為 key，移動後的副本會失去來源連結，紀錄仍指向舊位置。請改用 [`skillshare move`](/docs/reference/commands/move)。它會把 Skill 和安裝紀錄一起移動，不會重新下載：
 
 ```bash
-skillshare list -v react-best-practices            # 記下 Source
-skillshare uninstall react-best-practices
-skillshare install <source> --into frontend/react
+skillshare move react-best-practices frontend/react
 skillshare sync
 ```
 
-原本安裝時用過的參數（例如 `--track`）也要一併加上。
+`move` 也可以一次移動多個 Skill 或整個資料夾（`skillshare move frontend archive`）。加上 `--dry-run` 可以先預覽。和 `mv` 一樣，執行 `skillshare sync` 之前 Targets 不會更新。
 :::
 
 ---

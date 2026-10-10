@@ -11,6 +11,7 @@ import (
 
 	"skillshare/internal/config"
 	"skillshare/internal/install"
+	"skillshare/internal/skillmove"
 	"skillshare/internal/sourcefs"
 )
 
@@ -28,15 +29,38 @@ func (s *Server) reloadSkillsStore() {
 // reconcileSkillsConfig syncs the skills config with the metadata store,
 // logging failures as warnings so the calling operation still succeeds.
 func (s *Server) reconcileSkillsConfig(sourceDir string) {
-	if s.IsProjectMode() {
-		if rErr := config.ReconcileProjectSkills(s.projectRoot, s.projectCfg, s.skillsStore, sourceDir); rErr != nil {
-			log.Printf("warning: failed to reconcile project skills config: %v", rErr)
-		}
-	} else {
-		if rErr := config.ReconcileGlobalSkills(s.cfg, s.skillsStore); rErr != nil {
-			log.Printf("warning: failed to reconcile global skills config: %v", rErr)
-		}
+	if err := s.reconcileSkills(sourceDir); err != nil {
+		log.Printf("warning: failed to reconcile skills config: %v", err)
 	}
+}
+
+// reconcileSkills is reconcileSkillsConfig for a caller that reports the error.
+func (s *Server) reconcileSkills(sourceDir string) error {
+	if s.IsProjectMode() {
+		return config.ReconcileProjectSkills(s.projectRoot, s.projectCfg, s.skillsStore, sourceDir)
+	}
+	return config.ReconcileGlobalSkills(s.cfg, s.skillsStore)
+}
+
+// checkInstallInto refuses an into folder an install must not land in: inside
+// a skill or inside a tracked checkout, with the codes move uses. A path below
+// a source link is left to the install, which follows it or refuses it itself. It writes the response and returns false when it refuses.
+// Agents install under the agents source, which these rules do not describe.
+func (s *Server) checkInstallInto(w http.ResponseWriter, into, kind string) bool {
+	if into == "" || kind == "agent" {
+		return true
+	}
+	opts := skillmove.Options{SourceDir: s.cfg.EffectiveSkillsSource(), Follow: s.skillsWalk().Follow, Install: true}
+	_, refusal := skillmove.CheckDest(into, opts)
+	if refusal == nil {
+		return true
+	}
+	status := http.StatusConflict
+	if refusal.Code == skillmove.CodeInvalidDest {
+		status = http.StatusBadRequest
+	}
+	writeCodedError(w, status, string(refusal.Code), refusal.Error(), nil)
+	return false
 }
 
 func discoverInstallSource(source *install.Source) (*install.DiscoveryResult, error) {
@@ -134,6 +158,9 @@ func (s *Server) handleInstallBatch(w http.ResponseWriter, r *http.Request) {
 	}
 	if body.Source == "" || len(body.Skills) == 0 {
 		writeError(w, http.StatusBadRequest, "source and skills are required")
+		return
+	}
+	if !s.checkInstallInto(w, body.Into, body.Kind) {
 		return
 	}
 
@@ -354,6 +381,10 @@ func (s *Server) handleInstall(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "source is required")
 		return
 	}
+	// A tracked repo's kind is known only after inspecting it; see below.
+	if !body.Track && !s.checkInstallInto(w, body.Into, body.Kind) {
+		return
+	}
 
 	source, err := install.ParseSourceWithOptions(body.Source, s.parseOpts())
 	if err != nil {
@@ -396,6 +427,9 @@ func (s *Server) handleInstall(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		if !s.checkInstallInto(w, body.Into, trackedKind) {
+			return
+		}
 		trackSourceDir, trackFollow := s.cfg.EffectiveSkillsSource(), s.skillsWalk().Follow
 		if trackedKind == "agent" {
 			trackSourceDir, trackFollow = s.agentsSource(), nil

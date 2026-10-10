@@ -61,6 +61,17 @@ func (l *Lock) CommitFor(name, source string) string {
 	return ""
 }
 
+// MovePin re-keys the pin of a skill that moved to another path and reports
+// whether there was one.
+func (l *Lock) MovePin(oldName, newName string) bool {
+	pin, ok := l.Skills[oldName]
+	if ok {
+		delete(l.Skills, oldName)
+		l.Skills[newName] = pin
+	}
+	return ok
+}
+
 // Save writes the lockfile, leaving it untouched when nothing changed and
 // removing it when there is nothing to pin.
 func (l *Lock) Save(dir string) error {

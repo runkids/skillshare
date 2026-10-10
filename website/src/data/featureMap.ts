@@ -21,7 +21,7 @@ export type FeatureGroup = {
 const C = '/docs/reference/commands/';
 const D = '/docs/';
 
-export const COMMAND_COUNT = 37;
+export const COMMAND_COUNT = 38;
 export const TARGET_COUNT = 79;
 
 export const FEATURE_GROUPS: FeatureGroup[] = [
@@ -133,6 +133,7 @@ export const FEATURE_GROUPS: FeatureGroup[] = [
     items: [
       {cmd: 'new', what: 'Scaffold a skill with a valid SKILL.md', kw: 'create author scaffold template', href: C + 'new'},
       {cmd: 'analyze', what: 'Context window usage and skill quality per target', kw: 'tokens size budget quality', href: C + 'analyze'},
+      {cmd: 'move', what: 'Move skills and folders without losing install records', kw: 'organize folder rename relocate group mv', href: C + 'move'},
       {cmd: 'enable / disable', what: 'Turn skills off without removing them', kw: 'toggle off pause', href: C + 'enable'},
       {cmd: 'extras', what: 'Sync rules, commands and prompts alongside skills', kw: 'rules prompts agents non-skill', href: C + 'extras'},
       {cmd: 'mcp', what: 'Define an MCP server once, write it into each tool\'s own config', kw: 'model context protocol server connection json toml import', href: C + 'mcp'},

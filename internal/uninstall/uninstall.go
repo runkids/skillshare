@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
-	"strings"
 	gosync "sync"
 
 	"skillshare/internal/git"
@@ -15,7 +14,6 @@ import (
 	"skillshare/internal/sourcefs"
 	"skillshare/internal/sourcewalk"
 	"skillshare/internal/trash"
-	"skillshare/internal/utils"
 )
 
 // Item is one resolved skill, group directory or tracked repo.
@@ -149,13 +147,8 @@ func checkMoveOut(item Item, o Options) error {
 	// A tracked repo is a _-prefixed git checkout; removing part of it would
 	// leave it dirty for update. A followed source link is the user's own
 	// checkout, whose skills may go one at a time.
-	dir := o.SourceDir
-	parents := strings.Split(filepath.ToSlash(rel), "/")
-	for _, seg := range parents[:len(parents)-1] {
-		dir = filepath.Join(dir, seg)
-		if _, followed := o.Follow.Resolve(dir); utils.IsTrackedRepoDir(seg) && !followed && install.IsGitRepo(dir) {
-			return ErrInsideRepo
-		}
+	if _, inside := install.TrackedAncestor(o.SourceDir, filepath.ToSlash(rel), o.Follow); inside {
+		return ErrInsideRepo
 	}
 	return nil
 }

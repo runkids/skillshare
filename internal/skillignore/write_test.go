@@ -231,3 +231,21 @@ func TestRemovePattern_CRLF(t *testing.T) {
 		t.Error("other patterns must be kept")
 	}
 }
+
+func TestRenamePatterns_KeepsLinePlacement(t *testing.T) {
+	// A negation naming a moved path follows it too, or it would stop undoing
+	// the rule that disabled its neighbours.
+	content := "# note\ndemo\n!other \nglob*\ndemo/sub\n"
+
+	got, changed := RenamePatterns(content, map[string]string{"demo": "grp/demo", "other": "grp/other", "demo/sub": "grp/demo/sub"})
+
+	if want := "# note\ngrp/demo\n!grp/other\nglob*\ngrp/demo/sub\n"; got != want {
+		t.Errorf("got %q, want %q", got, want)
+	}
+	if !changed {
+		t.Error("changed = false for a file with literal matches")
+	}
+	if _, changed := RenamePatterns(content, map[string]string{"absent": "x"}); changed {
+		t.Error("changed = true without a matching line")
+	}
+}

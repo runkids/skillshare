@@ -479,6 +479,7 @@ func (s *Server) registerRoutes() {
 	s.mux.HandleFunc("DELETE /api/resources/{name}", s.handleUninstallSkill)
 	s.mux.HandleFunc("POST /api/resources/batch/targets", s.handleBatchSetTargets)
 	s.mux.HandleFunc("POST /api/resources/batch/toggle", s.handleBatchToggleSkills)
+	s.mux.HandleFunc("POST /api/resources/batch/move", s.handleBatchMove)
 	s.mux.HandleFunc("PATCH /api/resources/{name}/targets", s.handleSetSkillTargets)
 
 	// Targets

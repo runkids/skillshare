@@ -215,6 +215,48 @@ func (s *MetadataStore) MoveEntry(oldKey, newKey string) {
 	}
 }
 
+// KeysUnder returns the sorted keys of the entries recorded for relPath or for
+// a path below it, whether keyed by full path or by a legacy basename with a
+// Group.
+func (s *MetadataStore) KeysUnder(relPath string) []string {
+	var keys []string
+	for _, key := range s.List() {
+		rel := filepath.ToSlash(KeyToRelPath(key, s.Entries[key]))
+		if rel == relPath || strings.HasPrefix(rel, relPath+"/") {
+			keys = append(keys, key)
+		}
+	}
+	return keys
+}
+
+// MovePath re-keys what the store holds for the directory from, and for
+// everything below it, to the same places below to: the entries with their
+// Group, and the audit findings accepted for a path without an entry of its
+// own. It returns how many entries moved.
+func (s *MetadataStore) MovePath(from, to string) int {
+	keys := s.KeysUnder(from)
+	for _, key := range keys {
+		entry := s.Entries[key]
+		newKey := to + strings.TrimPrefix(filepath.ToSlash(KeyToRelPath(key, entry)), from)
+		s.MoveEntry(key, newKey)
+		entry.Group = ""
+		if idx := strings.LastIndex(newKey, "/"); idx >= 0 {
+			entry.Group = newKey[:idx]
+		}
+	}
+	var stray []string
+	for old := range s.AuditAccepted {
+		if old == from || strings.HasPrefix(old, from+"/") {
+			stray = append(stray, old)
+		}
+	}
+	for _, old := range stray {
+		s.AuditAccepted[to+strings.TrimPrefix(old, from)] = s.AuditAccepted[old]
+		delete(s.AuditAccepted, old)
+	}
+	return len(keys)
+}
+
 // List returns sorted entry names.
 func (s *MetadataStore) List() []string {
 	names := make([]string, 0, len(s.Entries))

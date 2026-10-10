@@ -111,6 +111,18 @@ skillshare sync
 Run the requested operation, not this entire example sequence. Quote glob patterns so
 Skillshare receives them unchanged. Disabling uses ignore rules; uninstall uses trash.
 
+### Move skills into folders
+
+```bash
+skillshare move my-skill frontend --dry-run
+skillshare move my-skill other-skill frontend
+skillshare sync
+```
+
+Use `move` instead of `mv` for installed skills: it keeps their install records, so
+nothing is downloaded again. It does not sync; run `sync` afterwards. Read
+[install.md](references/install.md) for refusals and project mode.
+
 ### MCP settings
 
 ```bash
@@ -166,7 +178,7 @@ references for a single task.
 | Complete plugins, native lifecycle, and sync selection | [plugins.md](references/plugins.md) |
 | Init flags | [init.md](references/init.md) |
 | Sync/collect/commit/push/pull | [sync.md](references/sync.md) |
-| Install/update/uninstall/new | [install.md](references/install.md) |
+| Install/update/uninstall/move/new | [install.md](references/install.md) |
 | Status/diff/list/search/check | [status.md](references/status.md) |
 | Security audit | [audit.md](references/audit.md) |
 | Trash | [trash.md](references/trash.md) |

@@ -75,6 +75,7 @@ The manifest stays in sync with your actual skill collection:
 
 - **`skillshare install <source>`** — adds the installed skill to the manifest automatically
 - **`skillshare uninstall <name>...`** — removes the entry from the manifest automatically
+- **`skillshare move <name>... <folder>`** — updates the entry's `group` (project mode) or moves its `.metadata.json` record (global mode)
 
 In project mode, `config.yaml` and `skills.lock.json` are updated. In global mode, `.metadata.json` is updated. You never need to edit the manifest manually (though you can).
 

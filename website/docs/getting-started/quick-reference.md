@@ -30,6 +30,7 @@ Command cheat sheet for skillshare.
 | `check` | Check for skill updates |
 | `check --json` | Check for updates (JSON output) |
 | `upgrade` | Upgrade CLI and built-in skill |
+| `move <name>... <folder>` | Move installed skills or folders into another folder, keeping install records |
 | `hub list` | List configured skill hubs |
 | `hub add <url>` | Add a skill hub |
 

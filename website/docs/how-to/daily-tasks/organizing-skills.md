@@ -290,16 +290,14 @@ skillshare sync
 After `sync`, targets are updated automatically — old flat symlinks are cleaned up and new flattened names are created.
 
 :::warning Skills installed with `skillshare install`
-Do not move an installed skill with `mv`. Its install record in `.metadata.json` is keyed by its path, so the moved copy loses its source link and the record still points at the old location. Reinstall it into the folder instead:
+Do not move an installed skill with `mv`. Its install record in `.metadata.json` is keyed by its path, so the moved copy loses its source link and the record still points at the old location. Use [`skillshare move`](/docs/reference/commands/move) instead. It moves the skill together with its install record, so nothing is downloaded again:
 
 ```bash
-skillshare list -v react-best-practices            # note the Source
-skillshare uninstall react-best-practices
-skillshare install <source> --into frontend/react
+skillshare move react-best-practices frontend/react
 skillshare sync
 ```
 
-Repeat any flags from the original install, such as `--track`.
+`move` also takes several skills and whole folders (`skillshare move frontend archive`). Add `--dry-run` to preview. Like `mv`, it does not update your targets until you run `skillshare sync`.
 :::
 
 ---

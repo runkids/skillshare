@@ -25,6 +25,8 @@ func handleTrackedRepoInstall(source *install.Source, cfg *config.Config, opts i
 	trackSourceDir := cfg.EffectiveSkillsSource()
 	if trackedKind == "agent" {
 		trackSourceDir = cfg.EffectiveAgentsSource()
+	} else if err := checkIntoFolder(trackSourceDir, opts); err != nil {
+		return installLogSummary{}, err
 	}
 
 	logSummary := installLogSummary{
@@ -334,6 +336,9 @@ func handleGitInstall(source *install.Source, cfg *config.Config, opts install.I
 		}
 
 		batchSummary := installSelectedSkills(selected, discovery, cfg, opts)
+		if batchSummary.Err != nil {
+			return logSummary, batchSummary.Err
+		}
 		logSummary.InstalledSkills = append(logSummary.InstalledSkills, batchSummary.InstalledSkills...)
 		logSummary.FailedSkills = append(logSummary.FailedSkills, batchSummary.FailedSkills...)
 		logSummary.SkillCount = len(logSummary.InstalledSkills)
@@ -370,6 +375,9 @@ func handleGitInstall(source *install.Source, cfg *config.Config, opts install.I
 	}
 
 	batchSummary := installSelectedSkills(selected, discovery, cfg, opts)
+	if batchSummary.Err != nil {
+		return logSummary, batchSummary.Err
+	}
 	logSummary.InstalledSkills = append(logSummary.InstalledSkills, batchSummary.InstalledSkills...)
 	logSummary.FailedSkills = append(logSummary.FailedSkills, batchSummary.FailedSkills...)
 	logSummary.SkillCount = len(logSummary.InstalledSkills)
@@ -404,9 +412,8 @@ func installSelectedSkills(selected []install.SkillInfo, discovery *install.Disc
 			}
 			if progressBar != nil {
 				progressBar.Stop()
-				ui.ErrorMsg("Failed to create --into directory")
 			}
-			return installBatchSummary{}
+			return installBatchSummary{Err: fmt.Errorf("failed to create --into directory: %w", err)}
 		}
 	}
 

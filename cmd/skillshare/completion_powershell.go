@@ -12,6 +12,7 @@ $_skillshareCompleter = {
             @{ Name = 'uninstall'; Desc = 'Remove skills/agents from source directory' }
             @{ Name = 'link'; Desc = 'Link a folder of your own skills into the source' }
             @{ Name = 'unlink'; Desc = 'Remove a link from the source' }
+            @{ Name = 'move'; Desc = 'Move skills or folders within the source' }
             @{ Name = 'list'; Desc = 'List installed skills' }
             @{ Name = 'search'; Desc = 'Search or browse GitHub for skills' }
             @{ Name = 'sync'; Desc = 'Sync skills/agents/extras/MCP to targets' }
@@ -186,6 +187,7 @@ $_skillshareCompleter = {
         'uninstall' = '--all', '--force', '-f', '--dry-run', '-n', '--json', '--group', '-G', '--help', '-h', '--project', '-p', '--global', '-g'
         'link' = '--name', '--enable', '--help', '-h', '--project', '-p', '--global', '-g'
         'unlink' = '--help', '-h', '--project', '-p', '--global', '-g'
+        'move' = '--dry-run', '-n', '--force', '-f', '--json', '--help', '-h', '--project', '-p', '--global', '-g'
         'list' = '--verbose', '-v', '--json', '-j', '--no-tui', '--type', '-t', '--status', '--sort', '-s', '--all', '--help', '-h', '--project', '-p', '--global', '-g'
         'sync' = '--all', '--dry-run', '-n', '--force', '-f', '--json', '--quiet', '-q', '--help', '-h', '--project', '-p', '--global', '-g'
         'diff' = '--no-tui', '--patch', '--stat', '--json', '--help', '-h', '--project', '-p', '--global', '-g'

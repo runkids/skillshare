@@ -29,6 +29,7 @@ complete -c skillshare -n __fish_skillshare_no_subcommand -a install -d 'Install
 complete -c skillshare -n __fish_skillshare_no_subcommand -a uninstall -d 'Remove skills/agents from source directory'
 complete -c skillshare -n __fish_skillshare_no_subcommand -a link -d 'Link a folder of your own skills into the source'
 complete -c skillshare -n __fish_skillshare_no_subcommand -a unlink -d 'Remove a link from the source'
+complete -c skillshare -n __fish_skillshare_no_subcommand -a move -d 'Move skills or folders within the source'
 complete -c skillshare -n __fish_skillshare_no_subcommand -a list -d 'List installed skills'
 complete -c skillshare -n __fish_skillshare_no_subcommand -a search -d 'Search or browse GitHub for skills'
 complete -c skillshare -n __fish_skillshare_no_subcommand -a sync -d 'Sync skills/agents/extras/MCP to targets'
@@ -170,6 +171,12 @@ complete -c skillshare -n '__fish_skillshare_using_command link' -l name -r -d '
 complete -c skillshare -n '__fish_skillshare_using_command link' -l enable -d 'Set follow_source_links: true'
 complete -c skillshare -n '__fish_skillshare_using_command link' -l help -s h -d 'Show help'
 complete -c skillshare -n '__fish_skillshare_using_command unlink' -l help -s h -d 'Show help'
+
+# move
+complete -c skillshare -n '__fish_skillshare_using_command move' -l dry-run -s n -d 'Preview changes'
+complete -c skillshare -n '__fish_skillshare_using_command move' -l force -s f -d 'Accept a target name collision'
+complete -c skillshare -n '__fish_skillshare_using_command move' -l json -d 'JSON output'
+complete -c skillshare -n '__fish_skillshare_using_command move' -l help -s h -d 'Show help'
 
 # list
 complete -c skillshare -n '__fish_skillshare_using_command list' -a agents -d 'List agents'

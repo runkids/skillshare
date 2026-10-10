@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"skillshare/internal/sourcewalk"
 	"skillshare/internal/utils"
 )
 
@@ -50,6 +51,21 @@ func IsLocalGitRepo(path string) bool {
 // _-prefixed directory that is a git repo.
 func IsTrackedCheckout(path string) bool {
 	return utils.IsTrackedRepoDir(filepath.Base(path)) && IsGitRepo(path)
+}
+
+// TrackedAncestor returns the slash path of the first tracked checkout above
+// the last element of rel, a slash path below sourceDir. A checkout behind a
+// link the policy follows is the user's own and does not count.
+func TrackedAncestor(sourceDir, rel string, follow *sourcewalk.Follow) (string, bool) {
+	dir := sourceDir
+	parents := strings.Split(rel, "/")
+	for i, seg := range parents[:len(parents)-1] {
+		dir = filepath.Join(dir, seg)
+		if _, followed := follow.Resolve(dir); utils.IsTrackedRepoDir(seg) && !followed && IsGitRepo(dir) {
+			return strings.Join(parents[:i+1], "/"), true
+		}
+	}
+	return "", false
 }
 
 // gitCommandTimeout is the maximum time for a git network operation.

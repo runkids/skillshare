@@ -389,3 +389,22 @@ func TestCompletion_LinkUnlink_AllShells(t *testing.T) {
 		}
 	}
 }
+
+func TestCompletion_Move_AllShells(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	for shell, want := range map[string][]string{
+		"bash":       {"unlink move list", `move_flags="--dry-run -n --force -f --json`},
+		"zsh":        {"'move:", "'--force[Accept a target name collision]'"},
+		"fish":       {"-a move ", "using_command move' -l force"},
+		"powershell": {"Name = 'move'", "'move' = '--dry-run', '-n', '--force', '-f', '--json'"},
+		"nushell":    {`export extern "skillshare move"`, "--force(-f)"},
+	} {
+		result := sb.RunCLI("completion", shell)
+		result.AssertSuccess(t)
+		for _, s := range want {
+			result.AssertOutputContains(t, s)
+		}
+	}
+}
