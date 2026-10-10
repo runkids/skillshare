@@ -147,7 +147,8 @@ func reconcileSkillsWalk(sourcePath string, walk sourcewalk.Options, store *inst
 	})
 
 	for key, dests := range moves {
-		if len(dests) != 1 {
+		// An unreadable source link may hide another copy, so wait for it.
+		if len(dests) != 1 || walk.Follow.Incomplete() {
 			continue
 		}
 		entry := store.Get(key)

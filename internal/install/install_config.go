@@ -432,7 +432,8 @@ func movedCopyOf(store *MetadataStore, sourcePath string, skill SkillEntryDTO, f
 		}
 		return nil
 	})
-	if len(found) != 1 || locked != "" && InstalledCommit(filepath.Join(root, filepath.FromSlash(found[0])), entry) != locked {
+	// An unreadable source link may hide another copy.
+	if len(found) != 1 || follow.Incomplete() || locked != "" && InstalledCommit(filepath.Join(root, filepath.FromSlash(found[0])), entry) != locked {
 		return ""
 	}
 	return found[0]

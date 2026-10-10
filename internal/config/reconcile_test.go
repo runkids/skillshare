@@ -371,6 +371,38 @@ func TestReconcileGlobalSkills_LeavesAmbiguousMove(t *testing.T) {
 	}
 }
 
+// TestReconcileGlobalSkills_DefersMoveWhileSourceLinkUnavailable verifies that
+// a move is not inferred while an unreadable source link may hide another copy.
+func TestReconcileGlobalSkills_DefersMoveWhileSourceLinkUnavailable(t *testing.T) {
+	root := t.TempDir()
+	sourceDir := filepath.Join(root, "skills")
+	t.Setenv("SKILLSHARE_CONFIG", filepath.Join(root, "config.yaml"))
+	moved := filepath.Join(sourceDir, "new", "demo")
+	if err := os.MkdirAll(moved, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(moved, "SKILL.md"), []byte("---\nname: demo\n---\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(filepath.Join(root, "unmounted"), filepath.Join(sourceDir, "_dev-skills")); err != nil {
+		t.Fatal(err)
+	}
+	hashes, err := install.ComputeFileHashes(moved)
+	if err != nil {
+		t.Fatal(err)
+	}
+	store := install.NewMetadataStore()
+	store.Set("old/demo", &install.MetadataEntry{Source: "github.com/user/repo/demo", Group: "old", FileHashes: hashes})
+
+	if err := ReconcileGlobalSkills(&Config{Source: sourceDir, FollowSourceLinks: true}, store); err != nil {
+		t.Fatal(err)
+	}
+
+	if got := store.Get("new/demo"); got != nil {
+		t.Errorf("move inferred from an incomplete walk: %+v", got)
+	}
+}
+
 func TestReconcileGlobalSkills_KeepsMetadataOfUnavailableSourceLink(t *testing.T) {
 	root := t.TempDir()
 	sourceDir := filepath.Join(root, "skills")
