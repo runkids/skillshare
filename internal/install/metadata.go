@@ -201,6 +201,7 @@ func (s *MetadataStore) MoveEntry(oldKey, newKey string) {
 	accepted, ok := s.AuditAccepted[oldPath]
 	s.Remove(oldKey)
 	delete(s.AuditAccepted, oldPath)
+	delete(s.AuditAccepted, newKey)
 	s.Set(newKey, entry)
 	if ok {
 		s.AuditAccepted[newKey] = accepted

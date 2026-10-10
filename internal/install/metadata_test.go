@@ -475,3 +475,17 @@ func TestMoveEntry_DropsLegacyPathAuditAcceptance(t *testing.T) {
 		t.Errorf("accepted findings left at the old path: %v", got)
 	}
 }
+
+// TestMoveEntry_ClearsStaleAuditAcceptanceAtDestination verifies that a moved
+// skill does not inherit findings accepted for whatever held its new path.
+func TestMoveEntry_ClearsStaleAuditAcceptanceAtDestination(t *testing.T) {
+	store := NewMetadataStore()
+	store.Set("old/demo", &MetadataEntry{Source: "github.com/user/repo/demo", Group: "old"})
+	store.AuditAccepted = map[string][]string{"new/demo": {"stale-key"}}
+
+	store.MoveEntry("old/demo", "new/demo")
+
+	if got, ok := store.AuditAccepted["new/demo"]; ok {
+		t.Errorf("moved skill inherited accepted findings: %v", got)
+	}
+}
