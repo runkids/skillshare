@@ -404,19 +404,21 @@ func movedCopyOf(store *MetadataStore, sourcePath, displayName string, follow *s
 		return ""
 	}
 	found := ""
-	_ = sourcewalk.WalkDir(sourcePath, sourcewalk.Options{Follow: follow}, func(p string, d os.DirEntry, err error) error {
-		if err != nil || !d.IsDir() || p == sourcePath {
+	// The walk reports paths under the resolved root, as in reconcile.
+	root := utils.ResolveSymlink(sourcePath)
+	_ = sourcewalk.WalkDir(root, sourcewalk.Options{Follow: follow}, func(p string, d os.DirEntry, err error) error {
+		if err != nil || !d.IsDir() || p == root {
 			return nil
 		}
 		if utils.IsHidden(d.Name()) {
 			return filepath.SkipDir
 		}
-		rel, relErr := filepath.Rel(sourcePath, p)
+		rel, relErr := filepath.Rel(root, p)
 		if relErr != nil {
 			return nil
 		}
 		if d.Name() == path.Base(displayName) {
-			if key := store.MovedEntryKey(sourcePath, rel, p, follow); key != "" && store.Entries[key] == entry {
+			if key := store.MovedEntryKey(root, rel, p, follow); key != "" && store.Entries[key] == entry {
 				found = filepath.ToSlash(rel)
 				return filepath.SkipAll
 			}

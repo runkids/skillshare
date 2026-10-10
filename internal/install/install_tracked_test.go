@@ -180,6 +180,34 @@ func TestMovedCopyOf_IgnoresRecordedSkill(t *testing.T) {
 	}
 }
 
+// TestMovedCopyOf_StopsAtInstalledSkillUnderLinkedSource verifies that the
+// installed-skill boundary holds when the skills source is itself a link.
+func TestMovedCopyOf_StopsAtInstalledSkillUnderLinkedSource(t *testing.T) {
+	realDir := t.TempDir()
+	sourceDir := filepath.Join(t.TempDir(), "skills")
+	if err := os.Symlink(realDir, sourceDir); err != nil {
+		t.Skipf("symlink: %v", err)
+	}
+	moved := filepath.Join(realDir, "grp", "parent", "demo")
+	if err := os.MkdirAll(moved, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(moved, "SKILL.md"), []byte("---\nname: demo\n---\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	hashes, err := ComputeFileHashes(moved)
+	if err != nil {
+		t.Fatal(err)
+	}
+	store := NewMetadataStore()
+	store.Set("demo", &MetadataEntry{Source: "github.com/user/repo/demo", FileHashes: hashes})
+	store.Set("grp/parent", &MetadataEntry{Source: "github.com/user/repo/parent", Group: "grp"})
+
+	if to := movedCopyOf(store, sourceDir, "demo", nil, ""); to != "" {
+		t.Errorf("movedCopyOf() = %q, want no match inside an installed skill", to)
+	}
+}
+
 // TestInstallFromConfig_ReclonesMissingTrackedRepo verifies that a tracked repo
 // declared in metadata but absent on disk is listed as missing and re-cloned
 // under its recorded name (issue #212).
