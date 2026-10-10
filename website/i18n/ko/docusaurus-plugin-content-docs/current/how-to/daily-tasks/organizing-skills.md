@@ -278,26 +278,29 @@ skillshare push -m "organize skills into categories"
 새 Skill의 경우, 위의 [폴더에 바로 설치하기](#install-directly-into-folders)에서 설명한 대로 `--into`를 사용해 원하는 폴더에 바로 설치하세요.
 :::
 
-이미 평면 구조의 Skill 모음이 있다면:
+직접 만든 Skill(`skillshare new` 또는 수동으로 만든 것)에는 설치 기록이 없으므로 `mv`로 옮길 수 있습니다:
 
 ```bash
 cd ~/.config/skillshare/skills
-
-# 카테고리 폴더 생성
-mkdir -p frontend/react frontend/react utils web-dev
-
-# Skill을 폴더로 이동
-mv react-best-practices frontend/react/
-mv react-debug-guides frontend/react/
-mv react-best-practices frontend/react/
-mv remotion utils/
-mv accessibility web-dev/
-
-# Target 심볼릭 링크를 갱신하기 위해 재동기화
+mkdir -p frontend/react
+mv my-react-notes frontend/react/
 skillshare sync
 ```
 
 `sync` 후에는 Target이 자동으로 업데이트됩니다 — 이전의 평면 심볼릭 링크는 정리되고 새로운 평탄화된 이름이 생성됩니다.
+
+:::warning `skillshare install`로 설치한 Skill
+설치한 Skill은 `mv`로 옮기지 마세요. `.metadata.json`의 설치 기록은 경로를 키로 사용하므로, 옮긴 복사본은 소스 연결을 잃고 기록은 계속 이전 위치를 가리킵니다. 대신 폴더에 다시 설치하세요:
+
+```bash
+skillshare list -v react-best-practices            # Source 확인
+skillshare uninstall react-best-practices
+skillshare install <source> --into frontend/react
+skillshare sync
+```
+
+`--track` 등 처음 설치할 때 사용한 플래그도 똑같이 지정하세요.
+:::
 
 ---
 

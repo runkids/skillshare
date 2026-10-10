@@ -278,26 +278,29 @@ This gives you:
 For new skills, use `--into` to install directly into the right folder — see [Install Directly into Folders](#install-directly-into-folders) above.
 :::
 
-If you already have a flat skill collection:
+Skills you created yourself (with `skillshare new` or by hand) have no install record, so you can move them with `mv`:
 
 ```bash
 cd ~/.config/skillshare/skills
-
-# Create category folders
-mkdir -p frontend/react frontend/react utils web-dev
-
-# Move skills into folders
-mv react-best-practices frontend/react/
-mv react-debug-guides frontend/react/
-mv react-best-practices frontend/react/
-mv remotion utils/
-mv accessibility web-dev/
-
-# Re-sync to update target symlinks
+mkdir -p frontend/react
+mv my-react-notes frontend/react/
 skillshare sync
 ```
 
 After `sync`, targets are updated automatically — old flat symlinks are cleaned up and new flattened names are created.
+
+:::warning Skills installed with `skillshare install`
+Do not move an installed skill with `mv`. Its install record in `.metadata.json` is keyed by its path, so the moved copy loses its source link and the record still points at the old location. Reinstall it into the folder instead:
+
+```bash
+skillshare list -v react-best-practices            # note the Source
+skillshare uninstall react-best-practices
+skillshare install <source> --into frontend/react
+skillshare sync
+```
+
+Repeat any flags from the original install, such as `--track`.
+:::
 
 ---
 

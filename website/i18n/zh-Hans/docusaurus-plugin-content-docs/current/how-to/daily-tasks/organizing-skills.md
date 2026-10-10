@@ -278,26 +278,29 @@ skillshare push -m "organize skills into categories"
 若是新的 Skill，请使用 `--into` 直接安装到正确的文件夹——参见上方的[直接安装到文件夹中](#install-directly-into-folders)。
 :::
 
-如果你已经有一个扁平的 Skill 集合：
+你自己建立的 Skill（用 `skillshare new` 或手动创建）没有安装记录，可以直接用 `mv` 移动：
 
 ```bash
 cd ~/.config/skillshare/skills
-
-# 创建分类文件夹
-mkdir -p frontend/react frontend/react utils web-dev
-
-# 将 Skill 移入文件夹
-mv react-best-practices frontend/react/
-mv react-debug-guides frontend/react/
-mv react-best-practices frontend/react/
-mv remotion utils/
-mv accessibility web-dev/
-
-# 重新同步以更新 Target 的符号链接
+mkdir -p frontend/react
+mv my-react-notes frontend/react/
 skillshare sync
 ```
 
 执行 `sync` 后，Target 会自动更新——旧的扁平符号链接会被清理，并创建新的扁平化名称。
+
+:::warning 通过 `skillshare install` 安装的 Skill
+不要用 `mv` 移动已安装的 Skill。`.metadata.json` 里的安装记录以路径为键，移动后的副本会失去来源链接，记录仍指向旧位置。请改为重新安装到文件夹中：
+
+```bash
+skillshare list -v react-best-practices            # 记下 Source
+skillshare uninstall react-best-practices
+skillshare install <source> --into frontend/react
+skillshare sync
+```
+
+原本安装时用过的参数（例如 `--track`）也要一并加上。
+:::
 
 ---
 
