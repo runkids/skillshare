@@ -228,7 +228,9 @@ func (s *Server) syncResources(start time.Time, dryRun, force bool, kind, projec
 	if kind != kindAgent {
 		var err error
 		if !dryRun {
-			s.adoptMovedSkills()
+			if err := s.adoptMovedSkills(); err != nil {
+				warnings = append(warnings, "install metadata not updated: "+err.Error())
+			}
 		}
 		walk := s.skillsWalk()
 		allSkills, ignoreStats, err = ssync.DiscoverSourceSkillsWithStatsAndContext(s.cfg.EffectiveSkillsSource(), walk)

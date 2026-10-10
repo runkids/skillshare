@@ -42,17 +42,12 @@ func (s *Server) reconcileSkills(sourceDir string) error {
 	return config.ReconcileGlobalSkills(s.cfg, s.skillsStore)
 }
 
-// adoptMovedSkills is reconcileSkillsConfig without the prune, for sync.
-func (s *Server) adoptMovedSkills() {
-	var err error
+// adoptMovedSkills is reconcileSkills without the prune, for sync.
+func (s *Server) adoptMovedSkills() error {
 	if s.IsProjectMode() {
-		err = config.AdoptMovedProjectSkills(s.projectRoot, s.projectCfg, s.skillsStore, s.cfg.EffectiveSkillsSource())
-	} else {
-		err = config.AdoptMovedGlobalSkills(s.cfg, s.skillsStore)
+		return config.AdoptMovedProjectSkills(s.projectRoot, s.projectCfg, s.skillsStore, s.cfg.EffectiveSkillsSource())
 	}
-	if err != nil {
-		log.Printf("warning: failed to update install metadata: %v", err)
-	}
+	return config.AdoptMovedGlobalSkills(s.cfg, s.skillsStore)
 }
 
 // checkInstallInto refuses an into folder an install must not land in: inside

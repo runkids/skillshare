@@ -69,11 +69,13 @@ func reconcileSkillsWalk(sourcePath string, walk sourcewalk.Options, store *inst
 		var source string
 		tracked := install.IsTrackedCheckout(path)
 
+		// A basename key is this skill's record only when its group matches. A
+		// top-level record found under another folder is a move candidate, and
+		// MovedEntryKey below decides on gone path, hashes and uniqueness.
 		existing := store.Get(fullPath)
-		if existing == nil || !tracked {
-			existing = store.GetByPath(fullPath)
-			if tracked && existing != nil && existing.Group != group {
-				existing = nil
+		if existing == nil {
+			if e := store.GetByPath(fullPath); e != nil && e.Group == group {
+				existing = e
 			}
 		}
 		// A skill moved with mv takes its record along once the walk shows a
@@ -107,14 +109,8 @@ func reconcileSkillsWalk(sourcePath string, walk sourcewalk.Options, store *inst
 		}
 
 		if existing != nil {
-			// A basename key found under another folder is a top-level skill
-			// moved by hand, not a legacy key: its pin and ignore line must follow.
-			from := filepath.ToSlash(install.KeyToRelPath(fullPath[strings.LastIndex(fullPath, "/")+1:], existing))
 			if store.MigrateLegacyKey(fullPath, existing) {
 				result.changed = true
-				if from != fullPath && !tracked {
-					result.moved = append(result.moved, movedRecord{from, fullPath})
-				}
 			}
 			if existing.Source != source {
 				existing.Source = source

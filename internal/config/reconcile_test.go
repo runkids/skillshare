@@ -596,3 +596,35 @@ func TestAdoptMovedGlobalSkills_FollowsMoveButKeepsGoneRecord(t *testing.T) {
 		t.Errorf("entries = %v, want the gone record kept", store.List())
 	}
 }
+
+// TestAdoptMovedGlobalSkills_NestedSameNameLeavesLiveRecord verifies that a
+// nested skill sharing a top-level record's name does not take that record
+// while the top-level directory still exists.
+func TestAdoptMovedGlobalSkills_NestedSameNameLeavesLiveRecord(t *testing.T) {
+	root := t.TempDir()
+	sourceDir := filepath.Join(root, "skills")
+	t.Setenv("SKILLSHARE_CONFIG", filepath.Join(root, "config.yaml"))
+	for _, dir := range []string{"demo", "grp/demo"} {
+		p := filepath.Join(sourceDir, filepath.FromSlash(dir))
+		if err := os.MkdirAll(p, 0755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(p, "SKILL.md"), []byte("---\nname: demo\n---\n"+dir), 0644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	hashes, err := install.ComputeFileHashes(filepath.Join(sourceDir, "demo"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	store := install.NewMetadataStore()
+	store.Set("demo", &install.MetadataEntry{Source: "github.com/user/repo/demo", FileHashes: hashes})
+
+	if err := AdoptMovedGlobalSkills(&Config{Source: sourceDir}, store); err != nil {
+		t.Fatal(err)
+	}
+
+	if !store.Has("demo") || store.Has("grp/demo") {
+		t.Errorf("entries = %v, want only the live top-level record", store.List())
+	}
+}
