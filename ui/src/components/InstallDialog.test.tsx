@@ -125,4 +125,24 @@ describe('InstallDialog', () => {
     expect(api.searchHub).toHaveBeenCalledWith('pdf', 'https://acme.dev/hub.json');
     expect(screen.getByText(/skipped git submodule "vendor\/up"/)).toBeInTheDocument();
   });
+
+  it('sends the folder picked from the existing ones as `into`', async () => {
+    vi.mocked(api.listSkills).mockResolvedValue({
+      resources: [{ name: 'demo', kind: 'skill', flatName: 'frontend__demo', relPath: 'frontend/demo', sourcePath: '/s/frontend/demo', isInRepo: false }],
+    });
+    // jsdom has no scrollIntoView, which the dropdown calls on its focused option.
+    HTMLElement.prototype.scrollIntoView = vi.fn();
+    vi.mocked(api.install).mockResolvedValue({ skillName: 'team' } as Awaited<ReturnType<typeof api.install>>);
+    const user = userEvent.setup();
+    renderDialog('url');
+
+    await user.type(screen.getByLabelText(/git url/i), 'acme/team-skills');
+    await user.click(screen.getByRole('switch', { name: /track this repo/i }));
+    await user.click(screen.getByRole('button', { name: /advanced/i }));
+    await user.click(await screen.findByRole('combobox', { name: /into folder/i }));
+    await user.click(await screen.findByRole('option', { name: 'frontend' }));
+    await user.click(screen.getByRole('button', { name: /install repo/i }));
+
+    await waitFor(() => expect(api.install).toHaveBeenCalledWith(expect.objectContaining({ source: 'acme/team-skills', into: 'frontend' })));
+  });
 });

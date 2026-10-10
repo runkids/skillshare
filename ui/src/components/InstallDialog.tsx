@@ -30,6 +30,7 @@ import type { SkillsAddCommand } from '../lib/skillsAddCommand';
 import CodeView from './CodeView';
 import MarkdownView, { ViewToggle } from './MarkdownView';
 import { queryKeys, staleTimes } from '../lib/queryKeys';
+import { existingFolders, isValidIntoPath } from '../lib/moveFolders';
 import { formatSkillDisplayName } from '../lib/resourceNames';
 import { useI18n, useT } from '../i18n';
 import Button from './Button';
@@ -38,6 +39,7 @@ import { Checkbox } from './Checkbox';
 import DialogShell from './DialogShell';
 import EmptyState from './EmptyState';
 import FindingList from './FindingList';
+import FolderPicker from './FolderPicker';
 import { Select } from './Select';
 import Spinner from './Spinner';
 import { useToast } from './Toast';
@@ -145,6 +147,10 @@ export default function InstallDialog({ kind, initialTab, initialSource, onClose
   const [warnings, setWarnings] = useState<Finding[]>([]);
 
   const { data: skillsData } = useSkillsQuery();
+  // `useSkillsQuery` returns skills and agents together; agents install under their own source.
+  const folders = useMemo(() => existingFolders((skillsData?.resources ?? []).filter((r) => r.kind === kind)), [skillsData, kind]);
+  // The field is inside Advanced; collapsed, the server reports a bad path instead of a button that won't say why.
+  const intoInvalid = advanced && into !== '' && !isValidIntoPath(into);
   const installedKeys = useMemo(() => new Set((skillsData?.resources ?? []).filter((r) => r.source).map((r) => `${r.kind}:${sourceKey(r.source!)}`)), [skillsData]);
   const isInstalled = (k: Kind, source: string) => installedKeys.has(`${k}:${sourceKey(source)}`);
   const isInstalledResult = (result: SearchResult) => {
@@ -317,14 +323,14 @@ export default function InstallDialog({ kind, initialTab, initialSource, onClose
 
   const formOpts = () => ({
     name: name.trim() || undefined,
-    into: into.trim() || undefined,
+    into: into || undefined,
     branch: (canTrack && branch.trim()) || undefined,
     force,
     skipAudit,
   });
 
   const primary = () => {
-    if (!src || locked) return;
+    if (!src || locked || intoInvalid) return;
     const opts = formOpts();
     if (tracking) {
       void withBusy('primary', () => runSingle({ source: src, track: true, ...opts }));
@@ -780,9 +786,7 @@ export default function InstallDialog({ kind, initialTab, initialSource, onClose
         {advanced && (
           <div className="ml-[22px] flex flex-col gap-3.5">
             <div className="grid grid-cols-3 gap-3.5">
-              <Field label={t('install.url.into')} hint="--into">
-                <input value={into} onChange={(e) => setInto(e.target.value)} placeholder="frontend" />
-              </Field>
+              <FolderPicker label={t('install.url.into')} hint="--into" value={into} onChange={setInto} folders={folders} />
               {canTrack && (
                 <Field label={t('install.url.branch')} hint="--branch" icon={<GitBranch size={15} className="shrink-0 text-ink-3" />}>
                   <input value={branch} onChange={(e) => { setBranch(e.target.value); setFound(null); setNothing(null); }} placeholder="main" />
@@ -801,7 +805,7 @@ export default function InstallDialog({ kind, initialTab, initialSource, onClose
     foot = (
       <>
         <Button variant="ghost" onClick={onClose} disabled={locked}>{t('common.cancel')}</Button>
-        <Button variant="primary" loading={busy === 'primary'} disabled={!src || locked || (found !== null && !tracking && count === 0)} onClick={primary}>
+        <Button variant="primary" loading={busy === 'primary'} disabled={!src || locked || intoInvalid || (found !== null && !tracking && count === 0)} onClick={primary}>
           {busy !== 'primary' && (found || tracking ? <Download size={15} /> : <Search size={15} />)}
           {primaryLabel}
         </Button>
