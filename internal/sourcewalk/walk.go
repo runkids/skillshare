@@ -21,9 +21,10 @@ var TargetDotDirs map[string]bool
 // root are skipped: a skill installed from a repo that ships its own
 // .claude/skills/ must not surface those as nested skills. Dotdirs directly
 // under the root (e.g. ".cursor/skills/*") stay visible because host-style
-// paths there are used to infer the skill's targets.
+// paths there are used to infer the skill's targets. The root itself is never
+// skipped, even when its name matches (e.g. a source named ".skillshare").
 func SkipTargetDotDir(walkRoot, path string, info os.FileInfo) bool {
-	if !info.IsDir() || !TargetDotDirs[info.Name()] {
+	if path == walkRoot || !info.IsDir() || !TargetDotDirs[info.Name()] {
 		return false
 	}
 	return filepath.Dir(path) != walkRoot
