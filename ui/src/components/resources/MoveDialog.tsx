@@ -145,7 +145,12 @@ export function MoveDialog({ skills: given = [], folder, all, skipped = 0, onMov
   const plan = useMemo(() => (folder ? planFolder(all, folder) : null), [all, folder]);
   const names = folder ? [folder] : skills.map((s) => s.flatName);
   const disabledPaths = folder ? [folder] : undefined;
-  const moving = plan ? plan.count : skills.length;
+  // Skills nested inside a selected one: renaming the directory carries them too.
+  const nested = useMemo(() => {
+    const picked = new Set(skills.map((s) => s.flatName));
+    return skillsOnly.filter((x) => !picked.has(x.flatName) && skills.some((s) => x.relPath.startsWith(`${s.relPath}/`))).length;
+  }, [skills, skillsOnly]);
+  const moving = plan ? plan.count : skills.length + nested;
   const base = folder ? baseName(folder) : '';
   const [firstSkill] = skills;
 
@@ -221,11 +226,12 @@ export function MoveDialog({ skills: given = [], folder, all, skipped = 0, onMov
   const failures = (preview.data?.results ?? []).filter((r) => !r.success && r.error_code !== 'same_folder');
   // Items the preview would move, and those that only collide in a target: the result view can retry them.
   const previewed = preview.data?.results ?? [];
-  const wouldMove = dest === null ? moving : previewed.filter((r) => (r.success && !unchanged(r)) || r.error_code === 'name_collision').length;
+  const previewedMoves = dest === null ? moving : previewed.filter((r) => (r.success && !unchanged(r)) || r.error_code === 'name_collision').length;
   // A folder moves whole or not at all. The preview decides once there is one; before a destination is chosen
   // only what the list shows can. A collision is the one refusal the result view can retry.
   const folderBlocked = !!plan && (dest === null ? plan.blocked.length > 0 : failures.some((r) => r.error_code !== 'name_collision'));
-  const canRun = dest !== null && !preview.isFetching && !requestError && !folderBlocked && wouldMove > 0;
+  const wouldMove = previewedMoves + (dest !== null && previewedMoves > 0 ? nested : 0);
+  const canRun = dest !== null && !preview.isFetching && !requestError && !folderBlocked && previewedMoves > 0;
   const targets = folder ? names : names.filter((n) => {
     const p = planned.get(n);
     return !p || p.success || p.error_code === 'name_collision';
@@ -276,7 +282,7 @@ export function MoveDialog({ skills: given = [], folder, all, skipped = 0, onMov
                       </span>
                     )}
                   </div>
-                  {plan.direct.map((s) => skillRow(s.flatName, s.name, newBase === null ? s.relPath : joinFolder(newBase, baseName(s.relPath))))}
+                  {plan.direct.map((s) => skillRow(s.flatName, s.name, newBase === null ? s.relPath : s.relPath === folder ? newBase : joinFolder(newBase, baseName(s.relPath))))}
                   {plan.subfolders.map((f) => (
                     <div key={f.name} className="ss-r !min-h-[42px]">
                       <Folder size={15} className="shrink-0 text-ink-2" />
@@ -338,6 +344,7 @@ export function MoveDialog({ skills: given = [], folder, all, skipped = 0, onMov
                 <div className="flex-1">{t('move.filterWarning', { count: preview.data!.warnings.length })}</div>
               </div>
             )}
+            {nested > 0 && !plan && <p className="text-[13px] text-ink-2">{t(plural('move.nested', nested), { count: nested })}</p>}
             {skipped > 0 && <p className="text-[13px] text-ink-2">{t('move.skipped', { count: skipped })}</p>}
           </>
         )}

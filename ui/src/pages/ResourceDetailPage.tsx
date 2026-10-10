@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient, type UseQueryResult } from '@tanstack/react-query';
 import type { Components } from 'react-markdown';
@@ -79,7 +79,9 @@ export default function ResourceDetailPage() {
   const [editing, setEditing] = useState(false);
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
   const [uninstalling, setUninstalling] = useState(false);
-  const [moving, setMoving] = useState(false);
+  // The skill being moved, kept as it was: the page's own data changes name under the dialog.
+  const [moving, setMoving] = useState<Skill | null>(null);
+  const movedTo = useRef<string | null>(null);
   const [updating, setUpdating] = useState(false);
   const [toggling, setToggling] = useState(false);
   const [blocked, setBlocked] = useState<string | null>(null);
@@ -95,13 +97,29 @@ export default function ResourceDetailPage() {
     return { byName, byFlat };
   }, [allSkills.data]);
 
-  if (isPending) return <SkillDetailSkeleton />;
+  // After a move the old name no longer loads, so the page falls to its loading or error view: the dialog is
+  // drawn there too, and the page goes to the new name only when the dialog closes.
+  const moveDialog = moving && (
+    <MoveDialog
+      skills={[moving]}
+      all={allSkills.data?.resources ?? [moving]}
+      onMoved={(results) => { movedTo.current = results.find((r) => r.success && r.flatName)?.flatName ?? null; }}
+      onClose={() => {
+        setMoving(null);
+        if (movedTo.current) navigate(resourceHref({ flatName: movedTo.current, kind: moving.kind }), { replace: true });
+      }}
+    />
+  );
+  if (isPending) return <><SkillDetailSkeleton />{moveDialog}</>;
   if (error || !data) {
     return (
-      <div className="ss-note bad">
-        <TriangleAlert size={16} />
-        <div className="flex-1"><b>{t('resourceDetail.error.failedToLoad')}</b> {error?.message}</div>
-      </div>
+      <>
+        <div className="ss-note bad">
+          <TriangleAlert size={16} />
+          <div className="flex-1"><b>{t('resourceDetail.error.failedToLoad')}</b> {error?.message}</div>
+        </div>
+        {moveDialog}
+      </>
     );
   }
 
@@ -226,7 +244,7 @@ export default function ResourceDetailPage() {
       onSelect: toggleDisabled,
     },
     ...(canMove(resource)
-      ? [{ key: 'move', label: t('move.menu.skill'), icon: <FolderInput size={14} />, onSelect: () => setMoving(true) }]
+      ? [{ key: 'move', label: t('move.menu.skill'), icon: <FolderInput size={14} />, onSelect: () => setMoving(resource) }]
       : []),
     {
       key: 'uninstall',
@@ -271,6 +289,7 @@ export default function ResourceDetailPage() {
   const description = str(frontmatter.description);
 
   return (
+    <>
     <div className="animate-fade-in">
       <PageHeader
         crumbs={[{ label: t(isAgent ? 'layout.nav.agents' : 'layout.nav.skills'), to: listPath }, { label: resource.name }]}
@@ -352,18 +371,6 @@ export default function ResourceDetailPage() {
       )}
 
       <SkillContextMenu open={!!menu} anchorPoint={menu ?? undefined} items={menuItems} onClose={() => setMenu(null)} />
-      {moving && (
-        <MoveDialog
-          skills={[resource]}
-          all={allSkills.data?.resources ?? [resource]}
-          // The page is keyed by the flat name, which the move changes.
-          onMoved={(results) => {
-            const flatName = results.find((r) => r.success && r.flatName)?.flatName;
-            if (flatName) navigate(resourceHref({ flatName, kind: resource.kind }), { replace: true });
-          }}
-          onClose={() => setMoving(false)}
-        />
-      )}
       {uninstalling && (
         <UninstallDialog
           kind={resource.kind}
@@ -379,6 +386,8 @@ export default function ResourceDetailPage() {
         <BlockedDialog name={resource.name} message={blocked} loading={updating} onSkip={() => runUpdate(true)} onClose={() => setBlocked(null)} />
       )}
     </div>
+      {moveDialog}
+    </>
   );
 }
 

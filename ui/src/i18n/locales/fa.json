@@ -1146,6 +1146,8 @@
   "move.captionFolder": "نام لینک‌ها با {prefix} شروع می‌شود",
   "move.filterWarning": "{count} قانون فیلتر هدف به لینکی اشاره می‌کند که نامش تغییر می‌کند. پس از انتقال دیگر مطابقت ندارد؛ آن را در صفحهٔ اهداف تنظیم کنید.",
   "move.skipped": "{count} موردِ انتخاب‌شده سر جایش می‌ماند: tracked repo و پوشه‌های لینک‌شده قابل انتقال نیستند.",
+  "move.nested.one": "{count} skill درون مورد انتخاب‌شده هم منتقل می‌شود",
+  "move.nested.other": "{count} skill درون موارد انتخاب‌شده هم منتقل می‌شوند",
   "move.submit.one": "انتقال {count} skill",
   "move.submit.other": "انتقال {count} skill",
   "move.submitFolder": "انتقال پوشه",

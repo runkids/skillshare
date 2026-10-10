@@ -1146,6 +1146,8 @@
   "move.captionFolder": "Nama link akan diawali {prefix}",
   "move.filterWarning": "{count} aturan filter target menyebut link yang akan diganti namanya. Aturan itu tidak cocok lagi setelah dipindah; sesuaikan di halaman Target.",
   "move.skipped": "{count} item terpilih tetap di tempatnya: repo terlacak dan folder tertaut tidak bisa dipindah.",
+  "move.nested.one": "{count} skill di dalam yang dipilih ikut dipindah",
+  "move.nested.other": "{count} skill di dalam yang dipilih ikut dipindah",
   "move.submit.one": "Pindahkan {count} skill",
   "move.submit.other": "Pindahkan {count} skill",
   "move.submitFolder": "Pindahkan folder",

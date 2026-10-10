@@ -1146,6 +1146,8 @@
   "move.captionFolder": "連結名稱會以 {prefix} 開頭",
   "move.filterWarning": "有 {count} 條目標過濾規則指向即將改名的連結，搬移後會失效，請到「目標」頁調整。",
   "move.skipped": "已選的 {count} 項不會移動：tracked repo 和連結資料夾不能搬。",
+  "move.nested.one": "有 {count} 個 skill 在已選項目裡面，會一起搬",
+  "move.nested.other": "有 {count} 個 skill 在已選項目裡面，會一起搬",
   "move.submit.one": "移動 {count} 個 skill",
   "move.submit.other": "移動 {count} 個 skill",
   "move.submitFolder": "移動資料夾",

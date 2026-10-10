@@ -1146,6 +1146,8 @@
   "move.captionFolder": "Links will start with {prefix}",
   "move.filterWarning": "Some target filter rules name a link that is about to be renamed ({count}). They stop matching after the move; adjust them on the Targets page.",
   "move.skipped": "{count} selected items stay where they are: tracked repos and linked folders cannot be moved.",
+  "move.nested.one": "{count} skill nested inside a selected one moves with it",
+  "move.nested.other": "{count} skills nested inside the selected ones move with them",
   "move.submit.one": "Move {count} skill",
   "move.submit.other": "Move {count} skills",
   "move.submitFolder": "Move folder",

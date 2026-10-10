@@ -90,13 +90,15 @@ export interface FolderPlan {
 
 /** What moving `folder` takes along, from the loaded resources. */
 export function planFolder(resources: Skill[], folder: string): FolderPlan {
-  const inside = resources.filter((s) => s.kind === 'skill' && s.relPath.startsWith(`${folder}/`));
+  // A folder can itself be a skill (SKILL.md at its root); it moves with what is below it.
+  const inside = resources.filter((s) => s.kind === 'skill' && (s.relPath === folder || s.relPath.startsWith(`${folder}/`)));
   const moving = inside.filter(canMove);
   const counts = new Map<string, number>();
   const direct: Skill[] = [];
   for (const s of moving) {
     const rest = s.relPath.slice(folder.length + 1);
     const i = rest.indexOf('/');
+    if (s.relPath === folder) { direct.push(s); continue; }
     if (i < 0) direct.push(s);
     else counts.set(rest.slice(0, i), (counts.get(rest.slice(0, i)) ?? 0) + 1);
   }

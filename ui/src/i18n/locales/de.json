@@ -1146,6 +1146,8 @@
   "move.captionFolder": "Linknamen beginnen mit {prefix}",
   "move.filterWarning": "{count} Ziel-Filterregeln nennen einen Link, der umbenannt wird. Sie greifen nach dem Verschieben nicht mehr; passe sie auf der Seite Ziele an.",
   "move.skipped": "{count} ausgewählte Einträge bleiben, wo sie sind: Tracked Repos und verknüpfte Ordner lassen sich nicht verschieben.",
+  "move.nested.one": "{count} Skill innerhalb eines ausgewählten wird mitverschoben",
+  "move.nested.other": "{count} Skills innerhalb der ausgewählten werden mitverschoben",
   "move.submit.one": "{count} Skill verschieben",
   "move.submit.other": "{count} Skills verschieben",
   "move.submitFolder": "Ordner verschieben",

@@ -1146,6 +1146,8 @@
   "move.captionFolder": "Los nombres de enlace empezarán por {prefix}",
   "move.filterWarning": "{count} reglas de filtro de destinos nombran un enlace que va a cambiar de nombre. Dejarán de coincidir tras el movimiento; ajústalas en la página Destinos.",
   "move.skipped": "{count} elementos seleccionados se quedan donde están: los repos seguidos y las carpetas enlazadas no se pueden mover.",
+  "move.nested.one": "{count} skill dentro de uno seleccionado se mueve con él",
+  "move.nested.other": "{count} skills dentro de los seleccionados se mueven con ellos",
   "move.submit.one": "Mover {count} skill",
   "move.submit.other": "Mover {count} skills",
   "move.submitFolder": "Mover carpeta",

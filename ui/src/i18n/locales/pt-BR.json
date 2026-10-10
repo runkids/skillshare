@@ -1146,6 +1146,8 @@
   "move.captionFolder": "Os nomes de link começarão com {prefix}",
   "move.filterWarning": "{count} regras de filtro de destinos citam um link que vai ser renomeado. Elas deixam de valer após a movimentação; ajuste-as na página Destinos.",
   "move.skipped": "{count} itens selecionados ficam onde estão: repos rastreados e pastas vinculadas não podem ser movidos.",
+  "move.nested.one": "{count} skill dentro de um selecionado é movido junto",
+  "move.nested.other": "{count} skills dentro dos selecionados são movidos junto",
   "move.submit.one": "Mover {count} skill",
   "move.submit.other": "Mover {count} skills",
   "move.submitFolder": "Mover pasta",

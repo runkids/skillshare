@@ -173,6 +173,12 @@ describe('planFolder', () => {
     expect(planFolder(resources, 'frontend').blocked).toEqual([{ path: '_acme', why: 'repo' }]);
   });
 
+  it('counts a skill at the folder root with what is below it', () => {
+    const plan = planFolder([skill('suite'), skill('suite/inner')], 'suite');
+    expect(plan.count).toBe(2);
+    expect(plan.direct.map((s) => s.relPath)).toEqual(['suite', 'suite/inner']);
+  });
+
   it('has no blockers for a plain folder', () => {
     expect(planFolder(resources, 'other').blocked).toEqual([]);
   });

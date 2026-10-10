@@ -10,7 +10,7 @@ import ResourceDetailPage from './ResourceDetailPage';
 
 vi.mock('../api/client', async (load) => ({ ...await load<typeof import('../api/client')>(), api: {
   getSyncMatrix: vi.fn(), listTargets: vi.fn(), getResource: vi.fn(), listSkills: vi.fn(),
-  auditSkill: vi.fn(), diff: vi.fn(), batchUninstall: vi.fn(),
+  auditSkill: vi.fn(), diff: vi.fn(), batchUninstall: vi.fn(), moveResources: vi.fn(),
 } }));
 
 it('uninstalls only the linked skill from its detail page', async () => {
@@ -65,4 +65,44 @@ it('offers Move to folder for a plain skill and opens the dialog', async () => {
   await user.click(await screen.findByRole('button', { name: 'More actions' }));
   await user.click(screen.getByRole('menuitem', { name: 'Move to folder…' }));
   expect(await screen.findByRole('dialog', { name: 'Move to folder' })).toBeInTheDocument();
+});
+
+it('keeps the move result open after the old name stops loading, and goes to the new name on close', async () => {
+  const user = userEvent.setup();
+  HTMLElement.prototype.scrollIntoView = vi.fn();
+  const plain: Skill = { name: 'demo', kind: 'skill', flatName: 'grp__demo', relPath: 'grp/demo', sourcePath: '/skills/grp/demo', isInRepo: false };
+  const moved: Skill = { ...plain, flatName: 'archive__demo', relPath: 'archive/demo' };
+  vi.mocked(api.getResource).mockImplementation(async (name) => {
+    if (name === 'archive__demo') return { resource: moved, skillMdContent: '', files: [] };
+    if (vi.mocked(api.moveResources).mock.calls.some(([o]) => !o.dryRun)) throw new Error('not found');
+    return { resource: plain, skillMdContent: '', files: [] };
+  });
+  vi.mocked(api.listSkills).mockResolvedValue({ resources: [plain, { ...plain, name: 'old', flatName: 'archive__old', relPath: 'archive/old' }] });
+  vi.mocked(api.listTargets).mockResolvedValue({ targets: [], sourceSkillCount: 1 });
+  vi.mocked(api.getSyncMatrix).mockResolvedValue({ entries: [] } as never);
+  vi.mocked(api.diff).mockResolvedValue({ diffs: [] } as never);
+  vi.mocked(api.auditSkill).mockResolvedValue({ result: { findings: [] } } as never);
+  vi.mocked(api.moveResources).mockImplementation(async (o) => ({
+    results: [{ name: 'grp__demo', success: true, from: 'grp/demo', to: 'archive/demo', flatName: 'archive__demo', record: true }],
+    summary: { succeeded: 1, failed: 0 }, warnings: [], dryRun: !!o.dryRun,
+  }));
+  render(<MemoryRouter initialEntries={['/skills/grp__demo']}>
+    <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+      <I18nProvider><ToastProvider><Routes>
+        <Route path="/skills/:name" element={<ResourceDetailPage />} />
+      </Routes></ToastProvider></I18nProvider>
+    </QueryClientProvider>
+  </MemoryRouter>);
+  await user.click(await screen.findByRole('button', { name: 'More actions' }));
+  await user.click(screen.getByRole('menuitem', { name: 'Move to folder…' }));
+  await user.click(await screen.findByRole('combobox', { name: 'Destination' }));
+  await user.click(await screen.findByRole('option', { name: /^archive/ }));
+  await user.click(await screen.findByRole('button', { name: /^Move 1 skill$/ }));
+
+  expect(await screen.findByText('Moved 1 skill')).toBeInTheDocument();
+  await waitFor(() => expect(screen.getByText(/Failed to load/i)).toBeInTheDocument());
+  expect(screen.getByText('Moved 1 skill')).toBeInTheDocument();
+
+  await user.click(screen.getByRole('button', { name: 'Later' }));
+  await waitFor(() => expect(api.getResource).toHaveBeenCalledWith('archive__demo', undefined));
 });

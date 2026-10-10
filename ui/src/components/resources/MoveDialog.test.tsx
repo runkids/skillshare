@@ -73,6 +73,16 @@ describe('MoveDialog', () => {
     await waitFor(() => expect(api.moveResources).toHaveBeenLastCalledWith({ names: ['frontend__pdf', 'frontend__docx'], dest: 'archive', force: undefined }));
   });
 
+  it('says how many skills nested inside the selected ones move with them', async () => {
+    vi.mocked(api.moveResources).mockImplementation(async (opts) => result(opts.names.map((n) => ok(n, `archive/${n}`)), !!opts.dryRun));
+    const user = userEvent.setup();
+    mount({ skills: [skill('suite')], all: [...ALL, skill('suite'), skill('suite/inner'), skill('suite/deep/more')] });
+
+    expect(screen.getByText('2 skills nested inside the selected ones move with them')).toBeInTheDocument();
+    await pick(user, /^archive/);
+    expect(await screen.findByRole('button', { name: /^Move 3 skills$/ })).toBeEnabled();
+  });
+
   it('sends "." for the source root', async () => {
     vi.mocked(api.moveResources).mockImplementation(async (opts) => result(opts.names.map((n) => ok(n, 'pdf')), !!opts.dryRun));
     const user = userEvent.setup();
