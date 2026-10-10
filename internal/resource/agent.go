@@ -51,7 +51,7 @@ func (AgentKind) Discover(sourceDir string) ([]DiscoveredResource, error) {
 		}
 
 		if info.IsDir() {
-			if info.Name() == ".git" || utils.IsHidden(info.Name()) && info.Name() != "." {
+			if info.Name() == ".git" || (path != walkRoot && utils.IsHidden(info.Name())) {
 				return filepath.SkipDir
 			}
 			// Skip ignored directories early
