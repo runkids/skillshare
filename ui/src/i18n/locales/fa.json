@@ -2541,6 +2541,7 @@
   "plugins.updateDialog.doneFailed": "{updated} به‌روز شد، {failed} ناموفق",
   "plugins.updateDialog.doneHelp": "فهرست نسخه‌های جدید را نشان می‌دهد. plugin ناموفق را می‌توان همین‌جا دوباره امتحان کرد.",
   "plugins.updateDialog.partFailed": "{done} به‌روز شد. {failed} ناموفق.",
+  "plugins.updateDialog.stale": "منبع پس از بررسی تغییر کرد، پس چیزی نصب نشد. دوباره بررسی کنید تا نسخهٔ جدید را ببینید.",
   "plugins.updateDialog.waiting": "در انتظار",
   "plugins.updateDialog.updating": "در حال به‌روزرسانی",
   "plugins.updateDialog.done": "به‌روز شد",

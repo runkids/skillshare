@@ -176,11 +176,11 @@ function Running({ batch, busy, inventory, label, onRetry, onStop, onClose }: {
                   <span className="text-[13px] text-ink-2">{item.targets.map(label).join(' · ')}</span>
                   <VersionChange from={installedVersion(inventory, item.name, item.targets[0])} />
                 </span>
-                {item.failed && <span className="text-xs text-ink-3">{t('plugins.updateDialog.partFailed', { done: item.targets.filter((x) => !item.failed!.includes(x)).map(label).join(' · '), failed: item.failed.map(label).join(' · ') })}</span>}
+                {item.status === 'failed' && item.failed && item.failed.length < item.targets.length && <span className="text-xs text-ink-3">{t('plugins.updateDialog.partFailed', { done: item.targets.filter((x) => !item.failed!.includes(x)).map(label).join(' · '), failed: item.failed.map(label).join(' · ') })}</span>}
                 {item.note && <span className={item.status === 'failed' ? 'font-mono text-xs text-bad' : 'text-xs text-ink-3'}>{item.note}</span>}
               </span>
               {status(item)}
-              {(item.status === 'failed' || item.status === 'skipped') && !busy && <Button size="sm" variant="secondary" onClick={() => onRetry(item)}>{t('plugins.updateDialog.retry')}</Button>}
+              {(item.status === 'failed' || item.status === 'skipped') && !item.stale && !busy && <Button size="sm" variant="secondary" onClick={() => onRetry(item)}>{t('plugins.updateDialog.retry')}</Button>}
             </div>
           ))}
         </div>

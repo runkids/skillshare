@@ -2541,6 +2541,7 @@
   "plugins.updateDialog.doneFailed": "{updated} mis à jour, {failed} en échec",
   "plugins.updateDialog.doneHelp": "La liste affiche les nouvelles versions. Un plugin en échec peut être relancé ici.",
   "plugins.updateDialog.partFailed": "{done} mis à jour. {failed} en échec.",
+  "plugins.updateDialog.stale": "La source a changé depuis la vérification, rien n'a donc été installé. Vérifiez à nouveau pour examiner la nouvelle version.",
   "plugins.updateDialog.waiting": "En attente",
   "plugins.updateDialog.updating": "Mise à jour",
   "plugins.updateDialog.done": "Mis à jour",

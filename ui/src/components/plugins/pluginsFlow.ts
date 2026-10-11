@@ -9,13 +9,20 @@ type Updates = Record<string, Record<PluginTarget, PluginUpdate>>;
 /** One plugin and the Agents to update it on. */
 export interface UpdatePick { name: string; targets: PluginTarget[] }
 /** One plugin in a batch update. */
-export interface BatchItem extends UpdatePick { status: 'waiting' | 'running' | 'done' | 'failed' | 'skipped'; note?: string; /** The Agents that failed, when not all did; a retry sends only these. */ failed?: PluginTarget[] }
+export interface BatchItem extends UpdatePick {
+  status: 'waiting' | 'running' | 'done' | 'failed' | 'skipped';
+  note?: string;
+  /** The Agents the last try failed on; a retry sends only these. */
+  failed?: PluginTarget[];
+  /** The source moved past what the check showed: nothing was applied, and only a new check can show what it would bring. */
+  stale?: boolean;
+}
 
-/** What is still to update after the last check: the Agents it found behind that can be updated from here, per plugin. */
+/** What is still to update after the last check: the Agents it found behind that are still bound and can be updated from here, per plugin. */
 export function updatesPending(updates: Updates, inventory?: PluginInventory): UpdatePick[] {
   const targets = targetMap(inventory?.targetDefinitions);
   return Object.entries(updates)
-    .map(([name, u]) => ({ name, targets: Object.keys(u).filter((target) => targets[target]?.operations.includes('update')) }))
+    .map(([name, u]) => ({ name, targets: Object.keys(u).filter((target) => inventory?.packages[name]?.bindings[target] && targets[target]?.operations.includes('update')) }))
     .filter((p) => p.targets.length > 0);
 }
 
@@ -37,7 +44,7 @@ export function updatesFound(plan: PluginPlan) {
  * failed, was skipped, or never ran because the apply stopped first keeps its Update action.
  */
 export function updatesLeft(updates: Updates, plan: PluginPlan, response: PluginResult) {
-  const done = new Set((response.result?.results ?? []).filter((r) => r.status !== 'failed').map((r) => `${r.name}:${r.target}`));
+  const done = new Set((response.result?.results ?? []).filter((r) => r.status !== 'failed' && r.status !== 'skipped').map((r) => `${r.name}:${r.target}`));
   const next = { ...updates };
   for (const c of plan.changes) {
     if ((c.action !== 'update' && c.action !== 'noop') || !done.has(`${c.name}:${c.target}`) || !next[c.name]) continue;
@@ -127,8 +134,9 @@ export function usePluginsFlow({ t, inventory, refresh, onPreviewed }: {
     setBusy(true); setFailure(''); setResult(null);
     // A retry puts its row back to waiting where it is, keeping every Agent it showed; a first run starts the batch.
     const names = new Set(picks.map((p) => p.name));
-    setBatch((prev) => [...(prev ?? []).map((i) => (names.has(i.name) ? { ...i, status: 'waiting' as const, note: undefined, failed: undefined } : i)), ...picks.filter((p) => !prev?.some((i) => i.name === p.name)).map((p) => ({ ...p, status: 'waiting' as const }))]);
+    setBatch((prev) => [...(prev ?? []).map((i) => (names.has(i.name) ? { ...i, status: 'waiting' as const, note: undefined } : i)), ...picks.filter((p) => !prev?.some((i) => i.name === p.name)).map((p) => ({ ...p, status: 'waiting' as const }))]);
     const set = (name: string, patch: Partial<BatchItem>) => setBatch((prev) => prev && prev.map((i) => (i.name === name ? { ...i, ...patch } : i)));
+    let staleSeen = false;
     for (const p of picks) {
       if (stopped.current) { set(p.name, { status: 'skipped' }); continue; }
       set(p.name, { status: 'running' });
@@ -136,16 +144,28 @@ export function usePluginsFlow({ t, inventory, refresh, onPreviewed }: {
         const request: PluginRequest = { action: 'update', name: p.name, targets: p.targets };
         const plan = await pluginsApi.preview(request);
         if (plan.blocked) throw new Error(plan.changes.filter((c) => c.action === 'blocked').map((c) => keyedMessage(t, c)).join(' ') || t('plugins.blocked'));
+        // The user approved the versions the check showed; a source that moved since gets a new check, not a silent install.
+        const moved = plan.changes.some((c) => {
+          const seen = updates[c.name]?.[c.target];
+          return c.action === 'update' && seen && ((c.binding?.version ?? '') !== seen.version || (!!seen.commit && c.binding?.commit !== seen.commit));
+        });
+        if (moved) { staleSeen = true; set(p.name, { status: 'skipped', stale: true, note: t('plugins.updateDialog.stale') }); continue; }
         // What the Agent is about to do (an npm install, say) shows while it runs.
         set(p.name, { note: plan.changes.filter((c) => c.message).map((c) => keyedMessage(t, c)).join(' ') || undefined });
         const response = await pluginsApi.apply(request, plan.revision);
         setUpdates((prev) => updatesLeft(prev, plan, response));
+        const results = response.result?.results ?? [];
         const failed = failureText(t, response);
-        const failedTargets = (response.result?.results ?? []).filter((r) => r.status === 'failed').map((r) => r.target);
-        set(p.name, failed ? { status: 'failed', note: failed, failed: failedTargets.length && failedTargets.length < p.targets.length ? failedTargets : undefined } : { status: 'done', note: undefined });
-      } catch (e) { set(p.name, { status: 'failed', note: (e as Error).message }); }
+        const failedTargets = results.filter((r) => r.status === 'failed').map((r) => r.target);
+        const skipped = results.filter((r) => r.status === 'skipped');
+        if (failed) set(p.name, { status: 'failed', note: failed, failed: failedTargets.length ? failedTargets : p.targets });
+        else if (skipped.length) set(p.name, { status: 'skipped', note: skipped.filter((r) => r.message).map((r) => keyedMessage(t, r)).join(' ') || undefined, failed: skipped.map((r) => r.target) });
+        else set(p.name, { status: 'done', note: undefined, failed: undefined });
+      } catch (e) { set(p.name, { status: 'failed', note: (e as Error).message, failed: p.targets }); }
     }
     setBusy(false); refresh();
+    // A source that moved needs a fresh check before it can be offered again.
+    if (staleSeen) void check(true);
   };
 
   // `key` names the control that started this, so only it shows a spinner.

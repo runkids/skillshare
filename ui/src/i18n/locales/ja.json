@@ -2541,6 +2541,7 @@
   "plugins.updateDialog.doneFailed": "{updated} 件を更新、{failed} 件が失敗",
   "plugins.updateDialog.doneHelp": "一覧のバージョンは更新済みです。失敗したものはここから再試行できます。",
   "plugins.updateDialog.partFailed": "{done} は更新済み。{failed} は失敗。",
+  "plugins.updateDialog.stale": "確認後にソースが変わったため、インストールしていません。もう一度確認して新しいバージョンを見てください。",
   "plugins.updateDialog.waiting": "待機中",
   "plugins.updateDialog.updating": "更新中",
   "plugins.updateDialog.done": "更新済み",

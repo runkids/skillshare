@@ -103,7 +103,7 @@ describe('plugins flow', () => {
   });
 
   it('lists what is still to update only where the Agent can be updated from here, and drops an Agent an update took off', () => {
-    const inventory = { packages: {}, hosts: [], targetDefinitions: [{ target: 'pi', label: 'Pi', project: false, operations: ['check', 'update'] }, { target: 'omp', label: 'OMP', project: false, operations: ['check'] }] };
+    const inventory = { packages: { tail: { bindings: { pi: { id: 'npm:tail' }, omp: { id: 'tail' } } }, guard: { bindings: { omp: { id: 'guard' } } }, driver: { bindings: {} } }, hosts: [], targetDefinitions: [{ target: 'pi', label: 'Pi', project: false, operations: ['check', 'update'] }, { target: 'omp', label: 'OMP', project: false, operations: ['check'] }] };
     const updates = { tail: { pi: { version: '2.1.0' }, omp: { version: '2.1.0' } }, guard: { omp: { version: '1.0.0' } }, driver: {} };
     expect(updatesPending(updates, inventory)).toEqual([{ name: 'tail', targets: ['pi'] }]);
   });
@@ -116,11 +116,49 @@ describe('plugins flow', () => {
     const { now, refresh } = flow();
     await act(() => now().updateMany([{ name: 'demo', targets: ['codex'] }, { name: 'other', targets: ['codex'] }]));
     expect(pluginsApi.apply).toHaveBeenCalledTimes(2);
-    expect(now().batch).toEqual([{ name: 'demo', targets: ['codex'], status: 'failed', note: 'timeout', failed: undefined }, { name: 'other', targets: ['codex'], status: 'done', note: undefined }]);
+    expect(now().batch).toEqual([{ name: 'demo', targets: ['codex'], status: 'failed', note: 'timeout', failed: ['codex'] }, { name: 'other', targets: ['codex'], status: 'done', note: undefined }]);
     expect(refresh).toHaveBeenCalledTimes(1);
     vi.mocked(pluginsApi.apply).mockResolvedValueOnce(ok);
     await act(() => now().updateMany([{ name: 'demo', targets: ['codex'] }]));
     expect(now().batch).toEqual([{ name: 'demo', targets: ['codex'], status: 'done', note: undefined, failed: undefined }, { name: 'other', targets: ['codex'], status: 'done', note: undefined }]);
+  });
+
+  it('drops a pending update whose plugin or Agent binding is gone', () => {
+    const inventory = { packages: { kept: { bindings: { pi: { id: 'npm:kept' } } } }, hosts: [], targetDefinitions: [{ target: 'pi', label: 'Pi', project: false, operations: ['update'] }, { target: 'codex', label: 'Codex', project: false, operations: ['update'] }] };
+    const updates = { kept: { pi: { version: '2' }, codex: { version: '2' } }, removed: { pi: { version: '2' } } };
+    expect(updatesPending(updates, inventory)).toEqual([{ name: 'kept', targets: ['pi'] }]);
+  });
+
+  it('keeps a plugin whose update came back skipped on the list, as not updated', async () => {
+    const found = { name: 'driver', target: 'pi', binding: { id: 'npm:driver', version: '1.1.0' } };
+    vi.mocked(pluginsApi.preview).mockResolvedValueOnce(plan('r', { ...found, action: 'update-available' })).mockResolvedValueOnce(plan('u', { ...found, action: 'update' }));
+    vi.mocked(pluginsApi.apply).mockResolvedValue({ result: { results: [{ name: 'driver', target: 'pi', status: 'skipped', message: 'marketplace gone' }] }, failure: '' });
+    const { now } = flow();
+    await act(() => now().check());
+    await act(() => now().updateMany([{ name: 'driver', targets: ['pi'] }]));
+    expect(now().updates.driver.pi).toBeDefined();
+    expect(now().batch?.[0]).toMatchObject({ status: 'skipped', note: 'marketplace gone' });
+  });
+
+  it('applies nothing when the source moved past the version the check showed', async () => {
+    vi.mocked(pluginsApi.preview)
+      .mockResolvedValueOnce(plan('r', { name: 'driver', target: 'pi', action: 'update-available', binding: { id: 'npm:driver', version: '1.1.0' } }))
+      .mockResolvedValueOnce(plan('u', { name: 'driver', target: 'pi', action: 'update', binding: { id: 'npm:driver', version: '1.2.0' } }));
+    const { now } = flow();
+    await act(() => now().check());
+    await act(() => now().updateMany([{ name: 'driver', targets: ['pi'] }]));
+    expect(pluginsApi.apply).not.toHaveBeenCalled();
+    expect(now().batch?.[0]).toMatchObject({ status: 'skipped', stale: true });
+  });
+
+  it('keeps the failed Agents when a retry of them fails again, so the next retry still sends only those', async () => {
+    vi.mocked(pluginsApi.preview).mockResolvedValue(plan('u', { action: 'update' }, { action: 'update', target: 'pi' }));
+    const codexFails = { result: { results: [{ name: 'demo', target: 'codex', status: 'failed', message: 'timeout' }] }, failure: 'demo: timeout' };
+    vi.mocked(pluginsApi.apply).mockResolvedValueOnce({ result: { results: [...codexFails.result.results, { name: 'demo', target: 'pi', status: 'installed' }] }, failure: 'demo: timeout' }).mockResolvedValueOnce(codexFails);
+    const { now } = flow();
+    await act(() => now().updateMany([{ name: 'demo', targets: ['codex', 'pi'] }]));
+    await act(() => now().updateMany([{ name: 'demo', targets: ['codex'] }]));
+    expect(now().batch?.[0]).toMatchObject({ status: 'failed', targets: ['codex', 'pi'], failed: ['codex'] });
   });
 
   it('names the Agents that failed when the others updated, so a retry sends only those', async () => {
@@ -175,6 +213,9 @@ describe('plugins flow rules', () => {
   it('takes off an Agent that updated or was already there, and keeps one that failed', () => {
     const left = updatesLeft(pending, plan('r', { action: 'noop' }, { target: 'claude', action: 'update' }), { result: { results: [{ name: 'demo', target: 'codex', status: 'unchanged' }, { name: 'demo', target: 'claude', status: 'failed' }] }, failure: 'x' });
     expect(left).toEqual({ demo: { claude: { version: '1.1.0' } } });
+  });
+  it('keeps an Agent whose update was skipped', () => {
+    expect(updatesLeft(pending, updating, { result: { results: [{ name: 'demo', target: 'codex', status: 'skipped' }] }, failure: '' })).toEqual(pending);
   });
   it('keeps every Agent when the apply stopped before any ran', () => {
     expect(updatesLeft(pending, updating, { result: null, failure: 'preview is stale' })).toEqual(pending);
