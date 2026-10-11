@@ -10,7 +10,7 @@ import Spinner from '../Spinner';
 import { plural, useT } from '../../i18n';
 import { keyedMessage } from './outcomeText';
 import { Toggle, VersionChange } from './PluginList';
-import { installedVersion, type BatchItem, type UpdatePick } from './pluginsFlow';
+import { installedVersion, versionMoves, type BatchItem, type UpdatePick } from './pluginsFlow';
 import { UnchangedRuns } from './PluginRuns';
 
 interface Props {
@@ -103,7 +103,7 @@ function Picking({ names, found, inventory, label, busy, onUpdate, onClose, chil
             {names.map((name) => {
               const rows = found.filter((c) => c.name === name);
               const on = pickedOf(name).length > 0;
-              const next = rows.find((c) => c.version)?.version;
+              const { moves, shared } = versionMoves(inventory, name, rows);
               const note = rows.find((c) => c.note)?.note;
               return (
                 <div key={name} className="ss-r items-start py-3">
@@ -113,7 +113,7 @@ function Picking({ names, found, inventory, label, busy, onUpdate, onClose, chil
                     <span className="flex items-center gap-2">
                       <span className="font-mono font-semibold">{name}</span>
                       {rows.length === 1 && <span className="text-[13px] text-ink-2">{label(rows[0].target)}</span>}
-                      <VersionChange from={installedVersion(inventory, name, rows[0].target)} to={next} fromCommit={inventory.packages[name]?.bindings[rows[0].target]?.commit} toCommit={rows.find((c) => c.commit)?.commit} />
+                      {shared && <VersionChange {...moves[0]} />}
                       {rows.length > 1 && <span className="text-xs text-ink-3">{t(plural('plugins.updateDialog.agents', rows.length), { count: rows.length })}</span>}
                     </span>
                     {rows.length > 1 && (
@@ -121,6 +121,7 @@ function Picking({ names, found, inventory, label, busy, onUpdate, onClose, chil
                         {rows.map((c) => <Toggle key={c.target} target={c.target} label={label(c.target)} on={pickedOf(name).includes(c.target)} applying={false} disabled={busy} onClick={() => toggle(name, c.target, !pickedOf(name).includes(c.target))} />)}
                       </span>
                     )}
+                    {!shared && moves.map((m) => <span key={m.target} className="flex items-center gap-2 text-xs text-ink-3">{label(m.target)}<VersionChange {...m} /></span>)}
                     {note && <span className="text-xs text-ink-3">{note}</span>}
                   </span>
                 </div>

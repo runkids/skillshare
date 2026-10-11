@@ -1,7 +1,7 @@
 import { act, renderHook } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { pluginsApi, type PluginInventory, type PluginPlan } from '../../api/plugins';
-import { changedRuns, failureText, piPackageTest, reviewChanges, syncTodo, updatesFound, updatesLeft, updatesPending, usePluginsFlow } from './pluginsFlow';
+import { changedRuns, failureText, piPackageTest, reviewChanges, syncTodo, updatesFound, updatesLeft, updatesPending, usePluginsFlow, versionMoves } from './pluginsFlow';
 
 vi.mock('../../api/plugins', async (importOriginal) => ({ ...await importOriginal<typeof import('../../api/plugins')>(), pluginsApi: { preview: vi.fn(), apply: vi.fn() } }));
 
@@ -121,6 +121,20 @@ describe('plugins flow', () => {
     vi.mocked(pluginsApi.apply).mockResolvedValueOnce(ok);
     await act(() => now().updateMany([{ name: 'demo', targets: ['codex'] }]));
     expect(now().batch).toEqual([{ name: 'demo', targets: ['codex'], status: 'done', note: undefined, failed: undefined }, { name: 'other', targets: ['codex'], status: 'done', note: undefined }]);
+  });
+
+  it('shares one version move only when every Agent makes the same one', () => {
+    const inventory = { targetDefinitions: [], hosts: [], packages: { tail: { bindings: { pi: { id: 'a', version: '1.0.0' }, codex: { id: 'b', version: '1.0.0' }, claude: { id: 'c', version: '0.9.0' } } } } };
+    expect(versionMoves(inventory, 'tail', [{ target: 'pi', version: '1.1.0' }, { target: 'codex', version: '1.1.0' }]).shared).toBe(true);
+    expect(versionMoves(inventory, 'tail', [{ target: 'pi', version: '1.1.0' }, { target: 'claude', version: '1.1.0' }]).moves.map((m) => m.from)).toEqual(['1.0.0', '0.9.0']);
+    expect(versionMoves(inventory, 'tail', [{ target: 'pi', version: '1.1.0' }, { target: 'claude', version: '1.1.0' }]).shared).toBe(false);
+  });
+
+  it('tells whether a check came back, so a check the user asked for can open its result', async () => {
+    const { now } = flow();
+    await act(async () => expect(await now().check()).toBe(true));
+    vi.mocked(pluginsApi.preview).mockRejectedValueOnce(new Error('offline'));
+    await act(async () => expect(await now().check()).toBe(false));
   });
 
   it('drops a pending update whose plugin or Agent binding is gone', () => {

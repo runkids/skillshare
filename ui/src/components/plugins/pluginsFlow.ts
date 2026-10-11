@@ -76,6 +76,16 @@ export function piPackageTest(inventory: PluginInventory | undefined) {
   };
 }
 
+/**
+ * Each Agent's own move, from what it has to what its update brings. Agents of one plugin can come from
+ * different sources, so they share one line only when every move is the same.
+ */
+export function versionMoves(inventory: PluginInventory | undefined, name: string, rows: { target: PluginTarget; version?: string; commit?: string }[]) {
+  const moves = rows.map((r) => ({ target: r.target, from: installedVersion(inventory, name, r.target), to: r.version || undefined, fromCommit: inventory?.packages[name]?.bindings[r.target]?.commit, toCommit: r.commit }));
+  const key = (m: (typeof moves)[number]) => [m.from, m.to, m.fromCommit, m.toCommit].join('\0');
+  return { moves, shared: moves.every((m) => key(m) === key(moves[0])) };
+}
+
 export function installedVersion(inventory: PluginInventory | undefined, name: string, target: string) {
   const b = inventory?.packages[name]?.bindings[target];
   return b && inventory ? bindingVersion(inventory, target, b) : undefined;
@@ -122,10 +132,11 @@ export function usePluginsFlow({ t, inventory, refresh, onPreviewed }: {
   const stopped = useRef(false);
 
   /** A check is read-only and opens nothing: it only marks the rows. Quiet, as on page load, it also keeps its error to itself. */
+  /** Resolves whether the check came back, so a check the user asked for can show its result. */
   const check = async (quiet = false) => {
     setChecking(true); if (!quiet) setFailure('');
-    try { const plan = await pluginsApi.preview({ action: 'check' }); setUpdates(updatesFound(plan)); setChecked(plan); }
-    catch (e) { if (!quiet) setFailure((e as Error).message); }
+    try { const plan = await pluginsApi.preview({ action: 'check' }); setUpdates(updatesFound(plan)); setChecked(plan); return true; }
+    catch (e) { if (!quiet) setFailure((e as Error).message); return false; }
     finally { setChecking(false); }
   };
   /** Each plugin picked is its own preview and apply, one after another, so one failure stops nothing else. */

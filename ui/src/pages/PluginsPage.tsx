@@ -157,7 +157,7 @@ export default function PluginsPage() {
         {shareable.length > 0 && <Button variant="ghost" disabled={busy} onClick={() => setSharing(shareable.map((p) => p.name))}><Share2 size={15} />{t('plugins.share')}</Button>}
         {packages.length > 0 && (checking
           ? <span className="flex items-center gap-1.5 px-3 text-[13px] text-ink-3"><Spinner size="sm" />{t('plugins.checkingUpdates')}</span>
-          : <Button variant="ghost" disabled={busy} onClick={() => (updatable > 0 ? setUpdating(true) : void check())}><RefreshCw size={15} />{updatable > 0 ? t(plural('plugins.updateCount', updatable), { count: updatable }) : t('plugins.check')}</Button>)}
+          : <Button variant="ghost" disabled={busy} onClick={() => (updatable > 0 ? setUpdating(true) : void check().then((ok) => ok && setUpdating(true)))}><RefreshCw size={15} />{updatable > 0 ? t(plural('plugins.updateCount', updatable), { count: updatable }) : t('plugins.check')}</Button>)}
         {addActions}
       </>} />
 
