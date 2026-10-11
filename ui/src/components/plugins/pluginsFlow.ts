@@ -18,11 +18,11 @@ export interface BatchItem extends UpdatePick {
   stale?: boolean;
 }
 
-/** What is still to update after the last check: the Agents it found behind that are still bound and can be updated from here, per plugin. */
+/** What is still to update after the last check: the Agents it found behind that are still bound, still ticked, and can be updated from here, per plugin. */
 export function updatesPending(updates: Updates, inventory?: PluginInventory): UpdatePick[] {
   const targets = targetMap(inventory?.targetDefinitions);
   return Object.entries(updates)
-    .map(([name, u]) => ({ name, targets: Object.keys(u).filter((target) => inventory?.packages[name]?.bindings[target] && targets[target]?.operations.includes('update')) }))
+    .map(([name, u]) => ({ name, targets: Object.keys(u).filter((target) => { const b = inventory?.packages[name]?.bindings[target]; return b && b.sync !== false && targets[target]?.operations.includes('update'); }) }))
     .filter((p) => p.targets.length > 0);
 }
 

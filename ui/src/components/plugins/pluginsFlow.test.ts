@@ -137,6 +137,11 @@ describe('plugins flow', () => {
     await act(async () => expect(await now().check()).toBe(false));
   });
 
+  it('drops a pending update for an Agent unticked since the check', () => {
+    const inventory = { hosts: [], targetDefinitions: [{ target: 'pi', label: 'Pi', project: false, operations: ['update'] }, { target: 'codex', label: 'Codex', project: false, operations: ['update'] }], packages: { tail: { bindings: { pi: { id: 'npm:tail' }, codex: { id: 'tail@m', sync: false } } } } };
+    expect(updatesPending({ tail: { pi: { version: '2' }, codex: { version: '2' } } }, inventory)).toEqual([{ name: 'tail', targets: ['pi'] }]);
+  });
+
   it('drops a pending update whose plugin or Agent binding is gone', () => {
     const inventory = { packages: { kept: { bindings: { pi: { id: 'npm:kept' } } } }, hosts: [], targetDefinitions: [{ target: 'pi', label: 'Pi', project: false, operations: ['update'] }, { target: 'codex', label: 'Codex', project: false, operations: ['update'] }] };
     const updates = { kept: { pi: { version: '2' }, codex: { version: '2' } }, removed: { pi: { version: '2' } } };

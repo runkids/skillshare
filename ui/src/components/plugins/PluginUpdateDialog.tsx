@@ -39,31 +39,37 @@ export default function PluginUpdateDialog({ open, plan, pending, inventory, bat
   const found = changes.filter((c) => c.action === 'update-available' && pending.some((p) => p.name === c.name && p.targets.includes(c.target)));
   const names = pending.map((p) => p.name);
   const unverified = changes.filter((c) => c.action === 'native-check');
+  // A source that no longer offers a compatible plugin for an Agent: nothing can be updated there until that changes.
+  const blocked = changes.filter((c) => c.action === 'blocked');
+  const others = [
+    { title: t('plugins.updateDialog.blockedTitle'), rows: blocked, tag: <span className="ss-tag bad">{t('plugins.blocked')}</span> },
+    { title: t('plugins.updateDialog.unverifiedTitle'), rows: unverified, tag: <span className="ss-tag warn">{t('plugins.unverified')}</span> },
+  ].filter((g) => g.rows.length > 0);
   const idle = changes.filter((c) => c.action === 'noop').map((c) => ({ name: c.name, target: c.target, version: c.binding?.version ?? installedVersion(inventory, c.name, c.target) }));
   return (
     <DialogShell open={open} onClose={onClose} preventClose={busy} ariaLabel={t('plugins.updateDialog.title')} maxWidth="2xl" padding="none">
       {batch
         ? <Running batch={batch} busy={busy} inventory={inventory} label={label} onRetry={(item) => onUpdate([{ name: item.name, targets: item.failed ?? item.targets }])} onStop={onStop} onClose={onClose} />
         : (
-          <Picking key={plan?.revision} names={names} inventory={inventory} label={label} busy={busy} onUpdate={onUpdate} onClose={onClose}
+          <Picking key={plan?.revision} names={names} attention={others.length > 0} inventory={inventory} label={label} busy={busy} onUpdate={onUpdate} onClose={onClose}
             found={found.map((c) => ({ name: c.name, target: c.target, version: c.binding?.version, commit: c.binding?.commit, note: c.message ? keyedMessage(t, c) : '' }))}>
-            {unverified.length > 0 && (
-              <div className="flex flex-col gap-2">
-                <span className="text-xs font-medium text-ink-3">{t('plugins.updateDialog.unverifiedTitle')} · {unverified.length}</span>
+            {others.map((g) => (
+              <div key={g.title} className="flex flex-col gap-2">
+                <span className="text-xs font-medium text-ink-3">{g.title} · {g.rows.length}</span>
                 <div className="ss-list">
-                  {unverified.map((c) => (
+                  {g.rows.map((c) => (
                     <div key={`${c.name}:${c.target}`} className="ss-r">
                       <span className="ss-at"><AgentIcon target={c.target} size={17} /></span>
                       <span className="flex min-w-0 flex-1 flex-col gap-0.5">
                         <span className="flex items-center gap-2"><span className="font-mono font-semibold">{c.name}</span><span className="text-[13px] text-ink-2">{label(c.target)}</span><VersionChange from={installedVersion(inventory, c.name, c.target)} /></span>
                         {c.message && <span className="text-xs text-ink-3">{keyedMessage(t, c)}</span>}
                       </span>
-                      <span className="ss-tag warn">{t('plugins.unverified')}</span>
+                      {g.tag}
                     </div>
                   ))}
                 </div>
               </div>
-            )}
+            ))}
             <UnchangedRuns runs={idle} isPi={isPi} versions />
           </Picking>
         )}
@@ -73,8 +79,8 @@ export default function PluginUpdateDialog({ open, plan, pending, inventory, bat
 
 type Found = { name: string; target: PluginTarget; version?: string; commit?: string; note: string };
 
-function Picking({ names, found, inventory, label, busy, onUpdate, onClose, children }: {
-  names: string[]; found: Found[]; inventory: PluginInventory; label: (target: string) => string; busy: boolean;
+function Picking({ names, attention, found, inventory, label, busy, onUpdate, onClose, children }: {
+  names: string[]; attention: boolean; found: Found[]; inventory: PluginInventory; label: (target: string) => string; busy: boolean;
   onUpdate: (picks: UpdatePick[]) => void; onClose: () => void; children: React.ReactNode;
 }) {
   const t = useT();
@@ -90,7 +96,7 @@ function Picking({ names, found, inventory, label, busy, onUpdate, onClose, chil
   return (
     <>
       <div className="dh">
-        <div className="flex flex-col gap-1"><h2 className="ss-h2">{t('plugins.updateDialog.title')}</h2><p className="text-[13px] text-ink-2">{names.length === 0 ? t('plugins.updateDialog.none') : t(plural('plugins.updateDialog.found', names.length), { count: names.length })}</p></div>
+        <div className="flex flex-col gap-1"><h2 className="ss-h2">{t('plugins.updateDialog.title')}</h2><p className="text-[13px] text-ink-2">{names.length === 0 ? t(attention ? 'plugins.updateDialog.noneHere' : 'plugins.updateDialog.none') : t(plural('plugins.updateDialog.found', names.length), { count: names.length })}</p></div>
         <IconButton icon={<X size={16} />} label={t('common.close')} disabled={busy} onClick={onClose} />
       </div>
       <div className="db flex flex-col gap-4 overflow-y-auto">
