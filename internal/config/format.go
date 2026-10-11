@@ -184,8 +184,14 @@ func pairComments(key, val *yaml.Node) string {
 // allComments gathers every comment in a subtree, in document order.
 func allComments(n *yaml.Node) string {
 	out := joinComments(n.HeadComment, n.LineComment)
-	for _, c := range n.Content {
-		out = joinComments(out, allComments(c))
+	if n.Kind == yaml.MappingNode {
+		for i := 0; i+1 < len(n.Content); i += 2 {
+			out = joinComments(out, pairComments(n.Content[i], n.Content[i+1]))
+		}
+	} else {
+		for _, c := range n.Content {
+			out = joinComments(out, allComments(c))
+		}
 	}
 	return joinComments(out, n.FootComment)
 }

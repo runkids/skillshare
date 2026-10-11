@@ -222,3 +222,15 @@ func TestMarshalConfig_ScalarAndObjectTargetShareComments(t *testing.T) {
 		t.Errorf("comment should survive the switch to object form:\n%s", data)
 	}
 }
+
+func TestMarshalConfig_RemovedNestedEntryKeepsCommentOrder(t *testing.T) {
+	existing := []byte("sources:\n  skills: /src\ntargets:\n  claude:\n    skills:\n      # BEGIN\n      path: /a # note\n      # END\n")
+	cfg := Config{Sources: GlobalSources{Skills: "/src"}}
+	data, err := marshalConfig(&cfg, schemaComment, existing)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(data), "# BEGIN\n# note\n# END") {
+		t.Errorf("nested comments should keep their order:\n%s", data)
+	}
+}
