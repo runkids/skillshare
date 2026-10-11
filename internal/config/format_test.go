@@ -145,28 +145,39 @@ targets:
 	}
 }
 
-func TestMarshalConfig_CommentsSurviveReorderAndListEdit(t *testing.T) {
-	existing := []byte(string(schemaComment) + `
-# kept on mode
-mode: merge
-sources:
-  skills: /src
-ignore:
-  - tmp # scratch
-  - build
-`)
-	cfg := Config{Mode: "merge", Sources: GlobalSources{Skills: "/src"}, Ignore: []string{"build", "tmp"}}
+func TestMarshalConfig_CommentOnReorderedKeyFollowsIt(t *testing.T) {
+	existing := []byte(string(schemaComment) + "\n# kept on mode\nmode: merge\nsources:\n  skills: /src\n")
+	cfg := Config{Mode: "merge", Sources: GlobalSources{Skills: "/src"}}
 	data, err := marshalConfig(&cfg, schemaComment, existing)
 	if err != nil {
 		t.Fatal(err)
 	}
 	got := string(data)
-	if strings.Count(got, "yaml-language-server") != 1 {
-		t.Errorf("schema header should appear once:\n%s", got)
+	if strings.Count(got, "yaml-language-server") != 1 || !strings.Contains(got, "# kept on mode\nmode: merge") {
+		t.Errorf("comment should move with the key, header once:\n%s", got)
 	}
-	for _, want := range []string{"# kept on mode\nmode: merge", "- tmp # scratch"} {
-		if !strings.Contains(got, want) {
-			t.Errorf("comment %q lost:\n%s", want, got)
-		}
+}
+
+func TestMarshalConfig_CommentOnListItemSurvivesListEdit(t *testing.T) {
+	existing := []byte("ignore:\n  - tmp # scratch\n  - build\n")
+	cfg := Config{Ignore: []string{"build", "tmp"}}
+	data, err := marshalConfig(&cfg, schemaComment, existing)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(data), "- tmp # scratch") {
+		t.Errorf("item comment lost:\n%s", data)
+	}
+}
+
+func TestMarshalConfig_CommentOnRemovedKeyIsDropped(t *testing.T) {
+	existing := []byte("# gone with the key\nmode: merge\nsources:\n  skills: /src\n")
+	cfg := Config{Sources: GlobalSources{Skills: "/src"}}
+	data, err := marshalConfig(&cfg, schemaComment, existing)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(data), "gone with the key") {
+		t.Errorf("comment of a removed key should not survive:\n%s", data)
 	}
 }

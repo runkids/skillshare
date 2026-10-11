@@ -2,6 +2,8 @@ package config
 
 import (
 	"bytes"
+	"errors"
+	"os"
 	"sort"
 	"strings"
 
@@ -66,6 +68,17 @@ func sortSections(m *yaml.Node) {
 	if !aliasesFollowAnchors(m, map[string]bool{}) {
 		m.Content = original
 	}
+}
+
+// marshalConfigFile encodes v to replace the file at path, keeping that file's
+// comments. A file that cannot be read for any reason other than being absent
+// is an error: writing over it would silently drop its comments.
+func marshalConfigFile(path string, v any, header []byte) ([]byte, error) {
+	existing, err := os.ReadFile(path)
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
+		return nil, err
+	}
+	return marshalConfig(v, header, existing)
 }
 
 // keepComments copies the comments of existing onto the same keys of m. A key
@@ -136,14 +149,11 @@ func sameItem(a, b *yaml.Node) bool {
 	return false
 }
 
-func joinComments(parts ...string) string {
-	var kept []string
-	for _, p := range parts {
-		if p != "" {
-			kept = append(kept, p)
-		}
+func joinComments(a, b string) string {
+	if a == "" || b == "" {
+		return a + b
 	}
-	return strings.Join(kept, "\n")
+	return a + "\n" + b
 }
 
 func withoutSchemaDirective(comment string) string {

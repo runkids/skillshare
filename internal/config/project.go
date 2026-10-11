@@ -503,8 +503,7 @@ func (c *ProjectConfig) SaveIn(projectDir string) error {
 		return fmt.Errorf("failed to create project config directory: %w", err)
 	}
 
-	existing, _ := os.ReadFile(path)
-	data, err := marshalConfig(c, projectSchemaComment, existing)
+	data, err := marshalConfigFile(path, c, projectSchemaComment)
 	if err != nil {
 		return fmt.Errorf("failed to marshal project config: %w", err)
 	}

@@ -822,8 +822,7 @@ func (c *Config) Save() error {
 	if c.PreserveTildeOnSave {
 		payload = payload.cloneForSave()
 	}
-	existing, _ := os.ReadFile(path)
-	data, err := marshalConfig(payload, schemaComment, existing)
+	data, err := marshalConfigFile(path, payload, schemaComment)
 	if err != nil {
 		return fmt.Errorf("failed to marshal config: %w", err)
 	}
