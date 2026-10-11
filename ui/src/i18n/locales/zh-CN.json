@@ -2543,6 +2543,7 @@
   "plugins.updateDialog.doneFailed": "已更新 {updated} 个，{failed} 个失败",
   "plugins.updateDialog.doneHelp": "列表上的版本已同步更新。失败的项目可以直接重试。",
   "plugins.updateDialog.partFailed": "{done} 已更新。{failed} 失败。",
+  "plugins.updateDialog.partSkipped": "{done} 已更新。{failed} 已跳过。",
   "plugins.updateDialog.stale": "检查之后来源又有变更，所以没有安装。请重新检查以查看新版本。",
   "plugins.updateDialog.waiting": "等待中",
   "plugins.updateDialog.updating": "更新中",

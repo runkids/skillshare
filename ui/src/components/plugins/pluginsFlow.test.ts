@@ -1,7 +1,7 @@
 import { act, renderHook } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { pluginsApi, type PluginInventory, type PluginPlan } from '../../api/plugins';
-import { changedRuns, failureText, piPackageTest, reviewChanges, syncTodo, updatesFound, updatesLeft, updatesPending, usePluginsFlow, versionMoves } from './pluginsFlow';
+import { changedRuns, failureText, piPackageTest, reviewChanges, syncTodo, updatesFound, updatedTargets, updatesLeft, updatesPending, usePluginsFlow, versionMoves } from './pluginsFlow';
 
 vi.mock('../../api/plugins', async (importOriginal) => ({ ...await importOriginal<typeof import('../../api/plugins')>(), pluginsApi: { preview: vi.fn(), apply: vi.fn() } }));
 
@@ -123,6 +123,10 @@ describe('plugins flow', () => {
     expect(now().batch).toEqual([{ name: 'demo', targets: ['codex'], status: 'done', note: undefined, failed: undefined }, { name: 'other', targets: ['codex'], status: 'done', note: undefined }]);
   });
 
+  it('counts the Agents that updated in a plugin where another was skipped', () => {
+    expect(updatedTargets({ name: 'tail', targets: ['pi', 'codex'], status: 'skipped', failed: ['codex'] })).toEqual(['pi']);
+  });
+
   it('shares one version move only when every Agent makes the same one', () => {
     const inventory = { targetDefinitions: [], hosts: [], packages: { tail: { bindings: { pi: { id: 'a', version: '1.0.0' }, codex: { id: 'b', version: '1.0.0' }, claude: { id: 'c', version: '0.9.0' } } } } };
     expect(versionMoves(inventory, 'tail', [{ target: 'pi', version: '1.1.0' }, { target: 'codex', version: '1.1.0' }]).shared).toBe(true);
@@ -168,6 +172,17 @@ describe('plugins flow', () => {
     await act(() => now().updateMany([{ name: 'driver', targets: ['pi'] }]));
     expect(pluginsApi.apply).not.toHaveBeenCalled();
     expect(now().batch?.[0]).toMatchObject({ status: 'skipped', stale: true });
+  });
+
+  it('drops a moved source from the updates and shows why when the check after it fails', async () => {
+    vi.mocked(pluginsApi.preview)
+      .mockResolvedValueOnce(plan('r', { name: 'driver', target: 'pi', action: 'update-available', binding: { id: 'npm:driver', version: '1.1.0' } }))
+      .mockResolvedValueOnce(plan('u', { name: 'driver', target: 'pi', action: 'update', binding: { id: 'npm:driver', version: '1.2.0' } }))
+      .mockRejectedValueOnce(new Error('offline'));
+    const { now } = flow();
+    await act(() => now().check());
+    await act(() => now().updateMany([{ name: 'driver', targets: ['pi'] }]));
+    expect([now().updates.driver, now().failure]).toEqual([undefined, 'offline']);
   });
 
   it('applies nothing when a local source changed after the check with the same version', async () => {

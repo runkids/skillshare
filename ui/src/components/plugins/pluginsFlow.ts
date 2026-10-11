@@ -76,6 +76,12 @@ export function piPackageTest(inventory: PluginInventory | undefined) {
   };
 }
 
+/** The Agents a batch row did update: all of them when done, the rest of a row whose `failed` names only some. */
+export function updatedTargets(item: BatchItem) {
+  if (item.status === 'done') return item.targets;
+  return (item.status === 'failed' || item.status === 'skipped') && item.failed ? item.targets.filter((x) => !item.failed!.includes(x)) : [];
+}
+
 /**
  * Each Agent's own move, from what it has to what its update brings. Agents of one plugin can come from
  * different sources, so they share one line only when every move is the same.
@@ -161,7 +167,7 @@ export function usePluginsFlow({ t, inventory, refresh, onPreviewed }: {
           // A local directory has no commit; its digest is what moves.
           return c.action === 'update' && seen && ((c.binding?.version ?? '') !== seen.version || (!!seen.commit && c.binding?.commit !== seen.commit) || (!!seen.digest && c.binding?.digest !== seen.digest));
         });
-        if (moved) { staleSeen = true; set(p.name, { status: 'skipped', stale: true, note: t('plugins.updateDialog.stale') }); continue; }
+        if (moved) { staleSeen = true; setUpdates((prev) => Object.fromEntries(Object.entries(prev).filter(([name]) => name !== p.name))); set(p.name, { status: 'skipped', stale: true, note: t('plugins.updateDialog.stale') }); continue; }
         // What the Agent is about to do (an npm install, say) shows while it runs.
         set(p.name, { note: plan.changes.filter((c) => c.message).map((c) => keyedMessage(t, c)).join(' ') || undefined });
         const response = await pluginsApi.apply(request, plan.revision);
@@ -176,8 +182,8 @@ export function usePluginsFlow({ t, inventory, refresh, onPreviewed }: {
       } catch (e) { set(p.name, { status: 'failed', note: (e as Error).message, failed: p.targets }); }
     }
     setBusy(false); refresh();
-    // A source that moved needs a fresh check before it can be offered again.
-    if (staleSeen) void check(true);
+    // A source that moved is offered again only by a fresh check; the user started this, so its failure shows.
+    if (staleSeen) void check();
   };
 
   // `key` names the control that started this, so only it shows a spinner.

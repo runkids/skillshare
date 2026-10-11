@@ -2543,6 +2543,7 @@
   "plugins.updateDialog.doneFailed": "{updated} actualizados, {failed} con error",
   "plugins.updateDialog.doneHelp": "La lista muestra las versiones nuevas. Un plugin con error se puede reintentar aquí.",
   "plugins.updateDialog.partFailed": "{done} actualizado. {failed} con error.",
+  "plugins.updateDialog.partSkipped": "{done} actualizado. {failed} omitido.",
   "plugins.updateDialog.stale": "La fuente cambió desde la comprobación, así que no se instaló nada. Vuelve a comprobar para revisar la nueva versión.",
   "plugins.updateDialog.waiting": "En espera",
   "plugins.updateDialog.updating": "Actualizando",

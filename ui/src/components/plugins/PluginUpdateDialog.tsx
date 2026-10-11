@@ -10,7 +10,7 @@ import Spinner from '../Spinner';
 import { plural, useT } from '../../i18n';
 import { keyedMessage } from './outcomeText';
 import { Toggle, VersionChange } from './PluginList';
-import { installedVersion, versionMoves, type BatchItem, type UpdatePick } from './pluginsFlow';
+import { installedVersion, updatedTargets, versionMoves, type BatchItem, type UpdatePick } from './pluginsFlow';
 import { UnchangedRuns } from './PluginRuns';
 
 interface Props {
@@ -150,7 +150,8 @@ function Running({ batch, busy, inventory, label, onRetry, onStop, onClose }: {
   onRetry: (item: BatchItem) => void; onStop: () => void; onClose: () => void;
 }) {
   const t = useT();
-  const done = batch.filter((i) => i.status === 'done').length;
+  // A plugin counts as updated when any of its Agents was; one where another Agent was skipped says so on its row.
+  const done = batch.filter((i) => i.status !== 'failed' && updatedTargets(i).length > 0).length;
   const failed = batch.filter((i) => i.status === 'failed').length;
   const settled = batch.filter((i) => i.status !== 'waiting' && i.status !== 'running').length;
   const status = (item: BatchItem) => {
@@ -183,7 +184,7 @@ function Running({ batch, busy, inventory, label, onRetry, onStop, onClose }: {
                   <span className="text-[13px] text-ink-2">{item.targets.map(label).join(' · ')}</span>
                   <VersionChange from={installedVersion(inventory, item.name, item.targets[0])} />
                 </span>
-                {item.status === 'failed' && item.failed && item.failed.length < item.targets.length && <span className="text-xs text-ink-3">{t('plugins.updateDialog.partFailed', { done: item.targets.filter((x) => !item.failed!.includes(x)).map(label).join(' · '), failed: item.failed.map(label).join(' · ') })}</span>}
+                {item.failed && updatedTargets(item).length > 0 && <span className="text-xs text-ink-3">{t(item.status === 'failed' ? 'plugins.updateDialog.partFailed' : 'plugins.updateDialog.partSkipped', { done: updatedTargets(item).map(label).join(' · '), failed: item.failed.map(label).join(' · ') })}</span>}
                 {item.note && <span className={item.status === 'failed' ? 'font-mono text-xs text-bad' : 'text-xs text-ink-3'}>{item.note}</span>}
               </span>
               {status(item)}

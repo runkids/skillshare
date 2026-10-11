@@ -2543,6 +2543,7 @@
   "plugins.updateDialog.doneFailed": "{updated}개 업데이트, {failed}개 실패",
   "plugins.updateDialog.doneHelp": "목록의 버전이 갱신되었습니다. 실패한 항목은 여기서 다시 시도할 수 있습니다.",
   "plugins.updateDialog.partFailed": "{done} 업데이트됨. {failed} 실패.",
+  "plugins.updateDialog.partSkipped": "{done} 업데이트됨. {failed} 건너뜀.",
   "plugins.updateDialog.stale": "확인 후 소스가 바뀌어 설치하지 않았습니다. 다시 확인해 새 버전을 검토하세요.",
   "plugins.updateDialog.waiting": "대기 중",
   "plugins.updateDialog.updating": "업데이트 중",

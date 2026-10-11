@@ -2543,6 +2543,7 @@
   "plugins.updateDialog.doneFailed": "{updated} diperbarui, {failed} gagal",
   "plugins.updateDialog.doneHelp": "Daftar menampilkan versi baru. Plugin yang gagal bisa dicoba lagi di sini.",
   "plugins.updateDialog.partFailed": "{done} diperbarui. {failed} gagal.",
+  "plugins.updateDialog.partSkipped": "{done} diperbarui. {failed} dilewati.",
   "plugins.updateDialog.stale": "Sumber berubah sejak pemeriksaan, jadi tidak ada yang dipasang. Periksa lagi untuk meninjau versi baru.",
   "plugins.updateDialog.waiting": "Menunggu",
   "plugins.updateDialog.updating": "Memperbarui",
