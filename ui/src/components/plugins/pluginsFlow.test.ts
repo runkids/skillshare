@@ -165,6 +165,16 @@ describe('plugins flow', () => {
     expect(now().batch?.[0]).toMatchObject({ status: 'skipped', stale: true });
   });
 
+  it('applies nothing when a local source changed after the check with the same version', async () => {
+    vi.mocked(pluginsApi.preview)
+      .mockResolvedValueOnce(plan('r', { name: 'driver', target: 'claude', action: 'update-available', binding: { id: 'driver@m', version: '1.0.0', digest: 'seen' } }))
+      .mockResolvedValueOnce(plan('u', { name: 'driver', target: 'claude', action: 'update', binding: { id: 'driver@m', version: '1.0.0', digest: 'edited-since' } }));
+    const { now } = flow();
+    await act(() => now().check());
+    await act(() => now().updateMany([{ name: 'driver', targets: ['claude'] }]));
+    expect(pluginsApi.apply).not.toHaveBeenCalled();
+  });
+
   it('keeps the failed Agents when a retry of them fails again, so the next retry still sends only those', async () => {
     vi.mocked(pluginsApi.preview).mockResolvedValue(plan('u', { action: 'update' }, { action: 'update', target: 'pi' }));
     const codexFails = { result: { results: [{ name: 'demo', target: 'codex', status: 'failed', message: 'timeout' }] }, failure: 'demo: timeout' };

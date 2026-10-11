@@ -15,7 +15,7 @@ import { queryKeys } from '../../lib/queryKeys';
 
 const STACK = 6;
 
-export interface PluginUpdate { version: string; commit?: string }
+export interface PluginUpdate { version: string; commit?: string; digest?: string }
 
 interface Props {
   inventory: PluginInventory;

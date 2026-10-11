@@ -35,7 +35,7 @@ export function failureText(t: T, response: PluginResult) {
 /** What a check found to update, per plugin and Agent (version '' when the source changed without a new one). */
 export function updatesFound(plan: PluginPlan) {
   const found: Updates = {};
-  for (const c of plan.changes) if (c.action === 'update-available') (found[c.name] ??= {})[c.target] = { version: c.binding?.version ?? '', commit: c.binding?.commit };
+  for (const c of plan.changes) if (c.action === 'update-available') (found[c.name] ??= {})[c.target] = { version: c.binding?.version ?? '', commit: c.binding?.commit, digest: c.binding?.digest };
   return found;
 }
 
@@ -158,7 +158,8 @@ export function usePluginsFlow({ t, inventory, refresh, onPreviewed }: {
         // The user approved the versions the check showed; a source that moved since gets a new check, not a silent install.
         const moved = plan.changes.some((c) => {
           const seen = updates[c.name]?.[c.target];
-          return c.action === 'update' && seen && ((c.binding?.version ?? '') !== seen.version || (!!seen.commit && c.binding?.commit !== seen.commit));
+          // A local directory has no commit; its digest is what moves.
+          return c.action === 'update' && seen && ((c.binding?.version ?? '') !== seen.version || (!!seen.commit && c.binding?.commit !== seen.commit) || (!!seen.digest && c.binding?.digest !== seen.digest));
         });
         if (moved) { staleSeen = true; set(p.name, { status: 'skipped', stale: true, note: t('plugins.updateDialog.stale') }); continue; }
         // What the Agent is about to do (an npm install, say) shows while it runs.

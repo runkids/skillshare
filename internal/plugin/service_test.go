@@ -328,6 +328,35 @@ func TestCheckReportsTheSourceVersion(t *testing.T) {
 	}
 }
 
+// A local directory has no commit: the digest is all that tells the content the check saw
+// from what an update would install, so the check must carry it.
+func TestCheckCarriesTheSourceDigestTheUpdateWouldInstall(t *testing.T) {
+	root := fixture(t)
+	s, _, _ := fakeClaude(t)
+	r := Request{Action: "add", Source: root, Plugin: "demo", Targets: []string{"claude"}}
+	p, err := s.Preview(context.Background(), r)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.Apply(context.Background(), r, p.Revision); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "skills", "extra.md"), []byte("changed"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	check, err := s.Preview(context.Background(), Request{Action: "check"})
+	if err != nil || len(check.Changes) != 1 || check.Changes[0].Action != "update-available" {
+		t.Fatalf("check did not report the change: %+v %v", check, err)
+	}
+	update, err := s.Preview(context.Background(), Request{Action: "update", Name: "demo", Targets: []string{"claude"}})
+	if err != nil || len(update.Changes) != 1 {
+		t.Fatalf("update preview: %+v %v", update, err)
+	}
+	if got, want := check.Changes[0].Binding.Digest, update.Changes[0].Binding.Digest; got == "" || got != want {
+		t.Fatalf("check digest %q, update digest %q", got, want)
+	}
+}
+
 func TestManagedMarketplaceNameShowsThePlugin(t *testing.T) {
 	root := fixture(t)
 	for _, manifest := range []string{".claude-plugin/plugin.json", ".codex-plugin/plugin.json"} {
