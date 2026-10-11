@@ -3,6 +3,7 @@ package config
 import (
 	"bytes"
 	"sort"
+	"strings"
 
 	"gopkg.in/yaml.v3"
 
@@ -20,13 +21,16 @@ var configSections = []string{
 // marshalConfig encodes v the way the dashboard's Beautify lays out a config:
 // the schema header first, top-level sections in configSections order (unknown
 // keys last, in their encoded order), and a blank line between sections.
-func marshalConfig(v any, header []byte) ([]byte, error) {
+// existing is the file being replaced, or nil; its comments are kept on every
+// key that is still present.
+func marshalConfig(v any, header []byte, existing []byte) ([]byte, error) {
 	var doc yaml.Node
 	if err := doc.Encode(v); err != nil {
 		return nil, err
 	}
 	if doc.Kind == yaml.MappingNode {
 		sortSections(&doc)
+		keepComments(&doc, existing)
 	}
 	data, err := utils.MarshalYAML(&doc)
 	if err != nil {
@@ -62,6 +66,66 @@ func sortSections(m *yaml.Node) {
 	if !aliasesFollowAnchors(m, map[string]bool{}) {
 		m.Content = original
 	}
+}
+
+// keepComments copies the comments of existing onto the same keys of m. A key
+// that was removed loses its comments; a key that was added has none. Comments
+// m already carries (raw sections such as hooks) win, and the schema directive
+// is dropped, since marshalConfig writes its own header.
+func keepComments(m *yaml.Node, existing []byte) {
+	var old yaml.Node
+	if yaml.Unmarshal(existing, &old) != nil || len(old.Content) == 0 || old.Content[0].Kind != yaml.MappingNode {
+		return
+	}
+	copyComments(old.Content[0], m)
+	if m.HeadComment == "" {
+		m.HeadComment = old.HeadComment
+	}
+	if m.FootComment == "" {
+		m.FootComment = old.FootComment
+	}
+	m.HeadComment = withoutSchemaDirective(m.HeadComment)
+	if len(m.Content) > 0 {
+		m.Content[0].HeadComment = withoutSchemaDirective(m.Content[0].HeadComment)
+	}
+}
+
+func copyComments(old, cur *yaml.Node) {
+	if cur.HeadComment == "" {
+		cur.HeadComment = old.HeadComment
+	}
+	if cur.LineComment == "" {
+		cur.LineComment = old.LineComment
+	}
+	if cur.FootComment == "" {
+		cur.FootComment = old.FootComment
+	}
+	switch {
+	case old.Kind == yaml.MappingNode && cur.Kind == yaml.MappingNode:
+		for i := 0; i+1 < len(old.Content); i += 2 {
+			for j := 0; j+1 < len(cur.Content); j += 2 {
+				if cur.Content[j].Value == old.Content[i].Value {
+					copyComments(old.Content[i], cur.Content[j])
+					copyComments(old.Content[i+1], cur.Content[j+1])
+					break
+				}
+			}
+		}
+	case old.Kind == yaml.SequenceNode && cur.Kind == yaml.SequenceNode && len(old.Content) == len(cur.Content):
+		for i := range old.Content {
+			copyComments(old.Content[i], cur.Content[i])
+		}
+	}
+}
+
+func withoutSchemaDirective(comment string) string {
+	var kept []string
+	for _, line := range strings.Split(comment, "\n") {
+		if !strings.HasPrefix(line, "# yaml-language-server:") {
+			kept = append(kept, line)
+		}
+	}
+	return strings.TrimSpace(strings.Join(kept, "\n"))
 }
 
 func aliasesFollowAnchors(n *yaml.Node, anchors map[string]bool) bool {
