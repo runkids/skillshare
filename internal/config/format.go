@@ -81,10 +81,11 @@ func marshalConfigFile(path string, v any, header []byte) ([]byte, error) {
 	return marshalConfig(v, header, existing)
 }
 
-// keepComments copies the comments of existing onto the same keys of m. A key
-// that was removed loses its comments; a key that was added has none. Comments
-// m already carries (raw sections such as hooks) win, and the schema directive
-// is dropped, since marshalConfig writes its own header.
+// keepComments copies the comments of existing onto the same keys of m. No
+// comment is dropped: one on a key that was removed moves in front of the next
+// key that is still present, or to the end of its section. Comments m already
+// carries (raw sections such as hooks) win, and the schema directive is
+// dropped, since marshalConfig writes its own header.
 func keepComments(m *yaml.Node, existing []byte) {
 	var old yaml.Node
 	if yaml.Unmarshal(existing, &old) != nil || len(old.Content) == 0 || old.Content[0].Kind != yaml.MappingNode {
@@ -116,29 +117,83 @@ func copyComments(old, cur *yaml.Node) {
 	if cur.FootComment == "" {
 		cur.FootComment = old.FootComment
 	}
+	// orphaned collects the comments of removed entries until a surviving one
+	// takes them in front, or the section takes them at its end.
+	var orphaned string
 	switch {
 	case old.Kind == yaml.MappingNode && cur.Kind == yaml.MappingNode:
 		for i := 0; i+1 < len(old.Content); i += 2 {
-			for j := 0; j+1 < len(cur.Content); j += 2 {
+			j := 0
+			for ; j+1 < len(cur.Content); j += 2 {
 				if cur.Content[j].Value == old.Content[i].Value {
-					copyComments(old.Content[i], cur.Content[j])
-					copyComments(old.Content[i+1], cur.Content[j+1])
 					break
 				}
 			}
+			if j+1 >= len(cur.Content) {
+				orphaned = joinComments(orphaned, pairComments(old.Content[i], old.Content[i+1]))
+				continue
+			}
+			copyComments(old.Content[i], cur.Content[j])
+			copyComments(old.Content[i+1], cur.Content[j+1])
+			cur.Content[j].HeadComment = joinComments(orphaned, cur.Content[j].HeadComment)
+			orphaned = ""
 		}
 	case old.Kind == yaml.SequenceNode && cur.Kind == yaml.SequenceNode:
 		used := make([]bool, len(cur.Content))
 		for _, item := range old.Content {
-			for j, c := range cur.Content {
-				if !used[j] && itemIdentity(item) != "" && itemIdentity(item) == itemIdentity(c) {
-					used[j] = true
-					copyComments(item, c)
+			j := 0
+			for ; j < len(cur.Content); j++ {
+				if !used[j] && itemIdentity(item) != "" && itemIdentity(item) == itemIdentity(cur.Content[j]) {
 					break
 				}
 			}
+			if j == len(cur.Content) {
+				orphaned = joinComments(orphaned, allComments(item))
+				continue
+			}
+			used[j] = true
+			copyComments(item, cur.Content[j])
+			cur.Content[j].HeadComment = joinComments(orphaned, cur.Content[j].HeadComment)
+			orphaned = ""
+		}
+	default:
+		return
+	}
+	// A trailing orphan goes on the last entry: yaml.v3 prints a container's
+	// own foot comment after the next key instead.
+	switch {
+	case orphaned == "":
+	case cur.Kind == yaml.MappingNode && len(cur.Content) >= 2:
+		last := cur.Content[len(cur.Content)-2]
+		last.FootComment = joinComments(last.FootComment, orphaned)
+	case cur.Kind == yaml.SequenceNode && len(cur.Content) >= 1:
+		last := cur.Content[len(cur.Content)-1]
+		last.FootComment = joinComments(last.FootComment, orphaned)
+	default:
+		cur.FootComment = joinComments(cur.FootComment, orphaned)
+	}
+}
+
+// pairComments gathers the comments of a mapping entry as they appeared: the
+// key's head and line, the value's, then the key's foot, which yaml.v3 parses
+// from the lines after the entry.
+func pairComments(key, val *yaml.Node) string {
+	return joinComments(key.HeadComment, key.LineComment, allComments(val), key.FootComment)
+}
+
+// allComments gathers every comment in a subtree, in document order.
+func allComments(n *yaml.Node) string {
+	out := joinComments(n.HeadComment, n.LineComment)
+	if n.Kind == yaml.MappingNode {
+		for i := 0; i+1 < len(n.Content); i += 2 {
+			out = joinComments(out, pairComments(n.Content[i], n.Content[i+1]))
+		}
+	} else {
+		for _, c := range n.Content {
+			out = joinComments(out, allComments(c))
 		}
 	}
+	return joinComments(out, n.FootComment)
 }
 
 // itemIdentity names a sequence item: its value for a scalar, and for a
@@ -178,11 +233,14 @@ func nameScalar(n *yaml.Node) *yaml.Node {
 	return nil
 }
 
-func joinComments(a, b string) string {
-	if a == "" || b == "" {
-		return a + b
+func joinComments(parts ...string) string {
+	var kept []string
+	for _, p := range parts {
+		if p != "" {
+			kept = append(kept, p)
+		}
 	}
-	return a + "\n" + b
+	return strings.Join(kept, "\n")
 }
 
 func withoutSchemaDirective(comment string) string {

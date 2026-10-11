@@ -170,15 +170,27 @@ func TestMarshalConfig_CommentOnListItemSurvivesListEdit(t *testing.T) {
 	}
 }
 
-func TestMarshalConfig_CommentOnRemovedKeyIsDropped(t *testing.T) {
-	existing := []byte("# gone with the key\nmode: merge\nsources:\n  skills: /src\n")
+func TestMarshalConfig_CommentOfRemovedKeyMovesToNextKey(t *testing.T) {
+	existing := []byte("# BEGIN block\nmode: merge # was merge\n# END block\nsources:\n  skills: /src\n")
 	cfg := Config{Sources: GlobalSources{Skills: "/src"}}
 	data, err := marshalConfig(&cfg, schemaComment, existing)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if strings.Contains(string(data), "gone with the key") {
-		t.Errorf("comment of a removed key should not survive:\n%s", data)
+	if !strings.Contains(string(data), "# BEGIN block\n# was merge\n# END block\nsources:") {
+		t.Errorf("comments of the removed key should sit in front of the next key:\n%s", data)
+	}
+}
+
+func TestMarshalConfig_CommentOfRemovedLastKeyEndsTheFile(t *testing.T) {
+	existing := []byte("sources:\n  skills: /src\n# BEGIN block\nmode: merge # note\n# END block\n")
+	cfg := Config{Sources: GlobalSources{Skills: "/src"}}
+	data, err := marshalConfig(&cfg, schemaComment, existing)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.HasSuffix(strings.TrimSpace(string(data)), "# BEGIN block\n# note\n# END block") {
+		t.Errorf("comments of a removed last key should end the file in source order:\n%s", data)
 	}
 }
 
@@ -194,8 +206,8 @@ func TestMarshalConfig_ListOfMappingsMatchesByName(t *testing.T) {
 		t.Fatal(err)
 	}
 	got := string(data)
-	if strings.Contains(got, "# one") || !strings.Contains(got, "second # two") {
-		t.Errorf("comments should follow the target named in the item:\n%s", got)
+	if !strings.Contains(got, "# one\n  - files:") || !strings.Contains(got, "second # two") {
+		t.Errorf("the removed target's comment should lead the next one, whose own comment stays:\n%s", got)
 	}
 }
 
@@ -208,5 +220,17 @@ func TestMarshalConfig_ScalarAndObjectTargetShareComments(t *testing.T) {
 	}
 	if !strings.Contains(string(data), "# mine") {
 		t.Errorf("comment should survive the switch to object form:\n%s", data)
+	}
+}
+
+func TestMarshalConfig_RemovedNestedEntryKeepsCommentOrder(t *testing.T) {
+	existing := []byte("sources:\n  skills: /src\ntargets:\n  claude:\n    skills:\n      # BEGIN\n      path: /a # note\n      # END\n")
+	cfg := Config{Sources: GlobalSources{Skills: "/src"}}
+	data, err := marshalConfig(&cfg, schemaComment, existing)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(data), "# BEGIN\n# note\n# END") {
+		t.Errorf("nested comments should keep their order:\n%s", data)
 	}
 }
