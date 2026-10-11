@@ -130,7 +130,7 @@ func copyComments(old, cur *yaml.Node) {
 				}
 			}
 			if j+1 >= len(cur.Content) {
-				orphaned = joinComments(orphaned, allComments(old.Content[i]), allComments(old.Content[i+1]))
+				orphaned = joinComments(orphaned, pairComments(old.Content[i], old.Content[i+1]))
 				continue
 			}
 			copyComments(old.Content[i], cur.Content[j])
@@ -172,6 +172,13 @@ func copyComments(old, cur *yaml.Node) {
 	default:
 		cur.FootComment = joinComments(cur.FootComment, orphaned)
 	}
+}
+
+// pairComments gathers the comments of a mapping entry as they appeared: the
+// key's head and line, the value's, then the key's foot, which yaml.v3 parses
+// from the lines after the entry.
+func pairComments(key, val *yaml.Node) string {
+	return joinComments(key.HeadComment, key.LineComment, allComments(val), key.FootComment)
 }
 
 // allComments gathers every comment in a subtree, in document order.

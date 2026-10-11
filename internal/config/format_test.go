@@ -183,14 +183,14 @@ func TestMarshalConfig_CommentOfRemovedKeyMovesToNextKey(t *testing.T) {
 }
 
 func TestMarshalConfig_CommentOfRemovedLastKeyEndsTheFile(t *testing.T) {
-	existing := []byte("sources:\n  skills: /src\n# END block\nmode: merge\n")
+	existing := []byte("sources:\n  skills: /src\n# BEGIN block\nmode: merge # note\n# END block\n")
 	cfg := Config{Sources: GlobalSources{Skills: "/src"}}
 	data, err := marshalConfig(&cfg, schemaComment, existing)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.HasSuffix(strings.TrimSpace(string(data)), "# END block") {
-		t.Errorf("comment of a removed last key should end the file:\n%s", data)
+	if !strings.HasSuffix(strings.TrimSpace(string(data)), "# BEGIN block\n# note\n# END block") {
+		t.Errorf("comments of a removed last key should end the file in source order:\n%s", data)
 	}
 }
 
