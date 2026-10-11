@@ -170,15 +170,27 @@ func TestMarshalConfig_CommentOnListItemSurvivesListEdit(t *testing.T) {
 	}
 }
 
-func TestMarshalConfig_CommentOnRemovedKeyIsDropped(t *testing.T) {
-	existing := []byte("# gone with the key\nmode: merge\nsources:\n  skills: /src\n")
+func TestMarshalConfig_CommentOfRemovedKeyMovesToNextKey(t *testing.T) {
+	existing := []byte("# BEGIN block\nmode: merge # was merge\nsources:\n  skills: /src\n")
 	cfg := Config{Sources: GlobalSources{Skills: "/src"}}
 	data, err := marshalConfig(&cfg, schemaComment, existing)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if strings.Contains(string(data), "gone with the key") {
-		t.Errorf("comment of a removed key should not survive:\n%s", data)
+	if !strings.Contains(string(data), "# BEGIN block\n# was merge\nsources:") {
+		t.Errorf("comments of the removed key should sit in front of the next key:\n%s", data)
+	}
+}
+
+func TestMarshalConfig_CommentOfRemovedLastKeyEndsTheFile(t *testing.T) {
+	existing := []byte("sources:\n  skills: /src\n# END block\nmode: merge\n")
+	cfg := Config{Sources: GlobalSources{Skills: "/src"}}
+	data, err := marshalConfig(&cfg, schemaComment, existing)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.HasSuffix(strings.TrimSpace(string(data)), "# END block") {
+		t.Errorf("comment of a removed last key should end the file:\n%s", data)
 	}
 }
 
@@ -194,8 +206,8 @@ func TestMarshalConfig_ListOfMappingsMatchesByName(t *testing.T) {
 		t.Fatal(err)
 	}
 	got := string(data)
-	if strings.Contains(got, "# one") || !strings.Contains(got, "second # two") {
-		t.Errorf("comments should follow the target named in the item:\n%s", got)
+	if !strings.Contains(got, "# one\n  - files:") || !strings.Contains(got, "second # two") {
+		t.Errorf("the removed target's comment should lead the next one, whose own comment stays:\n%s", got)
 	}
 }
 
