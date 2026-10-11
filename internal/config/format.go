@@ -77,17 +77,13 @@ func keepComments(m *yaml.Node, existing []byte) {
 	if yaml.Unmarshal(existing, &old) != nil || len(old.Content) == 0 || old.Content[0].Kind != yaml.MappingNode {
 		return
 	}
-	copyComments(old.Content[0], m)
-	if m.HeadComment == "" {
-		m.HeadComment = old.HeadComment
+	top := old.Content[0]
+	top.HeadComment = withoutSchemaDirective(joinComments(old.HeadComment, top.HeadComment))
+	for i := 0; i < len(top.Content); i += 2 {
+		top.Content[i].HeadComment = withoutSchemaDirective(top.Content[i].HeadComment)
 	}
-	if m.FootComment == "" {
-		m.FootComment = old.FootComment
-	}
-	m.HeadComment = withoutSchemaDirective(m.HeadComment)
-	if len(m.Content) > 0 {
-		m.Content[0].HeadComment = withoutSchemaDirective(m.Content[0].HeadComment)
-	}
+	top.FootComment = joinComments(top.FootComment, old.FootComment)
+	copyComments(top, m)
 }
 
 func copyComments(old, cur *yaml.Node) {
@@ -111,11 +107,43 @@ func copyComments(old, cur *yaml.Node) {
 				}
 			}
 		}
-	case old.Kind == yaml.SequenceNode && cur.Kind == yaml.SequenceNode && len(old.Content) == len(cur.Content):
-		for i := range old.Content {
-			copyComments(old.Content[i], cur.Content[i])
+	case old.Kind == yaml.SequenceNode && cur.Kind == yaml.SequenceNode:
+		for _, item := range old.Content {
+			for _, c := range cur.Content {
+				if sameItem(item, c) {
+					copyComments(item, c)
+					break
+				}
+			}
 		}
 	}
+}
+
+// sameItem matches a sequence item by its value, or for a mapping item by its
+// first key and value (`- name: claude`), so an added or removed item does not
+// shift the comments of the others.
+func sameItem(a, b *yaml.Node) bool {
+	if a.Kind != b.Kind {
+		return false
+	}
+	switch a.Kind {
+	case yaml.ScalarNode:
+		return a.Value == b.Value
+	case yaml.MappingNode:
+		return len(a.Content) >= 2 && len(b.Content) >= 2 &&
+			a.Content[0].Value == b.Content[0].Value && a.Content[1].Value == b.Content[1].Value
+	}
+	return false
+}
+
+func joinComments(parts ...string) string {
+	var kept []string
+	for _, p := range parts {
+		if p != "" {
+			kept = append(kept, p)
+		}
+	}
+	return strings.Join(kept, "\n")
 }
 
 func withoutSchemaDirective(comment string) string {

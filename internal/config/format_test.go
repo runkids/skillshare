@@ -144,3 +144,29 @@ targets:
 		}
 	}
 }
+
+func TestMarshalConfig_CommentsSurviveReorderAndListEdit(t *testing.T) {
+	existing := []byte(string(schemaComment) + `
+# kept on mode
+mode: merge
+sources:
+  skills: /src
+ignore:
+  - tmp # scratch
+  - build
+`)
+	cfg := Config{Mode: "merge", Sources: GlobalSources{Skills: "/src"}, Ignore: []string{"build", "tmp"}}
+	data, err := marshalConfig(&cfg, schemaComment, existing)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := string(data)
+	if strings.Count(got, "yaml-language-server") != 1 {
+		t.Errorf("schema header should appear once:\n%s", got)
+	}
+	for _, want := range []string{"# kept on mode\nmode: merge", "- tmp # scratch"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("comment %q lost:\n%s", want, got)
+		}
+	}
+}
