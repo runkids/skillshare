@@ -133,10 +133,10 @@ func copyComments(old, cur *yaml.Node) {
 				orphaned = joinComments(orphaned, allComments(old.Content[i]), allComments(old.Content[i+1]))
 				continue
 			}
-			cur.Content[j].HeadComment = joinComments(orphaned, cur.Content[j].HeadComment)
-			orphaned = ""
 			copyComments(old.Content[i], cur.Content[j])
 			copyComments(old.Content[i+1], cur.Content[j+1])
+			cur.Content[j].HeadComment = joinComments(orphaned, cur.Content[j].HeadComment)
+			orphaned = ""
 		}
 	case old.Kind == yaml.SequenceNode && cur.Kind == yaml.SequenceNode:
 		used := make([]bool, len(cur.Content))
@@ -152,9 +152,9 @@ func copyComments(old, cur *yaml.Node) {
 				continue
 			}
 			used[j] = true
+			copyComments(item, cur.Content[j])
 			cur.Content[j].HeadComment = joinComments(orphaned, cur.Content[j].HeadComment)
 			orphaned = ""
-			copyComments(item, cur.Content[j])
 		}
 	default:
 		return

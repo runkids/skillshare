@@ -171,13 +171,13 @@ func TestMarshalConfig_CommentOnListItemSurvivesListEdit(t *testing.T) {
 }
 
 func TestMarshalConfig_CommentOfRemovedKeyMovesToNextKey(t *testing.T) {
-	existing := []byte("# BEGIN block\nmode: merge # was merge\nsources:\n  skills: /src\n")
+	existing := []byte("# BEGIN block\nmode: merge # was merge\n# END block\nsources:\n  skills: /src\n")
 	cfg := Config{Sources: GlobalSources{Skills: "/src"}}
 	data, err := marshalConfig(&cfg, schemaComment, existing)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(data), "# BEGIN block\n# was merge\nsources:") {
+	if !strings.Contains(string(data), "# BEGIN block\n# was merge\n# END block\nsources:") {
 		t.Errorf("comments of the removed key should sit in front of the next key:\n%s", data)
 	}
 }
