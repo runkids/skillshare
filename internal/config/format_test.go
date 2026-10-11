@@ -181,3 +181,20 @@ func TestMarshalConfig_CommentOnRemovedKeyIsDropped(t *testing.T) {
 		t.Errorf("comment of a removed key should not survive:\n%s", data)
 	}
 }
+
+func TestMarshalConfig_ListOfMappingsMatchesByName(t *testing.T) {
+	existing := []byte("targets:\n  - files:\n      - a\n    name: first # one\n  - files:\n      - b\n    name: second # two\n")
+	var cfg ProjectConfig
+	if err := yaml.Unmarshal(existing, &cfg); err != nil {
+		t.Fatal(err)
+	}
+	cfg.Targets = cfg.Targets[1:]
+	data, err := marshalConfig(&cfg, projectSchemaComment, existing)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := string(data)
+	if strings.Contains(got, "# one") || !strings.Contains(got, "second # two") {
+		t.Errorf("comments should follow the target named in the item:\n%s", got)
+	}
+}

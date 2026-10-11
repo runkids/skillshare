@@ -121,9 +121,11 @@ func copyComments(old, cur *yaml.Node) {
 			}
 		}
 	case old.Kind == yaml.SequenceNode && cur.Kind == yaml.SequenceNode:
+		used := make([]bool, len(cur.Content))
 		for _, item := range old.Content {
-			for _, c := range cur.Content {
-				if sameItem(item, c) {
+			for j, c := range cur.Content {
+				if !used[j] && itemIdentity(item) != "" && itemIdentity(item) == itemIdentity(c) {
+					used[j] = true
 					copyComments(item, c)
 					break
 				}
@@ -132,21 +134,26 @@ func copyComments(old, cur *yaml.Node) {
 	}
 }
 
-// sameItem matches a sequence item by its value, or for a mapping item by its
-// first key and value (`- name: claude`), so an added or removed item does not
-// shift the comments of the others.
-func sameItem(a, b *yaml.Node) bool {
-	if a.Kind != b.Kind {
-		return false
-	}
-	switch a.Kind {
+// itemIdentity names a sequence item: its value for a scalar, and for a
+// mapping its `name` value or, failing that, its first scalar key and value.
+// Items without one ("" for a nested list) never match.
+func itemIdentity(n *yaml.Node) string {
+	switch n.Kind {
 	case yaml.ScalarNode:
-		return a.Value == b.Value
+		return n.Value
 	case yaml.MappingNode:
-		return len(a.Content) >= 2 && len(b.Content) >= 2 &&
-			a.Content[0].Value == b.Content[0].Value && a.Content[1].Value == b.Content[1].Value
+		for i := 0; i+1 < len(n.Content); i += 2 {
+			if n.Content[i].Value == "name" && n.Content[i+1].Kind == yaml.ScalarNode {
+				return "name=" + n.Content[i+1].Value
+			}
+		}
+		for i := 0; i+1 < len(n.Content); i += 2 {
+			if n.Content[i+1].Kind == yaml.ScalarNode {
+				return n.Content[i].Value + "=" + n.Content[i+1].Value
+			}
+		}
 	}
-	return false
+	return ""
 }
 
 func joinComments(a, b string) string {
