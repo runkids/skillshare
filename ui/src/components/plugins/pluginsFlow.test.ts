@@ -1,7 +1,7 @@
 import { act, renderHook } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { pluginsApi, type PluginInventory, type PluginPlan } from '../../api/plugins';
-import { changedRuns, failureText, piPackageTest, reviewChanges, syncTodo, updatesFound, updatesLeft, usePluginsFlow } from './pluginsFlow';
+import { changedRuns, failureText, piPackageTest, reviewChanges, syncTodo, updatesFound, updatesLeft, updatesPending, usePluginsFlow } from './pluginsFlow';
 
 vi.mock('../../api/plugins', async (importOriginal) => ({ ...await importOriginal<typeof import('../../api/plugins')>(), pluginsApi: { preview: vi.fn(), apply: vi.fn() } }));
 
@@ -85,20 +85,50 @@ describe('plugins flow', () => {
     expect([now().failure, now().outcomes]).toEqual(['', []]);
   });
 
-  it('remembers what a check found and takes an Agent off once its update is applied', async () => {
+  it('remembers what a check found, opens no review, and takes an Agent off once its batch update is applied', async () => {
     const found = { name: 'driver', target: 'pi', binding: { id: 'npm:driver', version: '1.1.0', commit: 'abc' } };
     vi.mocked(pluginsApi.preview)
       .mockResolvedValueOnce(plan('r', { ...found, action: 'update-available' }))
       .mockResolvedValueOnce(plan('r2', { ...found, action: 'update' }));
     vi.mocked(pluginsApi.apply).mockResolvedValue({ result: { results: [{ name: 'driver', target: 'pi', status: 'installed' }] }, failure: '' });
-    const { now } = flow();
-    await act(() => now().preview({ action: 'check' }));
+    const { now, onPreviewed } = flow();
+    await act(() => now().check());
     expect(now().updates).toEqual({ driver: { pi: { version: '1.1.0', commit: 'abc' } } });
-    await act(() => now().preview({ action: 'update', name: 'driver', targets: ['pi'] }));
-    expect(now().updates.driver.pi).toBeDefined();
-    await act(() => now().apply());
+    expect(now().review).toBeNull();
+    expect(onPreviewed).not.toHaveBeenCalled();
+    await act(() => now().updateMany([{ name: 'driver', targets: ['pi'] }]));
     expect(pluginsApi.apply).toHaveBeenCalledWith({ action: 'update', name: 'driver', targets: ['pi'] }, 'r2');
     expect(now().updates).toEqual({ driver: {} });
+    expect(now().batch).toEqual([{ name: 'driver', targets: ['pi'], status: 'done' }]);
+  });
+
+  it('lists what is still to update only where the Agent can be updated from here, and drops an Agent an update took off', () => {
+    const inventory = { packages: {}, hosts: [], targetDefinitions: [{ target: 'pi', label: 'Pi', project: false, operations: ['check', 'update'] }, { target: 'omp', label: 'OMP', project: false, operations: ['check'] }] };
+    const updates = { tail: { pi: { version: '2.1.0' }, omp: { version: '2.1.0' } }, guard: { omp: { version: '1.0.0' } }, driver: {} };
+    expect(updatesPending(updates, inventory)).toEqual([{ name: 'tail', targets: ['pi'] }]);
+  });
+
+  it('puts a retried plugin back to waiting where it is, and keeps going after a plugin fails in a batch', async () => {
+    vi.mocked(pluginsApi.preview).mockResolvedValue(plan('u', { action: 'update' }));
+    vi.mocked(pluginsApi.apply)
+      .mockResolvedValueOnce({ result: { results: [{ name: 'demo', target: 'codex', status: 'failed', message: 'timeout' }] }, failure: 'demo: timeout' })
+      .mockResolvedValueOnce(ok);
+    const { now, refresh } = flow();
+    await act(() => now().updateMany([{ name: 'demo', targets: ['codex'] }, { name: 'other', targets: ['codex'] }]));
+    expect(pluginsApi.apply).toHaveBeenCalledTimes(2);
+    expect(now().batch).toEqual([{ name: 'demo', targets: ['codex'], status: 'failed', note: 'timeout', failed: undefined }, { name: 'other', targets: ['codex'], status: 'done', note: undefined }]);
+    expect(refresh).toHaveBeenCalledTimes(1);
+    vi.mocked(pluginsApi.apply).mockResolvedValueOnce(ok);
+    await act(() => now().updateMany([{ name: 'demo', targets: ['codex'] }]));
+    expect(now().batch).toEqual([{ name: 'demo', targets: ['codex'], status: 'done', note: undefined, failed: undefined }, { name: 'other', targets: ['codex'], status: 'done', note: undefined }]);
+  });
+
+  it('names the Agents that failed when the others updated, so a retry sends only those', async () => {
+    vi.mocked(pluginsApi.preview).mockResolvedValue(plan('u', { action: 'update' }, { action: 'update', target: 'pi' }));
+    vi.mocked(pluginsApi.apply).mockResolvedValue({ result: { results: [{ name: 'demo', target: 'codex', status: 'failed', message: 'timeout' }, { name: 'demo', target: 'pi', status: 'installed' }] }, failure: 'demo: timeout' });
+    const { now } = flow();
+    await act(() => now().updateMany([{ name: 'demo', targets: ['codex', 'pi'] }]));
+    expect(now().batch?.[0]).toMatchObject({ status: 'failed', failed: ['codex'] });
   });
 
   it('previews and applies a tick in one step, with that preview\'s revision and no review', async () => {

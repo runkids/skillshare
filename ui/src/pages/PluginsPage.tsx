@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { ChevronRight, Download, FolderOpen, Package, Plus, RefreshCw, Share2, Trash2, X } from 'lucide-react';
@@ -16,6 +16,7 @@ import { RailLayout, SyncBox } from '../components/StatusRail';
 import PluginAddDialog from '../components/plugins/PluginAddDialog';
 import PluginFilesDialog from '../components/plugins/PluginFilesDialog';
 import PluginShareDialog from '../components/plugins/PluginShareDialog';
+import PluginUpdateDialog from '../components/plugins/PluginUpdateDialog';
 import PluginAgents from '../components/plugins/PluginAgents';
 import { keyedMessage, keyedText, outcomeStatus } from '../components/plugins/outcomeText';
 import { installedVersion, usePluginsFlow } from '../components/plugins/pluginsFlow';
@@ -52,21 +53,32 @@ export default function PluginsPage() {
   const [browsing, setBrowsing] = useState<{ name: string; source?: string } | null>(null);
   const [menu, setMenu] = useState<{ x: number; y: number; items: ContextMenuItem[] } | null>(null);
   const refresh = () => void invalidate(cache, 'pluginsChanged');
-  const { busy, working, failure, review, updates, outcomes, preview, begin, apply, selectTarget, closeReview, clearResult, todo, active, idle, changed, isPi } =
+  const { busy, working, failure, review, updates, outcomes, checked, checking, batch, pendingUpdates, preview, begin, apply, selectTarget, check, updateMany, stopBatch, closeBatch, closeReview, clearResult, todo, active, idle, changed, isPi } =
     usePluginsFlow({ t, inventory: data, refresh, onPreviewed: () => { setAdding(null); setImporting(false); } });
+  const [updating, setUpdating] = useState(false);
+  // Once per visit, as soon as there is a plugin to ask about: the rows say what has a new version without a click.
+  const hasPackages = Object.keys(data?.packages ?? {}).length > 0;
+  const autoChecked = useRef(false);
+  useEffect(() => {
+    if (!hasPackages || autoChecked.current) return;
+    autoChecked.current = true;
+    void check(true);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- `check` is remade every render; the ref keeps this to one run
+  }, [hasPackages]);
   // A change with no Agent is to Skillshare itself: the plugin was only added to it, or removed from it.
   const agentLabel = (target: string) => pluginTargets[target]?.label ?? (target || t('plugins.skillshareOnly'));
   if (!data && !error) return <PageSkeleton />;
   const actionText = (action: string) => t(({
     noop: 'plugins.noChanges', skip: 'plugins.outcome.skipped', install: 'resources.install', import: 'plugins.import', update: 'plugins.update',
     remove: 'plugins.remove', uninstall: 'plugins.remove', forget: 'plugins.remove', selection: 'common.save', record: 'plugins.record',
-    blocked: 'plugins.blocked', 'update-available': 'plugins.update', 'native-check': 'plugins.unverified',
+    blocked: 'plugins.blocked',
   } as Record<string, string>)[action] ?? 'plugins.pending');
   const pluginTargets = targetMap(data?.targetDefinitions);
   const packages = Object.entries(data?.packages ?? {});
   // A plugin with no Agent yet has only what was recorded when it was added.
   const shareable = packages.map(([name, pack]) => ({ name, command: pluginShareCommand(name, Object.values(pack.bindings).find((b) => b?.source) ?? pack) })).filter((p) => p.command);
   const pending = todo.length;
+  const updatable = pendingUpdates.length;
   const actionTone = (action: string) => (action === 'blocked' ? 'bad' : action === 'noop' ? '' : action === 'skip' ? 'warn' : 'inf');
   const openMenu = (e: React.MouseEvent<HTMLButtonElement>, name: string) => {
     const r = e.currentTarget.getBoundingClientRect();
@@ -143,7 +155,9 @@ export default function PluginsPage() {
     <div className="ss-wrap animate-fade-in">
       <PageHeader title={t('plugins.title')} subtitle={t('plugins.subtitle')} actions={<>
         {shareable.length > 0 && <Button variant="ghost" disabled={busy} onClick={() => setSharing(shareable.map((p) => p.name))}><Share2 size={15} />{t('plugins.share')}</Button>}
-        {packages.length > 0 && <Button variant="ghost" loading={working === 'check'} disabled={busy} onClick={() => begin({ action: 'check' }, 'check')}><RefreshCw size={15} />{t('plugins.check')}</Button>}
+        {packages.length > 0 && (checking
+          ? <span className="flex items-center gap-1.5 px-3 text-[13px] text-ink-3"><Spinner size="sm" />{t('plugins.checkingUpdates')}</span>
+          : <Button variant="ghost" disabled={busy} onClick={() => (updatable > 0 ? setUpdating(true) : void check())}><RefreshCw size={15} />{updatable > 0 ? t(plural('plugins.updateCount', updatable), { count: updatable }) : t('plugins.check')}</Button>)}
         {addActions}
       </>} />
 
@@ -168,6 +182,7 @@ export default function PluginsPage() {
 
       {sharing && <PluginShareDialog plugins={shareable} initial={sharing} onClose={() => setSharing(null)} />}
       {browsing && <PluginFilesDialog name={browsing.name} source={browsing.source} onClose={() => setBrowsing(null)} />}
+      {data && <PluginUpdateDialog open={updating} plan={checked} pending={pendingUpdates} inventory={data} batch={batch} busy={busy} isPi={isPi} onUpdate={(picks) => void updateMany(picks)} onStop={stopBatch} onClose={() => { setUpdating(false); closeBatch(); }} />}
       {adding && <PluginAddDialog initialName={adding.name} initialSource={adding.source} initialTargets={adding.targets} definitions={data?.targetDefinitions} bound={adding.bound} recorded={adding.recorded} onClose={() => setAdding(null)} onPreview={preview} />}
 
       <DialogShell open={importing} onClose={() => setImporting(false)} preventClose={busy} ariaLabel={t('plugins.import')} maxWidth="2xl" padding="none">
@@ -222,10 +237,7 @@ export default function PluginsPage() {
                     {!!c.preservedKeys?.length && <span className="text-xs text-ink-3"><span>{t('plugins.preservedKeys')}</span>{' '}{c.preservedKeys.join(' · ')}</span>}
                     {c.action === 'record' ? <span className="text-xs text-ink-3">{t('plugins.recordHelp')}</span> : (c.message || c.components?.length) && <span className="text-xs text-ink-3">{c.message ? keyedMessage(t, c) : c.components!.join(' · ')}</span>}
                   </span>
-                  {/* What a check found can be updated from here: just that plugin on that Agent, after its own review. */}
-                  {c.action === 'update-available'
-                    ? <Button size="sm" variant="secondary" loading={working === `${c.name}:${c.target}`} disabled={busy} onClick={() => begin({ action: 'update', name: c.name, targets: [c.target] }, `${c.name}:${c.target}`)}>{t('plugins.update')}</Button>
-                    : <span className={`ss-tag ${actionTone(c.action)}`}>{actionText(c.action)}</span>}
+                  <span className={`ss-tag ${actionTone(c.action)}`}>{actionText(c.action)}</span>
                 </div>
               ))}
             </div>}
@@ -237,7 +249,7 @@ export default function PluginsPage() {
         </div>
         <div className="df">
           <Button variant="ghost" disabled={busy} onClick={closeReview}>{t('common.cancel')}</Button>
-          {review?.request.action !== 'check' && <Button loading={busy} disabled={review?.plan.blocked || !review?.plan.changes.length} onClick={() => void apply()}>{t('plugins.apply')}</Button>}
+          <Button loading={busy} disabled={review?.plan.blocked || !review?.plan.changes.length} onClick={() => void apply()}>{t('plugins.apply')}</Button>
         </div>
       </DialogShell>
 

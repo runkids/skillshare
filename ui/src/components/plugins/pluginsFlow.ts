@@ -1,11 +1,23 @@
-import { useState } from 'react';
-import { bindingVersion, byPlugin, pluginsApi, syncAction, type PluginInventory, type PluginOutcome, type PluginPlan, type PluginRequest, type PluginResult, type PluginTarget } from '../../api/plugins';
+import { useRef, useState } from 'react';
+import { bindingVersion, byPlugin, pluginsApi, syncAction, targetMap, type PluginInventory, type PluginOutcome, type PluginPlan, type PluginRequest, type PluginResult, type PluginTarget } from '../../api/plugins';
 import type { useT } from '../../i18n';
 import { keyedMessage } from './outcomeText';
 import type { PluginUpdate } from './PluginList';
 
 type T = ReturnType<typeof useT>;
 type Updates = Record<string, Record<PluginTarget, PluginUpdate>>;
+/** One plugin and the Agents to update it on. */
+export interface UpdatePick { name: string; targets: PluginTarget[] }
+/** One plugin in a batch update. */
+export interface BatchItem extends UpdatePick { status: 'waiting' | 'running' | 'done' | 'failed' | 'skipped'; note?: string; /** The Agents that failed, when not all did; a retry sends only these. */ failed?: PluginTarget[] }
+
+/** What is still to update after the last check: the Agents it found behind that can be updated from here, per plugin. */
+export function updatesPending(updates: Updates, inventory?: PluginInventory): UpdatePick[] {
+  const targets = targetMap(inventory?.targetDefinitions);
+  return Object.entries(updates)
+    .map(([name, u]) => ({ name, targets: Object.keys(u).filter((target) => targets[target]?.operations.includes('update')) }))
+    .filter((p) => p.targets.length > 0);
+}
 
 /** The server joins each failed target's English text; show the translated messages once each instead. */
 export function failureText(t: T, response: PluginResult) {
@@ -96,13 +108,51 @@ export function usePluginsFlow({ t, inventory, refresh, onPreviewed }: {
   const [result, setResult] = useState<PluginResult | null>(null);
   // What the last check found to update. An applied update takes its Agents off.
   const [updates, setUpdates] = useState<Updates>({});
+  const [checked, setChecked] = useState<PluginPlan | null>(null);
+  const [checking, setChecking] = useState(false);
+  // The batch update under way or just finished, one row per plugin, until the dialog closes.
+  const [batch, setBatch] = useState<BatchItem[] | null>(null);
+  const stopped = useRef(false);
+
+  /** A check is read-only and opens nothing: it only marks the rows. Quiet, as on page load, it also keeps its error to itself. */
+  const check = async (quiet = false) => {
+    setChecking(true); if (!quiet) setFailure('');
+    try { const plan = await pluginsApi.preview({ action: 'check' }); setUpdates(updatesFound(plan)); setChecked(plan); }
+    catch (e) { if (!quiet) setFailure((e as Error).message); }
+    finally { setChecking(false); }
+  };
+  /** Each plugin picked is its own preview and apply, one after another, so one failure stops nothing else. */
+  const updateMany = async (picks: UpdatePick[]) => {
+    stopped.current = false;
+    setBusy(true); setFailure(''); setResult(null);
+    // A retry puts its row back to waiting where it is, keeping every Agent it showed; a first run starts the batch.
+    const names = new Set(picks.map((p) => p.name));
+    setBatch((prev) => [...(prev ?? []).map((i) => (names.has(i.name) ? { ...i, status: 'waiting' as const, note: undefined, failed: undefined } : i)), ...picks.filter((p) => !prev?.some((i) => i.name === p.name)).map((p) => ({ ...p, status: 'waiting' as const }))]);
+    const set = (name: string, patch: Partial<BatchItem>) => setBatch((prev) => prev && prev.map((i) => (i.name === name ? { ...i, ...patch } : i)));
+    for (const p of picks) {
+      if (stopped.current) { set(p.name, { status: 'skipped' }); continue; }
+      set(p.name, { status: 'running' });
+      try {
+        const request: PluginRequest = { action: 'update', name: p.name, targets: p.targets };
+        const plan = await pluginsApi.preview(request);
+        if (plan.blocked) throw new Error(plan.changes.filter((c) => c.action === 'blocked').map((c) => keyedMessage(t, c)).join(' ') || t('plugins.blocked'));
+        // What the Agent is about to do (an npm install, say) shows while it runs.
+        set(p.name, { note: plan.changes.filter((c) => c.message).map((c) => keyedMessage(t, c)).join(' ') || undefined });
+        const response = await pluginsApi.apply(request, plan.revision);
+        setUpdates((prev) => updatesLeft(prev, plan, response));
+        const failed = failureText(t, response);
+        const failedTargets = (response.result?.results ?? []).filter((r) => r.status === 'failed').map((r) => r.target);
+        set(p.name, failed ? { status: 'failed', note: failed, failed: failedTargets.length && failedTargets.length < p.targets.length ? failedTargets : undefined } : { status: 'done', note: undefined });
+      } catch (e) { set(p.name, { status: 'failed', note: (e as Error).message }); }
+    }
+    setBusy(false); refresh();
+  };
 
   // `key` names the control that started this, so only it shows a spinner.
   const preview = async (request: PluginRequest, key = '') => {
     setBusy(true); setWorking(key); setFailure(''); setResult(null);
     try {
       const plan = await pluginsApi.preview(request);
-      if (request.action === 'check') setUpdates(updatesFound(plan));
       setReview({ request, plan }); onPreviewed();
     }
     catch (e) { setFailure((e as Error).message); throw e; }
@@ -135,11 +185,14 @@ export function usePluginsFlow({ t, inventory, refresh, onPreviewed }: {
 
   const outcomes = result?.result?.results ?? [];
   return {
-    busy, working, failure, review, updates, outcomes,
-    preview, begin, apply, selectTarget,
+    busy, working, failure, review, updates, outcomes, checked, checking, batch,
+    preview, begin, apply, selectTarget, check, updateMany,
+    stopBatch: () => { stopped.current = true; },
+    closeBatch: () => setBatch(null),
     closeReview: () => setReview(null),
     clearResult: () => setResult(null),
     todo: syncTodo(inventory),
+    pendingUpdates: updatesPending(updates, inventory),
     ...reviewChanges(review?.plan, inventory),
     changed: changedRuns(t, outcomes),
     isPi: piPackageTest(inventory),

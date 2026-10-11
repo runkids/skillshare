@@ -196,7 +196,7 @@ export function VersionChange({ from, to, fromCommit, toCommit }: { from?: strin
 
 interface ToggleProps { target: PluginTarget; label: string; title?: string; on: boolean; applying: boolean; disabled: boolean; onClick: () => void }
 
-function Toggle({ target, label, title, on, applying, disabled, onClick }: ToggleProps) {
+export function Toggle({ target, label, title, on, applying, disabled, onClick }: ToggleProps) {
   return (
     <button type="button" role="checkbox" aria-checked={on} aria-label={label} title={title} className={`ss-tgl ${on ? 'on' : ''} ${applying ? 'working' : ''}`} onClick={onClick} disabled={disabled}>
       <span className="ic"><AgentIcon target={target} size={20} /><i>{applying ? <Loader2 size={9} className="animate-spin" /> : <Check size={9} strokeWidth={3.5} />}</i></span>

@@ -66,13 +66,38 @@ describe('PluginsPage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'plugins.apply' }));
     await waitFor(() => expect(pluginsApi.apply).toHaveBeenCalledWith({ action: 'import', from: 'pi', plugin: 'npm:demo' }, 'filters-reviewed'));
   });
-  it('updates what a check found from its row in the check, for that Agent only', async () => {
-    vi.mocked(pluginsApi.list).mockResolvedValue({ targetDefinitions: [{ target: 'pi', label: 'Pi', project: false, operations: ['add', 'check', 'update'], npm: true }], packages: { driver: { bindings: { pi: { id: 'npm:driver' } } } }, hosts: [{ target: 'pi', version: '0.99.2', status: 'ready', installed: [{ id: 'npm:driver', version: '1.0.0', enabled: true }] }] });
-    vi.mocked(pluginsApi.preview).mockResolvedValue({ revision: 'r', blocked: false, changes: [{ name: 'driver', target: 'pi', id: 'npm:driver', action: 'update-available', binding: { id: 'npm:driver', version: '1.1.0' } }] });
+  const twoBehind = () => {
+    vi.mocked(pluginsApi.list).mockResolvedValue({
+      targetDefinitions: [{ target: 'pi', label: 'Pi', project: false, operations: ['add', 'check', 'update'], npm: true }, { target: 'codex', label: 'Codex', project: false, operations: ['add', 'check', 'update'] }],
+      packages: { driver: { bindings: { pi: { id: 'npm:driver' } } }, tail: { bindings: { pi: { id: 'npm:tail' }, codex: { id: 'tail@market' } } } },
+      hosts: [{ target: 'pi', version: '0.99.2', status: 'ready', installed: [{ id: 'npm:driver', version: '1.0.0', enabled: true }, { id: 'npm:tail', version: '2.0.0', enabled: true }] }],
+    });
+    // The check the page runs on its own; every update after it is a plan with nothing to say.
+    vi.mocked(pluginsApi.preview).mockResolvedValueOnce({ revision: 'r', blocked: false, changes: [
+      { name: 'driver', target: 'pi', id: 'npm:driver', action: 'update-available', binding: { id: 'npm:driver', version: '1.1.0' } },
+      { name: 'tail', target: 'pi', id: 'npm:tail', action: 'update-available', binding: { id: 'npm:tail', version: '2.1.0' } },
+      { name: 'tail', target: 'codex', id: 'tail@market', action: 'update-available', binding: { id: 'tail@market', version: '2.1.0' } },
+    ] }).mockResolvedValue({ revision: 'u', blocked: false, changes: [] });
+  };
+  it('checks for updates on its own and applies every plugin ticked, one after another', async () => {
+    twoBehind();
     mount();
-    fireEvent.click(await screen.findByRole('button', { name: 'plugins.check' }));
-    fireEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'plugins.update' }));
-    await waitFor(() => expect(pluginsApi.preview).toHaveBeenLastCalledWith({ action: 'update', name: 'driver', targets: ['pi'] }));
+    fireEvent.click(await screen.findByRole('button', { name: 'plugins.updateCount.other' }));
+    fireEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'plugins.updateDialog.updateSelected.other' }));
+    await waitFor(() => expect(pluginsApi.apply).toHaveBeenCalledTimes(2));
+    expect(vi.mocked(pluginsApi.preview).mock.calls.slice(1).map((c) => c[0])).toEqual([{ action: 'update', name: 'driver', targets: ['pi'] }, { action: 'update', name: 'tail', targets: ['pi', 'codex'] }]);
+    expect(pluginsApi.apply).toHaveBeenCalledWith({ action: 'update', name: 'tail', targets: ['pi', 'codex'] }, 'u');
+  });
+  it('leaves out a plugin unticked and an Agent unticked under its plugin', async () => {
+    twoBehind();
+    mount();
+    fireEvent.click(await screen.findByRole('button', { name: 'plugins.updateCount.other' }));
+    const dialog = await screen.findByRole('dialog');
+    fireEvent.click(within(dialog).getByRole('checkbox', { name: 'driver' }));
+    fireEvent.click(within(dialog).getByRole('checkbox', { name: 'Codex' }));
+    fireEvent.click(within(dialog).getByRole('button', { name: 'plugins.updateDialog.updateSelected.one' }));
+    await waitFor(() => expect(pluginsApi.apply).toHaveBeenCalledTimes(1));
+    expect(pluginsApi.apply).toHaveBeenCalledWith({ action: 'update', name: 'tail', targets: ['pi'] }, 'u');
   });
   it('saves sync selection independently of native enabled state', async () => {
     mount();
@@ -126,7 +151,8 @@ describe('PluginsPage', () => {
   it('still blocks an unsafe OMP plan but allows a reviewed fresh install without a special confirmation', async () => {
     synced.targets = [{ name: 'omp' }, { name: 'omp-work', agent: 'omp' }];
     vi.mocked(pluginsApi.list).mockResolvedValue(omp({ omp: { id: 'guard', source: 'owner/guard', sync: false } }, [{ id: 'guard', enabled: true }]));
-    vi.mocked(pluginsApi.preview).mockResolvedValueOnce({ revision: 'r1', blocked: true, changes: [{ name: 'guard', target: 'omp', id: 'guard', action: 'blocked', message: 'OMP scoped removal cannot verify this installation or runtime ownership.', messageKey: 'plugins.error.ompRemovalOwnership' }] });
+    // The page checks for updates on its own first.
+    vi.mocked(pluginsApi.preview).mockResolvedValueOnce({ revision: 'c', blocked: false, changes: [] }).mockResolvedValueOnce({ revision: 'r1', blocked: true, changes: [{ name: 'guard', target: 'omp', id: 'guard', action: 'blocked', message: 'OMP scoped removal cannot verify this installation or runtime ownership.', messageKey: 'plugins.error.ompRemovalOwnership' }] });
     mount();
     fireEvent.click(await screen.findByRole('button', { name: 'plugins.sync' }));
     const dialog = await screen.findByRole('dialog', { name: 'plugins.preview' });
