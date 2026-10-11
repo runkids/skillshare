@@ -100,6 +100,13 @@ func keepComments(m *yaml.Node, existing []byte) {
 }
 
 func copyComments(old, cur *yaml.Node) {
+	// A target that changed between `- claude` and `- name: claude` keeps its
+	// line comment on the name, the only place a block mapping can show one.
+	if old.Kind != cur.Kind {
+		if o, c := nameScalar(old), nameScalar(cur); o != nil && c != nil && c.LineComment == "" {
+			c.LineComment = o.LineComment
+		}
+	}
 	if cur.HeadComment == "" {
 		cur.HeadComment = old.HeadComment
 	}
@@ -135,8 +142,9 @@ func copyComments(old, cur *yaml.Node) {
 }
 
 // itemIdentity names a sequence item: its value for a scalar, and for a
-// mapping its `name` value or, failing that, its first scalar key and value.
-// Items without one ("" for a nested list) never match.
+// mapping its `name` value (so `- claude` and `- name: claude` are the same
+// target) or, failing that, its first scalar key and value. Items without one
+// ("" for a nested list) never match.
 func itemIdentity(n *yaml.Node) string {
 	switch n.Kind {
 	case yaml.ScalarNode:
@@ -144,7 +152,7 @@ func itemIdentity(n *yaml.Node) string {
 	case yaml.MappingNode:
 		for i := 0; i+1 < len(n.Content); i += 2 {
 			if n.Content[i].Value == "name" && n.Content[i+1].Kind == yaml.ScalarNode {
-				return "name=" + n.Content[i+1].Value
+				return n.Content[i+1].Value
 			}
 		}
 		for i := 0; i+1 < len(n.Content); i += 2 {
@@ -154,6 +162,20 @@ func itemIdentity(n *yaml.Node) string {
 		}
 	}
 	return ""
+}
+
+// nameScalar is the node a sequence item's identity comes from: the scalar
+// itself, or a mapping's `name` value.
+func nameScalar(n *yaml.Node) *yaml.Node {
+	if n.Kind == yaml.ScalarNode {
+		return n
+	}
+	for i := 0; n.Kind == yaml.MappingNode && i+1 < len(n.Content); i += 2 {
+		if n.Content[i].Value == "name" && n.Content[i+1].Kind == yaml.ScalarNode {
+			return n.Content[i+1]
+		}
+	}
+	return nil
 }
 
 func joinComments(a, b string) string {

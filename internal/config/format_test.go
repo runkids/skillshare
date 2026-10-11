@@ -198,3 +198,15 @@ func TestMarshalConfig_ListOfMappingsMatchesByName(t *testing.T) {
 		t.Errorf("comments should follow the target named in the item:\n%s", got)
 	}
 }
+
+func TestMarshalConfig_ScalarAndObjectTargetShareComments(t *testing.T) {
+	existing := []byte("targets:\n  - claude # mine\n")
+	cfg := ProjectConfig{Targets: []ProjectTargetEntry{{Name: "claude", Files: []string{"a"}}}}
+	data, err := marshalConfig(&cfg, projectSchemaComment, existing)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(data), "# mine") {
+		t.Errorf("comment should survive the switch to object form:\n%s", data)
+	}
+}
