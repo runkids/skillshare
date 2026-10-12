@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 )
 
@@ -130,6 +131,19 @@ func ompCachePath(cacheRoot, id, version string) string {
 	return filepath.Join(cacheRoot, market+"___"+name+"___"+version)
 }
 
+// ompMinVersion is the oldest OMP release whose sources this adapter was checked against
+// (marketplace cache/manager/types, plugin-cli, the project anchor in discovery/helpers.ts,
+// extension loading and the pi-natives file lock); newer releases are accepted.
+const ompMinVersion = "18.6.1"
+
+const ompVerifiedRange = ompMinVersion + "+"
+
+// ompVerified reports an `omp --version` or package.json version at or above ompMinVersion.
+func ompVerified(version string) bool {
+	got := plainVersion(strings.TrimPrefix(version, "omp/"))
+	return got != nil && slices.Compare(got, plainVersion(ompMinVersion)) >= 0
+}
+
 // ompGuard blocks the omp changes whose native command would delete or replace a cache folder.
 // omp deletes a plugin's cache folder on uninstall and replaces it on upgrade unless the user
 // registry or the one project visible from the working directory still refers to it; every
@@ -138,9 +152,9 @@ func ompCachePath(cacheRoot, id, version string) string {
 func ompGuard(h Host, c *Change) {
 	switch c.Action {
 	case "install":
-		if h.ompCacheRoot == "" || strings.TrimPrefix(h.Version, "omp/") != "18.6.1" || c.Binding.Source == "" {
+		if h.ompCacheRoot == "" || !ompVerified(h.Version) || c.Binding.Source == "" {
 			c.Action = "blocked"
-			c.Message, c.MessageKey, c.MessageArgs = "OMP installation requires version 18.6.1, a reviewed source and a verified cache root; no native changes were made.", "plugins.error.ompInstallSafety", nil
+			c.Message, c.MessageKey, c.MessageArgs = "OMP installation requires a verified version ("+ompVerifiedRange+"), a reviewed source and a verified cache root; no native changes were made.", "plugins.error.ompInstallSafety", map[string]string{"range": ompVerifiedRange}
 			break
 		}
 		if err := ompFreshCache(h, c); err != nil {

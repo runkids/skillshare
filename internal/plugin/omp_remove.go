@@ -269,9 +269,9 @@ func (s *Service) ompRemovalPlan(b Binding, cacheRoot string) (*ompRemoval, erro
 }
 
 func (s *Service) prepareOMPRemoval(h Host, c *Change) {
-	if strings.TrimPrefix(h.Version, "omp/") != "18.6.1" || h.ompCacheRoot == "" {
+	if !ompVerified(h.Version) || h.ompCacheRoot == "" {
 		c.Action = "blocked"
-		c.Message = "OMP removal requires version 18.6.1 and a verified native root."
+		c.Message = "OMP removal requires a verified version (" + ompVerifiedRange + ") and a verified native root."
 	} else {
 		p, err := s.ompRemovalPlan(c.Binding, h.ompCacheRoot)
 		if err != nil {

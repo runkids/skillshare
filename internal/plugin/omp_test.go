@@ -2,6 +2,7 @@ package plugin
 
 import (
 	"context"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -35,6 +36,43 @@ func TestOMPPreviewBindsNativeCacheRoot(t *testing.T) {
 	}
 }
 
+func TestOMPVerifiedVersions(t *testing.T) {
+	for version, want := range map[string]bool{
+		"omp/18.6.1":        true,
+		"omp/18.8.7":        true,
+		"18.10.2":           true,
+		"omp/18.6.0":        false,
+		"omp/18.10.3":       true,
+		"omp/19.0.0":        true,
+		"omp/18.8.7-beta.1": false,
+		"":                  false,
+	} {
+		if got := ompVerified(version); got != want {
+			t.Errorf("ompVerified(%q) = %t, want %t", version, got, want)
+		}
+	}
+}
+
+// The dashboard translates OMP guidance only when its English text matches the Go string exactly.
+func TestOMPVersionGuidanceMatchesDashboard(t *testing.T) {
+	raw, err := os.ReadFile(filepath.Join("..", "..", "ui", "src", "i18n", "locales", "en.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var en map[string]string
+	if err := json.Unmarshal(raw, &en); err != nil {
+		t.Fatal(err)
+	}
+	for key, want := range map[string]string{
+		"targetDetail.ompExtensions.guidance.staticInventory": "Static OMP " + ompVerifiedRange + " filesystem inventory; selection does not prove a running extension.",
+		"targetDetail.ompExtensions.guidance.version":         "Only a verified OMP " + ompVerifiedRange + " package is selectable.",
+	} {
+		if en[key] != want {
+			t.Errorf("%s = %q, want %q", key, en[key], want)
+		}
+	}
+}
+
 func TestOMPInstallGuardFailsClosed(t *testing.T) {
 	root := t.TempDir()
 	fileRoot := filepath.Join(root, "not-a-directory")
@@ -43,7 +81,7 @@ func TestOMPInstallGuardFailsClosed(t *testing.T) {
 	}
 	for _, tc := range []struct{ name, version, cache, source string }{
 		{"unknown-root", "omp/18.6.1", "", "/reviewed"},
-		{"unknown-version", "omp/19.0.0", root, "/reviewed"},
+		{"old-version", "omp/18.6.0", root, "/reviewed"},
 		{"unreviewed-source", "omp/18.6.1", root, ""},
 		{"unreadable-root", "omp/18.6.1", fileRoot, "/reviewed"},
 	} {

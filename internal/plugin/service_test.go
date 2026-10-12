@@ -673,7 +673,7 @@ func (f *fakeAgents) service(t *testing.T) *Service {
 		switch {
 		case command == "--version":
 			if bin == "omp" {
-				return []byte("omp/18.6.1"), nil
+				return []byte("omp/18.8.7"), nil
 			}
 			return []byte("test"), nil
 		case strings.Contains(command, "--help"):

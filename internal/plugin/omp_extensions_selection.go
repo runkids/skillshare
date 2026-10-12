@@ -19,7 +19,7 @@ func (s *Service) ompNativePackage(target string) (string, string) {
 	bin := "omp"
 	path, err := exec.LookPath(bin)
 	if err != nil {
-		return "", "Cannot identify an installed OMP 18.6.1 package without executing the CLI."
+		return "", "Cannot identify an installed OMP package without executing the CLI."
 	}
 	path, err = filepath.EvalSymlinks(path)
 	if err != nil {
@@ -33,8 +33,8 @@ func (s *Service) ompNativePackage(target string) (string, string) {
 				Name, Version string
 				Bin           map[string]string
 			}
-			if json.Unmarshal(raw, &pkg) != nil || pkg.Name != "@oh-my-pi/pi-coding-agent" || pkg.Version != "18.6.1" {
-				return hash(raw), "Only the verified OMP 18.6.1 package is selectable."
+			if json.Unmarshal(raw, &pkg) != nil || pkg.Name != "@oh-my-pi/pi-coding-agent" || !ompVerified(pkg.Version) {
+				return hash(raw), "Only a verified OMP " + ompVerifiedRange + " package is selectable."
 			}
 			entry, err := filepath.EvalSymlinks(filepath.Join(dir, pkg.Bin["omp"]))
 			if pkg.Bin["omp"] == "" || err != nil || entry != path {

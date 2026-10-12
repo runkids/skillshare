@@ -145,7 +145,7 @@ skillshare plugin add ./my-omp-plugin --target omp --no-tui -g
 skillshare plugin import demo@my-market --from omp --dry-run --json -g
 ```
 
-安裝需要 OMP **18.6.1**、已審閱的本機/Git source、一個經過驗證且先前未使用過的 cache
+安裝需要 OMP **18.6.1+**、已審閱的本機/Git source、一個經過驗證且先前未使用過的 cache
 目的地，以及尚不存在的 scope 本機 runtime 目的地。Runtime 套件名稱來自已審閱的 source，
 而不只是 marketplace 名稱。既有的 module 目錄或連結會擋下安裝，而不會被取代；目的地會綁定
 到預覽，並在安裝前再次檢查。Adapter 會讓 plugin 樹保持完整，使用原生 marketplace 安裝，
@@ -154,7 +154,7 @@ skillshare plugin import demo@my-market --from omp --dry-run --json -g
 套用前請先審閱 source：OMP 可能在下次啟動時於同一個 process 中執行 plugin 的 extensions
 與 tools，且沒有 project 信任提示。安裝完成不代表這些資源已成功載入。
 
-**OMP 18.6.1 的共用 cache 限制：** 它的原生解除安裝與升級可能會刪除或取代仍被其他 project
+**OMP 18.6.1+ 的共用 cache 限制：** 它的原生解除安裝與升級可能會刪除或取代仍被其他 project
 參照的 plugin cache 檔案。原生清單只列出 user registry 與目前 project 的 registry，
 因此無法確認這些操作對其他 project 是否安全。Skillshare 不會呼叫這些具破壞性的指令。
 **Remove** 以及停用後同步，改用一個限定 scope 的 adapter，刪除該安裝的 registry 項目、
@@ -163,7 +163,7 @@ runtime 選取以及經過驗證的 `node_modules` 連結。Plugin 會從該 sco
 重新安裝會自動選擇新的 marketplace/cache 身分，不會取代其他 project 可能使用的檔案。
 無法讀取、被連結或不是目錄的 cache 目的地仍會被擋下。
 
-移除需要經過驗證的 18.6.1 metadata 契約、相符的已安裝版本、明確的 JSON，以及可證明的
+移除需要經過驗證的 18.6.1+ metadata 契約、相符的已安裝版本、明確的 JSON，以及可證明的
 runtime 連結所有權。真實的 module 資料夾、外部連結、npm 依賴衝突或不明確的 runtime 擁有者
 都會被拒絕。若缺少 cache manifest，adapter 需要一個唯一的 runtime-lock 鍵，且其 scope 本機
 連結指向該安裝的 cache；它絕不猜測 marketplace 名稱，也不會在實際 runtime 連結仍在時回報成功。
@@ -201,7 +201,7 @@ metadata 時會退回顯示檢查到的資料夾；不會猜測套件身分或�
 設定的帳號目錄彼此獨立。編輯器會保留無關的 YAML 與註解，在 OMP 原生的鎖下再次檢查已審閱的
 版本，並拒絕過時或忙碌中的寫入。
 
-編輯選取需要所選 launcher 背後有可驗證的 OMP **18.6.1** 套件。無法識別的版本、獨立執行檔
+編輯選取需要所選 launcher 背後有可驗證的 OMP **18.6.1+** 套件。無法識別的版本、獨立執行檔
 與包裝 launcher 維持唯讀。這項檢查只讀取套件 metadata，不會執行 OMP。同名的 module 群組、
 繞過停用名稱篩選的明確檔案、環境中的 `hooks/pre|post` factory、不確定的選取以及連結路徑
 都是唯讀。由 Hooks 擁有與由 plugin 擁有的項目，交由各自的管理功能處理。

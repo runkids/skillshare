@@ -125,7 +125,7 @@ cannot reach, says why, and still updates the other targets.
 - OMP (`omp`): marketplace-backed local/Git plugins use reviewed snapshots and native
   fresh-cache installation with post-operation inventory verification. The reviewed
   runtime destination must also be absent; existing directories and links are never
-  replaced. Preview binds that path and install rechecks it. Native 18.6.1
+  replaced. Preview binds that path and install rechecks it. Native 18.6.1+
   uninstall/upgrade can delete shared cache still used by an invisible project.
   Remove and deselection-plus-sync use a scoped adapter: registration, runtime
   selection and verified links are removed, not disabled; cache, marketplace
@@ -148,7 +148,7 @@ cannot reach, says why, and still updates the other targets.
   selection identifiers and notes. File lists remain visible without collapse controls.
   It can preview/apply `disabledExtensions`
   changes for verified standalone modules, using native locks and stale-revision protection.
-  It requires a statically identifiable OMP 18.6.1 package; unknown versions/wrappers,
+  It requires a statically identifiable OMP 18.6.1+ package; unknown versions/wrappers,
   ambiguous same-name groups, explicit-file bypasses, ambient hooks, linked paths,
   uncertain selection and resources owned by Hooks/Plugins remain read-only.
   Selection-only backup records live under `StateDir/omp-extensions/backups`; they

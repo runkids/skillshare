@@ -17,7 +17,7 @@ func ompWritableFixture(t *testing.T) (*Service, string, string) {
 	if err := os.Chmod(cli, 0755); err != nil {
 		t.Fatal(err)
 	}
-	ompFile(t, pkg, "package.json", `{"name":"@oh-my-pi/pi-coding-agent","version":"18.6.1","bin":{"omp":"src/cli.ts"}}`)
+	ompFile(t, pkg, "package.json", `{"name":"@oh-my-pi/pi-coding-agent","version":"18.8.7","bin":{"omp":"src/cli.ts"}}`)
 	bin := filepath.Join(home, "bin")
 	if err := os.MkdirAll(bin, 0755); err != nil {
 		t.Fatal(err)

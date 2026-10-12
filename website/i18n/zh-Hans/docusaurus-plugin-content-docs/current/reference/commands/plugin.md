@@ -145,7 +145,7 @@ skillshare plugin add ./my-omp-plugin --target omp --no-tui -g
 skillshare plugin import demo@my-market --from omp --dry-run --json -g
 ```
 
-安装需要 OMP **18.6.1**、经审核的本地/Git 来源、一个经过验证且从未使用过的 cache 目标位置，
+安装需要 OMP **18.6.1+**、经审核的本地/Git 来源、一个经过验证且从未使用过的 cache 目标位置，
 以及一个尚不存在的作用域本地运行时目标位置。运行时 package 名称来自经审核的来源，而不仅仅是
 marketplace 名称。已存在的模块目录或链接会阻止安装，而不会被替换；目标位置会绑定到预览，并在
 安装前再次检查。适配器会让 plugin 树保持完整，使用原生 marketplace 安装，并验证产生的注册。
@@ -154,7 +154,7 @@ Catalog 可以使用 `.omp-plugin/marketplace.json` 或旧版的 `.claude-plugin
 启动时于进程内执行 plugin 的 extension 和工具，而且没有项目信任提示。安装成功并不能证明这些资源
 已成功加载。
 
-**OMP 18.6.1 的共享 cache 限制：** 它原生的 uninstall 和 upgrade 可能会删除或替换仍被另一个项目
+**OMP 18.6.1+ 的共享 cache 限制：** 它原生的 uninstall 和 upgrade 可能会删除或替换仍被另一个项目
 引用的 plugin cache 文件。原生清单只列出用户注册表和当前项目的注册表，因此无法确认这些操作对其他
 项目是否安全。Skillshare 不会调用这些破坏性命令。**Remove** 以及停用后同步会改用一个限定作用域的
 适配器，删除该安装的注册表条目、运行时选择和经过验证的 `node_modules` 链接。plugin 会从该作用域
@@ -162,7 +162,7 @@ Catalog 可以使用 `.omp-plugin/marketplace.json` 或旧版的 `.claude-plugin
 当旧 cache 仍存在时，重新安装会自动选择新的 marketplace/cache 身份，不会替换其他项目可能使用的
 文件。无法读取、是链接或不是目录的 cache 目标位置仍会被阻止。
 
-移除需要经过验证的 18.6.1 元数据契约、相符的已安装版本、无歧义的 JSON，以及已证实的运行时链接
+移除需要经过验证的 18.6.1+ 元数据契约、相符的已安装版本、无歧义的 JSON，以及已证实的运行时链接
 所有权。真实的模块文件夹、外部链接、npm 依赖冲突或无法确定的运行时拥有者都会被拒绝。如果 cache
 manifest 缺失，适配器会要求一个唯一的 runtime-lock key，且其作用域本地链接指向该安装的 cache；
 它绝不会猜测 marketplace 名称，也不会在实际运行时链接仍然安装的情况下报告成功。无法验证的有效
@@ -197,7 +197,7 @@ package 图标，以及来自原生 package 身份（而不是 extension 文件�
 `disabledExtensions`。Global、project 和显式配置的账号目录彼此独立。编辑器会保留不相关的 YAML
 和注释，在 OMP 原生锁下再次检查已审核的 revision，并拒绝过时或忙碌时的写入。
 
-选择编辑要求所选启动器背后是一个可验证的 OMP **18.6.1** package。无法识别的版本、独立二进制文件
+选择编辑要求所选启动器背后是一个可验证的 OMP **18.6.1+** package。无法识别的版本、独立二进制文件
 和包装启动器保持只读。这项检查只读取 package 元数据，不会运行 OMP。同名的模块分组、绕过
 disabled-name 过滤器的显式文件、环境中的 `hooks/pre|post` factory、不确定的选择以及链接路径都是
 只读的。由 Hooks 拥有和由 plugin 拥有的条目仍由各自的管理器负责。

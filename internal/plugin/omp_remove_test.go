@@ -40,7 +40,7 @@ func ompRemovalFixture(t *testing.T, project bool) (*Service, Binding, string, s
 	s.Run = func(_ context.Context, _ string, _ []string, _ string, args ...string) ([]byte, error) {
 		switch strings.Join(args, " ") {
 		case "--version":
-			return []byte("omp/18.6.1"), nil
+			return []byte("omp/18.8.7"), nil
 		case "plugin marketplace list":
 			return []byte("No marketplaces configured\n"), nil
 		case "plugin uninstall --help":

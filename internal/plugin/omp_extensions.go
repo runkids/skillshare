@@ -14,7 +14,7 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// OMPExtensionsView is a static inventory of OMP v18.6.1 inputs.
+// OMPExtensionsView is a static inventory of OMP inputs (rules checked against v18.6.1).
 // Selected means selected by the inspected files, not imported or running.
 // CLI flags, overlays, foreign providers, factory exports and trust are not evaluated.
 type OMPExtensionsView struct {
@@ -87,7 +87,7 @@ func (s *Service) OMPExtensions(ctx context.Context, target string) (*OMPExtensi
 		agent = filepath.Clean(account.Dir)
 		scope = "account"
 	}
-	v := &OMPExtensionsView{Target: target, Scope: scope, Root: agent, ReadOnly: true, Reasons: []string{"Static OMP v18.6.1 filesystem inventory; selection does not prove a running extension.", "CLI flags, runtime overrides, foreign providers and config overlays are not evaluated."}, Warnings: []string{}, Rows: []OMPExtensionRow{}}
+	v := &OMPExtensionsView{Target: target, Scope: scope, Root: agent, ReadOnly: true, Reasons: []string{"Static OMP " + ompVerifiedRange + " filesystem inventory; selection does not prove a running extension.", "CLI flags, runtime overrides, foreign providers and config overlays are not evaluated."}, Warnings: []string{}, Rows: []OMPExtensionRow{}}
 	inv := &ompInventory{view: v, home: home, cwd: s.ProjectRoot}
 	if ompUnsupportedRootEnv() {
 		inv.uncertain = true

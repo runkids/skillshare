@@ -17,7 +17,7 @@ func newOMPWritableServer(t *testing.T) (*Server, string) {
 	t.Helper()
 	s, home := newOMPExtensionsServer(t)
 	pkg := filepath.Join(home, "npm/omp")
-	writeFiles(t, pkg, map[string]string{"src/cli.ts": "throw new Error('must not execute');", "package.json": `{"name":"@oh-my-pi/pi-coding-agent","version":"18.6.1","bin":{"omp":"src/cli.ts"}}`})
+	writeFiles(t, pkg, map[string]string{"src/cli.ts": "throw new Error('must not execute');", "package.json": `{"name":"@oh-my-pi/pi-coding-agent","version":"18.8.7","bin":{"omp":"src/cli.ts"}}`})
 	cli := filepath.Join(pkg, "src/cli.ts")
 	if err := os.Chmod(cli, 0755); err != nil {
 		t.Fatal(err)

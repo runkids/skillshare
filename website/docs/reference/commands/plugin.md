@@ -158,7 +158,7 @@ skillshare plugin add ./my-omp-plugin --target omp --no-tui -g
 skillshare plugin import demo@my-market --from omp --dry-run --json -g
 ```
 
-Installation requires OMP **18.6.1**, a reviewed local/Git source and a verified,
+Installation requires OMP **18.6.1+**, a reviewed local/Git source and a verified,
 previously unused cache destination and an absent scope-local runtime destination.
 The runtime package name comes from the reviewed source, not just the marketplace
 name. Existing module directories or links block installation rather than being
@@ -171,7 +171,7 @@ the source before applying: OMP can execute plugin
 extensions and tools in-process at the next startup, without a project trust
 prompt. Installation is not proof that those resources loaded successfully.
 
-**Shared-cache limitation in OMP 18.6.1:** its native uninstall and upgrade can
+**Shared-cache limitation in OMP 18.6.1+:** its native uninstall and upgrade can
 delete or replace plugin cache files still referenced by a different project.
 Native inventory lists only the user registry and the current project's registry,
 so it cannot establish the safety of those operations across other projects.
@@ -184,7 +184,7 @@ Reinstall automatically chooses a fresh marketplace/cache identity when the old
 cache still exists, without replacing files another project may use. Unreadable,
 linked or non-directory cache destinations remain blocked.
 
-Removal requires the verified 18.6.1 metadata contract, matching installed
+Removal requires the verified 18.6.1+ metadata contract, matching installed
 version, unambiguous JSON and proven runtime-link ownership. A real module folder,
 foreign link, npm dependency collision or ambiguous runtime owner is refused.
 If the cache manifest is missing, the adapter requires a unique runtime-lock key
@@ -235,7 +235,7 @@ Global, project and explicitly configured account directories remain separate.
 The editor preserves unrelated YAML and comments, checks the reviewed revision
 again under OMP's native lock, and refuses stale or busy writes.
 
-Selection editing requires a verifiable OMP **18.6.1** package behind the selected
+Selection editing requires a verifiable OMP **18.6.1+** package behind the selected
 launcher. Unidentified versions, standalone binaries and wrapper launchers stay
 read-only. This check reads package metadata without running OMP. Same-name
 module groups, explicit files that bypass the disabled-name filter, ambient
