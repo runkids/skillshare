@@ -1,12 +1,12 @@
 import { useState } from 'react';
-import { Package, X } from 'lucide-react';
-import { targetMap, type PluginInventory, type PluginPlan, type PluginTarget } from '../../api/plugins';
+import { Check, CircleAlert, CircleArrowUp, Loader2, Package, X } from 'lucide-react';
+import { targetMap } from '../../api/plugins';
+import type { PluginInventory, PluginPlan, PluginTarget } from '../../api/plugins';
 import AgentIcon from '../AgentIcon';
 import Button from '../Button';
 import { Checkbox } from '../Checkbox';
 import DialogShell from '../DialogShell';
 import IconButton from '../IconButton';
-import Spinner from '../Spinner';
 import { plural, useT } from '../../i18n';
 import { keyedMessage } from './outcomeText';
 import { Toggle, VersionChange } from './PluginList';
@@ -51,7 +51,7 @@ export default function PluginUpdateDialog({ open, plan, pending, inventory, bat
       {batch
         ? <Running batch={batch} busy={busy} inventory={inventory} label={label} onRetry={(item) => onUpdate([{ name: item.name, targets: item.failed ?? item.targets }])} onStop={onStop} onClose={onClose} />
         : (
-          <Picking key={plan?.revision} names={names} attention={others.length > 0} inventory={inventory} label={label} busy={busy} onUpdate={onUpdate} onClose={onClose}
+          <Picking key={plan?.revision} names={names} attention={others.length > 0} current={others.length === 0 ? new Set(idle.map((r) => r.name)).size : 0} inventory={inventory} label={label} busy={busy} onUpdate={onUpdate} onClose={onClose}
             found={found.map((c) => ({ name: c.name, target: c.target, version: c.binding?.version, commit: c.binding?.commit, note: c.message ? keyedMessage(t, c) : '' }))}>
             {others.map((g) => (
               <div key={g.title} className="flex flex-col gap-2">
@@ -70,7 +70,8 @@ export default function PluginUpdateDialog({ open, plan, pending, inventory, bat
                 </div>
               </div>
             ))}
-            <UnchangedRuns runs={idle} isPi={isPi} versions />
+            {/* With nothing to update or look into, what is up to date is the whole answer, so it shows open. */}
+            <UnchangedRuns runs={idle} isPi={isPi} versions expanded={names.length === 0 && others.length === 0 ? { label } : undefined} />
           </Picking>
         )}
     </DialogShell>
@@ -79,8 +80,24 @@ export default function PluginUpdateDialog({ open, plan, pending, inventory, bat
 
 type Found = { name: string; target: PluginTarget; version?: string; commit?: string; note: string };
 
-function Picking({ names, attention, found, inventory, label, busy, onUpdate, onClose, children }: {
-  names: string[]; attention: boolean; found: Found[]; inventory: PluginInventory; label: (target: string) => string; busy: boolean;
+/** The dialog's header as on the Skills update page: a tile for the state, then what is happening. */
+function Hero({ icon, tone = '', title, sub, busy, onClose }: { icon: React.ReactNode; tone?: string; title: React.ReactNode; sub: string; busy: boolean; onClose: () => void }) {
+  const t = useT();
+  return (
+    <div className="dh items-center" aria-live="polite">
+      <div className="flex min-w-0 items-center gap-3.5">
+        <span className={`ss-update-icon ${tone}`}>{icon}</span>
+        <div className="flex min-w-0 flex-col gap-0.5"><h2 className="ss-h2">{title}</h2><p className="text-[13px] text-ink-2">{sub}</p></div>
+      </div>
+      <IconButton icon={<X size={16} />} label={t('common.close')} disabled={busy} onClick={onClose} />
+    </div>
+  );
+}
+
+function Picking({ names, attention, current, found, inventory, label, busy, onUpdate, onClose, children }: {
+  names: string[]; attention: boolean;
+  /** How many plugins are up to date, when that is all the check found. */
+  current: number; found: Found[]; inventory: PluginInventory; label: (target: string) => string; busy: boolean;
   onUpdate: (picks: UpdatePick[]) => void; onClose: () => void; children: React.ReactNode;
 }) {
   const t = useT();
@@ -95,10 +112,11 @@ function Picking({ names, attention, found, inventory, label, busy, onUpdate, on
   const toggle = (name: string, target: PluginTarget, on: boolean) => setPicked((prev) => ({ ...prev, [name]: on ? [...(prev[name] ?? []), target] : (prev[name] ?? []).filter((x) => x !== target) }));
   return (
     <>
-      <div className="dh">
-        <div className="flex flex-col gap-1"><h2 className="ss-h2">{t('plugins.updateDialog.title')}</h2><p className="text-[13px] text-ink-2">{names.length === 0 ? t(attention ? 'plugins.updateDialog.noneHere' : 'plugins.updateDialog.none') : t(plural('plugins.updateDialog.found', names.length), { count: names.length })}</p></div>
-        <IconButton icon={<X size={16} />} label={t('common.close')} disabled={busy} onClick={onClose} />
-      </div>
+      {names.length > 0
+        ? <Hero icon={<CircleArrowUp size={20} />} title={t(plural('plugins.updateDialog.available', names.length), { count: names.length })} sub={t('plugins.updateDialog.pickHelp')} busy={busy} onClose={onClose} />
+        : attention
+          ? <Hero icon={<CircleArrowUp size={20} />} title={t('plugins.updateDialog.title')} sub={t('plugins.updateDialog.noneHere')} busy={busy} onClose={onClose} />
+          : <Hero icon={<Check size={20} strokeWidth={2.6} className="ss-pop" />} tone="ok" title={current > 0 ? t(plural('plugins.updateDialog.allCurrent', current), { count: current }) : t('plugins.updateDialog.none')} sub={t('plugins.updateDialog.justChecked')} busy={busy} onClose={onClose} />}
       <div className="db flex flex-col gap-4 overflow-y-auto">
         {names.length > 0 && (
           <div className="ss-list">
@@ -138,8 +156,9 @@ function Picking({ names, attention, found, inventory, label, busy, onUpdate, on
         {children}
       </div>
       <div className="df">
-        <Button variant="ghost" disabled={busy} onClick={onClose}>{t('common.cancel')}</Button>
-        {names.length > 0 && <Button disabled={busy || picks.length === 0} onClick={() => onUpdate(picks)}>{t(plural('plugins.updateDialog.updateSelected', picks.length), { count: picks.length })}</Button>}
+        {names.length > 0
+          ? <><Button variant="ghost" disabled={busy} onClick={onClose}>{t('common.cancel')}</Button><Button disabled={busy || picks.length === 0} onClick={() => onUpdate(picks)}>{t(plural('plugins.updateDialog.updateSelected', picks.length), { count: picks.length })}</Button></>
+          : <Button onClick={onClose}>{t('plugins.updateDialog.finish')}</Button>}
       </div>
     </>
   );
@@ -154,49 +173,56 @@ function Running({ batch, busy, inventory, label, onRetry, onStop, onClose }: {
   const done = batch.filter((i) => i.status !== 'failed' && updatedTargets(i).length > 0).length;
   const failed = batch.filter((i) => i.status === 'failed').length;
   const settled = batch.filter((i) => i.status !== 'waiting' && i.status !== 'running').length;
+  const current = batch.find((i) => i.status === 'running');
   const status = (item: BatchItem) => {
-    if (item.status === 'running') return <span className="flex items-center gap-1.5 text-[13px] text-ink-2"><Spinner size="sm" />{t('plugins.updateDialog.updating')}</span>;
+    if (item.status === 'running') return <span className="inline-flex items-center gap-2 text-[13px] font-semibold text-ink"><Loader2 size={13} className="animate-spin" />{t('plugins.updateDialog.updating')}</span>;
     if (item.status === 'waiting') return <span className="text-[13px] text-ink-3">{t('plugins.updateDialog.waiting')}</span>;
-    if (item.status === 'done') return <span className="ss-st ok">{t('plugins.updateDialog.done')}</span>;
+    if (item.status === 'done') return <span className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-ok"><Check size={15} strokeWidth={2.6} className="ss-pop" />{t('plugins.updateDialog.done')}</span>;
     if (item.status === 'skipped') return <span className="ss-st warn">{t('plugins.outcome.skipped')}</span>;
     return <span className="ss-st bad">{t('plugins.outcome.failed')}</span>;
   };
   return (
     <>
-      <div className="dh">
-        <div className="flex flex-col gap-1">
-          <h2 className="ss-h2">{busy ? t('plugins.updateDialog.running', { done: settled, total: batch.length }) : failed > 0 ? t('plugins.updateDialog.doneFailed', { updated: done, failed }) : t(plural('plugins.updateDialog.updated', done), { count: done })}</h2>
-          <p className="text-[13px] text-ink-2">{busy ? t('plugins.updateDialog.runningHelp') : t('plugins.updateDialog.doneHelp')}</p>
-        </div>
-        <IconButton icon={<X size={16} />} label={t('common.close')} disabled={busy} onClick={onClose} />
-      </div>
+      {busy
+        ? <Hero icon={<Loader2 size={20} className="animate-spin" />} busy={busy} onClose={onClose} sub={t('plugins.updateDialog.runningHelp')}
+            title={<>{t('plugins.updateDialog.running', { done: Math.min(settled + 1, batch.length), total: batch.length })}{current && <span className="ml-3 font-mono text-[14px] font-medium text-ink-2">{current.name}</span>}</>} />
+        : failed > 0
+          ? <Hero icon={<CircleAlert size={20} />} tone="warn" busy={busy} onClose={onClose} title={t('plugins.updateDialog.doneFailed', { updated: done, failed })} sub={t('plugins.updateDialog.doneHelp')} />
+          : <Hero icon={<Check size={20} strokeWidth={2.6} className="ss-pop" />} tone="ok" busy={busy} onClose={onClose} title={t(plural('plugins.updateDialog.updated', done), { count: done })} sub={t('plugins.updateDialog.doneHelp')} />}
       <div className="db flex flex-col gap-4 overflow-y-auto">
-        <div role="progressbar" aria-valuemin={0} aria-valuemax={batch.length} aria-valuenow={settled} aria-label={t('plugins.updateDialog.title')} className="h-1 overflow-hidden rounded-full bg-sep">
-          <div className="h-full bg-pri transition-[width]" style={{ width: `${(settled / batch.length) * 100}%` }} />
+        <div className="ss-bar" role="progressbar" aria-valuemin={0} aria-valuemax={batch.length} aria-valuenow={settled} aria-label={t('plugins.updateDialog.title')}>
+          <span style={{ width: `${(settled / batch.length) * 100}%` }} />
         </div>
         <div className="ss-list">
-          {batch.map((item) => (
-            <div key={item.name} className={`ss-r ${item.status === 'failed' ? 'bg-bad-bg' : item.status === 'running' ? 'bg-sunken' : ''}`}>
-              <span className="ss-at">{item.targets.length === 1 ? <AgentIcon target={item.targets[0]} size={17} /> : <Package size={15} />}</span>
-              <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-                <span className="flex items-center gap-2">
-                  <span className="font-mono font-semibold">{item.name}</span>
-                  <span className="text-[13px] text-ink-2">{item.targets.map(label).join(' · ')}</span>
-                  <VersionChange from={installedVersion(inventory, item.name, item.targets[0])} />
+          {batch.map((item) => {
+            // A row no check showed keeps the version it has.
+            const { moves, shared } = item.versions ?? { moves: [{ target: item.targets[0], from: installedVersion(inventory, item.name, item.targets[0]) }], shared: true };
+            return (
+              <div key={item.name} className={`ss-r ${{ failed: 'bg-bad-bg', running: 'updating', waiting: 'dim', done: 'flash', skipped: '' }[item.status]}`}>
+                <span className="ss-at">{item.targets.length === 1 ? <AgentIcon target={item.targets[0]} size={17} /> : <Package size={15} />}</span>
+                <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                  <span className="flex items-center gap-2">
+                    <span className="nm font-mono">{item.name}</span>
+                    <span className="text-[13px] text-ink-2">{item.targets.map(label).join(' · ')}</span>
+                    {shared && <VersionChange {...moves[0]} />}
+                  </span>
+                  {!shared && moves.map((m) => <span key={m.target} className="flex items-center gap-2 text-xs text-ink-3">{label(m.target)}<VersionChange {...m} /></span>)}
+                  {item.failed && updatedTargets(item).length > 0 && <span className="text-xs text-ink-3">{t(item.status === 'failed' ? 'plugins.updateDialog.partFailed' : 'plugins.updateDialog.partSkipped', { done: updatedTargets(item).map(label).join(' · '), failed: item.failed.map(label).join(' · ') })}</span>}
+                  {item.note && <span className={item.status === 'failed' ? 'font-mono text-xs text-bad' : 'text-xs text-ink-3'}>{item.note}</span>}
                 </span>
-                {item.failed && updatedTargets(item).length > 0 && <span className="text-xs text-ink-3">{t(item.status === 'failed' ? 'plugins.updateDialog.partFailed' : 'plugins.updateDialog.partSkipped', { done: updatedTargets(item).map(label).join(' · '), failed: item.failed.map(label).join(' · ') })}</span>}
-                {item.note && <span className={item.status === 'failed' ? 'font-mono text-xs text-bad' : 'text-xs text-ink-3'}>{item.note}</span>}
-              </span>
-              {status(item)}
-              {(item.status === 'failed' || item.status === 'skipped') && !item.stale && !busy && <Button size="sm" variant="secondary" onClick={() => onRetry(item)}>{t('plugins.updateDialog.retry')}</Button>}
-            </div>
-          ))}
+                {status(item)}
+                {(item.status === 'failed' || item.status === 'skipped') && !item.stale && !busy && <Button size="sm" variant="secondary" onClick={() => onRetry(item)}>{t('plugins.updateDialog.retry')}</Button>}
+                {item.status === 'running' && <span className="ss-rowbar" aria-hidden />}
+              </div>
+            );
+          })}
         </div>
         {!busy && <p className="text-xs text-ink-3">{t('plugins.nativeHelp')}</p>}
       </div>
       <div className="df">
+        {/* The server clears an earlier stop as the batch starts, so Stop waits until a plugin is under way. */}
         {busy
-          ? <><span className="mr-auto text-xs text-ink-3">{t('plugins.updateDialog.stopHelp')}</span><Button variant="secondary" onClick={onStop}>{t('plugins.updateDialog.stop')}</Button></>
+          ? <><span className="mr-auto text-xs text-ink-3">{t('plugins.updateDialog.stopHelp')}</span><Button variant="secondary" onClick={onStop} disabled={!current}>{t('plugins.updateDialog.stop')}</Button></>
           : <Button onClick={onClose}>{t('plugins.updateDialog.finish')}</Button>}
       </div>
     </>

@@ -280,6 +280,8 @@ type Service struct {
 	Run           Runner
 	// findCodex stands in for the Codex CLI search in tests; nil searches this machine.
 	findCodex func() (string, []string)
+	// discoveries keeps each source UpdateBatch read while it runs, so its plugins share one copy.
+	discoveries map[string]*Discovery
 }
 
 func (b Binding) Selected() bool { return b.Sync == nil || *b.Sync }

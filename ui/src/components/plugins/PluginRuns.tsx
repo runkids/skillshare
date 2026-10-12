@@ -36,11 +36,24 @@ export function PluginRunLine({ name, targets, label, right, note, className = '
  * What a run left alone, folded into one line until asked for: listed in full it buries the
  * few rows that changed. Open, it is one row per plugin, with Pi packages apart from plugins.
  * Its rows carry no logos: which Agents a plugin left alone tells nothing, and they crowd out the rows that need a look.
+ * `expanded` is for when they are the whole answer: one row per Agent, with its logo, and nothing to fold.
  */
-export function UnchangedRuns({ runs, isPi, versions }: { runs: PluginRun[]; isPi: (name: string) => boolean; versions?: boolean }) {
+export function UnchangedRuns({ runs, isPi, versions, expanded }: { runs: PluginRun[]; isPi: (name: string) => boolean; versions?: boolean; expanded?: { label: (target: string) => string } }) {
   const t = useT();
   const [open, setOpen] = useState(false);
   if (runs.length === 0) return null;
+  if (expanded) return (
+    <div className="ss-list">
+      {runs.map((r) => (
+        <div key={`${r.name}:${r.target}`} className="ss-r min-h-10 py-1.5">
+          <span className="ss-at"><AgentIcon target={r.target} size={17} /></span>
+          <span className="nm font-mono">{r.name}</span>
+          <span className="text-[13px] text-ink-2">{expanded.label(r.target)}</span>
+          {versions && r.version && <span className="ml-auto font-mono text-xs text-ink-3">{r.version}</span>}
+        </div>
+      ))}
+    </div>
+  );
   const groups = byPlugin(runs, (r) => r.version ?? '');
   const parts = [
     { key: 'plugins', title: t('plugins.title'), rows: groups.filter((g) => !isPi(g.name)) },

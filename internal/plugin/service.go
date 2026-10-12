@@ -419,7 +419,10 @@ func (s *Service) Preview(ctx context.Context, r Request) (*Plan, error) {
 			names = append(names, name)
 		}
 		slices.Sort(names)
-		discoveries := map[string]*Discovery{}
+		discoveries := s.discoveries
+		if discoveries == nil {
+			discoveries = map[string]*Discovery{}
+		}
 		latests := map[string][]int{}
 		for _, name := range names {
 			if r.Name != "" && r.Name != name {

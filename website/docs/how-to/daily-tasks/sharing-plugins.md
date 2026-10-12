@@ -124,7 +124,9 @@ time and shows each row as waiting, updating, updated, failed or skipped.
 row names the Agents that updated and the ones that failed, with the error, and
 **Retry** sends only the failed Agents. The results update the page, so there is
 no need to check again. A source that changed since the check installs nothing;
-check again to review the new version.
+check again to review the new version. An npm package in Pi is the exception: Pi
+installs the version npm names latest. When everything is up to date, the
+dialog lists each plugin with its Agent and version.
 
 Claude can update through its native CLI. Codex adds the plugin again from the
 reviewed snapshot, unless it is disabled in Codex, which adding would turn back

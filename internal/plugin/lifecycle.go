@@ -12,7 +12,23 @@ func (s *Service) Apply(ctx context.Context, r Request, revision string) (*Resul
 	if revision == "" {
 		return nil, fmt.Errorf("preview the plugin changes before applying")
 	}
-	// Serialize CLI and UI mutations across processes, not just HTTP requests.
+	unlock, err := s.Lock()
+	if err != nil {
+		return nil, err
+	}
+	defer unlock()
+	p, err := s.Preview(ctx, r)
+	if err != nil {
+		return nil, err
+	}
+	if p.Revision != revision {
+		return nil, fmt.Errorf("plugin state changed since preview; preview again")
+	}
+	return s.applyPlan(ctx, r, p)
+}
+
+// Lock serializes CLI and UI mutations across processes, not just HTTP requests.
+func (s *Service) Lock() (unlock func(), err error) {
 	if err := os.MkdirAll(filepath.Dir(s.ConfigPath), 0755); err != nil {
 		return nil, err
 	}
@@ -21,14 +37,11 @@ func (s *Service) Apply(ctx context.Context, r Request, revision string) (*Resul
 		return nil, fmt.Errorf("another plugin operation is running (lock: %s.plugins.lock)", s.ConfigPath)
 	}
 	_ = lock.Close()
-	defer os.Remove(s.ConfigPath + ".plugins.lock")
-	p, err := s.Preview(ctx, r)
-	if err != nil {
-		return nil, err
-	}
-	if p.Revision != revision {
-		return nil, fmt.Errorf("plugin state changed since preview; preview again")
-	}
+	return func() { _ = os.Remove(s.ConfigPath + ".plugins.lock") }, nil
+}
+
+// applyPlan carries out a plan previewed under the lock the caller holds.
+func (s *Service) applyPlan(ctx context.Context, r Request, p *Plan) (*Result, error) {
 	if p.Blocked {
 		return nil, fmt.Errorf("resolve blocked plugin targets before applying")
 	}

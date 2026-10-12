@@ -34,6 +34,9 @@ type Server struct {
 	// follow is nil while follow_source_links is off; see snapshotFollow.
 	follow atomic.Pointer[followConfig]
 
+	// pluginStop asks the running plugin batch update to start no further plugins.
+	pluginStop atomic.Bool
+
 	// Project mode fields (empty/nil for global mode)
 	projectRoot string
 	projectCfg  *config.ProjectConfig
@@ -615,6 +618,8 @@ func (s *Server) registerRoutes() {
 	s.mux.HandleFunc("POST /api/plugins/discover", s.requireLocalPlugin(s.handlePluginDiscover))
 	s.mux.HandleFunc("POST /api/plugins/preview", s.requireLocalPlugin(s.handlePluginPreview))
 	s.mux.HandleFunc("POST /api/plugins/apply", s.requireLocalPlugin(s.handlePluginApply))
+	s.mux.HandleFunc("POST /api/plugins/update/stream", s.requireLocalPlugin(s.handlePluginUpdateStream))
+	s.mux.HandleFunc("POST /api/plugins/update/stop", s.requireLocalPlugin(s.handlePluginUpdateStop))
 	s.mux.HandleFunc("GET /api/mcp", s.requireLocalMCP(s.handleMCPList))
 	s.mux.HandleFunc("POST /api/mcp", s.requireLocalMCP(s.handleMCPConfigure))
 	s.mux.HandleFunc("GET /api/mcp/check", s.requireLocalMCP(s.handleMCPCheck))

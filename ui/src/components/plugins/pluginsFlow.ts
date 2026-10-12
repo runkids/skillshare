@@ -1,8 +1,8 @@
-import { useRef, useState } from 'react';
-import { bindingVersion, byPlugin, pluginsApi, syncAction, targetMap, type PluginInventory, type PluginOutcome, type PluginPlan, type PluginRequest, type PluginResult, type PluginTarget } from '../../api/plugins';
+import { useState } from 'react';
+import { bindingVersion, byPlugin, pluginsApi, syncAction, targetMap } from '../../api/plugins';
+import type { PluginInventory, PluginOutcome, PluginPlan, PluginRequest, PluginResult, PluginTarget, PluginUpdate, PluginUpdateEvent } from '../../api/plugins';
 import type { useT } from '../../i18n';
 import { keyedMessage } from './outcomeText';
-import type { PluginUpdate } from './PluginList';
 
 type T = ReturnType<typeof useT>;
 type Updates = Record<string, Record<PluginTarget, PluginUpdate>>;
@@ -11,6 +11,8 @@ export interface UpdatePick { name: string; targets: PluginTarget[] }
 /** One plugin in a batch update. */
 export interface BatchItem extends UpdatePick {
   status: 'waiting' | 'running' | 'done' | 'failed' | 'skipped';
+  /** Each Agent's old → new as the check showed it, kept once the refreshed page already lists the new version. */
+  versions?: ReturnType<typeof versionMoves>;
   note?: string;
   /** The Agents the last try failed on; a retry sends only these. */
   failed?: PluginTarget[];
@@ -135,7 +137,6 @@ export function usePluginsFlow({ t, inventory, refresh, onPreviewed }: {
   const [checking, setChecking] = useState(false);
   // The batch update under way or just finished, one row per plugin, until the dialog closes.
   const [batch, setBatch] = useState<BatchItem[] | null>(null);
-  const stopped = useRef(false);
 
   /** A check is read-only and opens nothing: it only marks the rows. Quiet, as on page load, it also keeps its error to itself. */
   /** Resolves whether the check came back, so a check the user asked for can show its result. */
@@ -145,42 +146,48 @@ export function usePluginsFlow({ t, inventory, refresh, onPreviewed }: {
     catch (e) { if (!quiet) setFailure((e as Error).message); return false; }
     finally { setChecking(false); }
   };
-  /** Each plugin picked is its own preview and apply, one after another, so one failure stops nothing else. */
+  /**
+   * One server stream updates the picked plugins one after another, so one failure stops nothing else.
+   * The server skips a plugin whose source moved past what the check showed: the user approved those versions.
+   */
   const updateMany = async (picks: UpdatePick[]) => {
-    stopped.current = false;
     setBusy(true); setFailure(''); setResult(null);
     // A retry puts its row back to waiting where it is, keeping every Agent it showed; a first run starts the batch.
     const names = new Set(picks.map((p) => p.name));
-    setBatch((prev) => [...(prev ?? []).map((i) => (names.has(i.name) ? { ...i, status: 'waiting' as const, note: undefined } : i)), ...picks.filter((p) => !prev?.some((i) => i.name === p.name)).map((p) => ({ ...p, status: 'waiting' as const }))]);
+    const added = (p: UpdatePick): BatchItem => {
+      const seen = updates[p.name];
+      return { ...p, status: 'waiting', ...(seen && { versions: versionMoves(inventory, p.name, p.targets.map((target) => ({ target, ...seen[target] }))) }) };
+    };
+    setBatch((prev) => [...(prev ?? []).map((i) => (names.has(i.name) ? { ...i, status: 'waiting' as const, note: undefined } : i)), ...picks.filter((p) => !prev?.some((i) => i.name === p.name)).map(added)]);
     const set = (name: string, patch: Partial<BatchItem>) => setBatch((prev) => prev && prev.map((i) => (i.name === name ? { ...i, ...patch } : i)));
     let staleSeen = false;
-    for (const p of picks) {
-      if (stopped.current) { set(p.name, { status: 'skipped' }); continue; }
-      set(p.name, { status: 'running' });
-      try {
-        const request: PluginRequest = { action: 'update', name: p.name, targets: p.targets };
-        const plan = await pluginsApi.preview(request);
-        if (plan.blocked) throw new Error(plan.changes.filter((c) => c.action === 'blocked').map((c) => keyedMessage(t, c)).join(' ') || t('plugins.blocked'));
-        // The user approved the versions the check showed; a source that moved since gets a new check, not a silent install.
-        const moved = plan.changes.some((c) => {
-          const seen = updates[c.name]?.[c.target];
-          // A local directory has no commit; its digest is what moves.
-          return c.action === 'update' && seen && ((c.binding?.version ?? '') !== seen.version || (!!seen.commit && c.binding?.commit !== seen.commit) || (!!seen.digest && c.binding?.digest !== seen.digest));
-        });
-        if (moved) { staleSeen = true; setUpdates((prev) => Object.fromEntries(Object.entries(prev).filter(([name]) => name !== p.name))); set(p.name, { status: 'skipped', stale: true, note: t('plugins.updateDialog.stale') }); continue; }
+    const finish = (e: Extract<PluginUpdateEvent, { event: 'result' }>) => {
+      const targets = picks.find((p) => p.name === e.name)?.targets ?? [];
+      if (e.stale) { staleSeen = true; setUpdates((prev) => Object.fromEntries(Object.entries(prev).filter(([name]) => name !== e.name))); set(e.name, { status: 'skipped', stale: true, note: t('plugins.updateDialog.stale') }); return; }
+      if (e.plan?.blocked) { set(e.name, { status: 'failed', note: e.plan.changes.filter((c) => c.action === 'blocked').map((c) => keyedMessage(t, c)).join(' ') || t('plugins.blocked'), failed: targets }); return; }
+      if (!e.plan || !e.result) { set(e.name, { status: 'failed', note: e.failure, failed: targets }); return; }
+      const response = { result: e.result, failure: e.failure };
+      const plan = e.plan;
+      setUpdates((prev) => updatesLeft(prev, plan, response));
+      const results = e.result.results;
+      const failed = failureText(t, response);
+      const failedTargets = results.filter((r) => r.status === 'failed').map((r) => r.target);
+      const skipped = results.filter((r) => r.status === 'skipped');
+      if (failed) set(e.name, { status: 'failed', note: failed, failed: failedTargets.length ? failedTargets : targets });
+      else if (skipped.length) set(e.name, { status: 'skipped', note: skipped.filter((r) => r.message).map((r) => keyedMessage(t, r)).join(' ') || undefined, failed: skipped.map((r) => r.target) });
+      else set(e.name, { status: 'done', note: undefined, failed: undefined });
+    };
+    try {
+      await pluginsApi.update(picks.map((p) => ({ ...p, seen: updates[p.name] })), (e) => {
+        if (e.event === 'start') set(e.name, { status: 'running' });
         // What the Agent is about to do (an npm install, say) shows while it runs.
-        set(p.name, { note: plan.changes.filter((c) => c.message).map((c) => keyedMessage(t, c)).join(' ') || undefined });
-        const response = await pluginsApi.apply(request, plan.revision);
-        setUpdates((prev) => updatesLeft(prev, plan, response));
-        const results = response.result?.results ?? [];
-        const failed = failureText(t, response);
-        const failedTargets = results.filter((r) => r.status === 'failed').map((r) => r.target);
-        const skipped = results.filter((r) => r.status === 'skipped');
-        if (failed) set(p.name, { status: 'failed', note: failed, failed: failedTargets.length ? failedTargets : p.targets });
-        else if (skipped.length) set(p.name, { status: 'skipped', note: skipped.filter((r) => r.message).map((r) => keyedMessage(t, r)).join(' ') || undefined, failed: skipped.map((r) => r.target) });
-        else set(p.name, { status: 'done', note: undefined, failed: undefined });
-      } catch (e) { set(p.name, { status: 'failed', note: (e as Error).message, failed: p.targets }); }
-    }
+        else if (e.event === 'plan') set(e.name, { note: e.plan.changes.filter((c) => c.message).map((c) => keyedMessage(t, c)).join(' ') || undefined });
+        else if (e.event === 'result') finish(e);
+        else if (e.failure) setFailure(e.failure);
+      });
+    } catch (e) { setFailure((e as Error).message); }
+    // A plugin the stream never finished, because it was stopped or broke off, was not updated here.
+    setBatch((prev) => prev && prev.map((i) => (i.status === 'waiting' || i.status === 'running' ? { ...i, status: 'skipped' as const } : i)));
     setBusy(false); refresh();
     // A source that moved is offered again only by a fresh check; the user started this, so its failure shows.
     if (staleSeen) void check();
@@ -225,7 +232,7 @@ export function usePluginsFlow({ t, inventory, refresh, onPreviewed }: {
   return {
     busy, working, failure, review, updates, outcomes, checked, checking, batch,
     preview, begin, apply, selectTarget, check, updateMany,
-    stopBatch: () => { stopped.current = true; },
+    stopBatch: () => { pluginsApi.stopUpdate().catch((e: Error) => setFailure(e.message)); },
     closeBatch: () => setBatch(null),
     closeReview: () => setReview(null),
     clearResult: () => setResult(null),

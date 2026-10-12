@@ -526,3 +526,12 @@ func TestPiAccountRunningPiByPathTakesNpmPackages(t *testing.T) {
 		t.Fatal("an account running pi by its path was refused npm packages")
 	}
 }
+
+func TestNpmPackageBatchUpdateInstallsTheVersionTheCheckFound(t *testing.T) {
+	fakeNpmRegistry(t, "1.2.0")
+	s := installedNpmDemo(t, "1.0.0")
+	_, result, err := s.updateLocked(context.Background(), UpdateItem{Name: "demo", Targets: []string{"pi"}, Seen: map[string]Seen{"pi": {Version: "1.2.0"}}}, func(*Plan) {})
+	if err != nil || len(result.Results) != 1 || result.Results[0].Status != "installed" {
+		t.Fatalf("update: %+v %v", result, err)
+	}
+}

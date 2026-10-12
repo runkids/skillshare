@@ -66,3 +66,29 @@ func TestPluginDiscoverNamesANetworkFailure(t *testing.T) {
 		t.Fatalf("status %d: %s", w.Code, w.Body.String())
 	}
 }
+
+// Only one plugin change runs at a time; a batch update that cannot start says so before streaming.
+func TestPluginUpdateStreamRefusesWhilePluginsAreLocked(t *testing.T) {
+	s, _ := newTestServerWithExtras(t, nil, "")
+	unlock, err := s.pluginService().Lock()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer unlock()
+	w := httptest.NewRecorder()
+	s.handlePluginUpdateStream(w, httptest.NewRequest(http.MethodPost, "/api/plugins/update/stream", strings.NewReader(`{"items":[{"name":"demo","targets":["claude"]}]}`)))
+	if w.Code != http.StatusConflict {
+		t.Fatalf("status %d: %s", w.Code, w.Body.String())
+	}
+}
+
+// Each plugin ends with its own result, so one that fails leaves the others to run.
+func TestPluginUpdateStreamReportsEachPluginThenDone(t *testing.T) {
+	s, _ := newTestServerWithExtras(t, nil, "")
+	w := httptest.NewRecorder()
+	s.handlePluginUpdateStream(w, httptest.NewRequest(http.MethodPost, "/api/plugins/update/stream", strings.NewReader(`{"items":[{"name":"gone","targets":[]},{"name":"other","targets":[]}]}`)))
+	body := w.Body.String()
+	if strings.Count(body, "event: result") != 2 || !strings.Contains(body, `not found`) || !strings.HasSuffix(strings.TrimSpace(body), `data: {"failure":""}`) {
+		t.Fatalf("stream:\n%s", body)
+	}
+}

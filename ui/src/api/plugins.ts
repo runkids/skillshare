@@ -1,4 +1,5 @@
 import { apiFetch } from './client';
+import { BASE, parseApiErrorPayload } from './http';
 
 export type PluginTarget = string;
 /** `npm`: the target installs npm:<package> sources (Pi, or a Pi account that runs pi). */
@@ -72,6 +73,38 @@ export function byPlugin<R extends PluginRun>(rows: R[], key: (r: R) => string =
   return [...groups.values()];
 }
 export interface PluginResult { result: { results: PluginOutcome[] } | null; failure: string }
+/** What a check showed for one Agent of a plugin: the version an update would bring, and the source it came from. */
+export interface PluginUpdate { version: string; commit?: string; digest?: string }
+/** One plugin of a batch update, with what the check showed per Agent so a source that moved since is not installed. */
+export interface PluginUpdateItem { name: string; targets: PluginTarget[]; seen?: Record<PluginTarget, PluginUpdate> }
+export type PluginUpdateEvent =
+  | { event: 'start'; name: string }
+  | { event: 'plan'; name: string; plan: PluginPlan }
+  | { event: 'result'; name: string; plan: PluginPlan | null; result: PluginResult['result']; failure: string; stale: boolean }
+  | { event: 'done'; failure: string };
+
+/** Reads the server's event stream for a batch update until `done`. EventSource (createSSEStream) cannot POST the picks, so fetch reads the stream. */
+async function updateStream(items: PluginUpdateItem[], on: (e: PluginUpdateEvent) => void) {
+  const res = await fetch(BASE + '/plugins/update/stream', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ items }) });
+  if (!res.ok || !res.body) throw new Error(parseApiErrorPayload(await res.json().catch(() => null), res.status, res.statusText).message);
+  const reader = res.body.pipeThrough(new TextDecoderStream()).getReader();
+  let buffer = '';
+  for (;;) {
+    const { value, done } = await reader.read();
+    if (done) throw new Error('The update stream closed before it finished; refresh to see what changed.');
+    buffer += value;
+    for (let end = buffer.indexOf('\n\n'); end >= 0; end = buffer.indexOf('\n\n')) {
+      const block = buffer.slice(0, end);
+      buffer = buffer.slice(end + 2);
+      const event = /^event: (.*)$/m.exec(block)?.[1];
+      const data = /^data: (.*)$/m.exec(block)?.[1];
+      if (!event || data === undefined) continue;
+      on({ event, ...JSON.parse(data) } as PluginUpdateEvent);
+      if (event === 'done') return;
+    }
+  }
+}
+
 const post = <T,>(path: string, body: unknown) => apiFetch<T>(path, { method: 'POST', body: JSON.stringify(body) });
 export const pluginsApi = {
   /** `hosts: false` answers from config alone, without waiting on any Agent's CLI; `hosts` comes back empty. */
@@ -88,4 +121,8 @@ export const pluginsApi = {
   file: (name: string, path: string) => apiFetch<{ content: string }>(`/plugins/${encodeURIComponent(name)}/files/${path.split('/').map(encodeURIComponent).join('/')}`),
   preview: (request: PluginRequest) => post<PluginPlan>('/plugins/preview', { request }),
   apply: (request: PluginRequest, revision: string) => post<PluginResult>('/plugins/apply', { request, revision }),
+  /** Updates the plugins one after another on the server; each one's progress arrives through `on`. */
+  update: updateStream,
+  /** The plugin under way finishes; no other starts. */
+  stopUpdate: () => post<{ stopping: boolean }>('/plugins/update/stop', {}),
 };

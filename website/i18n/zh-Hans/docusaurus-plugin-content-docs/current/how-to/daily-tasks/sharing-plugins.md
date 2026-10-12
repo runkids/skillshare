@@ -99,7 +99,7 @@ Plugin 与一般的 Skill 及 MCP 同步是彼此独立的。它们所打包的
 
 ## 更新与恢复 {#updates-and-recovery}
 
-Plugins 页面打开时会检查更新，也可以随时用 **Check updates** 再检查一次。source 有较新版本的行会显示 `old → new`，标题栏的按钮变为 **Update N**。点击后会打开一个对话框，列出所有有更新的 plugin，默认全部勾选，并显示各 plugin 安装在哪些 Agent 上；取消勾选某个 plugin 或某个 Agent 即可排除。**Update N plugins** 会逐个执行所选项目，并把每一行显示为等待中、更新中、已更新、失败或已跳过。**Stop after this one** 会在正在更新的 plugin 完成后停止，其余不再更新。失败的行会列出已更新和失败的 Agent 以及错误信息，**Retry** 只会重新处理失败的 Agent。结果会同步到页面，无需再次检查。如果 source 在检查之后发生了变化，则不会安装任何内容；请再次检查以审核新版本。
+Plugins 页面打开时会检查更新，也可以随时用 **Check updates** 再检查一次。source 有较新版本的行会显示 `old → new`，标题栏的按钮变为 **Update N**。点击后会打开一个对话框，列出所有有更新的 plugin，默认全部勾选，并显示各 plugin 安装在哪些 Agent 上；取消勾选某个 plugin 或某个 Agent 即可排除。**Update N plugins** 会逐个执行所选项目，并把每一行显示为等待中、更新中、已更新、失败或已跳过。**Stop after this one** 会在正在更新的 plugin 完成后停止，其余不再更新。失败的行会列出已更新和失败的 Agent 以及错误信息，**Retry** 只会重新处理失败的 Agent。结果会同步到页面，无需再次检查。如果 source 在检查之后发生了变化，则不会安装任何内容；请再次检查以审核新版本。Pi 的 npm 包是例外：Pi 会安装 npm 标为 latest 的版本。全部都是最新版本时，对话框会列出每个 plugin 及其 Agent 与版本。
 
 Claude 可以通过其原生 CLI 进行更新。Codex 会用经审核的快照再次 add 该 plugin；但若它在 Codex 中被停用则不会更新，因为 add 会把它重新启用；导入的 Codex plugin 则通过升级其 marketplace 来更新。Cursor 与 Antigravity 会在检查本地编辑后替换受管理的本地副本。Pi 与 OpenCode 会更新经审核的快照。Copilot 可以在保留已知启用状态的同时刷新一份经审核的 Source。Antigravity CLI 与 Grok 的更新仍留在原生工具中处理，对话框会把这类安装单独列在 **Update inside the Agent** 下；被 import 套件的限制请参见命令参考文档。不再提供兼容 plugin 的 source 会列在 **Cannot update** 下。更新无法处理的 Target 会被跳过并说明原因，该 plugin 的其他 Agent 仍会照常更新。
 

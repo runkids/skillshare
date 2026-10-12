@@ -1,8 +1,10 @@
 package server
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"io/fs"
 	"net/http"
@@ -157,6 +159,75 @@ func (s *Server) handlePluginApply(w http.ResponseWriter, r *http.Request) {
 	}
 	// Preserve all per-target outcomes even when only some targets succeed.
 	writeJSON(w, map[string]any{"result": result, "failure": message})
+}
+
+// handlePluginUpdateStream updates plugins one after another under one plugin lock and streams each:
+//   - "start"  → {"name"}                                     a plugin begins
+//   - "plan"   → {"name","plan"}                              what its Agents are about to do
+//   - "result" → {"name","plan","result","failure","stale"}   how it ended; stale means its source moved since the check
+//   - "done"   → {}
+//
+// Plugins from one source share a single read of it, and config reloads once at the end.
+func (s *Server) handlePluginUpdateStream(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		Items []plugin.UpdateItem `json:"items"`
+	}
+	if !decodePluginRequest(w, r, &body) {
+		return
+	}
+	s.mu.RLock()
+	service := s.pluginService()
+	s.mu.RUnlock()
+	unlock, err := service.Lock()
+	if err != nil {
+		writeError(w, http.StatusConflict, err.Error())
+		return
+	}
+	defer unlock()
+	send, ok := initSSE(w)
+	if !ok {
+		return
+	}
+	s.pluginStop.Store(false)
+	start := time.Now()
+	// A plugin under way finishes even if the page goes away; the next one does not start.
+	ctx := context.WithoutCancel(r.Context())
+	failed := service.UpdateBatch(ctx, plugin.Batch{
+		Items:   body.Items,
+		Stopped: func() bool { return s.pluginStop.Load() || r.Context().Err() != nil },
+		Around: func(update func()) {
+			s.mu.Lock()
+			defer s.mu.Unlock()
+			update()
+		},
+		Started: func(name string) { send("start", map[string]string{"name": name}) },
+		Planned: func(name string, p *plugin.Plan) { send("plan", map[string]any{"name": name, "plan": p}) },
+		Ended: func(name string, p *plugin.Plan, result *plugin.Result, err error) {
+			out := map[string]any{"name": name, "plan": p, "result": result, "failure": "", "stale": errors.Is(err, plugin.ErrSourceMoved)}
+			if err != nil {
+				out["failure"] = err.Error()
+			}
+			send("result", out)
+		},
+	})
+	s.mu.Lock()
+	status, message := "ok", ""
+	if failed > 0 {
+		status, message = "partial", fmt.Sprintf("%d plugin update(s) did not complete", failed)
+	}
+	s.writeOpsLog("plugin update", status, start, map[string]any{"scope": "ui", "plugins": len(body.Items)}, message)
+	failure := ""
+	if err := s.reloadConfig(); err != nil {
+		failure = "Plugin update completed, but configuration reload failed"
+	}
+	s.mu.Unlock()
+	send("done", map[string]string{"failure": failure})
+}
+
+// handlePluginUpdateStop lets the plugin under way finish and starts no other.
+func (s *Server) handlePluginUpdateStop(w http.ResponseWriter, _ *http.Request) {
+	s.pluginStop.Store(true)
+	writeJSON(w, map[string]bool{"stopping": true})
 }
 
 // handlePluginFiles lists the reviewed snapshot of a plugin; an imported one has none and lists nothing.

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Check, ChevronDown, Ellipsis, Loader2, Package } from 'lucide-react';
 import { bindingVersion, pluginsApi, syncAction, targetMap, type PluginInventory, type PluginRequest, type PluginTarget } from '../../api/plugins';
+import type { PluginUpdate } from '../../api/plugins';
 import AgentIcon from '../AgentIcon';
 import Spinner from '../Spinner';
 import { agentReasons } from './agentReasons';
@@ -14,8 +15,6 @@ import PiPackageIcon from '../PiPackageIcon';
 import { queryKeys } from '../../lib/queryKeys';
 
 const STACK = 6;
-
-export interface PluginUpdate { version: string; commit?: string; digest?: string }
 
 interface Props {
   inventory: PluginInventory;

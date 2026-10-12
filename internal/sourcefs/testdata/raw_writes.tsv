@@ -256,9 +256,9 @@ internal/plugin/config.go	(*Service).save	os.CreateTemp	filepath.Dir(path)	plugi
 internal/plugin/config.go	(*Service).save	os.MkdirAll	filepath.Dir(path)	plugin
 internal/plugin/config.go	(*Service).save	os.Remove	f.Name()	plugin
 internal/plugin/config.go	(*Service).save	os.Rename	f.Name(), path	plugin
-internal/plugin/lifecycle.go	(*Service).Apply	os.MkdirAll	filepath.Dir(s.ConfigPath)	plugin
-internal/plugin/lifecycle.go	(*Service).Apply	os.OpenFile	s.ConfigPath + ".plugins.lock"	plugin
-internal/plugin/lifecycle.go	(*Service).Apply	os.Remove	s.ConfigPath + ".plugins.lock"	plugin
+internal/plugin/lifecycle.go	(*Service).Lock	os.MkdirAll	filepath.Dir(s.ConfigPath)	plugin
+internal/plugin/lifecycle.go	(*Service).Lock	os.OpenFile	s.ConfigPath + ".plugins.lock"	plugin
+internal/plugin/lifecycle.go	(*Service).Lock	os.Remove	s.ConfigPath + ".plugins.lock"	plugin
 internal/plugin/local_bundle.go	(*Service).applyLocal	os.MkdirAll	root	plugin
 internal/plugin/local_bundle.go	(*Service).applyLocal	os.MkdirTemp	root	plugin
 internal/plugin/local_bundle.go	(*Service).applyLocal	os.Remove	marker	plugin

@@ -85,7 +85,7 @@ Skillshare Source 中。
 
 ## 更新與復原 {#updates-and-recovery}
 
-Plugins 頁面開啟時會檢查更新，也可以隨時用 **Check updates** 再檢查一次。source 有較新版本的列會顯示 `old → new`，標題列的按鈕會變成 **Update N**。點下去會開啟一個對話框，列出所有有更新的 plugin，預設全部勾選，並顯示各 plugin 安裝在哪些 Agent 上；取消勾選某個 plugin 或某個 Agent 即可排除。**Update N plugins** 會逐一執行所選項目，並把每一列顯示為等待中、更新中、已更新、失敗或已略過。**Stop after this one** 會在正在更新的 plugin 完成後停止，其餘不再更新。失敗的列會列出已更新和失敗的 Agent 以及錯誤訊息，**Retry** 只會重送失敗的 Agent。結果會同步到頁面，不需要再檢查一次。如果 source 在檢查之後有變動，則不會安裝任何內容；請再檢查一次以審閱新版本。
+Plugins 頁面開啟時會檢查更新，也可以隨時用 **Check updates** 再檢查一次。source 有較新版本的列會顯示 `old → new`，標題列的按鈕會變成 **Update N**。點下去會開啟一個對話框，列出所有有更新的 plugin，預設全部勾選，並顯示各 plugin 安裝在哪些 Agent 上；取消勾選某個 plugin 或某個 Agent 即可排除。**Update N plugins** 會逐一執行所選項目，並把每一列顯示為等待中、更新中、已更新、失敗或已略過。**Stop after this one** 會在正在更新的 plugin 完成後停止，其餘不再更新。失敗的列會列出已更新和失敗的 Agent 以及錯誤訊息，**Retry** 只會重送失敗的 Agent。結果會同步到頁面，不需要再檢查一次。如果 source 在檢查之後有變動，則不會安裝任何內容；請再檢查一次以審閱新版本。Pi 的 npm 套件是例外：Pi 會安裝 npm 標為 latest 的版本。全部都是最新版本時，對話框會列出每個 plugin 及其 Agent 與版本。
 
 Claude 可透過其原生 CLI 更新。Codex 會以已審閱的快照再次 add 該 plugin；但若它在 Codex 中被停用則不會更新，因為 add 會把它重新啟用；匯入的 Codex plugin 則以升級其 marketplace 的方式更新。Cursor 與 Antigravity 會在檢查過本機是否有編輯後，取代受管理的本機副本。Pi 與 OpenCode 會更新已審閱的快照。Copilot 可以在保留已知啟用狀態的同時重新整理已審閱的來源。Antigravity CLI 與 Grok 的更新仍留在原生工具中進行，對話框會把這類安裝獨立列在 **Update inside the Agent** 下；匯入套件的限制請參閱指令參考。不再提供相容 plugin 的 source 會列在 **Cannot update** 下。更新無法處理的 target 會被略過並說明原因，該 plugin 的其他 Agent 仍會照常更新。
 

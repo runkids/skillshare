@@ -853,3 +853,72 @@ func TestSavingPluginsCreatesTheTargetOfADanglingSymlink(t *testing.T) {
 		t.Fatalf("symlink target not written: %v\n%s", err, data)
 	}
 }
+
+// bumpedDemo is demo added at 1.0.0 whose source now offers 2.0.0, under the lock a batch holds.
+func bumpedDemo(t *testing.T) (*Service, *fakeAgents) {
+	t.Helper()
+	agents := &fakeAgents{version: "1.0.0"}
+	s := agents.service(t)
+	source := fixture(t)
+	applyPluginRequest(t, s, Request{Action: "add", Source: source, Targets: []string{"claude"}})
+	bumpDemo(t, source, agents)
+	unlock, err := s.Lock()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(unlock)
+	return s, agents
+}
+
+func updateDemo(s *Service, seen map[string]Seen) (*Result, error) {
+	_, result, err := s.updateLocked(context.Background(), UpdateItem{Name: "demo", Targets: []string{"claude"}, Seen: seen}, func(*Plan) {})
+	return result, err
+}
+
+// The user approved the version a check showed; a batch update installs nothing newer.
+func TestBatchUpdateSkipsAPluginWhoseVersionMovedSinceTheCheck(t *testing.T) {
+	s, agents := bumpedDemo(t)
+	if _, err := updateDemo(s, map[string]Seen{"claude": {Version: "1.5.0"}}); err != ErrSourceMoved || len(agents.commands) != 0 {
+		t.Fatalf("moved source: %v, commands %q", err, agents.commands)
+	}
+}
+
+// A local directory has no commit: the same version with other content has moved too.
+func TestBatchUpdateSkipsAPluginWhoseContentMovedSinceTheCheck(t *testing.T) {
+	s, _ := bumpedDemo(t)
+	if _, err := updateDemo(s, map[string]Seen{"claude": {Version: "2.0.0", Digest: "edited-since"}}); err != ErrSourceMoved {
+		t.Fatalf("moved digest: %v", err)
+	}
+}
+
+// Without what a check showed there is nothing the user approved.
+func TestBatchUpdateSkipsAnAgentNoCheckShowed(t *testing.T) {
+	s, agents := bumpedDemo(t)
+	if _, err := updateDemo(s, nil); err != ErrSourceMoved || len(agents.commands) != 0 {
+		t.Fatalf("unchecked: %v, commands %q", err, agents.commands)
+	}
+}
+
+func TestBatchUpdateInstallsTheVersionTheCheckShowed(t *testing.T) {
+	s, _ := bumpedDemo(t)
+	if result, err := updateDemo(s, map[string]Seen{"claude": {Version: "2.0.0"}}); err != nil || len(result.Results) != 1 || result.Results[0].Status != "installed" {
+		t.Fatalf("approved update: %+v %v", result, err)
+	}
+}
+
+// A stop lets the plugin under way finish, starts no other, and a failed one still counts.
+func TestBatchUpdateStartsNoPluginAfterAStop(t *testing.T) {
+	s, _ := bumpedDemo(t)
+	var started, ended []string
+	failed := s.UpdateBatch(context.Background(), Batch{
+		Items:   []UpdateItem{{Name: "missing", Targets: []string{"claude"}}, {Name: "demo", Targets: []string{"claude"}}},
+		Stopped: func() bool { return len(started) > 0 },
+		Around:  func(update func()) { update() },
+		Started: func(name string) { started = append(started, name) },
+		Planned: func(string, *Plan) {},
+		Ended:   func(name string, _ *Plan, _ *Result, _ error) { ended = append(ended, name) },
+	})
+	if failed != 1 || !slices.Equal(ended, []string{"missing"}) {
+		t.Fatalf("failed %d, ended %q", failed, ended)
+	}
+}
